@@ -25,8 +25,6 @@ class UParticleSystemAuditCommandlet : public UCommandlet
 	TSet<FString> ParticleSystemsWithMissingMaterials;
 	/** All particle systems w/ no emitters */
 	TSet<FString> ParticleSystemsWithNoEmitters;
-	/** All particle systems w/ collision on in at least one emitter */
-	TSet<FString> ParticleSystemsWithCollisionEnabled;
 	/** All particle systems w/ a high spawn rate or burst */
 	TSet<FString> ParticleSystemsWithHighSpawnRateOrBurst;
 	/** All particle systems w/ a far LODDistance */
@@ -42,6 +40,9 @@ class UParticleSystemAuditCommandlet : public UCommandlet
 
 	/** The folder in which the commandlet's output files will be stored */
 	FString AuditOutputFolder;
+
+	/** Only assets in this collection will be considered. If this is left blank, no assets will be filtered by collection */
+	FString FilterCollection;
 
 	/** Entry point */
 	int32 Main(const FString& Params) override;

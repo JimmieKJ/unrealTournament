@@ -401,7 +401,7 @@ private:
 	*/
 	PxF32 mMinLongSlipDenominator;
 
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 	PxU32 mPad[3];
 #endif
 
@@ -691,7 +691,7 @@ protected:
 	*/
 	PxU8 mType;
 		
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 	PxU8 mPad[14];
 #else
 	PxU8 mPad[14];

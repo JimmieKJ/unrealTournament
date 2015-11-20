@@ -74,7 +74,7 @@ PX_ALIGN_SUFFIX(16);
      #pragma warning(pop) 
 #endif
 
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 PX_COMPILE_TIME_ASSERT(64==sizeof(PxsConstraint));
 #endif
 

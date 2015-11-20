@@ -39,6 +39,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogFileHelpers, Log, All);
 bool FEditorFileUtils::bIsLoadingDefaultStartupMap = false;
 bool FEditorFileUtils::bIsPromptingForCheckoutAndSave = false;
 TSet<FString> FEditorFileUtils::PackagesNotSavedDuringSaveAll;
+TSet<FString> FEditorFileUtils::PackagesNotToPromptAnyMore;
 
 static const FString InvalidFilenames[] = {
 	TEXT("CON"), TEXT("PRN"), TEXT("AUX"), TEXT("CLOCK$"), TEXT("NUL"),
@@ -636,7 +637,12 @@ static bool SaveAsImplementation( UWorld* InWorld, const FString& DefaultFilenam
 	{
 		const FString DefaultName = TEXT("NewMap");
 		FString PackageName;
-		FPackageName::TryConvertFilenameToLongPackageName(DefaultDirectory / DefaultName, PackageName);
+		if (!FPackageName::TryConvertFilenameToLongPackageName(DefaultDirectory / DefaultName, PackageName))
+		{
+			// Initial location is invalid (e.g. lies outside of the project): set location to /Game/Maps instead
+			DefaultDirectory = FPaths::GameContentDir() / TEXT("Maps");
+			ensure(FPackageName::TryConvertFilenameToLongPackageName(DefaultDirectory / DefaultName, PackageName));
+		}
 		FString Name;
 		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
 		AssetToolsModule.Get().CreateUniqueAssetName(PackageName, TEXT(""), PackageName, Name);
@@ -1015,7 +1021,7 @@ static bool IsCheckOutSelectedDisabled()
 	return !(ISourceControlModule::Get().IsEnabled() && ISourceControlModule::Get().GetProvider().IsAvailable());
 }
 
-static bool AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> PackagesToCheckOut, TArray<UPackage*>* OutPackagesNotNeedingCheckout, bool* bOutHavePackageToCheckOut)
+bool FEditorFileUtils::AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> PackagesToCheckOut, TArray<UPackage*>* OutPackagesNotNeedingCheckout, bool* bOutHavePackageToCheckOut)
 {
 	ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
 	if (ISourceControlModule::Get().IsEnabled() && SourceControlProvider.IsAvailable())
@@ -1061,17 +1067,28 @@ static bool AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> Packages
 
 		if (!bSCCCanEdit && (bIsSourceControlled && (!bCheckDirty || (bCheckDirty && CurPackage->IsDirty()))) && !SourceControlState->IsCheckedOut())
 		{
-			if (SourceControlState.IsValid() && !SourceControlState->IsCurrent())
+			if (SourceControlState.IsValid() && (!SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther()))
 			{
-				// This package is not at the head revision and it should be ghosted as a result
-				CheckoutPackagesDialogModule.AddPackageItem(CurPackage, CurPackage->GetName(), ECheckBoxState::Unchecked, true, TEXT("SavePackages.SCC_DlgNotCurrent"), SourceControlState->GetDisplayTooltip().ToString());
-				bShowWarning = true;
-			}
-			else if (SourceControlState.IsValid() && SourceControlState->IsCheckedOutOther())
-			{
-				// This package is checked out by someone else so it should be ghosted
-				CheckoutPackagesDialogModule.AddPackageItem(CurPackage, CurPackage->GetName(), ECheckBoxState::Unchecked, true, TEXT("SavePackages.SCC_DlgCheckedOutOther"), SourceControlState->GetDisplayTooltip().ToString());
-				bShowWarning = true;
+				if (!PackagesNotToPromptAnyMore.Contains(CurPackage->GetName()))
+				{
+					if (!SourceControlState->IsCurrent())
+					{
+						// This package is not at the head revision and it should be ghosted as a result
+						CheckoutPackagesDialogModule.AddPackageItem(CurPackage, CurPackage->GetName(), ECheckBoxState::Unchecked, true, TEXT("SavePackages.SCC_DlgNotCurrent"), SourceControlState->GetDisplayTooltip().ToString());
+					}
+					else if (SourceControlState->IsCheckedOutOther())
+					{
+						// This package is checked out by someone else so it should be ghosted
+						CheckoutPackagesDialogModule.AddPackageItem(CurPackage, CurPackage->GetName(), ECheckBoxState::Unchecked, true, TEXT("SavePackages.SCC_DlgCheckedOutOther"), SourceControlState->GetDisplayTooltip().ToString());
+					}
+					bShowWarning = true;
+					bPackagesAdded = true;
+				}
+				else
+				{
+					// File has already been made writable, just allow it to be saved without prompting
+					OutPackagesNotNeedingCheckout->Add(CurPackage);
+				}
 			}
 			else
 			{
@@ -1081,8 +1098,9 @@ static bool AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> Packages
 				//Add this package to the dialog if its not checked out, in the source control depot, dirty(if we are checking), and read only
 				//This package could also be marked for delete, which we will treat as SCC_ReadOnly until it is time to check it out. At that time, we will revert it.
 				CheckoutPackagesDialogModule.AddPackageItem(CurPackage, CurPackage->GetName(), ECheckBoxState::Checked, false, TEXT("SavePackages.SCC_DlgReadOnly"), Tooltip.ToString());
+				PackagesNotToPromptAnyMore.Remove(CurPackage->GetName());
+				bPackagesAdded = true;
 			}
-			bPackagesAdded = true;
 		}
 		else if (bPkgReadOnly && bFoundFile && (IsCheckOutSelectedDisabled() || !bCareAboutReadOnly))
 		{
@@ -1094,12 +1112,14 @@ static bool AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> Packages
 			// This package is read only but source control is not available, show the dialog so users can save the package by making the file writable or by connecting to source control.
 			// If we don't care about read-only state, we should allow the user to make the file writable whatever the state of source control.
 			CheckoutPackagesDialogModule.AddPackageItem(CurPackage, CurPackage->GetName(), ECheckBoxState::Unchecked, bIsDisabled, TEXT("SavePackages.SCC_DlgReadOnly"), Tooltip.ToString());
+			PackagesNotToPromptAnyMore.Remove(CurPackage->GetName());
 			bPackagesAdded = true;
 		}
 		else if (OutPackagesNotNeedingCheckout)
 		{
 			// The current package does not need to be checked out in order to save.
 			OutPackagesNotNeedingCheckout->Add(CurPackage);
+			PackagesNotToPromptAnyMore.Remove(CurPackage->GetName());
 		}
 	}
 
@@ -1124,7 +1144,7 @@ static bool AddCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> Packages
 	return bPackagesAdded;
 }
 
-static void UpdateCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> PackagesToCheckOut, TArray<UPackage*>* OutPackagesNotNeedingCheckout)
+void FEditorFileUtils::UpdateCheckoutPackageItems(bool bCheckDirty, TArray<UPackage*> PackagesToCheckOut, TArray<UPackage*>* OutPackagesNotNeedingCheckout)
 {
 	AddCheckoutPackageItems(bCheckDirty, PackagesToCheckOut, OutPackagesNotNeedingCheckout, nullptr);
 }
@@ -1246,7 +1266,8 @@ bool FEditorFileUtils::PromptToCheckoutPackages(bool bCheckDirty, const TArray<U
 						// Knock off the read only flag from the current file attributes
 						if (FPlatformFileManager::Get().GetPlatformFile().SetReadOnly(*Filename, false))
 						{
-							if ( OutPackagesCheckedOutOrMadeWritable )
+							PackagesNotToPromptAnyMore.Add(PackageToMakeWritable->GetName());
+							if (OutPackagesCheckedOutOrMadeWritable)
 							{
 								OutPackagesCheckedOutOrMadeWritable->Add(PackageToMakeWritable);
 							}
@@ -1282,6 +1303,12 @@ bool FEditorFileUtils::PromptToCheckoutPackages(bool bCheckDirty, const TArray<U
 
 	// Update again to catch potentially new SCC states
 	ISourceControlModule::Get().QueueStatusUpdate(PackagesToCheckOut);
+
+	// If any files were just checked out, remove any pending flag to show a notification prompting for checkout.
+	if (PackagesToCheckOut.Num() > 0)
+	{
+		GUnrealEd->bNeedToPromptForCheckout = false;
+	}
 
 	if (OutPackagesNotNeedingCheckout)
 	{
@@ -1958,7 +1985,7 @@ void FEditorFileUtils::LoadMap(const FString& InFilename, bool LoadAsTemplate, b
 	FString LongMapPackageName;
 	if ( !FPackageName::TryConvertFilenameToLongPackageName(Filename, LongMapPackageName) )
 	{
-		FMessageDialog::Open( EAppMsgType::Ok, FText::Format( NSLOCTEXT("Editor", "MapLoad_FriendlyBadFilename", "Map load failed. The filename '%s' is not within the game or engine content folders found in '%s'."), FText::FromString( Filename ), FText::FromString( FPaths::RootDir() ) ) );
+		FMessageDialog::Open( EAppMsgType::Ok, FText::Format( NSLOCTEXT("Editor", "MapLoad_FriendlyBadFilename", "Map load failed. The filename '{0}' is not within the game or engine content folders found in '{1}'."), FText::FromString( Filename ), FText::FromString( FPaths::RootDir() ) ) );
 		return;
 	}
 
@@ -2035,6 +2062,9 @@ void FEditorFileUtils::LoadMap(const FString& InFilename, bool LoadAsTemplate, b
 	// Update volume actor visibility for each viewport since we loaded a level which could
 	// potentially contain volumes.
 	GUnrealEd->UpdateVolumeActorVisibility(NULL);
+
+	// If there are any old mirrored brushes in the map with inverted polys, fix them here
+	GUnrealEd->FixAnyInvertedBrushes(World);
 
 	// Fire delegate when a new map is opened, with name of map
 	FEditorDelegates::OnMapOpened.Broadcast(InFilename, LoadAsTemplate);
@@ -2352,7 +2382,12 @@ static int32 InternalSavePackage( UPackage* PackageToSave, bool& bOutPackageLoca
 			if( UEditorEngine::IsUsingWorldAssets() )
 			{
 				FString DefaultPackagePath;
-				FPackageName::TryConvertFilenameToLongPackageName(DefaultLocation / FinalPackageFilename, DefaultPackagePath);
+				if (!FPackageName::TryConvertFilenameToLongPackageName(DefaultLocation / FinalPackageFilename, DefaultPackagePath))
+				{
+					// Original location is invalid; set default location to /Game/Maps
+					DefaultLocation = FPaths::GameContentDir() / TEXT("Maps");
+					ensure(FPackageName::TryConvertFilenameToLongPackageName(DefaultLocation / FinalPackageFilename, DefaultPackagePath));
+				}
 
 				FString SaveAsPackageName;
 				bSaveFile = OpenLevelSaveAsDialog(
@@ -3229,7 +3264,15 @@ void FEditorFileUtils::FindAllSubmittablePackageFiles(TMap<FString, FSourceContr
 	for (TArray<FString>::TConstIterator PackageIter(Packages); PackageIter; ++PackageIter)
 	{
 		const FString Filename = *PackageIter;
-		const FString PackageName = FPackageName::FilenameToLongPackageName(Filename);
+
+		FString PackageName;
+		FString FailureReason;
+		if (!FPackageName::TryConvertFilenameToLongPackageName(Filename, PackageName, &FailureReason))
+		{
+			UE_LOG(LogFileHelpers, Warning, TEXT("%s"), *FailureReason);
+			continue;
+		}
+
 		FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(FPaths::ConvertRelativePathToFull(Filename), EStateCacheUsage::Use);
 
 		// Only include non-map packages that are currently checked out or packages not under source control
@@ -3237,7 +3280,7 @@ void FEditorFileUtils::FindAllSubmittablePackageFiles(TMap<FString, FSourceContr
 			(SourceControlState->IsCheckedOut() || SourceControlState->IsAdded() || (!SourceControlState->IsSourceControlled() && SourceControlState->CanAdd())) &&
 			(bIncludeMaps || !IsMapPackageAsset(*Filename)))
 		{
-			OutPackages.Add(PackageName, SourceControlState);
+			OutPackages.Add(MoveTemp(PackageName), MoveTemp(SourceControlState));
 		}
 	}
 }

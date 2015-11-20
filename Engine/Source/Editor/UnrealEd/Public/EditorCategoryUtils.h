@@ -154,7 +154,7 @@ namespace FEditorCategoryUtils
 	 * @param  Category A category path that you want to check.
 	 * @return True if the category is hidden, false if not.
 	 */
-	UNREALED_API bool IsCategoryHiddenFromClass(UClass const* Class, FText const& Category);
+	UNREALED_API bool IsCategoryHiddenFromClass(const UClass* Class, const FText& Category);
 
 	/**
 	 * Checks to see if the specified category is hidden from the supplied class.
@@ -163,8 +163,18 @@ namespace FEditorCategoryUtils
 	 * @param  Category A category path that you want to check.
 	 * @return True if the category is hidden, false if not.
 	 */
-	UNREALED_API bool IsCategoryHiddenFromClass(UClass const* Class, FString const& Category);
+	UNREALED_API bool IsCategoryHiddenFromClass(const UClass* Class, const FString& Category);
 
+	/**
+	 * Checks to see if the specified category is hidden from the supplied Class, avoids recalculation of ClassHideCategories.
+	 * Useful when checking the same class over and over again with different categories.
+	 *
+	 * @param ClassHideCategories	The categories tht have been hidden for the class
+	 * @param  Class	The class you want to query.
+	 * @param  Category A category path that you want to check.
+	 * @return True if the category is hidden, false if not.
+	 */
+	UNREALED_API bool IsCategoryHiddenFromClass(const TArray<FString>& ClassHideCategories, UClass const* Class, const FString& Category);
 	/**
 	 * Returns tooltip information for the specified category
 	 * 

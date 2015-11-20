@@ -3,6 +3,7 @@
 #pragma once
 
 #include "Sound/AudioVolume.h"
+#include "Sound/SoundConcurrency.h"
 #include "Sound/SoundAttenuation.h"
 #include "Components/AudioComponent.h"
 
@@ -37,6 +38,9 @@ struct FSoundParseParameters
 	// At what distance from the source of the sound should spatialization begin
 	float OmniRadius;
 
+	// The distance between left and right channels when spatializing stereo assets
+	float StereoSpread;
+
 	// Which spatialization algorithm to use
 	ESoundSpatializationAlgorithm SpatializationAlgorithm;
 
@@ -55,6 +59,7 @@ struct FSoundParseParameters
 		, HighFrequencyGain(1.f)
 		, StartTime(-1.f)
 		, OmniRadius(0.0f)
+		, StereoSpread(0.0f)
 		, SpatializationAlgorithm(SPATIALIZATION_Default)
 		, bUseSpatialization(false)
 		, bLooping(false)
@@ -71,7 +76,34 @@ public:
 
 	class USoundBase* Sound;
 	TWeakObjectPtr<class UWorld> World;
+
+private:
 	TWeakObjectPtr<class UAudioComponent> AudioComponent;
+	UPTRINT AudioComponentIndex;
+
+public:
+
+	bool IsAudioComponentValid() const { return AudioComponent.IsValid(); }
+	UAudioComponent* GetAudioComponent() const { return AudioComponent.Get(); }
+	UPTRINT GetAudioComponentIndex() const { return AudioComponentIndex; }
+	void SetAudioComponent(UAudioComponent* Component)
+	{
+		AudioComponent = Component;
+		AudioComponentIndex = (UPTRINT)Component;
+	}
+
+	void SetAudioDevice(FAudioDevice* InAudioDevice)
+	{
+		AudioDevice = InAudioDevice;
+	}
+
+	FAudioDevice* AudioDevice;
+
+	/** The group of active concurrent sounds that this sound is playing in. */
+	FConcurrencyGroupID ConcurrencyGroupID;
+
+	/** Optional USoundConcurrency to override sound */
+	USoundConcurrency* ConcurrencySettings;
 
 	/** Optional SoundClass to override Sound */
 	USoundClass* SoundClassOverride;
@@ -93,6 +125,9 @@ public:
 
 	/** Whether the current component has finished playing */
 	uint32 bFinished:1;
+
+	/** Whether or not to stop this active sound due to max concurrency */
+	uint32 bShouldStopDueToMaxConcurrency:1;
 
 	/** If true, the decision on whether to apply the radio filter has been made. */
 	uint32 bRadioFilterSelected:1;
@@ -148,23 +183,29 @@ public:
 	float PitchMultiplier;
 	float HighFrequencyGainMultiplier;
 
+	/** A volume scale to apply to a sound based on the concurrency count of the active sound when it started */
+	float ConcurrencyVolumeScale;
+
 	float SubtitlePriority;
 	float VolumeWeightedPriorityScale;
 
-	/** frequency with which to check for occlusion from its closest listener */
+	// The volume used to determine concurrency resolution for "quietest" active sound
+	float VolumeConcurrency;
+
+	/** Frequency with which to check for occlusion from its closest listener */
 	float OcclusionCheckInterval;
 
-	/** last time we checked for occlusion */
+	/** Last time we checked for occlusion */
 	float LastOcclusionCheckTime;
 
 	FTransform Transform;
 
-	/** location last time playback was updated */
+	/** Location last time playback was updated */
 	FVector LastLocation;
 
 	FAttenuationSettings AttenuationSettings;
 
-	/** cache what volume settings we had last time so we don't have to search again if we didn't move */
+	/** Cache what volume settings we had last time so we don't have to search again if we didn't move */
 	FInteriorSettings LastInteriorSettings;
 
 	class AAudioVolume* LastAudioVolume;
@@ -183,10 +224,12 @@ public:
 
 	TArray<FAudioComponentParam> InstanceParameters;
 
-	// Updates the wave instances to be played.
-	void UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveInstance*> &WaveInstances, const float DeltaTime );
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	FName DebugOriginalSoundName;
+#endif
 
-	void Stop(FAudioDevice* AudioDevice);
+	// Updates the wave instances to be played.
+	void UpdateWaveInstances( TArray<FWaveInstance*> &OutWaveInstances, const float DeltaTime );
 
 	/** 
 	 * Find an existing waveinstance attached to this audio component (if any)
@@ -196,7 +239,7 @@ public:
 	/** 
 	 * Check whether to apply the radio filter
 	 */
-	void ApplyRadioFilter( FAudioDevice* AudioDevice, const struct FSoundParseParameters& ParseParams );
+	void ApplyRadioFilter(const struct FSoundParseParameters& ParseParams );
 
 	/** Sets a float instance parameter for the ActiveSound */
 	void SetFloatParameter(const FName InName, const float InFloat);
@@ -250,8 +293,24 @@ public:
 
 	/* Determines which listener is the closest to the sound */
 	int32 FindClosestListener( const TArray<struct FListener>& InListeners ) const;
+	
+	/** Returns the unique ID of the active sound's owner if it exists. Returns 0 if the sound doesn't have an owner. */
+	uint32 TryGetOwnerID() const;
+
+	/** Gets the sound concurrency to apply on this active sound instance */
+	const FSoundConcurrencySettings* GetSoundConcurrencySettingsToApply() const;
+
+	/** Returns the sound concurrency object ID if it exists. If it doesn't exist, returns 0. */
+	uint32 GetSoundConcurrencyObjectID() const;
 
 private:
+
+	/** This is a friend so the audio device can call Stop() on the active sound. */
+	friend class FAudioDevice;
+
+	/** Stops the active sound. Can only be called from the owning audio device. */
+	void Stop();
+
 	void UpdateAdjustVolumeMultiplier(const float DeltaTime);
 
 	/** if OcclusionCheckInterval > 0.0, checks if the sound has become (un)occluded during playback
@@ -264,5 +323,4 @@ private:
 
 	/** Apply the interior settings to the ambient sound as appropriate */
 	void HandleInteriorVolumes( const FListener& Listener, struct FSoundParseParameters& ParseParams );
-
 };

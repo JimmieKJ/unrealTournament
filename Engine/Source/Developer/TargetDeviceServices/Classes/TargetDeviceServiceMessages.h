@@ -19,11 +19,11 @@ struct FTargetDeviceServiceDeployCommit
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the variant identifier of the target device to use. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FName Variant;
 
 	/** Holds the identifier of the deployment transaction to commit. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid TransactionId;
 
 
@@ -51,11 +51,11 @@ struct FTargetDeviceServiceDeployFile
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the name and path of the file as it will be stored on the target device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString TargetFileName;
 
 	/** Holds the identifier of the deployment transaction that this file is part of. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid TransactionId;
 
 
@@ -81,7 +81,7 @@ struct FTargetDeviceServiceDeployFinished
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the variant identifier of the target device to use. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FName Variant;
 
 	/**
@@ -92,15 +92,15 @@ struct FTargetDeviceServiceDeployFinished
 	 * identifying the application. Application identifiers are returned from target device
 	 * services as result of successful deployment transactions.
 	 */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString AppID;
 
 	/** Holds a flag indicating whether the deployment transaction finished successfully. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool Succeeded;
 
 	/** Holds the identifier of the deployment transaction that this file is part of. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid TransactionId;
 
 
@@ -133,7 +133,7 @@ struct FTargetDeviceServiceLaunchApp
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the variant identifier of the target device to use. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FName Variant;
 
 	/**
@@ -144,15 +144,15 @@ struct FTargetDeviceServiceLaunchApp
 	 * identifying the application. Application identifiers are returned from target device
 	 * services as result of successful deployment transactions.
 	 */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString AppID;
 
 	/** The application's build configuration, i.e. Debug or Shipping. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	uint8 BuildConfiguration;
 
 	/** Holds optional command line parameters for the application. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Params;
 
 
@@ -187,15 +187,15 @@ struct FTargetDeviceServiceLaunchFinished
 	 * identifying the application. Application identifiers are returned from target device
 	 * services as result of successful deployment transactions.
 	 */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString AppID;
 
 	/** Holds the process identifier for the launched application. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	int32 ProcessId;
 
 	/** Holds a flag indicating whether the application was launched successfully. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool Succeeded;
 
 
@@ -226,20 +226,20 @@ struct FTargetDeviceClaimDenied
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the identifier of the device that is already claimed. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString DeviceName;
 
 	/** Holds the name of the host computer that claimed the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostName;
 
 	/** Holds the name of the user that claimed the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostUser;
 
 
 	/** Default constructor. */
-	FTargetDeviceClaimDenied( ) { }
+	FTargetDeviceClaimDenied() { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceClaimDenied(const FString& InDeviceName, const FString& InHostName, const FString& InHostUser)
@@ -262,20 +262,20 @@ struct FTargetDeviceClaimed
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the identifier of the device that is being claimed. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString DeviceName;
 
 	/** Holds the name of the host computer that is claiming the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostName;
 
 	/** Holds the name of the user that is claiming the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostUser;
 
 
 	/** Default constructor. */
-	FTargetDeviceClaimed( ) { }
+	FTargetDeviceClaimed() { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceClaimed(const FString& InDeviceName, const FString& InHostName, const FString& InHostUser)
@@ -297,20 +297,20 @@ struct FTargetDeviceUnclaimed
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the identifier of the device that is no longer claimed. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString DeviceName;
 
 	/** Holds the name of the host computer that had claimed the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostName;
 
 	/** Holds the name of the user that had claimed the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostUser;
 
 
 	/** Default constructor. */
-	FTargetDeviceUnclaimed( ) { }
+	FTargetDeviceUnclaimed() { }
 
 	/** Creates and initializes a new instance. */
 	FTargetDeviceUnclaimed(const FString& InDeviceName, const FString& InHostName, const FString& InHostUser)
@@ -333,15 +333,15 @@ struct FTargetDeviceServicePing
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the name of the user who generated the ping. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostUser;
 
 
 	/** Default constructor. */
-	FTargetDeviceServicePing( ) { }
+	FTargetDeviceServicePing() { }
 
 	/** Creates and initializes a new instance. */
-	FTargetDeviceServicePing( const FString& InHostUser )
+	FTargetDeviceServicePing(const FString& InHostUser)
 		: HostUser(InHostUser)
 	{ }
 };
@@ -355,22 +355,22 @@ struct FTargetDeviceVariant
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Variant")
 	FString DeviceID;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Variant")
 	FName VariantName;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Variant")
 	FString TargetPlatformName;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Variant")
 	FName TargetPlatformId;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Variant")
 	FName VanillaPlatformId;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Variant")
 	FString PlatformDisplayName;
 };
 
@@ -384,71 +384,71 @@ struct FTargetDeviceServicePong
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds a flag indicating whether the device is currently connected. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool Connected;
 
 	/** Holds the name of the host computer that the device is attached to. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostName;
 
 	/** Holds the name of the user under which the host computer is running. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HostUser;
 
 	/** Holds the make of the device, i.e. Microsoft or Sony. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Make;
 
 	/** Holds the model of the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Model;
 
 	/** Holds the human readable name of the device, i.e "Bob's XBox'. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Name;
 
 	/** Holds the name of the user that we log in to remote device as, i.e "root". */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString DeviceUser;
 
 	/** Holds the password of the user that we log in to remote device as, i.e "12345". */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString DeviceUserPassword;
 
 	/** Holds a flag indicating whether this device is shared with other users on the network. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool Shared;
 
 	/** Holds a flag indicating whether the device supports running multiple application instances in parallel. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool SupportsMultiLaunch;
 
 	/** Holds a flag indicating whether the device can be powered off. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool SupportsPowerOff;
 
 	/** Holds a flag indicating whether the device can be powered on. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool SupportsPowerOn;
 
 	/** Holds a flag indicating whether the device can be rebooted. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool SupportsReboot;
 
 	/** Holds a flag indicating whether the device's target platform supports variants. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool SupportsVariants;
 
 	/** Holds the device type. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Type;
 
 	/** Holds the variant name of the default device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FName DefaultVariant;
 
 	/** List of the Flavors this service supports */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	TArray<FTargetDeviceVariant> Variants;
 };
 
@@ -469,19 +469,19 @@ struct FTargetDeviceServicePowerOff
 	 *
 	 * If powering off is not enforced, if may fail if some running application prevents it.
 	 */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool Force;
 
 	/** Holds the name of the user that wishes to power off the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Operator;
 
 
 	/** Default constructor. */
-	FTargetDeviceServicePowerOff( ) { }
+	FTargetDeviceServicePowerOff() { }
 
 	/** Creates and initializes a new instance. */
-	FTargetDeviceServicePowerOff( const FString& InOperator, bool InForce )
+	FTargetDeviceServicePowerOff(const FString& InOperator, bool InForce)
 		: Force(InForce)
 		, Operator(InOperator)
 	{ }
@@ -497,15 +497,15 @@ struct FTargetDeviceServicePowerOn
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the name of the user that wishes to power on the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Operator;
 
 
 	/** Default constructor. */
-	FTargetDeviceServicePowerOn( ) { }
+	FTargetDeviceServicePowerOn() { }
 
 	/** Creates and initializes a new instance. */
-	FTargetDeviceServicePowerOn( const FString& InOperator )
+	FTargetDeviceServicePowerOn(const FString& InOperator)
 		: Operator(InOperator)
 	{ }
 };
@@ -520,15 +520,15 @@ struct FTargetDeviceServiceReboot
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the name of the user that wishes to reboot the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Operator;
 
 
 	/** Default constructor. */
-	FTargetDeviceServiceReboot( ) { }
+	FTargetDeviceServiceReboot() { }
 
 	/** Creates and initializes a new instance. */
-	FTargetDeviceServiceReboot( const FString& InOperator )
+	FTargetDeviceServiceReboot(const FString& InOperator)
 		: Operator(InOperator)
 	{ }
 };
@@ -547,15 +547,15 @@ struct FTargetDeviceServiceRunExecutable
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the variant identifier of the target device to use for execution. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FName Variant;
 
 	/** Holds the path to the executable on the device. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString ExecutablePath;
 
 	/** Holds optional command line parameters for the executable. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Params;
 
 
@@ -582,19 +582,19 @@ struct FTargetDeviceServiceRunFinished
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the variant identifier of the target device to use. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FName Variant;
 
 	/** Holds the path to the executable that was run. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString ExecutablePath;
 
 	/** Holds the process identifier of the running executable. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	int32 ProcessId;
 
 	/** Holds a flag indicating whether the executable started successfully. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool Succeeded;
 
 

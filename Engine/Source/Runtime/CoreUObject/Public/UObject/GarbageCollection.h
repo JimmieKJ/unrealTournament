@@ -26,6 +26,7 @@ enum EGCReferenceType
 	GCRT_AddStructReferencedObjects,
 	GCRT_AddReferencedObjects,
 	GCRT_AddTMapReferencedObjects,
+	GCRT_EndOfPointer,
 	GCRT_EndOfStream,
 };
 

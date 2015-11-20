@@ -6,7 +6,7 @@
 /* FMessageBridge structors
  *****************************************************************************/
 
-FMessageBridge::FMessageBridge( const FMessageAddress InAddress, const IMessageBusRef& InBus, const IMessageTransportRef& InTransport )
+FMessageBridge::FMessageBridge(const FMessageAddress InAddress, const IMessageBusRef& InBus, const IMessageTransportRef& InTransport)
 	: Address(InAddress)
 	, Bus(InBus)
 	, Enabled(false)
@@ -29,10 +29,11 @@ FMessageBridge::~FMessageBridge()
 		Bus->Unregister(Address);
 
 		TArray<FMessageAddress> RemovedAddresses;
+		AddressBook.RemoveAll(RemovedAddresses);
 
-		for (int32 AddressIndex = 0; AddressIndex < RemovedAddresses.Num(); ++AddressIndex)
+		for (const auto& RemovedAddress : RemovedAddresses)
 		{
-			Bus->Unregister(RemovedAddresses[AddressIndex]);
+			Bus->Unregister(RemovedAddress);
 		}
 	}
 }
@@ -94,7 +95,7 @@ void FMessageBridge::Enable()
 /* IReceiveMessages interface
  *****************************************************************************/
 
-void FMessageBridge::ReceiveMessage( const IMessageContextRef& Context )
+void FMessageBridge::ReceiveMessage(const IMessageContextRef& Context)
 {
 	if (!Enabled)
 	{
@@ -122,7 +123,7 @@ void FMessageBridge::ReceiveMessage( const IMessageContextRef& Context )
 /* ISendMessages interface
  *****************************************************************************/
 
-void FMessageBridge::NotifyMessageError( const IMessageContextRef& Context, const FString& Error )
+void FMessageBridge::NotifyMessageError(const IMessageContextRef& Context, const FString& Error)
 {
 	// deprecated
 }
@@ -153,7 +154,7 @@ void FMessageBridge::HandleMessageBusShutdown()
 }
 
 
-void FMessageBridge::HandleTransportMessageReceived( const IMessageContextRef& Context, const FGuid& NodeId )
+void FMessageBridge::HandleTransportMessageReceived(const IMessageContextRef& Context, const FGuid& NodeId)
 {
 	if (!Enabled || !Bus.IsValid())
 	{
@@ -178,7 +179,7 @@ void FMessageBridge::HandleTransportMessageReceived( const IMessageContextRef& C
 }
 
 
-void FMessageBridge::HandleTransportNodeLost( const FGuid& LostNodeId )
+void FMessageBridge::HandleTransportNodeLost(const FGuid& LostNodeId)
 {
 	TArray<FMessageAddress> RemovedAddresses;
 
@@ -188,9 +189,9 @@ void FMessageBridge::HandleTransportNodeLost( const FGuid& LostNodeId )
 	// unregister endpoints
 	if (Bus.IsValid())
 	{
-		for (int32 AddressIndex = 0; AddressIndex < RemovedAddresses.Num(); ++AddressIndex)
+		for (const auto& RemovedAddress : RemovedAddresses)
 		{
-			Bus->Unregister(RemovedAddresses[AddressIndex]);
+			Bus->Unregister(RemovedAddress);
 		}
 	}
 }

@@ -2,111 +2,206 @@
 
 #pragma once
 
+// Common includes
+#include "UObject/Stack.h"
+#include "Blueprint/BlueprintSupport.h"
+#include "Engine/BlueprintGeneratedClass.h"
+
 // Common libraries
 #include "Kismet/KismetArrayLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "Kismet/BlueprintFunctionLibrary.h"
 #include "Kismet/KismetMathLibrary.h"
 
 // Special libraries
 #include "Kismet/DataTableFunctionLibrary.h"
 
-FORCEINLINE UClass* DynamicMetaCast(const UClass* DesiredClass, UClass* SourceClass)
+template<class NativeType>
+inline NativeType* NoNativeCast(UClass* NoNativeClass, UObject* Object)
+{
+	check(NoNativeClass);
+	check(!Object || (nullptr != Cast<NativeType>(Object)));
+	return (Object && Object->IsA(NoNativeClass)) ? ((NativeType*)Object) : nullptr;
+}
+
+inline UClass* DynamicMetaCast(const UClass* DesiredClass, UClass* SourceClass)
 {
 	return ((SourceClass)->IsChildOf(DesiredClass)) ? SourceClass : NULL;
 }
 
+inline bool IsValid(const FScriptInterface& Test)
+{
+	return IsValid(Test.GetObject()) && (nullptr != Test.GetInterface());
+}
+
+template<class TEnum>
+inline uint8 EnumToByte(TEnumAsByte<TEnum> Val)
+{
+	return static_cast<uint8>(Val.GetValue());
+}
+
+template<class T>
+inline const T* GetDefaultValueSafe(UClass* Class)
+{
+	return IsValid(Class) ? GetDefault<T>(Class) : nullptr;
+}
+
 struct FCustomThunkTemplates
 {
-	//Replacements for CustomThunk functions from UKismetArrayLibrary
-
-	template<typename T>
-	static int32 Array_Add(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, const T& NewItem)
+private:
+	static void ExecutionMessage(const TCHAR* Message, ELogVerbosity::Type Verbosity)
 	{
-		return UKismetArrayLibrary::GenericArray_Add(&TargetArray, ArrayProperty, &NewItem);
+		FFrame::KismetExecutionMessage(Message, Verbosity);
 	}
 
 	template<typename T>
-	static int32 Array_AddUnique(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, const T& NewItem)
+	static int32 LastIndexForLog(const TArray<T>& TargetArray)
 	{
-		return UKismetArrayLibrary::GenericArray_AddUnique(&TargetArray, ArrayProperty, &NewItem);
+		const int32 ArraySize = TargetArray.Num();
+		return (ArraySize > 0) ? (ArraySize - 1) : 0;
+	}
+
+public:
+	//Replacements for CustomThunk functions from UKismetArrayLibrary
+
+	template<typename T>
+	static int32 Array_Add(TArray<T>& TargetArray, const T& NewItem)
+	{
+		return TargetArray.Add(NewItem);
+	}
+
+	template<typename T>
+	static int32 Array_AddUnique(TArray<T>& TargetArray, const T& NewItem)
+	{
+		return TargetArray.AddUnique(NewItem);
 	}
 
 	template<typename T>
 	static void Array_Shuffle(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty)
 	{
-		UKismetArrayLibrary::GenericArray_Shuffle(&TargetArray, ArrayProperty);
+		int32 LastIndex = TargetArray.Num() - 1;
+		for (int32 i = 0; i < LastIndex; ++i)
+		{
+			int32 Index = FMath::RandRange(0, LastIndex);
+			if (i != Index)
+			{
+				TargetArray.Swap(i, Index);
+			}
+		}
 	}
 
 	template<typename T>
-	static void Array_Append(TArray<T>& TargetArray, const UArrayProperty* TargetArrayProperty, const TArray<T>& SourceArray, const UArrayProperty* SourceArrayProperty)
+	static void Array_Append(TArray<T>& TargetArray, const TArray<T>& SourceArray)
 	{
-		UKismetArrayLibrary::GenericArray_Append(&TargetArray, TargetArrayProperty, &SourceArray, SourceArrayProperty);
+		TargetArray.Append(SourceArray);
 	}
 
 	template<typename T>
-	static void Array_Insert(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, const T& NewItem, int32 Index)
+	static void Array_Insert(TArray<T>& TargetArray, const T& NewItem, int32 Index)
 	{
-		UKismetArrayLibrary::GenericArray_Insert(&TargetArray, ArrayProperty, &NewItem, Index);
+		if ((Index >= 0) && (Index <= TargetArray.Num()))
+		{
+			TargetArray.Insert(NewItem, Index);
+		}
+		else
+		{
+			ExecutionMessage(*FString::Printf(TEXT("Attempted to insert an item into array out of bounds [%d/%d]!"), Index, LastIndexForLog(TargetArray)), ELogVerbosity::Warning);
+		}
 	}
 
 	template<typename T>
-	static void Array_Remove(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, int32 IndexToRemove)
+	static void Array_Remove(TArray<T>& TargetArray, int32 IndexToRemove)
 	{
-		UKismetArrayLibrary::GenericArray_Remove(&TargetArray, ArrayProperty, IndexToRemove);
+		if (TargetArray.IsValidIndex(IndexToRemove))
+		{
+			TargetArray.RemoveAt(IndexToRemove);
+		}
+		else
+		{
+			ExecutionMessage(*FString::Printf(TEXT("Attempted to remove an item from an invalid index from array [%d/%d]!"), IndexToRemove, LastIndexForLog(TargetArray)), ELogVerbosity::Warning);
+		}
 	}
 
 	template<typename T>
-	static int32 Array_Find(const TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, const T& ItemToFind)
+	static int32 Array_Find(const TArray<T>& TargetArray, const T& ItemToFind)
 	{
 		return TargetArray.Find(ItemToFind);
 	}
 
 	template<typename T>
-	static bool Array_RemoveItem(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, const T& Item)
+	static bool Array_RemoveItem(TArray<T>& TargetArray, const T& Item)
 	{
-		return TargetArray.Remove(Item);
+		return TargetArray.Remove(Item) != 0;
 	}
 
 	template<typename T>
-	static void Array_Clear(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty)
+	static void Array_Clear(TArray<T>& TargetArray)
 	{
-		UKismetArrayLibrary::GenericArray_Clear(&TargetArray, ArrayProperty);
+		TargetArray.Empty();
 	}
 
 	template<typename T>
-	static void Array_Resize(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, int32 Size)
+	static void Array_Resize(TArray<T>& TargetArray, int32 Size)
 	{
-		UKismetArrayLibrary::GenericArray_Resize(&TargetArray, ArrayProperty, Size);
+		if (Size >= 0)
+		{
+			TargetArray.SetNum(Size);
+		}
+		else
+		{
+			ExecutionMessage(*FString::Printf(TEXT("Attempted to resize an array using negative size: Size = %d!"), Size), ELogVerbosity::Warning);
+		}
 	}
 
 	template<typename T>
-	static int32 Array_Length(const TArray<T>& TargetArray, const UArrayProperty* ArrayProperty)
+	static int32 Array_Length(const TArray<T>& TargetArray)
 	{
-		return UKismetArrayLibrary::GenericArray_Length(&TargetArray, ArrayProperty);
+		return TargetArray.Num();
 	}
 
 	template<typename T>
-	static int32 Array_LastIndex(const TArray<T>& TargetArray, const UArrayProperty* ArrayProperty)
+	static int32 Array_LastIndex(const TArray<T>& TargetArray)
 	{
-		return UKismetArrayLibrary::GenericArray_Length(&TargetArray, ArrayProperty);
+		return TargetArray.Num() - 1;
 	}
 
 	template<typename T>
-	static void Array_Get(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, int32 Index, T& Item)
+	static void Array_Get(TArray<T>& TargetArray, int32 Index, T& Item)
 	{
-		UKismetArrayLibrary::GenericArray_Get(&TargetArray, ArrayProperty, Index, &Item);
+		if (TargetArray.IsValidIndex(Index))
+		{
+			Item = TargetArray[Index];
+		}
+		else
+		{
+			ExecutionMessage(*FString::Printf(TEXT("Attempted to get an item from array out of bounds [%d/%d]!"), Index, LastIndexForLog(TargetArray)), ELogVerbosity::Warning);
+			Item = T{};
+		}
 	}
 
 	template<typename T>
-	static void Array_Set(TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, int32 Index, const T& Item, bool bSizeToFit)
+	static void Array_Set(TArray<T>& TargetArray, int32 Index, const T& Item, bool bSizeToFit)
 	{
-		UKismetArrayLibrary::GenericArray_Set(&TargetArray, ArrayProperty, Index, &Item, bSizeToFit);
+		if (!TargetArray.IsValidIndex(Index) && bSizeToFit && (Index >= 0))
+		{
+			TargetArray.SetNum(Index + 1);
+		}
+
+		if (TargetArray.IsValidIndex(Index))
+		{
+			TargetArray[Index] = Item;
+		}
+		else
+		{
+			ExecutionMessage(*FString::Printf(TEXT("Attempted to set an invalid index on array [%d/%d]!"), Index, LastIndexForLog(TargetArray)), ELogVerbosity::Warning);
+		}
 	}
 
 	template<typename T>
-	static bool Array_Contains(const TArray<T>& TargetArray, const UArrayProperty* ArrayProperty, const T& ItemToFind)
+	static bool Array_Contains(const TArray<T>& TargetArray, const T& ItemToFind)
 	{
-		return Array_Find(TargetArray, ArrayProperty, ItemToFind) > 0;
+		return TargetArray.Contains(ItemToFind);
 	}
 
 	template<typename T>
@@ -124,10 +219,119 @@ struct FCustomThunkTemplates
 	}
 
 	//Replacements for CustomThunk functions from UKismetSystemLibrary
-
 	template<typename T>
 	static void SetStructurePropertyByName(UObject* Object, FName PropertyName, const T& Value)
 	{
 		return UKismetSystemLibrary::Generic_SetStructurePropertyByName(Object, PropertyName, &Value);
+	}
+
+	static void SetCollisionProfileNameProperty(UObject* Object, FName PropertyName, const FCollisionProfileName& Value)
+	{
+		return UKismetSystemLibrary::Generic_SetStructurePropertyByName(Object, PropertyName, &Value);
+	}
+
+	// Replacements for CustomThunk functions from UBlueprintFunctionLibrary
+	static FStringAssetReference MakeStringAssetReference(const FString& AssetLongPathname)
+	{
+		FStringAssetReference Ref(AssetLongPathname);
+		if (!AssetLongPathname.IsEmpty() && !Ref.IsValid())
+		{
+			ExecutionMessage(*FString::Printf(TEXT("Asset path \"%s\" not valid. Only long path name is allowed."), *AssetLongPathname), ELogVerbosity::Error);
+			return FStringAssetReference();
+		}
+
+		return Ref;
+	}
+
+	// Replacements for CustomThunk functions from KismetMathLibrary
+	static float Divide_FloatFloat(float A, float B)
+	{
+		if (B == 0.f)
+		{
+			ExecutionMessage(TEXT("Divide by zero"), ELogVerbosity::Warning);
+			return 0.0f;
+		}
+		return UKismetMathLibrary::GenericDivide_FloatFloat(A, B);
+	}
+
+	static float Percent_FloatFloat(float A, float B)
+	{
+		if (B == 0.f)
+		{
+			ExecutionMessage(TEXT("Modulo by zero"), ELogVerbosity::Warning);
+			return 0.0f;
+		}
+
+		return UKismetMathLibrary::GenericPercent_FloatFloat(A, B);
+	}
+};
+
+template<typename IndexType, typename ValueType>
+struct TSwitchPair
+{
+	const IndexType& IndexRef;
+	ValueType& ValueRef;
+
+	TSwitchPair(const IndexType& InIndexRef, ValueType& InValueRef)
+		: IndexRef(InIndexRef)
+		, ValueRef(InValueRef)
+	{}
+};
+
+#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+template<typename IndexType, typename ValueType>
+ValueType& TSwitchValue(const IndexType& CurrentIndex, ValueType& DefaultValue, int OptionsNum)
+{
+	return DefaultValue;
+}
+
+template<typename IndexType, typename ValueType, typename Head, typename... Tail>
+ValueType& TSwitchValue(const IndexType& CurrentIndex, ValueType& DefaultValue, int OptionsNum, Head HeadOption, Tail... TailOptions)
+{
+	if (CurrentIndex == HeadOption.IndexRef)
+	{
+		return HeadOption.ValueRef;
+	}
+	return TSwitchValue<IndexType, ValueType, Tail...>(CurrentIndex, DefaultValue, OptionsNum, TailOptions...);
+}
+#else //PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+template<typename IndexType, typename ValueType>
+ValueType& TSwitchValue(const IndexType& CurrentIndex, ValueType& DefaultValue, int OptionsNum, ...)
+{
+	typedef TSwitchPair < IndexType, ValueType > OptionType;
+
+	ValueType* SelectedValuePtr = nullptr;
+
+	va_list Options;
+	va_start(Options, OptionsNum);
+	for (int OptionIt = 0; OptionIt < OptionsNum; ++OptionIt)
+	{
+		OptionType Option = va_arg(Options, OptionType);
+		if (Option.IndexRef == CurrentIndex)
+		{
+			SelectedValuePtr = &Option.ValueRef;
+			break;
+		}
+	}
+	va_end(Options);
+
+	return SelectedValuePtr ? *SelectedValuePtr : DefaultValue;
+}
+#endif //PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+
+// Base class for wrappers for unconverted BlueprintGeneratedClasses
+template<class NativeType>
+struct FUnconvertedWrapper
+{
+	NativeType* __Object;
+
+	FUnconvertedWrapper(const UObject* InObject) : __Object(CastChecked<NativeType>(const_cast<UObject*>(InObject))) {}
+
+	operator NativeType*() const { return __Object; }
+
+	UClass* GetClass() const
+	{
+		check(__Object);
+		return __Object->GetClass();
 	}
 };

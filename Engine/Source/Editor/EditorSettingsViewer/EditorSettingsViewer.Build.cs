@@ -24,7 +24,8 @@ namespace UnrealBuildTool.Rules
 					"SlateCore",
 					"UnrealEd",
                     "InternationalizationSettings",
-					"BlueprintGraph"
+					"BlueprintGraph",
+                    "EditorStyle",
 				}
 			);
 

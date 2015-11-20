@@ -11,6 +11,7 @@
 
 #include "HardwareInfo.h"
 
+
 extern bool D3D11RHI_ShouldCreateWithD3DDebug();
 extern bool D3D11RHI_ShouldAllowAsyncResourceCreation();
 
@@ -376,6 +377,7 @@ void FD3D11DynamicRHI::InitD3DDevice()
 	// If the device we were using has been removed, release it and the resources we created for it.
 	if(bDeviceRemoved)
 	{
+		UE_LOG(LogD3D11RHI, Log, TEXT("Init due to bDeviceRemoved"));
 		check(Direct3DDevice);
 
 		HRESULT hRes = Direct3DDevice->GetDeviceRemovedReason();
@@ -403,6 +405,7 @@ void FD3D11DynamicRHI::InitD3DDevice()
 	// If we don't have a device yet, either because this is the first viewport, or the old device was removed, create a device.
 	if(!Direct3DDevice)
 	{
+		UE_LOG(LogD3D11RHI, Log, TEXT("Creating new Direct3DDevice"));
 		check(!GIsRHIInitialized);
 
 		// Clear shadowed shader resources.
@@ -444,63 +447,60 @@ void FD3D11DynamicRHI::InitD3DDevice()
 					GRHIAdapterName = AdapterDesc.Description;
 					GRHIVendorId = AdapterDesc.VendorId;
 
-					extern int64 GDedicatedVideoMemory;
-					extern int64 GDedicatedSystemMemory;
-					extern int64 GSharedSystemMemory;
-					extern int64 GTotalGraphicsMemory;
-
 					// Issue: 32bit windows doesn't report 64bit value, we take what we get.
-					GDedicatedVideoMemory = int64(AdapterDesc.DedicatedVideoMemory);
-					GDedicatedSystemMemory = int64(AdapterDesc.DedicatedSystemMemory);
-					GSharedSystemMemory = int64(AdapterDesc.SharedSystemMemory);
+					FD3D11GlobalStats::GDedicatedVideoMemory = int64(AdapterDesc.DedicatedVideoMemory);
+					FD3D11GlobalStats::GDedicatedSystemMemory = int64(AdapterDesc.DedicatedSystemMemory);
+					FD3D11GlobalStats::GSharedSystemMemory = int64(AdapterDesc.SharedSystemMemory);
 
 					// Total amount of system memory, clamped to 8 GB
 					int64 TotalPhysicalMemory = FMath::Min(int64(FPlatformMemory::GetConstants().TotalPhysicalGB), 8ll) * (1024ll * 1024ll * 1024ll);
 
 					// Consider 50% of the shared memory but max 25% of total system memory.
-					int64 ConsideredSharedSystemMemory = FMath::Min( GSharedSystemMemory / 2ll, TotalPhysicalMemory / 4ll );
+					int64 ConsideredSharedSystemMemory = FMath::Min( FD3D11GlobalStats::GSharedSystemMemory / 2ll, TotalPhysicalMemory / 4ll );
 
-					GTotalGraphicsMemory = 0;
+					FD3D11GlobalStats::GTotalGraphicsMemory = 0;
 					if ( IsRHIDeviceIntel() )
 					{
 						// It's all system memory.
-						GTotalGraphicsMemory = GDedicatedVideoMemory;
-						GTotalGraphicsMemory += GDedicatedSystemMemory;
-						GTotalGraphicsMemory += ConsideredSharedSystemMemory;
+						FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedVideoMemory;
+						FD3D11GlobalStats::GTotalGraphicsMemory += FD3D11GlobalStats::GDedicatedSystemMemory;
+						FD3D11GlobalStats::GTotalGraphicsMemory += ConsideredSharedSystemMemory;
 					}
-					else if ( GDedicatedVideoMemory >= 200*1024*1024 )
+					else if ( FD3D11GlobalStats::GDedicatedVideoMemory >= 200*1024*1024 )
 					{
 						// Use dedicated video memory, if it's more than 200 MB
-						GTotalGraphicsMemory = GDedicatedVideoMemory;
-					} else if ( GDedicatedSystemMemory >= 200*1024*1024 )
+						FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedVideoMemory;
+					}
+					else if ( FD3D11GlobalStats::GDedicatedSystemMemory >= 200*1024*1024 )
 					{
 						// Use dedicated system memory, if it's more than 200 MB
-						GTotalGraphicsMemory = GDedicatedSystemMemory;
-					} else if ( GSharedSystemMemory >= 400*1024*1024 )
+						FD3D11GlobalStats::GTotalGraphicsMemory = FD3D11GlobalStats::GDedicatedSystemMemory;
+					}
+					else if ( FD3D11GlobalStats::GSharedSystemMemory >= 400*1024*1024 )
 					{
 						// Use some shared system memory, if it's more than 400 MB
-						GTotalGraphicsMemory = ConsideredSharedSystemMemory;
+						FD3D11GlobalStats::GTotalGraphicsMemory = ConsideredSharedSystemMemory;
 					}
 					else
 					{
 						// Otherwise consider 25% of total system memory for graphics.
-						GTotalGraphicsMemory = TotalPhysicalMemory / 4ll;
+						FD3D11GlobalStats::GTotalGraphicsMemory = TotalPhysicalMemory / 4ll;
 					}
 
 					if ( sizeof(SIZE_T) < 8 )
 					{
 						// Clamp to 1 GB if we're less than 64-bit
-						GTotalGraphicsMemory = FMath::Min( GTotalGraphicsMemory, 1024ll * 1024ll * 1024ll );
+						FD3D11GlobalStats::GTotalGraphicsMemory = FMath::Min( FD3D11GlobalStats::GTotalGraphicsMemory, 1024ll * 1024ll * 1024ll );
 					}
 					else
 					{
 						// Clamp to 1.9 GB if we're 64-bit
-						GTotalGraphicsMemory = FMath::Min( GTotalGraphicsMemory, 1945ll * 1024ll * 1024ll );
+						FD3D11GlobalStats::GTotalGraphicsMemory = FMath::Min( FD3D11GlobalStats::GTotalGraphicsMemory, 1945ll * 1024ll * 1024ll );
 					}
 
 					if ( GPoolSizeVRAMPercentage > 0 )
 					{
-						float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * float(GTotalGraphicsMemory);
+						float PoolSize = float(GPoolSizeVRAMPercentage) * 0.01f * float(FD3D11GlobalStats::GTotalGraphicsMemory);
 
 						// Truncate GTexturePoolSize to MB (but still counted in bytes)
 						GTexturePoolSize = int64(FGenericPlatformMath::TruncToFloat(PoolSize / 1024.0f / 1024.0f)) * 1024 * 1024;
@@ -508,7 +508,7 @@ void FD3D11DynamicRHI::InitD3DDevice()
 						UE_LOG(LogRHI,Log,TEXT("Texture pool is %llu MB (%d%% of %llu MB)"),
 							GTexturePoolSize / 1024 / 1024,
 							GPoolSizeVRAMPercentage,
-							GTotalGraphicsMemory / 1024 / 1024);
+							FD3D11GlobalStats::GTotalGraphicsMemory / 1024 / 1024);
 					}
 
 					const bool bIsPerfHUD = !FCString::Stricmp(AdapterDesc.Description,TEXT("NVIDIA PerfHUD"));
@@ -700,13 +700,13 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 		MaxAllowableRefreshRate = 10480;
 	}
 
-	HRESULT hr = S_OK;
+	HRESULT HResult = S_OK;
 	TRefCountPtr<IDXGIAdapter> Adapter;
-	hr = DXGIFactory1->EnumAdapters(ChosenAdapter,Adapter.GetInitReference());
+	HResult = DXGIFactory1->EnumAdapters(ChosenAdapter,Adapter.GetInitReference());
 
-	if( DXGI_ERROR_NOT_FOUND == hr )
+	if( DXGI_ERROR_NOT_FOUND == HResult )
 		return false;
-	if( FAILED(hr) )
+	if( FAILED(HResult) )
 		return false;
 
 	// get the description of the adapter
@@ -720,22 +720,22 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 	do 
 	{
 		TRefCountPtr<IDXGIOutput> Output;
-		hr = Adapter->EnumOutputs(CurrentOutput,Output.GetInitReference());
-		if(DXGI_ERROR_NOT_FOUND == hr)
+		HResult = Adapter->EnumOutputs(CurrentOutput,Output.GetInitReference());
+		if(DXGI_ERROR_NOT_FOUND == HResult)
 			break;
-		if(FAILED(hr))
+		if(FAILED(HResult))
 			return false;
 
 		// TODO: GetDisplayModeList is a terribly SLOW call.  It can take up to a second per invocation.
 		//  We might want to work around some DXGI badness here.
 		DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		uint32 NumModes = 0;
-		hr = Output->GetDisplayModeList(Format, 0, &NumModes, NULL);
-		if(hr == DXGI_ERROR_NOT_FOUND)
+		HResult = Output->GetDisplayModeList(Format, 0, &NumModes, NULL);
+		if(HResult == DXGI_ERROR_NOT_FOUND)
 		{
 			continue;
 		}
-		else if(hr == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
+		else if(HResult == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
 		{
 			UE_LOG(LogD3D11RHI, Fatal,
 				TEXT("This application cannot be run over a remote desktop configuration")

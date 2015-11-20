@@ -42,7 +42,7 @@ void UAbilityTask_PlayMontageAndWait::OnMontageInterrupted()
 		if (AbilitySystemComponent->IsAnimatingAbility(Ability.Get())
 			&& AbilitySystemComponent->GetCurrentMontage() == MontageToPlay)
 		{
-			// Unbind the delegate in this case so OnMontageEnded does not get called as well
+			// Unbind delegates so they don't get called as well
 			BlendingOutDelegate.Unbind();
 
 			AbilitySystemComponent->CurrentMontageStop();
@@ -56,7 +56,7 @@ void UAbilityTask_PlayMontageAndWait::OnMontageInterrupted()
 UAbilityTask_PlayMontageAndWait* UAbilityTask_PlayMontageAndWait::CreatePlayMontageAndWaitProxy(UObject* WorldContextObject,
 	FName TaskInstanceName, UAnimMontage *MontageToPlay, float Rate, FName StartSection)
 {
-	UAbilityTask_PlayMontageAndWait* MyObj = NewTask<UAbilityTask_PlayMontageAndWait>(WorldContextObject, TaskInstanceName);
+	UAbilityTask_PlayMontageAndWait* MyObj = NewAbilityTask<UAbilityTask_PlayMontageAndWait>(WorldContextObject, TaskInstanceName);
 	MyObj->MontageToPlay = MontageToPlay;
 	MyObj->Rate = Rate;
 	MyObj->StartSection = StartSection;
@@ -134,7 +134,7 @@ FString UAbilityTask_PlayMontageAndWait::GetDebugString() const
 		const FGameplayAbilityActorInfo* ActorInfo = Ability->GetCurrentActorInfo();
 		if (ActorInfo->AnimInstance.IsValid())
 		{
-			PlayingMontage = ActorInfo->AnimInstance->GetCurrentActiveMontage();
+			PlayingMontage = ActorInfo->AnimInstance->Montage_IsActive(MontageToPlay) ? MontageToPlay : ActorInfo->AnimInstance->GetCurrentActiveMontage();
 		}
 	}
 

@@ -19,6 +19,7 @@
 
 DEFINE_LOG_CATEGORY(LogNetworkPlatformFile);
 
+FString FNetworkPlatformFile::MP4Extension = TEXT(".mp4");
 
 FNetworkPlatformFile::FNetworkPlatformFile()
 	: bHasLoadedDDCDirectories(false)
@@ -374,7 +375,7 @@ bool FNetworkPlatformFile::MoveFile(const TCHAR* To, const TCHAR* From)
 //	return FNFSMessageHeader::WrapAndSendPayload(Payload, FileSocket);
 
 	FString RelativeFrom = From;
-	FPaths::MakeStandardFilename(RelativeFrom);
+	MakeStandardNetworkFilename(RelativeFrom);
 
 	// don't copy files in local directories
 	if (!IsInLocalDirectory(RelativeFrom))
@@ -406,7 +407,7 @@ IFileHandle* FNetworkPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWr
 //	FScopeLock ScopeLock(&SynchronizationObject);
 
 	FString RelativeFilename = Filename;
-	FPaths::MakeStandardFilename(RelativeFilename);
+	MakeStandardNetworkFilename(RelativeFilename);
 	// don't copy files in local directories
 	if (!IsInLocalDirectory(RelativeFilename))
 	{
@@ -417,7 +418,7 @@ IFileHandle* FNetworkPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWr
 	float ThisTime;
 
 	StartTime = FPlatformTime::Seconds();
-	IFileHandle* Result = InnerPlatformFile->OpenRead(Filename);
+	IFileHandle* Result = InnerPlatformFile->OpenRead(Filename, bAllowWrite);
 
 	ThisTime = 1000.0f * float(FPlatformTime::Seconds() - StartTime);
 	//UE_LOG(LogNetworkPlatformFile, Display, TEXT("Open local file %6.2fms"), ThisTime);
@@ -456,6 +457,14 @@ bool FNetworkPlatformFile::DeleteDirectory(const TCHAR* Directory)
 	return InnerPlatformFile->DeleteDirectory(Directory);
 }
 
+FFileStatData FNetworkPlatformFile::GetStatData(const TCHAR* FilenameOrDirectory)
+{
+//	FScopeLock ScopeLock(&SynchronizationObject);
+
+	// perform a local operation
+	return InnerPlatformFile->GetStatData(FilenameOrDirectory);
+}
+
 bool FNetworkPlatformFile::IterateDirectory(const TCHAR* InDirectory, IPlatformFile::FDirectoryVisitor& Visitor)
 {
 //	FScopeLock ScopeLock(&SynchronizationObject);
@@ -466,7 +475,7 @@ bool FNetworkPlatformFile::IterateDirectory(const TCHAR* InDirectory, IPlatformF
 
 	// local files go right to the source
 	FString RelativeDirectory = InDirectory;
-	FPaths::MakeStandardFilename(RelativeDirectory);
+	MakeStandardNetworkFilename(RelativeDirectory);
 	if (IsInLocalDirectory(RelativeDirectory))
 	{
 		return InnerPlatformFile->IterateDirectory(InDirectory, Visitor);
@@ -501,7 +510,7 @@ bool FNetworkPlatformFile::IterateDirectoryRecursively(const TCHAR* InDirectory,
 
 	// local files go right to the source
 	FString RelativeDirectory = InDirectory;
-	FPaths::MakeStandardFilename(RelativeDirectory);
+	MakeStandardNetworkFilename(RelativeDirectory);
 
 	if (IsInLocalDirectory(RelativeDirectory))
 	{
@@ -532,6 +541,102 @@ bool FNetworkPlatformFile::IterateDirectoryRecursively(const TCHAR* InDirectory,
 	return RetVal;
 }
 
+bool FNetworkPlatformFile::IterateDirectoryStat(const TCHAR* InDirectory, IPlatformFile::FDirectoryStatVisitor& Visitor)
+{
+//	FScopeLock ScopeLock(&SynchronizationObject);
+
+	// for .dll, etc searches that don't specify a path, we need to strip off the path
+	// before we send it to the visitor
+	bool bHadNoPath = InDirectory[0] == 0;
+
+	// local files go right to the source
+	FString RelativeDirectory = InDirectory;
+	MakeStandardNetworkFilename(RelativeDirectory);
+	if (IsInLocalDirectory(RelativeDirectory))
+	{
+		return InnerPlatformFile->IterateDirectoryStat(InDirectory, Visitor);
+	}
+
+	// we loop until this is false
+	bool RetVal = true;
+
+	FServerTOC::FDirectory* ServerDirectory = ServerFiles.FindDirectory(RelativeDirectory);
+	if (ServerDirectory != NULL)
+	{
+		// loop over the server files and look if they are in this exact directory
+		for (FServerTOC::FDirectory::TIterator It(*ServerDirectory); It && RetVal == true; ++It)
+		{
+			if (FPaths::GetPath(It.Key()) == RelativeDirectory)
+			{
+				// timestamps of 0 mean directories
+				bool bIsDirectory = It.Value() == 0;
+			
+				// todo: this data is just wrong for most things, but can we afford to get the files from the server to get the correct info? Could the server provide this instead?
+				const FFileStatData StatData(
+					FDateTime::MinValue(), 
+					FDateTime::MinValue(), 
+					(bIsDirectory) ? FDateTime::MinValue() : It.Value(),
+					-1,		// FileSize
+					bIsDirectory, 
+					true	// IsReadOnly
+					);
+
+				// visit (stripping off the path if needed)
+				RetVal = Visitor.Visit(bHadNoPath ? *FPaths::GetCleanFilename(It.Key()) : *It.Key(), StatData);
+			}
+		}
+	}
+
+	return RetVal;
+}
+
+bool FNetworkPlatformFile::IterateDirectoryStatRecursively(const TCHAR* InDirectory, IPlatformFile::FDirectoryStatVisitor& Visitor)
+{
+//	FScopeLock ScopeLock(&SynchronizationObject);
+
+	// local files go right to the source
+	FString RelativeDirectory = InDirectory;
+	MakeStandardNetworkFilename(RelativeDirectory);
+
+	if (IsInLocalDirectory(RelativeDirectory))
+	{
+		return InnerPlatformFile->IterateDirectoryStatRecursively(InDirectory, Visitor);
+	}
+
+	// we loop until this is false
+	bool RetVal = true;
+
+	for (TMap<FString, FServerTOC::FDirectory*>::TIterator DirIt(ServerFiles.Directories); DirIt && RetVal == true; ++DirIt)
+	{
+		if (DirIt.Key().StartsWith(RelativeDirectory))
+		{
+			FServerTOC::FDirectory& ServerDirectory = *DirIt.Value();
+		
+			// loop over the server files and look if they are in this exact directory
+			for (FServerTOC::FDirectory::TIterator It(ServerDirectory); It && RetVal == true; ++It)
+			{
+				// timestamps of 0 mean directories
+				bool bIsDirectory = It.Value() == 0;
+
+				// todo: this data is just wrong for most things, but can we afford to get the files from the server to get the correct info? Could the server provide this instead?
+				const FFileStatData StatData(
+					FDateTime::MinValue(), 
+					FDateTime::MinValue(), 
+					(bIsDirectory) ? FDateTime::MinValue() : It.Value(),
+					0,		// FileSize
+					bIsDirectory, 
+					true	// IsReadOnly
+					);
+
+				// visit!
+				RetVal = Visitor.Visit(*It.Key(), StatData);
+			}
+		}
+	}
+
+	return RetVal;
+}
+
 bool FNetworkPlatformFile::DeleteDirectoryRecursively(const TCHAR* Directory)
 {
 //	FScopeLock ScopeLock(&SynchronizationObject);
@@ -545,7 +650,7 @@ bool FNetworkPlatformFile::CopyFile(const TCHAR* To, const TCHAR* From)
 //	FScopeLock ScopeLock(&SynchronizationObject);
 
 	FString RelativeFrom = From;
-	FPaths::MakeStandardFilename(RelativeFrom);
+	MakeStandardNetworkFilename(RelativeFrom);
 
 	// don't copy files in local directories
 	if (!IsInLocalDirectory(RelativeFrom))
@@ -561,7 +666,7 @@ bool FNetworkPlatformFile::CopyFile(const TCHAR* To, const TCHAR* From)
 FString FNetworkPlatformFile::ConvertToAbsolutePathForExternalAppForRead( const TCHAR* Filename )
 {
 	FString RelativeFrom = Filename;
-	FPaths::MakeStandardFilename(RelativeFrom);
+	MakeStandardNetworkFilename(RelativeFrom);
 	
 	if (!IsInLocalDirectory(RelativeFrom))
 	{
@@ -573,7 +678,7 @@ FString FNetworkPlatformFile::ConvertToAbsolutePathForExternalAppForRead( const 
 FString FNetworkPlatformFile::ConvertToAbsolutePathForExternalAppForWrite( const TCHAR* Filename )
 {
 	FString RelativeFrom = Filename;
-	FPaths::MakeStandardFilename(RelativeFrom);
+	MakeStandardNetworkFilename(RelativeFrom);
 
 	if (!IsInLocalDirectory(RelativeFrom))
 	{
@@ -590,7 +695,8 @@ bool FNetworkPlatformFile::DirectoryExists(const TCHAR* Directory)
 	}
 	// If there are any syncable files in this directory, consider it existing
 	FString RelativeDirectory = Directory;
-	FPaths::MakeStandardFilename(RelativeDirectory);
+	MakeStandardNetworkFilename(RelativeDirectory);		
+
 	FServerTOC::FDirectory* ServerDirectory = ServerFiles.FindDirectory(RelativeDirectory);
 	return ServerDirectory != NULL;
 }
@@ -598,7 +704,7 @@ bool FNetworkPlatformFile::DirectoryExists(const TCHAR* Directory)
 void FNetworkPlatformFile::GetFileInfo(const TCHAR* Filename, FFileInfo& Info)
 {
 	FString RelativeFilename = Filename;
-	FPaths::MakeStandardFilename(RelativeFilename);
+	MakeStandardNetworkFilename(RelativeFilename);
 
 	// don't copy files in local directories
 	if (!IsInLocalDirectory(RelativeFilename))
@@ -606,12 +712,12 @@ void FNetworkPlatformFile::GetFileInfo(const TCHAR* Filename, FFileInfo& Info)
 		EnsureFileIsLocal(RelativeFilename);
 	}
 
-	// @todo: This is pretty inefficient. If GetFileInfo was a first class function, this could be avoided
-	Info.FileExists = InnerPlatformFile->FileExists(Filename);
-	Info.ReadOnly = InnerPlatformFile->IsReadOnly(Filename);
-	Info.Size = InnerPlatformFile->FileSize(Filename);
-	Info.TimeStamp = InnerPlatformFile->GetTimeStamp(Filename);
-	Info.AccessTimeStamp = InnerPlatformFile->GetAccessTimeStamp(Filename);
+	const FFileStatData StatData = InnerPlatformFile->GetStatData(Filename);
+	Info.FileExists = StatData.bIsValid && !StatData.bIsDirectory;
+	Info.ReadOnly = StatData.bIsReadOnly;
+	Info.Size = StatData.FileSize;
+	Info.TimeStamp = StatData.ModificationTime;
+	Info.AccessTimeStamp = StatData.AccessTime;
 }
 
 void FNetworkPlatformFile::ConvertServerFilenameToClientFilename(FString& FilenameToConvert)
@@ -916,6 +1022,18 @@ void AsyncReadUnsolicitedFiles(int32 InNumUnsolictedFiles, FNetworkPlatformFile&
 	(new FAutoDeleteAsyncTask<FAsyncReadUnsolicitedFile>(InNumUnsolictedFiles, &InNetworkFile, &InInnerPlatformFile, InServerEngineDir, InServerGameDir, InNetworkDoneEvent, InWritingDoneEvent))->StartSynchronousTask();
 }
 
+bool FNetworkPlatformFile::IsMediaExtension(const TCHAR* Ext)
+{
+	if (*Ext != TEXT('.'))
+	{
+		return MP4Extension.EndsWith(Ext);
+	}
+	else
+	{
+		return MP4Extension == Ext;
+	}
+}
+
 /**
  * Given a filename, make sure the file exists on the local filesystem
  */
@@ -975,7 +1093,8 @@ void FNetworkPlatformFile::EnsureFileIsLocal(const FString& Filename)
 	//UE_LOG(LogNetworkPlatformFile, Display, TEXT("Check for local file %6.2fms - %s"), ThisTime, *Filename);
 
 	// this is a bit of a waste if we aren't doing cook on the fly, but we assume missing asset files are relatively rare
-	bool bIsCookable = GConfig && GConfig->IsReadyForUse() && FPackageName::IsPackageExtension(*FPaths::GetExtension(Filename, true));
+	FString Extension = FPaths::GetExtension(Filename, true);
+	bool bIsCookable = GConfig && GConfig->IsReadyForUse() && (FPackageName::IsPackageExtension(*Extension) || IsMediaExtension(*Extension));
 
 	// we only copy files that actually exist on the server, can greatly reduce network traffic for, say,
 	// the INT file each package tries to load
@@ -1046,6 +1165,13 @@ void FNetworkPlatformFile::EnsureFileIsLocal(const FString& Filename)
 	
 	ThisTime = 1000.0f * float(FPlatformTime::Seconds() - StartTime);
 	//UE_LOG(LogNetworkPlatformFile, Display, TEXT("Write file to local %6.2fms"), ThisTime);
+}
+
+static FString NetworkPlatformFileEndChop(TEXT("/"));
+void FNetworkPlatformFile::MakeStandardNetworkFilename(FString& Filename)
+{
+	FPaths::MakeStandardFilename(Filename);
+	Filename.RemoveFromEnd(NetworkPlatformFileEndChop, ESearchCase::CaseSensitive);
 }
 
 bool FNetworkPlatformFile::IsInLocalDirectoryUnGuarded(const FString& Filename)

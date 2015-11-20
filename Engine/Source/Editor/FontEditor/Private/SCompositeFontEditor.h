@@ -114,6 +114,9 @@ public:
 	/** Refresh the editor in response to an external change */
 	void Refresh();
 
+	/** Request that we begin editing the display name */
+	void RequestRename();
+
 private:
 	/** Update the list of fonts in this typeface */
 	void UpdateFontList();
@@ -138,6 +141,9 @@ private:
 
 	/** Internal list of font pointers for the list view (generated from TypefacePtr->Fonts) */
 	TArray<FTypefaceListViewEntryPtr> TypefaceEntries;
+
+	/** Inline editable text for the typeface display name */
+	TSharedPtr<SInlineEditableTextBlock> NameEditableTextBox;
 
 	/** Tile view widget showing the font entries (uses TypefaceEntries as its source) */
 	TSharedPtr<STileView<FTypefaceListViewEntryPtr>> TypefaceEntriesTileView;
@@ -178,6 +184,7 @@ public:
 
 	/** SCompoundWidget interface */
 	void Construct(const FArguments& InArgs);
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 private:
 	/** Entries used by the hinting type combo box */
@@ -239,8 +246,8 @@ private:
 	/** Holds a delegate that is executed when this typeface entry name is changed - used to verify that the new name is valid */
 	FOnVerifyFontName OnVerifyFontName;
 
-	/** Text block showing the preview text for this entry */
-	TSharedPtr<STextBlock> PreviewTextBlock;
+	/** Inline editable text for the font name */
+	TSharedPtr<SInlineEditableTextBlock> NameEditableTextBox;
 
 	/** Source data for the hinting combo widget */
 	TArray<TSharedPtr<FFontHintingComboEntry>> HintingComboData;
@@ -281,6 +288,7 @@ public:
 
 	/** SCompoundWidget interface */
 	void Construct(const FArguments& InArgs);
+	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 private:
 	/** Get the typeface used by this sub-typeface */

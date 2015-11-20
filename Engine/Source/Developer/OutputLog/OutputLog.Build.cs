@@ -16,6 +16,8 @@ public class OutputLog : ModuleRules
 				"Slate",
 				"SlateCore",
                 "EditorStyle",
+                "TargetPlatform",
+                "DesktopPlatform",
 			}
 		);
 	}

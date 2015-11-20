@@ -2610,7 +2610,7 @@ void DestructibleStructure::addChunkImpluseForceAtPos(Chunk& chunk, const physx:
 		}
 		else // the actor hasn't been added to the scene yet, so store the forces to apply later.
 		{
-			ActorForceAtPosition forceToAdd(impulse, position, PxForceMode::eIMPULSE, wakeup);
+			ActorForceAtPosition forceToAdd(impulse, position, PxForceMode::eIMPULSE, wakeup, true);
 			dscene->addForceToAddActorsMap(actor, forceToAdd);
 		}
 #endif

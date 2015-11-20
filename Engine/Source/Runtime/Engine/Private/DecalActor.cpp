@@ -21,25 +21,11 @@ ADecalActor::ADecalActor(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	Decal = CreateDefaultSubobject<UDecalComponent>(TEXT("NewDecalComponent"));
-	Decal->RelativeScale3D = FVector(128.0f, 256.0f, 256.0f);
-
 	Decal->RelativeRotation = FRotator(-90, 0, 0);
 
 	RootComponent = Decal;
 
 #if WITH_EDITORONLY_DATA
-	BoxComponent = CreateEditorOnlyDefaultSubobject<UBoxComponent>(TEXT("DrawBox0"));
-	if (BoxComponent != nullptr)
-	{
-		BoxComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-
-		BoxComponent->ShapeColor = FColor(80, 80, 200, 255);
-		BoxComponent->bDrawOnlyIfSelected = true;
-		BoxComponent->InitBoxExtent(FVector(1.0f, 1.0f, 1.0f));
-
-		BoxComponent->AttachParent = Decal;
-	}
-
 	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent0"));
 	SpriteComponent = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 
@@ -109,9 +95,22 @@ void ADecalActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedE
 	}
 }
 
+// @return 1 / x or 0 if the result would be a NaN
+static float SaveInv(float x)
+{
+	return FMath::IsNearlyZero(x) ? 0.0f : (1.0f / x);
+}
+
 void ADecalActor::EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown)
 {
-	const FVector ModifiedScale = DeltaScale * (AActor::bUsePercentageBasedScaling ? DecalEditorConstants::PercentageScalingMultiplier : DecalEditorConstants::AdditiveScalingMultiplier);
+	FVector Mul(1.0f, 1.0f, 1.0f);
+
+	if(Decal)
+	{
+		Mul = FVector(SaveInv(Decal->DecalSize.X), SaveInv(Decal->DecalSize.Y), SaveInv(Decal->DecalSize.Z));
+	}
+
+	const FVector ModifiedScale = Mul * DeltaScale * (AActor::bUsePercentageBasedScaling ? DecalEditorConstants::PercentageScalingMultiplier : DecalEditorConstants::AdditiveScalingMultiplier);
 
 	Super::EditorApplyScale(ModifiedScale, PivotLocation, bAltDown, bShiftDown, bCtrlDown);
 }
@@ -148,6 +147,43 @@ class UMaterialInstanceDynamic* ADecalActor::CreateDynamicMaterialInstance()
 	return Decal ? Decal->CreateDynamicMaterialInstance() : NULL;
 }
 
+void ADecalActor::Serialize(FArchive& Ar)
+{
+	if (Ar.UE4Ver() < VER_UE4_DECAL_SIZE)
+	{
+		if(Decal)
+		{
+			// before Super::Serialize(Ar);
+			Decal->RelativeScale3D = FVector(128.0f, 256.0f, 256.0f);
+		}
+	}
+
+	Super::Serialize(Ar);
+
+	if (Ar.UE4Ver() < VER_UE4_DECAL_SIZE)
+	{
+		if(Decal)
+		{
+			// after Super::Serialize(Ar);
+			Decal->DecalSize = FVector(1.0f, 1.0f, 1.0f);
+		}
+	}
+}
+
+void ADecalActor::PostLoad()
+{
+	 Super::PostLoad();
+
+#if WITH_EDITORONLY_DATA
+	if(BoxComponent_DEPRECATED)
+	{
+		// formerly we used this component to draw a box, now we use the DecalComponentVisualizer
+		BoxComponent_DEPRECATED->DestroyComponent();
+		BoxComponent_DEPRECATED = 0;
+	}
+#endif
+}
+
 /** Returns Decal subobject **/
 UDecalComponent* ADecalActor::GetDecal() const { return Decal; }
 #if WITH_EDITORONLY_DATA
@@ -155,6 +191,4 @@ UDecalComponent* ADecalActor::GetDecal() const { return Decal; }
 UArrowComponent* ADecalActor::GetArrowComponent() const { return ArrowComponent; }
 /** Returns SpriteComponent subobject **/
 UBillboardComponent* ADecalActor::GetSpriteComponent() const { return SpriteComponent; }
-/** Returns BoxComponent subobject **/
-UBoxComponent* ADecalActor::GetBoxComponent() const { return BoxComponent; }
 #endif

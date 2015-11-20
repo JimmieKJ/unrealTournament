@@ -23,6 +23,18 @@
 #if !defined(PLATFORM_ANDROID)
 	#define PLATFORM_ANDROID 0
 #endif
+#if !defined(PLATFORM_ANDROID_ARM)
+	#define PLATFORM_ANDROID_ARM 0
+#endif
+#if !defined(PLATFORM_ANDROID_ARM64)
+	#define PLATFORM_ANDROID_ARM64 0
+#endif
+#if !defined(PLATFORM_ANDROID_X86)
+	#define PLATFORM_ANDROID_X86 0
+#endif
+#if !defined(PLATFORM_ANDROID_X64)
+	#define PLATFORM_ANDROID_X64 0
+#endif
 #if !defined(PLATFORM_ANDROIDGL4)
 	#define PLATFORM_ANDROIDGL4 0
 #endif
@@ -196,10 +208,7 @@
 	#define PLATFORM_SUPPORTS_TEXTURE_STREAMING	1
 #endif
 #ifndef PLATFORM_SUPPORTS_VIRTUAL_TEXTURES
-#define PLATFORM_SUPPORTS_VIRTUAL_TEXTURES		0
-#endif
-#ifndef PLATFORM_USES_DYNAMIC_RHI
-	#define PLATFORM_USES_DYNAMIC_RHI			PLATFORM_DESKTOP
+	#define PLATFORM_SUPPORTS_VIRTUAL_TEXTURES		0
 #endif
 #ifndef PLATFORM_REQUIRES_FILESERVER
 	#define PLATFORM_REQUIRES_FILESERVER		0
@@ -218,6 +227,9 @@
 #endif
 #ifndef PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME
 	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_GETHOSTNAME	1
+#endif
+#ifndef PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC
+	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC	0
 #endif
 #ifndef PLATFORM_HAS_NO_EPROCLIM
 	#define PLATFORM_HAS_NO_EPROCLIM			0
@@ -262,12 +274,24 @@
 	#define PLATFORM_HAS_TOUCH_MAIN_SCREEN		0
 #endif
 
+#ifndef PLATFORM_SUPPORTS_STACK_SYMBOLS
+	#define PLATFORM_SUPPORTS_STACK_SYMBOLS 0
+#endif
+
 #ifndef PLATFORM_HAS_128BIT_ATOMICS
 	#define PLATFORM_HAS_128BIT_ATOMICS 0
 #endif
 
 #ifndef PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING
 	#define PLATFORM_USES_ANSI_STRING_FOR_EXTERNAL_PROFILING 1
+#endif
+
+#ifndef PLATFORM_RHITHREAD_DEFAULT_BYPASS
+	#define PLATFORM_RHITHREAD_DEFAULT_BYPASS					1
+#endif
+
+#ifndef PLATFORM_CAN_TOGGLE_RHITHREAD_IN_SHIPPING
+	#define PLATFORM_CAN_TOGGLE_RHITHREAD_IN_SHIPPING			0
 #endif
 
 // deprecated, do not use
@@ -309,6 +333,23 @@
 
 #ifndef ASSUME						/* Hints compiler that expression is true; generally restricted to comparisons against constants */
 	#define ASSUME(...) 
+#endif
+
+/** Branch prediction hints */
+#ifndef LIKELY						/* Hints compiler that expression is likely to be true, much softer than ASSUME - allows (penalized by worse performance) expression to be false */
+	#if defined(__clang__) || defined(__GNUC__)
+		#define LIKELY(x)			__builtin_expect((x), 1)
+	#else
+		#define LIKELY(x)			(x)
+	#endif
+#endif
+
+#ifndef UNLIKELY					/* Hints compiler that expression is unlikely to be true, allows (penalized by worse performance) expression to be true */
+	#if defined(__clang__) || defined(__GNUC__)
+		#define UNLIKELY(x)			__builtin_expect((x), 0)
+	#else
+		#define UNLIKELY(x)			(x)
+	#endif
 #endif
 
 // Optimization macros (uses __pragma to enable inside a #define).
@@ -612,6 +653,7 @@ typedef FPlatformTypes::CHAR32		UTF32CHAR;	///< A 32-bit character containing a 
 typedef FPlatformTypes::UPTRINT UPTRINT;		///< An unsigned integer the same size as a pointer
 typedef FPlatformTypes::PTRINT PTRINT;			///< A signed integer the same size as a pointer
 typedef FPlatformTypes::SIZE_T SIZE_T;			///< An unsigned integer the same size as a pointer, the same as UPTRINT
+typedef FPlatformTypes::SSIZE_T SSIZE_T;		///< An integer the same size as a pointer, the same as PTRINT
 
 typedef FPlatformTypes::TYPE_OF_NULL	TYPE_OF_NULL;		///< The type of the NULL constant.
 typedef FPlatformTypes::TYPE_OF_NULLPTR	TYPE_OF_NULLPTR;	///< The type of the C++ nullptr keyword.

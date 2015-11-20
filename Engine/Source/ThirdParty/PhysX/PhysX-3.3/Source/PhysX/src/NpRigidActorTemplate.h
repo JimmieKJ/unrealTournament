@@ -417,8 +417,8 @@ bool NpRigidActorTemplate<APIClass>::resetFiltering(Scb::RigidObject& ro, PxShap
 		{
 			ro.resetFiltering(scbShapes, sCount);
 
-			for(PxU32 i=0; i < sCount; i++)
-				GRB_EVENT(NpActor::getOwnerScene(*this), GrbInteropEvent3, GrbInteropEvent3::PxShapeResetFiltering, scbShapes[i]->getScShape().getPxShape(), (PxU8)1);
+			for(PxU32 cnt=0; cnt < sCount; cnt++)
+				GRB_EVENT(NpActor::getOwnerScene(*this), GrbInteropEvent3, GrbInteropEvent3::PxShapeResetFiltering, scbShapes[cnt]->getScShape().getPxShape(), (PxU8)1);
 		}
 	}
 

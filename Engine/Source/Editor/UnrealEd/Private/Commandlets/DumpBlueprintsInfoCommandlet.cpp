@@ -628,10 +628,6 @@ DumpBlueprintInfoUtils::CommandletOptions::CommandletOptions(TArray<FString> con
 		{
 			NewDumpFlags |= BPDUMP_ActionDatabaseInfo;
 		}
-		else if (!Switch.StartsWith("run=")) // account for the first switch, which invoked this commandlet
-		{
-			UE_LOG(LogBlueprintInfoDump, Warning, TEXT("Unrecognized command switch '%s', use -help for a listing of all accepted params"), *Switch);
-		}
 	}
 
 	if (NewDumpFlags != 0)
@@ -1020,8 +1016,7 @@ static FString DumpBlueprintInfoUtils::GetGraphTypeString(UEdGraph const* Graph)
 //------------------------------------------------------------------------------
 static FString DumpBlueprintInfoUtils::GetActionKey(FGraphActionListBuilderBase::ActionGroup const& Action)
 {
-	TArray<FString> MenuHierarchy;
-	Action.GetCategoryChain(MenuHierarchy);
+	const TArray<FString>& MenuHierarchy = Action.GetCategoryChain();
 
 	FString ActionKey;
 	for (FString const& SubCategory : MenuHierarchy)
@@ -1034,7 +1029,7 @@ static FString DumpBlueprintInfoUtils::GetActionKey(FGraphActionListBuilderBase:
 	}
 
 	TSharedPtr<FEdGraphSchemaAction> MainAction = Action.Actions[0];
-	ActionKey += MainAction->MenuDescription.ToString();
+	ActionKey += MainAction->GetMenuDescription().ToString();
 
 	return ActionKey;
 }
@@ -1611,9 +1606,9 @@ static void DumpBlueprintInfoUtils::DumpActionList(uint32 Indent, FGraphActionLi
 			TSharedPtr<FEdGraphSchemaAction> LHSAction = LHS.Actions[0];
 			TSharedPtr<FEdGraphSchemaAction> RHSAction = RHS.Actions[0];
 			
-			if (LHSAction->Grouping != RHSAction->Grouping)
+			if (LHSAction->GetGrouping() != RHSAction->GetGrouping())
 			{
-				return LHSAction->Grouping > RHSAction->Grouping;
+				return LHSAction->GetGrouping() > RHSAction->GetGrouping();
 			}
 			
 			FString LhKey = GetActionKey(LHS);
@@ -1651,8 +1646,7 @@ static void DumpBlueprintInfoUtils::DumpActionMenuItem(uint32 Indent, FGraphActi
 	check(Action.Actions.Num() > 0);
 
 	// Get action category info
-	TArray<FString> MenuHierarchy;
-	Action.GetCategoryChain(MenuHierarchy);
+	TArray<FString> MenuHierarchy = Action.GetCategoryChain();
 
 	FString ActionCategory = TEXT("");
 
@@ -1666,7 +1660,7 @@ static void DumpBlueprintInfoUtils::DumpActionMenuItem(uint32 Indent, FGraphActi
 	}
 
 	TSharedPtr<FEdGraphSchemaAction> PrimeAction = Action.Actions[0];
-	FString const ActionName = PrimeAction->MenuDescription.ToString();
+	FString const ActionName = PrimeAction->GetMenuDescription().ToString();
 
 	FString const ActionEntryIndent = BuildIndentString(Indent);
 	FString ActionEntry = ActionEntryIndent + "\"" + ActionCategory + ActionName + "\"";;
@@ -1688,14 +1682,14 @@ static void DumpBlueprintInfoUtils::DumpActionMenuItem(uint32 Indent, FGraphActi
 		}
 		ActionEntry += "\","; // end action category data
 
-		FString TooltipStr = PrimeAction->TooltipDescription.Replace(TEXT("\\\""), TEXT("'")).Replace(TEXT("\""), TEXT("'"));
+		FString TooltipStr = PrimeAction->GetTooltipDescription().Replace(TEXT("\\\""), TEXT("'")).Replace(TEXT("\""), TEXT("'"));
 		FString const TooltipFieldLabel("\"Tooltip\"     : \"");
 		TooltipStr = TooltipStr.Replace(TEXT("\n"), *(IndentedNewline + BuildIndentString(TooltipFieldLabel.Len(), /*bUseSpaces =*/true)));
 
 		ActionEntry += IndentedNewline + TooltipFieldLabel + TooltipStr + "\",";
-		ActionEntry += IndentedNewline + "\"Keywords\"    : \"" + PrimeAction->Keywords.ToString() + "\",";
-		ActionEntry += IndentedNewline + "\"SearchTitle\" : \"" + PrimeAction->GetSearchTitle().ToString() + "\",";
-		ActionEntry += IndentedNewline + FString::Printf(TEXT("\"Grouping\"    : %d"), PrimeAction->Grouping);
+		ActionEntry += IndentedNewline + "\"Keywords\"    : \"" + PrimeAction->GetKeywords().ToString() + "\",";
+		ActionEntry += IndentedNewline + "\"SearchTitle\" : \"" + PrimeAction->GetMenuDescription().ToString() + "\",";
+		ActionEntry += IndentedNewline + FString::Printf(TEXT("\"Grouping\"    : %d"), PrimeAction->GetGrouping());
 		
 		// Get action node type info
 		UK2Node const* NodeTemplate = FBlueprintActionMenuUtils::ExtractNodeTemplateFromAction(PrimeAction);
@@ -2004,15 +1998,7 @@ static void DumpBlueprintInfoUtils::DumpContextualPinTypeActions(uint32 Indent, 
 	FGraphContextMenuBuilder ContextMenuBuilder(Graph);
 
 	UK2Node_Composite* DummyNode = NewObject<UK2Node_Composite>(Graph);
-	UEdGraphPin* DummyPin = DummyNode->CreatePin(
-		EGPD_Input,
-		PinType.PinCategory,
-		PinType.PinSubCategory,
-		PinType.PinSubCategoryObject.Get(),
-		PinType.bIsArray,
-		PinType.bIsReference,
-		DummyNode->GetName()
-	);
+	UEdGraphPin* DummyPin = DummyNode->CreatePin(EGPD_Input, PinType, DummyNode->GetName());
 	ContextMenuBuilder.FromPin = DummyPin;
 
 	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(Graph);

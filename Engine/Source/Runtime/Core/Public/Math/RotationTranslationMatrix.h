@@ -27,20 +27,20 @@ public:
 
 FORCEINLINE FRotationTranslationMatrix::FRotationTranslationMatrix(const FRotator& Rot, const FVector& Origin)
 {
-#if WITH_DIRECTXMATH	// Currently VectorSinCos() is only vectorized in DirectX implementation. Other platforms become slower if they use this.
+#if PLATFORM_ENABLE_VECTORINTRINSICS
 
-	VectorRegister Angles = MakeVectorRegister(Rot.Roll, Rot.Pitch, Rot.Yaw, 0.0f);
-	VectorRegister HalfAngles = VectorMultiply(Angles, GlobalVectorConstants::DEG_TO_RAD);
+	const VectorRegister Angles = MakeVectorRegister(Rot.Pitch, Rot.Yaw, Rot.Roll, 0.0f);
+	const VectorRegister HalfAngles = VectorMultiply(Angles, GlobalVectorConstants::DEG_TO_RAD);
 
-	union { VectorRegister v; float f[4]; } SinAngles, CosAngles;	
+	union { VectorRegister v; float f[4]; } SinAngles, CosAngles;
 	VectorSinCos(&SinAngles.v, &CosAngles.v, &HalfAngles);
 
-	const float	SR	= SinAngles.f[0];
-	const float	SP	= SinAngles.f[1];
-	const float	SY	= SinAngles.f[2];
-	const float	CR	= CosAngles.f[0];
-	const float	CP	= CosAngles.f[1];
-	const float	CY	= CosAngles.f[2];
+	const float	SP	= SinAngles.f[0];
+	const float	SY	= SinAngles.f[1];
+	const float	SR	= SinAngles.f[2];
+	const float	CP	= CosAngles.f[0];
+	const float	CY	= CosAngles.f[1];
+	const float	CR	= CosAngles.f[2];
 
 #else
 	
@@ -50,7 +50,7 @@ FORCEINLINE FRotationTranslationMatrix::FRotationTranslationMatrix(const FRotato
 	FMath::SinCos(&SY, &CY, FMath::DegreesToRadians(Rot.Yaw));
 	FMath::SinCos(&SR, &CR, FMath::DegreesToRadians(Rot.Roll));
 
-#endif
+#endif // PLATFORM_ENABLE_VECTORINTRINSICS
 
 	M[0][0]	= CP * CY;
 	M[0][1]	= CP * SY;

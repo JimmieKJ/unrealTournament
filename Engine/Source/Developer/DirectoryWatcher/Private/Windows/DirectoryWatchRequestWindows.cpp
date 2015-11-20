@@ -2,13 +2,14 @@
 
 #include "DirectoryWatcherPrivatePCH.h"
 
-FDirectoryWatchRequestWindows::FDirectoryWatchRequestWindows(bool bIncludeDirectoryEvents)
+FDirectoryWatchRequestWindows::FDirectoryWatchRequestWindows(uint32 Flags)
 {
 	bPendingDelete = false;
 	bEndWatchRequestInvoked = false;
 
 	MaxChanges = 16384;
-	bWatchSubtree = true;
+	bWatchSubtree = (Flags & IDirectoryWatcher::WatchOptions::IgnoreChangesInSubtree) == 0;
+	bool bIncludeDirectoryEvents = (Flags & IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges) != 0;
 
 	NotifyFilter = FILE_NOTIFY_CHANGE_FILE_NAME | (bIncludeDirectoryEvents? FILE_NOTIFY_CHANGE_DIR_NAME : 0) | FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION;
 
@@ -106,18 +107,6 @@ FDelegateHandle FDirectoryWatchRequestWindows::AddDelegate( const IDirectoryWatc
 	return Delegates.Last().GetHandle();
 }
 
-bool FDirectoryWatchRequestWindows::RemoveDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
-{
-	return DEPRECATED_RemoveDelegate(InDelegate);
-}
-
-bool FDirectoryWatchRequestWindows::DEPRECATED_RemoveDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate )
-{
-	return Delegates.RemoveAll([&](const IDirectoryWatcher::FDirectoryChanged& Delegate) {
-		return Delegate.DEPRECATED_Compare(InDelegate);
-	}) != 0;
-}
-
 bool FDirectoryWatchRequestWindows::RemoveDelegate( FDelegateHandle InHandle )
 {
 	return Delegates.RemoveAll([=](const IDirectoryWatcher::FDirectoryChanged& Delegate) {
@@ -146,11 +135,12 @@ void FDirectoryWatchRequestWindows::EndWatchRequest()
 #else
 			CancelIo(DirectoryHandle);
 #endif
-			// Wait for cancel operation to finish before closing the handle
-			WaitForSingleObjectEx(DirectoryHandle, 1000, true);
-			
-			::CloseHandle(DirectoryHandle);
+			// Clear the handle so we don't setup any more requests, and wait for the operation to finish
+			HANDLE TempDirectoryHandle = DirectoryHandle;
 			DirectoryHandle = INVALID_HANDLE_VALUE;
+			WaitForSingleObjectEx(TempDirectoryHandle, 1000, true);
+			
+			::CloseHandle(TempDirectoryHandle);
 		}
 		else
 		{

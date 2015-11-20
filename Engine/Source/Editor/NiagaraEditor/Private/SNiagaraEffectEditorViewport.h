@@ -4,7 +4,7 @@
 
 #include "PreviewScene.h"
 #include "SEditorViewport.h"
-
+#include "NiagaraEffect.h"
 
 /**
  * Material Editor Preview viewport widget
@@ -25,7 +25,7 @@ public:
 
 	void RefreshViewport();
 	
-	void SetPreviewEffect(FNiagaraEffectInstance* InEffect);
+	void SetPreviewEffect(TSharedPtr<FNiagaraEffectInstance> InEffect);
 	
 	void ToggleRealtime();
 	

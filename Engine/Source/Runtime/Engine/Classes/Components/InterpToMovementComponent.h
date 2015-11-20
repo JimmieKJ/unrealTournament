@@ -39,12 +39,12 @@ public:
 	{
 		bPositionIsRelative = true;
 	}
-	FInterpControlPoint(FVector InPosition)
+	FInterpControlPoint(FVector InPosition, bool bIsRelative)
 	{
 		PositionControlPoint = InPosition;
-		bPositionIsRelative = true;
+		bPositionIsRelative = bIsRelative;
 	}
-	
+
 	float StartTime;
 	float DistanceToNext;
 	float Percentage;
@@ -70,7 +70,7 @@ class ENGINE_API UInterpToMovementComponent : public UMovementComponent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Control,meta=(UIMin=0.1f, ClampMin=0.1f))
 	float Duration;
 	
-	/** If true, will pause movement on impact, otherwise will flip movement direction. */
+	/** If true, will pause movement on impact. If false it will behave as if the end of the movement range was reached based on the BehaviourType. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Behaviour)
 	uint32 bPauseOnImpact:1;
 
@@ -174,12 +174,20 @@ class ENGINE_API UInterpToMovementComponent : public UMovementComponent
 	TArray<FInterpControlPoint> ControlPoints;
 		
 	/* Add a control point that represents a position. */
-	virtual void AddControlPointPosition(FVector Pos);
+	virtual void AddControlPointPosition(FVector Pos, bool bPositionIsRelative = true);
 	
+	/* Reset to start. Sets time to zero and direction to 1.  */
+	UFUNCTION(BlueprintCallable, Category = "Control")
+	void RestartMovement(float InitialDirection = 1.0f);
+
+	/* Initialise the control points array. Call after adding control points if they are add after begin play .  */
+	UFUNCTION(BlueprintCallable, Category = "Control")
+	void FinaliseControlPoints();
+
 #if WITH_EDITOR
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End UObject interface.
+	//~ End UObject Interface.
 #endif // WITH_EDITOR
 
 protected:

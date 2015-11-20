@@ -4,19 +4,16 @@
 #include "AnimGraphNode_Base.h"
 #include "Animation/AnimNode_SequencePlayer.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
+#include "AnimGraphNode_AssetPlayerBase.h"
 #include "AnimGraphNode_SequencePlayer.generated.h"
 
 UCLASS(MinimalAPI)
-class UAnimGraphNode_SequencePlayer : public UAnimGraphNode_Base
+class UAnimGraphNode_SequencePlayer : public UAnimGraphNode_AssetPlayerBase
 {
 	GENERATED_UCLASS_BODY()
 
 	UPROPERTY(EditAnywhere, Category=Settings)
 	FAnimNode_SequencePlayer Node;
-
-	// Sync group settings for this player.  Sync groups keep related animations with different lengths synchronized.
-	UPROPERTY(EditAnywhere, Category=Settings)
-	FAnimationGroupReference SyncGroup;
 
 	// UEdGraphNode interface
 	virtual FLinearColor GetNodeTitleColor() const override;

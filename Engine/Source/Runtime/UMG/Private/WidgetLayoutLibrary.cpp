@@ -18,22 +18,30 @@ UWidgetLayoutLibrary::UWidgetLayoutLibrary(const FObjectInitializer& ObjectIniti
 
 bool UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(APlayerController* PlayerController, FVector WorldLocation, FVector2D& ScreenPosition)
 {
+	FVector ScreenPosition3D;
+	const bool bSuccess = ProjectWorldLocationToWidgetPositionWithDistance(PlayerController, WorldLocation, ScreenPosition3D);
+	ScreenPosition = FVector2D(ScreenPosition3D.X, ScreenPosition3D.Y);
+	return bSuccess;
+}
+
+bool UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPositionWithDistance(APlayerController* PlayerController, FVector WorldLocation, FVector& ScreenPosition)
+{	
 	if ( PlayerController )
 	{
-		FVector2D PixelLocation;
-		const bool bProjected = PlayerController->ProjectWorldLocationToScreen(WorldLocation, PixelLocation);
+		FVector PixelLocation;
+		const bool bProjected = PlayerController->ProjectWorldLocationToScreenWithDistance(WorldLocation, PixelLocation);
 
 		if ( bProjected )
 		{
-			// If the user has configured a resolution quality we need to multiply
-			// the pixels by the resolution quality to arrive at the true position in
-			// the viewport, as the rendered image will be stretched to fill whatever
-			// size the viewport is at.
-			Scalability::FQualityLevels ScalabilityQuality = Scalability::GetQualityLevels();
-			const float QualityScale = ( ScalabilityQuality.ResolutionQuality / 100.0f );
+			ScreenPosition = PixelLocation;
 
-			// Remove the resolution quality scale.
-			ScreenPosition = PixelLocation / QualityScale;
+			// Round the pixel projected value to reduce jittering due to layout rounding,
+			// I do this before I remove scaling, because scaling is going to be applied later
+			// in the opposite direction, so as long as we round, before inverse scale, scale should
+			// result in more or less the same value, especially after slate does layout rounding.
+			ScreenPosition.X = FMath::RoundToInt(ScreenPosition.X);
+			ScreenPosition.Y = FMath::RoundToInt(ScreenPosition.Y);
+			ScreenPosition.Z = PixelLocation.Z;
 
 			// Get the application / DPI scale
 			const float Scale = UWidgetLayoutLibrary::GetViewportScale(PlayerController);
@@ -44,6 +52,8 @@ bool UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(APlayerControlle
 			return true;
 		}
 	}
+
+	ScreenPosition = FVector(0, 0, 0);
 
 	return false;
 }
@@ -57,7 +67,7 @@ float UWidgetLayoutLibrary::GetViewportScale(UObject* WorldContextObject)
 		{
 			FVector2D ViewportSize;
 			ViewportClient->GetViewportSize(ViewportSize);
-			return GetDefault<UUserInterfaceSettings>(UUserInterfaceSettings::StaticClass())->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
+			return GetDefault<UUserInterfaceSettings>()->GetDPIScaleBasedOnSize(FIntPoint(ViewportSize.X, ViewportSize.Y));
 		}
 	}
 
@@ -94,34 +104,74 @@ FVector2D UWidgetLayoutLibrary::GetViewportSize(UObject* WorldContextObject)
 	return FVector2D(1, 1);
 }
 
-UCanvasPanelSlot* UWidgetLayoutLibrary::SlotAsCanvasSlot(UWidget* ChildWidget)
+UBorderSlot* UWidgetLayoutLibrary::SlotAsBorderSlot(UWidget* Widget)
 {
-	return Cast<UCanvasPanelSlot>(ChildWidget->Slot);
+	if (Widget)
+	{
+		return Cast<UBorderSlot>(Widget->Slot);
+	}
+
+	return nullptr;
 }
 
-UGridSlot* UWidgetLayoutLibrary::SlotAsGridSlot(UWidget* ChildWidget)
+UCanvasPanelSlot* UWidgetLayoutLibrary::SlotAsCanvasSlot(UWidget* Widget)
 {
-	return Cast<UGridSlot>(ChildWidget->Slot);
+	if (Widget)
+	{
+		return Cast<UCanvasPanelSlot>(Widget->Slot);
+	}
+
+	return nullptr;
 }
 
-UHorizontalBoxSlot* UWidgetLayoutLibrary::SlotAsHorizontalBoxSlot(UWidget* ChildWidget)
+UGridSlot* UWidgetLayoutLibrary::SlotAsGridSlot(UWidget* Widget)
 {
-	return Cast<UHorizontalBoxSlot>(ChildWidget->Slot);
+	if (Widget)
+	{
+		return Cast<UGridSlot>(Widget->Slot);
+	}
+
+	return nullptr;
 }
 
-UOverlaySlot* UWidgetLayoutLibrary::SlotAsOverlaySlot(UWidget* ChildWidget)
+UHorizontalBoxSlot* UWidgetLayoutLibrary::SlotAsHorizontalBoxSlot(UWidget* Widget)
 {
-	return Cast<UOverlaySlot>(ChildWidget->Slot);
+	if (Widget)
+	{
+		return Cast<UHorizontalBoxSlot>(Widget->Slot);
+	}
+
+	return nullptr;
 }
 
-UUniformGridSlot* UWidgetLayoutLibrary::SlotAsUniformGridSlot(UWidget* ChildWidget)
+UOverlaySlot* UWidgetLayoutLibrary::SlotAsOverlaySlot(UWidget* Widget)
 {
-	return Cast<UUniformGridSlot>(ChildWidget->Slot);
+	if (Widget)
+	{
+		return Cast<UOverlaySlot>(Widget->Slot);
+	}
+
+	return nullptr;
 }
 
-UVerticalBoxSlot* UWidgetLayoutLibrary::SlotAsVerticalBoxSlot(UWidget* ChildWidget)
+UUniformGridSlot* UWidgetLayoutLibrary::SlotAsUniformGridSlot(UWidget* Widget)
 {
-	return Cast<UVerticalBoxSlot>(ChildWidget->Slot);
+	if (Widget)
+	{
+		return Cast<UUniformGridSlot>(Widget->Slot);
+	}
+
+	return nullptr;
+}
+
+UVerticalBoxSlot* UWidgetLayoutLibrary::SlotAsVerticalBoxSlot(UWidget* Widget)
+{
+	if (Widget)
+	{
+		return Cast<UVerticalBoxSlot>(Widget->Slot);
+	}
+
+	return nullptr;
 }
 
 void UWidgetLayoutLibrary::RemoveAllWidgets(UObject* WorldContextObject)

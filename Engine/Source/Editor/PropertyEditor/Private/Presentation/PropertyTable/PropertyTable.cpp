@@ -376,17 +376,15 @@ void SetCellValue( const TSharedRef< IPropertyTableCell >& Cell, FString Value )
 		return;
 	}
 
-	// We need to put quotes around property name strings
+	// We need to sanitize property name strings
 	TSharedPtr<FPropertyNode> PropertyNode = Cell->GetNode();
 	if (PropertyNode.IsValid())
 	{
 		UProperty* NodeProperty = PropertyNode->GetProperty();
 		if (NodeProperty->IsA(UNameProperty::StaticClass()))
 		{
-			// Remove any pre-existing quotes and return characters
-			Value = Value.TrimQuotes().Replace(TEXT("\n"), TEXT("")).Replace(TEXT("\r"), TEXT(""));
-			// Add quotes
-			Value = FString::Printf(TEXT("\"%s\""), *Value);
+			// Remove any pre-existing return characters
+			Value = Value.TrimQuotes().Replace(TEXT("\n"), TEXT(""));
 		}
 	}
 

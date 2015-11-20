@@ -138,6 +138,7 @@ void UGameUserSettings::SetToDefaults()
 	WindowPosX = GetDefaultWindowPosition().X;
 	WindowPosY = GetDefaultWindowPosition().Y;
 	FullscreenMode = GetDefaultWindowMode();
+	FrameRateLimit = 0.0f;
 
 	ScalabilityQuality.SetDefaults();
 }
@@ -196,8 +197,33 @@ void UGameUserSettings::ApplyNonResolutionSettings()
 
 	// Update vsync cvar
 	{
-		static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VSync")); 
-		CVar->Set(IsVSyncEnabled(), ECVF_SetByGameSetting);
+		FString ConfigSection = TEXT("SystemSettings");
+#if WITH_EDITOR
+		if (GIsEditor)
+		{
+			ConfigSection = TEXT("SystemSettingsEditor");
+		}
+#endif
+		int32 VSyncValue = 0;
+		if (GConfig->GetInt(*ConfigSection, TEXT("r.Vsync"), VSyncValue, GEngineIni))
+		{
+			// VSync was already set by system settings. We are capable of setting it here.
+		}
+		else
+		{
+			static auto CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.VSync"));
+			CVar->Set(IsVSyncEnabled(), ECVF_SetByGameSetting);
+		}
+	}
+
+	if (!IsRunningDedicatedServer())
+	{
+		// Update MaxFPS cvar
+		static IConsoleVariable* MaxFPSCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("t.MaxFPS"));
+		if (ensure(MaxFPSCVar) && (FrameRateLimit >= 0.0f))
+		{
+			MaxFPSCVar->Set(FrameRateLimit, ECVF_SetByGameSetting);
+		}
 	}
 
 	// in init those are loaded earlier, after that we apply consolevariables.ini
@@ -222,7 +248,6 @@ void UGameUserSettings::ApplyResolutionSettings(bool bCheckForCommandLineOverrid
 	// Request a resolution change
 	RequestResolutionChange(ResolutionSizeX, ResolutionSizeY, NewFullscreenMode, bCheckForCommandLineOverrides);
 	IConsoleManager::Get().CallAllConsoleVariableSinks();
-
 }
 
 void UGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
@@ -234,11 +259,6 @@ void UGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 	UE_LOG(LogConsoleResponse, Display, TEXT(""));
 }
 
-void UGameUserSettings::ApplySettings()
-{
-	ApplySettings(true);
-}
-
 void UGameUserSettings::LoadSettings( bool bForceReload/*=false*/ )
 {
 	if ( bForceReload )
@@ -248,7 +268,7 @@ void UGameUserSettings::LoadSettings( bool bForceReload/*=false*/ )
 	LoadConfig(GetClass(), *GGameUserSettingsIni);
 
 
-	// Note: Scalability::LoadState() should not be needed as we already loaed the settings earlier (needed so the engine can startup with that before the game is initialized)
+	// Note: Scalability::LoadState() should not be needed as we already loaded the settings earlier (needed so the engine can startup with that before the game is initialized)
 	ScalabilityQuality = Scalability::GetQualityLevels();
 
 	// Allow override using command-line settings
@@ -272,10 +292,8 @@ void UGameUserSettings::RequestResolutionChange(int32 InResolutionX, int32 InRes
 
 void UGameUserSettings::SaveSettings()
 {
-	if (!GIsEditor)
-	{
-		Scalability::SaveState(GGameUserSettingsIni);
-	}
+	// Save the Scalability state to the same ini file as it was loaded from in FEngineLoop::Preinit
+	Scalability::SaveState(GIsEditor ? GEditorSettingsIni : GGameUserSettingsIni);
 	SaveConfig(CPF_Config, *GGameUserSettingsIni);
 }
 
@@ -386,3 +404,112 @@ void UGameUserSettings::SetBenchmarkFallbackValues()
 	ScalabilityQuality.SetBenchmarkFallback();
 }
 
+void UGameUserSettings::SetAudioQualityLevel(int32 QualityLevel)
+{
+	AudioQualityLevel = QualityLevel;
+}
+
+void UGameUserSettings::SetFrameRateLimit(float NewLimit)
+{
+	FrameRateLimit = NewLimit;
+}
+
+float UGameUserSettings::GetFrameRateLimit() const
+{
+	return FrameRateLimit;
+}
+
+void UGameUserSettings::SetOverallScalabilityLevel(int32 Value)
+{
+	Value = FMath::Clamp(Value, 0, 3);
+	ScalabilityQuality.SetFromSingleQualityLevel(Value);
+}
+
+int32 UGameUserSettings::GetOverallScalabilityLevel() const
+{
+	return ScalabilityQuality.GetSingleQualityLevel();
+}
+
+void UGameUserSettings::GetResolutionScaleInformation(float& CurrentScaleNormalized, int32& CurrentScaleValue, int32& MinScaleValue, int32& MaxScaleValue) const
+{
+	CurrentScaleValue = ScalabilityQuality.ResolutionQuality;
+	MinScaleValue = Scalability::MinResolutionScale;
+	MaxScaleValue = Scalability::MaxResolutionScale;
+	CurrentScaleNormalized = ((float)CurrentScaleValue - (float)MinScaleValue) / (float)(MaxScaleValue - MinScaleValue);
+}
+
+void UGameUserSettings::SetResolutionScaleValue(int32 NewScaleValue)
+{
+	ScalabilityQuality.ResolutionQuality = FMath::Clamp(NewScaleValue, Scalability::MinResolutionScale, Scalability::MaxResolutionScale);
+}
+
+void UGameUserSettings::SetResolutionScaleNormalized(float NewScaleNormalized)
+{
+	const int32 RemappedValue = (int32)FMath::Lerp((float)Scalability::MinResolutionScale, (float)Scalability::MaxResolutionScale, NewScaleNormalized);
+	SetResolutionScaleValue(RemappedValue);
+}
+
+void UGameUserSettings::SetViewDistanceQuality(int32 Value)
+{
+	ScalabilityQuality.ViewDistanceQuality = FMath::Clamp(Value, 0, 3);
+}
+
+int32 UGameUserSettings::GetViewDistanceQuality() const
+{
+	return ScalabilityQuality.ViewDistanceQuality;
+}
+
+void UGameUserSettings::SetShadowQuality(int32 Value)
+{
+	ScalabilityQuality.ShadowQuality = FMath::Clamp(Value, 0, 3);
+}
+
+int32 UGameUserSettings::GetShadowQuality() const
+{
+	return ScalabilityQuality.ShadowQuality;
+}
+
+void UGameUserSettings::SetAntiAliasingQuality(int32 Value)
+{
+	ScalabilityQuality.AntiAliasingQuality = FMath::Clamp(Value, 0, 3);
+}
+
+int32 UGameUserSettings::GetAntiAliasingQuality() const
+{
+	return ScalabilityQuality.AntiAliasingQuality;
+}
+
+void UGameUserSettings::SetTextureQuality(int32 Value)
+{
+	ScalabilityQuality.TextureQuality = FMath::Clamp(Value, 0, 3);
+}
+
+int32 UGameUserSettings::GetTextureQuality() const
+{
+	return ScalabilityQuality.TextureQuality;
+}
+
+void UGameUserSettings::SetVisualEffectQuality(int32 Value)
+{
+	ScalabilityQuality.EffectsQuality = FMath::Clamp(Value, 0, 3);
+}
+
+int32 UGameUserSettings::GetVisualEffectQuality() const
+{
+	return ScalabilityQuality.EffectsQuality;
+}
+
+void UGameUserSettings::SetPostProcessingQuality(int32 Value)
+{
+	ScalabilityQuality.PostProcessQuality = FMath::Clamp(Value, 0, 3);
+}
+
+int32 UGameUserSettings::GetPostProcessingQuality() const
+{
+	return ScalabilityQuality.PostProcessQuality;
+}
+
+UGameUserSettings* UGameUserSettings::GetGameUserSettings()
+{
+	return GEngine->GetGameUserSettings();
+}

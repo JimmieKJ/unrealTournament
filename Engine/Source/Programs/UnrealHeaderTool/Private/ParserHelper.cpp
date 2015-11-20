@@ -250,11 +250,11 @@ bool FAdvancedDisplayParameterHandler::CanMarkMore() const
 	return bUseNumber ? (NumberLeaveUnmarked > 0) : (0 != ParametersNames.Num());
 }
 
-TMap<UFunction*, TSharedRef<FFunctionData> > FFunctionData::FunctionDataMap;
+TMap<UFunction*, TUniqueObj<FFunctionData> > FFunctionData::FunctionDataMap;
 
 FFunctionData* FFunctionData::FindForFunction(UFunction* Function)
 {
-	auto* Output = FunctionDataMap.Find(Function);
+	TUniqueObj<FFunctionData>* Output = FunctionDataMap.Find(Function);
 
 	check(Output);
 
@@ -263,21 +263,21 @@ FFunctionData* FFunctionData::FindForFunction(UFunction* Function)
 
 FFunctionData* FFunctionData::Add(UFunction* Function)
 {
-	auto Output = FunctionDataMap.Add(Function, MakeShareable(new FFunctionData()));
+	TUniqueObj<FFunctionData>& Output = FunctionDataMap.Add(Function);
 
 	return &Output.Get();
 }
 
 FFunctionData* FFunctionData::Add(const FFuncInfo& FunctionInfo)
 {
-	auto Output = FunctionDataMap.Add(FunctionInfo.FunctionReference, MakeShareable(new FFunctionData(FunctionInfo)));
+	TUniqueObj<FFunctionData>& Output = FunctionDataMap.Emplace(FunctionInfo.FunctionReference, FunctionInfo);
 
 	return &Output.Get();
 }
 
 bool FFunctionData::TryFindForFunction(UFunction* Function, FFunctionData*& OutData)
 {
-	auto* Output = FunctionDataMap.Find(Function);
+	TUniqueObj<FFunctionData>* Output = FunctionDataMap.Find(Function);
 
 	if (!Output)
 	{

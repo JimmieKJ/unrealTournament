@@ -36,11 +36,6 @@ IOnlineUserCloudPtr FOnlineSubsystemFacebook::GetUserCloudInterface() const
 	return nullptr;
 }
 
-IOnlineUserCloudPtr FOnlineSubsystemFacebook::GetUserCloudInterface(const FString& Key) const
-{
-	return nullptr;
-}
-
 IOnlineLeaderboardsPtr FOnlineSubsystemFacebook::GetLeaderboardsInterface() const
 {
 	return nullptr;
@@ -146,6 +141,8 @@ bool FOnlineSubsystemFacebook::Shutdown()
 {
 	UE_LOG(LogOnline, Display, TEXT("FOnlineSubsystemFacebook::Shutdown()"));
 	
+	FOnlineSubsystemImpl::Shutdown();
+
 	FacebookIdentity = nullptr;
 	FacebookFriends = nullptr;
 	return true;

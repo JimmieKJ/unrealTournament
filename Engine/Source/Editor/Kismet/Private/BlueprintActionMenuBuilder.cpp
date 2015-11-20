@@ -14,8 +14,11 @@
 #include "SMyBlueprint.h"				// for SelectionAsVar()
 #include "BlueprintEditorUtils.h"		// for FindBlueprintForGraphChecked()
 #include "BlueprintEditor.h"			// for GetFocusedGraph()
+#include "EditorCategoryUtils.h"
+#include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintActionMenuBuilder"
+DEFINE_LOG_CATEGORY_STATIC(LogBlueprintActionMenuItemFactory, Log, All);
 
 /*******************************************************************************
  * FBlueprintActionMenuItemFactory
@@ -107,10 +110,7 @@ TSharedPtr<FBlueprintActionMenuItem> FBlueprintActionMenuItemFactory::MakeAction
 	FBlueprintActionUiSpec UiSignature = GetActionUiSignature(EditorContext, ActionInfo);
 
 	UBlueprintNodeSpawner const* Action = ActionInfo.NodeSpawner;
-	FBlueprintActionMenuItem* NewMenuItem = new FBlueprintActionMenuItem(Action, UiSignature);
-
-	NewMenuItem->Grouping = MenuGrouping;
-	NewMenuItem->Category = FString::Printf(TEXT("%s|%s"), *RootCategory.ToString(), *NewMenuItem->Category);
+	FBlueprintActionMenuItem* NewMenuItem = new FBlueprintActionMenuItem(Action, UiSignature, IBlueprintNodeBinder::FBindingSet(), FText::FromString(RootCategory.ToString() + TEXT('|') + UiSignature.Category.ToString()), MenuGrouping);
 
 	return MakeShareable(NewMenuItem);
 }
@@ -119,9 +119,67 @@ TSharedPtr<FBlueprintActionMenuItem> FBlueprintActionMenuItemFactory::MakeAction
 TSharedPtr<FBlueprintDragDropMenuItem> FBlueprintActionMenuItemFactory::MakeDragDropMenuItem(UBlueprintNodeSpawner const* SampleAction)
 {
 	// FBlueprintDragDropMenuItem takes care of its own menu MenuDescription, etc.
-	FBlueprintDragDropMenuItem* NewMenuItem = new FBlueprintDragDropMenuItem(Context, SampleAction, MenuGrouping);
+	UProperty const* SampleProperty = nullptr;
+	if (UBlueprintDelegateNodeSpawner const* DelegateSpawner = Cast<UBlueprintDelegateNodeSpawner const>(SampleAction))
+	{
+		SampleProperty = DelegateSpawner->GetDelegateProperty();
+	}
+	else if (UBlueprintVariableNodeSpawner const* VariableSpawner = Cast<UBlueprintVariableNodeSpawner const>(SampleAction))
+	{
+		SampleProperty = VariableSpawner->GetVarProperty();
+	}
 
-	NewMenuItem->Category = FString::Printf(TEXT("%s|%s"), *RootCategory.ToString(), *NewMenuItem->Category);
+	FText MenuDescription;
+	FString TooltipDescription;
+	FText Category;
+	if (SampleProperty != nullptr)
+	{
+		bool const bShowFriendlyNames = GetDefault<UEditorStyleSettings>()->bShowFriendlyNames;
+		MenuDescription = bShowFriendlyNames ? FText::FromString(UEditorEngine::GetFriendlyName(SampleProperty)) : FText::FromName(SampleProperty->GetFName());
+
+		TooltipDescription = SampleProperty->GetToolTipText().ToString();
+		Category = FObjectEditorUtils::GetCategoryText(SampleProperty);
+
+		bool const bIsDelegateProperty = SampleProperty->IsA<UMulticastDelegateProperty>();
+		if (bIsDelegateProperty && Category.IsEmpty())
+		{
+			Category = FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::Delegates);
+		}
+		else if (!bIsDelegateProperty)
+		{
+			check(Context.Blueprints.Num() > 0);
+			UBlueprint const* Blueprint = Context.Blueprints[0];
+			UClass const*     BlueprintClass = (Blueprint->SkeletonGeneratedClass != nullptr) ? Blueprint->SkeletonGeneratedClass : Blueprint->ParentClass;
+
+			UClass const* PropertyClass = SampleProperty->GetOwnerClass();
+			checkSlow(PropertyClass != nullptr);
+			bool const bIsMemberProperty = BlueprintClass->IsChildOf(PropertyClass);
+
+			FText TextCategory;
+			if (Category.IsEmpty())
+			{
+				TextCategory = FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::Variables);
+			}
+			else if (bIsMemberProperty)
+			{
+				TextCategory = FEditorCategoryUtils::BuildCategoryString(FCommonEditorCategory::Variables, Category);
+			}
+
+			if (!bIsMemberProperty)
+			{
+				TextCategory = FText::Format(LOCTEXT("NonMemberVarCategory", "Class|{0}|{1}"), PropertyClass->GetDisplayNameText(), TextCategory);
+			}
+			Category = TextCategory;
+		}
+	}
+	else
+	{
+		UE_LOG(LogBlueprintActionMenuItemFactory, Warning, TEXT("Unhandled (or invalid) spawner: '%s'"), *SampleAction->GetName());
+	}
+
+	Category = FText::FromString(RootCategory.ToString() + TEXT('|') + Category.ToString());
+
+	FBlueprintDragDropMenuItem* NewMenuItem = new FBlueprintDragDropMenuItem(Context, SampleAction, MenuGrouping, Category, MenuDescription, TooltipDescription);
 	return MakeShareable(NewMenuItem);
 }
 
@@ -131,10 +189,7 @@ TSharedPtr<FBlueprintActionMenuItem> FBlueprintActionMenuItemFactory::MakeBoundM
 	FBlueprintActionUiSpec UiSignature = GetActionUiSignature(EditorContext, ActionInfo);
 
 	UBlueprintNodeSpawner const* Action = ActionInfo.NodeSpawner;
-	FBlueprintActionMenuItem* NewMenuItem = new FBlueprintActionMenuItem(Action, UiSignature, ActionInfo.GetBindings());
-
-	NewMenuItem->Grouping = MenuGrouping;
-	NewMenuItem->Category = FString::Printf(TEXT("%s|%s"), *RootCategory.ToString(), *NewMenuItem->Category);
+	FBlueprintActionMenuItem* NewMenuItem = new FBlueprintActionMenuItem(Action, UiSignature, ActionInfo.GetBindings(), FText::FromString(RootCategory.ToString() + TEXT('|') + UiSignature.Category.ToString()), MenuGrouping);
 
 	return MakeShareable(NewMenuItem);
 }
@@ -331,7 +386,7 @@ void FBlueprintActionMenuBuilderImpl::FMenuSectionDefinition::AddBoundMenuItems(
 
 					if (Flags & FBlueprintActionMenuBuilder::FlattenCategoryHierarcy)
 					{
-						LastMadeMenuItem->Category = ItemFactory.RootCategory.ToString();
+						LastMadeMenuItem->UpdateCategory( ItemFactory.RootCategory );
 					}
 				}
 				else
@@ -396,7 +451,7 @@ FBlueprintActionMenuBuilderImpl::MenuItemList FBlueprintActionMenuBuilderImpl::F
 		UnBoundMenuEntry = ItemFactory.MakeActionMenuItem(EditorContext, DatabaseAction);
 		if (Flags & FBlueprintActionMenuBuilder::FlattenCategoryHierarcy)
 		{
-			UnBoundMenuEntry->Category = ItemFactory.RootCategory.ToString();
+			UnBoundMenuEntry->UpdateCategory( ItemFactory.RootCategory );
 		}
 	}
 

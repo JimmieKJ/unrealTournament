@@ -313,15 +313,17 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 	// two RT to ping pong so we force the GPU to flush it's pipeline
 	TRefCountPtr<IPooledRenderTarget> RTItems[3];
 	{
-		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(GBenchmarkResolution, GBenchmarkResolution), PF_B8G8R8A8, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource, false));
-		GRenderTargetPool.FindFreeElement(Desc, RTItems[0], TEXT("Benchmark0"));
-		GRenderTargetPool.FindFreeElement(Desc, RTItems[1], TEXT("Benchmark1"));
+		FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(GBenchmarkResolution, GBenchmarkResolution), PF_B8G8R8A8, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource, false));
+		Desc.AutoWritable = false;
+
+		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, RTItems[0], TEXT("Benchmark0"));
+		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, RTItems[1], TEXT("Benchmark1"));
 
 		Desc.Extent = FIntPoint(1, 1);
 		Desc.Flags = TexCreate_CPUReadback;	// needs TexCreate_ResolveTargetable?
 		Desc.TargetableFlags = TexCreate_None;
 
-		GRenderTargetPool.FindFreeElement(Desc, RTItems[2], TEXT("BenchmarkReadback"));
+		GRenderTargetPool.FindFreeElement(RHICmdList, Desc, RTItems[2], TEXT("BenchmarkReadback"));
 	}
 
 	// set the state
@@ -382,11 +384,11 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 				}
 			}
 			
-			InOut.GPUStats[0] = FSynthBenchmarkStat(TEXT("ALUHeavyNoise"), 1.0f / 4.601f, TEXT("s/GigaPix"));
-			InOut.GPUStats[1] = FSynthBenchmarkStat(TEXT("TexHeavy"), 1.0f / 7.447f, TEXT("s/GigaPix"));
-			InOut.GPUStats[2] = FSynthBenchmarkStat(TEXT("DepTexHeavy"), 1.0f / 3.847f, TEXT("s/GigaPix"));
-			InOut.GPUStats[3] = FSynthBenchmarkStat(TEXT("FillOnly"), 1.0f / 25.463f, TEXT("s/GigaPix"));
-			InOut.GPUStats[4] = FSynthBenchmarkStat(TEXT("Bandwidth"), 1.0f / 1.072f, TEXT("s/GigaPix"));
+			InOut.GPUStats[0] = FSynthBenchmarkStat(TEXT("ALUHeavyNoise"), 1.0f / 4.601f, TEXT("s/GigaPix"), 1.f);
+			InOut.GPUStats[1] = FSynthBenchmarkStat(TEXT("TexHeavy"), 1.0f / 7.447f, TEXT("s/GigaPix"), 0.1f);
+			InOut.GPUStats[2] = FSynthBenchmarkStat(TEXT("DepTexHeavy"), 1.0f / 3.847f, TEXT("s/GigaPix"), 0.1f);
+			InOut.GPUStats[3] = FSynthBenchmarkStat(TEXT("FillOnly"), 1.0f / 25.463f, TEXT("s/GigaPix"), 3.f);
+			InOut.GPUStats[4] = FSynthBenchmarkStat(TEXT("Bandwidth"), 1.0f / 1.072f, TEXT("s/GigaPix"), 1.f);
 			InOut.GPUStats[0].SetMeasuredTime( FTimeSample(PerfScale, PerfScale * (1.0f / 4.601f)) );
 			InOut.GPUStats[1].SetMeasuredTime( FTimeSample(PerfScale, PerfScale * (1.0f / 7.447f)) );
 			InOut.GPUStats[2].SetMeasuredTime( FTimeSample(PerfScale, PerfScale * (1.0f / 3.847f)) );
@@ -408,11 +410,11 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 		}
 
 		check(MethodCount == 5);
-		InOut.GPUStats[0] = FSynthBenchmarkStat(TEXT("ALUHeavyNoise"), 1.0f / 4.601f, TEXT("s/GigaPix"));
-		InOut.GPUStats[1] = FSynthBenchmarkStat(TEXT("TexHeavy"), 1.0f / 7.447f, TEXT("s/GigaPix"));
-		InOut.GPUStats[2] = FSynthBenchmarkStat(TEXT("DepTexHeavy"), 1.0f / 3.847f, TEXT("s/GigaPix"));
-		InOut.GPUStats[3] = FSynthBenchmarkStat(TEXT("FillOnly"), 1.0f / 25.463f, TEXT("s/GigaPix"));
-		InOut.GPUStats[4] = FSynthBenchmarkStat(TEXT("Bandwidth"), 1.0f / 1.072f, TEXT("s/GigaPix"));
+		InOut.GPUStats[0] = FSynthBenchmarkStat(TEXT("ALUHeavyNoise"), 1.0f / 4.601f, TEXT("s/GigaPix"), 1.f);
+		InOut.GPUStats[1] = FSynthBenchmarkStat(TEXT("TexHeavy"), 1.0f / 7.447f, TEXT("s/GigaPix"), 0.1f);
+		InOut.GPUStats[2] = FSynthBenchmarkStat(TEXT("DepTexHeavy"), 1.0f / 3.847f, TEXT("s/GigaPix"), 0.1f);
+		InOut.GPUStats[3] = FSynthBenchmarkStat(TEXT("FillOnly"), 1.0f / 25.463f, TEXT("s/GigaPix"), 3.f);
+		InOut.GPUStats[4] = FSynthBenchmarkStat(TEXT("Bandwidth"), 1.0f / 1.072f, TEXT("s/GigaPix"), 1.f);
 
 		// e.g. on NV670: Method3 (mostly fill rate )-> 26GP/s (seems realistic)
 		// reference: http://en.wikipedia.org/wiki/Comparison_of_Nvidia_graphics_processing_units theoretical: 29.3G/s
@@ -435,7 +437,7 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 
 				GRenderTargetPool.VisualizeTexture.SetCheckPoint(RHICmdList, RTItems[DestRTIndex]);
 
-				SetRenderTarget(RHICmdList, RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, FTextureRHIRef());	
+				SetRenderTarget(RHICmdList, RTItems[DestRTIndex]->GetRenderTargetItem().TargetableTexture, FTextureRHIRef(), true);	
 
 				// decide how much work we do in this pass
 				LocalWorkScale[Iteration] = (Iteration / 10.f + 1.f) * WorkScale;
@@ -477,7 +479,7 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 			// flushes the RHI thread to make sure all RHICmdList.EndRenderQuery() commands got executed.
 			RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
 			RHICmdList.GetRenderQueryResult(TimerQueries[0], OldAbsTime, true);
-			GTimerQueryPool.ReleaseQuery(RHICmdList, TimerQueries[0]);
+			GTimerQueryPool.ReleaseQuery(TimerQueries[0]);
 
 			for(uint32 Iteration = 0; Iteration < IterationCount; ++Iteration)
 			{
@@ -489,7 +491,7 @@ void RendererGPUBenchmark(FRHICommandListImmediate& RHICmdList, FSynthBenchmarkR
 
 					uint64 AbsTime;
 					RHICmdList.GetRenderQueryResult(TimerQueries[QueryIndex], AbsTime, true);
-					GTimerQueryPool.ReleaseQuery(RHICmdList, TimerQueries[QueryIndex]);
+					GTimerQueryPool.ReleaseQuery(TimerQueries[QueryIndex]);
 
 					uint64 RelTime = AbsTime - OldAbsTime; 
 

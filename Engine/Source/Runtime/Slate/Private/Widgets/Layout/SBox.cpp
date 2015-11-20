@@ -6,6 +6,8 @@
 SBox::SBox()
 : ChildSlot()
 {
+	bCanTick = false;
+	bCanSupportFocus = false;
 }
 
 void SBox::Construct( const FArguments& InArgs )

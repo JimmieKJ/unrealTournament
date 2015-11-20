@@ -76,8 +76,8 @@ typedef void (GL_APIENTRYP PFNGLPUSHGROUPMARKEREXTPROC) (GLsizei length, const G
 typedef void (GL_APIENTRYP PFNGLLABELOBJECTEXTPROC) (GLenum type, GLuint object, GLsizei length, const GLchar *label);
 typedef void (GL_APIENTRYP PFNGLGETOBJECTLABELEXTPROC) (GLenum type, GLuint object, GLsizei bufSize, GLsizei *length, GLchar *label);
 typedef void (GL_APIENTRYP PFNGLPOPGROUPMARKEREXTPROC) (void);
-typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level, GLsizei samples);
-typedef void (GL_APIENTRYP PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXT) (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
+typedef void (GL_APIENTRYP PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC) (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level, GLsizei samples);
+typedef void (GL_APIENTRYP PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC) (GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height);
 /** from ES 3.0 but can be called on certain Adreno devices */
 typedef void (GL_APIENTRYP PFNGLTEXSTORAGE2DPROC) (GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
 
@@ -94,8 +94,8 @@ extern PFNGLGETQUERYOBJECTUI64VEXTPROC	glGetQueryObjectui64vEXT;
 extern PFNGLMAPBUFFEROESPROC			glMapBufferOES;
 extern PFNGLUNMAPBUFFEROESPROC			glUnmapBufferOES;
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC 	glDiscardFramebufferEXT ;
-extern PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT	glFramebufferTexture2DMultisampleEXT;
-extern PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXT	glRenderbufferStorageMultisampleEXT;
+extern PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC	glFramebufferTexture2DMultisampleEXT;
+extern PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC	glRenderbufferStorageMultisampleEXT;
 extern PFNGLPUSHGROUPMARKEREXTPROC		glPushGroupMarkerEXT;
 extern PFNGLLABELOBJECTEXTPROC			glLabelObjectEXT;
 extern PFNGLGETOBJECTLABELEXTPROC		glGetObjectLabelEXT;
@@ -126,6 +126,11 @@ extern "C"
 
 struct FAndroidOpenGL : public FOpenGLES2
 {
+	static FORCEINLINE EShaderPlatform GetShaderPlatform()
+	{
+		return SP_OPENGL_ES2_ANDROID;
+	}
+
 	// Optional:
 	static FORCEINLINE void QueryTimestampCounter(GLuint QueryID)
 	{
@@ -138,7 +143,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 		glGetQueryObjectuivEXT(QueryId, QueryName, OutResult);
 	}
 
-	static FORCEINLINE void GetQueryObject(GLuint QueryId, EQueryMode QueryMode, uint64* OutResult)
+	static FORCEINLINE void GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint64* OutResult)
 	{
 		GLenum QueryName = (QueryMode == QM_Result) ? GL_QUERY_RESULT_EXT : GL_QUERY_RESULT_AVAILABLE_EXT;
 		GLuint64 Result = 0;
@@ -209,7 +214,7 @@ struct FAndroidOpenGL : public FOpenGLES2
 
 	static FORCEINLINE bool TexStorage2D(GLenum Target, GLint Levels, GLint InternalFormat, GLsizei Width, GLsizei Height, GLenum Format, GLenum Type, uint32 Flags)
 	{
-		if( bUseAdrenoHalfFloatTexStorage && Type == GL_HALF_FLOAT_OES && (Flags & TexCreate_RenderTargetable) != 0 )
+		if( bUseHalfFloatTexStorage && Type == GL_HALF_FLOAT_OES && (Flags & TexCreate_RenderTargetable) != 0 )
 		{
 			glTexStorage2D(Target, Levels, InternalFormat, Width, Height);
 			VERIFY_GL(glTexStorage2D)
@@ -224,6 +229,10 @@ struct FAndroidOpenGL : public FOpenGLES2
 	// Adreno doesn't support HALF_FLOAT
 	static FORCEINLINE int32 GetReadHalfFloatPixelsEnum()				{ return GL_FLOAT; }
 
+	// Android ES2 shaders have code that allows compile selection of
+	// 32 bpp HDR encoding mode via 'intrinsic_GetHDR32bppEncodeModeES2()'.
+	static FORCEINLINE bool SupportsHDR32bppEncodeModeIntrinsic()		{ return true; }
+
 	static FORCEINLINE bool UseES30ShadingLanguage()
 	{
 		return bUseES30ShadingLanguage;
@@ -231,8 +240,8 @@ struct FAndroidOpenGL : public FOpenGLES2
 
 	static void ProcessExtensions(const FString& ExtensionsString);
 
-	// whether to use ES 3.0 function glTexStorage2D to allocate storage for GL_HALF_FLOAT_OES render target textures, working around a driver limitation on Adreno 3x0.
-	static bool bUseAdrenoHalfFloatTexStorage;
+	// whether to use ES 3.0 function glTexStorage2D to allocate storage for GL_HALF_FLOAT_OES render target textures
+	static bool bUseHalfFloatTexStorage;
 
 	// whether to use ES 3.0 shading language
 	static bool bUseES30ShadingLanguage;

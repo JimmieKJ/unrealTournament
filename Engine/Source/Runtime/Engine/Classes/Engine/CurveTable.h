@@ -24,23 +24,30 @@ class UCurveTable
 {
 	GENERATED_UCLASS_BODY()
 
-	/** The filename that was used to create this object. Relative to the object's package, BaseDir() or absolute */
-	UPROPERTY()
-	FString ImportPath;
-
-
 	/** Map of name of row to row data structure. */
 	TMap<FName, FRichCurve*>	RowMap;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void FinishDestroy() override;
 	virtual void Serialize( FArchive& Ar ) override;
+
 #if WITH_EDITORONLY_DATA
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
-#endif
-	// End  UObject interface
+	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 
-	// Begin UCurveTable interface
+	UPROPERTY(VisibleAnywhere, Instanced, Category=ImportSettings)
+	class UAssetImportData* AssetImportData;
+
+	/** The filename imported to create this object. Relative to this object's package, BaseDir() or absolute */
+	UPROPERTY()
+	FString ImportPath_DEPRECATED;
+	
+#endif	// WITH_EDITORONLY_DATA
+
+	//~ End  UObject Interface
+
+	//~ Begin UCurveTable Interface
 
 	/** Function to find the row of a table given its name. */
 	FRichCurve* FindCurve(FName RowName, const FString& ContextString, bool WarnIfNotFound=true) const
@@ -157,3 +164,6 @@ struct ENGINE_API FCurveTableRowHandle
 
 /** Macro to call GetCurve with a correct error info. Assumed to be called within a UObject */
 #define GETCURVE_REPORTERROR(Handle) Handle.GetCurve(FString::Printf(TEXT("%s.%s"), *GetPathName(), TEXT(#Handle)))
+
+/** Macro to call GetCurve with a correct error info. */
+#define GETCURVE_REPORTERROR_WITHPATHNAME(Handle, PathNameString) Handle.GetCurve(FString::Printf(TEXT("%s.%s"), *PathNameString, TEXT(#Handle)))

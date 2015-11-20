@@ -5,12 +5,21 @@
 #include "IToolkit.h"
 
 
-/**
- * Base class for all toolkits (abstract)
- */
-class UNREALED_API FBaseToolkit : public IToolkit
-{
+class FTabManager;
+class FUICommandList;
+class FWorkspaceItem;
+class IToolkitHost;
+class SDockableTab;
+class SWidget;
+class UObject;
 
+
+/**
+ * Base class for all toolkits (abstract).
+ */
+class UNREALED_API FBaseToolkit
+	: public IToolkit
+{
 public:
 
 	/** FBaseToolkit constructor */
@@ -19,22 +28,27 @@ public:
 	/** Virtual destructor */
 	virtual ~FBaseToolkit();
 
-	/** IToolkit interface */
+public:
+
+	// IToolkit interface
+
 	virtual FName GetToolkitContextFName() const override;
-	virtual bool ProcessCommandBindings( const FKeyEvent& InKeyEvent ) const override;
+	virtual bool ProcessCommandBindings(const FKeyEvent& InKeyEvent) const override;
 	virtual bool IsHosted() const override;
-	virtual const TSharedRef< class IToolkitHost > GetToolkitHost() const override;
-	virtual const TMap< EToolkitTabSpot::Type, TArray< TWeakPtr< SDockableTab > > >& GetToolkitTabsInSpots() const override;
+	virtual const TSharedRef<IToolkitHost> GetToolkitHost() const override;
+	virtual const TMap<EToolkitTabSpot::Type, TArray<TWeakPtr<SDockableTab>>>& GetToolkitTabsInSpots() const override;
 	virtual void BringToolkitToFront() override;
-	virtual TSharedPtr<class SWidget> GetInlineContent() const override;
+	virtual TSharedPtr<SWidget> GetInlineContent() const override;
 	virtual bool IsBlueprintEditor() const override;
 	virtual TSharedRef<FWorkspaceItem> GetWorkspaceMenuCategory() const override { return WorkspaceMenuCategory.ToSharedRef(); }
+
+public:
 
 	/** @return	Returns true if this is a world-centric asset editor.  That is, the user is editing the asset inline in a Level Editor app. */
 	bool IsWorldCentricAssetEditor() const;	
 
 	/** @returns Returns our toolkit command list */
-	const TSharedRef< FUICommandList > GetToolkitCommands() const
+	const TSharedRef<FUICommandList> GetToolkitCommands() const
 	{
 		return ToolkitCommands;
 	}
@@ -45,7 +59,7 @@ public:
 	 * @param	TabToAdd		The dockable tab object to add
 	 * @param	TabSpot			Which spot to spawn this tab into
 	 */
-	void AddToolkitTab( const TSharedRef< SDockableTab >& TabToAdd, const EToolkitTabSpot::Type TabSpot );
+	void AddToolkitTab(const TSharedRef<SDockableTab>& TabToAdd, const EToolkitTabSpot::Type TabSpot);
 
 protected:
 
@@ -57,46 +71,52 @@ protected:
 	    make them more easy to distinguish compared to other tabs. */
 	FLinearColor GetTabColorScale() const;
 
-
 protected:
 
 	/** Asset editing mode, set at creation-time and never changes */
 	EToolkitMode::Type ToolkitMode;
 
 	/** List of UI commands for this toolkit.  This should be filled in by the derived class! */
-	TSharedRef< FUICommandList > ToolkitCommands;
+	TSharedRef<FUICommandList> ToolkitCommands;
 
 	/** The host application for this editor.  If editing in world-centric mode, this is the level level editor that we're editing the asset within 
 	    Use GetToolkitHost() method to access this member. */
-	TWeakPtr< class IToolkitHost > ToolkitHost;
+	TWeakPtr<IToolkitHost> ToolkitHost;
 
 	/** Map of toolkit tab spots to known tabs (these are weak pointers and may be invalid after tabs are closed.) */
-	TMap< EToolkitTabSpot::Type, TArray< TWeakPtr< SDockableTab > > > ToolkitTabsInSpots;
+	TMap<EToolkitTabSpot::Type, TArray<TWeakPtr<SDockableTab>>> ToolkitTabsInSpots;
 
 	/** The workspace menu category of this toolkit */
 	TSharedPtr<FWorkspaceItem> WorkspaceMenuCategory;
 };
 
 
-
 /**
  * Base class for all editor mode toolkits.
  */
-class UNREALED_API FModeToolkit : public FBaseToolkit, public TSharedFromThis<FModeToolkit>
+class UNREALED_API FModeToolkit
+	: public FBaseToolkit
+	, public TSharedFromThis<FModeToolkit>
 {
 public:
-	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override {}
-	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override {}
 
 	/** Initializes the mode toolkit */
-	virtual void Init(const TSharedPtr< class IToolkitHost >& InitToolkitHost);
+	virtual void Init(const TSharedPtr<IToolkitHost>& InitToolkitHost);
 
-	/** IToolkit interface */
+public:
+
+	// FBaseToolkit overrides
+
+	virtual void RegisterTabSpawners(const TSharedRef<FTabManager>& TabManager) override { }
+	virtual void UnregisterTabSpawners(const TSharedRef<FTabManager>& TabManager) override { }
+
+public:
+
+	// IToolkit interface
 	virtual FText GetToolkitName() const override { return GetBaseToolkitName(); }
+	virtual FText GetToolkitToolTipText() const override { return GetBaseToolkitName(); }
 	virtual FString GetWorldCentricTabPrefix() const override;
 	virtual bool IsAssetEditor() const override;
-	virtual const TArray< UObject* >* GetObjectsCurrentlyBeingEdited() const override;
+	virtual const TArray<UObject*>* GetObjectsCurrentlyBeingEdited() const override;
 	virtual FLinearColor GetWorldCentricTabColorScale() const override;
 };
-
-

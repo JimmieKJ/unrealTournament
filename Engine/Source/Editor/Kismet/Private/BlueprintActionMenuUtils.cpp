@@ -293,7 +293,7 @@ static FBlueprintActionFilter BlueprintActionMenuUtilsImpl::MakeCallOnMemberFilt
 
 	bool bForceAddComponents = ((ContextTargetMask & EContextTargetFlags::TARGET_SubComponents) != 0);
 
-	TArray<UClass*> TargetClasses = MainMenuFilter.TargetClasses;
+	auto TargetClasses = MainMenuFilter.TargetClasses;
 	if (bForceAddComponents && (TargetClasses.Num() == 0))
 	{
 		for (UBlueprint const* TargetBlueprint : MainMenuFilter.Context.Blueprints)
@@ -301,13 +301,14 @@ static FBlueprintActionFilter BlueprintActionMenuUtilsImpl::MakeCallOnMemberFilt
 			UClass* BpClass = TargetBlueprint->SkeletonGeneratedClass;
 			if (BpClass != nullptr)
 			{
-				TargetClasses.AddUnique(BpClass);
+				FBlueprintActionFilter::AddUnique(TargetClasses, BpClass);
 			}
 		}
 	}
 
-	for (UClass const* TargetClass : TargetClasses)
+	for ( const auto& ClassData : TargetClasses)
 	{
+		UClass const* TargetClass = ClassData.TargetClass;
 		for (TFieldIterator<UObjectProperty> PropertyIt(TargetClass, EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
 		{
  			UObjectProperty* ObjectProperty = *PropertyIt;
@@ -425,7 +426,7 @@ void FBlueprintActionMenuUtils::MakePaletteMenu(FBlueprintActionContext const& C
 	
 	if (FilterClass != nullptr)
 	{
-		MenuFilter.TargetClasses.Add(FilterClass);
+		FBlueprintActionFilter::Add(MenuFilter.TargetClasses, FilterClass);
 	}
 
 	MenuOut.AddMenuSection(MenuFilter, LOCTEXT("PaletteRoot", "Library"), /*MenuOrder =*/0, FBlueprintActionMenuBuilder::ConsolidatePropertyActions);
@@ -441,7 +442,13 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 	// Composing Filters
 	//--------------------------------------
 
-	FBlueprintActionFilter MainMenuFilter;
+	uint32 FilterFlags = 0x00;
+	if ( bIsContextSensitive && ((ClassTargetMask & EContextTargetFlags::TARGET_BlueprintLibraries) == 0) )
+	{
+		FilterFlags |= FBlueprintActionFilter::BPFILTER_RejectGlobalFields;
+	}
+
+	FBlueprintActionFilter MainMenuFilter(FilterFlags);
 	MainMenuFilter.Context = Context;
 	MainMenuFilter.Context.SelectedObjects.Empty();
 
@@ -474,7 +481,7 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 			bCanOperateOnLevelActors &= BlueprintClass->IsChildOf<ALevelScriptActor>();
 			if (bIsContextSensitive && (ClassTargetMask & EContextTargetFlags::TARGET_Blueprint))
 			{
-				MainMenuFilter.TargetClasses.AddUnique(BlueprintClass);
+				FBlueprintActionFilter::AddUnique(MainMenuFilter.TargetClasses, BlueprintClass);
 			}
 		}
 		bCanHaveActorComponents &= FBlueprintEditorUtils::DoesSupportComponents(Blueprint);
@@ -561,7 +568,7 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 			{
 				if (ClassTargetMask & EContextTargetFlags::TARGET_PinObject)
 				{
-					MainMenuFilter.TargetClasses.AddUnique(PinObjClass);
+					FBlueprintActionFilter::AddUnique(MainMenuFilter.TargetClasses, PinObjClass);
 				}
 			}
 
@@ -573,7 +580,7 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 				{
 					if (UClass* TargetClass = GetPinClassType(TargetPin))
 					{
-						MainMenuFilter.TargetClasses.AddUnique(TargetClass);
+						FBlueprintActionFilter::AddUnique(MainMenuFilter.TargetClasses, TargetClass);
 					}
 				}
 			}
@@ -589,7 +596,7 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 				{
 					if (UClass* PinClass = GetPinClassType(NodePin))
 					{
-						MainMenuFilter.TargetClasses.AddUnique(PinClass);
+						FBlueprintActionFilter::AddUnique(MainMenuFilter.TargetClasses, PinClass);
 					}
 				}
 			}
@@ -673,7 +680,7 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 		if (FKismetEditorUtilities::CanPasteNodes(Graph))
 		{
 			// @TODO: Grey out menu option with tooltip if one of the nodes cannot paste into this graph
-			TSharedPtr<FEdGraphSchemaAction> PasteHereAction(new FEdGraphSchemaAction_K2PasteHere(TEXT(""), LOCTEXT("PasteHereMenuName", "Paste here"), TEXT(""), MainMenuSectionGroup));
+			TSharedPtr<FEdGraphSchemaAction> PasteHereAction(new FEdGraphSchemaAction_K2PasteHere(FText::GetEmpty(), LOCTEXT("PasteHereMenuName", "Paste here"), TEXT(""), MainMenuSectionGroup));
 			MenuOut.AddAction(PasteHereAction);
 			break;
 		}
@@ -683,7 +690,7 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 	{
 		FText SelectComponentMsg = LOCTEXT("SelectComponentForEvents", "Select a Component to see available Events & Functions");
 		FText SelectComponentToolTip = LOCTEXT("SelectComponentForEventsTooltip", "Select a Component in the MyBlueprint tab to see available Events and Functions in this menu.");
-		TSharedPtr<FEdGraphSchemaAction> MsgAction = TSharedPtr<FEdGraphSchemaAction>(new FEdGraphSchemaAction_Dummy(TEXT(""), SelectComponentMsg, SelectComponentToolTip.ToString(), ComponentsSectionGroup));
+		TSharedPtr<FEdGraphSchemaAction> MsgAction = TSharedPtr<FEdGraphSchemaAction>(new FEdGraphSchemaAction_Dummy(FText::GetEmpty(), SelectComponentMsg, SelectComponentToolTip.ToString(), ComponentsSectionGroup));
 		MenuOut.AddAction(MsgAction);
 	}
 
@@ -691,7 +698,7 @@ void FBlueprintActionMenuUtils::MakeContextMenu(FBlueprintActionContext const& C
 	{
 		FText SelectActorsMsg = LOCTEXT("SelectActorForEvents", "Select Actor(s) to see available Events & Functions");
 		FText SelectActorsToolTip = LOCTEXT("SelectActorForEventsTooltip", "Select Actor(s) in the level to see available Events and Functions in this menu.");
-		TSharedPtr<FEdGraphSchemaAction> MsgAction = TSharedPtr<FEdGraphSchemaAction>(new FEdGraphSchemaAction_Dummy(TEXT(""), SelectActorsMsg, SelectActorsToolTip.ToString(), LevelActorSectionGroup));
+		TSharedPtr<FEdGraphSchemaAction> MsgAction = TSharedPtr<FEdGraphSchemaAction>(new FEdGraphSchemaAction_Dummy(FText::GetEmpty(), SelectActorsMsg, SelectActorsToolTip.ToString(), LevelActorSectionGroup));
 		MenuOut.AddAction(MsgAction);
 	}
 }
@@ -740,7 +747,6 @@ const UK2Node* FBlueprintActionMenuUtils::ExtractNodeTemplateFromAction(TSharedP
 			ActionId == FEdGraphSchemaAction_K2AddTimeline::StaticGetTypeId() ||
 			ActionId == FEdGraphSchemaAction_K2AddCustomEvent::StaticGetTypeId() ||
 			ActionId == FEdGraphSchemaAction_K2AddCallOnActor::StaticGetTypeId() ||
-			ActionId == FEdGraphSchemaAction_K2AddCallOnVariable::StaticGetTypeId() ||
 			ActionId == FEdGraphSchemaAction_K2TargetNode::StaticGetTypeId() ||
 			ActionId == FEdGraphSchemaAction_K2PasteHere::StaticGetTypeId() ||
 			ActionId == FEdGraphSchemaAction_K2Event::StaticGetTypeId() || 

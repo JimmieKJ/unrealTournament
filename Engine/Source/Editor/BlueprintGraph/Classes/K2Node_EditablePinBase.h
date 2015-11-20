@@ -29,13 +29,22 @@ struct FUserPinInfo
 	{
 		Ar << Info.PinName;
 
-		Ar << Info.PinType.bIsArray;
-		Ar << Info.PinType.bIsReference;
+		if (Ar.UE4Ver() >= VER_UE4_SERIALIZE_PINTYPE_CONST)
+		{
+			Info.PinType.Serialize(Ar);
+			Ar << Info.DesiredPinDirection;
+		}
+		else
+		{
+			Ar << Info.PinType.bIsArray;
+			Ar << Info.PinType.bIsReference;
 
-		Ar << Info.PinType.PinCategory;
-		Ar << Info.PinType.PinSubCategory;
+			Ar << Info.PinType.PinCategory;
+			Ar << Info.PinType.PinSubCategory;
 
-		Ar << Info.PinType.PinSubCategoryObject;
+			Ar << Info.PinType.PinSubCategoryObject;
+		}
+		
 		Ar << Info.PinDefaultValue;
 
 		return Ar;
@@ -54,7 +63,13 @@ struct FKismetUserDeclaredFunctionMetadata
 	FString ToolTip;
 
 	UPROPERTY()
-	FString Category;
+	FText Category;
+
+	UPROPERTY()
+	FText Keywords;
+
+	UPROPERTY()
+	FText CompactNodeTitle;
 
 	UPROPERTY()
 	FLinearColor InstanceTitleColor;
@@ -119,7 +134,7 @@ class UK2Node_EditablePinBase : public UK2Node
 	 * @param	InPinType				The type info for the pin to create
 	 * @param	InDesiredDirection		Desired direction of the pin, will auto-correct if the direction is not allowed on the pin.
 	 */
-	BLUEPRINTGRAPH_API UEdGraphPin* CreateUserDefinedPin(const FString& InPinName, const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection);
+	BLUEPRINTGRAPH_API UEdGraphPin* CreateUserDefinedPin(const FString& InPinName, const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, bool bUseUniqueName = true);
 
 	/**
 	 * Removes a pin from the user-defined array, and removes the pin with the same name from the Pins array
@@ -127,6 +142,13 @@ class UK2Node_EditablePinBase : public UK2Node
 	 * @param	PinToRemove	Shared pointer to the pin to remove from the UserDefinedPins array.  Corresponding pin in the Pins array will also be removed
 	 */
 	BLUEPRINTGRAPH_API void RemoveUserDefinedPin( TSharedPtr<FUserPinInfo> PinToRemove );
+
+	/**
+	 * Removes from the user-defined array, and removes the pin with the same name from the Pins array
+	 *
+	 * @param	PinName name of pin to remove
+	 */
+	BLUEPRINTGRAPH_API void RemoveUserDefinedPinByName(const FString& PinName);
 
 	/**
 	 * Creates a new pin on the node from the specified user pin info.

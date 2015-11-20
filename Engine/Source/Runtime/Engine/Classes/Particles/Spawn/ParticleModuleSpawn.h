@@ -40,25 +40,25 @@ class UParticleModuleSpawn : public UParticleModuleSpawnBase
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void	PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void	PostInitProperties() override;
 	virtual void	PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual bool	GenerateLODModuleValues(UParticleModule* SourceModule, float Percentage, UParticleLODLevel* LODLevel) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
-	// Begin UParticleModuleSpawnBase Interface
+	//~ Begin UParticleModuleSpawnBase Interface
 	virtual bool GetSpawnAmount(FParticleEmitterInstance* Owner, int32 Offset, float OldLeftover, 
 		float DeltaTime, int32& Number, float& Rate) override;
 	virtual float GetMaximumSpawnRate() override;
 	virtual float GetEstimatedSpawnRate() override;
 	virtual int32 GetMaximumBurstCount() override;
-	// End UParticleModuleSpawnBase Interface
+	//~ End UParticleModuleSpawnBase Interface
 
 	float GetGlobalRateScale()const;
 };

@@ -66,7 +66,7 @@ void SUWReplayBrowser::FriendsListUpdated()
 
 	if (OnlineIdentityInterface.IsValid())
 	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
 		if (UserId.IsValid())
 		{
 			FriendStatIDList.Add(UserId->ToString());
@@ -120,7 +120,7 @@ void SUWReplayBrowser::FriendsListUpdated()
 
 SUWReplayBrowser::~SUWReplayBrowser()
 {
-	IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().Remove(FriendsListUpdatedDelegateHandle);
+//	IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().Remove(FriendsListUpdatedDelegateHandle);
 }
 
 void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
@@ -139,7 +139,7 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 	
 	FriendsListUpdated();
 	
-	FriendsListUpdatedDelegateHandle = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().AddSP(this, &SUWReplayBrowser::FriendsListUpdated);
+//	FriendsListUpdatedDelegateHandle = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().AddSP(this, &SUWReplayBrowser::FriendsListUpdated);
 
 	this->ChildSlot
 	[
@@ -337,9 +337,7 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 		]
 	];
 
-	FURL URL(TEXT("entry"));
-	URL.AddOption(TEXT("Remote"));
-	ReplayStreamer = FNetworkReplayStreaming::Get().GetFactory().CreateReplayStreamer(URL);
+	ReplayStreamer = FNetworkReplayStreaming::Get().GetFactory().CreateReplayStreamer();
 	WatchReplayButton->SetEnabled(false);
 }
 

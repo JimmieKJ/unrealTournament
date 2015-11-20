@@ -26,9 +26,9 @@ class UParticleModuleLifetime_Seeded : public UParticleModuleLifetime
 	virtual void EmitterLoopingNotify(FParticleEmitterInstance* Owner) override;
 	//End UParticleModule Interface
 
-	// Begin UParticleModuleLifetimeBase Interface
+	//~ Begin UParticleModuleLifetimeBase Interface
 	virtual float	GetLifetimeValue(FParticleEmitterInstance* Owner, float InTime, UObject* Data = NULL) override;
-	// End UParticleModuleLifetimeBase Interface
+	//~ End UParticleModuleLifetimeBase Interface
 };
 
 

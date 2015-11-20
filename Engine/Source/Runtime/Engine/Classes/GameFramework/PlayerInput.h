@@ -1,10 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // PlayerInput
 // Object within PlayerController that manages player input.
 // Only spawned on client.
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "Components/InputComponent.h"
@@ -115,7 +115,7 @@ struct FInputAxisConfigEntry
  *
  * @see https://docs.unrealengine.com/latest/INT/Gameplay/Input/index.html
  */
-USTRUCT()
+USTRUCT( BlueprintType )
 struct FInputActionKeyMapping
 {
 	GENERATED_USTRUCT_BODY()
@@ -125,23 +125,23 @@ struct FInputActionKeyMapping
 	FName ActionName;
 
 	/** Key to bind it to. */
-	UPROPERTY(EditAnywhere, Category="Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	FKey Key;
 
 	/** true if one of the Shift keys must be down when the KeyEvent is received to be acknowledged */
-	UPROPERTY(EditAnywhere, Category="Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	uint32 bShift:1;
 
 	/** true if one of the Ctrl keys must be down when the KeyEvent is received to be acknowledged */
-	UPROPERTY(EditAnywhere, Category="Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	uint32 bCtrl:1;
 
 	/** true if one of the Alt keys must be down when the KeyEvent is received to be acknowledged */
-	UPROPERTY(EditAnywhere, Category="Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	uint32 bAlt:1;
 
 	/** true if one of the Cmd keys must be down when the KeyEvent is received to be acknowledged */
-	UPROPERTY(EditAnywhere, Category="Input")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Input")
 	uint32 bCmd:1;
 
 	bool operator==(const FInputActionKeyMapping& Other) const
@@ -183,7 +183,7 @@ struct FInputActionKeyMapping
  * 
  * @see https://docs.unrealengine.com/latest/INT/Gameplay/Input/index.html
 **/
-USTRUCT()
+USTRUCT( BlueprintType )
 struct FInputAxisKeyMapping
 {
 	GENERATED_USTRUCT_BODY()
@@ -255,6 +255,9 @@ public:
 	// Touch locations, from 0..1 (0,0 is top left, 1,1 is bottom right), the Z component is > 0 if the touch is currently held down
 	// @todo: We have 10 touches to match the number of Touch* entries in EKeys (not easy to make this an enum or define or anything)
 	FVector Touches[EKeys::NUM_TOUCH_KEYS];
+
+	/** Used to store paired touch locations for event ids during the frame and flushed when processed. */
+	TMap<uint32, FVector> TouchEventLocations;
 
 	// Mouse smoothing sample data
 	float ZeroTime[2];    /** How long received mouse movement has been zero. */
@@ -389,13 +392,16 @@ private:
 
 public:
 	
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
 	virtual UWorld* GetWorld() const override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/** Flushes the current key state. */
 	void FlushPressedKeys();
+
+	/** Flushes the current key state of the keys associated with the action name passed in */
+	void FlushPressedActionBindingKeys(FName ActionName);
 
 	/** Handles a key input event.  Returns true if there is an action that handles the specified key. */
 	bool InputKey(FKey Key, enum EInputEvent Event, float AmountDepressed, bool bGamepad);
@@ -445,6 +451,9 @@ public:
 	 * @param YPos - Y position on Canvas. YPos += YL, gives position to draw text for next debug line.
 	 */
 	void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos);
+
+	/** @return key state of the InKey */
+	FKeyState* GetKeyState(FKey InKey) { return KeyStateMap.Find(InKey); }
 
 	/** @return true if InKey is currently held */
 	bool IsPressed( FKey InKey ) const;
@@ -520,13 +529,24 @@ private:
 
 	/* Collects the chords and the delegates they invoke for an action binding
 	 * @param ActionBinding - the action to determine whether it occurred
+	 * @param bGamePaused - whether the game is currently paused
 	 * @param FoundChords - the list of chord/delegate pairs to add to
 	 * @param KeysToConsume - array to collect the keys associated with this binding that should be consumed
 	 */
 	void GetChordsForAction(const FInputActionBinding& ActionBinding, const bool bGamePaused, TArray<struct FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume);
 
+	/* Helper function for GetChordsForAction to examine each keymapping that belongs to the ActionBinding
+	 * @param KeyMapping - the key mapping to determine whether it occured
+	 * @param ActionBinding - the action to determine whether it occurred
+	 * @param bGamePaused - whether the game is currently paused
+	 * @param FoundChords - the list of chord/delegate pairs to add to
+	 * @param KeysToConsume - array to collect the keys associated with this binding that should be consumed
+	 */
+	void GetChordsForKeyMapping(const FInputActionKeyMapping& KeyMapping, const FInputActionBinding& ActionBinding, const bool bGamePaused, TArray<FDelegateDispatchDetails>& FoundChords, TArray<FKey>& KeysToConsume);
+
 	/* Collects the chords and the delegates they invoke for a key binding
 	 * @param KeyBinding - the key to determine whether it occurred
+	 * @param bGamePaused - whether the game is currently paused
 	 * @param FoundChords - the list of chord/delegate pairs to add to
 	 * @param KeysToConsume - array to collect the keys associated with this binding that should be consumed
 	 */

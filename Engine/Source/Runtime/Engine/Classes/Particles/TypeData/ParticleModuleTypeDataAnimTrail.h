@@ -10,7 +10,7 @@
 #include "Particles/TypeData/ParticleModuleTypeDataBase.h"
 #include "ParticleModuleTypeDataAnimTrail.generated.h"
 
-UCLASS(editinlinenew, hidecategories=Object, meta=(DisplayName = "AnimTrail Data"))
+UCLASS(MinimalAPI, editinlinenew, hidecategories=Object, meta=(DisplayName = "AnimTrail Data"))
 class UParticleModuleTypeDataAnimTrail : public UParticleModuleTypeDataBase
 {
 	GENERATED_UCLASS_BODY()
@@ -64,17 +64,17 @@ class UParticleModuleTypeDataAnimTrail : public UParticleModuleTypeDataBase
 	float WidthTessellationStepSize;
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
 	virtual bool CanTickInAnyThread() override
 	{
 		return false;
 	}
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
-	// Begin UParticleModuleTypeDataBase Interface
+	//~ Begin UParticleModuleTypeDataBase Interface
 	virtual FParticleEmitterInstance* CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent) override;
-	// End UParticleModuleTypeDataBase Interface
+	//~ End UParticleModuleTypeDataBase Interface
 };
 
 

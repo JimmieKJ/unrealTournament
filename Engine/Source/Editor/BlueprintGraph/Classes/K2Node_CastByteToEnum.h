@@ -19,15 +19,15 @@ class UK2Node_CastByteToEnum : public UK2Node
 
 	static const FString ByteInputPinName;
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Enum_16x"); }
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual FText GetCompactNodeTitle() const override;
 	virtual bool ShouldDrawCompact() const override { return true; }
 	virtual bool IsNodePure() const override { return true; }
@@ -36,7 +36,7 @@ class UK2Node_CastByteToEnum : public UK2Node
 	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
 	virtual FName GetFunctionName() const;
 

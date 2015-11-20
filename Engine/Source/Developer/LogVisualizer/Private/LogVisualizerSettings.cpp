@@ -6,13 +6,12 @@
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
 #include "ISettingsModule.h"
-#include "GeometryEdMode.h"
 #include "UnrealEdMisc.h"
 #endif // WITH_EDITOR
 
-FCategoryFiltersManager FCategoryFiltersManager::StaticManager;
-
-ULogVisualizerSettings::ULogVisualizerSettings(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+ULogVisualizerSettings::ULogVisualizerSettings(const FObjectInitializer& ObjectInitializer) 
+	: Super(ObjectInitializer)
+	, DebugMeshMaterialFakeLightName(TEXT("/Engine/EngineDebugMaterials/DebugMeshMaterialFakeLight.DebugMeshMaterialFakeLight"))
 {
 	TrivialLogsThreshold = 1;
 	DefaultCameraDistance = 150;
@@ -21,6 +20,49 @@ ULogVisualizerSettings::ULogVisualizerSettings(const FObjectInitializer& ObjectI
 	bResetDataWithNewSession = false;
 	bDrawExtremesOnGraphs = false;
 	bUsePlayersOnlyForPause = true;
+}
+
+class UMaterial* ULogVisualizerSettings::GetDebugMeshMaterial()
+{
+	if (DebugMeshMaterialFakeLight == nullptr)
+	{
+		DebugMeshMaterialFakeLight = LoadObject<UMaterial>(NULL, *DebugMeshMaterialFakeLightName, NULL, LOAD_None, NULL);
+	}
+
+	return DebugMeshMaterialFakeLight;
+}
+
+void ULogVisualizerSettings::SavePresistentData()
+{
+	if (bPresistentFilters)
+	{
+		PresistentFilters = FVisualLoggerFilters::Get();
+	}
+	else
+	{
+		PresistentFilters = FVisualLoggerFilters();
+	}
+	SaveConfig();
+}
+
+void ULogVisualizerSettings::ClearPresistentData()
+{
+	if (bPresistentFilters)
+	{
+		PresistentFilters = FVisualLoggerFilters();
+	}
+}
+
+void ULogVisualizerSettings::LoadPresistentData()
+{
+	if (bPresistentFilters)
+	{
+		static_cast<FVisualLoggerFiltersData&>(FVisualLoggerFilters::Get()) = PresistentFilters;
+	}
+	else
+	{
+		FVisualLoggerFilters::Get() = FVisualLoggerFilters();
+	}
 }
 
 #if WITH_EDITOR
@@ -38,17 +80,150 @@ void ULogVisualizerSettings::PostEditChangeProperty(struct FPropertyChangedEvent
 }
 #endif
 
-bool FCategoryFiltersManager::MatchCategoryFilters(FString String, ELogVerbosity::Type Verbosity)
+//////////////////////////////////////////////////////////////////////////
+// FVisualLoggerFilters
+//////////////////////////////////////////////////////////////////////////
+TSharedPtr< struct FVisualLoggerFilters > FVisualLoggerFilters::StaticInstance;
+
+FVisualLoggerFilters& FVisualLoggerFilters::Get()
 {
-	const ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
+	return *StaticInstance;
+}
+
+void FVisualLoggerFilters::Initialize()
+{
+	StaticInstance = MakeShareable(new FVisualLoggerFilters);
+	FVisualLoggerDatabase::Get().GetEvents().OnNewItem.AddRaw(StaticInstance.Get(), &FVisualLoggerFilters::OnNewItemHandler);
+}
+
+void FVisualLoggerFilters::Shutdown()
+{
+	FVisualLoggerDatabase::Get().GetEvents().OnNewItem.RemoveAll(StaticInstance.Get());
+	StaticInstance.Reset();
+}
+
+void FVisualLoggerFilters::OnNewItemHandler(const FVisualLoggerDBRow& DBRow, int32 ItemIndex)
+{
+	const FVisualLogDevice::FVisualLogEntryItem& Item = DBRow.GetItems()[ItemIndex];
+	TArray<FVisualLoggerCategoryVerbosityPair> Categories;
+	FVisualLoggerHelpers::GetCategories(Item.Entry, Categories);
+	for (auto& CategoryAndVerbosity : Categories)
+	{
+		AddCategory(CategoryAndVerbosity.CategoryName.ToString(), ELogVerbosity::All);
+	}
+
+	TMap<FString, TArray<FString> > OutCategories;
+	FVisualLoggerHelpers::GetHistogramCategories(Item.Entry, OutCategories);
+	for (const auto& CurrentCategory : OutCategories)
+	{
+		for (const auto& CurrentDataName : CurrentCategory.Value)
+		{
+			const FString GraphFilterName = CurrentCategory.Key + TEXT("$") + CurrentDataName;	
+			AddCategory(GraphFilterName, ELogVerbosity::All);
+		}
+	}
+}
+
+void FVisualLoggerFilters::AddCategory(FString InName, ELogVerbosity::Type InVerbosity)
+{
+	const int32 Num = Categories.Num();
+	for (int32 Index = 0; Index < Num; ++Index)
+	{
+		const FCategoryFilter& Filter = Categories[Index];
+		if (Filter.CategoryName == InName)
+		{
+			return;
+		}
+	}
+
+	FCategoryFilter Filter;
+	Filter.CategoryName = InName;
+	Filter.LogVerbosity = InVerbosity;
+	Filter.Enabled = true;
+	Categories.Add(Filter);
+
+	FastCategoryFilterMap.Reset(); // we need to recreate cache - pointers can be broken
+	FastCategoryFilterMap.Reserve(Categories.Num());
+	for (int32 Index = 0; Index < Categories.Num(); Index++)
+	{
+		FastCategoryFilterMap.Add(*Categories[Index].CategoryName, &Categories[Index]);
+	}
+
+	OnFilterCategoryAdded.Broadcast(InName, InVerbosity);
+}
+
+void FVisualLoggerFilters::RemoveCategory(FString InName)
+{
+	for (int32 Index = 0; Index < Categories.Num(); ++Index)
+	{
+		const FCategoryFilter& Filter = Categories[Index];
+		if (Filter.CategoryName == InName)
+		{
+			Categories.RemoveAt(Index);
+			FastCategoryFilterMap.Remove(*InName);
+			break;
+		}
+	}
+
+	OnFilterCategoryRemoved.Broadcast(InName);
+}
+
+FCategoryFilter& FVisualLoggerFilters::GetCategoryByName(const FName& InName)
+{
+	FCategoryFilter* FilterPtr = FastCategoryFilterMap.Contains(InName) ? FastCategoryFilterMap[InName] : nullptr;
+	if (FilterPtr)
+	{
+		return *FilterPtr;
+	}
+
+	static FCategoryFilter NoCategory;
+	return NoCategory;
+}
+
+FCategoryFilter& FVisualLoggerFilters::GetCategoryByName(const FString& InName)
+{
+	const FName NameAsName = *InName;
+	FCategoryFilter* FilterPtr = FastCategoryFilterMap.Contains(NameAsName) ? FastCategoryFilterMap[NameAsName] : nullptr;
+	if (FilterPtr)
+	{
+		return *FilterPtr;
+	}
+
+	static FCategoryFilter NoCategory;
+	return NoCategory;
+}
+
+bool FVisualLoggerFilters::MatchObjectName(FString String)
+{
+	return SelectedClasses.Num() == 0 || SelectedClasses.Find(String) != INDEX_NONE;
+}
+
+
+void FVisualLoggerFilters::SelectObject(FString ObjectName)
+{
+	SelectedClasses.AddUnique(ObjectName);
+}
+
+void FVisualLoggerFilters::RemoveObjectFromSelection(FString ObjectName)
+{
+	SelectedClasses.Remove(ObjectName);
+}
+
+const TArray<FString>& FVisualLoggerFilters::GetSelectedObjects() const
+{
+	return SelectedClasses;
+}
+
+bool FVisualLoggerFilters::MatchCategoryFilters(FString String, ELogVerbosity::Type Verbosity)
+{
+	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
 	bool bFoundFilter = false;
-	for (const FCategoryFilter& Filter : Settings->CurrentFilters.Categories)
+	for (const FCategoryFilter& Filter : Categories)
 	{
 		bFoundFilter = Filter.CategoryName == String;
 		if (bFoundFilter)
 		{
-			const bool bFineWithSearchString = Settings->bSearchInsideLogs == true ||
-				(Settings->bSearchInsideLogs == false && (Settings->CurrentFilters.SearchBoxFilter.Len() == 0 || Filter.CategoryName.Find(Settings->CurrentFilters.SearchBoxFilter) != INDEX_NONE));
+			const bool bFineWithSearchString = Settings->bSearchInsideLogs == true || (SearchBoxFilter.Len() == 0 || Filter.CategoryName.Find(SearchBoxFilter) != INDEX_NONE);
 			return bFineWithSearchString && Verbosity <= Filter.LogVerbosity && Filter.Enabled;
 		}
 	}
@@ -56,140 +231,49 @@ bool FCategoryFiltersManager::MatchCategoryFilters(FString String, ELogVerbosity
 	return bFoundFilter;
 }
 
-bool FCategoryFiltersManager::MatchObjectName(FString String)
+void FVisualLoggerFilters::DeactivateAllButThis(const FString& InName)
 {
-	const ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	return (Settings->CurrentFilters.SelectedClasses.Num() == 0 || Settings->CurrentFilters.SelectedClasses.Find(String) != INDEX_NONE);
-}
-
-bool FCategoryFiltersManager::MatchSearchString(FString String)
-{
-	const ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	return Settings->CurrentFilters.SearchBoxFilter == String;
-}
-
-void FCategoryFiltersManager::SetSearchString(FString InString) 
-{ 
-	ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->CurrentFilters.SearchBoxFilter = InString; 
-}
-
-FString FCategoryFiltersManager::GetSearchString() 
-{ 
-	return ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->CurrentFilters.SearchBoxFilter; 
-}
-
-void FCategoryFiltersManager::SetObjectFilterString(FString InFilterString) 
-{ 
-	ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->CurrentFilters.ObjectNameFilter = InFilterString; 
-}
-
-FString FCategoryFiltersManager::GetObjectFilterString()
-{ 
-	return ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->CurrentFilters.ObjectNameFilter; 
-}
-
-void FCategoryFiltersManager::AddCategory(FString InName, ELogVerbosity::Type InVerbosity)
-{
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	FCategoryFilter Filter;
-	Filter.CategoryName = InName;
-	Filter.LogVerbosity = InVerbosity;
-	Filter.Enabled = true;
-	Settings->CurrentFilters.Categories.Add(Filter);
-}
-
-void FCategoryFiltersManager::RemoveCategory(FString InName)
-{
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	for (int32 Index = 0; Index < Settings->CurrentFilters.Categories.Num(); ++Index)
+	for (FCategoryFilter& Filter : Categories)
 	{
-		const FCategoryFilter& Filter = Settings->CurrentFilters.Categories[Index];
-		if (Filter.CategoryName == InName)
-		{
-			Settings->CurrentFilters.Categories.RemoveAt(Index);
-			break;
-		}
+		Filter.Enabled = Filter.CategoryName != InName ? false : true;
 	}
 }
 
-bool FCategoryFiltersManager::IsValidCategory(FString InName)
+void FVisualLoggerFilters::EnableAllCategories()
 {
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	for (const FCategoryFilter& Filter : Settings->CurrentFilters.Categories)
+	for (FCategoryFilter& Filter : Categories)
 	{
-		if (Filter.CategoryName == InName)
-		{
-			return true;
-		}
+		Filter.Enabled = true;
 	}
-	return Settings->CurrentFilters.Categories.Num() == 0;
 }
 
-FCategoryFilter& FCategoryFiltersManager::GetCategory(FString InName)
+
+void FVisualLoggerFilters::Reset()
 {
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	for (FCategoryFilter& Filter : Settings->CurrentFilters.Categories)
+	FastCategoryFilterMap.Reset();
+	SearchBoxFilter = FString();
+	ObjectNameFilter = FString();
+
+	Categories.Reset();
+	SelectedClasses.Reset();
+}
+
+void FVisualLoggerFilters::DisableGraphData(FName GraphName, FName DataName, bool SetAsDisabled)
+{
+	const FName FullName = *(GraphName.ToString() + TEXT("$") + DataName.ToString());
+	if (SetAsDisabled)
 	{
-		if (Filter.CategoryName == InName)
-		{
-			return Filter;
-		}
-	}
-
-	static FCategoryFilter NoCategory;
-	return NoCategory;
-}
-
-void FCategoryFiltersManager::SelectObject(FString ObjectName)
-{
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	Settings->CurrentFilters.SelectedClasses.AddUnique(ObjectName);
-}
-
-void FCategoryFiltersManager::RemoveObjectFromSelection(FString ObjectName)
-{
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	Settings->CurrentFilters.SelectedClasses.Remove(ObjectName);
-}
-
-const TArray<FString>& FCategoryFiltersManager::GetSelectedObjects()
-{
-	return ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->CurrentFilters.SelectedClasses;
-}
-
-void FCategoryFiltersManager::SavePresistentData()
-{
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	if (Settings->bPresistentFilters)
-	{
-		Settings->PresistentFilters = Settings->CurrentFilters;
+		DisabledGraphDatas.AddUnique(FullName);
 	}
 	else
 	{
-		Settings->PresistentFilters = FVisualLoggerFilters();
-	}
-	Settings->SaveConfig();
-
-}
-
-void FCategoryFiltersManager::ClearPresistentData()
-{
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	if (Settings->bPresistentFilters)
-	{
-		Settings->PresistentFilters = FVisualLoggerFilters();
+		DisabledGraphDatas.RemoveSwap(FullName);
 	}
 }
 
-void FCategoryFiltersManager::LoadPresistentData()
+
+bool FVisualLoggerFilters::IsGraphDataDisabled(FName GraphName, FName DataName)
 {
-	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
-	if (Settings->bPresistentFilters)
-	{
-		Settings->CurrentFilters = Settings->PresistentFilters;
-	}
-	else
-	{
-		Settings->CurrentFilters = FVisualLoggerFilters();
-	}
+	const FName FullName = *(GraphName.ToString() + TEXT("$") + DataName.ToString());
+	return DisabledGraphDatas.Find(FullName) != INDEX_NONE;
 }

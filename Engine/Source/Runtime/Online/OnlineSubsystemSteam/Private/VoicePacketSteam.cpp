@@ -34,7 +34,7 @@ uint16 FVoicePacketSteam::GetBufferSize()
 }
 
 /** @return the sender of this voice packet */
-TSharedPtr<class FUniqueNetId> FVoicePacketSteam::GetSender()
+TSharedPtr<const FUniqueNetId> FVoicePacketSteam::GetSender()
 {
 	return Sender;
 }

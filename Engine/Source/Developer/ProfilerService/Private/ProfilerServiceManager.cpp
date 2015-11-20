@@ -15,10 +15,6 @@ DEFINE_LOG_CATEGORY_STATIC( LogProfilerService, Log, All );
  */
 class FFileTransferRunnable : public FRunnable
 {
-	/** Archive used to read a captured stats file. Created on the main thread, destroyed on the runnable thread once finalized. */
-	// FArchive* Reader;
-	/** Where this file chunk should be sent. */
-	// FMessageAddress RecipientAddress;
 	typedef TKeyValuePair<FArchive*,FMessageAddress> FReaderAndAddress;
 
 public:	
@@ -127,22 +123,19 @@ public:
 
 	void EnqueueFileToSend( const FString& StatFilename, const FMessageAddress& RecipientAddress, const FGuid& ServiceInstanceId )
 	{
-		const FString PathName = FPaths::ProfilingDir() + TEXT("UnrealStats/");
-		FString StatFilepath = PathName + StatFilename;
+		UE_LOG( LogProfilerService, Log, TEXT( "Opening stats file for service-client sending: %s" ), *StatFilename );
 
-		UE_LOG( LogProfilerService, Log, TEXT( "Opening stats file for service-client sending: %s" ), *StatFilepath );
-
-		const int64 FileSize = IFileManager::Get().FileSize(*StatFilepath);
+		const int64 FileSize = IFileManager::Get().FileSize(*StatFilename);
 		if( FileSize < 4 )
 		{
-			UE_LOG( LogProfilerService, Error, TEXT( "Could not open: %s" ), *StatFilepath );
+			UE_LOG( LogProfilerService, Error, TEXT( "Could not open: %s" ), *StatFilename );
 			return;
 		}
 
-		FArchive* FileReader = IFileManager::Get().CreateFileReader(*StatFilepath);
+		FArchive* FileReader = IFileManager::Get().CreateFileReader(*StatFilename);
 		if( !FileReader )
 		{
-			UE_LOG( LogProfilerService, Error, TEXT( "Could not open: %s" ), *StatFilepath );
+			UE_LOG( LogProfilerService, Error, TEXT( "Could not open: %s" ), *StatFilename );
 			return;
 		}
 
@@ -248,17 +241,19 @@ protected:
 	/** Reads the data from the archive and generates hash. */
 	void ReadAndSetHash( FProfilerServiceFileChunk* FileChunk, const FProfilerFileChunkHeader& FileChunkHeader, FArchive* Reader )
 	{
-		FileChunk->Data.AddUninitialized( FileChunkHeader.ChunkSize );
+		TArray<uint8> FileChunkData;
+
+		FileChunkData.AddUninitialized( FileChunkHeader.ChunkSize );
 
 		Reader->Seek( FileChunkHeader.ChunkOffset );
-		Reader->Serialize( FileChunk->Data.GetData(), FileChunkHeader.ChunkSize );
+		Reader->Serialize( FileChunkData.GetData(), FileChunkHeader.ChunkSize );
 
 		const int32 HashSize = 20;
 		uint8 LocalHash[HashSize]={0};
 
 		// Hash file chunk data. 
 		FSHA1 Sha;
-		Sha.Update( FileChunk->Data.GetData(), FileChunkHeader.ChunkSize );
+		Sha.Update( FileChunkData.GetData(), FileChunkHeader.ChunkSize );
 		// Hash file chunk header.
 		Sha.Update( FileChunk->Header.GetData(), FileChunk->Header.Num() );
 		Sha.Final();
@@ -274,6 +269,9 @@ protected:
 #else
 		static const int64 NumBytesPerTick = 256*1024;
 #endif // _DEBUG
+
+		// Convert to hex.
+		FileChunk->HexData = FString::FromHexBlob( FileChunkData.GetData(), FileChunkData.Num() );
 
 		TotalReadBytes += FileChunkHeader.ChunkSize;
 		if( TotalReadBytes > NumBytesPerTick )

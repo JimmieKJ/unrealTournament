@@ -2,13 +2,15 @@
 
 #pragma once
 
+#include "IMediaVideoTrack.h"
+
 
 /**
  * Video Track implementation using the AV Foundation Framework.
  */
 class FAvfMediaVideoTrack
 	: public FAvfMediaTrack
-	, public IMediaTrackVideoDetails
+	, public IMediaVideoTrack
 {
 public:
 
@@ -24,7 +26,12 @@ public:
 
 public:
 
-	// IMediaTrackVideoDetails interface
+	// FAvfMediaTrack overrides
+    virtual bool IsReady() const override;
+
+public:
+
+	// IMediaVideoTrack interface
 
 	virtual uint32 GetBitRate() const override
 	{
@@ -41,40 +48,28 @@ public:
 		return FrameRate;
 	}
 
-public:
-
-	// IMediaTrack interface
-
-	virtual const IMediaTrackAudioDetails& GetAudioDetails() const override
-	{
-		check(false); // not an audio track
-		return (IMediaTrackAudioDetails&)*this;
-	}
-
-	virtual const IMediaTrackCaptionDetails& GetCaptionDetails() const override
-	{
-		check(false); // not a caption track
-		return (IMediaTrackCaptionDetails&)*this;
-	}
-
-	virtual const IMediaTrackVideoDetails& GetVideoDetails() const override
+	virtual IMediaStream& GetStream() override
 	{
 		return *this;
 	}
 
-    virtual EMediaTrackTypes GetType() const override
+#if WITH_ENGINE
+	virtual void BindTexture(class FRHITexture* Texture) override;
+	virtual void UnbindTexture(class FRHITexture* Texture) override;
+#endif
+
+public:
+
+	// IMediaStream interface
+
+    virtual void AddSink(const IMediaSinkRef& Sink) override
     {
-        return EMediaTrackTypes::Video;
+        Sinks.Add(Sink);
     }
 
-    virtual void AddSink( const IMediaSinkRef& Sink ) override
+    virtual void RemoveSink(const IMediaSinkRef& Sink) override
     {
-        Sinks.Add( Sink );
-    }
-
-    virtual void RemoveSink( const IMediaSinkRef& Sink ) override
-    {
-        Sinks.Remove( Sink );
+        Sinks.Remove(Sink);
     }
 
 public:
@@ -85,21 +80,19 @@ public:
      * @param AVPlayerTime The time the AVPlayer is currently synced to.
      * @param bInIsInitialFrameRead Flag whether this is the first frame read of the asset.
      */
-    void ReadFrameAtTime( const CMTime& AVPlayerTime, bool bInIsInitialFrameRead = false );
+    bool ReadFrameAtTime(const CMTime& AVPlayerTime, bool bInIsInitialFrameRead = false);
 
     /**
      * Set the Av Asset reader to a specified time.
      *
      * @param SeekTime The time the Track Reader should be set to.
      */
-    bool SeekToTime( const CMTime& SeekTime );
-
-    /**
-     * Is this track ready to begin reading?
-	 *
-	 * @return true if ready, false otherwise.
+    bool SeekToTime(const CMTime& SeekTime);
+    
+    /** 
+     * Has the video track completed it's playthrough
      */
-    bool IsReady() const;
+    bool ReachedEnd() const;
 
 private:
 

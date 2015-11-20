@@ -22,19 +22,22 @@ namespace Sc
 {
 	class ConstraintSim;
 	class BodySim;
+	class ConstraintProjectionManager;
 
 	// A 'simulation island' of constraints. Created by a union-find algorithm every time a new constraint is added to any of the involved bodies.
 	struct ConstraintGroupNode : public Ps::UserAllocated
 	{
 		enum StateFlags
 		{
-			eDISCOVERED						= 1 << 0,	// Used during projection tree generation to mark processed nodes. This graph node was already discovered in depth first traverse
-			eIN_PROJECTION_PASS_LIST		= 1 << 1	// Temporarily used to avoid duplicate entries in the list of nodes that should project the pose after the solver
+			eDISCOVERED						= 1 << 0,	// Used during projection tree generation to mark processed nodes.
+			eIN_PROJECTION_PASS_LIST		= 1 << 1,	// Temporarily used to avoid duplicate entries in the list of nodes that should project the pose after the solver
+			ePENDING_TREE_UPDATE			= 1 << 2	// Marks the constraint groups that need their projection trees updated. Must only be set on the root group node.
 		};
 
 		ConstraintGroupNode(BodySim& b);
 		~ConstraintGroupNode()
 		{
+			PX_ASSERT(!readFlag(ePENDING_TREE_UPDATE));
 			PX_ASSERT(projectionFirstRoot == NULL);
 		}
 
@@ -44,8 +47,8 @@ namespace Sc
 
 							ConstraintGroupNode&	getRoot();
 
-		PX_FORCE_INLINE		void					buildProjectionTrees(); //build a projection tree for a group node.
-		PX_FORCE_INLINE		void					rebuildProjectionTrees(); //if this is a root with a projection tree then we try to rebuild it.
+		PX_FORCE_INLINE		void					buildProjectionTrees(); //build the projection trees for a constraint group.
+							void					markForProjectionTreeRebuild(ConstraintProjectionManager&);
 		PX_FORCE_INLINE		void					purgeProjectionTrees();
 		PX_FORCE_INLINE		bool					hasProjectionTreeRoot() { return projectionFirstRoot != NULL; }
 		PX_FORCE_INLINE		void					setProjectionTreeRoot(ConstraintGroupNode* root) { projectionFirstRoot = root; }
@@ -88,19 +91,6 @@ PX_FORCE_INLINE void Sc::ConstraintGroupNode::buildProjectionTrees()
 	PX_ASSERT(!hasProjectionTreeRoot());
 
 	ConstraintProjectionTree::buildProjectionTrees(*this);
-}
-
-
-PX_FORCE_INLINE void Sc::ConstraintGroupNode::rebuildProjectionTrees()
-{
-	ConstraintGroupNode& root = getRoot();
-	if (root.hasProjectionTreeRoot())
-	{
-		root.purgeProjectionTrees();
-	}
-
-	// It's important to always do this to cover the case where all bodies of a constraint projection tree are kinematic initially.
-	root.buildProjectionTrees();
 }
 
 

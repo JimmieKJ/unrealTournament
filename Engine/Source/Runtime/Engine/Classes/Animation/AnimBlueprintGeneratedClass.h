@@ -183,6 +183,12 @@ class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass
 	UStructProperty* RootAnimNodeProperty;
 	TArray<UStructProperty*> AnimNodeProperties;
 
+	// Array of sync group names in the order that they are requested during compile
+	UPROPERTY()
+	TArray<FName> SyncGroupNames;
+
+	int32 GetSyncGroupIndex(FName SyncGroupName) const { return SyncGroupNames.IndexOfByKey(SyncGroupName); }
+
 #if WITH_EDITORONLY_DATA
 	FAnimBlueprintDebugData AnimBlueprintDebugData;
 
@@ -280,6 +286,7 @@ class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass
 
 	// UClass interface
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
+	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
 	// End of UClass interface
 
 #if WITH_EDITOR

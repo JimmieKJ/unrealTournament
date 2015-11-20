@@ -15,6 +15,11 @@ public:
 	 */
 	static bool ShouldSaveToUserDir();
 
+	/**
+	 * Returns the directory the application was launched from (useful for commandline utilities)
+	 */
+	static FString LaunchDir();
+	 
 	/** 
 	 * Returns the base directory of the "core" engine that can be shared across
 	 * several games or across games & mods. Shaders and base localization files
@@ -132,6 +137,11 @@ public:
 	 * @return plugins directory
 	 */
 	static FString GamePluginsDir();
+
+	/*
+	* Returns the writable directory for downloaded data that persists across play sessions.
+	*/
+	static FString GamePersistentDownloadDir();
 
 	/**
 	 * Returns the directory the engine uses to look for the source leaf ini files. This
@@ -480,7 +490,7 @@ private:
 
 	/** Holds the path to the currently loaded game project file. */
 	static FString GameProjectFilePath;
-	
+
 	/** Thread protection for above path */
 	FORCEINLINE static FCriticalSection* GameProjectFilePathLock() 
 	{

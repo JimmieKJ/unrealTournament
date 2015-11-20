@@ -26,11 +26,15 @@ public:
 		, _FilterRecursivelyWithBackendFilter(true)
 		, _CanShowRealTimeThumbnails(false)
 		, _CanShowDevelopersFolder(false)
+		, _CanShowCollections(false)
 		, _PreloadAssetsForContextMenu(true)
 		, _SelectionMode( ESelectionMode::Multi )
 		, _AllowDragging(true)
 		, _AllowFocusOnSync(true)
 		, _FillEmptySpaceInTileView(true)
+		, _ShowPathInColumnView(false)
+		, _ShowTypeInColumnView(true)
+		, _SortByPathInColumnView(false)
 		{}
 
 		/** Called to check if an asset should be filtered out by external code */
@@ -120,6 +124,9 @@ public:
 		/** Indicates if the 'Show Developers' option should be enabled or disabled */
 		SLATE_ARGUMENT( bool, CanShowDevelopersFolder )
 
+		/** Indicates if the 'Show Collections' option should be enabled or disabled */
+		SLATE_ARGUMENT( bool, CanShowCollections )
+
 		/** Indicates if the context menu is going to load the assets, and if so to preload before the context menu is shown, and warn about the pending load. */
 		SLATE_ARGUMENT( bool, PreloadAssetsForContextMenu )
 
@@ -134,6 +141,15 @@ public:
 
 		/** Whether this asset view should allow the thumbnails to consume empty space after the user scale is applied */
 		SLATE_ARGUMENT( bool, FillEmptySpaceInTileView )
+
+		/** Should show Path in column view if true */
+		SLATE_ARGUMENT(bool, ShowPathInColumnView)
+
+		/** Should show Type in column view if true */
+		SLATE_ARGUMENT(bool, ShowTypeInColumnView)
+
+		/** Sort by path in the column view. Only works if the initial view type is Column */
+		SLATE_ARGUMENT(bool, SortByPathInColumnView)
 
 		/** Called to check if an asset tag should be display in details view. */
 		SLATE_EVENT( FOnShouldDisplayAssetTag, OnAssetTagWantsToBeDisplayed )
@@ -310,6 +326,9 @@ private:
 	/** Handler for when a collection is renamed */
 	void OnCollectionRenamed( const FCollectionNameType& OriginalCollection, const FCollectionNameType& NewCollection );
 
+	/** Handler for when a collection is updated */
+	void OnCollectionUpdated( const FCollectionNameType& Collection );
+
 	/** Handler for when an asset was renamed in the asset registry */
 	void OnAssetRenamed(const FAssetData& AssetData, const FString& OldObjectPath);
 
@@ -387,6 +406,15 @@ private:
 
 	/** @return true when we are showing the developers folder */
 	bool IsShowingDevelopersFolder() const;
+
+	/** Toggle whether collections should be shown or not */
+	void ToggleShowCollections();
+
+	/** Whether or not it's possible to toggle collections */
+	bool IsToggleShowCollectionsAllowed() const;
+
+	/** @return true when we are showing collections */
+	bool IsShowingCollections() const;
 
 	/** Sets the view type and updates lists accordingly */
 	void SetCurrentViewType(EAssetViewType::Type NewType);
@@ -767,8 +795,20 @@ private:
 	/** Indicates if the 'Show Developers' option should be enabled or disabled */
 	bool bCanShowDevelopersFolder;
 
+	/** Indicates if the 'Show Collections' option should be enabled or disabled */
+	bool bCanShowCollections;
+
 	/** Indicates if the context menu is going to load the assets, and if so to preload before the context menu is shown, and warn about the pending load. */
 	bool bPreloadAssetsForContextMenu;
+
+	/** If true, it will show path column in the asset view */
+	bool bShowPathInColumnView;
+
+	/** If true, it will show type in the asset view */
+	bool bShowTypeInColumnView;
+
+	/** If true, it sorts by path and then name */
+	bool bSortByPathInColumnView;
 
 	/** The current selection mode used by the asset view */
 	ESelectionMode::Type SelectionMode;

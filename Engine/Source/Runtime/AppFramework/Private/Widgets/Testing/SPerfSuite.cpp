@@ -2,28 +2,49 @@
 
 #include "AppFrameworkPrivatePCH.h"
 #include "SPerfSuite.h"
+
+#if !UE_BUILD_SHIPPING
+
+#include "SDockTab.h"
 #include "STableViewTesting.h"
 #include "ISlateReflectorModule.h"
 
 void SummonPerfTestSuite()
 {
-	FSlateApplication::Get().AddWindow
-	( 
-		SNew(SWindow)
-		.IsInitiallyMaximized(false)
-		.ScreenPosition( FVector2D(0,0) )
-		.ClientSize( FVector2D(1920,1200) )
-		[
-			MakeTableViewTesting()
-		]
+	// Need to load this module so we have the widget reflector tab available
+	FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector");
+
+	auto SpawnTableViewTesting = [](const FSpawnTabArgs&) -> TSharedRef<SDockTab>
+	{
+		return SNew(SDockTab)
+			.TabRole(ETabRole::NomadTab)
+			[
+				MakeTableViewTesting()
+			];
+	};
+
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner("TableViewTesting", FOnSpawnTab::CreateLambda(SpawnTableViewTesting));
+	
+	TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout( "PerfTestSuite_Layout" )
+	->AddArea
+	(
+		FTabManager::NewArea(1920,1200)
+		->Split
+		(
+			FTabManager::NewStack()
+			->AddTab("TableViewTesting", ETabState::OpenedTab)
+		)
+	)
+	->AddArea
+	(
+		FTabManager::NewArea(640,800)
+		->Split
+		(
+			FTabManager::NewStack()->AddTab("WidgetReflector", ETabState::OpenedTab)
+		)
 	);
 
-	FSlateApplication::Get().AddWindow
-	(
-		SNew(SWindow)
-		.ClientSize(FVector2D(640,800))
-		[
-			FModuleManager::LoadModuleChecked<ISlateReflectorModule>("SlateReflector").GetWidgetReflector()
-		]
-	);
+	FGlobalTabmanager::Get()->RestoreFrom(Layout, TSharedPtr<SWindow>());
 }
+
+#endif // #if !UE_BUILD_SHIPPING

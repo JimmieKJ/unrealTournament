@@ -8,19 +8,18 @@ using System.IO;
 
 namespace UnrealBuildTool
 {
-	/**
-	 *	Base class for platform-specific project generators 
-	 */
+	/// <summary>
+	/// Base class for platform-specific project generators
+	/// </summary>
 	public abstract class UEPlatformProjectGenerator
 	{
 		static Dictionary<UnrealTargetPlatform, UEPlatformProjectGenerator> ProjectGeneratorDictionary = new Dictionary<UnrealTargetPlatform, UEPlatformProjectGenerator>();
 
-		/**
-		 *	Register the given platforms UEPlatformProjectGenerator instance
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform to register with
-		 *	@param	InProjectGenerator	The UEPlatformProjectGenerator instance to use for the InPlatform
-		 */
+		/// <summary>
+		/// Register the given platforms UEPlatformProjectGenerator instance
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform to register with</param>
+		/// <param name="InProjectGenerator">The UEPlatformProjectGenerator instance to use for the InPlatform</param>
 		public static void RegisterPlatformProjectGenerator(UnrealTargetPlatform InPlatform, UEPlatformProjectGenerator InProjectGenerator)
 		{
 			// Make sure the build platform is legal
@@ -44,14 +43,12 @@ namespace UnrealBuildTool
 			}
 		}
 
-		/**
-		 *	Retrieve the UEPlatformProjectGenerator instance for the given TargetPlatform
-		 *	
-		 *	@param	InPlatform					The UnrealTargetPlatform being built
-		 *	@param	bInAllowFailure				If true, do not throw an exception and return null
-		 *	
-		 *	@return	UEPlatformProjectGenerator	The instance of the project generator
-		 */
+		/// <summary>
+		/// Retrieve the UEPlatformProjectGenerator instance for the given TargetPlatform
+		/// </summary>
+		/// <param name="InPlatform">    The UnrealTargetPlatform being built</param>
+		/// <param name="bInAllowFailure">   If true, do not throw an exception and return null</param>
+		/// <returns>UEPlatformProjectGenerator The instance of the project generator</returns>
 		public static UEPlatformProjectGenerator GetPlatformProjectGenerator(UnrealTargetPlatform InPlatform, bool bInAllowFailure = false)
 		{
 			if (ProjectGeneratorDictionary.ContainsKey(InPlatform) == true)
@@ -87,7 +84,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		/// <param name="InPlatform"></param>
 		/// <returns></returns>
-		public static bool GenerateGamePlatformSpecificProperties(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration Configuration, TargetRules.TargetType TargetType, StringBuilder VCProjectFileContent, string RootDirectory, string TargetFilePath)
+		public static bool GenerateGamePlatformSpecificProperties(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration Configuration, TargetRules.TargetType TargetType, StringBuilder VCProjectFileContent, DirectoryReference RootDirectory, FileReference TargetFilePath)
 		{
 			if (ProjectGeneratorDictionary.ContainsKey(InPlatform) == true)
 			{
@@ -110,9 +107,9 @@ namespace UnrealBuildTool
 			return bRequiresVSUserFileGeneration;
 		}
 
-		/**
-		 *	Register the platform with the UEPlatformProjectGenerator class
-		 */
+		/// <summary>
+		/// Register the platform with the UEPlatformProjectGenerator class
+		/// </summary>
 		public abstract void RegisterPlatformProjectGenerator();
 
 		public virtual void GenerateGameProjectStub(ProjectFileGenerator InGenerator, string InTargetName, string InTargetFilepath, TargetRules InTargetRules,
@@ -121,7 +118,7 @@ namespace UnrealBuildTool
 			// Do nothing
 		}
 
-		public virtual void GenerateGameProperties(UnrealTargetConfiguration Configuration, StringBuilder VCProjectFileContent, TargetRules.TargetType TargetType, string RootDirectory, string TargetFilePath)
+		public virtual void GenerateGameProperties(UnrealTargetConfiguration Configuration, StringBuilder VCProjectFileContent, TargetRules.TargetType TargetType, DirectoryReference RootDirectory, FileReference TargetFilePath)
 		{
 			// Do nothing
 		}
@@ -135,88 +132,76 @@ namespace UnrealBuildTool
 		///
 		///	VisualStudio project generation functions
 		///	
-		/**
-		 *	Whether this build platform has native support for VisualStudio
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	@param	InConfiguration		The UnrealTargetConfiguration being built
-		 *	
-		 *	@return	bool				true if native VisualStudio support (or custom VSI) is available
-		 */
+		/// <summary>
+		/// Whether this build platform has native support for VisualStudio
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <returns>bool    true if native VisualStudio support (or custom VSI) is available</returns>
 		public virtual bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			// By default, we assume this is true
 			return true;
 		}
 
-		/**
-		 *	Return the VisualStudio platform name for this build platform
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	@param	InConfiguration		The UnrealTargetConfiguration being built
-		 *	
-		 *	@return	string				The name of the platform that VisualStudio recognizes
-		 */
+		/// <summary>
+		/// Return the VisualStudio platform name for this build platform
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <returns>string    The name of the platform that VisualStudio recognizes</returns>
 		public virtual string GetVisualStudioPlatformName(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			// By default, return the platform string
 			return InPlatform.ToString();
 		}
 
-		/**
-		 *	Return the platform toolset string to write into the project configuration
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	@param	InConfiguration		The UnrealTargetConfiguration being built
-		 *	
-		 *	@return	string				The custom configuration section for the project file; Empty string if it doesn't require one
-		 */
+		/// <summary>
+		/// Return the platform toolset string to write into the project configuration
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <returns>string    The custom configuration section for the project file; Empty string if it doesn't require one</returns>
 		public virtual string GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFile InProjectFile)
 		{
 			return "";
 		}
 
-		/**
-		 * Return any custom property group lines
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	
-		 *	@return	string				The custom property import lines for the project file; Empty string if it doesn't require one
-		 */
+		/// <summary>
+		/// Return any custom property group lines
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
 		public virtual string GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform)
 		{
 			return "";
 		}
 
-		/**
-		 * Return any custom property group lines
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	
-		 *	@return	string				The platform configuration type.  Defaults to "Makefile" unless overridden
-		 */
+		/// <summary>
+		/// Return any custom property group lines
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <returns>string    The platform configuration type.  Defaults to "Makefile" unless overridden</returns>
 		public virtual string GetVisualStudioPlatformConfigurationType(UnrealTargetPlatform InPlatform)
 		{
 			return "Makefile";
 		}
 
-		/**
-		 * Return any custom paths for VisualStudio this platform requires
-		 * This include ReferencePath, LibraryPath, LibraryWPath, IncludePath and ExecutablePath.
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	@param	TargetType			The type of target (game or program)
-		 *	
-		 *	@return	string				The custom path lines for the project file; Empty string if it doesn't require one
-		 */
-		public virtual string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetRules.TargetType TargetType, string TargetRulesPath, string ProjectFilePath, string NMakeOutputPath)
+		/// <summary>
+		/// Return any custom paths for VisualStudio this platform requires
+		/// This include ReferencePath, LibraryPath, LibraryWPath, IncludePath and ExecutablePath.
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="TargetType">  The type of target (game or program)</param>
+		/// <returns>string    The custom path lines for the project file; Empty string if it doesn't require one</returns>
+		public virtual string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath)
 		{
 			// NOTE: We are intentionally overriding defaults for these paths with empty strings.  We never want Visual Studio's
 			//       defaults for these fields to be propagated, since they are version-sensitive paths that may not reflect
 			//       the environment that UBT is building in.  We'll set these environment variables ourselves!
 			// NOTE: We don't touch 'ExecutablePath' because that would result in Visual Studio clobbering the system "Path"
 			//       environment variable
-			string PathsLines = 
+			string PathsLines =
 				"		<IncludePath />\n" +
 				"		<ReferencePath />\n" +
 				"		<LibraryPath />\n" +
@@ -227,48 +212,41 @@ namespace UnrealBuildTool
 			return PathsLines;
 		}
 
-		/**
-		 * Return any custom property import lines
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	
-		 *	@return	string				The custom property import lines for the project file; Empty string if it doesn't require one
-		 */
+		/// <summary>
+		/// Return any custom property import lines
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
 		public virtual string GetAdditionalVisualStudioImportSettings(UnrealTargetPlatform InPlatform)
 		{
 			return "";
 		}
 
-		/**
-		 * Return any custom layout directory sections
-		 * 
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	@param	TargetType			The type of target (game or program)
-		 *	
-		 *	@return	string				The custom property import lines for the project file; Empty string if it doesn't require one
-		 */
-		public virtual string GetVisualStudioLayoutDirSection(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, string InConditionString, TargetRules.TargetType TargetType, string TargetRulesPath, string ProjectFilePath, string NMakeOutputPath)
+		/// <summary>
+		/// Return any custom layout directory sections
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="TargetType">  The type of target (game or program)</param>
+		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
+		public virtual string GetVisualStudioLayoutDirSection(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, string InConditionString, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath)
 		{
 			return "";
 		}
 
-		/**
-		 *	Get the output manifest section, if required
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	
-		 *	@return	string				The output manifest section for the project file; Empty string if it doesn't require one
-		 */
-        public virtual string GetVisualStudioOutputManifestSection(UnrealTargetPlatform InPlatform, TargetRules.TargetType TargetType, string TargetRulesPath, string ProjectFilePath)
+		/// <summary>
+		/// Get the output manifest section, if required
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <returns>string    The output manifest section for the project file; Empty string if it doesn't require one</returns>
+		public virtual string GetVisualStudioOutputManifestSection(UnrealTargetPlatform InPlatform, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath)
 		{
 			return "";
 		}
 
-		/**
-		 * Get whether this platform deploys 
-		 * 
-		 * @return	bool		true if the 'Deploy' option should be enabled
-		 */
+		/// <summary>
+		/// Get whether this platform deploys
+		/// </summary>
+		/// <returns>bool  true if the 'Deploy' option should be enabled</returns>
 		public virtual bool GetVisualStudioDeploymentEnabled(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			return false;
@@ -285,7 +263,7 @@ namespace UnrealBuildTool
 		/// <param name="ProjectFilePath">The project file path</param>
 		/// <returns>The string to append to the user file</returns>
 		public virtual string GetVisualStudioUserFileStrings(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration,
-			string InConditionString, TargetRules InTargetRules, string TargetRulesPath, string ProjectFilePath)
+			string InConditionString, TargetRules InTargetRules, FileReference TargetRulesPath, FileReference ProjectFilePath)
 		{
 			return "";
 		}

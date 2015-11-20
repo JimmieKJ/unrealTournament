@@ -109,6 +109,14 @@ public:
 	 */
 	double GetNumberField(const FString& FieldName) const;
 
+	/**
+	 * Gets a numeric field and casts to an int32
+	 */
+	FORCEINLINE int32 GetIntegerField(const FString& FieldName) const
+	{
+		return FMath::TruncToInt(GetNumberField(FieldName));
+	}
+
 	/** Get the field named FieldName as a number. Returns false if it doesn't exist or cannot be converted. */
 	bool TryGetNumberField(const FString& FieldName, double& OutNumber) const;
 

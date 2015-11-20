@@ -429,7 +429,7 @@ void SFilterList::Construct( const FArguments& InArgs )
 		AllFrontendFilters.Add(Filter);
 	}
 
-	AllFrontendFilterCategories.Add(DefaultCategory);
+	AllFrontendFilterCategories.AddUnique(DefaultCategory);
 
 	// Auto add all inverse filters
 	for (auto FilterIt = AllFrontendFilters.CreateConstIterator(); FilterIt; ++FilterIt)
@@ -460,7 +460,8 @@ FReply SFilterList::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointer
 			if ( MenuContent.IsValid() )
 			{
 				FVector2D SummonLocation = MouseEvent.GetScreenSpacePosition();
-				FSlateApplication::Get().PushMenu( AsShared(), MenuContent.ToSharedRef(), SummonLocation, FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ) );
+				FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+				FSlateApplication::Get().PushMenu(AsShared(), WidgetPath, MenuContent.ToSharedRef(), SummonLocation, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 			}
 
 			return Reply;

@@ -136,15 +136,15 @@ struct FAITest_PawnActions_PausingActionsOfSameResource : public FAITest_SimpleA
 		UWorld& World = GetWorld();
 		UTestPawnAction_Log* MoveAction = UTestPawnAction_Log::CreateAction(World, Logger);
 		MoveAction->GetRequiredResourcesSet() = FAIResourcesSet(FAIResources::Movement);
-		ActionsComponent->PushAction(*MoveAction, EAIRequestPriority::Logic);
+		Component->PushAction(*MoveAction, EAIRequestPriority::Logic);
 
-		ActionsComponent->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
+		Component->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
 
 		UTestPawnAction_Log* AnotherMoveAction = UTestPawnAction_Log::CreateAction(World, Logger);
 		AnotherMoveAction->GetRequiredResourcesSet() = FAIResourcesSet(FAIResources::Movement);
-		ActionsComponent->PushAction(*AnotherMoveAction, EAIRequestPriority::Logic);
+		Component->PushAction(*AnotherMoveAction, EAIRequestPriority::Logic);
 
-		ActionsComponent->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
+		Component->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
 
 		Test(TEXT("First MoveAction should get paused"), MoveAction->IsPaused() == true);
 	}
@@ -165,15 +165,15 @@ struct FAITest_PawnActions_NotPausingActionsOfDifferentResources : public FAITes
 		UWorld& World = GetWorld();
 		UTestPawnAction_Log* MoveAction = UTestPawnAction_Log::CreateAction(World, Logger);
 		MoveAction->SetRequiredResourcesSet(FAIResourcesSet(FAIResources::Movement));
-		ActionsComponent->PushAction(*MoveAction, EAIRequestPriority::Logic);
+		Component->PushAction(*MoveAction, EAIRequestPriority::Logic);
 
-		ActionsComponent->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
+		Component->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
 
 		UTestPawnAction_Log* PerceptionAction = UTestPawnAction_Log::CreateAction(World, Logger);
 		PerceptionAction->SetRequiredResourcesSet(FAIResourcesSet(FAIResources::Perception));
-		ActionsComponent->PushAction(*PerceptionAction, EAIRequestPriority::Logic);
+		Component->PushAction(*PerceptionAction, EAIRequestPriority::Logic);
 
-		ActionsComponent->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
+		Component->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
 
 		// @todo test temporarily disabled
 		//Test(TEXT("First MoveAction should get paused"), MoveAction->IsPaused() == false && PerceptionAction->IsPaused() == false);

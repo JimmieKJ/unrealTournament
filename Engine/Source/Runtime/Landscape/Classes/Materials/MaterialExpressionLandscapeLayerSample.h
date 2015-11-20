@@ -23,11 +23,11 @@ class UMaterialExpressionLandscapeLayerSample : public UMaterialExpression
 
 public:
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual UTexture* GetReferencedTexture() override;
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 	LANDSCAPE_API virtual FGuid& GetParameterExpressionId() override;
 

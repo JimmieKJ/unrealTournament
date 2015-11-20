@@ -6,6 +6,7 @@
 #include "FoliageEdMode.h"
 #include "FoliageTypePaintingCustomization.h"
 #include "FoliageTypeCustomizationHelpers.h"
+#include "MobilityCustomization.h"
 
 #define LOCTEXT_NAMESPACE "FoliageEd_Mode"
 
@@ -65,6 +66,9 @@ void FFoliageTypePaintingCustomization::ShowFoliagePropertiesForCategory(IDetail
 	// Properties with a HideBehind property specified should only be shown if that property is true, non-zero, or not empty
 	static const FName HideBehindKey("HideBehind");
 
+	// Mobility property name
+	static const FName MobilityName("Mobility");
+	
 	IDetailCategoryBuilder& CategoryBuilder = DetailLayoutBuilder.EditCategory(CategoryName);
 	TArray<TSharedRef<IPropertyHandle>> CategoryProperties;
 	CategoryBuilder.GetDefaultProperties(CategoryProperties, true, true);
@@ -75,45 +79,53 @@ void FFoliageTypePaintingCustomization::ShowFoliagePropertiesForCategory(IDetail
 		bool bShowingProperty = false;
 		if (UProperty* Property = PropertyHandle->GetProperty())
 		{
-			// Check to see if this property can be reapplied
-			TSharedPtr<IPropertyHandle> ReapplyConditionPropertyHandle = DetailLayoutBuilder.GetProperty(*Property->GetMetaData(ReapplyConditionKey));
-			if (ReapplyConditionPropertyHandle.IsValid() && ReapplyConditionPropertyHandle->IsValidHandle())
+			if (Property->GetFName() == MobilityName)
 			{
-				// Create a custom entry that allows explicit enabling/disabling of the property when reapplying
-				TSharedPtr<IPropertyHandle> PropertyHandlePtr = PropertyHandle;
-				OutDetailRowsByPropertyName.FindOrAdd(PropertyHandle->GetProperty()->GetFName()) =
-					&AddFoliageProperty(CategoryBuilder, PropertyHandlePtr, ReapplyConditionPropertyHandle, TAttribute<EVisibility>(), TAttribute<bool>());
+				MobilityCustomization = MakeShareable(new FMobilityCustomization);
+				MobilityCustomization->CreateMobilityCustomization(CategoryBuilder, DetailLayoutBuilder.GetProperty(MobilityName), FMobilityCustomization::StationaryMobilityBitMask);
 			}
 			else
 			{
-				TSharedPtr<IPropertyHandle> InvalidProperty;
-				TSharedPtr<IPropertyHandle> PropertyHandlePtr = PropertyHandle;
-
-				// Check to see if this property is hidden behind another
-				TSharedPtr<IPropertyHandle> HiddenBehindPropertyHandle = DetailLayoutBuilder.GetProperty(*Property->GetMetaData(HideBehindKey));
-				if (HiddenBehindPropertyHandle.IsValid() && HiddenBehindPropertyHandle->IsValidHandle())
+				// Check to see if this property can be reapplied
+				TSharedPtr<IPropertyHandle> ReapplyConditionPropertyHandle = DetailLayoutBuilder.GetProperty(*Property->GetMetaData(ReapplyConditionKey));
+				if (ReapplyConditionPropertyHandle.IsValid() && ReapplyConditionPropertyHandle->IsValidHandle())
 				{
-					TAttribute<bool> IsEnabledAttribute;
-					ReapplyConditionPropertyHandle = DetailLayoutBuilder.GetProperty(*HiddenBehindPropertyHandle->GetProperty()->GetMetaData(ReapplyConditionKey));
-					if (ReapplyConditionPropertyHandle.IsValid() && ReapplyConditionPropertyHandle->IsValidHandle())
-					{
-						// If the property this is hidden behind has a reapply condition, disable this when the condition is false
-						IsEnabledAttribute = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FFoliageTypePaintingCustomization::IsReapplyPropertyEnabled, ReapplyConditionPropertyHandle));
-					}
-
-					TAttribute<EVisibility> VisibilityAttribute;
-					GetHiddenPropertyVisibility(HiddenBehindPropertyHandle, !IsEnabledAttribute.IsSet(), VisibilityAttribute);
-
+					// Create a custom entry that allows explicit enabling/disabling of the property when reapplying
+					TSharedPtr<IPropertyHandle> PropertyHandlePtr = PropertyHandle;
 					OutDetailRowsByPropertyName.FindOrAdd(PropertyHandle->GetProperty()->GetFName()) =
-						&AddFoliageProperty(CategoryBuilder, PropertyHandlePtr, InvalidProperty, VisibilityAttribute, IsEnabledAttribute);
+						&AddFoliageProperty(CategoryBuilder, PropertyHandlePtr, ReapplyConditionPropertyHandle, TAttribute<EVisibility>(), TAttribute<bool>());
 				}
 				else
 				{
-					// This property cannot be reapplied and isn't hidden behind anything, so show it whenever the reapply tool isn't active
-					OutDetailRowsByPropertyName.FindOrAdd(PropertyHandle->GetProperty()->GetFName()) =
-						&AddFoliageProperty(CategoryBuilder, PropertyHandlePtr, InvalidProperty,
-						TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FFoliageTypePaintingCustomization::GetNonReapplyPropertyVisibility)),
-						TAttribute<bool>());
+					TSharedPtr<IPropertyHandle> InvalidProperty;
+					TSharedPtr<IPropertyHandle> PropertyHandlePtr = PropertyHandle;
+
+					// Check to see if this property is hidden behind another
+					TSharedPtr<IPropertyHandle> HiddenBehindPropertyHandle = DetailLayoutBuilder.GetProperty(*Property->GetMetaData(HideBehindKey));
+					if (HiddenBehindPropertyHandle.IsValid() && HiddenBehindPropertyHandle->IsValidHandle())
+					{
+						TAttribute<bool> IsEnabledAttribute;
+						ReapplyConditionPropertyHandle = DetailLayoutBuilder.GetProperty(*HiddenBehindPropertyHandle->GetProperty()->GetMetaData(ReapplyConditionKey));
+						if (ReapplyConditionPropertyHandle.IsValid() && ReapplyConditionPropertyHandle->IsValidHandle())
+						{
+							// If the property this is hidden behind has a reapply condition, disable this when the condition is false
+							IsEnabledAttribute = TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &FFoliageTypePaintingCustomization::IsReapplyPropertyEnabled, ReapplyConditionPropertyHandle));
+						}
+
+						TAttribute<EVisibility> VisibilityAttribute;
+						GetHiddenPropertyVisibility(HiddenBehindPropertyHandle, !IsEnabledAttribute.IsSet(), VisibilityAttribute);
+
+						OutDetailRowsByPropertyName.FindOrAdd(PropertyHandle->GetProperty()->GetFName()) =
+							&AddFoliageProperty(CategoryBuilder, PropertyHandlePtr, InvalidProperty, VisibilityAttribute, IsEnabledAttribute);
+					}
+					else
+					{
+						// This property cannot be reapplied and isn't hidden behind anything, so show it whenever the reapply tool isn't active
+						OutDetailRowsByPropertyName.FindOrAdd(PropertyHandle->GetProperty()->GetFName()) =
+							&AddFoliageProperty(CategoryBuilder, PropertyHandlePtr, InvalidProperty,
+							TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FFoliageTypePaintingCustomization::GetNonReapplyPropertyVisibility)),
+							TAttribute<bool>());
+					}
 				}
 			}
 		}

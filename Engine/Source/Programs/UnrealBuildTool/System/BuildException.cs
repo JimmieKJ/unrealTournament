@@ -8,8 +8,8 @@ namespace UnrealBuildTool
 {
 	public class BuildException : Exception
 	{
-		public BuildException(string MessageFormat, params Object[] MessageObjects):
-			base( "ERROR: " + string.Format(MessageFormat, MessageObjects))
+		public BuildException(string MessageFormat, params Object[] MessageObjects) :
+			base("ERROR: " + string.Format(MessageFormat, MessageObjects))
 		{
 		}
 
@@ -34,8 +34,8 @@ namespace UnrealBuildTool
 
 	public class MissingModuleException : BuildException
 	{
-		public MissingModuleException(string InModuleName):
-			base( "Couldn't find module rules file for module '{0}'.", InModuleName )
+		public MissingModuleException(string InModuleName) :
+			base("Couldn't find module rules file for module '{0}'.", InModuleName)
 		{
 			ModuleName = InModuleName;
 		}

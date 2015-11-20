@@ -189,6 +189,8 @@ public:
 		OrthoZoom = InOrthoZoom;
 	}
 
+	/** Check if transition curve is playing. */
+	bool IsPlaying();
 
 	/** @return The transform's location */
 	FORCEINLINE const FVector& GetLocation() const { return ViewLocation; }
@@ -221,10 +223,11 @@ public:
 	 * Computes a matrix to use for viewport location and rotation when orbiting
 	 */
 	FMatrix ComputeOrbitMatrix() const;
+
 private:
 	/** The time when a transition to the desired location began */
 	//double TransitionStartTime;
-	
+
 	/** Curve for animating between locations */
 	TSharedPtr<struct FCurveSequence> TransitionCurve;
 	/** Current viewport Position. */
@@ -680,18 +683,25 @@ public:
 	virtual bool DropObjectsAtCoordinates(int32 MouseX, int32 MouseY, const TArray<UObject*>& DroppedObjects, TArray<AActor*>& OutNewActors, bool bOnlyDropOnTarget = false, bool bCreateDropPreview = false, bool bSelectActors = true, UActorFactory* FactoryToUse = NULL ) { return false; }
 
 	/** Returns true if the viewport is allowed to be possessed by Matinee for previewing sequences */
-	bool AllowMatineePreview() const { return bAllowMatineePreview; }
+	DEPRECATED(4.9, "AllowMatineePreview is deprecated.  Use AllowsCinematicPreview instead")
+	bool AllowMatineePreview() const { return AllowsCinematicPreview(); }
 
-	/** Sets whether or not this viewport is allowed to be possessed by Matinee */
-	void SetAllowMatineePreview(const bool bInAllowMatineePreview)
+	
+	DEPRECATED(4.9, "SetAllowMatineePreview is deprecated.  Use SetAllowCinematicPreview instead")
+	void SetAllowMatineePreview(const bool bInAllowCinematicPreview)
 	{
-		bAllowMatineePreview = bInAllowMatineePreview;
+		SetAllowCinematicPreview( bInAllowCinematicPreview );
 	}
 
+	/** Returns true if the viewport is allowed to be possessed for previewing cinematic sequences or keyframe animations*/
+	bool AllowsCinematicPreview() const { return bAllowCinematicPreview; }
+
+	/** Sets whether or not this viewport is allowed to be possessed by cinematic/scrubbing tools */
+	void SetAllowCinematicPreview( bool bInAllowCinematicPreview ) { bAllowCinematicPreview = bInAllowCinematicPreview; }
 protected:
 
-	/** true if this window is allowed to be possessed by Matinee for previewing sequences in real-time */
-	bool bAllowMatineePreview;
+	/** true if this window is allowed to be possessed by cinematic tools for previewing sequences in real-time */
+	bool bAllowCinematicPreview;
 
 public:
 	/** True if the window is maximized or floating */
@@ -955,13 +965,13 @@ public:
 	 */
 	void SetShowAspectRatioBarDisplay(bool bEnable)
 	{
-		EngineShowFlags.CameraAspectRatioBars = bEnable ? 1 : 0;
+		EngineShowFlags.SetCameraAspectRatioBars(bEnable);
 		Invalidate(false,false);
 	}
 
 	void SetShowSafeFrameBoxDisplay(bool bEnable)
 	{
-		EngineShowFlags.CameraSafeFrames = bEnable ? 1 : 0;
+		EngineShowFlags.SetCameraSafeFrames(bEnable);
 		Invalidate(false,false);
 	}
 
@@ -1200,6 +1210,10 @@ private:
 	/** Delegate handler for when all stats are disabled in a viewport */
 	void HandleViewportStatDisableAll(const bool bInAnyViewport);
 
+	/** Handle the camera about to be moved or stopped **/
+	virtual void BeginCameraMovement(bool bHasMovement) {}
+	virtual void EndCameraMovement() {}
+
 public:
 	static const uint32 MaxCameraSpeeds;
 
@@ -1376,6 +1390,12 @@ protected:
 
 	/** Camera Lock or not **/
 	bool bCameraLock;
+
+	/** Is the camera moving? **/
+	bool bIsCameraMoving;
+
+	/** Is the camera moving at the beginning of the tick? **/
+	bool bIsCameraMovingOnTick;
 
 	/** Draw helper for rendering common editor functionality like the grid */
 	FEditorCommonDrawHelper DrawHelper;

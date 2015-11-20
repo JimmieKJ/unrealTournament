@@ -65,20 +65,20 @@ class ENGINE_API UPointLightComponent : public ULightComponent
 	void SetLightFalloffExponent(float NewLightFalloffExponent);
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
-	void SetSourceRadius(float NewValue);
+	void SetSourceRadius(float bNewValue);
 
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
 	void SetSourceLength(float NewValue);
 
 protected:
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 	virtual void SendRenderTransform_Concurrent() override;
-	// End UActorComponent Interface
+	//~ End UActorComponent Interface
 
 public:
 
-	// ULightComponent interface.
-	virtual bool AffectsBounds(const FBoxSphereBounds& Bounds) const override;
+	//~ Begin ULightComponent Interface.
+	virtual bool AffectsBounds(const FBoxSphereBounds& InBounds) const override;
 	virtual FVector4 GetLightPosition() const override;
 	virtual FBox GetBoundingBox() const override;
 	virtual FSphere GetBoundingSphere() const override;
@@ -92,14 +92,14 @@ public:
 
 	virtual FLightSceneProxy* CreateSceneProxy() const override;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/** 
 	 * This is called when property is modified by InterpPropertyTracks

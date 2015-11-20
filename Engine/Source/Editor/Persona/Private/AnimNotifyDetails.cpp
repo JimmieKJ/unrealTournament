@@ -123,6 +123,7 @@ void FAnimNotifyDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 	TriggerFilterModeHandle = DetailBuilder.GetProperty(TEXT("Event.NotifyFilterType"));
 
 	FPropVisPair TriggerSettingNames[] = { { TEXT("Event.NotifyTriggerChance"), TAttribute<EVisibility>(EVisibility::Visible) }
+										 , { TEXT("Event.bTriggerOnDedicatedServer"), TAttribute<EVisibility>(EVisibility::Visible) }
 										 , { TEXT("Event.NotifyFilterType"), TAttribute<EVisibility>(EVisibility::Visible) }
 										 , { TEXT("Event.NotifyFilterLOD"), TAttribute<EVisibility>(this, &FAnimNotifyDetails::VisibilityForLODFilterMode) } };
 
@@ -235,7 +236,7 @@ void FAnimNotifyDetails::ClearInstancedSelectionDropDown(IDetailCategoryBuilder&
 	IDetailPropertyRow& PropRow = CategoryBuilder.AddProperty(PropHandle);
 	
 	PropRow
-	.OverrideResetToDefault(false, FSimpleDelegate())
+	.OverrideResetToDefault(FResetToDefaultOverride::Hide())
 	.CustomWidget(bShowChildren)
 	.NameContent()
 	[

@@ -41,7 +41,7 @@ private:
 	/** List of messages to download */
 	TArray<TSharedRef<FUniqueMessageId> > MessagesToRead;
 	/** List of recipients for the test message */
-	TArray<TSharedRef<FUniqueNetId> > Recipients;
+	TArray<TSharedRef<const FUniqueNetId> > Recipients;
 	/** List of messages to delete */
 	TArray<TSharedRef<FUniqueMessageId> > MessagesToDelete;
 

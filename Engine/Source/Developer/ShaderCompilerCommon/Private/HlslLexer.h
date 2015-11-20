@@ -234,6 +234,7 @@ namespace CrossCompiler
 		RightSquareBracket,
 		Question,
 		Colon,
+		ColonColon,
 		Comma,
 		Dot,
 		Struct,
@@ -267,7 +268,7 @@ namespace CrossCompiler
 	class FHlslScanner
 	{
 	public:
-		FHlslScanner();
+		FHlslScanner(FCompilerMessages& InCompilerMessages);
 		virtual ~FHlslScanner();
 
 		// Processing
@@ -292,6 +293,8 @@ namespace CrossCompiler
 		void SourceError(const FString& Error);
 
 	private:
+		FCompilerMessages& CompilerMessages;
+
 		TArray<FHlslToken> Tokens;
 		void AddToken(const FHlslToken& Token, const struct FTokenizer& Tokenizer);
 

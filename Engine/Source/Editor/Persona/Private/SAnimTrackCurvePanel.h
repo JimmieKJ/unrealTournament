@@ -75,6 +75,9 @@ public:
 	/** Get Context Menu Per Track **/
 	TSharedRef<SWidget> CreateCurveContextMenu(USkeleton::AnimCurveUID CurveUid) const;
 
+	/** Get Length of Sequence */
+	float GetLength() { return (Sequence)? Sequence->SequenceLength : 0.f; }
+
 private:
 	TWeakPtr<FPersona> WeakPersona;
 	TSharedPtr<SSplitter> PanelSlot;

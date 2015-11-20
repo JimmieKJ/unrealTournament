@@ -15,9 +15,9 @@ public:
 	FLinearColor GetColor () const;
 
 protected:
-	// Begin SGraphPin interface
+	//~ Begin SGraphPin Interface
 	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
-	// End SGraphPin interface
+	//~ End SGraphPin Interface
 
 	/** Called when clicking on the color button */
 	FReply OnColorBoxClicked(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);

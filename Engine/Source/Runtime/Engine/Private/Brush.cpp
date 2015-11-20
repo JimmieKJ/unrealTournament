@@ -20,6 +20,9 @@ ABrush::FOnBrushRegistered ABrush::OnBrushRegistered;
 
 /** An array to keep track of all the levels that need rebuilding. This is checked via NeedsRebuild() in the editor tick and triggers a csg rebuild. */
 TArray< TWeakObjectPtr< ULevel > > ABrush::LevelsToRebuild;
+
+/** Whether BSP regeneration should be suppressed or not */
+bool ABrush::bSuppressBSPRegeneration = false;
 #endif
 
 ABrush::ABrush(const FObjectInitializer& ObjectInitializer)
@@ -28,7 +31,7 @@ ABrush::ABrush(const FObjectInitializer& ObjectInitializer)
 	BrushComponent = CreateDefaultSubobject<UBrushComponent>(TEXT("BrushComponent0"));
 	BrushComponent->Mobility = EComponentMobility::Static;
 	BrushComponent->bGenerateOverlapEvents = false;
-	BrushComponent->bCanEverAffectNavigation = false;
+	BrushComponent->SetCanEverAffectNavigation(false);
 
 	RootComponent = BrushComponent;
 	
@@ -36,6 +39,7 @@ ABrush::ABrush(const FObjectInitializer& ObjectInitializer)
 	bNotForClientOrServer = false;
 	bCanBeDamaged = false;
 	bCollideWhenPlacing = true;
+	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 }
 
 #if WITH_EDITOR
@@ -51,6 +55,18 @@ void ABrush::PostEditMove(bool bFinished)
 	Super::PostEditMove(bFinished);
 }
 
+void ABrush::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
+{
+	// Prior to reregistering the BrushComponent (done in the Super), request an update to the Body Setup to take into account any change
+	// in the mirroring of the Actor. This will actually be updated when the component is reregistered.
+	if (BrushComponent && PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetName() == TEXT("RelativeScale3D"))
+	{
+		BrushComponent->RequestUpdateBrushCollision();
+	}
+
+	Super::PostEditChangeChainProperty(PropertyChangedEvent);
+}
+
 void ABrush::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	if(Brush)
@@ -58,11 +74,10 @@ void ABrush::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 		Brush->BuildBound();
 	}
 
-	if(IsStaticBrush() && PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive && GUndo)
+	if(!bSuppressBSPRegeneration && IsStaticBrush() && PropertyChangedEvent.ChangeType != EPropertyChangeType::Interactive && GUndo)
 	{
 		// BSP can only be rebuilt during a transaction
 		GEditor->RebuildAlteredBSP();
-
 	}
 
 	bool bIsBuilderBrush = FActorEditorUtils::IsABuilderBrush( this );
@@ -86,12 +101,10 @@ void ABrush::CopyPosRotScaleFrom( ABrush* Other )
 	check(Other);
 	check(Other->BrushComponent);
 
-	SetActorLocation(Other->GetActorLocation(), false);
-	SetActorRotation(Other->GetActorRotation());
-	SetActorScale3D(Other->GetActorScale3D());
+	SetActorLocationAndRotation(Other->GetActorLocation(), Other->GetActorRotation(), false);
 	if( GetRootComponent() != NULL )
 	{
-		SetPrePivot( Other->GetPrePivot() );
+		SetPivotOffset(Other->GetPivotOffset());
 	}
 
 	if(Brush)
@@ -106,10 +119,8 @@ void ABrush::InitPosRotScale()
 {
 	check(BrushComponent);
 
-	SetActorLocation(FVector::ZeroVector, false);
-	SetActorRotation(FRotator::ZeroRotator);
-	SetActorScale3D(FVector(1.0f));
-	SetPrePivot( FVector::ZeroVector );
+	SetActorLocationAndRotation(FVector::ZeroVector, FQuat::Identity, false);
+	SetPivotOffset( FVector::ZeroVector );
 }
 
 void ABrush::SetIsTemporarilyHiddenInEditor( bool bIsHidden )
@@ -145,33 +156,20 @@ void ABrush::SetIsTemporarilyHiddenInEditor( bool bIsHidden )
 	}
 }
 
-#endif
-
 FVector ABrush::GetPrePivot() const
 {
-	FVector Result(0.f);
-	if( BrushComponent )
-	{
-		Result = BrushComponent->PrePivot;
-	}
-	return Result;
+	return GetPivotOffset();
 }
 
 void ABrush::SetPrePivot( const FVector& InPrePivot )
 {
-	if( BrushComponent )
-	{
-		BrushComponent->PrePivot = InPrePivot;
-		BrushComponent->UpdateComponentToWorld();
-	}
+	SetPivotOffset(InPrePivot);
 }
-
 
 void ABrush::PostLoad()
 {
 	Super::PostLoad();
 
-#if WITH_EDITOR
 	if (BrushBuilder && BrushBuilder->GetOuter() != this)
 	{
 		BrushBuilder = DuplicateObject<UBrushBuilder>(BrushBuilder, this);
@@ -204,14 +202,13 @@ void ABrush::PostLoad()
 	{
 		UE_LOG(LogPhysics, Log, TEXT("%s does not have BrushBodySetup. No collision."), *GetName());
 	}
-#endif
 }
 
 void ABrush::Destroyed()
 {
 	Super::Destroyed();
 
-	if(IsStaticBrush())
+	if(GIsEditor && IsStaticBrush() && !GetWorld()->IsGameWorld())
 	{
 		// Trigger a csg rebuild if we're in the editor.
 		SetNeedRebuild(GetLevel());
@@ -222,13 +219,12 @@ void ABrush::PostRegisterAllComponents()
 {
 	Super::PostRegisterAllComponents();
 
-#if WITH_EDITOR
 	if ( GIsEditor )
 	{
 		OnBrushRegistered.Broadcast(this);
 	}
-#endif
 }
+#endif
 
 bool ABrush::IsLevelBoundsRelevant() const
 {

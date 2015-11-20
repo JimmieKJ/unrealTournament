@@ -382,7 +382,7 @@ void FModuleDescriptor::LoadModulesForPhase(ELoadingPhase::Type LoadingPhase, co
 	}
 }
 
-bool FModuleDescriptor::CheckModuleCompatbility(const TArray<FModuleDescriptor>& Modules, bool bGameModules, TArray<FString>& OutIncompatibleFiles)
+bool FModuleDescriptor::CheckModuleCompatibility(const TArray<FModuleDescriptor>& Modules, bool bGameModules, TArray<FString>& OutIncompatibleFiles)
 {
 	bool bResult = true;
 	for(int Idx = 0; Idx < Modules.Num(); Idx++)

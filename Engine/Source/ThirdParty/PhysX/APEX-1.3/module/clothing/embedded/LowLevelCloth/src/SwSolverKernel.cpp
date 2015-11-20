@@ -20,7 +20,7 @@
 #include "BoundingBox.h"
 #include "Simd4i.h"
 
-#if defined(_MSC_VER) && _MSC_VER >= 1600 && defined(PX_WINDOWS)
+#if defined(_MSC_VER) && _MSC_VER >= 1600 && _MSC_VER != 1900 && defined(PX_WINDOWS)
 #define PX_AVX
 
 namespace avx

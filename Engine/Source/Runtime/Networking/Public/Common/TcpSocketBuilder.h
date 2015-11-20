@@ -227,6 +227,11 @@ public:
 
 				if (!Error)
 				{
+					Error = !Socket->SetNonBlocking(!Blocking);
+				}
+
+				if (!Error)
+				{
 					int32 OutNewSize;
 
 					if (ReceiveBufferSize > 0)

@@ -202,3 +202,5 @@ int32 SDropTarget::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeom
 
 	return LayerId;
 }
+
+#undef LOCTEXT_NAMESPACE

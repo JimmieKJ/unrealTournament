@@ -29,10 +29,11 @@ public:
 	FName									ContainerName;	// The container in the skeleton this name resides in
 	const class USkeleton*					Skeleton;		// The skeleton we're associated with
 	TSharedPtr<SInlineEditableTextBlock>	EditableText;	// The editable text box in the list, used to focus from the context menu
+	FName									SmartName;		// Smart Name
 
-	static TSharedRef<FDisplayedSmartNameInfo> Make(const class USkeleton* InSkeleton, const FName& InContainerName, const FSmartNameMapping::UID InNameUid)
+	static TSharedRef<FDisplayedSmartNameInfo> Make(const class USkeleton* InSkeleton, const FName& InContainerName, const FSmartNameMapping::UID InNameUid, const FName& InSmartName)
 	{
-		return MakeShareable(new FDisplayedSmartNameInfo(InSkeleton, InContainerName, InNameUid));
+		return MakeShareable(new FDisplayedSmartNameInfo(InSkeleton, InContainerName, InNameUid, InSmartName));
 	}
 
 private:
@@ -40,12 +41,12 @@ private:
 	// Hidden constructors, use Make() to create an instance of this class
 	FDisplayedSmartNameInfo();
 
-	FDisplayedSmartNameInfo(const class USkeleton* InSkeleton, const FName& InContainerName, const FSmartNameMapping::UID InNameUid)
+	FDisplayedSmartNameInfo(const class USkeleton* InSkeleton, const FName& InContainerName, const FSmartNameMapping::UID InNameUid, const FName& InSmartName)
 		: NameUid(InNameUid)
 		, ContainerName(InContainerName)
 		, Skeleton(InSkeleton)
+		, SmartName(InSmartName)
 	{}
-
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -95,7 +96,7 @@ protected:
 	// Clears and regenerates the displayed info list for the window
 	void GenerateDisplayedList(const FText& FilterText);
 
-	// Attempt to delete a smartname. This can be overriden in derived classes to handle the
+	// Attempt to delete a smartname. This can be overridden in derived classes to handle the
 	// delete as this version will simply find the correct name container in the skeleton and
 	// remove the name.
 	virtual void OnDeleteNameClicked();

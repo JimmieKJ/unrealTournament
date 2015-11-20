@@ -519,13 +519,15 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 	public class UnrealTournamentCopyEditorNode : GUBP.HostPlatformNode
 	{
         BranchInfo.BranchUProject GameProj;
-		string StageDirectory;
+        string StageDirectory;
+        GUBP.GUBPBranchConfig BranchConfig;
 
-		public UnrealTournamentCopyEditorNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InStageDirectory)
+        public UnrealTournamentCopyEditorNode(GUBP.GUBPBranchConfig InBranchConfig, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InStageDirectory)
 			: base(InHostPlatform)
 		{
 			GameProj = InGameProj;
 			StageDirectory = InStageDirectory;
+            BranchConfig = InBranchConfig;
 
 			AddDependency(GUBP.RootEditorNode.StaticGetFullName(HostPlatform));
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
@@ -547,9 +549,9 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		{
 			return GameProj.GameName;
 		}
-		public override int CISFrequencyQuantumShift(GUBP bp)
+		public override int CISFrequencyQuantumShift(GUBP.GUBPBranchConfig BranchConfig)
 		{
-			return base.CISFrequencyQuantumShift(bp) + 3;
+            return base.CISFrequencyQuantumShift(BranchConfig) + 3;
 		}
 		public override void DoBuild(GUBP bp)
 		{
@@ -558,7 +560,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 
 			// Make a list of files to copy
 			SortedSet<string> RequiredFiles = new SortedSet<string>(StringComparer.InvariantCultureIgnoreCase);
-			AddEditorBuildProducts(bp, HostPlatform, GameProj, RequiredFiles);
+            AddEditorBuildProducts(BranchConfig, HostPlatform, GameProj, RequiredFiles);
 			AddEditorSupportFiles(HostPlatform, RequiredFiles);
 			RemoveUnusedPlugins(RequiredFiles);
 			RemoveConfidentialFiles(HostPlatform, RequiredFiles);
@@ -601,7 +603,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             CommandUtils.WriteAllLines(ManifestPath, Lines.ToArray());
         }
 
-		static void AddEditorBuildProducts(GUBP bp, UnrealTargetPlatform HostPlatform, BranchInfo.BranchUProject GameProj, SortedSet<string> RequiredFiles)
+        static void AddEditorBuildProducts(GUBP.GUBPBranchConfig InBranchConfig, UnrealTargetPlatform HostPlatform, BranchInfo.BranchUProject GameProj, SortedSet<string> RequiredFiles)
 		{
 			// Build a list of all the nodes we want to copy
 			List<string> NodeNames = new List<string>();
@@ -614,7 +616,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			List<string> BuildProducts = new List<string>();
 			foreach(string NodeName in NodeNames)
 			{
-				GUBP.GUBPNode Node = bp.FindNode(NodeName);
+                GUBP.GUBPNode Node = InBranchConfig.FindNode(NodeName);
 				if(Node == null)
 				{
 					throw new AutomationException("Couldn't find node '{0}'", NodeName);
@@ -738,12 +740,14 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 	{
         BranchInfo.BranchUProject GameProj;
 		string TargetPlatforms;
-		string StageDirectory;
+        string StageDirectory;
+        GUBP.GUBPBranchConfig BranchConfig;
 
-		public UnrealTournamentEditorDDCNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InTargetPlatforms, string InStageDirectory)
+        public UnrealTournamentEditorDDCNode(GUBP.GUBPBranchConfig InBranchConfig, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InTargetPlatforms, string InStageDirectory)
 			: base(InHostPlatform)
 		{
-			GameProj = InGameProj;
+            GameProj = InGameProj;
+            BranchConfig = InBranchConfig;
 			TargetPlatforms = InTargetPlatforms;
 			StageDirectory = InStageDirectory;
 			AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(InGameProj, InHostPlatform));
@@ -762,9 +766,9 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		{
 			return GameProj.GameName;
 		}
-		public override int CISFrequencyQuantumShift(GUBP bp)
+		public override int CISFrequencyQuantumShift(GUBP.GUBPBranchConfig BranchConfig)
 		{
-			return base.CISFrequencyQuantumShift(bp) + 3;
+            return base.CISFrequencyQuantumShift(BranchConfig) + 3;
 		}
 		public override float Priority()
 		{
@@ -863,11 +867,13 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 	public class UnrealTournamentChunkEditorNode : GUBP.HostPlatformNode
 	{
         BranchInfo.BranchUProject GameProj;
-		string StageDirectory;
+        string StageDirectory;
+        GUBP.GUBPBranchConfig BranchConfig;
 
-        public UnrealTournamentChunkEditorNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InStageDirectory)
+        public UnrealTournamentChunkEditorNode(GUBP.GUBPBranchConfig InBranchConfig, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform, string InStageDirectory)
             : base(InHostPlatform)
         {
+            BranchConfig = InBranchConfig;
             GameProj = InGameProj;
 			StageDirectory = InStageDirectory;
 
@@ -902,7 +908,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         public override void DoBuild(GUBP bp)
         {
             BuildProducts = new List<string>();
-            if (GUBP.bPreflightBuild)
+            if (BranchConfig.bPreflightBuild)
             {
                 CommandUtils.Log("Things like a real UT build is likely to cause confusion if done in a preflight build, so we are skipping it.");
             }
@@ -964,11 +970,13 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
     public class UnrealTournamentChunkNode : GUBP.HostPlatformNode
     {
         BranchInfo.BranchUProject GameProj;
+        GUBP.GUBPBranchConfig BranchConfig;
 
-        public UnrealTournamentChunkNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
+        public UnrealTournamentChunkNode(GUBP.GUBPBranchConfig InBranchConfig, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform InHostPlatform)
             : base(InHostPlatform)
         {
             GameProj = InGameProj;
+            BranchConfig = InBranchConfig;
 
             AddDependency(UnrealTournamentBuildNode.StaticGetFullName(GameProj));
         }
@@ -994,7 +1002,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             BuildProducts = new List<string>();
             string LogFile = "Just a record of success.";
-            if (GUBP.bPreflightBuild)
+            if (BranchConfig.bPreflightBuild)
             {
                 CommandUtils.Log("Things like a real UT build is likely to cause confusion if done in a preflight build, so we are skipping it.");
             }
@@ -1016,10 +1024,12 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
     public class UnrealTournamentBuildNode : GUBP.GUBPNode
     {
         BranchInfo.BranchUProject GameProj;
+        GUBP.GUBPBranchConfig BranchConfig;
 
-        public UnrealTournamentBuildNode(GUBP bp, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
+        public UnrealTournamentBuildNode(GUBP.GUBPBranchConfig InBranchConfig, BranchInfo.BranchUProject InGameProj, UnrealTargetPlatform HostPlatform)
         {
             GameProj = InGameProj;
+            BranchConfig = InBranchConfig;
 
 			if (CommandUtils.P4Enabled && CommandUtils.P4Env.BuildRootP4 == "//depot/UE4-UT-Releases")
 			{
@@ -1050,7 +1060,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             BuildProducts = new List<string>();
             string LogFile = "Just a record of success.";
-            if (GUBP.bPreflightBuild)
+            if (BranchConfig.bPreflightBuild)
             {
                 CommandUtils.Log("Things like a real UT build is likely to cause confusion if done in a preflight build, so we are skipping it.");
             }
@@ -1109,42 +1119,42 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         }
     }
 
-    public override void AddNodes(GUBP bp, UnrealTargetPlatform InHostPlatform)
+    public override void AddNodes(GUBP bp, GUBP.GUBPBranchConfig BranchConfig, UnrealTargetPlatform InHostPlatform, List<UnrealTargetPlatform> InActivePlatforms)
     {
         //if (!bp.BranchOptions.ExcludeNodes.Contains("UnrealTournament"))
         {            
-            BranchInfo.BranchUProject GameProj = bp.Branch.FindGame("UnrealTournament");
+            BranchInfo.BranchUProject GameProj = BranchConfig.Branch.FindGame("UnrealTournament");
             if (GameProj != null)
             {
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
 
 				if (InHostPlatform == UnrealTargetPlatform.Win64)
 				{
-					AddHostNodes(bp, GameProj, InHostPlatform, "WindowsEditor", "Windows");
-                    bp.AddNode(new WaitForUnrealTournamentBuildUserInputNode(bp, GameProj, InHostPlatform));
-                    bp.AddNode(new UnrealTournamentBuildNode(bp, GameProj, InHostPlatform));
-                    bp.AddNode(new UnrealTournamentChunkNode(bp, GameProj, InHostPlatform));
+                    AddHostNodes(bp, BranchConfig, GameProj, InHostPlatform, "WindowsEditor", "Windows");
+                    BranchConfig.AddNode(new WaitForUnrealTournamentBuildUserInputNode(bp, GameProj, InHostPlatform));
+                    BranchConfig.AddNode(new UnrealTournamentBuildNode(BranchConfig, GameProj, InHostPlatform));
+                    BranchConfig.AddNode(new UnrealTournamentChunkNode(BranchConfig, GameProj, InHostPlatform));
                 }
                 else if (InHostPlatform == UnrealTargetPlatform.Mac)
                 {
-					AddHostNodes(bp, GameProj, InHostPlatform, "MacEditor", "Mac");
-                    bp.AddNode(new UnrealTournamentChunkNode(bp, GameProj, InHostPlatform));
+                    AddHostNodes(bp, BranchConfig, GameProj, InHostPlatform, "MacEditor", "Mac");
+                    BranchConfig.AddNode(new UnrealTournamentChunkNode(BranchConfig, GameProj, InHostPlatform));
                 }
             }
         }
     }
 
-	void AddHostNodes(GUBP bp, BranchInfo.BranchUProject GameProj, UnrealTargetPlatform HostPlatform, string PlatformName, string TargetPlatformsForDDC)
+    void AddHostNodes(GUBP bp, GUBP.GUBPBranchConfig BranchConfig, BranchInfo.BranchUProject GameProj, UnrealTargetPlatform HostPlatform, string PlatformName, string TargetPlatformsForDDC)
 	{
 		string StageDirectory = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "UT-Build", HostPlatform.ToString());
-			
-		bp.AddNode(new UnrealTournamentCopyEditorNode(bp, GameProj, HostPlatform, StageDirectory));
-		bp.AddNode(new UnrealTournamentEditorDDCNode(bp, GameProj, HostPlatform, TargetPlatformsForDDC, StageDirectory));
-		bp.AddNode(new UnrealTournamentChunkEditorNode(bp, GameProj, HostPlatform, StageDirectory));
+
+        BranchConfig.AddNode(new UnrealTournamentCopyEditorNode(BranchConfig, GameProj, HostPlatform, StageDirectory));
+        BranchConfig.AddNode(new UnrealTournamentEditorDDCNode(BranchConfig, GameProj, HostPlatform, TargetPlatformsForDDC, StageDirectory));
+        BranchConfig.AddNode(new UnrealTournamentChunkEditorNode(BranchConfig, GameProj, HostPlatform, StageDirectory));
 
 		string PublishDirectory = CommandUtils.CombinePaths(UnrealTournamentBuild.GetArchiveDir(), PlatformName);
 
-		bp.AddNode(new UnrealTournamentPublishEditorNode(GameProj, HostPlatform, StageDirectory, PublishDirectory));
+        BranchConfig.AddNode(new UnrealTournamentPublishEditorNode(GameProj, HostPlatform, StageDirectory, PublishDirectory));
 	}
 }
 

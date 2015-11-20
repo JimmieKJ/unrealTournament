@@ -195,6 +195,7 @@ void UWebSocketNetDriver::LowLevelDestroy()
 {
 	Super::LowLevelDestroy();
 	delete WebSocketServer; 
+	WebSocketServer = nullptr;
 }
 
 bool UWebSocketNetDriver::HandleSocketsCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)

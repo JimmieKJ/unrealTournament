@@ -1229,9 +1229,25 @@ int64 FBuildPatchAppManifest::GetDownloadSize() const
 	return TotalDownloadSize;
 }
 
+int64 FBuildPatchAppManifest::GetDownloadSize(const TSet<FString>& Tags) const
+{
+	TSet<FString> TaggedFiles;
+	GetTaggedFileList(Tags, TaggedFiles);
+	TArray<FGuid> RequiredChunks;
+	GetChunksRequiredForFiles(TaggedFiles.Array(), RequiredChunks, true);
+	return GetDataSize(RequiredChunks);
+}
+
 int64 FBuildPatchAppManifest::GetBuildSize() const
 {
 	return TotalBuildSize;
+}
+
+int64 FBuildPatchAppManifest::GetBuildSize(const TSet<FString>& Tags) const
+{
+	TSet<FString> TaggedFiles;
+	GetTaggedFileList(Tags, TaggedFiles);
+	return GetFileSize(TaggedFiles.Array());
 }
 
 TArray<FString> FBuildPatchAppManifest::GetBuildFileList() const

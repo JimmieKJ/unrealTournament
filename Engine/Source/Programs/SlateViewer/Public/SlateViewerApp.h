@@ -9,7 +9,7 @@
 /**
  * Run the SlateViewer .
  */
-void RunSlateViewer(const TCHAR* Commandline);
+int RunSlateViewer(const TCHAR* Commandline);
 
 /**
  * Spawn the contents of the web browser tab

@@ -21,7 +21,7 @@ class ENGINE_API UMaterialExpressionTextureSampleParameter : public UMaterialExp
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionTextureSampleParameter)
 	FName Group;
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual bool MatchesSearchQuery(const TCHAR* SearchQuery) override;
@@ -30,7 +30,7 @@ class ENGINE_API UMaterialExpressionTextureSampleParameter : public UMaterialExp
 	virtual FString GetEditableName() const override;
 	virtual void SetEditableName(const FString& NewName) override;
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 	/** Return whether this is the named parameter, and fill in its value */
 	bool IsNamedParameter(FName InParameterName, UTexture*& OutValue) const;

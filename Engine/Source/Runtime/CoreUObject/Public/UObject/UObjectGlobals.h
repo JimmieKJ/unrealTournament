@@ -121,7 +121,26 @@ COREUOBJECT_API TArray<const TCHAR*> ParsePropertyFlags(uint64 Flags);
 
 COREUOBJECT_API UPackage* GetTransientPackage();
 
-COREUOBJECT_API bool ResolveName( UObject*& Outer, FString& Name, bool Create, bool Throw );
+/**
+ * Gets INI file name from object's reference if it contains one.
+ *
+ * @returns If object reference doesn't contain any INI reference the function
+ *		returns nullptr. Otherwise a ptr to INI's file name.
+ */
+COREUOBJECT_API const FString* GetIniFilenameFromObjectsReference(const FString& ObjectsReferenceString);
+
+/**
+ * Resolves ini object path to string object path.
+ *
+ * @param ObjectReference Ini reference.
+ * @param IniFilename Ini filename.
+ * @param bThrow Can this function throw?
+ *
+ * @returns Resolved object path.
+ */
+COREUOBJECT_API FString ResolveIniObjectsReference(const FString& ObjectReference, const FString* IniFilename, bool bThrow = false);
+
+COREUOBJECT_API bool ResolveName( UObject*& Outer, FString& ObjectsReferenceString, bool Create, bool Throw );
 COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHAR* ErrorMessage);
 
 /**
@@ -272,6 +291,9 @@ namespace EAsyncLoadingResult
 	};
 }
 
+/** The type that represents an async loading priority */
+typedef int32 TAsyncLoadPriority;
+
 /**
  * Delegate called on completion of async package loading
  * @param	PackageName			Package name we were trying to load
@@ -281,7 +303,7 @@ namespace EAsyncLoadingResult
 DECLARE_DELEGATE_ThreeParams(FLoadPackageAsyncDelegate, const FName& /*PackageName*/, UPackage* /*LoadedPackage*/, EAsyncLoadingResult::Type /*Result*/)
 
 /**
- * Asynchronously load a package and all contained objects that match context flags. Non- blocking.
+ * [Deprecated] Asynchronously load a package and all contained objects that match context flags. Non- blocking.
  *
  * @param	InName					Name of package to load
  * @param	InGuid					GUID of the package to load, or NULL for "don't care"
@@ -291,8 +313,24 @@ DECLARE_DELEGATE_ThreeParams(FLoadPackageAsyncDelegate, const FName& /*PackageNa
  * @param	InFlags					Package flags
  * @param	InPIEInstanceID			PIE instance ID
  * @param	InPackagePriority		Loading priority
+ * @return Unique ID associated with this load request (the same package can be associated with multiple IDs).
  */
-COREUOBJECT_API void LoadPackageAsync(const FString& InName, const FGuid* InGuid = nullptr, FName InType = NAME_None, const TCHAR* InPackageToLoadFrom = nullptr, FLoadPackageAsyncDelegate InCompletionDelegate = FLoadPackageAsyncDelegate(), EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE, uint32 InPackagePriority = 0);
+DEPRECATED(4.9, "LoadPackageAsync override that takes package type parameter FName InType is deprecated.")
+COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, const FGuid* InGuid, FName InType, const TCHAR* InPackageToLoadFrom = nullptr, FLoadPackageAsyncDelegate InCompletionDelegate = FLoadPackageAsyncDelegate(), EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE, TAsyncLoadPriority InPackagePriority = 0);
+
+/**
+* Asynchronously load a package and all contained objects that match context flags. Non- blocking.
+*
+* @param	InName					Name of package to load
+* @param	InGuid					GUID of the package to load, or NULL for "don't care"
+* @param	InPackageToLoadFrom		If non-null, this is another package name. We load from this package name, into a (probably new) package named PackageName
+* @param	InCompletionDelegate	Delegate to be invoked when the packages has finished streaming
+* @param	InFlags					Package flags
+* @param	InPIEInstanceID			PIE instance ID
+* @param	InPackagePriority		Loading priority
+* @return Unique ID associated with this load request (the same package can be associated with multiple IDs).
+*/
+COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, const FGuid* InGuid = nullptr, const TCHAR* InPackageToLoadFrom = nullptr, FLoadPackageAsyncDelegate InCompletionDelegate = FLoadPackageAsyncDelegate(), EPackageFlags InPackageFlags = PKG_None, int32 InPIEInstanceID = INDEX_NONE, TAsyncLoadPriority InPackagePriority = 0);
 
 /**
 * Asynchronously load a package and all contained objects that match context flags. Non- blocking.
@@ -300,8 +338,9 @@ COREUOBJECT_API void LoadPackageAsync(const FString& InName, const FGuid* InGuid
 * @param	InName					Name of package to load
 * @param	InCompletionDelegate	Delegate to be invoked when the packages has finished streaming
 * @param	InPackagePriority		Loading priority
+* @return Unique ID associated with this load request (the same package can be associated with multiple IDs).
 */
-COREUOBJECT_API void LoadPackageAsync(const FString& InName, FLoadPackageAsyncDelegate InCompletionDelegate, uint32 InPackagePriority = 0, EPackageFlags InPackageFlags = PKG_None);
+COREUOBJECT_API int32 LoadPackageAsync(const FString& InName, FLoadPackageAsyncDelegate InCompletionDelegate, TAsyncLoadPriority InPackagePriority = 0, EPackageFlags InPackageFlags = PKG_None);
 
 /**
 * Cancels all async package loading requests.
@@ -336,7 +375,6 @@ COREUOBJECT_API void CollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPur
 * @param	bPerformFullPurge	if true, perform a full purge after the mark pass
 */
 COREUOBJECT_API bool TryCollectGarbage(EObjectFlags KeepFlags, bool bPerformFullPurge = true);
-COREUOBJECT_API void SerializeRootSet(FArchive& Ar, EObjectFlags KeepFlags);
 
 /**
  * Returns whether an incremental purge is still pending/ in progress.
@@ -392,12 +430,22 @@ COREUOBJECT_API FName MakeObjectNameFromActorLabel( const FString& InActorLabel,
  * @return true if object is referenced, false otherwise
  */
 COREUOBJECT_API bool IsReferenced( UObject*& Res, EObjectFlags KeepFlags, bool bCheckSubObjects = false, FReferencerInformationList* FoundReferences = NULL );
+
 /**
  * Blocks till all pending package/ linker requests are fulfilled.
  *
- * @param	ExcludeType		Do not flush packages associated with this specific type name
+ * @param PackageID if the package associated with this request ID gets loaded, FlushAsyncLoading returns 
+ *        immediately without waiting for the remaining packages to finish loading.
  */
-COREUOBJECT_API void FlushAsyncLoading( FName ExcludeType = NAME_None );
+COREUOBJECT_API void FlushAsyncLoading(int32 PackageID = INDEX_NONE);
+
+/**
+* [Deprecated] Blocks till all pending package/ linker requests are fulfilled.
+*
+* @param	ExcludeType		Do not flush packages associated with this specific type name
+*/
+DEPRECATED(4.9, "FlushAsyncLoading override that takes package type parameter FName ExcludeType is deprecated.")
+COREUOBJECT_API void FlushAsyncLoading(FName ExcludeType);
 
 /**
  * @return number of active async load package requests
@@ -410,6 +458,13 @@ COREUOBJECT_API int32 GetNumAsyncPackages();
  * @return true if we are loading a package, false otherwise
  */
 COREUOBJECT_API bool IsLoading();
+
+/**
+* Determines whether the current platform file is compatible with dependency preloading
+*
+* @return true if we can use dependency preloading
+*/
+COREUOBJECT_API bool IsPlatformFileCompatibleWithDependencyPreloading();
 
 /**
  * State of the async package after the last tick.
@@ -433,10 +488,9 @@ namespace EAsyncPackageState
  * @param	bUseTimeLimit	Whether to use a time limit
  * @param	bUseFullTimeLimit	If true, use the entire time limit even if blocked on I/O
  * @param	TimeLimit		Soft limit of time this function is allowed to consume
- * @param	ExcludeType		Do not process packages associated with this specific type name
  * @return The minimum state of any of the queued packages.
  */
-COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoading( bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit, FName ExcludeType = NAME_None );
+COREUOBJECT_API EAsyncPackageState::Type ProcessAsyncLoading( bool bUseTimeLimit, bool bUseFullTimeLimit, float TimeLimit);
 COREUOBJECT_API void BeginLoad();
 COREUOBJECT_API void EndLoad();
 
@@ -750,7 +804,7 @@ public:
 	/**
 	 * Create a component or subobject
 	 * @param	TReturnType					class of return type, all overrides must be of this type
-	 * @param	TClassToConstructByDefault	if the derived class has not overriden, create a component of this type (default is TReturnType)
+	 * @param	TClassToConstructByDefault	if the derived class has not overridden, create a component of this type (default is TReturnType)
 	 * @param	Outer						outer to construct the subobject in
 	 * @param	SubobjectName				name of the new component
 	 * @param bIsRequired			true if the component is required and will always be created even if DoNotCreateDefaultSubobject was sepcified.
@@ -981,6 +1035,10 @@ private:
 	mutable FOverrides ComponentOverrides;
 	/**  List of component classes to intialize after the C++ constructors **/
 	mutable FSubobjectsToInit ComponentInits;
+#if !UE_BUILD_SHIPPING
+	/** List of all subobject names constructed for this object */
+	mutable TArray<FName, TInlineAllocator<8>> ConstructedSubobjects;
+#endif
 	/**  Previously constructed object in the callstack */
 	UObject* LastConstructedObject;
 
@@ -1196,14 +1254,14 @@ inline T* FindObjectSafe( UObject* Outer, const TCHAR* Name, bool ExactClass=fal
 
 // Load an object.
 template< class T > 
-inline T* LoadObject( UObject* Outer, const TCHAR* Name, const TCHAR* Filename=NULL, uint32 LoadFlags=LOAD_None, UPackageMap* Sandbox=NULL )
+inline T* LoadObject( UObject* Outer, const TCHAR* Name, const TCHAR* Filename=nullptr, uint32 LoadFlags=LOAD_None, UPackageMap* Sandbox=nullptr )
 {
 	return (T*)StaticLoadObject( T::StaticClass(), Outer, Name, Filename, LoadFlags, Sandbox );
 }
 
 // Load a class object.
 template< class T > 
-inline UClass* LoadClass( UObject* Outer, const TCHAR* Name, const TCHAR* Filename, uint32 LoadFlags, UPackageMap* Sandbox )
+inline UClass* LoadClass( UObject* Outer, const TCHAR* Name, const TCHAR* Filename=nullptr, uint32 LoadFlags=LOAD_None, UPackageMap* Sandbox=nullptr )
 {
 	return StaticLoadClass( T::StaticClass(), Outer, Name, Filename, LoadFlags, Sandbox );
 }
@@ -1526,8 +1584,8 @@ public:
 	* @param ReferencingObject Referencing object (if available).
 	* @param ReferencingProperty Referencing property (if available).
 	*/
-	template <typename TKeyType, typename TValueType>
-	void AddReferencedObjects(TMap<TKeyType, TValueType>& Map, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
+	template <typename TKeyType, typename TValueType, typename TAllocator, typename TKeyFuncs >
+	void AddReferencedObjects(TMapBase<TKeyType, TValueType, TAllocator, TKeyFuncs>& Map, const UObject* ReferencingObject = NULL, const UProperty* ReferencingProperty = NULL)
 	{
 		static_assert(CanConverFromTo<TKeyType, UObjectBase*>::Result || CanConverFromTo<TValueType, UObjectBase*>::Result, "At least one of TMap template types must be derived from UObject");
 		for (auto& It : Map)
@@ -1563,6 +1621,8 @@ public:
 	* Gets the property that is currently being serialized
 	*/
 	virtual class UProperty* GetSerializedProperty() const { return nullptr; }
+
+	virtual void SetShouldHandleAsWeakRef(bool bWeakRef) {}
 protected:
 	/**
 	 * Handle object reference. Called by AddReferencedObject.
@@ -1711,9 +1771,13 @@ struct COREUOBJECT_API FCoreUObjectDelegates
 	/** Delegate used by SavePackage() to check whether a package should be saved */
 	static FIsPackageOKToSaveDelegate IsPackageOKToSaveDelegate;
 
-	/** Delegate for replacing hot-reloaded classes that changed after hot-reload */
-	DECLARE_DELEGATE_TwoParams(FReplaceHotReloadClassDelegate, UClass*, UClass*);
-	static FReplaceHotReloadClassDelegate ReplaceHotReloadClassDelegate;
+	/** Delegate for registering hot-reloaded classes that changed after hot-reload for reinstancing */
+	DECLARE_DELEGATE_TwoParams(FRegisterClassForHotReloadReinstancingDelegate, UClass*, UClass*);
+	static FRegisterClassForHotReloadReinstancingDelegate RegisterClassForHotReloadReinstancingDelegate;
+
+	/** Delegate for reinstancing hot-reloaded classes */
+	DECLARE_DELEGATE(FReinstanceHotReloadedClassesDelegate);
+	static FReinstanceHotReloadedClassesDelegate ReinstanceHotReloadedClassesDelegate;
 
 	// Sent at the very beginning of LoadMap
 	static FSimpleMulticastDelegate PreLoadMap;

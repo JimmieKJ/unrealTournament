@@ -11,6 +11,7 @@
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "Toolkits/AssetEditorManager.h"
 #include "Toolkits/ToolkitManager.h"
+#include "Toolkits/GlobalEditorCommonCommands.h"
 #include "ConsolidateWindow.h"
 #include "ReferenceViewer.h"
 #include "ISizeMapModule.h"
@@ -22,6 +23,7 @@
 #include "SourceControlWindows.h"
 #include "KismetEditorUtilities.h"
 #include "AssetToolsModule.h"
+#include "CollectionAssetManagement.h"
 #include "ComponentAssetBroker.h"
 #include "SNumericEntryBox.h"
 
@@ -60,6 +62,11 @@ void FAssetContextMenu::BindCommands(TSharedPtr< FUICommandList >& Commands)
 		FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteDuplicate),
 		FIsActionChecked(),
 		FIsActionButtonVisible::CreateSP(this, &FAssetContextMenu::CanExecuteDuplicate)
+		));
+
+	Commands->MapAction(FGlobalEditorCommonCommands::Get().FindInContentBrowser, FUIAction(
+		FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteSyncToAssetTree),
+		FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteSyncToAssetTree)
 		));
 }
 
@@ -106,11 +113,11 @@ TSharedRef<SWidget> FAssetContextMenu::MakeContextMenu(const TArray<FAssetData>&
 		// Add reference options
 		AddReferenceMenuOptions(MenuBuilder);
 
-		// Add documentation options
-		AddDocumentationMenuOptions(MenuBuilder);
-
 		// Add collection options
 		AddCollectionMenuOptions(MenuBuilder);
+
+		// Add documentation options
+		AddDocumentationMenuOptions(MenuBuilder);
 
 		// Add source control options
 		AddSourceControlMenuOptions(MenuBuilder);
@@ -202,6 +209,11 @@ bool FAssetContextMenu::AddImportedAssetMenuOptions(FMenuBuilder& MenuBuilder)
 
 bool FAssetContextMenu::AddCommonMenuOptions(FMenuBuilder& MenuBuilder)
 {
+	TArray< FAssetData > AssetViewSelectedAssets = AssetView.Pin()->GetSelectedAssets();
+
+	int32 NumAssetItems, NumClassItems;
+	ContentBrowserUtils::CountItemTypes(AssetViewSelectedAssets, NumAssetItems, NumClassItems);
+
 	MenuBuilder.BeginSection("CommonAssetActions", LOCTEXT("CommonAssetActionsMenuHeading", "Common"));
 	{
 		// Edit
@@ -212,52 +224,56 @@ bool FAssetContextMenu::AddCommonMenuOptions(FMenuBuilder& MenuBuilder)
 			FUIAction( FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteEditAsset) )
 			);
 	
-		// Rename
-		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Rename, NAME_None,
-			LOCTEXT("Rename", "Rename"),
-			LOCTEXT("RenameTooltip", "Rename the selected asset."),
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Rename")
-			);
+		// Only add these options if assets are selected
+		if (NumAssetItems > 0)
+		{
+			// Rename
+			MenuBuilder.AddMenuEntry(FGenericCommands::Get().Rename, NAME_None,
+				LOCTEXT("Rename", "Rename"),
+				LOCTEXT("RenameTooltip", "Rename the selected asset."),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Rename")
+				);
 
-		// Duplicate
-		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Duplicate, NAME_None,
-			LOCTEXT("Duplicate", "Duplicate"),
-			LOCTEXT("DuplicateTooltip", "Create a copy of the selected asset(s)."),
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Duplicate")
-			);
+			// Duplicate
+			MenuBuilder.AddMenuEntry(FGenericCommands::Get().Duplicate, NAME_None,
+				LOCTEXT("Duplicate", "Duplicate"),
+				LOCTEXT("DuplicateTooltip", "Create a copy of the selected asset(s)."),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Duplicate")
+				);
 
-		// Save
-		MenuBuilder.AddMenuEntry(
-			LOCTEXT("SaveAsset", "Save"),
-			LOCTEXT("SaveAssetTooltip", "Saves the asset to file."),
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "Level.SaveIcon16x"),
-			FUIAction(
-				FExecuteAction::CreateSP( this, &FAssetContextMenu::ExecuteSaveAsset ),
-				FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteSaveAsset )
-				)
-			);
+			// Save
+			MenuBuilder.AddMenuEntry(
+				LOCTEXT("SaveAsset", "Save"),
+				LOCTEXT("SaveAssetTooltip", "Saves the asset to file."),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "Level.SaveIcon16x"),
+				FUIAction(
+					FExecuteAction::CreateSP( this, &FAssetContextMenu::ExecuteSaveAsset ),
+					FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteSaveAsset )
+					)
+				);
 
-		// Delete
-		MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete, NAME_None,
-			LOCTEXT("Delete", "Delete"),
-			LOCTEXT("DeleteTooltip", "Delete the selected assets."),
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Delete")
-			);
+			// Delete
+			MenuBuilder.AddMenuEntry(FGenericCommands::Get().Delete, NAME_None,
+				LOCTEXT("Delete", "Delete"),
+				LOCTEXT("DeleteTooltip", "Delete the selected assets."),
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions.Delete")
+				);
 
-		// Asset Actions sub-menu
-		MenuBuilder.AddSubMenu(
-			LOCTEXT("AssetActionsSubMenuLabel", "Asset Actions"),
-			LOCTEXT("AssetActionsSubMenuToolTip", "Other asset actions"),
-			FNewMenuDelegate::CreateSP(this, &FAssetContextMenu::MakeAssetActionsSubMenu),
-			FUIAction(
-				FExecuteAction(),
-				FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteAssetActions )
-				),
-			NAME_None,
-			EUserInterfaceActionType::Button,
-			false, 
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions")
-			);
+			// Asset Actions sub-menu
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("AssetActionsSubMenuLabel", "Asset Actions"),
+				LOCTEXT("AssetActionsSubMenuToolTip", "Other asset actions"),
+				FNewMenuDelegate::CreateSP(this, &FAssetContextMenu::MakeAssetActionsSubMenu),
+				FUIAction(
+					FExecuteAction(),
+					FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteAssetActions )
+					),
+				NAME_None,
+				EUserInterfaceActionType::Button,
+				false, 
+				FSlateIcon(FEditorStyle::GetStyleSetName(), "ContentBrowser.AssetActions")
+				);
+		}
 	}
 	MenuBuilder.EndSection();
 
@@ -268,23 +284,19 @@ void FAssetContextMenu::AddExploreMenuOptions(FMenuBuilder& MenuBuilder)
 {
 	MenuBuilder.BeginSection("AssetContextExploreMenuOptions", LOCTEXT("AssetContextExploreMenuOptionsHeading", "Explore"));
 	{
-		// Open Containing Folder
+		// Find in Content Browser
 		MenuBuilder.AddMenuEntry(
-			LOCTEXT("SyncToAssetTree", "Show in Folder View"),
-			LOCTEXT("SyncToAssetTreeTooltip", "Selects the folder that contains this asset in the Content Browser Sources Panel."),
-			FSlateIcon(),
-			FUIAction(
-				FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecuteSyncToAssetTree),
-				FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteSyncToAssetTree)
-				)
+			FGlobalEditorCommonCommands::Get().FindInContentBrowser, 
+			NAME_None, 
+			LOCTEXT("ShowInFolderView", "Show in Folder View"),
+			LOCTEXT("ShowInFolderViewTooltip", "Selects the folder that contains this asset in the Content Browser Sources Panel.")
 			);
-
 
 		// Find in Explorer
 		MenuBuilder.AddMenuEntry(
 			ContentBrowserUtils::GetExploreFolderText(),
 			LOCTEXT("FindInExplorerTooltip", "Finds this asset on disk"),
-			FSlateIcon(),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "SystemWideCommands.FindInContentBrowser"),
 			FUIAction(
 				FExecuteAction::CreateSP( this, &FAssetContextMenu::ExecuteFindInExplorer ),
 				FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteFindInExplorer )
@@ -399,11 +411,10 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 
 		// Property Matrix
 		bool bCanUsePropertyMatrix = true;
-		static FName MaterialName(TEXT("Material"));
-		static FName MaterialInstanceConstantName(TEXT("MaterialInstanceConstant"));
+		// Materials can't be bulk edited currently as they require very special handling because of their dependencies with the rendering thread, and we'd have to hack the property matrix too much.
 		for (auto& Asset : SelectedAssets)
 		{
-			if (Asset.AssetClass == MaterialName || Asset.AssetClass == MaterialInstanceConstantName)
+			if (Asset.AssetClass == UMaterial::StaticClass()->GetFName() || Asset.AssetClass == UMaterialInstanceConstant::StaticClass()->GetFName() || Asset.AssetClass == UMaterialFunction::StaticClass()->GetFName())
 			{
 				bCanUsePropertyMatrix = false;
 				break;
@@ -511,7 +522,7 @@ bool FAssetContextMenu::AddDocumentationMenuOptions(FMenuBuilder& MenuBuilder)
 		const bool bIsBlueprint = SelectedClass->IsChildOf<UBlueprint>();
 		if (bIsBlueprint)
 		{
-			FString* ParentClassPath = SelectedAssets[0].TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UBlueprint,ParentClass));
+			auto ParentClassPath = SelectedAssets[0].TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UBlueprint,ParentClass));
 			if (ParentClassPath)
 			{
 				SelectedClass = FindObject<UClass>(nullptr,**ParentClassPath);
@@ -560,8 +571,8 @@ bool FAssetContextMenu::AddDocumentationMenuOptions(FMenuBuilder& MenuBuilder)
 						}
 
 						UEnum* BlueprintTypeEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EBlueprintType"), true);
-						FString* EnumString = SelectedAssets[0].TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UBlueprint,BlueprintType));
-						EBlueprintType BlueprintType = (EnumString ? (EBlueprintType)BlueprintTypeEnum->FindEnumIndex(**EnumString) : BPTYPE_Normal);
+						auto EnumString = SelectedAssets[0].TagsAndValues.Find(GET_MEMBER_NAME_CHECKED(UBlueprint,BlueprintType));
+						EBlueprintType BlueprintType = (EnumString ? (EBlueprintType)BlueprintTypeEnum->GetValueByName(**EnumString) : BPTYPE_Normal);
 
 						switch (BlueprintType)
 						{
@@ -808,27 +819,148 @@ bool FAssetContextMenu::CanExecuteSourceControlActions() const
 
 bool FAssetContextMenu::AddCollectionMenuOptions(FMenuBuilder& MenuBuilder)
 {
-	// "Remove from collection" (only display option if exactly one collection is selected)
-	if ( SourcesData.Collections.Num() == 1 )
+	class FManageCollectionsContextMenu
 	{
-		MenuBuilder.BeginSection("AssetContextCollections", LOCTEXT("AssetCollectionOptionsMenuHeading", "Collections"));
+	public:
+		static void CreateManageCollectionsSubMenu(FMenuBuilder& SubMenuBuilder, TSharedRef<FCollectionAssetManagement> QuickAssetManagement)
 		{
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("RemoveFromCollection", "Remove From Collection"),
-				LOCTEXT("RemoveFromCollection_ToolTip", "Removes the selected asset from the current collection."),
-				FSlateIcon(),
-				FUIAction(
-					FExecuteAction::CreateSP( this, &FAssetContextMenu::ExecuteRemoveFromCollection ),
-					FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteRemoveFromCollection )
-					)
-				);
-		}
-		MenuBuilder.EndSection();
+			FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 
-		return true;
+			TArray<FCollectionNameType> AvailableCollections;
+			CollectionManagerModule.Get().GetRootCollections(AvailableCollections);
+
+			CreateManageCollectionsSubMenu(SubMenuBuilder, QuickAssetManagement, MoveTemp(AvailableCollections));
+		}
+
+		static void CreateManageCollectionsSubMenu(FMenuBuilder& SubMenuBuilder, TSharedRef<FCollectionAssetManagement> QuickAssetManagement, TArray<FCollectionNameType> AvailableCollections)
+		{
+			FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+
+			AvailableCollections.Sort([](const FCollectionNameType& One, const FCollectionNameType& Two) -> bool
+			{
+				return One.Name < Two.Name;
+			});
+
+			for (const FCollectionNameType& AvailableCollection : AvailableCollections)
+			{
+				// Never display system collections
+				if (AvailableCollection.Type == ECollectionShareType::CST_System)
+				{
+					continue;
+				}
+
+				// Can only manage assets for static collections
+				ECollectionStorageMode::Type StorageMode = ECollectionStorageMode::Static;
+				CollectionManagerModule.Get().GetCollectionStorageMode(AvailableCollection.Name, AvailableCollection.Type, StorageMode);
+				if (StorageMode != ECollectionStorageMode::Static)
+				{
+					continue;
+				}
+
+				TArray<FCollectionNameType> AvailableChildCollections;
+				CollectionManagerModule.Get().GetChildCollections(AvailableCollection.Name, AvailableCollection.Type, AvailableChildCollections);
+
+				if (AvailableChildCollections.Num() > 0)
+				{
+					SubMenuBuilder.AddSubMenu(
+						FText::FromName(AvailableCollection.Name), 
+						FText::GetEmpty(), 
+						FNewMenuDelegate::CreateStatic(&FManageCollectionsContextMenu::CreateManageCollectionsSubMenu, QuickAssetManagement, AvailableChildCollections),
+						FUIAction(
+							FExecuteAction::CreateStatic(&FManageCollectionsContextMenu::OnCollectionClicked, QuickAssetManagement, AvailableCollection),
+							FCanExecuteAction::CreateStatic(&FManageCollectionsContextMenu::IsCollectionEnabled, QuickAssetManagement, AvailableCollection),
+							FGetActionCheckState::CreateStatic(&FManageCollectionsContextMenu::GetCollectionCheckState, QuickAssetManagement, AvailableCollection)
+							), 
+						NAME_None, 
+						EUserInterfaceActionType::ToggleButton,
+						false,
+						FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(AvailableCollection.Type))
+						);
+				}
+				else
+				{
+					SubMenuBuilder.AddMenuEntry(
+						FText::FromName(AvailableCollection.Name), 
+						FText::GetEmpty(), 
+						FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(AvailableCollection.Type)), 
+						FUIAction(
+							FExecuteAction::CreateStatic(&FManageCollectionsContextMenu::OnCollectionClicked, QuickAssetManagement, AvailableCollection),
+							FCanExecuteAction::CreateStatic(&FManageCollectionsContextMenu::IsCollectionEnabled, QuickAssetManagement, AvailableCollection),
+							FGetActionCheckState::CreateStatic(&FManageCollectionsContextMenu::GetCollectionCheckState, QuickAssetManagement, AvailableCollection)
+							), 
+						NAME_None, 
+						EUserInterfaceActionType::ToggleButton
+						);
+				}
+			}
+		}
+
+	private:
+		static bool IsCollectionEnabled(TSharedRef<FCollectionAssetManagement> QuickAssetManagement, FCollectionNameType InCollectionKey)
+		{
+			return QuickAssetManagement->IsCollectionEnabled(InCollectionKey);
+		}
+
+		static ECheckBoxState GetCollectionCheckState(TSharedRef<FCollectionAssetManagement> QuickAssetManagement, FCollectionNameType InCollectionKey)
+		{
+			return QuickAssetManagement->GetCollectionCheckState(InCollectionKey);
+		}
+
+		static void OnCollectionClicked(TSharedRef<FCollectionAssetManagement> QuickAssetManagement, FCollectionNameType InCollectionKey)
+		{
+			// The UI actions don't give you the new check state, so we need to emulate the behavior of SCheckBox
+			// Basically, unchecked will transition to checked (adding items), and anything else will transition to unchecked (removing items)
+			if (GetCollectionCheckState(QuickAssetManagement, InCollectionKey) == ECheckBoxState::Unchecked)
+			{
+				QuickAssetManagement->AddCurrentAssetsToCollection(InCollectionKey);
+			}
+			else
+			{
+				QuickAssetManagement->RemoveCurrentAssetsFromCollection(InCollectionKey);
+			}
+		}
+	};
+
+	bool bHasAddedItems = false;
+
+	FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+
+	MenuBuilder.BeginSection("AssetContextCollections", LOCTEXT("AssetCollectionOptionsMenuHeading", "Collections"));
+
+	// Show a sub-menu that allows you to quickly add or remove the current asset selection from the available collections
+	if (CollectionManagerModule.Get().HasCollections())
+	{
+		TSharedRef<FCollectionAssetManagement> QuickAssetManagement = MakeShareable(new FCollectionAssetManagement());
+		QuickAssetManagement->SetCurrentAssets(SelectedAssets);
+
+		MenuBuilder.AddSubMenu(
+			LOCTEXT("ManageCollections", "Manage Collections"),
+			LOCTEXT("ManageCollections_ToolTip", "Manage the collections that the selected asset(s) belong to."),
+			FNewMenuDelegate::CreateStatic(&FManageCollectionsContextMenu::CreateManageCollectionsSubMenu, QuickAssetManagement)
+			);
+
+		bHasAddedItems = true;
 	}
 
-	return false;
+	// "Remove from collection" (only display option if exactly one collection is selected)
+	if ( SourcesData.Collections.Num() == 1 && !SourcesData.IsDynamicCollection() )
+	{
+		MenuBuilder.AddMenuEntry(
+			FText::Format(LOCTEXT("RemoveFromCollectionFmt", "Remove From {0}"), FText::FromName(SourcesData.Collections[0].Name)),
+			LOCTEXT("RemoveFromCollection_ToolTip", "Removes the selected asset from the current collection."),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP( this, &FAssetContextMenu::ExecuteRemoveFromCollection ),
+				FCanExecuteAction::CreateSP( this, &FAssetContextMenu::CanExecuteRemoveFromCollection )
+				)
+			);
+
+		bHasAddedItems = true;
+	}
+
+	MenuBuilder.EndSection();
+
+	return bHasAddedItems;
 }
 
 bool FAssetContextMenu::AreImportedAssetActionsVisible() const
@@ -939,7 +1071,9 @@ void FAssetContextMenu::GetSelectedAssetSourceFilePaths(TArray<FString>& OutFile
 
 void FAssetContextMenu::ExecuteSyncToAssetTree()
 {
-	OnFindInAssetTreeRequested.ExecuteIfBound(SelectedAssets);
+	// Copy this as the sync may adjust our selected assets array
+	const TArray<FAssetData> SelectedAssetsCopy = SelectedAssets;
+	OnFindInAssetTreeRequested.ExecuteIfBound(SelectedAssetsCopy);
 }
 
 void FAssetContextMenu::ExecuteFindInExplorer()
@@ -1448,11 +1582,10 @@ void FAssetContextMenu::ExecuteRemoveFromCollection()
 
 		if ( AssetsToRemove.Num() > 0 )
 		{
-			FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>("CollectionManager");
+			FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 
-			FName CollectionName = SourcesData.Collections[0].Name;
-			ECollectionShareType::Type CollectionType = SourcesData.Collections[0].Type;
-			CollectionManagerModule.Get().RemoveFromCollection(CollectionName, CollectionType, AssetsToRemove);
+			const FCollectionNameType& Collection = SourcesData.Collections[0];
+			CollectionManagerModule.Get().RemoveFromCollection(Collection.Name, Collection.Type, AssetsToRemove);
 			OnAssetViewRefreshRequested.ExecuteIfBound();
 		}
 	}
@@ -1722,11 +1855,10 @@ bool FAssetContextMenu::CanExecuteRename() const
 	TArray< FString > SelectedFolders = AssetView.Pin()->GetSelectedFolders();
 
 	const bool bOneAssetSelected = AssetViewSelectedAssets.Num() == 1 && SelectedFolders.Num() == 0		// A single asset
-		&& AssetViewSelectedAssets[0].AssetClass != UObjectRedirector::StaticClass()->GetFName()		// Which isn't a redirector
-		&& AssetViewSelectedAssets[0].AssetClass != NAME_Class;											// And isn't a class
+		&& ContentBrowserUtils::CanRenameAsset(AssetViewSelectedAssets[0]);								// Which can be renamed
 
 	const bool bOneFolderSelected = AssetViewSelectedAssets.Num() == 0 && SelectedFolders.Num() == 1	// A single folder
-		&& !ContentBrowserUtils::IsClassPath(SelectedFolders[0]);										// Which doesn't belong to a class path
+		&& ContentBrowserUtils::CanRenameFolder(SelectedFolders[0]);									// Which can be renamed
 	
 	return (bOneAssetSelected || bOneFolderSelected) && !AssetView.Pin()->IsThumbnailEditMode();
 }
@@ -1742,13 +1874,23 @@ bool FAssetContextMenu::CanExecuteDelete() const
 	int32 NumAssetPaths, NumClassPaths;
 	ContentBrowserUtils::CountPathTypes(SelectedFolders, NumAssetPaths, NumClassPaths);
 
-	// We can't delete classes, or folders containing classes
-	return (NumAssetItems > 0 && NumClassItems == 0) || (NumAssetPaths > 0 && NumClassPaths == 0);
+	bool bHasSelectedCollections = false;
+	for (const FString& SelectedFolder : SelectedFolders)
+	{
+		if (ContentBrowserUtils::IsCollectionPath(SelectedFolder))
+		{
+			bHasSelectedCollections = true;
+			break;
+		}
+	}
+
+	// We can't delete classes, or folders containing classes, or any collection folders
+	return ((NumAssetItems > 0 && NumClassItems == 0) || (NumAssetPaths > 0 && NumClassPaths == 0)) && !bHasSelectedCollections;
 }
 
 bool FAssetContextMenu::CanExecuteRemoveFromCollection() const 
 {
-	return SourcesData.Collections.Num() == 1;
+	return SourcesData.Collections.Num() == 1 && !SourcesData.IsDynamicCollection();
 }
 
 bool FAssetContextMenu::CanExecuteSCCRefresh() const
@@ -1874,14 +2016,7 @@ bool FAssetContextMenu::CanExecuteDiffSelected() const
 		FAssetData const& FirstSelection = SelectedAssets[0];
 		FAssetData const& SecondSelection = SelectedAssets[1];
 
-		if (FirstSelection.AssetClass != SecondSelection.AssetClass)
-		{
-			bCanDiffSelected = false;
-		}
-		else 
-		{
-			bCanDiffSelected = (FirstSelection.AssetClass == UBlueprint::StaticClass()->GetFName());
-		}
+		bCanDiffSelected = FirstSelection.AssetClass == SecondSelection.AssetClass;
 	}
 
 	return bCanDiffSelected;

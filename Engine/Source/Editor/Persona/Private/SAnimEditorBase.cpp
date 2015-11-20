@@ -271,8 +271,9 @@ void SAnimEditorBase::OnSelectionChanged(const FGraphPanelSelectionSet& Selected
 {
 	if (SelectedItems.Num() == 0)
 	{
-		// Edit the sequence
-		PersonaPtr.Pin()->UpdateSelectionDetails(GetEditorObject(), LOCTEXT("Edit Sequence", "Edit Sequence"));
+		// If nothing is selected, unselect it instead of selecting current editor object. 
+		// That means, it shows same information as Anim Detail Panel
+		PersonaPtr.Pin()->UpdateSelectionDetails(NULL, LOCTEXT("Edit Sequence", "Edit Sequence"));
 	}
 	else
 	{

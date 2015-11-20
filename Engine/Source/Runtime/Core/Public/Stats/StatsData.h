@@ -35,6 +35,15 @@ struct CORE_API FStatConstants
 
 	/** Indicates that the item is a thread. */
 	static const FString ThreadNameMarker;
+
+	/** A raw name for the event wait with id. */
+	static const FName NAME_EventWaitWithId;
+
+	/** A raw name for the event trigger with id. */
+	static const FName NAME_EventTriggerWithId;
+
+	/** A raw name for the stat marker. */
+	static const FName NAME_NamedMarker;
 };
 
 namespace LexicalConversion
@@ -70,7 +79,10 @@ public:
 	TParsedValueWithDefault( const TCHAR* Stream, const TCHAR* Match, const T& Default )
 		: Value( Default )
 	{
-		ParseTypedValue<T>( Stream, Match, Value );
+		if (Stream && Match)
+		{
+			ParseTypedValue<T>( Stream, Match, Value );
+		}
 	}
 
 	const T& Get() const
@@ -254,8 +266,11 @@ struct CORE_API FRawStatStackNode
 	void MergeAdd(FRawStatStackNode const& Other);
 	void Divide(uint32 Div);
 
-	/** Cull this tree, merging children below MinCycles long **/
-	void Cull(int64 MinCycles, int32 NoCullLevels = 0);
+	/** Cull this tree, merging children below MinCycles long. */
+	void CullByCycles(int64 MinCycles);
+
+	/** Cull this tree, merging children below NoCullLevels. */
+	void CullByDepth(int32 NoCullLevels);
 
 	/** Adds name hiearchy. **/
 	void AddNameHierarchy(int32 CurrentPrefixDepth = 0);
@@ -377,6 +392,12 @@ public:
 	/** Divides this stack by the specified value. */
 	void Divide(uint32 Div);
 
+	/** Cull this tree, merging children below MinCycles long. */
+	void CullByCycles( int64 MinCycles );
+
+	/** Cull this tree, merging children below NoCullLevels. */
+	void CullByDepth( int32 NoCullLevels );
+
 	/** Copies exclusive times from the self node. **/
 	void CopyExclusivesFromSelf();
 
@@ -394,6 +415,37 @@ protected:
 	}
 };
 
+
+/** Holds information about event history, callstacks for the wait and the corresponding trigger. */
+struct FEventData
+{
+	/** Default constructor. */
+	FEventData()
+		: Frame( 0 )
+		, Duration( 0 )
+		, DurationMS( 0.0f )
+	{}
+
+	/**
+	 * @return true, if the wait and trigger stacks are not empty.
+	 */
+	bool HasValidStacks() const
+	{
+		return WaitStackStats.Num() > 0 && TriggerStackStats.Num() > 0;
+	}
+
+	/** Stack for the event's wait. */
+	TArray<FStatNameAndInfo> WaitStackStats;
+	/** Stat for the event's trigger. */
+	TArray<FStatNameAndInfo> TriggerStackStats;
+	/** Frame, used to remove older records from the history. */
+	int64 Frame;
+	/** Duration of the event's wait, in cycles. */
+	uint32 Duration;
+	/** Duration of the event's wait, in milliseconds. */
+	float DurationMS;
+};
+
 //@todo split header
 
 /**
@@ -407,13 +459,14 @@ struct IItemFiler
 
 
 
-// @TODO yrx 2014-12-03 Separete stats thread state vs rawstats thread state?
-// @TODO yrx 2014-03-21 Move metadata functionality into a separate class
+// #YRX_STATS 2014-12-03 Separate stats thread state vs raw stats thread state?
+// #YRX_STATS 2014-03-21 Move metadata functionality into a separate class
+// 
 /**
-* Tracks stat state and history
-*  GetLocalState() is a singleton to the state for stats being collected in this executable.
-*  Other instances can be used to load stats for visualization.
-*/
+ * Tracks stat state and history
+ * GetLocalState() is a singleton to the state for stats being collected in this executable.
+ *  Other instances can be used to load stats for visualization.
+ */
 class CORE_API FStatsThreadState
 {
 	friend class FStatsThread;
@@ -431,24 +484,14 @@ class CORE_API FStatsThreadState
 	/** Internal method to scan the messages to update the current frame. */
 	void ScanForAdvance(FStatPacketArray& NewData);
 
-	// @TODO yrx 2014-11-28 Remove from here
-	/** Internal method to scan the messages to accumulate any non-frame stats. **/
-	void ProcessMetaDataForLoad(TArray<FStatMessage>& Data);
-
 public:
 	/** Internal method to add meta data packets to the data structures. **/
 	void ProcessMetaDataOnly(TArray<FStatMessage>& Data);
 
-	// @TODO yrx 2014-11-28 Remove from here
-	/** Marks this stats state as loaded. */
-	void MarkAsLoaded()
-	{
-		bWasLoaded =  true;
-	}
-
 	/** Toggles tracking the most memory expensive stats. */
 	void ToggleFindMemoryExtensiveStats();
 
+	/** Resets stats for raw stats. */
 	void ResetStatsForRawStats()
 	{
 		MaxNumStatMessages = 0;
@@ -457,10 +500,10 @@ public:
 
 private:
 	/** Internal method to accumulate any non-frame stats. **/
-	void ProcessNonFrameStats(FStatMessagesArray& Data, TSet<FName>* NonFrameStatsFound);
+	void ProcessNonFrameStats( FStatMessagesArray& Data, TSet<FName>* NonFrameStatsFound );
 
 	/** Internal method to place the data into the history, discard and broadcast any new frames to anyone who cares. **/
-	void AddToHistoryAndEmpty(FStatPacketArray& NewData);
+	void AddToHistoryAndEmpty( FStatPacketArray& NewData );
 
 	/** Does basic processing on the raw stats packets, discard and broadcast any new raw stats packets to anyone who cares. */
 	void ProcessRawStats(FStatPacketArray& NewData);
@@ -492,14 +535,6 @@ private:
 	/** Number of frames to keep in the history. **/
 	int32 HistoryFrames;
 
-	// @TODO yrx 2014-11-28 
-	/** Largest frame seen. Loaded stats only. **/
-	int64 MaxFrameSeen;
-
-	// @TODO yrx 2014-11-28 
-	/** First frame seen. Loaded stats only. **/
-	int64 MinFrameSeen;
-
 	/** Used to track which packets have been sent to listeners **/
 	int64 LastFullFrameMetaAndNonFrame;
 
@@ -527,10 +562,6 @@ private:
 	/** Maximum number of stat messages seen so far for active session. */
 	int32 MaxNumStatMessages;
 
-	// @TODO yrx 2014-11-28 
-	/** Valid frame computation is different if we just loaded these stats **/
-	bool bWasLoaded;
-
 	/** If true, stats each frame will dump to the log a list of most memory expensive stats. */
 	bool bFindMemoryExtensiveStats;
 
@@ -538,10 +569,6 @@ public:
 
 	/** Constructor used by GetLocalState(), also used by the profiler to hold a previewing stats thread state. We don't keep many frames by default **/
 	FStatsThreadState(int32 InHistoryFrames = STAT_FRAME_SLOP + 2);
-
-	// @TODO yrx 2014-11-28 
-	/** Constructor to load stats from a file **/
-	FStatsThreadState(FString const& Filename);
 
 	/** Delegate we fire every time we have a new complete frame of data. **/
 	mutable FOnNewFrameHistory NewFrameDelegate;
@@ -560,6 +587,9 @@ public:
 
 	/** Map from a short name to the SetLongName message that defines the metadata and long name for this stat **/
 	TMap<FName, FStatMessage> ShortNameToLongName;
+
+	/** Map from the unique event id to the event stats. */
+	mutable TMap<uint32, FEventData> EventsHistory;
 
 	/** Map from memory pool to long name**/
 	TMap<FPlatformMemory::EMemoryCounterRegion, FName> MemoryPoolToCapacityLongName;
@@ -615,12 +645,40 @@ public:
 	/** Adds missing stats to the group so it doesn't jitter. **/
 	void AddMissingStats(TArray<FStatMessage>& Dest, TSet<FName> const& EnabledItems) const;
 
-	// @TODO yrx 2014-11-28 REmove from here, it's file related.
-	/** Adds a frame worth of messages */
-	void AddMessages(TArray<FStatMessage>& InMessages);
-
 	/** Singleton to get the stats being collected by this executable. Can be only accessed from the stats thread. **/
 	static FStatsThreadState& GetLocalState();
+
+	/*-----------------------------------------------------------------------------
+		Stats file related functionality
+
+		#YRX_Stats: 2015-07-07 Maybe move to FStatsLoadedState
+	-----------------------------------------------------------------------------*/
+public:
+	/** Constructor to load stats from a file **/
+	FStatsThreadState( FString const& Filename );
+
+	/** Adds a frame worth of messages */
+	void AddMessages( TArray<FStatMessage>& InMessages );
+
+	/** Marks this stats state as loaded. */
+	void MarkAsLoaded()
+	{
+		bWasLoaded = true;
+	}
+
+protected:
+	/** Internal method to scan the messages to accumulate any non-frame stats. **/
+	void ProcessMetaDataForLoad( TArray<FStatMessage>& Data );
+
+	/** Largest frame seen. Loaded stats only. **/
+	int64 MaxFrameSeen;
+
+	/** First frame seen. Loaded stats only. **/
+	int64 MinFrameSeen;
+
+	/** Valid frame computation is different if we just loaded these stats **/
+	bool bWasLoaded;
+
 };
 
 //@todo split header
@@ -816,6 +874,12 @@ struct FHudGroup
 
 	/** Counters aggregates. */
 	TArray<FComplexStatMessage> CountersAggregate;
+
+	/** Children stats that should not be used when adding up group cost **/
+	TSet<FName> BudgetIgnoreStats;
+
+	/** Expected group budget */
+	float TotalGroupBudget;
 };
 
 /**
@@ -833,6 +897,7 @@ struct FGameThreadHudData
 	TArray<FString> GroupDescriptions;
 	TMap<FPlatformMemory::EMemoryCounterRegion, int64> PoolCapacity;
 	TMap<FPlatformMemory::EMemoryCounterRegion, FString> PoolAbbreviation;
+	FString RootFilter;
 
 	/** Whether to display minimal stats for the raw stats mode. */
 	const bool bDrawOnlyRawStats;

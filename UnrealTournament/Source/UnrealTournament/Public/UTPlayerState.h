@@ -16,6 +16,9 @@
 #include "UTCharacterVoice.h"
 #include "StatManager.h"
 #include "UTWeaponSkin.h"
+#if WITH_PROFILE
+#include "UtMcpProfile.h"
+#endif
 
 #include "UTPlayerState.generated.h"
 
@@ -38,12 +41,12 @@ struct FWeaponSpree
 struct FTempBanInfo
 {
 	// The person who voted for this ban
-	TSharedPtr<class FUniqueNetId> Voter;
+	TSharedPtr<const FUniqueNetId> Voter;
 
 	// When was the vote cast.  Votes will time out over time (5mins)
 	float BanTime;
 
-	FTempBanInfo(const TSharedPtr<class FUniqueNetId> inVoter, float inBanTime)
+	FTempBanInfo(const TSharedPtr<const FUniqueNetId> inVoter, float inBanTime)
 		: Voter(inVoter)
 		, BanTime(inBanTime)
 	{
@@ -497,34 +500,64 @@ public:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	FName CountryFlag;
 
-	virtual void SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId) override;
-	
-	/** read profile items for this user from the backend */
-	virtual void ReadProfileItems();
-
 	virtual void Destroyed() override;
 
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	FName Avatar;
 
 private:
-	FHttpRequestPtr ItemListReq;
-	void ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
-protected:
-	/** profile items this player owns, downloaded from the server */
-	UPROPERTY(BlueprintReadOnly)
-	TArray<FProfileItemEntry> ProfileItems;
+	UPROPERTY()
+	UObject* McpProfile;
+
 public:
+#if WITH_PROFILE
+	inline UUtMcpProfile* GetMcpProfile() const
+	{
+		checkSlow(Cast<UUtMcpProfile>(McpProfile) != NULL);
+		return Cast<UUtMcpProfile>(McpProfile);
+	}
+	// allows UTBaseGameMode to be the only class that can set McpProfile
+	friend struct FMcpProfileSetter;
+	struct FMcpProfileSetter
+	{
+		friend class AUTBaseGameMode;
+	private:
+		static void Set(AUTPlayerState* PS, UUtMcpProfile* Profile)
+		{
+			PS->McpProfile = Profile;
+			Profile->OnHandleNotification().BindUObject(PS, &AUTPlayerState::ProfileNotification);
+			Profile->OnInventoryUpdated().AddUObject(PS, &AUTPlayerState::ProfileItemsChanged);
+			if (Profile->HasValidProfileData())
+			{
+				PS->ProfileItemsChanged(TSet<FString>(), 0);
+			}
+		}
+	};
+#endif
+	
+	/** temp while backend sends profile notifications to server when server triggered the update instead of client like it should */
+	void ProfileNotification(const FOnlineNotification& Notification);
+	void ProfileItemsChanged(const TSet<FString>& ChangedTypes, int64 ProfileRevision);
+
 	inline bool IsProfileItemListPending() const
 	{
-		return ItemListReq.IsValid() && ItemListReq->GetStatus() == EHttpRequestStatus::Processing;
+#if WITH_PROFILE
+		return McpProfile == NULL || !GetMcpProfile()->HasValidProfileData();
+#else
+		return false;
+#endif
 	}
 	inline bool OwnsItem(const UUTProfileItem* Item) const
 	{
-		return ProfileItems.ContainsByPredicate([=](const FProfileItemEntry& A) { return A.Item == Item; });
+#if WITH_PROFILE
+		TSharedPtr<const FMcpItem> McpItem = GetMcpProfile()->FindItemByTemplate(Item->GetTemplateID());
+		return (McpItem.IsValid() && McpItem->Quantity > 0);
+#else
+		return false;
+#endif
 	}
 	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
-	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
+	inline bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
 
 protected:
 	/** returns whether this user has rights to the given item

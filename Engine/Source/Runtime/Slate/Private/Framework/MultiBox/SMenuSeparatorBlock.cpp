@@ -60,6 +60,8 @@ void SMenuSeparatorBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, con
 						.BorderImage( StyleSet->GetBrush( StyleName, ".Separator" ) )
 				]
 	];
+
+	// Add this widget to the search list of the multibox and hide it
+	if (MultiBlock->GetSearchable())
+		OwnerMultiBoxWidget.Pin()->AddSearchElement(this->AsWidget(), FText::GetEmpty());
 }
-
-

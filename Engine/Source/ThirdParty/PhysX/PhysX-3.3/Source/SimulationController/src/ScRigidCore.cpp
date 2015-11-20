@@ -16,6 +16,7 @@
 #include "ScRigidSim.h"
 #include "ScShapeSim.h"
 #include "ScScene.h"
+#include "ScPhysics.h"
 
 
 using namespace physx;
@@ -60,7 +61,7 @@ void Sc::RigidCore::onShapeChange(Sc::ShapeCore& shape, ShapeChangeNotifyFlags n
 	Sc::ShapeSim& s = sim->getSimForShape(shape);
 
 	if(notifyFlags & ShapeChangeNotifyFlag::eGEOMETRY)
-		s.onGeometryChange();
+		s.onVolumeChange();
 	if(notifyFlags & ShapeChangeNotifyFlag::eMATERIAL)
 		s.onMaterialChange();
 	if(notifyFlags & ShapeChangeNotifyFlag::eRESET_FILTERING)
@@ -73,6 +74,8 @@ void Sc::RigidCore::onShapeChange(Sc::ShapeCore& shape, ShapeChangeNotifyFlags n
 		s.onFlagChange(oldShapeFlags);
 	if(notifyFlags & ShapeChangeNotifyFlag::eRESTOFFSET)
 		s.onRestOffsetChange();
+	if(notifyFlags & ShapeChangeNotifyFlag::eCONTACTOFFSET)
+		s.onVolumeChange();
 }
 
 
@@ -88,22 +91,22 @@ Sc::RigidSim* Sc::RigidCore::getSim() const
 
 // The alternative to this switch is to have a virtual interface just for this (which would nullify
 // the space advantage of getting rid of back pointers) or exposing the Np implementation to Sc.
-PxActor* NpGetPxActorSC(Sc::StaticCore&);
-PxActor* NpGetPxActorBC(Sc::BodyCore&);
-PxActor* NpGetPxActorForArticulationLink(Sc::BodyCore&);
-
-
 PxActor* Sc::RigidCore::getPxActor() const
 {
 	Sc::RigidCore* r = const_cast<Sc::RigidCore*>(this);
+#if PX_IS_SPU
+	Sc::SpuOffsetTable& tbl = Sc::gSpuOffsetTable;
+#else
+	Sc::SpuOffsetTable& tbl = Sc::gOffsetTable;
+#endif
 	switch(getActorCoreType())
 	{
 	case PxActorType::eRIGID_STATIC:
-		return NpGetPxActorSC(*static_cast<Sc::StaticCore*>(r));
+		return tbl.convertScRigidStatic2PxActor(static_cast<Sc::StaticCore*>(r));
 	case PxActorType::eRIGID_DYNAMIC:
-		return NpGetPxActorBC(*static_cast<Sc::BodyCore*>(r));
+		return tbl.convertScRigidDynamic2PxActor(static_cast<Sc::BodyCore*>(r));
 	case PxActorType::eARTICULATION_LINK:
-		return NpGetPxActorForArticulationLink(*static_cast<Sc::BodyCore*>(r));
+		return tbl.convertScArticulationLink2PxActor(static_cast<Sc::BodyCore*>(r));
 #if PX_USE_PARTICLE_SYSTEM_API
 	case PxActorType::ePARTICLE_SYSTEM:
 	case PxActorType::ePARTICLE_FLUID:

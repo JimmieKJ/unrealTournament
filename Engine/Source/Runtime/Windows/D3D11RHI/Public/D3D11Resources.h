@@ -32,8 +32,15 @@ public:
 	}
 };
 
+struct FD3D11ShaderData
+{
+	FD3D11ShaderResourceTable	ShaderResourceTable;
+	TArray<FName>				UniformBuffers;
+	bool						bShaderNeedsGlobalConstantBuffer;
+};
+
 /** This represents a vertex shader that hasn't been combined with a specific declaration to create a bound shader. */
-class FD3D11VertexShader : public FRHIVertexShader
+class FD3D11VertexShader : public FRHIVertexShader, public FD3D11ShaderData
 {
 public:
 	enum { StaticFrequency = SF_Vertex };
@@ -41,80 +48,56 @@ public:
 	/** The vertex shader resource. */
 	TRefCountPtr<ID3D11VertexShader> Resource;
 
-	FD3D11ShaderResourceTable ShaderResourceTable;
-
-	/** The vertex shader's bytecode, with custom data in the last byte. */
+	/** The vertex shader's bytecode, with custom data attached. */
 	TArray<uint8> Code;
 
 	// TEMP remove with removal of bound shader state
 	int32 Offset;
-
-	bool bShaderNeedsGlobalConstantBuffer;
 };
 
-class FD3D11GeometryShader : public FRHIGeometryShader
+class FD3D11GeometryShader : public FRHIGeometryShader, public FD3D11ShaderData
 {
 public:
 	enum { StaticFrequency = SF_Geometry };
 
 	/** The shader resource. */
 	TRefCountPtr<ID3D11GeometryShader> Resource;
-
-	FD3D11ShaderResourceTable ShaderResourceTable;
-
-	bool bShaderNeedsGlobalConstantBuffer;
 };
 
-class FD3D11HullShader : public FRHIHullShader
+class FD3D11HullShader : public FRHIHullShader, public FD3D11ShaderData
 {
 public:
 	enum { StaticFrequency = SF_Hull };
 
 	/** The shader resource. */
 	TRefCountPtr<ID3D11HullShader> Resource;
-
-	FD3D11ShaderResourceTable ShaderResourceTable;
-
-	bool bShaderNeedsGlobalConstantBuffer;
 };
 
-class FD3D11DomainShader : public FRHIDomainShader
+class FD3D11DomainShader : public FRHIDomainShader, public FD3D11ShaderData
 {
 public:
 	enum { StaticFrequency = SF_Domain };
 
 	/** The shader resource. */
 	TRefCountPtr<ID3D11DomainShader> Resource;
-
-	FD3D11ShaderResourceTable ShaderResourceTable;
-
-	bool bShaderNeedsGlobalConstantBuffer;
 };
 
-class FD3D11PixelShader : public FRHIPixelShader
+class FD3D11PixelShader : public FRHIPixelShader, public FD3D11ShaderData
 {
 public:
 	enum { StaticFrequency = SF_Pixel };
 
 	/** The shader resource. */
 	TRefCountPtr<ID3D11PixelShader> Resource;
-
-	FD3D11ShaderResourceTable ShaderResourceTable;
-
-	bool bShaderNeedsGlobalConstantBuffer;
 };
 
-class FD3D11ComputeShader : public FRHIComputeShader
+class FD3D11ComputeShader : public FRHIComputeShader, public FD3D11ShaderData
 {
 public:
 	enum { StaticFrequency = SF_Compute };
 
 	/** The shader resource. */
 	TRefCountPtr<ID3D11ComputeShader> Resource;
-
-	FD3D11ShaderResourceTable ShaderResourceTable;
-
-	bool bShaderNeedsGlobalConstantBuffer;
 };
 
 /**
@@ -163,6 +146,57 @@ public:
 /** The base class of resources that may be bound as shader resources. */
 class FD3D11BaseShaderResource : public IRefCountedObject
 {
+public:
+	FD3D11BaseShaderResource()
+		: CurrentGPUAccess(EResourceTransitionAccess::EReadable)
+		, LastFrameWritten(-1)
+		, bDirty(false)
+	{}
+
+	void SetCurrentGPUAccess(EResourceTransitionAccess Access)
+	{
+		if (Access == EResourceTransitionAccess::EReadable)
+		{
+			bDirty = false;
+		}
+		CurrentGPUAccess = Access;
+	}
+
+	EResourceTransitionAccess GetCurrentGPUAccess() const
+	{
+		return CurrentGPUAccess;
+	}
+
+	uint32 GetLastFrameWritten() const
+	{
+		return LastFrameWritten;
+	}
+
+	void SetDirty(bool bInDirty, uint32 CurrentFrame)
+	{
+		bDirty = bInDirty;
+		if (bDirty)
+		{
+			LastFrameWritten = CurrentFrame;
+		}
+		ensureMsgf(!(CurrentGPUAccess == EResourceTransitionAccess::EReadable && bDirty), TEXT("UAV is dirty, but set to Readable."));
+	}
+
+	bool IsDirty() const
+	{
+		return bDirty;
+	}
+
+private:
+	
+	/** Whether the current resource is logically GPU readable or writable.  Mostly for validation for newer RHI's*/
+	EResourceTransitionAccess CurrentGPUAccess;
+
+	/** Most recent frame this resource was written to. */
+	uint32 LastFrameWritten;
+
+	/** Resource has been written to without a subsequent read barrier.  Mostly for UAVs */
+	bool bDirty;
 };
 
 /** Texture base class. */
@@ -285,8 +319,7 @@ protected:
 	TRefCountPtr<ID3D11DepthStencilView> DepthStencilViews[FExclusiveDepthStencil::MaxIndex];
 
 	/** Number of Depth Stencil Views - used for fast call tracking. */
-	uint32	NumDepthStencilViews;
-
+	uint32	NumDepthStencilViews;	
 };
 
 /** 2D texture (vanilla, cubemap or 2D array) */
@@ -315,7 +348,8 @@ public:
 		EPixelFormat InFormat,
 		bool bInCubemap,
 		uint32 InFlags,
-		bool bInPooled
+		bool bInPooled,
+		const FClearValueBinding& InClearValue
 #if PLATFORM_SUPPORTS_VIRTUAL_TEXTURES
 		, void* InRawTextureMemory = nullptr
 #endif
@@ -327,7 +361,8 @@ public:
 		InNumMips,
 		InNumSamples,
 		InFormat,
-		InFlags
+		InFlags,
+		InClearValue
 		)
 	, FD3D11TextureBase(
 		InD3DRHI,
@@ -419,9 +454,10 @@ public:
 		uint32 InSizeZ,
 		uint32 InNumMips,
 		EPixelFormat InFormat,
-		uint32 InFlags
+		uint32 InFlags,
+		const FClearValueBinding& InClearValue
 		)
-	: FRHITexture3D(InSizeX,InSizeY,InSizeZ,InNumMips,InFormat,InFlags)
+	: FRHITexture3D(InSizeX,InSizeY,InSizeZ,InNumMips,InFormat,InFlags,InClearValue)
 	, FD3D11TextureBase(
 		InD3DRHI,
 		InResource,
@@ -457,8 +493,8 @@ public:
 class FD3D11BaseTexture2D : public FRHITexture2D
 {
 public:
-	FD3D11BaseTexture2D(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,uint32 InNumSamples,EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture2D(InSizeX,InSizeY,InNumMips,InNumSamples,InFormat,InFlags)
+	FD3D11BaseTexture2D(uint32 InSizeX, uint32 InSizeY, uint32 InSizeZ, uint32 InNumMips, uint32 InNumSamples, EPixelFormat InFormat, uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture2D(InSizeX,InSizeY,InNumMips,InNumSamples,InFormat,InFlags, InClearValue)
 	{}
 	uint32 GetSizeZ() const { return 0; }
 };
@@ -466,16 +502,16 @@ public:
 class FD3D11BaseTexture2DArray : public FRHITexture2DArray
 {
 public:
-	FD3D11BaseTexture2DArray(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,uint32 InNumSamples,EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture2DArray(InSizeX,InSizeY,InSizeZ,InNumMips,InFormat,InFlags)
+	FD3D11BaseTexture2DArray(uint32 InSizeX, uint32 InSizeY, uint32 InSizeZ, uint32 InNumMips, uint32 InNumSamples, EPixelFormat InFormat, uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture2DArray(InSizeX,InSizeY,InSizeZ,InNumMips,InFormat,InFlags,InClearValue)
 	{ check(InNumSamples == 1); }
 };
 
 class FD3D11BaseTextureCube : public FRHITextureCube
 {
 public:
-	FD3D11BaseTextureCube(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,uint32 InNumSamples,EPixelFormat InFormat,uint32 InFlags)
-	: FRHITextureCube(InSizeX,InNumMips,InFormat,InFlags)
+	FD3D11BaseTextureCube(uint32 InSizeX, uint32 InSizeY, uint32 InSizeZ, uint32 InNumMips, uint32 InNumSamples, EPixelFormat InFormat, uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITextureCube(InSizeX,InNumMips,InFormat,InFlags,InClearValue)
 	{ check(InNumSamples == 1); }
 	uint32 GetSizeX() const { return GetSize(); }
 	uint32 GetSizeY() const { return GetSize(); } //-V524
@@ -615,7 +651,8 @@ public:
 
 	/** Cached resources need to retain the associated shader resource for bookkeeping purposes. */
 	struct FResourcePair
-	{
+	{		
+		FName ResourceName;
 		FD3D11BaseShaderResource* ShaderResource;
 		IUnknown* D3D11Resource;
 	};
@@ -696,7 +733,9 @@ public:
 	FD3D11StructuredBuffer(ID3D11Buffer* InResource, uint32 InStride, uint32 InSize, uint32 InUsage)
 	: FRHIStructuredBuffer(InStride,InSize,InUsage)
 	, Resource(InResource)
-	{}
+	{
+		SetCurrentGPUAccess(EResourceTransitionAccess::ERWBarrier);
+	}
 
 	virtual ~FD3D11StructuredBuffer()
 	{
@@ -770,8 +809,8 @@ class FD3D11UnorderedAccessView : public FRHIUnorderedAccessView
 public:
 	
 	TRefCountPtr<ID3D11UnorderedAccessView> View;
-	TRefCountPtr<FD3D11BaseShaderResource> Resource;
-
+	TRefCountPtr<FD3D11BaseShaderResource> Resource;	
+	
 	FD3D11UnorderedAccessView(ID3D11UnorderedAccessView* InView,FD3D11BaseShaderResource* InResource)
 	: View(InView)
 	, Resource(InResource)

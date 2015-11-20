@@ -5,3 +5,6 @@
 #include "Core.h"
 #include "Http.h"
 
+#include "GenericPlatform/GenericPlatformHttp.h"
+#include "PlatformHttp.h"
+

@@ -24,7 +24,7 @@ namespace MeshPaintRendering
 
 		static bool ShouldCache( EShaderPlatform Platform )
 		{
-			return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+			return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && !IsConsolePlatform(Platform);
 		}
 
 		/** Default constructor. */
@@ -68,7 +68,7 @@ namespace MeshPaintRendering
 
 		static bool ShouldCache(EShaderPlatform Platform)
 		{
-			return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+			return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && !IsConsolePlatform(Platform);
 		}
 
 		/** Default constructor. */
@@ -187,7 +187,7 @@ namespace MeshPaintRendering
 
 		static bool ShouldCache( EShaderPlatform Platform )
 		{
-			return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+			return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && !IsConsolePlatform(Platform);
 		}
 
 		/** Default constructor. */
@@ -231,7 +231,7 @@ namespace MeshPaintRendering
 
 		static bool ShouldCache(EShaderPlatform Platform)
 		{
-			return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+			return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && !IsConsolePlatform(Platform);
 		}
 
 		/** Default constructor. */

@@ -18,8 +18,8 @@ class ENGINE_API ADebugCameraHUD
 	/** @todo document */
 	virtual bool DisplayMaterials( float X, float& Y, float DY, class UMeshComponent* MeshComp );
 	
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void PostRender() override;
-	// End AActor Interface
+	//~ End AActor Interface
 
 };

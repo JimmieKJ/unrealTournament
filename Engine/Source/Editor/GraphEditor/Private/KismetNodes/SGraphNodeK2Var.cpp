@@ -188,13 +188,6 @@ void SGraphNodeK2Var::UpdateGraphNode()
 	[
 		SNew(SVerticalBox)
 		+SVerticalBox::Slot()
-		.VAlign(VAlign_Top)
-		.AutoHeight() 
-		.Padding( FMargin(5.0f, 1.0f) )
-		[
-			ErrorReporting->AsWidget()
-		]
-		+SVerticalBox::Slot()
 		[
 			SNew(SOverlay)
 			.AddMetaData<FGraphNodeMetaData>(TagMeta)
@@ -244,6 +237,13 @@ void SGraphNodeK2Var::UpdateGraphNode()
 					SAssignNew(RightNodeBox, SVerticalBox)
 				]
 			]
+		]
+		+SVerticalBox::Slot()
+		.VAlign(VAlign_Top)
+		.AutoHeight() 
+		.Padding( FMargin(5.0f, 1.0f) )
+		[
+			ErrorReporting->AsWidget()
 		]
 	];
 

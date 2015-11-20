@@ -490,7 +490,7 @@ void AUTWeap_RocketLauncher::StateChanged()
 bool AUTWeap_RocketLauncher::CanLockTarget(AActor *Target)
 {
 	//Make sure its not dead
-	if (Target != NULL && !Target->bTearOff && !bPendingKillPending)
+	if (Target != NULL && !Target->bTearOff && !IsPendingKillPending())
 	{
 		AUTCharacter* UTP = Cast<AUTCharacter>(Target);
 

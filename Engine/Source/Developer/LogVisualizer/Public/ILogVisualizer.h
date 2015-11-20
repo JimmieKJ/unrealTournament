@@ -5,7 +5,4 @@
 class ILogVisualizer : public IModuleInterface, public IModularFeature
 {
 public:
-	virtual void Goto(float Timestamp, FName LogOwner = NAME_None) = 0;
-	virtual void GotoNextItem() = 0;
-	virtual void GotoPreviousItem() = 0;
 };

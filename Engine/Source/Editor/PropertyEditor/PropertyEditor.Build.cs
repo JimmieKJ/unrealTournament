@@ -68,7 +68,6 @@ public class PropertyEditor : ModuleRules
                 "AssetTools",
 				"ClassViewer",
 				"ContentBrowser",
-				"Documentation",
 				"MainFrame",
 			}
 		);

@@ -38,8 +38,10 @@ namespace UnrealBuildTool.Rules
 					"BlueprintGraph",
 					"KismetCompiler",
 					"GraphEditor",
+					"ContentBrowser",
 					"MainFrame",
 					"UnrealEd",
+                    "SourceControl",
 				}
 			);
 

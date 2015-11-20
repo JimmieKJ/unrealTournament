@@ -14,13 +14,13 @@ float2 TexScale;
 
 
 // pixel shader, can be optimized by using additive blending
-void CopyPS(float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
+void CopyPS(noperspective float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, InUV.xy);
 }
 
 // pixel shader entry point
-void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 	float2 ScreenPos = UVAndScreenPos.zw;

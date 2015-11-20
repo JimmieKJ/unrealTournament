@@ -64,6 +64,7 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const;
@@ -117,6 +118,7 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const;
@@ -163,6 +165,7 @@ public:
 		const FStaticMesh& StaticMesh,
 		const uint64& BatchElementMask,
 		bool bPreFog,
+		float DitheredLODTransitionValue,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId
 		);
@@ -179,6 +182,7 @@ private:
 		const FMeshBatch& Mesh,
 		const uint64& BatchElementMask,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		bool bPreFog,
 		const FPrimitiveSceneProxy* PrimitiveSceneProxy,
 		FHitProxyId HitProxyId

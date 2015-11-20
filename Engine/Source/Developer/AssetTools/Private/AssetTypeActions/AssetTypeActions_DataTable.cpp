@@ -20,7 +20,7 @@ void FAssetTypeActions_DataTable::GetActions( const TArray<UObject*>& InObjects,
 		const UDataTable* CurTable = Cast<UDataTable>((*TableIter).Get());
 		if (CurTable)
 		{
-			ImportPaths.Add(FReimportManager::ResolveImportFilename(CurTable->ImportPath, CurTable));
+			CurTable->AssetImportData->ExtractFilenames(ImportPaths);
 		}
 	}
 
@@ -79,7 +79,7 @@ void FAssetTypeActions_DataTable::ExecuteExportAsCSV(TArray< TWeakObjectPtr<UObj
 		if (DataTable)
 		{
 			const FText Title = FText::Format(LOCTEXT("DataTable_ExportCSVDialogTitle", "Export '{0}' as CSV..."), FText::FromString(*DataTable->GetName()));
-			const FString CurrentFilename = (DataTable->ImportPath.IsEmpty()) ? TEXT("") : FReimportManager::ResolveImportFilename(DataTable->ImportPath, DataTable);
+			const FString CurrentFilename = DataTable->AssetImportData->GetFirstFilename();
 			const FString FileTypes = TEXT("Data Table CSV (*.csv)|*.csv");
 
 			TArray<FString> OutFilenames;
@@ -120,7 +120,7 @@ void FAssetTypeActions_DataTable::ExecuteExportAsJSON(TArray< TWeakObjectPtr<UOb
 		if (DataTable)
 		{
 			const FText Title = FText::Format(LOCTEXT("DataTable_ExportCSVDialogTitle", "Export '{0}' as JSON..."), FText::FromString(*DataTable->GetName()));
-			const FString CurrentFilename = (DataTable->ImportPath.IsEmpty()) ? TEXT("") : FReimportManager::ResolveImportFilename(DataTable->ImportPath, DataTable);
+			const FString CurrentFilename = DataTable->AssetImportData->GetFirstFilename();
 			const FString FileTypes = TEXT("Data Table JSON (*.json)|*.json");
 
 			TArray<FString> OutFilenames;
@@ -160,7 +160,7 @@ void FAssetTypeActions_DataTable::GetResolvedSourceFilePaths(const TArray<UObjec
 	for (auto& Asset : TypeAssets)
 	{
 		const auto DataTable = CastChecked<UDataTable>(Asset);
-		OutSourceFilePaths.Add(FReimportManager::ResolveImportFilename(DataTable->ImportPath, DataTable));
+		DataTable->AssetImportData->ExtractFilenames(OutSourceFilePaths);
 	}
 }
 

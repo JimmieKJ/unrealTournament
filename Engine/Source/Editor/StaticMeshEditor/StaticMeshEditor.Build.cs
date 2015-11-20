@@ -39,13 +39,10 @@ public class StaticMeshEditor : ModuleRules
 
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
-				"PropertyEditor",
 				"SceneOutliner",
 				"ClassViewer",
 				"ContentBrowser",
 				"WorkspaceMenuStructure",
-				"MeshUtilities",
-				"TargetPlatform",
 			}
 		);
 

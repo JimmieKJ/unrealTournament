@@ -39,7 +39,7 @@ class UInterpTrackBoolProp : public UInterpTrack
 	FName PropertyName;
 
 
-	// Begin UInterpTrack Interface
+	//~ Begin UInterpTrack Interface
 	virtual int32 GetNumKeyframes() const override;
 	virtual float GetTrackEndTime() const override;
 	virtual float GetKeyframeTime( int32 KeyIndex ) const override;
@@ -60,7 +60,7 @@ class UInterpTrackBoolProp : public UInterpTrack
 #if WITH_EDITORONLY_DATA
 	virtual class UTexture2D* GetTrackIcon() const override;
 #endif // WITH_EDITORONLY_DATA
-	// End UInterpTrack Interface
+	//~ End UInterpTrack Interface
 };
 
 

@@ -90,10 +90,10 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 	// divided by the actual value on a developer machine to normalize the results
 	// Index should be around 100 +-4 on developer machine in a development build (should be the same in shipping)
 
-	InOut.CPUStats[0] = FSynthBenchmarkStat(TEXT("RayIntersect"), 0.02561f, TEXT("s/Run"));
+	InOut.CPUStats[0] = FSynthBenchmarkStat(TEXT("RayIntersect"), 0.02561f, TEXT("s/Run"), 1.f);
 	InOut.CPUStats[0].SetMeasuredTime(RunBenchmark(WorkScale, RayIntersectBenchmark));
 
-	InOut.CPUStats[1] = FSynthBenchmarkStat(TEXT("Fractal"), 0.0286f, TEXT("s/Run"));
+	InOut.CPUStats[1] = FSynthBenchmarkStat(TEXT("Fractal"), 0.0286f, TEXT("s/Run"), 1.5f);
 	InOut.CPUStats[1].SetMeasuredTime(RunBenchmark(WorkScale, FractalBenchmark));
 
 	for(uint32 i = 0; i < ARRAY_COUNT(InOut.CPUStats); ++i)
@@ -114,8 +114,8 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  NumberOfCores (physical): %d"), FPlatformMisc::NumberOfCores());
 	UE_LOG(LogSynthBenchmark, Display, TEXT("  NumberOfCores (logical): %d"), FPlatformMisc::NumberOfCoresIncludingHyperthreads());
 
-	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPU Perf Index 0: %.1f"), InOut.CPUStats[0].ComputePerfIndex());
-	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPU Perf Index 1: %.1f"), InOut.CPUStats[1].ComputePerfIndex());
+	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPU Perf Index 0: %.1f (weight %.2f)"), InOut.CPUStats[0].ComputePerfIndex(), InOut.CPUStats[0].GetWeight());
+	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPU Perf Index 1: %.1f (weight %.2f)"), InOut.CPUStats[1].ComputePerfIndex(), InOut.CPUStats[1].GetWeight());
 	
 	// separator line
 	UE_LOG(LogSynthBenchmark, Display, TEXT(" "));
@@ -193,15 +193,20 @@ void FSynthBenchmark::Run(FSynthBenchmarkResults& InOut, bool bGPUBenchmark, flo
 		}
 		UE_LOG(LogSynthBenchmark, Display, TEXT(""));
 
-		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 0: %.1f"), InOut.GPUStats[0].ComputePerfIndex());
-		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 1: %.1f"), InOut.GPUStats[1].ComputePerfIndex());
-		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 2: %.1f"), InOut.GPUStats[2].ComputePerfIndex());
-		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 3: %.1f"), InOut.GPUStats[3].ComputePerfIndex());
-		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 4: %.1f"), InOut.GPUStats[4].ComputePerfIndex());
+		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 0: %.1f (weight %.2f)"), InOut.GPUStats[0].ComputePerfIndex(), InOut.GPUStats[0].GetWeight());
+		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 1: %.1f (weight %.2f)"), InOut.GPUStats[1].ComputePerfIndex(), InOut.GPUStats[1].GetWeight());
+		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 2: %.1f (weight %.2f)"), InOut.GPUStats[2].ComputePerfIndex(), InOut.GPUStats[2].GetWeight());
+		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 3: %.1f (weight %.2f)"), InOut.GPUStats[3].ComputePerfIndex(), InOut.GPUStats[3].GetWeight());
+		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPU Perf Index 4: %.1f (weight %.2f)"), InOut.GPUStats[4].ComputePerfIndex(), InOut.GPUStats[4].GetWeight());
 	}
 	
-	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPUIndex: %.1f"), InOut.CPUStats->ComputePerfIndex());
-	UE_LOG(LogSynthBenchmark, Display, TEXT("  GPUIndex: %.1f"), InOut.GPUStats->ComputePerfIndex());
+	UE_LOG(LogSynthBenchmark, Display, TEXT("  CPUIndex: %.1f"), InOut.ComputeCPUPerfIndex());
+
+	if(bGPUBenchmark)
+	{
+		UE_LOG(LogSynthBenchmark, Display, TEXT("  GPUIndex: %.1f"), InOut.ComputeGPUPerfIndex());
+	}
+
 	UE_LOG(LogSynthBenchmark, Display, TEXT(""));
 	UE_LOG(LogSynthBenchmark, Display, TEXT("         ... Total Time: %f sec"),  (float)(FPlatformTime::Seconds() - StartTime));
 }

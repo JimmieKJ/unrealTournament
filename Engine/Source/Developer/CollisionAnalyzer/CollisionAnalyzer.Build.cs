@@ -6,6 +6,13 @@ public class CollisionAnalyzer : ModuleRules
 {
 	public CollisionAnalyzer(TargetInfo Target)
 	{
+        PrivateIncludePathModuleNames.AddRange(
+            new string[] {
+				"DesktopPlatform",
+				"MainFrame",
+			}
+        );
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
@@ -18,5 +25,12 @@ public class CollisionAnalyzer : ModuleRules
 				"WorkspaceMenuStructure",
 			}
 		);
+
+        DynamicallyLoadedModuleNames.AddRange(
+            new string[] {
+				"DesktopPlatform",
+				"MainFrame",
+			}
+        );
 	}
 }

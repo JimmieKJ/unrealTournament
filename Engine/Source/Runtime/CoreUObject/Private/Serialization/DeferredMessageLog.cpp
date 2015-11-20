@@ -7,10 +7,13 @@
 #include "CoreUObjectPrivate.h"
 #include "Serialization/DeferredMessageLog.h"
 
+TMap<FName, TArray<TSharedRef<FTokenizedMessage>>*> FDeferredMessageLog::Messages;
+FCriticalSection FDeferredMessageLog::MessagesCritical;
 
 FDeferredMessageLog::FDeferredMessageLog(const FName& InLogCategory)
 : LogCategory(InLogCategory)
 {
+	FScopeLock MessagesLock(&MessagesCritical);
 	TArray<TSharedRef<FTokenizedMessage>>** ExistingCategoryMessages = Messages.Find(LogCategory);
 	if (!ExistingCategoryMessages)
 	{
@@ -21,6 +24,7 @@ FDeferredMessageLog::FDeferredMessageLog(const FName& InLogCategory)
 
 void FDeferredMessageLog::AddMessage(TSharedRef<FTokenizedMessage>& Message)
 {
+	FScopeLock MessagesLock(&MessagesCritical);
 	TArray<TSharedRef<FTokenizedMessage>>* CategoryMessages = Messages.FindRef(LogCategory);
 	check(CategoryMessages);
 	CategoryMessages->Add(Message);
@@ -49,6 +53,7 @@ TSharedRef<FTokenizedMessage> FDeferredMessageLog::Error(const FText& InMessage)
 
 void FDeferredMessageLog::Flush()
 {
+	FScopeLock MessagesLock(&MessagesCritical);
 	for (auto& CategoryMessages : Messages)
 	{
 		if (CategoryMessages.Value->Num())
@@ -60,4 +65,11 @@ void FDeferredMessageLog::Flush()
 	}
 }
 
-TMap<FName, TArray<TSharedRef<FTokenizedMessage>>*> FDeferredMessageLog::Messages;
+void FDeferredMessageLog::Cleanup()
+{
+	for (auto& CategoryMessages : Messages)
+	{
+		delete CategoryMessages.Value;
+	}
+	Messages.Empty();
+}

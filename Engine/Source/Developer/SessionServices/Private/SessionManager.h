@@ -19,7 +19,7 @@ public:
 	 *
 	 * @param InMessageBus The message bus to use.
 	 */
-	FSessionManager( const IMessageBusRef& InMessageBus );
+	FSessionManager(const IMessageBusRef& InMessageBus);
 	
 	/** Destructor */
 	~FSessionManager();
@@ -28,11 +28,11 @@ public:
 
 	// ISessionManager interface
 
-	virtual void AddOwner( const FString& InOwner ) override;
-	virtual void GetSelectedInstances( TArray<TSharedPtr<ISessionInstanceInfo>>& OutInstances) const override;
+	virtual void AddOwner(const FString& InOwner) override;
+	virtual const TArray<ISessionInstanceInfoPtr>& GetSelectedInstances() const override;
 	virtual const ISessionInfoPtr& GetSelectedSession() const override;
-	virtual void GetSessions( TArray<TSharedPtr<ISessionInfo>>& OutSessions ) const override;
-	virtual bool IsInstanceSelected( const TSharedRef<ISessionInstanceInfo>& Instance ) const override;
+	virtual void GetSessions(TArray<TSharedPtr<ISessionInfo>>& OutSessions) const override;
+	virtual bool IsInstanceSelected(const TSharedRef<ISessionInstanceInfo>& Instance) const override;
 
 	DECLARE_DERIVED_EVENT(FSessionManager, ISessionManager::FCanSelectSessionEvent, FCanSelectSessionEvent)
 	virtual FCanSelectSessionEvent& OnCanSelectSession() override
@@ -60,9 +60,9 @@ public:
 
 	virtual FSimpleMulticastDelegate& OnSessionsUpdated() override;
 	virtual FSimpleMulticastDelegate& OnSessionInstanceUpdated() override;
-	virtual void RemoveOwner( const FString& InOwner ) override;
-	virtual bool SelectSession( const ISessionInfoPtr& Session ) override;
-	virtual bool SetInstanceSelected( const ISessionInstanceInfoPtr& Instance, bool Selected ) override;
+	virtual void RemoveOwner(const FString& InOwner) override;
+	virtual bool SelectSession(const ISessionInfoPtr& Session) override;
+	virtual bool SetInstanceSelected(const ISessionInstanceInfoRef& Instance, bool Selected) override;
 
 protected:
 
@@ -71,14 +71,14 @@ protected:
 	 *
 	 * @param Now The current time.
 	 */
-	void FindExpiredSessions( const FDateTime& Now );
+	void FindExpiredSessions(const FDateTime& Now);
 
 	/**
 	 * Checks whether the specified owner is valid.
 	 *
 	 * @return true if the owner is valid, false otherwise.
 	 */
-	bool IsValidOwner( const FString& Owner );
+	bool IsValidOwner(const FString& Owner);
 
 	/** Refresh the sessions based on the owner filter list. */
 	void RefreshSessions();
@@ -89,27 +89,21 @@ protected:
 private:
 
 	/** Callback for handling FSessionServicePong messages. */
-	void HandleEnginePongMessage( const FEngineServicePong& Message, const IMessageContextRef& Context );
-
-	/** Callback for newly discovered instances. */
-	void HandleInstanceDiscovered( const ISessionInfoRef& Session, const ISessionInstanceInfoRef& Instance );
+	void HandleEnginePongMessage(const FEngineServicePong& Message, const IMessageContextRef& Context);
 
 	/** Callback received log entries. */
-	void HandleLogReceived( const ISessionInfoRef& Session, const ISessionInstanceInfoRef& Instance, const FSessionLogMessageRef& Message );
+	void HandleLogReceived(const ISessionInfoRef& Session, const ISessionInstanceInfoRef& Instance, const FSessionLogMessageRef& Message);
 
 	/** Callback for handling FSessionServicePong messages. */
-	void HandleSessionPongMessage( const FSessionServicePong& Message, const IMessageContextRef& Context );
+	void HandleSessionPongMessage(const FSessionServicePong& Message, const IMessageContextRef& Context);
 
 	/** Callback for ticks from the ticker. */
-	bool HandleTicker( float DeltaTime );
+	bool HandleTicker(float DeltaTime);
 
 private:
 
 	/** The address of the automation controller to where we can forward any automation workers found. */
 	FGuid AutomationControllerAddress;
-
-	/** Holds the list of currently selected instances. */
-	TArray<ISessionInstanceInfoPtr> DeselectedInstances;
 
 	/** Holds the time at which the last ping was sent. */
 	FDateTime LastPingTime;
@@ -119,6 +113,9 @@ private:
 
 	/** Holds the messaging endpoint. */
 	FMessageEndpointPtr MessageEndpoint;
+
+	/** Holds the list of currently selected instances. */
+	TArray<ISessionInstanceInfoPtr> SelectedInstances;
 
 	/** Holds a reference to the currently selected session. */
 	ISessionInfoPtr SelectedSession;

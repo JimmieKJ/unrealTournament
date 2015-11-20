@@ -97,9 +97,6 @@ public:
 	/** Stops playing the current sequence. */
 	void StopPlaying() override;
 
-	/** Starts recording the current sequence */
-	void StartRecordingMovie() override;
-
 	/** Handle undo redo events */
 	void OnPostUndoRedo(FUndoSessionContext SessionContext, bool Succeeded);
 
@@ -1457,6 +1454,9 @@ protected:
 	/**List of saved viewport clients' tansforms before entering Matinee editor*/
 	TArray< FMatineeViewSaveData > SavedViewportData;
 
+	/** Guard to prevent infinite looping on camera movement and update. */
+	bool bUpdatingCameraGuard;
+
 public:
 	/** Menu Helpers */
 	
@@ -1476,7 +1476,7 @@ public:
 	 */
 	void GenericTextEntryModeless(const FText& DialogText, const FText& DefaultText, FOnTextCommitted OnTextComitted);
 	/** Closes the popup created by GenericTextEntryModal or GenericTextEntryModeless*/
-	void CloseEntryPopupWindow();
+	void CloseEntryPopupMenu();
 private:
 	/** Popup menu function for retrieving a new name from the user. */	
 	void GetNewNamePopup( const FText& InDialogTitle, const FText& InDialogCaption, const FText& InDefaultText, const FText& InOriginalName, FOnTextCommitted OnTextCommited );
@@ -1518,7 +1518,7 @@ private:
 	void BindCommands();
 
 	/** Generic Popup Entry */
-	TWeakPtr<SWindow> EntryPopupWindow;
+	TWeakPtr<class IMenu> EntryPopupMenu;
 
 	/** ToolBar delegates */
 	const FSlateBrush* GetToolbarInterpSpeedIcon();

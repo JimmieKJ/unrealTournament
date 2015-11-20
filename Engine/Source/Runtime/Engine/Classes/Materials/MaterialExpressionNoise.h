@@ -8,13 +8,13 @@
 UENUM()
 enum ENoiseFunction
 {
-	/** fast (~94 instructions per level) */
+	/** Fast (~94 instructions per level). */
 	NOISEFUNCTION_Simplex UMETA(DisplayName="Simplex"),
-	/** fast (~77 instructions per level) but low quality*/
+	/** Fast (~77 instructions per level) but low quality. */
 	NOISEFUNCTION_Perlin UMETA(DisplayName="Perlin"),
-	/** very slow (~393 instructions per level) */
+	/** Very slow (~393 instructions per level). */
 	NOISEFUNCTION_Gradient UMETA(DisplayName="Gradient"),
-	/** very fast (1 texture lookup, ~33 instructions per level), need to test more on every hardware, requires high quality texture filtering for bump mapping */
+	/** Very fast (1 texture lookup, ~33 instructions per level), need to test more on every hardware, requires high quality texture filtering for bump mapping. */
 	NOISEFUNCTION_FastGradient UMETA(DisplayName="FastGradient"),
 	NOISEFUNCTION_MAX,
 };
@@ -62,10 +62,10 @@ class UMaterialExpressionNoise : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionNoise, meta=(UIMin = "2", UIMax = "8"))
 	float LevelScale;
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 
 

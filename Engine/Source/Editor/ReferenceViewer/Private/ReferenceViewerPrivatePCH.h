@@ -1,7 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
-#include "ReferenceViewerClasses.h"
+
+#include "Classes/EdGraph_ReferenceViewer.h"
+#include "Classes/EdGraphNode_Reference.h"
+#include "Classes/ReferenceViewerSchema.h"
 
 #include "GraphEditor.h"
 #include "SNodePanel.h"

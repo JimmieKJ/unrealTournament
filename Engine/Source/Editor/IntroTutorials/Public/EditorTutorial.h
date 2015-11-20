@@ -210,7 +210,15 @@ struct INTROTUTORIALS_API FTutorialStage
 	
 	/** Text to display on the back button */
 	UPROPERTY(EditAnywhere, Category = "Stage")
-	FText BackButtonText;	
+	FText BackButtonText;
+
+	/** List of platforms to test against. Meaning of test is determined by InvertPlatformTest. */
+	UPROPERTY(EditAnywhere, Category = "Stage")
+	TArray<FString> PlatformsToTest;
+
+	/** If false, stage will be skipped if running on any platform in PlatformsToTest. If true, the stage will be if not running on any platform in PlatformsToTest. */
+	UPROPERTY(EditAnywhere, Category = "Stage")
+	bool bInvertPlatformTest;
 };
 
 /** An asset used to build a stage-by-stage tutorial in the editor */

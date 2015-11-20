@@ -7,10 +7,24 @@ DECLARE_DELEGATE_FourParams( FOnRenameCommit, const TSharedPtr<FAssetViewItem>& 
 DECLARE_DELEGATE_RetVal_FourParams( bool, FOnVerifyRenameCommit, const TSharedPtr<FAssetViewItem>& /*AssetItem*/, const FText& /*NewName*/, const FSlateRect& /*MessageAnchor*/, FText& /*OutErrorMessage*/)
 DECLARE_DELEGATE_OneParam( FOnItemDestroyed, const TSharedPtr<FAssetViewItem>& /*AssetItem*/);
 
+class SAssetListItem;
+class SAssetTileItem;
+
 namespace FAssetViewModeUtils 
 {
 	FReply OnViewModeKeyDown( const TSet< TSharedPtr<FAssetViewItem> >& SelectedItems, const FKeyEvent& InKeyEvent );
 }
+
+struct FAssetViewItemHelper
+{
+public:
+	static TSharedRef<SWidget> CreateListItemContents(SAssetListItem* const InListItem, const TSharedRef<SWidget>& InThumbnail, FName& OutItemShadowBorder);
+	static TSharedRef<SWidget> CreateTileItemContents(SAssetTileItem* const InTileItem, const TSharedRef<SWidget>& InThumbnail, FName& OutItemShadowBorder);
+
+private:
+	template <typename T>
+	static TSharedRef<SWidget> CreateListTileItemContents(T* const InTileOrListItem, const TSharedRef<SWidget>& InThumbnail, FName& OutItemShadowBorder);
+};
 
 /** The tile view mode of the asset view */
 class SAssetTileView : public STileView<TSharedPtr<FAssetViewItem>>
@@ -39,6 +53,8 @@ public:
 /** A base class for all asset view items */
 class SAssetViewItem : public SCompoundWidget
 {
+	friend class SAssetViewItemToolTip;
+
 public:
 	DECLARE_DELEGATE_TwoParams( FOnAssetsDragDropped, const TArray<FAssetData>& /*AssetList*/, const FString& /*DestinationPath*/);
 	DECLARE_DELEGATE_TwoParams( FOnPathsDragDropped, const TArray<FString>& /*PathNames*/, const FString& /*DestinationPath*/);
@@ -99,12 +115,15 @@ public:
 	/** Performs common initialization logic for all asset view items */
 	void Construct( const FArguments& InArgs );
 
+	/** NOTE: Any functions overridden from the base widget classes *must* also be overridden by SAssetColumnViewRow and forwarded on to its internal item */
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual TSharedPtr<IToolTip> GetToolTip() override;
 	virtual void OnDragEnter( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
 	virtual void OnDragLeave( const FDragDropEvent& DragDropEvent ) override;
 	virtual FReply OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
 	virtual FReply OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) override;
+	virtual bool OnVisualizeTooltip( const TSharedPtr<SWidget>& TooltipContent ) override;
+	virtual void OnToolTipClosing() override;
 
 	/** Returns the color this item should be tinted with */
 	virtual FSlateColor GetAssetColor() const;
@@ -118,15 +137,12 @@ public:
 	/** Delegate handling when an asset is loaded */
 	void HandleAssetLoaded(UObject* InAsset) const;
 
-	/** About to show a tool tip */
-	virtual bool OnVisualizeTooltip( const TSharedPtr<SWidget>& TooltipContent ) override;
-
-	/** Tooltip is closing */
-	virtual void OnToolTipClosing() override;
-
 protected:
 	/** Used by OnDragEnter, OnDragOver, and OnDrop to check and update the validity of the drag operation */
-	bool ValidateDragDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent ) const;
+	bool ValidateDragDrop( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, bool& OutIsKnownDragOperation ) const;
+
+	/** Check to see if the name should be read-only */
+	bool IsNameReadOnly() const;
 
 	/** Handles starting a name change */
 	virtual void HandleBeginNameChange( const FText& OriginalText );
@@ -156,7 +172,7 @@ protected:
 	EVisibility GetThumbnailEditModeUIVisibility() const;
 
 	/** Creates a tooltip widget for this item */
-	TSharedRef<SToolTip> CreateToolTipWidget() const;
+	TSharedRef<SWidget> CreateToolTipWidget() const;
 
 	/** Gets the visibility of the checked out by other text block in the tooltip */
 	EVisibility GetCheckedOutByOtherTextVisibility() const;
@@ -182,18 +198,39 @@ protected:
 	/** Cache the package name from the asset we are representing */
 	void CachePackageName();
 
+	/** Cache the tags that should appear in the tooltip for this item */
+	void CacheToolTipTags();
+
 	/** Whether this item is a folder */
 	bool IsFolder() const;
 
 	/** Set mips to be resident while this (loaded) asset is visible */
 	void SetForceMipLevelsToBeResident(bool bForce) const;
 
+	/** Delegate handler for when the source control provider changes */
+	void HandleSourceControlProviderChanged(class ISourceControlProvider& OldProvider, class ISourceControlProvider& NewProvider);
+
 	/** Delegate handler for when source control state changes */
 	void HandleSourceControlStateChanged();
 
 	/** Returns the width at which the name label will wrap the name */
 	virtual float GetNameTextWrapWidth() const { return 0.0f; }
+
 protected:
+	/** Data for a cached tag used in the tooltip for this item */
+	struct FToolTipTagItem
+	{
+		FToolTipTagItem(FText InKey, FText InValue, const bool InImportant)
+			: Key(MoveTemp(InKey))
+			, Value(MoveTemp(InValue))
+			, bImportant(InImportant)
+		{
+		}
+
+		FText Key;
+		FText Value;
+		bool bImportant;
+	};
 
 	TSharedPtr< SInlineEditableTextBlock > InlineRenameWidget;
 
@@ -211,6 +248,9 @@ protected:
 
 	/** The cached filename of the package containing the asset that this item represents */
 	FString CachedPackageFileName;
+
+	/** The cached tags that should appear in the tooltip for this item */
+	TArray<FToolTipTagItem> CachedToolTipTags;
 
 	/** Delegate for when an asset name has entered a rename state */
 	FOnRenameBegin OnRenameBegin;
@@ -266,17 +306,22 @@ protected:
 	/** Delegate for when a list of files is dropped on this item (if it is a folder) from an external source */
 	FOnFilesDragDropped OnFilesDragDropped;
 
-	/** Whether an item is dragged over us or not */
+	/** True when a drag is over this item with a drag operation that we know how to handle. The operation itself may not be valid to drop. */
 	bool bDraggedOver;
 
 	/** Cached brush for the source control state */
 	const FSlateBrush* SCCStateBrush;
+
+	/** Delegate handle for the HandleSourceControlStateChanged function callback */
+	FDelegateHandle SourceControlStateChangedDelegateHandle;
 };
 
 
 /** An item in the asset list view */
 class SAssetListItem : public SAssetViewItem
 {
+	friend struct FAssetViewItemHelper;
+
 public:
 	SLATE_BEGIN_ARGS( SAssetListItem )
 		: _ThumbnailPadding(0)
@@ -362,6 +407,9 @@ public:
 	/** Handles committing a name change */
 	virtual void OnAssetDataChanged() override;
 
+	/** Whether the widget should allow primitive tools to be displayed */
+	bool CanDisplayPrimitiveTools() const { return false; }
+
 private:
 	/** Returns the size of the thumbnail widget */
 	FOptionalSize GetThumbnailBoxSize() const;
@@ -383,6 +431,8 @@ private:
 /** An item in the asset tile view */
 class SAssetTileItem : public SAssetViewItem
 {
+	friend struct FAssetViewItemHelper;
+
 public:
 	SLATE_BEGIN_ARGS( SAssetTileItem )
 		: _ThumbnailPadding(0)
@@ -467,6 +517,9 @@ public:
 
 	/** Handles committing a name change */
 	virtual void OnAssetDataChanged() override;
+
+	/** Whether the widget should allow primitive tools to be displayed */
+	bool CanDisplayPrimitiveTools() const { return true; }
 
 protected:
 	/** SAssetViewItem interface */
@@ -605,11 +658,41 @@ public:
 		this->AssetColumnItem->Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	}
 
+	virtual TSharedPtr<IToolTip> GetToolTip() override
+	{
+		return AssetColumnItem->GetToolTip();
+	}
+
+	virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override
+	{
+		AssetColumnItem->OnDragEnter(MyGeometry, DragDropEvent);
+	}
+
+	virtual void OnDragLeave(const FDragDropEvent& DragDropEvent) override
+	{
+		AssetColumnItem->OnDragLeave(DragDropEvent);
+	}
+
+	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override
+	{
+		return AssetColumnItem->OnDragOver(MyGeometry, DragDropEvent);
+	}
+
+	virtual FReply OnDrop(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override
+	{
+		return AssetColumnItem->OnDrop(MyGeometry, DragDropEvent);
+	}
+
 	virtual bool OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent) override
 	{
 		// We take the content from the asset column item during construction,
 		// so let the item handle the tooltip callback
 		return AssetColumnItem->OnVisualizeTooltip(TooltipContent);
+	}
+
+	virtual void OnToolTipClosing() override
+	{
+		AssetColumnItem->OnToolTipClosing();
 	}
 
 	TSharedPtr<SAssetColumnItem> AssetColumnItem;

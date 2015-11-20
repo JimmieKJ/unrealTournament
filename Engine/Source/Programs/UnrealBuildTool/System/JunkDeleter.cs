@@ -23,10 +23,10 @@ namespace UnrealBuildTool
 				DeleteAllJunk(JunkManifest);
 			}
 
-			if( BuildConfiguration.bPrintPerformanceInfo )
-			{ 
+			if (BuildConfiguration.bPrintPerformanceInfo)
+			{
 				var JunkTime = (DateTime.UtcNow - JunkStartTime).TotalSeconds;
-				Log.TraceInformation( "DeleteJunk took " + JunkTime + "s" );
+				Log.TraceInformation("DeleteJunk took " + JunkTime + "s");
 			}
 		}
 
@@ -74,7 +74,7 @@ namespace UnrealBuildTool
 										// if the platform is valid, then we want to keep the files, which means that we don't want to apply the junk line
 										if (ParsedPlatform != UnrealTargetPlatform.Unknown)
 										{
-											if (UEBuildPlatform.GetBuildPlatform(ParsedPlatform, bInAllowFailure:true) != null)
+											if (UEBuildPlatform.GetBuildPlatform(ParsedPlatform, bInAllowFailure: true) != null)
 											{
 												// this is a good platform, so don't delete any files!
 												bIsValidJunkLine = false;
@@ -180,7 +180,7 @@ namespace UnrealBuildTool
 			}
 			catch (Exception Ex)
 			{
- 				// Ignore all exceptions
+				// Ignore all exceptions
 				Log.TraceInformation("Unable to delete junk directory: \"{0}\". Error: {0}", DirectoryPath, Ex.Message);
 			}
 		}

@@ -8,12 +8,12 @@ class UK2Node_FormatText : public UK2Node
 {
 	GENERATED_UCLASS_BODY()
 
-	// UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End of UObject interface
+	//~ End UObject Interface
 
-	// Begin UEdGraphNode interface.
+	//~ Begin UEdGraphNode Interface.
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual bool ShouldShowNodeProperties() const override { return true; }
@@ -21,16 +21,16 @@ class UK2Node_FormatText : public UK2Node
 	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetPinDisplayName(const UEdGraphPin* Pin) const override;
-	// End UEdGraphNode interface.
+	//~ End UEdGraphNode Interface.
 
-	// Begin UK2Node interface.
+	//~ Begin UK2Node Interface.
 	virtual bool IsNodePure() const override { return true; }
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
 	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
 	virtual ERedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
-	// End UK2Node interface.
+	//~ End UK2Node Interface.
 
 public:
 	/** Adds a new pin to the node */

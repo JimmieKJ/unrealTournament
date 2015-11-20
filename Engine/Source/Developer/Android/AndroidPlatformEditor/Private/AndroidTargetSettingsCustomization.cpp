@@ -46,7 +46,10 @@ FAndroidTargetSettingsCustomization::FAndroidTargetSettingsCustomization()
 	new (IconNames) FPlatformIconInfo(TEXT("res/drawable-mdpi/icon.png"), LOCTEXT("SettingsIcon_MDPI", "MDPI Icon"), FText::GetEmpty(), 48, 48, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("res/drawable-hdpi/icon.png"), LOCTEXT("SettingsIcon_HDPI", "HDPI Icon"), FText::GetEmpty(), 72, 72, FPlatformIconInfo::Required);
 	new (IconNames) FPlatformIconInfo(TEXT("res/drawable-xhdpi/icon.png"), LOCTEXT("SettingsIcon_XHDPI", "XHDPI Icon"), FText::GetEmpty(), 96, 96, FPlatformIconInfo::Required);
-	new (IconNames) FPlatformIconInfo(TEXT("res/drawable/downloadimagev.png"), LOCTEXT("SettingsIcon_DownloadImageV", "Download Background Verticle Image"), FText::GetEmpty(), 720, 1280, FPlatformIconInfo::Required);
+
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("res/drawable/downloadimagev.png"), LOCTEXT("SettingsIcon_DownloadImageV", "Download Background Vertical Image"), FText::GetEmpty(), 720, 1280, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("res/drawable/splashscreen_portrait.png"), LOCTEXT("LaunchImage_Portrait", "Launch Portrait"), FText::GetEmpty(), 360, 640, FPlatformIconInfo::Required);
+	new (LaunchImageNames)FPlatformIconInfo(TEXT("res/drawable/splashscreen_landscape.png"), LOCTEXT("LaunchImage_Landscape", "Launch Landscape"), FText::GetEmpty(), 640, 360, FPlatformIconInfo::Required);
 }
 
 void FAndroidTargetSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayout)
@@ -55,6 +58,7 @@ void FAndroidTargetSettingsCustomization::CustomizeDetails(IDetailLayoutBuilder&
 
 	BuildAppManifestSection(DetailLayout);
 	BuildIconSection(DetailLayout);
+	BuildLaunchImageSection(DetailLayout);
 }
 
 static void OnBrowserLinkClicked(const FSlateHyperlinkRun::FMetadata& Metadata)
@@ -185,7 +189,10 @@ void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutB
 		.EditCondition(SetupForGooglePlayAttribute, NULL);
 
 	TSharedRef<IPropertyHandle> AdMobAdUnitIDProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, AdMobAdUnitID));
-	GooglePlayCategory.AddProperty(AdMobAdUnitIDProperty)
+	AdMobAdUnitIDProperty->MarkHiddenByCustomization();
+
+	TSharedRef<IPropertyHandle> AdMobAdUnitIDsProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, AdMobAdUnitIDs));
+	GooglePlayCategory.AddProperty(AdMobAdUnitIDsProperty)
 		.EditCondition(SetupForGooglePlayAttribute, NULL);
 
 	TSharedRef<IPropertyHandle> GooglePlayLicenseKeyProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UAndroidRuntimeSettings, GooglePlayLicenseKey));
@@ -202,6 +209,7 @@ void FAndroidTargetSettingsCustomization::BuildAppManifestSection(IDetailLayoutB
 	}
 	SETUP_NONROCKET_PROP(bBuildForArmV7, BuildCategory, LOCTEXT("BuildForArmV7ToolTip", "Enable ArmV7 CPU architecture support? (this will be used if all CPU architecture types are unchecked)"));
 	SETUP_NONROCKET_PROP(bBuildForX86, BuildCategory, LOCTEXT("BuildForX86ToolTip", "Enable X86 CPU architecture support?"));
+	SETUP_NONROCKET_PROP(bBuildForX8664, BuildCategory, LOCTEXT("BuildForX8664ToolTip", "Enable X86-64 CPU architecture support?"));
 	SETUP_NONROCKET_PROP(bBuildForES2, BuildCategory, LOCTEXT("BuildForES2ToolTip", "Enable OpenGL ES2 rendering support? (this will be used if rendering types are unchecked)"));
 	SETUP_NONROCKET_PROP(bBuildForES31, BuildCategory, LOCTEXT("BuildForES31ToolTip", "Enable OpenGL ES31 + AEP (Android Extension Pack) rendering support?"));
 	
@@ -262,6 +270,69 @@ void FAndroidTargetSettingsCustomization::BuildIconSection(IDetailLayoutBuilder&
 	}
 }
 
+void FAndroidTargetSettingsCustomization::BuildLaunchImageSection(IDetailLayoutBuilder& DetailLayout)
+{
+	// Add the launch images
+	IDetailCategoryBuilder& LaunchImageCategory = DetailLayout.EditCategory(TEXT("LaunchImages"));
+	LaunchImageCategory.AddCustomRow(LOCTEXT("LaunchImageInfo", "Launch Image Info"), false)
+		.WholeRowWidget
+		[
+			SNew(SBorder)
+			.Padding(1)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(FMargin(10, 10, 10, 10))
+				.FillWidth(1.0f)
+				[
+					SNew(SRichTextBlock)
+					.Text(LOCTEXT("LaunchImageInfoMessage", "The <RichTextBlock.TextHighlight>Download Background</> image is used as the background for OBB downloading.  The <RichTextBlock.TextHighlight>Launch Portrait</> image is used as a splash screen for applications with Portrait, Reverse Portrait, Sensor Portrait, Sensor, or Full Sensor orientation.  The <RichTextBlock.TextHighlight>Launch Landscape</> image is used as a spash screen for applications with Landscape, Sensor Landscape, Reverse Landscape, Sensor, or Full Sensor orientation.\n\nThe launch images will be scaled to fit the device in the active orientation. Additional optional launch images may be provided as overrides for LDPI, MDPI, HDPI, and XHDPI by placing them in the project's corresponding Build/Android/res/drawable-* directory."))
+					.TextStyle(FEditorStyle::Get(), "MessageLog")
+					.DecoratorStyleSet(&FEditorStyle::Get())
+					.AutoWrapText(true)
+					+ SRichTextBlock::HyperlinkDecorator(TEXT("browser"), FSlateHyperlinkRun::FOnClick::CreateStatic(&OnBrowserLinkClicked))
+				]
+			]
+		];
+
+	const FVector2D LaunchImageMaxSize(150.0f, 150.0f);
+
+	for (const FPlatformIconInfo& Info : LaunchImageNames)
+	{
+		const FString AutomaticImagePath = EngineAndroidPath / Info.IconPath;
+		const FString TargetImagePath = GameAndroidPath / Info.IconPath;
+
+		LaunchImageCategory.AddCustomRow(Info.IconName)
+			.NameContent()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(FMargin(0, 1, 0, 1))
+				.FillWidth(1.0f)
+				[
+					SNew(STextBlock)
+					.Text(Info.IconName)
+					.Font(DetailLayout.GetDetailFont())
+				]
+			]
+			.ValueContent()
+			.MaxDesiredWidth(400.0f)
+			.MinDesiredWidth(100.0f)
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SExternalImageReference, AutomaticImagePath, TargetImagePath)
+					.FileDescription(Info.IconDescription)
+//					.RequiredSize(Info.IconRequiredSize)
+					.MaxDisplaySize(LaunchImageMaxSize)
+				]
+			];
+	}
+}
+
 FReply FAndroidTargetSettingsCustomization::OpenBuildFolder()
 {
 	const FString BuildFolder = FPaths::ConvertRelativePathToFull(FPaths::GetPath(GameProjectPropertiesPath));
@@ -294,8 +365,20 @@ void FAndroidTargetSettingsCustomization::CopySetupFilesIntoProject()
 			}
 		}
 
+		// Now try to copy all of the launch images... (these can be ignored if the file already exists)
+		for (const FPlatformIconInfo& Info : LaunchImageNames)
+		{
+			const FString EngineImagePath = EngineAndroidPath / Info.IconPath;
+			const FString ProjectImagePath = GameAndroidPath / Info.IconPath;
+
+			if (!FPaths::FileExists(ProjectImagePath))
+			{
+				SourceControlHelpers::CopyFileUnderSourceControl(ProjectImagePath, EngineImagePath, Info.IconName, /*out*/ ErrorMessage);
+			}
+		}
+
 		// and copy the other files (aren't required)
-		SourceControlHelpers::CopyFileUnderSourceControl(GameProguardPath, EngineProguardPath, LOCTEXT("Proguard", "Proguard Settings"), /*out*/ ErrorMessage);
+		//SourceControlHelpers::CopyFileUnderSourceControl(GameProguardPath, EngineProguardPath, LOCTEXT("Proguard", "Proguard Settings"), /*out*/ ErrorMessage);
 	}
 
 	SavedLayoutBuilder->ForceRefreshDetails();

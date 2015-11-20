@@ -3,7 +3,6 @@
 #include "OutputLogPrivatePCH.h"
 #include "SOutputLog.h"
 #include "SScrollBorder.h"
-#include "BaseTextLayoutMarshaller.h"
 #include "GameFramework/GameMode.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/GameState.h"
@@ -130,6 +129,7 @@ BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SConsoleInputBox::Construct( const FArguments& InArgs )
 {
 	OnConsoleCommandExecuted = InArgs._OnConsoleCommandExecuted;
+	ConsoleCommandCustomExec = InArgs._ConsoleCommandCustomExec;
 
 	ChildSlot
 	[
@@ -314,6 +314,11 @@ void SConsoleInputBox::OnTextCommitted( const FText& InText, ETextCommit::Type C
 			bIgnoreUIUpdate = false;
 			
 			// Exec!
+			if (ConsoleCommandCustomExec.IsBound())
+			{
+				ConsoleCommandCustomExec.Execute(ExecString);
+			}
+			else
 			{
 				bool bWasHandled = false;
 				UWorld* World = NULL;
@@ -382,7 +387,7 @@ void SConsoleInputBox::OnTextCommitted( const FText& InText, ETextCommit::Type C
 	}
 }
 
-FReply SConsoleInputBox::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent )
+FReply SConsoleInputBox::OnPreviewKeyDown(const FGeometry& MyGeometry, const FKeyEvent& KeyEvent)
 {
 	if(SuggestionBox->IsOpen())
 	{
@@ -533,35 +538,6 @@ FString SConsoleInputBox::GetSelectionText() const
 
 	return ret;
 }
-
-/** Output log text marshaller to convert an array of FLogMessages into styled lines to be consumed by an FTextLayout */
-class FOutputLogTextLayoutMarshaller : public FBaseTextLayoutMarshaller
-{
-public:
-
-	static TSharedRef< FOutputLogTextLayoutMarshaller > Create(TArray< TSharedPtr<FLogMessage> > InMessages);
-
-	virtual ~FOutputLogTextLayoutMarshaller();
-	
-	// ITextLayoutMarshaller
-	virtual void SetText(const FString& SourceString, FTextLayout& TargetTextLayout) override;
-	virtual void GetText(FString& TargetString, const FTextLayout& SourceTextLayout) override;
-
-	bool AppendMessage(const TCHAR* InText, const ELogVerbosity::Type InVerbosity, const FName& InCategory);
-	void ClearMessages();
-	int32 GetNumMessages() const;
-
-protected:
-
-	FOutputLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages);
-
-	void AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& Message);
-
-	/** All log messages to show in the text box */
-	TArray< TSharedPtr<FLogMessage> > Messages;
-
-	FTextLayout* TextLayout;
-};
 
 TSharedRef< FOutputLogTextLayoutMarshaller > FOutputLogTextLayoutMarshaller::Create(TArray< TSharedPtr<FLogMessage> > InMessages)
 {

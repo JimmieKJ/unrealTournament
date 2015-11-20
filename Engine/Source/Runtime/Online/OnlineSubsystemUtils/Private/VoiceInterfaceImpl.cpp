@@ -44,33 +44,61 @@ bool FOnlineVoiceImpl::Init()
 		UE_LOG(LogVoice, Warning, TEXT("Missing VoiceNotificationDelta key in OnlineSubsystem of DefaultEngine.ini"));
 	}
 
-	if (OnlineSubsystem)
+	bool bHasVoiceEnabled = false;
+	if (GConfig->GetBool(TEXT("OnlineSubsystem"), TEXT("bHasVoiceEnabled"), bHasVoiceEnabled, GEngineIni) && bHasVoiceEnabled)
 	{
-		SessionInt = OnlineSubsystem->GetSessionInterface().Get();
-		IdentityInt = OnlineSubsystem->GetIdentityInterface().Get();
+		if (OnlineSubsystem)
+		{
+			SessionInt = OnlineSubsystem->GetSessionInterface().Get();
+			IdentityInt = OnlineSubsystem->GetIdentityInterface().Get();
+			bSuccess = SessionInt && IdentityInt;
+		}
 
-		bSuccess = SessionInt && IdentityInt;
-	}
+		if (bSuccess)
+		{
+			const bool bVoiceEngineForceDisable = OnlineSubsystem->IsDedicated() || GIsBuildMachine;
+			if (!bVoiceEngineForceDisable)
+			{
+				VoiceEngine = MakeShareable(new FVoiceEngineImpl(OnlineSubsystem));
+				bSuccess = VoiceEngine->Init(MaxLocalTalkers, MaxRemoteTalkers);
+			}
+			else
+			{
+				MaxLocalTalkers = 0;
+				MaxRemoteTalkers = 0;
+			}
+		}
 
-	if (bSuccess && !OnlineSubsystem->IsDedicated())
-	{
-		VoiceEngine = MakeShareable(new FVoiceEngineImpl(OnlineSubsystem));
-		bSuccess = VoiceEngine->Init(MaxLocalTalkers, MaxRemoteTalkers);
 		LocalTalkers.Init(FLocalTalker(), MaxLocalTalkers);
+		RemoteTalkers.Empty(MaxRemoteTalkers);
+
+		if (!bSuccess)
+		{
+			UE_LOG(LogVoice, Warning, TEXT("Failed to initialize voice interface"));
+
+			LocalTalkers.Empty();
+			RemoteTalkers.Empty();
+			VoiceEngine = nullptr;
+		}
 	}
-
-	RemoteTalkers.Empty(MaxRemoteTalkers);
-
-	if (!bSuccess)
+	else
 	{
-		UE_LOG(LogVoice, Warning, TEXT("Failed to initialize voice interface"));
-
-		LocalTalkers.Empty();
-		RemoteTalkers.Empty();
-		VoiceEngine = NULL;
+		UE_LOG(LogVoice, Log, TEXT("Voice interface disabled by config [OnlineSubsystem].bHasVoiceEnabled"));
 	}
 
 	return bSuccess;
+}
+
+void FOnlineVoiceImpl::Shutdown()
+{
+	VoiceData.RemotePackets.Empty();
+
+	LocalTalkers.Empty();
+	RemoteTalkers.Empty();
+
+	VoiceEngine = nullptr;
+	SessionInt = nullptr;
+	IdentityInt = nullptr;
 }
 
 void FOnlineVoiceImpl::ClearVoicePackets()
@@ -88,22 +116,25 @@ void FOnlineVoiceImpl::ClearVoicePackets()
 
 void FOnlineVoiceImpl::Tick(float DeltaTime) 
 {
-	SCOPE_CYCLE_COUNTER(STAT_Voice_Interface);
-
-	// If we aren't in a networked match, no need to update networked voice
-	if (SessionInt && SessionInt->GetNumSessions() > 0)
+	if (!OnlineSubsystem->IsDedicated())
 	{
-		// Processing voice data only valid with a voice engine to capture/play
-		if (VoiceEngine.IsValid())
-		{
-			VoiceEngine->Tick(DeltaTime);
+		SCOPE_CYCLE_COUNTER(STAT_Voice_Interface);
 
-			// Queue local packets for sending via the network
-			ProcessLocalVoicePackets();
-			// Submit queued packets to audio system
-			ProcessRemoteVoicePackets();
-			// Fire off any talking notifications for hud display
-			ProcessTalkingDelegates(DeltaTime);
+		// If we aren't in a networked match, no need to update networked voice
+		if (SessionInt && SessionInt->GetNumSessions() > 0)
+		{
+			// Processing voice data only valid with a voice engine to capture/play
+			if (VoiceEngine.IsValid())
+			{
+				VoiceEngine->Tick(DeltaTime);
+
+				// Queue local packets for sending via the network
+				ProcessLocalVoicePackets();
+				// Submit queued packets to audio system
+				ProcessRemoteVoicePackets();
+				// Fire off any talking notifications for hud display
+				ProcessTalkingDelegates(DeltaTime);
+			}
 		}
 	}
 }
@@ -223,7 +254,7 @@ bool FOnlineVoiceImpl::UnregisterLocalTalker(uint32 LocalUserNum)
 		{
 			if (OnPlayerTalkingStateChangedDelegates.IsBound() && (Talker.bIsTalking || Talker.bWasTalking))
 			{
-				TSharedPtr<FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
+				TSharedPtr<const FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
 				if (UniqueId.IsValid())
 				{
 					OnPlayerTalkingStateChangedDelegates.Broadcast(UniqueId.ToSharedRef(), false);
@@ -339,7 +370,7 @@ bool FOnlineVoiceImpl::UnregisterRemoteTalker(const FUniqueNetId& UniqueId)
 			}
 			else
 			{
-				UE_LOG(LogVoice, Log, TEXT("Unknown remote talker (%s) specified to UnregisterRemoteTalker()"), *UniqueId.ToDebugString());
+				UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to UnregisterRemoteTalker()"), *UniqueId.ToDebugString());
 			}
 		}
 	}
@@ -443,7 +474,7 @@ bool FOnlineVoiceImpl::MuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId& 
 				}
 				else
 				{
-					UE_LOG(LogVoice, Warning, TEXT("Unknown remote talker (%s) specified to MuteRemoteTalker()"), *PlayerId.ToDebugString());
+					UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to MuteRemoteTalker()"), *PlayerId.ToDebugString());
 				}
 			}
 		}
@@ -489,7 +520,7 @@ bool FOnlineVoiceImpl::UnmuteRemoteTalker(uint8 LocalUserNum, const FUniqueNetId
 				}
 				else
 				{
-					UE_LOG(LogVoice, Warning, TEXT("Unknown remote talker (%s) specified to UnmuteRemoteTalker()"), *PlayerId.ToDebugString());
+					UE_LOG(LogVoice, Verbose, TEXT("Unknown remote talker (%s) specified to UnmuteRemoteTalker()"), *PlayerId.ToDebugString());
 				}
 			}
 		}
@@ -622,7 +653,7 @@ void FOnlineVoiceImpl::ProcessTalkingDelegates(float DeltaTime)
 				// Skip all delegate handling if none are registered
 				if (OnPlayerTalkingStateChangedDelegates.IsBound())
 				{
-					TSharedPtr<FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
+					TSharedPtr<const FUniqueNetId> UniqueId = IdentityInt->GetUniquePlayerId(LocalUserNum);
 					OnPlayerTalkingStateChangedDelegates.Broadcast(UniqueId.ToSharedRef(), Talker.bIsTalking);
 				}
 
@@ -783,7 +814,7 @@ void FOnlineVoiceImpl::ProcessRemoteVoicePackets()
 
 FString FOnlineVoiceImpl::GetVoiceDebugState() const
 {
-	TSharedPtr<FUniqueNetId> UniqueId;
+	TSharedPtr<const FUniqueNetId> UniqueId;
 
 	FString Output = TEXT("Voice state\n");
 	Output += VoiceEngine.IsValid() ? VoiceEngine->GetVoiceDebugState() : TEXT("No Voice Engine!");

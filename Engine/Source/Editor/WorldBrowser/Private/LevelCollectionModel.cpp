@@ -13,9 +13,8 @@
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
-FLevelCollectionModel::FLevelCollectionModel(UEditorEngine* InEditor)
-	: Editor(InEditor)
-	, bRequestedUpdateAllLevels(false)
+FLevelCollectionModel::FLevelCollectionModel()
+	: bRequestedUpdateAllLevels(false)
 	, bRequestedRedrawAllLevels(false)
 	, bRequestedUpdateActorsCount(false)
 	, CommandList(MakeShareable(new FUICommandList))
@@ -39,8 +38,8 @@ FLevelCollectionModel::~FLevelCollectionModel()
 	FWorldDelegates::LevelAddedToWorld.RemoveAll(this);
 	FWorldDelegates::LevelRemovedFromWorld.RemoveAll(this);
 	FEditorSupportDelegates::RedrawAllViewports.RemoveAll(this);
-	Editor->OnLevelActorAdded().RemoveAll(this);
-	Editor->OnLevelActorDeleted().RemoveAll(this);
+	GEditor->OnLevelActorAdded().RemoveAll(this);
+	GEditor->OnLevelActorDeleted().RemoveAll(this);
 	if (CurrentWorld.IsValid())
 	{
 		CurrentWorld->OnSelectedLevelsChanged().RemoveAll(this);
@@ -57,8 +56,8 @@ void FLevelCollectionModel::Initialize(UWorld* InWorld)
 	FWorldDelegates::LevelAddedToWorld.AddSP(this, &FLevelCollectionModel::OnLevelAddedToWorld);
 	FWorldDelegates::LevelRemovedFromWorld.AddSP(this, &FLevelCollectionModel::OnLevelRemovedFromWorld);
 	FEditorSupportDelegates::RedrawAllViewports.AddSP(this, &FLevelCollectionModel::OnRedrawAllViewports);
-	Editor->OnLevelActorAdded().AddSP( this, &FLevelCollectionModel::OnLevelActorAdded);
-	Editor->OnLevelActorDeleted().AddSP( this, &FLevelCollectionModel::OnLevelActorDeleted);
+	GEditor->OnLevelActorAdded().AddSP( this, &FLevelCollectionModel::OnLevelActorAdded);
+	GEditor->OnLevelActorDeleted().AddSP( this, &FLevelCollectionModel::OnLevelActorDeleted);
 	USelection::SelectionChangedEvent.AddSP(this, &FLevelCollectionModel::OnActorSelectionChanged);
 	SelectionChanged.AddSP(this, &FLevelCollectionModel::OnActorOrLevelSelectionChanged);
 	CurrentWorld->OnSelectedLevelsChanged().AddSP(this, &FLevelCollectionModel::OnLevelsSelectionChangedOutside);
@@ -144,7 +143,7 @@ void FLevelCollectionModel::BindCommands()
 		FCanExecuteAction::CreateSP( this, &FLevelCollectionModel::AreAnySelectedLevelsEditable ) );
 	
 	ActionList.MapAction( Commands.World_UnockSelectedLevels,
-		FExecuteAction::CreateSP( this, &FLevelCollectionModel::UnockSelectedLevels_Executed  ),
+		FExecuteAction::CreateSP( this, &FLevelCollectionModel::UnlockSelectedLevels_Executed  ),
 		FCanExecuteAction::CreateSP( this, &FLevelCollectionModel::AreAnySelectedLevelsEditable ) );
 	
 	ActionList.MapAction( Commands.World_LockAllLevels,
@@ -229,6 +228,12 @@ void FLevelCollectionModel::PopulateFilteredLevelsList()
 
 void FLevelCollectionModel::Tick( float DeltaTime )
 {
+	if (GEditor == nullptr)
+	{
+		// Could it be during hot-reloading?
+		return;
+	}
+	
 	if (bRequestedUpdateAllLevels)
 	{
 		UpdateAllLevels();
@@ -282,7 +287,12 @@ bool FLevelCollectionModel::IsReadOnly() const
 
 bool FLevelCollectionModel::IsSimulating() const
 {
-	return (Editor->bIsSimulatingInEditor || Editor->PlayWorld != NULL);
+	return (GEditor->bIsSimulatingInEditor || GEditor->PlayWorld != NULL);
+}
+
+UWorld* FLevelCollectionModel::GetSimulationWorld() const 
+{ 
+	return GEditor->PlayWorld; 
 }
 
 FLevelModelList& FLevelCollectionModel::GetRootLevelList()
@@ -432,27 +442,35 @@ void FLevelCollectionModel::ShowLevels(const FLevelModelList& InLevelList)
 
 void FLevelCollectionModel::UnlockLevels(const FLevelModelList& InLevelList)
 {
-	if (IsReadOnly())
+	if (!IsReadOnly())
 	{
-		return;
-	}
-	
-	for (auto It = InLevelList.CreateConstIterator(); It; ++It)
-	{
-		(*It)->SetLocked(false);
+		const FText UndoTransactionText = (InLevelList.Num() == 1) ?
+			LOCTEXT("UnlockLevel", "Unlock Level") :
+			LOCTEXT("UnlockMultipleLevels", "Unlock Multiple Levels");
+
+		const FScopedTransaction Transaction(UndoTransactionText);
+
+		for (auto It = InLevelList.CreateConstIterator(); It; ++It)
+		{
+			(*It)->SetLocked(false);
+		}
 	}
 }
 	
 void FLevelCollectionModel::LockLevels(const FLevelModelList& InLevelList)
 {
-	if (IsReadOnly())
+	if (!IsReadOnly())
 	{
-		return;
-	}
-	
-	for (auto It = InLevelList.CreateConstIterator(); It; ++It)
-	{
-		(*It)->SetLocked(true);
+		const FText UndoTransactionText = (InLevelList.Num() == 1) ?
+			LOCTEXT("LockLevel", "Lock Level") :
+			LOCTEXT("LockMultipleLevels", "Lock Multiple Levels");
+
+		const FScopedTransaction Transaction(UndoTransactionText);
+
+		for (auto It = InLevelList.CreateConstIterator(); It; ++It)
+		{
+			(*It)->SetLocked(true);
+		}
 	}
 }
 
@@ -582,7 +600,7 @@ void FLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevelList)
 			// This avoids crashing in areas that rely on getting a selected actors level. The level will be invalid after its removed.
 			for (auto ActorIt = Level->Actors.CreateIterator(); ActorIt; ++ActorIt)
 			{
-				Editor->SelectActor((*ActorIt), /*bInSelected=*/ false, /*bSelectEvenIfHidden=*/ false);
+				GEditor->SelectActor((*ActorIt), /*bInSelected=*/ false, /*bSelectEvenIfHidden=*/ false);
 			}
 			
 			{
@@ -592,7 +610,7 @@ void FLevelCollectionModel::UnloadLevels(const FLevelModelList& InLevelList)
 		}
 	}
 
-	Editor->ResetTransaction( LOCTEXT("RemoveLevelTransReset", "Removing Levels from World") );
+	GEditor->ResetTransaction( LOCTEXT("RemoveLevelTransReset", "Removing Levels from World") );
 
 	// Collect garbage to clear out the destroyed level
 	CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
@@ -896,7 +914,7 @@ bool FLevelCollectionModel::AreAnySelectedLevelsDirty() const
 
 bool FLevelCollectionModel::AreActorsSelected() const
 {
-	return Editor->GetSelectedActorCount() > 0;
+	return GEditor->GetSelectedActorCount() > 0;
 }
 
 bool FLevelCollectionModel::GetDisplayPathsState() const
@@ -1349,7 +1367,7 @@ void FLevelCollectionModel::OnSCCRefresh()
 
 void FLevelCollectionModel::OnSCCDiffAgainstDepot()
 {
-	SCCDiffAgainstDepot(GetSelectedLevels(), Editor.Get());
+	SCCDiffAgainstDepot(GetSelectedLevels(), GEditor);
 }
 
 void FLevelCollectionModel::OnSCCConnect() const
@@ -1444,24 +1462,41 @@ void FLevelCollectionModel::LockSelectedLevels_Executed()
 	LockLevels(GetSelectedLevels());
 }
 
-void FLevelCollectionModel::UnockSelectedLevels_Executed()
+void FLevelCollectionModel::UnlockSelectedLevels_Executed()
 {
 	UnlockLevels(GetSelectedLevels());
 }
 
 void FLevelCollectionModel::LockAllLevels_Executed()
 {
-	LockLevels(GetFilteredLevels());
+	if (!IsReadOnly())
+	{
+		const FScopedTransaction Transaction(LOCTEXT("LockAllLevels", "Lock All Levels"));
+		LockLevels(GetFilteredLevels());
+	}
 }
 
 void FLevelCollectionModel::UnockAllLevels_Executed()
 {
-	UnlockLevels(GetFilteredLevels());
+	if (!IsReadOnly())
+	{
+		const FScopedTransaction Transaction(LOCTEXT("UnlockAllLevels", "Unlock All Levels"));
+		UnlockLevels(GetFilteredLevels());
+	}
 }
 
 void FLevelCollectionModel::ToggleReadOnlyLevels_Executed()
 {
-	Editor->bLockReadOnlyLevels = !Editor->bLockReadOnlyLevels;
+	//We are about to lock some Levels, deselect all actor and surfaces from the read only levels
+	if (!GEditor->bLockReadOnlyLevels)
+	{
+		DeselectActorsInAllReadOnlyLevel(GetAllLevels());
+		DeselectSurfaceInAllReadOnlyLevel(GetAllLevels());
+		// Tell the editor selection status was changed.
+		GEditor->NoteSelectionChange();
+	}
+
+	GEditor->bLockReadOnlyLevels = !GEditor->bLockReadOnlyLevels;
 }
 
 void FLevelCollectionModel::MakeLevelCurrent_Executed()
@@ -1502,7 +1537,7 @@ void FLevelCollectionModel::MoveActorsToSelected_Executed()
 
 	MakeLevelCurrent_Executed();
 	const FScopedTransaction Transaction( LOCTEXT("MoveSelectedActorsToSelectedLevel", "Move Selected Actors to Level") );
-	Editor->MoveSelectedActorsToLevel(GetWorld()->GetCurrentLevel());
+	GEditor->MoveSelectedActorsToLevel(GetWorld()->GetCurrentLevel());
 
 	RequestUpdateAllLevels();
 }
@@ -1512,7 +1547,7 @@ void FLevelCollectionModel::MoveFoliageToSelected_Executed()
 	if (GetSelectedLevels().Num() == 1)
 	{
 		ULevel* TargetLevel = GetSelectedLevels()[0]->GetLevelObject();
-		Editor->MoveSelectedFoliageToLevel(TargetLevel);
+		GEditor->MoveSelectedFoliageToLevel(TargetLevel);
 	}
 }
 
@@ -1520,8 +1555,8 @@ void FLevelCollectionModel::SelectActors_Executed()
 {
 	//first clear any existing actor selection
 	const FScopedTransaction Transaction( LOCTEXT("SelectActors", "Select Actors in Level") );
-	Editor->GetSelectedActors()->Modify();
-	Editor->SelectNone( false, true );
+	GEditor->GetSelectedActors()->Modify();
+	GEditor->SelectNone( false, true );
 
 	for(auto It = SelectedLevelsList.CreateConstIterator(); It; ++It)
 	{
@@ -1564,7 +1599,7 @@ void FLevelCollectionModel::FillLockSubMenu(FMenuBuilder& InMenuBuilder)
 	InMenuBuilder.AddMenuEntry( Commands.World_LockAllLevels );
 	InMenuBuilder.AddMenuEntry( Commands.World_UnockAllLevels );
 
-	if (Editor->bLockReadOnlyLevels)
+	if (GEditor->bLockReadOnlyLevels)
 	{
 		InMenuBuilder.AddMenuEntry( Commands.World_UnlockReadOnlyLevels );
 	}
@@ -1615,6 +1650,33 @@ void FLevelCollectionModel::FillSourceControlSubMenu(FMenuBuilder& InMenuBuilder
 		InMenuBuilder.AddMenuEntry( Commands.SCCConnect );
 	}
 }
+
+void FLevelCollectionModel::DeselectActorsInAllReadOnlyLevel(const FLevelModelList& InLevelList)
+{
+	const FScopedTransaction Transaction(LOCTEXT("DeselectActorsInReadOnlyLevel", "Deselect Actors in all read only Level"));
+
+	for (auto It = InLevelList.CreateConstIterator(); It; ++It)
+	{
+		if ((*It)->IsFileReadOnly())
+		{
+			(*It)->SelectActors(/*bSelect*/ false, /*bNotify*/ true, /*bSelectEvenIfHidden*/ true);
+		}
+	}
+}
+
+void FLevelCollectionModel::DeselectSurfaceInAllReadOnlyLevel(const FLevelModelList& InLevelList)
+{
+	const FScopedTransaction Transaction(LOCTEXT("DeselectSurfacesInReadOnlyLevel", "Deselect Surfaces in all read only Level"));
+
+	for (auto It = InLevelList.CreateConstIterator(); It; ++It)
+	{
+		if ((*It)->IsFileReadOnly())
+		{
+			(*It)->DeselectAllSurfaces();
+		}
+	}
+}
+
 
 void FLevelCollectionModel::OnLevelsCollectionChanged()
 {

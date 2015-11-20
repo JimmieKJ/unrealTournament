@@ -6,9 +6,9 @@
 
 UBlackboardData::FKeyUpdate UBlackboardData::OnUpdateKeys;
 
-static void UpdatePersistentKeys(UBlackboardData* Asset)
+static void UpdatePersistentKeys(UBlackboardData& Asset)
 {
-	UBlackboardKeyType_Object* SelfKeyType = Asset->UpdatePersistentKey<UBlackboardKeyType_Object>(FBlackboard::KeySelf);
+	UBlackboardKeyType_Object* SelfKeyType = Asset.UpdatePersistentKey<UBlackboardKeyType_Object>(FBlackboard::KeySelf);
 	if (SelfKeyType)
 	{
 		SelfKeyType->BaseClass = AActor::StaticClass();
@@ -23,10 +23,6 @@ bool FBlackboardEntry::operator==(const FBlackboardEntry& Other) const
 
 UBlackboardData::UBlackboardData(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	if (HasAnyFlags(RF_ClassDefaultObject))
-	{
-		OnUpdateKeys.AddStatic(&UpdatePersistentKeys);
-	}
 }
 
 FBlackboard::FKey UBlackboardData::GetKeyID(const FName& KeyName) const
@@ -239,6 +235,7 @@ void UBlackboardData::UpdateParentKeys()
 #endif // WITH_EDITORONLY_DATA
 
 	UpdateKeyIDs();
+	UpdatePersistentKeys(*this);
 	OnUpdateKeys.Broadcast(this);
 }
 

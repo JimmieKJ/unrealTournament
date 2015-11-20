@@ -22,22 +22,26 @@ UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 	{
 		static FName FuncName = FName(TEXT("K2_ShouldAbilityRespondToEvent"));
 		UFunction* ShouldRespondFunction = GetClass()->FindFunctionByName(FuncName);
-		bHasBlueprintShouldAbilityRespondToEvent = ShouldRespondFunction && ShouldRespondFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+		bHasBlueprintShouldAbilityRespondToEvent = ShouldRespondFunction && ensure(ShouldRespondFunction->GetOuter()) && ShouldRespondFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
 	}
 	{
 		static FName FuncName = FName(TEXT("K2_CanActivateAbility"));
 		UFunction* CanActivateFunction = GetClass()->FindFunctionByName(FuncName);
-		bHasBlueprintCanUse = CanActivateFunction && CanActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+		bHasBlueprintCanUse = CanActivateFunction && ensure(CanActivateFunction->GetOuter()) && CanActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
 	}
 	{
 		static FName FuncName = FName(TEXT("K2_ActivateAbility"));
 		UFunction* ActivateFunction = GetClass()->FindFunctionByName(FuncName);
-		bHasBlueprintActivate = ActivateFunction && ActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+		// FIXME: temp to work around crash
+		if (ActivateFunction && ActivateFunction->IsValidLowLevelFast())
+		{
+			bHasBlueprintActivate = ActivateFunction && ensure(ActivateFunction->GetOuter()) && ActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+		}
 	}
 	{
 		static FName FuncName = FName(TEXT("K2_ActivateAbilityFromEvent"));
 		UFunction* ActivateFunction = GetClass()->FindFunctionByName(FuncName);
-		bHasBlueprintActivateFromEvent = ActivateFunction && ActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
+		bHasBlueprintActivateFromEvent = ActivateFunction && ensure(ActivateFunction->GetOuter()) && ActivateFunction->GetOuter()->IsA(UBlueprintGeneratedClass::StaticClass());
 	}
 	
 #if WITH_EDITOR
@@ -148,7 +152,8 @@ bool UGameplayAbility::IsSupportedForNetworking() const
 
 bool UGameplayAbility::DoesAbilitySatisfyTagRequirements(const UAbilitySystemComponent& AbilitySystemComponent, const FGameplayTagContainer* SourceTags, const FGameplayTagContainer* TargetTags, OUT FGameplayTagContainer* OptionalRelevantTags) const
 {
-	bool bBlocked = false, bMissing = false;
+	bool bBlocked = false;
+	bool bMissing = false;
 
 	const FGameplayTag& BlockedTag = UAbilitySystemGlobals::Get().ActivateFailTagsBlockedTag;
 	const FGameplayTag& MissingTag = UAbilitySystemGlobals::Get().ActivateFailTagsMissingTag;
@@ -449,7 +454,7 @@ bool UGameplayAbility::IsBlockingOtherAbilities() const
 
 void UGameplayAbility::SetShouldBlockOtherAbilities(bool bShouldBlockAbilities)
 {
-	if (GetInstancingPolicy() != EGameplayAbilityInstancingPolicy::NonInstanced && bShouldBlockAbilities != bIsBlockingOtherAbilities)
+	if (bIsActive && GetInstancingPolicy() != EGameplayAbilityInstancingPolicy::NonInstanced && bShouldBlockAbilities != bIsBlockingOtherAbilities)
 	{
 		bIsBlockingOtherAbilities = bShouldBlockAbilities;
 
@@ -512,6 +517,12 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 		// Give blueprint a chance to react
 		K2_OnEndAbility();
 
+		// Protect against blueprint causing us to EndAbility already
+		if (bIsActive == false && GetInstancingPolicy() != EGameplayAbilityInstancingPolicy::NonInstanced)
+		{
+			return;
+		}
+
 		// Stop any timers or latent actions for the ability
 		UWorld* MyWorld = ActorInfo ? ActorInfo->AbilitySystemComponent->GetOwner()->GetWorld() : nullptr;
 		if (MyWorld)
@@ -521,8 +532,8 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 		}
 
 		// Execute our delegate and unbind it, as we are no longer active and listeners can re-register when we become active again.
-		OnGameplayAbilityEnded.ExecuteIfBound(this);
-		OnGameplayAbilityEnded.Unbind();
+		OnGameplayAbilityEnded.Broadcast(this);
+		OnGameplayAbilityEnded.Clear();
 
 		if (GetInstancingPolicy() != EGameplayAbilityInstancingPolicy::NonInstanced)
 		{
@@ -532,10 +543,10 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 		// Tell all our tasks that we are finished and they should cleanup
 		for (int32 TaskIdx = ActiveTasks.Num() - 1; TaskIdx >= 0 && ActiveTasks.Num() > 0; --TaskIdx)
 		{
-			TWeakObjectPtr<UAbilityTask> Task = ActiveTasks[TaskIdx];
+			TWeakObjectPtr<UGameplayTask> Task = ActiveTasks[TaskIdx];
 			if (Task.IsValid())
 			{
-				Task.Get()->AbilityEnded();
+				Task.Get()->TaskOwnerEnded();
 			}
 		}
 		ActiveTasks.Reset();	// Empty the array but dont resize memory, since this object is probably going to be destroyed very soon anyways.
@@ -577,8 +588,6 @@ void UGameplayAbility::EndAbility(const FGameplayAbilitySpecHandle Handle, const
 
 void UGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const FGameplayEventData* TriggerEventData)
 {
-	SetCurrentInfo(Handle, ActorInfo, ActivationInfo);
-
 	if (bHasBlueprintActivate)
 	{
 		// A Blueprinted ActivateAbility function must call CommitAbility somewhere in its execution chain.
@@ -610,7 +619,7 @@ void UGameplayAbility::ActivateAbility(const FGameplayAbilitySpecHandle Handle, 
 	}
 }
 
-void UGameplayAbility::PreActivate(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded* OnGameplayAbilityEndedDelegate)
+void UGameplayAbility::PreActivate(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded::FDelegate* OnGameplayAbilityEndedDelegate)
 {
 	UAbilitySystemComponent* Comp = ActorInfo->AbilitySystemComponent.Get();
 
@@ -627,13 +636,15 @@ void UGameplayAbility::PreActivate(const FGameplayAbilitySpecHandle Handle, cons
 
 	if (OnGameplayAbilityEndedDelegate)
 	{
-		OnGameplayAbilityEnded = *OnGameplayAbilityEndedDelegate;
+		OnGameplayAbilityEnded.Add(*OnGameplayAbilityEndedDelegate);
 	}
+
+	SetCurrentInfo(Handle, ActorInfo, ActivationInfo);
 
 	Comp->NotifyAbilityActivated(Handle, this);
 }
 
-void UGameplayAbility::CallActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded* OnGameplayAbilityEndedDelegate, const FGameplayEventData* TriggerEventData)
+void UGameplayAbility::CallActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded::FDelegate* OnGameplayAbilityEndedDelegate, const FGameplayEventData* TriggerEventData)
 {
 	PreActivate(Handle, ActorInfo, ActivationInfo, OnGameplayAbilityEndedDelegate);
 	ActivateAbility(Handle, ActorInfo, ActivationInfo, TriggerEventData);
@@ -736,19 +747,26 @@ void UGameplayAbility::ApplyCost(const FGameplayAbilitySpecHandle Handle, const 
 	}
 }
 
+void UGameplayAbility::SetMovementSyncPoint(FName SyncName)
+{
+}
+
 float UGameplayAbility::GetCooldownTimeRemaining(const FGameplayAbilityActorInfo* ActorInfo) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_GameplayAbilityGetCooldownTimeRemaining);
 
-	check(ActorInfo->AbilitySystemComponent.IsValid());
-	const FGameplayTagContainer* CooldownTags = GetCooldownTags();
-	if (CooldownTags && CooldownTags->Num() > 0)
+	if (ActorInfo->AbilitySystemComponent.IsValid())
 	{
-		TArray< float > Durations = ActorInfo->AbilitySystemComponent->GetActiveEffectsTimeRemaining(FActiveGameplayEffectQuery(CooldownTags));
-		if (Durations.Num() > 0)
+		const FGameplayTagContainer* CooldownTags = GetCooldownTags();
+		if (CooldownTags && CooldownTags->Num() > 0)
 		{
-			Durations.Sort();
-			return Durations[Durations.Num()-1];
+			FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(*CooldownTags);
+			TArray< float > Durations = ActorInfo->AbilitySystemComponent->GetActiveEffectsTimeRemaining(Query);
+			if (Durations.Num() > 0)
+			{
+				Durations.Sort();
+				return Durations[Durations.Num() - 1];
+			}
 		}
 	}
 
@@ -767,10 +785,11 @@ void UGameplayAbility::GetCooldownTimeRemainingAndDuration(FGameplayAbilitySpecH
 	const FGameplayTagContainer* CooldownTags = GetCooldownTags();
 	if (CooldownTags && CooldownTags->Num() > 0)
 	{
-		TArray< float > DurationRemaining = ActorInfo->AbilitySystemComponent->GetActiveEffectsTimeRemaining(FActiveGameplayEffectQuery(CooldownTags));
+		FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(*CooldownTags);
+		TArray< float > DurationRemaining = ActorInfo->AbilitySystemComponent->GetActiveEffectsTimeRemaining(Query);
 		if (DurationRemaining.Num() > 0)
 		{
-			TArray< float > Durations = ActorInfo->AbilitySystemComponent->GetActiveEffectsDuration(FActiveGameplayEffectQuery(CooldownTags));
+			TArray< float > Durations = ActorInfo->AbilitySystemComponent->GetActiveEffectsDuration(Query);
 			check(Durations.Num() == DurationRemaining.Num());
 			int32 BestIdx = 0;
 			float LongestTime = DurationRemaining[0];
@@ -851,9 +870,20 @@ FGameplayEffectSpecHandle UGameplayAbility::GetOutgoingGameplayEffectSpec(const 
 	return FGameplayEffectSpecHandle(nullptr);
 }
 
+int32 AbilitySystemShowMakeOutgoingGameplayEffectSpecs = 0;
+static FAutoConsoleVariableRef CVarAbilitySystemShowMakeOutgoingGameplayEffectSpecs(TEXT("AbilitySystem.ShowClientMakeOutgoingSpecs"), AbilitySystemShowMakeOutgoingGameplayEffectSpecs, TEXT("Displays all GameplayEffect specs created on non authority clients"), ECVF_Default );
+
 FGameplayEffectSpecHandle UGameplayAbility::MakeOutgoingGameplayEffectSpec(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, TSubclassOf<UGameplayEffect> GameplayEffectClass, float Level) const
 {
 	check(ActorInfo);
+
+	
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (AbilitySystemShowMakeOutgoingGameplayEffectSpecs && HasAuthority(&ActivationInfo) == false)
+	{
+		ABILITY_LOG(Warning, TEXT("%s, MakeOutgoingGameplayEffectSpec: %s"), *ActorInfo->AbilitySystemComponent->GetFullName(),  *GameplayEffectClass->GetName()); 
+	}
+#endif
 
 	FGameplayEffectSpecHandle NewHandle = ActorInfo->AbilitySystemComponent->MakeOutgoingSpec(GameplayEffectClass, Level, GetEffectContext(Handle, ActorInfo));
 	if (NewHandle.IsValid())
@@ -984,35 +1014,73 @@ FGameplayAbilityTargetingLocationInfo UGameplayAbility::MakeTargetLocationInfoFr
 	FGameplayAbilityTargetingLocationInfo ReturnLocation;
 	ReturnLocation.LocationType = EGameplayAbilityTargetingLocationType::ActorTransform;
 	ReturnLocation.SourceActor = GetActorInfo().AvatarActor.Get();
+	ReturnLocation.SourceAbility = this;
 	return ReturnLocation;
 }
 
-FGameplayAbilityTargetingLocationInfo UGameplayAbility::MakeTargetLocationInfoFromOwnerSkeletalMeshComponent(FName SocketName) const
+FGameplayAbilityTargetingLocationInfo UGameplayAbility::MakeTargetLocationInfoFromOwnerSkeletalMeshComponent(FName SocketName)
 {
 	FGameplayAbilityTargetingLocationInfo ReturnLocation;
 	ReturnLocation.LocationType = EGameplayAbilityTargetingLocationType::SocketTransform;
 	ReturnLocation.SourceComponent = GetActorInfo().AnimInstance.IsValid() ? GetActorInfo().AnimInstance.Get()->GetOwningComponent() : NULL;
+	ReturnLocation.SourceAbility = this;
 	ReturnLocation.SourceSocketName = SocketName;
 	return ReturnLocation;
 }
 
 //----------------------------------------------------------------------
 
-void UGameplayAbility::TaskStarted(UAbilityTask* NewTask)
+UGameplayTasksComponent* UGameplayAbility::GetGameplayTasksComponent(const UGameplayTask& Task) const
 {
-	ABILITY_VLOG(CastChecked<AActor>(GetOuter()), Log, TEXT("Task Started %s"), *NewTask->GetName());
+	return GetCurrentActorInfo() ? GetCurrentActorInfo()->AbilitySystemComponent.Get() : nullptr;
+}
 
-	ActiveTasks.Add(NewTask);
+AActor* UGameplayAbility::GetOwnerActor(const UGameplayTask* Task) const
+{
+	const FGameplayAbilityActorInfo* Info = GetCurrentActorInfo();
+	return Info ? Info->OwnerActor.Get() : nullptr;
+}
+
+AActor* UGameplayAbility::GetAvatarActor(const UGameplayTask* Task) const
+{
+	const FGameplayAbilityActorInfo* Info = GetCurrentActorInfo();
+	return Info ? Info->AvatarActor.Get() : nullptr;
+}
+
+void UGameplayAbility::OnTaskInitialized(UGameplayTask& Task)
+{
+	UAbilityTask* AbilityTask = Cast<UAbilityTask>(&Task);
+	if (AbilityTask)
+	{
+		AbilityTask->SetAbilitySystemComponent(GetCurrentActorInfo()->AbilitySystemComponent.Get());
+		AbilityTask->Ability = this;
+	}
+}
+
+void UGameplayAbility::OnTaskActivated(UGameplayTask& Task)
+{
+	ABILITY_VLOG(CastChecked<AActor>(GetOuter()), Log, TEXT("Task Started %s"), *Task.GetName());
+
+	ActiveTasks.Add(&Task);
 }
 
 void UGameplayAbility::ConfirmTaskByInstanceName(FName InstanceName, bool bEndTask)
 {
-	TArray<TWeakObjectPtr<UAbilityTask>> NamedTasks = ActiveTasks.FilterByPredicate<FAbilityInstanceNamePredicate>(FAbilityInstanceNamePredicate(InstanceName));
+	TArray<UGameplayTask*, TInlineAllocator<8> > NamedTasks;
+
+	for (UGameplayTask* Task : ActiveTasks)
+	{
+		if (Task && Task->GetInstanceName() == InstanceName)
+		{
+			NamedTasks.Add(Task);
+		}
+	}
+	
 	for (int32 i = NamedTasks.Num() - 1; i >= 0; --i)
 	{
-		if (NamedTasks[i].IsValid())
+		UGameplayTask* CurrentTask = NamedTasks[i];
+		if (CurrentTask && CurrentTask->IsPendingKill() == false)
 		{
-			UAbilityTask* CurrentTask = NamedTasks[i].Get();
 			CurrentTask->ExternalConfirm(bEndTask);
 		}
 	}
@@ -1020,30 +1088,58 @@ void UGameplayAbility::ConfirmTaskByInstanceName(FName InstanceName, bool bEndTa
 
 void UGameplayAbility::EndOrCancelTasksByInstanceName()
 {
+	// Static array for avoiding memory allocations
+	TArray<UGameplayTask*, TInlineAllocator<8> > NamedTasks;
+
+	// Call Endtask on everything in EndTaskInstanceNames list
 	for (int32 j = 0; j < EndTaskInstanceNames.Num(); ++j)
 	{
 		FName InstanceName = EndTaskInstanceNames[j];
-		TArray<TWeakObjectPtr<UAbilityTask>> NamedTasks = ActiveTasks.FilterByPredicate<FAbilityInstanceNamePredicate>(FAbilityInstanceNamePredicate(InstanceName));
+		NamedTasks.Reset();
+
+		// Find every current task that needs to end before ending any
+		for (UGameplayTask* Task : ActiveTasks)
+		{
+			if (Task && Task->GetInstanceName() == InstanceName)
+			{
+				NamedTasks.Add(Task);
+			}
+		}
+		
+		// End each one individually. Not ending a task may do "anything" including killing other tasks or the ability itself
 		for (int32 i = NamedTasks.Num() - 1; i >= 0; --i)
 		{
-			if (NamedTasks[i].IsValid())
+			UGameplayTask* CurrentTask = NamedTasks[i];
+			if (CurrentTask && CurrentTask->IsPendingKill() == false)
 			{
-				UAbilityTask* CurrentTask = NamedTasks[i].Get();
 				CurrentTask->EndTask();
 			}
 		}
 	}
 	EndTaskInstanceNames.Empty();
 
+
+	// Call ExternalCancel on everything in CancelTaskInstanceNames list
 	for (int32 j = 0; j < CancelTaskInstanceNames.Num(); ++j)
 	{
 		FName InstanceName = CancelTaskInstanceNames[j];
-		TArray<TWeakObjectPtr<UAbilityTask>> NamedTasks = ActiveTasks.FilterByPredicate<FAbilityInstanceNamePredicate>(FAbilityInstanceNamePredicate(InstanceName));
+		NamedTasks.Reset();
+		
+		// Find every current task that needs to cancel before cancelling any
+		for (UGameplayTask* Task : ActiveTasks)
+		{
+			if (Task && Task->GetInstanceName() == InstanceName)
+			{
+				NamedTasks.Add(Task);
+			}
+		}
+
+		// Cancel each one individually.  Not canceling a task may do "anything" including killing other tasks or the ability itself
 		for (int32 i = NamedTasks.Num() - 1; i >= 0; --i)
 		{
-			if (NamedTasks[i].IsValid())
+			UGameplayTask* CurrentTask = NamedTasks[i];
+			if (CurrentTask && CurrentTask->IsPendingKill() == false)
 			{
-				UAbilityTask* CurrentTask = NamedTasks[i].Get();
 				CurrentTask->ExternalCancel();
 			}
 		}
@@ -1075,11 +1171,11 @@ void UGameplayAbility::EndAbilityState(FName OptionalStateNameToEnd)
 	}
 }
 
-void UGameplayAbility::TaskEnded(UAbilityTask* Task)
+void UGameplayAbility::OnTaskDeactivated(UGameplayTask& Task)
 {
-	ABILITY_VLOG(CastChecked<AActor>(GetOuter()), Log, TEXT("Task Ended %s"), *Task->GetName());
+	ABILITY_VLOG(CastChecked<AActor>(GetOuter()), Log, TEXT("Task Ended %s"), *Task.GetName());
 
-	ActiveTasks.Remove(Task);
+	ActiveTasks.Remove(&Task);
 }
 
 /**
@@ -1092,6 +1188,12 @@ void UGameplayAbility::K2_ExecuteGameplayCue(FGameplayTag GameplayCueTag, FGamep
 {
 	check(CurrentActorInfo);
 	CurrentActorInfo->AbilitySystemComponent->ExecuteGameplayCue(GameplayCueTag, Context);
+}
+
+void UGameplayAbility::K2_ExecuteGameplayCueWithParams(FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters)
+{
+	check(CurrentActorInfo);
+	CurrentActorInfo->AbilitySystemComponent->ExecuteGameplayCue(GameplayCueTag, GameplayCueParameters);
 }
 
 void UGameplayAbility::K2_AddGameplayCue(FGameplayTag GameplayCueTag, FGameplayEffectContextHandle Context, bool bRemoveOnAbilityEnd)
@@ -1150,6 +1252,36 @@ FGameplayAbilitySpec* UGameplayAbility::GetCurrentAbilitySpec() const
 	check(IsInstantiated()); // You should not call this on non instanced abilities.
 	check(CurrentActorInfo);
 	return CurrentActorInfo->AbilitySystemComponent->FindAbilitySpecFromHandle(CurrentSpecHandle);
+}
+
+FGameplayEffectContextHandle UGameplayAbility::GetGrantedByEffectContext() const
+{
+	check(IsInstantiated()); // You should not call this on non instanced abilities.
+	check(CurrentActorInfo);
+	if (CurrentActorInfo)
+	{
+		FActiveGameplayEffectHandle ActiveHandle = CurrentActorInfo->AbilitySystemComponent->FindActiveGameplayEffectHandle(GetCurrentAbilitySpecHandle());
+		if (ActiveHandle.IsValid())
+		{
+			return CurrentActorInfo->AbilitySystemComponent->GetEffectContextFromActiveGEHandle(ActiveHandle);
+		}
+	}
+
+	return FGameplayEffectContextHandle();
+}
+
+void UGameplayAbility::RemoveGrantedByEffect()
+{
+	check(IsInstantiated()); // You should not call this on non instanced abilities.
+	check(CurrentActorInfo);
+	if (CurrentActorInfo)
+	{
+		FActiveGameplayEffectHandle ActiveHandle = CurrentActorInfo->AbilitySystemComponent->FindActiveGameplayEffectHandle(GetCurrentAbilitySpecHandle());
+		if (ActiveHandle.IsValid())
+		{
+			CurrentActorInfo->AbilitySystemComponent->RemoveActiveGameplayEffect(ActiveHandle);
+		}
+	}
 }
 
 UObject* UGameplayAbility::GetSourceObject(FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo) const
@@ -1266,7 +1398,7 @@ void UGameplayAbility::OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, c
 
 // -------------------------------------------------------
 
-FActiveGameplayEffectHandle UGameplayAbility::BP_ApplyGameplayEffectToOwner(TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel)
+FActiveGameplayEffectHandle UGameplayAbility::BP_ApplyGameplayEffectToOwner(TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel, int32 Stacks)
 {
 	check(CurrentActorInfo);
 	check(CurrentSpecHandle.IsValid());
@@ -1274,31 +1406,32 @@ FActiveGameplayEffectHandle UGameplayAbility::BP_ApplyGameplayEffectToOwner(TSub
 	if ( GameplayEffectClass )
 	{
 		const UGameplayEffect* GameplayEffect = GameplayEffectClass->GetDefaultObject<UGameplayEffect>();
-		return ApplyGameplayEffectToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, GameplayEffect, GameplayEffectLevel);
+		return ApplyGameplayEffectToOwner(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, GameplayEffect, GameplayEffectLevel, Stacks);
 	}
 
 	ABILITY_LOG(Error, TEXT("BP_ApplyGameplayEffectToOwner called on ability %s with no GameplayEffectClass."), *GetName());
 	return FActiveGameplayEffectHandle();
 }
 
-FActiveGameplayEffectHandle UGameplayAbility::K2_ApplyGameplayEffectToOwner(const UGameplayEffect* GameplayEffect, int32 GameplayEffectLevel)
+FActiveGameplayEffectHandle UGameplayAbility::K2_ApplyGameplayEffectToOwner(const UGameplayEffect* GameplayEffect, int32 GameplayEffectLevel, int32 Stacks)
 {
 	if ( GameplayEffect )
 	{
-		return BP_ApplyGameplayEffectToOwner(GameplayEffect->GetClass(), GameplayEffectLevel);
+		return BP_ApplyGameplayEffectToOwner(GameplayEffect->GetClass(), GameplayEffectLevel, Stacks);
 	}
 
 	ABILITY_LOG(Error, TEXT("K2_ApplyGameplayEffectToOwner called on ability %s with no GameplayEffect."), *GetName());
 	return FActiveGameplayEffectHandle();
 }
 
-FActiveGameplayEffectHandle UGameplayAbility::ApplyGameplayEffectToOwner(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const UGameplayEffect* GameplayEffect, float GameplayEffectLevel) const
+FActiveGameplayEffectHandle UGameplayAbility::ApplyGameplayEffectToOwner(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const UGameplayEffect* GameplayEffect, float GameplayEffectLevel, int32 Stacks) const
 {
 	if (GameplayEffect && (HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo)))
 	{
 		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(Handle, ActorInfo, ActivationInfo, GameplayEffect->GetClass(), GameplayEffectLevel);
 		if (SpecHandle.IsValid())
 		{
+			SpecHandle.Data->StackCount = Stacks;
 			return ApplyGameplayEffectSpecToOwner(Handle, ActorInfo, ActivationInfo, SpecHandle);
 		}
 	}
@@ -1327,19 +1460,25 @@ FActiveGameplayEffectHandle UGameplayAbility::ApplyGameplayEffectSpecToOwner(con
 
 // -------------------------------
 
-TArray<FActiveGameplayEffectHandle> UGameplayAbility::BP_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel)
+TArray<FActiveGameplayEffectHandle> UGameplayAbility::BP_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel, int32 Stacks)
 {
-	return ApplyGameplayEffectToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, Target, GameplayEffectClass, GameplayEffectLevel);
+	return ApplyGameplayEffectToTarget(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, Target, GameplayEffectClass, GameplayEffectLevel, Stacks);
 }
 
-TArray<FActiveGameplayEffectHandle> UGameplayAbility::K2_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle Target, const UGameplayEffect* GameplayEffect, int32 GameplayEffectLevel)
+TArray<FActiveGameplayEffectHandle> UGameplayAbility::K2_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle Target, const UGameplayEffect* GameplayEffect, int32 GameplayEffectLevel, int32 Stacks)
 {
-	return BP_ApplyGameplayEffectToTarget(Target, GameplayEffect->GetClass(), GameplayEffectLevel);
+	return BP_ApplyGameplayEffectToTarget(Target, GameplayEffect->GetClass(), GameplayEffectLevel, Stacks);
 }
 
-TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectToTarget(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, float GameplayEffectLevel) const
+TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectToTarget(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, float GameplayEffectLevel, int32 Stacks) const
 {
 	TArray<FActiveGameplayEffectHandle> EffectHandles;
+
+	if (HasAuthority(&ActivationInfo) == false && UAbilitySystemGlobals::Get().ShouldPredictTargetGameplayEffects() == false)
+	{
+		// Early out to avoid making effect specs that we can't apply
+		return EffectHandles;
+	}
 
 	// This batches all created cues together
 	FScopedGameplayCueSendContext GameplayCueSendContext;
@@ -1351,6 +1490,7 @@ TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectToTarge
 	else if (HasAuthorityOrPredictionKey(ActorInfo, &ActivationInfo))
 	{
 		FGameplayEffectSpecHandle SpecHandle = MakeOutgoingGameplayEffectSpec(Handle, ActorInfo, ActivationInfo, GameplayEffectClass, GameplayEffectLevel);
+		SpecHandle.Data->StackCount = Stacks;
 		EffectHandles.Append(ApplyGameplayEffectSpecToTarget(Handle, ActorInfo, ActivationInfo, SpecHandle, Target));
 	}
 
@@ -1383,8 +1523,7 @@ void UGameplayAbility::BP_RemoveGameplayEffectFromOwnerWithAssetTags(FGameplayTa
 		return;
 	}
 
-	FActiveGameplayEffectQuery Query;
-	Query.EffectTagContainer = &WithTags;
+	FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyEffectTags(WithTags);
 	CurrentActorInfo->AbilitySystemComponent->RemoveActiveEffects(Query, StacksToRemove);
 }
 
@@ -1395,8 +1534,7 @@ void UGameplayAbility::BP_RemoveGameplayEffectFromOwnerWithGrantedTags(FGameplay
 		return;
 	}
 
-	FActiveGameplayEffectQuery Query;
-	Query.OwningTagContainer = &WithGrantedTags;
+	FGameplayEffectQuery const Query = FGameplayEffectQuery::MakeQuery_MatchAnyOwningTags(WithGrantedTags);
 	CurrentActorInfo->AbilitySystemComponent->RemoveActiveEffects(Query, StacksToRemove);
 }
 
@@ -1431,4 +1569,9 @@ void UGameplayAbility::ConvertDeprecatedGameplayEffectReferencesToBlueprintRefer
 	{
 		MarkPackageDirty();
 	}
+}
+
+float UGameplayAbility::GetCooldownTimeRemaining() const
+{
+	return IsInstantiated() ? GetCooldownTimeRemaining(CurrentActorInfo) : 0.f;
 }

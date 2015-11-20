@@ -41,6 +41,8 @@ UObject* UNiagaraScriptFactoryNew::FactoryCreateNew(UClass* Class,UObject* InPar
 
 			//Automatically add attributes that the current render modules rely on. Not sure what we'll want to do here in the end.
 			OutputNode->Outputs.Add(FNiagaraVariableInfo(FName(TEXT("Position")), ENiagaraDataType::Vector));
+			OutputNode->Outputs.Add(FNiagaraVariableInfo(FName(TEXT("Velocity")), ENiagaraDataType::Vector));
+			OutputNode->Outputs.Add(FNiagaraVariableInfo(FName(TEXT("Acceleration")), ENiagaraDataType::Vector));
 			OutputNode->Outputs.Add(FNiagaraVariableInfo(FName(TEXT("Rotation")), ENiagaraDataType::Vector));
 			OutputNode->Outputs.Add(FNiagaraVariableInfo(FName(TEXT("Color")), ENiagaraDataType::Vector));
 			OutputNode->Outputs.Add(FNiagaraVariableInfo(FName(TEXT("Age")), ENiagaraDataType::Vector));

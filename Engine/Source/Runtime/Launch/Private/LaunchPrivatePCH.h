@@ -26,4 +26,4 @@
 /**
  * Attempts to set GameName based on the command line and check that we have a game name
  */
-bool LaunchSetGameName(const TCHAR *CmdLine);
+bool LaunchSetGameName(const TCHAR *CmdLine, FString& OutGameProjectFilePathUnnormalized);

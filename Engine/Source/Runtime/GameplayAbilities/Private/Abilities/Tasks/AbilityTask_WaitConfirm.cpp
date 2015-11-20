@@ -19,7 +19,7 @@ void UAbilityTask_WaitConfirm::OnConfirmCallback(UGameplayAbility* InAbility)
 
 UAbilityTask_WaitConfirm* UAbilityTask_WaitConfirm::WaitConfirm(class UObject* WorldContextObject)
 {
-	return NewTask<UAbilityTask_WaitConfirm>(WorldContextObject);	
+	return NewAbilityTask<UAbilityTask_WaitConfirm>(WorldContextObject);
 }
 
 void UAbilityTask_WaitConfirm::Activate()

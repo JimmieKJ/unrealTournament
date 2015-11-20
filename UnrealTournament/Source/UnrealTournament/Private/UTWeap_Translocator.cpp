@@ -229,7 +229,7 @@ void AUTWeap_Translocator::FireShot()
 							// spawn effects
 							FActorSpawnParameters SpawnParams;
 							SpawnParams.Instigator = SavedOwner;
-							SpawnParams.bNoCollisionFail = true;
+							SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 							SpawnParams.Owner = SavedOwner;
 							if (AfterImageType != NULL)
 							{
@@ -292,7 +292,7 @@ void AUTWeap_Translocator::Tick(float DeltaTime)
 	Super::Tick(DeltaTime);
 
 	// check for AI shooting disc at translocator target
-	if (CurrentState == ActiveState && (TransDisk == NULL || TransDisk->bPendingKillPending))
+	if (CurrentState == ActiveState && (TransDisk == NULL || TransDisk->IsPendingKillPending()))
 	{
 		AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
 		if (B != NULL && !B->TranslocTarget.IsZero() && (Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get()) == NULL || B->GetMovePoint() != B->GetMoveTarget().GetLocation(UTOwner)) && !B->NeedToTurn(B->GetFocalPoint(), true))
@@ -493,7 +493,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 		}
 		else
 		{
-			if (TransDisk == NULL || TransDisk->bPendingKillPending)
+			if (TransDisk == NULL || TransDisk->IsPendingKillPending())
 			{
 				// shoot!
 				UTOwner->StartFire(0);

@@ -9,6 +9,8 @@
 #include "VertexFactory.h"
 #include "RHICommandList.h"
 
+#include "DebugSerializationFlags.h"
+
 uint32 FVertexFactoryType::NextHashIndex = 0;
 bool FVertexFactoryType::bInitializedSerializationHistory = false;
 
@@ -121,7 +123,7 @@ FVertexFactoryType::FVertexFactoryType(
 	checkf(!bInitializedSerializationHistory, TEXT("VF type was loaded after engine init, use ELoadingPhase::PostConfigInit on your module to cause it to load earlier."));
 
 	// Add this vertex factory type to the global list.
-	GlobalListLink.Link(GetTypeList());
+	GlobalListLink.LinkHead(GetTypeList());
 
 	// Assign the vertex factory type the next unassigned hash index.
 	HashIndex = NextHashIndex++;
@@ -347,8 +349,12 @@ bool operator<<(FArchive& Ar,FVertexFactoryParameterRef& Ref)
 
 	// Need to be able to skip over parameters for no longer existing vertex factories.
 	int32 SkipOffset = Ar.Tell();
-	// Write placeholder.
-	Ar << SkipOffset;
+	{
+		FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
+		// Write placeholder.
+		Ar << SkipOffset;
+	}
+
 
 	if(Ref.Parameters)
 	{

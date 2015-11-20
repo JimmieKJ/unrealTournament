@@ -22,6 +22,9 @@ class GAMEPLAYABILITIES_API IGameplayCueInterface
 
 	virtual void HandleGameplayCues(AActor *Self, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
+	/** Returns true if the actor can currently accept gameplay cues associated with the given tag. Returns true by default. Allows actors to opt out of cues in cases such as pending death */
+	virtual bool ShouldAcceptGameplayCue(AActor *Self, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+
 	/** Return the cue sets used by this object. This is optional and it is possible to leave this list empty. */
 	virtual void GetGameplayCueSets(TArray<class UGameplayCueSet*>& OutSets) const {}
 
@@ -63,11 +66,20 @@ struct FActiveGameplayCue : public FFastArraySerializerItem
 {
 	GENERATED_USTRUCT_BODY()
 
+	FActiveGameplayCue()	
+	{
+		bPredictivelyRemoved = false;
+	}
+
 	UPROPERTY()
 	FGameplayTag GameplayCueTag;
 
 	UPROPERTY()
 	FPredictionKey PredictionKey;
+
+	/** Has this been predictively removed on the client? */
+	UPROPERTY(NotReplicated)
+	bool bPredictivelyRemoved;
 
 	void PreReplicatedRemove(const struct FActiveGameplayCueContainer &InArray);
 	void PostReplicatedAdd(const struct FActiveGameplayCueContainer &InArray);
@@ -88,6 +100,14 @@ struct FActiveGameplayCueContainer : public FFastArraySerializer
 	void AddCue(const FGameplayTag& Tag, const FPredictionKey& PredictionKey);
 	void RemoveCue(const FGameplayTag& Tag);
 
+	/** Marks as predictively removed so that we dont invoke remove event twice due to onrep */
+	void PredictiveRemove(const FGameplayTag& Tag);
+
+	void PredictiveAdd(const FGameplayTag& Tag, FPredictionKey& PredictionKey);
+
+	/** Does explicit check for gameplay cue tag */
+	bool HasCue(const FGameplayTag& Tag) const;
+
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
 	{
 		return FastArrayDeltaSerialize<FActiveGameplayCue>(GameplayCues, DeltaParms, *this);
@@ -105,4 +125,22 @@ struct TStructOpsTypeTraits< FActiveGameplayCueContainer > : public TStructOpsTy
 	{
 		WithNetDeltaSerializer = true,
 	};
+};
+
+
+/**
+ *	Wrapper struct around a gameplaytag with the GameplayCue category. This also allows for a details customization
+ */
+USTRUCT(BlueprintType)
+struct FGameplayCueTag
+{
+	GENERATED_USTRUCT_BODY()
+	
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, meta = (Categories="GameplayCue"), Category="GameplayCue")
+	FGameplayTag GameplayCueTag;
+
+	bool IsValid() const
+	{
+		return GameplayCueTag.IsValid();
+	}
 };

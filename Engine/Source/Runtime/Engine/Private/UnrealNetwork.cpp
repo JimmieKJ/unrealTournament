@@ -10,20 +10,21 @@ FNetworkVersion::FIsNetworkCompatibleOverride FNetworkVersion::IsNetworkCompatib
 
 enum ENetworkVersionHistory
 {
-	HISTORY_INITIAL					= 1,
-	HISTORY_INTERNAL_ACK			= 3,				// We no longer save packet/channel sequence in stream. We can derive this for 100% reliable connections.
-	HISTORY_REPLAY_CHECKSUMS		= 4,				// We now save replay checksums into stream for backwards compatibility checks
-	HISTORY_REPLAY_CHECKSUMS2		= 5,				// Saving package and network checksum to packagemap, no longer save checksum in BeginContentBlockHeader
-	HISTORY_REPLAY_CHECKSUMS3		= 6,				// Various network checksum fixes
-	HISTORY_REPLAY_CHECKSUMS4		= 7,				// Added multi-cast RPC's to network checksum
-	HISTORY_REPLAY_RPC_CHECKSUMS	= 8,				// RPC's save checksums separately now
+	HISTORY_INITIAL = 1,
+	HISTORY_INTERNAL_ACK = 3,				    // We no longer save packet/channel sequence in stream. We can derive this for 100% reliable connections.
+	HISTORY_REPLAY_CHECKSUMS = 4,				// We now save replay checksums into stream for backwards compatibility checks
+	HISTORY_REPLAY_CHECKSUMS2 = 5,				// Saving package and network checksum to packagemap, no longer save checksum in BeginContentBlockHeader
+	HISTORY_REPLAY_CHECKSUMS3 = 6,				// Various network checksum fixes
+	HISTORY_REPLAY_CHECKSUMS4 = 7,				// Added multi-cast RPC's to network checksum
+	HISTORY_REPLAY_RPC_CHECKSUMS = 8,		    // RPC's save checksums separately now
+	HISTORY_SERIALIZE_DEFAULTS_CHECK = 9        // Location, Rotation, Scale, Velocity now checked for defaults before serializing
 };
 
-const uint32 FNetworkVersion::InternalProtocolVersion = HISTORY_REPLAY_RPC_CHECKSUMS;
+const uint32 FNetworkVersion::InternalProtocolVersion = HISTORY_SERIALIZE_DEFAULTS_CHECK;
 
-uint32 FNetworkVersion::GetLocalNetworkVersion()
+uint32 FNetworkVersion::GetLocalNetworkVersion(bool AllowOverrideDelegate /*=true*/)
 {
-	if ( GetLocalNetworkVersionOverride.IsBound() )
+	if ( AllowOverrideDelegate && GetLocalNetworkVersionOverride.IsBound() )
 	{
 		const uint32 LocalNetworkVersion = GetLocalNetworkVersionOverride.Execute();
 
@@ -45,7 +46,7 @@ uint32 FNetworkVersion::GetLocalNetworkVersion()
 	uint32 LocalNetworkVersion = FCrc::MemCrc32( &InternalProtocolVersion, sizeof( InternalProtocolVersion ), VersionHash );
 
 #if 0//!(UE_BUILD_SHIPPING || UE_BUILD_TEST)	// DISABLED FOR NOW, MESSES UP COPIED BUILDS
-	if ( !GEngineVersion.IsPromotedBuild() )
+	if ( !FEngineVersion::Current().HasChangelist() )
 	{
 		// Further hash with machine id if this is a non promoted build
 		const FString MachineId = FPlatformMisc::GetMachineId().ToString( EGuidFormats::Digits ).ToLower();
@@ -75,7 +76,7 @@ bool FNetworkVersion::IsNetworkCompatible( const uint32 LocalNetworkVersion, con
 
 FNetworkReplayVersion FNetworkVersion::GetReplayVersion()
 {
-	return FNetworkReplayVersion( FApp::GetGameName(), GetLocalNetworkVersion(), GEngineVersion.GetChangelist() );
+	return FNetworkReplayVersion( FApp::GetGameName(), GetLocalNetworkVersion(), FEngineVersion::Current().GetChangelist() );
 }
 
 

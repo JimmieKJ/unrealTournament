@@ -245,7 +245,7 @@ void AUTCarriedObject::SendGameMessage(uint32 Switch, APlayerState* PS1, APlayer
 void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 {
 	// Sanity Checks
-	if (NewHolder == NULL || NewHolder->bPendingKillPending || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL)
+	if (NewHolder == NULL || NewHolder->IsPendingKillPending() || Cast<AUTPlayerState>(NewHolder->PlayerState) == NULL)
 	{
 		return;
 	}

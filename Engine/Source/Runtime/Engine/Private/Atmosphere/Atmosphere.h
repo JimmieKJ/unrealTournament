@@ -150,6 +150,7 @@ public:
 						/*NumSamples=*/ 1,
 						/*Flags=*/ TexCreate_ShaderResource,
 						/*BulkData=*/ CreateInfo );
+					RHIBindDebugLabelName(TextureRHI, TEXT("E_Transmittance"));
 				}
 				break;
 			case E_Irradiance:
@@ -162,7 +163,8 @@ public:
 						/*NumMips=*/ 1,
 						/*NumSamples=*/ 1,
 						/*Flags=*/ TexCreate_ShaderResource,
-						/*BulkData=*/ CreateInfo );
+													/*BulkData=*/ CreateInfo );
+					RHIBindDebugLabelName(TextureRHI, TEXT("E_Irradiance"));
 				}
 				break;
 			case E_Inscatter:
@@ -174,7 +176,8 @@ public:
 						SizeX, SizeY, SizeZ, PF_FloatRGBA,
 						/*NumMips=*/ 1,
 						/*Flags=*/ TexCreate_ShaderResource,
-						/*BulkData=*/ CreateInfo );
+													/*BulkData=*/ CreateInfo );
+					RHIBindDebugLabelName(TextureRHI, TEXT("E_Inscatter"));
 				}
 				break;
 			}

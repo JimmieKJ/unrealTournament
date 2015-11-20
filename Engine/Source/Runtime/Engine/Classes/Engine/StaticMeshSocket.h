@@ -57,9 +57,9 @@ public:
 	DECLARE_EVENT_TwoParams( UStaticMeshSocket, FChangedEvent, const class UStaticMeshSocket*, const class UProperty* );
 	FChangedEvent& OnPropertyChanged() { return ChangedEvent; }
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent ) override;
-	// End UObject interface
+	//~ End UObject Interface
 
 private:
 	/** Broadcasts a notification whenever the socket property has changed. */

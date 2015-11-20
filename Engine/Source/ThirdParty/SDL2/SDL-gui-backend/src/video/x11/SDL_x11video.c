@@ -251,7 +251,11 @@ X11_CreateDevice(int devindex)
     device->DestroyWindowFramebuffer = X11_DestroyWindowFramebuffer;
     device->GetWindowWMInfo = X11_GetWindowWMInfo;
     device->SetWindowHitTest = X11_SetWindowHitTest;
-
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    device->SetKeyboardGrab = X11_SetKeyboardGrab;
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
     device->shape_driver.CreateShaper = X11_CreateShaper;
     device->shape_driver.SetWindowShape = X11_SetWindowShape;
     device->shape_driver.ResizeWindowShape = X11_ResizeWindowShape;

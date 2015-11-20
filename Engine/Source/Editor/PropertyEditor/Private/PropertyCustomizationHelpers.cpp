@@ -298,7 +298,7 @@ namespace PropertyCustomizationHelpers
 			if (Class->IsChildOf(UFactory::StaticClass()) && !Class->HasAnyClassFlags(CLASS_Abstract))
 			{
 				UFactory* Factory = Class->GetDefaultObject<UFactory>();
-				if (Factory->ShouldShowInNewMenu() && ensure(!Factory->GetDisplayName().IsEmpty()))
+				if (Factory->CanCreateNew() && ensure(!Factory->GetDisplayName().IsEmpty()))
 				{
 					UClass* SupportedClass = Factory->GetSupportedClass();
 					if (SupportedClass != nullptr && Classes.ContainsByPredicate([=](const UClass* InClass) { return SupportedClass->IsChildOf(InClass); }))
@@ -667,65 +667,73 @@ public:
 	TSharedRef<SWidget> CreateValueContent( const TSharedPtr<FAssetThumbnailPool>& ThumbnailPool )
 	{
 		return
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding( 0.0f )
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.FillWidth(1.0f)
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding( 0.0f )
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Fill)
 				[
-					SNew( SPropertyEditorAsset )
-					.ObjectPath(MaterialItem.Material->GetPathName())
-					.Class(UMaterialInterface::StaticClass())
-					.OnSetObject(this, &FMaterialItemView::OnSetObject)
-					.DisplayThumbnail(true)
-					.ThumbnailPool(ThumbnailPool)
-					.CustomContentSlot()
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.FillWidth(1.0f)
 					[
-						SNew( SBox )
-						.HAlign(HAlign_Left)
+						SNew( SPropertyEditorAsset )
+						.ObjectPath(MaterialItem.Material->GetPathName())
+						.Class(UMaterialInterface::StaticClass())
+						.OnSetObject(this, &FMaterialItemView::OnSetObject)
+						.DisplayThumbnail(true)
+						.ThumbnailPool(ThumbnailPool)
+						.CustomContentSlot()
 						[
-							// Add a menu for displaying all textures 
-							SNew( SComboButton )
-							.OnGetMenuContent( this, &FMaterialItemView::OnGetTexturesMenuForMaterial )
-							.VAlign( VAlign_Center )
-							.ContentPadding(2)
-							.IsEnabled( this, &FMaterialItemView::IsTexturesMenuEnabled )
-							.ButtonContent()
+							SNew( SBox )
+							.HAlign(HAlign_Left)
 							[
-								SNew( STextBlock )
-								.Font( IDetailLayoutBuilder::GetDetailFont() )
-								.ToolTipText( LOCTEXT("ViewTexturesToolTip", "View the textures used by this material" ) )
-								.Text( LOCTEXT("ViewTextures","Textures") )
+								// Add a menu for displaying all textures 
+								SNew( SComboButton )
+								.OnGetMenuContent( this, &FMaterialItemView::OnGetTexturesMenuForMaterial )
+								.VAlign( VAlign_Center )
+								.ContentPadding(2)
+								.IsEnabled( this, &FMaterialItemView::IsTexturesMenuEnabled )
+								.ButtonContent()
+								[
+									SNew( STextBlock )
+									.Font( IDetailLayoutBuilder::GetDetailFont() )
+									.ToolTipText( LOCTEXT("ViewTexturesToolTip", "View the textures used by this material" ) )
+									.Text( LOCTEXT("ViewTextures","Textures") )
+								]
 							]
 						]
-					]
-					.ResetToDefaultSlot()
-					[
-							// Add a button to reset the material to the base material
-						SNew(SButton)
-						.ToolTipText(LOCTEXT( "ResetToBase", "Reset to base material" ))
-						.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
-						.ContentPadding(0) 
-						.Visibility( this, &FMaterialItemView::GetReplaceVisibility )
-						.OnClicked( this, &FMaterialItemView::OnResetToBaseClicked )
-						[
-							SNew(SImage)
-							.Image( FEditorStyle::GetBrush("PropertyWindow.DiffersFromDefault") )
-						]
+					
 					]
 				]
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(2)
+				.VAlign( VAlign_Center )
+				[
+					OnGenerateCustomMaterialWidgets.IsBound() ? OnGenerateCustomMaterialWidgets.Execute( MaterialItem.Material.Get(), MaterialItem.SlotIndex ) : StaticCastSharedRef<SWidget>( SNullWidget::NullWidget )
+				]
 			]
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(2)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
 			.VAlign( VAlign_Center )
+			.Padding( 4.0f, 0.0f )
 			[
-				OnGenerateCustomMaterialWidgets.IsBound() ? OnGenerateCustomMaterialWidgets.Execute( MaterialItem.Material.Get(), MaterialItem.SlotIndex ) : StaticCastSharedRef<SWidget>( SNullWidget::NullWidget )
+				// Add a button to reset the material to the base material
+				SNew(SButton)
+				.ToolTipText(LOCTEXT( "ResetToBase", "Reset to base material" ))
+				.ButtonStyle( FEditorStyle::Get(), "NoBorder" )
+				.ContentPadding(0) 
+				.Visibility( this, &FMaterialItemView::GetReplaceVisibility )
+				.OnClicked( this, &FMaterialItemView::OnResetToBaseClicked )
+				[
+					SNew(SImage)
+					.Image( FEditorStyle::GetBrush("PropertyWindow.DiffersFromDefault") )
+				]
 			];
 	}
 
@@ -856,10 +864,11 @@ private:
 };
 
 
-FMaterialList::FMaterialList( IDetailLayoutBuilder& InDetailLayoutBuilder, FMaterialListDelegates& InMaterialListDelegates )
+FMaterialList::FMaterialList(IDetailLayoutBuilder& InDetailLayoutBuilder, FMaterialListDelegates& InMaterialListDelegates, bool bInAllowCollapse /*= false*/)
 	: MaterialListDelegates( InMaterialListDelegates )
 	, DetailLayoutBuilder( InDetailLayoutBuilder )
 	, MaterialListBuilder( new FMaterialListBuilder )
+	, bAllowCollpase(bInAllowCollapse)
 {
 }
 
@@ -929,6 +938,15 @@ void FMaterialList::Tick( float DeltaTime )
 
 void FMaterialList::GenerateHeaderRowContent( FDetailWidgetRow& NodeRow )
 {
+	if (bAllowCollpase)
+	{
+		NodeRow.NameContent()
+			[
+				SNew(STextBlock)
+				.Text(LOCTEXT("MaterialHeaderTitle", "Materials"))
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+			];
+	}
 }
 
 void FMaterialList::GenerateChildContent( IDetailChildrenBuilder& ChildrenBuilder )

@@ -160,6 +160,8 @@ void SGraphNodeComment::UpdateGraphNode()
 							.IsReadOnly( this, &SGraphNodeComment::IsNameReadOnly )
 							.IsSelected( this, &SGraphNodeComment::IsSelectedExclusively )
 							.WrapTextAt( this, &SGraphNodeComment::GetWrapAt )
+							.MultiLine(true)
+							.ModiferKeyForNewLine(EModifierKey::Shift)
 						]
 					]
 				]
@@ -354,9 +356,9 @@ void SGraphNodeComment::MoveTo( const FVector2D& NewPosition, FNodeSet& NodeFilt
 			{
 				if (UEdGraphNode* Node = Cast<UEdGraphNode>(*NodeIt))
 				{
-					if ( !Panel->SelectionManager.IsNodeSelected(Node) && !NodeFilter.Find( Node->NodeWidget.Pin() ))
+					if (!Panel->SelectionManager.IsNodeSelected(Node) && !NodeFilter.Find(Node->DEPRECATED_NodeWidget.Pin()))
 					{
-						NodeFilter.Add(Node->NodeWidget.Pin());
+						NodeFilter.Add(Node->DEPRECATED_NodeWidget.Pin());
 						Node->Modify();
 						Node->NodePosX += PositionDelta.X;
 						Node->NodePosY += PositionDelta.Y;
@@ -404,12 +406,9 @@ float SGraphNodeComment::GetTitleBarHeight() const
 	return TitleBar.IsValid() ? TitleBar->GetDesiredSize().Y : 0.0f;
 }
 
-FSlateRect SGraphNodeComment::GetHitTestingBorder( float InverseZoomFactor ) const
+FSlateRect SGraphNodeComment::GetHitTestingBorder() const
 {
-	return FSlateRect(	SCommentNodeDefs::HitResultBorderSize.Left * InverseZoomFactor,
-						SCommentNodeDefs::HitResultBorderSize.Top * InverseZoomFactor,
-						SCommentNodeDefs::HitResultBorderSize.Right * InverseZoomFactor,
-						SCommentNodeDefs::HitResultBorderSize.Bottom * InverseZoomFactor );
+	return SCommentNodeDefs::HitResultBorderSize;
 }
 
 FVector2D SGraphNodeComment::GetNodeMaximumSize() const

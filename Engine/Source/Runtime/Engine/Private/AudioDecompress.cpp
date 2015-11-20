@@ -290,11 +290,11 @@ FAsyncAudioDecompressWorker::FAsyncAudioDecompressWorker(USoundWave* InWave)
 	}
 }
 
-void FAsyncAudioDecompressWorker::DoWork( void )
+void FAsyncAudioDecompressWorker::DoWork()
 {
 	if (AudioInfo)
 	{
-		FSoundQualityInfo	QualityInfo = { 0 };
+		FSoundQualityInfo QualityInfo = { 0 };
 
 		// Parse the audio header for the relevant information
 		if (AudioInfo->ReadCompressedInfo(Wave->ResourceData, Wave->ResourceSize, &QualityInfo))
@@ -317,22 +317,46 @@ void FAsyncAudioDecompressWorker::DoWork( void )
 			// Extract the data
 			Wave->SampleRate = QualityInfo.SampleRate;
 			Wave->NumChannels = QualityInfo.NumChannels;
-			if(QualityInfo.Duration > 0.0f) Wave->Duration = QualityInfo.Duration;
+			if (QualityInfo.Duration > 0.0f)
+			{ 
+				Wave->Duration = QualityInfo.Duration;
+			}
 
-			Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
-			Wave->RawPCMData = ( uint8* )FMemory::Malloc( Wave->RawPCMDataSize );
+			if (Wave->DecompressionType == DTYPE_RealTime)
+			{
+				const uint32 PCMBufferSize = MONO_PCM_BUFFER_SIZE * Wave->NumChannels;
+				check(Wave->CachedRealtimeFirstBuffer == nullptr);
+				Wave->CachedRealtimeFirstBuffer = (uint8*)FMemory::Malloc(PCMBufferSize * 2);
+				AudioInfo->ReadCompressedData( Wave->CachedRealtimeFirstBuffer, false, PCMBufferSize * 2 );
+			}
+			else
+			{
+				Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
+				check(Wave->RawPCMData == nullptr);
+				Wave->RawPCMData = ( uint8* )FMemory::Malloc( Wave->RawPCMDataSize );
 
-			// Decompress all the sample data into preallocated memory
-			AudioInfo->ExpandFile(Wave->RawPCMData, &QualityInfo);
+				// Decompress all the sample data into preallocated memory
+				AudioInfo->ExpandFile(Wave->RawPCMData, &QualityInfo);
 
-			const SIZE_T ResSize = Wave->GetResourceSize(EResourceSizeMode::Exclusive);
-			Wave->TrackedMemoryUsage += ResSize;
-			INC_DWORD_STAT_BY( STAT_AudioMemorySize, ResSize );
-			INC_DWORD_STAT_BY( STAT_AudioMemory, ResSize );
+				const SIZE_T ResSize = Wave->GetResourceSize(EResourceSizeMode::Exclusive);
+				Wave->TrackedMemoryUsage += ResSize;
+				INC_DWORD_STAT_BY( STAT_AudioMemorySize, ResSize );
+				INC_DWORD_STAT_BY( STAT_AudioMemory, ResSize );
+			}
+		}
+		else if (Wave->DecompressionType == DTYPE_RealTime)
+		{
+			Wave->DecompressionType = DTYPE_Invalid;
+			Wave->NumChannels = 0;
+
+			Wave->RemoveAudioResource();
 		}
 
-		// Delete the compressed data
-		Wave->RemoveAudioResource();
+		if (Wave->DecompressionType == DTYPE_Native)
+		{
+			// Delete the compressed data
+			Wave->RemoveAudioResource();
+		}
 
 		delete AudioInfo;
 	}

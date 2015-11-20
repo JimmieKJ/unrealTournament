@@ -39,7 +39,7 @@ struct FDirectoryScannerCommand : public IQueuedWork
 		class FDirectoryEnumerator : public IPlatformFile::FDirectoryVisitor
 		{
 		public:
-			FDirectoryEnumerator(TLockFreePointerList<FDirectoryResult>& InFoundFiles)
+			FDirectoryEnumerator(TLockFreePointerListUnordered<FDirectoryResult>& InFoundFiles)
 				: FoundFiles(InFoundFiles)
 			{
 			}
@@ -58,7 +58,7 @@ struct FDirectoryScannerCommand : public IQueuedWork
 				return true;
 			}
 
-			TLockFreePointerList<FDirectoryResult>& FoundFiles;
+			TLockFreePointerListUnordered<FDirectoryResult>& FoundFiles;
 		};
 
 		FDirectoryEnumerator DirectoryEnumerator(FoundFiles);
@@ -73,7 +73,7 @@ struct FDirectoryScannerCommand : public IQueuedWork
 
 	FOnDirectoryScanned OnDirectoryScanned;
 
-	TLockFreePointerList<FDirectoryResult> FoundFiles;
+	TLockFreePointerListUnordered<FDirectoryResult> FoundFiles;
 
 	volatile int32 bExecuted;
 };

@@ -24,6 +24,10 @@ FWidgetNavigationData& UWidgetNavigation::GetNavigationData(EUINavigation Nav)
 		return Left;
 	case EUINavigation::Right:
 		return Right;
+	case EUINavigation::Next:
+		return Next;
+	case EUINavigation::Previous:
+		return Previous;
 	default:
 		break;
 	}
@@ -47,7 +51,9 @@ EUINavigationRule UWidgetNavigation::GetNavigationRule(EUINavigation Nav)
 	case EUINavigation::Right:
 		return Right.Rule;
 	case EUINavigation::Next:
+		return Next.Rule;
 	case EUINavigation::Previous:
+		return Previous.Rule;
 		break;
 	}
 	return EUINavigationRule::Escape;
@@ -73,6 +79,14 @@ void UWidgetNavigation::ResolveExplictRules(UWidgetTree* WidgetTree)
 	{
 		Right.Widget = WidgetTree->FindWidget(Right.WidgetToFocus);
 	}
+	if ( Next.Rule == EUINavigationRule::Explicit )
+	{
+		Next.Widget = WidgetTree->FindWidget(Next.WidgetToFocus);
+	}
+	if ( Previous.Rule == EUINavigationRule::Explicit )
+	{
+		Previous.Widget = WidgetTree->FindWidget(Previous.WidgetToFocus);
+	}
 }
 
 void UWidgetNavigation::UpdateMetaData(TSharedRef<FNavigationMetaData> MetaData)
@@ -81,6 +95,8 @@ void UWidgetNavigation::UpdateMetaData(TSharedRef<FNavigationMetaData> MetaData)
 	UpdateMetaDataEntry(MetaData, Down, EUINavigation::Down);
 	UpdateMetaDataEntry(MetaData, Left, EUINavigation::Left);
 	UpdateMetaDataEntry(MetaData, Right, EUINavigation::Right);
+	UpdateMetaDataEntry(MetaData, Next, EUINavigation::Next);
+	UpdateMetaDataEntry(MetaData, Previous, EUINavigation::Previous);
 }
 
 bool UWidgetNavigation::IsDefault() const
@@ -88,7 +104,9 @@ bool UWidgetNavigation::IsDefault() const
 	return Up.Rule == EUINavigationRule::Escape &&
 		Down.Rule == EUINavigationRule::Escape &&
 		Left.Rule == EUINavigationRule::Escape &&
-		Right.Rule == EUINavigationRule::Escape;
+		Right.Rule == EUINavigationRule::Escape &&
+		Next.Rule == EUINavigationRule::Escape &&
+		Previous.Rule == EUINavigationRule::Escape;
 }
 
 void UWidgetNavigation::UpdateMetaDataEntry(TSharedRef<FNavigationMetaData> MetaData, const FWidgetNavigationData & NavData, EUINavigation Nav)

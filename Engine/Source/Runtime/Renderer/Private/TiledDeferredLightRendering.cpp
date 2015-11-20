@@ -123,7 +123,10 @@ public:
 		FGlobalShader::SetParameters(RHICmdList, ShaderRHI, View);
 		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
 		SetTextureParameter(RHICmdList, ShaderRHI, InTexture, InTextureValue.GetRenderTargetItem().ShaderResourceTexture);
-		OutTexture.SetTexture(RHICmdList, ShaderRHI, 0, OutTextureValue.GetRenderTargetItem().UAV);
+
+		FUnorderedAccessViewRHIParamRef OutUAV = OutTextureValue.GetRenderTargetItem().UAV;
+		RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, &OutUAV, 1);
+		OutTexture.SetTexture(RHICmdList, ShaderRHI, 0, OutUAV);
 
 		SetShaderValue(RHICmdList, ShaderRHI, ViewDimensions, View.ViewRect);
 
@@ -229,9 +232,12 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, NumLights, NumThisPass);
 	}
 
-	void UnsetParameters(FRHICommandList& RHICmdList)
+	void UnsetParameters(FRHICommandList& RHICmdList, IPooledRenderTarget& OutTextureValue)
 	{
 		OutTexture.UnsetUAV(RHICmdList, GetComputeShader());
+
+		FUnorderedAccessViewRHIParamRef OutUAV = OutTextureValue.GetRenderTargetItem().UAV;
+		RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, &OutUAV, 1);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -311,7 +317,7 @@ static void SetShaderTemplTiledLighting(
 	uint32 GroupSizeY = (View.ViewRect.Size().Y + GDeferredLightTileSizeY - 1) / GDeferredLightTileSizeY;
 	DispatchComputeShader(RHICmdList, *ComputeShader, GroupSizeX, GroupSizeY, 1);
 
-	ComputeShader->UnsetParameters(RHICmdList);
+	ComputeShader->UnsetParameters(RHICmdList, OutTexture);
 }
 
 
@@ -325,6 +331,7 @@ void FDeferredShadingSceneRenderer::RenderTiledDeferredLighting(FRHICommandListI
 
 	if (NumLightsToRender > 0)
 	{
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 		INC_DWORD_STAT_BY(STAT_NumLightsUsingTiledDeferred, NumLightsToRender);
 		INC_DWORD_STAT_BY(STAT_NumLightsUsingSimpleTiledDeferred, SimpleLights.InstanceData.Num());
 		SCOPE_CYCLE_COUNTER(STAT_DirectLightRenderingTime);
@@ -342,18 +349,18 @@ void FDeferredShadingSceneRenderer::RenderTiledDeferredLighting(FRHICommandListI
 			// One some hardware we can read and write from the same UAV with a 32 bit format. We don't do that yet.
 			TRefCountPtr<IPooledRenderTarget> OutTexture;
 			{
-				GSceneRenderTargets.ResolveSceneColor(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
+				SceneContext.ResolveSceneColor(RHICmdList, FResolveRect(0, 0, ViewFamily.FamilySizeX, ViewFamily.FamilySizeY));
 
-				FPooledRenderTargetDesc Desc = GSceneRenderTargets.GetSceneColor()->GetDesc();
+				FPooledRenderTargetDesc Desc = SceneContext.GetSceneColor()->GetDesc();
 				Desc.TargetableFlags |= TexCreate_UAV;
 
-				GRenderTargetPool.FindFreeElement( Desc, OutTexture, TEXT("SceneColorTiled") );
+				GRenderTargetPool.FindFreeElement(RHICmdList, Desc, OutTexture, TEXT("SceneColorTiled") );
 			}
 
 			{
 				SCOPED_DRAW_EVENT(RHICmdList, TiledDeferredLighting);
 
-				IPooledRenderTarget& InTexture = *GSceneRenderTargets.GetSceneColor();
+				IPooledRenderTarget& InTexture = *SceneContext.GetSceneColor();
 
 				for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 				{
@@ -371,7 +378,7 @@ void FDeferredShadingSceneRenderer::RenderTiledDeferredLighting(FRHICommandListI
 			}
 
 			// swap with the former SceneColor
-			GSceneRenderTargets.SetSceneColor(OutTexture);
+			SceneContext.SetSceneColor(OutTexture);
 		}
 	}
 }

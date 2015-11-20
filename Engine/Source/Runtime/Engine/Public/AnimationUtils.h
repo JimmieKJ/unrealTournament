@@ -11,7 +11,8 @@
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogMatinee, Warning, All);
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAnimNotify, Warning, All);
-
+ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAnimMontage, Warning, All);
+ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAnimMarkerSync, Warning, All);
 
 // Forward declarations.
 class UAnimCompress;
@@ -191,7 +192,7 @@ public:
 	 * Determines the current setting for world-space error tolerance in the animation compressor.
 	 * When requested, animation being compressed will also consider an alternative compression
 	 * method if the end result of that method produces less error than the AlternativeCompressionThreshold.
-	 * The default tolerance value is 0.0f (no alternatives allowed) but may be overriden using a field in the base engine INI file.
+	 * The default tolerance value is 0.0f (no alternatives allowed) but may be overridden using a field in the base engine INI file.
 	 *
 	 * @return				World-space error tolerance for considering an alternative compression method
 	 */

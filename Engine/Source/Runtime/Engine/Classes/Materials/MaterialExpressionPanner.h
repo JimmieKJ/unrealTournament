@@ -31,11 +31,11 @@ class UMaterialExpressionPanner : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionPanner)
 	bool bFractionalPart;
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual bool NeedsRealtimePreview() override { return Time.Expression==NULL && (SpeedX != 0.f || SpeedY != 0.f); }
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 };
 

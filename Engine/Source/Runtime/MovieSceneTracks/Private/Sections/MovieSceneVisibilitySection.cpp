@@ -1,0 +1,9 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "MovieSceneTracksPrivatePCH.h"
+#include "MovieSceneVisibilitySection.h"
+
+
+UMovieSceneVisibilitySection::UMovieSceneVisibilitySection( const FObjectInitializer& ObjectInitializer )
+	: Super( ObjectInitializer )
+{ }

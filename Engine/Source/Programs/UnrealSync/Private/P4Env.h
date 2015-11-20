@@ -14,7 +14,10 @@ enum class EP4ParamType
 	Port = 1,
 	User = 2,
 	Client = 3,
-	Branch = 4
+	Branch = 4,
+	OptionalDelimiter = 5,
+	P4VPath = 6,
+	EndParam = 7
 };
 
 /**
@@ -59,9 +62,9 @@ private:
 		/**
 		 * Constructor
 		 *
-		 * @param Type The type for this option.
+		 * @param InType The type for this option.
 		 */
-		FP4Option(EP4ParamType Type);
+		FP4Option(EP4ParamType InType);
 
 		/**
 		 * Gets the type of this option.
@@ -173,6 +176,13 @@ public:
 	const FString& GetPath() const;
 
 	/**
+	 * Gets P4V path.
+	 *
+	 * @returns P4V path.
+	 */
+	const FString& GetP4VPath() const;
+
+	/**
 	 * Gets P4 user.
 	 *
 	 * @returns P4 user.
@@ -234,6 +244,16 @@ public:
 	 */
 	static bool CheckIfFileNeedsUpdate(const FString& FilePath);
 
+	/**
+	 * Gets setting of given type.
+	 *
+	 * @param Value Output parameter. If succeeded this parameter will be overwritten with setting value.
+	 * @param Type Type to look for.
+	 *
+	 * @returns True if setting was found. False otherwise.
+	 */
+	static bool GetSetting(FString& Value, EP4ParamType Type);
+
 private:
 	/* Param serialization delegate. */
 	DECLARE_DELEGATE_TwoParams(FSerializationTask, FString&, EP4ParamType);
@@ -260,6 +280,13 @@ private:
 	bool AutoDetectMissingParams(const TCHAR* CommandLine);
 
 	/**
+	 * Auto-detect missing optional params.
+	 *
+	 * @param CommandLine Command line that the program was run with.
+	 */
+	void AutoDetectMissingOptionalParams(const TCHAR* CommandLine);
+
+	/**
 	 * Sets param value.
 	 *
 	 * @param Type Type of param to set.
@@ -273,6 +300,9 @@ private:
 	/* Path to P4 executable. */
 	FString Path;
 
+	/* Path to P4V executable. */
+	FString P4VPath;
+
 	/* P4 port. */
 	FString Port;
 
@@ -284,4 +314,7 @@ private:
 
 	/* P4 current branch. */
 	FString Branch;
+
+	/** Value map of P4 settings. */
+	TMap<FString, FString> P4FileSettingsCache;
 };

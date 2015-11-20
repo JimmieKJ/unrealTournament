@@ -103,6 +103,18 @@ struct CORE_API FGenericPlatformMemory
 	/** Set to true if we encounters out of memory. */
 	static bool bIsOOM;
 
+	/** Set to size of allocation that triggered out of memory, zero otherwise. */
+	static uint64 OOMAllocationSize;
+
+	/** Set to alignment of allocation that triggered out of memory, zero otherwise. */
+	static uint32 OOMAllocationAlignment;
+
+	/** Preallocated buffer to delete on out of memory. Used by OOM handling and crash reporting. */
+	static void* BackupOOMMemoryPool;
+
+	/** Size of BackupOOMMemoryPool in bytes. */
+	static uint32 BackupOOMMemoryPoolSize;
+
 	/**
 	 * Various memory regions that can be used with memory stats. The exact meaning of
 	 * the enums are relatively platform-dependent, although the general ones (Physical, GPU)
@@ -271,7 +283,52 @@ struct CORE_API FGenericPlatformMemory
 		return memcpy( Dest, Src, Count );
 	}
 
-	static void Memswap( void* Ptr1, void* Ptr2, SIZE_T Size );
+private:
+	template <typename T>
+	static FORCEINLINE void Valswap(T& A, T& B)
+	{
+		// Usually such an implementation would use move semantics, but
+		// we're only ever going to call it on fundamental types and MoveTemp
+		// is not necessarily in scope here anyway, so we don't want to
+		// #include it if we don't need to.
+		T Tmp = A;
+		A = B;
+		B = Tmp;
+	}
+
+	static void MemswapImpl( void* Ptr1, void* Ptr2, SIZE_T Size );
+
+public:
+	static inline void Memswap( void* Ptr1, void* Ptr2, SIZE_T Size )
+	{
+		switch (Size)
+		{
+			case 1:
+				Valswap(*(uint8*)Ptr1, *(uint8*)Ptr2);
+				break;
+
+			case 2:
+				Valswap(*(uint16*)Ptr1, *(uint16*)Ptr2);
+				break;
+
+			case 4:
+				Valswap(*(uint32*)Ptr1, *(uint32*)Ptr2);
+				break;
+
+			case 8:
+				Valswap(*(uint64*)Ptr1, *(uint64*)Ptr2);
+				break;
+
+			case 16:
+				Valswap(((uint64*)Ptr1)[0], ((uint64*)Ptr2)[0]);
+				Valswap(((uint64*)Ptr1)[1], ((uint64*)Ptr2)[1]);
+				break;
+
+			default:
+				MemswapImpl(Ptr1, Ptr2, Size);
+				break;
+		}
+	}
 
 	/**
 	 * Maps a named shared memory region into process address space (creates or opens it)

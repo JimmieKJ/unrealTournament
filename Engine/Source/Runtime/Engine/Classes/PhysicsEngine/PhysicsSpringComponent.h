@@ -42,9 +42,9 @@ class ENGINE_API UPhysicsSpringComponent : public USceneComponent
 	UPROPERTY(BlueprintReadOnly, Category = Physics, transient)
 	float SpringCompression;
 
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-	// End UActorComponent Interface
+	//~ End UActorComponent Interface
 
 	/** Returns the spring compression as a normalized scalar along spring direction.
 	 *  0 implies spring is at rest

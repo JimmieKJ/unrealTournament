@@ -2,8 +2,95 @@
 
 #pragma once
 
+#include "PropertyHandle.h"
+
 // Forward declarations
 class FDetailWidgetRow;
+
+DECLARE_DELEGATE_RetVal_OneParam(bool, FIsResetToDefaultVisible, TSharedRef<IPropertyHandle> /* PropertyHandle */);
+DECLARE_DELEGATE_OneParam(FResetToDefaultHandler, TSharedRef<IPropertyHandle> /* PropertyHandle*/);
+
+/**
+ * Structure describing the delegates needed to override the behavior of reset to default in detail properties
+ */
+class FResetToDefaultOverride
+{
+public:
+	/** Creates a FResetToDefaultOverride in which the the reset to default is always visible */
+	static FResetToDefaultOverride Create(FResetToDefaultHandler InResetToDefaultClicked, const bool InPropagateToChildren = false)
+	{
+		FResetToDefaultOverride ResetToDefault;
+		ResetToDefault.bForceShow = true;
+		ResetToDefault.OnResetToDefaultClickedDelegate = InResetToDefaultClicked;
+		ResetToDefault.bPropagateToChildren = InPropagateToChildren;
+		ResetToDefault.bForceHide = false;
+		return ResetToDefault;
+	}
+
+	/** Creates a FResetToDefaultOverride from visibility and click handler callback delegates */
+	static FResetToDefaultOverride Create(FIsResetToDefaultVisible InIsResetToDefaultVisible, FResetToDefaultHandler InResetToDefaultClicked, const bool InPropagateToChildren = false)
+	{
+		FResetToDefaultOverride ResetToDefault;
+		ResetToDefault.bForceShow = false;
+		ResetToDefault.IsResetToDefaultVisibleDelegate = InIsResetToDefaultVisible;
+		ResetToDefault.OnResetToDefaultClickedDelegate = InResetToDefaultClicked;
+		ResetToDefault.bPropagateToChildren = InPropagateToChildren;
+		ResetToDefault.bForceHide = false;
+		return ResetToDefault;
+	}
+
+	/** Creates a FResetToDefaultOverride in which reset to default is never visible */
+	static FResetToDefaultOverride Hide(const bool InPropagateToChildren = false)
+	{
+		FResetToDefaultOverride HideResetToDefault;
+		HideResetToDefault.bForceShow = false;
+		HideResetToDefault.bForceHide = true;
+		HideResetToDefault.bPropagateToChildren = InPropagateToChildren;
+		return HideResetToDefault;
+	}
+
+	/** Called by the UI to show/hide the reset widgets */
+	bool IsResetToDefaultVisible(TSharedRef<IPropertyHandle> Property) const
+	{
+		if (bForceShow)
+		{
+			return true;
+		}
+		if (!bForceHide && IsResetToDefaultVisibleDelegate.IsBound())
+		{
+			return IsResetToDefaultVisibleDelegate.Execute(Property);
+		}
+		return false;
+	}
+
+	/** Called by the property editor to actually reset the property to default */
+	FResetToDefaultHandler OnResetToDefaultClicked() const
+	{
+		return OnResetToDefaultClickedDelegate;
+	}
+
+	/** Called by properties to determine whether this override should set on their children */
+	bool PropagatesToChildren() const
+	{
+		return bPropagateToChildren;
+	}
+
+private:
+	/** Callback to indicate whether or not reset to default is visible */
+	FIsResetToDefaultVisible IsResetToDefaultVisibleDelegate;
+
+	/** Delegate called when reset to default is clicked */
+	FResetToDefaultHandler OnResetToDefaultClickedDelegate;
+
+	/** Should properties pass this on to their children? */
+	bool bPropagateToChildren;
+
+	/** Ignore the visibility delegate and always show the reset to default widgets? */
+	bool bForceShow;
+
+	/** Ignore the visibility delegate and never show the reset to default widgets? */
+	bool bForceHide;
+};
 
 /**
  * A single row for a property in a details panel                                                              
@@ -69,10 +156,9 @@ public:
 	/**
 	 * Overrides the behavior of reset to default
 	 *
-	 * @param IsResetToDefaultVisible	Attribute to indicate whether or not reset to default is visible
-	 * @param OnResetToDefaultClicked	Delegate called when reset to default is clicked
+	 * @param ResetToDefault	Contains the delegates needed to override the behavior of reset to default
 	 */
-	virtual IDetailPropertyRow& OverrideResetToDefault( TAttribute<bool> IsResetToDefaultVisible, FSimpleDelegate OnResetToDefaultClicked ) = 0;
+	virtual IDetailPropertyRow& OverrideResetToDefault(const FResetToDefaultOverride& ResetToDefault) = 0;
 
 	/**
 	 * Returns the name and value widget of this property row.  You can use this widget to apply further customization to existing widgets (by using this  with CustomWidget)

@@ -48,9 +48,9 @@ public:
 	uint32 CounterClockwise:1;
 
 
-	// Begin UBrushBuilder Interface
+	//~ Begin UBrushBuilder Interface
 	virtual bool Build( UWorld* InWorld, ABrush* InBrush = NULL ) override;
-	// End UBrushBuilder Interface
+	//~ End UBrushBuilder Interface
 
 	// @todo document
 	virtual void BuildCurvedStair( int32 Direction );

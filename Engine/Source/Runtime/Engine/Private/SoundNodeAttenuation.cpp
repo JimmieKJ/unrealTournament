@@ -56,6 +56,8 @@ void USoundNodeAttenuation::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT
 		const FListener& Listener = AudioDevice->Listeners[0];
 		Settings->ApplyAttenuation(UpdatedParseParams.Transform, Listener.Transform.GetTranslation(), UpdatedParseParams.Volume, UpdatedParseParams.HighFrequencyGain);
 		UpdatedParseParams.OmniRadius = Settings->OmniRadius;
+		UpdatedParseParams.StereoSpread = Settings->StereoSpread;
+		UpdatedParseParams.SpatializationAlgorithm = Settings->SpatializationAlgorithm;
 		UpdatedParseParams.bUseSpatialization |= Settings->bSpatialize;
 	}
 	else

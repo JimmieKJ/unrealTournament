@@ -1,7 +1,7 @@
 // Copyright 1998-2014 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	SurfelTree.cpp
+	ConvertToUniformMesh.cpp
 =============================================================================*/
 
 #include "RendererPrivate.h"
@@ -16,7 +16,6 @@
 #include "RHICommandList.h"
 #include "SceneUtils.h"
 #include "DistanceFieldAtlas.h"
-
 
 class FConvertToUniformMeshVS : public FMeshMaterialShader
 {
@@ -48,9 +47,9 @@ public:
 		FMeshMaterialShader::SetParameters(RHICmdList, GetVertexShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, ESceneRenderTargetsMode::SetTextures);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement);
+		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(),VertexFactory,View,Proxy,BatchElement,DitheredLODTransitionValue);
 	}
 };
 
@@ -138,9 +137,9 @@ public:
 		FMeshMaterialShader::SetParameters(RHICmdList, (FGeometryShaderRHIParamRef)GetGeometryShader(), MaterialRenderProxy, *MaterialRenderProxy->GetMaterial(View->GetFeatureLevel()), *View, ESceneRenderTargetsMode::SetTextures);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, (FGeometryShaderRHIParamRef)GetGeometryShader(),VertexFactory,View,Proxy,BatchElement);
+		FMeshMaterialShader::SetMesh(RHICmdList, (FGeometryShaderRHIParamRef)GetGeometryShader(),VertexFactory,View,Proxy,BatchElement,DitheredLODTransitionValue);
 	}
 };
 
@@ -203,6 +202,7 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const;
@@ -265,6 +265,7 @@ void FConvertToUniformMeshDrawingPolicy::SetMeshRenderState(
 	const FMeshBatch& Mesh,
 	int32 BatchElementIndex,
 	bool bBackFace,
+	float DitheredLODTransitionValue,
 	const ElementDataType& ElementData,
 	const ContextDataType PolicyContext
 	) const
@@ -274,8 +275,8 @@ void FConvertToUniformMeshDrawingPolicy::SetMeshRenderState(
 	EmitMeshDrawEvents(RHICmdList, PrimitiveSceneProxy, Mesh);
 
 	// Set transforms
-	VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement);
-	GeometryShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement);
+	VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement, DitheredLODTransitionValue);
+	GeometryShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement, DitheredLODTransitionValue);
 	
 	// Set rasterizer state.
 	RHICmdList.SetRasterizerState(GetStaticRasterizerState<true>(
@@ -291,15 +292,22 @@ bool ShouldGenerateSurfelsOnMesh(const FMeshBatch& Mesh, ERHIFeatureLevel::Type 
 		&& Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->GetShadingModel() != MSM_Unlit;
 }
 
-FUniformMeshBuffers GUniformMeshTemporaryBuffers;
+bool ShouldConvertMesh(const FMeshBatch& Mesh)
+{
+	return Mesh.Type == PT_TriangleList
+		//@todo - import types and compare directly
+		&& (FCString::Strstr(Mesh.VertexFactory->GetType()->GetName(), TEXT("LocalVertexFactory")) != NULL
+			|| FCString::Strstr(Mesh.VertexFactory->GetType()->GetName(), TEXT("InstancedStaticMeshVertexFactory")) != NULL);
+}
 
-TArray<TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>> GDynamicMeshElements;
+FUniformMeshBuffers GUniformMeshTemporaryBuffers;
 
 int32 FUniformMeshConverter::Convert(
 	FRHICommandListImmediate& RHICmdList, 
 	FSceneRenderer& Renderer,
 	FViewInfo& View, 
 	const FPrimitiveSceneInfo* PrimitiveSceneInfo, 
+	int32 LODIndex,
 	FUniformMeshBuffers*& OutUniformMeshBuffers,
 	const FMaterialRenderProxy*& OutMaterialRenderProxy,
 	FUniformBufferRHIParamRef& OutPrimitiveUniformBuffer)
@@ -307,66 +315,19 @@ int32 FUniformMeshConverter::Convert(
 	const FPrimitiveSceneProxy* PrimitiveSceneProxy = PrimitiveSceneInfo->Proxy;
 	const auto FeatureLevel = View.GetFeatureLevel();
 
-	if (GDynamicMeshElements.Num() == 0)
-	{
-		GDynamicMeshElements.Empty(10000);
-	}
-
-	FSimpleElementCollector DynamicSimpleElements;
-	GDynamicMeshElements.Add(TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>());
-	TArray<FMeshBatchAndRelevance,SceneRenderingAllocator>& DynamicMeshElements = GDynamicMeshElements.Last();
-	TArray<const FSceneView*> ViewsArray;
-	ViewsArray.Add(&View);
-
-	Renderer.MeshCollector.ClearViewMeshArrays();
-	Renderer.MeshCollector.AddViewMeshArrays(&View, &DynamicMeshElements, &DynamicSimpleElements, FeatureLevel);
-	
-	View.bRenderFirstInstanceOnly = true;
-	Renderer.MeshCollector.SetPrimitive(PrimitiveSceneInfo->Proxy, PrimitiveSceneInfo->DefaultDynamicHitProxyId);
-	PrimitiveSceneInfo->Proxy->GetDynamicMeshElements(ViewsArray, *(View.Family), 0x1, Renderer.MeshCollector);
-	View.bRenderFirstInstanceOnly = false;
+	TArray<FMeshBatch> MeshElements;
+	PrimitiveSceneInfo->Proxy->GetMeshDescription(LODIndex, MeshElements);
 
 	int32 NumTriangles = 0;
 
-	FPrimitiveViewRelevance ViewRelevance = PrimitiveSceneInfo->Proxy->GetViewRelevance(&View);
-
-	if (ViewRelevance.bDynamicRelevance)
+	for (int32 MeshIndex = 0; MeshIndex < MeshElements.Num(); MeshIndex++)
 	{
-		for (int32 MeshBatchIndex = 0; MeshBatchIndex < DynamicMeshElements.Num(); MeshBatchIndex++)
+		if (ShouldConvertMesh(MeshElements[MeshIndex]))
 		{
-			const FMeshBatchAndRelevance& MeshBatchAndRelevance = DynamicMeshElements[MeshBatchIndex];
-
-			if (ShouldGenerateSurfelsOnMesh(*MeshBatchAndRelevance.Mesh, FeatureLevel))
-			{
-				NumTriangles += MeshBatchAndRelevance.Mesh->GetNumPrimitives();
-			}
+			NumTriangles += MeshElements[MeshIndex].GetNumPrimitives();
 		}
 	}
-
-	if (ViewRelevance.bStaticRelevance)
-	{
-		float LargestScreenSize = 0;
-
-		for (int32 StaticMeshIdx=0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
-		{
-			const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-			LargestScreenSize = FMath::Max(LargestScreenSize, StaticMesh.ScreenSize);
-		}
-
-		for (int32 StaticMeshIdx=0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
-		{
-			const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-
-			if (ShouldGenerateSurfelsOnMesh(StaticMesh, FeatureLevel)
-				&& !StaticMesh.bShadowOnly
-				// LOD0 only
-				&& StaticMesh.ScreenSize == LargestScreenSize)
-			{
-				NumTriangles += StaticMesh.GetNumPrimitives();
-			}
-		}
-	}
-
+	
 	if (NumTriangles > 0)
 	{
 		if (GUniformMeshTemporaryBuffers.MaxElements < NumTriangles * 3)
@@ -382,85 +343,33 @@ int32 FUniformMeshConverter::Convert(
 		const FVertexBufferRHIParamRef StreamOutTargets[1] = {GUniformMeshTemporaryBuffers.TriangleData.GetReference()};
 		RHICmdList.SetStreamOutTargets(1, StreamOutTargets, Offsets);
 
-		if (ViewRelevance.bDynamicRelevance)
+		for (int32 MeshIndex = 0; MeshIndex < MeshElements.Num(); MeshIndex++)
 		{
-			for (int32 MeshBatchIndex = 0; MeshBatchIndex < DynamicMeshElements.Num(); MeshBatchIndex++)
-			{
-				const FMeshBatchAndRelevance& MeshBatchAndRelevance = DynamicMeshElements[MeshBatchIndex];
+			const FMeshBatch& Mesh = MeshElements[MeshIndex];
 
-				if (ShouldGenerateSurfelsOnMesh(*MeshBatchAndRelevance.Mesh, FeatureLevel))
+			if (ShouldConvertMesh(Mesh))
+			{
+				FConvertToUniformMeshDrawingPolicy DrawingPolicy(
+					Mesh.VertexFactory,
+					Mesh.MaterialRenderProxy,
+					*Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel),
+					FeatureLevel);
+
+				//@todo - fix
+				OutMaterialRenderProxy = Mesh.MaterialRenderProxy;
+
+				RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(FeatureLevel));
+				DrawingPolicy.SetSharedState(RHICmdList, &View, FConvertToUniformMeshDrawingPolicy::ContextDataType());
+
+				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
-					const FMeshBatch& Mesh = *MeshBatchAndRelevance.Mesh;
-
-					FConvertToUniformMeshDrawingPolicy DrawingPolicy(
-						Mesh.VertexFactory,
-						Mesh.MaterialRenderProxy,
-						*Mesh.MaterialRenderProxy->GetMaterial(FeatureLevel),
-						FeatureLevel);
-
 					//@todo - fix
-					OutMaterialRenderProxy = Mesh.MaterialRenderProxy;
+					OutPrimitiveUniformBuffer = IsValidRef(Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer) 
+						? Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer
+						: *Mesh.Elements[BatchElementIndex].PrimitiveUniformBufferResource;
 
-					RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(FeatureLevel));
-					DrawingPolicy.SetSharedState(RHICmdList, &View, FConvertToUniformMeshDrawingPolicy::ContextDataType());
-
-					for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
-					{
-						//@todo - fix
-						OutPrimitiveUniformBuffer = IsValidRef(Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer) 
-							? Mesh.Elements[BatchElementIndex].PrimitiveUniformBuffer
-							: *Mesh.Elements[BatchElementIndex].PrimitiveUniformBufferResource;
-
-						DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,false,FConvertToUniformMeshDrawingPolicy::ElementDataType(), FConvertToUniformMeshDrawingPolicy::ContextDataType());
-						DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex);
-					}
-				}
-			}
-		}
-
-		if (ViewRelevance.bStaticRelevance)
-		{
-			float LargestScreenSize = 0;
-
-			for (int32 StaticMeshIdx=0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
-			{
-				const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-				LargestScreenSize = FMath::Max(LargestScreenSize, StaticMesh.ScreenSize);
-			}
-
-			for (int32 StaticMeshIdx = 0; StaticMeshIdx < PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx++)
-			{
-				const FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
-
-				if (ShouldGenerateSurfelsOnMesh(StaticMesh, FeatureLevel) 
-					&& !StaticMesh.bShadowOnly
-					&& StaticMesh.ScreenSize == LargestScreenSize)
-				{
-					FConvertToUniformMeshDrawingPolicy DrawingPolicy(
-						StaticMesh.VertexFactory,
-						StaticMesh.MaterialRenderProxy,
-						*StaticMesh.MaterialRenderProxy->GetMaterial(FeatureLevel),
-						FeatureLevel
-						);
-					RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(FeatureLevel));
-					DrawingPolicy.SetSharedState(RHICmdList, &View, FConvertToUniformMeshDrawingPolicy::ContextDataType());
-
-					//@todo - fix
-					OutMaterialRenderProxy = StaticMesh.MaterialRenderProxy;
-
-					for (int32 BatchElementIndex = 0; BatchElementIndex < StaticMesh.Elements.Num(); BatchElementIndex++)
-					{
-						//@todo - fix
-						OutPrimitiveUniformBuffer = IsValidRef(StaticMesh.Elements[BatchElementIndex].PrimitiveUniformBuffer) 
-							? StaticMesh.Elements[BatchElementIndex].PrimitiveUniformBuffer
-							: *StaticMesh.Elements[BatchElementIndex].PrimitiveUniformBufferResource;
-
-						DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,StaticMesh,BatchElementIndex,false,
-							FConvertToUniformMeshDrawingPolicy::ElementDataType(),
-							FConvertToUniformMeshDrawingPolicy::ContextDataType()
-							);
-						DrawingPolicy.DrawMesh(RHICmdList, StaticMesh, BatchElementIndex);
-					}
+					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,false,0.0f,FConvertToUniformMeshDrawingPolicy::ElementDataType(), FConvertToUniformMeshDrawingPolicy::ContextDataType());
+					DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex);
 				}
 			}
 		}
@@ -521,6 +430,11 @@ public:
 		SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FPrimitiveUniformShaderParameters>(),PrimitiveUniformBuffer);
 
 		const FScene* Scene = (const FScene*)View.Family->Scene;
+
+		FUnorderedAccessViewRHIParamRef UniformMeshUAVs[1];
+		UniformMeshUAVs[0] = Scene->DistanceFieldSceneData.SurfelBuffers->Surfels.UAV;
+		RHICmdList.TransitionResources(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EComputeToCompute, UniformMeshUAVs, ARRAY_COUNT(UniformMeshUAVs));
+
 		SurfelBufferParameters.Set(RHICmdList, ShaderRHI, *Scene->DistanceFieldSceneData.SurfelBuffers, *Scene->DistanceFieldSceneData.InstancedSurfelBuffers);
 		
 		SetShaderValue(RHICmdList, ShaderRHI, SurfelStartIndex, SurfelStartIndexValue);
@@ -529,10 +443,15 @@ public:
 		SetShaderValue(RHICmdList, ShaderRHI, Instance0InverseTransform, Instance0Transform.Inverse());
 	}
 
-	void UnsetParameters(FRHICommandList& RHICmdList)
+	void UnsetParameters(FRHICommandList& RHICmdList, FViewInfo& View)
 	{
 		FComputeShaderRHIParamRef ShaderRHI = GetComputeShader();
 		SurfelBufferParameters.UnsetParameters(RHICmdList, ShaderRHI);
+
+		const FScene* Scene = (const FScene*)View.Family->Scene;
+		FUnorderedAccessViewRHIParamRef UniformMeshUAVs[1];
+		UniformMeshUAVs[0] = Scene->DistanceFieldSceneData.SurfelBuffers->Surfels.UAV;
+		RHICmdList.TransitionResources(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToCompute, UniformMeshUAVs, ARRAY_COUNT(UniformMeshUAVs));
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -573,5 +492,5 @@ void FUniformMeshConverter::GenerateSurfels(
 	ComputeShader->SetParameters(RHICmdList, View, SurfelOffset, NumSurfels, MaterialProxy, PrimitiveUniformBuffer, Instance0Transform);
 	DispatchComputeShader(RHICmdList, ComputeShader, FMath::DivideAndRoundUp(NumSurfels, GEvaluateSurfelMaterialGroupSize), 1, 1);
 
-	ComputeShader->UnsetParameters(RHICmdList);
+	ComputeShader->UnsetParameters(RHICmdList, View);
 }

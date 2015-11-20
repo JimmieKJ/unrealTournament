@@ -46,6 +46,8 @@ class IslandGenSpuTask;
 
 class PxsIslandManager
 {
+	PX_NOCOPY(PxsIslandManager)
+
 public:
 
 #ifdef PX_PS3
@@ -54,8 +56,6 @@ public:
 
 	PxsIslandManager(const PxU32 rigidBodyOffset, PxcScratchAllocator& scratchAllocator, Cm::EventProfiler* eventProfiler=NULL);
 	~PxsIslandManager();
-
-	PxsIslandManager& operator=(const PxsIslandManager&);
 
 	void preAllocate(PxU32 nbBodies);
 
@@ -74,8 +74,10 @@ public:
 		mNumAddedRBodies += !kinematic ? 1 : 0;
 		mNumAddedKinematics += !kinematic ? 0 : 1;
 
-		if(kinematic)
+		if(kinematic) 
+		{
 			mNodeManager.setKinematicNode(freeNode);
+		}
 
 		mHasAnythingChanged = true;
 	}
@@ -86,13 +88,27 @@ public:
 	//If the body has wakeCounter == 0 and would go to sleep if it wasn't touching anything awake then call notifyReadyForSleeping.
 	PX_FORCE_INLINE	void notifyReadyForSleeping(const PxsIslandManagerNodeHook& hook)		
 	{	
-		mNodeManager.get(hook.index).setReadyForSleeping(); 
+		Node& node = mNodeManager.get(hook.index);
+		const bool wasReadyForSleeping = node.getIsReadyForSleeping();
+		node.setReadyForSleeping(); 
+		if(!wasReadyForSleeping)
+		{
+			mNodeManager.clearNotReadyForSleeping(hook.index);
+			mNodeManager.setNotReadyForSleepStateChange(hook.index);
+		}
 		mHasAnythingChanged = true;
 	}
 	//If the body has wakeCounter > 0 and shouldn't be in the sleeping state then call notifyNotReadyForSleeping.
 	PX_FORCE_INLINE	void notifyNotReadyForSleeping(const PxsIslandManagerNodeHook& hook)	
 	{	
-		mNodeManager.get(hook.index).setNotReadyForSleeping(); 
+		Node& node = mNodeManager.get(hook.index);
+		const bool wasReadyForSleeping = node.getIsReadyForSleeping();
+		node.setNotReadyForSleeping(); 
+		if(wasReadyForSleeping)
+		{
+			mNodeManager.setNotReadyForSleeping(hook.index);
+			mNodeManager.setNotReadyForSleepStateChange(hook.index);
+		}
 		mHasAnythingChanged = true;
 	}
 
@@ -101,7 +117,14 @@ public:
 	//Both sleeping and ready-for-sleeping flags are set here.
 	PX_FORCE_INLINE	void setAsleep(const PxsIslandManagerNodeHook& hook)					
 	{	
-		mNodeManager.get(hook.index).setAsleepAndReadyForSleeping();	
+		Node& node = mNodeManager.get(hook.index);
+		const bool wasReadyForSleeping = node.getIsReadyForSleeping();
+		node.setAsleepAndReadyForSleeping();	
+		if(!wasReadyForSleeping)
+		{
+			mNodeManager.clearNotReadyForSleeping(hook.index);
+			mNodeManager.setNotReadyForSleepStateChange(hook.index);
+		}
 		mHasAnythingChanged = true;
 	}
 	// for externally triggered state changes only
@@ -109,7 +132,14 @@ public:
 	//Both sleeping and ready-for-sleeping flags are cleared here.
 	PX_FORCE_INLINE	void setAwake(const PxsIslandManagerNodeHook& hook)						
 	{	
-		mNodeManager.get(hook.index).setAwakeAndNotReadyForSleeping(); 
+		Node& node = mNodeManager.get(hook.index);
+		const bool wasReadyForSleeping = node.getIsReadyForSleeping();
+		node.setAwakeAndNotReadyForSleeping(); 
+		if(wasReadyForSleeping)
+		{
+			mNodeManager.setNotReadyForSleeping(hook.index);
+			mNodeManager.setNotReadyForSleepStateChange(hook.index);
+		}
 		mHasAnythingChanged = true;
 	}
 
@@ -247,7 +277,8 @@ private:
 	PxU32 mNumAddedEdges[MAX_NUM_EDGE_TYPES];
 
 	//Track number of edges with a kinematic node.
-	PxU32 mNumEdgesWithKinematicNodes;
+	PxU32 mNumEdgeReferencesToKinematic;
+	PxU32 mNumRequiredKinematicDuplicates;
 
 	//Track if everything is asleep.
 	//If there are no islands for the solver then there is no solver work to do and we can safely say that everything is asleep.
@@ -277,9 +308,14 @@ private:
 	//Buffers used in update.
 	IslandManagerUpdateWorkBuffers mIslandManagerUpdateWorkBuffers;
 
-	PxU32 resizeForKinematics();
+#ifdef PX_DEBUG
+	PxU32 countNumReferencedKinematics();
+#endif
+	PxI32 computeChangeToNumEdgeReferencesToKinematic();
 	void resizeArrays();
 	void cleanupEdgeEvents();
+	void clearEdgeCreatedFlags();
+	void clearDeletedNodeStateChanges();
 	void updateIslands();
 	void updateIslandsSecondPass(Cm::BitMap& affectedIslandsBitmap);
 #ifdef PX_PS3

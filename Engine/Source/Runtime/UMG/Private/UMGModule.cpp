@@ -5,6 +5,9 @@
 #include "IUMGModule.h"
 #include "ModuleManager.h"
 
+
+DEFINE_LOG_CATEGORY(LogUMG);
+
 class FUMGModule : public IUMGModule
 {
 public:

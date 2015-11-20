@@ -251,7 +251,7 @@ bool UPawnAction::Activate()
 void UPawnAction::OnPopped()
 {
 	// not calling OnFinish if action haven't actually started
-	if (bFailedToStart == false)
+	if (!bFailedToStart || bAlwaysNotifyOnFinished)
 	{
 		OnFinished(FinishResult);
 	}

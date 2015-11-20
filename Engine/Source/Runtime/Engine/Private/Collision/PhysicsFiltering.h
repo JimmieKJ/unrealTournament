@@ -2,11 +2,15 @@
 
 #pragma once
 
+#if WITH_PHYSX
+#include "../PhysicsEngine/PhysXSupport.h"
+#endif
+
 /** 
  * Set of flags stored in the PhysX FilterData
  *
- * When this flag is saved in CreateShapeFilterData or CreateQueryFilterData, we only use 24 bits
- * If you plan to use more than 24 bits, you'll also need to change the format of ShapeFilterData,QueryFilterData
+ * When this flag is saved in CreateShapeFilterData or CreateQueryFilterData, we only use 23 bits
+ * If you plan to use more than 23 bits, you'll also need to change the format of ShapeFilterData,QueryFilterData
  * Make sure you also change preFilter/SimFilterShader where it's used
  */
 enum EPhysXFilterDataFlags
@@ -22,7 +26,7 @@ enum EPhysXFilterDataFlags
 
 struct FPhysicsFilterBuilder
 {
-	ENGINE_API FPhysicsFilterBuilder(TEnumAsByte<enum ECollisionChannel> InObjectType, const struct FCollisionResponseContainer& ResponseToChannels);
+	ENGINE_API FPhysicsFilterBuilder(TEnumAsByte<enum ECollisionChannel> InObjectType, FMaskFilter MaskFilter, const struct FCollisionResponseContainer& ResponseToChannels);
 
 	inline void ConditionalSetFlags(EPhysXFilterDataFlags Flag, bool bEnabled)
 	{
@@ -32,6 +36,13 @@ struct FPhysicsFilterBuilder
 		}
 	}
 
+	inline void SetExtraFiltering(uint32 ExtraFiltering)
+	{
+		check(ExtraFiltering < 16);	//we only have 4 bits of extra filtering
+		uint32 ExtraFilterMask = ExtraFiltering >> 28;
+		Word3 |= ExtraFilterMask;
+	}
+
 	inline void GetQueryData(uint32 ComponentID, uint32& OutWord0, uint32& OutWord1, uint32& OutWord2, uint32& OutWord3) const
 	{
 		/**
@@ -39,7 +50,7 @@ struct FPhysicsFilterBuilder
 		 *		word0 (object ID)
 		 *		word1 (blocking channels)
 		 *		word2 (touching channels)
-		 *		word3 (MyChannel (top 8) as ECollisionChannel + Flags (lower 24))
+		 *		word3 (ExtraFilter (top 4) MyChannel (top 5) as ECollisionChannel + Flags (lower 23))
 		 */
 		OutWord0 = ComponentID;
 		OutWord1 = BlockingBits;
@@ -54,7 +65,7 @@ struct FPhysicsFilterBuilder
 		 * 		word0 (body index)
 		 *		word1 (blocking channels)
 		 *		word2 (skeletal mesh component ID)
-		 * 		word3 (MyChannel (top 8) + Flags (lower 24))
+		 * 		word3 (ExtraFilter (top 4) MyChannel (top 5) as ECollisionChannel + Flags (lower 23))
 		 */
 		OutWord0 = BodyIndex;
 		OutWord1 = BlockingBits;
@@ -79,6 +90,7 @@ private:
 #if WITH_PHYSX
 inline void CreateShapeFilterData(
 	const uint8 MyChannel,
+	const FMaskFilter MaskFilter,
 	const int32 ComponentID,
 	const FCollisionResponseContainer& ResponseToChannels,
 	uint32 SkelMeshCompID,
@@ -90,7 +102,7 @@ inline void CreateShapeFilterData(
 	bool bStaticShape,
 	bool bModifyContacts = false)
 {
-	FPhysicsFilterBuilder Builder((ECollisionChannel)MyChannel, ResponseToChannels);
+	FPhysicsFilterBuilder Builder((ECollisionChannel)MyChannel, MaskFilter, ResponseToChannels);
 	Builder.ConditionalSetFlags(EPDF_CCD, bEnableCCD);
 	Builder.ConditionalSetFlags(EPDF_ContactNotify, bEnableContactNotify);
 	Builder.ConditionalSetFlags(EPDF_StaticShape, bStaticShape);
@@ -102,6 +114,33 @@ inline void CreateShapeFilterData(
 	Builder.GetSimData(BodyIndex, SkelMeshCompID, OutSimData.word0, OutSimData.word1, OutSimData.word2, OutSimData.word3);
 }
 #endif //WITH_PHYSX
+
+inline ECollisionChannel GetCollisionChannel(uint32 Word3)
+{
+	uint32 NonFlagMask = Word3 >> 23;
+	uint32 ChannelMask = NonFlagMask & 0x1F;	//we only want the first 5 bits because there's only 32 channels: 0b11111
+	return (ECollisionChannel)ChannelMask;
+}
+
+inline ECollisionChannel GetCollisionChannelAndExtraFilter(uint32 Word3, FMaskFilter& OutMaskFilter)
+{
+	uint32 NonFlagMask = Word3 >> 23;
+	uint32 ChannelMask = NonFlagMask & 0x1F;	//we only want the first 5 bits because there's only 32 channels: 0b11111
+	OutMaskFilter = NonFlagMask >> 5;
+	return (ECollisionChannel)ChannelMask;
+}
+
+inline uint32 CreateChannelAndFilter(ECollisionChannel CollisionChannel, FMaskFilter MaskFilter)
+{
+	uint32 ResultMask = (MaskFilter << 5) | (uint32)CollisionChannel;
+	return ResultMask << 23;
+}
+
+inline void UpdateMaskFilter(uint32& Word3, FMaskFilter NewMaskFilter)
+{
+	Word3 &= 0x0FFFFFFF;	//we ignore the top 4 bits because that's where the new mask filter is going
+	Word3 |= NewMaskFilter << 28;
+}
 
 /** Utility for creating a PhysX PxFilterData for performing a query (trace) against the scene */
 // PxFilterData ZZ_CreateQueryFilterData(const uint8 MyChannel, const bool bTraceComplex,

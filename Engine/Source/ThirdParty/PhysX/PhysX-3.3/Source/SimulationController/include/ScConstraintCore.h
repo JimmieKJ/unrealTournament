@@ -108,7 +108,6 @@ namespace Sc
 					PxU32					mDataSize;
 					PxReal					mLinearBreakForce;
 					PxReal					mAngularBreakForce;
-					PxReal					mMinResponseThreshold;
 
 					ConstraintSim*			mSim;
 	};

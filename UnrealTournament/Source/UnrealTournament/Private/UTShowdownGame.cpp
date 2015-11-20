@@ -39,9 +39,9 @@ void AUTShowdownGame::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bXRayBreaker = EvalBoolOptions(ParseOption(Options, TEXT("XRayBreaker")), bXRayBreaker);
-	bPowerupBreaker = EvalBoolOptions(ParseOption(Options, TEXT("PowerupBreaker")), bPowerupBreaker);
-	bBroadcastPlayerHealth = EvalBoolOptions(ParseOption(Options, TEXT("BroadcastPlayerHealth")), bBroadcastPlayerHealth);
+	bXRayBreaker = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("XRayBreaker")), bXRayBreaker);
+	bPowerupBreaker = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("PowerupBreaker")), bPowerupBreaker);
+	bBroadcastPlayerHealth = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("BroadcastPlayerHealth")), bBroadcastPlayerHealth);
 
 	// this game mode requires a goal score
 	if (GoalScore <= 0)
@@ -125,7 +125,7 @@ bool AUTShowdownGame::CheckRelevance_Implementation(AActor* Other)
 			if (ReplacementPickupClass != NULL && ReplacementItemClass != NULL)
 			{
 				FActorSpawnParameters Params;
-				Params.bNoCollisionFail = true;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				AUTPickupInventory* Pickup = GetWorld()->SpawnActor<AUTPickupInventory>(ReplacementPickupClass, PickupWeapon->GetActorLocation(), PickupWeapon->GetActorRotation(), Params);
 				if (Pickup != NULL)
 				{
@@ -371,7 +371,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 					}
 				}
 				FActorSpawnParameters Params;
-				Params.bNoCollisionFail = true;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				BreakerPickup = GetWorld()->SpawnActor<AUTPickupInventory>(PickupClass, SpawnLoc + Extent.Z, FRotator(0.0f, 360.0f * FMath::FRand(), 0.0f), Params);
 				if (BreakerPickup != NULL)
 				{
@@ -573,7 +573,7 @@ void AUTShowdownGame::DefaultTimer()
 				// make sure we don't have any stale entries from quitters
 				for (int32 i = RemainingPicks.Num() - 1; i >= 0; i--)
 				{
-					if (RemainingPicks[i] == NULL || RemainingPicks[i]->bPendingKillPending)
+					if (RemainingPicks[i] == NULL || RemainingPicks[i]->IsPendingKillPending())
 					{
 						RemainingPicks.RemoveAt(i);
 					}

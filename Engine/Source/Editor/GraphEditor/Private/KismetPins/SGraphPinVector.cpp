@@ -27,6 +27,8 @@ public:
 	void Construct( const FArguments& InArgs, const bool bInIsRotator )
 	{
 		bIsRotator = bInIsRotator;
+		const bool bUseRPY = false;
+
 		VisibleText_0 = InArgs._VisibleText_0;
 		VisibleText_1 = InArgs._VisibleText_1;
 		VisibleText_2 = InArgs._VisibleText_2;
@@ -50,14 +52,14 @@ public:
 					[
 						SNew( STextBlock )
 						.Font( FEditorStyle::GetFontStyle( "Graph.VectorEditableTextBox" ) )
-						.Text( bIsRotator ? LOCTEXT("VectorNodeRollValueLabel", "R") : LOCTEXT("VectorNodeXAxisValueLabel", "X") )
+						.Text( bIsRotator && bUseRPY ? LOCTEXT("VectorNodeRollValueLabel", "R") : LOCTEXT("VectorNodeXAxisValueLabel", "X") )
 						.ColorAndOpacity( LabelClr )
 					]
 					.Value( this, &SVectorTextBox::GetTypeInValue_0 )
 					.OnValueCommitted( InArgs._OnFloatCommitted_Box_0 )
 					.Font( FEditorStyle::GetFontStyle( "Graph.VectorEditableTextBox" ) )
 					.UndeterminedString( LOCTEXT("MultipleValues", "Multiple Values") )
-					.ToolTipText( bIsRotator ? LOCTEXT("VectorNodeRollValueLabel_ToolTip", "Roll value") : LOCTEXT("VectorNodeXAxisValueLabel_ToolTip", "X value"))
+					.ToolTipText( bIsRotator ? LOCTEXT("VectorNodeRollValueLabel_ToolTip", "Roll value (around X)") : LOCTEXT("VectorNodeXAxisValueLabel_ToolTip", "X value"))
 					.EditableTextBoxStyle( &FEditorStyle::GetWidgetStyle<FEditableTextBoxStyle>( "Graph.VectorEditableTextBox" ))
 					.BorderForegroundColor( FLinearColor::White )
 					.BorderBackgroundColor( FLinearColor::White )
@@ -72,14 +74,14 @@ public:
 					[
 						SNew( STextBlock )
 						.Font( FEditorStyle::GetFontStyle( "Graph.VectorEditableTextBox" ) )
-						.Text( bIsRotator ? LOCTEXT("VectorNodePitchValueLabel", "P") : LOCTEXT("VectorNodeYAxisValueLabel", "Y") )
+						.Text( bIsRotator && bUseRPY ? LOCTEXT("VectorNodePitchValueLabel", "P") : LOCTEXT("VectorNodeYAxisValueLabel", "Y") )
 						.ColorAndOpacity( LabelClr )
 					]
 					.Value( this, &SVectorTextBox::GetTypeInValue_1 )
 					.OnValueCommitted( InArgs._OnFloatCommitted_Box_1 )
 					.Font( FEditorStyle::GetFontStyle( "Graph.VectorEditableTextBox" ) )
 					.UndeterminedString( LOCTEXT("MultipleValues", "Multiple Values") )
-					.ToolTipText(bIsRotator ? LOCTEXT("VectorNodePitchValueLabel_ToolTip", "Pitch value") : LOCTEXT("VectorNodeYAxisValueLabel_ToolTip", "Y value"))
+					.ToolTipText(bIsRotator ? LOCTEXT("VectorNodePitchValueLabel_ToolTip", "Pitch value (around Y)") : LOCTEXT("VectorNodeYAxisValueLabel_ToolTip", "Y value"))
 					.EditableTextBoxStyle( &FEditorStyle::GetWidgetStyle<FEditableTextBoxStyle>( "Graph.VectorEditableTextBox" ))
 					.BorderForegroundColor( FLinearColor::White )
 					.BorderBackgroundColor( FLinearColor::White )
@@ -94,14 +96,14 @@ public:
 					[
 						SNew( STextBlock )
 						.Font( FEditorStyle::GetFontStyle( "Graph.VectorEditableTextBox" ) )
-						.Text( bIsRotator ? LOCTEXT("VectorNodeYawValueLabel", "Y") : LOCTEXT("VectorNodeZAxisValueLabel", "Z") )
+						.Text( bIsRotator && bUseRPY ? LOCTEXT("VectorNodeYawValueLabel", "Y") : LOCTEXT("VectorNodeZAxisValueLabel", "Z") )
 						.ColorAndOpacity( LabelClr )
 					]
 					.Value( this, &SVectorTextBox::GetTypeInValue_2 )
 					.OnValueCommitted( InArgs._OnFloatCommitted_Box_2 )
 					.Font( FEditorStyle::GetFontStyle( "Graph.VectorEditableTextBox" ) )
 					.UndeterminedString( LOCTEXT("MultipleValues", "Multiple Values") )
-					.ToolTipText(bIsRotator ? LOCTEXT("VectorNodeYawValueLabel_Tooltip", "Yaw value") : LOCTEXT("VectorNodeZAxisValueLabel_ToolTip", "Z value"))
+					.ToolTipText(bIsRotator ? LOCTEXT("VectorNodeYawValueLabel_Tooltip", "Yaw value (around Z)") : LOCTEXT("VectorNodeZAxisValueLabel_ToolTip", "Z value"))
 					.EditableTextBoxStyle( &FEditorStyle::GetWidgetStyle<FEditableTextBoxStyle>( "Graph.VectorEditableTextBox" ))
 					.BorderForegroundColor( FLinearColor::White )
 					.BorderBackgroundColor( FLinearColor::White )
@@ -151,7 +153,7 @@ void SGraphPinVector::Construct(const FArguments& InArgs, UEdGraphPin* InGraphPi
 
 TSharedRef<SWidget>	SGraphPinVector::GetDefaultValueWidget()
 {
-	UScriptStruct* RotatorStruct = GetBaseStructure(TEXT("Rotator"));
+	UScriptStruct* RotatorStruct = TBaseStructure<FRotator>::Get();
 	bIsRotator = (GraphPinObj->PinType.PinSubCategoryObject == RotatorStruct) ? true : false;
 	
 	//Create widget

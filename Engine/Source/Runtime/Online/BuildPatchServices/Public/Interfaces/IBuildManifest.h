@@ -109,16 +109,36 @@ public:
 	virtual int64 GetDownloadSize() const = 0;
 
 	/**
+	 * Get the size of the download of this set of tags
+	 * @param Tags	IN	A list of the tags we want to know the size of
+	 * @return		the download size of the tags in bytes
+	 */
+	virtual int64 GetDownloadSize(const TSet<FString>& Tags) const = 0;
+
+	/**
 	 * Get the size of this build
 	 * @return		the build size in bytes
 	 */
 	virtual int64 GetBuildSize() const = 0;
 
 	/**
+	 * Get the size of the build of this set of tags
+	 * @param Tags	IN	A list of the tags we want to know the size of
+	 * @return		the build size of the tags in bytes
+	 */
+	virtual int64 GetBuildSize(const TSet<FString>& Tags) const = 0;
+
+	/**
 	 * Get the list of files in this build. Filenames are all relative to an install directory
 	 * @return		an array containing build files
 	 */
 	virtual TArray<FString> GetBuildFileList() const = 0;
+
+	/**
+	 * Get the list of install tags in this manifest
+	 * @param Tags			OUT		Receives the tags referenced.
+	 */
+	virtual void GetFileTagList(TSet<FString>& Tags) const = 0;
 
 	/**
 	 * Gets a list of files that were installed with the Old Manifest, but no longer required by this Manifest.

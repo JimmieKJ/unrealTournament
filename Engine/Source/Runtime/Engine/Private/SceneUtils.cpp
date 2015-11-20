@@ -25,4 +25,24 @@ void FDrawEvent::Stop()
 	RHICmdList->PopEvent();
 }
 
+void FDrawEventRHIExecute::Start(IRHICommandContext& InRHICommandContext, const TCHAR* Fmt, ...)
+{
+	check(IsInParallelRenderingThread() || IsInRHIThread() || (!GRHIThread && IsInRenderingThread()));
+	{
+		
+		va_list ptr;
+		va_start(ptr, Fmt);
+		TCHAR TempStr[256];
+		// Build the string in the temp buffer
+		FCString::GetVarArgs(TempStr, ARRAY_COUNT(TempStr), ARRAY_COUNT(TempStr) - 1, Fmt, ptr);
+		RHICommandContext = &InRHICommandContext;
+		RHICommandContext->RHIPushEvent(TempStr);		
+	}
+}
+
+void FDrawEventRHIExecute::Stop()
+{
+	RHICommandContext->RHIPopEvent();
+}
+
 #endif // WANTS_DRAW_MESH_EVENTS && PLATFORM_SUPPORTS_DRAW_MESH_EVENTS

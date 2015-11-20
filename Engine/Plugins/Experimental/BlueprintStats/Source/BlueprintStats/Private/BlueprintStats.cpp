@@ -3,6 +3,8 @@
 #include "BlueprintStatsPrivatePCH.h"
 #include "BlueprintStats.h"
 #include "BlueprintEditorUtils.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_MacroInstance.h"
 
 #define LOCTEXT_NAMESPACE "BlueprintStats"
 

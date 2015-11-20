@@ -25,5 +25,19 @@ public class UnrealTournamentEditor : ModuleRules
             "NetworkFile", 
 			"PerfCounters",
             "UMG" });
+
+        if (UEBuildConfiguration.bCompileMcpOSS == true)
+        {
+            PublicDependencyModuleNames.AddRange(
+                new string[]
+                {
+			        "McpProfileSys",
+			        "GameSubCatalog",
+			        "GameSubCatalogEditor",
+			        "LootTables",
+                }
+            );
+        }
 	}
+
 }

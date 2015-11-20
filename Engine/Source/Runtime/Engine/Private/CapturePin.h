@@ -28,40 +28,33 @@ typedef TCHAR* PTCHAR;
 	#pragma warning(pop)
 #endif
 
+class FAVIWriter;
+struct FCapturedFrame;
 
 class FCapturePin : public CSourceStream
 {
 protected:
 
-	/** To track where we are in the file */
-	int32 FramesWritten;
-	/** Do we need to clear the buffer? */
-	bool bZeroMemory; 
-	/** The time stamp for each sample */
-	CRefTime SampleTime;
 	/** The length of the frame, used for playback */
 	const REFERENCE_TIME FrameLength;
-	/** Rect containing entire screen coordinates */
-	RECT Screen;                     
 	/** The current image height */
 	int32 ImageHeight;
 	/** And current image width */
 	int32 ImageWidth;
-	/** Time in msec between frames */
-	int32 RepeatTime;
-	/** Screen bit depth */
-	int32 CurrentBitDepth;
-
-	/** Stores the media type to use */
-	CMediaType MediaType;
 	/** Protects our internal state */
 	CCritSec SharedState;
-	/** Figures out our media type for us */
-	CImageDisplay Display;
+
+	/** The writer to which we belong */
+	const FAVIWriter& Writer;
+
+	/** The frame we're currently processing */
+	const FCapturedFrame* CurrentFrame;
+
+	TOptional<HRESULT> ProcessFrames();
 
 public:
 
-	FCapturePin(HRESULT *phr, CSource *pFilter);
+	FCapturePin(HRESULT *phr, CSource *pFilter, const FAVIWriter& InWriter);
 	~FCapturePin();
 
 	// Override the version that offers exactly one media type

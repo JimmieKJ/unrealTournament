@@ -210,7 +210,7 @@ void SPaletteView::Construct(const FArguments& InArgs, TSharedPtr<FBlueprintEdit
 		.Padding(4)
 		.AutoHeight()
 		[
-			SNew(SSearchBox)
+			SAssignNew(SearchBoxPtr, SSearchBox)
 			.HintText(LOCTEXT("SearchTemplates", "Search Palette"))
 			.OnTextChanged(this, &SPaletteView::OnSearchChanged)
 		]
@@ -257,6 +257,7 @@ void SPaletteView::OnSearchChanged(const FText& InFilterText)
 	bRefreshRequested = true;
 	FilterHandler->SetIsEnabled(!InFilterText.IsEmpty());
 	WidgetFilter->SetRawFilterText(InFilterText);
+	SearchBoxPtr->SetError(WidgetFilter->GetFilterErrorText());
 	SearchText = InFilterText;
 }
 

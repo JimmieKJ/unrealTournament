@@ -82,7 +82,19 @@ FConnectionDrawingPolicy* UReferenceViewerSchema::CreateConnectionDrawingPolicy(
 
 void UReferenceViewerSchema::GetMakeCollectionWithReferencedAssetsSubMenu( FMenuBuilder& MenuBuilder )
 {
-	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeLocalCollectionWithReferencedAssets);
-	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakePrivateCollectionWithReferencedAssets);
-	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeSharedCollectionWithReferencedAssets);
+	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeLocalCollectionWithReferencedAssets, 
+		NAME_None, TAttribute<FText>(), 
+		ECollectionShareType::GetDescription(ECollectionShareType::CST_Local), 
+		FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Local))
+		);
+	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakePrivateCollectionWithReferencedAssets,
+		NAME_None, TAttribute<FText>(), 
+		ECollectionShareType::GetDescription(ECollectionShareType::CST_Private), 
+		FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Private))
+		);
+	MenuBuilder.AddMenuEntry(FReferenceViewerActions::Get().MakeSharedCollectionWithReferencedAssets,
+		NAME_None, TAttribute<FText>(), 
+		ECollectionShareType::GetDescription(ECollectionShareType::CST_Shared), 
+		FSlateIcon(FEditorStyle::GetStyleSetName(), ECollectionShareType::GetIconStyleName(ECollectionShareType::CST_Shared))
+		);
 }

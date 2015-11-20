@@ -13,8 +13,9 @@ FAnalogCursor::FAnalogCursor()
 , StickySlowdown(0.5f)
 , DeadZone(0.1f)
 , Mode(AnalogCursorMode::Accelerated)
-, AnalogValues(FVector2D::ZeroVector)
 {
+	AnalogValues[ static_cast< uint8 >( EAnalogStick::Left ) ] = FVector2D::ZeroVector;
+	AnalogValues[ static_cast< uint8 >( EAnalogStick::Right ) ] = FVector2D::ZeroVector;
 }
 
 void FAnalogCursor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSharedRef<ICursor> Cursor)
@@ -22,7 +23,7 @@ void FAnalogCursor::Tick(const float DeltaTime, FSlateApplication& SlateApp, TSh
 	const FVector2D OldPosition = Cursor->GetPosition();
 
 	float SpeedMult = 1.0f; // Used to do a speed multiplication before adding the delta to the position to make widgets sticky
-	FVector2D AdjAnalogVals = AnalogValues; // A copy of the analog values so I can modify them based being over a widget, not currently doing this
+	FVector2D AdjAnalogVals = GetAnalogValue(EAnalogStick::Left); // A copy of the analog values so I can modify them based being over a widget, not currently doing this
 
 	// Adjust analog values according to dead zone
 	const float AnalogValsSize = AdjAnalogVals.Size();
@@ -125,7 +126,7 @@ bool FAnalogCursor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEv
 	}
 
 	// Bottom face button is a click
-	if (Key == EKeys::Gamepad_FaceButton_Bottom)
+	if (Key == EKeys::Gamepad_FaceButton_Bottom && !InKeyEvent.IsRepeat())
 	{
 		FPointerEvent MouseEvent(
 			0,
@@ -138,7 +139,8 @@ bool FAnalogCursor::HandleKeyDownEvent(FSlateApplication& SlateApp, const FKeyEv
 			);
 
 		TSharedPtr<FGenericWindow> GenWindow;
-		SlateApp.ProcessMouseButtonDownEvent(GenWindow, MouseEvent);
+		return SlateApp.ProcessMouseButtonDownEvent(GenWindow, MouseEvent);
+
 	}
 
 	return false;
@@ -158,7 +160,7 @@ bool FAnalogCursor::HandleKeyUpEvent(FSlateApplication& SlateApp, const FKeyEven
 	}
 
 	// Bottom face button is a click
-	if (Key == EKeys::Gamepad_FaceButton_Bottom)
+	if (Key == EKeys::Gamepad_FaceButton_Bottom && !InKeyEvent.IsRepeat())
 	{
 		FPointerEvent MouseEvent(
 			0,
@@ -183,17 +185,35 @@ bool FAnalogCursor::HandleAnalogInputEvent(FSlateApplication& SlateApp, const FA
 
 	if (Key == EKeys::Gamepad_LeftX)
 	{
-		AnalogValues.X = AnalogValue;
+		FVector2D& Value = GetAnalogValue( EAnalogStick::Left );
+		Value.X = AnalogValue;
 	}
 	else if (Key == EKeys::Gamepad_LeftY)
 	{
-		AnalogValues.Y = -AnalogValue;
+		FVector2D& Value = GetAnalogValue( EAnalogStick::Left );
+		Value.Y = -AnalogValue;
 	}
-	else
+	else if ( Key == EKeys::Gamepad_RightX )
+	{
+		FVector2D& Value = GetAnalogValue( EAnalogStick::Right );
+		Value.X = AnalogValue;
+	}
+	else if ( Key == EKeys::Gamepad_RightY )
+	{
+		FVector2D& Value = GetAnalogValue( EAnalogStick::Right );
+		Value.Y = -AnalogValue;
+	}
+	else 
 	{
 		return false;
 	}
+
 	return true;
+}
+
+bool FAnalogCursor::HandleMouseMoveEvent(FSlateApplication& SlateApp, const FPointerEvent& MouseEvent)
+{
+	return false;
 }
 
 void FAnalogCursor::SetAcceleration(float NewAcceleration)

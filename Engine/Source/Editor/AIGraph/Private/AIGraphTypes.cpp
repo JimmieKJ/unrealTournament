@@ -68,9 +68,9 @@ FString FGraphNodeClassData::GetDisplayName() const
 	return Class.IsValid() ? Class->GetMetaData(TEXT("DisplayName")) : FString();
 }
 
-FString FGraphNodeClassData::GetCategory() const
+FText FGraphNodeClassData::GetCategory() const
 {
-	return Class.IsValid() ? Class->GetMetaData(TEXT("Category")) : Category;
+	return Class.IsValid() ? Class->GetMetaDataText(TEXT("Category"), TEXT("UObjectCategory"), Class->GetFullGroupName(false)) : Category;
 }
 
 bool FGraphNodeClassData::IsAbstract() const

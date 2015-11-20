@@ -21,6 +21,13 @@
 =============================================================================*/
 
 #include "Common.usf"
+
+// Disable USING_VERTEX_SHADER_LAYER as it would be an error for these shaders as they are intended to render to 2D targets only.
+#if USING_VERTEX_SHADER_LAYER != 0
+	#undef USING_VERTEX_SHADER_LAYER
+	#define USING_VERTEX_SHADER_LAYER 0
+#endif
+
 #include "AtmosphereCommon.usf"
 #include "AtmospherePrecomputeCommon.usf"
 
@@ -49,6 +56,7 @@ void MainVS(
 	)
 {
 	DrawRectangle(InPosition, InTexCoord, Out.OutPosition, Out.OutTexCoord );
+    Out.LayerIndex = 0;
 }
 
 // pixel shader entry point

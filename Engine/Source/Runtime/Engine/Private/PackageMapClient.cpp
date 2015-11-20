@@ -8,6 +8,7 @@
 #include "Engine/ActorChannel.h"
 #include "RepLayout.h"
 #include "Engine/PackageMapClient.h"
+#include "ScopedTimers.h"
 
 // ( OutPacketId == GUID_PACKET_NOT_ACKED ) == NAK'd		(this GUID is not acked, and is not pending either, so sort of waiting)
 // ( OutPacketId == GUID_PACKET_ACKED )		== FULLY ACK'd	(this GUID is fully acked, and we no longer need to send full path)
@@ -47,10 +48,13 @@ static uint32 GetPackageChecksum( const UPackage* Package )
 bool UPackageMapClient::SerializeObject( FArchive& Ar, UClass* Class, UObject*& Object, FNetworkGUID *OutNetGUID)
 {
 	SCOPE_CYCLE_COUNTER(STAT_PackageMap_SerializeObjectTime);
-
+	
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	static IConsoleVariable* DebugObjectCvar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.PackageMap.DebugObject"));
-	if (DebugObjectCvar && !DebugObjectCvar->GetString().IsEmpty() && Object && Object->GetName().Contains(DebugObjectCvar->GetString()))
+	static IConsoleVariable* DebugAllObjectsCvar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.PackageMap.DebugAll"));
+	if (Object &&
+		((DebugObjectCvar && !DebugObjectCvar->GetString().IsEmpty() && Object->GetName().Contains(DebugObjectCvar->GetString())) ||
+		(DebugAllObjectsCvar && DebugAllObjectsCvar->GetInt() != 0)))
 	{
 		UE_LOG(LogNetPackageMap, Log, TEXT("Serialized Object %s"), *Object->GetName());
 	}
@@ -92,41 +96,66 @@ bool UPackageMapClient::SerializeObject( FArchive& Ar, UClass* Class, UObject*& 
 	}
 	else if (Ar.IsLoading())
 	{
-		// ----------------	
-		// Read NetGUID from stream and resolve object
-		// ----------------	
-		FNetworkGUID NetGUID = InternalLoadObject( Ar, Object, 0 );
-
-		// Write out NetGUID to caller if necessary
-		if ( OutNetGUID )
+		FNetworkGUID NetGUID;
+		double LoadTime = 0.0;
 		{
-			*OutNetGUID = NetGUID;
-		}	
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			FScopedDurationTimer NetSerializeTime(LoadTime);
+#endif
 
-		// ----------------	
-		// Final Checks/verification
-		// ----------------	
+			// ----------------	
+			// Read NetGUID from stream and resolve object
+			// ----------------	
+			NetGUID = InternalLoadObject(Ar, Object, 0);
 
-		// NULL if we haven't finished loading the objects level yet
-		if ( !ObjectLevelHasFinishedLoading( Object ) )
-		{
-			UE_LOG(LogNetPackageMap, Warning, TEXT("Using None instead of replicated reference to %s because the level it's in has not been made visible"), *Object->GetFullName());
-			Object = NULL;
+			// Write out NetGUID to caller if necessary
+			if (OutNetGUID)
+			{
+				*OutNetGUID = NetGUID;
+			}
+
+#if 0		// Enable this code to force any actor with missing/broken content to not load in replays
+			if (NetGUID.IsValid() && Connection->InternalAck && GuidCache->IsGUIDBroken(NetGUID, true))
+			{
+				Ar.SetError();
+				UE_LOG(LogNetPackageMap, Warning, TEXT("UPackageMapClient::SerializeObject: InternalAck GUID broken."));
+				return false;
+			}
+#endif
+
+			// ----------------	
+			// Final Checks/verification
+			// ----------------	
+
+			// NULL if we haven't finished loading the objects level yet
+			if (!ObjectLevelHasFinishedLoading(Object))
+			{
+				UE_LOG(LogNetPackageMap, Warning, TEXT("Using None instead of replicated reference to %s because the level it's in has not been made visible"), *Object->GetFullName());
+				Object = NULL;
+			}
+
+			// Check that we got the right class
+			if (Object && !Object->IsA(Class))
+			{
+				UE_LOG(LogNetPackageMap, Warning, TEXT("Forged object: got %s, expecting %s"), *Object->GetFullName(), *Class->GetFullName());
+				Object = NULL;
+			}
+
+			if (NetGUID.IsValid() && Object == NULL && bShouldTrackUnmappedGuids && !GuidCache->IsGUIDBroken(NetGUID, false))
+			{
+				TrackedUnmappedNetGuids.AddUnique(NetGUID);
+			}
+
+			UE_CLOG(!bSuppressLogs, LogNetPackageMap, Log, TEXT("UPackageMapClient::SerializeObject Serialized Object %s as <%s>"), Object ? *Object->GetPathName() : TEXT("NULL"), *NetGUID.ToString());
 		}
-
-		// Check that we got the right class
-		if ( Object && !Object->IsA( Class ) )
+		
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		static IConsoleVariable* LongLoadThreshholdCVAR = IConsoleManager::Get().FindConsoleVariable(TEXT("net.PackageMap.LongLoadThreshhold"));		
+		if (LongLoadThreshholdCVAR && ((float)LoadTime > LongLoadThreshholdCVAR->GetFloat()))
 		{
-			UE_LOG(LogNetPackageMap, Warning, TEXT("Forged object: got %s, expecting %s"),*Object->GetFullName(),*Class->GetFullName());
-			Object = NULL;
+			UE_LOG(LogNetPackageMap, Warning, TEXT("Long net serialize: %fms, Serialized Object %s"), (float)LoadTime * 1000.0f, *GetNameSafe(Object));
 		}
-
-		if ( NetGUID.IsValid() && Object == NULL && bShouldTrackUnmappedGuids )
-		{
-			TrackedUnmappedNetGuids.AddUnique( NetGUID );
-		}
-
-		UE_CLOG(!bSuppressLogs, LogNetPackageMap, Log, TEXT("UPackageMapClient::SerializeObject Serialized Object %s as <%s>"), Object ? *Object->GetPathName() : TEXT("NULL"), *NetGUID.ToString() );
+#endif
 
 		// reference is mapped if it was not NULL (or was explicitly null)
 		return (Object != NULL || !NetGUID.IsValid());
@@ -162,8 +191,8 @@ bool UPackageMapClient::WriteObject( FArchive& Ar, UObject* ObjOuter, FNetworkGU
  *	Standard method of serializing a new actor.
  *		For static actors, this will just be a single call to SerializeObject, since they can be referenced by their path name.
  *		For dynamic actors, first the actor's reference is serialized but will not resolve on clients since they haven't spawned the actor yet.
- *			The actor archetype is then serialized along with the starting location, rotation, and velocity.
- *			After reading this information, the client spawns this actor via GWorld and assigns it the NetGUID it read at the top of the function.
+ *		The actor archetype is then serialized along with the starting location, rotation, and velocity.
+ *		After reading this information, the client spawns this actor via GWorld and assigns it the NetGUID it read at the top of the function.
  *
  *		returns true if a new actor was spawned. false means an existing actor was found for the netguid.
  */
@@ -192,6 +221,8 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 		return false;
 	}
 
+	Channel->ActorNetGUID = NetGUID;
+
 	Actor = Cast<AActor>(NewObj);
 
 	// When we return an actor, we don't necessarily always spawn it (we might have found it already in memory)
@@ -218,6 +249,7 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 	{
 		UObject* Archetype = NULL;
 		FVector_NetQuantize10 Location;
+		FVector_NetQuantize10 Scale;
 		FVector_NetQuantize10 Velocity;
 		FRotator Rotation;
 		bool SerSuccess;
@@ -230,9 +262,12 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 			check( Actor->NeedsLoadForClient() );			// We have no business sending this unless the client can load
 			check( Archetype->NeedsLoadForClient() );		// We have no business sending this unless the client can load
 
-			Location = Actor->GetRootComponent() ? Actor->GetActorLocation() : FVector::ZeroVector;
-			Rotation = Actor->GetRootComponent() ? Actor->GetActorRotation() : FRotator::ZeroRotator;
-			Velocity = Actor->GetVelocity();
+			const USceneComponent* RootComponent = Actor->GetRootComponent();
+
+			Location = RootComponent ? Actor->GetActorLocation() : FVector::ZeroVector;
+			Rotation = RootComponent ? Actor->GetActorRotation() : FRotator::ZeroRotator;
+			Scale = RootComponent ? Actor->GetActorScale() : FVector::ZeroVector;
+			Velocity = RootComponent ? Actor->GetVelocity() : FVector::ZeroVector;
 		}
 
 		FNetworkGUID ArchetypeNetGUID;
@@ -253,11 +288,64 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 		}
 
 		// SerializeCompressedInitial
+		// only serialize the components that need to be serialized otherwise default them
+		bool bSerializeLocation = false;
+		bool bSerializeRotation = false;
+		bool bSerializeScale = false;
+		bool bSerializeVelocity = false;
+		const float epsilon = 0.001f;
 		{			
-			// read/write compressed location
-			Location.NetSerialize( Ar, this, SerSuccess );
-			Rotation.NetSerialize( Ar, this, SerSuccess );
-			Velocity.NetSerialize( Ar, this, SerSuccess );
+			// Server is serializing an object to be sent to a client
+			if (Ar.IsSaving())
+			{
+				const FVector DefaultScale(1.f, 1.f, 1.f);
+
+				// If the Location isn't the default Location
+				bSerializeLocation = !Location.Equals(FVector::ZeroVector, epsilon);
+				bSerializeRotation = !Rotation.Equals(FRotator::ZeroRotator, epsilon);
+				bSerializeScale = !Scale.Equals(DefaultScale, epsilon);
+				bSerializeVelocity = !Velocity.Equals(FVector::ZeroVector, epsilon);
+			}
+
+			Ar.SerializeBits(&bSerializeLocation, 1);
+			if (bSerializeLocation)
+			{
+				Location.NetSerialize(Ar, this, SerSuccess);
+			}
+			else
+			{
+				Location = FVector::ZeroVector;
+			}
+
+			Ar.SerializeBits(&bSerializeRotation, 1);
+			if (bSerializeRotation)
+			{
+				Rotation.NetSerialize(Ar, this, SerSuccess);
+			}
+			else
+			{
+				Rotation = FRotator::ZeroRotator;
+			}
+
+			Ar.SerializeBits(&bSerializeScale, 1);
+			if (bSerializeScale)
+			{
+				Scale.NetSerialize(Ar, this, SerSuccess);
+			}
+			else
+			{
+				Scale = FVector(1, 1, 1);
+			}
+
+			Ar.SerializeBits(&bSerializeVelocity, 1);
+			if (bSerializeVelocity)
+			{
+				Velocity.NetSerialize(Ar, this, SerSuccess);
+			}
+			else
+			{
+				Velocity = FVector::ZeroVector;
+			}
 
 			if ( Channel && Ar.IsSaving() )
 			{
@@ -281,11 +369,21 @@ bool UPackageMapClient::SerializeNewActor(FArchive& Ar, class UActorChannel *Cha
 				{
 					FActorSpawnParameters SpawnInfo;
 					SpawnInfo.Template = Cast<AActor>(Archetype);
-					SpawnInfo.bNoCollisionFail = true;
+					SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 					SpawnInfo.bRemoteOwned = true;
 					SpawnInfo.bNoFail = true;
-					Actor = Connection->Driver->GetWorld()->SpawnActor(Archetype->GetClass(), &Location, &Rotation, SpawnInfo );
-					Actor->PostNetReceiveVelocity(Velocity);
+					Actor = Connection->Driver->GetWorld()->SpawnActorAbsolute(Archetype->GetClass(), FTransform(Rotation, Location), SpawnInfo );
+					// Velocity was serialized by the server
+					if (bSerializeVelocity)
+					{
+						Actor->PostNetReceiveVelocity(Velocity);
+					}
+
+					// Scale was serialized by the server
+					if (bSerializeScale)
+					{
+						Actor->SetActorScale3D(Scale);
+					}
 
 					GuidCache->RegisterNetGUID_Client( NetGUID, Actor );
 					bActorWasSpawned = true;
@@ -637,14 +735,20 @@ FNetworkGUID UPackageMapClient::InternalLoadObject( FArchive & Ar, UObject *& Ob
 			return NetGUID;
 		}
 
-		if ( NetGUID.IsDefault() )
+		if (NetGUID.IsDefault())
 		{
 			// This should be from the client
 			// If we get here, we want to go ahead and assign a network guid, 
 			// then export that to the client at the next available opportunity
-			check( IsNetGUIDAuthority() );
+			check(IsNetGUIDAuthority());
 
-			Object = StaticFindObject( UObject::StaticClass(), ObjOuter, *PathName, false );
+			Object = StaticFindObject(UObject::StaticClass(), ObjOuter, *PathName, false);
+
+			if (Object == nullptr && bIsPackage)
+			{
+				// Try to load package if it wasn't found. Note load package fails if the package is already loaded.
+				Object = LoadPackage(NULL, *PathName, LOAD_None);
+			}
 
 			if ( Object == NULL )
 			{
@@ -919,7 +1023,7 @@ bool UPackageMapClient::AppendExportBunches(TArray<FOutBunch *>& OutgoingBunches
 	{
 		if (ExportBunch != nullptr)
 		{
-			NETWORK_PROFILER(GNetworkProfiler.TrackExportBunch(ExportBunch->GetNumBits()));
+			NETWORK_PROFILER(GNetworkProfiler.TrackExportBunch(ExportBunch->GetNumBits(), Connection));
 		}
 	}
 
@@ -1280,6 +1384,11 @@ UObject* UPackageMapClient::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, c
 	return GuidCache->GetObjectFromNetGUID( NetGUID, bIgnoreMustBeMapped );
 }
 
+FNetworkGUID UPackageMapClient::GetNetGUIDFromObject(const UObject* InObject) const
+{
+	return GuidCache->GetNetGUID(InObject);
+}
+
 //----------------------------------------------------------------------------------------
 //	FNetGUIDCache
 //----------------------------------------------------------------------------------------
@@ -1352,8 +1461,7 @@ void FNetGUIDCache::CleanReferences()
 	ObjectLookup.CountBytes( CountBytesAr );
 	NetGUIDLookup.CountBytes( CountBytesAr );
 
-	// Make this a warning to be a constant reminder that we need to ultimately free this memory when we find a solution
-	UE_LOG( LogNetPackageMap, Warning, TEXT( "FNetGUIDCache::CleanReferences: ObjectLookup: %i, NetGUIDLookup: %i, Mem: %i kB" ), ObjectLookup.Num(), NetGUIDLookup.Num(), ( CountBytesAr.Mem / 1024 ) );
+	UE_LOG( LogNetPackageMap, Log, TEXT( "FNetGUIDCache::CleanReferences: ObjectLookup: %i, NetGUIDLookup: %i, Mem: %i kB" ), ObjectLookup.Num(), NetGUIDLookup.Num(), ( CountBytesAr.Mem / 1024 ) );
 }
 
 bool FNetGUIDCache::SupportsObject( const UObject* Object ) const
@@ -1451,6 +1559,18 @@ FNetworkGUID FNetGUIDCache::GetOrAssignNetGUID( const UObject* Object )
 	}
 
 	return AssignNewNetGUID_Server( Object );
+}
+
+FNetworkGUID FNetGUIDCache::GetNetGUID(const UObject* Object) const
+{
+	if ( !Object || !SupportsObject( Object ) )
+	{
+		// Null of unsupported object, leave as default NetGUID and just return mapped=true
+		return FNetworkGUID();
+	}
+
+	FNetworkGUID NetGUID = NetGUIDLookup.FindRef( Object );
+	return NetGUID;
 }
 
 /**
@@ -1681,6 +1801,30 @@ void FNetGUIDCache::AsyncPackageCallback(const FName& PackageName, UPackage * Pa
 	}
 }
 
+static bool ObjectLevelHasFinishedLoading( UObject* Object, UNetDriver* Driver )
+{
+	if ( Object != NULL && Driver != NULL && Driver->GetWorld() != NULL )
+	{
+		// get the level for the object
+		ULevel* Level = NULL;
+		for ( UObject* Obj = Object; Obj != NULL; Obj = Obj->GetOuter() )
+		{
+			Level = Cast<ULevel>( Obj );
+			if ( Level != NULL )
+			{
+				break;
+			}
+		}
+
+		if ( Level != NULL && Level != Driver->GetWorld()->PersistentLevel )
+		{
+			return Level->bIsVisible;
+		}
+	}
+
+	return true;
+}
+
 UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const bool bIgnoreMustBeMapped )
 {
 	if ( !ensure( NetGUID.IsValid() ) )
@@ -1895,6 +2039,13 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 		}
 	}
 
+	if ( Object && !ObjectLevelHasFinishedLoading( Object, Driver ) )
+	{
+		UE_LOG( LogNetPackageMap, Warning, TEXT( "GetObjectFromNetGUID: Forcing object to NULL since level is not loaded yet." ), *Object->GetFullName() );
+		return NULL;
+	}
+
+
 	// Assign the resolved object to this guid
 	CacheObjectPtr->Object = Object;		
 
@@ -1916,14 +2067,14 @@ UObject* FNetGUIDCache::GetObjectFromNetGUID( const FNetworkGUID& NetGUID, const
 
 bool FNetGUIDCache::ShouldIgnoreWhenMissing( const FNetworkGUID& NetGUID ) const
 {
+	if (NetGUID.IsDynamic())
+	{
+		return true;		// Ignore missing dynamic guids (even on server because client may send RPC on/with object it doesn't know server destroyed)
+	}
+
 	if ( IsNetGUIDAuthority() )
 	{
 		return false;		// Server never ignores when missing, always warns
-	}
-
-	if ( NetGUID.IsDynamic() )
-	{
-		return true;		// Ignore missing dynamic guids
 	}
 
 	const FNetGuidCacheObject* CacheObject = ObjectLookup.Find( NetGUID );
@@ -1935,7 +2086,7 @@ bool FNetGUIDCache::ShouldIgnoreWhenMissing( const FNetworkGUID& NetGUID ) const
 
 	const FNetGuidCacheObject* OutermostCacheObject = CacheObject;
 
-	while ( OutermostCacheObject->OuterGUID.IsValid() )
+	while ( OutermostCacheObject != NULL && OutermostCacheObject->OuterGUID.IsValid() )
 	{
 		OutermostCacheObject = ObjectLookup.Find( OutermostCacheObject->OuterGUID );
 	}

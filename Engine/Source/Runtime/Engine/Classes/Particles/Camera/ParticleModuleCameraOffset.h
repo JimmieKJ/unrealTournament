@@ -56,5 +56,7 @@ class UParticleModuleCameraOffset : public UParticleModuleCameraBase
 	virtual void Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
 	virtual uint32 RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
 	//End UParticleModule Interface
+
+	virtual bool CanTickInAnyThread() override;
 };
 

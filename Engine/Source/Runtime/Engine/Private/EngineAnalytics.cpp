@@ -80,14 +80,7 @@ void FEngineAnalytics::Initialize()
 							!FEngineBuildSettings::IsInternalBuild();	// Internal Epic build
 						const TCHAR* BuildTypeStr = bUseReleaseAccount ? TEXT("Release") : TEXT("Dev");
 						const TCHAR* UE4TypeStr = FRocketSupport::IsRocket() ? TEXT("Rocket") : FEngineBuildSettings::IsPerforceBuild() ? TEXT("Perforce") : TEXT("UnrealEngine");
-
-						if (GIsEditor)
-						{
-							const TCHAR* DevelopmentAccountAPIKeyET = TEXT("UTEditor.Source.Dev");
-							const TCHAR* ReleaseAccountAPIKeyET = TEXT("UTEditor.Source.Release");
-							ConfigMap.Add(TEXT("APIKeyET"), bUseReleaseAccount ? ReleaseAccountAPIKeyET : DevelopmentAccountAPIKeyET);
-						}
-						else if (bIsEditorRun)
+						if (bIsEditorRun)
 						{
 							ConfigMap.Add(TEXT("APIKeyET"), FString::Printf(TEXT("UEEditor.%s.%s"), UE4TypeStr, BuildTypeStr));
 						}

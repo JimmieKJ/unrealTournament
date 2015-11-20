@@ -10,7 +10,7 @@ public:
 	bool LoadFile(const TCHAR* Filename, int32 SerializationVersion);
 
 	/** Serializers for different package maps */
-	void SerializeNameMap();
+	bool SerializeNameMap();
 	
 	// Farchive implementation to redirect requests to the Loader
 	void Serialize( void* V, int64 Length );

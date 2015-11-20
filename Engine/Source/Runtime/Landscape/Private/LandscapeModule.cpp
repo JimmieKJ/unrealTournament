@@ -6,6 +6,10 @@
 #include "UObjectHash.h"
 #include "Engine/World.h"
 #include "Engine/Level.h"
+#include "LandscapeVersion.h"
+
+// Register the custom version with core
+FCustomVersionRegistration GRegisterLandscapeCustomVersion(FLandscapeCustomVersion::GUID, FLandscapeCustomVersion::LatestVersion, TEXT("Landscape"));
 
 class FLandscapeModule : public IModuleInterface
 {

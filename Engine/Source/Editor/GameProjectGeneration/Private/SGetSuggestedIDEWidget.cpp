@@ -82,3 +82,5 @@ void SGetSuggestedIDEWidget::OnIDEInstallerDownloadComplete(bool bWasSuccessful)
 		IDEDownloadNotification->ExpireAndFadeout();
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

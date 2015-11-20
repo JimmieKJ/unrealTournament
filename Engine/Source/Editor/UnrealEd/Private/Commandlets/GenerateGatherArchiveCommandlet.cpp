@@ -153,6 +153,48 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 
 	ManifestSerializer.DeserializeManifest( ManifestJsonObject.ToSharedRef(), InternationalizationManifest );
 
+	const FString NativeCulturePath = DestinationPath / *(NativeCulture);
+	TArray<FString> NativeArchiveFileNames;
+	IFileManager::Get().FindFiles(NativeArchiveFileNames, *(NativeCulturePath / TEXT("*.archive")), true, false);
+
+	TArray< TSharedPtr<FInternationalizationArchive> > NativeArchives;
+	for (const FString& NativeArchiveFileName : NativeArchiveFileNames)
+	{
+		// Read each archive file from the culture-named directory in the source path.
+		FString ArchiveFilePath = NativeCulturePath / NativeArchiveFileName;
+		ArchiveFilePath = FPaths::ConvertRelativePathToFull(ArchiveFilePath);
+		TSharedRef<FInternationalizationArchive> InternationalizationArchive = MakeShareable(new FInternationalizationArchive);
+
+		FJsonInternationalizationArchiveSerializer ArchiveSerializer;
+#if 0 // @todo Json: Serializing from FArchive is currently broken
+		FArchive* ArchiveFile = IFileManager::Get().CreateFileReader(*ArchiveFilePath);
+
+		if (ArchiveFile == nullptr)
+		{
+			UE_LOG(LogGenerateArchiveCommandlet, Error, TEXT("No archive found at %s."), *ArchiveFilePath);
+			continue;
+		}
+
+		ArchiveSerializer.DeserializeArchive(*ArchiveFile, InternationalizationArchive);
+#else
+		FString ArchiveContent;
+
+		if (!FFileHelper::LoadFileToString(ArchiveContent, *ArchiveFilePath))
+		{
+			UE_LOG(LogGenerateArchiveCommandlet, Error, TEXT("Failed to load file %s."), *ArchiveFilePath);
+			continue;
+		}
+
+		if (!ArchiveSerializer.DeserializeArchive(ArchiveContent, InternationalizationArchive))
+		{
+			UE_LOG(LogGenerateArchiveCommandlet, Error, TEXT("Failed to serialize archive from file %s."), *ArchiveFilePath);
+			continue;
+		}
+#endif
+
+		NativeArchives.Add(InternationalizationArchive);
+	}
+
 	for(int32 Culture = 0; Culture < CulturesToGenerate.Num(); Culture++)
 	{
 		TSharedRef< FInternationalizationArchive > InternationalizationArchive = MakeShareable( new FInternationalizationArchive );
@@ -258,6 +300,39 @@ int32 UGenerateGatherArchiveCommandlet::Main( const FString& Params )
 			}
 
 			ArchiveSerializer.DeserializeArchive( ExistingArchiveJsonObject.ToSharedRef(), OutputInternationalizationArchive );
+
+			if (CulturesToGenerate[Culture] != NativeCulture)
+			{
+				for(TManifestEntryByContextIdContainer::TConstIterator i = InternationalizationManifest->GetEntriesByContextIdIterator(); i; ++i)
+				{
+					// Gather relevant info from manifest entry.
+					const TSharedRef<FManifestEntry>& ManifestEntry = i.Value();
+					const FString& Namespace = ManifestEntry->Namespace;
+					const FLocItem& Source = ManifestEntry->Source;
+					const FString& SourceString = Source.Text;
+					const FString UnescapedSourceString = SourceString;
+					const uint32 SourceStringHash = FCrc::StrCrc32(*UnescapedSourceString);
+					const FString Key = i.Key();
+
+					for (const auto& Context : ManifestEntry->Contexts)
+					{
+						for (const auto& NativeArchive : NativeArchives)
+						{
+							const TSharedPtr<FArchiveEntry> NativeArchiveEntry = NativeArchive->FindEntryBySource(Namespace, Source, Context.KeyMetadataObj);
+							if (NativeArchiveEntry.IsValid() && !NativeArchiveEntry->Source.IsExactMatch(NativeArchiveEntry->Translation))
+							{
+								FLocItem NewSource = NativeArchiveEntry->Translation;
+								ConditionSource(NewSource);
+								FLocItem NewTranslation = NativeArchiveEntry->Translation;
+								ConditionTranslation(NewTranslation);
+								OutputInternationalizationArchive->AddEntry(Namespace, NewSource, NewTranslation, Context.KeyMetadataObj, Context.bIsOptional);
+								break;
+							}
+						}
+					}
+				}
+			}
+
 		}
 
 		if (InternationalizationArchive->GetFormatVersion() < FInternationalizationArchive::EFormatVersion::Latest)

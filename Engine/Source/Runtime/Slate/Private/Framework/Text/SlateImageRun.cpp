@@ -80,6 +80,14 @@ FSlateImageRun::FSlateImageRun( const FRunInfo& InRunInfo, const TSharedRef< con
 	Image = DynamicBrush.Get();
 }
 
+FSlateImageRun::~FSlateImageRun()
+{
+	if (DynamicBrush.IsValid())
+	{
+		DynamicBrush->ReleaseResource();
+	}
+}
+
 const TArray< TSharedRef<SWidget> >& FSlateImageRun::GetChildren() 
 {
 	static TArray< TSharedRef<SWidget> > NoChildren;
@@ -135,7 +143,7 @@ int32 FSlateImageRun::OnPaint( const FPaintArgs& Args, const FTextLayout::FLineV
 
 	if ( Image->DrawAs != ESlateBrushDrawType::NoDrawType )
 	{
-		const FColor FinalColorAndOpacity( InWidgetStyle.GetColorAndOpacityTint() * Image->GetTint( InWidgetStyle ) );
+		const FLinearColor FinalColorAndOpacity( InWidgetStyle.GetColorAndOpacityTint() * Image->GetTint( InWidgetStyle ) );
 		const uint32 DrawEffects = bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 		FSlateDrawElement::MakeBox(
 			OutDrawElements, 

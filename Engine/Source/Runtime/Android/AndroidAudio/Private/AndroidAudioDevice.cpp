@@ -8,8 +8,6 @@
 #include "AndroidAudioDevice.h"
 #include "VorbisAudioInfo.h"
 #include "ADPCMAudioInfo.h"
-#include "AudioEffect.h"
-#include "Engine.h"
 
 DEFINE_LOG_CATEGORY(LogAndroidAudio);
 

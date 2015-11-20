@@ -55,7 +55,7 @@ FPrimitiveSceneProxy* UCapsuleComponent::CreateSceneProxy()
 			}
 		}
 
-		virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+		virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 		{
 			const bool bVisible = !bDrawOnlyIfSelected || IsSelected();
 			FPrimitiveViewRelevance Result;
@@ -109,8 +109,17 @@ void UCapsuleComponent::Serialize(FArchive& Ar)
 			CapsuleHeight_DEPRECATED = 0.0f;
 		}
 	}
+}
 
-	CapsuleHalfHeight = FMath::Max(CapsuleHalfHeight, CapsuleRadius);
+void UCapsuleComponent::PostLoad()
+{
+	Super::PostLoad();
+
+	// Ensure this value is clamped only in the case where we're not re-running construction scripts.
+	if(!GIsReconstructingBlueprintInstances)
+	{
+		CapsuleHalfHeight = FMath::Max3(0.f, CapsuleHalfHeight, CapsuleRadius);
+	}
 }
 
 #if WITH_EDITOR
@@ -122,11 +131,11 @@ void UCapsuleComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 	// things like propagation from CDO to instances don't work correctly if changing one property causes a different property to change
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UCapsuleComponent, CapsuleHalfHeight))
 	{
-		CapsuleHalfHeight = FMath::Max(CapsuleHalfHeight, CapsuleRadius);
+		CapsuleHalfHeight = FMath::Max3(0.f, CapsuleHalfHeight, CapsuleRadius);
 	}
 	else if (PropertyName == GET_MEMBER_NAME_CHECKED(UCapsuleComponent, CapsuleRadius))
 	{
-		CapsuleRadius = FMath::Min(CapsuleHalfHeight, CapsuleRadius);
+		CapsuleRadius = FMath::Clamp(CapsuleRadius, 0.f, CapsuleHalfHeight);
 	}
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -135,17 +144,17 @@ void UCapsuleComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyCh
 
 void UCapsuleComponent::SetCapsuleSize(float NewRadius, float NewHalfHeight, bool bUpdateOverlaps)
 {
-	CapsuleHalfHeight = FMath::Max(NewHalfHeight, NewRadius);
-	CapsuleRadius = NewRadius;
+	CapsuleHalfHeight = FMath::Max3(0.f, NewHalfHeight, NewRadius);
+	CapsuleRadius = FMath::Max(0.f, NewRadius);
+	UpdateBodySetup();
 	MarkRenderStateDirty();
 
 	// do this if already created
 	// otherwise, it hasn't been really created yet
 	if (bPhysicsStateCreated)
 	{
-		DestroyPhysicsState();
-		UpdateBodySetup();
-		CreatePhysicsState();
+		// Update physics engine collision shapes
+		BodyInstance.UpdateBodyScale(ComponentToWorld.GetScale3D(), true);
 
 		if ( bUpdateOverlaps && IsCollisionEnabled() && GetOwner() )
 		{
@@ -161,6 +170,7 @@ void UCapsuleComponent::UpdateBodySetup()
 		ShapeBodySetup = NewObject<UBodySetup>(this);
 		ShapeBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
 		ShapeBodySetup->AggGeom.SphylElems.Add(FKSphylElem());
+		ShapeBodySetup->bNeverNeedsCookedCollisionData = true;
 	}
 
 	check(ShapeBodySetup->AggGeom.SphylElems.Num() == 1);

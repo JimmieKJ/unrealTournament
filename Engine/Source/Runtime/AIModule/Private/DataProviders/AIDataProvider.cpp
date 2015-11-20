@@ -31,16 +31,16 @@ void FAIDataProviderValue::GetMatchingProperties(TArray<FName>& MatchingProperti
 }
 
 template<typename T>
-T* FAIDataProviderValue::GetRawValue() const
+T* FAIDataProviderValue::GetRawValuePtr() const
 {
 	return CachedProperty ? CachedProperty->ContainerPtrToValuePtr<T>(DataBinding) : nullptr;
 }
 
-void FAIDataProviderValue::BindData(UObject* Owner, int32 RequestId) const
+void FAIDataProviderValue::BindData(const UObject* Owner, int32 RequestId) const
 {
-	if (DataBinding)
+	if (DataBinding && ensure(Owner))
 	{
-		DataBinding->BindData(Owner, RequestId);
+		DataBinding->BindData(*Owner, RequestId);
 		CachedProperty = DataBinding->GetClass()->FindPropertyByName(DataField);
 	}
 }
@@ -89,7 +89,7 @@ FAIDataProviderIntValue::FAIDataProviderIntValue()
 
 int32 FAIDataProviderIntValue::GetValue() const
 {
-	int32* PropValue = GetRawValue<int32>();
+	int32* PropValue = GetRawValuePtr<int32>();
 	return PropValue ? *PropValue : DefaultValue;
 }
 
@@ -108,7 +108,7 @@ FAIDataProviderFloatValue::FAIDataProviderFloatValue()
 
 float FAIDataProviderFloatValue::GetValue() const
 {
-	float* PropValue = GetRawValue<float>();
+	float* PropValue = GetRawValuePtr<float>();
 	return PropValue ? *PropValue : DefaultValue;
 }
 
@@ -127,7 +127,7 @@ FAIDataProviderBoolValue::FAIDataProviderBoolValue()
 
 bool FAIDataProviderBoolValue::GetValue() const
 {
-	bool* PropValue = GetRawValue<bool>();
+	bool* PropValue = GetRawValuePtr<bool>();
 	return PropValue ? *PropValue : DefaultValue;
 }
 
@@ -143,7 +143,7 @@ UAIDataProvider::UAIDataProvider(const FObjectInitializer& ObjectInitializer) : 
 {
 }
 
-void UAIDataProvider::BindData(UObject* Owner, int32 RequestId)
+void UAIDataProvider::BindData(const UObject& Owner, int32 RequestId)
 {
 	// empty in base class
 }

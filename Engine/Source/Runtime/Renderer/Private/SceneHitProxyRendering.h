@@ -46,6 +46,7 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		const FHitProxyId HitProxyId,
 		const ContextDataType PolicyContext
 		) const;

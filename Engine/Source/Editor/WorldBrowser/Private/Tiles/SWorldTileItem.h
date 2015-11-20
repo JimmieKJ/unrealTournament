@@ -1,34 +1,33 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-#include "SlateTextures.h"
 #include "GraphEditor.h"
 #include "SNodePanel.h"
-#include "AssetThumbnail.h"
 
-class FTileItemThumbnail : public ISlateViewport, public TSharedFromThis<FTileItemThumbnail>
+class FTileThumbnailCollection;
+
+//----------------------------------------------------------------
+//
+//
+//----------------------------------------------------------------
+class SWorldTileImage : public SImage
 {
+	SLATE_BEGIN_ARGS(SWorldTileImage)
+		: _EditableTile(false)
+	{}
+		SLATE_ATTRIBUTE(bool, EditableTile)
+	SLATE_END_ARGS()
+
 public:
-	FTileItemThumbnail(FSlateTextureRenderTarget2DResource* InThumbnailRenderTarget, TSharedPtr<FLevelModel> InItemModel);
-	~FTileItemThumbnail();
+	void Construct(const FArguments& InArgs)
+	{
+		EditableTile = InArgs._EditableTile;
+	}
 
-	/* ISlateViewport interface */
-	virtual FIntPoint GetSize() const override;
-	virtual class FSlateShaderResource* GetViewportRenderTargetTexture() const override;
-	virtual bool RequiresVsync() const override;
-	
-	/** Request thumbnail redraw*/
-	void UpdateThumbnail();
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 
 private:
-	void UpdateTextureData(FObjectThumbnail* ObjectThumbnail);
-
-private:
-	TSharedPtr<FLevelModel>					LevelModel;
-	/** Rendering resource for slate */
-	FSlateTexture2DRHIRef*					ThumbnailTexture;
-	/** Shared render target for slate */
-	FSlateTextureRenderTarget2DResource*	ThumbnailRenderTarget;
+	TAttribute<bool> EditableTile;
 };
 
 //----------------------------------------------------------------
@@ -45,15 +44,15 @@ public:
 		SLATE_ARGUMENT(TSharedPtr<FWorldTileCollectionModel>, InWorldModel)
 		/** Data for the asset this item represents */
 		SLATE_ARGUMENT(TSharedPtr<FWorldTileModel>, InItemModel)
-		//
-		SLATE_ARGUMENT(FSlateTextureRenderTarget2DResource*, ThumbnailRenderTarget)
+		/** Thumbnails management */
+		SLATE_ARGUMENT(TSharedPtr<FTileThumbnailCollection>, InThumbnailCollection)
 	SLATE_END_ARGS()
 
+	SWorldTileItem();
 	~SWorldTileItem();
 
 	void Construct(const FArguments& InArgs);
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
-	
+		
 	// SNodePanel::SNode interface start
 	virtual FVector2D GetDesiredSizeForMarquee() const override;
 	virtual UObject* GetObjectBeingDisplayed() const override;
@@ -103,26 +102,18 @@ private:
 	FText GetLevelLayerDistanceText() const;
 	
 public:
-	bool							bAffectedByMarquee;
+	bool									bAffectedByMarquee;
 
 private:
 	/** The world data */
-	TSharedPtr<FWorldTileCollectionModel> WorldModel;
-
+	TSharedPtr<FWorldTileCollectionModel>	WorldModel;
 	/** The data for this item */
-	TSharedPtr<FWorldTileModel>		TileModel;
-
-	mutable bool					bNeedRefresh;
-	bool							bIsDragging;
-
-	TSharedPtr<FTileItemThumbnail>	Thumbnail;
-	/** The actual widget for the thumbnail. */
-	TSharedPtr<SViewport>			ThumbnailViewport;
+	TSharedPtr<FWorldTileModel>				TileModel;
 	
-	/** */
-	const FSlateBrush*				ProgressBarImage;
-
-	/** Curve sequence to drive loading animation */
-	FCurveSequence					CurveSequence;
+	TSharedPtr<SWorldTileImage>				ThumbnailImageWidget;	
+	TSharedPtr<FTileThumbnailCollection>	ThumbnailCollection;
+	
+	mutable bool							bNeedRefresh;
+	bool									bIsDragging;
 };
 

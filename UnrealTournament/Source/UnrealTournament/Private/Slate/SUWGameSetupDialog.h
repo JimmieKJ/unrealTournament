@@ -120,7 +120,7 @@ public:
 	, _ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)			
-	SLATE_ARGUMENT(TArray<TWeakObjectPtr<class AUTReplicatedGameRuleset>>, GameRuleSets)
+	SLATE_ARGUMENT(TArray<class AUTReplicatedGameRuleset*>, GameRuleSets)
 	SLATE_ARGUMENT(FText, DialogTitle)											
 	SLATE_ARGUMENT(FVector2D, DialogSize)										
 	SLATE_ARGUMENT(bool, bDialogSizeIsRelative)									
@@ -151,7 +151,7 @@ public:
 
 protected:
 
-	TArray<TWeakObjectPtr<class AUTReplicatedGameRuleset>> GameRulesets;
+	TArray<class AUTReplicatedGameRuleset*> GameRulesets;
 
 	// When created from a hub, this will be valid.
 	TWeakObjectPtr<class AUTLobbyMatchInfo> TargetMatchInfo;

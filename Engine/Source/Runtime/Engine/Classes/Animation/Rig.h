@@ -65,12 +65,12 @@ namespace EControlConstraint
 		Orientation,
 		/** Translation constraint. */
 		Translation,
-		/** Max Number */
+		/** Max Number. */
 		Max
 	};
 }
 
-/** Constraint Transform Type. - currently unused*/
+/** Constraint Transform Type. - currently unused */
 UENUM()
 namespace EConstraintTransform
 {
@@ -151,9 +151,9 @@ private:
 public:
 
 #if WITH_EDITOR
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	// node related functions
 	int32 GetNodeNum() const;

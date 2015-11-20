@@ -16,22 +16,31 @@ public:
 	: _FilterMetaData()
 	, _DefaultProperty(nullptr)
 	{}
-		SLATE_ARGUMENT(FString, FilterMetaData)
-		SLATE_ARGUMENT(UProperty*, DefaultProperty)
-		SLATE_EVENT(FOnAttributeChanged, OnAttributeChanged) // Called when a tag status changes
+	SLATE_ARGUMENT(FString, FilterMetaData)
+	SLATE_ARGUMENT(UProperty*, DefaultProperty)
+	SLATE_EVENT(FOnAttributeChanged, OnAttributeChanged) // Called when a tag status changes
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);	
 
 private:
 
-	void OnChangeProperty(TSharedPtr<FString> ItemSelected, ESelectInfo::Type SelectInfo);
+	TSharedRef<SWidget> GenerateAttributePicker();
 
+	FText GetSelectedValueAsString() const;
+
+	/** Handles updates when the selected attribute changes */
+	void OnAttributePicked(UProperty* InProperty);
+
+	/** Delegate to call when the selected attribute changes */
 	FOnAttributeChanged OnAttributeChanged;
 
+	/** The search string being used to filter the attributes */
 	FString FilterMetaData;
 
-	TArray<TSharedPtr<FString>> PropertyOptions;
-
+	/** The currently selected attribute */
 	UProperty* SelectedProperty;
+
+	/** Used to display an attribute picker. */
+	TSharedPtr<class SComboButton> ComboButton;
 };

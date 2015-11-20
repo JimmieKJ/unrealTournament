@@ -409,7 +409,7 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 		AUTTeamGameMode* TeamGame = Cast<AUTTeamGameMode>(CurrentRuleset->GetDefaultGameModeObject());
 		if (TeamGame != NULL)
 		{
-			bool bBalanceTeams = AUTBaseGameMode::EvalBoolOptions(TeamGame->ParseOption(CurrentRuleset->GameOptions, TEXT("BalanceTeams")), TeamGame->bBalanceTeams);
+			bool bBalanceTeams = AUTBaseGameMode::EvalBoolOptions(UGameplayStatics::ParseOption(CurrentRuleset->GameOptions, TEXT("BalanceTeams")), TeamGame->bBalanceTeams);
 			if (bBalanceTeams)
 			{
 				 // don't allow starting if the teams aren't balanced
@@ -508,7 +508,7 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 	{
 		for (int32 i=0;i<Players.Num();i++)
 		{
-			if (Players[i].IsValid() && !Players[i]->bPendingKillPending)	//  Just in case.. they shouldn't be here anyway..
+			if (Players[i].IsValid() && !Players[i]->IsPendingKillPending())	//  Just in case.. they shouldn't be here anyway..
 			{
 				// Tell the client to connect to the instance
 
@@ -672,7 +672,7 @@ void AUTLobbyMatchInfo::SetRedirects()
 		{
 			Redirects.Add(Redirect);
 		}
-		FString AllMutators = BaseGame->ParseOption(CurrentRuleset->GameOptions, TEXT("Mutator"));
+		FString AllMutators = UGameplayStatics::ParseOption(CurrentRuleset->GameOptions, TEXT("Mutator"));
 		while (AllMutators.Len() > 0)
 		{
 			FString MutPath;

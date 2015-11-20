@@ -32,7 +32,7 @@ struct FBlackboardEntry
 	bool operator==(const FBlackboardEntry& Other) const;
 };
 
-UCLASS(AutoExpandCategories=(Blackboard))
+UCLASS(BlueprintType, AutoExpandCategories=(Blackboard))
 class AIMODULE_API UBlackboardData : public UDataAsset
 {
 	GENERATED_UCLASS_BODY()

@@ -19,7 +19,7 @@ class FPostProcessNoiseBlurPS : public FGlobalShader
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
-		return true;
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
@@ -129,7 +129,7 @@ void FRCPassPostProcessNoiseBlur::Process(FRenderingCompositePassContext& Contex
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = GSceneRenderTargets.GetBufferSizeXY().X / SrcSize.X;
+	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
 
 	FIntRect SrcRect = View.ViewRect / ScaleFactor;
 	FIntRect DestRect = SrcRect;
@@ -162,9 +162,9 @@ void FRCPassPostProcessNoiseBlur::Process(FRenderingCompositePassContext& Contex
 		SetNoiseBlurShader<2>(Context, Radius);
 	}
 
-	// Draw a quad mapping scene color to the view's render target
 	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
-	DrawRectangle(
+
+	DrawPostProcessPass(
 		Context.RHICmdList,
 		DestRect.Min.X, DestRect.Min.Y,
 		DestRect.Width(), DestRect.Height(),
@@ -173,6 +173,8 @@ void FRCPassPostProcessNoiseBlur::Process(FRenderingCompositePassContext& Contex
 		DestSize,
 		SrcSize,
 		*VertexShader,
+		View.StereoPass,
+		Context.HasHmdMesh(),
 		EDRF_UseTriangleOptimization);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
@@ -181,7 +183,7 @@ void FRCPassPostProcessNoiseBlur::Process(FRenderingCompositePassContext& Contex
 
 FPooledRenderTargetDesc FRCPassPostProcessNoiseBlur::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
 

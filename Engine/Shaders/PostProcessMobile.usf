@@ -47,8 +47,16 @@ half2 SunConstDepthMaskScaleBias()
 	return half2(Scale,-DepthMin * Scale);
 }
 
+// Note: alpha is preserved when no encoding is active.
+float4 HDREncode(float4 color)
+{
+	return Encode32BPPHDR(color, float2(0, 0));
+}
 
-
+float3 HDRDecode(float4 encodedhdr)
+{
+	return Decode32BPPHDR(encodedhdr);
+}
 
 //
 // Convert depth in alpha into combined circle of confusion and sun intensity.
@@ -138,6 +146,11 @@ void BloomPS_ES2(
 	half4 C2 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2]);
 	half4 C3 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3]);
 
+	C0.rgb = HDRDecode(C0);
+	C1.rgb = HDRDecode(C1);
+	C2.rgb = HDRDecode(C2);
+	C3.rgb = HDRDecode(C3);
+
 	// Output color is average.
 	OutColor.rgb = (C0.rgb * 0.25) + (C1.rgb * 0.25) + (C2.rgb * 0.25) + (C3.rgb * 0.25);
 
@@ -189,6 +202,8 @@ void BloomPS_ES2(
 		Amount *= 0.25;
 		OutColor.a += (Sun0 * Amount) + (Sun1 * Amount) + (Sun2 * Amount) + (Sun3 * Amount);
 	#endif
+
+	OutColor = HDREncode(OutColor);
 }
 
 
@@ -321,39 +336,40 @@ void BloomDownPS_ES2(
 	out half4 OutColor : SV_Target0
 	)
 {
-	half3 N0 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[0].xy).rgb;
-	half3 N1 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[0].zw).rgb;
-	half3 N2 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[1].xy).rgb;
-	half3 N3 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[1].zw).rgb;
-	half3 N4 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2].xy).rgb;
-	half3 N5 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2].zw).rgb;
-	half3 N6 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3].xy).rgb;
-	half3 N7 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3].zw).rgb;
-	half3 N8 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[4].xy).rgb;
-	half3 N9 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[4].zw).rgb;
-	half3 N10 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[5].xy).rgb;
-	half3 N11 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[5].zw).rgb;
-	half3 N12 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[6].xy).rgb;
-	half3 N13 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[6].zw).rgb;
-	half3 N14 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[7].xy).rgb;
-
+	half4 N0 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[0].xy).rgba;
+	half4 N1 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[0].zw).rgba;
+	half4 N2 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[1].xy).rgba;
+	half4 N3 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[1].zw).rgba;
+	half4 N4 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2].xy).rgba;
+	half4 N5 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2].zw).rgba;
+	half4 N6 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3].xy).rgba;
+	half4 N7 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3].zw).rgba;
+	half4 N8 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[4].xy).rgba;
+	half4 N9 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[4].zw).rgba;
+	half4 N10 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[5].xy).rgba;
+	half4 N11 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[5].zw).rgba;
+	half4 N12 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[6].xy).rgba;
+	half4 N13 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[6].zw).rgba;
+	half4 N14 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[7].xy).rgba;
 	half W = 1.0/15.0;
 	OutColor.rgb = 
-		(N0 * W) +
-		(N1 * W) +
-		(N2 * W) +
-		(N3 * W) +
-		(N4 * W) +
-		(N5 * W) +
-		(N6 * W) +
-		(N7 * W) +
-		(N8 * W) +
-		(N9 * W) +
-		(N10 * W) +
-		(N11 * W) +
-		(N12 * W) +
-		(N13 * W) +
-		(N14 * W);
+		(HDRDecode(N0) * W) +
+		(HDRDecode(N1) * W) +
+		(HDRDecode(N2) * W) +
+		(HDRDecode(N3) * W) +
+		(HDRDecode(N4) * W) +
+		(HDRDecode(N5) * W) +
+		(HDRDecode(N6) * W) +
+		(HDRDecode(N7) * W) +
+		(HDRDecode(N8) * W) +
+		(HDRDecode(N9) * W) +
+		(HDRDecode(N10) * W) +
+		(HDRDecode(N11) * W) +
+		(HDRDecode(N12) * W) +
+		(HDRDecode(N13) * W) +
+		(HDRDecode(N14) * W);
+
+	OutColor = HDREncode(OutColor);
 }
 
 
@@ -410,23 +426,23 @@ void BloomUpPS_ES2(
 	out half4 OutColor : SV_Target0
 	)
 {
-	half3 A0 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[0].xy).rgb;
-	half3 A1 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[0].zw).rgb;
-	half3 A2 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[1].xy).rgb;
-	half3 A3 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[1].zw).rgb;
-	half3 A4 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2].xy).rgb;
-	half3 A5 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2].zw).rgb;
-	half3 A6 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3].xy).rgb;
-	half3 A7 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3].zw).rgb;
+	half3 A0 = HDRDecode(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[0].xy).rgba);
+	half3 A1 = HDRDecode(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[0].zw).rgba);
+	half3 A2 = HDRDecode(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[1].xy).rgba);
+	half3 A3 = HDRDecode(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[1].zw).rgba);
+	half3 A4 = HDRDecode(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2].xy).rgba);
+	half3 A5 = HDRDecode(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[2].zw).rgba);
+	half3 A6 = HDRDecode(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3].xy).rgba);
+	half3 A7 = HDRDecode(PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs[3].zw).rgba);
 
-	half3 B0 = PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[3].zw).rgb;
-	half3 B1 = PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[4].xy).rgb;
-	half3 B2 = PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[4].zw).rgb;
-	half3 B3 = PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[5].xy).rgb;
-	half3 B4 = PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[5].zw).rgb;
-	half3 B5 = PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[6].xy).rgb;
-	half3 B6 = PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[6].zw).rgb;
-	half3 B7 = PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[7].xy).rgb;
+	half3 B0 = HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[3].zw).rgba);
+	half3 B1 = HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[4].xy).rgba);
+	half3 B2 = HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[4].zw).rgba);
+	half3 B3 = HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[5].xy).rgba);
+	half3 B4 = HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[5].zw).rgba);
+	half3 B5 = HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[6].xy).rgba);
+	half3 B6 = HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[6].zw).rgba);
+	half3 B7 = HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[7].xy).rgba);
 
 	// A is the same size source.
 	half3 WA = BloomTintA.rgb;
@@ -450,6 +466,8 @@ void BloomUpPS_ES2(
 		B5 * WB + 
 		B6 * WB + 
 		B7 * WB;
+
+	OutColor = HDREncode(OutColor);
 }
 
 
@@ -481,7 +499,7 @@ void DofNearVS_ES2(
 void DofNearPS_ES2(
 	float2 InUVs2 : TEXCOORD0,
 	float4 InUVs[4] : TEXCOORD1,
-	out half OutColor : SV_Target0
+	out half4 OutColor : SV_Target0
 	)
 {
 	half N0 = PostprocessInput0.Sample(PostprocessInput0Sampler, InUVs2).a;
@@ -519,8 +537,9 @@ void DofNearPS_ES2(
 	#endif
 
 	// The first sample is 1/4 the size as the rest of the samples.
-	OutColor = (N0 * 0.25 + N1 + N2 + N3 + N4 + N5 + N6 + N7 + N8) / 8.25;
-	if(OutColor > 0.0) OutColor = sqrt(OutColor);
+	half Out = (N0 * 0.25 + N1 + N2 + N3 + N4 + N5 + N6 + N7 + N8) / 8.25;
+	if(Out > 0.0) Out = sqrt(Out);
+	OutColor.r = Out;
 }
 
 
@@ -914,15 +933,15 @@ void SunMergePS_ES2(
 		float Scale2 = 1.0/7.0;
 
 		half3 Bloom2 = (
-			PostprocessInput1.Sample(PostprocessInput1Sampler, InUVVignette.xy).rgb * Scale1 + 
-			PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[0].xy).rgb * Scale2 + 
-			PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[1].xy).rgb * Scale2 +
-			PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[2].xy).rgb * Scale2 + 
-			PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[3].xy).rgb * Scale2 + 
-			PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[4].xy).rgb * Scale2 + 
-			PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[5].xy).rgb * Scale2) * rcp(Scale1 * 1.0 + Scale2 * 6.0);
+			HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVVignette.xy).rgba) *Scale1 +
+			HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[0].xy).rgba) * Scale2 +
+			HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[1].xy).rgba) * Scale2 +
+			HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[2].xy).rgba) * Scale2 +
+			HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[3].xy).rgba) * Scale2 +
+			HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[4].xy).rgba) * Scale2 +
+			HDRDecode(PostprocessInput1.Sample(PostprocessInput1Sampler, InUVs[5].xy).rgba) * Scale2) * rcp(Scale1 * 1.0 + Scale2 * 6.0);
 
-		OutColor.rgb =	PostprocessInput2.Sample(PostprocessInput2Sampler, InUVVignette.xy).rgb;
+		OutColor.rgb = HDRDecode(PostprocessInput2.Sample(PostprocessInput2Sampler, InUVVignette.xy));
 
 		OutColor.rgb += Bloom2 * BloomColor;
 
@@ -951,6 +970,8 @@ void SunMergePS_ES2(
 
 	OutColor.a = Vignette;
 	OutColor.rgb *= OutColor.a;
+
+	OutColor = HDREncode(OutColor);
 }
 
 #undef SUN_P0

@@ -14,7 +14,7 @@ float4 EyeAdapationTemporalParams;
 // the last frames eye adaptation settings
 Texture2D EyeAdaptationTexture;
 
-void MainPS(float4 UVAndScreenPos : TEXCOORD0, float4 SVPos: SV_POSITION, out float4 OutColor : SV_Target0)
+void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition: SV_POSITION, out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 
@@ -27,7 +27,7 @@ void MainPS(float4 UVAndScreenPos : TEXCOORD0, float4 SVPos: SV_POSITION, out fl
 		SceneColor += Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV + float2(0, y * PostprocessInput0Size.w));
 	}
 
-	if(SVPos.y < 1.0f)
+	if(SvPosition.y < 1.0f)
 	{
 		// line 0: histogram
 		OutColor = SceneColor / LoopSize;

@@ -5,6 +5,13 @@
 #include "Editor/UnrealEd/Public/Toolkits/BaseToolkit.h"
 #include "SCompoundWidget.h"
 
+// Forward declarations
+class FAssetThumbnailPool;
+class FAssetThumbnail;
+class SLandscapeEditor;
+struct FPropertyAndParent;
+class IDetailsView;
+
 /**
  * Slate widget wrapping an FAssetThumbnail and Viewport
  */
@@ -16,7 +23,7 @@ public:
 		SLATE_ARGUMENT( FIntPoint, ThumbnailSize )
 	SLATE_END_ARGS()
 
-	void Construct(const FArguments& InArgs, UObject* Asset, TSharedRef<class FAssetThumbnailPool> ThumbnailPool);
+	void Construct(const FArguments& InArgs, UObject* Asset, TSharedRef<FAssetThumbnailPool> ThumbnailPool);
 	~SLandscapeAssetThumbnail();
 
 	void SetAsset(UObject* Asset);
@@ -24,7 +31,7 @@ public:
 private:
 	void OnMaterialCompilationFinished(UMaterialInterface* MaterialInterface);
 
-	TSharedPtr<class FAssetThumbnail> AssetThumbnail;
+	TSharedPtr<FAssetThumbnail> AssetThumbnail;
 };
 
 /**
@@ -42,15 +49,31 @@ public:
 	/** IToolkit interface */
 	virtual FName GetToolkitFName() const override;
 	virtual FText GetBaseToolkitName() const override;
-	virtual class FEdModeLandscape* GetEditorMode() const override;
-	virtual TSharedPtr<class SWidget> GetInlineContent() const override;
+	virtual FEdModeLandscape* GetEditorMode() const override;
+	virtual TSharedPtr<SWidget> GetInlineContent() const override;
 
 	void NotifyToolChanged();
 	void NotifyBrushChanged();
 
+protected:
+	void OnChangeMode(FName ModeName);
+	bool IsModeEnabled(FName ModeName) const;
+	bool IsModeActive(FName ModeName) const;
+
+	void OnChangeTool(FName ToolName);
+	bool IsToolEnabled(FName ToolName) const;
+	bool IsToolActive(FName ToolName) const;
+
+	void OnChangeBrushSet(FName BrushSetName);
+	bool IsBrushSetEnabled(FName BrushSetName) const;
+	bool IsBrushSetActive(FName BrushSetName) const;
+
+	void OnChangeBrush(FName BrushName);
+	bool IsBrushActive(FName BrushName) const;
+
 private:
 	/** Geometry tools widget */
-	TSharedPtr<class SLandscapeEditor> LandscapeEditorWidgets;
+	TSharedPtr<SLandscapeEditor> LandscapeEditorWidgets;
 };
 
 /**
@@ -74,16 +97,10 @@ protected:
 
 	bool GetLandscapeEditorIsEnabled() const;
 
-	bool GetIsPropertyVisible(const struct FPropertyAndParent& PropertyAndParent) const;
-
-	void OnChangeMode(FName ModeName);
-	bool IsModeEnabled(FName ModeName) const;
-	bool IsModeActive(FName ModeName) const;
+	bool GetIsPropertyVisible(const FPropertyAndParent& PropertyAndParent) const;
 
 protected:
-	// Command list bound to this window
-	TSharedPtr<FUICommandList> CommandList;
 	TSharedPtr<SErrorText> Error;
 
-	TSharedPtr<class IDetailsView> DetailsPanel;
+	TSharedPtr<IDetailsView> DetailsPanel;
 };

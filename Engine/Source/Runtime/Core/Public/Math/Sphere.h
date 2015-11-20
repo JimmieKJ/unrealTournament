@@ -71,7 +71,7 @@ public:
 	 */
 	bool Equals( const FSphere& Sphere, float Tolerance = KINDA_SMALL_NUMBER ) const
 	{
-		return Center.Equals(Sphere.Center, Tolerance) && FMath::Abs(W - Sphere.W) < Tolerance;
+		return Center.Equals(Sphere.Center, Tolerance) && FMath::Abs(W - Sphere.W) <= Tolerance;
 	}
 
 	/**

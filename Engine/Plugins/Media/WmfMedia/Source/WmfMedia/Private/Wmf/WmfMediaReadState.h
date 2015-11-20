@@ -23,7 +23,7 @@ public:
 	 * @param InReadBuffer The buffer that receives the read data.
 	 * @param InReadBufferSize The size of the read buffer.
 	 */
-	FWmfMediaReadState( BYTE* InReadBuffer, ULONG InReadBufferSize )
+	FWmfMediaReadState(BYTE* InReadBuffer, ULONG InReadBufferSize)
 		: BytesRead(0)
 		, ReadBuffer(InReadBuffer)
 		, ReadBufferSize(InReadBufferSize)
@@ -40,7 +40,7 @@ public:
 	 *
 	 * @param BytesToAdd The number of bytes to add.
 	 */
-	void AddBytesRead( uint64 BytesToAdd )
+	void AddBytesRead(uint64 BytesToAdd)
 	{
 		BytesRead += BytesToAdd;
 	}
@@ -79,7 +79,11 @@ public:
 
 	// IUnknown interface
 
-	STDMETHODIMP QueryInterface( REFIID RefID, void** Object )
+#if _MSC_VER == 1900
+#pragma warning(push)
+#pragma warning(disable:4838)
+#endif // _MSC_VER == 1900
+	STDMETHODIMP QueryInterface(REFIID RefID, void** Object)
 	{
 		static const QITAB QITab[] =
 		{
@@ -89,13 +93,16 @@ public:
 
 		return QISearch( this, QITab, RefID, Object );
 	}
+#if _MSC_VER == 1900
+#pragma warning(pop)
+#endif // _MSC_VER == 1900
 
 	STDMETHODIMP_(ULONG) AddRef()
 	{
 		return FPlatformAtomics::InterlockedIncrement(&RefCount);
 	}
 
-	STDMETHODIMP_( ULONG ) Release()
+	STDMETHODIMP_(ULONG) Release()
 	{
 		int32 CurrentRefCount = FPlatformAtomics::InterlockedDecrement(&RefCount);
 	

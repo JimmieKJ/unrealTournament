@@ -90,6 +90,16 @@ inline FVector FVector::PointPlaneProject(const FVector& Point, const FVector& A
 	return Point - Plane.PlaneDot(Point) * Plane;
 }
 
+FORCEINLINE_DEBUGGABLE FRotator FVector::Rotation() const
+{
+	return ToOrientationRotator();
+}
+
+FORCEINLINE_DEBUGGABLE FRotator FVector4::Rotation() const
+{
+	return ToOrientationRotator();
+}
+
 inline FPlane FPlane::TransformBy( const FMatrix& M ) const
 {
 	const FMatrix tmpTA = M.TransposeAdjoint();
@@ -394,6 +404,46 @@ inline FVector FMath::VRand()
 	return Result * (1.0f / Sqrt(L));
 }
 
+FORCEINLINE float FMath::RoundFromZero(float F)
+{
+	return (F < 0.0f) ? FloorToFloat(F) : CeilToFloat(F);
+}
+
+FORCEINLINE double FMath::RoundFromZero(double F)
+{
+	return (F < 0.0) ? FloorToDouble(F) : CeilToDouble(F);
+}
+
+FORCEINLINE float FMath::RoundToZero(float F)
+{
+	return (F < 0.0f) ? CeilToFloat(F) : FloorToFloat(F);
+}
+
+FORCEINLINE double FMath::RoundToZero(double F)
+{
+	return (F < 0.0) ? CeilToDouble(F) : FloorToDouble(F);
+}
+
+FORCEINLINE float FMath::RoundToNegativeInfinity(float F)
+{
+	return FloorToFloat(F);
+}
+
+FORCEINLINE double FMath::RoundToNegativeInfinity(double F)
+{
+	return FloorToDouble(F);
+}
+
+FORCEINLINE float FMath::RoundToPositiveInfinity(float F)
+{
+	return CeilToFloat(F);
+}
+
+FORCEINLINE double FMath::RoundToPositiveInfinity(double F)
+{
+	return CeilToDouble(F);
+}
+
 inline FString FMath::FormatIntToHumanReadable(int32 Val)
 {
 	FString Src = *FString::Printf( TEXT("%i"), Val );
@@ -420,7 +470,7 @@ inline FString FMath::FormatIntToHumanReadable(int32 Val)
 template<class U>
 FORCEINLINE_DEBUGGABLE FRotator FMath::Lerp( const FRotator& A, const FRotator& B, const U& Alpha)
 {
-	return A + (B - A).GetNormalized() * Alpha;
+	return (A * (1 - Alpha) + B * Alpha).GetNormalized();
 }
 
 
@@ -436,12 +486,10 @@ FORCEINLINE_DEBUGGABLE FQuat FMath::BiLerp(const FQuat& P00, const FQuat& P10, c
 	FQuat Result;
 
 	Result = Lerp(
-		Lerp(P00,P10,FracX),
-		Lerp(P01,P11,FracX),
+		FQuat::Slerp_NotNormalized(P00,P10,FracX),
+		FQuat::Slerp_NotNormalized(P01,P11,FracX),
 		FracY
 		);
-
-	Result.Normalize();
 
 	return Result;
 }

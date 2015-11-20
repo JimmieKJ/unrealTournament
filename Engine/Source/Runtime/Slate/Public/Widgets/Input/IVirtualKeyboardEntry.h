@@ -13,6 +13,12 @@ enum EKeyboardType
 	Keyboard_AlphaNumeric,
 };
 
+enum class ESetTextType : uint8
+{
+	Changed,
+	Commited
+};
+
 class SLATE_API IVirtualKeyboardEntry
 {
 
@@ -21,8 +27,10 @@ public:
 	* Sets the text to that entered by the virtual keyboard
 	*
 	* @param  InNewText  The new text
+	* @param SetTextType Set weather we want to send a TextChanged event after or a TextCommitted event
+	* @param CommitType If we are sending a TextCommitted event, what commit type is it
 	*/
-	virtual void SetTextFromVirtualKeyboard(const FText& InNewText) = 0;
+	virtual void SetTextFromVirtualKeyboard(const FText& InNewText, ESetTextType SetTextType, ETextCommit::Type CommitType) = 0;
 	
 	/**
 	* Returns the text.

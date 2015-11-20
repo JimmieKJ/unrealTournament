@@ -54,7 +54,7 @@ void FSlateD3D11RenderingPolicy::InitResources()
 	SamplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
 	SamplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
 	SamplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
-	SamplerDesc.MaxAnisotropy = 0;
+	SamplerDesc.MaxAnisotropy = 1;
 	SamplerDesc.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	SamplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
 	SamplerDesc.MinLOD = 0;
@@ -153,68 +153,62 @@ void FSlateD3D11RenderingPolicy::ReleaseResources()
 	delete PixelShader;
 }
 
-void FSlateD3D11RenderingPolicy::UpdateBuffers( const FSlateWindowElementList& InElementList )
+void FSlateD3D11RenderingPolicy::UpdateVertexAndIndexBuffers( FSlateBatchData& InBatchData )
 {	
-	const TArray<FSlateVertex>& Vertices = InElementList.GetBatchedVertices();
-	const TArray<SlateIndex>& Indices = InElementList.GetBatchedIndices();
-
-	if( Vertices.Num() )
+	if( InBatchData.GetRenderBatches().Num() > 0 )
 	{
-		uint32 NumVertices = Vertices.Num();
-	
-		// resize if needed
-		if( NumVertices*sizeof(FSlateVertex) > VertexBuffer.GetBufferSize() )
+		if( InBatchData.GetNumBatchedVertices() > 0 )
 		{
-			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateResizeRenderBuffers);
-			uint32 NumBytesNeeded = NumVertices*sizeof(FSlateVertex);
-			// increase by a static size.
-			// @todo make this better
-			VertexBuffer.ResizeBuffer( NumBytesNeeded + 200*sizeof(FSlateVertex) );
+			uint32 NumVertices = InBatchData.GetNumBatchedVertices();
+	
+			// resize if needed
+			if( NumVertices*sizeof(FSlateVertex) > VertexBuffer.GetBufferSize() )
+			{
+				SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateResizeRenderBuffers);
+				uint32 NumBytesNeeded = NumVertices*sizeof(FSlateVertex);
+				// increase by a static size.
+				// @todo make this better
+				VertexBuffer.ResizeBuffer( NumBytesNeeded + 200*sizeof(FSlateVertex) );
+			}
+
+		
 		}
 
-		void* VerticesPtr = nullptr;
+		if( InBatchData.GetNumBatchedIndices() > 0 )
+		{
+			uint32 NumIndices = InBatchData.GetNumBatchedIndices();
+
+			// resize if needed
+			if( NumIndices > IndexBuffer.GetMaxNumIndices() )
+			{
+				SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateResizeRenderBuffers);
+				// increase by a static size.
+				// @todo make this better
+				IndexBuffer.ResizeBuffer( NumIndices + 100 );
+			}
+
+	
+		}
+
+		uint8* VerticesPtr = nullptr;
+		uint8* IndicesPtr = nullptr;
 		{
 			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateLockRenderBuffers);
-			VerticesPtr = VertexBuffer.Lock(0);
+			VerticesPtr = (uint8*)VertexBuffer.Lock(0);
+			IndicesPtr = (uint8*)IndexBuffer.Lock(0);
 		}
+	
 		{
 			SLATE_CYCLE_COUNTER_SCOPE(GSlateMemCopyRenderBuffers);
-			FMemory::Memcpy(VerticesPtr, Vertices.GetData(), sizeof(FSlateVertex)*NumVertices);
+			InBatchData.FillVertexAndIndexBuffer( VerticesPtr, IndicesPtr );
 		}
 
 		{
 			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateUnlockRenderBuffers);
 			VertexBuffer.Unlock();
-		}
-	}
-
-	if( Indices.Num() )
-	{
-		uint32 NumIndices = Indices.Num();
-
-		// resize if needed
-		if( NumIndices > IndexBuffer.GetMaxNumIndices() )
-		{
-			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateResizeRenderBuffers);
-			// increase by a static size.
-			// @todo make this better
-			IndexBuffer.ResizeBuffer( NumIndices + 100 );
-		}
-
-		void* IndicesPtr = nullptr;
-		{
-			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateLockRenderBuffers);
-			IndicesPtr = IndexBuffer.Lock(0);
-		}
-		{
-			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateMemCopyRenderBuffers);
-			FMemory::Memcpy(IndicesPtr, Indices.GetData(), sizeof(SlateIndex)*NumIndices);
-		}
-
-		{
-			SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_FULL, GSlateUnlockRenderBuffers);
 			IndexBuffer.Unlock();
 		}
+
 	}
 }
 

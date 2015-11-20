@@ -40,11 +40,6 @@ IOnlineUserCloudPtr FOnlineSubsystemNull::GetUserCloudInterface() const
 	return nullptr;
 }
 
-IOnlineUserCloudPtr FOnlineSubsystemNull::GetUserCloudInterface(const FString& Key) const
-{
-	return nullptr;
-}
-
 IOnlineEntitlementsPtr FOnlineSubsystemNull::GetEntitlementsInterface() const
 {
 	return nullptr;
@@ -159,7 +154,7 @@ bool FOnlineSubsystemNull::Init()
 		// Create the online async task thread
 		OnlineAsyncTaskThreadRunnable = new FOnlineAsyncTaskManagerNull(this);
 		check(OnlineAsyncTaskThreadRunnable);
-		OnlineAsyncTaskThread = FRunnableThread::Create(OnlineAsyncTaskThreadRunnable, TEXT("OnlineAsyncTaskThreadNull"), 128 * 1024, TPri_Normal);
+		OnlineAsyncTaskThread = FRunnableThread::Create(OnlineAsyncTaskThreadRunnable, *FString::Printf(TEXT("OnlineAsyncTaskThreadNull %s"), *InstanceName.ToString()), 128 * 1024, TPri_Normal);
 		check(OnlineAsyncTaskThread);
 		UE_LOG_ONLINE(Verbose, TEXT("Created thread (ID:%d)."), OnlineAsyncTaskThread->GetThreadID());
 
@@ -185,6 +180,8 @@ bool FOnlineSubsystemNull::Shutdown()
 {
 	UE_LOG_ONLINE(Display, TEXT("FOnlineSubsystemNull::Shutdown()"));
 
+	FOnlineSubsystemImpl::Shutdown();
+
 	if (OnlineAsyncTaskThread)
 	{
 		// Destroy the online async task thread
@@ -196,6 +193,11 @@ bool FOnlineSubsystemNull::Shutdown()
 	{
 		delete OnlineAsyncTaskThreadRunnable;
 		OnlineAsyncTaskThreadRunnable = nullptr;
+	}
+
+	if (VoiceInterface.IsValid())
+	{
+		VoiceInterface->Shutdown();
 	}
 	
  	#define DESTRUCT_INTERFACE(Interface) \

@@ -39,7 +39,7 @@ FSingleTileEditorViewportClient::FSingleTileEditorViewportClient(UPaperTileSet* 
 	((FAssetEditorModeManager*)ModeTools)->SetPreviewScene(PreviewScene);
 
 	EngineShowFlags.DisableAdvancedFeatures();
-	EngineShowFlags.CompositeEditorPrimitives = true;
+	EngineShowFlags.SetCompositeEditorPrimitives(true);
 
 	// Create a render component for the tile preview
 	PreviewTileSpriteComponent = NewObject<UPaperSpriteComponent>();

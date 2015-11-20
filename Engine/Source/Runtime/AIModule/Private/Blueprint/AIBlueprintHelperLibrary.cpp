@@ -18,6 +18,7 @@ UAIAsyncTaskBlueprintProxy::UAIAsyncTaskBlueprintProxy(const FObjectInitializer&
 	MyWorld = Cast<UWorld>(GetOuter());
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
+		SetFlags(RF_StrongRefOnFrame);
 		UAISystem* const AISystem = UAISystem::GetCurrentSafe(MyWorld.Get());
 		if (AISystem)
 		{
@@ -139,7 +140,8 @@ APawn* UAIBlueprintHelperLibrary::SpawnAIFromClass(UObject* WorldContextObject, 
 	if (World && *PawnClass)
 	{
 		FActorSpawnParameters ActorSpawnParams;
-		ActorSpawnParams.bNoCollisionFail = bNoCollisionFail;
+		ActorSpawnParams.SpawnCollisionHandlingOverride = bNoCollisionFail ? ESpawnActorCollisionHandlingMethod::AlwaysSpawn : ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+
 		NewPawn = World->SpawnActor<APawn>(*PawnClass, Location, Rotation, ActorSpawnParams);
 
 		if (NewPawn != NULL)

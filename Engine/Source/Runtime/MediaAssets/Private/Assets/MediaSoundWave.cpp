@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaAssetsPrivatePCH.h"
-#include "IMediaTrackAudioDetails.h"
+#include "IMediaAudioTrack.h"
 #include "MediaSampleQueue.h"
 #include "MediaSoundWave.h"
 
@@ -11,22 +11,14 @@
 
 UMediaSoundWave::UMediaSoundWave( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
+	, AudioTrackIndex(INDEX_NONE)
 	, AudioQueue(MakeShareable(new FMediaSampleQueue))
 {
+	bSetupDelegates = false;
 	bLooping = false;
 	bProcedural = true;
 	Duration = INDEFINITELY_LOOPING_DURATION;
 }
-
-
-UMediaSoundWave::~UMediaSoundWave()
-{
-	if (AudioTrack.IsValid())
-	{
-		AudioTrack->RemoveSink(AudioQueue);
-	}
-}
-
 
 /* UMediaSoundWave interface
  *****************************************************************************/
@@ -136,6 +128,23 @@ void UMediaSoundWave::PostLoad()
 	}
 }
 
+void UMediaSoundWave::BeginDestroy()
+{
+	Super::BeginDestroy();
+
+	if (AudioTrack.IsValid())
+	{
+		AudioTrack->GetStream().RemoveSink(AudioQueue);
+		AudioTrack.Reset();
+	}
+
+	if (CurrentMediaPlayer.IsValid())
+	{
+		CurrentMediaPlayer->OnTracksChanged().RemoveAll(this);
+		CurrentMediaPlayer.Reset();
+	}
+}
+
 
 /* UMediaSoundWave implementation
  *****************************************************************************/
@@ -143,25 +152,26 @@ void UMediaSoundWave::PostLoad()
 void UMediaSoundWave::InitializeTrack()
 {
 	// assign new media player asset
-	if (CurrentMediaPlayer != MediaPlayer)
+	if (CurrentMediaPlayer != MediaPlayer || !bSetupDelegates)
 	{
 		if (CurrentMediaPlayer != nullptr)
 		{
-			CurrentMediaPlayer->OnMediaChanged().RemoveAll(this);
+			CurrentMediaPlayer->OnTracksChanged().RemoveAll(this);
 		}
 
 		CurrentMediaPlayer = MediaPlayer;
 
 		if (MediaPlayer != nullptr)
 		{
-			MediaPlayer->OnMediaChanged().AddUObject(this, &UMediaSoundWave::HandleMediaPlayerMediaChanged);
-		}	
+			MediaPlayer->OnTracksChanged().AddUObject(this, &UMediaSoundWave::HandleMediaPlayerTracksChanged);
+		}
+		bSetupDelegates = true;
 	}
 
 	// disconnect from current track
 	if (AudioTrack.IsValid())
 	{
-		AudioTrack->RemoveSink(AudioQueue);
+		AudioTrack->GetStream().RemoveSink(AudioQueue);
 	}
 
 	AudioTrack.Reset();
@@ -171,26 +181,26 @@ void UMediaSoundWave::InitializeTrack()
 	{
 		IMediaPlayerPtr Player = MediaPlayer->GetPlayer();
 
-		if (Player .IsValid())
+		if (Player.IsValid())
 		{
-			AudioTrack = Player ->GetTrack(AudioTrackIndex, EMediaTrackTypes::Audio);
+			auto AudioTracks = Player->GetAudioTracks();
 
-			if (!AudioTrack.IsValid())
+			if (AudioTracks.IsValidIndex(AudioTrackIndex))
 			{
-				AudioTrack = Player->GetFirstTrack(EMediaTrackTypes::Audio);
-
-				if (AudioTrack.IsValid())
-				{
-					AudioTrackIndex = AudioTrack->GetIndex();
-				}
+				AudioTrack = AudioTracks[AudioTrackIndex];
+			}
+			else if (AudioTracks.Num() > 0)
+			{
+				AudioTrack = AudioTracks[0];
+				AudioTrackIndex = 0;
 			}
 		}
 	}
 
 	if (AudioTrack.IsValid())
 	{
-		NumChannels = AudioTrack->GetAudioDetails().GetNumChannels();
-		SampleRate = AudioTrack->GetAudioDetails().GetSamplesPerSecond();
+		NumChannels = AudioTrack->GetNumChannels();
+		SampleRate = AudioTrack->GetSamplesPerSecond();
 	}
 	else
 	{
@@ -201,7 +211,7 @@ void UMediaSoundWave::InitializeTrack()
 	// connect to new track
 	if (AudioTrack.IsValid())
 	{
-		AudioTrack->AddSink(AudioQueue);
+		AudioTrack->GetStream().AddSink(AudioQueue);
 	}
 }
 
@@ -209,7 +219,7 @@ void UMediaSoundWave::InitializeTrack()
 /* UMediaSoundWave callbacks
  *****************************************************************************/
 
-void UMediaSoundWave::HandleMediaPlayerMediaChanged()
+void UMediaSoundWave::HandleMediaPlayerTracksChanged()
 {
 	InitializeTrack();
 }

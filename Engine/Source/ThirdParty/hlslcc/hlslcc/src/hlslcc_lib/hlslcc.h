@@ -8,7 +8,7 @@
 enum
 {
 	HLSLCC_VersionMajor = 0,
-	HLSLCC_VersionMinor = 62,
+	HLSLCC_VersionMinor = 63,
 };
 
 /**
@@ -54,6 +54,10 @@ enum EHlslCompileFlag
 	HLSLCC_ExpandSubexpressions = 0x200,
 	// Generate shaders compatible with the separate_shader_objects extension
 	HLSLCC_SeparateShaderObjects = 0x400,
+	// Finds variables being used as atomics and changes all references to use atomic reads/writes
+	HLSLCC_FixAtomicReferences = 0x800,
+	// Packs global uniforms & flattens structures, and makes each packed array its own uniform buffer
+	HLSLCC_PackUniformsIntoUniformBuffers = 0x1000 | HLSLCC_PackUniforms,
 };
 
 /**
@@ -79,9 +83,15 @@ class FCodeBackend
 protected:
 	// Built from EHlslCompileFlag
 	const unsigned int HlslCompileFlags;
+	const EHlslCompileTarget Target;
 
 public:
-	FCodeBackend(unsigned int InHlslCompileFlags) : HlslCompileFlags(InHlslCompileFlags) {}
+	FCodeBackend(unsigned int InHlslCompileFlags, EHlslCompileTarget InTarget) :
+		HlslCompileFlags(InHlslCompileFlags),
+		Target(InTarget)
+	{
+	}
+
 	virtual ~FCodeBackend() {}
 
 	/**

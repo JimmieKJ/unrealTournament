@@ -6,7 +6,7 @@
 /* FMessageBus structors
  *****************************************************************************/
 
-FMessageBus::FMessageBus( const IAuthorizeMessageRecipientsPtr& InRecipientAuthorizer )
+FMessageBus::FMessageBus(const IAuthorizeMessageRecipientsPtr& InRecipientAuthorizer)
 	: RecipientAuthorizer(InRecipientAuthorizer)
 {
 	Router = new FMessageRouter();
@@ -16,7 +16,7 @@ FMessageBus::FMessageBus( const IAuthorizeMessageRecipientsPtr& InRecipientAutho
 }
 
 
-FMessageBus::~FMessageBus( )
+FMessageBus::~FMessageBus()
 {
 	Shutdown();
 
@@ -27,7 +27,7 @@ FMessageBus::~FMessageBus( )
 /* IMessageBus interface
  *****************************************************************************/
 
-void FMessageBus::Forward( const IMessageContextRef& Context, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const ISendMessagesRef& Forwarder )
+void FMessageBus::Forward(const IMessageContextRef& Context, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const ISendMessagesRef& Forwarder)
 {
 	Router->RouteMessage(MakeShareable(new FMessageContext(Context, Forwarder->GetSenderAddress(), Recipients, EMessageScope::Process, FDateTime::UtcNow() + Delay, FTaskGraphInterface::Get().GetCurrentThreadIfKnown())));
 }
@@ -39,15 +39,17 @@ IMessageTracerRef FMessageBus::GetTracer()
 }
 
 
-void FMessageBus::Intercept( const IMessageInterceptorRef& Interceptor, const FName& MessageType )
+void FMessageBus::Intercept(const IMessageInterceptorRef& Interceptor, const FName& MessageType)
 {
-	if (MessageType != NAME_None)
+	if (MessageType == NAME_None)
 	{
-		if (!RecipientAuthorizer.IsValid() || RecipientAuthorizer->AuthorizeInterceptor(Interceptor, MessageType))
-		{
-			Router->AddInterceptor(Interceptor, MessageType);
-		}			
+		return;
 	}
+
+	if (!RecipientAuthorizer.IsValid() || RecipientAuthorizer->AuthorizeInterceptor(Interceptor, MessageType))
+	{
+		Router->AddInterceptor(Interceptor, MessageType);
+	}			
 }
 
 
@@ -57,25 +59,25 @@ FOnMessageBusShutdown& FMessageBus::OnShutdown()
 }
 
 
-void FMessageBus::Publish( void* Message, UScriptStruct* TypeInfo, EMessageScope Scope, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Publisher )
+void FMessageBus::Publish(void* Message, UScriptStruct* TypeInfo, EMessageScope Scope, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Publisher)
 {
 	Router->RouteMessage(MakeShareable(new FMessageContext(Message, TypeInfo, nullptr, Publisher->GetSenderAddress(), TArray<FMessageAddress>(), Scope, FDateTime::UtcNow() + Delay, Expiration, FTaskGraphInterface::Get().GetCurrentThreadIfKnown())));
 }
 
 
-void FMessageBus::Register( const FMessageAddress& Address, const IReceiveMessagesRef& Recipient )
+void FMessageBus::Register(const FMessageAddress& Address, const IReceiveMessagesRef& Recipient)
 {
 	Router->AddRecipient(Address, Recipient);
 }
 
 
-void FMessageBus::Send( void* Message, UScriptStruct* TypeInfo, const IMessageAttachmentPtr& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Sender )
+void FMessageBus::Send(void* Message, UScriptStruct* TypeInfo, const IMessageAttachmentPtr& Attachment, const TArray<FMessageAddress>& Recipients, const FTimespan& Delay, const FDateTime& Expiration, const ISendMessagesRef& Sender)
 {
 	Router->RouteMessage(MakeShareable(new FMessageContext(Message, TypeInfo, Attachment, Sender->GetSenderAddress(), Recipients, EMessageScope::Network, FDateTime::UtcNow() + Delay, Expiration, FTaskGraphInterface::Get().GetCurrentThreadIfKnown())));
 }
 
 
-void FMessageBus::Shutdown( )
+void FMessageBus::Shutdown()
 {
 	if (RouterThread != nullptr)
 	{
@@ -88,7 +90,7 @@ void FMessageBus::Shutdown( )
 }
 
 
-IMessageSubscriptionPtr FMessageBus::Subscribe( const IReceiveMessagesRef& Subscriber, const FName& MessageType, const FMessageScopeRange& ScopeRange )
+IMessageSubscriptionPtr FMessageBus::Subscribe(const IReceiveMessagesRef& Subscriber, const FName& MessageType, const FMessageScopeRange& ScopeRange)
 {
 	if (MessageType != NAME_None)
 	{
@@ -105,7 +107,7 @@ IMessageSubscriptionPtr FMessageBus::Subscribe( const IReceiveMessagesRef& Subsc
 }
 
 
-void FMessageBus::Unintercept( const IMessageInterceptorRef& Interceptor, const FName& MessageType )
+void FMessageBus::Unintercept(const IMessageInterceptorRef& Interceptor, const FName& MessageType)
 {
 	if (MessageType != NAME_None)
 	{
@@ -114,7 +116,7 @@ void FMessageBus::Unintercept( const IMessageInterceptorRef& Interceptor, const 
 }
 
 
-void FMessageBus::Unregister( const FMessageAddress& Address )
+void FMessageBus::Unregister(const FMessageAddress& Address)
 {
 	if (!RecipientAuthorizer.IsValid() || RecipientAuthorizer->AuthorizeUnregistration(Address))
 	{
@@ -123,7 +125,7 @@ void FMessageBus::Unregister( const FMessageAddress& Address )
 }
 
 
-void FMessageBus::Unsubscribe( const IReceiveMessagesRef& Subscriber, const FName& MessageType )
+void FMessageBus::Unsubscribe(const IReceiveMessagesRef& Subscriber, const FName& MessageType)
 {
 	if (MessageType != NAME_None)
 	{

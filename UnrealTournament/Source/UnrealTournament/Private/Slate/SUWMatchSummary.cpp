@@ -133,7 +133,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 	AUTGameState* NewGS = PlayerPreviewWorld->SpawnActor<AUTGameState>(GameState->GetClass(), SpawnInfo);
 	if (NewGS != nullptr)
 	{
-		TSubclassOf<class AUTCharacter> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		TSubclassOf<class AUTCharacter> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 		if (DefaultPawnClass != nullptr)
 		{
 			NewGS->AddOverlayMaterial(DefaultPawnClass.GetDefaultObject()->TacComOverlayMaterial);
@@ -1044,8 +1044,8 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 	AUTWeaponAttachment* PreviewWeapon = nullptr;
 
 	FActorSpawnParameters SpawnParams;
-	SpawnParams.bNoCollisionFail = true;
-	TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+	SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 
 	AUTCharacter* PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, Location, Rotation, SpawnParams);
 	
@@ -1314,7 +1314,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			FFontRenderInfo FontInfo;
 			FontInfo.bEnableShadow = true;
 			FontInfo.bClipText = true;
-			C->DrawColor = FLinearColor::White;
+			C->DrawColor = FLinearColor::White.ToFColor(false);
 			C->DrawText(PlayerNames[i].DrawFont, FText::FromString(PlayerNames[i].PlayerName), PlayerNames[i].Location.X, PlayerNames[i].Location.Y, 1.0f, 1.0f, FontInfo);
 
 			//Move the remaining names out of the way

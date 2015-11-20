@@ -57,6 +57,9 @@ ULandscapeEditorObject::ULandscapeEditorObject(const FObjectInitializer& ObjectI
 	, bSnapGizmo(false)
 	, bSmoothGizmoBrush(true)
 
+	, MirrorPoint(FVector::ZeroVector)
+	, MirrorOp(ELandscapeMirrorOperation::MinusXToPlusX)
+
 	, ResizeLandscape_QuadsPerSection(0)
 	, ResizeLandscape_SectionsPerComponent(0)
 	, ResizeLandscape_ComponentCount(0, 0)
@@ -71,6 +74,7 @@ ULandscapeEditorObject::ULandscapeEditorObject(const FObjectInitializer& ObjectI
 	, NewLandscape_Scale(100, 100, 100)
 	, ImportLandscape_Width(0)
 	, ImportLandscape_Height(0)
+	, ImportLandscape_AlphamapType(ELandscapeImportAlphamapType::Additive)
 
 	// Brush Settings:
 	, BrushRadius(2048.0f)
@@ -245,6 +249,10 @@ void ULandscapeEditorObject::Load()
 	//PasteMode = (ELandscapeToolPasteMode::Type)InPasteMode;
 	SetPasteMode((ELandscapeToolPasteMode::Type)InPasteMode);
 
+	int32 InMirrorOp = (int32)ELandscapeMirrorOperation::MinusXToPlusX;
+	GConfig->GetInt(TEXT("LandscapeEdit"), TEXT("MirrorOp"), InMirrorOp, GEditorPerProjectIni);
+	MirrorOp = (ELandscapeMirrorOperation)InMirrorOp;
+
 	int32 InConvertMode = ResizeLandscape_ConvertMode;
 	GConfig->GetInt(TEXT("LandscapeEdit"), TEXT("ConvertMode"), InConvertMode, GEditorPerProjectIni);
 	ResizeLandscape_ConvertMode = (ELandscapeConvertMode::Type)InConvertMode;
@@ -274,6 +282,10 @@ void ULandscapeEditorObject::Load()
 	FString NewLandscapeMaterialName = (NewLandscape_Material != NULL) ? NewLandscape_Material->GetPathName() : FString();
 	GConfig->GetString(TEXT("LandscapeEdit"), TEXT("NewLandscapeMaterialName"), NewLandscapeMaterialName, GEditorPerProjectIni);
 	NewLandscape_Material = LoadObject<UMaterialInterface>(NULL, *NewLandscapeMaterialName, NULL, LOAD_NoWarn);
+
+	int32 AlphamapType = (uint8)ImportLandscape_AlphamapType;
+	GConfig->GetInt(TEXT("LandscapeEdit"), TEXT("ImportLandscape_AlphamapType"), AlphamapType, GEditorPerProjectIni);
+	ImportLandscape_AlphamapType = (ELandscapeImportAlphamapType)AlphamapType;
 
 	RefreshImportLayersList();
 }
@@ -334,6 +346,9 @@ void ULandscapeEditorObject::Save()
 
 	GConfig->SetBool(TEXT("LandscapeEdit"), TEXT("bSmoothGizmoBrush"), bSmoothGizmoBrush, GEditorPerProjectIni);
 	GConfig->SetInt(TEXT("LandscapeEdit"), TEXT("PasteMode"), (int32)PasteMode, GEditorPerProjectIni);
+
+	GConfig->SetInt(TEXT("LandscapeEdit"), TEXT("MirrorOp"), (int32)MirrorOp, GEditorPerProjectIni);
+
 	GConfig->SetInt(TEXT("LandscapeEdit"), TEXT("ConvertMode"), (int32)ResizeLandscape_ConvertMode, GEditorPerProjectIni);
 	//GConfig->SetBool(TEXT("LandscapeEdit"), TEXT("bUseSelectedRegion"), bUseSelectedRegion, GEditorPerProjectIni);
 	//GConfig->SetBool(TEXT("LandscapeEdit"), TEXT("bUseNegativeMask"), bUseNegativeMask, GEditorPerProjectIni);
@@ -341,6 +356,8 @@ void ULandscapeEditorObject::Save()
 
 	const FString NewLandscapeMaterialName = (NewLandscape_Material != NULL) ? NewLandscape_Material->GetPathName() : FString();
 	GConfig->SetString(TEXT("LandscapeEdit"), TEXT("NewLandscapeMaterialName"), *NewLandscapeMaterialName, GEditorPerProjectIni);
+
+	GConfig->SetInt(TEXT("LandscapeEdit"), TEXT("ImportLandscape_AlphamapType"), (uint8)ImportLandscape_AlphamapType, GEditorPerProjectIni);
 }
 
 // Region

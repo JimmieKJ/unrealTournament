@@ -35,9 +35,9 @@ class UDistributionFloatParameterBase : public UDistributionFloatConstant
 	TEnumAsByte<enum DistributionParamMode> ParamMode;
 
 
-	// Begin UDistributionFloat Interface
+	//~ Begin UDistributionFloat Interface
 	virtual float GetValue( float F = 0.f, UObject* Data = NULL, struct FRandomStream* InRandomStream = NULL ) const override;
-	// End UDistributionFloat Interface
+	//~ End UDistributionFloat Interface
 	
 	
 	/** todo document */

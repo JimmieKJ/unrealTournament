@@ -31,6 +31,7 @@ namespace SplashTextType
 	};
 }
 
+class FString;
 
 /**
  * Generic implementation for most platforms
@@ -61,4 +62,18 @@ struct CORE_API FGenericPlatformSplash
 	{
 		return true;
 	}
+
+protected:
+	/**
+	* Finds a usable splash pathname for the given filename
+	*
+	* @param SplashFilename Name of the desired splash name("Splash")
+	* @param IconFilename Name of the desired icon name("Splash")
+	* @param OutPath String containing the path to the file, if this function returns true
+	* @param OutIconPath String containing the path to the icon, if this function returns true
+	*
+	* @return true if a splash screen was found
+	*/
+	static bool GetSplashPath(const TCHAR* SplashFilename, FString& OutPath, bool& OutIsCustom);
+	static bool GetSplashPath(const TCHAR* SplashFilename, const TCHAR* IconFilename, FString& OutPath, FString& OutIconPath, bool& OutIsCustom);
 };

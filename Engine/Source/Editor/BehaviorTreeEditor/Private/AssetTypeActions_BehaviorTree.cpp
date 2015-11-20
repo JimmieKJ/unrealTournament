@@ -11,7 +11,15 @@
 #include "AssetTypeActions_BehaviorTree.h"
 #include "SBehaviorTreeDiff.h"
 
+#include "AIModule.h"
+
 #define LOCTEXT_NAMESPACE "AssetTypeActions"
+
+uint32 FAssetTypeActions_BehaviorTree::GetCategories() 
+{ 
+	IAIModule& AIModule = FModuleManager::GetModuleChecked<IAIModule>("AIModule").Get();
+	return AIModule.GetAIAssetCategoryBit();
+}
 
 void FAssetTypeActions_BehaviorTree::OpenAssetEditor( const TArray<UObject*>& InObjects, TSharedPtr<IToolkitHost> EditWithinLevelEditor )
 {

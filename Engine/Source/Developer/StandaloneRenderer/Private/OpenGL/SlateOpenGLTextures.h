@@ -33,11 +33,16 @@ public:
 	virtual void ResizeTexture( uint32 Width, uint32 Height ) override;
 	virtual void UpdateTexture(const TArray<uint8>& Bytes) override;
 	virtual void UpdateTextureThreadSafe(const TArray<uint8>& Bytes) override { UpdateTexture(Bytes); }
+	virtual void UpdateTextureThreadSafeRaw(uint32 Width, uint32 Height, const void* Buffer, const FIntRect& Dirty = FIntRect()) override;
 private:
+	// Helper method used by the different UpdateTexture* methods
+	void UpdateTextureRaw(const void* Buffer, const FIntRect& Dirty);
+
 	static GLuint NullTexture;
 
 	uint32 SizeX;
 	uint32 SizeY;
+	bool bHasPendingResize;
 };
 
 /** 

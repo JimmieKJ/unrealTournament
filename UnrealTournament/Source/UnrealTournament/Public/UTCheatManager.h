@@ -61,13 +61,19 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 
 	virtual void God() override;
 
-#if WITH_PROFILE
 	UFUNCTION(exec)
 	void McpGrantItem(const FString& ItemId);
 
 	UFUNCTION(exec)
 	void McpDestroyItem(const FString& ItemId);
 
+	UFUNCTION(exec)
+	void McpCheat();
+
+	UFUNCTION(exec)
+	void McpRefreshProfile();
+
+#if WITH_PROFILE
 	void LogWebResponse(const FMcpQueryResult& Response);
 #endif
 };

@@ -61,6 +61,9 @@ class PxsAABBManager : public Ps::UserAllocated
 		friend class ProcessBPResultsTask;
 
 		friend class AggregateOverlapTask;
+		friend class AggregateOverlapWorkTask;
+
+		friend class FinishTask;
 
 		PxsAABBManager(Cm::EventProfiler& eventProfiler, PxcScratchAllocator& scratchAllocator);
 		~PxsAABBManager();
@@ -126,9 +129,9 @@ class PxsAABBManager : public Ps::UserAllocated
 		//Overlap bp results (single - aggregate, aggregate - aggregate) and self-collision
 		////////////////////////////////////////////////////
 
-		//Add/remove overlap pair to the final list of shape pairs with overlapping aabbs.
-		PX_FORCE_INLINE	void addCreatedPair(void* userdata0, void* userdata1);
-		PX_FORCE_INLINE	void addDeletedPair(void* userdata0, void* userdata1);
+		//Add/remove overlap pair to lists of shape pairs with overlapping aabbs.
+		static void addCreatedPair(PxcScratchAllocator* scratchAllocator, void* userdata0, void* userdata1, PxvBroadPhaseOverlap*& createdOverlaps, PxU32& createdOverlapsSize, PxU32& createdOverlapsCapacity);
+		static void addDeletedPair(PxcScratchAllocator* scratchAllocator, void* userdata0, void* userdata1, PxvBroadPhaseOverlap*& deletedOverlaps, PxU32& deletedOverlapsSize, PxU32& deletedOverlapsCapacity);
 
 		//Add/remove bp overlap pairs involving aggregates.
 		AggregatePair& addAggregatePair(const PxcBpHandle bpElemId0, const PxcBpHandle bpElemId1);
@@ -138,11 +141,29 @@ class PxsAABBManager : public Ps::UserAllocated
 
 		//Self-, aggregate-aggregate and aggregate-single overlaps.
 		void sortAggregates(PxcBpHandle* allRankIds, const PxU32 allRankIdsCapacity, PxcBpHandle* allElemIds, const PxU32 allElemIdsCapacity, AggregateSortedData* aggregateSortedData);
-		void selfCollideAggregates(const AggregateSortedData* aggregateSortedData);
-		void selfCollideAggregate(const AggregateSortedData& aggregateSortedData, const Aggregate& aggregate, SelfCollideBitmap* selfCollideBitmap);
-		void processAggregatePairs(const AggregateSortedData* aggregateSortedData);
-		void processAggregateAggregate(const AggregateSortedData& aggregateSortedData0, const Aggregate& aggregate0, const AggregateSortedData& aggregateSortedData1, const Aggregate& aggregate1, Cm::BitMap* ovelrapBitmap);
-		void processAggregateSingle(const AggregateSortedData& aggregateSortedData, const Aggregate& aggregate, const PxU32 singleId, Cm::BitMap* overlapBitmap);
+		void selfCollideAggregates
+			(const PxU32 startId, const PxU32 nbWorkItems, const AggregateSortedData* aggregateSortedDatas,
+			PxvBroadPhaseOverlap*& createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity,
+			PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity);
+		void selfCollideAggregate
+			(const AggregateSortedData& aggregateSortedData, const Aggregate& aggregate, SelfCollideBitmap* selfCollideBitmap,
+			PxvBroadPhaseOverlap*& createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity,
+			PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity);
+		void initialiseAggregateAggregateBitmaps();
+		void processAggregatePairs
+			(const PxU32 startId, const PxU32 nbWorkItems, const AggregateSortedData* aggregateSortedDatas,
+			PxvBroadPhaseOverlap*& createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity,
+			PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity);
+		void processAggregateAggregate
+			(const AggregateSortedData& aggregateSortedData0, const Aggregate& aggregate0, const AggregateSortedData& aggregateSortedData1, const Aggregate& aggregate1, 
+			Cm::BitMap* overlapBitmap, 
+			PxvBroadPhaseOverlap*&createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity, 
+			PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity);
+		void processAggregateSingle
+			(const AggregateSortedData& aggregateSortedData, const Aggregate& aggregate, const PxU32 singleId, 
+			Cm::BitMap* overlapBitmap, 
+			PxvBroadPhaseOverlap*&createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity, 
+			PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity);
 
 
 		///////////////////////////////////////////////////////////
@@ -317,6 +338,7 @@ class PxsAABBManager : public Ps::UserAllocated
 		ProcessBPResultsTask	mProcessBPResultsTask;
 		SingleAABBTask			mAggregateShapeAABBTask;
 		AggregateOverlapTask	mAggregateOverlapTask;
+		FinishTask				mFinishTask;
 #endif
 
 

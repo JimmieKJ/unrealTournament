@@ -8,7 +8,7 @@
 
 #include "ThirdParty/libPNG/libPNG-1.5.2/png.h"
 #include "ThirdParty/libPNG/libPNG-1.5.2/pnginfo.h"
-
+#include <setjmp.h>
 
 /**
  * PNG implementation of the helper class.
@@ -31,7 +31,7 @@ public:
 
 public:
 
-	// Begin FImageWrapper Interface
+	//~ Begin FImageWrapper Interface
 
 	virtual void Compress( int32 Quality ) override;
 
@@ -41,7 +41,7 @@ public:
 
 	virtual void Uncompress( const ERGBFormat::Type InFormat, int32 InBitDepth ) override;
 	
-	// End FImageWrapper Interface
+	//~ End FImageWrapper Interface
 
 public:
 
@@ -83,6 +83,9 @@ private:
 
 	// The number of channels.
 	uint8 Channels;
+
+	// setjmp buffer for error recovery
+	jmp_buf SetjmpBuffer;
 };
 
 

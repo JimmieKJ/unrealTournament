@@ -27,7 +27,6 @@ public:
 	virtual IOnlineGroupsPtr GetGroupsInterface() const override;
 	virtual IOnlineSharedCloudPtr GetSharedCloudInterface() const override;
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const override;
-	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const override;
 	virtual IOnlineLeaderboardsPtr GetLeaderboardsInterface() const override;
 	virtual IOnlineVoicePtr GetVoiceInterface() const override;
 	virtual IOnlineExternalUIPtr GetExternalUIInterface() const override;
@@ -36,6 +35,8 @@ public:
 	virtual IOnlineTitleFilePtr GetTitleFileInterface() const override;
 	virtual IOnlineEntitlementsPtr GetEntitlementsInterface() const override;
 	virtual IOnlineStorePtr GetStoreInterface() const override;
+	virtual IOnlineStoreV2Ptr GetStoreV2Interface() const override { return nullptr; }
+	virtual IOnlinePurchasePtr GetPurchaseInterface() const override { return nullptr; }
 	virtual IOnlineEventsPtr GetEventsInterface() const override;
 	virtual IOnlineAchievementsPtr GetAchievementsInterface() const override;
 	virtual IOnlineSharingPtr GetSharingInterface() const override;

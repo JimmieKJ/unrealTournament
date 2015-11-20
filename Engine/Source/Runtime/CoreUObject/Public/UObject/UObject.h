@@ -444,21 +444,17 @@ public:
 		return false;
 	}
 
-	/** Special value meaning that the resource size is not defined */
-	static const SIZE_T RESOURCE_SIZE_NONE = static_cast<SIZE_T>(-1);
-
 	/**
 	 * Returns the size of the object/ resource for display to artists/ LDs in the Editor. The
-	 * default behavior is to return RESOURCE_SIZE_NONE which indicates that the resource shouldn't
-	 * display its size which is used to not confuse people by displaying small sizes
-	 * e.g. for objects like materials.
+	 * default behavior is to return 0 which indicates that the resource shouldn't
+	 * display its size.
 	 *
 	 * @param	Type	Indicates which resource size should be returned
 	 * @return	Size of resource as to be displayed to artists/ LDs in the Editor.
 	 */
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode)
 	{
-		return RESOURCE_SIZE_NONE;
+		return 0;
 	}
 
 	/** 
@@ -627,6 +623,12 @@ public:
 
 	/** Called right after receiving a bunch */
 	virtual void PostNetReceive();
+
+	/** Called right after calling all OnRep notifies (called even when there are no notifies) */
+	virtual void PostRepNotifies() {}
+
+	/** Called right before being marked for destruction due to network replication */
+	virtual void PreDestroyFromReplication();
 
 	/**
  	 *******************************************************
@@ -863,26 +865,6 @@ public:
 	void SetLinker( FLinkerLoad* LinkerLoad, int32 LinkerIndex, bool bShouldDetachExisting=true );
 
 	/**
-	 * Creates a new archetype based on this UObject.  The archetype's property values will match
-	 * the current values of this UObject.
-	 *
-	 * @param	ArchetypeName			the name for the new class
-	 * @param	ArchetypeOuter			the outer to create the new class in (package?)
-	 * @param	AlternateArchetype		if specified, is set as the ObjectArchetype for the newly created archetype, after the new archetype
-	 *									is initialized against "this".  Should only be specified in cases where you need the new archetype to
-	 *									inherit the property values of this object, but don't want this object to be the new archetype's ObjectArchetype.
-	 * @param	InstanceGraph			contains the mappings of instanced objects and components to their templates
-	 *
-	 * @return	a pointer to a UObject which has values identical to this object
-	 */
-	UObject* CreateArchetype( const TCHAR* ArchetypeName, UObject* ArchetypeOuter, UObject* AlternateArchetype=NULL, struct FObjectInstancingGraph* InstanceGraph=NULL );
-
-	/**
-	 *	Update the ObjectArchetype of this UObject based on this UObject's properties.
-	 */
-	void UpdateArchetype();
-
-	/**
 	 * Return the template that an object with this class, outer and name would be
 	 * 
 	 * @return the archetype for this object
@@ -1104,6 +1086,7 @@ public:
 	DECLARE_FUNCTION(execUnicodeStringConst);
 	DECLARE_FUNCTION(execTextConst);
 	DECLARE_FUNCTION(execObjectConst);
+	DECLARE_FUNCTION(execAssetConst);
 
 	// @todo delegate: Multi-cast versions needed for script execution!		(Need Add, Remove, Clear/Empty)
 	DECLARE_FUNCTION(execInstanceDelegate);
@@ -1161,6 +1144,10 @@ public:
 	DECLARE_FUNCTION(execCallMulticastDelegate);
 
 	DECLARE_FUNCTION(execLetValueOnPersistentFrame);
+
+	DECLARE_FUNCTION(execCallMathFunction);
+
+	DECLARE_FUNCTION(execSwitchValue);
 
 	// -- K2 support functions
 	struct Object_eventExecuteUbergraph_Parms

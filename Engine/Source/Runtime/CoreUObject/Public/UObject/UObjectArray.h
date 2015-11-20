@@ -160,26 +160,28 @@ public:
 		return Object;
 	}
 
+	FORCEINLINE class UObjectBase* IndexToValidObject(int32 Index, bool bEvenIfPendingKill)
+	{
+		UObjectBaseUtility* Object = static_cast<UObjectBaseUtility*>(IndexToObject(Index));
+		return Internal_IsValid(Object, bEvenIfPendingKill) ? Object : nullptr;
+	}
+
 	FORCEINLINE bool IsValid(int32 Index, bool bEvenIfPendingKill)
 	{
 		// This method assumes Index points to a valid object.
 		UObjectBaseUtility* Object = static_cast<UObjectBaseUtility*>(IndexToObject(Index));
-		if(Object == NULL)
-		{
-			return false;
-		}
-		return !Object->HasAnyFlags(RF_Unreachable) && (bEvenIfPendingKill || !Object->IsPendingKill());
+		return Internal_IsValid(Object, bEvenIfPendingKill);
 	}
 
 	FORCEINLINE bool IsStale(int32 Index, bool bEvenIfPendingKill)
 	{
 		// This method assumes Index points to a valid object.
 		UObjectBaseUtility* Object = static_cast<UObjectBaseUtility*>(IndexToObject(Index));
-		if(Object == NULL)
+		if (Object)
 		{
-			return true;
+			return bEvenIfPendingKill ? Object->HasAnyFlags(RF_Unreachable | RF_PendingKill) : Object->HasAnyFlags(RF_Unreachable);
 		}
-		return Object->HasAnyFlags(RF_Unreachable) || (bEvenIfPendingKill && Object->IsPendingKill());
+		return true;
 	}
 
 	/**
@@ -264,7 +266,7 @@ public:
 		return ObjLastNonGCIndex + 1;
 	}
 
-#if WITH_EDITOR
+#if UE_GC_TRACK_OBJ_AVAILABLE
 	/**
 	 * Returns the number of actual object indices that are claimed (the total size of the global object array minus
 	 * the number of available object array elements
@@ -284,7 +286,7 @@ public:
 
 
 	/**
-	 * Low level iterator
+	 * Low level iterator.
 	 */
 	class TIterator
 	{
@@ -302,7 +304,8 @@ public:
 		 */
 		TIterator( const FUObjectArray& InArray, bool bOnlyGCedObjects = false ) :	
 			Array(InArray),
-			Index(-1)
+			Index(-1),
+			CurrentObject(nullptr)
 		{
 			if (bOnlyGCedObjects)
 			{
@@ -337,7 +340,7 @@ public:
 		/** Conversion to "bool" returning true if the iterator is valid. */
 		FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
 		{ 
-			return Array.ObjObjects.IsValidIndex(Index); 
+			return !!CurrentObject;
 		}
 		/** inverse of the "bool" operator */
 		FORCEINLINE bool operator !() const 
@@ -354,7 +357,7 @@ public:
 		 */
 		FORCEINLINE UObjectBase* GetObject() const 
 		{ 
-			return (UObjectBase*)Array.ObjObjects[Index];
+			return CurrentObject;
 		}
 		/**
 		 * Iterator advance with ordinary name for clarity in subclasses
@@ -363,9 +366,11 @@ public:
 		FORCEINLINE bool Advance()
 		{
 			//@todo UE4 check this for LHS on Index on consoles
+			CurrentObject = nullptr;
 			while(++Index < Array.GetObjectArrayNum())
 			{
-				if (GetObject())
+				CurrentObject = (UObjectBase*)Array.ObjObjects[Index];
+				if (CurrentObject)
 				{
 					return true;
 				}
@@ -373,15 +378,26 @@ public:
 			return false;
 		}
 	private:
-		/** the array that we are iterating on, probably always GetUObjectArray() */
+		/** the array that we are iterating on, probably always GUObjectArray */
 		const FUObjectArray& Array;
 		/** index of the current element in the object array */
 		int32 Index;
+		/** Current object */
+		mutable UObjectBase* CurrentObject;
 	};
 
 private:
 
-	typedef TStaticIndirectArrayThreadSafeRead<UObjectBase, 8 * 1024 * 1024 /* Max 8M UObjects */, 16384 /* allocated in 64K/128K chunks */ > TUObjectArray;
+	FORCEINLINE bool Internal_IsValid(UObjectBaseUtility* Object, bool bEvenIfPendingKill)
+	{
+		if (Object)
+		{
+			return bEvenIfPendingKill ? !Object->HasAnyFlags(RF_Unreachable) : !Object->HasAnyFlags(RF_Unreachable | RF_PendingKill);
+		}
+		return false;
+	}
+
+	typedef TStaticIndirectArrayThreadSafeRead<UObjectBase, 16 * 1024 * 1024 /* Max 16M UObjects */, 16384 /* allocated in 64K/128K chunks */ > TUObjectArray;
 
 	/**
 	 * return the object array for use by debug visualizers
@@ -401,8 +417,8 @@ private:
 	/** Synchronization object for all live objects.											*/
 	FCriticalSection ObjObjectsCritical;
 	/** Available object indices.											*/
-	TLockFreePointerList<int32> ObjAvailableList;
-#if WITH_EDITOR
+	TLockFreePointerListUnordered<int32> ObjAvailableList;
+#if UE_GC_TRACK_OBJ_AVAILABLE
 	/** Available object index count.										*/
 	FThreadSafeCounter ObjAvailableCount;
 #endif
@@ -414,10 +430,13 @@ private:
 	 * Array of things to notify when a UObjectBase is destroyed
 	 */
 	TArray<FUObjectDeleteListener* > UObjectDeleteListeners;
+#if THREADSAFE_UOBJECTS
+	FCriticalSection UObjectDeleteListenersCritical;
+#endif
 };
 
 /** Global UObject allocator							*/
-COREUOBJECT_API FUObjectArray& GetUObjectArray();
+extern COREUOBJECT_API FUObjectArray GUObjectArray;
 
 /**
 	* Static version of IndexToObject for use with TWeakObjectPtr.
@@ -426,7 +445,7 @@ struct FIndexToObject
 {
 	static FORCEINLINE class UObjectBase* IndexToObject(int32 Index, bool bEvenIfPendingKill)
 	{
-		return GetUObjectArray().IndexToObject(Index, bEvenIfPendingKill);
+		return GUObjectArray.IndexToObject(Index, bEvenIfPendingKill);
 	}
 };
 

@@ -16,7 +16,7 @@ class UMaterialExpressionBreakMaterialAttributes : public UMaterialExpression
  	UPROPERTY()
  	FMaterialAttributesInput MaterialAttributes;
  
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual const TArray<FExpressionInput*> GetInputs()override;
@@ -26,7 +26,7 @@ class UMaterialExpressionBreakMaterialAttributes : public UMaterialExpression
 #if WITH_EDITOR
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_MaterialAttributes;}
 #endif // WITH_EDITOR
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 
 

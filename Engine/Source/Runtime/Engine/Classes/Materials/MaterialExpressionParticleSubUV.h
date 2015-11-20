@@ -14,12 +14,12 @@ class UMaterialExpressionParticleSubUV : public UMaterialExpressionTextureSample
 	uint32 bBlend:1;
 
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual int32 GetWidth() const override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual int32 GetLabelPadding() override { return 8; }
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 
 

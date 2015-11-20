@@ -224,6 +224,12 @@ struct SDL_VideoDevice
     void (*DestroyWindowFramebuffer) (_THIS, SDL_Window * window);
     void (*OnWindowEnter) (_THIS, SDL_Window * window);
 
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    int (*SetKeyboardGrab) (_THIS, SDL_Window * window, SDL_bool enable);
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
+
     /* * * */
     /*
      * Shaped-window functions

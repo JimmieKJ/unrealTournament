@@ -5,6 +5,7 @@
 #include "EdGraphUtilities.h"
 #include "SGameplayTagGraphPin.h"
 #include "SGameplayTagContainerGraphPin.h"
+#include "SGameplayTagQueryGraphPin.h"
 #include "GameplayTags.h"
 
 class FGameplayTagsGraphPanelPinFactory: public FGraphPanelPinFactory
@@ -24,6 +25,11 @@ class FGameplayTagsGraphPanelPinFactory: public FGraphPanelPinFactory
 		{
 			return SNew(SGameplayTagContainerGraphPin, InPin);
 		}
-		return NULL;
+		if (InPin->PinType.PinCategory == K2Schema->PC_Struct && InPin->PinType.PinSubCategoryObject == FGameplayTagQuery::StaticStruct())
+		{
+			return SNew(SGameplayTagQueryGraphPin, InPin);
+		}
+
+		return nullptr;
 	}
 };

@@ -69,16 +69,4 @@ void FStaticMeshActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuil
 	];
 }
 
-FReply FStaticMeshActorDetails::OnSetCollisionFromBuilder()
-{
-	FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>( TEXT("LevelEditor") );
-
-	const FLevelEditorCommands& Commands = LevelEditor.GetLevelEditorCommands();
-	TSharedRef<const FUICommandList> CommandBindings = LevelEditor.GetGlobalLevelEditorActions();
-
-	CommandBindings->ExecuteAction( Commands.SaveBrushAsCollision.ToSharedRef() );
-
-	return FReply::Handled();
-}
-
 #undef LOCTEXT_NAMESPACE

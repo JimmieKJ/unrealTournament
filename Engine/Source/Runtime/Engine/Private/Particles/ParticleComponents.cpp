@@ -1501,6 +1501,18 @@ void UParticleEmitter::Build()
 	}
 }
 
+float UParticleEmitter::GetQualityLevelSpawnRateMult()
+{
+	static IConsoleVariable* EffectsQuality = IConsoleManager::Get().FindConsoleVariable(TEXT("sg.EffectsQuality"));
+	float Level = (1 - EffectsQuality->GetInt());
+	float Q = 1;
+	for (int i = 0; i < Level + 1; i++)
+	{
+		Q = Q*QualityLevelSpawnRateScale;
+	}
+	return Q;
+}
+
 bool UParticleEmitter::HasAnyEnabledLODs()const
 {
 	for (UParticleLODLevel* LodLevel : LODLevels)
@@ -1718,6 +1730,8 @@ UParticleSystem::UParticleSystem(const FObjectInitializer& ObjectInitializer)
 	MacroUVPosition = FVector(0.0f, 0.0f, 0.0f);
 
 	MacroUVRadius = 200.0f;
+	bAutoDeactivate = false;
+	MinTimeBetweenTicks = 0;
 }
 
 
@@ -1776,6 +1790,23 @@ void UParticleSystem::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		if (It->Template == this)
 		{
 			It->UpdateInstances(bEmptyInstances);
+		}
+	}
+
+	// Ensure the bounds have a positive size
+	if (FixedRelativeBoundingBox.IsValid)
+	{
+		if (FixedRelativeBoundingBox.Min.X > FixedRelativeBoundingBox.Max.X)
+		{
+			Swap(FixedRelativeBoundingBox.Min.X, FixedRelativeBoundingBox.Max.X);
+		}
+		if (FixedRelativeBoundingBox.Min.Y > FixedRelativeBoundingBox.Max.Y)
+		{
+			Swap(FixedRelativeBoundingBox.Min.Y, FixedRelativeBoundingBox.Max.Y);
+		}
+		if (FixedRelativeBoundingBox.Min.Z > FixedRelativeBoundingBox.Max.Z)
+		{
+			Swap(FixedRelativeBoundingBox.Min.Z, FixedRelativeBoundingBox.Max.Z);
 		}
 	}
 
@@ -2031,6 +2062,72 @@ void UParticleSystem::UpdateColorModuleClampAlpha(UParticleModuleColorBase* Colo
 void UParticleSystem::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
 	OutTags.Add( FAssetRegistryTag("HasGPUEmitter", HasGPUEmitter() ? TEXT("True") : TEXT("False"), FAssetRegistryTag::TT_Alphabetical) );
+
+	const float BoundsSize = FixedRelativeBoundingBox.GetSize().GetMax();
+	OutTags.Add(FAssetRegistryTag("FixedBoundsSize", bUseFixedRelativeBoundingBox ? FString::Printf(TEXT("%.2f"), BoundsSize) : FString(TEXT("None")), FAssetRegistryTag::TT_Numerical));
+
+	OutTags.Add(FAssetRegistryTag("NumEmitters", LexicalConversion::ToString(Emitters.Num()), FAssetRegistryTag::TT_Numerical));
+
+	OutTags.Add(FAssetRegistryTag("NumLODs", LexicalConversion::ToString(LODDistances.Num()), FAssetRegistryTag::TT_Numerical));
+
+	// Done here instead of as an AssetRegistrySearchable string to avoid the long prefix on the enum value string
+	FString LODMethodString = TEXT("Unknown");
+	switch (LODMethod)
+	{
+	case PARTICLESYSTEMLODMETHOD_Automatic:
+		LODMethodString = TEXT("Automatic");
+		break;
+	case PARTICLESYSTEMLODMETHOD_DirectSet:
+		LODMethodString = TEXT("DirectSet");
+		break;
+	case PARTICLESYSTEMLODMETHOD_ActivateAutomatic:
+		LODMethodString = TEXT("Activate Automatic");
+		break;
+	default:
+		check(false); // Missing enum entry
+		break;
+	}
+	OutTags.Add(FAssetRegistryTag("LODMethod", LODMethodString, FAssetRegistryTag::TT_Alphabetical));
+
+	// Run thru the emitters and see if any will loop forever
+	bool bAnyEmitterLoopsForever = false;
+	bool bEmitterIsDangerous = false;
+	for (int32 EmitterIndex = 0; (EmitterIndex < Emitters.Num()) && !bAnyEmitterLoopsForever; ++EmitterIndex)
+	{
+		if (const UParticleEmitter* Emitter = Emitters[EmitterIndex])
+		{
+			for (const UParticleLODLevel* LODLevel : Emitter->LODLevels)
+			{
+				if (LODLevel != nullptr)
+				{
+					const UParticleModuleRequired* RequiredModule = LODLevel->RequiredModule;
+					check(RequiredModule);
+
+					if (RequiredModule->EmitterLoops == 0)
+					{
+						bAnyEmitterLoopsForever = true;
+						break;
+					}
+
+					UParticleModuleSpawn *SpawnModule = LODLevel->SpawnModule;
+					check(SpawnModule);
+
+					if (SpawnModule->GetMaximumSpawnRate() == 0 
+						&& RequiredModule->EmitterDuration == 0
+						&& RequiredModule->EmitterLoops == 0 
+						)
+					{
+						bEmitterIsDangerous = true;
+					}
+
+				}
+			}
+		}
+	}
+
+	OutTags.Add(FAssetRegistryTag("Looping", bAnyEmitterLoopsForever ? TEXT("True") : TEXT("False"), FAssetRegistryTag::TT_Alphabetical));
+	OutTags.Add(FAssetRegistryTag("Immortal", bEmitterIsDangerous ? TEXT("True") : TEXT("False"), FAssetRegistryTag::TT_Alphabetical));
+
 	Super::GetAssetRegistryTags(OutTags);
 }
 
@@ -2088,25 +2185,17 @@ void UParticleSystem::SetupSoloing()
 		if (Emitters.Num())
 		{
 			// Store the settings of bEnabled for each LODLevel in each emitter
-			UParticleEmitter* ZeroEmitter = NULL;
+			SoloTracking.Empty(Emitters.Num());
+			SoloTracking.AddZeroed(Emitters.Num());
 			for (int32 EmitterIdx = 0; EmitterIdx < Emitters.Num(); EmitterIdx++)
 			{
 				UParticleEmitter* Emitter = Emitters[EmitterIdx];
-				if ((Emitter != NULL) && (ZeroEmitter == NULL))
+				if (Emitter != nullptr)
 				{
-					ZeroEmitter = Emitter;
-					break;
+					FLODSoloTrack& SoloTrack = SoloTracking[EmitterIdx];
+					SoloTrack.SoloEnableSetting.Empty(Emitter->LODLevels.Num());
+					SoloTrack.SoloEnableSetting.AddZeroed(Emitter->LODLevels.Num());
 				}
-			}
-			check(ZeroEmitter != NULL);
-
-			SoloTracking.Empty(Emitters.Num());
-			SoloTracking.AddZeroed(Emitters.Num());
-			for (int32 SoloIdx = 0; SoloIdx < SoloTracking.Num(); SoloIdx++)
-			{
-				FLODSoloTrack& SoloTrack = SoloTracking[SoloIdx];
-				SoloTrack.SoloEnableSetting.Empty(ZeroEmitter->LODLevels.Num());
-				SoloTrack.SoloEnableSetting.AddZeroed(ZeroEmitter->LODLevels.Num());
 			}
 
 			for (int32 EmitterIdx = 0; EmitterIdx < Emitters.Num(); EmitterIdx++)
@@ -2115,7 +2204,8 @@ void UParticleSystem::SetupSoloing()
 				if (Emitter != NULL)
 				{
 					FLODSoloTrack& SoloTrack = SoloTracking[EmitterIdx];
-					for (int32 LODIdx = 0; LODIdx < Emitter->LODLevels.Num(); LODIdx++)
+					int32 MaxLOD = FMath::Min(SoloTrack.SoloEnableSetting.Num(), Emitter->LODLevels.Num());
+					for (int32 LODIdx = 0; LODIdx < MaxLOD; LODIdx++)
 					{
 						UParticleLODLevel* LODLevel = Emitter->LODLevels[LODIdx];
 						check(LODLevel);
@@ -2548,6 +2638,12 @@ void UParticleSystem::BuildEmitters()
 	}
 }
 
+static bool LogReasoningForAnyThreadTicking()
+{
+	static bool bLogThreadedParticleTicking = FParse::Param(FCommandLine::Get(), TEXT("LogThreadedParticleTicking"));
+	return bLogThreadedParticleTicking;
+}
+
 void UParticleSystem::ComputeCanTickInAnyThread()
 {
 	check(!bIsElligibleForAsyncTickComputed);
@@ -2571,13 +2667,24 @@ void UParticleSystem::ComputeCanTickInAnyThread()
 						if (Module && !Module->CanTickInAnyThread())
 						{
 							bIsElligibleForAsyncTick = false;
-							return;
+							if (LogReasoningForAnyThreadTicking())
+							{
+								UE_LOG(LogParticles, Display, TEXT("Cannot tick %s in parallel because module %s in Emitter %s cannot tick in in parallel."), *GetFullName(), *Module->GetFullName(), *Emitter->GetFullName());
+							}
+							else
+							{
+								return;
+							}
 						}
 					}
 				}
 			}
 
 		}
+	}
+	if (LogReasoningForAnyThreadTicking() && bIsElligibleForAsyncTick)
+	{
+		UE_LOG(LogParticles, Display, TEXT("Can tick %s in parallel."), *GetFullName());
 	}
 }
 
@@ -2638,6 +2745,7 @@ UParticleSystemComponent::UParticleSystemComponent(const FObjectInitializer& Obj
 	bIsViewRelevanceDirty = true;
 	CustomTimeDilation = 1.0f;
 	bAllowConcurrentTick = true;
+	bAsyncWorkOutstanding = false;
 	bWasActive = false;
 #if WITH_EDITORONLY_DATA
 	EditorDetailMode = -1;
@@ -2649,11 +2757,19 @@ UParticleSystemComponent::UParticleSystemComponent(const FObjectInitializer& Obj
 
 	// Disable receiving decals by default.
 	bReceivesDecals = false;
+
+	// Don't need to call OnUpdateTransform, no physics state to update
+	bWantsOnUpdateTransform = false;
+
+	SavedAutoAttachRelativeScale3D = FVector(1.f, 1.f, 1.f);
+	bAllEmittersFinished = false;
+	TimeSinceLastTick = 0;
 }
 
 #if WITH_EDITOR
 void UParticleSystemComponent::CheckForErrors()
 {
+	check(IsInGameThread());
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	for (int32 IPIndex = 0; IPIndex < InstanceParameters.Num(); IPIndex++)
 	{
@@ -2792,6 +2908,43 @@ void UParticleSystemComponent::OnRegister()
 		FXSystem = World->Scene->GetFXSystem();
 	}
 
+	if (bAutoManageAttachment && !IsActive())
+	{
+		// Detach from current parent, we are supposed to wait for activation.
+		if (AttachParent)
+		{
+			// If no auto attach parent override, use the current parent when we activate
+			if (!AutoAttachParent.IsValid())
+			{
+				AutoAttachParent = AttachParent;
+			}
+			// If no auto attach socket override, use current socket when we activate
+			if (AutoAttachSocketName == NAME_None)
+			{
+				AutoAttachSocketName = AttachSocketName;
+			}
+
+			// Prevent attachment before Super::OnRegister() tries to attach us, since we only attach when activated.
+			if (AttachParent->AttachChildren.Contains(this))
+			{
+				// Only detach if we are not about to auto attach to the same target, that would be wasteful.
+				if (!bAutoActivate || (AutoAttachLocationType != EAttachLocation::KeepRelativeOffset) || (AutoAttachSocketName != AttachSocketName) || (AutoAttachParent != AttachParent))
+				{
+					DetachFromParent(/*bMaintainWorldPosition=*/ false, /*bCallModify=*/ false);
+				}
+			}
+			else
+			{
+				AttachParent = nullptr;
+				AttachSocketName = NAME_None;
+			}
+		}
+
+		SavedAutoAttachRelativeLocation = RelativeLocation;
+		SavedAutoAttachRelativeRotation = RelativeRotation;
+		SavedAutoAttachRelativeScale3D = RelativeScale3D;
+	}
+
 	Super::OnRegister();
 
 	// If we were active before but are not now, activate us
@@ -2886,6 +3039,11 @@ void UParticleSystemComponent::SendRenderDynamicData_Concurrent()
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	Super::SendRenderDynamicData_Concurrent();
 
+	check(!bAsyncDataCopyIsValid);
+	check(!bParallelRenderThreadUpdate);
+	bParallelRenderThreadUpdate = true;
+
+
 	FParticleSystemSceneProxy* PSysSceneProxy = (FParticleSystemSceneProxy*)SceneProxy;
 	if (PSysSceneProxy != NULL)
 	{
@@ -2905,6 +3063,7 @@ void UParticleSystemComponent::SendRenderDynamicData_Concurrent()
 			}
 		}
 	}
+	bParallelRenderThreadUpdate = false;
 }
 
 void UParticleSystemComponent::DestroyRenderState_Concurrent()
@@ -2941,7 +3100,7 @@ FDynamicEmitterDataBase* UParticleSystemComponent::CreateDynamicDataFromReplay( 
 		case DET_Sprite:
 			{
 				// Allocate the dynamic data
-				FDynamicSpriteEmitterData* NewEmitterData = ::new FDynamicSpriteEmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
+				FDynamicSpriteEmitterData* NewEmitterData = new FDynamicSpriteEmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
 
 				// Fill in the source data
 				const FDynamicSpriteEmitterReplayData* SpriteEmitterReplayData =
@@ -2990,7 +3149,7 @@ FDynamicEmitterDataBase* UParticleSystemComponent::CreateDynamicDataFromReplay( 
 		case DET_Beam2:
 			{
 				// Allocate the dynamic data
-				FDynamicBeam2EmitterData* NewEmitterData = ::new FDynamicBeam2EmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
+				FDynamicBeam2EmitterData* NewEmitterData = new FDynamicBeam2EmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
 
 				// Fill in the source data
 				const FDynamicBeam2EmitterReplayData* Beam2EmitterReplayData =
@@ -3007,7 +3166,7 @@ FDynamicEmitterDataBase* UParticleSystemComponent::CreateDynamicDataFromReplay( 
 		case DET_Ribbon:
 			{
 				// Allocate the dynamic data
-				FDynamicRibbonEmitterData* NewEmitterData = ::new FDynamicRibbonEmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
+				FDynamicRibbonEmitterData* NewEmitterData = new FDynamicRibbonEmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
 
 				// Fill in the source data
 				const FDynamicRibbonEmitterReplayData* Trail2EmitterReplayData = static_cast<const FDynamicRibbonEmitterReplayData*>(EmitterReplayData);
@@ -3021,7 +3180,7 @@ FDynamicEmitterDataBase* UParticleSystemComponent::CreateDynamicDataFromReplay( 
 		case DET_AnimTrail:
 			{
 				// Allocate the dynamic data
-				FDynamicAnimTrailEmitterData* NewEmitterData = ::new FDynamicAnimTrailEmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
+				FDynamicAnimTrailEmitterData* NewEmitterData = new FDynamicAnimTrailEmitterData(EmitterInstance->CurrentLODLevel->RequiredModule);
 				// Fill in the source data
 				const FDynamicTrailsEmitterReplayData* AnimTrailEmitterReplayData = static_cast<const FDynamicTrailsEmitterReplayData*>(EmitterReplayData);
 				NewEmitterData->Source = *AnimTrailEmitterReplayData;
@@ -3072,12 +3231,11 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData()
 		}
 	}
 
+
 	FParticleDynamicData* ParticleDynamicData = new FParticleDynamicData();
-	{
-		SCOPE_CYCLE_COUNTER(STAT_ParticleMemTime);
-		INC_DWORD_STAT(STAT_DynamicPSysCompCount);
-		INC_DWORD_STAT_BY(STAT_DynamicPSysCompMem, sizeof(FParticleDynamicData));
-	}
+	INC_DWORD_STAT(STAT_DynamicPSysCompCount);
+	INC_DWORD_STAT_BY(STAT_DynamicPSysCompMem, sizeof(FParticleDynamicData));
+
 	if (Template)
 	{
 		ParticleDynamicData->SystemPositionForMacroUVs = ComponentToWorld.TransformPosition(Template->MacroUVPosition);
@@ -3086,6 +3244,7 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData()
 
 	if( ReplayState == PRS_Replaying )
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_CreateDynamicData_Replay);
 		// Do we have any replay data to play back?
 		UParticleSystemReplay* ReplayData = FindReplayClipForIDNumber( ReplayClipIDNumber );
 		if( ReplayData != NULL )
@@ -3098,7 +3257,8 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData()
 
 
 				// Fill the emitter dynamic buffers with data from our replay
-				ParticleDynamicData->DynamicEmitterDataArray.Empty( CurReplayFrame.Emitters.Num() );
+				ParticleDynamicData->DynamicEmitterDataArray.Reset();
+				ParticleDynamicData->DynamicEmitterDataArray.Reserve(CurReplayFrame.Emitters.Num());
 				for( int32 CurEmitterIndex = 0; CurEmitterIndex < CurReplayFrame.Emitters.Num(); ++CurEmitterIndex )
 				{
 					const FParticleEmitterReplayFrame& CurEmitter = CurReplayFrame.Emitters[ CurEmitterIndex ];
@@ -3128,6 +3288,7 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData()
 		FParticleSystemReplayFrame* NewReplayFrame = NULL;
 		if( ReplayState == PRS_Capturing )
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_CreateDynamicData_Capture);
 			ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 			check(IsInGameThread());
 			// If we don't have any replay data for this component yet, create some now
@@ -3162,7 +3323,9 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData()
 		// Is the particle system allowed to run?
 		if( bForcedInActive == false )
 		{
-			ParticleDynamicData->DynamicEmitterDataArray.Empty(EmitterInstances.Num());
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_CreateDynamicData_Gather);
+			ParticleDynamicData->DynamicEmitterDataArray.Reset();
+			ParticleDynamicData->DynamicEmitterDataArray.Reserve(EmitterInstances.Num());
 
 			for (int32 EmitterIndex = 0; EmitterIndex < EmitterInstances.Num(); EmitterIndex++)
 			{
@@ -3171,7 +3334,17 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData()
 				if (EmitterInst)
 				{
 					// Generate the dynamic data for this emitter
-					NewDynamicEmitterData = EmitterInst->GetDynamicData( IsOwnerSelected() );
+					{
+						QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_GetDynamicData);
+						bool bIsOwnerSeleted = false;
+#if WITH_EDITOR
+						{
+							QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_GetDynamicData_Selected);
+							bIsOwnerSeleted = IsOwnerSelected();
+						}
+#endif
+						NewDynamicEmitterData = EmitterInst->GetDynamicData(bIsOwnerSeleted);
+					}
 					if( NewDynamicEmitterData != NULL )
 					{
 						NewDynamicEmitterData->bValid = true;
@@ -3179,6 +3352,7 @@ FParticleDynamicData* UParticleSystemComponent::CreateDynamicData()
 						// Are we current capturing particle state?
 						if( ReplayState == PRS_Capturing )
 						{
+							QUICK_SCOPE_CYCLE_COUNTER(STAT_ParticleSystemComponent_CreateDynamicData_GatherCapture);
 							// Capture replay data for this particle system
 							// NOTE: This call should always succeed if GetDynamicData succeeded earlier
 							FDynamicEmitterReplayDataBase* NewEmitterReplayData = EmitterInst->GetReplayData();
@@ -3278,6 +3452,7 @@ void UParticleSystemComponent::UpdateDynamicData(FParticleSystemSceneProxy* Prox
 		//@todo.SAS. Remove thisline  - it is used for debugging purposes...
 		Proxy->SetLastDynamicData(Proxy->GetDynamicData());
 		//@todo.SAS. END
+		Proxy->SetVisualizeLODIndex(GetCurrentLODIndex());
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		Proxy->UpdateData( ParticleDynamicData );
 	}
@@ -3343,10 +3518,15 @@ void UParticleSystemComponent::UpdateLODInformation()
 
 void UParticleSystemComponent::OrientZAxisTowardCamera()
 {
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_OrientZAxisTowardCamera);
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 
 	//@TODO: CAMERA: How does this work for stereo and/or split-screen?
-	APlayerController* PlayerController = GetWorld()->GetFirstPlayerController();
+	APlayerController* PlayerController = nullptr;
+	if (GetWorld() && GetWorld()->GetGameInstance())
+	{
+		PlayerController = GetWorld()->GetGameInstance()->GetFirstLocalPlayerController();
+	}
 
 	// Orient the Z axis toward the camera
 	if (PlayerController && PlayerController->PlayerCameraManager)
@@ -3362,7 +3542,7 @@ void UParticleSystemComponent::OrientZAxisTowardCamera()
 		const FVector LocalZAxis = FVector(0,0,1);
 
 		// Find angle between z-axis and the camera direction
-		const FQuat PointTo = FQuat::FindBetween(LocalZAxis, DirToCamera);
+		const FQuat PointTo = FQuat::FindBetweenNormals(LocalZAxis, DirToCamera);
 		
 		// Adjust our rotation
 		const FRotator AdjustmentAngle(PointTo);
@@ -3403,6 +3583,7 @@ void UParticleSystemComponent::PreEditChange(UProperty* PropertyThatWillChange)
 
 void UParticleSystemComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent)
 {
+	check(IsInGameThread());
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	if (PropertyChangedEvent.PropertyChain.Num() > 0)
 	{
@@ -3472,8 +3653,88 @@ FBoxSphereBounds UParticleSystemComponent::CalcBounds(const FTransform& LocalToW
 	return FBoxSphereBounds(BoundingBox);
 }
 
+class FParticleFinalizeTask
+{
+	UParticleSystemComponent* Target;
+public:
+	FParticleFinalizeTask(UParticleSystemComponent* InTarget)
+		: Target(InTarget)
+	{
+
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FParticleFinalizeTask, STATGROUP_TaskGraphTasks);
+	}
+
+	ENamedThreads::Type GetDesiredThread()
+	{
+		return ENamedThreads::GameThread;
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		Target->FinalizeTickComponent();
+	}
+};
+
+class FParticleAsyncTask
+{
+	UParticleSystemComponent* Target;
+public:
+	FParticleAsyncTask(UParticleSystemComponent* InTarget)
+		: Target(InTarget)
+	{
+
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FParticleAsyncTask, STATGROUP_TaskGraphTasks);
+	}
+
+	ENamedThreads::Type GetDesiredThread()
+	{
+		return ENamedThreads::AnyThreadGame();
+	}
+
+	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		Target->ComputeTickComponent_Concurrent();
+#if !WITH_EDITOR  // otherwise this is queued by the calling code because we need to be able to block and wait on it
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_QueueFinalize);
+			FGraphEventRef Finalize = TGraphTask<FParticleFinalizeTask>::CreateTask(nullptr, CurrentThread).ConstructAndDispatchWhenReady(Target);
+			MyCompletionGraphEvent->DontCompleteUntil(Finalize);
+		}
+#endif
+	}
+};
+
+
 void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction)
 {
+	if( Template == nullptr)
+	{
+		return;
+	}
+	// control tick rate
+	// don't tick if enough time hasn't passed
+	if (TimeSinceLastTick + static_cast<uint32>(DeltaTime*1000.0f) < Template->MinTimeBetweenTicks)
+	{
+		TimeSinceLastTick += static_cast<uint32>(DeltaTime*1000.0f);
+		return;
+	}
+	// if enough time has passed, and some of it in previous frames, need to take that into account for DeltaTime
+	DeltaTime += TimeSinceLastTick / 1000.0f;
+	TimeSinceLastTick = 0;
+
+
 	ForceAsyncWorkCompletion(ENSURE_AND_STALL);
 	SCOPE_CYCLE_COUNTER(STAT_PSysCompTickTime);
 
@@ -3490,10 +3751,24 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 
 	UWorld* World = GetWorld();
 	check(World);
-	// Bail out if there is no template, there are no instances, or we're running a dedicated server and we don't update on those
-	if ((Template == NULL) || (EmitterInstances.Num() == 0) || (Template->Emitters.Num() == 0) || 
-		((bUpdateOnDedicatedServer == false) && (GetNetMode() == NM_DedicatedServer)))
+	// Bail out if there is no template or there are no instances, or we're running a dedicated server and we don't update on those
+	if ((Template == NULL) || (EmitterInstances.Num() == 0) || (Template->Emitters.Num() == 0))
 	{
+		return;
+	}
+
+	// Bail out if we are running on a dedicated server and we don't want to update on those
+	if ((bUpdateOnDedicatedServer == false) && (GetNetMode() == NM_DedicatedServer))
+	{
+		if (bAutoDestroy)
+		{
+			// We need to destroy the component if the user is expecting us to do it automatically otherwise this component will live forever because HasCompleted() will never get checked
+			DestroyComponent();
+		}
+		else
+		{
+			SetComponentTickEnabled(false);
+		}
 		return;
 	}
 
@@ -3511,6 +3786,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	} 
 	else
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_CheckForReset);
 		bool bRequiresReset = false;
 		for (int32 EmitterIndex = 0; EmitterIndex < EmitterInstances.Num(); ++EmitterIndex)
 		{
@@ -3546,6 +3822,7 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 			&&	AccumTickTime > ClampedMaxSecondsBeforeInactive//SecondsBeforeInactive
 			&&	GetWorld()->IsGameWorld() )
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_LOD_Inactive);
 			const float CurrentTimeSeconds = World->GetTimeSeconds();
 			if( CurrentTimeSeconds > (LastRenderTime + ClampedMaxSecondsBeforeInactive) )
 			{
@@ -3563,13 +3840,14 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 		AccumLODDistanceCheckTime += DeltaTime;
 		if (AccumLODDistanceCheckTime > Template->LODDistanceCheckTime)
 		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_LOD);
 			AccumLODDistanceCheckTime = 0.0f;
 
 			if (ShouldComputeLODFromGameThread())
 			{
 				bool bCalculateLODLevel = 
- 					(bOverrideLODMethod == true) ? (LODMethod == PARTICLESYSTEMLODMETHOD_Automatic) : 
- 					 	(Template ? (Template->LODMethod == PARTICLESYSTEMLODMETHOD_Automatic) : false);
+					(bOverrideLODMethod == true) ? (LODMethod == PARTICLESYSTEMLODMETHOD_Automatic) : 
+						(Template ? (Template->LODMethod == PARTICLESYSTEMLODMETHOD_Automatic) : false);
 				if (bCalculateLODLevel == true)
 				{
 					FVector EffectPosition = GetComponentLocation();
@@ -3605,16 +3883,20 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 		DeltaTime = Template->UpdateTime_Delta;
 	}
 
-	// Clear out the events.
-	SpawnEvents.Empty();
-	DeathEvents.Empty();
-	CollisionEvents.Empty();
-	BurstEvents.Empty();
-	TotalActiveParticles = 0;
-	bNeedsFinalize = true;
-	if (!ThisTickFunction || !CanTickInAnyThread() || FXConsoleVariables::bFreezeParticleSimulation || !FXConsoleVariables::bAllowAsyncTick)
 	{
-		bDisallowAsync = true;
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_ResetAndCheckParallel);
+		// Clear out the events.
+		SpawnEvents.Reset();
+		DeathEvents.Reset();
+		CollisionEvents.Reset();
+		BurstEvents.Reset();
+		TotalActiveParticles = 0;
+		bNeedsFinalize = true;
+		if (!ThisTickFunction || !CanTickInAnyThread() || FXConsoleVariables::bFreezeParticleSimulation || !FXConsoleVariables::bAllowAsyncTick ||
+			GDistributionType == 0) // this may not be absolutely required, however if you are using distributions it will be glacial anyway. If you want to get rid of this, note that some modules use this indirectly as their criteria for CanTickInAnyThread
+		{
+			bDisallowAsync = true;
+		}
 	}
 	if (bDisallowAsync)
 	{
@@ -3626,26 +3908,30 @@ void UParticleSystemComponent::TickComponent(float DeltaTime, enum ELevelTick Ti
 	}
 	else
 	{
-		// set up async task and the game thread task to finalize the results.
-		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.AsyncParticleTick"),
-			STAT_FSimpleDelegateGraphTask_AsyncParticleTick,
-			STATGROUP_TaskGraphTasks);
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_QueueTasks);
+		bAsyncDataCopyIsValid = true;
+		check(!bParallelRenderThreadUpdate);
+		AsyncComponentToWorld = ComponentToWorld;
+		AsyncInstanceParameters.Reset();
+		AsyncInstanceParameters.Append(InstanceParameters);
 
-		AsyncWork = FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
-			FSimpleDelegateGraphTask::FDelegate::CreateUObject(this, &UParticleSystemComponent::ComputeTickComponent_Concurrent),
-			GET_STATID(STAT_FSimpleDelegateGraphTask_AsyncParticleTick), NULL, ENamedThreads::AnyThread
-		);
-
-		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.FinalizeParticleTick"),
-			STAT_FSimpleDelegateGraphTask_FinalizeParticleTick,
-			STATGROUP_TaskGraphTasks);
-
-		FGraphEventRef Finalize = FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
-			FSimpleDelegateGraphTask::FDelegate::CreateUObject(this, &UParticleSystemComponent::FinalizeTickComponent),
-			GET_STATID(STAT_FSimpleDelegateGraphTask_FinalizeParticleTick), AsyncWork, ENamedThreads::GameThread
-		);
-
-		ThisTickFunction->GetCompletionHandle()->DontCompleteUntil(Finalize);
+		bAsyncWorkOutstanding = true;
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_QueueAsync);
+			AsyncWork = TGraphTask<FParticleAsyncTask>::CreateTask(nullptr, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(this);
+#if !WITH_EDITOR  // we need to not complete until this is done because the game thread finalize task has not beed queued yet
+			ThisTickFunction->GetCompletionHandle()->DontCompleteUntil(AsyncWork);
+#endif
+		}
+#if WITH_EDITOR  // we need to queue this here because we need to be able to block and wait on it
+		{
+			QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_QueueFinalize);
+			FGraphEventArray Prereqs;
+			Prereqs.Add(AsyncWork);
+			FGraphEventRef Finalize = TGraphTask<FParticleFinalizeTask>::CreateTask(&Prereqs, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(this);
+			ThisTickFunction->GetCompletionHandle()->DontCompleteUntil(Finalize);
+		}
+#endif
 	}
 }
 
@@ -3669,6 +3955,7 @@ void UParticleSystemComponent::ComputeTickComponent_Concurrent()
 	FScopeCycleCounterUObject AdditionalScope(AdditionalStatObject(), GET_STATID(STAT_ParticleComputeTickTime));
 	// Tick Subemitters.
 	int32 EmitterIndex;
+	bAllEmittersFinished = true;
 	for (EmitterIndex = 0; EmitterIndex < EmitterInstances.Num(); EmitterIndex++)
 	{
 		FParticleEmitterInstance* Instance = EmitterInstances[EmitterIndex];
@@ -3687,6 +3974,10 @@ void UParticleSystemComponent::ComputeTickComponent_Concurrent()
 			if (SpriteLODLevel && SpriteLODLevel->bEnabled)
 			{
 				Instance->Tick(DeltaTimeTick, bSuppressSpawning);
+				if (!Instance->bEmitterIsDone == true)
+				{
+					bAllEmittersFinished = false;
+				}
 
 				if (!Instance->Tick_MaterialOverrides())
 				{
@@ -3702,17 +3993,29 @@ void UParticleSystemComponent::ComputeTickComponent_Concurrent()
 			}
 		}
 	}
+	if (bAsyncWorkOutstanding)
+	{
+		FPlatformMisc::MemoryBarrier();
+		bAsyncWorkOutstanding = false;
+	}
 }
 
 void UParticleSystemComponent::FinalizeTickComponent()
 {
 	SCOPE_CYCLE_COUNTER(STAT_ParticleFinalizeTickTime);
+	bAsyncDataCopyIsValid = false;
 	if (!bNeedsFinalize)
 	{
 		return;
 	}
 	AsyncWork = NULL; // this task is done
 	bNeedsFinalize = false;
+
+	// should this be moved later?
+	if (bAllEmittersFinished == true && Template->bAutoDeactivate==true)
+	{
+		this->DeactivateSystem();
+	}
 	if (FXConsoleVariables::bFreezeParticleSimulation == false)
 	{
 		int32 EmitterIndex;
@@ -3770,6 +4073,10 @@ void UParticleSystemComponent::FinalizeTickComponent()
 		if (bAutoDestroy)
 		{
 			DestroyComponent();
+		}
+		else if (bAutoManageAttachment)
+		{
+			CancelAutoAttachment(/*bDetachFromParent=*/ true);
 		}
 	}
 	bWasCompleted = bIsCompleted;
@@ -3837,21 +4144,26 @@ void UParticleSystemComponent::FinalizeTickComponent()
 
 void UParticleSystemComponent::WaitForAsyncAndFinalize(EForceAsyncWorkCompletion Behavior) const
 {
-	if (!AsyncWork->IsComplete())
+	if (AsyncWork.GetReference() && !AsyncWork->IsComplete())
 	{
 		check(IsInGameThread());
 		SCOPE_CYCLE_COUNTER(STAT_GTSTallTime);
 		double StartTime = FPlatformTime::Seconds();
 		QUICK_SCOPE_CYCLE_COUNTER(STAT_UParticleSystemComponent_WaitForAsyncAndFinalize);
+#if WITH_EDITOR
 		FTaskGraphInterface::Get().WaitUntilTaskCompletes(AsyncWork, ENamedThreads::GameThread_Local);
+#else
+		// since in the non-editor case the completion is chained to a game thread task (not a gamethread_local one), and we don't want to execute arbitrary tasks 
+		// in what is probably a very, very deep callstack, we will spin here and wait for the async task to finish. The we will do the finalize. The finalize will be attempted again later but do nothing
+		while (bAsyncWorkOutstanding)
+		{
+			FPlatformProcess::SleepNoStats(0.0f);
+		}
+#endif
 		float ThisTime = float(FPlatformTime::Seconds() - StartTime) * 1000.0f;
 		if (Behavior != SILENT)
 		{
 			UE_LOG(LogParticles, Warning, TEXT("Stalled gamethread waiting for particles %5.2fms '%s' '%s'"), ThisTime, *GetFullNameSafe(this), *GetFullNameSafe(Template));
-			if (Behavior == ENSURE_AND_STALL)
-			{
-				ensureMsgf(0,TEXT("Stalled gamethread waiting for particles %5.2fms '%s' '%s'"), ThisTime, *GetFullNameSafe(this), *GetFullNameSafe(Template));
-			}
 		}
 		const_cast<UParticleSystemComponent*>(this)->FinalizeTickComponent();
 	}
@@ -4031,7 +4343,7 @@ void UParticleSystemComponent::ResetParticles(bool bEmptyInstances)
 
 	UWorld* OwningWorld = GetWorld();
 
- 	const bool bIsGameWorld = OwningWorld ? OwningWorld->IsGameWorld() : !GIsEditor;
+	const bool bIsGameWorld = OwningWorld ? OwningWorld->IsGameWorld() : !GIsEditor;
 
 	// Remove instances from scene.
 	for( int32 InstanceIndex=0; InstanceIndex<EmitterInstances.Num(); InstanceIndex++ )
@@ -4115,6 +4427,8 @@ void UParticleSystemComponent::SetTemplate(class UParticleSystem* NewTemplate)
 		bool bResetInstances = false;
 		if (NewTemplate != Template)
 		{
+			bIsElligibleForAsyncTick = false;
+			bIsElligibleForAsyncTickComputed = false;
 			bResetInstances = true;
 		}
 		if (bIsTemplate == false)
@@ -4204,6 +4518,34 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 
 	if( GIsAllowingParticles && bDetailModeAllowsRendering )
 	{
+		// Auto attach if requested
+		const bool bWasAutoAttached = bDidAutoAttach;
+		bDidAutoAttach = false;
+		if (bAutoManageAttachment)
+		{
+			USceneComponent* NewParent = AutoAttachParent.Get();
+			if (NewParent)
+			{
+				const bool bAlreadyAttached = GetAttachParent() && (GetAttachParent() == NewParent) && (GetAttachSocketName() == AutoAttachSocketName) && GetAttachParent()->AttachChildren.Contains(this);
+				if (!bAlreadyAttached)
+				{
+					bDidAutoAttach = bWasAutoAttached;
+					CancelAutoAttachment(true);
+					SavedAutoAttachRelativeLocation = RelativeLocation;
+					SavedAutoAttachRelativeRotation = RelativeRotation;
+					SavedAutoAttachRelativeScale3D = RelativeScale3D;
+					AttachTo(NewParent, AutoAttachSocketName, AutoAttachLocationType);
+				}
+
+				bDidAutoAttach = true;
+				bFlagAsJustAttached = true;
+			}
+			else
+			{
+				CancelAutoAttachment(true);
+			}
+		}
+
 		if (bFlagAsJustAttached)
 		{
 			bJustRegistered = true;
@@ -4257,6 +4599,10 @@ void UParticleSystemComponent::ActivateSystem(bool bFlagAsJustAttached)
 
 		// Flag the system as having been activated at least once
 		bHasBeenActivated = true;
+
+
+		// Clear tick time
+		TimeSinceLastTick = 0;
 
 		int32 DesiredLODLevel = 0;
 		bool bCalculateLODLevel = 
@@ -4369,6 +4715,26 @@ void UParticleSystemComponent::DeactivateSystem()
 	}
 
 	LastRenderTime = GetWorld()->GetTimeSeconds();
+}
+
+void UParticleSystemComponent::CancelAutoAttachment(bool bDetachFromParent)
+{
+	if (bAutoManageAttachment)
+	{
+		if (bDidAutoAttach)
+		{
+			// Restore relative transform from before attachment. Actual transform will be updated as part of DetachFromParent().
+			RelativeLocation = SavedAutoAttachRelativeLocation;
+			RelativeRotation = SavedAutoAttachRelativeRotation;
+			RelativeScale3D = SavedAutoAttachRelativeScale3D;
+			bDidAutoAttach = false;
+		}
+
+		if (bDetachFromParent)
+		{
+			DetachFromParent(/*bMaintainWorldPosition=*/ false);
+		}
+	}
 }
 
 void UParticleSystemComponent::ComputeCanTickInAnyThread()
@@ -4489,7 +4855,7 @@ int32 UParticleSystemComponent::GetNumActiveParticles() const
 	return NumParticles;
 }
 
-void UParticleSystemComponent::GetOwnedTrailEmitters(TArray< struct FParticleAnimTrailEmitterInstance* >& OutTrailEmitters, const void* InOwner, bool bSetOwner)
+void UParticleSystemComponent::GetOwnedTrailEmitters(UParticleSystemComponent::TrailEmitterArray& OutTrailEmitters, const void* InOwner, bool bSetOwner)
 {
 	for (FParticleEmitterInstance* Inst : EmitterInstances)
 	{
@@ -4958,26 +5324,21 @@ int32 UParticleSystemComponent::DetermineLODLevelForLocation(const FVector& Effe
 		}
 
 		// This will now put everything in LODLevel 0 (high detail) by default
-		float LODDistance = 0.0f;
-		if (PlayerViewLocations.Num())
-		{
-			LODDistance = WORLD_MAX;
-			int32 NumLocations = PlayerViewLocations.Num();
-			for (int32 i = 0; i < NumLocations; ++i)
+		float LODDistanceSqr = (PlayerViewLocations.Num() ? FMath::Square(WORLD_MAX) : 0.0f);
+		for (const FVector& ViewLocation : PlayerViewLocations)
 			{
-				float DistanceToEffect = FVector(PlayerViewLocations[i] - EffectLocation).Size();
-				if (DistanceToEffect < LODDistance)
+			const float DistanceToEffectSqr = FVector(ViewLocation - EffectLocation).SizeSquared();
+			if (DistanceToEffectSqr < LODDistanceSqr)
 				{
-					LODDistance = DistanceToEffect;
-				}
+				LODDistanceSqr = DistanceToEffectSqr;
 			}
 		}
 
 		// Find appropriate LOD based on distance
 		Retval = Template->LODDistances.Num() - 1;
-		for (int32 LODIdx = 1; LODIdx < Template->LODDistances.Num(); LODIdx++)
+		for (int32 LODIdx = 1; LODIdx < Template->LODDistances.Num(); ++LODIdx)
 		{
-			if (LODDistance < Template->LODDistances[LODIdx])
+			if (LODDistanceSqr < FMath::Square(Template->LODDistances[LODIdx]))
 			{
 				Retval = LODIdx - 1;
 				break;
@@ -5035,7 +5396,7 @@ void UParticleSystemComponent::SetFloatParameter(FName Name, float Param)
 	{
 		return;
 	}
-	ForceAsyncWorkCompletion(STALL);
+	check(IsInGameThread());
 
 	// First see if an entry for this name already exists
 	for (int32 i = 0; i < InstanceParameters.Num(); i++)
@@ -5062,7 +5423,7 @@ void UParticleSystemComponent::SetFloatRandParameter(FName ParameterName,float P
 	{
 		return;
 	}
-	ForceAsyncWorkCompletion(STALL);
+	check(IsInGameThread());
 
 	// First see if an entry for this name already exists
 	for (int32 i = 0; i < InstanceParameters.Num(); i++)
@@ -5091,7 +5452,7 @@ void UParticleSystemComponent::SetVectorParameter(FName Name, FVector Param)
 	{
 		return;
 	}
-	ForceAsyncWorkCompletion(STALL);
+	check(IsInGameThread());
 
 	// First see if an entry for this name already exists
 	for (int32 i = 0; i < InstanceParameters.Num(); i++)
@@ -5118,7 +5479,7 @@ void UParticleSystemComponent::SetVectorRandParameter(FName ParameterName,const 
 	{
 		return;
 	}
-	ForceAsyncWorkCompletion(STALL);
+	check(IsInGameThread());
 
 	// First see if an entry for this name already exists
 	for (int32 i = 0; i < InstanceParameters.Num(); i++)
@@ -5147,9 +5508,9 @@ void UParticleSystemComponent::SetColorParameter(FName Name, FLinearColor Param)
 	{
 		return;
 	}
-	ForceAsyncWorkCompletion(STALL);
+	check(IsInGameThread());
 
-	FColor NewColor(Param);
+	FColor NewColor(Param.ToFColor(true));
 
 	// First see if an entry for this name already exists
 	for (int32 i = 0; i < InstanceParameters.Num(); i++)
@@ -5176,7 +5537,7 @@ void UParticleSystemComponent::SetActorParameter(FName Name, AActor* Param)
 	{
 		return;
 	}
-	ForceAsyncWorkCompletion(STALL);
+	check(IsInGameThread());
 
 	// First see if an entry for this name already exists
 	for (int32 i = 0; i < InstanceParameters.Num(); i++)
@@ -5203,7 +5564,7 @@ void UParticleSystemComponent::SetMaterialParameter(FName Name, UMaterialInterfa
 	{
 		return;
 	}
-	ForceAsyncWorkCompletion(STALL);
+	check(IsInGameThread());
 
 	// First see if an entry for this name already exists
 	for (int32 i = 0; i < InstanceParameters.Num(); i++)
@@ -5234,9 +5595,10 @@ bool UParticleSystemComponent::GetFloatParameter(const FName InName,float& OutFl
 		return false;
 	}
 
-	for (int32 i = 0; i < InstanceParameters.Num(); i++)
+	const TArray<struct FParticleSysParam>& UseInstanceParameters = GetAsyncInstanceParameters();
+	for (int32 i = 0; i < UseInstanceParameters.Num(); i++)
 	{
-		FParticleSysParam& Param = InstanceParameters[i];
+		const FParticleSysParam& Param = UseInstanceParameters[i];
 		if (Param.Name == InName)
 		{
 			if (Param.ParamType == PSPT_Scalar)
@@ -5246,7 +5608,7 @@ bool UParticleSystemComponent::GetFloatParameter(const FName InName,float& OutFl
 			}
 			else if (Param.ParamType == PSPT_ScalarRand)
 			{
-				check(IsInGameThread());
+				// check(IsInGameThread()); this isn't exactly cool to call from multiple threads, but it isn't terrible.
 				OutFloat = Param.Scalar + (Param.Scalar_Low - Param.Scalar) * FMath::SRand();
 				return true;
 			}
@@ -5265,9 +5627,10 @@ bool UParticleSystemComponent::GetVectorParameter(const FName InName,FVector& Ou
 		return false;
 	}
 
-	for (int32 i = 0; i < InstanceParameters.Num(); i++)
+	const TArray<struct FParticleSysParam>& UseInstanceParameters = GetAsyncInstanceParameters();
+	for (int32 i = 0; i < UseInstanceParameters.Num(); i++)
 	{
-		FParticleSysParam& Param = InstanceParameters[i];
+		const FParticleSysParam& Param = UseInstanceParameters[i];
 		if (Param.Name == InName)
 		{
 			if (Param.ParamType == PSPT_Vector)
@@ -5288,6 +5651,56 @@ bool UParticleSystemComponent::GetVectorParameter(const FName InName,FVector& Ou
 	return false;
 }
 
+bool UParticleSystemComponent::GetAnyVectorParameter(const FName InName,FVector& OutVector)
+{
+	// Always fail if we pass in no name.
+	if(InName == NAME_None)
+	{
+		return false;
+	}
+
+	const TArray<struct FParticleSysParam>& UseInstanceParameters = GetAsyncInstanceParameters();
+	for (int32 i = 0; i < UseInstanceParameters.Num(); i++)
+	{
+		const FParticleSysParam& Param = UseInstanceParameters[i];
+		if (Param.Name == InName)
+		{
+			if (Param.ParamType == PSPT_Vector)
+			{
+				OutVector = Param.Vector;
+				return true;
+			}
+			if (Param.ParamType == PSPT_VectorRand)
+			{
+				check(IsInGameThread());
+				FVector RandValue(FMath::SRand(), FMath::SRand(), FMath::SRand());
+				OutVector = Param.Vector + (Param.Vector_Low - Param.Vector) * RandValue;
+				return true;
+			}
+			if (Param.ParamType == PSPT_Scalar)
+			{
+				float OutFloat = Param.Scalar;
+				OutVector = FVector(OutFloat, OutFloat, OutFloat);
+				return true;
+			}
+			if (Param.ParamType == PSPT_ScalarRand)
+			{
+				// check(IsInGameThread()); this isn't exactly cool to call from multiple threads, but it isn't terrible.
+				float OutFloat = Param.Scalar + (Param.Scalar_Low - Param.Scalar) * FMath::SRand();
+				OutVector = FVector(OutFloat, OutFloat, OutFloat);
+				return true;
+			}
+			if (Param.ParamType == PSPT_Color)
+			{
+				OutVector = FVector(FLinearColor(Param.Color));
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 
 bool UParticleSystemComponent::GetColorParameter(const FName InName,FLinearColor& OutColor)
 {
@@ -5296,10 +5709,11 @@ bool UParticleSystemComponent::GetColorParameter(const FName InName,FLinearColor
 	{
 		return false;
 	}
+	const TArray<struct FParticleSysParam>& UseInstanceParameters = GetAsyncInstanceParameters();
 
-	for (int32 i = 0; i < InstanceParameters.Num(); i++)
+	for (int32 i = 0; i < UseInstanceParameters.Num(); i++)
 	{
-		FParticleSysParam& Param = InstanceParameters[i];
+		const FParticleSysParam& Param = UseInstanceParameters[i];
 		if (Param.Name == InName && Param.ParamType == PSPT_Color)
 		{
 			OutColor = FLinearColor(Param.Color);
@@ -5319,9 +5733,10 @@ bool UParticleSystemComponent::GetActorParameter(const FName InName,class AActor
 		return false;
 	}
 
-	for (int32 i = 0; i < InstanceParameters.Num(); i++)
+	const TArray<struct FParticleSysParam>& UseInstanceParameters = GetAsyncInstanceParameters();
+	for (int32 i = 0; i < UseInstanceParameters.Num(); i++)
 	{
-		FParticleSysParam& Param = InstanceParameters[i];
+		const FParticleSysParam& Param = UseInstanceParameters[i];
 		if (Param.Name == InName && Param.ParamType == PSPT_Actor)
 		{
 			OutActor = Param.Actor;
@@ -5341,9 +5756,10 @@ bool UParticleSystemComponent::GetMaterialParameter(const FName InName,class UMa
 		return false;
 	}
 
-	for (int32 i = 0; i < InstanceParameters.Num(); i++)
+	const TArray<struct FParticleSysParam>& UseInstanceParameters = GetAsyncInstanceParameters();
+	for (int32 i = 0; i < UseInstanceParameters.Num(); i++)
 	{
-		FParticleSysParam& Param = InstanceParameters[i];
+		const FParticleSysParam& Param = UseInstanceParameters[i];
 		if (Param.Name == InName && Param.ParamType == PSPT_Material)
 		{
 			OutMaterial = Param.Material;
@@ -5357,6 +5773,7 @@ bool UParticleSystemComponent::GetMaterialParameter(const FName InName,class UMa
 
 void UParticleSystemComponent::ClearParameter(FName ParameterName, EParticleSysParamType ParameterType)
 {
+	check(IsInGameThread());
 	for (int32 i = 0; i < InstanceParameters.Num(); i++)
 	{
 		if (InstanceParameters[i].Name == ParameterName && (ParameterType == PSPT_None || InstanceParameters[i].ParamType == ParameterType))
@@ -5409,7 +5826,7 @@ void UParticleSystemComponent::GetUsedMaterials( TArray<UMaterialInterface*>& Ou
 							const UParticleModuleTypeDataMesh* TypeDataModule = Cast<UParticleModuleTypeDataMesh>( LOD->TypeDataModule );
 							if( !TypeDataModule->bOverrideMaterial )
 							{
-								// If the material isnt being overriden by the required module, for each mesh section, find the corresponding entry in the mesh material module
+								// If the material isnt being overridden by the required module, for each mesh section, find the corresponding entry in the mesh material module
 								// If that entry does not exist, take the material directly off the mesh section
 								const UParticleModuleMeshMaterial* MaterialModule = Cast<UParticleModuleMeshMaterial>( LOD->Modules[ ModuleIdx ] );
 								if( TypeDataModule->Mesh )
@@ -5768,13 +6185,13 @@ void AEmitterCameraLensEffectBase::UpdateLocation(const FVector& CamLoc, const F
 	SetActorLocationAndRotation( CamLoc + X * DistAdjustedForFOV, NewRot, false );
 }
 
-void AEmitterCameraLensEffectBase::Destroyed()
+void AEmitterCameraLensEffectBase::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	if (BaseCamera != NULL)
 	{
 		BaseCamera->RemoveCameraLensEffect(this);
 	}
-	Super::Destroyed();
+	Super::EndPlay(EndPlayReason);
 }
 
 void AEmitterCameraLensEffectBase::RegisterCamera(APlayerCameraManager* C)
@@ -5794,11 +6211,12 @@ void AEmitterCameraLensEffectBase::PostInitializeComponents()
 void AEmitterCameraLensEffectBase::ActivateLensEffect()
 {
 	// only play the camera effect on clients
-	check(GetWorld());
+	UWorld* World = GetWorld();
+	check(World);
 	if( GetNetMode() != NM_DedicatedServer )
 	{
 		UParticleSystem* PSToActuallySpawn;
-		if( GetWorld()->GameState && GetWorld()->GameState->ShouldShowGore() )
+		if( World->GameState && World->GameState->ShouldShowGore() )
 		{
 			PSToActuallySpawn = PS_CameraEffect;
 		}

@@ -91,10 +91,10 @@ class KISMET_API UBlueprintPaletteFavorites : public UObject
 	GENERATED_UCLASS_BODY()
 
 public:
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End UObject interface
+	//~ End UObject Interface
 
 	/**
 	 * Not all palette actions can be turned into a favorite. This method is

@@ -12,7 +12,8 @@
 class FHttpRequestAdapterBase
 {
 public:
-    FHttpRequestAdapterBase(TSharedRef<IHttpRequest>& InHttpRequest) : HttpRequest(InHttpRequest)
+    FHttpRequestAdapterBase(const TSharedRef<IHttpRequest>& InHttpRequest) 
+		: HttpRequest(InHttpRequest)
     {}
 
     FString                       GetURL()    	                                                   { return HttpRequest->GetURL(); }
@@ -39,7 +40,7 @@ protected:
 class FHttpRequestAdapter : public FHttpRequestAdapterBase
 {
 public:
-    FHttpRequestAdapter(TSharedRef<IHttpRequest>& InHttpRequest)
+    FHttpRequestAdapter(const TSharedRef<IHttpRequest>& InHttpRequest)
         : FHttpRequestAdapterBase(InHttpRequest)
     {}
 

@@ -39,15 +39,10 @@ public:
 	virtual ~FDirectoryWatchRequestLinux();
 
 	/** Sets up the directory handle and request information */
-	bool Init(const FString& InDirectory, bool bInIncludeDirectoryChanges);
+	bool Init(const FString& InDirectory, uint32 Flags);
 
 	/** Adds a delegate to get fired when the directory changes */
 	FDelegateHandle AddDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate );
-	/** Removes a delegate to get fired when the directory changes */
-	DELEGATE_DEPRECATED("This overload of RemoveDelegate is deprecated, instead pass the result of AddDelegate.")
-	bool RemoveDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate );
-	/** Same as above, but for use within other deprecated calls to prevent multiple deprecation warnings */
-	bool DEPRECATED_RemoveDelegate( const IDirectoryWatcher::FDirectoryChanged& InDelegate );
 	/** Removes a delegate to get fired when the directory changes */
 	bool RemoveDelegate( FDelegateHandle InHandle );
 	/** Returns true if this request has any delegates listening to directory changes */
@@ -72,6 +67,9 @@ private:
 
 	/** Whether to report directory creation/deletion changes. */
 	bool bIncludeDirectoryChanges;
+
+	/** Whether or not watch subtree. */
+	bool bWatchSubtree;
 
 	int FileDescriptor;
 

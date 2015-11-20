@@ -8,6 +8,7 @@
 AUTServerBeaconLobbyHostObject::AUTServerBeaconLobbyHostObject(const FObjectInitializer& PCIP) :
 Super(PCIP)
 {
+	ClientBeaconActorClass = AUTServerBeaconLobbyClient::StaticClass();
 	BeaconTypeName = TEXT("UTLobbyBeacon");
 }
 

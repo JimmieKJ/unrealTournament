@@ -15,5 +15,16 @@ public class AndroidRuntimeSettings : ModuleRules
 				"CoreUObject"
 			}
 		);
+
+        if (Target.Type == TargetRules.TargetType.Editor || Target.Type == TargetRules.TargetType.Program)
+        {
+            PrivateDependencyModuleNames.AddRange(
+                new string[]
+			    {
+                    "TargetPlatform",
+                    "Android_MultiTargetPlatform"
+			    }
+            );
+        }
 	}
 }

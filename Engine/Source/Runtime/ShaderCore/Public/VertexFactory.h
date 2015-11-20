@@ -353,7 +353,7 @@ public:
 	/**
 	 * @return The vertex factory's type.
 	 */
-	virtual FVertexFactoryType* GetType() const = 0;
+	virtual FVertexFactoryType* GetType() const { return NULL; }
 
 	/**
 	 * Activates the vertex factory.

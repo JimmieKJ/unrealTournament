@@ -108,7 +108,7 @@ class UInterpCurveEdSetup : public UObject
 	int32 ActiveTab;
 
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	virtual bool NeedsLoadForClient() const override
 	{
@@ -118,9 +118,9 @@ class UInterpCurveEdSetup : public UObject
 	{
 		return false;
 	}
-	// End UObject interface
+	//~ End UObject Interface
 	
-	// InterpCurveEdSetup interface
+	//~ Begin InterpCurveEdSetup Interface
 	ENGINE_API static FCurveEdInterface* GetCurveEdInterfacePointer(const FCurveEdEntry& Entry);
 
 	/** 

@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "MediaPlayerEditorPrivatePCH.h"
-#include "IMediaTrackVideoDetails.h"
+#include "IMediaVideoTrack.h"
 
 
 /* FMediaPlayerEditorViewport structors
@@ -22,16 +22,14 @@ FMediaPlayerEditorViewport::~FMediaPlayerEditorViewport()
 /* FMediaPlayerEditorViewport interface
 *****************************************************************************/
 
-void FMediaPlayerEditorViewport::Initialize(const IMediaTrackPtr& VideoTrack)
+void FMediaPlayerEditorViewport::Initialize(const IMediaVideoTrackPtr& VideoTrack)
 {
 	ReleaseResources();
 
 	if (VideoTrack.IsValid())
 	{
-		check(VideoTrack->GetType() == EMediaTrackTypes::Video);
-
 		const bool bCreateEmptyTexture = true;
-		const FIntPoint VideoDimensions = VideoTrack->GetVideoDetails().GetDimensions();
+		const FIntPoint VideoDimensions = VideoTrack->GetDimensions();
 
 		SlateTexture = new FSlateTexture2DRHIRef(VideoDimensions.X, VideoDimensions.Y, PF_B8G8R8A8, nullptr, TexCreate_Dynamic | TexCreate_RenderTargetable, bCreateEmptyTexture);
 		EditorTexture = new FMediaPlayerEditorTexture(SlateTexture, VideoTrack.ToSharedRef());

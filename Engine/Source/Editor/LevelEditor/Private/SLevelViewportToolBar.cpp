@@ -22,6 +22,7 @@
 #include "StatsData.h"
 #include "BufferVisualizationData.h"
 #include "GameFramework/WorldSettings.h"
+#include "FoliageType.h"
 
 #define LOCTEXT_NAMESPACE "LevelViewportToolBar"
 
@@ -516,7 +517,7 @@ TSharedRef<SWidget> SLevelViewportToolBar::GenerateOptionsMenu() const
 
 			if( bIsPerspective )
 			{
-				OptionsMenuBuilder.AddWidget( GenerateFOVMenu(), LOCTEXT("FOVAngle", "Field of View") );
+				OptionsMenuBuilder.AddWidget( GenerateFOVMenu(), LOCTEXT("FOVAngle", "Field of View (H)") );
 				OptionsMenuBuilder.AddWidget( GenerateFarViewPlaneMenu(), LOCTEXT("FarViewPlane", "Far View Plane") );
 			}
 		}
@@ -526,8 +527,8 @@ TSharedRef<SWidget> SLevelViewportToolBar::GenerateOptionsMenu() const
 		{
 			if( bIsPerspective )
 			{
-				// Allow matinee preview only applies to perspective
-				OptionsMenuBuilder.AddMenuEntry( LevelViewportActions.AllowMatineePreview );
+				// Cinematic preview only applies to perspective
+				OptionsMenuBuilder.AddMenuEntry( LevelViewportActions.ToggleCinematicPreview );
 			}
 
 			OptionsMenuBuilder.AddMenuEntry( LevelViewportActions.ToggleGameView );
@@ -671,6 +672,25 @@ void SLevelViewportToolBar::SetLevelProfile( FString DeviceProfileName )
 	UIManager->SetProfile( DeviceProfileName );
 }
 
+void SLevelViewportToolBar::GeneratePlacedCameraMenuEntries( FMenuBuilder& Builder, TArray<ACameraActor*> Cameras ) const
+{
+	FSlateIcon CameraIcon( FEditorStyle::GetStyleSetName(), "ClassIcon.CameraComponent" );
+
+	for( ACameraActor* CameraActor : Cameras )
+	{
+		// Needed for the delegate hookup to work below
+		AActor* GenericActor = CameraActor;
+
+		FText ActorDisplayName = FText::FromString(CameraActor->GetActorLabel());
+		FUIAction LookThroughCameraAction(
+			FExecuteAction::CreateSP(Viewport.Pin().ToSharedRef(), &SLevelViewport::OnActorLockToggleFromMenu, GenericActor),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateSP(Viewport.Pin().ToSharedRef(), &SLevelViewport::IsActorLocked, TWeakObjectPtr<AActor>(GenericActor))
+			);
+
+		Builder.AddMenuEntry( ActorDisplayName, FText::Format(LOCTEXT("LookThroughCameraActor_ToolTip", "Look through and pilot {0}"), ActorDisplayName), CameraIcon, LookThroughCameraAction, NAME_None, EUserInterfaceActionType::RadioButton );
+	}
+}
 
 TSharedRef<SWidget> SLevelViewportToolBar::GenerateCameraMenu() const
 {
@@ -690,6 +710,31 @@ TSharedRef<SWidget> SLevelViewportToolBar::GenerateCameraMenu() const
 		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Front);
 		CameraMenuBuilder.AddMenuEntry(FEditorViewportCommands::Get().Back);
 	CameraMenuBuilder.EndSection();
+
+
+	TArray<ACameraActor*> Cameras;
+
+	for( TActorIterator<ACameraActor> It(GetWorld().Get()); It; ++It )
+	{
+		Cameras.Add( *It );
+	}
+
+	FText CameraActorsHeading = LOCTEXT("CameraActorsHeading", "Placed Cameras");
+
+	// Don't add too many cameras to the top level menu or else it becomes too large
+	const uint32 MaxCamerasInTopLevelMenu = 10;
+	if( Cameras.Num() > MaxCamerasInTopLevelMenu )
+	{
+		CameraMenuBuilder.BeginSection("CameraActors");
+			CameraMenuBuilder.AddSubMenu( CameraActorsHeading, LOCTEXT("LookThroughCameraActor_ToolTip", "Look through and pilot placed cameras"), FNewMenuDelegate::CreateSP(this, &SLevelViewportToolBar::GeneratePlacedCameraMenuEntries, Cameras ) );
+		CameraMenuBuilder.EndSection();
+	}
+	else
+	{
+		CameraMenuBuilder.BeginSection("CameraActors", CameraActorsHeading );
+			GeneratePlacedCameraMenuEntries( CameraMenuBuilder, Cameras );
+		CameraMenuBuilder.EndSection();
+	}
 
 	return CameraMenuBuilder.MakeWidget();
 }
@@ -852,6 +897,9 @@ TSharedRef<SWidget> SLevelViewportToolBar::GenerateShowMenu() const
 			ShowMenuBuilder.AddSubMenu( LOCTEXT("PostProcessShowFlagsMenu", "Post Processing"), LOCTEXT("PostProcessShowFlagsMenu_ToolTip", "Post process show flags"),
 				FNewMenuDelegate::CreateStatic( &FillShowMenu, ShowMenu[SFG_PostProcess], 0 ) );
 
+			ShowMenuBuilder.AddSubMenu( LOCTEXT("LightTypesShowFlagsMenu", "Light Types"), LOCTEXT("LightTypesShowFlagsMenu_ToolTip", "Light Types show flags"),
+				FNewMenuDelegate::CreateStatic( &FillShowMenu, ShowMenu[SFG_LightTypes], 0 ) );
+
 			ShowMenuBuilder.AddSubMenu( LOCTEXT("LightingComponentsShowFlagsMenu", "Lighting Components"), LOCTEXT("LightingComponentsShowFlagsMenu_ToolTip", "Lighting Components show flags"),
 				FNewMenuDelegate::CreateStatic( &FillShowMenu, ShowMenu[SFG_LightingComponents], 0 ) );
 
@@ -891,9 +939,9 @@ TSharedRef<SWidget> SLevelViewportToolBar::GenerateShowMenu() const
 
 			// Show Layers sub-menu is dynamically generated when the user enters 'show' menu
 			{
-			ShowMenuBuilder.AddSubMenu(LOCTEXT("ShowLayersMenu", "Layers"), LOCTEXT("ShowLayersMenu_ToolTip", "Show layers flags"),
-				FNewMenuDelegate::CreateStatic(&SLevelViewportToolBar::FillShowLayersMenu, Viewport));
-		}
+				ShowMenuBuilder.AddSubMenu(LOCTEXT("ShowLayersMenu", "Layers"), LOCTEXT("ShowLayersMenu_ToolTip", "Show layers flags"),
+					FNewMenuDelegate::CreateStatic(&SLevelViewportToolBar::FillShowLayersMenu, Viewport));
+			}
 
 			// Show Sprites sub-menu
 			{
@@ -909,6 +957,13 @@ TSharedRef<SWidget> SLevelViewportToolBar::GenerateShowMenu() const
 				ShowMenuBuilder.AddSubMenu(LOCTEXT("ShowSpritesMenu", "Sprites"), LOCTEXT("ShowSpritesMenu_ToolTip", "Show sprites flags"),
 					FNewMenuDelegate::CreateStatic(&FillShowMenu, ShowSpritesMenu, 2));
 			}
+
+			// Show 'Foliage types' sub-menu is dynamically generated when the user enters 'show' menu
+			{
+				ShowMenuBuilder.AddSubMenu(LOCTEXT("ShowFoliageTypesMenu", "Foliage Types"), LOCTEXT("ShowFoliageTypesMenu_ToolTip", "Show/hide specific foliage types"),
+					FNewMenuDelegate::CreateStatic(&SLevelViewportToolBar::FillShowFoliageTypesMenu, Viewport));
+			}
+
 		}
 
 		ShowMenuBuilder.EndSection();
@@ -1015,8 +1070,7 @@ void SLevelViewportToolBar::FillShowLayersMenu( FMenuBuilder& MenuBuilder, TWeak
 		{
 			// Get all the layers and create an entry for each of them
 			TArray<FName> AllLayerNames;
-
-				GEditor->Layers->AddAllLayerNamesTo(AllLayerNames);
+			GEditor->Layers->AddAllLayerNamesTo(AllLayerNames);
 
 			for( int32 LayerIndex = 0; LayerIndex < AllLayerNames.Num(); ++LayerIndex )
 			{
@@ -1034,6 +1088,72 @@ void SLevelViewportToolBar::FillShowLayersMenu( FMenuBuilder& MenuBuilder, TWeak
 	}
 }
 
+static TMap<FName, TArray<UFoliageType*>> GroupFoliageByOuter(const TArray<UFoliageType*> FoliageList)
+{
+	TMap<FName, TArray<UFoliageType*>> Result;
+
+	for (UFoliageType* FoliageType : FoliageList)
+	{
+		if (FoliageType->IsAsset())
+		{
+			Result.FindOrAdd(NAME_None).Add(FoliageType);
+		}
+		else
+		{
+			FName LevelName = FoliageType->GetOutermost()->GetFName();
+			Result.FindOrAdd(LevelName).Add(FoliageType);
+		}
+	}
+
+	Result.KeySort([](const FName& A, const FName& B) { return (A < B && B != NAME_None); });
+	return Result;
+}
+
+void SLevelViewportToolBar::FillShowFoliageTypesMenu(class FMenuBuilder& MenuBuilder, TWeakPtr<class SLevelViewport> Viewport)
+{
+	auto ViewportPtr = Viewport.Pin();
+	if (!ViewportPtr.IsValid())
+	{
+		return;
+	}
+		
+	MenuBuilder.BeginSection("LevelViewportFoliageMeshes");
+	{
+		// Map 'Show All' and 'Hide All' commands
+		FUIAction ShowAllFoliage(FExecuteAction::CreateSP(ViewportPtr.ToSharedRef(), &SLevelViewport::ToggleAllFoliageTypes, true));
+		FUIAction HideAllFoliage(FExecuteAction::CreateSP(ViewportPtr.ToSharedRef(), &SLevelViewport::ToggleAllFoliageTypes, false));
+		
+		MenuBuilder.AddMenuEntry(LOCTEXT("ShowAllLabel", "Show All"), FText::GetEmpty(), FSlateIcon(), ShowAllFoliage);
+		MenuBuilder.AddMenuEntry(LOCTEXT("HideAllLabel", "Hide All"), FText::GetEmpty(), FSlateIcon(), HideAllFoliage);
+	}
+	MenuBuilder.EndSection();
+	
+	// Gather all foliage types used in this world and group them by sub-levels
+	auto AllFoliageMap = GroupFoliageByOuter(GEditor->GetFoliageTypesInWorld(ViewportPtr->GetWorld()));
+
+	for (auto& FoliagePair : AllFoliageMap)
+	{
+		// Name foliage group by an outer sub-level name, or empty if foliage type is an asset
+		FText EntryName = (FoliagePair.Key == NAME_None ? FText::GetEmpty() : FText::FromName(FPackageName::GetShortFName(FoliagePair.Key)));
+		MenuBuilder.BeginSection(NAME_None, EntryName);
+
+		TArray<UFoliageType*>& FoliageList = FoliagePair.Value;
+		for (UFoliageType* FoliageType : FoliageList)
+		{
+			FName MeshName = FoliageType->GetDisplayFName();
+			TWeakObjectPtr<UFoliageType> FoliageTypePtr = FoliageType;
+
+			FUIAction Action(
+				FExecuteAction::CreateSP(ViewportPtr.ToSharedRef(), &SLevelViewport::ToggleShowFoliageType, FoliageTypePtr),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateSP(ViewportPtr.ToSharedRef(), &SLevelViewport::IsFoliageTypeVisible, FoliageTypePtr));
+
+			MenuBuilder.AddMenuEntry(FText::FromName(MeshName), FText::GetEmpty(), FSlateIcon(), Action, NAME_None, EUserInterfaceActionType::ToggleButton);
+		}
+
+		MenuBuilder.EndSection();
+	}
+}
 
 TWeakObjectPtr<UWorld> SLevelViewportToolBar::GetWorld() const
 {

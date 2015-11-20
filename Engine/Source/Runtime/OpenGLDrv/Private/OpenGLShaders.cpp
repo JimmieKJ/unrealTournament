@@ -47,7 +47,7 @@ static bool VerifyLinkedProgram(GLuint Program)
 {
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderLinkVerifyTime);
 
-#if UE_BUILD_DEBUG
+#if UE_BUILD_DEBUG || DEBUG_GL_SHADERS
 	GLint LinkStatus = 0;
 	glGetProgramiv(Program, GL_LINK_STATUS, &LinkStatus);
 	if (LinkStatus != GL_TRUE)
@@ -448,14 +448,19 @@ static void BindShaderLocations(GLenum TypeEnum, GLuint Resource, uint16 InOutMa
  * @returns the compiled shader upon success.
  */
 template <typename ShaderType>
-ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
+ShaderType* CompileOpenGLShader(const TArray<uint8>& InShaderCode)
 {
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLShaderCompileTime);
 	VERIFY_GL_SCOPE();
 
+	FShaderCodeReader ShaderCode(InShaderCode);
+
 	ShaderType* Shader = nullptr;
 	const GLenum TypeEnum = ShaderType::TypeEnum;
-	FMemoryReader Ar(Code, true);
+	FMemoryReader Ar(InShaderCode, true);
+
+	Ar.SetLimitSize(ShaderCode.GetActualShaderCodeSize());
+
 	FOpenGLCodeHeader Header = { 0 };
 
 	Ar << Header;
@@ -482,7 +487,7 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 
 	// The code as given to us.
 	FAnsiCharArray GlslCodeOriginal;
-	AppendCString(GlslCodeOriginal, (ANSICHAR*)Code.GetData() + CodeOffset);
+	AppendCString(GlslCodeOriginal, (ANSICHAR*)InShaderCode.GetData() + CodeOffset);
 	uint32 GlslCodeOriginalCRC = FCrc::MemCrc_DEPRECATED(GlslCodeOriginal.GetData(), GlslCodeOriginal.Num());
 
 	// The amended code we actually compile.
@@ -552,14 +557,24 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 			{
 #if PLATFORM_DESKTOP
 				AppendCString(GlslCode, "#extension GL_ARB_separate_shader_objects : enable\n");
-#endif
 				AppendCString(GlslCode, "#define INTERFACE_LOCATION(Pos) layout(location=Pos) \n");
 				AppendCString(GlslCode, "#define INTERFACE_BLOCK(Pos, Interp, Modifiers, Semantic, PreType, PostType) layout(location=Pos) Interp Modifiers struct { PreType PostType; }\n");
+#else
+				AppendCString(GlslCode, "#define INTERFACE_LOCATION(Pos) layout(location=Pos) \n");
+				AppendCString(GlslCode, "#define INTERFACE_BLOCK(Pos, Interp, Modifiers, Semantic, PreType, PostType) layout(location=Pos) Modifiers Semantic { PreType PostType; }\n");
+#endif
 			}
 			else
 			{
 				AppendCString(GlslCode, "#define INTERFACE_LOCATION(Pos) \n");
 				AppendCString(GlslCode, "#define INTERFACE_BLOCK(Pos, Interp, Modifiers, Semantic, PreType, PostType) Modifiers Semantic { Interp PreType PostType; }\n");
+			}
+			
+			if(Header.ShaderName.IsEmpty() == false)
+			{
+				AppendCString(GlslCode, "// ");
+				AppendCString(GlslCode, TCHAR_TO_ANSI(Header.ShaderName.GetCharArray().GetData()));
+				AppendCString(GlslCode, "\n");
 			}
 		}
 
@@ -583,6 +598,23 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 
 		if (IsES2Platform(GMaxRHIShaderPlatform))
 		{
+			if (GSupportsRenderTargetFormat_PF_FloatRGBA)
+			{
+				AppendCString(GlslCode, "#define HDR_32BPP_ENCODE_MODE 0.0\n");
+			}
+			else
+			{
+				if (!FOpenGL::SupportsShaderFramebufferFetch())
+				{
+					// mosaic
+					AppendCString(GlslCode, "#define HDR_32BPP_ENCODE_MODE 1.0\n");
+				}
+				else
+				{
+					AppendCString(GlslCode, "#define HDR_32BPP_ENCODE_MODE 2.0\n");
+				}
+			}
+
 			// This #define fixes compiler errors on Android (which doesn't seem to support textureCubeLodEXT)
 			if (FOpenGL::UseES30ShadingLanguage())
 			{
@@ -694,10 +726,13 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 
 		GLint CompileStatus = GL_TRUE;
 #if PLATFORM_ANDROID
-		// On Android the same shader is compiled with different hacks to find the right one(s) to apply so don't cache unless successful
-		glGetShaderiv(Resource, GL_COMPILE_STATUS, &CompileStatus);
+		// On Android the same shader is compiled with different hacks to find the right one(s) to apply so don't cache unless successful if currently testing them
+		if (FOpenGL::IsCheckingShaderCompilerHacks())
+		{
+			glGetShaderiv(Resource, GL_COMPILE_STATUS, &CompileStatus);
+		}
 #endif
-#if PLATFORM_HTML5
+#if PLATFORM_HTML5 && !UE_BUILD_SHIPPING
 		glGetShaderiv(Resource, GL_COMPILE_STATUS, &CompileStatus);
 		if (CompileStatus == GL_FALSE)
 		{
@@ -719,7 +754,7 @@ ShaderType* CompileOpenGLShader(const TArray<uint8>& Code)
 				
 				glLinkProgram(SeparateResource);
 				bool const bLinkedOK = VerifyLinkedProgram(SeparateResource);
-				if (!VerifyLinkedProgram(SeparateResource))
+				if (!bLinkedOK)
 				{
 					check(VerifyCompiledShader(Resource, GlslCodeString));
 				}
@@ -2669,7 +2704,7 @@ void FOpenGLShaderParameterCache::CommitPackedGlobals(const FOpenGLLinkedProgram
 	}
 }
 
-void FOpenGLShaderParameterCache::CommitPackedUniformBuffers(FOpenGLLinkedProgram* LinkedProgram, int32 Stage, FUniformBufferRHIRef* RHIUniformBuffers, const TArray<FOpenGLUniformBufferCopyInfo>& UniformBuffersCopyInfo)
+void FOpenGLShaderParameterCache::CommitPackedUniformBuffers(FOpenGLLinkedProgram* LinkedProgram, int32 Stage, FUniformBufferRHIRef* RHIUniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo)
 {
 	SCOPE_CYCLE_COUNTER(STAT_OpenGLConstantBufferUpdateTime);
 	VERIFY_GL_SCOPE();
@@ -2689,7 +2724,7 @@ void FOpenGLShaderParameterCache::CommitPackedUniformBuffers(FOpenGLLinkedProgra
 			const uint32* RESTRICT SourceData = UniformBuffer->EmulatedBufferData->Data.GetData();
 			for (int32 InfoIndex = LastInfoIndex; InfoIndex < UniformBuffersCopyInfo.Num(); ++InfoIndex)
 			{
-				const FOpenGLUniformBufferCopyInfo& Info = UniformBuffersCopyInfo[InfoIndex];
+				const CrossCompiler::FUniformBufferCopyInfo& Info = UniformBuffersCopyInfo[InfoIndex];
 				if (Info.SourceUBIndex == BufferIndex)
 				{
 					check((Info.DestOffsetInFloats + Info.SizeInFloats) * sizeof(float) <= (uint32)GlobalUniformArraySize);
@@ -2722,7 +2757,7 @@ void FOpenGLShaderParameterCache::CommitPackedUniformBuffers(FOpenGLLinkedProgra
 				// Go through the list of copy commands and perform the appropriate copy into the scratch buffer
 				for (int32 InfoIndex = LastCopyInfoIndex; InfoIndex < UniformBuffersCopyInfo.Num(); ++InfoIndex)
 				{
-					const FOpenGLUniformBufferCopyInfo& Info = UniformBuffersCopyInfo[InfoIndex];
+					const CrossCompiler::FUniformBufferCopyInfo& Info = UniformBuffersCopyInfo[InfoIndex];
 					if (Info.SourceUBIndex == BufferIndex)
 					{
 						const uint32* RESTRICT SourceData = UniformBuffer->EmulatedBufferData->Data.GetData();

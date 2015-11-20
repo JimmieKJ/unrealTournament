@@ -4,19 +4,21 @@
 #include "EnginePrivate.h"
 #include "AnimationUtils.h"
 #include "Animation/AnimCompress_Automatic.h"
+#include "Animation/AnimationSettings.h"
 
 UAnimCompress_Automatic::UAnimCompress_Automatic(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	Description = TEXT("Automatic");
-	MaxEndEffectorError = 1.0f;
-	bTryFixedBitwiseCompression = true;
-	bTryPerTrackBitwiseCompression = true;
-	bTryLinearKeyRemovalCompression = true;
-	bTryIntervalKeyRemoval = true;
-	bRunCurrentDefaultCompressor = false;
-	bAutoReplaceIfExistingErrorTooGreat = false;
-	bRaiseMaxErrorToExisting = false;
+	UAnimationSettings* AnimationSettings = UAnimationSettings::Get();
+	MaxEndEffectorError = AnimationSettings->AlternativeCompressionThreshold;
+	bTryFixedBitwiseCompression = AnimationSettings->bTryFixedBitwiseCompression;
+	bTryPerTrackBitwiseCompression = AnimationSettings->bTryPerTrackBitwiseCompression;
+	bTryLinearKeyRemovalCompression = AnimationSettings->bTryLinearKeyRemovalCompression;
+	bTryIntervalKeyRemoval = AnimationSettings->bTryIntervalKeyRemoval;
+	bRunCurrentDefaultCompressor = AnimationSettings->bFirstRecompressUsingCurrentOrDefault;
+	bAutoReplaceIfExistingErrorTooGreat = AnimationSettings->bForceBelowThreshold;
+	bRaiseMaxErrorToExisting = AnimationSettings->bRaiseMaxErrorToExisting;
 }
 
 

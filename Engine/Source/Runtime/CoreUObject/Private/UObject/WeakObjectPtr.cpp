@@ -68,7 +68,7 @@ public:
 	 * @param OutBlock - Serial Number Block
 	 * @param OutSubIndex - Serial Number SubIndex
 	 */
-	void GetBlock(const int32& InIndex, int32& OutBlock, int32& OutSubIndex) const
+	FORCEINLINE_DEBUGGABLE void GetBlock(const int32& InIndex, int32& OutBlock, int32& OutSubIndex) const
 	{
 		OutBlock = InIndex / FSerialNumberBlock::SERIAL_NUMBER_BLOCK_SIZE;
 		OutSubIndex = InIndex - OutBlock * FSerialNumberBlock::SERIAL_NUMBER_BLOCK_SIZE;
@@ -128,7 +128,7 @@ public:
 	 * @param Index - UObject Index
 	 * @return - the serial number for this UObject
 	 */
-	int32 GetSerialNumber(int32 Index)
+	FORCEINLINE_DEBUGGABLE int32 GetSerialNumber(int32 Index)
 	{
 		int32 Block, SubIndex;
 		GetBlock( Index, Block, SubIndex );
@@ -186,7 +186,7 @@ static FSerialNumberManager GSerialNumberManager;
 **/
 void FWeakObjectPtr::Init()
 {
-	GetUObjectArray().AddUObjectDeleteListener(&GSerialNumberManager);
+	GUObjectArray.AddUObjectDeleteListener(&GSerialNumberManager);
 }
 
 /**  
@@ -198,7 +198,7 @@ void FWeakObjectPtr::operator=(const class UObject *Object)
 	if (Object // && UObjectInitialized() we might need this at some point, but it is a speed hit we would prefer to avoid
 		)
 	{
-		ObjectIndex = GetUObjectArray().ObjectToIndex((UObjectBase*)Object);
+		ObjectIndex = GUObjectArray.ObjectToIndex((UObjectBase*)Object);
 		ObjectSerialNumber = GSerialNumberManager.GetAndAllocateSerialNumber(ObjectIndex);
 		checkSlow(SerialNumbersMatch());
 	}
@@ -212,7 +212,7 @@ void FWeakObjectPtr::operator=(const class UObject *Object)
  * internal function to test for serial number matches
  * @return true if the serial number in this matches the central table
 **/
-bool FWeakObjectPtr::SerialNumbersMatch() const
+FORCEINLINE_DEBUGGABLE bool FWeakObjectPtr::SerialNumbersMatch() const
 {
 	checkSlow(ObjectSerialNumber > FSerialNumberBlock::START_SERIAL_NUMBER && ObjectIndex >= 0 && ObjectIndex < FSerialNumberBlock::MAX_UOBJECTS); // otherwise this is a corrupted weak pointer
 	int32 ActualSerialNumber = GSerialNumberManager.GetSerialNumber(ObjectIndex);
@@ -222,6 +222,12 @@ bool FWeakObjectPtr::SerialNumbersMatch() const
 
 
 bool FWeakObjectPtr::IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest) const
+{
+	// This is the external function, so we just pass through to the internal inlined method.
+	return Internal_IsValid(bEvenIfPendingKill, bThreadsafeTest);
+}
+
+FORCEINLINE_DEBUGGABLE bool FWeakObjectPtr::Internal_IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest) const
 {
 	if (ObjectSerialNumber == 0)
 	{
@@ -240,7 +246,7 @@ bool FWeakObjectPtr::IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest) cons
 	{
 		return true;
 	}
-	return GetUObjectArray().IsValid(ObjectIndex, bEvenIfPendingKill);
+	return GUObjectArray.IsValid(ObjectIndex, bEvenIfPendingKill);
 }
 
 bool FWeakObjectPtr::IsStale(bool bEvenIfPendingKill, bool bThreadsafeTest) const
@@ -262,25 +268,37 @@ bool FWeakObjectPtr::IsStale(bool bEvenIfPendingKill, bool bThreadsafeTest) cons
 	{
 		return false;
 	}
-	return GetUObjectArray().IsStale(ObjectIndex, bEvenIfPendingKill);
+	return GUObjectArray.IsStale(ObjectIndex, bEvenIfPendingKill);
+}
+
+FORCEINLINE_DEBUGGABLE UObject* FWeakObjectPtr::Internal_Get(bool bEvenIfPendingKill) const
+{
+	UObject* Result = nullptr;
+
+	if (Internal_IsValid(true, true))
+	{
+		Result = (UObject*)(GUObjectArray.IndexToValidObject(GetObjectIndex(), bEvenIfPendingKill));
+	}
+	return Result;
+}
+
+UObject* FWeakObjectPtr::Get(/*bool bEvenIfPendingKill = false*/) const
+{
+	// Using a literal here allows the optimizer to remove branches later down the chain.
+	return Internal_Get(false);
 }
 
 UObject* FWeakObjectPtr::Get(bool bEvenIfPendingKill) const
 {
-	UObject* Result = nullptr;
-	if (IsValid(true))
-	{
-		Result = (UObject*)(GetUObjectArray().IndexToObject(GetObjectIndex(), bEvenIfPendingKill));
-	}
-	return Result;
+	return Internal_Get(bEvenIfPendingKill);
 }
 
 UObject* FWeakObjectPtr::GetEvenIfUnreachable() const
 {
 	UObject* Result = nullptr;
-	if (IsValid(true, true))
+	if (Internal_IsValid(true, true))
 	{
-		Result = static_cast<UObject*>(GetUObjectArray().IndexToObject(GetObjectIndex(), true));
+		Result = static_cast<UObject*>(GUObjectArray.IndexToObject(GetObjectIndex(), true));
 	}
 	return Result;
 }

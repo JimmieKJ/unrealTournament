@@ -13,7 +13,7 @@ UAbilityTask_VisualizeTargeting::UAbilityTask_VisualizeTargeting(const FObjectIn
 
 UAbilityTask_VisualizeTargeting* UAbilityTask_VisualizeTargeting::VisualizeTargeting(UObject* WorldContextObject, TSubclassOf<AGameplayAbilityTargetActor> InTargetClass, FName TaskInstanceName, float Duration)
 {
-	UAbilityTask_VisualizeTargeting* MyObj = NewTask<UAbilityTask_VisualizeTargeting>(WorldContextObject, TaskInstanceName);		//Register for task list here, providing a given FName as a key
+	UAbilityTask_VisualizeTargeting* MyObj = NewAbilityTask<UAbilityTask_VisualizeTargeting>(WorldContextObject, TaskInstanceName);		//Register for task list here, providing a given FName as a key
 	MyObj->TargetClass = InTargetClass;
 	MyObj->TargetActor = NULL;
 	MyObj->SetDuration(Duration);
@@ -22,7 +22,7 @@ UAbilityTask_VisualizeTargeting* UAbilityTask_VisualizeTargeting::VisualizeTarge
 
 UAbilityTask_VisualizeTargeting* UAbilityTask_VisualizeTargeting::VisualizeTargetingUsingActor(UObject* WorldContextObject, AGameplayAbilityTargetActor* InTargetActor, FName TaskInstanceName, float Duration)
 {
-	UAbilityTask_VisualizeTargeting* MyObj = NewTask<UAbilityTask_VisualizeTargeting>(WorldContextObject, TaskInstanceName);		//Register for task list here, providing a given FName as a key
+	UAbilityTask_VisualizeTargeting* MyObj = NewAbilityTask<UAbilityTask_VisualizeTargeting>(WorldContextObject, TaskInstanceName);		//Register for task list here, providing a given FName as a key
 	MyObj->TargetClass = NULL;
 	MyObj->TargetActor = InTargetActor;
 	MyObj->SetDuration(Duration);
@@ -72,8 +72,11 @@ bool UAbilityTask_VisualizeTargeting::BeginSpawningActor(UObject* WorldContextOb
 			UClass* Class = *InTargetClass;
 			if (Class != NULL)
 			{
-				UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-				SpawnedActor = World->SpawnActorDeferred<AGameplayAbilityTargetActor>(Class, FVector::ZeroVector, FRotator::ZeroRotator, NULL, NULL, true);
+				UWorld* const World = GEngine->GetWorldFromContextObject(WorldContextObject);
+				if (World)
+				{
+					SpawnedActor = World->SpawnActorDeferred<AGameplayAbilityTargetActor>(Class, FTransform::Identity, NULL, NULL, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+				}
 			}
 
 			if (SpawnedActor)

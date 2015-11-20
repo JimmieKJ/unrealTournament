@@ -27,6 +27,7 @@ public:
 		, _IsPassword( false )
 		, _IsCaretMovedWhenGainFocus ( true )
 		, _SelectAllTextWhenFocused( false )
+		, _ClearTextSelectionOnFocusLoss( true )
 		, _RevertTextOnEscape( false )
 		, _ClearKeyboardFocusOnCommit( true )
 		, _AlwaysShowScrollbars( false )
@@ -84,6 +85,9 @@ public:
 		/** Whether to select all text when the user clicks to give focus on the widget */
 		SLATE_ATTRIBUTE( bool, SelectAllTextWhenFocused )
 
+		/** Whether to clear text selection when focus is lost */
+		SLATE_ATTRIBUTE( bool, ClearTextSelectionOnFocusLoss )
+
 		/** Whether to allow the user to back out of changes when they press the escape key */
 		SLATE_ATTRIBUTE( bool, RevertTextOnEscape )
 
@@ -105,6 +109,9 @@ public:
 		/** Padding around the vertical scrollbar (overrides Style) */
 		SLATE_ATTRIBUTE( FMargin, VScrollBarPadding )
 
+		/** Delegate to call before a context menu is opened. User returns the menu content or null to the disable context menu */
+		SLATE_EVENT(FOnContextMenuOpening, OnContextMenuOpening)
+
 		/** Called whenever the text is changed interactively by the user */
 		SLATE_EVENT( FOnTextChanged, OnTextChanged )
 
@@ -119,6 +126,9 @@ public:
 
 		/** Called when the cursor is moved within the text area */
 		SLATE_EVENT( SMultiLineEditableText::FOnCursorMoved, OnCursorMoved )
+
+		/** Callback delegate to have first chance handling of the OnKeyDown event */
+		SLATE_EVENT(FOnKeyDown, OnKeyDownHandler)
 
 		/** Menu extender for the right-click context menu */
 		SLATE_EVENT( FMenuExtensionDelegate, ContextMenuExtender )
@@ -170,6 +180,19 @@ public:
 	}
 
 	/**
+	 * Returns the plain text string without richtext formatting
+	 *
+	 * @return  Text string
+	 */
+	const FText GetPlainText() const
+	{
+		return EditableText->GetPlainText();
+	}
+
+	/** See attribute Style */
+	void SetStyle(const FEditableTextBoxStyle* InStyle);
+
+	/**
 	 * Sets the text string currently being edited 
 	 *
 	 * @param  InNewText  The new text string
@@ -182,6 +205,27 @@ public:
 	 * @param  InHintText The hint text string
 	 */
 	void SetHintText( const TAttribute< FText >& InHintText );
+
+	/**
+	 * Sets the text color and opacity (overrides Style)
+	 *
+	 * @param  InForegroundColor 	The text color and opacity
+	 */
+	void SetTextBoxForegroundColor(const TAttribute<FSlateColor>& InForegroundColor);
+
+	/**
+	 * Sets the color of the background/border around the editable text (overrides Style) 
+	 *
+	 * @param  InBackgroundColor 	The background/border color
+	 */
+	void SetTextBoxBackgroundColor(const TAttribute<FSlateColor>& InBackgroundColor);
+
+	/**
+	 * Sets the text color and opacity when read-only (overrides Style) 
+	 *
+	 * @param  InReadOnlyForegroundColor 	The read-only text color and opacity
+	 */
+	void SetReadOnlyForegroundColor(const TAttribute<FSlateColor>& InReadOnlyForegroundColor);
 
 	/**
 	 * If InError is a non-empty string the TextBox will the ErrorReporting provided during construction
@@ -208,6 +252,12 @@ public:
 	/** Move the cursor to the given location in the document */
 	void GoTo(const FTextLocation& NewLocation);
 
+	/** Move the cursor to the specified location */
+	void GoTo(ETextLocation NewLocation)
+	{
+		EditableText->GoTo(NewLocation);
+	}
+
 	/** Scroll to the given location in the document (without moving the cursor) */
 	void ScrollTo(const FTextLocation& NewLocation);
 
@@ -229,10 +279,38 @@ public:
 	/** Refresh this text box immediately, rather than wait for the usual caching mechanisms to take affect on the text Tick */
 	void Refresh();
 
+	/**
+	 * Sets the OnKeyDownHandler to provide first chance handling of the SMultiLineEditableText's OnKeyDown event
+	 *
+	 * @param InOnKeyDownHandler			Delegate to call during OnKeyDown event
+	 */
+	void SetOnKeyDownHandler(FOnKeyDown InOnKeyDownHandler);
+
 protected:
 
 	/** Editable text widget */
 	TSharedPtr< SMultiLineEditableText > EditableText;
+
+	/** Padding (overrides style) */
+	TAttribute<FMargin> PaddingOverride;
+
+	/** Horiz scrollbar padding (overrides style) */
+	TAttribute<FMargin> HScrollBarPaddingOverride;
+
+	/** Vert scrollbar padding (overrides style) */
+	TAttribute<FMargin> VScrollBarPaddingOverride;
+
+	/** Font (overrides style) */
+	TAttribute<FSlateFontInfo> FontOverride;
+
+	/** Foreground color (overrides style) */
+	TAttribute<FSlateColor> ForegroundColorOverride;
+
+	/** Background color (overrides style) */
+	TAttribute<FSlateColor> BackgroundColorOverride;
+
+	/** Read-only foreground color (overrides style) */
+	TAttribute<FSlateColor> ReadOnlyForegroundColorOverride;
 
 	/** Read-only foreground color */
 	TAttribute<FSlateColor> ReadOnlyForegroundColor;
@@ -240,10 +318,30 @@ protected:
 	/** Allows for inserting additional widgets that extend the functionality of the text box */
 	TSharedPtr<SHorizontalBox> Box;
 
+	/** Whether we have an externally supplied horizontal scrollbar or one created internally */
+	bool bHasExternalHScrollBar;
+
+	/** Horiz scrollbar */
+	TSharedPtr<SScrollBar> HScrollBar;
+
+	/** Box around the horiz scrollbar used for adding padding */
+	TSharedPtr<SBox> HScrollBarPaddingBox;
+
+	/** Whether we have an externally supplied vertical scrollbar or one created internally */
+	bool bHasExternalVScrollBar;
+
+	/** Vert scrollbar */
+	TSharedPtr<SScrollBar> VScrollBar;
+
+	/** Box around the vert scrollbar used for adding padding */
+	TSharedPtr<SBox> VScrollBarPaddingBox;
+
 	/** SomeWidget reporting */
 	TSharedPtr<class IErrorReportingWidget> ErrorReporting;
 
 private:
+
+	const FEditableTextBoxStyle* Style;
 
 	/** Styling: border image to draw when not hovered or focused */
 	const FSlateBrush* BorderImageNormal;

@@ -17,7 +17,7 @@ public class ShaderCompileWorkerTarget : TargetRules
 
 	public override bool GetSupportedPlatforms(ref List<UnrealTargetPlatform> OutPlatforms)
 	{
-		return UnrealBuildTool.UnrealBuildTool.GetAllDesktopPlatforms(ref OutPlatforms, false);
+		return UnrealBuildTool.UnrealBuildTool.GetAllEditorPlatforms(ref OutPlatforms, false);
 	}
 
 	public override bool ShouldCompileMonolithic(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
@@ -72,10 +72,15 @@ public class ShaderCompileWorkerTarget : TargetRules
         // Linking against wer.lib/wer.dll causes XGE to bail when the worker is run on a Windows 8 machine, so turn this off.
         OutCPPEnvironmentConfiguration.Definitions.Add("ALLOW_WINDOWS_ERROR_REPORT_LIB=0");
 	}
-    public override bool GUBP_AlwaysBuildWithBaseEditor()
+
+    public override bool GUBP_AlwaysBuildWithTools(UnrealTargetPlatform InHostPlatform, out bool bInternalToolOnly, out bool SeparateNode, out bool CrossCompile)
     {
+        bInternalToolOnly = false;
+        SeparateNode = false;
+        CrossCompile = false;
         return true;
     }
+
     public override bool GUBP_NeedsPlatformSpecificDLLs()
     {
         return true;

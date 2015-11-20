@@ -234,6 +234,9 @@ void FindBestAxisVectors2(float3 InZAxis, out float3 OutXAxis, out float3 OutYAx
 // Must match C++
 #define RECORD_CONE_DATA_STRIDE NUM_VISIBILITY_STEPS
 
+// Must match C++
+#define BENT_NORMAL_STRIDE 1
+
 Buffer<float4> IrradianceCachePositionRadius;
 Buffer<float> IrradianceCacheOccluderRadius;
 Buffer<uint2> IrradianceCacheTileCoordinate;

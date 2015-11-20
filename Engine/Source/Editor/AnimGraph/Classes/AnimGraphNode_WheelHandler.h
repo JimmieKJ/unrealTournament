@@ -3,7 +3,7 @@
 #pragma once
 
 #include "AnimGraphNode_SkeletalControlBase.h"
-#include "Animation/BoneControllers/AnimNode_WheelHandler.h"
+#include "BoneControllers/AnimNode_WheelHandler.h"
 #include "AnimGraphNode_WheelHandler.generated.h"
 
 UCLASS(MinimalAPI, meta=(Keywords = "Modify Wheel Vehicle"))
@@ -26,5 +26,6 @@ public:
 protected:
 	// UAnimGraphNode_SkeletalControlBase interface
 	virtual FText GetControllerDescription() const override;
+	virtual const FAnimNode_SkeletalControlBase* GetNode() const override { return &Node; }
 	// End of UAnimGraphNode_SkeletalControlBase interface
 };

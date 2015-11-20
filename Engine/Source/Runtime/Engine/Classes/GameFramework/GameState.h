@@ -4,9 +4,9 @@
 #include "TimerManager.h"
 #include "GameState.generated.h"
 
-//=============================================================================
+//~=============================================================================
 // GameState is replicated and is valid on servers and clients.
-//=============================================================================
+//~=============================================================================
 
 UCLASS(config=Game, notplaceable, BlueprintType, Blueprintable)
 class ENGINE_API AGameState : public AInfo
@@ -45,11 +45,11 @@ class ENGINE_API AGameState : public AInfo
 protected:
 
 	/** What match state we are currently in */
-	UPROPERTY(replicatedUsing=OnRep_MatchState)
+	UPROPERTY(ReplicatedUsing=OnRep_MatchState, BlueprintReadOnly, VisibleInstanceOnly, Category = GameState)
 	FName MatchState;
 
 	/** Previous map state, used to handle if multiple transitions happen per frame */
-	UPROPERTY()
+	UPROPERTY(BlueprintReadOnly, VisibleInstanceOnly, Category = GameState)
 	FName PreviousMatchState;
 
 	/** Called when the state transitions to WaitingToStart */
@@ -74,10 +74,6 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category=GameState)
 	TArray<class APlayerState*> PlayerArray;
 
-	/** This list mirrors the GameMode's list of inactive PlayerState objects. */
-	UPROPERTY()
-	TArray<class APlayerState*> InactivePlayerArray;
-
 	/** GameMode class notification callback. */
 	UFUNCTION()
 	virtual void OnRep_GameModeClass();
@@ -94,9 +90,9 @@ public:
 	UFUNCTION()
 	virtual void OnRep_ElapsedTime();
 
-	// Begin AActor interface
+	//~ Begin AActor Interface
 	virtual void PostInitializeComponents() override;
-	// End AActor interface
+	//~ End AActor Interface
 
 	/** Helper to return the default object of the GameMode class corresponding to this GameState */
 	AGameMode* GetDefaultGameMode() const;
@@ -122,10 +118,36 @@ public:
 	/** Should players show gore? */
 	virtual bool ShouldShowGore() const;
 
+	/** Returns the simulated TimeSeconds on the server */
+	UFUNCTION(BlueprintCallable, Category=GameState)
+	virtual float GetServerWorldTimeSeconds() const;
+
 protected:
+
+	/** Called periodically to update ReplicatedWorldTimeSeconds */
+	virtual void UpdateServerTimeSeconds();
+
+	/** Allows clients to calculate ServerWorldTimeSecondsDelta */
+	UFUNCTION()
+	virtual void OnRep_ReplicatedWorldTimeSeconds();
+
+	/** Server TimeSeconds. Useful for syncing up animation and gameplay. */
+	UPROPERTY(replicatedUsing=OnRep_ReplicatedWorldTimeSeconds, transient)
+	float ReplicatedWorldTimeSeconds;
+
+	/** The difference from the local world's TimeSeconds and the server world's TimeSeconds. */
+	UPROPERTY(transient)
+	float ServerWorldTimeSecondsDelta;
+
+	/** Frequency that the server updates the replicated TimeSeconds from the world. Set to zero to disable periodic updates. */
+	UPROPERTY(EditDefaultsOnly, Category=GameState)
+	float ServerWorldTimeSecondsUpdateFrequency;
 
 	/** Handle for efficient management of DefaultTimer timer */
 	FTimerHandle TimerHandle_DefaultTimer;
+
+	/** Handle for efficient management of the UpdateServerTimeSeconds timer */
+	FTimerHandle TimerHandle_UpdateServerTimeSeconds;
 
 private:
 	// Hidden functions that don't make sense to use on this class.

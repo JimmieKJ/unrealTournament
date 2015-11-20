@@ -11,17 +11,17 @@
 #pragma once
 #include "PlatformInterfaceBase.generated.h"
 
-/** An enum for the types of data used in a PlatformInterfaceData struct, below */
+/** An enum for the types of data used in a PlatformInterfaceData struct. */
 UENUM()
 enum EPlatformInterfaceDataType
 {
-	// no data type specified
+	/** No data type specified. */
 	PIDT_None,
 	PIDT_Int,
 	PIDT_Float,
 	PIDT_String,
 	PIDT_Object,
-	// a custom type where more than one value may be filled out
+	/** A custom type where more than one value may be filled out. */
 	PIDT_Custom,
 	PIDT_MAX,
 };
@@ -29,7 +29,7 @@ enum EPlatformInterfaceDataType
 
 /** 
  * Struct that encompasses the most common types of data. This is the data payload
- * of PlatformInterfaceDelegateResult
+ * of PlatformInterfaceDelegateResult.
  */
 USTRUCT()
 struct FPlatformInterfaceData

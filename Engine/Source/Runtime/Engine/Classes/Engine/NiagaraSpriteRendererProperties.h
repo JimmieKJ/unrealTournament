@@ -18,4 +18,7 @@ public:
 
 	UPROPERTY(EditAnywhere, Category = "Sprite Rendering")
 	FVector2D SubImageInfo;
+
+	UPROPERTY(EditAnywhere, Category = "Sprite Rendering")
+	bool bBVelocityAligned;
 };

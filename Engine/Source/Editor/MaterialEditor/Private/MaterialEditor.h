@@ -113,6 +113,7 @@ public:
 	virtual int32 GetMaterialDomain() const override { return MD_Surface; }
 	virtual FString GetMaterialUsageDescription() const override { return FString::Printf(TEXT("FMatExpressionPreview %s"), Expression.IsValid() ? *Expression->GetName() : TEXT("NULL")); }
 	virtual bool IsTwoSided() const override { return false; }
+	virtual bool IsDitheredLODTransition() const override { return false; }
 	virtual bool IsLightFunction() const override { return false; }
 	virtual bool IsUsedWithDeferredDecal() const override { return false; }
 	virtual bool IsSpecialEngineMaterial() const override { return false; }
@@ -160,7 +161,7 @@ struct FMaterialExpression
 /** Static array of categorized material expression classes. */
 struct FCategorizedMaterialExpressionNode
 {
-	FString	CategoryName;
+	FText	CategoryName;
 	TArray<FMaterialExpression> MaterialExpressions;
 };
 
@@ -213,6 +214,7 @@ public:
 	virtual FName GetToolkitFName() const override;
 	virtual FText GetBaseToolkitName() const override;
 	virtual FText GetToolkitName() const override;
+	virtual FText GetToolkitToolTipText() const override;
 	virtual FString GetWorldCentricTabPrefix() const override;
 
 	/** @return the documentation location for this editor */
@@ -325,6 +327,10 @@ public:
 
 	void UpdateStatsMaterials();
 
+	/** Gets the extensibility managers for outside entities to extend material editor's menus and toolbars */
+	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() { return MenuExtensibilityManager; }
+	virtual TSharedPtr<FExtensibilityManager> GetToolBarExtensibilityManager() { return ToolBarExtensibilityManager; }
+
 public:
 	/** Set to true when modifications have been made to the material */
 	bool bMaterialDirty;
@@ -386,6 +392,16 @@ protected:
 	void OnNodeTitleCommitted(const FText& NewText, ETextCommit::Type CommitInfo, UEdGraphNode* NodeBeingChanged);
 
 	/**
+	 * Verifies that the node text entered is valid for the node
+	 *
+	 * @param	NewText			New node text
+	 * @param	NodeBeingChanged	The node being changed
+	 * @param	OutErrorMessage		Error message to display if text is invalid
+	 * @return	True if the text is valid, false otherwise
+	 */
+	bool OnVerifyNodeTextCommit(const FText& NewText, UEdGraphNode* NodeBeingChanged, FText& OutErrorMessage);
+
+	/**
 	 * Handles spawning a graph node in the current graph using the passed in chord
 	 *
 	 * @param	InChord		Chord that was just performed
@@ -444,6 +460,9 @@ private:
 	
 	/** Collects all groups for all material expressions */
 	void GetAllMaterialExpressionGroups(TArray<FString>* OutGroups);
+
+	/** Updates the 3D and UI preview viewport visibility based on material domain */
+	void UpdatePreviewViewportsVisibility();
 
 public:
 
@@ -633,10 +652,13 @@ private:
 	TSharedPtr<class SGraphEditor> GraphEditor;
 
 	/** Preview Viewport widget */
-	TSharedPtr<class SMaterialEditorViewport> Viewport;
+	TSharedPtr<class SMaterialEditor3DPreviewViewport> PreviewViewport;
+
+	/** Preview viewport widget used for UI materials */
+	TSharedPtr<class SMaterialEditorUIPreviewViewport> PreviewUIViewport;
 
 	/** Widget to hold utility components for the HLSL Code View */
-	 TSharedPtr<SWidget> CodeViewUtility;
+	TSharedPtr<SWidget> CodeViewUtility;
 
 	/** Widget for the HLSL Code View */
 	TSharedPtr<class SScrollBox> CodeView;
@@ -691,6 +713,9 @@ private:
 
 	/** Command list for this editor */
 	TSharedPtr<FUICommandList> GraphEditorCommands;
+
+	TSharedPtr<FExtensibilityManager> MenuExtensibilityManager;
+	TSharedPtr<FExtensibilityManager> ToolBarExtensibilityManager;
 
 	/**	The tab ids for the material editor */
 	static const FName PreviewTabId;		

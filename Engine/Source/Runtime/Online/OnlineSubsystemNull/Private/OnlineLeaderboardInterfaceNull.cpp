@@ -6,7 +6,7 @@
 #include "OnlineAsyncTaskManagerNull.h"
 #include "OnlineIdentityInterface.h"
 
-bool FOnlineLeaderboardsNull::ReadLeaderboards(const TArray< TSharedRef<FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject)
+bool FOnlineLeaderboardsNull::ReadLeaderboards(const TArray< TSharedRef<const FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject)
 {
 	// Clear out any existing data
 	ReadObject->ReadState = EOnlineAsyncTaskState::Failed;
@@ -22,10 +22,10 @@ bool FOnlineLeaderboardsNull::ReadLeaderboards(const TArray< TSharedRef<FUniqueN
 		{
 			for (int32 RowIdx=0; RowIdx<Leaderboard->Rows.Num(); ++RowIdx)
 			{
-				TSharedPtr<FUniqueNetId> RowPlayerID = Leaderboard->Rows[RowIdx].PlayerId;
+				TSharedPtr<const FUniqueNetId> RowPlayerID = Leaderboard->Rows[RowIdx].PlayerId;
 				for (int32 PlayerIdIdx = 0; PlayerIdIdx < NumPlayerIds; ++PlayerIdIdx)
 				{
-					TSharedPtr<FUniqueNetId> PlayerID = Players[PlayerIdIdx];
+					TSharedPtr<const FUniqueNetId> PlayerID = Players[PlayerIdIdx];
 					if (PlayerID.IsValid() && RowPlayerID.IsValid() && (*PlayerID.Get() == *RowPlayerID.Get()))
 					{
 						ReadObject->Rows.Add(Leaderboard->Rows[RowIdx]);
@@ -53,7 +53,7 @@ bool FOnlineLeaderboardsNull::ReadLeaderboards(const TArray< TSharedRef<FUniqueN
 
 bool FOnlineLeaderboardsNull::ReadLeaderboardsForFriends(int32 LocalUserNum, FOnlineLeaderboardReadRef& ReadObject)
 {
-	TArray< TSharedRef<FUniqueNetId> > FriendsList;
+	TArray< TSharedRef<const FUniqueNetId> > FriendsList;
 
 	// always add a UniqueNetId for local user
 	check(NullSubsystem);

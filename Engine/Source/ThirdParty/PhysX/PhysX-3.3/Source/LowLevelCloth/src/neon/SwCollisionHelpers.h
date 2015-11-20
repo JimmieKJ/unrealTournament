@@ -50,22 +50,40 @@ namespace cloth
 
 	Gather<Simd4i>::Gather(const Simd4i& index)
 	{
+#ifdef __arm64__
 		using namespace simdi;
 		PX_ALIGN(16, uint8x8x2_t) byteIndex = reinterpret_cast<const uint8x8x2_t&>(sPack);
-		uint8x8x2_t lohiIndex = reinterpret_cast<const uint8x8x2_t&>(index);
+        uint8x16_t lohiIndex = reinterpret_cast<const uint8x16_t&>(index);
+		byteIndex.val[0] = vtbl1q_u8(lohiIndex, byteIndex.val[0]);
+		byteIndex.val[1] = vtbl1q_u8(lohiIndex, byteIndex.val[1]);
+		mPermute = vshlq_n_u32(reinterpret_cast<const uint32x4_t&>(byteIndex), 2);
+		mPermute = mPermute | sOffset | vcgtq_u32(index.u4, sMask.u4);
+#else
+		using namespace simdi;
+		PX_ALIGN(16, uint8x8x2_t) byteIndex = reinterpret_cast<const uint8x8x2_t&>(sPack);
+        uint8x8x2_t lohiIndex = reinterpret_cast<const uint8x8x2_t&>(index);
 		byteIndex.val[0] = vtbl2_u8(lohiIndex, byteIndex.val[0]);
 		byteIndex.val[1] = vtbl2_u8(lohiIndex, byteIndex.val[1]);
 		mPermute = vshlq_n_u32(reinterpret_cast<const uint32x4_t&>(byteIndex), 2);
 		mPermute = mPermute | sOffset | vcgtq_u32(index.u4, sMask.u4);
+#endif
 	}
 
 	Simd4i Gather<Simd4i>::operator()(const Simd4i* ptr) const
 	{
+#ifdef __arm64__
+		PX_ALIGN(16, uint8x8x2_t) result = reinterpret_cast<const uint8x8x2_t&>(mPermute);
+		const uint8x16x2_t* table = reinterpret_cast<const uint8x16x2_t*>(ptr);
+		result.val[0] = vtbl2q_u8(*table, result.val[0]);
+		result.val[1] = vtbl2q_u8(*table, result.val[1]);
+		return reinterpret_cast<const Simd4i&>(result);
+#else
 		PX_ALIGN(16, uint8x8x2_t) result = reinterpret_cast<const uint8x8x2_t&>(mPermute);
 		const uint8x8x4_t* table = reinterpret_cast<const uint8x8x4_t*>(ptr);
 		result.val[0] = vtbl4_u8(*table, result.val[0]);
 		result.val[1] = vtbl4_u8(*table, result.val[1]);
 		return reinterpret_cast<const Simd4i&>(result);
+#endif
 	}
 
 } // namespace cloth

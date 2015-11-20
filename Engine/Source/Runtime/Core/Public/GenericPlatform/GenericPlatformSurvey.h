@@ -30,16 +30,18 @@ struct FSynthBenchmarkStat
 		, IndexNormalizedTime(-1)
 		, ValueType(0)
 		, Confidence(0)
+		, Weight(1.f)
 	{ }
 
 	// @param InDesc descriptions
-	FSynthBenchmarkStat(const TCHAR* InDesc, float InIndexNormalizedTime, const TCHAR* InValueType)
+	FSynthBenchmarkStat(const TCHAR* InDesc, float InIndexNormalizedTime, const TCHAR* InValueType, float InWeight)
 		: Desc(InDesc)
 		, MeasuredTotalTime(-1)
 		, MeasuredNormalizedTime(-1)
 		, IndexNormalizedTime(InIndexNormalizedTime)
 		, ValueType(InValueType)
 		, Confidence(0)
+		, Weight(InWeight)
 	{
 //		check(InDesc);
 //		check(InValueType);
@@ -89,6 +91,11 @@ struct FSynthBenchmarkStat
 		return Confidence;
 	}
 
+	float GetWeight() const
+	{
+		return Weight;
+	}
+
 private:
 
 	// 0 if not valid
@@ -103,6 +110,8 @@ private:
 	const TCHAR *ValueType;
 	// 0..100, 100: fully confident
 	float Confidence;
+	// 1 is normal weight, 0 is no weight, > 1 is unbounded additional weight
+	float Weight;
 };
 
 
@@ -114,33 +123,39 @@ struct FSynthBenchmarkResults
 	// 100: avg good CPU, <100:slower, >100:faster
 	float ComputeCPUPerfIndex() const
 	{
-		// if needed we can weight them differently
 		float Ret = 0.0f;
-		float Count = 0.0f;
+		float TotalWeight = 0.0f;
+		for (uint32 i = 0; i < sizeof(CPUStats) / sizeof(CPUStats[0]); ++i)
+		{
+			TotalWeight += CPUStats[i].GetWeight();
+		}
 
 		for(uint32 i = 0; i < sizeof(CPUStats) / sizeof(CPUStats[0]); ++i)
 		{
-			Ret += CPUStats[i].ComputePerfIndex();
-			++Count;
+			const float NormalizedWeight = TotalWeight > 0.f ? CPUStats[i].GetWeight() / TotalWeight : 0.f;
+			Ret += CPUStats[i].ComputePerfIndex() * NormalizedWeight;
 		}
 
-		return Ret / Count;
+		return Ret;
 	}
 
 	// 100: avg good GPU, <100:slower, >100:faster
 	float ComputeGPUPerfIndex() const
 	{
-		// if needed we can weight them differently
 		float Ret = 0.0f;
-		float Count = 0.0f;
+		float TotalWeight = 0.0f;
+		for (uint32 i = 0; i < sizeof(GPUStats) / sizeof(GPUStats[0]); ++i)
+		{
+			TotalWeight += GPUStats[i].GetWeight();
+		}
 
 		for(uint32 i = 0; i < sizeof(GPUStats) / sizeof(GPUStats[0]); ++i)
 		{
-			Ret += GPUStats[i].ComputePerfIndex();
-			++Count;
+			const float NormalizedWeight = TotalWeight > 0.f ? GPUStats[i].GetWeight() / TotalWeight : 0.f;
+			Ret += GPUStats[i].ComputePerfIndex() * NormalizedWeight;
 		}
 
-		return Ret / Count;
+		return Ret;
 	}
 
 	// @return in seconds, useful to check if a benchmark takes too long (very slow hardware, don't make tests with large WorkScale)

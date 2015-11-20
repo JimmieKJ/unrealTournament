@@ -21,7 +21,7 @@ public:
 	 *
 	 * @param VideoTrack The video track to render to the viewport.
 	 */
-	void Initialize(const IMediaTrackPtr& VideoTrack);
+	void Initialize(const IMediaVideoTrackPtr& VideoTrack);
 
 public:
 

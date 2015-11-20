@@ -9,7 +9,7 @@
 	b) As for FbxNode::GetAnimationInternval, this one will iterate through all properties recursively, and then for all animation curves it finds, for the animation layer index specified. So in other words, if one property has been animated, it will modify this result. This is completely different from GetLocalTimeSpan since it calculates the time span depending on the keys rather than just using the start and stop time that was saved in the file.
 */
 
-/** animation length type when importing*/
+/** Animation length type when importing */
 UENUM()
 enum EFBXAnimationLengthImportType
 {
@@ -29,7 +29,7 @@ class UNREALED_API UFbxAnimSequenceImportData : public UFbxAssetImportData
 	GENERATED_UCLASS_BODY()
 
 	/** Type of asset to import from the FBX file */
-	UPROPERTY(EditAnywhere, Category=ImportSettings, meta=(DisplayName = "Animation Length"))
+	UPROPERTY(EditAnywhere, Category=ImportSettings, config, meta=(DisplayName = "Animation Length"))
 	TEnumAsByte<enum EFBXAnimationLengthImportType> AnimationLength;
 
 	/** Type of asset to import from the FBX file */
@@ -39,6 +39,10 @@ class UNREALED_API UFbxAnimSequenceImportData : public UFbxAssetImportData
 	/** Type of asset to import from the FBX file */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=ImportSettings, meta=(DisplayName = "End Frame"))
 	int32	EndFrame;
+
+	/** Enable this option to use default sample rate for the imported animation at 30 frames per second */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, config, Category = ImportSettings, meta = (ToolTip = "If enabled, samples all animation curves to 30 FPS"))
+	bool bUseDefaultSampleRate;
 
 	/** Name of source animation that was imported, used to reimport correct animation from the FBX file*/
 	UPROPERTY()

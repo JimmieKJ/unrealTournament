@@ -20,7 +20,6 @@
 #include "HTML5/HTML5PlatformTLS.h"
 #include "HTML5/HTML5PlatformSplash.h"
 #include "HTML5/HTML5PlatformSurvey.h"
-#include "HTML5/HTML5PlatformHttp.h"
 
 typedef FGenericPlatformRHIFramePacer FPlatformRHIFramePacer;
 

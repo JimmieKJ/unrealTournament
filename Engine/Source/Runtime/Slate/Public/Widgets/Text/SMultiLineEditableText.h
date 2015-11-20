@@ -34,6 +34,7 @@ public:
 		, _OnTextChanged()
 		, _OnTextCommitted()
 		, _SelectAllTextWhenFocused(false)
+		, _ClearTextSelectionOnFocusLoss(true)
 		, _RevertTextOnEscape(false)
 		, _ClearKeyboardFocusOnCommit(true)
 		, _OnCursorMoved()
@@ -90,11 +91,17 @@ public:
 		/** Whether to select all text when the user clicks to give focus on the widget */
 		SLATE_ATTRIBUTE(bool, SelectAllTextWhenFocused)
 
+		/** Whether to clear text selection when focus is lost */
+		SLATE_ATTRIBUTE( bool, ClearTextSelectionOnFocusLoss )
+
 		/** Whether to allow the user to back out of changes when they press the escape key */
 		SLATE_ATTRIBUTE(bool, RevertTextOnEscape)
 
 		/** Whether to clear keyboard focus when pressing enter to commit changes */
 		SLATE_ATTRIBUTE(bool, ClearKeyboardFocusOnCommit)
+
+		/** Delegate to call before a context menu is opened. User returns the menu content or null to the disable context menu */
+		SLATE_EVENT(FOnContextMenuOpening, OnContextMenuOpening)
 
 		/** Called whenever the horizontal scrollbar is moved by the user */
 		SLATE_EVENT(FOnUserScrolled, OnHScrollBarUserScrolled)
@@ -104,6 +111,9 @@ public:
 
 		/** Called when the cursor is moved within the text area */
 		SLATE_EVENT(FOnCursorMoved, OnCursorMoved)
+
+		/** Callback delegate to have first chance handling of the OnKeyDown event */
+		SLATE_EVENT(FOnKeyDown, OnKeyDownHandler)
 
 		/** Menu extender for the right-click context menu */
 		SLATE_EVENT(FMenuExtensionDelegate, ContextMenuExtender)
@@ -124,9 +134,22 @@ public:
 	void SetText(const TAttribute< FText >& InText);
 
 	/**
+	 * Returns the plain text string without richtext formatting
+	 * @return  Text string
+	 */
+	const FText GetPlainText() const;
+
+	/**
 	 * Sets the text that appears when there is no text in the text box
 	 */
 	void SetHintText(const TAttribute< FText >& InHintText);
+
+	/**
+	* Sets the font used to draw the text
+	*
+	* @param  InNewFont	The new font to use
+	*/
+	void SetFont(const TAttribute< FSlateFontInfo >& InNewFont);
 
 	virtual bool GetIsReadOnly() const override;
 	virtual void ClearSelection() override;
@@ -143,6 +166,9 @@ public:
 
 	/** Move the cursor to the given location in the document (will also scroll to this point) */
 	void GoTo(const FTextLocation& NewLocation);
+
+	/** Move the cursor specified location */
+	void GoTo(ETextLocation NewLocation);
 
 	/** Scroll to the given location in the document (without moving the cursor) */
 	void ScrollTo(const FTextLocation& NewLocation);
@@ -170,6 +196,16 @@ public:
 
 	/** Returns whether the current text varies from the original */
 	bool HasTextChangedFromOriginal() const;
+
+	/**
+	 * Sets the OnKeyDownHandler to provide first chance handling of the OnKeyDown event
+	 *
+	 * @param InOnKeyDownHandler			Delegate to call during OnKeyDown event
+	 */
+	void SetOnKeyDownHandler(FOnKeyDown InOnKeyDownHandler)
+	{
+		OnKeyDownHandler = InOnKeyDownHandler;
+	}
 
 private:
 	
@@ -392,7 +428,7 @@ private:
 
 private:
 
-	// BEGIN ITextEditorWidget interface
+	//~ Begin ITextEditorWidget Interface
 	virtual void StartChangingText() override;
 	virtual void FinishChangingText() override;
 	virtual void BackspaceChar() override;
@@ -425,13 +461,13 @@ private:
 	virtual void Undo() override;
 	virtual void Redo() override;
 	virtual TSharedRef< SWidget > GetWidget() override;
-	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow = TSharedPtr<SWindow>()) override;
+	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow, const FWidgetPath& EventPath) override;
 	virtual void LoadText() override;
-	// END ITextEditorWidget interface
+	//~ End ITextEditorWidget Interface
 
 public:
-	// BEGIN IVirtualKeyboardEntry interface
-	virtual void SetTextFromVirtualKeyboard(const FText& InNewText) override;
+	//~ Begin IVirtualKeyboardEntry Interface
+	virtual void SetTextFromVirtualKeyboard(const FText& InNewText, ESetTextType SetTextType, ETextCommit::Type CommitType) override;
 
 	virtual const FText& GetText() const override
 	{
@@ -452,10 +488,10 @@ public:
 	{
 		return true;
 	}
-	// END IVirtualKeyboardEntry interface
+	//~ End IVirtualKeyboardEntry Interface
 
 protected:
-	// BEGIN SWidget interface
+	//~ Begin SWidget Interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 	virtual void CacheDesiredSize(float) override;
@@ -474,11 +510,11 @@ protected:
 	virtual FReply OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
-	// END SWidget interface
+	//~ End SWidget Interface
 
 private:
 	
-	void OnWindowClosed(const TSharedRef<SWindow>&);
+	void OnContextMenuClosed(TSharedRef<IMenu>);
 
 	/** Remember where the cursor was when we started selecting. */
 	void BeginSelecting( const FTextLocation& Endpoint );
@@ -644,6 +680,9 @@ private:
 	/** Whether to select all text when the user clicks to give focus on the widget */
 	TAttribute< bool > bSelectAllTextWhenFocused;
 
+	/** Whether to clear text selection when focus is lost */
+	TAttribute< bool > bClearTextSelectionOnFocusLoss;
+
 	/** True if any changes should be reverted if we recieve an escape key */
 	TAttribute< bool > bRevertTextOnEscape;
 
@@ -683,6 +722,9 @@ private:
 	/** A list commands to execute if a user presses the corresponding keybinding in the text box */
 	TSharedRef< FUICommandList > UICommandList;
 
+	/** Delegate to call before a context menu is opened */
+	FOnContextMenuOpening OnContextMenuOpening;
+
 	/** Called whenever the text is changed interactively by the user */
 	FOnTextChanged OnTextChanged;
 
@@ -719,6 +761,12 @@ private:
 	/** Whether the text has been changed by a virtual keyboard */
 	bool bTextChangedByVirtualKeyboard;
 
+	/** Whether the text has been committed by a virtual keyboard */
+	bool bTextCommittedByVirtualKeyboard;
+
+	/** How the text was committed by the virtual keyboard */
+	ETextCommit::Type VirtualKeyboardTextCommitType;
+
 	/** The optional modifier key necessary to create a newline when typing into the editor. */
 	EModifierKey::Type ModiferKeyForNewLine;
 
@@ -733,6 +781,9 @@ private:
 
 	/**	The current position of the software cursor */
 	FVector2D SoftwareCursorPosition;
+
+	/** Callback delegate to have first chance handling of the OnKeyDown event */
+	FOnKeyDown OnKeyDownHandler;
 };
 
 

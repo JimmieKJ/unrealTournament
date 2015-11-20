@@ -28,11 +28,11 @@ FTextBlockLayout::FTextBlockLayout(FTextBlockStyle InDefaultTextStyle, TSharedRe
 FVector2D FTextBlockLayout::ComputeDesiredSize(const FWidgetArgs& InWidgetArgs, const float InScale, const FTextBlockStyle& InTextStyle)
 {
 	SLATE_CYCLE_COUNTER_SCOPE_DETAILED(SLATE_STATS_DETAIL_LEVEL_HI, GSlateTextBlockLayoutComputeDesiredSize);
+	TextLayout->SetScale(InScale);
 	TextLayout->SetWrappingWidth(CalculateWrappingWidth(InWidgetArgs));
 	TextLayout->SetMargin(InWidgetArgs.Margin.Get());
 	TextLayout->SetJustification(InWidgetArgs.Justification.Get());
 	TextLayout->SetLineHeightPercentage(InWidgetArgs.LineHeightPercentage.Get());
-	TextLayout->SetScale(InScale);
 
 	// Has the style used for this text block changed?
 	if(!IsStyleUpToDate(InTextStyle))
@@ -79,7 +79,7 @@ FVector2D FTextBlockLayout::ComputeDesiredSize(const FWidgetArgs& InWidgetArgs, 
 	}
 
 	// We need to update our size if the text layout has become dirty
-		TextLayout->UpdateIfNeeded();
+	TextLayout->UpdateIfNeeded();
 
 	return TextLayout->GetSize();
 }

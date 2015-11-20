@@ -29,6 +29,7 @@
 #include "AnimGraphNode_TransitionPoseEvaluator.h"
 #include "AnimGraphNode_TransitionResult.h"
 #include "K2Node_TransitionRuleGetter.h"
+#include "K2Node_AnimGetter.h"
 
 #define LOCTEXT_NAMESPACE "AnimBlueprintCompiler"
 
@@ -85,6 +86,15 @@ FAnimBlueprintCompiler::FAnimBlueprintCompiler(UAnimBlueprint* SourceSketch, FCo
 	, AnimBlueprint(SourceSketch)
 	, bIsDerivedAnimBlueprint(false)
 {
+	// Make sure the skeleton has finished preloading
+	if (AnimBlueprint->TargetSkeleton != nullptr)
+	{
+		if (FLinkerLoad* Linker = AnimBlueprint->TargetSkeleton->GetLinker())
+		{
+			Linker->Preload(AnimBlueprint->TargetSkeleton);
+		}
+	}
+
 	// Determine if there is an anim blueprint in the ancestry of this class
 	bIsDerivedAnimBlueprint = UAnimBlueprint::FindRootAnimBlueprint(AnimBlueprint) != NULL;
 }
@@ -111,6 +121,12 @@ UK2Node_CallFunction* FAnimBlueprintCompiler::SpawnCallAnimInstanceFunction(UEdG
 
 void FAnimBlueprintCompiler::CreateEvaluationHandler(UAnimGraphNode_Base* VisualAnimNode, FEvaluationHandlerRecord& Record)
 {
+	if(Record.OnlyUsesCopyRecords())
+	{
+		// simple property copies don't require wiring up to a custom event
+		return;
+	}
+
 	// Shouldn't create a handler if there is nothing to work with
 	check(Record.ServicedProperties.Num() > 0);
 	check(Record.NodeVariableProperty != NULL);
@@ -151,6 +167,11 @@ void FAnimBlueprintCompiler::CreateEvaluationHandler(UAnimGraphNode_Base* Visual
 		// Does it get serviced by this handler?
 		if (FAnimNodeSinglePropertyHandler* SourceInfo = Record.ServicedProperties.Find(PropertyName))
 		{
+			if (SourceInfo->SimpleCopyPropertyName != NAME_None)
+			{
+				continue;
+			}
+
 			if (TargetPin->PinType.bIsArray)
 			{
 				// Grab the array that we need to set members for
@@ -485,7 +506,10 @@ void FAnimBlueprintCompiler::PruneIsolatedAnimationNodes(const TArray<UAnimGraph
 void FAnimBlueprintCompiler::ProcessAnimationNodesGivenRoot(TArray<UAnimGraphNode_Base*>& AnimNodeList, const TArray<UAnimGraphNode_Base*>& RootSet)
 {
 	// Now prune based on the root set
-	PruneIsolatedAnimationNodes(RootSet, AnimNodeList);
+	if (MessageLog.NumErrors == 0)
+	{
+		PruneIsolatedAnimationNodes(RootSet, AnimNodeList);
+	}
 
 	// Process the remaining nodes
 	for (auto SourceNodeIt = AnimNodeList.CreateIterator(); SourceNodeIt; ++SourceNodeIt)
@@ -497,12 +521,25 @@ void FAnimBlueprintCompiler::ProcessAnimationNodesGivenRoot(TArray<UAnimGraphNod
 
 void FAnimBlueprintCompiler::ProcessAllAnimationNodes()
 {
+	// Validate the graph
+	ValidateGraphIsWellFormed(ConsolidatedEventGraph);
+
+	// Validate that we have a skeleton
+	if ((AnimBlueprint->TargetSkeleton == nullptr) && !AnimBlueprint->bIsNewlyCreated)
+	{
+		MessageLog.Error(*LOCTEXT("NoSkeleton", "@@ - The skeleton asset for this animation Blueprint is missing, so it cannot be compiled!").ToString(), AnimBlueprint);
+		return;
+	}
+
 	// Build the raw node list
 	TArray<UAnimGraphNode_Base*> AnimNodeList;
 	ConsolidatedEventGraph->GetNodesOfClass<UAnimGraphNode_Base>(/*out*/ AnimNodeList);
 
 	TArray<UK2Node_TransitionRuleGetter*> Getters;
 	ConsolidatedEventGraph->GetNodesOfClass<UK2Node_TransitionRuleGetter>(/*out*/ Getters);
+
+	TArray<UK2Node_AnimGetter*> AnimGetters;
+	ConsolidatedEventGraph->GetNodesOfClass<UK2Node_AnimGetter>(AnimGetters);
 
 	// Find the root node
 	UAnimGraphNode_Root* PrePhysicsRoot = NULL;
@@ -549,6 +586,11 @@ void FAnimBlueprintCompiler::ProcessAllAnimationNodes()
 			ProcessTransitionGetter(*GetterIt, NULL); // transition nodes should not appear at top-level
 		}
 
+		for(auto AnimGetterIt = AnimGetters.CreateIterator(); AnimGetterIt; ++AnimGetterIt)
+		{
+			AutoWireAnimGetter(*AnimGetterIt, NULL);
+		}
+
 		NewAnimBlueprintClass->RootAnimNodeIndex = GetAllocationIndexOfNode(PrePhysicsRoot);
 	}
 	else
@@ -566,6 +608,8 @@ int32 FAnimBlueprintCompiler::ExpandGraphAndProcessNodes(UEdGraph* SourceGraph, 
 	UAnimGraphNode_Base* TargetRootNode = NULL;
 	TArray<UAnimGraphNode_Base*> AnimNodeList;
 	TArray<UK2Node_TransitionRuleGetter*> Getters;
+	TArray<UK2Node_AnimGetter*> AnimGetterNodes;
+
 	for (auto NodeIt = ClonedGraph->Nodes.CreateIterator(); NodeIt; ++NodeIt)
 	{
 		UEdGraphNode* Node = *NodeIt;
@@ -573,6 +617,10 @@ int32 FAnimBlueprintCompiler::ExpandGraphAndProcessNodes(UEdGraph* SourceGraph, 
 		if (UK2Node_TransitionRuleGetter* GetterNode = Cast<UK2Node_TransitionRuleGetter>(Node))
 		{
 			Getters.Add(GetterNode);
+		}
+		else if(UK2Node_AnimGetter* NewGetterNode = Cast<UK2Node_AnimGetter>(Node))
+		{
+			AnimGetterNodes.Add(NewGetterNode);
 		}
 		else if (UAnimGraphNode_Base* TestNode = Cast<UAnimGraphNode_Base>(Node))
 		{
@@ -607,6 +655,12 @@ int32 FAnimBlueprintCompiler::ExpandGraphAndProcessNodes(UEdGraph* SourceGraph, 
 	for (auto GetterIt = Getters.CreateIterator(); GetterIt; ++GetterIt)
 	{
 		ProcessTransitionGetter(*GetterIt, TransitionNode);
+	}
+
+	// Wire anim getter nodes
+	for(auto AnimGetterIt = AnimGetterNodes.CreateIterator(); AnimGetterIt; ++AnimGetterIt)
+	{
+		AutoWireAnimGetter(*AnimGetterIt, TransitionNode);
 	}
 
 	// Returns the index of the processed cloned version of SourceRootNode
@@ -775,7 +829,9 @@ void FAnimBlueprintCompiler::ProcessStateMachine(UAnimGraphNode_StateMachineBase
 			BakedTransition.StartNotify = FindOrAddNotify(TransitionNode->TransitionStart);
 			BakedTransition.EndNotify = FindOrAddNotify(TransitionNode->TransitionEnd);
 			BakedTransition.InterruptNotify = FindOrAddNotify(TransitionNode->TransitionInterrupt);
-			BakedTransition.CrossfadeMode = TransitionNode->CrossfadeMode;
+			BakedTransition.BlendMode = TransitionNode->BlendMode;
+			BakedTransition.CustomCurve = TransitionNode->CustomBlendCurve;
+			BakedTransition.BlendProfile = TransitionNode->BlendProfile;
 			BakedTransition.LogicType = TransitionNode->LogicType;
 
 			UAnimStateNodeBase* PreviousState = TransitionNode->GetPreviousState();
@@ -882,6 +938,25 @@ void FAnimBlueprintCompiler::ProcessStateMachine(UAnimGraphNode_StateMachineBase
 
 		FBakedAnimationState& BakedState = Oven.GetMachine().States[StateIndex];
 
+		// Add indices to all player nodes
+		TArray<UEdGraph*> GraphsToCheck;
+		TArray<UAnimGraphNode_AssetPlayerBase*> AssetPlayerNodes;
+		GraphsToCheck.Add(StateNode->GetBoundGraph());
+		StateNode->GetBoundGraph()->GetAllChildrenGraphs(GraphsToCheck);
+
+		for(UEdGraph* ChildGraph : GraphsToCheck)
+		{
+			ChildGraph->GetNodesOfClass(AssetPlayerNodes);
+		}
+
+		for(UAnimGraphNode_AssetPlayerBase* Node : AssetPlayerNodes)
+		{
+			if(int32* IndexPtr = NewAnimBlueprintClass->AnimBlueprintDebugData.NodeGuidToIndexMap.Find(Node->NodeGuid))
+			{
+				BakedState.PlayerNodeIndices.Add(*IndexPtr);
+			}
+		}
+
 		// Handle all the transitions out of this node
 		TArray<class UAnimStateTransitionNode*> TransitionList;
 		StateNode->GetTransitionList(/*out*/ TransitionList, /*bWantSortedList=*/ true);
@@ -977,9 +1052,12 @@ void FAnimBlueprintCompiler::CopyTermDefaultsToDefaultObject(UObject* DefaultObj
 	if (bIsDerivedAnimBlueprint)
 	{
 		// If we are a derived animation graph; apply any stored overrides.
-		// Restore values from the root blueprint to catch values where the override has been removed.
-		UAnimBlueprint* RootAnimBP = UAnimBlueprint::FindRootAnimBlueprint(AnimBlueprint);
-		UAnimBlueprintGeneratedClass* RootAnimClass = RootAnimBP->GetAnimBlueprintGeneratedClass();
+		// Restore values from the root class to catch values where the override has been removed.
+		UAnimBlueprintGeneratedClass* RootAnimClass = NewAnimBlueprintClass;
+		while(UAnimBlueprintGeneratedClass* NextClass = Cast<UAnimBlueprintGeneratedClass>(RootAnimClass->GetSuperClass()))
+		{
+			RootAnimClass = NextClass;
+		}
 		UObject* RootDefaultObject = RootAnimClass->GetDefaultObject();
 
 		for (TFieldIterator<UProperty> It(RootAnimClass) ; It; ++It)
@@ -1069,7 +1147,7 @@ void FAnimBlueprintCompiler::CopyTermDefaultsToDefaultObject(UObject* DefaultObj
 	for (auto EvalLinkIt = ValidEvaluationHandlerList.CreateIterator(); EvalLinkIt; ++EvalLinkIt)
 	{
 		FEvaluationHandlerRecord& Record = *EvalLinkIt;
-		Record.PatchFunctionNameInto(DefaultObject);
+		Record.PatchFunctionNameAndCopyRecordsInto(DefaultObject);
 	}
 
 	// And patch in constant values that don't need to be re-evaluated every frame
@@ -1201,6 +1279,61 @@ void FAnimBlueprintCompiler::CleanAndSanitizeClass(UBlueprintGeneratedClass* Cla
 	}
 }
 
+void FAnimBlueprintCompiler::FinishCompilingClass(UClass* Class)
+{
+	UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass = CastChecked<UAnimBlueprintGeneratedClass>(Class);
+	AnimBlueprintGeneratedClass->SyncGroupNames.Reset();
+	AnimBlueprintGeneratedClass->SyncGroupNames.Reserve(AnimBlueprint->Groups.Num());
+	for (const FAnimGroupInfo& GroupInfo : AnimBlueprint->Groups)
+	{
+		AnimBlueprintGeneratedClass->SyncGroupNames.Add(GroupInfo.Name);
+	}
+	Super::FinishCompilingClass(Class);
+}
+
+void FAnimBlueprintCompiler::PostCompile()
+{
+	UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass = CastChecked<UAnimBlueprintGeneratedClass>(NewClass);
+
+	UAnimInstance* DefaultAnimInstance = CastChecked<UAnimInstance>(AnimBlueprintGeneratedClass->GetDefaultObject());
+	DefaultAnimInstance->bCanUseParallelUpdateAnimation = DefaultAnimInstance->bRunUpdatesInWorkerThreads;
+
+	if(DefaultAnimInstance->bCanUseParallelUpdateAnimation)
+	{
+		// iterate all properties to determine validity
+		for (UStructProperty* Property : TFieldRange<UStructProperty>(AnimBlueprintGeneratedClass, EFieldIteratorFlags::IncludeSuper))
+		{
+			if(Property->Struct->IsChildOf(FAnimNode_Base::StaticStruct()))
+			{
+				FAnimNode_Base* AnimNode = Property->ContainerPtrToValuePtr<FAnimNode_Base>(DefaultAnimInstance);
+				if(!AnimNode->CanUpdateInWorkerThread())
+				{
+					DefaultAnimInstance->bCanUseParallelUpdateAnimation = false;
+					if(DefaultAnimInstance->bRunUpdatesInWorkerThreads)
+					{
+						MessageLog.Warning(*FText::Format(LOCTEXT("HasIncompatibleNode", "Found incompatible node \"{0}\" in blend graph. Parallel update will be disabled."), FText::FromName(Property->Struct->GetFName())).ToString());
+					}
+				}
+			}
+		}
+
+		for(auto& EvaluationHandler : ValidEvaluationHandlerList)
+		{
+			for(auto& Property : EvaluationHandler.ServicedProperties)
+			{
+				if(Property.Value.SimpleCopyPropertyName == NAME_None && !Property.Value.bHasOnlyMemberAccess)
+				{
+					DefaultAnimInstance->bCanUseParallelUpdateAnimation = false;
+					if(DefaultAnimInstance->bRunUpdatesInWorkerThreads)
+					{
+						UEdGraphNode* Node = Property.Value.ArrayPins.Num() > 0 ? Property.Value.ArrayPins[0]->GetOwningNode() : Property.Value.SinglePin->GetOwningNode();
+						MessageLog.Warning(*LOCTEXT("HasNonNativeMemberAccess", "Found non-native or non-member access in node @@ in blend graph. Parallel update will be disabled.").ToString(), Node);
+					}
+				}
+			}
+		}
+	}
+}
 
 void FAnimBlueprintCompiler::CreateFunctionList()
 {
@@ -1217,6 +1350,7 @@ void FAnimBlueprintCompiler::ProcessTransitionGetter(UK2Node_TransitionRuleGette
 
 	UEdGraphPin* SourceTimePin = NULL;
 	UAnimationAsset* AnimAsset= NULL;
+	int32 PlayerNodeIndex = INDEX_NONE;
 
 	if (UAnimGraphNode_Base* SourcePlayerNode = Getter->AssociatedAnimAssetPlayerNode)
 	{
@@ -1238,7 +1372,7 @@ void FAnimBlueprintCompiler::ProcessTransitionGetter(UK2Node_TransitionRuleGette
 		}
 
 		// Make sure the referenced AnimAsset player has been allocated
-		const int32 PlayerNodeIndex = GetAllocationIndexOfNode(UndertypedPlayerNode);
+		PlayerNodeIndex = GetAllocationIndexOfNode(UndertypedPlayerNode);
 		if (PlayerNodeIndex == INDEX_NONE)
 		{
 			MessageLog.Error(*LOCTEXT("BadAnimAssetNodeUsedInGetter", "@@ doesn't have a valid associated AnimAsset node.  Delete and recreate it").ToString(), Getter);
@@ -1619,6 +1753,233 @@ void FAnimBlueprintCompiler::DumpAnimDebugData()
 					ExitTransition.TransitionIndex,
 					ExitTransition.bDesiredTransitionReturnValue ? TEXT("TRUE") : TEXT("FALSE"),
 					foo - ExitTransition.CanTakeDelegateIndex));
+			}
+		}
+	}
+}
+
+void FAnimBlueprintCompiler::AutoWireAnimGetter(class UK2Node_AnimGetter* Getter, UAnimStateTransitionNode* InTransitionNode)
+{
+	UEdGraphPin* ReferencedNodeTimePin = nullptr;
+	int32 ReferencedNodeIndex = INDEX_NONE;
+	int32 SubNodeIndex = INDEX_NONE;
+	
+	UAnimGraphNode_Base* ProcessedNodeCheck = NULL;
+
+	if(UAnimGraphNode_Base* SourceNode = Getter->SourceNode)
+	{
+		UAnimGraphNode_Base* ActualSourceNode = MessageLog.FindSourceObjectTypeChecked<UAnimGraphNode_Base>(SourceNode);
+		
+		if(UAnimGraphNode_Base* ProcessedSourceNode = SourceNodeToProcessedNodeMap.FindRef(ActualSourceNode))
+		{
+			ProcessedNodeCheck = ProcessedSourceNode;
+
+			ReferencedNodeIndex = GetAllocationIndexOfNode(ProcessedSourceNode);
+
+			if(ProcessedSourceNode->DoesSupportTimeForTransitionGetter())
+			{
+				UScriptStruct* TimePropertyInStructType = ProcessedSourceNode->GetTimePropertyStruct();
+				const TCHAR* TimePropertyName = ProcessedSourceNode->GetTimePropertyName();
+
+				if(ReferencedNodeIndex != INDEX_NONE && TimePropertyName && TimePropertyInStructType)
+				{
+					UProperty* NodeProperty = AllocatedPropertiesByIndex.FindChecked(ReferencedNodeIndex);
+
+					UK2Node_StructMemberGet* ReaderNode = SpawnIntermediateNode<UK2Node_StructMemberGet>(Getter, ConsolidatedEventGraph);
+					ReaderNode->VariableReference.SetSelfMember(NodeProperty->GetFName());
+					ReaderNode->StructType = TimePropertyInStructType;
+					ReaderNode->AllocatePinsForSingleMemberGet(TimePropertyName);
+
+					ReferencedNodeTimePin = ReaderNode->FindPinChecked(TimePropertyName);
+				}
+			}
+		}
+	}
+	
+	if(Getter->SourceStateNode)
+	{
+		UObject* SourceObject = MessageLog.FindSourceObject(Getter->SourceStateNode);
+		if(UAnimStateNode* SourceStateNode = Cast<UAnimStateNode>(SourceObject))
+		{
+			if(FStateMachineDebugData* DebugData = NewAnimBlueprintClass->GetAnimBlueprintDebugData().StateMachineDebugData.Find(SourceStateNode->GetGraph()))
+			{
+				if(int32* StateIndexPtr = DebugData->NodeToStateIndex.Find(SourceStateNode))
+				{
+					SubNodeIndex = *StateIndexPtr;
+				}
+			}
+		}
+		else if(UAnimStateTransitionNode* TransitionNode = Cast<UAnimStateTransitionNode>(SourceObject))
+		{
+			if(FStateMachineDebugData* DebugData = NewAnimBlueprintClass->GetAnimBlueprintDebugData().StateMachineDebugData.Find(TransitionNode->GetGraph()))
+			{
+				if(int32* TransitionIndexPtr = DebugData->NodeToTransitionIndex.Find(TransitionNode))
+				{
+					SubNodeIndex = *TransitionIndexPtr;
+				}
+			}
+		}
+	}
+
+	check(Getter->IsNodePure());
+
+	for(UEdGraphPin* Pin : Getter->Pins)
+	{
+		// Hook up autowired parameters / pins
+		if(Pin->PinName == TEXT("CurrentTime"))
+		{
+			Pin->MakeLinkTo(ReferencedNodeTimePin);
+		}
+		else if(Pin->PinName == TEXT("AssetPlayerIndex") || Pin->PinName == TEXT("MachineIndex"))
+		{
+			Pin->DefaultValue = FString::FromInt(ReferencedNodeIndex);
+		}
+		else if(Pin->PinName == TEXT("StateIndex") || Pin->PinName == TEXT("TransitionIndex"))
+		{
+			Pin->DefaultValue = FString::FromInt(SubNodeIndex);
+		}
+	}
+}
+
+void FAnimBlueprintCompiler::FEvaluationHandlerRecord::PatchFunctionNameAndCopyRecordsInto(UObject* TargetObject) const
+{
+	FExposedValueHandler* HandlerPtr = EvaluationHandlerProperty->ContainerPtrToValuePtr<FExposedValueHandler>(NodeVariableProperty->ContainerPtrToValuePtr<void>(TargetObject));
+	HandlerPtr->CopyRecords.Empty();
+
+	bool bOnlyUsesCopyRecords = true;
+	for(TMap<FName, FAnimNodeSinglePropertyHandler>::TConstIterator PropertyIt(ServicedProperties); PropertyIt; ++PropertyIt)
+	{
+		const FAnimNodeSinglePropertyHandler& AnimNodeSinglePropertyHandler = PropertyIt.Value();
+		if(AnimNodeSinglePropertyHandler.SimpleCopyPropertyName != NAME_None)
+		{
+			// Local variable get, no need to thunk to BP to grab this value
+
+			UProperty* SimpleCopyPropertySource = TargetObject->GetClass()->FindPropertyByName(AnimNodeSinglePropertyHandler.SimpleCopyPropertyName);
+			if (SimpleCopyPropertySource)
+			{
+				if (AnimNodeSinglePropertyHandler.ArrayPins.Num() > 0)
+				{
+					UArrayProperty* SimpleCopyPropertyDest = CastChecked<UArrayProperty>(NodeVariableProperty->Struct->FindPropertyByName(PropertyIt.Key()));
+					check(SimpleCopyPropertySource->GetSize() == SimpleCopyPropertyDest->Inner->GetSize());
+
+					for (TMap<int32, UEdGraphPin*>::TConstIterator ArrayIt(AnimNodeSinglePropertyHandler.ArrayPins); ArrayIt; ++ArrayIt)
+					{
+						FExposedValueCopyRecord CopyRecord;
+						CopyRecord.DestProperty = SimpleCopyPropertyDest;
+						CopyRecord.DestArrayIndex = ArrayIt.Key();
+						CopyRecord.SourceProperty = SimpleCopyPropertySource;
+						CopyRecord.SourceArrayIndex = 0;
+						CopyRecord.Size = SimpleCopyPropertyDest->Inner->GetSize();
+						HandlerPtr->CopyRecords.Add(CopyRecord);
+					}
+				}
+				else
+				{
+					UProperty* SimpleCopyPropertyDest = NodeVariableProperty->Struct->FindPropertyByName(PropertyIt.Key());
+					check(SimpleCopyPropertySource->GetSize() == SimpleCopyPropertyDest->GetSize());
+
+					// Local variable get, no need to thunk to BP to grab this value
+					FExposedValueCopyRecord CopyRecord;
+					CopyRecord.DestProperty = SimpleCopyPropertyDest;
+					CopyRecord.DestArrayIndex = 0;
+					CopyRecord.SourceProperty = SimpleCopyPropertySource;
+					CopyRecord.SourceArrayIndex = 0;
+					CopyRecord.Size = SimpleCopyPropertyDest->GetSize();
+					HandlerPtr->CopyRecords.Add(CopyRecord);
+				}
+			}
+			else
+			{
+				// property removed?
+				bOnlyUsesCopyRecords = false;
+			}
+		}
+		else
+		{
+			bOnlyUsesCopyRecords = false;
+		}
+	}
+
+	if(!bOnlyUsesCopyRecords)
+	{
+		// not all of our pins use copy records so we will need to call our exposed value handler
+		HandlerPtr->BoundFunction = HandlerFunctionName;
+	}
+}
+
+void FAnimBlueprintCompiler::FEvaluationHandlerRecord::RegisterPin(UEdGraphPin* SourcePin, UProperty* AssociatedProperty, int32 AssociatedPropertyArrayIndex)
+{
+	const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
+
+	FAnimNodeSinglePropertyHandler& Handler = ServicedProperties.FindOrAdd(AssociatedProperty->GetFName());
+
+	if (AssociatedPropertyArrayIndex != INDEX_NONE)
+	{
+		Handler.ArrayPins.Add(AssociatedPropertyArrayIndex, SourcePin);
+	}
+	else
+	{
+		check(Handler.SinglePin == NULL);
+		Handler.SinglePin = SourcePin;
+	}
+
+	if(GetDefault<UEngine>()->bOptimizeAnimBlueprintMemberVariableAccess)
+	{
+		UK2Node_VariableGet* VariableGetNode = Cast<UK2Node_VariableGet>(SourcePin->LinkedTo[0]->GetOwningNode());
+		if(VariableGetNode && VariableGetNode->IsNodePure() && VariableGetNode->VariableReference.IsSelfContext())
+		{
+			Handler.SimpleCopyPropertyName = VariableGetNode->VariableReference.GetMemberName();
+		}
+		else
+		{
+			Handler.bHasOnlyMemberAccess = true;
+
+			// traverse pins to leaf nodes and check for member access/pure only
+			TArray<UEdGraphPin*> PinStack;
+			PinStack.Add(SourcePin);
+			while(PinStack.Num() > 0)
+			{
+				UEdGraphPin* CurrentPin = PinStack.Pop(false);
+				for(auto& LinkedPin : CurrentPin->LinkedTo)
+				{
+					UEdGraphNode* LinkedNode = LinkedPin->GetOwningNode();
+					if(LinkedNode)
+					{
+						bool bLeafNode = true;
+						for(auto& Pin : LinkedNode->Pins)
+						{
+							if(Pin != LinkedPin && Pin->Direction == EGPD_Input && !Schema->IsPosePin(Pin->PinType))
+							{
+								bLeafNode = false;
+								PinStack.Add(Pin);
+							}
+						}
+
+						if(bLeafNode)
+						{
+							if(UK2Node_VariableGet* LinkedVariableGetNode = Cast<UK2Node_VariableGet>(LinkedNode))
+							{
+								if(!LinkedVariableGetNode->IsNodePure() || !LinkedVariableGetNode->VariableReference.IsSelfContext())
+								{
+									// only local variable access is allowed for leaf nodes, so 
+									Handler.bHasOnlyMemberAccess = false;
+								}
+							}
+							else if(UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(LinkedNode))
+							{
+								if(!CallFunctionNode->IsNodePure())
+								{
+									// only allow pure function calls
+									Handler.bHasOnlyMemberAccess = false;
+								}
+							}
+							else if(!LinkedNode->IsA<UK2Node_TransitionRuleGetter>())
+							{
+								Handler.bHasOnlyMemberAccess = false;
+							}
+						}
+					}
+				}
 			}
 		}
 	}

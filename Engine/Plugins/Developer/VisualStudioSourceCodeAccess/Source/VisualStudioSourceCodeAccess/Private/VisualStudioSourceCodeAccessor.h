@@ -51,10 +51,10 @@ private:
 		{
 		}
 
-		FileOpenRequest(const FString& FullPath, int32 LineNumber, int32 ColumnNumber)
-			: FullPath(FullPath)
-			, LineNumber(LineNumber)
-			, ColumnNumber(ColumnNumber)
+		FileOpenRequest(const FString& InitFullPath, int32 InitLineNumber, int32 InitColumnNumber)
+			: FullPath(InitFullPath)
+			, LineNumber(InitLineNumber)
+			, ColumnNumber(InitColumnNumber)
 		{
 		}
 	};

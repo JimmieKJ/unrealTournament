@@ -37,7 +37,10 @@ namespace UnrealBuildTool.Rules
                     "ShaderCore",
                     "Settings",
                     "AIModule",  // it have to be here for now. It'll be changed to remove any dependency to AIModule in future
-                    "GameplayAbilities",
+
+                    // @todo do we really need to include these two? Maybe a smart interface would help here?
+                    "GameplayTasks",
+                    "GameplayAbilities",    
 				}
                 );
 

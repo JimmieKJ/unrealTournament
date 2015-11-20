@@ -20,7 +20,7 @@ bool FRocketSupport::IsRocket( const TCHAR* CmdLine )
 		static bool bIsRocket = FParse::Param(CmdLine, TEXT("rocket"));
 		FString RocketFile = FPaths::RootDir() / TEXT("Engine/Build/Rocket.txt");
 		FPaths::NormalizeFilename(RocketFile);
-		bIsRocket |= FPaths::FileExists(*RocketFile);
+		bIsRocket |= IFileManager::Get().FileExists(*RocketFile);
 		if (bIsRocket == true)
 		{
 			RocketState = 1;

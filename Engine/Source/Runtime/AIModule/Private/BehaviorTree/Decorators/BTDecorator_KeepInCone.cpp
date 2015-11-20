@@ -45,8 +45,11 @@ void UBTDecorator_KeepInCone::InitializeFromAsset(UBehaviorTree& Asset)
 	}
 
 	UBlackboardData* BBAsset = GetBlackboardAsset();
-	ConeOrigin.CacheSelectedKey(BBAsset);
-	Observed.CacheSelectedKey(BBAsset);
+	if (ensure(BBAsset))
+	{
+		ConeOrigin.ResolveSelectedKey(*BBAsset);
+		Observed.ResolveSelectedKey(*BBAsset);
+	}
 }
 
 bool UBTDecorator_KeepInCone::CalculateCurrentDirection(const UBehaviorTreeComponent& OwnerComp, FVector& Direction) const

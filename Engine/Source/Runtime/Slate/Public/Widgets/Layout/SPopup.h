@@ -17,6 +17,12 @@ public:
 
 	SLATE_END_ARGS()
 
+	SPopup()
+	{
+		bCanTick = false;
+		bCanSupportFocus = false;
+	}
+
 	void Construct(const FArguments& InArgs);
 
 private:

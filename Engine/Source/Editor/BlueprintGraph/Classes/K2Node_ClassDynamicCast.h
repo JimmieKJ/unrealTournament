@@ -10,21 +10,21 @@ class UK2Node_ClassDynamicCast : public UK2Node_DynamicCast
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override { return UK2Node::IsConnectionDisallowed(MyPin, OtherPin, OutReason); }
 	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override { UK2Node::NotifyPinConnectionListChanged(Pin); }
-	// End of UK2Node interface
+	//~ End UK2Node Interface
 
-	// UK2Node_DynamicCast interface
+	//~ Begin UK2Node_DynamicCast Interface
 	virtual UEdGraphPin* GetCastSourcePin() const override;
 	virtual UEdGraphPin* GetBoolSuccessPin() const override;
-	// End of UK2Node_DynamicCast interface
+	//~ End UK2Node_DynamicCast Interface
 };
 

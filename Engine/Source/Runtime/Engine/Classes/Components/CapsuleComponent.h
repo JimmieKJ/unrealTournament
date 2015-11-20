@@ -14,17 +14,17 @@ class ENGINE_API UCapsuleComponent : public UShapeComponent
 
 protected:
 	/** 
-	 *	Half-height, i.e. from center of capsule to end of top or bottom hemisphere.  
+	 *	Half-height, from center of capsule to the end of top or bottom hemisphere.  
 	 *	This cannot be less than CapsuleRadius.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, export, Category=Shape)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, export, Category=Shape, meta=(ClampMin="0", UIMin="0"))
 	float CapsuleHalfHeight;
 
 	/** 
 	 *	Radius of cap hemispheres and center cylinder. 
 	 *	This cannot be more than CapsuleHalfHeight.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, export, Category=Shape)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, export, Category=Shape, meta=(ClampMin="0", UIMin="0"))
 	float CapsuleRadius;
 
 protected:
@@ -59,28 +59,29 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|Capsule")
 	void SetCapsuleHalfHeight(float HalfHeight, bool bUpdateOverlaps=true);
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject interface
+	//~ End UObject Interface
 
-	// Begin USceneComponent interface
+	//~ Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	virtual void CalcBoundingCylinder(float& CylinderRadius, float& CylinderHalfHeight) const override;
-	// End USceneComponent interface
+	//~ End USceneComponent Interface
 
-	// Begin UPrimitiveComponent interface.
+	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual bool IsZeroExtent() const override;
 	virtual struct FCollisionShape GetCollisionShape(float Inflation = 0.0f) const override;
 	virtual bool AreSymmetricRotations(const FQuat& A, const FQuat& B, const FVector& Scale3D) const override;
-	// End UPrimitiveComponent interface.
+	//~ End UPrimitiveComponent Interface.
 
-	// Begin UShapeComponent interface
+	//~ Begin UShapeComponent Interface
 	virtual void UpdateBodySetup() override;
-	// End UShapeComponent interface
+	//~ End UShapeComponent Interface
 
 	// @return the capsule radius scaled by the component scale.
 	UFUNCTION(BlueprintCallable, Category="Components|Capsule")
@@ -115,8 +116,8 @@ public:
 	// Sets the capsule size without triggering a render or physics update. This is the preferred method when initializing a component in a class constructor.
 	FORCEINLINE void InitCapsuleSize(float InRadius, float InHalfHeight)
 	{
-		CapsuleRadius = InRadius;
-		CapsuleHalfHeight = FMath::Max(InHalfHeight, InRadius);
+		CapsuleRadius = FMath::Max(0.f, InRadius);
+		CapsuleHalfHeight = FMath::Max3(0.f, InHalfHeight, InRadius);
 	}
 };
 

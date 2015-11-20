@@ -2596,26 +2596,26 @@ public:
 #ifndef PX_PS3
 
 					const PxU32 bodyCountMin1 = PxU32(mCounts.bodies - 1);
-					for(PxU32 i=0; i < mCounts.bodies; i++)
+					for(PxU32 k=0; k < mCounts.bodies; k++)
 					{
-						const PxU32 prefetchAddress = PxMin(i+4, bodyCountMin1);
+						const PxU32 prefetchAddress = PxMin(k+4, bodyCountMin1);
 						Ps::prefetchLine(mThreadContext.bodyCoreArray[prefetchAddress]);
-						Ps::prefetchLine(&mThreadContext.motionVelocityArray[i], 128);
+						Ps::prefetchLine(&mThreadContext.motionVelocityArray[k], 128);
 						Ps::prefetchLine(&mThreadContext.bodyCoreArray[prefetchAddress], 128);
 						Ps::prefetchLine(&mObjects.bodies[prefetchAddress]);
 
-						integrateCore(*mThreadContext.bodyCoreArray[i], *const_cast<PxsRigidBody*>(mObjects.bodies[i]), mThreadContext.motionVelocityArray[i], mContext.mDt);
+						integrateCore(*mThreadContext.bodyCoreArray[k], *const_cast<PxsRigidBody*>(mObjects.bodies[k]), mThreadContext.motionVelocityArray[k], mContext.mDt);
 					}
 
-					for(PxU32 i=0;i<mCounts.articulations;i++)
+					for(PxU32 cnt=0;cnt<mCounts.articulations;cnt++)
 					{
-						PxcArticulationSolverDesc &d = mThreadContext.getArticulations()[i];
+						PxcArticulationSolverDesc &d = mThreadContext.getArticulations()[cnt];
 						CM_PROFILE_ZONE(mContext.getContext()->getEventProfiler(),Cm::ProfileEventId::Articulations::Getintegrate());
 
 						PxcArticulationPImpl::updateBodies(d, mContext.getDt());
-						for(PxU32 i=0;i<d.linkCount;i++)
+						for(PxU32 lnk=0;lnk<d.linkCount;lnk++)
 						{
-							const PxsRigidBody* body = static_cast<PxsRigidBody*>(d.links[i].body);
+							const PxsRigidBody* body = static_cast<PxsRigidBody*>(d.links[lnk].body);
 							const AABBMgrId aabbMgrId = body->getAABBMgrId();
 							if(PX_INVALID_BP_HANDLE!=aabbMgrId.mActorHandle)
 								mThreadContext.getLocalChangedActors().growAndSet(aabbMgrId.mActorHandle);
@@ -4443,23 +4443,18 @@ void physx::PxsSolverCreateFinalizeConstraintsTask::runInternal()
 		PxsConstraintBatchHeader& header = mThreadContext.contactConstraintBatchHeaders[numHeaders++];
 		header.mStartIndex = a;
 
-		
+		PxU16 j = 1;
 		PxU32 loopMax = PxMin(maxJ - a, 4u);
-		PxU16 j = 0;
-		if(loopMax > 0)
+		//PxU32 loopMax = PxMin(maxJ - a, 1u);
+		PxcSolverConstraintDesc& desc = mThreadContext.orderedContactConstraints[a];
+		if(!isArticulationConstraint(desc) && (desc.constraintLengthOver16 == PXS_SC_TYPE_RB_CONTACT || 
+			desc.constraintLengthOver16 == PXS_SC_TYPE_RB_1D) && currentPartition < maxBatchPartition)
 		{
-			j=1;
-			//PxU32 loopMax = PxMin(maxJ - a, 1u);
-			PxcSolverConstraintDesc& desc = mThreadContext.orderedContactConstraints[a];
-			if(!isArticulationConstraint(desc) && (desc.constraintLengthOver16 == PXS_SC_TYPE_RB_CONTACT || 
-				desc.constraintLengthOver16 == PXS_SC_TYPE_RB_1D) && currentPartition < maxBatchPartition)
-			{
-				for(; j < loopMax && desc.constraintLengthOver16 == mThreadContext.orderedContactConstraints[a+j].constraintLengthOver16 && 
-					!isArticulationConstraint(mThreadContext.orderedContactConstraints[a+j]); ++j);
-			}
-			header.mStride = j;
-			headersPerPartition++;
+			for(; j < loopMax && desc.constraintLengthOver16 == mThreadContext.orderedContactConstraints[a+j].constraintLengthOver16 && 
+				!isArticulationConstraint(mThreadContext.orderedContactConstraints[a+j]); ++j);
 		}
+		header.mStride = j;
+		headersPerPartition++;
 		if(maxJ == (a + j) && maxJ != descCount)
 		{
 			//Go to next partition!

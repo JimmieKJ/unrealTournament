@@ -12,6 +12,7 @@ FAnimNode_TransitionResult::FAnimNode_TransitionResult()
 
 void FAnimNode_TransitionResult::Initialize(const FAnimationInitializeContext& Context)
 {
+	FAnimNode_Base::Initialize(Context);
 }
 
 void FAnimNode_TransitionResult::CacheBones(const FAnimationCacheBonesContext& Context) 

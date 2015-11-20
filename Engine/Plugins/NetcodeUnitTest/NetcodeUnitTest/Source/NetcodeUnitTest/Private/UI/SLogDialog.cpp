@@ -279,3 +279,5 @@ TSharedRef<SWindow> OpenLogDialog_NonModal(EAppMsgType::Type InMessageType, cons
 
 	return MsgWindow.ToSharedRef();
 }
+
+#undef LOCTEXT_NAMESPACE

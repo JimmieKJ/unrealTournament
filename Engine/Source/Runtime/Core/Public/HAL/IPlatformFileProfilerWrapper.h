@@ -58,6 +58,8 @@ struct FProfiledFileStatsOp : public FProfiledFileStatsBase
 		Create,
 		Copy,
 		Iterate,
+		IterateStat,
+		GetStatData,
 
 		Count
 	};
@@ -333,7 +335,7 @@ public:
 	{
 		StatsType* FileStat = CreateStat( Filename );
 		FProfiledFileStatsOp* OpStat = FileStat->CreateOpStat( FProfiledFileStatsOp::EOpType::GetTimeStamp );
-		double StartTime = FPlatformTime::Seconds();
+		double OpStartTime = FPlatformTime::Seconds();
 		FDateTime Result = LowerLevel->GetTimeStamp(Filename);
 		OpStat->Duration += FPlatformTime::Seconds() * 1000 - OpStat->LastOpTime;
 		return Result;
@@ -342,7 +344,7 @@ public:
 	{
 		StatsType* FileStat = CreateStat( Filename );
 		FProfiledFileStatsOp* OpStat = FileStat->CreateOpStat( FProfiledFileStatsOp::EOpType::SetTimeStamp );
-		double StartTime = FPlatformTime::Seconds();
+		double OpStartTime = FPlatformTime::Seconds();
 		LowerLevel->SetTimeStamp(Filename, DateTime);
 		OpStat->Duration += FPlatformTime::Seconds() * 1000 - OpStat->LastOpTime;
 	}
@@ -350,7 +352,7 @@ public:
 	{
 		StatsType* FileStat = CreateStat( Filename );
 		FProfiledFileStatsOp* OpStat = FileStat->CreateOpStat( FProfiledFileStatsOp::EOpType::GetTimeStamp );
-		double StartTime = FPlatformTime::Seconds();
+		double OpStartTime = FPlatformTime::Seconds();
 		FDateTime Result = LowerLevel->GetAccessTimeStamp(Filename);
 		OpStat->Duration += FPlatformTime::Seconds() * 1000 - OpStat->LastOpTime;
 		return Result;
@@ -359,7 +361,7 @@ public:
 	{
 		StatsType* FileStat = CreateStat(Filename);
 		FProfiledFileStatsOp* OpStat = FileStat->CreateOpStat( FProfiledFileStatsOp::EOpType::GetFilenameOnDisk );
-		double StartTime = FPlatformTime::Seconds();
+		double OpStartTime = FPlatformTime::Seconds();
 		FString Result = LowerLevel->GetFilenameOnDisk(Filename);
 		OpStat->Duration += FPlatformTime::Seconds() * 1000 - OpStat->LastOpTime;
 		return Result;
@@ -406,6 +408,15 @@ public:
 		return Result;
 	}
 
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override
+	{
+		StatsType* FileStat = CreateStat( FilenameOrDirectory );
+		FProfiledFileStatsOp* OpStat = FileStat->CreateOpStat( FProfiledFileStatsOp::EOpType::GetStatData );
+		FFileStatData Result = LowerLevel->GetStatData(FilenameOrDirectory);
+		OpStat->Duration += FPlatformTime::Seconds() * 1000.0 - OpStat->LastOpTime;
+		return Result;
+	}
+
 	virtual bool		IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override
 	{
 		StatsType* FileStat = CreateStat( Directory );
@@ -422,6 +433,24 @@ public:
 		OpStat->Duration += FPlatformTime::Seconds() * 1000.0 - OpStat->LastOpTime;
 		return Result;
 	}
+
+	virtual bool		IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		StatsType* FileStat = CreateStat( Directory );
+		FProfiledFileStatsOp* OpStat = FileStat->CreateOpStat( FProfiledFileStatsOp::EOpType::IterateStat );
+		bool Result = LowerLevel->IterateDirectoryStat( Directory, Visitor );
+		OpStat->Duration += FPlatformTime::Seconds() * 1000.0 - OpStat->LastOpTime;
+		return Result;
+	}
+	virtual bool		IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		StatsType* FileStat = CreateStat( Directory );
+		FProfiledFileStatsOp* OpStat = FileStat->CreateOpStat( FProfiledFileStatsOp::EOpType::IterateStat );
+		bool Result = LowerLevel->IterateDirectoryStatRecursively( Directory, Visitor );
+		OpStat->Duration += FPlatformTime::Seconds() * 1000.0 - OpStat->LastOpTime;
+		return Result;
+	}
+
 	virtual bool		DeleteDirectoryRecursively(const TCHAR* Directory) override
 	{
 		StatsType* FileStat = CreateStat( Directory );
@@ -608,6 +637,11 @@ public:
 	{
 		return LowerLevel->DeleteDirectory(Directory);
 	}
+	
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override
+	{
+		return LowerLevel->GetStatData(FilenameOrDirectory);
+	}
 
 	virtual bool		IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override
 	{
@@ -617,6 +651,16 @@ public:
 	{
 		return LowerLevel->IterateDirectoryRecursively( Directory, Visitor );
 	}
+
+	virtual bool		IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		return LowerLevel->IterateDirectoryStat( Directory, Visitor );
+	}
+	virtual bool		IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		return LowerLevel->IterateDirectoryStatRecursively( Directory, Visitor );
+	}
+
 	virtual bool		DeleteDirectoryRecursively(const TCHAR* Directory) override
 	{
 		return LowerLevel->DeleteDirectoryRecursively( Directory );

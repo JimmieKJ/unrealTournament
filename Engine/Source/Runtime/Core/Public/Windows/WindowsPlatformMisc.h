@@ -15,6 +15,7 @@ struct FWindowsOSVersionHelper
 		ERROR_UNKNOWNVERSION = 1,
 		ERROR_GETPRODUCTINFO_FAILED = 2,
 		ERROR_GETVERSIONEX_FAILED = 4,
+		ERROR_GETWINDOWSGT62VERSIONS_FAILED = 8,
 	};
 
 	static int32 GetOSVersions( FString& out_OSVersion, FString& out_OSSubVersion );
@@ -65,12 +66,12 @@ struct CORE_API FWindowsPlatformMisc
 	}
 
 	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse()
+	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
 	{
 #if !UE_BUILD_SHIPPING
 		if (!IsDebuggerPresent())
 		{
-			PromptForRemoteDebugging(false);
+			PromptForRemoteDebugging(bIsEnsure);
 		}
 
 		DebugBreak();
@@ -80,8 +81,8 @@ struct CORE_API FWindowsPlatformMisc
 	}
 
 	static void PumpMessages(bool bFromMainLoop);
-	static uint32 GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings );
-	static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
+	static uint32 GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings );
+	static uint32 GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings);
 	static void SetUTF8Output();
 	static void LocalPrint(const TCHAR *Message);
 	static void RequestExit(bool Force);

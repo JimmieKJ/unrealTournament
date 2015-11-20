@@ -22,7 +22,7 @@ public:
 
 	}
 
-	void Init( DXGI_FORMAT InFormat, D3D11_SUBRESOURCE_DATA* InitalData = NULL, D3D11_USAGE Usage = D3D11_USAGE_DEFAULT, uint32 InCPUAccessFlags = 0, uint32 BindFlags = D3D11_BIND_SHADER_RESOURCE );
+	void Init( DXGI_FORMAT InFormat, D3D11_SUBRESOURCE_DATA* InitalData = NULL, bool bUpdatable = false, bool bUseStagingTexture = false );
 
 	uint32 GetWidth() const { return SizeX; }
 	uint32 GetHeight() const { return SizeY; }
@@ -34,11 +34,17 @@ public:
 	virtual void ResizeTexture( uint32 Width, uint32 Height ) override;
 	virtual void UpdateTexture(const TArray<uint8>& Bytes) override;
 	virtual void UpdateTextureThreadSafe(const TArray<uint8>& Bytes) override { UpdateTexture(Bytes); }
+	virtual void UpdateTextureThreadSafeRaw(uint32 Width, uint32 Height, const void* Buffer, const FIntRect& Dirty = FIntRect()) override;
 private:
+	// Helper method used by the different UpdateTexture* methods
+	void UpdateTextureRaw(const void* Buffer, const FIntRect& Dirty);
 	/** Actual texture.  In D3D the SRV is used by the shader so our parent class holds that */
 	TRefCountPtr<ID3D11Texture2D> D3DTexture;
+	/** Texture for doing staged updating of the texture contents. */
+	TRefCountPtr<ID3D11Texture2D> StagingTexture;
 	uint32 SizeX;
 	uint32 SizeY;
+	uint32 BytesPerPixel;
 };
 
 class FSlateTextureAtlasD3D : public FSlateTextureAtlas

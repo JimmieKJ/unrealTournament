@@ -99,7 +99,7 @@ void make_intrinsic_genType(
 	const bool bIsVoid = (flags & IR_INTRINSIC_RETURNS_VOID);
 
 	ir_function* func = new(ctx)ir_function(name);
-	if (flags)
+	if ((flags & ~IR_INTRINSIC_RETURNS_VOID))
 	{
 		for (int base_type = GLSL_TYPE_UINT; base_type <= GLSL_TYPE_BOOL; ++base_type)
 		{
@@ -1428,11 +1428,8 @@ void _mesa_glsl_initialize_functions(exec_list *ir, _mesa_glsl_parse_state *stat
 	make_intrinsic_emit_vertex(ir, state);
 	make_intrinsic_end_primitive(ir, state);
 
-	if (state->language_version >= 310)
-	{
-		make_intrinsic_pack_functions(ir, state);
-		make_intrinsic_genType(ir, state, "bitreverse", ir_unop_bitreverse, IR_INTRINSIC_INT | IR_INTRINSIC_UINT, 1);
-		make_intrinsic_sm5_functions(ir, state);
-		make_intrinsic_atomics(ir, state);
-	}
+	make_intrinsic_pack_functions(ir, state);
+	make_intrinsic_genType(ir, state, "bitreverse", ir_unop_bitreverse, IR_INTRINSIC_INT | IR_INTRINSIC_UINT, 1);
+	make_intrinsic_sm5_functions(ir, state);
+	make_intrinsic_atomics(ir, state);
 }

@@ -32,6 +32,7 @@ protected:
 	//virtual UEdGraphSchema_K2* CreateSchema() override;
 	virtual void CreateFunctionList() override;
 	virtual void SpawnNewClass(const FString& NewClassName) override;
+	virtual void PrecompileFunction(FKismetFunctionContext& Context) override;
 	virtual void CleanAndSanitizeClass(UBlueprintGeneratedClass* ClassToClean, UObject*& OldCDO) override;
 	virtual void SaveSubObjectsFromCleanAndSanitizeClass(FSubobjectCollection& SubObjectsToSave, UBlueprintGeneratedClass* ClassToClean, UObject*& OldCDO) override;
 	virtual void EnsureProperGeneratedClass(UClass*& TargetClass) override;
@@ -39,6 +40,8 @@ protected:
 	virtual void FinishCompilingClass(UClass* Class) override;
 	virtual bool ValidateGeneratedClass(UBlueprintGeneratedClass* Class) override;
 	// End FKismetCompilerContext
+
+	void VerifyEventReplysAreNotEmpty(FKismetFunctionContext& Context);
 
 protected:
 	UWidgetBlueprintGeneratedClass* NewWidgetBlueprintClass;

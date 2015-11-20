@@ -11,10 +11,20 @@
 #define VECTORIZED_BRANCHLESS	0
 #define VECTORIZED_EARLY_OUT	1
 
+#if USE_HZB
+#define HZB_LEVEL_OFFSET 1.0
+
+float4 HZBUvFactorAndInvFactor;
+#else
+#define HZB_LEVEL_OFFSET 0.0
+
+#endif
+
 float4 SampleDepthTexture( Texture2D Texture, SamplerState Sampler, float Level, float4 SampleUV0, float4 SampleUV1 )
 {
 	float4 SampleDepth;
 #if USE_HZB
+	// SampleUV{0,1}.{xy,zw} should already be in the HZB UV frame using HZBUvFactorAndInvFactor.xy
 	SampleDepth.x = Texture2DSampleLevel( Texture, Sampler, SampleUV0.xy, Level ).r;
 	SampleDepth.y = Texture2DSampleLevel( Texture, Sampler, SampleUV0.zw, Level ).r;
 	SampleDepth.z = Texture2DSampleLevel( Texture, Sampler, SampleUV1.xy, Level ).r;
@@ -28,30 +38,58 @@ float4 SampleDepthTexture( Texture2D Texture, SamplerState Sampler, float Level,
 	return SampleDepth;
 }
 
-float4 RayCast( Texture2D Texture, SamplerState Sampler, float3 R, float Roughness, float SceneDepth, float3 PositionTranslatedWorld, int NumSteps, float StepOffset )
+void RayCast(
+	Texture2D Texture, SamplerState Sampler, float2 TextureSize,
+	float3 RayOriginTranslatedWorld, float3 RayDirection,
+	float Roughness, float ConeAngleWorld, float SceneDepth,
+	int NumSteps, float StepOffset,
+	out float4 OutHitUVzTime,
+	out float OutLevelHCB
+)
 {
 	// TODO provide RayStartUVz
+	const float4 RayStartV = mul( float4( RayOriginTranslatedWorld, 1 ), View.TranslatedWorldToView );
+	const float4 RayDirV = mul(float4(RayDirection * SceneDepth, 0),  View.TranslatedWorldToView);
+	const float4 RayEndV = RayStartV + RayDirV;
 
-	// NOTE could clip ray against frustum planes
+	const float RayEndRadiusV = length(RayDirV.xyz) * tan(ConeAngleWorld * 0.4);
+	const float2 RayEndBorderV = RayEndV.xy + RayEndRadiusV / sqrt(2.0);
 
-	// TODO use screen position and skip matrix mul
-	float4 RayStartClip	= mul( float4( PositionTranslatedWorld, 1 ), View.TranslatedWorldToClip );
-	float4 RayEndClip	= mul( float4( PositionTranslatedWorld + R * SceneDepth, 1 ), View.TranslatedWorldToClip );
+	const float4 RayStartClip	= mul( RayStartV, View.ViewToClip );
+	const float4 RayEndClip	= mul( RayEndV, View.ViewToClip );
+	const float2 RayEndBorderClip = mul(float4(RayEndBorderV, RayEndV.zw), View.ViewToClip).xy;
 
-	float3 RayStartScreen = RayStartClip.xyz / RayStartClip.w;
-	float3 RayEndScreen = RayEndClip.xyz / RayEndClip.w;
+	const float3 RayStartScreen = RayStartClip.xyz / RayStartClip.w;
+	const float3 RayEndScreen = RayEndClip.xyz / RayEndClip.w;
+	const float2 RayEndBorderScreen = RayEndBorderClip.xy / RayEndClip.w;
+	
+	float3 RayStepScreen = (RayEndScreen - RayStartScreen);
+	float2 RayStepRadiusScreen = (RayEndBorderScreen - RayEndScreen.xy);
 
-	// Normalize 2D length
-	float3 RayStepScreen = ( RayEndScreen - RayStartScreen ) / length( RayEndScreen.xy - RayStartScreen.xy );
-	RayStepScreen *= 1.5;
+	{
+		// Computes the scale down factor for RayStepScreen required to fit on the X and Y axis in order to clip it in the viewport
+		const float RayStepScreenInvFactor = 0.5 * length( RayStepScreen.xy );
+		const float2 AbsRayStepScreen = abs(RayStepScreen.xy);
+		const float2 S = (AbsRayStepScreen - max(abs(RayStepScreen.xy + RayStartScreen.xy * RayStepScreenInvFactor) - RayStepScreenInvFactor, 0.0f)) / AbsRayStepScreen;
 
+		// Rescales RayStepScreen accordingly
+		const float RayStepFactor = min(S.x, S.y) / RayStepScreenInvFactor;
+
+		RayStepScreen *= RayStepFactor;
+		RayStepRadiusScreen *= RayStepFactor;
+	}
+
+	const float2 HzbSize = float2(1024, 512);
 #if USE_HZB
-	float3 RayStartUVz = float3( RayStartScreen.xy * float2( 0.5, -0.5 ) + 0.5, RayStartScreen.z );
-	float3 RayStepUVz = float3( RayStepScreen.xy * float2( 0.5, -0.5 ), RayStepScreen.z );
+	const float3 RayStartUVz = float3( (RayStartScreen.xy * float2( 0.5, -0.5 ) + 0.5) * HZBUvFactorAndInvFactor.xy, RayStartScreen.z );
+	const float3 RayStepUVz = float3( RayStepScreen.xy * float2( 0.5, -0.5 ) * HZBUvFactorAndInvFactor.xy, RayStepScreen.z );
+	const float2 RayStepRadiusUV = RayStepRadiusScreen.xy * float2( 0.5, -0.5 ) * HZBUvFactorAndInvFactor.xy;
 #else
-	float3 RayStartUVz = float3( RayStartScreen.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz, RayStartScreen.z );
-	float3 RayStepUVz = float3( RayStepScreen.xy * View.ScreenPositionScaleBias.xy, RayStepScreen.z );
+	const float3 RayStartUVz = float3( (RayStartScreen.xy * float2( 0.5, -0.5 ) + 0.5), RayStartScreen.z );
+	const float3 RayStepUVz = float3( RayStepScreen.xy * float2( 0.5, -0.5 ), RayStepScreen.z );
+	const float2 RayStepRadiusUV = RayStepRadiusScreen.xy * float2( 0.5, -0.5 );
 #endif
+	const float RayStepRadiusFactor = length(RayStepRadiusUV * TextureSize);
 	
 	const float Step = 1.0 / (NumSteps + 1);
 
@@ -74,7 +112,7 @@ float4 RayCast( Texture2D Texture, SamplerState Sampler, float3 R, float Roughne
 		float3 SampleUVz = RayStartUVz + RayStepUVz * SampleTime;
 		
 		// Use lower res for farther samples
-		float Level = Roughness * (i * 4.0 / NumSteps);
+		float Level = Roughness * (i * 4.0 / NumSteps) + HZB_LEVEL_OFFSET;
 		float SampleDepth = Texture.SampleLevel( Sampler, SampleUVz.xy, Level ).r;
 
 		float DepthDiff = SampleUVz.z - SampleDepth;
@@ -92,17 +130,14 @@ float4 RayCast( Texture2D Texture, SamplerState Sampler, float3 R, float Roughne
 	}
 
 	float3 HitUVz = RayStartUVz + RayStepUVz * MinHitTime;
-#if USE_HZB
-	HitUVz.xy = HitUVz.xy * float2( 2, -2 ) + float2( -1, 1 );
-	HitUVz.xy = HitUVz.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
-#endif
+
 	Result = float4( HitUVz, MinHitTime );
 
 #elif VECTORIZED_BRANCHLESS
 
 	float MinHitTime = 1;
 	float LastDiff = 0;
-	float Level = 0;
+	float Level = HZB_LEVEL_OFFSET;
 	
 	// Vectorized to group fetches
 	float4 SampleTime = ( StepOffset + float4( 1, 2, 3, 4 ) ) * Step;
@@ -155,16 +190,13 @@ float4 RayCast( Texture2D Texture, SamplerState Sampler, float3 R, float Roughne
 	}
 
 	float3 HitUVz = RayStartUVz + RayStepUVz * MinHitTime;
-#if USE_HZB
-	HitUVz.xy = HitUVz.xy = HitUVz.xy * float2( 2, -2 ) + float2( -1, 1 );
-	HitUVz.xy = HitUVz.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
-#endif
+
 	Result = float4( HitUVz, MinHitTime );
 
 #else // VECTORIZED_EARLY_OUT
 
 	float LastDiff = 0;
-	float Level = 0;
+	float Level = HZB_LEVEL_OFFSET;
 
 	float4 SampleTime = ( StepOffset + float4( 1, 2, 3, 4 ) ) * Step;
 
@@ -195,10 +227,7 @@ float4 RayCast( Texture2D Texture, SamplerState Sampler, float3 R, float Roughne
 			float MinHitTime = min( HitTime.x, HitTime.y );
 			
 			float3 HitUVz = RayStartUVz + RayStepUVz * MinHitTime;
-#if USE_HZB
-			HitUVz.xy = HitUVz.xy * float2( 2, -2 ) + float2( -1, 1 );
-			HitUVz.xy = HitUVz.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
-#endif
+
 			Result = float4( HitUVz, MinHitTime );
 			break;
 		}
@@ -210,8 +239,15 @@ float4 RayCast( Texture2D Texture, SamplerState Sampler, float3 R, float Roughne
 	}
 
 #endif
+	
+#if USE_HZB
+	Result.xy *= HZBUvFactorAndInvFactor.zw;
+	Result.xy = Result.xy * float2( 2, -2 ) + float2( -1, 1 );
+	Result.xy = Result.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+#endif
 
-	return Result;
+	OutHitUVzTime = Result;
+	OutLevelHCB = log2(OutHitUVzTime.w * RayStepRadiusFactor) + 1;
 }
 
 float4 RayCastCheap( Texture2D Texture, SamplerState Sampler, float3 R, float SceneDepth, float3 PositionTranslatedWorld, float StepOffset )
@@ -321,10 +357,9 @@ float4 SampleScreenColor( Texture2D Texture, SamplerState Sampler, float3 HitUVz
 	// TODO combine to single matrix
 	float4 HitClip = float4( (HitUVz.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy, HitUVz.z, 1 );
 	float4 HitTranslatedWorld = mul( HitClip, View.ClipToTranslatedWorld );
-	HitTranslatedWorld /= HitTranslatedWorld.w;
 		
-	float3 PrevTranslatedWorld = HitTranslatedWorld.xyz + (View.PrevPreViewTranslation - View.PreViewTranslation);
-	float4 PrevClip = mul( float4( PrevTranslatedWorld, 1 ), View.PrevTranslatedWorldToClip );
+	float4 PrevTranslatedWorld = float4( HitTranslatedWorld.xyz + HitTranslatedWorld.w * (View.PrevPreViewTranslation - View.PreViewTranslation), HitTranslatedWorld.w );
+	float4 PrevClip = mul( PrevTranslatedWorld, View.PrevTranslatedWorldToClip );
 	float2 PrevScreen = PrevClip.xy / PrevClip.w;
 	float2 PrevUV = PrevScreen.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
 
@@ -335,6 +370,46 @@ float4 SampleScreenColor( Texture2D Texture, SamplerState Sampler, float3 HitUVz
 	float2 Vignette = saturate( abs( PrevScreen ) * 5 - 4 );
 #else
 	OutColor.rgb = Texture.SampleLevel( Sampler, HitUVz.xy, 0 ).rgb;
+	OutColor.a = 1;
+
+	// Off screen masking
+	float2 HitScreenPos = ( HitUVz.xy - View.ScreenPositionScaleBias.wz ) / View.ScreenPositionScaleBias.xy;
+	float2 Vignette = saturate( abs( HitScreenPos ) * 5 - 4 );
+#endif
+		
+	//PrevScreen sometimes has NaNs or Infs.  DX11 is protected because saturate turns NaNs -> 0.
+	//Do a SafeSaturate so other platforms get the same protection.
+	OutColor *= SafeSaturate( 1.0 - dot( Vignette, Vignette ) );
+
+	// Transform NaNs to black, transform negative colors to black.
+	OutColor.rgb = -min(-OutColor.rgb, 0.0);
+
+	return OutColor;
+}
+
+float4 SampleHCBLevel( Texture2D Texture, SamplerState Sampler, float3 HitUVz, float Level )
+{
+	float4 OutColor;
+
+#if PREV_FRAME_COLOR
+	// Find previous screen position for hit since color buffer is from last frame
+	// TODO combine to single matrix
+	float4 HitClip = float4( (HitUVz.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy, HitUVz.z, 1 );
+	float4 HitTranslatedWorld = mul( HitClip, View.ClipToTranslatedWorld );
+	HitTranslatedWorld /= HitTranslatedWorld.w;
+		
+	float3 PrevTranslatedWorld = HitTranslatedWorld.xyz + (View.PrevPreViewTranslation - View.PreViewTranslation);
+	float4 PrevClip = mul( float4( PrevTranslatedWorld, 1 ), View.PrevTranslatedWorldToClip );
+	float2 PrevScreen = PrevClip.xy / PrevClip.w;
+	float2 PrevUV = PrevScreen.xy * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz;
+
+	OutColor.rgb = Texture.SampleLevel( Sampler, PrevUV * HZBUvFactorAndInvFactor.xy, Level ).rgb;
+	OutColor.a = 1;
+
+	// Off screen masking
+	float2 Vignette = saturate( abs( PrevScreen ) * 5 - 4 );
+#else
+	OutColor.rgb = Texture.SampleLevel( Sampler, HitUVz.xy * HZBUvFactorAndInvFactor.xy, Level ).rgb;
 	OutColor.a = 1;
 
 	// Off screen masking

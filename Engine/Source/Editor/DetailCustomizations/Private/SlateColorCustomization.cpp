@@ -25,6 +25,9 @@ void FSlateColorCustomization::CustomizeHeader(TSharedRef<class IPropertyHandle>
 	SpecifiedColorHandle->SetOnPropertyValueChanged(FSimpleDelegate::CreateSP(SharedThis(this), &FSlateColorCustomization::OnValueChanged));
 
 	FColorStructCustomization::CustomizeHeader(SpecifiedColorHandle.ToSharedRef(), InHeaderRow, StructCustomizationUtils);
+
+	// Slate brushes always default to sRGB mode.
+	sRGBOverride = true;
 }
 
 void FSlateColorCustomization::MakeHeaderRow(TSharedRef<class IPropertyHandle>& InStructPropertyHandle, FDetailWidgetRow& Row)

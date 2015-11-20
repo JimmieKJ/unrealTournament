@@ -17,7 +17,7 @@ float3 SimplePointLightDiffuse( FScreenSpaceData ScreenSpaceData )
 
 float3 LightingForOneLight(FMaterialPixelParameters Parameters, uint LightIndex, FScreenSpaceData ScreenSpaceData)
 {
-	float3 CameraVector = normalize(Parameters.WorldPosition - View.ViewOrigin.xyz);
+	float3 CameraVector = normalize(Parameters.AbsoluteWorldPosition - View.WorldCameraOrigin);
 	
 	FDeferredLightData LightData = (FDeferredLightData)0;
 	LightData.LightPositionAndInvRadius = ForwardLightData.LightPositionAndInvRadius[LightIndex];
@@ -37,9 +37,9 @@ float3 LightingForOneLight(FMaterialPixelParameters Parameters, uint LightIndex,
 	// The only type of shadowing supported for lights using tiled is static shadowing, so the light should only compute shadowing if it has static shadowing
 	LightData.bShadowed = dot(LightData.ShadowMapChannelMask, float4(1, 1, 1, 1));
 	
-	float2 ScreenUV = Parameters.SVPosition.xy * View.BufferSizeAndInvSize.zw;
+	float2 ScreenUV = Parameters.SvPosition.xy * View.BufferSizeAndInvSize.zw;
 
-	return GetDynamicLighting(Parameters.WorldPosition, CameraVector, ScreenUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, float4(1, 1, 1, 1), uint2(0,0)).rgb;
+	return GetDynamicLighting(Parameters.AbsoluteWorldPosition, CameraVector, ScreenUV, ScreenSpaceData, ScreenSpaceData.GBuffer.ShadingModelID, LightData, float4(1, 1, 1, 1), uint2(0,0)).rgb;
 }
 
 // @param WorldNormal is not assumed to be normalized
@@ -51,7 +51,7 @@ float3 AccumulateForwardLights(FMaterialPixelParameters Parameters, float3 Diffu
 #if !COMPILER_GLSL && !COMPILER_GLSL_ES2
 
 	// Which tile we are?
-	int2 Tile = int2((Parameters.SVPosition.xy - View.ViewRectMin.xy) * ForwardLightData.InvTileSize);
+	int2 Tile = int2((Parameters.SvPosition.xy - View.ViewRectMin.xy) * ForwardLightData.InvTileSize);
 
 	// Get bitmask from CPU for this tile
 	uint culling = LightGrid[Tile.x + Tile.y * ForwardLightData.TileCountX];
@@ -63,11 +63,10 @@ float3 AccumulateForwardLights(FMaterialPixelParameters Parameters, float3 Diffu
 	ScreenSpaceData.GBuffer.DiffuseColor = DiffuseColor;
 	ScreenSpaceData.GBuffer.BaseColor = 1;
 	ScreenSpaceData.GBuffer.Specular = 1;
-	ScreenSpaceData.GBuffer.Opacity = GetMaterialOpacity(Parameters);
 	ScreenSpaceData.GBuffer.PrecomputedShadowFactors = 1;
 //	ScreenSpaceData.GBuffer.ShadingModelID = SHADINGMODELID_DEFAULT_LIT;
 	ScreenSpaceData.GBuffer.ShadingModelID = SHADINGMODELID_TWOSIDED_FOLIAGE;
-	ScreenSpaceData.GBuffer.CustomData = DiffuseColor;
+	ScreenSpaceData.GBuffer.CustomData = float4(DiffuseColor, GetMaterialOpacity(Parameters));
 	ScreenSpaceData.AmbientOcclusion = 1;
 
 	// todo: support more than 32 lights

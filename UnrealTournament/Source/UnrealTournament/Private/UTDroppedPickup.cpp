@@ -35,7 +35,7 @@ void AUTDroppedPickup::BeginPlay()
 {
 	Super::BeginPlay();
 
-	if (!bPendingKillPending)
+	if (!IsPendingKillPending())
 	{
 		// don't allow Instigator to touch until a little time has passed so a live player throwing an item doesn't immediately pick it back up again
 		GetWorld()->GetTimerManager().SetTimer(EnableInstigatorTouchHandle, this, &AUTDroppedPickup::EnableInstigatorTouch, 1.0f, false);
@@ -168,7 +168,7 @@ void AUTDroppedPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 
 void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 {
-	if (Inventory != NULL && !Inventory->bPendingKillPending)
+	if (Inventory != NULL && !Inventory->IsPendingKillPending())
 	{
 		AUTCharacter* C = Cast<AUTCharacter>(Target);
 		if (C != NULL)

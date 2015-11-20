@@ -121,7 +121,7 @@ struct RayRTreeCallback : RTree::CallbackRaycast, RTree::Callback
 					const PxVec3& v0 = v[jj][0];
 					const PxVec3& v1 = v[jj][1];
 					const PxVec3& v2 = v[jj][2];
-					const PxU32* vinds = inds[iTri];
+					const PxU32* vinds = inds[jj];
 
 #else // #if PX_IS_SPU
 			for(PxU32 i = 0; i < nbLeafTris; i++)

@@ -13,7 +13,7 @@ class UMG_API UVisual : public UObject
 public:
 	virtual void ReleaseSlateResources(bool bReleaseChildren);
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void BeginDestroy() override;
-	// End UObject interface
+	//~ End UObject Interface
 };

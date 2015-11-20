@@ -21,8 +21,23 @@ public:
 	friend FArchive& operator<<(FArchive& Ar, FDiskCachedAssetData& DiskCachedAssetData)
 	{
 		Ar << DiskCachedAssetData.PackageName;
+		if (Ar.IsError())
+		{
+			return Ar;
+		}
+
 		Ar << DiskCachedAssetData.Timestamp;
+		if (Ar.IsError())
+		{
+			return Ar;
+		}
+
 		Ar << DiskCachedAssetData.AssetDataList;
+		if (Ar.IsError())
+		{
+			return Ar;
+		}
+
 		Ar << DiskCachedAssetData.DependencyData;
 		
 		return Ar;

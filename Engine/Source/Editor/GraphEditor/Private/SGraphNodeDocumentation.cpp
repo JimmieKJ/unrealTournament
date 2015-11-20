@@ -320,7 +320,7 @@ float SGraphNodeDocumentation::GetTitleBarHeight() const
 	return TitleBar.IsValid() ? TitleBar->GetDesiredSize().Y : 0.f;
 }
 
-FSlateRect SGraphNodeDocumentation::GetHitTestingBorder( float InverseZoomFactor ) const
+FSlateRect SGraphNodeDocumentation::GetHitTestingBorder() const
 {
 	return GraphNodeDocumentationDefs::HitTestBorderSize;
 }

@@ -14,9 +14,9 @@ UAbilityTask_MoveToLocation::UAbilityTask_MoveToLocation(const FObjectInitialize
 	bIsFinished = false;
 }
 
-UAbilityTask_MoveToLocation* UAbilityTask_MoveToLocation::MoveToLocation(class UObject* WorldContextObject, FName TaskInstanceName, FVector Location, float Duration, UCurveFloat* OptionalInterpolationCurve)
+UAbilityTask_MoveToLocation* UAbilityTask_MoveToLocation::MoveToLocation(UObject* WorldContextObject, FName TaskInstanceName, FVector Location, float Duration, UCurveFloat* OptionalInterpolationCurve, UCurveVector* OptionalVectorInterpolationCurve)
 {
-	auto MyObj = NewTask<UAbilityTask_MoveToLocation>(WorldContextObject, TaskInstanceName);
+	auto MyObj = NewAbilityTask<UAbilityTask_MoveToLocation>(WorldContextObject, TaskInstanceName);
 
 	if (MyObj->GetAvatarActor() != nullptr)
 	{
@@ -28,6 +28,7 @@ UAbilityTask_MoveToLocation* UAbilityTask_MoveToLocation::MoveToLocation(class U
 	MyObj->TimeMoveStarted = MyObj->GetWorld()->GetTimeSeconds();
 	MyObj->TimeMoveWillEnd = MyObj->TimeMoveStarted + MyObj->DurationOfMovement;
 	MyObj->LerpCurve = OptionalInterpolationCurve;
+	MyObj->LerpCurveVector = OptionalVectorInterpolationCurve;
 
 	return MyObj;
 }
@@ -37,9 +38,9 @@ void UAbilityTask_MoveToLocation::Activate()
 
 }
 
-void UAbilityTask_MoveToLocation::InitSimulatedTask(UAbilitySystemComponent* InAbilitySystemComponent)
+void UAbilityTask_MoveToLocation::InitSimulatedTask(UGameplayTasksComponent& InGameplayTasksComponent)
 {
-	Super::InitSimulatedTask(InAbilitySystemComponent);
+	Super::InitSimulatedTask(InGameplayTasksComponent);
 
 	TimeMoveStarted = GetWorld()->GetTimeSeconds();
 	TimeMoveWillEnd = TimeMoveStarted + DurationOfMovement;
@@ -85,13 +86,25 @@ void UAbilityTask_MoveToLocation::TickTask(float DeltaTime)
 		}
 		else
 		{
+			FVector NewLocation;
+
 			float MoveFraction = (CurrentTime - TimeMoveStarted) / DurationOfMovement;
-			if (LerpCurve)
+			if (LerpCurveVector)
 			{
-				MoveFraction = LerpCurve->GetFloatValue(MoveFraction);
+				const FVector ComponentInterpolationFraction = LerpCurveVector->GetVectorValue(MoveFraction);
+				NewLocation = FMath::Lerp<FVector, FVector>(StartLocation, TargetLocation, ComponentInterpolationFraction);
+			}
+			else
+			{
+				if (LerpCurve)
+				{
+					MoveFraction = LerpCurve->GetFloatValue(MoveFraction);
+				}
+
+				NewLocation = FMath::Lerp<FVector, float>(StartLocation, TargetLocation, MoveFraction);
 			}
 
-			MyActor->SetActorLocation(FMath::Lerp<FVector, float>(StartLocation, TargetLocation, MoveFraction));
+			MyActor->SetActorLocation(NewLocation);
 		}
 	}
 	else
@@ -107,6 +120,7 @@ void UAbilityTask_MoveToLocation::GetLifetimeReplicatedProps(TArray< FLifetimePr
 	DOREPLIFETIME(UAbilityTask_MoveToLocation, TargetLocation);
 	DOREPLIFETIME(UAbilityTask_MoveToLocation, DurationOfMovement);
 	DOREPLIFETIME(UAbilityTask_MoveToLocation, LerpCurve);
+	DOREPLIFETIME(UAbilityTask_MoveToLocation, LerpCurveVector);
 }
 
 void UAbilityTask_MoveToLocation::OnDestroy(bool AbilityIsEnding)

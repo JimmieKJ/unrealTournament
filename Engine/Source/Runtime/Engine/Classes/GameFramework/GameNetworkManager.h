@@ -4,7 +4,7 @@
 #include "TimerManager.h"
 #include "GameNetworkManager.generated.h"
 
-/** Describes which standby detection event occured so the game can take appropriate action */
+/** Describes which standby detection event occured so the game can take appropriate action. */
 UENUM()
 enum EStandbyType
 {

@@ -10,6 +10,8 @@
 
 DEFINE_LOG_CATEGORY(LogOnline);
 DEFINE_LOG_CATEGORY(LogOnlineGame);
+DEFINE_LOG_CATEGORY(LogOnlineParty);
+DEFINE_LOG_CATEGORY(LogOnlineChat);
 
 #if STATS
 ONLINESUBSYSTEM_API DEFINE_STAT(STAT_Online_Async);
@@ -101,7 +103,7 @@ static void ResetAchievements()
 		return;
 	}
 	
-	TSharedPtr<FUniqueNetId> UserId = IdentityInterface->GetUniquePlayerId(0);
+	TSharedPtr<const FUniqueNetId> UserId = IdentityInterface->GetUniquePlayerId(0);
 	if(!UserId.IsValid())
 	{
 		UE_LOG_ONLINE(Warning, TEXT("ResetAchievements command: invalid UserId"));

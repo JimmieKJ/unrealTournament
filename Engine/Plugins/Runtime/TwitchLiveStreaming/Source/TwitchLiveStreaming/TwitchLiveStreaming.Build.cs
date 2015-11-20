@@ -30,12 +30,18 @@ namespace UnrealBuildTool.Rules
 					"Settings"
 				});
 
- 			bool bHaveTwitchSDK =
- 				( System.IO.Directory.Exists( System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "Twitch" ) ) &&
- 				  System.IO.Directory.Exists( System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "Twitch", "Twitch-6.17" ) ) ) ||
- 				( System.IO.Directory.Exists( System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "NotForLicensees" ) ) &&
- 				  System.IO.Directory.Exists( System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "NotForLicensees", "Twitch" ) ) &&
-				  System.IO.Directory.Exists( System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "NotForLicensees", "Twitch", "Twitch-6.17" ) ) );
+			string TwitchNotForLicenseesLibDir = System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "..", "..", "Plugins", "Runtime", "TwitchLiveStreaming", "Source", "ThirdParty", "NotForLicensees", "Twitch", "lib" );   // Check the NotForLicensees folder first
+			string TwitchLibDir = System.IO.Path.Combine( UEBuildConfiguration.UEThirdPartySourceDirectory, "..", "..", "Plugins", "Runtime", "TwitchLiveStreaming", "Source", "ThirdParty", "Twitch", "lib" );
+			bool bHaveTwitchSDK = false;
+
+			try
+			{
+				bHaveTwitchSDK = System.IO.Directory.Exists( TwitchNotForLicenseesLibDir ) || System.IO.Directory.Exists( TwitchLibDir );
+			}
+			catch( System.Exception )
+			{
+			}
+
  			if( bHaveTwitchSDK )
 			{
 				AddThirdPartyPrivateStaticDependencies( Target, "Twitch" );

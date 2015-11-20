@@ -29,16 +29,17 @@ enum class ESlateTextureAtlasOwnerThread : uint8
 	Render,
 };
 
+
 /**
- * Structure holding information about where a texture is located in the atlas
- * Pointers to left and right children build a tree of texture rectangles so we can easily find optimal slots for textures
+ * Structure holding information about where a texture is located in the atlas. Inherits a linked-list interface.
+ *
+ * When a slot is occupied by texture data, the remaining space in the slot (if big enough) is split off into two new (smaller) slots,
+ * building a tree of texture rectangles which, instead of being stored as a tree, are flattened into two linked-lists:
+ *	- AtlastEmptySlots:	A linked-list of empty slots ready for texture data - iterates in same order as a depth-first-search on a tree
+ *	- AtlasUsedSlots:	An unordered linked-list of slots containing texture data
  */
-struct FAtlasedTextureSlot
+struct FAtlasedTextureSlot : public TIntrusiveLinkedList<FAtlasedTextureSlot>
 {
-	/** Left child slot. If nullptr there is no texture data here */
-	FAtlasedTextureSlot* Left;
-	/** Right child slot. If nullptr there is no texture data here  */
-	FAtlasedTextureSlot* Right;
 	/** The X position of the character in the texture */
 	uint32 X;
 	/** The Y position of the character in the texture */
@@ -49,17 +50,16 @@ struct FAtlasedTextureSlot
 	uint32 Height;
 	/** Uniform Padding. can only be zero or one. See ESlateTextureAtlasPaddingStyle. */
 	uint8 Padding;
+
+
 	FAtlasedTextureSlot( uint32 InX, uint32 InY, uint32 InWidth, uint32 InHeight, uint8 InPadding )
-		: Left(nullptr)
-		, Right(nullptr)
+		: TIntrusiveLinkedList<FAtlasedTextureSlot>()
 		, X(InX)
 		, Y(InY)
 		, Width(InWidth)
 		, Height(InHeight)
 		, Padding(InPadding)
-	
 	{
-
 	}
 };
 
@@ -71,7 +71,8 @@ class SLATECORE_API FSlateTextureAtlas
 public:
 	FSlateTextureAtlas( uint32 InWidth, uint32 InHeight, uint32 InBytesPerPixel, ESlateTextureAtlasPaddingStyle InPaddingStyle )
 		: AtlasData()
-		, RootNode( nullptr )
+		, AtlasUsedSlots(NULL)
+		, AtlasEmptySlots(NULL)
 		, AtlasWidth( InWidth )
 		, AtlasHeight( InHeight )
 		, BytesPerPixel( InBytesPerPixel )
@@ -112,21 +113,14 @@ public:
 	virtual void ConditionalUpdateTexture() = 0;
 	
 protected:
-	/** 
-	 * Finds the optimal slot for a texture in the atlas starting the search from the root
+	/**
+	 * Finds the optimal slot for a texture in the atlas
 	 * 
 	 * @param Width The width of the texture we are adding
 	 * @param Height The height of the texture we are adding
 	 */
 	const FAtlasedTextureSlot* FindSlotForTexture( uint32 InWidth, uint32 InHeight );
 
-	/** 
-	 * Destroys everything in the atlas starting at the provided node
-	 *
-	 * @param StartNode
-	 */
-	void DestroyNodes( FAtlasedTextureSlot* StartNode );
-	
 	/**
 	 * Creates enough space for a single texture the width and height of the atlas
 	 */
@@ -175,27 +169,18 @@ protected:
 	void CopyDataIntoSlot( const FAtlasedTextureSlot* SlotToCopyTo, const TArray<uint8>& Data );
 
 private:
-	/** 
-	 * Finds the optimal slot for a texture in the atlas.  
-	 * Does this by doing a DFS over all existing slots to see if the texture can fit in 
-	 * the empty area next to an existing slot
-	 * 
-	 * @param Start	The start slot to check
-	 * @param Width The width of the texture we are adding
-	 * @param Height The height of the texture we are adding
-	 */
-	const FAtlasedTextureSlot* FindSlotForTexture( FAtlasedTextureSlot& Start, uint32 InWidth, uint32 InHeight );
-
 	/** Returns the amount of padding needed for the current padding style */
-	int32 GetPaddingAmount() const
+	FORCEINLINE int32 GetPaddingAmount() const
 	{
 		return (PaddingStyle == ESlateTextureAtlasPaddingStyle::NoPadding) ? 0 : 1;
 	}
 protected:
 	/** Actual texture data contained in the atlas */
 	TArray<uint8> AtlasData;
-	/** Root node for the tree of data.  */
-	FAtlasedTextureSlot* RootNode;
+	/** The list of atlas slots pointing to used texture data in the atlas */
+	FAtlasedTextureSlot* AtlasUsedSlots;
+	/** The list of atlas slots pointing to empty texture data in the atlas */
+	FAtlasedTextureSlot* AtlasEmptySlots;
 	/** Width of the atlas */
 	uint32 AtlasWidth;
 	/** Height of the atlas */

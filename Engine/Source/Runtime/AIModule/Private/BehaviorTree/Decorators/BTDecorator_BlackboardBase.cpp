@@ -17,7 +17,12 @@ UBTDecorator_BlackboardBase::UBTDecorator_BlackboardBase(const FObjectInitialize
 void UBTDecorator_BlackboardBase::InitializeFromAsset(UBehaviorTree& Asset)
 {
 	Super::InitializeFromAsset(Asset);
-	BlackboardKey.CacheSelectedKey(GetBlackboardAsset());
+
+	UBlackboardData* BBAsset = GetBlackboardAsset();
+	if (ensure(BBAsset))
+	{
+		BlackboardKey.ResolveSelectedKey(*BBAsset);
+	}
 }
 
 void UBTDecorator_BlackboardBase::OnBecomeRelevant(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)

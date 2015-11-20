@@ -71,8 +71,8 @@ class UParticleSystemReplay : public UObject
 	TArray<struct FParticleSystemReplayFrame> Frames;
 
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize( FArchive& Ar ) override;
-	// End UObject Interface
+	//~ End UObject Interface
 };
 

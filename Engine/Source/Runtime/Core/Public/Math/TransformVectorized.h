@@ -2,9 +2,6 @@
 
 #pragma once
 
-/** This returns Quaternion Inverse of X **/
-#define MAKE_QUATINV_VECTORREGISTER(X) VectorMultiply(GlobalVectorConstants::QINV_SIGN_MASK, X)
-
 /**
  * Transform composed of Scale, Rotation (as a quaternion), and Translation.
  *
@@ -46,17 +43,29 @@ public:
 #if ENABLE_NAN_DIAGNOSTIC
 	FORCEINLINE void DiagnosticCheckNaN_Scale3D() const
 	{
-		checkf(!VectorContainsNaNOrInfinite(Scale3D), TEXT("FTransform Vectorized Scale3D contains NaN"));
+		if (VectorContainsNaNOrInfinite(Scale3D))
+		{
+			logOrEnsureNanError(TEXT("FTransform Vectorized Scale3D contains NaN"));
+			const_cast<FTransform*>(this)->Scale3D = VectorSet_W0( VectorOne() );
+		}
 	}
 
 	FORCEINLINE void DiagnosticCheckNaN_Translate() const
 	{
-		checkf(!VectorContainsNaNOrInfinite(Translation), TEXT("FTransform Vectorized Translation contains NaN"));
+		if (VectorContainsNaNOrInfinite(Translation))
+		{
+			logOrEnsureNanError(TEXT("FTransform Vectorized Translation contains NaN"));
+			const_cast<FTransform*>(this)->Translation = VectorZero();
+		}
 	}
 
 	FORCEINLINE void DiagnosticCheckNaN_Rotate() const
 	{
-		checkf(!VectorContainsNaNOrInfinite(Rotation), TEXT("FTransform Vectorized Rotation contains NaN"));
+		if (VectorContainsNaNOrInfinite(Rotation))
+		{
+			logOrEnsureNanError(TEXT("FTransform Vectorized Rotation contains NaN"));
+			const_cast<FTransform*>(this)->Rotation = VectorSet_W1( VectorZero() );
+		}
 	}
 
 	FORCEINLINE void DiagnosticCheckNaN_All() const
@@ -65,11 +74,22 @@ public:
 		DiagnosticCheckNaN_Rotate();
 		DiagnosticCheckNaN_Translate();
 	}
+
+	FORCEINLINE void DiagnosticCheck_IsValid() const
+	{
+		DiagnosticCheckNaN_All();
+		if (!IsValid())
+		{
+			logOrEnsureNanError(TEXT("FTransform Vectorized transform is not valid: %s"), *ToHumanReadableString());
+		}
+		
+	}
 #else
 	FORCEINLINE void DiagnosticCheckNaN_Translate() const {}
 	FORCEINLINE void DiagnosticCheckNaN_Rotate() const {}
 	FORCEINLINE void DiagnosticCheckNaN_Scale3D() const {}
 	FORCEINLINE void DiagnosticCheckNaN_All() const {}
+	FORCEINLINE void DiagnosticCheck_IsValid() const {}
 #endif
 
 	/**
@@ -83,16 +103,6 @@ public:
 		Translation = VectorZero();
 		// Scale3D = {1,1,1,0);
 		Scale3D = VectorSet_W0( VectorOne() );
-
-		// Note: This can be used to track down initialization issues with bone transform arrays; but it will
-		// cause issues with transient fields such as RootMotionDelta that get initialized to 0 by default
-#if 0
-		float qnan = FMath::Log2(-5.3f);
-		check(FMath::IsNaN(qnan));
-		Translation = MakeVectorRegister(qnan, qnan, qnan, qnan);
-		Rotation = MakeVectorRegister(qnan, qnan, qnan, qnan);
-		Scale3D = MakeVectorRegister(qnan, qnan, qnan, qnan);
-#endif
 	}
 
 	/**
@@ -120,7 +130,7 @@ public:
 	FORCEINLINE explicit FTransform(const FQuat& InRotation) 
 	{
 		// Rotation = InRotation
-		Rotation =  MakeVectorRegister( InRotation.X, InRotation.Y, InRotation.Z, InRotation.W );
+		Rotation =  VectorLoadAligned( &InRotation.X );
 		// Translation = {0,0,0,0)
 		Translation = VectorZero();
 		// Scale3D = {1,1,1,0);
@@ -138,7 +148,7 @@ public:
 	{
 		FQuat InQuatRotation = InRotation.Quaternion();
 		// Rotation = InRotation
-		Rotation =  MakeVectorRegister( InQuatRotation.X, InQuatRotation.Y, InQuatRotation.Z, InQuatRotation.W );
+		Rotation =  VectorLoadAligned( &InQuatRotation.X );
 		// Translation = {0,0,0,0)
 		Translation = VectorZero();
 		// Scale3D = {1,1,1,0);
@@ -157,7 +167,7 @@ public:
 	FORCEINLINE FTransform(const FQuat& InRotation, const FVector& InTranslation, const FVector& InScale3D = FVector(1.f)) 
 	{
 		// Rotation = InRotation
-		Rotation =  MakeVectorRegister( InRotation.X, InRotation.Y, InRotation.Z, InRotation.W );
+		Rotation =  VectorLoadAligned( &InRotation.X );
 		// Translation = InTranslation
 		Translation = MakeVectorRegister(InTranslation.X, InTranslation.Y, InTranslation.Z, 0.0f );
 		// Scale3D = InScale3D
@@ -192,13 +202,29 @@ public:
 	{
 		FQuat InQuatRotation = InRotation.Quaternion();
 		// Rotation = InRotation
-		Rotation =  MakeVectorRegister( InQuatRotation.X, InQuatRotation.Y, InQuatRotation.Z, InQuatRotation.W );
+		Rotation =  VectorLoadAligned( &InQuatRotation.X );
 		// Translation = InTranslation
 		Translation = MakeVectorRegister(InTranslation.X, InTranslation.Y, InTranslation.Z, 0.0f );
 		// Scale3D = InScale3D
 		Scale3D = MakeVectorRegister(InScale3D.X, InScale3D.Y, InScale3D.Z, 0.0f );
 
 		DiagnosticCheckNaN_All();
+	}
+
+	/**
+	 * Constructor with leaving uninitialized memory
+	 */
+	FORCEINLINE explicit FTransform(ENoInit) 
+	{
+		// Note: This can be used to track down initialization issues with bone transform arrays; but it will
+		// cause issues with transient fields such as RootMotionDelta that get initialized to 0 by default
+#if ENABLE_NAN_DIAGNOSTIC
+		float qnan = FMath::Log2(-5.3f);
+		check(FMath::IsNaN(qnan));
+		Translation = MakeVectorRegister(qnan, qnan, qnan, qnan);
+		Rotation = MakeVectorRegister(qnan, qnan, qnan, qnan);
+		Scale3D = MakeVectorRegister(qnan, qnan, qnan, qnan);
+#endif
 	}
 
 	/**
@@ -491,7 +517,7 @@ public:
 	FORCEINLINE FTransform		operator*(const FQuat& Other) const;
 	FORCEINLINE void			operator*=(const FQuat& Other);
 
-	FORCEINLINE void ScaleTranslation(const FVector& Scale3D);
+	FORCEINLINE void ScaleTranslation(const FVector& InScale3D);
 	FORCEINLINE void ScaleTranslation(const float& Scale);
 	FORCEINLINE void RemoveScaling(float Tolerance=SMALL_NUMBER);
 	FORCEINLINE float GetMaximumAxisScale() const;
@@ -544,7 +570,6 @@ public:
 	FORCEINLINE FVector		GetSafeScaleReciprocal(const FVector& InScale, float Tolerance=0.0f) const;
 
 
-	// temp function for easy conversion
 	FORCEINLINE FVector GetLocation() const
 	{
 		FVector OutTranslation;
@@ -640,7 +665,9 @@ public:
 	}
 	*/
 
-	inline bool RotationEquals( const VectorRegister& InRotation, const ScalarRegister& Tolerance = ScalarRegister(GlobalVectorConstants::KindaSmallNumber)) const
+private:
+
+	inline bool Private_RotationEquals( const VectorRegister& InRotation, const ScalarRegister& Tolerance = ScalarRegister(GlobalVectorConstants::KindaSmallNumber)) const
 	{			
 		// !( (FMath::Abs(X-Q.X) > Tolerance) || (FMath::Abs(Y-Q.Y) > Tolerance) || (FMath::Abs(Z-Q.Z) > Tolerance) || (FMath::Abs(W-Q.W) > Tolerance) )
 		const VectorRegister RotationSub = VectorAbs(VectorSubtract(Rotation, InRotation));		
@@ -649,33 +676,72 @@ public:
 		return !VectorAnyGreaterThan(RotationSub, Tolerance.Value) || !VectorAnyGreaterThan(RotationAdd, Tolerance.Value);
 	}
 
-	inline bool TranslationEquals( const VectorRegister& InTranslation, const ScalarRegister& Tolerance = ScalarRegister(GlobalVectorConstants::KindaSmallNumber)) const
+	inline bool Private_TranslationEquals( const VectorRegister& InTranslation, const ScalarRegister& Tolerance = ScalarRegister(GlobalVectorConstants::KindaSmallNumber)) const
 	{			
 		// !( (FMath::Abs(X-V.X) > Tolerance) || (FMath::Abs(Y-V.Y) > Tolerance) || (FMath::Abs(Z-V.Z) > Tolerance) )
 		const VectorRegister TranslationDiff = VectorAbs(VectorSubtract(Translation, InTranslation));		
 		return !VectorAnyGreaterThan(TranslationDiff, Tolerance.Value);
 	}
 
-	inline bool Scale3DEquals( const VectorRegister& InScale3D, const ScalarRegister& Tolerance = ScalarRegister(GlobalVectorConstants::KindaSmallNumber)) const
-	{			
-		const VectorRegister ScaleDiff = VectorSubtract(Scale3D, InScale3D);		
-		// d = dot3(ScaleDiff.xyz, ScaleDiff.xyz), VectorRegister( d, d, d, d )
-		const VectorRegister SizeSquared = VectorDot3(ScaleDiff, ScaleDiff);		
-		const VectorRegister VectorToleranceSqaured = VectorMultiply(Tolerance.Value, Tolerance.Value);
-		//  !( (Scale3DX*Scale3D.X + Scale3D.Y*Scale3DY + Scale3DZ*Scale3D.Z) > Tolerance*Tolerance )
-		return !VectorAnyGreaterThan(SizeSquared, VectorToleranceSqaured);
+	inline bool Private_Scale3DEquals( const VectorRegister& InScale3D, const ScalarRegister& Tolerance = ScalarRegister(GlobalVectorConstants::KindaSmallNumber)) const
+	{
+		// !( (FMath::Abs(X-V.X) > Tolerance) || (FMath::Abs(Y-V.Y) > Tolerance) || (FMath::Abs(Z-V.Z) > Tolerance) )
+		const VectorRegister ScaleDiff = VectorAbs(VectorSubtract(Scale3D, InScale3D));
+		return !VectorAnyGreaterThan(ScaleDiff, Tolerance.Value);
 	}
 
+public:
+
+	// Test if A's rotation equals B's rotation, within a tolerance. Preferred over "A.GetRotation().Equals(B.GetRotation())" because it is faster on some platforms.
+	FORCEINLINE static bool AreRotationsEqual(const FTransform& A, const FTransform& B, float Tolerance=KINDA_SMALL_NUMBER)
+	{
+		return A.Private_RotationEquals(B.Rotation, ScalarRegister(Tolerance));
+	}
+
+	// Test if A's translation equals B's translation, within a tolerance. Preferred over "A.GetTranslation().Equals(B.GetTranslation())" because it avoids VectorRegister->FVector conversion.
+	FORCEINLINE static bool AreTranslationsEqual(const FTransform& A, const FTransform& B, float Tolerance=KINDA_SMALL_NUMBER)
+	{
+		return A.Private_TranslationEquals(B.Translation, ScalarRegister(Tolerance));
+	}
+
+	// Test if A's scale equals B's scale, within a tolerance. Preferred over "A.GetScale3D().Equals(B.GetScale3D())" because it avoids VectorRegister->FVector conversion.
+	FORCEINLINE static bool AreScale3DsEqual(const FTransform& A, const FTransform& B, float Tolerance=KINDA_SMALL_NUMBER)
+	{
+		return A.Private_Scale3DEquals(B.Scale3D, ScalarRegister(Tolerance));
+	}
+
+
+	// Test if this Transform's rotation equals another's rotation, within a tolerance. Preferred over "GetRotation().Equals(Other.GetRotation())" because it is faster on some platforms.
+	FORCEINLINE bool RotationEquals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
+	{
+		return AreRotationsEqual(*this, Other, Tolerance);
+	}
+
+	// Test if this Transform's translation equals another's translation, within a tolerance. Preferred over "GetTranslation().Equals(Other.GetTranslation())" because it avoids VectorRegister->FVector conversion.
+	FORCEINLINE bool TranslationEquals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
+	{
+		return AreTranslationsEqual(*this, Other, Tolerance);
+	}
+
+	// Test if this Transform's scale equals another's scale, within a tolerance. Preferred over "GetScale3D().Equals(Other.GetScale3D())" because it avoids VectorRegister->FVector conversion.
+	FORCEINLINE bool Scale3DEquals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
+	{
+		return AreScale3DsEqual(*this, Other, Tolerance);
+	}
+
+
+	// Test if all components of the transforms are equal, within a tolerance.
 	inline bool Equals(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
 	{
 		const ScalarRegister ToleranceRegister(Tolerance);
-		return RotationEquals(Other.Rotation, ToleranceRegister) && TranslationEquals(Other.Translation, ToleranceRegister) && Scale3DEquals(Other.Scale3D, ToleranceRegister);
+		return Private_TranslationEquals(Other.Translation, ToleranceRegister) && Private_RotationEquals(Other.Rotation, ToleranceRegister) && Private_Scale3DEquals(Other.Scale3D, ToleranceRegister);
 	}
 
+	// Test if rotation and translation components of the transforms are equal, within a tolerance.
 	inline bool EqualsNoScale(const FTransform& Other, float Tolerance=KINDA_SMALL_NUMBER) const
 	{
 		const ScalarRegister ToleranceRegister(Tolerance);
-		return RotationEquals(Other.Rotation, ToleranceRegister) && TranslationEquals(Other.Translation, ToleranceRegister);
+		return Private_TranslationEquals(Other.Translation, ToleranceRegister) && Private_RotationEquals(Other.Rotation, ToleranceRegister);
 	}
 
 	FORCEINLINE static void Multiply(FTransform* OutTransform, const FTransform* A, const FTransform* B);
@@ -731,6 +797,12 @@ public:
 		DiagnosticCheckNaN_Translate();
 	}
 
+	/** Copy translation from another FTransform. */
+	FORCEINLINE void CopyTranslation(const FTransform& Other)
+	{
+		Translation = Other.Translation;
+	}
+
 	/**
 	 * Concatenates another rotation to this transformation 
 	 * @param DeltaRotation The rotation to concatenate in the following fashion: Rotation = Rotation * DeltaRotation
@@ -752,6 +824,28 @@ public:
 	}
 
 	/**
+	 * Add the translations from two FTransforms and return the result.
+	 * @return A.Translation + B.Translation
+	 */
+	FORCEINLINE static FVector AddTranslations(const FTransform& A, const FTransform& B)
+	{
+		FVector Result;
+		VectorStoreFloat3(VectorAdd(A.Translation, B.Translation), &Result);
+		return Result;
+	}
+
+	/**
+	 * Subtract translations from two FTransforms and return the difference.
+	 * @return A.Translation - B.Translation.
+	 */
+	FORCEINLINE static FVector SubtractTranslations(const FTransform& A, const FTransform& B)
+	{
+		FVector Result;
+		VectorStoreFloat3(VectorSubtract(A.Translation, B.Translation), &Result);
+		return Result;
+	}
+
+	/**
 	 * Sets the rotation component
 	 * @param NewRotation The new value for the rotation component
 	 */
@@ -759,6 +853,12 @@ public:
 	{
 		Rotation = VectorLoadAligned(&NewRotation);
 		DiagnosticCheckNaN_Rotate();
+	}
+
+	/** Copy rotation from another FTransform. */
+	FORCEINLINE void CopyRotation(const FTransform& Other)
+	{
+		Rotation = Other.Rotation;
 	}
 
 	/**
@@ -769,6 +869,12 @@ public:
 	{
 		Scale3D = VectorLoadFloat3_W0(&NewScale3D);
 		DiagnosticCheckNaN_Scale3D();
+	}
+
+	/** Copy scale from another FTransform. */
+	FORCEINLINE void CopyScale3D(const FTransform& Other)
+	{
+		Scale3D = Other.Scale3D;
 	}
 
 	/**
@@ -1269,12 +1375,11 @@ private:
 		const VectorRegister InvScale = VectorSet_W0(GetSafeScaleReciprocal(Scale3D , ScalarRegister(GlobalVectorConstants::SmallNumber)));
 
 		// Invert the rotation
-		const VectorRegister InvRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
+		const VectorRegister InvRotation = VectorQuaternionInverse(Rotation);
 
 		// Invert the translation
 		const VectorRegister ScaledTranslation = VectorMultiply(InvScale, Translation);
-		const VectorRegister t1 = VectorQuaternionMultiply2(InvRotation, ScaledTranslation);
-		const VectorRegister t2 = VectorQuaternionMultiply2(t1, Rotation);
+		const VectorRegister t2 = VectorQuaternionRotateVector(InvRotation, ScaledTranslation);
 		const VectorRegister InvTranslation = VectorSet_W0(VectorNegate(t2));
 
 		return FTransform(InvRotation, InvTranslation, InvScale);
@@ -1339,15 +1444,12 @@ FORCEINLINE void FTransform::Multiply(FTransform* OutTransform, const FTransform
 	const VectorRegister ScaleA = A->Scale3D;
 	const VectorRegister ScaleB = B->Scale3D;
 
-	const VectorRegister QuatBInv = MAKE_QUATINV_VECTORREGISTER(QuatB);
-
 	// RotationResult = B.Rotation * A.Rotation
 	OutTransform->Rotation = VectorQuaternionMultiply2(QuatB, QuatA);
 
-	// TranslateResult = ((B.Rotation * B.Scale * A.Translation) * Inverse(B.Rotation)) + B.Translate
+	// TranslateResult = B.Rotate(B.Scale * A.Translation) + B.Translate
 	const VectorRegister ScaledTransA = VectorMultiply(TranslateA, ScaleB);
-	const VectorRegister Temp = VectorQuaternionMultiply2(QuatB, ScaledTransA);
-	const VectorRegister RotatedTranslate = VectorQuaternionMultiply2(Temp, QuatBInv);
+	const VectorRegister RotatedTranslate = VectorQuaternionRotateVector(QuatB, ScaledTransA);
 	OutTransform->Translation = VectorAdd(RotatedTranslate, TranslateB);
 
 	// ScaleResult = Scale.B * Scale.A
@@ -1395,18 +1497,16 @@ FORCEINLINE FVector4 FTransform::TransformFVector4NoScale(const FVector4& V) con
 	const VectorRegister InputVector = VectorLoadAligned(&V);
 
 	//Transform using QST is following
-	//QST(P) = Q*S*P*-Q + T where Q = quaternion, S = 1.0f, T = translation
-	const VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);	
+	//QST(P) = Q.Rotate(S*P) + T where Q = quaternion, S = 1.0f, T = translation
 
-	//FQuat Transform = Rotation*FQuat(V.X, V.Y, V.Z, 0.f)*Rotation.Inverse();
+	//RotatedVec = Q.Rotate(V.X, V.Y, V.Z, 0.f)
 	const VectorRegister InputVectorW0 = VectorSet_W0(InputVector);	
-	const VectorRegister TempStorage = VectorQuaternionMultiply2(Rotation, InputVectorW0);
-	const VectorRegister RotatedVec = VectorQuaternionMultiply2(TempStorage, InverseRotation);
+	const VectorRegister RotatedVec = VectorQuaternionRotateVector(Rotation, InputVectorW0);
 
 	// NewVect.XYZ += Translation * W
 	// NewVect.W += 1 * W
 	const VectorRegister WWWW = VectorReplicate(InputVector, 3);
-	const VectorRegister TranslatedVec = VectorAdd(RotatedVec, VectorMultiply(Translation, WWWW));
+	const VectorRegister TranslatedVec = VectorMultiplyAdd(Translation, WWWW, RotatedVec);
 
 	FVector4 NewVectOutput;
 	VectorStoreAligned(TranslatedVec, &NewVectOutput);
@@ -1423,19 +1523,17 @@ FORCEINLINE FVector4 FTransform::TransformFVector4(const FVector4& V) const
 	const VectorRegister InputVector = VectorLoadAligned(&V);
 
 	//Transform using QST is following
-	//QST(P) = Q*S*P*-Q + T where Q = quaternion, S = scale, T = translation
-	const VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);	
+	//QST(P) = Q.Rotate(S*P) + T where Q = quaternion, S = scale, T = translation
 
-	//FQuat Transform = Rotation*FQuat(Scale*V.X, Scale*V.Y, Scale*V.Z, 0.f)*Rotation.Inverse();
+	//RotatedVec = Q.Rotate(Scale*V.X, Scale*V.Y, Scale*V.Z, 0.f)
 	const VectorRegister InputVectorW0 = VectorSet_W0(InputVector);
 	const VectorRegister ScaledVec = VectorMultiply(Scale3D, InputVectorW0);
-	const VectorRegister TempStorage = VectorQuaternionMultiply2(Rotation, ScaledVec);
-	const VectorRegister RotatedVec = VectorQuaternionMultiply2(TempStorage, InverseRotation);
+	const VectorRegister RotatedVec = VectorQuaternionRotateVector(Rotation, ScaledVec);
 
 	// NewVect.XYZ += Translation * W
 	// NewVect.W += 1 * W
 	const VectorRegister WWWW = VectorReplicate(InputVector, 3);
-	const VectorRegister TranslatedVec = VectorAdd(RotatedVec, VectorMultiply(Translation, WWWW));
+	const VectorRegister TranslatedVec = VectorMultiplyAdd(Translation, WWWW, RotatedVec);
 
 	FVector4 NewVectOutput;
 	VectorStoreAligned(TranslatedVec, &NewVectOutput);
@@ -1450,13 +1548,11 @@ FORCEINLINE FVector FTransform::TransformPosition(const FVector& V) const
 	const VectorRegister InputVectorW0 = VectorLoadFloat3_W0(&V);
 
 	//Transform using QST is following
-	//QST(P) = Q*S*P*-Q + T where Q = quaternion, S = scale, T = translation
-	const VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
-
-	//FQuat Transform = Rotation*FQuat(Scale*V.X, Scale*V.Y, Scale*V.Z, 0.f)*Rotation.Inverse();
+	//QST(P) = Q.Rotate(S*P) + T where Q = quaternion, S = scale, T = translation
+	
+	//RotatedVec = Q.Rotate(Scale*V.X, Scale*V.Y, Scale*V.Z, 0.f)
 	const VectorRegister ScaledVec = VectorMultiply(Scale3D, InputVectorW0);
-	const VectorRegister TempStorage = VectorQuaternionMultiply2(Rotation, ScaledVec);
-	const VectorRegister RotatedVec = VectorQuaternionMultiply2(TempStorage, InverseRotation);
+	const VectorRegister RotatedVec = VectorQuaternionRotateVector(Rotation, ScaledVec);
 
 	const VectorRegister TranslatedVec = VectorAdd(RotatedVec, Translation);
 
@@ -1472,12 +1568,10 @@ FORCEINLINE FVector FTransform::TransformPositionNoScale(const FVector& V) const
 	const VectorRegister InputVectorW0 = VectorLoadFloat3_W0(&V);
 
 	//Transform using QST is following
-	//QST(P) = Q*S*P*-Q + T where Q = quaternion, S = 1.0f, T = translation
-	const VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
+	//QST(P) = Q.Rotate(S*P) + T where Q = quaternion, S = 1.0f, T = translation
 
-	//FQuat Transform = Rotation*FQuat(V.X, V.Y, V.Z, 0.f)*Rotation.Inverse();
-	const VectorRegister TempStorage = VectorQuaternionMultiply2(Rotation, InputVectorW0);
-	const VectorRegister RotatedVec = VectorQuaternionMultiply2(TempStorage, InverseRotation);
+	//RotatedVec = Q.Rotate(V.X, V.Y, V.Z, 0.f)
+	const VectorRegister RotatedVec = VectorQuaternionRotateVector(Rotation, InputVectorW0);
 
 	const VectorRegister TranslatedVec = VectorAdd(RotatedVec, Translation);
 
@@ -1491,12 +1585,10 @@ FORCEINLINE FVector FTransform::TransformVector(const FVector& V) const
 	DiagnosticCheckNaN_All();
 
 	const VectorRegister InputVectorW0 = VectorLoadFloat3_W0(&V);
-	const VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
 
-	//FQuat Transform = Rotation*FQuat(Scale*V.X, Scale*V.Y, Scale*V.Z, 0.f)*Rotation.Inverse();
+	//RotatedVec = Q.Rotate(Scale*V.X, Scale*V.Y, Scale*V.Z, 0.f)
 	const VectorRegister ScaledVec = VectorMultiply(Scale3D, InputVectorW0);
-	const VectorRegister TempStorage = VectorQuaternionMultiply2(Rotation, ScaledVec);
-	const VectorRegister RotatedVec = VectorQuaternionMultiply2(TempStorage, InverseRotation);
+	const VectorRegister RotatedVec = VectorQuaternionRotateVector(Rotation, ScaledVec);
 
 	FVector Result;
 	VectorStoreFloat3(RotatedVec, &Result);
@@ -1508,11 +1600,9 @@ FORCEINLINE FVector FTransform::TransformVectorNoScale(const FVector& V) const
 	DiagnosticCheckNaN_All();
 
 	const VectorRegister InputVectorW0 = VectorLoadFloat3_W0(&V);
-	const VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
 
-	//FQuat Transform = Rotation*FQuat(V.X, V.Y, V.Z, 0.f)*Rotation.Inverse()
-	const VectorRegister TempStorage = VectorQuaternionMultiply2(Rotation, InputVectorW0);
-	const VectorRegister RotatedVec = VectorQuaternionMultiply2(TempStorage, InverseRotation);
+	//RotatedVec = Q.Rotate(V.X, V.Y, V.Z, 0.f)
+	const VectorRegister RotatedVec = VectorQuaternionRotateVector(Rotation, InputVectorW0);
 
 	FVector Result;
 	VectorStoreFloat3(RotatedVec, &Result);
@@ -1524,23 +1614,19 @@ FORCEINLINE FVector FTransform::InverseTransformPosition(const FVector &V) const
 {
 	DiagnosticCheckNaN_All();
 
-	VectorRegister InputVector = VectorLoadFloat3_W0(&V);
-
-	// Rotation.Inverse()
-	VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
+	const VectorRegister InputVector = VectorLoadFloat3_W0(&V);
 
 	// (V-Translation)
 	const VectorRegister TranslatedVec = VectorSet_W0(VectorSubtract(InputVector, Translation));
 
-	// ( Rotation.Inverse() * (V-Translation) ); aka. FVector FQuat::operator*( const FVector& V ) const
-	VectorRegister VT = VectorQuaternionMultiply2(InverseRotation, TranslatedVec);
-	VectorRegister VR = VectorQuaternionMultiply2(VT, Rotation);
+	// ( Rotation.Inverse() * (V-Translation) )
+	const VectorRegister VR = VectorQuaternionInverseRotateVector(Rotation, TranslatedVec);
 
 	// GetSafeScaleReciprocal(Scale3D);
-	VectorRegister SafeReciprocal = GetSafeScaleReciprocal(Scale3D);	
+	const VectorRegister SafeReciprocal = GetSafeScaleReciprocal(Scale3D);	
 
 	// ( Rotation.Inverse() * (V-Translation) ) * GetSafeScaleReciprocal(Scale3D);
-	VectorRegister VResult = VectorMultiply(VR , SafeReciprocal);
+	const VectorRegister VResult = VectorMultiply(VR, SafeReciprocal);
 
 	FVector Result;
 	VectorStoreFloat3(VResult, &Result);
@@ -1552,17 +1638,13 @@ FORCEINLINE FVector FTransform::InverseTransformPositionNoScale(const FVector &V
 {
 	DiagnosticCheckNaN_All();
 
-	VectorRegister InputVector = VectorLoadFloat3_W0(&V);
-
-	// Rotation.Inverse()
-	VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
+	const VectorRegister InputVector = VectorLoadFloat3_W0(&V);
 
 	// (V-Translation)
 	const VectorRegister TranslatedVec = VectorSet_W0(VectorSubtract(InputVector, Translation));
 
-	// ( Rotation.Inverse() * (V-Translation) ); aka. FVector FQuat::operator*( const FVector& V ) const
-	VectorRegister VT = VectorQuaternionMultiply2(InverseRotation, TranslatedVec);
-	VectorRegister VResult = VectorQuaternionMultiply2(VT, Rotation);
+	// ( Rotation.Inverse() * (V-Translation) )
+	const VectorRegister VResult = VectorQuaternionInverseRotateVector(Rotation, TranslatedVec);
 
 	FVector Result;
 	VectorStoreFloat3(VResult, &Result);
@@ -1575,20 +1657,16 @@ FORCEINLINE FVector FTransform::InverseTransformVector(const FVector &V) const
 {
 	DiagnosticCheckNaN_All();
 
-	VectorRegister InputVector = VectorLoadFloat3_W0(&V);
-
-	// Rotation.Inverse()
-	VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
+	const VectorRegister InputVector = VectorLoadFloat3_W0(&V);
 
 	// ( Rotation.Inverse() * V ) aka. FVector FQuat::operator*( const FVector& V ) const
-	VectorRegister VT = VectorQuaternionMultiply2(InverseRotation, InputVector);
-	VectorRegister VR = VectorQuaternionMultiply2(VT, Rotation);
+	const VectorRegister VR = VectorQuaternionInverseRotateVector(Rotation, InputVector);
 
 	// GetSafeScaleReciprocal(Scale3D);
-	VectorRegister SafeReciprocal = GetSafeScaleReciprocal(Scale3D);
+	const VectorRegister SafeReciprocal = GetSafeScaleReciprocal(Scale3D);
 
 	// ( Rotation.Inverse() * V) * GetSafeScaleReciprocal(Scale3D);
-	VectorRegister VResult = VectorMultiply(VR , SafeReciprocal);
+	const VectorRegister VResult = VectorMultiply(VR, SafeReciprocal);
 
 	FVector Result;
 	VectorStoreFloat3(VResult, &Result);
@@ -1602,12 +1680,8 @@ FORCEINLINE FVector FTransform::InverseTransformVectorNoScale(const FVector &V) 
 
 	VectorRegister InputVector = VectorLoadFloat3_W0(&V);
 
-	// Rotation.Inverse()
-	VectorRegister InverseRotation = MAKE_QUATINV_VECTORREGISTER(Rotation);
-
-	// ( Rotation.Inverse() * V ); aka. FVector FQuat::operator*( const FVector& V ) const
-	VectorRegister VT = VectorQuaternionMultiply2(InverseRotation, InputVector);
-	VectorRegister VResult = VectorQuaternionMultiply2(VT, Rotation);
+	// ( Rotation.Inverse() * V )
+	VectorRegister VResult = VectorQuaternionInverseRotateVector(Rotation, InputVector);
 
 	FVector Result;
 	VectorStoreFloat3(VResult, &Result);

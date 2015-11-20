@@ -32,6 +32,8 @@
 #include "glsl_types.h"
 #include "macros.h"
 
+int ir_instruction::ID = 0;
+int ir_instruction::BREAK_ON_ID = -1;
 
 ir_rvalue::ir_rvalue()
 {
@@ -2034,7 +2036,9 @@ ir_atomic::operator_string()
 		"atomic_or",
 		"atomic_xor",
 		"atomic_swap",
-		"atomic_cmp_swap"
+		"atomic_cmp_swap",
+		"atomic_load",
+		"atomic_store"
 	};
 	static_assert(Elements(str) == ir_atomic_count, "Mismatched atomic count");
 	return str[this->operation];

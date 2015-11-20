@@ -8,8 +8,6 @@
 
 DECLARE_DELEGATE(FAttributePropertyChangedDelegate);
 
-Expose_TFormatSpecifier(bool, "%d")
-
 // base class so we can store a TArray of the below without regard for template parameter
 struct TAttributePropertyBase
 {
@@ -100,6 +98,17 @@ public:
 		OnChange.ExecuteIfBound();
 	}
 };
+
+namespace LexicalConversion
+{
+	/** Specialized for FString */
+	template<>
+	inline FString ToSanitizedString<FString>(const FString& value)
+	{
+		return FString(value);
+	}
+}
+
 // extras for bools to convert to check box type
 struct TAttributePropertyBool : public TAttributeProperty<bool>
 {
@@ -113,6 +122,7 @@ struct TAttributePropertyBool : public TAttributeProperty<bool>
 		return GetURLKey() + TEXT("=") + ((Obj.IsValid() && *Data) ? TEXT("true") : TEXT("false"));
 	}
 };
+
 // extras for FStrings for FText conversion
 struct TAttributePropertyString : public TAttributeProperty<FString>
 {

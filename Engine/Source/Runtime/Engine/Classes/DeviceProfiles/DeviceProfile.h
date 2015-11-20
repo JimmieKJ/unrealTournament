@@ -68,13 +68,13 @@ private:
 
 public:
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
-	// End UObject interface
+	//~ End UObject Interface
 
 #if WITH_EDITOR
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent ) override;
-	// End UObject interface
+	//~ End UObject Interface
 #endif
 };

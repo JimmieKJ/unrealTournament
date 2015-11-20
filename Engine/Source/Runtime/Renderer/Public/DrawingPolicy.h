@@ -38,6 +38,7 @@ public:
 		const FMaterial& InMaterialResource,
 		bool bInOverrideWithShaderComplexity = false,
 		bool bInTwoSidedOverride = false,
+		bool bInDitheredLODTransitionOverride = false,
 		bool bInWireframeOverride = false
 		);
 
@@ -47,6 +48,7 @@ public:
 		MaterialRenderProxy = Other.MaterialRenderProxy;
 		MaterialResource = Other.MaterialResource;
 		bIsTwoSidedMaterial = Other.bIsTwoSidedMaterial;
+		bIsDitheredLODTransitionMaterial = Other.bIsDitheredLODTransitionMaterial;
 		bIsWireframeMaterial = Other.bIsWireframeMaterial;
 		bNeedsBackfacePass = Other.bNeedsBackfacePass;
 		bUsePositionOnlyVS = Other.bUsePositionOnlyVS;
@@ -65,6 +67,7 @@ public:
 			VertexFactory == OtherDrawer.VertexFactory &&
 			MaterialRenderProxy == OtherDrawer.MaterialRenderProxy &&
 			bIsTwoSidedMaterial == OtherDrawer.bIsTwoSidedMaterial && 
+			bIsDitheredLODTransitionMaterial == OtherDrawer.bIsDitheredLODTransitionMaterial && 
 			bUsePositionOnlyVS == OtherDrawer.bUsePositionOnlyVS && 
 			bIsWireframeMaterial == OtherDrawer.bIsWireframeMaterial;
 	}
@@ -80,6 +83,7 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const;
@@ -106,6 +110,7 @@ public:
 		COMPAREDRAWINGPOLICYMEMBERS(VertexFactory);
 		COMPAREDRAWINGPOLICYMEMBERS(MaterialRenderProxy);
 		COMPAREDRAWINGPOLICYMEMBERS(bIsTwoSidedMaterial);
+		COMPAREDRAWINGPOLICYMEMBERS(bIsDitheredLODTransitionMaterial);
 		return 0;
 	}
 
@@ -113,6 +118,10 @@ public:
 	bool IsTwoSided() const
 	{
 		return bIsTwoSidedMaterial;
+	}
+	bool IsDitheredLODTransition() const
+	{
+		return bIsDitheredLODTransitionMaterial;
 	}
 	bool IsWireframe() const
 	{
@@ -131,6 +140,7 @@ protected:
 	const FMaterialRenderProxy* MaterialRenderProxy;
 	const FMaterial* MaterialResource;
 	uint32 bIsTwoSidedMaterial : 1;
+	uint32 bIsDitheredLODTransitionMaterial : 1;
 	uint32 bIsWireframeMaterial : 1;
 	uint32 bNeedsBackfacePass : 1;
 	uint32 bUsePositionOnlyVS : 1;

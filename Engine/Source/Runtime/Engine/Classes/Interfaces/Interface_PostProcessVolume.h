@@ -3,12 +3,6 @@
 #pragma once
 #include "Interface_PostProcessVolume.generated.h"
 
-/** Interface for general PostProcessVolume access **/
-UINTERFACE()
-class UInterface_PostProcessVolume : public UInterface
-{
-	GENERATED_UINTERFACE_BODY()
-};
 
 struct FPostProcessVolumeProperties
 {
@@ -18,6 +12,13 @@ struct FPostProcessVolumeProperties
 	float BlendWeight;
 	bool bIsEnabled;
 	bool bIsUnbound;
+};
+
+/** Interface for general PostProcessVolume access **/
+UINTERFACE(MinimalAPI, meta = (CannotImplementInterfaceInBlueprint))
+class UInterface_PostProcessVolume : public UInterface
+{
+	GENERATED_UINTERFACE_BODY()
 };
 
 class IInterface_PostProcessVolume

@@ -294,6 +294,9 @@ protected:
 	virtual FVector ComputeHomingAcceleration(const FVector& InVelocity, float DeltaTime) const;
 
 	/** Compute gravity effect given current physics volume, projectile gravity scale, etc. */
+	virtual float GetGravityZ() const override;
+
+	DEPRECATED(4.9, "GetEffectiveGravityZ() is deprecated, use GetGravityZ() instead, or UMovementComponent::GetGravityZ() if you want only the unmodified gravity.")
 	float GetEffectiveGravityZ() const;
 
 	/** Minimum delta time considered when ticking. Delta times below this are not considered. This is a very small non-zero positive value to avoid potential divide-by-zero in simulation code. */

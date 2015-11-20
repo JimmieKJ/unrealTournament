@@ -2,6 +2,7 @@
 
 #pragma once
 #include "TimerManager.h"
+#include "PawnAction.h"
 #include "PawnAction_Move.generated.h"
 
 class AActor;
@@ -85,6 +86,7 @@ public:
 	void EnableGoalLocationProjectionToNavigation(bool bEnable) { bProjectGoalToNavigation = bEnable; }
 	void EnableChildAbortionOnPathUpdate(bool bEnable) { bAbortChildActionOnPathChange = bEnable; }
 	void SetFilterClass(TSubclassOf<UNavigationQueryFilter> NewFilterClass) { FilterClass = NewFilterClass; }
+	void SetAllowPartialPath(bool bEnable) { bAllowPartialPath = bEnable; }
 
 protected:
 	/** currently followed path */
@@ -104,6 +106,7 @@ protected:
 	virtual bool Resume() override;
 	virtual void OnFinished(EPawnActionResult::Type WithResult) override;
 	virtual EPawnActionAbortState::Type PerformAbort(EAIForceParam::Type ShouldForce) override;
+	virtual bool IsPartialPathAllowed() const;
 
 	virtual EPathFollowingRequestResult::Type RequestMove(AAIController& Controller);
 	

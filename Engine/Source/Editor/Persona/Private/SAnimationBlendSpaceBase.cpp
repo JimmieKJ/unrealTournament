@@ -227,12 +227,12 @@ private:
 		const FBlendSample& Sample = Samples[SampleIndex];
 		float NewValue = FCString::Atof(*NewText.ToString());
 
-		if (NewValue!=Sample.SampleValue.X)
+		FVector SampleVector = Sample.SampleValue;
+		if (NewValue != GetVectorValueForParam(ParamIndex, SampleVector))
 		{
-			FVector NewSampleValue = Sample.SampleValue;
-			GetVectorValueForParam(ParamIndex, NewSampleValue) = NewValue;
+			GetVectorValueForParam(ParamIndex, SampleVector) = NewValue;
 
-			if (BlendSpace->EditSample(Sample, NewSampleValue))
+			if (BlendSpace->EditSample(Sample, SampleVector))
 			{
 				//update editor widget
 				BlendSpaceEditorWidget->ResampleData();
@@ -783,7 +783,7 @@ FReply SBlendSpaceWidget::OnMouseButtonUp( const FGeometry& MyGeometry, const FP
 	int32 HighlightedSampleIndex = GetHighlightedSample(GetWindowRectFromGeometry(MyGeometry));
 	if (HighlightedSampleIndex!=INDEX_NONE)
 	{
-		ShowPopupEditWindow(HighlightedSampleIndex);
+		ShowPopupEditWindow(HighlightedSampleIndex, MouseEvent);
 		return FReply::Handled();
 	}
 
@@ -893,6 +893,7 @@ void SBlendSpaceWidget::HandleSampleDrop(const FGeometry& MyGeometry, const FVec
 
 void SBlendSpaceWidget::ResampleData()
 {
+	BlendSpace->ValidateSampleData();
 	CachedSamples.Empty();
 	BlendSpace->GetBlendSamplePoints(CachedSamples);
 	ValidateSamplePositions();
@@ -1120,15 +1121,18 @@ int32 SBlendSpaceWidget::GetHighlightedSample(const FSlateRect& WindowRect) cons
 	return HighlightedSampleIndex;
 }
 
-void SBlendSpaceWidget::ShowPopupEditWindow(int32 SampleIndex)
+void SBlendSpaceWidget::ShowPopupEditWindow(int32 SampleIndex, const FPointerEvent& MouseEvent)
 {
 	if (CachedSamples.IsValidIndex(SampleIndex))
 	{
 		FBlendSample Sample = CachedSamples[SampleIndex];
 
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+
 		// Show dialog to enter new function name
 		FSlateApplication::Get().PushMenu(
 			SharedThis( this ),
+			WidgetPath,
 			SNew(SSampleEditPopUp)
 			.BlendSpace(BlendSpace)
 			.BlendSpaceEditorWidget(this)

@@ -9,13 +9,13 @@
 UENUM()
 enum class ERenderFocusRule : uint8
 {
-	/** Focus Brush will always be rendered for widgets that have user focus */
+	/** Focus Brush will always be rendered for widgets that have user focus. */
 	Always,
-	/** Focus Brush will be rendered for widgets that have user focus not set based on pointer causes */
+	/** Focus Brush will be rendered for widgets that have user focus not set based on pointer causes. */
 	NonPointer,
 	/** Focus Brush will be rendered for widgets that have user focus only if the focus was set by navigation. */
 	NavigationOnly,
-	/** Focus Brush will not be rendered */
+	/** Focus Brush will not be rendered. */
 	Never,
 };
 
@@ -23,15 +23,15 @@ enum class ERenderFocusRule : uint8
 UENUM()
 enum class EUIScalingRule : uint8
 {
-	/** Evaluates the scale curve based on the shortest side of the viewport */
+	/** Evaluates the scale curve based on the shortest side of the viewport. */
 	ShortestSide,
-	/** Evaluates the scale curve based on the longest side of the viewport */
+	/** Evaluates the scale curve based on the longest side of the viewport. */
 	LongestSide,
-	/** Evaluates the scale curve based on the X axis of the viewport */
+	/** Evaluates the scale curve based on the X axis of the viewport. */
 	Horizontal,
-	/** Evaluates the scale curve based on the Y axis of the viewport */
+	/** Evaluates the scale curve based on the Y axis of the viewport. */
 	Vertical,
-	/** Custom - Allows custom rule interpretation */
+	/** Custom - Allows custom rule interpretation. */
 	Custom
 };
 
@@ -93,7 +93,7 @@ public:
 
 	void ForceLoadResources();
 
-	/** Gets the current scale of the UI based on the size */
+	/** Gets the current scale of the UI based on the size of a viewport */
 	float GetDPIScaleBasedOnSize(FIntPoint Size) const;
 
 #if WITH_EDITOR

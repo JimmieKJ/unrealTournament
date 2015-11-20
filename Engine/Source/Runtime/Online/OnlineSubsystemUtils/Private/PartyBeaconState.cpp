@@ -1,7 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
-#include "OnlineSubsystemUtilsClasses.h"
+#include "OnlineBeacon.h"
+#include "PartyBeaconState.h"
 
 bool FPartyReservation::IsValid() const
 {
@@ -11,7 +12,14 @@ bool FPartyReservation::IsValid() const
 		bIsValid = true;
 		for (const FPlayerReservation& PlayerRes : PartyMembers)
 		{
-			if (!PlayerRes.UniqueId.IsValid() || PlayerRes.ValidationStr.IsEmpty())
+			if (!PlayerRes.UniqueId.IsValid())
+			{
+				bIsValid = false;
+				break;
+			}
+
+			if (PartyLeader == PlayerRes.UniqueId &&
+				PlayerRes.ValidationStr.IsEmpty())
 			{
 				bIsValid = false;
 				break;
@@ -320,6 +328,75 @@ bool UPartyBeaconState::RemoveReservation(const FUniqueNetIdRepl& PartyLeader)
 	return false;
 }
 
+void UPartyBeaconState::RegisterAuthTicket(const FUniqueNetIdRepl& InPartyMemberId, const FString& InAuthTicket)
+{
+	if (InPartyMemberId.IsValid() && !InAuthTicket.IsEmpty())
+	{
+		bool bFoundReservation = false;
+
+		for (int32 ResIdx = 0; ResIdx < Reservations.Num() && !bFoundReservation; ResIdx++)
+		{
+			FPartyReservation& ReservationEntry = Reservations[ResIdx];
+
+			FPlayerReservation* PlayerRes = ReservationEntry.PartyMembers.FindByPredicate(
+				[InPartyMemberId](const FPlayerReservation& ExistingPlayerRes)
+			{
+				return InPartyMemberId == ExistingPlayerRes.UniqueId;
+			});
+
+			if (PlayerRes)
+			{
+				UE_LOG(LogBeacon, Display, TEXT("Updating auth ticket for member %s."), *InPartyMemberId.ToString());
+				if (!PlayerRes->ValidationStr.IsEmpty() && PlayerRes->ValidationStr != InAuthTicket)
+				{
+					UE_LOG(LogBeacon, Display, TEXT("Auth ticket changing for member %s."), *InPartyMemberId.ToString());
+				}
+
+				PlayerRes->ValidationStr = InAuthTicket;
+				bFoundReservation = true;
+				break;
+			}
+		}
+
+		if (!bFoundReservation)
+		{
+			UE_LOG(LogBeacon, Warning, TEXT("Found no reservation for player %s, while registering auth ticket."), *InPartyMemberId.ToString());
+		}
+	}
+}
+
+void UPartyBeaconState::UpdatePartyLeader(const FUniqueNetIdRepl& InPartyMemberId, const FUniqueNetIdRepl& NewPartyLeaderId)
+{
+	if (InPartyMemberId.IsValid() && NewPartyLeaderId.IsValid())
+	{
+		bool bFoundReservation = false;
+
+		for (int32 ResIdx = 0; ResIdx < Reservations.Num() && !bFoundReservation; ResIdx++)
+		{
+			FPartyReservation& ReservationEntry = Reservations[ResIdx];
+
+			FPlayerReservation* PlayerRes = ReservationEntry.PartyMembers.FindByPredicate(
+				[InPartyMemberId](const FPlayerReservation& ExistingPlayerRes)
+			{
+				return InPartyMemberId == ExistingPlayerRes.UniqueId;
+			});
+
+			if (PlayerRes)
+			{
+				UE_LOG(LogBeacon, Display, TEXT("Updating party leader to %s from member %s."), *NewPartyLeaderId.ToString(), *InPartyMemberId.ToString());
+				ReservationEntry.PartyLeader = NewPartyLeaderId;
+				bFoundReservation = true;
+				break;
+			}
+		}
+
+		if (!bFoundReservation)
+		{
+			UE_LOG(LogBeacon, Warning, TEXT("Found no reservation for player %s, while updating party leader."), *InPartyMemberId.ToString());
+		}
+	}
+}
+
 bool UPartyBeaconState::SwapTeams(const FUniqueNetIdRepl& PartyLeader, const FUniqueNetIdRepl& OtherPartyLeader)
 {
 	bool bSuccess = false;
@@ -385,6 +462,23 @@ bool UPartyBeaconState::RemovePlayer(const FUniqueNetIdRepl& PlayerId)
 	for (int32 ResIdx = 0; ResIdx < Reservations.Num() && !bWasRemoved; ResIdx++)
 	{
 		FPartyReservation& Reservation = Reservations[ResIdx];
+
+		if (Reservation.PartyLeader == PlayerId)
+		{
+			UE_LOG(LogBeacon, Display, TEXT("Party leader has left the party"), *PlayerId.ToString());
+
+			// Maintain existing members of party reservation that lost its leader
+			for (int32 PlayerIdx = 0; PlayerIdx < Reservation.PartyMembers.Num(); PlayerIdx++)
+			{
+				FPlayerReservation& PlayerEntry = Reservation.PartyMembers[PlayerIdx];
+				if (PlayerEntry.UniqueId != Reservation.PartyLeader && PlayerEntry.UniqueId.IsValid())
+				{
+					// Promote to party leader (for now)
+					Reservation.PartyLeader = PlayerEntry.UniqueId;
+					break;
+				}
+			}
+		}
 
 		// find the player in an existing reservation slot
 		for (int32 PlayerIdx = 0; PlayerIdx < Reservation.PartyMembers.Num(); PlayerIdx++)

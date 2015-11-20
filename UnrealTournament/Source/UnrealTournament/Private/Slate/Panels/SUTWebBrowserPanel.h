@@ -20,14 +20,14 @@ class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 	SLATE_ARGUMENT(bool, ShowControls)
 	SLATE_ARGUMENT(FVector2D, ViewportSize)
 	SLATE_ARGUMENT(bool, AllowScaling)
-
+	
 	/** Called when a custom Javascript message is received from the browser process. */
-	SLATE_EVENT(FOnJSQueryReceivedDelegate, OnJSQueryReceived)
+	//SLATE_EVENT(FOnJSQueryReceivedDelegate, OnJSQueryReceived)
 
 	/** Called when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
-	SLATE_EVENT(FOnJSQueryCanceledDelegate, OnJSQueryCanceled)
-
-	SLATE_EVENT(FOnBeforeBrowseDelegate, OnBeforeBrowse)
+	//SLATE_EVENT(FOnJSQueryCanceledDelegate, OnJSQueryCanceled)
+	
+	//SLATE_EVENT(FOnBeforeBrowseDelegate, OnBeforeBrowse)
 
 	SLATE_EVENT(FOnBeforePopupDelegate, OnBeforePopup)
 
@@ -56,18 +56,18 @@ protected:
 	// The Actual Web browser panel.
 	TSharedPtr<SWebBrowser> WebBrowserPanel;
 
-	virtual bool QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate );
+//	virtual bool QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate );
 	virtual void QueryCancelled(int64 QueryId);
 	virtual bool BeforeBrowse(FString TargetURL, bool bRedirect);
 	virtual bool BeforePopup(FString URL, FString Target);
 
 	/** A delegate that is invoked when render process Javascript code sends a query message to the client. */
-	FOnJSQueryReceivedDelegate OnJSQueryReceived;
+	//FOnJSQueryReceivedDelegate OnJSQueryReceived;
 
 	/** A delegate that is invoked when render process cancels an ongoing query. Handler must clean up corresponding result delegate. */
-	FOnJSQueryCanceledDelegate OnJSQueryCanceled;
+	//FOnJSQueryCanceledDelegate OnJSQueryCanceled;
 
-	FOnBeforeBrowseDelegate OnBeforeBrowse;
+//	FOnBeforeBrowseDelegate OnBeforeBrowse;
 	FOnBeforePopupDelegate OnBeforePopup;
 
 	float GetReverseScale() const;

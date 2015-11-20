@@ -14,11 +14,10 @@ public:
 	/**
 	 * Updates vertex and index buffers used in drawing
 	 *
-	 * @param InVertices	The vertices to copy to the vertex buffer
-	 * @param InIndices		The indices to copy to the index buffer
+	 * @param BatchData	The batch data that contains rendering data we need to upload to the buffers
 	 */
-	void UpdateBuffers( const FSlateWindowElementList& InElementList );
-	
+	void UpdateVertexAndIndexBuffers(FSlateBatchData& BatchData);
+
 	/**
 	 * Draws Slate elements
 	 *
@@ -27,12 +26,14 @@ public:
 	 */
 	void DrawElements( const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches );
 
-
 	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() override;
+
 	/**
 	 * Returns the font cache used when the OpenGL rendering policy is active
- 	 */
+	 */
 	virtual TSharedRef<FSlateFontCache> GetFontCache() override { return FontCache.ToSharedRef(); }
+
+	virtual bool IsVertexColorInLinearSpace() const override { return false; }
 
 	/** 
 	 * Initializes resources if needed

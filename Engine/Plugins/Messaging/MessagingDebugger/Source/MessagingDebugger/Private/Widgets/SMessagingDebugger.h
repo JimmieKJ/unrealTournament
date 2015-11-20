@@ -30,7 +30,7 @@ public:
 	 * @param InMessageTracer The message tracer to use for the debugger.
 	 * @param InStyleSet The style set to use.
 	 */
-	void Construct( const FArguments& InArgs, const TSharedRef<SDockTab>& ConstructUnderMajorTab, const TSharedPtr<SWindow>& ConstructUnderWindow, const IMessageTracerRef& InMessageTracer, const TSharedRef<ISlateStyle>& InStyle );
+	void Construct(const FArguments& InArgs, const TSharedRef<SDockTab>& ConstructUnderMajorTab, const TSharedPtr<SWindow>& ConstructUnderWindow, const IMessageTracerRef& InMessageTracer, const TSharedRef<ISlateStyle>& InStyle);
 
 protected:
 
@@ -41,6 +41,13 @@ protected:
 	* @param TabManager A Tab Manager from which to populate tab spawner menu items.
 	*/
 	static void FillWindowMenu(FMenuBuilder& MenuBuilder, const TSharedPtr<FTabManager> TabManager);
+
+protected:
+
+	//~ SWidget overrides
+
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+	virtual bool SupportsKeyboardFocus() const override;
 
 private:
 
@@ -90,7 +97,7 @@ private:
 	void HandleStopDebuggerCommandExecute();
 
 	/** Callback for spawning tabs. */
-	TSharedRef<SDockTab> HandleTabManagerSpawnTab( const FSpawnTabArgs& Args, FName TabIdentifier ) const;
+	TSharedRef<SDockTab> HandleTabManagerSpawnTab(const FSpawnTabArgs& Args, FName TabIdentifier) const;
 
 private:
 

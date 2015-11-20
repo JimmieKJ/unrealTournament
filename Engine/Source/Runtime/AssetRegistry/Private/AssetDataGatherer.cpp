@@ -2,37 +2,400 @@
 
 #include "AssetRegistryPCH.h"
 
-#define MAX_FILES_TO_PROCESS_BEFORE_FLUSH 250
-#define CACHE_SERIALIZATION_VERSION 4
+namespace AssetDataGathererConstants
+{
+	static const int32 CacheSerializationVersion = 6;
+	static const int32 MaxFilesToDiscoverBeforeFlush = 2500;
+	static const int32 MaxFilesToGatherBeforeFlush = 250;
+	static const int32 MaxFilesToProcessBeforeCacheWrite = 50000;
+}
+
+
+namespace
+{
+	class FLambdaDirectoryStatVisitor : public IPlatformFile::FDirectoryStatVisitor
+	{
+	public:
+		typedef TFunctionRef<bool(const TCHAR*, const FFileStatData&)> FLambdaRef;
+		FLambdaRef Callback;
+		explicit FLambdaDirectoryStatVisitor(FLambdaRef InCallback)
+			: Callback(MoveTemp(InCallback))
+		{
+		}
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, const FFileStatData& StatData) override
+		{
+			return Callback(FilenameOrDirectory, StatData);
+		}
+	};
+
+	bool IsValidPackageFileToRead(const FString& Filename)
+	{
+		FString LongPackageName;
+		if (FPackageName::TryConvertFilenameToLongPackageName(Filename, LongPackageName))
+		{
+			// Make sure the path does not contain invalid characters. These packages will not be successfully loaded or read later.
+			for (const TCHAR PackageChar : LongPackageName)
+			{
+				for (const TCHAR InvalidChar : INVALID_LONGPACKAGE_CHARACTERS)
+				{
+					if (PackageChar == InvalidChar)
+					{
+						return false;
+					}
+				}
+			}
+
+			return true;
+		}
+
+		return false;
+	}
+}
+
+
+FAssetDataDiscovery::FAssetDataDiscovery(const TArray<FString>& InPaths, bool bInIsSynchronous)
+	: bIsSynchronous(bInIsSynchronous)
+	, bIsDiscoveringFiles(false)
+	, StopTaskCounter(0)
+	, Thread(nullptr)
+{
+	DirectoriesToSearch.Reserve(InPaths.Num());
+	for (const FString& Path : InPaths)
+	{
+		// Convert the package path to a filename with no extension (directory)
+		DirectoriesToSearch.Add(FPackageName::LongPackageNameToFilename(Path));
+	}
+
+	if (bIsSynchronous)
+	{
+		Run();
+	}
+	else
+	{
+		Thread = FRunnableThread::Create(this, TEXT("FAssetDataDiscovery"), 0, TPri_BelowNormal);
+	}
+}
+
+FAssetDataDiscovery::~FAssetDataDiscovery()
+{
+}
+
+bool FAssetDataDiscovery::Init()
+{
+	return true;
+}
+
+uint32 FAssetDataDiscovery::Run()
+{
+	double DiscoverStartTime = FPlatformTime::Seconds();
+	int32 NumDiscoveredFiles = 0;
+
+	FString LocalFilenamePathToPrioritize;
+
+	TSet<FString> LocalDiscoveredPathsSet;
+	TArray<FString> LocalDiscoveredDirectories;
+
+	TArray<FDiscoveredPackageFile> LocalPriorityFilesToSearch;
+	TArray<FDiscoveredPackageFile> LocalNonPriorityFilesToSearch;
+
+	// This set contains the folders that we should hide by default unless they contain assets
+	TSet<FString> PathsToHideIfEmpty;
+	PathsToHideIfEmpty.Add(TEXT("/Game/Collections"));
+
+	auto FlushLocalResultsIfRequired = [&]()
+	{
+		if (LocalPriorityFilesToSearch.Num() > 0 || LocalNonPriorityFilesToSearch.Num() > 0 || LocalDiscoveredPathsSet.Num() > 0)
+		{
+			TArray<FString> LocalDiscoveredPathsArray = LocalDiscoveredPathsSet.Array();
+
+			{
+				FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+				// Place all the discovered files into the files to search list
+				DiscoveredPaths.Append(MoveTemp(LocalDiscoveredPathsArray));
+
+				PriorityDiscoveredFiles.Append(MoveTemp(LocalPriorityFilesToSearch));
+				NonPriorityDiscoveredFiles.Append(MoveTemp(LocalNonPriorityFilesToSearch));
+			}
+		}
+
+		LocalDiscoveredPathsSet.Reset();
+
+		LocalPriorityFilesToSearch.Reset();
+		LocalNonPriorityFilesToSearch.Reset();
+	};
+
+	auto IsPriorityFile = [&](const FString& InPackageFilename) -> bool
+	{
+		return !bIsSynchronous && !LocalFilenamePathToPrioritize.IsEmpty() && InPackageFilename.StartsWith(LocalFilenamePathToPrioritize);
+	};
+
+	auto OnIterateDirectoryItem = [&](const TCHAR* InPackageFilename, const FFileStatData& InPackageStatData) -> bool
+	{
+		if (StopTaskCounter.GetValue() != 0)
+		{
+			// Requested to stop - break out of the directory iteration
+			return false;
+		}
+
+		const FString PackageFilenameStr = InPackageFilename;
+
+		if (InPackageStatData.bIsDirectory)
+		{
+			LocalDiscoveredDirectories.Add(PackageFilenameStr / TEXT(""));
+
+			FString PackagePath;
+			if (FPackageName::TryConvertFilenameToLongPackageName(PackageFilenameStr, PackagePath) && !PathsToHideIfEmpty.Contains(PackagePath))
+			{
+				LocalDiscoveredPathsSet.Add(PackagePath);
+			}
+		}
+		else if (FPackageName::IsPackageFilename(PackageFilenameStr))
+		{
+			if (IsValidPackageFileToRead(PackageFilenameStr))
+			{
+				const FString LongPackageNameStr = FPackageName::FilenameToLongPackageName(PackageFilenameStr);
+
+				if (IsPriorityFile(PackageFilenameStr))
+				{
+					LocalPriorityFilesToSearch.Add(FDiscoveredPackageFile(PackageFilenameStr, InPackageStatData.ModificationTime));
+				}
+				else
+				{
+					LocalNonPriorityFilesToSearch.Add(FDiscoveredPackageFile(PackageFilenameStr, InPackageStatData.ModificationTime));
+				}
+
+				LocalDiscoveredPathsSet.Add(FPackageName::GetLongPackagePath(LongPackageNameStr));
+
+				++NumDiscoveredFiles;
+
+				// Flush the data if we've processed enough
+				if (!bIsSynchronous && (LocalPriorityFilesToSearch.Num() + LocalNonPriorityFilesToSearch.Num()) >= AssetDataGathererConstants::MaxFilesToDiscoverBeforeFlush)
+				{
+					FlushLocalResultsIfRequired();
+				}
+			}
+		}
+
+		return true;
+	};
+
+	bool bIsIdle = true;
+
+	while (StopTaskCounter.GetValue() == 0)
+	{
+		FString LocalDirectoryToSearch;
+		{
+			FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+			if (DirectoriesToSearch.Num() > 0)
+			{
+				bIsDiscoveringFiles = true;
+
+				LocalFilenamePathToPrioritize = FilenamePathToPrioritize;
+
+				// Pop off the first path to search
+				LocalDirectoryToSearch = DirectoriesToSearch[0];
+				DirectoriesToSearch.RemoveAt(0, 1, false);
+			}
+		}
+
+		if (LocalDirectoryToSearch.Len() > 0)
+		{
+			if (bIsIdle)
+			{
+				bIsIdle = false;
+
+				// About to start work - reset these
+				DiscoverStartTime = FPlatformTime::Seconds();
+				NumDiscoveredFiles = 0;
+			}
+
+			// Iterate the current search directory
+			FLambdaDirectoryStatVisitor Visitor(OnIterateDirectoryItem);
+			IFileManager::Get().IterateDirectoryStat(*LocalDirectoryToSearch, Visitor);
+
+			{
+				FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+				// Push back any newly discovered sub-directories
+				if (LocalDiscoveredDirectories.Num() > 0)
+				{
+					// Use LocalDiscoveredDirectories as scratch space, then move it back out - this puts the directories we just 
+					// discovered at the start of the list for the next iteration, which can help with disk locality
+					LocalDiscoveredDirectories.Append(MoveTemp(DirectoriesToSearch));
+					DirectoriesToSearch = MoveTemp(LocalDiscoveredDirectories);
+				}
+				LocalDiscoveredDirectories.Reset();
+
+				if (!bIsSynchronous)
+				{
+					FlushLocalResultsIfRequired();
+					SortPathsByPriority(1);
+				}
+			}
+		}
+		else
+		{
+			if (!bIsIdle)
+			{
+				bIsIdle = true;
+
+				{
+					FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+					bIsDiscoveringFiles = false;
+				}
+
+				UE_LOG(LogAssetRegistry, Verbose, TEXT("Discovery took %0.6f seconds and found %d files to process"), FPlatformTime::Seconds() - DiscoverStartTime, NumDiscoveredFiles);
+			}
+
+			// Ran out of things to do... if we have any pending results, flush those now
+			FlushLocalResultsIfRequired();
+
+			if (bIsSynchronous)
+			{
+				// This is synchronous. Since our work is done, we should safely exit
+				Stop();
+			}
+			else
+			{
+				// No work to do. Sleep for a little and try again later.
+				FPlatformProcess::Sleep(0.1);
+			}
+		}
+	}
+
+	return 0;
+}
+
+void FAssetDataDiscovery::Stop()
+{
+	StopTaskCounter.Increment();
+}
+
+void FAssetDataDiscovery::Exit()
+{
+}
+
+void FAssetDataDiscovery::EnsureCompletion()
+{
+	{
+		FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+		DirectoriesToSearch.Empty();
+	}
+
+	Stop();
+	Thread->WaitForCompletion();
+    delete Thread;
+    Thread = nullptr;
+}
+
+bool FAssetDataDiscovery::GetAndTrimSearchResults(TArray<FString>& OutDiscoveredPaths, TArray<FDiscoveredPackageFile>& OutDiscoveredFiles, int32& OutNumPathsToSearch)
+{
+	FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+	OutDiscoveredPaths.Append(MoveTemp(DiscoveredPaths));
+	DiscoveredPaths.Reset();
+
+	if (PriorityDiscoveredFiles.Num() > 0)
+	{
+		// Use PriorityDiscoveredFiles as scratch space, then move it back out - this puts the priority files at the start of the final list
+		PriorityDiscoveredFiles.Append(MoveTemp(OutDiscoveredFiles));
+		PriorityDiscoveredFiles.Append(MoveTemp(NonPriorityDiscoveredFiles));
+		OutDiscoveredFiles = MoveTemp(PriorityDiscoveredFiles);
+	}
+	else
+	{
+		OutDiscoveredFiles.Append(MoveTemp(NonPriorityDiscoveredFiles));
+	}
+	PriorityDiscoveredFiles.Reset();
+	NonPriorityDiscoveredFiles.Reset();
+
+	OutNumPathsToSearch = DirectoriesToSearch.Num();
+
+	return bIsDiscoveringFiles;
+}
+
+void FAssetDataDiscovery::AddPathToSearch(const FString& Path)
+{
+	FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+	// Convert the package path to a filename with no extension (directory)
+	DirectoriesToSearch.Add(FPackageName::LongPackageNameToFilename(Path));
+}
+
+void FAssetDataDiscovery::PrioritizeSearchPath(const FString& PathToPrioritize)
+{
+	FString LocalFilenamePathToPrioritize;
+	if (FPackageName::TryConvertLongPackageNameToFilename(PathToPrioritize, LocalFilenamePathToPrioritize))
+	{
+		FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+		FilenamePathToPrioritize = LocalFilenamePathToPrioritize;
+		SortPathsByPriority(INDEX_NONE);
+	}
+}
+
+void FAssetDataDiscovery::SortPathsByPriority(const int32 MaxNumToSort)
+{
+	FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+	// Critical section. This code needs to be as fast as possible since it is in a critical section!
+	// Swap all priority files to the top of the list
+	if (FilenamePathToPrioritize.Len() > 0)
+	{
+		int32 LowestNonPriorityPathIdx = 0;
+		int32 NumSorted = 0;
+		const int32 NumToSort = (MaxNumToSort == INDEX_NONE) ? DirectoriesToSearch.Num() : FMath::Min(DirectoriesToSearch.Num(), MaxNumToSort);
+		for (int32 DirIdx = 0; DirIdx < DirectoriesToSearch.Num(); ++DirIdx)
+		{
+			if (DirectoriesToSearch[DirIdx].StartsWith(FilenamePathToPrioritize))
+			{
+				DirectoriesToSearch.Swap(DirIdx, LowestNonPriorityPathIdx);
+				LowestNonPriorityPathIdx++;
+
+				if (++NumSorted >= NumToSort)
+				{
+					break;
+				}
+			}
+		}
+	}
+}
+
 
 FAssetDataGatherer::FAssetDataGatherer(const TArray<FString>& InPaths, bool bInIsSynchronous, bool bInLoadAndSaveCache)
 	: StopTaskCounter( 0 )
 	, bIsSynchronous( bInIsSynchronous )
 	, bIsDiscoveringFiles( false )
 	, SearchStartTime( 0 )
+	, NumPathsToSearchAtLastSyncPoint( InPaths.Num() )
 	, bLoadAndSaveCache( bInLoadAndSaveCache )
-	, bSavedCacheAfterInitialDiscovery( false )
-	, DiskCachedAssetDataBuffer( NULL )
-	, Thread(NULL)
+	, bFinishedInitialDiscovery( false )
+	, DiskCachedAssetDataBuffer( nullptr )
+	, Thread(nullptr)
 {
-	const FString AllIllegalCharacters = INVALID_LONGPACKAGE_CHARACTERS;
-	for ( int32 CharIdx = 0; CharIdx < AllIllegalCharacters.Len() ; ++CharIdx )
-	{
-		InvalidAssetFileCharacters.Add(AllIllegalCharacters[CharIdx]);
-	}
-
-	PathsToSearch = InPaths;
-
 	bGatherDependsData = GIsEditor && !FParse::Param( FCommandLine::Get(), TEXT("NoDependsGathering") );
 
 	CacheFilename = FPaths::GameIntermediateDir() / TEXT("CachedAssetRegistry.bin");
 
+	if (FParse::Param(FCommandLine::Get(), TEXT("multiprocess")))
+	{
+		bLoadAndSaveCache = false;
+	}
+	
+
 	if ( bIsSynchronous )
 	{
+		// Run the package file discovery synchronously
+		FAssetDataDiscovery PackageFileDiscovery(InPaths, bIsSynchronous);
+		PackageFileDiscovery.GetAndTrimSearchResults(DiscoveredPaths, FilesToSearch, NumPathsToSearchAtLastSyncPoint);
+
 		Run();
 	}
 	else
 	{
+		BackgroundPackageFileDiscovery = MakeShareable(new FAssetDataDiscovery(InPaths, bIsSynchronous));
 		Thread = FRunnableThread::Create(this, TEXT("FAssetDataGatherer"), 0, TPri_BelowNormal);
 	}
 }
@@ -45,7 +408,7 @@ FAssetDataGatherer::~FAssetDataGatherer()
 	if ( DiskCachedAssetDataBuffer )
 	{
 		delete[] DiskCachedAssetDataBuffer;
-		DiskCachedAssetDataBuffer = NULL;
+		DiskCachedAssetDataBuffer = nullptr;
 	}
 
 	for ( auto CacheIt = NewCachedAssetData.CreateConstIterator(); CacheIt; ++CacheIt )
@@ -62,7 +425,7 @@ bool FAssetDataGatherer::Init()
 
 uint32 FAssetDataGatherer::Run()
 {
-	int32 CacheSerializationVersion = CACHE_SERIALIZATION_VERSION;
+	int32 CacheSerializationVersion = AssetDataGathererConstants::CacheSerializationVersion;
 	
 	static const bool bUsingWorldAssets = FAssetRegistry::IsUsingWorldAssets();
 	if ( bUsingWorldAssets )
@@ -82,123 +445,150 @@ uint32 FAssetDataGatherer::Run()
 		}
 	}
 
-	TArray<FString> LocalFilesToSearch;
-	TArray<FBackgroundAssetData*> LocalAssetResults;
+	TArray<FDiscoveredPackageFile> LocalFilesToSearch;
+	TArray<FAssetData*> LocalAssetResults;
 	TArray<FPackageDependencyData> LocalDependencyResults;
+	TArray<FString> LocalCookedPackageNamesWithoutAssetDataResults;
+
+	const double InitialScanStartTime = FPlatformTime::Seconds();
+	int32 NumCachedFiles = 0;
+	int32 NumUncachedFiles = 0;
+
+	int32 NumFilesProcessedSinceLastCacheSave = 0;
+	auto WriteAssetCacheFile = [&]()
+	{
+		FNameTableArchiveWriter CachedAssetDataWriter(CacheSerializationVersion);
+		SerializeCache(CachedAssetDataWriter);
+		CachedAssetDataWriter.SaveToFile(*CacheFilename);
+
+		NumFilesProcessedSinceLastCacheSave = 0;
+	};
 
 	while ( StopTaskCounter.GetValue() == 0 )
 	{
-		// Check to see if there are any paths that need scanning for files.  On the first iteration, there will always
-		// be work to do here.  Later, if new paths are added on the fly, we'll also process those.
-		DiscoverFilesToSearch();
+		bool LocalIsDiscoveringFiles = false;
 
 		{
 			FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
-			if ( LocalAssetResults.Num() )
+
+			// Grab any new package files from the background directory scan
+			if (BackgroundPackageFileDiscovery.IsValid())
 			{
-				AssetResults.Append(LocalAssetResults);
+				bIsDiscoveringFiles = BackgroundPackageFileDiscovery->GetAndTrimSearchResults(DiscoveredPaths, FilesToSearch, NumPathsToSearchAtLastSyncPoint);
+				LocalIsDiscoveringFiles = bIsDiscoveringFiles;
 			}
 
-			if ( LocalDependencyResults.Num() )
-			{
-				DependencyResults.Append(LocalDependencyResults);
-			}
+			AssetResults.Append(MoveTemp(LocalAssetResults));
+			DependencyResults.Append(MoveTemp(LocalDependencyResults));
+			CookedPackageNamesWithoutAssetDataResults.Append(MoveTemp(LocalCookedPackageNamesWithoutAssetDataResults));
 
-			if ( FilesToSearch.Num() )
+			if (FilesToSearch.Num() > 0)
 			{
 				if (SearchStartTime == 0)
 				{
 					SearchStartTime = FPlatformTime::Seconds();
 				}
 
-				const int32 NumFilesToProcess = FMath::Min<int32>(MAX_FILES_TO_PROCESS_BEFORE_FLUSH, FilesToSearch.Num());
-
-				for (int32 FileIdx = 0; FileIdx < NumFilesToProcess; ++FileIdx)
-				{
-					LocalFilesToSearch.Add(FilesToSearch[FileIdx]);
-				}
-
-				FilesToSearch.RemoveAt(0, NumFilesToProcess);
+				const int32 NumFilesToProcess = FMath::Min<int32>(AssetDataGathererConstants::MaxFilesToGatherBeforeFlush, FilesToSearch.Num());
+				LocalFilesToSearch.Append(FilesToSearch.GetData(), NumFilesToProcess);
+				FilesToSearch.RemoveAt(0, NumFilesToProcess, false);
 			}
-			else if (SearchStartTime != 0)
+			else if (SearchStartTime != 0 && !LocalIsDiscoveringFiles)
 			{
 				SearchTimes.Add(FPlatformTime::Seconds() - SearchStartTime);
 				SearchStartTime = 0;
 			}
 		}
 
-		if ( LocalAssetResults.Num() )
-		{
-			LocalAssetResults.Empty();
-		}
+		LocalAssetResults.Reset();
+		LocalDependencyResults.Reset();
+		LocalCookedPackageNamesWithoutAssetDataResults.Reset();
 
-		if ( LocalDependencyResults.Num() )
+		if (LocalFilesToSearch.Num() > 0)
 		{
-			LocalDependencyResults.Empty();
-		}
-
-		if ( LocalFilesToSearch.Num() )
-		{
-			for (int32 FileIdx = 0; FileIdx < LocalFilesToSearch.Num(); ++FileIdx)
+			for (const FDiscoveredPackageFile& AssetFileData : LocalFilesToSearch)
 			{
-				const FString& AssetFile = LocalFilesToSearch[FileIdx];
-
-				if ( StopTaskCounter.GetValue() != 0 )
+				if (StopTaskCounter.GetValue() != 0)
 				{
 					// We have been asked to stop, so don't read any more files
 					break;
 				}
 
+				const FName PackageName = FName(*FPackageName::FilenameToLongPackageName(AssetFileData.PackageFilename));
+
 				bool bLoadedFromCache = false;
-				if ( bLoadAndSaveCache )
+				if (bLoadAndSaveCache)
 				{
-					const FName PackageName = FName(*FPackageName::FilenameToLongPackageName(AssetFile));
-					const FDateTime& FileTimestamp = IFileManager::Get().GetTimeStamp(*AssetFile);
 					FDiskCachedAssetData** DiskCachedAssetDataPtr = DiskCachedAssetDataMap.Find(PackageName);
-					FDiskCachedAssetData* DiskCachedAssetData = NULL;
-					if ( DiskCachedAssetDataPtr && *DiskCachedAssetDataPtr )
+					FDiskCachedAssetData* DiskCachedAssetData = nullptr;
+					if (DiskCachedAssetDataPtr && *DiskCachedAssetDataPtr)
 					{
 						const FDateTime& CachedTimestamp = (*DiskCachedAssetDataPtr)->Timestamp;
-						if ( FileTimestamp == CachedTimestamp )
+						if (AssetFileData.PackageTimestamp == CachedTimestamp)
 						{
 							DiskCachedAssetData = *DiskCachedAssetDataPtr;
 						}
 					}
 
-					if ( DiskCachedAssetData )
+					if (DiskCachedAssetData)
 					{
-						for ( auto CacheIt = DiskCachedAssetData->AssetDataList.CreateConstIterator(); CacheIt; ++CacheIt )
+						bLoadedFromCache = true;
+
+						++NumCachedFiles;
+
+						LocalAssetResults.Reserve(LocalAssetResults.Num() + DiskCachedAssetData->AssetDataList.Num());
+						for (const FAssetData& AssetData : DiskCachedAssetData->AssetDataList)
 						{
-							LocalAssetResults.Add(new FBackgroundAssetData(*CacheIt));
+							LocalAssetResults.Add(new FAssetData(AssetData));
 						}
 
 						LocalDependencyResults.Add(DiskCachedAssetData->DependencyData);
 
 						NewCachedAssetDataMap.Add(PackageName, DiskCachedAssetData);
-						bLoadedFromCache = true;
 					}
 				}
 
-				if ( !bLoadedFromCache )
+				if (!bLoadedFromCache)
 				{
-					TArray<FBackgroundAssetData*> AssetDataFromFile;
+					TArray<FAssetData*> AssetDataFromFile;
 					FPackageDependencyData DependencyData;
-					if ( ReadAssetFile(AssetFile, AssetDataFromFile, DependencyData) )
+					TArray<FString> CookedPackageNamesWithoutAssetData;
+					if (ReadAssetFile(AssetFileData.PackageFilename, AssetDataFromFile, DependencyData, CookedPackageNamesWithoutAssetData))
 					{
+						++NumUncachedFiles;
+
 						LocalAssetResults.Append(AssetDataFromFile);
 						LocalDependencyResults.Add(DependencyData);
+						LocalCookedPackageNamesWithoutAssetDataResults.Append(CookedPackageNamesWithoutAssetData);
 
-						if ( bLoadAndSaveCache )
+						// Don't store info on cooked packages
+						bool bCachePackage = bLoadAndSaveCache && LocalCookedPackageNamesWithoutAssetDataResults.Num() == 0;
+						if (bCachePackage)
 						{
-							// Update the cache
-							const FName PackageName = FName(*FPackageName::FilenameToLongPackageName(AssetFile));
-							const FDateTime& FileTimestamp = IFileManager::Get().GetTimeStamp(*AssetFile);
-							FDiskCachedAssetData* NewData = new FDiskCachedAssetData(PackageName, FileTimestamp);
-							for ( auto AssetIt = AssetDataFromFile.CreateConstIterator(); AssetIt; ++AssetIt )
+							// Don't store info on cooked packages
+							for (const auto& AssetData : AssetDataFromFile)
 							{
-								NewData->AssetDataList.Add((*AssetIt)->ToAssetData());
+								if (!!(AssetData->PackageFlags & PKG_FilterEditorOnly))
+								{
+									bCachePackage = false;
+									break;
+								}
+							}
+						}
+
+						if (bCachePackage)
+						{
+							++NumFilesProcessedSinceLastCacheSave;
+
+							// Update the cache
+							FDiskCachedAssetData* NewData = new FDiskCachedAssetData(PackageName, AssetFileData.PackageTimestamp);
+							NewData->AssetDataList.Reserve(AssetDataFromFile.Num());
+							for (const FAssetData* BackgroundAssetData : AssetDataFromFile)
+							{
+								NewData->AssetDataList.Add(*BackgroundAssetData);
 							}
 							NewData->DependencyData = DependencyData;
+
 							NewCachedAssetData.Add(NewData);
 							NewCachedAssetDataMap.Add(PackageName, NewData);
 						}
@@ -206,7 +596,16 @@ uint32 FAssetDataGatherer::Run()
 				}
 			}
 
-			LocalFilesToSearch.Empty();
+			LocalFilesToSearch.Reset();
+
+			if (bLoadAndSaveCache)
+			{
+				// Save off the cache files if we're processed enough data since the last save
+				if (NumFilesProcessedSinceLastCacheSave >= AssetDataGathererConstants::MaxFilesToProcessBeforeCacheWrite)
+				{
+					WriteAssetCacheFile();
+				}
+			}
 		}
 		else
 		{
@@ -217,14 +616,17 @@ uint32 FAssetDataGatherer::Run()
 			}
 			else
 			{
-				// If we are caching discovered assets and this is the first time we had no work to do, save off the cache now in case the user terminates unexpectedly
-				if (bLoadAndSaveCache && !bSavedCacheAfterInitialDiscovery)
+				if (!LocalIsDiscoveringFiles && !bFinishedInitialDiscovery)
 				{
-					FNameTableArchiveWriter CachedAssetDataWriter(CacheSerializationVersion);
-					SerializeCache(CachedAssetDataWriter);
-					CachedAssetDataWriter.SaveToFile(*CacheFilename);
+					bFinishedInitialDiscovery = true;
 
-					bSavedCacheAfterInitialDiscovery = true;
+					UE_LOG(LogAssetRegistry, Verbose, TEXT("Initial scan took %0.6f seconds (found %d cached assets, and loaded %d)"), FPlatformTime::Seconds() - InitialScanStartTime, NumCachedFiles, NumUncachedFiles);
+
+					// If we are caching discovered assets and this is the first time we had no work to do, save off the cache now in case the user terminates unexpectedly
+					if (bLoadAndSaveCache)
+					{
+						WriteAssetCacheFile();
+					}
 				}
 
 				// No work to do. Sleep for a little and try again later.
@@ -235,9 +637,7 @@ uint32 FAssetDataGatherer::Run()
 
 	if ( bLoadAndSaveCache )
 	{
-		FNameTableArchiveWriter CachedAssetData(CacheSerializationVersion);
-		SerializeCache(CachedAssetData);
-		CachedAssetData.SaveToFile(*CacheFilename);
+		WriteAssetCacheFile();
 	}
 
 	return 0;
@@ -245,62 +645,75 @@ uint32 FAssetDataGatherer::Run()
 
 void FAssetDataGatherer::Stop()
 {
+	if (BackgroundPackageFileDiscovery.IsValid())
+	{
+		BackgroundPackageFileDiscovery->Stop();
+	}
+
 	StopTaskCounter.Increment();
 }
 
 void FAssetDataGatherer::Exit()
-{
-    
+{   
 }
 
 void FAssetDataGatherer::EnsureCompletion()
 {
+	if (BackgroundPackageFileDiscovery.IsValid())
+	{
+		BackgroundPackageFileDiscovery->EnsureCompletion();
+	}
+
 	{
 		FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
 		FilesToSearch.Empty();
-		PathsToSearch.Empty();
 	}
 
 	Stop();
 	Thread->WaitForCompletion();
     delete Thread;
-    Thread = NULL;
+    Thread = nullptr;
 }
 
-bool FAssetDataGatherer::GetAndTrimSearchResults(TArray<FBackgroundAssetData*>& OutAssetResults, TArray<FString>& OutPathResults, TArray<FPackageDependencyData>& OutDependencyResults, TArray<double>& OutSearchTimes, int32& OutNumFilesToSearch, int32& OutNumPathsToSearch)
+bool FAssetDataGatherer::GetAndTrimSearchResults(TArray<FAssetData*>& OutAssetResults, TArray<FString>& OutPathResults, TArray<FPackageDependencyData>& OutDependencyResults, TArray<FString>& OutCookedPackageNamesWithoutAssetDataResults, TArray<double>& OutSearchTimes, int32& OutNumFilesToSearch, int32& OutNumPathsToSearch, bool& OutIsDiscoveringFiles)
 {
 	FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
 
-	OutAssetResults.Append(AssetResults);
-	AssetResults.Empty();
+	OutAssetResults.Append(MoveTemp(AssetResults));
+	AssetResults.Reset();
 
-	OutPathResults.Append(DiscoveredPaths);
-	DiscoveredPaths.Empty();
+	OutPathResults.Append(MoveTemp(DiscoveredPaths));
+	DiscoveredPaths.Reset();
 
-	OutDependencyResults.Append(DependencyResults);
-	DependencyResults.Empty();
+	OutDependencyResults.Append(MoveTemp(DependencyResults));
+	DependencyResults.Reset();
 
-	OutSearchTimes.Append(SearchTimes);
-	SearchTimes.Empty();
+	OutCookedPackageNamesWithoutAssetDataResults.Append(MoveTemp(CookedPackageNamesWithoutAssetDataResults));
+	CookedPackageNamesWithoutAssetDataResults.Reset();
+
+	OutSearchTimes.Append(MoveTemp(SearchTimes));
+	SearchTimes.Reset();
 
 	OutNumFilesToSearch = FilesToSearch.Num();
-	OutNumPathsToSearch = PathsToSearch.Num();
+	OutNumPathsToSearch = NumPathsToSearchAtLastSyncPoint;
+	OutIsDiscoveringFiles = bIsDiscoveringFiles;
 
 	return (SearchStartTime > 0 || bIsDiscoveringFiles);
 }
 
 void FAssetDataGatherer::AddPathToSearch(const FString& Path)
 {
-	FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
-	PathsToSearch.Add(Path);
+	if (BackgroundPackageFileDiscovery.IsValid())
+	{
+		BackgroundPackageFileDiscovery->AddPathToSearch(Path);
+	}
 }
 
 void FAssetDataGatherer::AddFilesToSearch(const TArray<FString>& Files)
 {
 	TArray<FString> FilesToAdd;
-	for (int32 FilenameIdx = 0; FilenameIdx < Files.Num(); FilenameIdx++)
+	for (const FString& Filename : Files)
 	{
-		FString Filename(Files[FilenameIdx]);
 		if ( IsValidPackageFileToRead(Filename) )
 		{
 			// Add the path to this asset into the list of discovered paths
@@ -316,112 +729,61 @@ void FAssetDataGatherer::AddFilesToSearch(const TArray<FString>& Files)
 
 void FAssetDataGatherer::PrioritizeSearchPath(const FString& PathToPrioritize)
 {
-	const bool bIncludeReadOnlyRoots = true;
-	if ( FPackageName::IsValidLongPackageName(PathToPrioritize, bIncludeReadOnlyRoots) )
+	if (BackgroundPackageFileDiscovery.IsValid())
 	{
-		const FString FilenamePathToPrioritize = FPackageName::LongPackageNameToFilename(PathToPrioritize);
+		BackgroundPackageFileDiscovery->PrioritizeSearchPath(PathToPrioritize);
+	}
 
-		// Critical section. This code needs to be as fast as possible since it is in a critical section!
-		// Swap all priority files to the top of the list
+	FString LocalFilenamePathToPrioritize;
+	if (FPackageName::TryConvertLongPackageNameToFilename(PathToPrioritize, LocalFilenamePathToPrioritize))
+	{
+		FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+		FilenamePathToPrioritize = LocalFilenamePathToPrioritize;
+		SortPathsByPriority(INDEX_NONE);
+	}
+}
+
+void FAssetDataGatherer::SortPathsByPriority(const int32 MaxNumToSort)
+{
+	FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
+
+	// Critical section. This code needs to be as fast as possible since it is in a critical section!
+	// Swap all priority files to the top of the list
+	if (FilenamePathToPrioritize.Len() > 0)
+	{
+		int32 LowestNonPriorityFileIdx = 0;
+		int32 NumSorted = 0;
+		const int32 NumToSort = (MaxNumToSort == INDEX_NONE) ? FilesToSearch.Num() : FMath::Min(FilesToSearch.Num(), MaxNumToSort);
+		for (int32 FilenameIdx = 0; FilenameIdx < FilesToSearch.Num(); ++FilenameIdx)
 		{
-			FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
-			int32 LowestNonPriorityFileIdx = 0;
-			for ( int32 FilenameIdx = 0; FilenameIdx < FilesToSearch.Num(); ++FilenameIdx )
+			if (FilesToSearch[FilenameIdx].PackageFilename.StartsWith(FilenamePathToPrioritize))
 			{
-				if ( FilesToSearch[FilenameIdx].StartsWith(FilenamePathToPrioritize) )
+				FilesToSearch.Swap(FilenameIdx, LowestNonPriorityFileIdx);
+				LowestNonPriorityFileIdx++;
+
+				if (++NumSorted >= NumToSort)
 				{
-					FilesToSearch.Swap(FilenameIdx, LowestNonPriorityFileIdx);
-					LowestNonPriorityFileIdx++;
+					break;
 				}
 			}
 		}
 	}
 }
 
-void FAssetDataGatherer::DiscoverFilesToSearch()
-{
-	if( PathsToSearch.Num() > 0 )
-	{
-		TArray<FString> DiscoveredFilesToSearch;
-		TSet<FString> LocalDiscoveredPathsSet;
-
-		TArray<FString> CopyOfPathsToSearch;
-		{
-			FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
-			CopyOfPathsToSearch = PathsToSearch;
-
-			// Remove all of the existing paths from the list, since we'll process them all below.  New paths may be
-			// added to the original list on a different thread as we go along, but those new paths won't be processed
-			// during this call of DisoverFilesToSearch().  But we'll get them on the next call!
-			PathsToSearch.Empty();
-			bIsDiscoveringFiles = true;
-		}
-
-		// Iterate over any paths that we have remaining to scan
-		for ( int32 PathIdx=0; PathIdx < CopyOfPathsToSearch.Num(); ++PathIdx )
-		{
-			const FString& Path = CopyOfPathsToSearch[PathIdx];
-
-			// Convert the package path to a filename with no extension (directory)
-			const FString FilePath = FPackageName::LongPackageNameToFilename(Path);
-
-			// Gather the package files in that directory and subdirectories
-			TArray<FString> Filenames;
-			FPackageName::FindPackagesInDirectory(Filenames, FilePath);
-
-			for (int32 FilenameIdx = 0; FilenameIdx < Filenames.Num(); FilenameIdx++)
-			{
-				FString Filename(Filenames[FilenameIdx]);
-				if ( IsValidPackageFileToRead(Filename) )
-				{
-					// Add the path to this asset into the list of discovered paths
-					const FString LongPackageName = FPackageName::FilenameToLongPackageName(Filename);
-					LocalDiscoveredPathsSet.Add( FPackageName::GetLongPackagePath(LongPackageName) );
-					DiscoveredFilesToSearch.Add(Filename);
-				}
-			}
-		}
-
-		// Turn the set into an array here before the critical section below
-		TArray<FString> LocalDiscoveredPathsArray = LocalDiscoveredPathsSet.Array();
-
-		{
-			// Place all the discovered files into the files to search list
-			FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
-			FilesToSearch.Append(DiscoveredFilesToSearch);
-			DiscoveredPaths.Append(LocalDiscoveredPathsArray);
-			bIsDiscoveringFiles = false;
-		}
-	}
-}
-
-bool FAssetDataGatherer::IsValidPackageFileToRead(const FString& Filename) const
-{
-	FString LongPackageName;
-	if ( FPackageName::TryConvertFilenameToLongPackageName(Filename, LongPackageName) )
-	{
-		// Make sure the path does not contain invalid characters. These packages will not be successfully loaded or read later.
-		for ( int32 CharIdx = 0; CharIdx < LongPackageName.Len() ; ++CharIdx )
-		{
-			if ( InvalidAssetFileCharacters.Contains(LongPackageName[CharIdx]) )
-			{
-				return false;
-			}
-		}
-
-		return true;
-	}
-
-	return false;
-}
-
-bool FAssetDataGatherer::ReadAssetFile(const FString& AssetFilename, TArray<FBackgroundAssetData*>& AssetDataList, FPackageDependencyData& DependencyData) const
+bool FAssetDataGatherer::ReadAssetFile(const FString& AssetFilename, TArray<FAssetData*>& AssetDataList, FPackageDependencyData& DependencyData, TArray<FString>& CookedPackageNamesWithoutAssetData ) const
 {
 	FPackageReader PackageReader;
 
 	if ( !PackageReader.OpenPackageFile(AssetFilename) )
 	{
 		return false;
+	}
+
+	if ( PackageReader.ReadAssetRegistryDataIfCookedPackage(AssetDataList, CookedPackageNamesWithoutAssetData) )
+	{
+		// Cooked data is special. No further data is found in these packages
+		return true;
 	}
 
 	if ( !PackageReader.ReadAssetRegistryData(AssetDataList) )
@@ -474,8 +836,23 @@ void FAssetDataGatherer::SerializeCache(FArchive& Ar)
 			// load it
 			Ar << *NewCachedAssetDataPtr;
 
+			if (Ar.IsError())
+			{
+				// There was an error reading the cache. Bail out.
+				break;
+			}
+
 			// hash it
 			DiskCachedAssetDataMap.Add(NewCachedAssetDataPtr->PackageName, NewCachedAssetDataPtr);
+		}
+
+		// If there was an error loading the cache, abandon all data loaded from it so we can build a clean one.
+		if (Ar.IsError())
+		{
+			UE_LOG(LogAssetRegistry, Error, TEXT("There was an error loading the asset registry cache. Generating a new one."));
+			DiskCachedAssetDataMap.Empty();
+			delete DiskCachedAssetDataBuffer;
+			DiskCachedAssetDataBuffer = nullptr;
 		}
 	}
 

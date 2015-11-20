@@ -51,11 +51,7 @@ void FSessionInfo::UpdateFromMessage( const FSessionServicePong& Message, const 
 	// update session info
 	Standalone = Message.Standalone;
 	SessionOwner = Message.SessionOwner;
-
-	if (SessionName.IsEmpty())
-	{
-		SessionName = Message.SessionName;
-	}
+	SessionName = Message.SessionName;
 
 	// update instance
 	TSharedPtr<FSessionInstanceInfo>& Instance = Instances.FindOrAdd(Context->GetSender());

@@ -42,8 +42,11 @@ FText UK2Node_EnumEquality::GetNodeTitle(ENodeTitleType::Type TitleType) const
 
 void UK2Node_EnumEquality::PostReconstructNode()
 {
+	// Do type determination before enum fixup
 	PinConnectionListChanged(GetInput1Pin());
 	PinConnectionListChanged(GetInput2Pin());
+
+	Super::PostReconstructNode();
 // 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 // 
 // 	UEdGraphPin* Input1Pin = GetInput1Pin();

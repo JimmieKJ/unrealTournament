@@ -550,6 +550,54 @@ FText FPropertyEditorToolkit::GetToolkitName() const
 }
 
 
+FText FPropertyEditorToolkit::GetToolkitToolTipText() const
+{
+	const auto EditingObjects = GetEditingObjects();
+
+	check( EditingObjects.Num() > 0 );
+
+	if( EditingObjects.Num() == 1 )
+	{
+		const UObject* EditingObject = EditingObjects[ 0 ];
+		return FAssetEditorToolkit::GetToolTipTextForObject(EditingObject);
+	}
+	else
+	{
+		UClass* SharedBaseClass = NULL;
+		for( int32 x = 0; x < EditingObjects.Num(); ++x )
+		{
+			UObject* Obj = EditingObjects[ x ];
+			check( Obj );
+
+			UClass* ObjClass = Cast<UClass>(Obj);
+			if (ObjClass == NULL)
+			{
+				ObjClass = Obj->GetClass();
+			}
+			check( ObjClass );
+
+			// Initialize with the class of the first object we encounter.
+			if( SharedBaseClass == NULL )
+			{
+				SharedBaseClass = ObjClass;
+			}
+
+			// If we've encountered an object that's not a subclass of the current best baseclass,
+			// climb up a step in the class hierarchy.
+			while( !ObjClass->IsChildOf( SharedBaseClass ) )
+			{
+				SharedBaseClass = SharedBaseClass->GetSuperClass();
+			}
+		}
+
+		FFormatNamedArguments Args;
+		Args.Add( TEXT("NumberOfObjects"), EditingObjects.Num() );
+		Args.Add( TEXT("ClassName"), FText::FromString( SharedBaseClass->GetName() ) );
+		return FText::Format( LOCTEXT("ToolkitName_MultiObjectToolTip", "{NumberOfObjects} {ClassName} Objects - Property Matrix Editor"), Args );
+	}
+}
+
+
 FReply FPropertyEditorToolkit::OnToggleColumnClicked( const TWeakPtr< IPropertyTreeRow > Row )
 {
 	if (Row.IsValid())

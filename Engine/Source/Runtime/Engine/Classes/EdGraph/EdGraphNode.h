@@ -10,8 +10,9 @@ class UEdGraphNode;
 class UEdGraphSchema;
 class UEdGraphPin;
 class SGraphNode;
+struct FEdGraphPinType;
 
-/** Enum used to define which way data flows into or out of this pin */
+/** Enum used to define which way data flows into or out of this pin. */
 UENUM()
 enum EEdGraphPinDirection
 {
@@ -20,63 +21,75 @@ enum EEdGraphPinDirection
 	EGPD_MAX,
 };
 
-/** Enum to indicate what sort of title we want */
+/** Enum to indicate what sort of title we want. */
 UENUM()
 namespace ENodeTitleType
 {
 	enum Type
 	{
-		// The full title, may be multiple lines
+		/** The full title, may be multiple lines. */
 		FullTitle,
-		// More concise, single line title
+		/** More concise, single line title. */
 		ListView,
-		// Returns the editable title (which might not be a title at all)
+		/** Returns the editable title (which might not be a title at all). */
 		EditableTitle,
-		// Menu Title for context menus to be displayed in context menus referencing the node
+		/** Menu Title for context menus to be displayed in context menus referencing the node. */
 		MenuTitle,
 
 		MAX_TitleTypes,
 	};
 }
 
-/** Enum to indicate if a node has advanced-display-pins, and if they are shown */
+/** Enum to indicate if a node has advanced-display-pins, and whether they are shown. */
 UENUM()
 namespace ENodeAdvancedPins
 {
 	enum Type
 	{
-		// No advanced pins
+		/** No advanced pins. */
 		NoPins,
-		// There are some advanced pins, and they are shown
+		/** There are some advanced pins, and they are shown. */
 		Shown,
-		// There are some advanced pins, and they are hidden
+		/** There are some advanced pins, and they are hidden. */
 		Hidden
 	};
 }
 
-/** Holds metadata keys, so as to discourage text duplication throughout the engine */
+/** Enum to indicate a node's enabled state. */
+UENUM()
+enum class ENodeEnabledState : uint8
+{
+	/** Node is enabled. */
+	Enabled,
+	/** Node is disabled. */
+	Disabled,
+	/** Node is enabled for development only. */
+	DevelopmentOnly
+};
+
+/** Holds metadata keys, so as to discourage text duplication throughout the engine. */
 struct ENGINE_API FNodeMetadata
 {
-	/** Identifies nodes that are defaultly added to populate new graphs (helps determine if a graph has any user placed nodes) */
+	/** Identifies nodes that are added to populate new graphs by default (helps determine if a graph has any user-placed nodes). */
 	static const FName DefaultGraphNode;
 private: 
 	FNodeMetadata() {}
 };
 
-// This is the context for a GetContextMenuActions call into a specific node
+/** This is the context for a GetContextMenuActions call into a specific node. */
 struct FGraphNodeContextMenuBuilder
 {
-	// The blueprint associated with this context; may be NULL for non-Kismet related graphs.
+	/** The blueprint associated with this context; may be NULL for non-Kismet related graphs. */
 	const UBlueprint* Blueprint;
-	// The graph associated with this context.
+	/** The graph associated with this context. */
 	const UEdGraph* Graph;
-	// The node associated with this context.
+	/** The node associated with this context. */
 	const UEdGraphNode* Node;
-	// The pin associated with this context; may be NULL when over a node.
+	/** The pin associated with this context; may be NULL when over a node. */
 	const UEdGraphPin* Pin;
-	// The menu builder to append actions to.
+	/** The menu builder to append actions to. */
 	class FMenuBuilder* MenuBuilder;
-	// Whether the graph editor is currently part of a debugging session (any non-debugging commands should be disabled).
+	/** Whether the graph editor is currently part of a debugging session (any non-debugging commands should be disabled). */
 	bool bIsDebugging;
 
 	FGraphNodeContextMenuBuilder(const UEdGraph* InGraph, const UEdGraphNode* InNode, const UEdGraphPin* InPin, class FMenuBuilder* InMenuBuilder, bool bInDebuggingMode);
@@ -151,9 +164,42 @@ class ENGINE_API UEdGraphNode : public UObject
 	UPROPERTY()
 	TEnumAsByte<ENodeAdvancedPins::Type> AdvancedPinDisplay;
 
-	/** FALSE if the node is a disabled, which eliminates it from being compiled */
+	/** Indicates in what state the node is enabled, which may eliminate it from being compiled */
 	UPROPERTY()
-	bool bIsNodeEnabled;
+	ENodeEnabledState EnabledState;
+
+	/** Indicates whether or not the user explicitly set the enabled state */
+	UPROPERTY()
+	bool bUserSetEnabledState;
+
+private:
+	/** (DEPRECATED) FALSE if the node is a disabled, which eliminates it from being compiled */
+	UPROPERTY()
+	bool bIsNodeEnabled_DEPRECATED;
+
+public:
+	/** Enables this node. */
+	FORCEINLINE void EnableNode()
+	{
+		bUserSetEnabledState = false;
+		EnabledState = ENodeEnabledState::Enabled;
+	}
+
+	/** Disables this node. */
+	FORCEINLINE void DisableNode()
+	{
+		bUserSetEnabledState = false;
+		EnabledState = ENodeEnabledState::Disabled;
+	}
+
+	/** Determines whether or not the node is enabled. */
+	FORCEINLINE bool IsNodeEnabled() const
+	{
+		return (EnabledState == ENodeEnabledState::Enabled) || (EnabledState == ENodeEnabledState::DevelopmentOnly && IsInDevelopmentMode());
+	}
+
+	/** Determines whether or not the node will compile in development mode. */
+	virtual bool IsInDevelopmentMode() const;
 
 #if WITH_EDITOR
 
@@ -163,14 +209,19 @@ private:
 public:
 	// UObject interface
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	// End of UObject interface
 
-	/** widget representing this node if exists */
-	TWeakPtr<SGraphNode> NodeWidget;
+	/** widget representing this node if it exists; Note: This is not safe to use in general and will be removed in the future, as there is no guarantee that only one graph editor/panel is viewing a given graph */
+	TWeakPtr<SGraphNode> DEPRECATED_NodeWidget;
 
 	/** Create a new pin on this node using the supplied info, and return the new pin */
 	UEdGraphPin* CreatePin(EEdGraphPinDirection Dir, const FString& PinCategory, const FString& PinSubCategory, UObject* PinSubCategoryObject, bool bIsArray, bool bIsReference, const FString& PinName, bool bIsConst = false, int32 Index = INDEX_NONE);
+
+	/** Create a new pin on this node using the supplied pin type, and return the new pin */
+	UEdGraphPin* CreatePin(EEdGraphPinDirection Dir, const FEdGraphPinType& InPinType, const FString& PinName, int32 Index = INDEX_NONE);
 
 	// Allocates a pin from the pool
 	static UEdGraphPin* AllocatePinFromPool(UEdGraphNode* OuterNode);
@@ -285,6 +336,9 @@ public:
 
 	/** Gets the name of this node, shown in title bar */
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const;
+
+	/** Gets the search string to find references to this node */
+	virtual FString GetFindReferenceSearchString() const;
 
 	/** 
 	 * Gets the draw color of a node's title bar
@@ -411,6 +465,9 @@ public:
 	// called to replace this nodes comment text
 	virtual void OnUpdateCommentText( const FString& NewComment );
 
+	// called when the node's comment bubble is toggled
+	virtual void OnCommentBubbleToggled( bool bInCommentBubbleVisible ) {}
+
 	/** Return whether to draw this node as a comment node */
 	virtual bool ShouldDrawNodeAsComment() const { return false; }
 
@@ -429,6 +486,13 @@ public:
 
 	/** Return the matching "pass-through" pin for the given pin (if supported by this node) */
 	virtual UEdGraphPin* GetPassThroughPin(const UEdGraphPin* FromPin) const { return nullptr; }
+
+	/** If the node has a subgraph, should they be merged into the main graph? */
+	virtual bool ShouldMergeChildGraphs() const { return true; }
+
+	/** Create a visual widget to represent this node in a graph editor or graph panel.  If not implemented, the default node factory will be used. */
+	virtual TSharedPtr<SGraphNode> CreateVisualWidget() { return TSharedPtr<SGraphNode>(); }
+
 #endif // WITH_EDITOR
 
 };

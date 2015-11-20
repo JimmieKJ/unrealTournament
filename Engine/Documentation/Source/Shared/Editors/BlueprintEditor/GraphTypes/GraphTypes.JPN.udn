@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2308695
+﻿INTSourceChangelist:2573165
 Availability:NoPublish
 Title:ブループリントのグラフ タイプ
 Crumbs:
@@ -75,7 +75,7 @@ Engine/Blueprints/UserGuide/Variables
 [/EXCERPT:Variable]
 
 [EXCERPT:Event]
-イベントは何らかのアクションに反応してイベントグラフで実行を開始するノードです。これは押下されるキーやオーバーラップされているトリガーであるかもしれません。
+イベントは何らかのアクションに反応してイベントグラフで実行を開始するノードです。これはキーの押下やオーバーラップされるトリガーであるかもしれません。
 
 [/EXCERPT:Event]
 

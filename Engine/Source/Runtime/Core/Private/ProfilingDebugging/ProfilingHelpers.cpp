@@ -20,7 +20,7 @@ FGetMapNameDelegate GGetMapNameDelegate;
 
 /**
  * This will get the changelist that should be used with the Automated Performance Testing
- * If one is passed in we use that otherwise we use the GEngineVersion.GetChangelist().  This allows
+ * If one is passed in we use that otherwise we use the FEngineVersion::Current().GetChangelist().  This allows
  * us to have build machine built .exe and test them. 
  *
  * NOTE: had to use AutomatedBenchmarking as the parsing code is flawed and doesn't match
@@ -28,7 +28,7 @@ FGetMapNameDelegate GGetMapNameDelegate;
  **/
 int32 GetChangeListNumberForPerfTesting()
 {
-	int32 Retval = GEngineVersion.GetChangelist();
+	int32 Retval = FEngineVersion::Current().GetChangelist();
 
 	// if we have passed in the changelist to use then use it
 	int32 FromCommandLine = 0;

@@ -10,13 +10,13 @@ namespace ESpriteCollisionMode
 {
 	enum Type
 	{
-		// Should this have no collison and not participate in physics?
+		/** Should this have no collison and not participate in physics? */
 		None,
 
-		// EXPERIMENTAL: Should this have 2D collision geometry and participate in the 2D physics world?
+		/** EXPERIMENTAL: Should this have 2D collision geometry and participate in the 2D physics world? */
 		Use2DPhysics UMETA(DisplayName = "Use 2D Physics"),
 
-		// Should this have 3D collision geometry and participate in the 3D physics world?
+		/** Should this have 3D collision geometry and participate in the 3D physics world? */
 		Use3DPhysics UMETA(DisplayName = "Use 3D Physics")
 	};
 }
@@ -25,13 +25,13 @@ namespace ESpriteCollisionMode
 UENUM()
 enum class ESpriteShapeType : uint8
 {
-	// Box/Rectangular prism (size defined by BoxSize)
+	/** Box/Rectangular prism (size defined by BoxSize) */
 	Box,
 
-	// Circle/Sphere (major axis is defined by BoxSize.X, minor axis by BoxSize.Y)
+	/** Circle/Sphere (major axis is defined by BoxSize.X, minor axis by BoxSize.Y) */
 	Circle,
 
-	// Custom closed polygon
+	/** Custom closed polygon */
 	Polygon
 };
 
@@ -143,19 +143,19 @@ namespace ESpritePolygonMode
 {
 	enum Type
 	{
-		// Use the bounding box of the source sprite (no optimization)
+		/** Use the bounding box of the source sprite (no optimization) */
 		SourceBoundingBox,
 
-		// Tighten the bounding box around the sprite to exclude fully transparent areas (the default)
+		/** Tighten the bounding box around the sprite to exclude fully transparent areas (the default) */
 		TightBoundingBox,
 
-		// Shrink-wrapped geometry
+		/** Shrink-wrapped geometry */
 		ShrinkWrapped,
 
-		// Fully custom geometry; edited by hand
+		/** Fully custom geometry; edited by hand */
 		FullyCustom,
 
-		// Diced (split up into smaller squares, including only non-empty ones in the final geometry).  This option is only supported for Render geometry and will be ignored for Collision geometry.
+		/** Diced (split up into smaller squares, including only non-empty ones in the final geometry).  This option is only supported for Render geometry and will be ignored for Collision geometry. */
 		Diced
 	};
 }

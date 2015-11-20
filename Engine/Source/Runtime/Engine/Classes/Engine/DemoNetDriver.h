@@ -2,13 +2,34 @@
 
 #pragma once
 
-#include "Runtime/Online/HTTP/Public/Interfaces/IHttpRequest.h"
-#include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
+#include "NetDriver.h"
+#include "NetworkReplayStreaming.h"
 #include "DemoNetDriver.generated.h"
 
 DECLARE_LOG_CATEGORY_EXTERN( LogDemo, Log, All );
 
-DECLARE_DELEGATE_OneParam(FOnGotoTimeDelegate, const bool);
+DECLARE_MULTICAST_DELEGATE(FOnGotoTimeMCDelegate);
+DECLARE_DELEGATE_OneParam(FOnGotoTimeDelegate, const bool /* bWasSuccessful */);
+
+class UDemoNetDriver;
+
+class FQueuedReplayTask
+{
+public:
+	FQueuedReplayTask( UDemoNetDriver* InDriver ) : Driver( InDriver )
+	{
+	}
+
+	virtual ~FQueuedReplayTask()
+	{
+	}
+
+	virtual void	StartTask() = 0;
+	virtual bool	Tick() = 0;
+	virtual FString	GetName() = 0;
+
+	UDemoNetDriver* Driver;
+};
 
 /**
  * Simulated network driver for recording and playing back game sessions.
@@ -51,9 +72,6 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	/** This is our spectator controller that is used to view the demo world from */
 	APlayerController* SpectatorController;
 
-	UPROPERTY(config)
-	FString DemoSpectatorClass;
-
 	/** Our network replay streamer */
 	TSharedPtr< class INetworkReplayStreamer >	ReplayStreamer;
 
@@ -64,33 +82,32 @@ class ENGINE_API UDemoNetDriver : public UNetDriver
 	double		LastRecordAvgFlush;
 	double		MaxRecordTime;
 	int32		RecordCountSinceFlush;
-	float		TimeToSkip;
-	float		QueuedGotoTimeInSeconds;
-	uint32		InitialLiveDemoTime;
-	double		InitialLiveDemoTimeRealtime;
 
 	bool		bSavingCheckpoint;
 	double		LastCheckpointTime;
 
 	void		SaveCheckpoint();
 
-	FArchive*	GotoCheckpointArchive;
-	int64		GotoCheckpointSkipExtraTimeInMS;
+	void		LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 GotoCheckpointSkipExtraTimeInMS );
 
-	void		LoadCheckpoint();
+	/** Public delegate for external systems to be notified when scrubbing is complete. Only called for successful scrub. */
+	FOnGotoTimeMCDelegate OnGotoTimeDelegate;
 
 private:
 	bool		bIsFastForwarding;
-	bool		bIsLoadingCheckpoint;
+	bool		bIsFastForwardingForCheckpoint;
 	bool		bWasStartStreamingSuccessful;
 
 	TArray<FNetworkGUID> NonQueuedGUIDsForScrubbing;
 
-	// If a channel is associated with Actor, adds the channel's GUID to the list of GUIDs excluded from queuing bunches during scrubbing.
-	void		AddNonQueuedActorForScrubbing(AActor* Actor);
+	// Replay tasks
+	TArray< TSharedPtr< FQueuedReplayTask > >	QueuedReplayTasks;
+	TSharedPtr< FQueuedReplayTask >				ActiveReplayTask;
+	TSharedPtr< FQueuedReplayTask >				ActiveScrubReplayTask;
 
-	FOnGotoTimeDelegate OnGotoTimeDelegate;
-
+	/** Set via GotoTimeInSeconds, only fired once (at most). Called for successful or failed scrub. */
+	FOnGotoTimeDelegate OnGotoTimeDelegate_Transient;
+	
 public:
 
 	// UNetDriver interface.
@@ -104,12 +121,24 @@ public:
 	virtual void ProcessRemoteFunction( class AActor* Actor, class UFunction* Function, void* Parameters, struct FOutParmRec* OutParms, struct FFrame* Stack, class UObject* SubObject = nullptr ) override;
 	virtual bool IsAvailable() const override { return true; }
 	void SkipTime(const float InTimeToSkip);
-	bool InitConnectInternal( FString& Error );
+	void SkipTimeInternal( const float SecondsToSkip, const bool InFastForward, const bool InIsForCheckpoint );
+	bool InitConnectInternal(FString& Error);
 	virtual bool ShouldClientDestroyTearOffActors() const override;
 	virtual bool ShouldSkipRepNotifies() const override;
 	virtual bool ShouldQueueBunchesForActorGUID(FNetworkGUID InGUID) const override;
+	virtual FNetworkGUID GetGUIDForActor(const AActor* InActor) const override;
+	virtual AActor* GetActorForGUID(FNetworkGUID InGUID) const override;
 
+	/** 
+	 * Scrubs playback to the given time. 
+	 * 
+	 * @param TimeInSeconds
+	 * @param InOnGotoTimeDelegate		Delegate to call when finished. Will be called only once at most.
+	*/
 	void GotoTimeInSeconds(const float TimeInSeconds, const FOnGotoTimeDelegate& InOnGotoTimeDelegate = FOnGotoTimeDelegate());
+
+	bool IsRecording();
+	bool IsPlaying();
 
 public:
 
@@ -133,13 +162,14 @@ public:
 	bool ConditionallyReadDemoFrame();
 	bool ReadDemoFrame( FArchive* Archive );
 	void TickDemoPlayback( float DeltaSeconds );
-	void SpawnDemoRecSpectator( UNetConnection* Connection );
+	void FinalizeFastForward( const float StartTime );
+	void SpawnDemoRecSpectator( UNetConnection* Connection, const FURL& ListenURL );
 	void ResetDemoState();
 	void JumpToEndOfLiveReplay();
-	virtual bool IsFastForwarding() { return bIsFastForwarding; }
 	void AddEvent(const FString& Group, const FString& Meta, const TArray<uint8>& Data);
 	void EnumerateEvents(const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate);
 	void RequestEventData(const FString& EventID, FOnRequestEventDataComplete& RequestEventDataCompleteDelegate);
+	virtual bool IsFastForwarding() { return bIsFastForwarding; }
 
 	/**
 	 * Adds a join-in-progress user to the set of users associated with the currently recording replay (if any)
@@ -151,15 +181,30 @@ public:
 	void StopDemo();
 
 	void ReplayStreamingReady( bool bSuccess, bool bRecord );
-	void CheckpointReady( const bool bSuccess, const int64 SkipExtraTimeInMS );
+
+	void AddReplayTask( FQueuedReplayTask* NewTask );
+	bool IsAnyTaskPending();
+	void ClearReplayTasks();
+	bool ProcessReplayTasks();
+	bool IsNamedTaskInQueue( const FString& Name );
+
+	/** If a channel is associated with Actor, adds the channel's GUID to the list of GUIDs excluded from queuing bunches during scrubbing. */
+	void AddNonQueuedActorForScrubbing(AActor const* Actor);
+	/** Adds the channel's GUID to the list of GUIDs excluded from queuing bunches during scrubbing. */
+	void AddNonQueuedGUIDForScrubbing(FNetworkGUID InGUID);
+
+	virtual bool IsLevelInitializedForActor( const AActor* InActor, const UNetConnection* InConnection ) const override;
+
+	/** Called when a "go to time" operation is completed. */
+	void NotifyGotoTimeFinished(bool bWasSuccessful);
 
 protected:
 	/** allows subclasses to write game specific data to demo header which is then handled by ProcessGameSpecificDemoHeader */
 	virtual void WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData)
 	{}
 	/** allows subclasses to read game specific data from demo
-	 * return false to cancel playback
-	 */
+	* return false to cancel playback
+	*/
 	virtual bool ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error)
 	{
 		return true;

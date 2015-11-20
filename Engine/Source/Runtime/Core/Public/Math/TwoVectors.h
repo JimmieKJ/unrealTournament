@@ -217,6 +217,12 @@ public:
 	{
 		return Ar << TwoVectors.v1 << TwoVectors.v2;
 	}
+
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
+	}
 };
 
 
@@ -424,3 +430,5 @@ FORCEINLINE FString FTwoVectors::ToString() const
 {
 	return FString::Printf(TEXT("V1=(%s) V2=(%s)"), *v1.ToString(), *v2.ToString());
 }
+
+template <> struct TIsPODType<FTwoVectors> { enum { Value = true }; };

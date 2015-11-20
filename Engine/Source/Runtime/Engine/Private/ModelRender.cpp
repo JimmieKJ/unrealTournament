@@ -138,6 +138,9 @@ void UModelComponent::BuildRenderData()
 		}
 
 		IndexBuffer->Indices.Shrink();
+#if !DISALLOW_32BIT_INDICES
+		IndexBuffer->ComputeIndexWidth();
+#endif
 	}
 }
 
@@ -153,7 +156,10 @@ public:
 		Component(InComponent),
 		CollisionResponse(InComponent->GetCollisionResponseToChannels())
 #if WITH_EDITOR
-		, CollisionMaterialInstance(GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(false, false),FColor(157,149,223,255)	)
+		, CollisionMaterialInstance(GEngine->ShadedLevelColorationUnlitMaterial
+			? GEngine->ShadedLevelColorationUnlitMaterial->GetRenderProxy(false, false)
+			: nullptr,
+			FColor(157,149,223,255))
 #endif
 	{
 		OverrideOwnerName(NAME_BSP);
@@ -436,7 +442,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View) && View->Family->EngineShowFlags.BSPTriangles && View->Family->EngineShowFlags.BSP;

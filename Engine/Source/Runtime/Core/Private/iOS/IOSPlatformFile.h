@@ -30,15 +30,21 @@ public:
 	virtual FDateTime GetAccessTimeStamp(const TCHAR* Filename) override;
 	virtual FString GetFilenameOnDisk(const TCHAR* Filename) override;
 
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override;
+
 	virtual IFileHandle* OpenRead(const TCHAR* Filename, bool bAllowWrite = false) override;
 	virtual IFileHandle* OpenWrite(const TCHAR* Filename, bool bAppend = false, bool bAllowRead = false) override;
 
 	virtual bool DirectoryExists(const TCHAR* Directory) override;
 	virtual bool CreateDirectory(const TCHAR* Directory) override;
 	virtual bool DeleteDirectory(const TCHAR* Directory) override;
-	bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor);
+
+	virtual bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor) override;
+	virtual bool IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor) override;
 
 private:
+	bool IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct dirent*)>& Visitor);
+
 	FString ConvertToIOSPath(const FString& Filename, bool bForWrite);
 
 	FString ReadDirectory;

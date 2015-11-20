@@ -55,13 +55,8 @@ public:
 	{
 		if (Singleton)
 		{
-			((FHTML5TargetPlatform*)Singleton)->RefreshAvailableDevices();
+			((FHTML5TargetPlatform*)Singleton)->RefreshHTML5Setup();
 		}
-	}
-
-	virtual void GetInstalledSDKVersions(const TCHAR* SDKDirectory, TArray<FHTML5SDKVersionNumber>& OutSDKs) override
-	{
-		FHTML5TargetPlatform::GetInstalledSDKVersions(SDKDirectory, OutSDKs);
 	}
 
 public:

@@ -33,3 +33,15 @@ void UAnimComposite::OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context,
 
 	ExtractRootMotionFromTrack(AnimationTrack, PreviousTime, PreviousTime + MoveDelta, Context.RootMotionMovementParams);
 }
+
+void UAnimComposite::GetAnimationPose(FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const
+{
+	AnimationTrack.GetAnimationPose(OutPose, OutCurve, ExtractionContext);
+
+	FBlendedCurve CompositeCurve;
+	CompositeCurve.InitFrom(OutCurve);
+	EvaluateCurveData(CompositeCurve, ExtractionContext.CurrentTime);
+
+	// combine both curve
+	OutCurve.Combine(CompositeCurve);
+}

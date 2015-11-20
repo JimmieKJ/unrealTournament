@@ -3,7 +3,7 @@
 #pragma once
 
 #include "DesignerExtension.h"
-#include "Slate/Anchors.h"
+#include "Layout/Anchors.h"
 
 class UCanvasPanel;
 class UCanvasPanelSlot;

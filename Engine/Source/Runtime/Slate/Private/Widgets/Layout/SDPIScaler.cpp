@@ -6,6 +6,8 @@
 SDPIScaler::SDPIScaler()
 : ChildSlot()
 {
+	bCanTick = false;
+	bCanSupportFocus = false;
 }
 
 void SDPIScaler::Construct( const FArguments& InArgs )

@@ -8,10 +8,11 @@
 #include "PackUniformBuffers.h"
 #include "IRDump.h"
 #include "ast.h"
+#include "LanguageSpec.h"
 //@todo-rco: Remove STL!
 #include <algorithm>
 #include <sstream>
-
+#include <stack>
 #include <vector>
 typedef TArray<ir_variable*> TIRVarVector;
 
@@ -586,7 +587,7 @@ done:
 	return;
 }
 
-static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, SPackedUniformsInfo& PUInfo, bool bFlattenStructure, bool bGroupFlattenedUBs, TVarVarMap& OutUniformMap)
+static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_glsl_parse_state* ParseState, const TIRVarVector& UniformVariables, SPackedUniformsInfo& PUInfo, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, TVarVarMap& OutUniformMap)
 {
 	// First organize all uniforms by location (CB or Global) and Precision
 	int UniformIndex = 0;
@@ -615,12 +616,12 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 	std::map<std::string, int> CBIndices;
 	int CBIndex = 0;
 	CBIndices[""] = -1;
-	for (auto Iter = ParseState->CBuffersOriginal.begin(); Iter != ParseState->CBuffersOriginal.end(); ++Iter)
+	for (auto& Current : ParseState->CBuffersOriginal)
 	{
-		auto IterFound = OrganizedVars.find(Iter->Name);
+		auto IterFound = OrganizedVars.find(Current.Name);
 		if (IterFound != OrganizedVars.end())
 		{
-			CBIndices[Iter->Name] = CBIndex;
+			CBIndices[Current.Name] = CBIndex;
 			++CBIndex;
 		}
 	}
@@ -778,6 +779,35 @@ static int ProcessPackedUniformArrays(exec_list* Instructions, void* ctx, _mesa_
 				NumElements = (NumElements + 3) & ~3;
 				UniformArrayVar->type = glsl_type::get_array_instance(UniformArrayVar->type->fields.array, NumElements / 4);
 			}
+		}
+	}
+
+	if (bPackGlobalArraysIntoUniformBuffers)
+	{
+		for (auto& Pair : UniformArrayVarMap)
+		{
+			auto* Var = Pair.second;
+
+			glsl_uniform_block* block = glsl_uniform_block::alloc(ParseState, 1);
+			block->name = ralloc_asprintf(ParseState, "HLSLCC_CB%c", Var->name[3]);
+			block->vars[0] = Var;
+
+			SCBuffer CBuffer;
+			CBuffer.Name = block->name;
+			CBuffer.AddMember(Var->type, Var);
+
+			const glsl_uniform_block** blocks = reralloc(ParseState, ParseState->uniform_blocks,
+				const glsl_uniform_block *,
+				ParseState->num_uniform_blocks + 1);
+			if (blocks != NULL)
+			{
+				blocks[ParseState->num_uniform_blocks] = block;
+				ParseState->uniform_blocks = blocks;
+				ParseState->num_uniform_blocks++;
+			}
+			Var->remove();
+			Var->semantic = ralloc_strdup(ParseState, CBuffer.Name.c_str());
+			ParseState->CBuffersOriginal.push_back(CBuffer);
 		}
 	}
 
@@ -1176,7 +1206,7 @@ namespace DebugPackUniforms
 * @param Instructions - The IR for which to pack uniforms.
 * @param ParseState - Parse state.
 */
-void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, TVarVarMap& OutUniformMap)
+void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, TVarVarMap& OutUniformMap)
 {
 	//IRDump(Instructions);
 	void* ctx = ParseState;
@@ -1190,7 +1220,7 @@ void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, b
 	if (MainSig && UniformVariables.Num())
 	{
 		std::sort(UniformVariables.begin(), UniformVariables.end(), SSortUniformsPredicate());
-		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, PUInfo, bFlattenStructure, bGroupFlattenedUBs, OutUniformMap);
+		int UniformIndex = ProcessPackedUniformArrays(Instructions, ctx, ParseState, UniformVariables, PUInfo, bFlattenStructure, bGroupFlattenedUBs, bPackGlobalArraysIntoUniformBuffers, OutUniformMap);
 		if (UniformIndex == -1)
 		{
 			goto done;
@@ -1332,12 +1362,12 @@ bool ExpandArrayAssignments(exec_list* ir, _mesa_glsl_parse_state* State)
 }
 
 
-struct SSamplerNameVisitor : public ir_rvalue_visitor
+struct FSamplerNameVisitor : public ir_rvalue_visitor
 {
 	TStringToSetMap SamplerToTextureMap;
 	TStringToSetMap& TextureToSamplerMap;
 
-	SSamplerNameVisitor(TStringToSetMap& InTextureToSamplerMap) :
+	FSamplerNameVisitor(TStringToSetMap& InTextureToSamplerMap) :
 		TextureToSamplerMap(InTextureToSamplerMap)
 	{
 	}
@@ -1377,18 +1407,21 @@ struct SSamplerNameVisitor : public ir_rvalue_visitor
 bool ExtractSamplerStatesNameInformation(exec_list* Instructions, _mesa_glsl_parse_state* ParseState)
 {
 	//IRDump(Instructions);
-	SSamplerNameVisitor SamplerNameVisitor(ParseState->TextureToSamplerMap);
+	FSamplerNameVisitor SamplerNameVisitor(ParseState->TextureToSamplerMap);
 	SamplerNameVisitor.run(Instructions);
 
 	bool bFail = false;
-	for (TStringToSetMap::iterator Iter = SamplerNameVisitor.SamplerToTextureMap.begin(); Iter != SamplerNameVisitor.SamplerToTextureMap.end(); ++Iter)
+	if (!ParseState->LanguageSpec->AllowsSharingSamplers())
 	{
-		const std::string& SamplerName = Iter->first;
-		const TStringSet& Textures = Iter->second;
-		if (Textures.size() > 1)
+		for (auto& Pair : SamplerNameVisitor.SamplerToTextureMap)
 		{
-			_mesa_glsl_error(ParseState, "Sampler '%s' can't be used with more than one texture.\n", SamplerName.c_str());
-			bFail = true;
+			const std::string& SamplerName = Pair.first;
+			const TStringSet& Textures = Pair.second;
+			if (Textures.size() > 1)
+			{
+				_mesa_glsl_error(ParseState, "Sampler '%s' can't be used with more than one texture.\n", SamplerName.c_str());
+				bFail = true;
+			}
 		}
 	}
 
@@ -1616,4 +1649,234 @@ bool ExpandMatricesIntoArrays(exec_list* Instructions, _mesa_glsl_parse_state* P
 	FixDereferencesVisitor.run(Instructions);
 
 	return true;
+}
+
+
+struct FFindAtomicVariables : public ir_hierarchical_visitor
+{
+	TIRVarSet& AtomicVariables;
+	FFindAtomicVariables(TIRVarSet& InAtomicVariables) :
+		AtomicVariables(InAtomicVariables)
+	{
+	}
+
+	virtual ir_visitor_status visit_enter(ir_atomic* ir) override
+	{
+		auto* Var = ir->memory_ref->variable_referenced();
+		check(Var);
+		AtomicVariables.insert(Var);
+		return visit_continue_with_parent;
+	}
+};
+
+void FindAtomicVariables(exec_list* ir, TIRVarSet& OutAtomicVariables)
+{
+	FFindAtomicVariables FindVisitor(OutAtomicVariables);
+	FindVisitor.run(ir);
+}
+
+struct FFixAtomicVariables : public ir_rvalue_visitor
+{
+	_mesa_glsl_parse_state* State;
+	TIRVarSet& AtomicVariables;
+	FFixAtomicVariables(_mesa_glsl_parse_state* InState, TIRVarSet& InAtomicVariables) :
+		State(InState),
+		AtomicVariables(InAtomicVariables)
+	{
+	}
+
+	virtual void handle_rvalue(ir_rvalue** RValuePtr) override
+	{
+		if (!RValuePtr || !*RValuePtr)
+		{
+			return;
+		}
+
+		if ((*RValuePtr)->as_atomic())
+		{
+			return;
+		}
+
+		auto* DeRefVar = (*RValuePtr)->as_dereference_variable();
+		auto* DeRefArray = (*RValuePtr)->as_dereference_array();
+		if (DeRefVar)
+		{
+			auto* Var = DeRefVar->var;
+			if ((Var->mode == ir_var_shared || Var->mode == ir_var_uniform) && AtomicVariables.find(Var) != AtomicVariables.end())
+			{
+				check(!in_assignee);
+				if (State->LanguageSpec->NeedsAtomicLoadStore())
+				{
+					auto* NewVar = new(State)ir_variable(Var->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State)ir_atomic(ir_atomic_load, new(State) ir_dereference_variable(NewVar), DeRefVar, nullptr, nullptr);
+					base_ir->insert_before(NewVar);
+					base_ir->insert_before(NewAtomic);
+					*RValuePtr = new(State)ir_dereference_variable(NewVar);
+				}
+				else
+				{
+					//#todo-rco: This code path is broken!
+					auto* DummyVar = new(State)ir_variable(Var->type, nullptr, ir_var_temporary);
+					auto* NewVar = new(State)ir_variable(Var->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State)ir_atomic(ir_atomic_swap, new(State)ir_dereference_variable(DummyVar), DeRefVar, new(State)ir_dereference_variable(NewVar), nullptr);
+					base_ir->insert_before(DummyVar);
+					base_ir->insert_before(NewVar);
+					base_ir->insert_before(NewAtomic);
+					*RValuePtr = new(State)ir_dereference_variable(NewVar);
+				}
+			}
+		}
+		else if (DeRefArray)
+		{
+			auto* Var = DeRefArray->array->variable_referenced();
+			if ((Var->mode == ir_var_shared || Var->mode == ir_var_uniform) && AtomicVariables.find(Var) != AtomicVariables.end())
+			{
+				check(!in_assignee);
+				if (State->LanguageSpec->NeedsAtomicLoadStore())
+				{
+					auto* NewVar = new(State) ir_variable(DeRefArray->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State)ir_atomic(ir_atomic_load, new(State)ir_dereference_variable(NewVar), DeRefArray, nullptr, nullptr);
+					base_ir->insert_before(NewVar);
+					base_ir->insert_before(NewAtomic);
+					*RValuePtr = new(State)ir_dereference_variable(NewVar);
+				}
+				else
+				{
+					//#todo-rco: This code path is broken!
+					auto* DummyVar = new(State)ir_variable(DeRefArray->type, nullptr, ir_var_temporary);
+					auto* NewVar = new(State)ir_variable(DeRefArray->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State)ir_atomic(ir_atomic_swap, new(State)ir_dereference_variable(DummyVar), DeRefArray, new(State)ir_dereference_variable(NewVar), nullptr);
+					base_ir->insert_before(DummyVar);
+					base_ir->insert_before(NewVar);
+					base_ir->insert_before(NewAtomic);
+					*RValuePtr = new(State)ir_dereference_variable(NewVar);
+				}
+			}
+		}
+	}
+
+	ir_visitor_status visit_leave(ir_dereference_array* ir) override
+	{
+		/* The array index is not the target of the assignment, so clear the
+		* 'in_assignee' flag.  Restore it after returning from the array index.
+		*/
+		const bool was_in_assignee = this->in_assignee;
+		this->in_assignee = false;
+		handle_rvalue(&ir->array_index);
+		this->in_assignee = was_in_assignee;
+
+		auto* Var = ir->array->variable_referenced();
+		if ((Var->mode == ir_var_shared || Var->mode == ir_var_uniform) && AtomicVariables.find(Var) != AtomicVariables.end())
+		{
+			return visit_continue;
+		}
+
+		handle_rvalue(&ir->array);
+		return visit_continue;
+	}
+/*
+	virtual ir_visitor_status visit_enter(ir_atomic* ir) override
+	{
+		auto* Var = ir->lhs->variable_referenced();
+		if (Var && Var->type && Var->type->sampler_buffer)
+		{
+			__debugbreak();
+		}
+		return visit_continue_with_parent;
+	}
+*/
+	virtual ir_visitor_status visit_enter(ir_assignment* ir) override
+	{
+		//if (ir->id == 50456)
+		//{
+		//	__debugbreak();
+		//}
+		auto* LHSVar = ir->lhs->variable_referenced();
+		if ((LHSVar->mode == ir_var_shared || LHSVar->mode == ir_var_uniform) && AtomicVariables.find(LHSVar) != AtomicVariables.end())
+		{
+			auto* DeRefVar = ir->lhs->as_dereference_variable();
+			auto* DeRefArray = ir->lhs->as_dereference_array();
+			auto* DeRefImage = ir->lhs->as_dereference_image();
+			//#todo-rco: Atomic Store instead of swap
+			if (DeRefImage)
+			{
+				check(ir == base_ir);
+				auto* DummyVar = new(State) ir_variable(LHSVar->type->inner_type, nullptr, ir_var_temporary);
+				auto* NewAtomic = new(State) ir_atomic(ir_atomic_swap, new(State) ir_dereference_variable(DummyVar), DeRefImage, ir->rhs, nullptr);
+				base_ir->insert_before(DummyVar);
+				base_ir->insert_before(NewAtomic);
+				ir->remove();
+			}
+			else if (DeRefArray)
+			{
+				check(ir == base_ir);
+				if (State->LanguageSpec->NeedsAtomicLoadStore())
+				{
+					auto* NewAtomic = new(State)ir_atomic(ir_atomic_store, nullptr, DeRefArray, ir->rhs, nullptr);
+					base_ir->insert_before(NewAtomic);
+				}
+				else
+				{
+					auto* DummyVar = new(State) ir_variable(LHSVar->type->element_type(), nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State) ir_atomic(ir_atomic_swap, new(State) ir_dereference_variable(DummyVar), DeRefArray, ir->rhs, nullptr);
+					base_ir->insert_before(DummyVar);
+					base_ir->insert_before(NewAtomic);
+				}
+				ir->remove();
+			}
+			else if (DeRefVar)
+			{
+				check(ir == base_ir);
+				if (State->LanguageSpec->NeedsAtomicLoadStore())
+				{
+					auto* NewAtomic = new(State) ir_atomic(ir_atomic_store, nullptr, DeRefVar, ir->rhs, nullptr);
+					base_ir->insert_before(NewAtomic);
+				}
+				else
+				{
+					//#todo-rco: This code path is probably broken!
+					auto* DummyVar = new(State)ir_variable(LHSVar->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State)ir_atomic(ir_atomic_swap, new(State)ir_dereference_variable(DummyVar), DeRefVar, ir->rhs, nullptr);
+					base_ir->insert_before(DummyVar);
+					base_ir->insert_before(NewAtomic);
+				}
+				ir->remove();
+			}
+		}
+		else
+		{
+			auto* RHSVar = ir->rhs->variable_referenced();
+			if (RHSVar && (RHSVar->mode == ir_var_shared || RHSVar->mode == ir_var_uniform) && AtomicVariables.find(RHSVar) != AtomicVariables.end())
+			{
+				auto* DeRefVar = ir->rhs->as_dereference_variable();
+				if (DeRefVar)
+				{
+					check(ir == base_ir);
+					auto* DummyVar = new(State) ir_variable(RHSVar->type, nullptr, ir_var_temporary);
+					auto* ResultVar = new(State)ir_variable(RHSVar->type, nullptr, ir_var_temporary);
+					auto* NewAtomic = new(State) ir_atomic(ir_atomic_swap, new(State) ir_dereference_variable(DummyVar), DeRefVar, new(State) ir_dereference_variable(ResultVar), nullptr);
+					base_ir->insert_before(ResultVar);
+					base_ir->insert_before(DummyVar);
+					base_ir->insert_before(NewAtomic);
+					ir->rhs = new(State) ir_dereference_variable(ResultVar);
+					return visit_continue_with_parent;
+				}
+			}
+		}
+
+		ir->rhs->accept(this);
+
+		return visit_continue_with_parent;
+	}
+};
+
+void FixAtomicReferences(exec_list* ir, _mesa_glsl_parse_state* State, TIRVarSet& AtomicVariables)
+{
+	if (AtomicVariables.empty())
+	{
+		return;
+	}
+
+	FFixAtomicVariables FixVisitor(State, AtomicVariables);
+	FixVisitor.run(ir);
 }

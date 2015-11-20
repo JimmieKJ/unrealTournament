@@ -72,33 +72,49 @@ public:
 	}
 
 
-	#if WITH_EDITOR
-		/**
-		 * Initialize a raw distribution from the original Unreal distribution
-		 */
-		void Initialize();
-	#endif
+#if WITH_EDITOR
+	/**
+	* Initialize a raw distribution from the original Unreal distribution
+	*/
+	void Initialize();
+#endif
 
-		/**
-		 * Gets a pointer to the raw distribution if you can just call FRawDistribution::GetValue3 on it, otherwise NULL 
-		 */
-		const FRawDistribution *GetFastRawDistribution();
+	/**
+	* Gets a pointer to the raw distribution if you can just call FRawDistribution::GetValue3 on it, otherwise NULL 
+	*/
+	const FRawDistribution *GetFastRawDistribution();
 
-		/**
-		 * Get the value at the specified F
-		 */
-		ENGINE_API FVector GetValue(float F=0.0f, UObject* Data=NULL, int32 LastExtreme=0, struct FRandomStream* InRandomStream = NULL);
+	/**
+	* Get the value at the specified F
+	*/
+	ENGINE_API FVector GetValue(float F=0.0f, UObject* Data=NULL, int32 LastExtreme=0, struct FRandomStream* InRandomStream = NULL);
 
-		/**
-		 * Get the min and max values
-		 */
-		void GetOutRange(float& MinOut, float& MaxOut);
+	/**
+	* Get the min and max values
+	*/
+	void GetOutRange(float& MinOut, float& MaxOut);
 
-		/**
-		 * Is this distribution a uniform type? (ie, does it have two values per entry?)
-		 */
-		inline bool IsUniform() { return LookupTable.SubEntryStride != 0; }
-	
+	/**
+	* Is this distribution a uniform type? (ie, does it have two values per entry?)
+	*/
+	inline bool IsUniform() { return LookupTable.SubEntryStride != 0; }
+
+	void InitLookupTable();
+
+	FORCEINLINE bool HasLookupTable()
+	{
+#if WITH_EDITOR
+		InitLookupTable();
+#endif
+		return GDistributionType != 0 && !LookupTable.IsEmpty();
+	}
+
+	FORCEINLINE bool OkForParallel()
+	{
+		HasLookupTable(); // initialize if required
+		return true; // even if they stay distributions, this should probably be ok as long as nobody is changing them at runtime
+		//return !Distribution || HasLookupTable();
+	}
 };
 
 UCLASS(abstract, customconstructor)
@@ -147,16 +163,16 @@ class ENGINE_API UDistributionVector : public UDistribution
 
 	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, struct FRandomStream* InRandomStream = NULL ) const;
 
-	// Begin FCurveEdInterface Interface
+	//~ Begin FCurveEdInterface Interface
 	virtual void GetInRange(float& MinIn, float& MaxIn) const override;
 	virtual void GetOutRange(float& MinOut, float& MaxOut) const override;
 	virtual	void GetRange(FVector& OutMin, FVector& OutMax) const;
-	// End FCurveEdInterface Interface
+	//~ End FCurveEdInterface Interface
 
 	/** @return true of this distribution can be baked into a FRawDistribution lookup table, otherwise false */
 	virtual bool CanBeBaked() const 
 	{
-		return true; 
+		return bCanBeBaked; 
 	}
 
 	/**

@@ -14,64 +14,102 @@ using System.Text.RegularExpressions;
 namespace UnrealBuildTool
 {
 	public abstract class RemoteToolChain : UEToolChain
-    {
-		protected void RegisterRemoteToolChain(UnrealTargetPlatform InPlatform, CPPTargetPlatform CPPPlatform)
+	{
+		/// <summary>
+		/// Common error codes reported by Remote Tool Chain and its actions.
+		/// </summary>
+		public enum RemoteToolChainErrorCode
 		{
-			RemoteToolChainPlatform = InPlatform;
+			NoError = 0,
+			ServerNameNotSpecified = 1,
+			ServerNotResponding = 2,
+			MissingDeltaCopyInstall = 3,
+			MissingRemoteUserName = 4,
+			MissingSSHKey = 5,
+			SSHCommandFailed = 6,
+		};
 
-			// Register this tool chain for IOS
-			Log.TraceVerbose("        Registered for {0}", CPPPlatform.ToString());
-			UEToolChain.RegisterPlatformToolChain(CPPPlatform, this);
+		protected readonly FileReference ProjectFile;
+
+		public RemoteToolChain(CPPTargetPlatform InCppPlatform, UnrealTargetPlatform InRemoteToolChainPlatform, FileReference InProjectFile)
+			: base(InCppPlatform)
+		{
+			RemoteToolChainPlatform = InRemoteToolChainPlatform;
+			ProjectFile = InProjectFile;
 		}
 
-		/** These two variables will be loaded from XML config file in XmlConfigLoader.Init() */
+		/// <summary>
+		/// These two variables will be loaded from XML config file in XmlConfigLoader.Init()
+		/// </summary>
 		[XmlConfig]
 		public static string RemoteServerName = "";
 		[XmlConfig]
 		public static string[] PotentialServerNames = new string[] { };
 
-		/** Keep a list of remote files that are potentially copied from local to remote */
+		/// <summary>
+		/// Keep a list of remote files that are potentially copied from local to remote
+		/// </summary>
 		private static Dictionary<FileItem, FileItem> CachedRemoteFileItems = new Dictionary<FileItem, FileItem>();
 
-		/** The base path (on the Mac) to the your particular development directory, where files will be copied to from the PC */
+		/// <summary>
+		/// The base path (on the Mac) to the your particular development directory, where files will be copied to from the PC
+		/// </summary>
 		public static string UserDevRootMacBase = "/UE4/Builds/";
 
-		/** The final path (on the Mac) to your particular development directory, where files will be copied to from the PC */
+		/// <summary>
+		/// The final path (on the Mac) to your particular development directory, where files will be copied to from the PC
+		/// </summary>
 		public static string UserDevRootMac = "/UE4/Builds";
 
-		/** Whether or not to connect to UnrealRemoteTool using RPCUtility */
+		/// <summary>
+		/// Whether or not to connect to UnrealRemoteTool using RPCUtility
+		/// </summary>
 		[XmlConfig]
 		public static bool bUseRPCUtil = true;
 
-		/** The user has specified a deltacopy install path */
+		/// <summary>
+		/// The user has specified a deltacopy install path
+		/// </summary>
 		private static string OverrideDeltaCopyInstallPath = null;
-		
-		/** Path to rsync executable and parameters for your rsync utility */
+
+		/// <summary>
+		/// Path to rsync executable and parameters for your rsync utility
+		/// </summary>
 		[XmlConfig]
 		public static string RSyncExe = "${PROGRAM_FILES}\\DeltaCopy\\rsync.exe";
 		public static string ResolvedRSyncExe = null;
 
-		/** Path to rsync executable and parameters for your rsync utility */
+		/// <summary>
+		/// Path to rsync executable and parameters for your rsync utility
+		/// </summary>
 		[XmlConfig]
 		public static string SSHExe = "${PROGRAM_FILES}\\DeltaCopy\\ssh.exe";
 		public static string ResolvedSSHExe = null;
 
-		/** Instead of looking for RemoteToolChainPrivate.key in the usual places (Documents/Unreal Engine/UnrealBuildTool/SSHKeys, Engine/Build/SSHKeys), this private key will be used if set */
+		/// <summary>
+		/// Instead of looking for RemoteToolChainPrivate.key in the usual places (Documents/Unreal Engine/UnrealBuildTool/SSHKeys, Engine/Build/SSHKeys), this private key will be used if set
+		/// </summary>
 		[XmlConfig]
 		public static string SSHPrivateKeyOverridePath = "";
 		public static string ResolvedSSHPrivateKey = null;
 
-		/** The authentication used for Rsync (for the -e rsync flag) */
+		/// <summary>
+		/// The authentication used for Rsync (for the -e rsync flag)
+		/// </summary>
 		[XmlConfig]
 		public static string RsyncAuthentication = "ssh -i '${CYGWIN_SSH_PRIVATE_KEY}'";
 		public static string ResolvedRsyncAuthentication = null;
 
-		/** The authentication used for SSH (probably similar to RsyncAuthentication) */
+		/// <summary>
+		/// The authentication used for SSH (probably similar to RsyncAuthentication)
+		/// </summary>
 		[XmlConfig]
 		public static string SSHAuthentication = "-i '${CYGWIN_SSH_PRIVATE_KEY}'";
 		public static string ResolvedSSHAuthentication = null;
 
-		/** Username on the remote machine to connect to with RSync */
+		/// <summary>
+		/// Username on the remote machine to connect to with RSync
+		/// </summary>
 		[XmlConfig]
 		public static string RSyncUsername = "${CURRENT_USER}";
 		public static string ResolvedRSyncUsername = null;
@@ -79,33 +117,41 @@ namespace UnrealBuildTool
 		// has the toolchain initialized remote execution yet? no need to do it multiple times
 		private static bool bHasBeenInitialized = false;
 
-		/** The directory that this local branch is in, without drive information (strip off X:\ from X:\UE4\iOS) */
+		/// <summary>
+		/// The directory that this local branch is in, without drive information (strip off X:\ from X:\UE4\iOS)
+		/// </summary>
 		public static string BranchDirectory = Path.GetFullPath(".\\");
 
 
-        /** Substrings that indicate a line contains an error */
-        protected static List<string> ErrorMessageTokens;
+		/// <summary>
+		/// Substrings that indicate a line contains an error
+		/// </summary>
+		protected static List<string> ErrorMessageTokens;
 
-		/** The platform this toolchain is compiling for */
+		/// <summary>
+		/// The platform this toolchain is compiling for
+		/// </summary>
 		protected UnrealTargetPlatform RemoteToolChainPlatform;
 
-		/** The average amound of memory a compile takes, used so that we don't compile too many things at once */
+		/// <summary>
+		/// The average amound of memory a compile takes, used so that we don't compile too many things at once
+		/// </summary>
 		public static int MemoryPerCompileMB = 1000;
 
 		static RemoteToolChain()
-        {
-            ErrorMessageTokens = new List<string>();
-            ErrorMessageTokens.Add("ERROR ");
-            ErrorMessageTokens.Add("** BUILD FAILED **");
-            ErrorMessageTokens.Add("[BEROR]");
-            ErrorMessageTokens.Add("IPP ERROR");
-            ErrorMessageTokens.Add("System.Net.Sockets.SocketException");
+		{
+			ErrorMessageTokens = new List<string>();
+			ErrorMessageTokens.Add("ERROR ");
+			ErrorMessageTokens.Add("** BUILD FAILED **");
+			ErrorMessageTokens.Add("[BEROR]");
+			ErrorMessageTokens.Add("IPP ERROR");
+			ErrorMessageTokens.Add("System.Net.Sockets.SocketException");
 
 			BranchDirectory = BranchDirectory.Replace("Engine\\Binaries\\DotNET", "");
 			BranchDirectory = BranchDirectory.Replace("Engine\\Source\\", "");
 		}
 
-		private static string ResolveString(string Input, bool bIsPath)
+		private string ResolveString(string Input, bool bIsPath)
 		{
 			string Result = Input;
 
@@ -141,13 +187,13 @@ namespace UnrealBuildTool
 
 				if (Result.Contains("${PROJECT_ROOT}"))
 				{
-					if (!UnrealBuildTool.HasUProjectFile())
+					if (ProjectFile == null)
 					{
 						throw new BuildException("Configuration setting was using ${PROJECT_ROOT}, but there was no project specified");
 					}
 
-					string Temp = Result.Replace("${PROJECT_ROOT}", Path.GetFullPath(UnrealBuildTool.GetUProjectPath()));
-					
+					string Temp = Result.Replace("${PROJECT_ROOT}", ProjectFile.Directory.FullName);
+
 					// get the best version
 					Result = LookForSpecialFile(Temp);
 				}
@@ -197,7 +243,7 @@ namespace UnrealBuildTool
 		{
 			base.ParseProjectSettings();
 
-			ConfigCacheIni Ini = new ConfigCacheIni(UnrealTargetPlatform.IOS, "Engine", UnrealBuildTool.GetUProjectPath());
+			ConfigCacheIni Ini = ConfigCacheIni.CreateConfigCacheIni(UnrealTargetPlatform.IOS, "Engine", DirectoryReference.FromFile(ProjectFile));
 			string ServerName = RemoteServerName;
 			if (Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "RemoteServerName", out ServerName) && !String.IsNullOrEmpty(ServerName))
 			{
@@ -214,7 +260,7 @@ namespace UnrealBuildTool
 				{
 					RSyncUsername = UserName;
 				}
-				
+
 				if (Ini.GetString("/Script/IOSRuntimeSettings.IOSRuntimeSettings", "DeltaCopyInstallPath", out OverrideDeltaCopyInstallPath))
 				{
 					if (!string.IsNullOrEmpty(OverrideDeltaCopyInstallPath))
@@ -261,21 +307,21 @@ namespace UnrealBuildTool
 			}
 		}
 
-        // Do any one-time, global initialization for the tool chain
-		static int InitializationErrorCode = 0;
-		private static int InitializeRemoteExecution()
-        {
+		// Do any one-time, global initialization for the tool chain
+		static RemoteToolChainErrorCode InitializationErrorCode = RemoteToolChainErrorCode.NoError;
+		private RemoteToolChainErrorCode InitializeRemoteExecution()
+		{
 			if (bHasBeenInitialized)
 			{
 				return InitializationErrorCode;
 			}
 
-            if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-            {
-            	// If we don't care which machine we're going to build on, query and
-            	// pick the one with the most free command slots available
+			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+			{
+				// If we don't care which machine we're going to build on, query and
+				// pick the one with the most free command slots available
 				if (RemoteServerName == "best_available")
-            	{
+				{
 					int AvailableSlots = 0;
 					int Attempts = 0;
 					if (!ProjectFileGenerator.bGenerateProjectFiles)
@@ -285,7 +331,7 @@ namespace UnrealBuildTool
 					while (AvailableSlots < 2 && Attempts < 20)
 					{
 						RemoteServerName = PotentialServerNames.OrderBy(x => Guid.NewGuid()).FirstOrDefault();
-						
+
 						// make sure it's ready to take commands
 						AvailableSlots = GetAvailableCommandSlotCount(RemoteServerName);
 
@@ -301,27 +347,27 @@ namespace UnrealBuildTool
 					{
 						Log.TraceInformation("Chose {0} after {1} attempts to find a Mac, with {2} slots", RemoteServerName, Attempts, AvailableSlots);
 					}
-/*
- * this does not work right, because it pushes a lot of tasks to machines that have substantially more slots than others
-					Log.TraceInformation("Picking the best available Mac builder...");
-                	Int32 MostAvailableCount = Int32.MinValue;
-					foreach (string NextMacName in PotentialServerNames)
-                	{
-                    	Int32 NextAvailableCount = GetAvailableCommandSlotCount(NextMacName);
-                    	if (NextAvailableCount > MostAvailableCount)
-                    	{
-                        	MostAvailableName = NextMacName;
-                        	MostAvailableCount = NextAvailableCount;
-                    	}
+					/*
+					 * this does not work right, because it pushes a lot of tasks to machines that have substantially more slots than others
+										Log.TraceInformation("Picking the best available Mac builder...");
+										Int32 MostAvailableCount = Int32.MinValue;
+										foreach (string NextMacName in PotentialServerNames)
+										{
+											Int32 NextAvailableCount = GetAvailableCommandSlotCount(NextMacName);
+											if (NextAvailableCount > MostAvailableCount)
+											{
+												MostAvailableName = NextMacName;
+												MostAvailableCount = NextAvailableCount;
+											}
 
-						Log.TraceVerbose("... " + NextMacName + " has " + NextAvailableCount + " slots available");
-                	}
-                	Log.TraceVerbose("Picking the compile server with the most available command slots: " + MostAvailableName);
+											Log.TraceVerbose("... " + NextMacName + " has " + NextAvailableCount + " slots available");
+										}
+										Log.TraceVerbose("Picking the compile server with the most available command slots: " + MostAvailableName);
 
-                	// Finally, assign the name of the Mac we're going to use
-					RemoteServerName = MostAvailableName;
- */
-            	}
+										// Finally, assign the name of the Mac we're going to use
+										RemoteServerName = MostAvailableName;
+					 */
+				}
 				else if (!ProjectFileGenerator.bGenerateProjectFiles)
 				{
 					Log.TraceInformation("Picking the default remote server " + RemoteServerName);
@@ -331,14 +377,28 @@ namespace UnrealBuildTool
 				if (string.IsNullOrEmpty(RemoteServerName))
 				{
 					Log.TraceError("Remote compiling requires a server name. Use the editor to set up your remote compilation settings.");
-					InitializationErrorCode = 99;
-					return InitializationErrorCode;
+					return RemoteToolChainErrorCode.ServerNameNotSpecified;
 				}
 
 				if (!bUseRPCUtil)
 				{
+					// Verify the Delta Copy install path
+					ResolvedRSyncExe = ResolveString(RSyncExe, true);
+					ResolvedSSHExe = ResolveString(SSHExe, true);
+
+					if (!File.Exists(ResolvedRSyncExe) || !File.Exists(ResolvedSSHExe))
+					{
+						Log.TraceError("Remote compiling requires Delta Copy to be installed.");
+						return RemoteToolChainErrorCode.MissingDeltaCopyInstall;
+					}
+
 					// we need the RemoteServerName and the Username to find the private key
 					ResolvedRSyncUsername = ResolveString(RSyncUsername, false);
+					if (string.IsNullOrEmpty(ResolvedRSyncUsername))
+					{
+						Log.TraceError("Remote compiling requires a user name. Use the editor to set up your remote compilation settings.");
+						return RemoteToolChainErrorCode.MissingRemoteUserName;
+					}
 
 					bool bFoundOverrideSSHPrivateKey = false;
 
@@ -346,9 +406,9 @@ namespace UnrealBuildTool
 					if (!string.IsNullOrEmpty(SSHPrivateKeyOverridePath))
 					{
 						ResolvedSSHPrivateKey = ResolveString(SSHPrivateKeyOverridePath, true);
-						
+
 						bFoundOverrideSSHPrivateKey = File.Exists(ResolvedSSHPrivateKey);
-						
+
 						// make sure it exists
 						if (!bFoundOverrideSSHPrivateKey)
 						{
@@ -359,16 +419,18 @@ namespace UnrealBuildTool
 					if (!bFoundOverrideSSHPrivateKey)
 					{
 						// all the places to look for a key
-						string[] Locations = new string[] {
-							Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Unreal Engine", "UnrealBuildTool"),
-							Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Unreal Engine", "UnrealBuildTool"),
-							Path.Combine(UnrealBuildTool.GetUProjectPath(), "Build", "NotForLicensees"),
-							Path.Combine(UnrealBuildTool.GetUProjectPath(), "Build", "NoRedist"),
-							Path.Combine(UnrealBuildTool.GetUProjectPath(), "Build"),
-							Path.Combine(BuildConfiguration.RelativeEnginePath, "Build", "NotForLicensees"),
-							Path.Combine(BuildConfiguration.RelativeEnginePath, "Build", "NoRedist"),
-							Path.Combine(BuildConfiguration.RelativeEnginePath, "Build"),
-						};
+						List<string> Locations = new List<string>();
+						Locations.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Unreal Engine", "UnrealBuildTool"));
+						Locations.Add(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Unreal Engine", "UnrealBuildTool"));
+						if (ProjectFile != null)
+						{
+							Locations.Add(Path.Combine(ProjectFile.Directory.FullName, "Build", "NotForLicensees"));
+							Locations.Add(Path.Combine(ProjectFile.Directory.FullName, "Build", "NoRedist"));
+							Locations.Add(Path.Combine(ProjectFile.Directory.FullName, "Build"));
+						}
+						Locations.Add(Path.Combine(BuildConfiguration.RelativeEnginePath, "Build", "NotForLicensees"));
+						Locations.Add(Path.Combine(BuildConfiguration.RelativeEnginePath, "Build", "NoRedist"));
+						Locations.Add(Path.Combine(BuildConfiguration.RelativeEnginePath, "Build"));
 
 						// look for a key file
 						foreach (string Location in Locations)
@@ -383,24 +445,21 @@ namespace UnrealBuildTool
 						}
 					}
 
-/*					if (!bFoundOverrideSSHPrivateKey)
-					{
-						throw new BuildException("An SSHKey was required, but one cannot be found. Can't continue...");
-					}*/
-
 					// resolve the rest of the strings
-					ResolvedRSyncExe = ResolveString(RSyncExe, true);
-					ResolvedSSHExe = ResolveString(SSHExe, true);
 					ResolvedRsyncAuthentication = ResolveString(RsyncAuthentication, false);
 					ResolvedSSHAuthentication = ResolveString(SSHAuthentication, false);
 				}
 
 				// start up remote communication and record if it succeeds
-				InitializationErrorCode = RPCUtilHelper.Initialize(RemoteServerName);
-
-				// allow user to set up
-				if (InitializationErrorCode == 100 && !string.IsNullOrEmpty(ResolvedRSyncUsername))
+				InitializationErrorCode = (RemoteToolChainErrorCode)RPCUtilHelper.Initialize(RemoteServerName);
+				if (InitializationErrorCode != RemoteToolChainErrorCode.NoError && InitializationErrorCode != RemoteToolChainErrorCode.MissingSSHKey)
 				{
+					Log.TraceError("Failed to initialize a connection to the Remote Server {0}", RemoteServerName);
+					return InitializationErrorCode;
+				}
+				else if (InitializationErrorCode == RemoteToolChainErrorCode.MissingSSHKey)
+				{
+					// Allow the user to set up a key from here.
 					Process KeyProcess = new Process();
 					KeyProcess.StartInfo.WorkingDirectory = Path.GetFullPath(Path.Combine(BuildConfiguration.RelativeEnginePath, "Build", "BatchFiles"));
 					KeyProcess.StartInfo.FileName = "MakeAndInstallSSHKey.bat";
@@ -420,17 +479,11 @@ namespace UnrealBuildTool
 					// make sure it succeeded if we want to re-init
 					if (KeyProcess.ExitCode == 0)
 					{
-						InitializeRemoteExecution();
+						InitializationErrorCode = InitializeRemoteExecution();
 					}
 				}
-				else if (string.IsNullOrEmpty(ResolvedRSyncUsername))
-				{
-					Log.TraceError("Remote compiling requires a user name. Use the editor to set up your remote compilation settings.");
-					InitializationErrorCode = 98;
-					return InitializationErrorCode;
-				}
 			}
-            else
+			else
 			{
 				RemoteServerName = Environment.MachineName;
 				// can't error in this case
@@ -438,24 +491,27 @@ namespace UnrealBuildTool
 
 			bHasBeenInitialized = true;
 			return InitializationErrorCode;
-        }
+		}
 
 		public override void SetUpGlobalEnvironment()
 		{
 			base.SetUpGlobalEnvironment();
 
 			// connect to server
-			InitializeRemoteExecution();
-
-			// Setup root directory to use.
-			SetUserDevRootFromServer();
+			if (InitializeRemoteExecution() == RemoteToolChainErrorCode.NoError)
+			{
+				// Setup root directory to use.
+				SetUserDevRootFromServer();
+			}
 		}
 
-        /** Converts the passed in path from UBT host to compiler native format. */
-        public override String ConvertPath(String OriginalPath)
-        {
-            if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-            {
+		/// <summary>
+		/// Converts the passed in path from UBT host to compiler native format.
+		/// </summary>
+		public override string ConvertPath(string OriginalPath)
+		{
+			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+			{
 				if (OriginalPath[1] != ':')
 				{
 					throw new BuildException("Can only convert full paths ({0})", OriginalPath);
@@ -471,12 +527,12 @@ namespace UnrealBuildTool
 				MacPath = MacPath.Replace("\\", "/");
 
 				return MacPath;
-            }
-            else
-            {
+			}
+			else
+			{
 				return OriginalPath.Replace("\\", "/");
-            }
-        }
+			}
+		}
 
 		protected string GetMacDevSrcRoot()
 		{
@@ -487,15 +543,15 @@ namespace UnrealBuildTool
 			}
 			else
 			{
-				return ".";
+				return UnrealBuildTool.EngineSourceDirectory.FullName; ;
 			}
 		}
 
 		private static List<string> RsyncDirs = new List<string>();
 		private static List<string> RsyncExtensions = new List<string>();
 
-        public void QueueFileForBatchUpload(FileItem LocalFileItem)
-        {
+		public void QueueFileForBatchUpload(FileItem LocalFileItem)
+		{
 			// Now, we actually just remember unique directories with any files, and upload all files in them to the remote machine
 			// (either via rsync, or RPCUtil acting like rsync)
 			string Entry = Path.GetDirectoryName(LocalFileItem.AbsolutePath);
@@ -510,57 +566,57 @@ namespace UnrealBuildTool
 				Ext = Path.GetFileName(LocalFileItem.AbsolutePath);
 			}
 			if (!RsyncExtensions.Contains(Ext))
-            {
+			{
 				RsyncExtensions.Add(Ext);
-            }
-        }
+			}
+		}
 
-        public FileItem LocalToRemoteFileItem(FileItem LocalFileItem, bool bShouldUpload)
-        {
-            FileItem RemoteFileItem = null;
+		public FileItem LocalToRemoteFileItem(FileItem LocalFileItem, bool bShouldUpload)
+		{
+			FileItem RemoteFileItem = null;
 
-            // Look to see if we've already made a remote FileItem for this local FileItem
-            if (!CachedRemoteFileItems.TryGetValue(LocalFileItem, out RemoteFileItem))
-            {
-                // If not, create it now
-                string RemoteFilePath = ConvertPath(LocalFileItem.AbsolutePath);
+			// Look to see if we've already made a remote FileItem for this local FileItem
+			if (!CachedRemoteFileItems.TryGetValue(LocalFileItem, out RemoteFileItem))
+			{
+				// If not, create it now
+				string RemoteFilePath = ConvertPath(LocalFileItem.AbsolutePath);
 				RemoteFileItem = FileItem.GetRemoteItemByPath(RemoteFilePath, RemoteToolChainPlatform);
 
-                // Is shadowing requested?
-                if (bShouldUpload)
-                {
-                    QueueFileForBatchUpload(LocalFileItem);
-                }
+				// Is shadowing requested?
+				if (bShouldUpload)
+				{
+					QueueFileForBatchUpload(LocalFileItem);
+				}
 
-                CachedRemoteFileItems.Add(LocalFileItem, RemoteFileItem);
-            }
+				CachedRemoteFileItems.Add(LocalFileItem, RemoteFileItem);
+			}
 
-            return RemoteFileItem;
-        }
+			return RemoteFileItem;
+		}
 
-        /**
-		 * Helper function to sync source files to and from the local system and a remote Mac
-		 */
-        //This chunk looks to be required to pipe output to VS giving information on the status of a remote build.
-        public static bool OutputReceivedDataEventHandlerEncounteredError = false;
-        public static string OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
-        public static void OutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
-        {
-            if ((Line != null) && (Line.Data != null))
-            {
-                Log.TraceInformation(Line.Data);
+		/// <summary>
+		/// Helper function to sync source files to and from the local system and a remote Mac
+		/// </summary>
+		//This chunk looks to be required to pipe output to VS giving information on the status of a remote build.
+		public static bool OutputReceivedDataEventHandlerEncounteredError = false;
+		public static string OutputReceivedDataEventHandlerEncounteredErrorMessage = "";
+		public static void OutputReceivedDataEventHandler(Object Sender, DataReceivedEventArgs Line)
+		{
+			if ((Line != null) && (Line.Data != null))
+			{
+				Log.TraceInformation(Line.Data);
 
-                foreach (string ErrorToken in ErrorMessageTokens)
-                {
-                    if (Line.Data.Contains(ErrorToken))
-                    {
-                        OutputReceivedDataEventHandlerEncounteredError = true;
-                        OutputReceivedDataEventHandlerEncounteredErrorMessage += Line.Data;
-                        break;
-                    }
-                }
-            }
-        }
+				foreach (string ErrorToken in ErrorMessageTokens)
+				{
+					if (Line.Data.Contains(ErrorToken))
+					{
+						OutputReceivedDataEventHandlerEncounteredError = true;
+						OutputReceivedDataEventHandlerEncounteredErrorMessage += Line.Data;
+						break;
+					}
+				}
+			}
+		}
 
 		public override void PostCodeGeneration(UHTManifest Manifest)
 		{
@@ -573,20 +629,20 @@ namespace UnrealBuildTool
 				// header files existed on disk at the time that UBT scanned include statements looking for prerequisite files.  Those
 				// files are created during code generation and must exist on disk by the time this function is called.  We'll scan
 				// for generated code files and make sure they are enqueued for copying to the remote machine.
-				foreach( var UObjectModule in Manifest.Modules )
+				foreach (var UObjectModule in Manifest.Modules)
 				{
 					// @todo uht: Ideally would only copy exactly the files emitted by UnrealHeaderTool, rather than scanning directory (could copy stale files; not a big deal though)
 					try
 					{
-						var GeneratedCodeDirectory = Path.GetDirectoryName( UObjectModule.GeneratedCPPFilenameBase );
-						var GeneratedCodeFiles     = Directory.GetFiles( GeneratedCodeDirectory, "*", SearchOption.AllDirectories );
-						foreach( var GeneratedCodeFile in GeneratedCodeFiles )
+						var GeneratedCodeDirectory = Path.GetDirectoryName(UObjectModule.GeneratedCPPFilenameBase);
+						var GeneratedCodeFiles = Directory.GetFiles(GeneratedCodeDirectory, "*", SearchOption.AllDirectories);
+						foreach (var GeneratedCodeFile in GeneratedCodeFiles)
 						{
 							// Skip copying "Timestamp" files (UBT temporary files)
-							if( !Path.GetFileName( GeneratedCodeFile ).Equals( @"Timestamp", StringComparison.InvariantCultureIgnoreCase ) )
+							if (!Path.GetFileName(GeneratedCodeFile).Equals(@"Timestamp", StringComparison.InvariantCultureIgnoreCase))
 							{
-								var GeneratedCodeFileItem = FileItem.GetExistingItemByPath( GeneratedCodeFile );
-								QueueFileForBatchUpload( GeneratedCodeFileItem );
+								var GeneratedCodeFileItem = FileItem.GetExistingItemByPath(GeneratedCodeFile);
+								QueueFileForBatchUpload(GeneratedCodeFileItem);
 							}
 						}
 					}
@@ -600,11 +656,11 @@ namespace UnrealBuildTool
 					// header scan wouldn't have picked them up if they hadn't been generated yet!
 					try
 					{
-						var SourceFiles = Directory.GetFiles( UObjectModule.BaseDirectory, "*", SearchOption.AllDirectories );
-						foreach( var SourceFile in SourceFiles )
+						var SourceFiles = Directory.GetFiles(UObjectModule.BaseDirectory, "*", SearchOption.AllDirectories);
+						foreach (var SourceFile in SourceFiles)
 						{
-							var SourceFileItem = FileItem.GetExistingItemByPath( SourceFile );
-							QueueFileForBatchUpload( SourceFileItem );
+							var SourceFileItem = FileItem.GetExistingItemByPath(SourceFile);
+							QueueFileForBatchUpload(SourceFileItem);
 						}
 					}
 					catch (System.IO.DirectoryNotFoundException)
@@ -623,12 +679,15 @@ namespace UnrealBuildTool
 			}
 		}
 
-		private static Dictionary<Object,StringBuilder> SSHOutputMap = new Dictionary<object,StringBuilder>();
+		private static Dictionary<Object, StringBuilder> SSHOutputMap = new Dictionary<object, StringBuilder>();
+		private static System.Threading.Mutex DictionaryLock = new System.Threading.Mutex();
 		static public void OutputReceivedForSSH(Object Sender, DataReceivedEventArgs Line)
 		{
 			if ((Line != null) && (Line.Data != null) && (Line.Data != ""))
 			{
+				DictionaryLock.WaitOne();
 				StringBuilder SSHOutput = SSHOutputMap[Sender];
+				DictionaryLock.ReleaseMutex();
 				if (SSHOutput.Length != 0)
 				{
 					SSHOutput.Append(Environment.NewLine);
@@ -636,7 +695,7 @@ namespace UnrealBuildTool
 				SSHOutput.Append(Line.Data);
 			}
 		}
-		
+
 		private static string ConvertPathToCygwin(string InPath)
 		{
 			if (InPath == null)
@@ -647,7 +706,7 @@ namespace UnrealBuildTool
 		}
 
 		public override void PreBuildSync()
-        {
+		{
 			// no need to sync on the Mac!
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
 			{
@@ -689,7 +748,7 @@ namespace UnrealBuildTool
 				}
 
 				// batch upload
-                RPCUtilHelper.BatchUpload(BatchUploadCommands.ToArray());
+				RPCUtilHelper.BatchUpload(BatchUploadCommands.ToArray());
 			}
 			else
 			{
@@ -713,7 +772,7 @@ namespace UnrealBuildTool
 
 				// get the executable dir for SSH, so Rsync can call it easily
 				string ExeDir = Path.GetDirectoryName(ResolvedSSHExe);
-	
+
 				Process RsyncProcess = new Process();
 				if (ExeDir != "")
 				{
@@ -744,7 +803,7 @@ namespace UnrealBuildTool
 			}
 
 			// we can now clear out the set of files
-            RsyncDirs.Clear();
+			RsyncDirs.Clear();
 			RsyncExtensions.Clear();
 		}
 
@@ -766,7 +825,7 @@ namespace UnrealBuildTool
 			// make simple rsync commandline to send a file
 			RsyncProcess.StartInfo.FileName = ResolvedRSyncExe;
 			RsyncProcess.StartInfo.Arguments = string.Format(
-				"-zae \"{0}\" --rsync-path=\"mkdir -p {1} && rsync\" '{2}' {3}@{4}:'{1}/{5}'",
+				"-zae \"{0}\" --rsync-path=\"mkdir -p {1} && rsync\" --chmod=ug=rwX,o=rxX '{2}' {3}@{4}:'{1}/{5}'",
 				ResolvedRsyncAuthentication,
 				RemoteDir,
 				ConvertPathToCygwin(LocalPath),
@@ -870,7 +929,9 @@ namespace UnrealBuildTool
 			Hashtable Return = new Hashtable();
 
 			// add this process to the map
+			DictionaryLock.WaitOne();
 			SSHOutputMap[SSHProcess] = new StringBuilder("");
+			DictionaryLock.ReleaseMutex();
 			SSHProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForSSH);
 			SSHProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedForSSH);
 
@@ -879,54 +940,55 @@ namespace UnrealBuildTool
 			Console.WriteLine("Execute took {0}", (DateTime.Now - Start).ToString());
 
 			// now we have enough to fill out the HashTable
+			DictionaryLock.WaitOne();
 			Return["CommandOutput"] = SSHOutputMap[SSHProcess].ToString();
 			Return["ExitCode"] = (object)ExitCode;
 
 			SSHOutputMap.Remove(SSHProcess);
+			DictionaryLock.ReleaseMutex();
 
 			return Return;
 		}
 
 		public override void PostBuildSync(UEBuildTarget Target)
-        {
+		{
 
-        }
+		}
 
 		static public Double GetAdjustedProcessorCountMultiplier()
 		{
-            if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
-            {
-                Int32 RemoteCPUCount = RPCUtilHelper.GetCommandSlots();
-                if (RemoteCPUCount == 0)
-                {
-                    RemoteCPUCount = Environment.ProcessorCount;
-                }
+			if (BuildHostPlatform.Current.Platform != UnrealTargetPlatform.Mac)
+			{
+				Int32 RemoteCPUCount = RPCUtilHelper.GetCommandSlots();
+				if (RemoteCPUCount == 0)
+				{
+					RemoteCPUCount = Environment.ProcessorCount;
+				}
 
-                Double AdjustedMultiplier = (Double)RemoteCPUCount / (Double)Environment.ProcessorCount;
-                Log.TraceVerbose("Adjusting the remote Mac compile process multiplier to " + AdjustedMultiplier.ToString());
-                return AdjustedMultiplier;
-            }
-            else
-            {
-                return 1.0;
-            }
+				Double AdjustedMultiplier = (Double)RemoteCPUCount / (Double)Environment.ProcessorCount;
+				Log.TraceVerbose("Adjusting the remote Mac compile process multiplier to " + AdjustedMultiplier.ToString());
+				return AdjustedMultiplier;
+			}
+			else
+			{
+				return 1.0;
+			}
 		}
 
-        static public Int32 GetAvailableCommandSlotCount(string TargetMacName)
-        {
-            // ask how many slots are available, and increase by 1 (not sure why)
-            Int32 RemoteAvailableCommandSlotCount = 1 + QueryRemoteMachine(TargetMacName, "rpc:command_slots_available");
+		static public Int32 GetAvailableCommandSlotCount(string TargetMacName)
+		{
+			// ask how many slots are available, and increase by 1 (not sure why)
+			Int32 RemoteAvailableCommandSlotCount = 1 + QueryRemoteMachine(TargetMacName, "rpc:command_slots_available");
 
-            Log.TraceVerbose("Available command slot count for " + TargetMacName + " is " + RemoteAvailableCommandSlotCount.ToString());
-            return RemoteAvailableCommandSlotCount;
-        }
+			Log.TraceVerbose("Available command slot count for " + TargetMacName + " is " + RemoteAvailableCommandSlotCount.ToString());
+			return RemoteAvailableCommandSlotCount;
+		}
 
-		/**
-		 * Translates clang output warning/error messages into vs-clickable messages
-		 * 
-		 * @param	sender		Sending object
-		 * @param	e			Event arguments (In this case, the line of string output)
-		 */
+		/// <summary>
+		/// Translates clang output warning/error messages into vs-clickable messages
+		/// </summary>
+		/// <param name="sender"> Sending object</param>
+		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
 		protected void RemoteOutputReceivedEventHandler(object sender, DataReceivedEventArgs e)
 		{
 			var Output = e.Data;
@@ -972,47 +1034,47 @@ namespace UnrealBuildTool
 				// Write output
 				string ConvertedExpression = "  " + ConvertedFilePath + "(" + ConvertedLineNumber + "," + ConvertedColumnNumber + "):" + MatchDescription;
 				Log.TraceInformation(ConvertedExpression); // To create clickable vs link
-	//			Log.TraceInformation(Output);				// To preserve readable output log
+				//			Log.TraceInformation(Output);				// To preserve readable output log
 			}
 		}
-		
-		/**
-		 * Queries the remote compile server for CPU information
-		 * and computes the proper ProcessorCountMultiplier.
-		 */
-        static private Int32 QueryResult = 0;
-        static public void OutputReceivedForQuery(Object Sender, DataReceivedEventArgs Line)
-        {
-            if ((Line != null) && (Line.Data != null) && (Line.Data != ""))
-            {
-                Int32 TestValue = 0;
-                if (Int32.TryParse(Line.Data, out TestValue))
-                {
-                    QueryResult = TestValue;
-                }
-                else
-                {
-                  Log.TraceVerbose("Info: Unexpected output from remote Mac system info query, skipping");                  
-                }
-            }
-        }
 
-        static public Int32 QueryRemoteMachine(string MachineName, string Command)
-        {
-            // we must run the commandline RPCUtility, because we could run this before we have opened up the RemoteRPCUtlity
-            Process QueryProcess = new Process();
-            QueryProcess.StartInfo.WorkingDirectory = Path.GetFullPath("..\\Binaries\\DotNET");
-            QueryProcess.StartInfo.FileName = QueryProcess.StartInfo.WorkingDirectory + "\\RPCUtility.exe";
-            QueryProcess.StartInfo.Arguments = string.Format("{0} {1} sysctl -n hw.ncpu",
-                MachineName,
-                UserDevRootMac);
-            QueryProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForQuery);
-            QueryProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedForQuery);
+		/// <summary>
+		/// Queries the remote compile server for CPU information
+		/// and computes the proper ProcessorCountMultiplier.
+		/// </summary>
+		static private Int32 QueryResult = 0;
+		static public void OutputReceivedForQuery(Object Sender, DataReceivedEventArgs Line)
+		{
+			if ((Line != null) && (Line.Data != null) && (Line.Data != ""))
+			{
+				Int32 TestValue = 0;
+				if (Int32.TryParse(Line.Data, out TestValue))
+				{
+					QueryResult = TestValue;
+				}
+				else
+				{
+					Log.TraceVerbose("Info: Unexpected output from remote Mac system info query, skipping");
+				}
+			}
+		}
 
-            // Try to launch the query's process, and produce a friendly error message if it fails.
-            Utils.RunLocalProcess(QueryProcess);
+		static public Int32 QueryRemoteMachine(string MachineName, string Command)
+		{
+			// we must run the commandline RPCUtility, because we could run this before we have opened up the RemoteRPCUtlity
+			Process QueryProcess = new Process();
+			QueryProcess.StartInfo.WorkingDirectory = Path.GetFullPath("..\\Binaries\\DotNET");
+			QueryProcess.StartInfo.FileName = QueryProcess.StartInfo.WorkingDirectory + "\\RPCUtility.exe";
+			QueryProcess.StartInfo.Arguments = string.Format("{0} {1} sysctl -n hw.ncpu",
+				MachineName,
+				UserDevRootMac);
+			QueryProcess.OutputDataReceived += new DataReceivedEventHandler(OutputReceivedForQuery);
+			QueryProcess.ErrorDataReceived += new DataReceivedEventHandler(OutputReceivedForQuery);
 
-            return QueryResult;
-        }
+			// Try to launch the query's process, and produce a friendly error message if it fails.
+			Utils.RunLocalProcess(QueryProcess);
+
+			return QueryResult;
+		}
 	};
 }

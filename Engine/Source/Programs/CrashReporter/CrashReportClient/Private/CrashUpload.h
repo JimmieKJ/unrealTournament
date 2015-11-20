@@ -33,19 +33,6 @@ public:
 	 */
 	const FText& GetStatusText() const;
 
-	/**
-	 * Notification that diagnosis of the main report has finished
-	 * @param DiagnosticsFile Full path to the diagnostics file to upload on success, or an empty string
-	 */
-	void LocalDiagnosisComplete(const FString& DiagnosticsFile);
-
-	/**
-	 * Inform uploader that no local diagnosis is happening
-	 */
-	void LocalDiagnosisSkipped()
-	{
-		LocalDiagnosisComplete("");
-	}
 
 	/**
 	 * Determine whether the upload has finished (successfully or otherwise)

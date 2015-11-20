@@ -14,9 +14,7 @@ namespace UnrealBuildTool.Rules
 					"CoreUObject",
 					"Engine",
                     "InputCore",
-					"ImageWrapper",
 					"DesktopPlatform",
-					"LevelEditor",
 					"Slate",
                     "EditorStyle",
 				    "AssetTools",
@@ -33,13 +31,6 @@ namespace UnrealBuildTool.Rules
 					"OnlineSubSystem",
 					"SlateCore",
 					"UnrealEd",
-				}
-			);
-
-			PrivateIncludePathModuleNames.AddRange(
-				new string[]
-				{
-					"MainFrame",
 				}
 			);
 

@@ -758,6 +758,8 @@ void SFiltersAndPresets::Construct( const FArguments& InArgs )
 	CreateGroupByOptionsSources();
 	RecreateSortByOptionsSources();
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 
 void SFiltersAndPresets::ProfilerManager_OnRequestFilterAndPresetsUpdate()
 {
@@ -1131,6 +1133,7 @@ bool SFiltersAndPresets::GroupAndStatTableRow_ShouldBeEnabled( const uint32 Stat
 void SFiltersAndPresets::SearchBox_OnTextChanged( const FText& InFilterText )
 {
 	GroupAndStatTextFilter->SetRawFilterText( InFilterText );
+	GroupAndStatSearchBox->SetError( GroupAndStatTextFilter->GetFilterErrorText() );
 	ApplyFiltering();
 }
 

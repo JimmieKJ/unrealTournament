@@ -23,7 +23,7 @@ public:
 	 */
 	FMediaPlayerEditorToolkit( const TSharedRef<ISlateStyle>& InStyle );
 
-	/** Destructor. */
+	/** Virtual destructor. */
 	virtual ~FMediaPlayerEditorToolkit();
 
 public:

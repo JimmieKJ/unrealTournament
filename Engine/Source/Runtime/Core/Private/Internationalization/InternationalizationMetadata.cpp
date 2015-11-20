@@ -7,9 +7,15 @@ DEFINE_LOG_CATEGORY_STATIC(LogInternationalizationMetadata, Log, All);
 
 const FString FLocMetadataObject::COMPARISON_MODIFIER_PREFIX = TEXT("*");
 
+#if PLATFORM_COMPILER_HAS_DEFAULTED_FUNCTIONS
+FLocMetadataValue::~FLocMetadataValue() = default;
+#else
+FLocMetadataValue::~FLocMetadataValue() {}
+#endif
+
 void FLocMetadataValue::ErrorMessage( const FString& InType )
 {
-	UE_LOG(LogInternationalizationMetadata, Fatal, TEXT("LocMetadata Value of type '%s' used as a '%s'."), *GetType(), *InType);
+	UE_LOG(LogInternationalizationMetadata, Fatal, TEXT("LocMetadata Value of type '%s' used as a '%s'."), *GetTypeString(), *InType);
 }
 
 FLocMetadataObject::FLocMetadataObject( const FLocMetadataObject& Other )
@@ -229,18 +235,18 @@ bool FLocMetadataObject::operator<( const FLocMetadataObject& Other ) const
 	return false;
 }
 
-bool FLocMetadataObject::IsMetadataExactMatch( TSharedPtr<FLocMetadataObject> MetadataA, TSharedPtr<FLocMetadataObject> MetadataB )
+bool FLocMetadataObject::IsMetadataExactMatch( const FLocMetadataObject* const MetadataA, const FLocMetadataObject* const MetadataB )
 {
-	if( !MetadataA.IsValid() && !MetadataB.IsValid() )
+	if( !MetadataA && !MetadataB )
 	{
 		return true;
 	}
-	else if( MetadataA.IsValid() != MetadataB.IsValid() )
+	else if( (MetadataA != nullptr) != (MetadataB != nullptr) )
 	{
 		// If we are in here, we know that one of the metadata entries is null, if the other
 		//  contains zero entries we will still consider them equivalent.
-		if( (MetadataA.IsValid() && MetadataA->Values.Num() == 0) ||
-			(MetadataB.IsValid() && MetadataB->Values.Num() == 0) )
+		if( (MetadataA && MetadataA->Values.Num() == 0) ||
+			(MetadataB && MetadataB->Values.Num() == 0) )
 		{
 			return true;
 		}
@@ -254,6 +260,135 @@ bool FLocMetadataObject::IsMetadataExactMatch( TSharedPtr<FLocMetadataObject> Me
 	return MetadataA->IsExactMatch( *(MetadataB) );
 }
 
+FString FLocMetadataObject::ToString() const
+{
+	FString MemberList;
+	for (const auto Pair : Values)
+	{
+		const FString MemberName = Pair.Key;
+		const TSharedPtr<FLocMetadataValue> MemberValue = Pair.Value;
+		MemberList += (MemberList.IsEmpty() ? TEXT("") : TEXT(",")) + MemberValue->ToString();
+	}
+	return FString::Printf(TEXT("{%s}"), *MemberList);
+}
+
+namespace
+{
+	void SerializeLocMetadataValue(FArchive& Archive, FLocMetadataValue*& Value)
+	{
+		if (Archive.IsSaving())
+		{
+			check(Value != nullptr);
+		}
+
+		if(Archive.IsLoading())
+		{
+			check(Value == nullptr);
+		}
+
+		ELocMetadataType MetaDataType = ELocMetadataType::None;
+		if (Archive.IsSaving())
+		{
+			MetaDataType = Value->Type;
+		}
+
+		int32 MetaDataTypeAsInt = static_cast<int32>(MetaDataType);
+		Archive << MetaDataTypeAsInt;
+		MetaDataType = static_cast<ELocMetadataType>(MetaDataTypeAsInt);
+
+		switch(MetaDataType)
+		{
+		case ELocMetadataType::Array:
+			if (Archive.IsSaving())
+			{
+				FLocMetadataValueArray::Serialize(static_cast<const FLocMetadataValueArray&>(*Value), Archive);
+			}
+			else if (Archive.IsLoading())
+			{
+				Value = new FLocMetadataValueArray(Archive);
+			}
+			break;
+		case ELocMetadataType::Boolean:
+			if (Archive.IsSaving())
+			{
+				FLocMetadataValueBoolean::Serialize(static_cast<const FLocMetadataValueBoolean&>(*Value), Archive);
+			}
+			else if (Archive.IsLoading())
+			{
+				Value = new FLocMetadataValueBoolean(Archive);
+			}
+			break;
+		case ELocMetadataType::Object:
+			if (Archive.IsSaving())
+			{
+				FLocMetadataValueObject::Serialize(static_cast<const FLocMetadataValueObject&>(*Value), Archive);
+			}
+			else if (Archive.IsLoading())
+			{
+				Value = new FLocMetadataValueObject(Archive);
+			}
+			break;
+		case ELocMetadataType::String:
+			if (Archive.IsSaving())
+			{
+				FLocMetadataValueString::Serialize(static_cast<const FLocMetadataValueString&>(*Value), Archive);
+			}
+			else if (Archive.IsLoading())
+			{
+				Value = new FLocMetadataValueString(Archive);
+			}
+			break;
+		default:
+			checkNoEntry();
+		}		
+	}
+}
+
+FArchive& operator<<(FArchive& Archive, FLocMetadataObject& Object)
+{
+	int32 ValueCount = Object.Values.Num();
+	Archive << ValueCount;
+
+	if (Archive.IsLoading())
+	{
+		Object.Values.Reserve(ValueCount);
+	}
+
+	TArray<FString> MapKeys;
+	Object.Values.GetKeys(MapKeys);
+	for (int32 i = 0; i < ValueCount; ++i)
+	{
+		FString Key;
+		if (Archive.IsSaving())
+		{
+			Key = MapKeys[i];
+		}
+		
+		Archive << Key;
+		
+		if(Archive.IsLoading())
+		{
+			Object.Values.Add(Key);
+		}
+
+		TSharedPtr<FLocMetadataValue> Value;
+		if (Archive.IsSaving())
+		{
+			Value = Object.Values[Key];
+		}
+
+		FLocMetadataValue* ValueRawPointer = Value.Get();
+		SerializeLocMetadataValue(Archive, ValueRawPointer);
+		Value = MakeShareable(ValueRawPointer);
+
+		if (Archive.IsLoading())
+		{
+			Object.Values[Key] = Value;
+		}
+	}
+
+	return Archive;
+}
 
 bool FLocMetadataValueString::EqualTo( const FLocMetadataValue& Other ) const
 {
@@ -272,6 +407,21 @@ TSharedRef<FLocMetadataValue> FLocMetadataValueString::Clone() const
 	return MakeShareable( new FLocMetadataValueString( Value ) );
 }
 
+FLocMetadataValueString::FLocMetadataValueString( FArchive& Archive )
+{
+	check(Archive.IsLoading());
+
+	Archive << Value;
+}
+
+void FLocMetadataValueString::Serialize( const FLocMetadataValueString& Value, FArchive& Archive )
+{
+	check(Archive.IsSaving());
+
+	FString StringValue = Value.Value;
+	Archive << StringValue;
+}
+
 bool FLocMetadataValueBoolean::EqualTo( const FLocMetadataValue& Other ) const
 {
 	const FLocMetadataValueBoolean* OtherObj = (FLocMetadataValueBoolean*) &Other;
@@ -287,6 +437,21 @@ bool FLocMetadataValueBoolean::LessThan( const FLocMetadataValue& Other ) const
 TSharedRef<FLocMetadataValue> FLocMetadataValueBoolean::Clone() const
 {
 	return MakeShareable( new FLocMetadataValueBoolean( Value ) );
+}
+
+FLocMetadataValueBoolean::FLocMetadataValueBoolean( FArchive& Archive )
+{
+	check(Archive.IsLoading());
+
+	Archive << Value;
+}
+
+void FLocMetadataValueBoolean::Serialize( const FLocMetadataValueBoolean& Value, FArchive& Archive )
+{
+	check(Archive.IsSaving());
+
+	bool BoolValue = Value.Value;
+	Archive << BoolValue;
 }
 
 struct FCompareMetadataValue
@@ -371,6 +536,47 @@ TSharedRef<FLocMetadataValue> FLocMetadataValueArray::Clone() const
 	return MakeShareable( new FLocMetadataValueArray( NewValue ) );
 }
 
+FString FLocMetadataValueArray::ToString() const
+{
+	FString ElementList;
+	for (const TSharedPtr<FLocMetadataValue> Element : Value)
+	{
+		ElementList += (ElementList.IsEmpty() ? TEXT("") : TEXT(",")) + Element->ToString();
+	}
+	return FString::Printf(TEXT("[%s]"), *ElementList);
+}
+
+FLocMetadataValueArray::FLocMetadataValueArray( FArchive& Archive )
+{
+	check(Archive.IsLoading());
+
+	int32 ElementCount;
+	Archive << ElementCount;
+
+	Value.SetNum(ElementCount);
+
+	for (TSharedPtr<FLocMetadataValue>& Element : Value)
+	{
+		FLocMetadataValue* ElementRawPointer = Element.Get();
+		SerializeLocMetadataValue(Archive, ElementRawPointer);
+		Element = MakeShareable(ElementRawPointer);
+	}
+}
+
+void FLocMetadataValueArray::Serialize( const FLocMetadataValueArray& Value, FArchive& Archive )
+{
+	check(Archive.IsSaving());
+
+	int32 ElementCount = Value.Value.Num();
+	Archive << ElementCount;
+
+	for (const TSharedPtr<FLocMetadataValue>& Element : Value.Value)
+	{
+		FLocMetadataValue* ElementRawPointer = Element.Get();
+		SerializeLocMetadataValue(Archive, ElementRawPointer);
+	}
+}
+
 bool FLocMetadataValueObject::EqualTo( const FLocMetadataValue& Other ) const
 {
 	const FLocMetadataValueObject* OtherObj = (FLocMetadataValueObject*) &Other;  
@@ -403,4 +609,24 @@ TSharedRef<FLocMetadataValue> FLocMetadataValueObject::Clone() const
 {
 	TSharedRef<FLocMetadataObject> NewLocMetadataObject = MakeShareable( new FLocMetadataObject( *(this->Value) ) );
 	return MakeShareable( new FLocMetadataValueObject( NewLocMetadataObject ) );
+}
+
+FString FLocMetadataValueObject::ToString() const
+{
+	return Value->ToString();
+}
+
+FLocMetadataValueObject::FLocMetadataValueObject( FArchive& Archive )
+	: Value(new FLocMetadataObject)
+{
+	check(Archive.IsLoading());
+
+	Archive << *Value;
+}
+
+void FLocMetadataValueObject::Serialize( const FLocMetadataValueObject& Value, FArchive& Archive )
+{
+	check(Archive.IsSaving());
+
+	Archive << *(Value.Value);
 }

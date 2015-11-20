@@ -1,9 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AppFrameworkPrivatePCH.h"
+#include "SWidgetGallery.h"
+
+#if !UE_BUILD_SHIPPING
+
 #include "SSearchBox.h"
 #include "SDockTab.h"
-#include "SWidgetGallery.h"
 #include "TestStyle.h"
 
 #include "SUserWidgetTest.h"
@@ -1083,6 +1086,7 @@ private:
 
 		FSlateApplication::Get().PushMenu(
 			SharedThis(this),
+			FWidgetPath(),
 			SNew(STextComboPopup)
 				.TextOptions(TextOptions)
 				.OnTextChosen(this, &SWidgetGallery::HandleTextComboPopupTextChosen),
@@ -1099,9 +1103,9 @@ private:
 		FSlateApplication::Get().DismissAllMenus();
 	}
 
-	virtual TOptional<EPopupMethod> OnQueryPopupMethod() const override
+	virtual FPopupMethodReply OnQueryPopupMethod() const override
 	{
-		return PopupMethod;
+		return FPopupMethodReply::UseMethod(PopupMethod);
 	}
 
 private:
@@ -1173,3 +1177,5 @@ TSharedRef<SWidget> MakeWidgetGallery()
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 #undef LOCTEXT_NAMESPACE
+
+#endif // #if !UE_BUILD_SHIPPING

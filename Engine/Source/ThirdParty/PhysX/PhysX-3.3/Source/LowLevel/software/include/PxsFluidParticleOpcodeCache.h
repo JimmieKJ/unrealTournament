@@ -74,7 +74,7 @@ struct PxsFluidParticleOpcodeCache
 		dist[6] = src[6];
 		dist[7] = src[7];
 
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 		dist[8] = src[8];
 		dist[9] = src[9];
 #endif

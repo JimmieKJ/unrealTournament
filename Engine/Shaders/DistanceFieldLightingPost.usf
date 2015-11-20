@@ -1,13 +1,93 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 /*=============================================================================
-	DistanceFieldSurfaceCacheLighting.usf
+	DistanceFieldLightingPost.usf
 =============================================================================*/
 
 #include "Common.usf"
 #include "DeferredShadingCommon.usf"
 #include "DistanceFieldLightingShared.usf"
 #include "DistanceFieldAOShared.usf"
+
+// 1 / ((1 - FadeDistanceFraction) * AOMaxViewDistance)
+float DistanceFadeScale;
+float SelfOcclusionReplacement;
+
+/** Normalizes the splatted surface cache values, packs depth in alpha. */
+void AOCombinePS(
+	in float4 UVAndScreenPos : TEXCOORD0
+	,out float4 OutBentNormal : SV_Target0
+#if SUPPORT_IRRADIANCE
+	,out float4 OutIrradiance : SV_Target1
+#endif
+	)
+{
+#if SUPPORT_IRRADIANCE
+	OutIrradiance = 0;
+#endif
+
+	float3 WorldNormal;
+	float SceneDepth;
+	bool bHasDistanceFieldRepresentation;
+	bool bHasHeightfieldRepresentation;
+	GetDownsampledGBuffer(UVAndScreenPos.xy, WorldNormal, SceneDepth, bHasDistanceFieldRepresentation, bHasHeightfieldRepresentation);
+
+#define VISUALIZE_ACCUMULATED_WEIGHTS 0
+#if VISUALIZE_ACCUMULATED_WEIGHTS
+
+	float3 BentNormalAO = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UVAndScreenPos.xy, 0).aaa;
+	OutBentNormal = float4(BentNormalAO, SceneDepth); 
+
+#else
+
+	float4 BentNormalAccumulation = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UVAndScreenPos.xy, 0);
+
+	if (BentNormalAccumulation.w > 0)
+	{
+		OutBentNormal.rgb = BentNormalAccumulation.xyz / BentNormalAccumulation.w;
+		OutBentNormal.a = SceneDepth;
+
+		if (!bHasDistanceFieldRepresentation)
+		{
+			// Pixels without a distance field representation interpolate AO instead of a bent normal
+			// Construct a bent normal from the interpolated AO
+			OutBentNormal.rgb = OutBentNormal.r * WorldNormal;
+		}
+
+		#if SUPPORT_IRRADIANCE
+			OutIrradiance.rgb = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UVAndScreenPos.xy, 0).xyz / BentNormalAccumulation.w;
+
+			if (!bHasDistanceFieldRepresentation && !bHasHeightfieldRepresentation)
+			{
+				OutIrradiance.rgb *= SelfOcclusionReplacement;
+			}
+		#endif
+	}
+	else
+	{
+		OutBentNormal.rgb = float3(0, 0, .1f);
+		// Sign bit stores whether texel is valid
+		OutBentNormal.a = -SceneDepth;
+	}
+
+	float BentNormalLength = length(OutBentNormal.rgb);
+	// Fade to unoccluded in the distance
+	float FadeAlpha = saturate((AOMaxViewDistance - SceneDepth) * DistanceFadeScale);
+	float3 NormalizedBentNormal = OutBentNormal.rgb / max(BentNormalLength, .0001f);
+	OutBentNormal.rgb = NormalizedBentNormal * lerp(1, BentNormalLength, FadeAlpha);
+
+	// Clamp Nan's before they get to the filter
+	OutBentNormal.rgb = clamp(OutBentNormal.rgb, -1, 1);
+
+	FLATTEN
+	if (SceneDepth > AOMaxViewDistance)
+	{
+		// Mark as valid for the gap filling pass, so we don't get overwritten
+		OutBentNormal.a = abs(OutBentNormal.a);
+	}
+
+#endif
+}
 
 float2 BentNormalAOTexelSize;
 float MinDownsampleFactorToBaseLevel;
@@ -149,7 +229,6 @@ void FillGapsPS(
 #endif
 }
 
-float4 CameraMotion[5];
 Texture2D BentNormalHistoryTexture;
 SamplerState BentNormalHistorySampler;
 Texture2D IrradianceHistoryTexture;
@@ -182,11 +261,11 @@ void UpdateHistoryPS(
 		xyd.xy = UVAndScreenPos.zw * float2(0.5, -0.5) + 0.5;
 		xyd.z = ConvertToDeviceZ(SceneDepth);
 
-		float scaleM = 1.0 / (dot(xyd, CameraMotion[0].xyz) + CameraMotion[0].w);
+		float scaleM = 1.0 / (dot(xyd, CameraMotion.Value[0].xyz) + CameraMotion.Value[0].w);
 		float2 MotionVector;
 		// Unwound vector-matrix transform with special care for precision taken from Temporal AA
-		MotionVector.x = ((xyd.x * ((CameraMotion[1].x * xyd.y) + (CameraMotion[1].y * xyd.z) + CameraMotion[1].z)) + (CameraMotion[1].w * xyd.y) + (CameraMotion[2].x * xyd.x * xyd.x) + (CameraMotion[2].y * xyd.z) + CameraMotion[2].z) * scaleM;
-		MotionVector.y = ((xyd.y * ((CameraMotion[3].x * xyd.x) + (CameraMotion[3].y * xyd.z) + CameraMotion[3].z)) + (CameraMotion[3].w * xyd.x) + (CameraMotion[4].x * xyd.y * xyd.y) + (CameraMotion[4].y * xyd.z) + CameraMotion[4].z) * scaleM;
+		MotionVector.x = ((xyd.x * ((CameraMotion.Value[1].x * xyd.y) + (CameraMotion.Value[1].y * xyd.z) + CameraMotion.Value[1].z)) + (CameraMotion.Value[1].w * xyd.y) + (CameraMotion.Value[2].x * xyd.x * xyd.x) + (CameraMotion.Value[2].y * xyd.z) + CameraMotion.Value[2].z) * scaleM;
+		MotionVector.y = ((xyd.y * ((CameraMotion.Value[3].x * xyd.x) + (CameraMotion.Value[3].y * xyd.z) + CameraMotion.Value[3].z)) + (CameraMotion.Value[3].w * xyd.x) + (CameraMotion.Value[4].x * xyd.y * xyd.y) + (CameraMotion.Value[4].y * xyd.z) + CameraMotion.Value[4].z) * scaleM;
 
 		// Note: have to sample from one of the high res texels exactly to avoid filtering of the velocity buffer
 		// 0 is stored where camera velocity should be used, which must not be filtered with valid object velocities
@@ -225,12 +304,16 @@ void UpdateHistoryPS(
 	}
 
 	float EffectiveHistoryWeight = HistoryWeight;
+	float RelativeHistoryDistanceThreshold = HistoryDistanceThreshold / 1000.0f;
+	float DistanceToHistoryValue = length(PrevWorldPosition - WorldPosition);
 
 	FLATTEN
 	if (any(OldUV > MaxUV) 
 		|| any(OldUV < MinUV)
 		// Discard history if we are shading a new position (newly revealed)
-		|| length(PrevWorldPosition - WorldPosition) > HistoryDistanceThreshold)
+		//@todo - this test needs to be done on the surrounding 4 texels of the history with manual filtering to avoid foreground leaking into the background
+		//|| DistanceToHistoryValue > HistoryDistanceThreshold)
+		|| DistanceToHistoryValue / SceneDepth > RelativeHistoryDistanceThreshold)
 	{
 		EffectiveHistoryWeight = 0;
 	}

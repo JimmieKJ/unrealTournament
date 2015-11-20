@@ -17,10 +17,10 @@ public:
 	virtual void InitRHI() override
 	{
 		FRHIResourceCreateInfo CreateInfo;
-		VertexBufferRHI = RHICreateVertexBuffer(Vertices.Num() * sizeof(FDynamicMeshVertex),BUF_Static,CreateInfo);
+		void* VertexBufferData = nullptr;
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(Vertices.Num() * sizeof(FDynamicMeshVertex), BUF_Static, CreateInfo, VertexBufferData);
 
-		// Copy the vertex data into the vertex buffer.
-		void* VertexBufferData = RHILockVertexBuffer(VertexBufferRHI,0,Vertices.Num() * sizeof(FDynamicMeshVertex), RLM_WriteOnly);
+		// Copy the vertex data into the vertex buffer.		
 		FMemory::Memcpy(VertexBufferData,Vertices.GetData(),Vertices.Num() * sizeof(FDynamicMeshVertex));
 		RHIUnlockVertexBuffer(VertexBufferRHI);
 	}
@@ -36,10 +36,10 @@ public:
 	virtual void InitRHI() override
 	{
 		FRHIResourceCreateInfo CreateInfo;
-		IndexBufferRHI = RHICreateIndexBuffer(sizeof(int32),Indices.Num() * sizeof(int32),BUF_Static, CreateInfo);
+		void* Buffer = nullptr;
+		IndexBufferRHI = RHICreateAndLockIndexBuffer(sizeof(int32),Indices.Num() * sizeof(int32),BUF_Static, CreateInfo, Buffer);
 
-		// Write the indices to the index buffer.
-		void* Buffer = RHILockIndexBuffer(IndexBufferRHI,0,Indices.Num() * sizeof(int32),RLM_WriteOnly);
+		// Write the indices to the index buffer.		
 		FMemory::Memcpy(Buffer,Indices.GetData(),Indices.Num() * sizeof(int32));
 		RHIUnlockIndexBuffer(IndexBufferRHI);
 	}
@@ -53,28 +53,40 @@ public:
 	FCustomMeshVertexFactory()
 	{}
 
+	/** Init function that should only be called on render thread. */
+	void Init_RenderThread(const FCustomMeshVertexBuffer* VertexBuffer)
+	{
+		check(IsInRenderingThread());
+
+		DataType NewData;
+		NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer, FDynamicMeshVertex, Position, VET_Float3);
+		NewData.TextureCoordinates.Add(
+			FVertexStreamComponent(VertexBuffer, STRUCT_OFFSET(FDynamicMeshVertex, TextureCoordinate), sizeof(FDynamicMeshVertex), VET_Float2)
+			);
+		NewData.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer, FDynamicMeshVertex, TangentX, VET_PackedNormal);
+		NewData.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer, FDynamicMeshVertex, TangentZ, VET_PackedNormal);
+		NewData.ColorComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer, FDynamicMeshVertex, Color, VET_Color);
+
+		SetData(NewData);
+	}
 
 	/** Initialization */
 	void Init(const FCustomMeshVertexBuffer* VertexBuffer)
 	{
-		check(!IsInRenderingThread());
-
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			InitCustomMeshVertexFactory,
-			FCustomMeshVertexFactory*,VertexFactory,this,
-			const FCustomMeshVertexBuffer*,VertexBuffer,VertexBuffer,
+		if (IsInRenderingThread())
 		{
-			// Initialize the vertex factory's stream components.
-			DataType NewData;
-			NewData.PositionComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,Position,VET_Float3);
-			NewData.TextureCoordinates.Add(
-				FVertexStreamComponent(VertexBuffer,STRUCT_OFFSET(FDynamicMeshVertex,TextureCoordinate),sizeof(FDynamicMeshVertex),VET_Float2)
-				);
-			NewData.TangentBasisComponents[0] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,TangentX,VET_PackedNormal);
-			NewData.TangentBasisComponents[1] = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer,FDynamicMeshVertex,TangentZ,VET_PackedNormal);
-			NewData.ColorComponent = STRUCTMEMBER_VERTEXSTREAMCOMPONENT(VertexBuffer, FDynamicMeshVertex, Color, VET_Color);
-			VertexFactory->SetData(NewData);
-		});
+			Init_RenderThread(VertexBuffer);
+		}
+		else
+		{
+			ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+				InitCustomMeshVertexFactory,
+				FCustomMeshVertexFactory*, VertexFactory, this,
+				const FCustomMeshVertexBuffer*, VertexBuffer, VertexBuffer,
+				{
+				VertexFactory->Init_RenderThread(VertexBuffer);
+			});
+		}	
 	}
 };
 
@@ -195,12 +207,14 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = IsShown(View);
 		Result.bShadowRelevance = IsShadowCast(View);
 		Result.bDynamicRelevance = true;
+		Result.bRenderInMainPass = ShouldRenderInMainPass();
+		Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 		MaterialRelevance.SetPrimitiveViewRelevance(Result);
 		return Result;
 	}

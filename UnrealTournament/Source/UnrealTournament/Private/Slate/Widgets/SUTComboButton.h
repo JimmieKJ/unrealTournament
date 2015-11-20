@@ -113,7 +113,7 @@ class UNREALTOURNAMENT_API SUTComboButton : public SMenuAnchor
 		SLATE_ARGUMENT( bool, IsToggleButton )
 
 		/** The text to display in this button, if no custom content is specified */
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE( FText, Text )
 
 		SLATE_ARGUMENT( EHorizontalAlignment, ContentHAlign )
 

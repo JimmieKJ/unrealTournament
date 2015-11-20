@@ -126,7 +126,7 @@ extern UNREALTOURNAMENT_API void ParseProfileItemJson(const FString& Data, TArra
 /** returns whether the given object requires an inventory item to grant rights to it */
 extern UNREALTOURNAMENT_API bool NeedsProfileItem(UObject* TestObj);
 /** sends backend request to give item(s) to a player */
-extern UNREALTOURNAMENT_API void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileItemEntry>& ItemList);
+extern UNREALTOURNAMENT_API void GiveProfileItems(TSharedPtr<const FUniqueNetId> UniqueId, const TArray<FProfileItemEntry>& ItemList);
 
 /** prefix for stat names for our hacky "inventory as stats" implementation */
 extern const FString ITEM_STAT_PREFIX;

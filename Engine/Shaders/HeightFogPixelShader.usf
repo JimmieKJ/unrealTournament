@@ -13,16 +13,15 @@ SamplerState OcclusionSampler;
 
 void ExponentialPixelMain(
 	float2 TexCoord : TEXCOORD0,
-	float4 ScreenVector : TEXCOORD1,
+	float3 ScreenVector : TEXCOORD1,
 	out float4 OutColor : SV_Target0
 	)
 { 
 	float SceneDepth = CalcSceneDepth(TexCoord);
 
-	float3 CameraToReceiver = ScreenVector.xyz * SceneDepth;
-	float3 ReceiverPosition = CameraToReceiver + View.ViewOrigin.xyz; 
+	float3 WorldPositionRelativeToCamera = ScreenVector.xyz * SceneDepth;
 
 	float LightShaftMask = Texture2DSample(OcclusionTexture, OcclusionSampler, TexCoord).x;
-	float4 ExponentialFog = GetExponentialHeightFog(ReceiverPosition, View.ViewOrigin.xyz);
+	float4 ExponentialFog = GetExponentialHeightFog(WorldPositionRelativeToCamera);
 	OutColor = RETURN_COLOR(float4(ExponentialFog.rgb * LightShaftMask, ExponentialFog.w));
 }

@@ -1273,7 +1273,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
 	if (Engine)
 	{
-		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
 	}
 

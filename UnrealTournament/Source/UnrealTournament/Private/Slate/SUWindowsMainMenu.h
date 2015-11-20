@@ -53,7 +53,7 @@ protected:
 	virtual void OpenDelayedMenu();
 	virtual bool ShouldShowBrowserIcon();
 
-	TArray<TWeakObjectPtr<AUTReplicatedGameRuleset>> AvailableGameRulesets;
+	TArray<AUTReplicatedGameRuleset*> AvailableGameRulesets;
 	TSharedPtr<SUWGameSetupDialog> CreateGameDialog;
 	void OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed);
 

@@ -13,7 +13,7 @@
  * a new sample is being requested with the @see RequestNewSample method.
  */
 class FWmfMediaTrack
-	: public IMediaTrack
+	: public IMediaStream
 {
 public:
 
@@ -25,21 +25,24 @@ public:
 	 * @param InStreamDescriptor The stream's descriptor object.
 	 * @param InStreamIndex The stream's index number in the presentation.
 	 */
-	FWmfMediaTrack( IMFPresentationDescriptor* InPresentationDescriptor, FWmfMediaSampler* InSampler, IMFStreamDescriptor* InStreamDescriptor, DWORD InStreamIndex );
+	FWmfMediaTrack(
+		IMFPresentationDescriptor* InPresentationDescriptor,
+		FWmfMediaSampler* InSampler,
+		IMFStreamDescriptor* InStreamDescriptor,
+		DWORD InStreamIndex);
 
 public:
 
-	// IMediaTrack interface
+	// IMediaStream interface
 
 	virtual void AddSink( const IMediaSinkRef& Sink ) override;
 	virtual bool Disable() override;
 	virtual bool Enable() override;
 	virtual FText GetDisplayName() const override;
-	virtual uint32 GetIndex() const override;
 	virtual FString GetLanguage() const override;
 	virtual FString GetName() const override;
 	virtual bool IsEnabled() const override;
-	virtual bool IsMutuallyExclusive( const IMediaTrackRef& Other ) const override;
+	virtual bool IsMutuallyExclusive( const IMediaStreamRef& Other ) const override;
 	virtual bool IsProtected() const override;
 	virtual void RemoveSink( const IMediaSinkRef& Sink ) override;
 

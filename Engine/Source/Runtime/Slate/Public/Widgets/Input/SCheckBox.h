@@ -4,19 +4,6 @@
 
 #include "SBorder.h"
 #include "SlateDelegates.h"
-#include "SCheckBox.generated.h"
-
-/** Current state of the check box */
-UENUM(BlueprintType)
-enum class ECheckBoxState : uint8
-{
-	/** Unchecked */
-	Unchecked,
-	/** Checked */
-	Checked,
-	/** Neither checked nor unchecked */
-	Undetermined
-};
 
 /** DEPRECATED 4.6 - Do not use */
 //@Todo slate: Remove this as soon as the 4.6 deprecated API is Removed.
@@ -169,6 +156,7 @@ public:
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
+	virtual bool IsInteractable() const override;
 	// End of SWidget interface
 
 	/**
@@ -231,6 +219,18 @@ public:
 
 protected:
 
+	/** Rebuilds the checkbox based on the current ESlateCheckBoxType */
+	void BuildCheckBox(TSharedRef<SWidget> InContent);
+
+	/** Attribute getter for the foreground color */
+	FSlateColor OnGetForegroundColor() const;
+	/** Attribute getter for the padding */
+	FMargin OnGetPadding() const;
+	/** Attribute getter for the border background color */
+	FSlateColor OnGetBorderBackgroundColor() const;
+	/** Attribute getter for the checkbox type */
+	ESlateCheckBoxType::Type OnGetCheckBoxType() const;
+
 	/**
 	 * Gets the check image to display for the current state of the check box
 	 * @return	The name of the image to display
@@ -280,6 +280,18 @@ protected:
 	const FSlateBrush* UndeterminedHoveredImage;
 	/** Image to use when the checkbox is in an ambiguous state and pressed*/
 	const FSlateBrush* UndeterminedPressedImage;
+
+	/** Overrides padding in the widget style, if set */
+	TAttribute<FMargin> PaddingOverride;
+	/** Overrides foreground color in the widget style, if set */
+	TAttribute<FSlateColor> ForegroundColorOverride;
+	/** Overrides border background color in the widget style, if set */
+	TAttribute<FSlateColor> BorderBackgroundColorOverride;
+	/** Overrides checkbox type in the widget style, if set */
+	TOptional<ESlateCheckBoxType::Type> CheckBoxTypeOverride;
+
+	/** Horiz align setting if in togglebox mode */
+	EHorizontalAlignment HorizontalAlignment;
 
 	/** Sets whether a click should be triggered on mouse down, mouse up, or that both a mouse down and up are required. */
 	EButtonClickMethod::Type ClickMethod;

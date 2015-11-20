@@ -12,6 +12,7 @@
 #include "RawMesh.h"
 #include "MeshUtilities.h"
 #include "Engine/Polys.h"
+#include "PhysicsEngine/BodySetup.h"
 
 #define LOCAL_EPS (0.01f)
 static void AddVertexIfNotPresent(TArray<FVector> &vertices, FVector &newVertex)

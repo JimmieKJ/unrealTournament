@@ -195,10 +195,10 @@ void FLiveEditor::InstallHooks()
 	FEdGraphUtilities::RegisterVisualPinFactory(PinFactory);
 
 	ObjectCreationListener = new FLiveEditorObjectCreateListener();
-	GetUObjectArray().AddUObjectCreateListener(ObjectCreationListener);
+	GUObjectArray.AddUObjectCreateListener(ObjectCreationListener);
 
 	ObjectDeletionListener = new FLiveEditorObjectDeleteListener();
-	GetUObjectArray().AddUObjectDeleteListener(ObjectDeletionListener);
+	GUObjectArray.AddUObjectDeleteListener(ObjectDeletionListener);
 
 	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(LiveEditorModule::LiveEditorApp, FOnSpawnTab::CreateStatic(&SpawnLiveEditorTab))
 		.SetDisplayName(NSLOCTEXT("LiveEditorPlugin", "TabTitle", "Live Editor"))
@@ -212,8 +212,8 @@ void FLiveEditor::RemoveHooks()
 
 	FEdGraphUtilities::UnregisterVisualPinFactory(PinFactory);
 
-	GetUObjectArray().RemoveUObjectCreateListener(ObjectCreationListener);
-	GetUObjectArray().RemoveUObjectDeleteListener(ObjectDeletionListener);
+	GUObjectArray.RemoveUObjectCreateListener(ObjectCreationListener);
+	GUObjectArray.RemoveUObjectDeleteListener(ObjectDeletionListener);
 
 	FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(LiveEditorModule::LiveEditorApp);
 }

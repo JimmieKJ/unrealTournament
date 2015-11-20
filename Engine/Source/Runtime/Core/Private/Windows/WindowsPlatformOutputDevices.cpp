@@ -122,7 +122,9 @@ void FOutputDeviceWindowsError::HandleError()
 	FCoreDelegates::OnHandleSystemError.Broadcast();
 
 	// Dump the error and flush the log.
-	UE_LOG( LogWindows, Log, TEXT( "=== Critical error: ===" ) LINE_TERMINATOR TEXT( "%s" ) LINE_TERMINATOR, GErrorHist );
+	FDebug::ConditionallyEmitBeginCrashUATMarker();
+	UE_LOG( LogWindows, Error, TEXT( "=== Critical error: ===" ) LINE_TERMINATOR TEXT( "%s" ) LINE_TERMINATOR, GErrorHist );
+	FDebug::ConditionallyEmitEndCrashUATMarker();
 
 	GLog->PanicFlushThreadedLogs();
 
@@ -251,10 +253,12 @@ bool FOutputDeviceConsoleWindows::IsShown()
 	return ConsoleHandle != NULL;
 }
 
-void FOutputDeviceConsoleWindows::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category )
+void FOutputDeviceConsoleWindows::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category, const double Time )
 {
 	if( ConsoleHandle )
 	{
+		const double RealTime = Time == -1.0f ? FPlatformTime::Seconds() - GStartTime : Time;
+
 		static bool Entry=false;
 		if( !GIsCriticalError || Entry )
 		{
@@ -280,7 +284,7 @@ void FOutputDeviceConsoleWindows::Serialize( const TCHAR* Data, ELogVerbosity::T
 					}
 				}
 				TCHAR OutputString[MAX_SPRINTF]=TEXT(""); //@warning: this is safe as FCString::Sprintf only use 1024 characters max
-				FCString::Sprintf(OutputString,TEXT("%s%s"),*FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes),LINE_TERMINATOR);
+				FCString::Sprintf(OutputString,TEXT("%s%s"),*FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes,RealTime),LINE_TERMINATOR);
 				uint32 Written;
 				WriteConsole( ConsoleHandle, OutputString, FCString::Strlen(OutputString), (::DWORD*)&Written, NULL );
 
@@ -297,6 +301,11 @@ void FOutputDeviceConsoleWindows::Serialize( const TCHAR* Data, ELogVerbosity::T
 			Entry=false;
 		}
 	}
+}
+
+void FOutputDeviceConsoleWindows::Serialize( const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category )
+{
+	Serialize( Data, Verbosity, Category, -1.0 );
 }
 
 void FOutputDeviceConsoleWindows::SetColor( const TCHAR* Color )

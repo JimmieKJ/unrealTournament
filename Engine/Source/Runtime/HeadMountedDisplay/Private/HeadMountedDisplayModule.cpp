@@ -2,6 +2,15 @@
 
 #include "HeadMountedDisplayPrivate.h"
 
+/**
+* HMD device console vars
+*/
+static TAutoConsoleVariable<int32> CVarHiddenAreaMask(
+	TEXT("vr.HiddenAreaMask"),
+	1,
+	TEXT("0 to disable hidden area mask, 1 to enable."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 class FHeadMountedDisplayModule : public IHeadMountedDisplayModule
 {
 	virtual TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > CreateHeadMountedDisplay()

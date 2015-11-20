@@ -7,7 +7,10 @@
 #include "Common.usf"
 #include "Definitions.usf"
 #include "VertexFactoryCommon.usf"
-#include "GpuSkinCacheCommon.usf"
+#include "GpuSkinCommon.usf"
+
+// Set to 1 to enable passing through values from vertex buffer (ie do not skin)
+#define GPUSKIN_USE_PASSTHROUGH	0
 
 #define FBoneMatrix float3x4
 
@@ -128,7 +131,6 @@ void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
  uint3 DispatchThreadID : SV_DispatchThreadID,
  uint3 GroupThreadID : SV_GroupThreadID)
 {
-#if !PS4_PROFILE	//@todo ps4: shader compiler issue, but this isn't currently used so just skip it on ps4 for now
 	uint ThreadId = DispatchThreadID.x;
 
 	if (ThreadId > SkinCacheVertexCount)
@@ -182,9 +184,11 @@ void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID,
 		SkinCacheBuffer[OutputOffset + i] = SkinStreamInputBuffer[InputOffset + i];
 	}
 
-	//for (uint i = 0; i < FloatCount; i++)
-	//{
-	//	SkinCacheBuffer[OutputOffset + i] = SkinStreamInputBuffer[InputOffset + i];
-	//}
+	// Passthrough debug code
+#if GPUSKIN_USE_PASSTHROUGH
+	for (uint i = 0; i < FloatCount; i++)
+	{
+		SkinCacheBuffer[OutputOffset + i] = SkinStreamInputBuffer[InputOffset + i];
+	}
 #endif
 }

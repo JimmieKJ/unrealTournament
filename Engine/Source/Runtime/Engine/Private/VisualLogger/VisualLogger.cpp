@@ -3,31 +3,55 @@
 #include "EnginePrivate.h"
 #include "VisualLogger/VisualLogger.h"
 #include "VisualLogger/VisualLoggerBinaryFileDevice.h"
+#include "VisualLogger/VisualLoggerDebugSnapshotInterface.h"
 #if WITH_EDITOR
 #	include "Editor/UnrealEd/Public/EditorComponents.h"
 #	include "Editor/UnrealEd/Public/EditorReimportHandler.h"
 #	include "Editor/UnrealEd/Public/TexAlignTools.h"
 #	include "Editor/UnrealEd/Public/TickableEditorObject.h"
-#	include "UnrealEdClasses.h"
 #	include "Editor/UnrealEd/Public/Editor.h"
 #	include "Editor/UnrealEd/Public/EditorViewportClient.h"
 #endif
 
 
-#if ENABLE_VISUAL_LOG 
-
-DEFINE_STAT(STAT_VisualLog);
 DEFINE_LOG_CATEGORY(LogVisual);
+#if ENABLE_VISUAL_LOG 
+DEFINE_STAT(STAT_VisualLog);
+
+namespace
+{
+	static UWorld* GetWorldForVisualLogger(const class UObject* Object)
+	{
+		UWorld* World = Object ? GEngine->GetWorldFromContextObject(Object, false) : nullptr;
+#if WITH_EDITOR
+		UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
+		if (GIsEditor && EEngine != nullptr && World == nullptr)
+		{
+			// lets use PlayWorld during PIE/Simulate and regular world from editor otherwise, to draw debug information
+			World = EEngine->PlayWorld != nullptr ? EEngine->PlayWorld : EEngine->GetEditorWorldContext().World();
+		}
+
+#endif
+		if (!GIsEditor && World == nullptr)
+		{
+			World = GEngine->GetWorld();
+		}
+
+		return World;
+	}
+}
 
 TMap<UObject*, TArray<TWeakObjectPtr<const UObject> > > FVisualLogger::RedirectionMap;
+int32 FVisualLogger::bIsRecording = false;
 
 bool FVisualLogger::CheckVisualLogInputInternal(const class UObject* Object, const struct FLogCategoryBase& Category, ELogVerbosity::Type Verbosity, UWorld **World, FVisualLogEntry **CurrentEntry)
 {
-	FVisualLogger& VisualLogger = FVisualLogger::Get();
-	if (!Object || (GEngine && GEngine->bDisableAILogging) || VisualLogger.IsRecording() == false || Object->HasAnyFlags(RF_ClassDefaultObject))
+	if (FVisualLogger::IsRecording() == false || !Object || (GEngine && GEngine->bDisableAILogging) || Object->HasAnyFlags(RF_ClassDefaultObject))
 	{
 		return false;
 	}
+
+	FVisualLogger& VisualLogger = FVisualLogger::Get();
 	const FName CategoryName = Category.GetCategoryName();
 	if (VisualLogger.IsBlockedForAllCategories() && VisualLogger.IsWhiteListed(CategoryName) == false)
 	{
@@ -41,7 +65,7 @@ bool FVisualLogger::CheckVisualLogInputInternal(const class UObject* Object, con
 	}
 
 	*CurrentEntry = VisualLogger.GetEntryToWrite(Object, (*World)->TimeSeconds);
-	if (ensure(CurrentEntry != nullptr) == false)
+	if (*CurrentEntry == nullptr)
 	{
 		return false;
 	}
@@ -49,15 +73,24 @@ bool FVisualLogger::CheckVisualLogInputInternal(const class UObject* Object, con
 	return true;
 }
 
+FVisualLogEntry* FVisualLogger::GetLastEntryForObject(const class UObject* Object)
+{
+	UObject * LogOwner = FVisualLogger::FindRedirection(Object);
+	return CurrentEntryPerObject.Contains(LogOwner) ? &CurrentEntryPerObject[LogOwner] : nullptr;
+}
 
 FVisualLogEntry* FVisualLogger::GetEntryToWrite(const class UObject* Object, float TimeStamp, ECreateIfNeeded ShouldCreate)
 {
 	FVisualLogEntry* CurrentEntry = nullptr;
 	UObject * LogOwner = FVisualLogger::FindRedirection(Object);
+	if (LogOwner == nullptr || (LogOwner != Object && CurrentEntryPerObject.Contains(LogOwner) == false))
+	{
+		return nullptr;
+	}
 
 	bool InitializeNewEntry = false;
 
-	TWeakObjectPtr<UWorld> World = GetWorld(Object);
+	TWeakObjectPtr<UWorld> World = GetWorldForVisualLogger(Object);
 
 	if (CurrentEntryPerObject.Contains(LogOwner))
 	{
@@ -83,6 +116,7 @@ FVisualLogEntry* FVisualLogger::GetEntryToWrite(const class UObject* Object, flo
 
 	if (!CurrentEntry)
 	{
+		// It's first and only one usage of LogOwner as regular object to get names. We assume once that LogOwner is correct here and only here.
 		CurrentEntry = &CurrentEntryPerObject.Add(LogOwner);
 		ObjectToNameMap.Add(LogOwner, LogOwner->GetFName());
 		ObjectToClassNameMap.Add(LogOwner, *(LogOwner->GetClass()->GetName()));
@@ -99,20 +133,20 @@ FVisualLogEntry* FVisualLogger::GetEntryToWrite(const class UObject* Object, flo
 		{
 			if (ObjectToPointerMap.Contains(LogOwner) && ObjectToPointerMap[LogOwner].IsValid())
 			{
-				const class AActor* LogOwnerAsActor = Cast<class AActor>(LogOwner);
-				if (LogOwnerAsActor)
+				const IVisualLoggerDebugSnapshotInterface* DebugSnapshotInterface = Cast<const IVisualLoggerDebugSnapshotInterface>(LogOwner);
+				if (DebugSnapshotInterface)
 				{
-					LogOwnerAsActor->GrabDebugSnapshot(CurrentEntry);
+					DebugSnapshotInterface->GrabDebugSnapshot(CurrentEntry);
 				}
 			}
 			for (auto Child : RedirectionMap[LogOwner])
 			{
 				if (Child.IsValid())
 				{
-					const class AActor* ChildAsActor = Cast<class AActor>(Child.Get());
-					if (ChildAsActor)
+					const IVisualLoggerDebugSnapshotInterface* DebugSnapshotInterface = Cast<const IVisualLoggerDebugSnapshotInterface>(Child.Get());
+					if (DebugSnapshotInterface)
 					{
-						ChildAsActor->GrabDebugSnapshot(CurrentEntry);
+						DebugSnapshotInterface->GrabDebugSnapshot(CurrentEntry);
 					}
 				}
 			}
@@ -123,7 +157,11 @@ FVisualLogEntry* FVisualLogger::GetEntryToWrite(const class UObject* Object, flo
 			if (ObjectAsActor)
 			{
 				CurrentEntry->Location = ObjectAsActor->GetActorLocation();
-				ObjectAsActor->GrabDebugSnapshot(CurrentEntry);
+				const IVisualLoggerDebugSnapshotInterface* DebugSnapshotInterface = Cast<const IVisualLoggerDebugSnapshotInterface>(Object);
+				if (DebugSnapshotInterface)
+				{
+					DebugSnapshotInterface->GrabDebugSnapshot(CurrentEntry);
+				}
 			}
 		}
 	}
@@ -240,6 +278,24 @@ void FVisualLogger::EventLog(const class UObject* Object, const FName EventTag1,
 	CurrentEntry->Events[Index].EventTags.Remove(NAME_None);
 }
 
+void FVisualLogger::NavigationDataDump(const class UObject* Object, const struct FLogCategoryBase& Category, ELogVerbosity::Type Verbosity, int32 UniqueLogId, const FBox& Box)
+{
+	SCOPE_CYCLE_COUNTER(STAT_VisualLog);
+	UWorld *World = nullptr;
+	FVisualLogEntry *CurrentEntry = nullptr;
+	if (CheckVisualLogInputInternal(Object, Category, Verbosity, &World, &CurrentEntry) == false)
+	{
+		return;
+	}
+
+	const ANavigationData* MainNavData = World ? UNavigationSystem::GetNavigationSystem(World)->GetMainNavData(FNavigationSystem::ECreateIfEmpty::DontCreate) : nullptr;
+	const FNavDataGenerator* Generator = MainNavData ? MainNavData->GetGenerator() : nullptr;
+	if (Generator)
+	{
+		Generator->GrabDebugSnapshot(CurrentEntry, FMath::IsNearlyZero(Box.GetVolume()) ? MainNavData->GetBounds().ExpandBy(FVector(20,20,20)) : Box, Category, Verbosity);
+	}
+}
+
 
 FVisualLogger::FVisualLogger()
 {
@@ -253,26 +309,6 @@ FVisualLogger::FVisualLogger()
 		SetIsRecording(true);
 		SetIsRecordingToFile(true);
 	}
-}
-
-UWorld* FVisualLogger::GetWorld(const class UObject* Object)
-{
-	UWorld* World = Object ? GEngine->GetWorldFromContextObject(Object, false) : nullptr;
-#if WITH_EDITOR
-	UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
-	if (GIsEditor && EEngine != nullptr && World == nullptr)
-	{
-		// lets use PlayWorld during PIE/Simulate and regular world from editor otherwise, to draw debug information
-		World = EEngine->PlayWorld != nullptr ? EEngine->PlayWorld : EEngine->GetEditorWorldContext().World();
-	}
-
-#endif
-	if (!GIsEditor && World == nullptr)
-	{
-		World = GEngine->GetWorld();
-	}
-
-	return World;
 }
 
 void FVisualLogger::Shutdown()
@@ -356,6 +392,10 @@ class UObject* FVisualLogger::FindRedirection(const UObject* Object)
 
 void FVisualLogger::SetIsRecording(bool InIsRecording) 
 { 
+	if (InIsRecording == false && InIsRecording != !!bIsRecording && FParse::Param(FCommandLine::Get(), TEXT("LogNavOctree")))
+	{
+		FVisualLogger::NavigationDataDump(GetWorldForVisualLogger(nullptr), LogNavigation, ELogVerbosity::Log, INDEX_NONE, FBox());
+	}
 	if (IsRecordingToFile())
 	{
 		SetIsRecordingToFile(false);
@@ -403,6 +443,22 @@ void FVisualLogger::SetIsRecordingToFile(bool InIsRecording)
 	bIsRecordingToFile = InIsRecording;
 }
 
+bool FVisualLogger::IsCategoryLogged(const struct FLogCategoryBase& Category) const
+{
+	if ((GEngine && GEngine->bDisableAILogging) || IsRecording() == false)
+	{
+		return false;
+	}
+
+	const FName CategoryName = Category.GetCategoryName();
+	if (IsBlockedForAllCategories() && IsWhiteListed(CategoryName) == false)
+	{
+		return false;
+	}
+
+	return true;
+}
+
 #endif //ENABLE_VISUAL_LOG
 
 const FGuid EVisualLoggerVersion::GUID = FGuid(0xA4237A36, 0xCAEA41C9, 0x8FA218F8, 0x58681BF3);
@@ -439,7 +495,7 @@ public:
 				{
 					FString Category = FParse::Token(Cmd, 1);
 					FVisualLogger::Get().BlockAllCategories(true);
-					FVisualLogger::Get().GetWhiteList().AddUnique(*Category);
+					FVisualLogger::Get().AddCategortyToWhiteList(*Category);
 					return true;
 				}
 #if WITH_EDITOR
@@ -454,6 +510,12 @@ public:
 #endif
 			}
 		}
+#if ENABLE_VISUAL_LOG
+		else if (FParse::Command(&Cmd, TEXT("LogNavOctree")))
+		{
+			FVisualLogger::NavigationDataDump(GetWorldForVisualLogger(nullptr), LogNavigation, ELogVerbosity::Log, INDEX_NONE, FBox());
+		}
+#endif
 		return false;
 	}
 } LogVisualizerExec;

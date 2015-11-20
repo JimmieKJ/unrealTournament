@@ -317,7 +317,7 @@ namespace AssetSelectionUtils
 
 	int32 GetNumSelectedSurfaces( UWorld* InWorld )
 	{
-		int32 NumSurfs = 0;
+		int32 NumSelectedSurfs = 0;
 		UWorld* World = InWorld;
 		if( !World )
 		{
@@ -325,19 +325,61 @@ namespace AssetSelectionUtils
 		}
 		if( World )
 		{
-			// Count the number of selected surfaces
-			for( int32 Surface=0; Surface<World->GetModel()->Surfs.Num(); ++Surface )
+			const int32 NumLevels = World->GetNumLevels();
+			for (int32 LevelIndex = 0; LevelIndex < NumLevels; LevelIndex++)
 			{
-				FBspSurf *Poly = &World->GetModel()->Surfs[Surface];
+				ULevel* Level = World->GetLevel(LevelIndex);
+				UModel* Model = Level->Model;
+				check(Model);
+				const int32 NumSurfaces = Model->Surfs.Num();
 
-				if( Poly->PolyFlags & PF_Selected )
+				// Count the number of selected surfaces
+				for (int32 Surface = 0; Surface < NumSurfaces; ++Surface)
 				{
-					++NumSurfs;
+					FBspSurf *Poly = &Model->Surfs[Surface];
+
+					if (Poly->PolyFlags & PF_Selected)
+					{
+						++NumSelectedSurfs;
+					}
 				}
 			}
 		}
 
-		return NumSurfs;
+		return NumSelectedSurfs;
+	}
+
+	bool IsAnySurfaceSelected( UWorld* InWorld )
+	{
+		UWorld* World = InWorld;
+		if (!World)
+		{
+			World = GWorld;	// Fallback to GWorld
+		}
+		if (World)
+		{
+			const int32 NumLevels = World->GetNumLevels();
+			for (int32 LevelIndex = 0; LevelIndex < NumLevels; LevelIndex++)
+			{
+				ULevel* Level = World->GetLevel(LevelIndex);
+				UModel* Model = Level->Model;
+				check(Model);
+				const int32 NumSurfaces = Model->Surfs.Num();
+
+				// Count the number of selected surfaces
+				for (int32 Surface = 0; Surface < NumSurfaces; ++Surface)
+				{
+					FBspSurf *Poly = &Model->Surfs[Surface];
+
+					if (Poly->PolyFlags & PF_Selected)
+					{
+						return true;
+					}
+				}
+			}
+		}
+
+		return false;
 	}
 
 	bool IsBuilderBrushSelected()
@@ -377,6 +419,14 @@ static AActor* PrivateAddActor( UObject* Asset, UActorFactory* Factory, bool Sel
 		return nullptr;
 	}
 
+	UWorld* OldWorld = nullptr;
+
+	// The play world needs to be selected if it exists
+	if (GIsEditor && GEditor->PlayWorld && !GIsPlayInEditorWorld)
+	{
+		OldWorld = SetPlayInEditorWorld(GEditor->PlayWorld);
+	}
+
 	// For Brushes/Volumes, use the default brush as the template rather than the factory default actor
 	if (NewActorTemplate->IsA(ABrush::StaticClass()) && GWorld->GetDefaultBrush() != nullptr)
 	{
@@ -385,10 +435,20 @@ static AActor* PrivateAddActor( UObject* Asset, UActorFactory* Factory, bool Sel
 
 	const FSnappedPositioningData PositioningData = FSnappedPositioningData(GCurrentLevelEditingViewportClient, GEditor->ClickLocation, GEditor->ClickPlane)
 		.UseFactory(Factory)
-		.UseStartTransform(NewActorTemplate->GetTransform())
 		.UsePlacementExtent(NewActorTemplate->GetPlacementExtent());
 
-	const FTransform ActorTransform = FActorPositioning::GetSnappedSurfaceAlignedTransform(PositioningData);
+	FTransform ActorTransform = FActorPositioning::GetSnappedSurfaceAlignedTransform(PositioningData);
+
+	if (GetDefault<ULevelEditorViewportSettings>()->SnapToSurface.bEnabled)
+	{
+		// HACK: If we are aligning rotation to surfaces, we have to factor in the inverse of the actor transform so that the resulting transform after SpawnActor is correct.
+
+		if (auto* RootComponent = NewActorTemplate->GetRootComponent())
+		{
+			RootComponent->UpdateComponentToWorld();
+		}
+		ActorTransform = NewActorTemplate->GetTransform().Inverse() * ActorTransform;
+	}
 
 	// Do not fade snapping indicators over time if the viewport is not realtime
 	bool bClearImmediately = !GCurrentLevelEditingViewportClient || !GCurrentLevelEditingViewportClient->IsRealtime();
@@ -397,20 +457,15 @@ static AActor* PrivateAddActor( UObject* Asset, UActorFactory* Factory, bool Sel
 	ULevel* DesiredLevel = GWorld->GetCurrentLevel();
 
 	// Don't spawn the actor if the current level is locked.
-	if ( FLevelUtils::IsLevelLocked(DesiredLevel) )
+	if (FLevelUtils::IsLevelLocked(DesiredLevel))
 	{
-		FNotificationInfo Info( NSLOCTEXT("UnrealEd", "Error_OperationDisallowedOnLockedLevel", "The requested operation could not be completed because the level is locked.") );
+		FNotificationInfo Info(NSLOCTEXT("UnrealEd", "Error_OperationDisallowedOnLockedLevel", "The requested operation could not be completed because the level is locked."));
 		Info.ExpireDuration = 3.0f;
 		FSlateNotificationManager::Get().AddNotification(Info);
-		return nullptr;
 	}
-
+	else
 	{
-		FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "CreateActor", "Create Actor") );
-		if ( !(ObjectFlags & RF_Transactional) )
-		{
-			Transaction.Cancel();
-		}
+		FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "CreateActor", "Create Actor"), (ObjectFlags & RF_Transactional) != 0 );
 
 		// Create the actor.
 		Actor = Factory->CreateActor( Asset, DesiredLevel, ActorTransform, ObjectFlags, Name );
@@ -425,14 +480,20 @@ static AActor* PrivateAddActor( UObject* Asset, UActorFactory* Factory, bool Sel
 			Actor->InvalidateLightingCache();
 			Actor->PostEditChange();
 		}
-	}
 
-	GEditor->RedrawLevelEditingViewports();
+		GEditor->RedrawLevelEditingViewports();
+	}
 
 	if ( Actor )
 	{
 		Actor->MarkPackageDirty();
 		ULevel::LevelDirtiedEvent.Broadcast();
+	}
+
+	// Restore the old world if there was one
+	if (OldWorld)
+	{
+		RestoreEditorWorld(OldWorld);
 	}
 
 	return Actor;
@@ -469,7 +530,9 @@ namespace AssetUtil
 
 				for (int Index = 0; Index < DroppedAssetStrings.Num(); Index++)
 				{
-					FAssetData AssetData = AssetRegistry.GetAssetByObjectPath( *DroppedAssetStrings[ Index ] );
+					// Truncate each string so that it doesn't exceed the maximum allowed length of characters to be converted to an FName
+					FString TruncatedString = DroppedAssetStrings[ Index ].Left( NAME_SIZE );
+					FAssetData AssetData = AssetRegistry.GetAssetByObjectPath( FName( *TruncatedString ) );
 					if ( AssetData.IsValid() )
 					{
 						DroppedAssetData.Add( AssetData );

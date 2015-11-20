@@ -79,8 +79,8 @@ void SMessagingTypes::Construct( const FArguments& InArgs, const FMessagingDebug
 									.HeaderContent()
 									[
 										SNew(SImage)
-											.Image(Style->GetBrush("Break"))
-											.ToolTipText(LOCTEXT("TypeListBreakpointsColumnTooltip", "Breakpoints"))
+											.Image(InStyle->GetBrush("BreakColumn"))
+											.ToolTipText(LOCTEXT("EndpointListBreakpointsColumnTooltip", "Breakpoints"))
 									]
 
 								+ SHeaderRow::Column("Name")

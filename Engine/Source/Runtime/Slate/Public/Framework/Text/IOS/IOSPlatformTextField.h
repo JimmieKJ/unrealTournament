@@ -26,6 +26,7 @@ typedef FIOSPlatformTextField FPlatformTextField;
 @interface SlateTextField : NSObject<UIAlertViewDelegate>
 {
 	TSharedPtr<IVirtualKeyboardEntry> TextWidget;
+	FText TextEntry;
 }
 
 -(void)show:(TSharedPtr<IVirtualKeyboardEntry>)InTextWidget;

@@ -52,19 +52,41 @@ namespace LogVisualizer
 	}
 }
 
-void FVisualLoggerCanvasRenderer::OnItemSelectionChanged(const struct FVisualLogEntry& EntryItem)
+FVisualLoggerCanvasRenderer::FVisualLoggerCanvasRenderer() 
+	: bDirtyData(true) 
 {
-	SelectedEntry = EntryItem;
+	FLogVisualizer::Get().GetEvents().OnFiltersChanged.AddRaw(this, &FVisualLoggerCanvasRenderer::DirtyCachedData);
+	FVisualLoggerDatabase::Get().GetEvents().OnRowSelectionChanged.AddRaw(this, &FVisualLoggerCanvasRenderer::ObjectSelectionChanged);
+	FVisualLoggerDatabase::Get().GetEvents().OnItemSelectionChanged.AddRaw(this, &FVisualLoggerCanvasRenderer::OnItemSelectionChanged);
 }
 
-void FVisualLoggerCanvasRenderer::ObjectSelectionChanged(TSharedPtr<class STimeline> TimeLine)
+FVisualLoggerCanvasRenderer::~FVisualLoggerCanvasRenderer()
 {
-	CurrentTimeLine = TimeLine;
+	FLogVisualizer::Get().GetEvents().OnFiltersChanged.RemoveAll(this);
+	FVisualLoggerDatabase::Get().GetEvents().OnRowSelectionChanged.RemoveAll(this);
+	FVisualLoggerDatabase::Get().GetEvents().OnItemSelectionChanged.RemoveAll(this);
+}
+
+void FVisualLoggerCanvasRenderer::ResetData()
+{
+	SelectedEntry = FVisualLogEntry();
+	DirtyCachedData();
+}
+
+void FVisualLoggerCanvasRenderer::OnItemSelectionChanged(const FVisualLoggerDBRow& ChangedRow, int32 SelectedItemIndex)
+{
+	SelectedEntry = ChangedRow.GetCurrentItemIndex() != INDEX_NONE ? ChangedRow.GetCurrentItem().Entry : FVisualLogEntry();
+	DirtyCachedData();
+}
+
+void FVisualLoggerCanvasRenderer::ObjectSelectionChanged(const TArray<FName>& RowNames)
+{
+	DirtyCachedData();
 }
 
 void FVisualLoggerCanvasRenderer::DrawOnCanvas(class UCanvas* Canvas, class APlayerController*)
 {
-	if (GEngine == NULL || CurrentTimeLine.IsValid() == false)
+	if (GEngine == NULL)
 	{
 		return;
 	}
@@ -81,143 +103,111 @@ void FVisualLoggerCanvasRenderer::DrawOnCanvas(class UCanvas* Canvas, class APla
 	const FString TimeStampString = FString::Printf(TEXT("%.2f"), SelectedEntry.TimeStamp);
 	LogVisualizer::DrawTextShadowed(Canvas, Font, TimeStampString, SelectedEntry.Location);
 
-	for (const auto CurrentData : SelectedEntry.DataBlocks)
+	if (bDirtyData && FLogVisualizer::Get().GetTimeSliderController().IsValid())
 	{
-		const FName TagName = CurrentData.TagName;
-		const bool bIsValidByFilter = FCategoryFiltersManager::Get().MatchCategoryFilters(CurrentData.Category.ToString(), ELogVerbosity::All) && FCategoryFiltersManager::Get().MatchCategoryFilters(CurrentData.TagName.ToString(), ELogVerbosity::All);
-		FVisualLogExtensionInterface* Extension = FVisualLogger::Get().GetExtensionForTag(TagName);
-		if (!Extension)
-		{
-			continue;
-		}
+		const FVisualLoggerTimeSliderArgs&  TimeSliderArgs = FLogVisualizer::Get().GetTimeSliderController()->GetTimeSliderArgs();
+		TRange<float> LocalViewRange = TimeSliderArgs.ViewRange.Get();
+		const float LocalViewRangeMin = LocalViewRange.GetLowerBoundValue();
+		const float LocalViewRangeMax = LocalViewRange.GetUpperBoundValue();
+		const float LocalSequenceLength = LocalViewRangeMax - LocalViewRangeMin;
+		const float WindowHalfWidth = LocalSequenceLength * TimeSliderArgs.CursorSize.Get() * 0.5f;
+		const FVector2D TimeStampWindow(SelectedEntry.TimeStamp - WindowHalfWidth, SelectedEntry.TimeStamp + WindowHalfWidth);
 
-		if (!bIsValidByFilter)
+		CollectedGraphs.Reset();
+		const TArray<FName>& RowNames = FVisualLoggerDatabase::Get().GetSelectedRows();
+		for (auto RowName : RowNames)
 		{
-			Extension->DisableDrawingForData(FLogVisualizer::Get().GetWorld(), Canvas, NULL, TagName, CurrentData, SelectedEntry.TimeStamp);
+			if (FVisualLoggerDatabase::Get().IsRowVisible(RowName) == false)
+			{
+				continue;
+			}
+
+			const TArray<FVisualLoggerGraph>& AllGraphs = FVisualLoggerGraphsDatabase::Get().GetGraphsByOwnerName(RowName);
+			for (const FVisualLoggerGraph& CurrentGraph : AllGraphs)
+			{
+				const FName GraphName = CurrentGraph.GetGraphName();
+				const FName OwnerName = CurrentGraph.GetOwnerName();
+
+				if (FVisualLoggerGraphsDatabase::Get().IsGraphVisible(OwnerName, GraphName) == false)
+				{
+					continue;
+				}
+
+				for (auto DataIt(CurrentGraph.GetConstDataIterator()); DataIt; ++DataIt)
+				{
+					const FVisualLoggerGraphData& GraphData = *DataIt;
+					const bool bIsGraphDataDisabled = FVisualLoggerFilters::Get().IsGraphDataDisabled(GraphName, GraphData.DataName);
+					if (bIsGraphDataDisabled)
+					{
+						continue;
+					}
+
+					const FName FullGraphName = *FString::Printf(TEXT("%s$%s"), *RowName.ToString(), *GraphName.ToString());
+					FGraphData &CollectedGraphData = CollectedGraphs.FindOrAdd(FullGraphName);
+					FGraphLineData &LineData = CollectedGraphData.GraphLines.FindOrAdd(GraphData.DataName);
+					LineData.DataName = GraphData.DataName;
+					LineData.Samples = GraphData.Samples;
+					LineData.LeftExtreme = FVector2D::ZeroVector;
+					LineData.RightExtreme = FVector2D::ZeroVector;
+
+					int32 LeftSideOutsideIndex = INDEX_NONE;
+					int32 RightSideOutsideIndex = INDEX_NONE;
+					for (int32 SampleIndex = 0; SampleIndex < GraphData.Samples.Num(); SampleIndex++)
+					{
+						const FVector2D& SampleValue = GraphData.Samples[SampleIndex];
+						CollectedGraphData.Min.X = FMath::Min(CollectedGraphData.Min.X, SampleValue.X);
+						CollectedGraphData.Min.Y = FMath::Min(CollectedGraphData.Min.Y, SampleValue.Y);
+
+						CollectedGraphData.Max.X = FMath::Max(CollectedGraphData.Max.X, SampleValue.X);
+						CollectedGraphData.Max.Y = FMath::Max(CollectedGraphData.Max.Y, SampleValue.Y);
+
+						const float CurrentTimeStamp = GraphData.TimeStamps[SampleIndex];
+						if (CurrentTimeStamp < TimeStampWindow.X)
+						{
+							LineData.LeftExtreme = SampleValue;
+						}
+						else if (CurrentTimeStamp > TimeStampWindow.Y)
+						{
+							LineData.RightExtreme = SampleValue;
+							break;
+						}
+					}
+				}
+			}
 		}
-		else
-		{
-			Extension->DrawData(FLogVisualizer::Get().GetWorld(), Canvas, NULL, TagName, CurrentData, SelectedEntry.TimeStamp);
-		}
+		bDirtyData = false;
 	}
 
 	if (ULogVisualizerSessionSettings::StaticClass()->GetDefaultObject<ULogVisualizerSessionSettings>()->bEnableGraphsVisualization)
 	{
 		DrawHistogramGraphs(Canvas, NULL);
 	}
+
+	const TMap<FName, FVisualLogExtensionInterface*>& Extensions = FVisualLogger::Get().GetAllExtensions();
+	for (const auto& CurrentExtension : Extensions)
+	{
+		CurrentExtension.Value->DrawData(FVisualLoggerEditorInterface::Get(), Canvas);
+	}
 }
 
 void FVisualLoggerCanvasRenderer::DrawHistogramGraphs(class UCanvas* Canvas, class APlayerController*)
 {
-	struct FGraphLineData
-	{
-		FName DataName;
-		FVector2D LeftExtreme, RightExtreme;
-		TArray<FVector2D> Samples;
-	};
-
-	struct FGraphData
-	{
-		FGraphData() : Min(FVector2D(FLT_MAX, FLT_MAX)), Max(FVector2D(FLT_MIN, FLT_MIN)) {}
-
-		FVector2D Min, Max;
-		TMap<FName, FGraphLineData> GraphLines;
-	};
-
 	if (FLogVisualizer::Get().GetTimeSliderController().IsValid() == false)
 	{
 		return;
 	}
 
-	TMap<FName, FGraphData>	CollectedGraphs;
-
-	const FVisualLoggerTimeSliderArgs&  TimeSliderArgs = FLogVisualizer::Get().GetTimeSliderController()->GetTimeSliderArgs();
-	TRange<float> LocalViewRange = TimeSliderArgs.ViewRange.Get();
-	const float LocalViewRangeMin = LocalViewRange.GetLowerBoundValue();
-	const float LocalViewRangeMax = LocalViewRange.GetUpperBoundValue();
-	const float LocalSequenceLength = LocalViewRangeMax - LocalViewRangeMin;
-	const float WindowHalfWidth = LocalSequenceLength * TimeSliderArgs.CursorSize.Get() * 0.5f;
-	const FVector2D TimeStampWindow(SelectedEntry.TimeStamp - WindowHalfWidth, SelectedEntry.TimeStamp + WindowHalfWidth);
-
-	const TArray<FVisualLogDevice::FVisualLogEntryItem> &ObjectItems = CurrentTimeLine.Pin()->GetEntries();
-	int32 ColorIndex = 0;
-	int32 LeftSideOutsideIndex = INDEX_NONE;
-	int32 RightSideOutsideIndex = INDEX_NONE;
-
-	for (int32 EntryIndex = 0; EntryIndex < ObjectItems.Num(); ++EntryIndex)
-	{
-		const FVisualLogEntry* CurrentEntry = &(ObjectItems[EntryIndex].Entry);
-		if (CurrentEntry->TimeStamp < TimeStampWindow.X)
-		{
-			LeftSideOutsideIndex = EntryIndex;
-			continue;
-		}
-
-		if (CurrentEntry->TimeStamp > TimeStampWindow.Y)
-		{
-			RightSideOutsideIndex = EntryIndex;
-			break;
-		}
-
-		const int32 SamplesNum = CurrentEntry->HistogramSamples.Num();
-		for (int32 SampleIndex = 0; SampleIndex < SamplesNum; ++SampleIndex)
-		{
-			FVisualLogHistogramSample CurrentSample = CurrentEntry->HistogramSamples[SampleIndex];
-
-			const FName CurrentCategory = CurrentSample.Category;
-			const FName CurrentGraphName = CurrentSample.GraphName;
-			const FName CurrentDataName = CurrentSample.DataName;
-
-			FString GraphFilterName = CurrentSample.GraphName.ToString() +TEXT("$") + CurrentSample.DataName.ToString();
-			const bool bIsValidByFilter = FCategoryFiltersManager::Get().MatchCategoryFilters(GraphFilterName, ELogVerbosity::All);
-
-			if (bIsValidByFilter)
-			{
-				FGraphData &GraphData = CollectedGraphs.FindOrAdd(CurrentSample.GraphName);
-				FGraphLineData &LineData = GraphData.GraphLines.FindOrAdd(CurrentSample.DataName);
-				LineData.DataName = CurrentSample.DataName;
-				LineData.Samples.Add(CurrentSample.SampleValue);
-
-				GraphData.Min.X = FMath::Min(GraphData.Min.X, CurrentSample.SampleValue.X);
-				GraphData.Min.Y = FMath::Min(GraphData.Min.Y, CurrentSample.SampleValue.Y);
-
-				GraphData.Max.X = FMath::Max(GraphData.Max.X, CurrentSample.SampleValue.X);
-				GraphData.Max.Y = FMath::Max(GraphData.Max.Y, CurrentSample.SampleValue.Y);
-			}
-		}
-	}
-	
-	const int32 ExtremeValueIndexes[] = { LeftSideOutsideIndex != INDEX_NONE ? LeftSideOutsideIndex : 0, RightSideOutsideIndex != INDEX_NONE ? RightSideOutsideIndex : ObjectItems.Num() - 1 };
-	for (int32 ObjectIndex = 0; ObjectIndex < 2; ++ObjectIndex)
-	{
-		const FVisualLogEntry* CurrentEntry = &(ObjectItems[ExtremeValueIndexes[ObjectIndex]].Entry);
-		const int32 SamplesNum = CurrentEntry->HistogramSamples.Num();
-		for (int32 SampleIndex = 0; SampleIndex < SamplesNum; ++SampleIndex)
-		{
-			FVisualLogHistogramSample CurrentSample = CurrentEntry->HistogramSamples[SampleIndex];
-
-			const FName CurrentCategory = CurrentSample.Category;
-			const FName CurrentGraphName = CurrentSample.GraphName;
-			const FName CurrentDataName = CurrentSample.DataName;
-
-			FString GraphFilterName = CurrentSample.GraphName.ToString() + TEXT("_") + CurrentSample.DataName.ToString();
-			const bool bIsValidByFilter = FCategoryFiltersManager::Get().MatchCategoryFilters(GraphFilterName, ELogVerbosity::All);
-			if (bIsValidByFilter)
-			{
-				FGraphData &GraphData = CollectedGraphs.FindOrAdd(CurrentSample.GraphName);
-				FGraphLineData &LineData = GraphData.GraphLines.FindOrAdd(CurrentSample.DataName);
-				LineData.DataName = CurrentSample.DataName;
-				if (ObjectIndex == 0)
-					LineData.LeftExtreme = CurrentSample.SampleValue;
-				else
-					LineData.RightExtreme = CurrentSample.SampleValue;
-			}
-		}
-	}
-
 	const float GoldenRatioConjugate = 0.618033988749895f;
 	if (CollectedGraphs.Num() > 0)
 	{
+		const FVisualLoggerTimeSliderArgs&  TimeSliderArgs = FLogVisualizer::Get().GetTimeSliderController()->GetTimeSliderArgs();
+		TRange<float> LocalViewRange = TimeSliderArgs.ViewRange.Get();
+		const float LocalViewRangeMin = LocalViewRange.GetLowerBoundValue();
+		const float LocalViewRangeMax = LocalViewRange.GetUpperBoundValue();
+		const float LocalSequenceLength = LocalViewRangeMax - LocalViewRangeMin;
+		const float WindowHalfWidth = LocalSequenceLength * TimeSliderArgs.CursorSize.Get() * 0.5f;
+		const FVector2D TimeStampWindow(SelectedEntry.TimeStamp - WindowHalfWidth, SelectedEntry.TimeStamp + WindowHalfWidth);
+
 		const FColor GraphsBackgroundColor = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->GraphsBackgroundColor;
 		const int NumberOfGraphs = CollectedGraphs.Num();
 		const int32 NumberOfColumns = FMath::CeilToInt(FMath::Sqrt(NumberOfGraphs));

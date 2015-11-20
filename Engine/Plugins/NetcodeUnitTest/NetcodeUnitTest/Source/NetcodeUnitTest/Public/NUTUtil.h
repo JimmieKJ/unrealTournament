@@ -7,9 +7,9 @@
 class UUnitTest;
 
 
-// @todo JohnB: Convert to multicast delegate
+// @todo #JohnBRefactor: Convert to multicast delegate
 
-// @todo JohnB: Adjust all of these utility .h files, so that they implement code in .cpp, as these probably slow down compilation
+// @todo #JohnBRefactor: Adjust all of these utility .h files, so that they implement code in .cpp, as these probably slow down compilation
 
 #if !UE_BUILD_SHIPPING
 // Process even callback, which passes an extra parameter, for identifying the origin of the hook
@@ -174,6 +174,10 @@ template struct AccessPrivate<AShooterCharacterServerEquipWeaponAccessor, &AShoo
 	\
 	template struct AccessPrivate<InClass##VarName##Accessor, &InClass::VarName>;
 
+// @todo #JohnB: Unfortunately, this broke in VS2015 for functions, as '&InClass::FuncName' gives an error;
+//					strictly speaking, this falls within the C++ standard and should work, so perhaps make a bug report
+//					See SLogWidget.cpp, for an alternative way of hack-accessing private members, using template specialization
+#if 0
 /**
  * Defines a class and template specialization, for a function, needed for use with the GET_PRIVATE hook below
  *
@@ -195,6 +199,7 @@ template struct AccessPrivate<AShooterCharacterServerEquipWeaponAccessor, &AShoo
 
 #define IMPLEMENT_GET_PRIVATE_FUNC(InClass, FuncName, FuncRet, FuncParms) \
 	IMPLEMENT_GET_PRIVATE_FUNC_CONST(InClass, FuncName, FuncRet, FuncParms, ;)
+#endif
 
 
 /**
@@ -207,8 +212,35 @@ template struct AccessPrivate<AShooterCharacterServerEquipWeaponAccessor, &AShoo
  */
 #define GET_PRIVATE(InClass, InObj, MemberName) (*InObj).*GetPrivate(InClass##MemberName##Accessor())
 
+// @todo #JohnB: Restore if fixed in VS2015
+#if 0
 // Version of above, for calling private functions
 #define CALL_PRIVATE(InClass, InObj, MemberName) (GET_PRIVATE(InClass, InObj, MemberName))
+#endif
+
+
+/**
+ * Defines a class used for hack-accessing protected functions, through the CALL_PROTECTED macro below
+ *
+ * @param InClass		The class being accessed (not a string, just the class, i.e. FStackTracker)
+ * @param FuncName		Name of the function being accessed (again, not a string)
+ * @param FuncRet		The return type of the function
+ * @param FuncParms		The function parameters
+ * @param FuncParmNames	The names of the function parameters, as passed from one function to another
+ * @param FuncModifier	(Optional) Modifier placed after the function - usually 'const'
+ */
+#define IMPLEMENT_GET_PROTECTED_FUNC_CONST(InClass, FuncName, FuncRet, FuncParms, FuncParmNames, FuncModifier) \
+	struct InClass##FuncName##Accessor : public InClass \
+	{ \
+		FORCEINLINE FuncRet FuncName##Accessor(FuncParms) FuncModifier \
+		{\
+			return FuncName(FuncParmNames); \
+		} \
+	};
+
+// Version of GET_PRIVATE, for calling protected functions
+#define CALL_PROTECTED(InClass, InObj, MemberName) ((InClass##MemberName##Accessor*)&(*InObj))->MemberName##Accessor
+
 
 
 /**

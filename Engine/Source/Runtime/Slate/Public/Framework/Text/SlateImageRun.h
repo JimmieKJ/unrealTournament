@@ -14,7 +14,7 @@ public:
 
 public:
 
-	virtual ~FSlateImageRun() {}
+	virtual ~FSlateImageRun();
 
 	virtual FTextRange GetTextRange() const override;
 	virtual void SetTextRange( const FTextRange& Value ) override;

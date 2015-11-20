@@ -54,7 +54,7 @@ class FLandscapeToolStrokeRetopologize : public FLandscapeToolStrokeBase
 {
 public:
 	FLandscapeToolStrokeRetopologize(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
 		, Cache(InTarget)
 	{
 	}
@@ -533,7 +533,7 @@ public:
 				float Sin = FMath::Abs(TransformedLocal.Y) / TransformedLocal.Size();
 				float RatioX = FalloffRadius > 0.0f ? 1.0f - FMath::Clamp((FMath::Abs(TransformedLocal.X) - Cos*SquareRadius) / FalloffRadius, 0.0f, 1.0f) : 1.0f;
 				float RatioY = FalloffRadius > 0.0f ? 1.0f - FMath::Clamp((FMath::Abs(TransformedLocal.Y) - Sin*SquareRadius) / FalloffRadius, 0.0f, 1.0f) : 1.0f;
-				float Ratio = TransformedLocal.Size() > SquareRadius ? RatioX * RatioY : 1.0f; //TransformedLocal.X / LW * TransformedLocal.Y / LW;
+				float Ratio = TransformedLocal.SizeSquared() > FMath::Square(SquareRadius) ? RatioX * RatioY : 1.0f; //TransformedLocal.X / LW * TransformedLocal.Y / LW;
 				float PaintAmount = Ratio*Ratio*(3 - 2 * Ratio);
 
 				XYOffsetVectorData[Index] = FMath::Lerp(XYOffsetVectorData[Index], NewXYOffset[Index], PaintAmount);
@@ -547,7 +547,6 @@ public:
 	}
 
 protected:
-	ULandscapeInfo* LandscapeInfo;
 	FLandscapeXYOffsetCache<false> Cache;
 };
 

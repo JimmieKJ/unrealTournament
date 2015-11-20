@@ -201,33 +201,6 @@ inline FArchive& operator<<(FArchive& Ar, FOpenGLShaderBindings& Bindings)
 	return Ar;
 }
 
-// Information for copying members from uniform buffers to packed
-struct FOpenGLUniformBufferCopyInfo
-{
-	uint16 SourceOffsetInFloats;
-	uint8 SourceUBIndex;
-	uint8 DestUBIndex;
-	uint8 DestUBTypeName;
-	uint8 DestUBTypeIndex;
-	uint16 DestOffsetInFloats;
-	uint16 SizeInFloats;
-};
-
-inline FArchive& operator<<(FArchive& Ar, FOpenGLUniformBufferCopyInfo& Info)
-{
-	Ar << Info.SourceOffsetInFloats;
-	Ar << Info.SourceUBIndex;
-	Ar << Info.DestUBIndex;
-	Ar << Info.DestUBTypeName;
-	if (Ar.IsLoading())
-	{
-		Info.DestUBTypeIndex = CrossCompiler::PackedTypeNameToTypeIndex(Info.DestUBTypeName);
-	}
-	Ar << Info.DestOffsetInFloats;
-	Ar << Info.SizeInFloats;
-	return Ar;
-}
-
 /**
  * Code header information.
  */
@@ -236,7 +209,8 @@ struct FOpenGLCodeHeader
 	uint32 GlslMarker;
 	uint16 FrequencyMarker;
 	FOpenGLShaderBindings Bindings;
-	TArray<FOpenGLUniformBufferCopyInfo> UniformBuffersCopyInfo;
+	FString ShaderName;
+	TArray<CrossCompiler::FUniformBufferCopyInfo> UniformBuffersCopyInfo;
 };
 
 inline FArchive& operator<<(FArchive& Ar, FOpenGLCodeHeader& Header)
@@ -244,6 +218,7 @@ inline FArchive& operator<<(FArchive& Ar, FOpenGLCodeHeader& Header)
 	Ar << Header.GlslMarker;
 	Ar << Header.FrequencyMarker;
 	Ar << Header.Bindings;
+	Ar << Header.ShaderName;
 	int32 NumInfos = Header.UniformBuffersCopyInfo.Num();
 	Ar << NumInfos;
 	if (Ar.IsSaving())
@@ -258,7 +233,7 @@ inline FArchive& operator<<(FArchive& Ar, FOpenGLCodeHeader& Header)
 		Header.UniformBuffersCopyInfo.Empty(NumInfos);
 		for (int32 Index = 0; Index < NumInfos; ++Index)
 		{
-			FOpenGLUniformBufferCopyInfo Info;
+			CrossCompiler::FUniformBufferCopyInfo Info;
 			Ar << Info;
 			Header.UniformBuffersCopyInfo.Add(Info);
 		}
@@ -290,7 +265,7 @@ public:
 	FOpenGLShaderBindings Bindings;
 
 	// List of memory copies from RHIUniformBuffer to packed uniforms
-	TArray<FOpenGLUniformBufferCopyInfo> UniformBuffersCopyInfo;
+	TArray<CrossCompiler::FUniformBufferCopyInfo> UniformBuffersCopyInfo;
 
 #if DEBUG_GL_SHADERS
 	TArray<ANSICHAR> GlslCode;
@@ -370,7 +345,7 @@ public:
 	 */
 	void CommitPackedGlobals(const FOpenGLLinkedProgram* LinkedProgram, int32 Stage);
 
-	void CommitPackedUniformBuffers(FOpenGLLinkedProgram* LinkedProgram, int32 Stage, FUniformBufferRHIRef* UniformBuffers, const TArray<FOpenGLUniformBufferCopyInfo>& UniformBuffersCopyInfo);
+	void CommitPackedUniformBuffers(FOpenGLLinkedProgram* LinkedProgram, int32 Stage, FUniformBufferRHIRef* UniformBuffers, const TArray<CrossCompiler::FUniformBufferCopyInfo>& UniformBuffersCopyInfo);
 
 private:
 	/** CPU memory block for storing uniform values. */

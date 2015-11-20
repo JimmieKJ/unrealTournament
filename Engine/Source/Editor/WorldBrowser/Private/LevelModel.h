@@ -26,8 +26,7 @@ public:
 	DECLARE_EVENT( FLevelModel, FSimpleEvent );
 	
 public:
-	FLevelModel(FLevelCollectionModel& InLevelCollectionModel,
-				const TWeakObjectPtr< UEditorEngine >& InEditor);
+	FLevelModel(FLevelCollectionModel& InLevelCollectionModel);
 
 	virtual ~FLevelModel();
 	
@@ -141,9 +140,6 @@ public:
 
 	/** Sets new translation delta to this model and all descendants*/
 	void SetLevelTranslationDelta(FVector2D InAbsoluteDelta);
-
-	/** @return Whether level supports a Level Color for visualization. (Show -> Advanced -> Level Coloration) */
-	virtual bool SupportsLevelColor() const;
 
 	/** @return level color, used for visualization. (Show -> Advanced -> Level Coloration) */
 	virtual FLinearColor GetLevelColor() const;
@@ -271,9 +267,6 @@ protected:
 	/** Reference to owning collection model */
 	FLevelCollectionModel&				LevelCollectionModel;
 		
-	/** The UEditorEngine to use */
-	const TWeakObjectPtr<UEditorEngine> Editor;
-
 	/** The parent level  */
 	TWeakPtr<FLevelModel>				Parent;
 		

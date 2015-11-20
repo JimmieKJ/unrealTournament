@@ -157,8 +157,7 @@ protected:
 	void DisablePinDiffFocus();
 
 	/*User toggles the option to lock the views between the two blueprints */
-	void	OnToggleLockView2();
-	FReply	OnToggleLockView();
+	void OnToggleLockView();
 
 	/*Reset the graph editor, called when user switches graphs to display*/
 	void ResetGraphEditors();
@@ -174,6 +173,12 @@ protected:
 
 	/** Event handler that updates the graph view when user selects a new graph */
 	void HandleGraphChanged( const FName GraphName );
+
+	/** Function used to generate the list of differences and the widgets needed to calculate that list */
+	void GenerateDifferencesList();
+
+	/** Checks if a graph is valid for diff'ing */
+	bool IsGraphDiffNeeded(class UEdGraph* InGraph) const;
 
 	struct FDiffControl
 	{

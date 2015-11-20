@@ -26,8 +26,14 @@ void SAnimSegmentsPanel::Construct(const FArguments& InArgs)
 	OnPostAnimUpdateDelegate		 = InArgs._OnPostAnimUpdate;
 	OnAnimSegmentRemovedDelegate	 = InArgs._OnAnimSegmentRemoved;
 
+	// Register and bind ui commands
+	FAnimSegmentsPanelCommands::Register();
+	BindCommands();
+
+	// Empty out current widget array
+	TrackWidgets.Empty();
+
 	// Animation Segment tracks
-	TArray<TSharedPtr<STrack>> AnimSTracks;
 	TArray<TSharedPtr<STrackNode>> AnimNodes;
 
 	FLinearColor SelectedColor = FLinearColor(1.0f,0.65,0.0f);
@@ -65,13 +71,13 @@ void SAnimSegmentsPanel::Construct(const FArguments& InArgs)
 				.OnTrackDragDrop( this, &SAnimSegmentsPanel::OnTrackDragDrop )
 			];
 
-		AnimSTracks.Add(AnimSegmentTrack);
+		TrackWidgets.Add(AnimSegmentTrack);
 	}
 
 	// Generate Nodes and map them to tracks
 	for ( int32 SegmentIdx=0; SegmentIdx < AnimTrack->AnimSegments.Num(); SegmentIdx++ )
 	{
-		AnimSTracks[ SegmentIdx % AnimSTracks.Num() ]->AddTrackNode(
+		TrackWidgets[ SegmentIdx % TrackWidgets.Num() ]->AddTrackNode(
 			SNew(STrackNode)
 			.ViewInputMax(this->ViewInputMax)
 			.ViewInputMin(this->ViewInputMin)
@@ -240,4 +246,50 @@ void SAnimSegmentsPanel::OnAnimSegmentNodeClicked(int32 SegmentIdx)
 {
 	OnAnimSegmentNodeClickedDelegate.ExecuteIfBound(SegmentIdx);
 }
+
+void SAnimSegmentsPanel::RemoveSelectedAnimSegments()
+{
+	TArray<int32> SelectedNodeIndices;
+	for(int i = 0 ; i < TrackWidgets.Num() ; ++i)
+	{
+		TSharedPtr<STrack> Track = TrackWidgets[i];
+		Track->GetSelectedNodeIndices(SelectedNodeIndices);
+
+		// Reverse order to preserve indices
+		for(int32 j = SelectedNodeIndices.Num() - 1 ; j >= 0 ; --j)
+		{
+			// Segments are placed on one of two tracks with the first segment always residing
+			// in track 0 - need to modify the index from track and index to data index.
+			int32 ModifiedIndex = i + 2 * SelectedNodeIndices[j];
+			RemoveAnimSegment(ModifiedIndex);
+		}
+	}
+}
+
+void SAnimSegmentsPanel::BindCommands()
+{
+	check(!UICommandList.IsValid());
+
+	UICommandList = MakeShareable(new FUICommandList);
+	const FAnimSegmentsPanelCommands& Commands = FAnimSegmentsPanelCommands::Get();
+
+	UICommandList->MapAction(
+		Commands.DeleteSegment,
+		FExecuteAction::CreateSP(this, &SAnimSegmentsPanel::RemoveSelectedAnimSegments));
+}
+
+FReply SAnimSegmentsPanel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
+{
+	if(UICommandList->ProcessCommandBindings(InKeyEvent))
+	{
+		return FReply::Handled();
+	}
+	return FReply::Unhandled();
+}
+
+void FAnimSegmentsPanelCommands::RegisterCommands()
+{
+	UI_COMMAND(DeleteSegment, "Delete", "Deletes the selected segment", EUserInterfaceActionType::Button, FInputChord(EKeys::Platform_Delete));
+}
+
 #undef LOCTEXT_NAMESPACE

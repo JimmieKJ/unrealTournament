@@ -13,7 +13,7 @@ namespace NetworkProfiler
 	 * Encapsulates entire network stream, split into frames. Also contains name table
 	 * used to convert indices back into strings.
 	 */
-	class NetworkStream
+	public class NetworkStream
 	{
 		/** Per packet overhead to take into account for total outgoing bandwidth. */
 		//public static int PacketOverhead = 48;
@@ -21,7 +21,13 @@ namespace NetworkProfiler
 
 		/** Array of unique names. Code has fixed indexes into it.					*/
 		public List<string> NameArray = new List<string>();
-		
+
+		/** Array of unique addresses. Code has fixed indexes into it.				*/
+		public List<UInt64> AddressArray = new List<UInt64>();
+
+		/** Last address index parsed from token stream								*/
+		public int CurrentConnectionIndex = 0;
+
 		/** Internal dictionary from class name to index in name array, used by GetClassNameIndex. */
 		private Dictionary<string,int> ClassNameToNameIndex = new Dictionary<string,int>();
 		
@@ -47,6 +53,28 @@ namespace NetworkProfiler
 		public string GetName(int Index)
 		{
 			return NameArray[Index];
+		}
+
+		/**
+		 * Returns the ip address string associated with the passed in connection index.
+		 * 
+		 * @param	ConnectionIndex	Index in address table
+		 * @return	Ip string associated with adress table index
+		 */
+		public string GetIpString( int ConnectionIndex )
+		{
+			UInt64 Addr = AddressArray[ConnectionIndex];
+			UInt32 IP	= ( UInt32 )( Addr >> 32 );
+			UInt32 Port = ( UInt32 )( Addr & ( ( ( UInt64 )1 << 32 ) - 1 ) );
+
+			byte ip0 = ( byte )( ( IP >> 24 ) & 255 );
+			byte ip1 = ( byte )( ( IP >> 16 ) & 255 );
+			byte ip2 = ( byte )( ( IP >> 8 ) & 255 );
+			byte ip3 = ( byte )( ( IP >> 0 ) & 255 );
+
+			//return string.Format( "{0,3:000}.{1,3:000}.{2,3:000}.{3,3:000}: {4,-5}", ip0, ip1, ip2, ip3, Port );
+			//return string.Format( "{0,3}.{1,3}.{2,3}.{3,3}: {4,-5}", ip0, ip1, ip2, ip3, Port );
+			return string.Format( "{0}.{1}.{2}.{3}: {4}", ip0, ip1, ip2, ip3, Port );
 		}
 
 		/**
@@ -98,6 +126,22 @@ namespace NetworkProfiler
 		}
 
 		/**
+		 * Returns the class name index for the passed in actor name
+		 * 
+		 * @param	ClassName	Name table entry of actor
+		 * @return	Class name table index of actor's class
+		 */
+		public int GetIndexFromClassName( string ClassName )
+		{
+			if ( ClassNameToNameIndex.ContainsKey( ClassName ) )
+			{
+				return ClassNameToNameIndex[ClassName];
+			}
+
+			return -1;
+		}
+
+		/**
 		 * Updates the passed in summary dictionary with information of new event.
 		 * 
 		 * @param	Summaries	Summaries dictionary to update (usually ref to ones contained in this class)
@@ -121,7 +165,7 @@ namespace NetworkProfiler
 	}
 
 	/** Type agnostic summary for property & actor replication and RPCs. */
-	class TypeSummary
+	public class TypeSummary
 	{
 		/** Number of times property was replicated or RPC was called, ... */ 
 		public long Count = 1;

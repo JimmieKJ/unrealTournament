@@ -10,7 +10,7 @@
 #include "AnimSequence.h"
 #include "AnimCompress.generated.h"
 
-UCLASS(abstract, hidecategories=Object, MinimalAPI)
+UCLASS(abstract, hidecategories=Object, MinimalAPI, EditInlineNew)
 class UAnimCompress : public UObject
 {
 	GENERATED_UCLASS_BODY()

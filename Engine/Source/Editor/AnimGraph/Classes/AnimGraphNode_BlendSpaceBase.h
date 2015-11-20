@@ -3,10 +3,11 @@
 #pragma once
 #include "AnimGraphNode_Base.h"
 #include "Animation/BlendSpaceBase.h"
+#include "AnimGraphNode_AssetPlayerBase.h"
 #include "AnimGraphNode_BlendSpaceBase.generated.h"
 
 UCLASS(Abstract, MinimalAPI)
-class UAnimGraphNode_BlendSpaceBase : public UAnimGraphNode_Base
+class UAnimGraphNode_BlendSpaceBase : public UAnimGraphNode_AssetPlayerBase
 {
 	GENERATED_UCLASS_BODY()
 

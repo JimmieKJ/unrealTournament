@@ -84,3 +84,42 @@ struct FSlateChildSize
 	{
 	}
 };
+
+
+UENUM( BlueprintType )
+namespace EVirtualKeyboardType
+{
+	enum Type
+	{
+		Default,
+		Number,
+		Web,
+		Email,
+		Password,
+		AlphaNumeric
+	};
+}
+
+namespace EVirtualKeyboardType
+{
+	static EKeyboardType AsKeyboardType( Type InType )
+	{
+		switch ( InType )
+		{
+		case Type::Default:
+			return EKeyboardType::Keyboard_Default;
+		case Type::Number:
+			return EKeyboardType::Keyboard_Number;
+		case Type::Web:
+			return EKeyboardType::Keyboard_Web;
+		case Type::Email:
+			return EKeyboardType::Keyboard_Email;
+		case Type::Password:
+			return EKeyboardType::Keyboard_Password;
+		case Type::AlphaNumeric:
+			return EKeyboardType::Keyboard_AlphaNumeric;
+		}
+
+		return EKeyboardType::Keyboard_Default;
+	}
+}

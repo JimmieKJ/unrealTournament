@@ -132,11 +132,14 @@ void FActorDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLayout )
 	// Defaults only show tick properties
 	if (DetailLayout.GetDetailsView().HasClassDefaultObject() && !HideCategories.Contains(TEXT("Tick")))
 	{
-		IDetailCategoryBuilder& TickCategory = DetailLayout.EditCategory("Tick");
+		// Note: the category is renamed to differentiate between 
+		IDetailCategoryBuilder& TickCategory = DetailLayout.EditCategory("Tick", LOCTEXT("TickCategoryName", "Actor Tick") );
 
 		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, bStartWithTickEnabled)));
+		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, TickInterval)));
 		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, bTickEvenWhenPaused)), EPropertyLocation::Advanced);
 		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, bAllowTickOnDedicatedServer)), EPropertyLocation::Advanced);
+		TickCategory.AddProperty(PrimaryTickProperty->GetChildHandle(GET_MEMBER_NAME_CHECKED(FTickFunction, TickGroup)), EPropertyLocation::Advanced);
 	}
 
 	PrimaryTickProperty->MarkHiddenByCustomization();

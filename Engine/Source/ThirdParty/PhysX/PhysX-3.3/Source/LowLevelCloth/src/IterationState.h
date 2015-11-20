@@ -45,7 +45,7 @@ inline PxQuat exp(const PxVec3& v)
 {
 	float theta = v.magnitude();
 	float scale = theta > PX_EPS_REAL ? PxSin(theta)/theta : 1.0f;
-	return PxQuat(v.x * scale, v.y * scale, v.z * scale, cos(theta));
+	return PxQuat(v.x * scale, v.y * scale, v.z * scale, PxCos(theta));
 }
 
 template <typename Simd4f, uint32_t N>
@@ -301,7 +301,7 @@ cloth::IterationState<Simd4f> cloth::IterationStateFactory::create(MyCloth const
 		Simd4f angularInertia = load(array(cloth.mAngularInertia));
 		Simd4f angularAcceleration = curAngularVelocity - prevAngularVelocity;
 
-		Simd4f epsilon = simd4f(sqrt(FLT_MIN));  // requirement: sqr(epsilon) > 0
+		Simd4f epsilon = simd4f(PxSqrt(FLT_MIN));  // requirement: sqr(epsilon) > 0
 		Simd4f velocityLengthSqr = lengthSqr(curAngularVelocity) + epsilon;
 		Simd4f dragLengthSqr = lengthSqr(Simd4f(curAngularVelocity * angularDrag)) + epsilon;
 		Simd4f centrifugalLengthSqr = lengthSqr(Simd4f(curAngularVelocity * centrifugalInertia)) + epsilon;

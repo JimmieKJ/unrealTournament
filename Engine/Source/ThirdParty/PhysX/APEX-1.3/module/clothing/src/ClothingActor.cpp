@@ -338,7 +338,7 @@ ClothingActor::ClothingActor(const NxParameterized::Interface& descriptor, Cloth
 
 		// PH: So if backend name is 'embedded', i won't get an asset cooked data ever, so it also won't complain about the cooked version, good
 		// if backend is native, it might, but that's only when you force native with the 2.8.x sdk on a 3.2 asset
-		//const char* cookingDataType = mAsset->getModule()->getBackendFactory(mBackendName)->getCookingJobType();
+		// const char* cookingDataType = mAsset->getModule()->getBackendFactory(mBackendName)->getCookingJobType();
 		NxParameterized::Interface* assetCookedData = mAsset->getCookedData(mActorDesc->actorScale);
 		NxParameterized::Interface* actorCookedData = mActorDesc->runtimeCooked;
 
@@ -629,7 +629,12 @@ void ClothingActor::updateState(const PxMat44& globalPose, const PxMat44* newBon
 	}
 
 	mActorDesc->globalPose = globalPose;
-
+	if (!physx::PxEquals(globalPose.column0.magnitude(), mActorDesc->actorScale, 1e-6))
+	{
+		APEX_DEBUG_WARNING("Actor Scale wasn't set properly, it doesn't equal to the Global Pose scale: %f != %f",
+			mActorDesc->actorScale,
+			globalPose.column0.magnitude());
+	}
 
 	PX_ASSERT(newBoneMatrices == NULL || boneMatricesByteStride >= sizeof(PxMat44));
 	if (boneMatricesByteStride >= sizeof(PxMat44) && newBoneMatrices != NULL)
@@ -4102,7 +4107,9 @@ void ClothingActor::updateRenderProxy()
 
 	// get a new render proxy from the pool
 	NiApexRenderMeshAsset* renderMeshAsset = mAsset->getGraphicalMesh(mCurrentGraphicalLodId);
-	ClothingRenderProxy* renderProxy = mClothingScene->getRenderProxy(renderMeshAsset, mActorDesc->fallbackSkinning, mClothingSimulation != NULL, mOverrideMaterials, mActorDesc->morphGraphicalMeshNewPositions.buf, &mGraphicalMeshes[mCurrentGraphicalLodId].morphTargetVertexOffsets[0]);
+	ClothingRenderProxy* renderProxy = mClothingScene->getRenderProxy(renderMeshAsset, mActorDesc->fallbackSkinning, mClothingSimulation != NULL, 
+																	mOverrideMaterials, mActorDesc->morphGraphicalMeshNewPositions.buf, 
+																	&mGraphicalMeshes[mCurrentGraphicalLodId].morphTargetVertexOffsets[0]);
 
 	mGraphicalMeshes[mCurrentGraphicalLodId].renderProxy = renderProxy;
 }
@@ -5145,13 +5152,14 @@ NxClothingPlane* ClothingActor::createCollisionPlane(const PxPlane& plane)
 
 NxClothingConvex* ClothingActor::createCollisionConvex(NxClothingPlane** planes, PxU32 numPlanes)
 {
-	if (numPlanes == 0)
+	if (numPlanes < 3)
 		return NULL;
 
 	ClothingConvex* convex = NULL;
 	convex = PX_NEW(ClothingConvex)(mCollisionConvexes, *this, planes, numPlanes);
 	PX_ASSERT(convex != NULL);
 	bActorCollisionChanged = true;
+
 	return convex;
 }
 

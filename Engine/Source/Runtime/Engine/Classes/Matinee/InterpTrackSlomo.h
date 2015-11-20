@@ -10,7 +10,7 @@ class UInterpTrackSlomo : public UInterpTrackFloatBase
 	GENERATED_UCLASS_BODY()
 
 
-	// Begin InterpTrack interface.
+	//~ Begin InterpTrack Interface.
 	virtual int32 AddKeyframe(float Time, UInterpTrackInst* TrInst, EInterpCurveMode InitInterpMode) override;
 	virtual void UpdateKeyframe(int32 KeyIndex, UInterpTrackInst* TrInst) override;
 	virtual void PreviewUpdateTrack(float NewPosition, UInterpTrackInst* TrInst) override;
@@ -19,7 +19,7 @@ class UInterpTrackSlomo : public UInterpTrackFloatBase
 #if WITH_EDITORONLY_DATA
 	virtual class UTexture2D* GetTrackIcon() const override;
 #endif // WITH_EDITORONLY_DATA
-	// End InterpTrack interface.
+	//~ End InterpTrack Interface.
 
 	/** @return the slomo factor we want at the given time. */
 	ENGINE_API float GetSlomoFactorAtTime(float Time);

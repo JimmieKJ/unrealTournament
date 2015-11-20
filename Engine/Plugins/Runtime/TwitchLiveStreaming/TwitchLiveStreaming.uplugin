@@ -7,9 +7,10 @@
 	"CreatedBy" : "Epic Games, Inc.",
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.4.0",
-	"Description" : "[EARLY ACCESS PREVIEW] Live video broadcasting to Twitch for games and the editor",
+	"Description" : "Live video broadcasting to Twitch for games and the editor",
 	"Category" : "Misc",
 	"EnabledByDefault" : false,
+    "IsBetaVersion": true,
 	
 	"Modules" :
 	[

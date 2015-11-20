@@ -108,8 +108,8 @@ void FBlackboardSelectorDetails::CacheBlackboardData()
 				for (int32 iKey = 0; iKey < It->Keys.Num(); iKey++)
 				{
 					const FBlackboardEntry& EntryInfo = It->Keys[iKey];
-					bool bIsKeyOverriden = ProcessedNames.Contains(EntryInfo.EntryName);
-					bool bIsEntryAllowed = !bIsKeyOverriden && (EntryInfo.KeyType != NULL);
+					bool bIsKeyOverridden = ProcessedNames.Contains(EntryInfo.EntryName);
+					bool bIsEntryAllowed = !bIsKeyOverridden && (EntryInfo.KeyType != NULL);
 
 					ProcessedNames.Add(EntryInfo.EntryName);
 

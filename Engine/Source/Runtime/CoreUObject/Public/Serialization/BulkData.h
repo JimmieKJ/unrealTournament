@@ -575,7 +575,7 @@ public:
 		}
 		Formats.Empty();
 	}
-	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = NULL, bool bSingleUse = true, uint32 Alignment = DEFAULT_ALIGNMENT);
+	COREUOBJECT_API void Serialize(FArchive& Ar, UObject* Owner, const TArray<FName>* FormatsToSave = NULL, bool bSingleUse = true, uint32 InAlignment = DEFAULT_ALIGNMENT);
 };
 
 #endif

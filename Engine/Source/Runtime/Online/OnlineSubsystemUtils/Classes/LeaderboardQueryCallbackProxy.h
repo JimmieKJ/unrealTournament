@@ -24,9 +24,9 @@ class ULeaderboardQueryCallbackProxy : public UObject
 	static ULeaderboardQueryCallbackProxy* CreateProxyObjectForIntQuery(class APlayerController* PlayerController, FName StatName);
 
 public:
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void BeginDestroy() override;
-	// End UObject interface
+	//~ End UObject Interface
 
 private:
 	/** Called by the leaderboard system when the read is finished */

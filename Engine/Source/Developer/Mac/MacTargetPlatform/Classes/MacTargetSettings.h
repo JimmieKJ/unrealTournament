@@ -12,12 +12,18 @@
 /**
  * Implements the settings for the Mac target platform.
  */
-UCLASS()
+UCLASS(config=Engine, defaultconfig)
 class MACTARGETPLATFORM_API UMacTargetSettings
 	: public UObject
 {
 public:
 
 	GENERATED_UCLASS_BODY()
-
+	
+	/**
+	 * The collection of RHI's we want to support on this platform.
+	 * This is not always the full list of RHI we can support.
+	 */
+	UPROPERTY(EditAnywhere, config, Category=Rendering)
+	TArray<FString> TargetedRHIs;
 };

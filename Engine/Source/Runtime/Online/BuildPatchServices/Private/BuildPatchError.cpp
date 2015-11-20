@@ -22,7 +22,7 @@ bool FBuildPatchInstallError::HasFatalError()
 	return ErrorState != EBuildPatchInstallError::NoError;
 }
 
-EBuildPatchInstallError::Type FBuildPatchInstallError::GetErrorState()
+EBuildPatchInstallError FBuildPatchInstallError::GetErrorState()
 {
 	FScopeLock ScopeLock( &ThreadLock );
 	return ErrorState;
@@ -63,6 +63,7 @@ const FText FBuildPatchInstallError::GetErrorText()
 	static const FText MoveFileToInstall( LOCTEXT( "BuildPatchInstallError_MoveFileToInstall", "Please check your running processes." ) );
 	static const FText PathLengthExceeded(LOCTEXT("BuildPatchInstallError_PathLengthExceeded", "Please specify a shorter install location."));
 	static const FText OutOfDiskSpace(LOCTEXT("BuildPatchInstallError_OutOfDiskSpace", "Please free up some disk space and try again."));
+	static const FText ErrorCode(LOCTEXT("BuildPatchInstallError_ErrorCode", "Error Code {0}."));
 
 	FScopeLock ScopeLock( &ThreadLock );
 	FText ErrorText = FText::GetEmpty();
@@ -73,6 +74,13 @@ const FText FBuildPatchInstallError::GetErrorText()
 		case EBuildPatchInstallError::MoveFileToInstall: ErrorText = MoveFileToInstall; break;
 		case EBuildPatchInstallError::PathLengthExceeded: ErrorText = PathLengthExceeded; break;
 		case EBuildPatchInstallError::OutOfDiskSpace: ErrorText = OutOfDiskSpace; break;
+		case EBuildPatchInstallError::PrerequisiteError:
+			if (ErrorString.IsEmpty() == false)
+			{
+				ErrorText = FText::Format(ErrorCode, FText::FromString(ErrorString));
+			}
+			break;
+
 	}
 	return FText::Format(LOCTEXT("BuildPatchInstallLongError", "{0} {1}"), GetShortErrorText(), ErrorText);
 }
@@ -87,7 +95,7 @@ const FText& FBuildPatchInstallError::GetShortErrorText()
 	static const FText ApplicationClosing(LOCTEXT("BuildPatchInstallShortError_ApplicationClosing", "The application is closing."));
 	static const FText ApplicationError(LOCTEXT("BuildPatchInstallShortError_ApplicationError", "Patching service could not start."));
 	static const FText UserCanceled(LOCTEXT("BuildPatchInstallShortError_UserCanceled", "User cancelled."));
-	static const FText PrerequisiteError(LOCTEXT("BuildPatchInstallShortError_PrerequisiteError", "Prerequisites install failed."));
+	static const FText PrerequisiteError(LOCTEXT("BuildPatchInstallShortError_PrerequisiteError", "The necessary prerequisites have failed to install."));
 	static const FText InitializationError(LOCTEXT("BuildPatchInstallShortError_InitializationError", "The installer failed to initialize."));
 	static const FText PathLengthExceeded(LOCTEXT("BuildPatchInstallShortError_PathLengthExceeded", "Maximum path length exceeded."));
 	static const FText OutOfDiskSpace(LOCTEXT("BuildPatchInstallShortError_OutOfDiskSpace", "Not enough disk space available."));
@@ -112,7 +120,7 @@ const FText& FBuildPatchInstallError::GetShortErrorText()
 	}
 }
 
-void FBuildPatchInstallError::SetFatalError( const EBuildPatchInstallError::Type& ErrorType, const FString& ErrorLog )
+void FBuildPatchInstallError::SetFatalError( const EBuildPatchInstallError& ErrorType, const FString& ErrorLog )
 {
 	FScopeLock ScopeLock( &ThreadLock );
 	// Only accept the first error
@@ -134,7 +142,7 @@ void FBuildPatchInstallError::SetFatalError( const EBuildPatchInstallError::Type
 	ErrorString = ErrorLog;
 }
 
-const FString& FBuildPatchInstallError::ToString( const EBuildPatchInstallError::Type& ErrorType )
+const FString& FBuildPatchInstallError::ToString( const EBuildPatchInstallError& ErrorType )
 {
 	// Const enum strings, special case no error.
 	static const FString NoError( "SUCCESS" );
@@ -179,7 +187,7 @@ const FString& FBuildPatchInstallError::ToString()
  * Static FBuildPatchInstallError variables
  */
 FCriticalSection FBuildPatchInstallError::ThreadLock;
-EBuildPatchInstallError::Type FBuildPatchInstallError::ErrorState = EBuildPatchInstallError::NoError;
+EBuildPatchInstallError FBuildPatchInstallError::ErrorState = EBuildPatchInstallError::NoError;
 FString FBuildPatchInstallError::ErrorString;
 
 #undef LOCTEXT_NAMESPACE

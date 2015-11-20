@@ -1708,7 +1708,12 @@ void DestructibleAsset::applyTransformation(const physx::PxMat44& transformation
 
 	/* bounds */
 	PX_ASSERT(!mParams->bounds.isEmpty());
-	mParams->bounds.scaleFast(scale);
+	mParams->bounds.minimum *= scale;
+	mParams->bounds.maximum *= scale;
+	if (scale < 0.0f)
+	{
+		physx::swap(mParams->bounds.minimum, mParams->bounds.maximum);
+	}
 	mParams->bounds = physx::transform(transformation, mParams->bounds);
 
 	/* chunk convex hulls */
@@ -3537,7 +3542,7 @@ physx::Array<NxConvexMesh*>* DestructibleAssetCollision::getConvexMeshesAtScale(
 	return &mConvexMeshContainer[(physx::PxU32)scaleIndex];
 }
 
-physx::PxFileBuf& DestructibleAssetCollision::deserialize(physx::PxFileBuf& stream)
+physx::PxFileBuf& DestructibleAssetCollision::deserialize(physx::PxFileBuf& stream, const char* assetName)
 {
 	// If there are any referenced meshes in ANY scales we're going to revoke this operation as not supported
 	for (physx::PxU32 i=0; i<mConvexMeshContainer.size(); i++)
@@ -3560,6 +3565,9 @@ physx::PxFileBuf& DestructibleAssetCollision::deserialize(physx::PxFileBuf& stre
 	NxParameterized::Handle handle(*mParams);
 	mParams->getParameterHandle("assetName", handle);
 	mParams->setParamString(handle, name.c_str());
+
+	if (assetName != NULL)
+		mParams->setParamString(handle, assetName);
 
 	stream >> mParams->cookingPlatform;
 	stream >> mParams->cookingVersionNum;

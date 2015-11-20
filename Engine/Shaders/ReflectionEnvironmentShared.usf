@@ -32,16 +32,16 @@ float ComputeReflectionCaptureRoughnessFromMip( float Mip )
 TextureCube SkyLightCubemap;
 SamplerState SkyLightCubemapSampler;
 
-/** X = max mip, Y = 1 if sky light should be rendered, 0 otherwise, Z = 1 if sky light is dynamic, 0 otherwise. */
-float3 SkyLightParameters;
+/** X = max mip, Y = 1 if sky light should be rendered, 0 otherwise, Z = 1 if sky light is dynamic, 0 otherwise, W = blend fraction. */
+float4 SkyLightParameters;
 
-float3 GetSkyLightReflection(float3 ReflectionVector, float Roughness, bool Normalized)
+float3 GetSkyLightReflection(float3 ReflectionVector, float Roughness, bool bNormalized)
 {
 	float AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness);
 	float3 Reflection = TextureCubeSampleLevel(SkyLightCubemap, SkyLightCubemapSampler, ReflectionVector, AbsoluteSpecularMip).rgb;
 
 	BRANCH
-	if (Normalized)
+	if (bNormalized)
 	{
 		// Sample the lowest resolution mip to get the average color
 		//@todo - can't normalize sky lighting and reflection capture lighting separately
@@ -52,6 +52,36 @@ float3 GetSkyLightReflection(float3 ReflectionVector, float Roughness, bool Norm
 
 	return Reflection * View.SkyLightColor.rgb;
 }
+
+TextureCube SkyLightBlendDestinationCubemap;
+SamplerState SkyLightBlendDestinationCubemapSampler;
+
+float3 GetSkyLightReflectionSupportingBlend(float3 ReflectionVector, float Roughness, bool bNormalized)
+{
+	float3 Reflection = GetSkyLightReflection(ReflectionVector, Roughness, bNormalized);
+
+	BRANCH
+	if (SkyLightParameters.w > 0)
+	{
+		float AbsoluteSpecularMip = ComputeReflectionCaptureMipFromRoughness(Roughness);
+		float3 BlendDestinationReflection = TextureCubeSampleLevel(SkyLightBlendDestinationCubemap, SkyLightBlendDestinationCubemapSampler, ReflectionVector, AbsoluteSpecularMip).rgb;
+
+		BRANCH
+		if (bNormalized)
+		{
+			// Sample the lowest resolution mip to get the average color
+			//@todo - can't normalize sky lighting and reflection capture lighting separately
+			float3 LowFrequencyReflection = TextureCubeSampleLevel(SkyLightBlendDestinationCubemap, SkyLightBlendDestinationCubemapSampler, ReflectionVector, SkyLightParameters.x).rgb;
+			float LowFrequencyBrightness = Luminance(LowFrequencyReflection);
+			BlendDestinationReflection /= max(LowFrequencyBrightness, .00001f);
+		}
+
+		Reflection = lerp(Reflection, BlendDestinationReflection * View.SkyLightColor.rgb, SkyLightParameters.w);
+	}
+
+	return Reflection;
+}
+
 /** 
  * Computes sky diffuse lighting from the SH irradiance map.  
  * This has the SH basis evaluation and diffuse convolusion weights combined for minimal ALU's - see "Stupid Spherical Harmonics (SH) Tricks" 

@@ -196,6 +196,16 @@ public:
 	 */
 	virtual TArray<FPluginStatus> QueryStatusForAllPlugins() const = 0;
 
+	/**
+	 * Stores the specified path, utilizing it in future search passes when 
+	 * searching for available plugins. Optionally refreshes the manager after 
+	 * the new path has been added.
+	 * 
+	 * @param  ExtraDiscoveryPath	The path you want searched for additional plugins.
+	 * @param  bRefresh				Signals the function to refresh the plugin database after the new path has been added
+	 */
+	virtual void AddPluginSearchPath(const FString& ExtraDiscoveryPath, bool bRefresh = true) = 0;
+
 public:
 
 	/**

@@ -88,6 +88,10 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Compiler)
 	bool bJumpToNodeErrors;
 
+	/** If enabled, nodes can be explicitly disabled via context menu when right-clicking on impure nodes in the Blueprint editor. Disabled nodes will not be compiled, but also will not break existing connections. */
+	UPROPERTY(EditAnywhere, config, Category=Experimental, AdvancedDisplay)
+	bool bAllowExplicitImpureNodeDisabling;
+
 // Developer Settings
 public:
 	/** If enabled, tooltips on action menu items will show the associated action's signature id (can be used to setup custom favorites menus).*/

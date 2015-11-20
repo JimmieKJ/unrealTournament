@@ -39,10 +39,10 @@ class UDrawFrustumComponent : public UPrimitiveComponent
 	class UTexture* Texture;
 
 
-	// Begin UPrimitiveComponent interface.
+	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	// End UPrimitiveComponent interface.
+	//~ End UPrimitiveComponent Interface.
 };
 
 

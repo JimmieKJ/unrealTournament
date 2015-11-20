@@ -1024,23 +1024,23 @@ public:
 	 * called on all clients
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-		void OnDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
+	void OnDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
 
 	/** Wall Dodge just occurred in dodge dir, play any sounds/effects desired.
 	* called on all clients
 	*/
 	UFUNCTION(BlueprintNativeEvent)
-		void OnWallDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
+	void OnWallDodge(const FVector& DodgeLocation, const FVector &DodgeDir);
 
 	/** Slide just occurred, play any sounds/effects desired.
 	* called on server and owning client
 	*/
 	UFUNCTION(BlueprintNativeEvent)
-		void OnSlide(const FVector& SlideLocation, const FVector &SlideDir);
+	void OnSlide(const FVector& SlideLocation, const FVector &SlideDir);
 
 	/** Landing assist just occurred */
 	UFUNCTION(BlueprintImplementableEvent)
-	virtual void OnLandingAssist();
+	void OnLandingAssist();
 
 	/** Blueprint override for dodge handling. Return true to skip default dodge in C++. */
 	UFUNCTION(BlueprintImplementableEvent)
@@ -1856,7 +1856,7 @@ public:
 
 inline bool AUTCharacter::IsDead()
 {
-	return bTearOff || bPendingKillPending;
+	return bTearOff || IsPendingKillPending();
 }
 
 

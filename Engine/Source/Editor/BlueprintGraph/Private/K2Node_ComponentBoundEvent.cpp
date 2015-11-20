@@ -121,7 +121,29 @@ void UK2Node_ComponentBoundEvent::Serialize(FArchive& Ar)
 			bNeedsFixup = true;
 		}
 
-		if (bNeedsFixup || !DelegateOwnerClass)
+		// Recover from the period where DelegateOwnerClass was transient
+		if (!DelegateOwnerClass && HasValidBlueprint())
+		{
+			bNeedsFixup = true;
+			// Search for a component property on the owning class, this should work in most cases
+			UBlueprint* ParentBlueprint = GetBlueprint();
+			UClass* ParentClass = ParentBlueprint ? ParentBlueprint->GeneratedClass : NULL;
+			if (!ParentClass && ParentBlueprint)
+			{
+				// Try the skeleton class
+				ParentClass = ParentBlueprint->SkeletonGeneratedClass;
+			}
+
+			UObjectProperty* ComponentProperty = ParentClass ? Cast<UObjectProperty>(ParentClass->FindPropertyByName(ComponentPropertyName)) : NULL;
+
+			if (ParentClass && ComponentProperty)
+			{
+				UE_LOG(LogBlueprint, Warning, TEXT("Repaired invalid component bound event in node %s."), *GetPathName());
+				DelegateOwnerClass = ComponentProperty->PropertyClass;
+			}
+		}
+
+		if (bNeedsFixup)
 		{
 			// We need to fixup our event reference as it may have been saved incorrectly
 			UMulticastDelegateProperty* TargetDelegateProp = GetTargetDelegateProperty();

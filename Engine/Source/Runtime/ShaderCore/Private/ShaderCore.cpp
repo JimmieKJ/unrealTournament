@@ -179,7 +179,13 @@ void FShaderParameterMap::RemoveParameterAllocation(const TCHAR* ParameterName)
 void FShaderCompilerOutput::GenerateOutputHash()
 {
 	FSHA1 HashState;
-	HashState.Update(Code.GetData(), Code.Num() * Code.GetTypeSize());
+	
+	const TArray<uint8>& Code = ShaderCode.GetReadAccess();
+
+	// we don't hash the optional attachments as they would prevent sharing (e.g. many material share the save VS)
+	uint32 ShaderCodeSize = ShaderCode.GetShaderCodeSize();
+
+	HashState.Update(Code.GetData(), ShaderCodeSize * Code.GetTypeSize());
 	ParameterMap.UpdateHash(HashState);
 	HashState.Final();
 	HashState.GetHash(&OutputHash.Hash[0]);
@@ -237,6 +243,9 @@ static void GetAllShaderSourceFiles( TArray<FString>& ShaderSourceFiles )
 			AddShaderSourceFileEntry(ShaderSourceFiles,ShaderFilename);
 		}
 	}
+
+	//#todo-rco: No need to loop through Shader Pipeline Types (yet)
+
 	// also always add the MaterialTemplate.usf shader file
 	AddShaderSourceFileEntry(ShaderSourceFiles,FString(TEXT("MaterialTemplate")));
 	AddShaderSourceFileEntry(ShaderSourceFiles,FString(TEXT("Common")));
@@ -563,10 +572,14 @@ void InitializeShaderTypes()
 
 	FShaderType::Initialize(ShaderFileToUniformBufferVariables);
 	FVertexFactoryType::Initialize(ShaderFileToUniformBufferVariables);
+
+	FShaderPipelineType::Initialize();
 }
 
 void UninitializeShaderTypes()
 {
+	FShaderPipelineType::Uninitialize();
+
 	FShaderType::Uninitialize();
 	FVertexFactoryType::Uninitialize();
 }
@@ -584,6 +597,15 @@ void FlushShaderFileCache()
 	{
 		TMap<FString, TArray<const TCHAR*> > ShaderFileToUniformBufferVariables;
 		BuildShaderFileToUniformBufferMap(ShaderFileToUniformBufferVariables);
+
+		for (TLinkedList<FShaderPipelineType*>::TConstIterator It(FShaderPipelineType::GetTypeList()); It; It.Next())
+		{
+			const auto& Stages = It->GetStages();
+			for (const FShaderType* ShaderType : Stages)
+			{
+				((FShaderType*)ShaderType)->FlushShaderFileCache(ShaderFileToUniformBufferVariables);
+			}
+		}
 
 		for(TLinkedList<FShaderType*>::TIterator It(FShaderType::GetTypeList()); It; It.Next())
 		{

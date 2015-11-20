@@ -15,11 +15,11 @@ class UAnimSequenceFactory : public UFactory
 	UPROPERTY()
 	class USkeleton* TargetSkeleton;
 
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
 	virtual bool ShouldShowInNewMenu() const override { return false; } 
-	// Begin UFactory Interface	
+	//~ Begin UFactory Interface	
 
 private:
 	void OnTargetSkeletonSelected(const FAssetData& SelectedAsset);

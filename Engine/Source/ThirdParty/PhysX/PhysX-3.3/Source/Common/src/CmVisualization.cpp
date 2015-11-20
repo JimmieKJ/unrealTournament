@@ -101,7 +101,7 @@ void Cm::visualizeDoubleCone(Cm::RenderOutput& out,
 {
 	out << t << (active ? PxDebugColor::eARGB_RED : PxDebugColor::eARGB_GREY);	
 
-	const PxReal height = sin(angle);//, radius = cos(angle);
+	const PxReal height = PxSin(angle);//, radius = cos(angle);
 
 	const PxU32 LINES = 32;
 

@@ -83,7 +83,9 @@ void FLightSceneInfo::AddToScene()
 	if (Proxy->CastsDynamicShadow() 
 		|| Proxy->CastsStaticShadow() 
 		// Lights that should be baked need to check for interactions to track unbuilt state correctly
-		|| Proxy->HasStaticLighting())
+		|| Proxy->HasStaticLighting()
+		// ES2 path supports dynamic point lights in the base pass using forward rendering, so we need to know the primitives
+		|| (Scene->GetFeatureLevel() < ERHIFeatureLevel::SM4 && Proxy->GetLightType() == LightType_Point && Proxy->IsMovable()))
 	{
 		// Add the light to the scene's light octree.
 		Scene->LightOctree.AddElement(LightSceneInfoCompact);

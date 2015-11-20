@@ -11,15 +11,15 @@ class FIOSDeviceProfileSelectorModule
 {
 public:
 
-	// Begin IDeviceProfileSelectorModule interface
+	//~ Begin IDeviceProfileSelectorModule Interface
 	virtual const FString GetRuntimeDeviceProfileName() override;
-	// End IDeviceProfileSelectorModule interface
+	//~ End IDeviceProfileSelectorModule Interface
 
 
-	// Begin IModuleInterface interface
+	//~ Begin IModuleInterface Interface
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
-	// End IModuleInterface interface
+	//~ End IModuleInterface Interface
 
 	
 	/**

@@ -4,6 +4,7 @@
 #include "SGameplayTagContainerGraphPin.h"
 #include "GameplayTagsModule.h"
 #include "GameplayTags.h"
+#include "SScaleBox.h"
 
 #define LOCTEXT_NAMESPACE "GameplayTagGraphPin"
 

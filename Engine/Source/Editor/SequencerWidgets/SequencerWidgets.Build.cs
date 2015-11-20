@@ -12,6 +12,7 @@ public class SequencerWidgets : ModuleRules
 			new string[] {
 				"Core",
 				"CoreUObject",
+                "EditorStyle",
 				"Engine",
                 "InputCore",
 				"Slate",

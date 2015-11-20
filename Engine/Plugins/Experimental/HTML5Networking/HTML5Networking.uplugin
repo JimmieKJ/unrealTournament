@@ -9,7 +9,7 @@
 	"EngineVersion" : "4.8.0",
 	"Description" : "HTML5 Networking",
 	"Category" : "Misc",
-	"EnabledByDefault" : false,
+	"EnabledByDefault" : true,
 
 	"Modules" :
 	[

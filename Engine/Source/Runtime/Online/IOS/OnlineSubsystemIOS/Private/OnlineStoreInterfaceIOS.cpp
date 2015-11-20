@@ -2,8 +2,7 @@
 
 #include "OnlineSubsystemIOSPrivatePCH.h"
 #include "OnlineStoreInterface.h"
-
-
+#include "OnlineSubsystemNames.h"
 
 ////////////////////////////////////////////////////////////////////
 /// FStoreKitHelper implementation
@@ -45,6 +44,59 @@
     }
 }
 
+-(void)paymentQueueRestoreCompletedTransactionsFinished:(SKPaymentQueue *)queue
+{
+	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::paymentQueueRestoreCompletedTransactionsFinished"));
+
+	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
+	{
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(IOS_SUBSYSTEM);
+		FOnlineStoreInterfaceIOS* StoreInterface = (FOnlineStoreInterfaceIOS*)OnlineSub->GetStoreInterface().Get();
+
+		if (StoreInterface->CachedPurchaseRestoreObject.IsValid())
+		{
+			StoreInterface->CachedPurchaseRestoreObject->ReadState = EOnlineAsyncTaskState::Done;
+		}
+		StoreInterface->TriggerOnInAppPurchaseRestoreCompleteDelegates(EInAppPurchaseState::Restored);
+
+		return true;
+	}];
+}
+
+-(void)paymentQueue: (SKPaymentQueue *)queue restoreCompletedTransactionsFailedWithError : (NSError *)error
+{
+	UE_LOG(LogOnline, Log, TEXT("FStoreKitHelper::failedRestore - %s"), *FString([error localizedDescription]));
+
+	EInAppPurchaseState::Type CompletionState = EInAppPurchaseState::Unknown;
+	switch (error.code)
+	{
+	case SKErrorPaymentCancelled:
+		CompletionState = EInAppPurchaseState::Cancelled;
+		break;
+	case SKErrorClientInvalid:
+	case SKErrorStoreProductNotAvailable:
+	case SKErrorPaymentInvalid:
+		CompletionState = EInAppPurchaseState::Invalid;
+		break;
+	case SKErrorPaymentNotAllowed:
+		CompletionState = EInAppPurchaseState::NotAllowed;
+		break;
+	}
+
+	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
+	{
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(IOS_SUBSYSTEM);
+		FOnlineStoreInterfaceIOS* StoreInterface = (FOnlineStoreInterfaceIOS*)OnlineSub->GetStoreInterface().Get();
+		if (StoreInterface->CachedPurchaseRestoreObject.IsValid())
+		{
+			StoreInterface->CachedPurchaseRestoreObject->ReadState = EOnlineAsyncTaskState::Done;
+		}
+
+		StoreInterface->TriggerOnInAppPurchaseRestoreCompleteDelegates(CompletionState);
+
+		return true;
+	}];
+}
 
 - (void) completeTransaction: (SKPaymentTransaction *)transaction
 {
@@ -53,7 +105,7 @@
     
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
-		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(FName(TEXT("IOS")));
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(IOS_SUBSYSTEM);
 		FOnlineStoreInterfaceIOS* StoreInterface = (FOnlineStoreInterfaceIOS*)OnlineSub->GetStoreInterface().Get();
 
 		if (StoreInterface->CachedPurchaseStateObject.IsValid())
@@ -80,6 +132,7 @@
 			}
 
 			StoreInterface->CachedPurchaseStateObject->ProvidedProductInformation.ReceiptData = ReceiptData;
+			StoreInterface->CachedPurchaseStateObject->ProvidedProductInformation.TransactionIdentifier = transaction.transactionIdentifier;
 			StoreInterface->CachedPurchaseStateObject->ReadState = EOnlineAsyncTaskState::Done;
 		}
      
@@ -97,9 +150,44 @@
 {
 	UE_LOG(LogOnline, Log, TEXT( "FStoreKitHelper::restoreTransaction" ));
 
-    //[self recordTransaction: transaction];
-    //[self provideContent: transaction.originalTransaction.payment.productIdentifier];
-    [[SKPaymentQueue defaultQueue] finishTransaction: transaction];
+	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
+	{
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(IOS_SUBSYSTEM);
+		FOnlineStoreInterfaceIOS* StoreInterface = (FOnlineStoreInterfaceIOS*)OnlineSub->GetStoreInterface().Get();
+
+		if (StoreInterface->CachedPurchaseRestoreObject.IsValid())
+		{
+			FString ReceiptData;
+
+#ifdef __IPHONE_7_0
+			if ([IOSAppDelegate GetDelegate].OSVersion >= 7.0)
+			{
+				NSURL* nsReceiptUrl = [[NSBundle mainBundle] appStoreReceiptURL];
+				NSData* nsReceiptData = [NSData dataWithContentsOfURL : nsReceiptUrl];
+				NSString* nsEncodedReceiptData = [nsReceiptData base64EncodedStringWithOptions : NSDataBase64EncodingEndLineWithLineFeed];
+
+				ReceiptData = nsEncodedReceiptData;
+			}
+			else
+#endif
+			{
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+				// If earlier than IOS 7, we will need to use the transactionReceipt
+				NSString* nsEncodedReceiptData = [transaction.originalTransaction.transactionReceipt base64EncodedStringWithOptions : NSDataBase64EncodingEndLineWithLineFeed];
+				ReceiptData = nsEncodedReceiptData;
+#endif
+			}
+
+			FInAppPurchaseRestoreInfo RestoreInfo;
+			RestoreInfo.Identifier = FString(transaction.originalTransaction.payment.productIdentifier);
+			RestoreInfo.ReceiptData = ReceiptData;
+			StoreInterface->CachedPurchaseRestoreObject->ProvidedRestoreInformation.Add(RestoreInfo);
+		}
+
+		return true;
+	}];
+	
+	[[SKPaymentQueue defaultQueue] finishTransaction:transaction];
 }
 
 
@@ -125,7 +213,7 @@
 	
     [FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
     {
-        IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(FName(TEXT("IOS")));
+        IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(IOS_SUBSYSTEM);
         FOnlineStoreInterfaceIOS* StoreInterface = (FOnlineStoreInterfaceIOS*)OnlineSub->GetStoreInterface().Get();
         if (StoreInterface->CachedPurchaseStateObject.IsValid())
         {
@@ -169,7 +257,7 @@
 	// Direct the response back to the store interface
 	[FIOSAsyncTask CreateTaskWithBlock : ^ bool(void)
 	{
-		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(FName(TEXT("IOS")));
+		IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(IOS_SUBSYSTEM);
 		FOnlineStoreInterfaceIOS* StoreInterface = (FOnlineStoreInterfaceIOS*)OnlineSub->GetStoreInterface().Get();
 		StoreInterface->ProcessProductsResponse(response);
 
@@ -179,6 +267,33 @@
 	[request autorelease];
 }
 
+-(void)requestDidFinish:(SKRequest*)request
+{
+#ifdef __IPHONE_7_0
+	if ([Request isKindOfClass : [SKReceiptRefreshRequest class]])
+	{
+		[[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
+	}
+#endif
+}
+
+-(void)restorePurchases
+{
+#ifdef __IPHONE_7_0
+	if ([IOSAppDelegate GetDelegate].OSVersion >= 7.0)
+	{
+		Request = [[SKReceiptRefreshRequest alloc] init];
+		Request.delegate = self;
+		[Request start];
+    }
+	else
+#endif
+	{
+#if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_7_0
+		[[SKPaymentQueue defaultQueue] restoreCompletedTransactions];
+#endif
+	}
+}
 @end
 
 
@@ -304,6 +419,25 @@ bool FOnlineStoreInterfaceIOS::BeginPurchase(const FInAppPurchaseProductRequest&
 }
 
 
+bool FOnlineStoreInterfaceIOS::RestorePurchases(FOnlineInAppPurchaseRestoreReadRef& InReadObject)
+{
+	bool bSentAQueryRequest = false;
+	CachedPurchaseRestoreObject = InReadObject;
+
+	if (bIsPurchasing || bIsProductRequestInFlight)
+	{
+		UE_LOG(LogOnline, Verbose, TEXT("FOnlineStoreInterfaceIOS::BeginPurchase - cannot make a purchase whilst one is in transaction."));
+		TriggerOnInAppPurchaseRestoreCompleteDelegates(EInAppPurchaseState::Failed);
+	}
+	else
+	{
+		[StoreHelper restorePurchases];
+		bSentAQueryRequest = true;
+	}
+
+	return bSentAQueryRequest;
+}
+
 void FOnlineStoreInterfaceIOS::ProcessProductsResponse( SKProductsResponse* Response )
 {
 	if( bIsPurchasing )
@@ -325,6 +459,10 @@ void FOnlineStoreInterfaceIOS::ProcessProductsResponse( SKProductsResponse* Resp
 			PurchaseProductInfo.DisplayName = [Product localizedTitle];
 			PurchaseProductInfo.DisplayDescription = [Product localizedDescription];
 			PurchaseProductInfo.DisplayPrice = [numberFormatter stringFromNumber : Product.price];
+			PurchaseProductInfo.CurrencyCode = [Product.priceLocale objectForKey : NSLocaleCurrencyCode];
+			PurchaseProductInfo.CurrencySymbol = [Product.priceLocale objectForKey : NSLocaleCurrencySymbol];
+			PurchaseProductInfo.DecimalSeparator = [Product.priceLocale objectForKey : NSLocaleDecimalSeparator];
+			PurchaseProductInfo.GroupingSeparator = [Product.priceLocale objectForKey : NSLocaleGroupingSeparator];
 
 			[numberFormatter release];
 
@@ -373,6 +511,10 @@ void FOnlineStoreInterfaceIOS::ProcessProductsResponse( SKProductsResponse* Resp
 				NewProductInfo.DisplayName = [Product localizedTitle];
 				NewProductInfo.DisplayDescription = [Product localizedDescription];
 				NewProductInfo.DisplayPrice = [numberFormatter stringFromNumber : Product.price];
+				NewProductInfo.CurrencyCode = [Product.priceLocale objectForKey : NSLocaleCurrencyCode];
+				NewProductInfo.CurrencySymbol = [Product.priceLocale objectForKey : NSLocaleCurrencySymbol];
+				NewProductInfo.DecimalSeparator = [Product.priceLocale objectForKey : NSLocaleDecimalSeparator];
+				NewProductInfo.GroupingSeparator = [Product.priceLocale objectForKey : NSLocaleGroupingSeparator];
 
 				UE_LOG(LogOnline, Log, TEXT("\nProduct Identifier: %s, Name: %s, Description: %s, Price: %s\n"),
 					*NewProductInfo.Identifier,

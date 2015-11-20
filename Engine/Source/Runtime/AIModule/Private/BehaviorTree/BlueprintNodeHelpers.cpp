@@ -96,7 +96,7 @@ namespace BlueprintNodeHelpers
 		}
 		else
 		{
-			Prop->ExportTextItem(ExportedStringValue, PropertyAddr, NULL, NULL, 0, NULL);
+			Prop->ExportTextItem(ExportedStringValue, PropertyAddr, NULL, NULL, PPF_PropertyWindow, NULL);
 		}
 
 		const bool bIsBool = Prop->IsA(UBoolProperty::StaticClass());

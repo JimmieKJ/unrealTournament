@@ -48,6 +48,11 @@ int32 FRegexMatcher::GetCaptureGroupEnding(const int32 Index)
 	return INDEX_NONE;
 }
 
+FString FRegexMatcher::GetCaptureGroup(const int32 Index)
+{
+	return FString();
+}
+
 int32 FRegexMatcher::GetBeginLimit()
 {
 	return INDEX_NONE;

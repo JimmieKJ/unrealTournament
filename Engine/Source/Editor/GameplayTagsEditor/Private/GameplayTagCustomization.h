@@ -23,10 +23,10 @@ public:
 	/** Overridden to do nothing */
 	virtual void CustomizeChildren(TSharedRef<IPropertyHandle> InStructPropertyHandle, class IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override {}
 
-	// Begin FEditorUndoClient Interface
+	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override;
-	// End FEditorUndoClient Interface
+	//~ End FEditorUndoClient Interface
 
 private:
 

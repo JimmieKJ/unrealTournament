@@ -15,6 +15,10 @@ class UNiagaraScriptSource : public UNiagaraScriptSourceBase
 	UPROPERTY()
 	class UNiagaraGraph*	NodeGraph;
 
+	/** The same node graph from above but with all function calls merge into a single graph. */
+	UPROPERTY()
+	class UNiagaraGraph*	FlattenedNodeGraph;
+
 	// UObject interface.
 	virtual void PostLoad() override;
 	virtual void Compile() override;

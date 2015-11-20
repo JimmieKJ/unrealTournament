@@ -19,7 +19,7 @@ table
 </asp:Content>
 
 <asp:Content ID="TitleContent" ContentPlaceHolderID="TitleContent" runat="server">
-	Crash Reports
+[CR] Dashboard
 </asp:Content>
 
 <asp:Content ID="ScriptContent" ContentPlaceHolderID="ScriptContent" runat="server" >
@@ -50,7 +50,16 @@ table
 				data.addColumn('number', 'Coder Crashes');
 				data.addColumn('number', 'EngineQA Crashes');
 				data.addColumn('number', 'GameQA Crashes');
-				data.addColumn('number', 'Anonymous Crashes');
+				
+				<%
+				foreach (var Version in Model.EngineVersions )
+				{
+				%>
+					data.addColumn('number', '<%=Version%> - ');
+				<% 
+				}
+				%>
+
 				data.addColumn('number', 'All Crashes');
 				data.addRows([<%=Model.CrashesByWeek%>]);
 				var chart = new google.visualization.AnnotatedTimeLine(document.getElementById('weekly_chart'));
@@ -69,7 +78,16 @@ table
 				data.addColumn('number', 'Coder Crashes');
 				data.addColumn('number', 'EngineQA Crashes');
 				data.addColumn('number', 'GameQA Crashes');
-				data.addColumn('number', 'Anonymous Crashes');
+				
+				<%
+				foreach (var Version in Model.EngineVersions )
+				{
+				%>
+					data.addColumn('number', '<%=Version%> - ');
+				<% 
+				}
+				%>
+
 				data.addColumn('number', 'All Crashes');
 				data.addRows([<%=Model.CrashesByDay%>]);
 				var chart = new google.visualization.AnnotatedTimeLine(document.getElementById('daily_chart'));

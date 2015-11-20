@@ -6,6 +6,26 @@
 #include "CompositeFont.h"
 #include "SlateFontInfo.generated.h"
 
+
+/**
+ * Sets the maximum font fallback level, for when a character can't be found in the selected font set.
+ *
+ * UI code that renders strings from a third party (e.g. player chat in a multiplayer game), should restrict font fallback to localized,
+ * (or to no fallback, if international font isn't important), to prevent potential performance problems.
+ */
+UENUM()
+enum class EFontFallback : uint8
+{
+	/** No fallback font */
+	FF_NoFallback,
+	/** Fallback to localized font set */
+	FF_LocalizedFallback,
+	/** Fallback to last resort font set */
+	FF_LastResortFallback,
+	/** Tries all fallbacks */
+	FF_Max
+};
+
 /**
  * A representation of a font in Slate.
  */
@@ -17,6 +37,10 @@ struct SLATECORE_API FSlateFontInfo
 	/** The font object (valid when used from UMG or a Slate widget style asset) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules, meta=(AllowedClasses="Font", DisplayName="Font Family"))
 	const UObject* FontObject;
+
+	/** The material to use when rendering this font */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=SlateStyleRules, meta=(AllowedClasses="MaterialInterface"))
+	const UObject* FontMaterial;
 
 	/** The composite font data to use (valid when used with a Slate style set in C++) */
 	TSharedPtr<const FCompositeFont> CompositeFont;
@@ -38,6 +62,11 @@ private:
 	/** The hinting algorithm to use with the font */
 	UPROPERTY()
 	EFontHinting Hinting_DEPRECATED;
+
+public:
+
+	/** The font fallback level. Runtime only, don't set on shared FSlateFontInfo, as it may change the font elsewhere (make a copy). */
+	EFontFallback FontFallback;
 
 public:
 
@@ -109,6 +138,7 @@ public:
 	bool operator==( const FSlateFontInfo& Other ) const 
 	{
 		return FontObject == Other.FontObject
+			&& FontMaterial == Other.FontMaterial
 			&& CompositeFont == Other.CompositeFont 
 			&& TypefaceFontName == Other.TypefaceFontName
 			&& Size == Other.Size;
@@ -149,6 +179,7 @@ public:
 	{
 		uint32 Hash = 0;
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.FontObject));
+		Hash = HashCombine(Hash, GetTypeHash(FontInfo.FontMaterial));
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.CompositeFont));
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.TypefaceFontName));
 		Hash = HashCombine(Hash, GetTypeHash(FontInfo.Size));

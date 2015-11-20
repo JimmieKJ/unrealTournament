@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
+#include "UObjectThreadContext.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEnum, Log, All);
 
@@ -20,7 +21,20 @@ UEnum::~UEnum()
 void UEnum::Serialize( FArchive& Ar )
 {
 	Super::Serialize(Ar);
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_TIGHTLY_PACKED_ENUMS)
+	{
+		TArray<FName> TempNames;
+		Ar << TempNames;
+		uint8 Value = 0;
+		for (const FName& TempName : TempNames)
+		{
+			Names.Add(TPairInitializer<FName, uint8>(TempName, Value++));
+		}
+	}
+	else
+	{
 	Ar << Names;
+	}
 
 	if (Ar.UE4Ver() < VER_UE4_ENUM_CLASS_SUPPORT)
 	{
@@ -30,7 +44,7 @@ void UEnum::Serialize( FArchive& Ar )
 	}
 	else
 	{
-		int8 EnumTypeByte = (int8)CppForm;
+		uint8 EnumTypeByte = (uint8)CppForm;
 		Ar << EnumTypeByte;
 		CppForm = (ECppForm)EnumTypeByte;
 	}
@@ -52,7 +66,7 @@ void UEnum::Serialize( FArchive& Ar )
 FString UEnum::GetBaseEnumNameOnDuplication() const
 {
 	// Last name is always fully qualified, in form EnumName::Prefix_MAX.
-	FString BaseEnumName = Names[Names.Num() - 1].ToString();
+	FString BaseEnumName = GetNameByIndex(Names.Num() - 1).ToString();
 
 	// Double check we have a fully qualified name.
 	auto DoubleColonPos = BaseEnumName.Find(TEXT("::"));
@@ -70,14 +84,14 @@ void UEnum::RenameNamesAfterDuplication()
 	FString BaseEnumName = GetBaseEnumNameOnDuplication();
 
 	// Get name of duplicated enum.
-	auto ThisName = GetName();
+	FString ThisName = GetName();
 
 	// Replace all usages of base class name to the duplicated one.
-	for (auto& Name : Names)
+	for (TPair<FName, uint8>& Kvp : Names)
 	{
-		auto NameString = Name.ToString();
+		FString NameString = Kvp.Key.ToString();
 		NameString.ReplaceInline(*BaseEnumName, *ThisName);
-		Name = FName(*NameString);
+		Kvp.Key = FName(*NameString);
 	}
 }
 
@@ -91,30 +105,165 @@ FString UEnum::GenerateFullEnumName(const TCHAR* InEnumName) const
 	return (CppForm != ECppForm::Regular) ? GenerateFullEnumName(this, InEnumName) : InEnumName;
 }
 
+FName UEnum::GetNameByIndex(uint8 Index) const
+{
+	if (Names.IsValidIndex(Index))
+	{
+		return Names[Index].Key;
+	}
+
+	return NAME_None;
+}
+
+uint8 UEnum::GetValueByIndex(uint8 Index) const
+{
+	check(Names.IsValidIndex(Index));
+	return Names[Index].Value;
+}
+
+FName UEnum::GetNameByValue(uint8 InValue) const
+{
+	for (TPair<FName, uint8> Kvp : Names)
+	{
+		if (Kvp.Value == InValue)
+		{
+			return Kvp.Key;
+		}
+	}
+
+	return NAME_None;
+}
+
+int32 UEnum::GetIndexByName(FName InName) const
+{
+	int32 Count = Names.Num();
+	for (int32 Counter = 0; Counter < Count; ++Counter)
+	{
+		if (Names[Counter].Key == InName)
+		{
+			return Counter;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+int32 UEnum::GetValueByName(FName InName) const
+{
+	FString InNameString = InName.ToString();
+	FString DoubleColon = TEXT("::");
+	int32 DoubleColonPosition = InNameString.Find(DoubleColon);
+	bool bIsInNameFullyQualified = DoubleColonPosition != INDEX_NONE;
+	bool bIsEnumFullyQualified = CppForm != ECppForm::Regular;
+
+	if (!bIsInNameFullyQualified && bIsEnumFullyQualified)
+	{
+		// Make InName fully qualified.
+		InName = FName(*GetName().Append(DoubleColon).Append(InNameString));
+	}
+	else if (bIsInNameFullyQualified && !bIsEnumFullyQualified)
+	{
+		// Make InName unqualified.
+		InName = FName(*InNameString.Mid(DoubleColonPosition + 2, InNameString.Len() - DoubleColonPosition + 2));
+	}
+
+	for (TPair<FName, uint8> Kvp : Names)
+	{
+		if (Kvp.Key == InName)
+		{
+			return Kvp.Value;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+
+uint8 UEnum::GetMaxEnumValue() const
+{
+	int32 NamesNum = Names.Num();
+	if (NamesNum == 0)
+	{
+		return 0;
+	}
+
+	uint8 MaxValue = Names[0].Value;
+	for (int32 i = 0; i < NamesNum; ++i)
+	{
+		uint8 CurrentValue = Names[i].Value;
+		if (CurrentValue > MaxValue)
+		{
+			MaxValue = CurrentValue;
+		}
+	}
+
+	return MaxValue;
+}
+
+bool UEnum::IsValidEnumValue(uint8 InValue) const
+{
+	int32 NamesNum = Names.Num();
+	for (int32 i = 0; i < NamesNum; ++i)
+	{
+		uint8 CurrentValue = Names[i].Value;
+		if (CurrentValue == InValue)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool UEnum::IsValidEnumName(FName InName) const
+{
+	int32 NamesNum = Names.Num();
+	for (int32 i = 0; i < NamesNum; ++i)
+	{
+		FName CurrentName = Names[i].Key;
+		if (CurrentName == InName)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+FString UEnum::GenerateFullEnumName(const UEnum* InEnum, const TCHAR* InEnumName)
+{
+	if (InEnum->GetCppForm() == ECppForm::Regular || IsFullEnumName(InEnumName))
+	{
+		return InEnumName;
+	}
+
+	return FString::Printf(TEXT("%s::%s"), *InEnum->GetName(), InEnumName);
+}
+
 void UEnum::AddNamesToMasterList()
 {
-	for (int32 NameIndex = 0; NameIndex < Names.Num(); NameIndex++)
+	for (TPair<FName, uint8> Kvp : Names)
 	{
-		UEnum* Enum = AllEnumNames.FindRef(Names[NameIndex]);
-		if (Enum == NULL)
+		UEnum* Enum = AllEnumNames.FindRef(Kvp.Key);
+		if (Enum == nullptr)
 		{
-			AllEnumNames.Add(Names[NameIndex], this);
+			AllEnumNames.Add(Kvp.Key, this);
 		}
 		else if (Enum != this)
 		{
-			UE_LOG(LogEnum, Warning, TEXT("Enum name collision: '%s' is in both '%s' and '%s'"), *Names[NameIndex].ToString(), *GetPathName(), *Enum->GetPathName());
+			UE_LOG(LogEnum, Warning, TEXT("Enum name collision: '%s' is in both '%s' and '%s'"), *Kvp.Key.ToString(), *GetPathName(), *Enum->GetPathName());
 		}
 	}
 }
 
 void UEnum::RemoveNamesFromMasterList()
 {
-	for (int32 NameIndex = 0; NameIndex < Names.Num(); NameIndex++)
+	for (TPair<FName, uint8> Kvp : Names)
 	{
-		UEnum* Enum = AllEnumNames.FindRef(Names[NameIndex]);
+		UEnum* Enum = AllEnumNames.FindRef(Kvp.Key);
 		if (Enum == this)
 		{
-			AllEnumNames.Remove(Names[NameIndex]);
+			AllEnumNames.Remove(Kvp.Key);
 		}
 	}
 }
@@ -130,14 +279,14 @@ FString UEnum::GenerateEnumPrefix() const
 	FString Prefix;
 	if (Names.Num() > 0)
 	{
-		Prefix = Names[0].ToString();
+		Prefix = Names[0].Key.ToString();
 
 		// For each item in the enumeration, trim the prefix as much as necessary to keep it a prefix.
 		// This ensures that once all items have been processed, a common prefix will have been constructed.
 		// This will be the longest common prefix since as little as possible is trimmed at each step.
 		for (int32 NameIdx = 1; NameIdx < Names.Num(); NameIdx++)
 		{
-			FString EnumItemName = *Names[NameIdx].ToString();
+			FString EnumItemName = *Names[NameIdx].Key.ToString();
 
 			// Find the length of the longest common prefix of Prefix and EnumItemName.
 			int32 PrefixIdx = 0;
@@ -176,14 +325,48 @@ FString UEnum::GenerateEnumPrefix() const
 	return Prefix;
 }
 
+FString UEnum::GetEnumName(int32 InIndex) const
+{
+	if (Names.IsValidIndex(InIndex))
+	{
+		if (CppForm == ECppForm::Regular)
+		{
+			return GetNameByIndex(InIndex).ToString();
+		}
+
+		// Strip the namespace from the name.
+		FString EnumName(GetNameByIndex(InIndex).ToString());
+		int32 ScopeIndex = EnumName.Find(TEXT("::"), ESearchCase::CaseSensitive);
+		if (ScopeIndex != INDEX_NONE)
+		{
+			return EnumName.Mid(ScopeIndex + 2);
+		}
+	}
+	return FName(NAME_None).ToString();
+}
+
+FText UEnum::GetEnumText(int32 InIndex) const
+{
+#if WITH_EDITOR
+	//@todo These values should be properly localized [9/24/2013 justin.sargent]
+	FText LocalizedDisplayName = GetDisplayNameText(InIndex);
+	if(!LocalizedDisplayName.IsEmpty())
+	{
+		return LocalizedDisplayName;
+	}
+#endif
+
+	return FText::FromString( GetEnumName(InIndex) );
+}
+
 int32 UEnum::FindEnumIndex(FName InName) const
 {
-	int32 EnumIndex = Names.Find( InName );
+	int32 EnumIndex = GetIndexByName(InName);
 	if (EnumIndex == INDEX_NONE && CppForm != ECppForm::Regular && !IsFullEnumName(*InName.ToString()))
 	{
 		// Try the long enum name if InName doesn't have a namespace specified and this is a namespace enum.
 		FName LongName(*GenerateFullEnumName(*InName.ToString()));
-		EnumIndex = Names.Find( LongName );
+		EnumIndex = GetIndexByName(LongName);
 	}
 
 	// If that still didn't work - try the redirect table
@@ -192,10 +375,12 @@ int32 UEnum::FindEnumIndex(FName InName) const
 		EnumIndex = FindEnumRedirects(this, InName);
 	}
 
-	if (EnumIndex == INDEX_NONE && InName != NAME_None)
+	// None is passed in by blueprints at various points, isn't an error. Any other failed resolve should be fixed
+	if ((EnumIndex == INDEX_NONE) && (InName != NAME_None))
 	{
-		// None is passed in by blueprints at various points, isn't an error. Any other failed resolve should be fixed
-		UE_LOG(LogEnum, Warning, TEXT("Enum Text %s for Enum %s failed to resolve to any value"), *InName.ToString(), *GetName());
+		FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+		
+		UE_LOG(LogEnum, Warning, TEXT("In asset '%s', there is an enum property of type '%s' with an invalid value of '%s'"), *GetPathNameSafe(ThreadContext.SerializedObject), *GetName(), *InName.ToString());
 	}
 
 	return EnumIndex;
@@ -215,13 +400,13 @@ int32 UEnum::FindEnumRedirects(const UEnum* Enum, FName EnumEntryName)
 
 	// See if we have an entry for this enum
 	const TMap<FName, FName>* ThisEnumRedirects = EnumRedirects.Find(Enum->GetFName());
-	if (ThisEnumRedirects != NULL)
+	if (ThisEnumRedirects != nullptr)
 	{
 		// first look for default name
 		const FName* NewEntryName = ThisEnumRedirects->Find(EnumEntryName);
-		if (NewEntryName != NULL)
+		if (NewEntryName != nullptr)
 		{
-			return Enum->Names.Find(*NewEntryName);
+			return Enum->GetIndexByName(*NewEntryName);
 		}
 		// if not found, look for long name
 		else
@@ -229,9 +414,9 @@ int32 UEnum::FindEnumRedirects(const UEnum* Enum, FName EnumEntryName)
 			// Note: This can pollute the name table if the ini is set up incorrectly
 			FName LongName(*GenerateFullEnumName(Enum, *EnumEntryName.ToString()));
 			NewEntryName = ThisEnumRedirects->Find(LongName);
-			if (NewEntryName != NULL)
+			if (NewEntryName != nullptr)
 			{
-				return Enum->Names.Find(*NewEntryName);
+				return Enum->GetIndexByName(*NewEntryName);
 			}
 		}
 	}
@@ -248,7 +433,7 @@ int32 UEnum::FindEnumRedirects(const UEnum* Enum, FName EnumEntryName)
 				// Note: This can pollute the name table if the ini is set up incorrectly
 				FName NewName = FName(*EntryString.Replace(*It.Key(), *It.Value()));
 
-				int32 FoundIndex = Enum->Names.Find(NewName);
+				int32 FoundIndex = Enum->GetIndexByName(NewName);
 
 				if (FoundIndex == INDEX_NONE)
 				{
@@ -267,9 +452,9 @@ int32 UEnum::FindEnumRedirects(const UEnum* Enum, FName EnumEntryName)
 /**
  * Sets the array of enums.
  *
- * @return	true unless the MAX enum already exists and isn't the last enum.
+ * @return	true unless the MAX enum already exists.
  */
-bool UEnum::SetEnums(TArray<FName>& InNames, UEnum::ECppForm InCppForm)
+bool UEnum::SetEnums(TArray<TPair<FName, uint8>>& InNames, UEnum::ECppForm InCppForm)
 {
 	if (Names.Num() > 0)
 	{
@@ -277,23 +462,14 @@ bool UEnum::SetEnums(TArray<FName>& InNames, UEnum::ECppForm InCppForm)
 	}
 	Names   = InNames;
 	CppForm = InCppForm;
-	return GenerateMaxEnum();
-}
 
-/**
- * Adds a virtual _MAX entry to the enum's list of names, unless the
- * enum already contains one.
- *
- * @return	true unless the MAX enum already exists and isn't the last enum.
- */
-bool UEnum::GenerateMaxEnum()
-{
 	const FString EnumPrefix = GenerateEnumPrefix();
 	checkSlow(EnumPrefix.Len());
 
 	const FName MaxEnumItem = *GenerateFullEnumName(*(EnumPrefix + TEXT("_MAX")));
-	const int32 MaxEnumItemIndex = Names.Find(MaxEnumItem);
-	if ( MaxEnumItemIndex == INDEX_NONE )
+	const int32 MaxEnumItemIndex = GetIndexByName(MaxEnumItem);
+
+	if (MaxEnumItemIndex == INDEX_NONE)
 	{
 		if (LookupEnumName(MaxEnumItem) != INDEX_NONE)
 		{
@@ -301,21 +477,27 @@ bool UEnum::GenerateMaxEnum()
 			return false;
 		}
 
-		Names.Add(MaxEnumItem);
+#if HACK_HEADER_GENERATOR
+		if (GetMaxEnumValue() == 255)
+		{
+			FString Name = GetName();
+			FError::Throwf(TEXT("Enum %s doesn't contain user defined %s_MAX entry and its maximum entry value equals 255. Autogenerated %s_MAX enum entry will equal 0. Change maximum entry value to 254 or define %s_MAX entry in enum."), *Name, *EnumPrefix, *EnumPrefix, *EnumPrefix, *EnumPrefix);
+		}
+#endif
+		Names.Add(TPairInitializer<FName, uint8>(MaxEnumItem, GetMaxEnumValue() + 1));
 	}
 
 	AddNamesToMasterList();
-
-	if ( MaxEnumItemIndex != INDEX_NONE && MaxEnumItemIndex != Names.Num() - 1 )
-	{
-		// The MAX enum already exists, but isn't the last enum.
-		return false;
-	}
 
 	return true;
 }
 
 #if WITH_EDITOR
+FText UEnum::GetDisplayNameTextByValue(int32 Value) const
+{
+	int32 Index = GetIndexByValue(Value);
+	return GetDisplayNameText(Index);
+}
 /**
  * Finds the localized display name or native display name as a fallback.
  *
@@ -368,10 +550,11 @@ FText UEnum::GetToolTipText(int32 NameIndex) const
 		?			GetFullGroupName(false)
 		:			GetFullGroupName(false) + TEXT(".") + GetEnumName(NameIndex);
 		
-	if ( !(FText::FindText( Namespace, Key, /*OUT*/LocalizedToolTip )) || *FTextInspector::GetSourceString(LocalizedToolTip) != NativeToolTip)
+	if ( !FText::FindText( Namespace, Key, /*OUT*/LocalizedToolTip, &NativeToolTip ) )
 	{
 		static const FString DoxygenSee(TEXT("@see"));
-		if (NativeToolTip.Split(DoxygenSee, &NativeToolTip, nullptr, ESearchCase::IgnoreCase, ESearchDir::FromStart))
+		static const FString TooltipSee(TEXT("See:"));
+		if (NativeToolTip.ReplaceInline(*DoxygenSee, *TooltipSee) > 0)
 		{
 			NativeToolTip.TrimTrailing();
 		}
@@ -405,8 +588,9 @@ bool UEnum::HasMetaData( const TCHAR* Key, int32 NameIndex/*=INDEX_NONE*/ ) cons
 	// If an index was specified, search for metadata linked to a specified value
 	if ( NameIndex != INDEX_NONE )
 	{
-		check(Names.IsValidIndex(NameIndex));
-		KeyString = GetEnumName(NameIndex) + TEXT(".") + Key;
+		KeyString = GetEnumName(NameIndex);
+		KeyString.AppendChar(TEXT('.'));
+		KeyString.Append(Key);
 	}
 	// If no index was specified, search for metadata for the enum itself
 	else

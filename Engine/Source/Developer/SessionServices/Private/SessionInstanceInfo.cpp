@@ -6,8 +6,9 @@
 /* FSessionInstanceInfo structors
  *****************************************************************************/
 
-FSessionInstanceInfo::FSessionInstanceInfo( const FGuid& InInstanceId, const TSharedRef<ISessionInfo>& InOwner, const IMessageBusRef& InMessageBus )
-	: EngineVersion(0)
+FSessionInstanceInfo::FSessionInstanceInfo(const FGuid& InInstanceId, const TSharedRef<ISessionInfo>& InOwner, const IMessageBusRef& InMessageBus)
+	: Authorized(false)
+	, EngineVersion(0)
 	, InstanceId(InInstanceId)
 	, Owner(InOwner)
 {
@@ -19,7 +20,7 @@ FSessionInstanceInfo::FSessionInstanceInfo( const FGuid& InInstanceId, const TSh
 /* FSessionInstanceInfo interface
  *****************************************************************************/
 
-void FSessionInstanceInfo::UpdateFromMessage( const FEngineServicePong& Message, const IMessageContextRef& Context )
+void FSessionInstanceInfo::UpdateFromMessage(const FEngineServicePong& Message, const IMessageContextRef& Context)
 {
 	if (Message.InstanceId != InstanceId)
 	{
@@ -35,7 +36,7 @@ void FSessionInstanceInfo::UpdateFromMessage( const FEngineServicePong& Message,
 }
 
 
-void FSessionInstanceInfo::UpdateFromMessage( const FSessionServicePong& Message, const IMessageContextRef& Context )
+void FSessionInstanceInfo::UpdateFromMessage(const FSessionServicePong& Message, const IMessageContextRef& Context)
 {
 	if (Message.InstanceId != InstanceId)
 	{
@@ -47,6 +48,7 @@ void FSessionInstanceInfo::UpdateFromMessage( const FSessionServicePong& Message
 		MessageEndpoint->Send(new FSessionServiceLogSubscribe(), Context->GetSender());
 	}
 
+	Authorized = Message.Authorized;
 	ApplicationAddress = Context->GetSender();
 	BuildDate = Message.BuildDate;
 	DeviceName = Message.DeviceName;
@@ -61,11 +63,11 @@ void FSessionInstanceInfo::UpdateFromMessage( const FSessionServicePong& Message
 /* FSessionInstanceInfo interface
  *****************************************************************************/
 
-void FSessionInstanceInfo::ExecuteCommand( const FString& CommandString )
+void FSessionInstanceInfo::ExecuteCommand(const FString& CommandString)
 {
 	if (MessageEndpoint.IsValid() && EngineAddress.IsValid())
 	{
-		MessageEndpoint->Send(new FEngineServiceExecuteCommand(CommandString, FPlatformProcess::UserName(true)), EngineAddress);
+		MessageEndpoint->Send(new FEngineServiceExecuteCommand(CommandString, FPlatformProcess::UserName(false)), EngineAddress);
 	}
 }
 
@@ -74,7 +76,7 @@ void FSessionInstanceInfo::Terminate()
 {
 	if (MessageEndpoint.IsValid() && EngineAddress.IsValid())
 	{
-		MessageEndpoint->Send(new FEngineServiceTerminate(FPlatformProcess::UserName(true)), EngineAddress);
+		MessageEndpoint->Send(new FEngineServiceTerminate(FPlatformProcess::UserName(false)), EngineAddress);
 	}
 }
 
@@ -82,7 +84,7 @@ void FSessionInstanceInfo::Terminate()
 /* FSessionInstanceInfo callbacks
  *****************************************************************************/
 
-void FSessionInstanceInfo::HandleSessionLogMessage( const FSessionServiceLog& Message, const IMessageContextRef& Context )
+void FSessionInstanceInfo::HandleSessionLogMessage(const FSessionServiceLog& Message, const IMessageContextRef& Context)
 {
 	FSessionLogMessageRef LogMessage = MakeShareable(
 		new FSessionLogMessage(

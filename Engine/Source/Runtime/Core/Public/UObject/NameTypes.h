@@ -304,7 +304,7 @@ class TStaticIndirectArrayThreadSafeRead
 	 * Return a pointer to the pointer to a given element
 	 * @param Index The Index of an element we want to retrieve the pointer-to-pointer for
 	 **/
-	ElementType const* const* GetItemPtr(int32 Index) const
+	FORCEINLINE_DEBUGGABLE ElementType const* const* GetItemPtr(int32 Index) const
 	{
 		int32 ChunkIndex = Index / ElementsPerChunk;
 		int32 WithinChunkIndex = Index % ElementsPerChunk;
@@ -327,7 +327,7 @@ public:
 	 * Thread safe, but you know, someone might have added more elements before this even returns
 	 * @return	the number of elements in the array
 	**/
-	int32 Num() const
+	FORCEINLINE int32 Num() const
 	{
 		return NumElements;
 	}
@@ -337,7 +337,7 @@ public:
 	 * @param	Index	Index to test
 	 * @return	true, if this is a valid
 	**/
-	bool IsValidIndex(int32 Index) const
+	FORCEINLINE bool IsValidIndex(int32 Index) const
 	{
 		return Index < Num() && Index >= 0;
 	}
@@ -347,7 +347,7 @@ public:
 	 * @return	a reference to the pointer to the element
 	 * Thread safe, if it is valid now, it is valid forever. This might return nullptr, but by then, some other thread might have made it non-nullptr.
 	**/
-	ElementType const* const& operator[](int32 Index) const
+	FORCEINLINE ElementType const* const& operator[](int32 Index) const
 	{
 		ElementType const* const* ItemPtr = GetItemPtr(Index);
 		check(ItemPtr);
@@ -1028,7 +1028,7 @@ Expose_TNameOf(FName)
 
 inline uint32 GetTypeHash( const FName N )
 {
-	return N.GetComparisonIndex();
+	return N.GetComparisonIndex() + N.GetNumber();
 }
 
 

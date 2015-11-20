@@ -25,12 +25,5 @@ public class PlacementMode : ModuleRules
 				"BspMode"
             } 
         );
-
-        DynamicallyLoadedModuleNames.AddRange(
-            new string[] { 
-                "AssetTools",
-                "LevelEditor"
-            }
-        );
     }
 }

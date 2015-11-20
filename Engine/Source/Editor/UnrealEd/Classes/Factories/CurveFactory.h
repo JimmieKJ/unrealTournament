@@ -1,24 +1,14 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/**
- *
- */
-
 #pragma once
+
 #include "CurveFactory.generated.h"
 
-/** Enum indicating the type of curve to make */
-UENUM()
-enum ECurveType
-{
-	/** Float keyframed */
-	ECT_FloatKeyframed,
-	/** Vector keyframed */
-	ECT_VectorKeyframed,
-	ECT_MAX,
-};
+/**
+ * Factory that creates curve assets, prompting to pick the kind of curve at creation time
+ */
 
-UCLASS(hidecategories=Object)
+UCLASS()
 class UCurveFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
@@ -27,11 +17,53 @@ class UCurveFactory : public UFactory
 	UPROPERTY(EditAnywhere, Category=CurveFactory)
 	TSubclassOf<UCurveBase> CurveClass;
 
-	// Begin UFactory Interface
+	// UFactory Interface
 	virtual bool ConfigureProperties() override;
 	virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
-	// Begin UFactory Interface
+	// End of UFactory interface
 };
 
+/**
+ * Factory that creates float curve assets
+ */
 
+UCLASS()
+class UCurveFloatFactory : public UCurveFactory
+{
+	GENERATED_UCLASS_BODY()
 
+	// UFactory interface
+	virtual bool ConfigureProperties() override;
+	virtual bool ShouldShowInNewMenu() const override { return false; }
+	// End of UFactory interface
+};
+
+/**
+ * Factory that creates linear color curve assets
+ */
+
+UCLASS()
+class UCurveLinearColorFactory : public UCurveFactory
+{
+	GENERATED_UCLASS_BODY()
+
+	// UFactory interface
+	virtual bool ConfigureProperties() override;
+	virtual bool ShouldShowInNewMenu() const override { return false; }
+	// End of UFactory interface
+};
+
+/**
+ * Factory that creates vector curve assets
+ */
+
+UCLASS()
+class UCurveVectorFactory : public UCurveFactory
+{
+	GENERATED_UCLASS_BODY()
+
+	// UFactory interface
+	virtual bool ConfigureProperties() override;
+	virtual bool ShouldShowInNewMenu() const override { return false; }
+	// End of UFactory interface
+};

@@ -9,6 +9,8 @@ using System.Diagnostics;
 using Tools.DotNETCommon;
 using System.Web;
 
+using Tools.CrashReporter.CrashReportCommon;
+
 namespace Tools.CrashReporter.CrashReportWebSite.Models
 {
 	/// <summary> Function call. </summary>
@@ -123,7 +125,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		string ToJiraSummary = "";
 
 		/// <summary>Branches in JIRA</summary>
-		List<object> ToJiraBranches = null;
+		HashSet<string> ToJiraBranches = null;
 
 		/// <summary>Versions in JIRA</summary>
 		List<object> ToJiraVersions = null;
@@ -156,7 +158,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			this.AffectedPlatforms = new SortedSet<string>();
 			this.CrashesInTimeFrameAll = CrashesForBugg.Count;
 			this.CrashesInTimeFrameGroup = CrashesForBugg.Count;
-			var HashSetDecsriptions = new HashSet<string>();
+			var HashSetDescriptions = new HashSet<string>();
 
 			HashSet<string> MachineIds = new HashSet<string>();
 			int FirstCLAffected = int.MaxValue;
@@ -164,20 +166,16 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			foreach( var Crash in CrashesForBugg )
 			{
 				// Only add machine if the number has 32 characters
-				if( Crash.MachineID != null && Crash.MachineID.Length == 32 )
+				if (Crash.MachineId != null && Crash.MachineId.Length == 32)
 				{
-					MachineIds.Add( Crash.MachineID );
-
-					// Sent in the unattended mode 29 char
-					if( Crash.Description.Length > 32 )
+					MachineIds.Add( Crash.MachineId );
+					if (Crash.Description.Length > 4)
 					{
-						HashSetDecsriptions.Add( Crash.Description );
-					}
+						HashSetDescriptions.Add( Crash.Description );
+					}										
 				}
 
-				// Ignore bad build versions.
-				// @TODO yrx 2015-02-17 What about launcher?
-				if( Crash.BuildVersion.StartsWith( "4." ) )
+				// @TODO Ignore bad build versions.
 				{
 					if( !string.IsNullOrEmpty( Crash.BuildVersion ) )
 					{
@@ -208,7 +206,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 
 			// CopyToJira 
-			foreach( var Line in HashSetDecsriptions )
+			foreach( var Line in HashSetDescriptions )
 			{
 				string ListItem = "- " + HttpUtility.HtmlEncode( Line );
 				ToJiraDescriptions.Add( ListItem );
@@ -270,26 +268,23 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 
 			// ToJiraBranches
-			this.ToJiraBranches = new List<object>();
-			foreach( var Platform in this.BranchesFoundIn )
+			this.ToJiraBranches = new HashSet<string>();
+			foreach( var BranchName in this.BranchesFoundIn )
 			{
-				string CleanedBranch = Platform.Contains( "UE4-Releases" ) ? "UE4-Releases" : Platform;
-				Dictionary<string, object> JiraBranch = null;
-				JC.GetNameToBranchFoundIn().TryGetValue( CleanedBranch, out JiraBranch );
-				if( JiraBranch != null && !this.ToJiraBranches.Contains( JiraBranch ) )
+				if( !string.IsNullOrEmpty(BranchName) )
 				{
-					this.ToJiraBranches.Add( JiraBranch );
+					this.ToJiraBranches.Add( CrashReporterConstants.P4_DEPOT_PREFIX + BranchName );
 				}
 			}
 
 			// ToJiraPlatforms
 			this.ToJiraPlatforms = new List<object>();
-			foreach( var Platform in this.AffectedPlatforms )
+			foreach( var BranchName in this.AffectedPlatforms )
 			{
-				bool bValid = JC.GetNameToPlatform().ContainsKey( Platform );
+				bool bValid = JC.GetNameToPlatform().ContainsKey( BranchName );
 				if( bValid )
 				{
-					this.ToJiraPlatforms.Add( JC.GetNameToPlatform()[Platform] );
+					this.ToJiraPlatforms.Add( JC.GetNameToPlatform()[BranchName] );
 				}
 			}
 		}
@@ -300,14 +295,14 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		public void CopyToJira()
 		{
 			var JC = JiraConnection.Get();
-			if( JC.CanBeUsed() && string.IsNullOrEmpty( this.TTPID ) )
+			if( JC.CanBeUsed() && string.IsNullOrEmpty( this.Jira ) )
 			{
 				Dictionary<string, object> Fields = new Dictionary<string, object>();
 				Fields.Add( "project", new Dictionary<string, object> { { "id", 11205 } } );	// UE
 				Fields.Add( "summary", "[CrashReport] " + ToJiraSummary );						// Call Stack, Line 1
 				Fields.Add( "description", string.Join( "\r\n", ToJiraDescriptions ) );			// Description
 				Fields.Add( "issuetype", new Dictionary<string, object> { { "id", "1" } } );	// Bug
-				Fields.Add( "labels", new string[] { "crash" } );								// <label>crash</label>
+				Fields.Add( "labels", new string[] { "crash", "liveissue" } );					// <label>crash, live issue</label>
 				Fields.Add( "customfield_11500", ToJiraFirstCLAffected );						// Changelist # / Found Changelist
 				Fields.Add( "environment", LatestOSAffected );									// Platform
 
@@ -319,13 +314,13 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				Fields.Add( "versions", ToJiraVersions );
 
 				// ToJiraBranches
-				Fields.Add( "customfield_11201", ToJiraBranches );
+				Fields.Add( "customfield_12402", ToJiraBranches.ToList() );						// NewBranchFoundIn
 
 				// ToJiraPlatforms
 				Fields.Add( "customfield_11203", ToJiraPlatforms );
 
 				// Callstack customfield_11807
-				string JiraCallstack = string.Join( "\r\n", ToJiraFunctionCalls );
+				string JiraCallstack = "{noformat}" + string.Join( "\r\n", ToJiraFunctionCalls ) + "{noformat}";
 				Fields.Add( "customfield_11807", JiraCallstack );								// Callstack
 
 				string BuggLink = "http://crashreporter/Buggs/Show/" + Id;
@@ -334,7 +329,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				string Key = JC.AddJiraTicket( Fields );
 				if( !string.IsNullOrEmpty( Key ) )
 				{
-					TTPID = Key;
+					Jira = Key;
 					BuggRepository Buggs = new BuggRepository();
 					Buggs.SetJIRAForBuggAndCrashes( Key, Id );
 				}
@@ -361,7 +356,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			Tooltip += "JiraVersions: " + JiraVersions + NL;
 
 			// "value"
-			string JiraBranches = GetFieldsFrom( ToJiraBranches, "value" );
+			string JiraBranches = "";
+			foreach (var Branch in ToJiraBranches)
+			{
+				JiraBranches += Branch + ", ";
+			}
 			Tooltip += "JiraBranches: " + JiraBranches + NL;
 
 			// "value"
@@ -511,6 +510,37 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 	/// </summary>
 	public partial class Crash
 	{
+		/// <summary>Hard coded site path.</summary>
+		const string SitePath = @"\\devweb-02\Sites";
+
+		/// <summary>Crash context for this crash.</summary>
+		FGenericCrashContext CrashContext = null;
+
+		bool bUseFullMinidumpPath = false;
+
+		/// <summary>If available, will read CrashContext.runtime-xml.</summary>
+		public void ReadCrashContextIfAvailable()
+		{
+			try
+			{
+				bool bHasCrashContext = HasCrashContextFile();
+				if (bHasCrashContext)
+				{
+					CrashContext = FGenericCrashContext.FromFile( SitePath + GetCrashContextUrl() );
+					bool bTest = CrashContext != null && !string.IsNullOrEmpty( CrashContext.PrimaryCrashProperties.FullCrashDumpLocation );
+					if(bTest)
+					{
+						bUseFullMinidumpPath = true;// System.IO.Directory.Exists( CrashContext.PrimaryCrashProperties.FullCrashDumpLocation ); Doesn't work, probably due to some permissions.
+						FLogger.Global.WriteEvent( "ReadCrashContextIfAvailable " + CrashContext.PrimaryCrashProperties.FullCrashDumpLocation + " is " + bUseFullMinidumpPath );
+					}
+				}
+			}
+			catch (Exception Ex)
+			{
+				Debug.WriteLine( "Exception in ReadCrashContextIfAvailable: " + Ex.ToString() );
+			}
+		}
+
 		/// <summary> Helper method, display this Bugg as a human readable string. Debugging purpose. </summary>
 		public override string ToString()
 		{
@@ -535,7 +565,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>
 		/// Return the Url of the log.
 		/// </summary>
-		/// <returns>The Url of the log file.</returns>
 		public string GetLogUrl()
 		{
 			return Properties.Settings.Default.CrashReporterFiles + Id + "_Launch.log";
@@ -544,25 +573,49 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>
 		/// Return the Url of the minidump.
 		/// </summary>
-		/// <returns>The Url of the minidump file.</returns>
-		public string GetDumpUrl()
+		public string GetMiniDumpUrl()
 		{
-			return Properties.Settings.Default.CrashReporterFiles + Id + "_MiniDump.dmp";
+			var WebPath = Properties.Settings.Default.CrashReporterFiles + Id + "_MiniDump.dmp";
+			var Path = UseFullMinidumpPath() ? CrashContext.PrimaryCrashProperties.FullCrashDumpLocation : WebPath;
+			return Path;
+		}
+
+		/// <summary>
+		/// Tooltip for the dump.
+		/// </summary>
+		public string GetDumpTitle()
+		{
+			var Title = UseFullMinidumpPath() ? "Copy the link and open in the explorer" : "";
+			return Title;
+		}
+
+		/// <summary>
+		/// Return the short name of the dump.
+		/// </summary>
+		public string GetDumpName()
+		{
+			return UseFullMinidumpPath() ? "Fulldump" : "Minidump";
 		}
 
 		/// <summary>
 		/// Return the Url of the diagnostics file.
 		/// </summary>
-		/// <returns>The Url of the diagnostics file.</returns>
 		public string GetDiagnosticsUrl()
 		{
 			return Properties.Settings.Default.CrashReporterFiles + Id + "_Diagnostics.txt";
 		}
 
 		/// <summary>
+		/// Return the Url of the crash context file.
+		/// </summary>
+		public string GetCrashContextUrl()
+		{
+			return Properties.Settings.Default.CrashReporterFiles + Id + "_CrashContext.runtime-xml";
+		}
+
+		/// <summary>
 		/// Return the Url of the Windows Error Report meta data file.
 		/// </summary>
-		/// <returns>The Url of the meta data file.</returns>
 		public string GetMetaDataUrl()
 		{
 			return Properties.Settings.Default.CrashReporterFiles + Id + "_WERMeta.xml";
@@ -673,7 +726,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					Module = CallStack.GetModuleName();
 					try
 					{
-						foreach( CallStackEntry Entry in CallStack.CallStackEntries.Take( 64 ) )
+						foreach (CallStackEntry Entry in CallStack.CallStackEntries.Take( CallStackContainer.MaxLinesToParse ))
 						{
 							FunctionCall CurrentFunctionCall = new FunctionCall();
 
@@ -693,10 +746,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 							PatternList.Add( CurrentFunctionCall.Id.ToString() );
 						}
 
-						//CrashInstance.Pattern = "+";
 						Pattern = string.Join( "+", PatternList );
-						// We need something like this +1+2+3+5+ for searching for exact pattern like +5+
-						//CrashInstance.Pattern += "+";
 
 						Context.SubmitChanges();
 					}
@@ -767,19 +817,53 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 
-		/// <summary>
-		/// 
-		/// </summary>
-		public string JIRA
+		/// <summary>Return true, if there is a diagnostics file associated with the crash</summary>
+		public bool HasDiagnosticsFile()
 		{
-			get
-			{
-				return this.TTPID;
-			}
-			set
-			{
-				this.TTPID = value;
-			}
+			var Path = SitePath + GetDiagnosticsUrl();
+			return System.IO.File.Exists( Path );
+		}
+
+
+		/// <summary>Return true, if there is a crash context file associated with the crash</summary>
+		public bool HasCrashContextFile()
+		{
+			var Path = SitePath + GetCrashContextUrl();
+			return System.IO.File.Exists( Path );
+		}
+
+		/// <summary>Return true, if there is a minidump file associated with the crash</summary>
+		public bool HasMiniDumpFile()
+		{
+			var Path = SitePath + GetMiniDumpUrl();
+			return UseFullMinidumpPath() ? true : System.IO.File.Exists( Path );
+		}
+
+		/// <summary>Whether to use the full minidump.</summary>
+		public bool UseFullMinidumpPath()
+		{
+			return bUseFullMinidumpPath;
+		}
+
+		/// <summary>Return true, if there is a log file associated with the crash</summary>
+		public bool HasLogFile()
+		{
+			var Path = SitePath + GetLogUrl();
+			return System.IO.File.Exists( Path );
+		}
+
+		/// <summary>Return true, if there is a video file associated with the crash</summary>
+		public bool HasVideoFile()
+		{
+			var Path = SitePath + GetVideoUrl();
+			return System.IO.File.Exists( Path );
+		}
+
+		/// <summary>Return true, if there is a metadata file associated with the crash</summary>
+		public bool HasMetaDataFile()
+		{
+			var Path = SitePath + GetMetaDataUrl();
+			return System.IO.File.Exists( Path );
 		}
 
 		/// <summary>
@@ -809,36 +893,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			set
 			{
 				this.FixedChangeList = value;
-			}
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string MachineID
-		{
-			get
-			{
-				return this.ComputerName;
-			}
-			set
-			{
-				this.ComputerName = value;
-			}
-		}
-
-		/// <summary>
-		/// 
-		/// </summary>
-		public string BuiltFromCL
-		{
-			get
-			{
-				return this.ChangeListVersion;
-			}
-			set
-			{
-				this.ChangeListVersion = value;
 			}
 		}
 	}

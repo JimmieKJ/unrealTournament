@@ -6,6 +6,9 @@
 #include "UTGameEngine.h"
 #include "UTGameInstance.h"
 #include "DataChannel.h"
+#if WITH_PROFILE
+#include "UtMcpProfileManager.h"
+#endif
 
 AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -26,15 +29,28 @@ void AUTBaseGameMode::CreateServerID()
 	SaveConfig();
 }
 
+void AUTBaseGameMode::PostInitProperties()
+{
+	Super::PostInitProperties();
+
+#if WITH_PROFILE
+	if (!IsTemplate())
+	{
+		McpProfileManager = NewObject<UUtMcpProfileManager>(this);
+		GetMcpProfileManager()->Init(NULL, NULL, TEXT("Server"), FUtMcpRequestComplete());
+	}
+#endif
+}
+
 void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
 	if (!PlayerPawnObject.IsNull())
 	{
-		DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *PlayerPawnObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 	}
 
 	// Grab the InstanceID if it's there.
-	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
+	LobbyInstanceID = UGameplayStatics::GetIntOption(Options, TEXT("InstanceID"), 0);
 
 	// If we are a lobby instance, then we always want to generate a ServerInstanceID
 	if (LobbyInstanceID > 0)
@@ -60,17 +76,17 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	if (HasOption(Options, TEXT("ServerPassword")))
+	if (UGameplayStatics::HasOption(Options, TEXT("ServerPassword")))
 	{
-		ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
+		ServerPassword = UGameplayStatics::ParseOption(Options, TEXT("ServerPassword"));
 	}
-	if (HasOption(Options, TEXT("SpectatePassword")))
+	if (UGameplayStatics::HasOption(Options, TEXT("SpectatePassword")))
 	{
-		SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
+		SpectatePassword = UGameplayStatics::ParseOption(Options, TEXT("SpectatePassword"));
 	}
 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
-	bTrainingGround = EvalBoolOptions(ParseOption(Options, TEXT("TG")), bTrainingGround);
+	bTrainingGround = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("TG")), bTrainingGround);
 
 	if (bTrainingGround)
 	{
@@ -110,7 +126,7 @@ int32 AUTBaseGameMode::GetNumMatches()
 	return 1;
 }
 
-void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 
@@ -118,7 +134,7 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 	if (ErrorMessage.IsEmpty() && UTGameSession)
 	{
-		bool bJoinAsSpectator = FCString::Stricmp(*ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+		bool bJoinAsSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
 		UTGameSession->ValidatePlayer(Address, UniqueId, ErrorMessage, bJoinAsSpectator);
 	}
 
@@ -132,11 +148,17 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 			{
 				EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
 			}
+#if WITH_PROFILE
+			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+			UUtMcpProfile* Profile = Group->AddProfile<UUtMcpProfile>(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0), false);
+			FDedicatedServerUrlContext QueryContext = FDedicatedServerUrlContext::Default; // IMPORTANT to make a copy!
+			Profile->ForceQueryProfile(QueryContext);
+#endif
 		}
 	}
 }
 
-APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	// local players don't go through PreLogin()
 	if (UniqueId.IsValid() && Cast<ULocalPlayer>(NewPlayer) != NULL && IOnlineSubsystem::Get() != NULL)
@@ -147,9 +169,28 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 			// note that we need to redundantly query even if we already got this user's entitlements because they might have quit, bought some stuff, then come back
 			EntitlementInterface->QueryEntitlements(*UniqueId.Get(), TEXT("ut"));
 		}
+#if WITH_PROFILE
+		UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+		UUtMcpProfile* Profile = Group->AddProfile<UUtMcpProfile>(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0), false);
+		FDedicatedServerUrlContext QueryContext = FDedicatedServerUrlContext::Default; // IMPORTANT to make a copy!
+		Profile->ForceQueryProfile(QueryContext);
+#endif
 	}
 
-	return Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
+
+	if (PC != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+		if (PS != NULL && PS->UniqueId.IsValid())
+		{
+			UMcpProfileGroup* Group = GetMcpProfileManager()->CreateProfileGroup(UniqueId, true, false);
+			UUtMcpProfile* Profile = Cast<UUtMcpProfile>(Group->GetProfile(EUtMcpProfile::ToProfileId(EUtMcpProfile::Profile, 0)));
+			AUTPlayerState::FMcpProfileSetter::Set(PS, Profile);
+		}
+	}
+
+	return PC;
 }
 
 void AUTBaseGameMode::PostLogin(APlayerController* NewPlayer)
@@ -283,7 +324,7 @@ FString AUTBaseGameMode::GetCloudID() const
 				IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 				if (OnlineIdentityInterface.IsValid())
 				{
-					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+					TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
 					if (UserId.IsValid())
 					{
 						CloudID = UserId->ToString();

@@ -38,10 +38,10 @@ void UK2Node_SwitchEnum::SetEnum(UEnum* InEnum)
 				FString const EnumValueName = Enum->GetEnumName(EnumIndex);
 				EnumEntries.Add( FName(*EnumValueName) );
 
-				FString EnumFriendlyName = Enum->GetEnumText(EnumIndex).ToString();
-				if (EnumFriendlyName.Len() == 0)
+				FText EnumFriendlyName = Enum->GetEnumText(EnumIndex);
+				if (EnumFriendlyName.IsEmpty() )
 				{
-					EnumFriendlyName = EnumValueName;
+					EnumFriendlyName = FText::FromString(EnumValueName);
 				}
 				EnumFriendlyNames.Add( EnumFriendlyName );
 			}
@@ -85,39 +85,25 @@ bool UK2Node_SwitchEnum::IsConnectionDisallowed(const UEdGraphPin* MyPin, const 
 
 void UK2Node_SwitchEnum::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	auto SetNodeEnumLambda = [](UEdGraphNode* NewNode, UField const* /*EnumField*/, TWeakObjectPtr<UEnum> NonConstEnumPtr)
+	struct GetMenuActions_Utils
 	{
-		UK2Node_SwitchEnum* EnumNode = CastChecked<UK2Node_SwitchEnum>(NewNode);
-		EnumNode->Enum = NonConstEnumPtr.Get();
+		static void SetNodeEnum(UEdGraphNode* NewNode, UField const* /*EnumField*/, TWeakObjectPtr<UEnum> NonConstEnumPtr)
+		{
+			UK2Node_SwitchEnum* EnumNode = CastChecked<UK2Node_SwitchEnum>(NewNode);
+			EnumNode->Enum = NonConstEnumPtr.Get();
+		}
 	};
 
-	for (TObjectIterator<UEnum> EnumIt; EnumIt; ++EnumIt)
+	UClass* NodeClass = GetClass();
+	ActionRegistrar.RegisterEnumActions( FBlueprintActionDatabaseRegistrar::FMakeEnumSpawnerDelegate::CreateLambda([NodeClass](const UEnum* InEnum)->UBlueprintNodeSpawner*
 	{
-		UEnum const* EnumToConsider = (*EnumIt);
-		if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(EnumToConsider))
-		{
-			continue;
-		}
-
-		// to keep from needlessly instantiating a UBlueprintNodeSpawners, first   
-		// check to make sure that the registrar is looking for actions of this type
-		// (could be regenerating actions for a specific asset, and therefore the 
-		// registrar would only accept actions corresponding to that asset)
-		if (!ActionRegistrar.IsOpenForRegistration(EnumToConsider))
-		{
-			continue;
-		}
-
-		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(GetClass(), EnumToConsider);
+		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(NodeClass, InEnum);
 		check(NodeSpawner != nullptr);
-		TWeakObjectPtr<UEnum> NonConstEnumPtr = EnumToConsider;
-		NodeSpawner->SetNodeFieldDelegate = UBlueprintFieldNodeSpawner::FSetNodeFieldDelegate::CreateStatic(SetNodeEnumLambda, NonConstEnumPtr);
+		TWeakObjectPtr<UEnum> NonConstEnumPtr = InEnum;
+		NodeSpawner->SetNodeFieldDelegate = UBlueprintFieldNodeSpawner::FSetNodeFieldDelegate::CreateStatic(GetMenuActions_Utils::SetNodeEnum, NonConstEnumPtr);
 
-		// this enum could belong to a class, or is a user defined enum (asset), 
-		// that's why we want to make sure to register it along with the action 
-		// (so the action can be refreshed when the class/asset is).
-		ActionRegistrar.AddBlueprintAction(EnumToConsider, NodeSpawner);
-	}
+		return NodeSpawner;
+	}) );
 }
 
 void UK2Node_SwitchEnum::CreateSelectionPin()
@@ -170,7 +156,7 @@ void UK2Node_SwitchEnum::CreateCasePins()
 		int32 Index = EnumIt.GetIndex();
 		if (EnumFriendlyNames.IsValidIndex(Index))
 		{
-			NewPin->PinFriendlyName = FText::FromString(EnumFriendlyNames[Index]);
+			NewPin->PinFriendlyName = EnumFriendlyNames[Index];
 		}
 		
 		if(bShouldUseAdvancedView && (EnumIt.GetIndex() > 2))
@@ -185,10 +171,10 @@ UK2Node::ERedirectType UK2Node_SwitchEnum::DoPinsMatchForReconstruction(const UE
 	UK2Node::ERedirectType ReturnValue = Super::DoPinsMatchForReconstruction(NewPin, NewPinIndex, OldPin, OldPinIndex);
 	if (ReturnValue == UK2Node::ERedirectType_None && Enum && OldPinIndex > 2 && NewPinIndex > 2)
 	{
-		int32 OldIndex = Enum->FindEnumIndex(FName(*OldPin->PinName));
-		int32 NewIndex = Enum->FindEnumIndex(FName(*NewPin->PinName));
+		int32 OldValue = Enum->GetValueByName(FName(*OldPin->PinName));
+		int32 NewValue = Enum->GetValueByName(FName(*NewPin->PinName));
 		// This handles redirects properly
-		if (OldIndex == NewIndex && OldIndex != INDEX_NONE)
+		if (OldValue == NewValue && OldValue != INDEX_NONE)
 		{
 			ReturnValue = UK2Node::ERedirectType_Name;
 		}

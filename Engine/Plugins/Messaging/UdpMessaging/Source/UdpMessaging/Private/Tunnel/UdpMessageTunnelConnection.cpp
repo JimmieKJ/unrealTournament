@@ -6,7 +6,7 @@
 /* FUdpMessageTunnelConnection structors
  *****************************************************************************/
 
-FUdpMessageTunnelConnection::FUdpMessageTunnelConnection( FSocket* InSocket, const FIPv4Endpoint& InRemoteEndpoint )
+FUdpMessageTunnelConnection::FUdpMessageTunnelConnection(FSocket* InSocket, const FIPv4Endpoint& InRemoteEndpoint)
 	: OpenedTime(FDateTime::UtcNow())
 	, RemoteEndpoint(InRemoteEndpoint)
 	, Socket(InSocket)
@@ -37,13 +37,13 @@ FUdpMessageTunnelConnection::~FUdpMessageTunnelConnection()
 /* FUdpMessageTunnelConnection interface
  *****************************************************************************/
 
-bool FUdpMessageTunnelConnection::Receive( FArrayReaderPtr& OutPayload )
+bool FUdpMessageTunnelConnection::Receive(FArrayReaderPtr& OutPayload)
 {
 	return Inbox.Dequeue(OutPayload);
 }
 
 
-bool FUdpMessageTunnelConnection::Send( const FArrayReaderPtr& Payload )
+bool FUdpMessageTunnelConnection::Send(const FArrayReaderPtr& Payload)
 {
 	if (IsOpen())
 	{
@@ -204,35 +204,39 @@ bool FUdpMessageTunnelConnection::ReceivePayloads()
 
 bool FUdpMessageTunnelConnection::SendPayloads()
 {
-	if (!Outbox.IsEmpty())
+	if (Outbox.IsEmpty())
 	{
-		if (Socket->Wait(ESocketWaitConditions::WaitForWrite, FTimespan::Zero()))
-		{
-			FArrayReaderPtr Payload;
-			Outbox.Dequeue(Payload);
-			int32 BytesSent = 0;
-
-			// send the payload size
-			FArrayWriter PayloadSizeData = FArrayWriter(true);
-			uint16 PayloadSize = Payload->Num();
-			PayloadSizeData << PayloadSize;
-
-			if (!Socket->Send(PayloadSizeData.GetData(), sizeof(uint16), BytesSent))
-			{
-				return false;
-			}
-
-			TotalBytesSent += BytesSent;
-
-			// send the payload
-			if (!Socket->Send(Payload->GetData(), Payload->Num(), BytesSent))
-			{
-				return false;
-			}
-
-			TotalBytesSent += BytesSent;
-		}
+		return true;
 	}
+
+	if (!Socket->Wait(ESocketWaitConditions::WaitForWrite, FTimespan::Zero()))
+	{
+		return true;
+	}
+
+	FArrayReaderPtr Payload;
+	Outbox.Dequeue(Payload);
+	int32 BytesSent = 0;
+
+	// send the payload size
+	FArrayWriter PayloadSizeData = FArrayWriter(true);
+	uint16 PayloadSize = Payload->Num();
+	PayloadSizeData << PayloadSize;
+
+	if (!Socket->Send(PayloadSizeData.GetData(), sizeof(uint16), BytesSent))
+	{
+		return false;
+	}
+
+	TotalBytesSent += BytesSent;
+
+	// send the payload
+	if (!Socket->Send(Payload->GetData(), Payload->Num(), BytesSent))
+	{
+		return false;
+	}
+
+	TotalBytesSent += BytesSent;
 
 	return true;
 }

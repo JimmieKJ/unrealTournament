@@ -6,34 +6,46 @@
 /* FUICommandList interface
  *****************************************************************************/
 
-void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction )
+void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, EUIActionRepeatMode RepeatMode )
 {
-	MapAction( InUICommandInfo, ExecuteAction, FCanExecuteAction(), FIsActionChecked(), FIsActionButtonVisible() );
+	MapAction( InUICommandInfo, ExecuteAction, FCanExecuteAction(), FGetActionCheckState(), FIsActionButtonVisible(), RepeatMode );
 }
 
 
-void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction )
+void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, EUIActionRepeatMode RepeatMode )
 {
-	MapAction( InUICommandInfo, ExecuteAction, CanExecuteAction, FIsActionChecked(), FIsActionButtonVisible() );
+	MapAction( InUICommandInfo, ExecuteAction, CanExecuteAction, FGetActionCheckState(), FIsActionButtonVisible(), RepeatMode );
 }
 
 
-void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FIsActionChecked IsCheckedDelegate )
+void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FIsActionChecked IsCheckedDelegate, EUIActionRepeatMode RepeatMode )
 {
-	MapAction( InUICommandInfo, ExecuteAction, CanExecuteAction, IsCheckedDelegate, FIsActionButtonVisible() );
+	MapAction( InUICommandInfo, ExecuteAction, CanExecuteAction, IsCheckedDelegate, FIsActionButtonVisible(), RepeatMode );
 }
 
 
-void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FIsActionChecked IsCheckedDelegate, FIsActionButtonVisible IsVisibleDelegate )
+void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FGetActionCheckState GetActionCheckState, EUIActionRepeatMode RepeatMode )
+{
+	MapAction( InUICommandInfo, ExecuteAction, CanExecuteAction, GetActionCheckState, FIsActionButtonVisible(), RepeatMode );
+}
+
+
+void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FIsActionChecked IsCheckedDelegate, FIsActionButtonVisible IsVisibleDelegate, EUIActionRepeatMode RepeatMode )
+{
+	MapAction( InUICommandInfo, ExecuteAction, CanExecuteAction, FGetActionCheckState::CreateStatic(&FUIAction::IsActionCheckedPassthrough, IsCheckedDelegate), IsVisibleDelegate, RepeatMode );
+}
+
+
+void FUICommandList::MapAction( const TSharedPtr< const FUICommandInfo > InUICommandInfo, FExecuteAction ExecuteAction, FCanExecuteAction CanExecuteAction, FGetActionCheckState GetActionCheckState, FIsActionButtonVisible IsVisibleDelegate, EUIActionRepeatMode RepeatMode )
 {
 	FUIAction Action;
 	Action.ExecuteAction = ExecuteAction;
 	Action.CanExecuteAction = CanExecuteAction;
-	Action.IsCheckedDelegate = IsCheckedDelegate;
+	Action.GetActionCheckState = GetActionCheckState;
 	Action.IsActionVisibleDelegate = IsVisibleDelegate;
+	Action.RepeatMode = RepeatMode;
 
 	MapAction( InUICommandInfo, Action );
-
 }
 
 
@@ -119,16 +131,16 @@ EVisibility FUICommandList::GetVisibility( const TSharedRef< const FUICommandInf
 }
 
 
-bool FUICommandList::IsChecked( const TSharedRef< const FUICommandInfo > InUICommandInfo ) const
+ECheckBoxState FUICommandList::GetCheckState( const TSharedRef< const FUICommandInfo > InUICommandInfo ) const
 {
 	const FUIAction* Action = GetActionForCommand(InUICommandInfo);
 
 	if( Action )
 	{
-		return Action->IsChecked();
+		return Action->GetCheckState();
 	}
 
-	return false;
+	return ECheckBoxState::Unchecked;
 }
 
 
@@ -161,7 +173,7 @@ bool FUICommandList::ProcessCommandBindings( const FKey Key, const FModifierKeys
 
 bool FUICommandList::ConditionalProcessCommandBindings( const FKey Key, bool bCtrl, bool bAlt, bool bShift, bool bCmd, bool bRepeat ) const
 {
-	if ( !bRepeat && !FSlateApplication::Get().IsDragDropping() )
+	if ( !FSlateApplication::Get().IsDragDropping() )
 	{
 		FInputChord CheckChord( Key, EModifierKey::FromBools(bCtrl, bAlt, bShift, bCmd) );
 
@@ -188,7 +200,7 @@ bool FUICommandList::ConditionalProcessCommandBindings( const FKey Key, bool bCt
 					// If there is no Action mapped to this command list, continue to the next context
 					if( Action )
 					{
-						if(Action->CanExecute())
+						if(Action->CanExecute() && (!bRepeat || Action->CanRepeat()))
 						{
 							// If the action was found and can be executed, do so now
 							Action->Execute();

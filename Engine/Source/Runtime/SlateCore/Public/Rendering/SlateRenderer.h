@@ -14,6 +14,7 @@ struct FSlateBrush;
 
 typedef FRHITexture2D* FTexture2DRHIParamRef;
 
+
 /**
  * Abstract base class for Slate renderers.
  */
@@ -62,10 +63,10 @@ public:
 	virtual void UpdateFullscreenState( const TSharedRef<SWindow> InWindow, uint32 OverrideResX = 0, uint32 OverrideResY = 0 ) = 0;
 
 	/**
-     * Restore the given window to the resolution settings currently cached by the engine
+	 * Restore the given window to the resolution settings currently cached by the engine
 	 * 
 	 * @param InWindow    -> The window to restore to the cached settings
-     */
+	 */
 	virtual void RestoreSystemResolution(const TSharedRef<SWindow> InWindow) = 0;
 
 	/** 
@@ -80,27 +81,6 @@ public:
 	 * the previous call did store that data. Optional implementation.
 	 */
 	virtual void DrawWindows() {}
-	
-	/**
-	 * You must call this before calling CopyWindowsToVirtualScreenBuffer(), to setup the render targets first.
-	 * 
-	 * @param	bPrimaryWorkAreaOnly	True if we should capture only the primary monitor's work area, or false to capture the entire desktop spanning all monitors
-	 * @param	ScreenScaling	How much to downscale the desktop size
-	 * @param	LiveStreamingService	Optional pointer to a live streaming service this buffer needs to work with
-	 * @return	The virtual screen rectangle.  The size of this rectangle will be the size of the render target buffer.
-	 */
-	virtual FIntRect SetupVirtualScreenBuffer( const bool bPrimaryWorkAreaOnly, const float ScreenScaling, class ILiveStreamingService* LiveStreamingService) { return FIntRect(); }
-
-
-	/**
-	 * Copies all slate windows out to a buffer at half resolution with debug information
-	 * like the mouse cursor and any keypresses.
-	 */
-	virtual void CopyWindowsToVirtualScreenBuffer(const TArray<FString>& KeypressBuffer) {}
-	
-	/** Allows and disallows access to the crash tracker buffer data on the CPU */
-	virtual void MapVirtualScreenBuffer(void** OutImageData) {}
-	virtual void UnmapVirtualScreenBuffer() {}
 	
 	/** Callback that fires after Slate has rendered each window, each frame */
 	DECLARE_MULTICAST_DELEGATE_TwoParams( FOnSlateWindowRendered, SWindow&, void* );
@@ -129,6 +109,31 @@ public:
 	 * @return					true if the resource was successfully generated, otherwise false
 	 */
 	virtual bool GenerateDynamicImageResource( FName ResourceName, uint32 Width, uint32 Height, const TArray< uint8 >& Bytes ) { return false; }
+
+	/**
+	 * Creates a handle to a Slate resource
+	 * A handle is used as fast path for looking up a rendering resource for a given brush when adding Slate draw elements
+	 * This can be cached and stored safely in code.  It will become invalid when a resource is destroyed
+	 * It is expensive to create a resource so do not do it in time sensitive areas
+	 *
+	 * @param	Brush		The brush to get a rendering resource handle 
+	 * @return	The created resource handle.  
+	 */
+	virtual FSlateResourceHandle GetResourceHandle( const FSlateBrush& Brush ) = 0;
+
+	/**
+	 * Queues a dynamic brush for removal when it is safe.  The brush is not immediately released but you should consider the brush destroyed and no longer usable
+	 *
+	 * @param BrushToRemove	The brush to queue for removal which is no longer valid to use
+	 */
+	virtual void RemoveDynamicBrushResource( TSharedPtr<FSlateDynamicImageBrush> BrushToRemove ) = 0;
+
+	/** 
+	 * Releases a specific resource.  
+	 * It is unlikely that you want to call this directly.  Use RemoveDynamicBrushResource instead
+	 */
+	virtual void ReleaseDynamicResource( const FSlateBrush& Brush ) = 0;
+
 
 	/** Called when a window is destroyed to give the renderer a chance to free resources */
 	virtual void OnWindowDestroyed( const TSharedRef<SWindow>& InWindow ) = 0;
@@ -176,9 +181,6 @@ public:
 	 */
 	virtual void LoadStyleResources( const ISlateStyle& Style ) {}
 
-	/** Releases a specific resource */
-	virtual void ReleaseDynamicResource( const FSlateBrush& Brush ) = 0;
-
 	/**
 	 * Returns whether or not a viewport should be in  fullscreen
 	 *
@@ -196,6 +198,13 @@ public:
 	 * This is needed before destroying the RHI device. 
 	 */
 	virtual void InvalidateAllViewports() {}
+
+	/**
+	 * A renderer may need to keep a cache of accessed garbage collectible objects alive for the duration of their
+	 * usage.  During some operations like ending a game.  It becomes important to immediately release game related
+	 * resources.  This should flush any buffer holding onto those referenced objects.
+	 */
+	virtual void ReleaseAccessedResources() {}
 
 	/** 
 	 * Prepares the renderer to take a screenshot of the UI.  The Rect is portion of the rendered output
@@ -235,6 +244,42 @@ public:
 	 */
 	virtual ISlateAtlasProvider* GetFontAtlasProvider();
 
+	/**
+	 * Converts and caches the elements list data as the final rendered vertex and index buffer data,
+	 * returning a handle to it to allow issuing future draw commands using it.
+	 */
+	virtual TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> CacheElementRenderData(const ILayoutCache* Cacher, FSlateWindowElementList& ElementList);
+
+	/**
+	 * Releases the caching resources used on the render thread for the provided ILayoutCache.  This is
+	 * should be the kind of operation you perform when the ILayoutCache is being destroyed and will no longer
+	 * be needing to draw anything again.
+	 */
+	virtual void ReleaseCachingResourcesFor(const ILayoutCache* Cacher);
+
+	/**
+	 * You must call this before calling CopyWindowsToVirtualScreenBuffer(), to setup the render targets first.
+	 * 
+	 * @param	bPrimaryWorkAreaOnly	True if we should capture only the primary monitor's work area, or false to capture the entire desktop spanning all monitors
+	 * @param	ScreenScaling	How much to downscale the desktop size
+	 * @param	LiveStreamingService	Optional pointer to a live streaming service this buffer needs to work with
+	 * @return	The virtual screen rectangle.  The size of this rectangle will be the size of the render target buffer.
+	 */
+	virtual FIntRect SetupVirtualScreenBuffer( const bool bPrimaryWorkAreaOnly, const float ScreenScaling, class ILiveStreamingService* LiveStreamingService) { return FIntRect(); }
+
+	/**
+	 * Copies all slate windows out to a buffer at half resolution with debug information
+	 * like the mouse cursor and any keypresses.
+	 */
+	virtual void CopyWindowsToVirtualScreenBuffer(const TArray<FString>& KeypressBuffer) {}
+	
+	/** Allows and disallows access to the crash tracker buffer data on the CPU */
+	virtual void MapVirtualScreenBuffer(void** OutImageData) {}
+	virtual void UnmapVirtualScreenBuffer() {}
+
+protected:
+	virtual void ReleaseCachedRenderData(FSlateRenderDataHandle* RenderHandle) { }
+
 private:
 
 	// Non-copyable
@@ -248,6 +293,8 @@ protected:
 
 	/** Callback that fires after Slate has rendered each window, each frame */
 	FOnSlateWindowRendered SlateWindowRendered;
+
+	friend class FSlateRenderDataHandle;
 };
 
 

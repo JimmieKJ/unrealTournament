@@ -39,6 +39,8 @@ public:
 	virtual FVector GetWidgetLocation() const override;
 	virtual FMatrix GetWidgetCoordSystem() const override;
 	virtual ECoordSystem GetWidgetCoordSystemSpace() const override { return WidgetCoordSystem; }
+	virtual int32 GetCameraSpeedSetting() const override;
+	virtual void SetCameraSpeedSetting(int32 SpeedSetting) override;
 
 
 	/** 

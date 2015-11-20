@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2285083
+﻿INTSourceChangelist:2574234
 Availability:NoPublish
 Title:UObjectLibrary
 Crumbs:
@@ -6,7 +6,7 @@ Description:ObjectLibrary クラスの概要
 
 [EXCERPT:UObjectLibrary]
 
-ObjectLibrary は、ロードされたオブジェクトまたはアンロードされたオブジェクトに対する FAssetData のいずれかのリストを含むオブジェクトであり、共有基本クラスから継承されたものです。
+ObjectLibrary は、ロードされたオブジェクトまたはアンロードされたオブジェクトに対する FAssetData のいずれかのリストを含むオブジェクトであり、共有の基本クラスから継承されたものです。
 
 [VAR:ToolTipFullLink]
 Programming/Assets/AsyncLoading#theassetregistryandobjectlibraries

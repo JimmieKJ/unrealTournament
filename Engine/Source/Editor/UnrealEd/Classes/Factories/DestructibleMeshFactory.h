@@ -9,12 +9,12 @@ UCLASS(hideCategories=Object, MinimalAPI)
 class UDestructibleMeshFactory : public UFactory
 {
     GENERATED_UCLASS_BODY()
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	virtual FText GetDisplayName() const override;
 #if WITH_APEX
 	virtual UObject* FactoryCreateBinary( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn ) override;
 #endif // WITH_APEX
-	// Begin UFactory Interface	
+	//~ Begin UFactory Interface	
 };
 
 

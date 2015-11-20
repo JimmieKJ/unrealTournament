@@ -20,6 +20,22 @@
 #include "Private/Slate/SUWindowsStyle.h"
 #endif
 
+// prevent setting MipBias to an intentionally broken value to make textures turn solid color
+static void MipBiasClamp()
+{
+	IConsoleVariable* MipBiasVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.MipBias"));
+	if (MipBiasVar != NULL)
+	{
+		TConsoleVariableData<float>* FloatVar = MipBiasVar->AsVariableFloat();
+		if (FloatVar->GetValueOnGameThread() > 1.0f)
+		{
+			MipBiasVar->ClearFlags(ECVF_SetByConsole);
+			MipBiasVar->Set(1.0f);
+		}
+	}
+}
+FAutoConsoleVariableSink MipBiasSink(FConsoleCommandDelegate::CreateStatic(&MipBiasClamp));
+
 UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -80,7 +96,7 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	{
 		for (auto WeaponClassRef : AlwaysLoadedWeaponsStringRefs)
 		{
-			AlwaysLoadedWeapons.Add(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *WeaponClassRef.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn)));
+			AlwaysLoadedWeapons.Add(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *WeaponClassRef.ToStringReference().ToString(), NULL, LOAD_NoWarn)));
 		}
 	}
 

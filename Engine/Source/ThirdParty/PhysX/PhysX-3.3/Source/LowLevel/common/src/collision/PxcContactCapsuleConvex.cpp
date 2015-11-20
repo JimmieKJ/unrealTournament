@@ -240,13 +240,10 @@ static bool raycast_convexMesh2(	const PolygonalData& polyData,
 		}
 	}
 
-	if(latestEntry < earlyestExit)
+	if(latestEntry < earlyestExit && latestEntry != -FLT_MAX && latestEntry < maxDist-1e-5f)
 	{
-		if(latestEntry < maxDist)
-		{
-			t = latestEntry;
-			return true;
-		}
+		t = latestEntry;
+		return true;
 	}
 	return false;
 }

@@ -18,16 +18,18 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 	LastVisibility = EVisibility::Visible;
 	Ctx = InCtx;
 
+	// View model no longer accessible
+	/*
 	ViewModel = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetChatViewModel();
 	ViewModel->OnChatMessageCommitted().AddSP(this, &SUTChatWidget::OnChatTextCommitted);
 	ViewModel->OnChatListUpdated().AddSP(this, &SUTChatWidget::HandleChatListUpdated);
 	ViewModel->OnNetworkMessageSentEvent().AddSP(this, &SUTChatWidget::HandleFriendsNetworkChatMessage);
 	ViewModel->EnableGlobalChat(false);
-
+	*/
 	//some constant values
 	const int32 PaddingValue = 2;
 
-	auto& FriendsAndChat = *IFriendsAndChatModule::Get().GetFriendsAndChatManager();
+//	auto& FriendsAndChat = *IFriendsAndChatModule::Get().GetFriendsAndChatManager();
 
 	// Initialize Menu
 	ChildSlot
@@ -41,33 +43,35 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 			SNew(SBox)
 			.HeightOverride(this, &SUTChatWidget::GetChatWidgetHeight)
 			.WidthOverride(CHAT_BOX_WIDTH)
+			/*
 			[
 				FriendsAndChat.GenerateChatWidget(
 					&SUWindowsStyle::Get().GetWidgetStyle< FFriendsAndChatStyle >( "FriendsStyle" ),
 					ViewModel.ToSharedRef(),
 					TAttribute<FText>()
 				).ToSharedRef()
-			]
+			]*/
 		]
 	];
 
-	ViewModel->SetEntryBarVisibility(EVisibility::Visible);
+	//ViewModel->SetEntryBarVisibility(EVisibility::Visible);
 }
 
 FOptionalSize SUTChatWidget::GetChatWidgetHeight() const
 {
-	return FMath::LerpStable(CHAT_BOX_HEIGHT_FADED, CHAT_BOX_HEIGHT, ViewModel->GetChatListFadeValue());
+	return 0;
+//	return FMath::LerpStable(CHAT_BOX_HEIGHT_FADED, CHAT_BOX_HEIGHT, ViewModel->GetChatListFadeValue());
 }
 
 void SUTChatWidget::HandleFriendsNetworkChatMessage(const FString& NetworkMessage)
 {
-	ViewModel->SetOverrideColorActive(false);
+	//ViewModel->SetOverrideColorActive(false);
 //	Ctx.GetPlayerController()->Say(NetworkMessage);
 }
 
 void SUTChatWidget::HandleChatListUpdated()
 {
-	ViewModel->SetOverrideColorActive(false);
+//	ViewModel->SetOverrideColorActive(false);
 }
 
 void SUTChatWidget::OnChatTextCommitted()
@@ -79,7 +83,7 @@ void SUTChatWidget::Tick(const FGeometry& AllottedGeometry, const double InCurre
 {
 	//Always tick the super
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-
+	/*
 	auto EntryBarVisibility = ViewModel->GetEntryBarVisibility();
 	if (EntryBarVisibility != LastVisibility)
 	{
@@ -94,17 +98,17 @@ void SUTChatWidget::Tick(const FGeometry& AllottedGeometry, const double InCurre
 			// Exit UI mode
 			FSlateApplication::Get().SetAllUserFocusToGameViewport();
 		}
-	}
+	}*/
 }
 
 void SUTChatWidget::SetFocus()
 {
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this));
-
+	/*
 	if (ViewModel.IsValid())
 	{
 		ViewModel->SetFocus();
-	}
+	}*/
 }
 
 FReply SUTChatWidget::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent )

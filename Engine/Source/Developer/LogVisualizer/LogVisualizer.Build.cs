@@ -16,9 +16,7 @@ public class LogVisualizer : ModuleRules
 
 		PublicIncludePaths.AddRange(
 			new string[] {
-				"Developer/TaskGraph/Public",
 				"Runtime/Engine/Classes",
-                "Editor/GeometryMode/Public",
                 "Editor/WorkspaceMenuStructure/Public"
 			}
 		);
@@ -33,7 +31,6 @@ public class LogVisualizer : ModuleRules
 				"SlateCore",
                 "EditorStyle",
 				"Engine",
-				"TaskGraph",
 				"UnrealEd",
                 "SequencerWidgets",
 			}

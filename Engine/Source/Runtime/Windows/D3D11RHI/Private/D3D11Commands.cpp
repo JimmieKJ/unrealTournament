@@ -11,7 +11,14 @@
 		#define XM_NO_OPERATOR_OVERLOADS 1		// @todo clang: These xnamath operators don't compile correctly under clang
 		#define _XM_NO_INTRINSICS_ 1	// @todo clang: Clang has issues with __m128 intrinsics in xnamathvector.inl
 	#endif
+	#if _MSC_VER == 1900
+		#pragma warning(push)
+		#pragma warning(disable:4838)
+	#endif // _MSC_VER == 1900
 	#include <xnamath.h>
+	#if _MSC_VER == 1900
+		#pragma warning(pop)
+	#endif // _MSC_VER == 1900
 #include "HideWindowsPlatformTypes.h"
 #endif
 #include "D3D11RHIPrivateUtil.h"
@@ -59,6 +66,18 @@ DECLARE_ISBOUNDSHADER(ComputeShader)
 	#define GPA_WINDOWS 1
 	#include <GPUPerfAPI/Gpa.h>
 #endif
+
+void FD3D11DynamicRHI::RHIBeginAsyncComputeJob_DrawThread(EAsyncComputePriority Priority) 
+{  
+}
+
+void FD3D11DynamicRHI::RHIEndAsyncComputeJob_DrawThread(uint32 FenceIndex)
+{ 
+}
+
+void FD3D11DynamicRHI::RHIGraphicsWaitOnAsyncComputeJob( uint32 FenceIndex )
+{ 
+}
 
 void FD3D11DynamicRHI::RHIGpuTimeBegin(uint32 Hash, bool bCompute)
 {
@@ -164,7 +183,7 @@ void FD3D11DynamicRHI::RHISetViewport(uint32 MinX,uint32 MinY,float MinZ,uint32 
 	check(MaxX <= (uint32)D3D11_VIEWPORT_BOUNDS_MAX);
 	check(MaxY <= (uint32)D3D11_VIEWPORT_BOUNDS_MAX);
 
-	D3D11_VIEWPORT Viewport = { MinX, MinY, MaxX - MinX, MaxY - MinY, MinZ, MaxZ };
+	D3D11_VIEWPORT Viewport = { (float)MinX, (float)MinY, (float)MaxX - MinX, (float)MaxY - MinY, MinZ, MaxZ };
 	//avoid setting a 0 extent viewport, which the debug runtime doesn't like
 	if (Viewport.Width > 0 && Viewport.Height > 0)
 	{
@@ -233,6 +252,17 @@ void FD3D11DynamicRHI::RHISetBoundShaderState( FBoundShaderStateRHIParamRef Boun
 	DirtyUniformBuffers[SF_Hull] = 0xffff;
 	DirtyUniformBuffers[SF_Domain] = 0xffff;
 	DirtyUniformBuffers[SF_Geometry] = 0xffff;
+
+	// Shader changed.  All UB's must be reset by high level code to match other platforms anway.
+	// Clear to catch those bugs, and bugs with stale UB's causing layout mismatches.
+	// Release references to bound uniform buffers.
+	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+	{
+		for (int32 BindIndex = 0; BindIndex < MAX_UNIFORM_BUFFERS_PER_SHADER_STAGE; ++BindIndex)
+		{
+			BoundUniformBuffers[Frequency][BindIndex].SafeRelease();
+		}
+	}
 }
 
 void FD3D11DynamicRHI::RHISetShaderTexture(FVertexShaderRHIParamRef VertexShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -242,10 +272,14 @@ void FD3D11DynamicRHI::RHISetShaderTexture(FVertexShaderRHIParamRef VertexShader
 	FD3D11TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
 	ID3D11ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 
-	if (  ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
-		SetShaderResourceView<SF_Vertex>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Dynamic);
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) != NULL) || (NewTexture->HasDepthStencilView()))
+	{
+		SetShaderResourceView<SF_Vertex>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI ? NewTextureRHI->GetName() : NAME_None, FD3D11StateCache::SRV_Dynamic);
+	}
 	else
-		SetShaderResourceView<SF_Vertex>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Static);
+	{
+		SetShaderResourceView<SF_Vertex>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI->GetName(), FD3D11StateCache::SRV_Static);
+	}
 }
 
 void FD3D11DynamicRHI::RHISetShaderTexture(FHullShaderRHIParamRef HullShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -255,10 +289,14 @@ void FD3D11DynamicRHI::RHISetShaderTexture(FHullShaderRHIParamRef HullShaderRHI,
 	FD3D11TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
 	ID3D11ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 
-	if (  ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
-		SetShaderResourceView<SF_Hull>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Dynamic);
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) != NULL) || (NewTexture->HasDepthStencilView()))
+	{
+		SetShaderResourceView<SF_Hull>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI ? NewTextureRHI->GetName() : NAME_None, FD3D11StateCache::SRV_Dynamic);
+	}
 	else
-		SetShaderResourceView<SF_Hull>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Static);
+	{
+		SetShaderResourceView<SF_Hull>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI->GetName(), FD3D11StateCache::SRV_Static);
+	}
 }
 
 void FD3D11DynamicRHI::RHISetShaderTexture(FDomainShaderRHIParamRef DomainShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -268,10 +306,14 @@ void FD3D11DynamicRHI::RHISetShaderTexture(FDomainShaderRHIParamRef DomainShader
 	FD3D11TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
 	ID3D11ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 
-	if (  ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
-		SetShaderResourceView<SF_Domain>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Dynamic);
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) != NULL) || (NewTexture->HasDepthStencilView()))
+	{
+		SetShaderResourceView<SF_Domain>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI ? NewTextureRHI->GetName() : NAME_None, FD3D11StateCache::SRV_Dynamic);
+	}
 	else
-		SetShaderResourceView<SF_Domain>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Static);
+	{
+		SetShaderResourceView<SF_Domain>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI->GetName(), FD3D11StateCache::SRV_Static);
+	}
 }
 
 void FD3D11DynamicRHI::RHISetShaderTexture(FGeometryShaderRHIParamRef GeometryShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -281,10 +323,14 @@ void FD3D11DynamicRHI::RHISetShaderTexture(FGeometryShaderRHIParamRef GeometrySh
 	FD3D11TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
 	ID3D11ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 
-	if (  ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
-		SetShaderResourceView<SF_Geometry>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Dynamic);
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) != NULL) || (NewTexture->HasDepthStencilView()))
+	{
+		SetShaderResourceView<SF_Geometry>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI ? NewTextureRHI->GetName() : NAME_None, FD3D11StateCache::SRV_Dynamic);
+	}
 	else
-		SetShaderResourceView<SF_Geometry>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Static);
+	{
+		SetShaderResourceView<SF_Geometry>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI->GetName(), FD3D11StateCache::SRV_Static);
+	}
 }
 
 void FD3D11DynamicRHI::RHISetShaderTexture(FPixelShaderRHIParamRef PixelShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -294,10 +340,14 @@ void FD3D11DynamicRHI::RHISetShaderTexture(FPixelShaderRHIParamRef PixelShaderRH
 
 	FD3D11TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
 	ID3D11ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
-	if ( ( NewTexture == NULL) ||  ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
-		SetShaderResourceView<SF_Pixel>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Dynamic);
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) != NULL) || (NewTexture->HasDepthStencilView()))
+	{
+		SetShaderResourceView<SF_Pixel>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI ? NewTextureRHI->GetName() : NAME_None, FD3D11StateCache::SRV_Dynamic);
+	}
 	else
-		SetShaderResourceView<SF_Pixel>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Static);
+	{
+		SetShaderResourceView<SF_Pixel>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI->GetName(), FD3D11StateCache::SRV_Static);
+	}
 }
 
 void FD3D11DynamicRHI::RHISetShaderTexture(FComputeShaderRHIParamRef ComputeShaderRHI,uint32 TextureIndex,FTextureRHIParamRef NewTextureRHI)
@@ -307,10 +357,14 @@ void FD3D11DynamicRHI::RHISetShaderTexture(FComputeShaderRHIParamRef ComputeShad
 	FD3D11TextureBase* NewTexture = GetD3D11TextureFromRHITexture(NewTextureRHI);
 	ID3D11ShaderResourceView* ShaderResourceView = NewTexture ? NewTexture->GetShaderResourceView() : NULL;
 
-	if ( ( NewTexture == NULL) || ( NewTexture->GetRenderTargetView( 0, 0 ) !=NULL) || ( NewTexture->HasDepthStencilView()) )
-		SetShaderResourceView<SF_Compute>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Dynamic);
+	if ((NewTexture == NULL) || (NewTexture->GetRenderTargetView(0, 0) != NULL) || (NewTexture->HasDepthStencilView()))
+	{
+		SetShaderResourceView<SF_Compute>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI ? NewTextureRHI->GetName() : NAME_None, FD3D11StateCache::SRV_Dynamic);
+	}
 	else
-		SetShaderResourceView<SF_Compute>(NewTexture, ShaderResourceView, TextureIndex, FD3D11StateCache::SRV_Static);
+	{
+		SetShaderResourceView<SF_Compute>(NewTexture, ShaderResourceView, TextureIndex, NewTextureRHI->GetName(), FD3D11StateCache::SRV_Static);
+	}
 }
 
 void FD3D11DynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShaderRHI,uint32 UAVIndex,FUnorderedAccessViewRHIParamRef UAVRHI)
@@ -321,7 +375,15 @@ void FD3D11DynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShade
 
 	if(UAV)
 	{
-		ConditionalClearShaderResource(UAV->Resource);
+		ConditionalClearShaderResource(UAV->Resource);		
+
+		//check it's safe for r/w for this UAV
+		const EResourceTransitionAccess CurrentUAVAccess = UAV->Resource->GetCurrentGPUAccess();
+		const bool UAVDirty = UAV->Resource->IsDirty();
+		ensureMsgf(!UAVDirty || (CurrentUAVAccess == EResourceTransitionAccess::ERWNoBarrier), TEXT("UAV: %i is in unsafe state for GPU R/W: %s, Dirty: %i"), UAVIndex, *FResourceTransitionUtility::ResourceTransitionAccessStrings[(int32)CurrentUAVAccess], (int32)UAVDirty);
+
+		//UAVs always dirty themselves. If a shader wanted to just read, it should use an SRV.
+		UAV->Resource->SetDirty(true, PresentCounter);
 	}
 
 	ID3D11UnorderedAccessView* D3D11UAV = UAV ? UAV->View : NULL;
@@ -339,6 +401,14 @@ void FD3D11DynamicRHI::RHISetUAVParameter(FComputeShaderRHIParamRef ComputeShade
 	if(UAV)
 	{
 		ConditionalClearShaderResource(UAV->Resource);
+
+		//check it's safe for r/w for this UAV
+		const EResourceTransitionAccess CurrentUAVAccess = UAV->Resource->GetCurrentGPUAccess();
+		const bool UAVDirty = UAV->Resource->IsDirty();
+		ensureMsgf(!UAVDirty || (CurrentUAVAccess == EResourceTransitionAccess::ERWNoBarrier), TEXT("UAV: %i is in unsafe state for GPU R/W: %s, Dirty: %i"), UAVIndex, *FResourceTransitionUtility::ResourceTransitionAccessStrings[(int32)CurrentUAVAccess], (int32)UAVDirty);
+
+		//UAVs always dirty themselves. If a shader wanted to just read, it should use an SRV.
+		UAV->Resource->SetDirty(true, PresentCounter);
 	}
 
 	ID3D11UnorderedAccessView* D3D11UAV = UAV ? UAV->View : NULL;
@@ -360,7 +430,7 @@ void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FPixelShaderRHIParamRef
 		D3D11SRV = SRV->View;
 	}
 
-	SetShaderResourceView<SF_Pixel>(Resource, D3D11SRV, TextureIndex);
+	SetShaderResourceView<SF_Pixel>(Resource, D3D11SRV, TextureIndex, NAME_None);
 }
 
 void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FVertexShaderRHIParamRef VertexShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -378,7 +448,7 @@ void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FVertexShaderRHIParamRe
 		D3D11SRV = SRV->View;
 	}
 
-	SetShaderResourceView<SF_Vertex>(Resource, D3D11SRV, TextureIndex);
+	SetShaderResourceView<SF_Vertex>(Resource, D3D11SRV, TextureIndex, NAME_None);
 }
 
 void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FComputeShaderRHIParamRef ComputeShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -396,7 +466,7 @@ void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FComputeShaderRHIParamR
 		D3D11SRV = SRV->View;
 	}
 
-	SetShaderResourceView<SF_Compute>(Resource, D3D11SRV, TextureIndex);
+	SetShaderResourceView<SF_Compute>(Resource, D3D11SRV, TextureIndex, NAME_None);
 }
 
 void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FHullShaderRHIParamRef HullShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -414,7 +484,7 @@ void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FHullShaderRHIParamRef 
 		D3D11SRV = SRV->View;
 	}
 
-	SetShaderResourceView<SF_Hull>(Resource, D3D11SRV, TextureIndex);
+	SetShaderResourceView<SF_Hull>(Resource, D3D11SRV, TextureIndex, NAME_None);
 }
 
 void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FDomainShaderRHIParamRef DomainShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -432,7 +502,7 @@ void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FDomainShaderRHIParamRe
 		D3D11SRV = SRV->View;
 	}
 
-	SetShaderResourceView<SF_Domain>(Resource, D3D11SRV, TextureIndex);
+	SetShaderResourceView<SF_Domain>(Resource, D3D11SRV, TextureIndex, NAME_None);
 }
 
 void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FGeometryShaderRHIParamRef GeometryShaderRHI,uint32 TextureIndex,FShaderResourceViewRHIParamRef SRVRHI)
@@ -450,7 +520,7 @@ void FD3D11DynamicRHI::RHISetShaderResourceViewParameter(FGeometryShaderRHIParam
 		D3D11SRV = SRV->View;
 	}
 
-	SetShaderResourceView<SF_Geometry>(Resource, D3D11SRV, TextureIndex);
+	SetShaderResourceView<SF_Geometry>(Resource, D3D11SRV, TextureIndex, NAME_None);
 }
 
 void FD3D11DynamicRHI::RHISetShaderSampler(FVertexShaderRHIParamRef VertexShaderRHI,uint32 SamplerIndex,FSamplerStateRHIParamRef NewStateRHI)
@@ -814,6 +884,31 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 		bTargetChanged = true;
 	}
 
+	if (NewDepthStencilTarget)
+	{
+		uint32 CurrentFrame = PresentCounter;
+		const EResourceTransitionAccess CurrentAccess = NewDepthStencilTarget->GetCurrentGPUAccess();
+		const uint32 LastFrameWritten = NewDepthStencilTarget->GetLastFrameWritten();
+		const bool bReadable = CurrentAccess == EResourceTransitionAccess::EReadable;
+		const bool bDepthWrite = NewDepthStencilTargetRHI->GetDepthStencilAccess().IsDepthWrite();
+		const bool bAccessValid =	!bReadable ||
+									LastFrameWritten != CurrentFrame || 
+									!bDepthWrite;
+
+		ensureMsgf(bAccessValid, TEXT("DepthTarget %s is not GPU writable."), *NewDepthStencilTargetRHI->Texture->GetName().ToString());		
+
+		//switch to writable state if this is the first render of the frame.  Don't switch if it's a later render and this is a depth test only situation
+		if (!bAccessValid || (bReadable && bDepthWrite))
+		{
+			NewDepthStencilTarget->SetCurrentGPUAccess(EResourceTransitionAccess::EWritable);
+		}
+
+		if (bDepthWrite)
+		{
+			NewDepthStencilTarget->SetDirty(true, CurrentFrame);
+		}
+	}
+
 	// Gather the render target views for the new render targets.
 	ID3D11RenderTargetView* NewRenderTargetViews[MaxSimultaneousRenderTargets];
 	for(uint32 RenderTargetIndex = 0;RenderTargetIndex < MaxSimultaneousRenderTargets;++RenderTargetIndex)
@@ -826,7 +921,23 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 			FD3D11TextureBase* NewRenderTarget = GetD3D11TextureFromRHITexture(NewRenderTargetsRHI[RenderTargetIndex].Texture);
 			RenderTargetView = NewRenderTarget->GetRenderTargetView(RTMipIndex, RTSliceIndex);
 
-			ensureMsg(RenderTargetView, TEXT("Texture being set as render target has no RTV"));
+			if (NewRenderTarget)
+			{
+				uint32 CurrentFrame = PresentCounter;
+				const EResourceTransitionAccess CurrentAccess = NewRenderTarget->GetCurrentGPUAccess();
+				const uint32 LastFrameWritten = NewRenderTarget->GetLastFrameWritten();
+				const bool bReadable = CurrentAccess == EResourceTransitionAccess::EReadable;
+				const bool bAccessValid = !bReadable || LastFrameWritten != CurrentFrame;
+				ensureMsgf(bAccessValid, TEXT("RenderTarget %s is not GPU writable."), *NewRenderTargetsRHI[RenderTargetIndex].Texture->GetName().ToString());
+								
+				if (!bAccessValid || bReadable)
+				{
+					NewRenderTarget->SetCurrentGPUAccess(EResourceTransitionAccess::EWritable);
+				}
+				NewRenderTarget->SetDirty(true, CurrentFrame);
+			}
+
+			ensureMsgf(RenderTargetView, TEXT("Texture being set as render target has no RTV"));
 #if CHECK_SRV_TRANSITIONS			
 			if (RenderTargetView)
 			{
@@ -892,6 +1003,18 @@ void FD3D11DynamicRHI::RHISetRenderTargets(
 			FD3D11UnorderedAccessView* RHIUAV = (FD3D11UnorderedAccessView*)UAVs[UAVIndex];
 			UAV = RHIUAV->View;
 
+			if (UAV)
+			{
+				//check it's safe for r/w for this UAV
+				const EResourceTransitionAccess CurrentUAVAccess = RHIUAV->Resource->GetCurrentGPUAccess();
+				const bool UAVDirty = RHIUAV->Resource->IsDirty();
+				const bool bAccessPass = (CurrentUAVAccess == EResourceTransitionAccess::ERWBarrier && !UAVDirty) || (CurrentUAVAccess == EResourceTransitionAccess::ERWNoBarrier);
+				ensureMsgf(bAccessPass, TEXT("UAV: %i is in unsafe state for GPU R/W: %s"), UAVIndex, *FResourceTransitionUtility::ResourceTransitionAccessStrings[(int32)CurrentUAVAccess]);
+
+				//UAVs get set to dirty.  If the shader just wanted to read it should have used an SRV.
+				RHIUAV->Resource->SetDirty(true, PresentCounter);
+			}
+
 			// Unbind any shader views of the UAV's resource.
 			ConditionalClearShaderResource(RHIUAV->Resource);
 		}
@@ -947,7 +1070,30 @@ void FD3D11DynamicRHI::RHISetRenderTargetsAndClear(const FRHISetRenderTargetsInf
 		nullptr);
 	if (RenderTargetsInfo.bClearColor || RenderTargetsInfo.bClearStencil || RenderTargetsInfo.bClearDepth)
 	{
-		this->RHIClearMRT(RenderTargetsInfo.bClearColor, RenderTargetsInfo.NumColorRenderTargets, RenderTargetsInfo.ClearColors, RenderTargetsInfo.bClearDepth, RenderTargetsInfo.DepthClearValue, RenderTargetsInfo.bClearStencil, RenderTargetsInfo.StencilClearValue, FIntRect());
+		FLinearColor ClearColors[MaxSimultaneousRenderTargets];
+		float DepthClear = 0.0;
+		uint32 StencilClear = 0;
+
+		if (RenderTargetsInfo.bClearColor)
+		{
+			for (int32 i = 0; i < RenderTargetsInfo.NumColorRenderTargets; ++i)
+			{
+				if (RenderTargetsInfo.ColorRenderTarget[i].Texture != nullptr)
+				{
+					const FClearValueBinding& ClearValue = RenderTargetsInfo.ColorRenderTarget[i].Texture->GetClearBinding();
+					checkf(ClearValue.ColorBinding == EClearBinding::EColorBound, TEXT("Texture: %s does not have a color bound for fast clears"), *RenderTargetsInfo.ColorRenderTarget[i].Texture->GetName().GetPlainNameString());
+					ClearColors[i] = ClearValue.GetClearColor();
+				}
+			}
+		}
+		if (RenderTargetsInfo.bClearDepth || RenderTargetsInfo.bClearStencil)
+		{
+			const FClearValueBinding& ClearValue = RenderTargetsInfo.DepthStencilRenderTarget.Texture->GetClearBinding();
+			checkf(ClearValue.ColorBinding == EClearBinding::EDepthStencilBound, TEXT("Texture: %s does not have a DS value bound for fast clears"), *RenderTargetsInfo.DepthStencilRenderTarget.Texture->GetName().GetPlainNameString());
+			ClearValue.GetDepthStencil(DepthClear, StencilClear);
+		}
+
+		this->RHIClearMRTImpl(RenderTargetsInfo.bClearColor, RenderTargetsInfo.NumColorRenderTargets, ClearColors, RenderTargetsInfo.bClearDepth, DepthClear, RenderTargetsInfo.bClearStencil, StencilClear, FIntRect(), false);
 	}
 }
 
@@ -1106,15 +1252,15 @@ void FD3D11DynamicRHI::CommitComputeShaderConstants()
 }
 
 template <EShaderFrequency Frequency>
-FORCEINLINE void SetResource(FD3D11DynamicRHI* RESTRICT D3D11RHI, FD3D11StateCache* RESTRICT StateCache, uint32 BindIndex, FD3D11BaseShaderResource* RESTRICT ShaderResource, ID3D11ShaderResourceView* RESTRICT SRV)
+FORCEINLINE void SetResource(FD3D11DynamicRHI* RESTRICT D3D11RHI, FD3D11StateCache* RESTRICT StateCache, uint32 BindIndex, FD3D11BaseShaderResource* RESTRICT ShaderResource, ID3D11ShaderResourceView* RESTRICT SRV, FName ResourceName)
 {
 	// We set the resource through the RHI to track state for the purposes of unbinding SRVs when a UAV or RTV is bound.
 	// todo: need to support SRV_Static for faster calls when possible
-	D3D11RHI->SetShaderResourceView<Frequency>(ShaderResource,SRV,BindIndex,FD3D11StateCache::SRV_Unknown);
+	D3D11RHI->SetShaderResourceView<Frequency>(ShaderResource, SRV, BindIndex, ResourceName,FD3D11StateCache::SRV_Unknown);
 }
 
 template <EShaderFrequency Frequency>
-FORCEINLINE void SetResource(FD3D11DynamicRHI* RESTRICT D3D11RHI, FD3D11StateCache* RESTRICT StateCache, uint32 BindIndex, FD3D11BaseShaderResource* RESTRICT ShaderResource, ID3D11SamplerState* RESTRICT SamplerState)
+FORCEINLINE void SetResource(FD3D11DynamicRHI* RESTRICT D3D11RHI, FD3D11StateCache* RESTRICT StateCache, uint32 BindIndex, FD3D11BaseShaderResource* RESTRICT ShaderResource, ID3D11SamplerState* RESTRICT SamplerState, FName ResourceName)
 {
 	StateCache->SetSamplerState<Frequency>(SamplerState,BindIndex);
 }
@@ -1138,7 +1284,7 @@ inline int32 SetShaderResourcesFromBuffer(FD3D11DynamicRHI* RESTRICT D3D11RHI, F
 			FD3D11UniformBuffer::FResourcePair* RESTRICT ResourcePair = &Buffer->RawResourceTable[ResourceIndex];
 			FD3D11BaseShaderResource* ShaderResource = ResourcePair->ShaderResource;
 			D3DResourceType* D3D11Resource = (D3DResourceType*)ResourcePair->D3D11Resource;
-			SetResource<ShaderFrequency>(D3D11RHI, StateCache, BindIndex, ShaderResource, D3D11Resource);
+			SetResource<ShaderFrequency>(D3D11RHI, StateCache, BindIndex, ShaderResource, D3D11Resource, ResourcePair->ResourceName);
 			NumSetCalls++;
 			ResourceInfo = *ResourceInfos++;
 		} while (FRHIResourceTableEntry::GetUniformBufferIndex(ResourceInfo) == BufferIndex);
@@ -1162,7 +1308,35 @@ void FD3D11DynamicRHI::SetResourcesFromTables(const ShaderType* RESTRICT Shader)
 		FD3D11UniformBuffer* Buffer = (FD3D11UniformBuffer*)BoundUniformBuffers[ShaderType::StaticFrequency][BufferIndex].GetReference();
 		check(Buffer);
 		check(BufferIndex < Shader->ShaderResourceTable.ResourceTableLayoutHashes.Num());
-		check(Buffer->GetLayout().GetHash() == Shader->ShaderResourceTable.ResourceTableLayoutHashes[BufferIndex]);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		// to track down OR-7159 CRASH: Client crashed at start of match in D3D11Commands.cpp
+		{
+			if (Buffer->GetLayout().GetHash() != Shader->ShaderResourceTable.ResourceTableLayoutHashes[BufferIndex])
+			{
+				auto& BufferLayout = Buffer->GetLayout();
+				FString DebugName = BufferLayout.GetDebugName().GetPlainNameString();
+				const FString& ShaderName = Shader->ShaderName;
+				
+				FString ShaderUB;
+				if (BufferIndex < Shader->UniformBuffers.Num())
+				{
+					ShaderUB = FString::Printf(TEXT("expecting UB '%s'"), *Shader->UniformBuffers[BufferIndex].GetPlainNameString());
+				}
+				UE_LOG(LogD3D11RHI, Error, TEXT("SetResourcesFromTables upcoming check(%08x != %08x); Bound Layout='%s' Shader='%s' %s"), BufferLayout.GetHash(), Shader->ShaderResourceTable.ResourceTableLayoutHashes[BufferIndex], *DebugName, *ShaderName, *ShaderUB);
+				FString ResourcesString;
+				for (int32 Index = 0; Index < BufferLayout.Resources.Num(); ++Index)
+				{
+					ResourcesString += FString::Printf(TEXT("%d "), BufferLayout.Resources[Index]);
+				}
+				UE_LOG(LogD3D11RHI, Error, TEXT("Layout CB Size %d Res Offs %d; %d Resources: %s"), BufferLayout.ConstantBufferSize, BufferLayout.ResourceOffset, BufferLayout.Resources.Num(), *ResourcesString);
+
+				// this might mean you are accessing a data you haven't bound e.g. GBuffer
+				check(BufferLayout.GetHash() == Shader->ShaderResourceTable.ResourceTableLayoutHashes[BufferIndex]);
+			}
+		}
+#endif
+
 		Buffer->CacheResources(ResourceTableFrameCounter);
 
 		// todo: could make this two pass: gather then set
@@ -1451,11 +1625,20 @@ void FD3D11DynamicRHI::RHIEndDrawIndexedPrimitiveUP()
 // Raster operations.
 void FD3D11DynamicRHI::RHIClear(bool bClearColor,const FLinearColor& Color,bool bClearDepth,float Depth,bool bClearStencil,uint32 Stencil, FIntRect ExcludeRect)
 {
-	FD3D11DynamicRHI::RHIClearMRT(bClearColor, 1, &Color, bClearDepth, Depth, bClearStencil, Stencil, ExcludeRect);
+	FD3D11DynamicRHI::RHIClearMRTImpl(bClearColor, 1, &Color, bClearDepth, Depth, bClearStencil, Stencil, ExcludeRect, true);
 }
 
-void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const FLinearColor* ClearColorArray,bool bClearDepth,float Depth,bool bClearStencil,uint32 Stencil, FIntRect ExcludeRect)
+void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect)
 {
+	RHIClearMRTImpl(bClearColor, NumClearColors, ClearColorArray, bClearDepth, Depth, bClearStencil, Stencil, ExcludeRect, true);
+}
+
+void FD3D11DynamicRHI::RHIClearMRTImpl(bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil, FIntRect ExcludeRect, bool bForceShaderClear)
+{	
+	//don't force shaders clears for the moment.  There are bugs with the state cache/restore behavior.
+	//will either fix this soon, or move clear out of the RHI entirely.
+	bForceShaderClear = false;
+
 	// Helper struct to record and restore device states RHIClearMRT modifies.
 	class FDeviceStateHelper
 	{
@@ -1465,17 +1648,24 @@ void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 		TRefCountPtr<FD3D11DeviceContext> Direct3DDeviceIMContext;
 
 		enum { ResourceCount = D3D11_COMMONSHADER_INPUT_RESOURCE_SLOT_COUNT };
+		enum { ConstantBufferCount = D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT };
+
 		//////////////////////////////////////////////////////////////////////////
 		// Relevant recorded states:
 		ID3D11ShaderResourceView* VertResources[ResourceCount];
+		ID3D11Buffer* VertexConstantBuffers[ConstantBufferCount];
+		ID3D11Buffer* PixelConstantBuffers[ConstantBufferCount];
 		ID3D11VertexShader* VSOld;
 		ID3D11PixelShader* PSOld;
 		ID3D11DepthStencilState* OldDepthStencilState;
 		ID3D11RasterizerState* OldRasterizerState;
 		ID3D11BlendState* OldBlendState;
+		ID3D11InputLayout* OldInputLayout;
 		uint32 StencilRef;
 		float BlendFactor[4];
 		uint32 SampleMask;
+		FBoundShaderStateRHIParamRef LastBoundShaderStateRHI;
+
 		//////////////////////////////////////////////////////////////////////////
 		void ReleaseResources()
 		{
@@ -1487,46 +1677,67 @@ void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 			{
 				SAFE_RELEASE(*Resources);
 			}
+			for (int32 i = 0; i < ConstantBufferCount; ++i)
+			{
+				SAFE_RELEASE(VertexConstantBuffers[i]);
+				SAFE_RELEASE(PixelConstantBuffers[i]);
+			}
 
 			SAFE_RELEASE(OldDepthStencilState);
 			SAFE_RELEASE(OldBlendState);
 			SAFE_RELEASE(OldRasterizerState);
+			SAFE_RELEASE(OldInputLayout);
+			LastBoundShaderStateRHI = nullptr;
 		}
 	public:
 		/** The global D3D device's immediate context */
 		FDeviceStateHelper(TRefCountPtr<FD3D11DeviceContext> InDirect3DDeviceIMContext) : Direct3DDeviceIMContext(InDirect3DDeviceIMContext) {}
 
-		void CaptureDeviceState(FD3D11StateCache& StateCache)
-		{
-			StateCache.GetVertexShader(&VSOld);
-			StateCache.GetPixelShader(&PSOld);
-			StateCache.GetShaderResourceViews<SF_Vertex>(0, ResourceCount, &VertResources[0]);
-			StateCache.GetDepthStencilState(&OldDepthStencilState, &StencilRef);
-			StateCache.GetBlendState(&OldBlendState, BlendFactor, &SampleMask);
-			StateCache.GetRasterizerState(&OldRasterizerState);
+		void CaptureDeviceState(FD3D11StateCache& StateCacheRef, TGlobalResource< TBoundShaderStateHistory<10000> >& BSSHistory)
+		{			
+			StateCacheRef.GetVertexShader(&VSOld);
+			StateCacheRef.GetPixelShader(&PSOld);
+			StateCacheRef.GetShaderResourceViews<SF_Vertex>(0, ResourceCount, &VertResources[0]);
+			StateCacheRef.GetConstantBuffers<SF_Pixel>(0, ConstantBufferCount, &(PixelConstantBuffers[0]));
+			StateCacheRef.GetConstantBuffers<SF_Vertex>(0, ConstantBufferCount, &(VertexConstantBuffers[0]));
+			StateCacheRef.GetDepthStencilState(&OldDepthStencilState, &StencilRef);
+			StateCacheRef.GetBlendState(&OldBlendState, BlendFactor, &SampleMask);
+			StateCacheRef.GetRasterizerState(&OldRasterizerState);
+			StateCacheRef.GetInputLayout(&OldInputLayout);
+			LastBoundShaderStateRHI = BSSHistory.GetLast();
 		}
 
-		void ClearCurrentVertexResources(FD3D11StateCache& StateCache)
+		void ClearCurrentVertexResources(FD3D11StateCache& StateCacheRef)
 		{
 			static ID3D11ShaderResourceView* NullResources[ResourceCount] = {};
 			for (int ResourceLoop = 0 ; ResourceLoop < ResourceCount; ResourceLoop++)
 			{
-				StateCache.SetShaderResourceView<SF_Vertex>(NullResources[0],0);
+				StateCacheRef.SetShaderResourceView<SF_Vertex>(NullResources[0],0);
 			}
 		}
 
-		void RestoreDeviceState(FD3D11StateCache& StateCache) 
+		void RestoreDeviceState(FD3D11StateCache& StateCacheRef, TGlobalResource< TBoundShaderStateHistory<10000> >& BSSHistory)
 		{
 
 			// Restore the old shaders
-			StateCache.SetVertexShader(VSOld);
-			StateCache.SetPixelShader(PSOld);
-			for (int ResourceLoop = 0 ; ResourceLoop < ResourceCount; ResourceLoop++)
-				StateCache.SetShaderResourceView<SF_Vertex>(VertResources[ResourceLoop],ResourceLoop);
-			StateCache.SetDepthStencilState(OldDepthStencilState, StencilRef);
-			StateCache.SetBlendState(OldBlendState, BlendFactor, SampleMask);
-			StateCache.SetRasterizerState(OldRasterizerState);
+			StateCacheRef.SetVertexShader(VSOld);
+			StateCacheRef.SetPixelShader(PSOld);
+			for (int ResourceLoop = 0; ResourceLoop < ResourceCount; ResourceLoop++)
+			{
+				StateCacheRef.SetShaderResourceView<SF_Vertex>(VertResources[ResourceLoop], ResourceLoop);
+			}
+			for (int BufferIndex = 0; BufferIndex < ConstantBufferCount; ++BufferIndex)
+			{
+				StateCacheRef.SetConstantBuffer<SF_Pixel>(PixelConstantBuffers[BufferIndex], BufferIndex);
+				StateCacheRef.SetConstantBuffer<SF_Vertex>(VertexConstantBuffers[BufferIndex], BufferIndex);
+			}
 
+			StateCacheRef.SetDepthStencilState(OldDepthStencilState, StencilRef);
+			StateCacheRef.SetBlendState(OldBlendState, BlendFactor, SampleMask);
+			StateCacheRef.SetRasterizerState(OldRasterizerState);
+			StateCacheRef.SetInputLayout(OldInputLayout);
+
+			BSSHistory.Add(LastBoundShaderStateRHI);
 			ReleaseResources();
 		}
 	};
@@ -1577,7 +1788,7 @@ void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 	ID3D11DepthStencilView* DepthStencilView = BoundRenderTargets.GetDepthStencilView();
 
 	// Determine if we're trying to clear a subrect of the screen
-	bool UseDrawClear = false;
+	bool UseDrawClear = bForceShaderClear;
 	uint32 NumViews = 1;
 	D3D11_VIEWPORT Viewport;
 	StateCache.GetViewports(&NumViews,&Viewport);
@@ -1628,6 +1839,20 @@ void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 			Width = Desc.Width;
 			Height = Desc.Height;
 			BaseTexture->Release();
+
+			// Adjust dimensions for the mip level we're clearing.
+			D3D11_DEPTH_STENCIL_VIEW_DESC DSVDesc;
+			DepthStencilView->GetDesc(&DSVDesc);
+			if (DSVDesc.ViewDimension == D3D11_DSV_DIMENSION_TEXTURE1D ||
+				DSVDesc.ViewDimension == D3D11_DSV_DIMENSION_TEXTURE1DARRAY ||
+				DSVDesc.ViewDimension == D3D11_DSV_DIMENSION_TEXTURE2D ||
+				DSVDesc.ViewDimension == D3D11_DSV_DIMENSION_TEXTURE2DARRAY)
+			{
+				// All the non-multisampled texture types have their mip-slice in the same position.
+				uint32 MipIndex = DSVDesc.Texture2D.MipSlice;
+				Width >>= MipIndex;
+				Height >>= MipIndex;
+			}
 		}
 
 		if ((Viewport.Width < Width || Viewport.Height < Height) 
@@ -1701,7 +1926,7 @@ void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 
 		// Store the current device state
 		FDeviceStateHelper OriginalResourceState(Direct3DDeviceIMContext);
-		OriginalResourceState.CaptureDeviceState(StateCache);
+		OriginalResourceState.CaptureDeviceState(StateCache, BoundShaderStateHistory);
 
 		// Set the cached state objects
 		StateCache.SetBlendState(BlendState->Resource, BF, 0xffffffff);
@@ -1761,15 +1986,7 @@ void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 		{
 			FRHICommandList_RecursiveHazardous RHICmdList(this);
 			SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, GD3D11ClearMRTBoundShaderState[FMath::Max(BoundRenderTargets.GetNumActiveTargets() - 1, 0)], GD3D11Vector4VertexDeclaration.VertexDeclarationRHI, *VertexShader, PixelShader);
-			FLinearColor ShaderClearColors[MaxSimultaneousRenderTargets];
-			FMemory::Memzero(ShaderClearColors);
-
-			for (int32 i = 0; i < NumClearColors; i++)
-			{
-				ShaderClearColors[i] = ClearColorArray[i];
-			}
-
-			SetShaderValueArray(RHICmdList, PixelShader->GetPixelShader(), PixelShader->ColorParameter, ShaderClearColors, NumClearColors);
+			PixelShader->SetColors(RHICmdList, ClearColorArray, NumClearColors);
 
 			{
 				// Draw a fullscreen quad
@@ -1821,14 +2038,14 @@ void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 		}
 
 		// Restore the original device state
-		OriginalResourceState.RestoreDeviceState(StateCache); 
+		OriginalResourceState.RestoreDeviceState(StateCache, BoundShaderStateHistory);
 	}
 	else
 	{
 		if (bClearColor && BoundRenderTargets.GetNumActiveTargets() > 0)
 		{
 			for (int32 TargetIndex = 0; TargetIndex < BoundRenderTargets.GetNumActiveTargets(); TargetIndex++)
-			{
+			{				
 				Direct3DDeviceIMContext->ClearRenderTargetView(BoundRenderTargets.GetRenderTargetView(TargetIndex),(float*)&ClearColorArray[TargetIndex]);
 			}
 		}
@@ -1851,7 +2068,7 @@ void FD3D11DynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 	GPUProfilingData.RegisterGPUWork(0);
 }
 
-void FD3D11DynamicRHI::RHIBindClearMRTValues(bool bClearColor, int32 NumClearColors, const FLinearColor* ClearColorArray, bool bClearDepth, float Depth, bool bClearStencil, uint32 Stencil)
+void FD3D11DynamicRHI::RHIBindClearMRTValues(bool bClearColor, bool bClearDepth, bool bClearStencil)
 {
 	// Not necessary for d3d.
 }
@@ -1920,7 +2137,12 @@ void FD3D11DynamicRHI::RHIEnableDepthBoundsTest(bool bEnable,float MinDepth,floa
 	auto result = NvAPI_D3D11_SetDepthBoundsTest( Direct3DDevice, bEnable, MinDepth, MaxDepth );
 	if(result != NVAPI_OK)
 	{
-		UE_LOG(LogD3D11RHI, Error,TEXT("NvAPI_D3D11_SetDepthBoundsTest(%i,%f, %f) returned error code %i"),bEnable,MinDepth,MaxDepth,(unsigned int)result);
+		static bool bOnce = false;
+		if (!bOnce)
+		{
+			bOnce = true;
+			UE_LOG(LogD3D11RHI, Error,TEXT("NvAPI_D3D11_SetDepthBoundsTest(%i,%f, %f) returned error code %i. **********PLEASE UPDATE YOUR VIDEO DRIVERS*********"),bEnable,MinDepth,MaxDepth,(unsigned int)result);
+		}
 	}
 #endif
 }
@@ -1939,3 +2161,56 @@ IRHICommandContextContainer* FD3D11DynamicRHI::RHIGetCommandContextContainer()
 	return nullptr;
 }
 
+void FD3D11DynamicRHI::RHITransitionResources(EResourceTransitionAccess TransitionType, FTextureRHIParamRef* InTextures, int32 NumTextures)
+{
+	static IConsoleVariable* CVarShowTransitions = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ProfileGPU.ShowTransitions"));
+	bool bShowTransitionEvents = CVarShowTransitions->GetInt() != 0;
+
+	SCOPED_RHI_CONDITIONAL_DRAW_EVENTF(*this, RHITransitionResources, bShowTransitionEvents, TEXT("TransitionTo: %s: %i Textures"), *FResourceTransitionUtility::ResourceTransitionAccessStrings[(int32)TransitionType], NumTextures);
+	for (int32 i = 0; i < NumTextures; ++i)
+	{				
+		FTextureRHIParamRef RenderTarget = InTextures[i];
+		SCOPED_RHI_CONDITIONAL_DRAW_EVENTF(*this, RHITransitionResourcesLoop, bShowTransitionEvents, TEXT("To:%i - %s"), i, *RenderTarget->GetName().ToString());
+
+		if (RenderTarget)
+		{
+			FD3D11BaseShaderResource* Resource = nullptr;
+			FD3D11Texture2D* SourceTexture2D = static_cast<FD3D11Texture2D*>(RenderTarget->GetTexture2D());
+			if(SourceTexture2D)
+			{
+				Resource = SourceTexture2D;
+			}
+			FD3D11TextureCube* SourceTextureCube = static_cast<FD3D11TextureCube*>(RenderTarget->GetTextureCube());
+			if(SourceTextureCube)
+			{
+				Resource = SourceTextureCube;
+			}
+			FD3D11Texture3D* SourceTexture3D = static_cast<FD3D11Texture3D*>(RenderTarget->GetTexture3D());
+			if(SourceTexture3D)
+			{
+				Resource = SourceTexture3D;
+			}
+
+			Resource->SetCurrentGPUAccess(TransitionType);
+		}
+	}
+}
+
+void FD3D11DynamicRHI::RHITransitionResources(EResourceTransitionAccess TransitionType, EResourceTransitionPipeline TransitionPipeline, FUnorderedAccessViewRHIParamRef* InUAVs, int32 NumUAVs)
+{
+	for (int32 i = 0; i < NumUAVs; ++i)
+	{
+		if (InUAVs[i])
+		{
+			FD3D11UnorderedAccessView* UAV = ResourceCast(InUAVs[i]);
+			if (UAV && UAV->Resource)
+			{
+				UAV->Resource->SetCurrentGPUAccess(TransitionType);
+				if (TransitionType != EResourceTransitionAccess::ERWNoBarrier)
+				{
+					UAV->Resource->SetDirty(false, PresentCounter);
+				}
+			}
+		}
+	}	
+}

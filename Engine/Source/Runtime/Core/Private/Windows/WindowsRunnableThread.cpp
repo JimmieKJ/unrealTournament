@@ -10,42 +10,43 @@ DEFINE_LOG_CATEGORY_STATIC(LogThreadingWindows, Log, All);
 
 uint32 FRunnableThreadWin::GuardedRun()
 {
-	uint32 ExitCode = 1;
+	uint32 ExitCode = 0;
 
 	FPlatformProcess::SetThreadAffinityMask(ThreadAffinityMask);
 
-#if PLATFORM_XBOXONE
-	UE_LOG(LogThreadingWindows, Log, TEXT("Runnable thread %s is on Process %d."), *ThreadName  , static_cast<uint32>(::GetCurrentProcessorNumber()) );
-#endif
-
-#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
-	if( !FPlatformMisc::IsDebuggerPresent() || GAlwaysReportCrash )
+#if UE_BUILD_DEBUG
+	if (true && !GAlwaysReportCrash)
+#else
+	if (FPlatformMisc::IsDebuggerPresent() && !GAlwaysReportCrash)
+#endif // UE_BUILD_DEBUG
 	{
+		ExitCode = Run();
+	}
+	else
+	{
+#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
 		__try
+#endif // !PLATFORM_SEH_EXCEPTIONS_DISABLED
 		{
 			ExitCode = Run();
 		}
-		__except( ReportCrash( GetExceptionInformation() ) )
+#if !PLATFORM_SEH_EXCEPTIONS_DISABLED
+		__except (ReportCrash( GetExceptionInformation() ))
 		{
 			// Make sure the information which thread crashed makes it into the log.
-			UE_LOG(LogThreadingWindows, Error, TEXT("Runnable thread %s crashed."), *ThreadName);
+			UE_LOG( LogThreadingWindows, Error, TEXT( "Runnable thread %s crashed." ), *ThreadName );
 			GWarn->Flush();
 
 			// Append the thread name at the end of the error report.
 			FCString::Strncat( GErrorHist, LINE_TERMINATOR TEXT( "Crash in runnable thread " ), ARRAY_COUNT( GErrorHist ) );
 			FCString::Strncat( GErrorHist, *ThreadName, ARRAY_COUNT( GErrorHist ) );
 
-			ExitCode = 1;
-			// Generate status report.				
+			// Crashed.
+			ExitCode = 1;		
 			GError->HandleError();
-			// Throw an error so that main thread shuts down too (otherwise task graph stalls forever).
-			UE_LOG(LogThreadingWindows, Fatal, TEXT("Runnable thread %s crashed."), *ThreadName);
+			FPlatformMisc::RequestExit( true );
 		}
-	}
-	else
-#endif
-	{
-		ExitCode = Run();
+#endif // !PLATFORM_SEH_EXCEPTIONS_DISABLED
 	}
 
 	return ExitCode;

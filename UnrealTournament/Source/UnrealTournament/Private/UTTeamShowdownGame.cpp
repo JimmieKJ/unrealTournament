@@ -37,15 +37,15 @@ void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Option
 			BotFillCount = ChallengeManager->GetNumPlayers(this);
 		}
 	}
-	else if (HasOption(Options, TEXT("Bots")))
+	else if (UGameplayStatics::HasOption(Options, TEXT("Bots")))
 	{
-		BotFillCount = GetIntOption(Options, TEXT("Bots"), SavedBotFillCount) + 1;
+		BotFillCount = UGameplayStatics::GetIntOption(Options, TEXT("Bots"), SavedBotFillCount) + 1;
 	}
 	else
 	{
-		BotFillCount = GetIntOption(Options, TEXT("BotFill"), SavedBotFillCount);
+		BotFillCount = UGameplayStatics::GetIntOption(Options, TEXT("BotFill"), SavedBotFillCount);
 	}
-	GameSession->MaxPlayers = GetIntOption(Options, TEXT("MaxPlayers"), GameSession->GetClass()->GetDefaultObject<AGameSession>()->MaxPlayers);
+	GameSession->MaxPlayers = UGameplayStatics::GetIntOption(Options, TEXT("MaxPlayers"), GameSession->GetClass()->GetDefaultObject<AGameSession>()->MaxPlayers);
 }
 
 bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)

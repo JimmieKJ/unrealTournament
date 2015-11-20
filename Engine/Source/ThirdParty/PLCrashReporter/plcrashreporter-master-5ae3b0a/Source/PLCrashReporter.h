@@ -132,3 +132,5 @@ typedef struct PLCrashReporterCallbacks {
 - (void) setCrashCallbacks: (PLCrashReporterCallbacks *) callbacks;
 
 @end
+
+PLCR_EXPORT int plcrashreporter_backtrace(void** Backtrace, int Depth);

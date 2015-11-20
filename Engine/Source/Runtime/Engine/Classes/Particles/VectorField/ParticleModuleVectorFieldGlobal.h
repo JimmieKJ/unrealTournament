@@ -25,8 +25,8 @@ class UParticleModuleVectorFieldGlobal : public UParticleModuleVectorFieldBase
 	UPROPERTY(EditAnywhere, Category=VectorField, meta=(ClampMin = "0.0", UIMin = "0.0", UIMax="1.0", editcondition = "bOverrideGlobalVectorFieldTightness"))
 	float GlobalVectorFieldTightness;
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void CompileModule(struct FParticleEmitterBuildInfo& EmitterInfo) override;
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 };
 

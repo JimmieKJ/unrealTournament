@@ -21,6 +21,9 @@ UPhATSimOptions::UPhATSimOptions(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	PhysicsBlend = 1.0f;
+	bUpdateJointsFromAnimation = false;
+	MaxFPS = -1;
+	TimeDilation = 1.f;
 }
 
 UMaterialEditorOptions::UMaterialEditorOptions(const FObjectInitializer& ObjectInitializer)
@@ -39,6 +42,10 @@ UPersonaOptions::UPersonaOptions(const FObjectInitializer& ObjectInitializer)
 	, DefaultLocalAxesSelection(2)
 {
 	ViewModeIndex = VMI_Lit;
+
+	SectionTimingNodeColor = FLinearColor(0.0f, 1.0f, 0.0f);
+	NotifyTimingNodeColor = FLinearColor(1.0f, 0.0f, 0.0f);
+	BranchingPointTimingNodeColor = FLinearColor(0.5f, 1.0f, 1.0f);
 }
 
 void UPersonaOptions::SetViewportBackgroundColor( const FLinearColor& InViewportBackgroundColor)
@@ -107,3 +114,21 @@ void UPersonaOptions::SetShowMeshStats( int32 InShowMeshStats )
 	SaveConfig();
 }
 
+
+void UPersonaOptions::SetSectionTimingNodeColor(const FLinearColor& InColor)
+{
+	SectionTimingNodeColor = InColor;
+	SaveConfig();
+}
+
+void UPersonaOptions::SetNotifyTimingNodeColor(const FLinearColor& InColor)
+{
+	NotifyTimingNodeColor = InColor;
+	SaveConfig();
+}
+
+void UPersonaOptions::SetBranchingPointTimingNodeColor(const FLinearColor& InColor)
+{
+	BranchingPointTimingNodeColor = InColor;
+	SaveConfig();
+}

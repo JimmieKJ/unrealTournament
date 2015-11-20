@@ -18,7 +18,7 @@ class USoundNodeGroupControl : public USoundNode
 	TArray<int32> GroupSizes;
 
 public:
-	// Begin USoundNode interface.
+	//~ Begin USoundNode Interface.
 	virtual bool NotifyWaveInstanceFinished( FWaveInstance* WaveInstance ) override;
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual int32 GetMaxChildNodes() const override 
@@ -32,7 +32,7 @@ public:
 	virtual void SetChildNodes(TArray<USoundNode*>& InChildNodes) override;
 #endif //WITH_EDITOR
 	virtual void CreateStartingConnectors() override;
-	// End USoundNode interface.
+	//~ End USoundNode Interface.
 
 private:
 	// Ensure the child count and group sizes are the same counts

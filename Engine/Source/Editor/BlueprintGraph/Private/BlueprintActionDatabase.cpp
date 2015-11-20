@@ -488,7 +488,7 @@ namespace BlueprintActionDatabaseImpl
 	 * way for a delete), but in-case the class wasn't deleted we need them 
 	 * tracked here so we can add them back in.
 	 */
-	TSet<UObject*> PendingDelete;
+	TSet<TWeakObjectPtr<UObject>> PendingDelete;
 
 	/** */
 	bool bIsInitializing = false;
@@ -737,9 +737,13 @@ static void BlueprintActionDatabaseImpl::AddBlueprintGraphActions(UBlueprint con
 		{
 			for (FBPVariableDescription const& LocalVar : FunctionEntry->LocalVariables)
 			{
-				UBlueprintNodeSpawner* GetVarSpawner = UBlueprintVariableNodeSpawner::Create(UK2Node_VariableGet::StaticClass(), FunctionGraph, LocalVar);
+				// Create a member reference so we can safely resolve the UProperty
+				FMemberReference Reference;
+				Reference.SetLocalMember(LocalVar.VarName, FunctionGraph->GetName(), LocalVar.VarGuid);
+
+				UBlueprintNodeSpawner* GetVarSpawner = UBlueprintVariableNodeSpawner::Create(UK2Node_VariableGet::StaticClass(), FunctionGraph, LocalVar, Reference.ResolveMember<UProperty>(Blueprint->SkeletonGeneratedClass));
 				ActionListOut.Add(GetVarSpawner);
-				UBlueprintNodeSpawner* SetVarSpawner = UBlueprintVariableNodeSpawner::Create(UK2Node_VariableSet::StaticClass(), FunctionGraph, LocalVar);
+				UBlueprintNodeSpawner* SetVarSpawner = UBlueprintVariableNodeSpawner::Create(UK2Node_VariableSet::StaticClass(), FunctionGraph, LocalVar, Reference.ResolveMember<UProperty>(Blueprint->SkeletonGeneratedClass));
 				ActionListOut.Add(SetVarSpawner);
 			}
 		}
@@ -879,8 +883,15 @@ static void BlueprintActionDatabaseImpl::OnAssetRemoved(UObject* AssetObject)
 	FBlueprintActionDatabase& ActionDatabase = FBlueprintActionDatabase::Get();
 	ActionDatabase.ClearAssetActions(AssetObject);
 
-	// the delete went through, so we don't need to track these for re-add
-	PendingDelete.Remove(AssetObject);
+	for (auto It(PendingDelete.CreateIterator()); It; ++It)
+	{
+		if ((*It).Get() == AssetObject)
+		{
+			// the delete went through, so we don't need to track these for re-add
+			It.RemoveCurrent();
+			break;
+		}
+	}
 }
 
 //------------------------------------------------------------------------------
@@ -1001,9 +1012,30 @@ FBlueprintActionDatabase::FBlueprintActionDatabase()
 //------------------------------------------------------------------------------
 void FBlueprintActionDatabase::AddReferencedObjects(FReferenceCollector& Collector)
 {
+	TSet<UBlueprintNodeSpawner*> AllActions;
 	for (auto& ActionListIt : ActionRegistry)
 	{
+		AllActions.Append(ActionListIt.Value);
 		Collector.AddReferencedObjects(ActionListIt.Value);
+	}
+
+	// shouldn't have to do this, as the elements listed here should also be 
+	// accounted for in the regular ActionRegistry, but just in case we fail to 
+	// remove an element from here when we should.... this'll make sure these 
+	// elements stick around (so we don't crash in ClearUnloadedAssetActions)
+	if (UnloadedActionRegistry.Num() > 0)
+	{
+		TSet<UBlueprintNodeSpawner*> UnloadedActions;
+		for (auto& UnloadedActionListIt : UnloadedActionRegistry)
+		{
+			UnloadedActions.Append(UnloadedActionListIt.Value);
+		}
+
+		auto OrphanedUnloadedActions = UnloadedActions.Difference(AllActions.Intersect(UnloadedActions));
+		if (!ensureMsgf(OrphanedUnloadedActions.Num() == 0, TEXT("Found %d unloaded actions that were not also present in the Action Registry. This should be 0."), UnloadedActions.Num()))
+		{
+			Collector.AddReferencedObjects(OrphanedUnloadedActions);
+		}
 	}
 }
 
@@ -1014,11 +1046,11 @@ void FBlueprintActionDatabase::Tick(float DeltaTime)
 
 	// entries that were removed from the database, in preparation for a delete
 	// (but the user ended up not deleting the object)
-	for (UObject* AssetObj : BlueprintActionDatabaseImpl::PendingDelete)
+	for (TWeakObjectPtr<UObject> AssetObj : BlueprintActionDatabaseImpl::PendingDelete)
 	{
-		if (IsValid(AssetObj))
+		if (AssetObj.IsValid())
 		{
-			RefreshAssetActions(AssetObj);
+			RefreshAssetActions(AssetObj.Get());
 		}
 	}
 	BlueprintActionDatabaseImpl::PendingDelete.Empty();
@@ -1082,6 +1114,7 @@ void FBlueprintActionDatabase::RefreshAll()
 	}
 
 	ActionRegistry.Empty();
+	UnloadedActionRegistry.Empty();
 	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
 	{
 		UClass* const Class = (*ClassIt);
@@ -1218,7 +1251,6 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 {
 	using namespace BlueprintActionDatabaseImpl;
 
-	bool const bHadExistingEntry = ActionRegistry.Contains(AssetObject);
 	FActionList& AssetActionList = ActionRegistry.FindOrAdd(AssetObject);
 	for (UBlueprintNodeSpawner* Action : AssetActionList)
 	{
@@ -1253,12 +1285,17 @@ void FBlueprintActionDatabase::RefreshAssetActions(UObject* const AssetObject)
 			AddAnimBlueprintGraphActions( AnimBlueprint, AssetActionList );
 		}
 
+		UBlueprint::FChangedEvent& OnBPChanged = BlueprintAsset->OnChanged();
+		UBlueprint::FCompiledEvent& OnBPCompiled = BlueprintAsset->OnCompiled();
 		// have to be careful not to register this callback twice for the 
 		// blueprint
-		if (!bHadExistingEntry)
+		if (!OnBPChanged.IsBoundToObject(this))
 		{
-			BlueprintAsset->OnChanged().AddRaw(this, &FBlueprintActionDatabase::OnBlueprintChanged);
-			BlueprintAsset->OnCompiled().AddRaw(this, &FBlueprintActionDatabase::OnBlueprintChanged);
+			OnBPChanged.AddRaw(this, &FBlueprintActionDatabase::OnBlueprintChanged);
+		}
+		if (!OnBPCompiled.IsBoundToObject(this))
+		{
+			OnBPCompiled.AddRaw(this, &FBlueprintActionDatabase::OnBlueprintChanged);
 		}
 	}
 

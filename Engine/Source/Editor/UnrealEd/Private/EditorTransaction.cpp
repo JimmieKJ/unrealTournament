@@ -36,6 +36,14 @@ FTransaction::FObjectRecord::FObjectRecord(FTransaction* Owner, UObject* InObjec
 
 void FTransaction::FObjectRecord::SerializeContents( FArchive& Ar, int32 InOper )
 {
+	// Cache to restore at the end
+	bool bWasArIgnoreOuterRef = Ar.ArIgnoreOuterRef;
+
+	if (Object.IsPartOfCDO())
+	{
+		Ar.ArIgnoreOuterRef = true;
+	}
+
 	if( Array )
 	{
 		//UE_LOG( LogEditorTransaction, Log, TEXT("Array %s %i*%i: %i"), Object ? *Object->GetFullName() : TEXT("Invalid Object"), Index, ElementSize, InOper);
@@ -89,6 +97,8 @@ void FTransaction::FObjectRecord::SerializeContents( FArchive& Ar, int32 InOper 
 		check(Serializer==NULL);
 		Object->Serialize( Ar );
 	}
+
+	Ar.ArIgnoreOuterRef = bWasArIgnoreOuterRef;
 }
 
 void FTransaction::FObjectRecord::Restore( FTransaction* Owner )
@@ -124,14 +134,31 @@ int32 FTransaction::GetRecordCount() const
 	return Records.Num();
 }
 
+bool FTransaction::ContainsPieObject() const
+{
+	for( const FObjectRecord& Record : Records )
+	{
+		if( Record.ContainsPieObject() )
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+
 void FTransaction::RemoveRecords( int32 Count /* = 1  */ )
 {
 	if ( Count > 0 && Records.Num() >= Count )
 	{
-		Records.RemoveAt( Records.Num() - Count, Count );
+		// Remove anything from the ObjectMap which is about to be removed from the Records array
+		for (int32 Index = 0; Index < Count; Index++)
+		{
+			ObjectMap.Remove( Records[Records.Num() - Count + Index].Object.Get() );
+		}
 
-		// Kill our object maps that are used to track redundant saves
-		ObjectMap.Empty();
+		Records.RemoveAt( Records.Num() - Count, Count );
 	}
 }
 
@@ -152,15 +179,18 @@ void FTransaction::DumpObjectMap(FOutputDevice& Ar) const
 
 FArchive& operator<<( FArchive& Ar, FTransaction::FObjectRecord& R )
 {
-	UObject* Object = R.Object.Get();
-	check(Object);
-	FMemMark Mark(FMemStack::Get());
-	Ar << Object;
-	R.Object = Object;
-	Ar << R.Data;
-	Ar << R.ReferencedObjects;
-	Ar << R.ReferencedNames;
-	Mark.Pop();
+	if (!Ar.IsObjectReferenceCollector() || (Ar.IsObjectReferenceCollector() && !R.Object.IsPartOfCDO()))
+	{
+		UObject* Object = R.Object.Get();
+		check(Object);
+		FMemMark Mark(FMemStack::Get());
+		Ar << Object;
+		R.Object = Object;
+		Ar << R.Data;
+		Ar << R.ReferencedObjects;
+		Ar << R.ReferencedNames;
+		Mark.Pop();
+	}
 	return Ar;
 }
 
@@ -210,6 +240,29 @@ void FTransaction::FObjectRecord::AddReferencedObjects( FReferenceCollector& Col
 	{
 		ObjectAnnotation->AddReferencedObjects(Collector);
 	}
+}
+
+bool FTransaction::FObjectRecord::ContainsPieObject() const
+{
+	{
+		UObject* Obj = Object.Get();
+
+		if(Obj && (Obj->GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0)
+		{
+			return true;
+		}
+	}
+
+	for( const FReferencedObject& ReferencedObject : ReferencedObjects )
+	{
+		const UObject* Obj = ReferencedObject.GetObject();
+		if( Obj && (Obj->GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0 )
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
 
 void FTransaction::AddReferencedObjects( FReferenceCollector& Collector )
@@ -309,6 +362,7 @@ void FTransaction::Apply()
 		return (BAsComponent ? (BAsComponent->GetOwner() != &A) : true);
 	});
 
+	TArray<ULevel*> LevelsToCommitModelSurface;
 	NumModelsModified = 0;		// Count the number of UModels that were changed.
 	for (auto ChangedObjectIt : ChangedObjects)
 	{
@@ -319,6 +373,14 @@ void FTransaction::Apply()
 			FBSPOps::bspBuildBounds(Model);
 			++NumModelsModified;
 		}
+		
+		if (UModelComponent* ModelComponent = Cast<UModelComponent>(ChangedObject))
+		{
+			ULevel* Level = ModelComponent->GetTypedOuter<ULevel>();
+			check(Level);
+			LevelsToCommitModelSurface.AddUnique(Level);
+		}
+
 		TSharedPtr<ITransactionObjectAnnotation> ChangedObjectTransactionAnnotation = ChangedObjectIt.Value;
 		if (ChangedObjectTransactionAnnotation.IsValid())
 		{
@@ -328,6 +390,12 @@ void FTransaction::Apply()
 		{
 			ChangedObject->PostEditUndo();
 		}
+	}
+
+	// Commit model surfaces for unique levels within the transaction
+	for (ULevel* Level : LevelsToCommitModelSurface)
+	{
+		Level->CommitModelSurfaces();
 	}
 
 	// Flip it.
@@ -750,6 +818,19 @@ bool UTransBuffer::IsObjectInTransationBuffer( const UObject* Object ) const
 		}
 		
 		TransactionObjects.Reset();
+	}
+
+	return false;
+}
+
+bool UTransBuffer::ContainsPieObject() const
+{
+	for( const FTransaction& Transaction : UndoBuffer )
+	{
+		if( Transaction.ContainsPieObject() )
+		{
+			return true;
+		}
 	}
 
 	return false;

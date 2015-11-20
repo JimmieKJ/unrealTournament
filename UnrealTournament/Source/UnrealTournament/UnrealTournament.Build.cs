@@ -28,6 +28,7 @@ public class UnrealTournament : ModuleRules
                                                     "RenderCore", 
                                                     "Navmesh", 
                                                     "WebBrowser", 
+                                                    "NetworkReplayStreaming", 
                                                     "Json", 
 													"JsonUtilities",
                                                     "HTTP", 
@@ -56,6 +57,7 @@ public class UnrealTournament : ModuleRules
                 new string[]
                 {
                     "OnlineSubsystemMcp",
+                    "McpProfileSys",
                     "UTMcpProfile",
                 }
             );

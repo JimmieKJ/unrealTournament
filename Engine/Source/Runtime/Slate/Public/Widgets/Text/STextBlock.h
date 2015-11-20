@@ -45,7 +45,7 @@ public:
 		{}
 
 		/** The text displayed in this text block */
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE( FText, Text )
 
 		/** Pointer to a style of the text block, which dictates the font, color, and shadow options. */
 		SLATE_STYLE_ARGUMENT( FTextBlockStyle, TextStyle )
@@ -99,6 +99,13 @@ public:
 
 	SLATE_END_ARGS()
 
+	/** Constructor */
+	STextBlock()
+	{
+		bCanTick = false;
+		bCanSupportFocus = false;
+	}
+
 	/**
 	 * Construct this widget
 	 *
@@ -125,6 +132,13 @@ public:
 	void SetText( const FString& InText );
 	void SetText( const TAttribute< FText >& InText );
 	void SetText( const FText& InText );
+
+	/**
+	* Sets the highlight text for this text block 
+	*
+	* @param	InText	The new text to highlight
+	*/
+	void SetHighlightText(TAttribute<FText> InText);
 
 	/**
 	 * Sets the font used to draw the text
@@ -170,6 +184,11 @@ public:
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
+	// End of SWidget interface
+
+protected:
+	// SWidget interface
+	virtual bool ComputeVolatility() const override;
 	// End of SWidget interface
 
 private:

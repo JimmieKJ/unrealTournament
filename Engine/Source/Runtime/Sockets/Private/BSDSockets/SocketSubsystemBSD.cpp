@@ -19,18 +19,23 @@ FSocket* FSocketSubsystemBSD::CreateSocket(const FName& SocketType, const FStrin
 {
 	SOCKET Socket = INVALID_SOCKET;
 	FSocket* NewSocket = nullptr;
+	int PlatformSpecificTypeFlags = 0;
+
+#if PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC
+	PlatformSpecificTypeFlags = SOCK_CLOEXEC;
+#endif // PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC
 
 	switch (SocketType.GetComparisonIndex())
 	{
 	case NAME_DGram:
 		// Creates a data gram (UDP) socket
-		Socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+		Socket = socket(AF_INET, SOCK_DGRAM | PlatformSpecificTypeFlags, IPPROTO_UDP);
 		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Datagram, SocketDescription) : nullptr;
 		break;
 
 	case NAME_Stream:
 		// Creates a stream (TCP) socket
-		Socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+		Socket = socket(AF_INET, SOCK_STREAM | PlatformSpecificTypeFlags, IPPROTO_TCP);
 		NewSocket = (Socket != INVALID_SOCKET) ? InternalBSDSocketFactory(Socket, SOCKTYPE_Streaming, SocketDescription) : nullptr;
 		break;
 

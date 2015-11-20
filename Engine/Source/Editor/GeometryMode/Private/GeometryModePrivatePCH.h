@@ -12,7 +12,6 @@
 
 #include "Editor/BspMode/Public/IBspModeModule.h"
 
-#include "GeometryModeClasses.h"
 #include "GeometryMode.h"
 #include "GeometryEdMode.h"
 #include "EditorGeometry.h"

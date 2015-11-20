@@ -40,24 +40,24 @@ class PxHeightFieldGeometry : public PxGeometry
 {
 public:
 	PX_INLINE PxHeightFieldGeometry() :		
-		PxGeometry(PxGeometryType::eHEIGHTFIELD),
-		heightField(NULL),
-		heightScale(1.0f), 
-		rowScale(1.0f), 
-		columnScale(1.0f), 
+		PxGeometry		(PxGeometryType::eHEIGHTFIELD),
+		heightField		(NULL),
+		heightScale		(1.0f), 
+		rowScale		(1.0f), 
+		columnScale		(1.0f), 
 		heightFieldFlags(0)
 	{}
 
 	PX_INLINE PxHeightFieldGeometry(PxHeightField* hf,
 									PxMeshGeometryFlags flags, 
-									PxReal heightscale,
-									PxReal rowscale, 
-									PxReal columnscale) :
+									PxReal heightScale_,
+									PxReal rowScale_, 
+									PxReal columnScale_) :
 		PxGeometry			(PxGeometryType::eHEIGHTFIELD), 
 		heightField			(hf) ,
-		heightScale			(heightscale), 
-		rowScale			(rowscale), 
-		columnScale			(columnscale), 
+		heightScale			(heightScale_), 
+		rowScale			(rowScale_), 
+		columnScale			(columnScale_), 
 		heightFieldFlags	(flags)
 		{
 		}

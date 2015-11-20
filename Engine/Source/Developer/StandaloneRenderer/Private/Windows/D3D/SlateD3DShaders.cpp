@@ -24,6 +24,10 @@ static void CompileShader( const FString& Filename, const FString& EntryPoint, c
 		{
 			checkf(0, ANSI_TO_TCHAR(ErrorBlob->GetBufferPointer()));
 		}
+		else
+		{
+			checkf(0, TEXT("D3DX11CompileFromFile failed, no error text provided"));
+		}
 	}
 }
 
@@ -241,9 +245,10 @@ FSlateDefaultVS::FSlateDefaultVS()
 	D3D11_INPUT_ELEMENT_DESC Layout[] = 
 	{
 		{ "TEXCOORD",	0, DXGI_FORMAT_R32G32B32A32_FLOAT,	0, 0,								D3D11_INPUT_PER_VERTEX_DATA,	0 },
-		{ "POSITION",	0, DXGI_FORMAT_R16G16_SINT,			0, D3D11_APPEND_ALIGNED_ELEMENT,	D3D11_INPUT_PER_VERTEX_DATA,	0 },
-		{ "TEXCOORD",	1, DXGI_FORMAT_R16G16_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT,	D3D11_INPUT_PER_VERTEX_DATA,	0 },
-		{ "TEXCOORD",	2, DXGI_FORMAT_R16G16B16A16_FLOAT,	0, D3D11_APPEND_ALIGNED_ELEMENT,	D3D11_INPUT_PER_VERTEX_DATA,	0 },
+		{ "TEXCOORD",	3, DXGI_FORMAT_R32G32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT,	D3D11_INPUT_PER_VERTEX_DATA,	0 },
+		{ "POSITION",	0, DXGI_FORMAT_R32G32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT,	D3D11_INPUT_PER_VERTEX_DATA,	0 },
+		{ "TEXCOORD",	1, DXGI_FORMAT_R32G32_FLOAT,		0, D3D11_APPEND_ALIGNED_ELEMENT,	D3D11_INPUT_PER_VERTEX_DATA,	0 },
+		{ "TEXCOORD",	2, DXGI_FORMAT_R32G32B32A32_FLOAT,	0, D3D11_APPEND_ALIGNED_ELEMENT,	D3D11_INPUT_PER_VERTEX_DATA,	0 },
 		{ "COLOR",		0, DXGI_FORMAT_B8G8R8A8_UNORM,		0, D3D11_APPEND_ALIGNED_ELEMENT,	D3D11_INPUT_PER_VERTEX_DATA,	0 },
 	};
 
@@ -275,13 +280,19 @@ FSlateDefaultPS::FSlateDefaultPS()
 {
 	Texture = &FSlateShaderParameterMap::Get().RegisterParameter<ID3D11ShaderResourceView>( "ElementTexture" );
 	TextureSampler = &FSlateShaderParameterMap::Get().RegisterParameter<ID3D11SamplerState>( "ElementTextureSampler" );
-	PerElementCBufferParam = &FSlateShaderParameterMap::Get().RegisterParameter<ID3D11Buffer>( "PerElementPSConstants" );
+	PerFrameCBufferParam = &FSlateShaderParameterMap::Get().RegisterParameter<ID3D11Buffer>("PerFramePSConstants");
+	PerElementCBufferParam = &FSlateShaderParameterMap::Get().RegisterParameter<ID3D11Buffer>("PerElementPSConstants");
 
+	PerFrameConstants.Create();
 	PerElementConstants.Create();
-	
+
+	PerFrameConstants.GetBufferData().GammaValues = FVector2D(1, 1 / 2.2f);
+
+	PerFrameCBufferParam->SetParameter(PerFrameConstants.GetResource());
+
 	// Set the constant parameter to use our constant buffer
 	// @todo: If we go back to multiple pixel shaders this likely has be called more frequently
-	PerElementCBufferParam->SetParameter( PerElementConstants.GetResource() );
+	PerElementCBufferParam->SetParameter(PerElementConstants.GetResource());
 
 	Create( FString::Printf( TEXT("%sShaders/StandaloneRenderer/D3D/SlateElementPixelShader.hlsl"), *FPaths::EngineDir() ), TEXT("Main"), TEXT("ps_4_0") );
 }
@@ -301,10 +312,15 @@ void FSlateDefaultPS::SetShaderParams( const FVector4& InShaderParams )
 	PerElementConstants.GetBufferData().ShaderParams = InShaderParams;
 }
 
+void FSlateDefaultPS::SetGammaValues(const FVector2D& InGammaValues)
+{
+	PerFrameConstants.GetBufferData().GammaValues = InGammaValues;
+}
+
 void FSlateDefaultPS::UpdateParameters()
 {
+	PerFrameConstants.UpdateBuffer();
 	PerElementConstants.UpdateBuffer();
 
 	TextureSampler->SetParameter( SamplerState );
-
 }

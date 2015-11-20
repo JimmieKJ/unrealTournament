@@ -84,4 +84,7 @@ private:
 
 	/** The content sources which the user has selected for addition to the project. */
 	TArray<TSharedPtr<IContentSource>> ContentSourcesToAdd;
+
+	/** The search box */
+	TSharedPtr<class SSearchBox> SearchBoxPtr;
 };

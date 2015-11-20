@@ -171,6 +171,29 @@ void UFactory::DisplayOverwriteOptionsDialog(const FText& Message)
 	}
 }
 
+bool UFactory::SortFactoriesByPriority(const UFactory& A, const UFactory& B)
+{
+	// First sort so that higher priorities are earlier in the list
+	if( A.ImportPriority > B.ImportPriority )
+	{
+		return true;
+	}
+	else if( A.ImportPriority < B.ImportPriority )
+	{
+		return false;
+	}
+
+	// Then sort so that factories that only create new assets are tried after those that actually import the file data (when they have an equivalent priority)
+	const bool bFactoryAImportsFiles = !A.CanCreateNew();
+	const bool bFactoryBImportsFiles = !B.CanCreateNew();
+	if( bFactoryAImportsFiles && !bFactoryBImportsFiles )
+	{
+		return true;
+	}
+
+	return false;
+}
+
 UObject* UFactory::StaticImportObject
 (
 UClass*				Class,
@@ -235,28 +258,7 @@ UObject* UFactory::StaticImportObject
 			}
 		}
 
-		Factories.Sort([](const UFactory& A, const UFactory& B) -> bool
-		{
-			// First sort so that higher priorities are earlier in the list
-			if( A.ImportPriority > B.ImportPriority )
-			{
-				return true;
-			}
-			else if( A.ImportPriority < B.ImportPriority )
-			{
-				return false;
-			}
-
-			// Then sort so that factories that only create new assets are tried after those that actually import the file data (when they have an equivalent priority)
-			const bool bFactoryAImportsFiles = !A.CanCreateNew();
-			const bool bFactoryBImportsFiles = !B.CanCreateNew();
-			if( bFactoryAImportsFiles && !bFactoryBImportsFiles )
-			{
-				return true;
-			}
-
-			return false;
-		});
+		Factories.Sort(&UFactory::SortFactoriesByPriority);
 	}
 
 	bool bLoadedFile = false;

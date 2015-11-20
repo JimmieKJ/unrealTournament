@@ -27,12 +27,13 @@ UEnvQueryTest::UEnvQueryTest(const FObjectInitializer& ObjectInitializer) : Supe
 
 void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 {
-	if (!IsScoring())
+	UObject* QueryOwner = QueryInstance.Owner.Get();
+	if (QueryOwner == nullptr || !IsScoring())
 	{
 		return;
 	}
 
-	ScoringFactor.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+	ScoringFactor.BindData(QueryOwner, QueryInstance.QueryID);
 	float ScoringFactorValue = ScoringFactor.GetValue();
 
 	float MinScore = 0;
@@ -40,23 +41,23 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 
 	if (ClampMinType == EEnvQueryTestClamping::FilterThreshold)
 	{
-		FloatValueMin.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+		FloatValueMin.BindData(QueryOwner, QueryInstance.QueryID);
 		MinScore = FloatValueMin.GetValue();
 	}
 	else if (ClampMinType == EEnvQueryTestClamping::SpecifiedValue)
 	{
-		ScoreClampMin.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+		ScoreClampMin.BindData(QueryOwner, QueryInstance.QueryID);
 		MinScore = ScoreClampMin.GetValue();
 	}
 
 	if (ClampMaxType == EEnvQueryTestClamping::FilterThreshold)
 	{
-		FloatValueMax.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+		FloatValueMax.BindData(QueryOwner, QueryInstance.QueryID);
 		MaxScore = FloatValueMax.GetValue();
 	}
 	else if (ClampMaxType == EEnvQueryTestClamping::SpecifiedValue)
 	{
-		ScoreClampMax.BindData(QueryInstance.Owner.Get(), QueryInstance.QueryID);
+		ScoreClampMax.BindData(QueryOwner, QueryInstance.QueryID);
 		MaxScore = ScoreClampMax.GetValue();
 	}
 
@@ -92,6 +93,13 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 
 	if (MinScore != MaxScore)
 	{
+		if (bDefineSweetSpot)
+		{
+			SweetSpotValue.BindData(QueryOwner, QueryInstance.QueryID);
+		}
+		const float BestValue = bDefineSweetSpot ? SweetSpotValue.GetValue() : MaxScore;
+		const float ValueSpan = FMath::Max(FMath::Abs(BestValue - MinScore), FMath::Abs(BestValue - MaxScore));
+
 		for (int32 ItemIndex = 0; ItemIndex < QueryInstance.ItemDetails.Num(); ItemIndex++, DetailInfo++)
 		{
 			if (QueryInstance.Items[ItemIndex].IsValid() == false)
@@ -105,7 +113,8 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 			if (TestValue != UEnvQueryTypes::SkippedItemValue)
 			{
 				const float ClampedScore = FMath::Clamp(TestValue, MinScore, MaxScore);
-				const float NormalizedScore = (ClampedScore - MinScore) / (MaxScore - MinScore);
+				const float NormalizedScore = (ValueSpan - FMath::Abs(BestValue - ClampedScore)) / ValueSpan;
+
 				// TODO? Add an option to invert the normalized score before applying an equation.
  				const float NormalizedScoreForEquation = /*bMirrorNormalizedScore ? (1.0f - NormalizedScore) :*/ NormalizedScore;
 				switch (ScoringEquation)
@@ -129,6 +138,10 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 						WeightedScore = ScoringFactorValue * (NormalizedScoreForEquation * NormalizedScoreForEquation);
 						break;
 
+					case EEnvTestScoreEquation::SquareRoot:
+						WeightedScore = ScoringFactorValue * FMath::Sqrt(NormalizedScoreForEquation);
+						break;
+
 					case EEnvTestScoreEquation::Constant:
 						// I know, it's not "constant".  It's "Constant, or zero".  The tooltip should explain that.
 						WeightedScore = (NormalizedScoreForEquation > 0) ? ScoringFactorValue : 0.0f;
@@ -140,7 +153,8 @@ void UEnvQueryTest::NormalizeItemScores(FEnvQueryInstance& QueryInstance)
 			}
 			else
 			{
-				TestValue = 0.0f;
+				// Do NOT clear TestValue to 0, because the SkippedItemValue is used to display "SKIP" when debugging.
+				// TestValue = 0.0f;
 				WeightedScore = 0.0f;
 			}
 
@@ -338,6 +352,7 @@ void UEnvQueryTest::UpdatePreviewData()
 	const int32 MaxSamples = 11;
 	static float SamplesLinear[MaxSamples] = { 0.0f };
 	static float SamplesSquare[MaxSamples] = { 0.0f };
+	static float SamplesSquareRoot[MaxSamples] = { 0.0f };
 	static float SamplesConstant[MaxSamples] = { 0.0f };
 	static bool bSamplesInitialized = false;
 
@@ -350,11 +365,12 @@ void UEnvQueryTest::UpdatePreviewData()
 			const float XValue = 1.0f * Idx / (MaxSamples - 1);
 			SamplesLinear[Idx] = XValue;
 			SamplesSquare[Idx] = XValue * XValue;
+			SamplesSquareRoot[Idx] = FMath::Sqrt(XValue);
 			SamplesConstant[Idx] = 0.5f;				// just for looks on preview, not the actual value
 		}
 	}
 
-	const float* AllSamples[] = { SamplesLinear, SamplesSquare, SamplesLinear, SamplesConstant };
+	const float* AllSamples[] = { SamplesLinear, SamplesSquare, SamplesLinear, SamplesSquareRoot, SamplesConstant };
 
 	int32 EquationType = (ScoringEquation >= ARRAY_COUNT(AllSamples)) ? EEnvTestScoreEquation::Constant : (EEnvTestScoreEquation::Type)ScoringEquation;
 	if (TestPurpose == EEnvTestPurpose::Filter)

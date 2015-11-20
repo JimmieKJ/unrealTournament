@@ -15,10 +15,11 @@ public:
 
 	// FOnlineUser
 	
-	virtual TSharedRef<FUniqueNetId> GetUserId() const override { return UserIdPtr; }
+	virtual TSharedRef<const FUniqueNetId> GetUserId() const override { return UserIdPtr; }
 	virtual FString GetRealName() const override { return TEXT("DummyRealName"); }
 	virtual FString GetDisplayName() const override  { return TEXT("DummyDisplayName"); }
 	virtual bool GetUserAttribute(const FString& AttrName, FString& OutAttrValue) const override;
+	virtual bool SetUserAttribute(const FString& AttrName, const FString& AttrValue) override;
 
 	// FUserOnlineAccount
 
@@ -36,7 +37,7 @@ public:
 	}
 
 	/** User Id represented as a FUniqueNetId */
-	TSharedRef<FUniqueNetId> UserIdPtr;
+	TSharedRef<const FUniqueNetId> UserIdPtr;
 
         /** Additional key/value pair data related to auth */
 	TMap<FString, FString> AdditionalAuthData;
@@ -58,9 +59,9 @@ public:
 	virtual bool AutoLogin(int32 LocalUserNum) override;
 	virtual TSharedPtr<FUserOnlineAccount> GetUserAccount(const FUniqueNetId& UserId) const override;
 	virtual TArray<TSharedPtr<FUserOnlineAccount> > GetAllUserAccounts() const override;
-	virtual TSharedPtr<FUniqueNetId> GetUniquePlayerId(int32 LocalUserNum) const override;
-	virtual TSharedPtr<FUniqueNetId> CreateUniquePlayerId(uint8* Bytes, int32 Size) override;
-	virtual TSharedPtr<FUniqueNetId> CreateUniquePlayerId(const FString& Str) override;
+	virtual TSharedPtr<const FUniqueNetId> GetUniquePlayerId(int32 LocalUserNum) const override;
+	virtual TSharedPtr<const FUniqueNetId> CreateUniquePlayerId(uint8* Bytes, int32 Size) override;
+	virtual TSharedPtr<const FUniqueNetId> CreateUniquePlayerId(const FString& Str) override;
 	virtual ELoginStatus::Type GetLoginStatus(int32 LocalUserNum) const override;
 	virtual ELoginStatus::Type GetLoginStatus(const FUniqueNetId& UserId) const override;
 	virtual FString GetPlayerNickname(int32 LocalUserNum) const override;
@@ -68,6 +69,7 @@ public:
 	virtual FString GetAuthToken(int32 LocalUserNum) const override;
 	virtual void GetUserPrivilege(const FUniqueNetId& UserId, EUserPrivileges::Type Privilege, const FOnGetUserPrivilegeCompleteDelegate& Delegate) override;
 	virtual FPlatformUserId GetPlatformUserIdFromUniqueNetId(const FUniqueNetId& UniqueNetId) override;
+	virtual FString GetAuthType() const override;
 
 	// FOnlineIdentityNull
 
@@ -91,7 +93,7 @@ private:
 	FOnlineIdentityNull();
 
 	/** Ids mapped to locally registered users */
-	TMap<int32, TSharedPtr<FUniqueNetId>> UserIds;
+	TMap<int32, TSharedPtr<const FUniqueNetId>> UserIds;
 
 	/** Ids mapped to locally registered users */
 	TMap<FUniqueNetIdString, TSharedRef<FUserOnlineAccountNull>> UserAccounts;

@@ -18,8 +18,8 @@
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
-FStreamingLevelCollectionModel::FStreamingLevelCollectionModel(UEditorEngine* InEditor)
-	: FLevelCollectionModel(InEditor)
+FStreamingLevelCollectionModel::FStreamingLevelCollectionModel()
+	: FLevelCollectionModel()
 	, AddedLevelStreamingClass(ULevelStreamingKismet::StaticClass())
 	, bAssetDialogOpen(false)
 {
@@ -32,13 +32,13 @@ FStreamingLevelCollectionModel::FStreamingLevelCollectionModel(UEditorEngine* In
 
 FStreamingLevelCollectionModel::~FStreamingLevelCollectionModel()
 {
-	Editor->UnregisterForUndo( this );
+	GEditor->UnregisterForUndo( this );
 }
 
 void FStreamingLevelCollectionModel::Initialize(UWorld* InWorld)
 {
 	BindCommands();	
-	Editor->RegisterForUndo( this );
+	GEditor->RegisterForUndo( this );
 	
 	FLevelCollectionModel::Initialize(InWorld);
 }
@@ -54,7 +54,7 @@ void FStreamingLevelCollectionModel::OnLevelsCollectionChanged()
 	}
 
 	// Add model for a persistent level
-	TSharedPtr<FStreamingLevelModel> PersistentLevelModel = MakeShareable(new FStreamingLevelModel(Editor, *this, NULL));
+	TSharedPtr<FStreamingLevelModel> PersistentLevelModel = MakeShareable(new FStreamingLevelModel(*this, nullptr));
 	PersistentLevelModel->SetLevelExpansionFlag(true);
 	RootLevelsList.Add(PersistentLevelModel);
 	AllLevelsList.Add(PersistentLevelModel);
@@ -64,9 +64,9 @@ void FStreamingLevelCollectionModel::OnLevelsCollectionChanged()
 	for (auto It = CurrentWorld->StreamingLevels.CreateConstIterator(); It; ++It)
 	{
 		ULevelStreaming* StreamingLevel = (*It);
-		if (StreamingLevel != NULL)
+		if (StreamingLevel != nullptr)
 		{
-			TSharedPtr<FStreamingLevelModel> LevelModel = MakeShareable(new FStreamingLevelModel(Editor, *this, StreamingLevel));
+			TSharedPtr<FStreamingLevelModel> LevelModel = MakeShareable(new FStreamingLevelModel(*this, StreamingLevel));
 			AllLevelsList.Add(LevelModel);
 			AllLevelsMap.Add(LevelModel->GetLongPackageName(), LevelModel);
 
@@ -573,7 +573,7 @@ void FStreamingLevelCollectionModel::MergeSelectedLevels_Executed()
 			FEditorDelegates::NewCurrentLevel.Broadcast();
 		}
 
-		Editor->NoteSelectionChange();
+		GEditor->NoteSelectionChange();
 
 		//restore the original selection and remove the levels that were merged
 		SetSelectedLevels(SelectedLevelsCopy);
@@ -655,16 +655,16 @@ void FStreamingLevelCollectionModel::SelectStreamingVolumes_Executed()
 
 	// Select the volumes.
 	const FScopedTransaction Transaction( LOCTEXT("SelectAssociatedStreamingVolumes", "Select Associated Streaming Volumes") );
-	Editor->GetSelectedActors()->Modify();
-	Editor->SelectNone(false, true);
+	GEditor->GetSelectedActors()->Modify();
+	GEditor->SelectNone(false, true);
 
 	for (int32 i = 0 ; i < LevelStreamingVolumesToSelect.Num() ; ++i)
 	{
 		ALevelStreamingVolume* LevelStreamingVolume = LevelStreamingVolumesToSelect[i];
-		Editor->SelectActor(LevelStreamingVolume, /*bInSelected=*/ true, false, true);
+		GEditor->SelectActor(LevelStreamingVolume, /*bInSelected=*/ true, false, true);
 	}
 	
-	Editor->NoteSelectionChange();
+	GEditor->NoteSelectionChange();
 }
 
 #undef LOCTEXT_NAMESPACE

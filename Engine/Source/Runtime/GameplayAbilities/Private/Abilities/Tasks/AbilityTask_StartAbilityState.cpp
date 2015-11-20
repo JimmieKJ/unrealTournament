@@ -14,7 +14,7 @@ UAbilityTask_StartAbilityState::UAbilityTask_StartAbilityState(const FObjectInit
 
 UAbilityTask_StartAbilityState* UAbilityTask_StartAbilityState::StartAbilityState(UObject* WorldContextObject, FName StateName, bool bEndCurrentState)
 {
-	auto Task = NewTask<UAbilityTask_StartAbilityState>(WorldContextObject, StateName);
+	auto Task = NewAbilityTask<UAbilityTask_StartAbilityState>(WorldContextObject, StateName);
 	Task->bEndCurrentState = bEndCurrentState;
 	return Task;
 }

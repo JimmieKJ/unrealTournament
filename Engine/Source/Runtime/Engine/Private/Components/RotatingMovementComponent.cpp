@@ -21,6 +21,11 @@ void URotatingMovementComponent::TickComponent(float DeltaTime, enum ELevelTick 
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+	if (!IsValid(UpdatedComponent))
+	{
+		return;
+	}
+
 	// Compute new rotation
 	const FQuat OldRotation = UpdatedComponent->GetComponentQuat();
 	const FQuat DeltaRotation = (RotationRate * DeltaTime).Quaternion();

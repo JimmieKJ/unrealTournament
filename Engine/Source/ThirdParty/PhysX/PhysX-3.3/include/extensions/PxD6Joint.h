@@ -456,6 +456,9 @@ public:
 
 	\param[in] tolerance the angular tolerance threshold in radians
 
+	\note 
+	Angular projection is implemented only for the case of two or three locked angular degrees of freedom.
+
 	@see getProjectionAngularTolerance() PxJoint::setConstraintFlag() PxConstraintFlag::ePROJECTION
 	*/
 

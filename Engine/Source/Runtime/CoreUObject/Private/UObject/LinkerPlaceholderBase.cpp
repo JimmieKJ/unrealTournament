@@ -253,7 +253,7 @@ int32 FLinkerPlaceholderBase::ResolvePlaceholderPropertyValues(UObject* NewObjec
 		for (const UObjectProperty* Property : ReferencingPair.Value)
 		{
 #if USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
-			check(Property->GetOwnerClass() == Container->GetClass());
+			check(Container->GetClass()->IsChildOf(Property->GetOwnerClass()));
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
 
 			TArray<const UProperty*> PropertyChain;

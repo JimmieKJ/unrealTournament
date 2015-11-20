@@ -19,12 +19,13 @@ class UBehaviorTreeGraphNode : public UAIGraphNode
 	UPROPERTY()
 	TArray<UBehaviorTreeGraphNode*> Services;
 
-	// Begin UEdGraphNode Interface
+	//~ Begin UEdGraphNode Interface
 	virtual class UBehaviorTreeGraph* GetBehaviorTreeGraph();
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const override;
-	// End UEdGraphNode Interface
+	virtual void FindDiffs(class UEdGraphNode* OtherNode, struct FDiffResults& Results) override;
+	//~ End UEdGraphNode Interface
 
 	virtual FText GetDescription() const override;
 	virtual bool HasErrors() const override;

@@ -70,12 +70,7 @@ bool FStructBox::Serialize(FArchive& Ar)
 	ensure(bValidBox || !IsValid());
 	if (IsValid() && bValidBox)
 	{
-		const bool bUseBinarySerialization = !(Ar.IsLoading() || Ar.IsSaving())
-			|| Ar.WantBinaryPropertySerialization()
-			|| (0 != (ScriptStruct->StructFlags & STRUCT_Immutable));
-		const bool bUseNativeSerialization = 0 != (ScriptStruct->StructFlags & STRUCT_SerializeNative);
-
-		UStructProperty::StaticSerializeItem(Ar, StructMemory, nullptr, ScriptStruct, bUseBinarySerialization, bUseNativeSerialization);
+		ScriptStruct->SerializeItem(Ar, StructMemory, nullptr);
 	}
 
 	return true;

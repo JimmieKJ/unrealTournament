@@ -14,20 +14,35 @@ namespace UnrealBuildTool
 {
 	class ActionThread
 	{
-		/** Cache the exit code from the command so that the executor can report errors */
+		/// <summary>
+		/// Cache the exit code from the command so that the executor can report errors
+		/// </summary>
 		public int ExitCode = 0;
-		/** Set to true only when the local or RPC action is complete */
-		public bool bComplete = false;
-		/** Cache the action that this thread is managing */
-		Action Action;
-        /** For reporting status to the user */
-        int JobNumber;
-        int TotalJobs;
 
-		/** Regex that matches environment variables in $(Variable) format. */
+		/// <summary>
+		/// Set to true only when the local or RPC action is complete
+		/// </summary>
+		public bool bComplete = false;
+
+		/// <summary>
+		/// Cache the action that this thread is managing
+		/// </summary>
+		Action Action;
+
+		/// <summary>
+		/// For reporting status to the user
+		/// </summary>
+		int JobNumber;
+		int TotalJobs;
+
+		/// <summary>
+		/// Regex that matches environment variables in $(Variable) format.
+		/// </summary>
 		static Regex EnvironmentVariableRegex = new Regex("\\$\\(([\\d\\w]+)\\)");
 
-		/** Replaces the environment variables references in a string with their values. */
+		/// <summary>
+		/// Replaces the environment variables references in a string with their values.
+		/// </summary>
 		public static string ExpandEnvironmentVariables(string Text)
 		{
 			foreach (Match EnvironmentVariableMatch in EnvironmentVariableRegex.Matches(Text))
@@ -38,19 +53,19 @@ namespace UnrealBuildTool
 			return Text;
 		}
 
-		/**
-		 * Constructor, takes the action to process
-		 */
-        public ActionThread(Action InAction, int InJobNumber, int InTotalJobs)
+		/// <summary>
+		/// Constructor, takes the action to process
+		/// </summary>
+		public ActionThread(Action InAction, int InJobNumber, int InTotalJobs)
 		{
 			Action = InAction;
-            JobNumber = InJobNumber;
-            TotalJobs = InTotalJobs;
+			JobNumber = InJobNumber;
+			TotalJobs = InTotalJobs;
 		}
 
-		/**
-		 * Sends a string to an action's OutputEventHandler
-		 */
+		/// <summary>
+		/// Sends a string to an action's OutputEventHandler
+		/// </summary>
 		private static void SendOutputToEventHandler(Action Action, string Output)
 		{
 			// pass the output to any handler requested
@@ -70,11 +85,11 @@ namespace UnrealBuildTool
 				string[] Lines = Output.Split("\r\n".ToCharArray());
 				foreach (string Line in Lines)
 				{
-				    // set the Data field
-				    ArgFields[0].SetValue(EventArgs, Line);
+					// set the Data field
+					ArgFields[0].SetValue(EventArgs, Line);
 
-				    // finally call the handler with this faked object
-				    Action.OutputEventHandler(Action, EventArgs);
+					// finally call the handler with this faked object
+					Action.OutputEventHandler(Action, EventArgs);
 				}
 			}
 			else
@@ -85,32 +100,31 @@ namespace UnrealBuildTool
 		}
 
 
-        /**
-         * Used when debuging Actions outputs all action return values to debug out
-         * 
-         * @param	sender		Sending object
-         * @param	e			Event arguments (In this case, the line of string output)
-         */
-        protected void ActionDebugOutput(object sender, DataReceivedEventArgs e)
-        {
-            var Output = e.Data;
-            if (Output == null)
-            {
-                return;
-            }
+		/// <summary>
+		/// Used when debuging Actions outputs all action return values to debug out
+		/// </summary>
+		/// <param name="sender"> Sending object</param>
+		/// <param name="e">  Event arguments (In this case, the line of string output)</param>
+		protected void ActionDebugOutput(object sender, DataReceivedEventArgs e)
+		{
+			var Output = e.Data;
+			if (Output == null)
+			{
+				return;
+			}
 
-            Log.TraceInformation(Output);
-        }
+			Log.TraceInformation(Output);
+		}
 
 
-		/**
-		 * The actual function to run in a thread. This is potentially long and blocking
-		 */
+		/// <summary>
+		/// The actual function to run in a thread. This is potentially long and blocking
+		/// </summary>
 		private void ThreadFunc()
 		{
 			// thread start time
 			Action.StartTime = DateTimeOffset.Now;
-			
+
 			if (Action.ActionHandler != null)
 			{
 				// call the function and get the ExitCode and an output string
@@ -129,7 +143,7 @@ namespace UnrealBuildTool
 						Output = Action.StatusDescription;
 					}
 				}
-				
+
 				SendOutputToEventHandler(Action, Output);
 			}
 			else
@@ -170,10 +184,6 @@ namespace UnrealBuildTool
 				{
 					Log.TraceVerbose("Executing: {0} {1}", ExpandedCommandPath, ActionStartInfo.Arguments);
 				}
-                if (Action.bPrintDebugInfo)
-                {
-                    Log.TraceInformation("Executing: {0} {1}", ExpandedCommandPath, ActionStartInfo.Arguments);
-                }
 				// Log summary if wanted.
 				else if (Action.bShouldOutputStatusDescription)
 				{
@@ -184,7 +194,7 @@ namespace UnrealBuildTool
 					}
 					else
 					{
-                        Log.TraceInformation("[{0}/{1}] {2} {3}", JobNumber, TotalJobs, CommandDescription, Action.StatusDescription);
+						Log.TraceInformation("[{0}/{1}] {2} {3}", JobNumber, TotalJobs, CommandDescription, Action.StatusDescription);
 					}
 				}
 
@@ -203,17 +213,17 @@ namespace UnrealBuildTool
 							ActionStartInfo.RedirectStandardError = true;
 							ActionProcess.EnableRaisingEvents = true;
 
-                            if (Action.OutputEventHandler != null)
-                            {
-                                ActionProcess.OutputDataReceived += Action.OutputEventHandler;
-                                ActionProcess.ErrorDataReceived += Action.OutputEventHandler;
-                            }
-                            
-                            if ( Action.bPrintDebugInfo)
-                            {
-                                ActionProcess.OutputDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
-                                ActionProcess.ErrorDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
-                            }
+							if (Action.OutputEventHandler != null)
+							{
+								ActionProcess.OutputDataReceived += Action.OutputEventHandler;
+								ActionProcess.ErrorDataReceived += Action.OutputEventHandler;
+							}
+
+							if (Action.bPrintDebugInfo)
+							{
+								ActionProcess.OutputDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
+								ActionProcess.ErrorDataReceived += new DataReceivedEventHandler(ActionDebugOutput);
+							}
 						}
 						ActionProcess.Start();
 						if (bShouldRedirectOuput)
@@ -233,31 +243,31 @@ namespace UnrealBuildTool
 					bool haveConfiguredProcess = false;
 					do
 					{
-						if(ActionProcess.HasExited)
+						if (ActionProcess.HasExited)
 						{
-							if(haveConfiguredProcess == false)
+							if (haveConfiguredProcess == false)
 								Debug.WriteLine("Process for action exited before able to configure!");
 							break;
 						}
 
 						Thread.Sleep(100);
-						
-						if( !haveConfiguredProcess)
+
+						if (!haveConfiguredProcess)
 						{
 							try
 							{
 								ActionProcess.PriorityClass = ProcessPriorityClass.BelowNormal;
 								haveConfiguredProcess = true;
 							}
-							catch(Exception)
+							catch (Exception)
 							{
 							}
 							break;
 						}
 
 						checkIterations++;
-					} while(checkIterations < 10);
-					if(checkIterations == 10)
+					} while (checkIterations < 10);
+					if (checkIterations == 10)
 					{
 						throw new BuildException("Failed to configure local process for action: {0} {1}", Action.CommandPath, Action.CommandArguments);
 					}
@@ -278,7 +288,7 @@ namespace UnrealBuildTool
 					// As the process has finished now, free its resources. On non-Windows platforms, processes depend 
 					// on POSIX/BSD threading and these are limited per application. Disposing the Process releases 
 					// these thread resources.
-					if(ActionProcess != null)
+					if (ActionProcess != null)
 						ActionProcess.Close();
 				}
 			}
@@ -286,23 +296,25 @@ namespace UnrealBuildTool
 			// track how long it took
 			Action.EndTime = DateTimeOffset.Now;
 
-			// send telemetry
-			{
-				// See if the action produced a PCH file (infer from the extension as we no longer have the compile environments used to generate the actions.
-				var ActionProducedPCH = Action.ProducedItems.Find(fileItem => new[] { ".PCH", ".GCH" }.Contains(Path.GetExtension(fileItem.AbsolutePath).ToUpperInvariant()));
-				if (ActionProducedPCH != null && File.Exists(ActionProducedPCH.AbsolutePath)) // File may not exist if we're building remotely
-				{
-					// If we had a valid match for a PCH item, send an event.
-					Telemetry.SendEvent("PCHTime.2",
-						"ExecutorType", "Local",
-						// Use status description because on VC tool chains it tells us more details about shared PCHs and their source modules.
-						"Filename", Action.StatusDescription,
-						// Get the length from the OS instead of the FileItem.Length is really for when the file is used as an input,
-						// so the stored length is absent for a new for or out of date at best.
-						"FileSize", new FileInfo(ActionProducedPCH.AbsolutePath).Length.ToString(),
-						"Duration", Action.Duration.TotalSeconds.ToString("0.00"));
-				}
-			}
+			/*
+						// send telemetry
+						{
+							// See if the action produced a PCH file (infer from the extension as we no longer have the compile environments used to generate the actions.
+							var ActionProducedPCH = Action.ProducedItems.Find(fileItem => new[] { ".PCH", ".GCH" }.Contains(Path.GetExtension(fileItem.AbsolutePath).ToUpperInvariant()));
+							if (ActionProducedPCH != null && File.Exists(ActionProducedPCH.AbsolutePath)) // File may not exist if we're building remotely
+							{
+								// If we had a valid match for a PCH item, send an event.
+								Telemetry.SendEvent("PCHTime.2",
+									"ExecutorType", "Local",
+									// Use status description because on VC tool chains it tells us more details about shared PCHs and their source modules.
+									"Filename", Action.StatusDescription,
+									// Get the length from the OS instead of the FileItem.Length is really for when the file is used as an input,
+									// so the stored length is absent for a new for or out of date at best.
+									"FileSize", new FileInfo(ActionProducedPCH.AbsolutePath).Length.ToString(),
+									"Duration", Action.Duration.TotalSeconds.ToString("0.00"));
+							}
+						}
+			*/
 
 			if (!Utils.IsRunningOnMono)
 			{
@@ -314,9 +326,9 @@ namespace UnrealBuildTool
 			bComplete = true;
 		}
 
-		/**
-		 * Starts a thread and runs the action in that thread
-		 */
+		/// <summary>
+		/// Starts a thread and runs the action in that thread
+		/// </summary>
 		public void Run()
 		{
 			Thread T = new Thread(ThreadFunc);
@@ -326,47 +338,34 @@ namespace UnrealBuildTool
 
 	public class LocalExecutor
 	{
-		/**
-		 * Executes the specified actions locally.
-		 * @return True if all the tasks successfully executed, or false if any of them failed.
-		 */
+		/// <summary>
+		/// Executes the specified actions locally.
+		/// </summary>
+		/// <returns>True if all the tasks successfully executed, or false if any of them failed.</returns>
 		public static bool ExecuteActions(List<Action> Actions)
 		{
 			// Time to sleep after each iteration of the loop in order to not busy wait.
 			const float LoopSleepTime = 0.1f;
 
 			// Use WMI to figure out physical cores, excluding hyper threading.
-			int NumCores = 0;
-			if (!Utils.IsRunningOnMono)
-			{
-				try
-				{
-					using (var Mos = new System.Management.ManagementObjectSearcher("Select * from Win32_Processor"))
-					{
-						var MosCollection = Mos.Get();
-						foreach (var Item in MosCollection)
-						{
-							NumCores += int.Parse(Item["NumberOfCores"].ToString());
-						}
-					}
-				}
-				catch (Exception Ex)
-				{
-					Log.TraceWarning("Unable to get the number of Cores: {0}", Ex.ToString());
-					Log.TraceWarning("Falling back to processor count.");
-				}
-			}
-			// On some systems this requires a hot fix to work so we fall back to using the (logical) processor count.
-			if( NumCores == 0 )
+			int NumCores = Utils.GetPhysicalProcessorCount();
+			if (NumCores == -1)
 			{
 				NumCores = System.Environment.ProcessorCount;
 			}
 			// The number of actions to execute in parallel is trying to keep the CPU busy enough in presence of I/O stalls.
 			int MaxActionsToExecuteInParallel = 0;
-			// The CPU has more logical cores than physical ones, aka uses hyper-threading. 
-			if( NumCores < System.Environment.ProcessorCount )
+			if (NumCores < System.Environment.ProcessorCount && BuildConfiguration.ProcessorCountMultiplier != 1.0)
 			{
-				MaxActionsToExecuteInParallel = (int) (NumCores * BuildConfiguration.ProcessorCountMultiplier);
+				// The CPU has more logical cores than physical ones, aka uses hyper-threading. 
+				// Use multiplier if provided
+				MaxActionsToExecuteInParallel = (int)(NumCores * BuildConfiguration.ProcessorCountMultiplier);
+			}
+			else if (NumCores < System.Environment.ProcessorCount && NumCores > 4)
+			{
+				// The CPU has more logical cores than physical ones, aka uses hyper-threading. 
+				// Use average of logical and physical if we have "lots of cores"
+				MaxActionsToExecuteInParallel = (int)(NumCores + System.Environment.ProcessorCount) / 2;
 			}
 			// No hyper-threading. Only kicking off a task per CPU to keep machine responsive.
 			else
@@ -374,26 +373,26 @@ namespace UnrealBuildTool
 				MaxActionsToExecuteInParallel = NumCores;
 			}
 
-            if (Utils.IsRunningOnMono)
-            {
+			if (Utils.IsRunningOnMono)
+			{
 				// heuristic: give each action at least 1.5GB of RAM (some clang instances will need more, actually)
 				long MinMemoryPerActionMB = 3 * 1024 / 2;
-				long PhysicalRAMAvailableMB = (new PerformanceCounter ("Mono Memory", "Total Physical Memory").RawValue) / (1024 * 1024);
+				long PhysicalRAMAvailableMB = (new PerformanceCounter("Mono Memory", "Total Physical Memory").RawValue) / (1024 * 1024);
 				int MaxActionsAffordedByMemory = (int)(Math.Max(1, (PhysicalRAMAvailableMB) / MinMemoryPerActionMB));
 
 				MaxActionsToExecuteInParallel = Math.Min(MaxActionsToExecuteInParallel, MaxActionsAffordedByMemory);
-            }
+			}
 
-			MaxActionsToExecuteInParallel = Math.Max( 1, Math.Min(MaxActionsToExecuteInParallel, BuildConfiguration.MaxProcessorCount) );
+			MaxActionsToExecuteInParallel = Math.Max(1, Math.Min(MaxActionsToExecuteInParallel, BuildConfiguration.MaxProcessorCount));
 
-            Log.TraceInformation("Performing {0} actions ({1} in parallel)", Actions.Count, MaxActionsToExecuteInParallel);
+			Log.TraceInformation("Performing {0} actions ({1} in parallel)", Actions.Count, MaxActionsToExecuteInParallel);
 
 			Dictionary<Action, ActionThread> ActionThreadDictionary = new Dictionary<Action, ActionThread>();
-            int JobNumber = 1;
-			using(ProgressWriter ProgressWriter = new ProgressWriter("Compiling C++ source code...", false))
+			int JobNumber = 1;
+			using (ProgressWriter ProgressWriter = new ProgressWriter("Compiling C++ source code...", false))
 			{
 				int ProgressValue = 0;
-				while(true)
+				while (true)
 				{
 					// Count the number of pending and still executing actions.
 					int NumUnexecutedActions = 0;
@@ -438,7 +437,7 @@ namespace UnrealBuildTool
 						bool bFoundActionProcess = ActionThreadDictionary.TryGetValue(Action, out ActionProcess);
 						if (bFoundActionProcess == false)
 						{
-							if (NumExecutingActions < Math.Max(1,MaxActionsToExecuteInParallel))
+							if (NumExecutingActions < Math.Max(1, MaxActionsToExecuteInParallel))
 							{
 								// Determine whether there are any prerequisites of the action that are outdated.
 								bool bHasOutdatedPrerequisites = false;
@@ -448,7 +447,7 @@ namespace UnrealBuildTool
 									if (PrerequisiteItem.ProducingAction != null && Actions.Contains(PrerequisiteItem.ProducingAction))
 									{
 										ActionThread PrerequisiteProcess = null;
-										bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue( PrerequisiteItem.ProducingAction, out PrerequisiteProcess );
+										bool bFoundPrerequisiteProcess = ActionThreadDictionary.TryGetValue(PrerequisiteItem.ProducingAction, out PrerequisiteProcess);
 										if (bFoundPrerequisiteProcess == true)
 										{
 											if (PrerequisiteProcess == null)
@@ -475,7 +474,7 @@ namespace UnrealBuildTool
 								if (bHasFailedPrerequisites)
 								{
 									// Add a null entry in the dictionary for this action.
-									ActionThreadDictionary.Add( Action, null );
+									ActionThreadDictionary.Add(Action, null);
 								}
 								// If there aren't any outdated prerequisites of this action, execute it.
 								else if (!bHasOutdatedPrerequisites)
@@ -496,8 +495,8 @@ namespace UnrealBuildTool
 				}
 			}
 
-			Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, TraceEventType.Information, "-------- Begin Detailed Action Stats ----------------------------------------------------------");
-			Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, TraceEventType.Information, "^Action Type^Duration (seconds)^Tool^Task^Using PCH");
+			Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, LogEventType.Console, "-------- Begin Detailed Action Stats ----------------------------------------------------------");
+			Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats, LogEventType.Console, "^Action Type^Duration (seconds)^Tool^Task^Using PCH");
 
 			double TotalThreadSeconds = 0;
 
@@ -511,7 +510,7 @@ namespace UnrealBuildTool
 				// Check for pending actions, preemptive failure
 				if (ActionThread == null)
 				{
-                    bSuccess = false;
+					bSuccess = false;
 					continue;
 				}
 				// Check for executed action but general failure
@@ -519,16 +518,16 @@ namespace UnrealBuildTool
 				{
 					bSuccess = false;
 				}
-                // Log CPU time, tool and task.
+				// Log CPU time, tool and task.
 				double ThreadSeconds = Action.Duration.TotalSeconds;
 
 				Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats,
-					TraceEventType.Information,
-					"^{0}^{1:0.00}^{2}^{3}^{4}", 
+					LogEventType.Console,
+					"^{0}^{1:0.00}^{2}^{3}^{4}",
 					Action.ActionType.ToString(),
 					ThreadSeconds,
-					Path.GetFileName(Action.CommandPath), 
-                      Action.StatusDescription,
+					Path.GetFileName(Action.CommandPath),
+					  Action.StatusDescription,
 					Action.bIsUsingPCH);
 
 				// Update statistics
@@ -566,8 +565,8 @@ namespace UnrealBuildTool
 			Log.TraceInformation("-------- End Detailed Actions Stats -----------------------------------------------------------");
 
 			// Log total CPU seconds and numbers of processors involved in tasks.
-			Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats || BuildConfiguration.bPrintDebugInfo, 
-				TraceEventType.Information, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
+			Log.WriteLineIf(BuildConfiguration.bLogDetailedActionStats || BuildConfiguration.bPrintDebugInfo,
+				LogEventType.Console, "Cumulative thread seconds ({0} processors): {1:0.00}", System.Environment.ProcessorCount, TotalThreadSeconds);
 
 			return bSuccess;
 		}

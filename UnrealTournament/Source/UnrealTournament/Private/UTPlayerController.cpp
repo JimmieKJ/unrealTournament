@@ -360,9 +360,9 @@ void AUTPlayerController::InitInputSystem()
 
 	Super::InitInputSystem();
 
-	if (AnnouncerPath.AssetLongPathname.Len() > 0)
+	if (AnnouncerPath.ToString().Len() > 0)
 	{
-		TSubclassOf<UUTAnnouncer> AnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *AnnouncerPath.AssetLongPathname, NULL, 0, NULL);
+		TSubclassOf<UUTAnnouncer> AnnouncerClass = LoadClass<UUTAnnouncer>(NULL, *AnnouncerPath.ToString(), NULL, 0, NULL);
 		if (AnnouncerClass != NULL)
 		{
 			Announcer = NewObject<UUTAnnouncer>(this, AnnouncerClass);
@@ -1555,7 +1555,7 @@ void AUTPlayerController::ClientHearSound_Implementation(USoundBase* TheSound, A
 			}
 			else if (SoundPlayer != NULL)
 			{
-				UGameplayStatics::PlaySoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
+				UGameplayStatics::SpawnSoundAttached(TheSound, SoundPlayer->GetRootComponent(), NAME_None, FVector::ZeroVector, EAttachLocation::KeepRelativeOffset, bStopWhenOwnerDestroyed, VolumeMultiplier, 1.0f, 0.0f, AttenuationOverride);
 			}
 		}
 	}
@@ -2158,7 +2158,21 @@ void AUTPlayerController::ShowEndGameScoreboard()
 	}
 }
 
-void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
+void AUTPlayerController::ClientBackendNotify_Implementation(const FString& TypeStr, const FString& Data)
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL)
+	{
+		TSharedPtr<FJsonValue> JsonData;
+		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(Data);
+		if (FJsonSerializer::Deserialize(JsonReader, JsonData))
+		{
+			LP->HandleProfileNotification(FOnlineNotification(TypeStr, JsonData));
+		}
+	}
+}
+
+/*void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -2177,7 +2191,7 @@ void AUTPlayerController::ClientReceiveLevelReward_Implementation(int32 Level, c
 	// Store the reward. The SUTXPBar will display the toast when it triggers a level up
 	LevelRewards.SetNumZeroed(FMath::Max<int32>(LevelRewards.Num(), Level + 1));
 	LevelRewards[Level] = RewardItem;
-}
+}*/
 
 void AUTPlayerController::ShowMenu(const FString& Parameters)
 {
@@ -2914,22 +2928,23 @@ void AUTPlayerController::ReceivedPlayer()
 			{
 				if (OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 				{
-					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+					TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
 					if (UserId.IsValid())
 					{
 						ServerReceiveStatsID(UserId->ToString());
 					}
-
+					/*
 #if WITH_PROFILE
 					if (GetNetMode() != NM_DedicatedServer)
 					{
 						InitializeMcpProfile();
 					}
 #endif
+					*/
 				}
 				else
 				{
-					OnLoginStatusChangedDelegate = OnlineIdentityInterface->AddOnLoginStatusChangedDelegate_Handle(LP->GetControllerId(), FOnLoginStatusChangedDelegate::CreateUObject(this, &AUTPlayerController::OnLoginStatusChanged));
+					//OnLoginStatusChangedDelegate = OnlineIdentityInterface->AddOnLoginStatusChangedDelegate_Handle(LP->GetControllerId(), FOnLoginStatusChangedDelegate::CreateUObject(this, &AUTPlayerController::OnLoginStatusChanged));
 				}
 			}
 		}
@@ -3211,7 +3226,7 @@ void AUTPlayerController::ServerViewPlaceholderAtLocation_Implementation(FVector
 	{
 		FActorSpawnParameters Params;
 		Params.Owner = this;
-		Params.bNoCollisionFail = true;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		AUTViewPlaceholder *ViewPlaceholder = GetWorld()->SpawnActor<AUTViewPlaceholder>(AUTViewPlaceholder::StaticClass(), Location, FRotator(), Params);
 		SetViewTarget(ViewPlaceholder);
 	}
@@ -3272,7 +3287,7 @@ void AUTPlayerController::UTLogOutBugItGoToLogFile(const FString& InScreenShotDe
 	//FArchive* OutputFile = IFileManager::Get().CreateDebugFileWriter( *(FullFileName), FILEWRITE_Append );
 
 
-	OutputFile.Logf(TEXT("Dumping BugIt data chart at %s using build %s built from changelist %i"), *FDateTime::Now().ToString(), *GEngineVersion.ToString(), GetChangeListNumberForPerfTesting());
+	OutputFile.Logf(TEXT("Dumping BugIt data chart at %s using build %s built from changelist %i"), *FDateTime::Now().ToString(), *FEngineVersion::Current().ToString(), GetChangeListNumberForPerfTesting());
 
 	const FString MapNameStr = GetWorld()->GetMapName();
 
@@ -3861,6 +3876,40 @@ void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotatio
 
 #if WITH_PROFILE
 
+UUtMcpProfileManager* AUTPlayerController::GetMcpProfileManager()
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		return LocalPlayer->GetMcpProfileManager();
+	}
+	return nullptr;
+}
+
+
+UUtMcpProfileManager* AUTPlayerController::GetMcpProfileManager(const FString& AccountId)
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		return LocalPlayer->GetMcpProfileManager(AccountId);
+	}
+	return nullptr;
+}
+
+UUtMcpProfileManager* AUTPlayerController::GetActiveMcpProfileManager()
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		return LocalPlayer->GetActiveMcpProfileManager();
+	}
+	return nullptr;
+}
+
+#endif
+
+/*
 void AUTPlayerController::InitializeMcpProfile()
 {
 	// asserts in the editor...
@@ -3925,3 +3974,4 @@ void AUTPlayerController::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus:
 	}
 #endif
 }
+*/

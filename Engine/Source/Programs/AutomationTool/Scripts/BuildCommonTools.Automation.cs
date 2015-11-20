@@ -117,6 +117,12 @@ public class BuildCommonTools : BuildCommand
 			Agenda.AddTarget("UnrealCEFSubProcess", UnrealBuildTool.UnrealTargetPlatform.Mac, UnrealBuildTool.UnrealTargetConfiguration.Development, InAddArgs: "-CopyAppBundleBackToDevice");
 		}
 
+		// Linux binaries
+		if (Platforms.Contains(UnrealBuildTool.UnrealTargetPlatform.Linux))
+		{
+			Agenda.AddTarget("CrashReportClient", UnrealBuildTool.UnrealTargetPlatform.Linux, UnrealBuildTool.UnrealTargetConfiguration.Development);
+		}
+
 		// iOS binaries
 		if(Platforms.Contains(UnrealBuildTool.UnrealTargetPlatform.IOS))
 		{
@@ -157,4 +163,31 @@ public class BuildCommonTools : BuildCommand
 		
 		return Agenda;
 	}
+}
+
+public class ZipProjectUp : BuildCommand
+{
+    public override void ExecuteBuild()
+    {
+        // Get Directories
+        string ProjectDirectory = ParseParamValue("project", "");
+        string InstallDirectory = ParseParamValue("install", "");
+        ProjectDirectory = Path.GetDirectoryName(ProjectDirectory);
+
+        Log("Started zipping project up");
+        Log("Project directory: {0}", ProjectDirectory);
+		Log("Install directory: {0}", InstallDirectory);
+        Log("Packaging up the project...");
+
+        // Setup filters
+        FileFilter Filter = new FileFilter();
+        Filter.Include("/Config/...");
+        Filter.Include("/Content/...");
+        Filter.Include("/Source/...");
+        Filter.Include("*.uproject");
+
+        ZipFiles(InstallDirectory, ProjectDirectory, Filter);
+
+		Log("Completed zipping project up");
+    }
 }

@@ -19,7 +19,7 @@ struct FPickupClaim
 
 	inline bool IsValid() const
 	{
-		return ClaimedBy != NULL && !ClaimedBy->bTearOff && !ClaimedBy->bPendingKillPending && Pickup != NULL && !Pickup->bPendingKillPending;
+		return ClaimedBy != NULL && !ClaimedBy->bTearOff && !ClaimedBy->IsPendingKillPending() && Pickup != NULL && !Pickup->IsPendingKillPending();
 	}
 
 	FPickupClaim()

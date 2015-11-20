@@ -117,12 +117,15 @@ void FPDBCache::InitializePDBCache()
 	IFileManager::Get().MakeDirectory( *PDBCachePath, true );
 
 	TArray<FString> PDBCacheEntryDirectories;
-	IFileManager::Get().FindFiles( PDBCacheEntryDirectories, *PDBCachePath, false, true );
+	IFileManager::Get().FindFiles( PDBCacheEntryDirectories, *(PDBCachePath / TEXT( "*" )), false, true );
 
 	for( const auto& Directory : PDBCacheEntryDirectories )
 	{
-		FPDBCacheEntryRef Entry = ReadPDBCacheEntry( Directory );
-		PDBCacheEntries.Add( Directory, Entry );
+		FPDBCacheEntryPtr Entry = ReadPDBCacheEntry( Directory );
+		if (Entry.IsValid())
+		{
+			PDBCacheEntries.Add( Directory, Entry.ToSharedRef() );
+		}
 	}
 
 	SortPDBCache();
@@ -279,7 +282,7 @@ FPDBCacheEntryRef FPDBCache::CreateAndAddPDBCacheEntryMixed( const FString& Prod
 	return NewCacheEntry;
 }
 
-FPDBCacheEntryRef FPDBCache::ReadPDBCacheEntry( const FString& Directory )
+FPDBCacheEntryPtr FPDBCache::ReadPDBCacheEntry( const FString& Directory )
 {
 	const FString EntryDirectory = PDBCachePath / Directory;
 	const FString EntryTimeStampFilenameNoMeta = EntryDirectory / PDBTimeStampFileNoMeta;
@@ -325,10 +328,10 @@ FPDBCacheEntryRef FPDBCache::ReadPDBCacheEntry( const FString& Directory )
 	else
 	{
 		// Something wrong.
-		check( 0 );
+		ensureMsgf( 0, TEXT( "Invalid symbol cache entry: %s" ), *EntryDirectory );
 	}
 
-	return NewEntry.ToSharedRef();
+	return NewEntry;
 }
 
 void FPDBCache::TouchPDBCacheEntry( const FString& Directory )

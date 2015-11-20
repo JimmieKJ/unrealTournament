@@ -202,6 +202,7 @@ may be needed.  E.g. If you move the target, check #getLastPoly() to see if it i
 */
 
 dtPathCorridor::dtPathCorridor() :
+	m_moveSegAngle(0.0f),
 	m_path(0),
 	m_npath(0),
 	m_maxPath(0)
@@ -294,7 +295,57 @@ int dtPathCorridor::findCorners(float* cornerVerts, unsigned char* cornerFlags,
 			break;
 		}
 	}
-	
+
+	// [UE4] fixed corner for early reach detection
+	if (m_hasNextExpectedCorner)
+	{
+		int foundIdx = -1;
+		for (int i = 0; i < ncorners; i++)
+		{
+			// can't use equal here, expected coords are offset from corner
+			const float dist = dtVdistSqr(m_nextExpectedCorner, &cornerVerts[i * 3]);
+			if (dist <= dtSqr(radius))
+			{
+				foundIdx = i;
+				break;
+			}
+		}
+
+		if (m_hasNextExpectedCorner2 && m_isInSkipRange && foundIdx == 0)
+		{
+			m_hasNextExpectedCorner2 = false;
+			dtVcopy(m_nextExpectedCorner, m_nextExpectedCorner2);
+
+			foundIdx = -1;
+			for (int i = 1; i < ncorners; i++)
+			{
+				// can't use equal here, expected coords are offset from corner
+				const float dist = dtVdistSqr(m_nextExpectedCorner, &cornerVerts[i * 3]);
+				if (dist <= dtSqr(radius))
+				{
+					foundIdx = i;
+					break;
+				}
+			}
+		}
+
+		if (foundIdx > 0)
+		{
+			ncorners -= foundIdx;
+
+			memmove(cornerFlags, cornerFlags + foundIdx, sizeof(unsigned char)*ncorners);
+			memmove(cornerPolys, cornerPolys + foundIdx, sizeof(dtPolyRef)*ncorners);
+			memmove(cornerVerts, cornerVerts + 3 * foundIdx, sizeof(float)* 3 * ncorners);
+		}
+
+		m_hasNextExpectedCorner = (foundIdx >= 0);
+		if (!m_hasNextExpectedCorner && m_hasNextExpectedCorner2)
+		{
+			m_hasNextExpectedCorner2 = false;
+			dtVcopy(m_nextExpectedCorner, m_nextExpectedCorner2);
+		}
+	}
+
 	// [UE4] Offset path points from corners
 	const dtNavMesh* nav = navquery->getAttachedNavMesh();
 	float v1[3], v2[3], dir[3];
@@ -340,6 +391,54 @@ int dtPathCorridor::findCorners(float* cornerVerts, unsigned char* cornerFlags,
 			{
 				dtVsub(dir, v1, v2);
 				dtVmad(corner, corner, dir, edgeOffset);
+			}
+		}
+	}
+
+	// [UE4] Dynamic acceptance radius, depending on angle between first two segments of path
+	if (m_enableEarlyReach)
+	{
+		const bool bSame = dtVequal(m_prevMovePoint, cornerVerts);
+		dtVcopy(m_prevMovePoint, cornerVerts);
+		m_isInSkipRange = false;
+
+		const float segAngleThr = 0.8f;
+		if (!bSame && ncorners > 1)
+		{
+			float seg1[3], seg2[3];
+			dtVsub(seg1, &cornerVerts[0], m_pos);
+			dtVsub(seg2, &cornerVerts[3], &cornerVerts[0]);
+			dtVnormalize(seg1);
+			dtVnormalize(seg2);
+
+			m_moveSegAngle = dtVdot2D(seg1, seg2);
+			if (m_moveSegAngle > segAngleThr)
+			{
+				// prepare for skipping to forced corner
+				if (m_hasNextExpectedCorner)
+				{
+					dtVcopy(m_nextExpectedCorner2, &cornerVerts[3]);
+					m_hasNextExpectedCorner2 = true;
+				}
+				else
+				{
+					dtVcopy(m_nextExpectedCorner, &cornerVerts[3]);
+				}
+			}
+		}
+
+		if (m_moveSegAngle > segAngleThr)
+		{
+			float seg[3];
+			dtVsub(seg, &cornerVerts[0], m_pos);
+			const float distToFirstVert = dtVlenSqr(seg);
+
+			const float skipThreshold = dtSqr(radius * 4.0f);
+			if (distToFirstVert < skipThreshold)
+			{
+				// skip to known corner (in next tick)
+				m_hasNextExpectedCorner = true;
+				m_isInSkipRange = true;
 			}
 		}
 	}
@@ -640,6 +739,9 @@ void dtPathCorridor::setCorridor(const float* target, const dtPolyRef* path, con
 	dtVcopy(m_target, target);
 	memcpy(m_path, path, sizeof(dtPolyRef)*npath);
 	m_npath = npath;
+	m_hasNextExpectedCorner = false;
+	m_hasNextExpectedCorner2 = false;
+	m_isInSkipRange = false;
 }
 
 bool dtPathCorridor::fixPathStart(dtPolyRef safeRef, const float* safePos)

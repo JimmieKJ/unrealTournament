@@ -1,103 +1,161 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SequencerPrivatePCH.h"
+#include "MovieSceneSequence.h"
 #include "MovieSceneSection.h"
+#include "MovieSceneTrack.h"
 #include "SequencerNodeTree.h"
 #include "Sequencer.h"
 #include "ScopedTransaction.h"
 #include "MovieScene.h"
-#include "MovieSceneTrack.h"
 #include "MovieSceneTrackEditor.h"
-#include "SectionLayoutBuilder.h"
+#include "SequencerSectionLayoutBuilder.h"
 #include "ISequencerSection.h"
+#include "ISequencerTrackEditor.h"
+
 
 void FSequencerNodeTree::Empty()
 {
 	RootNodes.Empty();
 	ObjectBindingMap.Empty();
-	Sequencer.GetSelection()->EmptySelectedOutlinerNodes();
+	Sequencer.GetSelection().EmptySelectedOutlinerNodes();
 	EditorMap.Empty();
 	FilteredNodes.Empty();
 }
+
 
 void FSequencerNodeTree::Update()
 {
 	// @todo Sequencer - This update pass is too aggressive.  Some nodes may still be valid
 	Empty();
 
-	UMovieScene* MovieScene = Sequencer.GetFocusedMovieScene();
+	UMovieScene* MovieScene = Sequencer.GetFocusedMovieSceneSequence()->GetMovieScene();
+	TArray<TSharedRef<FSequencerDisplayNode>> NewRootNodes;
 
 	// Get the master tracks  so we can get sections from them
 	const TArray<UMovieSceneTrack*>& MasterTracks = MovieScene->GetMasterTracks();
 
-	for( int32 TrackIndex = 0; TrackIndex < MasterTracks.Num(); ++TrackIndex )
+	for (UMovieSceneTrack* Track : MasterTracks)
 	{
-		UMovieSceneTrack& Track = *MasterTracks[TrackIndex];
+		UMovieSceneTrack& TrackRef = *Track;
 
-		TSharedRef<FTrackNode> SectionNode = MakeShareable( new FTrackNode( Track.GetTrackName(), Track, NULL, *this ) );
-		RootNodes.Add( SectionNode );
+		TSharedRef<FSequencerTrackNode> SectionNode = MakeShareable(new FSequencerTrackNode(TrackRef, *FindOrAddTypeEditor(TrackRef), nullptr, *this));
+		NewRootNodes.Add(SectionNode);
 	
-		MakeSectionInterfaces( Track, SectionNode );
-
-		SectionNode->PinNode();
+		MakeSectionInterfaces(TrackRef, SectionNode);
 	}
 
+	const TArray<FMovieSceneBinding>& Bindings = MovieScene->GetBindings();
+	TMap<FGuid, const FMovieSceneBinding*> GuidToBindingMap;
 
-	const TArray<FMovieSceneObjectBinding>& ObjectBindings = MovieScene->GetObjectBindings();
+	for (const FMovieSceneBinding& Binding : Bindings)
+	{
+		GuidToBindingMap.Add(Binding.GetObjectGuid(), &Binding);
+	}
 
 	// Make nodes for all object bindings
-	for( int32 BindingIndex = 0; BindingIndex < ObjectBindings.Num(); ++BindingIndex )
+	TArray<TSharedRef<FSequencerDisplayNode>> NewObjectNodes;
+	for( const FMovieSceneBinding& Binding : Bindings )
 	{
-		TSharedRef<FObjectBindingNode> ObjectBindingNode = AddObjectBinding( ObjectBindings[BindingIndex].GetName(), ObjectBindings[BindingIndex].GetObjectGuid() );
+		TSharedRef<FSequencerObjectBindingNode> ObjectBindingNode = AddObjectBinding( Binding.GetName(), Binding.GetObjectGuid(), GuidToBindingMap, NewObjectNodes );
 
-		const TArray<UMovieSceneTrack*>& Tracks = ObjectBindings[BindingIndex].GetTracks();
+		const TArray<UMovieSceneTrack*>& Tracks = Binding.GetTracks();
 
-		for( int32 TrackIndex = 0; TrackIndex < Tracks.Num(); ++TrackIndex )
+		for( UMovieSceneTrack* Track : Tracks )
 		{
-			UMovieSceneTrack& Track = *Tracks[TrackIndex];
-
-			FName SectionName = Track.GetTrackName();
-			check( SectionName != NAME_None );
-
-			TSharedRef<FTrackNode> SectionAreaNode = ObjectBindingNode->AddSectionAreaNode( SectionName, Track );
-			MakeSectionInterfaces( Track, SectionAreaNode );
+			UMovieSceneTrack& TrackRef = *Track;
+			TSharedRef<FSequencerTrackNode> SectionAreaNode = ObjectBindingNode->AddSectionAreaNode(TrackRef, *FindOrAddTypeEditor(TrackRef));
+			MakeSectionInterfaces( TrackRef, SectionAreaNode );
 		}
-
 	}
 
-	struct FRootNodeSorter
+
+	struct FObjectNodeSorter
 	{
 		bool operator()( const TSharedRef<FSequencerDisplayNode>& A, const TSharedRef<FSequencerDisplayNode>& B ) const
 		{
-			return A->GetType() == ESequencerNode::Object ? false : true;
+			if (A->GetType() == ESequencerNode::Object && B->GetType() != ESequencerNode::Object)
+			{
+				return true;
+			}
+
+			if (A->GetType() != ESequencerNode::Object && B->GetType() == ESequencerNode::Object)
+			{
+				return false;
+			}
+
+			if ( A->GetType() == ESequencerNode::Object && B->GetType() == ESequencerNode::Object )
+			{
+				return A->GetDisplayName().ToString() < B->GetDisplayName().ToString();
+			}
+
+			return 0;
 		}
 	};
 
-	// Sort so that master tracks appear before object tracks
-	RootNodes.Sort( FRootNodeSorter() );
+
+	NewObjectNodes.Sort( FObjectNodeSorter() );
+	for (TSharedRef<FSequencerDisplayNode> NewObjectNode : NewObjectNodes)
+	{
+		NewObjectNode->SortChildNodes(FObjectNodeSorter());
+	}
+
+	NewRootNodes.Append(NewObjectNodes);
+
+	// Look for a shot track.  It will always come first if it exists
+	UMovieSceneTrack* ShotTrack = MovieScene->GetShotTrack();
+	
+	if(ShotTrack)
+	{
+		TSharedRef<FSequencerTrackNode> SectionNode = MakeShareable(new FSequencerTrackNode(*ShotTrack, *FindOrAddTypeEditor(*ShotTrack), nullptr, *this));
+
+		// Shot track always comes first
+		RootNodes.Add(SectionNode);
+		MakeSectionInterfaces(*ShotTrack, SectionNode);
+	}
+
+	// Add all other nodes after the shot track
+	RootNodes.Append(NewRootNodes);
+
+	// Set up virtual offsets, and expansion states
+	float VerticalOffset = 0.f;
+
+	for (auto& Node : RootNodes)
+	{
+		Node->Traverse_ParentFirst([&](FSequencerDisplayNode& InNode) {
+			float VerticalTop = VerticalOffset;
+			VerticalOffset += InNode.GetNodeHeight() + InNode.GetNodePadding().Combined();
+			InNode.Initialize(VerticalTop, VerticalOffset);
+			return true;
+		});
+
+	}
 
 	// Re-filter the tree after updating 
-	// @todo Sequencer - Newly added sections may need to be visible even when there is a filter
+	// @todo sequencer: Newly added sections may need to be visible even when there is a filter
 	FilterNodes( FilterString );
 }
 
-TSharedRef<FMovieSceneTrackEditor> FSequencerNodeTree::FindOrAddTypeEditor( UMovieSceneTrack& InTrack )
+
+TSharedRef<ISequencerTrackEditor> FSequencerNodeTree::FindOrAddTypeEditor( UMovieSceneTrack& InTrack )
 {
-	TSharedPtr<FMovieSceneTrackEditor> Editor = EditorMap.FindRef( &InTrack );
+	TSharedPtr<ISequencerTrackEditor> Editor = EditorMap.FindRef( &InTrack );
 
 	if( !Editor.IsValid() )
 	{
-		const TArray< TSharedPtr<FMovieSceneTrackEditor> >& TrackEditors = Sequencer.GetTrackEditors();
+		const TArray<TSharedPtr<ISequencerTrackEditor>>& TrackEditors = Sequencer.GetTrackEditors();
 
 		// Get a tool for each track
-		// @todo Sequencer - Should probably only need to get this once and it shouldnt be done here. It depends on when movie scene tool modules are loaded
-		TSharedPtr<FMovieSceneTrackEditor> SupportedTool;
-		for( int32 EditorIndex = 0; EditorIndex < TrackEditors.Num(); ++EditorIndex )
+		// @todo sequencer: Should probably only need to get this once and it shouldn't be done here. It depends on when movie scene tool modules are loaded
+		TSharedPtr<ISequencerTrackEditor> SupportedTool;
+
+		for (const auto& TrackEditor : TrackEditors)
 		{
-			if( TrackEditors[EditorIndex]->SupportsType( InTrack.GetClass() ) )
+			if (TrackEditor->SupportsType(InTrack.GetClass()))
 			{
-				Editor = TrackEditors[EditorIndex];
-				EditorMap.Add( &InTrack, Editor );
+				EditorMap.Add(&InTrack, TrackEditor);
+				Editor = TrackEditor;
+
 				break;
 			}
 		}
@@ -106,84 +164,148 @@ TSharedRef<FMovieSceneTrackEditor> FSequencerNodeTree::FindOrAddTypeEditor( UMov
 	return Editor.ToSharedRef();
 }
 
-void FSequencerNodeTree::MakeSectionInterfaces( UMovieSceneTrack& Track, TSharedRef<FTrackNode>& SectionAreaNode )
+
+void FSequencerNodeTree::MakeSectionInterfaces( UMovieSceneTrack& Track, TSharedRef<FSequencerTrackNode>& SectionAreaNode )
 {
 	const TArray<UMovieSceneSection*>& MovieSceneSections = Track.GetAllSections();
 
-	TSharedRef<FMovieSceneTrackEditor> Editor = FindOrAddTypeEditor( Track );
+	TSharedRef<ISequencerTrackEditor> Editor = FindOrAddTypeEditor( Track );
 
 	for (int32 SectionIndex = 0; SectionIndex < MovieSceneSections.Num(); ++SectionIndex )
 	{
 		UMovieSceneSection* SectionObject = MovieSceneSections[SectionIndex];
-		TSharedRef<ISequencerSection> Section = Editor->MakeSectionInterface( *SectionObject, &Track );
+		TSharedRef<ISequencerSection> Section = Editor->MakeSectionInterface( *SectionObject, Track );
 
 		// Ask the section to generate it's inner layout
-		FSectionLayoutBuilder Builder( SectionAreaNode );
+		FSequencerSectionLayoutBuilder Builder( SectionAreaNode );
 		Section->GenerateSectionLayout( Builder );
-
 		SectionAreaNode->AddSection( Section );
 	}
 
 	SectionAreaNode->FixRowIndices();
 }
 
-const TArray< TSharedRef<FSequencerDisplayNode> >& FSequencerNodeTree::GetRootNodes() const
+
+const TArray<TSharedRef<FSequencerDisplayNode>>& FSequencerNodeTree::GetRootNodes() const
 {
 	return RootNodes;
 }
 
 
-TSharedRef<FObjectBindingNode> FSequencerNodeTree::AddObjectBinding( const FString& ObjectName, const FGuid& ObjectBinding )
+TSharedRef<FSequencerObjectBindingNode> FSequencerNodeTree::AddObjectBinding(const FString& ObjectName, const FGuid& ObjectBinding, TMap<FGuid, const FMovieSceneBinding*>& GuidToBindingMap, TArray<TSharedRef<FSequencerDisplayNode>>& OutNodeList)
 {
-	// The node name is the object guid
-	FName ObjectNodeName = *ObjectBinding.ToString();
-	TSharedPtr<FSequencerDisplayNode> ParentNode = NULL;
-
-	TSharedRef< FObjectBindingNode > ObjectNode = MakeShareable( new FObjectBindingNode( ObjectNodeName, ObjectName, ObjectBinding, ParentNode, *this ) );
-
-	// Object binding nodes are always root nodes
-	RootNodes.Add( ObjectNode );
-
-	// Map the guid to the object binding node for fast lookup later
-	ObjectBindingMap.Add( ObjectBinding, ObjectNode );
-
-	return ObjectNode;
-}
-
-void FSequencerNodeTree::SaveExpansionState( const FSequencerDisplayNode& Node, bool bExpanded )
-{	
-	UMovieScene* MovieScene = Sequencer.GetFocusedMovieScene();
-
-	FMovieSceneEditorData& EditorData = MovieScene->GetEditorData();
-
-	if( bExpanded )
+	TSharedPtr<FSequencerObjectBindingNode> ObjectNode;
+	TSharedPtr<FSequencerObjectBindingNode>* FoundObjectNode = ObjectBindingMap.Find(ObjectBinding);
+	if (FoundObjectNode != nullptr)
 	{
-		EditorData.CollapsedSequencerNodes.Remove( Node.GetPathName() );
+		ObjectNode = *FoundObjectNode;
 	}
 	else
 	{
-		// Collapsed nodes are stored instead of expanded so that new nodes are expanded by default
-		EditorData.CollapsedSequencerNodes.AddUnique( Node.GetPathName() ) ;
+		// The node name is the object guid
+		FName ObjectNodeName = *ObjectBinding.ToString();
+
+		// Try to get the parent object node if there is one.
+		TSharedPtr<FSequencerObjectBindingNode> ParentNode;
+
+		UMovieSceneSequence* Sequence = Sequencer.GetFocusedMovieSceneSequence();
+
+		// Prefer to use the parent spawnable if possible, rather than relying on runtime object presence
+		FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(ObjectBinding);
+		if (Possessable && Possessable->GetParentSpawnable().IsValid())
+		{
+			const FMovieSceneBinding* ParentBinding = GuidToBindingMap.FindRef(Possessable->GetParentSpawnable());
+			if (ParentBinding)
+			{
+				ParentNode = AddObjectBinding( ParentBinding->GetName(), Possessable->GetParentSpawnable(), GuidToBindingMap, OutNodeList );
+			}
+		}
+		
+		UObject* RuntimeObject = Sequence->FindObject(ObjectBinding);
+
+		// fallback to using the parent runtime object
+		if (!ParentNode.IsValid() && RuntimeObject)
+		{
+			UObject* ParentObject = Sequence->GetParentObject(RuntimeObject);
+
+			if (ParentObject != nullptr)
+			{
+				FGuid ParentBinding = Sequence->FindObjectId(*ParentObject);
+				TSharedPtr<FSequencerObjectBindingNode>* FoundParentNode = ObjectBindingMap.Find( ParentBinding );
+				if ( FoundParentNode != nullptr )
+				{
+					ParentNode = *FoundParentNode;
+				}
+				else
+				{
+					const FMovieSceneBinding** FoundParentMovieSceneBinding = GuidToBindingMap.Find( ParentBinding );
+					if ( FoundParentMovieSceneBinding != nullptr )
+					{
+						ParentNode = AddObjectBinding( (*FoundParentMovieSceneBinding)->GetName(), ParentBinding, GuidToBindingMap, OutNodeList );
+					}
+				}
+			}
+		}
+
+		// get human readable name of the object
+		AActor* RuntimeActor = Cast<AActor>(RuntimeObject);
+		const FString& DisplayString = (RuntimeActor != nullptr)
+			? RuntimeActor->GetActorLabel()
+			: ObjectName;
+
+		// Create the node.
+		ObjectNode = MakeShareable(new FSequencerObjectBindingNode(ObjectNodeName, FText::FromString(DisplayString), ObjectBinding, ParentNode, *this));
+
+		if (ParentNode.IsValid())
+		{
+			ParentNode->AddObjectBindingNode(ObjectNode.ToSharedRef());
+		}
+		else
+		{
+			OutNodeList.Add( ObjectNode.ToSharedRef() );
+		}
+
+		// Map the guid to the object binding node for fast lookup later
+		ObjectBindingMap.Add( ObjectBinding, ObjectNode );
 	}
 
+	return ObjectNode.ToSharedRef();
 }
 
-bool FSequencerNodeTree::GetSavedExpansionState( const FSequencerDisplayNode& Node ) const
-{
-	UMovieScene* MovieScene = Sequencer.GetFocusedMovieScene();
 
+void FSequencerNodeTree::SaveExpansionState(const FSequencerDisplayNode& Node, bool bExpanded)
+{	
+	// @todo Sequencer - This should be moved to the sequence level
+	UMovieScene* MovieScene = Sequencer.GetFocusedMovieSceneSequence()->GetMovieScene();
 	FMovieSceneEditorData& EditorData = MovieScene->GetEditorData();
 
-	// Collapsed nodes are stored instead of expanded so that new nodes are expanded by default
-	bool bCollapsed = EditorData.CollapsedSequencerNodes.Contains( Node.GetPathName() );
-
-	return !bCollapsed;
+	EditorData.ExpansionStates.Add(Node.GetPathName(), FMovieSceneExpansionState(bExpanded));
 }
+
+
+bool FSequencerNodeTree::GetSavedExpansionState(const FSequencerDisplayNode& Node) const
+{
+	// @todo Sequencer - This should be moved to the sequence level
+	UMovieScene* MovieScene = Sequencer.GetFocusedMovieSceneSequence()->GetMovieScene();
+	FMovieSceneEditorData& EditorData = MovieScene->GetEditorData();
+	FMovieSceneExpansionState* ExpansionState = EditorData.ExpansionStates.Find( Node.GetPathName() );
+
+	return ExpansionState ? ExpansionState->bExpanded : GetDefaultExpansionState(Node);
+}
+
+
+bool FSequencerNodeTree::GetDefaultExpansionState( const FSequencerDisplayNode& Node ) const
+{
+	// For now, only object nodes are expanded by default
+	return Node.GetType() == ESequencerNode::Object;
+}
+
 
 bool FSequencerNodeTree::IsNodeFiltered( const TSharedRef<const FSequencerDisplayNode> Node ) const
 {
 	return FilteredNodes.Contains( Node );
 }
+
 
 /**
  * Recursively filters nodes
@@ -192,42 +314,42 @@ bool FSequencerNodeTree::IsNodeFiltered( const TSharedRef<const FSequencerDispla
  * @param FilterStrings		The filter strings which need to be matched
  * @param OutFilteredNodes	The list of all filtered nodes
  */
-static bool FilterNodesRecursive( const TSharedRef<FSequencerDisplayNode>& StartNode, const TArray<FString>& FilterStrings, TSet< TSharedRef< const FSequencerDisplayNode> >& OutFilteredNodes )
+static bool FilterNodesRecursive( const TSharedRef<FSequencerDisplayNode>& StartNode, const TArray<FString>& FilterStrings, TSet<TSharedRef<const FSequencerDisplayNode>>& OutFilteredNodes )
 {
-	// Assume the filter is acceptable
+	// assume the filter is acceptable
 	bool bFilterAcceptable = true;
 
-	// Check each string in the filter strings list against 
-	for (int32 TestNameIndex = 0; TestNameIndex < FilterStrings.Num(); ++TestNameIndex)
+	// check each string in the filter strings list against 
+	for (const FString& String : FilterStrings)
 	{
-		const FString& TestName = FilterStrings[TestNameIndex];
-
-		if ( !StartNode->GetDisplayName().ToString().Contains( TestName ) ) 
+		if (!StartNode->GetDisplayName().ToString().Contains(String)) 
 		{
 			bFilterAcceptable = false;
 			break;
 		}
 	}
 
-	// Whether or the start node is in the filter
+	// whether or the start node is in the filter
 	bool bInFilter = false;
 
-	if( bFilterAcceptable )
+	if (bFilterAcceptable)
 	{
 		// This node is now filtered
-		OutFilteredNodes.Add( StartNode );
+		OutFilteredNodes.Add(StartNode);
 		bInFilter = true;
 	}
 
-	// Check each child node to determine if it is filtered
-	const TArray< TSharedRef<FSequencerDisplayNode> >& ChildNodes = StartNode->GetChildNodes();
-	for( int32 ChildIndex = 0; ChildIndex < ChildNodes.Num(); ++ChildIndex )
+	// check each child node to determine if it is filtered
+	const TArray<TSharedRef<FSequencerDisplayNode>>& ChildNodes = StartNode->GetChildNodes();
+
+	for (const auto& Node : ChildNodes)
 	{
 		// Mark the parent as filtered if any child node was filtered
-		bFilterAcceptable |= FilterNodesRecursive( ChildNodes[ChildIndex], FilterStrings, OutFilteredNodes );
-		if( bFilterAcceptable && !bInFilter )
+		bFilterAcceptable |= FilterNodesRecursive(Node, FilterStrings, OutFilteredNodes);
+
+		if (bFilterAcceptable && !bInFilter)
 		{
-			OutFilteredNodes.Add( StartNode );
+			OutFilteredNodes.Add(StartNode);
 			bInFilter = true;
 		}
 	}
@@ -235,11 +357,12 @@ static bool FilterNodesRecursive( const TSharedRef<FSequencerDisplayNode>& Start
 	return bFilterAcceptable;
 }
 
-void FSequencerNodeTree::FilterNodes( const FString& InFilter )
+
+void FSequencerNodeTree::FilterNodes(const FString& InFilter)
 {
 	FilteredNodes.Empty();
 
-	if( InFilter.IsEmpty() )
+	if (InFilter.IsEmpty())
 	{
 		// No filter
 		FilterString.Empty();
@@ -253,21 +376,12 @@ void FSequencerNodeTree::FilterNodes( const FString& InFilter )
 		// Remove whitespace from the front and back of the string
 		FilterString.Trim();
 		FilterString.TrimTrailing();
-		const bool bCullEmpty = true;
-		FilterString.ParseIntoArray( FilterStrings, TEXT(" "), bCullEmpty );
+		FilterString.ParseIntoArray(FilterStrings, TEXT(" "), true /*bCullEmpty*/);
 
-		for( auto It = ObjectBindingMap.CreateIterator(); It; ++It )
+		for (auto It = ObjectBindingMap.CreateIterator(); It; ++It)
 		{
 			// Recursively filter all nodes, matching them against the list of filter strings.  All filter strings must be matched
-			FilterNodesRecursive( It.Value().ToSharedRef(), FilterStrings, FilteredNodes );
+			FilterNodesRecursive(It.Value().ToSharedRef(), FilterStrings, FilteredNodes);
 		}
-	}
-}
-
-void FSequencerNodeTree::UpdateCachedVisibilityBasedOnShotFiltersChanged()
-{
-	for (int32 i = 0; i < RootNodes.Num(); ++i)
-	{
-		RootNodes[i]->UpdateCachedShotFilteredVisibility();
 	}
 }

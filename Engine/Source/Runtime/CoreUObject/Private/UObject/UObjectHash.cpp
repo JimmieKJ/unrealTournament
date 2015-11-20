@@ -8,7 +8,6 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogUObjectHash, Log, All);
 
-DECLARE_STATS_GROUP(TEXT("UObject Hash"), STATGROUP_UObjectHash, STATCAT_Advanced);
 DECLARE_CYCLE_STAT(TEXT("StaticFindObjectFastInternal"), STAT_Hash_StaticFindObjectFastInternal, STATGROUP_UObjectHash);
 DECLARE_CYCLE_STAT( TEXT( "StaticFindObjectFastExplicit" ), STAT_Hash_StaticFindObjectFastExplicit, STATGROUP_UObjectHash );
 DECLARE_CYCLE_STAT( TEXT( "GetObjectsWithOuter" ), STAT_Hash_GetObjectsWithOuter, STATGROUP_UObjectHash );
@@ -16,6 +15,13 @@ DECLARE_CYCLE_STAT( TEXT( "FindObjectWithOuter" ), STAT_Hash_FindObjectWithOuter
 DECLARE_CYCLE_STAT( TEXT( "GetObjectsOfClass" ), STAT_Hash_GetObjectsOfClass, STATGROUP_UObjectHash );
 DECLARE_CYCLE_STAT( TEXT( "HashObject" ), STAT_Hash_HashObject, STATGROUP_UObjectHash );
 DECLARE_CYCLE_STAT( TEXT( "UnhashObject" ), STAT_Hash_UnhashObject, STATGROUP_UObjectHash );
+
+#if UE_GC_TRACK_OBJ_AVAILABLE
+DEFINE_STAT( STAT_Hash_NumObjects );
+#endif
+
+// Global UObject array instance
+FUObjectArray GUObjectArray;
 
 /**
  * This implementation will use more space than the UE3 implementation. The goal was to make UObjects smaller to save L2 cache space. 
@@ -303,13 +309,6 @@ public:
 #endif
 	}
 };
-
-FUObjectArray& GetUObjectArray()
-{
-	static FUObjectArray GlobalUObjectArray;
-	return GlobalUObjectArray;
-}
-
 
 /**
  * Calculates the object's hash just using the object's name index
@@ -601,7 +600,7 @@ void GetObjectsWithOuter(const class UObjectBase* Outer, TArray<UObject *>& Resu
 
 	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
 	ExclusionFlags |= RF_Unreachable;
-	if (!IsAsyncLoading())
+	if (!IsInAsyncLoadingThread())
 	{
 		ExclusionFlags = EObjectFlags(ExclusionFlags | RF_AsyncLoading);
 	}
@@ -619,7 +618,7 @@ void GetObjectsWithOuter(const class UObjectBase* Outer, TArray<UObject *>& Resu
 				Results.Add(Object);
 			}
 		}
-		int32 MaxResults = GetUObjectArray().GetObjectArrayNum();
+		int32 MaxResults = GUObjectArray.GetObjectArrayNum();
 		while (StartNum != Results.Num() && bIncludeNestedObjects)
 		{
 			int32 RangeStart = StartNum;
@@ -645,6 +644,43 @@ void GetObjectsWithOuter(const class UObjectBase* Outer, TArray<UObject *>& Resu
 	}
 }
 
+void ForEachObjectWithOuter(const class UObjectBase* Outer, TFunctionRef<void (UObject*)> Operation, bool bIncludeNestedObjects, EObjectFlags ExclusionFlags)
+{
+	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
+	ExclusionFlags |= RF_Unreachable;
+	if (!IsInAsyncLoadingThread())
+	{
+		ExclusionFlags = EObjectFlags(ExclusionFlags | RF_AsyncLoading);
+	}
+	FUObjectHashTables& ThreadHash = FUObjectHashTables::Get();
+	FHashTableLock HashLock(ThreadHash);
+	TArray<TSet<UObjectBase*> const*> AllInners;
+
+	if (TSet<UObjectBase*> const* Inners = ThreadHash.ObjectOuterMap.Find(Outer))
+	{
+		AllInners.Add(Inners);
+	}
+	while (AllInners.Num())
+	{
+		TSet<UObjectBase*> const* Inners = AllInners.Pop();
+		for (TSet<UObjectBase*>::TConstIterator It(*Inners); It; ++It)
+		{
+			UObject *Object = static_cast<UObject*>(*It);
+			if (!Object->HasAnyFlags(ExclusionFlags))
+			{
+				Operation(Object);
+				if (bIncludeNestedObjects)
+				{
+					if (TSet<UObjectBase*> const* ObjectInners = ThreadHash.ObjectOuterMap.Find(Object))
+					{
+						AllInners.Add(ObjectInners);
+					}
+				}
+			}
+		}
+	}
+}
+
 UObjectBase* FindObjectWithOuter(class UObjectBase* Outer, class UClass* ClassToLookFor, FName NameToLookFor)
 {
 	SCOPE_CYCLE_COUNTER( STAT_Hash_FindObjectWithOuter );
@@ -653,7 +689,7 @@ UObjectBase* FindObjectWithOuter(class UObjectBase* Outer, class UClass* ClassTo
 	check( Outer && ClassToLookFor );
 	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
 	EObjectFlags ExclusionFlags = RF_Unreachable;
-	if( !IsAsyncLoading() )
+	if (!IsInAsyncLoadingThread())
 	{
 		ExclusionFlags = EObjectFlags( ExclusionFlags | RF_AsyncLoading );
 	}
@@ -731,7 +767,7 @@ void GetObjectsOfClass(UClass* ClassToLookFor, TArray<UObject *>& Results, bool 
 
 	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
 	EObjectFlags ExclusionFlags = RF_Unreachable;
-	if( !IsAsyncLoading() )
+	if (!IsInAsyncLoadingThread())
 	{
 		ExclusionFlags |= RF_AsyncLoading;
 	}
@@ -748,7 +784,44 @@ void GetObjectsOfClass(UClass* ClassToLookFor, TArray<UObject *>& Results, bool 
 
 	GetObjectsOfClassThreadSafe( FUObjectHashTables::Get(), ClassesToSearch, Results, ExclusionFlags );
 
-	check( Results.Num() <= GetUObjectArray().GetObjectArrayNum() ); // otherwise we have a cycle in the outer chain, which should not be possible
+	check( Results.Num() <= GUObjectArray.GetObjectArrayNum() ); // otherwise we have a cycle in the outer chain, which should not be possible
+}
+
+void ForEachObjectOfClass(UClass* ClassToLookFor, TFunctionRef<void (UObject*)> Operation, bool bIncludeDerivedClasses, EObjectFlags AdditionalExcludeFlags)
+{
+	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
+	EObjectFlags ExclusionFlags = RF_Unreachable;
+	if (!IsInAsyncLoadingThread())
+	{
+		ExclusionFlags |= RF_AsyncLoading;
+	}
+	ExclusionFlags |= AdditionalExcludeFlags;
+
+	FUObjectHashTables& ThreadHash = FUObjectHashTables::Get();
+	FHashTableLock HashLock(ThreadHash);
+
+	TSet<UClass*> ClassesToSearch;
+	ClassesToSearch.Add( ClassToLookFor );
+	if( bIncludeDerivedClasses )
+	{
+		RecursivelyPopulateDerivedClasses( ThreadHash, ClassToLookFor, ClassesToSearch );
+	}
+
+	for (auto ClassIt = ClassesToSearch.CreateConstIterator(); ClassIt; ++ClassIt)
+	{
+		TSet<UObjectBase*> const* List = ThreadHash.ClassToObjectListMap.Find(*ClassIt);
+		if (List)
+		{
+			for (auto ObjectIt = List->CreateConstIterator(); ObjectIt; ++ObjectIt)
+			{
+				UObject *Object = static_cast<UObject*>(*ObjectIt);
+				if (!Object->HasAnyFlags(ExclusionFlags))
+				{
+					Operation(Object);
+				}
+			}
+		}
+	}
 }
 
 void GetDerivedClasses(UClass* ClassToLookFor, TArray<UClass *>& Results, bool bRecursive)
@@ -775,7 +848,7 @@ void GetDerivedClasses(UClass* ClassToLookFor, TArray<UClass *>& Results, bool b
 
 void AllocateUObjectIndexForCurrentThread(UObjectBase* Object)
 {
-	GetUObjectArray().AllocateUObjectIndex(Object);
+	GUObjectArray.AllocateUObjectIndex(Object);
 }
 
 void HashObject(UObjectBase* Object)
@@ -810,6 +883,8 @@ void HashObject(UObjectBase* Object)
  */
 void UnhashObject(UObjectBase* Object)
 {
+	SCOPE_CYCLE_COUNTER(STAT_Hash_UnhashObject);
+
 	FName Name = Object->GetFName();
 	if (Name != NAME_None)
 	{

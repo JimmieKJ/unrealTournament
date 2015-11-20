@@ -47,7 +47,7 @@ void VertexMain(
 		);
 
 	// Pass sample on to the pixel shader.
-	Interpolants.Sample = Input.Sample;
+	Interpolants.Sample = Input.Sample FCOLOR_COMPONENT_SWIZZLE;
 }
 
 #endif // #if VERTEXSHADER

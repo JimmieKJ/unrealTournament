@@ -23,7 +23,7 @@ public:
 	DECLARE_DELEGATE_TwoParams( FOnBarEventSelectionChanged, int32, TSharedPtr< FVisualizerEvent > );
 	
 	/** Delegate used when the user right-clicks on a bar graph */
-	DECLARE_DELEGATE_OneParam( FOnBarGraphContextMenu, TSharedPtr< FVisualizerEvent > );
+	DECLARE_DELEGATE_TwoParams( FOnBarGraphContextMenu, TSharedPtr< FVisualizerEvent >, const FPointerEvent& );
 
 	SLATE_BEGIN_ARGS( SBarVisualizer )
 		: _ProfileData()

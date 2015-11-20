@@ -43,7 +43,7 @@ FPhATSharedData::FPhATSharedData()
 	bShowHierarchy = false;
 	bShowInfluences = false;
 	bDrawGround = true;
-	bShowFixedStatus = false;
+	bShowFixedStatus = true;
 	bShowAnimSkel = false;
 
 	bSelectionLock = false;
@@ -213,35 +213,12 @@ void FPhATSharedData::Initialize()
 
 void FPhATSharedData::CopyConstraintProperties(UPhysicsConstraintTemplate * FromConstraintSetup, UPhysicsConstraintTemplate * ToConstraintSetup)
 {
-	//We want to copy frame2 relative to frame1. To do this we need to go from body2 into body1, compute relative.
-	//Then apply relative inside body1 of the destination constraint, and finally move it into body2 of destination constraint
-
-	//In total there are 4 bodies, body a and b are the frame1 frame2 bodies of the copied
-	// body c and d are frame 1 and frame 2 of the destination constraint
-	//we use the body letter to denote which space we're in, for example Frame1a would be frame1 inside BodyA
-	//Frame1b would be frame 1 inside body b. In this case BodyA * Frame1a == BodyB * Frame1b
-
-	FTransform Frame1A = FromConstraintSetup->DefaultInstance.GetRefFrame(EConstraintFrame::Frame1);
-	FTransform BodyA = GetConstraintBodyTM(FromConstraintSetup, EConstraintFrame::Frame1);
-	FTransform BodyB = GetConstraintBodyTM(FromConstraintSetup, EConstraintFrame::Frame2);
-	FTransform BodyAFrame1A = GetConstraintWorldTM(FromConstraintSetup, EConstraintFrame::Frame1);
-	FTransform BodyBFrame2B = GetConstraintWorldTM(FromConstraintSetup, EConstraintFrame::Frame2);
-
-	FTransform Frame1C = ToConstraintSetup->DefaultInstance.GetRefFrame(EConstraintFrame::Frame1);
-	FTransform BodyC = GetConstraintBodyTM(ToConstraintSetup, EConstraintFrame::Frame1);
-	FTransform BodyD = GetConstraintBodyTM(ToConstraintSetup, EConstraintFrame::Frame2);
-
-	FTransform FromF1AToF2A = BodyBFrame2B * BodyA.Inverse() * Frame1A.Inverse();
-	FTransform Frame2C = FromF1AToF2A * Frame1C;
-	FTransform Frame2D = Frame2C* BodyC * BodyD.Inverse();
-
-
 	ToConstraintSetup->Modify();
 	FConstraintInstance OldInstance = ToConstraintSetup->DefaultInstance;
 	ToConstraintSetup->DefaultInstance.CopyConstraintParamsFrom(&FromConstraintSetup->DefaultInstance);
 
-	// recover certain data that we'd like to keep - i.e. bone indices
-	// those still should stay
+	// recover certain data that we'd like to keep - i.e. bone indices those still should stay.  
+	// frame position offsets taken from old, but frame orientations are taken from new source
 	ToConstraintSetup->DefaultInstance.ConstraintIndex = OldInstance.ConstraintIndex;
 	ToConstraintSetup->DefaultInstance.ConstraintData = OldInstance.ConstraintData;
 	ToConstraintSetup->DefaultInstance.JointName = OldInstance.JointName;
@@ -249,14 +226,6 @@ void FPhATSharedData::CopyConstraintProperties(UPhysicsConstraintTemplate * From
 	ToConstraintSetup->DefaultInstance.ConstraintBone2 = OldInstance.ConstraintBone2;
 	ToConstraintSetup->DefaultInstance.Pos1 = OldInstance.Pos1;
 	ToConstraintSetup->DefaultInstance.Pos2 = OldInstance.Pos2;
-
-	//frame1 stays the same
-	ToConstraintSetup->DefaultInstance.PriAxis1 = OldInstance.PriAxis1;
-	ToConstraintSetup->DefaultInstance.SecAxis1 = OldInstance.SecAxis1;
-
-	//frame2 is copied but relative to frame1
-	ToConstraintSetup->DefaultInstance.PriAxis2 = Frame2D.GetUnitAxis(EAxis::X);
-	ToConstraintSetup->DefaultInstance.SecAxis2 = Frame2D.GetUnitAxis(EAxis::Y);
 }
 
 struct FMirrorInfo
@@ -316,14 +285,27 @@ void FPhATSharedData::Mirror()
 			UBodySetup * DestBody = PhysicsAsset->BodySetup[MirrorBodyIndex];
 			DestBody->Modify();
 			DestBody->CopyBodyPropertiesFrom(SrcBody);
-
+			FQuat ArtistMirrorConvention(0,0,1,0);   // how Epic Maya artists rig the right and left orientation differently.  todo: perhaps move to cvar 
+			for (FKSphylElem& Sphyl : DestBody->AggGeom.SphylElems)
+			{
+				Sphyl.Orientation = ArtistMirrorConvention*Sphyl.Orientation;
+				Sphyl.Center = ArtistMirrorConvention.RotateVector(Sphyl.Center);
+			}
+			for (FKBoxElem& Box : DestBody->AggGeom.BoxElems)
+			{
+				Box.Orientation = ArtistMirrorConvention*Box.Orientation;
+				Box.Center      = ArtistMirrorConvention.RotateVector(Box.Center);
+			}
+			for (FKSphereElem& Sphere : DestBody->AggGeom.SphereElems)
+			{
+				Sphere.Center = ArtistMirrorConvention.RotateVector(Sphere.Center);
+			}
 			int32 MirrorConstraintIndex = PhysicsAsset->FindConstraintIndex(DestBody->BoneName);
 			UPhysicsConstraintTemplate * FromConstraint = PhysicsAsset->ConstraintSetup[MirrorInfo.ConstraintIndex];
 			UPhysicsConstraintTemplate * ToConstraint = PhysicsAsset->ConstraintSetup[MirrorConstraintIndex];
 			CopyConstraintProperties(FromConstraint, ToConstraint);
 		}
 	}
-	
 }
 
 FPhATSharedData::EPhATRenderMode FPhATSharedData::GetCurrentMeshViewMode()
@@ -545,6 +527,65 @@ void FPhATSharedData::SetSelectedBody(const FSelection* Body, bool bGroupSelect 
 	UpdateNoCollisionBodies();
 	PreviewChangedEvent.Broadcast();
 }
+
+void FPhATSharedData::SetSelectedBodiesFromConstraints()
+{
+	if(SelectedConstraints.Num() == 0)
+	{
+		return;
+	}
+
+	SetSelectedBody(nullptr, false);
+	for (const FSelection& Selection : SelectedConstraints)
+	{
+		UPhysicsConstraintTemplate* ConstraintTemplate = PhysicsAsset->ConstraintSetup[Selection.Index];
+		FConstraintInstance & DefaultInstance = ConstraintTemplate->DefaultInstance;
+
+		for (int32 BodyIdx = 0; BodyIdx < PhysicsAsset->BodySetup.Num(); ++BodyIdx)
+		{
+			UBodySetup* BodySetup = PhysicsAsset->BodySetup[BodyIdx];
+			if (DefaultInstance.JointName == BodySetup->BoneName && BodySetup->AggGeom.GetElementCount() > 0)
+			{
+				FSelection NewSelection(BodyIdx, KPT_Unknown, 0);
+				int32 PrimIndex = 0;
+				for(int32 GeomType = 0; GeomType < KPT_Unknown; ++GeomType)
+				{
+					if(BodySetup->AggGeom.GetElementCount(GeomType) > 0)
+					{
+						NewSelection.PrimitiveType = (EKCollisionPrimitiveType)GeomType;
+						break;
+					}
+				}
+				SetSelectedBody(&NewSelection, true);
+			}
+		}
+	}
+}
+
+void FPhATSharedData::SetSelectedConstraintsFromBodies()
+{
+	if (SelectedBodies.Num() == 0)
+	{
+		return;
+	}
+
+	TSet<int32> TmpSelectedConstraints;	//We could have multiple shapes selected which would cause us to add and remove the same constraint.
+	SetSelectedConstraint(INDEX_NONE, false);
+	for (const FSelection& Selection : SelectedBodies)
+	{
+		UBodySetup* BodySetup = PhysicsAsset->BodySetup[Selection.Index];
+		for(int32 ConstraintIdx = 0; ConstraintIdx < PhysicsAsset->ConstraintSetup.Num(); ++ConstraintIdx)
+		{
+			const UPhysicsConstraintTemplate* ConstraintTemplate = PhysicsAsset->ConstraintSetup[ConstraintIdx]; 
+			if(ConstraintTemplate->DefaultInstance.JointName == BodySetup->BoneName && !TmpSelectedConstraints.Contains(ConstraintIdx))
+			{
+				TmpSelectedConstraints.Add(ConstraintIdx);
+				SetSelectedConstraint(ConstraintIdx, true);
+			}
+		}
+	}
+}
+
 
 void FPhATSharedData::UpdateNoCollisionBodies()
 {
@@ -860,6 +901,7 @@ bool FPhATSharedData::WeldSelectedBodies(bool bWeld /* = true */)
 	RefreshPhysicsAssetChange(PhysicsAsset);
 	return true;
 }
+
 
 void FPhATSharedData::InitConstraintSetup(UPhysicsConstraintTemplate* ConstraintSetup, int32 ChildBodyIndex, int32 ParentBodyIndex)
 {

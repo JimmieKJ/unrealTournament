@@ -7,4 +7,4 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSoundModImporter, Verbose, All);
 
-#include "SoundModImporterClasses.h"
+#include "Classes/SoundModImporterFactory.h"

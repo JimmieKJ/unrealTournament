@@ -130,7 +130,7 @@ FReply FKismetDelegateDragDropAction::DroppedOnPanel(const TSharedRef< SWidget >
 			}
 		}
 		MenuBuilder.EndSection();
-		FSlateApplication::Get().PushMenu(Panel, MenuBuilder.MakeWidget(), ScreenPosition, FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu));
+		FSlateApplication::Get().PushMenu(Panel, FWidgetPath(), MenuBuilder.MakeWidget(), ScreenPosition, FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu));
 	}
 	return FReply::Handled();
 }

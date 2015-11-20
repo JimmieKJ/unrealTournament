@@ -10,8 +10,11 @@
 USpinBox::USpinBox(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
-	Font = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	if (!UE_SERVER)
+	{
+		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
+		Font = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	}
 
 	// Grab other defaults from slate arguments.
 	SSpinBox<float>::FArguments Defaults;

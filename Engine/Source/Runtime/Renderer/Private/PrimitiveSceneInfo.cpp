@@ -36,11 +36,8 @@ public:
 			}
 		}
 	}
-	virtual void DrawMesh(
-		const FMeshBatch& Mesh,
-		float ScreenSize,
-		bool bShadowOnly
-		)
+
+	virtual void DrawMesh(const FMeshBatch& Mesh, float ScreenSize)
 	{
 		if (Mesh.GetNumPrimitives() > 0)
 		{
@@ -53,7 +50,6 @@ public:
 				PrimitiveSceneInfo,
 				Mesh,
 				ScreenSize,
-				bShadowOnly,
 				CurrentHitProxy ? CurrentHitProxy->Id : FHitProxyId()
 				);
 		}
@@ -90,15 +86,16 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	IndirectLightingCacheAllocation(NULL),
 	CachedReflectionCaptureProxy(NULL),
 	bNeedsCachedReflectionCaptureUpdate(true),
-	bVelocityIsSupressed(false),
 	DefaultDynamicHitProxy(NULL),
 	LightList(NULL),
 	LastRenderTime(-FLT_MAX),
 	LastVisibilityChangeTime(0.0f),
 	Scene(InScene),
+	NumES2DynamicPointLights(0),
 	PackedIndex(INDEX_NONE),
 	ComponentForDebuggingOnly(InComponent),
-	bNeedsStaticMeshUpdate(false)
+	bNeedsStaticMeshUpdate(false),
+	bNeedsUniformBufferUpdate(false)
 {
 	check(ComponentForDebuggingOnly);
 	check(PrimitiveComponentId.IsValid());
@@ -321,6 +318,13 @@ void FPrimitiveSceneInfo::UpdateStaticMeshes(FRHICommandListImmediate& RHICmdLis
 	}
 }
 
+void FPrimitiveSceneInfo::UpdateUniformBuffer(FRHICommandListImmediate& RHICmdList)
+{
+	checkSlow(bNeedsUniformBufferUpdate);
+	bNeedsUniformBufferUpdate = false;
+	Proxy->UpdateUniformBuffer();
+}
+
 void FPrimitiveSceneInfo::BeginDeferredUpdateStaticMeshes()
 {
 	// Set a flag which causes InitViews to update the static meshes the next time the primitive is visible.
@@ -401,7 +405,30 @@ void FPrimitiveSceneInfo::UnlinkAttachmentGroup()
 
 void FPrimitiveSceneInfo::GatherLightingAttachmentGroupPrimitives(TArray<FPrimitiveSceneInfo*, SceneRenderingAllocator>& OutChildSceneInfos)
 {
+#if ENABLE_NAN_DIAGNOSTIC
+	// local function that returns full name of object
+	auto GetObjectName = [](const UPrimitiveComponent* InPrimitive)->FString
+	{
+		return (InPrimitive) ? InPrimitive->GetFullName() : FString(TEXT("Unknown Object"));
+	};
+
+	// verify that the current object has a valid bbox before adding it
+	const float& BoundsRadius = this->Proxy->GetBounds().SphereRadius;
+	if (ensureMsgf(!FMath::IsNaN(BoundsRadius) && FMath::IsFinite(BoundsRadius),
+		TEXT("%s had an ill-formed bbox and was skipped during shadow setup, contact DavidH."), *GetObjectName(this->ComponentForDebuggingOnly)))
+	{
+		OutChildSceneInfos.Add(this);
+	}
+	else
+	{
+		// return, leaving the TArray empty
+		return;
+	}
+
+#else 
+	// add self at the head of this queue
 	OutChildSceneInfos.Add(this);
+#endif
 
 	if (!LightingAttachmentRoot.IsValid() && Proxy->LightAttachmentsAsGroup())
 	{
@@ -409,11 +436,26 @@ void FPrimitiveSceneInfo::GatherLightingAttachmentGroupPrimitives(TArray<FPrimit
 
 		if (AttachmentGroup)
 		{
-			for (int32 ChildIndex = 0; ChildIndex < AttachmentGroup->Primitives.Num(); ChildIndex++)
+			
+			for (int32 ChildIndex = 0, ChildIndexMax = AttachmentGroup->Primitives.Num(); ChildIndex < ChildIndexMax; ChildIndex++)
 			{
 				FPrimitiveSceneInfo* ShadowChild = AttachmentGroup->Primitives[ChildIndex];
+#if ENABLE_NAN_DIAGNOSTIC
+				// Only enqueue objects with valid bounds using the normality of the SphereRaduis as criteria.
+
+				const float& ShadowChildBoundsRadius = ShadowChild->Proxy->GetBounds().SphereRadius;
+
+				if (ensureMsgf(!FMath::IsNaN(ShadowChildBoundsRadius) && FMath::IsFinite(ShadowChildBoundsRadius),
+					TEXT("%s had an ill-formed bbox and was skipped during shadow setup, contact DavidH."), *GetObjectName(ShadowChild->ComponentForDebuggingOnly)))
+				{
+					checkSlow(!OutChildSceneInfos.Contains(ShadowChild))
+				    OutChildSceneInfos.Add(ShadowChild);
+				}
+#else
+				// enqueue all objects.
 				checkSlow(!OutChildSceneInfos.Contains(ShadowChild))
-				OutChildSceneInfos.Add(ShadowChild);
+			    OutChildSceneInfos.Add(ShadowChild);
+#endif
 			}
 		}
 	}
@@ -486,6 +528,12 @@ bool FPrimitiveSceneInfo::ShouldRenderVelocity(const FViewInfo& View, bool bChec
 
 	// Only render primitives with velocity.
 	if (!FVelocityDrawingPolicy::HasVelocity(View, this))
+	{
+		return false;
+	}
+
+	// If the base pass is allowed to render velocity in the GBuffer, only mesh with static lighting need the velocity pass.
+	if (FVelocityRendering::OutputsToGBuffer() && (!UseSelectiveBasePassOutputs() || !Proxy->HasStaticLighting()))
 	{
 		return false;
 	}

@@ -30,12 +30,22 @@ void FDependsNode::PrintReferencers() const
 	PrintReferencersRecursive(TEXT(""), VisitedNodes);
 }
 
-void FDependsNode::GetDependencies(TArray<FDependsNode*>& OutDependencies) const
+void FDependsNode::GetDependencies(TArray<FDependsNode*>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType) const
 {
-	for (auto DependsIt = Dependencies.CreateConstIterator(); DependsIt; ++DependsIt)
+	IterateOverDependencies([&](FDependsNode* InDependency, EAssetRegistryDependencyType::Type /*InDependencyType*/)
 	{
-		OutDependencies.Add(*DependsIt);
-	}
+		OutDependencies.Add(InDependency);
+	}, 
+	InDependencyType);
+}
+
+void FDependsNode::GetDependencies(TArray<FName>& OutDependencies, EAssetRegistryDependencyType::Type InDependencyType) const
+{
+	IterateOverDependencies([&](FDependsNode* InDependency, EAssetRegistryDependencyType::Type /*InDependencyType*/)
+	{
+		OutDependencies.Add(InDependency->GetPackageName());
+	},
+	InDependencyType);
 }
 
 void FDependsNode::GetReferencers(TArray<FDependsNode*>& OutReferencers) const
@@ -61,10 +71,12 @@ void FDependsNode::PrintDependenciesRecursive(const FString& Indent, TSet<const 
 		UE_LOG(LogAssetRegistry, Log, TEXT("%s%s"), *Indent, *PackageName.ToString());
 		VisitedNodes.Add(this);
 
-		for (auto DependsIt = Dependencies.CreateConstIterator(); DependsIt; ++DependsIt)
+		IterateOverDependencies([&](FDependsNode* InDependency, EAssetRegistryDependencyType::Type /*InDependencyType*/)
 		{
-			(*DependsIt)->PrintDependenciesRecursive(Indent + TEXT("  "), VisitedNodes);
-		}
+			InDependency->PrintDependenciesRecursive(Indent + TEXT("  "), VisitedNodes);
+		},
+		EAssetRegistryDependencyType::All
+		);
 	}
 }
 

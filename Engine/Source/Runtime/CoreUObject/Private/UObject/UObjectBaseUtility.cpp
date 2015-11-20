@@ -6,6 +6,7 @@
 
 #include "CoreUObjectPrivate.h"
 #include "Interface.h"
+#include "ModuleManager.h"
 
 
 /***********************/
@@ -35,14 +36,14 @@ void UObjectBaseUtility::GetPathName( const UObject* StopOuter, FString& ResultS
 {
 	if( this != StopOuter && this != NULL )
 	{
-		UObject* Outer = GetOuter();
-		if ( Outer && Outer != StopOuter )
+		UObject* ObjOuter = GetOuter();
+		if (ObjOuter && ObjOuter != StopOuter )
 		{
-			Outer->GetPathName( StopOuter, ResultString );
+			ObjOuter->GetPathName( StopOuter, ResultString );
 
 			// SUBOBJECT_DELIMITER is used to indicate that this object's outer is not a UPackage
-			if (Outer->GetClass() != UPackage::StaticClass()
-			&&	Outer->GetOuter()->GetClass() == UPackage::StaticClass())
+			if (ObjOuter->GetClass() != UPackage::StaticClass()
+			&& ObjOuter->GetOuter()->GetClass() == UPackage::StaticClass())
 			{
 				ResultString += SUBOBJECT_DELIMITER;
 			}
@@ -114,19 +115,19 @@ UPackage* UObjectBaseUtility::GetOutermost() const
 	UObject* Top = (UObject*)this;
 	for (;;)
 	{
-		UObject* Outer = Top->GetOuter();
-		if (!Outer)
+		UObject* CurrentOuter = Top->GetOuter();
+		if (!CurrentOuter)
 		{
 			return CastChecked<UPackage>(Top);
 		}
-		Top = Outer;
+		Top = CurrentOuter;
 	}
 }
 
 /** 
  * Finds the outermost package and marks it dirty
  */
-void UObjectBaseUtility::MarkPackageDirty() const
+bool UObjectBaseUtility::MarkPackageDirty() const
 {
 	// since transient objects will never be saved into a package, there is no need to mark a package dirty
 	// if we're transient
@@ -134,13 +135,20 @@ void UObjectBaseUtility::MarkPackageDirty() const
 	{
 		UPackage* Package = GetOutermost();
 
-		if( Package != NULL )
+		if( Package != NULL	)
 		{
 			// It is against policy to dirty a map or package during load in the Editor, to enforce this policy
 			// we explicitly disable the ability to dirty a package or map during load.  Commandlets can still
 			// set the dirty state on load.
 			if( IsRunningCommandlet() || 
-				(GIsEditor && !GIsEditorLoadingPackage && !GIsPlayInEditorWorld))
+				(GIsEditor && !GIsEditorLoadingPackage && !GIsPlayInEditorWorld && !IsInAsyncLoadingThread()
+#if WITH_HOT_RELOAD
+				&& !GIsHotReload
+#endif // WITH_HOT_RELOAD
+#if WITH_EDITORONLY_DATA
+				&& !Package->bIsCookedForEditor // Cooked packages can't be modified nor marked as dirty
+#endif
+				))
 			{
 				const bool bIsDirty = Package->IsDirty();
 
@@ -152,9 +160,17 @@ void UObjectBaseUtility::MarkPackageDirty() const
 
 				// Always call PackageMarkedDirtyEvent, even when the package is already dirty
 				Package->PackageMarkedDirtyEvent.Broadcast(Package, bIsDirty);
+
+				return true;
+			}
+			else
+			{
+				// notify the caller that the request to mark the package as dirty was suppressed
+				return false;
 			}
 		}
 	}
+	return true;
 }
 
 /**
@@ -248,6 +264,7 @@ bool UObjectBaseUtility::RootPackageHasAnyFlags( uint32 CheckFlagMask ) const
 /**
  * @return	true if this object is of the specified type.
  */
+#if UCLASS_FAST_ISA_IMPL != 2
 bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
 {
 	UE_CLOG(!SomeBase, LogObj, Fatal, TEXT("IsA(NULL) cannot yield meaningful results"));
@@ -269,7 +286,7 @@ bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
 	#endif
 
 	#if (UCLASS_FAST_ISA_IMPL & 1) && (UCLASS_FAST_ISA_IMPL & 2)
-		ensureOnceMsgf(bOldResult == bNewResult, TEXT("New cast code failed"));
+		ensureMsgf(bOldResult == bNewResult, TEXT("New cast code failed"));
 	#endif
 
 	#if UCLASS_FAST_ISA_IMPL & 1
@@ -278,6 +295,7 @@ bool UObjectBaseUtility::IsA( const UClass* SomeBase ) const
 		return bNewResult;
 	#endif
 }
+#endif
 
 
 /**

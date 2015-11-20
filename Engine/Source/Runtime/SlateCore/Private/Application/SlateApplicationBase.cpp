@@ -12,6 +12,7 @@ TSharedPtr<FSlateApplicationBase> FSlateApplicationBase::CurrentBaseApplication 
 TSharedPtr<GenericApplication> FSlateApplicationBase::PlatformApplication = nullptr;
 // TODO: Identifier the cursor index in a smarter way.
 const uint32 FSlateApplicationBase::CursorPointerIndex = EKeys::NUM_TOUCH_KEYS - 1;
+const uint32 FSlateApplicationBase::CursorUserIndex = 0;
 
 FWidgetPath FHitTesting::LocateWidgetInWindow(FVector2D ScreenspaceMouseCoordinate, const TSharedRef<SWindow>& Window, bool bIgnoreEnabledStatus) const
 {
@@ -22,6 +23,7 @@ FWidgetPath FHitTesting::LocateWidgetInWindow(FVector2D ScreenspaceMouseCoordina
 FSlateApplicationBase::FSlateApplicationBase()
 : Renderer()
 , HitTesting(this)
+, bIsSlateAsleep(false)
 {
 
 }
@@ -74,4 +76,14 @@ bool FSlateApplicationBase::AnyActiveTimersArePending()
 	}
 
 	return bAnyTickReady;
+}
+
+bool FSlateApplicationBase::IsSlateAsleep()
+{
+	return bIsSlateAsleep;
+}
+
+void FSlateApplicationBase::InvalidateAllWidgets() const
+{
+	OnGlobalInvalidateEvent.Broadcast();
 }

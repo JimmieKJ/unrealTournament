@@ -64,6 +64,6 @@ public:
 	// Must override in subclasses, that need ticking
 	virtual bool IsTickable() const
 	{
-		return true;
+		return false;
 	}
 };

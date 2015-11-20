@@ -138,7 +138,7 @@ struct ENGINE_API FCustomProfile
 /**
  * Set up and modify collision settings.
  */
-UCLASS(abstract, config=Engine, defaultconfig, MinimalAPI, meta=(DisplayName="Collision"))
+UCLASS(config=Engine, defaultconfig, MinimalAPI, meta=(DisplayName="Collision"))
 class UCollisionProfile : public UDeveloperSettings
 {
 	GENERATED_UCLASS_BODY()

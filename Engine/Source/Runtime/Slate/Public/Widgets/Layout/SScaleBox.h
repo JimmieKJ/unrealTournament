@@ -9,7 +9,7 @@ namespace EStretchDirection
 {
 	enum Type
 	{
-		/** Will scale the content up or down */
+		/** Will scale the content up or down. */
 		Both,
 		/** Will only make the content smaller, will never scale it larger than the content's desired size. */
 		DownOnly,
@@ -25,13 +25,31 @@ namespace EStretch
 	{
 		/** Does not scale the content. */
 		None,
-		/** Scales the content non-uniformly filling the entire space of the area */
+		/** Scales the content non-uniformly filling the entire space of the area. */
 		Fill,
-		/** Scales the content uniformly (preserving aspect ratio) until it can no longer scale the content without clipping it. */
+		/**
+		 * Scales the content uniformly (preserving aspect ratio) 
+		 * until it can no longer scale the content without clipping it.
+		 */
 		ScaleToFit,
-		/** Scales the content uniformly (preserving aspect ratio), until all sides meet or exceed the size of the area.  Will result in clipping longer sides. */
+		/**
+		 * Scales the content uniformly (preserving aspect ratio) 
+		 * until it can no longer scale the content without clipping it along the x-axis, 
+		 * the y-axis can/will be clipped.
+		 */
+		ScaleToFitX,
+		/**
+		 * Scales the content uniformly (preserving aspect ratio) 
+		 * until it can no longer scale the content without clipping it along the y-axis, 
+		 * the x-axis can/will be clipped.
+		 */
+		ScaleToFitY,
+		/**
+		 * Scales the content uniformly (preserving aspect ratio), until all sides meet 
+		 * or exceed the size of the area.  Will result in clipping the longer side.
+		 */
 		ScaleToFill,
-		/** Scales the content by the scale specified by the user */
+		/** Scales the content by the scale specified by the user. */
 		UserSpecified
 	};
 }
@@ -72,6 +90,13 @@ public:
 
 	SLATE_END_ARGS()
 
+	/** Constructor */
+	SScaleBox()
+	{
+		bCanTick = false;
+		bCanSupportFocus = false;
+	}
+
 	void Construct(const FArguments& InArgs);
 	
 	// SWidget interface
@@ -97,6 +122,9 @@ public:
 	/** See UserSpecifiedScale argument */
 	void SetUserSpecifiedScale(float InUserSpecifiedScale);
 	
+protected:
+	virtual float GetRelativeLayoutScale(const FSlotBase& Child) const override;
+
 private:
 	/** The allowed direction of stretching of the content */
 	TAttribute<EStretchDirection::Type> StretchDirection;

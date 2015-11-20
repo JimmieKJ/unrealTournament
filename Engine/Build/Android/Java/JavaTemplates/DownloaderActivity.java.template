@@ -233,6 +233,7 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
 				OutputData.putExtra(GameActivity.DOWNLOAD_RETURN_NAME, GameActivity.DOWNLOAD_FILES_PRESENT);		
 				setResult(RESULT_OK, OutputData);
 				finish();
+				overridePendingTransition(R.anim.noaction, R.anim.noaction);
 		}
 	}
 
@@ -663,10 +664,13 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
 	@Override
 	protected void onPause() {
 		super.onPause();
-	
+		GameActivity.Log.debug("In onPause");
+		
 		if(OutputData.getIntExtra(GameActivity.DOWNLOAD_RETURN_NAME, GameActivity.DOWNLOAD_NO_RETURN_CODE) == GameActivity.DOWNLOAD_NO_RETURN_CODE)
 		{
+			GameActivity.Log.debug("onPause returning that user quit the download.");
 			OutputData.putExtra(GameActivity.DOWNLOAD_RETURN_NAME, GameActivity.DOWNLOAD_USER_QUIT);
+			setResult(RESULT_OK, OutputData);
 		}
 	}
 
@@ -679,6 +683,7 @@ public class DownloaderActivity extends Activity implements IDownloaderClient {
             mDownloaderClientStub.disconnect(this);
         }
         super.onStop();
+		setResult(RESULT_OK, OutputData);
     }
 
     /**

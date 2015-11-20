@@ -31,7 +31,7 @@ SCRIPT_DIR=$(cd "`dirname "$0"`" && pwd)
 cd "$SCRIPT_DIR/../.."
 
 UATDirectory=Binaries/DotNET/
-UATNoCompileArg=
+UATCompileArg=-compile
 
 if [ ! -f Build/BatchFiles/RunUAT.sh ]; then
 	echo "RunUAT ERROR: The script does not appear to be located in the "
@@ -40,10 +40,10 @@ if [ ! -f Build/BatchFiles/RunUAT.sh ]; then
 fi
 
 # see if we have the no compile arg
-if echo "${Args[@]}" | grep -q -i "\-nocompile"; then
-	UATNoCompileArg=-NoCompile
+if echo "${Args[@]}" | grep -q -w -i "\-nocompile"; then
+	UATCompileArg=
 else
-	UATNoCompileArg=
+	UATCompileArg=-compile
 fi
 
 if [ "$(uname)" = "Darwin" ]; then
@@ -51,11 +51,11 @@ if [ "$(uname)" = "Darwin" ]; then
 	source "`dirname "$0"`/Mac/SetupMono.sh" "`dirname "$0"`/Mac"
 fi
 
-if [ "$UATNoCompileArg" != "-NoCompile" ]; then
+if [ "$UATCompileArg" = "-compile" ]; then
   # see if the .csproj exists to be compiled
 	if [ ! -f Source/Programs/AutomationTool/AutomationTool.csproj ]; then
 		echo No project to compile, attempting to use precompiled AutomationTool
-		UATNoCompileArg=-NoCompile
+		UATCompileArg=
 	else
 		if [ -f "$UATDirectory/AutomationTool.exe" ]; then
 			echo AutomationTool exists: Deleting
@@ -94,7 +94,7 @@ fi
 # you can't set a dotted env var nicely in sh, but env will run a command with
 # a list of env vars set, including dotted ones
 echo Start UAT: mono AutomationTool.exe "${Args[@]}"
-env uebp_LogFolder="$LogDir" mono AutomationTool.exe "${Args[@]}" $UATNoCompileArg
+env uebp_LogFolder="$LogDir" mono AutomationTool.exe "${Args[@]}" $UATCompileArg
 UATReturn=$?
 
 # @todo: Copy log files to somewhere useful

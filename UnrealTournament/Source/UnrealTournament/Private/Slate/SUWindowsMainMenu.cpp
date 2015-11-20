@@ -735,7 +735,7 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
 			if (OnlineIdentityInterface.IsValid())
 			{
-				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
+				TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
 				if (UserId.IsValid())
 				{
 					Options += FString::Printf(TEXT(" -cloudID=%s"), *UserId->ToString());

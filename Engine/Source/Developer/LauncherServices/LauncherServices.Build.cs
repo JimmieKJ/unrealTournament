@@ -26,6 +26,7 @@ namespace UnrealBuildTool.Rules
 					"SourceCodeAccess",
 					"TargetPlatform",
 					"UnrealEdMessages",
+					"JSON",
 				}
 			);
 

@@ -138,6 +138,16 @@ void FCoreAudioSoundBuffer::Seek( const float SeekTime )
  */
 FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateQueuedBuffer( FCoreAudioDevice* CoreAudioDevice, USoundWave* Wave )
 {
+	// Check to see if thread has finished decompressing on the other thread
+	if (Wave->AudioDecompressor != nullptr)
+	{
+		Wave->AudioDecompressor->EnsureCompletion();
+
+		// Remove the decompressor
+		delete Wave->AudioDecompressor;
+		Wave->AudioDecompressor = nullptr;
+	}
+
 	// Always create a new buffer for real time decompressed sounds
 	FCoreAudioSoundBuffer* Buffer = new FCoreAudioSoundBuffer( CoreAudioDevice, SoundFormat_PCMRT );
 	
@@ -145,17 +155,15 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateQueuedBuffer( FCoreAudioDevi
 	FSoundQualityInfo QualityInfo = { 0 };
 
 	Buffer->DecompressionState = CoreAudioDevice->CreateCompressedAudioInfo(Wave);
-	
-	Wave->InitAudioResource( CoreAudioDevice->GetRuntimeFormat(Wave) );
-	
-	if( Buffer->DecompressionState->ReadCompressedInfo( Wave->ResourceData, Wave->ResourceSize, &QualityInfo ) )
+
+	// If the buffer was precached as native, the resource data will have been lost and we need to re-initialize it
+	if (Wave->ResourceData == nullptr)
 	{
-		// Refresh the wave data
-		Wave->SampleRate = QualityInfo.SampleRate;
-		Wave->NumChannels = QualityInfo.NumChannels;
-		Wave->RawPCMDataSize = QualityInfo.SampleDataSize;
-		Wave->Duration = QualityInfo.Duration;
-		
+		Wave->InitAudioResource(CoreAudioDevice->GetRuntimeFormat(Wave));
+	}
+
+	if (Buffer->DecompressionState->ReadCompressedInfo( Wave->ResourceData, Wave->ResourceSize, &QualityInfo ))
+	{
 		// Clear out any dangling pointers
 		Buffer->PCMData = NULL;
 		Buffer->PCMDataSize = 0;
@@ -170,7 +178,7 @@ FCoreAudioSoundBuffer* FCoreAudioSoundBuffer::CreateQueuedBuffer( FCoreAudioDevi
 		Wave->RemoveAudioResource();
 	}
 	
-	return( Buffer );
+	return Buffer;
 }
 
 /**

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2246990
+﻿INTSourceChangelist:2572992
 Availability:NoPublish
 Title:APrecomputedVisibilityOverrideVolume
 Crumbs:
@@ -6,7 +6,7 @@ Description: PrecomputedVisibilityOverrideVolume クラスの概要
 
 [EXCERPT:APrecomputedVisibilityOverrideVolume]
 
-Precomputed Visibility Override Volumes を使えば、Precomputed Visibilty Volume の自動生成結果を望まない場合に、手書きのコードでワールド内の位置に対してアクタの可視性をオーバーライドすることができます。
+Precomputed Visibility Override Volumes を使えば、PrecomputedVisibiltyVolume の自動生成結果を望まない場合に、手書きのコードでワールド内の位置に対してアクタの可視性をオーバーライドすることができます。
 
 [VAR:ToolTipFullLink]
 Engine/Actors/Volumes#Volume Types

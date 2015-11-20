@@ -12,7 +12,7 @@ struct FDirectoryWatcherTestPayload
 	FString WorkingDir;
 	TMap<FString, FFileChangeData::EFileChangeAction> ReportedChanges;
 
-	FDirectoryWatcherTestPayload(const FString& InWorkingDir, bool bIncludeDirectoryEvents = false)
+	FDirectoryWatcherTestPayload(const FString& InWorkingDir, uint32 Flags = 0)
 		: WorkingDir(InWorkingDir)
 	{
 		IFileManager::Get().MakeDirectory(*WorkingDir, true);
@@ -21,7 +21,7 @@ struct FDirectoryWatcherTestPayload
 		if (IDirectoryWatcher* DirectoryWatcher = Module.Get())
 		{
 			auto Callback = IDirectoryWatcher::FDirectoryChanged::CreateRaw(this, &FDirectoryWatcherTestPayload::OnDirectoryChanged);
-			DirectoryWatcher->RegisterDirectoryChangedCallback_Handle(WorkingDir, Callback, WatcherDelegate, bIncludeDirectoryEvents);
+			DirectoryWatcher->RegisterDirectoryChangedCallback_Handle(WorkingDir, Callback, WatcherDelegate, Flags);
 		}
 	}
 	~FDirectoryWatcherTestPayload()
@@ -73,7 +73,7 @@ class FDelayedCallbackLatentCommand : public IAutomationLatentCommand
 {
 public:
 	FDelayedCallbackLatentCommand(TFunction<void()> InCallback, float InDelay = 0.1f)
-		: Callback(InCallback), Delay(InDelay)
+		: Callback(MoveTemp(InCallback)), Delay(InDelay)
 	{}
 
 	virtual bool Update() override
@@ -98,7 +98,7 @@ FString GetWorkingDir()
 }
 
 static const float TestTickDelay = 0.1f;
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherSimpleCreateTest, "System.Plugins.Directory Watcher.Simple Create", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherSimpleCreateTest, "System.Plugins.Directory Watcher.Simple Create", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FDirectoryWatcherSimpleCreateTest::RunTest(const FString& Parameters)
 {
 	const FString WorkingDir = GetWorkingDir();
@@ -130,7 +130,7 @@ bool FDirectoryWatcherSimpleCreateTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherSimpleModifyTest, "System.Plugins.Directory Watcher.Simple Modify", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherSimpleModifyTest, "System.Plugins.Directory Watcher.Simple Modify", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FDirectoryWatcherSimpleModifyTest::RunTest(const FString& Parameters)
 {
 	const FString WorkingDir = GetWorkingDir();
@@ -140,6 +140,34 @@ bool FDirectoryWatcherSimpleModifyTest::RunTest(const FString& Parameters)
 	// Create a file first
 	FFileHelper::SaveStringToFile(TEXT(""), *(WorkingDir / Filename));
 
+#if _MSC_VER >= 1900
+ 	ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
+
+		// Start watching the directory
+		TSharedPtr<FDirectoryWatcherTestPayload> Test = MakeShareable(new FDirectoryWatcherTestPayload(WorkingDir));
+		void* Holder = &Test;
+
+ 		ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
+
+			// Manipulate the file
+			FFileHelper::SaveStringToFile(TEXT("Some content"), *(WorkingDir / Filename));
+
+ 			ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
+
+				TSharedPtr<FDirectoryWatcherTestPayload> LocalTest = *(const TSharedPtr<FDirectoryWatcherTestPayload>*)Holder;
+				FFileChangeData::EFileChangeAction* Action = LocalTest->ReportedChanges.Find(Filename);
+
+				if (!Action || *Action != FFileChangeData::FCA_Modified)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("File '%s' was not correctly reported as being modified."), Filename);
+				}
+
+			}));
+
+		}));
+
+	}));
+#else
 	ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
 
 		// Start watching the directory
@@ -164,11 +192,12 @@ bool FDirectoryWatcherSimpleModifyTest::RunTest(const FString& Parameters)
 		}));
 
 	}));
+#endif
 
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherSimpleDeleteTest, "System.Plugins.Directory Watcher.Simple Delete", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherSimpleDeleteTest, "System.Plugins.Directory Watcher.Simple Delete", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FDirectoryWatcherSimpleDeleteTest::RunTest(const FString& Parameters)
 {
 	const FString WorkingDir = GetWorkingDir();
@@ -203,7 +232,7 @@ bool FDirectoryWatcherSimpleDeleteTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherSubFolderTest, "System.Plugins.Directory Watcher.Sub Folder", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherSubFolderTest, "System.Plugins.Directory Watcher.Sub Folder", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FDirectoryWatcherSubFolderTest::RunTest(const FString& Parameters)
 {
 	const FString WorkingDir = GetWorkingDir();
@@ -216,11 +245,13 @@ bool FDirectoryWatcherSubFolderTest::RunTest(const FString& Parameters)
 	FFileHelper::SaveStringToFile(TEXT(""), *(WorkingDir / ModifiedFilename));
 	FFileHelper::SaveStringToFile(TEXT(""), *(WorkingDir / RemovedFilename));
 
+#if _MSC_VER >= 1900
 	// Give the stream time to start up before doing the test
 	ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
 
 		// Start watching the directory
 		TSharedPtr<FDirectoryWatcherTestPayload> Test = MakeShareable(new FDirectoryWatcherTestPayload(WorkingDir));
+		void* Holder = &Test;
 
 		// Give the stream time to start up before doing the test
 		ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
@@ -233,6 +264,50 @@ bool FDirectoryWatcherSubFolderTest::RunTest(const FString& Parameters)
 			IFileManager::Get().Delete(*(WorkingDir / RemovedFilename));
 
 			ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
+
+				TSharedPtr<FDirectoryWatcherTestPayload> LocalTest = *(const TSharedPtr<FDirectoryWatcherTestPayload>*)Holder;
+
+				FFileChangeData::EFileChangeAction* Action = LocalTest->ReportedChanges.Find(CreatedFilename);
+				if (!Action || *Action != FFileChangeData::FCA_Added)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("File '%s' was not correctly reported as being added."), CreatedFilename);
+				}
+
+				Action = LocalTest->ReportedChanges.Find(ModifiedFilename);
+				if (!Action || *Action != FFileChangeData::FCA_Modified)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("File '%s' was not correctly reported as being modified."), ModifiedFilename);
+				}
+
+				Action = LocalTest->ReportedChanges.Find(RemovedFilename);
+				if (!Action || *Action != FFileChangeData::FCA_Removed)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("File '%s' was not correctly reported as being deleted."), RemovedFilename);
+				}
+
+			}));
+
+		}));
+
+	}));
+#else
+	// Give the stream time to start up before doing the test
+	ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
+
+		// Start watching the directory
+		TSharedPtr<FDirectoryWatcherTestPayload> Test = MakeShareable(new FDirectoryWatcherTestPayload(WorkingDir));
+
+		// Give the stream time to start up before doing the test
+		ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
+
+			// Create a new file
+			FFileHelper::SaveStringToFile(TEXT(""), *(WorkingDir / CreatedFilename));
+			// Modify another file
+			FFileHelper::SaveStringToFile(TEXT("Some content"), *(WorkingDir / ModifiedFilename));
+			// Delete a file
+			IFileManager::Get().Delete(*(WorkingDir / RemovedFilename));
+
+			ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
 
 				FFileChangeData::EFileChangeAction* Action = Test->ReportedChanges.Find(CreatedFilename);
 				if (!Action || *Action != FFileChangeData::FCA_Added)
@@ -257,11 +332,12 @@ bool FDirectoryWatcherSubFolderTest::RunTest(const FString& Parameters)
 		}));
 
 	}));
+#endif
 
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherNewFolderTest, "System.Plugins.Directory Watcher.New Folder", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherNewFolderTest, "System.Plugins.Directory Watcher.New Folder", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FDirectoryWatcherNewFolderTest::RunTest(const FString& Parameters)
 {
 	const FString WorkingDir = GetWorkingDir();
@@ -269,13 +345,51 @@ bool FDirectoryWatcherNewFolderTest::RunTest(const FString& Parameters)
 	static const TCHAR* CreatedDirectory = TEXT("created");
 	static const TCHAR* RemovedDirectory = TEXT("removed");
 
+#if _MSC_VER >= 1900
+	// Give the stream time to start up before doing the test
+	ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
+
+		IFileManager::Get().MakeDirectory(*(WorkingDir / RemovedDirectory), true);
+
+		// Start watching the directory
+		TSharedPtr<FDirectoryWatcherTestPayload> Test = MakeShareable(new FDirectoryWatcherTestPayload(WorkingDir, IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges));
+		void* Holder = &Test;
+
+		// Give the stream time to start up before doing the test
+		ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
+
+			IFileManager::Get().MakeDirectory(*(WorkingDir / CreatedDirectory), true);
+			IFileManager::Get().DeleteDirectory(*(WorkingDir / RemovedDirectory), true);
+
+			ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
+
+				TSharedPtr<FDirectoryWatcherTestPayload> LocalTest = *(const TSharedPtr<FDirectoryWatcherTestPayload>*)Holder;
+
+				FFileChangeData::EFileChangeAction* Action = LocalTest->ReportedChanges.Find(CreatedDirectory);
+				if (!Action || *Action != FFileChangeData::FCA_Added)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("Folder '%s' was not correctly reported as being added."), CreatedDirectory);
+				}
+
+				Action = LocalTest->ReportedChanges.Find(RemovedDirectory);
+				if (!Action || *Action != FFileChangeData::FCA_Removed)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("Folder '%s' was not correctly reported as being removed."), RemovedDirectory);
+				}
+
+			}));
+
+		}));
+
+	}));
+#else
 	// Give the stream time to start up before doing the test
 	ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
 
 		IFileManager::Get().MakeDirectory(*(WorkingDir / RemovedDirectory), true);
 
 		// Start watching the directory
-		TSharedPtr<FDirectoryWatcherTestPayload> Test = MakeShareable(new FDirectoryWatcherTestPayload(WorkingDir, true));
+		TSharedPtr<FDirectoryWatcherTestPayload> Test = MakeShareable(new FDirectoryWatcherTestPayload(WorkingDir, IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges));
 
 		// Give the stream time to start up before doing the test
 		ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
@@ -302,16 +416,90 @@ bool FDirectoryWatcherNewFolderTest::RunTest(const FString& Parameters)
 		}));
 
 	}));
+#endif
 
 	return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDirectoryWatcherIgnoreSubtreeTest, "System.Plugins.Directory Watcher.Ignore Subtree", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+bool FDirectoryWatcherIgnoreSubtreeTest::RunTest(const FString& Parameters)
+{
+	const FString WorkingDir = GetWorkingDir();
 
+	static const TCHAR* ChildDirectory = TEXT("child");
+	static const TCHAR* GrandchildDirectory = TEXT("grandchild");
 
+#if _MSC_VER >= 1900
+	// Give the stream time to start up before doing the test
+	ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
 
+		// Start watching the directory
+		TSharedPtr<FDirectoryWatcherTestPayload> Test = MakeShareable(new FDirectoryWatcherTestPayload(WorkingDir, IDirectoryWatcher::WatchOptions::IgnoreChangesInSubtree | IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges));
+		void* Holder = &Test;
 
+		// Give the stream time to start up before doing the test
+		ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
 
+			IFileManager::Get().MakeDirectory(*(WorkingDir / ChildDirectory), true);
+			IFileManager::Get().MakeDirectory(*(WorkingDir / ChildDirectory / GrandchildDirectory), true);
 
+			ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=]{
 
+				TSharedPtr<FDirectoryWatcherTestPayload> LocalTest = *(const TSharedPtr<FDirectoryWatcherTestPayload>*)Holder;
 
+				FFileChangeData::EFileChangeAction* Action = LocalTest->ReportedChanges.Find(ChildDirectory);
+				if (!Action || *Action != FFileChangeData::FCA_Added)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("Folder '%s' was not correctly reported as being added."), ChildDirectory);
+				}
+
+				Action = LocalTest->ReportedChanges.Find(GrandchildDirectory);
+				if (Action)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("Changes to folder '%s' (creation of subfolder '%s') was reported in spite of us setting the mode 'ignore changes in subtree'."),
+						ChildDirectory, GrandchildDirectory);
+				}
+
+			}));
+
+		}));
+
+	}));
+#else
+	// Give the stream time to start up before doing the test
+	ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
+
+		// Start watching the directory
+		TSharedPtr<FDirectoryWatcherTestPayload> Test = MakeShareable(new FDirectoryWatcherTestPayload(WorkingDir, IDirectoryWatcher::WatchOptions::IgnoreChangesInSubtree | IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges));
+
+		// Give the stream time to start up before doing the test
+		ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
+
+			IFileManager::Get().MakeDirectory(*(WorkingDir / ChildDirectory), true);
+			IFileManager::Get().MakeDirectory(*(WorkingDir / ChildDirectory / GrandchildDirectory), true);
+
+			ADD_LATENT_AUTOMATION_COMMAND(FDelayedCallbackLatentCommand([=] {
+
+				FFileChangeData::EFileChangeAction* Action = Test->ReportedChanges.Find(ChildDirectory);
+				if (!Action || *Action != FFileChangeData::FCA_Added)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("Folder '%s' was not correctly reported as being added."), ChildDirectory);
+				}
+
+				Action = Test->ReportedChanges.Find(GrandchildDirectory);
+				if (Action)
+				{
+					UE_LOG(LogDirectoryWatcherTests, Error, TEXT("Changes to folder '%s' (creation of subfolder '%s') was reported in spite of us setting the mode 'ignore changes in subtree'."),
+						ChildDirectory, GrandchildDirectory);
+				}
+
+			}));
+
+		}));
+
+	}));
+#endif
+
+	return true;
+}
 

@@ -11,48 +11,20 @@
 #include "LinkerPlaceholderFunction.h"
 #include "StructScriptLoader.h"
 
+// This flag enables some expensive class tree validation that is meant to catch mutations of 
+// the class tree outside of SetSuperStruct. It has been disabled because loading blueprints 
+// does a lot of mutation of the class tree, and the validation checks impact iteration time.
+#define DO_CLASS_TREE_VALIDATION 0
+
 DECLARE_LOG_CATEGORY_EXTERN(LogScriptSerialization, Log, All);
 DEFINE_LOG_CATEGORY(LogScriptSerialization);
 DEFINE_LOG_CATEGORY(LogClass);
 
-//////////////////////////////////////////////////////////////////////////
-// FPropertySpecifier
-
-FString FPropertySpecifier::ConvertToString() const
-{
-	FString Result;
-
-	// Emit the specifier key
-	Result += Key;
-
-	// Emit the values if there are any
-	if (Values.Num())
-	{
-		Result += TEXT("=");
-
-		if (Values.Num() == 1)
-		{
-			// One value goes on it's own
-			Result += Values[0];
-		}
-		else
-		{
-			// More than one value goes in parens, separated by commas
-			Result += TEXT("(");
-			for (int32 ValueIndex = 0; ValueIndex < Values.Num(); ++ValueIndex)
-			{
-				if (ValueIndex > 0)
-				{
-					Result += TEXT(", ");
-				}
-				Result += Values[ValueIndex];
-			}
-			Result += TEXT(")");
-		}
-	}
-
-	return Result;
-}
+#if _MSC_VER == 1900
+	#ifdef PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+		PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+	#endif
+#endif
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -80,7 +52,16 @@ COREUOBJECT_API void InitializePrivateStaticClass(
 
 	// Register the class's dependencies, then itself.
 	TClass_PrivateStaticClass->RegisterDependencies();
-	TClass_PrivateStaticClass->Register(PackageName,Name);
+	if (!TClass_PrivateStaticClass->HasAnyFlags(RF_Dynamic))
+	{
+		// Defer
+		TClass_PrivateStaticClass->Register(PackageName, Name);
+	}
+	else
+	{
+		// Register immediately (don't let the function name mistake you!)
+		TClass_PrivateStaticClass->DeferredRegister(UDynamicClass::StaticClass(), PackageName, Name);
+	}
 }
 
 void FNativeFunctionRegistrar::RegisterFunction(class UClass* Class, const ANSICHAR* InName, Native InPointer)
@@ -88,6 +69,10 @@ void FNativeFunctionRegistrar::RegisterFunction(class UClass* Class, const ANSIC
 	Class->AddNativeFunction(InName, InPointer);
 }
 
+void FNativeFunctionRegistrar::RegisterFunction(class UClass* Class, const WIDECHAR* InName, Native InPointer)
+{
+	Class->AddNativeFunction(InName, InPointer);
+}
 
 /*-----------------------------------------------------------------------------
 	UField implementation.
@@ -239,7 +224,7 @@ FText UField::GetToolTipText(bool bShortTooltip) const
 
 	const FString Namespace = bFoundShortTooltip ? TEXT("UObjectShortTooltips") : TEXT("UObjectToolTips");
 	const FString Key = GetFullGroupName(false);
-	if ( !(FText::FindText( Namespace, Key, /*OUT*/LocalizedToolTip )) || *FTextInspector::GetSourceString(LocalizedToolTip) != NativeToolTip)
+	if ( !FText::FindText( Namespace, Key, /*OUT*/LocalizedToolTip, &NativeToolTip ) )
 	{
 		if (NativeToolTip.IsEmpty())
 		{
@@ -248,7 +233,8 @@ FText UField::GetToolTipText(bool bShortTooltip) const
 		else
 		{
 			static const FString DoxygenSee(TEXT("@see"));
-			if (NativeToolTip.Split(DoxygenSee, &NativeToolTip, nullptr, ESearchCase::IgnoreCase, ESearchDir::FromStart))
+			static const FString TooltipSee(TEXT("See:"));
+			if (NativeToolTip.ReplaceInline(*DoxygenSee, *TooltipSee) > 0)
 			{
 				NativeToolTip.TrimTrailing();
 			}
@@ -325,14 +311,26 @@ const FString& UField::GetMetaData(const FName& Key) const
 
 const FText UField::GetMetaDataText(const TCHAR* MetaDataKey, const FString LocalizationNamespace, const FString LocalizationKey) const
 {
-	FText LocalizedMetaData;
-	if ( !( FText::FindText( LocalizationNamespace, LocalizationKey, /*OUT*/LocalizedMetaData ) ) )
+	FString DefaultMetaData;
+
+	if( HasMetaData( MetaDataKey ))
 	{
-		FString DefaultMetaData;
-		if( HasMetaData( MetaDataKey ))
+		DefaultMetaData = GetMetaData(MetaDataKey);
+	}
+
+	// If attempting to grab the DisplayName metadata, we must correct the source string and output it as a DisplayString for lookup
+	if( DefaultMetaData.IsEmpty() && FString(MetaDataKey) == TEXT("DisplayName") )
+	{
+		DefaultMetaData = FName::NameToDisplayString( GetName(), IsA( UBoolProperty::StaticClass() ) );
+	}
+
+
+	FText LocalizedMetaData;
+	if ( !( FText::FindText( LocalizationNamespace, LocalizationKey, /*OUT*/LocalizedMetaData, &DefaultMetaData ) ) )
+	{
+		if (!DefaultMetaData.IsEmpty())
 		{
-			DefaultMetaData = GetMetaData(MetaDataKey);
-			LocalizedMetaData = FText::FromString(DefaultMetaData);
+			LocalizedMetaData = FText::AsCultureInvariant(DefaultMetaData);
 		}
 	}
 
@@ -341,16 +339,29 @@ const FText UField::GetMetaDataText(const TCHAR* MetaDataKey, const FString Loca
 
 const FText UField::GetMetaDataText(const FName& MetaDataKey, const FString LocalizationNamespace, const FString LocalizationKey) const
 {
-	FText LocalizedMetaData;
-	if ( !( FText::FindText( LocalizationNamespace, LocalizationKey, /*OUT*/LocalizedMetaData ) ) )
+	FString DefaultMetaData;
+
+	if( HasMetaData( MetaDataKey ))
 	{
-		FString DefaultMetaData;
-		if( HasMetaData( MetaDataKey ))
+		DefaultMetaData = GetMetaData(MetaDataKey);
+	}
+
+	// If attempting to grab the DisplayName metadata, we must correct the source string and output it as a DisplayString for lookup
+	if( DefaultMetaData.IsEmpty() && MetaDataKey == TEXT("DisplayName") )
+	{
+		DefaultMetaData = FName::NameToDisplayString( GetName(), IsA( UBoolProperty::StaticClass() ) );
+	}
+	
+
+	FText LocalizedMetaData;
+	if ( !( FText::FindText( LocalizationNamespace, LocalizationKey, /*OUT*/LocalizedMetaData, &DefaultMetaData ) ) )
+	{
+		if (!DefaultMetaData.IsEmpty())
 		{
-			DefaultMetaData = GetMetaData(MetaDataKey);
-			LocalizedMetaData = FText::FromString(DefaultMetaData);
+			LocalizedMetaData = FText::AsCultureInvariant(DefaultMetaData);
 		}
 	}
+
 	return LocalizedMetaData;
 }
 
@@ -835,6 +846,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 		{
 			FPropertyTag Tag;
 			Ar << Tag;
+
 			if( Tag.Name == NAME_None )
 			{
 				break;
@@ -998,6 +1010,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				FString str;
 				Ar << str;
 				FText Text = FText::FromString(str);
+				Text.TextData->PersistText();
 				Text.Flags |= ETextFlag::ConvertedProperty;
 				CastChecked<UTextProperty>(Property)->SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
 				AdvanceProperty = true;
@@ -1012,6 +1025,25 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				AdvanceProperty = true;
 				continue; 
 			}
+			else if( Tag.Type==NAME_NameProperty && dynamic_cast<UTextProperty*>(Property) ) // Convert serialized name to text.
+			{ 
+				FName Name;  
+				Ar << Name;
+				FText Text = FText::FromName(Name);
+				Text.Flags |= ETextFlag::ConvertedProperty;
+				CastChecked<UTextProperty>(Property)->SetPropertyValue_InContainer(Data, Text, Tag.ArrayIndex);
+				AdvanceProperty = true;
+				continue; 
+			}
+			else if( Tag.Type==NAME_TextProperty && dynamic_cast<UNameProperty*>(Property) ) // Convert serialized text to name.
+			{ 
+				FText Text;  
+				Ar << Text;
+				FName Name = FName(*Text.ToString());
+				CastChecked<UNameProperty>(Property)->SetPropertyValue_InContainer(Data, Name, Tag.ArrayIndex);
+				AdvanceProperty = true;
+				continue; 
+			}
 			else if ( Tag.Type == NAME_ByteProperty && Property->GetID() == NAME_IntProperty )
 			{
 				// this property's data was saved as a uint8, but the property has been changed to an int32.  Since there is no loss of data
@@ -1023,8 +1055,8 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				if (Tag.EnumName != NAME_None)
 				{
 					//@warning: mirrors loading code in UByteProperty::SerializeItem()
-					FName EnumValue;
-					Ar << EnumValue;
+					FName EnumName;
+					Ar << EnumName;
 					UEnum* Enum = FindField<UEnum>((DefaultsClass != NULL) ? DefaultsClass : DefaultsStruct->GetTypedOuter<UClass>(), Tag.EnumName);
 					if (Enum == NULL)
 					{
@@ -1038,10 +1070,10 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 					else
 					{
 						Ar.Preload(Enum);
-						PreviousValue = Enum->FindEnumIndex(EnumValue);
-						if (Enum->NumEnums() < PreviousValue)
+						PreviousValue = Enum->GetValueByName(EnumName);
+						if (!Enum->IsValidEnumValue(PreviousValue))
 						{
-							PreviousValue = Enum->NumEnums() - 1;
+							PreviousValue = Enum->GetMaxEnumValue();
 						}
 					}
 				}
@@ -1120,6 +1152,21 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 					UE_LOG(LogClass, Warning, TEXT("SerializeFromMismatchedTag failed: Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *Property->GetID().ToString(), *Ar.GetArchiveName() );
 				}
 			}
+			else if (Tag.Type == NAME_StructProperty && Property->GetID() == NAME_AssetObjectProperty)
+			{
+				// This property used to be a FStringAssetReference but is now a TAssetPtr<Foo>
+				FStringAssetReference PreviousValue;
+				// explicitly call Serialize to ensure that the various delegates needed for cooking are fired
+				PreviousValue.Serialize(Ar);
+
+				// now copy the value into the object's address space
+				FAssetPtr PreviousValueAssetPtr;
+				PreviousValueAssetPtr = PreviousValue;
+				CastChecked<UAssetObjectProperty>(Property)->SetPropertyValue_InContainer(Data, PreviousValueAssetPtr, Tag.ArrayIndex);
+
+				AdvanceProperty = true;
+				continue;
+			}
 			else if( Tag.Type!=Property->GetID() )
 			{
 				UE_LOG(LogClass, Warning, TEXT("Type mismatch in %s of %s - Previous (%s) Current(%s) for package:  %s"), *Tag.Name.ToString(), *GetName(), *Tag.Type.ToString(), *Property->GetID().ToString(), *Ar.GetArchiveName() );
@@ -1144,6 +1191,7 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 						FString str;
 						Ar << str;
 						FText Text = FText::FromString(str);
+						Text.TextData->PersistText();
 						Text.Flags |= ETextFlag::ConvertedProperty;
 						CastChecked<UTextProperty>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), Text);
 						AdvanceProperty = true;
@@ -1158,6 +1206,32 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 						Ar << Text;
 						FString String = FTextInspector::GetSourceString(Text) ? *FTextInspector::GetSourceString(Text) : TEXT("");
 						static_cast<UStrProperty*>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), String);
+						AdvanceProperty = true;
+					}
+					continue; 
+				}
+				else if (Tag.InnerType == NAME_NameProperty && dynamic_cast<UTextProperty*>(ArrayProperty->Inner)) // Convert serialized name to text.
+				{ 
+					for(int32 i = 0; i < ElementCount; ++i)
+					{
+						FName Name;
+						Ar << Name;
+						FText Text = FText::FromName(Name);
+						Text.TextData->PersistText();
+						Text.Flags |= ETextFlag::ConvertedProperty;
+						CastChecked<UTextProperty>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), Text);
+						AdvanceProperty = true;
+					}
+					continue;
+				}
+				else if( Tag.InnerType==NAME_TextProperty && dynamic_cast<UNameProperty*>(ArrayProperty->Inner) ) // Convert serialized text to name.
+				{ 
+					for(int32 i = 0; i < ElementCount; ++i)
+					{
+						FText Text;  
+						Ar << Text;
+						FName Name = FTextInspector::GetSourceString(Text) ? FName(**FTextInspector::GetSourceString(Text)) : NAME_None;
+						static_cast<UNameProperty*>(ArrayProperty->Inner)->SetPropertyValue(ScriptArrayHelper.GetRawPtr(i), Name);
 						AdvanceProperty = true;
 					}
 					continue; 
@@ -1203,7 +1277,8 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 			else if( Tag.Type==NAME_StructProperty && Tag.StructName!=CastChecked<UStructProperty>(Property)->Struct->GetFName() 
 				&& !CanSerializeFromStructWithDifferentName(Ar, Tag, CastChecked<UStructProperty>(Property)))
 			{
-				UE_LOG(LogClass, Warning, TEXT("Property %s of %s struct type mismatch %s/%s for package:  %s. If that property got renamed, add an ActiveStructRedirect."), *Tag.Name.ToString(), *GetName(), *Tag.StructName.ToString(), *CastChecked<UStructProperty>(Property)->Struct->GetName(), *Ar.GetArchiveName() );
+				UE_LOG(LogClass, Warning, TEXT("Property %s of %s has a struct type mismatch (tag %s != prop %s) in package:  %s. If that struct got renamed, add an entry to ActiveStructRedirects."),
+					*Tag.Name.ToString(), *GetName(), *Tag.StructName.ToString(), *CastChecked<UStructProperty>(Property)->Struct->GetName(), *Ar.GetArchiveName() );
 			}
 			else if( !Property->ShouldSerializeValue(Ar) )
 			{
@@ -1224,8 +1299,8 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 				{
 					// attempt to find the old enum and get the byte value from the serialized enum name
 					//@warning: mirrors loading code in UByteProperty::SerializeItem()
-					FName EnumValue;
-					Ar << EnumValue;
+					FName EnumName;
+					Ar << EnumName;
 					UEnum* Enum = FindField<UEnum>((DefaultsClass != NULL) ? DefaultsClass : DefaultsStruct->GetTypedOuter<UClass>(), Tag.EnumName);
 					if (Enum == NULL)
 					{
@@ -1239,10 +1314,10 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 					else
 					{
 						Ar.Preload(Enum);
-						PreviousValue = Enum->FindEnumIndex(EnumValue);
-						if (Enum->NumEnums() < PreviousValue)
+						PreviousValue = Enum->GetValueByName(EnumName);
+						if (!Enum->IsValidEnumValue(PreviousValue))
 						{
-							PreviousValue = Enum->NumEnums() - 1;
+							PreviousValue = Enum->GetMaxEnumValue();
 						}
 					}
 				}
@@ -1301,6 +1376,11 @@ void UStruct::SerializeTaggedProperties(FArchive& Ar, uint8* Data, UStruct* Defa
 						{
 							DefaultValue = NULL;
 						}
+#if WITH_EDITOR
+						static const FName NAME_PropertySerialize = FName(TEXT("PropertySerialize"));
+						FArchive::FScopeAddDebugData P(Ar, NAME_PropertySerialize);
+						FArchive::FScopeAddDebugData S(Ar, Property->GetFName());
+#endif
 						FPropertyTag Tag( Ar, Property, Idx, DataPtr, DefaultValue );
 						Ar << Tag;
 
@@ -1371,6 +1451,8 @@ void UStruct::Serialize( FArchive& Ar )
 
 		if (Ar.IsSaving())
 		{
+			FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
+
 			Ar << ScriptBytecodeSize;
 
 			int32 ScriptStorageSize = 0;
@@ -1397,8 +1479,8 @@ void UStruct::Serialize( FArchive& Ar )
 
 				// force writing to a buffer
 				TArray<uint8> TempScript;
-				FMemoryWriter MemWriter(TempScript, Ar.IsPersistent());
-				LinkerSave->Saver = &MemWriter;
+					FMemoryWriter MemWriter(TempScript, Ar.IsPersistent());
+					LinkerSave->Saver = &MemWriter;
 
 				// now, use the linker to save the byte code, but writing to memory
 				while (iCode < ScriptBytecodeSize)
@@ -1406,11 +1488,11 @@ void UStruct::Serialize( FArchive& Ar )
 					SerializeExpr(iCode, Ar);
 				}
 
-				// restore the saver
-				LinkerSave->Saver = SavedSaver;
+					// restore the saver
+					LinkerSave->Saver = SavedSaver;
 
-				// now write out the memory bytes
-				Ar.Serialize(TempScript.GetData(), TempScript.Num());
+					// now write out the memory bytes
+					Ar.Serialize(TempScript.GetData(), TempScript.Num());
 
 				// and update the SHA (does nothing if not currently calculating SHA)
 				LinkerSave->UpdateScriptSHAKey(TempScript);
@@ -1430,6 +1512,8 @@ void UStruct::Serialize( FArchive& Ar )
 
 			if (Ar.IsSaving())
 			{
+				FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
+
 				int32 const BytecodeEndOffset = Ar.Tell();
 
 				// go back and write on-disk size
@@ -1545,7 +1629,13 @@ bool UStruct::GetStringMetaDataHierarchical(const FName& Key, FString* OutValue)
 	 */
 	static void HandlePlaceholderScriptRef(ScriptPointerType& ScriptPtr)
 	{
+#ifdef REQUIRES_ALIGNED_INT_ACCESS
+		ScriptPointerType  Temp; 
+		FMemory::Memcpy(&Temp, &ScriptPtr, sizeof(ScriptPointerType));
+		UObject*& ExprPtrRef = (UObject*&)Temp;
+#else
 		UObject*& ExprPtrRef = (UObject*&)ScriptPtr;
+#endif 
 		if (ULinkerPlaceholderClass* PlaceholderObj = Cast<ULinkerPlaceholderClass>(ExprPtrRef))
 		{
 			PlaceholderObj->AddReferencingScriptExpr((UClass**)(&ExprPtrRef));
@@ -1771,7 +1861,17 @@ struct TStructOpsTypeTraits<FTestStruct> : public TStructOpsTypeTraitsBase
 **/
 static TMap<FName,UScriptStruct::ICppStructOps*>& GetDeferredCppStructOps()
 {
-	static TMap<FName,UScriptStruct::ICppStructOps*> DeferredCppStructOps;
+	static struct TMapWithAutoCleanup : public TMap<FName, UScriptStruct::ICppStructOps*>
+	{
+		~TMapWithAutoCleanup()
+		{
+			for (PairSetType::TConstIterator It(Pairs); It; ++It)
+			{
+				delete It->Value;
+			}
+		}
+	}
+	DeferredCppStructOps;
 	return DeferredCppStructOps;
 }
 
@@ -2121,6 +2221,63 @@ void UScriptStruct::Serialize( FArchive& Ar )
 	}
 }
 
+bool UScriptStruct::UseBinarySerialization(const FArchive& Ar) const
+{
+	return !(Ar.IsLoading() || Ar.IsSaving())
+		|| Ar.WantBinaryPropertySerialization()
+		|| (0 != (StructFlags & STRUCT_Immutable));
+}
+
+void UScriptStruct::SerializeItem(FArchive& Ar, void* Value, void const* Defaults)
+{
+	const bool bUseBinarySerialization = UseBinarySerialization(Ar);
+	const bool bUseNativeSerialization = UseNativeSerialization();
+
+	// Preload struct before serialization tracking to not double count time.
+	if (bUseBinarySerialization || bUseNativeSerialization)
+	{
+		Ar.Preload(this);
+	}
+
+	bool bItemSerialized = false;
+	if (bUseNativeSerialization)
+	{
+		UScriptStruct::ICppStructOps* TheCppStructOps = GetCppStructOps();
+		check(TheCppStructOps); // else should not have STRUCT_SerializeNative
+		check(!InheritedCppStructOps()); // else should not have STRUCT_SerializeNative
+		bItemSerialized = TheCppStructOps->Serialize(Ar, Value);
+	}
+
+	if (!bItemSerialized)
+	{
+		if (bUseBinarySerialization)
+		{
+			// Struct is already preloaded above.
+			if (!Ar.IsPersistent() && Ar.GetPortFlags() != 0 && !ShouldSerializeAtomically(Ar))
+			{
+				SerializeBinEx(Ar, Value, Defaults, this);
+			}
+			else
+			{
+				SerializeBin(Ar, Value);
+			}
+		}
+		else
+		{
+			SerializeTaggedProperties(Ar, (uint8*)Value, this, (uint8*)Defaults);
+		}
+	}
+
+	if (StructFlags & STRUCT_PostSerializeNative)
+	{
+		UScriptStruct::ICppStructOps* TheCppStructOps = GetCppStructOps();
+		check(TheCppStructOps); // else should not have STRUCT_PostSerializeNative
+		check(!InheritedCppStructOps()); // else should not have STRUCT_PostSerializeNative
+		TheCppStructOps->PostSerialize(Ar, Value);
+	}
+}
+
+
 void UScriptStruct::Link(FArchive& Ar, bool bRelinkExistingProperties)
 {
 	Super::Link(Ar, bRelinkExistingProperties);
@@ -2290,7 +2447,14 @@ void UScriptStruct::ClearScriptStruct(void* Dest, int32 ArrayDim) const
 			{
 				TheCppStructOps->Destruct(PropertyData);
 			}
-			TheCppStructOps->Construct(PropertyData);
+			if (TheCppStructOps->HasZeroConstructor())
+			{
+				FMemory::Memzero(PropertyData, Stride);
+			}
+			else
+			{
+				TheCppStructOps->Construct(PropertyData);
+			}
 		}
 		ClearedSize = TheCppStructOps->GetSize();
 		// here we want to make sure C++ and the property system agree on the size
@@ -3085,8 +3249,8 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 			Register(Orphan);
 		}
 
-		#if DO_CHECK
-			//Validate();
+		#if DO_CLASS_TREE_VALIDATION
+			Validate();
 		#endif
 	}
 
@@ -3133,8 +3297,8 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 
 		State.Classes.RemoveAt(ClassIndex, NumRemoved, false);
 
-		#if DO_CHECK
-			//Validate();
+		#if DO_CLASS_TREE_VALIDATION
+			Validate();
 		#endif
 	}
 
@@ -3192,6 +3356,7 @@ void UClass::SetSuperStruct(UStruct* NewSuperStruct)
 #if UCLASS_FAST_ISA_IMPL & 2
 	FFastIndexingClassTree::Unregister(this);
 #endif
+	ClearFunctionMapsCaches();
 	Super::SetSuperStruct(NewSuperStruct);
 #if UCLASS_FAST_ISA_IMPL & 2
 	FFastIndexingClassTree::Register(this);
@@ -3558,6 +3723,7 @@ void UClass::PurgeClass(bool bRecompilingOnLoad)
 	ScriptObjectReferences.Empty();
 
 	FuncMap.Empty();
+	ClearFunctionMapsCaches();
 	PropertyLink = NULL;
 }
 
@@ -3878,24 +4044,71 @@ void UClass::AddNativeFunction(const ANSICHAR* InName,Native InPointer)
 	new(NativeFunctionLookupTable) FNativeFunctionLookup(InFName,InPointer);
 }
 
+void UClass::AddNativeFunction(const WIDECHAR* InName, Native InPointer)
+{
+	FName InFName(InName);
+#if WITH_HOT_RELOAD
+	if (GIsHotReload)
+	{
+		// Find the function in the class's native function lookup table.
+		if (ReplaceNativeFunction(InFName, InPointer, true))
+		{
+			return;
+		}
+		else
+		{
+			// function was not found, so it's new
+			UE_LOG(LogClass, Log, TEXT("Function %s is new."), *InFName.ToString());
+		}
+	}
+#endif
+	new(NativeFunctionLookupTable)FNativeFunctionLookup(InFName, InPointer);
+}
+
 UFunction* UClass::FindFunctionByName(FName InName, EIncludeSuperFlag::Type IncludeSuper) const
 {
-	if (!IncludeSuper)
-		return FuncMap.FindRef(InName);
-
-	for (const UClass* SearchClass = this; SearchClass; SearchClass = SearchClass->GetSuperClass())
+	UFunction* Result = FuncMap.FindRef(InName);
+	if (Result == nullptr && IncludeSuper == EIncludeSuperFlag::IncludeSuper)
 	{
-		if (UFunction* Result = SearchClass->FuncMap.FindRef(InName))
-			return Result;
-
-		for (auto& Inter : SearchClass->Interfaces)
+		if (Interfaces.Num())
 		{
-			if (UFunction* Result = Inter.Class->FindFunctionByName(InName))
-				return Result;
+			if (UFunction** InterfaceResult = InterfaceFuncMap.Find(InName))
+			{
+				Result = *InterfaceResult;
+			}
+			else
+			{
+				for (const FImplementedInterface& Inter : Interfaces)
+				{
+					Result = Inter.Class->FindFunctionByName(InName);
+					if (Result)
+					{
+						break;
+					}
+				}
+
+				InterfaceFuncMap.Add(InName, Result);
+			}
+		}
+
+		if (Result == nullptr)
+		{
+			if (UClass* SuperClass = GetSuperClass())
+			{
+				if (UFunction** ParentResult = ParentFuncMap.Find(InName))
+				{
+					Result = *ParentResult;
+				}
+				else
+				{
+					Result = SuperClass->FindFunctionByName(InName);
+					ParentFuncMap.Add(InName, Result);
+				}
+			}
 		}
 	}
 
-	return NULL;
+	return Result;
 }
 
 const FString UClass::GetConfigName() const
@@ -4049,6 +4262,125 @@ IMPLEMENT_CORE_INTRINSIC_CLASS(UClass, UStruct,
 	}
 );
 
+UClass::StaticClassFunctionType GetDynamicClassConstructFn(FName ClassName);
+
+void GetPrivateStaticClassBody(
+	const TCHAR* PackageName,
+	const TCHAR* Name,
+	UClass*& ReturnClass,
+	void(*RegisterNativeFunc)(),
+	uint32 InSize,
+	uint32 InClassFlags,
+	EClassCastFlags InClassCastFlags,
+	const TCHAR* InConfigName,
+	UClass::ClassConstructorType InClassConstructor,
+	UClass::ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
+	UClass::ClassAddReferencedObjectsType InClassAddReferencedObjects,
+	UClass::StaticClassFunctionType InSuperClassFn,
+	UClass::StaticClassFunctionType InWithinClassFn,
+	bool bIsDynamic /*= false*/
+	)
+{
+#if WITH_HOT_RELOAD
+	if (GIsHotReload)
+	{
+		check(!bIsDynamic);
+		UPackage* Package = FindPackage(NULL, PackageName);
+		if (!Package)
+		{
+			UE_LOG(LogClass, Log, TEXT("Could not find existing package %s for HotReload."), PackageName);
+			return;
+		}
+		ReturnClass = FindObject<UClass>((UObject *)Package, Name);
+		if (ReturnClass)
+		{
+			if (ReturnClass->HotReloadPrivateStaticClass(
+				InSize,
+				InClassFlags,
+				InClassCastFlags,
+				InConfigName,
+				InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+				InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+				InClassAddReferencedObjects,
+				InSuperClassFn(),
+				InWithinClassFn()
+				))
+			{
+				// Register the class's native functions.
+				RegisterNativeFunc();
+			}
+			return;
+		}
+		else
+		{
+			UE_LOG(LogClass, Log, TEXT("Could not find existing class %s in package %s for HotReload, assuming new class"), Name, PackageName);
+		}
+	}
+#endif
+
+	if (!bIsDynamic)
+	{
+		ReturnClass = (UClass*)GUObjectAllocator.AllocateUObject(sizeof(UClass), ALIGNOF(UClass), true);
+		ReturnClass = ::new (ReturnClass)
+			UClass
+			(
+			EC_StaticConstructor,
+			Name,
+			InSize,
+			InClassFlags,
+			InClassCastFlags,
+			InConfigName,
+			EObjectFlags(RF_Public | RF_Standalone | RF_Transient | RF_Native | RF_RootSet),
+			InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+			InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+			InClassAddReferencedObjects
+			);
+		check(ReturnClass);
+	}
+	else
+	{
+		ReturnClass = (UClass*)GUObjectAllocator.AllocateUObject(sizeof(UDynamicClass), ALIGNOF(UDynamicClass), true);
+		ReturnClass = ::new (ReturnClass)
+			UDynamicClass
+			(
+			EC_StaticConstructor,
+			Name,
+			InSize,
+			InClassFlags,
+			InClassCastFlags,
+			InConfigName,
+			EObjectFlags(RF_Public | RF_Standalone | RF_Transient | RF_Native | RF_Dynamic),
+			InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+			InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+			InClassAddReferencedObjects
+			);
+		check(ReturnClass);
+	}
+	InitializePrivateStaticClass(
+		InSuperClassFn(),
+		ReturnClass,
+		InWithinClassFn(),
+		PackageName,
+		Name
+		);
+
+	// Register the class's native functions.
+	RegisterNativeFunc();
+
+	if (bIsDynamic)
+	{
+		// Now call the UHT-generated Z_Construct* function for the dynamic class
+		UClass::StaticClassFunctionType ZConstructDynamicClassFn = GetDynamicClassConstructFn(Name);
+		check(ZConstructDynamicClassFn);
+		ZConstructDynamicClassFn();
+	}
+}
 
 /*-----------------------------------------------------------------------------
 	UFunction.
@@ -4127,6 +4459,12 @@ void UFunction::Invoke(UObject* Obj, FFrame& Stack, RESULT_DECL)
 
 void UFunction::Serialize( FArchive& Ar )
 {
+#if WITH_EDITOR
+	const static FName NAME_UFunction(TEXT("UFunction"));
+	FArchive::FScopeAddDebugData S(Ar, NAME_UFunction);
+	FArchive::FScopeAddDebugData Q(Ar, GetFName());
+#endif
+
 	Super::Serialize( Ar );
 
 	Ar.ThisContainsCode();
@@ -4260,7 +4598,10 @@ bool FStructUtils::ArePropertiesTheSame(const UProperty* A, const UProperty* B, 
 bool FStructUtils::TheSameLayout(const UStruct* StructA, const UStruct* StructB, bool bCheckPropertiesNames)
 {
 	bool bResult = false;
-	if (StructA && StructB)
+	if (StructA 
+		&& StructB 
+		&& (StructA->GetPropertiesSize() == StructB->GetPropertiesSize())
+		&& (StructA->GetMinAlignment() == StructB->GetMinAlignment()))
 	{
 		const UProperty* PropertyA = StructA->PropertyLink;
 		const UProperty* PropertyB = StructB->PropertyLink;
@@ -4319,11 +4660,67 @@ bool UFunction::IsSignatureCompatibleWith(const UFunction* OtherFunction, uint64
 	return !(IteratorB && (IteratorB->PropertyFlags & CPF_Parm));
 }
 
-UScriptStruct* GetBaseStructure(const TCHAR* Name)
+static UScriptStruct* StaticGetBaseStructureInternal(const TCHAR* Name)
 {
 	static auto* CoreUObjectPkg = FindObjectChecked<UPackage>(nullptr, TEXT("/Script/CoreUObject"));
 	return FindObjectChecked<UScriptStruct>(CoreUObjectPkg, Name);
 }
+
+UScriptStruct* TBaseStructure<FRotator>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Rotator"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FTransform>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Transform"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FLinearColor>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("LinearColor"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FColor>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Color"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FVector>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FVector2D>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Vector2D"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FRandomStream>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("RandomStream"));
+	return ScriptStruct;
+}
+
+UScriptStruct* TBaseStructure<FGuid>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Guid"));
+	return ScriptStruct;
+}
+
+
+UScriptStruct* TBaseStructure<FFallbackStruct>::Get()
+{
+	static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("FallbackStruct"));
+	return ScriptStruct;
+}
+
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UFunction, UStruct,
 	{
@@ -4346,3 +4743,95 @@ IMPLEMENT_CORE_INTRINSIC_CLASS(UDelegateFunction, UFunction,
 	{
 	}
 );
+
+/*-----------------------------------------------------------------------------
+UDynamicClass constructors.
+-----------------------------------------------------------------------------*/
+
+/**
+* Internal constructor.
+*/
+UDynamicClass::UDynamicClass(const FObjectInitializer& ObjectInitializer)
+: UClass(ObjectInitializer)
+{
+	// If you add properties here, please update the other constructors and PurgeClass()
+}
+
+/**
+* Create a new UDynamicClass given its superclass.
+*/
+UDynamicClass::UDynamicClass(const FObjectInitializer& ObjectInitializer, UClass* InBaseClass)
+: UClass(ObjectInitializer, InBaseClass)
+{
+}
+
+/**
+* Called when dynamically linked.
+*/
+UDynamicClass::UDynamicClass(
+	EStaticConstructor,
+	FName			InName,
+	uint32			InSize,
+	uint32			InClassFlags,
+	EClassCastFlags	InClassCastFlags,
+	const TCHAR*    InConfigName,
+	EObjectFlags	InFlags,
+	ClassConstructorType InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+	ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+	ClassAddReferencedObjectsType InClassAddReferencedObjects)
+: UClass(
+  EC_StaticConstructor
+, InName
+, InSize
+, InClassFlags
+, InClassCastFlags
+, InConfigName
+, InFlags
+, InClassConstructor
+#if WITH_HOT_RELOAD_CTORS
+, InClassVTableHelperCtorCaller
+#endif // WITH_HOT_RELOAD_CTORS
+, InClassAddReferencedObjects)
+{
+}
+
+void UDynamicClass::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
+{
+	UDynamicClass* This = CastChecked<UDynamicClass>(InThis);
+
+	Collector.AddReferencedObjects(This->MiscConvertedSubobjects, This);
+	Collector.AddReferencedObjects(This->ReferencedConvertedFields, This);
+	Collector.AddReferencedObjects(This->UsedAssets, This);
+	Collector.AddReferencedObjects(This->DynamicBindingObjects, This);
+	Collector.AddReferencedObjects(This->ComponentTemplates, This);
+	Collector.AddReferencedObjects(This->Timelines, This);
+
+	Super::AddReferencedObjects(This, Collector);
+}
+
+void UDynamicClass::PurgeClass(bool bRecompilingOnLoad)
+{
+	Super::PurgeClass(bRecompilingOnLoad);
+
+	MiscConvertedSubobjects.Empty();
+	ReferencedConvertedFields.Empty();
+	UsedAssets.Empty();
+
+	DynamicBindingObjects.Empty();
+	ComponentTemplates.Empty();
+	Timelines.Empty();
+}
+
+IMPLEMENT_CORE_INTRINSIC_CLASS(UDynamicClass, UClass,
+{
+	Class->ClassAddReferencedObjects = &UDynamicClass::AddReferencedObjects;
+}
+);
+
+#if _MSC_VER == 1900
+	#ifdef PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+		PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+	#endif
+#endif

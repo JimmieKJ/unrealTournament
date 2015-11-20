@@ -163,6 +163,16 @@ bool RayHitSphere(float3 RayOrigin, float3 UnitRayDirection, float RayLength, fl
 RWBuffer<uint> RWShadowTileHeadDataUnpacked;
 RWBuffer<uint> RWShadowTileArrayData;
 
+[numthreads(1, 1, 1)]
+void WorkaroundAMDBugCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	RWShadowTileHeadDataUnpacked[0] = 0;
+	RWShadowTileArrayData[0] = 0;
+}
+
 float2 NumGroups;
 
 [numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
@@ -200,6 +210,14 @@ void ShadowObjectCullVS(
 	float EffectiveRadius = (ObjectPositionAndRadius.w + MinRadius) * ConservativeRadiusScale;
 	float3 WorldPosition = InPosition.xyz * EffectiveRadius + ObjectPositionAndRadius.xyz;
 	OutPosition = mul(float4(WorldPosition, 1), WorldToShadow);
+
+	// Clamp the vertex to the near plane if it is in front of the near plane
+	if (OutPosition.z < 0)
+	{
+		OutPosition.z = 0.000001f;
+		OutPosition.w = 1.0f;
+	}
+
 	Output.PositionAndRadius = ObjectPositionAndRadius;
 	Output.ObjectIndex = ObjectIndex;
 } 
@@ -226,7 +244,8 @@ void ShadowObjectCullPS(
 	float TileExpand = 1;
 	ShadowTileMin.xy = (TilePositionForCulling - TileExpand) / (float2)NumGroups * 2 - 1;
 	ShadowTileMax.xy = (TilePositionForCulling + 1 + TileExpand) / (float2)NumGroups * 2 - 1;
-	ShadowTileMin.z = 0;
+	// Extrude toward light to avoid culling objects between the light and the shadow frustum
+	ShadowTileMin.z = -1000;
 	ShadowTileMax.z = 1;
 
 	float3 ObjectViewSpaceMin;
@@ -235,7 +254,8 @@ void ShadowObjectCullPS(
 
 	BRANCH
 	// Separating axis test on the AABB
-	if (all(ObjectViewSpaceMax > ShadowTileMin) && all(ObjectViewSpaceMin < ShadowTileMax))
+	// Note: don't clip by near plane, objects closer to the light can still cast into the frustum
+	if (all(ObjectViewSpaceMax.xy > ShadowTileMin.xy) && all(ObjectViewSpaceMin < ShadowTileMax))
 	{
 		float3 ObjectCenter = .5f * (ObjectViewSpaceMin + ObjectViewSpaceMax);
 		float3 MinProjections = 500000;
@@ -303,7 +323,7 @@ float3 LightDirection;
 float4 LightPositionAndInvRadius;
 float LightSourceRadius;
 float RayStartOffsetDepthScale;
-float2 TanLightAngleAndNormalThreshold;
+float3 TanLightAngleAndNormalThreshold;
 int4 ScissorRectMinAndSize;
 
 /** Min and Max depth for this tile. */
@@ -449,7 +469,7 @@ void CullObjectsToTileWithGather(
 				uint ListIndex;
 				InterlockedAdd(TileNumObjects0, 1U, ListIndex);
 				// Don't overwrite on overflow
-				ListIndex = min(ListIndex, MAX_INTERSECTING_OBJECTS - 1);
+				ListIndex = min(ListIndex, (uint)(MAX_INTERSECTING_OBJECTS - 1));
 				IntersectingObjectIndices[MAX_INTERSECTING_OBJECTS * 0 + ListIndex] = ObjectIndex; 
 			}
 
@@ -459,7 +479,7 @@ void CullObjectsToTileWithGather(
 				uint ListIndex;
 				InterlockedAdd(TileNumObjects1, 1U, ListIndex);
 				// Don't write out of bounds on overflow
-				ListIndex = min(ListIndex, MAX_INTERSECTING_OBJECTS - 1);
+				ListIndex = min(ListIndex, (uint)(MAX_INTERSECTING_OBJECTS - 1));
 				IntersectingObjectIndices[MAX_INTERSECTING_OBJECTS * 1 + ListIndex] = ObjectIndex; 
 			}
 		}
@@ -468,7 +488,7 @@ void CullObjectsToTileWithGather(
 	GroupMemoryBarrierWithGroupSync();
 
 	GroupIndex = SceneDepth > MaxTileZ2 ? 1 : 0;
-	NumIntersectingObjects = GroupIndex == 0 ? TileNumObjects0 : TileNumObjects1;
+	NumIntersectingObjects = min(GroupIndex == 0 ? TileNumObjects0 : TileNumObjects1, (uint)MAX_INTERSECTING_OBJECTS);
 }
 
 uint DownsampleFactor;
@@ -489,7 +509,7 @@ void DistanceFieldShadowingCS(
 	float3 OpaqueWorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
 
 	// Distance for directional lights to trace
-	float TraceDistance = 10000;
+	float TraceDistance = TanLightAngleAndNormalThreshold.z;
 
 	//@todo - take advantage of CSM covering near pixels
 	//@todo - handle invalid tile depth ranges due to MinDepth
@@ -570,7 +590,7 @@ void DistanceFieldShadowingCS(
 			{
 				// Note: this has to match shadowmap logic
 				// Derive density from a heuristic using opacity, tweaked for useful falloff ranges and to give a linear depth falloff with opacity
-				SubsurfaceDensity = -.05f * log(1 - min(GBufferData.Opacity, .999f));
+				SubsurfaceDensity = -.05f * log(1 - min(GBufferData.CustomData.a, .999f));
 				bUseSubsurfaceTransmission = true;
 			}
 

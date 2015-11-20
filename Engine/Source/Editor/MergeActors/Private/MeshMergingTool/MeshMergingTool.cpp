@@ -19,7 +19,7 @@
 
 
 FMeshMergingTool::FMeshMergingTool()
-	: bPlaceInWorld(false)
+	: bReplaceSourceActors(false)
 	, bExportSpecificLOD(false)
 	, ExportLODIndex(0)
 {}
@@ -81,7 +81,7 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 	}
 
 	// This restriction is only for replacement of selected actors with merged mesh actor
-	if (UniqueLevels.Num() > 1 && bPlaceInWorld)
+	if (UniqueLevels.Num() > 1 && bReplaceSourceActors)
 	{
 		FText Message = NSLOCTEXT("UnrealEd", "FailedToMergeActorsSublevels_Msg", "The selected actors should be in the same level");
 		OpenMsgDlgInt(EAppMsgType::Ok, Message, NSLOCTEXT("UnrealEd", "FailedToMergeActors_Title", "Unable to merge actors"));
@@ -89,10 +89,15 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 	}
 
 	int32 TargetMeshLOD = bExportSpecificLOD ? ExportLODIndex : INDEX_NONE;
-
 	FVector MergedActorLocation;
 	TArray<UObject*> AssetsToSync;
-	MeshUtilities.MergeActors(Actors, MergingSettings, NULL, PackageName, TargetMeshLOD, AssetsToSync, MergedActorLocation);
+	// Merge...
+	{
+		FScopedSlowTask SlowTask(0, LOCTEXT("MergingActorsSlowTask", "Merging actors..."));
+		SlowTask.MakeDialog();
+
+		MeshUtilities.MergeActors(Actors, MergingSettings, NULL, PackageName, TargetMeshLOD, AssetsToSync, MergedActorLocation);
+	}
 
 	if (AssetsToSync.Num())
 	{
@@ -109,12 +114,12 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 		ContentBrowserModule.Get().SyncBrowserToAssets(AssetsToSync, true);
 
 		// Place new mesh in the world
-		if (bPlaceInWorld)
+		if (bReplaceSourceActors)
 		{
 			UStaticMesh* MergedMesh = nullptr;
 			if (AssetsToSync.FindItemByClass(&MergedMesh))
 			{
-				const FScopedTransaction Transaction(NSLOCTEXT("UnrealEd", "PlaceMergedActor", "Place Merged Actor"));
+				const FScopedTransaction Transaction(LOCTEXT("PlaceMergedActor", "Place Merged Actor"));
 				UniqueLevels[0]->Modify();
 
 				UWorld* World = UniqueLevels[0]->OwningWorld;
@@ -126,13 +131,10 @@ bool FMeshMergingTool::RunMerge(const FString& PackageName)
 				MergedActor->GetStaticMeshComponent()->StaticMesh = MergedMesh;
 				MergedActor->SetActorLabel(AssetsToSync[0]->GetName());
 
-				// Add source actors as children to merged actor and hide them
+				// Remove source actors
 				for (AActor* Actor : Actors)
 				{
-					Actor->Modify();
-					Actor->AttachRootComponentToActor(MergedActor, NAME_None, EAttachLocation::KeepWorldPosition);
-					Actor->SetActorHiddenInGame(true);
-					Actor->SetIsTemporarilyHiddenInEditor(true);
+					Actor->Destroy();
 				}
 			}
 		}

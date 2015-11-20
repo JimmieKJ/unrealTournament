@@ -271,7 +271,7 @@ struct PxCookingParams
 		targetPlatform = PxPlatform::eXENON;
 #elif defined(PX_PS3)
 		targetPlatform = PxPlatform::ePLAYSTATION3;
-#elif defined(PX_ARM)
+#elif defined(PX_ARM) || defined(PX_A64)
 		targetPlatform = PxPlatform::eARM;
 #elif defined(PX_WIIU)
 		targetPlatform = PxPlatform::eWIIU;

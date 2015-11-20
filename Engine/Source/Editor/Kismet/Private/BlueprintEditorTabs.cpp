@@ -12,6 +12,7 @@ const FName FBlueprintEditorTabs::FindResultsID( TEXT( "FindResults" ) );
 const FName FBlueprintEditorTabs::ConstructionScriptEditorID( TEXT( "ConstructionScriptEditor" ) );
 const FName FBlueprintEditorTabs::SCSViewportID( TEXT( "SCSViewport" ) );
 const FName FBlueprintEditorTabs::MyBlueprintID( TEXT( "MyBlueprint" ) );
+const FName FBlueprintEditorTabs::ReplaceNodeReferencesID( TEXT( "ReplaceNodeReferences" ) );
 
 const FName FBlueprintEditorTabs::GraphEditorID( TEXT( "GraphEditor" ) );
 const FName FBlueprintEditorTabs::TimelineEditorID( TEXT( "TimelineEditor" ) );

@@ -57,6 +57,12 @@ private:
 	/** Gets the text to be displayed in the address bar */
 	FText GetAddressBarText() const;
 
+	/** Called when the path is being edited */
+	void OnAddressBarTextChanged(const FText& NewText);
+
+	/** Sets the new path for the viewer */
+	void OnAddressBarTextCommitted(const FText& NewText, ETextCommit::Type CommitInfo);
+
 	void OnApplyHistoryData(const FReferenceViewerHistoryData& History);
 
 	void OnUpdateHistoryData(FReferenceViewerHistoryData& HistoryData) const;
@@ -98,4 +104,7 @@ private:
 	TSharedPtr<FUICommandList> ReferenceViewerActions;
 
 	UEdGraph_ReferenceViewer* GraphObj;
+
+	/** The temporary copy of the path text when it is actively being edited. */
+	FText TemporaryPathBeingEdited;
 };

@@ -77,7 +77,7 @@ float FAttenuationSettings::GetMaxDimension() const
  *
  * @return Attenuation value (between 0.0 and 1.0)
  */
-float AttenuationEval(const ESoundDistanceModel DistanceModel, const float Distance, const float Falloff, const float dBAttenuationAtMax)
+float FAttenuationSettings::AttenuationEval(const float Distance, const float Falloff) const
 {
 	// Clamp the input distance between 0.0f and Falloff. If the Distance
 	// is actually less than the min value, it will use the min-value of the algorithm/curve
@@ -88,37 +88,42 @@ float AttenuationEval(const ESoundDistanceModel DistanceModel, const float Dista
 	float DistanceCopy = FMath::Clamp(Distance, 0.0f, Falloff);
 
 	float Result = 0.0f;
-	switch (DistanceModel)
+	switch(DistanceAlgorithm)
 	{
-	case ATTENUATION_Linear:
+		case ATTENUATION_Linear:
 
-		Result = (1.0f - (DistanceCopy / Falloff));
-		break;
+			Result = (1.0f - (DistanceCopy / Falloff));
+			break;
 
-	case ATTENUATION_Logarithmic:
+		case ATTENUATION_Logarithmic:
 
-		Result = 0.5f * -FMath::Loge(DistanceCopy / Falloff);
-		break;
+			Result = 0.5f * -FMath::Loge(DistanceCopy / Falloff);
+			break;
 
-	case ATTENUATION_Inverse:
+		case ATTENUATION_Inverse:
 
-		Result = 0.02f / (DistanceCopy / Falloff);
-		break;
+			Result = 0.02f / (DistanceCopy / Falloff);
+			break;
 
-	case ATTENUATION_LogReverse:
+		case ATTENUATION_LogReverse:
 
-		Result = 1.0f + 0.5f * FMath::Loge(1.0f - (DistanceCopy / Falloff));
-		break;
+			Result = 1.0f + 0.5f * FMath::Loge(1.0f - (DistanceCopy / Falloff));
+			break;
 
-	case ATTENUATION_NaturalSound:
-	{
-		check(dBAttenuationAtMax <= 0.0f);
-		Result = FMath::Pow(10.0f, ((DistanceCopy / Falloff) * dBAttenuationAtMax) / 20.0f);
-		break;
-	}
+		case ATTENUATION_NaturalSound:
+		{
+			check( dBAttenuationAtMax <= 0.0f );
+			Result = FMath::Pow(10.0f, ((DistanceCopy / Falloff) * dBAttenuationAtMax) / 20.0f);
+			break;
+		}
 
-	default:
-		checkf(false, TEXT("Uknown attenuation distance algorithm!"))
+		case ATTENUATION_Custom:
+
+			Result = CustomAttenuationCurve.GetRichCurveConst()->Eval(DistanceCopy / Falloff);
+			break;
+
+		default:
+			checkf(false, TEXT("Uknown attenuation distance algorithm!"))
 			break;
 	}
 
@@ -132,7 +137,7 @@ float FAttenuationSettings::AttenuationEvalBox(const FTransform& SoundTransform,
 	const float DistanceSq = ComputeSquaredDistanceFromBoxToPoint(-AttenuationShapeExtents, AttenuationShapeExtents,SoundTransform.InverseTransformPositionNoScale(ListenerLocation));
 	if (DistanceSq < FalloffDistance * FalloffDistance)
 	{ 
-		return AttenuationEval(DistanceAlgorithm, FMath::Sqrt(DistanceSq), FalloffDistance, dBAttenuationAtMax);
+		return AttenuationEval(FMath::Sqrt(DistanceSq), FalloffDistance);
 	}
 
 	return 0.f;
@@ -158,7 +163,7 @@ float FAttenuationSettings::AttenuationEvalCapsule(const FTransform& SoundTransf
 		Distance = FMath::PointDistToSegment(ListenerLocation, StartPoint, EndPoint) - CapsuleRadius;
 	}
 
-	return AttenuationEval(DistanceAlgorithm, Distance, FalloffDistance, dBAttenuationAtMax);
+	return AttenuationEval(Distance, FalloffDistance);
 }
 
 float FAttenuationSettings::AttenuationEvalCone(const FTransform& SoundTransform, const FVector ListenerLocation) const
@@ -170,12 +175,12 @@ float FAttenuationSettings::AttenuationEvalCone(const FTransform& SoundTransform
 	const FVector Origin = SoundTransform.GetTranslation() - (SoundForward * ConeOffset);
 
 	const float Distance = FMath::Max(FVector::Dist( Origin, ListenerLocation ) - AttenuationShapeExtents.X, 0.f);
-	VolumeMultiplier *= AttenuationEval(DistanceAlgorithm, Distance, FalloffDistance, dBAttenuationAtMax);
+	VolumeMultiplier *= AttenuationEval(Distance, FalloffDistance);
 
 	if (VolumeMultiplier > 0.f)
 	{
 		const float theta = FMath::RadiansToDegrees(fabsf(FMath::Acos( FVector::DotProduct(SoundForward, (ListenerLocation - Origin).GetSafeNormal()))));
-		VolumeMultiplier *= AttenuationEval(DistanceAlgorithm, theta - AttenuationShapeExtents.Y, AttenuationShapeExtents.Z, dBAttenuationAtMax);
+		VolumeMultiplier *= AttenuationEval(theta - AttenuationShapeExtents.Y, AttenuationShapeExtents.Z);
 	}
 
 	return VolumeMultiplier;
@@ -186,6 +191,8 @@ bool FAttenuationSettings::operator==(const FAttenuationSettings& Other) const
 	return (   bAttenuate			    == Other.bAttenuate
 			&& bSpatialize			    == Other.bSpatialize
 			&& dBAttenuationAtMax	    == Other.dBAttenuationAtMax
+			&& OmniRadius				== Other.OmniRadius
+			&& StereoSpread				== Other.StereoSpread
 			&& DistanceAlgorithm	    == Other.DistanceAlgorithm
 			&& AttenuationShape		    == Other.AttenuationShape
 			&& bAttenuateWithLPF	    == Other.bAttenuateWithLPF
@@ -206,7 +213,7 @@ void FAttenuationSettings::ApplyAttenuation( const FTransform& SoundTransform, c
 		case EAttenuationShape::Sphere:
 			{
 				const float Distance = FMath::Max(FVector::Dist( SoundTransform.GetTranslation(), ListenerLocation ) - AttenuationShapeExtents.X, 0.f);
-				Volume *= AttenuationEval(DistanceAlgorithm, Distance, FalloffDistance, dBAttenuationAtMax);
+				Volume *= AttenuationEval(Distance, FalloffDistance);
 				break;
 			}
 

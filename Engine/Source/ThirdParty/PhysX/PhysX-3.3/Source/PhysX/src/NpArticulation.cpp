@@ -419,20 +419,6 @@ void NpArticulation::visualize(Cm::RenderOutput& out, NpScene* scene)
 }
 #endif  // PX_ENABLE_DEBUG_VISUALIZATION
 
-PxArticulation* NpGetPxArticulation(Sc::ArticulationCore& constraint)
-{
-	char* p = reinterpret_cast<char*>(&constraint);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpArticulation*>(0)->getScbArticulation()));
-	return reinterpret_cast<NpArticulation*>(p - scbOffset - Scb::Articulation::getScOffset());
-}
-
-const PxArticulation* NpGetPxArticulation(const Sc::ArticulationCore& constraint)
-{
-	const char* p = reinterpret_cast<const char*>(&constraint);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<const NpArticulation*>(0)->getScbArticulation()));
-	return reinterpret_cast<const NpArticulation*>(p - scbOffset - Scb::Articulation::getScOffset());
-}
-
 
 PxArticulationDriveCache* NpArticulation::createDriveCache(PxReal compliance, PxU32 driveIterations) const
 {

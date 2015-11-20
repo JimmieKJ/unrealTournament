@@ -29,7 +29,7 @@ float4		SceneColorRect;
 
 /** distorts screen texture using accumulated distortion offsets */
 void Main(
-	in float4 TexCoord: TEXCOORD0,
+	in noperspective float4 TexCoord: TEXCOORD0,
 	out float4 OutColor : SV_Target0
 	)
 {
@@ -58,4 +58,12 @@ void Main(
 	// sample screen using offset coords
 	half4 DistColor = Texture2DSample(SceneColorTexture, SceneColorTextureSampler, NewTexCoord);
 	OutColor = DistColor;
+}
+
+void Merge(
+	in noperspective float4 TexCoord: TEXCOORD0,
+	out float4 OutColor : SV_Target0
+	)
+{
+	OutColor = Texture2DSample(SceneColorTexture, SceneColorTextureSampler, TexCoord.xy);
 }

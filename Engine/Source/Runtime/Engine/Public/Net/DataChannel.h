@@ -385,7 +385,8 @@ DEFINE_CONTROL_CHANNEL_MESSAGE_ONEPARAM(PCSwap, 15, int32); // client tells serv
 DEFINE_CONTROL_CHANNEL_MESSAGE_ONEPARAM(ActorChannelFailure, 16, int32); // client tells server that it failed to open an Actor channel sent by the server (e.g. couldn't serialize Actor archetype)
 DEFINE_CONTROL_CHANNEL_MESSAGE_ONEPARAM(DebugText, 17, FString); // debug text sent to all clients or to server
 DEFINE_CONTROL_CHANNEL_MESSAGE_TWOPARAM(NetGUIDAssign, 18, FNetworkGUID, FString); // Explicit NetworkGUID assignment. This is rare and only happens if a netguid is only serialized client->server (this msg goes server->client to tell client what ID to use in that case)
-DEFINE_CONTROL_CHANNEL_MESSAGE_TWOPARAM(GameSpecific, 19, uint8, FString); // custom game-specific message routed to UGameInstance for processing
+DEFINE_CONTROL_CHANNEL_MESSAGE_ONEPARAM(SecurityViolation, 19, FString); // server tells client that it has violated security and has been disconnected
+DEFINE_CONTROL_CHANNEL_MESSAGE_TWOPARAM(GameSpecific, 20, uint8, FString); // custom game-specific message routed to UGameInstance for processing
 
 // 			Beacon control channel flow
 // Client												Server

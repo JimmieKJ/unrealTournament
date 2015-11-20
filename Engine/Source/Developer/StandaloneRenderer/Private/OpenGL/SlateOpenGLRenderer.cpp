@@ -65,6 +65,7 @@ void FSlateOpenGLRenderer::Initialize()
 	const uint32 TextureSize = 1024;
 
 	TextureManager = MakeShareable( new FSlateOpenGLTextureManager );
+	FSlateDataPayload::ResourceManager = TextureManager.Get();
 
 	FontCache = MakeShareable( new FSlateFontCache( MakeShareable( new FSlateOpenGLFontAtlasFactory ) ) );
 	FontMeasure = FSlateFontMeasure::Create( FontCache.ToSharedRef() );
@@ -95,11 +96,11 @@ void FSlateOpenGLRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 	FontCache->UpdateCache();
 
 	// Draw each window.  For performance.  All elements are batched before anything is rendered
-	TArray<FSlateWindowElementList>& WindowElementLists = InWindowDrawBuffer.GetWindowElementLists();
+	TArray< TSharedPtr<FSlateWindowElementList> >& WindowElementLists = InWindowDrawBuffer.GetWindowElementLists();
 
 	for( int32 ListIndex = 0; ListIndex < WindowElementLists.Num(); ++ListIndex )
 	{
-		FSlateWindowElementList& ElementList = WindowElementLists[ListIndex];
+		FSlateWindowElementList& ElementList = *WindowElementLists[ListIndex];
 
 		if ( ElementList.GetWindow().IsValid() )
 		{
@@ -120,22 +121,25 @@ void FSlateOpenGLRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 			Viewport->MakeCurrent();
 
 			// Batch elements.  Note that we must set the current viewport before doing this so we have a valid rendering context when calling OpenGL functions
-			ElementBatcher->AddElements( ElementList.GetDrawElements() );
+			ElementBatcher->AddElements( ElementList );
 
 			//@ todo Slate: implement for opengl
 			bool bRequiresStencilTest = false;
-			ElementBatcher->FillBatchBuffers( ElementList, bRequiresStencilTest );
 
 			ElementBatcher->ResetBatches();
+			
+			FSlateBatchData& BatchData = ElementList.GetBatchData();
 
-			RenderingPolicy->UpdateBuffers( ElementList );
+			BatchData.CreateRenderBatches(ElementList.GetRootDrawLayer().GetElementBatchMap());
+
+			RenderingPolicy->UpdateVertexAndIndexBuffers( BatchData );
 
 			check(Viewport);
 
 			glViewport( Viewport->ViewportRect.Left, Viewport->ViewportRect.Top, Viewport->ViewportRect.Right, Viewport->ViewportRect.Bottom );
 
 			// Draw all elements
-			RenderingPolicy->DrawElements( ViewMatrix*Viewport->ProjectionMatrix, ElementList.GetRenderBatches() );
+			RenderingPolicy->DrawElements( ViewMatrix*Viewport->ProjectionMatrix, BatchData.GetRenderBatches() );
 
 			Viewport->SwapBuffers();
 
@@ -145,6 +149,9 @@ void FSlateOpenGLRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 	}
 
 	FontCache->ConditionalFlushCache();
+
+	// Safely release the references now that we are finished rendering with the dynamic brushes
+	DynamicBrushesToRemove.Empty();
 }
 
 
@@ -206,15 +213,23 @@ void FSlateOpenGLRenderer::UpdateFullscreenState( const TSharedRef<SWindow> InWi
 
 void FSlateOpenGLRenderer::ReleaseDynamicResource( const FSlateBrush& Brush )
 {
-	ensure( IsInGameThread() );
 	TextureManager->ReleaseDynamicTextureResource( Brush );
 }
 
 
 bool FSlateOpenGLRenderer::GenerateDynamicImageResource(FName ResourceName, uint32 Width, uint32 Height, const TArray< uint8 >& Bytes)
 {
-	ensure( IsInGameThread() );
 	return TextureManager->CreateDynamicTextureResource(ResourceName, Width, Height, Bytes) != NULL;
+}
+
+FSlateResourceHandle FSlateOpenGLRenderer::GetResourceHandle( const FSlateBrush& Brush )
+{
+	return TextureManager->GetResourceHandle( Brush );
+}
+
+void FSlateOpenGLRenderer::RemoveDynamicBrushResource( TSharedPtr<FSlateDynamicImageBrush> BrushToRemove )
+{
+	DynamicBrushesToRemove.Add( BrushToRemove );
 }
 
 

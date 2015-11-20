@@ -7,8 +7,8 @@
 /**
  * The rich text block
  *
- * ● Fancy Text
- * ● No Children
+ * * Fancy Text
+ * * No Children
  */
 UCLASS(Experimental)
 class UMG_API URichTextBlock : public UWidget

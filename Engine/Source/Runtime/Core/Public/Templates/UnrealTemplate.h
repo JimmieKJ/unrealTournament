@@ -550,6 +550,14 @@ struct TOr : TOrValue<LHS::Value, RHS>
 {
 };
 
+/**
+ * Metafunction which returns the specified boolean value.
+ */
+template <bool bValue>
+struct TBoolConstant
+{
+	enum { Value = bValue };
+};
 
 /**
  * Equivalent to std::declval.  

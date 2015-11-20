@@ -18,6 +18,19 @@ public class SlateReflector : ModuleRules
 				"InputCore",
 				"Slate",
 				"SlateCore",
+				"Json",
+			}
+		);
+
+		PrivateIncludePathModuleNames.AddRange(
+			new string[] {
+				"Messaging",
+			}
+		);
+
+		DynamicallyLoadedModuleNames.AddRange(
+			new string[] {
+				"Messaging",
 			}
 		);
 
@@ -28,5 +41,47 @@ public class SlateReflector : ModuleRules
 				"Developer/SlateReflector/Private/Widgets",
 			}
 		);
+
+		// Editor builds include SessionServices to populate the remote target drop-down for remote widget snapshots
+		if (Target.Type == TargetRules.TargetType.Editor)
+		{
+			Definitions.Add("SLATE_REFLECTOR_HAS_SESSION_SERVICES=1");
+
+			PrivateIncludePathModuleNames.AddRange(
+				new string[] {
+					"SessionServices",
+				}
+			);
+
+			DynamicallyLoadedModuleNames.AddRange(
+				new string[] {
+					"SessionServices",
+				}
+			);
+		}
+		else
+		{
+			Definitions.Add("SLATE_REFLECTOR_HAS_SESSION_SERVICES=0");
+		}
+
+		// DesktopPlatform is only available for Editor and Program targets (running on a desktop platform)
+		bool IsDesktopPlatformType = Target.Platform == UnrealBuildTool.UnrealTargetPlatform.Win32
+			|| Target.Platform == UnrealBuildTool.UnrealTargetPlatform.Win64
+			|| Target.Platform == UnrealBuildTool.UnrealTargetPlatform.Mac
+			|| Target.Platform == UnrealBuildTool.UnrealTargetPlatform.Linux;
+		if (Target.Type == TargetRules.TargetType.Editor || (Target.Type == TargetRules.TargetType.Program && IsDesktopPlatformType))
+		{
+			Definitions.Add("SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM=1");
+
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
+					"DesktopPlatform",
+				}
+			);
+		}
+		else
+		{
+			Definitions.Add("SLATE_REFLECTOR_HAS_DESKTOP_PLATFORM=0");
+		}
 	}
 }

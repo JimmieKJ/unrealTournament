@@ -44,7 +44,7 @@ protected:
 	/** Called when the preview text changes */
 	void OnPreviewTextChanged(const FText& Text);
 	
-	// Begin FEditorUndoClient Interface
+	//~ Begin FEditorUndoClient Interface
 	/** Handles any post undo cleanup of the GUI so that we don't have stale data being displayed. */
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }

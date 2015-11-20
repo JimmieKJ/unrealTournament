@@ -6,7 +6,6 @@
 
 #include "CorePrivatePCH.h"
 #include "Misc/App.h"
-#include "../../Launch/Resources/Version.h"
 #include "MacApplication.h"
 #include <mach-o/dyld.h>
 #include <libproc.h>
@@ -211,7 +210,7 @@ bool FMacPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, in
 	SCOPED_AUTORELEASE_POOL;
 
 	FString ProcessPath = URL;
-	NSString* LaunchPath = (NSString*)FPlatformString::TCHARToCFString(*ProcessPath);
+	NSString* LaunchPath = ProcessPath.GetNSString();
 	
 	if (![[NSFileManager defaultManager] fileExistsAtPath: LaunchPath])
 	{
@@ -378,7 +377,7 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 		ProcessPath = FString(BaseDir()) + ProcessPath;
 	}
 
-	NSString* LaunchPath = (NSString*)FPlatformString::TCHARToCFString(*ProcessPath);
+	NSString* LaunchPath = ProcessPath.GetNSString();
 
 	if (![[NSFileManager defaultManager] fileExistsAtPath: LaunchPath])
 	{
@@ -504,6 +503,10 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 		}
 		@catch (NSException* Exc)
 		{
+			FString ExcName([Exc name]);
+			FString ExcReason([Exc reason]);
+			UE_LOG(LogMac, Warning, TEXT("CreateProc failed (%s: %s) %s %s"), *ExcName, *ExcReason, URL, Parms);
+
 			[ProcessHandle release];
 			ProcessHandle = nil;
 		}
@@ -515,8 +518,6 @@ FProcHandle FMacPlatformProcess::CreateProc( const TCHAR* URL, const TCHAR* Parm
 	{
 		*OutProcessID = ProcessHandle ? [ProcessHandle processIdentifier] : 0;
 	}
-
-	CFRelease((CFStringRef)LaunchPath);
 
 	return FProcHandle(ProcessHandle);
 }
@@ -548,24 +549,15 @@ void FMacPlatformProcess::TerminateProc( FProcHandle& ProcessHandle, bool KillTr
 	{
 		int32 ProcessID = [(NSTask*)ProcessHandle.Get() processIdentifier];
 
-		int32 Mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
-		size_t BufferSize = 0;
-		if (sysctl(Mib, 4, NULL, &BufferSize, NULL, 0) != -1 && BufferSize > 0)
-		{
-			struct kinfo_proc* Processes = (struct kinfo_proc*)FMemory::Malloc(BufferSize);
-			if (sysctl(Mib, 4, Processes, &BufferSize, NULL, 0) != -1)
-			{
-				uint32 ProcCount = (uint32)(BufferSize / sizeof(struct kinfo_proc));
-				for (uint32 Index = 0; Index < ProcCount; Index++)
-				{
-					if (Processes[Index].kp_eproc.e_ppid == ProcessID)
-					{
-						kill(Processes[Index].kp_proc.p_pid, SIGTERM);
-					}
-				}
-			}
+		FProcEnumerator ProcEnumerator;
 
-			FMemory::Free(Processes);
+		while (ProcEnumerator.MoveNext())
+		{
+			auto Current = ProcEnumerator.GetCurrent();
+			if (Current.GetParentPID() == ProcessID)
+			{
+				kill(Current.GetPID(), SIGTERM);
+			}
 		}
 	}
 
@@ -588,38 +580,6 @@ bool FMacPlatformProcess::GetProcReturnCode( FProcHandle& ProcessHandle, int32* 
 
 	*ReturnCode = [(NSTask*)ProcessHandle.Get() terminationStatus];
 	return true;
-}
-
-bool FMacPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
-{
-	const FString ProcString = FPaths::GetBaseFilename(ProcName);
-	uint32 ThisProcessID = getpid();
-	bool bFound = false;
-	
-	int32 Mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
-	size_t BufferSize = 0;
-	if (sysctl(Mib, 4, NULL, &BufferSize, NULL, 0) != -1 && BufferSize > 0)
-	{
-		char Buffer[MAX_PATH];
-		struct kinfo_proc* Processes = (struct kinfo_proc*)FMemory::Malloc(BufferSize);
-		if (sysctl(Mib, 4, Processes, &BufferSize, NULL, 0) != -1)
-		{
-			uint32 ProcCount = (uint32)(BufferSize / sizeof(struct kinfo_proc));
-			for (uint32 Index = 0; Index < ProcCount; Index++)
-			{
-				proc_pidpath(Processes[Index].kp_proc.p_pid, Buffer, sizeof(Buffer));
-				const FString TestProcString = FPaths::GetBaseFilename(Buffer);
-				if (Processes[Index].kp_proc.p_pid != ThisProcessID && TestProcString == ProcString)
-				{
-					bFound = true;
-				}
-			}
-		}
-		
-		FMemory::Free(Processes);
-	}
-    
-	return bFound;
 }
 
 bool FMacPlatformProcess::IsApplicationRunning( uint32 ProcessId )
@@ -719,8 +679,7 @@ const TCHAR* FMacPlatformProcess::BaseDir()
 				BasePath = [BasePath stringByDeletingLastPathComponent];
 			}
 		}
-		const char *BaseDir = [FileManager fileSystemRepresentationWithPath:BasePath];
-		FCString::Strcpy(Result, MAX_PATH, ANSI_TO_TCHAR(BaseDir));
+		FCString::Strcpy(Result, MAX_PATH, *FString(BasePath));
 		FCString::Strcat(Result, TEXT("/"));
 	}
 	return Result;
@@ -852,7 +811,16 @@ const TCHAR* FMacPlatformProcess::UserName(bool bOnlyAlphaNumeric)
 
 void FMacPlatformProcess::SetCurrentWorkingDirectoryToBaseDir()
 {
-	chdir(TCHAR_TO_ANSI(BaseDir()));
+	FPlatformMisc::CacheLaunchDir();
+	chdir([FString(BaseDir()).GetNSString() fileSystemRepresentation]);
+}
+
+FString FMacPlatformProcess::GetCurrentWorkingDirectory()
+{
+	// get the current directory
+	ANSICHAR CurrentDir[MAX_PATH] = { 0 };
+	getcwd(CurrentDir, sizeof(CurrentDir));
+	return UTF8_TO_TCHAR(CurrentDir);
 }
 
 const TCHAR* FMacPlatformProcess::ExecutableName(bool bRemoveExtension)
@@ -963,18 +931,21 @@ FString FMacPlatformProcess::ReadPipe( void* ReadPipe )
 
 	FString Output;
 
-	const int32 READ_SIZE = 4096;
+	const int32 READ_SIZE = 8192;
 	ANSICHAR Buffer[READ_SIZE+1];
 	int32 BytesRead = 0;
 
 	if(ReadPipe)
 	{
-		BytesRead = read([(NSFileHandle*)ReadPipe fileDescriptor], Buffer, READ_SIZE);
-		if (BytesRead > 0)
+		do
 		{
-			Buffer[BytesRead] = '\0';
-			Output += StringCast<TCHAR>(Buffer).Get();
-		}
+			BytesRead = read([(NSFileHandle*)ReadPipe fileDescriptor], Buffer, READ_SIZE);
+			if (BytesRead > 0)
+			{
+				Buffer[BytesRead] = '\0';
+				Output += StringCast<TCHAR>(Buffer).Get();
+			}
+		} while (BytesRead > 0);
 	}
 
 	return Output;
@@ -1007,6 +978,126 @@ bool FMacPlatformProcess::ReadPipeToArray(void* ReadPipe, TArray<uint8>& Output)
 	}
 
 	return false;
+}
+
+bool FMacPlatformProcess::WritePipe(void* WritePipe, const FString& Message, FString* OutWritten)
+{
+	// if there is not a message or WritePipe is nullptr
+	if ((Message.Len() == 0) || (WritePipe == nullptr))
+	{
+		return false;
+	}
+
+	// convert input to UTF8CHAR
+	uint32 BytesAvailable = Message.Len();
+	UTF8CHAR* Buffer = new UTF8CHAR[BytesAvailable + 1];
+
+	if (!FString::ToBlob(Message, Buffer, BytesAvailable))
+	{
+		return false;
+	}
+
+	// Write to pipe
+	uint32 BytesWritten = write([(NSFileHandle*)WritePipe fileDescriptor], Buffer, BytesAvailable);
+
+	if (OutWritten != nullptr)
+	{
+		OutWritten->FromBlob(Buffer, BytesWritten);
+	}
+
+	return (BytesWritten == BytesAvailable);
+}
+
+bool FMacPlatformProcess::IsApplicationRunning(const TCHAR* ProcName)
+{
+	const FString ProcString = FPaths::GetCleanFilename(ProcName);
+	uint32 ThisProcessID = getpid();
+
+	FProcEnumerator ProcEnumerator;
+
+	while (ProcEnumerator.MoveNext())
+	{
+		auto Current = ProcEnumerator.GetCurrent();
+		if (Current.GetPID() != ThisProcessID && Current.GetName() == ProcString)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+FMacPlatformProcess::FProcEnumerator::FProcEnumerator()
+{
+	int32 Mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
+	size_t BufferSize = 0;
+
+	Processes = nullptr;
+	ProcCount = 0;
+	CurrentProcIndex = -1;
+
+	if (sysctl(Mib, 4, NULL, &BufferSize, NULL, 0) != -1 && BufferSize > 0)
+	{
+		char Buffer[MAX_PATH];
+		Processes = (struct kinfo_proc*)FMemory::Malloc(BufferSize);
+		if (sysctl(Mib, 4, Processes, &BufferSize, NULL, 0) != -1)
+		{
+			ProcCount = (uint32)(BufferSize / sizeof(struct kinfo_proc));
+		}
+	}
+}
+
+FMacPlatformProcess::FProcEnumerator::~FProcEnumerator()
+{
+	if (Processes != nullptr)
+	{
+		FMemory::Free(Processes);
+	}
+}
+
+FMacPlatformProcess::FProcEnumInfo::FProcEnumInfo(struct kinfo_proc InProcInfo)
+	: ProcInfo(InProcInfo)
+{
+
+}
+
+bool FMacPlatformProcess::FProcEnumerator::MoveNext()
+{
+	if (CurrentProcIndex == ProcCount)
+	{
+		return false;
+	}
+
+	++CurrentProcIndex;
+	return true;
+}
+
+FMacPlatformProcess::FProcEnumInfo FMacPlatformProcess::FProcEnumerator::GetCurrent() const
+{
+	return FProcEnumInfo(Processes[CurrentProcIndex]);
+}
+
+uint32 FMacPlatformProcess::FProcEnumInfo::GetPID() const
+{
+	return ProcInfo.kp_proc.p_pid;
+}
+
+uint32 FMacPlatformProcess::FProcEnumInfo::GetParentPID() const
+{
+	return ProcInfo.kp_eproc.e_ppid;
+}
+
+FString FMacPlatformProcess::FProcEnumInfo::GetFullPath() const
+{
+	char Buffer[MAX_PATH];
+	proc_pidpath(GetPID(), Buffer, sizeof(Buffer));
+
+	return Buffer;
+}
+
+FString FMacPlatformProcess::FProcEnumInfo::GetName() const
+{
+	return FPaths::GetCleanFilename(GetFullPath());
 }
 
 #include "MacPlatformRunnableThread.h"

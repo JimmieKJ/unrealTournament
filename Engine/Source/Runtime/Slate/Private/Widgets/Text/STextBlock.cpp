@@ -4,6 +4,11 @@
 #include "PlainTextLayoutMarshaller.h"
 #include "TextBlockLayout.h"
 
+DECLARE_CYCLE_STAT(TEXT("STextBlock::SetText Time"), Stat_SlateTextBlockSetText, STATGROUP_SlateVerbose)
+DECLARE_CYCLE_STAT(TEXT("STextBlock::OnPaint Time"), Stat_SlateTextBlockOnPaint, STATGROUP_SlateVerbose)
+DECLARE_CYCLE_STAT(TEXT("STextBlock::ComputeDesiredSize"), Stat_SlateTextBlockCDS, STATGROUP_SlateVerbose)
+DECLARE_CYCLE_STAT(TEXT("STextBlock::ComputeVolitility"), Stat_SlateTextBlockCV, STATGROUP_SlateVerbose)
+
 void STextBlock::Construct( const FArguments& InArgs )
 {
 	TextStyle = InArgs._TextStyle;
@@ -67,6 +72,7 @@ const FSlateBrush* STextBlock::GetHighlightShape() const
 
 void STextBlock::SetText( const TAttribute< FString >& InText )
 {
+	SCOPE_CYCLE_COUNTER(Stat_SlateTextBlockSetText);
 	struct Local
 	{
 		static FText PassThroughAttribute( TAttribute< FString > InString )
@@ -76,29 +82,67 @@ void STextBlock::SetText( const TAttribute< FString >& InText )
 	};
 
 	BoundText = TAttribute< FText >::Create(TAttribute<FText>::FGetter::CreateStatic( &Local::PassThroughAttribute, InText) );
+
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetText( const FString& InText )
 {
+	SCOPE_CYCLE_COUNTER(Stat_SlateTextBlockSetText);
 	BoundText = FText::FromString( InText );
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetText( const TAttribute< FText >& InText )
 {
+	SCOPE_CYCLE_COUNTER(Stat_SlateTextBlockSetText);
 	BoundText = InText;
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
 }
 
 void STextBlock::SetText( const FText& InText )
 {
+	SCOPE_CYCLE_COUNTER(Stat_SlateTextBlockSetText);
+
+	if ( !BoundText.IsBound() )
+	{
+		const FString& OldString = BoundText.Get().ToString();
+		const FString& NewString = InText.ToString();
+		const int32 OldLength = OldString.Len();
+		const int32 NewLength = NewString.Len();
+
+		// We only perform this optimization if the text we're checking is smaller 
+		// than 30 characters otherwise we may be comparing pages of text.
+		if ( OldLength == NewLength && OldLength <= 30 )
+		{
+			if ( OldString == NewString )
+			{
+				return;
+			}
+		}
+	}
+
 	BoundText = InText;
+	Invalidate(EInvalidateWidget::LayoutAndVolatility);
+}
+
+void STextBlock::SetHighlightText(TAttribute<FText> InText)
+{
+	HighlightText = InText;
 }
 
 int32 STextBlock::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
+	SCOPE_CYCLE_COUNTER(Stat_SlateTextBlockOnPaint);
+
 #if WITH_FANCY_TEXT
+
+	//FPlatformMisc::BeginNamedEvent(FColor::Orange, "STextBlock");
 
 	// OnPaint will also update the text layout cache if required
 	LayerId = TextLayoutCache->OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, ShouldBeEnabled(bParentEnabled));
+
+	//FPlatformMisc::EndNamedEvent();
 
 #else//WITH_FANCY_TEXT
 
@@ -109,7 +153,7 @@ int32 STextBlock::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeom
 		const ESlateDrawEffect::Type DrawEffects = ShouldBeEnabled(bParentEnabled) ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 		const FLinearColor CurShadowColor = GetShadowColorAndOpacity();
 		const FVector2D CurShadowOffset = GetShadowOffset();
-		const bool ShouldDropShadow = CurShadowOffset.Size() > 0 && CurShadowColor.A > 0;
+		const bool ShouldDropShadow = CurShadowColor.A > 0.f && CurShadowOffset.SizeSquared() > 0.f;
 		const FSlateFontInfo FontInfo = GetFont();
 		const FText& TextToDraw = BoundText.Get(FText::GetEmpty());
 
@@ -163,10 +207,8 @@ FReply STextBlock::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, cons
 
 FVector2D STextBlock::ComputeDesiredSize(float LayoutScaleMultiplier) const
 {
+	SCOPE_CYCLE_COUNTER(Stat_SlateTextBlockCDS);
 #if WITH_FANCY_TEXT
-
-	// todo: jdale - The scale needs to be passed to ComputeDesiredSize
-	//const float Scale = CachedScale;
 
 	// ComputeDesiredSize will also update the text layout cache if required
 	const FVector2D TextSize = TextLayoutCache->ComputeDesiredSize(
@@ -186,59 +228,79 @@ FVector2D STextBlock::ComputeDesiredSize(float LayoutScaleMultiplier) const
 	return FVector2D(FMath::Max(MinDesiredWidth.Get(0.0f), TextSize.X), TextSize.Y);
 }
 
+bool STextBlock::ComputeVolatility() const
+{
+	SCOPE_CYCLE_COUNTER(Stat_SlateTextBlockCV);
+	return SLeafWidget::ComputeVolatility() || BoundText.IsBound();
+}
+
 void STextBlock::SetFont(const TAttribute< FSlateFontInfo >& InFont)
 {
 	Font = InFont;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetColorAndOpacity(const TAttribute<FSlateColor>& InColorAndOpacity)
 {
-	ColorAndOpacity = InColorAndOpacity;
+	if ( !ColorAndOpacity.IdenticalTo(InColorAndOpacity) )
+	{
+		ColorAndOpacity = InColorAndOpacity;
+		Invalidate(EInvalidateWidget::Layout);
+	}
 }
 
 void STextBlock::SetTextStyle(const FTextBlockStyle* InTextStyle)
 {
 	TextStyle = InTextStyle;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetWrapTextAt(const TAttribute<float>& InWrapTextAt)
 {
 	WrapTextAt = InWrapTextAt;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetAutoWrapText(const TAttribute<bool>& InAutoWrapText)
 {
 	AutoWrapText = InAutoWrapText;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetShadowOffset(const TAttribute<FVector2D>& InShadowOffset)
 {
 	ShadowOffset = InShadowOffset;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetShadowColorAndOpacity(const TAttribute<FLinearColor>& InShadowColorAndOpacity)
 {
 	ShadowColorAndOpacity = InShadowColorAndOpacity;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetMinDesiredWidth(const TAttribute<float>& InMinDesiredWidth)
 {
 	MinDesiredWidth = InMinDesiredWidth;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetLineHeightPercentage(const TAttribute<float>& InLineHeightPercentage)
 {
 	LineHeightPercentage = InLineHeightPercentage;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetMargin(const TAttribute<FMargin>& InMargin)
 {
 	Margin = InMargin;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void STextBlock::SetJustification(const TAttribute<ETextJustify::Type>& InJustification)
 {
 	Justification = InJustification;
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 FTextBlockStyle STextBlock::GetComputedTextStyle() const
@@ -252,4 +314,3 @@ FTextBlockStyle STextBlock::GetComputedTextStyle() const
 	ComputedStyle.SetHighlightShape( *GetHighlightShape() );
 	return ComputedStyle;
 }
-

@@ -38,6 +38,14 @@ public partial class Project : CommandUtils
 		var Agenda = new UE4Build.BuildAgenda();
 		var CrashReportPlatforms = new HashSet<UnrealTargetPlatform>();
 
+        string ScriptPluginArgs = "";
+        // if we're utilizing an auto-generated code plugin/module (a product of 
+        // the BuildCookeRun process), make sure to compile it along with the targets here
+        if (Params.UseNativizedScriptPlugin())
+        {
+            ScriptPluginArgs = "-PLUGIN \"" + Params.NativizedScriptPlugin + "\"";
+        }
+
 		// Setup editor targets
 		if (Params.HasEditorTargets && !Params.Rocket)
 		{
@@ -46,7 +54,7 @@ public partial class Project : CommandUtils
 			const UnrealTargetConfiguration EditorConfiguration = UnrealTargetConfiguration.Development;
 
 			CrashReportPlatforms.Add(EditorPlatform);
-			Agenda.AddTargets(Params.EditorTargets.ToArray(), EditorPlatform, EditorConfiguration, Params.CodeBasedUprojectPath);
+            Agenda.AddTargets(Params.EditorTargets.ToArray(), EditorPlatform, EditorConfiguration, Params.CodeBasedUprojectPath, ScriptPluginArgs);
 			if (Params.EditorTargets.Contains("UnrealHeaderTool") == false)
 			{
 				Agenda.AddTargets(new string[] { "UnrealHeaderTool" }, EditorPlatform, EditorConfiguration);
@@ -73,7 +81,7 @@ public partial class Project : CommandUtils
 				foreach (var ClientPlatform in Params.ClientTargetPlatforms)
 				{
 					CrashReportPlatforms.Add(ClientPlatform);
-					Agenda.AddTargets(Params.ClientCookedTargets.ToArray(), ClientPlatform, BuildConfig, Params.CodeBasedUprojectPath);
+                    Agenda.AddTargets(Params.ClientCookedTargets.ToArray(), ClientPlatform, BuildConfig, Params.CodeBasedUprojectPath, ScriptPluginArgs);
 				}
 			}
 		}
@@ -84,18 +92,28 @@ public partial class Project : CommandUtils
 				foreach (var ServerPlatform in Params.ServerTargetPlatforms)
 				{
 					CrashReportPlatforms.Add(ServerPlatform);
-					Agenda.AddTargets(Params.ServerCookedTargets.ToArray(), ServerPlatform, BuildConfig, Params.CodeBasedUprojectPath);
+                    Agenda.AddTargets(Params.ServerCookedTargets.ToArray(), ServerPlatform, BuildConfig, Params.CodeBasedUprojectPath, ScriptPluginArgs);
+				}
+			}
+		}
+		if (!Params.NoBootstrapExe && !Params.Rocket)
+		{
+			UnrealBuildTool.UnrealTargetPlatform[] BootstrapPackagedGamePlatforms = { UnrealBuildTool.UnrealTargetPlatform.Win32, UnrealBuildTool.UnrealTargetPlatform.Win64 };
+			foreach(UnrealBuildTool.UnrealTargetPlatform BootstrapPackagedGamePlatform in BootstrapPackagedGamePlatforms)
+			{
+				if(Params.ClientTargetPlatforms.Contains(BootstrapPackagedGamePlatform))
+				{
+					Agenda.AddTarget("BootstrapPackagedGame", BootstrapPackagedGamePlatform, UnrealBuildTool.UnrealTargetConfiguration.Shipping);
 				}
 			}
 		}
 		if (Params.CrashReporter && !Params.Rocket)
 		{
-			var CrashReportClientTarget = new[] { "CrashReportClient" };
 			foreach (var CrashReportPlatform in CrashReportPlatforms)
 			{
 				if (UnrealBuildTool.UnrealBuildTool.PlatformSupportsCrashReporter(CrashReportPlatform))
 				{
-					Agenda.AddTargets(CrashReportClientTarget, CrashReportPlatform, UnrealTargetConfiguration.Development);
+					Agenda.AddTarget("CrashReportClient", CrashReportPlatform, UnrealTargetConfiguration.Shipping);
 				}
 			}
 		}

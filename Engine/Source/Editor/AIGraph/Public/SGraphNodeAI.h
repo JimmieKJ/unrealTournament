@@ -30,7 +30,7 @@ public:
 
 	void Construct(const FArguments& InArgs, UAIGraphNode* InNode);
 
-	// SGraphNode interface
+	//~ Begin SGraphNode Interface
 	virtual TSharedPtr<SToolTip> GetComplexTooltip() override;
 	virtual void OnDragEnter(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
 	virtual FReply OnDragOver(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent) override;
@@ -39,7 +39,7 @@ public:
 	virtual FReply OnMouseMove(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent) override;
 	virtual void SetOwner(const TSharedRef<SGraphPanel>& OwnerPanel) override;
 	virtual void AddPin(const TSharedRef<SGraphPin>& PinToAdd) override;
-	// End of SGraphNode interface
+	//~ End SGraphNode Interface
 
 	/** handle mouse down on the node */
 	FReply OnMouseDown(const FGeometry& SenderGeometry, const FPointerEvent& MouseEvent);
@@ -62,6 +62,8 @@ protected:
 	uint32 bDragMarkerVisible : 1;
 
 	virtual FText GetDescription() const;
+	virtual EVisibility GetDescriptionVisibility() const;
+
 	virtual FText GetPreviewCornerText() const;
 	virtual const FSlateBrush* GetNameIcon() const;
 };
@@ -74,10 +76,10 @@ public:
 
 	void Construct(const FArguments& InArgs, UEdGraphPin* InPin);
 protected:
-	// Begin SGraphPin interface
+	//~ Begin SGraphPin Interface
 	virtual FSlateColor GetPinColor() const override;
 	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
-	// End SGraphPin interface
+	//~ End SGraphPin Interface
 
 	const FSlateBrush* GetPinBorder() const;
 };

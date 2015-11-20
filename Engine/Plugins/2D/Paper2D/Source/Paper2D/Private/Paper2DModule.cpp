@@ -3,8 +3,6 @@
 #include "Paper2DPrivatePCH.h"
 #include "Paper2DModule.h"
 
-#include "Rendering/PaperBatchManager.h"
-
 DEFINE_STAT(STAT_PaperRender_SetSpriteRT);
 
 //////////////////////////////////////////////////////////////////////////
@@ -27,13 +25,10 @@ public:
 		}
 
 		PaperAxisZ = FVector::CrossProduct(PaperAxisX, PaperAxisY);
-
-		FPaperBatchManager::Initialize();
 	}
 
 	virtual void ShutdownModule() override
 	{
-		FPaperBatchManager::Shutdown();
 	}
 };
 

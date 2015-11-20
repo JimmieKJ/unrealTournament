@@ -12,7 +12,7 @@ Source:
 #include "$FILE_BASE$.generated.h"
 
 /**
- * @todo JohnB: $end$
+ * @todo #JohnB: $end$
  */
 UCLASS()
 class U$FILE_BASE$ : public UClientUnitTest

@@ -35,7 +35,7 @@ FFlipbookEditorViewportClient::FFlipbookEditorViewportClient(const TAttribute<UP
 	DrawHelper.bDrawGrid = GetDefault<UFlipbookEditorSettings>()->bShowGridByDefault;
 
 	EngineShowFlags.DisableAdvancedFeatures();
-	EngineShowFlags.CompositeEditorPrimitives = true;
+	EngineShowFlags.SetCompositeEditorPrimitives(true);
 }
 
 void FFlipbookEditorViewportClient::DrawCanvas(FViewport& Viewport, FSceneView& View, FCanvas& Canvas)

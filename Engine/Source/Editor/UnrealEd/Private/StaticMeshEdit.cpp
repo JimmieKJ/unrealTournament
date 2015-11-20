@@ -12,6 +12,7 @@
 #include "RawMesh.h"
 #include "MeshUtilities.h"
 #include "Engine/Polys.h"
+#include "PhysicsEngine/BodySetup.h"
 
 bool GBuildStaticMeshCollision = 1;
 
@@ -619,7 +620,7 @@ void GetBrushMesh(ABrush* Brush,UModel* Model,struct FRawMesh& OutMesh,TArray<UM
 
 		// Cache the texture coordinate system for this polygon.
 
-		FVector	TextureBase = Polygon.Base - (Brush ? Brush->GetPrePivot() : FVector::ZeroVector),
+		FVector	TextureBase = Polygon.Base - (Brush ? Brush->GetPivotOffset() : FVector::ZeroVector),
 				TextureX = Polygon.TextureU / UModel::GetGlobalBSPTexelScale(),
 				TextureY = Polygon.TextureV / UModel::GetGlobalBSPTexelScale();
 
@@ -924,24 +925,20 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 {
 	if ( ExistingMeshDataPtr && NewMesh )
 	{
-		NewMesh->SectionInfoMap.Clear();
-		NewMesh->SectionInfoMap.CopyFrom(ExistingMeshDataPtr->ExistingSectionInfoMap);
-
-		NewMesh->Materials.Reset();
+		int32 NumCommonMaterials = FMath::Min(NewMesh->Materials.Num(), ExistingMeshDataPtr->ExistingLODData[0].ExistingMaterials.Num());
+		for (int32 MaterialIndex = 0; MaterialIndex < NumCommonMaterials; ++MaterialIndex)
+		{
+			NewMesh->Materials[MaterialIndex] = ExistingMeshDataPtr->ExistingLODData[0].ExistingMaterials[MaterialIndex];
+		}
 
 		int32 NumCommonLODs = FMath::Min<int32>(ExistingMeshDataPtr->ExistingLODData.Num(), NewMesh->SourceModels.Num());
 		for(int32 i=0; i<NumCommonLODs; i++)
 		{
 			NewMesh->SourceModels[i].BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
 			NewMesh->SourceModels[i].ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
-			NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
-
-			if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials.Num() > 0)
-			{
-				NewMesh->Materials.Append(ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials);
-			}
+			NewMesh->SourceModels[i].ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;			
 		}
-
+		
 		for(int32 i=NumCommonLODs; i < ExistingMeshDataPtr->ExistingLODData.Num(); ++i)
 		{
 			if (ExistingMeshDataPtr->ExistingLODData[i].ExistingMaterials.Num() > 0)
@@ -958,6 +955,21 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 			SrcModel->BuildSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingBuildSettings;
 			SrcModel->ReductionSettings = ExistingMeshDataPtr->ExistingLODData[i].ExistingReductionSettings;
 			SrcModel->ScreenSize = ExistingMeshDataPtr->ExistingLODData[i].ExistingScreenSize;
+		}
+
+		// Restore the section info		
+		for (int32 i = 0; i < NewMesh->RenderData->LODResources.Num(); i++)
+		{
+			FStaticMeshLODResources& LOD = NewMesh->RenderData->LODResources[i];
+			int32 NumSections = LOD.Sections.Num();
+			for (int32 SectionIndex = 0; SectionIndex < NumSections; ++SectionIndex)
+			{
+				FMeshSectionInfo OldSectionInfo = ExistingMeshDataPtr->ExistingSectionInfoMap.Get(i, SectionIndex);
+				if(NewMesh->Materials.IsValidIndex(OldSectionInfo.MaterialIndex))
+				{
+					NewMesh->SectionInfoMap.Set(i, SectionIndex, OldSectionInfo);
+				}
+			}
 		}
 
 		// Assign sockets from old version of this StaticMesh.
@@ -983,7 +995,7 @@ void RestoreExistingMeshData(struct ExistingStaticMeshData* ExistingMeshDataPtr,
 		{
 			// If we didn't import anything, always keep collision.
 			bool bKeepCollision;
-			if(!NewMesh->BodySetup)
+			if(!NewMesh->BodySetup || NewMesh->BodySetup->AggGeom.GetElementCount() == 0)
 			{
 				bKeepCollision = true;
 			}

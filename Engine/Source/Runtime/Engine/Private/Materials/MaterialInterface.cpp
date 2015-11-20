@@ -9,6 +9,10 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+UEnum* UMaterialInterface::SamplerTypeEnum = nullptr;
+
+//////////////////////////////////////////////////////////////////////////
+
 /** Copies the material's relevance flags to a primitive's view relevance flags. */
 void FMaterialRelevance::SetPrimitiveViewRelevance(FPrimitiveViewRelevance& OutViewRelevance) const
 {
@@ -18,6 +22,7 @@ void FMaterialRelevance::SetPrimitiveViewRelevance(FPrimitiveViewRelevance& OutV
 	OutViewRelevance.bSeparateTranslucencyRelevance = bSeparateTranslucency;
 	OutViewRelevance.bNormalTranslucencyRelevance = bNormalTranslucency;
 	OutViewRelevance.ShadingModelMaskRelevance = ShadingModelMask;
+	OutViewRelevance.bUsesGlobalDistanceField = bUsesGlobalDistanceField;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -29,6 +34,12 @@ UMaterialInterface::UMaterialInterface(const FObjectInitializer& ObjectInitializ
 	{
 		InitDefaultMaterials();
 		AssertDefaultMaterialsExist();
+
+		if (SamplerTypeEnum == nullptr)
+		{
+			SamplerTypeEnum = FindObject<UEnum>(NULL, TEXT("/Script/Engine.EMaterialSamplerType"));
+			check(SamplerTypeEnum);
+		}
 	}
 }
 
@@ -53,11 +64,12 @@ FMaterialRelevance UMaterialInterface::GetRelevance_Internal(const UMaterial* Ma
 		MaterialRelevance.ShadingModelMask = 1 << ShadingModel;
 		MaterialRelevance.bOpaque = !bIsTranslucent;
 		MaterialRelevance.bMasked = IsMasked();
-		MaterialRelevance.bDistortion = Material->bUsesDistortion && bIsTranslucent;
+		MaterialRelevance.bDistortion = MaterialResource->IsDistorted();
 		MaterialRelevance.bSeparateTranslucency = bIsTranslucent && Material->bEnableSeparateTranslucency;
 		MaterialRelevance.bNormalTranslucency = bIsTranslucent && !Material->bEnableSeparateTranslucency;
 		MaterialRelevance.bDisableDepthTest = bIsTranslucent && Material->bDisableDepthTest;		
-		MaterialRelevance.bOutputsVelocityInBasePass = Material->bOutputVelocityOnBasePass;		
+		MaterialRelevance.bOutputsVelocityInBasePass = Material->bOutputVelocityOnBasePass;	
+		MaterialRelevance.bUsesGlobalDistanceField = MaterialResource->UsesGlobalDistanceField_GameThread();
 		return MaterialRelevance;
 	}
 	else
@@ -150,7 +162,6 @@ void UMaterialInterface::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 	LightmassSettings.EmissiveBoost = FMath::Max(LightmassSettings.EmissiveBoost, 0.0f);
 	LightmassSettings.DiffuseBoost = FMath::Max(LightmassSettings.DiffuseBoost, 0.0f);
 	LightmassSettings.ExportResolutionScale = FMath::Clamp(LightmassSettings.ExportResolutionScale, 0.0f, 16.0f);
-	LightmassSettings.DistanceFieldPenumbraScale = FMath::Clamp(LightmassSettings.DistanceFieldPenumbraScale, 0.01f, 100.0f);
 
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
@@ -158,11 +169,13 @@ void UMaterialInterface::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 
 bool UMaterialInterface::GetVectorParameterValue(FName ParameterName, FLinearColor& OutValue) const
 {
+	// is never called but because our system wants a UMaterialInterface instance we cannot use "virtual =0"
 	return false;
 }
 
 bool UMaterialInterface::GetScalarParameterValue(FName ParameterName, float& OutValue) const
 {
+	// is never called but because our system wants a UMaterialInterface instance we cannot use "virtual =0"
 	return false;
 }
 
@@ -187,6 +200,11 @@ bool UMaterialInterface::GetLinearColorCurveParameterValue(FName ParameterName, 
 }
 
 bool UMaterialInterface::GetTextureParameterValue(FName ParameterName, UTexture*& OutValue) const
+{
+	return false;
+}
+
+bool UMaterialInterface::GetTextureParameterOverrideValue(FName ParameterName, UTexture*& OutValue) const
 {
 	return false;
 }
@@ -246,6 +264,11 @@ EBlendMode UMaterialInterface::GetBlendMode(bool bIsInGameThread) const
 }
 
 bool UMaterialInterface::IsTwoSided(bool bIsInGameThread) const
+{
+	return false;
+}
+
+bool UMaterialInterface::IsDitheredLODTransition(bool bIsInGameThread) const
 {
 	return false;
 }
@@ -329,7 +352,7 @@ void UMaterialInterface::UpdateMaterialRenderProxy(FMaterialRenderProxy& Proxy)
 
 			if (LocalSubsurfaceProfile)
 			{
-				AllocationId = GSubsufaceProfileTextureObject.AddOrUpdateProfile(Settings, LocalSubsurfaceProfile);
+				AllocationId = GSubsurfaceProfileTextureObject.AddOrUpdateProfile(Settings, LocalSubsurfaceProfile);
 
 				check(AllocationId >= 0 && AllocationId <= 255);
 			}

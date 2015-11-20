@@ -37,13 +37,12 @@ public:
 
 	// IStructSerializerBackend interface
 
-	virtual void BeginArray( UProperty* Property ) override;
-	virtual void BeginStructure( UProperty* Property ) override;
-	virtual void BeginStructure( UStruct* TypeInfo ) override;
-	virtual void EndArray( UProperty* Property ) override;
-	virtual void EndStructure() override;
-	virtual void WriteComment( const FString& Comment ) override;
-	virtual void WriteProperty( UProperty* Property, const void* Data, UStruct* TypeInfo, int32 ArrayIndex ) override;
+	virtual void BeginArray(const FStructSerializerState& State) override;
+	virtual void BeginStructure(const FStructSerializerState& State) override;
+	virtual void EndArray(const FStructSerializerState& State) override;
+	virtual void EndStructure(const FStructSerializerState& State) override;
+	virtual void WriteComment(const FString& Comment) override;
+	virtual void WriteProperty(const FStructSerializerState& State, int32 ArrayIndex = 0) override;
 
 private:
 

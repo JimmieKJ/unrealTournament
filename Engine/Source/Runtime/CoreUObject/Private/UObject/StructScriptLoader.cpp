@@ -260,7 +260,7 @@ bool FStructScriptLoader::LoadStructWithScript(UStruct* DestScriptContainer, FAr
 	ensure(ScriptEndOffset == Ar.Tell());
 	checkf(BytecodeIndex == BytecodeBufferSize, TEXT("'%s' script expression-count mismatch; Expected: %i, Got: %i"), *DestScriptContainer->GetName(), BytecodeBufferSize, BytecodeIndex);
 
-	if (!GetUObjectArray().IsDisregardForGC(DestScriptContainer))
+	if (!GUObjectArray.IsDisregardForGC(DestScriptContainer))
 	{
 		DestScriptContainer->ScriptObjectReferences.Empty();
 		FArchiveScriptReferenceCollector ObjRefCollector(DestScriptContainer->ScriptObjectReferences);

@@ -21,7 +21,6 @@
 #include "Android/AndroidSplash.h"
 #include "Android/AndroidFile.h"
 #include "Android/AndroidSurvey.h"
-#include "Android/AndroidHttp.h"
 #include "Android/AndroidAffinity.h"
 
 // include platform properties and typedef it for the runtime

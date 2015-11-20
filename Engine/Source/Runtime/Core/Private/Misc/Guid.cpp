@@ -1,13 +1,18 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
-
+#include "PropertyPortFlags.h"
 
 /* FGuid interface
  *****************************************************************************/
 
 bool FGuid::ExportTextItem( FString& ValueStr, FGuid const& DefaultValue, UObject* Parent, int32 PortFlags, class UObject* ExportRootScope ) const
 {
+	if (0 != (PortFlags & EPropertyPortFlags::PPF_ExportCpp))
+	{
+		return false;
+	}
+
 	ValueStr += ToString();
 
 	return true;

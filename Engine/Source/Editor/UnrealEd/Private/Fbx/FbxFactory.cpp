@@ -386,8 +386,17 @@ UObject* UFbxFactory::FactoryCreateBinary
 							{
 								FName OutputName = FbxImporter->MakeNameForMesh(Name.ToString(), SkelMeshNodeArray[0]);
 
-								USkeletalMesh* NewMesh = FbxImporter->ImportSkeletalMesh( InParent, SkelMeshNodeArray, OutputName, Flags, ImportUI->SkeletalMeshImportData, FPaths::GetBaseFilename(Filename) );
+								USkeletalMesh* NewMesh = FbxImporter->ImportSkeletalMesh( InParent, SkelMeshNodeArray, OutputName, Flags, ImportUI->SkeletalMeshImportData, &bOperationCanceled );
 								NewObject = NewMesh;
+
+								if(bOperationCanceled)
+								{
+									// User cancelled, clean up and return
+									FbxImporter->ReleaseScene();
+									Warn->EndSlowTask();
+									bOperationCanceled = true;
+									return nullptr;
+								}
 
 								if ( NewMesh && ImportUI->bImportAnimations )
 								{
@@ -404,8 +413,8 @@ UObject* UFbxFactory::FactoryCreateBinary
 							{
 								USkeletalMesh* BaseSkeletalMesh = Cast<USkeletalMesh>(NewObject);
 								FName LODObjectName = NAME_None;
-								USkeletalMesh *LODObject = FbxImporter->ImportSkeletalMesh( GetTransientPackage(), SkelMeshNodeArray, LODObjectName, RF_NoFlags, ImportUI->SkeletalMeshImportData, FPaths::GetBaseFilename(Filename) );
-								bool bImportSucceeded = FbxImporter->ImportSkeletalMeshLOD(LODObject, BaseSkeletalMesh, LODIndex, false);
+								USkeletalMesh *LODObject = FbxImporter->ImportSkeletalMesh( GetTransientPackage(), SkelMeshNodeArray, LODObjectName, RF_NoFlags, ImportUI->SkeletalMeshImportData, &bOperationCanceled );
+								bool bImportSucceeded = !bOperationCanceled && FbxImporter->ImportSkeletalMeshLOD(LODObject, BaseSkeletalMesh, LODIndex, false);
 
 								if (bImportSucceeded)
 								{
@@ -424,7 +433,7 @@ UObject* UFbxFactory::FactoryCreateBinary
 								uint32 bImportMaterials = ImportOptions->bImportMaterials;
 								ImportOptions->bImportMaterials = 0;
 
-								FbxImporter->ImportFbxMorphTarget(SkelMeshNodeArray, Cast<USkeletalMesh>(NewObject), InParent, Filename, LODIndex);
+								FbxImporter->ImportFbxMorphTarget(SkelMeshNodeArray, Cast<USkeletalMesh>(NewObject), InParent, LODIndex);
 							
 								ImportOptions->bImportMaterials = !!bImportMaterials;
 							}
@@ -579,6 +588,17 @@ void UFbxFactory::CleanUp()
 			ImportOptions->PhysicsAsset = NULL;
 		}
 	}
+}
+
+bool UFbxFactory::FactoryCanImport(const FString& Filename)
+{
+	const FString Extension = FPaths::GetExtension(Filename);
+
+	if( Extension == TEXT("fbx") || Extension == TEXT("obj") )
+	{
+		return true;
+	}
+	return false;
 }
 
 UFbxImportUI::UFbxImportUI(const FObjectInitializer& ObjectInitializer)

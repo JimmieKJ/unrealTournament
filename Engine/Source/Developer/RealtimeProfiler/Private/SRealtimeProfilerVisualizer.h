@@ -52,7 +52,7 @@ private:
 	void RouteBarEventSelectionChanged( int32 Thread, TSharedPtr<FVisualizerEvent> Selection );
 
 	/** Opens a context menu when a bar is right clicked */
-	void OnBarGraphContextMenu( TSharedPtr< FVisualizerEvent > Selection );
+	void OnBarGraphContextMenu( TSharedPtr< FVisualizerEvent > Selection, const FPointerEvent& InputEvent );
 
 	/** Creates bar visualizer context menu for opening new events tree tabs */
 	TSharedRef<SWidget> MakeBarVisualizerContextMenu();

@@ -157,7 +157,7 @@ inline void LowPassFilter(int32 X1, int32 Y1, int32 X2, int32 Y2, FLandscapeBrus
 	int32 FFTWidth = X2 - X1 - 1;
 	int32 FFTHeight = Y2 - Y1 - 1;
 
-	const int NDims = 2;
+	const int32 NDims = 2;
 	const int32 Dims[NDims] = { FFTHeight - FFTHeight % 2, FFTWidth - FFTWidth % 2 };
 	kiss_fftnd_cfg stf = kiss_fftnd_alloc(Dims, NDims, 0, NULL, NULL),
 		sti = kiss_fftnd_alloc(Dims, NDims, 1, NULL, NULL);
@@ -165,12 +165,12 @@ inline void LowPassFilter(int32 X1, int32 Y1, int32 X2, int32 Y2, FLandscapeBrus
 	kiss_fft_cpx *buf = (kiss_fft_cpx *)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx) * Dims[0] * Dims[1]);
 	kiss_fft_cpx *out = (kiss_fft_cpx *)KISS_FFT_MALLOC(sizeof(kiss_fft_cpx) * Dims[0] * Dims[1]);
 
-	for (int Y = Y1 + 1; Y <= Y2 - 1 - FFTHeight % 2; Y++)
+	for (int32 Y = Y1 + 1; Y <= Y2 - 1 - FFTHeight % 2; Y++)
 	{
 		auto* DataScanline = Data.GetData() + (Y - Y1) * (X2 - X1 + 1) + (0 - X1);
 		auto* bufScanline = buf + (Y - (Y1 + 1)) * Dims[1] + (0 - (X1 + 1));
 
-		for (int X = X1 + 1; X <= X2 - 1 - FFTWidth % 2; X++)
+		for (int32 X = X1 + 1; X <= X2 - 1 - FFTWidth % 2; X++)
 		{
 			bufScanline[X].r = DataScanline[X];
 			bufScanline[X].i = 0;
@@ -181,10 +181,10 @@ inline void LowPassFilter(int32 X1, int32 Y1, int32 X2, int32 Y2, FLandscapeBrus
 	kiss_fftnd(stf, buf, out);
 
 	int32 CenterPos[2] = { Dims[0] >> 1, Dims[1] >> 1 };
-	for (int Y = 0; Y < Dims[0]; Y++)
+	for (int32 Y = 0; Y < Dims[0]; Y++)
 	{
 		float DistFromCenter = 0.0f;
-		for (int X = 0; X < Dims[1]; X++)
+		for (int32 X = 0; X < Dims[1]; X++)
 		{
 			if (Y < CenterPos[0])
 			{
@@ -504,6 +504,8 @@ public:
 	// X2/Y2 Coordinates are "inclusive" max values
 	void SetCachedData(int32 X1, int32 Y1, int32 X2, int32 Y2, TArray<AccessorType>& Data, ELandscapeLayerPaintingRestriction::Type PaintingRestriction = ELandscapeLayerPaintingRestriction::None)
 	{
+		checkSlow(Data.Num() == (1 + Y2 - Y1) * (1 + X2 - X1));
+
 		// Update cache
 		for (int32 Y = Y1; Y <= Y2; Y++)
 		{
@@ -690,7 +692,7 @@ struct FHeightmapAccessor
 			if (CollisionComponent)
 			{
 				CollisionComponent->RecreateCollision();
-				UNavigationSystem::UpdateNavOctree(CollisionComponent);
+				UNavigationSystem::UpdateComponentInNavOctree(*CollisionComponent);
 			}
 		}
 	}
@@ -918,7 +920,7 @@ struct FAlphamapAccessor
 					UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component);
 					if (NavSys)
 					{
-						NavSys->UpdateNavOctree(CollisionComponent);
+						NavSys->UpdateComponentInNavOctree(*CollisionComponent);
 					}
 				}
 			}
@@ -1023,7 +1025,7 @@ struct FFullWeightmapAccessor
 					UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(Component);
 					if (NavSys)
 					{
-						NavSys->UpdateNavOctree(CollisionComponent);
+						NavSys->UpdateComponentInNavOctree(*CollisionComponent);
 					}
 				}
 			}
@@ -1247,17 +1249,35 @@ struct FWeightmapToolTarget
 };
 
 /**
-* FLandscapeToolStrokeBase - base class for tool strokes (used by FLandscapeToolBase)
-*/
+ * FLandscapeToolStrokeBase - base class for tool strokes (used by FLandscapeToolBase)
+ */
 
-class FLandscapeToolStrokeBase
+class FLandscapeToolStrokeBase : protected FGCObject
 {
 public:
 	// Whether to call Apply() every frame even if the mouse hasn't moved
 	enum { UseContinuousApply = false };
 
-	// Signature of Apply() method:
+	// This is also the expected signature of derived class constructor used by FLandscapeToolBase
+	FLandscapeToolStrokeBase(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
+		: EdMode(InEdMode)
+		, Target(InTarget)
+		, LandscapeInfo(InTarget.LandscapeInfo.Get())
+	{
+	}
+
+	// Signature of Apply() method for derived strokes
 	// void Apply(FEditorViewportClient* ViewportClient, FLandscapeBrush* Brush, const ULandscapeEditorObject* UISettings, const TArray<FLandscapeToolMousePosition>& MousePositions);
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(LandscapeInfo);
+	}
+
+protected:
+	FEdModeLandscape* EdMode;
+	const FLandscapeToolTarget& Target;
+	ULandscapeInfo* LandscapeInfo;
 };
 
 

@@ -24,9 +24,17 @@ enum EPropertyExportCPPFlags
 	/** Indicates that we are exporting this property's CPP text for an argument or return value */
 	CPPF_ArgumentOrReturnValue		=	0x00000002,
 	/** Indicates thet we are exporting this property's CPP text for C++ definition of a function. */
-	CPPF_Implementation = 0x00000004,
+	CPPF_Implementation				=	0x00000004,
 	/** Indicates thet we are exporting this property's CPP text with an custom type name */
 	CPPF_CustomTypeName				=	0x00000008,
+	/** No 'const' keyword */
+	CPPF_NoConst					=	0x00000010,
+	/** No reference '&' sign */
+	CPPF_NoRef						=	0x00000020,
+	/** No static array [%d] */
+	CPPF_NoStaticArray				=	0x00000040,
+	/** Blueprint compiler generated C++ code */
+	CPPF_BlueprintCppBackend		=	0x00000080,
 };
 
 namespace EExportedDeclaration
@@ -97,7 +105,8 @@ public:
 											FOutputDevice* Warn, TArray<struct FDefinedProperty>& DefinedProperties );
 
 	// UHT interface
-	void ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::Type DeclarationType, const TCHAR* ArrayDimOverride = NULL, uint32 AdditionalExportCPPFlags = 0, bool bSkipParameterName = false) const;
+	void ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::Type DeclarationType, const TCHAR* ArrayDimOverride = NULL, uint32 AdditionalExportCPPFlags = 0
+		, bool bSkipParameterName = false, const FString* ActualCppType = nullptr, const FString* ActualExtendedType = nullptr) const;
 	virtual FString GetCPPMacroType( FString& ExtendedTypeText ) const;
 	virtual bool PassCPPArgsByRef() const { return false; }
 
@@ -212,13 +221,13 @@ public:
 	{
 		if( ShouldSerializeValue(Ar) )
 		{
-			UProperty* OldSerializedProperty = Ar.GetSerializedProperty();
+			FSerializedPropertyScope SerializedProperty(Ar, this);
 			for (int32 Idx = 0; Idx < ArrayDim; Idx++)
 			{
+				// Keep setting the property in case something inside of SerializeItem changes it
 				Ar.SetSerializedProperty(this);
 				SerializeItem( Ar, ContainerPtrToValuePtr<void>(Data, Idx) );
 			}
-			Ar.SetSerializedProperty(OldSerializedProperty);
 		}
 	}
 	/**
@@ -239,10 +248,8 @@ public:
 				void const* Default = ContainerPtrToValuePtrForDefaults<void>(DefaultStruct, DefaultData, Idx);
 				if ( !Identical(Target, Default, Ar.GetPortFlags()) )
 				{
-					UProperty* OldSerializedProperty = Ar.GetSerializedProperty();
-					Ar.SetSerializedProperty(this);
+					FSerializedPropertyScope SerializedProperty(Ar, this);
 					SerializeItem( Ar, Target, Default );
-					Ar.SetSerializedProperty(OldSerializedProperty);
 				}
 			}
 		}
@@ -703,6 +710,16 @@ public:
 	UProperty* GetOwnerProperty()
 	{
 		UProperty* Result=this;
+		for (UProperty* PropBase = dynamic_cast<UProperty*>(GetOuter()); PropBase; PropBase = dynamic_cast<UProperty*>(PropBase->GetOuter()))
+		{
+			Result = PropBase;
+		}
+		return Result;
+	}
+
+	const UProperty* GetOwnerProperty() const
+	{
+		const UProperty* Result = this;
 		for (UProperty* PropBase = dynamic_cast<UProperty*>(GetOuter()); PropBase; PropBase = dynamic_cast<UProperty*>(PropBase->GetOuter()))
 		{
 			Result = PropBase;
@@ -1173,7 +1190,7 @@ public:
 	}
 
 	TProperty_Numeric(ECppProperty, int32 InOffset, uint64 InFlags)
-		: Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+		: Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 	{
 	}
 
@@ -1470,6 +1487,10 @@ class COREUOBJECT_API UFloatProperty : public TProperty_Numeric<float>
 		:	TProperty_Numeric( ObjectInitializer, EC_CppProperty, InOffset, InFlags )
 	{
 	}
+
+	// UProperty interface
+	virtual void ExportTextItem(FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const override;
+	// End of UProperty interface
 };
 
 /*-----------------------------------------------------------------------------
@@ -1731,6 +1752,8 @@ class COREUOBJECT_API UObjectPropertyBase : public UProperty
 	// UObjectPropertyBase interface
 public:
 
+	virtual FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass) const PURE_VIRTUAL(UObjectPropertyBase::GetCPPTypeCustom, return TEXT(""););
+
 	/**
 	 * Parses a text buffer into an object reference.
 	 *
@@ -1792,7 +1815,6 @@ protected:
 
 	virtual void CheckValidObject(void* Value) const;
 	// End of UObjectPropertyBase interface
-
 };
 
 template<typename InTCppType>
@@ -1835,6 +1857,11 @@ public:
 		return TIsWeakPointerType<InTCppType>::Value;
 	}
 	// End of UProperty interface
+
+	virtual FString GetCPPType(FString* ExtendedTypeText, uint32 CPPExportFlags) const override
+	{
+		return this->GetCPPTypeCustom(ExtendedTypeText, CPPExportFlags, UObjectPropertyBase::PropertyClass);
+	}
 };
 
 
@@ -1846,31 +1873,40 @@ class COREUOBJECT_API UObjectProperty : public TUObjectPropertyBase<UObject*>
 	DECLARE_CASTED_CLASS_INTRINSIC(UObjectProperty,TUObjectPropertyBase<UObject*>,0,CoreUObject,CASTCLASS_UObjectProperty)
 
 	UObjectProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass)
-		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, InClass)
+		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash, InClass)
 	{
 	}
 
 	UObjectProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass )
-	:	TUObjectPropertyBase( ObjectInitializer, EC_CppProperty, InOffset, InFlags, InClass )
+		: TUObjectPropertyBase(ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash, InClass)
 	{
 	}
 
 	// UHT interface
 	virtual FString GetCPPMacroType( FString& ExtendedTypeText ) const  override;
-	virtual FString GetCPPType( FString* ExtendedTypeText, uint32 CPPExportFlags ) const override;
 	virtual FString GetCPPTypeForwardDeclaration() const override;
 	// End of UHT interface
 
 	// UProperty interface
 	virtual void SerializeItem( FArchive& Ar, void* Value, void const* Defaults ) const override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset) override;
+
+private:
+	virtual uint32 GetValueTypeHashInternal(const void* Src) const override
+	{
+		return GetTypeHash(GetPropertyValue(Src));
+	}
+public:
 	// End of UProperty interface
+
 	// UObjectPropertyBase interface
 	virtual UObject* GetObjectPropertyValue(const void* PropertyValueAddress) const override
 	{
 		return GetPropertyValue(PropertyValueAddress);
 	}
 	virtual void SetObjectPropertyValue(void* PropertyValueAddress, UObject* Value) const override;
+
+	virtual FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass)  const override;
 	// End of UObjectPropertyBase interface
 };
 
@@ -1921,12 +1957,12 @@ class COREUOBJECT_API ULazyObjectProperty : public TUObjectPropertyBase<FLazyObj
 	DECLARE_CASTED_CLASS_INTRINSIC(ULazyObjectProperty,TUObjectPropertyBase<FLazyObjectPtr>,0,CoreUObject,CASTCLASS_ULazyObjectProperty)
 
 	ULazyObjectProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass)
-		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, InClass)
+		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash, InClass)
 	{
 	}
 
 	ULazyObjectProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass )
-		:	TUObjectPropertyBase( ObjectInitializer, EC_CppProperty, InOffset, InFlags, InClass )
+		: TUObjectPropertyBase(ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash, InClass)
 	{
 	}
 
@@ -1954,6 +1990,12 @@ class COREUOBJECT_API ULazyObjectProperty : public TUObjectPropertyBase<FLazyObj
 	{
 		return true;
 	}
+private:
+	virtual uint32 GetValueTypeHashInternal(const void* Src) const override
+	{
+		return GetTypeHash(GetPropertyValue(Src));
+	}
+public:
 	// End of UObjectProperty interface
 };
 
@@ -1965,16 +2007,16 @@ class COREUOBJECT_API UAssetObjectProperty : public TUObjectPropertyBase<FAssetP
 	DECLARE_CASTED_CLASS_INTRINSIC(UAssetObjectProperty,TUObjectPropertyBase<FAssetPtr>,0,CoreUObject,CASTCLASS_UAssetObjectProperty)
 
 	UAssetObjectProperty(ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass)
-		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags, InClass)
+		: TUObjectPropertyBase(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash, InClass)
 	{}
 
 	UAssetObjectProperty( const FObjectInitializer& ObjectInitializer, ECppProperty, int32 InOffset, uint64 InFlags, UClass* InClass )
-		:	TUObjectPropertyBase( ObjectInitializer, EC_CppProperty, InOffset, InFlags, InClass )
+		: TUObjectPropertyBase(ObjectInitializer, EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash, InClass)
 	{}
 
 	// UHT interface
 	virtual FString GetCPPMacroType( FString& ExtendedTypeText ) const  override;
-	virtual FString GetCPPType( FString* ExtendedTypeText, uint32 CPPExportFlags ) const override;
+	virtual FString GetCPPTypeForwardDeclaration() const override;
 	// End of UHT interface
 
 	// UProperty interface
@@ -1997,6 +2039,36 @@ class COREUOBJECT_API UAssetObjectProperty : public TUObjectPropertyBase<FAssetP
 	virtual bool AllowCrossLevel() const override
 	{
 		return true;
+	}
+	virtual FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass)  const override;
+
+private:
+	virtual uint32 GetValueTypeHashInternal(const void* Src) const override
+	{
+		return GetTypeHash(GetPropertyValue(Src));
+	}
+public:
+
+	// ScriptVM should store Asset as FAssetPtr not as UObject.
+
+	virtual void CopySingleValueToScriptVM(void* Dest, void const* Src) const override
+	{
+		CopySingleValue(Dest, Src);
+	}
+
+	virtual void CopyCompleteValueToScriptVM(void* Dest, void const* Src) const override
+	{
+		CopyCompleteValue(Dest, Src);
+	}
+
+	virtual void CopySingleValueFromScriptVM(void* Dest, void const* Src) const override
+	{
+		CopySingleValue(Dest, Src);
+	}
+
+	virtual void CopyCompleteValueFromScriptVM(void* Dest, void const* Src) const override
+	{
+		CopyCompleteValue(Dest, Src);
 	}
 	// End of UObjectProperty interface
 };
@@ -2034,8 +2106,8 @@ public:
 	// End of UObject interface
 
 	// UHT interface
+	virtual FString GetCPPType(FString* ExtendedTypeText, uint32 CPPExportFlags)  const override;
 	virtual FString GetCPPMacroType( FString& ExtendedTypeText ) const  override;
-	virtual FString GetCPPType( FString* ExtendedTypeText, uint32 CPPExportFlags ) const override;
 	virtual FString GetCPPTypeForwardDeclaration() const override;
 	// End of UHT interface
 
@@ -2043,6 +2115,8 @@ public:
 	virtual const TCHAR* ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText ) const override;
 	virtual bool SameType(const UProperty* Other) const override;
 	// End of UProperty interface
+
+	virtual FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass)  const override;
 
 	/**
 	 * Setter function for this property's MetaClass member. Favor this function 
@@ -2088,8 +2162,9 @@ public:
 	{}
 
 	// UHT interface
+	virtual FString GetCPPType(FString* ExtendedTypeText, uint32 CPPExportFlags) const override;
 	virtual FString GetCPPMacroType( FString& ExtendedTypeText ) const  override;
-	virtual FString GetCPPType( FString* ExtendedTypeText, uint32 CPPExportFlags ) const override;
+	virtual FString GetCPPTypeForwardDeclaration() const override;
 	// End of UHT interface
 
 	// UObject interface
@@ -2100,6 +2175,8 @@ public:
 	// UProperty interface
 	virtual bool SameType(const UProperty* Other) const override;
 	// End of UProperty interface
+
+	virtual FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass)  const override;
 };
 
 /*-----------------------------------------------------------------------------
@@ -2157,6 +2234,7 @@ public:
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset) override;
 	virtual void BeginDestroy() override;
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// End of UObject interface
 
 	/**
@@ -2194,7 +2272,7 @@ public:
 	typedef TTypeFundamentals::TCppType TCppType;
 
 	UNameProperty(ECppProperty, int32 InOffset, uint64 InFlags)
-		: UNameProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+		: UNameProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 	{
 	}
 
@@ -2237,7 +2315,7 @@ public:
 	typedef TTypeFundamentals::TCppType TCppType;
 
 	UStrProperty(ECppProperty, int32 InOffset, uint64 InFlags)
-		: UStrProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags)
+		: UStrProperty_Super(FObjectInitializer::Get(), EC_CppProperty, InOffset, InFlags | CPF_HasGetValueTypeHash)
 	{
 	}
 
@@ -2322,6 +2400,8 @@ public:
 	virtual void EmitReferenceInfo(UClass& OwnerClass, int32 BaseOffset) override;
 	virtual bool SameType(const UProperty* Other) const override;
 	// End of UProperty interface
+
+	FString GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, const FString& InnerTypeText, const FString& InInnerExtendedTypeText) const;
 };
 
 // need to break this out a different type so that the DECLARE_CASTED_CLASS_INTRINSIC macro can digest the comma
@@ -3150,11 +3230,9 @@ public:
 	virtual bool SameType(const UProperty* Other) const override;
 	// End of UProperty interface
 
-	bool UseNativeSerialization() const;
-	bool UseBinarySerialization(const FArchive& Ar) const;
-	bool UseBinaryOrNativeSerialization(const FArchive& Ar) const;
+	static const TCHAR* ImportText_Static(UScriptStruct* InStruct, const FString& InName, const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* OwnerObject, FOutputDevice* ErrorText);
 
-	static void StaticSerializeItem(FArchive& Ar, void* Value, void const* Defaults, UScriptStruct* Struct, const bool bUseBinarySerialization, const bool bUseNativeSerialization);
+	bool UseBinaryOrNativeSerialization(const FArchive& Ar) const;
 
 public:
 

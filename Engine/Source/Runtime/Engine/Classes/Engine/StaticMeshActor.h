@@ -25,7 +25,7 @@ public:
 	
 	virtual void BeginPlay() override;
 
-	/** This static mesh should replicate movement. Automatically sets the RemoteRole and bReplicateMovement flags. Meant to be edited on placed actors (those other two proeprties are not) */
+	/** This static mesh should replicate movement. Automatically sets the RemoteRole and bReplicateMovement flags. Meant to be edited on placed actors (those other two properties are not) */
 	UPROPERTY(Category=Actor, EditAnywhere, AdvancedDisplay)
 	bool bStaticMeshReplicateMovement;
 
@@ -36,10 +36,10 @@ public:
 	void SetMobility(EComponentMobility::Type InMobility);
 
 #if WITH_EDITOR
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void CheckForErrors() override;
 	virtual bool GetReferencedContentObjects( TArray<UObject*>& Objects ) const override;
-	// End AActor Interface
+	//~ End AActor Interface
 #endif // WITH_EDITOR	
 
 	// INavRelevantInterface begin
@@ -47,13 +47,13 @@ public:
 	// INavRelevantInterface end
 
 protected:
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual FString GetDetailedInfoInternal() const override;
 #if WITH_EDITOR
 	virtual void LoadedFromAnotherClass(const FName& OldClassName) override;
 	virtual void PostEditChangeChainProperty(FPropertyChangedChainEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR	
-	// End UObject interface.
+	//~ End UObject Interface.
 
 public:
 	/** Returns StaticMeshComponent subobject **/

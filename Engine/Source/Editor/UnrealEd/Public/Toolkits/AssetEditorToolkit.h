@@ -3,11 +3,24 @@
 #pragma once
 
 #include "BaseToolkit.h"
+#include "TabManager.h"
 #include "Toolkits/AssetEditorManager.h"		// For IAssetEditorInstance derive
 
 
+class FExtender;
+class FUICommandList;
+class IToolkit;
+class IToolkitHost;
+class SBorder;
+class SStandaloneAssetEditorToolkitHost;
+class SWidget;
+class UObject;
+struct FSlateBrush;
+struct FTabId;
+
 
 DECLARE_DELEGATE_RetVal( bool, FRequestAssetEditorClose );
+
 
 /**
  * The location of the asset editor toolkit tab
@@ -21,10 +34,14 @@ enum class EAssetEditorToolkitTabLocation : int32
 	Standalone,
 };
 
+
 /**
  * Base class for toolkits that are used for asset editing (abstract)
  */
-class UNREALED_API FAssetEditorToolkit : public IAssetEditorInstance, public FBaseToolkit, public TSharedFromThis< FAssetEditorToolkit >
+class UNREALED_API FAssetEditorToolkit
+	: public IAssetEditorInstance
+	, public FBaseToolkit
+	, public TSharedFromThis<FAssetEditorToolkit>
 {
 
 public:
@@ -45,30 +62,31 @@ public:
 	 * @param	ObjectToEdit			The object to edit
 	 * @param	bInIsToolbarFocusable	Whether the buttons on the default toolbar can receive keyboard focus
 	 */
-	virtual void InitAssetEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, const FName AppIdentifier, const TSharedRef<FTabManager::FLayout>& StandaloneDefaultLayout, const bool bCreateDefaultStandaloneMenu, const bool bCreateDefaultToolbar, const TArray<UObject*>& ObjectsToEdit, const bool bInIsToolbarFocusable = false);
-	virtual void InitAssetEditor(const EToolkitMode::Type Mode, const TSharedPtr< class IToolkitHost >& InitToolkitHost, const FName AppIdentifier, const TSharedRef<FTabManager::FLayout>& StandaloneDefaultLayout, const bool bCreateDefaultStandaloneMenu, const bool bCreateDefaultToolbar, UObject* ObjectToEdit, const bool bInIsToolbarFocusable = false);
+	virtual void InitAssetEditor(const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost, const FName AppIdentifier, const TSharedRef<FTabManager::FLayout>& StandaloneDefaultLayout, const bool bCreateDefaultStandaloneMenu, const bool bCreateDefaultToolbar, const TArray<UObject*>& ObjectsToEdit, const bool bInIsToolbarFocusable = false);
+	virtual void InitAssetEditor(const EToolkitMode::Type Mode, const TSharedPtr<IToolkitHost>& InitToolkitHost, const FName AppIdentifier, const TSharedRef<FTabManager::FLayout>& StandaloneDefaultLayout, const bool bCreateDefaultStandaloneMenu, const bool bCreateDefaultToolbar, UObject* ObjectToEdit, const bool bInIsToolbarFocusable = false);
 
 	/** Virtual destructor, so that we can clean up our app when destroyed */
 	virtual ~FAssetEditorToolkit();
 
 	/** IToolkit interface */
-	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
-	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) override;
+	virtual void RegisterTabSpawners(const TSharedRef<FTabManager>& TabManager) override;
+	virtual void UnregisterTabSpawners(const TSharedRef<FTabManager>& TabManager) override;
 	virtual bool IsAssetEditor() const override;
 	virtual const TArray< UObject* >* GetObjectsCurrentlyBeingEdited() const override;
 	virtual FName GetToolkitFName() const override = 0;				// Must implement in derived class!
 	virtual FText GetBaseToolkitName() const override = 0;			// Must implement in derived class!
-	virtual FText GetToolkitName() const override;		
+	virtual FText GetToolkitName() const override;
+	virtual FText GetToolkitToolTipText() const override;
 	virtual FString GetWorldCentricTabPrefix() const override = 0;	// Must implement in derived class!
 	virtual class FEdMode* GetEditorMode() const override;
 
 	/** IAssetEditorInstance interface */
 	virtual FName GetEditorName() const override;
-	virtual void FocusWindow(UObject* ObjectToFocusOn = NULL) override;
+	virtual void FocusWindow(UObject* ObjectToFocusOn = nullptr) override;
 	virtual bool CloseWindow() override;
 	virtual bool IsPrimaryEditor() const override { return true; };
-	virtual void InvokeTab(const struct FTabId& TabId) override;
-	virtual TSharedPtr<class FTabManager> GetAssociatedTabManager() override;
+	virtual void InvokeTab(const FTabId& TabId) override;
+	virtual TSharedPtr<FTabManager> GetAssociatedTabManager() override;
 	virtual double GetLastActivationTime() override;
 
 	/**
@@ -105,7 +123,7 @@ public:
 	/** Applies the passed in layout (or the saved user-modified version if available).  Must be called after InitAssetEditor. */
 	void RestoreFromLayout( const TSharedRef<FTabManager::FLayout>& NewLayout );
 
-	/** @return Returns this asset editor's tab manager object.  May be NULL for non-standalone toolkits */
+	/** @return Returns this asset editor's tab manager object.  May be nullptr for non-standalone toolkits */
 	TSharedPtr<FTabManager> GetTabManager()
 	{
 		return TabManager;
@@ -121,10 +139,10 @@ public:
 	virtual void PostRegenerateMenusAndToolbars() { }
 	
 	// Called when another toolkit (such as a ed mode toolkit) is being hosted in this asset editor toolkit
-	virtual void OnToolkitHostingStarted(const TSharedRef< class IToolkit >& Toolkit) {}
+	virtual void OnToolkitHostingStarted(const TSharedRef<IToolkit>& Toolkit) {}
 
 	// Called when another toolkit (such as a ed mode toolkit) is no longer being hosted in this asset editor toolkit
-	virtual void OnToolkitHostingFinished(const TSharedRef< class IToolkit >& Toolkit) {}
+	virtual void OnToolkitHostingFinished(const TSharedRef<IToolkit>& Toolkit) {}
 
 	/** Adds or removes extenders to the default menu or the toolbar menu this asset editor */
 	void AddMenuExtender(TSharedPtr<FExtender> Extender);
@@ -154,7 +172,14 @@ public:
 	 * @param	InObject	The object we want a description of
 	 * @return a formatted description of the object state (e.g. "MyObject*")
 	 */
-	static FText GetDescriptionForObject(const UObject* InObject);
+	static FText GetLabelForObject(const UObject* InObject);
+
+	/** 
+	 * Gets the text to display in a toolkit tooltip for an object 
+	 * @param	InObject	The object we want a description of
+	 * @return a formatted description of the object
+	 */
+	static FText GetToolTipTextForObject(const UObject* InObject);
 
 protected:
 
@@ -252,8 +277,8 @@ protected:
 	bool bCheckDirtyOnAssetSave;
 
 private:
-	/** The toolkit standalone host; may be NULL */
-	TWeakPtr< class SStandaloneAssetEditorToolkitHost > StandaloneHost;
+	/** The toolkit standalone host; may be nullptr */
+	TWeakPtr<SStandaloneAssetEditorToolkitHost> StandaloneHost;
 
 	/** Static: World centric toolkit host to use for the next created asset editing toolkit */
 	static TWeakPtr< IToolkitHost > PreviousWorldCentricToolkitHostForNewAssetEditor;
@@ -263,16 +288,16 @@ private:
 	TArray<UObject*> EditingObjects;
 	
 	/** Asset Editor Default Toolbar */
-	TSharedPtr<class SWidget> Toolbar;
+	TSharedPtr<SWidget> Toolbar;
 
 	/** The widget that will house the default Toolbar widget */
 	TSharedPtr<SBorder> ToolbarWidgetContent;
 
 	/** The menu extenders to populate the main toolbar with */
-	TArray< TSharedPtr<FExtender> > ToolbarExtenders;
+	TArray<TSharedPtr<FExtender>> ToolbarExtenders;
 
 	/** Additional widgets to be added to the toolbar */
-	TArray< TSharedRef<SWidget> > ToolbarWidgets;
+	TArray<TSharedRef<SWidget>> ToolbarWidgets;
 
 	/** Whether the buttons on the default toolbar can receive keyboard focus */
 	bool bIsToolbarFocusable;
@@ -317,13 +342,13 @@ private:
 };
 
 
-
 /** Indicates that a class has a default menu that is extensible */
 class IHasMenuExtensibility
 {
 public:
 	virtual TSharedPtr<FExtensibilityManager> GetMenuExtensibilityManager() = 0;
 };
+
 
 /** Indicates that a class has a default toolbar that is extensible */
 class IHasToolBarExtensibility

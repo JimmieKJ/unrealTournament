@@ -61,10 +61,10 @@ struct FNewClassInfo
 	}
 
 	/** Get the "friendly" class name to use in the UI */
-	FString GetClassName() const;
+	FText GetClassName() const;
 
 	/** Get the class description to use in the UI */
-	FString GetClassDescription() const;
+	FText GetClassDescription(const bool bFullDescription = true) const;
 
 	/** Get the class icon to use in the UI */
 	const FSlateBrush* GetClassIcon() const;

@@ -29,7 +29,7 @@ struct AIMODULE_API FAIMessage
 	FName MessageName;
 
 	/** message source */
-	UObject* Sender;
+	FWeakObjectPtr Sender;
 
 	/** message param: ID */
 	FAIRequestID RequestID;
@@ -184,10 +184,10 @@ protected:
 	friend struct FAIMessageObserver;
 	friend struct FAIMessage;
 
-private:
 	/** used to keep track of which subsystem requested this AI resource be locked */
 	FAIResourceLock ResourceLock;
 
+private:
 	uint32 bDoLogicRestartOnUnlock : 1;
 
 public:

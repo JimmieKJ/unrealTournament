@@ -55,11 +55,11 @@ void FGraphEditorModule::ShutdownModule()
  */
 TSharedRef<SGraphEditor> FGraphEditorModule::PRIVATE_MakeGraphEditor( 
 	const TSharedPtr<FUICommandList>& InAdditionalCommands, 
-	const TAttribute<bool>& InIsEditable, 
+	const TAttribute<bool>& InIsEditable,
+	const TAttribute<bool>& InDisplayAsReadOnly,
 	const TAttribute<bool>& InIsEmpty,
 	TAttribute<FGraphAppearanceInfo> Appearance,
 	TSharedPtr<SWidget> InTitleBar,
-	const TAttribute<bool>& InTitleBarEnabledOnly,
 	UEdGraph* InGraphToEdit,
 	SGraphEditor::FGraphEditorEvents InGraphEvents,
 	bool InAutoExpandActionMenu,
@@ -72,9 +72,9 @@ TSharedRef<SGraphEditor> FGraphEditorModule::PRIVATE_MakeGraphEditor(
 		SNew(SGraphEditorImpl)
 		.AdditionalCommands(InAdditionalCommands)
 		.IsEditable(InIsEditable)
+		.DisplayAsReadOnly(InDisplayAsReadOnly)
 		.Appearance(Appearance)
 		.TitleBar(InTitleBar)
-		.TitleBarEnabledOnly(InTitleBarEnabledOnly)
 		.GraphToEdit(InGraphToEdit)
 		.GraphEvents(InGraphEvents)
 		.AutoExpandActionMenu(InAutoExpandActionMenu)

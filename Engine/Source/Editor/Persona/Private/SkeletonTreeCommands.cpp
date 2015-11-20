@@ -9,6 +9,7 @@ void FSkeletonTreeCommands::RegisterCommands()
 {
 	UI_COMMAND( ShowAllBones, "Show All Bones", "Show every bone in the skeleton", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( ShowMeshBones, "Show Mesh Bones", "Show bones that are used in the mesh", EUserInterfaceActionType::RadioButton, FInputChord() );
+	UI_COMMAND( ShowLODBones, "Show LOD Bones", "Show bones that are used in the LOD displayed", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND( ShowWeightedBones, "Show Weighted Bones", "Show bones that have vertices weighted to them", EUserInterfaceActionType::RadioButton, FInputChord() );
 	UI_COMMAND( HideBones, "Hide Bones", "Hides all bones (sockets and attached assets will still be listed)", EUserInterfaceActionType::RadioButton, FInputChord() );
 

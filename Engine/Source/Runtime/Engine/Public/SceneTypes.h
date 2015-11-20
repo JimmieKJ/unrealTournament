@@ -116,6 +116,7 @@ namespace EMaterialQualityLevel
 	{
 		Low,
 		High,
+		Medium,
 		Num
 	};
 }
@@ -140,8 +141,8 @@ enum EMaterialProperty
 	MP_WorldDisplacement,
 	MP_TessellationMultiplier,
 	MP_SubsurfaceColor,
-	MP_ClearCoat,
-	MP_ClearCoatRoughness,
+	MP_CustomData0,
+	MP_CustomData1,
 	MP_AmbientOcclusion,
 	MP_Refraction,
 	MP_CustomizedUVs0,
@@ -152,8 +153,10 @@ enum EMaterialProperty
 	MP_CustomizedUVs5,
 	MP_CustomizedUVs6,
 	MP_CustomizedUVs7,
-	MP_MaterialAttributes,
 	MP_PixelDepthOffset,
+
+	//^^^ New material properties go above here ^^^^
+	MP_MaterialAttributes,
 	MP_MAX,
 };
 

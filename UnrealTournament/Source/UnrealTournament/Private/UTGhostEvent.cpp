@@ -73,7 +73,7 @@ void UUTGhostEvent_Weapon::ApplyEvent_Implementation(AUTCharacter* UTC)
 	if (WeaponClass != nullptr)
 	{
 		FActorSpawnParameters Params;
-		Params.bNoCollisionFail = true;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		Params.Instigator = UTC;
 		AUTWeapon* NewWeapon = UTC->GetWorld()->SpawnActor<AUTWeapon>(WeaponClass, UTC->GetActorLocation(), UTC->GetActorRotation(), Params);
 

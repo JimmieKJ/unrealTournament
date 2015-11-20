@@ -305,6 +305,11 @@ public:
 	 */
 	int32 SetPivotFromSelectionArray( TArray<struct FGeomSelection>& SelectionArray );
 
+	/**
+	 * Update the selection state based on the passed in array
+	 */
+	void UpdateFromSelectionArray( TArray<struct FGeomSelection>& SelectionArray );
+
 private:
 	int32 LastSelectionIndex;
 };

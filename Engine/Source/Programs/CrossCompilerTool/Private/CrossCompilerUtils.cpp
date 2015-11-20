@@ -12,34 +12,54 @@ namespace CCT
 		InputFile(""),
 		OutputFile(""),
 		BackEnd(BE_Invalid),
+		bValidate(true),
 		bRunCPP(true),
 		bUseNew(false),
 		bList(false),
 		bPreprocessOnly(false),
-		bForcePackedUBs(false)
+		bPackIntoUBs(false),
+		bUseDX11Clip(false),
+		bFlattenUBs(false),
+		bFlattenUBStructs(false),
+		bGroupFlattenUBs(false),
+		bCSE(false),
+		bExpandExpressions(false),
+		bFixAtomics(false),
+		bSeparateShaders(false)
 	{
 	}
 
 	void PrintUsage()
 	{
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("Usage:"));
-		UE_LOG(LogCrossCompilerTool, Display, TEXT("\tCrossCompilerTool.exe input.hlsl {options}"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\tCrossCompilerTool.exe input.[usf|hlsl] {options}"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\tOptions:"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-o=file\tOutput filename"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-entry=function\tMain entry point (defaults to Main())"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-cpp\tOnly run C preprocessor"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\tFlags:"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-nocpp\tDo not run C preprocessor"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-novalidate\tDo not run AST/IR validation"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-dx11clip\tUse DX11 Clip space fixup at end of VS"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-flattenub\tRemoves/flattens UBs and puts them in a global packed array"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-flattenubstruct\tFlatten UB structures"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-groupflatub\tGroup flattened UBs"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-cse\tRun common subexpression elimination"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-xpxpr\tExpand expressions"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-separateshaders\tUse the separate shaders flags"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-packintoubs\tMove packed global uniform arrays into a uniform buffer"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-fixatomics\tConvert accesses to atomic variable into intrinsics"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\tProfiles:"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-vs\tCompile as a Vertex Shader"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-ps\tCompile as a Pixel Shader"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-cs\tCompile as a Compute Shader"));
-		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-gs\tCompile as a Geomtry Shader"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-gs\tCompile as a Geometry Shader"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-hs\tCompile as a Hull Shader"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-ds\tCompile as a Domain Shader"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\tTargets:"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-metal\tCompile for Metal"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-es2\tCompile for OpenGL ES 2"));
+		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-es31ext\tCompile for OpenGL ES 3.1 with AEP"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-gl3\tCompile for OpenGL 3.2"));
 		UE_LOG(LogCrossCompilerTool, Display, TEXT("\t\t\t-gl4\tCompile for OpenGL 4.3"));
 	}
@@ -156,6 +176,18 @@ namespace CCT
 					OutBackEnd = BE_OpenGL;
 				}
 			}
+			else if (Switch == "es31ext")
+			{
+				if (Target != HCT_InvalidTarget)
+				{
+					UE_LOG(LogCrossCompilerTool, Warning, TEXT("Ignoring extra command line argument -es31ext!"));
+				}
+				else
+				{
+					Target = HCT_FeatureLevelES3_1Ext;
+					OutBackEnd = BE_OpenGL;
+				}
+			}
 			else if (Switch == "metal")
 			{
 				if (Target != HCT_InvalidTarget)
@@ -165,6 +197,30 @@ namespace CCT
 				else
 				{
 					Target = HCT_FeatureLevelES3_1;
+					OutBackEnd = BE_Metal;
+				}
+			}
+			else if (Switch == "metalmrt" || Switch == "metalsm4")
+			{
+				if (Target != HCT_InvalidTarget)
+				{
+					UE_LOG(LogCrossCompilerTool, Warning, TEXT("Ignoring extra command line argument -%s!"), *Switch);
+				}
+				else
+				{
+					Target = HCT_FeatureLevelSM4;
+					OutBackEnd = BE_Metal;
+				}
+			}
+			else if (Switch == "metalsm5")
+			{
+				if (Target != HCT_InvalidTarget)
+				{
+					UE_LOG(LogCrossCompilerTool, Warning, TEXT("Ignoring extra command line argument -metalsm5!"));
+				}
+				else
+				{
+					Target = HCT_FeatureLevelSM5;
 					OutBackEnd = BE_Metal;
 				}
 			}
@@ -260,9 +316,45 @@ namespace CCT
 			{
 				bList = true;
 			}
+			else if (Switch.StartsWith(TEXT("flattenubstruct")))
+			{
+				bFlattenUBStructs = true;
+			}
 			else if (Switch.StartsWith(TEXT("flattenub")))
 			{
-				bForcePackedUBs = true;
+				bFlattenUBs = true;
+			}
+			else if (Switch.StartsWith(TEXT("groupflatub")))
+			{
+				bGroupFlattenUBs = true;
+			}
+			else if (Switch.StartsWith(TEXT("packintoubs")))
+			{
+				bPackIntoUBs = true;
+			}
+			else if (Switch.StartsWith(TEXT("fixatomics")))
+			{
+				bFixAtomics = true;
+			}
+			else if (Switch.StartsWith(TEXT("cse")))
+			{
+				bCSE = true;
+			}
+			else if (Switch.StartsWith(TEXT("novalidate")))
+			{
+				bValidate = false;
+			}
+			else if (Switch.StartsWith(TEXT("dx11clip")))
+			{
+				bUseDX11Clip = true;
+			}
+			else if (Switch.StartsWith(TEXT("xpxpr")))
+			{
+				bExpandExpressions = true;
+			}
+			else if (Switch.StartsWith(TEXT("separateshaders")))
+			{
+				bSeparateShaders = true;
 			}
 		}
 

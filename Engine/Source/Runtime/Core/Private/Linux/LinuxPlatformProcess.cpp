@@ -2,18 +2,30 @@
 
 #include "CorePrivatePCH.h"
 #include "LinuxPlatformRunnableThread.h"
-#include "Public/Modules/ModuleVersion.h"
+#include "EngineVersion.h"
 #include <spawn.h>
 #include <sys/wait.h>
 #include <sys/resource.h>
 #include <sys/ioctl.h> // ioctl
 #include <asm/ioctls.h> // FIONREAD
+#include "LinuxApplication.h" // FLinuxApplication::IsForeground()
 
 void* FLinuxPlatformProcess::GetDllHandle( const TCHAR* Filename )
 {
 	check( Filename );
 	FString AbsolutePath = FPaths::ConvertRelativePathToFull(Filename);
-	void *Handle = dlopen( TCHAR_TO_ANSI(*AbsolutePath), RTLD_LAZY | RTLD_GLOBAL );
+
+	int DlOpenMode = RTLD_LAZY;
+	if (AbsolutePath.EndsWith(TEXT("libsteam_api.so")))
+	{
+		DlOpenMode |= RTLD_GLOBAL; //Global symbol resolution when loading shared objects - Needed for Steam to work when its library is loaded by a plugin
+	}
+	else
+	{
+		DlOpenMode |= RTLD_LOCAL; //Local symbol resolution when loading shared objects - Needed for Hot-Reload
+	}
+
+	void *Handle = dlopen( TCHAR_TO_UTF8(*AbsolutePath), DlOpenMode );
 	if (!Handle)
 	{
 		UE_LOG(LogLinux, Warning, TEXT("dlopen failed: %s"), ANSI_TO_TCHAR(dlerror()) );
@@ -37,7 +49,7 @@ void* FLinuxPlatformProcess::GetDllExport( void* DllHandle, const TCHAR* ProcNam
 int32 FLinuxPlatformProcess::GetDllApiVersion( const TCHAR* Filename )
 {
 	check(Filename);
-	return MODULE_API_VERSION;
+	return FEngineVersion::CompatibleWith().GetChangelist();
 }
 
 const TCHAR* FLinuxPlatformProcess::GetModulePrefix()
@@ -61,7 +73,8 @@ namespace PlatformProcessLimits
 	{
 		MaxComputerName	= 128,
 		MaxBaseDirLength= MAX_PATH + 1,
-		MaxArgvParameters = 256
+		MaxArgvParameters = 256,
+		MaxUserName = LOGIN_NAME_MAX
 	};
 };
 
@@ -87,12 +100,7 @@ const TCHAR* FLinuxPlatformProcess::ComputerName()
 
 void FLinuxPlatformProcess::CleanFileCache()
 {
-	bool bShouldCleanShaderWorkingDirectory = true;
-#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
-	// Only clean the shader working directory if we are the first instance, to avoid deleting files in use by other instances
-	// @todo - check if any other instances are running right now
-	bShouldCleanShaderWorkingDirectory = GIsFirstInstance;
-#endif
+	bool bShouldCleanShaderWorkingDirectory = IsFirstInstance();
 
 	if (bShouldCleanShaderWorkingDirectory && !FParse::Param( FCommandLine::Get(), TEXT("Multiprocess")))
 	{
@@ -135,6 +143,45 @@ const TCHAR* FLinuxPlatformProcess::BaseDir()
 		bHaveResult = true;
 	}
 	return CachedResult;
+}
+
+const TCHAR* FLinuxPlatformProcess::UserName(bool bOnlyAlphaNumeric)
+{
+	static TCHAR Name[PlatformProcessLimits::MaxUserName] = { 0 };
+	static bool bHaveResult = false;
+
+	if (!bHaveResult)
+	{
+		struct passwd * UserInfo = getpwuid(geteuid());
+		if (nullptr != UserInfo && nullptr != UserInfo->pw_name)
+		{
+			FString TempName(UTF8_TO_TCHAR(UserInfo->pw_name));
+			if (bOnlyAlphaNumeric)
+			{
+				const TCHAR *Src = *TempName;
+				TCHAR * Dst = Name;
+				for (; *Src != 0 && (Dst - Name) < ARRAY_COUNT(Name) - 1; ++Src)
+				{
+					if (FChar::IsAlnum(*Src))
+					{
+						*Dst++ = *Src;
+					}
+				}
+				*Dst++ = 0;
+			}
+			else
+			{
+				FCString::Strncpy(Name, *TempName, ARRAY_COUNT(Name) - 1);
+			}
+		}
+		else
+		{
+			FCString::Sprintf(Name, TEXT("euid%d"), geteuid());
+		}
+		bHaveResult = true;
+	}
+
+	return Name;
 }
 
 const TCHAR* FLinuxPlatformProcess::UserDir()
@@ -400,6 +447,34 @@ bool FLinuxPlatformProcess::ReadPipeToArray(void* ReadPipe, TArray<uint8> & Outp
 	return false;
 }
 
+bool FLinuxPlatformProcess::WritePipe(void* WritePipe, const FString& Message, FString* OutWritten)
+{
+	// if there is not a message or WritePipe is null
+	if ((Message.Len() == 0) || (WritePipe == nullptr))
+	{
+		return false;
+	}
+
+	// convert input to UTF8CHAR
+	uint32 BytesAvailable = Message.Len();
+	UTF8CHAR* Buffer = new UTF8CHAR[BytesAvailable + 1];
+
+	if (!FString::ToBlob(Message, Buffer, BytesAvailable))
+	{
+		return false;
+	}
+
+	// write to pipe
+	uint32 BytesWritten = write(*(int*)WritePipe, Buffer, BytesAvailable);
+
+	if (OutWritten != nullptr)
+	{
+		OutWritten->FromBlob(Buffer, BytesWritten);
+	}
+
+	return (BytesWritten == BytesAvailable);
+}
+
 FRunnableThread* FLinuxPlatformProcess::CreateRunnableThread()
 {
 	return new FRunnableThreadLinux();
@@ -412,7 +487,7 @@ void FLinuxPlatformProcess::LaunchURL(const TCHAR* URL, const TCHAR* Parms, FStr
 	UE_LOG(LogHAL, Verbose, TEXT("FLinuxPlatformProcess::LaunchURL: '%s'"), URL);
 	if (pid == 0)
 	{
-		exit(execl("/usr/bin/xdg-open", "xdg-open", TCHAR_TO_ANSI(URL), (char *)0));
+		exit(execl("/usr/bin/xdg-open", "xdg-open", TCHAR_TO_UTF8(URL), (char *)0));
 	}
 }
 
@@ -504,7 +579,7 @@ FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Par
 	Commandline += TEXT(" ");
 	Commandline += Parms;
 
-	UE_LOG(LogHAL, Verbose, TEXT("FLinuxPlatformProcess::CreateProc: '%s'"), *Commandline);
+	UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::CreateProc: '%s'"), *Commandline);
 
 	TArray<FString> ArgvArray;
 	int Argc = Commandline.ParseIntoArray(ArgvArray, TEXT(" "), true);
@@ -598,15 +673,15 @@ FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Par
 
 		for (int Idx = 0; Idx < Argc; ++Idx)
 		{
-			auto AnsiBuffer = StringCast<ANSICHAR>(*NewArgvArray[Idx]);
+			FTCHARToUTF8 AnsiBuffer(*NewArgvArray[Idx]);
 			const char* Ansi = AnsiBuffer.Get();
-			size_t AnsiSize = FCStringAnsi::Strlen(Ansi) + 1;
+			size_t AnsiSize = FCStringAnsi::Strlen(Ansi) + 1;	// will work correctly with UTF-8
 			check(AnsiSize);
 
 			Argv[Idx] = reinterpret_cast< char* >( FMemory::Malloc(AnsiSize) );
 			check(Argv[Idx]);
 
-			FCStringAnsi::Strncpy(Argv[Idx], Ansi, AnsiSize);
+			FCStringAnsi::Strncpy(Argv[Idx], Ansi, AnsiSize);	// will work correctly with UTF-8
 		}
 
 		// last Argv should be NULL
@@ -626,7 +701,7 @@ FProcHandle FLinuxPlatformProcess::CreateProc(const TCHAR* URL, const TCHAR* Par
 		posix_spawn_file_actions_adddup2(&FileActions, PipeWriteHandle->GetHandle(), STDOUT_FILENO);
 	}
 
-	int PosixSpawnErrNo = posix_spawn(&ChildPid, TCHAR_TO_ANSI(*ProcessPath), &FileActions, nullptr, Argv, environ);
+	int PosixSpawnErrNo = posix_spawn(&ChildPid, TCHAR_TO_UTF8(*ProcessPath), &FileActions, nullptr, Argv, environ);
 	posix_spawn_file_actions_destroy(&FileActions);
 	if (PosixSpawnErrNo != 0)
 	{
@@ -836,7 +911,6 @@ void FProcState::Wait()
 {
 	if (bHasBeenWaitedFor)
 	{
-		UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::WaitForProc: already waited on process %d"), static_cast<int32>(GetProcessId()));
 		return;	// we could try waitpid() another time, but why
 	}
 
@@ -857,10 +931,7 @@ void FProcState::Wait()
 		{
 			check(SignalInfo.si_pid == GetProcessId());
 
-			ReturnCode = (SignalInfo.si_code == CLD_EXITED) ? SignalInfo.si_status : -2;
-
-			UE_LOG(LogHAL, Log, TEXT("FLinuxPlatformProcess::WaitForProc: process %d waited, SignalCode:%d ReturnCode:%d"), static_cast<int32>(GetProcessId()), SignalInfo.si_code, ReturnCode);
-
+			ReturnCode = (SignalInfo.si_code == CLD_EXITED) ? SignalInfo.si_status : -1;
 			bHasBeenWaitedFor = true;
 			bIsRunning = false;	// set in advance
 			break;
@@ -913,7 +984,15 @@ uint32 FLinuxPlatformProcess::GetCurrentProcessId()
 	return getpid();
 }
 
-bool FLinuxPlatformProcess::GetProcReturnCode( FProcHandle& ProcHandle, int32* ReturnCode )
+FString FLinuxPlatformProcess::GetCurrentWorkingDirectory()
+{
+	// get the current directory
+	ANSICHAR CurrentDir[MAX_PATH] = { 0 };
+	getcwd(CurrentDir, sizeof(CurrentDir));
+	return UTF8_TO_TCHAR(CurrentDir);
+}
+
+bool FLinuxPlatformProcess::GetProcReturnCode(FProcHandle& ProcHandle, int32* ReturnCode)
 {
 	if (IsProcRunning(ProcHandle))
 	{
@@ -946,8 +1025,8 @@ bool FLinuxPlatformProcess::IsApplicationRunning( uint32 ProcessId )
 
 bool FLinuxPlatformProcess::IsThisApplicationForeground()
 {
-	STUBBED("FLinuxPlatformProcess::IsThisApplicationForeground");
-	return true;
+	extern FLinuxApplication* LinuxApplication;
+	return (LinuxApplication != nullptr) ? LinuxApplication->IsForeground() : true;
 }
 
 bool FLinuxPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
@@ -955,7 +1034,7 @@ bool FLinuxPlatformProcess::IsApplicationRunning( const TCHAR* ProcName )
 	FString Commandline = TEXT("pidof '");
 	Commandline += ProcName;
 	Commandline += TEXT("'  > /dev/null");
-	return !system(TCHAR_TO_ANSI(*Commandline));
+	return !system(TCHAR_TO_UTF8(*Commandline));
 }
 
 bool FLinuxPlatformProcess::ExecProcess( const TCHAR* URL, const TCHAR* Params, int32* OutReturnCode, FString* OutStdOut, FString* OutStdErr )
@@ -1036,12 +1115,201 @@ void FLinuxPlatformProcess::LaunchFileInDefaultExternalApplication( const TCHAR*
 	pid_t pid = fork();
 	if (pid == 0)
 	{
-		exit(execl("/usr/bin/xdg-open", "xdg-open", TCHAR_TO_ANSI(FileName), (char *)0));
+		exit(execl("/usr/bin/xdg-open", "xdg-open", TCHAR_TO_UTF8(FileName), (char *)0));
 	}
 }
 
 void FLinuxPlatformProcess::ExploreFolder( const TCHAR* FilePath )
 {
-	// TODO This is broken, not an explore action but should be fine if called on a directory
-	FLinuxPlatformProcess::LaunchFileInDefaultExternalApplication(FilePath, NULL, ELaunchVerb::Edit);
+	struct stat st;
+	TCHAR TruncatedPath[MAX_PATH] = TEXT("");
+	FCString::Strcpy(TruncatedPath, FilePath);
+
+	if (stat(TCHAR_TO_UTF8(FilePath), &st) == 0)
+	{
+		// we just want the directory portion of the path
+		if (!S_ISDIR(st.st_mode))
+		{
+			for (int i=FCString::Strlen(TruncatedPath)-1; i > 0; i--)
+			{
+				if (TruncatedPath[i] == TCHAR('/'))
+				{
+					TruncatedPath[i] = 0;
+					break;
+				}
+			}
+		}
+
+		// launch file manager
+		pid_t pid = fork();
+		if (pid == 0)
+		{
+			exit(execl("/usr/bin/xdg-open", "xdg-open", TCHAR_TO_UTF8(TruncatedPath), (char *)0));
+		}
+	}
+}
+
+/**
+ * Private struct to store implementation specific data.
+ */
+struct FProcEnumData
+{
+	// Array of processes.
+	TArray<FLinuxPlatformProcess::FProcEnumInfo> Processes;
+
+	// Current process id.
+	uint32 CurrentProcIndex;
+};
+
+FLinuxPlatformProcess::FProcEnumerator::FProcEnumerator()
+{
+  	Data = new FProcEnumData;
+	Data->CurrentProcIndex = -1;
+	
+	TArray<uint32> PIDs;
+	
+	class FPIDsCollector : public IPlatformFile::FDirectoryVisitor
+	{
+	public:
+		FPIDsCollector(TArray<uint32>& InPIDsToCollect)
+			: PIDsToCollect(InPIDsToCollect)
+		{ }
+
+		bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+		{
+			FString StrPID = FPaths::GetBaseFilename(FilenameOrDirectory);
+		  
+			if (bIsDirectory && FCString::IsNumeric(*StrPID))
+			{
+				PIDsToCollect.Add(FCString::Atoi(*StrPID));
+			}
+			
+			return true;
+		}
+
+	private:
+		TArray<uint32>& PIDsToCollect;
+	} PIDsCollector(PIDs);
+
+	IPlatformFile::GetPlatformPhysical().IterateDirectory(TEXT("/proc"), PIDsCollector);
+	
+	for (auto PID : PIDs)
+	{
+		Data->Processes.Add(FProcEnumInfo(PID));
+	}
+}
+
+FLinuxPlatformProcess::FProcEnumerator::~FProcEnumerator()
+{
+	delete Data;
+}
+
+FLinuxPlatformProcess::FProcEnumInfo FLinuxPlatformProcess::FProcEnumerator::GetCurrent() const
+{
+	return Data->Processes[Data->CurrentProcIndex];
+}
+
+bool FLinuxPlatformProcess::FProcEnumerator::MoveNext()
+{
+	if (Data->CurrentProcIndex + 1 == Data->Processes.Num())
+	{
+		return false;
+	}
+
+	++Data->CurrentProcIndex;
+
+	return true;
+}
+
+FLinuxPlatformProcess::FProcEnumInfo::FProcEnumInfo(uint32 InPID)
+	: PID(InPID)
+{
+
+}
+
+uint32 FLinuxPlatformProcess::FProcEnumInfo::GetPID() const
+{
+	return PID;
+}
+
+uint32 FLinuxPlatformProcess::FProcEnumInfo::GetParentPID() const
+{
+	char Buf[256];
+	uint32 DummyNumber;
+	char DummyChar;
+	uint32 ParentPID;
+	
+	sprintf(Buf, "/proc/%d/stat", GetPID());
+	
+	FILE* FilePtr = fopen(Buf, "r");
+	fscanf(FilePtr, "%d %s %c %d", &DummyNumber, Buf, &DummyChar, &ParentPID);	
+	fclose(FilePtr);
+
+	return ParentPID;
+}
+
+FString FLinuxPlatformProcess::FProcEnumInfo::GetFullPath() const
+{
+	return GetApplicationName(GetPID());
+}
+
+FString FLinuxPlatformProcess::FProcEnumInfo::GetName() const
+{
+	return FPaths::GetCleanFilename(GetFullPath());
+}
+
+static int GFileLockDescriptor = -1;
+
+bool FLinuxPlatformProcess::IsFirstInstance()
+{
+	// set default return if we are unable to access lock file.
+	static bool bIsFirstInstance = false;
+	static bool bNeverFirst = FParse::Param(FCommandLine::Get(), TEXT("neverfirst"));
+
+#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
+	if (!bIsFirstInstance && !bNeverFirst)	// once we determined that we're first, this can never change until we exit; otherwise, we re-check each time
+	{
+		// create the file if it doesn't exist
+		if (GFileLockDescriptor == -1)
+		{
+			FString LockFileName(TEXT("/tmp/"));
+			FString ExecPath(FPlatformProcess::ExecutableName());
+			ExecPath.ReplaceInline(TEXT("/"), TEXT("-"));
+			// [RCL] 2015-09-20: can run out of filename limits (256 bytes) due to a long path, be conservative and assume 4-char UTF-8 name like e.g. Japanese
+			ExecPath = ExecPath.Right(80);
+
+			LockFileName += ExecPath;
+
+			GFileLockDescriptor = open(TCHAR_TO_UTF8(*LockFileName), O_RDWR | O_CREAT, 0666);
+		}
+
+		if (GFileLockDescriptor != -1)
+		{
+			if (flock(GFileLockDescriptor, LOCK_EX | LOCK_NB) == 0)
+			{
+				// lock file successfully locked by this process - no more checking if we're first!
+				bIsFirstInstance = true;
+			}
+			else
+			{
+				// we were unable to lock file. so some other process beat us to lock file.
+				bIsFirstInstance = false;
+			}
+		}
+	}
+#endif
+	return bIsFirstInstance;
+}
+
+void FLinuxPlatformProcess::CeaseBeingFirstInstance()
+{
+#if !(UE_BUILD_SHIPPING && WITH_EDITOR)
+	if (GFileLockDescriptor != -1)
+	{
+		// may fail if we didn't have the lock
+		flock(GFileLockDescriptor, LOCK_UN | LOCK_NB);
+		close(GFileLockDescriptor);
+		GFileLockDescriptor = -1;
+	}
+#endif
 }

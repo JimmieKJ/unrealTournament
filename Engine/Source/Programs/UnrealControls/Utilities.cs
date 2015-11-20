@@ -25,7 +25,7 @@ namespace EpicCommonUtilities
     {
         /// <summary>
         /// Should newly constructed StatisticalFloat instances track the median value?
-        /// This requires O(N) storage instead of O(1) storage, and it is only checked on construction.
+        /// This requires O(N) storage instead of O(1) storage and it is only checked on construction.
         /// </summary>
         public static bool bSupportMedian = true;
 
@@ -72,7 +72,7 @@ namespace EpicCommonUtilities
         }
 
         /// <summary>
-        /// Returns the median if bSupportMedian was true at construction, and NaN otherwise
+        /// Returns the median if bSupportMedian was true at construction and NaN otherwise
         /// </summary>
         public double Median
         {
@@ -241,8 +241,8 @@ namespace EpicCommonUtilities
         double MyMax = 0.0;
         long MyCount = 0;
 
-        // Simple wasteful implementation; tool is for offline anaysis and N is only on the order of hundreds typically
-        // but the median tracking can be disabled by setting bSupportMedian to false before construction
+        // Simple wasteful implementation; Tool is for offline anaysis and N is only on the order of hundreds typically
+        // but the median tracking can be disabled by setting bSupportMedian to false before construction.
         List<double> MySamples = null;
     }
 }

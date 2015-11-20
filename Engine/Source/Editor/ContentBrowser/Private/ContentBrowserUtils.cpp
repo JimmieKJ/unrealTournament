@@ -13,6 +13,7 @@
 #include "SNotificationList.h"
 #include "NotificationManager.h"
 #include "IPluginManager.h"
+#include "IMenu.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -74,35 +75,31 @@ public:
 
 		const FVector2D ScreenLocation = FVector2D(ScreenAnchor.Left, ScreenAnchor.Top);
 		const bool bFocusImmediately = true;
-		const bool bShouldAutoSize = true;
-		const FVector2D WindowSize = FVector2D::ZeroVector;
 		const FVector2D SummonLocationSize = ScreenAnchor.GetSize();
 
-		TSharedRef<SWindow> PopupWindow = FSlateApplication::Get().PushMenu(
+		TSharedPtr<IMenu> Menu = FSlateApplication::Get().PushMenu(
 			ParentContent,
+			FWidgetPath(),
 			PopupContent,
 			ScreenLocation,
 			FPopupTransitionEffect( FPopupTransitionEffect::TopMenu ),
 			bFocusImmediately,
-			bShouldAutoSize,
-			WindowSize,
-			SummonLocationSize
-			);
+			SummonLocationSize);
 
-		PopupContent->SetWindow(PopupWindow);
+		PopupContent->SetMenu(Menu);
 	}
 
 private:
-	void SetWindow( const TSharedRef<SWindow>& InWindow )
+	void SetMenu(const TSharedPtr<IMenu>& InMenu)
 	{
-		Window = InWindow;
+		Menu = InMenu;
 	}
 
 	FReply OnBorderClicked(const FGeometry& Geometry, const FPointerEvent& MouseEvent)
 	{
-		if ( Window.IsValid() )
+		if (Menu.IsValid())
 		{
-			Window.Pin()->RequestDestroyWindow();
+			Menu.Pin()->Dismiss();
 		}
 
 		return FReply::Handled();
@@ -114,7 +111,7 @@ private:
 	}
 
 private:
-	TWeakPtr<SWindow> Window;
+	TWeakPtr<IMenu> Menu;
 };
 
 /** A miniture confirmation popup for quick yes/no questions */
@@ -195,8 +192,9 @@ public:
 	void OpenPopup(const TSharedRef<SWidget>& ParentContent)
 	{
 		// Show dialog to confirm the delete
-		PopupWindow = FSlateApplication::Get().PushMenu(
+		Menu = FSlateApplication::Get().PushMenu(
 			ParentContent,
+			FWidgetPath(),
 			SharedThis(this),
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect( FPopupTransitionEffect::TopMenu )
@@ -212,7 +210,10 @@ private:
 			OnYesClicked.Execute();
 		}
 
-		PopupWindow.Pin()->RequestDestroyWindow();
+		if (Menu.IsValid())
+		{
+			Menu.Pin()->Dismiss();
+		}
 
 		return FReply::Handled();
 	}
@@ -225,13 +226,16 @@ private:
 			OnNoClicked.Execute();
 		}
 
-		PopupWindow.Pin()->RequestDestroyWindow();
+		if (Menu.IsValid())
+		{
+			Menu.Pin()->Dismiss();
+		}
 
 		return FReply::Handled();
 	}
 
-	/** The window containing this popup */
-	TWeakPtr<SWindow> PopupWindow;
+	/** The IMenu prepresenting this popup */
+	TWeakPtr<IMenu> Menu;
 
 	/** Delegates for button clicks */
 	FOnClicked OnYesClicked;
@@ -304,21 +308,9 @@ bool ContentBrowserUtils::LoadAssetsIfNeeded(const TArray<FString>& ObjectPaths,
 			}
 		}
 	}
-
-	// if we are allowed to prompt the user to load and we have enough assets that requires prompting then we should 
-	// prompt and load assets if the user said it was ok
-	bool bShouldLoadAssets = true;
-	if( bAllowedToPromptToLoadAssets && ShouldPromptToLoadAssets(ObjectPaths, UnloadedObjectPaths) )
-	{
-		bShouldLoadAssets = PromptToLoadAssets(ObjectPaths);
-	}
-
-
-	// Ask for confirmation if the user is attempting to load a large number of assets
-	if (bShouldLoadAssets == false)
-	{
-		return false;
-	}
+ 
+	// prompt and load assets
+	GetUnloadedAssets(ObjectPaths, UnloadedObjectPaths);
 
 	// Make sure all selected objects are loaded, where possible
 	if ( UnloadedObjectPaths.Num() > 0 )
@@ -381,12 +373,11 @@ bool ContentBrowserUtils::LoadAssetsIfNeeded(const TArray<FString>& ObjectPaths,
 	return true;
 }
 
-bool ContentBrowserUtils::ShouldPromptToLoadAssets(const TArray<FString>& ObjectPaths, TArray<FString>& OutUnloadedObjects)
+void ContentBrowserUtils::GetUnloadedAssets(const TArray<FString>& ObjectPaths, TArray<FString>& OutUnloadedObjects)
 {
 	OutUnloadedObjects.Empty();
 
-	bool bShouldPrompt = false;
-	// Build a list of unloaded assets
+	// Build a list of unloaded assets and check if there are any parent folders
 	for (int32 PathIdx = 0; PathIdx < ObjectPaths.Num(); ++PathIdx)
 	{
 		const FString& ObjectPath = ObjectPaths[PathIdx];
@@ -398,15 +389,6 @@ bool ContentBrowserUtils::ShouldPromptToLoadAssets(const TArray<FString>& Object
 			OutUnloadedObjects.Add(ObjectPath);
 		}
 	}
-
-	// Get the maximum objects to load before displaying a warning
-	// Ask for confirmation if the user is attempting to load a large number of assets
-	if (OutUnloadedObjects.Num() > GetDefault<UContentBrowserSettings>()->NumObjectsToLoadBeforeWarning)
-	{
-		bShouldPrompt = true;
-	}
-
-	return bShouldPrompt;
 }
 
 bool ContentBrowserUtils::PromptToLoadAssets(const TArray<FString>& UnloadedObjects)
@@ -421,6 +403,18 @@ bool ContentBrowserUtils::PromptToLoadAssets(const TArray<FString>& UnloadedObje
 	}
 
 	return bShouldLoadAssets;
+}
+
+bool ContentBrowserUtils::CanRenameFolder(const FString& InFolderPath)
+{
+	// Cannot rename folders that are part of a classes or collections root
+	return !ContentBrowserUtils::IsClassPath(InFolderPath) && !ContentBrowserUtils::IsCollectionPath(InFolderPath);
+}
+
+bool ContentBrowserUtils::CanRenameAsset(const FAssetData& InAssetData)
+{
+	// Cannot rename redirectors or classes or cooked packages
+	return !InAssetData.IsRedirector() && InAssetData.AssetClass != NAME_Class && !(InAssetData.PackageFlags & PKG_FilterEditorOnly);
 }
 
 void ContentBrowserUtils::RenameAsset(UObject* Asset, const FString& NewName, FText& ErrorMessage)
@@ -698,7 +692,7 @@ void ContentBrowserUtils::DisplayConfirmationPopup(const FText& Message, const F
 	Popup->OpenPopup(ParentContent);
 }
 
-void ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath)
+bool ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath)
 {
 	TMap<FString, TArray<UObject*> > SourcePathToLoadedAssets;
 
@@ -707,7 +701,10 @@ void ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, 
 	SourcePathNames.Remove(DestPath);
 
 	// Load all assets in the source paths
-	PrepareFoldersForDragDrop(SourcePathNames, SourcePathToLoadedAssets);
+	if (!PrepareFoldersForDragDrop(SourcePathNames, SourcePathToLoadedAssets))
+	{
+		return false;
+	}
 
 	// Load the Asset Registry to update paths during the copy
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
@@ -729,9 +726,11 @@ void ContentBrowserUtils::CopyFolders(const TArray<FString>& InSourcePathNames, 
 			ObjectTools::DuplicateObjects( PathIt.Value(), PathIt.Key(), Destination, /*bOpenDialog=*/false );
 		}
 	}
+
+	return true;
 }
 
-void ContentBrowserUtils::MoveFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath)
+bool ContentBrowserUtils::MoveFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath)
 {
 	TMap<FString, TArray<UObject*> > SourcePathToLoadedAssets;
 	FString DestPathWithTrailingSlash = DestPath / "";
@@ -752,7 +751,10 @@ void ContentBrowserUtils::MoveFolders(const TArray<FString>& InSourcePathNames, 
 	}
 
 	// Load all assets in the source paths
-	PrepareFoldersForDragDrop(SourcePathNames, SourcePathToLoadedAssets);
+	if (!PrepareFoldersForDragDrop(SourcePathNames, SourcePathToLoadedAssets))
+	{
+		return false;
+	}
 	
 	// Load the Asset Registry to update paths during the move
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
@@ -778,13 +780,13 @@ void ContentBrowserUtils::MoveFolders(const TArray<FString>& InSourcePathNames, 
 		// Attempt to remove the old paths. This operation will silently fail if any assets failed to move.
 		AssetRegistryModule.Get().RemovePath(SourcePath);
 	}
+
+	return true;
 }
 
-void ContentBrowserUtils::PrepareFoldersForDragDrop(const TArray<FString>& SourcePathNames, TMap< FString, TArray<UObject*> >& OutSourcePathToLoadedAssets)
+bool ContentBrowserUtils::PrepareFoldersForDragDrop(const TArray<FString>& SourcePathNames, TMap< FString, TArray<UObject*> >& OutSourcePathToLoadedAssets)
 {
 	TSet<UObject*> AllFoundObjects;
-
-	GWarn->BeginSlowTask( LOCTEXT("FolderDragDrop_Loading", "Loading folders"), true);
 
 	// Load the Asset Registry to update paths during the move
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
@@ -805,10 +807,9 @@ void ContentBrowserUtils::PrepareFoldersForDragDrop(const TArray<FString>& Sourc
 	}
 
 	TArray<FString> UnloadedObjects;
-	if(ShouldPromptToLoadAssets(ObjectPathsToWarnAbout, UnloadedObjects))
-	{
-		PromptToLoadAssets(UnloadedObjects);
-	}
+	GetUnloadedAssets(ObjectPathsToWarnAbout, UnloadedObjects);
+
+	GWarn->BeginSlowTask(LOCTEXT("FolderDragDrop_Loading", "Loading folders"), true);
 
 	// For every source path, load every package in the path (if necessary) and keep track of the assets that were loaded
 	for ( auto PathIt = SourcePathNames.CreateConstIterator(); PathIt; ++PathIt )
@@ -858,6 +859,7 @@ void ContentBrowserUtils::PrepareFoldersForDragDrop(const TArray<FString>& Sourc
 	GWarn->EndSlowTask();
 
 	ensure(SourcePathNames.Num() == OutSourcePathToLoadedAssets.Num());
+	return true;
 }
 
 void ContentBrowserUtils::CopyAssetReferencesToClipboard(const TArray<FAssetData>& AssetsToCopy)
@@ -1110,6 +1112,12 @@ bool ContentBrowserUtils::IsPluginFolder( const FString& InPath )
 	return false;
 }
 
+bool ContentBrowserUtils::IsLocalizationFolder( const FString& InPath )
+{
+	return	InPath.StartsWith(TEXT("/Engine/L10N")) || InPath.StartsWith(TEXT("Engine/L10N")) ||
+			InPath.StartsWith(TEXT("/Game/L10N")) || InPath.StartsWith(TEXT("Game/L10N"));
+}
+
 void ContentBrowserUtils::GetObjectsInAssetData(const TArray<FAssetData>& AssetList, TArray<UObject*>& OutDroppedObjects)
 {	
 	for (int32 AssetIdx = 0; AssetIdx < AssetList.Num(); ++AssetIdx)
@@ -1253,6 +1261,32 @@ bool ContentBrowserUtils::IsClassPath(const FString& InPath)
 {
 	static const FString ClassesRootPrefix = TEXT("/Classes_");
 	return InPath.StartsWith(ClassesRootPrefix);
+}
+
+bool ContentBrowserUtils::IsCollectionPath(const FString& InPath, FName* OutCollectionName, ECollectionShareType::Type* OutCollectionShareType)
+{
+	static const FString CollectionsRootPrefix = TEXT("/Collections");
+	if (InPath.StartsWith(CollectionsRootPrefix))
+	{
+		TArray<FString> PathParts;
+		InPath.ParseIntoArray(PathParts, TEXT("/"));
+		check(PathParts.Num() > 2);
+
+		// The second part of the path is the share type name
+		if (OutCollectionShareType)
+		{
+			*OutCollectionShareType = ECollectionShareType::FromString(*PathParts[1]);
+		}
+
+		// The third part of the path is the collection name
+		if (OutCollectionName)
+		{
+			*OutCollectionName = FName(*PathParts[2]);
+		}
+
+		return true;
+	}
+	return false;
 }
 
 void ContentBrowserUtils::CountPathTypes(const TArray<FString>& InPaths, int32& OutNumAssetPaths, int32& OutNumClassPaths)
@@ -1489,6 +1523,9 @@ FText ContentBrowserUtils::GetExploreFolderText()
 	return FText::Format(NSLOCTEXT("GenericPlatform", "ShowInFileManager", "Show In {FileManagerName}"), Args);
 }
 
+static const auto CVarMaxFullPathLength = 
+	IConsoleManager::Get().RegisterConsoleVariable( TEXT("MaxAssetFullPath"), PLATFORM_MAX_FILEPATH_LENGTH, TEXT("Maximum full path name of an asset.") )->AsVariableInt();
+
 bool ContentBrowserUtils::IsValidObjectPathForCreate(const FString& ObjectPath, FText& OutErrorMessage, bool bAllowExistingAsset)
 {
 	const FString ObjectName = FPackageName::ObjectPathToObjectName(ObjectPath);
@@ -1526,7 +1563,7 @@ bool ContentBrowserUtils::IsValidObjectPathForCreate(const FString& ObjectPath, 
 	// Make sure we are not creating an path that is too long for the OS
 	const FString RelativePathFilename = FPackageName::LongPackageNameToFilename(PackageName, FPackageName::GetAssetPackageExtension());	// full relative path with name + extension
 	const FString FullPath = FPaths::ConvertRelativePathToFull(RelativePathFilename);	// path to file on disk
-	if ( ObjectPath.Len() > (PLATFORM_MAX_FILEPATH_LENGTH - MAX_CLASS_NAME_LENGTH) || FullPath.Len() > PLATFORM_MAX_FILEPATH_LENGTH )
+	if ( ObjectPath.Len() > (PLATFORM_MAX_FILEPATH_LENGTH - MAX_CLASS_NAME_LENGTH) || FullPath.Len() > CVarMaxFullPathLength->GetValueOnGameThread() )
 	{
 		// The full path for the asset is too long
 		OutErrorMessage = FText::Format( LOCTEXT("AssetPathTooLong", 
@@ -1562,6 +1599,12 @@ bool ContentBrowserUtils::IsValidFolderPathForCreate(const FString& InFolderPath
 	}
 
 	const FString NewFolderPath = InFolderPath / NewFolderName;
+
+	if (ContentBrowserUtils::IsLocalizationFolder(NewFolderPath))
+	{
+		OutErrorMessage = LOCTEXT("LocalizationFolderReserved", "The L10N folder is reserved for localized content.");
+		return false;
+	}
 
 	if (ContentBrowserUtils::DoesFolderExist(NewFolderPath))
 	{

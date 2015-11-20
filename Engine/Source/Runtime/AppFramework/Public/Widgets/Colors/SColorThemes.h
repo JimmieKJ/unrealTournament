@@ -621,7 +621,7 @@ public:
 	 */
 	virtual void OnDragged( const class FDragDropEvent& DragDropEvent ) override;
 	
-	/** Gets the widget that will serve as the decorator unless overriden. If you do not override, you will have no decorator */
+	/** Gets the widget that will serve as the decorator unless overridden. If you do not override, you will have no decorator */
 	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override;
 	
 	/**

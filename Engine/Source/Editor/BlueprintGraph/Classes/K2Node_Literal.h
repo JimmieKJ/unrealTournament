@@ -17,16 +17,16 @@ private:
 
 public:
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual bool ShouldOverridePinNames() const override { return true; }
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual bool IsNodePure() const override { return true; }
 	virtual AActor* GetReferencedLevelActor() const override;
 	virtual bool DrawNodeAsVariable() const override { return true; }
@@ -35,7 +35,7 @@ public:
 	virtual void PostReconstructNode() override;
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
 	/** Accessor for the value pin of the node */
 	BLUEPRINTGRAPH_API UEdGraphPin* GetValuePin() const;

@@ -98,8 +98,9 @@ public:
 	}
 	FORCEINLINE FBitReference& operator=(const FBitReference& Copy)
 	{
-		this->Data = Copy.Data;
-		this->Mask = Copy.Mask;
+		// As this is emulating a reference, assignment should not rebind,
+		// it should write to the referenced bit.
+		*this = (bool)Copy;
 		return *this;
 	}
 
@@ -133,21 +134,14 @@ private:
 /** Used to reference a bit in an unspecified bit array. */
 class FRelativeBitReference
 {
-	template<typename>
-	friend class TBitArray;
-	template<typename>
-	friend class TConstSetBitIterator;
-	template<typename,typename>
-	friend class TConstDualSetBitIterator;
 public:
+	FORCEINLINE explicit FRelativeBitReference(int32 BitIndex)
+		: DWORDIndex(BitIndex >> NumBitsPerDWORDLogTwo)
+		, Mask(1 << (BitIndex & (NumBitsPerDWORD - 1)))
+	{
+	}
 
-	FORCEINLINE FRelativeBitReference(int32 BitIndex)
-	:	DWORDIndex(BitIndex >> NumBitsPerDWORDLogTwo)
-	,	Mask(1 << (BitIndex & (NumBitsPerDWORD - 1)))
-	{}
-
-protected:
-	int32 DWORDIndex;
+	int32  DWORDIndex;
 	uint32 Mask;
 };
 
@@ -227,7 +221,7 @@ public:
 		NumBits = MaxBits = Copy.NumBits;
 		if(NumBits)
 		{
-			const int32 NumDWORDs = (MaxBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD;
+			const int32 NumDWORDs = FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD);
 			Realloc(0);
 			FMemory::Memcpy(GetData(),Copy.GetData(),NumDWORDs * sizeof(uint32));
 		}
@@ -271,7 +265,7 @@ public:
 		}
 
 		// calc the number of dwords for all the bits
-		const int32 NumDWORDs = (BitArray.NumBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD; 
+		const int32 NumDWORDs = FMath::DivideAndRoundUp(BitArray.NumBits, NumBitsPerDWORD);
 
 		// serialize the data as one big chunk
 		Ar.Serialize(BitArray.GetData(), NumDWORDs * sizeof(uint32));
@@ -294,8 +288,8 @@ public:
 		{
 			// Allocate memory for the new bits.
 			const uint32 MaxDWORDs = AllocatorInstance.CalculateSlack(
-				(NumBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD,
-				(MaxBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD,
+				FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD),
+				FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD),
 				sizeof(uint32)
 				);
 			MaxBits = MaxDWORDs * NumBitsPerDWORD;
@@ -328,6 +322,9 @@ public:
 	 */
 	void Reset()
 	{
+		// We need this because iterators often use whole DWORDs when masking, which includes off-the-end elements
+		FMemory::Memset(GetData(), 0, FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD) * sizeof(uint32));
+
 		NumBits = 0;
 	}
 
@@ -342,7 +339,69 @@ public:
 		if(InNumBits)
 		{
 			NumBits = InNumBits;
-			FMemory::Memset(GetData(),Value ? 0xff : 0,(NumBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD * sizeof(uint32));
+			FMemory::Memset(GetData(),Value ? 0xff : 0, FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD) * sizeof(uint32));
+		}
+	}
+
+	/**
+	 * Sets or unsets a range of bits within the array.
+	 * @param  Index  The index of the first bit to set.
+	 * @param  Num    The number of bits to set.
+	 * @param  Value  The value to set the bits to.
+	 */
+	FORCENOINLINE void SetRange(int32 Index, int32 Num, bool Value)
+	{
+		check(Index >= 0 && Num >= 0 && Index + Num <= NumBits);
+
+		if (Num == 0)
+		{
+			return;
+		}
+
+		// Work out which uint32 index to set from, and how many
+		uint32 StartIndex = Index / 32;
+		uint32 Count      = (Index + Num + 31) / 32 - StartIndex;
+
+		// Work out masks for the start/end of the sequence
+		uint32 StartMask  = 0xFFFFFFFFu << (Index % 32);
+		uint32 EndMask    = 0xFFFFFFFFu >> (32 - (Index + Num) % 32) % 32;
+
+		uint32* Data = GetData() + StartIndex;
+		if (Value)
+		{
+			if (Count == 1)
+			{
+				*Data |= StartMask & EndMask;
+			}
+			else
+			{
+				*Data++ |= StartMask;
+				Count -= 2;
+				while (Count != 0)
+				{
+					*Data++ = ~0;
+					--Count;
+				}
+				*Data |= EndMask;
+			}
+		}
+		else
+		{
+			if (Count == 1)
+			{
+				*Data &= ~(StartMask & EndMask);
+			}
+			else
+			{
+				*Data++ &= ~StartMask;
+				Count -= 2;
+				while (Count != 0)
+				{
+					*Data++ = 0;
+					--Count;
+				}
+				*Data &= ~EndMask;
+			}
 		}
 	}
 
@@ -411,16 +470,16 @@ public:
 	 */
 	uint32 GetAllocatedSize( void ) const
 	{
-		return (MaxBits / NumBitsPerDWORD) * sizeof(uint32);
+		return FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD) * sizeof(uint32);
 	}
 
 	/** Tracks the container's memory use through an archive. */
 	void CountBytes(FArchive& Ar)
 	{
 		Ar.CountBytes(
-			(NumBits / NumBitsPerDWORD) * sizeof(uint32),
-			(MaxBits / NumBitsPerDWORD) * sizeof(uint32)
-			);
+			FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD) * sizeof(uint32),
+			FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD) * sizeof(uint32)
+		);
 	}
 
 	/**
@@ -431,7 +490,7 @@ public:
 	{
 		// Iterate over the array until we see a word with a zero bit.
 		uint32* RESTRICT DwordArray = GetData();
-		const int32 DwordCount = (Num() + NumBitsPerDWORD - 1) / NumBitsPerDWORD;
+		const int32 DwordCount = FMath::DivideAndRoundUp(Num(), NumBitsPerDWORD);
 		int32 DwordIndex = 0;
 		while ( DwordIndex < DwordCount && DwordArray[DwordIndex] == 0xffffffff )
 		{
@@ -644,8 +703,8 @@ private:
 
 	void Realloc(int32 PreviousNumBits)
 	{
-		const int32 PreviousNumDWORDs = (PreviousNumBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD;
-		const int32 MaxDWORDs = (MaxBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD;
+		const int32 PreviousNumDWORDs = FMath::DivideAndRoundUp(PreviousNumBits, NumBitsPerDWORD);
+		const int32 MaxDWORDs = FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD);
 
 		AllocatorInstance.ResizeAllocation(PreviousNumDWORDs,MaxDWORDs,sizeof(uint32));
 
@@ -686,7 +745,7 @@ public:
 		}
 	}
 
-	/** Advancement operator. */
+	/** Forwards iteration operator. */
 	FORCEINLINE TConstSetBitIterator& operator++()
 	{
 		// Mark the current bit as visited.
@@ -936,8 +995,8 @@ public:
 		{
 			// Allocate memory for the new bits.
 			const uint32 MaxDWORDs = AllocatorInstance.CalculateSlack(
-				(NumBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD,
-				(MaxBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD,
+				FMath::DivideAndRoundUp(NumBits, NumBitsPerDWORD),
+				FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD),
 				sizeof(uint32)
 				);
 			MaxBits = MaxDWORDs * NumBitsPerDWORD;
@@ -989,8 +1048,8 @@ private:
 
 	void Realloc(int32 PreviousNumBits)
 	{
-		const int32 PreviousNumDWORDs = (PreviousNumBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD;
-		const int32 MaxDWORDs = (MaxBits + NumBitsPerDWORD - 1) / NumBitsPerDWORD;
+		const int32 PreviousNumDWORDs = FMath::DivideAndRoundUp(PreviousNumBits, NumBitsPerDWORD);
+		const int32 MaxDWORDs = FMath::DivideAndRoundUp(MaxBits, NumBitsPerDWORD);
 
 		AllocatorInstance.ResizeAllocation(PreviousNumDWORDs, MaxDWORDs, sizeof(uint32));
 

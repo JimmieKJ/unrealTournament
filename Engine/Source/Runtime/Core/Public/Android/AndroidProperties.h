@@ -114,6 +114,11 @@ struct FAndroidPlatformProperties
 	{
 		return true;
 	}
+
+	static FORCEINLINE bool AllowsCallStackDumpDuringAssert()
+	{
+		return true;
+	}
 };
 
 struct FAndroid_PVRTCPlatformProperties : public FAndroidPlatformProperties
@@ -177,5 +182,13 @@ struct FAndroid_ES31PlatformProperties : public FAndroidPlatformProperties
 	static FORCEINLINE const char* PlatformName()
 	{
 		return "Android_ES31";
+	}
+};
+
+struct FAndroid_MultiPlatformProperties : public FAndroidPlatformProperties
+{
+	static FORCEINLINE const char* PlatformName()
+	{
+		return "Android_Multi";
 	}
 };

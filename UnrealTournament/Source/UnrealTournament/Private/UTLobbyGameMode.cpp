@@ -53,18 +53,18 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 		}
 	}
 
-	MinPlayersToStart = FMath::Max(1, GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
+	MinPlayersToStart = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
 
 	// I should move this code up in to UTBaseGameMode and probably will (the code hooks are all there) but
 	// for right now I want to limit this to just Lobbies.
 
-	MinAllowedRank = FMath::Max(0, GetIntOption( Options, TEXT("MinAllowedRank"), MinAllowedRank));
+	MinAllowedRank = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("MinAllowedRank"), MinAllowedRank));
 	if (MinAllowedRank > 0)
 	{
 		UE_LOG(UT,Log,TEXT("  Minimum Allowed ELO Rank is: %i"), MinAllowedRank)
 	}
 
-	MaxAllowedRank = FMath::Max(0, GetIntOption( Options, TEXT("MaxAllowedRank"), MaxAllowedRank));
+	MaxAllowedRank = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("MaxAllowedRank"), MaxAllowedRank));
 	if (MaxAllowedRank > 0)
 	{
 		UE_LOG(UT,Log,TEXT("  Maximum Allowed ELO Rank is: %i"), MaxAllowedRank)
@@ -155,7 +155,7 @@ void AUTLobbyGameMode::OverridePlayerState(APlayerController* PC, APlayerState* 
 	}
 }
 
-FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 	
@@ -163,25 +163,25 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 
 	if (PS)
 	{	
-		FString QuickStartOption = ParseOption(Options, TEXT("QuickStart"));
+		FString QuickStartOption = UGameplayStatics::ParseOption(Options, TEXT("QuickStart"));
 
 		if ( QuickStartOption != TEXT("") )
 		{
 			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? EEpicDefaultRuleTags::CTF : EEpicDefaultRuleTags::Deathmatch;
 		}
 
-		FString MatchId = ParseOption(Options, TEXT("MatchId"));
+		FString MatchId = UGameplayStatics::ParseOption(Options, TEXT("MatchId"));
 		if (!MatchId.IsEmpty())
 		{
 			PS->DesiredMatchIdToJoin = MatchId;
 			
-			if (GetIntOption(Options, TEXT("SpectatorOnly"), 0) > 0)
+			if (UGameplayStatics::GetIntOption(Options, TEXT("SpectatorOnly"), 0) > 0)
 			{
 				PS->DesiredTeamNum=255;
 			}
 		}
 
-		PS->bReturnedFromMatch = HasOption(Options,"RTM");
+		PS->bReturnedFromMatch = UGameplayStatics::HasOption(Options, "RTM");
 	}
 
 
@@ -254,11 +254,11 @@ FName AUTLobbyGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FNam
 	return ChatDestinations::Global;
 }
 
-void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	if (MinAllowedRank > 0 || MaxAllowedRank > 0)
 	{
-		int32 PendingRank = GetIntOption(Options, TEXT("Rank"), 0);
+		int32 PendingRank = UGameplayStatics::GetIntOption(Options, TEXT("Rank"), 0);
 		if (MinAllowedRank > 0 && PendingRank < MinAllowedRank)
 		{
 			ErrorMessage = TEXT("TOOWEAK");

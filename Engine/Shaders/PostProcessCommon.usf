@@ -51,7 +51,7 @@ float4 PostprocessInput6MinMax;
 // viewport width, height, 1/width, 1/height (scaled to the current rendertarget resolution), depends on SetViewportAndCallRHI() call
 float4 ViewportSize;
 // in pixels (scaled to the current rendertarget resolution), float4(minx,miny,maxx,maxy), depends on SetViewportAndCallRHI() call
-float4 ViewportRect;
+uint4 ViewportRect;
 
 SamplerState BilinearTextureSampler0;
 SamplerState BilinearTextureSampler1;
@@ -62,7 +62,7 @@ SamplerState BilinearTextureSampler1;
 float4 ScreenPosToPixel;
 
 // uses ScreenPosToPixel which is setup in FPostProcessPassParameters
-// for integer output bPixelCenter should be set to true (to avoid rounding errors)
+// for integer output bPixelCenter should be set to true (to avoid rounding errors), but often it's better to use "int2 PixelPos = (int2)SvPosition.xy;" instead
 // @param ScreenPos -1 .. 1, usually from UVAndScreenPos.zw
 // @param bCenter false: left top of the pixel and almost no fractional value, true: added 0.5 to be pixel center
 float2 ComputePixelPosCenter(float2 ScreenPos, bool bPixelCenter)

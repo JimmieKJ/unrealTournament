@@ -164,21 +164,15 @@ void Sc::ArticulationCore::setSolverIterationCounts(const PxU16 v)
 }
 
 
-namespace physx
-{
-const PxArticulation* NpGetPxArticulation(const Sc::ArticulationCore&);
-PxArticulation* NpGetPxArticulation(Sc::ArticulationCore&);
-}
-
 PxArticulation* Sc::ArticulationCore::getPxArticulation()
 {
-	return NpGetPxArticulation(*this);
+	return gOffsetTable.convertScArticulation2Px(this);
 }
 
 
 const PxArticulation* Sc::ArticulationCore::getPxArticulation() const
 {
-	return NpGetPxArticulation(*this);
+	return gOffsetTable.convertScArticulation2Px(this);
 }
 
 

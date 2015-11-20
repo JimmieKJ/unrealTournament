@@ -208,7 +208,7 @@ void SGitSourceControlSettings::Construct(const FArguments& InArgs)
 					[
 						SNew(SCheckBox)
 						.ToolTipText(LOCTEXT("CreateGitIgnore_Tooltip", "Create and add a standard '.gitignore' file"))
-						.IsChecked(true)
+						.IsChecked(ECheckBoxState::Checked)
 						.OnCheckStateChanged(this, &SGitSourceControlSettings::OnCheckedCreateGitIgnore)
 					]
 				]
@@ -291,7 +291,7 @@ FReply SGitSourceControlSettings::OnClickedInitializeGitRepository()
 		{
 			// Create a standard ".gitignore" file with common patterns for a typical Blueprint & C++ project
 			const FString Filename = FString::Printf(TEXT("%s.gitignore"), *PathToGameDir);
-			const FString GitIgnoreContent = TEXT("Binaries\nDerivedDataCache\nIntermediate\nSaved\n*.sdf\n*.sln\n*.suo");
+			const FString GitIgnoreContent = TEXT("Binaries\nDerivedDataCache\nIntermediate\nSaved\n*.opensdf\n*.sdf\n*.sln\n*.suo\n*.xcodeproj");
 			if(FFileHelper::SaveStringToFile(GitIgnoreContent, *Filename, FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
 			{
 				ProjectFiles.Add(TEXT(".gitignore"));

@@ -30,10 +30,10 @@ void AUTGameSession::InitOptions( const FString& Options )
 
 	// Cache the GameMode for later.
 	UTGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
-	bNoJoinInProgress = UTGameMode->HasOption(Options,"NoJIP");
+	bNoJoinInProgress = UGameplayStatics::HasOption(Options, "NoJIP");
 }
 
-void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator)
+void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator)
 {
 	UNetDriver* NetDriver = NULL;
 	if (GetWorld())
@@ -148,22 +148,22 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 {
 	if (UTGameMode)
 	{
-		if (!UTGameMode->HasOption(Options, TEXT("VersionCheck")) && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
+		if (!UGameplayStatics::HasOption(Options, TEXT("VersionCheck")) && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 		{
 			UE_LOG(UT, Warning, TEXT("********************************YOU MUST UPDATE TO A NEW VERSION %s"), *Options);
 			return TEXT("You must update to a the latest version.  For more information, go to forums.unrealtournament.com");
 		}
 		// force allow split casting views
 		// warning: relies on check in Login() that this is really a split view
-		if (UTGameMode->HasOption(Options, TEXT("CastingView")))
+		if (UGameplayStatics::HasOption(Options, TEXT("CastingView")))
 		{
 			return TEXT("");
 		}
 
 		if (GetNetMode() != NM_Standalone && !GetWorld()->IsPlayInEditor())
 		{
-			FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));
-			bool bSpectator = FCString::Stricmp(*UTGameMode->ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+			FString Password = UGameplayStatics::ParseOption(Options, TEXT("Password"));
+			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
 			if (!bSpectator && !UTGameMode->ServerPassword.IsEmpty())
 			{
 				if (Password.IsEmpty() || !UTGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
@@ -513,6 +513,7 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 	// Always create a new beacon host
 	BeaconHostListener = World->SpawnActor<AOnlineBeaconHost>(AOnlineBeaconHost::StaticClass());
 	check(BeaconHostListener);
+	
 	BeaconHost = World->SpawnActor<AUTServerBeaconHost>(AUTServerBeaconHost::StaticClass());
 	check(BeaconHost);
 
@@ -546,6 +547,7 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 			}
 		}
 
+		BeaconHostListener->PauseBeaconRequests(false);
 	}
 
 	// Update the beacon port

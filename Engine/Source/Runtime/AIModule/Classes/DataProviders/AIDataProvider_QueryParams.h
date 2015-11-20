@@ -16,11 +16,13 @@
 UCLASS(EditInlineNew, meta=(DisplayName="Query Params"))
 class AIMODULE_API UAIDataProvider_QueryParams : public UAIDataProvider
 {
-	GENERATED_UCLASS_BODY()
+	GENERATED_BODY()
 
-	virtual void BindData(UObject* Owner, int32 RequestId) override;
+public:
+	virtual void BindData(const UObject& Owner, int32 RequestId) override;
 	virtual FString ToString(FName PropName) const override;
 
+	/** Arbitrary name this query parameter will be exposed as to outside world (like BT nodes) */
 	UPROPERTY(EditAnywhere, Category = Provider)
 	FName ParamName;
 

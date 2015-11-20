@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "BodyInstanceCustomization.h"
+
 class FPrimitiveComponentDetails : public IDetailCustomization
 {
 public:
@@ -39,13 +41,9 @@ private:
 private:
 	/** Objects being customized so we can update the 'Simulate Physics' state if physics geometry is added/removed */
 	TArray< TWeakObjectPtr<UObject> > ObjectsCustomized;
-	TSharedPtr<IPropertyHandle> DOFModeProperty;
-	TSharedPtr<class FComponentMaterialCategory> MaterialCategory;
-	EVisibility IsDOFMode(EDOFMode::Type Mode) const;
 
-	bool IsAutoWeldEditable() const;
-	EVisibility IsAutoWeldVisible() const;
-	EVisibility IsMassVisible(bool bOverrideMass) const;
+	TSharedPtr<class FComponentMaterialCategory> MaterialCategory;
+	TSharedPtr<class FBodyInstanceCustomizationHelper> BodyInstanceCustomizationHelper;
 
 };
 

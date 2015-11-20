@@ -17,21 +17,31 @@
 #include "Components/LightComponent.h"
 #include "Components/DirectionalLightComponent.h"
 
+FArchive& operator<<(FArchive& Ar, FStaticShadowDepthMapData& ShadowMapData)
+{
+	Ar << ShadowMapData.WorldToLight;
+	Ar << ShadowMapData.ShadowMapSizeX;
+	Ar << ShadowMapData.ShadowMapSizeY;
+	Ar << ShadowMapData.DepthSamples;
+
+	return Ar;
+}
+
 void FStaticShadowDepthMap::InitRHI()
 {
-	if (ShadowMapSizeX > 0 && ShadowMapSizeY > 0 && GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4)
+	if (Data.ShadowMapSizeX > 0 && Data.ShadowMapSizeY > 0 && GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4)
 	{
 		FRHIResourceCreateInfo CreateInfo;
-		FTexture2DRHIRef Texture2DRHI = RHICreateTexture2D(ShadowMapSizeX, ShadowMapSizeY, PF_R16F, 1, 1, 0, CreateInfo);
+		FTexture2DRHIRef Texture2DRHI = RHICreateTexture2D(Data.ShadowMapSizeX, Data.ShadowMapSizeY, PF_R16F, 1, 1, 0, CreateInfo);
 		TextureRHI = Texture2DRHI;
 
 		uint32 DestStride = 0;
 		uint8* TextureData = (uint8*)RHILockTexture2D(Texture2DRHI, 0, RLM_WriteOnly, DestStride, false);
-		uint32 RowSize = ShadowMapSizeX * GPixelFormats[PF_R16F].BlockBytes;
+		uint32 RowSize = Data.ShadowMapSizeX * GPixelFormats[PF_R16F].BlockBytes;
 
-		for (int32 Y = 0; Y < ShadowMapSizeY; Y++)
+		for (int32 Y = 0; Y < Data.ShadowMapSizeY; Y++)
 		{
-			FMemory::Memcpy(TextureData + DestStride * Y, ((uint8*)DepthSamples.GetData()) + RowSize * Y, RowSize);
+			FMemory::Memcpy(TextureData + DestStride * Y, ((uint8*)Data.DepthSamples.GetData()) + RowSize * Y, RowSize);
 		}
 
 		RHIUnlockTexture2D(Texture2DRHI, 0, false);
@@ -40,29 +50,26 @@ void FStaticShadowDepthMap::InitRHI()
 
 void FStaticShadowDepthMap::Empty()
 {
-	DEC_DWORD_STAT_BY(STAT_PrecomputedShadowDepthMapMemory, DepthSamples.GetAllocatedSize());
+	DEC_DWORD_STAT_BY(STAT_PrecomputedShadowDepthMapMemory, Data.DepthSamples.GetAllocatedSize());
 
-	ShadowMapSizeX = 0;
-	ShadowMapSizeY = 0;
-	DepthSamples.Empty();
+	Data.ShadowMapSizeX = 0;
+	Data.ShadowMapSizeY = 0;
+	Data.DepthSamples.Empty();
 }
 
 void FStaticShadowDepthMap::InitializeAfterImport()
 {
-	INC_DWORD_STAT_BY(STAT_PrecomputedShadowDepthMapMemory, DepthSamples.GetAllocatedSize());
+	INC_DWORD_STAT_BY(STAT_PrecomputedShadowDepthMapMemory, Data.DepthSamples.GetAllocatedSize());
 	BeginInitResource(this);
 }
 
 FArchive& operator<<(FArchive& Ar, FStaticShadowDepthMap& ShadowMap)
 {
-	Ar << ShadowMap.WorldToLight;
-	Ar << ShadowMap.ShadowMapSizeX;
-	Ar << ShadowMap.ShadowMapSizeY;
-	Ar << ShadowMap.DepthSamples;
+	Ar << ShadowMap.Data;
 
 	if (Ar.IsLoading())
 	{
-		INC_DWORD_STAT_BY(STAT_PrecomputedShadowDepthMapMemory, ShadowMap.DepthSamples.GetAllocatedSize());
+		INC_DWORD_STAT_BY(STAT_PrecomputedShadowDepthMapMemory, ShadowMap.Data.DepthSamples.GetAllocatedSize());
 	}
 
 	return Ar;
@@ -213,6 +220,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, ShadowMapChannel(InLightComponent->ShadowMapChannel)
 	, PreviewShadowMapChannel(InLightComponent->PreviewShadowMapChannel)
 	, IESTexture(0)
+	, bMovable(InLightComponent->IsMovable())
 	, bStaticLighting(InLightComponent->HasStaticLighting())
 	, bStaticShadowing(InLightComponent->HasStaticShadowing())
 	, bCastDynamicShadow(InLightComponent->CastShadows && InLightComponent->CastDynamicShadows)
@@ -231,6 +239,7 @@ FLightSceneProxy::FLightSceneProxy(const ULightComponent* InLightComponent)
 	, StatId(InLightComponent->GetStatID(true))
 	, FarShadowDistance(0)
 	, FarShadowCascadeCount(0)
+	, bCastModulatedShadows(false)
 {
 	// Brightness in Lumens
 	float LightBrightness = InLightComponent->ComputeLightBrightness();
@@ -571,6 +580,8 @@ void ULightComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, OcclusionMaskDarkness) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, OcclusionDepthRange) &&
 		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, LightShaftOverrideDirection) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, bCastModulatedShadows) &&
+		PropertyName != GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, ModulatedShadowColor) &&
 		// Properties that should only unbuild lighting for a Static light (can be changed dynamically on a Stationary light)
 		(PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, Intensity) || Mobility == EComponentMobility::Static) &&
 		(PropertyName != GET_MEMBER_NAME_STRING_CHECKED(ULightComponent, LightColor) || Mobility == EComponentMobility::Static) &&
@@ -638,7 +649,7 @@ void ULightComponent::CreateRenderState_Concurrent()
 
 	bool bHidden = false;
 #if WITH_EDITORONLY_DATA
-	bHidden = GetOwner() ? GetOwner()->bHiddenEdLevel : false;
+	bHidden = GetOwner() ? GetOwner()->IsHiddenEd() : false;
 #endif // WITH_EDITORONLY_DATA
 
 	if(!ShouldComponentAddToScene())
@@ -716,9 +727,9 @@ void ULightComponent::SetIndirectLightingIntensity(float NewIntensity)
 }
 
 /** Set color of the light */
-void ULightComponent::SetLightColor(FLinearColor NewLightColor)
+void ULightComponent::SetLightColor(FLinearColor NewLightColor, bool bSRGB)
 {
-	FColor NewColor(NewLightColor);
+	FColor NewColor(NewLightColor.ToFColor(bSRGB));
 
 	// Can't set color on a static light
 	if (AreDynamicDataChangesAllowed()
@@ -939,6 +950,7 @@ public:
 		, ShadowMapChannel(SourceComponent->ShadowMapChannel)
 		, PreviewShadowMapChannel(SourceComponent->PreviewShadowMapChannel)
 		, bPrecomputedLightingIsValid(SourceComponent->bPrecomputedLightingIsValid)
+		, StaticShadowDepthMapData(SourceComponent->StaticShadowDepthMap.Data)
 	{}
 
 	virtual void ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase) override
@@ -952,13 +964,8 @@ public:
 	int32 ShadowMapChannel;
 	int32 PreviewShadowMapChannel;
 	bool bPrecomputedLightingIsValid;
+	FStaticShadowDepthMapData StaticShadowDepthMapData;
 };
-
-FName ULightComponent::GetComponentInstanceDataType() const
-{
-	static const FName PrecomputedLightInstanceDataTypeName(TEXT("PrecomputedLightInstanceData"));
-	return PrecomputedLightInstanceDataTypeName;
-}
 
 FActorComponentInstanceData* ULightComponent::GetComponentInstanceData() const
 {
@@ -979,6 +986,12 @@ void ULightComponent::ApplyComponentInstanceData(FPrecomputedLightInstanceData* 
 	ShadowMapChannel = LightMapData->ShadowMapChannel;
 	PreviewShadowMapChannel = LightMapData->PreviewShadowMapChannel;
 	bPrecomputedLightingIsValid = LightMapData->bPrecomputedLightingIsValid;
+	StaticShadowDepthMap.Data = LightMapData->StaticShadowDepthMapData;
+
+	if (HasStaticShadowing() && !HasStaticLighting())
+	{
+		BeginUpdateResourceRHI(&StaticShadowDepthMap);
+	}
 
 	MarkRenderStateDirty();
 

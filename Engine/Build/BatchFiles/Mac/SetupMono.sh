@@ -7,15 +7,15 @@ sh FixDependencyFiles.sh
 IS_MONO_INSTALLED=0
 MONO_VERSION_PATH=`which mono` || true
 if [ ! $MONO_VERSION_PATH == "" ] && [ -f $MONO_VERSION_PATH ]; then
-	# If Mono is installed, check if it's 3.2.6 or higher
+	# If Mono is installed, check if it's 4.0.2 or higher
 	MONO_VERSION_PREFIX="Mono JIT compiler version "
 	MONO_VERSION_PREFIX_LEN=${#MONO_VERSION_PREFIX}
 	MONO_VERSION=`"${MONO_VERSION_PATH}" --version |grep "$MONO_VERSION_PREFIX"`
 	MONO_VERSION=(`echo ${MONO_VERSION:MONO_VERSION_PREFIX_LEN} |tr '.' ' '`)
-	if [ ${MONO_VERSION[0]} -ge 3 ]; then
-		if [ ${MONO_VERSION[1]} -eq 2 ] && [ ${MONO_VERSION[2]} -ge 6 ]; then
+	if [ ${MONO_VERSION[0]} -ge 4 ]; then
+		if [ ${MONO_VERSION[1]} -eq 0 ] && [ ${MONO_VERSION[2]} -ge 2 ]; then
 			IS_MONO_INSTALLED=1
-		elif [ ${MONO_VERSION[1]} -gt 2 ]; then
+		elif [ ${MONO_VERSION[1]} -gt 0 ]; then
 			IS_MONO_INSTALLED=1
 		fi
 	fi

@@ -19,11 +19,11 @@ public class Kiss_FFT : ModuleRules
 		{
 			if (Target.Configuration == UnrealTargetConfiguration.Debug && BuildConfiguration.bDebugBuildsActuallyUseDebugCRT)
 			{
-				PublicLibraryPaths.Add(Kiss_FFTPath + "/lib/x64/Debug");
+				PublicLibraryPaths.Add(Kiss_FFTPath + "/lib/x64/VS" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/Debug");
 			}
 			else
 			{
-				PublicLibraryPaths.Add(Kiss_FFTPath + "/lib/x64/Release");
+				PublicLibraryPaths.Add(Kiss_FFTPath + "/lib/x64/VS" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/Release");
 			}
 
 			PublicAdditionalLibraries.Add("KissFFT.lib");

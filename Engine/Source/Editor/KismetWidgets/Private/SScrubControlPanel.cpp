@@ -57,6 +57,7 @@ void SScrubControlPanel::Construct( const SScrubControlPanel::FArguments& InArgs
 				.OnSetInputViewRange(InArgs._OnSetInputViewRange)
 				.OnCropAnimSequence(InArgs._OnCropAnimSequence)
 				.OnAddAnimSequence(InArgs._OnAddAnimSequence)
+				.OnAppendAnimSequence(InArgs._OnAppendAnimSequence)
 				.OnReZeroAnimSequence(InArgs._OnReZeroAnimSequence)
 				.bAllowZoom(InArgs._bAllowZoom)
 				.DraggableBars(InArgs._DraggableBars)

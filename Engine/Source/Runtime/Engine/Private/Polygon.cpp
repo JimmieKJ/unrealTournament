@@ -37,6 +37,13 @@ FArchive& operator<<(FArchive& Ar, FLightmassPrimitiveSettings& Settings)
 	Ar << Temp;
 	Settings.bUseEmissiveForStaticLighting = Temp;
 
+	if (Ar.UE4Ver() >= VER_UE4_NEW_LIGHTMASS_PRIMITIVE_SETTING)
+	{
+		Temp = Settings.bUseVertexNormalForHemisphereGather;
+		Ar << Temp;
+		Settings.bUseVertexNormalForHemisphereGather = Temp;
+	}
+	
 	Ar << Settings.EmissiveLightFalloffExponent;
 	Ar << Settings.EmissiveLightExplicitInfluenceRadius;
 	
@@ -50,8 +57,18 @@ FArchive& operator<<(FArchive& Ar, FLightmassPrimitiveSettings& Settings)
  * Constructor, initializing all member variables.
  */
 FPoly::FPoly()
+	: Base(ForceInitToZero)
+	, Normal(ForceInitToZero)
+	, TextureU(ForceInitToZero)
+	, TextureV(ForceInitToZero)
+	, PolyFlags(PF_DefaultFlags)
+	, Actor(nullptr)
+	, Material(nullptr)
+	, iLink(INDEX_NONE)
+	, iBrushPoly(INDEX_NONE)
+	, SmoothingMask(0)
+	, LightMapScale(32.0f)
 {
-	Init();
 }
 
 
@@ -440,22 +457,20 @@ int32 FPoly::CalcNormal( bool bSilent )
 
 void FPoly::Transform
 (
-	const FVector&		PreSubtract,
 	const FVector&		PostAdd
 )
 {
 	FVector 	Temp;
 	int32 		i;
 
-	Base = (Base - PreSubtract) + PostAdd;
+	Base += PostAdd;
 	for( i=0; i<Vertices.Num(); i++ )
-		Vertices[i]  = (Vertices[i] - PreSubtract) + PostAdd;
+		Vertices[i] += PostAdd;
 }
 
 
 void FPoly::Rotate
 (
-	const FVector&		PreSubtract,
 	const FRotator&		Rotation
 )
 {
@@ -464,10 +479,10 @@ void FPoly::Rotate
 	// Rotate the vertices.
 	for (int32 Vertex = 0; Vertex < Vertices.Num(); Vertex++)
 	{
-		Vertices[Vertex] = PreSubtract + RotMatrix.TransformVector(Vertices[Vertex] - PreSubtract);
+		Vertices[Vertex] = RotMatrix.TransformVector(Vertices[Vertex]);
 	}
 
-	Base = PreSubtract + RotMatrix.TransformVector(Base - PreSubtract);
+	Base = RotMatrix.TransformVector(Base);
 
 	// Rotate the texture vectors.
 	TextureU = RotMatrix.TransformVector(TextureU);
@@ -481,7 +496,6 @@ void FPoly::Rotate
 
 void FPoly::Scale
 (
-	const FVector&		PreSubtract,
 	const FVector&		Scale
 )
 {
@@ -495,10 +509,10 @@ void FPoly::Scale
 	// Scale the vertices.
 	for (int32 Vertex = 0; Vertex < Vertices.Num(); Vertex++)
 	{
-		Vertices[Vertex] = PreSubtract + (Vertices[Vertex] - PreSubtract) * Scale;
+		Vertices[Vertex] *= Scale;
 	}
 
-	Base = PreSubtract + (Base - PreSubtract) * Scale;
+	Base *= Scale;
 
 	// Scale the texture vectors.
 	TextureU /= Scale;
@@ -968,8 +982,6 @@ bool UPolys::Modify(bool bAlwaysMarkDirty)
 {
 	Super::Modify(bAlwaysMarkDirty);
 
-	Element.ModifyAllItems();
-
 	return !!GUndo; // we will make a broad assumption that if we have an undo buffer, we were saved in it
 }
 
@@ -977,14 +989,12 @@ void UPolys::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collecto
 {
 	UPolys* This = CastChecked<UPolys>(InThis);
 	// Let GC know that we're referencing some Actor and Property objects
-	for( TTransArray<FPoly>::TConstIterator ElementIt(This->Element); ElementIt; ++ElementIt )
+	for( TArray<FPoly>::TConstIterator ElementIt(This->Element); ElementIt; ++ElementIt )
 	{
 		FPoly PolyElement = *ElementIt;
 		Collector.AddReferencedObject( PolyElement.Actor, This );
 		Collector.AddReferencedObject( PolyElement.Material, This );
 	}
-	UObject* ElementOwner = This->Element.GetOwner();
-	Collector.AddReferencedObject( ElementOwner, This );
 	Super::AddReferencedObjects(This, Collector);
 }
 
@@ -997,23 +1007,29 @@ void UPolys::Serialize( FArchive& Ar )
 	}
 	else
 	{
-		Element.CountBytes( Ar );
-		int32 DbNum=Element.Num(), DbMax=DbNum;
-		Ar << DbNum << DbMax;
-
-		UObject* ElementOwner = Element.GetOwner();
-		Ar << ElementOwner;
-
-		Element.SetOwner(ElementOwner);
-
-		if( Ar.IsLoading() )
+		if( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_BSP_UNDO_FIX )
 		{
-			Element.Empty( DbNum );
-			Element.AddZeroed( DbNum );
+			Element.CountBytes(Ar);
+			int32 DbNum = Element.Num(), DbMax = DbNum;
+			Ar << DbNum << DbMax;
+
+		
+			UObject* ElementOwner = NULL;
+			Ar << ElementOwner;
+
+			if (Ar.IsLoading())
+			{
+				Element.Empty(DbNum);
+				Element.AddZeroed(DbNum);
+			}
+			for (int32 i = 0; i < Element.Num(); i++)
+			{
+				Ar << Element[i];
+			}
 		}
-		for( int32 i=0; i<Element.Num(); i++ )
-		{		
-			Ar << Element[i];
+		else
+		{
+			Ar << Element;
 		}
 	}
 }

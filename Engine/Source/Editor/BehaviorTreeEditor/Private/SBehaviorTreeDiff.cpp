@@ -4,6 +4,7 @@
 #include "SBehaviorTreeDiff.h"
 #include "GraphDiffControl.h"
 #include "EdGraphUtilities.h"
+#include "BehaviorTreeEditorUtils.h"
 #include "Editor/PropertyEditor/Public/IDetailsView.h"
 #include "BehaviorTree/BehaviorTree.h"
 #include "GenericCommands.h"
@@ -322,30 +323,63 @@ void SBehaviorTreeDiff::OnSelectionChanged(FSharedDiffOnGraph Item, ESelectInfo:
 		PanelNew.GraphEditor.Pin()->ClearSelectionSet();
 		PanelOld.GraphEditor.Pin()->ClearSelectionSet();
 
-		if(Result.Pin1)
+		auto FocusPin = [this](UEdGraphPin* InPin)
 		{
-			LastPinTarget = Result.Pin1;
-			Result.Pin1->bIsDiffing = true;
-			GetGraphEditorForGraph(Result.Pin1->GetOwningNode()->GetGraph())->JumpToPin(Result.Pin1);
-		}
+			if (InPin)
+			{
+				LastPinTarget = InPin;
+				InPin->bIsDiffing = true;
 
-		if(Result.Pin2)
-		{
-			LastOtherPinTarget = Result.Pin2;
-			Result.Pin2->bIsDiffing = true;
-			GetGraphEditorForGraph(Result.Pin2->GetOwningNode()->GetGraph())->JumpToPin(Result.Pin2);
-		}
+				UEdGraph* NodeGraph = InPin->GetOwningNode()->GetGraph();
+				SGraphEditor* NodeGraphEditor = GetGraphEditorForGraph(NodeGraph);
+				NodeGraphEditor->JumpToPin(InPin);
+			}
+		};
+
+		FocusPin(Result.Pin1);
+		FocusPin(Result.Pin2);
 	}
 	else if(Result.Node1)
 	{
 		PanelNew.GraphEditor.Pin()->ClearSelectionSet();
 		PanelOld.GraphEditor.Pin()->ClearSelectionSet();
 
-		if(Result.Node2)
+		auto FocusNode = [this](UEdGraphNode* InNode)
 		{
-			GetGraphEditorForGraph(Result.Node2->GetGraph())->JumpToNode(Result.Node2, false);
-		}
-		GetGraphEditorForGraph(Result.Node1->GetGraph())->JumpToNode(Result.Node1, false);
+			if (InNode)
+			{
+				UEdGraph* NodeGraph = InNode->GetGraph();
+				SGraphEditor* NodeGraphEditor = GetGraphEditorForGraph(NodeGraph);
+
+				UBehaviorTreeGraphNode* BTNode = Cast<UBehaviorTreeGraphNode>(InNode);
+				if (BTNode && BTNode->bIsSubNode)
+				{
+					// This is a sub-node, we need to find our parent node in the graph
+					// todo: work out why BTNode->ParentNode is always null
+					UEdGraphNode** ParentNodePtr = NodeGraph->Nodes.FindByPredicate([BTNode](UEdGraphNode* PotentialParentNode) -> bool
+					{
+						UBehaviorTreeGraphNode* BTPotentialParentNode = Cast<UBehaviorTreeGraphNode>(PotentialParentNode);
+						return BTPotentialParentNode && (BTPotentialParentNode->Decorators.Contains(BTNode) || BTPotentialParentNode->Services.Contains(BTNode));
+					});
+
+					// We need to call JumpToNode on the parent node, and then SetNodeSelection on the sub-node
+					// as JumpToNode doesn't work for sub-nodes
+					if (ParentNodePtr)
+					{
+						check(InNode->GetGraph() == (*ParentNodePtr)->GetGraph());
+						NodeGraphEditor->JumpToNode(*ParentNodePtr, false, false);
+					}
+					NodeGraphEditor->SetNodeSelection(InNode, true);
+				}
+				else
+				{
+					NodeGraphEditor->JumpToNode(InNode, false);
+				}
+			}
+		};
+
+		FocusNode(Result.Node1);
+		FocusNode(Result.Node2);
 	}
 }
 
@@ -423,7 +457,6 @@ void SBehaviorTreeDiff::FBehaviorTreeDiffPanel::GeneratePanel(UEdGraph* Graph, U
 			.GraphToEdit(Graph)
 			.GraphToDiff(GraphToDiff)
 			.IsEditable(false)
-			.TitleBarEnabledOnly(false)
 			.TitleBar(SNew(SBorder).HAlign(HAlign_Center)
 			[
 				SNew(STextBlock).Text(GetTitle())
@@ -546,27 +579,8 @@ bool SBehaviorTreeDiff::FBehaviorTreeDiffPanel::CanCopyNodes() const
 
 void SBehaviorTreeDiff::FBehaviorTreeDiffPanel::OnSelectionChanged( const FGraphPanelSelectionSet& NewSelection )
 {
-	TArray<UObject*> Selection;
-	if(NewSelection.Num())
-	{
-		for(TSet<class UObject*>::TConstIterator SetIt(NewSelection);SetIt;++SetIt)
-		{
-			UBehaviorTreeGraphNode_Composite* GraphNode_Composite = Cast<UBehaviorTreeGraphNode_Composite>(*SetIt);
-			if (GraphNode_Composite)
-			{
-				Selection.Add(GraphNode_Composite->NodeInstance);
-				continue;
-			}
-
-			UBehaviorTreeGraphNode_Task* GraphNode_Task = Cast<UBehaviorTreeGraphNode_Task>(*SetIt);
-			if (GraphNode_Task)
-			{
-				Selection.Add(GraphNode_Task->NodeInstance);
-				continue;
-			}
-			Selection.Add(*SetIt);
-		}
-	}
+	BehaviorTreeEditorUtils::FPropertySelectionInfo SelectionInfo;
+	TArray<UObject*> Selection = BehaviorTreeEditorUtils::GetSelectionForPropertyEditor(NewSelection, SelectionInfo);
 
 	if (Selection.Num() == 1)
 	{

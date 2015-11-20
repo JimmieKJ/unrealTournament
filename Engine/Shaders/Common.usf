@@ -6,12 +6,13 @@
   
 #pragma once
 
+
 #if PS4_PROFILE  
 	// always #include PS4Common.usf so it can #define override anything in any other included file.
 	#include "PS4/PS4Common.usf"
 #endif
 
-#if METAL_PROFILE || METAL_MRT_PROFILE
+#if COMPILER_METAL
 	// Helps with iteration when changing Metal shader code generation backend.
 	#include "MetalCommon.usf"
 #endif
@@ -62,7 +63,7 @@
 	#define MaterialFloat4x3 float4x3 
 #endif
 
-#if COMPILER_GLSL_ES2 || METAL_PROFILE || METAL_MRT_PROFILE
+#if COMPILER_GLSL_ES2 || COMPILER_METAL
 
 	float determinant(float3x3 M)
 	{    
@@ -104,6 +105,8 @@
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
 #elif SM4_PROFILE
 	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
+#elif VULKAN_PROFILE
+	#define FEATURE_LEVEL FEATURE_LEVEL_ES2
 #elif GL3_PROFILE || GL4_PROFILE
 
 	#if GL3_PROFILE
@@ -131,7 +134,19 @@
 	// @todo metal: remove this and make sure all uses handle METAL_MRT_PROFILE
 	#undef SM4_PROFILE
 	#define SM4_PROFILE 1
-	#define FCOLOR_COMPONENT_SWIZZLE .bgra  
+	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+#elif METAL_SM4_PROFILE
+	#define FEATURE_LEVEL FEATURE_LEVEL_SM4
+	// @todo metal: remove this and make sure all uses handle METAL_SM4_PROFILE
+	#undef SM4_PROFILE
+	#define SM4_PROFILE 1
+	#define FCOLOR_COMPONENT_SWIZZLE .bgra
+#elif METAL_SM5_PROFILE
+	#define FEATURE_LEVEL FEATURE_LEVEL_SM5
+	// @todo metal: remove this and make sure all uses handle FEATURE_LEVEL_SM5
+	#undef SM5_PROFILE
+	#define SM5_PROFILE 1
+	#define FCOLOR_COMPONENT_SWIZZLE .bgra
 #elif ES2_PROFILE || ES3_1_PROFILE
 	#if ES3_1_PROFILE
 		#define FEATURE_LEVEL FEATURE_LEVEL_ES3_1
@@ -163,8 +178,8 @@
 #define PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS (!PS4_PROFILE && !XBOXONE_PROFILE && !ES31_AEP_PROFILE)
 #define USE_DEVELOPMENT_SHADERS (COMPILE_SHADERS_FOR_DEVELOPMENT && PLATFORM_SUPPORTS_DEVELOPMENT_SHADERS)
 
-#ifndef ES2_EMULATION
-#define ES2_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2) && (!COMPILER_GLSL_ES2 && USE_DEVELOPMENT_SHADERS && !METAL_PROFILE))
+#ifndef MOBILE_EMULATION
+#define MOBILE_EMULATION ((FEATURE_LEVEL == FEATURE_LEVEL_ES2 || FEATURE_LEVEL == FEATURE_LEVEL_ES3_1) && (!COMPILER_GLSL_ES2 && USE_DEVELOPMENT_SHADERS && !METAL_PROFILE && !VULKAN_PROFILE))
 #endif
 
 // If we didn't request color component swizzling, just make it empty
@@ -176,7 +191,7 @@
 // When enabled, different texture lookups can share samplers to allow more artist samplers in the base pass
 // Ideally this would just be enabled for all SM4 and above feature level platforms
 // @todo metal mrt: No reason this can't work with Metal, once cross compiler is fixed
-#define SUPPORTS_INDEPENDENT_SAMPLERS ((PS4_PROFILE || SM5_PROFILE || SM4_PROFILE) && !METAL_MRT_PROFILE)
+#define SUPPORTS_INDEPENDENT_SAMPLERS (PS4_PROFILE || SM5_PROFILE || SM4_PROFILE || METAL_MRT_PROFILE || METAL_SM4_PROFILE || METAL_SM5_PROFILE)
 
 // This would need to be a #define in GLSL to ignore the SamplerState, however, it is currently a function call in HLSL
 // for type checking of the parameters - ironically the type checking is really only needed in GLSL!
@@ -236,6 +251,10 @@ MaterialFloat4 Texture2DSampleBias(Texture2D Tex, SamplerState Sampler, float2 U
 	return Tex.SampleBias(Sampler, UV, MipBias);
 #endif
 }
+MaterialFloat4 Texture2DSampleGrad(Texture2D Tex, SamplerState Sampler, float2 UV, MaterialFloat2 DDX, MaterialFloat2 DDY)
+{
+	return Tex.SampleGrad(Sampler, UV, DDX, DDY);
+}
 MaterialFloat4 Texture3DSampleLevel(Texture3D Tex, SamplerState Sampler, float3 UV, MaterialFloat Mip)
 {
 	return Tex.SampleLevel(Sampler, UV, Mip);
@@ -251,6 +270,10 @@ MaterialFloat4 TextureCubeSampleBias(TextureCube Tex, SamplerState Sampler, floa
 #else
 	return Tex.SampleBias(Sampler, UV, MipBias);
 #endif
+}
+MaterialFloat4 TextureCubeSampleGrad(TextureCube Tex, SamplerState Sampler, float3 UV, MaterialFloat3 DDX, MaterialFloat3 DDY)
+{
+	return Tex.SampleGrad(Sampler, UV, DDX, DDY);
 }
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM5 // Cubemap arrays are not supported in SM4 feature level
@@ -512,6 +535,118 @@ float4 Square( float4 x )
 	return x*x;
 }
 
+float Pow2( float x )
+{
+	return x*x;
+}
+
+float2 Pow2( float2 x )
+{
+	return x*x;
+}
+
+float3 Pow2( float3 x )
+{
+	return x*x;
+}
+
+float4 Pow2( float4 x )
+{
+	return x*x;
+}
+
+float Pow3( float x )
+{
+	return x*x*x;
+}
+
+float2 Pow3( float2 x )
+{
+	return x*x*x;
+}
+
+float3 Pow3( float3 x )
+{
+	return x*x*x;
+}
+
+float4 Pow3( float4 x )
+{
+	return x*x*x;
+}
+
+float Pow4( float x )
+{
+	float xx = x*x;
+	return xx * xx;
+}
+
+float2 Pow4( float2 x )
+{
+	float2 xx = x*x;
+	return xx * xx;
+}
+
+float3 Pow4( float3 x )
+{
+	float3 xx = x*x;
+	return xx * xx;
+}
+
+float4 Pow4( float4 x )
+{
+	float4 xx = x*x;
+	return xx * xx;
+}
+
+float Pow5( float x )
+{
+	float xx = x*x;
+	return xx * xx * x;
+}
+
+float2 Pow5( float2 x )
+{
+	float2 xx = x*x;
+	return xx * xx * x;
+}
+
+float3 Pow5( float3 x )
+{
+	float3 xx = x*x;
+	return xx * xx * x;
+}
+
+float4 Pow5( float4 x )
+{
+	float4 xx = x*x;
+	return xx * xx * x;
+}
+
+float Pow6( float x )
+{
+	float xx = x*x;
+	return xx * xx * xx;
+}
+
+float2 Pow6( float2 x )
+{
+	float2 xx = x*x;
+	return xx * xx * xx;
+}
+
+float3 Pow6( float3 x )
+{
+	float3 xx = x*x;
+	return xx * xx * xx;
+}
+
+float4 Pow6( float4 x )
+{
+	float4 xx = x*x;
+	return xx * xx * xx;
+}
+
 // Only valid for x >= 0
 MaterialFloat AtanFast( MaterialFloat x )
 {
@@ -526,20 +661,6 @@ MaterialFloat AtanFast( MaterialFloat x )
 MaterialFloat3x3 GetLocalToWorld3x3()
 {
 	return (MaterialFloat3x3)Primitive.LocalToWorld;
-}
-
-float4 PreviousLighting(float4 ScreenPosition)
-{
-	return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
-}
-
-/** Fetches the values in the light attenuation buffer. */
-float4 GetLightAttenuation(float4 ScreenPosition)
-{
-	ScreenPosition.xy = float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
-	float4 Attenuation = Texture2DSample(LightAttenuationTexture, LightAttenuationTextureSampler, ScreenPosition.xy);
-	// Undo the sqrt that was used to encode
-	return Square(Attenuation);
 }
 
 /** Converts a linear input value into a value to be stored in the light attenuation buffer. */
@@ -559,13 +680,21 @@ MaterialFloat4 EncodeLightAttenuation(MaterialFloat4 InColor)
 /** return the scene lighting texture */
 MaterialFloat3 CalcSceneColor(MaterialFloat2 ScreenUV)
 {
+#if SCENE_TEXTURES_DISABLED
+	return MaterialFloat3(0.0f,0.0f,0.0f);
+#else
 	return Texture2DSampleLevel(SceneColorTexture, SceneColorTextureSampler, ScreenUV, 0).rgb;
+#endif
 }
 
 /** return all channels of the scene lighting texture */
 MaterialFloat4 CalcFullSceneColor(MaterialFloat2 ScreenUV)
 {
-	  return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenUV);
+#if SCENE_TEXTURES_DISABLED
+	return MaterialFloat4(0.0f, 0.0f, 0.0f, 0.0f);
+#else
+	return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenUV);
+#endif
 }
 
 /** Encodes HDR linear scene color for storage in the 8 bit light attenuation texture. */
@@ -686,6 +815,89 @@ MaterialFloat3 RGBMDecode( MaterialFloat4 rgbm )
 	return rgbm.rgb * (rgbm.a * 64.0f);
 }
 
+MaterialFloat4 RGBTEncode8BPC(MaterialFloat3 Color, MaterialFloat Range)
+{
+	MaterialFloat Max = max(max(Color.r, Color.g), max(Color.b, 1e-6));
+	Max = min(Max, Range);
+
+	MaterialFloat4 RGBT;
+	RGBT.a = (Range + 1) / Range *  Max / (1 + Max);
+
+	// quantise alpha to 8 bit.
+	RGBT.a = ceil(RGBT.a*255.0) / 255.0;
+	Max = RGBT.a / (1 + 1 / Range - RGBT.a);
+
+	MaterialFloat RcpMax = rcp(Max);
+	RGBT.rgb = Color.rgb * RcpMax;
+	return RGBT;
+}
+
+MaterialFloat3 RGBTDecode8BPC(MaterialFloat4 RGBT, MaterialFloat Range)
+{
+	RGBT.a = RGBT.a / (1 + 1 / Range - RGBT.a);
+	return RGBT.rgb * RGBT.a;
+}
+
+#define HDR_ENCODE_NONE 0.0		// 64bpp HDR
+#define HDR_ENCODE_MOSAIC 1.0	// 32bpp HDR using Mosaic encoding
+#define HDR_ENCODE_RGBA 2.0		// 32bpp HDR using RGBA encoding
+
+float GetHDR32bppEncodeMode()
+{
+#if ES2_PROFILE
+	#if COMPILER_GLSL_ES2
+		#if IOS || WEBGL
+			#if USE_32BPP_HDR
+				return HDR_ENCODE_MOSAIC;
+			#endif
+		#else // ANDROID
+			return intrinsic_GetHDR32bppEncodeModeES2();
+		#endif
+	#endif
+	#if MOBILE_EMULATION
+		// To enable editor runtime change without recompile, PC always eats the encode cost.
+		return View.HDR32bppEncodingMode;
+	#endif
+#endif
+	return HDR_ENCODE_NONE;
+}
+
+#define DEFAULT_32BPPHDR_ENCODED_RANGE 1024.0
+
+MaterialFloat4 Encode32BPPHDR(MaterialFloat4 Color, MaterialFloat2 SvPosition)
+{
+	float Mode = GetHDR32bppEncodeMode();
+	if (Mode == HDR_ENCODE_MOSAIC)
+	{ 
+		return MaterialFloat4(HdrMosaic(Color.rgb, SvPosition), Color.a);
+	}
+	else if (Mode == HDR_ENCODE_RGBA)
+	{ 
+		return RGBTEncode8BPC(Color.rgb, DEFAULT_32BPPHDR_ENCODED_RANGE);
+	}
+	else 
+	{ 
+		return Color;
+	}
+}
+
+MaterialFloat3 Decode32BPPHDR(MaterialFloat4 Encoded, MaterialFloat3 OtherEncoded = MaterialFloat3(0, 0, 0), MaterialFloat2 SvPosition = MaterialFloat2(0, 0))
+{
+	float Mode = GetHDR32bppEncodeMode();
+	if (Mode == HDR_ENCODE_MOSAIC)
+	{
+		return HdrDemosaic(Encoded.rgb, OtherEncoded, SvPosition);
+	}
+	if (Mode == HDR_ENCODE_RGBA)
+	{ 
+		return RGBTDecode8BPC(Encoded, DEFAULT_32BPPHDR_ENCODED_RANGE);
+	}
+	else 
+	{
+		return Encoded.rgb; 
+	}
+}
+
 /** Calculates the ScreenUV given the screen position and an offset fraction. */
 float2 CalcScreenUVFromOffsetFraction(float4 ScreenPosition, float2 OffsetFraction)
 {
@@ -700,10 +912,15 @@ float2 CalcScreenUVFromOffsetFraction(float4 ScreenPosition, float2 OffsetFracti
 /** Applies an offset to the scene texture lookup and decodes the HDR linear space color. */
 float3 DecodeSceneColorForMaterialNode(float2 ScreenUV)
 {
+#if HIT_PROXY_SHADER || SCENE_TEXTURES_DISABLED
+	// Hit proxies rendering pass doesn't have access to valide render buffers
+	return float3(0.0f, 0.0f, 0.0f);
+#else
 	float4 EncodedSceneColor = Texture2DSample(LightAttenuationTexture, LightAttenuationTextureSampler, ScreenUV);
 
 	// Undo the function in EncodeSceneColorForMaterialNode
 	return pow(EncodedSceneColor.rgb, 4) * 10;
+#endif
 }
 
 // Converts depth buffer Z / W into W
@@ -718,9 +935,13 @@ float ConvertToDeviceZ(float SceneDepth)
 	return 1.0f / ((SceneDepth + View.InvDeviceZToWorldZTransform[3]) * View.InvDeviceZToWorldZTransform[2]);
 }
 
-/** Returns clip space W, which is world space distance along the View Z axis. */
+/** Returns clip space W, which is world space distance along the View Z axis. Note if you need DeviceZ LookupDeviceZ() is the faster option */
 float CalcSceneDepth( float2 ScreenUV )
 {
+#if SCENE_TEXTURES_DISABLED
+	return 0.0f;
+#else
+
 #if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
 	return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
 #else
@@ -731,7 +952,8 @@ float CalcSceneDepth( float2 ScreenUV )
 		#elif WEBGL
 			return Texture2DSampleLevel(SceneAlphaCopyTexture, SceneAlphaCopyTextureSampler, ScreenUV, 0).r;
 		#else 
-			return 65000.0f; 
+			float SceneW = ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);		
+			return DepthbufferFetchES2(SceneW, View.InvDeviceZToWorldZTransform[2], View.InvDeviceZToWorldZTransform[3]);
 		#endif 
 	#elif METAL_PROFILE
 			return FramebufferFetchES2().w;
@@ -739,9 +961,30 @@ float CalcSceneDepth( float2 ScreenUV )
 		return ConvertFromDeviceZ(Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r);
 	#endif
 #endif
+#endif
 }
 
-#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || ES2_EMULATION
+/** Returns DeviceZ which is the z value storesd in the depth buffer. Perfer this over CalcSceneDepth() on most hardware. */
+float LookupDeviceZ( float2 ScreenUV )
+{
+#if FEATURE_LEVEL > FEATURE_LEVEL_ES3_1
+	// native Depth buffer lookup
+	return Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r;
+#else
+	#if COMPILER_GLSL_ES2
+		// todo: can be optimized
+		return ConvertToDeviceZ(CalcSceneDepth(ScreenUV));
+	#elif METAL_PROFILE
+		// todo: can be optimized
+		return ConvertToDeviceZ(CalcSceneDepth(ScreenUV));
+	#else
+		// native Depth buffer lookup
+		return Texture2DSampleLevel(SceneDepthTexture, SceneDepthTextureSampler, ScreenUV, 0).r;
+	#endif
+#endif
+}
+
+#if FEATURE_LEVEL >= FEATURE_LEVEL_SM4 || MOBILE_EMULATION
 
 	// depth in in DeviceZ
 	Texture2D<float> SceneDepthTextureNonMS;
@@ -749,10 +992,14 @@ float CalcSceneDepth( float2 ScreenUV )
 	/** Returns clip space W, which is world space distance along the View Z axis. */
 	float CalcSceneDepth(uint2 PixelPos)
 	{
+#if SCENE_TEXTURES_DISABLED
+		return 0.0f;
+#else
 		float DeviceZ = SceneDepthTextureNonMS.Load(int3(PixelPos, 0));
 
 		// Fetch the depth buffer Z / W value, solve for W
 		return ConvertFromDeviceZ(DeviceZ);
+#endif
 	}
 #endif
 
@@ -762,12 +1009,6 @@ float CalcSceneDepth( float2 ScreenUV )
 float4 CalcSceneColorAndDepth( float2 ScreenUV )
 {
 	return float4(CalcSceneColor(ScreenUV), CalcSceneDepth(ScreenUV));
-}
-
-float PreviousDepth(float4 ScreenPosition)
-{
-	ScreenPosition.xy = float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
-	return CalcSceneDepth(ScreenPosition.xy);
 }
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4
@@ -790,20 +1031,65 @@ float PreviousDepth(float4 ScreenPosition)
 
 		return ConvertFromDeviceZ(DeviceZ);
 	}
-	float PreviousDepthMSAA(float4 ScreenPosition,uint SampleIndex)
-	{
-		ScreenPosition.xy = float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
-		return CalcSceneDepthMSAA(ScreenPosition.xy,SampleIndex);
-	}
 #endif
 	 
+// ----------------------------
+
+float2 ScreenPositionToBufferUV(float4 ScreenPosition)
+{
+	return float2(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz);
+}
+
+float2 SvPositionToBufferUV(float4 SvPosition)
+{
+	return SvPosition.xy * View.BufferSizeAndInvSize.zw;
+}
+	
+float3 SvPositionToTranslatedWorld(float4 SvPosition)
+{
+	float4 HomWorldPos = mul(float4(SvPosition.xyz, 1), View.SVPositionToTranslatedWorld);
+
+	return HomWorldPos.xyz / HomWorldPos.w;
+}
+
+// prefer to use SvPositionToTranslatedWorld() for better quality
+float3 SvPositionToWorld(float4 SvPosition)
+{
+	return SvPositionToTranslatedWorld(SvPosition) - View.PreViewTranslation;
+}
+
+// investigate: doesn't work for usage with View.ScreenToWorld, see SvPositionToScreenPosition2()
+float4 SvPositionToScreenPosition(float4 SvPosition)
+{
+	// todo: is already in .w or needs to be reconstructed like this:
+//	SvPosition.w = ConvertFromDeviceZ(SvPosition.z);
+
+	float2 PixelPos = SvPosition.xy - View.ViewRectMin.xy;	
+
+	// NDC (NormalizedDeviceCoordinates, after the perspective divide)
+	float3 NDCPos = float3( (PixelPos * View.ViewSizeAndInvSize.zw - 0.5f) * float2(2, -2), SvPosition.z);
+
+	// SvPosition.w: so .w has the SceneDepth, some mobile code and the DepthFade material expression wants that
+	return float4(NDCPos.xyz, 1) * SvPosition.w;
+}
+
+float2 SvPositionToViewportUV(float4 SvPosition)
+{
+	// can be optimized from 2SUB+2MUL to 2MAD
+	float2 PixelPos = SvPosition.xy - View.ViewRectMin.xy;	
+
+	return PixelPos.xy * View.ViewSizeAndInvSize.zw;
+}
+
+// ----------------------------
+
 /** 
  * aligns the clip space position so that it can be used as a texture coordinate
  * to properly align in screen space
  */
-MaterialFloat4 ScreenAlignedPosition( float4 ScreenPosition )
+MaterialFloat2 ScreenAlignedPosition( float4 ScreenPosition )
 {
-	return MaterialFloat4(ScreenPosition.xy / ScreenPosition.w * View.ScreenPositionScaleBias.xy + View.ScreenPositionScaleBias.wz, ScreenPosition.z/ScreenPosition.w,1);
+	return MaterialFloat2(ScreenPositionToBufferUV(ScreenPosition));
 }
 
 /** 
@@ -879,7 +1165,7 @@ float AntialiasedTextureMask( Texture2D Tex, SamplerState Sampler, float2 UV, fl
 		float Sample1 = dot(MaskConst, Texture2DSample(Tex, Sampler, UV));
 
 		// compute the derivatives of the texture content
-		float2 TexDD = float2(ddx(Sample1), ddy(Sample1));
+		float2 TexDD = float2(DDX(Sample1), DDY(Sample1));
 
 		float TexDDLength = max(abs(TexDD.x), abs(TexDD.y)); 
 		float Top = InvWidthConst * (Sample1 - ThresholdConst);
@@ -994,9 +1280,26 @@ MaterialFloat ComputeDistanceFromBoxToPoint(MaterialFloat3 Mins, MaterialFloat3 
 	MaterialFloat3 DistancesToMin = InPoint < Mins ? abs(InPoint - Mins) : 0;
 	MaterialFloat3 DistancesToMax = InPoint > Maxs ? abs(InPoint - Maxs) : 0;
 
+	//@todo - this is actually incorrect, it gives manhattan distance
 	MaterialFloat Distance = dot(DistancesToMin, 1);
 	Distance += dot(DistancesToMax, 1);
 	return Distance;
+}
+
+/** Computes squared distance from a point in space to an AABB. */
+MaterialFloat ComputeSquaredDistanceFromBoxToPoint(MaterialFloat3 BoxCenter, MaterialFloat3 BoxExtent, MaterialFloat3 InPoint)
+{
+	MaterialFloat3 AxisDistances = max(abs(InPoint - BoxCenter) - BoxExtent, 0);
+	return dot(AxisDistances, AxisDistances);
+}
+
+/** Computes distance from point inside an AABB to the AABB's surface. */
+float ComputeDistanceFromBoxToPointInside(float3 BoxCenter, float3 BoxExtent, float3 InPoint)
+{
+	float3 DistancesToMin = max(InPoint - BoxCenter + BoxExtent, 0);
+	float3 DistancesToMax = max(BoxCenter + BoxExtent - InPoint, 0);
+	float3 ClosestDistances = min(DistancesToMin, DistancesToMax);
+	return min(ClosestDistances.x, min(ClosestDistances.y, ClosestDistances.z));
 }
 
 /** Transforms a vector from tangent space to world space */
@@ -1031,7 +1334,7 @@ MaterialFloat GetBoxPushout(MaterialFloat3 Normal,MaterialFloat3 Extent)
 /** Output of the screen vertex shader. */
 struct FScreenVertexOutput
 {
-	MaterialFloat2 UV : TEXCOORD0;
+	noperspective MaterialFloat2 UV : TEXCOORD0;
 	float4 Position : SV_POSITION;
 };
 
@@ -1139,4 +1442,102 @@ float DecodeHeightValue(float InValue)
 float DecodePackedHeight(float2 PackedHeight)
 {
 	return DecodeHeightValue(DecodePackedTwoChannelValue(PackedHeight));
+}
+
+uint ReverseBits32( uint bits )
+{
+#if SM5_PROFILE && !METAL_SM5_PROFILE
+	return reversebits( bits );
+#else
+	bits = ( bits << 16) | ( bits >> 16);
+	bits = ( (bits & 0x00ff00ff) << 8 ) | ( (bits & 0xff00ff00) >> 8 );
+	bits = ( (bits & 0x0f0f0f0f) << 4 ) | ( (bits & 0xf0f0f0f0) >> 4 );
+	bits = ( (bits & 0x33333333) << 2 ) | ( (bits & 0xcccccccc) >> 2 );
+	bits = ( (bits & 0x55555555) << 1 ) | ( (bits & 0xaaaaaaaa) >> 1 );
+	return bits;
+#endif
+}
+
+SamplerState GetBilinearWrappedSampler()
+{
+#if PS4_PROFILE
+	sce::Gnm::Sampler BuiltinSampler = GetDefaultBuiltinSampler();
+	BuiltinSampler.setWrapMode(sce::Gnm::kWrapModeWrap, sce::Gnm::kWrapModeWrap, sce::Gnm::kWrapModeWrap);
+	BuiltinSampler.setXyFilterMode(sce::Gnm::kFilterModeBilinear, sce::Gnm::kFilterModeBilinear);
+	BuiltinSampler.setZFilterMode(sce::Gnm::kZFilterModeLinear);
+	BuiltinSampler.setMipFilterMode(sce::Gnm::kMipFilterModePoint);
+	return SamplerState(BuiltinSampler);
+#else
+	return BuiltinSamplers.Bilinear;
+#endif
+}
+
+SamplerState GetBilinearClampedSampler()
+{
+#if PS4_PROFILE
+	sce::Gnm::Sampler BuiltinSampler = GetDefaultBuiltinSampler();
+	BuiltinSampler.setXyFilterMode(sce::Gnm::kFilterModeBilinear, sce::Gnm::kFilterModeBilinear);
+	BuiltinSampler.setMipFilterMode(sce::Gnm::kMipFilterModePoint);
+	BuiltinSampler.setZFilterMode(sce::Gnm::kZFilterModeLinear);
+	BuiltinSampler.setWrapMode(sce::Gnm::kWrapModeClampLastTexel, sce::Gnm::kWrapModeClampLastTexel, sce::Gnm::kWrapModeClampLastTexel);
+	return SamplerState(BuiltinSampler);
+#else
+	return BuiltinSamplers.BilinearClamped;
+#endif
+}
+
+SamplerState GetPointWrappedSampler()
+{
+#if PS4_PROFILE
+	sce::Gnm::Sampler BuiltinSampler = GetDefaultBuiltinSampler();
+	BuiltinSampler.setXyFilterMode(sce::Gnm::kFilterModePoint, sce::Gnm::kFilterModePoint);
+	BuiltinSampler.setMipFilterMode(sce::Gnm::kMipFilterModePoint);
+	BuiltinSampler.setZFilterMode(sce::Gnm::kZFilterModePoint);
+	BuiltinSampler.setWrapMode(sce::Gnm::kWrapModeWrap, sce::Gnm::kWrapModeWrap, sce::Gnm::kWrapModeWrap);
+	return SamplerState(BuiltinSampler);
+#else
+	return BuiltinSamplers.Point;
+#endif
+}
+
+SamplerState GetPointClampedSampler()
+{
+#if PS4_PROFILE
+	sce::Gnm::Sampler BuiltinSampler = GetDefaultBuiltinSampler();
+	BuiltinSampler.setXyFilterMode(sce::Gnm::kFilterModePoint, sce::Gnm::kFilterModePoint);
+	BuiltinSampler.setMipFilterMode(sce::Gnm::kMipFilterModePoint);
+	BuiltinSampler.setZFilterMode(sce::Gnm::kZFilterModePoint);
+	BuiltinSampler.setWrapMode(sce::Gnm::kWrapModeClampLastTexel, sce::Gnm::kWrapModeClampLastTexel, sce::Gnm::kWrapModeClampLastTexel);
+	return SamplerState(BuiltinSampler);
+#else
+	return BuiltinSamplers.PointClamped;
+#endif
+}
+
+SamplerState GetTrilinearWrappedSampler()
+{
+#if PS4_PROFILE
+	sce::Gnm::Sampler BuiltinSampler = GetDefaultBuiltinSampler();
+	BuiltinSampler.setXyFilterMode(sce::Gnm::kFilterModeBilinear, sce::Gnm::kFilterModeBilinear);
+	BuiltinSampler.setMipFilterMode(sce::Gnm::kMipFilterModeLinear);
+	BuiltinSampler.setZFilterMode(sce::Gnm::kZFilterModeLinear);
+	BuiltinSampler.setWrapMode(sce::Gnm::kWrapModeWrap, sce::Gnm::kWrapModeWrap, sce::Gnm::kWrapModeWrap);
+	return SamplerState(BuiltinSampler);
+#else
+	return BuiltinSamplers.Trilinear;
+#endif
+}
+
+SamplerState GetTrilinearClampedSampler()
+{
+#if PS4_PROFILE
+	sce::Gnm::Sampler BuiltinSampler = GetDefaultBuiltinSampler();
+	BuiltinSampler.setXyFilterMode(sce::Gnm::kFilterModeBilinear, sce::Gnm::kFilterModeBilinear);
+	BuiltinSampler.setMipFilterMode(sce::Gnm::kMipFilterModeLinear);
+	BuiltinSampler.setZFilterMode(sce::Gnm::kZFilterModeLinear);
+	BuiltinSampler.setWrapMode(sce::Gnm::kWrapModeClampLastTexel, sce::Gnm::kWrapModeClampLastTexel, sce::Gnm::kWrapModeClampLastTexel);
+	return SamplerState(BuiltinSampler);
+#else
+	return BuiltinSamplers.TrilinearClamped;
+#endif
 }

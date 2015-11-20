@@ -367,7 +367,7 @@ namespace APIDocTool
 				if (!Utility.IsNullOrWhitespace(FullDescription))
 				{
 					Writer.EnterSection("description", "Remarks");
-					Writer.WriteLine(FullDescription);
+					Writer.WriteLine(FullDescription.Replace("<", "&lt;").Replace(">", "&gt;"));
 					Writer.LeaveSection();
 				}
 

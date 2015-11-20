@@ -33,7 +33,6 @@ namespace UE4MapProperty_Private
 			}
 
 			++Index;
-			--Num;
 		}
 
 		return false;
@@ -252,8 +251,11 @@ void UMapProperty::SerializeItem(FArchive& Ar, void* Value, const void* Defaults
 		uint8* TempKeyStorage = nullptr;
 		ON_SCOPE_EXIT
 		{
-			KeyProp->DestroyValue(TempKeyStorage);
-			FMemory::Free(TempKeyStorage);
+			if (TempKeyStorage)
+			{
+				KeyProp->DestroyValue(TempKeyStorage);
+				FMemory::Free(TempKeyStorage);
+			}
 		};
 
 		// Delete any explicitly-removed keys
@@ -449,6 +451,12 @@ FString UMapProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 
 void UMapProperty::ExportTextItem(FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope) const
 {
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		ValueStr += TEXT("{}");
+		return;
+	}
+
 	checkSlow(KeyProp);
 	checkSlow(ValueProp);
 
@@ -741,7 +749,7 @@ void UMapProperty::InstanceSubobjects(void* Data, void const* DefaultData, UObje
 
 				if (bInstancedValue)
 				{
-					ValueProp->InstanceSubobjects(PairPtr + MapLayout.ValueOffset, DefaultPairPtr + MapLayout.ValueOffset, Owner, InstanceGraph);
+					ValueProp->InstanceSubobjects(PairPtr + MapLayout.ValueOffset, DefaultPairPtr ? DefaultPairPtr + MapLayout.ValueOffset : nullptr, Owner, InstanceGraph);
 				}
 
 				--Num;

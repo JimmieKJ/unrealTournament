@@ -38,6 +38,8 @@
 #include "ScopedTransaction.h"
 #include "GameFramework/WorldSettings.h"
 
+#include "HierarchicalLODOutlinerModule.h"
+
 
 static const FName LevelEditorBuildAndSubmitTab("LevelEditorBuildAndSubmit");
 static const FName LevelEditorStatsViewerTab("LevelEditorStatsViewer");
@@ -509,7 +511,43 @@ TSharedRef<FTabManager> SLevelEditor::GetTabManager() const
 	return LevelEditorTabManager.ToSharedRef();
 }
 
+void SLevelEditor::AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TSharedPtr<IAssetEditorInstance> NewSequencerAssetEditor )
+{
+	struct Local
+	{
+		static void OnSequencerClosed( TSharedRef<SDockTab> DockTab, TWeakPtr<IAssetEditorInstance> InSequencerAssetEditor )
+		{
+			InSequencerAssetEditor.Pin()->CloseWindow();
+		}
+	};
 
+	static bool bIsReentrant = false;
+
+	if( !bIsReentrant )
+	{
+		if(SequencerAssetEditor.IsValid())
+		{
+			// Closing the window will invoke this method again but we are handling reopening with a new movie scene ourselves
+			TGuardValue<bool> ReentrantGuard(bIsReentrant, true);
+			// Shutdown cleanly
+			SequencerAssetEditor.Pin()->CloseWindow();
+		}
+
+		if(SequencerWidget.IsValid() && NewSequencerAssetEditor.IsValid())
+		{
+			TSharedRef<SDockTab> Tab = InvokeTab("Sequencer");
+
+			Tab->SetOnTabClosed(SDockTab::FOnTabClosedCallback::CreateStatic(&Local::OnSequencerClosed, TWeakPtr<IAssetEditorInstance>(NewSequencerAssetEditor)));
+			Tab->SetContent(SequencerWidget.ToSharedRef());
+
+			SequencerAssetEditor = NewSequencerAssetEditor;
+		}
+		else
+		{
+			SequencerAssetEditor.Reset();
+		}
+	}
+}
 
 TSharedRef<SDockTab> SLevelEditor::SummonDetailsPanel( FName TabIdentifier )
 {
@@ -667,6 +705,21 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 					]
 				];
 	}
+	else if (TabIdentifier == TEXT("LevelEditorHierarchicalLODOutliner"))
+	{
+		FHierarchicalLODOutlinerModule& HLODModule = FModuleManager::LoadModuleChecked<FHierarchicalLODOutlinerModule>("HierarchicalLODOutliner");
+		return SNew(SDockTab)
+			.Icon(FEditorStyle::GetBrush("LevelEditor.Tabs.HLOD"))
+			.Label(NSLOCTEXT("LevelEditor", "HLODTabTitle", "Hierarchical LOD Outliner"))
+			[
+				SNew(SBorder)
+				.Padding(0)
+				.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))				
+				[
+					HLODModule.CreateHLODOutlinerWidget()
+				]
+			];
+	}
 	else if( TabIdentifier == WorldBrowserHierarchyTab )
 	{
 		FWorldBrowserModule& WorldBrowserModule = FModuleManager::LoadModuleChecked<FWorldBrowserModule>( "WorldBrowser" );
@@ -697,16 +750,18 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 				WorldBrowserModule.CreateWorldBrowserComposition()
 			];
 	}
-	else if( TabIdentifier == TEXT("Sequencer") && FParse::Param(FCommandLine::Get(), TEXT("sequencer")) )
+	else if( TabIdentifier == TEXT("Sequencer") )
 	{
-		// @todo remove when world-centric mode is added
-		SequencerTab = SNew(SDockTab)
-			.Icon( FEditorStyle::GetBrush("Sequencer.Tabs.SequencerMain") )
-			.Label( NSLOCTEXT("Sequencer", "SequencerMainTitle", "Sequencer") )
-			[
-				SNullWidget::NullWidget
-			];
-		return SequencerTab.ToSharedRef();
+		if (FSlateStyleRegistry::FindSlateStyle("LevelSequenceEditorStyle"))
+		{
+			// @todo sequencer: remove when world-centric mode is added
+			return SNew(SDockTab)
+				.Icon( FSlateStyleRegistry::FindSlateStyle("LevelSequenceEditorStyle")->GetBrush("LevelSequenceEditor.Tabs.Sequencer") )
+				.Label( NSLOCTEXT("Sequencer", "SequencerMainTitle", "Sequencer") )
+				[
+					SNullWidget::NullWidget
+				];
+		}
 	}
 	else if( TabIdentifier == LevelEditorStatsViewerTab )
 	{
@@ -715,7 +770,7 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 			.Icon( FEditorStyle::GetBrush( "LevelEditor.Tabs.StatsViewer" ) )
 			.Label( NSLOCTEXT("LevelEditor", "StatsViewerTabTitle", "Statistics") )
 			[
-				StatsViewerModule.CreateStatsViewer()					
+				StatsViewerModule.CreateStatsViewer()
 			];
 	}
 	else if ( TabIdentifier == "WorldSettingsTab" )
@@ -743,10 +798,10 @@ TSharedRef<SDockTab> SLevelEditor::SpawnLevelEditorTab( const FSpawnTabArgs& Arg
 	return SNew(SDockTab);
 }
 
-void SLevelEditor::InvokeTab( FName TabID )
+TSharedRef<SDockTab> SLevelEditor::InvokeTab( FName TabID )
 {
 	TSharedPtr<FTabManager> LevelEditorTabManager = GetTabManager();
-	LevelEditorTabManager->InvokeTab(TabID);
+	return LevelEditorTabManager->InvokeTab(TabID);
 }
 
 void SLevelEditor::SyncDetailsToSelection()
@@ -999,6 +1054,15 @@ TSharedRef<SWidget> SLevelEditor::RestoreContentArea( const TSharedRef<SDockTab>
 				.SetGroup( MenuStructure.GetLevelEditorCategory() )
 				.SetIcon( LayersIcon );
 		}
+
+		{
+			const FSlateIcon LayersIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.HLOD");
+			LevelEditorTabManager->RegisterTabSpawner("LevelEditorHierarchicalLODOutliner", FOnSpawnTab::CreateSP<SLevelEditor, FName, FString>(this, &SLevelEditor::SpawnLevelEditorTab, FName("LevelEditorHierarchicalLODOutliner"), FString()))
+				.SetDisplayName(NSLOCTEXT("LevelEditorTabs", "LevelEditorHierarchicalLODOutliner", "Hierarchical LOD Outliner"))
+				.SetTooltipText(NSLOCTEXT("LevelEditorTabs", "LevelEditorHierarchicalLODOutlinerTooltipText", "Open the Hierarchical LOD Outliner."))
+				.SetGroup(MenuStructure.GetLevelEditorCategory())
+				.SetIcon(LayersIcon);
+		}
 		
 		{
 			LevelEditorTabManager->RegisterTabSpawner( WorldBrowserHierarchyTab, FOnSpawnTab::CreateSP<SLevelEditor, FName, FString>(this, &SLevelEditor::SpawnLevelEditorTab, WorldBrowserHierarchyTab, FString()) )
@@ -1019,22 +1083,23 @@ TSharedRef<SWidget> SLevelEditor::RestoreContentArea( const TSharedRef<SDockTab>
 				.SetGroup( WorkspaceMenu::GetMenuStructure().GetLevelEditorCategory() )
 				.SetIcon( FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.WorldBrowserComposition") );
 		}
-		
+
 		{
 			const FSlateIcon StatsViewerIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.Tabs.StatsViewer");
-			LevelEditorTabManager->RegisterTabSpawner( LevelEditorStatsViewerTab, FOnSpawnTab::CreateSP<SLevelEditor, FName, FString>(this, &SLevelEditor::SpawnLevelEditorTab, LevelEditorStatsViewerTab, FString()) )
+			LevelEditorTabManager->RegisterTabSpawner(LevelEditorStatsViewerTab, FOnSpawnTab::CreateSP<SLevelEditor, FName, FString>(this, &SLevelEditor::SpawnLevelEditorTab, LevelEditorStatsViewerTab, FString()))
 				.SetDisplayName(NSLOCTEXT("LevelEditorTabs", "LevelEditorStatsViewer", "Statistics"))
 				.SetTooltipText(NSLOCTEXT("LevelEditorTabs", "LevelEditorStatsViewerTooltipText", "Open the Statistics tab, in order to see data pertaining to lighting, textures and primitives."))
-				.SetGroup( MenuStructure.GetLevelEditorCategory() )
-				.SetIcon( StatsViewerIcon );
+				.SetGroup(MenuStructure.GetLevelEditorCategory())
+				.SetIcon(StatsViewerIcon);
 		}
 
-		// @todo remove when world-centric mode is added
-		if (FParse::Param(FCommandLine::Get(), TEXT("sequencer")))
 		{
+			// @todo remove when world-centric mode is added
+			const FSlateIcon SequencerIcon("LevelSequenceEditorStyle", "LevelSequenceEditor.Tabs.Sequencer" );
 			LevelEditorTabManager->RegisterTabSpawner( "Sequencer", FOnSpawnTab::CreateSP<SLevelEditor, FName, FString>(this, &SLevelEditor::SpawnLevelEditorTab, FName("Sequencer"), FString()) )
 				.SetDisplayName(NSLOCTEXT("LevelEditorTabs", "Sequencer", "Sequencer"))
-				.SetGroup( MenuStructure.GetLevelEditorCategory() );
+				.SetGroup( MenuStructure.GetLevelEditorCategory() )
+				.SetIcon( SequencerIcon );
 		}
 
 		{
@@ -1146,6 +1211,24 @@ FName SLevelEditor::GetEditorModeTabId( FEditorModeID ModeID )
 
 void SLevelEditor::ToggleEditorMode( FEditorModeID ModeID )
 {
+	// Prompt the user if Matinee must be closed before activating new mode
+	if (ModeID != FBuiltinEditorModes::EM_InterpEdit)
+	{
+		FEdMode* MatineeMode = GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_InterpEdit);
+		if (MatineeMode && !MatineeMode->IsCompatibleWith(ModeID))
+		{
+			FEditorModeInfo MatineeModeInfo = FEditorModeRegistry::Get().GetModeInfo(ModeID);
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("ModeName"), MatineeModeInfo.Name);
+			FText Msg = FText::Format(NSLOCTEXT("LevelEditor", "ModeSwitchCloseMatineeQ", "Activating '{ModeName}' editor mode will close UnrealMatinee.  Continue?"), Args);
+			
+			if (EAppReturnType::Yes != FMessageDialog::Open(EAppMsgType::YesNo, Msg))
+			{
+				return;
+			}
+		}
+	}
+		
 	// *Important* - activate the mode first since FEditorModeTools::DeactivateMode will
 	// activate the default mode when the stack becomes empty, resulting in multiple active visible modes.
 	GLevelEditorModeTools().ActivateMode( ModeID );
@@ -1258,58 +1341,21 @@ FReply SLevelEditor::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& In
 {
 	// Check to see if any of the actions for the level editor can be processed by the current event
 	// If we are in debug mode do not process commands
-	if( FSlateApplication::Get().IsNormalExecution() )
+	if (FSlateApplication::Get().IsNormalExecution())
 	{
-		// Figure out if any of our toolkit's tabs is the active tab.  This is important because we want
-		// the toolkit to have it's own keybinds (which may overlap the level editor's keybinds or any
-		// other toolkit).  When a toolkit tab is active, we give that toolkit a chance to process
-		// commands instead of the level editor.
-		TSharedPtr< IToolkit > ActiveToolkit;
+		for (const auto& ActiveToolkit : HostedToolkits)
 		{
-			const TSharedPtr<SDockableTab> CurrentActiveTab;// = FSlateApplication::xxxGetGlobalTabManager()->GetActiveTab();
-
-			for( auto HostedToolkitIt = HostedToolkits.CreateConstIterator(); HostedToolkitIt && !ActiveToolkit.IsValid(); ++HostedToolkitIt )
-			{
-				const auto& CurToolkit = *HostedToolkitIt;
-				if( CurToolkit.IsValid() )
-				{
-					// Iterate over this toolkits spawned tabs
-					const auto& ToolkitTabsInSpots = CurToolkit->GetToolkitTabsInSpots();
-
-					for( auto CurSpotIt( ToolkitTabsInSpots.CreateConstIterator() ); CurSpotIt && !ActiveToolkit.IsValid(); ++CurSpotIt )
-					{
-						const auto& TabsForSpot = CurSpotIt.Value();
-						for( auto CurTabIt( TabsForSpot.CreateConstIterator() ); CurTabIt; ++CurTabIt )
-						{
-							const auto& PinnedTab = CurTabIt->Pin();
-							if( PinnedTab.IsValid() )
-							{
-								if( PinnedTab == CurrentActiveTab )
-								{
-									ActiveToolkit = CurToolkit;
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		if( ActiveToolkit.IsValid() )
-		{
-			// A toolkit tab is active, so direct all command processing to it
-			if( ActiveToolkit->ProcessCommandBindings( InKeyEvent ) )
+			// A toolkit is active, so direct all command processing to it
+			if (ActiveToolkit->ProcessCommandBindings(InKeyEvent))
 			{
 				return FReply::Handled();
 			}
 		}
-		else
+
+		// No toolkit processed the key, so let the level editor have a chance at the keystroke
+		if (LevelEditorCommands->ProcessCommandBindings(InKeyEvent))
 		{
-			// No toolkit tab is active, so let the level editor have a chance at the keystroke
-			if( LevelEditorCommands->ProcessCommandBindings( InKeyEvent ) )
-			{
-				return FReply::Handled();
-			}
+			return FReply::Handled();
 		}
 	}
 	
@@ -1382,10 +1428,10 @@ TSharedPtr< class FAssetThumbnailPool > SLevelEditor::GetThumbnailPool() const
 	return ThumbnailPool;
 }
 
- void SLevelEditor::AppendCommands( const TSharedRef<FUICommandList>& InCommandsToAppend )
- {
-	 LevelEditorCommands->Append(InCommandsToAppend);
- }
+void SLevelEditor::AppendCommands( const TSharedRef<FUICommandList>& InCommandsToAppend )
+{
+	LevelEditorCommands->Append(InCommandsToAppend);
+}
 
 UWorld* SLevelEditor::GetWorld() const
 {

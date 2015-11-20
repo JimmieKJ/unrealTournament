@@ -7,17 +7,17 @@
 UENUM()
 enum PropertEditorTestEnum
 {	
-	/** This comment should appear above enum 1*/
+	/** This comment should appear above enum 1 */
 	PropertyEditorTest_Enum1 UMETA(Hidden),
-	/** This comment should appear above enum 2*/
+	/** This comment should appear above enum 2 */
 	PropertyEditorTest_Enum2,
-	/** This comment should appear above enum 3*/
+	/** This comment should appear above enum 3 */
 	PropertyEditorTest_Enum3 UMETA(Hidden),
-	/** This comment should appear above enum 4*/
+	/** This comment should appear above enum 4 */
 	PropertyEditorTest_Enum4,
-	/** This comment should appear above enum 5*/
+	/** This comment should appear above enum 5 */
 	PropertyEditorTest_Enum5 UMETA(Hidden),
-	/** This comment should appear above enum 6*/
+	/** This comment should appear above enum 6 */
 	PropertyEditorTest_Enum6,
 	PropertyEditorTest_MAX,
 };
@@ -92,13 +92,31 @@ class UPropertyEditorTestObject : public UObject
 {
     GENERATED_UCLASS_BODY()
 
-	// Integer
-	UPROPERTY(EditAnywhere, Category=BasicProperties)
-	int32 IntProperty32;
 
-	// Byte
-	UPROPERTY(EditAnywhere, Category=BasicProperties)
+
+	UPROPERTY(EditAnywhere, Category = BasicProperties)
+	int8 Int8Property;
+
+	UPROPERTY(EditAnywhere, Category = BasicProperties)
+	int16 Int16roperty;
+
+	UPROPERTY(EditAnywhere, Category = BasicProperties)
+	int32 Int32Property;
+
+	UPROPERTY(EditAnywhere, Category = BasicProperties)
+	int64 Int64Property;
+
+	UPROPERTY(EditAnywhere, Category = BasicProperties)
 	uint8 ByteProperty;
+
+	UPROPERTY(EditAnywhere, Category = BasicProperties)
+	uint16 UnsignedInt16Property;
+
+	UPROPERTY(EditAnywhere, Category = BasicProperties)
+	uint32 UnsignedInt32Property;
+
+	UPROPERTY(EditAnywhere, Category = BasicProperties)
+	uint64 UnsignedInt64Property;
 
 	UPROPERTY(EditAnywhere, Category=BasicProperties)
 	float FloatProperty;
@@ -219,6 +237,12 @@ class UPropertyEditorTestObject : public UObject
 
 	UPROPERTY(VisibleAnywhere, Category=AdvancedProperties)
 	UPrimitiveComponent* ObjectThatCannotBeChanged;
+
+	UPROPERTY(EditAnywhere, Category=AdvancedProperties, meta=(PasswordField=true))
+	FString StringPasswordProperty;
+
+	UPROPERTY(EditAnywhere, Category=AdvancedProperties, meta=(PasswordField=true))
+	FText TextPasswordProperty;
 
 	UPROPERTY(EditAnywhere, Category=SingleStruct, meta=(ShowOnlyInnerProperties))
 	FPropertyEditorTestBasicStruct ThisIsBrokenIfItsVisibleInADetailsView;

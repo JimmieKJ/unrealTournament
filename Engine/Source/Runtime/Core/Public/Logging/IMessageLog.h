@@ -22,15 +22,17 @@ public:
 	 * Appends a single message
 	 * 
 	 * @param	NewMessage	The message to append
+	 * @param	bMirrorToOutputLog	Whether or not the message should also be mirrored to the output log
 	 */
-	virtual void AddMessage( const TSharedRef<class FTokenizedMessage>& NewMessage ) = 0;
+	virtual void AddMessage( const TSharedRef<class FTokenizedMessage>& NewMessage, bool bMirrorToOutputLog = true ) = 0;
 
 	/** 
 	 * Appends multiple messages
 	 * 
 	 * @param	NewMessages	The messages to append.
+	 * @param	bMirrorToOutputLog	Whether or not the messages should also be mirrored to the output log
 	 */
-	virtual void AddMessages( const TArray< TSharedRef<class FTokenizedMessage> >& NewMessages ) = 0;
+	virtual void AddMessages( const TArray< TSharedRef<class FTokenizedMessage> >& NewMessages, bool bMirrorToOutputLog = true ) = 0;
 
 	/** 
 	 * Adds a new page to the log.

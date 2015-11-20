@@ -11,19 +11,19 @@ FMovieScene2DTransformTrackInstance::FMovieScene2DTransformTrackInstance( UMovie
 	PropertyBindings = MakeShareable(new FTrackInstancePropertyBindings(TransformTrack->GetPropertyName(), TransformTrack->GetPropertyPath()));
 }
 
-void FMovieScene2DTransformTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player ) 
+void FMovieScene2DTransformTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass ) 
 {
 	for(UObject* Object : RuntimeObjects)
 	{
 		FWidgetTransform TransformValue = PropertyBindings->GetCurrentValue<FWidgetTransform>(Object);
 		if(TransformTrack->Eval(Position, LastPosition, TransformValue))
 		{
-			PropertyBindings->CallFunction(Object, &TransformValue);
+			PropertyBindings->CallFunction<FWidgetTransform>(Object, &TransformValue);
 		}
 	}
 }
 
-void FMovieScene2DTransformTrackInstance::RefreshInstance(const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player)
+void FMovieScene2DTransformTrackInstance::RefreshInstance(const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
 {
 	PropertyBindings->UpdateBindings(RuntimeObjects);
 }

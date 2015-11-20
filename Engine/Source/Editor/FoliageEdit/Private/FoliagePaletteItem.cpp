@@ -26,33 +26,18 @@ namespace EInstanceCountMagnitude
 	};
 }
 
-FFoliagePaletteItemModel::FFoliagePaletteItemModel(FFoliageMeshUIInfoPtr InTypeInfo, TSharedRef<SFoliagePalette> InFoliagePalette, FEdModeFoliage* InFoliageEditMode)
+FFoliagePaletteItemModel::FFoliagePaletteItemModel(FFoliageMeshUIInfoPtr InTypeInfo, TSharedRef<SFoliagePalette> InFoliagePalette, TSharedPtr<FAssetThumbnailPool> InThumbnailPool, FEdModeFoliage* InFoliageEditMode)
 	: TypeInfo(InTypeInfo)
 	, FoliagePalette(InFoliagePalette)
 	, FoliageEditMode(InFoliageEditMode)
 {
 	// Determine the display FName
-	if (TypeInfo->Settings->IsAsset())
-	{
-		DisplayFName = TypeInfo->Settings->GetFName();
-	}
-	else if (UBlueprint* FoliageTypeBP = Cast<UBlueprint>(TypeInfo->Settings->GetClass()->ClassGeneratedBy))
-	{
-		DisplayFName = FoliageTypeBP->GetFName();
-	}
-	else
-	{
-		DisplayFName = TypeInfo->Settings->GetStaticMesh()->GetFName();
-	}
-
-	// Create the thumbnail widget
-	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	TSharedPtr<FAssetThumbnailPool> ThumbnailPool = LevelEditorModule.GetFirstLevelEditor()->GetThumbnailPool();
+	DisplayFName = TypeInfo->Settings->GetDisplayFName();
 	
 	FAssetData AssetData;
 	if (!IsBlueprint())
 	{
-		AssetData = FAssetData(TypeInfo->Settings->GetStaticMesh());
+		AssetData = FAssetData(TypeInfo->Settings);
 	}
 	else
 	{
@@ -61,7 +46,7 @@ FFoliagePaletteItemModel::FFoliagePaletteItemModel(FFoliageMeshUIInfoPtr InTypeI
 	
 
 	int32 MaxThumbnailSize = FoliagePaletteConstants::ThumbnailSizeRange.Max;
-	TSharedPtr< FAssetThumbnail > Thumbnail = MakeShareable(new FAssetThumbnail(AssetData, MaxThumbnailSize, MaxThumbnailSize, ThumbnailPool));
+	TSharedPtr< FAssetThumbnail > Thumbnail = MakeShareable(new FAssetThumbnail(AssetData, MaxThumbnailSize, MaxThumbnailSize, InThumbnailPool));
 	
 	FAssetThumbnailConfig ThumbnailConfig;
 	FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>(TEXT("AssetTools"));

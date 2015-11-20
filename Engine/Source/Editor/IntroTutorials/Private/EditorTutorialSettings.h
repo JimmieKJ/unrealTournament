@@ -34,6 +34,10 @@ class UEditorTutorialSettings : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
+	/** Disable the pulsing alert that indicates a new tutorial is available. */
+	UPROPERTY(Config, EditAnywhere, Category = "Tutorials")
+	bool bDisableAllTutorialAlerts;
+
 	/** Categories for tutorials */
 	UPROPERTY(Config, EditAnywhere, Category="Tutorials")
 	TArray<FTutorialCategory> Categories;

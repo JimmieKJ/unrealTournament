@@ -9,6 +9,29 @@ DEFINE_LOG_CATEGORY_STATIC(LogLinuxPlatformFile, Log, All);
 // make an FTimeSpan object that represents the "epoch" for time_t (from a stat struct)
 const FDateTime UnixEpoch(1970, 1, 1);
 
+namespace
+{
+	FFileStatData UnixStatToUEFileData(struct stat& FileInfo)
+	{
+		const bool bIsDirectory = S_ISDIR(FileInfo.st_mode);
+
+		int64 FileSize = -1;
+		if (!bIsDirectory)
+		{
+			FileSize = FileInfo.st_size;
+		}
+
+		return FFileStatData(
+			UnixEpoch + FTimespan(0, 0, FileInfo.st_ctime), 
+			UnixEpoch + FTimespan(0, 0, FileInfo.st_atime), 
+			UnixEpoch + FTimespan(0, 0, FileInfo.st_mtime), 
+			FileSize,
+			bIsDirectory,
+			!!(FileInfo.st_mode & S_IWUSR)
+			);
+	}
+}
+
 /** 
  * Linux file handle implementation which limits number of open files per thread. This
  * is to prevent running out of system file handles. Should not be neccessary when
@@ -193,7 +216,7 @@ private:
 			{
 				ReserveSlot();
 				
-				FileHandle = open(TCHAR_TO_UTF8(*Filename), O_RDONLY);
+				FileHandle = open(TCHAR_TO_UTF8(*Filename), O_RDONLY | O_CLOEXEC);
 				if( FileHandle != -1 )
 				{
 					lseek(FileHandle, FileOffset, SEEK_SET);
@@ -507,7 +530,7 @@ public:
 		}
 
 		// try opening right away
-		int32 Handle = open(TCHAR_TO_UTF8(*Filename), O_RDONLY);
+		int32 Handle = open(TCHAR_TO_UTF8(*Filename), O_RDONLY | O_CLOEXEC);
 		if (Handle != -1)
 		{
 			MappedToFilename = Filename;
@@ -518,7 +541,7 @@ public:
 			if (ENOENT != errno)
 			{
 				int ErrNo = errno;
-				UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "open('%s', ORDONLY) failed: errno=%d (%s)" ), *Filename, ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
+				UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "open('%s', O_RDONLY | O_CLOEXEC) failed: errno=%d (%s)" ), *Filename, ErrNo, ANSI_TO_TCHAR(strerror(ErrNo)));
 			}
 			else
 			{
@@ -532,7 +555,7 @@ public:
 					FString FoundFilename(TEXT("/"));	// start with root
 					if (MapFileRecursively(Filename, 0, MaxPathComponents, FoundFilename))
 					{
-						Handle = open(TCHAR_TO_UTF8(*FoundFilename), O_RDONLY);
+						Handle = open(TCHAR_TO_UTF8(*FoundFilename), O_RDONLY | O_CLOEXEC);
 						if (Handle != -1)
 						{
 							MappedToFilename = FoundFilename;
@@ -770,7 +793,7 @@ FString FLinuxPlatformFile::GetFilenameOnDisk(const TCHAR* Filename)
 IFileHandle* FLinuxPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrite)
 {
 	FString MappedToName;
-	int32 Handle = GCaseInsensMapper.OpenCaseInsensitiveRead(TCHAR_TO_UTF8(*NormalizeFilename(Filename)), MappedToName);
+	int32 Handle = GCaseInsensMapper.OpenCaseInsensitiveRead(NormalizeFilename(Filename), MappedToName);
 	if (Handle != -1)
 	{
 		return new FFileHandleLinux(Handle, *MappedToName, true);
@@ -781,10 +804,6 @@ IFileHandle* FLinuxPlatformFile::OpenRead(const TCHAR* Filename, bool bAllowWrit
 IFileHandle* FLinuxPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, bool bAllowRead)
 {
 	int Flags = O_CREAT | O_CLOEXEC;	// prevent children from inheriting this
-	if (bAppend)
-	{
-		Flags |= O_APPEND;
-	}
 
 	if (bAllowRead)
 	{
@@ -802,7 +821,7 @@ IFileHandle* FLinuxPlatformFile::OpenWrite(const TCHAR* Filename, bool bAppend, 
 	}
 
 	// Caveat: cannot specify O_TRUNC in flags, as this will corrupt the file which may be "locked" by other process. We will ftruncate() it once we "lock" it
-	int32 Handle = open(TCHAR_TO_UTF8(*NormalizeFilename(Filename)), Flags, S_IRUSR | S_IWUSR);
+	int32 Handle = open(TCHAR_TO_UTF8(*NormalizeFilename(Filename)), Flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
 	if (Handle != -1)
 	{
 		// mimic Windows "exclusive write" behavior (we don't use FILE_SHARE_WRITE) by locking the file.
@@ -889,7 +908,79 @@ bool FLinuxPlatformFile::DeleteDirectory(const TCHAR* Directory)
 	return rmdir(TCHAR_TO_UTF8(*CaseSensitiveFilename)) == 0;
 }
 
+FFileStatData FLinuxPlatformFile::GetStatData(const TCHAR* FilenameOrDirectory)
+{
+	FString CaseSensitiveFilename;
+	if (!GCaseInsensMapper.MapCaseInsensitiveFile(NormalizeFilename(FilenameOrDirectory), CaseSensitiveFilename))
+	{
+		// could not find the file
+		return FFileStatData();
+	}
+
+	struct stat FileInfo;
+	if(stat(TCHAR_TO_UTF8(*CaseSensitiveFilename), &FileInfo) == -1)
+	{
+		return FFileStatData();
+	}
+
+	return UnixStatToUEFileData(FileInfo);
+}
+
 bool FLinuxPlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor)
+{
+	const FString DirectoryStr = Directory;
+	const FString NormalizedDirectoryStr = NormalizeFilename(Directory);
+
+	return IterateDirectoryCommon(Directory, [&](struct dirent* InEntry) -> bool
+	{
+		const FString UnicodeEntryName = UTF8_TO_TCHAR(InEntry->d_name);
+				
+		bool bIsDirectory = false;
+		if (InEntry->d_type != DT_UNKNOWN)
+		{
+			bIsDirectory = InEntry->d_type == DT_DIR;
+		}
+		else
+		{
+			// filesystem does not support d_type, fallback to stat
+			struct stat FileInfo;
+			const FString AbsoluteUnicodeName = NormalizedDirectoryStr / UnicodeEntryName;	
+			if (stat(TCHAR_TO_UTF8(*AbsoluteUnicodeName), &FileInfo) != -1)
+			{
+				bIsDirectory = ((FileInfo.st_mode & S_IFMT) == S_IFDIR);
+			}
+			else
+			{
+				int ErrNo = errno;
+				UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "Cannot determine whether '%s' is a directory - d_type not supported and stat() failed with errno=%d (%s)"), *AbsoluteUnicodeName, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
+			}
+		}
+
+		return Visitor.Visit(*(DirectoryStr / UnicodeEntryName), bIsDirectory);
+	});
+}
+
+bool FLinuxPlatformFile::IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor)
+{
+	const FString DirectoryStr = Directory;
+	const FString NormalizedDirectoryStr = NormalizeFilename(Directory);
+
+	return IterateDirectoryCommon(Directory, [&](struct dirent* InEntry) -> bool
+	{
+		const FString UnicodeEntryName = UTF8_TO_TCHAR(InEntry->d_name);
+				
+		struct stat FileInfo;
+		const FString AbsoluteUnicodeName = NormalizedDirectoryStr / UnicodeEntryName;	
+		if (stat(TCHAR_TO_UTF8(*AbsoluteUnicodeName), &FileInfo) != -1)
+		{
+			return Visitor.Visit(*(DirectoryStr / UnicodeEntryName), UnixStatToUEFileData(FileInfo));
+		}
+
+		return true;
+	});
+}
+
+bool FLinuxPlatformFile::IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct dirent*)>& Visitor)
 {
 	bool Result = false;
 
@@ -898,33 +989,12 @@ bool FLinuxPlatformFile::IterateDirectory(const TCHAR* Directory, FDirectoryVisi
 	if (Handle)
 	{
 		Result = true;
-		struct dirent *Entry;
+		struct dirent* Entry;
 		while ((Entry = readdir(Handle)) != NULL)
 		{
 			if (FCString::Strcmp(UTF8_TO_TCHAR(Entry->d_name), TEXT(".")) && FCString::Strcmp(UTF8_TO_TCHAR(Entry->d_name), TEXT("..")))
 			{
-				bool bIsDirectory = false;
-				FString UnicodeEntryName = UTF8_TO_TCHAR(Entry->d_name);
-				if (Entry->d_type != DT_UNKNOWN)
-				{
-					bIsDirectory = Entry->d_type == DT_DIR;
-				}
-				else
-				{
-					// filesystem does not support d_type, fallback to stat
-					struct stat FileInfo;
-					FString AbsoluteUnicodeName = NormalizedDirectory / UnicodeEntryName;	
-					if (stat(TCHAR_TO_UTF8(*AbsoluteUnicodeName), &FileInfo) != -1)
-					{
-						bIsDirectory = ((FileInfo.st_mode & S_IFMT) == S_IFDIR);
-					}
-					else
-					{
-						int ErrNo = errno;
-						UE_LOG(LogLinuxPlatformFile, Warning, TEXT( "Cannot determine whether '%s' is a directory - d_type not supported and stat() failed with errno=%d (%s)"), *AbsoluteUnicodeName, ErrNo, UTF8_TO_TCHAR(strerror(ErrNo)));
-					}
-				}
-				Result = Visitor.Visit(*(FString(Directory) / UnicodeEntryName), bIsDirectory);
+				Result = Visitor(Entry);
 			}
 		}
 		closedir(Handle);

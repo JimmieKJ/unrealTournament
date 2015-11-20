@@ -61,6 +61,7 @@ protected:
 	void ProfilerManager_OnViewModeChanged( EProfilerViewMode::Type NewViewMode );
 
 private:
+
 	/**
 	 * Ticks this widget.  Override in derived classes, but always call the parent implementation.
 	 *
@@ -130,7 +131,7 @@ public:
 	TSharedPtr<SVerticalBox> EventGraphPanel;
 
 	/** Holds the filter and presets widget/slot. */
-	SHorizontalBox::FSlot* FiltersAndPresetsSlot;
+	SSplitter::FSlot* FiltersAndPresetsSlot;
 	TSharedPtr<SFiltersAndPresets> FiltersAndPresets;
 
 	/** Widget for the panel which contains all graphs and event graphs. */

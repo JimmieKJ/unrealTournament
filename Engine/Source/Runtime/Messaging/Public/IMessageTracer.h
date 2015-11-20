@@ -24,6 +24,12 @@ typedef TSharedPtr<struct FMessageTracerEndpointInfo> FMessageTracerEndpointInfo
 /** Type definition for shared references to instances of FMessageTracerEndpointInfo. */
 typedef TSharedRef<struct FMessageTracerEndpointInfo> FMessageTracerEndpointInfoRef;
 
+/** Type definition for shared pointers to instances of FMessageTracerInterceptorInfo. */
+typedef TSharedPtr<struct FMessageTracerInterceptorInfo> FMessageTracerInterceptorInfoPtr;
+
+/** Type definition for shared references to instances of FMessageTracerInterceptorInfo. */
+typedef TSharedRef<struct FMessageTracerInterceptorInfo> FMessageTracerInterceptorInfoRef;
+
 /** Type definition for shared pointers to instances of FMessageTracerMessageInfo. */
 typedef TSharedPtr<struct FMessageTracerMessageInfo> FMessageTracerMessageInfoPtr;
 
@@ -35,6 +41,23 @@ typedef TSharedPtr<struct FMessageTracerTypeInfo> FMessageTracerTypeInfoPtr;
 
 /** Type definition for shared references to instances of FMessageTracerTypeInfo. */
 typedef TSharedRef<struct FMessageTracerTypeInfo> FMessageTracerTypeInfoRef;
+
+
+/** Enumerates tracer breakpoint states. */
+enum class EMessageTracerBreakpointState
+{
+	/** The breakpoint is disabled. */
+	Disabled,
+
+	/** The breakpoint is enabled. */
+	Enabled,
+
+	/** The breakpoint is enabled for incoming messages. */
+	EnabledIn,
+
+	/** The breakpoint is enabled for outgoing messages. */
+	EnabledOut,
+};
 
 
 /**
@@ -50,6 +73,25 @@ enum class EMessageTracerDispatchTypes
 
 	/** The message is being dispatched using the task graph system. */
 	TaskGraph
+};
+
+
+/**
+ * Structure for tracer breakpoints.
+ */
+struct FMessageTracerBreakpoint
+{
+	/** Recipient address to break on. */
+	FMessageAddress BreakOnRecipient;
+
+	/** Sender address to break on. */
+	FMessageAddress BreakOnSender;
+
+	/** How many times the breakpoint was hit. */
+	int64 HitCount;
+
+	/** The breakpoint's enabled state. */
+	EMessageTracerBreakpointState State;
 };
 
 
@@ -117,6 +159,25 @@ struct FMessageTracerEndpointInfo
 
 
 /**
+ * Structure for message interceptor debug information.
+ */
+struct FMessageTracerInterceptorInfo
+{
+	/** Holds the interceptor's human readable name. */
+	FName Name;
+
+	/** Holds the list of messages intercepted by this interceptor. */
+	TArray<FMessageTracerMessageInfoPtr> InterceptedMessages;
+
+	/** Holds the time at which this interceptor was registered. */
+	double TimeRegistered;
+
+	/** Holds the time at which this interceptor was unregistered. */
+	double TimeUnregistered;
+};
+
+
+/**
  * Structure for message debug information.
  */
 struct FMessageTracerMessageInfo
@@ -126,6 +187,9 @@ struct FMessageTracerMessageInfo
 
 	/** Holds the message's dispatch states per endpoint. */
 	TMap<FMessageTracerEndpointInfoPtr, FMessageTracerDispatchStatePtr> DispatchStates;
+
+	/** Whether the message was intercepted. */
+	bool Intercepted;
 
 	/** Pointer to the sender's endpoint information. */
 	FMessageTracerEndpointInfoPtr SenderInfo;
@@ -173,7 +237,7 @@ public:
 	virtual void Break() = 0;
 
 	/**
-	 * Continues message routing from the current breakpoint.
+	 * Starts the tracer or continues message routing from the current breakpoint.
 	 *
 	 * @see Break, Step
 	 */
@@ -183,7 +247,7 @@ public:
 	 * Checks whether the tracer is currently at a breakpoint.
 	 *
 	 * @return true if at breakpoint, false otherwise.
-	 * @see Break
+	 * @see Break, IsRunning
 	 */
 	virtual bool IsBreaking() const = 0;
 
@@ -191,8 +255,7 @@ public:
 	 * Checks whether the tracer is currently running.
 	 *
 	 * @return true if the tracer is running, false otherwise.
-	 *
-	 * @see Start, Stop
+	 * @see Continue, IsBreaking, Stop
 	 */
 	virtual bool IsRunning() const = 0;
 
@@ -200,23 +263,16 @@ public:
 	virtual void Reset() = 0;
 
 	/**
-	 * Starts the tracer.
-	 *
-	 * @see IsRunning, Stop
-	 */
-	virtual void Start() = 0;
-
-	/**
 	 * Steps the tracer to the next message.
 	 *
-	 * @see Break, Continue
+	 * @see Break, Continue, Stop
 	 */
 	virtual void Step() = 0;
 
 	/**
 	 * Stops the tracer.
 	 *
-	 * @see IsRunning, Start
+	 * @see Continue, IsRunning, Step
 	 */
 	virtual void Stop() = 0;
 
@@ -226,7 +282,7 @@ public:
 	 * @param DeltaTime The time in seconds since the last tick.
 	 * @return true if any events were processed.
 	 */
-	virtual bool Tick( float DeltaTime ) = 0;
+	virtual bool Tick(float DeltaTime) = 0;
 
 public:
 
@@ -236,14 +292,14 @@ public:
 	 * @param OutEndpoints Will contain the list of endpoints.
 	 * @return The number of endpoints returned.
 	 */
-	virtual int32 GetEndpoints( TArray<FMessageTracerEndpointInfoPtr>& OutEndpoints ) const = 0;
+	virtual int32 GetEndpoints(TArray<FMessageTracerEndpointInfoPtr>& OutEndpoints) const = 0;
 
 	/**
 	 * Gets the collection of known messages.
 	 *
 	 * @return The messages.
 	 */
-	virtual int32 GetMessages( TArray<FMessageTracerMessageInfoPtr>& OutMessages ) const = 0;
+	virtual int32 GetMessages(TArray<FMessageTracerMessageInfoPtr>& OutMessages) const = 0;
 
 	/**
 	 * Gets the list of known message types filtered by name.
@@ -252,7 +308,7 @@ public:
 	 * @param OutTypes Will contain the list of message types.
 	 * @return The number of message types returned.
 	 */
-	virtual int32 GetMessageTypes( TArray<FMessageTracerTypeInfoPtr>& OutTypes ) const = 0;
+	virtual int32 GetMessageTypes(TArray<FMessageTracerTypeInfoPtr>& OutTypes) const = 0;
 
 	/**
 	 * Checks whether there are any messages in the history.

@@ -165,7 +165,7 @@ void SUWGameSetupDialog::BuildCategories()
 	TArray<FName> Categories;
 	for(int32 i=0; i < GameRulesets.Num(); i++)
 	{
-		if (GameRulesets[i].IsValid())
+		if (GameRulesets[i])
 		{
 			for (int32 j = 0; j < GameRulesets[i]->Categories.Num(); j++)
 			{
@@ -298,7 +298,7 @@ void SUWGameSetupDialog::BuildRuleList(FName Category)
 	int32 Cnt = 0;
 	for (int32 i=0;i<GameRulesets.Num();i++)
 	{
-		if (GameRulesets[i].IsValid() && GameRulesets[i]->Categories.Find(Category) != INDEX_NONE)
+		if (GameRulesets[i] && GameRulesets[i]->Categories.Find(Category) != INDEX_NONE)
 		{
 			int32 Row = Cnt / 6;
 			int32 Col = Cnt % 6;

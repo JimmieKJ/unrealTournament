@@ -48,7 +48,6 @@ public:
 		HighlightText = InArgs._HighlightText;
 
 		SelectedVariant = NAME_None;
-		bDeviceInGroup = false;
 
 		ILauncherDeviceGroupPtr ActiveGroup = DeviceGroup.Get();
 		if (ActiveGroup.IsValid() && DeviceProxy.IsValid())
@@ -60,7 +59,6 @@ public:
 				if (DeviceProxy->HasDeviceId(DeviceID))
 				{
 					SelectedVariant = DeviceProxy->GetTargetDeviceVariant(DeviceID);
-					bDeviceInGroup = true;
 					break;
 				}
 			}
@@ -83,7 +81,7 @@ public:
 	{
 		if (ColumnName == "CheckBox")
 		{
-			return SNew(SCheckBox)
+			return SAssignNew(DeviceCheckbox, SCheckBox)
 				.IsChecked(this, &SProjectLauncherDeployTargetListRow::HandleCheckBoxIsChecked)
 				.OnCheckStateChanged(this, &SProjectLauncherDeployTargetListRow::HandleCheckBoxStateChanged)
 				.ToolTipText(LOCTEXT("CheckBoxToolTip", "Check this box to include this device in the current device group"));
@@ -184,12 +182,10 @@ private:
 			if (NewState == ECheckBoxState::Checked)
 			{
 				ActiveGroup->AddDevice(DeviceID);
-				bDeviceInGroup = true;
 			}
 			else
 			{
 				ActiveGroup->RemoveDevice(DeviceID);
-				bDeviceInGroup = false;
 			}
 		}
 	}
@@ -199,7 +195,13 @@ private:
 	{
 		if (IsEnabled())
 		{
-			return bDeviceInGroup ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			ILauncherDeviceGroupPtr ActiveGroup = DeviceGroup.Get();
+
+			if (ActiveGroup.IsValid() && DeviceProxy.IsValid() && DeviceProxy->HasVariant(SelectedVariant))
+			{
+				const FString& DeviceID = DeviceProxy->GetTargetDeviceId(SelectedVariant);
+				return ActiveGroup->GetDeviceIDs().Contains(DeviceID) ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+			}
 		}
 
 		return ECheckBoxState::Unchecked;
@@ -226,11 +228,13 @@ private:
 	{
 		if (DeviceProxy.IsValid() && DeviceProxy->HasVariant(SelectedVariant) && DeviceProxy->HasVariant(InVariant))
 		{
-			if (bDeviceInGroup)
+			ILauncherDeviceGroupPtr ActiveGroup = DeviceGroup.Get();
+			const FString& DeviceID = DeviceProxy->GetTargetDeviceId(SelectedVariant);
+			if (ActiveGroup.IsValid() && ActiveGroup->GetDeviceIDs().Contains(DeviceID))
 			{
 				const FString& OldDeviceID = DeviceProxy->GetTargetDeviceId(SelectedVariant);
 				const FString& NewDeviceID = DeviceProxy->GetTargetDeviceId(InVariant);
-				ILauncherDeviceGroupPtr ActiveGroup = DeviceGroup.Get();
+				
 				if (ActiveGroup.IsValid())
 				{
 					ActiveGroup->RemoveDevice(OldDeviceID);
@@ -305,11 +309,10 @@ private:
 	// Holds a reference to the device proxy that is displayed in this row.
 	ITargetDeviceProxyPtr DeviceProxy;
 
-	// Holds the name of the selected variant.
-	FName SelectedVariant;
+	TSharedPtr<SCheckBox> DeviceCheckbox;
 
-	// Whether this device is executed on.
-	bool bDeviceInGroup;
+	// Holds the name of the selected variant.
+	FName SelectedVariant;	
 
 	// Holds the highlight string for the log message.
 	TAttribute<FText> HighlightText;

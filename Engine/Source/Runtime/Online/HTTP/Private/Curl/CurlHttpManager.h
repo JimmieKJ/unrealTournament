@@ -27,11 +27,11 @@ protected:
 
 public:
 
-	// Begin HttpManager interface
+	//~ Begin HttpManager Interface
 	virtual void AddRequest(const TSharedRef<class IHttpRequest>& Request) override;
 	virtual void RemoveRequest(const TSharedRef<class IHttpRequest>& Request) override;
 	virtual bool Tick(float DeltaSeconds) override;
-	// End HttpManager interface
+	//~ End HttpManager Interface
 
 	FCurlHttpManager();
 

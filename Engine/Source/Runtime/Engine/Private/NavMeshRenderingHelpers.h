@@ -181,10 +181,10 @@ public:
 		if (Indices.Num() > 0)
 		{
 			FRHIResourceCreateInfo CreateInfo;
-			IndexBufferRHI = RHICreateIndexBuffer(sizeof(int32), Indices.Num() * sizeof(int32), BUF_Static, CreateInfo);
+			void* Buffer = nullptr;
+			IndexBufferRHI = RHICreateAndLockIndexBuffer(sizeof(int32), Indices.Num() * sizeof(int32), BUF_Static, CreateInfo, Buffer);
 
-			// Write the indices to the index buffer.
-			void* Buffer = RHILockIndexBuffer(IndexBufferRHI, 0, Indices.Num() * sizeof(int32), RLM_WriteOnly);
+			// Write the indices to the index buffer.			
 			FMemory::Memcpy(Buffer, Indices.GetData(), Indices.Num() * sizeof(int32));
 			RHIUnlockIndexBuffer(IndexBufferRHI);
 		}
@@ -202,10 +202,10 @@ public:
 		if (Vertices.Num() > 0)
 		{
 			FRHIResourceCreateInfo CreateInfo;
-			VertexBufferRHI = RHICreateVertexBuffer(Vertices.Num() * sizeof(FDynamicMeshVertex), BUF_Static, CreateInfo);
+			void* VertexBufferData = nullptr;
+			VertexBufferRHI = RHICreateAndLockVertexBuffer(Vertices.Num() * sizeof(FDynamicMeshVertex), BUF_Static, CreateInfo, VertexBufferData);
 
-			// Copy the vertex data into the vertex buffer.
-			void* VertexBufferData = RHILockVertexBuffer(VertexBufferRHI, 0, Vertices.Num() * sizeof(FDynamicMeshVertex), RLM_WriteOnly);
+			// Copy the vertex data into the vertex buffer.			
 			FMemory::Memcpy(VertexBufferData, Vertices.GetData(), Vertices.Num() * sizeof(FDynamicMeshVertex));
 			RHIUnlockVertexBuffer(VertexBufferRHI);
 		}
@@ -561,13 +561,14 @@ public:
 		Canvas->SetDrawColor(OldDrawColor);
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		const bool bVisible = !!View->Family->EngineShowFlags.Navigation || bForceRendering;
 		FPrimitiveViewRelevance Result;
 		Result.bDrawRelevance = bVisible && IsShown(View);
 		Result.bDynamicRelevance = true;
-		Result.bNormalTranslucencyRelevance = bVisible && IsShown(View);
+		// ideally the TranslucencyRelevance should be filled out by the material, here we do it conservative
+		Result.bSeparateTranslucencyRelevance = Result.bNormalTranslucencyRelevance = bVisible && IsShown(View);
 		return Result;
 	}
 
@@ -643,7 +644,7 @@ FORCEINLINE void CacheArc(TArray<FDebugRenderSceneProxy::FDebugLine>& DebugLines
 		const float u = i * ArcPtsScale;
 		const FVector Pt = EvalArc(Start, Dir, Length*Height, u);
 
-		DebugLines.Add(FDebugRenderSceneProxy::FDebugLine(Prev, Pt, Color));
+		DebugLines.Add(FDebugRenderSceneProxy::FDebugLine(Prev, Pt, Color.ToFColor(true)));
 		Prev = Pt;
 	}
 }
@@ -656,8 +657,8 @@ FORCEINLINE void CacheArrowHead(TArray<FDebugRenderSceneProxy::FDebugLine>& Debu
 	Ax = FVector::CrossProduct(Az, Ay);
 
 	FHitProxyId HitProxyId;
-	DebugLines.Add(FDebugRenderSceneProxy::FDebugLine(Tip, FVector(Tip.X + Ay.X*Size + Ax.X*Size/3, Tip.Y + Ay.Y*Size + Ax.Y*Size/3, Tip.Z + Ay.Z*Size + Ax.Z*Size/3), Color));
-	DebugLines.Add(FDebugRenderSceneProxy::FDebugLine(Tip, FVector(Tip.X + Ay.X*Size - Ax.X*Size/3, Tip.Y + Ay.Y*Size - Ax.Y*Size/3, Tip.Z + Ay.Z*Size - Ax.Z*Size/3), Color));
+	DebugLines.Add(FDebugRenderSceneProxy::FDebugLine(Tip, FVector(Tip.X + Ay.X*Size + Ax.X*Size / 3, Tip.Y + Ay.Y*Size + Ax.Y*Size / 3, Tip.Z + Ay.Z*Size + Ax.Z*Size / 3), Color.ToFColor(true)));
+	DebugLines.Add(FDebugRenderSceneProxy::FDebugLine(Tip, FVector(Tip.X + Ay.X*Size - Ax.X*Size / 3, Tip.Y + Ay.Y*Size - Ax.Y*Size / 3, Tip.Z + Ay.Z*Size - Ax.Z*Size / 3), Color.ToFColor(true)));
 }
 
 FORCEINLINE void DrawWireCylinder(TArray<FDebugRenderSceneProxy::FDebugLine>& DebugLines,const FVector& Base,const FVector& X,const FVector& Y,const FVector& Z,FColor Color,float Radius,float HalfHeight,int32 NumSides,uint8 DepthPriority, float LineThickness=0)

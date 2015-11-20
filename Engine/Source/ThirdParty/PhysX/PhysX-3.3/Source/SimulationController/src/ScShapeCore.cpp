@@ -262,29 +262,22 @@ void ShapeCore::setFlags(PxShapeFlags f)
 	mCore.mShapeFlags = f;
 }
 
-namespace physx
-{
-PxShape* NpGetPxShape(ShapeCore&);
-}
-
 PxShape* ShapeCore::getPxShape()
 {
-	return NpGetPxShape(*this);
+#if PX_IS_SPU
+	return Sc::gSpuOffsetTable.convertScShape2Px(this);
+#else
+	return Sc::gOffsetTable.convertScShape2Px(this);
+#endif
 }
 
 const PxShape* ShapeCore::getPxShape() const
 {
-	// slightly evil, but at least encapsulated evil
-	return NpGetPxShape(const_cast<ShapeCore&>(*this));
-}
-
-
-
-const PxShape* ScGetPxShapeFromPxsShapeCore(const PxsShapeCore* shape)
-{
-	const size_t offset = size_t(&(reinterpret_cast<Sc::ShapeCore*>(0)->getCore()));
-	const Sc::ShapeCore* core = reinterpret_cast<const Sc::ShapeCore*>(reinterpret_cast<const char*>(shape)-offset);
-	return core->getPxShape();
+#if PX_IS_SPU
+	return Sc::gSpuOffsetTable.convertScShape2Px(this);
+#else
+	return Sc::gOffsetTable.convertScShape2Px(this);
+#endif
 }
 
 

@@ -29,33 +29,7 @@ void CopyToCubeFaceVS(
 	Out.ScreenVector = mul(float4(Out.Position.xy, 1, 0), View.ScreenToTranslatedWorld).xyz;
 }
 
-struct FRouteToCubeFaceGSOut
-{
-	FCopyToCubeFaceVSOutput Vertex;
-	uint LayerIndex : SV_RenderTargetArrayIndex;
-};
-
 int CubeFace;
-
-[maxvertexcount(3)]
-void RouteToCubeFaceGS(triangle FCopyToCubeFaceVSOutput Input[3], inout TriangleStream<FRouteToCubeFaceGSOut> OutStream)
-{
-	FRouteToCubeFaceGSOut Vertex0;
-	Vertex0.Vertex = Input[0];
-	Vertex0.LayerIndex = CubeFace;
-
-	FRouteToCubeFaceGSOut Vertex1;
-	Vertex1.Vertex = Input[1];
-	Vertex1.LayerIndex = CubeFace;
-
-	FRouteToCubeFaceGSOut Vertex2;
-	Vertex2.Vertex = Input[2];
-	Vertex2.LayerIndex = CubeFace;
-
-	OutStream.Append(Vertex0);
-	OutStream.Append(Vertex1);
-	OutStream.Append(Vertex2);
-}
 
 Texture2D InTexture;
 SamplerState InTextureSampler;
@@ -77,7 +51,7 @@ void CopySceneColorToCubeFaceColorPS(
 
 	// Convert INF's to valid values
 	SceneColor = min(SceneColor, 65503);
-	float3 WorldPosition = Input.ScreenVector * SceneDepth + View.ViewOrigin.xyz;
+	float3 WorldPosition = Input.ScreenVector * SceneDepth + View.WorldCameraOrigin;
 
 	float Alpha = 1;
 
@@ -90,7 +64,7 @@ void CopySceneColorToCubeFaceColorPS(
 	}
 	else if (SkyLightCaptureParameters.x == 1)
 	{
-		float RadialDistance = length(WorldPosition - View.ViewOrigin.xyz);
+		float RadialDistance = length(WorldPosition - View.WorldCameraOrigin);
 		float MaxDistance = SkyLightCaptureParameters.y;
 
 		// Setup alpha to fade out smoothly past the max distance
@@ -374,7 +348,7 @@ void StandardDeferredReflectionPS(
 		float SceneDepth = CalcSceneDepth(ScreenUV);
 		float4 HomogeneousWorldPosition = mul(float4(InScreenPosition.xy / InScreenPosition.w * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
 		float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
-		float3 CameraToPixel = normalize(WorldPosition - View.ViewOrigin.xyz);
+		float3 CameraToPixel = normalize(WorldPosition - View.WorldCameraOrigin);
 		float3 ReflectionVector = reflect(CameraToPixel, InGBufferData.WorldNormal);
 
 		float3 ProjectedCaptureVector = ReflectionVector;
@@ -470,7 +444,7 @@ SamplerState ScreenSpaceReflectionsSampler;
 
 /** Used to apply reflection capture contribution along with SSR to scene color. */
 void ReflectionApplyPS(
-	in float4 UVAndScreenPos : TEXCOORD0, 
+	in noperspective float4 UVAndScreenPos : TEXCOORD0, 
 	out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
@@ -508,10 +482,55 @@ void ReflectionApplyPS(
 			// So, we combine the two for the best of both. This is done by removing the low spatial frequencies from the envmap and replacing them with the lightmap data.
 			// This is only done with luma so as to not get odd color shifting.
 			// Note: make sure this matches the lightmap mixing done for translucency (BasePassPixelShader.usf)
+
+			// NOTE: this breaks LPV specular if r.allowstaticlighting is enabled
 			SpecularLighting.rgb *= GBuffer.IndirectIrradiance;
 		}
 #endif
 #endif
+
+#if APPLY_SSR
+		float4 SSR = Texture2DSample( ScreenSpaceReflectionsTexture, ScreenSpaceReflectionsSampler, UV );
+#endif
+
+		BRANCH
+		if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
+		{
+			const float ClearCoat			= GBuffer.CustomData.x;
+			const float ClearCoatRoughness	= GBuffer.CustomData.y;
+
+			// TODO EnvBRDF should have a mask param
+			float2 AB = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rg;
+			SpecularColor = GBuffer.SpecularColor * AB.x + AB.y * saturate( 50 * GBuffer.SpecularColor.g ) * (1 - ClearCoat);
+
+			// F_Schlick
+			float F0 = 0.04;
+			float Fc = Pow5( 1 - NoV );
+			float F = Fc + (1 - Fc) * F0;
+			F *= ClearCoat;
+
+			float LayerAttenuation = (1 - F);
+			SpecularColor *= LayerAttenuation;
+			SpecularColor *= SpecularOcclusion;
+
+			#if APPLY_SSR
+				SpecularLighting.rgb *= lerp( 1 - SSR.a, 1, ClearCoat );
+				SpecularLighting.rgb += lerp( SSR.rgb, 0, ClearCoat );
+			#endif
+
+			SpecularLighting.rgb *= SpecularColor;
+
+			#if APPLY_SSR
+				SpecularLighting.rgb += SSR.rgb * F;
+			#endif
+		}
+		else
+		{
+			#if APPLY_SSR
+				SpecularLighting.rgb = SSR.rgb + SpecularLighting.rgb * (1 - SSR.a);
+			#endif
+			SpecularLighting.rgb *= SpecularColor;
+		}
 
 #if APPLY_SKYLIGHT
 
@@ -521,7 +540,31 @@ void ReflectionApplyPS(
 			float3 ReflectionVector = reflect(-V, GBuffer.WorldNormal);
 			// Normalize for static skylight types which mix with lightmaps
 			bool bNormalize = SkyLightParameters.z < 1 && View.UseLightmaps > 0 && !ALLOW_STATIC_LIGHTING;
-			float3 SkyLighting = GetSkyLightReflection(ReflectionVector, GBuffer.Roughness, bNormalize);
+			float3 SkyLighting = GetSkyLightReflectionSupportingBlend(ReflectionVector, GBuffer.Roughness, bNormalize);
+			SkyLighting *= SpecularColor;
+
+			BRANCH
+			if( GBuffer.ShadingModelID == SHADINGMODELID_CLEAR_COAT )
+			{
+				const float ClearCoat			= GBuffer.CustomData.x;
+				const float ClearCoatRoughness	= GBuffer.CustomData.y;
+
+				// F_Schlick
+				float F0 = 0.04;
+				float Fc = Pow5( 1 - NoV );
+				float F = Fc + (1 - Fc) * F0;
+				F *= ClearCoat;
+
+				#if APPLY_SSR
+					F *= 1 - SSR.a;
+				#endif
+
+				float3 SampleColor = GetSkyLightReflectionSupportingBlend(ReflectionVector, ClearCoatRoughness, bNormalize);	
+				SkyLighting += SampleColor * F;
+			}
+
+		    float DirectionalOcclusion = ScreenSpaceData.DirectionalOcclusion.g;
+		    SkyLighting *= DirectionalOcclusion;
 
 			FLATTEN
 			if (bNormalize)
@@ -535,12 +578,7 @@ void ReflectionApplyPS(
 		}
 #endif
 
-#if APPLY_SSR
-		float4 SSR = Texture2DSample( ScreenSpaceReflectionsTexture, ScreenSpaceReflectionsSampler, UV );
-		SpecularLighting.rgb = SpecularLighting.rgb * (1 - SSR.a) + SSR.rgb;
-#endif
-
-		OutColor.rgb = SpecularLighting.rgb * SpecularColor;
+		OutColor.rgb = SpecularLighting.rgb;
 
 		// Transform NaNs to black, transform negative colors to black.
 		OutColor.rgb = -min(-OutColor.rgb, 0.0);

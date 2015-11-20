@@ -62,6 +62,10 @@ FCoreDelegates::FApplicationLifetimeDelegate FCoreDelegates::ApplicationWillEnte
 FCoreDelegates::FApplicationLifetimeDelegate FCoreDelegates::ApplicationHasEnteredForegroundDelegate;
 FCoreDelegates::FApplicationLifetimeDelegate FCoreDelegates::ApplicationWillTerminateDelegate; 
 
+FCoreDelegates::FApplicationRegisteredForRemoteNotificationsDelegate FCoreDelegates::ApplicationRegisteredForRemoteNotificationsDelegate;
+FCoreDelegates::FApplicationFailedToRegisterForRemoteNotificationsDelegate FCoreDelegates::ApplicationFailedToRegisterForRemoteNotificationsDelegate;
+FCoreDelegates::FApplicationReceivedRemoteNotificationDelegate FCoreDelegates::ApplicationReceivedRemoteNotificationDelegate;
+
 FCoreDelegates::FStatCheckEnabled FCoreDelegates::StatCheckEnabled;
 FCoreDelegates::FStatEnabled FCoreDelegates::StatEnabled;
 FCoreDelegates::FStatDisabled FCoreDelegates::StatDisabled;
@@ -69,3 +73,5 @@ FCoreDelegates::FStatDisableAll FCoreDelegates::StatDisableAll;
 
 FCoreDelegates::FApplicationLicenseChange FCoreDelegates::ApplicationLicenseChange;
 FCoreDelegates::FPlatformChangedLaptopMode FCoreDelegates::PlatformChangedLaptopMode;
+
+FCoreDelegates::FLoadStringAssetReferenceInCook FCoreDelegates::LoadStringAssetReferenceInCook;

@@ -5,7 +5,7 @@
 #include "AISystem.h"
 #include "Perception/AISense.h"
 #include "AIPerceptionSystem.h"
-
+#include "Debug/DebugDrawService.h"
 #include "AIPerceptionComponent.generated.h"
 
 class AAIController;
@@ -15,6 +15,7 @@ class UAIPerceptionSystem;
 class UAISenseConfig;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FPerceptionUpdatedDelegate, TArray<AActor*>, UpdatedActors);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FActorPerceptionUpdatedDelegate, AActor*, Actor, FAIStimulus, Stimulus);
 
 struct AIMODULE_API FActorPerceptionInfo
 {
@@ -22,7 +23,7 @@ struct AIMODULE_API FActorPerceptionInfo
 
 	TArray<FAIStimulus> LastSensedStimuli;
 
-	/** if != MAX indicated the sense that takes precedense over other senses when it comes
+	/** if != MAX indicates the sense that takes precedense over other senses when it comes
 		to determining last stimulus location */
 	FAISenseID DominantSense;
 
@@ -115,27 +116,27 @@ class AIMODULE_API UAIPerceptionComponent : public UActorComponent
 
 protected:
 	/** Max distance at which a makenoise(1.0) loudness sound can be heard, regardless of occlusion */
-	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
 	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float HearingRange;
 
-	/** Max distance at which a makenoise(1.0) loudness sound can be heard if unoccluded (LOSHearingThreshold should be > HearingThreshold) */
-	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	/** Max distance at which a makenoise(1.0) loudness sound can be heard if not occluded (LOSHearingThreshold should be > HearingThreshold) */
+	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
 	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float LoSHearingRange;
 
 	/** Maximum sight distance to notice a target. */
-	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
 	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float SightRadius;
 
 	/** Maximum sight distance to see target that has been already seen. */
-	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
 	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float LoseSightRadius;
 
 	/** How far to the side AI can see, in degrees. Use SetPeripheralVisionAngle to change the value at runtime. */
-	DEPRECATED(4.8, "This property is deprecated. Please use apropriate sencse config class instead")
+	DEPRECATED(4.8, "This property is deprecated. Please use appropriate sense config class instead")
 	UPROPERTY(VisibleDefaultsOnly, Category = AI)
 	float PeripheralVisionAngle;
 		
@@ -143,8 +144,8 @@ protected:
 	TArray<UAISenseConfig*> SensesConfig;
 
 	/** Indicated sense that takes precedence over other senses when determining sensed actor's location. 
-	 *	Should be set to one of the sences configured in SensesConfig, or None. */
-	UPROPERTY(EditDefaultsOnly, Instanced, Category = "AI Perception")
+	 *	Should be set to one of the senses configured in SensesConfig, or None. */
+	UPROPERTY(EditDefaultsOnly, Category = "AI Perception")
 	TSubclassOf<UAISense> DominantSense;
 	
 	FAISenseID DominantSenseID;
@@ -202,9 +203,9 @@ public:
 	FORCEINLINE TActorPerceptionContainer::TIterator GetPerceptualDataIterator() { return TActorPerceptionContainer::TIterator(PerceptualData); }
 	FORCEINLINE TActorPerceptionContainer::TConstIterator GetPerceptualDataConstIterator() const { return TActorPerceptionContainer::TConstIterator(PerceptualData); }
 
-	void GetHostileActors(TArray<AActor*>& OutActors) const;
+	virtual void GetHostileActors(TArray<AActor*>& OutActors) const;
 
-	// @note will stop on first age 0 stimulus
+	// @note Will stop on first age 0 stimulus
 	const FActorPerceptionInfo* GetFreshestTrace(const FAISenseID Sense) const;
 	
 	void SetDominantSense(TSubclassOf<UAISense> InDominantSense);
@@ -220,16 +221,19 @@ public:
 
 	void RegisterStimulus(AActor* Source, const FAIStimulus& Stimulus);
 	void ProcessStimuli();
-	/** returns true if, as result of stimuli aging, this listener needs an update (like if some stimuli expired)*/
+	/** Returns true if, as result of stimuli aging, this listener needs an update (like if some stimuli expired) */
 	bool AgeStimuli(const float ConstPerceptionAgingRate);
 	void ForgetActor(AActor* ActorToForget);
+
+	/** basically cleans up PerceptualData, resulting in loss of all previous perception */
+	void ForgetAll();
 
 	float GetYoungestStimulusAge(const AActor& Source) const;
 	bool HasAnyActiveStimulus(const AActor& Source) const;
 	bool HasActiveStimulus(const AActor& Source, FAISenseID Sense) const;
 
 #if !UE_BUILD_SHIPPING
-	void DrawDebugInfo(UCanvas* Canvas);
+	void GetDebugData(TArray<FString>& OnScreenStrings, TArray<FDrawDebugShapeElement>& DebugShapes) const;
 #endif // !UE_BUILD_SHIPPING
 
 #if ENABLE_VISUAL_LOG
@@ -255,6 +259,9 @@ public:
 	//////////////////////////////////////////////////////////////////////////
 	UPROPERTY(BlueprintAssignable)
 	FPerceptionUpdatedDelegate OnPerceptionUpdated;
+
+	UPROPERTY(BlueprintAssignable)
+	FActorPerceptionUpdatedDelegate OnTargetPerceptionUpdated;
 
 protected:
 

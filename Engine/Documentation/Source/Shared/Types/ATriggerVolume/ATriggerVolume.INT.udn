@@ -5,7 +5,7 @@ Description:Overview of the TriggerVolume class
 
 [EXCERPT:ATriggerVolume]
 
-Trigger Volumes are used as a way to cause events when a Player or other object enters or exits them.
+Triggers are Actors that cause an event to occur when they interact with another object in the level.
 
 [VAR:ToolTipFullLink]
 Engine/Actors/Volumes#Volume Types

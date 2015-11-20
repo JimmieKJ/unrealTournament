@@ -4,6 +4,8 @@
 	Definitions.usf: Defines undefined defines to 0 as Cg can't handle them.
 =============================================================================*/
 
+#pragma once
+
 #ifndef MATERIAL_TWOSIDED
 #define	MATERIAL_TWOSIDED								0
 #endif
@@ -56,8 +58,8 @@
 #define OUTPUT_DEPTH_TO_ALPHA							0
 #endif
 
-#ifndef COMPILER_CG
-#define COMPILER_CG										0
+#ifndef COMPILER_HLSLCC
+#define COMPILER_HLSLCC									0
 #endif
 
 #ifndef COMPILER_HLSL
@@ -70,6 +72,10 @@
 
 #ifndef COMPILER_GLSL_ES2
 #define COMPILER_GLSL_ES2									0
+#endif
+
+#ifndef COMPILER_METAL
+#define COMPILER_METAL									0
 #endif
 
 #ifndef COMPILER_SUPPORTS_ATTRIBUTES
@@ -98,6 +104,18 @@
 
 #ifndef METAL_MRT_PROFILE
 #define METAL_MRT_PROFILE								0
+#endif
+
+#ifndef METAL_SM4_PROFILE
+#define METAL_SM4_PROFILE								0
+#endif
+
+#ifndef METAL_SM5_PROFILE
+#define METAL_SM5_PROFILE								0
+#endif
+
+#ifndef VULKAN_PROFILE
+#define	VULKAN_PROFILE									0
 #endif
 
 #ifndef IOS
@@ -150,8 +168,28 @@
 #define NUM_VF_PACKED_INTERPOLANTS						0
 #endif
 
+#ifndef INVARIANT
+#define INVARIANT										
+#endif
+
+#ifndef REVERSEBITS
+#define REVERSEBITS										reversebits
+#endif
+
+#ifndef ENABLE_RE_Z
+#define ENABLE_RE_Z
+#endif
+
 #ifndef USE_CLEARCOAT
 #define USE_CLEARCOAT									0
+#endif
+
+#ifndef USE_CLOTH
+#define USE_CLOTH										0
+#endif
+
+#ifndef USE_EYE
+#define USE_EYE										0
 #endif
 
 #if SM5_PROFILE || COMPILER_SUPPORTS_ATTRIBUTES
@@ -163,10 +201,6 @@
 #define BRANCH											[branch]
 /** Performs branching by using the cnd instructions. */
 #define FLATTEN											[flatten]
-/** Executes the conditional part of an if statement when the condition is true for all threads on which the current shader is running. */
-#define IFALL											[ifAll]
-/** Executes the conditional part of an if statement when the condition is true for any thread on which the current shader is running. */
-#define IFANY											[ifAny]
 /** Allows a compute shader loop termination condition to be based off of a UAV read. The loop must not contain synchronization intrinsics. */
 #define ALLOW_UAV_CONDITION								[allow_uav_condition]
 #else
@@ -182,12 +216,6 @@
 #ifndef FLATTEN
 #define FLATTEN
 #endif
-#ifndef IFALL
-#define IFALL
-#endif
-#ifndef IFANY
-#define IFANY
-#endif
 #endif
 
 #define ISOLATE
@@ -201,4 +229,48 @@
 
 #ifndef HAS_INVERTED_Z_BUFFER
 #define HAS_INVERTED_Z_BUFFER	1
+#endif
+
+#ifndef COMPRESSED_16_FLOAT
+#define COMPRESSED_16_FLOAT
+#endif
+
+#ifndef COMPRESSED_16_UNORM
+#define COMPRESSED_16_UNORM
+#endif
+
+#ifndef COMPRESSED_16_SNORM
+#define COMPRESSED_16_SNORM
+#endif
+
+#ifndef COMPRESSED_16_UINT
+#define COMPRESSED_16_UINT
+#endif
+
+#ifndef COMPRESSED_16_INT
+#define COMPRESSED_16_INT
+#endif
+
+#ifndef COMPRESSED_8_UNORM
+#define COMPRESSED_8_UNORM
+#endif
+
+#ifndef COMPRESSED_8_SNORM
+#define COMPRESSED_8_SNORM
+#endif
+
+#ifndef COMPRESSED_8_UINT
+#define COMPRESSED_8_UINT
+#endif
+
+/** When defined sets the layer index for volumetric rendering in the vertex shader, rather than using a geometry shader */
+#ifndef USING_VERTEX_SHADER_LAYER
+#define USING_VERTEX_SHADER_LAYER	0
+#endif
+
+// 'static' asserts
+#if COMPILER_GLSL || COMPILER_GLSL_ES2 || VULKAN_PROFILE || METAL_PROFILE || METAL_MRT_PROFILE || METAL_SM4_PROFILE || METAL_SM5_PROFILE
+#if !COMPILER_HLSLCC
+#error "Missing COMPILER_HLSLCC define!"
+#endif
 #endif

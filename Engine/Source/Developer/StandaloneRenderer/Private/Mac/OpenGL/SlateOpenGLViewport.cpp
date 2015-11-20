@@ -2,7 +2,7 @@
 
 #include "StandaloneRendererPrivate.h"
 #include "OpenGL/SlateOpenGLRenderer.h"
-
+#include "CocoaThread.h"
 #include "SlateOpenGLMac.h"
 
 #include "MacWindow.h"
@@ -32,6 +32,7 @@ void FSlateOpenGLViewport::Destroy()
 
 void FSlateOpenGLViewport::MakeCurrent()
 {
+	LockGLContext(RenderingContext.Context); // NOTE: We assume here that SwapBuffers will always be called after Viewport->MakeCurrent
 	RenderingContext.MakeCurrent();
 	glBindFramebuffer(GL_FRAMEBUFFER, ((FSlateCocoaView*)RenderingContext.View)->Framebuffer);
 }
@@ -40,8 +41,11 @@ void FSlateOpenGLViewport::SwapBuffers()
 {
 	glFlushRenderAPPLE();
 	[(FCocoaWindow*)[RenderingContext.View window] startRendering];
-	[RenderingContext.View setNeedsDisplay:YES];
+	MainThreadCall(^{
+		[RenderingContext.View setNeedsDisplay:YES];
+	}, NSDefaultRunLoopMode, false);
 	glBindFramebuffer(GL_FRAMEBUFFER, ((FSlateCocoaView*)RenderingContext.View)->Framebuffer);
+	UnlockGLContext(RenderingContext.Context);
 }
 
 void FSlateOpenGLViewport::Resize(int32 Width, int32 Height, bool bInFullscreen)
@@ -54,6 +58,7 @@ void FSlateOpenGLViewport::Resize(int32 Width, int32 Height, bool bInFullscreen)
 
 	if (RenderingContext.Context && RenderingContext.View && Width > 0 && Height > 0)
 	{
+		LockGLContext(RenderingContext.Context);
 		((FSlateCocoaView*)RenderingContext.View)->ViewportRect = ViewportRect;
 		
 		GLuint& Framebuffer = ((FSlateCocoaView*)RenderingContext.View)->Framebuffer;
@@ -87,5 +92,6 @@ void FSlateOpenGLViewport::Resize(int32 Width, int32 Height, bool bInFullscreen)
 		glBindFramebuffer(GL_READ_FRAMEBUFFER, CurrentReadFramebuffer);
 
 		[RenderingContext.Context update];
+		UnlockGLContext(RenderingContext.Context);
 	}
 }

@@ -7,6 +7,7 @@
 //forward declare
 typedef TSharedPtr<class IOnlineNotificationTransport, ESPMode::ThreadSafe> IOnlineNotificationTransportPtr;
 class IOnlineNotificationTransportMessage;
+struct FOnlineNotification;
 
 
 /** This class is a static manager used to track notification transports and map the delivered notifications to subscribed notification handlers */

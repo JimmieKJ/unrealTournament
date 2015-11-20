@@ -4,6 +4,8 @@
 #include "IOSAppDelegateConsoleHandling.h"
 #include "LaunchPrivatePCH.h"
 
+extern bool GShowSplashScreen;
+
 @implementation IOSAppDelegate (ConsoleHandling)
 
 #if !UE_BUILD_SHIPPING
@@ -28,6 +30,7 @@
 									style:UIAlertActionStyleDefault
 									handler:^(UIAlertAction* action)
 									{
+										self.AlertResponse = 1;
 										[self.ConsoleAlertController dismissViewControllerAnimated : YES completion : nil];
 
 										// we clicked Ok (not Cancel at index 0), submit the console command
@@ -40,6 +43,7 @@
 										style : UIAlertActionStyleDefault
 										handler : ^ (UIAlertAction* action)
 										{
+											self.AlertResponse = 0;
 											[self.ConsoleAlertController dismissViewControllerAnimated : YES completion : nil];
 										}
 		];
@@ -148,6 +152,14 @@
  */
 - (void)ShowAlert:(NSMutableArray*)StringArray
 {
+	if (GShowSplashScreen)
+	{
+		if ([[IOSAppDelegate GetDelegate].Window viewWithTag : 2] != nil)
+		{
+			[[[IOSAppDelegate GetDelegate].Window viewWithTag : 2] removeFromSuperview];
+		}
+		GShowSplashScreen = false;
+	}
 #ifdef __IPHONE_8_0
 	if ([UIAlertController class])
 	{
@@ -163,6 +175,8 @@
 											style : UIAlertActionStyleDefault
 											handler : ^ (UIAlertAction* action)
 											{
+												// just set our AlertResponse property, all we need to do
+												self.AlertResponse = OptionalButtonIndex - 2;
 												[AlertController dismissViewControllerAnimated : YES completion : nil];
 											}
 			];

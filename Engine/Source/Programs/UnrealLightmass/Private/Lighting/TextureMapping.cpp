@@ -226,7 +226,6 @@ void FStaticLightingRasterPolicy::ProcessPixel(int32 X,int32 Y,const Interpolant
 			// Even for split texels which are mapped to triangles in different parts of the mesh.
 			TexelToVertex.MaxSampleWeight = SampleWeight;
 			TexelToVertex.WorldPosition = Interpolant.Vertex.WorldPosition;
-			TexelToVertex.TriangleNormal = TriangleNormal;
 			TexelToVertex.ElementIndex = Interpolant.ElementIndex;
 
 			for( int32 CurCoordIndex = 0; CurCoordIndex < MAX_TEXCOORDS; ++CurCoordIndex )
@@ -241,6 +240,7 @@ void FStaticLightingRasterPolicy::ProcessPixel(int32 X,int32 Y,const Interpolant
 		TexelToVertex.WorldTangentX += Interpolant.Vertex.WorldTangentX * SampleWeight;
 		TexelToVertex.WorldTangentY += Interpolant.Vertex.WorldTangentY * SampleWeight;
 		TexelToVertex.WorldTangentZ += Interpolant.Vertex.WorldTangentZ * SampleWeight;
+		TexelToVertex.TriangleNormal += TriangleNormal * SampleWeight;
 		TexelToVertex.TotalSampleWeight += SampleWeight;
 	}
 	else if (!bUseMaxWeight)
@@ -376,7 +376,9 @@ void FStaticLightingSystem::CacheIrradiancePhotonsTextureMapping(FStaticLighting
 
 				// Normalize the tangent basis and ensure it is orthonormal
 				CurrentVertex.WorldTangentZ = CurrentVertex.WorldTangentZ.GetUnsafeNormal3();
-				CurrentVertex.TriangleNormal = TexelToVertex.TriangleNormal.GetUnsafeNormal3();
+
+				const bool bUseVertexNormalForHemisphereGather = TextureMapping->Mesh->UseVertexNormalForHemisphereGather(TexelToVertex.ElementIndex);
+				CurrentVertex.TriangleNormal = bUseVertexNormalForHemisphereGather ? CurrentVertex.WorldTangentZ : TexelToVertex.TriangleNormal.GetUnsafeNormal3();
 				checkSlow(!CurrentVertex.TriangleNormal.ContainsNaN());
 
 				const FVector4 OriginalTangentX = CurrentVertex.WorldTangentX;
@@ -490,13 +492,13 @@ void FStaticLightingSystem::ProcessTextureMapping(FStaticLightingTextureMapping*
 					if (DistanceToDebugTexelSq < 40000
 						|| X == Scene.DebugInput.LocalX && Y == Scene.DebugInput.LocalY)
 					{
-						FDebugStaticLightingVertex DebugVertex;
-						DebugVertex.VertexNormal = FVector4(TexelToVertex.WorldTangentZ);
-						DebugVertex.VertexPosition = TexelToVertex.WorldPosition;
-						DebugOutput.Vertices.Add(DebugVertex);
-
 						if (X == Scene.DebugInput.LocalX && Y == Scene.DebugInput.LocalY)
-						{							
+						{		
+							FDebugStaticLightingVertex DebugVertex;
+							DebugVertex.VertexNormal = FVector4(TexelToVertex.WorldTangentZ);
+							DebugVertex.VertexPosition = TexelToVertex.WorldPosition;
+							DebugOutput.Vertices.Add(DebugVertex);
+
 							DebugOutput.SelectedVertexIndices.Add(DebugOutput.Vertices.Num() - 1);
 							DebugOutput.SampleRadius = TexelToVertex.TexelRadius;
 						}
@@ -1002,6 +1004,7 @@ void FStaticLightingSystem::SetupTextureMapping(
 					TexelToVertex.WorldTangentX = TexelToVertex.WorldTangentX / TexelToVertex.TotalSampleWeight;
 					TexelToVertex.WorldTangentY = TexelToVertex.WorldTangentY / TexelToVertex.TotalSampleWeight;
 					TexelToVertex.WorldTangentZ = TexelToVertex.WorldTangentZ / TexelToVertex.TotalSampleWeight;
+					TexelToVertex.TriangleNormal = TexelToVertex.TriangleNormal / TexelToVertex.TotalSampleWeight;
 				}
 
 				// Mark the texel as mapped to some geometry in the scene
@@ -1025,7 +1028,9 @@ void FStaticLightingSystem::SetupTextureMapping(
 
 				// Normalize the tangent basis and ensure it is orthonormal
 				TexelToVertex.WorldTangentZ = TexelToVertex.WorldTangentZ.GetUnsafeNormal3();
-				TexelToVertex.TriangleNormal = TexelToVertex.TriangleNormal.GetUnsafeNormal3();
+
+				const bool bUseVertexNormalForHemisphereGather = TextureMapping->Mesh->UseVertexNormalForHemisphereGather(TexelToVertex.ElementIndex);
+				TexelToVertex.TriangleNormal = bUseVertexNormalForHemisphereGather ? TexelToVertex.WorldTangentZ : TexelToVertex.TriangleNormal.GetUnsafeNormal3();
 				checkSlow(!TexelToVertex.TriangleNormal.ContainsNaN());
 
 				const FVector4 OriginalTangentX = TexelToVertex.WorldTangentX;
@@ -1140,12 +1145,14 @@ void FStaticLightingSystem::SetupTextureMapping(
 					// Give preference to moving the shading position outside of backfaces
 					int32 IntersectionIndexForShadingPositionMovement = ClosestBackfacingIntersectionIndex;
 
+					// Note: this is disabled as it causes problems in cracks, the lighting position will be moved inside the object
+					/*
 					// Even if we didn't hit any backfaces, still move the shading position away from an intersecting frontface if it is close enough
 					if (IntersectionIndexForShadingPositionMovement == INDEX_NONE 
 						&& ClosestIntersectionDistanceSq < (TexelToVertex.TexelRadius / 2) * (TexelToVertex.TexelRadius / 2))
 					{
 						IntersectionIndexForShadingPositionMovement = ClosestIntersectionIndex;
-					}
+					}*/
 
 					if (IntersectionIndexForShadingPositionMovement != INDEX_NONE)
 					{
@@ -2965,6 +2972,7 @@ void FStaticLightingSystem::ProcessInterpolateTask(FInterpolateIndirectTaskDescr
 
 				// Apply occlusion to indirect lighting and add this texel's indirect lighting to its running total
 				CurrentLightSample.AddWeighted(IndirectLighting, 1);
+				CurrentLightSample.HighQuality.AOMaterialMask = IndirectLighting.Occlusion;
 
 				// Stationary sky light contribution goes into low quality lightmap only, bent normal sky shadowing will be exported separately
 				CurrentLightSample.LowQuality.AddWeighted(IndirectLighting.StationarySkyLighting, 1);

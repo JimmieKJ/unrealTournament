@@ -73,9 +73,25 @@ void STiledLandcapeImportDlg::Construct(const FArguments& InArgs, TSharedPtr<SWi
 					.OnClicked(this, &STiledLandcapeImportDlg::OnClickedSelectHeightmapTiles)
 					.Text(LOCTEXT("TiledLandscapeImport_SelectButtonText", "Select Heightmap Tiles..."))
 				]
-				
-				// Tiles origin offset
+
+				// Flip Y-Axis orientation
 				+SUniformGridPanel::Slot(0, 1)
+				.VAlign(VAlign_Center)
+				[
+					SNew(STextBlock)
+					.Text( LOCTEXT("TiledLandscapeImport_FlipYAxisText", "Flip Tile Y Coordinate" ) )
+				]
+				+SUniformGridPanel::Slot(1, 1)
+				.VAlign(VAlign_Center)
+				[
+					SNew(SCheckBox)
+					.IsChecked(this, &STiledLandcapeImportDlg::GetFlipYAxisState)
+					.OnCheckStateChanged(this, &STiledLandcapeImportDlg::OnFlipYAxisStateChanged)
+					.ToolTipText(LOCTEXT("TiledLandscapeImport_FlipYAxisToolTip", "Whether tile Y coordinate should be flipped (Make sure 'Flip Y-Axis Orientation' option is switched off in World Machine) "))
+				]
+										
+				// Tiles origin offset
+				+SUniformGridPanel::Slot(0, 2)
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
@@ -83,7 +99,7 @@ void STiledLandcapeImportDlg::Construct(const FArguments& InArgs, TSharedPtr<SWi
 					.Text(LOCTEXT("TiledLandscapeImport_TilesOffsetText", "Tile Coordinates Offset"))
 				]
 
-				+SUniformGridPanel::Slot(1, 1)
+				+SUniformGridPanel::Slot(1, 2)
 				.VAlign(VAlign_Center)
 				[
 					SNew(SHorizontalBox)
@@ -98,7 +114,7 @@ void STiledLandcapeImportDlg::Construct(const FArguments& InArgs, TSharedPtr<SWi
 						.LabelPadding(0)
 						.Label()
 						[
-							SNumericEntryBox<int>::BuildLabel( LOCTEXT("X_Label", "X"), FLinearColor::White, SNumericEntryBox<int>::RedLabelBackgroundColor )
+							SNumericEntryBox<int32>::BuildLabel( LOCTEXT("X_Label", "X"), FLinearColor::White, SNumericEntryBox<int32>::RedLabelBackgroundColor )
 						]
 					]
 					
@@ -112,20 +128,20 @@ void STiledLandcapeImportDlg::Construct(const FArguments& InArgs, TSharedPtr<SWi
 						.LabelPadding(0)
 						.Label()
 						[
-							SNumericEntryBox<float>::BuildLabel( LOCTEXT("Y_Label", "Y"), FLinearColor::White, SNumericEntryBox<int>::GreenLabelBackgroundColor )
+							SNumericEntryBox<int32>::BuildLabel( LOCTEXT("Y_Label", "Y"), FLinearColor::White, SNumericEntryBox<int32>::GreenLabelBackgroundColor )
 						]
 					]
 				]
-
+				
 				// Tile configuration
-				+SUniformGridPanel::Slot(0, 2)
+				+SUniformGridPanel::Slot(0, 3)
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
 					.Text(LOCTEXT("TiledLandscapeImport_ConfigurationText", "Import Configuration"))
 				]
 
-				+SUniformGridPanel::Slot(1, 2)
+				+SUniformGridPanel::Slot(1, 3)
 				.VAlign(VAlign_Center)
 				[
 					SAssignNew(TileConfigurationComboBox, SComboBox<TSharedPtr<FTileImportConfiguration>>)
@@ -140,18 +156,19 @@ void STiledLandcapeImportDlg::Construct(const FArguments& InArgs, TSharedPtr<SWi
 				]
 
 				// Scale
-				+SUniformGridPanel::Slot(0, 3)
+				+SUniformGridPanel::Slot(0, 4)
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
 					.Text(LOCTEXT("TiledLandscapeImport_ScaleText", "Landscape Scale"))
 				]
 			
-				+SUniformGridPanel::Slot(1, 3)
+				+SUniformGridPanel::Slot(1, 4)
 				.VAlign(VAlign_Center)
 				[
 					SNew( SVectorInputBox )
 					.bColorAxisLabels( true )
+					.AllowResponsiveLayout( true )
 					.X( this, &STiledLandcapeImportDlg::GetScaleX )
 					.Y( this, &STiledLandcapeImportDlg::GetScaleY )
 					.Z( this, &STiledLandcapeImportDlg::GetScaleZ )
@@ -161,14 +178,14 @@ void STiledLandcapeImportDlg::Construct(const FArguments& InArgs, TSharedPtr<SWi
 				]
 
 				// Landcape material
-				+SUniformGridPanel::Slot(0, 4)
+				+SUniformGridPanel::Slot(0, 5)
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
 					.Text(LOCTEXT("TiledLandscapeImport_MaterialText", "Material"))
 				]
 			
-				+SUniformGridPanel::Slot(1, 4)
+				+SUniformGridPanel::Slot(1, 5)
 				.VAlign(VAlign_Center)
 				[
 					SNew(SObjectPropertyEntryBox)
@@ -380,6 +397,16 @@ TOptional<int32> STiledLandcapeImportDlg::GetTileOffsetY() const
 void STiledLandcapeImportDlg::SetTileOffsetY(int32 InValue)
 {
 	ImportSettings.TilesCoordinatesOffset.Y = InValue;
+}
+
+ECheckBoxState STiledLandcapeImportDlg::GetFlipYAxisState() const
+{
+	return ImportSettings.bFlipYAxis ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void STiledLandcapeImportDlg::OnFlipYAxisStateChanged(ECheckBoxState NewState)
+{
+	ImportSettings.bFlipYAxis = (NewState == ECheckBoxState::Checked);
 }
 
 void STiledLandcapeImportDlg::OnSetImportConfiguration(TSharedPtr<FTileImportConfiguration> InTileConfig, ESelectInfo::Type SelectInfo)

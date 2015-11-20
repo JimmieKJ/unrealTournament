@@ -377,8 +377,13 @@ bool FStructureEditorUtils::ChangeVariableDefaultValue(UUserDefinedStruct* Struc
 		{
 			bResult = true;
 		}
-		else if ((PinType.PinCategory == K2Schema->PC_Object) || (PinType.PinCategory == K2Schema->PC_Interface) || (PinType.PinCategory == K2Schema->PC_Class))
+		else if ((PinType.PinCategory == K2Schema->PC_Object) 
+			|| (PinType.PinCategory == K2Schema->PC_Interface) 
+			|| (PinType.PinCategory == K2Schema->PC_Class)
+			|| (PinType.PinCategory == K2Schema->PC_AssetClass)
+			|| (PinType.PinCategory == K2Schema->PC_Asset))
 		{
+			// K2Schema->DefaultValueSimpleValidation finds an object, passed by path, invalid
 			bResult = true;
 		}
 		else

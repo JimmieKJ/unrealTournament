@@ -7,11 +7,12 @@
 #include "GameMode.generated.h"
 
 class FDebugDisplayInfo;
+class FUniqueNetId;
 
-//=============================================================================
+//~=============================================================================
 //  GameMode defines the rules and mechanics of the game.  It is only 
 //  instanced on the server and will never exist on the client.
-//=============================================================================
+//~=============================================================================
 
 /** Possible state of the current match, where a match is all the gameplay that happens on a single map */
 namespace MatchState
@@ -180,11 +181,11 @@ public:
 
 	/** The default pawn class used by players. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Classes)
-	TSubclassOf<class APawn>  DefaultPawnClass;
+	TSubclassOf<class APawn> DefaultPawnClass;
 
 	/** HUD class this game uses. */
-	UPROPERTY(EditAnywhere, noclear, BlueprintReadWrite, Category=Classes, meta=(DisplayName="HUD Class"))
-	TSubclassOf<class AHUD>  HUDClass;    
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Classes, meta=(DisplayName="HUD Class"))
+	TSubclassOf<class AHUD> HUDClass;    
 
 	/** Current number of spectators. */
 	UPROPERTY(BlueprintReadOnly, Category=GameMode)
@@ -228,6 +229,10 @@ public:
 	/** The pawn class used by the PlayerController for players when spectating. */
 	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Classes)
 	TSubclassOf<class ASpectatorPawn> SpectatorClass;
+
+	/** The PlayerController class used when spectating a network replay. */
+	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category = Classes)
+	TSubclassOf<class APlayerController> ReplaySpectatorPlayerControllerClass;
 
 	/** A PlayerState of this class will be associated with every player to replicate relevant player information to all clients. */
 	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Classes)
@@ -275,12 +280,12 @@ public:
 	UFUNCTION(exec)
 	virtual void SetBandwidthLimit(float AsyncIOBandwidthLimit);
 
-	// Begin AActor interface
+	//~ Begin AActor Interface
 	virtual void PreInitializeComponents() override;
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
 	virtual void Reset() override;
 	virtual void Tick(float DeltaSeconds) override;
-	// End AActor interface
+	//~ End AActor Interface
 
 	/** 
 	 * Overridable function to determine whether an Actor should have Reset called when the game has Reset called on it.
@@ -309,7 +314,7 @@ public:
 	 *	@return	bool			true if we should turn on cinematic mode, 
 	 *							false if if we should not.
 	 */
-	bool ShouldStartInCinematicMode(bool& OutHidePlayer, bool& OutHideHud, bool& OutDisableMovement, bool& OutDisableTurning);
+	bool ShouldStartInCinematicMode(APlayerController* Player, bool& OutHidePlayer, bool& OutHideHud, bool& OutDisableMovement, bool& OutDisableTurning);
 
 	/**
 	 * Initialize the game.
@@ -365,23 +370,28 @@ public:
 	 */
 	void ForceClearUnpauseDelegates( AActor* PauseActor );
 
-	//=========================================================================
+	//~=========================================================================
 	// URL Parsing
 	/** Grab the next option from a string. */
-	bool GrabOption( FString& Options, FString& ResultString );
+	DEPRECATED(4.9, "Use UGameplayStatics::GrabOption instead")
+	static bool GrabOption( FString& Options, FString& ResultString );
 
 	/** Break up a key=value pair into its key and value. */
-	void GetKeyValue( const FString& Pair, FString& Key, FString& Value );
+	DEPRECATED(4.9, "Use UGameplayStatics::GetKeyValue instead")
+	static void GetKeyValue( const FString& Pair, FString& Key, FString& Value );
 
 	/* Find an option in the options string and return it. */
-	FString ParseOption( const FString& Options, const FString& InKey );
+	DEPRECATED(4.9, "Use UGameplayStatics::ParseOption instead")
+	static FString ParseOption( FString Options, const FString& InKey );
 
 	/** HasOption - return true if the option is specified on the command line. */
-	bool HasOption( const FString& Options, const FString& InKey );
+	DEPRECATED(4.9, "Use UGameplayStatics::HasOption instead")
+	static bool HasOption( FString Options, const FString& InKey );
 
 	/** Search array of options for ParseString and return the index or CurrentValue if not found*/
-	int32 GetIntOption( const FString& Options, const FString& ParseString, int32 CurrentValue);
-	//=========================================================================
+	DEPRECATED(4.9, "Use UGameplayStatics::GetIntOption instead")
+	static int32 GetIntOption( const FString& Options, const FString& ParseString, int32 CurrentValue);
+	//~=========================================================================
 
 	/** 
 	 * @return the full path to the optimal GameMode class to use for the specified map and options
@@ -431,7 +441,7 @@ public:
 	 * @param	UniqueId				The unique id the player has passed to the server
 	 * @param	ErrorMessage			When set to a non-empty value, the player will be rejected using the error message set
 	 */
-	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
+	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
 
 	/** 
 	 * Called to login new players by creating a player controller, overridable by the game
@@ -451,7 +461,7 @@ public:
 	 *
 	 * @return a new player controller for the logged in player, NULL if login failed for any reason
 	 */
-	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole InRemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
 
 	/** Called after a successful login.  This is the first place it is safe to call replicated functions on the PlayerAController. */
 	virtual void PostLogin( APlayerController* NewPlayer );
@@ -469,7 +479,7 @@ public:
 	 *
 	 * @return PlayerController for the player, NULL if there is any reason this player shouldn't exist or due to some error
 	 */
-	virtual APlayerController* SpawnPlayerController(ENetRole RemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
+	virtual APlayerController* SpawnPlayerController(ENetRole InRemoteRole, FVector const& SpawnLocation, FRotator const& SpawnRotation);
 
 	/** @Returns true if NewPlayerController may only join the server as a spectator. */
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
@@ -563,6 +573,7 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	class AActor* FindPlayerStart( AController* Player, const FString& IncomingName = TEXT("") );
 
+	/** Calls code to select the best player start for this player to start from. */
 	UFUNCTION(BlueprintPure, Category=Game, meta=(DisplayName="FindPlayerStart"))
 	AActor* K2_FindPlayerStart(AController* Player);
 
@@ -629,7 +640,7 @@ public:
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList);
 
 	/** Allow the game to specify a place for clients to download MapName */
-	DEPRECATED(4.10, "Override GameWelcomePlayer() instead")
+	DEPRECATED(4.11, "Override GameWelcomePlayer() instead")
 	virtual FString GetRedirectURL(const FString& MapName) const;
 
 	/** allows game to send network messages to provide more information to the client joining the game via NMT_GameSpecific
@@ -685,7 +696,7 @@ protected:
 	 * @param Options URL options that came at login
 	 *
 	 */
-	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
+	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT(""));
 
 
 private:

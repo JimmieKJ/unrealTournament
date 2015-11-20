@@ -27,8 +27,8 @@ class FLandscapeToolStrokeSelect : public FLandscapeToolStrokeBase
 
 public:
 	FLandscapeToolStrokeSelect(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: bInitializedComponentInvert(false)
-		, LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
+		, bInitializedComponentInvert(false)
 		, Cache(InTarget)
 	{
 	}
@@ -170,7 +170,6 @@ public:
 	}
 
 protected:
-	ULandscapeInfo* LandscapeInfo;
 	FLandscapeDataCache Cache;
 };
 
@@ -212,10 +211,8 @@ public:
 class FLandscapeToolStrokeVisibility : public FLandscapeToolStrokeBase
 {
 public:
-	enum { UseContinuousApply = false };
-
 	FLandscapeToolStrokeVisibility(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
 		, Cache(InTarget)
 	{
 	}
@@ -268,7 +265,6 @@ public:
 	}
 
 protected:
-	ULandscapeInfo* LandscapeInfo;
 	FLandscapeVisCache Cache;
 };
 
@@ -295,13 +291,11 @@ public:
 	}
 };
 
-class FLandscapeToolStrokeMoveToLevel
+class FLandscapeToolStrokeMoveToLevel : public FLandscapeToolStrokeBase
 {
 public:
-	enum { UseContinuousApply = false };
-
 	FLandscapeToolStrokeMoveToLevel(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
 	{
 	}
 
@@ -327,7 +321,7 @@ public:
 			}
 
 			// Check the LayerInfoObjects are same package with Landscape
-			for (int i = 0; i < LandscapeInfo->Layers.Num(); ++i)
+			for (int32 i = 0; i < LandscapeInfo->Layers.Num(); ++i)
 			{
 				ULandscapeLayerInfoObject* LayerInfo = LandscapeInfo->Layers[i].LayerInfoObj;
 				if (LayerInfo && LayerInfo->GetOutermost() == Landscape->GetOutermost())
@@ -418,17 +412,14 @@ public:
 
 				GWarn->BeginSlowTask(LOCTEXT("BeginMovingLandscapeComponentsToCurrentLevelTask", "Moving Landscape components to current level"), true);
 
-				TSet<ALandscapeProxy*> SelectProxies;
-				TSet<UTexture2D*> OldTextureSet;
-				TSet<ULandscapeComponent*> TargetSelectedComponents;
-				TArray<ULandscapeHeightfieldCollisionComponent*> TargetSelectedCollisionComponents;
-				TSet<ULandscapeComponent*> HeightmapUpdateComponents;
-
 				int32 Progress = 0;
 				LandscapeInfo->SortSelectedComponents();
-				int32 ComponentSizeVerts = Landscape->NumSubsections * (Landscape->SubsectionSizeQuads + 1);
-				int32 NeedHeightmapSize = 1 << FMath::CeilLogTwo(ComponentSizeVerts);
+				const int32 ComponentSizeVerts = Landscape->NumSubsections * (Landscape->SubsectionSizeQuads + 1);
+				const int32 NeedHeightmapSize = 1 << FMath::CeilLogTwo(ComponentSizeVerts);
 
+				TSet<ALandscapeProxy*> SelectProxies;
+				TSet<ULandscapeComponent*> TargetSelectedComponents;
+				TArray<ULandscapeHeightfieldCollisionComponent*> TargetSelectedCollisionComponents;
 				for (ULandscapeComponent* Component : SelectedComponents)
 				{
 					SelectProxies.Add(Component->GetLandscapeProxy());
@@ -448,52 +439,46 @@ public:
 				int32 TotalProgress = TargetSelectedComponents.Num() * TargetSelectedCollisionComponents.Num();
 
 				// Check which ones are need for height map change
+				TSet<UTexture2D*> OldHeightmapTextures;
 				for (ULandscapeComponent* Component : TargetSelectedComponents)
 				{
 					Component->Modify();
-					OldTextureSet.Add(Component->HeightmapTexture);
+					OldHeightmapTextures.Add(Component->HeightmapTexture);
 				}
 
 				// Need to split all the component which share Heightmap with selected components
-				// Search neighbor only
+				TMap<ULandscapeComponent*, bool> HeightmapUpdateComponents;
+				HeightmapUpdateComponents.Reserve(TargetSelectedComponents.Num() * 4); // worst case
 				for (ULandscapeComponent* Component : TargetSelectedComponents)
 				{
-					int32 SearchX = Component->HeightmapTexture->Source.GetSizeX() / NeedHeightmapSize;
-					int32 SearchY = Component->HeightmapTexture->Source.GetSizeY() / NeedHeightmapSize;
-					FIntPoint ComponentBase = Component->GetSectionBase() / Component->ComponentSizeQuads;
+					// Search neighbor only
+					const int32 SearchX = Component->HeightmapTexture->Source.GetSizeX() / NeedHeightmapSize - 1;
+					const int32 SearchY = Component->HeightmapTexture->Source.GetSizeY() / NeedHeightmapSize - 1;
+					const FIntPoint ComponentBase = Component->GetSectionBase() / Component->ComponentSizeQuads;
 
-					for (int32 Y = 0; Y < SearchY; ++Y)
+					for (int32 Y = -SearchY; Y <= SearchY; ++Y)
 					{
-						for (int32 X = 0; X < SearchX; ++X)
+						for (int32 X = -SearchX; X <= SearchX; ++X)
 						{
-							// Search for four directions...
-							for (int32 Dir = 0; Dir < 4; ++Dir)
+							ULandscapeComponent* const Neighbor = LandscapeInfo->XYtoComponentMap.FindRef(ComponentBase + FIntPoint(X, Y));
+							if (Neighbor && Neighbor->HeightmapTexture == Component->HeightmapTexture && !HeightmapUpdateComponents.Contains(Neighbor))
 							{
-								int32 XDir = (Dir >> 1) ? 1 : -1;
-								int32 YDir = (Dir % 2) ? 1 : -1;
-								ULandscapeComponent* Neighbor = LandscapeInfo->XYtoComponentMap.FindRef(ComponentBase + FIntPoint(XDir*X, YDir*Y));
-								if (Neighbor && Neighbor->HeightmapTexture == Component->HeightmapTexture && !HeightmapUpdateComponents.Contains(Neighbor))
-								{
-									Neighbor->Modify();
-									if (!TargetSelectedComponents.Contains(Neighbor))
-									{
-										Neighbor->HeightmapScaleBias.X = -1.0f; // just mark this component is for original level, not current level
-									}
-									HeightmapUpdateComponents.Add(Neighbor);
-								}
+								Neighbor->Modify();
+								bool bNeedsMoveToCurrentLevel = TargetSelectedComponents.Contains(Neighbor);
+								HeightmapUpdateComponents.Add(Neighbor, bNeedsMoveToCurrentLevel);
 							}
 						}
 					}
 				}
 
 				// Changing Heightmap format for selected components
-				for (ULandscapeComponent* Component : HeightmapUpdateComponents)
+				for (const auto& HeightmapUpdateComponentPair : HeightmapUpdateComponents)
 				{
-					ALandscape::SplitHeightmap(Component, (Component->HeightmapScaleBias.X > 0.0f));
+					ALandscape::SplitHeightmap(HeightmapUpdateComponentPair.Key, HeightmapUpdateComponentPair.Value);
 				}
 
 				// Delete if it is no referenced textures...
-				for (UTexture2D* Texture : OldTextureSet)
+				for (UTexture2D* Texture : OldHeightmapTextures)
 				{
 					Texture->SetFlags(RF_Transactional);
 					Texture->Modify();
@@ -528,6 +513,16 @@ public:
 
 				LandscapeProxy->Modify();
 				LandscapeProxy->MarkPackageDirty();
+
+				// Handle XY-offset textures (these don't need splitting, as they aren't currently shared between components like heightmaps/weightmaps can be)
+				for (ULandscapeComponent* Component : TargetSelectedComponents)
+				{
+					if (Component->XYOffsetmapTexture)
+					{
+						Component->XYOffsetmapTexture->Modify();
+						Component->XYOffsetmapTexture->Rename(nullptr, LandscapeProxy->GetOutermost());
+					}
+				}
 
 				// Change Weight maps...
 				{
@@ -682,15 +677,15 @@ public:
 				{
 					// Need to move or recreate all related data (Height map, Weight map, maybe collision components, allocation info)
 
-					// Move any foliage associated
-					AInstancedFoliageActor::MoveInstancesForComponentToCurrentLevel(Component);
-
 					Component->GetLandscapeProxy()->CollisionComponents.Remove(Component);
 					Component->UnregisterComponent();
 					Component->DetachFromParent(true);
 					Component->Rename(nullptr, LandscapeProxy);
 					LandscapeProxy->CollisionComponents.Add(Component);
 					Component->AttachTo(LandscapeProxy->GetRootComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
+
+					// Move any foliage associated
+					AInstancedFoliageActor::MoveInstancesForComponentToCurrentLevel(Component);
 
 					FFormatNamedArguments Args;
 					Args.Add(TEXT("ComponentName"), FText::FromString(Component->GetName()));
@@ -727,9 +722,6 @@ public:
 			}
 		}
 	}
-
-protected:
-	ULandscapeInfo* LandscapeInfo;
 };
 
 // 
@@ -755,8 +747,7 @@ class FLandscapeToolStrokeAddComponent : public FLandscapeToolStrokeBase
 {
 public:
 	FLandscapeToolStrokeAddComponent(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: EdMode(InEdMode)
-		, LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
 		, HeightCache(InTarget)
 		, XYOffsetCache(InTarget)
 	{
@@ -879,13 +870,52 @@ public:
 
 			EdMode->LandscapeRenderAddCollision = nullptr;
 
+			// Add/update "add collision" around the newly added components
+			{
+				// Top row
+				int32 ComponentIndexY = ComponentIndexY1 - 1;
+				for (int32 ComponentIndexX = ComponentIndexX1 - 1; ComponentIndexX <= ComponentIndexX2 + 1; ++ComponentIndexX)
+				{
+					if (!LandscapeInfo->XYtoComponentMap.FindRef(FIntPoint(ComponentIndexX, ComponentIndexY)))
+					{
+						LandscapeInfo->UpdateAddCollision(FIntPoint(ComponentIndexX, ComponentIndexY));
+					}
+				}
+
+				// Sides
+				for (ComponentIndexY = ComponentIndexY1; ComponentIndexY <= ComponentIndexY2; ++ComponentIndexY)
+				{
+					// Left
+					int32 ComponentIndexX = ComponentIndexX1 - 1;
+					if (!LandscapeInfo->XYtoComponentMap.FindRef(FIntPoint(ComponentIndexX, ComponentIndexY)))
+					{
+						LandscapeInfo->UpdateAddCollision(FIntPoint(ComponentIndexX, ComponentIndexY));
+					}
+
+					// Right
+					ComponentIndexX = ComponentIndexX1 + 1;
+					if (!LandscapeInfo->XYtoComponentMap.FindRef(FIntPoint(ComponentIndexX, ComponentIndexY)))
+					{
+						LandscapeInfo->UpdateAddCollision(FIntPoint(ComponentIndexX, ComponentIndexY));
+					}
+				}
+
+				// Bottom row
+				ComponentIndexY = ComponentIndexY2 + 1;
+				for (int32 ComponentIndexX = ComponentIndexX1 - 1; ComponentIndexX <= ComponentIndexX2 + 1; ++ComponentIndexX)
+				{
+					if (!LandscapeInfo->XYtoComponentMap.FindRef(FIntPoint(ComponentIndexX, ComponentIndexY)))
+					{
+						LandscapeInfo->UpdateAddCollision(FIntPoint(ComponentIndexX, ComponentIndexY));
+					}
+				}
+			}
+
 			GEngine->BroadcastOnActorMoved(Landscape);
 		}
 	}
 
 protected:
-	FEdModeLandscape* EdMode;
-	ULandscapeInfo* LandscapeInfo;
 	FLandscapeHeightCache HeightCache;
 	FLandscapeXYOffsetCache<true> XYOffsetCache;
 };
@@ -926,7 +956,7 @@ class FLandscapeToolStrokeDeleteComponent : public FLandscapeToolStrokeBase
 {
 public:
 	FLandscapeToolStrokeDeleteComponent(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
 	{
 	}
 
@@ -1085,9 +1115,6 @@ public:
 			GEngine->BroadcastLevelActorListChanged();
 		}
 	}
-
-protected:
-	ULandscapeInfo* LandscapeInfo;
 };
 
 // 
@@ -1113,8 +1140,7 @@ class FLandscapeToolStrokeCopy : public FLandscapeToolStrokeBase
 {
 public:
 	FLandscapeToolStrokeCopy(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: EdMode(InEdMode)
-		, LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
 		, Cache(InTarget)
 		, HeightCache(InTarget)
 		, WeightCache(InTarget)
@@ -1409,8 +1435,6 @@ public:
 	}
 
 protected:
-	FEdModeLandscape* EdMode;
-	ULandscapeInfo* LandscapeInfo;
 	typename ToolTarget::CacheClass Cache;
 	FLandscapeHeightCache HeightCache;
 	FLandscapeFullWeightCache WeightCache;
@@ -1471,8 +1495,7 @@ class FLandscapeToolStrokePaste : public FLandscapeToolStrokeBase
 {
 public:
 	FLandscapeToolStrokePaste(FEdModeLandscape* InEdMode, const FLandscapeToolTarget& InTarget)
-		: EdMode(InEdMode)
-		, LandscapeInfo(InTarget.LandscapeInfo.Get())
+		: FLandscapeToolStrokeBase(InEdMode, InTarget)
 		, Cache(InTarget)
 		, HeightCache(InTarget)
 		, WeightCache(InTarget)
@@ -1727,8 +1750,6 @@ public:
 	}
 
 protected:
-	FEdModeLandscape* EdMode;
-	ULandscapeInfo* LandscapeInfo;
 	typename ToolTarget::CacheClass Cache;
 	FLandscapeHeightCache HeightCache;
 	FLandscapeFullWeightCache WeightCache;

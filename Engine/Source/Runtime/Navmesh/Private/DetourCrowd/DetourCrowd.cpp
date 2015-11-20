@@ -353,7 +353,8 @@ dtCrowd::dtCrowd() :
 	m_velocitySampleCount(0),
 	m_navquery(0),
 	m_raycastSingleArea(0),
-	m_keepOffmeshConnections(0)
+	m_keepOffmeshConnections(0),
+	m_earlyReachTest(0)
 {
 }
 
@@ -1768,14 +1769,22 @@ void dtCrowd::updateStepOffMeshVelocity(const float dt, dtCrowdAgentDebugInfo*)
 			}
 		}
 
+		float MoveDir[3] = { 0 };
+		dtVsub(MoveDir, anim->endPos, anim->initPos);
+
+		// check if it's moving along the line: initPos -> endPos
+		const float distFromLinkSq = dtDistancePtSegSqr(ag->npos, anim->initPos, anim->endPos);
+		const float maxDistFromLinkSq = dtSqr(ag->params.radius * 2.0f);
+		if (distFromLinkSq > maxDistFromLinkSq)
+		{
+			dtVsub(MoveDir, anim->endPos, ag->npos);
+		}
+
 		if (ag->state == DT_CROWDAGENT_STATE_OFFMESH)
 		{
-			float dir[3] = { 0 };
-			dtVsub(dir, anim->endPos, anim->initPos);
-			dir[1] = 0.0f;
-
-			dtVnormalize(dir);
-			dtVscale(ag->nvel, dir, ag->params.maxSpeed);
+			MoveDir[1] = 0.0f;
+			dtVnormalize(MoveDir);
+			dtVscale(ag->nvel, MoveDir, ag->params.maxSpeed);
 			dtVcopy(ag->vel, ag->nvel);
 			dtVset(ag->dvel, 0, 0, 0);
 		}
@@ -1795,6 +1804,11 @@ void dtCrowd::setSingleAreaVisibilityOptimization(bool bEnable)
 void dtCrowd::setPruneStartedOffmeshConnections(bool bRemoveFromCorridor)
 {
 	m_keepOffmeshConnections = !bRemoveFromCorridor;
+}
+
+void dtCrowd::setEarlyReachTestOptimization(bool bEnable)
+{
+	m_earlyReachTest = bEnable;
 }
 
 bool dtCrowd::isOutsideCorridor(const int idx) const
@@ -1833,6 +1847,7 @@ bool dtCrowd::setAgentCorridor(const int idx, const dtPolyRef* path, const int n
 		return false;
 
 	ag->corridor.setCorridor(ag->targetPos, path, npath);
+	ag->corridor.setEarlyReachTest(m_earlyReachTest);
 	ag->boundary.reset();
 	ag->targetState = DT_CROWDAGENT_TARGET_VALID;
 	ag->targetReplanTime = 0.0;

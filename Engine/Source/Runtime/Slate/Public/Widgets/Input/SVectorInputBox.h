@@ -11,10 +11,11 @@ class SLATE_API SVectorInputBox : public SCompoundWidget
 {
 public:
 	SLATE_BEGIN_ARGS( SVectorInputBox )
-		: _Font( FCoreStyle::Get().GetFontStyle("NormalFont") ),
-		  _bColorAxisLabels( false )
+		: _Font( FCoreStyle::Get().GetFontStyle("NormalFont") )
+		, _bColorAxisLabels( false )
+		, _AllowResponsiveLayout( false )
 		{}
-		
+
 		/** X Component of the vector */
 		SLATE_ATTRIBUTE( TOptional<float>, X )
 
@@ -29,6 +30,9 @@ public:
 
 		/** Should the axis labels be colored */
 		SLATE_ARGUMENT( bool, bColorAxisLabels )		
+
+		/** Allow responsive layout to crush the label and margins when there is not a lot of room */
+		SLATE_ARGUMENT(bool, AllowResponsiveLayout)
 
 		/** Called when the x value of the vector is changed */
 		SLATE_EVENT( FOnFloatValueChanged, OnXChanged )
@@ -68,7 +72,27 @@ public:
 	 * @param	InArgs	The declaration data for this widget
 	 */
 	void Construct( const FArguments& InArgs );
+
+	// SWidget interface
+	virtual void OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const override;
+	// End of SWidget interface
+
 private:
+	/** Are we allowed to be crushed? */
+	bool bCanBeCrushed;
+
+	/** Are we currently being crushed? */
+	mutable bool bIsBeingCrushed;
+
+private:
+	/** Returns the index of the label widget to use (crushed or uncrushed) */
+	int32 GetLabelActiveSlot() const;
+
+	/** Returns the desired text margin for the label */
+	FMargin GetTextMargin() const;
+
+	/** Creates a decorator label (potentially adding a switcher widget if this is cruhsable) */
+	TSharedRef<SWidget> BuildDecoratorLabel(FLinearColor BackgroundColor, FLinearColor ForegroundColor, FText Label);
 
 	/**
 	 * Construct widgets for the X Value

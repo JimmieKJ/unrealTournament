@@ -30,9 +30,9 @@ class USoundNodeModulator : public USoundNode
 	float VolumeMax;
 
 public:
-	// Begin USoundNode interface. 
+	//~ Begin USoundNode Interface. 
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	// End USoundNode interface. 
+	//~ End USoundNode Interface. 
 };
 
 

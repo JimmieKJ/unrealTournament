@@ -23,8 +23,6 @@ struct FBlueprintSupport
 	 * aspects of the deferred loading (mostly for testing purposes). 
 	 */
 	static bool UseDeferredDependencyLoading();
-	static bool IsResolvingDeferredDependenciesDisabled();
-	static bool IsDeferredCDOSerializationDisabled();
 	static bool IsDeferredExportCreationDisabled();
 	static bool IsDeferredCDOInitializationDisabled();
 };
@@ -65,6 +63,108 @@ private:
 
 	FScopedClassDependencyGather();
 };
+
+/**
+ * Stores info about BPCG, UDS, UDE, etc.. converted into native code.
+ *
+ * Native entities (generated from BP items) have "ReplaceConverted" with original object path.
+ * This path is used to fix linker while loading.
+ * 
+ * This struct is used only when the code converted from BP is compiled in an editor build. 
+ * It's usually only for a test/development purpose.
+ */
+struct COREUOBJECT_API FReplaceConvertedAssetManager : public FGCObject
+{
+private:
+	TMap<FString, UObject*> ReplaceMap;
+	bool bIsEnabled;
+
+	FReplaceConvertedAssetManager();
+
+	void GatherOriginalPathsOfConvertedAssets();
+
+public:
+
+	static FReplaceConvertedAssetManager& Get();
+
+	void SetEnabled(bool InEnabled)
+	{
+		bIsEnabled = InEnabled;
+		if (bIsEnabled)
+		{
+			GatherOriginalPathsOfConvertedAssets();
+		}
+	}
+
+	bool IsEnabled()
+	{
+		return bIsEnabled;
+	}
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	UPackage* FindPackageReplacement(const FString& OriginalPathName) const;
+
+	UObject* FindReplacement(const FString& OriginalPathName) const;
+
+	static void OnModulesChanged(FName ModuleThatChanged, EModuleChangeReason ReasonForChange);
+};
+
+/**
+ * The struct is used while saving cooked package to find replacements of converted BP assets.
+ */
+struct COREUOBJECT_API FReplaceCookedBPGC : public FGCObject
+{
+private:
+	UPackage* NativeScriptPackage;
+	TMap<FString, UObject*> ReplaceMap;
+	TSet<FName> ConvertedPackagesNames;
+	bool bEnabled;
+
+	FReplaceCookedBPGC();
+
+	void AdditionalStubFieldInitialization(UField* Stub);
+
+public:
+	static FReplaceCookedBPGC& Get();
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	// INITIALIZATION
+	void Initialize(const FString& NativePackageName);
+	void AddConvertedPackageName(FName PackageName);
+	template<typename FieldType>
+	void AddConvertedFieldStub(const FString& OriginalPathName, const FName Name)
+	{
+		UObject*& NativeObj = ReplaceMap.FindOrAdd(OriginalPathName);
+		if (!NativeObj)
+		{
+			check(NativeScriptPackage);
+			FieldType* NewField = NewObject<FieldType>(NativeScriptPackage, Name);
+			AdditionalStubFieldInitialization(NewField);
+			NewField->Bind();
+			NativeObj = NewField;
+		}
+	}
+	void AddConvertedFieldStub(UObject* Object);
+
+	// USAGE
+	bool IsEnabled() const
+	{
+		return bEnabled;
+	}
+	UObject* FindReplacementStub(UObject* Object);
+
+	// The object is of a convertible type, and the object is not listed in excluded assets.
+	bool CouldBeConverted(const UObject* Object) const;
+	bool PackageShouldNotBeSaved(const UPackage* InOuter) const;
+
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FIsTargetedForConversionQuery, const UObject*);
+	FIsTargetedForConversionQuery& OnQueryIfAssetIsTargetedForConversion() { return IsTargetedForConversionDelegate; }
+
+private: 
+	FIsTargetedForConversionQuery IsTargetedForConversionDelegate;
+};
+
 #endif //WITH_EDITOR
 
 /** 
@@ -114,4 +214,44 @@ private:
 	UClass* ResolvingClass;
 	/** Tracks sub-classes that have had their CDO deferred as a result of the super not being fully serialized */
 	TMultiMap<UClass*, UClass*> SuperClassMap;
+};
+
+
+/**
+ *	Stores info about dependencies of native classes converted from BPs
+ */
+struct COREUOBJECT_API FConvertedBlueprintsDependencies
+{
+	typedef void(*GetDependenciesNamesFunc)(TArray<FName>&);
+
+private:
+
+	TMap<FName, GetDependenciesNamesFunc> ClassNameToGetter;
+
+public:
+
+#if WITH_EDITOR
+
+	typedef UField*(*StaticCreateClassFunc)();
+
+	TArray<StaticCreateClassFunc> CreateClassFunctions;
+
+	void RegisterClass(StaticCreateClassFunc CreateClass)
+	{
+		CreateClassFunctions.Add(CreateClass);
+	}
+
+#endif //WITH_EDITOR
+
+	static FConvertedBlueprintsDependencies& Get();
+
+	bool AnyClassRegistered() const
+	{
+		return ClassNameToGetter.Num() > 0;
+	}
+
+	void RegisterClass(FName ClassName, GetDependenciesNamesFunc GetAssets);
+
+	/** Get all assets paths necessary for the class with the given class name and all converted classes that dependencies. */
+	void GetAssets(FName ClassName, TArray<FName>& OutPackagePaths) const;
 };

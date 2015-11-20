@@ -81,7 +81,7 @@ enum class EGameplayEffectGrantedAbilityRemovePolicy : uint8
 	CancelAbilityImmediately,
 	/** Active abilities are allowed to finish, and then removed. */
 	RemoveAbilityOnEnd,
-	/** Granted abilties are left lone when the granting GameplayEffect is removed */
+	/** Granted abilties are left lone when the granting GameplayEffect is removed. */
 	DoNothing,
 };
 
@@ -90,10 +90,11 @@ USTRUCT(BlueprintType)
 struct FGameplayAbilitySpecDef
 {
 	FGameplayAbilitySpecDef()
-		: Level(1)
+		: Level(INDEX_NONE)
 		, InputID(INDEX_NONE)
 		, RemovalPolicy(EGameplayEffectGrantedAbilityRemovePolicy::CancelAbilityImmediately)
 	{
+		LevelScalableFloat.SetValue(1.f);
 	}
 
 	GENERATED_USTRUCT_BODY()
@@ -101,8 +102,12 @@ struct FGameplayAbilitySpecDef
 	UPROPERTY(EditDefaultsOnly, Category="Ability Definition", NotReplicated)
 	TSubclassOf<UGameplayAbility> Ability;
 	
-	UPROPERTY(EditDefaultsOnly, Category="Ability Definition", NotReplicated)
+	// Deprecated for LevelScalableFloat
+	UPROPERTY(NotReplicated)
 	int32 Level; 
+
+	UPROPERTY(EditDefaultsOnly, Category="Ability Definition", NotReplicated, DisplayName="Level")
+	FScalableFloat LevelScalableFloat; 
 	
 	UPROPERTY(EditDefaultsOnly, Category="Ability Definition", NotReplicated)
 	int32 InputID;
@@ -200,7 +205,7 @@ struct GAMEPLAYABILITIES_API FGameplayAbilitySpec : public FFastArraySerializerI
 		Handle.GenerateNewHandle();
 	}
 	
-	FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, FActiveGameplayEffectHandle InGameplayEffectHandle = FActiveGameplayEffectHandle());
+	FGameplayAbilitySpec(FGameplayAbilitySpecDef& InDef, int32 InGameplayEffectLevel, FActiveGameplayEffectHandle InGameplayEffectHandle = FActiveGameplayEffectHandle());
 
 	/** Handle for outside sources to refer to this spec by */
 	UPROPERTY()

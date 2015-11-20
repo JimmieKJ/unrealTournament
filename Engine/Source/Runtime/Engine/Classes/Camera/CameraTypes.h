@@ -22,11 +22,11 @@ namespace ECameraAnimPlaySpace
 {
 	enum Type
 	{
- 		/** This anim is applied in camera space */
+ 		/** This anim is applied in camera space. */
  		CameraLocal,
- 		/** This anim is applied in world space */
+ 		/** This anim is applied in world space. */
  		World,
- 		/** This anim is applied in a user-specified space (defined by UserPlaySpaceMatrix) */
+ 		/** This anim is applied in a user-specified space (defined by UserPlaySpaceMatrix). */
  		UserDefined,
  	};
 }

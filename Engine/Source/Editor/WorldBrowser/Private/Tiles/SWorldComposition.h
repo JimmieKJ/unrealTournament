@@ -51,6 +51,6 @@ private:
 	TSharedPtr<SBorder>							ContentParent;
 	TSharedPtr<SWrapBox>						LayersListWrapBox;
 	TSharedPtr<SButton>							NewLayerButton;
-	TSharedPtr<class SWindow>					NewLayerPopupWindow;
+	TWeakPtr<class IMenu>						NewLayerMenu;
 	TSharedPtr<class SWorldCompositionGrid>		GridView;
 };

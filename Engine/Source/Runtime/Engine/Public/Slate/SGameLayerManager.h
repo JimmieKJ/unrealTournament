@@ -5,6 +5,24 @@
 class FSceneViewport;
 class ULocalPlayer;
 
+
+/**
+ * Allows you to provide a custom layer that multiple sources can contribute to.  Unlike
+ * adding widgets directly to the layer manager.  First registering a layer with a name
+ * allows multiple widgets to be added.
+ */
+class IGameLayer : public TSharedFromThis<IGameLayer>
+{
+public:
+	/** Get the layer as a widget. */
+	virtual TSharedRef<SWidget> AsWidget() = 0;
+
+public:
+
+	/** Virtual destructor. */
+	virtual ~IGameLayer() { }
+};
+
 /**
  * Allows widgets to be managed for different users.
  */
@@ -14,9 +32,12 @@ public:
 	virtual void NotifyPlayerAdded(int32 PlayerIndex, ULocalPlayer* AddedPlayer) = 0;
 	virtual void NotifyPlayerRemoved(int32 PlayerIndex, ULocalPlayer* RemovedPlayer) = 0;
 
-	virtual void AddWidgetForPlayer(ULocalPlayer* Player, TSharedRef<SWidget> ViewportContent, const int32 ZOrder) = 0;
+	virtual void AddWidgetForPlayer(ULocalPlayer* Player, TSharedRef<SWidget> ViewportContent, int32 ZOrder) = 0;
 	virtual void RemoveWidgetForPlayer(ULocalPlayer* Player, TSharedRef<SWidget> ViewportContent) = 0;
 	virtual void ClearWidgetsForPlayer(ULocalPlayer* Player) = 0;
+
+	virtual TSharedPtr<IGameLayer> FindLayerForPlayer(ULocalPlayer* Player, const FName& LayerName) = 0;
+	virtual bool AddLayerForPlayer(ULocalPlayer* Player, const FName& LayerName, TSharedRef<IGameLayer> Layer, int32 ZOrder) = 0;
 
 	virtual void ClearWidgets() = 0;
 };
@@ -54,17 +75,21 @@ public:
 	virtual void NotifyPlayerAdded(int32 PlayerIndex, ULocalPlayer* AddedPlayer) override;
 	virtual void NotifyPlayerRemoved(int32 PlayerIndex, ULocalPlayer* RemovedPlayer) override;
 
-	virtual void AddWidgetForPlayer(ULocalPlayer* Player, TSharedRef<SWidget> ViewportContent, const int32 ZOrder) override;
+	virtual void AddWidgetForPlayer(ULocalPlayer* Player, TSharedRef<SWidget> ViewportContent, int32 ZOrder) override;
 	virtual void RemoveWidgetForPlayer(ULocalPlayer* Player, TSharedRef<SWidget> ViewportContent) override;
 	virtual void ClearWidgetsForPlayer(ULocalPlayer* Player) override;
 
+	virtual TSharedPtr<IGameLayer> FindLayerForPlayer(ULocalPlayer* Player, const FName& LayerName) override;
+	virtual bool AddLayerForPlayer(ULocalPlayer* Player, const FName& LayerName, TSharedRef<IGameLayer> Layer, int32 ZOrder) override;
+
 	virtual void ClearWidgets() override;
-	// Ened IGameLayerManager
+	// End IGameLayerManager
 
 public:
 
 	// Begin SWidget overrides
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	virtual bool OnVisualizeTooltip(const TSharedPtr<SWidget>& TooltipContent) override;
 	// End SWidget overrides
 
@@ -77,6 +102,8 @@ private:
 	{
 		TSharedPtr<SOverlay> Widget;
 		SCanvas::FSlot* Slot;
+
+		TMap< FName, TSharedPtr<IGameLayer> > Layers;
 
 		FPlayerLayer()
 			: Slot(nullptr)

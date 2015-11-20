@@ -64,6 +64,7 @@ public:
 		void SetupGeneralStyles();
 		void SetupGeneralIcons();
 		void SetupWindowStyles();
+		void SetupProjectBadgeStyle();
 		void SetupDockingStyles();
 		void SetupTutorialStyles();
 		void SetupTranslationEditorStyles();

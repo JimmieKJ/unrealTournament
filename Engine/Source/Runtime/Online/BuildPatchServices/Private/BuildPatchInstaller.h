@@ -42,6 +42,12 @@ private:
 	// The directory created in staging to construct install files to
 	FString InstallStagingDir;
 
+	// The base path for the data cloud
+	FString CloudDirectory;
+
+	// The backup directory
+	FString BackupDirectory;
+
 	// The filename used to mark a previous install that did not complete but moved staged files into the install directory
 	FString PreviousMoveMarker;
 
@@ -134,6 +140,7 @@ public:
 	virtual bool IsPaused() override;
 	virtual bool IsResumable() override;
 	virtual bool HasError() override;
+	virtual EBuildPatchInstallError GetErrorType() override;
 	//@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
 	virtual FText GetPercentageText() override;
 	//@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]

@@ -967,7 +967,7 @@ class FEventGraphSample : public TSharedFromThis<FEventGraphSample>
 	enum
 	{
 		/** Maximum number of stack when traversing event graph - should be enough to store root nodes and all its children.*/
-		MaxStackSize = 65536
+		MaxStackSize = 256*1024
 	};
 
 	struct FDuplicateHierarchyTag {};

@@ -81,12 +81,14 @@ public:
 
 	SLATE_BEGIN_ARGS( STableRow< ItemType > )
 		: _Style( &FCoreStyle::Get().GetWidgetStyle<FTableRowStyle>("TableView.Row") )
+		, _ExpanderStyleSet( &FCoreStyle::Get() )
 		, _Padding( FMargin(0) )
-		, _ShowSelection(true)
+		, _ShowSelection( true )
 		, _Content()
 		{}
 	
 		SLATE_STYLE_ARGUMENT( FTableRowStyle, Style )
+		SLATE_ARGUMENT(const ISlateStyle*, ExpanderStyleSet)
 
 		// High Level DragAndDrop
 
@@ -142,21 +144,27 @@ public:
 	virtual void ConstructChildren( ETableViewMode::Type InOwnerTableMode, const TAttribute<FMargin>& InPadding, const TSharedRef<SWidget>& InContent )
 	{
 		this->Content = InContent;
+		InnerContentSlot = nullptr;
 
 		if ( InOwnerTableMode == ETableViewMode::List || InOwnerTableMode == ETableViewMode::Tile )
 		{
 			// -- Row is in a ListView or the user --
+			FSimpleSlot* InnerContentSlotNativePtr = nullptr;
 
 			// We just need to hold on to this row's content.
 			this->ChildSlot
+			.Expose( InnerContentSlotNativePtr )
 			.Padding( InPadding )
 			[
 				InContent
 			];
+
+			InnerContentSlot = InnerContentSlotNativePtr;
 		}
 		else
 		{
 			// -- Row is for TreeView --
+			SHorizontalBox::FSlot* InnerContentSlotNativePtr = nullptr;
 
 			// Rows in a TreeView need an expander button and some indentation
 			this->ChildSlot
@@ -169,15 +177,19 @@ public:
 				.VAlign(VAlign_Fill)
 				[
 					SNew(SExpanderArrow, SharedThis(this) )
+					.StyleSet(ExpanderStyleSet)
 				]
 
 				+ SHorizontalBox::Slot()
 				.FillWidth(1)
+				.Expose( InnerContentSlotNativePtr )
 				.Padding( InPadding )
 				[
 					InContent
 				]
 			];
+
+			InnerContentSlot = InnerContentSlotNativePtr;
 		}
 	}
 
@@ -706,12 +718,30 @@ public:
 		return SharedThis(this);
 	}
 
-	virtual void SetContent(TSharedRef< SWidget > InContent) override
+	/** Set the entire content of this row, replacing any extra UI (such as the expander arrows for tree views) that was added by ConstructChildren */
+	virtual void SetRowContent(TSharedRef< SWidget > InContent)
 	{
 		this->Content = InContent;
+		InnerContentSlot = nullptr;
 		SBorder::SetContent(InContent);
 	}
 
+	/** Set the inner content of this row, preserving any extra UI (such as the expander arrows for tree views) that was added by ConstructChildren */
+	virtual void SetContent(TSharedRef< SWidget > InContent) override
+	{
+		this->Content = InContent;
+
+		if (InnerContentSlot)
+		{
+			InnerContentSlot->AttachWidget(InContent);
+		}
+		else
+		{
+			SBorder::SetContent(InContent);
+		}
+	}
+
+	/** Get the inner content of this row */
 	virtual TSharedPtr<SWidget> GetContent() override
 	{
 		if ( this->Content.IsValid() )
@@ -846,6 +876,9 @@ protected:
 		check(InArgs._Style);
 		Style = InArgs._Style;
 
+		check(InArgs._ExpanderStyleSet);
+		ExpanderStyleSet = InArgs._ExpanderStyleSet;
+
 		this->BorderImage = TAttribute<const FSlateBrush*>( this, &STableRow::GetBorder );
 
 		this->ForegroundColor = TAttribute<FSlateColor>( this, &STableRow::GetForegroundBasedOnSelection );
@@ -911,6 +944,9 @@ protected:
 	/** Style used to draw this table row */
 	const FTableRowStyle* Style;
 
+	/** The slate style to use with the expander */
+	const ISlateStyle* ExpanderStyleSet;
+
 	/** @see STableRow's OnCanAcceptDrop event */
 	FOnCanAcceptDrop OnCanAcceptDrop;
 
@@ -931,6 +967,9 @@ protected:
 
 	/** Delegate triggered when a user's drag is dropped in the bounds of this list item */
 	FOnTableRowDrop OnDrop_Handler;
+
+	/** The slot that contains the inner content for this row. If this is set, SetContent populates this slot with the new content rather than replace the content wholesale */
+	FSlotBase* InnerContentSlot;
 
 	/** The widget in the content slot for this row */
 	TWeakPtr<SWidget> Content;
@@ -956,7 +995,7 @@ public:
 	 * @param ColumnName    A unique ID for a column in this TableView; see SHeaderRow::FColumn for more info.
 	 * @return a widget to represent the contents of a cell in this row of a TableView. 
 	 */
-	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) = 0;
+	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& InColumnName ) = 0;
 
 	/** Use this to construct the superclass; e.g. FSuperRowType::Construct( FTableRowArgs(), OwnerTableView ) */
 	typedef SMultiColumnTableRow< ItemType > FSuperRowType;
@@ -970,6 +1009,7 @@ protected:
 		STableRow<ItemType>::Construct(
 			FTableRowArgs()
 			.Style(InArgs._Style)
+			.ExpanderStyleSet(InArgs._ExpanderStyleSet)
 			.Padding(InArgs._Padding)
 			.ShowSelection(InArgs._ShowSelection)
 			.OnCanAcceptDrop(InArgs._OnCanAcceptDrop)

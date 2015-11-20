@@ -15,6 +15,8 @@ UTextureRenderTarget2D::UTextureRenderTarget2D(const FObjectInitializer& ObjectI
 	: Super(ObjectInitializer)
 {
 	bHDR = true;
+	bAutoGenerateMips = false;
+	NumMips = 0;
 	ClearColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
 	OverrideFormat = PF_Unknown;
 	bForceLinearGamma = true;
@@ -33,6 +35,16 @@ FTextureResource* UTextureRenderTarget2D::CreateResource()
 			OverrideFormat = PF_B8G8R8A8;
 		}
 	}
+
+	if (bAutoGenerateMips)
+	{
+		NumMips = FGenericPlatformMath::CeilToInt(FGenericPlatformMath::Log2(FGenericPlatformMath::Max(SizeX, SizeY)));
+	}
+	else
+	{
+		NumMips = 1;
+	}
+ 
 	FTextureRenderTarget2DResource* Result = new FTextureRenderTarget2DResource(this);
 	return Result;
 }
@@ -315,12 +327,18 @@ void FTextureRenderTarget2DResource::InitDynamicRHI()
 
 		// Create the RHI texture. Only one mip is used and the texture is targetable for resolve.
 		uint32 TexCreateFlags = bSRGB ? TexCreate_SRGB : 0;
-		FRHIResourceCreateInfo CreateInfo;
+		FRHIResourceCreateInfo CreateInfo = FRHIResourceCreateInfo(FClearValueBinding(ClearColor));
+
+		if (Owner->bAutoGenerateMips)
+		{
+			TexCreateFlags |= TexCreate_GenerateMipCapable;
+		}
+
 		RHICreateTargetableShaderResource2D(
 			Owner->SizeX, 
 			Owner->SizeY, 
-			Format, 
-			1,
+			Format,
+			Owner->GetNumMips(),
 			TexCreateFlags,
 			TexCreate_RenderTargetable,
 			Owner->bNeedsTwoCopies,
@@ -375,11 +393,16 @@ void FTextureRenderTarget2DResource::UpdateDeferredResource( FRHICommandListImme
  	// clear the target surface to green
 	if (bClearRenderTarget)
 	{
-		SetRenderTarget(RHICmdList, RenderTargetTextureRHI, FTextureRHIRef());
 		RHICmdList.SetViewport(0, 0, 0.0f, TargetSizeX, TargetSizeY, 1.0f);
-		RHICmdList.Clear(true, ClearColor, false, 0.f, false, 0, FIntRect());
+		ensure(RenderTargetTextureRHI->GetClearColor() == ClearColor);
+		SetRenderTarget(RHICmdList, RenderTargetTextureRHI, FTextureRHIRef(), ESimpleRenderTargetMode::EClearColorExistingDepth, FExclusiveDepthStencil::DepthWrite_StencilWrite, true);
 	}
  
+	if (Owner->bAutoGenerateMips)
+	{
+		RHICmdList.GenerateMips(RenderTargetTextureRHI);
+	}
+
  	// copy surface to the texture for use
 	RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureRHI, true, FResolveParams());
 }

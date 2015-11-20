@@ -949,11 +949,11 @@ void AUTGameState::AdjustLoadoutCost(TSubclassOf<AUTInventory> ItemClass, float 
 	}
 }
 
-bool AUTGameState::IsTempBanned(const TSharedPtr<class FUniqueNetId>& UniqueId)
+bool AUTGameState::IsTempBanned(const TSharedPtr<const FUniqueNetId>& UniqueId)
 {
 	for (int32 i=0; i< TempBans.Num(); i++)
 	{
-		if (TempBans[i]->ToString() == UniqueId->ToString())
+		if (*TempBans[i] == *UniqueId)
 		{
 			return true;
 		}
@@ -1576,7 +1576,7 @@ void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
 
 	for (int32 i = 0; i < PlayerArray.Num(); i++)
 	{
-		if (PlayerArray[i] && !PlayerArray[i]->bPendingKillPending)
+		if (PlayerArray[i] && !PlayerArray[i]->IsPendingKillPending())
 		{
 			APlayerController* PlayerController = Cast<APlayerController>( PlayerArray[i]->GetOwner() );
 			if (PlayerController)

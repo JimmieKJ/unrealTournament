@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
+#include "FastDecimalFormat.h"
 
 #if UE_ENABLE_ICU
 #include "ICUUtilities.h"
@@ -12,7 +13,7 @@ namespace
 	TSharedRef<const icu::BreakIterator> CreateBreakIterator( const icu::Locale& ICULocale, const EBreakIteratorType Type)
 	{
 		UErrorCode ICUStatus = U_ZERO_ERROR;
-		TFunction<icu::BreakIterator* (const icu::Locale&, UErrorCode&)> FactoryFunction;
+		icu::BreakIterator* (*FactoryFunction)(const icu::Locale&, UErrorCode&) = nullptr;
 		switch (Type)
 		{
 		case EBreakIteratorType::Grapheme:
@@ -136,12 +137,16 @@ FString FCulture::FICUCultureImplementation::GetCanonicalName(const FString& Nam
 
 	UErrorCode ICUStatus = U_ZERO_ERROR;
 	uloc_canonicalize(TCHAR_TO_ANSI( *Name ), CanonicalName, MaximumNameLength, &ICUStatus);
-	return CanonicalName;
+	FString CanonicalNameString = CanonicalName;
+	CanonicalNameString.ReplaceInline(TEXT("_"), TEXT("-"));
+	return CanonicalNameString;
 }
 
 FString FCulture::FICUCultureImplementation::GetName() const
 {
-	return ICULocale.getName();
+	FString Result = ICULocale.getName();
+	Result.ReplaceInline(TEXT("_"), TEXT("-"), ESearchCase::IgnoreCase);
+	return Result;
 }
 
 FString FCulture::FICUCultureImplementation::GetNativeName() const
@@ -558,6 +563,188 @@ TSharedRef<const icu::DateFormat> FCulture::FICUCultureImplementation::GetDateTi
 		const TSharedRef<icu::DateFormat> Formatter( icu::DateFormat::createDateTimeInstance( UEToICU(DateStyle), UEToICU(TimeStyle), ICULocale ) );
 		Formatter->adoptTimeZone( bIsDefaultTimeZone ? icu::TimeZone::createDefault() :icu::TimeZone::createTimeZone(InputTimeZoneID) );
 		return Formatter;
+	}
+}
+
+namespace
+{
+
+FDecimalNumberFormattingRules ExtractNumberFormattingRulesFromICUDecimalFormatter(icu::DecimalFormat& InICUDecimalFormat)
+{
+	FDecimalNumberFormattingRules NewUEDecimalNumberFormattingRules;
+
+	// Extract the default formatting options before we mess around with the formatter object settings
+	NewUEDecimalNumberFormattingRules.CultureDefaultFormattingOptions
+		.SetUseGrouping(InICUDecimalFormat.isGroupingUsed() != 0)
+		.SetRoundingMode(ICUToUE(InICUDecimalFormat.getRoundingMode()))
+		.SetMinimumIntegralDigits(InICUDecimalFormat.getMinimumIntegerDigits())
+		.SetMaximumIntegralDigits(InICUDecimalFormat.getMaximumIntegerDigits())
+		.SetMinimumFractionalDigits(InICUDecimalFormat.getMinimumFractionDigits())
+		.SetMaximumFractionalDigits(InICUDecimalFormat.getMaximumFractionDigits());
+
+	// We force grouping to be on, even if a culture doesn't use it by default, so that we can extract meaningful grouping information
+	// This allows us to use the correct groupings if we should ever force grouping for a number, rather than use the culture default
+	InICUDecimalFormat.setGroupingUsed(true);
+
+	auto ICUStringToTCHAR = [](const icu::UnicodeString& InICUString) -> TCHAR
+	{
+		check(InICUString.length() == 1);
+		return static_cast<TCHAR>(InICUString.charAt(0));
+	};
+
+	auto ExtractFormattingSymbolAsCharacter = [&](icu::DecimalFormatSymbols::ENumberFormatSymbol InSymbolToExtract) -> TCHAR
+	{
+		const icu::UnicodeString& ICUSymbolString = InICUDecimalFormat.getDecimalFormatSymbols()->getConstSymbol(InSymbolToExtract);
+		return ICUStringToTCHAR(ICUSymbolString); // For efficiency we assume that these symbols are always a single character
+	};
+
+	icu::UnicodeString ScratchICUString;
+
+	// Extract the rules from the decimal formatter
+	NewUEDecimalNumberFormattingRules.NaNString						= ICUUtilities::ConvertString(InICUDecimalFormat.getDecimalFormatSymbols()->getConstSymbol(icu::DecimalFormatSymbols::kNaNSymbol));
+	NewUEDecimalNumberFormattingRules.NegativePrefixString			= ICUUtilities::ConvertString(InICUDecimalFormat.getNegativePrefix(ScratchICUString));
+	NewUEDecimalNumberFormattingRules.NegativeSuffixString			= ICUUtilities::ConvertString(InICUDecimalFormat.getNegativeSuffix(ScratchICUString));
+	NewUEDecimalNumberFormattingRules.PositivePrefixString			= ICUUtilities::ConvertString(InICUDecimalFormat.getPositivePrefix(ScratchICUString));
+	NewUEDecimalNumberFormattingRules.PositiveSuffixString			= ICUUtilities::ConvertString(InICUDecimalFormat.getPositiveSuffix(ScratchICUString));
+	NewUEDecimalNumberFormattingRules.GroupingSeparatorCharacter	= ExtractFormattingSymbolAsCharacter(icu::DecimalFormatSymbols::kGroupingSeparatorSymbol);
+	NewUEDecimalNumberFormattingRules.DecimalSeparatorCharacter		= ExtractFormattingSymbolAsCharacter(icu::DecimalFormatSymbols::kDecimalSeparatorSymbol);
+	NewUEDecimalNumberFormattingRules.PrimaryGroupingSize			= static_cast<uint8>(InICUDecimalFormat.getGroupingSize());
+	NewUEDecimalNumberFormattingRules.SecondaryGroupingSize			= (InICUDecimalFormat.getSecondaryGroupingSize() < 1) 
+																		? NewUEDecimalNumberFormattingRules.PrimaryGroupingSize 
+																		: static_cast<uint8>(InICUDecimalFormat.getSecondaryGroupingSize());
+
+	return NewUEDecimalNumberFormattingRules;
+}
+
+} // anonymous namespace
+
+const FDecimalNumberFormattingRules& FCulture::FICUCultureImplementation::GetDecimalNumberFormattingRules()
+{
+	if (UEDecimalNumberFormattingRules.IsValid())
+	{
+		return *UEDecimalNumberFormattingRules;
+	}
+
+	// Create a culture decimal formatter (doesn't call CreateDecimalFormat as we need a mutable instance)
+	TSharedPtr<icu::DecimalFormat> DecimalFormatterForCulture;
+	{
+		UErrorCode ICUStatus = U_ZERO_ERROR;
+		DecimalFormatterForCulture = MakeShareable(static_cast<icu::DecimalFormat*>(icu::NumberFormat::createInstance(ICULocale, ICUStatus)));
+		checkf(DecimalFormatterForCulture.IsValid(), TEXT("Creating a decimal format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
+	}
+
+	const FDecimalNumberFormattingRules NewUEDecimalNumberFormattingRules = ExtractNumberFormattingRulesFromICUDecimalFormatter(*DecimalFormatterForCulture);
+
+	// Check the pointer again in case another thread beat us to it
+	{
+		FScopeLock PtrLock(&UEDecimalNumberFormattingRulesCS);
+
+		if (!UEDecimalNumberFormattingRules.IsValid())
+		{
+			UEDecimalNumberFormattingRules = MakeShareable(new FDecimalNumberFormattingRules(NewUEDecimalNumberFormattingRules));
+		}
+	}
+
+	return *UEDecimalNumberFormattingRules;
+}
+
+const FDecimalNumberFormattingRules& FCulture::FICUCultureImplementation::GetPercentFormattingRules()
+{
+	if (UEPercentFormattingRules.IsValid())
+	{
+		return *UEPercentFormattingRules;
+	}
+
+	// Create a culture percent formatter (doesn't call CreatePercentFormat as we need a mutable instance)
+	TSharedPtr<icu::DecimalFormat> PercentFormatterForCulture;
+	{
+		UErrorCode ICUStatus = U_ZERO_ERROR;
+		PercentFormatterForCulture = MakeShareable(static_cast<icu::DecimalFormat*>(icu::NumberFormat::createPercentInstance(ICULocale, ICUStatus)));
+		checkf(PercentFormatterForCulture.IsValid(), TEXT("Creating a percent format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
+	}
+
+	const FDecimalNumberFormattingRules NewUEPercentFormattingRules = ExtractNumberFormattingRulesFromICUDecimalFormatter(*PercentFormatterForCulture);
+
+	// Check the pointer again in case another thread beat us to it
+	{
+		FScopeLock PtrLock(&UEPercentFormattingRulesCS);
+
+		if (!UEPercentFormattingRules.IsValid())
+		{
+			UEPercentFormattingRules = MakeShareable(new FDecimalNumberFormattingRules(NewUEPercentFormattingRules));
+		}
+	}
+
+	return *UEPercentFormattingRules;
+}
+
+const FDecimalNumberFormattingRules& FCulture::FICUCultureImplementation::GetCurrencyFormattingRules(const FString& InCurrencyCode)
+{
+	const bool bUseDefaultFormattingRules = InCurrencyCode.IsEmpty();
+
+	if (bUseDefaultFormattingRules)
+	{
+		if (UECurrencyFormattingRules.IsValid())
+		{
+			return *UECurrencyFormattingRules;
+		}
+	}
+	else
+	{
+		FScopeLock MapLock(&UEAlternateCurrencyFormattingRulesCS);
+
+		auto FoundUEAlternateCurrencyFormattingRules = UEAlternateCurrencyFormattingRules.FindRef(InCurrencyCode);
+		if (FoundUEAlternateCurrencyFormattingRules.IsValid())
+		{
+			return *FoundUEAlternateCurrencyFormattingRules;
+		}
+	}
+
+	// Create a culture percent formatter (doesn't call CreateCurrencyFormat as we need a mutable instance)
+	TSharedPtr<icu::DecimalFormat> CurrencyFormatterForCulture;
+	{
+		UErrorCode ICUStatus = U_ZERO_ERROR;
+		CurrencyFormatterForCulture = MakeShareable(static_cast<icu::DecimalFormat*>(icu::NumberFormat::createCurrencyInstance(ICULocale, ICUStatus)));
+		checkf(CurrencyFormatterForCulture.IsValid(), TEXT("Creating a currency format object failed using locale %s. Perhaps this locale has no data."), StringCast<TCHAR>(ICULocale.getName()).Get());
+	}
+
+	if (!bUseDefaultFormattingRules)
+	{
+		// Set the custom currency before we extract the data from the formatter
+		icu::UnicodeString ICUCurrencyCode = ICUUtilities::ConvertString(InCurrencyCode);
+		CurrencyFormatterForCulture->setCurrency(ICUCurrencyCode.getBuffer());
+	}
+
+	const FDecimalNumberFormattingRules NewUECurrencyFormattingRules = ExtractNumberFormattingRulesFromICUDecimalFormatter(*CurrencyFormatterForCulture);
+
+	if (bUseDefaultFormattingRules)
+	{
+		// Check the pointer again in case another thread beat us to it
+		{
+			FScopeLock PtrLock(&UECurrencyFormattingRulesCS);
+
+			if (!UECurrencyFormattingRules.IsValid())
+			{
+				UECurrencyFormattingRules = MakeShareable(new FDecimalNumberFormattingRules(NewUECurrencyFormattingRules));
+			}
+		}
+
+		return *UECurrencyFormattingRules;
+	}
+	else
+	{
+		FScopeLock MapLock(&UEAlternateCurrencyFormattingRulesCS);
+
+		// Find again in case another thread beat us to it
+		auto FoundUEAlternateCurrencyFormattingRules = UEAlternateCurrencyFormattingRules.FindRef(InCurrencyCode);
+		if (FoundUEAlternateCurrencyFormattingRules.IsValid())
+		{
+			return *FoundUEAlternateCurrencyFormattingRules;
+		}
+
+		FoundUEAlternateCurrencyFormattingRules = MakeShareable(new FDecimalNumberFormattingRules(NewUECurrencyFormattingRules));
+		UEAlternateCurrencyFormattingRules.Add(InCurrencyCode, FoundUEAlternateCurrencyFormattingRules);
+		return *FoundUEAlternateCurrencyFormattingRules;
 	}
 }
 

@@ -11,14 +11,6 @@ extern const float MinVertexAnimBlendWeight;
 // largest blend weight for vertex anims
 extern const float MaxVertexAnimBlendWeight;
 
-/** Dynamic data updates needed by the rendering thread are sent with this */
-class FDynamicSkelMeshObjectData
-{
-public:
-	FDynamicSkelMeshObjectData(){}
-	virtual ~FDynamicSkelMeshObjectData(){}
-};
-
 /** 
 * Stores the data for updating instanced weights
 * Created by the game thread and sent to the rendering thread as an update 

@@ -11,7 +11,7 @@ class UInterpTrackAudioMaster : public UInterpTrackVectorBase
 	GENERATED_UCLASS_BODY()
 
 
-	// Begin UInterpTrack interface.
+	//~ Begin UInterpTrack Interface.
 	virtual int32 AddKeyframe(float Time, UInterpTrackInst* TrInst, EInterpCurveMode InitInterpMode) override;
 	virtual void UpdateKeyframe(int32 KeyIndex, UInterpTrackInst* TrInst) override;
 	virtual void PreviewUpdateTrack(float NewPosition, UInterpTrackInst* TrInst) override;
@@ -20,7 +20,7 @@ class UInterpTrackAudioMaster : public UInterpTrackVectorBase
 #if WITH_EDITORONLY_DATA
 	virtual class UTexture2D* GetTrackIcon() const override;
 #endif // WITH_EDITORONLY_DATA
-	// End UInterpTrack interface.
+	//~ End UInterpTrack Interface.
 
 	/** Return the sound volume scale for the specified time */
 	float GetVolumeScaleForTime( float Time ) const;

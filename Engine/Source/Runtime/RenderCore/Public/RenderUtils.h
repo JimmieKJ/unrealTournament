@@ -292,3 +292,9 @@ RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector4();
 RENDERCORE_API FVertexDeclarationRHIRef& GetVertexDeclarationFVector3();
 
 RENDERCORE_API bool IsSimpleDynamicLightingEnabled();
+
+/** Unit cube vertex buffer (VertexDeclarationFVector4) */
+RENDERCORE_API FVertexBufferRHIRef& GetUnitCubeVertexBuffer();
+
+/** Unit cube index buffer */
+RENDERCORE_API FIndexBufferRHIRef& GetUnitCubeIndexBuffer();

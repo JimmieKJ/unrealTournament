@@ -4,34 +4,10 @@
 // Forward declarations
 class ALandscapeProxy;
 class ULandscapeComponent;
+struct FFlattenMaterial;
 
 namespace MaterialExportUtils
 {
-	struct UNREALED_API FFlattenMaterial
-	{
-		FFlattenMaterial()
-			: DiffuseSize(512, 512)
-			, NormalSize(512, 512)
-			, MetallicSize(0, 0)
-			, RoughnessSize(0, 0)
-			, SpecularSize(0, 0)
-		{}
-		
-		FGuid			MaterialId;
-		
-		FIntPoint		DiffuseSize;
-		FIntPoint		NormalSize;
-		FIntPoint		MetallicSize;	
-		FIntPoint		RoughnessSize;	
-		FIntPoint		SpecularSize;	
-			
-		TArray<FColor>	DiffuseSamples;
-		TArray<FColor>	NormalSamples;
-		TArray<FColor>	MetallicSamples;
-		TArray<FColor>	RoughnessSamples;
-		TArray<FColor>	SpecularSamples;
-	};
-	
 	/**
 	 * Renders specified material property into texture
 	 *
@@ -42,7 +18,10 @@ namespace MaterialExportUtils
 	 * @param OutBMP				Output array of rendered samples 
 	 * @return						Whether operation was successful
 	 */
+	DEPRECATED(4.9, "MaterialExportUtils::ExportMaterialProperty() will be removed, use FMaterialUtilities::ExportMaterialProperty().")
 	UNREALED_API bool ExportMaterialProperty(UWorld* InWorld, UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, UTextureRenderTarget2D* InRenderTarget, TArray<FColor>& OutBMP);
+	
+	DEPRECATED(4.9, "MaterialExportUtils::ExportMaterialProperty() will be removed, use FMaterialUtilities::ExportMaterialProperty().")
 	UNREALED_API bool ExportMaterialProperty(UMaterialInterface* InMaterial, EMaterialProperty InMaterialProperty, UTextureRenderTarget2D* InRenderTarget, TArray<FColor>& OutBMP);
 
 	/**
@@ -53,7 +32,10 @@ namespace MaterialExportUtils
 	 * @param OutFlattenMaterial	Output flattened material
 	 * @return						Whether operation was successful
 	 */
+	DEPRECATED(4.9, "MaterialExportUtils::ExportMaterial() will be removed, use FMaterialUtilities::ExportMaterial().")
 	UNREALED_API bool ExportMaterial(UWorld* InWorld, UMaterialInterface* InMaterial, FFlattenMaterial& OutFlattenMaterial);
+	
+	DEPRECATED(4.9, "MaterialExportUtils::ExportMaterial() will be removed, use FMaterialUtilities::ExportMaterial().")
 	UNREALED_API bool ExportMaterial(UMaterialInterface* InMaterial, FFlattenMaterial& OutFlattenMaterial);
 	
 	/**
@@ -64,6 +46,7 @@ namespace MaterialExportUtils
 	 * @param OutFlattenMaterial	Output flattened material
 	 * @return						Whether operation was successful
 	 */
+	DEPRECATED(4.9, "MaterialExportUtils::ExportMaterial() will be removed, use FMaterialUtilities::ExportLandscapeMaterial().")
 	UNREALED_API bool ExportMaterial(ALandscapeProxy* InLandscape, const TSet<FPrimitiveComponentId>& HiddenPrimitives, FFlattenMaterial& OutFlattenMaterial);
 
 	/**
@@ -75,6 +58,7 @@ namespace MaterialExportUtils
 	 * @param OutGeneratedAssets	List of generated assets - material, textures
 	 * @return						Returns a pointer to the constructed UMaterial object.
 	 */
+	DEPRECATED(4.9, "MaterialExportUtils::CreateMaterial() will be removed, use FMaterialUtilities::CreateMaterial().")
 	UNREALED_API UMaterial* CreateMaterial(const FFlattenMaterial& InFlattenMaterial, UPackage* InOuter, const FString& BaseName, EObjectFlags Flags, TArray<UObject*>& OutGeneratedAssets);
 
 
@@ -92,6 +76,7 @@ namespace MaterialExportUtils
 	 * @param SourceGuidHash		(optional) Hash (stored as Guid) to use part of the texture source's DDC key.
 	 * @return						The new texture.
 	 */
+	DEPRECATED(4.9, "MaterialExportUtils::CreateTexture() will be removed, use FMaterialUtilities::CreateTexture().")
 	UNREALED_API UTexture2D* CreateTexture(UPackage* Outer, const FString& AssetLongName, FIntPoint Size, const TArray<FColor>& Samples, TextureCompressionSettings CompressionSettings, TextureGroup LODGroup, EObjectFlags Flags, bool bSRGB, const FGuid& SourceGuidHash = FGuid());
 
 	/**
@@ -100,6 +85,7 @@ namespace MaterialExportUtils
 	* @param LandscapeComponent		The component to bake textures for
 	* @return						Whether operation was successful
 	*/
+	DEPRECATED(4.9, "MaterialExportUtils::ExportBaseColor() will be removed, use FMaterialUtilities::ExportBaseColor().")
 	UNREALED_API bool ExportBaseColor(ULandscapeComponent* LandscapeComponent, int32 TextureSize, TArray<FColor>& OutSamples);
 }
 

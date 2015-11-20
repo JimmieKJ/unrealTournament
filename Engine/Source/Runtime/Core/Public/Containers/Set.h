@@ -305,6 +305,19 @@ public:
 		}
 	}
 
+	/** Efficiently empties out the set but preserves all allocations and capacities */
+    void Reset()
+    {
+		// Reset the elements array.
+		Elements.Reset();
+
+		// Clear the references to the elements that have now been removed.
+		for(int32 HashIndex = 0;HashIndex < HashSize;HashIndex++)
+		{
+			GetTypedHash(HashIndex) = FSetElementId();
+		}
+    }
+
 	/** Shrinks the set's element storage to avoid slack. */
 	FORCEINLINE void Shrink()
 	{
@@ -315,8 +328,10 @@ public:
 	/** Compacts the allocated elements into a contiguous range. */
 	FORCEINLINE void Compact()
 	{
-		Elements.Compact();
-		Rehash();
+		if (Elements.Compact())
+		{
+			Rehash();
+		}
 	}
 
 	/** Preallocates enough memory to contain Number elements */
@@ -722,7 +737,7 @@ public:
 		TSet Result;
 		for(TConstIterator SetIt(*this);SetIt;++SetIt)
 		{
-			if(OtherSet.Contains(*SetIt))
+			if(OtherSet.Contains(KeyFuncs::GetSetKey(*SetIt)))
 			{
 				Result.Add(*SetIt);
 			}
@@ -751,7 +766,7 @@ public:
 		TSet Result;
 		for(TConstIterator SetIt(*this);SetIt;++SetIt)
 		{
-			if(!OtherSet.Contains(*SetIt))
+			if(!OtherSet.Contains(KeyFuncs::GetSetKey(*SetIt)))
 			{
 				Result.Add(*SetIt);
 			}
@@ -771,7 +786,7 @@ public:
 		bool bIncludesSet = true;
 		for(TConstIterator OtherSetIt(OtherSet); OtherSetIt; ++OtherSetIt)
 		{
-			if (!Contains(*OtherSetIt))
+			if (!Contains(KeyFuncs::GetSetKey(*OtherSetIt)))
 			{
 				bIncludesSet = false;
 				break;
@@ -1357,9 +1372,6 @@ private:
 		static_assert(STRUCT_OFFSET(ScriptType, Elements) == STRUCT_OFFSET(RealType, Elements), "FScriptSet's Elements member offset does not match TSet's");
 		static_assert(STRUCT_OFFSET(ScriptType, Hash)     == STRUCT_OFFSET(RealType, Hash),     "FScriptSet's Hash member offset does not match TSet's");
 		static_assert(STRUCT_OFFSET(ScriptType, HashSize) == STRUCT_OFFSET(RealType, HashSize), "FScriptSet's FirstFreeIndex member offset does not match TSet's");
-
-		typedef TSet<bool>  ::SetElementType RealSetElementType1;
-		typedef TSet<double>::SetElementType RealSetElementType2;
 	}
 
 public:

@@ -14,9 +14,9 @@ public:
 
 	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj);
 
-	// Begin SGraphPin interface
+	//~ Begin SGraphPin Interface
 	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
-	// End SGraphPin interface
+	//~ End SGraphPin Interface
 
 private:
 

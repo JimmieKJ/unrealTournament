@@ -276,6 +276,22 @@ void AGameplayDebuggingReplicator::BeginPlay()
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
+
+void AGameplayDebuggingReplicator::BeginDestroy()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GEngine)
+	{
+		GEngine->bEnableOnScreenDebugMessages = true;
+	}
+	if (IsDrawEnabled())
+	{
+		EnableDraw(false);
+	}
+#endif
+	Super::BeginDestroy();
+}
+
 void AGameplayDebuggingReplicator::PostNetInit()
 {
 	Super::PostNetInit();
@@ -316,7 +332,7 @@ UGameplayDebuggingComponent* AGameplayDebuggingReplicator::GetDebugComponent()
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (IsPendingKill() == false && !DebugComponent && DebugComponentClass.IsValid() && GetNetMode() < ENetMode::NM_Client)
 	{
-		DebugComponent = NewObject<UGameplayDebuggingComponent>(this, DebugComponentClass.Get());
+		DebugComponent = NewObject<UGameplayDebuggingComponent>(this, DebugComponentClass.Get(), TEXT("DebugComponent"), RF_Transient);
 		DebugComponent->SetIsReplicated(true);
 		DebugComponent->RegisterComponent();
 		DebugComponent->Activate();
@@ -600,7 +616,7 @@ void AGameplayDebuggingReplicator::OnDebugAIDelegate(class UCanvas* Canvas, clas
 
 void AGameplayDebuggingReplicator::DrawDebugDataDelegate(class UCanvas* Canvas, class APlayerController* PC)
 {
-#if !(UE_BUILD_SHIPPING && UE_BUILD_TEST)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (GetWorld() == NULL || IsPendingKill() || Canvas == NULL || Canvas->IsPendingKill())
 	{
 		return;
@@ -660,7 +676,9 @@ void AGameplayDebuggingReplicator::DrawDebugData(class UCanvas* Canvas, class AP
 	{
 		// check for spectator debug camera
 		UGameplayDebuggingControllerComponent* GDC = FindComponentByClass<UGameplayDebuggingControllerComponent>();
-		bAllowToDraw = GDC && GDC->GetDebugCameraController().IsValid() && Canvas->SceneView->ViewActor->GetInstigatorController() == GDC->GetDebugCameraController().Get();
+
+		// bAllowToDraw here used to check GDC->GetDebugCameraController().IsValid(), but it doesn't seem to be necessary, and it was preventing display in some desired cases.
+		bAllowToDraw = GDC && (Canvas->SceneView->ViewActor->GetInstigatorController() == GDC->GetDebugCameraController().Get());
 		
 		if (!bAllowToDraw)
 		{
@@ -673,7 +691,7 @@ void AGameplayDebuggingReplicator::DrawDebugData(class UCanvas* Canvas, class AP
 		FActorSpawnParameters SpawnInfo;
 		SpawnInfo.Owner = NULL;
 		SpawnInfo.Instigator = NULL;
-		SpawnInfo.bNoCollisionFail = true;
+		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		DebugRenderer = GetWorld()->SpawnActor<AGameplayDebuggingHUDComponent>(DebugComponentHUDClass.Get(), SpawnInfo);
 		DebugRenderer->SetCanvas(Canvas);

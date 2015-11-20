@@ -45,11 +45,17 @@ EBTNodeResult::Type UBTTask_PawnActionBase::PushAction(UBehaviorTreeComponent& O
 
 void UBTTask_PawnActionBase::OnActionEvent(UPawnAction& Action, EPawnActionEventType::Type Event)
 {
-	ActionEventHandler(this, Action, Event);
+	EPawnActionTaskResult Result = ActionEventHandler(this, Action, Event);
+	if (Result == EPawnActionTaskResult::ActionLost)
+	{
+		OnActionLost(Action);
+	}
 }
 
-void UBTTask_PawnActionBase::ActionEventHandler(UBTTaskNode* TaskNode, UPawnAction& Action, EPawnActionEventType::Type Event)
+EPawnActionTaskResult UBTTask_PawnActionBase::ActionEventHandler(UBTTaskNode* TaskNode, UPawnAction& Action, EPawnActionEventType::Type Event)
 {
+	EPawnActionTaskResult Result = EPawnActionTaskResult::Unknown;
+
 	AAIController* AIOwner = Cast<AAIController>(Action.GetController());
 	UBehaviorTreeComponent* OwnerComp = AIOwner ? Cast<UBehaviorTreeComponent>(AIOwner->BrainComponent) : nullptr;
 	if (OwnerComp == nullptr)
@@ -58,12 +64,10 @@ void UBTTask_PawnActionBase::ActionEventHandler(UBTTaskNode* TaskNode, UPawnActi
 			*UBehaviorTreeTypes::DescribeNodeHelper(TaskNode),
 			*UPawnActionsComponent::DescribeEventType(Event));
 
-		return;
+		return Result;
 	}
 
 	const EBTTaskStatus::Type TaskStatus = OwnerComp->GetTaskStatus(TaskNode);
-	bool bHandled = false;
-
 	if (TaskStatus == EBTTaskStatus::Active)
 	{
 		if (Event == EPawnActionEventType::FinishedExecution || Event == EPawnActionEventType::FailedToStart)
@@ -71,7 +75,11 @@ void UBTTask_PawnActionBase::ActionEventHandler(UBTTaskNode* TaskNode, UPawnActi
 			const bool bSucceeded = (Action.GetResult() == EPawnActionResult::Success);
 			TaskNode->FinishLatentTask(*OwnerComp, bSucceeded ? EBTNodeResult::Succeeded : EBTNodeResult::Failed);
 			
-			bHandled = true;
+			Result = EPawnActionTaskResult::TaskFinished;
+		}
+		else if (Event == EPawnActionEventType::FinishedAborting)
+		{
+			Result = EPawnActionTaskResult::ActionLost;
 		}
 	}
 	else if (TaskStatus == EBTTaskStatus::Aborting)
@@ -80,16 +88,28 @@ void UBTTask_PawnActionBase::ActionEventHandler(UBTTaskNode* TaskNode, UPawnActi
 			Event == EPawnActionEventType::FinishedExecution || Event == EPawnActionEventType::FailedToStart)
 		{
 			TaskNode->FinishLatentAbort(*OwnerComp);
-
-			bHandled = true;
+			Result = EPawnActionTaskResult::TaskAborted;
 		}
 	}
 
-	if (!bHandled)
+	if (Result == EPawnActionTaskResult::Unknown)
 	{
 		UE_VLOG(Action.GetController(), LogBehaviorTree, Verbose, TEXT("%s: Unhandled PawnAction event: %s TaskStatus: %s"),
 			*UBehaviorTreeTypes::DescribeNodeHelper(TaskNode),
 			*UPawnActionsComponent::DescribeEventType(Event),
 			*UBehaviorTreeTypes::DescribeTaskStatus(TaskStatus));
+	}
+
+	return Result;
+}
+
+void UBTTask_PawnActionBase::OnActionLost(UPawnAction& Action)
+{
+	AAIController* AIOwner = Cast<AAIController>(Action.GetController());
+	UBehaviorTreeComponent* OwnerComp = AIOwner ? Cast<UBehaviorTreeComponent>(AIOwner->BrainComponent) : nullptr;
+	if (OwnerComp)
+	{
+		UE_VLOG(AIOwner, LogBehaviorTree, Verbose, TEXT("%s: action lost, finishing task as failed"), *UBehaviorTreeTypes::DescribeNodeHelper(this));
+		FinishLatentTask(*OwnerComp, EBTNodeResult::Failed);
 	}
 }

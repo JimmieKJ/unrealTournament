@@ -204,7 +204,7 @@ float3x3 VertexFactoryGetPerPixelTangentBasis(FVertexFactoryInterpolantsVSToPS I
 	float4 SampleValue = Texture2DSample(NormalmapTexture, NormalmapTextureSampler, Interpolants.WeightMapTexCoord);
 #endif
 #if WEBGL
-	float2 SampleNormal = float2(SampleValue.r, SampleValue.a) * float2(2.0,2.0) - float2(1.0,1.0);
+	float2 SampleNormal = float2(SampleValue.b, SampleValue.a) * float2(2.0,2.0) - float2(1.0,1.0);
 #else
 	float2 SampleNormal = float2(SampleValue.b, SampleValue.a) * float2(2.0,2.0) - float2(1.0,1.0);
 #endif
@@ -277,13 +277,13 @@ FMaterialTessellationParameters GetMaterialTessellationParameters(FVertexFactory
 
 	Result.VertexColor = 1;
 	Result.TangentToWorldPreScale = 1;
-	Result.WorldPosition = CameraLocalWorldPosition + View.ViewOrigin.xyz;
+	Result.WorldPosition = CameraLocalWorldPosition + View.WorldCameraOrigin;
 
 	return Result;
 }
 
 /** Converts from vertex factory specific interpolants to a FMaterialPixelParameters, which is used by material inputs. */
-FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVSToPS Interpolants, float4 PixelPosition)
+FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVSToPS Interpolants, float4 SvPosition)
 {
 	// GetMaterialPixelParameters is responsible for fully initializing the result
 	FMaterialPixelParameters Result = MakeInitializedMaterialPixelParameters();
@@ -358,7 +358,7 @@ FMaterialPixelParameters GetMaterialPixelParameters(FVertexFactoryInterpolantsVS
 #if (ES2_PROFILE || ES3_1_PROFILE) && PIXELSHADER
 
 #if WEBGL
-	Result.LayerWeights.xy = Texture2DSample(NormalmapTexture, NormalmapTextureSampler, Interpolants.WeightMapTexCoord).bg;
+	Result.LayerWeights.xy = Texture2DSample(NormalmapTexture, NormalmapTextureSampler, Interpolants.WeightMapTexCoord).rg;
 #else
 	Result.LayerWeights.xy = Texture2DSample(NormalmapTexture, NormalmapTextureSampler, Interpolants.WeightMapTexCoord).rg;
 #endif 

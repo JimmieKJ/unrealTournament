@@ -12,7 +12,7 @@
     <AssemblyName>UnrealBuildTool</AssemblyName>
     <RunPostBuildEvent>OnOutputUpdated</RunPostBuildEvent>
     <IsWebBootstrapper>false</IsWebBootstrapper>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
     <FileUpgradeFlags>
     </FileUpgradeFlags>
     <OldToolsVersion>3.5</OldToolsVersion>
@@ -39,13 +39,12 @@
     <Optimize>true</Optimize>
     <OutputPath>..\..\..\Binaries\DotNET\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisIgnoreBuiltInRuleSets>true</CodeAnalysisIgnoreBuiltInRuleSets>
-    <CodeAnalysisIgnoreBuiltInRules>true</CodeAnalysisIgnoreBuiltInRules>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Development|x86' ">
     <DebugType>pdbonly</DebugType>
@@ -57,18 +56,15 @@
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>x86</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisIgnoreBuiltInRuleSets>true</CodeAnalysisIgnoreBuiltInRuleSets>
-    <CodeAnalysisIgnoreBuiltInRules>true</CodeAnalysisIgnoreBuiltInRules>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <OutputPath>..\..\..\Binaries\DotNET\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <DebugType>pdbonly</DebugType>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisIgnoreBuiltInRuleSets>true</CodeAnalysisIgnoreBuiltInRuleSets>
-    <CodeAnalysisIgnoreBuiltInRules>true</CodeAnalysisIgnoreBuiltInRules>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
     <DefineConstants>TRACE;DEBUG</DefineConstants>
@@ -117,20 +113,15 @@
       </ItemGroup>
     </When>
   </Choose>
-  <Choose>
-    <When Condition="Exists('Cygwin\UEBuildCygwin.cs')">
-      <ItemGroup>
-        <Compile Include="Cygwin\CygwinToolChain.cs" />
-        <Compile Include="Cygwin\UEBuildCygwin.cs" />
-        <Compile Include="Cygwin\CygwinProjectGenerator.cs" />
-      </ItemGroup>
-    </When>
-  </Choose>
   <ItemGroup>
     <Compile Include="Mac\MacToolChain.cs" />
     <Compile Include="Mac\UEBuildMac.cs" />
     <Compile Include="Mac\MacProjectGenerator.cs" />
     <Compile Include="Mac\UEDeployMac.cs" />
+    <Compile Include="System\FileSystemReference.cs" />
+    <Compile Include="System\TargetReceipt.cs" />
+    <Compile Include="System\VersionManifest.cs" />
+    <Compile Include="ToolChain\AppleToolChain.cs" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Android\UEBuildAndroid.cs" />
@@ -138,16 +129,16 @@
     <Compile Include="Android\AndroidToolChain.cs" />
     <Compile Include="Android\AndroidProjectGenerator.cs" />
   </ItemGroup>
-  <Choose>
-    <When Condition="Exists('WinRT\UEBuildWinRT.cs')">
-      <ItemGroup>
-        <Compile Include="WinRT\UEBuildWinRT.cs" />
-        <Compile Include="WinRT\WinRTToolChain.cs" />
-        <Compile Include="WinRT\WinRTDeploy.cs" />
-        <Compile Include="WinRT\WinRTProjectGenerator.cs" />
-      </ItemGroup>
-    </When>
-  </Choose>
+  <ItemGroup>
+    <Compile Include="UWP\UEBuildUWP.cs" />
+    <Compile Include="UWP\UWPDeploy.cs" />
+    <Compile Include="UWP\UWPProjectGenerator.cs" />
+    <Compile Include="UWP\UWPToolChain.cs" />
+    <Compile Include="WinRT\UEBuildWinRT.cs" />
+    <Compile Include="WinRT\WinRTToolChain.cs" />
+    <Compile Include="WinRT\WinRTDeploy.cs" />
+    <Compile Include="WinRT\WinRTProjectGenerator.cs" />
+  </ItemGroup>
   <ItemGroup>
     <Compile Include="IOS\IOSProjectGenerator.cs" />
     <Compile Include="IOS\IOSToolChain.cs" />
@@ -169,13 +160,6 @@
     <When Condition="Exists('System\NotForLicensees\TelemetryProviderET.cs')">
       <ItemGroup>
         <Compile Include="System\NotForLicensees\TelemetryProviderET.cs" />
-      </ItemGroup>
-    </When>
-  </Choose>
-  <Choose>
-    <When Condition="Exists('ToolChain\NoRedist\EpicMachineNames.cs')">
-      <ItemGroup>
-        <Compile Include="ToolChain\NoRedist\EpicMachineNames.cs" />
       </ItemGroup>
     </When>
   </Choose>
@@ -206,9 +190,10 @@
     <Compile Include="System\BuildException.cs" />
     <Compile Include="Configuration\BuildConfiguration.cs" />
     <Compile Include="System\BuildHostPlatform.cs" />
-    <Compile Include="System\BuildReceipt.cs" />
     <Compile Include="System\FlatCPPIncludeDepencencyCache.cs" />
     <Compile Include="System\Distcc.cs" />
+    <Compile Include="System\CodeLiteGenerator.cs" />
+    <Compile Include="System\CodeLiteProject.cs" />
     <Compile Include="System\KDevelopGenerator.cs" />
     <Compile Include="System\CMakefileGenerator.cs" />
     <Compile Include="System\ModuleDescriptor.cs" />
@@ -294,6 +279,10 @@
     <None Include="app.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\DotNETCommon\DotNETUtilities\DotNETUtilities.csproj">
+      <Project>{5d7d66e8-8c76-4af9-b3ec-2ef03421d730}</Project>
+      <Name>DotNETUtilities</Name>
+    </ProjectReference>
     <ProjectReference Include="..\EnvVarsToXML\EnvVarsToXML\EnvVarsToXML.csproj">
       <Project>{66e423eb-ffa3-4ce4-bca3-75bdb6a8318d}</Project>
       <Name>EnvVarsToXML</Name>

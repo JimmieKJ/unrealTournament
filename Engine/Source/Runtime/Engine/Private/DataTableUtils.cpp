@@ -3,12 +3,39 @@
 #include "EnginePrivate.h"
 #include "DataTableUtils.h"
 
+DEFINE_LOG_CATEGORY(LogDataTable);
+
 FString DataTableUtils::AssignStringToProperty(const FString& InString, const UProperty* InProp, uint8* InData)
 {
 	FStringOutputDevice ImportError;
-	if(InProp != NULL && IsSupportedTableProperty(InProp))
+	if(InProp && IsSupportedTableProperty(InProp))
 	{
-		InProp->ImportText(*InString, InProp->ContainerPtrToValuePtr<uint8>(InData), PPF_None, NULL, &ImportError);
+		FString StringToImport = InString;
+
+		const UByteProperty* EnumProp = Cast<const UByteProperty>(InProp);
+		if(EnumProp && EnumProp->Enum)
+		{
+			// Enum properties may use the friendly name in their import data, however the UPropertyByte::ImportText function will only accept the internal enum entry name
+			// Detect if we're using a friendly name for an entry, and if so, try and map it to the correct internal name before performing the import
+			const int32 EnumIndex = EnumProp->Enum->FindEnumIndex(*InString);
+			if(EnumIndex == INDEX_NONE)
+			{
+				// Couldn't find a match for the name we were given, try and find a match using the friendly names
+				for(int32 EnumEntryIndex = 0; EnumEntryIndex < EnumProp->Enum->NumEnums(); ++EnumEntryIndex)
+				{
+					const FText FriendlyEnumEntryName = EnumProp->Enum->GetEnumText(EnumEntryIndex);
+					if(FriendlyEnumEntryName.ToString() == InString)
+					{
+						// Get the corresponding internal name and warn the user that we're using this fallback
+						StringToImport = EnumProp->Enum->GetEnumName(EnumEntryIndex);
+						UE_LOG(LogDataTable, Warning, TEXT("Could not a find matching enum entry for '%s', but did find a matching display name. Will import using the enum entry corresponding to that display name ('%s')"), *InString, *StringToImport);
+						break;
+					}
+				}
+			}
+		}
+		
+		InProp->ImportText(*StringToImport, InProp->ContainerPtrToValuePtr<uint8>(InData), PPF_None, nullptr, &ImportError);
 	}
 
 	FString Error = ImportError;
@@ -17,11 +44,25 @@ FString DataTableUtils::AssignStringToProperty(const FString& InString, const UP
 
 FString DataTableUtils::GetPropertyValueAsString(const UProperty* InProp, uint8* InData)
 {
-	FString Result(TEXT(""));
+	FString Result;
 
-	if(InProp != NULL && IsSupportedTableProperty(InProp))
+	if(InProp && IsSupportedTableProperty(InProp))
 	{
-		InProp->ExportText_InContainer(0, Result, InData, InData, NULL, PPF_None);
+		InProp->ExportText_InContainer(0, Result, InData, InData, nullptr, PPF_None);
+	}
+
+	return Result;
+}
+
+FText DataTableUtils::GetPropertyValueAsText(const UProperty* InProp, uint8* InData)
+{
+	FText Result;
+
+	if(InProp && IsSupportedTableProperty(InProp))
+	{
+		FString ExportedString;
+		InProp->ExportText_InContainer(0, ExportedString, InData, InData, nullptr, PPF_PropertyWindow);
+		Result = FText::FromString(ExportedString);
 	}
 
 	return Result;

@@ -40,6 +40,7 @@ void SButton::Construct( const FArguments& InArgs )
 		.HAlign( InArgs._HAlign )
 		.VAlign( InArgs._VAlign )
 		.Padding( TAttribute<FMargin>(this, &SButton::GetCombinedPadding) )
+		.ShowEffectWhenDisabled( TAttribute<bool>(this, &SButton::GetShowDisabledEffect) )
 		[
 			DetermineContent(InArgs)
 		]
@@ -54,6 +55,8 @@ void SButton::Construct( const FArguments& InArgs )
 	OnClicked = InArgs._OnClicked;
 	OnPressed = InArgs._OnPressed;
 	OnReleased = InArgs._OnReleased;
+	OnHovered = InArgs._OnHovered;
+	OnUnhovered = InArgs._OnUnhovered;
 
 	ClickMethod = InArgs._ClickMethod;
 	TouchMethod = InArgs._TouchMethod;
@@ -63,6 +66,35 @@ void SButton::Construct( const FArguments& InArgs )
 	PressedSound = InArgs._PressedSoundOverride.Get(Style->PressedSlateSound);
 }
 
+int32 SButton::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+	bool bEnabled = ShouldBeEnabled(bParentEnabled);
+	bool bShowDisabledEffect = GetShowDisabledEffect();
+
+	const FSlateBrush* BrushResource = !bShowDisabledEffect && !bEnabled ? DisabledImage : GetBorder();
+	
+	ESlateDrawEffect::Type DrawEffects = bShowDisabledEffect && !bEnabled ? ESlateDrawEffect::DisabledEffect : ESlateDrawEffect::None;
+
+	if (BrushResource && BrushResource->DrawAs != ESlateBrushDrawType::NoDrawType)
+	{
+		FSlateDrawElement::MakeBox(
+			OutDrawElements,
+			LayerId,
+			AllottedGeometry.ToPaintGeometry(),
+			BrushResource,
+			MyClippingRect,
+			DrawEffects,
+			BrushResource->GetTint(InWidgetStyle) * InWidgetStyle.GetColorAndOpacityTint() * BorderBackgroundColor.Get().GetColor(InWidgetStyle)
+			);
+	}
+
+	FWidgetStyle CompoundedWidgetStyle = FWidgetStyle(InWidgetStyle)
+		.BlendColorAndOpacityTint(ColorAndOpacity.Get())
+		.SetForegroundColor(ForegroundColor.Get());
+
+	return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyClippingRect.IntersectionWith(AllottedGeometry.GetClippingRect()), OutDrawElements, LayerId, CompoundedWidgetStyle, bEnabled);
+}
+
 FMargin SButton::GetCombinedPadding() const
 {
 	return ( IsPressed() )
@@ -70,11 +102,19 @@ FMargin SButton::GetCombinedPadding() const
 		: ContentPadding.Get() + BorderPadding;	
 }
 
+bool SButton::GetShowDisabledEffect() const
+{
+	return DisabledImage->DrawAs == ESlateBrushDrawType::NoDrawType;
+}
 
 /** @return An image that represents this button's border*/
 const FSlateBrush* SButton::GetBorder() const
 {
-	if (IsPressed())
+	if (!GetShowDisabledEffect() && !IsEnabled())
+	{
+		return DisabledImage;
+	}
+	else if (IsPressed())
 	{
 		return PressedImage;
 	}
@@ -135,7 +175,7 @@ FReply SButton::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent
 
 	if (IsEnabled() && (InKeyEvent.GetKey() == EKeys::Enter || InKeyEvent.GetKey() == EKeys::SpaceBar || InKeyEvent.GetKey() == EKeys::Gamepad_FaceButton_Bottom))
 	{
-		bool bWasPressed = bIsPressed;
+		const bool bWasPressed = bIsPressed;
 
 		Release();
 
@@ -185,6 +225,8 @@ FReply SButton::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEv
 		}
 	}
 
+	Invalidate(EInvalidateWidget::Layout);
+
 	//return the constructed reply
 	return Reply;
 }
@@ -198,7 +240,7 @@ FReply SButton::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const F
 FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	FReply Reply = FReply::Unhandled();
-	if (IsEnabled() && (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton || MouseEvent.IsTouchEvent()))
+	if ( bIsPressed && IsEnabled() && ( MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton || MouseEvent.IsTouchEvent() ) )
 	{
 		Release();
 
@@ -210,10 +252,9 @@ FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 		}
 		else
 		{
-			const bool bIsUnderMouse = MyGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
-			if( bIsUnderMouse )
+			if( IsHovered() )
 			{
-				// If we asked for a precide tap, all we need is for the user to have not moved their pointer very far.
+				// If we asked for a precise tap, all we need is for the user to have not moved their pointer very far.
 				const bool bTriggerForTouchEvent = IsPreciseTapOrClick(MouseEvent);
 
 				// If we were asked to allow the button to be clicked on mouse up, regardless of whether the user
@@ -229,18 +270,20 @@ FReply SButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEven
 		
 		//If the user of the button didn't handle this click, then the button's
 		//default behavior handles it.
-		if(Reply.IsEventHandled() == false)
+		if ( Reply.IsEventHandled() == false )
 		{
 			Reply = FReply::Handled();
 		}
 
 		//If the user hasn't requested a new mouse captor, then the default
 		//behavior of the button is to release mouse capture.
-		if(Reply.GetMouseCaptor().IsValid() == false)
+		if ( Reply.GetMouseCaptor().IsValid() == false )
 		{
 			Reply.ReleaseMouseCapture();
 		}
 	}
+
+	Invalidate(EInvalidateWidget::Layout);
 
 	return Reply;
 }
@@ -263,6 +306,10 @@ void SButton::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& Mo
 	}
 	
 	SBorder::OnMouseEnter( MyGeometry, MouseEvent );
+
+	OnHovered.ExecuteIfBound();
+
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void SButton::OnMouseLeave( const FPointerEvent& MouseEvent )
@@ -276,6 +323,10 @@ void SButton::OnMouseLeave( const FPointerEvent& MouseEvent )
 	{
 		Release();
 	}
+
+	OnUnhovered.ExecuteIfBound();
+
+	Invalidate(EInvalidateWidget::Layout);
 }
 
 void SButton::Press()
@@ -362,7 +413,11 @@ void SButton::SetButtonStyle(const FButtonStyle* ButtonStyle)
 	NormalImage = &Style->Normal;
 	HoverImage = &Style->Hovered;
 	PressedImage = &Style->Pressed;
+	DisabledImage = &Style->Disabled;
 
 	BorderPadding = Style->NormalPadding;
 	PressedBorderPadding = Style->PressedPadding;
+
+	HoveredSound = Style->HoveredSlateSound;
+	PressedSound = Style->PressedSlateSound;
 }

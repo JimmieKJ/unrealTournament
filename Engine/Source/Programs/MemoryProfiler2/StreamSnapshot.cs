@@ -286,14 +286,7 @@ namespace MemoryProfiler2
 			}
 
 			// strip out any callstacks with no allocations
-			for( int i = ActiveCallStackList.Count - 1; i >= 0; i-- )
-			{
-				if( ActiveCallStackList[ i ].Count == 0 )
-				{
-					ActiveCallStackList.RemoveAt( i );
-				}
-			}
-
+			ActiveCallStackList.RemoveAll(Item => Item.Count == 0);
 			ActiveCallStackList.TrimExcess();
 		}
 

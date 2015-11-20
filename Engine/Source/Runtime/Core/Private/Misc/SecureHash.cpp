@@ -457,6 +457,100 @@ void FMD5::Decode( uint32* output, uint8* input, int32 len )
 // 		(((uint32)input[j+2]) << 16) | (((uint32)input[j+3]) << 24);
 // }
 
+namespace LexicalConversion
+{
+	FString ToString(const FMD5Hash& Hash)
+	{
+		if (!Hash.bIsValid)
+		{
+			return FString();
+		}
+
+		return FString::Printf(TEXT("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"),
+			Hash.Bytes[0], Hash.Bytes[1], Hash.Bytes[2], Hash.Bytes[3], Hash.Bytes[4], Hash.Bytes[5], Hash.Bytes[6], Hash.Bytes[7],
+			Hash.Bytes[8], Hash.Bytes[9], Hash.Bytes[10], Hash.Bytes[11], Hash.Bytes[12], Hash.Bytes[13], Hash.Bytes[14], Hash.Bytes[15]);
+	}
+
+	void FromString(FMD5Hash& Hash, const TCHAR* Buffer)
+	{
+		uint8 Bytes[16];
+		for (int32 Index = 0; Index < 16; ++Index)
+		{
+			if (Buffer[Index] == '\0')
+			{
+				return;
+			}
+
+			TCHAR Base = 0;
+			if (Buffer[Index] >= '0' && Buffer[Index] <= '9')
+			{
+				Base = '0';
+			}
+			else if (Buffer[Index] >= 'A' && Buffer[Index] <= 'F')
+			{
+				Base = 'A';
+			}
+			else if (Buffer[Index] >= 'a' && Buffer[Index] <= 'f')
+			{
+				Base = 'a';
+			}
+			else
+			{
+				// Invalid hex char
+				return;
+			}
+
+			if (Index % 2)
+			{
+				Bytes[Index] = (Buffer[Index] - Base) << 4;
+			}
+			else
+			{
+				Bytes[Index] = (Bytes[Index] & ((Buffer[Index] - Base) | 0xF0));
+			}	
+		}
+
+		FMemory::Memcpy(Hash.Bytes, Bytes, 16);
+		Hash.bIsValid = true;
+	}
+
+}
+
+FMD5Hash FMD5Hash::HashFile(const TCHAR* InFilename, TArray<uint8>* Buffer)
+{
+	FArchive* Ar = IFileManager::Get().CreateFileReader(InFilename);
+
+	FMD5Hash Hash;
+	if (Ar)
+	{
+		TArray<uint8> LocalScratch;
+		if (!Buffer)
+		{
+			LocalScratch.SetNumUninitialized(1024*64);
+			Buffer = &LocalScratch; //-V506
+		}
+		FMD5 MD5;
+
+		const int64 Size = Ar->TotalSize();
+		int64 Position = 0;
+
+		// Read in BufferSize chunks
+		while (Position < Size)
+		{
+			const auto ReadNum = FMath::Min(Size - Position, (int64)Buffer->Num());
+			Ar->Serialize(Buffer->GetData(), ReadNum);
+			MD5.Update(Buffer->GetData(), ReadNum);
+
+			Position += ReadNum;
+		}
+
+		Hash.Set(MD5);
+		delete Ar;
+	}
+
+	return Hash;
+}
+
 /*-----------------------------------------------------------------------------
 	SHA-1
 -----------------------------------------------------------------------------*/

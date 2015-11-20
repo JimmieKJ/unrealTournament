@@ -23,16 +23,15 @@ ADefaultPawn::ADefaultPawn(const FObjectInitializer& ObjectInitializer)
 
 	BaseEyeHeight = 0.0f;
 	bCollideWhenPlacing = false;
+	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 	CollisionComponent = CreateDefaultSubobject<USphereComponent>(ADefaultPawn::CollisionComponentName);
 	CollisionComponent->InitSphereRadius(35.0f);
-
-	static FName CollisionProfileName(TEXT("Pawn"));
-	CollisionComponent->SetCollisionProfileName(CollisionProfileName);
+	CollisionComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 
 	CollisionComponent->CanCharacterStepUpOn = ECB_No;
 	CollisionComponent->bShouldUpdatePhysicsVolume = true;
-	CollisionComponent->bCanEverAffectNavigation = false;
+	CollisionComponent->SetCanEverAffectNavigation(false);
 	CollisionComponent->bDynamicObstacle = true;
 
 	RootComponent = CollisionComponent;
@@ -61,11 +60,11 @@ ADefaultPawn::ADefaultPawn(const FObjectInitializer& ObjectInitializer)
 		MeshComponent->bAffectDynamicIndirectLighting = false;
 		MeshComponent->PrimaryComponentTick.TickGroup = TG_PrePhysics;
 		MeshComponent->AttachParent = RootComponent;
-		MeshComponent->SetCollisionProfileName(CollisionProfileName);
+		MeshComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 		const float Scale = CollisionComponent->GetUnscaledSphereRadius() / 160.f; // @TODO: hardcoding known size of EngineMeshes.Sphere. Should use a unit sphere instead.
 		MeshComponent->SetRelativeScale3D(FVector(Scale));
 		MeshComponent->bGenerateOverlapEvents = false;
-		MeshComponent->bCanEverAffectNavigation = false;
+		MeshComponent->SetCanEverAffectNavigation(false);
 	}
 
 	// This is the default pawn class, we want to have it be able to move out of the box.
@@ -183,13 +182,13 @@ void ADefaultPawn::MoveUp_World(float Val)
 void ADefaultPawn::TurnAtRate(float Rate)
 {
 	// calculate delta for this frame from the rate information
-	AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds());
+	AddControllerYawInput(Rate * BaseTurnRate * GetWorld()->GetDeltaSeconds() * CustomTimeDilation);
 }
 
 void ADefaultPawn::LookUpAtRate(float Rate)
 {
 	// calculate delta for this frame from the rate information
-	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds());
+	AddControllerPitchInput(Rate * BaseLookUpRate * GetWorld()->GetDeltaSeconds() * CustomTimeDilation);
 }
 
 // @TODO: DEPRECATED, remove.

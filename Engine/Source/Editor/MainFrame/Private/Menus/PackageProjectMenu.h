@@ -67,6 +67,9 @@ public:
 		}
 
 		MenuBuilder.AddMenuSeparator();
+		MenuBuilder.AddMenuEntry(FMainFrameCommands::Get().ZipUpProject);
+
+		MenuBuilder.AddMenuSeparator();
 		MenuBuilder.AddSubMenu(
 			LOCTEXT("PackageProjectBuildConfigurationSubMenuLabel", "Build Configuration"),
 			LOCTEXT("PackageProjectBuildConfigurationSubMenuToolTip", "Select the build configuration to package the project with"),

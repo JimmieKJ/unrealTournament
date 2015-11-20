@@ -26,27 +26,27 @@ class UK2Node_InputAction : public UK2Node
 	UPROPERTY(EditAnywhere, Category="Input")
 	uint32 bOverrideParentBinding:1;
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End UObject interface
+	//~ End UObject Interface
 
-	// Begin UEdGraphNode interface.
+	//~ Begin UEdGraphNode Interface.
 	virtual void AllocateDefaultPins() override;
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Event_16x"); }
 	virtual bool IsCompatibleWithGraph(UEdGraph const* Graph) const override;
-	// End UEdGraphNode interface.
+	//~ End UEdGraphNode Interface.
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual bool ShouldShowNodeProperties() const override { return true; }
 	virtual void ExpandNode(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
 	virtual FBlueprintNodeSignature GetSignature() const override;
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
 	/** Get the 'pressed' input pin */
 	BLUEPRINTGRAPH_API UEdGraphPin* GetPressedPin() const;
@@ -55,8 +55,6 @@ class UK2Node_InputAction : public UK2Node
 	BLUEPRINTGRAPH_API UEdGraphPin* GetReleasedPin() const;
 
 private:
-	void CreateInputActionEvent(FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, UEdGraphPin* InputActionPin, const EInputEvent InputKeyEvent);
-
 	/** Constructing FText strings can be costly, so we cache the node's title/tooltip */
 	FNodeTextCache CachedTooltip;
 	FNodeTextCache CachedNodeTitle;

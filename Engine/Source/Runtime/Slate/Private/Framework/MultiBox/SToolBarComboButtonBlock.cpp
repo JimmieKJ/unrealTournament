@@ -110,6 +110,10 @@ void SToolBarComboButtonBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet
 		Label = ToolBarComboButtonBlock->Label;
 	}
 
+	// Add this widget to the search list of the multibox
+	if (MultiBlock->GetSearchable())
+		OwnerMultiBoxWidget.Pin()->AddSearchElement(this->AsWidget(), Label.Get());
+
 	// Setup the string for the metatag
 	FName TagName;
 	if (ToolBarComboButtonBlock->GetTutorialHighlightName() == NAME_None)

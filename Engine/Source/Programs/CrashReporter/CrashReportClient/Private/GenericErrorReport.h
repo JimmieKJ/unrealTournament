@@ -3,6 +3,7 @@
 #pragma once
 
 class FCrashDebugHelperModule;
+struct FPrimaryCrashProperties;
 
 /**
  * Helper that works with Windows Error Reports
@@ -42,7 +43,10 @@ public:
 	 * @param UserComment Information provided by the user to add to the report
 	 * @return Whether the comment was successfully written to the report
 	 */
-	bool SetUserComment(const FText& UserComment, bool bAllowToBeContacted);
+	bool SetUserComment(const FText& UserComment);
+
+	/** Sets properties specific to the processed crash. Used to convert the old data into the crash context format. */
+	void SetPrimaryCrashProperties( FPrimaryCrashProperties& out_PrimaryCrashProperties );
 
 	/**
 	 * Provide full paths to all the report files
@@ -60,10 +64,9 @@ public:
 	bool LoadWindowsReportXmlFile( FString& OutString ) const;
 
 	/**
-	 * @param Description (exception and callstack) to fill in if successful
 	 * @return Whether the file was found and successfully read
 	 */
-	bool TryReadDiagnosticsFile(FText& OutReportDescription);
+	bool TryReadDiagnosticsFile();
 
 	/**
 	 * Provide the full path of the error report directory
@@ -111,7 +114,9 @@ protected:
 	/** Full path to the directory the report files are in */
 	FString ReportDirectory;
 
-private:
 	/** List of leaf filenames of all the files in the report folder */
 	TArray<FString> ReportFilenames;
+
+	/** Whether the error report generated an valid callstack. */
+	mutable bool bValidCallstack;
 };

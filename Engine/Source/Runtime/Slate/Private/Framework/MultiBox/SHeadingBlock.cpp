@@ -46,6 +46,10 @@ void SHeadingBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, const FNa
 {
 	TSharedRef< const FHeadingBlock > HeadingBlock = StaticCastSharedRef< const FHeadingBlock >( MultiBlock.ToSharedRef() );
 
+	// Add this widget to the search list of the multibox
+	if (MultiBlock->GetSearchable())
+		OwnerMultiBoxWidget.Pin()->AddSearchElement(this->AsWidget(), FText::GetEmpty());
+
 	ChildSlot
 		.Padding( 2.0f )
 		[
@@ -54,4 +58,3 @@ void SHeadingBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, const FNa
 				.TextStyle( StyleSet, ISlateStyle::Join( StyleName, ".Heading" ) )
 		];
 }
-

@@ -28,7 +28,13 @@ namespace Manzana
 		kCFStringEncodingASCII = 0x00000600,
 		kCFStringEncodingUnicode = 0x00000100,
 		kCFStringEncodingUTF8 = 0x08000100,
-		kCFStringEncodingNonLossyASCII = 0x00000BFF
+		kCFStringEncodingNonLossyASCII = 0x00000BFF,
+		kCFStringEncodingUTF16 = 0x00000100,
+		kCFStringEncodingUTF16BE = 0x10000100,
+		kCFStringEncodingUTF16LE = 0x14000100,
+		kCFStringEncodingUTF32 = 0x0c000100,
+		kCFStringEncodingUTF32BE = 0x18000100,
+		kCFStringEncodingUTF32LE = 0x1c000100
 	};
 
 	public enum CFURLPathStyle
@@ -76,6 +82,8 @@ namespace Manzana
 		TypedPtr<CFString> __CFStringMakeConstantString(byte[] s);
 		TypedPtr<CFURL> CFURLCreateWithFileSystemPath(IntPtr Allocator, TypedPtr<CFString> FilePath, CFURLPathStyle PathStyle, int isDirectory);
 		Boolean CFStringGetCString(TypedPtr<CFString> theString, byte[] buffer, int bufferSize, CFStringBuiltInEncodings encoding);
+		TypedPtr<CFString> CFStringCreateWithBytes(IntPtr allocator, byte[] buffer, int bufferSize, CFStringBuiltInEncodings encoding, Boolean isExternalRep);
+		TypedPtr<CFString> CFStringCreateWithCString(IntPtr allocator, byte[] buffer);
 		TypedPtr<CFString> CFURLGetString(IntPtr anURL);
 		uint CFGetTypeID(IntPtr FromInstance);
 		uint CFStringGetTypeID();
@@ -99,6 +107,7 @@ namespace Manzana
 			/* const CFDictionaryKeyCallBacks* */ IntPtr keyCallBacks,
 			/* const CFDictionaryValueCallBacks* */ IntPtr valueCallBacks
 		);
+		Boolean CFStringGetFileSystemRepresentation(TypedPtr<CFString> theString, byte[] buffer, int bufferSize);
 	}
 
 	internal class CoreFoundationWin : CoreFoundationImpl
@@ -107,6 +116,16 @@ namespace Manzana
 		public TypedPtr<CFString> __CFStringMakeConstantString(byte[] s)
 		{
 			return CoreFoundation.__CFStringMakeConstantString(s);
+		}
+
+		public TypedPtr<CFString> CFStringCreateWithCString(IntPtr allocator, byte[] buffer)
+		{
+			return CoreFoundation.CFStringCreateWithCString(allocator, buffer, CFStringBuiltInEncodings.kCFStringEncodingUTF8);
+		}
+
+		public TypedPtr<CFString> CFStringCreateWithBytes(IntPtr allocator, byte[] buffer, int bufferSize, CFStringBuiltInEncodings encoding, Boolean isExternalRep)
+		{
+			return CoreFoundation.CFStringCreateWithBytes(allocator, buffer, bufferSize, encoding, isExternalRep);
 		}
 
 		public TypedPtr<CFURL> CFURLCreateWithFileSystemPath(IntPtr Allocator, TypedPtr<CFString> FilePath, CFURLPathStyle PathStyle, int isDirectory)
@@ -214,11 +233,22 @@ namespace Manzana
 			return CoreFoundation.CFDictionaryCreateMutable(allocator, capacity, keyCallBacks, valueCallBacks);
 		}
 
+		public Boolean CFStringGetFileSystemRepresentation(TypedPtr<CFString> theString, byte[] buffer, int bufferSize)
+		{
+			return CoreFoundation.CFStringGetFileSystemRepresentation((IntPtr)theString, buffer, bufferSize);
+		}
+
 		private class CoreFoundation
 		{
 			[DllImport("CoreFoundation.dll", CallingConvention = CallingConvention.Cdecl)]
 			public static extern IntPtr __CFStringMakeConstantString(byte[] s);
 
+			[DllImport("CoreFoundation.dll", CallingConvention = CallingConvention.Cdecl)]
+			public static extern IntPtr CFStringCreateWithCString(IntPtr allocator, byte[] buffer, CFStringBuiltInEncodings encoding);
+
+			[DllImport("CoreFoundation.dll", CallingConvention = CallingConvention.Cdecl)]
+			public static extern IntPtr CFStringCreateWithBytes(IntPtr allocator, byte[] buffer, int bufferSize, CFStringBuiltInEncodings encoding, Boolean isExtRep);
+			
 			[DllImport("CoreFoundation.dll", CallingConvention = CallingConvention.Cdecl)]
 			public static extern IntPtr/*CFURL*/ CFURLCreateWithFileSystemPath(IntPtr Allocator, IntPtr/*CFString*/ FilePath, CFURLPathStyle PathStyle, int isDirectory);
 
@@ -286,6 +316,9 @@ namespace Manzana
 
 			[DllImport("CoreFoundation.dll", CallingConvention = CallingConvention.Cdecl)]
 			public static extern void CFPreferencesSetAppValue(IntPtr Key, IntPtr Value, IntPtr ApplicationID);
+
+			[DllImport("CoreFoundation.dll", CallingConvention = CallingConvention.Cdecl)]
+			public static extern Boolean CFStringGetFileSystemRepresentation(IntPtr theString, byte[] buffer, int bufferSize);
 		}
 	}
 
@@ -295,6 +328,16 @@ namespace Manzana
 		public TypedPtr<CFString> __CFStringMakeConstantString(byte[] s)
 		{
 			return CoreFoundation.__CFStringMakeConstantString(s);
+		}
+
+		public TypedPtr<CFString> CFStringCreateWithCString(IntPtr allocator, byte[] buffer)
+		{
+			return CoreFoundation.CFStringCreateWithCString(allocator, buffer, CFStringBuiltInEncodings.kCFStringEncodingUTF8);
+		}
+
+		public TypedPtr<CFString> CFStringCreateWithBytes(IntPtr allocator, byte[] buffer, int bufferSize, CFStringBuiltInEncodings encoding, Boolean isExternalRep)
+		{
+			return CoreFoundation.CFStringCreateWithBytes(allocator, buffer, bufferSize, encoding, isExternalRep);
 		}
 
 		public TypedPtr<CFURL> CFURLCreateWithFileSystemPath(IntPtr Allocator, TypedPtr<CFString> FilePath, CFURLPathStyle PathStyle, int isDirectory)
@@ -402,10 +445,21 @@ namespace Manzana
 			return CoreFoundation.CFDictionaryCreateMutable(allocator, capacity, keyCallBacks, valueCallBacks);
 		}
 
+		public Boolean CFStringGetFileSystemRepresentation(TypedPtr<CFString> theString, byte[] buffer, int bufferSize)
+		{
+			return CoreFoundation.CFStringGetFileSystemRepresentation((IntPtr)theString, buffer, bufferSize);
+		}
+
 		private class CoreFoundation
 		{
 			[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", CallingConvention = CallingConvention.Cdecl)]
 			public static extern IntPtr __CFStringMakeConstantString(byte[] s);
+
+			[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", CallingConvention = CallingConvention.Cdecl)]
+			public static extern IntPtr CFStringCreateWithCString(IntPtr allocator, byte[] buffer, CFStringBuiltInEncodings encoding);
+
+			[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", CallingConvention = CallingConvention.Cdecl)]
+			public static extern IntPtr CFStringCreateWithBytes(IntPtr allocator, byte[] buffer, int bufferSize, CFStringBuiltInEncodings encoding, Boolean isExtRep);
 
 			[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", CallingConvention = CallingConvention.Cdecl)]
 			public static extern IntPtr/*CFURL*/ CFURLCreateWithFileSystemPath(IntPtr Allocator, IntPtr/*CFString*/ FilePath, CFURLPathStyle PathStyle, int isDirectory);
@@ -474,6 +528,9 @@ namespace Manzana
 
 			[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", CallingConvention = CallingConvention.Cdecl)]
 			public static extern void CFPreferencesSetAppValue(IntPtr Key, IntPtr Value, IntPtr ApplicationID);
+
+			[DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation", CallingConvention = CallingConvention.Cdecl)]
+			public static extern Boolean CFStringGetFileSystemRepresentation(IntPtr theString, byte[] buffer, int bufferSize);
 		}
 	}
 
@@ -519,6 +576,16 @@ namespace Manzana
             return bytes;
         }
 
+		private static byte[] StringToUTF16String(string value)
+		{
+			return Encoding.Unicode.GetBytes(value);
+		}
+
+		private static byte[] StringToUTF32LEString(string value)
+		{
+			return Encoding.UTF32.GetBytes(value);
+		}
+
         public static TypedPtr<CFString> CFStringMakeConstantString(string s)
         {
             return CoreImpl.__CFStringMakeConstantString(StringToCString(s));
@@ -550,7 +617,36 @@ namespace Manzana
             return Encoding.UTF8.GetString(bytes, 0, ValidLength);
         }
 
-        public static string GetStringForUrl(TypedPtr<CFURL> Url)
+		public static byte[] StringToFileSystemRepresentation(string InString)
+		{
+			byte[] BString =  StringToUTF32LEString(InString);
+			TypedPtr<CFString> cfString = CoreImpl.CFStringCreateWithBytes(kCFAllocatorDefault, BString, BString.Length, CFStringBuiltInEncodings.kCFStringEncodingUTF32LE, false);
+			return CFStringGetFileSystemRepresentation(cfString);
+		}
+
+		public static byte[] CFStringGetFileSystemRepresentation(TypedPtr<CFString> InString)
+		{
+			byte[] bytes = new byte[2048];
+			CoreImpl.CFStringGetFileSystemRepresentation(InString.Handle, bytes, 2048);
+
+			int ValidLength = 0;
+			foreach (byte b in bytes)
+			{
+				if (b == 0)
+				{
+					break;
+				}
+				else
+				{
+					ValidLength++;
+				}
+			}
+
+//			return Encoding.UTF8.GetString(bytes, 0, ValidLength);
+			return bytes;
+		}
+
+		public static string GetStringForUrl(TypedPtr<CFURL> Url)
         {
 			TypedPtr<CFString> cfString = CoreImpl.CFURLGetString((IntPtr)Url);
             return CFStringGetCString((IntPtr)cfString);

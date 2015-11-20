@@ -23,24 +23,24 @@ class UK2Node_ActorBoundEvent : public UK2Node_Event
 	UPROPERTY()
 	class AActor* EventOwner;
 
-	// UObject interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
-	// End of UObject interface
+	//~ End UObject Interface
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void ReconstructNode() override;
 	virtual void DestroyNode() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FString GetDocumentationLink() const override;
 	virtual FString GetDocumentationExcerptName() const override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin K2Node interface
+	//~ Begin K2Node Interface
 	virtual AActor* GetReferencedLevelActor() const override;
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
 	virtual FNodeHandlingFunctor* CreateNodeHandler(FKismetCompilerContext& CompilerContext) const override;
-	// End K2Node interface
+	//~ End K2Node Interface
 
 	virtual bool IsUsedByAuthorityOnlyDelegate() const override;
 

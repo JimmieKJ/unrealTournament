@@ -9,9 +9,12 @@
 #include "OnlineJsonSerializer.h"
 #include "OnlineSubsystemTypes.h"
 #include "OnlineDelegateMacros.h"
+#include "OnlineSubsystemNames.h"
 
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnline, Display, All);
 ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineGame, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineParty, Display, All);
+ONLINESUBSYSTEM_API DECLARE_LOG_CATEGORY_EXTERN(LogOnlineChat, Display, All);
 
 /** Online subsystem stats */
 DECLARE_STATS_GROUP(TEXT("Online"), STATGROUP_Online, STATCAT_Advanced);
@@ -33,7 +36,7 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("VoiceInt"), STAT_Voice_Interface, STATGROUP_Onli
 /** Forward declarations of all interface classes */
 typedef TSharedPtr<class IOnlineSession, ESPMode::ThreadSafe> IOnlineSessionPtr;
 typedef TSharedPtr<class IOnlineFriends, ESPMode::ThreadSafe> IOnlineFriendsPtr;
-typedef TSharedPtr<class IOnlineParty, ESPMode::ThreadSafe> IOnlinePartyPtr;
+typedef TSharedPtr<class IOnlinePartySystem, ESPMode::ThreadSafe> IOnlinePartyPtr;
 typedef TSharedPtr<class IOnlineGroups, ESPMode::ThreadSafe> IOnlineGroupsPtr;
 typedef TSharedPtr<class IOnlineSharedCloud, ESPMode::ThreadSafe> IOnlineSharedCloudPtr;
 typedef TSharedPtr<class IOnlineUserCloud, ESPMode::ThreadSafe> IOnlineUserCloudPtr;
@@ -45,6 +48,8 @@ typedef TSharedPtr<class IOnlineTime, ESPMode::ThreadSafe> IOnlineTimePtr;
 typedef TSharedPtr<class IOnlineIdentity, ESPMode::ThreadSafe> IOnlineIdentityPtr;
 typedef TSharedPtr<class IOnlineTitleFile, ESPMode::ThreadSafe> IOnlineTitleFilePtr;
 typedef TSharedPtr<class IOnlineStore, ESPMode::ThreadSafe> IOnlineStorePtr;
+typedef TSharedPtr<class IOnlineStoreV2, ESPMode::ThreadSafe> IOnlineStoreV2Ptr;
+typedef TSharedPtr<class IOnlinePurchase, ESPMode::ThreadSafe> IOnlinePurchasePtr;
 typedef TSharedPtr<class IOnlineEvents, ESPMode::ThreadSafe> IOnlineEventsPtr;
 typedef TSharedPtr<class IOnlineAchievements, ESPMode::ThreadSafe> IOnlineAchievementsPtr;
 typedef TSharedPtr<class IOnlineSharing, ESPMode::ThreadSafe> IOnlineSharingPtr;
@@ -64,6 +69,15 @@ typedef TSharedPtr<class FOnlineNotificationTransportManager, ESPMode::ThreadSaf
  */
 DECLARE_MULTICAST_DELEGATE_TwoParams(FOnConnectionStatusChanged, EOnlineServerConnectionStatus::Type /*LastConnectionState*/, EOnlineServerConnectionStatus::Type /*ConnectionState*/);
 typedef FOnConnectionStatusChanged::FDelegate FOnConnectionStatusChangedDelegate;
+
+/**
+ * Delegate fired when the PSN environment changes
+ *
+ * @param LastEnvironment - old online environment
+ * @param Environment - current online environment
+ */
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnOnlineEnvironmentChanged, EOnlineEnvironment::Type /*LastEnvironment*/, EOnlineEnvironment::Type /*Environment*/);
+typedef FOnOnlineEnvironmentChanged::FDelegate FOnOnlineEnvironmentChangedDelegate;
 
 /**
  *	OnlineSubsystem - Series of interfaces to support communicating with various web/platform layer services
@@ -94,6 +108,46 @@ public:
   	}
 
 	/** 
+	 * Get the online subsystem based on current platform
+	 *
+	 * @param bAutoLoad - load the module if not already loaded
+	 *
+	 * @return pointer to the appropriate online subsystem
+	 */
+	static IOnlineSubsystem* GetByPlatform(bool bAutoLoad=true)
+	{
+		if (PLATFORM_PS4)
+		{
+			if (bAutoLoad || IOnlineSubsystem::IsLoaded(PS4_SUBSYSTEM))
+			{
+				return IOnlineSubsystem::Get(PS4_SUBSYSTEM);
+			}
+		}
+		else if (PLATFORM_XBOXONE)
+		{
+			if (bAutoLoad || IOnlineSubsystem::IsLoaded(LIVE_SUBSYSTEM))
+			{
+				return IOnlineSubsystem::Get(LIVE_SUBSYSTEM);
+			}
+		}
+		else if (PLATFORM_ANDROID)
+		{
+			if (bAutoLoad || IOnlineSubsystem::IsLoaded(GOOGLEPLAY_SUBSYSTEM))
+			{
+				return IOnlineSubsystem::Get(GOOGLEPLAY_SUBSYSTEM);
+			}
+		}
+		else if (PLATFORM_IOS)
+		{
+			if (bAutoLoad || IOnlineSubsystem::IsLoaded(IOS_SUBSYSTEM))
+			{
+				return IOnlineSubsystem::Get(IOS_SUBSYSTEM);
+			}
+		}
+		return nullptr;
+  	}
+
+	/** 
 	 * Destroy a single online subsystem instance
 	 * @param SubsystemName - Name of the online service to destroy
 	 */
@@ -102,6 +156,20 @@ public:
 		static const FName OnlineSubsystemModuleName = TEXT("OnlineSubsystem");
 		FOnlineSubsystemModule& OSSModule = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>(OnlineSubsystemModuleName);
 		return OSSModule.DestroyOnlineSubsystem(SubsystemName);
+	}
+
+	/**
+	 * Unload the current default subsystem and attempt to reload the configured default subsystem
+	 * May be different if the fallback subsystem was created an startup
+	 *
+	 * **NOTE** This is intended for editor use only, attempting to use this at the wrong time can result
+	 * in unexpected crashes/behavior
+	 */
+	static void ReloadDefaultSubsystem()
+	{
+		static const FName OnlineSubsystemModuleName = TEXT("OnlineSubsystem");
+		FOnlineSubsystemModule& OSSModule = FModuleManager::GetModuleChecked<FOnlineSubsystemModule>(OnlineSubsystemModuleName);
+		return OSSModule.ReloadDefaultSubsystem();
 	}
 
 	/**
@@ -133,6 +201,15 @@ public:
 		}
 		return false;
 	}
+
+	/**
+	 * Get the instance name, which is typically "default" or "none" but distinguishes
+	 * one instance from another in "Play In Editor" mode.  Most platforms can't do this
+	 * because of third party requirements that only allow one login per machine instance
+	 *
+	 * @return the instance name of this subsystem
+	 */
+	virtual FName GetInstanceName() const = 0;
 
 	/** 
 	 * Get the interface for accessing the session management services
@@ -169,13 +246,6 @@ public:
 	* @return Interface pointer for the appropriate cloud service
 	*/
 	virtual IOnlineUserCloudPtr GetUserCloudInterface() const = 0;
-
-	/**
-	* Get the interface for accessing user files in the cloud for a specific service
-	* @param Key   The key for the required user cloud interface
-	* @return      Interface pointer for the appropriate cloud service
-	*/
-	virtual IOnlineUserCloudPtr GetUserCloudInterface(const FString& Key) const = 0;
 
 	/**
 	 * Get the interface for accessing user entitlements
@@ -224,6 +294,18 @@ public:
 	 * @return Interface pointer for the appropriate online store service
 	 */
 	virtual IOnlineStorePtr GetStoreInterface() const = 0;
+
+	/** 
+	 * Get the interface for accessing an online store
+	 * @return Interface pointer for the appropriate online store service
+	 */
+	virtual IOnlineStoreV2Ptr GetStoreV2Interface() const = 0;
+
+	/** 
+	 * Get the interface for purchasing 
+	 * @return Interface pointer for the appropriate purchase service
+	 */
+	virtual IOnlinePurchasePtr GetPurchaseInterface() const = 0;
 	
 	/** 
 	 * Get the interface for accessing online achievements
@@ -381,6 +463,19 @@ public:
 	 * @param ConnectionState current state of the connection
 	 */
 	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnConnectionStatusChanged, EOnlineServerConnectionStatus::Type /*LastConnectionState*/, EOnlineServerConnectionStatus::Type /*ConnectionState*/);
+
+	/**
+	 * @return the current environment being used for the online platform
+	 */
+	virtual EOnlineEnvironment::Type GetOnlineEnvironment() const = 0;
+
+	/**
+	 * Delegate fired when the online environment changes
+	 *
+	 * @param LastEnvironment - old online environment
+	 * @param Environment - current online environment
+	 */
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnOnlineEnvironmentChanged, EOnlineEnvironment::Type /*LastEnvironment*/, EOnlineEnvironment::Type /*Environment*/);
 };
 
 /** Public references to the online subsystem pointer should use this */

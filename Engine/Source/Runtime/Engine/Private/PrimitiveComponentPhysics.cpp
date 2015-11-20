@@ -8,6 +8,11 @@
 
 #define LOCTEXT_NAMESPACE "PrimitiveComponent"
 
+DECLARE_CYCLE_STAT(TEXT("WeldPhysics"), STAT_WeldPhysics, STATGROUP_Physics);
+DECLARE_CYCLE_STAT(TEXT("UnweldPhysics"), STAT_UnweldPhysics, STATGROUP_Physics);
+DECLARE_CYCLE_STAT(TEXT("PrimComp SetCollisionProfileName"), STAT_PrimComp_SetCollisionProfileName, STATGROUP_Physics);
+
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	#define WarnInvalidPhysicsOperations(Text, BodyInstance)  { static const FText _WarnText(Text); WarnInvalidPhysicsOperations_Internal(_WarnText, BodyInstance); }
 #else
@@ -86,7 +91,7 @@ bool UPrimitiveComponent::ApplyRigidBodyState(const FRigidBodyState& NewState, c
 		}
 
 		/////// BODY UPDATE ///////
-		BI->SetBodyTransform(FTransform(UpdatedQuat, UpdatedPos), true);
+		BI->SetBodyTransform(FTransform(UpdatedQuat, UpdatedPos), ETeleportType::TeleportPhysics);
 		BI->SetLinearVelocity(NewState.LinVel + FixLinVel, false);
 		BI->SetAngularVelocity(NewState.AngVel + FixAngVel, false);
 
@@ -164,9 +169,18 @@ void UPrimitiveComponent::WarnInvalidPhysicsOperations_Internal(const FText& Act
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (!CheckStaticMobilityAndWarn(ActionText))	//all physics operations require non-static mobility
 	{
-		if (BI && BI->bSimulatePhysics == false)	//some require to be simulating too
+		if (BI)
 		{
-			FMessageLog("PIE").Warning(FText::Format(LOCTEXT("InvalidPhysicsOperation", "{0} has to have 'Simulate Physics' enabled if you'd like to {1}. "), FText::FromString(GetReadableName()), ActionText));
+			ECollisionEnabled::Type CollisionEnabled = BI->GetCollisionEnabled();
+
+			if(BI->bSimulatePhysics == false)	//some require to be simulating too
+			{
+				FMessageLog("PIE").Warning(FText::Format(LOCTEXT("InvalidPhysicsOperation", "{0} has to have 'Simulate Physics' enabled if you'd like to {1}. "), FText::FromString(GetReadableName()), ActionText));
+			}
+			else if (CollisionEnabled == ECollisionEnabled::NoCollision || CollisionEnabled == ECollisionEnabled::QueryOnly)	//shapes need to be simulating
+			{
+				FMessageLog("PIE").Warning(FText::Format(LOCTEXT("InvalidPhysicsOperation", "{0} has to have 'CollisionEnabled' set to 'Query and Physics' or 'Physics only' if you'd like to {1}. "), FText::FromString(GetReadableName()), ActionText));
+			}
 		}
 	}
 #endif
@@ -289,12 +303,20 @@ void UPrimitiveComponent::SetPhysicsLinearVelocity(FVector NewVel, bool bAddToCu
 
 FVector UPrimitiveComponent::GetPhysicsLinearVelocity(FName BoneName)
 {
-	FBodyInstance* BI = GetBodyInstance(BoneName);
-	if(BI != NULL)
+	if (FBodyInstance* BI = GetBodyInstance(BoneName))
 	{
 		return BI->GetUnrealWorldVelocity();
 	}
 	return FVector(0,0,0);
+}
+
+FVector UPrimitiveComponent::GetPhysicsLinearVelocityAtPoint(FVector Point, FName BoneName)
+{
+	if (FBodyInstance* BI = GetBodyInstance(BoneName))
+	{
+		return BI->GetUnrealWorldVelocityAtPoint(Point);
+	}
+	return FVector(0, 0, 0);
 }
 
 void UPrimitiveComponent::SetAllPhysicsLinearVelocity(FVector NewVel,bool bAddToCurrent)
@@ -338,6 +360,16 @@ FVector UPrimitiveComponent::GetCenterOfMass(FName BoneName)
 	}
 
 	return FVector::ZeroVector;
+}
+
+void UPrimitiveComponent::SetCenterOfMass(FVector CenterOfMassOffset, FName BoneName)
+{
+	if (FBodyInstance* ComponentBodyInstance = GetBodyInstance(BoneName))
+	{
+		WarnInvalidPhysicsOperations(LOCTEXT("SetCenterOfMass", "SetCenterOfMass"), nullptr);
+		ComponentBodyInstance->COMNudge = CenterOfMassOffset;
+		ComponentBodyInstance->UpdateMassProperties();
+	}
 }
 
 void UPrimitiveComponent::SetAllPhysicsAngularVelocity(FVector const& NewAngVel, bool bAddToCurrent)
@@ -437,11 +469,21 @@ float UPrimitiveComponent::GetAngularDamping() const
 
 void UPrimitiveComponent::SetMassScale(FName BoneName, float InMassScale)
 {
-	FBodyInstance* BI = GetBodyInstance(BoneName);
-	if (BI)
+	if (FBodyInstance* BI = GetBodyInstance(BoneName))
 	{
+		WarnInvalidPhysicsOperations(LOCTEXT("SetMassScale", "SetMassScale"), nullptr);
 		BI->SetMassScale(InMassScale);
 	}
+}
+
+float UPrimitiveComponent::GetMassScale(FName BoneName /*= NAME_None*/) const
+{
+	if (FBodyInstance* BI = GetBodyInstance(BoneName))
+	{
+		return BI->MassScale;
+	}
+
+	return 0.0f;
 }
 
 void UPrimitiveComponent::SetAllMassScale(float InMassScale)
@@ -449,11 +491,22 @@ void UPrimitiveComponent::SetAllMassScale(float InMassScale)
 	SetMassScale(NAME_None, InMassScale);
 }
 
+void UPrimitiveComponent::SetMassOverrideInKg(FName BoneName, float MassInKg, bool bOverrideMass)
+{
+	if (FBodyInstance* BI = GetBodyInstance(BoneName))
+	{
+		WarnInvalidPhysicsOperations(LOCTEXT("SetCenterOfMass", "SetCenterOfMass"), nullptr);
+		BI->bOverrideMass = bOverrideMass;
+		BI->MassInKg = MassInKg;
+		BI->UpdateMassProperties();
+	}
+}
+
 float UPrimitiveComponent::GetMass() const
 {
-	FBodyInstance* BI = GetBodyInstance();
-	if (BI)
+	if (FBodyInstance* BI = GetBodyInstance())
 	{
+		WarnInvalidPhysicsOperations(LOCTEXT("GetMass", "GetMass"), BI);
 		return BI->GetBodyMass();
 	}
 
@@ -652,6 +705,8 @@ void UPrimitiveComponent::GetWeldedBodies(TArray<FBodyInstance*> & OutWeldedBodi
 
 bool UPrimitiveComponent::WeldToImplementation(USceneComponent * InParent, FName ParentSocketName /* = Name_None */, bool bWeldSimulatedChild /* = false */)
 {
+	SCOPE_CYCLE_COUNTER(STAT_WeldPhysics);
+
 	//WeldToInternal assumes attachment is already done
 	if (AttachParent != InParent || AttachSocketName != ParentSocketName)
 	{
@@ -666,6 +721,13 @@ bool UPrimitiveComponent::WeldToImplementation(USceneComponent * InParent, FName
 	}
 
 	if (BI->ShouldInstanceSimulatingPhysics() && bWeldSimulatedChild == false)
+	{
+		return false;
+	}
+
+	//Make sure that objects marked as non-simulating do not start simulating due to welding.
+	ECollisionEnabled::Type CollisionType = BI->GetCollisionEnabled();
+	if (CollisionType == ECollisionEnabled::QueryOnly || CollisionType == ECollisionEnabled::NoCollision)
 	{
 		return false;
 	}
@@ -701,7 +763,6 @@ bool UPrimitiveComponent::WeldToImplementation(USceneComponent * InParent, FName
 			//root is simulated so we actually weld the body
 			FTransform RelativeTM = RootComponent == AttachParent ? GetRelativeTransform() : GetComponentToWorld().GetRelativeTransform(RootComponent->GetComponentToWorld());	//if direct parent we already have relative. Otherwise compute it
 			RootBI->Weld(BI, GetComponentToWorld());
-			BI->WeldParent = RootBI;
 
 			return true;
 		}
@@ -723,6 +784,8 @@ void UPrimitiveComponent::WeldTo(USceneComponent* InParent, FName InSocketName /
 
 void UPrimitiveComponent::UnWeldFromParent()
 {
+	SCOPE_CYCLE_COUNTER(STAT_UnweldPhysics);
+
 	FBodyInstance* NewRootBI = GetBodyInstance(NAME_None, false);
 	UWorld* CurrentWorld = GetWorld();
 	if (NewRootBI == NULL || NewRootBI->bWelded == false || CurrentWorld == nullptr || IsPendingKill())
@@ -831,6 +894,18 @@ float UPrimitiveComponent::GetDistanceToCollision(const FVector& Point, FVector&
 	return -1.f;
 }
 
+float UPrimitiveComponent::GetClosestPointOnCollision(const FVector& Point, FVector& OutPointOnBody, FName BoneName) const
+{
+	OutPointOnBody = Point;
+
+	if (FBodyInstance* BodyInst = GetBodyInstance(BoneName))
+	{
+		return BodyInst->GetDistanceToBody(Point, OutPointOnBody);
+	}
+
+	return -1.f;
+}
+
 bool UPrimitiveComponent::IsSimulatingPhysics(FName BoneName) const
 {
 	FBodyInstance* BodyInst = GetBodyInstance(BoneName);
@@ -896,6 +971,8 @@ void UPrimitiveComponent::SetCollisionEnabled(ECollisionEnabled::Type NewType)
 // @todo : implement skeletalmeshcomponent version
 void UPrimitiveComponent::SetCollisionProfileName(FName InCollisionProfileName)
 {
+	SCOPE_CYCLE_COUNTER(STAT_PrimComp_SetCollisionProfileName);
+
 	ECollisionEnabled::Type OldCollisionEnabled = BodyInstance.GetCollisionEnabled();
 	BodyInstance.SetCollisionProfileName(InCollisionProfileName);
 	OnComponentCollisionSettingsChanged();
@@ -931,7 +1008,7 @@ void UPrimitiveComponent::OnComponentCollisionSettingsChanged()
 		if (bNavigationRelevant != bNewNavRelevant)
 		{
 			bNavigationRelevant = bNewNavRelevant;
-			UNavigationSystem::UpdateNavOctree(this);
+			UNavigationSystem::UpdateComponentInNavOctree(*this);
 		}
 	}
 }

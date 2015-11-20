@@ -6,6 +6,7 @@
 #include "OnlineKeyValuePair.h"
 #include "OnlineSubsystemPackage.h"
 #include "OnlineSubsystemSessionSettings.h"
+#include "OnlineSessionSettings.generated.h"
 
 /** Setting describing the name of the current map (value is FString) */
 #define SETTING_MAPNAME FName(TEXT("MAPNAME"))
@@ -15,6 +16,10 @@
 #define SETTING_GAMEMODE FName(TEXT("GAMEMODE"))
 /** Setting describing the beacon host port (value is int32) */
 #define SETTING_BEACONPORT FName(TEXT("BEACONPORT"))
+/** Server responds to Qos beacon requests (value is int32) */
+#define SETTING_QOS FName(TEXT("QOS"))
+/** String describing the region of the world you are in (value is FString) */
+#define SETTING_REGION FName(TEXT("REGION"))
 
 /** 8 user defined integer params to be used when filtering searches for sessions */
 #define SETTING_CUSTOMSEARCHINT1 FName(TEXT("CUSTOMSEARCHINT1"))
@@ -301,6 +306,44 @@ public:
 
 };
 
+USTRUCT()
+struct FJoinabilitySettings
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Name of session these settings affect */
+	UPROPERTY()
+	FName SessionName;
+	/** Is this session now publicly searchable */
+	UPROPERTY()
+	bool bPublicSearchable;
+	/** Does this session allow invites */
+	UPROPERTY()
+	bool bAllowInvites;
+	/** Does this session allow public join via presence */
+	UPROPERTY()
+	bool bJoinViaPresence;
+	/** Does this session allow friends to join via presence */
+	UPROPERTY()
+	bool bJoinViaPresenceFriendsOnly;
+	/** Current max players in this session */
+	UPROPERTY()
+	int32 MaxPlayers;
+	/** Current max party size in this session */
+	UPROPERTY()
+	int32 MaxPartySize;
+
+	FJoinabilitySettings() :
+		SessionName(NAME_None),
+		bPublicSearchable(false),
+		bAllowInvites(false),
+		bJoinViaPresence(false),
+		bJoinViaPresenceFriendsOnly(false),
+		MaxPlayers(0),
+		MaxPartySize(0)
+	{}
+};
+
 /** Basic session information serializable into a NamedSession or SearchResults */
 class FOnlineSession
 {
@@ -308,7 +351,7 @@ class FOnlineSession
 public:
 
 	/** Owner of the session */
-	TSharedPtr<FUniqueNetId> OwningUserId;
+	TSharedPtr<const FUniqueNetId> OwningUserId;
 	/** Owner name of the session */
 	FString OwningUserName;
 	/** The settings associated with this session */
@@ -363,10 +406,10 @@ public:
 	bool bHosting;
 
 	/** NetId of the local player that created this named session.  Could be the host, or a player joining a session. Will entirely replace HostingPlayerNum */
-	TSharedPtr<FUniqueNetId> LocalOwnerId;
+	TSharedPtr<const FUniqueNetId> LocalOwnerId;
 
 	/** List of players registered in the session */
-	TArray< TSharedRef<FUniqueNetId> > RegisteredPlayers;
+	TArray< TSharedRef<const FUniqueNetId> > RegisteredPlayers;
 	/** State of the session (game thread write only) */
 	EOnlineSessionState::Type SessionState;
 

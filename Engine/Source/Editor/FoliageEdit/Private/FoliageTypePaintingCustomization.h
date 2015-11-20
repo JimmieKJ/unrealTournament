@@ -2,6 +2,7 @@
 #pragma once
 
 #include "IDetailCustomization.h"
+#include "MobilityCustomization.h"
 
 class FEdModeFoliage;
 class IDetailCategoryBuilder;
@@ -49,4 +50,5 @@ private:
 
 	TSharedPtr<IPropertyHandle> Scaling;
 	TSharedPtr<IPropertyHandle> ReapplyScaling;
+	TSharedPtr<FMobilityCustomization> MobilityCustomization;
 };

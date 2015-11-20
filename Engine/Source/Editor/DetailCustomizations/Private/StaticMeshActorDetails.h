@@ -10,7 +10,4 @@ public:
 
 	/** IDetailCustomization interface */
 	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailBuilder ) override;
-private:
-	/** Called when the set collision from builder brush command should be executed */
-	FReply OnSetCollisionFromBuilder();
 };

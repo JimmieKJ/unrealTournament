@@ -840,6 +840,8 @@ public:
 	GLuint GetOpenGLFramebuffer(uint32 ArrayIndices, uint32 MipmapLevels);
 #endif
 
+	void InvalidateTextureResourceInCache();
+
 private:
 	uint32 MemorySize		: 31;
 	uint32 bIsPowerOfTwo	: 1;
@@ -847,7 +849,7 @@ private:
 
 // Textures.
 template<typename BaseType>
-class TOpenGLTexture : public BaseType, public FOpenGLTextureBase
+class OPENGLDRV_API TOpenGLTexture : public BaseType, public FOpenGLTextureBase
 {
 public:
 
@@ -867,9 +869,10 @@ public:
 		bool bInCubemap,
 		bool bInAllocatedStorage,
 		uint32 InFlags,
-		uint8* InTextureRange
+		uint8* InTextureRange,
+		const FClearValueBinding& InClearValue
 		)
-	: BaseType(InSizeX,InSizeY,InSizeZ,InNumMips,InNumSamples, InArraySize, InFormat,InFlags)
+	: BaseType(InSizeX,InSizeY,InSizeZ,InNumMips,InNumSamples, InArraySize, InFormat,InFlags, InClearValue)
 	, FOpenGLTextureBase(
 		InOpenGLRHI,
 		InResource,
@@ -935,7 +938,53 @@ public:
 		}
 	}
 
-	virtual ~TOpenGLTexture();
+	virtual ~TOpenGLTexture()
+	{
+		if (GIsRHIInitialized)
+		{
+			VERIFY_GL_SCOPE();
+
+			OpenGLTextureDeleted(this);
+
+			if (Resource != 0)
+			{
+				switch (Target)
+				{
+					case GL_TEXTURE_2D:
+					case GL_TEXTURE_2D_MULTISAMPLE:
+					case GL_TEXTURE_3D:
+					case GL_TEXTURE_CUBE_MAP:
+					case GL_TEXTURE_2D_ARRAY:
+					case GL_TEXTURE_CUBE_MAP_ARRAY:
+					{
+						InvalidateTextureResourceInCache();
+						FOpenGL::DeleteTextures(1, &Resource);
+						break;
+					}
+					case GL_RENDERBUFFER:
+					{
+						if (!(this->GetFlags() & TexCreate_Presentable))
+						{
+							glDeleteRenderbuffers(1, &Resource);
+						}
+						break;
+					}
+					default:
+					{
+						checkNoEntry();
+					}
+				}
+			}
+
+			if (TextureRange)
+			{
+				delete[] TextureRange;
+				TextureRange = nullptr;
+			}
+
+			ReleaseOpenGLFramebuffers(OpenGLRHI, this);
+		}
+	}
 
 	/**
 	 * Locks one of the texture's mip-maps.
@@ -980,12 +1029,12 @@ public:
 	/**
 	 * Clone texture from a source using CopyImageSubData
 	 */
-	void CloneViaCopyImage( TOpenGLTexture* Src, uint32 NumMips, int32 SrcOffset, int32 DstOffset);
+	void CloneViaCopyImage( TOpenGLTexture* Src, uint32 InNumMips, int32 SrcOffset, int32 DstOffset);
 	
 	/**
 	 * Clone texture from a source going via PBOs
 	 */
-	void CloneViaPBO( TOpenGLTexture* Src, uint32 NumMips, int32 SrcOffset, int32 DstOffset);
+	void CloneViaPBO( TOpenGLTexture* Src, uint32 InNumMips, int32 SrcOffset, int32 DstOffset);
 
 	/**
 	 * Resolved the specified face for a read Lock, for non-renderable, CPU readable surfaces this eliminates the readback inside Lock itself.
@@ -1019,11 +1068,11 @@ private:
 	const uint32 bCubemap : 1;
 };
 
-class FOpenGLBaseTexture2D : public FRHITexture2D
+class OPENGLDRV_API FOpenGLBaseTexture2D : public FRHITexture2D
 {
 public:
-	FOpenGLBaseTexture2D(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,uint32 InNumSamples, uint32 InArraySize, EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture2D(InSizeX,InSizeY,InNumMips,InNumSamples,InFormat,InFlags)
+	FOpenGLBaseTexture2D(uint32 InSizeX, uint32 InSizeY, uint32 InSizeZ, uint32 InNumMips, uint32 InNumSamples, uint32 InArraySize, EPixelFormat InFormat, uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture2D(InSizeX,InSizeY,InNumMips,InNumSamples,InFormat,InFlags, InClearValue)
 	, SampleCount(InNumSamples)
 	{}
 	uint32 GetSizeZ() const { return 0; }
@@ -1035,8 +1084,8 @@ private:
 class FOpenGLBaseTexture2DArray : public FRHITexture2DArray
 {
 public:
-	FOpenGLBaseTexture2DArray(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,uint32 InNumSamples,uint32 InArraySize, EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture2DArray(InSizeX,InSizeY,InSizeZ,InNumMips,InFormat,InFlags)
+	FOpenGLBaseTexture2DArray(uint32 InSizeX, uint32 InSizeY, uint32 InSizeZ, uint32 InNumMips, uint32 InNumSamples, uint32 InArraySize, EPixelFormat InFormat, uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture2DArray(InSizeX,InSizeY,InSizeZ,InNumMips,InFormat,InFlags, InClearValue)
 	{
 		check(InNumSamples == 1);	// OpenGL supports multisampled texture arrays, but they're currently not implemented in OpenGLDrv.
 	}
@@ -1045,8 +1094,8 @@ public:
 class FOpenGLBaseTextureCube : public FRHITextureCube
 {
 public:
-	FOpenGLBaseTextureCube(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,uint32 InNumSamples, uint32 InArraySize, EPixelFormat InFormat,uint32 InFlags)
-	: FRHITextureCube(InSizeX,InNumMips,InFormat,InFlags)
+	FOpenGLBaseTextureCube(uint32 InSizeX, uint32 InSizeY, uint32 InSizeZ, uint32 InNumMips, uint32 InNumSamples, uint32 InArraySize, EPixelFormat InFormat, uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITextureCube(InSizeX,InNumMips,InFormat,InFlags,InClearValue)
 	, ArraySize(InArraySize)
 	{
 		check(InNumSamples == 1);	// OpenGL doesn't currently support multisampled cube textures
@@ -1064,8 +1113,8 @@ private:
 class FOpenGLBaseTexture3D : public FRHITexture3D
 {
 public:
-	FOpenGLBaseTexture3D(uint32 InSizeX,uint32 InSizeY,uint32 InSizeZ,uint32 InNumMips,uint32 InNumSamples,uint32 InArraySize, EPixelFormat InFormat,uint32 InFlags)
-	: FRHITexture3D(InSizeX,InSizeY,InSizeZ,InNumMips,InFormat,InFlags)
+	FOpenGLBaseTexture3D(uint32 InSizeX, uint32 InSizeY, uint32 InSizeZ, uint32 InNumMips, uint32 InNumSamples, uint32 InArraySize, EPixelFormat InFormat, uint32 InFlags, const FClearValueBinding& InClearValue)
+	: FRHITexture3D(InSizeX,InSizeY,InSizeZ,InNumMips,InFormat,InFlags,InClearValue)
 	{
 		check(InNumSamples == 1);	// Can't have multisampled texture 3D. Not supported anywhere.
 	}
@@ -1340,8 +1389,8 @@ protected:
 	bool OwnsResource;
 };
 
-void OpenGLTextureDeleted( FRHITexture* Texture );
-void OpenGLTextureAllocated( FRHITexture* Texture , uint32 Flags);
+void OPENGLDRV_API OpenGLTextureDeleted(FRHITexture* Texture);
+void OPENGLDRV_API OpenGLTextureAllocated( FRHITexture* Texture , uint32 Flags);
 
 extern void ReleaseOpenGLFramebuffers(FOpenGLDynamicRHI* Device, FTextureRHIParamRef TextureRHI);
 

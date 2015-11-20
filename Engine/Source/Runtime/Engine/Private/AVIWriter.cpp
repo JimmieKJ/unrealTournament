@@ -5,7 +5,7 @@
 =============================================================================*/
 #include "EnginePrivate.h"
 #include "AVIWriter.h"
-#include "CapturePin.h"
+#include "Engine/GameEngine.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAVIWriter, Log, All);
 
@@ -23,14 +23,12 @@ typedef TCHAR* PTCHAR;
 #include <initguid.h>
 #include "HideWindowsPlatformTypes.h"
 
+#include "CapturePin.h"
 #include "CaptureSource.h"
 #include "SlateCore.h"
 
 
 #define g_wszCapture    L"Capture Filter"
-
-/** An event for synchronizing direct show encoding with the game thread */
-FEvent* GCaptureSyncEvent = NULL;
 
 // Filter setup data
 const AMOVIESETUP_MEDIATYPE sudOpPinTypes =
@@ -65,31 +63,102 @@ const AMOVIESETUP_PIN sudOutputPinDesktop =
 
 const AMOVIESETUP_FILTER sudPushSourceDesktop =
 {
-	&CLSID_CaptureSource,	// Filter CLSID
+	&CLSID_ViewportCaptureSource,	// Filter CLSID
 	g_wszCapture,			// String name
 	MERIT_DO_NOT_USE,       // Filter merit
 	1,                      // Number pins
 	&sudOutputPinDesktop    // Pin details
 };
 
-
-// List of class IDs and creator functions for the class factory. This
-// provides the link between the OLE entry point in the DLL and an object
-// being created. The class factory will call the static CreateInstance.
-// We provide a set of filters in this one DLL.
-
 CFactoryTemplate g_Templates[1] = 
 {
 	{ 
 		g_wszCapture,					// Name
-		&CLSID_CaptureSource,			// CLSID
-		FCaptureSource::CreateInstance, // Method to create an instance of MyComponent
-		NULL,                           // Initialization function
+		nullptr,						// CLSID
+		nullptr, 						// Method to create an instance of MyComponent
+		nullptr,                        // Initialization function
 		&sudPushSourceDesktop           // Set-up information (for filters)
 	},
 };
+int32 g_cTemplates = 0;
 
-int32 g_cTemplates = sizeof(g_Templates) / sizeof(g_Templates[0]);    
+/** Find a pin on the specified filter that matches the specified direction */
+IPin* GetPin(IBaseFilter* Filter, PIN_DIRECTION PinDir)
+{
+	IEnumPins* pEnumDownFilterPins = nullptr;
+	IPin* Pin = nullptr;
+
+	if (FAILED(Filter->EnumPins(&pEnumDownFilterPins)))
+	{
+		return nullptr;
+	}
+
+	while(S_OK == pEnumDownFilterPins->Next(1, &Pin, nullptr) )
+	{
+		PIN_DIRECTION ThisPinDir;
+		if (SUCCEEDED(Pin->QueryDirection(&ThisPinDir)) && PinDir == ThisPinDir)
+		{
+			pEnumDownFilterPins->Release();
+			return Pin;
+		}
+
+		Pin->Release();
+	}
+
+	pEnumDownFilterPins->Release();	
+	return nullptr;
+}
+
+IBaseFilter* FindEncodingFilter(const FString& Name)
+{
+	// Create an encoding filter
+	ICreateDevEnum* DeviceDenumerator = nullptr;
+	if (FAILED(CoCreateInstance(CLSID_SystemDeviceEnum, NULL, CLSCTX_INPROC, IID_ICreateDevEnum, (void**)&DeviceDenumerator)))
+	{
+		return nullptr;
+	}
+
+	IEnumMoniker* EnumIterator = nullptr;
+	if (DeviceDenumerator->CreateClassEnumerator(CLSID_VideoCompressorCategory, &EnumIterator, 0) != S_OK)
+	{
+		return nullptr;
+	}
+
+	IMoniker* Moniker = nullptr;
+	while (EnumIterator->Next(1, &Moniker, nullptr) == S_OK)
+	{
+		IPropertyBag* Properties = nullptr;
+		if (FAILED(Moniker->BindToStorage(0, 0, IID_IPropertyBag, (void**)&Properties)))
+		{
+			Moniker->Release();
+			continue;
+		}
+
+		bool bUseThisEncoder = false;
+
+		VARIANT varName;
+		VariantInit(&varName);
+		if (SUCCEEDED(Properties->Read(L"FriendlyName", &varName, 0)) && FCString::Stricmp(*Name, varName.bstrVal) == 0)
+		{
+			bUseThisEncoder = true;
+		}
+		VariantClear(&varName);
+
+		Properties->Release();
+
+		IBaseFilter* Filter = nullptr;
+		if (bUseThisEncoder && Moniker->BindToObject(nullptr, nullptr, IID_IBaseFilter, (void**)&Filter) == S_OK)
+		{
+			Filter->AddRef();
+			Moniker->Release();
+			return Filter;
+		}
+
+		Moniker->Release();
+	}
+
+	return nullptr;
+}
 
 /**
  * Windows implementation relying on DirectShow.
@@ -97,265 +166,193 @@ int32 g_cTemplates = sizeof(g_Templates) / sizeof(g_Templates[0]);
 class FAVIWriterWin : public FAVIWriter
 {
 public:
-	FAVIWriterWin( ) 
-		: Graph(NULL),
-		Control(NULL),
-		Capture(NULL),
-		CapturePin(NULL),
-		CaptionSource(NULL)
+	FAVIWriterWin( const FAVIWriterOptions& InOptions ) 
+		: FAVIWriter(InOptions)
+		, Graph(nullptr)
+		, Control(nullptr)
+		, Capture(nullptr)
+		, CaptureFilter(nullptr)
+		, EncodingFilter(nullptr)
 	{
-
 	};
 
 public:
 
-	void StartCapture(FViewport* Viewport , const FString& OutputPath /*=FString()*/)
+	virtual void StartCapture(TWeakPtr<FSceneViewport> InViewport) override
 	{
-		GCaptureSyncEvent = FPlatformProcess::GetSynchEventFromPool();
-		if (!bCapturing)
+		auto Viewport = InViewport.Pin();
+		if (bCapturing || !Viewport.IsValid())
 		{
-			if (!Viewport)
-			{
-				Viewport = GEngine->GameViewport != NULL ? GEngine->GameViewport->Viewport : NULL;
-				if (!Viewport)
-				{
-					UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not get a valid viewport for capture!" ));
-					return;
-				}
-			}
-
-			if ( Viewport->GetSizeXY().GetMin() <= 0)
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Attempting to record a 0 sized viewport!" ));
-				return;
-			}
-
-			CaptureViewport = Viewport;
-
-			ViewportColorBuffer.AddUninitialized( Viewport->GetSizeXY().X * Viewport->GetSizeXY().Y );
-			
-
-			// Initialize the COM library.
-			if (!FWindowsPlatformMisc::CoInitialize()) 
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not initialize COM library!" ));
-				return;
-			}
-
-			// Create the filter graph manager and query for interfaces.
-			HRESULT hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void **)&Graph);
-			if (FAILED(hr)) 
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not create the Filter Graph Manager!" ));
-				FWindowsPlatformMisc::CoUninitialize();
-				return;
-			}
-
-			// Create the capture graph builder
-			hr = CoCreateInstance (CLSID_CaptureGraphBuilder2 , NULL, CLSCTX_INPROC, IID_ICaptureGraphBuilder2, (void **) &Capture);
-			if (FAILED(hr)) 
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not create the Capture Graph Manager!" ));
-				FWindowsPlatformMisc::CoUninitialize();
-				return;
-			}
-
-			// Specify a filter graph for the capture graph builder to use
-			hr = Capture->SetFiltergraph(Graph);
-			if (FAILED(hr))
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Failed to set capture filter graph!" ));
-				FWindowsPlatformMisc::CoUninitialize();
-				return;
-			}
-
-			CaptionSource = new FCaptureSource(NULL, &hr);
-			if (FAILED(hr)) 
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not create CaptureSource filter!" ));
-				Graph->Release();
-				FWindowsPlatformMisc::CoUninitialize(); 
-				return;
-			}
-			CaptionSource->AddRef();
-
-			hr = Graph->AddFilter(CaptionSource, L"PushSource"); 
-			if (FAILED(hr)) 
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not add CaptureSource filter!" ));
-				CaptionSource->Release();
-				Graph->Release();
-				FWindowsPlatformMisc::CoUninitialize(); 
-				return;
-			}
-
-			IAMVideoCompression* VideoCompression = NULL;
-			if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture)
-			{
-				// Create the filter graph manager and query for interfaces.
-				hr = CoCreateInstance (CLSID_MJPGEnc, NULL, CLSCTX_INPROC, IID_IBaseFilter, ( void ** ) &VideoCompression);
-				if (FAILED(hr)) 
-				{
-					UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not create the video compression!" ));
-					FWindowsPlatformMisc::CoUninitialize();
-					return;
-				}
-
-				hr = Graph->AddFilter( (IBaseFilter *)VideoCompression, TEXT("Compressor") );
-
-				if (FAILED(hr)) 
-				{
-					UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not add filter!" ));
-					CaptionSource->Release();
-					Graph->Release();
-					FWindowsPlatformMisc::CoUninitialize(); 
-					return;
-				}	
-			}
-
-			IPin* temp = NULL;
-			hr = CaptionSource->FindPin(L"1", &temp);
-			if (FAILED(hr)) 
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not find pin of filter CaptureSource!" ));
-				CaptionSource->Release();
-				Graph->Release();
-				FWindowsPlatformMisc::CoUninitialize(); 
-				return;
-			}
-			CapturePin = (FCapturePin*)temp;
-
-			// Attempt to make the dir if it doesn't exist.
-			TCHAR File[MAX_SPRINTF] = TEXT("");
-			if (OutputPath.IsEmpty())
-			{
-				FString OutputDir = FPaths::VideoCaptureDir();
-				IFileManager::Get().MakeDirectory(*OutputDir, true);
-
-				if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture)
-				{
-					bool bFoundUnusedName = false;
-					while (!bFoundUnusedName)
-					{
-						const FString FileNameInfo = FString::Printf( TEXT("_%dfps_%dx%d"), 
-							GEngine->MatineeScreenshotOptions.MatineeCaptureFPS, CaptureViewport->GetSizeXY().X, CaptureViewport->GetSizeXY().Y );
-						if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture)
-						{
-							FCString::Sprintf( File, TEXT("%s_%d.avi"), *(OutputDir + TEXT("/") + GEngine->MatineeScreenshotOptions.MatineePackageCaptureName + "_" + GEngine->MatineeScreenshotOptions.MatineeCaptureName + FileNameInfo + "_compressed"), MovieCaptureIndex );
-						}
-						else
-						{
-							FCString::Sprintf( File, TEXT("%s_%d.avi"), *(OutputDir + TEXT("/") + GEngine->MatineeScreenshotOptions.MatineePackageCaptureName + "_" + GEngine->MatineeScreenshotOptions.MatineeCaptureName + FileNameInfo), MovieCaptureIndex );
-						}
-						if (IFileManager::Get().FileSize(File) != -1)
-						{
-							MovieCaptureIndex++;
-						}
-						else
-						{
-							bFoundUnusedName = true;
-						}
-					}
-				}
-				else
-				{
-					bool bFoundUnusedName = false;
-					while (!bFoundUnusedName)
-					{
-						FString FileName = FString::Printf( TEXT("Movie%i.avi"), MovieCaptureIndex );
-						FCString::Sprintf( File, TEXT("%s"), *(OutputDir / FileName) );
-						if (IFileManager::Get().FileSize(File) != -1)
-						{
-							MovieCaptureIndex++;
-						}
-						else
-						{
-							bFoundUnusedName = true;
-						}
-					}
-				}
-			}
-			else
-			{
-				FCString::Sprintf( File, TEXT("%s"), *OutputPath );
-			}
-
-			IBaseFilter *pMux;
-			hr = Capture->SetOutputFileName(
-				&MEDIASUBTYPE_Avi,  // Specifies AVI for the target file.
-				File,				// File name.
-				&pMux,              // Receives a pointer to the mux.
-				NULL);              // (Optional) Receives a pointer to the file sink.
-
-			if (FAILED(hr)) 
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Failed to set capture filter graph output name!" ));
-				CaptionSource->Release();
-				Graph->Release();
-				FWindowsPlatformMisc::CoUninitialize(); 
-				return;
-			}
-
-			hr = Capture->RenderStream(
-				NULL,								// Pin category.
-				&MEDIATYPE_Video,					// Media type.
-				CaptionSource,					// Capture filter.
-				(IBaseFilter *)VideoCompression,	// Intermediate filter (optional).
-				pMux);								// Mux or file sink filter.
-
-
-			if (FAILED(hr)) 
-			{
-				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not start capture!" ));
-				CaptionSource->Release();
-				Graph->Release();
-				FWindowsPlatformMisc::CoUninitialize(); 
-				return;
-			}
-			// Release the mux filter.
-			pMux->Release();
-
-			SAFE_RELEASE(VideoCompression);
-			
-			Graph->QueryInterface(IID_IMediaControl, (void **)&Control);
-
-			MovieCaptureIndex++;
-			bReadyForCapture = true;
+			return;
 		}
+
+		if ( Viewport->GetSize().GetMin() <= 0)
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Attempting to record a 0 sized viewport!" ));
+			return;
+		}
+
+		CaptureViewport = InViewport;
+
+		// Initialize the COM library.
+		if (!FWindowsPlatformMisc::CoInitialize()) 
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not initialize COM library!" ));
+			return;
+		}
+
+		// Create the filter graph manager and query for interfaces.
+		HRESULT hr = CoCreateInstance(CLSID_FilterGraph, NULL, CLSCTX_INPROC_SERVER, IID_IGraphBuilder, (void **)&Graph);
+		if (FAILED(hr)) 
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not create the Filter Graph Manager!" ));
+			FWindowsPlatformMisc::CoUninitialize();
+			return;
+		}
+
+		// Create the capture graph builder
+		hr = CoCreateInstance(CLSID_CaptureGraphBuilder2 , NULL, CLSCTX_INPROC, IID_ICaptureGraphBuilder2, (void **) &Capture);
+		if (FAILED(hr)) 
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not create the Capture Graph Manager!" ));
+			FWindowsPlatformMisc::CoUninitialize();
+			return;
+		}
+
+		// Specify a filter graph for the capture graph builder to use
+		hr = Capture->SetFiltergraph(Graph);
+		if (FAILED(hr))
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Failed to set capture filter graph!" ));
+			FWindowsPlatformMisc::CoUninitialize();
+			return;
+		}
+
+		CaptureFilter = new FCaptureSource(*this);
+		if (FAILED(hr)) 
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not create CaptureSource filter!" ));
+			Graph->Release();
+			FWindowsPlatformMisc::CoUninitialize(); 
+			return;
+		}
+		CaptureFilter->AddRef();
+
+		hr = Graph->AddFilter(CaptureFilter, L"Capture"); 
+		if (FAILED(hr)) 
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not add CaptureSource filter!" ));
+			CaptureFilter->Release();
+			Graph->Release();
+			FWindowsPlatformMisc::CoUninitialize(); 
+			return;
+		}
+
+		if (!Options.CodecName.IsEmpty())
+		{
+			EncodingFilter = FindEncodingFilter(Options.CodecName);
+			EncodingFilter->AddRef();
+			if (EncodingFilter)
+			{
+				Graph->AddFilter( EncodingFilter, TEXT("Encoder") );
+			}
+		}
+
+		if (Options.CompressionQuality.IsSet())
+		{
+			if (!EncodingFilter)
+			{
+				// Attempt to use a default encoder
+				CoCreateInstance(CLSID_MJPGEnc, NULL, CLSCTX_INPROC, IID_IBaseFilter, (void**)&EncodingFilter);
+				Graph->AddFilter( EncodingFilter, TEXT("Encoder") );
+			}
+
+			IAMVideoCompression* CompressionImpl = nullptr;
+			if(EncodingFilter && SUCCEEDED(EncodingFilter->QueryInterface(IID_IAMVideoCompression, (void **)&CompressionImpl)))
+			{
+				CompressionImpl->put_Quality(Options.CompressionQuality.GetValue());
+				CompressionImpl->Release();
+			}
+		}
+		
+		IBaseFilter *pMux;
+		CoCreateInstance(CLSID_AviDest, NULL, CLSCTX_INPROC, IID_IBaseFilter, (void**)&pMux);
+		hr = Graph->AddFilter(pMux, TEXT("AVI Mux"));
+		if (FAILED(hr)) 
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Failed to create AVI Mux!" ));
+			Graph->Release();
+			FWindowsPlatformMisc::CoUninitialize(); 
+			return;
+		}
+
+		IBaseFilter *FileWriter;
+		CoCreateInstance(CLSID_FileWriter, NULL, CLSCTX_INPROC, IID_IBaseFilter, (void**)&FileWriter);
+		hr = Graph->AddFilter(FileWriter, TEXT("File Writer"));
+		if (FAILED(hr)) 
+		{
+			UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Failed to create file writer!" ));
+			Graph->Release();
+			FWindowsPlatformMisc::CoUninitialize(); 
+			return;
+		}
+		
+		IFileSinkFilter* Sink = nullptr;
+		if(SUCCEEDED(FileWriter->QueryInterface(IID_IFileSinkFilter, (void **)&Sink)))
+		{
+			Sink->SetFileName(*Options.OutputFilename, nullptr);
+		}
+
+		// Now connect the graph
+		if (EncodingFilter)
+		{
+			Graph->Connect(GetPin(CaptureFilter, PINDIR_OUTPUT), GetPin(EncodingFilter, PINDIR_INPUT));
+			Graph->Connect(GetPin(EncodingFilter, PINDIR_OUTPUT), GetPin(pMux, PINDIR_INPUT));
+		}
+		else
+		{
+			Graph->Connect(GetPin(CaptureFilter, PINDIR_OUTPUT), GetPin(pMux, PINDIR_INPUT));
+		}
+
+		Graph->Connect(GetPin(pMux, PINDIR_OUTPUT), GetPin(FileWriter, PINDIR_INPUT));
+
+		if (SUCCEEDED(Graph->QueryInterface(IID_IMediaControl, (void **)&Control)))
+		{
+			FString Directory = Options.OutputFilename;
+			FString Ext = FPaths::GetExtension(Directory, true);
+
+			// Keep 3 seconds worth of frames in memory
+			CapturedFrames.Reset(new FCapturedFrames(Directory.LeftChop(Ext.Len()) + TEXT("_tmp"), Options.CaptureFPS * 3));
+
+			hr = Control->Run();
+
+			bCapturing = true;
+		}
+		
+		pMux->Release();
 	}
 
 	void StopCapture()
 	{
-		if (bCapturing)
+		if (!bCapturing)
 		{
-			Control->Stop();
-
-			// Trigger the event to force the capture thread to unblock and quit.
-			GCaptureSyncEvent->Trigger();
-			GCaptureSyncEvent->Wait();
-
-			MovieCaptureIndex = 0;
-			bCapturing = false;
-			bReadyForCapture = false;
-			bMatineeFinished = false;
-			CaptureViewport = NULL;
-			CaptureSlateRenderer = NULL;
-			FrameNumber = 0;
-			CurrentAccumSeconds = 0.f;
-			SAFE_RELEASE(CapturePin);
-			SAFE_RELEASE(CaptionSource);
-			SAFE_RELEASE(Capture);
-			SAFE_RELEASE(Control);
-			SAFE_RELEASE(Graph);
-			FWindowsPlatformMisc::CoUninitialize();
-			FPlatformProcess::ReturnSynchEventToPool(GCaptureSyncEvent);
-			GCaptureSyncEvent = nullptr;
-
-			if(CaptureViewport)
-			{
-				ViewportColorBuffer.Empty();
-			}
+			return;
 		}
+
+		// Stop the capture pin first to ensure we have all the frames. This blocks until all frames have been sent downstream.
+		CaptureFilter->StopCapturing();
+		Control->Stop();
+
+		bCapturing = false;
+		CaptureViewport = nullptr;
+		FrameNumber = 0;
+
+		SAFE_RELEASE(EncodingFilter);
+		SAFE_RELEASE(CaptureFilter);
+		SAFE_RELEASE(Capture);
+		SAFE_RELEASE(Control);
+		SAFE_RELEASE(Graph);
+		FWindowsPlatformMisc::CoUninitialize();
 	}
 
 	void Close()
@@ -363,95 +360,17 @@ public:
 		StopCapture();
 	}
 
-	void Update(float DeltaSeconds)
+	virtual void DropFrames(int32 NumFramesToDrop) override
 	{
-		bool bShouldUpdate = true;
-		const float CaptureFrequency = 1.0f/(float)GEngine->MatineeScreenshotOptions.MatineeCaptureFPS;
-		if (CaptureFrequency > 0.f)
-		{
-			CurrentAccumSeconds += DeltaSeconds;
-
-			if (CurrentAccumSeconds > CaptureFrequency)
-			{
-				while (CurrentAccumSeconds > CaptureFrequency)
-				{
-					CurrentAccumSeconds -= CaptureFrequency;
-				}
-			}
-			else
-			{
-				bShouldUpdate = false;
-			}
-		}
-
-		if (GIsRequestingExit || !bShouldUpdate || CaptureSlateRenderer)
-		{
-			return;
-		}
-
-		if (bMatineeFinished)
-		{
-			if (GEngine->MatineeScreenshotOptions.MatineeCaptureType == 0)
-			{
-				if (CaptureViewport)
-				{
-					CaptureViewport->GetClient()->CloseRequested(CaptureViewport);
-				}
-			}
-			else
-			{
-				FViewport* ViewportUsed = GEngine->GameViewport != NULL ? GEngine->GameViewport->Viewport : NULL;
-				if (ViewportUsed)
-				{
-					ViewportUsed->GetClient()->CloseRequested(ViewportUsed);
-				}
-			}
-			StopCapture();
-		}
-		else if (bCapturing)
-		{
-			if ( GCaptureSyncEvent )
-			{
-				// Wait for the directshow thread to finish encoding the last data
-				GCaptureSyncEvent->Wait();
-			}
-
-			CaptureViewport->ReadPixels(ViewportColorBuffer, FReadSurfaceDataFlags());
-
-			// Allow the directshow thread to encode more data if the event is still available
-			if ( GCaptureSyncEvent )
-			{
-				GCaptureSyncEvent->Trigger();
-
-				UE_LOG(LogMovieCapture, Log, TEXT("-----------------START------------------"));
-				UE_LOG(LogMovieCapture, Log, TEXT(" INCREASE FrameNumber from %d "), FrameNumber);
-				FrameNumber++;
-			}
-		}
-		else if (bReadyForCapture)
-		{
-			CaptureViewport->ReadPixels(ViewportColorBuffer, FReadSurfaceDataFlags());
-
-			if ( GCaptureSyncEvent )
-			{
-				// Allow the directshow thread to process the pixels we just read
-				GCaptureSyncEvent->Trigger();
-				Control->Run();
-				bReadyForCapture = false;
-				bCapturing = true;
-				UE_LOG(LogMovieCapture, Log, TEXT("-----------------START------------------"));
-				UE_LOG(LogMovieCapture, Log, TEXT(" INCREASE FrameNumber from %d "), FrameNumber);
-				FrameNumber++;
-			}
-		}
+		FrameNumber += NumFramesToDrop;
 	}
 
 private:
 	IGraphBuilder* Graph;
 	IMediaControl* Control;
 	ICaptureGraphBuilder2* Capture;
-	FCapturePin* CapturePin;
-	IBaseFilter* CaptionSource;
+	FCaptureSource* CaptureFilter;
+	IBaseFilter* EncodingFilter;
 };
 
 #elif PLATFORM_MAC && !UE_BUILD_MINIMAL
@@ -464,95 +383,37 @@ private:
 class FAVIWriterMac : public FAVIWriter
 {
 public:
-	FAVIWriterMac( )
-	: AVFWriterRef(nil)
+	FAVIWriterMac( const FAVIWriterOptions& InOptions )
+	: FAVIWriter(InOptions)
+	, AVFWriterRef(nil)
 	, AVFWriterInputRef(nil)
 	, AVFPixelBufferAdaptorRef(nil)
+	, bShutdownRequested(false)
 	{
-		
 	};
 	
 public:
 	
-	void StartCapture(FViewport* Viewport , const FString& OutputPath /*=FString()*/)
+	virtual void StartCapture(TWeakPtr<FSceneViewport> InViewport) override
 	{
 		SCOPED_AUTORELEASE_POOL;
-		if (!bCapturing)
+
+		auto Viewport = InViewport.Pin();
+
+		if (!bCapturing && Viewport.IsValid())
 		{
-			if (!Viewport)
-			{
-				Viewport = GEngine->GameViewport != NULL ? GEngine->GameViewport->Viewport : NULL;
-				if (!Viewport)
-				{
-					UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Could not get a valid viewport for capture!" ));
-					return;
-				}
-			}
-			
-			if ( Viewport->GetSizeXY().GetMin() <= 0)
+			if ( Viewport->GetSize().GetMin() <= 0)
 			{
 				UE_LOG(LogAVIWriter, Error, TEXT( "ERROR - Attempting to record a 0 sized viewport!" ));
 				return;
 			}
 			
-			CaptureViewport = Viewport;
-			
-			ViewportColorBuffer.AddUninitialized( Viewport->GetSizeXY().X * Viewport->GetSizeXY().Y );
+			CaptureViewport = InViewport;
 			
 			// Attempt to make the dir if it doesn't exist.
 			TCHAR File[MAX_SPRINTF] = TEXT("");
-			if (OutputPath.IsEmpty())
-			{
-				FString OutputDir = FPaths::VideoCaptureDir();
-				IFileManager::Get().MakeDirectory(*OutputDir, true);
-				
-				if (GEngine->MatineeScreenshotOptions.bStartWithMatineeCapture)
-				{
-					bool bFoundUnusedName = false;
-					while (!bFoundUnusedName)
-					{
-						const FString FileNameInfo = FString::Printf( TEXT("_%dfps_%dx%d"),
-																	 GEngine->MatineeScreenshotOptions.MatineeCaptureFPS, CaptureViewport->GetSizeXY().X, CaptureViewport->GetSizeXY().Y );
-						if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture)
-						{
-							FCString::Sprintf( File, TEXT("%s_%d.mov"), *(OutputDir + TEXT("/") + GEngine->MatineeScreenshotOptions.MatineePackageCaptureName + "_" + GEngine->MatineeScreenshotOptions.MatineeCaptureName + FileNameInfo + "_compressed"), MovieCaptureIndex );
-						}
-						else
-						{
-							FCString::Sprintf( File, TEXT("%s_%d.mov"), *(OutputDir + TEXT("/") + GEngine->MatineeScreenshotOptions.MatineePackageCaptureName + "_" + GEngine->MatineeScreenshotOptions.MatineeCaptureName + FileNameInfo), MovieCaptureIndex );
-						}
-						if (IFileManager::Get().FileSize(File) != -1)
-						{
-							MovieCaptureIndex++;
-						}
-						else
-						{
-							bFoundUnusedName = true;
-						}
-					}
-				}
-				else
-				{
-					bool bFoundUnusedName = false;
-					while (!bFoundUnusedName)
-					{
-						FString FileName = FString::Printf( TEXT("Movie%i.mov"), MovieCaptureIndex );
-						FCString::Sprintf( File, TEXT("%s"), *(OutputDir / FileName) );
-						if (IFileManager::Get().FileSize(File) != -1)
-						{
-							MovieCaptureIndex++;
-						}
-						else
-						{
-							bFoundUnusedName = true;
-						}
-					}
-				}
-			}
-			else
-			{
-				FCString::Sprintf( File, TEXT("%s"), *OutputPath );
-			}
+			IFileManager::Get().MakeDirectory(*FPaths::GetPath(Options.OutputFilename), true);
+			FCString::Sprintf( File, TEXT("%s"), *Options.OutputFilename );
 			
 			NSError *Error = nil;
 			
@@ -570,21 +431,21 @@ public:
 			}
 			
 			NSDictionary* VideoSettings = nil;
-			if (GEngine->MatineeScreenshotOptions.bCompressMatineeCapture && GEngine->MatineeScreenshotOptions.bStartWithMatineeCapture)
+			if (Options.CompressionQuality.IsSet())
 			{
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-								 AVVideoCodecH264, AVVideoCodecKey,
-								 [NSNumber numberWithInt:Viewport->GetSizeXY().X], AVVideoWidthKey,
-								 [NSNumber numberWithInt:Viewport->GetSizeXY().Y], AVVideoHeightKey,
+								 AVVideoCodecJPEG, AVVideoCodecKey,
+								 [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithFloat:Options.CompressionQuality.GetValue()], AVVideoQualityKey, nil], AVVideoCompressionPropertiesKey,
+								 [NSNumber numberWithInt:Viewport->GetSize().X], AVVideoWidthKey,
+								 [NSNumber numberWithInt:Viewport->GetSize().Y], AVVideoHeightKey,
 								 nil];
 			}
 			else
 			{
 				VideoSettings = [NSDictionary dictionaryWithObjectsAndKeys:
-								 AVVideoCodecJPEG, AVVideoCodecKey,
-								 [NSDictionary dictionaryWithObjectsAndKeys:[NSNumber numberWithInt:1], AVVideoQualityKey, nil], AVVideoCompressionPropertiesKey,
-								 [NSNumber numberWithInt:Viewport->GetSizeXY().X], AVVideoWidthKey,
-								 [NSNumber numberWithInt:Viewport->GetSizeXY().Y], AVVideoHeightKey,
+								 AVVideoCodecH264, AVVideoCodecKey,
+								 [NSNumber numberWithInt:Viewport->GetSize().X], AVVideoWidthKey,
+								 [NSNumber numberWithInt:Viewport->GetSize().Y], AVVideoHeightKey,
 								 nil];
 			}
 			AVFWriterInputRef = [[AVAssetWriterInput
@@ -605,9 +466,14 @@ public:
 			[AVFWriterRef startWriting];
 			[AVFWriterRef startSessionAtSourceTime:kCMTimeZero];
 			
-			MovieCaptureIndex++;
-			bReadyForCapture = true;
+			FString Directory = Options.OutputFilename;
+			FString Ext = FPaths::GetExtension(Directory, true);
+
+			// Keep 3 seconds worth of frames in memory
+			CapturedFrames.Reset(new FCapturedFrames(Directory.LeftChop(Ext.Len()) + TEXT("_tmp"), Options.CaptureFPS * 3));
+			
 			bCapturing = true;
+			ThreadTaskFuture = Async<void>(EAsyncExecution::Thread, [this]{	TaskThread(); });
 		}
 	}
 	
@@ -616,36 +482,19 @@ public:
 		if (bCapturing)
 		{
 			SCOPED_AUTORELEASE_POOL;
-			[AVFWriterInputRef markAsFinished];
-			// This will finish asynchronously and then destroy the relevant objects.
-			// We must wait for this to complete.
-			FEvent* Event = FPlatformProcess::GetSynchEventFromPool(true);
-			[AVFWriterRef finishWritingWithCompletionHandler:^{
-				check(AVFWriterRef.status == AVAssetWriterStatusCompleted);
-				Event->Trigger();
-			}];
-			Event->Wait(~0u);
-			FPlatformProcess::ReturnSynchEventToPool(Event);
-			Event = nullptr;
+
+			bShutdownRequested = true;
+			ThreadTaskFuture.Get();
 			[AVFWriterInputRef release];
 			[AVFWriterRef release];
 			[AVFPixelBufferAdaptorRef release];
 			AVFWriterInputRef = nil;
 			AVFWriterRef = nil;
 			AVFPixelBufferAdaptorRef = nil;
-			
-			if (CaptureViewport)
-			{
-				ViewportColorBuffer.Empty();
-			}
-			MovieCaptureIndex = 0;
+
 			bCapturing = false;
-			bReadyForCapture = false;
-			bMatineeFinished = false;
-			CaptureViewport = NULL;
-			CaptureSlateRenderer = NULL;
+			CaptureViewport = nullptr;
 			FrameNumber = 0;
-			CurrentAccumSeconds = 0.f;
 		}
 	}
 	
@@ -654,97 +503,313 @@ public:
 		StopCapture();
 	}
 	
-	void Update(float DeltaSeconds)
+	void TaskThread()
 	{
-		bool bShouldUpdate = true;
-		const float CaptureFrequency = 1.0f/(float)GEngine->MatineeScreenshotOptions.MatineeCaptureFPS;
-		if (CaptureFrequency > 0.f)
-		{
-			CurrentAccumSeconds += DeltaSeconds;
-			
-			if (CurrentAccumSeconds > CaptureFrequency)
-			{
-				while (CurrentAccumSeconds > CaptureFrequency)
-				{
-					CurrentAccumSeconds -= CaptureFrequency;
-				}
-			}
-			else
-			{
-				bShouldUpdate = false;
-			}
-		}
+		SCOPED_AUTORELEASE_POOL;
 		
-		if (GIsRequestingExit || !bShouldUpdate || CaptureSlateRenderer)
+		for(;;)
 		{
-			return;
-		}
-		
-		if (bMatineeFinished)
-		{
-			if (GEngine->MatineeScreenshotOptions.MatineeCaptureType == 0)
+			uint32 WaitTimeMs = 100;
+			TArray<FCapturedFrame> PendingFrames = GetFrameData(WaitTimeMs);
+
+			auto Viewport = CaptureViewport.Pin();
+			if (!Viewport.IsValid())
 			{
-				if (CaptureViewport)
+				break;
+			}
+
+			// Capture the frames that we have
+			for (auto& CurrentFrame : PendingFrames)
+			{
+				while(![AVFWriterInputRef isReadyForMoreMediaData])
 				{
-					CaptureViewport->GetClient()->CloseRequested(CaptureViewport);
+					FPlatformProcess::Sleep(0.0001f);
+				}
+				
+				CVPixelBufferRef PixelBuffer = NULL;
+				CVPixelBufferPoolCreatePixelBuffer (NULL, AVFPixelBufferAdaptorRef.pixelBufferPool, &PixelBuffer);
+				if(!PixelBuffer)
+				{
+					CVPixelBufferCreate(kCFAllocatorDefault, Viewport->GetSize().X, Viewport->GetSize().Y, kCVPixelFormatType_32BGRA, NULL, &PixelBuffer);
+				}
+				check(PixelBuffer);
+				
+				CVPixelBufferLockBaseAddress(PixelBuffer, 0);
+				void* Data = CVPixelBufferGetBaseAddress(PixelBuffer);
+				FMemory::Memcpy(Data, CurrentFrame.FrameData.GetData(), CurrentFrame.FrameData.Num()*sizeof(FColor));
+				CVPixelBufferUnlockBaseAddress(PixelBuffer, 0);
+				
+				CMTime PresentTime = CurrentFrame.FrameIndex > 0 ? CMTimeMake(CurrentFrame.FrameIndex, Options.CaptureFPS) : kCMTimeZero;
+				BOOL OK = [AVFPixelBufferAdaptorRef appendPixelBuffer:PixelBuffer withPresentationTime:PresentTime];
+				check(OK);
+				
+				CVPixelBufferRelease(PixelBuffer);
+
+				if (CurrentFrame.FrameProcessedEvent)
+				{
+					CurrentFrame.FrameProcessedEvent->Trigger();
 				}
 			}
-			else
+
+			if (bShutdownRequested && GetNumOutstandingFrames() == 0)
 			{
-				FViewport* ViewportUsed = GEngine->GameViewport != NULL ? GEngine->GameViewport->Viewport : NULL;
-				if (ViewportUsed)
-				{
-					ViewportUsed->GetClient()->CloseRequested(ViewportUsed);
-				}
+				break;
 			}
-			StopCapture();
 		}
-		else if (bCapturing && bReadyForCapture && [AVFWriterInputRef isReadyForMoreMediaData])
-		{
-			SCOPED_AUTORELEASE_POOL;
-			CaptureViewport->ReadPixels(ViewportColorBuffer, FReadSurfaceDataFlags());
-			
-			CVPixelBufferRef PixeBuffer = NULL;
-			CVPixelBufferPoolCreatePixelBuffer (NULL, AVFPixelBufferAdaptorRef.pixelBufferPool, &PixeBuffer);
-			if(!PixeBuffer)
-			{
-				CVPixelBufferCreate(kCFAllocatorDefault, CaptureViewport->GetSizeXY().X, CaptureViewport->GetSizeXY().Y, kCVPixelFormatType_32BGRA, NULL, &PixeBuffer);
-			}
-			check(PixeBuffer);
-			
-			CVPixelBufferLockBaseAddress(PixeBuffer, 0);
-			void* Data = CVPixelBufferGetBaseAddress(PixeBuffer);
-			FMemory::Memcpy(Data, ViewportColorBuffer.GetData(), ViewportColorBuffer.Num()*sizeof(FColor));
-			CVPixelBufferUnlockBaseAddress(PixeBuffer, 0);
-			
-            CMTime PresentTime = FrameNumber > 0 ? CMTimeMake(FrameNumber, GEngine->MatineeScreenshotOptions.MatineeCaptureFPS) : kCMTimeZero;
-			BOOL OK = [AVFPixelBufferAdaptorRef appendPixelBuffer:PixeBuffer withPresentationTime:PresentTime];
-			check(OK);
-			
-			CVPixelBufferRelease(PixeBuffer);
-			
-			UE_LOG(LogMovieCapture, Log, TEXT("-----------------START------------------"));
-			UE_LOG(LogMovieCapture, Log, TEXT(" INCREASE FrameNumber from %d "), FrameNumber);
-			FrameNumber++;
-		}
+
+		[AVFWriterInputRef markAsFinished];
+		// This will finish asynchronously and then destroy the relevant objects.
+		// We must wait for this to complete.
+		FEvent* Event = FPlatformProcess::GetSynchEventFromPool(true);
+		[AVFWriterRef finishWritingWithCompletionHandler:^{
+			check(AVFWriterRef.status == AVAssetWriterStatusCompleted);
+			Event->Trigger();
+		}];
+		Event->Wait(~0u);
+		FPlatformProcess::ReturnSynchEventToPool(Event);
+	}
+
+	virtual void DropFrames(int32 NumFramesToDrop) override
+	{
+		FrameNumber += NumFramesToDrop;
 	}
 	
 private:
 	AVAssetWriter* AVFWriterRef;
 	AVAssetWriterInput* AVFWriterInputRef;
 	AVAssetWriterInputPixelBufferAdaptor* AVFPixelBufferAdaptorRef;
+	FThreadSafeBool bShutdownRequested;
+	TFuture<void> ThreadTaskFuture;
 };
 #endif
 
-FAVIWriter* FAVIWriter::GetInstance()
+FCapturedFrame::FCapturedFrame(double InStartTimeSeconds, double InEndTimeSeconds, uint32 InFrameIndex, TArray<FColor> InFrameData)
+	: StartTimeSeconds(InStartTimeSeconds)
+	, EndTimeSeconds(InEndTimeSeconds)
+	, FrameIndex(InFrameIndex)
+	, FrameData(MoveTemp(InFrameData))
+	, FrameProcessedEvent(nullptr)
+{
+}
+
+FCapturedFrame::~FCapturedFrame()
+{
+}
+
+FCapturedFrames::FCapturedFrames(const FString& InArchiveDirectory, int32 InMaxInMemoryFrames)
+	: ArchiveDirectory(InArchiveDirectory)
+	, MaxInMemoryFrames(InMaxInMemoryFrames)
+{
+	FrameReady = FPlatformProcess::GetSynchEventFromPool();
+
+	// Ensure the file doesn't exist
+	auto& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
+
+	PlatformFile.DeleteDirectoryRecursively(*ArchiveDirectory);
+	PlatformFile.CreateDirectory(*ArchiveDirectory);
+
+	TotalArchivedFrames = 0;
+	InMemoryFrames.Reserve(MaxInMemoryFrames);
+}
+
+FCapturedFrames::~FCapturedFrames()
+{
+	FPlatformProcess::ReturnSynchEventToPool(FrameReady);
+	FPlatformFileManager::Get().GetPlatformFile().DeleteDirectoryRecursively(*ArchiveDirectory);
+}
+
+void FCapturedFrames::Add(FCapturedFrame Frame)
+{
+	bool bShouldArchive = false;
+	{
+		FScopeLock Lock(&ArchiveFrameMutex);
+		bShouldArchive = ArchivedFrames.Num() != 0;
+	}
+	
+	if (!bShouldArchive)
+	{
+		FScopeLock Lock(&InMemoryFrameMutex);
+		if (InMemoryFrames.Num() < MaxInMemoryFrames)
+		{
+			InMemoryFrames.Add(MoveTemp(Frame));
+		}
+		else
+		{
+			bShouldArchive = true;
+		}
+	}
+
+	if (bShouldArchive)
+	{
+		ArchiveFrame(MoveTemp(Frame));
+	}
+	else
+	{
+		FrameReady->Trigger();
+	}
+}
+
+FArchive &operator<<(FArchive& Ar, FCapturedFrame& Frame)
+{
+	Ar << Frame.StartTimeSeconds;
+	Ar << Frame.EndTimeSeconds;
+	Ar << Frame.FrameIndex;
+	Ar << Frame.FrameData;
+	return Ar;
+}
+
+void FCapturedFrames::ArchiveFrame(FCapturedFrame Frame)
+{
+	// Get (and increment) a unique index for this frame
+	uint32 ArchivedFrameIndex = ++TotalArchivedFrames;
+
+	FString Filename = ArchiveDirectory / FString::Printf(TEXT("%d.frame"), ArchivedFrameIndex);
+	TUniquePtr<FArchive> Archive(IFileManager::Get().CreateFileWriter(*Filename));
+	if (ensure(Archive.IsValid()))
+	{
+		*Archive << Frame;
+		Archive->Close();
+
+		// Add the archived frame to the array
+		FScopeLock Lock(&ArchiveFrameMutex);
+		ArchivedFrames.Add(ArchivedFrameIndex);
+	}
+}
+
+TOptional<FCapturedFrame> FCapturedFrames::UnArchiveFrame(uint32 FrameIndex) const
+{
+	FString Filename = ArchiveDirectory / FString::Printf(TEXT("%d.frame"), FrameIndex);
+	TUniquePtr<FArchive> Archive(IFileManager::Get().CreateFileReader(*Filename));
+	if (ensure(Archive.IsValid()))
+	{
+		FCapturedFrame Frame;
+		*Archive << Frame;
+		Archive->Close();
+
+		FPlatformFileManager::Get().GetPlatformFile().DeleteFile(*Filename);
+		return MoveTemp(Frame);
+	}
+
+	return TOptional<FCapturedFrame>();
+}
+
+void FCapturedFrames::StartUnArchiving()
+{
+	if (UnarchiveTask.IsSet())
+	{
+		return;
+	}
+
+	UnarchiveTask = Async<void>(EAsyncExecution::Thread, [this]{
+
+		// Attempt to unarchive any archived frames
+		ArchiveFrameMutex.Lock();
+		TArray<uint32> ArchivedFramesToGet = ArchivedFrames;
+		ArchiveFrameMutex.Unlock();
+
+		int32 MaxNumToProcess = FMath::Min(ArchivedFramesToGet.Num(), MaxInMemoryFrames);
+		for (int32 Index = 0; Index < MaxNumToProcess; ++Index)
+		{
+			TOptional<FCapturedFrame> Frame = UnArchiveFrame(ArchivedFramesToGet[Index]);
+
+			if (Frame.IsSet())
+			{
+				FScopeLock Lock(&InMemoryFrameMutex);
+				InMemoryFrames.Add(MoveTemp(Frame.GetValue()));
+			}
+		}
+
+		if (MaxNumToProcess)
+		{
+			// Only remove the archived frame indices once we have fully processed them (so that FCapturedFrames::Add knows when to archive frames)
+			{
+				FScopeLock Lock(&ArchiveFrameMutex);
+				ArchivedFrames.RemoveAt(0, MaxNumToProcess, false);
+			}
+
+			FrameReady->Trigger();
+		}
+	});
+}
+
+TArray<FCapturedFrame> FCapturedFrames::ReadFrames(uint32 WaitTimeMs)
+{
+	if (!FrameReady->Wait(WaitTimeMs))
+	{
+		StartUnArchiving();
+		return TArray<FCapturedFrame>();
+	}
+
+	UnarchiveTask = TOptional<TFuture<void>>();
+
+	TArray<FCapturedFrame> Frames;
+	Frames.Reserve(MaxInMemoryFrames);
+
+	// Swap the frames
+	{
+		FScopeLock Lock(&InMemoryFrameMutex);
+		Swap(Frames, InMemoryFrames);
+	}
+
+	StartUnArchiving();
+
+	return Frames;
+}
+
+int32 FCapturedFrames::GetNumOutstandingFrames() const
+{
+	int32 TotalNumFrames = 0;
+	{
+		FScopeLock Lock(&InMemoryFrameMutex);
+		TotalNumFrames += InMemoryFrames.Num();
+	}
+
+	{
+		FScopeLock Lock(&ArchiveFrameMutex);
+		TotalNumFrames += ArchivedFrames.Num();
+	}
+	
+	return TotalNumFrames;
+}
+
+FAVIWriter::~FAVIWriter()
+{
+}
+
+void FAVIWriter::Update(double FrameTimeSeconds, TArray<FColor> FrameData)
+{
+	if (bCapturing && FrameData.Num())
+	{
+		double FrameLength = 1.0 / Options.CaptureFPS;
+		double FrameStart = FrameNumber * FrameLength;
+		FCapturedFrame Frame(FrameStart, FrameStart + FrameLength, FrameNumber, MoveTemp(FrameData));
+
+		FEvent* SyncEvent = nullptr;
+		if (Options.bSynchronizeFrames)
+		{
+			SyncEvent = FPlatformProcess::GetSynchEventFromPool();
+			Frame.FrameProcessedEvent = SyncEvent;
+		}
+
+		// Add the frame
+		CapturedFrames->Add(MoveTemp(Frame));
+		FrameNumber++;
+
+		if (SyncEvent)
+		{
+			SyncEvent->Wait(MAX_uint32);
+			FPlatformProcess::ReturnSynchEventToPool(SyncEvent);
+		}
+	}
+}
+
+FAVIWriter* FAVIWriter::CreateInstance(const FAVIWriterOptions& InOptions)
 {
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
-	static FAVIWriterWin Instance;
-	return &Instance;
+	return new FAVIWriterWin(InOptions);
 #elif PLATFORM_MAC && !UE_BUILD_MINIMAL
-	static FAVIWriterMac Instance;
-	return &Instance;
+	return new FAVIWriterMac(InOptions);
 #else
-	return NULL;
+	return nullptr;
 #endif
 }

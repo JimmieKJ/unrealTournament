@@ -254,7 +254,7 @@ TWeakObjectPtr<AUTReplicatedGameRuleset> AUTLobbyGameState::FindRuleset(FString 
 {
 	for (int32 i=0; i < AvailableGameRulesets.Num(); i++)
 	{
-		if ( AvailableGameRulesets[i].IsValid() && AvailableGameRulesets[i]->UniqueTag.Equals(TagToFind, ESearchCase::IgnoreCase) )
+		if ( AvailableGameRulesets[i] != nullptr && AvailableGameRulesets[i]->UniqueTag.Equals(TagToFind, ESearchCase::IgnoreCase) )
 		{
 			return AvailableGameRulesets[i];
 		}
@@ -405,6 +405,7 @@ void AUTLobbyGameState::SetupLobbyBeacons()
 
 	if (LobbyBeacon_Listener && LobbyBeacon_Listener->InitHost())
 	{
+		LobbyBeacon_Listener->PauseBeaconRequests(false);
 		LobbyBeacon_Object = World->SpawnActor<AUTServerBeaconLobbyHostObject>(AUTServerBeaconLobbyHostObject::StaticClass());
 
 		if (LobbyBeacon_Object)

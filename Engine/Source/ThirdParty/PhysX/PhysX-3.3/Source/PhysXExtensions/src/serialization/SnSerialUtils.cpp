@@ -19,7 +19,7 @@ using namespace physx;
 namespace
 {
 
-#define SN_NUM_BINARY_PLATFORMS 15
+#define SN_NUM_BINARY_PLATFORMS 16
 const PxU32 sBinaryPlatformTags[SN_NUM_BINARY_PLATFORMS] =
 {
 	PX_MAKE_FOURCC('W','_','3','2'),
@@ -36,7 +36,8 @@ const PxU32 sBinaryPlatformTags[SN_NUM_BINARY_PLATFORMS] =
 	PX_MAKE_FOURCC('P','S','P','2'),
 	PX_MAKE_FOURCC('W','A','R','M'),
 	PX_MAKE_FOURCC('W','I','I','U'),
-	PX_MAKE_FOURCC('X','O','N','E')
+	PX_MAKE_FOURCC('X','O','N','E'),
+	PX_MAKE_FOURCC('A','A','6','4')
 };
 
 const char* sBinaryPlatformNames[SN_NUM_BINARY_PLATFORMS] =
@@ -55,14 +56,20 @@ const char* sBinaryPlatformNames[SN_NUM_BINARY_PLATFORMS] =
 	"psp2",
 	"win8arm"
 	"wiiu",
-	"xboxone"
+	"xboxone",
+	"ios64"
 };
 
-#define SN_NUM_BINARY_COMPATIBLE_VERSIONS 2
+#define SN_NUM_BINARY_COMPATIBLE_VERSIONS 4
 
+//
+// Important: if you adjust the following structure, please adjust the comment for PX_BINARY_SERIAL_VERSION as well
+//
 const Ps::Pair<PxU32, PxU32> sBinaryCompatibleVersions[SN_NUM_BINARY_COMPATIBLE_VERSIONS] =
 {
 	Ps::Pair<PxU32, PxU32>(PX_PHYSICS_VERSION, PX_BINARY_SERIAL_VERSION),
+	Ps::Pair<PxU32, PxU32>(0x3030300, 0),
+	Ps::Pair<PxU32, PxU32>(0x3030200, 0),
 	Ps::Pair<PxU32, PxU32>(0x3030100, 0)
 };
 
@@ -92,7 +99,7 @@ PxU32 getBinaryPlatformTag()
 	return sBinaryPlatformTags[8];
 #elif defined(PX_ANDROID)
 	return sBinaryPlatformTags[9];
-#elif defined(PX_APPLE_IOS)
+#elif defined(PX_APPLE_IOS) && defined(PX_ARM)
 	return sBinaryPlatformTags[10];
 #elif defined(PX_PSP2)
 	return sBinaryPlatformTags[11];
@@ -102,6 +109,8 @@ PxU32 getBinaryPlatformTag()
 	return sBinaryPlatformTags[13];
 #elif defined(PX_XBOXONE)
 	return sBinaryPlatformTags[14];
+#elif defined(PX_APPLE_IOS) && defined(PX_A64)
+	return sBinaryPlatformTags[15];
 #else
 	#error Unknown binary platform
 #endif

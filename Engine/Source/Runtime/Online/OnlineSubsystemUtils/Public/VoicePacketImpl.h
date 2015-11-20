@@ -5,6 +5,8 @@
 #include "VoiceDataCommon.h"
 #include "OnlineSubsystemUtilsPackage.h"
 
+class FUniqueNetId;
+
 #define DEBUG_VOICE_PACKET_ENCODING 0
 
 /** Defines the data involved in a voice packet */
@@ -14,7 +16,7 @@ class FVoicePacketImpl : public FVoicePacket
 PACKAGE_SCOPE:
 
 	/** The unique net id of the talker sending the data */
-	TSharedPtr<class FUniqueNetId> Sender;
+	TSharedPtr<const FUniqueNetId> Sender;
 	/** The data that is to be sent/processed */
 	TArray<uint8> Buffer;
 	/** The current amount of space used in the buffer for this packet */
@@ -50,7 +52,7 @@ public:
 	virtual uint16 GetBufferSize() override;
 
 	/** @return the sender of this voice packet */
-	virtual TSharedPtr<class FUniqueNetId> GetSender() override;
+	virtual TSharedPtr<const FUniqueNetId> GetSender() override;
 
 	virtual bool IsReliable() override { return false; }
 

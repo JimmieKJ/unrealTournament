@@ -42,11 +42,12 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 	UPROPERTY()
 	uint32 FunctionFlags;
 
-	// UObject interface
+	//~ Begin UObject Interface
 	BLUEPRINTGRAPH_API virtual void Serialize(FArchive& Ar) override;
-	// End of UObject interface
+	BLUEPRINTGRAPH_API virtual void PostLoad() override;
+	//~ End UObject Interface
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	BLUEPRINTGRAPH_API virtual void AllocateDefaultPins() override;
 	BLUEPRINTGRAPH_API virtual FText GetTooltipText() const override;
 	BLUEPRINTGRAPH_API virtual FText GetKeywords() const override;	
@@ -59,9 +60,9 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 	BLUEPRINTGRAPH_API virtual FString GetDeprecationMessage() const override;
 	BLUEPRINTGRAPH_API virtual UObject* GetJumpTargetForDoubleClick() const override;
 	BLUEPRINTGRAPH_API virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Event_16x"); }
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual bool DrawNodeAsEntry() const override { return true; }
 	BLUEPRINTGRAPH_API virtual bool NodeCausesStructuralBlueprintChange() const override;
 	BLUEPRINTGRAPH_API virtual void GetRedirectPinNames(const UEdGraphPin& Pin, TArray<FString>& RedirectPinNames) const override;
@@ -75,7 +76,8 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 	BLUEPRINTGRAPH_API virtual FText GetToolTipHeading() const override;
 	BLUEPRINTGRAPH_API virtual void GetNodeAttributes( TArray<TKeyValuePair<FString, FString>>& OutNodeAttributes ) const override;
 	BLUEPRINTGRAPH_API virtual FText GetMenuCategory() const override;
-	// End UK2Node interface
+	BLUEPRINTGRAPH_API virtual bool HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const override;
+	//~ End UK2Node Interface
 
 	/** Checks whether the parameters for this event node are compatible with the specified function entry node */
 	BLUEPRINTGRAPH_API virtual bool IsFunctionEntryCompatible(const class UK2Node_FunctionEntry* EntryNode) const;

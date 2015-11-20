@@ -83,9 +83,9 @@ namespace Sc
 						void				setBody2Actor(const PxTransform& p)	{ mCore.body2Actor = p;				}
 
 						void				addSpatialAcceleration(Ps::Pool<SimStateData>* simStateDataPool, const PxVec3* linAcc, const PxVec3* angAcc);
-						void				clearSpatialAcceleration();
+						void				clearSpatialAcceleration(bool force, bool torque);
 						void				addSpatialVelocity(Ps::Pool<SimStateData>* simStateDataPool, const PxVec3* linVelDelta, const PxVec3* angVelDelta);
-						void				clearSpatialVelocity();
+						void				clearSpatialVelocity(bool force, bool torque);
 
 		PX_FORCE_INLINE PxReal				getMaxPenetrationBias() const		{ return mCore.maxPenBias; }
 		PX_FORCE_INLINE void				setMaxPenetrationBias(PxReal p)		{ mCore.maxPenBias = p; }

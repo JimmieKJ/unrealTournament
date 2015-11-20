@@ -7,93 +7,89 @@
 #include "EnvironmentQuery/EnvQueryOption.h"
 #include "EnvironmentQuery/EnvQueryTest.h"
 
-UEnvQuery::UEnvQuery(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+namespace FEQSParamsExporter
 {
-}
-
-static bool HasNamedValue(const FName& ParamName, const TArray<FEnvNamedValue>& NamedValues)
-{
-	for (int32 ValueIndex = 0; ValueIndex < NamedValues.Num(); ValueIndex++)
+	bool HasNamedValue(const FName& ParamName, const TArray<FAIDynamicParam>& NamedValues)
 	{
-		if (NamedValues[ValueIndex].ParamName == ParamName)
+		for (int32 ValueIndex = 0; ValueIndex < NamedValues.Num(); ValueIndex++)
 		{
-			return true;
+			if (NamedValues[ValueIndex].ParamName == ParamName)
+			{
+				return true;
+			}
 		}
+
+		return false;
 	}
 
-	return false;
-}
-
-static void AddNamedValue(const FName& ParamName, const EEnvQueryParam::Type& ParamType, float Value,
-						  TArray<FEnvNamedValue>& NamedValues, TArray<FName>& RequiredParams)
-{
-	if (ParamName != NAME_None)
+	void AddNamedValue(UObject& QueryOwner, const FName& ParamName, const EAIParamType ParamType, float Value, TArray<FAIDynamicParam>& NamedValues, TArray<FName>& RequiredParams) 
 	{
-		if (!HasNamedValue(ParamName, NamedValues))
+		check(ParamName.IsNone() == false);
+
+		if (HasNamedValue(ParamName, NamedValues) == false)
 		{
-			FEnvNamedValue NewValue;
+			FAIDynamicParam& NewValue = NamedValues[NamedValues.Add(FAIDynamicParam())];
 			NewValue.ParamName = ParamName;
 			NewValue.ParamType = ParamType;
 			NewValue.Value = Value;
-			NamedValues.Add(NewValue);
+			NewValue.ConfigureBBKey(QueryOwner);
 		}
 
 		RequiredParams.AddUnique(ParamName);
 	}
-}
 
 #define GET_STRUCT_NAME_CHECKED(StructName) \
 	((void)sizeof(StructName), TEXT(#StructName))
 
-static void AddNamedValuesFromObject(const UObject* Ob, TArray<FEnvNamedValue>& NamedValues, TArray<FName>& RequiredParams)
-{
-	if (Ob == NULL)
+	void AddNamedValuesFromObject(UObject& QueryOwner, const UEnvQueryNode& QueryNode, TArray<FAIDynamicParam>& NamedValues, TArray<FName>& RequiredParams)
 	{
-		return;
-	}
-
-	for (UProperty* TestProperty = Ob->GetClass()->PropertyLink; TestProperty; TestProperty = TestProperty->PropertyLinkNext)
-	{
-		UStructProperty* TestStruct = Cast<UStructProperty>(TestProperty);
-		if (TestStruct == NULL)
+		for (UProperty* TestProperty = QueryNode.GetClass()->PropertyLink; TestProperty; TestProperty = TestProperty->PropertyLinkNext)
 		{
-			continue;
-		}
-
-		FString TypeDesc = TestStruct->GetCPPType(NULL, CPPF_None);
-		if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderIntValue)))
-		{
-			const FAIDataProviderIntValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderIntValue>(Ob);
-			const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
-			if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+			UStructProperty* TestStruct = Cast<UStructProperty>(TestProperty);
+			if (TestStruct == NULL)
 			{
-				AddNamedValue(QueryParamProvider->ParamName, EEnvQueryParam::Int, *((float*)&PropertyValue->DefaultValue), NamedValues, RequiredParams);
+				continue;
 			}
-		}
-		else if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderFloatValue)))
-		{
-			const FAIDataProviderFloatValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderFloatValue>(Ob);
-			const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
-			if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+
+			const FString TypeDesc = TestStruct->GetCPPType(NULL, CPPF_None);
+			if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderIntValue)))
 			{
-				AddNamedValue(QueryParamProvider->ParamName, EEnvQueryParam::Float, PropertyValue->DefaultValue, NamedValues, RequiredParams);
+				const FAIDataProviderIntValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderIntValue>(&QueryNode);
+				const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
+				if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+				{
+					AddNamedValue(QueryOwner, QueryParamProvider->ParamName, EAIParamType::Int, *((float*)&PropertyValue->DefaultValue), NamedValues, RequiredParams);
+				}
 			}
-		}
-		else if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderBoolValue)))
-		{
-			const FAIDataProviderBoolValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderBoolValue>(Ob);
-			const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
-			if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+			else if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderFloatValue)))
 			{
-				AddNamedValue(QueryParamProvider->ParamName, EEnvQueryParam::Bool, PropertyValue->DefaultValue ? 1.0f : -1.0f, NamedValues, RequiredParams);
+				const FAIDataProviderFloatValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderFloatValue>(&QueryNode);
+				const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
+				if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+				{
+					AddNamedValue(QueryOwner, QueryParamProvider->ParamName, EAIParamType::Float, PropertyValue->DefaultValue, NamedValues, RequiredParams);
+				}
+			}
+			else if (TypeDesc.Contains(GET_STRUCT_NAME_CHECKED(FAIDataProviderBoolValue)))
+			{
+				const FAIDataProviderBoolValue* PropertyValue = TestStruct->ContainerPtrToValuePtr<FAIDataProviderBoolValue>(&QueryNode);
+				const UAIDataProvider_QueryParams* QueryParamProvider = PropertyValue ? Cast<const UAIDataProvider_QueryParams>(PropertyValue->DataBinding) : nullptr;
+				if (QueryParamProvider && !QueryParamProvider->ParamName.IsNone())
+				{
+					AddNamedValue(QueryOwner, QueryParamProvider->ParamName, EAIParamType::Bool, PropertyValue->DefaultValue ? 1.0f : -1.0f, NamedValues, RequiredParams);
+				}
 			}
 		}
 	}
-}
 
 #undef GET_STRUCT_NAME_CHECKED
+}
 
-void UEnvQuery::CollectQueryParams(TArray<FEnvNamedValue>& NamedValues) const
+UEnvQuery::UEnvQuery(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
+{
+}
+
+void UEnvQuery::CollectQueryParams(UObject& QueryOwner, TArray<FAIDynamicParam>& NamedValues) const
 {
 	TArray<FName> RequiredParams;
 
@@ -101,12 +97,20 @@ void UEnvQuery::CollectQueryParams(TArray<FEnvNamedValue>& NamedValues) const
 	for (int32 OptionIndex = 0; OptionIndex < Options.Num(); OptionIndex++)
 	{
 		const UEnvQueryOption* Option = Options[OptionIndex];
-		AddNamedValuesFromObject(Option->Generator, NamedValues, RequiredParams);
+		if (Option->Generator == nullptr)
+		{
+			continue;
+		}
+
+		FEQSParamsExporter::AddNamedValuesFromObject(QueryOwner, *(Option->Generator), NamedValues, RequiredParams);
 
 		for (int32 TestIndex = 0; TestIndex < Option->Tests.Num(); TestIndex++)
 		{
 			const UEnvQueryTest* TestOb = Option->Tests[TestIndex];
-			AddNamedValuesFromObject(TestOb, NamedValues, RequiredParams);
+			if (TestOb)
+			{
+				FEQSParamsExporter::AddNamedValuesFromObject(QueryOwner, *TestOb, NamedValues, RequiredParams);
+			}
 		}
 	}
 

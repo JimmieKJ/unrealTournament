@@ -8,34 +8,20 @@
 /**
  * Implements loading and saving of internationalization settings.
  */
-UCLASS()
+UCLASS(config=EditorSettings)
 class INTERNATIONALIZATIONSETTINGS_API UInternationalizationSettingsModel
-	:	public UObject
+	: public UObject
 {
 	GENERATED_UCLASS_BODY()
 
 public:
-
-	void SaveDefaults();
 	void ResetToDefault();
-	FString GetCultureName() const;
-	void SetCultureName(const FString& CultureName);
+	bool GetEditorCultureName(FString& OutEditorCultureName) const;
+	void SetEditorCultureName(const FString& CultureName);
+	bool GetNativeGameCultureName(FString& OutNativeGameCultureName) const;
+	void SetNativeGameCultureName(const FString& CultureName);
 	bool ShouldLoadLocalizedPropertyNames() const;
 	void ShouldLoadLocalizedPropertyNames(const bool Value);
 	bool ShouldShowNodesAndPinsUnlocalized() const;
 	void ShouldShowNodesAndPinsUnlocalized(const bool Value);
-public:
-
-	/**
-	 * Returns an event delegate that is executed when a setting has changed.
-	 *
-	 * @return The delegate.
-	 */
-	DECLARE_EVENT(UInternationalizationSettingsModel, FSettingChangedEvent);
-	FSettingChangedEvent& OnSettingChanged( ) { return SettingChangedEvent; }
-
-private:
-
-	// Holds an event delegate that is executed when a setting has changed.
-	FSettingChangedEvent SettingChangedEvent;
 };

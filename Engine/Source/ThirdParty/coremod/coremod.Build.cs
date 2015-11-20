@@ -42,6 +42,7 @@ public class coremod: ModuleRules
 			// No 64bit support for Android yet
 			PublicLibraryPaths.Add(AndroidPath + "armeabi-v7a");
 			PublicLibraryPaths.Add(AndroidPath + "x86");
+			PublicLibraryPaths.Add(AndroidPath + "x64");
 			PublicAdditionalLibraries.Add("xmp-coremod");			
 		}
 	}

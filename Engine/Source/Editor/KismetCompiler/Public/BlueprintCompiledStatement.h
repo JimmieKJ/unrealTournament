@@ -36,6 +36,7 @@ enum EKismetCompiledStatementType
 	KCST_CastInterfaceToObj = 26, // Cast<TargetClass>(TargetInterface)
 	KCST_GotoReturn = 27,	// goto ReturnLabel
 	KCST_GotoReturnIfNot = 28, // [if (!TargetObject->TargetProperty)] goto TargetLabel
+	KCST_SwitchValue = 29,
 };
 
 //@TODO: Too rigid / icky design
@@ -68,9 +69,6 @@ struct FBlueprintCompiledStatement
 
 	// The index of the argument to replace (only used when KCST_CallFunction has a non-NULL TargetLabel)
 	int32 UbergraphCallIndex;
-
-	// Mapping of automatic array-property FKismetTerms to the FBPTerminal used for array type specification
-	TMap<struct FBPTerminal*, struct FBPTerminal*> ArrayCoersionTermMap;
 
 	// Destination of assignment statement or result from function call
 	struct FBPTerminal* LHS;

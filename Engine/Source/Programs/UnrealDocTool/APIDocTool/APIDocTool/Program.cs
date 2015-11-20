@@ -632,7 +632,7 @@ namespace APIDocTool
 				Console.WriteLine("Building target info...");
 				Utility.SafeCreateDirectory(Path.GetDirectoryName(TargetInfoPath));
 
-				string Arguments = String.Format("DocumentationEditor Win64 Debug -project=\"{0}\"", Path.Combine(EngineDir, "Documentation\\Extras\\API\\Build\\Documentation.uproject"));
+				string Arguments = String.Format("DocumentationEditor Win64 Debug -noxge -project=\"{0}\"", Path.Combine(EngineDir, "Documentation\\Extras\\API\\Build\\Documentation.uproject"));
 				if (!RunUnrealBuildTool(EngineDir, Arguments + " -clean"))
 				{
 					return false;
@@ -1559,9 +1559,12 @@ namespace APIDocTool
 						HtmlText = HtmlText.Remove(HeaderMinIdx, HeaderMaxIdx + HeaderEndText.Length - HeaderMinIdx);
 
 						int CrumbsMinIdx = HtmlText.IndexOf("<div class=\"crumbs\">");
-						int HomeMinIdx = HtmlText.IndexOf("<strong>", CrumbsMinIdx);
-						int HomeMaxIdx = HtmlText.IndexOf("&gt;", HomeMinIdx) + 4;
-						HtmlText = HtmlText.Remove(HomeMinIdx, HomeMaxIdx - HomeMinIdx);
+						if (CrumbsMinIdx >= 0)
+						{
+							int HomeMinIdx = HtmlText.IndexOf("<strong>", CrumbsMinIdx);
+							int HomeMaxIdx = HtmlText.IndexOf("&gt;", HomeMinIdx) + 4;
+							HtmlText = HtmlText.Remove(HomeMinIdx, HomeMaxIdx - HomeMinIdx);
+						}
 
 						File.WriteAllText(TargetFileName, HtmlText);
 					}

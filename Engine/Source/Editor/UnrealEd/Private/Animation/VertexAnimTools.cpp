@@ -206,7 +206,7 @@ void FVertexAnimTools::ImportVertexAnimtion(UnFbx::FFbxImporter* FFbxImporter, U
 	}
 
 	// Get channel
-	FbxString DeformerChannelName = Deformer->GetCacheChannel();
+	FbxString DeformerChannelName = Deformer->Channel.Get();
 	int ChannelIndex = Cache->GetChannelIndex(DeformerChannelName);
 	if(ChannelIndex == -1)
 	{

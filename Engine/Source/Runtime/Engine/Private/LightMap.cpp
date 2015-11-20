@@ -190,7 +190,10 @@ FStaticLightingMesh::FStaticLightingMesh(
 	Component(InComponent),
 	BoundingBox(InBoundingBox),
 	Guid(FGuid::NewGuid()),
-	SourceMeshGuid(InGuid)
+	SourceMeshGuid(InGuid),
+	HLODTreeIndex(0),
+	HLODChildStartIndex(0),
+	HLODChildEndIndex(0)
 {}
 
 FStaticLightingTextureMapping::FStaticLightingTextureMapping(FStaticLightingMesh* InMesh,UObject* InOwner,int32 InSizeX,int32 InSizeY,int32 InLightmapTextureCoordinateIndex,bool bInBilinearFilter):
@@ -344,6 +347,7 @@ enum ELightmapTextureType
 {
 	LTT_Coefficients = NUM_STORED_LIGHTMAP_COEF,
 	LTT_SkyOcclusion,
+	LTT_AOMaterialMask,
 	LTT_Num
 };
 
@@ -384,6 +388,7 @@ struct FLightMapPendingTexture : public FTextureLayout
 	/** Helper data to keep track of the asynchronous tasks for the 4 lightmap textures. */
 	ULightMapTexture2D*				Textures[NUM_STORED_LIGHTMAP_COEF];
 	ULightMapTexture2D*				SkyOcclusionTexture;
+	ULightMapTexture2D*				AOMaterialMaskTexture;
 
 	TArray<FLightMapAllocation*>	Allocations;
 	UObject*						Outer;
@@ -393,7 +398,6 @@ struct FLightMapPendingTexture : public FTextureLayout
 
 	/** Lightmap streaming flags that must match in order to be stored in this texture.	*/
 	ELightMapFlags					LightmapFlags;
-
 	// Optimization to quickly test if a new allocation won't fit
 	// Primarily of benefit to instanced mesh lightmaps
 	int32							UnallocatedTexels;
@@ -403,6 +407,7 @@ struct FLightMapPendingTexture : public FTextureLayout
 	FLightMapPendingTexture(UWorld* InWorld, uint32 InSizeX,uint32 InSizeY)
 		: FTextureLayout(4, 4, InSizeX, InSizeY, /* PowerOfTwo */ true, /* AlignByFour */ true) // Min size is 4x4 in case of block compression.
 		, SkyOcclusionTexture(nullptr)
+		, AOMaterialMaskTexture(nullptr)
 		, OwningWorld(InWorld)
 		, Bounds(FBox(0))
 		, LightmapFlags(LMF_None)
@@ -446,6 +451,7 @@ struct FLightMapPendingTexture : public FTextureLayout
 private:
 	FName GetLightmapName(int32 TextureIndex, int32 CoefficientIndex);
 	FName GetSkyOcclusionTextureName(int32 TextureIndex);
+	FName GetAOMaterialMaskTextureName(int32 TextureIndex);
 };
 
 TArray<FLightMapPendingTexture::FAsyncLightMapCacheTask> FLightMapPendingTexture::TotalAsyncTasks;
@@ -465,7 +471,20 @@ void FLightMapPendingTexture::FinishCompletedTasks( int32 NumUnfinishedTasksAllo
 		{
 			FAsyncLightMapCacheTask Task = TotalAsyncTasks[TaskIndex];
 			FLightMapPendingTexture* PendingTexture = Task.Texture;
-			ULightMapTexture2D* LightMapTexture = Task.TextureType == LTT_SkyOcclusion ? PendingTexture->SkyOcclusionTexture : PendingTexture->Textures[(int32)Task.TextureType];
+			ULightMapTexture2D* LightMapTexture;
+
+			if (Task.TextureType == LTT_SkyOcclusion)
+			{
+				LightMapTexture = PendingTexture->SkyOcclusionTexture;
+			}
+			else if (Task.TextureType == LTT_AOMaterialMask)
+			{
+				LightMapTexture = PendingTexture->AOMaterialMaskTexture;
+			}
+			else
+			{
+				LightMapTexture = PendingTexture->Textures[(int32)Task.TextureType];
+			}
 
 			if (LightMapTexture->IsAsyncCacheComplete())
 			{
@@ -495,7 +514,20 @@ void FLightMapPendingTexture::FinishCompletedTasks( int32 NumUnfinishedTasksAllo
  */
 void FLightMapPendingTexture::FinishEncoding( ELightmapTextureType TextureType )
 {
-	UTexture2D* Texture2D = TextureType == LTT_SkyOcclusion ? SkyOcclusionTexture : Textures[(int32)TextureType];
+	UTexture2D* Texture2D;
+
+	if (TextureType == LTT_SkyOcclusion)
+	{
+		Texture2D = SkyOcclusionTexture;
+	}
+	else if (TextureType == LTT_AOMaterialMask)
+	{
+		Texture2D = AOMaterialMaskTexture;
+	}
+	else
+	{
+		Texture2D = Textures[(int32)TextureType];
+	}
 
 	Texture2D->FinishCachePlatformData();
 	Texture2D->UpdateResource();
@@ -631,7 +663,7 @@ bool FLightMapPendingTexture::AddElement(FLightMapAllocationGroup& AllocationGro
 /** Whether to color each lightmap texture with a different (random) color. */
 bool GVisualizeLightmapTextures = false;
 
-static void GenerateLightmapMipsAndDilate(int32 NumMips, int32 TextureSizeX, int32 TextureSizeY, FColor TextureColor, FColor** MipData, int8** MipCoverageData)
+static void GenerateLightmapMipsAndDilateColor(int32 NumMips, int32 TextureSizeX, int32 TextureSizeY, FColor TextureColor, FColor** MipData, int8** MipCoverageData)
 {
 	for(int32 MipIndex = 1; MipIndex < NumMips; MipIndex++)
 	{
@@ -790,6 +822,165 @@ static void GenerateLightmapMipsAndDilate(int32 NumMips, int32 TextureSizeX, int
 	}
 }
 
+static void GenerateLightmapMipsAndDilateByte(int32 NumMips, int32 TextureSizeX, int32 TextureSizeY, uint8 TextureColor, uint8** MipData, int8** MipCoverageData)
+{
+	for(int32 MipIndex = 1; MipIndex < NumMips; MipIndex++)
+	{
+		const int32 SourceMipSizeX = FMath::Max(1, TextureSizeX >> (MipIndex - 1));
+		const int32 SourceMipSizeY = FMath::Max(1, TextureSizeY >> (MipIndex - 1));
+		const int32 DestMipSizeX = FMath::Max(1, TextureSizeX >> MipIndex);
+		const int32 DestMipSizeY = FMath::Max(1, TextureSizeY >> MipIndex);
+
+		// Downsample the previous mip-level, taking into account which texels are mapped.
+		uint8* NextMipData = MipData[MipIndex];
+		uint8* LastMipData = MipData[MipIndex - 1];
+
+		int8* NextMipCoverageData = MipCoverageData[ MipIndex ];
+		int8* LastMipCoverageData = MipCoverageData[ MipIndex - 1 ];
+
+		const int32 MipFactorX = SourceMipSizeX / DestMipSizeX;
+		const int32 MipFactorY = SourceMipSizeY / DestMipSizeY;
+
+		//@todo - generate mips before encoding lightmaps!  
+		// Currently we are filtering in the encoded space, similar to generating mips of sRGB textures in sRGB space
+		for(int32 Y = 0; Y < DestMipSizeY; Y++)
+		{
+			for(int32 X = 0; X < DestMipSizeX; X++)
+			{
+				float AccumulatedColor = 0;
+				uint32 Coverage = 0;
+
+				const uint32 MinSourceY = (Y + 0) * MipFactorY;
+				const uint32 MaxSourceY = (Y + 1) * MipFactorY;
+				for(uint32 SourceY = MinSourceY; SourceY < MaxSourceY; SourceY++)
+				{
+					const uint32 MinSourceX = (X + 0) * MipFactorX;
+					const uint32 MaxSourceX = (X + 1) * MipFactorX;
+					for(uint32 SourceX = MinSourceX; SourceX < MaxSourceX; SourceX++)
+					{
+						const uint8& SourceColor = LastMipData[SourceY * SourceMipSizeX + SourceX];
+						int8 SourceCoverage = LastMipCoverageData[ SourceY * SourceMipSizeX + SourceX ];
+						if( SourceCoverage )
+						{
+							AccumulatedColor += SourceColor / 255.0f * SourceCoverage;
+							Coverage += SourceCoverage;
+						}
+					}
+				}
+				uint8& DestColor = NextMipData[Y * DestMipSizeX + X];
+				int8& DestCoverage = NextMipCoverageData[Y * DestMipSizeX + X];
+				if ( GVisualizeLightmapTextures )
+				{
+					DestColor = TextureColor;
+					DestCoverage = 127;
+				}
+				else if(Coverage)
+				{
+					DestColor = (uint8)FMath::Clamp<int32>(FMath::TruncToInt(AccumulatedColor / Coverage * 255.f), 0, 255);
+					DestCoverage = Coverage / (MipFactorX * MipFactorY);
+				}
+				else
+				{
+					DestColor = 0;
+					DestCoverage = 0;
+				}
+			}
+		}
+	}
+
+	// Expand texels which are mapped into adjacent texels which are not mapped to avoid artifacts when using texture filtering.
+	for(int32 MipIndex = 0; MipIndex < NumMips; MipIndex++)
+	{
+		uint8* MipLevelData = MipData[MipIndex];
+		int8* MipLevelCoverageData = MipCoverageData[MipIndex];
+
+		uint32 MipSizeX = FMath::Max(1,TextureSizeX >> MipIndex);
+		uint32 MipSizeY = FMath::Max(1,TextureSizeY >> MipIndex);
+		for(uint32 DestY = 0;DestY < MipSizeY;DestY++)
+		{
+			for(uint32 DestX = 0; DestX < MipSizeX; DestX++)
+			{
+				uint8& DestColor = MipLevelData[DestY * MipSizeX + DestX];
+				int8& DestCoverage = MipLevelCoverageData[DestY * MipSizeX + DestX];
+				if(DestCoverage == 0)
+				{
+					float AccumulatedColor = 0;
+					uint32 Coverage = 0;
+
+					const int32 MinSourceY = FMath::Max((int32)DestY - 1, (int32)0);
+					const int32 MaxSourceY = FMath::Min((int32)DestY + 1, (int32)MipSizeY - 1);
+					for(int32 SourceY = MinSourceY; SourceY <= MaxSourceY; SourceY++)
+					{
+						const int32 MinSourceX = FMath::Max((int32)DestX - 1, (int32)0);
+						const int32 MaxSourceX = FMath::Min((int32)DestX + 1, (int32)MipSizeX - 1);
+						for(int32 SourceX = MinSourceX; SourceX <= MaxSourceX; SourceX++)
+						{
+							uint8& SourceColor = MipLevelData[SourceY * MipSizeX + SourceX];
+							int8 SourceCoverage = MipLevelCoverageData[SourceY * MipSizeX + SourceX];
+							if( SourceCoverage > 0 )
+							{
+								static const uint32 Weights[3][3] =
+								{
+									{ 1, 255, 1 },
+									{ 255, 0, 255 },
+									{ 1, 255, 1 },
+								};
+								AccumulatedColor += SourceColor / 255.0f * SourceCoverage * Weights[SourceX - DestX + 1][SourceY - DestY + 1];
+								Coverage += SourceCoverage * Weights[SourceX - DestX + 1][SourceY - DestY + 1];
+							}
+						}
+					}
+
+					if(Coverage)
+					{
+						DestColor = (uint8)FMath::Clamp<int32>(FMath::TruncToInt(AccumulatedColor / Coverage * 255.f), 0, 255);
+						DestCoverage = -1;
+					}
+				}
+			}
+		}
+	}
+
+	// Fill zero coverage texels with closest colors using mips
+	for(int32 MipIndex = NumMips - 2; MipIndex >= 0; MipIndex--)
+	{
+		const int32 DstMipSizeX = FMath::Max(1, TextureSizeX >> MipIndex);
+		const int32 DstMipSizeY = FMath::Max(1, TextureSizeY >> MipIndex);
+		const int32 SrcMipSizeX = FMath::Max(1, TextureSizeX >> (MipIndex + 1));
+		const int32 SrcMipSizeY = FMath::Max(1, TextureSizeY >> (MipIndex + 1));
+
+		// Source from higher mip, taking into account which texels are mapped.
+		uint8* DstMipData = MipData[MipIndex];
+		uint8* SrcMipData = MipData[MipIndex + 1];
+
+		int8* DstMipCoverageData = MipCoverageData[ MipIndex ];
+		int8* SrcMipCoverageData = MipCoverageData[ MipIndex + 1 ];
+
+		for(int32 DstY = 0; DstY < DstMipSizeY; DstY++)
+		{
+			for(int32 DstX = 0; DstX < DstMipSizeX; DstX++)
+			{
+				const uint32 SrcX = DstX / 2;
+				const uint32 SrcY = DstY / 2;
+
+				const uint8& SrcColor = SrcMipData[ SrcY * SrcMipSizeX + SrcX ];
+				int8 SrcCoverage = SrcMipCoverageData[ SrcY * SrcMipSizeX + SrcX ];
+
+				uint8& DstColor = DstMipData[ DstY * DstMipSizeX + DstX ];
+				int8& DstCoverage = DstMipCoverageData[ DstY * DstMipSizeX + DstX ];
+
+				// Point upsample mip data for zero coverage texels
+				// TODO bilinear upsample
+				if( SrcCoverage != 0 && DstCoverage == 0 )
+				{
+					DstColor = SrcColor;
+					DstCoverage = SrcCoverage;
+				}
+			}
+		}
+	}
+}
+
 void FLightMapPendingTexture::StartEncoding()
 {
 	GLightmapCounter++;
@@ -809,7 +1000,6 @@ void FLightMapPendingTexture::StartEncoding()
 		if (Allocation->bHasSkyShadowing)
 		{
 			bNeedsSkyOcclusionTexture = true;
-			break;
 		}
 	}
 
@@ -889,7 +1079,7 @@ void FLightMapPendingTexture::StartEncoding()
 			}
 		}
 
-		GenerateLightmapMipsAndDilate(NumMips, TextureSizeX, TextureSizeY, TextureColor, MipData, MipCoverageData);
+		GenerateLightmapMipsAndDilateColor(NumMips, TextureSizeX, TextureSizeY, TextureColor, MipData, MipCoverageData);
 
 		// Unlock all mip levels.
 		for (int32 MipIndex = 0; MipIndex < NumMips; ++MipIndex)
@@ -903,6 +1093,96 @@ void FLightMapPendingTexture::StartEncoding()
 		NumOutstandingAsyncTasks++;
 	}
 	
+	const FLightmassWorldInfoSettings* LightmassWorldSettings = OwningWorld.IsValid() ? &(OwningWorld->GetWorldSettings()->LightmassSettings) : NULL;
+
+	if (LightmassWorldSettings && LightmassWorldSettings->bUseAmbientOcclusion && LightmassWorldSettings->bGenerateAmbientOcclusionMaterialMask)
+	{
+		auto Texture = NewObject<ULightMapTexture2D>(Outer, GetAOMaterialMaskTextureName(GLightmapCounter));
+		AOMaterialMaskTexture = Texture;
+
+		Texture->Source.Init2DWithMipChain(GetSizeX(), GetSizeY(), TSF_G8);
+		Texture->MipGenSettings = TMGS_LeaveExistingMips;
+		int32 NumMips = Texture->Source.GetNumMips();
+		Texture->SRGB = false;
+		Texture->Filter	= GUseBilinearLightmaps ? TF_Default : TF_Nearest;
+		Texture->LODGroup = TEXTUREGROUP_Lightmap;
+		Texture->LightmapFlags = ELightMapFlags( LightmapFlags );
+		Texture->CompressionNoAlpha = false;
+		Texture->CompressionNone = !GCompressLightmaps;
+		// BC4
+		Texture->CompressionSettings = TC_Alpha;
+
+		int32 TextureSizeX = Texture->Source.GetSizeX();
+		int32 TextureSizeY = Texture->Source.GetSizeY();
+
+		int32 StartBottom = GetSizeX() * GetSizeY();
+
+		// Lock all mip levels.
+		uint8* MipData[MAX_TEXTURE_MIP_COUNT] = {0};
+		int8* MipCoverageData[MAX_TEXTURE_MIP_COUNT] = {0};
+		for (int32 MipIndex = 0; MipIndex < NumMips; ++MipIndex)
+		{
+			MipData[MipIndex] = (uint8*)Texture->Source.LockMip(MipIndex);
+
+			const int32 MipSizeX = FMath::Max( 1, TextureSizeX >> MipIndex );
+			const int32 MipSizeY = FMath::Max( 1, TextureSizeY >> MipIndex );
+			MipCoverageData[ MipIndex ] = (int8*)FMemory::Malloc( MipSizeX * MipSizeY );
+		}
+
+		// Create the uncompressed top mip-level.
+		uint8* TopMipData = MipData[0];
+		FMemory::Memzero( TopMipData, TextureSizeX * TextureSizeY * sizeof(uint8) );
+		FMemory::Memzero( MipCoverageData[0], TextureSizeX * TextureSizeY );
+
+		FIntRect TextureRect( MAX_int32, MAX_int32, MIN_int32, MIN_int32 );
+		for(int32 AllocationIndex = 0;AllocationIndex < Allocations.Num();AllocationIndex++)
+		{
+			FLightMapAllocation* Allocation = Allocations[AllocationIndex];
+			// Link the light-map to the texture.
+			Allocation->LightMap->AOMaterialMaskTexture = Texture;
+			
+			// Skip encoding of this texture if we were asked not to bother
+			if( !Allocation->bSkipEncoding )
+			{
+				TextureRect.Min.X = FMath::Min<int32>( TextureRect.Min.X, Allocation->OffsetX );
+				TextureRect.Min.Y = FMath::Min<int32>( TextureRect.Min.Y, Allocation->OffsetY );
+				TextureRect.Max.X = FMath::Max<int32>( TextureRect.Max.X, Allocation->OffsetX + Allocation->MappedRect.Width() );
+				TextureRect.Max.Y = FMath::Max<int32>( TextureRect.Max.Y, Allocation->OffsetY + Allocation->MappedRect.Height() );
+
+				// Copy the raw data for this light-map into the raw texture data array.
+				for(int32 Y = Allocation->MappedRect.Min.Y; Y < Allocation->MappedRect.Max.Y; ++Y)
+				{
+					for(int32 X = Allocation->MappedRect.Min.X; X < Allocation->MappedRect.Max.X; ++X)
+					{
+						const FLightMapCoefficients& SourceCoefficients = Allocation->RawData[Y * Allocation->TotalSizeX + X];
+
+						int32 DestY = Y - Allocation->MappedRect.Min.Y + Allocation->OffsetY;
+						int32 DestX = X - Allocation->MappedRect.Min.X + Allocation->OffsetX;
+
+						uint8& DestValue = TopMipData[DestY * TextureSizeX + DestX];
+
+						DestValue = SourceCoefficients.AOMaterialMask;
+
+						int8& DestCoverage = MipCoverageData[0][ DestY * TextureSizeX + DestX ];
+						DestCoverage = SourceCoefficients.Coverage / 2;
+					}
+				}
+			}
+		}
+
+		GenerateLightmapMipsAndDilateByte(NumMips, TextureSizeX, TextureSizeY, TextureColor.R, MipData, MipCoverageData);
+
+		// Unlock all mip levels.
+		for (int32 MipIndex = 0; MipIndex < NumMips; ++MipIndex)
+		{
+			Texture->Source.UnlockMip(MipIndex);
+			FMemory::Free( MipCoverageData[ MipIndex ] );
+		}
+
+		Texture->BeginCachePlatformData();
+		new(TotalAsyncTasks) FAsyncLightMapCacheTask(this, LTT_AOMaterialMask);
+		NumOutstandingAsyncTasks++;
+	}
 
 	// Encode and compress the coefficient textures.
 	for(uint32 CoefficientIndex = 0; CoefficientIndex < NUM_STORED_LIGHTMAP_COEF; CoefficientIndex += 2)
@@ -1066,7 +1346,7 @@ void FLightMapPendingTexture::StartEncoding()
 		GNumLightmapTotalTexelsNonPow2 += TextureRect.Width() * TextureRect.Height();
 		GNumLightmapTextures++;
 
-		GenerateLightmapMipsAndDilate(NumMips, TextureSizeX, TextureSizeY, TextureColor, MipData, MipCoverageData);
+		GenerateLightmapMipsAndDilateColor(NumMips, TextureSizeX, TextureSizeY, TextureColor, MipData, MipCoverageData);
 
 		// Unlock all mip levels.
 		for (int32 MipIndex = 0; MipIndex < NumMips; ++MipIndex)
@@ -1147,6 +1427,23 @@ FName FLightMapPendingTexture::GetSkyOcclusionTextureName(int32 TextureIndex)
 	do
 	{
 		PotentialName = FString(TEXT("SkyOcclusion")) + FString::FromInt(LightmapIndex) + TEXT("_") + FString::FromInt(TextureIndex);
+
+		ExistingObject = FindObject<UObject>(Outer, *PotentialName);
+		LightmapIndex++;
+	}
+	while (ExistingObject != NULL);
+	return FName(*PotentialName);
+}
+
+FName FLightMapPendingTexture::GetAOMaterialMaskTextureName(int32 TextureIndex)
+{
+	FString PotentialName = TEXT("");
+	UObject* ExistingObject = NULL;
+	int32 LightmapIndex = 0;
+	// Search for an unused name
+	do
+	{
+		PotentialName = FString(TEXT("AOMaterialMask")) + FString::FromInt(LightmapIndex) + TEXT("_") + FString::FromInt(TextureIndex);
 
 		ExistingObject = FindObject<UObject>(Outer, *PotentialName);
 		LightmapIndex++;
@@ -1569,6 +1866,7 @@ FLightMap2D::FLightMap2D()
 	Textures[0] = NULL;
 	Textures[1] = NULL;
 	SkyOcclusionTexture = NULL;
+	AOMaterialMaskTexture = NULL;
 }
 
 FLightMap2D::FLightMap2D(const TArray<FGuid>& InLightGuids)
@@ -1577,6 +1875,7 @@ FLightMap2D::FLightMap2D(const TArray<FGuid>& InLightGuids)
 	Textures[0] = NULL;
 	Textures[1] = NULL;
 	SkyOcclusionTexture = NULL;
+	AOMaterialMaskTexture = NULL;
 }
 
 const UTexture2D* FLightMap2D::GetTexture(uint32 BasisIndex) const
@@ -1594,6 +1893,11 @@ UTexture2D* FLightMap2D::GetTexture(uint32 BasisIndex)
 UTexture2D* FLightMap2D::GetSkyOcclusionTexture()
 {
 	return SkyOcclusionTexture;
+}
+
+UTexture2D* FLightMap2D::GetAOMaterialMaskTexture()
+{
+	return AOMaterialMaskTexture;
 }
 
 /**
@@ -1623,6 +1927,7 @@ void FLightMap2D::AddReferencedObjects( FReferenceCollector& Collector )
 	Collector.AddReferencedObject(Textures[0]);
 	Collector.AddReferencedObject(Textures[1]);
 	Collector.AddReferencedObject(SkyOcclusionTexture);
+	Collector.AddReferencedObject(AOMaterialMaskTexture);
 }
 
 void FLightMap2D::Serialize(FArchive& Ar)
@@ -1676,10 +1981,20 @@ void FLightMap2D::Serialize(FArchive& Ar)
 
 				ULightMapTexture2D* Dummy = NULL;
 				Ar << (bStripHQLightmaps ? Dummy : SkyOcclusionTexture);
+
+				if (Ar.UE4Ver() >= VER_UE4_AO_MATERIAL_MASK)
+				{
+					Ar << (bStripHQLightmaps ? Dummy : AOMaterialMaskTexture);
+				}
 			}
 			else
 			{
 				Ar << SkyOcclusionTexture;
+
+				if (Ar.UE4Ver() >= VER_UE4_AO_MATERIAL_MASK)
+				{
+					Ar << AOMaterialMaskTexture;
+				}
 			}
 		}
 		
@@ -1711,6 +2026,7 @@ void FLightMap2D::Serialize(FArchive& Ar)
 		if (!bAllowHighQualityLightMaps)
 		{
 			SkyOcclusionTexture = NULL;
+			AOMaterialMaskTexture = NULL;
 		}
 	}
 }
@@ -1726,7 +2042,7 @@ FLightMapInteraction FLightMap2D::GetInteraction(ERHIFeatureLevel::Type InFeatur
 	// When the FLightMap2D is first created, the textures aren't set, so that case needs to be handled.
 	if(bValidTextures)
 	{
-		return FLightMapInteraction::Texture(Textures, SkyOcclusionTexture, ScaleVectors, AddVectors, CoordinateScale, CoordinateBias, bHighQuality);
+		return FLightMapInteraction::Texture(Textures, SkyOcclusionTexture, AOMaterialMaskTexture, ScaleVectors, AddVectors, CoordinateScale, CoordinateBias, bHighQuality);
 	}
 
 	return FLightMapInteraction::None();
@@ -1876,7 +2192,10 @@ bool FQuantizedLightmapData::HasNonZeroData() const
 
 		if (LightmapSample.Coverage >= MinCoverageThreshold)
 		{
-			for (int32 CoefficentIndex = 0; CoefficentIndex < NUM_STORED_LIGHTMAP_COEF; CoefficentIndex++)
+			// Don't look at simple lightmap coefficients if we're not building them.
+			const int32 NumCoefficients = GEngine->bShouldGenerateLowQualityLightmaps ? NUM_STORED_LIGHTMAP_COEF : NUM_HQ_LIGHTMAP_COEF;
+
+			for (int32 CoefficentIndex = 0; CoefficentIndex < NumCoefficients; CoefficentIndex++)
 			{
 				if ((LightmapSample.Coefficients[CoefficentIndex][0] != 0) || (LightmapSample.Coefficients[CoefficentIndex][1] != 0) || (LightmapSample.Coefficients[CoefficentIndex][2] != 0))
 				{
@@ -1893,6 +2212,11 @@ bool FQuantizedLightmapData::HasNonZeroData() const
 						return true;
 					}
 				}
+			}
+
+			if (LightmapSample.AOMaterialMask != 0)
+			{
+				return true;
 			}
 		}
 	}

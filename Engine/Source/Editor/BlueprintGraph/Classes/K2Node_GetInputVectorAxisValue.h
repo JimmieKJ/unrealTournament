@@ -9,17 +9,17 @@ class UK2Node_GetInputVectorAxisValue : public UK2Node_GetInputAxisKeyValue
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin EdGraphNode interface
+	//~ Begin EdGraphNode Interface
 	virtual FText GetTooltipText() const override;
-	// End EdGraphNode interface
+	//~ End EdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual bool ShouldShowNodeProperties() const override { return true; }
 	virtual UClass* GetDynamicBindingClass() const override;
 	virtual void RegisterDynamicBinding(UDynamicBlueprintBinding* BindingObject) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
-	// End UK2Node interface
+	//~ End UK2Node Interface
 	
 	void Initialize(const FKey AxisKey);
 };

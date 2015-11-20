@@ -8,7 +8,7 @@
 /* FUdpDeserializedMessage interface
  *****************************************************************************/
 
-bool FUdpDeserializedMessage::Deserialize( const FUdpReassembledMessageRef& ReassembledMessage )
+bool FUdpDeserializedMessage::Deserialize(const FUdpReassembledMessageRef& ReassembledMessage)
 {
 	// Note that some complex values are deserialized manually here, so that we
 	// can sanity check their values. @see FUdpSerializeMessageTask::DoTask()

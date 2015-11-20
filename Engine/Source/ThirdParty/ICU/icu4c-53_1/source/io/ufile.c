@@ -62,7 +62,9 @@ finit_owner(FILE         *f,
 #if U_PLATFORM_USES_ONLY_WIN32_API
     if (0 <= result->fFileno && result->fFileno <= 2) {
         /* stdin, stdout and stderr need to be special cased for Windows 98 */
-#if _MSC_VER >= 1400
+#if _MSC_VER >= 1900 // VS2015
+        result->fFile = __acrt_iob_func(_fileno(f));
+#elif _MSC_VER >= 1400
         result->fFile = &__iob_func()[_fileno(f)];
 #else
         result->fFile = &_iob[_fileno(f)];

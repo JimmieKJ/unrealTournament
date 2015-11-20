@@ -10,7 +10,7 @@ class APawn;
 UDELEGATE(BlueprintAuthorityOnly)
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_FourParams( FInstigatedAnyDamageSignature, float, Damage, const class UDamageType*, DamageType, class AActor*, DamagedActor, class AActor*, DamageCauser );
 
-//=============================================================================
+//~=============================================================================
 /**
  * Controllers are non-physical actors that can possess a Pawn to control
  * its actions.  PlayerControllers are used by human players to control pawns, while
@@ -106,14 +106,14 @@ protected:
 	virtual void AddPawnTickDependency(APawn* NewPawn);
 
 	/** Remove dependency that makes us tick before the given Pawn.	 */
-	virtual void RemovePawnTickDependency(APawn* OldPawn);
+	virtual void RemovePawnTickDependency(APawn* InOldPawn);
 
 public:
 
 	/** Actor marking where this controller spawned in. */
 	TWeakObjectPtr<class AActor> StartSpot;
 
-	//=============================================================================
+	//~=============================================================================
 	// CONTROLLER STATE PROPERTIES
 
 	UPROPERTY()
@@ -172,7 +172,7 @@ public:
 
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	// Begin AActor interface
+	//~ Begin AActor Interface
 	virtual void TickActor( float DeltaTime, enum ELevelTick TickType, FActorTickFunction& ThisTickFunction ) override;
 	virtual void K2_DestroyActor() override;
 	virtual void DisplayDebug(class UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) override;
@@ -184,7 +184,7 @@ public:
 
 	virtual void Reset() override;
 	virtual void Destroyed() override;
-	// End AActor interface
+	//~ End AActor Interface
 
 	/** Getter for Pawn */
 	FORCEINLINE APawn* GetPawn() const { return Pawn; }
@@ -223,13 +223,13 @@ public:
 	 * @param InPawn The Pawn to be possessed.
 	 * @see HasAuthority()
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Pawn")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Pawn", meta=(Keywords="set controller"))
 	virtual void Possess(APawn* InPawn);
 
 	/**
 	 * Called to unpossess our pawn for any reason that is not the pawn being destroyed (destruction handled by PawnDestroyed()).
 	 */
-	UFUNCTION(BlueprintCallable, Category="Pawn")
+	UFUNCTION(BlueprintCallable, Category="Pawn", meta=(Keywords="set controller"))
 	virtual void UnPossess();
 
 	/**
@@ -267,13 +267,13 @@ public:
 	/** GameMode failed to spawn pawn for me. */
 	virtual void FailedToSpawnPawn();
 
-	// Begin INavAgentInterface Interface
+	//~ Begin INavAgentInterface Interface
 	virtual const struct FNavAgentProperties& GetNavAgentPropertiesRef() const override;
 	virtual FVector GetNavAgentLocation() const override;
 	virtual void GetMoveGoalReachTest(class AActor* MovingActor, const FVector& MoveOffset, FVector& GoalOffset, float& GoalRadius, float& GoalHalfHeight) const override;
 	virtual bool ShouldPostponePathUpdates() const override;
 	virtual bool IsFollowingAPath() const override;
-	// End INavAgentInterface Interface
+	//~ End INavAgentInterface Interface
 
 	/** prepares path following component */
 	virtual void InitNavigationControl(UPathFollowingComponent*& PathFollowingComp);

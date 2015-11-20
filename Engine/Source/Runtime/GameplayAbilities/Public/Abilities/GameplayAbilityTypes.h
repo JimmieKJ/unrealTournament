@@ -146,6 +146,8 @@ struct GAMEPLAYABILITIES_API FGameplayAbilityActorInfo
 	/** Returns true if this actor is locally controlled. Only true for players on the client that owns them */
 	bool IsLocallyControlled() const;
 
+	bool IsLocallyControlledPlayer() const;
+
 	/** Returns true if the owning actor has net authority */
 	bool IsNetAuthority() const;
 
@@ -306,11 +308,11 @@ struct GAMEPLAYABILITIES_API FGameplayEventData
 
 	// An optional ability-specific object to be passed though the event
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
-	UObject* OptionalObject;
+	const UObject* OptionalObject;
 
 	// A second optional ability-specific object to be passed though the event
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
-	UObject* OptionalObject2;
+	const UObject* OptionalObject2;
 
 	// Polymorphic context information
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
@@ -328,6 +330,9 @@ struct GAMEPLAYABILITIES_API FGameplayEventData
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameplayAbilityTriggerPayload)
 	float EventMagnitude;
 };
+
+/** Used for cleaning up predicted data on network clients */
+DECLARE_MULTICAST_DELEGATE_OneParam(FGameplayEventMulticastDelegate, const FGameplayEventData*);
 
 /** 
  *	Structure that tells AbilitySystemComponent what to bind to an InputComponent (see BindAbilityActivationToInputComponent) 

@@ -10,6 +10,7 @@ struct FChunkDependencyTreeNode;
  */
 class FChunkManifestGenerator
 {
+	TArray<FName> StartupPackages;
 	/** Map of Package name to Sandbox Paths */
 	typedef TMap<FName, FString> FChunkPackageSet;
 	/** Holds a reference to asset registry */
@@ -22,6 +23,8 @@ class FChunkManifestGenerator
 	TSet<FName> AssetsLoadedWithLastPackage;
 	/** The entire asset registry data */
 	TArray<FAssetData> AssetRegistryData;
+	/** Lookup for the original ChunkID Mappings. AssetRegistryData is modified making it invalid to query */
+	TMap<FName, TArray<int32> > PackageChunkIDMap;
 	/** Maps packages to assets from the asset registry */
 	TMap<FName, TArray<int32> > PackageToRegistryDataMap;
 	/** Should the chunks be generated or only asset registry */
@@ -38,6 +41,9 @@ class FChunkManifestGenerator
 	TSet<FName>						InspectedNames;
 	/** */
 	UChunkDependencyInfo*			DependencyInfo;
+
+	/** Dependency type to follow when adding package dependencies to chunks.*/
+	EAssetRegistryDependencyType::Type DependencyType;
 
 	struct FReferencePair
 	{
@@ -76,44 +82,13 @@ class FChunkManifestGenerator
 	void RemovePackageFromManifest(FName PackageName, int32 ChunkId);
 
 	/**
-	 * Adds a package to the unassigned package list for managing later
-	 *
-	 * @param The sandbox filepath of the package
-	 * @param The package name
-	 */
-	void NotifyPackageWasNotAssigned(const FString& PackageSandboxPath, FName PackageName);
-
-	/**
-	 * Adds a package to the global list of cooked packages.
-	 *
-	 * @param The sandbox filepath of the package
-	 * @param The package name
-	 */
-	void NotifyPackageWasCooked(const FString& PackageSandboxPath, FName PackageName);
-
-	/**
 	 * Walks the dependency graph of assets and assigns packages to correct chunks.
 	 * 
-	 * @param the SandboxPlatformFile used during cook
+	 * @param the InSandboxFile used during cook
 	 */
-	void FixupPackageDependenciesForChunks(FSandboxPlatformFile* SandboxFile);
+	void FixupPackageDependenciesForChunks(FSandboxPlatformFile* InSandboxFile);
 
-	/**
-	 * Adds a package and all its dependencies to a Chunk
-	 *
-	 * @param The Package set to add to
-	 * @param The Name of the package to add
-	 * @param The sandbox path of the asset
-	 * @param The ID of the Chunk being added to
-	 * @param the SandboxPlatformFile used during cook
-	 */
-	void AddPackageAndDependenciesToChunk(FChunkPackageSet* ChunkPackageSet, FName PkgName, const FString& SandboxFile, int32 ChunkID, FSandboxPlatformFile* SandboxPlatformFile);
-
-	/**
-	 * Callback for FCoreDelegates::FOnAssetLoaded delegate.
-	 * Collects all assets loaded with the last package.
-	 */
-	void OnAssetLoaded(UObject* Asset);
+	void AddPackageAndDependenciesToChunk(FChunkPackageSet* ThisPackageSet, FName InPkgName, const FString& InSandboxFile, int32 ChunkID, FSandboxPlatformFile* SandboxPlatformFile);
 
 	/**
 	 * Returns the path of the temporary packaging directory for the specified platform.
@@ -167,14 +142,11 @@ class FChunkManifestGenerator
 	*/
 	FORCEINLINE TArray<int32> GetAssetRegistryChunkAssignments(const FName& PackageFName)
 	{
-		//get the objects in this package
 		TArray<int32> RegistryChunkIDs;
-		for ( const auto& AssetData : AssetRegistryData )
+		auto* FoundIDs = PackageChunkIDMap.Find(PackageFName);
+		if (FoundIDs)
 		{
-			if ( AssetData.PackageName == PackageFName ) 
-			{
-				RegistryChunkIDs.Append( AssetData.ChunkIDs );
-			}
+			RegistryChunkIDs = *FoundIDs;
 		}
 		return RegistryChunkIDs;
 	}
@@ -198,9 +170,14 @@ class FChunkManifestGenerator
 	bool GatherAllPackageDependencies(FName PackageName, TArray<FName>& DependentPackageNames);
 
 	/**
+	* Gather the list of dependencies that link the source to the target.  Output array includes the target.
+	*/
+	bool GetPackageDependencyChain(FName SourcePackage, FName TargetPackage, TArray<FName>& VisitedPackages, TArray<FName>& OutDependencyChain);
+
+	/**
 	* Get an array of Packages this package will import.
 	*/
-	bool GetPackageDependencies(FName PackageName, TArray<FName>& DependentPackageNames);
+	bool GetPackageDependencies(FName PackageName, TArray<FName>& DependentPackageNames, EAssetRegistryDependencyType::Type InDependencyType);
 
 	/**
 	 * Save a CSV dump of chunk asset information.
@@ -220,12 +197,22 @@ class FChunkManifestGenerator
 	/**
 	* 
 	*/
-	void			ResolveChunkDependencyGraph(const FChunkDependencyTreeNode& Node, FChunkPackageSet BaseAssetSet);
+	void			ResolveChunkDependencyGraph(const FChunkDependencyTreeNode& Node, FChunkPackageSet BaseAssetSet, TArray<TArray<FName>>& OutPackagesMovedBetweenChunks);
 
 	/**
 	* Helper function to verify Chunk asset assigment is valid.
 	*/
 	bool			CheckChunkAssetsAreNotInChild(const FChunkDependencyTreeNode& Node);
+
+	/**
+	* Helper function to create a given collection.
+	*/
+	bool			CreateOrEmptyCollection(FName CollectionName);
+
+	/**
+	* Helper function to fill a given collection with a set of packages.
+	*/
+	void			WriteCollection(FName CollectionName, const TArray<FName>& PackageNames);
 
 public:
 
@@ -242,7 +229,29 @@ public:
 	/**
 	 * Initializes manifest generator - creates manifest lists, hooks up delegates.
 	 */
-	void Initialize(bool InGenerateChunks);
+	void Initialize(const TArray<FName> &StartupPackages);
+
+
+	const TArray<ITargetPlatform*>& GetTargetPlatforms() const { return Platforms; }
+
+	/**
+	 * GenerateChunkManifest 
+	 * generate chunk manifest for the packages passed in using the asset registry to determine dependencies
+	 *
+	 * @param StartupPackages list of startup packages which are forced into chunk 0
+	 * @param CookedPackages list of packages which were cooked
+	 * @param bGenerateStreamingInstallManifest should we build a streaming install manifest 
+	 */
+	void BuildChunkManifest(const TArray<FName>& CookedPackages, FSandboxPlatformFile* InSandboxFile, bool bGenerateStreamingInstallManifest);
+
+	/**
+	 * ContainsMap
+	 * Does this package contain a map file (determined by finding if this package contains a UWorld / ULevel object)
+	 *
+	 * @param PackageName long package name of the package we want to determine if contains a map 
+	 * @return return if the package contains a UWorld / ULevel object (contains a map)
+	 */
+	bool ContainsMap(const FName& PackageName) const;
 
 	/**
 	 * Adds a package to chunk manifest (just calls the other AddPackageToChunkManifestFunction with more parameters)
@@ -252,9 +261,10 @@ public:
 	 * @param LastLoadedMapName Name of the last loaded map (can be empty)
 	 * @param the SandboxPlatformFile used during cook
 	 */
-	void AddPackageToChunkManifest(UPackage* Package, const FString& SandboxFilename, const FString& LastLoadedMapName, FSandboxPlatformFile* SandboxFile);
 	void AddPackageToChunkManifest(const FName& PackageFName, const FString& PackagePathName, const FString& SandboxFilename, const FString& LastLoadedMapName, FSandboxPlatformFile* InSandboxFile);
 	
+
+	void GenerateChunkManifestForPackage(const FName& PackageFName, const FString& PackagePathName, const FString& SandboxFilename, const FString& LastLoadedMapName, FSandboxPlatformFile* InSandboxFile);
 
 	/**
 	 * Add a package to the manifest but don't assign it to any chunk yet, packages which are not assigned by the end of the cook will be put into chunk 0
@@ -265,27 +275,6 @@ public:
 	void AddUnassignedPackageToManifest(UPackage* Package, const FString& PackageSandboxPath );
 
 	/**
-	 * Collects all the packages loaded 
-	 *
-	 * @param Package Package which was loaded 
-	 */
-	void OnLastPackageLoaded( UPackage* Package );
-
-
-	/**
-	 * Collects all the packages loaded 
-	 * Does the same as other overload of OnLastPackageLoaded except takes in the name of the package as a fname 
-	 * 
-	 * @param Package name
-	 */
-	void OnLastPackageLoaded( const FName& PackageName );
-
-	/**
-	 * The cooker is about to load a new package from the list, reset AssetsLoadedWithLastPackage
-	 */
-	void PrepareToLoadNewPackage(const FString& Filename);
-
-	/**
 	 * Deletes temporary manifest directories.
 	 */
 	void CleanManifestDirectories();
@@ -293,9 +282,9 @@ public:
 	/**
 	 * Saves all generated manifests for each target platform.
 	 * 
-	 * @param the SandboxPlatformFile used during cook
+	 * @param the InSandboxFile used during cook
 	 */
-	bool SaveManifests(FSandboxPlatformFile* SandboxFile);
+	bool SaveManifests(FSandboxPlatformFile* InSandboxFile);
 
 	/**
 	* Saves generated asset registry data for each platform.
@@ -320,5 +309,22 @@ public:
 	 */
 	bool SaveCookedPackageAssetRegistry( const FString& SandboxPath, const bool Append );
 
-	void ClearAssetTag(const FName& TagToClear);
+	/**
+	* Follows an assets dependency chain to build up a list of package names in the same order as the runtime would attempt to load them
+	* 
+	* @param InAsset - The asset to (potentially) add to the file order
+	* @param OutFileOrder - Output array which collects the package names
+	* @param OutEncounteredArray - Temporary collection of package names we've seen. Similar to OutFileOrder but updated BEFORE following dependencies so as to avoid circular references
+	* @param InAssets - The source asset list. Used to distinguish between dependencies on other packages and internal objects
+	* @param InAssetTypeMap - Lookup table of package name to type. Used to determine if a dependency is a streamed level so as not to follow dependencies
+	*/
+	void AddAssetToFileOrderRecursive(FAssetData* InAsset, TArray<FName>& OutFileOrder, TArray<FName>& OutEncounteredNames, const TMap<FName, FAssetData*>& InAssets, const TArray<FName>& InMapList);
+
+	/**
+	* Build a file order string which represents the order in which files would be loaded at runtime. 
+	* 
+	* @param InAssetData - Assets data for those assets which were cooked on this run. 
+	* @param InTopLevelAssets - Names of map assets
+	*/
+	FString CreateCookerFileOrderString(const TMap<FName, FAssetData*>& InAssetData, const TArray<FName>& InMaps);
 };

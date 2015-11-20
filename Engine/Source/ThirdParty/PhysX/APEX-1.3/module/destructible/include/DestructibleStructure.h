@@ -151,19 +151,21 @@ enum ChunkFlag
 /* A struct for adding forces to actors after they are added to the scene */
 struct ActorForceAtPosition
 {
-	ActorForceAtPosition() : force(0.0f), pos(0.0f), mode(PxForceMode::eFORCE), wakeup(true) {}
+	ActorForceAtPosition() : force(0.0f), pos(0.0f), mode(PxForceMode::eFORCE), wakeup(true), usePosition(true) {}
 
-	ActorForceAtPosition(const PxVec3& _force, const PxVec3& _pos, PxForceMode::Enum _mode, bool _wakeup)
+	ActorForceAtPosition(const PxVec3& _force, const PxVec3& _pos, PxForceMode::Enum _mode, bool _wakeup, bool _usePosition)
 		: force(_force)
 		, pos(_pos)
 		, mode(_mode)
 		, wakeup(_wakeup) 
+		, usePosition(_usePosition)
 	{}
 
 	PxVec3 force;
 	PxVec3 pos;
 	PxForceMode::Enum mode;
 	bool wakeup;
+	bool usePosition;
 };
 #endif
 

@@ -67,6 +67,20 @@ bool FGitCheckInWorker::Execute(FGitSourceControlCommand& InCommand)
 		InCommand.bCommandSuccessful = GitSourceControlUtils::RunCommit(InCommand.PathToGitBinary, InCommand.PathToRepositoryRoot, Parameters, InCommand.Files, InCommand.InfoMessages, InCommand.ErrorMessages);
 		if(InCommand.bCommandSuccessful)
 		{
+			// Remove any deleted files from status cache
+			FGitSourceControlModule& GitSourceControl = FModuleManager::LoadModuleChecked<FGitSourceControlModule>("GitSourceControl");
+			FGitSourceControlProvider& Provider = GitSourceControl.GetProvider();
+
+			TArray<TSharedRef<ISourceControlState, ESPMode::ThreadSafe>> LocalStates;
+			Provider.GetState(InCommand.Files, LocalStates, EStateCacheUsage::Use);
+			for (const auto& State : LocalStates)
+			{
+				if (State->IsDeleted())
+				{
+					Provider.RemoveFileFromCache(State->GetFilename());
+				}
+			}
+
 			Operation->SetSuccessMessage(ParseCommitResults(InCommand.InfoMessages));
 			UE_LOG(LogSourceControl, Log, TEXT("FGitCheckInWorker: commit successful"));
 		}

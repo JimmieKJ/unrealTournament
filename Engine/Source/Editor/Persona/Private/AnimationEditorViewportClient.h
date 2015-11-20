@@ -152,9 +152,6 @@ public:
 	/* Places the viewport camera at a good location to view the preview target */
 	void FocusViewportOnPreviewMesh();
 
-	/* Sets the playback scale for this viewport. 1.0 == Normal, 0.5 == Half speed etc */
-	void SetPlaybackScale(float PlaybackScale) {AnimationPlaybackScale = PlaybackScale;}
-
 	/** Callback for toggling the normals show flag. */
 	void ToggleShowNormals();
 
@@ -254,9 +251,6 @@ private:
 
 	/** Control where we display local axes for bones/sockets */
 	ELocalAxesMode::Type LocalAxesMode;
-
-	/** Scale value so we can slow down or speed up playback in the viewport */
-	float AnimationPlaybackScale;
 
 	/** User selected color using color picker */
 	FLinearColor SelectedHSVColor;

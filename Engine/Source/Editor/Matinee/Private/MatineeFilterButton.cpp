@@ -36,7 +36,9 @@ FReply SMatineeFilterButton::OnMouseButtonUp( const FGeometry& MyGeometry, const
 			TSharedPtr<SWidget> MenuContent = OnContextMenuOpening.Execute();
 			if( MenuContent.IsValid() )
 			{
-				FSlateApplication::Get().PushMenu( AsShared(), MenuContent.ToSharedRef(), MouseEvent.GetScreenSpacePosition(), FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ) );
+				FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+
+				FSlateApplication::Get().PushMenu(AsShared(), WidgetPath, MenuContent.ToSharedRef(), MouseEvent.GetScreenSpacePosition(), FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 			}
 		}
 

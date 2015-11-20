@@ -10,9 +10,11 @@
 #include "DistortionRendering.h"
 #include "CustomDepthRendering.h"
 #include "HeightfieldLighting.h"
+#include "GlobalDistanceFieldParameters.h"
 
 // Forward declarations.
 class FPostprocessContext;
+struct FILCUpdatePrimTaskData;
 
 /** Information about a visible light which is specific to the view it's visible in. */
 class FVisibleLightViewInfo
@@ -58,6 +60,12 @@ public:
 	TArray<FProjectedShadowInfo*,SceneRenderingAllocator> OccludedPerObjectShadows;
 };
 
+// enum instead of bool to get better visibility when we pass around multiple bools
+enum ETranslucencyPassType
+{
+	TPT_NonSeparateTransluceny,
+	TPT_SeparateTransluceny
+};
 
 /** 
 * Set of sorted translucent scene prims  
@@ -70,28 +78,28 @@ public:
 	* Iterate over the sorted list of prims and draw them
 	* @param View - current view used to draw items
 	* @param PhaseSortedPrimitives - array with the primitives we want to draw
-	* @param bSeparateTranslucencyPass
+	* @param TranslucenyPassType
 	*/
-	void DrawPrimitives(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View, class FDeferredShadingSceneRenderer& Renderer, bool bSeparateTranslucencyPass) const;
+	void DrawPrimitives(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View, class FDeferredShadingSceneRenderer& Renderer, ETranslucencyPassType TranslucenyPassType) const;
 
 	/**
 	* Iterate over the sorted list of prims and draw them
 	* @param View - current view used to draw items
 	* @param PhaseSortedPrimitives - array with the primitives we want to draw
-	* @param bSeparateTranslucencyPass
+	* @param TranslucenyPassType
 	* @param FirstIndex, range of elements to render
 	* @param LastIndex, range of elements to render
 	*/
-	void DrawPrimitivesParallel(FRHICommandList& RHICmdList, const class FViewInfo& View, class FDeferredShadingSceneRenderer& Renderer, bool bSeparateTranslucencyPass, int32 FirstIndex, int32 LastIndex) const;
+	void DrawPrimitivesParallel(FRHICommandList& RHICmdList, const class FViewInfo& View, class FDeferredShadingSceneRenderer& Renderer, ETranslucencyPassType TranslucenyPassType, int32 FirstIndex, int32 LastIndex) const;
 
 	/**
 	* Draw a single primitive...this is used when we are rendering in parallel and we need to handlke a translucent shadow
 	* @param View - current view used to draw items
 	* @param PhaseSortedPrimitives - array with the primitives we want to draw
-	* @param bSeparateTranslucencyPass
+	* @param TranslucenyPassType
 	* @param Index, element to render
 	*/
-	void DrawAPrimitive(FRHICommandList& RHICmdList, const class FViewInfo& View, class FDeferredShadingSceneRenderer& Renderer, bool bSeparateTranslucencyPass, int32 Index) const;
+	void DrawAPrimitive(FRHICommandList& RHICmdList, const class FViewInfo& View, class FDeferredShadingSceneRenderer& Renderer, ETranslucencyPassType TranslucenyPassType, int32 Index) const;
 
 	/** Draw all the primitives in this set for the forward shading pipeline. */
 	void DrawPrimitivesForForwardShading(FRHICommandListImmediate& RHICmdList, const class FViewInfo& View, class FSceneRenderer& Renderer) const;
@@ -202,7 +210,7 @@ private:
 	TArray<FSortedPrim,SceneRenderingAllocator> SortedSeparateTranslucencyPrims;
 
 	/** Renders a single primitive for the deferred shading pipeline. */
-	void RenderPrimitive(FRHICommandList& RHICmdList, const FViewInfo& View, FPrimitiveSceneInfo* PrimitiveSceneInfo, const FPrimitiveViewRelevance& ViewRelevance, const FProjectedShadowInfo* TranslucentSelfShadow, bool bSeparateTranslucencyPass) const;
+	void RenderPrimitive(FRHICommandList& RHICmdList, const FViewInfo& View, FPrimitiveSceneInfo* PrimitiveSceneInfo, const FPrimitiveViewRelevance& ViewRelevance, const FProjectedShadowInfo* TranslucentSelfShadow, ETranslucencyPassType TranslucenyPassType) const;
 };
 
 template <> struct TIsPODType<FTranslucentPrimSet::FDepthSortedPrim> { enum { Value = true }; };
@@ -311,25 +319,41 @@ class FParallelCommandListSet
 {
 public:
 	const FViewInfo& View;
+	FRHICommandListImmediate& ParentCmdList;
+	FSceneRenderTargets* Snapshot;
 	int32 Width;
-	FRHICommandList& ParentCmdList;
-private:
-	bool OutDirtyIfIgnored;
+	int32 NumAlloc;
+	int32 MinDrawsPerCommandList;
+	// see r.RHICmdBalanceParallelLists
+	bool bBalanceCommands;
+	// see r.RHICmdSpewParallelListBalance
+	bool bSpewBalance;
+	bool bBalanceCommandsWithLastFrame;
 public:
-	bool& OutDirty;
 	TArray<FRHICommandList*,SceneRenderingAllocator> CommandLists;
 	TArray<FGraphEventRef,SceneRenderingAllocator> Events;
+	// number of draws in this commandlist if known, -1 if not known. Overestimates are better than nothing.
+	TArray<int32,SceneRenderingAllocator> NumDrawsIfKnown;
 protected:
 	//this must be called by deriving classes virtual destructor because it calls the virtual SetStateOnCommandList.
 	//C++ will not do dynamic dispatch of virtual calls from destructors so we can't call it in the base class.
 	void Dispatch();
 	FRHICommandList* AllocCommandList();
 	bool bParallelExecute;
+	bool bCreateSceneContext;
 public:
-	FParallelCommandListSet(const FViewInfo& InView, FRHICommandList& InParentCmdList, bool* InOutDirty, bool bInParallelExecute);
+	FParallelCommandListSet(const FViewInfo& InView, FRHICommandListImmediate& InParentCmdList, bool bInParallelExecute, bool bInCreateSceneContext);
 	virtual ~FParallelCommandListSet();
+	int32 NumParallelCommandLists() const
+	{
+		return CommandLists.Num();
+	}
 	FRHICommandList* NewParallelCommandList();
-	void AddParallelCommandList(FRHICommandList* CmdList, FGraphEventRef& CompletionEvent);	
+	FORCEINLINE FGraphEventArray* GetPrereqs()
+	{
+		return nullptr;
+	}
+	void AddParallelCommandList(FRHICommandList* CmdList, FGraphEventRef& CompletionEvent, int32 InNumDrawsIfKnown = -1);	
 
 	virtual void SetStateOnCommandList(FRHICommandList& CmdList)
 	{
@@ -337,10 +361,52 @@ public:
 	}
 };
 
+class FVolumeUpdateRegion
+{
+public:
+	/** World space bounds. */
+	FBox Bounds;
+
+	/** Number of texels in each dimension to update. */
+	FIntVector CellsSize;
+};
+
+class FGlobalDistanceFieldClipmap
+{
+public:
+	/** World space bounds. */
+	FBox Bounds;
+
+	/** Offset applied to UVs so that only new or dirty areas of the volume texture have to be updated. */
+	FVector ScrollOffset;
+
+	/** Regions in the volume texture to update. */
+	TArray<FVolumeUpdateRegion, TInlineAllocator<3> > UpdateRegions;
+
+	/** Volume texture for this clipmap. */
+	TRefCountPtr<IPooledRenderTarget> RenderTarget;
+};
+
+class FGlobalDistanceFieldInfo
+{
+public:
+
+	TArray<FGlobalDistanceFieldClipmap> Clipmaps;
+	FGlobalDistanceFieldParameterData ParameterData;
+
+	void UpdateParameterData(float MaxOcclusionDistance);
+};
+
 /** A FSceneView with additional state used by the scene renderer. */
 class FViewInfo : public FSceneView
 {
 public:
+
+	/** 
+	 * The view's state, or NULL if no state exists.
+	 * This should be used internally to the renderer module to avoid having to cast View.State to an FSceneViewState*
+	 */
+	FSceneViewState* ViewState;
 
 	/** A map from primitive ID to a boolean visibility value. */
 	FSceneBitArray PrimitiveVisibilityMap;
@@ -369,6 +435,12 @@ public:
 	/** A map from static mesh ID to a boolean shadow depth visibility value. */
 	FSceneBitArray StaticMeshShadowDepthMap;
 
+	/** A map from static mesh ID to a boolean dithered LOD fade out value. */
+	FSceneBitArray StaticMeshFadeOutDitheredLODMap;
+
+	/** A map from static mesh ID to a boolean dithered LOD fade in value. */
+	FSceneBitArray StaticMeshFadeInDitheredLODMap;
+
 	/** An array of batch element visibility masks, valid only for meshes
 	 set visible in either StaticMeshVisibilityMap or StaticMeshShadowDepthMap. */
 	TArray<uint64,SceneRenderingAllocator> StaticMeshBatchVisibility;
@@ -378,6 +450,9 @@ public:
 
 	/** The dynamic editor primitives visible in this view. */
 	TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleEditorPrimitives;
+
+	/** View dependent global distance field clipmap info. */
+	FGlobalDistanceFieldInfo GlobalDistanceFieldInfo;
 
 	/** Set of translucent prims for this view */
 	FTranslucentPrimSet TranslucentPrimSet;
@@ -442,6 +517,8 @@ public:
 	uint32 bDisableQuerySubmissions : 1;
 	/** Whether we should disable distance-based fade transitions for this frame (usually after a large camera movement.) */
 	uint32 bDisableDistanceBasedFadeTransitions : 1;
+	/** Whether the view has any materials that use the global distance field. */
+	uint32 bUsesGlobalDistanceField : 1;
 	/** Bitmask of all shading models used by primitives in this view */
 	uint16 ShadingModelMaskInView;
 
@@ -465,6 +542,10 @@ public:
 	// Hierarchical Z Buffer
 	TRefCountPtr<IPooledRenderTarget> HZB;
 
+	// Size of the HZB's mipmap 0
+	// NOTE: the mipmap 0 is downsampled version of the depth buffer
+	FIntPoint HZBMipmap0Size;
+
 	/** Used by occlusion for percent unoccluded calculations. */
 	float OneOverNumPossiblePixels;
 
@@ -477,6 +558,8 @@ public:
 	FHeightfieldLightingViewInfo HeightfieldLightingViewInfo;
 
 	TShaderMap<FGlobalShaderType>* ShaderMap;
+
+	bool bIsSnapshot;
 
 	/** Custom visibility query for view */
 	ICustomVisibilityQuery* CustomVisibilityQuery;
@@ -499,6 +582,7 @@ public:
 
 	/** Creates the view's uniform buffer given a set of view transforms. */
 	TUniformBufferRef<FViewUniformShaderParameters> CreateUniformBuffer(
+		FRHICommandList& RHICmdList,
 		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>* DirectionalLightShadowInfo,
 		const FMatrix& EffectiveTranslatedViewMatrix, 
 		const FMatrix& EffectiveViewToTranslatedWorld, 
@@ -512,12 +596,43 @@ public:
 	bool IsDistanceCulled(float DistanceSquared, float MaxDrawDistance, float MinDrawDistance, const FPrimitiveSceneInfo* PrimitiveSceneInfo);
 
 	/** Gets the eye adaptation render target for this view. */
-	IPooledRenderTarget* GetEyeAdaptation() const;
+	IPooledRenderTarget* GetEyeAdaptation(FRHICommandList& RHICmdList) const;
+
+	/** Tells if the eyeadaptation texture exists without attempting to allocate it. */
+	bool HasValidEyeAdaptation() const;
+
+	/** Informs sceneinfo that eyedaptation has queued commands to compute it at least once */
+	void SetValidEyeAdaptation();
 
 	/** Create acceleration data structure and information to do forward lighting with dynamic branching. */
 	void CreateLightGrid();
 
+	FORCEINLINE_DEBUGGABLE float GetDitheredLODTransitionValue(const FStaticMesh& Mesh) const
+	{
+		float DitherValue = 0.0f;
+		if (Mesh.bDitheredLODTransition)
+		{
+			if (StaticMeshFadeOutDitheredLODMap[Mesh.Id])
+			{
+				DitherValue = GetTemporalLODTransition();
+			}
+			else if (StaticMeshFadeInDitheredLODMap[Mesh.Id])
+			{
+				DitherValue = GetTemporalLODTransition() - 1.0f;
+			}
+		}
+		return DitherValue;
+	}
+
+	/** Create a snapshot of this view info on the scene allocator. */
+	FViewInfo* CreateSnapshot() const;
+
+	/** Destroy all snapshots before we wipe the scene allocator. */
+	static void DestroyAllSnapshots();
+
 private:
+
+	FSceneViewState* GetEffectiveViewState() const;
 
 	/** Initialization that is common to the constructors. */
 	void Init();
@@ -619,9 +734,46 @@ public:
 	*/
 	static bool ShouldCompositeEditorPrimitives(const FViewInfo& View);
 
+	/** the last thing we do with a scene renderer, lots of cleanup related to the threading **/
+	static void WaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHICommandListImmediate& RHICmdList, FSceneRenderer* SceneRenderer);
+
+
 protected:
 
 	// Shared functionality between all scene renderers
+
+	/** Renders the projections of the given Shadows to the appropriate color render target. */
+	void RenderProjections(
+		FRHICommandListImmediate& RHICmdList,
+		const FLightSceneInfo* LightSceneInfo,
+		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& Shadows,
+		bool bForwardShading
+		);
+
+	/** Finds a matching cached preshadow, if one exists. */
+	TRefCountPtr<FProjectedShadowInfo> GetCachedPreshadow(
+		const FLightPrimitiveInteraction* InParentInteraction,
+		const FProjectedShadowInitializer& Initializer,
+		const FBoxSphereBounds& Bounds,
+		uint32 InResolutionX);
+
+	/** Creates a per object projected shadow for the given interaction. */
+	void CreatePerObjectProjectedShadow(
+		FRHICommandListImmediate& RHICmdList,
+		FLightPrimitiveInteraction* Interaction,
+		bool bCreateTranslucentObjectShadow,
+		bool bCreateInsetObjectShadow,
+		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& ViewDependentWholeSceneShadows,
+		TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& OutPreShadows);
+
+	/** Creates shadows for the given interaction. */
+	void SetupInteractionShadows(
+		FRHICommandListImmediate& RHICmdList,
+		FLightPrimitiveInteraction* Interaction,
+		FVisibleLightInfo& VisibleLightInfo,
+		bool bStaticSceneOnly,
+		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& ViewDependentWholeSceneShadows,
+		TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& PreShadows);
 
 	/** Generates FProjectedShadowInfos for all wholesceneshadows on the given light.*/
 	void AddViewDependentWholeSceneShadowsForView(
@@ -678,12 +830,12 @@ protected:
 	void ComputeViewVisibility(FRHICommandListImmediate& RHICmdList);
 
 	/** Performs once per frame setup after to visibility determination. */
-	void PostVisibilityFrameSetup();
+	void PostVisibilityFrameSetup(FILCUpdatePrimTaskData& OutILCTaskData);
 
 	void GatherDynamicMeshElements(
-		TArray<FViewInfo>& Views, 
-		const FScene* Scene, 
-		const FSceneViewFamily& ViewFamily, 
+		TArray<FViewInfo>& InViews, 
+		const FScene* InScene, 
+		const FSceneViewFamily& InViewFamily, 
 		const FPrimitiveViewMasks& HasDynamicMeshElementsMasks, 
 		const FPrimitiveViewMasks& HasDynamicEditorMeshElementsMasks, 
 		FMeshElementCollector& Collector);
@@ -708,7 +860,10 @@ protected:
 	void OnStartFrame();
 
 	/** Renders the scene's distortion */
-	void RenderDistortion(FRHICommandListImmediate& RHICmdList);	
+	void RenderDistortion(FRHICommandListImmediate& RHICmdList);
+	void RenderDistortionES2(FRHICommandListImmediate& RHICmdList);
+
+	static int32 GetRefractionQuality(const FSceneViewFamily& ViewFamily);
 };
 
 
@@ -737,8 +892,23 @@ protected:
 	/** Renders the opaque base pass for forward shading. */
 	void RenderForwardShadingBasePass(FRHICommandListImmediate& RHICmdList);
 
+	/** Render modulated shadow projections in to the scene, loops over any unrendered shadows until all are processed.*/
+	void RenderModulatedShadowProjections(FRHICommandListImmediate& RHICmdList);
+
+	/** Render shadow depths to the depth texture.*/
+	void RenderModulatedShadowDepthMaps(FRHICommandListImmediate& RHICmdList);
+	
+	/** Projects any existing depth images into the scene.*/
+	void RenderAllocatedModulatedShadowProjections(FRHICommandListImmediate& RHICmdList);
+	
 	/** Makes a copy of scene alpha so PC can emulate ES2 framebuffer fetch. */
 	void CopySceneAlpha(FRHICommandListImmediate& RHICmdList, const FViewInfo& View);
+
+	/** Resolves scene depth in case hardware does not support reading depth in the shader */
+	void ConditionalResolveSceneDepth(FRHICommandListImmediate& RHICmdList);
+
+	/** Renders decals. */
+	void RenderDecals(FRHICommandListImmediate& RHICmdList);
 
 	/** Renders the base pass for translucency. */
 	void RenderTranslucency(FRHICommandListImmediate& RHICmdList);
@@ -756,4 +926,8 @@ protected:
 	  * @return true if anything got rendered
 	  */
 	bool RenderShadowDepthMap(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo);
+
+private:
+	bool bModulatedShadowsInUse;
+	bool bCSMShadowsInUse;
 };

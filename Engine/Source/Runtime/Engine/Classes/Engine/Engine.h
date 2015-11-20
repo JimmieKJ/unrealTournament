@@ -5,29 +5,34 @@
 #include "World.h"
 #include "Engine.generated.h"
 
-
 class FScreenSaverInhibitor;
 class UDeviceProfileManager;
 class FViewport;
 class FCommonViewportClient;
 class FCanvas;
 
+#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+class FTypeContainer;
+class IMessageRpcClient;
+class IPortalRpcLocator;
+class IPortalServiceLocator;
+#endif
 
 /**
- * Enumerats types of fully loaded packages.
+ * Enumerates types of fully loaded packages.
  */
 UENUM()
 enum EFullyLoadPackageType
 {
-	/** Load the packages when the map in Tag is loaded */
+	/** Load the packages when the map in Tag is loaded. */
 	FULLYLOAD_Map,
-	/** Load the packages before the game class in Tag is loaded. The Game name MUST be specified in the URL (game=Package.GameName). Useful for loading packages needed to load the game type (a DLC game type, for instance) */
+	/** Load the packages before the game class in Tag is loaded. The Game name MUST be specified in the URL (game=Package.GameName). Useful for loading packages needed to load the game type (a DLC game type, for instance). */
 	FULLYLOAD_Game_PreLoadClass,
-	/** Load the packages after the game class in Tag is loaded. Will work no matter how game is specified in UWorld::SetGameMode. Useful for modifying shipping gametypes by loading more packages (mutators, for instance) */
+	/** Load the packages after the game class in Tag is loaded. Will work no matter how game is specified in UWorld::SetGameMode. Useful for modifying shipping gametypes by loading more packages (mutators, for instance). */
 	FULLYLOAD_Game_PostLoadClass,
-	/** Fully load the package as long as the DLC is loaded */
+	/** Fully load the package as long as the DLC is loaded. */
 	FULLYLOAD_Always,
-	/** Load the package for a mutator that is active */
+	/** Load the package for a mutator that is active. */
 	FULLYLOAD_Mutator,
 	FULLYLOAD_MAX,
 };
@@ -59,7 +64,7 @@ enum EConsoleType
 };
 
 
-/** Struct to help hold information about packages needing to be fully-loaded for DLC, etc */
+/** Struct to help hold information about packages needing to be fully-loaded for DLC, etc. */
 USTRUCT()
 struct FFullyLoadedPackagesInfo
 {
@@ -437,30 +442,19 @@ struct FScreenMessageString
 	UPROPERTY(transient)
 	float CurrentTimeDisplayed;
 
+	/** Scale of text */
+	UPROPERTY(transient)
+	FVector2D TextScale;
 
-
-		FScreenMessageString()
+	FScreenMessageString()
 		: Key(0)
 		, DisplayColor(ForceInit)
 		, TimeToDisplay(0)
 		, CurrentTimeDisplayed(0)
-		{
-		}
-	
-};
-
-
-UENUM()
-namespace EMatineeCaptureType
-{
-	enum Type
+		, TextScale(ForceInit)
 	{
-		AVI		UMETA(DisplayName="AVI Movie"),
-		BMP		UMETA(DisplayName="BMP Image Sequence"),
-		PNG		UMETA(DisplayName="PNG Image Sequence"),
-		JPEG	UMETA(DisplayName="JPEG Image Sequence")
-	};
-}
+	}
+};
 
 
 USTRUCT()
@@ -469,10 +463,10 @@ struct FGameNameRedirect
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FString OldGameName;
+	FName OldGameName;
 
 	UPROPERTY()
-	FString NewGameName;
+	FName NewGameName;
 };
 
 
@@ -482,19 +476,25 @@ struct FClassRedirect
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FString ObjectName;
+	FName ObjectName;
 
 	UPROPERTY()
-	FString OldClassName;
+	FName OldClassName;
 
 	UPROPERTY()
-	FString NewClassName;
+	FName NewClassName;
 
 	UPROPERTY()
-	FString OldSubobjName;
+	FName OldSubobjName;
 
 	UPROPERTY()
-	FString NewSubobjName;
+	FName NewSubobjName;
+
+	UPROPERTY()
+	FName NewClassClass; 
+
+	UPROPERTY()
+	FName NewClassPackage; 
 
 	UPROPERTY()
 	bool InstanceOnly;
@@ -507,10 +507,10 @@ struct FStructRedirect
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FString OldStructName;
+	FName OldStructName;
 
 	UPROPERTY()
-	FString NewStructName;
+	FName NewStructName;
 };
 
 
@@ -532,42 +532,8 @@ class IAnalyticsProvider;
 DECLARE_DELEGATE_OneParam(FBeginStreamingPauseDelegate, FViewport*);
 DECLARE_DELEGATE(FEndStreamingPauseDelegate);
 
-USTRUCT()
-struct FMatineeScreenshotOptions
-{
-	GENERATED_USTRUCT_BODY()
+DECLARE_MULTICAST_DELEGATE_OneParam(FEngineHitchDetectedDelegate, float /*HitchDurationInSeconds*/);
 
-	/** determines if we should start the matinee capture as soon as the game loads */
-	UPROPERTY(transient)
-	uint32 bStartWithMatineeCapture:1;
-
-	/** should we compress the capture */
-	UPROPERTY(transient)
-	uint32 bCompressMatineeCapture:1;
-
-	/** the name of the matine that we want to record */
-	UPROPERTY(transient)
-	FString MatineeCaptureName;
-
-	/** The package name where the matinee belongs to */
-	UPROPERTY(transient)
-	FString MatineePackageCaptureName;
-
-	/** the fps of the matine that we want to record */
-	UPROPERTY(transient)
-	int32 MatineeCaptureFPS;
-
-	/** The capture type, e.g. AVI or Screen Shots */
-	UPROPERTY(transient)
-	TEnumAsByte<EMatineeCaptureType::Type> MatineeCaptureType;
-
-	/** Whether or not to disable texture streaming during matinee movie capture */
-	UPROPERTY(transient)
-	bool bNoTextureStreaming;
-
-	UPROPERTY(transient)
-	bool bHideHud;
-};
 
 /**
  * Abstract base class of all Engine classes, responsible for management of systems critical to editor or game systems.
@@ -799,7 +765,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference WireframeMaterialName;
+	FString WireframeMaterialName;
 
 #if WITH_EDITORONLY_DATA
 	/** A translucent material used to render things in geometry mode. */
@@ -825,7 +791,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference LevelColorationLitMaterialName;
+	FString LevelColorationLitMaterialName;
 
 	/** Material used for visualizing level membership in unlit view port modes. */
 	UPROPERTY()
@@ -833,7 +799,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference LevelColorationUnlitMaterialName;
+	FString LevelColorationUnlitMaterialName;
 
 	/** Material used for visualizing lighting only w/ lightmap texel density. */
 	UPROPERTY()
@@ -841,7 +807,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference LightingTexelDensityName;
+	FString LightingTexelDensityName;
 
 	/** Material used for visualizing level membership in lit view port modes. Uses shading to show axis directions. */
 	UPROPERTY()
@@ -849,7 +815,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference ShadedLevelColorationLitMaterialName;
+	FString ShadedLevelColorationLitMaterialName;
 
 	/** Material used for visualizing level membership in unlit view port modes.  Uses shading to show axis directions. */
 	UPROPERTY()
@@ -857,7 +823,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference ShadedLevelColorationUnlitMaterialName;
+	FString ShadedLevelColorationUnlitMaterialName;
 
 	/** Material used to indicate that the associated BSP surface should be removed. */
 	UPROPERTY()
@@ -873,7 +839,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference VertexColorMaterialName;
+	FString VertexColorMaterialName;
 
 	/** Material for visualizing vertex colors on meshes in the scene (color only, no alpha) */
 	UPROPERTY()
@@ -881,7 +847,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference VertexColorViewModeMaterialName_ColorOnly;
+	FString VertexColorViewModeMaterialName_ColorOnly;
 
 	/** Material for visualizing vertex colors on meshes in the scene (alpha channel as color) */
 	UPROPERTY()
@@ -889,7 +855,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference VertexColorViewModeMaterialName_AlphaAsColor;
+	FString VertexColorViewModeMaterialName_AlphaAsColor;
 
 	/** Material for visualizing vertex colors on meshes in the scene (red only) */
 	UPROPERTY()
@@ -897,7 +863,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference VertexColorViewModeMaterialName_RedOnly;
+	FString VertexColorViewModeMaterialName_RedOnly;
 
 	/** Material for visualizing vertex colors on meshes in the scene (green only) */
 	UPROPERTY()
@@ -905,7 +871,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference VertexColorViewModeMaterialName_GreenOnly;
+	FString VertexColorViewModeMaterialName_GreenOnly;
 
 	/** Material for visualizing vertex colors on meshes in the scene (blue only) */
 	UPROPERTY()
@@ -913,7 +879,7 @@ public:
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
-	FStringAssetReference VertexColorViewModeMaterialName_BlueOnly;
+	FString VertexColorViewModeMaterialName_BlueOnly;
 
 #if WITH_EDITORONLY_DATA
 	/** Material used to render bone weights on skeletal meshes */
@@ -930,13 +896,16 @@ public:
 	class UMaterial* ConstraintLimitMaterial;
 
 	UPROPERTY()
-	class UMaterialInstanceDynamic * ConstraintLimitMaterialX;
+	class UMaterialInstanceDynamic* ConstraintLimitMaterialX;
 
 	UPROPERTY()
-	class UMaterialInstanceDynamic * ConstraintLimitMaterialY;
+	class UMaterialInstanceDynamic* ConstraintLimitMaterialY;
 
 	UPROPERTY()
-	class UMaterialInstanceDynamic * ConstraintLimitMaterialZ;
+	class UMaterialInstanceDynamic* ConstraintLimitMaterialZ;
+
+	UPROPERTY()
+	class UMaterialInstanceDynamic* ConstraintLimitMaterialPrismatic;
 
 	/** @todo document */
 	UPROPERTY(globalconfig)
@@ -970,10 +939,6 @@ public:
 	UPROPERTY(globalconfig)
 	FLinearColor LightingOnlyBrightness;
 
-	/** The colors used to render light complexity. */
-	UPROPERTY(globalconfig)
-	TArray<FColor> LightComplexityColors;
-
 	/** The colors used to render shader complexity. */
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> ShaderComplexityColors;
@@ -981,6 +946,14 @@ public:
 	/** The colors used to render stationary light overlap. */
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> StationaryLightOverlapColors;
+
+	/** The colors used to render LOD coloration. */
+	UPROPERTY(globalconfig)
+	TArray<FLinearColor> LODColorationColors;
+
+	/** The colors used to render LOD coloration. */
+	UPROPERTY(globalconfig)
+	TArray<FLinearColor> HLODColorationColors;
 
 	/**
 	* Complexity limits for the various complexity view mode combinations.
@@ -1132,34 +1105,6 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Subtitles)
 	uint32 bSubtitlesForcedOff:1;
 
-	/** Time in seconds (game time) we should wait between purging object references to objects that are pending kill */
-	UPROPERTY(EditAnywhere, config, Category=Settings, AdvancedDisplay)
-	float TimeBetweenPurgingPendingKillObjects;
-
-	/** Whether to allow background level streaming. */
-	UPROPERTY(EditAnywhere, config, Category=LevelStreaming)
-	uint32 bUseBackgroundLevelStreaming:1;
-
-	/** Maximum amount of time to spend doing asynchronous loading (ms per frame) */
-	UPROPERTY(EditAnywhere, config, Category = LevelStreaming, AdvancedDisplay)
-	float AsyncLoadingTimeLimit;
-
-	/** Whether to use the entire time limit even if blocked on I/O */
-	UPROPERTY(EditAnywhere, config, Category = LevelStreaming, AdvancedDisplay)
-	uint32 bAsyncLoadingUseFullTimeLimit:1;
-	
-	/** Additional time to spend asynchronous loading during a "high priority" load */
-	UPROPERTY(EditAnywhere, config, Category = LevelStreaming, AdvancedDisplay)
-	float PriorityAsyncLoadingExtraTime;
-
-	/** Maximum allowed time to spend for actor registration steps during level streaming (ms per frame)*/
-	UPROPERTY(EditAnywhere, config, Category=LevelStreaming, AdvancedDisplay)
-	float LevelStreamingActorsUpdateTimeLimit;
-	
-	/** Batching granularity used to register actor components during level streaming */
-	UPROPERTY(EditAnywhere, config, Category=LevelStreaming, AdvancedDisplay)
-	int32 LevelStreamingComponentsRegistrationGranularity;
-
 	/** Script maximum loop iteration count used as a threshold to warn users about script execution runaway */
 	UPROPERTY(EditAnywhere, config, Category=Blueprints)
 	int32 MaximumLoopIterationCount;
@@ -1172,9 +1117,20 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=Blueprints)
 	uint32 bCanBlueprintsTickByDefault:1;
 
+	/** Controls whether anim blueprint nodes that access member variables of their class directly should use the optimized path that avoids a thunk to the Blueprint VM */
+	UPROPERTY(EditAnywhere, config, Category="Anim Blueprints")
+	uint32 bOptimizeAnimBlueprintMemberVariableAccess:1;
+
 	/** @todo document */
 	UPROPERTY(config)
 	uint32 bEnableEditorPSysRealtimeLOD:1;
+
+	/** Hook for external systems to transiently and forcibly disable framerate smoothing without stomping the original setting. */
+	uint32 bForceDisableFrameRateSmoothing : 1;
+
+	/** Whether to enable framerate smoothing. */
+	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(EditCondition="!bUseFixedFrameRate"))
+	uint32 bSmoothFrameRate:1;
 
 	/** Whether to use a fixed framerate. */
 	UPROPERTY(config, EditAnywhere, Category = Framerate)
@@ -1183,10 +1139,6 @@ public:
 	/** The fixed framerate to use. */
 	UPROPERTY(config, EditAnywhere, Category = Framerate, meta=(EditCondition="bUseFixedFrameRate"))
 	float FixedFrameRate;
-
-	/** Whether to enable framerate smoothing.																		*/
-	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(EditCondition="!bUseFixedFrameRate"))
-	uint32 bSmoothFrameRate:1;
 
 	/** Range of framerates in which smoothing will kick in */
 	UPROPERTY(config, EditAnywhere, Category=Framerate, meta=(UIMin=0, UIMax=200, EditCondition="!bUseFixedFrameRate"))
@@ -1370,7 +1322,7 @@ private:
 	UPROPERTY(transient)
 	FLinearColor SelectedMaterialColorOverride;
 
-	/** Whether or not selection color is being overriden */
+	/** Whether or not selection color is being overridden */
 	UPROPERTY(transient)
 	bool bIsOverridingSelectedColor;
 public:
@@ -1411,8 +1363,6 @@ private:
 	int32 ScreenSaverInhibitorSemaphore;
 
 public:
-	UPROPERTY(transient)
-	FMatineeScreenshotOptions MatineeScreenshotOptions;
 
 	/** true if the the user cannot modify levels that are read only. */
 	UPROPERTY(transient)
@@ -1441,11 +1391,11 @@ public:
 	UPROPERTY(transient)
 	float SelectionHighlightIntensityBillboards;
 
-	/** Delegate handling when streaming pause begins. Set initially in FStreamingPauseRenderingModule::StartupModule() but can then be overriden by games. */
+	/** Delegate handling when streaming pause begins. Set initially in FStreamingPauseRenderingModule::StartupModule() but can then be overridden by games. */
 	void RegisterBeginStreamingPauseRenderingDelegate( FBeginStreamingPauseDelegate* InDelegate );
 	FBeginStreamingPauseDelegate* BeginStreamingPauseDelegate;
 
-	/** Delegate handling when streaming pause ends. Set initially in FStreamingPauseRenderingModule::StartupModule() but can then be overriden by games. */
+	/** Delegate handling when streaming pause ends. Set initially in FStreamingPauseRenderingModule::StartupModule() but can then be overridden by games. */
 	void RegisterEndStreamingPauseRenderingDelegate( FEndStreamingPauseDelegate* InDelegate );
 	FEndStreamingPauseDelegate* EndStreamingPauseDelegate;
 
@@ -1524,7 +1474,13 @@ public:
 
 	/** Reference to the HMD device that is attached, if any */
 	TSharedPtr< class IHeadMountedDisplay, ESPMode::ThreadSafe > HMDDevice;
-	
+
+	/** Extensions that can modify view parameters on the render thread. */
+	TArray<TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> > ViewExtensions;
+
+	/** Reference to the Motion Control devices that are attached, if any */
+	TArray < class IMotionController*> MotionControllerDevices;
+
 	/** Triggered when a world is added. */	
 	DECLARE_EVENT_OneParam( UEngine, FWorldAddedEvent , UWorld* );
 	
@@ -1610,6 +1566,48 @@ public:
 	/** Called by internal engine systems after a level actor has been requested to be renamed */
 	void BroadcastLevelComponentRequestRename(const UActorComponent* InComponent) { LevelComponentRequestRenameEvent.Broadcast(InComponent); }
 
+	/** Editor-only event triggered when a HLOD Actor is moved between clusters */
+	DECLARE_EVENT_TwoParams(UEngine, FHLODActorMovedEvent, const AActor*, const AActor*);
+	FHLODActorMovedEvent& OnHLODActorMoved() { return HLODActorMovedEvent; }
+
+	/** Called by internal engine systems after a HLOD Actor is moved between clusters */
+	void BroadcastHLODActorMoved(const AActor* InActor, const AActor* ParentActor ) { HLODActorMovedEvent.Broadcast(InActor, ParentActor); }
+
+	/** Editor-only event triggered when a HLOD Actor's mesh is build */
+	DECLARE_EVENT_OneParam(UEngine, FHLODMeshBuildEvent, const class ALODActor*);
+	FHLODMeshBuildEvent& OnHLODMeshBuild() { return HLODMeshBuildEvent; }
+
+	/** Called by internal engine systems after a HLOD Actor's mesh is build */
+	void BroadcastHLODMeshBuild(const class ALODActor* InActor) { HLODMeshBuildEvent.Broadcast(InActor); }
+
+	/** Editor-only event triggered when a HLOD Actor is added to a cluster */
+	DECLARE_EVENT_TwoParams(UEngine, FHLODActorAddedEvent, const AActor*, const AActor*);
+	FHLODActorAddedEvent& OnHLODActorAdded() { return HLODActorAddedEvent; }
+
+	/** Called by internal engine systems after a HLOD Actor is added to a cluster */
+	void BroadcastHLODActorAdded(const AActor* InActor, const AActor* ParentActor) { HLODActorAddedEvent.Broadcast(InActor, ParentActor); }
+
+	/** Editor-only event triggered when a HLOD Actor is marked dirty */
+	DECLARE_EVENT_OneParam(UEngine, FHLODActorMarkedDirtyEvent, class ALODActor*);
+	FHLODActorMarkedDirtyEvent& OnHLODActorMarkedDirty() { return HLODActorMarkedDirtyEvent; }
+
+	/** Called by internal engine systems after a HLOD Actor is marked dirty */
+	void BroadcastHLODActorMarkedDirty(class ALODActor* InActor) { HLODActorMarkedDirtyEvent.Broadcast(InActor); }
+
+	/** Editor-only event triggered when a HLOD Actor is marked dirty */
+	DECLARE_EVENT(UEngine, FHLODTransitionScreenSizeChangedEvent);
+	FHLODTransitionScreenSizeChangedEvent& OnHLODTransitionScreenSizeChanged() { return HLODTransitionScreenSizeChangedEvent; }
+
+	/** Called by internal engine systems after a HLOD Actor is marked dirty */
+	void BroadcastHLODTransitionScreenSizeChanged() { HLODTransitionScreenSizeChangedEvent.Broadcast(); }
+
+	/** Editor-only event triggered when a HLOD level is added or removed */
+	DECLARE_EVENT(UEngine, FHLODLevelsArrayChangedEvent);
+	FHLODLevelsArrayChangedEvent& OnHLODLevelsArrayChanged() { return HLODLevelsArrayChangedEvent; }
+
+	/** Called by internal engine systems after a HLOD Actor is marked dirty */
+	void BroadcastHLODLevelsArrayChanged() { HLODLevelsArrayChangedEvent.Broadcast(); }
+
 #endif // #if WITH_EDITOR
 
 	/** Event triggered after a server travel failure of any kind has occurred */
@@ -1628,11 +1626,11 @@ public:
 		NetworkFailureEvent.Broadcast(World, NetDriver, FailureType, ErrorString);
 	}
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void FinishDestroy() override;
 	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	/** Initialize the game engine. */
 	virtual void Init(IEngineLoop* InEngineLoop);
@@ -1644,9 +1642,9 @@ public:
 	/** Called at startup, in the middle of FEngineLoop::Init.	 */
 	void ParseCommandline();
 
-	// Begin FExec Interface
+	//~ Begin FExec Interface
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out=*GLog ) override;
-	// End FExec Interface
+	//~ End FExec Interface
 
 	/** 
 	 * Exec command handlers
@@ -1662,6 +1660,9 @@ public:
 	bool HandleCeCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDumpTicksCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleGammaCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+
+	bool HandleRecordAnimationCommand(UWorld* InWorld, const TCHAR* InStr, FOutputDevice& Ar);
+	bool HandleStopRecordAnimationCommand(UWorld* InWorld, const TCHAR* InStr, FOutputDevice& Ar);
 
 	// Only compile in when STATS is set
 #if STATS
@@ -1731,7 +1732,8 @@ public:
 	bool HandleEnableAllScreenMessagesCommand( const TCHAR* Cmd, FOutputDevice& Ar );			
 	bool HandleToggleAllScreenMessagesCommand( const TCHAR* Cmd, FOutputDevice& Ar );			
 	bool HandleConfigHashCommand( const TCHAR* Cmd, FOutputDevice& Ar );						
-	bool HandleConfigMemCommand( const TCHAR* Cmd, FOutputDevice& Ar );							
+	bool HandleConfigMemCommand( const TCHAR* Cmd, FOutputDevice& Ar );	
+	bool HandleGetIniCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 #endif // !UE_BUILD_SHIPPING
 
 	/** Update everything. */
@@ -1748,11 +1750,17 @@ public:
 	/** Get tick rate limiter. */
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing = true) const;
 
+	/** Get max fps. */
+	virtual int32 GetMaxFPS() const;
+
+	/** Set max fps. Overrides console variable. */
+	virtual void SetMaxFPS(const int32 MaxFPS);
+
 	/** Updates the running average delta time */
 	virtual void UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing = true);
 
 	/** Whether we're allowed to do frame rate smoothing */
-	bool IsAllowedFramerateSmoothing(bool bAllowFrameRateSmoothing) const;
+	virtual bool IsAllowedFramerateSmoothing() const;
 
 	/**
 	 * Pauses / un-pauses the game-play when focus of the game's window gets lost / gained.
@@ -1778,6 +1786,11 @@ public:
 	 * Updates the values used to calculate the average game/render/gpu/total time
 	 */
 	void SetAverageUnitTimes(float FrameTime, float RenderThreadTime, float GameThreadTime, float GPUFrameTime);
+
+	/**
+	 * Returns the display color for a given frame time (based on t.TargetFrameTimeThreshold and t.UnacceptableFrameTimeThreshold)
+	 */
+	FColor GetFrameTimeDisplayColor(float FrameTimeMS) const;
 
 	/**
 	 * @return true to throttle CPU usage based on current state (usually editor minimized or not in foreground)
@@ -1943,11 +1956,11 @@ public:
 	 */
 	bool IsConsoleBuild(EConsoleType ConsoleType = CONSOLE_Any) const;
 
-	/** Add a FString to the On-screen debug message system */
-	void AddOnScreenDebugMessage(uint64 Key,float TimeToDisplay,FColor DisplayColor,const FString& DebugMessage);
+	/** Add a FString to the On-screen debug message system. bNewerOnTop only works with Key == INDEX_NONE */
+	void AddOnScreenDebugMessage(uint64 Key,float TimeToDisplay,FColor DisplayColor,const FString& DebugMessage, bool bNewerOnTop = true, const FVector2D& TextScale = FVector2D::UnitVector);
 
-	/** Add a FString to the On-screen debug message system */
-	void AddOnScreenDebugMessage(int32 Key, float TimeToDisplay, FColor DisplayColor, const FString& DebugMessage);
+	/** Add a FString to the On-screen debug message system. bNewerOnTop only works with Key == INDEX_NONE */
+	void AddOnScreenDebugMessage(int32 Key, float TimeToDisplay, FColor DisplayColor, const FString& DebugMessage, bool bNewerOnTop = true, const FVector2D& TextScale = FVector2D::UnitVector);
 
 	/** Retrieve the message for the given key */
 	bool OnScreenDebugMessageExists(uint64 Key);
@@ -1955,8 +1968,13 @@ public:
 	/** Clear any existing debug messages */
 	void ClearOnScreenDebugMessages();
 
+#if !UE_BUILD_SHIPPING
 	/** Capture screenshots and performance metrics */
-	void PerformanceCapture(const FString& CaptureName);
+	void PerformanceCapture(UWorld* World, const FString& CaptureName);
+
+	/** Logs performance capture for use in automation analytics */
+	void LogPerformanceCapture(UWorld* World, const FString& CaptureName);
+#endif	// UE_BUILD_SHIPPING
 
 	/**
 	 * Ticks the FPS chart.
@@ -1967,8 +1985,10 @@ public:
 
 	/**
 	 * Starts the FPS chart data capture.
+	 *
+	 * @param	Label		Label for this run
 	 */
-	virtual void StartFPSChart();
+	virtual void StartFPSChart( const FString& Label );
 
 	/**
 	 * Stops the FPS chart data capture.
@@ -1982,6 +2002,16 @@ public:
 	 * @param	bForceDump	Whether to dump even if FPS chart info is not enabled.
 	 */
 	virtual void DumpFPSChart( const FString& InMapName, bool bForceDump = false );
+
+	/**
+	* Dumps the FPS chart information to the passed in archive for analytics.
+	*
+	* @param	InMapName	Name of the map (Or Global)
+	*/
+	virtual void DumpFPSChartAnalytics(const FString& InMapName, TArray<struct FAnalyticsEventAttribute>& InParamArray);
+
+	/** Delegate called when FPS charting detects a hitch (it is not triggered if a capture isn't in progress). */
+	FEngineHitchDetectedDelegate OnHitchDetectedDelegate;
 
 private:
 
@@ -2004,6 +2034,11 @@ private:
 	 * Dumps the FPS chart information to the special stats log file.
 	 */
 	virtual void DumpFPSChartToStatsLog( float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName );
+
+	/**
+	* Dumps the FPS chart information to an analytic event param array.
+	*/
+	virtual void DumpFPSChartToAnalyticsParams(float TotalTime, float DeltaTime, int32 NumFrames, const FString& InMapName, TArray<struct FAnalyticsEventAttribute>& InParamArray);
 
 	/**
 	 * Dumps the frame times information to the special stats log file.
@@ -2074,7 +2109,6 @@ public:
 
 	/** 
 	 * Obtain a world object pointer from an object with has a world context.
-	 * This should be be overridden to cater for game specific object types that do not derive from the Actor class.
 	 *
 	 * @param Object		Object whose owning world we require.
 	 * @param bChecked      Allows calling function to specify not to do ensure check and that a nullptr return value is acceptable
@@ -2126,6 +2160,33 @@ public:
 	virtual class UGameViewportClient* GetNextPIEViewport(UGameViewportClient * CurrentViewport) { return nullptr; }
 
 	virtual void RemapGamepadControllerIdForPIE(class UGameViewportClient* InGameViewport, int32 &ControllerId) { }
+
+#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+	/**
+	 * Get a locator for Portal services.
+	 *
+	 * @return The service locator.
+	 */
+	TSharedRef<IPortalServiceLocator> GetServiceLocator()
+	{
+		return ServiceLocator.ToSharedRef();
+	}
+
+protected:
+
+	/** Portal RPC client. */
+	TSharedPtr<IMessageRpcClient> PortalRpcClient;
+
+	/** Portal RPC server locator. */
+	TSharedPtr<IPortalRpcLocator> PortalRpcLocator;
+
+	/** Holds a type container for service dependencies. */
+	TSharedPtr<FTypeContainer> ServiceDependencies;
+
+	/** Holds registered service instances. */
+	TSharedPtr<IPortalServiceLocator> ServiceLocator;
+#endif
+
 
 public:
 
@@ -2213,19 +2274,20 @@ protected:
 	 */
 	virtual bool InitializeHMDDevice();
 
-	/**
-	 *	Record EngineAnalytics information for attached HMD devices
-	 */
+	virtual bool InitializeMotionControllers();
+
+	/**	Record EngineAnalytics information for attached HMD devices. */
 	virtual void RecordHMDAnalytics();
 
-	/**
-	 * Loads all Engine object references from their corresponding config entries.
-	 */
+	/** Loads all Engine object references from their corresponding config entries. */
 	virtual void InitializeObjectReferences();
 
-	/** 
-	 * Initializes the running average delta to some good initial framerate 
-	 */
+#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+	/** Initialize Portal services. */
+	virtual void InitializePortalServices();
+#endif
+
+	/** Initializes the running average delta to some good initial framerate. */
 	virtual void InitializeRunningAverageDeltaTime();
 
 	float RunningAverageDeltaTime;
@@ -2265,6 +2327,24 @@ private:
 
 	/** Broadcasts after an actor has been moved, rotated or scaled */
 	FOnActorMovedEvent		OnActorMovedEvent;
+
+	/** Broadcasts after an HLOD actor has been moved between clusters */	
+	FHLODActorMovedEvent HLODActorMovedEvent;
+
+	/** Broadcasts after an HLOD actor's mesh is build*/
+	FHLODMeshBuildEvent HLODMeshBuildEvent;
+	
+	/** Broadcasts after an HLOD actor has added to a cluster */
+	FHLODActorAddedEvent HLODActorAddedEvent;
+
+	/** Broadcasts after an HLOD actor has been marked dirty */
+	FHLODActorMarkedDirtyEvent HLODActorMarkedDirtyEvent;
+
+	/** Broadcasts after a Draw distance value (World settings) is changed */
+	FHLODTransitionScreenSizeChangedEvent HLODTransitionScreenSizeChangedEvent;
+
+	/** Broadcasts after the HLOD levels array is changed */
+	FHLODLevelsArrayChangedEvent HLODLevelsArrayChangedEvent;
 
 #endif // #if WITH_EDITOR
 
@@ -2532,7 +2612,9 @@ public:
 	/** @return true if editor analytics are enabled */
 	virtual bool AreEditorAnalyticsEnabled() const { return false; }
 	virtual void CreateStartupAnalyticsAttributes( TArray<struct FAnalyticsEventAttribute>& StartSessionAttributes ) const {}
-
+	
+	/** @return true if the engine is autosaving a package */
+	virtual bool IsAutosaving() const { return false; }
 protected:
 
 	TIndirectArray<FWorldContext>	WorldList;
@@ -2611,7 +2693,7 @@ protected:
 
 public:
 
-	// Public interface for async map change functions
+	//~ Begin Public Interface for async map change functions
 
 	bool CommitMapChange(UWorld* InWorld) { return CommitMapChange(GetWorldContextFromWorldChecked(InWorld)); }
 	bool IsReadyForMapChange(UWorld* InWorld) { return IsReadyForMapChange(GetWorldContextFromWorldChecked(InWorld)); }
@@ -2638,9 +2720,6 @@ public:
 	 */
 	const UGameUserSettings* GetGameUserSettings() const;
 	UGameUserSettings* GetGameUserSettings();
-
-	/** Delegate handler for screenshots */
-	void HandleScreenshotCaptured(int32 Width, int32 Height, const TArray<FColor>& Colors);
 
 private:
 	void CreateGameUserSettings();

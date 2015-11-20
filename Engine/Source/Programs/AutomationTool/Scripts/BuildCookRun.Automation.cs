@@ -25,7 +25,7 @@ public class BuildCookRun : BuildCommand
 	public override void ExecuteBuild()
 	{
 		// allow BCR functions to call UBT functions (especially .ini parsing)
-		UnrealBuildTool.UnrealBuildTool.SetupUBTFromUAT(ProjectPath);
+		UnrealBuildTool.UnrealBuildTool.SetupUBTFromUAT();
 
 		// these need to be done first
 		var bForeign = ParseParam("foreign");
@@ -130,7 +130,7 @@ public class BuildCookRun : BuildCommand
 		const string EngineEntryMap = "/Engine/Maps/Entry";
 		Log("Trying to find DefaultMap in ini files");
 		string DefaultMap = null;
-		var ProjectFolder = GetDirectoryName(Params.RawProjectPath);
+		var ProjectFolder = GetDirectoryName(Params.RawProjectPath.FullName);
 		var DefaultGameEngineConfig = CombinePaths(ProjectFolder, "Config", "DefaultEngine.ini");
 		if (FileExists(DefaultGameEngineConfig))
 		{
@@ -205,7 +205,8 @@ public class BuildCookRun : BuildCommand
 			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} build from changelist {1}", Params.ShortProjectName, P4Env.Changelist));
 		}
 
-		Project.Build(this, Params, WorkingCL);
+        Project.NativizeScriptAssets(this, Params);
+        Project.Build(this, Params, WorkingCL);
 		Project.Cook(Params);
 		Project.CopyBuildToStagingDirectory(Params);
 		Project.Package(Params, WorkingCL);
@@ -274,8 +275,8 @@ public class BuildCookRun : BuildCommand
 		Ini.Commit();
 	}
 
-	private string ProjectFullPath;
-	public virtual string ProjectPath
+	private FileReference ProjectFullPath;
+	public virtual FileReference ProjectPath
 	{
 		get
 		{
@@ -287,17 +288,17 @@ public class BuildCookRun : BuildCommand
 				{
 					var DestSample = ParseParamValue("DestSample", "CopiedHoverShip");
 					var Dest = ParseParamValue("ForeignDest", CombinePaths(@"C:\testue4\foreign\", DestSample + "_ _Dir"));
-					ProjectFullPath = CombinePaths(Dest, DestSample + ".uproject");
+					ProjectFullPath = new FileReference(CombinePaths(Dest, DestSample + ".uproject"));
 				}
 				else if (bForeignCode)
 				{
 					var DestSample = ParseParamValue("DestSample", "PlatformerGame");
 					var Dest = ParseParamValue("ForeignDest", CombinePaths(@"C:\testue4\foreign\", DestSample + "_ _Dir"));
-					ProjectFullPath = CombinePaths(Dest, DestSample + ".uproject");
+					ProjectFullPath = new FileReference(CombinePaths(Dest, DestSample + ".uproject"));
 				}
 				else
 				{
-					var OriginalProjectName = ParseParamValue("project", CombinePaths("Samples", "Sandbox", "BlankProject", "BlankProject.uproject"));
+					var OriginalProjectName = ParseParamValue("project", "");
 					var ProjectName = OriginalProjectName;
 					ProjectName = ProjectName.Trim(new char[] { '\"' });
 					if (ProjectName.IndexOfAny(new char[] { '\\', '/' }) < 0)
@@ -308,20 +309,23 @@ public class BuildCookRun : BuildCommand
 					{
 						ProjectName = CombinePaths(CmdEnv.LocalRoot, ProjectName);
 					}
-					if (!FileExists_NoExceptions(ProjectName))
+					if(FileExists_NoExceptions(ProjectName))
+					{
+						ProjectFullPath = new FileReference(ProjectName);
+					}
+					else
 					{
 						var Branch = new BranchInfo(new List<UnrealTargetPlatform> { UnrealBuildTool.BuildHostPlatform.Current.Platform });
 						var GameProj = Branch.FindGame(OriginalProjectName);
 						if (GameProj != null)
 						{
-							ProjectName = GameProj.FilePath;
+							ProjectFullPath = GameProj.FilePath;
+						}
+						if (!FileExists_NoExceptions(ProjectFullPath.FullName))
+						{
+							throw new AutomationException("Could not find a project file {0}.", ProjectName);
 						}
 					}
-					if (!FileExists_NoExceptions(ProjectName))
-					{
-						throw new AutomationException("Could not find a project file {0}.", ProjectName);
-					}
-					ProjectFullPath = Path.GetFullPath(ProjectName);
 				}
 			}
 			return ProjectFullPath;

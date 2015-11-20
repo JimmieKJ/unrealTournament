@@ -77,9 +77,9 @@ void UBlendSpace::GetGridSamplesFromBlendInput(const FVector &BlendInput, FGridB
 	}
 }
 
-void UBlendSpace::GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample> & OutBlendSamples) const
+void UBlendSpace::GetRawSamplesFromBlendInput(const FVector &BlendInput, TArray<FGridBlendSample, TInlineAllocator<4> > & OutBlendSamples) const
 {
-	OutBlendSamples.Empty(4);
+	OutBlendSamples.Reset();
 	OutBlendSamples.AddUninitialized(4);
 
 	GetGridSamplesFromBlendInput(BlendInput, OutBlendSamples[0], OutBlendSamples[1], OutBlendSamples[2], OutBlendSamples[3]);
@@ -107,7 +107,7 @@ FVector2D UBlendSpace::CalculateThreshold() const
 
 bool UBlendSpace::IsValidAdditive()  const
 {
-	return IsValidAdditiveInternal(AAT_LocalSpaceBase);
+	return IsValidAdditiveInternal(AAT_LocalSpaceBase) || IsValidAdditiveInternal(AAT_RotationOffsetMeshSpace);
 }
 
 void UBlendSpace::SnapToBorder(FBlendSample& Sample) const

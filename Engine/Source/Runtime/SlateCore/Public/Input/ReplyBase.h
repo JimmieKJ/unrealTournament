@@ -2,6 +2,8 @@
 
 #pragma once
 
+class SWidget;
+
 /**
  * Base class for all the ways that a Slate Widget can reply to events.
  * Typical replies include requests to set focus, capture or release the pointer,

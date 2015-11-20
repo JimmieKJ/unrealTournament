@@ -198,8 +198,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
     partial void OnCreated();
     partial void OnIdChanging(int value);
     partial void OnIdChanged();
-    partial void OnTTPIDChanging(string value);
-    partial void OnTTPIDChanged();
+    partial void OnJiraChanging(string value);
+    partial void OnJiraChanged();
     partial void OnPatternChanging(string value);
     partial void OnPatternChanged();
     partial void OnNumberOfCrashesChanging(System.Nullable<int> value);
@@ -246,8 +246,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_TTPID", DbType="VarChar(50)")]
-		public string TTPID
+		[global::System.Data.Linq.Mapping.ColumnAttribute(Name="TTPID", Storage="_TTPID", DbType="VarChar(50)")]
+		public string Jira
 		{
 			get
 			{
@@ -257,11 +257,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			{
 				if ((this._TTPID != value))
 				{
-					this.OnTTPIDChanging(value);
+					this.OnJiraChanging(value);
 					this.SendPropertyChanging();
 					this._TTPID = value;
-					this.SendPropertyChanged("TTPID");
-					this.OnTTPIDChanged();
+					this.SendPropertyChanged("Jira");
+					this.OnJiraChanged();
 				}
 			}
 		}
@@ -1193,21 +1193,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		
 		private System.Nullable<bool> _Processed;
 		
-		private System.Nullable<bool> _HasLogFile;
-		
-		private System.Nullable<bool> _HasMiniDumpFile;
-		
-		private System.Nullable<bool> _HasVideoFile;
-		
-		private System.Nullable<bool> _HasDiagnosticsFile;
-		
 		private string _Branch;
 		
 		private System.Nullable<int> _UserNameId;
 		
 		private System.Nullable<short> _CrashType;
-		
-		private System.Nullable<bool> _HasMetaData;
 		
 		private string _SourceContext;
 		
@@ -1233,8 +1223,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
     partial void OnStatusChanged();
     partial void OnTimeOfCrashChanging(System.Nullable<System.DateTime> value);
     partial void OnTimeOfCrashChanged();
-    partial void OnChangeListVersionChanging(string value);
-    partial void OnChangeListVersionChanged();
+    partial void OnBuiltFromCLChanging(string value);
+    partial void OnBuiltFromCLChanged();
     partial void OnPlatformNameChanging(string value);
     partial void OnPlatformNameChanged();
     partial void OnEngineModeChanging(string value);
@@ -1247,8 +1237,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
     partial void OnPatternChanged();
     partial void OnCommandLineChanging(string value);
     partial void OnCommandLineChanged();
-    partial void OnComputerNameChanging(string value);
-    partial void OnComputerNameChanged();
+    partial void OnMachineIdChanging(string value);
+    partial void OnMachineIdChanged();
     partial void OnFixedChangeListChanging(string value);
     partial void OnFixedChangeListChanged();
     partial void OnLanguageExtChanging(string value);
@@ -1261,26 +1251,16 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
     partial void OnBaseDirChanged();
     partial void OnUserNameChanging(string value);
     partial void OnUserNameChanged();
-    partial void OnTTPIDChanging(string value);
-    partial void OnTTPIDChanged();
+    partial void OnJiraChanging(string value);
+    partial void OnJiraChanged();
     partial void OnbAllowToBeContactedChanging(System.Nullable<bool> value);
     partial void OnbAllowToBeContactedChanged();
-    partial void OnHasLogFileChanging(System.Nullable<bool> value);
-    partial void OnHasLogFileChanged();
-    partial void OnHasMiniDumpFileChanging(System.Nullable<bool> value);
-    partial void OnHasMiniDumpFileChanged();
-    partial void OnHasVideoFileChanging(System.Nullable<bool> value);
-    partial void OnHasVideoFileChanged();
-    partial void OnHasDiagnosticsFileChanging(System.Nullable<bool> value);
-    partial void OnHasDiagnosticsFileChanged();
     partial void OnBranchChanging(string value);
     partial void OnBranchChanged();
     partial void OnUserNameIdChanging(System.Nullable<int> value);
     partial void OnUserNameIdChanged();
     partial void OnCrashTypeChanging(System.Nullable<short> value);
     partial void OnCrashTypeChanged();
-    partial void OnHasMetaDataChanging(System.Nullable<bool> value);
-    partial void OnHasMetaDataChanged();
     partial void OnSourceContextChanging(string value);
     partial void OnSourceContextChanged();
     partial void OnEpicAccountIdChanging(string value);
@@ -1396,8 +1376,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_ChangeListVersion", DbType="VarChar(64)")]
-		public string ChangeListVersion
+		[global::System.Data.Linq.Mapping.ColumnAttribute(Name="ChangeListVersion", Storage="_ChangeListVersion", DbType="VarChar(64)")]
+		public string BuiltFromCL
 		{
 			get
 			{
@@ -1407,11 +1387,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			{
 				if ((this._ChangeListVersion != value))
 				{
-					this.OnChangeListVersionChanging(value);
+					this.OnBuiltFromCLChanging(value);
 					this.SendPropertyChanging();
 					this._ChangeListVersion = value;
-					this.SendPropertyChanged("ChangeListVersion");
-					this.OnChangeListVersionChanged();
+					this.SendPropertyChanged("BuiltFromCL");
+					this.OnBuiltFromCLChanged();
 				}
 			}
 		}
@@ -1536,8 +1516,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_ComputerName", DbType="VarChar(64)")]
-		public string ComputerName
+		[global::System.Data.Linq.Mapping.ColumnAttribute(Name="ComputerName", Storage="_ComputerName", DbType="VarChar(64)")]
+		public string MachineId
 		{
 			get
 			{
@@ -1547,11 +1527,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			{
 				if ((this._ComputerName != value))
 				{
-					this.OnComputerNameChanging(value);
+					this.OnMachineIdChanging(value);
 					this.SendPropertyChanging();
 					this._ComputerName = value;
-					this.SendPropertyChanged("ComputerName");
-					this.OnComputerNameChanged();
+					this.SendPropertyChanged("MachineId");
+					this.OnMachineIdChanged();
 				}
 			}
 		}
@@ -1676,8 +1656,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_TTPID", DbType="VarChar(64)")]
-		public string TTPID
+		[global::System.Data.Linq.Mapping.ColumnAttribute(Name="TTPID", Storage="_TTPID", DbType="VarChar(64)")]
+		public string Jira
 		{
 			get
 			{
@@ -1687,11 +1667,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			{
 				if ((this._TTPID != value))
 				{
-					this.OnTTPIDChanging(value);
+					this.OnJiraChanging(value);
 					this.SendPropertyChanging();
 					this._TTPID = value;
-					this.SendPropertyChanged("TTPID");
-					this.OnTTPIDChanged();
+					this.SendPropertyChanged("Jira");
+					this.OnJiraChanged();
 				}
 			}
 		}
@@ -1712,86 +1692,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					this._Processed = value;
 					this.SendPropertyChanged("bAllowToBeContacted");
 					this.OnbAllowToBeContactedChanged();
-				}
-			}
-		}
-		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_HasLogFile", DbType="Bit")]
-		public System.Nullable<bool> HasLogFile
-		{
-			get
-			{
-				return this._HasLogFile;
-			}
-			set
-			{
-				if ((this._HasLogFile != value))
-				{
-					this.OnHasLogFileChanging(value);
-					this.SendPropertyChanging();
-					this._HasLogFile = value;
-					this.SendPropertyChanged("HasLogFile");
-					this.OnHasLogFileChanged();
-				}
-			}
-		}
-		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_HasMiniDumpFile", DbType="Bit")]
-		public System.Nullable<bool> HasMiniDumpFile
-		{
-			get
-			{
-				return this._HasMiniDumpFile;
-			}
-			set
-			{
-				if ((this._HasMiniDumpFile != value))
-				{
-					this.OnHasMiniDumpFileChanging(value);
-					this.SendPropertyChanging();
-					this._HasMiniDumpFile = value;
-					this.SendPropertyChanged("HasMiniDumpFile");
-					this.OnHasMiniDumpFileChanged();
-				}
-			}
-		}
-		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_HasVideoFile", DbType="Bit")]
-		public System.Nullable<bool> HasVideoFile
-		{
-			get
-			{
-				return this._HasVideoFile;
-			}
-			set
-			{
-				if ((this._HasVideoFile != value))
-				{
-					this.OnHasVideoFileChanging(value);
-					this.SendPropertyChanging();
-					this._HasVideoFile = value;
-					this.SendPropertyChanged("HasVideoFile");
-					this.OnHasVideoFileChanged();
-				}
-			}
-		}
-		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_HasDiagnosticsFile", DbType="Bit")]
-		public System.Nullable<bool> HasDiagnosticsFile
-		{
-			get
-			{
-				return this._HasDiagnosticsFile;
-			}
-			set
-			{
-				if ((this._HasDiagnosticsFile != value))
-				{
-					this.OnHasDiagnosticsFileChanging(value);
-					this.SendPropertyChanging();
-					this._HasDiagnosticsFile = value;
-					this.SendPropertyChanged("HasDiagnosticsFile");
-					this.OnHasDiagnosticsFileChanged();
 				}
 			}
 		}
@@ -1856,26 +1756,6 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					this._CrashType = value;
 					this.SendPropertyChanged("CrashType");
 					this.OnCrashTypeChanged();
-				}
-			}
-		}
-		
-		[global::System.Data.Linq.Mapping.ColumnAttribute(Storage="_HasMetaData", DbType="Bit")]
-		public System.Nullable<bool> HasMetaData
-		{
-			get
-			{
-				return this._HasMetaData;
-			}
-			set
-			{
-				if ((this._HasMetaData != value))
-				{
-					this.OnHasMetaDataChanging(value);
-					this.SendPropertyChanging();
-					this._HasMetaData = value;
-					this.SendPropertyChanged("HasMetaData");
-					this.OnHasMetaDataChanged();
 				}
 			}
 		}

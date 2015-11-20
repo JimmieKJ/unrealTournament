@@ -71,7 +71,12 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="Ionic.Zip.Reduced">
-      <HintPath>..\..\..\..\Binaries\ThirdParty\Ionic\Ionic.Zip.Reduced.dll</HintPath>
+      <HintPath>..\..\..\..\Binaries\DotNET\Ionic.Zip.Reduced.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="RPCUtility, Version=4.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\Binaries\DotNET\RPCUtility.exe</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="System" />
@@ -220,10 +225,6 @@
     <None Include="Resources\GreyCheck.png" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\RPCUtility\RPCUtility.csproj">
-      <Project>{2BF966A5-F712-4D42-A9AD-3B145C6C311E}</Project>
-      <Name>RPCUtility</Name>
-    </ProjectReference>
     <ProjectReference Include="..\DeploymentInterface\DeploymentInterface.csproj">
       <Project>{B7C89A17-1CB7-42D7-B879-43297538C193}</Project>
       <Name>DeploymentInterface</Name>

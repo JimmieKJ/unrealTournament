@@ -516,12 +516,18 @@ FText SPropertyEditorAsset::OnGetToolTip() const
 void SPropertyEditorAsset::SetValue( const FAssetData& AssetData )
 {
 	AssetComboButton->SetIsOpen(false);
-	if(PropertyEditor.IsValid())
-	{
-		PropertyEditor->GetPropertyHandle()->SetValue(AssetData);
-	}
 
-	OnSetObject.ExecuteIfBound(AssetData);
+	bool bAllowedToSetBasedOnFilter = CanSetBasedOnCustomClasses( AssetData );
+
+	if( bAllowedToSetBasedOnFilter )
+	{
+		if(PropertyEditor.IsValid())
+		{
+			PropertyEditor->GetPropertyHandle()->SetValue(AssetData);
+		}
+
+		OnSetObject.ExecuteIfBound(AssetData);
+	}
 }
 
 FPropertyAccess::Result SPropertyEditorAsset::GetValue( FObjectOrAssetData& OutValue ) const
@@ -670,11 +676,11 @@ void SPropertyEditorAsset::OnBrowse()
 		// This code only works on loaded objects
 		FPropertyEditor::SyncToObjectsInNode(PropertyEditor->GetPropertyNode());		
 	}
-	else if (auto* Asset = Value.AssetData.GetAsset())
+	else
 	{
-		TArray< UObject* > Objects;
-		Objects.Add( Asset );
-		GEditor->SyncBrowserToObjects( Objects );
+		TArray<FAssetData> AssetDataList;
+		AssetDataList.Add( Value.AssetData );
+		GEditor->SyncBrowserToObjects( AssetDataList );
 	}
 }
 
@@ -763,7 +769,7 @@ bool SPropertyEditorAsset::OnAssetDraggedOver( const UObject* InObject ) const
 		if (!OnShouldFilterAsset.IsBound()
 			|| !OnShouldFilterAsset.Execute(FAssetData(InObject)))
 		{
-			return true;
+			return CanSetBasedOnCustomClasses( FAssetData(InObject) );
 		}
 	}
 
@@ -848,6 +854,26 @@ FReply SPropertyEditorAsset::OnAssetThumbnailDoubleClick( const FGeometry& InMyG
 bool SPropertyEditorAsset::CanEdit() const
 {
 	return PropertyEditor.IsValid() ? !PropertyEditor->IsEditConst() : true;
+}
+
+bool SPropertyEditorAsset::CanSetBasedOnCustomClasses( const FAssetData& InAssetData ) const
+{
+	bool bAllowedToSetBasedOnFilter = true;
+	if( InAssetData.IsValid() && CustomClassFilters.Num() > 0 )
+	{
+		bAllowedToSetBasedOnFilter = false;
+		UClass* AssetClass = InAssetData.GetClass();
+		for( const UClass* AllowedClass : CustomClassFilters )
+		{
+			if( AssetClass->IsChildOf( AllowedClass ) )
+			{
+				bAllowedToSetBasedOnFilter = true;
+				break;
+			}
+		}
+	}
+
+	return bAllowedToSetBasedOnFilter;
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -9,7 +9,7 @@
 /* SMessagingBreakpoints interface
  *****************************************************************************/
 
-void SMessagingBreakpoints::Construct( const FArguments& InArgs, const TSharedRef<ISlateStyle>& InStyle, const IMessageTracerRef& InTracer )
+void SMessagingBreakpoints::Construct(const FArguments& InArgs, const TSharedRef<ISlateStyle>& InStyle, const IMessageTracerRef& InTracer)
 {
 	Style = InStyle;
 	Tracer = InTracer;
@@ -59,7 +59,7 @@ void SMessagingBreakpoints::Construct( const FArguments& InArgs, const TSharedRe
 /* SMessagingBreakpoints callbacks
  *****************************************************************************/
 
-TSharedRef<ITableRow> SMessagingBreakpoints::HandleBreakpointListGenerateRow( IMessageTracerBreakpointPtr Breakpoint, const TSharedRef<STableViewBase>& OwnerTable )
+TSharedRef<ITableRow> SMessagingBreakpoints::HandleBreakpointListGenerateRow(IMessageTracerBreakpointPtr Breakpoint, const TSharedRef<STableViewBase>& OwnerTable)
 {
 	return SNew(SMessagingBreakpointsTableRow, OwnerTable)
 		.Breakpoint(Breakpoint)
@@ -67,7 +67,7 @@ TSharedRef<ITableRow> SMessagingBreakpoints::HandleBreakpointListGenerateRow( IM
 }
 
 
-void SMessagingBreakpoints::HandleBreakpointListSelectionChanged( IMessageTracerBreakpointPtr InItem, ESelectInfo::Type SelectInfo )
+void SMessagingBreakpoints::HandleBreakpointListSelectionChanged(IMessageTracerBreakpointPtr InItem, ESelectInfo::Type SelectInfo)
 {
 
 }

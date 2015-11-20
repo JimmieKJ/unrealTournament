@@ -28,8 +28,8 @@ PFNGLGETQUERYOBJECTUI64VEXTPROC			glGetQueryObjectui64vEXT = NULL;
 // Offscreen MSAA rendering
 PFNBLITFRAMEBUFFERNVPROC				glBlitFramebufferNV = NULL;
 PFNGLDISCARDFRAMEBUFFEREXTPROC			glDiscardFramebufferEXT = NULL;
-PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT	glFramebufferTexture2DMultisampleEXT = NULL;
-PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXT	glRenderbufferStorageMultisampleEXT = NULL;
+PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC	glFramebufferTexture2DMultisampleEXT = NULL;
+PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC	glRenderbufferStorageMultisampleEXT = NULL;
 
 PFNGLPUSHGROUPMARKEREXTPROC				glPushGroupMarkerEXT = NULL;
 PFNGLPOPGROUPMARKEREXTPROC				glPopGroupMarkerEXT = NULL;
@@ -119,17 +119,15 @@ void* PlatformGetWindow(FPlatformOpenGLContext* Context, void** AddParam)
 
 bool PlatformBlitToViewport( FPlatformOpenGLDevice* Device, const FOpenGLViewport& Viewport, uint32 BackbufferSizeX, uint32 BackbufferSizeY, bool bPresent,bool bLockToVsync, int32 SyncInterval )
 {
-	if (Viewport.GetCustomPresent())
+	if (bPresent && Viewport.GetCustomPresent())
 	{
-		Viewport.GetCustomPresent()->Present(SyncInterval);
+		bPresent = Viewport.GetCustomPresent()->Present(SyncInterval);
 	}
-	else
+	if (bPresent)
 	{
 		AndroidEGL::GetInstance()->SwapBuffers();
 	}
-//	return true;
-	//Do not want WaitForFrameEventCompletion
-	return false;
+	return bPresent;
 }
 
 void PlatformRenderingContextSetup(FPlatformOpenGLDevice* Device)
@@ -224,7 +222,7 @@ void PlatformDestroyOpenGLContext(FPlatformOpenGLDevice* Device, FPlatformOpenGL
 FRHITexture* PlatformCreateBuiltinBackBuffer(FOpenGLDynamicRHI* OpenGLRHI, uint32 SizeX, uint32 SizeY)
 {
 	uint32 Flags = TexCreate_RenderTargetable;
-	FOpenGLTexture2D* Texture2D = new FOpenGLTexture2D(OpenGLRHI, AndroidEGL::GetInstance()->GetOnScreenColorRenderBuffer(), GL_RENDERBUFFER, GL_COLOR_ATTACHMENT0, SizeX, SizeY, 0, 1, 1, 1, PF_B8G8R8A8, false, false, Flags, nullptr);
+	FOpenGLTexture2D* Texture2D = new FOpenGLTexture2D(OpenGLRHI, AndroidEGL::GetInstance()->GetOnScreenColorRenderBuffer(), GL_RENDERBUFFER, GL_COLOR_ATTACHMENT0, SizeX, SizeY, 0, 1, 1, 1, PF_B8G8R8A8, false, false, Flags, nullptr, FClearValueBinding::Transparent);
 	OpenGLTextureAllocated(Texture2D, Flags);
 
 	return Texture2D;
@@ -305,7 +303,7 @@ void PlatformReleaseRenderQuery( GLuint Query, uint64 QueryContext )
 }
 
 
-bool FAndroidOpenGL::bUseAdrenoHalfFloatTexStorage = false;
+bool FAndroidOpenGL::bUseHalfFloatTexStorage = false;
 bool FAndroidOpenGL::bUseES30ShadingLanguage = false;
 
 void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
@@ -344,8 +342,8 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 	}
 
 	glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC)((void*)eglGetProcAddress("glDiscardFramebufferEXT"));
-	glFramebufferTexture2DMultisampleEXT = (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXT)((void*)eglGetProcAddress("glFramebufferTexture2DMultisampleEXT"));
-	glRenderbufferStorageMultisampleEXT = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXT)((void*)eglGetProcAddress("glRenderbufferStorageMultisampleEXT"));
+	glFramebufferTexture2DMultisampleEXT = (PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC)((void*)eglGetProcAddress("glFramebufferTexture2DMultisampleEXT"));
+	glRenderbufferStorageMultisampleEXT = (PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC)((void*)eglGetProcAddress("glRenderbufferStorageMultisampleEXT"));
 	glPushGroupMarkerEXT = (PFNGLPUSHGROUPMARKEREXTPROC)((void*)eglGetProcAddress("glPushGroupMarkerEXT"));
 	glPopGroupMarkerEXT = (PFNGLPOPGROUPMARKEREXTPROC)((void*)eglGetProcAddress("glPopGroupMarkerEXT"));
 	glLabelObjectEXT = (PFNGLLABELOBJECTEXTPROC)((void*)eglGetProcAddress("glLabelObjectEXT"));
@@ -363,7 +361,8 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 		bRequiresTexture2DPrecisionHack = true;
 	}
 
-	if( RendererString.Contains(TEXT("Adreno")) )
+	const bool bIsAdrenoBased = RendererString.Contains(TEXT("Adreno"));
+	if (bIsAdrenoBased)
 	{
 		// Adreno 2xx doesn't work with packed depth stencil enabled
 		if (RendererString.Contains(TEXT("Adreno (TM) 2")))
@@ -371,17 +370,20 @@ void FAndroidOpenGL::ProcessExtensions(const FString& ExtensionsString)
 			UE_LOG(LogRHI, Warning, TEXT("Disabling support for GL_OES_packed_depth_stencil on Adreno 2xx"));
 			bSupportsPackedDepthStencil = false;
 		}
+	}
 
-		// Attempt to find ES 3.0 glTexStorage2D if we're on an Adreno device that supports it.
+	if (bES30Support || bIsAdrenoBased)
+	{
+		// Attempt to find ES 3.0 glTexStorage2D if we're on an ES 3.0 device
 		glTexStorage2D = (PFNGLTEXSTORAGE2DPROC)((void*)eglGetProcAddress("glTexStorage2D"));
 		if( glTexStorage2D != NULL )
 		{
-			bUseAdrenoHalfFloatTexStorage = true;
+			bUseHalfFloatTexStorage = true;
 		}
 		else
 		{
 			// need to disable GL_EXT_color_buffer_half_float support because we have no way to allocate the storage and the driver doesn't work without it.
-			UE_LOG(LogRHI,Warning,TEXT("Disabling support for GL_EXT_color_buffer_half_float to avoid an Adreno driver bug"));
+			UE_LOG(LogRHI,Warning,TEXT("Disabling support for GL_EXT_color_buffer_half_float as we cannot bind glTexStorage2D"));
 			bSupportsColorBufferHalfFloat = false;
 		}
 	}
@@ -420,6 +422,11 @@ FString FAndroidMisc::GetGLVersion()
 bool FAndroidMisc::SupportsFloatingPointRenderTargets()
 {
 	return FAndroidGPUInfo::Get().bSupportsFloatingPointRenderTargets;
+}
+
+bool FAndroidMisc::SupportsShaderFramebufferFetch()
+{
+	return FAndroidGPUInfo::Get().bSupportsFrameBufferFetch;
 }
 
 void FAndroidMisc::GetValidTargetPlatforms(TArray<FString>& TargetPlatformNames)

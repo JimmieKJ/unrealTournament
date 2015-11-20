@@ -241,7 +241,7 @@ bool LocallyHasEntitlement(const FString& Entitlement)
 			{
 				for (int32 i = 0; i < MAX_LOCAL_PLAYERS; i++)
 				{
-					TSharedPtr<FUniqueNetId> Id = IdentityInterface->GetUniquePlayerId(i);
+					TSharedPtr<const FUniqueNetId> Id = IdentityInterface->GetUniquePlayerId(i);
 					if (Id.IsValid())
 					{
 						if (EntitlementInterface->GetItemEntitlement(*Id.Get(), Entitlement).IsValid())
@@ -756,7 +756,7 @@ bool NeedsProfileItem(UObject* TestObj)
 	return (CosmeticCls != NULL && CosmeticCls.GetDefaultObject()->bRequiresItem) || (CharacterCls != NULL && CharacterCls.GetDefaultObject()->bRequiresItem) || (TauntCls != NULL && TauntCls.GetDefaultObject()->bRequiresItem) || (BotChar != NULL && BotChar->bRequiresItem);
 }
 
-void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileItemEntry>& ItemList)
+void GiveProfileItems(TSharedPtr<const FUniqueNetId> UniqueId, const TArray<FProfileItemEntry>& ItemList)
 {
 	if (UniqueId.IsValid() && ItemList.Num() > 0)
 	{

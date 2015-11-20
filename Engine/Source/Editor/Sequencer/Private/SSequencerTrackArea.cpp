@@ -2,145 +2,275 @@
 
 #include "SequencerPrivatePCH.h"
 #include "SSequencerTrackArea.h"
-#include "ISequencerSection.h"
-#include "MovieSceneSection.h"
-#include "SSequencer.h"
+#include "SSequencerTrackLane.h"
 #include "TimeSliderController.h"
-#include "SSequencerSectionAreaView.h"
+#include "CommonMovieSceneTools.h"
+#include "Sequencer.h"
+#include "SSequencerTreeView.h"
+#include "IKeyArea.h"
+#include "ISequencerSection.h"
+#include "SSequencerSection.h"
+#include "ISequencerTrackEditor.h"
 
-void SSequencerTrackArea::Construct( const FArguments& InArgs, TSharedRef<FSequencer> InSequencer )
+
+FTrackAreaSlot::FTrackAreaSlot(const TSharedPtr<SSequencerTrackLane>& InSlotContent)
 {
-	ViewRange = InArgs._ViewRange;
-	OutlinerFillPercent = InArgs._OutlinerFillPercent;
+	TrackLane = InSlotContent;
+	
+	HAlignment = HAlign_Fill;
+	VAlignment = VAlign_Top;
+
+	this->AttachWidget(
+		SNew(SWeakWidget)
+			.PossiblyNullContent(InSlotContent)
+	);
+}
+
+
+float FTrackAreaSlot::GetVerticalOffset() const
+{
+	auto PinnedTrackLane = TrackLane.Pin();
+	return PinnedTrackLane.IsValid() ? PinnedTrackLane->GetPhysicalPosition() : 0.f;
+}
+
+
+void SSequencerTrackArea::Construct(const FArguments& InArgs, TSharedRef<FSequencerTimeSliderController> InTimeSliderController, TSharedRef<FSequencer> InSequencer)
+{
 	Sequencer = InSequencer;
-
-	TSharedRef<SScrollBar> ScrollBar =
-		SNew(SScrollBar)
-		.Thickness(FVector2D(5.0f, 5.0f));
-
-	ChildSlot
-	[
-		SNew(SOverlay)
-		+ SOverlay::Slot()
-		[
-			SAssignNew(ScrollBox, SScrollBox)
-			.ExternalScrollbar(ScrollBar)
-		]
-		+ SOverlay::Slot()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.FillWidth(OutlinerFillPercent)
-			[
-				SNew(SSpacer)
-			]
-			+ SHorizontalBox::Slot()
-			.FillWidth(1.0f)
-			[
-				SAssignNew(CurveEditor, SSequencerCurveEditor, InSequencer)
-				.Visibility( this, &SSequencerTrackArea::GetCurveEditorVisibility )
-				.ViewRange(ViewRange)
-			]
-		]
-		+ SOverlay::Slot()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Right)
-			.FillWidth( TAttribute<float>( this, &SSequencerTrackArea::GetScrollBarSlotFill ) )
-			[
-				ScrollBar
-			]
-			+ SHorizontalBox::Slot()
-			.FillWidth( TAttribute<float>( this, &SSequencerTrackArea::GetScrollBarSpacerSlotFill ) )
-			[
-				SNew( SSpacer )
-			]
-		]
-	];
+	TimeSliderController = InTimeSliderController;
 }
 
-void SSequencerTrackArea::Update( TSharedPtr<FSequencerNodeTree> InSequencerNodeTree )
+
+void SSequencerTrackArea::SetTreeView(const TSharedPtr<SSequencerTreeView>& InTreeView)
 {
-	ScrollBox->ClearChildren();
-
-	const TArray< TSharedRef<FSequencerDisplayNode> >& RootNodes = InSequencerNodeTree->GetRootNodes();
-
-	for( int32 RootNodeIndex = 0; RootNodeIndex < RootNodes.Num(); ++RootNodeIndex )
-	{
-		TSharedRef<FSequencerDisplayNode> RootNode = RootNodes[RootNodeIndex];
-
-		// Generate a widget for each root node
-		GenerateWidgetForNode( RootNode );
-
-		// Generate a node for each children of the root node
-		GenerateLayoutNodeWidgetsRecursive( RootNode->GetChildNodes() );
-	}
-
-	// @todo Sequencer - Remove this expensive operation
-	ScrollBox->SlatePrepass();
-
-	CurveEditor->SetSequencerNodeTree(InSequencerNodeTree);
+	TreeView = InTreeView;
 }
 
-void SSequencerTrackArea::GenerateLayoutNodeWidgetsRecursive( const TArray< TSharedRef<FSequencerDisplayNode> >& Nodes )
-{
-	for( int32 NodeIndex = 0; NodeIndex < Nodes.Num(); ++NodeIndex )
-	{
-		TSharedRef<FSequencerDisplayNode> Node = Nodes[NodeIndex];
 
-		// The section area encompasses multiple logical child nodes so we do not generate children that arent section areas (they would not be top level nodes in that case)
-		if( Node->GetType() == ESequencerNode::Track )
+void SSequencerTrackArea::AddTrackSlot(const TSharedRef<FSequencerDisplayNode>& InNode, const TSharedPtr<SSequencerTrackLane>& InSlot)
+{
+	TrackSlots.Add(InNode, InSlot);
+	Children.Add(new FTrackAreaSlot(InSlot));
+}
+
+
+TSharedPtr<SSequencerTrackLane> SSequencerTrackArea::FindTrackSlot(const TSharedRef<FSequencerDisplayNode>& InNode)
+{
+	return TrackSlots.FindRef(InNode).Pin();
+}
+
+
+void SSequencerTrackArea::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
+{
+	for (int32 ChildIndex = 0; ChildIndex < Children.Num(); ++ChildIndex)
+	{
+		const FTrackAreaSlot& CurChild = Children[ChildIndex];
+
+		const EVisibility ChildVisibility = CurChild.GetWidget()->GetVisibility();
+		if (!ArrangedChildren.Accepts(ChildVisibility))
 		{
-			GenerateWidgetForNode( Node );	
+			continue;
+		}
 
-			GenerateLayoutNodeWidgetsRecursive( Node->GetChildNodes() );
+		const FMargin Padding(0, CurChild.GetVerticalOffset(), 0, 0);
+
+		AlignmentArrangeResult XResult = AlignChild<Orient_Horizontal>(AllottedGeometry.Size.X, CurChild, Padding, 1.0f, false);
+		AlignmentArrangeResult YResult = AlignChild<Orient_Vertical>(AllottedGeometry.Size.Y, CurChild, Padding, 1.0f, false);
+
+		ArrangedChildren.AddWidget(ChildVisibility,
+			AllottedGeometry.MakeChild(
+				CurChild.GetWidget(),
+				FVector2D(XResult.Offset,YResult.Offset),
+				FVector2D(XResult.Size, YResult.Size)
+			)
+		);
+	}
+}
+
+
+FVector2D SSequencerTrackArea::ComputeDesiredSize( float ) const
+{
+	FVector2D MaxSize(0,0);
+	for (int32 ChildIndex = 0; ChildIndex < Children.Num(); ++ChildIndex)
+	{
+		const FTrackAreaSlot& CurChild = Children[ChildIndex];
+
+		const EVisibility ChildVisibilty = CurChild.GetWidget()->GetVisibility();
+		if (ChildVisibilty != EVisibility::Collapsed)
+		{
+			FVector2D ChildDesiredSize = CurChild.GetWidget()->GetDesiredSize();
+			MaxSize.X = FMath::Max(MaxSize.X, ChildDesiredSize.X);
+			MaxSize.Y = FMath::Max(MaxSize.Y, ChildDesiredSize.Y);
 		}
 	}
+
+	return MaxSize;
 }
 
-void SSequencerTrackArea::GenerateWidgetForNode( TSharedRef<FSequencerDisplayNode>& Node )
+
+FChildren* SSequencerTrackArea::GetChildren()
 {
-	ScrollBox->AddSlot()
-	[
-		SNew( SHorizontalBox )
-		+ SHorizontalBox::Slot()
-		.FillWidth( OutlinerFillPercent )
-		.Padding( FMargin(0.0f, 2.0f ) )
-		[
-			// Generate a widget for the animation outliner portion of the node
-			Node->GenerateWidgetForOutliner( Sequencer.Pin().ToSharedRef() )
-		]
-		+ SHorizontalBox::Slot()
-		.FillWidth( 1.0f )
-		.Padding( FMargin(0.0f, 2.0f) )
-		[
-			SNew(SBox)
-			.Visibility(this, &SSequencerTrackArea::GetSectionControlVisibility)
-			[
-				// Generate a widget for the section area portion of the node
-				Node->GenerateWidgetForSectionArea( ViewRange )
-			]
-		]
-	];
+	return &Children;
 }
 
-EVisibility SSequencerTrackArea::GetCurveEditorVisibility() const
+
+int32 SSequencerTrackArea::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
-	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? EVisibility::Visible : EVisibility::Hidden;
+	// give track editors a chance to paint
+	auto TrackEditors = Sequencer->GetTrackEditors();
+
+	for (const auto& TrackEditor : TrackEditors)
+	{
+		LayerId = TrackEditor->PaintTrackArea(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle);
+	}
+
+	// paint the child widgets
+	FArrangedChildren ArrangedChildren(EVisibility::Visible);
+	ArrangeChildren(AllottedGeometry, ArrangedChildren);
+
+	for (int32 ChildIndex = 0; ChildIndex < ArrangedChildren.Num(); ++ChildIndex)
+	{
+		FArrangedWidget& CurWidget = ArrangedChildren[ChildIndex];
+		FSlateRect ChildClipRect = MyClippingRect.IntersectionWith( CurWidget.Geometry.GetClippingRect() );
+		const int32 ThisWidgetLayerId = CurWidget.Widget->Paint( Args.WithNewParent(this), CurWidget.Geometry, ChildClipRect, OutDrawElements, LayerId + 1, InWidgetStyle, ShouldBeEnabled( bParentEnabled ) );
+
+		LayerId = FMath::Max(LayerId, ThisWidgetLayerId);
+	}
+
+	return Sequencer->GetEditTool().OnPaint(AllottedGeometry, MyClippingRect, OutDrawElements, LayerId + 1);
 }
 
-EVisibility SSequencerTrackArea::GetSectionControlVisibility() const
+
+FReply SSequencerTrackArea::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? EVisibility::Hidden : EVisibility::Visible;
+	FReply Reply = Sequencer->GetEditTool().OnMouseButtonDown(*this, MyGeometry, MouseEvent);
+
+	if (Reply.IsEventHandled())
+	{
+		return Reply;
+	}
+
+	return TimeSliderController->OnMouseButtonDown( SharedThis(this), MyGeometry, MouseEvent );
 }
 
-float SSequencerTrackArea::GetScrollBarSlotFill() const
+
+FReply SSequencerTrackArea::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? OutlinerFillPercent.Get() : 1.0f;
+	FReply Reply = Sequencer->GetEditTool().OnMouseButtonUp(*this, MyGeometry, MouseEvent);
+
+	if (Reply.IsEventHandled())
+	{
+		return Reply;
+	}
+
+	return TimeSliderController->OnMouseButtonUp( SharedThis(this), MyGeometry, MouseEvent );
 }
 
-float SSequencerTrackArea::GetScrollBarSpacerSlotFill() const
+
+FReply SSequencerTrackArea::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	return GetDefault<USequencerSettings>()->GetShowCurveEditor() ? 1.0f : 0.0f;
+	FReply Reply = Sequencer->GetEditTool().OnMouseMove(*this, MyGeometry, MouseEvent);
+
+	if (Reply.IsEventHandled())
+	{
+		return Reply;
+	}
+
+	if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton) && HasMouseCapture())
+	{
+		TreeView.Pin()->ScrollByDelta(-MouseEvent.GetCursorDelta().Y);
+	}
+
+	return TimeSliderController->OnMouseMove( SharedThis(this), MyGeometry, MouseEvent );
+}
+
+
+FReply SSequencerTrackArea::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	// First try the edit tool
+	FReply Reply = Sequencer->GetEditTool().OnMouseWheel(*this, MyGeometry, MouseEvent);
+
+	if (Reply.IsEventHandled())
+	{
+		return Reply;
+	}
+
+	// Then the time slider
+	Reply = TimeSliderController->OnMouseWheel(SharedThis(this), MyGeometry, MouseEvent);
+
+	if (Reply.IsEventHandled())
+	{
+		return Reply;
+	}
+
+	// Failing that, we'll just scroll vertically
+	TreeView.Pin()->ScrollByDelta(WheelScrollAmount * -MouseEvent.GetWheelDelta());
+
+	return FReply::Handled();
+}
+
+
+void SSequencerTrackArea::OnMouseEnter(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	Sequencer->GetEditTool().OnMouseEnter(*this, MyGeometry, MouseEvent);
+}
+
+
+void SSequencerTrackArea::OnMouseLeave(const FPointerEvent& MouseEvent)
+{
+	Sequencer->GetEditTool().OnMouseLeave(*this, MouseEvent);
+}
+
+
+void SSequencerTrackArea::OnMouseCaptureLost()
+{
+	Sequencer->GetEditTool().OnMouseCaptureLost();
+}
+
+
+FCursorReply SSequencerTrackArea::OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const
+{
+	if (CursorEvent.IsMouseButtonDown(EKeys::RightMouseButton) && HasMouseCapture())
+	{
+		return FCursorReply::Cursor(EMouseCursor::GrabHandClosed);
+	}
+
+	return Sequencer->GetEditTool().OnCursorQuery(MyGeometry, CursorEvent);
+}
+
+
+void SSequencerTrackArea::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	CachedGeometry = AllottedGeometry;
+
+	Sequencer->GetEditTool().Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+
+	FVector2D Size = AllottedGeometry.GetLocalSize();
+
+	if (SizeLastFrame.IsSet() && Size.X != SizeLastFrame->X)
+	{
+		// Zoom by the difference in horizontal size
+		const float Difference = Size.X - SizeLastFrame->X;
+		TRange<float> OldRange = TimeSliderController->GetViewRange().GetAnimationTarget();
+
+		TimeSliderController->SetViewRange(
+			OldRange.GetLowerBoundValue(),
+			OldRange.GetUpperBoundValue() + (Difference * OldRange.Size<float>() / SizeLastFrame->X),
+			EViewRangeInterpolation::Immediate
+		);
+	}
+
+	SizeLastFrame = Size;
+
+	for (int32 Index = 0; Index < Children.Num();)
+	{
+		if (!StaticCastSharedRef<SWeakWidget>(Children[Index].GetWidget())->ChildWidgetIsValid())
+		{
+			Children.RemoveAt(Index);
+		}
+		else
+		{
+			++Index;
+		}
+	}
 }

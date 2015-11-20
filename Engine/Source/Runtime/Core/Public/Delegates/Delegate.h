@@ -159,13 +159,15 @@
  */
 
 
+#define USE_VARIADIC_DELEGATES PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+
 // This suffix is appended to all header exported delegates
 #define HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX TEXT("__DelegateSignature")
 
 /** Helper macro that enables passing comma-separated arguments as a single macro parameter */
 #define FUNC_CONCAT( ... ) __VA_ARGS__
 
-#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+#if USE_VARIADIC_DELEGATES
 	#define FUNC_DECLARE_DELEGATE_BASE(Prefix, Suffix, ...) Prefix<__VA_ARGS__>
 	#define FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(TWeakPtr, Prefix, Suffix, ...) FUNC_DECLARE_DELEGATE_BASE(Prefix, Suffix, TWeakPtr, __VA_ARGS__)
 #else
@@ -279,20 +281,123 @@ class DynamicMulticastDelegateName : public FUNC_DECLARE_DYNAMIC_DELEGATE_BASE(T
 
 
 
+#define ENABLE_STATIC_FUNCTION_FNAMES (defined(__clang__) && (__clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 5)))
+
+#if ENABLE_STATIC_FUNCTION_FNAMES
+
+	#include "Delegates/IntegerSequence.h"
+
+	namespace NStrAfterLastDoubleColon_Private
+	{
+		template <typename T>
+		struct TTypedImpl
+		{
+			// Dummy bool parameter needed so that we can ensure the last specialization is partial
+			template <bool Dummy, T... Chars>
+			struct Inner;
+
+			template <typename SecondMatch, T... Chars>
+			struct Inner2
+			{
+				typedef typename TTypedImpl<T>::template Inner<true, Chars...>::Type Type;
+			};
+
+			template <T... Chars>
+			struct Inner2<TIntegerSequence<T>, Chars...>
+			{
+				typedef TIntegerSequence<T, Chars...> Type;
+			};
+
+			template <bool Dummy, T Char, T... Chars>
+			struct Inner<Dummy, Char, Chars...>
+			{
+				typedef typename Inner<Dummy, Chars...>::Type Type;
+			};
+
+			template <bool Dummy, T... Chars>
+			struct Inner<Dummy, ':', ':', Chars...>
+			{
+				typedef typename Inner2<typename Inner<Dummy, Chars...>::Type, Chars...>::Type Type;
+			};
+
+			// Without the dummy bool parameter, this would not compile, as full specializations
+			// of nested class templates is not allowed.
+			template <bool Dummy>
+			struct Inner<Dummy>
+			{
+				typedef TIntegerSequence<T> Type;
+			};
+		};
+
+
+		template <typename IntSeq>
+		struct TStaticFNameFromCharSequence;
+
+		template <typename T, T... Chars>
+		struct TStaticFNameFromCharSequence<TIntegerSequence<T, Chars...>>
+		{
+			static FName Get()
+			{
+				static FName Result = Create();
+				return Result;
+			}
+
+		private:
+			static FName Create()
+			{
+				const T Str[sizeof...(Chars) + 1] = { Chars..., 0 };
+				return Str;
+			}
+		};
+
+		/**
+		 * Metafunction which evaluates to a TIntegerSequence of chars containing only the function name.
+		 *
+		 * Example:
+		 * TStrAfterLastDoubleColon<TEXT("&SomeClass::SomeNestedClass::SomeFunc")_intseq>::Type == TIntegerSequence<TCHAR, 'S', 'o', 'm', 'e', 'F', 'u', 'n', 'c'>
+		 */
+		template <typename T>
+		struct TStrAfterLastDoubleColon;
+
+		template <typename T, T... Chars>
+		struct TStrAfterLastDoubleColon<TIntegerSequence<T, Chars...>>
+		{
+			typedef typename NStrAfterLastDoubleColon_Private::TTypedImpl<T>::template Inner<true, Chars...>::Type Type;
+		};
+	}
+
+	/**
+	 * Custom literal operator which converts a string into a TIntegerSequence of chars.
+	 */
+	template <typename T, T... Chars>
+	FORCEINLINE constexpr TIntegerSequence<T, Chars...> operator""_intseq()
+	{
+		return {};
+	}
+
+	#define STATIC_FUNCTION_FNAME(str) NStrAfterLastDoubleColon_Private::TStaticFNameFromCharSequence<typename NStrAfterLastDoubleColon_Private::TStrAfterLastDoubleColon<decltype(PREPROCESSOR_JOIN(str, _intseq))>::Type>::Get()
+
+#else
+
+	#define STATIC_FUNCTION_FNAME(str) UE4Delegates_Private::GetTrimmedMemberFunctionName(str)
+
+#endif
+
+
 // Helper macro for calling BindDynamic() on dynamic delegates.  Automatically generates the function name string.
-#define BindDynamic( UserObject, FuncName ) __Internal_BindDynamic( UserObject, FuncName, TEXT( #FuncName ) )
+#define BindDynamic( UserObject, FuncName ) __Internal_BindDynamic( UserObject, FuncName, STATIC_FUNCTION_FNAME( TEXT( #FuncName ) ) )
 
 // Helper macro for calling AddDynamic() on dynamic multi-cast delegates.  Automatically generates the function name string.
-#define AddDynamic( UserObject, FuncName ) __Internal_AddDynamic( UserObject, FuncName, TEXT( #FuncName ) )
+#define AddDynamic( UserObject, FuncName ) __Internal_AddDynamic( UserObject, FuncName, STATIC_FUNCTION_FNAME( TEXT( #FuncName ) ) )
 
 // Helper macro for calling AddUniqueDynamic() on dynamic multi-cast delegates.  Automatically generates the function name string.
-#define AddUniqueDynamic( UserObject, FuncName ) __Internal_AddUniqueDynamic( UserObject, FuncName, TEXT( #FuncName ) )
+#define AddUniqueDynamic( UserObject, FuncName ) __Internal_AddUniqueDynamic( UserObject, FuncName, STATIC_FUNCTION_FNAME( TEXT( #FuncName ) ) )
 
 // Helper macro for calling RemoveDynamic() on dynamic multi-cast delegates.  Automatically generates the function name string.
-#define RemoveDynamic( UserObject, FuncName ) __Internal_RemoveDynamic( UserObject, FuncName, TEXT( #FuncName ) )
+#define RemoveDynamic( UserObject, FuncName ) __Internal_RemoveDynamic( UserObject, FuncName, STATIC_FUNCTION_FNAME( TEXT( #FuncName ) ) )
 
 // Helper macro for calling IsAlreadyBound() on dynamic multi-cast delegates.  Automatically generates the function name string.
-#define IsAlreadyBound( UserObject, FuncName ) __Internal_IsAlreadyBound( UserObject, FuncName, TEXT( #FuncName ) )
+#define IsAlreadyBound( UserObject, FuncName ) __Internal_IsAlreadyBound( UserObject, FuncName, STATIC_FUNCTION_FNAME( TEXT( #FuncName ) ) )
 
 
 namespace UE4Delegates_Private
@@ -302,28 +407,27 @@ namespace UE4Delegates_Private
 	 * Note: this function only returns a pointer to the substring and doesn't create a new string.
 	 *
 	 * @param  InMacroFunctionName  The string containing the member function name.
-	 * @return A pointer to the substring containing the member function name.
+	 * @return An FName of the member function name.
 	 */
-	inline const TCHAR* GetTrimmedMemberFunctionName(const TCHAR* InMacroFunctionName)
+	inline FName GetTrimmedMemberFunctionName(const TCHAR* InMacroFunctionName)
 	{
 		// We strip off the class prefix and just return the function name by itself.
+		check(InMacroFunctionName);
 		const TCHAR* Result = FCString::Strrstr( InMacroFunctionName, TEXT( "::" ) );
-		checkf(Result, TEXT("'%s' does not look like a member function"), InMacroFunctionName);
-		return Result + 2;
+		checkf(Result && Result[2] != (TCHAR)'0', TEXT("'%s' does not look like a member function"), InMacroFunctionName);
+		return FName(Result + 2);
 	}
 }
 
 
 /*********************************************************************************************************************/
 
-#define DELEGATE_DEPRECATED(message) DEPRECATED(4.7, message)
-
 // We define this as a guard to prevent DelegateSignatureImpl.inl being included outside of this file
 #define __Delegate_h__
 #define FUNC_INCLUDING_INLINE_IMPL
 
 #ifndef UE_BUILD_DOCS
-	#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
+	#if USE_VARIADIC_DELEGATES
 		#include "DelegateInstanceInterface_Variadics.h"
 		#include "DelegateInstancesImpl_Variadics.inl"
 		#include "DelegateSignatureImpl_Variadics.inl"

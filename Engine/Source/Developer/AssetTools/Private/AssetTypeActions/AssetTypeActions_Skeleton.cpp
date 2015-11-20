@@ -519,9 +519,9 @@ void FAssetTypeActions_Skeleton::CreateRig(const TWeakObjectPtr<USkeleton> Skele
 	}
 }
 
-void FAssetTypeActions_Skeleton::RetargetAnimationHandler(USkeleton* OldSkeleton, USkeleton* NewSkeleton, bool bRemapReferencedAssets, bool bConvertSpaces)
+void FAssetTypeActions_Skeleton::RetargetAnimationHandler(USkeleton* OldSkeleton, USkeleton* NewSkeleton, bool bRemapReferencedAssets, bool bAllowRemapToExisting, bool bConvertSpaces, const EditorAnimUtils::FNameDuplicationRule* NameRule)
 {
-	if((OldSkeleton && OldSkeleton->GetPreviewMesh(true) == NULL) || (NewSkeleton && NewSkeleton->GetPreviewMesh(true)==NULL))
+	if((OldSkeleton && OldSkeleton->GetPreviewMesh(true) == NULL))
 	{
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("OldSkeletonName"), FText::FromString(GetNameSafe(OldSkeleton)));
@@ -538,6 +538,7 @@ void FAssetTypeActions_Skeleton::RetargetAnimationHandler(USkeleton* OldSkeleton
 		return;
 	}
 
+	// namerule should be null
 	// find all assets who references old skeleton
 	TArray<FName> Packages;
 
@@ -568,9 +569,8 @@ void FAssetTypeActions_Skeleton::ExecuteRetargetSkeleton(TArray<TWeakObjectPtr<U
 			USkeleton* OldSkeleton = (*SkelIt).Get();
 
 			const FText Message = LOCTEXT("RetargetSkeleton_Warning", "This only converts animation data -i.e. animation assets and Anim Blueprints. \nIf you'd like to convert SkeletalMesh, use the context menu (Assign Skeleton) for each mesh. \n\nIf you'd like to convert mesh as well, please do so before converting animation data. \nOtherwise you will lose any extra track that is in the new mesh.");
-
 			// ask user what they'd like to change to 
-			SAnimationRemapSkeleton::ShowWindow(OldSkeleton, Message, FOnRetargetAnimation::CreateSP(this, &FAssetTypeActions_Skeleton::RetargetAnimationHandler));
+			SAnimationRemapSkeleton::ShowWindow(OldSkeleton, Message, false, FOnRetargetAnimation::CreateSP(this, &FAssetTypeActions_Skeleton::RetargetAnimationHandler));
 		}
 	}
 }

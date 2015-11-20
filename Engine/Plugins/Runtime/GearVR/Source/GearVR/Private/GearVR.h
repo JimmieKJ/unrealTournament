@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "IGearVRPlugin.h"
 #include "HeadMountedDisplay.h"
 #include "IHeadMountedDisplay.h"
 #include "HeadMountedDisplayCommon.h"
@@ -14,16 +13,11 @@
 #pragma pack (push,8)
 #endif
 	
-#include "OVRVersion.h"
-
-#include "../Src/Kernel/OVR_Math.h"
-#include "../Src/Kernel/OVR_Threads.h"
-#include "../Src/Kernel/OVR_Color.h"
-#include "../Src/Kernel/OVR_Timer.h"
-
+PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 #include "OVR.h"
 #include "VrApi.h"
 #include "VrApi_Android.h"
+PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
 
 #include <GLES2/gl2.h>
 
@@ -34,6 +28,12 @@ using namespace OVR;
 #endif
 
 #define OVR_DEFAULT_IPD 0.064f
+#define OVR_DEFAULT_EYE_RENDER_TARGET_WIDTH		1024
+#define OVR_DEFAULT_EYE_RENDER_TARGET_HEIGHT	1024
+
+//#define OVR_DEBUG_DRAW
+
+class FGearVR;
 
 namespace GearVR
 {
@@ -105,11 +105,13 @@ class FSettings : public FHMDSettings
 {
 public:
 	/** The width and height of the stereo render target */
-	int32			RenderTargetWidth;
-	int32			RenderTargetHeight;
+	FIntPoint		RenderTargetSize;
 
 	/** Clamp warpswap to once every N vsyncs.  1 = 60Hz, 2 = 30Hz, etc. */
 	int32			MinimumVsyncs;
+
+	int				CpuLevel;
+	int				GpuLevel;
 
 	/** Motion prediction (in seconds). 0 - no prediction */
 	double			MotionPredictionInSeconds;
@@ -118,8 +120,6 @@ public:
 	FVector			HeadModel;
 
 	OVR::Vector3f	HmdToEyeViewOffset[2]; 
-
-	ovrModeParms	VrModeParms;
 
 	FSettings();
 	virtual ~FSettings() override {}
@@ -131,11 +131,13 @@ class FGameFrame : public FHMDGameFrame
 {
 public:
 	ovrPosef				CurEyeRenderPose[2];// eye render pose read at the beginning of the frame
-	ovrSensorState			CurSensorState;	    // sensor state read at the beginning of the frame
+	ovrTracking				CurSensorState;	    // sensor state read at the beginning of the frame
 
 	ovrPosef				EyeRenderPose[2];	// eye render pose actually used
-	ovrPosef				HeadPose;			// position of head actually used
+	ovrRigidBodyPosef		HeadPose;			// position of head actually used
 	ovrMatrix4f				TanAngleMatrix;
+	
+	pid_t					GameThreadId;
 
 	FGameFrame();
 	virtual ~FGameFrame() {}
@@ -160,29 +162,56 @@ class FViewExtension : public FHMDViewExtension
 public:
 	FViewExtension(FHeadMountedDisplay* InDelegate);
 
- 	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
+	//virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) override;
+	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
  	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
 
 	FGameFrame* GetRenderFrame() const { return static_cast<FGameFrame*>(RenderFrame.Get()); }
 	FSettings* GetFrameSetting() const { return static_cast<FSettings*>(RenderFrame->GetSettings()); }
+	FGearVR* GetGearVR() const;
 public:
 	class FGearVRCustomPresent* pPresentBridge;
-	ovrMobile*			OvrMobile;
-	ovrPosef			CurEyeRenderPose[2];// most recent eye render poses
-	ovrPosef			CurHeadPose;		// current position of head
+	ovrPosef			NewEyeRenderPose[2];// most recent eye render poses
+	ovrRigidBodyPosef	CurHeadPose;		// current position of head
+	ovrTracking			NewTracking;		// current tracking
 
-	FEngineShowFlags	ShowFlags; // a copy of showflags
+	FEngineShowFlags	ShowFlags;			// a copy of showflags
 	bool				bFrameBegun : 1;
+};
+
+class FOvrMobileSynced
+{
+	friend class FGearVRCustomPresent;
+protected:
+	FOvrMobileSynced(ovrMobile* InMobile, FCriticalSection* InLock) :Mobile(InMobile), pLock(InLock) 
+	{
+		pLock->Lock();
+	}
+public:
+	~FOvrMobileSynced()
+	{
+		pLock->Unlock();
+	}
+	bool IsValid() const { return Mobile != nullptr; }
+public:
+	ovrMobile* operator->() const { return Mobile; }
+	ovrMobile* operator*() const { return Mobile; }
+
+protected:
+	ovrMobile*			Mobile;
+	FCriticalSection*	pLock;		// used to access OvrMobile on a game thread
 };
 
 class FGearVRCustomPresent : public FRHICustomPresent
 {
 	friend class FViewExtension;
+	friend class ::FGearVR;
 public:
-	FGearVRCustomPresent(int32 MinimumVsyncs);
+	FGearVRCustomPresent(jobject InActivityObject, int32 InMinimumVsyncs);
 
 	// Returns true if it is initialized and used.
 	bool IsInitialized() const { return bInitialized; }
+	bool IsTextureSetCreated() const { return TextureSet;  }
 
 	void UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI, FGameFrame* InRenderFrame);
 	FGameFrame* GetRenderFrame() const { check(IsInRenderingThread()); return static_cast<FGameFrame*>(RenderContext->RenderFrame.Get()); }
@@ -194,7 +223,7 @@ public:
 	void UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI);
 
 	void Reset();
-	void Shutdown() { Reset(); }
+	void Shutdown();
 
 	void Init();
 
@@ -204,6 +233,20 @@ public:
 	// Returns true if Engine should perform its own Present.
 	virtual bool Present(int& SyncInterval) override;
 
+	// Called when rendering thread is acquired
+	virtual void OnAcquireThreadOwnership() override;
+	// Called when rendering thread is released
+	virtual void OnReleaseThreadOwnership() override;
+
+	// Allocates render target texture
+	// If returns false then a default RT texture will be used.
+	bool AllocateRenderTargetTexture(uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples);
+
+	FOvrMobileSynced GetMobileSynced() { return FOvrMobileSynced(OvrMobile, &OvrMobileLock); }
+	void DoEnterVRMode();
+	void DoLeaveVRMode();
+
+	pid_t GetRenderThreadId() const { return RenderThreadId; }
 private:
 	void DicedBlit(uint32 SourceX, uint32 SourceY, uint32 DestX, uint32 DestY, uint32 Width, uint32 Height, uint32 NumXSteps, uint32 NumYSteps);
 
@@ -215,11 +258,16 @@ protected: // data
 	bool											bInitialized;
 
 	// should be accessed only on a RenderThread!
-	ovrTimeWarpParms	SwapParms;
-	GLuint              CurrentSwapChainIndex;
-	GLuint              SwapChainTextures[2][3];
-	GLuint				RTTexId;
-	int32				MinimumVsyncs;
+	ovrFrameParms							FrameParms;
+	ovrPerformanceParms						DefaultPerfParms;
+	TRefCountPtr<class FOpenGLTexture2DSet>	TextureSet;
+	int32									MinimumVsyncs;
+
+	ovrMobile*								OvrMobile;		// to be accessed only on RenderThread (or, when RT is suspended)
+	pid_t									RenderThreadId; // the rendering thread id where EnterVrMode was called.
+	FCriticalSection						OvrMobileLock;	// used to access OvrMobile_RT/HmdInfo_RT on a game thread
+	ovrJava									JavaRT;			// Rendering thread Java obj
+	jobject									ActivityObject;
 };
 }  // namespace GearVR
 
@@ -231,24 +279,21 @@ using namespace GearVR;
 class FGearVR : public FHeadMountedDisplay
 {
 	friend class FViewExtension;
+	friend class FGearVRCustomPresent;
 public:
-	static void PreInit();
-
 	/** IHeadMountedDisplay interface */
-	virtual bool OnStartGameFrame() override;
-	virtual bool IsHMDConnected() override { return true; }
+	virtual bool OnStartGameFrame( FWorldContext& WorldContext ) override;
+	virtual bool IsHMDConnected() override;
 	virtual EHMDDeviceType::Type GetHMDDeviceType() const override;
 	virtual bool GetHMDMonitorInfo(MonitorInfo&) override;
-
-    virtual void GetCurrentOrientationAndPosition(FQuat& CurrentOrientation, FVector& CurrentPosition) override;
-	virtual FVector GetNeckPosition(const FQuat& CurrentOrientation, const FVector& CurrentPosition, const FVector& PositionScale) override;
 
 	virtual TSharedPtr<class ISceneViewExtension, ESPMode::ThreadSafe> GetViewExtension() override;
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar ) override;
 	virtual void OnScreenModeChange(EWindowMode::Type WindowMode) override;
 
 	/** IStereoRendering interface */
-	virtual void CalculateStereoViewOffset(const EStereoscopicPass StereoPassType, const FRotator& ViewRotation, 
+	virtual bool EnableStereo(bool bStereo) override;
+	virtual void CalculateStereoViewOffset(const EStereoscopicPass StereoPassType, const FRotator& ViewRotation,
 										   const float MetersToWorld, FVector& ViewLocation) override;
 	virtual FMatrix GetStereoProjectionMatrix(const EStereoscopicPass StereoPassType, const float FOV) const override;
 	virtual void InitCanvasFromView(FSceneView* InView, UCanvas* Canvas) override;
@@ -257,10 +302,17 @@ public:
 	virtual void CalculateRenderTargetSize(const class FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY) override;
 	virtual bool NeedReAllocateViewportRenderTarget(const FViewport& Viewport) override;
 
+	virtual uint32 GetNumberOfBufferedFrames() const override { return 1; }
+	virtual bool AllocateRenderTargetTexture(uint32 Index, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 Flags, uint32 TargetableTextureFlags, FTexture2DRHIRef& OutTargetableTexture, FTexture2DRHIRef& OutShaderResourceTexture, uint32 NumSamples = 1) override;
+
 	virtual bool ShouldUseSeparateRenderTarget() const override
 	{
 		check(IsInGameThread());
+#if OVR_DEBUG_DRAW
+		return false;
+#else
 		return IsStereoEnabled();
+#endif
 	}
 	virtual void GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const override;
 
@@ -279,6 +331,8 @@ public:
 		current position as 0 point. */
 	virtual void ResetOrientationAndPosition(float yaw = 0.f) override;
 
+	void RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const override;
+
 	virtual FString GetVersionString() const override;
 
 	virtual void DrawDebug(UCanvas* Canvas) override;
@@ -291,11 +345,20 @@ public:
 
 	TRefCountPtr<FGearVRCustomPresent> pGearVRBridge;
 
-	void ShutdownRendering();
 	void StartOVRGlobalMenu();
+	void StartOVRQuitMenu();
+
+	void SetCPUAndGPULevels(int32 CPULevel, int32 GPULevel);
+	bool IsPowerLevelStateMinimum() const;
+	bool IsPowerLevelStateThrottled() const;
+	bool AreHeadPhonesPluggedIn() const;
+	float GetTemperatureInCelsius() const;
+	float GetBatteryLevel() const;
 
 private:
 	FGearVR* getThis() { return this; }
+
+	void ShutdownRendering();
 
 	/**
 	 * Starts up the GearVR device
@@ -338,18 +401,24 @@ protected:
 	virtual void GetCurrentPose(FQuat& CurrentHmdOrientation, FVector& CurrentHmdPosition, bool bUseOrienationForPlayerCamera = false, bool bUsePositionForPlayerCamera = false) override;
 
 	// Returns eye poses instead of head pose.
-	bool GetEyePoses(const FGameFrame& InFrame, ovrPosef outEyePoses[2], ovrSensorState& outSensorState);
+	bool GetEyePoses(const FGameFrame& InFrame, ovrPosef outEyePoses[2], ovrTracking& outTracking);
 
 	FGameFrame* GetFrame() const;
 
-	void EnterVrMode(const ovrModeParms& InVrModeParms);
+	void EnterVRMode();
+	void LeaveVRMode();
+
+	FOvrMobileSynced GetMobileSynced() 
+	{ 
+		check(pGearVRBridge);
+		return pGearVRBridge->GetMobileSynced();
+	}
 private: // data
 
 	FRotator			DeltaControlRotation;    // same as DeltaControlOrientation but as rotator
 
-	ovrMobile*			OvrMobile_RT; // to be accessed only on RenderThread (or, when RT is suspended)
-	ovrHmdInfo			HmdInfo_RT;   // to be accessed only on RenderThread (or, when RT is suspended)
-	FCriticalSection	OvrMobileLock;// used to access OvrMobile_RT/HmdInfo_RT on a game thread
+	ovrHmdInfo			HmdInfo;	// to be accessed only on RenderThread (or, when RT is suspended)
+	ovrJava				JavaGT;		// game thread (main) Java VM obj	
 
 	float				ResetToYaw; // used for delayed orientation/position reset
 

@@ -142,9 +142,16 @@ protected:
 		id(ID++)
 	{
 		ir_type = ir_type_unset;
+		if (id == BREAK_ON_ID)
+		{
+#if WIN32
+			__debugbreak();
+#endif
+        }
 	}
 
 	static int ID;
+	static int BREAK_ON_ID;
 };
 
 
@@ -2042,6 +2049,8 @@ enum ir_atomic_op
 	ir_atomic_xor,
 	ir_atomic_swap,
 	ir_atomic_cmp_swap,
+	ir_atomic_load,
+	ir_atomic_store,
 	ir_atomic_count
 };
 

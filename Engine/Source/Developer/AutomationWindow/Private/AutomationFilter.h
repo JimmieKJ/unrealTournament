@@ -92,9 +92,18 @@ public:
 	virtual bool PassesFilter( const TSharedPtr< IAutomationReport >& InReport ) const override
 	{
 		bool FilterPassed = true;
-		if( OnlySmokeTests && !InReport->IsSmokeTest( ) )
+		if (OnlySmokeTests)
 		{
-			FilterPassed = false;
+			//if we only want smoke tests and this isn't one
+			if (!InReport->IsSmokeTest())
+			{
+				FilterPassed = false;
+			}
+			//Leaf Nodes dictate this matching, not root nodes
+			if (InReport->GetTotalNumChildren())
+			{
+				FilterPassed = false;
+			}
 		}
 
 		if (ShowWarnings && ShowErrors)

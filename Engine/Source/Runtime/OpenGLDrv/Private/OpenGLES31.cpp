@@ -10,7 +10,7 @@
 
 static TAutoConsoleVariable<int32> CVarDisjointTimerQueries(
 	TEXT("r.DisjointTimerQueries"),
-	1,
+	0,
 	TEXT("If set to 1, allows GPU time to be measured (e.g. STAT UNIT). It defaults to 0 because some devices supports it but very slowly."),
 	ECVF_RenderThreadSafe);
 
@@ -64,8 +64,17 @@ bool FOpenGLES31::bSupportsTextureHalfFloat = false;
 /** GL_EXT_color_buffer_half_float */
 bool FOpenGLES31::bSupportsColorBufferHalfFloat = false;
 
+/** GL_NV_image_formats */
+bool FOpenGLES31::bSupportsNvImageFormats = false;
+
 /** GL_EXT_shader_framebuffer_fetch */
 bool FOpenGLES31::bSupportsShaderFramebufferFetch = false;
+
+/** GL_ARM_shader_framebuffer_fetch_depth_stencil */
+bool FOpenGLES31::bSupportsShaderDepthStencilFetch = false;
+
+/** GL_EXT_multisampled_render_to_texture */
+bool FOpenGLES31::bSupportsMultisampledRenderToTexture = false;
 
 /** GL_EXT_sRGB */
 bool FOpenGLES31::bSupportsSGRB = false;
@@ -127,6 +136,9 @@ bool FOpenGLES31::bRequiresGLFragCoordVaryingLimitHack = false;
 /* This hack fixes an issue with SGX540 compiler which can get upset with some operations that mix highp and mediump */
 bool FOpenGLES31::bRequiresTexture2DPrecisionHack = false;
 
+/* Indicates shader compiler hack checks are being tested */
+bool FOpenGLES31::bIsCheckingShaderCompilerHacks = false;
+
 /** GL_EXT_disjoint_timer_query or GL_NV_timer_query*/
 bool FOpenGLES31::bSupportsDisjointTimeQueries = false;
 
@@ -142,18 +154,18 @@ GLint FOpenGLES31::MinorVersion = 0;
 bool FOpenGLES31::SupportsAdvancedFeatures()
 {
 	bool bResult = true;
-	GLint MajorVersion = 0;
-	GLint MinorVersion = 0;
+	GLint LocalMajorVersion = 0;
+	GLint LocalMinorVersion = 0;
 
 	const FString ExtensionsString = ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_EXTENSIONS));
 
 	if (FString(ANSI_TO_TCHAR((const ANSICHAR*)glGetString(GL_VERSION))).Contains(TEXT("OpenGL ES 3.")))
 	{
-		glGetIntegerv(GL_MAJOR_VERSION, &MajorVersion);
-		glGetIntegerv(GL_MINOR_VERSION, &MinorVersion);
+		glGetIntegerv(GL_MAJOR_VERSION, &LocalMajorVersion);
+		glGetIntegerv(GL_MINOR_VERSION, &LocalMinorVersion);
 
 		// Check for minimum ES 3.1 + extensions support to avoid the ES2 fallback
-		bResult = (MajorVersion == 3 && MinorVersion >= 1);
+		bResult = (LocalMajorVersion == 3 && LocalMinorVersion >= 1);
 
 		bResult &= ExtensionsString.Contains(TEXT("GL_ANDROID_extension_pack_es31a"));
 		bResult &= ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
@@ -207,6 +219,13 @@ void FOpenGLES31::ProcessQueryGLInt()
 			GET_GL_INT(GL_MAX_TESS_EVALUATION_UNIFORM_COMPONENTS_EXT, 0, MaxDomainUniformComponents);
 			GET_GL_INT(GL_MAX_TESS_CONTROL_TEXTURE_IMAGE_UNITS_EXT, 0, MaxHullTextureImageUnits);
 			GET_GL_INT(GL_MAX_TESS_EVALUATION_TEXTURE_IMAGE_UNITS_EXT, 0, MaxDomainTextureImageUnits);
+		}
+		else
+		{
+			MaxHullUniformComponents = 0;
+			MaxDomainUniformComponents = 0;
+			MaxHullTextureImageUnits = 0;
+			MaxDomainTextureImageUnits = 0;
 		}
 	}
 	
@@ -262,7 +281,10 @@ void FOpenGLES31::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsTextureHalfFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_half_float"));
 	bSupportsSGRB = ExtensionsString.Contains(TEXT("GL_EXT_sRGB"));
 	bSupportsColorBufferHalfFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
-	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch"));
+	bSupportsNvImageFormats = ExtensionsString.Contains(TEXT("GL_NV_image_formats"));
+	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch"));
+	bSupportsShaderDepthStencilFetch = ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch_depth_stencil"));
+	bSupportsMultisampledRenderToTexture = ExtensionsString.Contains(TEXT("GL_EXT_multisampled_render_to_texture"));
 	// @todo es3: SRGB support does not work with our texture format setup (ES2 docs indicate that internalFormat and format must match, but they don't at all with sRGB enabled)
 	//             One possible solution us to use GLFormat.InternalFormat[bSRGB] instead of GLFormat.Format
 	bSupportsSGRB = false;//ExtensionsString.Contains(TEXT("GL_EXT_sRGB"));

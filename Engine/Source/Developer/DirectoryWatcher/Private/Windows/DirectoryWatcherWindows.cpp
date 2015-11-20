@@ -39,7 +39,7 @@ FDirectoryWatcherWindows::~FDirectoryWatcherWindows()
 	ensure(NumRequests == 0);
 }
 
-bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback( const FString& Directory, const FDirectoryChanged& InDelegate )
+bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback_Handle( const FString& Directory, const FDirectoryChanged& InDelegate, FDelegateHandle& Handle, uint32 Flags )
 {
 	FDirectoryWatchRequestWindows** RequestPtr = RequestMap.Find(Directory);
 	FDirectoryWatchRequestWindows* Request = NULL;
@@ -53,80 +53,17 @@ bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback( const FString& 
 	}
 	else
 	{
-		Request = new FDirectoryWatchRequestWindows(false);
+		Request = new FDirectoryWatchRequestWindows(Flags);
 		NumRequests++;
 
 		// Begin reading directory changes
 		if ( !Request->Init(Directory) )
 		{
 			uint32 Error = GetLastError();
-			UE_LOG(LogDirectoryWatcher, Warning, TEXT("Failed to begin reading directory changes for %s. Error: %d"), *Directory, Error);
-			delete Request;
-			NumRequests--;
-			return false;
-		}
+			TCHAR ErrorMsg[1024];
+			FPlatformMisc::GetSystemErrorMessage(ErrorMsg, 1024, Error);
+			UE_LOG(LogDirectoryWatcher, Warning, TEXT("Failed to begin reading directory changes for %s. Error: %s (0x%08x)"), *Directory, ErrorMsg, Error);
 
-		RequestMap.Add(Directory, Request);
-	}
-
-	Request->AddDelegate(InDelegate);
-
-	return true;
-}
-
-bool FDirectoryWatcherWindows::UnregisterDirectoryChangedCallback( const FString& Directory, const FDirectoryChanged& InDelegate )
-{
-	FDirectoryWatchRequestWindows** RequestPtr = RequestMap.Find(Directory);
-	
-	if ( RequestPtr )
-	{
-		// There should be no NULL entries in the map
-		check (*RequestPtr);
-
-		FDirectoryWatchRequestWindows* Request = *RequestPtr;
-
-		if ( Request->DEPRECATED_RemoveDelegate(InDelegate) )
-		{
-			if ( !Request->HasDelegates() )
-			{
-				// Remove from the active map and add to the pending delete list
-				RequestMap.Remove(Directory);
-				RequestsPendingDelete.AddUnique(Request);
-
-				// Signal to end the watch which will mark this request for deletion
-				Request->EndWatchRequest();
-			}
-
-			return true;
-		}
-		
-	}
-
-	return false;
-}
-
-bool FDirectoryWatcherWindows::RegisterDirectoryChangedCallback_Handle( const FString& Directory, const FDirectoryChanged& InDelegate, FDelegateHandle& Handle, bool bIncludeDirectoryChanges )
-{
-	FDirectoryWatchRequestWindows** RequestPtr = RequestMap.Find(Directory);
-	FDirectoryWatchRequestWindows* Request = NULL;
-	
-	if ( RequestPtr )
-	{
-		// There should be no NULL entries in the map
-		check (*RequestPtr);
-
-		Request = *RequestPtr;
-	}
-	else
-	{
-		Request = new FDirectoryWatchRequestWindows(bIncludeDirectoryChanges);
-		NumRequests++;
-
-		// Begin reading directory changes
-		if ( !Request->Init(Directory) )
-		{
-			uint32 Error = GetLastError();
-			UE_LOG(LogDirectoryWatcher, Warning, TEXT("Failed to begin reading directory changes for %s. Error: %d"), *Directory, Error);
 			delete Request;
 			NumRequests--;
 			return false;

@@ -5,15 +5,6 @@
 #include "SWidgetSwitcher.h"
 
 
-/* Local constants
- *****************************************************************************/
-
-const TAttribute<FVector2D> ContentScale = FVector2D::UnitVector;
-
-
-/* SWidgetSwitcher interface
- *****************************************************************************/
-
 SWidgetSwitcher::SWidgetSwitcher()
 	: AllChildren()
 { }
@@ -30,6 +21,12 @@ SWidgetSwitcher::FSlot& SWidgetSwitcher::AddSlot( int32 SlotIndex )
 	else
 	{
 		AllChildren.Insert(NewSlot, SlotIndex);
+
+		// adjust the active WidgetIndex based on this slot change
+		if (!WidgetIndex.IsBound() && WidgetIndex.Get() >= SlotIndex)
+		{
+			WidgetIndex = WidgetIndex.Get() + 1;
+		}
 	}
 
 	return *NewSlot;
@@ -51,10 +48,11 @@ void SWidgetSwitcher::Construct( const FArguments& InArgs )
 
 TSharedPtr<SWidget> SWidgetSwitcher::GetActiveWidget( ) const
 {
-	const int32 ActiveWidgetIndex = WidgetIndex.Get();
-	if (ActiveWidgetIndex >= 0)
+	const FSlot* ActiveSlot = GetActiveSlot();
+
+	if (ActiveSlot != nullptr)
 	{
-		return AllChildren[ActiveWidgetIndex].GetWidget();
+		return ActiveSlot->GetWidget();
 	}
 
 	return nullptr;
@@ -94,6 +92,16 @@ int32 SWidgetSwitcher::RemoveSlot( TSharedRef<SWidget> WidgetToRemove )
 	{
 		if (AllChildren[SlotIndex].GetWidget() == WidgetToRemove)
 		{
+			// adjust the active WidgetIndex based on this slot change
+			if (!WidgetIndex.IsBound())
+			{
+				int32 ActiveWidgetIndex = WidgetIndex.Get();
+				if (ActiveWidgetIndex > 0 && ActiveWidgetIndex >= SlotIndex)
+				{
+					WidgetIndex = ActiveWidgetIndex - 1;
+				}
+			}
+
 			AllChildren.RemoveAt(SlotIndex);
 			return SlotIndex;
 		}
@@ -114,20 +122,44 @@ void SWidgetSwitcher::SetActiveWidgetIndex( int32 Index )
 
 void SWidgetSwitcher::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
+	const TAttribute<FVector2D> ContentScale = FVector2D::UnitVector;
+
 	if (AllChildren.Num() > 0)
 	{
-		ArrangeSingleChild(AllottedGeometry, ArrangedChildren, AllChildren[WidgetIndex.Get()], ContentScale);
+		const FSlot* ActiveSlotPtr = GetActiveSlot();	// Returns null if unsafe attribute WidgetIndex is out-of-bounds
+		if (ActiveSlotPtr != nullptr)
+		{
+			ArrangeSingleChild(AllottedGeometry, ArrangedChildren, *ActiveSlotPtr, ContentScale);
+		}
 	}
 }
 	
 FVector2D SWidgetSwitcher::ComputeDesiredSize( float ) const
 {
-	return AllChildren.Num() > 0
-		? AllChildren[WidgetIndex.Get()].GetWidget()->GetDesiredSize()
-		: FVector2D::ZeroVector;
+	if (AllChildren.Num() > 0)
+	{
+		const FSlot* ActiveSlotPtr = GetActiveSlot();	// Returns null if unsafe attribute WidgetIndex is out-of-bounds
+		if (ActiveSlotPtr != nullptr)
+		{
+			return ActiveSlotPtr->GetWidget()->GetDesiredSize();
+		}
+	}
+
+	return FVector2D::ZeroVector;
 }
 
 FChildren* SWidgetSwitcher::GetChildren( )
 {
 	return &OneDynamicChild;
+}
+
+const SWidgetSwitcher::FSlot* SWidgetSwitcher::GetActiveSlot() const
+{
+	const int32 ActiveWidgetIndex = WidgetIndex.Get();
+	if (ActiveWidgetIndex >= 0 && ActiveWidgetIndex < AllChildren.Num())
+	{
+		return &AllChildren[ActiveWidgetIndex];
+	}
+
+	return nullptr;
 }

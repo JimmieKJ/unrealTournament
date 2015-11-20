@@ -44,4 +44,9 @@ FReply STimeSlider::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEve
 	return TimeSliderController->OnMouseWheel( SharedThis(this), MyGeometry, MouseEvent );
 }
 
+FCursorReply STimeSlider::OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const
+{
+	return TimeSliderController->OnCursorQuery( SharedThis(this), MyGeometry, CursorEvent );
+}
+
 #undef LOCTEXT_NAMESPACE

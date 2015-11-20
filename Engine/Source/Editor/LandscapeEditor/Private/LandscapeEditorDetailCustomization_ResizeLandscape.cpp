@@ -79,11 +79,11 @@ void FLandscapeEditorDetailCustomization_ResizeLandscape::CustomizeDetails(IDeta
 		]
 	];
 
-
 	TSharedRef<IPropertyHandle> PropertyHandle_QuadsPerSection = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, ResizeLandscape_QuadsPerSection));
 	ResizeLandscapeCategory.AddProperty(PropertyHandle_QuadsPerSection)
-	.OverrideResetToDefault(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionSizeResetToDefaultVisible)),
-		FSimpleDelegate::CreateStatic(&FLandscapeEditorDetailCustomization_ResizeLandscape::OnSectionSizeResetToDefault))
+	.OverrideResetToDefault(FResetToDefaultOverride::Create(
+		FIsResetToDefaultVisible::CreateStatic(&FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionSizeResetToDefaultVisible),
+		FResetToDefaultHandler::CreateStatic(&FLandscapeEditorDetailCustomization_ResizeLandscape::OnSectionSizeResetToDefault)))
 	.CustomWidget()
 	.NameContent()
 	[
@@ -119,8 +119,9 @@ void FLandscapeEditorDetailCustomization_ResizeLandscape::CustomizeDetails(IDeta
 
 	TSharedRef<IPropertyHandle> PropertyHandle_SectionsPerComponent = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, ResizeLandscape_SectionsPerComponent));
 	ResizeLandscapeCategory.AddProperty(PropertyHandle_SectionsPerComponent)
-	.OverrideResetToDefault(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateStatic(&FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionsPerComponentResetToDefaultVisible)),
-		FSimpleDelegate::CreateStatic(&FLandscapeEditorDetailCustomization_ResizeLandscape::OnSectionsPerComponentResetToDefault))
+	.OverrideResetToDefault(FResetToDefaultOverride::Create(
+		FIsResetToDefaultVisible::CreateStatic(&FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionsPerComponentResetToDefaultVisible),
+		FResetToDefaultHandler::CreateStatic(&FLandscapeEditorDetailCustomization_ResizeLandscape::OnSectionsPerComponentResetToDefault)))
 	.CustomWidget()
 	.NameContent()
 	[
@@ -172,7 +173,7 @@ void FLandscapeEditorDetailCustomization_ResizeLandscape::CustomizeDetails(IDeta
 	TSharedRef<IPropertyHandle> PropertyHandle_ComponentCount_X = PropertyHandle_ComponentCount->GetChildHandle("X").ToSharedRef();
 	TSharedRef<IPropertyHandle> PropertyHandle_ComponentCount_Y = PropertyHandle_ComponentCount->GetChildHandle("Y").ToSharedRef();
 	ResizeLandscapeCategory.AddProperty(PropertyHandle_ComponentCount)
-	.OverrideResetToDefault(false, FSimpleDelegate())
+	.OverrideResetToDefault(FResetToDefaultOverride::Hide())
 	.CustomWidget()
 	.NameContent()
 	[
@@ -340,7 +341,7 @@ FText FLandscapeEditorDetailCustomization_ResizeLandscape::GetSectionSize(TShare
 	return FText::Format(LOCTEXT("NxNQuads", "{0}x{0} Quads"), FText::AsNumber(QuadsPerSection));
 }
 
-bool FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionSizeResetToDefaultVisible()
+bool FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionSizeResetToDefaultVisible(TSharedRef<IPropertyHandle> PropertyHandle)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
 	if (LandscapeEdMode != NULL)
@@ -351,7 +352,7 @@ bool FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionSizeResetToDe
 	return false;
 }
 
-void FLandscapeEditorDetailCustomization_ResizeLandscape::OnSectionSizeResetToDefault()
+void FLandscapeEditorDetailCustomization_ResizeLandscape::OnSectionSizeResetToDefault(TSharedRef<IPropertyHandle> PropertyHandle)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
 	if (LandscapeEdMode != NULL)
@@ -413,7 +414,7 @@ FText FLandscapeEditorDetailCustomization_ResizeLandscape::GetSectionsPerCompone
 	return FText::Format(SectionsPerComponent == 1 ? LOCTEXT("1x1Section", "{Width}\u00D7{Height} Section") : LOCTEXT("NxNSections", "{Width}\u00D7{Height} Sections"), Args);
 }
 
-bool FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionsPerComponentResetToDefaultVisible()
+bool FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionsPerComponentResetToDefaultVisible(TSharedRef<IPropertyHandle> PropertyHandle)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
 	if (LandscapeEdMode != NULL)
@@ -424,7 +425,7 @@ bool FLandscapeEditorDetailCustomization_ResizeLandscape::IsSectionsPerComponent
 	return false;
 }
 
-void FLandscapeEditorDetailCustomization_ResizeLandscape::OnSectionsPerComponentResetToDefault()
+void FLandscapeEditorDetailCustomization_ResizeLandscape::OnSectionsPerComponentResetToDefault(TSharedRef<IPropertyHandle> PropertyHandle)
 {
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
 	if (LandscapeEdMode != NULL)

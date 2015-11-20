@@ -2,7 +2,6 @@
 
 /*=============================================================================
 	Character.cpp: ACharacter implementation
-	TODO: Put description here
 =============================================================================*/
 
 #include "EnginePrivate.h"
@@ -18,6 +17,8 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogCharacter, Log, All);
 DEFINE_LOG_CATEGORY_STATIC(LogAvatar, Log, All);
+
+DECLARE_CYCLE_STAT(TEXT("Char OnNetUpdateSimulatedPosition"), STAT_CharacterOnNetUpdateSimulatedPosition, STATGROUP_Character);
 
 FName ACharacter::MeshComponentName(TEXT("CharacterMesh0"));
 FName ACharacter::CharacterMovementComponentName(TEXT("CharMoveComp"));
@@ -47,17 +48,16 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 
 	CapsuleComponent = CreateDefaultSubobject<UCapsuleComponent>(ACharacter::CapsuleComponentName);
 	CapsuleComponent->InitCapsuleSize(34.0f, 88.0f);
-
-	static FName CollisionProfileName(TEXT("Pawn"));
-	CapsuleComponent->SetCollisionProfileName(CollisionProfileName);
+	CapsuleComponent->SetCollisionProfileName(UCollisionProfile::Pawn_ProfileName);
 
 	CapsuleComponent->CanCharacterStepUpOn = ECB_No;
 	CapsuleComponent->bShouldUpdatePhysicsVolume = true;
 	CapsuleComponent->bCheckAsyncSceneOnMove = false;
-	CapsuleComponent->bCanEverAffectNavigation = false;
+	CapsuleComponent->SetCanEverAffectNavigation(false);
 	CapsuleComponent->bDynamicObstacle = true;
 	RootComponent = CapsuleComponent;
 
+	bClientCheckEncroachmentOnNetUpdate = true;
 	JumpKeyHoldTime = 0.0f;
 	JumpMaxHoldTime = 0.0f;
 
@@ -91,12 +91,11 @@ ACharacter::ACharacter(const FObjectInitializer& ObjectInitializer)
 		Mesh->bCastDynamicShadow = true;
 		Mesh->bAffectDynamicIndirectLighting = true;
 		Mesh->PrimaryComponentTick.TickGroup = TG_PrePhysics;
-		Mesh->bChartDistanceFactor = true;
 		Mesh->AttachParent = CapsuleComponent;
-		static FName CollisionProfileName(TEXT("CharacterMesh"));
-		Mesh->SetCollisionProfileName(CollisionProfileName);
+		static FName MeshCollisionProfileName(TEXT("CharacterMesh"));
+		Mesh->SetCollisionProfileName(MeshCollisionProfileName);
 		Mesh->bGenerateOverlapEvents = false;
-		Mesh->bCanEverAffectNavigation = false;
+		Mesh->SetCanEverAffectNavigation(false);
 	}
 
 	BaseRotationOffset = FQuat::Identity;
@@ -112,6 +111,17 @@ void ACharacter::PostInitializeComponents()
 		{
 			BaseTranslationOffset = Mesh->RelativeLocation;
 			BaseRotationOffset = Mesh->RelativeRotation.Quaternion();
+
+#if ENABLE_NAN_DIAGNOSTIC
+			if (BaseRotationOffset.ContainsNaN())
+			{
+				logOrEnsureNanError(TEXT("ACharacter::PostInitializeComponents detected NaN in BaseRotationOffset! (%s)"), *BaseRotationOffset.ToString());
+			}
+			if (Mesh->RelativeRotation.ContainsNaN())
+			{
+				logOrEnsureNanError(TEXT("ACharacter::PostInitializeComponents detected NaN in Mesh->RelativeRotation! (%s)"), *Mesh->RelativeRotation.ToString());
+			}
+#endif
 
 			// force animation tick after movement component updates
 			if (Mesh->PrimaryComponentTick.bCanEverTick && CharacterMovement)
@@ -228,6 +238,8 @@ void ACharacter::NotifyJumpApex()
 void ACharacter::Landed(const FHitResult& Hit)
 {
 	OnLanded(Hit);
+
+	LandedDelegate.Broadcast(Hit);
 }
 
 bool ACharacter::CanJump() const
@@ -282,6 +294,23 @@ void ACharacter::OnRep_IsCrouched()
 		else
 		{
 			CharacterMovement->UnCrouch(true);
+		}
+	}
+}
+
+void ACharacter::SetReplicateMovement(bool bInReplicateMovement)
+{
+	Super::SetReplicateMovement(bInReplicateMovement);
+
+	if (CharacterMovement != nullptr)
+	{
+		// Set prediction data time stamp to current time to stop extrapolating
+		// from time bReplicateMovement was turned off to when it was turned on again
+		FNetworkPredictionData_Server* NetworkPrediction = CharacterMovement->GetPredictionData_Server();
+
+		if (NetworkPrediction != nullptr)
+		{
+			NetworkPrediction->ServerTimeStamp = GetWorld()->GetTimeSeconds();
 		}
 	}
 }
@@ -764,8 +793,6 @@ void ACharacter::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDis
 
 	float Indent = 0.f;
 
-	UFont* RenderFont = GEngine->GetSmallFont();
-
 	static FName NAME_Physics = FName(TEXT("Physics"));
 	if (DebugDisplay.IsDisplayOn(NAME_Physics) )
 	{
@@ -782,8 +809,8 @@ void ACharacter::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDis
 			BaseString = FString::Printf(TEXT("Based On %s"), *BaseString);
 		}
 		
-		YL = Canvas->DrawText(RenderFont, FString::Printf(TEXT("RelativeLoc: %s Rot: %s %s"), *BasedMovement.Location.ToString(), *BasedMovement.Rotation.ToString(), *BaseString), Indent, YPos);
-		YPos += YL;
+		FDisplayDebugManager& DisplayDebugManager = Canvas->DisplayDebugManager;
+		DisplayDebugManager.DrawString(FString::Printf(TEXT("RelativeLoc: %s Rot: %s %s"), *BasedMovement.Location.ToCompactString(), *BasedMovement.Rotation.ToCompactString(), *BaseString), Indent);
 
 		if ( CharacterMovement != NULL )
 		{
@@ -791,8 +818,7 @@ void ACharacter::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDis
 		}
 		const bool Crouched = CharacterMovement && CharacterMovement->IsCrouching();
 		FString T = FString::Printf(TEXT("Crouched %i"), Crouched);
-		YL = Canvas->DrawText(RenderFont, T, Indent, YPos );
-		YPos += YL;
+		DisplayDebugManager.DrawString(T, Indent);
 	}
 }
 
@@ -940,48 +966,46 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 		const FQuat OldRotation = GetActorQuat();
 		MovementBaseUtility::GetMovementBaseTransform(ReplicatedBasedMovement.MovementBase, ReplicatedBasedMovement.BoneName, CharacterMovement->OldBaseLocation, CharacterMovement->OldBaseQuat);
 		const FVector NewLocation = CharacterMovement->OldBaseLocation + ReplicatedBasedMovement.Location;
+		FRotator NewRotation;
 
 		if (ReplicatedBasedMovement.HasRelativeRotation())
 		{
 			// Relative location, relative rotation
-			FRotator NewRotation = (FRotationMatrix(ReplicatedBasedMovement.Rotation) * FQuatRotationMatrix(CharacterMovement->OldBaseQuat)).Rotator();
+			NewRotation = (FRotationMatrix(ReplicatedBasedMovement.Rotation) * FQuatRotationMatrix(CharacterMovement->OldBaseQuat)).Rotator();
 			
 			// TODO: need a better way to not assume we only use Yaw.
 			NewRotation.Pitch = 0.f;
 			NewRotation.Roll = 0.f;
-
-			SetActorLocationAndRotation(NewLocation, NewRotation);	
 		}
 		else
 		{
 			// Relative location, absolute rotation
-			SetActorLocationAndRotation(NewLocation, ReplicatedBasedMovement.Rotation);
+			NewRotation = ReplicatedBasedMovement.Rotation;
 		}
 
 		// When position or base changes, movement mode will need to be updated. This assumes rotation changes don't affect that.
 		CharacterMovement->bJustTeleported |= (bBaseChanged || GetActorLocation() != OldLocation);
-
-		INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
-		if (PredictionInterface)
-		{
-			PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
-		}
+		CharacterMovement->SmoothCorrection(OldLocation, OldRotation, NewLocation, NewRotation.Quaternion());
+		OnUpdateSimulatedPosition(OldLocation, OldRotation);
 	}
 }
 
 void ACharacter::OnRep_ReplicatedMovement()
 {
 	// Skip standard position correction if we are playing root motion, OnRep_RootMotion will handle it.
-	if (!IsPlayingNetworkedRootMotionMontage())
+	if (!IsPlayingNetworkedRootMotionMontage()) // animation root motion
 	{
-		Super::OnRep_ReplicatedMovement();
+		if (!CharacterMovement || !CharacterMovement->CurrentRootMotion.HasActiveRootMotionSources()) // root motion sources
+		{
+			Super::OnRep_ReplicatedMovement();
+		}
 	}
 }
 
 /** Get FAnimMontageInstance playing RootMotion */
 FAnimMontageInstance * ACharacter::GetRootMotionAnimMontageInstance() const
 {
-	return (Mesh && Mesh->AnimScriptInstance) ? Mesh->AnimScriptInstance->GetRootMotionMontageInstance() : NULL;
+	return (Mesh && Mesh->GetAnimInstance()) ? Mesh->GetAnimInstance()->GetRootMotionMontageInstance() : NULL;
 }
 
 void ACharacter::OnRep_RootMotion()
@@ -991,12 +1015,19 @@ void ACharacter::OnRep_RootMotion()
 		UE_LOG(LogRootMotion, Log,  TEXT("ACharacter::OnRep_RootMotion"));
 
 		// Save received move in queue, we'll try to use it during Tick().
-		if( RepRootMotion.AnimMontage )
+		if( RepRootMotion.bIsActive )
 		{
 			// Add new move
 			FSimulatedRootMotionReplicatedMove NewMove;
 			NewMove.RootMotion = RepRootMotion;
 			NewMove.Time = GetWorld()->GetTimeSeconds();
+			// Convert RootMotionSource Server IDs -> Local IDs in AuthoritativeRootMotion and cull invalid
+			// so that when we use this root motion it has the correct IDs
+			if (CharacterMovement)
+			{
+				CharacterMovement->ConvertRootMotionServerIDsToLocalIDs(CharacterMovement->CurrentRootMotion, NewMove.RootMotion.AuthoritativeRootMotion, NewMove.Time);
+				NewMove.RootMotion.AuthoritativeRootMotion.CullInvalidSources();
+			}
 			RootMotionRepMoves.Add(NewMove);
 		}
 		else
@@ -1044,11 +1075,7 @@ void ACharacter::SimulatedRootMotionPositionFixup(float DeltaSeconds)
 							CharacterMovement->SimulateRootMotion(DeltaTime, LocalRootMotionTransform);
 
 							// After movement correction, smooth out error in position if any.
-							INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
-							if (PredictionInterface)
-							{
-								PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
-							}
+							CharacterMovement->SmoothCorrection(OldLocation, OldRotation, GetActorLocation(), GetActorQuat());
 						}
 					}
 				}
@@ -1094,7 +1121,7 @@ bool ACharacter::CanUseRootMotionRepMove(const FSimulatedRootMotionReplicatedMov
 			const int32 CurrentSectionIndex = AnimMontage->GetSectionIndexFromPosition(ClientPosition);
 			if( CurrentSectionIndex != INDEX_NONE )
 			{
-				const int32 NextSectionIndex = (CurrentSectionIndex < ClientMontageInstance.NextSections.Num()) ? ClientMontageInstance.NextSections[CurrentSectionIndex] : INDEX_NONE;
+				const int32 NextSectionIndex = ClientMontageInstance.GetNextSectionID(CurrentSectionIndex);
 
 				// We can only extract root motion if we are within the same section.
 				// It's not trivial to jump through sections in a deterministic manner, but that is luckily not frequent. 
@@ -1142,7 +1169,7 @@ bool ACharacter::RestoreReplicatedMove(const FSimulatedRootMotionReplicatedMove&
 				ServerRotation = RootMotionRepMove.RootMotion.Rotation;
 			}
 
-			UpdateSimulatedPosition(ServerLocation, ServerRotation);
+			SetActorLocationAndRotation(ServerLocation, ServerRotation);
 			bSuccess = true;
 		}
 		// If we received local space position, but can't resolve parent, then move can't be used. :(
@@ -1154,27 +1181,53 @@ bool ACharacter::RestoreReplicatedMove(const FSimulatedRootMotionReplicatedMove&
 	// Absolute position
 	else
 	{
-		UpdateSimulatedPosition(RootMotionRepMove.RootMotion.Location, RootMotionRepMove.RootMotion.Rotation);
+		SetActorLocationAndRotation(RootMotionRepMove.RootMotion.Location, RootMotionRepMove.RootMotion.Rotation);
 	}
 
+	CharacterMovement->bJustTeleported = true;
 	SetBase( ServerBase, ServerBaseBoneName );
 
 	return true;
 }
 
+void ACharacter::OnUpdateSimulatedPosition(const FVector& OldLocation, const FQuat& OldRotation)
+{
+	SCOPE_CYCLE_COUNTER(STAT_CharacterOnNetUpdateSimulatedPosition);
+
+	bSimGravityDisabled = false;
+	if (bClientCheckEncroachmentOnNetUpdate)
+	{	
+		// Only need to check for encroachment when teleported without any velocity.
+		// Normal movement pops the character out of geometry anyway, no use doing it before and after (with different rules).
+		// Always consider Location as changed if we were spawned this tick as in that case our replicated Location was set as part of spawning, before PreNetReceive()
+		if (CharacterMovement->Velocity.IsZero() && (OldLocation != GetActorLocation() || CreationTime == GetWorld()->TimeSeconds))
+		{
+			if (GetWorld()->EncroachingBlockingGeometry(this, GetActorLocation(), GetActorRotation()))
+			{
+				bSimGravityDisabled = true;
+			}
+		}
+	}
+	CharacterMovement->bJustTeleported = true;
+}
+
+// Deprecated, remove
 void ACharacter::UpdateSimulatedPosition(const FVector& NewLocation, const FRotator& NewRotation)
 {
 	// Always consider Location as changed if we were spawned this tick as in that case our replicated Location was set as part of spawning, before PreNetReceive()
 	if( (NewLocation != GetActorLocation()) || (CreationTime == GetWorld()->TimeSeconds) )
 	{
 		FVector FinalLocation = NewLocation;
-		if( GetWorld()->EncroachingBlockingGeometry(this, NewLocation, NewRotation) )
+
+		// Only need to check for encroachment when teleported without any velocity.
+		// Normal movement pops the character out of geometry anyway, no use doing it before and after (with different rules).
+		bSimGravityDisabled = false;
+		if (CharacterMovement->Velocity.IsZero())
 		{
-			bSimGravityDisabled = true;
-		}
-		else
-		{
-			bSimGravityDisabled = false;
+			if (GetWorld()->EncroachingBlockingGeometry(this, NewLocation, NewRotation))
+			{
+				bSimGravityDisabled = true;
+			}
 		}
 		
 		// Don't use TeleportTo(), that clears our base.
@@ -1196,13 +1249,9 @@ void ACharacter::PostNetReceiveLocationAndRotation()
 		{
 			const FVector OldLocation = GetActorLocation();
 			const FQuat OldRotation = GetActorQuat();
-			UpdateSimulatedPosition(ReplicatedMovement.Location, ReplicatedMovement.Rotation);
-
-			INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
-			if (PredictionInterface)
-			{
-				PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
-			}
+		
+			CharacterMovement->SmoothCorrection(OldLocation, OldRotation, ReplicatedMovement.Location, ReplicatedMovement.Rotation.Quaternion());
+			OnUpdateSimulatedPosition(OldLocation, OldRotation);
 		}
 	}
 }
@@ -1213,8 +1262,9 @@ void ACharacter::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTra
 
 	const FAnimMontageInstance* RootMotionMontageInstance = GetRootMotionAnimMontageInstance();
 
-	if ( RootMotionMontageInstance )
+	if ( (CharacterMovement && CharacterMovement->CurrentRootMotion.HasActiveRootMotionSources()) || RootMotionMontageInstance )
 	{
+		RepRootMotion.bIsActive = true;
 		// Is position stored in local space?
 		RepRootMotion.bRelativePosition = BasedMovement.HasRelativeLocation();
 		RepRootMotion.bRelativeRotation = BasedMovement.HasRelativeRotation();
@@ -1222,8 +1272,27 @@ void ACharacter::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTra
 		RepRootMotion.Rotation			= RepRootMotion.bRelativeRotation ? BasedMovement.Rotation : GetActorRotation();
 		RepRootMotion.MovementBase		= BasedMovement.MovementBase;
 		RepRootMotion.MovementBaseBoneName = BasedMovement.BoneName;
-		RepRootMotion.AnimMontage		= RootMotionMontageInstance->Montage;
-		RepRootMotion.Position			= RootMotionMontageInstance->GetPosition();
+		if (RootMotionMontageInstance)
+		{
+			RepRootMotion.AnimMontage		= RootMotionMontageInstance->Montage;
+			RepRootMotion.Position			= RootMotionMontageInstance->GetPosition();
+		}
+		else
+		{
+			RepRootMotion.AnimMontage = nullptr;
+		}
+		if (CharacterMovement)
+		{
+			RepRootMotion.AuthoritativeRootMotion = CharacterMovement->CurrentRootMotion;
+			RepRootMotion.Acceleration = CharacterMovement->GetCurrentAcceleration();
+			RepRootMotion.LinearVelocity = CharacterMovement->Velocity;
+		}
+		else
+		{
+			RepRootMotion.AuthoritativeRootMotion.Clear();
+			RepRootMotion.Acceleration = FVector::ZeroVector;
+			RepRootMotion.LinearVelocity = FVector::ZeroVector;
+		}
 
 		DOREPLIFETIME_ACTIVE_OVERRIDE( ACharacter, RepRootMotion, true );
 	}
@@ -1263,20 +1332,28 @@ void ACharacter::GetLifetimeReplicatedProps( TArray< FLifetimeProperty > & OutLi
 
 bool ACharacter::IsPlayingRootMotion() const
 {
-	if (Mesh && Mesh->AnimScriptInstance)
+	if (Mesh)
 	{
-		return	(Mesh->AnimScriptInstance->RootMotionMode == ERootMotionMode::RootMotionFromEverything) ||
-				(Mesh->AnimScriptInstance->GetRootMotionMontageInstance() != NULL);
+		const UAnimInstance* const AnimInstance = Mesh->GetAnimInstance();
+		if(AnimInstance)
+		{
+			return (AnimInstance->RootMotionMode == ERootMotionMode::RootMotionFromEverything) ||
+				   (AnimInstance->GetRootMotionMontageInstance() != NULL);
+		}
 	}
 	return false;
 }
 
 bool ACharacter::IsPlayingNetworkedRootMotionMontage() const
 {
-	if (Mesh && Mesh->AnimScriptInstance)
+	if (Mesh)
 	{
-		return	(Mesh->AnimScriptInstance->RootMotionMode == ERootMotionMode::RootMotionFromMontagesOnly) &&
-			(Mesh->AnimScriptInstance->GetRootMotionMontageInstance() != NULL);
+		const UAnimInstance* const AnimInstance = Mesh->GetAnimInstance();
+		if (AnimInstance)
+		{
+			return (AnimInstance->RootMotionMode == ERootMotionMode::RootMotionFromMontagesOnly) &&
+				   (AnimInstance->GetRootMotionMontageInstance() != NULL);
+		}
 	}
 	return false;
 }
@@ -1293,7 +1370,7 @@ float ACharacter::PlayAnimMontage(class UAnimMontage* AnimMontage, float InPlayR
 			// Start at a given Section.
 			if( StartSectionName != NAME_None )
 			{
-				AnimInstance->Montage_JumpToSection(StartSectionName);
+				AnimInstance->Montage_JumpToSection(StartSectionName, AnimMontage);
 			}
 
 			return Duration;
@@ -1311,7 +1388,7 @@ void ACharacter::StopAnimMontage(class UAnimMontage* AnimMontage)
 
 	if ( bShouldStopMontage )
 	{
-		AnimInstance->Montage_Stop(MontageToStop->BlendOutTime, MontageToStop);
+		AnimInstance->Montage_Stop(MontageToStop->BlendOut.GetBlendTime(), MontageToStop);
 	}
 }
 
@@ -1356,13 +1433,3 @@ void ACharacter::ClientCheatGhost_Implementation()
 	}
 }
 
-/** Returns Mesh subobject **/
-USkeletalMeshComponent* ACharacter::GetMesh() const { return Mesh; }
-#if WITH_EDITORONLY_DATA
-/** Returns ArrowComponent subobject **/
-UArrowComponent* ACharacter::GetArrowComponent() const { return ArrowComponent; }
-#endif
-/** Returns CharacterMovement subobject **/
-UCharacterMovementComponent* ACharacter::GetCharacterMovement() const { return CharacterMovement; }
-/** Returns CapsuleComponent subobject **/
-UCapsuleComponent* ACharacter::GetCapsuleComponent() const { return CapsuleComponent; }

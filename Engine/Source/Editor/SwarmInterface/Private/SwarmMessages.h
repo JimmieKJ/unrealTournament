@@ -18,19 +18,18 @@ struct FSwarmPongMessage
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY()
-	bool			bIsEditor;
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool bIsEditor;
 
-	UPROPERTY()
-	FString			ComputerName;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString ComputerName;
 
-	FSwarmPongMessage() {}
+	FSwarmPongMessage() { }
 
 	FSwarmPongMessage(bool bInIsEditor, const TCHAR* InComputerName)
-	:	bIsEditor(bInIsEditor)
-	,	ComputerName(InComputerName)
-	{
-	}
+		: bIsEditor(bInIsEditor)
+		, ComputerName(InComputerName)
+	{ }
 };
 
 
@@ -39,15 +38,14 @@ struct FSwarmInfoMessage
 {
 	GENERATED_USTRUCT_BODY()
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString TextMessage;
 
-	FSwarmInfoMessage() {}
+	FSwarmInfoMessage() { }
 
 	FSwarmInfoMessage(const FString& InTextMessage)
-		:	TextMessage(InTextMessage)
-	{
-	}
+		: TextMessage(InTextMessage)
+	{ }
 };
 
 
@@ -57,31 +55,34 @@ struct FSwarmAlertMessage
 	GENERATED_USTRUCT_BODY()
 
 	/** The Job Guid */
-	UPROPERTY()
-	FGuid			JobGuid;
-	/** The type of alert */
-	UPROPERTY()
-	uint8			AlertLevel;
-	/** The identifier for the object that is associated with the issue */
-	UPROPERTY()
-	FGuid			ObjectGuid;
-	/** App-specific identifier for the type of the object */
-	UPROPERTY()
-	int32			TypeId;
-	/** Generic text message for informational purposes */
-	UPROPERTY()
-	FString			TextMessage;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FGuid JobGuid;
 
-	FSwarmAlertMessage() {}
+	/** The type of alert */
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 AlertLevel;
+	
+	/** The identifier for the object that is associated with the issue */
+	UPROPERTY(EditAnywhere, Category="Message")
+	FGuid ObjectGuid;
+	
+	/** App-specific identifier for the type of the object */
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 TypeId;
+	
+	/** Generic text message for informational purposes */
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString TextMessage;
+
+	FSwarmAlertMessage() { }
 
 	FSwarmAlertMessage(const FGuid& InJobGuid, NSwarm::TAlertLevel InAlertLevel, const FGuid& InObjectGuid, int32 InTypeId, const FString& InTextMessage)
-		:	JobGuid(InJobGuid)
-		,	AlertLevel(InAlertLevel)
-		,	ObjectGuid(InObjectGuid)
-		,	TypeId(InTypeId)
-		,	TextMessage(InTextMessage)
-	{
-	}
+		: JobGuid(InJobGuid)
+		, AlertLevel(InAlertLevel)
+		, ObjectGuid(InObjectGuid)
+		, TypeId(InTypeId)
+		, TextMessage(InTextMessage)
+	{ }
 };
 
 
@@ -91,19 +92,19 @@ struct FSwarmTimingMessage
 	GENERATED_USTRUCT_BODY()
 
 	/** State that the distributed job is transitioning to */
-	UPROPERTY()
-	uint8			State;
-	/** The thread this state is referring to */
-	UPROPERTY()
-	int32			ThreadNum;
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 State;
 
-	FSwarmTimingMessage() {}
+	/** The thread this state is referring to */
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 ThreadNum;
+
+	FSwarmTimingMessage() { }
 
 	FSwarmTimingMessage(NSwarm::TProgressionState InState, int32 InThreadNum)
-		:	State(InState)
-		,	ThreadNum(InThreadNum)
-	{
-	}
+		: State(InState)
+		, ThreadNum(InThreadNum)
+	{ }
 };
 
 
@@ -112,7 +113,7 @@ struct FSwarmTaskRequestMessage
 {
 	GENERATED_USTRUCT_BODY()
 
-	FSwarmTaskRequestMessage() {}
+	FSwarmTaskRequestMessage() { }
 };
 
 
@@ -121,7 +122,7 @@ struct FSwarmTaskRequestReleaseMessage
 {
 	GENERATED_USTRUCT_BODY()
 
-	FSwarmTaskRequestReleaseMessage() {}
+	FSwarmTaskRequestReleaseMessage() { }
 };
 
 
@@ -130,7 +131,7 @@ struct FSwarmTaskRequestReservationMessage
 {
 	GENERATED_USTRUCT_BODY()
 
-	FSwarmTaskRequestReservationMessage() {}
+	FSwarmTaskRequestReservationMessage() { }
 };
 
 
@@ -140,28 +141,32 @@ struct FSwarmTaskRequestSpecificationMessage
 	GENERATED_USTRUCT_BODY()
 
 	/** The GUID used for identifying the Task being referred to */
-	UPROPERTY()
-	FGuid					TaskGuid;
-	/** The Task's parameter string specified with AddTask */
-	UPROPERTY()
-	FString					Parameters;
-	/** Flags used to control the behavior of the Task, subject to overrides from the containing Job */
-	UPROPERTY()
-	uint8					Flags;
-	/** The Task's cost, relative to all other Tasks in the same Job, used for even distribution and scheduling */
-	UPROPERTY()
-	uint32					Cost;
-	/** Any additional Task dependencies */
-	UPROPERTY()
-	TArray<FString>			Dependencies;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FGuid TaskGuid;
 
-	FSwarmTaskRequestSpecificationMessage() {}
+	/** The Task's parameter string specified with AddTask */
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString Parameters;
+
+	/** Flags used to control the behavior of the Task, subject to overrides from the containing Job */
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 Flags;
+
+	/** The Task's cost, relative to all other Tasks in the same Job, used for even distribution and scheduling */
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint32 Cost;
+
+	/** Any additional Task dependencies */
+	UPROPERTY(EditAnywhere, Category="Message")
+	TArray<FString> Dependencies;
+
+	FSwarmTaskRequestSpecificationMessage() { }
 
 	FSwarmTaskRequestSpecificationMessage(FGuid InTaskGuid, const FString& InParameters, NSwarm::TJobTaskFlags InFlags, const TArray<FString>& InDependencies)
-		:	TaskGuid(InTaskGuid)
-		,	Parameters(InParameters)
-		,	Flags(InFlags)
-		,	Dependencies(InDependencies)
+		: TaskGuid(InTaskGuid)
+		, Parameters(InParameters)
+		, Flags(InFlags)
+		, Dependencies(InDependencies)
 	{ }
 };
 
@@ -172,29 +177,32 @@ struct FSwarmJobStateMessage
 	GENERATED_USTRUCT_BODY()
 
 	/** The Job GUID used for identifying the Job */
-	UPROPERTY()
-	FGuid			Guid;
-	/** The current state and arbitrary message */
-	UPROPERTY()
-	uint8			State;
-	UPROPERTY()
-	FString			Message;
-	/** Various stats, including run time, exit codes, etc. */
-	UPROPERTY()
-	int32			ExitCode;
-	UPROPERTY()
-	double			RunningTime;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FGuid Guid;
 
-	FSwarmJobStateMessage() {}
+	/** The current state and arbitrary message */
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 State;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString Message;
+
+	/** Various stats, including run time, exit codes, etc. */
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 ExitCode;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	double RunningTime;
+
+	FSwarmJobStateMessage() { }
 
 	FSwarmJobStateMessage(FGuid InGuid, NSwarm::TJobTaskState InState, const FString& InMessage, int32 InExitCode, double InRunningTime)
-		:	Guid(InGuid)
-		,	State(InState)
-		,	Message(InMessage)
-		,	ExitCode(InExitCode)
-		,	RunningTime(InRunningTime)
-	{
-	}
+		: Guid(InGuid)
+		, State(InState)
+		, Message(InMessage)
+		, ExitCode(InExitCode)
+		, RunningTime(InRunningTime)
+	{ }
 };
 
 
@@ -204,29 +212,32 @@ struct FSwarmTaskStateMessage
 	GENERATED_USTRUCT_BODY()
 
 	/** The Task GUID used for identifying the Task */
-	UPROPERTY()
-	FGuid			Guid;
-	/** The current state and arbitrary message */
-	UPROPERTY()
-	uint8			State;
-	UPROPERTY()
-	FString			Message;
-	/** Various stats, including run time, exit codes, etc. */
-	UPROPERTY()
-	int32			ExitCode;
-	UPROPERTY()
-	double			RunningTime;
+	UPROPERTY(EditAnywhere, Category="Message")
+	FGuid Guid;
 
-	FSwarmTaskStateMessage() {}
+	/** The current state and arbitrary message */
+	UPROPERTY(EditAnywhere, Category="Message")
+	uint8 State;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString Message;
+
+	/** Various stats, including run time, exit codes, etc. */
+	UPROPERTY(EditAnywhere, Category="Message")
+	int32 ExitCode;
+
+	UPROPERTY(EditAnywhere, Category="Message")
+	double RunningTime;
+
+	FSwarmTaskStateMessage() { }
 
 	FSwarmTaskStateMessage(FGuid InGuid, NSwarm::TJobTaskState InState, const FString& InMessage, int32 InExitCode, double InRunningTime)
-		:	Guid(InGuid)
-		,	State(InState)
-		,	Message(InMessage)
-		,	ExitCode(InExitCode)
-		,	RunningTime(InRunningTime)
-	{
-	}
+		: Guid(InGuid)
+		, State(InState)
+		, Message(InMessage)
+		, ExitCode(InExitCode)
+		, RunningTime(InRunningTime)
+	{ }
 };
 
 
@@ -235,5 +246,5 @@ struct FSwarmQuitMessage
 {
 	GENERATED_USTRUCT_BODY()
 
-	FSwarmQuitMessage() {}
+	FSwarmQuitMessage() { }
 };

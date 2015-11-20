@@ -6,12 +6,14 @@
 #include "Tests/AutomationTestSettings.h"
 #include "AutomationCommon.h"
 #include "AutomationEditorCommon.h"
+#include "AutomationEditorPromotionCommon.h"
 
 //Assets
 #include "AssetRegistryModule.h"
 #include "IAssetRegistry.h"
 #include "ComponentAssetBroker.h"
 #include "AssetSelection.h"
+#include "PackageHelperFunctions.h"
 
 //Materials
 #include "AssetEditorManager.h"
@@ -30,13 +32,10 @@
 //Blueprints
 #include "BlueprintGraphDefinitions.h"
 #include "BlueprintEditor.h"
-#include "BlueprintEditorModes.h"
-#include "CompilerResultsLog.h"
 #include "EdGraphUtilities.h"
 #include "KismetDebugUtilities.h"
 #include "Engine/Breakpoint.h"
 #include "Engine/LevelScriptBlueprint.h"
-#include "Kismet/KismetStringLibrary.h"
 #include "Kismet/KismetSystemLibrary.h"
 #include "BlueprintEditorUtils.h"
 
@@ -72,6 +71,11 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogEditorBuildPromotionTests, Log, All);
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionInitialCleanupTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.Cleanup old files", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FEditorPromotionTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.General Editor Test", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionPIETest, "System.Promotion.Editor Promotion Pass.Step 2 Run Map After Re-launch.Run Map", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionCleanupTest, "System.Promotion.Editor Promotion Pass.Step 3 Test Cleanup.Cleanup", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
+
 /**
 * Helper functions used by the build promotion automation test
 */
@@ -80,23 +84,15 @@ namespace EditorBuildPromotionTestUtils
 	/**
 	* Constants
 	*/
-	static const FString BlueprintNameString = TEXT("BuildPromotionBlueprint");
+	static const FString BlueprintNameString = TEXT("EditorPromotionBlueprint");
 	static const FName BlueprintStringVariableName(TEXT("MyStringVariable"));
-
-	/**
-	* Gets the base path for this asset
-	*/
-	static FString GetGamePath()
-	{
-		return TEXT("/Game/BuildPromotionTest");
-	}
 
 	/**
 	* Gets the full path to the folder on disk
 	*/
 	static FString GetFullPath()
 	{
-		return FPackageName::FilenameToLongPackageName(FPaths::GameContentDir() + TEXT("BuildPromotionTest"));
+		return FPackageName::FilenameToLongPackageName(FPaths::GameContentDir() + TEXT("EditorPromotionTest"));
 	}
 
 	/**
@@ -169,276 +165,16 @@ namespace EditorBuildPromotionTestUtils
 	};
 
 	/**
-	* Sets an editor keyboard shortcut
-	*
-	* @param CommandContext - The context of the command
-	* @param Command - The command name to set
-	* @param NewChord - The new input chord to assign
-	*/
-	static void SetEditorKeybinding(const FString& CommandContext, const FString& Command, const FInputChord& NewChord)
-	{
-		TSharedPtr<FUICommandInfo> UICommand = FInputBindingManager::Get().FindCommandInContext(*CommandContext, *Command);
-		if (UICommand.IsValid())
-		{
-			UICommand->SetActiveChord(NewChord);
-			FInputBindingManager::Get().NotifyActiveChordChanged(*UICommand.Get());
-			FInputBindingManager::Get().SaveInputBindings();
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Could not find keybinding for %s using context %s"), *Command, *CommandContext);
-		}
-	}
-
-	/**
-	* Gets an editor keyboard shortcut
-	*
-	* @param CommandContext - The context of the command
-	* @param Command - The command name to get
-	* @param NewChord - The current input chord that is assigned
-	*/
-	static bool GetEditorKeybinding(const FString& CommandContext, const FString& Command, FInputChord& CurrentChord)
-	{
-		TSharedPtr<FUICommandInfo> UICommand = FInputBindingManager::Get().FindCommandInContext(*CommandContext, *Command);
-		if (UICommand.IsValid())
-		{
-			TSharedRef<const FInputChord> ActiveChord = UICommand->GetActiveChord();
-			CurrentChord = ActiveChord.Get();
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Could not find keybinding for %s using context %s"), *Command, *CommandContext);
-		}
-		return true;
-	}
-
-	/**
-	* Exports the current editor keybindings
-	*
-	* @param TargetFilename - The name of the file to export to
-	*/
-	static void ExportKeybindings(const FString& TargetFilename)
-	{
-		FInputBindingManager::Get().SaveInputBindings();
-		GConfig->Flush(false, GEditorKeyBindingsIni);
-		IFileManager::Get().Copy(*TargetFilename, *GEditorKeyBindingsIni);
-	}
-
-	/**
-	* Imports new editor keybindings  (Unused)
-	*
-	* @param TargetFilename - The name of the file to import from
-	*/
-	static void ImportKeybindings(const FString& TargetFilename)
-	{
-		GConfig->Flush(true, GEditorKeyBindingsIni);
-		IFileManager::Get().Copy(*GEditorKeyBindingsIni, *TargetFilename);
-		GConfig->LoadFile(GEditorKeyBindingsIni);
-	}
-
-	/**
-	* Exports the current editor settings
-	*
-	* @param TargetFilename - The name of the file to export to
-	*/
-	static void ExportEditorSettings(const FString& TargetFilename)
-	{
-		FInputBindingManager::Get().SaveInputBindings();
-		GConfig->Flush(false, GEditorPerProjectIni);
-		IFileManager::Get().Copy(*TargetFilename, *GEditorPerProjectIni);
-	}
-
-	/**
-	* Imports new editor settings (unused)
-	*
-	* @param TargetFilename - The name of the file to export to
-	*/
-	static void ImportEditorSettings(const FString& TargetFilename)
-	{
-		GConfig->Flush(true, GEditorPerProjectIni);
-		IFileManager::Get().Copy(*GEditorPerProjectIni, *TargetFilename);
-		GConfig->LoadFile(GEditorPerProjectIni);
-	}
-
-	/**
-	* Creates a material from an existing texture
-	*
-	* @param InTexture - The texture to use as the diffuse for the new material
-	*/
-	static UMaterial* CreateMaterialFromTexture(UTexture* InTexture)
-	{
-		// Create the factory used to generate the asset
-		UMaterialFactoryNew* Factory = NewObject<UMaterialFactoryNew>();
-		Factory->InitialTexture = InTexture;
-
-
-		const FString AssetName = FString::Printf(TEXT("%s_Mat"), *InTexture->GetName());
-		const FString PackageName = GetGamePath() + TEXT("/") + AssetName;
-		UPackage* AssetPackage = CreatePackage(NULL, *PackageName);
-		EObjectFlags Flags = RF_Public | RF_Standalone;
-
-		UObject* CreatedAsset = Factory->FactoryCreateNew(UMaterial::StaticClass(), AssetPackage, FName(*AssetName), Flags, NULL, GWarn);
-
-		if (CreatedAsset)
-		{
-			// Notify the asset registry
-			FAssetRegistryModule::AssetCreated(CreatedAsset);
-
-			// Mark the package dirty...
-			AssetPackage->MarkPackageDirty();
-		}
-
-		return Cast<UMaterial>(CreatedAsset);
-	}
-
-	/**
-	* Assigns a normal map to a material
-	*
-	* @param InNormalTexture - The texture to use as the normal map
-	* @param InMaterial - The material to modify
-	*/
-	static bool AssignNormalToMaterial(UTexture* InNormalTexture, UMaterial* InMaterial)
-	{
-		IAssetEditorInstance* OpenEditor = FAssetEditorManager::Get().FindEditorForAsset(InMaterial, true);
-		IMaterialEditor* CurrentMaterialEditor = (IMaterialEditor*)OpenEditor;
-
-		//Create the texture sample and auto assign the normal texture
-		UMaterialExpressionTextureSample* NewTextureSampleExpression = Cast<UMaterialExpressionTextureSample>(CurrentMaterialEditor->CreateNewMaterialExpression(UMaterialExpressionTextureSample::StaticClass(), FVector2D(100.f, 200.f), true, true));
-		if (NewTextureSampleExpression)
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created a new texture sample expression"));
-			NewTextureSampleExpression->Texture = InNormalTexture;
-			NewTextureSampleExpression->SamplerType = EMaterialSamplerType::SAMPLERTYPE_Normal;
-			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Assigned the normal map texture to the new node"));
-			UMaterial* EditorMaterial = Cast<UMaterial>(CurrentMaterialEditor->GetMaterialInterface());
-			UMaterialGraph* MaterialGraph = EditorMaterial->MaterialGraph;
-			EditorMaterial->Normal.Connect(0, NewTextureSampleExpression);
-			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Connected the new node to the normal pin"));
-			MaterialGraph->LinkGraphNodesFromMaterial();
-
-			return true;
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Could not add a texture sample to %s"), *InMaterial->GetName());
-			return false;
-		}
-	}
-
-	/**
-	* Finds a visible widget by type.     SLOW!!!!!
-	*
-	* @param InParent - We search this widget and its children for a matching widget (recursive)
-	* @param InWidgetType - The widget type we are searching for
-	*/
-	static TSharedPtr<SWidget> FindFirstWidgetByClass(TSharedRef<SWidget> InParent, const FName& InWidgetType)
-	{
-		if (InParent->GetType() == InWidgetType)
-		{
-			return InParent;
-		}
-		FChildren* Children = InParent->GetChildren();
-		for (int32 i = 0; i < Children->Num(); ++i)
-		{
-			TSharedRef<SWidget> ChildWidget = Children->GetChildAt(i);
-			TSharedPtr<SWidget> FoundWidget = FindFirstWidgetByClass(ChildWidget, InWidgetType);
-			if (FoundWidget.IsValid())
-			{
-				return FoundWidget;
-			}
-		}
-		return NULL;
-	}
-
-	/**
-	* Sends a UI command to the active top level window after focusing on a widget of a given type
-	*
-	* @param InChord - The chord to send to the window
-	* @param WidgetTypeToFocus - The widget type to find and focus on
-	*/
-	static void SendCommandToCurrentEditor(const FInputChord& InChord, const FName& WidgetTypeToFocus)
-	{
-		//Focus the asset Editor / Graph 
-		TSharedRef<SWindow> EditorWindow = FSlateApplication::Get().GetActiveTopLevelWindow().ToSharedRef();
-		FSlateApplication::Get().ProcessWindowActivatedEvent(FWindowActivateEvent(FWindowActivateEvent::EA_Activate, EditorWindow));
-		TSharedPtr<SWidget> FocusWidget = FindFirstWidgetByClass(EditorWindow, WidgetTypeToFocus);
-		if (FocusWidget.IsValid())
-		{
-			FSlateApplication::Get().SetKeyboardFocus(FocusWidget.ToSharedRef(), EFocusCause::SetDirectly);
-
-			//Send the command
-			FModifierKeysState ModifierKeys(InChord.NeedsShift(), false, InChord.NeedsControl(), false, InChord.NeedsAlt(), false, InChord.NeedsCommand(), false, false);
-			FKeyEvent KeyEvent(InChord.Key, ModifierKeys, 0/*UserIndex*/, false, 0, 0);
-			FSlateApplication::Get().ProcessKeyDownEvent(KeyEvent);
-			FSlateApplication::Get().ProcessKeyUpEvent(KeyEvent);
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Could not find widget %s to send UI command"), *WidgetTypeToFocus.ToString());
-		}
-	}
-
-	/**
-	* Gets the current input chord or sets a new one if it doesn't exist
-	*
-	* @param Context - The context of the UI Command
-	* @param Command - The name of the UI command
-	*/
-	static FInputChord GetOrSetUICommand(const FString& Context, const FString& Command)
-	{
-		FInputChord CurrentChord;
-		GetEditorKeybinding(Context, Command, CurrentChord);
-
-		//If there is no current keybinding, set one
-		if (!CurrentChord.Key.IsValid())
-		{
-			FInputChord NewChord(EKeys::J, EModifierKey::Control);
-			SetEditorKeybinding(Context, Command, NewChord);
-			CurrentChord = NewChord;
-		}
-
-		return CurrentChord;
-	}
-
-	/**
 	* Sends the MaterialEditor->Apply UI command
 	*/
 	static void SendUpdateMaterialCommand()
 	{
 		const FString Context = TEXT("MaterialEditor");
 		const FString Command = TEXT("Apply");
-		FInputChord CurrentApplyChord = GetOrSetUICommand(Context, Command);
+		FInputChord CurrentApplyChord = FEditorPromotionTestUtilities::GetOrSetUICommand(Context, Command);
 
 		const FName FocusWidgetType(TEXT("SGraphEditor"));
-		SendCommandToCurrentEditor(CurrentApplyChord, FocusWidgetType);
-	}
-
-	/**
-	* Sends the AssetEditor->SaveAsset UI command
-	*/
-	static void SendSaveCascadeCommand()
-	{
-		const FString Context = TEXT("AssetEditor");
-		const FString Command = TEXT("SaveAsset");
-
-		FInputChord CurrentSaveChord = GetOrSetUICommand(Context, Command);
-
-		const FName FocusWidgetType(TEXT("SCascadeEmitterCanvas"));
-		SendCommandToCurrentEditor(CurrentSaveChord, FocusWidgetType);
-	}
-
-	/**
-	* Sends the AssetEditor->SaveAsset UI command
-	*/
-	static void SendBlueprintResetViewCommand()
-	{
-		const FString Context = TEXT("BlueprintEditor");
-		const FString Command = TEXT("ResetCamera");
-
-		FInputChord CurrentSaveChord = GetOrSetUICommand(Context, Command);
-
-		const FName FocusWidgetType(TEXT("SSCSEditorViewport"));
-		SendCommandToCurrentEditor(CurrentSaveChord, FocusWidgetType);
+		FEditorPromotionTestUtilities::SendCommandToCurrentEditor(CurrentApplyChord, FocusWidgetType);
 	}
 
 	/**
@@ -473,97 +209,6 @@ namespace EditorBuildPromotionTestUtils
 	}
 
 	/**
-	* Creates a blueprint component based off the supplied asset
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param InAsset - The asset to use for the component
-	*/
-	static USCS_Node* CreateBlueprintComponent(UBlueprint* InBlueprint, UObject* InAsset)
-	{
-		IAssetEditorInstance* OpenEditor = FAssetEditorManager::Get().FindEditorForAsset(InBlueprint, true);
-		FBlueprintEditor* CurrentBlueprintEditor = (FBlueprintEditor*)OpenEditor;
-		TSubclassOf<UActorComponent> ComponentClass = FComponentAssetBrokerage::GetPrimaryComponentForAsset(InAsset->GetClass());
-		
-		USCS_Node* NewNode = InBlueprint->SimpleConstructionScript->CreateNode(ComponentClass);
-		// Assign the asset to the template
-		FComponentAssetBrokerage::AssignAssetToComponent(NewNode->ComponentTemplate, InAsset);
-
-		// Add node to the SCS
-		TArray<USCS_Node*> AllNodes = InBlueprint->SimpleConstructionScript->GetAllNodes();
-		USCS_Node* RootNode = AllNodes.Num() > 0 ? AllNodes[0] : NULL;
-		if (!RootNode || (RootNode == InBlueprint->SimpleConstructionScript->GetDefaultSceneRootNode()))
-		{
-			//New Root
-			InBlueprint->SimpleConstructionScript->AddNode(NewNode);
-		}
-		else
-		{
-			//Add as a child
-			RootNode->AddChildNode(NewNode);
-		}
-
-		// Recompile skeleton because of the new component we added
-		FKismetEditorUtilities::GenerateBlueprintSkeleton(InBlueprint, true);
-
-		CurrentBlueprintEditor->UpdateSCSPreview(true);
-
-		return NewNode;
-	}
-
-	/**
-	* Sets a new component as the root
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param NewRoot - The new root
-	*/
-	static void SetComponentAsRoot(UBlueprint* InBlueprint, USCS_Node* NewRoot)
-	{
-		//Get all the construction script nodes
-		TArray<USCS_Node*> AllNodes = InBlueprint->SimpleConstructionScript->GetAllNodes();
-
-		USCS_Node* OldRootNode = AllNodes[0];
-		USCS_Node* OldParent = NULL;
-
-		//Find old parent
-		for (int32 NodeIndex = 0; NodeIndex < AllNodes.Num(); ++NodeIndex)
-		{
-			if (AllNodes[NodeIndex]->ChildNodes.Contains(NewRoot))
-			{
-				OldParent = AllNodes[NodeIndex];
-				break;
-			}
-		}
-
-		//Remove the new root from its old parent and 
-		OldParent->ChildNodes.Remove(NewRoot);
-		NewRoot->Modify();
-		NewRoot->AttachToName = NAME_None;
-
-		//Remove the old root, add the new root, and attach the old root as a child
-		InBlueprint->SimpleConstructionScript->RemoveNode(OldRootNode);
-		InBlueprint->SimpleConstructionScript->AddNode(NewRoot);
-		NewRoot->AddChildNode(OldRootNode);
-	}
-
-	/**
-	* Removes a blueprint component from the simple construction script
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param InNode - The node of the component to remove
-	*/
-	static void RemoveBlueprintComponent(UBlueprint* InBlueprint, USCS_Node* InNode)
-	{
-		if (InNode != NULL)
-		{
-			// Remove node from SCS tree
-			InNode->GetSCS()->RemoveNodeAndPromoteChildren(InNode);
-
-			// Clear the delegate
-			InNode->SetOnNameChanged(FSCSNodeNameChanged());
-		}
-	}
-
-	/**
 	* Creates a new graph node from a given template
 	*
 	* @param NodeTemplate - The template to use for the node
@@ -574,131 +219,10 @@ namespace EditorBuildPromotionTestUtils
 	static UEdGraphNode* CreateNewGraphNodeFromTemplate(UK2Node* NodeTemplate, UEdGraph* InGraph, const FVector2D& GraphLocation, UEdGraphPin* ConnectPin = NULL)
 	{
 		const FString EmptyString(TEXT(""));
-		TSharedPtr<FEdGraphSchemaAction_K2NewNode> Action = TSharedPtr<FEdGraphSchemaAction_K2NewNode>(new FEdGraphSchemaAction_K2NewNode(EmptyString, FText::FromString(EmptyString), EmptyString, 0));
+		TSharedPtr<FEdGraphSchemaAction_K2NewNode> Action = TSharedPtr<FEdGraphSchemaAction_K2NewNode>(new FEdGraphSchemaAction_K2NewNode(FText::GetEmpty(), FText::GetEmpty(), EmptyString, 0));
 		Action->NodeTemplate = NodeTemplate;
 
 		return Action->PerformAction(InGraph, ConnectPin, GraphLocation, false);
-	}
-
-	/**
-	* Creates an AddComponent action to the blueprint graph
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param InGraph - The blueprint graph to use
-	* @param InAsset - The asset to use
-	*/
-	static UEdGraphNode* CreateAddComponentActionNode(UBlueprint* InBlueprint, UEdGraph* InGraph, UObject* InAsset)
-	{
-		UEdGraph* TempOuter = NewObject<UEdGraph>((UObject*)InBlueprint);
-		TempOuter->SetFlags(RF_Transient);
-
-		const FScopedTransaction PropertyChanged(LOCTEXT("AddedGraphNode", "Added a graph node"));
-		InGraph->Modify();
-
-		// Make an add component node
-		UK2Node_CallFunction* CallFuncNode = NewObject<UK2Node_AddComponent>(TempOuter);
-		UFunction* AddComponentFn = FindFieldChecked<UFunction>(AActor::StaticClass(), UK2Node_AddComponent::GetAddComponentFunctionName());
-		CallFuncNode->FunctionReference.SetFromField<UFunction>(AddComponentFn, FBlueprintEditorUtils::IsActorBased(InBlueprint));
-
-		UEdGraphNode* NewNode = CreateNewGraphNodeFromTemplate(CallFuncNode, InGraph, FVector2D(200, 0));
-
-		TSubclassOf<UActorComponent> ComponentClass = InAsset ? FComponentAssetBrokerage::GetPrimaryComponentForAsset(InAsset->GetClass()) : NULL;
-		if ((NewNode != NULL) && (InBlueprint != NULL))
-		{
-			UK2Node_AddComponent* AddCompNode = CastChecked<UK2Node_AddComponent>(NewNode);
-
-			ensure(NULL != Cast<UBlueprintGeneratedClass>(InBlueprint->GeneratedClass));
-			// Then create a new template object, and add to array in
-			UActorComponent* NewTemplate = NewObject<UActorComponent>(InBlueprint->GeneratedClass, ComponentClass, NAME_None, RF_ArchetypeObject|RF_Public);
-			InBlueprint->ComponentTemplates.Add(NewTemplate);
-
-			// Set the name of the template as the default for the TemplateName param
-			UEdGraphPin* TemplateNamePin = AddCompNode->GetTemplateNamePinChecked();
-			if (TemplateNamePin)
-			{
-				TemplateNamePin->DefaultValue = NewTemplate->GetName();
-			}
-
-			// Set the return type to be the type of the template
-			UEdGraphPin* ReturnPin = AddCompNode->GetReturnValuePin();
-			if (ReturnPin)
-			{
-				ReturnPin->PinType.PinSubCategoryObject = *ComponentClass;
-			}
-
-			// Set the asset
-			if (InAsset != NULL)
-			{
-				FComponentAssetBrokerage::AssignAssetToComponent(NewTemplate, InAsset);
-			}
-
-			AddCompNode->ReconstructNode();
-		}
-
-		FBlueprintEditorUtils::MarkBlueprintAsModified(InBlueprint);
-		return NewNode;
-	}
-
-	/**
-	* Creates a SetStaticMesh action in the blueprint graph
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param InGraph - The blueprint graph to use
-	*/
-	static UEdGraphNode* AddSetStaticMeshNode(UBlueprint* InBlueprint, UEdGraph* InGraph)
-	{
-		UEdGraph* TempOuter = NewObject<UEdGraph>((UObject*)InBlueprint);
-		TempOuter->SetFlags(RF_Transient);
-
-		// Make a call function template
-		UK2Node_CallFunction* CallFuncNode = NewObject<UK2Node_CallFunction>(TempOuter);
-		static FName PrintStringFunctionName(TEXT("SetStaticMesh"));
-		UFunction* DelayFn = FindFieldChecked<UFunction>(UStaticMeshComponent::StaticClass(), PrintStringFunctionName);
-		CallFuncNode->FunctionReference.SetFromField<UFunction>(DelayFn, false);
-
-		return CreateNewGraphNodeFromTemplate(CallFuncNode, InGraph, FVector2D(850, 0));
-	}
-
-	/**
-	* Connects two nodes using the supplied pin names
-	*
-	* @param NodeA - The first node to connect
-	* @param PinAName - The name of the pin on the first node
-	* @param NodeB - The second node to connect
-	* @param PinBName - The name of the pin on the second node
-	*/
-	static void ConnectGraphNodes(UEdGraphNode* NodeA, const FString& PinAName, UEdGraphNode* NodeB, const FString& PinBName)
-	{
-		const FScopedTransaction PropertyChanged(LOCTEXT("ConnectedNode", "Connected graph nodes"));
-		NodeA->GetGraph()->Modify();
-
-		UEdGraphPin* PinA = NodeA->FindPin(PinAName);
-		UEdGraphPin* PinB = NodeB->FindPin(PinBName);
-
-		if (PinA && PinB)
-		{
-			PinA->MakeLinkTo(PinB);
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Could not connect pins %s and %s "), *PinAName, *PinBName);
-		}
-	}
-
-	/**
-	* Promotes a pin to a variable
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param Node - The node that owns the pin
-	* @param PinName - The name of the pin to promote
-	*/
-	static void PromotePinToVariable(UBlueprint* InBlueprint, UEdGraphNode* Node, const FString& PinName)
-	{
-		IAssetEditorInstance* OpenEditor = FAssetEditorManager::Get().FindEditorForAsset(InBlueprint, true);
-		FBlueprintEditor* CurrentBlueprintEditor = (FBlueprintEditor*)OpenEditor;
-
-		UEdGraphPin* PinToPromote = Node->FindPin(PinName);
-		CurrentBlueprintEditor->DoPromoteToVariable(InBlueprint, PinToPromote);
 	}
 
 	/**
@@ -762,29 +286,6 @@ namespace EditorBuildPromotionTestUtils
 	}
 
 	/**
-	* Creates a delay node
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param InGraph - The graph to use for the new node
-	* @param ConnectPin - The pin to connect the new node to
-	*/
-	static UEdGraphNode* AddDelayNode(UBlueprint* InBlueprint, UEdGraph* InGraph, UEdGraphPin* ConnectPin = NULL)
-	{
-		UEdGraph* TempOuter = NewObject<UEdGraph>((UObject*)InBlueprint);
-		TempOuter->SetFlags(RF_Transient);
-
-		const FScopedTransaction PropertyChanged(LOCTEXT("AddedGraphNode", "Added a graph node"));
-		InGraph->Modify();
-
-		// Make a call function template
-		static FName DelayFunctionName(TEXT("Delay"));
-		UK2Node* CallFuncNode = CreateKismetFunctionTemplate(TempOuter, DelayFunctionName);
-
-		//Create the node
-		return CreateNewGraphNodeFromTemplate(CallFuncNode, InGraph, FVector2D(400, 0), ConnectPin);
-	}
-
-	/**
 	* Creates a PrintString node
 	*
 	* @param InBlueprint - The blueprint to modify
@@ -804,110 +305,6 @@ namespace EditorBuildPromotionTestUtils
 	}
 
 	/**
-	* Creates a call function node
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param InGraph - The graph to use for the new node
-	* @param FunctionName - The name of the function to call
-	* @param ConnectPin - The pin to connect the new node to
-	*/
-	static UEdGraphNode* AddCallFunctionGraphNode(UBlueprint* InBlueprint, UEdGraph* InGraph, const FName& FunctionName, UEdGraphPin* ConnectPin = NULL)
-	{
-		UEdGraph* TempOuter = NewObject<UEdGraph>((UObject*)InBlueprint);
-		TempOuter->SetFlags(RF_Transient);
-
-		// Make a call function template
-		UK2Node_CallFunction* CallFuncNode = NewObject<UK2Node_CallFunction>(TempOuter);
-		CallFuncNode->FunctionReference.SetSelfMember(FunctionName);
-
-		return CreateNewGraphNodeFromTemplate(CallFuncNode, InGraph, FVector2D(1200, 0), ConnectPin);
-	}
-
-	/**
-	* Creates Get or Set node
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param InGraph - The graph to use for the new node
-	* @param VarName - The name of the variable to use
-	* @param bGet - If true, create a Get node.  If false, create a Set node.
-	* @param XOffset - How far to offset the node in the graph
-	*/
-	static UEdGraphNode* AddGetSetNode(UBlueprint* InBlueprint, UEdGraph* InGraph, const FString& VarName, bool bGet, float XOffset = 0.f)
-	{
-		const FScopedTransaction PropertyChanged(LOCTEXT("AddedGraphNode", "Added a graph node"));
-		InGraph->Modify();
-
-		FEdGraphSchemaAction_K2NewNode NodeInfo;
-		// Create get or set node, depending on whether we clicked on an input or output pin
-		UK2Node_Variable* TemplateNode = NULL;
-		if (bGet)
-		{
-			TemplateNode = NewObject<UK2Node_VariableGet>();
-		}
-		else
-		{
-			TemplateNode = NewObject<UK2Node_VariableSet>();
-		}
-
-		TemplateNode->VariableReference.SetSelfMember(FName(*VarName));
-		NodeInfo.NodeTemplate = TemplateNode;
-
-		return NodeInfo.PerformAction(InGraph, NULL, FVector2D(XOffset,130), true);
-	}
-
-	/**
-	* Sets the default value for a pin
-	*
-	* @param Node - The node that owns the pin to set
-	* @param PinName - The name of the pin
-	* @param PinValue - The new default value
-	*/
-	static void SetPinDefaultValue(UEdGraphNode* Node, const FString& PinName, const FString& PinValue)
-	{
-		UEdGraphPin* Pin = Node->FindPin(PinName);
-		Pin->DefaultValue = PinValue;
-	}
-
-	/**
-	* Sets the default object for a pin
-	*
-	* @param Node - The node that owns the pin to set
-	* @param PinName - The name of the pin
-	* @param PinObject - The new default object
-	*/
-	static void SetPinDefaultObject(UEdGraphNode* Node, const FString& PinName, UObject* PinObject)
-	{
-		UEdGraphPin* Pin = Node->FindPin(PinName);
-		Pin->DefaultObject = PinObject;
-	}
-
-	/**
-	* Adds a string member variable to a blueprint
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param VariableName - The name of the new string variable
-	*/
-	static void AddStringMemberValue(UBlueprint* InBlueprint, const FName& VariableName)
-	{
-		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-		FEdGraphPinType StringPinType(K2Schema->PC_String, TEXT(""), NULL, false, false);
-		FBlueprintEditorUtils::AddMemberVariable(InBlueprint, VariableName, StringPinType);
-	}
-
-	/**
-	* Creates a new function graph
-	*
-	* @param InBlueprint - The blueprint to modify
-	* @param FunctionName - The function name to use for the new graph
-	*/
-	static UEdGraph* CreateNewFunctionGraph(UBlueprint* InBlueprint, const FName& FunctionName)
-	{
-		UEdGraph* NewGraph = FBlueprintEditorUtils::CreateNewGraph(InBlueprint, FunctionName, UEdGraph::StaticClass(), UEdGraphSchema_K2::StaticClass());
-		FBlueprintEditorUtils::AddFunctionGraph<UClass>(InBlueprint, NewGraph, /*bIsUserCreated=*/ true, NULL);
-		return NewGraph;
-	}
-
-	/**
 	* Starts a lighting build
 	*/
 	static void BuildLighting()
@@ -915,7 +312,7 @@ namespace EditorBuildPromotionTestUtils
 		//If we are running with -NullRHI then we have to skip this step.
 		if (GUsingNullRHI)
 		{
-			UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("SKIPPED Build Lighting Step.  You're currently running with -NullRHI."));
+			UE_LOG(LogEditorBuildPromotionTests, Log, TEXT("SKIPPED Build Lighting Step.  You're currently running with -NullRHI."));
 			return;
 		}
 
@@ -937,28 +334,6 @@ namespace EditorBuildPromotionTestUtils
 		LightingBuildOptions.QualityLevel = (ELightingBuildQuality)QualityLevel;
 
 		GUnrealEd->BuildLighting(LightingBuildOptions);
-	}
-
-	/**
-	* Sets an object property value by name
-	*
-	* @param TargetObject - The object to modify
-	* @param InVariableName - The name of the property
-	*/
-	static void SetPropertyByName(UObject* TargetObject, const FString& InVariableName, const FString& NewValueString)
-	{
-		UProperty* FoundProperty = FindField<UProperty>(TargetObject->GetClass(), *InVariableName);
-		if (FoundProperty)
-		{
-			const FScopedTransaction PropertyChanged(LOCTEXT("PropertyChanged", "Object Property Change"));
-
-			TargetObject->Modify();
-
-			TargetObject->PreEditChange(FoundProperty);
-			FoundProperty->ImportText(*NewValueString, FoundProperty->ContainerPtrToValuePtr<uint8>(TargetObject), 0, TargetObject);
-			FPropertyChangedEvent PropertyChangedEvent(FoundProperty, EPropertyChangeType::ValueSet);
-			TargetObject->PostEditChangeProperty(PropertyChangedEvent);
-		}
 	}
 
 	/**
@@ -992,87 +367,11 @@ namespace EditorBuildPromotionTestUtils
 	}
 
 	/**
-	* Ends a PIE session
-	*/
-	static void EndPIE()
-	{
-		GUnrealEd->RequestEndPlayMap();
-	}
-
-	/**
-	* Takes an automation screenshot
-	*
-	* @param ScreenshotName - The sub name to use for the screenshot
-	*/
-	static void TakeScreenshot(const FString& ScreenshotName, bool bUseTopWindow = false)
-	{
-		//Update the screenshot name, then take a screenshot.
-		if (FAutomationTestFramework::GetInstance().IsScreenshotAllowed())
-		{
-			TSharedPtr<SWindow> Window;
-
-			if (bUseTopWindow)
-			{
-				Window = FSlateApplication::Get().GetActiveTopLevelWindow();
-			}
-			else
-			{
-				//Find the main editor window
-				TArray<TSharedRef<SWindow> > AllWindows;
-				FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
-				if (AllWindows.Num() == 0)
-				{
-					UE_LOG(LogEditorAutomationTests, Error, TEXT("ERROR: Could not find the main editor window."));
-					return;
-				}
-
-				Window = AllWindows[0];
-			}
-
-			if (Window.IsValid())
-			{
-				FString ScreenshotFileName;
-				const FString TestName = FString::Printf(TEXT("EditorBuildPromotion/%s"), *ScreenshotName);
-				AutomationCommon::GetScreenshotPath(TestName, ScreenshotFileName, false);
-
-				TSharedRef<SWidget> WindowRef = Window.ToSharedRef();
-
-				TArray<FColor> OutImageData;
-				FIntVector OutImageSize;
-				FSlateApplication::Get().TakeScreenshot(WindowRef, OutImageData, OutImageSize);
-				FAutomationTestFramework::GetInstance().OnScreenshotCaptured().ExecuteIfBound(OutImageSize.X, OutImageSize.Y, OutImageData, ScreenshotFileName);
-			}
-			else
-			{
-				UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to find editor window for screenshot (%s)"), *ScreenshotName);
-			}
-		}
-	}
-
-	/**
-	* Gets the asset data from a package path
-	*
-	* @param PackagePath - The package path used to look up the asset data
-	*/
-	static FAssetData GetAssetDataFromPackagePath(const FString& PackagePath)
-	{
-		FString AssetPath = AutomationEditorCommonUtils::ConvertPackagePathToAssetPath(PackagePath);
-		if (AssetPath.Len() > 0)
-		{
-			IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
-			return AssetRegistry.GetAssetByObjectPath(*AssetPath);
-		}
-
-		return FAssetData();
-	}
-
-	/**
-	* Adds a default mesh to the level and applies a material
+	* Adds a default mesh to the level
 	*
 	* @param Location - The location to place the actor
-	* @param Material - The material to apply
 	*/
-	static AActor* AddDefaultMeshToLevelWithMaterial(const FVector& Location, UMaterialInterface* Material)
+	static AStaticMeshActor* AddDefaultMeshToLevel(const FVector& Location)
 	{
 		UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();
 		check(AutomationTestSettings);
@@ -1081,28 +380,46 @@ namespace EditorBuildPromotionTestUtils
 		FString AssetPackagePath = AutomationTestSettings->BuildPromotionTest.DefaultStaticMeshAsset.FilePath;
 		if (AssetPackagePath.Len() > 0)
 		{
-			FAssetData AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
+			FAssetData AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(AssetPackagePath);
 			UStaticMesh* DefaultMesh = Cast<UStaticMesh>(AssetData.GetAsset());
 			if (DefaultMesh)
 			{
 				AStaticMeshActor* PlacedMesh = Cast<AStaticMeshActor>(FActorFactoryAssetProxy::AddActorForAsset(DefaultMesh));
 				PlacedMesh->SetActorLocation(Location);
 
-				PlacedMesh->GetStaticMeshComponent()->SetMaterial(0, Material);
-
 				return PlacedMesh;
 			}
 			else
 			{
-				UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("DefaultStaticMeshAsset is invalid.  Unable to add material to level"));
+				UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("DefaultStaticMeshAsset is invalid."));
 			}
 		}
 		else
 		{
-			UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Can't add material to level because no DefaultMeshAsset is assigned"));
+			UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Can't add Static Mesh to level because no DefaultMeshAsset is defined."));
 		}
 
 		return NULL;
+	}
+
+	/*
+	* Applies a material to a static mesh. Triggers a test failure if StaticMesh is not valid.
+	*
+	* @param StaticMesh - the static mesh to apply the material to
+	* @param Material - the material to apply
+	*/
+	static bool ApplyMaterialToStaticMesh(AStaticMeshActor* StaticMesh, UMaterialInterface* Material)
+	{
+		if (StaticMesh)
+		{
+			StaticMesh->GetStaticMeshComponent()->SetMaterial(0, Material);
+			return true;
+		}
+		else
+		{
+			UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Failed to apply material to static mesh because mesh does not exist"));
+			return false;
+		}
 	}
 
 	/**
@@ -1114,7 +431,7 @@ namespace EditorBuildPromotionTestUtils
 	static UObject* ImportAsset(UFactory* ImportFactory, const FString& ImportPath)
 	{
 		const FString Name = ObjectTools::SanitizeObjectName(FPaths::GetBaseFilename(ImportPath));
-		const FString PackageName = FString::Printf(TEXT("%s/%s"), *GetGamePath(), *Name);
+		const FString PackageName = FString::Printf(TEXT("%s/%s"), *FEditorPromotionTestUtilities::GetGamePath(), *Name);
 
 		UObject* ImportedAsset = AutomationEditorCommonUtils::ImportAssetUsingFactory(ImportFactory,Name,PackageName,ImportPath);
 
@@ -1136,8 +453,9 @@ namespace EditorBuildPromotionTestUtils
 				}
 				else
 				{
-					UMaterial* NewMaterial = EditorBuildPromotionTestUtils::CreateMaterialFromTexture(TextureObject);
-					PlacedActor = EditorBuildPromotionTestUtils::AddDefaultMeshToLevelWithMaterial(PlaceLocation, NewMaterial);
+					UMaterial* NewMaterial = FEditorPromotionTestUtilities::CreateMaterialFromTexture(TextureObject);
+					PlacedActor = EditorBuildPromotionTestUtils::AddDefaultMeshToLevel(PlaceLocation);
+					EditorBuildPromotionTestUtils::ApplyMaterialToStaticMesh(Cast<AStaticMeshActor>(PlacedActor), NewMaterial);
 				}
 			}
 			else
@@ -1155,82 +473,6 @@ namespace EditorBuildPromotionTestUtils
 			{
 				UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to place %s in the level"), *InObject->GetName());
 			}
-		}
-	}
-
-	/**
-	* Imports an asset using the supplied factory, class, and name
-	*
-	* @param CreateFactory - The factory to use to create the asset
-	* @param AssetClass - The class of the new asset
-	* @param AssetName - The name to use for the new asset
-	*/
-	static UObject* CreateAsset(UFactory* CreateFactory, UClass* AssetClass, const FString& AssetName)
-	{
-		FString PackageName = FString::Printf(TEXT("%s/%s"), *GetGamePath(), *AssetName);
-		UPackage* AssetPackage = CreatePackage(NULL, *PackageName);
-		EObjectFlags Flags = RF_Public | RF_Standalone;
-
-		UObject* CreatedAsset = CreateFactory->FactoryCreateNew(AssetClass, AssetPackage, FName(*AssetName), Flags, NULL, GWarn);
-
-		if (CreatedAsset)
-		{
-			// Notify the asset registry
-			FAssetRegistryModule::AssetCreated(CreatedAsset);
-
-			// Mark the package dirty...
-			AssetPackage->MarkPackageDirty();
-
-			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created asset %s (%s)"), *AssetName, *AssetClass->GetName());
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Unable to create asset of type %s"), *AssetClass->GetName());
-		}
-
-		return CreatedAsset;
-	}
-
-	/**
-	* Checks that the level geometry changed after adding a brush and checks that undo / redo works
-	*
-	* @param CurrentLevel - The current level
-	* @param VertsBefore - The number of verts before the brush was added
-	* @param VertsAfter - The number of verts after the brush was added
-	* @param BrushType - The type of brush to use in the log
-	* @param bAdditive - True if this brush was added in additive mode
-	*/
-	static void TestGeometryUndoRedo(ULevel* CurrentLevel, int32 VertsBefore, int32 VertsAfter, const FString& BrushType, bool bAdditive)
-	{
-		if (VertsAfter > VertsBefore)
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Placed a %s in %s mode"), *BrushType, bAdditive ? TEXT("additive") : TEXT("subtractive"));
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to place a %s in %s mode"), *BrushType, bAdditive ? TEXT("additive") : TEXT("subtractive"));
-		}
-
-		//Undo
-		GEditor->UndoTransaction();
-		if (CurrentLevel->Model->Verts.Num() == VertsBefore)
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Undo successful for %s"), *BrushType);
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Undo failed for %s"), *BrushType);
-		}
-
-		//Redo
-		GEditor->RedoTransaction();
-		if (CurrentLevel->Model->Verts.Num() == VertsAfter)
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Redo successful for %s"), *BrushType);
-		}
-		else
-		{
-			UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Redo failed for %s"), *BrushType);
 		}
 	}
 
@@ -1284,9 +526,24 @@ namespace EditorBuildPromotionTestUtils
 		// Save all packages that were found
 		if (Packages.Num())
 		{
-			const bool bCheckDirty = false;
-			const bool bPromptToSave = false;
-			FEditorFileUtils::PromptForCheckoutAndSave(Packages, bCheckDirty, bPromptToSave);
+			if (FApp::IsUnattended())
+			{
+				// When unattended, prompt for checkout and save does not work.
+				// Save the packages directly instead
+				for (UPackage* Package : Packages)
+				{
+					const bool bIsMapPackage = UWorld::FindWorldInPackage(Package) != nullptr;
+					const FString& FileExtension = bIsMapPackage ? FPackageName::GetMapPackageExtension() : FPackageName::GetAssetPackageExtension();
+					const FString Filename = FPackageName::LongPackageNameToFilename(Package->GetName(), FileExtension);
+					SavePackageHelper(Package, Filename);
+				}
+			}
+			else
+			{
+				const bool bCheckDirty = false;
+				const bool bPromptToSave = false;
+				FEditorFileUtils::PromptForCheckoutAndSave(Packages, bCheckDirty, bPromptToSave);
+			}
 		}
 	}
 
@@ -1311,7 +568,7 @@ namespace EditorBuildPromotionTestUtils
 		// Form a filter from the paths
 		FARFilter Filter;
 		Filter.bRecursivePaths = true;
-		new (Filter.PackagePaths) FName(*EditorBuildPromotionTestUtils::GetGamePath());
+		new (Filter.PackagePaths) FName(*FEditorPromotionTestUtilities::GetGamePath());
 
 		// Query for a list of assets in the selected paths
 		TArray<FAssetData> AssetList;
@@ -1339,8 +596,8 @@ namespace EditorBuildPromotionTestUtils
 			}
 		}
 
-		UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Clearing Path: %s"), *EditorBuildPromotionTestUtils::GetGamePath());
-		AssetRegistry.RemovePath(EditorBuildPromotionTestUtils::GetGamePath());
+		UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Clearing Path: %s"), *FEditorPromotionTestUtilities::GetGamePath());
+		AssetRegistry.RemovePath(FEditorPromotionTestUtilities::GetGamePath());
 
 		//Remove the directory
 		bool bEnsureExists = false;
@@ -1520,7 +777,7 @@ namespace BuildPromotionTestHelper
 		}
 
 		/**
-		* Modifies a property on the current asset
+		* Modifies a property on the current asset, undoes and redoes the property change, then saves changed asset
 		*/
 		void ChangeProperty()
 		{
@@ -1528,15 +785,15 @@ namespace BuildPromotionTestHelper
 			FString PropertyName = Assets[AssetIndex].PropertyName;
 			FString NewPropertyValue = Assets[AssetIndex].PropertyValue;
 
-			FString OldPropertyValue = EditorBuildPromotionTestUtils::GetPropertyByName(CurrentAsset, PropertyName);
-			EditorBuildPromotionTestUtils::SetPropertyByName(CurrentAsset, PropertyName, NewPropertyValue);
+			FString OldPropertyValue = FEditorPromotionTestUtilities::GetPropertyByName(CurrentAsset, PropertyName);
+			FEditorPromotionTestUtilities::SetPropertyByName(CurrentAsset, PropertyName, NewPropertyValue);
 			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Modified asset.  %s = %s"), *PropertyName, *NewPropertyValue);
 
 			//Get the property again and use that to compare the redo action.  Parsing the new value may change the formatting a bit. ie) 100 becomes 100.0000
-			FString ParsedNewValue = EditorBuildPromotionTestUtils::GetPropertyByName(CurrentAsset, PropertyName);
+			FString ParsedNewValue = FEditorPromotionTestUtilities::GetPropertyByName(CurrentAsset, PropertyName);
 
 			GEditor->UndoTransaction();
-			FString CurrentValue = EditorBuildPromotionTestUtils::GetPropertyByName(CurrentAsset, PropertyName);
+			FString CurrentValue = FEditorPromotionTestUtilities::GetPropertyByName(CurrentAsset, PropertyName);
 			if (CurrentValue == OldPropertyValue)
 			{
 				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Undo %s change successful"), *PropertyName);
@@ -1547,7 +804,7 @@ namespace BuildPromotionTestHelper
 			}
 
 			GEditor->RedoTransaction();
-			CurrentValue = EditorBuildPromotionTestUtils::GetPropertyByName(CurrentAsset, PropertyName);
+			CurrentValue = FEditorPromotionTestUtilities::GetPropertyByName(CurrentAsset, PropertyName);
 			if (CurrentValue == ParsedNewValue)
 			{
 				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Redo %s change successful"), *PropertyName);
@@ -1597,12 +854,14 @@ namespace BuildPromotionTestHelper
 			UTexture* TextureAsset = Cast<UTexture>(CurrentAsset);
 			if (MaterialAsset)
 			{
-				AActor* PlacedActor = EditorBuildPromotionTestUtils::AddDefaultMeshToLevelWithMaterial(PlaceLocation, MaterialAsset);
+				AStaticMeshActor* PlacedActor = EditorBuildPromotionTestUtils::AddDefaultMeshToLevel(PlaceLocation); // , MaterialAsset);
+				EditorBuildPromotionTestUtils::ApplyMaterialToStaticMesh(PlacedActor, MaterialAsset);
 			}
 			else if (TextureAsset)
 			{
-				UMaterial* NewMaterial = EditorBuildPromotionTestUtils::CreateMaterialFromTexture(TextureAsset);
-				AActor* PlacedActor = EditorBuildPromotionTestUtils::AddDefaultMeshToLevelWithMaterial(PlaceLocation, NewMaterial);
+				UMaterial* NewMaterial = FEditorPromotionTestUtilities::CreateMaterialFromTexture(TextureAsset);
+				AStaticMeshActor* PlacedActor = EditorBuildPromotionTestUtils::AddDefaultMeshToLevel(PlaceLocation); //, NewMaterial);
+				EditorBuildPromotionTestUtils::ApplyMaterialToStaticMesh(PlacedActor, NewMaterial);
 			}
 			else
 			{
@@ -1669,6 +928,9 @@ namespace BuildPromotionTestHelper
 	*/
 	struct FBuildPromotionTest
 	{
+		/** Pointer to running automation test instance */
+		FEditorPromotionTest* Test;
+
 		/** Pointer to the execution info of this test */
 		FAutomationTestExecutionInfo* TestExecutionInfo;
 
@@ -1712,36 +974,17 @@ namespace BuildPromotionTestHelper
 		UMaterial* SCTestMat;
 		FString ChosenMaterialColor;
 
-		/** Material created from the "Creating a Material" stage */
-		UMaterial* CreatedMaterial;
-
-		/** Particle System created from the "Creating a Particle System" stage */
-		UParticleSystem* CreatedPS;
+		/** Particle System loaded from Automation Settings for Blueprint Pass */
+		UParticleSystem* LoadedParticleSystem;
 
 		/** Helper for opening, modifying, and placing assets */
 		FOpenAssetHelper* OpenAssetHelper;
 
-		/** Meshes to use for the blueprint */
-		UStaticMesh* FirstBlueprintMesh;
-		UStaticMesh* SecondBlueprintMesh;
-
 		/** Objects created by the Blueprint stages */
 		UBlueprint* BlueprintObject;
 		UPackage* BlueprintPackage;
-		UEdGraph* CustomGraph;
-		USCS_Node* MeshNode;
-		USCS_Node* OtherMeshNode;
-		USCS_Node* PSNode;
-		UEdGraphNode* AddMeshNode;
 		UEdGraphNode* PostBeginPlayEventNode;
-		UEdGraphNode* DelayNode;
-		UEdGraphNode* SetNode;
-		UEdGraphNode* GetNode;
 		UEdGraphNode* PrintNode;
-		UEdGraphNode* SetStaticMeshNode;
-		UEdGraphNode* CustomEventNode;
-		UEdGraphNode* AddParticleSystemNode;
-		UEdGraphNode* CallFunctionNode;
 		AActor* PlacedBlueprint;
 
 		/** Source control async helper */
@@ -1782,13 +1025,9 @@ namespace BuildPromotionTestHelper
 
 			// 2) Geometry
 			ADD_TEST_STAGE(Geometry_LevelCreationAndSetup,	TEXT("Level Creation and Setup"));
-			ADD_TEST_STAGE(Geometry_AddLevelGeometry,		TEXT("Level Geometry"));
 			ADD_TEST_STAGE(EndSection,						TEXT("Geometry Workflow"));
 
 			// 3) Lighting
-			ADD_TEST_STAGE(Lighting_PlaceAPointLight,		TEXT("Place a Point Light"));
-			ADD_TEST_STAGE(Lighting_PointLightProperties,	TEXT("Point Light Properties"));
-			ADD_TEST_STAGE(Lighting_DuplicatePointLight,	TEXT("Duplicate Point Light"));
 			ADD_TEST_STAGE(Lighting_BuildLighting_Part1,	TEXT("Build Lighting"));
 			ADD_TEST_STAGE(Lighting_BuildLighting_Part2,	TEXT("Build Lighting"));
 			ADD_TEST_STAGE(EndSection, TEXT("Lighting Workflow"));
@@ -1806,33 +1045,13 @@ namespace BuildPromotionTestHelper
 			ADD_TEST_STAGE(ContentBrowser_OpenAssets_Part1,				TEXT("Open Asset Types"));
 			ADD_TEST_STAGE(ContentBrowser_OpenAssets_Part2,				TEXT("Open Asset Types"));
 			ADD_TEST_STAGE(ContentBrowser_ReimportAsset,				TEXT("Re-import Assets"));
-			ADD_TEST_STAGE(ContentBrowser_CreateAMaterial_Part1,		TEXT("Creating a Material"));
-			ADD_TEST_STAGE(ContentBrowser_CreateAMaterial_Part2,		TEXT("Creating a Material"));
-			ADD_TEST_STAGE(ContentBrowser_CreateAMaterial_Part3,		TEXT("Creating a Material"));
-			ADD_TEST_STAGE(ContentBrowser_CreateAParticleSystem_Part1,	TEXT("Creating a Particle System"));
-			ADD_TEST_STAGE(ContentBrowser_CreateAParticleSystem_Part2,	TEXT("Creating a Particle System"));
+			ADD_TEST_STAGE(ContentBrowser_AssignAMaterial,				TEXT("Assigning a Material"));
 			ADD_TEST_STAGE(EndSection, TEXT("Content Browser"));
 
 			// 6) Blueprints
-			ADD_TEST_STAGE(Blueprint_CreateNewBlueprint_Part1,	TEXT("Create a new Blueprint"));
-			ADD_TEST_STAGE(Blueprint_CreateNewBlueprint_Part2,	TEXT("Create a new Blueprint"));
-			ADD_TEST_STAGE(Blueprint_DataOnlyBlueprint_Part1,	TEXT("Data-only Blueprint"));
-			ADD_TEST_STAGE(Blueprint_DataOnlyBlueprint_Part2,	TEXT("Data-only Blueprint"));
-			ADD_TEST_STAGE(Blueprint_DataOnlyBlueprint_Part3,	TEXT("Data-only Blueprint"));
-			ADD_TEST_STAGE(Blueprint_ComponentsMode_Part1,		TEXT("Components Mode"));
-			ADD_TEST_STAGE(Blueprint_ComponentsMode_Part2,		TEXT("Components Mode"));
-			ADD_TEST_STAGE(Blueprint_ConstructionScript,		TEXT("Construction Script"));
-			ADD_TEST_STAGE(Blueprint_PromoteVariable_Part1,		TEXT("Variable from Component Mode"));
-			ADD_TEST_STAGE(Blueprint_PromoteVariable_Part2,		TEXT("Variable from Component Mode"));
-			ADD_TEST_STAGE(Blueprint_PromoteVariable_Part3,		TEXT("Variable from Component Mode"));
-			ADD_TEST_STAGE(Blueprint_EventGraph,				TEXT("Event Graph"));
-			ADD_TEST_STAGE(Blueprint_CustomVariable,			TEXT("Custom Variables"));
-			ADD_TEST_STAGE(Blueprint_UsingVariables,			TEXT("Using Variables"));
-			ADD_TEST_STAGE(Blueprint_RenameCustomEvent,			TEXT("Renaming Custom Event"));
-			ADD_TEST_STAGE(Blueprint_NewFunctions,				TEXT("New Function"));
-			ADD_TEST_STAGE(Blueprint_CompleteBlueprint,			TEXT("Completing the Blueprint"));
+			ADD_TEST_STAGE(Blueprint_Setup,						TEXT("Blueprint setup"));
 			ADD_TEST_STAGE(Blueprint_Placement_Part1,			TEXT("Blueprint Placement"));
-			ADD_TEST_STAGE(Blueprint_Placement_Part2,			TEXT("Blueprint Placement"));
+			//ADD_TEST_STAGE(Blueprint_Placement_Part2,			TEXT("Blueprint Placement"));
 			ADD_TEST_STAGE(Blueprint_Placement_Part3,			TEXT("Blueprint Placement"));
 			ADD_TEST_STAGE(Blueprint_Placement_Part4,			TEXT("Blueprint Placement"));
 			ADD_TEST_STAGE(Blueprint_SetBreakpoint_Part1,		TEXT("Set Breakpoints"));
@@ -2005,315 +1224,7 @@ namespace BuildPromotionTestHelper
 
 			return true;
 		}
-
-		/**
-		* Geometry Test Stage: Adding, Subtracting and Editing Geometry
-		*    Adds different world geometry to the map and adds a player start
-		*/
-		bool Geometry_AddLevelGeometry()
-		{
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH Scale 1 1 1"));
-
-			for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++)
-			{
-				FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
-				if (!ViewportClient->IsOrtho())
-				{
-					ViewportClient->SetViewLocation(FVector(176, 2625, 2075));
-					ViewportClient->SetViewRotation(FRotator(319, 269, 1));
-				}
-			}
-			ULevel* CurrentLevel = CurrentWorld->GetCurrentLevel();
-			int32 VertsBefore = CurrentLevel->Model->Verts.Num();
-
-			//Cube Additive Brush
-			UCubeBuilder* CubeAdditiveBrushBuilder = Cast<UCubeBuilder>(GEditor->FindBrushBuilder(UCubeBuilder::StaticClass()));
-			CubeAdditiveBrushBuilder->X = 8192.0f;
-			CubeAdditiveBrushBuilder->Y = 8192.0f;
-			CubeAdditiveBrushBuilder->Z = 128.0f;
-			CubeAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=0 Y=0 Z=0"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			int32 VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("cube"), true);
-
-			//Cone Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			UConeBuilder* ConeAdditiveBrushBuilder = Cast<UConeBuilder>(GEditor->FindBrushBuilder(UConeBuilder::StaticClass()));
-			ConeAdditiveBrushBuilder->Z = 1024.0f;
-			ConeAdditiveBrushBuilder->CapZ = 256.0f;
-			ConeAdditiveBrushBuilder->OuterRadius = 512.0f;
-			ConeAdditiveBrushBuilder->InnerRadius = 384;
-			ConeAdditiveBrushBuilder->Sides = 32;
-			ConeAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=-1525 Y=-1777 Z=64"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("cone"), true);
-
-			//Sphere Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			UTetrahedronBuilder* TetraAdditiveBrushBuilder = Cast<UTetrahedronBuilder>(GEditor->FindBrushBuilder(UTetrahedronBuilder::StaticClass()));
-			TetraAdditiveBrushBuilder->Radius = 512.0f;
-			TetraAdditiveBrushBuilder->SphereExtrapolation = 3;
-			TetraAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=-88 Y=-1777 Z=535"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("tetrahedron"), true);
-
-			//Cylinder Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			UCylinderBuilder* CylinderAdditiveBrushBuilder = Cast<UCylinderBuilder>(GEditor->FindBrushBuilder(UCylinderBuilder::StaticClass()));
-			CylinderAdditiveBrushBuilder->Z = 1024.0f;
-			CylinderAdditiveBrushBuilder->OuterRadius = 512.0f;
-			CylinderAdditiveBrushBuilder->InnerRadius = 384.0f;
-			CylinderAdditiveBrushBuilder->Sides = 16;
-			CylinderAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=1338 Y=-1776 Z=535"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("cylinder"), true);
-
-			//Cylinder Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			USheetBuilder* SheetAdditiveBrushBuilder = Cast<USheetBuilder>(GEditor->FindBrushBuilder(USheetBuilder::StaticClass()));
-			SheetAdditiveBrushBuilder->X = 512.0f;
-			SheetAdditiveBrushBuilder->Y = 512.0f;
-			SheetAdditiveBrushBuilder->XSegments = 1;
-			SheetAdditiveBrushBuilder->YSegments = 1;
-			SheetAdditiveBrushBuilder->Axis = AX_YAxis;
-			SheetAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=-760 Y=-346 Z=535"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("sheet"), true);
-
-			//Volume Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			UVolumetricBuilder* VolumetricAdditiveBrushBuilder = Cast<UVolumetricBuilder>(GEditor->FindBrushBuilder(UVolumetricBuilder::StaticClass()));
-			VolumetricAdditiveBrushBuilder->Z = 512.0f;
-			VolumetricAdditiveBrushBuilder->Radius = 128.0f;
-			VolumetricAdditiveBrushBuilder->NumSheets = 3;
-			VolumetricAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=445 Y=-345 Z=535"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("volume"), true);
-
-			//Linear Stair Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			ULinearStairBuilder* LinearStairAdditiveBrushBuilder = Cast<ULinearStairBuilder>(GEditor->FindBrushBuilder(ULinearStairBuilder::StaticClass()));
-			LinearStairAdditiveBrushBuilder->StepLength = 64.0f;
-			LinearStairAdditiveBrushBuilder->StepHeight = 16.0f;
-			LinearStairAdditiveBrushBuilder->StepWidth = 256.0f;
-			LinearStairAdditiveBrushBuilder->NumSteps = 8;
-			LinearStairAdditiveBrushBuilder->AddToFirstStep = 0;
-			LinearStairAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=1464 Y=-345 Z=-61"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("linear stair"), true);
-
-			//Curved Stair Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			UCurvedStairBuilder* CurvedStairAdditiveBrushBuilder = Cast<UCurvedStairBuilder>(GEditor->FindBrushBuilder(UCurvedStairBuilder::StaticClass()));
-			CurvedStairAdditiveBrushBuilder->InnerRadius = 240.0f;
-			CurvedStairAdditiveBrushBuilder->StepHeight = 16.0f;
-			CurvedStairAdditiveBrushBuilder->StepWidth = 256.0f;
-			CurvedStairAdditiveBrushBuilder->AngleOfCurve = 90.0f;
-			CurvedStairAdditiveBrushBuilder->NumSteps = 4;
-			CurvedStairAdditiveBrushBuilder->AddToFirstStep = 0;
-			CurvedStairAdditiveBrushBuilder->CounterClockwise = false;
-			CurvedStairAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=-1290 Y=263 Z=193"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("curved stair"), true);
-
-			//Spiral Stair Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			USpiralStairBuilder* SpiralStairAdditiveBrushBuilder = Cast<USpiralStairBuilder>(GEditor->FindBrushBuilder(USpiralStairBuilder::StaticClass()));
-			SpiralStairAdditiveBrushBuilder->InnerRadius = 64;
-			SpiralStairAdditiveBrushBuilder->StepWidth = 256.0f;
-			SpiralStairAdditiveBrushBuilder->StepHeight = 16.0f;
-			SpiralStairAdditiveBrushBuilder->StepThickness = 32.0f;
-			SpiralStairAdditiveBrushBuilder->NumStepsPer360 = 8;
-			SpiralStairAdditiveBrushBuilder->NumSteps = 8;
-			SpiralStairAdditiveBrushBuilder->SlopedCeiling = true;
-			SpiralStairAdditiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=850 Y=263 Z=193"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH ADD"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("spiral stair"), true);
-
-			//Cylinder Additive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			UCylinderBuilder* CylinderSubtractiveBrushBuilder = Cast<UCylinderBuilder>(GEditor->FindBrushBuilder(UCylinderBuilder::StaticClass()));
-			CylinderSubtractiveBrushBuilder->Z = 256;
-			CylinderSubtractiveBrushBuilder->OuterRadius = 512.0f;
-			CylinderSubtractiveBrushBuilder->InnerRadius = 384.0f;
-			CylinderSubtractiveBrushBuilder->Sides = 3;
-			CylinderSubtractiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=0 Y=0 Z=128"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH SUBTRACT"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("cylinder"), true);
-
-			//Cube Subtractive Brush
-			VertsBefore = CurrentLevel->Model->Verts.Num();
-			UCubeBuilder* CubeSubtractiveBrushBuilder = Cast<UCubeBuilder>(GEditor->FindBrushBuilder(UCubeBuilder::StaticClass()));
-			CubeSubtractiveBrushBuilder->X = 256.0f;
-			CubeSubtractiveBrushBuilder->Y = 1024.0f;
-			CubeSubtractiveBrushBuilder->Z = 256.0f;
-			CubeSubtractiveBrushBuilder->Build(CurrentWorld);
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH MOVETO X=-88 Y=-1777 Z=535"));
-			GEditor->Exec(CurrentWorld, TEXT("BRUSH SUBTRACT"));
-			VertsAfter = CurrentLevel->Model->Verts.Num();
-
-			//Log results and test Undo/Redo
-			EditorBuildPromotionTestUtils::TestGeometryUndoRedo(CurrentLevel, VertsBefore, VertsAfter, TEXT("cube"), false);
-
-			//Add a playerstart
-			const FTransform Transform(FRotator(0, -90, 0), FVector(0.f, 1750.f, 166.f));
-			AActor* PlayerStart = GEditor->AddActor(CurrentWorld->GetCurrentLevel(), APlayerStart::StaticClass(), Transform);
-			if (PlayerStart)
-			{
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Placed a player start"));
-			}
-			else
-			{
-				UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to place a PlayerStart"));
-			}
-
-			return true;
-		}
 		
-		/**
-		* Lighting Test Stage: Place a point Light
-		*    Adds a point light to the map and sets its location, rotation, and scale
-		*/
-		bool Lighting_PlaceAPointLight()
-		{
-			const FTransform Transform(FVector(0.0f, 50.0f, 400.0f));
-			PointLight = Cast<APointLight>(GEditor->AddActor(CurrentWorld->GetCurrentLevel(), APointLight::StaticClass(), Transform));
-			if (PointLight)
-			{
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Placed a PointLight"));
-				PointLight->SetActorLocation(FVector(100.f, 50.f, 200.f));
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Modified the PointLight's Location"));
-				PointLight->SetActorRotation(FRotator(300, 250, -91));
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Modified the PointLight's Rotation"));
-				PointLight->SetActorScale3D(FVector(2.f, 2.f, 2.f));
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Modified the PointLight's Scale"));
-			}
-			else
-			{
-				UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Error creating point light"));
-			}
-
-			return true;
-		}
-
-		/**
-		* Lighting Test Stage: Point Light Properties
-		*    Modifies the point light properties (Intensity, LightColor, and AttenuationRadius)
-		*/
-		bool Lighting_PointLightProperties()
-		{
-			if (PointLight)
-			{
-				UPointLightComponent* PointLightComp = PointLight->PointLightComponent;
-				EditorBuildPromotionTestUtils::SetPropertyByName(PointLightComp, TEXT("Intensity"), TEXT("1000.f"));
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Modified the PointLight's Intensity"));
-				EditorBuildPromotionTestUtils::SetPropertyByName(PointLightComp, TEXT("LightColor"), TEXT("(R=0,G=0,B=255)"));
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Modified the PointLight's LightColor"));
-				EditorBuildPromotionTestUtils::SetPropertyByName(PointLightComp, TEXT("AttenuationRadius"), TEXT("1024.f"));
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Modified the PointLight's AttenuationRadius"));
-			}
-			else
-			{
-				SkippedTests.Add(TEXT("Lighting: Point Light Properties. (Failed to create light)"));
-			}
-
-			return true;
-		}
-
-		/**
-		* Lighting Test Stage: Duplicate point light
-		*    Duplicates the point light created earlier using Copy/Paste and Duplicate
-		*/
-		bool Lighting_DuplicatePointLight()
-		{
-			if (PointLight)
-			{
-				int32 StartingLightCount = EditorBuildPromotionTestUtils::GetNumActors(CurrentWorld, APointLight::StaticClass());
-
-				//Select the light
-				GEditor->SelectNone(false, true, false);
-				GEditor->SelectActor(PointLight, true, false, true);
-
-				GEngine->Exec(CurrentWorld, TEXT("EDIT COPY"));
-				GEngine->Exec(CurrentWorld, TEXT("EDIT PASTE"));
-
-				//Check if we gained a new light
-				int32 CurrentLightCount = EditorBuildPromotionTestUtils::GetNumActors(CurrentWorld, APointLight::StaticClass());
-				if (CurrentLightCount - StartingLightCount == 1)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Duplicated the PointLight using copy / paste"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to duplicate light using copy / paste"));
-				}
-
-				//Reset the starting count
-				StartingLightCount = CurrentLightCount;
-
-				//Select the light
-				GEditor->SelectNone(false, true, false);
-				GEditor->SelectActor(PointLight, true, false, true);
-
-				GEngine->Exec(CurrentWorld, TEXT("DUPLICATE"));
-
-				//Check if we gained a new light
-				CurrentLightCount = EditorBuildPromotionTestUtils::GetNumActors(CurrentWorld, APointLight::StaticClass());
-				if (CurrentLightCount - StartingLightCount == 1)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Duplicated the PointLight using duplicate"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to duplicate light using duplicate"));
-				}
-			}
-			else
-			{
-				SkippedTests.Add(TEXT("Lighting: Duplicate point light. (Failed to create light)"));
-			}
-
-			return true;
-		}
 
 		/**
 		* Lighting Test Stage: Build Lighting (Part 1)
@@ -2355,6 +1266,7 @@ namespace BuildPromotionTestHelper
 			return false;
 		}
 
+//@TODO: Rewrite this without macro if possible
 #define IMPORT_ASSET_WITH_FACTORY(TFactoryClass,TObjectClass,ImportSetting,ClassVariable,ExtraSettings) \
 { \
 	const FString FilePath = AutomationTestSettings->BuildPromotionTest.ImportWorkflow.ImportSetting.ImportFilePath.FilePath; \
@@ -2369,7 +1281,7 @@ namespace BuildPromotionTestHelper
 	else \
 	{ \
 		SkippedTests.Add(FString::Printf(TEXT("Importing Workflow: Importing %s. (No file path)"),TEXT(#ImportSetting))); \
-		UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("No asset import path set for %s"), TEXT(#ImportSetting)); \
+		UE_LOG(LogEditorBuildPromotionTests, Log, TEXT("No asset import path set for %s"), TEXT(#ImportSetting)); \
 	} \
 	TagPreviousLogs(TEXT(#ImportSetting)); \
 }
@@ -2493,7 +1405,7 @@ namespace BuildPromotionTestHelper
 				} 
 				else 
 				{ 
-					UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("No asset import path set for OtherAssetsToImport.  Index: %i"), i);
+					UE_LOG(LogEditorBuildPromotionTests, Log, TEXT("No asset import path set for OtherAssetsToImport.  Index: %i"), i);
 				}
 				TagPreviousLogs(FString::Printf(TEXT("OtherAssetsToImport #%i"),i+1));
 			}
@@ -2503,7 +1415,7 @@ namespace BuildPromotionTestHelper
 			SectionSuccessCount--;
 
 			//Save all the new assets
-			EditorBuildPromotionTestUtils::SaveAllAssetsInFolder(EditorBuildPromotionTestUtils::GetGamePath());
+			EditorBuildPromotionTestUtils::SaveAllAssetsInFolder(FEditorPromotionTestUtilities::GetGamePath());
 
 			return true;
 		}
@@ -2522,7 +1434,7 @@ namespace BuildPromotionTestHelper
 			const FString SourceControlMaterialPath = AutomationTestSettings->BuildPromotionTest.SourceControlMaterial.FilePath;
 			if (SourceControlMaterialPath.Len() > 0)
 			{
-				FAssetData MaterialData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(SourceControlMaterialPath);
+				FAssetData MaterialData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(SourceControlMaterialPath);
 				SCTestMat = Cast<UMaterial>(MaterialData.GetAsset());
 
 				if (SCTestMat)
@@ -2598,6 +1510,7 @@ namespace BuildPromotionTestHelper
 			return true;
 		}
 
+		// @TODO: Rewrite this to use a lighter-weight asset type
 		/**
 		* ContentBrowser Test Stage: Source Control (part 3)
 		*    Changes the source control material's color
@@ -2636,14 +1549,14 @@ namespace BuildPromotionTestHelper
 					if (ColorParam)
 					{
 						EditorMaterial->Modify();
-						EditorBuildPromotionTestUtils::SetPropertyByName(ColorParam, TEXT("Constant"), ColorValue);
+						FEditorPromotionTestUtilities::SetPropertyByName(ColorParam, TEXT("Constant"), ColorValue);
 						MaterialEditor->UpdateMaterialAfterGraphChange();
 						MaterialEditor->ForceRefreshExpressionPreviews();
 						EditorBuildPromotionTestUtils::SendUpdateMaterialCommand();
 					}
 				}
 
-				FAssetData MaterialData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AutomationTestSettings->BuildPromotionTest.SourceControlMaterial.FilePath);
+				FAssetData MaterialData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(AutomationTestSettings->BuildPromotionTest.SourceControlMaterial.FilePath);
 				FString PackageFileName = FPackageName::LongPackageNameToFilename(MaterialData.PackageName.ToString(), FPackageName::GetAssetPackageExtension());
 				FString MaterialFilePath = FPaths::ConvertRelativePathToFull(PackageFileName);
 				AsyncHelper = SourceControlAutomationCommon::FAsyncCommandHelper(MaterialFilePath);
@@ -2734,7 +1647,7 @@ namespace BuildPromotionTestHelper
 			AssetPackagePath = AutomationTestSettings->BuildPromotionTest.OpenAssets.BlueprintAsset.FilePath;
 			if (AssetPackagePath.Len() > 0)
 			{
-				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
+				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
 				if (Asset)
 				{
@@ -2756,7 +1669,7 @@ namespace BuildPromotionTestHelper
 			AssetPackagePath = AutomationTestSettings->BuildPromotionTest.OpenAssets.MaterialAsset.FilePath;
 			if (AssetPackagePath.Len() > 0)
 			{
-				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
+				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
 				if (Asset)
 				{
@@ -2775,10 +1688,10 @@ namespace BuildPromotionTestHelper
 			}
 			
 			// Particle System
-			AssetPackagePath = AutomationTestSettings->BuildPromotionTest.OpenAssets.ParticleSystemAsset.FilePath;
+			AssetPackagePath = AutomationTestSettings->BuildPromotionTest.OpenAssets.ParticleSystemAsset.FilePath;  // @TODO: Use an Engine asset
 			if (AssetPackagePath.Len() > 0)
 			{
-				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
+				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
 				if (Asset)
 				{
@@ -2800,7 +1713,7 @@ namespace BuildPromotionTestHelper
 			AssetPackagePath = AutomationTestSettings->BuildPromotionTest.OpenAssets.SkeletalMeshAsset.FilePath;
 			if (AssetPackagePath.Len() > 0)
 			{
-				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
+				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
 				if (Asset)
 				{
@@ -2822,7 +1735,7 @@ namespace BuildPromotionTestHelper
 			AssetPackagePath = AutomationTestSettings->BuildPromotionTest.OpenAssets.StaticMeshAsset.FilePath;
 			if (AssetPackagePath.Len() > 0)
 			{
-				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
+				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
 				if (Asset)
 				{
@@ -2844,7 +1757,7 @@ namespace BuildPromotionTestHelper
 			AssetPackagePath = AutomationTestSettings->BuildPromotionTest.OpenAssets.TextureAsset.FilePath;
 			if (AssetPackagePath.Len() > 0)
 			{
-				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(AssetPackagePath);
+				AssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(AssetPackagePath);
 				Asset = AssetData.GetAsset();
 				if (Asset)
 				{
@@ -2915,143 +1828,45 @@ namespace BuildPromotionTestHelper
 		}
 
 		/**
-		* ContentBrowser Test Stage: Creating a material (Part 1)
-		*    Creates a material from the diffuse provided in the AutomationTestSettings and opens the material editor
-		*/
-		bool ContentBrowser_CreateAMaterial_Part1()
-		{
-			if (DiffuseTexture)
-			{
-				CreatedMaterial = EditorBuildPromotionTestUtils::CreateMaterialFromTexture(DiffuseTexture);
-				if (CreatedMaterial)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created new material (%s) from diffuse (%s)"),*CreatedMaterial->GetName(), *DiffuseTexture->GetName());
-					FAssetEditorManager::Get().OpenEditorForAsset(CreatedMaterial);
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Opened the material editor"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create material fom diffuse"));
-				}
-			}
-			else
-			{
-				SkippedTests.Add(TEXT("ContentBrowser: Creating a material. (No diffuse)"));
-				UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Skipping Create Material: DiffuseTexture is missing"));
-			}
-
-			return true;
-		}
-
-		/**
-		* ContentBrowser Test Stage: Creating a material (Part 2)
-		*    Adds the normalmap texture to the material and updates the shader
-		*/
-		bool ContentBrowser_CreateAMaterial_Part2()
-		{
-			if (CreatedMaterial)
-			{
-				if (NormalTexture)
-				{
-					IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(CreatedMaterial, true);
-					FMaterialEditor* MaterialEditor = (FMaterialEditor*)AssetEditor;
-
-					if (EditorBuildPromotionTestUtils::AssignNormalToMaterial(NormalTexture, CreatedMaterial))
-					{
-						FAssetEditorManager::Get().FindEditorForAsset(CreatedMaterial, true);
-						EditorBuildPromotionTestUtils::SendUpdateMaterialCommand();
-						UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Compiled the new material"));
-					}
-				}
-				else
-				{
-					SkippedTests.Add(TEXT("ContentBrowser: Creating a material. (No normalmap)"));
-					UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("No normal texture to apply to new material"));
-				}
-			}
-
-			return true;
-		}
-
-		/**
 		* ContentBrowser Test Stage: Creating a material (Part 3)
-		*    Closes the material editor and adds the material to a default object in the map
+		*    Closes all assets editor and adds the material to a default object in the map
 		*/
-		bool ContentBrowser_CreateAMaterial_Part3()
+		bool ContentBrowser_AssignAMaterial()
 		{
+			// SETUP
 			FAssetEditorManager::Get().CloseAllAssetEditors();
+			UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();
+			check(AutomationTestSettings);
 
+			// Load default material asset
+			FString MaterialPackagePath = AutomationTestSettings->MaterialEditorPromotionTest.DefaultMaterialAsset.FilePath;
+			if (!(MaterialPackagePath.Len() > 0))
+			{
+				UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("Skipping material assignment test: no default material defined."));
+				return true;
+			}
+
+			FAssetData MaterialAssetData = FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(MaterialPackagePath);
+			UMaterial* DefaultMaterial = Cast<UMaterial>(MaterialAssetData.GetAsset());
+			if (!DefaultMaterial)
+			{
+				UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to load default material asset."));
+				return false;
+			}
+
+			// Add static mesh to world as material assignment target
 			const FVector PlaceLocation(0, 2240, 166);
-			AActor* PlacedActor = EditorBuildPromotionTestUtils::AddDefaultMeshToLevelWithMaterial(PlaceLocation, CreatedMaterial);
-			if ( PlacedActor )
+			AStaticMeshActor* PlacedStaticMesh = EditorBuildPromotionTestUtils::AddDefaultMeshToLevel(PlaceLocation);
+
+			// RUN TEST
+			// @TODO: Put in a check to verify that the mesh's Material[0] == DefaultMaterial
+			if (EditorBuildPromotionTestUtils::ApplyMaterialToStaticMesh(PlacedStaticMesh, DefaultMaterial))
 			{
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Placed new material in the level"));
-			}
+				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Successfully assigned material to static mesh."));
+			}  // No need to error on false, since ApplyMaterialToStaticMesh triggers its own error if it fails
 
-			return true;
-		}
+			// @TODO: TEARDOWN
 
-		/**
-		* ContentBrowser Test Stage: Creating a particle system (Part 1)
-		*    Creates a new particle system and opens the cascade editor
-		*/
-		bool ContentBrowser_CreateAParticleSystem_Part1()
-		{
-			//Create a Particle system
-			UParticleSystemFactoryNew* PSFactory = NewObject<UParticleSystemFactoryNew>();
-			const FString& PSName(TEXT("BP_ParticleSystem"));
-			CreatedPS = Cast<UParticleSystem>(EditorBuildPromotionTestUtils::CreateAsset(PSFactory, UParticleSystem::StaticClass(), PSName));
-			if (CreatedPS)
-			{
-				FAssetEditorManager::Get().OpenEditorForAsset(CreatedPS);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Opened the cascade editor"));
-			}
-			else
-			{
-				UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a new ParticleSystem"));
-			}
-
-			return true;
-		}
-
-		/**
-		* ContentBrowser Test Stage: Creating a particle system (Part 2)
-		*    Finds and modifies the StartSize of the particle system, saves the asset, and then closes the editor
-		*/
-		bool ContentBrowser_CreateAParticleSystem_Part2()
-		{
-			if (CreatedPS)
-			{
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(CreatedPS, true);
-
-				bool bModifiedSize = false;
-				UParticleLODLevel* DefaultLOD = CreatedPS->Emitters[0]->LODLevels[0];
-				for (int32 i = 0; i < DefaultLOD->Modules.Num(); ++i)
-				{
-					UParticleModuleSize* SizeModule = Cast<UParticleModuleSize>(DefaultLOD->Modules[i]);
-					if (SizeModule)
-					{
-						UDistributionVectorUniform* Distribution = Cast<UDistributionVectorUniform>(SizeModule->StartSize.Distribution);
-						EditorBuildPromotionTestUtils::SetPropertyByName(Distribution, TEXT("Max"), TEXT("(X=100,Y=100,Z=100)"));
-						EditorBuildPromotionTestUtils::SetPropertyByName(Distribution, TEXT("Min"), TEXT("(X=100,Y=100,Z=100)"));
-						bModifiedSize = true;
-					}
-				}
-
-				if (bModifiedSize)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Modified ParticleSystem StartSize (Min and Max)"));
-					EditorBuildPromotionTestUtils::SendSaveCascadeCommand();
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Saved the particle system"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to modify ParticleSystem StartSize"));
-				}
-
-				FAssetEditorManager::Get().CloseAllAssetEditors();
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Closed the cascade editor"));
-			}
 			return true;
 		}
 
@@ -3064,734 +1879,63 @@ namespace BuildPromotionTestHelper
 			{
 				BlueprintPackage->SetDirtyFlag(true);
 				BlueprintPackage->FullyLoad();
-				const FString PackagePath = EditorBuildPromotionTestUtils::GetGamePath() + TEXT("/") + EditorBuildPromotionTestUtils::BlueprintNameString;
-				if (UPackage::SavePackage(BlueprintPackage, NULL, RF_Standalone, *FPackageName::LongPackageNameToFilename(PackagePath, FPackageName::GetAssetPackageExtension()), GLog, nullptr, false, true, SAVE_None))
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Saved blueprint (%s)"), *BlueprintObject->GetName());
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Unable to save blueprint (%s)"), *BlueprintObject->GetName());
-				}
+				const FString PackagePath = FEditorPromotionTestUtilities::GetGamePath() + TEXT("/") + EditorBuildPromotionTestUtils::BlueprintNameString;
+				bool bHasPackageSaved = UPackage::SavePackage(BlueprintPackage, NULL, RF_Standalone, *FPackageName::LongPackageNameToFilename(PackagePath, FPackageName::GetAssetPackageExtension()), GLog, nullptr, false, true, SAVE_None);
+				Test->TestTrue(FString::Printf(TEXT("Saved blueprint (%s)"), *BlueprintObject->GetName()), bHasPackageSaved);
 			}
 		}
 
-		/**
-		* Blueprint Test Stage: Create a new Blueprint (Part 1)
-		*    Creates a new actor based blueprint and opens the editor
-		*/
-		bool Blueprint_CreateNewBlueprint_Part1()
+		bool Blueprint_Setup()
 		{
-			//Make sure we have the required assets
-			UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();
-			check(AutomationTestSettings);
-			FAssetData AssetData;
+			const FString PackageName = FEditorPromotionTestUtilities::GetGamePath() + TEXT("/") + EditorBuildPromotionTestUtils::BlueprintNameString;
+			
+			// Create blueprint asset
+			UBlueprintFactory* Factory = NewObject<UBlueprintFactory>();
+			Factory->ParentClass = AActor::StaticClass();
+			BlueprintPackage = CreatePackage(NULL, *PackageName);
+			EObjectFlags Flags = RF_Public | RF_Standalone;
 
-			const FString FirstMeshPath = AutomationTestSettings->BuildPromotionTest.BlueprintSettings.FirstMeshPath.FilePath;
-			if (FirstMeshPath.Len() > 0)
+			// Check that conflicting asset doesn't already exist
+			UObject* ExistingBlueprint = FindObject<UBlueprint>(BlueprintPackage, *EditorBuildPromotionTestUtils::BlueprintNameString);
+			Test->TestNull(TEXT("Blueprint asset does not already exist (delete blueprint and restart editor)"), ExistingBlueprint);
+			if (ExistingBlueprint)
 			{
-				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(FirstMeshPath);
-				FirstBlueprintMesh = Cast<UStaticMesh>(AssetData.GetAsset());
+				return true;
 			}
 
-			const FString SecondMeshPath = AutomationTestSettings->BuildPromotionTest.BlueprintSettings.SecondMeshPath.FilePath;
-			if (SecondMeshPath.Len() > 0)
+			//Save blueprint object for reuse in later stages
+			BlueprintObject = Cast<UBlueprint>(Factory->FactoryCreateNew(UBlueprint::StaticClass(), BlueprintPackage, FName(*EditorBuildPromotionTestUtils::BlueprintNameString), Flags, NULL, GWarn));
+			Test->TestNotNull(TEXT("Blueprint test asset created"), BlueprintObject);
+			if (!BlueprintObject)
 			{
-				AssetData = EditorBuildPromotionTestUtils::GetAssetDataFromPackagePath(SecondMeshPath);
-				SecondBlueprintMesh = Cast<UStaticMesh>(AssetData.GetAsset());
+				return true;
+			}
+			// Add asset to registry
+			FAssetRegistryModule::AssetCreated(BlueprintObject);
+			BlueprintPackage->MarkPackageDirty();
+
+			//Add BeginPlay event to graph
+			UEdGraph* EventGraph = FBlueprintEditorUtils::FindEventGraph(BlueprintObject);
+			PostBeginPlayEventNode = EditorBuildPromotionTestUtils::CreatePostBeginPlayEvent(BlueprintObject, EventGraph);
+			Test->TestNotNull(TEXT("Event Being Play node added"), PostBeginPlayEventNode);
+			if (!PostBeginPlayEventNode)
+			{
+				return true;
 			}
 
-			if (FirstBlueprintMesh && SecondBlueprintMesh && CreatedPS)
-			{
-				UBlueprintFactory* Factory = NewObject<UBlueprintFactory>();
-				Factory->ParentClass = AActor::StaticClass();
+			const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+			
+			// Add string member variable
+			FEdGraphPinType StringPinType(K2Schema->PC_String, TEXT(""), NULL, false, false);
+			FBlueprintEditorUtils::AddMemberVariable(BlueprintObject, EditorBuildPromotionTestUtils::BlueprintStringVariableName, StringPinType);
 
-				const FString PackageName = EditorBuildPromotionTestUtils::GetGamePath() + TEXT("/") + EditorBuildPromotionTestUtils::BlueprintNameString;
-				BlueprintPackage = CreatePackage(NULL, *PackageName);
-				EObjectFlags Flags = RF_Public | RF_Standalone;
-
-				UObject* ExistingBlueprint = FindObject<UBlueprint>(BlueprintPackage, *EditorBuildPromotionTestUtils::BlueprintNameString);
-				if (ExistingBlueprint)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Found existing blueprint.  Please use the cleanup test between runs."));
-					return true;
-				}
-
-				BlueprintObject = Cast<UBlueprint>(Factory->FactoryCreateNew(UBlueprint::StaticClass(), BlueprintPackage, FName(*EditorBuildPromotionTestUtils::BlueprintNameString), Flags, NULL, GWarn));
-
-				if (BlueprintObject)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created a new Actor based blueprint (%s)"), *BlueprintObject->GetName());
-
-					// Notify the asset registry
-					FAssetRegistryModule::AssetCreated(BlueprintObject);
-
-					// Mark the package dirty...
-					BlueprintPackage->MarkPackageDirty();
-
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Opening the blueprint editor for the first time"));
-					FAssetEditorManager::Get().OpenEditorForAsset(BlueprintObject);
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create blueprint!"));
-				}
-			}
-			else
-			{
-				SkippedTests.Add(TEXT("All Blueprint tests. (Missing a required mesh)"));
-				UE_LOG(LogEditorBuildPromotionTests, Warning, TEXT("SKIPPING BLUEPRINT TESTS.  Invalid or missing FirstMeshPath or SecondMeshPath in AutomationTestSettings."));
-			}
+			// Add print string node connected to the BeginPlay node; save it for use later
+			UEdGraphPin* PlayThenPin = PostBeginPlayEventNode->FindPin(K2Schema->PN_Then);
+			PrintNode = EditorBuildPromotionTestUtils::AddPrintStringNode(BlueprintObject, EventGraph, PlayThenPin);
+			Test->TestNotNull(TEXT("Print String node added"), PrintNode);
 			
 			return true;
-		}
 
-		/**
-		* Blueprint Test Stage: Create a new Blueprint (Part 2)
-		*    Checks that the blueprint editor opened in the correct mode
-		*/
-		bool Blueprint_CreateNewBlueprint_Part2()
-		{
-			if (BlueprintObject)
-			{
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(BlueprintObject, true);
-				IBlueprintEditor* BlueprintEditor = (IBlueprintEditor*)AssetEditor;
-				if (BlueprintEditor->GetCurrentMode() != FBlueprintEditorApplicationModes::BlueprintDefaultsMode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Opened the correct initial editor"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Didn't open the correct editor"));
-				}
-			}
-			
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Data-only Blueprint (Part 1)
-		*    Closes the blueprint editor
-		*/
-		bool Blueprint_DataOnlyBlueprint_Part1()
-		{
-			if (BlueprintObject)
-			{
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Closing the blueprint editor"));
-				FAssetEditorManager::Get().CloseAllAssetEditors();
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Data-only Blueprint (Part 2)
-		*    Re opens the blueprint editor
-		*/
-		bool Blueprint_DataOnlyBlueprint_Part2()
-		{
-			if (BlueprintObject)
-			{
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Opening the blueprint editor for the second time"));
-				FAssetEditorManager::Get().OpenEditorForAsset(BlueprintObject);
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Data-only Blueprint (Part 3)
-		*    Checks that the editor opened in the Defaults mode
-		*/
-		bool Blueprint_DataOnlyBlueprint_Part3()
-		{
-			if (BlueprintObject)
-			{
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(BlueprintObject, true);
-				IBlueprintEditor* BlueprintEditor = (IBlueprintEditor*)AssetEditor;
-				if (BlueprintEditor->GetCurrentMode() == FBlueprintEditorApplicationModes::BlueprintDefaultsMode)
-				{
-					//Good.  Now switch to components mode
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Opened the correct defaults editor"));
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Switching to components mode"));
-					BlueprintEditor->SetCurrentMode(FBlueprintEditorApplicationModes::BlueprintComponentsMode);
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Didn't open the correct editor the second time"));
-				}
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage:  Components Mode (Part 1)
-		*   Adds 3 new components to the blueprint, changes the root component, renames the components, and compiles the blueprint
-		*/
-		bool Blueprint_ComponentsMode_Part1()
-		{
-			if (BlueprintObject)
-			{
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(BlueprintObject, true);
-				IBlueprintEditor* BlueprintEditor = (IBlueprintEditor*)AssetEditor;
-
-				MeshNode = EditorBuildPromotionTestUtils::CreateBlueprintComponent(BlueprintObject, FirstBlueprintMesh);
-				if (MeshNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Added a mesh component"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create the first mesh component"));
-				}
-
-				OtherMeshNode = EditorBuildPromotionTestUtils::CreateBlueprintComponent(BlueprintObject, SecondBlueprintMesh);
-				if (OtherMeshNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Added a second mesh component"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create the second mesh component"));
-				}
-
-				PSNode = EditorBuildPromotionTestUtils::CreateBlueprintComponent(BlueprintObject, CreatedPS);
-				if (PSNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Added a particle system component"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create the particle system component"));
-				}
-
-				//Set the Particle System as the root
-				EditorBuildPromotionTestUtils::SetComponentAsRoot(BlueprintObject, PSNode);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Set the particle system component as the new root"));
-
-				//Set Names
-				const FName MeshName(TEXT("FirstMesh"));
-				FBlueprintEditorUtils::RenameComponentMemberVariable(BlueprintObject, MeshNode, MeshName);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Renamed the first mesh component to FirstMesh"));
-
-				const FName OtherMeshName(TEXT("SecondMesh"));
-				FBlueprintEditorUtils::RenameComponentMemberVariable(BlueprintObject, OtherMeshNode, OtherMeshName);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Renamed the second mesh component to SecondMesh"));
-
-				const FName PSName(TEXT("ParticleSys"));
-				FBlueprintEditorUtils::RenameComponentMemberVariable(BlueprintObject, PSNode, PSName);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Renamed the particle system component to ParticleSys"));
-
-				EditorBuildPromotionTestUtils::CompileBlueprint(BlueprintObject);
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Switched to graph editing mode"));
-				BlueprintEditor->SetCurrentMode(FBlueprintEditorApplicationModes::StandardBlueprintEditorMode);
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Components Mode (Part 2)
-		*    Removes the 3 components added before and compiles the blueprint
-		*/
-		bool Blueprint_ComponentsMode_Part2()
-		{
-			if (BlueprintObject)
-			{
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(BlueprintObject, true);
-				IBlueprintEditor* BlueprintEditor = (IBlueprintEditor*)AssetEditor;
-
-				EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("BlueprintComponentVariables"), true);
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Switched to components mode"));
-				BlueprintEditor->SetCurrentMode(FBlueprintEditorApplicationModes::BlueprintComponentsMode);
-
-				EditorBuildPromotionTestUtils::RemoveBlueprintComponent(BlueprintObject, MeshNode);
-				EditorBuildPromotionTestUtils::RemoveBlueprintComponent(BlueprintObject, OtherMeshNode);
-				EditorBuildPromotionTestUtils::RemoveBlueprintComponent(BlueprintObject, PSNode);
-
-				//There should only be the scene component left
-				if (BlueprintObject->SimpleConstructionScript->GetAllNodes().Num() == 1)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Successfully removed the blueprint components"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to remove the blueprint components"));
-				}
-
-				MeshNode = NULL;
-				OtherMeshNode = NULL;
-				PSNode = NULL;
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Switched to graph mode"));
-				BlueprintEditor->SetCurrentMode(FBlueprintEditorApplicationModes::StandardBlueprintEditorMode);
-
-				EditorBuildPromotionTestUtils::CompileBlueprint(BlueprintObject);
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Construction Script
-		*    Adds an AddStaticMeshComponent to the construction graph and links it to the entry node
-		*/
-		bool Blueprint_ConstructionScript()
-		{
-			if (BlueprintObject)
-			{
-				const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(BlueprintObject, true);
-				FBlueprintEditor* BlueprintEditor = (FBlueprintEditor*)AssetEditor;
-
-				UEdGraph* ConstructionGraph = FBlueprintEditorUtils::FindUserConstructionScript(BlueprintObject);
-				BlueprintEditor->OpenGraphAndBringToFront(ConstructionGraph);
-
-				AddMeshNode = EditorBuildPromotionTestUtils::CreateAddComponentActionNode(BlueprintObject, ConstructionGraph, FirstBlueprintMesh);
-				if (AddMeshNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created an Add Static Mesh Component node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create an Add Static Mesh Component node"));
-				}
-
-				GEditor->UndoTransaction();
-				if (ConstructionGraph->Nodes.Num() == 0 || ConstructionGraph->Nodes[ConstructionGraph->Nodes.Num() - 1] != AddMeshNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Undo add component node successful"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to undo add component node"));
-				}
-
-				GEditor->RedoTransaction();
-				if (ConstructionGraph->Nodes.Num() > 0 && ConstructionGraph->Nodes[ConstructionGraph->Nodes.Num() - 1] == AddMeshNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Redo add component node successful"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to redo add component node"));
-				}
-
-
-				TArray<UK2Node_FunctionEntry*> EntryNodes;
-				ConstructionGraph->GetNodesOfClass(EntryNodes);
-				UEdGraphNode* EntryNode = EntryNodes.Num() > 0 ? EntryNodes[0] : NULL;
-				if (EntryNode)
-				{
-					EditorBuildPromotionTestUtils::ConnectGraphNodes(AddMeshNode, K2Schema->PN_Execute, EntryNode, K2Schema->PN_Then);
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Connected the entry node to the Add Static Mesh node"));
-
-					UEdGraphPin* EntryOutPin = EntryNode->FindPin(K2Schema->PN_Then);
-					UEdGraphPin* AddStaticMeshInPin = AddMeshNode->FindPin(K2Schema->PN_Execute);
-
-					GEditor->UndoTransaction();
-					if (EntryOutPin->LinkedTo.Num() == 0)
-					{
-						UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Undo connection successful"));
-					}
-					else
-					{
-						UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to undo connection to Add Static Mesh node"));
-					}
-
-
-					GEditor->RedoTransaction();
-					if (EntryOutPin->LinkedTo.Contains(AddStaticMeshInPin))
-					{
-						UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Redo connection successful"));
-					}
-					else
-					{
-						UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to redo connection to Add Static Mesh node"));
-					}
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to connect the entry node to the Add Static Mesh node"));
-				}
-
-				EditorBuildPromotionTestUtils::CompileBlueprint(BlueprintObject);
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Variable from component mode (Part 1)
-		*    Promotes the return pin of the AddStaticMeshNode to a variable and then renames it
-		*/
-		bool Blueprint_PromoteVariable_Part1()
-		{
-			if (BlueprintObject)
-			{
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(BlueprintObject, true);
-				FBlueprintEditor* BlueprintEditor = (FBlueprintEditor*)AssetEditor;
-
-				const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-				EditorBuildPromotionTestUtils::PromotePinToVariable(BlueprintObject, AddMeshNode, K2Schema->PN_ReturnValue);
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Promoted the return pin on the add mesh node to a variable"));
-
-				const FName OldVarName(TEXT("NewVar")); //<- Default variable name
-				const FName NewVarName(TEXT("MyMesh"));
-				FBlueprintEditorUtils::RenameMemberVariable(BlueprintObject, OldVarName, NewVarName);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Renamed the new variable to MyMesh"));
-
-				EditorBuildPromotionTestUtils::CompileBlueprint(BlueprintObject);
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Switched to graph mode"));
-				BlueprintEditor->SetCurrentMode(FBlueprintEditorApplicationModes::StandardBlueprintEditorMode);
-			}
-			return true;
-		}
-
-		bool Blueprint_PromoteVariable_Part2()
-		{
-			if (BlueprintObject)
-			{
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(BlueprintObject, true);
-				FBlueprintEditor* BlueprintEditor = (FBlueprintEditor*)AssetEditor;
-
-				EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("BlueprintMeshVariable"), true);
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Switched to components mode"));
-				BlueprintEditor->SetCurrentMode(FBlueprintEditorApplicationModes::BlueprintComponentsMode);
-
-				EditorBuildPromotionTestUtils::SendBlueprintResetViewCommand();
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Variable from component mode (Part 3)
-		*    Takes a screenshot of the mesh variable
-		*/
-		bool Blueprint_PromoteVariable_Part3()
-		{
-			if (BlueprintObject)
-			{
-				EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("BlueprintComponent"), true);
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Event Graph
-		*    Adds a ReceiveBeginPlay and Delay node to the event graph 
-		*/
-		bool Blueprint_EventGraph()
-		{
-			if (BlueprintObject)
-			{
-				IAssetEditorInstance* AssetEditor = FAssetEditorManager::Get().FindEditorForAsset(BlueprintObject, true);
-				FBlueprintEditor* BlueprintEditor = (FBlueprintEditor*)AssetEditor;
-
-				UEdGraph* EventGraph = FBlueprintEditorUtils::FindEventGraph(BlueprintObject);
-				BlueprintEditor->OpenGraphAndBringToFront(EventGraph);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Opened the event graph"));
-
-				PostBeginPlayEventNode = EditorBuildPromotionTestUtils::CreatePostBeginPlayEvent(BlueprintObject, EventGraph);
-				if (PostBeginPlayEventNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created a ReceiveBeginPlay node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a ReceiveBeginPlay node"));
-				}
-
-				const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-				UEdGraphPin* PlayThenPin = PostBeginPlayEventNode->FindPin(K2Schema->PN_Then);
-				
-				DelayNode = EditorBuildPromotionTestUtils::AddDelayNode(BlueprintObject, EventGraph, PlayThenPin);
-				if (DelayNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created a Delay node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a Delay node"));
-				}
-
-				GEditor->UndoTransaction();
-				if (EventGraph->Nodes.Num() == 0 || EventGraph->Nodes[EventGraph->Nodes.Num() - 1] != DelayNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Undo add Delay node successful"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to undo add delay node"));
-				}
-
-				GEditor->RedoTransaction();
-				if (EventGraph->Nodes.Num() > 0 && EventGraph->Nodes[EventGraph->Nodes.Num() - 1] == DelayNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Redo add Delay node successful"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to redo add delay node"));
-				}
-
-				EditorBuildPromotionTestUtils::SetPinDefaultValue(DelayNode, TEXT("Duration"), TEXT("2.0"));
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Set the duration of the delay node to 2.0 seconds"));
-
-				EditorBuildPromotionTestUtils::CompileBlueprint(BlueprintObject);
-			}
-
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Custom Variable
-		*    Creates a custom string variable and adds Get/Set nodes for it
-		*/
-		bool Blueprint_CustomVariable()
-		{
-			if (BlueprintObject)
-			{
-				UEdGraph* EventGraph = FBlueprintEditorUtils::FindEventGraph(BlueprintObject);
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Added a string member variable"));
-				EditorBuildPromotionTestUtils::AddStringMemberValue(BlueprintObject, EditorBuildPromotionTestUtils::BlueprintStringVariableName);
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Added a new Set node for the string variable"));
-				SetNode = EditorBuildPromotionTestUtils::AddGetSetNode(BlueprintObject, EventGraph, EditorBuildPromotionTestUtils::BlueprintStringVariableName.ToString(), false);
-
-				GEditor->UndoTransaction();
-				if (EventGraph->Nodes.Num() == 0 || EventGraph->Nodes[EventGraph->Nodes.Num() - 1] != SetNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Undo add Set node successful"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to undo add Set node"));
-				}
-
-				GEditor->RedoTransaction();
-				if (EventGraph->Nodes.Num() > 0 && EventGraph->Nodes[EventGraph->Nodes.Num() - 1] == SetNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Redo add Set node successful"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to redo add set node"));
-				}
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Adding a Get node for the string variable"));
-				GetNode = EditorBuildPromotionTestUtils::AddGetSetNode(BlueprintObject, EventGraph, EditorBuildPromotionTestUtils::BlueprintStringVariableName.ToString(), true, 400);
-				
-				GEditor->UndoTransaction();
-				if (EventGraph->Nodes.Num() == 0 || EventGraph->Nodes[EventGraph->Nodes.Num() - 1] != GetNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Undo add get node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to undo add get node"));
-				}
-
-				GEditor->RedoTransaction();
-				if (EventGraph->Nodes.Num() > 0 && EventGraph->Nodes[EventGraph->Nodes.Num() - 1] == GetNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Redo add get node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to redo add get node"));
-				}
-
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Removed the Set node"));
-				EventGraph->RemoveNode(SetNode);
-				SetNode = NULL;
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage:  Using Variables
-		*   Adds a PrintString and SetStaticMesh then connects all the existing nodes
-		*/
-		bool Blueprint_UsingVariables()
-		{
-			if (BlueprintObject)
-			{
-				const bool bVariableIsHidden = false;
-				FBlueprintEditorUtils::SetBlueprintOnlyEditableFlag(BlueprintObject, EditorBuildPromotionTestUtils::BlueprintStringVariableName, bVariableIsHidden);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Exposed the blueprint string variable"));
-
-				UEdGraph* EventGraph = FBlueprintEditorUtils::FindEventGraph(BlueprintObject);
-				PrintNode = EditorBuildPromotionTestUtils::AddPrintStringNode(BlueprintObject, EventGraph);
-				if (PrintNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Added a PrintString node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a PrintString node"));
-				}
-
-				const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-
-				//Connect Get to printstring
-				UEdGraphPin* GetVarPin = GetNode->FindPin(EditorBuildPromotionTestUtils::BlueprintStringVariableName.ToString());
-				UEdGraphPin* InStringPin = PrintNode->FindPin(TEXT("InString"));
-				GetVarPin->MakeLinkTo(InStringPin);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Connected the string variable Get node to the PrintString node"));
-
-				//Connect Delay to PrintString
-				UEdGraphPin* DelayExecPin = DelayNode->FindPin(K2Schema->PN_Then);
-				UEdGraphPin* PrintStringPin = PrintNode->FindPin(K2Schema->PN_Execute);
-				DelayExecPin->MakeLinkTo(PrintStringPin);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Connected the Delay node to the PrintString node"));
-
-				const FName MyMeshVarName(TEXT("MyMesh"));
-				GetNode = EditorBuildPromotionTestUtils::AddGetSetNode(BlueprintObject, EventGraph, MyMeshVarName.ToString(), true, 680);
-				if (GetNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Added a Get node for the MyMesh variable"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a Get node for the MyMesh variable"));
-				}
-
-				SetStaticMeshNode = EditorBuildPromotionTestUtils::AddSetStaticMeshNode(BlueprintObject, EventGraph);
-				if (SetStaticMeshNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Added a SetStaticMesh node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a SetStaticMesh node"));
-				}
-
-				UEdGraphPin* GetExecPin = GetNode->FindPin(TEXT("MyMesh"));
-				UEdGraphPin* SetStaticMeshSelfPin = SetStaticMeshNode->FindPin(K2Schema->PN_Self);
-				GetExecPin->MakeLinkTo(SetStaticMeshSelfPin);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Connected the Get MyMesh node to the SetStaticMesh node"));
-
-				UEdGraphPin* SetStaticMeshMeshPin = SetStaticMeshNode->FindPin(TEXT("NewMesh"));
-				SetStaticMeshMeshPin->DefaultObject = SecondBlueprintMesh;
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Set the satic mesh on the SetStaticMesh node to: %s"), *SecondBlueprintMesh->GetName());
-
-				//Connect SetStaticMeshMesh to PrintString
-				UEdGraphPin* PrintStringThenPin = PrintNode->FindPin(K2Schema->PN_Then);
-				UEdGraphPin* SetStaticMeshExecPin = SetStaticMeshNode->FindPin(K2Schema->PN_Execute);
-				PrintStringThenPin->MakeLinkTo(SetStaticMeshExecPin);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Connected the PrintString node to the SetStaticMesh node"));
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Renaming custom event
-		*    Creates, renames, and then removes a custom event node
-		*/
-		bool Blueprint_RenameCustomEvent()
-		{
-			if (BlueprintObject)
-			{
-				UEdGraph* EventGraph = FBlueprintEditorUtils::FindEventGraph(BlueprintObject);
-				CustomEventNode = EditorBuildPromotionTestUtils::CreateCustomEvent(BlueprintObject, EventGraph, TEXT("NewEvent"));
-				if (CustomEventNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created a custom event node"));
-					//Rename the event
-					CustomEventNode->OnRenameNode(TEXT("RenamedEvent"));
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Renamed the custom event node to RenamedEvent"));
-					EventGraph->RemoveNode(CustomEventNode);
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Removed the custom event node"));
-					CustomEventNode = NULL;
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a custom event node"));
-				}
-
-			}
-
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: New function
-		*    Creates a new function graph and then hooks up a new AddParticleSystem inside it
-		*/
-		bool Blueprint_NewFunctions()
-		{
-			if (BlueprintObject)
-			{
-				const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-
-				CustomGraph = EditorBuildPromotionTestUtils::CreateNewFunctionGraph(BlueprintObject, TEXT("NewFunction"));
-				if (CustomGraph)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created a new function graph (NewFunction)"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a new function graph"));
-				}
-
-				AddParticleSystemNode = EditorBuildPromotionTestUtils::CreateAddComponentActionNode(BlueprintObject, CustomGraph, CreatedPS);
-				if (AddParticleSystemNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created an AddParticleSystem node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create an AddParticleSystem node"));
-				}
-
-				UEdGraphPin* ExecutePin = AddParticleSystemNode ? AddParticleSystemNode->FindPin(K2Schema->PN_Execute) : NULL;
-
-				//Find the input for the function graph
-				TArray<UK2Node_FunctionEntry*> EntryNodes;
-				CustomGraph->GetNodesOfClass(EntryNodes);
-				UEdGraphNode* EntryNode = EntryNodes.Num() > 0 ? EntryNodes[0] : NULL;
-				if (EntryNode && ExecutePin)
-				{
-					UEdGraphPin* EntryPin = EntryNode->FindPin(K2Schema->PN_Then);
-					EntryPin->MakeLinkTo(ExecutePin);
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Connected the AddParticleSystem node to the entry node"));
-				}
-
-				EditorBuildPromotionTestUtils::CompileBlueprint(BlueprintObject);
-			}
-			return true;
-		}
-
-		/**
-		* Blueprint Test Stage: Completing the blueprint
-		*    Adds a CallFunction node to call the custom function created in the previous step.
-		*/
-		bool Blueprint_CompleteBlueprint()
-		{
-			if (BlueprintObject)
-			{
-				const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-				UEdGraph* EventGraph = FBlueprintEditorUtils::FindEventGraph(BlueprintObject);
-				UEdGraphPin* SetStaticMeshThenPin = SetStaticMeshNode->FindPin(K2Schema->PN_Then);
-				CallFunctionNode = EditorBuildPromotionTestUtils::AddCallFunctionGraphNode(BlueprintObject, EventGraph, TEXT("NewFunction"), SetStaticMeshThenPin);
-				if (CallFunctionNode)
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Created a CallFunction node to call NewFunction"));
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Hooked the CallFunction node to the output of the SetStaticMesh node"));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to create a CallFunction node"));
-				}
-
-				EditorBuildPromotionTestUtils::CompileBlueprint(BlueprintObject);
-
-				SaveBlueprint();
-			}
-			return true;
 		}
 
 		/**
@@ -3803,16 +1947,14 @@ namespace BuildPromotionTestHelper
 			if (BlueprintObject)
 			{
 				PlacedBlueprint = FActorFactoryAssetProxy::AddActorForAsset(BlueprintObject);
-
+				Test->TestNotNull(TEXT("Blueprint instance placed in world"), PlacedBlueprint);
 				if (PlacedBlueprint)
 				{
 					//Set the text
-					EditorBuildPromotionTestUtils::SetPropertyByName(PlacedBlueprint, EditorBuildPromotionTestUtils::BlueprintStringVariableName.ToString(), TEXT("Print String works!"));
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Placed the blueprint and set the display string to \"Print String works!\""));
-				}
-				else
-				{
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to place blueprint"));
+					const FString NewVariableText = TEXT("Print String works!");
+					FEditorPromotionTestUtilities::SetPropertyByName(PlacedBlueprint, EditorBuildPromotionTestUtils::BlueprintStringVariableName.ToString(), NewVariableText);
+					// TODO: Validate that property updated correctly. Needs to be done in latent command?
+					Test->AddLogItem(TEXT("Updated string variable value"));
 				}
 
 				GEditor->SelectNone(false, true);
@@ -3826,18 +1968,18 @@ namespace BuildPromotionTestHelper
 			return true;
 		}
 
-		/**
-		* Blueprint Test Stage: Blueprint placement (Part 2)
-		*    Takes a screenshot of the initial state of the blueprint
-		*/
-		bool Blueprint_Placement_Part2()
-		{
-			if (BlueprintObject)
-			{
-				EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("BlueprintPIE_Start"));
-			}
-			return true;
-		}
+		///**
+		//* Blueprint Test Stage: Blueprint placement (Part 2)
+		//*    Takes a screenshot of the initial state of the blueprint
+		//*/
+		//bool Blueprint_Placement_Part2()
+		//{
+		//	if (BlueprintObject && PlacedBlueprint)
+		//	{
+		//		FEditorPromotionTestUtilities::TakeScreenshot(TEXT("BlueprintPIE_Start"));
+		//	}
+		//	return true;
+		//}
 
 		/**
 		* Blueprint Test Stage: Blueprint placement (Part 3)
@@ -3845,7 +1987,7 @@ namespace BuildPromotionTestHelper
 		*/
 		bool Blueprint_Placement_Part3()
 		{
-			if (BlueprintObject)
+			if (BlueprintObject && PlacedBlueprint)
 			{
 				//Set a timeout in case PIE doesn't work
 				if (!DelayHelper.IsRunning())
@@ -3855,7 +1997,7 @@ namespace BuildPromotionTestHelper
 				else if (DelayHelper.IsComplete())
 				{
 					//FAILED to hit breakpoint in time
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Timed out waiting for PIE to start"));
+					Test->AddError(TEXT("Timed out waiting for PIE to start"));
 					DelayHelper.Reset();
 					return true;
 				}
@@ -3881,13 +2023,13 @@ namespace BuildPromotionTestHelper
 		*/
 		bool Blueprint_Placement_Part4()
 		{
-			if (BlueprintObject)
+			if (BlueprintObject && PlacedBlueprint)
 			{
-				if (GEditor->PlayWorld != NULL)
-				{
-					EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("BlueprintPIE_End"));
-				}
-				EditorBuildPromotionTestUtils::EndPIE();
+				//if (GEditor->PlayWorld != NULL)
+				//{
+				//	FEditorPromotionTestUtilities::TakeScreenshot(TEXT("BlueprintPIE_End"));
+				//}
+				FEditorPromotionTestUtilities::EndPIE();
 			}
 			return true;
 		}
@@ -3900,7 +2042,6 @@ namespace BuildPromotionTestHelper
 		{
 			if (BlueprintObject)
 			{
-
 				//Add a breakpoint
 				UBreakpoint* NewBreakpoint = NewObject<UBreakpoint>(BlueprintObject);
 				FKismetDebugUtilities::SetBreakpointEnabled(NewBreakpoint, true);
@@ -3908,7 +2049,7 @@ namespace BuildPromotionTestHelper
 				BlueprintObject->Breakpoints.Add(NewBreakpoint);
 				BlueprintObject->MarkPackageDirty();
 
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Set a breakpoint on the PrintString node"));
+				Test->AddLogItem(TEXT("Set a breakpoint on the PrintString node"));
 				EditorBuildPromotionTestUtils::StartPIE(true);
 
 				//Make sure the timer is reset
@@ -3933,7 +2074,7 @@ namespace BuildPromotionTestHelper
 				else if (DelayHelper.IsComplete())
 				{
 					//FAILED to hit breakpoint in time
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Failed to hit the breakpoint after 10 seconds"));
+					Test->AddError(TEXT("Failed to hit the breakpoint after 10 seconds"));
 					DelayHelper.Reset();
 					return true;
 				}
@@ -3949,7 +2090,7 @@ namespace BuildPromotionTestHelper
 				if (CurrentBreakpointNode == PrintNode)
 				{
 					//Success!
-					UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Hit the PrintString breakpoint"));
+					Test->AddLogItem(TEXT("Hit the PrintString breakpoint"));
 					DelayHelper.Reset();
 					return true;
 				}
@@ -3966,9 +2107,9 @@ namespace BuildPromotionTestHelper
 		{
 			if (BlueprintObject)
 			{
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Clearing the breakpoint"));
+				Test->AddLogItem(TEXT("Clearing the breakpoint"));
 				FKismetDebugUtilities::ClearBreakpoints(BlueprintObject);
-				EditorBuildPromotionTestUtils::EndPIE();
+				FEditorPromotionTestUtilities::EndPIE();
 				CurrentWorld = PlacedBlueprint->GetWorld();
 			}
 			return true;
@@ -3985,7 +2126,7 @@ namespace BuildPromotionTestHelper
 				//Open the level script blueprint
 				ULevelScriptBlueprint* LSB = PlacedBlueprint->GetLevel()->GetLevelScriptBlueprint(false);
 				FAssetEditorManager::Get().OpenEditorForAsset(LSB);
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Opened the level script blueprint"));
+				Test->AddLogItem(TEXT("Opened the level script blueprint"));
 			}
 			return true;
 		}
@@ -4012,7 +2153,7 @@ namespace BuildPromotionTestHelper
 					NodesToExport.Add(EventGraph->Nodes[i]);
 				}
 
-				//Saving the starting log counts so we can clear any entries created from the copy/paste action.  (Lots of expected spam)
+				//Saving the starting log counts so we can clear any entries created from the copy/paste action. (Lots of expected spam)
 				const int32 PreCopyErrorCount = TestExecutionInfo->Errors.Num();
 				const int32 PreCopyWarningCount = TestExecutionInfo->Warnings.Num();
 				const int32 PreCopyLogCount = TestExecutionInfo->LogItems.Num();
@@ -4032,8 +2173,8 @@ namespace BuildPromotionTestHelper
 
 
 				//Note: These are a little out of order because logs are disabled above
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Copied the blueprint event nodes"));
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Pasted the nodes into to level script"));
+				Test->AddLogItem(TEXT("Copied the blueprint event nodes"));
+				Test->AddLogItem(TEXT("Pasted the nodes into to level script"));
 				
 
 				//We are expecting errors here.  So copy any new errors to the logs section
@@ -4049,49 +2190,6 @@ namespace BuildPromotionTestHelper
 						TestExecutionInfo->LogItems.Add(TestExecutionInfo->Errors[i]);
 					}
 					TestExecutionInfo->Errors.RemoveAt(NumErrors, TestExecutionInfo->Errors.Num() - NumErrors);
-				}
-
-				//Remove the "Get" nodes
-				TArray<UK2Node_VariableGet*> AllGetNodes;
-				LevelEventGraph->GetNodesOfClass<UK2Node_VariableGet>(AllGetNodes);
-				for (int32 i = 0; i < AllGetNodes.Num(); ++i)
-				{
-					LevelEventGraph->RemoveNode(AllGetNodes[i]);
-				}
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Removed get nodes from the level script"));
-
-				//Remove all the call function nodes except the PrintString and Delay nodes
-				TArray<UK2Node_CallFunction*> AllCallFunctionNodes;
-				LevelEventGraph->GetNodesOfClass<UK2Node_CallFunction>(AllCallFunctionNodes);
-				for (int32 i = 0; i < AllCallFunctionNodes.Num(); ++i)
-				{
-					UK2Node_CallFunction* NodeIt = AllCallFunctionNodes[i];
-					const FString MemberName = NodeIt->FunctionReference.GetMemberName().ToString();
-					if (MemberName == TEXT("PrintString"))
-					{
-						UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Setting the level PrintString to \"Level kismet string text\""));
-						EditorBuildPromotionTestUtils::SetPinDefaultValue(NodeIt, TEXT("InString"), TEXT("Level kismet string text"));
-					}
-					else if (MemberName == TEXT("Delay"))
-					{
-						UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Setting the level script Delay to 4 seconds"));
-						EditorBuildPromotionTestUtils::SetPinDefaultValue(NodeIt, TEXT("Duration"), TEXT("4.0"));
-					}
-					else
-					{
-						if (NodeIt == CallFunctionNode)
-						{
-							UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Removed CallFunction node from level script"));
-							CallFunctionNode = NULL;
-						}
-						else if (NodeIt == SetStaticMeshNode)
-						{
-							UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Removed SetStaticMesh node from level script"));
-							SetStaticMeshNode = NULL;
-						}
-						//Remove 
-						LevelEventGraph->RemoveNode(NodeIt);
-					}
 				}
 
 				//Compile the blueprint
@@ -4122,7 +2220,7 @@ namespace BuildPromotionTestHelper
 				else if (DelayHelper.IsComplete())
 				{
 					//FAILED to hit breakpoint in time
-					UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("Timed out waiting for PIE to start"));
+					Test->AddError(TEXT("Timed out waiting for PIE to start"));
 					DelayHelper.Reset();
 					return true;
 				}
@@ -4150,12 +2248,12 @@ namespace BuildPromotionTestHelper
 		{
 			if (BlueprintObject)
 			{
-				if (GEditor->PlayWorld != NULL)
-				{
-					//Take a screenshot and end the PIE session
-					EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("LevelBlueprint"), false);
-				}
-				EditorBuildPromotionTestUtils::EndPIE();
+				//if (GEditor->PlayWorld != NULL)
+				//{
+				//	//Take a screenshot and end the PIE session
+				//	FEditorPromotionTestUtilities::TakeScreenshot(TEXT("LevelBlueprint"), false);
+				//}
+				FEditorPromotionTestUtilities::EndPIE();
 			}
 			return true;
 		}
@@ -4168,10 +2266,10 @@ namespace BuildPromotionTestHelper
 		{
 			if (BlueprintObject)
 			{
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Closing the blueprint editor"));
+				Test->AddLogItem(TEXT("Closing the blueprint editor"));
 				FAssetEditorManager::Get().CloseAllAssetEditors();
-				UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Saving the blueprint"));
-				SaveBlueprint();
+				//UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Saving the blueprint"));
+				//SaveBlueprint();
 			}
 			return true;
 		}
@@ -4189,7 +2287,7 @@ namespace BuildPromotionTestHelper
 			BuildStartErrorCount = TestExecutionInfo->Errors.Num();
 
 			//Save all the new assets
-			EditorBuildPromotionTestUtils::SaveAllAssetsInFolder(EditorBuildPromotionTestUtils::GetGamePath());
+			EditorBuildPromotionTestUtils::SaveAllAssetsInFolder(FEditorPromotionTestUtilities::GetGamePath());
 
 			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Turning level visibility off"));
 			bool bShouldBeVisible = false;
@@ -4209,7 +2307,7 @@ namespace BuildPromotionTestHelper
 			ULevel* Level = World->GetCurrentLevel();
 
 			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Taking a screenshot"));
-			EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("VisibilityOff"));
+			FEditorPromotionTestUtilities::TakeScreenshot(TEXT("VisibilityOff"));
 
 			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Turning level visibility on"));
 			bool bShouldBeVisible = true;
@@ -4228,7 +2326,7 @@ namespace BuildPromotionTestHelper
 			ULevel* Level = World->GetCurrentLevel();
 
 			UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Taking a screenshot"));
-			EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("VisibilityOn"));
+			FEditorPromotionTestUtilities::TakeScreenshot(TEXT("VisibilityOn"));
 
 			FEditorFileUtils::SaveLevel(Level, TEXT("/Game/Maps/EditorBuildPromotionTest"));
 			GUnrealEd->Exec(World, TEXT("MAP REBUILD ALLVISIBLE"));
@@ -4276,7 +2374,7 @@ namespace BuildPromotionTestHelper
 				FEditorFileUtils::SaveLevel(Level);
 
 				//Save all the new assets again because material usage flags may have changed.
-				EditorBuildPromotionTestUtils::SaveAllAssetsInFolder(EditorBuildPromotionTestUtils::GetGamePath());
+				EditorBuildPromotionTestUtils::SaveAllAssetsInFolder(FEditorPromotionTestUtilities::GetGamePath());
 
 				//Copy the errors over to the LogItems
 				for (int32 i = BuildStartErrorCount; i < TestExecutionInfo->Errors.Num(); ++i)
@@ -4295,29 +2393,9 @@ namespace BuildPromotionTestHelper
 /**
 * Automation test that handles cleanup of the build promotion test
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionInitialCleanupTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.Cleanup old files", EAutomationTestFlags::ATF_Editor);
 bool FBuildPromotionInitialCleanupTest::RunTest(const FString& Parameters)
 {
 	EditorBuildPromotionTestUtils::PerformCleanup();
-	return true;
-}
-
-/**
-* Latent command to check if PIE is running
-*/
-DEFINE_LATENT_AUTOMATION_COMMAND(FSettingsCheckForPIECommand);
-bool FSettingsCheckForPIECommand::Update()
-{
-	if (GEditor->PlayWorld != NULL)
-	{
-		//Success
-		UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("PlayInEditor keyboard shortcut success"));
-		EditorBuildPromotionTestUtils::EndPIE();
-	}
-	else
-	{
-		UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("PlayInEditor keyboard shortcut failed"));
-	}
 	return true;
 }
 
@@ -4339,106 +2417,6 @@ bool FLogTestResultCommand::Update()
 }
 
 /**
-* Automation test that handles setting keybindings and editor preferences
-*/
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionSettingsTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.Settings", EAutomationTestFlags::ATF_Editor);
-
-bool FBuildPromotionSettingsTest::RunTest(const FString& Parameters)
-{
-
-//Previous Editor Settings
-	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Exporting Current keybindings and editor settings"));
-
-	//Export the original keybindings
-	const FString TargetOriginalKeybindFile = FString::Printf(TEXT("%s/BuildPromotion/OriginalKeybindings-%d.ini"), *FPaths::AutomationDir(), GEngineVersion.GetChangelist());
-	EditorBuildPromotionTestUtils::ExportKeybindings(TargetOriginalKeybindFile);
-
-	//Export the original preferences
-	const FString TargetOriginalPreferenceFile = FString::Printf(TEXT("%s/BuildPromotion/OriginalPreferences-%d.ini"), *FPaths::AutomationDir(), GEngineVersion.GetChangelist());
-	EditorBuildPromotionTestUtils::ExportEditorSettings(TargetOriginalPreferenceFile);
-
-//New Editor Settings
-	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Binding create empty layer shortcut"));
-
-	//Bind H to CreateEmptyLayer keybinding
-	FInputChord NewCreateChord(EKeys::H, EModifierKey::None);
-	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("LayersView"), TEXT("CreateEmptyLayer"), NewCreateChord);
-
-	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Binding request rename layer shortcut"));
-
-	//Bind J to RequestRenameLayer
-	FInputChord NewRenameChord(EKeys::J, EModifierKey::None);
-	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("LayersView"), TEXT("RequestRenameLayer"), NewRenameChord);
-
-	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Binding play shortcut (PIE)"));
-	FInputChord NewPIEChord(EKeys::L, EModifierKey::Control);
-	EditorBuildPromotionTestUtils::SetEditorKeybinding(TEXT("PlayWorld"), TEXT("RepeatLastPlay"), NewPIEChord);
-
-	//Export the keybindings
-	const FString TargetKeybindFile = FString::Printf(TEXT("%s/BuildPromotion/Keybindings-%d.ini"), *FPaths::AutomationDir(), GEngineVersion.GetChangelist());
-	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Exporting keybind"));
-	EditorBuildPromotionTestUtils::ExportKeybindings(TargetKeybindFile);
-
-
-	UEditorStyleSettings* EditorStyleSettings = GetMutableDefault<UEditorStyleSettings>();
-	FString OldStyleSetting = EditorBuildPromotionTestUtils::GetPropertyByName(EditorStyleSettings, TEXT("bUseSmallToolBarIcons"));
-	EditorBuildPromotionTestUtils::SetPropertyByName(EditorStyleSettings, TEXT("bUseSmallToolBarIcons"), TEXT("true"));
-
-	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Set UseSmallToolBarIcons"));
-
-	//Export the preferences
-	const FString TargetPreferenceFile = FString::Printf(TEXT("%s/BuildPromotion/Preferences-%d.ini"), *FPaths::AutomationDir(), GEngineVersion.GetChangelist());
-	EditorBuildPromotionTestUtils::ExportEditorSettings(TargetPreferenceFile);
-
-	//Take a screenshot of the small icons
-	EditorBuildPromotionTestUtils::TakeScreenshot(TEXT("Small Toolbar Icons"));
-
-	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Exported keybindings and preferences to %s/BuildPromotion"), *FPaths::AutomationDir());
-
-	//Change the setting back
-	EditorBuildPromotionTestUtils::SetPropertyByName(EditorStyleSettings, TEXT("bUseSmallToolBarIcons"), OldStyleSetting);
-
-	FInputChord CurrentCreateChord;
-	EditorBuildPromotionTestUtils::GetEditorKeybinding(TEXT("LayersView"), TEXT("CreateEmptyLayer"), CurrentCreateChord);
-	if (CurrentCreateChord.Key == NewCreateChord.Key)
-	{
-		UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("CreateEmptyLayer keybinding correct."));
-	}
-	else
-	{
-		UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("CreateEmptyLayer keybinding incorrect."));
-	}
-
-	FInputChord CurrentRenameChord;
-	EditorBuildPromotionTestUtils::GetEditorKeybinding(TEXT("LayersView"), TEXT("RequestRenameLayer"), CurrentRenameChord);
-	if (CurrentRenameChord.Key == NewRenameChord.Key)
-	{
-		UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("RequestRenameLayer keybinding correct."));
-	}
-	else
-	{
-		UE_LOG(LogEditorBuildPromotionTests, Error, TEXT("RequestRenameLayer keybinding incorrect."));
-	}
-
-	//Focus the main editor
-	TArray< TSharedRef<SWindow> > AllWindows;
-	FSlateApplication::Get().GetAllVisibleWindowsOrdered(AllWindows);
-	FSlateApplication::Get().ProcessWindowActivatedEvent(FWindowActivateEvent(FWindowActivateEvent::EA_Activate, AllWindows[0]));
-
-	//Send the PIE event
-	FKeyEvent PIEKeyEvent(EKeys::L, FModifierKeysState(false, false, true, false, false, false, false, false, false), false, 0/*UserIndex*/, 0x4C, 0x4C);
-	FSlateApplication::Get().ProcessKeyDownEvent(PIEKeyEvent);
-	FSlateApplication::Get().ProcessKeyUpEvent(PIEKeyEvent);
-
-	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Sent PIE keyboard shortcut"));
-
-	ADD_LATENT_AUTOMATION_COMMAND(FSettingsCheckForPIECommand());
-	ADD_LATENT_AUTOMATION_COMMAND(FLogTestResultCommand(&ExecutionInfo));
-
-	return true;
-}
-
-/**
 * Latent command to run the main build promotion test
 */
 DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FRunBuildPromotionTestCommand, TSharedPtr<BuildPromotionTestHelper::FBuildPromotionTest>, BuildPromotionTest);
@@ -4450,11 +2428,10 @@ bool FRunBuildPromotionTestCommand::Update()
 /**
 * Automation test that handles the build promotion process
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionTest, "System.Promotion.Editor Promotion Pass.Step 1 Main Editor Test.General Editor Test", EAutomationTestFlags::ATF_Editor);
-
-bool FBuildPromotionTest::RunTest(const FString& Parameters)
+bool FEditorPromotionTest::RunTest(const FString& Parameters)
 {
 	TSharedPtr<BuildPromotionTestHelper::FBuildPromotionTest> BuildPromotionTest = MakeShareable(new BuildPromotionTestHelper::FBuildPromotionTest(&ExecutionInfo));
+	BuildPromotionTest->Test = this;
 	ADD_LATENT_AUTOMATION_COMMAND(FRunBuildPromotionTestCommand(BuildPromotionTest));
 	return true;
 }
@@ -4466,7 +2443,7 @@ DEFINE_LATENT_AUTOMATION_COMMAND(FEndPIECommand);
 bool FEndPIECommand::Update()
 {
 	UE_LOG(LogEditorBuildPromotionTests, Display, TEXT("Ending PIE"));
-	EditorBuildPromotionTestUtils::EndPIE();
+	FEditorPromotionTestUtilities::EndPIE();
 	return true;
 }
 
@@ -4490,7 +2467,6 @@ bool FPIEExecCommand::Update()
 /**
 * Execute the loading of one map to verify PIE works
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionPIETest, "System.Promotion.Editor Promotion Pass.Step 2 Run Map After Re-launch.Run Map", EAutomationTestFlags::ATF_Editor)
 bool FBuildPromotionPIETest::RunTest(const FString& Parameters)
 {
 	UAutomationTestSettings const* AutomationTestSettings = GetDefault<UAutomationTestSettings>();
@@ -4537,7 +2513,6 @@ bool FBuildPromotionPIETest::RunTest(const FString& Parameters)
 /**
 * Automation test that handles cleanup of the build promotion test
 */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBuildPromotionCleanupTest, "System.Promotion.Editor Promotion Pass.Step 3 Test Cleanup.Cleanup", EAutomationTestFlags::ATF_Editor);
 bool FBuildPromotionCleanupTest::RunTest(const FString& Parameters)
 {
 	EditorBuildPromotionTestUtils::PerformCleanup();

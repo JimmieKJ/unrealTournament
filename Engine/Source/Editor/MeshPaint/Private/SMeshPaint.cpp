@@ -1037,7 +1037,7 @@ private:
 
 	ECheckBoxState IsRadioChecked( int32 ButtonId ) const
 	{
-		return (CurrentChoice == ButtonId)
+		return (CurrentChoice.Get() == ButtonId)
 			? ECheckBoxState::Checked
 			: ECheckBoxState::Unchecked;
 	}
@@ -1394,7 +1394,7 @@ void SMeshPaint::Construct(const FArguments& InArgs, TSharedRef<FMeshPaintToolKi
 									.VAlign(VAlign_Center)
 									[
 										SNew(SButton)
-										.ToolTipText( LOCTEXT("FindSourceMeshInContentBrowser", "Find source mesh in content browser") )
+										.ToolTipText( LOCTEXT("FindSourceMeshInContentBrowser", "Find texture in content browser") )
 										.ContentPadding(0.0f) 
 										.OnClicked(this, &SMeshPaint::FindTextureInContentBrowserButtonClicked)
 										.IsEnabled( this, &SMeshPaint::IsSelectedTextureValid)
@@ -1428,7 +1428,7 @@ void SMeshPaint::Construct(const FArguments& InArgs, TSharedRef<FMeshPaintToolKi
 									.VAlign(VAlign_Center)
 									[
 										SNew(SButton)
-										.ToolTipText( LOCTEXT("SaveDirtyPackges", "Saves dirty source mesh packages associated with current actor selection") )
+										.ToolTipText( LOCTEXT("SaveDirtyPackges", "Saves dirty source texture assets associated with current actor selection") )
 										.ContentPadding(0.0f) 
 										.OnClicked(this, &SMeshPaint::SaveTextureButtonClicked)
 										.IsEnabled(this, &SMeshPaint::IsSelectedTextureDirty)
@@ -2096,6 +2096,7 @@ void SMeshPaint::Construct(const FArguments& InArgs, TSharedRef<FMeshPaintToolKi
 		]
 	];
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 void SMeshPaint::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {

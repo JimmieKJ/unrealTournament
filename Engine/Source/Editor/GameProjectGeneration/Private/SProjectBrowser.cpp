@@ -156,7 +156,7 @@ void SProjectBrowser::Construct( const FArguments& InArgs )
 
 						+SOverlay::Slot()
 						[
-							SNew(SSearchBox)
+							SAssignNew(SearchBoxPtr, SSearchBox)
 							.HintText(LOCTEXT("FilterHint", "Filter Projects..."))
 							.OnTextChanged(this, &SProjectBrowser::OnFilterTextChanged)
 						]
@@ -970,7 +970,7 @@ bool SProjectBrowser::OpenProject( const FString& InProjectFile )
 	FEngineVersion EngineVersion;
 	if (FDesktopPlatformModule::Get()->TryParseStockEngineVersion(ProjectIdentifier, EngineVersion))
 	{
-		if (FEngineVersion::GetNewest(EngineVersion, GEngineVersion, nullptr) == EVersionComparison::First)
+		if (FEngineVersion::GetNewest(EngineVersion, FEngineVersion::Current(), nullptr) == EVersionComparison::First)
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("CantLoadNewerProject", "Unable to open this project, as it was made with a newer version of the Unreal Engine."));
 			return false;
@@ -1055,6 +1055,15 @@ bool SProjectBrowser::OpenProject( const FString& InProjectFile )
 		}
 		if(Selection != SkipConversionButton)
 		{
+			// Update the game project to the latest version. This will prompt to check-out as necessary. We don't need to write the engine identifier directly, because it won't use the right .uprojectdirs logic.
+			if(!GameProjectUtils::UpdateGameProject(ProjectFile, CurrentIdentifier, FailReason))
+			{
+				if(FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("ProjectUpgradeFailure", "The project file could not be updated to latest version. Attempt to open anyway?")) != EAppReturnType::Yes)
+				{
+					return false;
+				}
+			}
+
 			// If it's a code-based project, generate project files and open visual studio after an upgrade
 			if(ProjectStatus.bCodeBasedProject)
 			{
@@ -1076,15 +1085,6 @@ bool SProjectBrowser::OpenProject( const FString& InProjectFile )
 
 				// Try to compile the project
 				if(!GameProjectUtils::BuildCodeProject(ProjectFile))
-				{
-					return false;
-				}
-			}
-
-			// Update the game project to the latest version. This will prompt to check-out as necessary. We don't need to write the engine identifier directly, because it won't use the right .uprojectdirs logic.
-			if(!GameProjectUtils::UpdateGameProject(ProjectFile, CurrentIdentifier, FailReason))
-			{
-				if(FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("ProjectUpgradeFailure", "The project file could not be updated to latest version. Attempt to open anyway?")) != EAppReturnType::Yes)
 				{
 					return false;
 				}
@@ -1230,7 +1230,7 @@ FReply SProjectBrowser::HandleMarketplaceTabButtonClicked()
 	{
 		TArray<FAnalyticsEventAttribute> EventAttributes;
 
-		if (DesktopPlatform->OpenLauncher(false, TEXT("-OpenMarket")))
+		if (DesktopPlatform->OpenLauncher(false, TEXT("ue/marketplace"), FString()))
 		{
 			EventAttributes.Add(FAnalyticsEventAttribute(TEXT("OpenSucceeded"), TEXT("TRUE")));
 		}
@@ -1240,7 +1240,7 @@ FReply SProjectBrowser::HandleMarketplaceTabButtonClicked()
 
 			if (EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("InstallMarketplacePrompt", "The Marketplace requires the Epic Games Launcher, which does not seem to be installed on your computer. Would you like to install it now?")))
 			{
-				if (!DesktopPlatform->OpenLauncher(true, TEXT("-OpenMarket")))
+				if (!DesktopPlatform->OpenLauncher(true, TEXT("ue/marketplace"), FString()))
 				{
 					EventAttributes.Add(FAnalyticsEventAttribute(TEXT("InstallSucceeded"), TEXT("FALSE")));
 					FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(TEXT("Sorry, there was a problem installing the Launcher.\nPlease try to install it manually!")));
@@ -1265,6 +1265,7 @@ FReply SProjectBrowser::HandleMarketplaceTabButtonClicked()
 void SProjectBrowser::OnFilterTextChanged(const FText& InText)
 {
 	ProjectItemFilter.SetRawFilterText(InText);
+	SearchBoxPtr->SetError(ProjectItemFilter.GetFilterErrorText());
 	PopulateFilteredProjectCategories();
 }
 

@@ -69,6 +69,7 @@ public:
 	TIndirectArray<FBPTerminal> Locals;
 	TIndirectArray<FBPTerminal> EventGraphLocals;
 	TIndirectArray<FBPTerminal>	LevelActorReferences;
+	TIndirectArray<FBPTerminal>	InlineGeneratedValues; // A function generating the parameter will be called inline. The value won't be stored in a local variable.
 	TMap<UEdGraphPin*, FBPTerminal*> NetMap;
 	TMap<UEdGraphPin*, FBPTerminal*> LiteralHackMap;
 
@@ -92,6 +93,7 @@ public:
 	// Stored calls of latent function (on current class), needed to tell if blueprint should be tickable
 	TArray< UK2Node_CallFunction* > LatentFunctionCalls;
 
+	//Skip some optimization. C++ code will be generated in this pass. 
 	bool bGeneratingCpp;
 
 	//Does this function use requires FlowStack ?
@@ -274,6 +276,8 @@ public:
 		TArray<FBlueprintCompiledStatement*>* SourceStatementList = StatementsPerNode.Find(Node);
 		return (SourceStatementList != NULL) && (SourceStatementList->Num() > 0);
 	}
+
+	KISMETCOMPILER_API bool MustUseSwitchState(const FBlueprintCompiledStatement* ExcludeThisOne) const;
 
 private:
 	// Optimize out any useless jumps (jump to the very next statement, where the control flow can just fall through)

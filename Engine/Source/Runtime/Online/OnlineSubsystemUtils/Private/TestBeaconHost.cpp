@@ -1,11 +1,14 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
+#include "TestBeaconHost.h"
+#include "TestBeaconClient.h"
 
 ATestBeaconHost::ATestBeaconHost(const FObjectInitializer& ObjectInitializer) :
 	Super(ObjectInitializer)
 {
-	BeaconTypeName = TEXT("TestBeacon");
+	ClientBeaconActorClass = ATestBeaconClient::StaticClass();
+	BeaconTypeName = ClientBeaconActorClass->GetName();
 }
 
 bool ATestBeaconHost::Init()
@@ -16,12 +19,10 @@ bool ATestBeaconHost::Init()
 	return true;
 }
 
-void ATestBeaconHost::ClientConnected(AOnlineBeaconClient* NewClientActor, UNetConnection* ClientConnection)
+void ATestBeaconHost::OnClientConnected(AOnlineBeaconClient* NewClientActor, UNetConnection* ClientConnection)
 {
 #if !UE_BUILD_SHIPPING
-	UE_LOG(LogBeacon, Verbose, TEXT("ClientConnected %s from (%s)"), 
-		NewClientActor ? *NewClientActor->GetName() : TEXT("NULL"), 
-		NewClientActor ? *NewClientActor->GetNetConnection()->LowLevelDescribe() : TEXT("NULL"));
+	Super::OnClientConnected(NewClientActor, ClientConnection);
 
 	ATestBeaconClient* BeaconClient = Cast<ATestBeaconClient>(NewClientActor);
 	if (BeaconClient != NULL)
@@ -34,14 +35,7 @@ void ATestBeaconHost::ClientConnected(AOnlineBeaconClient* NewClientActor, UNetC
 AOnlineBeaconClient* ATestBeaconHost::SpawnBeaconActor(UNetConnection* ClientConnection)
 {	
 #if !UE_BUILD_SHIPPING
-	FActorSpawnParameters SpawnInfo;
-	ATestBeaconClient* BeaconActor = GetWorld()->SpawnActor<ATestBeaconClient>(ATestBeaconClient::StaticClass(), FVector::ZeroVector, FRotator::ZeroRotator, SpawnInfo);
-	if (BeaconActor)
-	{
-		BeaconActor->SetBeaconOwner(this);
-	}
-
-	return BeaconActor;
+	return Super::SpawnBeaconActor(ClientConnection);
 #else
 	return NULL;
 #endif

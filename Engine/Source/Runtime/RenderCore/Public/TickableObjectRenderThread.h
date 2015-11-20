@@ -18,7 +18,7 @@ class RENDERCORE_API FTickableObjectRenderThread
 public:
 
 	/** Static array of tickable objects that are ticked from rendering thread*/
-	static struct FRenderingThreadTickableObjectsArray : public TArray<FTickableObjectRenderThread*>
+	struct FRenderingThreadTickableObjectsArray : public TArray<FTickableObjectRenderThread*>
 	{
 		~FRenderingThreadTickableObjectsArray()
 		{
@@ -33,15 +33,19 @@ public:
 			// if we exited uncleanly from a runaway loop, crash explicitly in Dev
 			check(Num() == 0);
 		}
-	} RenderingThreadTickableObjects;
+	};
+
+	static FRenderingThreadTickableObjectsArray RenderingThreadTickableObjects;
+	static FRenderingThreadTickableObjectsArray RenderingThreadHighFrequencyTickableObjects;
 
 	/**
 	 * Registers this instance with the static array of tickable objects.	
 	 *
 	 * @param bRegisterImmediately true if the object should be registered immediately.
 	 */
-	FTickableObjectRenderThread(bool bRegisterImmediately=true) :
-		bRegistered(false)
+	FTickableObjectRenderThread(bool bRegisterImmediately=true, bool bInHighFrequency=false) :
+		bRegistered(false),
+		bHighFrequency(bInHighFrequency)
 	{
 		if(bRegisterImmediately)
 		{
@@ -63,9 +67,10 @@ public:
 		checkf(IsInRenderingThread(), TEXT("Game thread attempted to unregister an object in the RenderingThreadTickableObjects array."));
 		if (bRegistered)
 		{
-			const int32 Pos=RenderingThreadTickableObjects.Find(this);
+			FRenderingThreadTickableObjectsArray& TickableObjectArray = bHighFrequency ? RenderingThreadHighFrequencyTickableObjects : RenderingThreadTickableObjects;
+			const int32 Pos = TickableObjectArray.Find(this);
 			check(Pos!=INDEX_NONE);
-			RenderingThreadTickableObjects.RemoveAt(Pos);
+			TickableObjectArray.RemoveAt(Pos);
 			bRegistered = false;
 		}
 	}
@@ -79,8 +84,16 @@ public:
 		// make sure that only the rendering thread is attempting to add items to the RenderingThreadTickableObjects list
 		checkf(IsInRenderingThread(), TEXT("Game thread attempted to register an object in the RenderingThreadTickableObjects array."));
 		check(!RenderingThreadTickableObjects.Contains(this));
+		check(!RenderingThreadHighFrequencyTickableObjects.Contains(this));
 		check(!bRegistered);
-		RenderingThreadTickableObjects.Add( this );
+		if (bHighFrequency)
+		{
+			RenderingThreadHighFrequencyTickableObjects.Add(this);
+		}
+		else
+		{
+			RenderingThreadTickableObjects.Add(this);
+		}		
 		bRegistered = true;
 	}
 
@@ -119,6 +132,7 @@ public:
 
 private:
 	bool bRegistered;
+	bool bHighFrequency;
 };
 
 #endif

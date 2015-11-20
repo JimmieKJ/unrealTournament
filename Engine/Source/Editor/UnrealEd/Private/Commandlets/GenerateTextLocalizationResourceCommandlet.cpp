@@ -68,6 +68,14 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 	}
 
 	// Get cultures to generate.
+	FString NativeCultureName;
+	if( !( GetStringFromConfig( *SectionName, TEXT("NativeCulture"), NativeCultureName, GatherTextConfigPath ) ) )
+	{
+		UE_LOG(LogGenerateTextLocalizationResourceCommandlet, Error, TEXT("No native culture specified."));
+		return -1;
+	}
+
+	// Get cultures to generate.
 	TArray<FString> CulturesToGenerate;
 	GetStringArrayFromConfig( *SectionName, TEXT("CulturesToGenerate"), CulturesToGenerate, GatherTextConfigPath );
 
@@ -140,7 +148,7 @@ int32 UGenerateTextLocalizationResourceCommandlet::Main(const FString& Params)
 		{
 			FJsonInternationalizationArchiveSerializer ArchiveSerializer;
 
-			if( !(FTextLocalizationResourceGenerator::Generate(SourcePath, InternationalizationManifest, CultureName, TextLocalizationResourceArchive, ArchiveSerializer)) )
+			if( !(FTextLocalizationResourceGenerator::Generate(SourcePath, InternationalizationManifest, NativeCultureName, CultureName, TextLocalizationResourceArchive, ArchiveSerializer)) )
 			{
 				IFileManager::Get().Delete( *TextLocalizationResourcePath );
 			}

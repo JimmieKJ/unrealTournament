@@ -96,7 +96,7 @@ int32 GuardedMain( const TCHAR* CmdLine )
 	// These names will be updated as soon as the Filemanager is set up so we can write to the log file.
 	// That will also use the user folder for installed builds so we don't write into program files or whatever.
 #if PLATFORM_WINDOWS
-	FCString::Strcpy(MiniDumpFilenameW, *FString::Printf(TEXT("unreal-v%i-%s.dmp"), GEngineVersion.GetChangelist(), *FDateTime::Now().ToString()));
+	FCString::Strcpy(MiniDumpFilenameW, *FString::Printf(TEXT("unreal-v%i-%s.dmp"), FEngineVersion::Current().GetChangelist(), *FDateTime::Now().ToString()));
 
 	const TCHAR* OrgCmdLine = CmdLine;
 

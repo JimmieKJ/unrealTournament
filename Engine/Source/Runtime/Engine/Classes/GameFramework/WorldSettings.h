@@ -93,6 +93,14 @@ struct FLightmassWorldInfoSettings
 	UPROPERTY(EditAnywhere, Category=LightmassOcclusion)
 	uint32 bUseAmbientOcclusion:1;
 
+	/** 
+	 * Whether to generate textures storing the AO computed by Lightmass.
+	 * These can be accessed through the PrecomputedAmbientOcclusion material node, 
+	 * Which is useful for blending between material layers on environment assets.
+	 */
+	UPROPERTY(EditAnywhere, Category=LightmassOcclusion)
+	uint32 bGenerateAmbientOcclusionMaterialMask:1;
+
 	/** How much of the AO to apply to direct lighting. */
 	UPROPERTY(EditAnywhere, Category=LightmassOcclusion, meta=(UIMin = "0", UIMax = "1"))
 	float DirectIlluminationOcclusionFraction;
@@ -145,6 +153,7 @@ struct FLightmassWorldInfoSettings
 		, EmissiveBoost(1.0f)
 		, DiffuseBoost(1.0f)
 		, bUseAmbientOcclusion(false)
+		, bGenerateAmbientOcclusionMaterialMask(false)
 		, DirectIlluminationOcclusionFraction(0.5f)
 		, IndirectIlluminationOcclusionFraction(1.0f)
 		, OcclusionExponent(1.0f)
@@ -191,23 +200,34 @@ struct ENGINE_API FNetViewer
 	FNetViewer(UNetConnection* InConnection, float DeltaSeconds);
 };
 
-
 USTRUCT()
 struct ENGINE_API FHierarchicalSimplification
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** If this is true, it will simplify mesh but it is slower. 
-	 * If false, it will just merge actors but not simplify using the lower LOD if exists. 
-	 * For example if you build LOD 1, it will use LOD 1 of the mesh to merge actors if exists.  
-	 * If you merge material, it will reduce drawcalls. 
-	 */
-	UPROPERTY(Category=FHierarchicalSimplification, EditAnywhere)
+	/** Draw Distance for this LOD actor to display. */
+	DEPRECATED(4.11, "LOD transition is now based on screen size rather than drawing distance, see TransitionScreenSize")
+	float DrawDistance;
+
+	/** The screen radius an mesh object should reach before swapping to the LOD actor, once one of parent displays, it won't draw any of children. */
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, meta = (UIMin = "0.0000", ClampMin = "0.00000", UIMax = "1.0", ClampMax = "1.0"))
+	float TransitionScreenSize;
+
+	/** If this is true, it will simplify mesh but it is slower.
+	* If false, it will just merge actors but not simplify using the lower LOD if exists.
+	* For example if you build LOD 1, it will use LOD 1 of the mesh to merge actors if exists.
+	* If you merge material, it will reduce drawcalls.
+	*/
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere)
 	bool bSimplifyMesh;
 
-	/** Draw Distance for this LOD actor to display. Once one of parent displays, it won't draw any of children. */
-	UPROPERTY(Category=FHierarchicalSimplification, EditAnywhere, AdvancedDisplay, meta=(UIMin=10.f, ClampMin=10.f))
-	float DrawDistance;
+	/** Simplification Setting if bSimplifyMesh is true */
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
+	FMeshProxySettings ProxySetting;
+
+	/** Merge Mesh Setting if bSimplifyMesh is false */
+	UPROPERTY(Category = FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
+	FMeshMergingSettings MergeSetting;
 
 	/** Desired Bounding Radius for clustering - this is not guaranteed but used to calculate filling factor for auto clustering */
 	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(UIMin=10.f, ClampMin=10.f))
@@ -219,26 +239,37 @@ struct ENGINE_API FHierarchicalSimplification
 
 	/** Min number of actors to build LODActor */
 	UPROPERTY(EditAnywhere, Category=FHierarchicalSimplification, AdvancedDisplay, meta=(ClampMin = "1", UIMin = "1"))
-	int32 MinNumberOfActorsToBuild;
-
-	/** Simplification Setting if bSimplifyMesh is true */
-	UPROPERTY(Category=FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
-	FMeshProxySettings ProxySetting;
-
-	/** Merge Mesh Setting if bSimplifyMesh is false */
-	UPROPERTY(Category=FHierarchicalSimplification, EditAnywhere, AdvancedDisplay)
-	FMeshMergingSettings MergeSetting;
+	int32 MinNumberOfActorsToBuild;	
 
 	FHierarchicalSimplification()
-		: bSimplifyMesh(false)
-		, DrawDistance(3000)
-		, DesiredBoundRadius(3000)
+		: TransitionScreenSize(0.0435f)
+		, bSimplifyMesh(false)		
+		, DesiredBoundRadius(2000) 
 		, DesiredFillingPercentage(50)
 		, MinNumberOfActorsToBuild(2)
 	{
 		MergeSetting.bMergeMaterials = true;
 		MergeSetting.bGenerateLightMapUV = true;
 	}
+
+
+
+	FHierarchicalSimplification& operator=(const FHierarchicalSimplification& Other)
+	{
+		PRAGMA_DISABLE_DEPRECATION_WARNINGS
+		
+		TransitionScreenSize = Other.TransitionScreenSize;
+		DrawDistance = Other.DrawDistance;
+		bSimplifyMesh = Other.bSimplifyMesh;
+		ProxySetting = Other.ProxySetting;
+		MergeSetting = Other.MergeSetting;
+		DesiredBoundRadius = Other.DesiredBoundRadius;
+		DesiredFillingPercentage = Other.DesiredFillingPercentage;
+		MinNumberOfActorsToBuild = Other.MinNumberOfActorsToBuild;
+		return *this;
+
+		PRAGMA_ENABLE_DEPRECATION_WARNINGS
+	};	
 };
 
 /**
@@ -259,11 +290,6 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, config, Category=World, AdvancedDisplay)
 	uint32 bEnableNavigationSystem:1;
 
-#if WITH_EDITORONLY_DATA
-	/** if set to true, hierarchical LODs will be built, which will create hierarchical LODActors*/
-	UPROPERTY(EditAnywhere, config, Category=World, AdvancedDisplay)
-	uint32 bEnableHierarchicalLODSystem:1;
-#endif
 	/** 
 	 * Enables tools for composing a tiled world. 
 	 * Level has to be saved and all sub-levels removed before enabling this option.
@@ -292,15 +318,19 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	TSubclassOf<UDamageType> KillZDamageType;
 
 	// current gravity actually being used
-	UPROPERTY(transient, replicatedUsing=OnRep_WorldGravityZ)
+	UPROPERTY(transient, ReplicatedUsing=OnRep_WorldGravityZ)
 	float WorldGravityZ;
 
 	UFUNCTION()
-		virtual void OnRep_WorldGravityZ();
+	virtual void OnRep_WorldGravityZ();
 
 	// optional level specific gravity override set by level designer
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Physics, meta=(editcondition = "bGlobalGravitySet"))
 	float GlobalGravityZ;
+
+	// level specific default physics volume
+	UPROPERTY(EditAnywhere, noclear, BlueprintReadOnly, Category=Physics, AdvancedDisplay)
+	TSubclassOf<class ADefaultPhysicsVolume> DefaultPhysicsVolumeClass;
 
 	// optional level specific collision handler
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Physics, AdvancedDisplay)
@@ -405,9 +435,16 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	class USoundMix* DefaultBaseSoundMix;
 
 #if WITH_EDITORONLY_DATA
+	/** if set to true, hierarchical LODs will be built, which will create hierarchical LODActors*/
+	UPROPERTY(EditAnywhere, config, Category=LODSystem)
+	uint32 bEnableHierarchicalLODSystem:1;
+
 	/** Hierarchical LOD Setup */
-	UPROPERTY(EditAnywhere, Category=LODSystem, AdvancedDisplay, meta=(editcondition = "bEnableHierarchicalLODSystem"))
+	UPROPERTY(EditAnywhere, Category=LODSystem, meta=(editcondition = "bEnableHierarchicalLODSystem"))
 	TArray<struct FHierarchicalSimplification>	HierarchicalLODSetup;
+
+	UPROPERTY()
+	int32 NumHLODLevels;
 #endif
 	/************************************/
 	/** DEFAULT SETTINGS **/
@@ -470,20 +507,21 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	TArray<UAssetUserData*> AssetUserData;
 
 public:
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
+	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject interface.
+	//~ End UObject Interface.
 
 
-	// Begin AActor interface.
+	//~ Begin AActor Interface.
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 #endif
 	virtual void PreInitializeComponents() override;
 	virtual void PostInitializeComponents() override;
-	// End AActor interface.
+	//~ End AActor Interface.
 
 	/**
 	 * Returns the Z component of the current world gravity and initializes it to the default
@@ -498,7 +536,12 @@ public:
 		return TimeDilation * MatineeTimeDilation * DemoPlayTimeDilation;
 	}
 
-	/** 
+	/**
+	 * Returns the delta time to be used by the tick. Can be overridden if game specific logic is needed.
+	 */
+	virtual float FixupDeltaSeconds(float DeltaSeconds, float RealDeltaSeconds);
+
+	/**
 	 * Called by GameMode.HandleMatchIsWaitingToStart, calls BeginPlay on all actors
 	 */
 	virtual void NotifyBeginPlay();
@@ -508,11 +551,11 @@ public:
 	 */	
 	virtual void NotifyMatchStarted();
 
-	// Begin IInterface_AssetUserData Interface
+	//~ Begin IInterface_AssetUserData Interface
 	virtual void AddAssetUserData(UAssetUserData* InUserData) override;
 	virtual void RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
 	virtual UAssetUserData* GetAssetUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
-	// End IInterface_AssetUserData Interface
+	//~ End IInterface_AssetUserData Interface
 
 
 private:

@@ -16,6 +16,7 @@ int32 SVerbChoiceDialog::ShowModal( const FText& InTitle, const FText& InMessage
 		.Title( InTitle )
 		.SizingRule( ESizingRule::Autosized )
 		.AutoCenter(EAutoCenter::PreferredWorkArea)
+		.HasCloseButton(false)
 		.SupportsMinimize(false) 
 		.SupportsMaximize(false);
 

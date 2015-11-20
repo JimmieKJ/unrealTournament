@@ -57,6 +57,9 @@ private:
 	  */
 	bool CheckOutPackages(TArray<FAssetRenameDataWithReferencers>& AssetsToRename, TArray<UPackage*>& InOutReferencingPackagesToSave) const;
 
+	/** Finds any collections that are referencing the assets to be renamed. Assets referenced by collections will leave redirectors */
+	void DetectReferencingCollections(TArray<FAssetRenameDataWithReferencers>& AssetsToRename) const;
+
 	/** Finds any read only packages and removes them from the save list. Assets referenced by these packages will leave redirectors. */ 
 	void DetectReadOnlyPackages(TArray<FAssetRenameDataWithReferencers>& AssetsToRename, TArray<UPackage*>& InOutReferencingPackagesToSave) const;
 

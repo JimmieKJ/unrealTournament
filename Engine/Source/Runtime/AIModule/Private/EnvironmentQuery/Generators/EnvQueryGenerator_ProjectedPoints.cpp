@@ -8,6 +8,7 @@
 
 UEnvQueryGenerator_ProjectedPoints::UEnvQueryGenerator_ProjectedPoints(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+	ProjectionData.TraceMode = EEnvQueryTrace::Navigation;
 	ProjectionData.bCanProjectDown = true;
 	ProjectionData.bCanDisableTrace = true;
 	ProjectionData.ExtentX = 0.0f;
@@ -47,4 +48,10 @@ void UEnvQueryGenerator_ProjectedPoints::StoreNavPoints(const TArray<FNavLocatio
 
 	FEnvQueryOptionInstance& OptionInstance = QueryInstance.Options[QueryInstance.OptionIndex];
 	OptionInstance.bHasNavLocations = (ProjectionData.TraceMode == EEnvQueryTrace::Navigation);
+}
+
+void UEnvQueryGenerator_ProjectedPoints::PostLoad()
+{
+	Super::PostLoad();
+	ProjectionData.OnPostLoad();
 }

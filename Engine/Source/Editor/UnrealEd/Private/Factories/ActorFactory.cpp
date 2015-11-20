@@ -67,6 +67,10 @@ ActorFactory.cpp:
 #include "Kismet2/ComponentEditorUtils.h"
 #include "Components/BillboardComponent.h"
 
+#include "LevelSequence.h"
+#include "LevelSequenceActor.h"
+#include "ActorFactoryMovieScene.h"
+
 DEFINE_LOG_CATEGORY_STATIC(LogActorFactory, Log, All);
 
 #define LOCTEXT_NAMESPACE "ActorFactory"
@@ -1551,7 +1555,7 @@ UActorFactoryDirectionalLight::UActorFactoryDirectionalLight(const FObjectInitia
 {
 	DisplayName = LOCTEXT("DirectionalLightDisplayName", "Directional Light");
 	NewActorClass = ADirectionalLight::StaticClass();
-	SpawnPositionOffset = FVector(200, 0, 0);
+	SpawnPositionOffset = FVector(50, 0, 0);
 	bUseSurfaceOrientation = true;
 }
 
@@ -1563,7 +1567,7 @@ UActorFactorySpotLight::UActorFactorySpotLight(const FObjectInitializer& ObjectI
 {
 	DisplayName = LOCTEXT("SpotLightDisplayName", "Spot Light");
 	NewActorClass = ASpotLight::StaticClass();
-	SpawnPositionOffset = FVector(200, 0, 0);
+	SpawnPositionOffset = FVector(50, 0, 0);
 	bUseSurfaceOrientation = true;
 }
 
@@ -1575,7 +1579,7 @@ UActorFactoryPointLight::UActorFactoryPointLight(const FObjectInitializer& Objec
 {
 	DisplayName = LOCTEXT("PointLightDisplayName", "Point Light");
 	NewActorClass = APointLight::StaticClass();
-	SpawnPositionOffset = FVector(200, 0, 0);
+	SpawnPositionOffset = FVector(50, 0, 0);
 	bUseSurfaceOrientation = true;
 }
 
@@ -1597,7 +1601,7 @@ UActorFactorySphereReflectionCapture::UActorFactorySphereReflectionCapture(const
 {
 	DisplayName = LOCTEXT("ReflectionCaptureSphereDisplayName", "Sphere Reflection Capture");
 	NewActorClass = ASphereReflectionCapture::StaticClass();
-	SpawnPositionOffset = FVector(200, 0, 0);
+	SpawnPositionOffset = FVector(50, 0, 0);
 	bUseSurfaceOrientation = true;
 }
 
@@ -1609,7 +1613,7 @@ UActorFactoryBoxReflectionCapture::UActorFactoryBoxReflectionCapture(const FObje
 {
 	DisplayName = LOCTEXT("ReflectionCaptureBoxDisplayName", "Box Reflection Capture");
 	NewActorClass = ABoxReflectionCapture::StaticClass();
-	SpawnPositionOffset = FVector(200, 0, 0);
+	SpawnPositionOffset = FVector(50, 0, 0);
 	bUseSurfaceOrientation = true;
 }
 
@@ -1621,7 +1625,7 @@ UActorFactoryPlaneReflectionCapture::UActorFactoryPlaneReflectionCapture(const F
 {
 	DisplayName = LOCTEXT("ReflectionCapturePlaneDisplayName", "Plane Reflection Capture");
 	NewActorClass = APlaneReflectionCapture::StaticClass();
-	SpawnPositionOffset = FVector(200, 0, 0);
+	SpawnPositionOffset = FVector(50, 0, 0);
 	bUseSurfaceOrientation = true;
 }
 
@@ -1937,6 +1941,57 @@ void UActorFactoryCylinderVolume::PostSpawnActor( UObject* Asset, AActor* NewAct
 		Builder->OuterRadius = 128.0f;
 		CreateBrushForVolumeActor( VolumeActor, Builder );
 	}
+}
+
+/*-----------------------------------------------------------------------------
+UActorFactoryMovieScene
+-----------------------------------------------------------------------------*/
+UActorFactoryMovieScene::UActorFactoryMovieScene(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
+	DisplayName = LOCTEXT("MovieSceneDisplayName", "MovieScene");
+	NewActorClass = ALevelSequenceActor::StaticClass();
+}
+
+bool UActorFactoryMovieScene::CanCreateActorFrom( const FAssetData& AssetData, FText& OutErrorMsg )
+{
+	if ( UActorFactory::CanCreateActorFrom( AssetData, OutErrorMsg ) )
+	{
+		return true;
+	}
+
+	if ( AssetData.IsValid() && !AssetData.GetClass()->IsChildOf( ULevelSequence::StaticClass() ) )
+	{
+		OutErrorMsg = NSLOCTEXT("CanCreateActor", "NoLevelSequenceAsset", "A valid sequencer asset must be specified.");
+		return false;
+	}
+
+	return true;
+}
+
+AActor* UActorFactoryMovieScene::SpawnActor( UObject* Asset, ULevel* InLevel, const FVector& Location, const FRotator& Rotation, EObjectFlags ObjectFlags, const FName& Name )
+{
+	ALevelSequenceActor* NewActor = Cast<ALevelSequenceActor>(Super::SpawnActor(Asset, InLevel, Location, Rotation, ObjectFlags, Name));
+
+	if (NewActor)
+	{
+		if (ULevelSequence* LevelSequence = Cast<ULevelSequence>(Asset))
+		{
+			NewActor->SetSequence(LevelSequence);
+		}
+	}
+
+	return NewActor;
+}
+
+UObject* UActorFactoryMovieScene::GetAssetFromActorInstance(AActor* Instance)
+{
+	if (ALevelSequenceActor* LevelSequenceActor = Cast<ALevelSequenceActor>(Instance))
+	{
+		return LevelSequenceActor->LevelSequence.TryLoad();
+	}
+
+	return nullptr;
 }
 
 #undef LOCTEXT_NAMESPACE

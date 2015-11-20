@@ -83,6 +83,7 @@ public:
 		, _OnInteractivePickEnd()
 		, _ParentWindow()
 		, _DisplayGamma(2.2f)
+		, _sRGBOverride()
 		, _DisplayInlineVersion(false)
 		, _ExpandAdvancedSection(false)
 	{ }
@@ -135,6 +136,9 @@ public:
 		/** Sets the display Gamma setting - used to correct colors sampled from the screen */
 		SLATE_ATTRIBUTE(float, DisplayGamma)
 
+		/** Overrides the checkbox value of the sRGB option. */
+		SLATE_ARGUMENT(TOptional<bool>, sRGBOverride)
+
 		/** If true, this color picker will be a stripped down version of the full color picker */
 		SLATE_ARGUMENT(bool, DisplayInlineVersion)
 
@@ -186,7 +190,7 @@ protected:
 	bool SetNewTargetColorRGB( const FLinearColor& NewValue, bool bForceUpdate = false );
 	bool SetNewTargetColorHSV( const FLinearColor& NewValue, bool bForceUpdate = false );
 
-    void UpdateColorPick();
+	void UpdateColorPick();
 	void UpdateColorPickMouseUp();
 
 	void BeginAnimation(FLinearColor Start, FLinearColor End);
@@ -267,11 +271,17 @@ private:
 	// Callback for completed eye dropper interactions.
 	void HandleEyeDropperButtonComplete();
 
-	// Callback for getting the text in the hex box.
-	FText HandleHexBoxText() const;
+	// Callback for getting the text in the hex linear box.
+	FText HandleHexLinearBoxText() const;
 
-	// Callback for committed text in the hex input box.
-	void HandleHexInputTextCommitted( const FText& Text, ETextCommit::Type CommitType );
+	// Callback for getting the text in the hex sRGB box.
+	FText HandleHexSRGBBoxText() const;
+
+	// Callback for committed text in the hex input box (sRGB gamma).
+	void HandleHexSRGBInputTextCommitted(const FText& Text, ETextCommit::Type CommitType);
+
+	// Callback for committed text in the hex input box (linear gamma).
+	void HandleHexLinearInputTextCommitted(const FText& Text, ETextCommit::Type CommitType);
 
 	// Callback for changing the HSV value of the current color.
 	void HandleHSVColorChanged( FLinearColor NewValue );
@@ -407,6 +417,9 @@ private:
 	/** Sets the display Gamma setting - used to correct colors sampled from the screen */
 	TAttribute<float> DisplayGamma;
 
+	/** Stores the original sRGB option if this color picker temporarily overrides the global option. */
+	TOptional<bool> OriginalSRGBOption;
+
 	/** True if this color picker is an inline color picker */
 	bool bColorPickerIsInlineVersion;
 
@@ -463,6 +476,9 @@ struct FColorPickerArgs
 	/** The current display gamma used to correct colors picked from the display. */
 	TAttribute<float> DisplayGamma;
 
+	/** If set overrides the global option for the desired setting of sRGB mode. */
+	TOptional<bool> sRGBOverride;
+
 	/** An array of FColors to target. */
 	const TArray<FColor*>* ColorArray;
 
@@ -501,6 +517,7 @@ struct FColorPickerArgs
 		, bOnlyRefreshOnOk(false)
 		, bExpandAdvancedSection(true)
 		, DisplayGamma(2.2f)
+		, sRGBOverride()
 		, ColorArray(nullptr)
 		, LinearColorArray(nullptr)
 		, ColorChannelsArray(nullptr)

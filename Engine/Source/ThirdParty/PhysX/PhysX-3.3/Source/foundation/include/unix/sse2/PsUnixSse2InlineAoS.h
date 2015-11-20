@@ -109,7 +109,7 @@ namespace _VecMathTests
 
 	PX_FORCE_INLINE bool allElementsEqualBoolV(const BoolV a, const BoolV b)
 	{
-		return internalUnitSSE2Simd::BAllTrue4_R(VecI32V_IsEq(a, b)) != 0;
+		return internalUnitSSE2Simd::BAllTrue4_R(VecI32V_IsEq(m128_F2I(a), m128_F2I(b))) != 0;
 	}
 
 	PX_FORCE_INLINE bool allElementsEqualVecU32V(const VecU32V a, const VecU32V b)
@@ -119,7 +119,7 @@ namespace _VecMathTests
 	
 	PX_FORCE_INLINE bool allElementsEqualVecI32V(const VecI32V a, const VecI32V b)
 	{
-		BoolV c = m128_I2F(_mm_cmpeq_epi32(m128_F2I(a), m128_F2I(b)));
+		BoolV c = m128_I2F(_mm_cmpeq_epi32(a, b));
 		return internalUnitSSE2Simd::BAllTrue4_R(c) != 0;
 	}
 
@@ -290,7 +290,7 @@ PX_FORCE_INLINE BoolV BLoad(const bool f)
 PX_FORCE_INLINE Vec3V V3LoadA(const PxVec3& f)
 {
 	VECMATHAOS_ASSERT(0 == ((size_t)&f & 0x0f));
-	return _mm_and_ps((Vec3V&)f, (VecI32V&)internalUnitSSE2Simd::gMaskXYZ);
+	return _mm_and_ps((Vec3V&)f, (Vec4V&)internalUnitSSE2Simd::gMaskXYZ);
 }
 
 PX_FORCE_INLINE Vec3V V3LoadU(const PxVec3& f)
@@ -306,7 +306,7 @@ PX_FORCE_INLINE Vec3V V3LoadUnsafeA(const PxVec3& f)
 PX_FORCE_INLINE Vec3V V3LoadA(const PxF32* const f)	
 {
 	VECMATHAOS_ASSERT(0 == ((PxU64)f & 0x0f));
-	return _mm_and_ps((Vec3V&)*f, (VecI32V&)internalUnitSSE2Simd::gMaskXYZ);
+	return _mm_and_ps((Vec3V&)*f, (Vec4V&)internalUnitSSE2Simd::gMaskXYZ);
 }
 
 PX_FORCE_INLINE Vec3V V3LoadU(const PxF32* const i)
@@ -399,7 +399,7 @@ PX_FORCE_INLINE void U4StoreA(const VecU32V uv, PxU32* u)
 PX_FORCE_INLINE void I4StoreA(const VecI32V iv, PxI32* i)
 {
 	VECMATHAOS_ASSERT(0 == ((PxU64)i & 0x0f));
-	_mm_store_ps((float*)i,iv);
+	_mm_store_ps((float*)i, m128_I2F(iv));
 }
 
 PX_FORCE_INLINE Vec4V V4LoadU(const PxF32* const f)
@@ -446,7 +446,7 @@ PX_FORCE_INLINE void V3StoreU(const Vec3V a, PxVec3& f)
 	f=PxVec3(f2[0],f2[1],f2[2]);
 }
 
-PX_FORCE_INLINE VecI32V U4Load(const PxU32 i)
+PX_FORCE_INLINE VecU32V U4Load(const PxU32 i)
 {
 	return (_mm_load1_ps((PxF32*)&i));
 }
@@ -1688,7 +1688,7 @@ PX_FORCE_INLINE Vec4V V4SetZ(const Vec4V v, const FloatV f)
 
 PX_FORCE_INLINE Vec4V V4ClearW(const Vec4V v)
 {
-	return _mm_and_ps(v, (VecI32V&)internalUnitSSE2Simd::gMaskXYZ);
+	return _mm_and_ps(v, (Vec4V&)internalUnitSSE2Simd::gMaskXYZ);
 }
 
 PX_FORCE_INLINE Vec4V V4Perm_YXWZ(const Vec4V a)
@@ -2754,47 +2754,50 @@ PX_FORCE_INLINE VecU16V V4U16Andc(VecU16V a, VecU16V b)
 
 PX_FORCE_INLINE VecI32V I4Load(const PxI32 i)
 {
-	return (_mm_load1_ps((PxF32*)&i));
+	return m128_F2I(_mm_load1_ps((PxF32*)&i));
 }
 
 PX_FORCE_INLINE VecI32V I4LoadU(const PxI32* i)
 {
-	return _mm_loadu_ps((PxF32*)i);
+	return m128_F2I(_mm_loadu_ps((PxF32*)i));
 }
 
 PX_FORCE_INLINE VecI32V I4LoadA(const PxI32* i)
 {
-	return _mm_load_ps((PxF32*)i);
+	return m128_F2I(_mm_load_ps((PxF32*)i));
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_Add(const VecI32VArg a, const VecI32VArg b)
 {
-	return m128_I2F(_mm_add_epi32(m128_F2I(a), m128_F2I(b)));
+	return _mm_add_epi32(a, b);
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_Sub(const VecI32VArg a, const VecI32VArg b)
 {
-	return m128_I2F(_mm_sub_epi32(m128_F2I(a), m128_F2I(b)));
+	return _mm_sub_epi32(a, b);
 }
 
 PX_FORCE_INLINE BoolV VecI32V_IsGrtr(const VecI32VArg a, const VecI32VArg b)
 {
-	return m128_I2F(_mm_cmpgt_epi32(m128_F2I(a), m128_F2I(b)));
+	return m128_I2F(_mm_cmpgt_epi32(a, b));
 }
 
 PX_FORCE_INLINE BoolV VecI32V_IsEq(const VecI32VArg a, const VecI32VArg b)
 {
-	return m128_I2F(_mm_cmpeq_epi32(m128_F2I(a), m128_F2I(b)));
+	return m128_I2F(_mm_cmpeq_epi32(a, b));
 }
 
 PX_FORCE_INLINE VecI32V V4I32Sel(const BoolV c, const VecI32V a, const VecI32V b)
 {
-	return V4U32Sel(c, a, b);
+	return _mm_or_si128(
+	 _mm_andnot_si128(m128_F2I(c), b),
+	 _mm_and_si128(m128_F2I(c), a)
+	 );
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_Zero()
 {
-	return V4Zero();
+	return _mm_setzero_si128();
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_One()
@@ -2830,7 +2833,7 @@ PX_FORCE_INLINE VecU32V U4Two()
 PX_FORCE_INLINE VecI32V VecI32V_Sel(const BoolV c, const VecI32VArg a, const VecI32VArg b)
 {
 	VECMATHAOS_ASSERT(_VecMathTests::allElementsEqualBoolV(c,BTTTT()) || _VecMathTests::allElementsEqualBoolV(c,BFFFF()));
-	return _mm_or_ps(_mm_andnot_ps(c, b), _mm_and_ps(c, a));
+	return _mm_or_si128(_mm_andnot_si128(m128_F2I(c), b), _mm_and_si128(m128_F2I(c), a));
 }
 
 PX_FORCE_INLINE VecShiftV VecI32V_PrepareShift(const VecI32VArg shift)
@@ -2842,57 +2845,57 @@ PX_FORCE_INLINE VecShiftV VecI32V_PrepareShift(const VecI32VArg shift)
 
 PX_FORCE_INLINE VecI32V VecI32V_LeftShift(const VecI32VArg a, const VecShiftVArg count)
 {
-	return m128_I2F(_mm_sll_epi32(m128_F2I(a), m128_F2I(count.shift)));
+	return _mm_sll_epi32(a, count.shift);
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_RightShift(const VecI32VArg a, const VecShiftVArg count)
 {
-	return m128_I2F(_mm_srl_epi32(m128_F2I(a), m128_F2I(count.shift)));
+	return _mm_srl_epi32(a, count.shift);
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_And(const VecI32VArg a, const VecI32VArg b)
 {
-	return _mm_and_ps(a, b);
+	return _mm_and_si128(a, b);
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_Or(const VecI32VArg a, const VecI32VArg b)
 {
-	return _mm_or_ps(a, b);
+	return _mm_or_si128(a, b);
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_GetX(const VecI32VArg a)
 {
-	return _mm_shuffle_ps(a, a, _MM_SHUFFLE(0,0,0,0));
+	return m128_F2I(_mm_shuffle_ps(m128_I2F(a), m128_I2F(a), _MM_SHUFFLE(0,0,0,0)));
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_GetY(const VecI32VArg a)
 {
-	return _mm_shuffle_ps(a, a, _MM_SHUFFLE(1,1,1,1));
+	return m128_F2I(_mm_shuffle_ps(m128_I2F(a), m128_I2F(a), _MM_SHUFFLE(1,1,1,1)));
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_GetZ(const VecI32VArg a)
 {
-	return _mm_shuffle_ps(a, a, _MM_SHUFFLE(2,2,2,2));
+	return m128_F2I(_mm_shuffle_ps(m128_I2F(a), m128_I2F(a), _MM_SHUFFLE(2,2,2,2)));
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_GetW(const VecI32VArg a)
 {
-	return _mm_shuffle_ps(a, a, _MM_SHUFFLE(3,3,3,3));
+	return m128_F2I(_mm_shuffle_ps(m128_I2F(a), m128_I2F(a), _MM_SHUFFLE(3,3,3,3)));
 }
 
 PX_FORCE_INLINE void PxI32_From_VecI32V(const VecI32VArg a, PxI32* i)
 {
-	_mm_store_ss((PxF32*)i,a);
+	_mm_store_ss((PxF32*)i, m128_I2F(a));
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_Merge(const VecI32VArg a, const VecI32VArg b, const VecI32VArg c, const VecI32VArg d)
 {
-	return V4Merge(a, b, c, d);
+	return m128_F2I(V4Merge(m128_I2F(a), m128_I2F(b), m128_I2F(c), m128_I2F(d)));
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_From_BoolV(const BoolVArg a)
 {
-	return a;
+	return m128_F2I(a);
 }
 
 PX_FORCE_INLINE VecU32V VecU32V_From_BoolV(const BoolVArg a)
@@ -2995,7 +2998,7 @@ PX_FORCE_INLINE Vec4V Vec4V_From_VecU32V(VecU32V a)
 
 PX_FORCE_INLINE Vec4V Vec4V_From_VecI32V(VecI32V in)
 {
-	return _mm_cvtepi32_ps(m128_F2I(in));
+	return _mm_cvtepi32_ps(in);
 }
 
 PX_FORCE_INLINE VecI32V VecI32V_From_Vec4V(Vec4V a)
@@ -3010,7 +3013,7 @@ PX_FORCE_INLINE Vec4V Vec4V_ReinterpretFrom_VecU32V(VecU32V a)
 
 PX_FORCE_INLINE Vec4V Vec4V_ReinterpretFrom_VecI32V(VecI32V a)
 {
-	return Vec4V(a);
+	return m128_I2F(a);
 }
 
 PX_FORCE_INLINE VecU32V VecU32V_ReinterpretFrom_Vec4V(Vec4V a)
@@ -3020,7 +3023,7 @@ PX_FORCE_INLINE VecU32V VecU32V_ReinterpretFrom_Vec4V(Vec4V a)
 
 PX_FORCE_INLINE VecI32V VecI32V_ReinterpretFrom_Vec4V(Vec4V a)
 {
-	return VecI32V(a);
+	return m128_F2I(a);
 }
 
 /*

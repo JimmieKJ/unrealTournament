@@ -1,0 +1,22 @@
+{
+    "FileVersion" : 1,
+	
+	"FriendlyName" : "Stereo Panoramic Movie Capture",
+	"Version" : 1,
+	"VersionName" : "Alpha",
+	"CreatedBy" : "Kite & Lightning",
+	"CreatedByURL" : "http://kiteandlightning.la/",
+	"EngineVersion" : 2328018,
+	"Description" : "A plugin to capture a sequence of panoramic images",
+	"Category" : "Recording",
+    "CanContainContent" : "true",
+	
+    "Modules" :
+	[
+		{
+			"Name" : "StereoPanorama",
+			"Type" : "RuntimeNoCommandlet",
+			"WhitelistPlatforms" : [ "Win64" ]
+		}
+	]
+}

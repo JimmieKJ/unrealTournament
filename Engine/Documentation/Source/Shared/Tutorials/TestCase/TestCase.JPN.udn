@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2301415
+﻿INTSourceChangelist:2591123
 Availability:NoPublish
 Title:テスト
 Crumbs:
@@ -9,7 +9,7 @@ Description:これはテストです。
 
 ![](TutorialTestImage01.png)
 
-1.  [コンテンツブラウザ] パネルで [New Asset] タブをクリックします。
+1. [コンテンツブラウザ] パネルで [New Asset] タブをクリックします。
 
 1. リストの中から [ブループリント] を選択します。
 [/EXCERPT:TestCaseOne]
@@ -20,7 +20,7 @@ Description:これはテストです。
 
 ![](TutorialTestImage02.png)
 
-1.  [�Pick Parent Class�] ウィンドウから [アクタ] を選択します。
+1. [Pick Parent Class] ウィンドウから [Actor] を選択します。
 
 [/EXCERPT:TestSecond]
 
@@ -37,11 +37,11 @@ Description:これはテストです。
 
 
 [EXCERPT:Fourth]
-## コンポーネントパネル
+## コンポーネント パネル
 
 ![](TutorialTestImage04.png)
 
-1. [コンポーネント] タブを選択したままで、 [コンポーネント] パネルへ移動します。
+1. [Components] タブを選択したままで、 [Components] パネルへ移動します。
 
 1. ドロップダウン タブでリストから [SceneComponent] を選択します。これはユーザーの親コンポーネントになります。
 1. 次にリストから [StaticmeshComponent] を追加します。
@@ -53,8 +53,8 @@ Description:これはテストです。
 
 ![](TutorialTestImage05.png)
 
-1. [コンポーネント] パネルで [StaticMeshComponent] を選択して、 [詳細] パネルでその詳細を見てみます。
-1. [コンポーネント] オプションが見つかるまでスクロールダウンします。[Globals] に隣接するスタティックメッシュに名前を付けます。 
+1. [Components] パネルで [StaticMeshComponent] を選択して、[Details (詳細)] パネルでその詳細を見てみます。
+1. [Components] オプションが見つかるまでスクロールダウンします。[Globals] に隣接するスタティックメッシュに名前を付けます。 
 [/EXCERPT:Five]
 
 
@@ -64,7 +64,7 @@ Description:これはテストです。
 
 ![](TutorialTestImage06.png)
 
-1. [コンポーネント] オプションの上に [スタティックメッシュ] オプションがあります。このオプションを見つけたら、プレビューウィンドウの横のバーをクリックします。
+1. [Components] オプションの上に [Static Mesh] オプションがあります。このオプションを見つけたら、プレビュー ウィンドウの横のバーをクリックします。
 1. 表示される新しいウィンドウの検索欄に「EditorCube」と入力します。表示されたら StaticMeshComponent へ追加します。
 
 [/EXCERPT:Six]
@@ -76,7 +76,7 @@ Description:これはテストです。
 
 ![](TutorialTestImage08.png)
 
-1. ブループリント内部で [グラフ] タブを選択します。[Event Graph] 内で「右クリック」して [イベントを追加] を展開します。
+1. ブループリント内部で [Graph] タブを選択します。[Event Graph] 内を右クリックして [Add Event] を展開します。
 1. リストから [EventReceiveBeginPlay] を選択します。
 [/EXCERPT:Eight]
 
@@ -87,7 +87,7 @@ Description:これはテストです。
 
 ![](TutorialTestImage09.png)
 
-1. [Event Graph] 内で「右クリック」して、 [タイムラインを追加�] を選択、名前を付けます。
+1. [Event Graph] 内を右クリックして、[Add Timeline] を選択、名前を付けます。
 
 [/EXCERPT:Nine]
 
@@ -99,7 +99,7 @@ Description:これはテストです。
 ![](TutorialTestImage10.png)
 
 1. タイムラインをダブルクリックして開きます。 
-1. [浮動トラックを追加] を選択してトラック名を入力します。
+1. [Add Float Track] を選択してトラック名を入力します。
 [/EXCERPT:Ten]
 
 
@@ -141,7 +141,7 @@ Description:これはテストです。
 
 ![](TutorialTestImage14.png)
 
-1. [イベントグラフ] タブを選択してから、 Timeline と接続するために EventReceivePlay と PlayFromStart を接続します。
+1. [EventGraph] タブを選択してから、 Timeline と接続するために EventReceivePlay と PlayFromStart を接続します。
 [/EXCERPT:Fourteen]
 
 
@@ -162,7 +162,7 @@ Description:これはテストです。
 
 ![](TutorialTestImage16.png)
 
-1. Lerp の ReturnValue をドラッグして、 Make Vector を追加します。
+1. Lerp の ReturnValue をドラッグして、Make Vector を追加します。
 1. Lerp の ReturnValue と Make Vector の Z 入力を接続します。
 1. 注釈：この時、 Lerp を X ベクター値と非接続にしなくてはいけません。接続ポイント上で「Alt＋左マウスをクリック」して非接続にします。
 [/EXCERPT:Sixteen]
@@ -174,7 +174,7 @@ Description:これはテストです。
 
 ![](TutorialTestImage17.png)
 
-1. [マイブループリント] タブからキューブのスタティックメッシュコンポーネントを選択して、 Eventgraph へドラッグします。 
+1. [My Blueprint ] タブからキューブの Static Mesh コンポーネントを選択して、 Eventgraph へドラッグします。 
 1. Eventgraph 内にコンポーネントをリリースする際に、 GET オプションを選択します。 
 [/EXCERPT:Seventeen]
 
@@ -207,6 +207,6 @@ Description:これはテストです。
 
 ![](TutorialTestImage20.png)
 
-1. Timeline ブループリントをワールドへドラッグして、 [Simulate] を押します。オブジェクトが動いていることを確認してください。
+1. Timeline ブループリントをワールドへドラッグして、[Simulate] を押します。オブジェクトが動いていることを確認してください。
 [/EXCERPT:Twenty]
 

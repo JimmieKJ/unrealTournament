@@ -12,10 +12,6 @@
 #define SORTTHREADGROUP_SIZEY 1
 #endif
 
-#ifndef NUM_CONE_DIRECTIONS
-#define NUM_CONE_DIRECTIONS 1
-#endif
-
 #ifndef CONE_TRACE_PHASE
 #define CONE_TRACE_PHASE -1
 #endif
@@ -23,14 +19,34 @@
 // Must match C++
 #define NUM_CONE_STEPS 10
 
-float AOMaxDistance;
+// Must match C++
+#define NUM_CONE_DIRECTIONS 9
+
+// Must match C++
+#define AO_DOWNSAMPLE_FACTOR 2
+
+float AOObjectMaxDistance;
 float AOStepScale;
 float AOStepExponentScale;
 float AOMaxViewDistance;
 
-#define NUM_CULLED_OBJECT_LISTS 3
+float AOGlobalMaxOcclusionDistance;
 
-#define FADE_RECORDS_OVER_TIME 0
+// Gives the max occlusion distance regardless of whether the global distance field is in use
+float GetAOMaxDistance()
+{
+	return max(AOObjectMaxDistance, AOGlobalMaxOcclusionDistance);
+}
+
+#define USE_DEPTH_RANGE_LISTS 1
+
+#if USE_DEPTH_RANGE_LISTS
+	// One for near, one for far
+	#define NUM_CULLED_OBJECT_LISTS 2
+#else
+	// Objects are culled into one of 3 lists based on depth from the tile
+	#define NUM_CULLED_OBJECT_LISTS 3
+#endif
 
 void GetPhaseParameters(uint Phase, out uint StartIndex, out uint EndIndex)
 {
@@ -57,24 +73,18 @@ float GetStepOffset(float StepIndex)
 }
 
 Buffer<uint> TileHeadDataUnpacked;
-Buffer<uint4> TileHeadData;
 Buffer<uint> TileArrayData;
 uint2 TileListGroupSize;
-
-#define UNPACKED_TILE_HEAD 1
  
 uint4 GetTileHead(uint2 TileCoordinate) 
 { 
 	uint TileIndex = TileCoordinate.y * TileListGroupSize.x + TileCoordinate.x;
-#if UNPACKED_TILE_HEAD
+
 	return uint4(
 		TileHeadDataUnpacked[TileIndex * 4 + 0], 
 		min(TileHeadDataUnpacked[TileIndex * 4 + 1], (uint)MAX_OBJECTS_PER_TILE),
 		min(TileHeadDataUnpacked[TileIndex * 4 + 2], (uint)MAX_OBJECTS_PER_TILE),
 		min(TileHeadDataUnpacked[TileIndex * 4 + 3], (uint)MAX_OBJECTS_PER_TILE));
-#else
-	return TileHeadData[TileIndex];
-#endif
 }
 
 Texture2D DistanceFieldNormalTexture;
@@ -82,8 +92,8 @@ SamplerState DistanceFieldNormalSampler;
 
 float4 EncodeDownsampledGBuffer(FGBufferData GBufferData, float SceneDepth)
 {
-	float DepthSign = GBufferData.HasDistanceFieldRepresentation > 0 ? 1 : -1;
-	float ZSign = GBufferData.HasHeightfieldRepresentation > 0 ? 1 : -1;
+	float DepthSign = HasDistanceFieldRepresentation(GBufferData) > 0 ? 1 : -1;
+	float ZSign = HasHeightfieldRepresentation(GBufferData)> 0 ? 1 : -1;
 	float ZChannel = GBufferData.WorldNormal.z > 0 ? .5f : 1;
 	float4 OutValue = float4(GBufferData.WorldNormal.xy, ZChannel * ZSign, DepthSign * SceneDepth);
 	return OutValue;
@@ -183,4 +193,110 @@ float3 ComputeBentNormal(float3 RecordWorldNormal, uint RelativeRecordIndex)
 	UnoccludedDirection = UnoccludedDirection * (BentNormalNormalizeFactor * InvNumSamples);
 
 	return UnoccludedDirection;
+}
+
+#ifndef CULLED_TILE_SIZEX
+#define CULLED_TILE_SIZEX 4
+#endif
+
+#ifndef TRACE_DOWNSAMPLE_FACTOR
+#define TRACE_DOWNSAMPLE_FACTOR 1
+#endif
+
+uint2 ScreenGridConeVisibilitySize;
+float2 JitterOffset;
+
+uint2 ComputeTileCoordinateFromScreenGrid(uint2 OutputCoordinate)
+{
+	uint2 TileCoordinate = OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR / CULLED_TILE_SIZEX;
+	return TileCoordinate;
+}
+
+float2 GetBaseLevelScreenUVFromScreenGrid(uint2 OutputCoordinate)
+{
+	float2 BaseLevelScreenUV = (OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR + JitterOffset + float2(.5f, .5f)) * BaseLevelTexelSize;
+	return BaseLevelScreenUV;
+}
+
+float2 GetScreenUVFromScreenGrid(uint2 OutputCoordinate)
+{
+	float2 ScreenUV = ((OutputCoordinate * TRACE_DOWNSAMPLE_FACTOR + JitterOffset) * AO_DOWNSAMPLE_FACTOR + View.ViewRectMin.xy + float2(.5f, .5f)) * View.BufferSizeAndInvSize.zw;
+	return ScreenUV;
+}
+
+RWBuffer<uint> RWTileHeadDataUnpacked;
+RWBuffer<uint> RWTileArrayData;
+
+/** Used for object <-> tile culling */
+void IntersectObjectWithConeDepthRange(
+	float3 TileConeVertex, 
+	float3 TileConeAxis, 
+	float TileConeAngleCos, 
+	float TileConeAngleSin, 
+	float2 ConeDepthRange, 
+	float2 ConeAxisDistanceMinMax, 
+	uint TileIndex, 
+	uint ListIndex, 
+	uint ObjectIndex,
+	uint TotalNumGroups)
+{
+	BRANCH
+	if (ConeAxisDistanceMinMax.x > ConeDepthRange.x && ConeAxisDistanceMinMax.y < ConeDepthRange.y)
+	{
+#define USE_DISTANCE_FIELD_FOR_OBJECT_CULLING 1
+#if USE_DISTANCE_FIELD_FOR_OBJECT_CULLING
+		// Use the position halfway between the depth ranges as the center for the bounding sphere of this tile depth range
+		float3 ViewTileBoundingSphereCenter = TileConeVertex + TileConeAxis * (.5f * (ConeDepthRange.x + ConeDepthRange.y));
+		float3 WorldTileBoundingSphereCenter = mul(float4(ViewTileBoundingSphereCenter.xyz, 1), View.ViewToTranslatedWorld).xyz - View.PreViewTranslation.xyz;
+		float DistanceAlongAxis = .5f * (ConeDepthRange.x - ConeDepthRange.y);
+		float FarDepthDistanceToEdgeOfCone = ConeDepthRange.y * TileConeAngleSin / TileConeAngleCos;
+		float TileBoundingSphereRadius = sqrt(DistanceAlongAxis * DistanceAlongAxis + FarDepthDistanceToEdgeOfCone * FarDepthDistanceToEdgeOfCone);
+
+		float3 LocalPositionExtent = LoadObjectLocalPositionExtent(ObjectIndex);
+		float4x4 WorldToVolume = LoadObjectWorldToVolume(ObjectIndex);
+		bool bGeneratedAsTwoSided;
+		float4 UVScaleAndVolumeScale = LoadObjectUVScale(ObjectIndex, bGeneratedAsTwoSided);
+		float3 VolumeTileBoundingSphereCenter = mul(float4(WorldTileBoundingSphereCenter, 1), WorldToVolume).xyz;
+		float BoxDistance = ComputeDistanceFromBoxToPoint(-LocalPositionExtent, LocalPositionExtent, VolumeTileBoundingSphereCenter) * UVScaleAndVolumeScale.w;
+
+		BRANCH
+		if (BoxDistance < TileBoundingSphereRadius + AOObjectMaxDistance)
+		{
+			float3 UVAdd = LoadObjectUVAdd(ObjectIndex);
+
+			float3 ClampedSamplePosition = clamp(VolumeTileBoundingSphereCenter, -LocalPositionExtent, LocalPositionExtent);
+			float DistanceToClamped = length(VolumeTileBoundingSphereCenter - ClampedSamplePosition);
+
+			float3 StepVolumeUV = DistanceFieldVolumePositionToUV(ClampedSamplePosition, UVScaleAndVolumeScale.xyz, UVAdd);
+			float DistanceToOccluder = (Texture3DSampleLevel(DistanceFieldTexture, DistanceFieldSampler, StepVolumeUV, 0).x + DistanceToClamped) * UVScaleAndVolumeScale.w;
+
+			BRANCH
+			if (DistanceToOccluder < TileBoundingSphereRadius + AOObjectMaxDistance)
+			{
+				uint ArrayIndex;
+				InterlockedAdd(RWTileHeadDataUnpacked[TileIndex * 4 + 1 + ListIndex], 1U, ArrayIndex);
+
+				if (ArrayIndex < MAX_OBJECTS_PER_TILE)
+				{
+					// Note: indexing so that threads are writing to RWTileArrayData coherently, has a huge impact on speed, even though the array data for one record is no longer dense
+					uint DataIndex = (ArrayIndex * TotalNumGroups + TileIndex) * NUM_CULLED_OBJECT_LISTS + ListIndex;
+
+					RWTileArrayData[DataIndex] = ObjectIndex;
+				}
+			}
+		}
+#else
+		uint ListIndex = 0;
+		uint ArrayIndex;
+		InterlockedAdd(RWTileHeadDataUnpacked[TileIndex * 4 + 1 + ListIndex], 1U, ArrayIndex);
+
+		if (ArrayIndex < MAX_OBJECTS_PER_TILE)
+		{
+			// Note: indexing so that threads are writing to RWTileArrayData coherently, has a huge impact on speed, even though the array data for one record is no longer dense
+			uint DataIndex = (ArrayIndex * TotalNumGroups + TileIndex) * NUM_CULLED_OBJECT_LISTS + ListIndex;
+
+			RWTileArrayData[DataIndex] = ObjectIndex;
+		}
+#endif
+	}
 }

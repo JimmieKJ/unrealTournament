@@ -18,9 +18,9 @@ class USoundNodeWaveParam : public USoundNode
 
 
 public:	
-	// Begin USoundNode Interface
+	//~ Begin USoundNode Interface
 	virtual float GetDuration( void ) override;
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	// End USoundNode Interface
+	//~ End USoundNode Interface
 };
 

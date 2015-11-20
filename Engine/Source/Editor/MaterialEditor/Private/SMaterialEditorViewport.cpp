@@ -16,12 +16,17 @@
 #include "Engine/Selection.h"
 #include "Engine/TextureCube.h"
 #include "ComponentAssetBroker.h"
+#include "SlateMaterialBrush.h"
+#include "SNumericEntryBox.h"
+
+
+#define LOCTEXT_NAMESPACE "MaterialEditor"
 
 /** Viewport Client for the preview viewport */
 class FMaterialEditorViewportClient : public FEditorViewportClient
 {
 public:
-	FMaterialEditorViewportClient(TWeakPtr<IMaterialEditor> InMaterialEditor, FPreviewScene& InPreviewScene, const TSharedRef<SMaterialEditorViewport>& InMaterialEditorViewport);
+	FMaterialEditorViewportClient(TWeakPtr<IMaterialEditor> InMaterialEditor, FPreviewScene& InPreviewScene, const TSharedRef<SMaterialEditor3DPreviewViewport>& InMaterialEditorViewport);
 
 	// FEditorViewportClient interface
 	virtual FLinearColor GetBackgroundColor() const override;
@@ -46,7 +51,7 @@ private:
 	TWeakPtr<IMaterialEditor> MaterialEditorPtr;
 };
 
-FMaterialEditorViewportClient::FMaterialEditorViewportClient(TWeakPtr<IMaterialEditor> InMaterialEditor, FPreviewScene& InPreviewScene, const TSharedRef<SMaterialEditorViewport>& InMaterialEditorViewport)
+FMaterialEditorViewportClient::FMaterialEditorViewportClient(TWeakPtr<IMaterialEditor> InMaterialEditor, FPreviewScene& InPreviewScene, const TSharedRef<SMaterialEditor3DPreviewViewport>& InMaterialEditorViewport)
 	: FEditorViewportClient(nullptr, &InPreviewScene, StaticCastSharedRef<SEditorViewport>(InMaterialEditorViewport))
 	, MaterialEditorPtr(InMaterialEditor)
 {
@@ -64,6 +69,7 @@ FMaterialEditorViewportClient::FMaterialEditorViewportClient(TWeakPtr<IMaterialE
 	
 	EngineShowFlags.DisableAdvancedFeatures();
 	EngineShowFlags.SetSnap(0);
+	EngineShowFlags.SetSeparateTranslucency(true);
 
 	OverrideNearClipPlane(1.0f);
 	bUsingOrbitCamera = true;
@@ -108,17 +114,20 @@ bool FMaterialEditorViewportClient::ShouldOrbitCamera() const
 FLinearColor FMaterialEditorViewportClient::GetBackgroundColor() const
 {
 	FLinearColor BackgroundColor = FLinearColor::Black;
-	UMaterialInterface* MaterialInterface = MaterialEditorPtr.Pin()->GetMaterialInterface();
-	if (MaterialInterface)
+	if( MaterialEditorPtr.IsValid() )
 	{
-		const EBlendMode PreviewBlendMode = (EBlendMode)MaterialInterface->GetBlendMode();
-		if (PreviewBlendMode == BLEND_Modulate)
+		UMaterialInterface* MaterialInterface = MaterialEditorPtr.Pin()->GetMaterialInterface();
+		if(MaterialInterface)
 		{
-			BackgroundColor = FLinearColor::White;
-		}
-		else if (PreviewBlendMode == BLEND_Translucent)
-		{
-			BackgroundColor = FColor(64, 64, 64);
+			const EBlendMode PreviewBlendMode = (EBlendMode)MaterialInterface->GetBlendMode();
+			if(PreviewBlendMode == BLEND_Modulate)
+			{
+				BackgroundColor = FLinearColor::White;
+			}
+			else if(PreviewBlendMode == BLEND_Translucent)
+			{
+				BackgroundColor = FColor(64, 64, 64);
+			}
 		}
 	}
 	return BackgroundColor;
@@ -182,7 +191,7 @@ void FMaterialEditorViewportClient::FocusViewportOnBounds(const FBoxSphereBounds
 	Invalidate();
 }
 
-void SMaterialEditorViewport::Construct(const FArguments& InArgs)
+void SMaterialEditor3DPreviewViewport::Construct(const FArguments& InArgs)
 {
 	MaterialEditorPtr = InArgs._MaterialEditor;
 
@@ -198,7 +207,8 @@ void SMaterialEditorViewport::Construct(const FArguments& InArgs)
 	PreviewMaterial = nullptr;
 	PreviewMeshComponent = nullptr;
 
-	if (UMaterialInterface* Material = MaterialEditorPtr.Pin()->GetMaterialInterface())
+	UMaterialInterface* Material = MaterialEditorPtr.Pin()->GetMaterialInterface();
+	if (Material)
 	{
 		SetPreviewMaterial(Material);
 	}
@@ -206,7 +216,7 @@ void SMaterialEditorViewport::Construct(const FArguments& InArgs)
 	SetPreviewAsset( GUnrealEd->GetThumbnailManager()->EditorSphere );
 }
 
-SMaterialEditorViewport::~SMaterialEditorViewport()
+SMaterialEditor3DPreviewViewport::~SMaterialEditor3DPreviewViewport()
 {
 	if (PreviewMeshComponent != nullptr)
 	{
@@ -219,13 +229,13 @@ SMaterialEditorViewport::~SMaterialEditorViewport()
 	}
 }
 
-void SMaterialEditorViewport::AddReferencedObjects( FReferenceCollector& Collector )
+void SMaterialEditor3DPreviewViewport::AddReferencedObjects( FReferenceCollector& Collector )
 {
 	Collector.AddReferencedObject( PreviewMeshComponent );
 	Collector.AddReferencedObject( PreviewMaterial );
 }
 
-void SMaterialEditorViewport::RefreshViewport()
+void SMaterialEditor3DPreviewViewport::RefreshViewport()
 {
 	// reregister the preview components, so if the preview material changed it will be propagated to the render thread
 	if (PreviewMeshComponent != nullptr)
@@ -235,7 +245,7 @@ void SMaterialEditorViewport::RefreshViewport()
 	SceneViewport->InvalidateDisplay();
 }
 
-bool SMaterialEditorViewport::SetPreviewAsset(UObject* InAsset)
+bool SMaterialEditor3DPreviewViewport::SetPreviewAsset(UObject* InAsset)
 {
 	if (!MaterialEditorPtr.Pin()->ApproveSetPreviewAsset(InAsset))
 	{
@@ -311,7 +321,7 @@ bool SMaterialEditorViewport::SetPreviewAsset(UObject* InAsset)
 	return (PreviewMeshComponent != nullptr);
 }
 
-bool SMaterialEditorViewport::SetPreviewAssetByName(const TCHAR* InAssetName)
+bool SMaterialEditor3DPreviewViewport::SetPreviewAssetByName(const TCHAR* InAssetName)
 {
 	bool bSuccess = false;
 	if ((InAssetName != nullptr) && (*InAssetName != 0))
@@ -324,7 +334,7 @@ bool SMaterialEditorViewport::SetPreviewAssetByName(const TCHAR* InAssetName)
 	return bSuccess;
 }
 
-void SMaterialEditorViewport::SetPreviewMaterial(UMaterialInterface* InMaterialInterface)
+void SMaterialEditor3DPreviewViewport::SetPreviewMaterial(UMaterialInterface* InMaterialInterface)
 {
 	PreviewMaterial = InMaterialInterface;
 
@@ -335,17 +345,17 @@ void SMaterialEditorViewport::SetPreviewMaterial(UMaterialInterface* InMaterialI
 	}
 }
 
-void SMaterialEditorViewport::OnAddedToTab( const TSharedRef<SDockTab>& OwnerTab )
+void SMaterialEditor3DPreviewViewport::OnAddedToTab( const TSharedRef<SDockTab>& OwnerTab )
 {
 	ParentTab = OwnerTab;
 }
 
-bool SMaterialEditorViewport::IsVisible() const
+bool SMaterialEditor3DPreviewViewport::IsVisible() const
 {
 	return ViewportWidget.IsValid() && (!ParentTab.IsValid() || ParentTab.Pin()->IsForeground()) && SEditorViewport::IsVisible() ;
 }
 
-void SMaterialEditorViewport::BindCommands()
+void SMaterialEditor3DPreviewViewport::BindCommands()
 {
 	SEditorViewport::BindCommands();
 
@@ -357,48 +367,48 @@ void SMaterialEditorViewport::BindCommands()
 	// Add the commands to the toolkit command list so that the toolbar buttons can find them
 	CommandList->MapAction(
 		Commands.SetCylinderPreview,
-		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewPrimitive, TPT_Cylinder ),
+		FExecuteAction::CreateSP( this, &SMaterialEditor3DPreviewViewport::OnSetPreviewPrimitive, TPT_Cylinder ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewPrimitiveChecked, TPT_Cylinder ) );
+		FIsActionChecked::CreateSP( this, &SMaterialEditor3DPreviewViewport::IsPreviewPrimitiveChecked, TPT_Cylinder ) );
 
 	CommandList->MapAction(
 		Commands.SetSpherePreview,
-		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewPrimitive, TPT_Sphere ),
+		FExecuteAction::CreateSP( this, &SMaterialEditor3DPreviewViewport::OnSetPreviewPrimitive, TPT_Sphere ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewPrimitiveChecked, TPT_Sphere ) );
+		FIsActionChecked::CreateSP( this, &SMaterialEditor3DPreviewViewport::IsPreviewPrimitiveChecked, TPT_Sphere ) );
 
 	CommandList->MapAction(
 		Commands.SetPlanePreview,
-		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewPrimitive, TPT_Plane ),
+		FExecuteAction::CreateSP( this, &SMaterialEditor3DPreviewViewport::OnSetPreviewPrimitive, TPT_Plane ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewPrimitiveChecked, TPT_Plane ) );
+		FIsActionChecked::CreateSP( this, &SMaterialEditor3DPreviewViewport::IsPreviewPrimitiveChecked, TPT_Plane ) );
 
 	CommandList->MapAction(
 		Commands.SetCubePreview,
-		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewPrimitive, TPT_Cube ),
+		FExecuteAction::CreateSP( this, &SMaterialEditor3DPreviewViewport::OnSetPreviewPrimitive, TPT_Cube ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewPrimitiveChecked, TPT_Cube ) );
+		FIsActionChecked::CreateSP( this, &SMaterialEditor3DPreviewViewport::IsPreviewPrimitiveChecked, TPT_Cube ) );
 
 	CommandList->MapAction(
 		Commands.SetPreviewMeshFromSelection,
-		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::OnSetPreviewMeshFromSelection ),
+		FExecuteAction::CreateSP( this, &SMaterialEditor3DPreviewViewport::OnSetPreviewMeshFromSelection ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsPreviewMeshFromSelectionChecked ) );
+		FIsActionChecked::CreateSP( this, &SMaterialEditor3DPreviewViewport::IsPreviewMeshFromSelectionChecked ) );
 
 	CommandList->MapAction(
 		Commands.TogglePreviewGrid,
-		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::TogglePreviewGrid ),
+		FExecuteAction::CreateSP( this, &SMaterialEditor3DPreviewViewport::TogglePreviewGrid ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsTogglePreviewGridChecked ) );
+		FIsActionChecked::CreateSP( this, &SMaterialEditor3DPreviewViewport::IsTogglePreviewGridChecked ) );
 
 	CommandList->MapAction(
 		Commands.TogglePreviewBackground,
-		FExecuteAction::CreateSP( this, &SMaterialEditorViewport::TogglePreviewBackground ),
+		FExecuteAction::CreateSP( this, &SMaterialEditor3DPreviewViewport::TogglePreviewBackground ),
 		FCanExecuteAction(),
-		FIsActionChecked::CreateSP( this, &SMaterialEditorViewport::IsTogglePreviewBackgroundChecked ) );
+		FIsActionChecked::CreateSP( this, &SMaterialEditor3DPreviewViewport::IsTogglePreviewBackgroundChecked ) );
 }
 
-void SMaterialEditorViewport::OnFocusViewportToSelection()
+void SMaterialEditor3DPreviewViewport::OnFocusViewportToSelection()
 {
 	if( PreviewMeshComponent != nullptr )
 	{
@@ -406,7 +416,7 @@ void SMaterialEditorViewport::OnFocusViewportToSelection()
 	}
 }
 
-void SMaterialEditorViewport::OnSetPreviewPrimitive(EThumbnailPrimType PrimType)
+void SMaterialEditor3DPreviewViewport::OnSetPreviewPrimitive(EThumbnailPrimType PrimType)
 {
 	if (SceneViewport.IsValid())
 	{
@@ -427,12 +437,12 @@ void SMaterialEditorViewport::OnSetPreviewPrimitive(EThumbnailPrimType PrimType)
 	}
 }
 
-bool SMaterialEditorViewport::IsPreviewPrimitiveChecked(EThumbnailPrimType PrimType) const
+bool SMaterialEditor3DPreviewViewport::IsPreviewPrimitiveChecked(EThumbnailPrimType PrimType) const
 {
 	return PreviewPrimType == PrimType;
 }
 
-void SMaterialEditorViewport::OnSetPreviewMeshFromSelection()
+void SMaterialEditor3DPreviewViewport::OnSetPreviewMeshFromSelection()
 {
 	bool bFoundPreviewMesh = false;
 	FEditorDelegates::LoadSelectedAssetsIfNeeded.Broadcast();
@@ -485,51 +495,51 @@ void SMaterialEditorViewport::OnSetPreviewMeshFromSelection()
 	}
 }
 
-bool SMaterialEditorViewport::IsPreviewMeshFromSelectionChecked() const
+bool SMaterialEditor3DPreviewViewport::IsPreviewMeshFromSelectionChecked() const
 {
 	return (PreviewPrimType == TPT_None && PreviewMeshComponent != nullptr);
 }
 
-void SMaterialEditorViewport::TogglePreviewGrid()
+void SMaterialEditor3DPreviewViewport::TogglePreviewGrid()
 {
 	bShowGrid = !bShowGrid;
 	EditorViewportClient->SetShowGrid(bShowGrid);
 	RefreshViewport();
 }
 
-bool SMaterialEditorViewport::IsTogglePreviewGridChecked() const
+bool SMaterialEditor3DPreviewViewport::IsTogglePreviewGridChecked() const
 {
 	return bShowGrid;
 }
 
-void SMaterialEditorViewport::TogglePreviewBackground()
+void SMaterialEditor3DPreviewViewport::TogglePreviewBackground()
 {
 	bShowBackground = !bShowBackground;
 	// @todo DB: Set the background mesh for the preview viewport.
 	RefreshViewport();
 }
 
-bool SMaterialEditorViewport::IsTogglePreviewBackgroundChecked() const
+bool SMaterialEditor3DPreviewViewport::IsTogglePreviewBackgroundChecked() const
 {
 	return bShowBackground;
 }
 
-TSharedRef<class SEditorViewport> SMaterialEditorViewport::GetViewportWidget()
+TSharedRef<class SEditorViewport> SMaterialEditor3DPreviewViewport::GetViewportWidget()
 {
 	return SharedThis(this);
 }
 
-TSharedPtr<FExtender> SMaterialEditorViewport::GetExtenders() const
+TSharedPtr<FExtender> SMaterialEditor3DPreviewViewport::GetExtenders() const
 {
 	TSharedPtr<FExtender> Result(MakeShareable(new FExtender));
 	return Result;
 }
 
-void SMaterialEditorViewport::OnFloatingButtonClicked()
+void SMaterialEditor3DPreviewViewport::OnFloatingButtonClicked()
 {
 }
 
-TSharedRef<FEditorViewportClient> SMaterialEditorViewport::MakeEditorViewportClient() 
+TSharedRef<FEditorViewportClient> SMaterialEditor3DPreviewViewport::MakeEditorViewportClient() 
 {
 	EditorViewportClient = MakeShareable( new FMaterialEditorViewportClient(MaterialEditorPtr, PreviewScene, SharedThis(this)) );
 	
@@ -539,12 +549,12 @@ TSharedRef<FEditorViewportClient> SMaterialEditorViewport::MakeEditorViewportCli
 	EditorViewportClient->bSetListenerPosition = false;
 
 	EditorViewportClient->SetRealtime( false );
-	EditorViewportClient->VisibilityDelegate.BindSP( this, &SMaterialEditorViewport::IsVisible );
+	EditorViewportClient->VisibilityDelegate.BindSP( this, &SMaterialEditor3DPreviewViewport::IsVisible );
 
 	return EditorViewportClient.ToSharedRef();
 }
 
-void SMaterialEditorViewport::PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay)
+void SMaterialEditor3DPreviewViewport::PopulateViewportOverlays(TSharedRef<class SOverlay> Overlay)
 {
 	Overlay->AddSlot()
 		.VAlign(VAlign_Top)
@@ -559,7 +569,7 @@ void SMaterialEditorViewport::PopulateViewportOverlays(TSharedRef<class SOverlay
 		];
 }
 
-EVisibility SMaterialEditorViewport::OnGetViewportContentVisibility() const
+EVisibility SMaterialEditor3DPreviewViewport::OnGetViewportContentVisibility() const
 {
 	EVisibility BaseVisibility = SEditorViewport::OnGetViewportContentVisibility();
 	if (BaseVisibility != EVisibility::Visible)
@@ -568,3 +578,237 @@ EVisibility SMaterialEditorViewport::OnGetViewportContentVisibility() const
 	}
 	return IsVisible() ? EVisibility::Visible : EVisibility::Collapsed;
 }
+
+class SMaterialEditorUIPreviewZoomer : public SPanel
+{
+public:
+
+	class FMaterialPreviewPanelSlot : public TSupportsOneChildMixin<FMaterialPreviewPanelSlot>
+	{
+	public:
+		FMaterialPreviewPanelSlot()
+			: TSupportsOneChildMixin<FMaterialPreviewPanelSlot>()
+		{
+		}
+	};
+
+	SLATE_BEGIN_ARGS(SMaterialEditorUIPreviewViewport){}
+	SLATE_END_ARGS()
+
+	SMaterialEditorUIPreviewZoomer()
+	{
+	}
+
+	void Construct( const FArguments& InArgs, UMaterialInterface* InPreviewMaterial );
+
+	virtual void OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const override;
+	virtual FVector2D ComputeDesiredSize(float) const override;
+	virtual FChildren* GetChildren() override;
+	virtual FReply OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
+	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
+
+	bool ZoomBy( const float Amount );
+	float GetZoomLevel() const;
+
+	void SetPreviewSize( const FVector2D PreviewSize );
+private:
+	mutable FVector2D CachedSize;
+	float ZoomLevel;
+
+	FMaterialPreviewPanelSlot ChildSlot;
+	TSharedPtr<FSlateMaterialBrush> PreviewBrush;
+};
+
+
+void SMaterialEditorUIPreviewZoomer::Construct( const FArguments& InArgs, UMaterialInterface* InPreviewMaterial )
+{
+	PreviewBrush = MakeShareable( new FSlateMaterialBrush( *InPreviewMaterial, FVector2D(250,250) ) );
+
+	ChildSlot
+	[
+		SNew( SImage )
+		.Image( PreviewBrush.Get() )
+	];
+
+	ZoomLevel = 1.0f;
+}
+
+void SMaterialEditorUIPreviewZoomer::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const 
+{
+	CachedSize = AllottedGeometry.GetLocalSize();
+
+	const TSharedRef<SWidget>& ChildWidget = ChildSlot.GetWidget();
+	if( ChildWidget->GetVisibility() != EVisibility::Collapsed )
+	{
+		const FVector2D& WidgetDesiredSize = ChildWidget->GetDesiredSize();
+
+		ArrangedChildren.AddWidget(AllottedGeometry.MakeChild(ChildWidget, FVector2D::ZeroVector, WidgetDesiredSize * ZoomLevel));
+	}
+}
+
+FVector2D SMaterialEditorUIPreviewZoomer::ComputeDesiredSize(float) const
+{
+	FVector2D ThisDesiredSize = FVector2D::ZeroVector;
+
+	const TSharedRef<SWidget>& ChildWidget = ChildSlot.GetWidget();
+	if( ChildWidget->GetVisibility() != EVisibility::Collapsed )
+	{
+		ThisDesiredSize = ChildWidget->GetDesiredSize() * ZoomLevel;
+	}
+
+	return ThisDesiredSize;
+}
+
+FChildren* SMaterialEditorUIPreviewZoomer::GetChildren()
+{
+	return &ChildSlot;
+}
+
+FReply SMaterialEditorUIPreviewZoomer::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	 ZoomBy(MouseEvent.GetWheelDelta());
+
+	 return FReply::Handled();
+}
+
+int32 SMaterialEditorUIPreviewZoomer::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
+{
+	LayerId = SPanel::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
+	return LayerId;
+}
+
+bool SMaterialEditorUIPreviewZoomer::ZoomBy( const float Amount )
+{
+	static const float MinZoomLevel = 0.2f;
+	static const float MaxZoomLevel = 4.0f;
+
+	const float PrevZoomLevel = ZoomLevel;
+	ZoomLevel = FMath::Clamp(ZoomLevel + (Amount * 0.05f), MinZoomLevel, MaxZoomLevel);
+	return ZoomLevel != PrevZoomLevel;
+}
+
+float SMaterialEditorUIPreviewZoomer::GetZoomLevel() const
+{
+	return ZoomLevel;
+}
+
+
+void SMaterialEditorUIPreviewZoomer::SetPreviewSize( const FVector2D PreviewSize )
+{
+	PreviewBrush->ImageSize = PreviewSize;
+}
+
+
+void SMaterialEditorUIPreviewViewport::Construct( const FArguments& InArgs, UMaterialInterface* PreviewMaterial )
+{
+
+	ChildSlot
+	[
+		SNew( SVerticalBox )
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		[
+			SNew( SBorder )
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Top)
+			.BorderImage( FEditorStyle::GetBrush("ToolPanel.GroupBorder") )
+			[
+				SNew( SHorizontalBox )
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.Padding( 3.f )
+				.AutoWidth()
+				[
+					SNew( STextBlock )
+					.Text( LOCTEXT("PreviewSize", "Preview Size" ) )
+				]
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.Padding( 3.f )
+				.MaxWidth( 75 )
+				[
+					SNew( SNumericEntryBox<int32> )
+					.AllowSpin( true )
+					.MinValue(1)
+					.MaxSliderValue( 4096 )
+					.OnValueChanged( this, &SMaterialEditorUIPreviewViewport::OnPreviewXChanged )
+					.OnValueCommitted( this, &SMaterialEditorUIPreviewViewport::OnPreviewXCommitted )
+					.Value( this, &SMaterialEditorUIPreviewViewport::OnGetPreviewXValue )
+					.MinDesiredValueWidth( 75 )
+					.Label()
+					[	
+						SNew( SBox )
+						.VAlign( VAlign_Center )
+						[
+							SNew( STextBlock )
+							.Text( LOCTEXT("PreviewSize_X", "X") )
+						]
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.Padding( 3.f )
+				.MaxWidth( 75 )
+				[
+					SNew( SNumericEntryBox<int32> )
+					.AllowSpin( true )
+					.MinValue(1)
+					.MaxSliderValue( 4096 )
+					.MinDesiredValueWidth( 75 )
+					.OnValueChanged( this, &SMaterialEditorUIPreviewViewport::OnPreviewYChanged )
+					.OnValueCommitted( this, &SMaterialEditorUIPreviewViewport::OnPreviewYCommitted )
+					.Value( this, &SMaterialEditorUIPreviewViewport::OnGetPreviewYValue )
+					.Label()
+					[	
+						SNew( SBox )
+						.VAlign( VAlign_Center )
+						[
+							SNew( STextBlock )
+							.Text( LOCTEXT("PreviewSize_Y", "Y") )
+						]
+					]
+				]
+			]
+		]
+		+ SVerticalBox::Slot()
+		[
+			SNew( SBorder )
+			.HAlign( HAlign_Center )
+			.VAlign( VAlign_Center )
+			.BorderImage( FEditorStyle::GetBrush("BlackBrush") )
+			[
+				SAssignNew( PreviewZoomer, SMaterialEditorUIPreviewZoomer, PreviewMaterial )
+			]
+		]
+	];
+
+	PreviewSize = FIntPoint(250,250);
+	PreviewZoomer->SetPreviewSize( FVector2D(PreviewSize) );
+}
+
+void SMaterialEditorUIPreviewViewport::OnPreviewXChanged( int32 NewValue )
+{
+	PreviewSize.X = NewValue;
+	PreviewZoomer->SetPreviewSize( FVector2D( PreviewSize ) );
+
+}
+
+void SMaterialEditorUIPreviewViewport::OnPreviewXCommitted( int32 NewValue, ETextCommit::Type )
+{
+	OnPreviewXChanged( NewValue );
+}
+
+
+void SMaterialEditorUIPreviewViewport::OnPreviewYChanged( int32 NewValue )
+{
+	PreviewSize.Y = NewValue;
+	PreviewZoomer->SetPreviewSize( FVector2D( PreviewSize ) );
+
+}
+
+void SMaterialEditorUIPreviewViewport::OnPreviewYCommitted( int32 NewValue, ETextCommit::Type )
+{
+	OnPreviewYChanged( NewValue );
+}
+
+#undef LOCTEXT_NAMESPACE

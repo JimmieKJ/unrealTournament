@@ -1,4 +1,5 @@
 @ECHO OFF
+
 REM
 REM winrtbuild.bat: a batch file to help launch the winrtbuild.ps1
 REM   Powershell script, either from Windows Explorer, or through Buildbot.

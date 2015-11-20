@@ -35,6 +35,8 @@ class GAMEPLAYABILITIES_API UGameplayCueNotify_Static : public UObject
 
 	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
 
+	UWorld* GetWorld() const override;
+
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
@@ -55,7 +57,7 @@ class GAMEPLAYABILITIES_API UGameplayCueNotify_Static : public UObject
 	UFUNCTION(BlueprintNativeEvent, BlueprintPure, Category = "GameplayCueNotify")
 	bool OnRemove(AActor* MyTarget, FGameplayCueParameters Parameters) const;
 
-	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	UPROPERTY(EditDefaultsOnly, Category = GameplayCue, meta=(Categories="GameplayCue"))
 	FGameplayTag	GameplayCueTag;
 
 	/** Mirrors GameplayCueTag in order to be asset registry searchable */

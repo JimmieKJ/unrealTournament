@@ -2,6 +2,7 @@
 
 #include "KismetWidgetsPrivatePCH.h"
 #include "SKismetLinearExpression.h"
+#include "K2Node_VariableGet.h"
 
 #define LOCTEXT_NAMESPACE "KismetLinearExpression"
 

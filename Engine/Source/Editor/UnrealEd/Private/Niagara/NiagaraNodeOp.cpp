@@ -4,6 +4,8 @@
 #include "BlueprintGraphDefinitions.h"
 #include "GraphEditorSettings.h"
 
+#define LOCTEXT_NAMESPACE "NiagaraNodeOp"
+
 UNiagaraNodeOp::UNiagaraNodeOp(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -123,22 +125,42 @@ void UNiagaraNodeOp::Compile(class INiagaraCompiler* Compiler, TArray<FNiagaraNo
 	int32 NumOutputs = OpInfo->Outputs.Num();
 
 	TArray<TNiagaraExprPtr> Inputs;
+	bool bError = false;
 	for (int32 i = 0; i < NumInputs; ++i)
 	{
 		UEdGraphPin *Pin = Pins[i];
 		check(Pin->Direction == EGPD_Input);
-		Inputs.Add(Compiler->CompilePin(Pin));
+		TNiagaraExprPtr InputExpr = Compiler->CompilePin(Pin);
+		if (!InputExpr.IsValid())
+		{
+			bError = true;
+			FFormatNamedArguments Args;
+			Args.Add(TEXT("OpName"), GetNodeTitle(ENodeTitleType::FullTitle));
+			FText Format = LOCTEXT("InputErrorFormat", "Error compiling input on {OpName} node.");
+			Compiler->Error(FText::Format(Format, Args), this, Pin);
+		}
+		Inputs.Add(InputExpr);
 	}
 	
 	TArray<TNiagaraExprPtr> OutputExpressions;
-	OpInfo->OpDelegate.Execute(Compiler, Inputs, OutputExpressions);
-
-	check( OutputExpressions.Num() == OpInfo->Outputs.Num() );
-
-	for (int32 i = 0; i < NumOutputs; ++i)
+	if ( !bError && OpInfo->OpDelegate.Execute(Compiler, Inputs, OutputExpressions))
 	{
-		UEdGraphPin *Pin = Pins[NumInputs + i];
-		check(Pin->Direction == EGPD_Output);
-		Outputs.Add(FNiagaraNodeResult(OutputExpressions[i], Pin));
+		check(OutputExpressions.Num() == OpInfo->Outputs.Num());
+
+		for (int32 i = 0; i < NumOutputs; ++i)
+		{
+			UEdGraphPin *Pin = Pins[NumInputs + i];
+			check(Pin->Direction == EGPD_Output);
+			Outputs.Add(FNiagaraNodeResult(OutputExpressions[i], Pin));
+		}
+	}
+	else
+	{
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("OpName"), GetNodeTitle(ENodeTitleType::FullTitle));
+		FText Format = LOCTEXT("InputErrorFormat", "Error compiling {OpName} node.");
+		Compiler->Error(FText::Format(Format, Args), this, nullptr);
 	}
 }
+
+#undef LOCTEXT_NAMESPACE

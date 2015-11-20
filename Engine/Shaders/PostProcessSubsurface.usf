@@ -13,7 +13,7 @@
 
 /** one profile per line, sample set left to right: high/med/low */
 Texture2D SSProfilesTexture;
-// x:Radius*DistanceToProjectionWindow/KernelSize*0.5, y:DistanceToProjectionWindow, zw:xy scale correction for BufferSize!=ViewportSize
+// x:Radius*DistanceToProjectionWindow/KernelSize*0.5, y:DistanceToProjectionWindow, zw: unused
 float4 SSSParams;
 
 // 0: (testing, could be faster), 1: higher quality
@@ -34,57 +34,43 @@ float GetSubsurfaceStrength(float2 UV)
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
 
 	float Mask = ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE;
-
-	return Mask * ScreenSpaceData.GBuffer.Opacity;
+	return Mask * ScreenSpaceData.GBuffer.CustomData.a;
 }
 
-// 0:speculars leak into SSS / 1:requires alpha channel for scenecolor
-// #define SSSS_SPECULAR_CORRECTION 1
-
-// set by C++ for SubsurfaceRecombinePS and ExtractSpecularPS
-// #define SSS_RECOMBINE_METHOD 0:without reconstruct specular/1:with reconstruct specular
+// 0:full res (slower but reference) / 1:faster half res with some quality loss
+// #define HALF_RES 1
 
 // set by C++ for SubsurfacePS
 // #define SSS_DIRECTION 0/1
 
-// define by C++ for the setup pass
-#ifndef SETUP_MODE
-	#define SETUP_MODE 0
-#endif
-
-
-#if SETUP_MODE == 0
-	#define SSSS_SPECULAR_CORRECTION 0
-#elif SETUP_MODE == 1
-	#define SSSS_SPECULAR_CORRECTION 1
-#else
-	// doesn't matter
-	#define SSSS_SPECULAR_CORRECTION 0
-#endif
+#define	SSSS_N_KERNELSUBSURFACECOLOROFFSET 0
 
 #if SSS_SAMPLESET == 0
 	#define	SSSS_N_KERNELWEIGHTCOUNT 6
-	#define	SSSS_N_KERNELWEIGHTOFFSET (13 + 9)
+	#define	SSSS_N_KERNELWEIGHTOFFSET (1 + 13 + 9)
 #elif SSS_SAMPLESET == 1
 	#define	SSSS_N_KERNELWEIGHTCOUNT 9
-	#define	SSSS_N_KERNELWEIGHTOFFSET 13
+	#define	SSSS_N_KERNELWEIGHTOFFSET (1 + 13)
 #else // SSS_SAMPLESET == 2
 	#define	SSSS_N_KERNELWEIGHTCOUNT 13
-	#define	SSSS_N_KERNELWEIGHTOFFSET 0
+	#define	SSSS_N_KERNELWEIGHTOFFSET (1)
 #endif
 
 // 0: faster
 // 1: no color bleeding in z direction
 #define SSSS_FOLLOW_SURFACE 1
 
+// @param In needs to be in 0..1 range 
+// @return 0..1
 float4 Quantize8Bit(float4 In)
 {
 	return floor(In * 255.999f) / 255.0f;
 }
 
+// @return .rgb is the weight for color channel, .a is the sample location
 float4 GetKernel(uint SampleIndex, uint SubsurfaceProfileInt)
 {
-	const float4 TableMax = float4(1, 1, 1, 3.0f);
+	const float4 TableMax = float4(1, 1, 1, SUBSURFACE_KERNEL_SIZE);
 
 	// profiled on NV670 fullscreen, one pass (total: 2 pass), samples: 13+1+13, large object filling the screen
 
@@ -98,7 +84,6 @@ float4 GetKernel(uint SampleIndex, uint SubsurfaceProfileInt)
 	// debug if the kernal was a box filter
 //	Value.rgb = 1.0f / (SSSS_N_KERNELWEIGHTCOUNT * 2 - 1);
 
-
 	return Value;
 }
 
@@ -110,22 +95,20 @@ float GetProfileRadiusScale(FGBufferData GBufferData)
 	return GetKernel(SSSS_N_KERNELWEIGHTOFFSET + SSSS_N_KERNELWEIGHTCOUNT - 1, SubsurfaceProfileInt).a;
 }
 
+float3 GetProfileSubsurfaceColor(FGBufferData GBufferData)
+{
+	// 0..255, which SubSurface profile to pick
+	uint SubsurfaceProfileInt = ExtractSubsurfaceProfileInt(GBufferData);
+
+	return GetKernel(SSSS_N_KERNELSUBSURFACECOLOROFFSET, SubsurfaceProfileInt).rgb;
+}
+
 // from https://github.com/iryoku/separable-sss/tree/master/Demo
 // Jorge Jimenez http://www.iryoku.com/
 // http://www.iryoku.com/translucency/downloads/Real-Time-Realistic-Skin-Translucency.pdf
 #include "SeparableSSS.usf"
 
 // ------------------------------------------
-
-
-
-#if SSSS_SPECULAR_CORRECTION == 1
-	// requires alpha channel for scenecolor
-#elif SSSS_SPECULAR_CORRECTION == 0
-	// speculars leak into SSS
-#else
-	error
-#endif
 
 bool InUnitBox(float2 UV)
 {
@@ -140,9 +123,7 @@ float ComputeFullResLerp(FScreenSpaceData ScreenSpaceData, float2 UVSceneColor, 
 
 	float scale = SSSScaleX / CalcSceneDepth(UVSceneColor);
 
-	// the viewport is only a fraction of the buffersize, here we compensate for that
-	// *1024 as we store the sample distances / 1000 to allows for scaling
-	float HorizontalScaler = View.ViewSizeAndInvSize.x * View.BufferSizeAndInvSize.z * 1024.0f;
+	float HorizontalScaler = SUBSURFACE_RADIUS_SCALE;
 
 	// Calculate the final step to fetch the surrounding pixels:
 	float finalStep = scale * HorizontalScaler;
@@ -159,20 +140,20 @@ float ComputeFullResLerp(FScreenSpaceData ScreenSpaceData, float2 UVSceneColor, 
 	//
 	Ret *= saturate(PixelSizeRadius - PixelSize);
 	// opacity allows to scale the radius - at some point we should fade in the full resolution, we don't have a masking other than that.
-	Ret *= saturate(ScreenSpaceData.GBuffer.Opacity * 10);
+	Ret *= saturate(ScreenSpaceData.GBuffer.CustomData.a * 10);
 	// todo: Subsurface has some non scatter contribution - all that should come from the Full res
 
 	return Ret;
 }
 
 // visualization (doesn't have to be fast)
-void VisualizePS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void VisualizePS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 
 	OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);
 
-	int2 PixelPos = (int2)(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
+	int2 PixelPos = (int2)SvPosition.xy;
 
 	float2 ViewLocalUV = (PixelPos - View.ViewRectMin.xy) * View.ViewSizeAndInvSize.zw;
 
@@ -237,70 +218,94 @@ void VisualizePS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_
 
 }
 
+
+struct SDiffuseAndSpecular
+{
+	float3 Diffuse;
+	float3 Specular;
+};
+
+// @param UVSceneColor for the full res rendertarget (BufferSize) e.g. SceneColor or GBuffers
+SDiffuseAndSpecular ReconstructDiffuse(float2 UVSceneColor)
+{
+	SDiffuseAndSpecular Ret;
+
+	bool bChecker = CheckerFromSceneColorUV(UVSceneColor);
+
+	// todo: We could alternate the diagonal with TemporalAA or even only only 1 sample for low spec or 4 for high spec
+
+	float3 Quant0 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor).rgb;
+
+	// todo: expose as scalability setting (can be evaluate best without TemporalAA)
+	// 0:fast but pattern can appear, 1:better, 2: even better, 3: best but expensive
+
+	// 0/1/2/3 With TemporalAA they all look the same but 0 has an offset which we can fixed by alternating the 2 (L R) or 4 directions (L R U D)
+	#define QUALITY_LEVEL 1
+
+#if QUALITY_LEVEL == 0
+	float3 Quant1 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(1, 0) * View.BufferSizeAndInvSize.zw).rgb;
+#elif QUALITY_LEVEL == 1
+	float3 Quant1 = 0.5f * (
+		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * View.BufferSizeAndInvSize.zw).rgb +
+		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * View.BufferSizeAndInvSize.zw).rgb);
+#elif QUALITY_LEVEL == 2
+	float3 Quant1 = 0.25f * (
+		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * View.BufferSizeAndInvSize.zw).rgb +
+		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0,  1) * View.BufferSizeAndInvSize.zw).rgb +
+		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * View.BufferSizeAndInvSize.zw).rgb +
+		Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0, -1) * View.BufferSizeAndInvSize.zw).rgb);
+#else // QUALITY_LEVEL == 3
+	float3 A = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 1,  0) * View.BufferSizeAndInvSize.zw).rgb;
+	float3 B = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2(-1,  0) * View.BufferSizeAndInvSize.zw).rgb;
+	float3 C = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0,  1) * View.BufferSizeAndInvSize.zw).rgb;
+	float3 D = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor + float2( 0, -1) * View.BufferSizeAndInvSize.zw).rgb;
+
+	// Luminance could be green channel only
+	float a = Luminance(A);
+	float b = Luminance(B);
+	float c = Luminance(C);
+	float d = Luminance(D);
+
+	float ab = abs(a - b);
+	float cd = abs(c - d);
+
+	// take the average in the direction that avoids dither pattern
+	float3 Quant1 = 0.5f * lerp(A + B, C + D, ab > cd);
+#endif
+
+	Ret.Diffuse = lerp(Quant1, Quant0, bChecker);
+	Ret.Specular = lerp(Quant0, Quant1, bChecker);
+
+	return Ret;
+}
+
+// @param UVSceneColor for the full res rendertarget (BufferSize) e.g. SceneColor or GBuffers
 // @return .RGB Color that should be scattared, .A:1 for subsurface scattering material, 0 for not
-float4 SetupSubsurfaceForOnePixel(float2 UV)
+float4 SetupSubsurfaceForOnePixel(float2 UVSceneColor)
 {
 	float4 Ret = 0;
 
-	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV);
+	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UVSceneColor);
 
 	FLATTEN if (ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE)
 	{
-		float4 SceneColor4 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);
+		SDiffuseAndSpecular DiffuseAndSpecular = ReconstructDiffuse(UVSceneColor);
+
+		Ret.rgb = DiffuseAndSpecular.Diffuse;
 
 		// it's a valid sample
 		Ret.a = 1;
-
-#if SSSS_SPECULAR_CORRECTION == 1
-		// we take out the specular highlights
-		Ret.rgb = LightAccumulator_ReconstructDiffuseLighting(SceneColor4);
-#else
-		Ret.rgb = SceneColor4.rgb;
-#endif
 	}
 
 	return Ret;
 }
 
-void ExtractSpecularPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
-{
-	float2 GBufferUV = UVAndScreenPos.xy;
 
-	float4 SceneColor4 = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, GBufferUV);
-
-	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(GBufferUV);
-
-	// 0: dont' fade in subsurface half res,  1:fully fade in half res
-	float BlendFactor = (ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE);
-
-	float3 ExtractedSpecular = 0;
-	 
-#if SSS_RECOMBINE_METHOD
-	// we took the specular highlights out, now we add them back in
-	ExtractedSpecular += LightAccumulator_ReconstructNonDiffuseLighting(SceneColor4);
-#endif
-
-	// alpha channel can be anything - we consumed the value and likely output to a format that doesn't need the value
-	OutColor = float4(lerp(SceneColor4.rgb, ExtractedSpecular, BlendFactor), 0);
-
-#if FULLRES_WHERE_POSSIBLE
-	// 0..255, which SubSurface profile to pick
-	uint SubsurfaceProfileInt = ExtractSubsurfaceProfileInt(ScreenSpaceData.GBuffer);
-
-	// reference
-//	float3 DiffuseLighting = LightAccumulator_ReconstructDiffuseLighting(SceneColor4);
-	// cheaper:
-	float3 DiffuseLighting = SceneColor4 - ExtractedSpecular;
-
-	// add center sample from full resolution input for better quality
-	OutColor.rgb += DiffuseLighting * GetKernel(SSSS_N_KERNELWEIGHTOFFSET, SubsurfaceProfileInt).rgb;
-#endif
-}
-
-void SetupPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void SetupPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 
+#if HALF_RES
 	// order aligned with Gather() hardware implementation
 	// RGB: color*A, A:weight 0 if no subsurface scattering
 	float4 A = SetupSubsurfaceForOnePixel(UV + float2(-0.5,  0.5f) * PostprocessInput0Size.zw);
@@ -308,11 +313,11 @@ void SetupPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targ
 	float4 C = SetupSubsurfaceForOnePixel(UV + float2( 0.5, -0.5f) * PostprocessInput0Size.zw);
 	float4 D = SetupSubsurfaceForOnePixel(UV + float2(-0.5, -0.5f) * PostprocessInput0Size.zw);
 
-	OutColor = (A + B) + (C + D);
+	float4 Sum = (A + B) + (C + D);
 
-	float Div = 1.0f / max(OutColor.a, 0.00001f);
+	float Div = 1.0f / max(Sum.a, 0.00001f);
 
-	OutColor.rgba *= Div;
+	OutColor.rgb = Sum.rgb * Div;
 	
 	float4 FourDepth = GatherSceneDepth(UV, PostprocessInput0Size.zw);
 
@@ -320,6 +325,10 @@ void SetupPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targ
 	float SingleDepth = dot(FourDepth, float4(A.a, B.a, C.a, D.a)) * Div;
 
 	OutColor.a = SingleDepth;
+#else // HALF_RES
+	OutColor.rgb = SetupSubsurfaceForOnePixel(UV).rgb;
+	OutColor.a = CalcSceneDepth(UV);
+#endif // HALF_RES
 
 #if 0
 	float SSSScaleX = SSSParams.x;
@@ -327,9 +336,7 @@ void SetupPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targ
 	float scale = SSSScaleX / SingleDepth;
 //	float scale = SSSScaleX / min(min(FourDepth.x, FourDepth.y), min(FourDepth.z, FourDepth.w));
 
-	// the viewport is only a fraction of the buffersize, here we compensate for that
-	// *1024 as we store the sample distances / 1024 to allows for scaling
-	float HorizontalScaler = View.ViewSizeAndInvSize.x * View.BufferSizeAndInvSize.z * 1024.0f;
+	float HorizontalScaler = SUBSURFACE_RADIUS_SCALE;
 
 	// Calculate the final step to fetch the surrounding pixels:
 	float finalStep = scale * HorizontalScaler;
@@ -348,49 +355,29 @@ void SetupPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targ
 		OutColor = 0;
 	}
 #endif
-
-	// debug the kernel size and shape
-	/*
-	if(length((UV - 0.5f) * float2(2,1)) > 0.005f)
-	{
-		OutColor.rgb = 0;
-	}
-	else
-	{
-		OutColor.rgb *= 50;
-	}
-	*/
 }
 
-
 // input0 is created by the SetupPS shader
-void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	float2 ViewportUV = UVAndScreenPos.xy;
 
 	// call into "SeparableSSS.usf"
 
 	// the viewport is only a fraction of the buffersize, here we compensate for that
-	// *1024 as we store the sample distances / 1024 to allows for scaling
 
 #if SSS_DIRECTION == 0
 	// horizontal
-	float2 Direction = float2(1, 0) * View.ViewSizeAndInvSize.x * View.BufferSizeAndInvSize.z * 1024.0f;
+	float2 ViewportDirectionUV = float2(1, 0) * SUBSURFACE_RADIUS_SCALE;
 #else
 	// vertical
-	float2 Direction = float2(0, 1) * View.BufferSizeAndInvSize.w * View.ViewSizeAndInvSize.x * 1024.0f;
+	float2 ViewportDirectionUV = float2(0, 1) * SUBSURFACE_RADIUS_SCALE * (View.ViewSizeAndInvSize.x * View.ViewSizeAndInvSize.w);
 #endif
 
 	// can be optimized
-	float2 GBufferUV = (ViewportUV * PostprocessInput0Size.xy * 2 + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
+	float2 GBufferUV = (ViewportUV * View.ViewSizeAndInvSize.xy + View.ViewRectMin.xy) * View.BufferSizeAndInvSize.zw;
 
-	bool bIncludeCenter = true;
-
-#if FULLRES_WHERE_POSSIBLE && SSS_DIRECTION == 1
-	bIncludeCenter = false;
-#endif
-
-	OutColor = SSSSBlurPS(GBufferUV, ViewportUV, Direction, false, bIncludeCenter);
+	OutColor = SSSSBlurPS(GBufferUV, ViewportUV, ViewportDirectionUV, false);
 
 #if SSS_DIRECTION == 1
 	// second pass prepares the setup from the recombine pass which doesn't need depth but wants to reconstruct the color
@@ -402,34 +389,35 @@ void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
 
 // Recombines the half res Subsurface filtered lighting contribution (upsampled and renormalized with the alpha)
 // with the SceneColor.
-void SubsurfaceRecombinePS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void SubsurfaceRecombinePS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
 {
 	float2 ViewportUV = UVAndScreenPos.xy;
 
 	// recombine with the scene color
 
 	// can be optimized
-	float2 PixelPos = UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw;
-	float2 UVSceneColor = (PixelPos + 0.5f) * View.BufferSizeAndInvSize.zw;
-
-	// specular extracted
-	float4 SceneColor4 = Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, UVSceneColor);
+	float2 UVSceneColor = SvPosition.xy * View.BufferSizeAndInvSize.zw;
 
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UVSceneColor);
+	
+	if (ScreenSpaceData.GBuffer.ShadingModelID != SHADINGMODELID_SUBSURFACE_PROFILE)
+	{
+		OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UVSceneColor);
+		return;
+	}
 
 	// bilinear filtering
 	float3 SSSColor;
 	{
-		float4 SSSColorWithAlpha = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, ViewportUV);
+		float4 SSSColorWithAlpha = Texture2DSample(PostprocessInput1, PostprocessInput1Sampler, ViewportUV);
 
 		// renormalize to dilate RGB to fix half res upsampling artifacts
 		SSSColor = SSSColorWithAlpha.rgb / max(SSSColorWithAlpha.a, 0.00001f);
 	}
 
-	// 0: no SSS,  1: full SSS
-	float BlendFactor = (ScreenSpaceData.GBuffer.ShadingModelID == SHADINGMODELID_SUBSURFACE_PROFILE);
 	float LerpFactor = 1;
 
+#if HALF_RES
 #if 1
 	// fade out subsurface scattering if radius is too small to be more crips (not blend with half resolution)
 	// minor quality improvement (faces are more detailed in distance)
@@ -438,11 +426,32 @@ void SubsurfaceRecombinePS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColo
 	// hack to debug if the fade is happening at the same time the VisualizeSSS shows it
 //	SSSColor = 0;
 #endif
+#endif // HALF_RES
 
-	// only affect pixels that have SSS
-	LerpFactor *= BlendFactor;
+#if !RECOMBINE_SUBSURFACESCATTER
+	// Scalability requests no Scatter, but we still need to reconstruct a color
+	LerpFactor = 0;
+#endif
 
-	// add back in non subsurface pixels and specular, alpha: 0=don't blend in, 1:fully blend in
-	OutColor = float4(SSSColor * BlendFactor + SceneColor4.rgb, LerpFactor);
+	// we multiply the base color later in to get more crips human skin textures (scanned data always has Subsurface included)
+	float3 StoredBaseColor = ScreenSpaceData.GBuffer.StoredBaseColor;
+	float3 StoredSpecular = ScreenSpaceData.GBuffer.StoredSpecular;
+
+	SDiffuseAndSpecular DiffuseAndSpecular = ReconstructDiffuse(UVSceneColor);
+	
+	float3 ExtractedNonSubsurface = DiffuseAndSpecular.Specular * StoredSpecular;
+
+	// asset specific color
+	float3 SubsurfaceColor = GetProfileSubsurfaceColor(ScreenSpaceData.GBuffer);
+	float3 FadedSubsurfaceColor = GetProfileSubsurfaceColor(ScreenSpaceData.GBuffer) * LerpFactor;
+
+	// hack to debug if the fade is happening at the same time the VisualizeSSS shows it
+//	SSSColor = float3(0,1,0);
+
+	// combine potentially half res with full res
+	float3 SubsurfaceLighting = lerp(DiffuseAndSpecular.Diffuse, SSSColor, FadedSubsurfaceColor);
+
+
+	OutColor = float4(SubsurfaceLighting * StoredBaseColor + ExtractedNonSubsurface, 0); 
 }
 

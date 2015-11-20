@@ -106,7 +106,7 @@ private:
 	float ButtonRepeatDelay;
 
 	/**  */
-	EControllerButtons::Type Buttons[MAX_NUM_CONTROLLER_BUTTONS];
+	FGamepadKeyNames::Type Buttons[MAX_NUM_CONTROLLER_BUTTONS];
 
 	/**  */
 	TSharedRef<FGenericApplicationMessageHandler> MessageHandler;

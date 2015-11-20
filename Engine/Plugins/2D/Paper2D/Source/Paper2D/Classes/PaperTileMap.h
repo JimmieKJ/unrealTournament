@@ -18,16 +18,16 @@ namespace ETileMapProjectionMode
 {
 	enum Type
 	{
-		// Square tile layout
+		/** Square tile layout */
 		Orthogonal,
 
-		// Isometric tile layout (shaped like a diamond)
+		// Isometric tile layout (shaped like a diamond) */
 		IsometricDiamond,
 
-		// Isometric tile layout (roughly in a square with alternating rows staggered).  Warning: Not fully supported yet.
+		/** Isometric tile layout (roughly in a square with alternating rows staggered).  Warning: Not fully supported yet. */
 		IsometricStaggered,
 
-		// Hexagonal tile layout (roughly in a square with alternating rows staggered).  Warning: Not fully supported yet.
+		/** Hexagonal tile layout (roughly in a square with alternating rows staggered).  Warning: Not fully supported yet. */
 		HexagonalStaggered
 	};
 }
@@ -109,7 +109,7 @@ public:
 #if WITH_EDITORONLY_DATA
 	/** Importing data and options used for this tile map */
 	UPROPERTY(Category=ImportSettings, VisibleAnywhere, Instanced)
-	UAssetImportData* AssetImportData;
+	class UAssetImportData* AssetImportData;
 
 	/** The currently selected layer index */
 	UPROPERTY()
@@ -126,11 +126,13 @@ public:
 
 public:
 	// UObject interface
+	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostInitProperties() override;
+	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
-	virtual void PostLoad() override;
 	void ValidateSelectedLayerIndex();
 #endif
 #if WITH_EDITORONLY_DATA
@@ -164,6 +166,12 @@ public:
 	{
 		return SpriteCollisionDomain;
 	}
+
+	// Sets the collision thickness
+	void SetCollisionThickness(float Thickness = 50.0f);
+
+	// Sets the collision domain
+	void SetCollisionDomain(ESpriteCollisionMode::Type Domain);
 
 	FBoxSphereBounds GetRenderBounds() const;
 

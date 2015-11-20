@@ -9,6 +9,7 @@
 
 #include "CoreNet.h"
 #include "CoreUObject.h"
+#include "EngineLogs.h"
 #include "NetSerialization.generated.h"
 
 /**
@@ -124,7 +125,7 @@ struct FExampleArray: public FFastArraySerializer
 	/** Step 4: Copy this, replace example with your names */
 	bool NetDeltaSerialize(FNetDeltaSerializeInfo & DeltaParms)
 	{
-	   return FFastArraySerializer::FastArrayDeltaSerialize<FExampleItemEntry, FExampleArray>( Items, DeltaParms );
+	   return FFastArraySerializer::FastArrayDeltaSerialize<FExampleItemEntry, FExampleArray>( Items, DeltaParms, *this );
 	}
 };
 
@@ -277,13 +278,13 @@ struct FFastArraySerializerItem
 	GENERATED_USTRUCT_BODY()
 
 	FFastArraySerializerItem()
-		: ReplicationID(INDEX_NONE), ReplicationKey(INDEX_NONE)
+		: ReplicationID(INDEX_NONE), ReplicationKey(INDEX_NONE), MostRecentArrayReplicationKey(INDEX_NONE)
 	{
 
 	}
 
 	FFastArraySerializerItem(const FFastArraySerializerItem &InItem)
-		: ReplicationID(INDEX_NONE), ReplicationKey(INDEX_NONE)
+		: ReplicationID(INDEX_NONE), ReplicationKey(INDEX_NONE), MostRecentArrayReplicationKey(INDEX_NONE)
 	{
 
 	}
@@ -294,6 +295,7 @@ struct FFastArraySerializerItem
 		{
 			ReplicationID = INDEX_NONE;
 			ReplicationKey = INDEX_NONE;
+			MostRecentArrayReplicationKey = INDEX_NONE;
 		}
 		return *this;
 	}
@@ -303,6 +305,9 @@ struct FFastArraySerializerItem
 
 	UPROPERTY(NotReplicated)
 	int32 ReplicationKey;
+
+	UPROPERTY(NotReplicated)
+	int32 MostRecentArrayReplicationKey;
 	
 	/**
 	 * Called right before deleting element during replication.
@@ -378,6 +383,15 @@ struct FFastArraySerializer
 	static bool FastArrayDeltaSerialize( TArray<Type> &Items, FNetDeltaSerializeInfo& Parms, SerializerType& ArraySerializer );
 };
 
+// Struct used only in FFastArraySerializer::FastArrayDeltaSerialize, however, declaring it within the templated function
+// causes crashes on some clang compilers
+struct FFastArraySerializer_FastArrayDeltaSerialize_FIdxIDPair
+{
+	FFastArraySerializer_FastArrayDeltaSerialize_FIdxIDPair(int32 _idx, int32 _id) : Idx(_idx), ID(_id) { }
+	int32	Idx;
+	int32	ID;
+};
+
 /** The function that implements Fast TArray Replication  */
 template< typename Type, typename SerializerType >
 bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDeltaSerializeInfo& Parms, SerializerType& ArraySerializer )
@@ -393,7 +407,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		if (ArraySerializer.ItemMap.Num() != Items.Num())
 		{
 			SCOPE_CYCLE_COUNTER(STAT_NetSerializeFastArray_BuildMap);
-			UE_LOG(LogNetSerialization, Verbose, TEXT("FastArrayDeltaSerialize: Recreating Items map. Struct: %s, Items.Num: %d Map.Num: %d"), *InnerStruct->GetOwnerStruct()->GetName(), Items.Num(), ArraySerializer.ItemMap.Num() );
+			UE_LOG(LogNetFastTArray, Log, TEXT("FastArrayDeltaSerialize: Recreating Items map. Struct: %s, Items.Num: %d Map.Num: %d"), *InnerStruct->GetOwnerStruct()->GetName(), Items.Num(), ArraySerializer.ItemMap.Num() );
 
 			ArraySerializer.ItemMap.Empty();
 			for (int32 i=0; i < Items.Num(); ++i)
@@ -402,7 +416,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				{
 					if (Parms.Writer)
 					{
-						UE_LOG( LogNetSerialization, Warning, TEXT( "FastArrayDeltaSerialize: Item with uninitialized ReplicationID. Struct: %s, ItemIndex: %i" ), *InnerStruct->GetOwnerStruct()->GetName(), i );
+						UE_LOG( LogNetFastTArray, Warning, TEXT( "FastArrayDeltaSerialize: Item with uninitialized ReplicationID. Struct: %s, ItemIndex: %i" ), *InnerStruct->GetOwnerStruct()->GetName(), i );
 					}
 					else
 					{
@@ -444,7 +458,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				if ( Parms.Map->IsGUIDBroken( GUID, false ) )
 				{
 					// Stop trying to load broken guids
-					UE_LOG( LogNetSerialization, Warning, TEXT( "FastArrayDeltaSerialize: Broken GUID. NetGuid: %s" ), *GUID.ToString() );
+					UE_LOG( LogNetFastTArray, Warning, TEXT( "FastArrayDeltaSerialize: Broken GUID. NetGuid: %s" ), *GUID.ToString() );
 					UnmappedItem.UnmappedGUIDs.RemoveAt( i );
 					continue;
 				}
@@ -517,35 +531,51 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 
 		// Get the old map if its there
 		TMap<int32, int32> * OldMap = Parms.OldState ? &((FNetFastTArrayBaseState*)Parms.OldState)->IDToCLMap : NULL;
+		int32 BaseReplicationKey = Parms.OldState ? ((FNetFastTArrayBaseState*)Parms.OldState)->ArrayReplicationKey : -1;
 
 		// See if the array changed at all. If the ArrayReplicationKey matches we can skip checking individual items
-		if (Parms.OldState && (ArraySerializer.ArrayReplicationKey == ((FNetFastTArrayBaseState*)Parms.OldState)->ArrayReplicationKey))
+		if (Parms.OldState && (ArraySerializer.ArrayReplicationKey == BaseReplicationKey))
 		{
 			// Double check the old/new maps are the same size.
 			ensure(OldMap && OldMap->Num() == Items.Num());
 			return false;
 		}
 
-
-		struct FIdxIDPair
-		{
-			FIdxIDPair(int32 _idx, int32 _id) : Idx(_idx), ID(_id) { }
-			int32	Idx;
-			int32	ID;
-		};
-
-		TArray<FIdxIDPair>	ChangedElements;
-		TArray<int32>		DeletedElements;
+		TArray<FFastArraySerializer_FastArrayDeltaSerialize_FIdxIDPair, TInlineAllocator<8> >	ChangedElements;
+		TArray<int32, TInlineAllocator<8> >		DeletedElements;
 
 		int32 DeleteCount = (OldMap ? OldMap->Num() : 0) - Items.Num(); // Note: this is incremented when we add new items below.
-		UE_LOG(LogNetSerialization, Verbose, TEXT("NetSerializeItemDeltaFast: %s. DeleteCount: %d"), *Parms.DebugName, DeleteCount);
+		UE_LOG(LogNetFastTArray, Log, TEXT("NetSerializeItemDeltaFast: %s. DeleteCount: %d"), *Parms.DebugName, DeleteCount);
+
+		// Log out entire state of current/base state
+		if (UE_LOG_ACTIVE(LogNetFastTArray,Log))
+		{
+			FString CurrentState = FString::Printf(TEXT("Current: %d "), ArraySerializer.ArrayReplicationKey );
+			for (int32 i=0; i < Items.Num(); ++i)
+			{
+				CurrentState += FString::Printf(TEXT("[%d/%d], "), Items[i].ReplicationID, Items[i].ReplicationKey);
+			}
+			UE_LOG(LogNetFastTArray, Log, TEXT("%s"), *CurrentState);
+
+		
+			FString ClientStateStr = FString::Printf(TEXT("Client: %d "),  Parms.OldState ? ((FNetFastTArrayBaseState*)Parms.OldState)->ArrayReplicationKey: 0);
+			if (OldMap)
+			{
+				for (auto It = OldMap->CreateIterator(); It; ++It)
+				{
+					ClientStateStr += FString::Printf(TEXT("[%d/%d], "), It.Key(), It.Value() );
+				}
+			}
+			UE_LOG(LogNetFastTArray, Log, TEXT("%s"), *ClientStateStr);
+		}
+
 
 		//--------------------------------------------
 		// Find out what is new or what has changed
 		//--------------------------------------------
 		for (int32 i=0; i < Items.Num(); ++i)
 		{
-			UE_LOG(LogNetSerialization, Log, TEXT("    Array[%d] - ID %d. CL %d."), i, Items[i].ReplicationID, Items[i].ReplicationKey);
+			UE_LOG(LogNetFastTArray, Log, TEXT("    Array[%d] - ID %d. CL %d."), i, Items[i].ReplicationID, Items[i].ReplicationKey);
 			if (Items[i].ReplicationID == INDEX_NONE)
 			{
 				ArraySerializer.MarkItemDirty(Items[i]);
@@ -557,27 +587,27 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			{
 				if (*OldValuePtr == Items[i].ReplicationKey)
 				{
-					UE_LOG(LogNetSerialization, Log, TEXT("       Stayed The Same - Skipping"));
+					UE_LOG(LogNetFastTArray, Log, TEXT("       Stayed The Same - Skipping"));
 
 					// Stayed the same, it might have moved but we dont care
 					continue;
 				}
 				else
 				{
-					UE_LOG(LogNetSerialization, Log, TEXT("       Changed! Was: %d"), *OldValuePtr);
+					UE_LOG(LogNetFastTArray, Log, TEXT("       Changed! Was: %d. Element ID: %d"), *OldValuePtr, Items[i].ReplicationID);
 
 					// Changed
-					new (ChangedElements)FIdxIDPair(i, Items[i].ReplicationID);
+					ChangedElements.Add(FFastArraySerializer_FastArrayDeltaSerialize_FIdxIDPair(i, Items[i].ReplicationID));
 				}
 			}
 			else
 			{
-				UE_LOG(LogNetSerialization, Log, TEXT("       New!"));
+				UE_LOG(LogNetFastTArray, Log, TEXT("       New! Element ID: %d"), Items[i].ReplicationID);
 				
 				// The item really should have a valid ReplicationID but in the case of loading from a save game,
 				// items may not have been marked dirty individually. Its ok to just assign them one here.
 				// New
-				new (ChangedElements)FIdxIDPair(i, Items[i].ReplicationID);
+				ChangedElements.Add(FFastArraySerializer_FastArrayDeltaSerialize_FIdxIDPair(i, Items[i].ReplicationID));
 				DeleteCount++; // We added something new, so our initial DeleteCount value must be incremented.
 			}
 		}
@@ -589,7 +619,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			{
 				if (!NewMap.Contains(It.Key()))
 				{
-					UE_LOG(LogNetSerialization, Log, TEXT("   Deleting ID: %d"), It.Key());
+					UE_LOG(LogNetFastTArray, Log, TEXT("   Deleting ID: %d"), It.Key());
 
 					DeletedElements.Add( It.Key() );
 					if (--DeleteCount <= 0)
@@ -602,13 +632,20 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		if ( ChangedElements.Num() == 0 && DeletedElements.Num() == 0)
 		{
 			// Nothing changed
-			UE_LOG(LogNetSerialization, Verbose, TEXT("   No Changed Elements in this array - skipping write"));
+			UE_LOG(LogNetFastTArray, Log, TEXT("   No Changed Elements in this array - skipping write"));
 			return false;
 		}
+
+		// The array replication key may have changed while adding new elemnts (in the call to MarkItemDirty above)
+		NewState->ArrayReplicationKey = ArraySerializer.ArrayReplicationKey;
 
 		//----------------------
 		// Write it out.
 		//----------------------
+
+		int32 ArrayReplicationKey = ArraySerializer.ArrayReplicationKey;
+		Writer << ArrayReplicationKey;
+		Writer << BaseReplicationKey;
 
 		uint32 ElemNum = DeletedElements.Num();
 		Writer << ElemNum;
@@ -616,14 +653,14 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		ElemNum = ChangedElements.Num();
 		Writer << ElemNum;
 
-		UE_LOG(LogNetSerialization, Log, TEXT("   Writing Bunch. NumChange: %d. NumDel: %d"), ChangedElements.Num(), DeletedElements.Num() );
+		UE_LOG(LogNetFastTArray, Log, TEXT("   Writing Bunch. NumChange: %d. NumDel: %d"), ChangedElements.Num(), DeletedElements.Num() );
 
 		// Serialize deleted items, just by their ID
 		for (auto It = DeletedElements.CreateIterator(); It; ++It)
 		{
 			int32 ID = *It;
 			Writer << ID;
-			UE_LOG(LogNetSerialization, Log, TEXT("   Deleted ElementID: %d"), ID);
+			UE_LOG(LogNetFastTArray, Log, TEXT("   Deleted ElementID: %d"), ID);
 		}
 
 		// Serialized new elements with their payload
@@ -635,7 +672,7 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			uint32 ID = It->ID;
 			Writer << ID;
 
-			UE_LOG(LogNetSerialization, Log, TEXT("   Changed ElementID: %d"), ID);
+			UE_LOG(LogNetFastTArray, Log, TEXT("   Changed ElementID: %d"), ID);
 
 			bool bHasUnmapped = false;
 			Parms.NetSerializeCB->NetSerializeStruct(InnerStruct, Writer, Parms.Map, ThisElement, bHasUnmapped);
@@ -655,12 +692,21 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 		//---------------
 		// Read header
 		//---------------
+		
+		int32 ArrayReplicationKey;
+		Reader << ArrayReplicationKey;
+		
+		int32 BaseReplicationKey;
+		Reader << BaseReplicationKey;
+
 		uint32 NumDeletes;
 		Reader << NumDeletes;
+
+		UE_LOG( LogNetFastTArray, Log, TEXT( "Received [%d/%d]." ), ArrayReplicationKey, BaseReplicationKey );
 	
 		if ( NumDeletes > MAX_NUM_DELETED )
 		{
-			UE_LOG( LogNetSerialization, Warning, TEXT( "NumDeletes > MAX_NUM_DELETED: %d." ), NumDeletes );
+			UE_LOG( LogNetFastTArray, Warning, TEXT( "NumDeletes > MAX_NUM_DELETED: %d." ), NumDeletes );
 			Reader.SetError();
 			return false;;
 		}
@@ -670,14 +716,22 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 
 		if (NumChanged > MAX_NUM_CHANGED)
 		{
-			UE_LOG(LogNetSerialization, Warning, TEXT("NumChanged > MAX_NUM_CHANGED: %d."), NumChanged);
+			UE_LOG(LogNetFastTArray, Warning, TEXT("NumChanged > MAX_NUM_CHANGED: %d."), NumChanged);
 			Reader.SetError();
 			return false;;
 		}
 
-		UE_LOG( LogNetSerialization, Verbose, TEXT( "Read NumChanged: %d NumDeletes: %d." ), NumChanged, NumDeletes );
+		UE_LOG( LogNetFastTArray, Log, TEXT( "Read NumChanged: %d NumDeletes: %d." ), NumChanged, NumDeletes );
 
-		TArray<int32> DeleteIndices;
+		// Increment keys so that a client can re-serialize the array if needed, such as for client replay recording
+		if ( NumDeletes > 0 || NumChanged > 0 )
+		{
+			++ArraySerializer.ArrayReplicationKey;
+		}
+
+		TArray<int32, TInlineAllocator<8> > DeleteIndices;
+		TArray<int32, TInlineAllocator<8> > AddedIndices;
+		TArray<int32, TInlineAllocator<8> > ChangedIndices;
 
 		//---------------
 		// Read deleted elements
@@ -696,16 +750,10 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				{
 					int32 DeleteIndex = *ElementIndexPtr;
 					DeleteIndices.Add(DeleteIndex);
-
-					if (Items.IsValidIndex(DeleteIndex))
-					{
-						// Call the delete callbacks now, actually remove them at the end
-						Items[DeleteIndex].PreReplicatedRemove(ArraySerializer);
-					}
 				}
 				else
 				{
-					UE_LOG(LogNetSerialization, Warning, TEXT("   Couldn't find ElementID: %d for deletion!"), ElementID);
+					UE_LOG(LogNetFastTArray, Log, TEXT("   Couldn't find ElementID: %d for deletion!"), ElementID);
 				}
 			}
 		}
@@ -719,29 +767,32 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 			Reader << ElementID;
 
 			int32* ElementIndexPtr = ArraySerializer.ItemMap.Find(ElementID);
-			int32	ElementIndex = 0;
-			Type *	ThisElement = NULL;
-
-			bool NewElement = false;
+			int32 ElementIndex = 0;
+			Type* ThisElement = nullptr;
 		
 			if (!ElementIndexPtr)
 			{
-				UE_LOG(LogNetSerialization, Log, TEXT("   New. ID: %d. New Element!"), ElementID);
+				UE_LOG(LogNetFastTArray, Log, TEXT("   New. ID: %d. New Element!"), ElementID);
 
 				ThisElement = new (Items)Type();
 				ThisElement->ReplicationID = ElementID;
 
 				ElementIndex = Items.Num()-1;
 				ArraySerializer.ItemMap.Add(ElementID, ElementIndex);
-
-				NewElement = true;
+				
+				AddedIndices.Add(ElementIndex);
 			}
 			else
 			{
-				UE_LOG(LogNetSerialization, Log, TEXT("   Changed. ID: %d -> Idx: %d"), ElementID, *ElementIndexPtr);
+				UE_LOG(LogNetFastTArray, Log, TEXT("   Changed. ID: %d -> Idx: %d"), ElementID, *ElementIndexPtr);
 				ElementIndex = *ElementIndexPtr;
 				ThisElement = &Items[ElementIndex];
+				++Items[ElementIndex].ReplicationKey;
+				ChangedIndices.Add(ElementIndex);
 			}
+
+			// Update this element's most recent array replication key
+			ThisElement->MostRecentArrayReplicationKey = ArrayReplicationKey;
 
 			// Let package map know we want to track and know about any guids that are unmapped during the serialize call
 			Parms.Map->ResetTrackedUnmappedGuids( true );
@@ -786,19 +837,47 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 
 			if ( Reader.IsError() )
 			{
-				UE_LOG( LogNetSerialization, Warning, TEXT( "Parms.NetSerializeCB->NetSerializeStruct: Reader.IsError() == true" ) );
+				UE_LOG( LogNetFastTArray, Warning, TEXT( "Parms.NetSerializeCB->NetSerializeStruct: Reader.IsError() == true" ) );
 				return false;
 			}
+		}
 
-			if (NewElement)
+		// ---------------------------------------------------------
+		// Look for implicit deletes that would happen due to Naks
+		// ---------------------------------------------------------
+		
+		for (int32 idx=0; idx < Items.Num(); ++idx)
+		{
+			Type& Item = Items[idx];
+			if (Item.MostRecentArrayReplicationKey < ArrayReplicationKey && Item.MostRecentArrayReplicationKey > BaseReplicationKey)
 			{
-				ThisElement->PostReplicatedAdd(ArraySerializer);
-			} 
-			else
-			{
-				ThisElement->PostReplicatedChange(ArraySerializer);
+				UE_LOG( LogNetFastTArray, Warning, TEXT( "Adding implicit delete for ElementID: %d. MostRecentArrayReplicationKey: %d. Current Payload: [%d/%d]"), Item.ReplicationID, Item.MostRecentArrayReplicationKey, ArrayReplicationKey, BaseReplicationKey);
+				DeleteIndices.Add(idx);
 			}
 		}
+
+		// ---------------------------------------------------------
+		// Invoke all callbacks: removed -> added -> changed
+		// ---------------------------------------------------------
+
+		for (int32 idx : DeleteIndices)
+		{
+			if (Items.IsValidIndex(idx))
+			{
+				// Call the delete callbacks now, actually remove them at the end
+				Items[idx].PreReplicatedRemove(ArraySerializer);
+			}
+		}
+
+		for (int32 idx : AddedIndices)
+		{
+			Items[idx].PostReplicatedAdd(ArraySerializer);
+		}
+
+		for (int32 idx : ChangedIndices)
+		{
+			Items[idx].PostReplicatedChange(ArraySerializer);
+		}	
 
 		if (DeleteIndices.Num() > 0)
 		{
@@ -808,9 +887,9 @@ bool FFastArraySerializer::FastArrayDeltaSerialize( TArray<Type> &Items, FNetDel
 				int32 DeleteIndex = DeleteIndices[i];
 				if (Items.IsValidIndex(DeleteIndex))
 				{
-					Items.RemoveAt(DeleteIndex);
+					Items.RemoveAtSwap(DeleteIndex, 1, false);
 
-					UE_LOG(LogNetSerialization, Log, TEXT("   Deleting: %d"), DeleteIndex);
+					UE_LOG(LogNetFastTArray, Log, TEXT("   Deleting: %d"), DeleteIndex);
 				}
 			}
 

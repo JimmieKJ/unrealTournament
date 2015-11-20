@@ -8,18 +8,18 @@
 
 #include "Sound/SoundClass.h"
 #include "Sound/SoundAttenuation.h"
+//#include "Sound/SoundConcurrency.h"
 
 ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAudio, Warning, All);
+
+// Special log category used for temporary programmer debugging code of audio
+ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAudioDebug, Display, All);
 
 /** 
  * Maximum number of channels that can be set using the ini setting
  */
 #define MAX_AUDIOCHANNELS				64
 
-/** 
- * Number of ticks an inaudible source remains alive before being stopped
- */
-#define AUDIOSOURCE_TICK_LONGEVITY		600
 
 /** 
  * Length of sound in seconds to be considered as looping forever
@@ -56,6 +56,7 @@ ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogAudio, Warning, All);
  */
 DECLARE_CYCLE_STAT_EXTERN( TEXT( "Audio Update Time" ), STAT_AudioUpdateTime, STATGROUP_Audio , );
 DECLARE_DWORD_COUNTER_STAT_EXTERN( TEXT( "Active Sounds" ), STAT_ActiveSounds, STATGROUP_Audio , );
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Audio Evaluate Concurrency"), STAT_AudioEvaluateConcurrency, STATGROUP_Audio, );
 DECLARE_DWORD_COUNTER_STAT_EXTERN( TEXT( "Audio Sources" ), STAT_AudioSources, STATGROUP_Audio , );
 DECLARE_DWORD_COUNTER_STAT_EXTERN( TEXT( "Wave Instances" ), STAT_WaveInstances, STATGROUP_Audio , );
 DECLARE_DWORD_COUNTER_STAT_EXTERN( TEXT( "Wave Instances Dropped" ), STAT_WavesDroppedDueToPriority, STATGROUP_Audio , );
@@ -116,7 +117,7 @@ enum ELoopingMode
 	LOOP_Forever
 };
 
-struct FNotifyBufferFinishedHooks
+struct ENGINE_API FNotifyBufferFinishedHooks
 {
 	void AddNotify(USoundNode* NotifyNode, UPTRINT WaveInstanceHash);
 	UPTRINT GetHashForNode(USoundNode* NotifyNode) const;
@@ -247,6 +248,8 @@ struct ENGINE_API FWaveInstance
 	FVector				Location;
 	/** At what distance we start transforming into omnidirectional soundsource */
 	float				OmniRadius;
+	/** Amount of spread for 3d multi-channel asset spatialization */
+	float				StereoSpread;
 	/** Cached type hash */
 	uint32				TypeHash;
 	/** Hash value for finding the wave instance based on the path through the cue to get to it */
@@ -355,6 +358,21 @@ public:
 	class FAudioDevice * AudioDevice;
 };
 
+/**
+* FSpatializationParams
+* Struct for retrieving parameters needed for computing 3d spatialization
+*/
+struct FSpatializationParams
+{
+	FVector ListenerPosition;
+	FVector ListenerOrientation;
+	FVector EmitterPosition;
+	FVector LeftChannelPosition;
+	FVector RightChannelPosition;
+	float Distance;
+	float NormalizedOmniRadius;
+};
+
 /*-----------------------------------------------------------------------------
 	FSoundSource.
 -----------------------------------------------------------------------------*/
@@ -374,6 +392,8 @@ public:
 		, LFEBleed(0.5f)
 		, HighFrequencyGain(1.0f)
 		, LastUpdate(0)
+		, LeftChannelSourceLocation(0)
+		, RightChannelSourceLocation(0)
 	{
 	}
 
@@ -476,6 +496,18 @@ public:
 	 */
 	ENGINE_API void SetHighFrequencyGain( void );
 
+	/** Updates the stereo emitter positions of this voice */
+	ENGINE_API void UpdateStereoEmitterPositions();
+
+	/** Draws debug info about this source voice if enabled. */
+	ENGINE_API void DrawDebugInfo();
+
+	/**
+	* Gets parameters necessary for computing 3d spatialization of sources
+	*/
+	ENGINE_API FSpatializationParams GetSpatializationParams();
+
+
 	const FSoundBuffer* GetBuffer() const {return Buffer;}
 
 	/**
@@ -486,6 +518,7 @@ public:
 	}
 
 protected:
+
 	// Variables.	
 	class FAudioDevice*		AudioDevice;
 	struct FWaveInstance*	WaveInstance;
@@ -511,6 +544,11 @@ protected:
 	int32					LastUpdate;
 	/** Last tick when this source was active *and* had a hearable volume */
 	int32					LastHeardUpdate;
+
+	/** The location of the left-channel source for stereo spatialization. */
+	FVector						LeftChannelSourceLocation;
+	/** The location of the right-channel source for stereo spatialization. */
+	FVector						RightChannelSourceLocation;
 
 	friend class FAudioDevice;
 };

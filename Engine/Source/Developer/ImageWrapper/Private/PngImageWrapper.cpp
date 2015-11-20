@@ -5,6 +5,11 @@
 
 #if WITH_UNREALPNG
 
+// Disable warning "interaction between '_setjmp' and C++ object destruction is non-portable"
+#if _MSC_VER
+	#pragma warning(push)
+	#pragma warning(disable:4611)
+#endif
 
 /** Only allow one thread to use libpng at a time (it's not thread safe) */
 FCriticalSection GPNGSection;
@@ -144,7 +149,10 @@ void FPngImageWrapper::Compress( int32 Quality )
 			}
 #endif
 
-			png_write_png(png_ptr, info_ptr, Transform, NULL);
+			if (!setjmp(SetjmpBuffer))
+			{
+				png_write_png(png_ptr, info_ptr, Transform, NULL);
+			}
 		}
 	}
 }
@@ -298,14 +306,17 @@ void FPngImageWrapper::UncompressPNGData( const ERGBFormat::Type InFormat, const
 		{
 #if PNG_LIBPNG_VER >= 10504
 			check(0); // Needs testing
-			Transform |= PNG_TRANSFORM_EXPAND_16
+			Transform |= PNG_TRANSFORM_EXPAND_16;
 #else
 			// Expanding 8-bit images to 16-bit via transform needs a libpng update
 			check(0);
 #endif
 		}
 
-		png_read_png(png_ptr, info_ptr, Transform, NULL);
+		if (!setjmp(SetjmpBuffer))
+		{
+			png_read_png(png_ptr, info_ptr, Transform, NULL);
+		}
 	}
 
 	RawFormat = InFormat;
@@ -399,11 +410,17 @@ void FPngImageWrapper::user_flush_data( png_structp png_ptr )
 
 void FPngImageWrapper::user_error_fn( png_structp png_ptr, png_const_charp error_msg )
 {
-	FPngImageWrapper* ctx = (FPngImageWrapper*)png_get_io_ptr( png_ptr );
-	FString ErrorMsg = ANSI_TO_TCHAR(error_msg);
-	ctx->SetError(*ErrorMsg);
+	FPngImageWrapper* ctx = (FPngImageWrapper*)png_get_io_ptr(png_ptr);
 
-	UE_LOG(LogImageWrapper, Error, TEXT("PNG Error: %s"), *ErrorMsg);
+	{
+		FString ErrorMsg = ANSI_TO_TCHAR(error_msg);
+		ctx->SetError(*ErrorMsg);
+
+		UE_LOG(LogImageWrapper, Error, TEXT("PNG Error: %s"), *ErrorMsg);
+	}
+	// Ensure that FString is destructed prior to executing the longjmp
+
+	longjmp(ctx->SetjmpBuffer, 1);
 }
 
 
@@ -424,5 +441,9 @@ void FPngImageWrapper::user_free(png_structp /*png_ptr*/, png_voidp struct_ptr )
 	FMemory::Free(struct_ptr);
 }
 
+// Renable warning "interaction between '_setjmp' and C++ object destruction is non-portable"
+#if _MSC_VER
+	#pragma warning(pop)
+#endif
 
 #endif	//WITH_UNREALPNG

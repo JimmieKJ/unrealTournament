@@ -1,7 +1,7 @@
 Title:G
 Crumbs:Shared/Glossary
 Description:
-Availability:Public
+Availability:NoPublish
 
 [EXCERPT:Glossary_G]
 
@@ -49,7 +49,7 @@ Graph
 The **Graph** is a visual representation of a particular graph of nodes as it shows 
 all of the nodes contained in the graph as well as the connections between them. It provides 
 editing capabilities for adding and removing nodes, arranging nodes, and creating links between 
-nodes. Breakpoints can also be set in the **Graph** to aid in [debugging](Engine/Blueprints\UserGuide\Debugging) _Blueprints_.
+nodes. Breakpoints can also be set in the Graph to aid in [debugging](Engine/Blueprints\UserGuide\Debugging) Blueprints.
 [/EXCERPT:Glossary_Graph_Mode]
 
 [INCLUDE:Globals#bpModesRemoved]

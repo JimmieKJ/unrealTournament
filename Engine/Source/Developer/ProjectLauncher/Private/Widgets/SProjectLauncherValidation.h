@@ -122,6 +122,12 @@ public:
 			+ SVerticalBox::Slot()
 				.AutoHeight()
 				[
+					MakeValidationMessage(TEXT("Icons.Error"), LOCTEXT("UnversionedAndIncrimental", "Unversioned build cannot be incremental.").ToString(), ELauncherProfileValidationErrors::UnversionedAndIncrimental)
+				]
+
+			+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
 					MakeCallbackMessage(TEXT("Icons.Error"), ELauncherProfileValidationErrors::NoPlatformSDKInstalled)
 				]
 		];

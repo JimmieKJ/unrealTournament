@@ -9,8 +9,8 @@
  * you needed to have a background image scale to fill an area but not become distorted with different aspect ratios, or if you need
  * to auto fit some text to an area, this is the control for you.
  *
- * ● Single Child
- * ● Aspect Ratio
+ * * Single Child
+ * * Aspect Ratio
  */
 UCLASS()
 class UMG_API UScaleBox : public UContentWidget

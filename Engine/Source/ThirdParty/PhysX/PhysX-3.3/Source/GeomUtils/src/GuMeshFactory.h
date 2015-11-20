@@ -22,6 +22,7 @@
 #include "PsArray.h"
 
 #include "PsUserAllocated.h"
+#include "PsHashSet.h"
 
 #include "PxIO.h"
 namespace physx
@@ -52,11 +53,7 @@ class PX_PHYSX_COMMON_API GuMeshFactory : public Ps::UserAllocated
 {
 	PX_NOCOPY(GuMeshFactory)
 public:
-									GuMeshFactory()	:
-										mTriangleMeshArray	(PX_DEBUG_EXP("meshFactoryTriMesh")),
-										mConvexMeshArray	(PX_DEBUG_EXP("meshFactoryConvexMesh")),
-										mHeightFieldArray	(PX_DEBUG_EXP("meshFactoryHeightField"))
-									{}
+									GuMeshFactory()	{}
 protected:
 	virtual							~GuMeshFactory();
 
@@ -96,13 +93,13 @@ protected:
 	virtual void					notifyReleaseConvexMesh(const PxConvexMesh&) {}
 #endif
 
-	Ps::Mutex						mTrackingMutex;
+	mutable Ps::Mutex				mTrackingMutex;
 private:
-	Ps::Array<Gu::TriangleMesh*>	mTriangleMeshArray;
-	Ps::Array<Gu::ConvexMesh*>		mConvexMeshArray;
-	Ps::Array<Gu::HeightField*>		mHeightFieldArray;
+	Ps::CoalescedHashSet<Gu::TriangleMesh*>	mTriangleMeshes;
+	Ps::CoalescedHashSet<Gu::ConvexMesh*>	mConvexMeshes;
+	Ps::CoalescedHashSet<Gu::HeightField*>	mHeightFields;
 
-	Ps::Array<GuMeshFactoryListener*>			mFactoryListeners;
+	Ps::Array<GuMeshFactoryListener*>		mFactoryListeners;
 };
 #if defined(PX_VC) 
      #pragma warning(pop) 

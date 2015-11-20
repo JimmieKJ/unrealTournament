@@ -9,6 +9,7 @@ ShaderComplexityRendering.cpp: Contains definitions for rendering the shader com
 #include "SceneFilterRendering.h"
 #include "PostProcessVisualizeComplexity.h"
 #include "SceneUtils.h"
+#include "PostProcessing.h"
 
 /**
  * Gets the maximum shader complexity count from the ini settings.
@@ -24,10 +25,15 @@ void FShaderComplexityAccumulatePS::SetParameters(
 	uint32 NumPixelInstructions,
 	ERHIFeatureLevel::Type InFeatureLevel)
 {
-	//normalize the complexity so we can fit it in a low precision scene color which is necessary on some platforms
-	const float NormalizedComplexityValue = float(NumPixelInstructions) / GetMaxShaderComplexityCount(InFeatureLevel);
+	const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-	SetShaderValue(RHICmdList, GetPixelShader(), NormalizedComplexity, NormalizedComplexityValue);
+	float NormalizeMul = 1.0f / GetMaxShaderComplexityCount(InFeatureLevel);
+
+	// normalize the complexity so we can fit it in a low precision scene color which is necessary on some platforms
+	// late value is for overdraw which can be problmatic with a low precision float format, at some point the precision isn't there any more and it doesn't accumulate
+	FVector Value = FVector(NumPixelInstructions * NormalizeMul, NumVertexInstructions * NormalizeMul, 1/32.0f);
+
+	SetShaderValue(RHICmdList, ShaderRHI, NormalizedComplexity, Value);
 }
 
 IMPLEMENT_SHADER_TYPE(,FShaderComplexityAccumulatePS,TEXT("ShaderComplexityAccumulatePixelShader"),TEXT("Main"),SF_Pixel);
@@ -37,33 +43,6 @@ IMPLEMENT_SHADER_TYPE(,FShaderComplexityAccumulatePS,TEXT("ShaderComplexityAccum
 * Changing this requires a recompile of the FShaderComplexityApplyPS.
 */
 const uint32 NumShaderComplexityColors = 9;
-
-/**
-* Vertex shader used for combining LDR translucency with scene color when floating point blending isn't supported
-*/
-class FShaderComplexityApplyVS : public FGlobalShader
-{
-	DECLARE_SHADER_TYPE(FShaderComplexityApplyVS,Global);
-
-	static bool ShouldCache(EShaderPlatform Platform)
-	{
-		//this is used for shader complexity, so needs to compile for all platforms
-		return true;
-	}
-
-	/** Default constructor. */
-	FShaderComplexityApplyVS() {}
-
-public:
-
-	/** Initialization constructor. */
-	FShaderComplexityApplyVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
-		:	FGlobalShader(Initializer)
-	{
-	}
-};
-
-IMPLEMENT_SHADER_TYPE(,FShaderComplexityApplyVS,TEXT("ShaderComplexityApplyVertexShader"),TEXT("Main"),SF_Vertex);
 
 /**
 * Pixel shader that is used to map shader complexity stored in scene color into color.
@@ -82,6 +61,8 @@ public:
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
 		ShaderComplexityColors.Bind(Initializer.ParameterMap,TEXT("ShaderComplexityColors"));
+		MiniFontTexture.Bind(Initializer.ParameterMap, TEXT("MiniFontTexture"));
+		ShaderComplexityParams.Bind(Initializer.ParameterMap, TEXT("ShaderComplexityParams"));
 	}
 
 	FShaderComplexityApplyPS() 
@@ -90,7 +71,8 @@ public:
 
 	virtual void SetParameters(
 		const FRenderingCompositePassContext& Context,
-		const TArray<FLinearColor>& Colors
+		const TArray<FLinearColor>& Colors,
+		bool bLegend
 		)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
@@ -108,12 +90,16 @@ public:
 		{
 			SetShaderValue(Context.RHICmdList, ShaderRHI, ShaderComplexityColors, Colors[ColorIndex], ColorIndex);
 		}
+
+		{
+			FVector4 Value(bLegend, 0, 0, 0);
+
+			SetShaderValue(Context.RHICmdList, ShaderRHI, ShaderComplexityParams, Value);
+		}
+
+		SetTextureParameter(Context.RHICmdList, ShaderRHI, MiniFontTexture, GEngine->MiniFontTexture ? GEngine->MiniFontTexture->Resource->TextureRHI : GSystemTextures.WhiteDummy->GetRenderTargetItem().TargetableTexture);
 	}
 
-	/**
-	* @param Platform - hardware platform
-	* @return true if this shader should be cached
-	*/
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
 		return true;
@@ -125,15 +111,10 @@ public:
 		OutEnvironment.SetDefine(TEXT("NUM_COMPLEXITY_COLORS"), NumShaderComplexityColors);
 	}
 
-	/**
-	* Serialize shader parameters for this shader
-	* @param Ar - archive to serialize with
-	*/
 	bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter;
-		Ar << ShaderComplexityColors;
+		Ar << PostprocessParameter << ShaderComplexityColors << MiniFontTexture << ShaderComplexityParams;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -141,6 +122,8 @@ private:
 
 	FPostProcessPassParameters PostprocessParameter;
 	FShaderParameter ShaderComplexityColors;
+	FShaderResourceParameter MiniFontTexture;
+	FShaderParameter ShaderComplexityParams;
 };
 
 IMPLEMENT_SHADER_TYPE(,FShaderComplexityApplyPS,TEXT("ShaderComplexityApplyPixelShader"),TEXT("Main"),SF_Pixel);
@@ -180,14 +163,14 @@ void FRCPassPostProcessVisualizeComplexity::Process(FRenderingCompositePassConte
 	Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
 	//reuse this generic vertex shader
-	TShaderMapRef<FShaderComplexityApplyVS> VertexShader(Context.GetShaderMap());
+	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
 	TShaderMapRef<FShaderComplexityApplyPS> PixelShader(Context.GetShaderMap());
 
 	static FGlobalBoundShaderState ShaderComplexityBoundShaderState;
 	
 	SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), ShaderComplexityBoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
 
-	PixelShader->SetParameters(Context, Colors);
+	PixelShader->SetParameters(Context, Colors, bLegend);
 	
 	DrawRectangle(
 		Context.RHICmdList,
@@ -200,12 +183,54 @@ void FRCPassPostProcessVisualizeComplexity::Process(FRenderingCompositePassConte
 		*VertexShader,
 		EDRF_UseTriangleOptimization);
 
+	if(bLegend)
+	{
+		// this is a helper class for FCanvas to be able to get screen size
+		class FRenderTargetTemp : public FRenderTarget
+		{
+		public:
+			const FSceneView& View;
+			const FTexture2DRHIRef Texture;
+
+			FRenderTargetTemp(const FSceneView& InView, const FTexture2DRHIRef InTexture)
+				: View(InView), Texture(InTexture)
+			{
+			}
+			virtual FIntPoint GetSizeXY() const
+			{
+				return View.ViewRect.Size();
+			};
+			virtual const FTexture2DRHIRef& GetRenderTargetTexture() const
+			{
+				return Texture;
+			}
+		} TempRenderTarget(View, (const FTexture2DRHIRef&)DestRenderTarget.TargetableTexture);
+
+		FCanvas Canvas(&TempRenderTarget, NULL, ViewFamily.CurrentRealTime, ViewFamily.CurrentWorldTime, ViewFamily.DeltaWorldTime, Context.GetFeatureLevel());
+
+//later?		Canvas.DrawShadowedString(View.ViewRect.Max.X - View.ViewRect.Width() / 3 - 64 + 8, View.ViewRect.Max.Y - 80, TEXT("Overdraw"), GetStatsFont(), FLinearColor(0.7f, 0.7f, 0.7f), FLinearColor(0,0,0,0));
+//later?		Canvas.DrawShadowedString(View.ViewRect.Min.X + 64 + 4, View.ViewRect.Max.Y - 80, TEXT("VS Instructions"), GetStatsFont(), FLinearColor(0.0f, 0.0f, 0.0f), FLinearColor(0,0,0,0));
+
+		Canvas.DrawShadowedString(View.ViewRect.Min.X + 63, View.ViewRect.Max.Y - 51, TEXT("Very good"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+		Canvas.DrawShadowedString(View.ViewRect.Min.X + 63 + (int32)(View.ViewRect.Width() * 77.0f / 397.0f) - 16, View.ViewRect.Max.Y - 51, TEXT("Good"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+		Canvas.DrawShadowedString(View.ViewRect.Max.X - 124 + 12, View.ViewRect.Max.Y - 51, TEXT("Very bad"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+
+		Canvas.DrawShadowedString(View.ViewRect.Min.X + 62, View.ViewRect.Max.Y - 87, TEXT("0"), GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+
+		FString Line;
+
+		Line = FString::Printf(TEXT("MaxShaderComplexityCount=%d"), (int32)GetMaxShaderComplexityCount(Context.GetFeatureLevel()));
+		Canvas.DrawShadowedString(View.ViewRect.Max.X - 260, View.ViewRect.Max.Y - 88, *Line, GetStatsFont(), FLinearColor(0.5f, 0.5f, 0.5f));
+
+		Canvas.Flush_RenderThread(Context.RHICmdList);
+	}
+	
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessVisualizeComplexity::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
 	Ret.DebugName = TEXT("VisualizeComplexity");

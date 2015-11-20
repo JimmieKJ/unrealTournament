@@ -95,6 +95,8 @@ class UBodySetup : public UObject
 	UPROPERTY(EditAnywhere, Category=Collision, meta=(DisplayName = "Collision Complexity"))
 	TEnumAsByte<enum ECollisionTraceFlag> CollisionTraceFlag;
 
+	TEnumAsByte<enum ECollisionTraceFlag> GetCollisionTraceFlag() const;
+
 	/** Default properties of the body instance, copied into objects on instantiation, was URB_BodyInstance */
 	UPROPERTY(EditAnywhere, Category=Collision, meta=(FullyExpand = "true"))
 	struct FBodyInstance DefaultInstance;
@@ -121,10 +123,7 @@ class UBodySetup : public UObject
 
 #if WITH_PHYSX
 	/** Physics triangle mesh, created from cooked data in CreatePhysicsMeshes */
-	physx::PxTriangleMesh* TriMesh;
-
-	/** Physics triangle mesh, flipped across X, created from cooked data in CreatePhysicsMeshes */
-	physx::PxTriangleMesh* TriMeshNegX;
+	TArray<physx::PxTriangleMesh*> TriMeshes;
 #endif
 
 	/** Flag used to know if we have created the physics convex and tri meshes from the cooked data yet */
@@ -133,8 +132,11 @@ class UBodySetup : public UObject
 	/** Indicates whether this setup has any cooked collision data. */
 	bool bHasCookedCollisionData;
 
+	/** Indicates that we will never use convex or trimesh shapes. This is an optimization to skip checking for binary data. */
+	bool bNeverNeedsCookedCollisionData;
+
 public:
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void BeginDestroy() override;
 	virtual void FinishDestroy() override;
@@ -144,17 +146,17 @@ public:
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	//
-	// UBodySetup interface.
+	//~ Begin UBodySetup Interface.
 	//
 	ENGINE_API void CopyBodyPropertiesFrom(const UBodySetup* FromSetup);
 
 	/** Add collision shapes from another body setup to this one */
 	ENGINE_API void AddCollisionFrom(class UBodySetup* FromSetup);
-
-
+	ENGINE_API void AddCollisionFrom(const FKAggregateGeom& FromAggGeom);
+	
 	/** Create Physics meshes (ConvexMeshes, TriMesh & TriMeshNegX) from cooked data */
 	/** Release Physics meshes (ConvexMeshes, TriMesh & TriMeshNegX). Must be called before the BodySetup is destroyed */
 	ENGINE_API virtual void CreatePhysicsMeshes();

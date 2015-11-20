@@ -389,7 +389,7 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 		if (Existing == NULL || !Existing->StackPickup(NULL))
 		{
 			FActorSpawnParameters Params;
-			Params.bNoCollisionFail = true;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			Params.Instigator = P;
 			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
 			P->DeactivateSpawnProtection();

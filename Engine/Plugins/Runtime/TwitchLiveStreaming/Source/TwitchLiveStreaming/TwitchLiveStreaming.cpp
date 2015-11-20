@@ -19,6 +19,15 @@ DECLARE_MEMORY_STAT( TEXT( "Twitch Memory" ), STAT_TwitchMemory, STATGROUP_Memor
 
 #define LOCTEXT_NAMESPACE "TwitchPlugin"
 
+namespace TwitchLiveStreaming
+{
+	static const bool bUseTwitchSDKForWebBrowserInteraction = true;	// @todo twitch: Make configurable?  Or deprecate some options here
+
+	static const uint32 TwitchRequestAuthTokenFlags =
+		TTV_RequestAuthToken_Broadcast |		// Permission to broadcast
+		TTV_RequestAuthToken_Chat;				// Permission to chat
+}
+
 
 void FTwitchLiveStreaming::StartupModule()
 {
@@ -29,6 +38,7 @@ void FTwitchLiveStreaming::StartupModule()
 	TwitchShutdown = nullptr;
 	TwitchPollTasks = nullptr;
 	TwitchRequestAuthToken = nullptr;
+	TwitchImplicitGrantAuthToken = nullptr;
 	TwitchLogin = nullptr;
 	TwitchErrorToString = nullptr;
 	TwitchGetIngestServers = nullptr;
@@ -56,7 +66,7 @@ void FTwitchLiveStreaming::StartupModule()
 	TwitchChatSendMessage = nullptr;
 	TwitchChatFlushEvents = nullptr;
 
-	TwitchState = ETwitchState::Uninitialized;
+	TwitchState = ETwitchState::NotLoaded;
 	BroadcastState = EBroadcastState::Idle;
 	bWantsToBroadcastNow = false;
 
@@ -123,7 +133,7 @@ void FTwitchLiveStreaming::ShutdownModule()
 		SettingsModule->UnregisterSettings( "Project", "Plugins", "Twitch" );
 	}
 
-	if( TwitchState != ETwitchState::Uninitialized )
+	if( TwitchState != ETwitchState::NotLoaded )
 	{
 		// No longer safe to run callback functions, as we could be shutting down
 		OnStatusChangedEvent.Clear();
@@ -166,9 +176,11 @@ void FTwitchLiveStreaming::ShutdownModule()
 			BroadcastState = EBroadcastState::Idle;
 		}
 
-		if( TwitchState != ETwitchState::Uninitialized && TwitchState != ETwitchState::DLLLoaded )
+		if( TwitchState != ETwitchState::NotLoaded && TwitchState != ETwitchState::Uninitialized )
 		{
-			// Turn off Twitch
+			TwitchState = ETwitchState::Uninitialized;
+
+			// Turn off Twitch.  NOTE: Any pending callbacks could fire at this point.
 			UE_LOG( LogTwitch, Display, TEXT( "Shutting down Twitch SDK") );
 			const TTV_ErrorCode TwitchErrorCode = TwitchShutdown();
 			if( !TTV_SUCCEEDED( TwitchErrorCode ) )
@@ -176,8 +188,6 @@ void FTwitchLiveStreaming::ShutdownModule()
 				const FString TwitchErrorString( UTF8_TO_TCHAR( TwitchErrorToString( TwitchErrorCode ) ) );
 				UE_LOG( LogTwitch, Warning, TEXT( "An error occured while shutting down Twitch.\n\nError: %s (%d)"), *TwitchErrorString, (int32)TwitchErrorCode );
 			}
-
-			TwitchState = ETwitchState::DLLLoaded;
 		}
 
 		// Clean up video buffers
@@ -188,7 +198,7 @@ void FTwitchLiveStreaming::ShutdownModule()
 		}
 		AvailableVideoBuffers.Reset();
 
-		if( TwitchState == ETwitchState::DLLLoaded )
+		if( TwitchState == ETwitchState::Uninitialized )
 		{
 			check( TwitchDLLHandle != nullptr );
 
@@ -198,26 +208,26 @@ void FTwitchLiveStreaming::ShutdownModule()
 			TwitchDLLHandle = nullptr;
 		}
 
-		TwitchState = ETwitchState::Uninitialized;
+		TwitchState = ETwitchState::NotLoaded;
 	}
 }
 
 
 void FTwitchLiveStreaming::InitOnDemand()
 {
-	if( TwitchState == ETwitchState::Uninitialized )
+	if( TwitchState == ETwitchState::NotLoaded )
 	{
 		// Load the Twitch SDK dll
 		// @todo twitch: This all needs to be handled differently for iOS (static linkage)
 		FString TwitchDLLFolder( FPaths::Combine( 
 			*FPaths::EngineDir(), 
-			TEXT("Binaries/ThirdParty/NotForLicensees/Twitch/Twitch-6.17/"),	// Check the "NotForLicensees" folder first
+			TEXT("Plugins/Runtime/TwitchLiveStreaming/Binaries/ThirdParty/NotForLicensees/Twitch/"),	// Check the "NotForLicensees" folder first
 			FPlatformProcess::GetBinariesSubdirectory() ) );
 		if( !IFileManager::Get().DirectoryExists( *TwitchDLLFolder ) )
 		{
 			TwitchDLLFolder = FPaths::Combine( 
 				*FPaths::EngineDir(), 
-				TEXT("Binaries/ThirdParty/Twitch/Twitch-6.17/"),	// Check the normal folder
+				TEXT("Plugins/Runtime/TwitchLiveStreaming/Binaries/ThirdParty/Binaries/ThirdParty/Twitch/"),	// Check the normal folder
 				FPlatformProcess::GetBinariesSubdirectory() );
 		}
 
@@ -225,7 +235,7 @@ void FTwitchLiveStreaming::InitOnDemand()
 		// Load the SDK DLL
 		LoadTwitchSDK( TwitchDLLFolder );
 
-		if( TwitchState == ETwitchState::DLLLoaded )
+		if( TwitchState == ETwitchState::Uninitialized )
 		{
 			// Initialize the Twitch SDK
 			InitTwitch( TwitchDLLFolder );
@@ -237,7 +247,7 @@ void FTwitchLiveStreaming::InitOnDemand()
 
 void FTwitchLiveStreaming::LoadTwitchSDK( const FString& TwitchDLLFolder )
 {
-	check( TwitchState == ETwitchState::Uninitialized );
+	check( TwitchState == ETwitchState::NotLoaded );
 
 	{
 		// Make sure Twitch SDK DLL can find it's statically dependent DLLs
@@ -289,6 +299,7 @@ void FTwitchLiveStreaming::LoadTwitchSDK( const FString& TwitchDLLFolder )
 		TwitchShutdown = (TwitchShutdownFuncPtr)GetTwitchDllExport( TEXT( "TTV_Shutdown" ) );
 		TwitchPollTasks = (TwitchPollTasksFuncPtr)GetTwitchDllExport( TEXT( "TTV_PollTasks" ) );
 		TwitchRequestAuthToken = (TwitchRequestAuthTokenFuncPtr)GetTwitchDllExport( TEXT( "TTV_RequestAuthToken" ) );
+		TwitchImplicitGrantAuthToken = (TwitchImplicitGrantAuthTokenFuncPtr)GetTwitchDllExport( TEXT( "TTV_ImplicitGrantAuthToken" ) );
 		TwitchLogin = (TwitchLoginFuncPtr)GetTwitchDllExport( TEXT( "TTV_Login" ) );
 		TwitchErrorToString = (TwitchErrorToStringFuncPtr)GetTwitchDllExport( TEXT( "TTV_ErrorToString" ) );
 		TwitchGetIngestServers = (TwitchGetIngestServersFuncPtr)GetTwitchDllExport( TEXT( "TTV_GetIngestServers" ) );
@@ -328,8 +339,8 @@ void FTwitchLiveStreaming::LoadTwitchSDK( const FString& TwitchDLLFolder )
 
 	if( TwitchDLLHandle != nullptr )
 	{
-		// OK, everything loaded!
-		TwitchState = ETwitchState::DLLLoaded;
+		// OK, everything loaded!  But we're not initialized yet.
+		TwitchState = ETwitchState::Uninitialized;
 	}
 }
 
@@ -337,10 +348,8 @@ void FTwitchLiveStreaming::LoadTwitchSDK( const FString& TwitchDLLFolder )
 FTwitchLiveStreaming::FTwitchProjectSettings FTwitchLiveStreaming::LoadProjectSettings()
 {
 	FTwitchProjectSettings Settings;
-	if( GIsEditor )
+	if( GIsEditor && !GIsPlayInEditorWorld )
 	{
-		// @todo twitch: When invoking PIE from the editor, streaming will use the EDITOR credentials, not the game.  I think that is OK though?
-
 		// In the editor, we use a single Twitch application "client ID" for all sessions.
 		const FString ConfigCategory( TEXT( "TwitchEditorBroadcasting" ) );
 
@@ -348,16 +357,10 @@ FTwitchLiveStreaming::FTwitchProjectSettings FTwitchLiveStreaming::LoadProjectSe
 		// usage of the editor to their Twitch channel.  This is only used when running the editor though.  To allow your users to
 		// stream gameplay to Twitch, you'll need to create your own Twitch client ID and set that in your project's settings!
 		Settings.ClientID = TEXT( "nu2tppawhw58o74a2burkyc9fyuvjlr" );
-		Settings.RedirectURI = TEXT( "http://localhost:6180" );	// @todo twitch: Need nicer redirect landing page
-
-		// UserName, Password and ClientSecret are used for editor direct authentication with Twitch.  This authentication method 
-		// is less secure, and requires Twitch to whitelist your application's ClientID in order for it to authenticate.  When
-		// these fields are empty, a browser-based authentication will be used instead.  This is just for testing.
-		
-		// These are just for testing.  We don't really support this workflow yet, as there is no editor UI for prompting
-		// for credentials.  Also, it's not very secure compared to the browser-based login.
-		Settings.UserName = TEXT( "" );
-		Settings.Password = TEXT( "" );
+		Settings.RedirectURI = TEXT( "http://localhost:6180" );
+		Settings.LocalPortNumber = 6180;
+		Settings.AuthSuccessRedirectURI = TEXT( "" );	// @todo twitch: Need nice Unreal Engine redirect landing pages
+		Settings.AuthFailureRedirectURI = TEXT( "" );	// @todo twitch: Need nice Unreal Engine redirect landing pages
 		Settings.ClientSecret = TEXT( "" );
 	}
 	else
@@ -367,6 +370,10 @@ FTwitchLiveStreaming::FTwitchProjectSettings FTwitchLiveStreaming::LoadProjectSe
 		const auto& TwitchProjectSettings = *GetDefault< UTwitchProjectSettings >();
 		Settings.ClientID = TwitchProjectSettings.ApplicationClientID;
 		Settings.RedirectURI = TwitchProjectSettings.RedirectURI;
+		Settings.LocalPortNumber = TwitchProjectSettings.LocalPortNumber;
+		Settings.AuthSuccessRedirectURI = TwitchProjectSettings.AuthSuccessRedirectURI;
+		Settings.AuthFailureRedirectURI = TwitchProjectSettings.AuthFailureRedirectURI;
+		Settings.ClientSecret = TwitchProjectSettings.DirectAuthenticationClientSecretID;
 	}
 
 	return Settings;
@@ -375,7 +382,7 @@ FTwitchLiveStreaming::FTwitchProjectSettings FTwitchLiveStreaming::LoadProjectSe
 
 void FTwitchLiveStreaming::InitTwitch( const FString& TwitchWindowsDLLFolder )
 {
-	check( TwitchState == ETwitchState::DLLLoaded );
+	check( TwitchState == ETwitchState::Uninitialized );
 
 	// @todo twitch: This can be enabled to emit verbose log spew from the Twitch SDK to the IDE output window
 	if( FParse::Param( FCommandLine::Get(), TEXT("TwitchDebug") ) )
@@ -435,27 +442,20 @@ void FTwitchLiveStreaming::Async_AuthenticateWithTwitchDirectly( const FString& 
 {
 	check( TwitchState == ETwitchState::ReadyToAuthenticate );
 
-	// This will be filled in by TTV_RequestAuthToken()
+	// This will be filled in by TTV_RequestAuthToken() or TTV_ImplicitGrantAuthToken()
 	FMemory::Memzero( TwitchAuthToken );
 
 	TTV_AuthParams TwitchAuthParams;
 	TwitchAuthParams.size = sizeof( TwitchAuthParams );
 
-	ANSICHAR* UserNameAnsi = (ANSICHAR*)FMemory_Alloca( ( UserName.Len() + 1 ) * sizeof(ANSICHAR) );
-	FPlatformString::Strcpy( UserNameAnsi, UserName.Len() + 1, TCHAR_TO_ANSI( *UserName ) );
-	TwitchAuthParams.userName = UserNameAnsi;
+	auto UserNameAnsi = StringCast<ANSICHAR>( *UserName );
+	TwitchAuthParams.userName = UserNameAnsi.Get();
 
-	ANSICHAR* PasswordAnsi = (ANSICHAR*)FMemory_Alloca( ( Password.Len() + 1 ) * sizeof(ANSICHAR) );
-	FPlatformString::Strcpy( PasswordAnsi, Password.Len() + 1, TCHAR_TO_ANSI( *Password ) );
-	TwitchAuthParams.password = PasswordAnsi;
+	auto PasswordAnsi = StringCast<ANSICHAR>( *Password );
+	TwitchAuthParams.password = PasswordAnsi.Get();
 
-	ANSICHAR* ClientSecretAnsi = (ANSICHAR*)FMemory_Alloca( ( ClientSecret.Len() + 1 ) * sizeof(ANSICHAR) );
-	FPlatformString::Strcpy( ClientSecretAnsi, ClientSecret.Len() + 1, TCHAR_TO_ANSI( *ClientSecret ) );
-	TwitchAuthParams.clientSecret = ClientSecretAnsi;
-
-	const uint32 TwitchRequestAuthTokenFlags = 
-		TTV_RequestAuthToken_Broadcast |		// Permission to broadcast
-		TTV_RequestAuthToken_Chat;				// Permission to chat
+	auto ClientSecretAnsi = StringCast<ANSICHAR>( *ClientSecret );
+	TwitchAuthParams.clientSecret = ClientSecretAnsi.Get();
 
 	// Called when TwitchRequestAuthToken finishes async work
 	void* CallbackUserDataPtr = this;
@@ -464,7 +464,7 @@ void FTwitchLiveStreaming::Async_AuthenticateWithTwitchDirectly( const FString& 
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// Make sure we're still in the state that we were expecting
-			if( ensure( This->TwitchState == ETwitchState::WaitingForDirectAuthentication ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->TwitchState == ETwitchState::WaitingForDirectAuthentication ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{
@@ -491,7 +491,7 @@ void FTwitchLiveStreaming::Async_AuthenticateWithTwitchDirectly( const FString& 
 	PublishStatus( EStatusType::Progress, LOCTEXT( "Status_Authenticating", "Authenticating with Twitch..." ) );
 
 	TwitchState = ETwitchState::WaitingForDirectAuthentication;
-	const TTV_ErrorCode TwitchErrorCode = TwitchRequestAuthToken( &TwitchAuthParams, TwitchRequestAuthTokenFlags, TwitchTaskCallback, CallbackUserDataPtr, &TwitchAuthToken );
+	const TTV_ErrorCode TwitchErrorCode = TwitchRequestAuthToken( &TwitchAuthParams, TwitchLiveStreaming::TwitchRequestAuthTokenFlags, TwitchTaskCallback, CallbackUserDataPtr, &TwitchAuthToken );
 	if( !TTV_SUCCEEDED( TwitchErrorCode ) )
 	{
 		const FString TwitchErrorString( UTF8_TO_TCHAR( TwitchErrorToString( TwitchErrorCode ) ) );
@@ -502,16 +502,79 @@ void FTwitchLiveStreaming::Async_AuthenticateWithTwitchDirectly( const FString& 
 }
 
 
-void FTwitchLiveStreaming::Async_AuthenticateWithTwitchUsingBrowser()
+void FTwitchLiveStreaming::Async_AuthenticateWithTwitchUsingBrowser_UsingTwitchSDK()
 {
 	check( TwitchState == ETwitchState::ReadyToAuthenticate );
 
-	UE_LOG( LogTwitch, Display, TEXT( "Launching a web browser so that the user can manually authenticate with Twitch") );
-	PublishStatus( EStatusType::Progress, LOCTEXT( "Status_AuthenticatingWithBrowser", "Waiting for web browser authentication..." ) );
+	// Called when TTV_ImplicitGrantAuthToken finishes async work
+	void* CallbackUserDataPtr = this;
+	TTV_TaskCallback TwitchTaskCallback = []( TTV_ErrorCode TwitchErrorCode, void* CallbackUserDataPtr )
+	{
+		FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
+
+		// Make sure we're still in the state that we were expecting
+		if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->TwitchState == ETwitchState::WaitingForBrowserBasedAuthentication ) )
+		{
+			if( TTV_SUCCEEDED( TwitchErrorCode ) )
+			{
+				// If this call succeeded, we must now have valid auth token data
+				if( ensure( This->TwitchAuthToken.data[ 0 ] != 0 ) )
+				{
+					// OK, we're authorized now.  Next we need to login.
+					UE_LOG( LogTwitch, Display, TEXT( "Twitch authentication using web browser was successful (auth token '%s')" ), ANSI_TO_TCHAR( This->TwitchAuthToken.data ) );
+					This->PublishStatus( EStatusType::Progress, LOCTEXT( "Status_AuthenticationOK", "Successfully authenticated with Twitch" ) );
+					This->TwitchState = ETwitchState::ReadyToLogin;
+				}
+			}
+			else
+			{
+				const FString TwitchErrorString( UTF8_TO_TCHAR( This->TwitchErrorToString( TwitchErrorCode ) ) );
+				UE_LOG( LogTwitch, Warning, TEXT( "Failed to authenticate with Twitch using web browser.\n\nError: %s (%d)" ), *TwitchErrorString, (int32)TwitchErrorCode );
+				This->PublishStatus( EStatusType::Failure, FText::Format( LOCTEXT( "Status_AuthenticationFailed", "Failed to authenticate with Twitch ({0})" ), FText::FromString( TwitchErrorString ) ) );
+				This->TwitchState = ETwitchState::LoginFailure;
+			}
+		}
+	};
+
+	UE_LOG( LogTwitch, Display, TEXT( "Asking Twitch to launch a web browser so that the user can authenticate" ) );
+	PublishStatus( EStatusType::Progress, LOCTEXT( "Status_AuthenticatingWithBrowserUsingTwitch", "Waiting for Twitch browser authentication..." ) );
+
+	TwitchState = ETwitchState::WaitingForBrowserBasedAuthentication;
+
+	// @todo twitch: As far as I can tell, there is no timeout mechanism with this feature!  This means it will spin on a thread forever waiting
+	// for the browser to be summoned and respond with an auth token.  If there is a problem with the user logging in, or if the user is not
+	// connected to the internet, this may never call back!
+	const TTV_ErrorCode TwitchErrorCode = TwitchImplicitGrantAuthToken(
+		TCHAR_TO_ANSI( *ProjectSettings.ClientID ),
+		TCHAR_TO_ANSI( *FString::FromInt( ProjectSettings.LocalPortNumber ) ),
+		TCHAR_TO_ANSI( *ProjectSettings.AuthSuccessRedirectURI ),
+		TCHAR_TO_ANSI( *ProjectSettings.AuthFailureRedirectURI ),
+		TwitchLiveStreaming::TwitchRequestAuthTokenFlags,
+		TwitchTaskCallback,
+		CallbackUserDataPtr,
+		&TwitchAuthToken );
+
+	if( !TTV_SUCCEEDED( TwitchErrorCode ) )
+	{
+		const FString TwitchErrorString( UTF8_TO_TCHAR( TwitchErrorToString( TwitchErrorCode ) ) );
+		UE_LOG( LogTwitch, Warning, TEXT( "Failed to initiate implicit grant authentication using a web browser.\n\nError: %s (%d)" ), *TwitchErrorString, (int32)TwitchErrorCode );
+		PublishStatus( EStatusType::Failure, FText::Format( LOCTEXT( "Status_ImplicitGranAuthFailed", "Failed to start implicit gran authentication using Twitch ({0})" ), FText::FromString( TwitchErrorString ) ) );
+		TwitchState = ETwitchState::LoginFailure;
+	}
+}
+
+
+
+void FTwitchLiveStreaming::Async_AuthenticateWithTwitchUsingBrowser_Manually()
+{
+	check( TwitchState == ETwitchState::ReadyToAuthenticate );
+
+	UE_LOG( LogTwitch, Display, TEXT( "Manually launching a web browser so that the user can authenticate with Twitch") );
+	PublishStatus( EStatusType::Progress, LOCTEXT( "Status_AuthenticatingWithBrowserManually", "Waiting for manual web browser authentication..." ) );
 
 	// List of possible scopes can be found here:  https://github.com/justintv/Twitch-API/blob/master/authentication.md#scopes
 	// @todo twitch: Allow user to login with chat access only (no broadcasting), for games that just want to participate in chat
-	const FString TwitchScopes( TEXT( "user_read+channel_read+channel_editor+sdk_broadcast+chat_login" ) );		// channel_commercial+metadata_events_edit+user_blocks_edit+user_blocks_read+user_follows_edit+channel_commercial+channel_stream+channel_subscriptions+user_subscriptions+channel_check_subscription" ) );
+	const FString TwitchScopes( TEXT( "user_read+channel_read+channel_editor+channel_commercial+sdk_broadcast+chat_login+metadata_events_edit" ) );		// channel_commercial+metadata_events_edit+user_blocks_edit+user_blocks_read+user_follows_edit+channel_commercial+channel_stream+channel_subscriptions+user_subscriptions+channel_check_subscription" ) );
 
 	// Build up a URL string to give to the web browser
 	const FString URLString( FString::Printf(
@@ -519,7 +582,7 @@ void FTwitchLiveStreaming::Async_AuthenticateWithTwitchUsingBrowser()
 		*ProjectSettings.ClientID,		// Client ID
 		*ProjectSettings.RedirectURI,		// Redirect URI
 		*TwitchScopes ) );		// Space(+)-separated list of scopes
-	
+
 	// Launch the web browser on this computer
 	FString LaunchURLError;
 	FPlatformProcess::LaunchURL( *URLString, TEXT( "" ), &LaunchURLError );
@@ -627,7 +690,7 @@ void FTwitchLiveStreaming::Async_LoginToTwitch()
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// Make sure we're still in the state that we were expecting
-			if( ensure( This->TwitchState == ETwitchState::WaitingForLogin ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->TwitchState == ETwitchState::WaitingForLogin ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{
@@ -679,7 +742,7 @@ void FTwitchLiveStreaming::Async_GetIngestServers()
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// Make sure we're still in the state that we were expecting
-			if( ensure( This->BroadcastState == EBroadcastState::WaitingForGetIngestServers ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->BroadcastState == EBroadcastState::WaitingForGetIngestServers ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{
@@ -843,7 +906,7 @@ void FTwitchLiveStreaming::Async_StartBroadcasting()
 				FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 				// Make sure we're still in the state that we were expecting
-				if( ensure( This->BroadcastState == EBroadcastState::WaitingToStartBroadcasting ) )
+				if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->BroadcastState == EBroadcastState::WaitingToStartBroadcasting ) )
 				{
 					if( TTV_SUCCEEDED( TwitchErrorCode ) )
 					{
@@ -899,7 +962,7 @@ void FTwitchLiveStreaming::Async_StopBroadcasting()
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// Make sure we're still in the state that we were expecting
-			if( ensure( This->BroadcastState == EBroadcastState::WaitingToStopBroadcasting ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->BroadcastState == EBroadcastState::WaitingToStopBroadcasting ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{
@@ -1073,7 +1136,7 @@ void FTwitchLiveStreaming::QueryBroadcastConfig( FBroadcastConfig& OutBroadcastC
 	
 void FTwitchLiveStreaming::PushVideoFrame( const FColor* VideoFrameBuffer )
 {
-	if( ensure( BroadcastState == EBroadcastState::Broadcasting ) )
+	if( TwitchState != ETwitchState::Uninitialized && ensure( BroadcastState == EBroadcastState::Broadcasting ) )
 	{
 		Async_SendVideoFrame( VideoFrameBuffer );
 	}
@@ -1117,7 +1180,7 @@ UTexture2D* FTwitchLiveStreaming::GetWebCamTexture( bool& bIsImageFlippedHorizon
 {
 	bIsImageFlippedHorizontally = false;	// Twitch never flips a web cam image horizontally
 	bIsImageFlippedVertically = bIsWebCamTextureFlippedVertically;
-	return WebCamTexture;
+	return WebCamTexture.Get();
 }
 
 
@@ -1161,7 +1224,7 @@ bool FTwitchLiveStreaming::IsChatEnabled() const
 
 void FTwitchLiveStreaming::SendChatMessage( const FString& ChatMessage )
 {
-	if( ensure( IsChatEnabled() && ChatState == EChatState::Connected ) )
+	if( TwitchState != ETwitchState::Uninitialized && ensure( IsChatEnabled() && ChatState == EChatState::Connected ) )
 	{
 		Async_SendChatMessage( ChatMessage );
 	}
@@ -1180,184 +1243,192 @@ void FTwitchLiveStreaming::QueryLiveStreams( const FString& GameName, FQueryLive
 
 void FTwitchLiveStreaming::Tick( float DeltaTime )
 {
-	check( IsTickable() );
-
-	// To be able to broadcast video or chat, we need to get authorization from the Twitch server and complete a successful login
-	if( bWantsToBroadcastNow || bWantsChatEnabled )
+	if( TwitchState != ETwitchState::NotLoaded && TwitchState != ETwitchState::Uninitialized )
 	{
-		// User wants to be broadcasting.  Let's get it going!
-		if( TwitchState == ETwitchState::ReadyToAuthenticate )
+		// To be able to broadcast video or chat, we need to get authorization from the Twitch server and complete a successful login
+		if( bWantsToBroadcastNow || bWantsChatEnabled )
 		{
-			// If we have a user name and password, we can authenticate with Twitch directly.  This also requires access to the Twitch
-			// application's "Client Secret" code.  Because of security issues with manual handling of user names and passwords, this
-			// type of authentication to work, your application's Client ID must first be whitelisted by the Twitch developers.
-			// @todo twitch: Editor support prompting for username/password if missing? (for direct login support)
-			if( !ProjectSettings.UserName.IsEmpty() && !ProjectSettings.Password.IsEmpty() && !ProjectSettings.ClientSecret.IsEmpty() )
+			// User wants to be broadcasting.  Let's get it going!
+			if( TwitchState == ETwitchState::ReadyToAuthenticate )
 			{
-				Async_AuthenticateWithTwitchDirectly( ProjectSettings.UserName, ProjectSettings.Password, ProjectSettings.ClientSecret );
+				// If we have a user name and password, we can authenticate with Twitch directly.  This also requires access to the Twitch
+				// application's "Client Secret" code.  Because of security issues with manual handling of user names and passwords, this
+				// type of authentication to work, your application's Client ID must first be whitelisted by the Twitch developers.
+				// @todo twitch: Editor support prompting for username/password if missing? (for direct login support)
+				if( !ProjectSettings.ClientSecret.IsEmpty() )
+				{
+					Async_AuthenticateWithTwitchDirectly( BroadcastConfig.LoginUserName, BroadcastConfig.LoginPassword, ProjectSettings.ClientSecret );
+				}
+				else
+				{
+					if( TwitchLiveStreaming::bUseTwitchSDKForWebBrowserInteraction )
+					{
+						Async_AuthenticateWithTwitchUsingBrowser_UsingTwitchSDK();
+					}
+					else
+					{
+						Async_AuthenticateWithTwitchUsingBrowser_Manually();
+					}
+				}
+			}
+			else if( !TwitchLiveStreaming::bUseTwitchSDKForWebBrowserInteraction && TwitchState == ETwitchState::WaitingForBrowserBasedAuthentication )
+			{
+				CheckIfBrowserLoginCompleted();
+			}
+			else if( TwitchState == ETwitchState::ReadyToLogin )
+			{
+				Async_LoginToTwitch();
+			}
+		}
+
+		// Are we logged in yet?
+		if( TwitchState == ETwitchState::LoggedIn )
+		{
+			if( bWantsToBroadcastNow )
+			{
+				if( BroadcastState == EBroadcastState::Idle )
+				{
+					Async_GetIngestServers();
+				}
+				else if( BroadcastState == EBroadcastState::ReadyToBroadcast )
+				{
+					Async_StartBroadcasting();
+				}
 			}
 			else
 			{
-				Async_AuthenticateWithTwitchUsingBrowser();
+				// User does not want to be broadcasting at this time
+				if( BroadcastState == EBroadcastState::Broadcasting )
+				{
+					Async_StopBroadcasting();
+				}
 			}
-		}
-		else if( TwitchState == ETwitchState::WaitingForBrowserBasedAuthentication )
-		{
-			CheckIfBrowserLoginCompleted();
-		}
-		else if( TwitchState == ETwitchState::ReadyToLogin )
-		{
-			Async_LoginToTwitch();
-		}
-	}
 
-	// Are we logged in yet?
-	if( TwitchState == ETwitchState::LoggedIn )
-	{
-		if( bWantsToBroadcastNow )
-		{
-			if( BroadcastState == EBroadcastState::Idle )
+			if( bWantsChatEnabled )
 			{
-				Async_GetIngestServers();
+				// Startup the chat system if we haven't done that yet
+				if( ChatState == EChatState::Uninitialized )
+				{
+					Async_InitChatSupport();
+				}
+				else if( ChatState == EChatState::Initialized )
+				{
+					Async_ConnectToChat();
+				}
+				else if( ChatState == EChatState::Connected )
+				{
+					// ...
+				}
 			}
-			else if( BroadcastState == EBroadcastState::ReadyToBroadcast )
+			else
 			{
-				Async_StartBroadcasting();
+				if( ChatState == EChatState::Connected )
+				{
+					Async_DisconnectFromChat();
+				}
+			}
+		}
+
+		if( bWantsWebCamNow )
+		{
+			// Startup the web cam support if we haven't done that yet
+			if( WebCamState == EWebCamState::Uninitialized )
+			{
+				Async_InitWebCamSupport();
+			}
+			else if( WebCamState == EWebCamState::Initialized )
+			{
+				// Do we have a device?
+				if( WebCamDeviceIndex != INDEX_NONE )
+				{
+					Async_StartWebCam();
+				}
+				else
+				{
+					// User wants to start a web cam, but we couldn't find one that we support
+				}
+			}
+			else if( WebCamState == EWebCamState::Started )
+			{
+				UpdateWebCamTexture();
 			}
 		}
 		else
 		{
-			// User does not want to be broadcasting at this time
-			if( BroadcastState == EBroadcastState::Broadcasting )
+			if( WebCamState == EWebCamState::Started )
 			{
-				Async_StopBroadcasting();
+				Async_StopWebCam();
 			}
 		}
 
-		if( bWantsChatEnabled )
+
+		// If we hit a login failure or broadcasting failure, stop waiting to broadcast and wait to be asked again by the caller
+		if( BroadcastState == EBroadcastState::BroadcastingFailure )
 		{
-			// Startup the chat system if we haven't done that yet
-			if( ChatState == EChatState::Uninitialized )
-			{
-				Async_InitChatSupport();
-			}
-			else if( ChatState == EChatState::Initialized )
-			{
-				Async_ConnectToChat();
-			}
-			else if( ChatState == EChatState::Connected )
-			{
-				// ...
-			}
+			UE_LOG( LogTwitch, Warning, TEXT( "After Twitch broadcasting failure, reverting to non-broadcasting state" ) );
+			PublishStatus( EStatusType::BroadcastStopped, LOCTEXT( "Status_BroadcastStoppedUnexpectedly", "Broadcasting has ended unexpectedly." ) );
+			BroadcastState = EBroadcastState::Idle;
+			bWantsToBroadcastNow = false;
 		}
-		else
+
+		if( TwitchState == ETwitchState::LoginFailure )
 		{
+			UE_LOG( LogTwitch, Warning, TEXT( "After Twitch authenticate/login failure, reverting to non-broadcasting, non-authenticated state" ) );
+			TwitchState = ETwitchState::ReadyToAuthenticate;
+			bWantsToBroadcastNow = false;
+			bWantsChatEnabled = false;
+		}
+
+		// If the web cam system failed to initialize, we'll just leave it alone
+		if( WebCamState == EWebCamState::InitFailure )
+		{
+			bWantsWebCamNow = false;
+		}
+		else if( WebCamState == EWebCamState::StartOrStopFailure )
+		{
+			UE_LOG( LogTwitch, Warning, TEXT( "After Twitch web cam start or stop failure, reverting to web cam disabled state" ) );
+			if( WebCamState == EWebCamState::Started )
+			{
+				PublishStatus( EStatusType::WebCamStopped, LOCTEXT( "Status_WebCamStoppedUnexpectedly", "Web cam stopped unexpectedly" ) );
+			}
+			WebCamState = EWebCamState::Initialized;
+			bWantsWebCamNow = false;
+		}
+
+
+		// If the chat system failed to initialize, we'll just leave it alone
+		if( ChatState == EChatState::InitFailure )
+		{
+			bWantsChatEnabled = false;
+		}
+		else if( ChatState == EChatState::ConnectOrDisconnectFailure )
+		{
+			UE_LOG( LogTwitch, Warning, TEXT( "After Twitch chat connection or disconnection failure, reverting chat to disabled state" ) );
 			if( ChatState == EChatState::Connected )
 			{
-				Async_DisconnectFromChat();
+				PublishStatus( EStatusType::ChatDisconnected, LOCTEXT( "Status_ChatStoppedUnexpectedly", "Chat stopped unexpectedly" ) );
 			}
+			ChatState = EChatState::Initialized;
+			bWantsChatEnabled = false;
 		}
-	}
-
-	if( bWantsWebCamNow )
-	{
-		// Startup the web cam support if we haven't done that yet
-		if( WebCamState == EWebCamState::Uninitialized )
-		{
-			Async_InitWebCamSupport();
-		}
-		else if( WebCamState == EWebCamState::Initialized )
-		{
-			// Do we have a device?
-			if( WebCamDeviceIndex != INDEX_NONE )
-			{
-				Async_StartWebCam();
-			}
-			else
-			{
-				// User wants to start a web cam, but we couldn't find one that we support
-			}
-		}
-		else if( WebCamState == EWebCamState::Started )
-		{
-			UpdateWebCamTexture();
-		}
-	}
-	else
-	{
-		if( WebCamState == EWebCamState::Started )
-		{
-			Async_StopWebCam();
-		}
-	}
 
 
-	// If we hit a login failure or broadcasting failure, stop waiting to broadcast and wait to be asked again by the caller
-	if( BroadcastState == EBroadcastState::BroadcastingFailure )
-	{
-		UE_LOG( LogTwitch, Warning, TEXT( "After Twitch broadcasting failure, reverting to non-broadcasting state") );
-		PublishStatus( EStatusType::BroadcastStopped, LOCTEXT( "Status_BroadcastStoppedUnexpectedly", "Broadcasting has ended unexpectedly." ) );
-		BroadcastState = EBroadcastState::Idle;
-		bWantsToBroadcastNow = false;
-	}
-	
-	if( TwitchState == ETwitchState::LoginFailure )
-	{
-		UE_LOG( LogTwitch, Warning, TEXT( "After Twitch authenticate/login failure, reverting to non-broadcasting, non-authenticated state") );
-		TwitchState = ETwitchState::ReadyToAuthenticate;
-		bWantsToBroadcastNow = false;
-		bWantsChatEnabled = false;
-	}
+		// Allow the Twitch SDK to process any callbacks that are pending
+		TwitchPollTasks();
 
-	// If the web cam system failed to initialize, we'll just leave it alone
-	if( WebCamState == EWebCamState::InitFailure )
-	{
-		bWantsWebCamNow = false;
+		// Process Twitch web cam events and fire off callbacks
+		TwitchWebCamFlushEvents();
+
+		// Process Twitch chat system events
+		TwitchChatFlushEvents();
 	}
-	else if( WebCamState == EWebCamState::StartOrStopFailure )
-	{
-		UE_LOG( LogTwitch, Warning, TEXT( "After Twitch web cam start or stop failure, reverting to web cam disabled state") );
-		if( WebCamState == EWebCamState::Started )
-		{
-			PublishStatus( EStatusType::WebCamStopped, LOCTEXT( "Status_WebCamStoppedUnexpectedly", "Web cam stopped unexpectedly" ) );
-		}
-		WebCamState = EWebCamState::Initialized;
-		bWantsWebCamNow = false;
-	}
-
-
-	// If the chat system failed to initialize, we'll just leave it alone
-	if( ChatState == EChatState::InitFailure )
-	{
-		bWantsChatEnabled = false;
-	}
-	else if( ChatState == EChatState::ConnectOrDisconnectFailure )
-	{
-		UE_LOG( LogTwitch, Warning, TEXT( "After Twitch chat connection or disconnection failure, reverting chat to disabled state" ) );
-		if( ChatState == EChatState::Connected )
-		{
-			PublishStatus( EStatusType::ChatDisconnected, LOCTEXT( "Status_ChatStoppedUnexpectedly", "Chat stopped unexpectedly" ) );
-		}
-		ChatState = EChatState::Initialized;
-		bWantsChatEnabled = false;
-	}
-
-
-	// Allow the Twitch SDK to process any callbacks that are pending
-	TwitchPollTasks();
-
-	// Process Twitch web cam events and fire off callbacks
-	TwitchWebCamFlushEvents();
-	
-	// Process Twitch chat system events
-	TwitchChatFlushEvents();
 }
 
 
 bool FTwitchLiveStreaming::IsTickable() const
 {
 	// Only tickable when properly initialized
-	return ( TwitchState != ETwitchState::Uninitialized && TwitchState != ETwitchState::DLLLoaded );
+	return ( TwitchState != ETwitchState::NotLoaded && TwitchState != ETwitchState::Uninitialized );
 }
 
 
@@ -1393,7 +1464,7 @@ void FTwitchLiveStreaming::Async_InitWebCamSupport()
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// Make sure we're still in the state that we were expecting
-			if( ensure( This->WebCamState == EWebCamState::WaitingForInit ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->WebCamState == EWebCamState::WaitingForInit ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{
@@ -1417,7 +1488,7 @@ void FTwitchLiveStreaming::Async_InitWebCamSupport()
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// This callback could come in at pretty much any time
-			if( ensure( This->WebCamState != EWebCamState::Uninitialized && This->WebCamState != EWebCamState::WaitingForInit ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->WebCamState != EWebCamState::Uninitialized && This->WebCamState != EWebCamState::WaitingForInit ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{
@@ -1562,7 +1633,7 @@ void FTwitchLiveStreaming::Async_StartWebCam()
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// Make sure we're still in the state that we were expecting
-			if( ensure( This->WebCamState == EWebCamState::WaitingForStart ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->WebCamState == EWebCamState::WaitingForStart ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{
@@ -1606,7 +1677,7 @@ void FTwitchLiveStreaming::Async_StopWebCam()
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// Make sure we're still in the state that we were expecting
-			if( ensure( This->WebCamState == EWebCamState::WaitingForStop ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->WebCamState == EWebCamState::WaitingForStop ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{
@@ -1672,7 +1743,7 @@ void FTwitchLiveStreaming::UpdateWebCamTexture()
 		if( TTV_SUCCEEDED( TwitchErrorCode ) )
 		{
 			// @todo twitch: If texture format changes, we'd need to re-create it too.  Currently we don't support other formats though.
-			if( WebCamTexture == nullptr || WebCamVideoBufferWidth != WebCamTexture->GetSurfaceWidth() || WebCamVideoBufferHeight != WebCamTexture->GetSurfaceHeight() )
+			if( !WebCamTexture.IsValid() || WebCamVideoBufferWidth != WebCamTexture->GetSurfaceWidth() || WebCamVideoBufferHeight != WebCamTexture->GetSurfaceHeight() )
 			{
 				// Texture has not been created yet, or desired size has changed
 				const bool bReleaseResourceToo = true;	
@@ -1681,22 +1752,23 @@ void FTwitchLiveStreaming::UpdateWebCamTexture()
 				// NOTE: We're not really using this texture as a render target, as we map the resource and upload bits to the texture
 				// from system memory directly.  We never actually bind it as a render target.  However, this is the best API we have for
 				// dealing with textures like this.
-				WebCamTexture = UTexture2D::CreateTransient( WebCamVideoBufferWidth, WebCamVideoBufferHeight, PF_B8G8R8A8 );
+				UTexture2D* NewWebCamTexture = UTexture2D::CreateTransient( WebCamVideoBufferWidth, WebCamVideoBufferHeight, PF_B8G8R8A8 );
 
 				// Add the texture to the root set so that it doesn't get garbage collected.  We'll remove it from the root set ourselves when we're done with it.
-				WebCamTexture->AddToRoot();
+				NewWebCamTexture->AddToRoot();
 
-				WebCamTexture->AddressX = TA_Clamp;
-				WebCamTexture->AddressY = TA_Clamp;
-				WebCamTexture->bIsStreamable = false;
-				WebCamTexture->CompressionSettings = TC_Default;
-				WebCamTexture->Filter = TF_Bilinear;
-				WebCamTexture->LODGroup = TEXTUREGROUP_UI;
-				WebCamTexture->NeverStream = true;
-				WebCamTexture->SRGB = true;
+				NewWebCamTexture->AddressX = TA_Clamp;
+				NewWebCamTexture->AddressY = TA_Clamp;
+				NewWebCamTexture->bIsStreamable = false;
+				NewWebCamTexture->CompressionSettings = TC_Default;
+				NewWebCamTexture->Filter = TF_Bilinear;
+				NewWebCamTexture->LODGroup = TEXTUREGROUP_UI;
+				NewWebCamTexture->NeverStream = true;
+				NewWebCamTexture->SRGB = true;
 
-				WebCamTexture->UpdateResource();
+				NewWebCamTexture->UpdateResource();
 
+				WebCamTexture = NewWebCamTexture;
 				bWasWebCamTextureCreated = true;
 			}
 
@@ -1749,7 +1821,7 @@ void FTwitchLiveStreaming::UpdateWebCamTexture()
 
 void FTwitchLiveStreaming::ReleaseWebCamTexture( const bool bReleaseResourceToo )
 {
-	if( WebCamTexture != nullptr )
+	if( WebCamTexture.IsValid() )
 	{
 		// Release the web cam texture
 		if( bReleaseResourceToo )
@@ -1778,7 +1850,7 @@ void FTwitchLiveStreaming::Async_InitChatSupport()
 			FTwitchLiveStreaming* This = static_cast<FTwitchLiveStreaming*>( CallbackUserDataPtr );
 
 			// Make sure we're still in the state that we were expecting
-			if( ensure( This->ChatState == EChatState::WaitingForInit ) )
+			if( This->TwitchState != ETwitchState::Uninitialized && ensure( This->ChatState == EChatState::WaitingForInit ) )
 			{
 				if( TTV_SUCCEEDED( TwitchErrorCode ) )
 				{

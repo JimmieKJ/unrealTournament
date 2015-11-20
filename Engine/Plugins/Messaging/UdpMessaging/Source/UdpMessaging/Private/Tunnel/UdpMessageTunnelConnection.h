@@ -26,10 +26,10 @@ public:
 	 * @param InSocket The socket to use for this connection.
 	 * @param InRemoteAddress The IP endpoint of the remote client.
 	 */
-	FUdpMessageTunnelConnection( FSocket* InSocket, const FIPv4Endpoint& InRemoteEndpoint );
+	FUdpMessageTunnelConnection(FSocket* InSocket, const FIPv4Endpoint& InRemoteEndpoint);
 
-	/** Destructor. */
-	~FUdpMessageTunnelConnection();
+	/** Virtual destructor. */
+	virtual ~FUdpMessageTunnelConnection();
 
 public:
 
@@ -40,7 +40,7 @@ public:
 	 * @return true if a payload was returned, false otherwise.
 	 * @see Send
 	 */
-	bool Receive( FArrayReaderPtr& OutPayload );
+	bool Receive(FArrayReaderPtr& OutPayload);
 
 	/**
 	 * Sends a payload through this connection.
@@ -48,7 +48,7 @@ public:
 	 * @param Payload The payload to send.
 	 * @see Receive
 	 */
-	bool Send( const FArrayReaderPtr& Payload );
+	bool Send(const FArrayReaderPtr& Payload);
 
 public:
 

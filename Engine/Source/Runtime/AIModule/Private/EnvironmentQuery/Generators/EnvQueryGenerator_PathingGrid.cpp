@@ -47,7 +47,7 @@ void UEnvQueryGenerator_PathingGrid::ProjectAndFilterNavPoints(TArray<FNavLocati
 	TArray<FVector> ContextLocations;
 	QueryInstance.PrepareContext(GenerateAround, ContextLocations);
 
-	TSharedPtr<FNavigationQueryFilter> NavigationFilterOb = (NavigationFilter != nullptr)
+	FSharedNavQueryFilter NavigationFilterOb = (NavigationFilter != nullptr)
 		? UNavigationQueryFilter::GetQueryFilter(*NavMeshData, NavigationFilter)->GetCopy()
 		: NavMeshData->GetDefaultQueryFilter()->GetCopy();
 	NavigationFilterOb->SetBacktrackingEnabled(!bPathToItem);

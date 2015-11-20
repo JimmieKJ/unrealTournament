@@ -14,24 +14,24 @@ class UK2Node_MatineeController : public UK2Node
 	UPROPERTY(EditAnywhere, Category=K2Node_MatineeController)
 	class AMatineeActor* MatineeActor;
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual bool CanDuplicateNode() const override { return false; }
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual bool IsNodeSafeToIgnore() const override { return true; }
 	virtual AActor* GetReferencedLevelActor() const override;
 	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void BeginDestroy() override;
-	// End UObject interface
+	//~ End UObject Interface
 
 	/** Gets the "finished playing matinee sequence" pin */
 	UEdGraphPin* GetFinishedPin() const;

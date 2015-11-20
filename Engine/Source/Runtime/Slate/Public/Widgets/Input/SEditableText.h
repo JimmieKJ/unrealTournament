@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "IBreakIterator.h"
 #include "ITextEditorWidget.h"
 #include "ITextInputMethodSystem.h"
 #include "IVirtualKeyboardEntry.h"
@@ -22,7 +23,6 @@ public:
 		, _Font()
 		, _ColorAndOpacity()
 		, _BackgroundImageSelected()
-		, _BackgroundImageSelectionTarget()
 		, _BackgroundImageComposing()
 		, _CaretImage()
 		, _IsReadOnly( false )
@@ -54,9 +54,6 @@ public:
 		/** Background image for the selected text (overrides Style) */
 		SLATE_ATTRIBUTE( const FSlateBrush*, BackgroundImageSelected )
 
-		/** Background image for the selection targeting effect (overrides Style) */
-		SLATE_ATTRIBUTE( const FSlateBrush*, BackgroundImageSelectionTarget )
-
 		/** Background image for the composing text (overrides Style) */
 		SLATE_ATTRIBUTE( const FSlateBrush*, BackgroundImageComposing )
 
@@ -81,6 +78,9 @@ public:
 		/** Whether to clear keyboard focus when pressing enter to commit changes */
 		SLATE_ATTRIBUTE( bool, ClearKeyboardFocusOnCommit )
 
+		/** Delegate to call before a context menu is opened. User returns the menu content or null to the disable context menu */
+		SLATE_EVENT(FOnContextMenuOpening, OnContextMenuOpening)
+
 		/**
 		 * This is NOT for validating input!
 		 * 
@@ -100,6 +100,9 @@ public:
 
 		/** Whether to select all text when pressing enter to commit changes */
 		SLATE_ATTRIBUTE( bool, SelectAllTextOnCommit )
+
+		/** Callback delegate to have first chance handling of the OnKeyDown event */
+		SLATE_EVENT(FOnKeyDown, OnKeyDownHandler)
 
 		/** Menu extender for the right-click context menu */
 		SLATE_EVENT( FMenuExtensionDelegate, ContextMenuExtender )
@@ -155,6 +158,58 @@ public:
 	 * @param  InNewFont	The new font to use
 	 */
 	void SetFont( const TAttribute< FSlateFontInfo >& InNewFont );
+
+	/**
+	 * Sets the minimum width that a text block should be.
+	 *
+	 * @param  InMinDesiredWidth	The minimum width
+	 */
+	void SetMinDesiredWidth(const TAttribute<float>& InMinDesiredWidth);
+
+	/**
+	 * Workaround as we loose focus when the auto completion closes.
+	 *
+	 * @param  InIsCaretMovedWhenGainFocus	Workaround
+	 */
+	void SetIsCaretMovedWhenGainFocus(const TAttribute<bool>& InIsCaretMovedWhenGainFocus);
+
+	/**
+	 * Sets whether to select all text when the user clicks to give focus on the widget
+	 *
+	 * @param  InSelectAllTextWhenFocused	Select all text when the user clicks?
+	 */
+	void SetSelectAllTextWhenFocused(const TAttribute<bool>& InSelectAllTextWhenFocused);
+
+	/**
+	 * Sets whether to allow the user to back out of changes when they press the escape key
+	 *
+	 * @param  InRevertTextOnEscape			Allow the user to back out of changes?
+	 */
+	void SetRevertTextOnEscape(const TAttribute<bool>& InRevertTextOnEscape);
+
+	/**
+	 * Sets whether to clear keyboard focus when pressing enter to commit changes
+	 *
+	 * @param  InClearKeyboardFocusOnCommit		Clear keyboard focus when pressing enter?
+	 */
+	void SetClearKeyboardFocusOnCommit(const TAttribute<bool>& InClearKeyboardFocusOnCommit);
+
+	/**
+	 * Sets whether to select all text when pressing enter to commit changes
+	 *
+	 * @param  InSelectAllTextOnCommit		Select all text when pressing enter?
+	 */
+	void SetSelectAllTextOnCommit(const TAttribute<bool>& InSelectAllTextOnCommit);
+
+	/**
+	 * Sets the OnKeyDownHandler to provide first chance handling of the OnKeyDown event
+	 *
+	 * @param InOnKeyDownHandler			Delegate to call during OnKeyDown event
+	 */
+	void SetOnKeyDownHandler(FOnKeyDown InOnKeyDownHandler)
+	{
+		OnKeyDownHandler = InOnKeyDownHandler;
+	}
 
 protected:
 
@@ -277,7 +332,7 @@ protected:
 	};
 	
 public:
-	// BEGIN ITextEditorWidget interface
+	//~ Begin ITextEditorWidget Interface
 	virtual void StartChangingText() override;
 	virtual void FinishChangingText() override;
 	virtual bool GetIsReadOnly() const override;
@@ -312,13 +367,13 @@ public:
 	virtual void Undo() override;
 	virtual void Redo() override;
 	virtual TSharedRef< SWidget > GetWidget() override;
-	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow = TSharedPtr<SWindow>()) override;
+	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow, const FWidgetPath& EventPath) override;
 	virtual void LoadText() override;
-	// END ITextEditorWidget interface
+	//~ End ITextEditorWidget Interface
 
 public:
-	// BEGIN IVirtualKeyboardEntry interface
-	virtual void SetTextFromVirtualKeyboard(const FText& InNewText) override;
+	//~ Begin IVirtualKeyboardEntry Interface
+	virtual void SetTextFromVirtualKeyboard(const FText& InNewText, ESetTextType SetTextType, ETextCommit::Type CommitType) override;
 
 	virtual const FText& GetText() const override
 	{
@@ -339,10 +394,10 @@ public:
 	{
 		return false;
 	}
-	// END IVirtualKeyboardEntry interface
+	//~ End IVirtualKeyboardEntry Interface
 
 protected:
-	// BEGIN SWidget interface
+	//~ Begin SWidget Interface
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
 	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
@@ -359,7 +414,8 @@ protected:
 	virtual FReply OnMouseMove( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override;
 	virtual FReply OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent ) override;
 	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
-	// END SWidget interface
+	virtual const FSlateBrush* GetFocusBrush() const;
+	//~ End SWidget Interface
 
 protected:
 	/**
@@ -453,19 +509,11 @@ protected:
 	void SetCaretPosition( int32 Position );
 
 	/**
-	 * Called to restart selection target animation after most types of text selection changes
+	 * Called when the context menu is closed
 	 */
-	void RestartSelectionTargetAnimation();
-
-	/**
-	 * Called when the content menu window is closed
-	 */
-	void OnWindowClosed(const TSharedRef<SWindow>&);
+	void OnContextMenuClosed(TSharedRef<IMenu>);
 
 private:
-	/** Animates the caret and highlight selection springs */
-	EActiveTimerReturnType AnimateSpringsWhileFocused(double InCurrentTime, float InDeltaTime);
-	
 	/** @return Whether the editable text should appear focused */
 	bool ShouldAppearFocused() const;
 
@@ -478,6 +526,12 @@ private:
 	 * @return  the string that needs to be rendered
 	 */
 	FString GetStringToRender() const;
+
+	/**
+	 * Ensure that we will get a Tick() soon (either due to having active focus, or something having changed progmatically and requiring an update)
+	 * Does nothing if the active tick timer is already enabled
+	 */
+	void EnsureActiveTick();
 
 private:
 
@@ -498,9 +552,6 @@ private:
 
 	/** Background image for the selected text */
 	TAttribute< const FSlateBrush* > BackgroundImageSelected;
-
-	/** Background image for the selection targeting effect */
-	TAttribute< const FSlateBrush* > BackgroundImageSelectionTarget;
 
 	/** Background image for the composing text */
 	TAttribute< const FSlateBrush* > BackgroundImageComposing;
@@ -529,6 +580,9 @@ private:
 	/** Whether to select all text when pressing enter to commit changes */
 	TAttribute< bool > SelectAllTextOnCommit;
 
+	/** Delegate to call before a context menu is opened */
+	FOnContextMenuOpening OnContextMenuOpening;
+
 	/** Called when a character is typed and we want to know if the text field supports typing this character. */
 	FOnIsTypedCharValid OnIsTypedCharValid;
 
@@ -550,23 +604,11 @@ private:
 	/** Caret position as an index into the editable text string's character array */
 	int32 CaretPosition;
 
-	/** Horizontal visual position of caret along the scrolling canvas */
-	FFloatSpring1D CaretVisualPositionSpring;
-
 	/** Stores the last time that the caret was moved by the user.  Used to prevent the caret from blinking. */
 	double LastCaretInteractionTime;
 
 	/** Current selection state */
 	FTextSelection Selection;
-
-	/** Selection "targeting" visual effect left position */
-	FFloatSpring1D SelectionTargetLeftSpring;
-
-	/** Selection "targeting" visual effect right position */
-	FFloatSpring1D SelectionTargetRightSpring;
-
-	/** Last time that the user had a major interaction with the selection */
-	double LastSelectionInteractionTime;
 
 	/** True if we're currently selecting text by dragging the mouse cursor with the left button held down */
 	bool bIsDragSelecting;
@@ -610,13 +652,21 @@ private:
 	/** Notification interface object for text input method systems. */
 	TSharedPtr<ITextInputMethodChangeNotifier> TextInputMethodChangeNotifier;
 
-	/** The type of virtual keyboard to use for editing this text on mobile */
-	TAttribute<EKeyboardType> VirtualKeyboardType;
-
 	/** True if the text has been changed by a virtual keyboard */
 	bool bTextChangedByVirtualKeyboard;
 
-	/** True if a spring animation is currently in progress */
-	bool bIsSpringing;
+	/** The timer that is actively driving this widget to Tick() even when Slate is idle */
+	TWeakPtr<FActiveTimerHandle> ActiveTickTimer;
 
+	/** The iterator to use to detect word boundaries */
+	mutable TSharedPtr<IBreakIterator> WordBreakIterator;
+
+	/** Callback delegate to have first chance handling of the OnKeyDown event */
+	FOnKeyDown OnKeyDownHandler;
+
+	/** The type of virtual keyboard to use for editing this text on mobile */
+	TAttribute<EKeyboardType> VirtualKeyboardType;
+
+	/** Keep track of whether we showed the virtual keyboard when focus was received */
+	bool bShowingVirtualKeyboard;
 };

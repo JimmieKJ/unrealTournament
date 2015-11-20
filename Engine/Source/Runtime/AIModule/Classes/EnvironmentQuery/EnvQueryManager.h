@@ -129,6 +129,15 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 	int32 RunQuery(const FEnvQueryRequest& Request, EEnvQueryRunMode::Type RunMode, FQueryFinishedSignature const& FinishDelegate);
 	int32 RunQuery(TSharedPtr<FEnvQueryInstance> QueryInstance, FQueryFinishedSignature const& FinishDelegate);
 
+	/** Removed all active queries asked by Querier. No "on finished" notifications are being sent, call this function when
+	 *	you no longer care about Querier's queries, like when he's "dead" */
+	void SilentlyRemoveAllQueriesByQuerier(const UObject& Querier)
+	{
+		RemoveAllQueriesByQuerier(Querier, /*bExecuteFinishDelegate=*/false);
+	}
+
+	void RemoveAllQueriesByQuerier(const UObject& Querier, bool bExecuteFinishDelegate);
+
 	/** alternative way to run queries. Do not use for anything other then testing! (worse performance) */
 	TSharedPtr<FEnvQueryResult> RunInstantQuery(const FEnvQueryRequest& Request, EEnvQueryRunMode::Type RunMode);
 
@@ -164,10 +173,12 @@ class AIMODULE_API UEnvQueryManager : public UObject, public FTickableGameObject
 	static TArray<TSubclassOf<UEnvQueryItemType> > RegisteredItemTypes;
 
 	static UEnvQueryManager* GetCurrent(UWorld* World);
-	static UEnvQueryManager* GetCurrent(UObject* WorldContextObject);
+	static UEnvQueryManager* GetCurrent(const UObject* WorldContextObject);
 	
 	UFUNCTION(BlueprintCallable, Category = "AI|EQS", meta = (WorldContext = "WorldContext", AdvancedDisplay = "WrapperClass"))
 	static UEnvQueryInstanceBlueprintWrapper* RunEQSQuery(UObject* WorldContext, UEnvQuery* QueryTemplate, UObject* Querier, TEnumAsByte<EEnvQueryRunMode::Type> RunMode, TSubclassOf<UEnvQueryInstanceBlueprintWrapper> WrapperClass);
+
+	static void SetAllowTimeSlicing(bool bAllowTimeSlicing);
 
 #if USE_EQS_DEBUGGER
 	static void NotifyAssetUpdate(UEnvQuery* Query);
@@ -207,4 +218,8 @@ private:
 
 	/** create and bind delegates in instance */
 	void CreateOptionInstance(UEnvQueryOption* OptionTemplate, const TArray<UEnvQueryTest*>& SortedTests, FEnvQueryInstance& Instance);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	static bool bAllowEQSTimeSlicing;
+#endif
 };

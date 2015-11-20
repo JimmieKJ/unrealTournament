@@ -215,6 +215,9 @@ protected:
 	// Gives derived classes a chance to emit debug data
 	virtual void PostCompileDiagnostics() {}
 
+	// Gives derived classes a chance to hook up any custom logic
+	virtual void PostCompile() {}
+
 	/** Determines if a node is pure */
 	virtual bool IsNodePure(const UEdGraphNode* Node) const;
 
@@ -309,12 +312,6 @@ protected:
 
 	/** Expand timeline nodes into necessary nodes */
 	void ExpandTimelineNodes(UEdGraph* SourceGraph);
-
-	/** Expand any PlayMovieScene nodes */
-	void ExpandPlayMovieSceneNodes(UEdGraph* SourceGraph);
-
-	/** Used internally by ExpandPlayMovieSceneNodes() to generate a node network to allocate a URuntimeMovieScenePlayer object instance on demand */
-	UEdGraphPin* ExpandNodesToAllocateRuntimeMovieScenePlayer( UEdGraph* SourceGraph, class UK2Node_PlayMovieScene* PlayMovieSceneNode, class ULevel* Level, class UK2Node_TemporaryVariable*& OutPlayerVariableNode );
 
 	/**
 	 * First phase of compiling a function graph

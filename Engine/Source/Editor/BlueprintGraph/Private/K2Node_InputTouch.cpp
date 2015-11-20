@@ -47,7 +47,7 @@ void UK2Node_InputTouch::AllocateDefaultPins()
 	CreatePin(EGPD_Output, K2Schema->PC_Exec, TEXT(""), NULL, false, false, TEXT("Released"));
 	CreatePin(EGPD_Output, K2Schema->PC_Exec, TEXT(""), NULL, false, false, TEXT("Moved"));
 	
-	UScriptStruct* VectorStruct = GetBaseStructure(TEXT("Vector"));
+	UScriptStruct* VectorStruct = TBaseStructure<FVector>::Get();
 	CreatePin(EGPD_Output, K2Schema->PC_Struct, TEXT(""), VectorStruct, false, false, TEXT("Location"));
 
 	CreatePin(EGPD_Output, K2Schema->PC_Byte, TEXT(""), GetTouchIndexEnum(), false, false, TEXT("FingerIndex"));
@@ -102,12 +102,20 @@ FText UK2Node_InputTouch::GetMenuCategory() const
 
 bool UK2Node_InputTouch::IsCompatibleWithGraph(const UEdGraph* TargetGraph) const
 {
-	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(TargetGraph);
+	// This node expands into event nodes and must be placed in a Ubergraph
+	EGraphType const GraphType = TargetGraph->GetSchema()->GetGraphType(TargetGraph);
+	bool bIsCompatible = (GraphType == EGraphType::GT_Ubergraph);
 
-	UEdGraphSchema_K2 const* K2Schema = Cast<UEdGraphSchema_K2>(TargetGraph->GetSchema());
-	bool const bIsConstructionScript = (K2Schema != nullptr) ? K2Schema->IsConstructionScript(TargetGraph) : false;
+	if (bIsCompatible)
+	{
+		UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForGraph(TargetGraph);
 
-	return (Blueprint != nullptr) && Blueprint->SupportsInputEvents() && !bIsConstructionScript && Super::IsCompatibleWithGraph(TargetGraph);
+		UEdGraphSchema_K2 const* K2Schema = Cast<UEdGraphSchema_K2>(TargetGraph->GetSchema());
+		bool const bIsConstructionScript = (K2Schema != nullptr) ? K2Schema->IsConstructionScript(TargetGraph) : false;
+
+		bIsCompatible = (Blueprint != nullptr) && Blueprint->SupportsInputEvents() && !bIsConstructionScript && Super::IsCompatibleWithGraph(TargetGraph);
+	}
+	return bIsCompatible;
 }
 
 UEdGraphPin* UK2Node_InputTouch::GetPressedPin() const
@@ -170,7 +178,7 @@ void UK2Node_InputTouch::ExpandNode(FKismetCompilerContext& CompilerContext, UEd
 	if( ActivePins.Num() > 1 )
 	{
 		// Create a temporary variable to copy location in to
-		static UScriptStruct* VectorStruct = GetBaseStructure(TEXT("Vector"));
+		static UScriptStruct* VectorStruct = TBaseStructure<FVector>::Get();
 		UK2Node_TemporaryVariable* TouchLocationVar = CompilerContext.SpawnIntermediateNode<UK2Node_TemporaryVariable>(this, SourceGraph);
 		TouchLocationVar->VariableType.PinCategory = Schema->PC_Struct;
 		TouchLocationVar->VariableType.PinSubCategoryObject = VectorStruct;

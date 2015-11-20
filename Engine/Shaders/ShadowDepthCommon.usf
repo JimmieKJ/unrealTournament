@@ -37,6 +37,7 @@ struct FShadowDepthVSToPS
 #endif
 
 #if INTERPOLATE_POSITION
-	float4 PixelPosition	: TEXCOORD7;
+	// world space position needed in some cases, could be changed to be reconsructed from SvPosition (more tricky as this is not from camera perspective)
+	float3 PixelPosition	: TEXCOORD7;
 #endif
 };

@@ -26,6 +26,7 @@ FBehaviorTreeDebugger::FBehaviorTreeDebugger()
 
 	FEditorDelegates::BeginPIE.AddRaw(this, &FBehaviorTreeDebugger::OnBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FBehaviorTreeDebugger::OnEndPIE);
+	FEditorDelegates::PausePIE.AddRaw(this, &FBehaviorTreeDebugger::OnPausePIE);
 
 #if USE_BEHAVIORTREE_DEBUGGER
 	UBehaviorTreeComponent::ActiveDebuggerCounter++;
@@ -36,6 +37,7 @@ FBehaviorTreeDebugger::~FBehaviorTreeDebugger()
 {
 	FEditorDelegates::BeginPIE.RemoveAll(this);
 	FEditorDelegates::EndPIE.RemoveAll(this);
+	FEditorDelegates::PausePIE.RemoveAll(this);
 	USelection::SelectObjectEvent.RemoveAll(this);
 	FBehaviorTreeDelegates::OnTreeStarted.RemoveAll(this);
 	FBehaviorTreeDelegates::OnDebugLocked.RemoveAll(this);
@@ -232,6 +234,23 @@ void FBehaviorTreeDebugger::OnEndPIE(const bool bIsSimulating)
 	FBehaviorTreeDebuggerInstance EmptyData;
 	UpdateAssetFlags(EmptyData, RootNode.Get(), INDEX_NONE);
 	UpdateDebuggerViewOnInstanceChange();
+}
+
+void FBehaviorTreeDebugger::OnPausePIE(const bool bIsSimulating)
+{
+#if USE_BEHAVIORTREE_DEBUGGER
+	// We might have paused while executing a sub-tree, so make sure that the editor is showing the correct tree
+	TSharedPtr<FBehaviorTreeEditor> EditorOwnerPin = EditorOwner.Pin();
+	if (EditorOwnerPin.IsValid() && TreeInstance.IsValid() && TreeInstance->DebuggerSteps.IsValidIndex(ActiveStepIndex))
+	{
+		const FBehaviorTreeExecutionStep& StepInfo = TreeInstance->DebuggerSteps[ActiveStepIndex];
+		const int32 LastInstanceIndex = StepInfo.InstanceStack.Num() - 1;
+		if (StepInfo.InstanceStack.IsValidIndex(LastInstanceIndex) && StepInfo.InstanceStack[LastInstanceIndex].TreeAsset != TreeAsset)
+		{
+			EditorOwnerPin->DebuggerSwitchAsset(StepInfo.InstanceStack[LastInstanceIndex].TreeAsset);
+		}
+	}
+#endif
 }
 
 void FBehaviorTreeDebugger::OnObjectSelected(UObject* Object)
@@ -944,17 +963,19 @@ void FBehaviorTreeDebugger::StopPlaySession()
 
 void FBehaviorTreeDebugger::PausePlaySession()
 {
-	if (GUnrealEd->PlayWorld)
+	if (GUnrealEd->PlayWorld && !GUnrealEd->PlayWorld->bDebugPauseExecution)
 	{
 		GUnrealEd->PlayWorld->bDebugPauseExecution = true;
+		GUnrealEd->PlaySessionPaused();
 	}
 }
 
 void FBehaviorTreeDebugger::ResumePlaySession()
 {
-	if (GUnrealEd->PlayWorld)
+	if (GUnrealEd->PlayWorld && GUnrealEd->PlayWorld->bDebugPauseExecution)
 	{
 		GUnrealEd->PlayWorld->bDebugPauseExecution = false;
+		GUnrealEd->PlaySessionResumed();
 	}
 }
 
@@ -1215,7 +1236,7 @@ static int32 GetNumActiveInstances(const FBehaviorTreeExecutionStep& StepInfo, c
 {
 	for (int32 Idx = StepInfo.InstanceStack.Num() - 1; Idx >= 0; Idx--)
 	{
-		if (StepInfo.InstanceStack[Idx].ActivePath.Num())
+		//if (StepInfo.InstanceStack[Idx].ActivePath.Num())
 		{
 			ActiveSubtree = StepInfo.InstanceStack[Idx].TreeAsset;
 			return Idx + 1;
@@ -1235,16 +1256,17 @@ void FBehaviorTreeDebugger::UpdateAvailableActions()
 	StepOutIdx = INDEX_NONE;
 
 #if USE_BEHAVIORTREE_DEBUGGER
-	if (TreeInstance.IsValid() && TreeInstance->DebuggerSteps.IsValidIndex(ActiveStepIndex) && DebuggerInstanceIndex >= 0)
+	UBehaviorTreeComponent* TreeInstancePtr = TreeInstance.Get();
+	if (TreeInstancePtr && TreeInstancePtr->DebuggerSteps.IsValidIndex(ActiveStepIndex) && DebuggerInstanceIndex >= 0)
 	{
-		const FBehaviorTreeExecutionStep& CurStepInfo = TreeInstance->DebuggerSteps[ActiveStepIndex];
+		const FBehaviorTreeExecutionStep& CurStepInfo = TreeInstancePtr->DebuggerSteps[ActiveStepIndex];
 
-		if (TreeInstance->DebuggerSteps.IsValidIndex(ActiveStepIndex - 1))
+		if (TreeInstancePtr->DebuggerSteps.IsValidIndex(ActiveStepIndex - 1))
 		{
 			StepBackIntoIdx = ActiveStepIndex - 1;
 		}
 
-		if (TreeInstance->DebuggerSteps.IsValidIndex(ActiveStepIndex + 1))
+		if (TreeInstancePtr->DebuggerSteps.IsValidIndex(ActiveStepIndex + 1))
 		{
 			StepForwardIntoIdx = ActiveStepIndex + 1;
 		}
@@ -1255,55 +1277,41 @@ void FBehaviorTreeDebugger::UpdateAvailableActions()
 
 		for (int32 TestStepIndex = ActiveStepIndex - 1; TestStepIndex >= 0; TestStepIndex--)
 		{
-			const FBehaviorTreeExecutionStep& TestStepInfo = TreeInstance->DebuggerSteps[TestStepIndex];
+			const FBehaviorTreeExecutionStep& TestStepInfo = TreeInstancePtr->DebuggerSteps[TestStepIndex];
 			UBehaviorTree* TestTree = NULL;
 			const int32 TestStepInstances = GetNumActiveInstances(TestStepInfo, TestTree);
 
-			if (TestStepInstances < CurStepInstances ||
+			StepBackOverIdx = TestStepIndex;
+
+			// keep going only if the execution is moving to a sub-tree
+			if (TestStepInstances <= CurStepInstances ||
 				TestStepInfo.InstanceStack[DebuggerInstanceIndex].TreeAsset != CurStepInfo.InstanceStack[DebuggerInstanceIndex].TreeAsset)
 			{
-				// execution left current subtree
 				break;
 			}
-
-			if (TestStepInstances > CurStepInstances)
-			{
-				// next step is inside nested subtree
-				continue;
-			}
-
-			StepBackOverIdx = TestStepIndex;
-			break;
 		}
 
-		for (int32 TestStepIndex = ActiveStepIndex + 1; TestStepIndex < TreeInstance->DebuggerSteps.Num(); TestStepIndex++)
+		for (int32 TestStepIndex = ActiveStepIndex + 1; TestStepIndex < TreeInstancePtr->DebuggerSteps.Num(); TestStepIndex++)
 		{
-			const FBehaviorTreeExecutionStep& TestStepInfo = TreeInstance->DebuggerSteps[TestStepIndex];
+			const FBehaviorTreeExecutionStep& TestStepInfo = TreeInstancePtr->DebuggerSteps[TestStepIndex];
 			UBehaviorTree* TestTree = NULL;
 			int32 TestStepInstances = GetNumActiveInstances(TestStepInfo, TestTree);
 
-			if (TestStepInstances < CurStepInstances ||
+			StepForwardOverIdx = TestStepIndex;
+
+			// keep going only if the execution is moving to a sub-tree
+			if (TestStepInstances <= CurStepInstances ||
 				TestStepInfo.InstanceStack[DebuggerInstanceIndex].TreeAsset != CurStepInfo.InstanceStack[DebuggerInstanceIndex].TreeAsset)
 			{
-				// execution left current subtree
 				break;
 			}
-
-			if (TestStepInstances > CurStepInstances)
-			{
-				// next step is inside nested subtree
-				continue;
-			}
-
-			StepForwardOverIdx = TestStepIndex;
-			break;
 		}
 
 		if (CurStepInfo.InstanceStack.IsValidIndex(DebuggerInstanceIndex) && CurStepInfo.InstanceStack[DebuggerInstanceIndex].ActivePath.Num())
 		{
-			for (int32 TestStepIndex = ActiveStepIndex + 1; TestStepIndex < TreeInstance->DebuggerSteps.Num(); TestStepIndex++)
+			for (int32 TestStepIndex = ActiveStepIndex + 1; TestStepIndex < TreeInstancePtr->DebuggerSteps.Num(); TestStepIndex++)
 			{
-				const FBehaviorTreeExecutionStep& TestStepInfo = TreeInstance->DebuggerSteps[TestStepIndex];
+				const FBehaviorTreeExecutionStep& TestStepInfo = TreeInstancePtr->DebuggerSteps[TestStepIndex];
 				UBehaviorTree* TestTree = NULL;
 				int32 TestStepInstances = GetNumActiveInstances(TestStepInfo, TestTree);
 

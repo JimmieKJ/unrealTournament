@@ -8,9 +8,10 @@
 	UObjectProperty.
 -----------------------------------------------------------------------------*/
 
-FString UObjectProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CPPExportFlags/*=0*/ ) const
+FString UObjectProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass)  const
 {
-	return FString::Printf( TEXT("%s%s*"), PropertyClass->GetPrefixCPP(), *PropertyClass->GetName() );
+	check(ActualClass);
+	return FString::Printf(TEXT("%s%s*"), ActualClass->GetPrefixCPP(), *ActualClass->GetName());
 }
 
 FString UObjectProperty::GetCPPTypeForwardDeclaration() const

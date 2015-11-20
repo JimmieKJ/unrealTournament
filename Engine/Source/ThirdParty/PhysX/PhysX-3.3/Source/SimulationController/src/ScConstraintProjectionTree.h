@@ -27,9 +27,8 @@ namespace Sc
 	class BodySim;
 	class BodyRank;
 
-	class ConstraintProjectionTree /*: public Ps::UserAllocated*/
+	class ConstraintProjectionTree
 	{
-	public:
 		/**
 		 This class serves both the static administration of an articulation and the actual articulation itself.
 		 An Articulation object holds several articulation root nodes which make up a simulation island that

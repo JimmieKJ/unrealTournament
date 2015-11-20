@@ -540,7 +540,7 @@ APlayerController* UUTGameplayStatics::GetLocalPlayerController(UObject* WorldCo
 	}
 }
 
-void UUTGameplayStatics::SaveConfig(UObject* Obj)
+void UUTGameplayStatics::K2_SaveConfig(UObject* Obj)
 {
 	UClass* Cls = Cast<UClass>(Obj);
 	if (Cls != NULL)

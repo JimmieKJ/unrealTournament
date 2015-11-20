@@ -37,7 +37,7 @@ class UInterpTrackMoveAxis : public UInterpTrackFloatBase
 	struct FInterpLookupTrack LookupTrack;
 
 
-	// Begin UInterpTrack Interface
+	//~ Begin UInterpTrack Interface
 	virtual int32 AddKeyframe( float Time, UInterpTrackInst* TrInst, EInterpCurveMode InitInterpMode ) override;
 	virtual void UpdateKeyframe(int32 KeyIndex, UInterpTrackInst* TrInst) override;
 	virtual int32 SetKeyframeTime( int32 KeyIndex, float NewKeyTime, bool bUpdateOrder ) override;
@@ -47,17 +47,17 @@ class UInterpTrackMoveAxis : public UInterpTrackFloatBase
 	virtual class UTexture2D* GetTrackIcon() const override;
 #endif // WITH_EDITORONLY_DATA
 	virtual void ReduceKeys( float IntervalStart, float IntervalEnd, float Tolerance ) override;
-	// End UInterpTrack Interface
+	//~ End UInterpTrack Interface
 	
 
 
-	// Begin FCurveEdInterface interface.
+	//~ Begin FCurveEdInterface Interface.
 	virtual FColor GetSubCurveButtonColor( int32 SubCurveIndex, bool bIsSubCurveHidden ) const override;
 	virtual int32 CreateNewKey( float KeyIn ) override;
 	virtual void DeleteKey( int32 KeyIndex ) override;
 	virtual int32 SetKeyIn( int32 KeyIndex, float NewInVal ) override;
 	virtual FColor GetKeyColor(int32 SubIndex, int32 KeyIndex, const FColor& CurveColor) override;
-	// End FCurveEdInterface interface.
+	//~ End FCurveEdInterface Interface.
 
 	/** @todo document */
 	void GetKeyframeValue( UInterpTrackInst* TrInst, int32 KeyIndex, float& OutTime, float &OutValue, float* OutArriveTangent, float* OutLeaveTangent );

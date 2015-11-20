@@ -10,8 +10,7 @@
 #include "SecureHash.h"
 #include "ExceptionHandling.h"
 #include "Containers/Map.h"
-#include "../../Launch/Resources/Version.h"
-#include "GenericPlatformContext.h"
+#include "GenericPlatformCrashContext.h"
 
 #include "UProjectInfo.h"
 
@@ -148,6 +147,15 @@ namespace EBuildTargets
 	}
 }
 
+FString FSHA256Signature::ToString() const
+{
+	FString LocalHashStr;
+	for (int Idx = 0; Idx < 32; Idx++)
+	{
+		LocalHashStr += FString::Printf(TEXT("%02x"), Signature[Idx]);
+	}
+	return LocalHashStr;
+}
 
 /* FGenericPlatformMisc interface
  *****************************************************************************/
@@ -263,6 +271,20 @@ void FGenericPlatformMisc::MemoryBarrier()
 void FGenericPlatformMisc::HandleIOFailure( const TCHAR* Filename )
 {
 	UE_LOG(LogGenericPlatformMisc, Fatal,TEXT("I/O failure operating on '%s'"), Filename ? Filename : TEXT("Unknown file"));
+}
+
+void FGenericPlatformMisc::RaiseException(uint32 ExceptionCode)
+{
+	/** This is the last place to gather memory stats before exception. */
+	FGenericCrashContext::CrashMemoryStats = FPlatformMemory::GetStats();
+
+#if HACK_HEADER_GENERATOR && !PLATFORM_EXCEPTIONS_DISABLED
+	// We want Unreal Header Tool to throw an exception but in normal runtime code 
+	// we don't support exception handling
+	throw(ExceptionCode);
+#else	
+	*((uint32*)3) = ExceptionCode;
+#endif
 }
 
 bool FGenericPlatformMisc::SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue)
@@ -506,6 +528,32 @@ const TCHAR* FGenericPlatformMisc::EngineDir()
 	return *EngineDirectory;
 }
 
+// wrap the LaunchDir variable in a function to work around static/global initialization order
+static FString& GetWrappedLaunchDir()
+{
+	static FString LaunchDir;
+	return LaunchDir;
+}
+
+void FGenericPlatformMisc::CacheLaunchDir()
+{
+	// we can only cache this ONCE
+	static bool bOneTime = false;
+	if (bOneTime)
+	{
+		return;
+	}
+	bOneTime = true;
+	
+	GetWrappedLaunchDir() = FPlatformProcess::GetCurrentWorkingDirectory() + TEXT("/");
+}
+
+const TCHAR* FGenericPlatformMisc::LaunchDir()
+{
+	return *GetWrappedLaunchDir();
+}
+
+
 const TCHAR* FGenericPlatformMisc::GetNullRHIShaderFormat()
 {
 	return TEXT("PCD3D_SM5");
@@ -641,7 +689,28 @@ const TCHAR* FGenericPlatformMisc::GameDir()
 	return *GameDir;
 }
 
-uint32 FGenericPlatformMisc::GetStandardPrintableKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings, bool bMapUppercaseKeys, bool bMapLowercaseKeys)
+FString FGenericPlatformMisc::CloudDir()
+{
+	return FPaths::GameSavedDir() + TEXT("Cloud/");
+}
+
+const TCHAR* FGenericPlatformMisc::GamePersistentDownloadDir()
+{
+	static FString GamePersistentDownloadDir = TEXT("");
+
+	if (GamePersistentDownloadDir.Len() == 0)
+	{
+		FString BaseGameDir = GameDir();
+
+		if (BaseGameDir.Len() > 0)
+		{
+			GamePersistentDownloadDir = BaseGameDir / TEXT("PersistentDownloadDir");
+		}
+	}
+	return *GamePersistentDownloadDir;
+}
+
+uint32 FGenericPlatformMisc::GetStandardPrintableKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings, bool bMapUppercaseKeys, bool bMapLowercaseKeys)
 {
 	uint32 NumMappings = 0;
 
@@ -747,6 +816,7 @@ uint32 FGenericPlatformMisc::GetStandardPrintableKeyMap(uint16* KeyCodes, FStrin
 	ADDKEYMAP( 231, TEXT("C_Cedille") );
 	ADDKEYMAP( 233, TEXT("E_AccentAigu") );
 	ADDKEYMAP( 232, TEXT("E_AccentGrave") );
+	ADDKEYMAP( 167, TEXT("Section") );
 
 	return NumMappings;
 }
@@ -796,6 +866,13 @@ TArray<uint8> FGenericPlatformMisc::GetSystemFontBytes()
 const TCHAR* FGenericPlatformMisc::GetDefaultPathSeparator()
 {
 	return TEXT( "/" );
+}
+
+bool FGenericPlatformMisc::GetSHA256Signature(const void* Data, uint32 ByteSize, FSHA256Signature& OutSignature)
+{
+	checkf(false, TEXT("No SHA256 Platform implementation"));
+	FMemory::Memzero(OutSignature.Signature);
+	return false;
 }
 
 FString FGenericPlatformMisc::GetDefaultLocale()
@@ -866,6 +943,24 @@ const TCHAR* FGenericPlatformMisc::GetEngineMode()
 		TEXT( "Game" );
 }
 
+TArray<FString> FGenericPlatformMisc::GetPreferredLanguages()
+{
+	// not implemented by default
+	return TArray<FString>();
+}
+
+FString FGenericPlatformMisc::GetLocalCurrencyCode()
+{
+	// not implemented by default
+	return FString();
+}
+
+FString FGenericPlatformMisc::GetLocalCurrencySymbol()
+{
+	// not implemented by default
+	return FString();
+}
+
 void FGenericPlatformMisc::PlatformPreInit()
 {
 	FGenericCrashContext::Initialize();
@@ -875,4 +970,9 @@ FString FGenericPlatformMisc::GetOperatingSystemId()
 {
 	// not implemented by default.
 	return FString();
+}
+
+void FGenericPlatformMisc::RegisterForRemoteNotifications()
+{
+	// not implemented by default
 }

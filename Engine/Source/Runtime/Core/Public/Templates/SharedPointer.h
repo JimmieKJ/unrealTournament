@@ -148,7 +148,21 @@ public:
 	template< class OtherType >
 	FORCEINLINE explicit TSharedRef( OtherType* InObject )
 		: Object( InObject )
-		, SharedReferenceCount( InObject )
+		, SharedReferenceCount( SharedPointerInternals::NewDefaultReferenceController( InObject ) )
+	{
+		Init(InObject);
+	}
+
+	/**
+	 * Constructs a shared reference that owns the specified object.  Must not be nullptr.
+	 *
+	 * @param  InObject   Object this shared pointer to retain a reference to
+	 * @param  InDeleter  Deleter object used to destroy the object when it is no longer referenced.
+	 */
+	template< class OtherType, class DeleterType >
+	FORCEINLINE TSharedRef( OtherType* InObject, DeleterType&& InDeleter )
+		: Object( InObject )
+		, SharedReferenceCount( SharedPointerInternals::NewCustomReferenceController( InObject, Forward< DeleterType >( InDeleter ) ) )
 	{
 		Init(InObject);
 	}
@@ -161,9 +175,9 @@ public:
 	 */
 	TSharedRef()
 		: Object(new ObjectType())
-		, SharedReferenceCount(Object)
+		, SharedReferenceCount(SharedPointerInternals::NewDefaultReferenceController(Object))
 	{
-		EnsureRetrievingVTablePtr();
+		EnsureRetrievingVTablePtrDuringCtor(TEXT("TSharedRef()"));
 		Init(Object);
 	}
 #endif // WITH_HOT_RELOAD_CTORS
@@ -178,7 +192,7 @@ public:
 	template< class OtherType >
 	FORCEINLINE TSharedRef( SharedPointerInternals::FRawPtrProxy< OtherType > const& InRawPtrProxy )
 		: Object( InRawPtrProxy.Object )
-		, SharedReferenceCount( InRawPtrProxy.Object )
+		, SharedReferenceCount( InRawPtrProxy.ReferenceController )
 	{
 		// If the following assert goes off, it means a TSharedRef was initialized from a nullptr object pointer.
 		// Shared references must never be nullptr, so either pass a valid object or consider using TSharedPtr instead.
@@ -467,6 +481,16 @@ class TSharedPtr
 	// TSharedPtrs with UObjects are illegal.
 	static_assert(!TPointerIsConvertibleFromTo<ObjectType, const UObjectBase>::Value, "You cannot use TSharedPtr or TWeakPtr with UObjects. Consider a UPROPERTY() pointer or TWeakObjectPtr.");
 
+	enum
+	{
+		ObjectTypeHasSameModeSharedFromThis     = TPointerIsConvertibleFromTo<ObjectType, TSharedFromThis<ObjectType, Mode>>::Value,
+		ObjectTypeHasOppositeModeSharedFromThis = TPointerIsConvertibleFromTo<ObjectType, TSharedFromThis<ObjectType, (Mode == ESPMode::NotThreadSafe) ? ESPMode::ThreadSafe : ESPMode::NotThreadSafe>>::Value
+	};
+
+	// TSharedPtr of one mode to a type which has a TSharedFromThis only of another mode is illegal.
+	// A type which does not inherit TSharedFromThis at all is ok.
+	static_assert( TSharedPtr::ObjectTypeHasSameModeSharedFromThis || !TSharedPtr::ObjectTypeHasOppositeModeSharedFromThis, "You cannot use a TSharedPtr of one mode with a type which inherits TSharedFromThis of another mode.");
+
 public:
 
 	/**
@@ -487,7 +511,24 @@ public:
 	template< class OtherType >
 	FORCEINLINE explicit TSharedPtr( OtherType* InObject )
 		: Object( InObject )
-		, SharedReferenceCount( InObject )
+		, SharedReferenceCount( SharedPointerInternals::NewDefaultReferenceController( InObject ) )
+	{
+		// If the object happens to be derived from TSharedFromThis, the following method
+		// will prime the object with a weak pointer to itself.
+		SharedPointerInternals::EnableSharedFromThis( this, InObject, InObject );
+	}
+
+	/**
+	 * Constructs a shared pointer that owns the specified object.  Note that passing nullptr here will
+	 * still create a tracked reference to a nullptr pointer. (Consistent with std::shared_ptr)
+	 *
+	 * @param  InObject   Object this shared pointer to retain a reference to
+	 * @param  InDeleter  Deleter object used to destroy the object when it is no longer referenced.
+	 */
+	template< class OtherType, class DeleterType >
+	FORCEINLINE TSharedPtr( OtherType* InObject, DeleterType&& InDeleter )
+		: Object( InObject )
+		, SharedReferenceCount( SharedPointerInternals::NewCustomReferenceController( InObject, Forward< DeleterType >( InDeleter ) ) )
 	{
 		// If the object happens to be derived from TSharedFromThis, the following method
 		// will prime the object with a weak pointer to itself.
@@ -503,7 +544,7 @@ public:
 	template< class OtherType >
 	FORCEINLINE TSharedPtr( SharedPointerInternals::FRawPtrProxy< OtherType > const& InRawPtrProxy )
 		: Object( InRawPtrProxy.Object )
-		, SharedReferenceCount( InRawPtrProxy.Object )
+		, SharedReferenceCount( InRawPtrProxy.ReferenceController )
 	{
 		// If the object happens to be derived from TSharedFromThis, the following method
 		// will prime the object with a weak pointer to itself.
@@ -1487,6 +1528,19 @@ template< class ObjectType >
 FORCEINLINE SharedPointerInternals::FRawPtrProxy< ObjectType > MakeShareable( ObjectType* InObject )
 {
 	return SharedPointerInternals::FRawPtrProxy< ObjectType >( InObject );
+}
+
+
+/**
+ * MakeShareable utility function.  Wrap object pointers with MakeShareable to allow them to be implicitly
+ * converted to shared pointers!  This is useful in assignment operations, or when returning a shared
+ * pointer from a function.
+ */
+// NOTE: The following is an Unreal extension to standard shared_ptr behavior
+template< class ObjectType, class DeleterType >
+FORCEINLINE SharedPointerInternals::FRawPtrProxy< ObjectType > MakeShareable( ObjectType* InObject, DeleterType&& InDeleter )
+{
+	return SharedPointerInternals::FRawPtrProxy< ObjectType >( InObject, Forward< DeleterType >( InDeleter ) );
 }
 
 

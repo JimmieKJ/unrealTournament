@@ -3,7 +3,8 @@
 #pragma once
 
 #include "IntPoint.h"
-
+#include "Map.h"
+#include "ThreadingBase.h"
 
 /**
  * Exec handler that registers itself and is being routed via StaticExec.
@@ -34,9 +35,9 @@ public:
 	/** Initialization constructor. */
 	FStaticSelfRegisteringExec(bool (*InStaticExecFunc)(UWorld* Inworld, const TCHAR* Cmd,FOutputDevice& Ar));
 
-	// Begin Exec Interface
+	//~ Begin Exec Interface
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar );
-	// End Exec Interface
+	//~ End Exec Interface
 
 private:
 
@@ -241,6 +242,9 @@ CORE_API class FDerivedDataCacheInterface* GetDerivedDataCache();
 /** Return the DDC interface, fatal error if it is not available. **/
 CORE_API class FDerivedDataCacheInterface& GetDerivedDataCacheRef();
 
+/** Return the DDC interface, if it is available, otherwise return NULL **/
+CORE_API void DerivedDataCachePrint();
+
 /** Return the Target Platform Manager interface, if it is available, otherwise return NULL **/
 CORE_API class ITargetPlatformManagerModule* GetTargetPlatformManager();
 
@@ -253,27 +257,26 @@ CORE_API class ITargetPlatformManagerModule& GetTargetPlatformManagerRef();
 
 /**
  * Check to see if this executable is running as dedicated server
- * UT is hacked so that it can run as dedicated with -server
+ * Editor can run as dedicated with -server
  */
 FORCEINLINE bool IsRunningDedicatedServer()
 {
-	if (FPlatformProperties::IsProgram())
-	{
-		return false;
-	}
-
 	if (FPlatformProperties::IsServerOnly())
 	{
 		return true;
 	}
 
-	extern CORE_API int32 StaticDedicatedServerCheck();
-	if (StaticDedicatedServerCheck() == 1)
+	if (FPlatformProperties::IsGameOnly())
 	{
-		return true;
+		return false;
 	}
 
+#if UE_EDITOR
+	extern CORE_API int32 StaticDedicatedServerCheck();
+	return (StaticDedicatedServerCheck() == 1);
+#else
 	return false;
+#endif
 }
 
 /**
@@ -385,3 +388,40 @@ public:
 		return bValue;
 	}
 };
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	#define DO_BLUEPRINT_GUARD 1
+#endif
+
+#if DO_BLUEPRINT_GUARD
+/** 
+ * Helper struct for dealing with Blueprint exceptions 
+ */
+struct CORE_API FBlueprintExceptionTracker : TThreadSingleton<FBlueprintExceptionTracker>
+{
+	FBlueprintExceptionTracker()
+		: Runaway(0)
+		, Recurse(0)
+		, bRanaway(false)
+		, ScriptEntryTag(0)
+	{}
+
+	void ResetRunaway();
+
+public:
+	// map of currently displayed warnings in exception handler
+	TMap<FName, int32> DisplayedWarningsMap;
+
+	// runaway tracking
+	int32 Runaway;
+	int32 Recurse;
+	bool bRanaway;
+
+	// Script entry point tracking
+	int32 ScriptEntryTag;
+
+	// Stack names from the VM to be unrolled when we assert
+	TArray<FScriptTraceStackNode> ScriptStack;
+};
+
+#endif // DO_BLUEPRINT_GUARD

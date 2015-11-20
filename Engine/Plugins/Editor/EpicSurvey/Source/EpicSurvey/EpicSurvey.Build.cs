@@ -43,8 +43,6 @@ namespace UnrealBuildTool.Rules
             DynamicallyLoadedModuleNames.AddRange(
 				new string[]
 				{
-					"ImageWrapper",
-					"LevelEditor",
 					"MainFrame"
 				}
 			);

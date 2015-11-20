@@ -394,7 +394,7 @@ void AUTProjectile::SendInitialReplication()
 	// force immediate replication for projectiles with extreme speed or radial effects
 	// this prevents clients from being hit by invisible projectiles in almost all cases, because it'll exist locally before it has even been moved
 	UNetDriver* NetDriver = GetNetDriver();
-	if (NetDriver != NULL && NetDriver->IsServer() && !bPendingKillPending && (ProjectileMovement->Velocity.Size() >= 7500.0f || DamageParams.OuterRadius > 0.0f))
+	if (NetDriver != NULL && NetDriver->IsServer() && !IsPendingKillPending() && (ProjectileMovement->Velocity.Size() >= 7500.0f || DamageParams.OuterRadius > 0.0f))
 	{
 		NetDriver->ReplicationFrame++;
 		for (int32 i = 0; i < NetDriver->ClientConnections.Num(); i++)
@@ -895,7 +895,7 @@ void AUTProjectile::ShutDown()
 	{
 		MyFakeProjectile->ShutDown();
 	}
-	if (!bPendingKillPending)
+	if (!IsPendingKillPending())
 	{
 		SetActorEnableCollision(false);
 		ProjectileMovement->SetActive(false);

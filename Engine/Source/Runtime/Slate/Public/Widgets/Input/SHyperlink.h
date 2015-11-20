@@ -21,7 +21,7 @@ public:
 		, _OnNavigate()
 		{}
 
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE( FText, Text )
 		SLATE_STYLE_ARGUMENT( FHyperlinkStyle, Style )
 		SLATE_STYLE_ARGUMENT( FTextBlockStyle, TextStyle )
 		SLATE_STYLE_ARGUMENT( FButtonStyle, UnderlineStyle )

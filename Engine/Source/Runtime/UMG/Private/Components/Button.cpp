@@ -35,6 +35,8 @@ TSharedRef<SWidget> UButton::RebuildWidget()
 		.OnClicked(BIND_UOBJECT_DELEGATE(FOnClicked, SlateHandleClicked))
 		.OnPressed(BIND_UOBJECT_DELEGATE(FSimpleDelegate, SlateHandlePressed))
 		.OnReleased(BIND_UOBJECT_DELEGATE(FSimpleDelegate, SlateHandleReleased))
+		.OnHovered_UObject( this, &ThisClass::SlateHandleHovered )
+		.OnUnhovered_UObject( this, &ThisClass::SlateHandleUnhovered )
 		.ButtonStyle(&WidgetStyle)
 		.ClickMethod(ClickMethod)
 		.TouchMethod(TouchMethod)
@@ -80,21 +82,30 @@ void UButton::OnSlotRemoved(UPanelSlot* Slot)
 	}
 }
 
-void UButton::SetColorAndOpacity(FLinearColor Color)
+void UButton::SetStyle(const FButtonStyle& InStyle)
 {
-	ColorAndOpacity = Color;
+	WidgetStyle = InStyle;
 	if ( MyButton.IsValid() )
 	{
-		MyButton->SetColorAndOpacity(Color);
+		MyButton->SetButtonStyle(&WidgetStyle);
 	}
 }
 
-void UButton::SetBackgroundColor(FLinearColor Color)
+void UButton::SetColorAndOpacity(FLinearColor InColorAndOpacity)
 {
-	BackgroundColor = Color;
+	ColorAndOpacity = InColorAndOpacity;
 	if ( MyButton.IsValid() )
 	{
-		MyButton->SetBorderBackgroundColor(Color);
+		MyButton->SetColorAndOpacity(InColorAndOpacity);
+	}
+}
+
+void UButton::SetBackgroundColor(FLinearColor InBackgroundColor)
+{
+	BackgroundColor = InBackgroundColor;
+	if ( MyButton.IsValid() )
+	{
+		MyButton->SetBorderBackgroundColor(InBackgroundColor);
 	}
 }
 
@@ -155,6 +166,16 @@ void UButton::SlateHandlePressed()
 void UButton::SlateHandleReleased()
 {
 	OnReleased.Broadcast();
+}
+
+void UButton::SlateHandleHovered()
+{
+	OnHovered.Broadcast();
+}
+
+void UButton::SlateHandleUnhovered()
+{
+	OnUnhovered.Broadcast();
 }
 
 #if WITH_EDITOR

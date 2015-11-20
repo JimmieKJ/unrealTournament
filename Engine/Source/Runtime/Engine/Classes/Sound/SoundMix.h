@@ -148,13 +148,13 @@ class USoundMix : public UObject
 #endif // WITH_EDITOR
 
 protected:
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual FString GetDesc( void ) override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 #if WITH_EDITOR
 	bool CheckForDependencyLoop(USoundClass* SoundClass, TArray<USoundClass*>& ProblemClasses, bool CheckChildren) const;

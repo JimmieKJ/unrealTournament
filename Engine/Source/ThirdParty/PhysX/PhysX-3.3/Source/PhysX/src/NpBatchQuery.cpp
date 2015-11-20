@@ -25,7 +25,7 @@ using namespace physx;
 using namespace Sq;
 using namespace Cm;
 
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 PX_COMPILE_TIME_ASSERT(0==(sizeof(PxRaycastHit)& 0x0f));
 PX_COMPILE_TIME_ASSERT(0==(sizeof(PxSweepHit)& 0x0f));
 PX_COMPILE_TIME_ASSERT(0==(sizeof(PxOverlapHit)& 0x0f));

@@ -34,7 +34,7 @@ public:
 		// Create the event and default it to non-signaled
 		Event = CreateEvent(nullptr, bIsManualReset, 0, nullptr);
 		ManualReset = bIsManualReset;
-		StatID = FEventStats::CreateStatID();
+
 		return Event != nullptr;
 	}
 
@@ -43,32 +43,16 @@ public:
 		return ManualReset;
 	}
 
-	virtual void Trigger() override
-	{
-		check(Event);
-
-		SetEvent(Event);
-	}
-
-	virtual void Reset() override
-	{
-		check(Event);
-
-		ResetEvent(Event);
-	}
-
+	virtual void Trigger() override;
+	virtual void Reset() override;
 	virtual bool Wait( uint32 WaitTime, const bool bIgnoreThreadIdleStats = false ) override;
 
 private:
-
 	/** Holds the handle to the event. */
 	HANDLE Event;
 
 	/** Whether the signaled state of the event needs to be reset manually. */
 	bool ManualReset;
-
-	/** Stat ID of this event. */
-	TStatId StatID;
 };
 
 

@@ -21,12 +21,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Script|Functions")
 	virtual bool CallScriptFunction(FString FunctionName);
 
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 	virtual void OnRegister() override;
 	virtual void InitializeComponent() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void OnUnregister() override;
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 
 protected:
 

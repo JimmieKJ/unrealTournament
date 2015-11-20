@@ -132,7 +132,7 @@ public:
 
 public:
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;	
 #if WITH_EDITOR
 	virtual void PostLinkerChange() override;
@@ -144,9 +144,9 @@ public:
 	virtual void PreSave() override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 	virtual FString GetDesc() override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin UTexture interface.
+	//~ Begin UTexture Interface.
 	virtual float GetSurfaceWidth() const override { return GetSizeX(); }
 	virtual float GetSurfaceHeight() const override { return GetSizeY(); }
 	virtual FTextureResource* CreateResource() override;
@@ -157,7 +157,7 @@ public:
 #if WITH_EDITOR
 	virtual TMap<FString,FTexturePlatformData*>* GetCookedPlatformData() override { return &CookedPlatformData; }
 #endif
-	// End UTexture interface.
+	//~ End UTexture Interface.
 
 	/** Trivial accessors. */
 	FORCEINLINE int32 GetSizeX() const
@@ -371,19 +371,20 @@ public:
 	 */
 	bool GetResourceMemSettings(int32 FirstMipIdx, int32& OutSizeX, int32& OutSizeY, int32& OutNumMips, uint32& OutTexCreateFlags);
 
-#if WITH_EDITOR
 	/**
-	 *	Asynchronously update a set of regions of a texture with new data.
-	 *	@param MipIndex - the mip number to update
-	 *	@param NumRegions - number of regions to update
-	 *	@param Regions - regions to update
-	 *	@param SrcPitch - the pitch of the source data in bytes
-	 *	@param SrcBpp - the size one pixel data in bytes
-	 *	@param SrcData - the source data
-	 *  @param bFreeData - if true, the SrcData and Regions pointers will be freed after the update.
-	 */
-	ENGINE_API void UpdateTextureRegions(int32 MipIndex, uint32 NumRegions, FUpdateTextureRegion2D* Regions, uint32 SrcPitch, uint32 SrcBpp, uint8* SrcData, bool bFreeData);
+	*	Asynchronously update a set of regions of a texture with new data.
+	*	@param MipIndex - the mip number to update
+	*	@param NumRegions - number of regions to update
+	*	@param Regions - regions to update
+	*	@param SrcPitch - the pitch of the source data in bytes
+	*	@param SrcBpp - the size one pixel data in bytes
+	*	@param SrcData - the source data
+	*  @param bFreeData - if true, the SrcData and Regions pointers will be freed after the update.
+	*/
+	ENGINE_API void UpdateTextureRegions(int32 MipIndex, uint32 NumRegions, const FUpdateTextureRegion2D* Regions, uint32 SrcPitch, uint32 SrcBpp, uint8* SrcData, TFunction<void(uint8* SrcData, const FUpdateTextureRegion2D* Regions)> DataCleanupFunc = [](uint8*, const FUpdateTextureRegion2D*){});
 
+#if WITH_EDITOR
+	
 	/**
 	 * Temporarily disable streaming so we update subregions of this texture without streaming clobbering it. 
 	 */

@@ -43,7 +43,7 @@ public:
 	 *
 	 * @return true if the call is successful, false otherwise
 	 */
-	virtual bool ReadLeaderboards(const TArray< TSharedRef<FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject) = 0;
+	virtual bool ReadLeaderboards(const TArray< TSharedRef<const FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject) = 0;
 
 	/**
 	 * Reads a player's stats and all of that player's friends stats for the

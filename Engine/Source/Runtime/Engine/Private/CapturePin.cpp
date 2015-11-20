@@ -1,38 +1,28 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-/*=============================================================================
-	CapturePin.cpp: CapturePin implementation
-=============================================================================*/
-
 #include "EnginePrivate.h"
-
 #include "CapturePin.h"
+#include "CaptureSource.h"
 #include "AVIWriter.h"
+#include "ScopeExit.h"
+
 
 DEFINE_LOG_CATEGORY(LogMovieCapture);
+
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
 
 
-
-FCapturePin::FCapturePin(HRESULT *phr, CSource *pFilter)
-        : CSourceStream(NAME("Push Source"), phr, pFilter, L"Out"),
-		FramesWritten(0),
-		bZeroMemory(0),
-		FrameLength(UNITS/GEngine->MatineeScreenshotOptions.MatineeCaptureFPS),
-		CurrentBitDepth(32)
+FCapturePin::FCapturePin(HRESULT *phr, CSource *pFilter, const FAVIWriter& InWriter)
+        : CSourceStream(NAME("Push Source"), phr, pFilter, L"Capture")
+		, FrameLength(UNITS/InWriter.Options.CaptureFPS)
+		, Writer(InWriter)
 {
-	// Get the dimensions of the window
-	Screen.left   = Screen.top = 0;
-	Screen.right  = FAVIWriter::GetInstance()->GetWidth();
-	Screen.bottom = FAVIWriter::GetInstance()->GetHeight();
-
-	ImageWidth  = Screen.right  - Screen.left;
-	ImageHeight = Screen.bottom - Screen.top;
+	ImageWidth  = Writer.GetWidth();
+	ImageHeight = Writer.GetHeight();
 }
 
 FCapturePin::~FCapturePin()
-{   
-
+{
 }
 
 
@@ -75,70 +65,18 @@ HRESULT FCapturePin::GetMediaType(int32 iPosition, CMediaType *pmt)
 	// Initialize the VideoInfo structure before configuring its members
 	ZeroMemory(pvi, sizeof(VIDEOINFO));
 
-	switch(iPosition)
-	{
-		case 0:
-		{    
-			// Return our highest quality 32bit format
+	// We only supply 32bit RGB
 
-			// Since we use RGB888 (the default for 32 bit), there is
-			// no reason to use BI_BITFIELDS to specify the RGB
-			// masks. Also, not everything supports BI_BITFIELDS
-			pvi->bmiHeader.biCompression = BI_RGB;
-			pvi->bmiHeader.biBitCount    = 32;
-			break;
-		}
-
-		case 1:
-		{   // Return our 24bit format
-			pvi->bmiHeader.biCompression = BI_RGB;
-			pvi->bmiHeader.biBitCount    = 24;
-			break;
-		}
-
-		case 2:
-		{       
-			// 16 bit per pixel RGB565
-
-			// Place the RGB masks as the first 3 doublewords in the palette area
-			for(int32 i = 0; i < 3; i++)
-			{
-				pvi->TrueColorInfo.dwBitMasks[i] = bits565[i];
-			}
-
-			pvi->bmiHeader.biCompression = BI_BITFIELDS;
-			pvi->bmiHeader.biBitCount    = 16;
-			break;
-		}
-
-		case 3:
-		{   // 16 bits per pixel RGB555
-
-			// Place the RGB masks as the first 3 doublewords in the palette area
-			for(int32 i = 0; i < 3; i++)
-			{
-				pvi->TrueColorInfo.dwBitMasks[i] = bits555[i];
-			}
-
-			pvi->bmiHeader.biCompression = BI_BITFIELDS;
-			pvi->bmiHeader.biBitCount    = 16;
-			break;
-		}
-
-		case 4:
-		{   // 8 bit palettised
-
-			pvi->bmiHeader.biCompression = BI_RGB;
-			pvi->bmiHeader.biBitCount    = 8;
-			pvi->bmiHeader.biClrUsed     = iPALETTE_COLORS;
-			break;
-		}
-	}
+	// Since we use RGB888 (the default for 32 bit), there is
+	// no reason to use BI_BITFIELDS to specify the RGB
+	// masks. Also, not everything supports BI_BITFIELDS
+	pvi->bmiHeader.biCompression = BI_RGB;
+	pvi->bmiHeader.biBitCount    = 32;
 
 	// Adjust the parameters common to all formats
 	pvi->bmiHeader.biSize       = sizeof(BITMAPINFOHEADER);
 	pvi->bmiHeader.biWidth      = ImageWidth;
-	pvi->bmiHeader.biHeight     = ImageHeight * (-1); // negative 1 to flip the image vertically
+	pvi->bmiHeader.biHeight     = ImageHeight;// * (-1); // negative 1 to flip the image vertically
 	pvi->bmiHeader.biPlanes     = 1;
 	pvi->bmiHeader.biSizeImage  = GetBitmapSize(&pvi->bmiHeader);
 	pvi->bmiHeader.biClrImportant = 0;
@@ -149,11 +87,11 @@ HRESULT FCapturePin::GetMediaType(int32 iPosition, CMediaType *pmt)
 
 	pmt->SetType(&MEDIATYPE_Video);
 	pmt->SetFormatType(&FORMAT_VideoInfo);
-	pmt->SetTemporalCompression(false);
+	pmt->SetTemporalCompression(true);
 
 	// Work out the GUID for the subtype from the header info.
-	const GUID SubTypeGUID = GetBitmapSubtype(&pvi->bmiHeader);
-	pmt->SetSubtype(&SubTypeGUID);
+	//const GUID SubTypeGUID = GetBitmapSubtype(&pvi->bmiHeader);
+	pmt->SetSubtype(&MEDIASUBTYPE_RGB32);
 	pmt->SetSampleSize(pvi->bmiHeader.biSizeImage);
 
 	return NOERROR;
@@ -185,11 +123,7 @@ HRESULT FCapturePin::CheckMediaType(const CMediaType *pMediaType)
 		return E_INVALIDARG;
 	}
 
-	if(    (*SubType != MEDIASUBTYPE_RGB8)
-		&& (*SubType != MEDIASUBTYPE_RGB565)
-		&& (*SubType != MEDIASUBTYPE_RGB555)
-		&& (*SubType != MEDIASUBTYPE_RGB24)
-		&& (*SubType != MEDIASUBTYPE_RGB32))
+	if (*SubType != MEDIASUBTYPE_RGB32)
 	{
 		return E_INVALIDARG;
 	}
@@ -279,27 +213,15 @@ HRESULT FCapturePin::SetMediaType(const CMediaType *pMediaType)
 			return E_UNEXPECTED;
 		}
 
-		switch(pvi->bmiHeader.biBitCount)
+		if (pvi->bmiHeader.biBitCount == 32)
 		{
-			case 8:     // 8-bit palettized
-			case 16:    // RGB565, RGB555
-			case 24:    // RGB24
-			case 32:    // RGB32
-				// Save the current media type and bit depth
-				MediaType = *pMediaType;
-				CurrentBitDepth = pvi->bmiHeader.biBitCount;
-				hr = S_OK;
-				break;
-
-			default:
-				// We should never agree any other media types
-				check(false);
-				hr = E_INVALIDARG;
-				break;
+			return S_OK;
 		}
-	} 
+	}
 
-	return hr;
+	// We should never agree any other media types
+	check(false);
+	return E_INVALIDARG;
 
 } // SetMediaType
 
@@ -326,31 +248,28 @@ HRESULT FCapturePin::FillBuffer(IMediaSample *pSample)
 
 	if (pData)
 	{
-		uint32 sizeInBytes = FAVIWriter::GetInstance()->GetWidth() * FAVIWriter::GetInstance()->GetHeight() * sizeof(FColor);
-		const TArray<FColor>& Buffer = FAVIWriter::GetInstance()->GetColorBuffer();
-		uint32 smallest = FMath::Min((uint32)pVih->bmiHeader.biSizeImage, (uint32)cbData);
-		// Copy the DIB bits over into our filter's output buffer.
-		// Since sample size may be larger than the image size, bound the copy size
-		FMemory::Memcpy(pData, Buffer.GetData(), FMath::Min(smallest, sizeInBytes));
+		uint32 BytesPerRow = sizeof(FColor) * ImageWidth;
+
+		// Fill buffer bottom up
+		for (int32 Row = ImageHeight - 1; Row >= 0; --Row, pData += BytesPerRow)
+		{
+			const FColor* Read = &CurrentFrame->FrameData.GetData()[ImageWidth * Row];
+			FMemory::Memcpy(pData, Read, BytesPerRow);
+		}
 	}
 
 	// Set the timestamps that will govern playback frame rate.
-	// set the Average Time Per Frame for the AVI Header.
 	// The current time is the sample's start.
 
-	int32 FrameNumber = FAVIWriter::GetInstance()->GetFrameNumber();
-	UE_LOG(LogMovieCapture, Log, TEXT(" FillBuffer: FrameNumber = %d  FramesWritten = %d"), FrameNumber, FramesWritten);
+	// Not strictly necessary since AVI is constant framerate
+	REFERENCE_TIME StartTime = UNITS*CurrentFrame->StartTimeSeconds;
+	REFERENCE_TIME StopTime = UNITS*CurrentFrame->EndTimeSeconds;
+	pSample->SetTime(&StartTime, &StopTime);
 
-	REFERENCE_TIME Start = FramesWritten * FrameLength;
-	REFERENCE_TIME Stop  = Start + FrameLength;
-	FramesWritten++;
+	REFERENCE_TIME StartMediaTime = CurrentFrame->FrameIndex;
+	REFERENCE_TIME StopMediaTime  = CurrentFrame->FrameIndex+1;
+	pSample->SetMediaTime(&StartMediaTime, &StopMediaTime);
 
-	UE_LOG(LogMovieCapture, Log, TEXT(" FillBuffer: (%d, %d)"), Start, Stop);
-	UE_LOG(LogMovieCapture, Log, TEXT("-----------------END------------------"));
-
-	pSample->SetTime(&Start, &Stop);
-
-	// Set true on every sample for uncompressed frames
 	pSample->SetSyncPoint(true);
 
 	return S_OK;
@@ -359,70 +278,101 @@ HRESULT FCapturePin::FillBuffer(IMediaSample *pSample)
 // the loop executed while running
 HRESULT FCapturePin::DoBufferProcessingLoop(void) 
 {
-	Command com;
+	ON_SCOPE_EXIT
+	{
+		static_cast<FCaptureSource*>(m_pFilter)->OnFinishedCapturing();
+	};
 
 	OnThreadStartPlay();
-	int32 LastFrame = -1;
 
-	do 
+	bool bPaused = false, bShutdownRequested = false;
+	for (;;)
 	{
-		while (!CheckRequest(&com)) 
+		Command com;
+		if (CheckRequest(&com))
 		{
-			// Wait for the next frame from the game thread 
-			if ( !GCaptureSyncEvent->Wait(1000) )
+			switch(com)
 			{
-				FPlatformProcess::Sleep( 0.01f );
-				continue;	// Reevaluate request
-			}
+			case CMD_RUN:
+			case CMD_PAUSE:
+				bPaused = com == CMD_PAUSE;
+				Reply(NOERROR);
+				break;
 
-			IMediaSample *pSample;
-			int32 FrameNumber = FAVIWriter::GetInstance()->GetFrameNumber();
-			if (FrameNumber > LastFrame)
-			{
-				UE_LOG(LogMovieCapture, Log, TEXT(" FrameNumber > LastFrame = %d > %d"), FrameNumber, LastFrame);
-				HRESULT hr = GetDeliveryBuffer(&pSample,NULL,NULL,0);
-				if (FAILED(hr)) 
-				{
-					if (pSample)
-					{
-						pSample->Release();
-					}
-				}
-				else
-				{
-					LastFrame = FrameNumber;
-					hr = FillBuffer(pSample);
+			case CMD_STOP:
+				break;
 
-					if (hr == S_OK) 
-					{
-						hr = Deliver(pSample);
-						pSample->Release();
-						// downstream filter returns S_FALSE if it wants us to
-						// stop or an error if it's reporting an error.
-						if(hr != S_OK)
-						{
-							UE_LOG(LogMovieCapture, Log, TEXT("Deliver() returned %08x; stopping"), hr);
-							return S_OK;
-						}
-					}
-				}
+			default:
+				Reply((uint32) E_UNEXPECTED);
+				break;
 			}
-			// Allow the game thread read more data
-			GCaptureSyncEvent->Trigger();
 		}
 
-		// For all commands sent to us there must be a Reply call!
-		if (com == CMD_RUN || com == CMD_PAUSE) 
-		{
-			Reply(NOERROR);
-		} 
-		else if (com != CMD_STOP) 
-		{
-			Reply((uint32) E_UNEXPECTED);
-		}
-	} while (com != CMD_STOP);
+		bShutdownRequested = bShutdownRequested || !static_cast<FCaptureSource*>(m_pFilter)->ShouldCapture();
 
+		if (!bPaused)
+		{
+			TOptional<HRESULT> Result = ProcessFrames();
+			if (Result.IsSet())
+			{
+				return Result.GetValue();
+			}
+		}
+
+		if (bShutdownRequested && 
+			(bPaused || Writer.GetNumOutstandingFrames() == 0))
+		{
+			break;
+		}
+	}
+
+	static_cast<FCaptureSource*>(m_pFilter)->OnFinishedCapturing();
 	return S_FALSE;
 }
 
+TOptional<HRESULT> FCapturePin::ProcessFrames()
+{
+	uint32 WaitTimeMs = 100;
+	TArray<FCapturedFrame> PendingFrames = Writer.GetFrameData(WaitTimeMs);
+
+	// Capture the frames that we have
+	for (int32 FrameIndex = 0; FrameIndex < PendingFrames.Num(); ++FrameIndex)
+	{
+		CurrentFrame = &PendingFrames[FrameIndex];
+		IMediaSample *pSample = nullptr;
+
+		HRESULT hr;
+		hr = GetDeliveryBuffer(&pSample,NULL,NULL,0);
+		if (FAILED(hr))
+		{
+			UE_LOG(LogMovieCapture, Warning, TEXT("Failed to get delivery buffer: %08x; Stopping."), hr);
+			return S_OK;
+		}
+
+		hr = FillBuffer(pSample);
+		if (FAILED(hr))
+		{
+			pSample->Release();
+			UE_LOG(LogMovieCapture, Warning, TEXT("Failed to fill sample buffer: %08x; Stopping."), hr);
+			return S_OK;
+		}
+
+		hr = Deliver(pSample);
+		pSample->Release();
+		// downstream filter returns S_FALSE if it wants us to
+		// stop or an error if it's reporting an error.
+		if(hr != S_OK)
+		{
+			UE_LOG(LogMovieCapture, Warning, TEXT("Deliver() returned %08x; Stopping."), hr);
+			return S_OK;
+		}
+
+		if (CurrentFrame->FrameProcessedEvent)
+		{
+			CurrentFrame->FrameProcessedEvent->Trigger();
+		}
+	}
+
+	return TOptional<HRESULT>();
+}
 #endif //#if PLATFORM_WINDOWS

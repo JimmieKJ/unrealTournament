@@ -45,5 +45,4 @@ private:
 	TSharedRef<SWidget> GenerateRichTooltip();
 
 	FString GetCurrentDuration() const;
-	FString GetCurrentAlphaCurveMode() const;
 };

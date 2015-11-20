@@ -8,98 +8,188 @@
  */
 struct FGroupDisplayInfo
 {
+	FGroupDisplayInfo()
+	{
+	}
+
+	FGroupDisplayInfo(const FGroupDisplayInfo& Other)
+		: DisplayName(Other.DisplayName)
+		, Description(Other.Description)
+		, Motto(Other.Motto)
+		, Language(Other.Language)
+		, Revision(Other.Revision)
+	{
+	}
+
 	/** The human readable name of this guild */
 	FText DisplayName;
 
 	/** User entered guild description text */
 	FText Description;
 
-	/** URL for an icon file for */
-	FString IconUri;
+	/** A one-line motto or catch phrase for the group */
+	FText Motto;
+
+	/** The main language of the team */
+	FString Language;
+
+	/** The version of the info. Must be present and match the current version on the server when updating. */
+	uint32 Revision;
 };
 
 /**
  * This struct describes metadata about a group.
  */
-struct FGroupInfo
+class IGroupInfo
 {
+
+public:
 	/** Get the group */
-	TSharedPtr<FUniqueNetId> GroupId;
+	virtual TSharedRef<const FUniqueNetId> GetGroupId() const = 0;
+
+	/** Arbitrary namespace string used to filter group groups in some queries or client side. Usually this would be the game codename */
+	virtual const FString& GetNamespace() const = 0;
+
+	/** All fields in this struct are group admin/owner entered */
+	virtual const FGroupDisplayInfo& GetDisplayInfo() const = 0;
+
+	/** GUID of the user account that holds the owner role for this group (will only be one) */
+	virtual TSharedRef<const FUniqueNetId> GetOwner() const = 0;
+
+	/** The current size of the group */
+	virtual uint32 GetSize() const = 0;
+
+	/** When was this group created */
+	virtual const FDateTime& GetCreatedAt() const = 0;
+
+	/** When was this group last updated (according to the server) */
+	virtual const FDateTime& GetLastUpdated() const = 0;
+};
+
+/**
+ * An entry in a group member list.
+ */
+struct FGroupMember
+{
+	TSharedPtr<const FUniqueNetId> Id;
+	FDateTime JoinedAt;
+	bool bIsAdmin;
+};
+
+/**
+ * An entry in a pending invite list.
+ */
+struct FGroupMemberInvite
+{
+	TSharedPtr<const FUniqueNetId> Id;
+	FDateTime InvitedAt;
+	FString Host;
+};
+
+/**
+ * An entry in a pending application list.
+ */
+struct FGroupMemberRequest
+{
+	TSharedPtr<const FUniqueNetId> Id;
+	FDateTime RequestedAt;
+};
+
+/**
+ * An entry in a group blacklist
+ */
+struct FGroupBlacklistEntry
+{
+	TSharedPtr<const FUniqueNetId> Id;
+	bool bIsApplicant;
+};
+
+/**
+ * An entry in a group member list.
+ */
+struct FUserMembershipEntry
+{
+	/** The display name of the group */
+	FText DisplayName;
+
+	/** The globally unique id of the group */
+	TSharedPtr<const FUniqueNetId> Id;
 
 	/** Arbitrary namespace string used to filter group groups in some queries or client side. Usually this would be the game codename */
 	FString Namespace;
 
-	/** Used in combination with namespace to differentiate different types of groups within a single product */
-	FString GroupType;
-
-	/** All fields in this struct are group admin/owner entered */
-	FGroupDisplayInfo DisplayInfo;
-
 	/** GUID of the user account that holds the owner role for this group (will only be one) */
-	TSharedPtr<FUniqueNetId> Owner;
+	TSharedPtr<const FUniqueNetId> Owner;
 
-	/** When was this group created */
-	FDateTime CreatedAt;
+	/** When did the user join this group */
+	FDateTime JoinedAt;
 
-	/** When was this group last updated (according to the server) */
-	FDateTime LastUpdated;
+	/** Does the user have admin rights for this group. */
+	bool bIsAdmin;
 };
 
-/**
- * Enum for the various (mutually exclusive) roles a user can have within a group.
- */
-enum class EGroupRole
+
+template <typename EntryType>
+struct IGroupUserCollection
 {
-	/* someone who is not a member of the group (usually these won't appear in our maps) */
-	Unaffiliated,
-
-	/* someone who has been sent an invitation but has yet to accept (Invitee + Petitioner => Member) */
-	Invitee,
-
-	/* someone who has petitioned but has not yet been accepted (Petitioner + Invitee => Member) */
-	Petitioner,
-
-	/* has been invited and accepted but does not have any special group status*/
-	Member,
-
-	/* has permission to modify the group (invite, promote, update meta info, etc) */
-	Admin,
-
-	/* all the privs of admin. Cannot be demoted or kicked by admins. Only this user has permission to disband the group or promote a new owner */
-	Owner
-};
-
-/**
- * 
- */
-struct FGroupEntry
-{
-	TSharedPtr<FUniqueNetId> Id;
-	EGroupRole Role;
+	virtual const EntryType* GetEntry(const FUniqueNetId& EntryId) const =0;
+	virtual EntryType* GetEntry(const FUniqueNetId& EntryId) =0;
+	virtual TSharedRef<const FUniqueNetId> GetCollectionId() const =0;
+	virtual void CopyEntries(TArray<EntryType>& Out) const =0;
 };
 
 /**
  * A structure for caching a list of people in the group and their roles
  */
-struct FGroupRoster
-{
-	TSharedPtr<FUniqueNetId> GroupId;
-	TArray<FGroupEntry> Users;
+typedef IGroupUserCollection<FGroupMember> IGroupRoster;
 
-	const FGroupEntry* GetUser(const FUniqueNetId& UserId) const { return Users.FindByPredicate([&](const FGroupEntry& Entry) { return *Entry.Id == UserId; }); }
-	FGroupEntry* GetUser(const FUniqueNetId& UserId) { return Users.FindByPredicate([&](const FGroupEntry& Entry) { return *Entry.Id == UserId; }); }
-};
+/**
+ * A structure for caching a list of people that have been invited to join a group
+ */
+typedef IGroupUserCollection<FGroupMemberInvite> IGroupInvites;
+
+/**
+ * A structure for caching a list of people who have requested to join the group
+ */
+typedef IGroupUserCollection<FGroupMemberRequest> IGroupRequests;
+
+/**
+ * A structure for caching a list of people who have been banned from a group
+ */
+typedef IGroupUserCollection<FGroupBlacklistEntry> IGroupBlacklist;
 
 /**
  * What groups does a particular user currently belong to and what roles do they fill
  */
-struct FUserMembership
-{
-	TSharedPtr<FUniqueNetId> UserId;
-	TArray<FGroupEntry> Groups;
+typedef IGroupUserCollection<FUserMembershipEntry> IUserMembership;
 
-	const FGroupEntry* GetGroup(const FUniqueNetId& GroupId) const { return Groups.FindByPredicate([&](const FGroupEntry& Entry) { return *Entry.Id == GroupId; }); }
-	FGroupEntry* GetGroup(const FUniqueNetId& GroupId) { return Groups.FindByPredicate([&](const FGroupEntry& Entry) { return *Entry.Id == GroupId; }); }
+/**
+ * Group search options
+ */
+struct FGroupSearchOptions
+{
+	/** case insensitive group name keyword for search group, should itself be a valid team name */
+	FString Query;
+
+	/** language filter */
+	TOptional<FString> Language;
+
+	/** tags filter */
+	TArray<FString> Tags;
+
+	/** minimal group size threshold - a size group should have to show up in results */
+	TOptional<uint32> MinSize;
+
+	/** Offset and size for the query. */
+	TOptional<FPagedQuery> Paging;
+};
+
+enum class EGroupSortOrder
+{
+	CreatedDescending,
+	SizeDescending,
+	NameAscending,
+	NameDescending,
 };
 
 /**
@@ -107,13 +197,14 @@ struct FUserMembership
  */
 struct FGroupsResult
 {
-	TSharedPtr<FUniqueNetId> PrimaryId;
 	int32 HttpStatus;
+	TSharedPtr<const FUniqueNetId> PrimaryId;
 
 	inline bool DidSucceed() const { return (HttpStatus / 100) == 2; }
 
-	FGroupsResult()
-		: HttpStatus(0)
+	FGroupsResult(int32 InHttpStatus = 0, TSharedPtr<const FUniqueNetId> InPrimaryId = nullptr)
+		: HttpStatus(InHttpStatus)
+		, PrimaryId(InPrimaryId)
 	{
 	}
 };
@@ -131,8 +222,9 @@ DECLARE_DELEGATE_OneParam(FOnGroupsRequestCompleted, FGroupsResult);
  */
 struct FFindGroupsResult
 {
-	TArray< TSharedPtr<const FGroupInfo> > MatchingGroups;
 	int32 HttpStatus;
+	TArray< TSharedPtr<const IGroupInfo> > MatchingGroups;
+	FPagedQuery Paging;
 
 	inline bool DidSucceed() const { return (HttpStatus / 100) == 2; }
 
@@ -160,22 +252,10 @@ public: // delegates
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnGroupUpdated, const FUniqueNetId&);
 	FOnGroupUpdated OnGroupUpdated;
 
-public: // can be called by any account
+public: // callable by all users
 
 	/**
-	 * Find all groups matching the specified search string within the namespace specified.
-	 *
-	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
-	 * @param SearchString This string is matched against group name.
-	 * @param Namespace The namespace to restrict the search to (i.e. "fortnite")
-	 * @param OnCompleted Callback delegate which will receive the results of the search. Any GroupInfo from the search will 
-	 *        also be available from GetCachedGroupInfo.
-	 */
-	virtual void FindGroups(const FUniqueNetId& ContextUserId, const FText& SearchString, const FString& Namespace, const FOnFindGroupsCompleted& OnCompleted) = 0;
-
-	/**
-	 * Create a new group using the specified GroupInfo. The "GroupId", "Owner", "CreatedAt", and "LastUpdated" fields of
-	 * GroupInfo are ignored. If owner is not specified, it will default to the context user. FGroupsResult::GroupId
+	 * Create a new group using the specified GroupInfo. FGroupsResult::GroupId
 	 * can be used to identify the newly created group once the callback executes (FGroupsResult being a param to 
 	 * the callback).
 	 *
@@ -186,43 +266,18 @@ public: // can be called by any account
 	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
-	virtual void CreateGroup(const FUniqueNetId& ContextUserId, const FGroupDisplayInfo& GroupInfo, const FString& Namespace, const FString& GroupType, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+	virtual void CreateGroup(const FUniqueNetId& ContextUserId, const FGroupDisplayInfo& GroupInfo, const FString& Namespace, const FOnGroupsRequestCompleted& OnCompleted) = 0;
 
 	/**
-	 * Submit a request to join the specified group OR accept a pending invitation. This is done on behalf of the context 
-	 * user (provided when you request this IOnlineGroups interface) and also updates the their cached membership
-	 * info. You can call GetCachedUserMembership afterwards to see if they are a full member or petitioner.
+	 * Find all groups matching the specified search string within the namespace specified.
 	 *
 	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
-	 * @param GroupId The group's globally unique ID
-	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
-	 *        (regardless of success/fail) and will not be called before this function returns.
+	 * @param SearchOptions A collections of search parameters passed to the search.
+	 * @param Namespace The namespace to restrict the search to (i.e. "fortnite")
+	 * @param OnCompleted Callback delegate which will receive the results of the search. Any GroupInfo from the search will 
+	 *        also be available from GetCachedGroupInfo.
 	 */
-	virtual void JoinGroup(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
-
-	/**
-	 * Tells the server to remove the context user from the specified group OR declines an invitation OR rescinds a petition.
-	 * Should always result in the user's role for that group becoming Unaffiliated. Owners cannot leave their group, use
-	 * TransferGroup (followed by LeaveGroup) or DeleteGroup instead.
-	 *
-	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
-	 * @param GroupId The group's globally unique ID
-	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
-	 *        (regardless of success/fail) and will not be called before this function returns.
-	 */
-	virtual void LeaveGroup(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
-
-	/** 
-	 * Get the group info for a group that has been previously queried. The shared pointer will be 
-	 * empty if the group has not been successfully queried (or if it was purged from the cache).
-	 * From time to time, the cache may be cleaned up. Keep a shared pointer to groups you care about
-	 * or be willing to re-query.
-	 *
-	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
-	 * @param GroupId The group's globally unique ID
-	 * @return Shared pointer to the cached group info structure if one exists.
-	 */
-	virtual TSharedPtr<const FGroupInfo> GetCachedGroupInfo(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId) = 0;
+	virtual void FindGroups(const FUniqueNetId& ContextUserId, const FGroupSearchOptions& SearchOptions, const FString& Namespace, const FOnFindGroupsCompleted& OnCompleted) = 0;
 
 	/** 
 	 * Ask the server for GroupInfo corresponding to the provided group ID. If this completes 
@@ -237,14 +292,76 @@ public: // can be called by any account
 	virtual void QueryGroupInfo(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
 
 	/**
-	 * Bulk version of QueryGroupInfo
+	 * Get the group info for a group that has been previously queried. The shared pointer will be 
+	 * empty if the group has not been successfully queried (or if it was purged from the cache).
+	 * From time to time, the cache may be cleaned up. Keep a shared pointer to groups you care about
+	 * or be willing to re-query.
 	 *
 	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
-	 * @param GroupIds An array of group IDs to query
+	 * @param GroupId The group's globally unique ID
+	 * @return Shared pointer to the cached group info structure if one exists.
+	 */
+	virtual TSharedPtr<const IGroupInfo> GetCachedGroupInfo(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId) = 0;
+
+	/**
+	 * Submit a request to join the specified group. This is done on behalf of the context
+	 * user (provided when you request this IOnlineGroups interface) and also updates the their cached membership
+	 * info. You can call GetCachedUserMembership afterwards to see if they are a full member or petitioner.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
 	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
-	virtual void QueryGroupInfo(const FUniqueNetId& ContextUserId, const TArray< TSharedRef<FUniqueNetId> >& GroupIds, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+	virtual void JoinGroup(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Tells the server to remove the context user from the specified group.
+	 * Should always result in the user's role for that group becoming Unaffiliated. Owners cannot leave their group, use
+	 * TransferGroup (followed by LeaveGroup) or DeleteGroup instead.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void LeaveGroup(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Accept a pending invite to join a group. This is done on behalf of the context
+	 * user (provided when you request this IOnlineGroups interface) and also updates the their cached membership
+	 * info. You can call GetCachedUserMembership afterwards to see if they are a full member or petitioner.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void AcceptInvite(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Decline a pending invite to join a group. This is done on behalf of the context
+	 * user (provided when you request this IOnlineGroups interface) and also updates the their cached membership
+	 * info. You can call GetCachedUserMembership afterwards to see if they are a full member or petitioner.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void DeclineInvite(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Get the list of members for a group and their role info.
+	 * When the OnCompleted callback fires, if it succeeded you can use GetCachedGroupRoster to retrieve the membership 
+	 * information.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void QueryGroupRoster(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
 
 	/**
 	 * Get the cached Roster (membership) information for a group. If the information is not cached locally, call 
@@ -255,21 +372,18 @@ public: // can be called by any account
 	 * @param GroupId The group's globally unique ID
 	 * @return Shared pointer to the cached roster structure if one exists
 	 */
-	virtual TSharedPtr<const FGroupRoster> GetCachedGroupRoster(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId) = 0;
-	
+	virtual TSharedPtr<const IGroupRoster> GetCachedGroupRoster(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId) = 0;
+
 	/**
-	 * Get the list of members for a group and their role info. If the context user for this interface is a group member, 
-	 * you will also receive users with the roles of Invitee and Petitioner otherwise those are omitted. Use AddUser and 
-	 * RemoveUser to accept or decline petitions respectively. 
-	 * When the OnCompleted callback fires, if it succeeded you can use GetCachedGroupRoster to retrieve the membership 
-	 * information.
+	 * Queries the server for updated membership information for a particular user. This retrieves which groups they are members of.
+	 * If the callback reports success, use GetCachedUserMembership to retrieve details.
 	 *
 	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
-	 * @param GroupId The group's globally unique ID
+	 * @param UserId The user to query for membership information.
 	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
-	virtual void QueryGroupRoster(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+	virtual void QueryUserMembership(const FUniqueNetId& ContextUserId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
 
 	/**
 	 * Get cached user membership information (if it exists). This retrieves which groups they are members of.
@@ -282,18 +396,7 @@ public: // can be called by any account
 	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
-	virtual TSharedPtr<const FUserMembership> GetCachedUserMembership(const FUniqueNetId& ContextUserId, const FUniqueNetId& UserId) = 0;
-
-	/**
-	 * Queries the server for updated membership information for a particular user. This retrieves which groups they are members of.
-	 * If the callback reports success, use GetCachedUserMembership to retrieve details.
-	 *
-	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
-	 * @param UserId The user to query for membership information.
-	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
-	 *        (regardless of success/fail) and will not be called before this function returns.
-	 */
-	virtual void QueryUserMembership(const FUniqueNetId& ContextUserId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+	virtual TSharedPtr<const IUserMembership> GetCachedUserMembership(const FUniqueNetId& ContextUserId, const FUniqueNetId& UserId) = 0;
 
 public: // can be called by group admins
 
@@ -308,9 +411,9 @@ public: // can be called by group admins
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
 	virtual void UpdateGroupInfo(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FGroupDisplayInfo& GroupInfo, const FOnGroupsRequestCompleted& OnCompleted) = 0;
-	
+
 	/**
-	 * Invite a user to join the specified group OR accept a pending petition. 
+	 * Accept a user request to join the group.
 	 *
 	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
 	 * @param GroupId The group's globally unique ID
@@ -318,7 +421,55 @@ public: // can be called by group admins
 	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
-	virtual void AddUser(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+	virtual void AcceptUser(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Decline a user request to join the group.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param UserId The user to add to the group.
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void DeclineUser(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Invite a user to join the specified group.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param UserId The user to add to the group.
+	 * @param bAllowBlocked If true, if the user is on the group's blacklist, the user will be unblocked before creating the invite. Otherwise adding a blocked user will fail.
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void InviteUser(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, bool bAllowBlocked, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Invite a user to join the specified group.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param UserId The user to add to the group.
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void InviteUser(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted)
+	{
+		InviteUser(ContextUserId, GroupId, UserId, false, OnCompleted);
+	}
+
+	/**
+	 * Cancels an invitation to join the group.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param UserId The user whose invite to remove.
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void CancelInvite(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
 
 	/**
 	 * Kick a user from the group OR decline a petition OR rescind an invitation (success always results in the user's role becoming Unaffiliated).
@@ -352,6 +503,98 @@ public: // can be called by group admins
 	 *        (regardless of success/fail) and will not be called before this function returns.
 	 */
 	virtual void DemoteUser(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Ban a user from joining the specified group.
+	 *
+	 * Any user but team owner can be blacklisted including member, invitee, applicant and/or any other user unrelated to the team.
+	 * Blocking follows "ignore" logic: blocked users shouldn't know for sure that they've been blocked.
+	 * Blocked user will still be able to apply for membership and cancel pending application even while blocked.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param UserId The user to blacklist.
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void BlockUser(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Remove a user from the group's blacklist list.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param UserId The user to allow back into the group.
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void UnblockUser(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FUniqueNetId& UserId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Get the list of outstanding invites to a group.
+	 * When the OnCompleted callback fires, if it succeeded you can use GetCachedGroupInvites to retrieve the membership
+	 * information.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void QueryGroupInvites(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Get the cached list of outstanding invites to a group. If the information is not cached locally, call
+	 * QueryGroupInvites to request it from the server.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @return Shared pointer to the cached roster structure if one exists
+	 */
+	virtual TSharedPtr<const IGroupInvites> GetCachedGroupInvites(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId) = 0;
+
+	/**
+	 * Get the list of users requesting to becoming members of a group.
+	 * When the OnCompleted callback fires, if it succeeded you can use GetCachedGroupRequests to retrieve the membership
+	 * information.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void QueryGroupRequests(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Get the cached list of  users requesting to becoming members of a group. If the information is not cached locally, call
+	 * QueryGroupRequests to request it from the server.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @return Shared pointer to the cached roster structure if one exists
+	 */
+	virtual TSharedPtr<const IGroupRequests> GetCachedGroupRequests(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId) = 0;
+
+	/**
+	 * Get the list of users banned from this group.
+	 * When the OnCompleted callback fires, if it succeeded you can use GetCachedGroupBlacklist to retrieve the
+	 * information.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @param OnCompleted This callback is invoked after contacting the server. It is guaranteed to occur
+	 *        (regardless of success/fail) and will not be called before this function returns.
+	 */
+	virtual void QueryGroupBlacklist(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId, const FOnGroupsRequestCompleted& OnCompleted) = 0;
+
+	/**
+	 * Get the cached list of users banned from this group. If the information is not cached locally, call
+	 * QueryGroupBlacklist to request it from the server.
+	 *
+	 * @param ContextUserId The ID of the user whose credentials are being used to make this call
+	 * @param GroupId The group's globally unique ID
+	 * @return Shared pointer to the cached roster structure if one exists
+	 */
+	virtual TSharedPtr<const IGroupBlacklist> GetCachedGroupBlacklist(const FUniqueNetId& ContextUserId, const FUniqueNetId& GroupId) = 0;
 
 public: // can be called by group owner only
 

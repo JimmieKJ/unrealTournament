@@ -74,11 +74,11 @@ public:
 	virtual void InitializeComponent() override;
 	//End ActorComponent interface
 
-	// Begin SceneComponent interface
+	//~ Begin SceneComponent Interface
 #if WITH_EDITOR
 	virtual void PostEditComponentMove(bool bFinished) override;
 #endif // WITH_EDITOR
-	// End SceneComponent interface
+	//~ End SceneComponent Interface
 
 	/** Get the body frame. Works without constraint being created */
 	ENGINE_API FTransform GetBodyTransform(EConstraintFrame::Type Frame) const;

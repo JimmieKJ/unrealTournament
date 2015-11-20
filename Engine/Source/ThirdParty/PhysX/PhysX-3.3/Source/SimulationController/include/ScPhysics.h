@@ -30,6 +30,7 @@ class Factory;
 
 class PxMaterial;
 class PxTolerancesScale;
+struct PxvOffsetTable;
 
 #if PX_SUPPORT_GPU_PHYSX
 class PxPhysXGpu;
@@ -37,15 +38,60 @@ class PxPhysXGpu;
 
 namespace Sc
 {
-
 	class Scene;
+	class StaticCore;
+	class RigidCore;
+	class BodyCore;
+	class ArticulationCore;
+	class ConstraintCore;
+	class ParticleSystemCore;
+	class ClothCore;
+	class ShapeCore;
+
+	PX_ALIGN_PREFIX(16)
+	struct SpuOffsetTable
+	{
+		PX_FORCE_INLINE SpuOffsetTable() {}
+
+		PX_FORCE_INLINE PxActor* convertScRigidStatic2PxActor(StaticCore* sc) const								{ return Ps::pointerOffset<PxActor*>(sc, scRigidStatic2PxActor); }
+		PX_FORCE_INLINE PxActor* convertScRigidDynamic2PxActor(BodyCore* sc) const								{ return Ps::pointerOffset<PxActor*>(sc, scRigidDynamic2PxActor); }
+		PX_FORCE_INLINE PxActor* convertScArticulationLink2PxActor(BodyCore* sc) const							{ return Ps::pointerOffset<PxActor*>(sc, scArticulationLink2PxActor); }
+		PX_FORCE_INLINE PxShape* convertScShape2Px(ShapeCore* sc) const											{ return Ps::pointerOffset<PxShape*>(sc, scShape2Px); }
+		PX_FORCE_INLINE const PxShape* convertScShape2Px(const ShapeCore* sc) const								{ return Ps::pointerOffset<const PxShape*>(sc, scShape2Px); }
+		
+		ptrdiff_t		scRigidStatic2PxActor;
+		ptrdiff_t 		scRigidDynamic2PxActor;
+		ptrdiff_t 		scArticulationLink2PxActor;
+		ptrdiff_t 		scShape2Px;
+	} PX_ALIGN_SUFFIX(16);
+
+	struct OffsetTable: public SpuOffsetTable
+	{
+		PX_FORCE_INLINE OffsetTable() {}
+
+		PX_FORCE_INLINE PxArticulation* convertScArticulation2Px(ArticulationCore* sc) const					{ return Ps::pointerOffset<PxArticulation*>(sc, scArticulation2Px); }
+		PX_FORCE_INLINE const PxArticulation* convertScArticulation2Px(const ArticulationCore* sc) const		{ return Ps::pointerOffset<const PxArticulation*>(sc, scArticulation2Px); }
+		PX_FORCE_INLINE PxConstraint* convertScConstraint2Px(ConstraintCore* sc) const							{ return Ps::pointerOffset<PxConstraint*>(sc, scConstraint2Px); }
+		PX_FORCE_INLINE const PxConstraint* convertScConstraint2Px(const ConstraintCore* sc) const				{ return Ps::pointerOffset<const PxConstraint*>(sc, scConstraint2Px); }
+		PX_FORCE_INLINE PxParticleFluid* convertScParticleSystem2PxParticleFluid(ParticleSystemCore* sc) const	{ return Ps::pointerOffset<PxParticleFluid*>(sc, scParticleSystem2PxParticleFluid); }
+		PX_FORCE_INLINE PxParticleSystem* convertScParticleSystem2Px(ParticleSystemCore* sc) const				{ return Ps::pointerOffset<PxParticleSystem*>(sc, scParticleSystem2Px); }
+		PX_FORCE_INLINE PxCloth* convertScCloth2Px(ClothCore* sc) const											{ return Ps::pointerOffset<PxCloth*>(sc, scCloth2Px); }
+
+		ptrdiff_t 		scArticulation2Px;
+		ptrdiff_t 		scConstraint2Px;
+		ptrdiff_t 		scParticleSystem2PxParticleFluid;
+		ptrdiff_t 		scParticleSystem2Px;
+		ptrdiff_t 		scCloth2Px;
+	};
+	extern OffsetTable gOffsetTable;
+	extern SpuOffsetTable gSpuOffsetTable;
 
 	class Physics : public Ps::UserAllocated
 	{
 	public:
-		PX_INLINE static Physics&						getInstance()	{ return *mInstance; }
+		PX_INLINE static Physics&						getInstance()			{ return *mInstance; }
 
-														Physics(const PxTolerancesScale&);
+														Physics(const PxTolerancesScale&, const PxvOffsetTable& pxvOffsetTable);
 														~Physics(); // use release() instead
 	public:
 						void							release();

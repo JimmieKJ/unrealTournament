@@ -30,3 +30,4 @@
 
 #include "AndroidTargetDevice.h"
 #include "AndroidTargetPlatform.h"
+#include "AndroidTargetDeviceOutput.h"

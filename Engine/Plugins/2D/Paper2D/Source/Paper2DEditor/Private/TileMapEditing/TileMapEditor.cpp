@@ -390,6 +390,11 @@ FText FTileMapEditor::GetToolkitName() const
 	return FText::Format(LOCTEXT("TileMapEditorAppLabel", "{TileMapName}{DirtyState}"), Args);
 }
 
+FText FTileMapEditor::GetToolkitToolTipText() const
+{
+	return GetToolTipTextForObject(TileMapBeingEdited);
+}
+
 FString FTileMapEditor::GetWorldCentricTabPrefix() const
 {
 	return TEXT("TileMapEditor");

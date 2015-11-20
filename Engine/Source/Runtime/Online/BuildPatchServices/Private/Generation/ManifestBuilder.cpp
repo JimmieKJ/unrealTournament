@@ -94,7 +94,7 @@ namespace BuildPatchServices
 			}
 		}
 		TFunction<void()> Task = [this]() { BuildManifest(); };
-		Future = Async(EAsyncExecution::Thread, Task);
+		Future = Async(EAsyncExecution::Thread, MoveTemp(Task));
 	}
 
 	FManifestBuilderImpl::~FManifestBuilderImpl()

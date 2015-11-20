@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2482971
+﻿INTSourceChangelist:2573102
 Availability:NoPublish
 Title:コリジョンのヘルプ
 Crumbs:
@@ -15,13 +15,13 @@ Description:コリジョンのヘルプ
 
 オブジェクトのコリジョン プロパティを定義する場合、3 つのセットアップを定義します。
 
-- Collision Enabled : コリジョンは存在するか？コリジョンが存在する場合、このオブジェクトにシミュレーションさせるか？
+- Collision Enabled : コリジョンは存在するか？ コリジョンが存在する場合、このオブジェクトにシミュレーションさせるか？
 - Object Type :移動する場合にどのオブジェクト タイプを使用するかを定義します。
-- Collision Response :他のオブジェクトに対する反応
+- Collision Response :他のオブジェクトに対する反応です。
 
 ![](CollisionResponse.png)
 
-これをセットアップするには多くの情報があります。従って、迅速に選択して設定できるように [Collision Presets] を実装しました。 
+これをセットアップするには多くの情報があります。従って、迅速に選択して設定できるように [コリジョン プリセット] を実装しました。 
 
 ![](CollisionPreset.png)
 

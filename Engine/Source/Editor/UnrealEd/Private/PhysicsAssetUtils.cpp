@@ -339,7 +339,7 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 			FVector ChildPos = RelTM.GetOrigin();
 
 			// Check that child is not on top of parent. If it is - we can't make an orientation
-			if(ChildPos.Size() > KINDA_SMALL_NUMBER)
+			if(ChildPos.SizeSquared() > FMath::Square(KINDA_SMALL_NUMBER))
 			{
 				// ZAxis for collision geometry lies down axis to child bone.
 				FVector ZAxis = ChildPos.GetSafeNormal();
@@ -442,16 +442,24 @@ bool CreateCollisionFromBone( UBodySetup* bs, USkeletalMesh* skelMesh, int32 Bon
 	// Deal with creating a single convex hull
 	else if (Params.GeomType == EFG_SingleConvexHull)
 	{
-		FKConvexElem ConvexElem;
-
-		// Add all of the vertices for this bone to the convex element
-		for( int32 index=0; index<BoneInfo->Positions.Num(); index++ )
+		if (BoneInfo->Positions.Num())
 		{
-			ConvexElem.VertexData.Add(BoneInfo->Positions[index]);
-		}
-		ConvexElem.UpdateElemBox();
+			FKConvexElem ConvexElem;
 
-		bs->AggGeom.ConvexElems.Add(ConvexElem);
+			// Add all of the vertices for this bone to the convex element
+			for( int32 index=0; index<BoneInfo->Positions.Num(); index++ )
+			{
+				ConvexElem.VertexData.Add(BoneInfo->Positions[index]);
+			}
+			ConvexElem.UpdateElemBox();
+			bs->AggGeom.ConvexElems.Add(ConvexElem);
+		}else
+		{
+			FMessageLog EditorErrors("EditorErrors");
+			EditorErrors.Warning(NSLOCTEXT("PhysicsAssetUtils", "ConvexNoPositions", "Unable to create a convex hull for the given bone as there are no vertices associated with the bone."));
+			EditorErrors.Open();
+			return false;
+		}
 	}
 	else if (Params.GeomType == EFG_MultiConvexHull)
 	{

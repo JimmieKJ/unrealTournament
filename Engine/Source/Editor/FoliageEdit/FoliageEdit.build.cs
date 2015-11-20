@@ -20,6 +20,7 @@ public class FoliageEdit : ModuleRules
 				"LevelEditor",
 				"Landscape",
                 "PropertyEditor",
+                "DetailCustomizations",
                 "AssetTools",
                 "Foliage",
 			}

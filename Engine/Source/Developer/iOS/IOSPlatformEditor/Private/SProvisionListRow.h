@@ -4,6 +4,8 @@
 
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush( FPaths::EngineContentDir() / TEXT("Editor/Slate") / RelativePath + TEXT(".png"), __VA_ARGS__ )
 
+DECLARE_DELEGATE_OneParam(FOnProvisionChanged, FString);
+
 /**
  * Implements a row widget for the provision list view.
  */
@@ -14,6 +16,8 @@ public:
 
 	SLATE_BEGIN_ARGS(SProvisionListRow) { }
 		SLATE_ARGUMENT(ProvisionPtr, Provision)
+		SLATE_ARGUMENT(ProvisionListPtr, ProvisionList)
+		SLATE_EVENT(FOnProvisionChanged, OnProvisionChanged)
 	SLATE_END_ARGS()
 
 public:
@@ -26,7 +30,9 @@ public:
 	void Construct( const FArguments& InArgs, const TSharedRef<STableViewBase>& InOwnerTableView )
 	{
 		Provision = InArgs._Provision;
-		
+		ProvisionList = InArgs._ProvisionList;
+		OnProvisionChanged_Handler = InArgs._OnProvisionChanged;
+
 		SMultiColumnTableRow<ProvisionPtr>::Construct(FSuperRowType::FArguments(), InOwnerTableView);
 
 		/* Set images for various SCheckBox states ... */
@@ -59,7 +65,13 @@ public:
 	BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
 	{
-		if (ColumnName == TEXT("Name"))
+		if (ColumnName == TEXT("Selected"))
+		{
+			return SNew(SCheckBox)
+				.IsChecked(this, &SProvisionListRow::HandleChecked)
+				.OnCheckStateChanged(this, &SProvisionListRow::HandleCheckStateChanged);
+		}
+		else if (ColumnName == TEXT("Name"))
 		{
 			return SNew(SBox)
 				.Padding(FMargin(4.0f, 0.0f))
@@ -108,6 +120,7 @@ public:
 		return SNullWidget::NullWidget;
 	}
 	END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
 
 private:
 
@@ -175,10 +188,37 @@ private:
 		return Provision->bDistribution ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
 	}
 
+	ECheckBoxState HandleChecked() const
+	{
+		return Provision->bManuallySelected ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	}
+
+	void HandleCheckStateChanged(ECheckBoxState InState)
+	{
+		Provision->bManuallySelected = InState == ECheckBoxState::Checked;
+
+		// update the property
+		if (OnProvisionChanged_Handler.IsBound())
+		{
+			OnProvisionChanged_Handler.Execute(Provision->bManuallySelected ? Provision->FileName : "");
+		}
+
+		// disable any other objects
+		for (int32 Idx = 0; Idx < ProvisionList->Num(); ++Idx)
+		{
+			if ((*ProvisionList)[Idx] != Provision && (*ProvisionList)[Idx]->bManuallySelected)
+			{
+				(*ProvisionList)[Idx]->bManuallySelected = false;
+			}
+		}
+	}
+
 private:
 
 	// Holds the target device service used to populate this row.
 	ProvisionPtr Provision;
+	ProvisionListPtr ProvisionList;
+	FOnProvisionChanged OnProvisionChanged_Handler;
 
 	static bool bInitialized;
 	static FCheckBoxStyle ProvisionCheckBoxStyle;

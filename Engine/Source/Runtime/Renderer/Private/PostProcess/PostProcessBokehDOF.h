@@ -11,8 +11,8 @@
 struct FDepthOfFieldStats
 {
 	FDepthOfFieldStats()
-		: bNear(false)
-		, bFar(false)
+		: bNear(true)
+		, bFar(true)
 	{
 	}
 
@@ -68,7 +68,7 @@ public:
 
 private:
 
-	template <uint32 HighQuality, uint32 IndexStyle>
+	template <uint32 HighQuality>
 	void SetShaderTempl(const FRenderingCompositePassContext& Context, FIntPoint LeftTop, FIntPoint TileCount, uint32 TileSize, float PixelKernelSize);
 
 	// border between front and back layer as we don't use viewports (only possible with GS)

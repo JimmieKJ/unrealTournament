@@ -15,7 +15,7 @@ class HTML5NETWORKING_API UWebSocketNetDriver : public UNetDriver
 	UPROPERTY(Config)
 	int32 WebSocketPort;
 
-	// Begin UNetDriver interface.
+	//~ Begin UNetDriver Interface.
 	virtual bool IsAvailable() const override;
 	virtual bool InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FURL& URL, bool bReuseAddressAndPort, FString& Error) override;
 	virtual bool InitConnect(FNetworkNotify* InNotify, const FURL& ConnectURL, FString& Error) override;
@@ -30,11 +30,11 @@ class HTML5NETWORKING_API UWebSocketNetDriver : public UNetDriver
 	virtual class ISocketSubsystem* GetSocketSubsystem() override;
 	virtual FSocket * CreateSocket();
 
-	// End UNetDriver interface.
+	//~ End UNetDriver Interface.
 
-	// Begin FExec Interface
+	//~ Begin FExec Interface
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar = *GLog) override;
-	// End FExec Interface
+	//~ End FExec Interface
 
 	/**
 	* Exec command handlers

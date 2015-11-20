@@ -127,10 +127,10 @@ void FFbxExporter::CreateDocument()
 	SceneInfo->mSubject = "Export FBX meshes from Unreal";
 	SceneInfo->Original_ApplicationVendor.Set( "Epic Games" );
 	SceneInfo->Original_ApplicationName.Set( "Unreal Engine" );
-	SceneInfo->Original_ApplicationVersion.Set( TCHAR_TO_UTF8(*GEngineVersion.ToString()) );
+	SceneInfo->Original_ApplicationVersion.Set( TCHAR_TO_UTF8(*FEngineVersion::Current().ToString()) );
 	SceneInfo->LastSaved_ApplicationVendor.Set( "Epic Games" );
 	SceneInfo->LastSaved_ApplicationName.Set( "Unreal Engine" );
-	SceneInfo->LastSaved_ApplicationVersion.Set( TCHAR_TO_UTF8(*GEngineVersion.ToString()) );
+	SceneInfo->LastSaved_ApplicationVersion.Set( TCHAR_TO_UTF8(*FEngineVersion::Current().ToString()) );
 
 	Scene->SetSceneInfo(SceneInfo);
 	
@@ -219,6 +219,7 @@ void FFbxExporter::CloseDocument()
 	FbxActors.Reset();
 	FbxSkeletonRoots.Reset();
 	FbxMaterials.Reset();
+	FbxMeshes.Reset();
 	FbxNodeNameToIndexMap.Reset();
 	
 	if (Scene)
@@ -233,8 +234,34 @@ void FFbxExporter::CreateAnimatableUserProperty(FbxNode* Node, float Value, cons
 	// Add one user property for recording the animation
 	FbxProperty IntensityProp = FbxProperty::Create(Node, FbxFloatDT, Name, Label);
 	IntensityProp.Set(Value);
-	IntensityProp.ModifyFlag(FbxPropertyAttr::eUserDefined, true);
-	IntensityProp.ModifyFlag(FbxPropertyAttr::eAnimatable, true);
+	IntensityProp.ModifyFlag(FbxPropertyFlags::eUserDefined, true);
+	IntensityProp.ModifyFlag(FbxPropertyFlags::eAnimatable, true);
+}
+
+/**
+*	Sorts actors such that parent actors will appear before children actors in the list
+*	Stable sort
+*/
+static void SortActorsHierarchy(TArray<AActor*>& Actors)
+{
+	auto CalcAttachDepth = [](AActor* InActor) -> int32 {
+		int32 Depth = MAX_int32;
+		if (InActor)
+		{
+			Depth = 0;
+			if (InActor->GetRootComponent())
+			{
+				for (const USceneComponent* Test = InActor->GetRootComponent()->AttachParent; Test != nullptr; Test = Test->AttachParent, Depth++);
+			}
+		}
+		return Depth;
+	};
+
+	// Unfortunately TArray.StableSort assumes no null entries in the array
+	// So it forces me to use internal unrestricted version
+	StableSortInternal(Actors.GetData(), Actors.Num(), [&](AActor* L, AActor* R) {
+		return CalcAttachDepth(L) < CalcAttachDepth(R);
+	});
 }
 
 /**
@@ -279,42 +306,54 @@ void FFbxExporter::ExportLevelMesh( ULevel* InLevel, AMatineeActor* InMatineeAct
 		World = CastChecked<UWorld>( InLevel->GetOuter() );
 	}
 	check(World);
-	int32 ActorCount = World->GetCurrentLevel()->Actors.Num();
+
+	TArray<AActor*> ActorToExport;
+	int32 ActorCount = InLevel->Actors.Num();
 	for (int32 ActorIndex = 0; ActorIndex < ActorCount; ++ActorIndex)
 	{
-		AActor* Actor = World->GetCurrentLevel()->Actors[ActorIndex];
-		if ( Actor != NULL && ( !bSelectedOnly || ( bSelectedOnly && Actor->IsSelected() ) ) )
+		AActor* Actor = InLevel->Actors[ActorIndex];
+		if (Actor != NULL && (!bSelectedOnly || (bSelectedOnly && Actor->IsSelected())))
 		{
-			if (Actor->IsA(ALight::StaticClass()))
-			{
-				ExportLight((ALight*) Actor, InMatineeActor );
-			}
-			else if (Actor->IsA(AStaticMeshActor::StaticClass()))
-			{
-				ExportStaticMesh( Actor, CastChecked<AStaticMeshActor>(Actor)->GetStaticMeshComponent(), InMatineeActor );
-			}
-			else if (Actor->IsA(ALandscapeProxy::StaticClass()))
-			{
-				ExportLandscape(CastChecked<ALandscapeProxy>(Actor), false);
-			}
-			else if (Actor->IsA(ABrush::StaticClass()))
-			{
-				// All brushes should be included within the world geometry exported above.
-				ExportBrush((ABrush*) Actor, NULL, 0 );
-			}
-			else if (Actor->IsA(AEmitter::StaticClass()))
-			{
-				ExportActor( Actor, InMatineeActor ); // Just export the placement of the particle emitter.
-			}
-			else if(Actor->IsA(ACameraActor::StaticClass()))
-			{
-				ExportCamera(CastChecked<ACameraActor>(Actor), InMatineeActor, true); // Just export the placement of the particle emitter.
-			}
-			else if( Actor != NULL )
-			{
-				// Export blueprint actors and all their components
-				ExportActor( Actor, InMatineeActor, true );
-			}
+			ActorToExport.Add(Actor);
+		}
+	}
+
+	//Sort the hierarchy to make sure parent come first
+	SortActorsHierarchy(ActorToExport);
+
+	ActorCount = ActorToExport.Num();
+	for (int32 ActorIndex = 0; ActorIndex < ActorCount; ++ActorIndex)
+	{
+		AActor* Actor = ActorToExport[ActorIndex];
+		if (Actor->IsA(ALight::StaticClass()))
+		{
+			ExportLight((ALight*) Actor, InMatineeActor );
+		}
+		else if (Actor->IsA(AStaticMeshActor::StaticClass()))
+		{
+			ExportStaticMesh( Actor, CastChecked<AStaticMeshActor>(Actor)->GetStaticMeshComponent(), InMatineeActor );
+		}
+		else if (Actor->IsA(ALandscapeProxy::StaticClass()))
+		{
+			ExportLandscape(CastChecked<ALandscapeProxy>(Actor), false);
+		}
+		else if (Actor->IsA(ABrush::StaticClass()))
+		{
+			// All brushes should be included within the world geometry exported above.
+			ExportBrush((ABrush*) Actor, NULL, 0 );
+		}
+		else if (Actor->IsA(AEmitter::StaticClass()))
+		{
+			ExportActor( Actor, InMatineeActor ); // Just export the placement of the particle emitter.
+		}
+		else if(Actor->IsA(ACameraActor::StaticClass()))
+		{
+			ExportCamera(CastChecked<ACameraActor>(Actor), InMatineeActor, true); // Just export the placement of the particle emitter.
+		}
+		else if( Actor != NULL )
+		{
+			// Export blueprint actors and all their components
+			ExportActor( Actor, InMatineeActor, true );
 		}
 	}
 }
@@ -427,32 +466,32 @@ void FFbxExporter::ExportBrush(ABrush* Actor, UModel* InModel, bool bConvertToSt
 {
 	if (Scene == NULL || Actor == NULL || !Actor->GetBrushComponent()) return;
 
- 	if (!bConvertToStaticMesh)
- 	{
- 		// Retrieve the information structures, verifying the integrity of the data.
- 		UModel* Model = Actor->GetBrushComponent()->Brush;
+	if (!bConvertToStaticMesh)
+	{
+		// Retrieve the information structures, verifying the integrity of the data.
+		UModel* Model = Actor->GetBrushComponent()->Brush;
 
- 		if (Model == NULL || Model->VertexBuffer.Vertices.Num() < 3 || Model->MaterialIndexBuffers.Num() == 0) return;
+		if (Model == NULL || Model->VertexBuffer.Vertices.Num() < 3 || Model->MaterialIndexBuffers.Num() == 0) return;
  
- 		// Create the FBX actor, the FBX geometry and instantiate it.
- 		FbxNode* FbxActor = ExportActor( Actor, NULL );
- 		Scene->GetRootNode()->AddChild(FbxActor);
+		// Create the FBX actor, the FBX geometry and instantiate it.
+		FbxNode* FbxActor = ExportActor( Actor, NULL );
+		Scene->GetRootNode()->AddChild(FbxActor);
  
- 		// Export the mesh information
- 		ExportModel(Model, FbxActor, TCHAR_TO_UTF8(*Actor->GetName()));
- 	}
- 	else
- 	{
+		// Export the mesh information
+		ExportModel(Model, FbxActor, TCHAR_TO_UTF8(*Actor->GetName()));
+	}
+	else
+	{
 		FRawMesh Mesh;
 		TArray<UMaterialInterface*>	Materials;
 		GetBrushMesh(Actor,Actor->Brush,Mesh,Materials);
 
- 		if( Mesh.VertexPositions.Num() )
+		if( Mesh.VertexPositions.Num() )
 		{
 			UStaticMesh* StaticMesh = CreateStaticMesh(Mesh,Materials,GetTransientPackage(),Actor->GetFName());
 			ExportStaticMesh( StaticMesh, &Materials );
- 		}
- 	}
+		}
+	}
 }
 
 void FFbxExporter::ExportModel(UModel* Model, FbxNode* Node, const char* Name)
@@ -607,10 +646,10 @@ void FFbxExporter::ExportModel(UModel* Model, FbxNode* Node, const char* Name)
 	Node->SetNodeAttribute(Mesh);
 }
 
-void FFbxExporter::ExportStaticMesh( AActor* Actor, UStaticMeshComponent* StaticMeshComponent, AMatineeActor* InMatineeActor )
+void FFbxExporter::ExportStaticMesh(AActor* Actor, UStaticMeshComponent* StaticMeshComponent, AMatineeActor* InMatineeActor)
 {
 	if (Scene == NULL || Actor == NULL || StaticMeshComponent == NULL)
-	{ 
+	{
 		return;
 	}
 
@@ -621,7 +660,6 @@ void FFbxExporter::ExportStaticMesh( AActor* Actor, UStaticMeshComponent* Static
 		return;
 	}
 	int32 LODIndex = StaticMeshComponent->ForcedLodModel-1;
-	FStaticMeshLODResources& RenderMesh = StaticMesh->GetLODForExport(LODIndex);
 
 	FString FbxNodeName = GetActorNodeName(Actor, InMatineeActor);
 
@@ -632,8 +670,8 @@ void FFbxExporter::ExportStaticMesh( AActor* Actor, UStaticMeshComponent* Static
 		ColorBuffer = StaticMeshComponent->LODData[LODIndex].OverrideVertexColors;
 	}
 
-	FbxNode* FbxActor = ExportActor( Actor, InMatineeActor );
-	ExportStaticMeshToFbx(StaticMesh, RenderMesh, *FbxNodeName, FbxActor, -1, ColorBuffer);
+	FbxNode* FbxActor = ExportActor(Actor, InMatineeActor);
+	ExportStaticMeshToFbx(StaticMesh, LODIndex, *FbxNodeName, FbxActor, -1, ColorBuffer);
 }
 
 struct FBSPExportData
@@ -737,32 +775,33 @@ void FFbxExporter::ExportBSP( UModel* Model, bool bSelectedOnly )
 			const FVector& TextureY = Model->Vectors[Surf.vTextureV];
 			const FVector& Normal = Model->Vectors[Surf.vNormal];
 
-			int32 StartIndex=ExportData->CurrentVertAddIndex;
-	
-			int32 VertexIndex = 0;
-			for( ; VertexIndex < Node.NumVertices ; VertexIndex++ )
-			{					
+			const int32 StartIndex = ExportData->CurrentVertAddIndex;
+
+			for(int32 VertexIndex = 0; VertexIndex < Node.NumVertices ; VertexIndex++ )
+			{
 				const FVert& Vert = Model->Verts[Node.iVertPool + VertexIndex];
 				const FVector& Vertex = Model->Points[Vert.pVertex];
 				Mesh.VertexPositions[ExportData->CurrentVertAddIndex+VertexIndex] = Vertex;
 			}
-			ExportData->CurrentVertAddIndex += VertexIndex;
+			ExportData->CurrentVertAddIndex += Node.NumVertices;
 
-			for( int32 StartVertexIndex = 1 ; StartVertexIndex < Node.NumVertices - 1 ; StartVertexIndex++ )
+			for (int32 StartVertexIndex = 1; StartVertexIndex < Node.NumVertices - 1; ++StartVertexIndex)
 			{
- 				// These map the node's vertices to the 3 triangle indices to triangulate the convex polygon.
- 				int32 TriVertIndices[3] = {	Node.iVertPool + StartVertexIndex + 1,
- 					Node.iVertPool + StartVertexIndex,
- 					Node.iVertPool };
-				
-				int32 WedgeIndices[3] = {	StartIndex + StartVertexIndex + 1 ,
-					 						StartIndex + StartVertexIndex,
-					 						StartIndex };
+				// These map the node's vertices to the 3 triangle indices to triangulate the convex polygon.
+				int32 TriVertIndices[3] = {
+					Node.iVertPool + StartVertexIndex + 1,
+					Node.iVertPool + StartVertexIndex,
+					Node.iVertPool };
+
+				int32 WedgeIndices[3] = {
+					StartIndex + StartVertexIndex + 1,
+					StartIndex + StartVertexIndex,
+					StartIndex };
 
 				Mesh.FaceMaterialIndices[ExportData->CurrentFaceAddIndex] = MaterialIndex;
 				Mesh.FaceSmoothingMasks[ExportData->CurrentFaceAddIndex] =  ( 1 << ( Node.iSurf % 32 ) );
 
-				for(uint32 WedgeIndex = 0; WedgeIndex < 3; WedgeIndex++)
+				for (uint32 WedgeIndex = 0; WedgeIndex < 3; ++WedgeIndex)
 				{
 					const FVert& Vert = Model->Verts[TriVertIndices[WedgeIndex]];
 					const FVector& Vertex = Model->Points[Vert.pVertex];
@@ -801,10 +840,9 @@ void FFbxExporter::ExportStaticMesh( UStaticMesh* StaticMesh, const TArray<UMate
 	if (Scene == NULL || StaticMesh == NULL || !StaticMesh->HasValidRenderData()) return;
 	FString MeshName;
 	StaticMesh->GetName(MeshName);
-	FStaticMeshLODResources& RenderMesh = StaticMesh->GetLODForExport(0);
 	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*MeshName));
 	Scene->GetRootNode()->AddChild(MeshNode);
-	ExportStaticMeshToFbx(StaticMesh, RenderMesh, *MeshName, MeshNode, -1, NULL, MaterialOrder );
+	ExportStaticMeshToFbx(StaticMesh, 0, *MeshName, MeshNode, -1, NULL, MaterialOrder);
 }
 
 void FFbxExporter::ExportStaticMeshLightMap( UStaticMesh* StaticMesh, int32 LODIndex, int32 UVChannel )
@@ -813,10 +851,9 @@ void FFbxExporter::ExportStaticMeshLightMap( UStaticMesh* StaticMesh, int32 LODI
 
 	FString MeshName;
 	StaticMesh->GetName(MeshName);
-	FStaticMeshLODResources& RenderMesh = StaticMesh->GetLODForExport(LODIndex);
 	FbxNode* MeshNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*MeshName));
 	Scene->GetRootNode()->AddChild(MeshNode);
-	ExportStaticMeshToFbx(StaticMesh, RenderMesh, *MeshName, MeshNode, UVChannel);
+	ExportStaticMeshToFbx(StaticMesh, LODIndex, *MeshName, MeshNode, UVChannel);
 }
 
 void FFbxExporter::ExportSkeletalMesh( USkeletalMesh* SkeletalMesh )
@@ -888,7 +925,7 @@ FbxDouble3 SetMaterialComponent(FColorMaterialInput& MatInput)
 		else if (Cast<UMaterialExpressionVectorParameter>(MatInput.Expression))
 		{
 			UMaterialExpressionVectorParameter* Expr = Cast<UMaterialExpressionVectorParameter>(MatInput.Expression);
-			FinalColor = Expr->DefaultValue;
+			FinalColor = Expr->DefaultValue.ToFColor(true);
 		}
 		else if (Cast<UMaterialExpressionConstant3Vector>(MatInput.Expression))
 		{
@@ -1068,14 +1105,13 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 		
 
 		AActor* ParentActor = Actor->GetAttachParentActor();
-		FbxNode* ParentNode;
+		// this doesn't work with skeletalmeshcomponent
+		FbxNode* ParentNode = FindActor(ParentActor);
 		FVector ActorLocation, ActorRotation, ActorScale;
-		if (bKeepHierarchy && ParentActor)
+		
+		//If the parent is the root or is not export use the root node as the parent
+		if (bKeepHierarchy && ParentNode)
 		{
-			// this doesn't work with skeletalmeshcomponent
-			ParentNode = FindActor(ParentActor);
-			check (ParentNode);
-
 			// Set the default position of the actor on the transforms
 			// The transformation is different from FBX's Z-up: invert the Y-axis for translations and the Y/Z angle values in rotations.
 			const FTransform RelativeTransform = Actor->GetTransform().GetRelativeTransform(ParentActor->GetTransform());
@@ -1088,9 +1124,20 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 			ParentNode = Scene->GetRootNode();
 			// Set the default position of the actor on the transforms
 			// The transformation is different from FBX's Z-up: invert the Y-axis for translations and the Y/Z angle values in rotations.
-			ActorLocation = Actor->GetActorLocation();
-			ActorRotation = Actor->GetActorRotation().Euler();
-			ActorScale = Actor->GetRootComponent() ? Actor->GetRootComponent()->RelativeScale3D : FVector(1.f,1.f,1.f);
+			if (ParentActor != NULL)
+			{
+				//In case the parent was not export, get the absolute transform
+				const FTransform AbsoluteTransform = Actor->GetTransform();
+				ActorLocation = AbsoluteTransform.GetTranslation();
+				ActorRotation = AbsoluteTransform.GetRotation().Euler();
+				ActorScale = AbsoluteTransform.GetScale3D();
+			}
+			else
+			{
+				ActorLocation = Actor->GetActorLocation();
+				ActorRotation = Actor->GetActorRotation().Euler();
+				ActorScale = Actor->GetRootComponent() ? Actor->GetRootComponent()->RelativeScale3D : FVector(1.f, 1.f, 1.f);
+			}
 		}
 
 		ParentNode->AddChild(ActorNode);
@@ -1109,7 +1156,7 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 
 			if (FbxPivotNodeName == FbxNodeName)
 			{
-				FbxPivotNodeName += UTF8_TO_TCHAR("_pivot");
+				FbxPivotNodeName += TEXT("_pivot");
 			}
 
 			FbxNode* PivotNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FbxPivotNodeName));
@@ -1190,21 +1237,23 @@ FbxNode* FFbxExporter::ExportActor(AActor* Actor, AMatineeActor* InMatineeActor,
 
 				if (StaticMeshComp && StaticMeshComp->StaticMesh)
 				{
-					int32 LODIndex = StaticMeshComp->ForcedLodModel;
-					FStaticMeshLODResources& RenderMesh = StaticMeshComp->StaticMesh->GetLODForExport(LODIndex);
-
 					if (USplineMeshComponent* SplineMeshComp = Cast<USplineMeshComponent>(StaticMeshComp))
 					{
-						ExportSplineMeshToFbx(SplineMeshComp, RenderMesh, *SplineMeshComp->GetName(), ExportNode);
+						ExportSplineMeshToFbx(SplineMeshComp, *SplineMeshComp->GetName(), ExportNode);
+					}
+					else if (UInstancedStaticMeshComponent* InstancedMeshComp = Cast<UInstancedStaticMeshComponent>(StaticMeshComp))
+					{
+						ExportInstancedMeshToFbx(InstancedMeshComp, *InstancedMeshComp->GetName(), ExportNode);
 					}
 					else
 					{
-						ExportStaticMeshToFbx(StaticMeshComp->StaticMesh, RenderMesh, *StaticMeshComp->GetName(), ExportNode);
+						const int32 LODIndex = (StaticMeshComp->ForcedLodModel > 0 ? StaticMeshComp->ForcedLodModel - 1 : /* auto-select*/ 0);
+						ExportStaticMeshToFbx(StaticMeshComp->StaticMesh, LODIndex, *StaticMeshComp->GetName(), ExportNode);
 					}
 				}
 				else if (SkelMeshComp && SkelMeshComp->SkeletalMesh)
 				{
-					ExportSkeletalMeshComponent( SkelMeshComp, *SkelMeshComp->GetName(), ExportNode);
+					ExportSkeletalMeshComponent(SkelMeshComp, *SkelMeshComp->GetName(), ExportNode);
 				}
 				else if (ChildActorComp && ChildActorComp->ChildActor)
 				{
@@ -1755,7 +1804,7 @@ bool FFbxExporter::FindSkeleton(const USkeletalMeshComponent* SkelComp, TArray<F
  * @param VertRemap		Index of each UV (out)
  * @param UniqueVerts	
  */
-void DetermineUVsToWeld(TArray<int32>& VertRemap, TArray<int32>& UniqueVerts, FStaticMeshVertexBuffer& VertexBuffer, int32 TexCoordSourceIndex)
+void DetermineUVsToWeld(TArray<int32>& VertRemap, TArray<int32>& UniqueVerts, const FStaticMeshVertexBuffer& VertexBuffer, int32 TexCoordSourceIndex)
 {
 	const int32 VertexCount = VertexBuffer.GetNumVertices();
 
@@ -1785,7 +1834,7 @@ void DetermineUVsToWeld(TArray<int32>& VertRemap, TArray<int32>& UniqueVerts, FS
 	}
 }
 
-void DetermineVertsToWeld(TArray<int32>& VertRemap, TArray<int32>& UniqueVerts, FStaticMeshLODResources& RenderMesh)
+void DetermineVertsToWeld(TArray<int32>& VertRemap, TArray<int32>& UniqueVerts, const FStaticMeshLODResources& RenderMesh)
 {
 	const int32 VertexCount = RenderMesh.VertexBuffer.GetNumVertices();
 
@@ -1817,285 +1866,299 @@ void DetermineVertsToWeld(TArray<int32>& VertRemap, TArray<int32>& UniqueVerts, 
 
 /**
  * Exports a static mesh
- * @param RenderMesh	The static mesh render data to export
+ * @param StaticMesh	The static mesh to export
  * @param MeshName		The name of the mesh for the FBX file
  * @param FbxActor		The fbx node representing the mesh
- * @param LightmapUVChannel Optional UV channel to export
+ * @param ExportLOD		The LOD of the mesh to export
+ * @param LightmapUVChannel If set, performs a "lightmap export" and exports only the single given UV channel
  * @param ColorBuffer	Vertex color overrides to export
  * @param MaterialOrderOverride	Optional ordering of materials to set up correct material ID's across multiple meshes being export such as BSP surfaces which share common materials. Should be used sparingly
  */
-FbxNode* FFbxExporter::ExportStaticMeshToFbx(UStaticMesh* StaticMesh, FStaticMeshLODResources& RenderMesh, const TCHAR* MeshName, FbxNode* FbxActor, int32 LightmapUVChannel, FColorVertexBuffer* ColorBuffer, const TArray<UMaterialInterface*>* MaterialOrderOverride )
+FbxNode* FFbxExporter::ExportStaticMeshToFbx(const UStaticMesh* StaticMesh, int32 ExportLOD, const TCHAR* MeshName, FbxNode* FbxActor, int32 LightmapUVChannel /*= -1*/, const FColorVertexBuffer* ColorBuffer /*= NULL*/, const TArray<UMaterialInterface*>* MaterialOrderOverride /*= NULL*/)
 {
-	// Verify the integrity of the static mesh.
-	if (RenderMesh.VertexBuffer.GetNumVertices() == 0)
+	FbxMesh* Mesh = nullptr;
+	if (ExportLOD == 0 && LightmapUVChannel == -1 && ColorBuffer == nullptr && MaterialOrderOverride == nullptr)
 	{
-		return NULL;
+		Mesh = FbxMeshes.FindRef(StaticMesh);
 	}
 
-	if (RenderMesh.Sections.Num() == 0)
+	if (!Mesh)
 	{
-		return NULL;
-	}
+		Mesh = FbxMesh::Create(Scene, TCHAR_TO_UTF8(MeshName));
 
-	// Remaps an Unreal vert to final reduced vertex list
-	TArray<int32> VertRemap;
-	TArray<int32> UniqueVerts;
+		const FStaticMeshLODResources& RenderMesh = StaticMesh->GetLODForExport(ExportLOD);
 
-	if ( bStaticMeshExportUnWeldedVerts == false )
-	{
-		// Weld verts
-		DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
-	}
-	else
-	{
-		// Do not weld verts
-		VertRemap.Add(RenderMesh.VertexBuffer.GetNumVertices());
-		for(int32 i=0; i < VertRemap.Num(); i++)
+		// Verify the integrity of the static mesh.
+		if (RenderMesh.VertexBuffer.GetNumVertices() == 0)
 		{
-			VertRemap[i] = i;
+			return nullptr;
 		}
-		UniqueVerts = VertRemap;
-	}
 
-	FbxMesh* Mesh = FbxMesh::Create(Scene, TCHAR_TO_UTF8(MeshName));
-
-	// Create and fill in the vertex position data source.
-	// The position vertices are duplicated, for some reason, retrieve only the first half vertices.
-	const int32 VertexCount = VertRemap.Num();
-	const int32 PolygonsCount = RenderMesh.Sections.Num();
-	
-	Mesh->InitControlPoints(UniqueVerts.Num());
-
-	FbxVector4* ControlPoints = Mesh->GetControlPoints();
-	for (int32 PosIndex = 0; PosIndex < UniqueVerts.Num(); ++PosIndex)
-	{
-		int32 UnrealPosIndex = UniqueVerts[PosIndex];
-		FVector Position = RenderMesh.PositionVertexBuffer.VertexPosition(UnrealPosIndex);
-		ControlPoints[PosIndex] = FbxVector4(Position.X, -Position.Y, Position.Z);
-	}
-	
-	// Set the normals on Layer 0.
-	FbxLayer* Layer = Mesh->GetLayer(0);
-	if (Layer == NULL)
-	{
-		Mesh->CreateLayer();
-		Layer = Mesh->GetLayer(0);
-	}
-
-	// Build list of Indices re-used multiple times to lookup Normals, UVs, other per face vertex information
-	TArray<uint32> Indices;
-	for (int32 PolygonsIndex = 0; PolygonsIndex < PolygonsCount; ++PolygonsIndex)
-	{
-		FIndexArrayView RawIndices = RenderMesh.IndexBuffer.GetArrayView();
-		FStaticMeshSection& Polygons = RenderMesh.Sections[PolygonsIndex];
-		const uint32 TriangleCount = Polygons.NumTriangles;
-		for (uint32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
+		if (RenderMesh.Sections.Num() == 0)
 		{
-			for (uint32 PointIndex = 0; PointIndex < 3; PointIndex++)
+			return nullptr;
+		}
+
+		// Remaps an Unreal vert to final reduced vertex list
+		TArray<int32> VertRemap;
+		TArray<int32> UniqueVerts;
+
+		if (bStaticMeshExportUnWeldedVerts == false)
+		{
+			// Weld verts
+			DetermineVertsToWeld(VertRemap, UniqueVerts, RenderMesh);
+		}
+		else
+		{
+			// Do not weld verts
+			VertRemap.Add(RenderMesh.VertexBuffer.GetNumVertices());
+			for (int32 i = 0; i < VertRemap.Num(); i++)
 			{
-				uint32 UnrealVertIndex = RawIndices[Polygons.FirstIndex + ((TriangleIndex * 3) + PointIndex)];
-				Indices.Add(UnrealVertIndex);
+				VertRemap[i] = i;
 			}
+			UniqueVerts = VertRemap;
 		}
-	}
 
-	// Create and fill in the per-face-vertex normal data source.
-	// We extract the Z-tangent and drop the X/Y-tangents which are also stored in the render mesh.
-	FbxLayerElementNormal* LayerElementNormal= FbxLayerElementNormal::Create(Mesh, "");
+		// Create and fill in the vertex position data source.
+		// The position vertices are duplicated, for some reason, retrieve only the first half vertices.
+		const int32 VertexCount = VertRemap.Num();
+		const int32 PolygonsCount = RenderMesh.Sections.Num();
 
-	// Set 3 normals per triangle instead of storing normals on positional control points
-	LayerElementNormal->SetMappingMode(FbxLayerElement::eByPolygonVertex);
+		Mesh->InitControlPoints(UniqueVerts.Num());
 
-	// Set the normal values for every polygon vertex.
-	LayerElementNormal->SetReferenceMode(FbxLayerElement::eDirect);
+		FbxVector4* ControlPoints = Mesh->GetControlPoints();
+		for (int32 PosIndex = 0; PosIndex < UniqueVerts.Num(); ++PosIndex)
+		{
+			int32 UnrealPosIndex = UniqueVerts[PosIndex];
+			FVector Position = RenderMesh.PositionVertexBuffer.VertexPosition(UnrealPosIndex);
+			ControlPoints[PosIndex] = FbxVector4(Position.X, -Position.Y, Position.Z);
+		}
 
-	TArray<FbxVector4> FbxNormals;
-	FbxNormals.AddUninitialized(VertexCount);
-	for (int32 NormalIndex = 0; NormalIndex < VertexCount; ++NormalIndex)
-	{
-		FVector Normal = (FVector) (RenderMesh.VertexBuffer.VertexTangentZ(NormalIndex));
-		FbxVector4& FbxNormal = FbxNormals[NormalIndex];
-		FbxNormal = FbxVector4(Normal.X, -Normal.Y, Normal.Z);
-		FbxNormal.Normalize();
-	}
-
-	// Add one normal per each face index (3 per triangle)
-	for (int32 i=0; i < Indices.Num(); i++)
-	{
-		uint32 UnrealVertIndex = Indices[i];
-		LayerElementNormal->GetDirectArray().Add( FbxNormals[UnrealVertIndex] );
-	}
-	Layer->SetNormals(LayerElementNormal);
-	FbxNormals.Empty();
-
-	// Create and fill in the per-face-vertex texture coordinate data source(s).
-	// Create UV for Diffuse channel.
-	int32 TexCoordSourceCount = (LightmapUVChannel == -1)? RenderMesh.VertexBuffer.GetNumTexCoords(): LightmapUVChannel + 1;
-	int32 TexCoordSourceIndex = (LightmapUVChannel == -1)? 0: LightmapUVChannel;
-	TCHAR UVChannelName[32] = { 0 };
-	for (; TexCoordSourceIndex < TexCoordSourceCount; ++TexCoordSourceIndex)
-	{
-		FbxLayer* UVsLayer = (LightmapUVChannel == -1)? Mesh->GetLayer(TexCoordSourceIndex): Mesh->GetLayer(0);
-		if (UVsLayer == NULL)
+		// Set the normals on Layer 0.
+		FbxLayer* Layer = Mesh->GetLayer(0);
+		if (Layer == nullptr)
 		{
 			Mesh->CreateLayer();
-			UVsLayer = (LightmapUVChannel == -1)? Mesh->GetLayer(TexCoordSourceIndex): Mesh->GetLayer(0);
+			Layer = Mesh->GetLayer(0);
 		}
 
-		if ((LightmapUVChannel >= 0) || ((LightmapUVChannel == -1) && (TexCoordSourceIndex == 1)))
+		// Build list of Indices re-used multiple times to lookup Normals, UVs, other per face vertex information
+		TArray<uint32> Indices;
+		for (int32 PolygonsIndex = 0; PolygonsIndex < PolygonsCount; ++PolygonsIndex)
 		{
-			FCString::Sprintf(UVChannelName, TEXT("LightMapUV"));
-		}
-		else
-		{
-			FCString::Sprintf(UVChannelName, TEXT(""));
-		}
-
-		FbxLayerElementUV* UVDiffuseLayer = FbxLayerElementUV::Create(Mesh, TCHAR_TO_UTF8(UVChannelName));
-
-		// Note: when eINDEX_TO_DIRECT is used, IndexArray must be 3xTriangle count, DirectArray can be smaller
-		UVDiffuseLayer->SetMappingMode(FbxLayerElement::eByPolygonVertex);
-		UVDiffuseLayer->SetReferenceMode(FbxLayerElement::eIndexToDirect);
-
-		TArray<int32> UvsRemap;
-		TArray<int32> UniqueUVs;
-		if ( bStaticMeshExportUnWeldedVerts == false )
-		{
-			// Weld UVs
-			DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffer, TexCoordSourceIndex);
-		}
-		else
-		{
-			// Do not weld UVs
-			UvsRemap = VertRemap;
-			UniqueUVs = UvsRemap;
-		}
-		
-		// Create the texture coordinate data source.
-		for (int32 i=0; i < UniqueUVs.Num(); i++)
-		{
-			int32 UnrealVertIndex = UniqueUVs[i];
-			const FVector2D& TexCoord = RenderMesh.VertexBuffer.GetVertexUV(UnrealVertIndex, TexCoordSourceIndex);
-			UVDiffuseLayer->GetDirectArray().Add(FbxVector2(TexCoord.X, -TexCoord.Y + 1.0));
-		}
-
-		// For each face index, point to a texture uv
-		UVDiffuseLayer->GetIndexArray().SetCount( Indices.Num() );
-		for (int32 i=0; i < Indices.Num(); i++)
-		{
-			uint32 UnrealVertIndex = Indices[i];
-			int32 NewVertIndex = UvsRemap[UnrealVertIndex];
-			UVDiffuseLayer->GetIndexArray().SetAt(i,NewVertIndex);
-		}
-
-		UVsLayer->SetUVs(UVDiffuseLayer, FbxLayerElement::eTextureDiffuse);
-	}
-	
-	FbxLayerElementMaterial* MatLayer = FbxLayerElementMaterial::Create(Mesh, "");
-	MatLayer->SetMappingMode(FbxLayerElement::eByPolygon);
-	MatLayer->SetReferenceMode(FbxLayerElement::eIndexToDirect);
-	Layer->SetMaterials(MatLayer);
-	
-	// Keep track of the number of tri's we export
-	uint32 AccountedTriangles = 0;
-	for (int32 PolygonsIndex = 0; PolygonsIndex < PolygonsCount; ++PolygonsIndex)
-	{
-		FStaticMeshSection& Polygons = RenderMesh.Sections[PolygonsIndex];
-		FIndexArrayView RawIndices = RenderMesh.IndexBuffer.GetArrayView();
-		UMaterialInterface* Material = StaticMesh->GetMaterial(Polygons.MaterialIndex);
-
-		FbxSurfaceMaterial* FbxMaterial = Material ? ExportMaterial(Material->GetMaterial()) : NULL;
-		if (!FbxMaterial)
-		{
-			FbxMaterial = CreateDefaultMaterial();
-		}
-		int32 MatIndex = FbxActor->AddMaterial(FbxMaterial);
-		
-		// Determine the actual material index
-		int32 ActualIndex = MatIndex;
-
-		if( MaterialOrderOverride )
-		{
-			ActualIndex = MaterialOrderOverride->Find( Material );
-		}
-		// Static meshes contain one triangle list per element.
-		// [GLAFORTE] Could it occasionally contain triangle strips? How do I know?
-		uint32 TriangleCount = Polygons.NumTriangles;
-		
-		// Copy over the index buffer into the FBX polygons set.
-		for (uint32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
-		{
-			Mesh->BeginPolygon(ActualIndex);
-			for (uint32 PointIndex = 0; PointIndex < 3; PointIndex++)
+			FIndexArrayView RawIndices = RenderMesh.IndexBuffer.GetArrayView();
+			const FStaticMeshSection& Polygons = RenderMesh.Sections[PolygonsIndex];
+			const uint32 TriangleCount = Polygons.NumTriangles;
+			for (uint32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
 			{
-				uint32 OriginalUnrealVertIndex = RawIndices[Polygons.FirstIndex + ((TriangleIndex * 3) + PointIndex)];
-				int32 RemappedVertIndex = VertRemap[OriginalUnrealVertIndex];
-				Mesh->AddPolygon( RemappedVertIndex );
+				for (uint32 PointIndex = 0; PointIndex < 3; PointIndex++)
+				{
+					uint32 UnrealVertIndex = RawIndices[Polygons.FirstIndex + ((TriangleIndex * 3) + PointIndex)];
+					Indices.Add(UnrealVertIndex);
+				}
 			}
-			Mesh->EndPolygon();
 		}
 
-		AccountedTriangles += TriangleCount;
-	}
+		// Create and fill in the per-face-vertex normal data source.
+		// We extract the Z-tangent and drop the X/Y-tangents which are also stored in the render mesh.
+		FbxLayerElementNormal* LayerElementNormal = FbxLayerElementNormal::Create(Mesh, "");
+
+		// Set 3 normals per triangle instead of storing normals on positional control points
+		LayerElementNormal->SetMappingMode(FbxLayerElement::eByPolygonVertex);
+
+		// Set the normal values for every polygon vertex.
+		LayerElementNormal->SetReferenceMode(FbxLayerElement::eDirect);
+
+		TArray<FbxVector4> FbxNormals;
+		FbxNormals.AddUninitialized(VertexCount);
+		for (int32 NormalIndex = 0; NormalIndex < VertexCount; ++NormalIndex)
+		{
+			FVector Normal = (FVector)(RenderMesh.VertexBuffer.VertexTangentZ(NormalIndex));
+			FbxVector4& FbxNormal = FbxNormals[NormalIndex];
+			FbxNormal = FbxVector4(Normal.X, -Normal.Y, Normal.Z);
+			FbxNormal.Normalize();
+		}
+
+		// Add one normal per each face index (3 per triangle)
+		for (int32 FbxVertIndex = 0; FbxVertIndex < Indices.Num(); FbxVertIndex++)
+		{
+			uint32 UnrealVertIndex = Indices[FbxVertIndex];
+			LayerElementNormal->GetDirectArray().Add(FbxNormals[UnrealVertIndex]);
+		}
+		Layer->SetNormals(LayerElementNormal);
+		FbxNormals.Empty();
+
+		// Create and fill in the per-face-vertex texture coordinate data source(s).
+		// Create UV for Diffuse channel.
+		int32 TexCoordSourceCount = (LightmapUVChannel == -1) ? RenderMesh.VertexBuffer.GetNumTexCoords() : LightmapUVChannel + 1;
+		int32 TexCoordSourceIndex = (LightmapUVChannel == -1) ? 0 : LightmapUVChannel;
+		for (; TexCoordSourceIndex < TexCoordSourceCount; ++TexCoordSourceIndex)
+		{
+			FbxLayer* UVsLayer = (LightmapUVChannel == -1) ? Mesh->GetLayer(TexCoordSourceIndex) : Mesh->GetLayer(0);
+			if (UVsLayer == NULL)
+			{
+				Mesh->CreateLayer();
+				UVsLayer = (LightmapUVChannel == -1) ? Mesh->GetLayer(TexCoordSourceIndex) : Mesh->GetLayer(0);
+			}
+			check(UVsLayer);
+
+			const char* UVChannelName = ""; // actually UTF8 as required by Fbx, but can't use UE4's UTF8CHAR type because that's a uint8 aka *unsigned* char
+			if ((LightmapUVChannel >= 0) || ((LightmapUVChannel == -1) && (TexCoordSourceIndex == StaticMesh->LightMapCoordinateIndex)))
+			{
+				UVChannelName = "LightMapUV";
+			}
+
+			FbxLayerElementUV* UVDiffuseLayer = FbxLayerElementUV::Create(Mesh, UVChannelName);
+
+			// Note: when eINDEX_TO_DIRECT is used, IndexArray must be 3xTriangle count, DirectArray can be smaller
+			UVDiffuseLayer->SetMappingMode(FbxLayerElement::eByPolygonVertex);
+			UVDiffuseLayer->SetReferenceMode(FbxLayerElement::eIndexToDirect);
+
+			TArray<int32> UvsRemap;
+			TArray<int32> UniqueUVs;
+			if (bStaticMeshExportUnWeldedVerts == false)
+			{
+				// Weld UVs
+				DetermineUVsToWeld(UvsRemap, UniqueUVs, RenderMesh.VertexBuffer, TexCoordSourceIndex);
+			}
+			else
+			{
+				// Do not weld UVs
+				UvsRemap = VertRemap;
+				UniqueUVs = UvsRemap;
+			}
+
+			// Create the texture coordinate data source.
+			for (int32 FbxVertIndex = 0; FbxVertIndex < UniqueUVs.Num(); FbxVertIndex++)
+			{
+				int32 UnrealVertIndex = UniqueUVs[FbxVertIndex];
+				const FVector2D& TexCoord = RenderMesh.VertexBuffer.GetVertexUV(UnrealVertIndex, TexCoordSourceIndex);
+				UVDiffuseLayer->GetDirectArray().Add(FbxVector2(TexCoord.X, -TexCoord.Y + 1.0));
+			}
+
+			// For each face index, point to a texture uv
+			UVDiffuseLayer->GetIndexArray().SetCount(Indices.Num());
+			for (int32 FbxVertIndex = 0; FbxVertIndex < Indices.Num(); FbxVertIndex++)
+			{
+				uint32 UnrealVertIndex = Indices[FbxVertIndex];
+				int32 NewVertIndex = UvsRemap[UnrealVertIndex];
+				UVDiffuseLayer->GetIndexArray().SetAt(FbxVertIndex, NewVertIndex);
+			}
+
+			UVsLayer->SetUVs(UVDiffuseLayer, FbxLayerElement::eTextureDiffuse);
+		}
+
+		FbxLayerElementMaterial* MatLayer = FbxLayerElementMaterial::Create(Mesh, "");
+		MatLayer->SetMappingMode(FbxLayerElement::eByPolygon);
+		MatLayer->SetReferenceMode(FbxLayerElement::eIndexToDirect);
+		Layer->SetMaterials(MatLayer);
+
+		// Keep track of the number of tri's we export
+		uint32 AccountedTriangles = 0;
+		for (int32 PolygonsIndex = 0; PolygonsIndex < PolygonsCount; ++PolygonsIndex)
+		{
+			const FStaticMeshSection& Polygons = RenderMesh.Sections[PolygonsIndex];
+			FIndexArrayView RawIndices = RenderMesh.IndexBuffer.GetArrayView();
+			UMaterialInterface* Material = StaticMesh->GetMaterial(Polygons.MaterialIndex);
+
+			FbxSurfaceMaterial* FbxMaterial = Material ? ExportMaterial(Material->GetMaterial()) : NULL;
+			if (!FbxMaterial)
+			{
+				FbxMaterial = CreateDefaultMaterial();
+			}
+			int32 MatIndex = FbxActor->AddMaterial(FbxMaterial);
+
+			// Determine the actual material index
+			int32 ActualMatIndex = MatIndex;
+
+			if (MaterialOrderOverride)
+			{
+				ActualMatIndex = MaterialOrderOverride->Find(Material);
+			}
+			// Static meshes contain one triangle list per element.
+			// [GLAFORTE] Could it occasionally contain triangle strips? How do I know?
+			uint32 TriangleCount = Polygons.NumTriangles;
+
+			// Copy over the index buffer into the FBX polygons set.
+			for (uint32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
+			{
+				Mesh->BeginPolygon(ActualMatIndex);
+				for (uint32 PointIndex = 0; PointIndex < 3; PointIndex++)
+				{
+					uint32 OriginalUnrealVertIndex = RawIndices[Polygons.FirstIndex + ((TriangleIndex * 3) + PointIndex)];
+					int32 RemappedVertIndex = VertRemap[OriginalUnrealVertIndex];
+					Mesh->AddPolygon(RemappedVertIndex);
+				}
+				Mesh->EndPolygon();
+			}
+
+			AccountedTriangles += TriangleCount;
+		}
 
 #if TODO_FBX
-	// Throw a warning if this is a lightmap export and the exported poly count does not match the raw triangle data count
-	if (LightmapUVChannel != -1 && AccountedTriangles != RenderMesh.RawTriangles.GetElementCount())
-	{
-		FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "StaticMeshEditor_LightmapExportFewerTriangles", "Fewer polygons have been exported than the raw triangle count.  This Lightmapped UV mesh may contain fewer triangles than the destination mesh on import.") );
-	}
-
-	// Create and fill in the smoothing data source.
-	FbxLayerElementSmoothing* SmoothingInfo = FbxLayerElementSmoothing::Create(Mesh, "");
-	SmoothingInfo->SetMappingMode(FbxLayerElement::eByPolygon);
-	SmoothingInfo->SetReferenceMode(FbxLayerElement::eDirect);
-	FbxLayerElementArrayTemplate<int>& SmoothingArray = SmoothingInfo->GetDirectArray();
-	Layer->SetSmoothing(SmoothingInfo);
-
-	// This is broken. We are exporting the render mesh but providing smoothing
-	// information from the source mesh. The render triangles are not in the
-	// same order. Therefore we should export the raw mesh or not export
-	// smoothing group information!
-	int32 TriangleCount = RenderMesh.RawTriangles.GetElementCount();
-	FStaticMeshTriangle* RawTriangleData = (FStaticMeshTriangle*)RenderMesh.RawTriangles.Lock(LOCK_READ_ONLY);
-	for( int32 TriangleIndex = 0 ; TriangleIndex < TriangleCount ; TriangleIndex++ )
-	{
-		FStaticMeshTriangle* Triangle = (RawTriangleData++);
-		
-		SmoothingArray.Add(Triangle->SmoothingMask);
-	}
-	RenderMesh.RawTriangles.Unlock();
-#endif // #if TODO_FBX
-
-	// Create and fill in the vertex color data source.
-	FColorVertexBuffer* ColorBufferToUse = ColorBuffer? ColorBuffer: &RenderMesh.ColorVertexBuffer;
-	uint32 ColorVertexCount = ColorBufferToUse->GetNumVertices();
-	
-	// Only export vertex colors if they exist
-	if (ColorVertexCount > 0)
-	{
-		FbxLayerElementVertexColor* VertexColor = FbxLayerElementVertexColor::Create(Mesh, "");
-		VertexColor->SetMappingMode(FbxLayerElement::eByPolygonVertex);
-		VertexColor->SetReferenceMode(FbxLayerElement::eIndexToDirect);
-		FbxLayerElementArrayTemplate<FbxColor>& VertexColorArray = VertexColor->GetDirectArray();
-		Layer->SetVertexColors(VertexColor);
-
-		for (int32 i=0; i < Indices.Num(); i++)
+		// Throw a warning if this is a lightmap export and the exported poly count does not match the raw triangle data count
+		if (LightmapUVChannel != -1 && AccountedTriangles != RenderMesh.RawTriangles.GetElementCount())
 		{
-			FLinearColor VertColor(1.0f, 1.0f, 1.0f);
-			uint32 UnrealVertIndex = Indices[i];
-			if (UnrealVertIndex < ColorVertexCount)
-			{
-				VertColor = ColorBufferToUse->VertexColor(UnrealVertIndex).ReinterpretAsLinear();
-			}
-
-			VertexColorArray.Add( FbxColor(VertColor.R, VertColor.G, VertColor.B, VertColor.A ));
+			FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("UnrealEd", "StaticMeshEditor_LightmapExportFewerTriangles", "Fewer polygons have been exported than the raw triangle count.  This Lightmapped UV mesh may contain fewer triangles than the destination mesh on import.") );
 		}
 
-		VertexColor->GetIndexArray().SetCount( Indices.Num() );
-		for (int32 i=0; i < Indices.Num(); i++)
+		// Create and fill in the smoothing data source.
+		FbxLayerElementSmoothing* SmoothingInfo = FbxLayerElementSmoothing::Create(Mesh, "");
+		SmoothingInfo->SetMappingMode(FbxLayerElement::eByPolygon);
+		SmoothingInfo->SetReferenceMode(FbxLayerElement::eDirect);
+		FbxLayerElementArrayTemplate<int>& SmoothingArray = SmoothingInfo->GetDirectArray();
+		Layer->SetSmoothing(SmoothingInfo);
+
+		// This is broken. We are exporting the render mesh but providing smoothing
+		// information from the source mesh. The render triangles are not in the
+		// same order. Therefore we should export the raw mesh or not export
+		// smoothing group information!
+		int32 TriangleCount = RenderMesh.RawTriangles.GetElementCount();
+		FStaticMeshTriangle* RawTriangleData = (FStaticMeshTriangle*)RenderMesh.RawTriangles.Lock(LOCK_READ_ONLY);
+		for (int32 TriangleIndex = 0; TriangleIndex < TriangleCount; TriangleIndex++)
 		{
-			VertexColor->GetIndexArray().SetAt(i,i);
+			FStaticMeshTriangle* Triangle = (RawTriangleData++);
+
+			SmoothingArray.Add(Triangle->SmoothingMask);
+		}
+		RenderMesh.RawTriangles.Unlock();
+#endif // #if TODO_FBX
+
+		// Create and fill in the vertex color data source.
+		const FColorVertexBuffer* ColorBufferToUse = ColorBuffer ? ColorBuffer : &RenderMesh.ColorVertexBuffer;
+		uint32 ColorVertexCount = ColorBufferToUse->GetNumVertices();
+
+		// Only export vertex colors if they exist
+		if (ColorVertexCount > 0)
+		{
+			FbxLayerElementVertexColor* VertexColor = FbxLayerElementVertexColor::Create(Mesh, "");
+			VertexColor->SetMappingMode(FbxLayerElement::eByPolygonVertex);
+			VertexColor->SetReferenceMode(FbxLayerElement::eIndexToDirect);
+			FbxLayerElementArrayTemplate<FbxColor>& VertexColorArray = VertexColor->GetDirectArray();
+			Layer->SetVertexColors(VertexColor);
+
+			for (int32 FbxVertIndex = 0; FbxVertIndex < Indices.Num(); FbxVertIndex++)
+			{
+				FLinearColor VertColor(1.0f, 1.0f, 1.0f);
+				uint32 UnrealVertIndex = Indices[FbxVertIndex];
+				if (UnrealVertIndex < ColorVertexCount)
+				{
+					VertColor = ColorBufferToUse->VertexColor(UnrealVertIndex).ReinterpretAsLinear();
+				}
+
+				VertexColorArray.Add(FbxColor(VertColor.R, VertColor.G, VertColor.B, VertColor.A));
+			}
+
+			VertexColor->GetIndexArray().SetCount(Indices.Num());
+			for (int32 FbxVertIndex = 0; FbxVertIndex < Indices.Num(); FbxVertIndex++)
+			{
+				VertexColor->GetIndexArray().SetAt(FbxVertIndex, FbxVertIndex);
+			}
+		}
+
+		if (ExportLOD == 0 && LightmapUVChannel == -1 && ColorBuffer == nullptr && MaterialOrderOverride == nullptr)
+		{
+			FbxMeshes.Add(StaticMesh, Mesh);
 		}
 	}
 
@@ -2104,20 +2167,23 @@ FbxNode* FFbxExporter::ExportStaticMeshToFbx(UStaticMesh* StaticMesh, FStaticMes
 	return FbxActor;
 }
 
-FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshComp, FStaticMeshLODResources& RenderMesh, const TCHAR* MeshName, FbxNode* FbxActor)
+void FFbxExporter::ExportSplineMeshToFbx(const USplineMeshComponent* SplineMeshComp, const TCHAR* MeshName, FbxNode* FbxActor)
 {
 	const UStaticMesh* StaticMesh = SplineMeshComp->StaticMesh;
 	check(StaticMesh);
 
+	const int32 LODIndex = (SplineMeshComp->ForcedLodModel > 0 ? SplineMeshComp->ForcedLodModel - 1 : /* auto-select*/ 0);
+	const FStaticMeshLODResources& RenderMesh = StaticMesh->GetLODForExport(LODIndex);
+
 	// Verify the integrity of the static mesh.
 	if (RenderMesh.VertexBuffer.GetNumVertices() == 0)
 	{
-		return NULL;
+		return;
 	}
 
 	if (RenderMesh.Sections.Num() == 0)
 	{
-		return NULL;
+		return;
 	}
 
 	// Remaps an Unreal vert to final reduced vertex list
@@ -2175,7 +2241,7 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 	for (int32 PolygonsIndex = 0; PolygonsIndex < PolygonsCount; ++PolygonsIndex)
 	{
 		FIndexArrayView RawIndices = RenderMesh.IndexBuffer.GetArrayView();
-		FStaticMeshSection& Polygons = RenderMesh.Sections[PolygonsIndex];
+		const FStaticMeshSection& Polygons = RenderMesh.Sections[PolygonsIndex];
 		const uint32 TriangleCount = Polygons.NumTriangles;
 		for (uint32 TriangleIndex = 0; TriangleIndex < TriangleCount; ++TriangleIndex)
 		{
@@ -2221,26 +2287,22 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 	// Create and fill in the per-face-vertex texture coordinate data source(s).
 	// Create UV for Diffuse channel.
 	int32 TexCoordSourceCount = RenderMesh.VertexBuffer.GetNumTexCoords();
-	TCHAR UVChannelName[32] = { 0 };
 	for (int32 TexCoordSourceIndex = 0; TexCoordSourceIndex < TexCoordSourceCount; ++TexCoordSourceIndex)
 	{
 		FbxLayer* UVsLayer = Mesh->GetLayer(TexCoordSourceIndex);
 		if (UVsLayer == NULL)
 		{
 			Mesh->CreateLayer();
-			UVsLayer =  Mesh->GetLayer(TexCoordSourceIndex);
+			UVsLayer = Mesh->GetLayer(TexCoordSourceIndex);
 		}
 
-		if (TexCoordSourceIndex == 1)
+		const char* UVChannelName = ""; // actually UTF8 as required by Fbx, but can't use UE4's UTF8CHAR type because that's a uint8 aka *unsigned* char
+		if (TexCoordSourceIndex == StaticMesh->LightMapCoordinateIndex)
 		{
-			FCString::Sprintf(UVChannelName, TEXT("LightMapUV"));
-		}
-		else
-		{
-			FCString::Sprintf(UVChannelName, TEXT(""));
+			UVChannelName = "LightMapUV";
 		}
 
-		FbxLayerElementUV* UVDiffuseLayer = FbxLayerElementUV::Create(Mesh, TCHAR_TO_UTF8(UVChannelName));
+		FbxLayerElementUV* UVDiffuseLayer = FbxLayerElementUV::Create(Mesh, UVChannelName);
 
 		// Note: when eINDEX_TO_DIRECT is used, IndexArray must be 3xTriangle count, DirectArray can be smaller
 		UVDiffuseLayer->SetMappingMode(FbxLayerElement::eByPolygonVertex);
@@ -2269,11 +2331,11 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 
 		// For each face index, point to a texture uv
 		UVDiffuseLayer->GetIndexArray().SetCount(Indices.Num());
-		for (int32 i = 0; i < Indices.Num(); i++)
+		for (int32 FbxVertIndex = 0; FbxVertIndex < Indices.Num(); FbxVertIndex++)
 		{
-			uint32 UnrealVertIndex = Indices[i];
+			uint32 UnrealVertIndex = Indices[FbxVertIndex];
 			int32 NewVertIndex = UvsRemap[UnrealVertIndex];
-			UVDiffuseLayer->GetIndexArray().SetAt(i, NewVertIndex);
+			UVDiffuseLayer->GetIndexArray().SetAt(FbxVertIndex, NewVertIndex);
 		}
 
 		UVsLayer->SetUVs(UVDiffuseLayer, FbxLayerElement::eTextureDiffuse);
@@ -2286,7 +2348,7 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 
 	for (int32 PolygonsIndex = 0; PolygonsIndex < PolygonsCount; ++PolygonsIndex)
 	{
-		FStaticMeshSection& Polygons = RenderMesh.Sections[PolygonsIndex];
+		const FStaticMeshSection& Polygons = RenderMesh.Sections[PolygonsIndex];
 		FIndexArrayView RawIndices = RenderMesh.IndexBuffer.GetArrayView();
 		UMaterialInterface* Material = StaticMesh->GetMaterial(Polygons.MaterialIndex);
 
@@ -2331,7 +2393,7 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 #endif // #if TODO_FBX
 
 	// Create and fill in the vertex color data source.
-	FColorVertexBuffer* ColorBufferToUse = &RenderMesh.ColorVertexBuffer;
+	const FColorVertexBuffer* ColorBufferToUse = &RenderMesh.ColorVertexBuffer;
 	uint32 ColorVertexCount = ColorBufferToUse->GetNumVertices();
 
 	// Only export vertex colors if they exist
@@ -2343,10 +2405,10 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 		FbxLayerElementArrayTemplate<FbxColor>& VertexColorArray = VertexColor->GetDirectArray();
 		Layer->SetVertexColors(VertexColor);
 
-		for (int32 i = 0; i < Indices.Num(); i++)
+		for (int32 FbxVertIndex = 0; FbxVertIndex < Indices.Num(); FbxVertIndex++)
 		{
 			FLinearColor VertColor(1.0f, 1.0f, 1.0f);
-			uint32 UnrealVertIndex = Indices[i];
+			uint32 UnrealVertIndex = Indices[FbxVertIndex];
 			if (UnrealVertIndex < ColorVertexCount)
 			{
 				VertColor = ColorBufferToUse->VertexColor(UnrealVertIndex).ReinterpretAsLinear();
@@ -2356,21 +2418,44 @@ FbxNode* FFbxExporter::ExportSplineMeshToFbx(USplineMeshComponent* SplineMeshCom
 		}
 
 		VertexColor->GetIndexArray().SetCount(Indices.Num());
-		for (int32 i = 0; i < Indices.Num(); i++)
+		for (int32 FbxVertIndex = 0; FbxVertIndex < Indices.Num(); FbxVertIndex++)
 		{
-			VertexColor->GetIndexArray().SetAt(i, i);
+			VertexColor->GetIndexArray().SetAt(FbxVertIndex, FbxVertIndex);
 		}
 	}
 
 	FbxActor->SetNodeAttribute(Mesh);
+}
 
-	return FbxActor;
+void FFbxExporter::ExportInstancedMeshToFbx(const UInstancedStaticMeshComponent* InstancedMeshComp, const TCHAR* MeshName, FbxNode* FbxActor)
+{
+	const UStaticMesh* StaticMesh = InstancedMeshComp->StaticMesh;
+	check(StaticMesh);
+
+	const int32 LODIndex = (InstancedMeshComp->ForcedLodModel > 0 ? InstancedMeshComp->ForcedLodModel - 1 : /* auto-select*/ 0);
+	const int32 NumInstances = InstancedMeshComp->GetInstanceCount();
+	for (int32 InstanceIndex = 0; InstanceIndex < NumInstances; ++InstanceIndex)
+	{
+		FTransform RelativeTransform;
+		if (ensure(InstancedMeshComp->GetInstanceTransform(InstanceIndex, RelativeTransform, /*bWorldSpace=*/false)))
+		{
+			FbxNode* InstNode = FbxNode::Create(Scene, TCHAR_TO_UTF8(*FString::Printf(TEXT("%d"), InstanceIndex)));
+
+			InstNode->LclTranslation.Set(Converter.ConvertToFbxPos(RelativeTransform.GetTranslation()));
+			InstNode->LclRotation.Set(Converter.ConvertToFbxRot(RelativeTransform.GetRotation().Euler()));
+			InstNode->LclScaling.Set(Converter.ConvertToFbxScale(RelativeTransform.GetScale3D()));
+
+			// Todo - export once and then clone the node
+			ExportStaticMeshToFbx(StaticMesh, LODIndex, *FString::Printf(TEXT("%d"), InstanceIndex), InstNode);
+			FbxActor->AddChild(InstNode);
+		}
+	}
 }
 
 /**
  * Exports a Landscape
  */
-FbxNode* FFbxExporter::ExportLandscapeToFbx(ALandscapeProxy* Landscape, const TCHAR* MeshName, FbxNode* FbxActor, bool bSelectedOnly)
+void FFbxExporter::ExportLandscapeToFbx(ALandscapeProxy* Landscape, const TCHAR* MeshName, FbxNode* FbxActor, bool bSelectedOnly)
 {
 	const ULandscapeInfo* LandscapeInfo = Landscape->GetLandscapeInfo(false);
 	
@@ -2575,8 +2660,6 @@ FbxNode* FFbxExporter::ExportLandscapeToFbx(ALandscapeProxy* Landscape, const TC
 	}
 
 	FbxActor->SetNodeAttribute(Mesh);
-
-	return FbxActor;
 }
 
 

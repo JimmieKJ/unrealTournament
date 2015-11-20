@@ -80,7 +80,7 @@ private:
 * Stores the updated matrices needed to skin the verts.
 * Created by the game thread and sent to the rendering thread as an update 
 */
-class FDynamicSkelMeshObjectDataCPUSkin : public FDynamicSkelMeshObjectData
+class FDynamicSkelMeshObjectDataCPUSkin
 {
 public:
 
@@ -97,6 +97,10 @@ public:
 		int32 InLODIndex,
 		const TArray<FActiveVertexAnim>& InActiveVertexAnims
 		);
+
+	virtual ~FDynamicSkelMeshObjectDataCPUSkin()
+	{
+	}
 
 	/** ref pose to local space transforms */
 	TArray<FMatrix> ReferenceToLocal;
@@ -138,11 +142,11 @@ public:
 	FSkeletalMeshObjectCPUSkin(USkinnedMeshComponent* InMeshComponent, FSkeletalMeshResource* InSkeletalMeshResource, ERHIFeatureLevel::Type InFeatureLevel);
 	virtual ~FSkeletalMeshObjectCPUSkin();
 
-	// Begin FSkeletalMeshObject interface
+	//~ Begin FSkeletalMeshObject Interface
 	virtual void InitResources() override;
 	virtual void ReleaseResources() override;
 	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveVertexAnim>& ActiveVertexAnims) override;
-	virtual void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectData* InDynamicData) override;
+	void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataCPUSkin* InDynamicData);
 	virtual void EnableBlendWeightRendering(bool bEnabled, const TArray<int32>& InBonesOfInterest) override;
 	virtual void CacheVertices(int32 LODIndex, bool bForce) const override;
 	virtual bool IsCPUSkinned() const override { return true; }
@@ -190,7 +194,7 @@ public:
 	}
 
 	virtual void DrawVertexElements(FPrimitiveDrawInterface* PDI, const FTransform& ToWorldSpace, bool bDrawNormals, bool bDrawTangents, bool bDrawBinormals) const override;
-	// End FSkeletalMeshObject interface
+	//~ End FSkeletalMeshObject Interface
 
 private:
 	/** vertex data for rendering a single LOD */

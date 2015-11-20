@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconClient.h"
+#include "Runtime/Online/OnlineSubsystemUtils/Public/OnlineBeaconClient.h"
 #include "UTServerBeaconClient.generated.h"
 
 USTRUCT()
@@ -40,7 +40,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	GENERATED_UCLASS_BODY()
 
 	// Begin AOnlineBeacon Interface
-	virtual FString GetBeaconType() override { return TEXT("UTServerBeacon"); }
+	//virtual FString GetBeaconType() override { return TEXT("UTServerBeacon"); }
 	// End AOnlineBeacon Interface
 
 	// Begin AOnlineBeaconClient Interface

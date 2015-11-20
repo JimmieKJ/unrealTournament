@@ -1,10 +1,18 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #include "AIModulePrivate.h"
 #include "AISystem.h"
-#if WITH_EDITOR && ENABLE_VISUAL_LOG
-#	include "VisualLoggerExtension.h"
+
+#if WITH_EDITOR
+#include "Developer/AssetTools/Public/IAssetTools.h"
+#include "Developer/AssetTools/Public/AssetToolsModule.h"
+#if ENABLE_VISUAL_LOG
+	#include "VisualLoggerExtension.h"
+#endif // ENABLE_VISUAL_LOG
 #endif
+
 #include "AIModule.h"
+
+#define LOCTEXT_NAMESPACE "AIModule"
 
 DEFINE_LOG_CATEGORY_STATIC(LogAIModule, Log, All);
 
@@ -16,10 +24,13 @@ class FAIModule : public IAIModule
 	
 	virtual UAISystemBase* CreateAISystemInstance(UWorld* World) override;
 	// End IModuleInterface
-
+#if WITH_EDITOR
+	virtual EAssetTypeCategories::Type GetAIAssetCategoryBit() const override { return AIAssetCategoryBit; }
 protected:
-#if WITH_EDITOR && ENABLE_VISUAL_LOG
+	EAssetTypeCategories::Type AIAssetCategoryBit;
+#if ENABLE_VISUAL_LOG
 	FVisualLoggerExtension	VisualLoggerExtension;
+#endif // ENABLE_VISUAL_LOG
 #endif
 };
 
@@ -34,6 +45,15 @@ void FAIModule::StartupModule()
 
 #if WITH_EDITOR 
 	FModuleManager::LoadModulePtr< IModuleInterface >("AITestSuite");
+
+	if (GIsEditor)
+	{
+		// Register asset types
+		IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
+
+		// register AI category so that AI assets can register to it
+		AIAssetCategoryBit = AssetTools.RegisterAdvancedAssetCategory(FName(TEXT("AI")), LOCTEXT("AIAssetCategory", "Artificial Intelligence"));
+	}
 #endif // WITH_EDITOR 
 
 #if WITH_EDITOR && ENABLE_VISUAL_LOG
@@ -57,3 +77,5 @@ UAISystemBase* FAIModule::CreateAISystemInstance(UWorld* World)
 	TSubclassOf<UAISystemBase> AISystemClass = LoadClass<UAISystemBase>(NULL, *UAISystem::GetAISystemClassName().ToString(), NULL, LOAD_None, NULL);
 	return NewObject<UAISystemBase>(World, AISystemClass);
 }
+
+#undef LOCTEXT_NAMESPACE

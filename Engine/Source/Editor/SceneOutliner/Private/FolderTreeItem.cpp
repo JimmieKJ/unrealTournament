@@ -3,6 +3,7 @@
 #include "SceneOutlinerPrivatePCH.h"
 #include "SSceneOutliner.h"
 
+#include "ActorEditorUtils.h"
 #include "SceneOutlinerFilters.h"
 
 #include "EditorActorFolders.h"
@@ -122,14 +123,42 @@ void FFolderDropTarget::OnDrop(FDragDropPayload& DraggedObjects, UWorld& World, 
 		}
 	}
 
+	// Set the folder path on all the dragged actors, and detach any that need to be moved
 	if (DraggedObjects.Actors)
 	{
+		TSet<AActor*> ParentActors;
+		TSet<AActor*> ChildActors;
+
 		for (auto WeakActor : DraggedObjects.Actors.GetValue())
 		{
 			AActor* Actor = WeakActor.Get();
 			if (Actor)
 			{
+				// First mark this object as a parent, then set its children's path
+				ParentActors.Add(Actor);
 				Actor->SetFolderPath(DestinationPath);
+
+				FActorEditorUtils::TraverseActorTree_ParentFirst(Actor, [&](AActor* InActor){
+					ChildActors.Add(InActor);
+					InActor->SetFolderPath(DestinationPath);
+					return true;
+				}, false);
+			}
+		}
+
+		// Detach parent actors
+		for (AActor* Parent : ParentActors)
+		{
+			auto* RootComp = Parent->GetRootComponent();
+
+			// We don't detach if it's a child of another that's been dragged
+			if (RootComp && RootComp->AttachParent && !ChildActors.Contains(Parent))
+			{
+				if (AActor* OldParentActor = RootComp->AttachParent->GetOwner())
+				{
+					OldParentActor->Modify();
+				}
+				RootComp->DetachFromParent(true);
 			}
 		}
 	}
@@ -219,8 +248,8 @@ void FFolderTreeItem::Delete()
 		{
 			if (AActor* Actor = ActorItem.Actor.Get())
 			{
-				Actor->SetFolderPath(ParentPath);
-			}	
+				Actor->SetFolderPath_Recursively(ParentPath);
+			}
 		}
 		virtual void Visit(FFolderTreeItem& FolderItem) const override
 		{

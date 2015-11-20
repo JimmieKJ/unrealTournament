@@ -9,6 +9,7 @@ UBTDecorator_Loop::UBTDecorator_Loop(const FObjectInitializer& ObjectInitializer
 {
 	NodeName = "Loop";
 	NumLoops = 3;
+	InfiniteLoopTimeoutTime = -1.f;
 	bNotifyActivation = true;
 	
 	bAllowAbortNone = false;
@@ -27,13 +28,21 @@ void UBTDecorator_Loop::OnNodeActivation(FBehaviorTreeSearchData& SearchData)
 	{
 		// initialize counter if it's first activation
 		DecoratorMemory->RemainingExecutions = NumLoops;
+		DecoratorMemory->TimeStarted = GetWorld()->GetTimeSeconds();
 	}
 
 	bool bShouldLoop = false;
 	if (bInfiniteLoop)
 	{
 		// protect from truly infinite loop within single search
-		bShouldLoop = SearchData.SearchId != DecoratorMemory->SearchId;
+		if (SearchData.SearchId != DecoratorMemory->SearchId)
+		{
+			if ((InfiniteLoopTimeoutTime < 0.f) || ((DecoratorMemory->TimeStarted + InfiniteLoopTimeoutTime) < GetWorld()->GetTimeSeconds()))
+			{
+				bShouldLoop = true;
+			}
+		}
+
 		DecoratorMemory->SearchId = SearchData.SearchId;
 	}
 	else
@@ -53,9 +62,21 @@ void UBTDecorator_Loop::OnNodeActivation(FBehaviorTreeSearchData& SearchData)
 FString UBTDecorator_Loop::GetStaticDescription() const
 {
 	// basic info: infinite / num loops
-	return bInfiniteLoop ? 
-		FString::Printf(TEXT("%s: infinite"), *Super::GetStaticDescription()) :
-		FString::Printf(TEXT("%s: %d loops"), *Super::GetStaticDescription(), NumLoops);
+	if (bInfiniteLoop)
+	{
+		if (InfiniteLoopTimeoutTime < 0.f)
+		{
+			return FString::Printf(TEXT("%s: infinite"), *Super::GetStaticDescription());
+		}
+		else
+		{
+			return FString::Printf(TEXT("%s: loop for %s seconds"), *Super::GetStaticDescription(), *FString::SanitizeFloat(InfiniteLoopTimeoutTime));
+		}
+	}
+	else
+	{
+		return FString::Printf(TEXT("%s: %d loops"), *Super::GetStaticDescription(), NumLoops);
+	}
 }
 
 void UBTDecorator_Loop::DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const
@@ -65,7 +86,14 @@ void UBTDecorator_Loop::DescribeRuntimeValues(const UBehaviorTreeComponent& Owne
 	if (!bInfiniteLoop)
 	{
 		FBTLoopDecoratorMemory* DecoratorMemory = (FBTLoopDecoratorMemory*)NodeMemory;
-		Values.Add(FString::Printf(TEXT("remaining: %d"), DecoratorMemory->RemainingExecutions));
+		Values.Add(FString::Printf(TEXT("loops remaining: %d"), DecoratorMemory->RemainingExecutions));
+	}
+	else if (InfiniteLoopTimeoutTime > 0.f)
+	{
+		FBTLoopDecoratorMemory* DecoratorMemory = (FBTLoopDecoratorMemory*)NodeMemory;
+
+		const float TimeRemaining = InfiniteLoopTimeoutTime - (GetWorld()->GetTimeSeconds() - DecoratorMemory->TimeStarted);
+		Values.Add(FString::Printf(TEXT("time remaining: %s"), *FString::SanitizeFloat(InfiniteLoopTimeoutTime)));
 	}
 }
 

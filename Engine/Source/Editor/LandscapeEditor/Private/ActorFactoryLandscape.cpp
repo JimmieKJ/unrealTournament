@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "LandscapeEditorPrivatePCH.h"
-#include "ActorFactoryLandscape.h"
-#include "LandscapePlaceholder.h"
+#include "Classes/ActorFactoryLandscape.h"
+#include "Classes/LandscapePlaceholder.h"
 
 #define LOCTEXT_NAMESPACE "Landscape"
 

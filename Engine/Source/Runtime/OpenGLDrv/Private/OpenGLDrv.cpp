@@ -19,8 +19,6 @@ IMPLEMENT_MODULE(FOpenGLDynamicRHIModule, OpenGLDrv);
 /** OpenGL Logging. */
 DEFINE_LOG_CATEGORY(LogOpenGL);
 
-// Ignore functions from RHIMethods.h when parsing documentation; Doxygen's preprocessor can't parse the declaration, so spews warnings for the definitions.
-#if !UE_BUILD_DOCS
 
 void FOpenGLDynamicRHI::RHIPushEvent(const TCHAR* Name)
 {
@@ -51,7 +49,7 @@ void FOpenGLGPUProfiler::PopEvent()
 
 }
 
-#endif
+
 
 void FOpenGLGPUProfiler::BeginFrame(FOpenGLDynamicRHI* InRHI)
 {

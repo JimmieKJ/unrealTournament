@@ -5,7 +5,7 @@
 =============================================================================*/
 
 // #todo-rco: Fix in the cross-compiler
-#if COMPILER_GLSL || COMPILER_GLSL_ES2 || METAL_PROFILE
+#if COMPILER_GLSL || COMPILER_GLSL_ES2 || COMPILER_METAL || VULKAN_PROFILE
 #define log10(x)  log(x) / log(10.0)
 #endif
 
@@ -66,6 +66,9 @@ half3 FilmPostProcess(half3 LinearColor)
 		half3 MatrixColorM = min(MatrixColor, ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.zzz);
 		half3 CurveColor = (MatrixColorH*ColorCurve_Ch1_Ch2.xxx + ColorCurve_Ch1_Ch2.yyy) * rcp(MatrixColorH + ColorCurve_Cm0Cd0_Cd2_Ch0Cm1_Ch3.www) + MatrixColorM;
 	#endif
+
+	// Must hit black by log10(-2.474)
+	CurveColor -= 0.002;
 
 	return CurveColor;
 }

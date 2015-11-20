@@ -32,6 +32,7 @@ protected:
 	void BecomeSharedWith(UAnimStateTransitionNode* NewNode, bool bShareRules);
 	void AssignUniqueColorsToAllSharedNodes(UEdGraph* CurrentGraph);
 
+	void OnBlendProfileChanged(UBlendProfile* NewProfile, TSharedPtr<IPropertyHandle> ProfileProperty);
 
 private:
 	TWeakObjectPtr<UAnimStateTransitionNode> TransitionNode;

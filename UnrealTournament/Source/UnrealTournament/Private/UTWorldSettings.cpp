@@ -95,7 +95,7 @@ void AUTWorldSettings::BeginPlay()
 
 	Super::BeginPlay();
 
-	if (!bPendingKillPending)
+	if (!IsPendingKillPending())
 	{
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTWorldSettings::ExpireImpactEffects, 0.5f, true);

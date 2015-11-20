@@ -19,7 +19,7 @@ class UEdGraphNode_Documentation : public UEdGraphNode
 public:
 
 #if WITH_EDITOR
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override {}
 	virtual bool ShouldOverridePinNames() const override { return true; }
 	virtual FLinearColor GetNodeTitleColor() const override { return FLinearColor( 0.2f, 1.f, 0.2f ); }
@@ -33,7 +33,7 @@ public:
 	ENGINE_API virtual FString GetDocumentationLink() const override { return Link; }
 	ENGINE_API virtual FString GetDocumentationExcerptName() const override { return Excerpt; }
 	ENGINE_API virtual FName GetPaletteIcon(FLinearColor& OutColor) const override { return TEXT("GraphEditor.Documentation_16x");  }
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
 	/** Set the Bounds for the comment node */
 	ENGINE_API void SetBounds(const class FSlateRect& Rect);

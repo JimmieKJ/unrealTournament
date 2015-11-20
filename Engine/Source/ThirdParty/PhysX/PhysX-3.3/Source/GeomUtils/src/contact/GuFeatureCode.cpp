@@ -16,7 +16,7 @@
 using namespace physx;
 using namespace Gu;
 
-FeatureCode Gu::computeFeatureCode(PxReal u, PxReal v)
+static FeatureCode computeFeatureCode(PxReal u, PxReal v)
 {
 	// Analysis
 	if(u==0.0f)
@@ -73,7 +73,7 @@ FeatureCode Gu::computeFeatureCode(PxReal u, PxReal v)
 bool Gu::selectNormal(PxU8 data, PxReal u, PxReal v)
 {
 	bool useFaceNormal = false;
-	FeatureCode FC = computeFeatureCode(u, v);
+	const FeatureCode FC = computeFeatureCode(u, v);
 	switch(FC)
 	{
 		case FC_VERTEX0:

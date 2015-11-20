@@ -6,9 +6,11 @@
 #include "hlslcc.h"
 #include "MetalBackend.h"
 #include "GlslBackend.h"
+#include "HlslAST.h"
 #include "HlslLexer.h"
 #include "HlslParser.h"
 #include "ShaderPreprocessor.h"
+#include "ShaderCompilerCommon.h"
 
 #include "RequiredProgramMainCPPInclude.h"
 
@@ -27,26 +29,52 @@ namespace CCT
 		return PreprocessShaderFile(Output, Errors, InputFile);
 	}
 
+	static void DumpMessages(CrossCompiler::FCompilerMessages& Messages)
+	{
+		for (auto& Message : Messages.MessageList)
+		{
+			if (Message.bIsError)
+			{
+				UE_LOG(LogCrossCompilerTool, Error, TEXT("%s"), *Message.Message);
+			}
+			else
+			{
+				UE_LOG(LogCrossCompilerTool, Warning, TEXT("%s"), *Message.Message);
+			}
+		}
+	}
+
 	static int32 Run(const FRunInfo& RunInfo)
 	{
 		ILanguageSpec* Language = nullptr;
 		FCodeBackend* Backend = nullptr;
 
-		uint32 Flags = 0;
+		EHlslCompileTarget CompileTarget = RunInfo.Target;
 
+		uint32 Flags = HLSLCC_PackUniforms;
+		Flags |= RunInfo.bValidate ? 0 : HLSLCC_NoValidation;
 		Flags |= RunInfo.bRunCPP ? 0 : HLSLCC_NoPreprocess;
-		Flags |= RunInfo.bForcePackedUBs ? (HLSLCC_PackUniforms | HLSLCC_FlattenUniformBufferStructures | HLSLCC_FlattenUniformBuffers) : 0;
+		Flags |= RunInfo.bPackIntoUBs ? HLSLCC_PackUniformsIntoUniformBuffers : 0;
+		Flags |= RunInfo.bUseDX11Clip ? HLSLCC_DX11ClipSpace : 0;
+		Flags |= RunInfo.bFlattenUBs ? HLSLCC_FlattenUniformBuffers : 0;
+		Flags |= RunInfo.bFlattenUBStructs ? HLSLCC_FlattenUniformBufferStructures : 0;
+		Flags |= RunInfo.bGroupFlattenUBs ? HLSLCC_GroupFlattenedUniformBuffers : 0;
+		Flags |= RunInfo.bCSE ? HLSLCC_ApplyCommonSubexpressionElimination : 0;
+		Flags |= RunInfo.bExpandExpressions ? HLSLCC_ExpandSubexpressions : 0;
+		Flags |= RunInfo.bFixAtomics ? HLSLCC_FixAtomicReferences : 0;
+		Flags |= RunInfo.bSeparateShaders ? HLSLCC_SeparateShaderObjects : 0;
 
 		FGlslLanguageSpec GlslLanguage(RunInfo.Target == HCT_FeatureLevelES2);
-		FGlslCodeBackend GlslBackend(Flags);
+		FGlslCodeBackend GlslBackend(Flags, RunInfo.Target);
 		FMetalLanguageSpec MetalLanguage;
-		FMetalCodeBackend MetalBackend(Flags);
+		FMetalCodeBackend MetalBackend(Flags, CompileTarget);
 
 		switch (RunInfo.BackEnd)
 		{
 		case CCT::FRunInfo::BE_Metal:
 			Language = &MetalLanguage;
 			Backend = &MetalBackend;
+			CompileTarget = HCT_FeatureLevelES3_1;
 			break;
 
 		case CCT::FRunInfo::BE_OpenGL:
@@ -88,11 +116,15 @@ namespace CCT
 					}
 					UE_LOG(LogCrossCompilerTool, Log, TEXT("%d: %s"), Count++, *File);
 
-					if (!CrossCompiler::Parser::Parse(HLSLShader, File, false))
+					CrossCompiler::FCompilerMessages Messages;
+					if (!CrossCompiler::Parser::Parse(HLSLShader, File, Messages))
 					{
+						DumpMessages(Messages);
 						UE_LOG(LogCrossCompilerTool, Log, TEXT("Error compiling '%s'!"), *File);
 						return 1;
 					}
+
+					DumpMessages(Messages);
 				}
 			}
 			else
@@ -121,11 +153,15 @@ namespace CCT
 					return 0;
 				}
 
-				if (!CrossCompiler::Parser::Parse(HLSLShaderSource, *RunInfo.InputFile, true))
+				CrossCompiler::FCompilerMessages Messages;
+				if (!CrossCompiler::Parser::Parse(HLSLShaderSource, *RunInfo.InputFile, Messages))
 				{
 					UE_LOG(LogCrossCompilerTool, Log, TEXT("Error compiling '%s'!"), *RunInfo.InputFile);
+					DumpMessages(Messages);
 					return 1;
 				}
+
+				DumpMessages(Messages);
 			}
 			//Scanner.Dump();
 			return 0;
@@ -142,7 +178,7 @@ namespace CCT
 		ANSICHAR* ShaderSource = 0;
 		ANSICHAR* ErrorLog = 0;
 
-		FHlslCrossCompilerContext Context(Flags, RunInfo.Frequency, RunInfo.Target);
+		FHlslCrossCompilerContext Context(Flags, RunInfo.Frequency, CompileTarget);
 		if (Context.Init(TCHAR_TO_ANSI(*RunInfo.InputFile), Language))
 		{
 			Context.Run(
@@ -166,6 +202,22 @@ namespace CCT
 			if (RunInfo.OutputFile.Len() > 0)
 			{
 				FFileHelper::SaveStringToFile(OutSource, *RunInfo.OutputFile);
+			}
+		}
+
+		if (ShaderSource)
+		{
+			const ANSICHAR* USFSource = ShaderSource;
+			CrossCompiler::FHlslccHeader CCHeader;
+			int32 Len = FCStringAnsi::Strlen(USFSource);
+			if (!CCHeader.Read(USFSource, Len))
+			{
+				UE_LOG(LogCrossCompilerTool, Error, TEXT("Bad hlslcc header found"));
+			}
+
+			if (Language == &GlslLanguage && *USFSource != '#')
+			{
+				UE_LOG(LogCrossCompilerTool, Error, TEXT("Bad hlslcc header found! Missing '#'!"));
 			}
 		}
 

@@ -94,7 +94,7 @@ bool FWindSourceSceneProxy::GetWindParameters(const FVector& EvaluatePosition, F
 			WindData.MinGustAmt = MinGustAmt * RadialFalloff;
 			WindData.MaxGustAmt = MaxGustAmt * RadialFalloff;
 
-			Weight = Distance / Radius * Strength;
+			Weight = (Radius - Distance) / Radius * Strength;
 			return true;
 		}
 		Weight = 0.f;
@@ -168,13 +168,27 @@ void UWindDirectionalSourceComponent::DestroyRenderState_Concurrent()
 
 FWindSourceSceneProxy* UWindDirectionalSourceComponent::CreateSceneProxy() const
 {
-	return new FWindSourceSceneProxy(
-		ComponentToWorld.GetUnitAxis( EAxis::X ),
-		Strength,
-		Speed,
-		MinGustAmount,
-		MaxGustAmount
-		);
+	if (bPointWind)
+	{
+		return new FWindSourceSceneProxy(
+			ComponentToWorld.GetLocation(),
+			Strength,
+			Speed,
+			MinGustAmount,
+			MaxGustAmount,
+			Radius
+			);
+	}
+	else
+	{
+		return new FWindSourceSceneProxy(
+			ComponentToWorld.GetUnitAxis(EAxis::X),
+			Strength,
+			Speed,
+			MinGustAmount,
+			MaxGustAmount
+			);
+	}
 }
 
 

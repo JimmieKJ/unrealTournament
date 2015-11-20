@@ -50,6 +50,7 @@ void SAssetDialog::Construct(const FArguments& InArgs, const FSharedAssetDialogC
 	AssetPickerConfig.GetCurrentSelectionDelegates.Add(&GetCurrentSelectionDelegate);
 	AssetPickerConfig.SaveSettingsName = TEXT("AssetDialog");
 	AssetPickerConfig.bCanShowFolders = true;
+	AssetPickerConfig.bCanShowDevelopersFolder = true;
 	AssetPickerConfig.OnFolderEntered = FOnPathSelected::CreateSP(this, &SAssetDialog::HandleAssetViewFolderEntered);
 
 	SetCurrentlySelectedPath(DefaultPath);

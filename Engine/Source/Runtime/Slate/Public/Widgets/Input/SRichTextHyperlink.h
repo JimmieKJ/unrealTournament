@@ -13,7 +13,7 @@ public:
 		, _Style(&FCoreStyle::Get().GetWidgetStyle< FHyperlinkStyle >("Hyperlink"))
 		, _OnNavigate()
 	{}
-		SLATE_TEXT_ATTRIBUTE( Text )
+		SLATE_ATTRIBUTE( FText, Text )
 		SLATE_STYLE_ARGUMENT( FHyperlinkStyle, Style )
 		SLATE_EVENT( FSimpleDelegate, OnNavigate )
 	SLATE_END_ARGS()

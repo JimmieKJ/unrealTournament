@@ -77,15 +77,15 @@ class UVectorFieldAnimated : public UVectorField
 	float NoiseMax;
 
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject interface
+	//~ End UObject Interface
 
-	// Begin UVectorField Interface
+	//~ Begin UVectorField Interface
 	virtual void InitInstance(class FVectorFieldInstance* Instance, bool bPreviewInstance) override;
-	// End UVectorField Interface
+	//~ End UVectorField Interface
 
 };
 

@@ -5,9 +5,11 @@
 #include "Core.h"
 #include "ModuleInterface.h"
 
+class IOnlineSubsystemUtils;
+
 /**
- * Online subsystem module class
- * Wraps the loading of an online subsystem by name and allows new services to register themselves for use
+ * Online subsystem utils module class
+ * Misc functionality where dependency on the engine code is allowed (OnlineSubsystem is not allowed to require engine dependencies)
  */
 class FOnlineSubsystemUtilsModule : public IModuleInterface
 {
@@ -16,8 +18,10 @@ public:
 	FOnlineSubsystemUtilsModule() {}
 	virtual ~FOnlineSubsystemUtilsModule() {}
 
-	// IModuleInterface
+	/** @return the singleton utility interface */
+	IOnlineSubsystemUtils* GetUtils() const { return SubsystemUtils; }
 
+	// IModuleInterface
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
@@ -30,6 +34,11 @@ public:
 	{
 		return false;
 	}
+
+
+private:
+
+	IOnlineSubsystemUtils* SubsystemUtils;
 };
 
 

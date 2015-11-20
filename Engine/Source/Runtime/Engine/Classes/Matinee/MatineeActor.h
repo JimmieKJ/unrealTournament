@@ -179,7 +179,7 @@ public:
 #endif // WITH_EDITORONLY_DATA
 
 	/** properties that may change on InterpAction that we need to notify clients about, since the object's properties will not be replicated */
-	UPROPERTY(replicated,transient)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, replicated, transient, Category = Play)
 	uint32 bIsPlaying:1;
 
 	UPROPERTY(replicated)
@@ -188,10 +188,11 @@ public:
 	UPROPERTY(replicated,transient)
 	uint32 bPaused:1;
 
+	// The below property is deprecated and will be removed in 4.9.
 	UPROPERTY(replicated,transient)
 	uint32 bPendingStop:1;
 
-	UPROPERTY(replicated)
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, replicated, Category = Play)
 	float InterpPosition;
 
 	/** This is just optimization flag to skip checking it again. If all is initialized, it will set this to be true **/
@@ -230,19 +231,19 @@ public:
 	 * Begin playback of the matinee. Only called in game.
 	 * Will then advance Position by (PlayRate * Deltatime) each time the matinee is ticked.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Cinematic")
+	UFUNCTION(BlueprintCallable, Category="Cinematic")
 	virtual void Play();
 
 	/** Stops playback at the current position */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Cinematic")
+	UFUNCTION(BlueprintCallable, Category="Cinematic")
 	virtual void Stop();
 
 	/** Similar to play, but the playback will go backwards until the beginning of the sequence is reached. */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Cinematic")
+	UFUNCTION(BlueprintCallable, Category="Cinematic")
 	virtual void Reverse();
 
 	/** Hold playback at its current position. Calling Pause again will continue playback in its current direction. */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Cinematic")
+	UFUNCTION(BlueprintCallable, Category="Cinematic")
 	virtual void Pause();
 
 	/** 
@@ -251,15 +252,15 @@ public:
 	 * @param NewPosition the new position to set the interpolation to
 	 * @param bJump if true, teleport to the new position (don't trigger any events between the old and new positions, etc)
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Cinematic")
+	UFUNCTION(BlueprintCallable, Category="Cinematic")
 	ENGINE_API void SetPosition(float NewPosition, bool bJump = false);
 
 	/** Changes the direction of playback (go in reverse if it was going forward, or vice versa) */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Cinematic")
+	UFUNCTION(BlueprintCallable, Category="Cinematic")
 	virtual void ChangePlaybackDirection();
 
 	/** Change the looping behaviour of this matinee */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category="Cinematic")
+	UFUNCTION(BlueprintCallable, Category="Cinematic")
 	virtual void SetLoopingState(bool bNewLooping);
 
 #if WITH_EDITOR
@@ -267,6 +268,7 @@ public:
 	ENGINE_API void OnObjectsReplaced(const TMap<UObject*,UObject*>& ReplacementMap);
 #endif //WITH_EDITOR
 
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 protected:
 
 	/** Handle for efficient management of CheckPriorityRefresh timer */
@@ -311,24 +313,26 @@ public:
 	};
 #endif
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual float GetNetPriority(const FVector& ViewPos, const FVector& ViewDir, AActor* Viewer, AActor* ViewTarget, UActorChannel* InChannel, float Time, bool bLowBandwidth) override;
 	virtual void Tick(float DeltaTime) override;
 	virtual void PreNetReceive() override;
 	virtual void PostNetReceive() override;
 	virtual void BeginPlay() override;
 	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
+	virtual void PostLoad() override;
+
 #if WITH_EDITOR
 	virtual bool GetReferencedContentObjects( TArray<UObject*>& Objects ) const override;
 #endif
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty( FPropertyChangedEvent& PropertyChangedEvent ) override; 
 	virtual bool CanEditChange( const UProperty* Property ) const override;
 #endif // WITH_EDITOR
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/** Increment track forwards by given timestep and iterate over each track updating any properties. */
 	ENGINE_API void StepInterp(float DeltaTime, bool bPreview=false);

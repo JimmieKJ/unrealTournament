@@ -10,7 +10,7 @@ void FPhATCommands::RegisterCommands()
 {
 	UI_COMMAND(ChangeDefaultMesh, "Change Mesh", "Change Default SkeletalMesh", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(ResetEntireAsset, "Reset Asset", "Opens Body Creation Settings And Replaces Asset Using The New Settings", EUserInterfaceActionType::Button, FInputChord());
-	UI_COMMAND(RestetBoneCollision, "Reset", "Reset Bone Collision", EUserInterfaceActionType::Button, FInputChord());
+	UI_COMMAND(ResetBoneCollision, "Reset", "Reset Bone Collision", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(ApplyPhysicalMaterial, "Apply PhysMat", "Applies Currently Selected Physical Material In Content Browser To All Bodies", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND(EditingMode_Body, "Body Mode", "Body Editing Mode", EUserInterfaceActionType::RadioButton, FInputChord());
 	UI_COMMAND(EditingMode_Constraint, "Constraint Mode", "Constraint Editing Mode", EUserInterfaceActionType::RadioButton, FInputChord());

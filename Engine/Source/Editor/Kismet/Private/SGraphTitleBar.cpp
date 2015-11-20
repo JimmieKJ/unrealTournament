@@ -43,18 +43,19 @@ FText SGraphTitleBar::GetTitleExtra() const
 {
 	check(EdGraphObj != NULL);
 
-	FString ExtraText = Kismet2Ptr.Pin()->GetGraphDecorationString(EdGraphObj).ToString();
+	FText ExtraText = Kismet2Ptr.Pin()->GetGraphDecorationString(EdGraphObj);
 
 	const bool bEditable = (Kismet2Ptr.Pin()->IsEditable(EdGraphObj));
 
 	if(!bEditable)
 	{
-		ExtraText += TEXT(" (");
-		ExtraText += LOCTEXT("ReadOnlyWarningText", "READ-ONLY").ToString();
-		ExtraText += TEXT(")");
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("BaseText"), ExtraText);
+
+		ExtraText = FText::Format(LOCTEXT("ReadOnlyWarningText", "{BaseText} (READ-ONLY)"), Args);
 	}
 
-	return FText::FromString(ExtraText);
+	return ExtraText;
 }
 
 EVisibility SGraphTitleBar::IsGraphBlueprintNameVisible() const

@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "EditorStylePrivatePCH.h"
-#include "UnitConversion.h"
 
 /* UEditorStyleSettings interface
  *****************************************************************************/
@@ -34,9 +33,9 @@ void UEditorStyleSettings::PostEditChangeProperty(struct FPropertyChangedEvent& 
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	const FName Name = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
+	const FName PropertyName = (PropertyChangedEvent.Property != nullptr) ? PropertyChangedEvent.Property->GetFName() : NAME_None;
 
-	if (Name == GET_MEMBER_NAME_CHECKED(UEditorStyleSettings, bEnableWindowAnimations))
+	if (PropertyName == GET_MEMBER_NAME_CHECKED(UEditorStyleSettings, bEnableWindowAnimations))
 	{
 		FSlateApplication::Get().EnableMenuAnimations(bEnableWindowAnimations);
 	}
@@ -46,7 +45,7 @@ void UEditorStyleSettings::PostEditChangeProperty(struct FPropertyChangedEvent& 
 		SaveConfig();
 	}
 
-	SettingChangedEvent.Broadcast(Name);
+	SettingChangedEvent.Broadcast(PropertyName);
 }
 
 #endif

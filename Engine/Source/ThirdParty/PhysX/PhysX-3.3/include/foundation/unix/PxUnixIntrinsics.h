@@ -66,7 +66,7 @@ namespace physx
 	//! \brief platform-specific float floor
 	PX_FORCE_INLINE float floor(float a)
 	{
-		return ::floor(a);
+		return ::floorf(a);
 	}
 
 	//! \brief platform-specific finiteness check (not INF or NAN)

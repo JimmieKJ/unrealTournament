@@ -15,6 +15,7 @@
 #include "FindInBlueprints.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "SMyBlueprint.h"
+#include "SReplaceNodeReferences.h"
 #include "Engine/Blueprint.h"
 #include "Engine/TimelineTemplate.h"
 #include "EditorClassUtils.h"
@@ -327,6 +328,25 @@ TSharedRef<SWidget> FMyBlueprintSummoner::CreateTabBody(const FWorkflowTabSpawnI
 	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
 
 	return BlueprintEditorPtr->GetMyBlueprintWidget().ToSharedRef();
+}
+
+FReplaceNodeReferencesSummoner::FReplaceNodeReferencesSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)
+	: FWorkflowTabFactory(FBlueprintEditorTabs::ReplaceNodeReferencesID, InHostingApp)
+{
+	TabLabel = LOCTEXT("ReplaceNodeReferences", "Replace References");
+	TabIcon = FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.BlueprintCore");
+
+	bIsSingleton = true;
+
+	ViewMenuDescription = LOCTEXT("ReplaceNodeReferences", "Replace References");
+	ViewMenuTooltip = LOCTEXT("ReplaceNodeReferences_Tooltip", "Show Replace References");
+}
+
+TSharedRef<SWidget> FReplaceNodeReferencesSummoner::CreateTabBody(const FWorkflowTabSpawnInfo& Info) const
+{
+	TSharedPtr<FBlueprintEditor> BlueprintEditorPtr = StaticCastSharedPtr<FBlueprintEditor>(HostingApp.Pin());
+
+	return BlueprintEditorPtr->GetReplaceReferencesWidget().ToSharedRef();
 }
 
 FCompilerResultsSummoner::FCompilerResultsSummoner(TSharedPtr<class FAssetEditorToolkit> InHostingApp)

@@ -21,20 +21,20 @@ class UMaterialGraphNode_Comment : public UEdGraphNode_Comment
 	/** Fix up the node's owner after being copied */
 	UNREALED_API void PostCopyNode();
 
-	// UObject interface
+	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditImport() override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
-	// End of UObject interface
+	//~ End UObject Interface
 
-	// Begin UEdGraphNode interface.
+	//~ Begin UEdGraphNode Interface.
 	virtual void PrepareForCopying() override;
 	virtual void GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const override;
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* Schema) const override;
 	virtual void PostPlacedNewNode() override;
 	virtual void OnRenameNode(const FString& NewName) override;
 	virtual void ResizeNode(const FVector2D& NewSize) override;
-	// End UEdGraphNode interface.
+	//~ End UEdGraphNode Interface.
 
 private:
 	/** Make sure the MaterialExpressionComment is owned by the Material */

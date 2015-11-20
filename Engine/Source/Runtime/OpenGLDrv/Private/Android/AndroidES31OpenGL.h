@@ -227,6 +227,8 @@ GL_APICALL void GL_APIENTRY glGetVertexAttribLui64vNV(GLuint index, GLenum pname
 	EnumMacro(PFNGLUNMAPBUFFEROESPROC, glUnmapBufferOES) \
 	EnumMacro(PFNGLQUERYCOUNTEREXTPROC, glQueryCounterEXT) \
 	EnumMacro(PFNGLGETQUERYOBJECTUI64VEXTPROC, glGetQueryObjectui64vEXT) \
+	EnumMacro(PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC, glFramebufferTexture2DMultisampleEXT) \
+	EnumMacro(PFNGLRENDERBUFFERSTORAGEMULTISAMPLEEXTPROC, glRenderbufferStorageMultisampleEXT) \
 	EnumMacro(PFNGLGETTEXTUREHANDLENVPROC, glGetTextureHandleNV)\
 	EnumMacro(PFNGLGETTEXTURESAMPLERHANDLENVPROC, glGetTextureSamplerHandleNV)\
 	EnumMacro(PFNGLMAKETEXTUREHANDLERESIDENTNVPROC, glMakeTextureHandleResidentNV)\
@@ -252,6 +254,11 @@ ENUM_GL_ENTRYPOINTS_ALL(DECLARE_GL_ENTRYPOINTS);
 
 struct FAndroidES31OpenGL : public FOpenGLES31
 {
+	static FORCEINLINE EShaderPlatform GetShaderPlatform()
+	{
+		return bES2Fallback ? SP_OPENGL_ES2_ANDROID : SP_OPENGL_ES31_EXT;
+	}
+
 	static FORCEINLINE void InitDebugContext()
 	{
 		bDebugContext = glIsEnabled( GL_DEBUG_OUTPUT_KHR) != GL_FALSE;
@@ -338,7 +345,7 @@ struct FAndroidES31OpenGL : public FOpenGLES31
 		glGetQueryObjectuiv(QueryId, QueryName, OutResult);
 	}
 
-	static FORCEINLINE void GetQueryObject(GLuint QueryId, EQueryMode QueryMode, uint64* OutResult)
+	static FORCEINLINE void GetQueryObject(GLuint QueryId, EQueryMode QueryMode, GLuint64* OutResult)
 	{
 		GLenum QueryName = (QueryMode == QM_Result) ? GL_QUERY_RESULT_EXT : GL_QUERY_RESULT_AVAILABLE_EXT;
 		GLuint64 Result = 0;

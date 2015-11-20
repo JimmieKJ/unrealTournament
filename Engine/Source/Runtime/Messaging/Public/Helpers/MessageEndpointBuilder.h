@@ -62,12 +62,12 @@ public:
 	 * @param Handler The class handling the messages.
 	 * @param HandlerFunc The class function handling the messages.
 	 * @return This instance (for method chaining).
-	 * @see WithHandler
+	 * @see WithCatchall, WithHandler
 	 */
 	template<typename MessageType, typename HandlerType>
 	FMessageEndpointBuilder& Handling( HandlerType* Handler, typename TRawMessageHandler<MessageType, HandlerType>::FuncType HandlerFunc )
 	{
-		Handlers.Add(MakeShareable(new TRawMessageHandler<MessageType, HandlerType>(Handler, HandlerFunc)));
+		Handlers.Add(MakeShareable(new TRawMessageHandler<MessageType, HandlerType>(Handler, MoveTemp(HandlerFunc))));
 
 		return *this;
 	}
@@ -84,12 +84,12 @@ public:
 	 * @param MessageType The type of messages to handle.
 	 * @param Function The function object handling the messages.
 	 * @return This instance (for method chaining).
-	 * @see WithHandler
+	 * @see WithCatchall, WithHandler
 	 */
 	template<typename MessageType>
 	FMessageEndpointBuilder& Handling( typename TFunctionMessageHandler<MessageType>::FuncType HandlerFunc )
 	{
-		Handlers.Add(MakeShareable(new TFunctionMessageHandler<MessageType>(HandlerFunc)));
+		Handlers.Add(MakeShareable(new TFunctionMessageHandler<MessageType>(MoveTemp(HandlerFunc))));
 
 		return *this;
 	}
@@ -148,6 +148,50 @@ public:
 	}
 
 	/**
+	 * Adds a message handler for the given type of messages (via raw function pointers).
+	 *
+	 * It is legal to configure multiple handlers for the same message type. Each
+	 * handler will be executed when a message of the specified type is received.
+	 *
+	 * This overload is used to register raw class member functions.
+	 *
+	 * @param HandlerType The type of the object handling the messages.
+	 * @param MessageType The type of messages to handle.
+	 * @param Handler The class handling the messages.
+	 * @param HandlerFunc The class function handling the messages.
+	 * @return This instance (for method chaining).
+	 * @see WithHandler
+	 */
+	template<typename HandlerType>
+	FMessageEndpointBuilder& WithCatchall( HandlerType* Handler, typename TRawMessageCatchall<HandlerType>::FuncType HandlerFunc )
+	{
+		Handlers.Add(MakeShareable(new TRawMessageCatchall<HandlerType>(Handler, MoveTemp(HandlerFunc))));
+
+		return *this;
+	}
+
+	/**
+	 * Adds a message handler for the given type of messages (via TFunction object).
+	 *
+	 * It is legal to configure multiple handlers for the same message type. Each
+	 * handler will be executed when a message of the specified type is received.
+	 *
+	 * This overload is used to register functions that are compatible with TFunction
+	 * function objects, such as global and static functions, as well as lambdas.
+	 *
+	 * @param MessageType The type of messages to handle.
+	 * @param Function The function object handling the messages.
+	 * @return This instance (for method chaining).
+	 * @see WithHandler
+	 */
+	FMessageEndpointBuilder& WithCatchall( FFunctionMessageCatchall::FuncType HandlerFunc )
+	{
+		Handlers.Add(MakeShareable(new FFunctionMessageCatchall(MoveTemp(HandlerFunc))));
+
+		return *this;
+	}
+
+	/**
 	 * Registers a message handler with the endpoint.
 	 *
 	 * It is legal to configure multiple handlers for the same message type. Each
@@ -155,7 +199,7 @@ public:
 	 *
 	 * @param Handler The handler to add.
 	 * @return This instance (for method chaining).
-	 * @see Handling
+	 * @see Handling, WithCatchall
 	 */
 	FMessageEndpointBuilder& WithHandler( const IMessageHandlerRef& Handler )
 	{

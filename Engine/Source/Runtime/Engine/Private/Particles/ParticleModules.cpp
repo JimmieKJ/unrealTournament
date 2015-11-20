@@ -276,6 +276,7 @@ void UParticleModule::ChangeEditorColor(FColor& Color, UInterpCurveEdSetup* EdSe
 
 void UParticleModule::AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp)
 {
+	check(IsInGameThread());
 	for (TFieldIterator<UStructProperty> It(GetClass()); It; ++It)
 	{
 		// attempt to get a distribution from a random struct property
@@ -873,16 +874,32 @@ UParticleModuleSourceMovement::UParticleModuleSourceMovement(const FObjectInitia
 	bFinalUpdateModule = true;
 }
 
-void UParticleModuleSourceMovement::PostInitProperties()
+void UParticleModuleSourceMovement::InitializeDefaults()
 {
-	Super::PostInitProperties();
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	if (!SourceMovementScale.Distribution)
 	{
 		UDistributionVectorConstant* DistributionSourceMovementScale = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionSourceMovementScale"));
 		DistributionSourceMovementScale->Constant = FVector(1.0f, 1.0f, 1.0f);
 		SourceMovementScale.Distribution = DistributionSourceMovementScale;
 	}
 }
+
+void UParticleModuleSourceMovement::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		InitializeDefaults();
+	}
+}
+
+#if WITH_EDITOR
+void UParticleModuleSourceMovement::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleSourceMovement::FinalUpdate(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime)
 {
@@ -1142,10 +1159,9 @@ UParticleModuleMeshRotation::UParticleModuleMeshRotation(const FObjectInitialize
 	bInheritParent = false;
 }
 
-void UParticleModuleMeshRotation::PostInitProperties()
+void UParticleModuleMeshRotation::InitializeDefaults()
 {
-	Super::PostInitProperties();
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	if (!StartRotation.Distribution)
 	{
 		UDistributionVectorUniform* DistributionStartRotation = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartRotation"));
 		DistributionStartRotation->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -1153,6 +1169,24 @@ void UParticleModuleMeshRotation::PostInitProperties()
 		StartRotation.Distribution = DistributionStartRotation;
 	}
 }
+
+
+void UParticleModuleMeshRotation::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		InitializeDefaults();
+	}
+}
+
+#if WITH_EDITOR
+void UParticleModuleMeshRotation::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleMeshRotation::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -1240,10 +1274,9 @@ UParticleModuleMeshRotationRate::UParticleModuleMeshRotationRate(const FObjectIn
 	bUpdateModule = true;
 }
 
-void UParticleModuleMeshRotationRate::PostInitProperties()
+void UParticleModuleMeshRotationRate::InitializeDefaults()
 {
-	Super::PostInitProperties();
-	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	if (!StartRotationRate.Distribution)
 	{
 		UDistributionVectorUniform* DistributionStartRotationRate = NewObject<UDistributionVectorUniform>(this, TEXT("DistributionStartRotationRate"));
 		DistributionStartRotationRate->Min = FVector(0.0f, 0.0f, 0.0f);
@@ -1251,6 +1284,23 @@ void UParticleModuleMeshRotationRate::PostInitProperties()
 		StartRotationRate.Distribution = DistributionStartRotationRate;
 	}
 }
+
+void UParticleModuleMeshRotationRate::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
+	{
+		InitializeDefaults();
+	}
+}
+
+#if WITH_EDITOR
+void UParticleModuleMeshRotationRate::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleMeshRotationRate::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -1334,15 +1384,31 @@ UParticleModuleMeshRotationRateMultiplyLife::UParticleModuleMeshRotationRateMult
 	bSpawnModule = true;
 	bUpdateModule = true;
 }
+void UParticleModuleMeshRotationRateMultiplyLife::InitializeDefaults()
+{
+	if (!LifeMultiplier.Distribution)
+	{
+		LifeMultiplier.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLifeMultiplier"));
+	}
+}
 
 void UParticleModuleMeshRotationRateMultiplyLife::PostInitProperties()
 {
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		LifeMultiplier.Distribution = NewObject<UDistributionVectorConstant>(this, TEXT("DistributionLifeMultiplier"));
+		InitializeDefaults();
 	}
 }
+
+#if WITH_EDITOR
+void UParticleModuleMeshRotationRateMultiplyLife::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
+
 
 void UParticleModuleMeshRotationRateMultiplyLife::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -1394,14 +1460,30 @@ UParticleModuleMeshRotationRateOverLife::UParticleModuleMeshRotationRateOverLife
 	bUpdateModule = true;
 }
 
+void UParticleModuleMeshRotationRateOverLife::InitializeDefaults()
+{
+	if (!RotRate.Distribution)
+	{
+		RotRate.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionRotRate"));
+	}
+}
+
 void UParticleModuleMeshRotationRateOverLife::PostInitProperties()
 {
 	Super::PostInitProperties();
 	if (!HasAnyFlags(RF_ClassDefaultObject | RF_NeedLoad))
 	{
-		RotRate.Distribution = NewObject<UDistributionVectorConstantCurve>(this, TEXT("DistributionRotRate"));
+		InitializeDefaults();
 	}
 }
+
+#if WITH_EDITOR
+void UParticleModuleMeshRotationRateOverLife::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	InitializeDefaults();
+	Super::PostEditChangeProperty(PropertyChangedEvent);
+}
+#endif // WITH_EDITOR
 
 void UParticleModuleMeshRotationRateOverLife::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
@@ -2707,6 +2789,11 @@ void UParticleModuleLight::PostEditChangeProperty(FPropertyChangedEvent& Propert
 }
 #endif // WITH_EDITOR
 
+bool UParticleModuleLight::CanTickInAnyThread()
+{
+	return BrightnessOverLife.OkForParallel() && ColorScaleOverLife.OkForParallel() && RadiusScale.OkForParallel() && LightExponent.OkForParallel();
+}
+
 void UParticleModuleLight::SpawnEx(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, struct FRandomStream* InRandomStream, FBaseParticle* ParticleBase)
 {
 	SPAWN_INIT;
@@ -2786,7 +2873,6 @@ void UParticleModuleLight::SetToSensibleDefaults(UParticleEmitter* Owner)
 void UParticleModuleLight::Render3DPreview(FParticleEmitterInstance* Owner, const FSceneView* View,FPrimitiveDrawInterface* PDI)
 {
 #if WITH_EDITOR
-
 	if ((Owner == NULL) || (Owner->ActiveParticles <= 0) || 
 		(Owner->ParticleData == NULL) || (Owner->ParticleIndices == NULL))
 	{
@@ -2795,6 +2881,7 @@ void UParticleModuleLight::Render3DPreview(FParticleEmitterInstance* Owner, cons
 
 	if (bPreviewLightRadius)
 	{
+		check(IsInGameThread());
 		int32 Offset = 0;
 		UParticleLODLevel* LODLevel	= Owner->SpriteTemplate->GetCurrentLODLevel(Owner);
 		const bool bLocalSpace = LODLevel->RequiredModule->bUseLocalSpace;
@@ -2885,6 +2972,7 @@ UParticleModuleTypeDataMesh::UParticleModuleTypeDataMesh(const FObjectInitialize
 	AxisLockOption = EPAL_NONE;
 	CameraFacingUpAxisOption_DEPRECATED = CameraFacing_NoneUP;
 	CameraFacingOption = XAxisFacing_NoUp;
+	bCollisionsConsiderPartilceSize = true;
 }
 
 FParticleEmitterInstance* UParticleModuleTypeDataMesh::CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent)
@@ -2919,6 +3007,10 @@ void UParticleModuleTypeDataMesh::Serialize(FArchive& Ar)
 		RPYDistribution->Min = oldOrient;
 		RPYDistribution->Max = oldOrient;
 		RPYDistribution->bIsDirty = true;
+	}
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_MESH_PARTICLE_COLLISIONS_CONSIDER_PARTICLE_SIZE)
+	{
+		bCollisionsConsiderPartilceSize = false;//Old data should default to the old behavior of not considering particle size.
 	}
 }
 
@@ -3436,7 +3528,7 @@ void UParticleModuleAttractorLine::Update(FParticleEmitterInstance* Owner, int32
 	FVector Line = EndPoint1 - EndPoint0;
 
 	// if both end points are the same, we end up with NaNs in the results of the update
-	if (Line.Size() == 0.0f)
+	if (Line.SizeSquared() == 0.0f)
 	{
 		Line = FVector(SMALL_NUMBER, SMALL_NUMBER, SMALL_NUMBER);
 	}
@@ -3992,29 +4084,8 @@ bool UDistributionVectorParticleParameter::GetParamValue(UObject* Data, FName Pa
 	UParticleSystemComponent* ParticleComp = Cast<UParticleSystemComponent>(Data);
 	if(ParticleComp)
 	{
-		bFoundParam = ParticleComp->GetVectorParameter(ParameterName, OutVector);
-
-		// If we failed to get a Vector parameter with the given name, see if we can get a Color parameter or Float parameter
-		if(!bFoundParam)
-		{
-			FLinearColor OutColor;
-			bFoundParam = ParticleComp->GetColorParameter(ParameterName, OutColor);
-			if(bFoundParam)
-			{
-				OutVector = FVector(OutColor);
-			}
-			else
-			{
-				float OutFloat;
-				bFoundParam = ParticleComp->GetFloatParameter(ParameterName, OutFloat);
-				if(bFoundParam)
-				{
-					OutVector = FVector(OutFloat);
-				}
-			}
-		}
+		bFoundParam = ParticleComp->GetAnyVectorParameter(ParameterName, OutVector);
 	}
-
 	return bFoundParam;
 }
 
@@ -4341,6 +4412,7 @@ void UParticleModuleTypeDataGpu::Build( FParticleEmitterBuildInfo& EmitterBuildI
 
 	// Collision flag.
 	EmitterInfo.bEnableCollision = EmitterBuildInfo.bEnableCollision;
+	EmitterInfo.CollisionMode = (EParticleCollisionMode::Type)EmitterBuildInfo.CollisionMode;
 
 	// Create or update GPU resources.
 	if ( EmitterInfo.Resources )

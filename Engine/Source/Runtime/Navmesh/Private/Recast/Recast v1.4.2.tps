@@ -2,7 +2,7 @@
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>Recast v1.4.2</Name>
   <Location>//depot/UE4/Engine/Source/Runtime/Navmesh/Private/Recast</Location>
-  <Date>2015-03-27T16:17:11.6766246-04:00</Date>
+  <Date>2015-09-04T20:26:37.3628049-04:00</Date>
   <Function>NavMesh and PathFinding library, necessary for AI functioning</Function>
   <Justification>necessary for AI functioning</Justification>
   <Platforms>
@@ -20,7 +20,14 @@
   <RedistributeTo />
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
+  <NoticeType>Full EULA Text</NoticeType>
+  <Notification>Recast v1.4.2
+Copyright (c) 2009 Mikko Mononen memon@inside.org
+This software is provided ‘as-is’, without any express or implied warranty.  In no event will the authors be held liable for any damages arising from the use of this software.
+Permission is granted to anyone to use this software for any purpose, including commercial applications, and to alter it and redistribute it freely, subject to the following restrictions:
+III. The origin of this software must not be misrepresented; you must not claim that you wrote the original software.  If you use this software in a product, an acknowledgment in the product documentation would be appreciated but is not required.
+JJJ. Altered source versions must be plainly marked as such, and must not be misrepresented as being the original software.
+KKK. This notice may not be removed or altered from any source distribution.
+</Notification>
   <LicenseFolder />
 </TpsData>

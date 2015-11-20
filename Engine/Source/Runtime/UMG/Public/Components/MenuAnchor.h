@@ -9,8 +9,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMenuOpenChangedEvent, bool, bIsOp
 /**
  * The Menu Anchor allows you to specify an location that a popup menu should be anchored to, 
  * and should be summoned from.
- * ● Single Child
- * ● Popup
+ * * Single Child
+ * * Popup
  */
 UCLASS()
 class UMG_API UMenuAnchor : public UContentWidget

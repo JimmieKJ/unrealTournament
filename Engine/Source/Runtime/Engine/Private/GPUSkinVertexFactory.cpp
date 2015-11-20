@@ -107,6 +107,16 @@ FSharedPoolPolicyData::CreationArguments FBoneBufferPoolPolicy::GetCreationArgum
 	return (Resource.VertexBufferRHI->GetSize());
 }
 
+FBoneBufferTypeRef FClothBufferPoolPolicy::CreateResource(CreationArguments Args)
+{
+	uint32 BufferSize = GetPoolBucketSize(GetPoolBucketIndex(Args));
+	FBoneBuffer Buffer;
+	FRHIResourceCreateInfo CreateInfo;
+	Buffer.VertexBufferRHI = RHICreateVertexBuffer( BufferSize, (BUF_Dynamic | BUF_ShaderResource), CreateInfo );
+	Buffer.VertexBufferSRV = RHICreateShaderResourceView( Buffer.VertexBufferRHI, sizeof(FVector2D), PF_G32R32F );
+	return Buffer;
+}
+
 /*-----------------------------------------------------------------------------
  FBoneBufferPool
  -----------------------------------------------------------------------------*/
@@ -119,13 +129,77 @@ TStatId FBoneBufferPool::GetStatId() const
 	RETURN_QUICK_DECLARE_CYCLE_STAT(FBoneBufferPool, STATGROUP_Tickables);
 }
 
+FClothBufferPool::~FClothBufferPool()
+{
+}
+
+TStatId FClothBufferPool::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FClothBufferPool, STATGROUP_Tickables);
+}
+
 TConsoleVariableData<int32>* FGPUBaseSkinVertexFactory::ShaderDataType::MaxBonesVar = NULL;
 uint32 FGPUBaseSkinVertexFactory::ShaderDataType::MaxGPUSkinBones = 0;
 
-void FGPUBaseSkinVertexFactory::ShaderDataType::UpdateBoneData(ERHIFeatureLevel::Type FeatureLevel)
+static TAutoConsoleVariable<int32> CVarRHICmdDeferSkeletalLockAndFillToRHIThread(
+	TEXT("r.RHICmdDeferSkeletalLockAndFillToRHIThread"),
+	0,
+	TEXT("If > 0, then do the bone and cloth copies on the RHI thread. Experimental option."));
+
+static bool DeferSkeletalLockAndFillToRHIThread()
 {
-	uint32 NumBones = BoneMatrices.Num();
+	return GRHIThread && CVarRHICmdDeferSkeletalLockAndFillToRHIThread.GetValueOnRenderThread() > 0;
+}
+
+struct FRHICommandUpdateBoneBuffer : public FRHICommand<FRHICommandUpdateBoneBuffer>
+{
+	FVertexBufferRHIParamRef VertexBuffer;
+	uint32 BufferSize;
+	const TArray<FMatrix>& ReferenceToLocalMatrices;
+	const TArray<FBoneIndexType>& BoneMap;
+
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateBoneBuffer(FVertexBufferRHIParamRef InVertexBuffer, uint32 InBufferSize, const TArray<FMatrix>& InReferenceToLocalMatrices, const TArray<FBoneIndexType>& InBoneMap)
+		: VertexBuffer(InVertexBuffer)
+		, BufferSize(InBufferSize)
+		, ReferenceToLocalMatrices(InReferenceToLocalMatrices)
+		, BoneMap(InBoneMap)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateBoneBuffer_Execute);
+		FBoneSkinning* ChunkMatrices = (FBoneSkinning*)GDynamicRHI->RHILockVertexBuffer(VertexBuffer, 0, BufferSize, RLM_WriteOnly);
+		//FSkinMatrix3x4 is sizeof() == 48
+		// CACHE_LINE_SIZE (128) / 48 = 2.6
+		//  sizeof(FMatrix) == 64
+		// CACHE_LINE_SIZE (128) / 64 = 2
+		const uint32 NumBones = BoneMap.Num();
+		check(NumBones > 0 && NumBones < 256); // otherwise maybe some bad threading on BoneMap, maybe we need to copy that
+		const int32 PreFetchStride = 2; // FPlatformMisc::Prefetch stride
+		for (uint32 BoneIdx = 0; BoneIdx < NumBones; BoneIdx++)
+		{
+			const FBoneIndexType RefToLocalIdx = BoneMap[BoneIdx];
+			check(ReferenceToLocalMatrices.IsValidIndex(RefToLocalIdx)); // otherwise maybe some bad threading on BoneMap, maybe we need to copy that
+			FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride );
+			FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride, CACHE_LINE_SIZE );
+
+			FBoneSkinning& BoneMat = ChunkMatrices[BoneIdx];
+			const FMatrix& RefToLocal = ReferenceToLocalMatrices[RefToLocalIdx];
+			RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
+		}
+		GDynamicRHI->RHIUnlockVertexBuffer(VertexBuffer);
+	}
+};
+
+bool FGPUBaseSkinVertexFactory::ShaderDataType::UpdateBoneData(FRHICommandListImmediate& RHICmdList, const TArray<FMatrix>& ReferenceToLocalMatrices, const TArray<FBoneIndexType>& BoneMap, ERHIFeatureLevel::Type FeatureLevel, bool bUseSkinCache)
+{
+	HackReferenceToLocalMatrices = &ReferenceToLocalMatrices;
+	HackBoneMap = &BoneMap;
+
+	const uint32 NumBones = BoneMap.Num();
 	check(NumBones <= MaxGPUSkinBones);
+	FBoneSkinning* ChunkMatrices = nullptr;
 	if (FeatureLevel >= ERHIFeatureLevel::ES3_1)
 	{
 		static FSharedPoolPolicyData PoolPolicy;
@@ -144,26 +218,53 @@ void FGPUBaseSkinVertexFactory::ShaderDataType::UpdateBoneData(ERHIFeatureLevel:
 		}
 		if(NumBones)
 		{
-			if (GRHIThread)
+			if (!bUseSkinCache && DeferSkeletalLockAndFillToRHIThread())
 			{
-				check(VectorArraySize == NumBones * sizeof(BoneMatrices[0]));
-				GRHICommandList.GetImmediateCommandList().UpdateVertexBuffer(BoneBuffer.VertexBufferRHI, BoneMatrices.GetData(), NumBones * sizeof(BoneMatrices[0]));
+				new (RHICmdList.AllocCommand<FRHICommandUpdateBoneBuffer>()) FRHICommandUpdateBoneBuffer(BoneBuffer.VertexBufferRHI, VectorArraySize, ReferenceToLocalMatrices, BoneMap);
+				return true;
 			}
-			else
-			{
-				float* Data = (float*)RHILockVertexBuffer(BoneBuffer.VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
-				checkSlow(Data);
-				FMemory::Memcpy(Data, BoneMatrices.GetData(), NumBones * sizeof(BoneMatrices[0]));
-				RHIUnlockVertexBuffer(BoneBuffer.VertexBufferRHI);
-			}
+			ChunkMatrices = (FBoneSkinning*)RHILockVertexBuffer(BoneBuffer.VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
 		}
 	}
 	else
 	{
-		check(NumBones * BoneMatrices.GetTypeSize() <= sizeof(GBoneUniformStruct));
-		FMemory::Memcpy(&GBoneUniformStruct, BoneMatrices.GetData(), NumBones * sizeof(BoneMatrices[0]));
+		if(NumBones)
+		{
+			check(NumBones * sizeof(FBoneSkinning) <= sizeof(GBoneUniformStruct));
+			ChunkMatrices = (FBoneSkinning*)&GBoneUniformStruct;
+		}
+	}
+
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FGPUBaseSkinVertexFactory_ShaderDataType_UpdateBoneData_CopyBones);
+		//FSkinMatrix3x4 is sizeof() == 48
+		// CACHE_LINE_SIZE (128) / 48 = 2.6
+		//  sizeof(FMatrix) == 64
+		// CACHE_LINE_SIZE (128) / 64 = 2
+		const int32 PreFetchStride = 2; // FPlatformMisc::Prefetch stride
+		for (uint32 BoneIdx = 0; BoneIdx < NumBones; BoneIdx++)
+		{
+			const FBoneIndexType RefToLocalIdx = BoneMap[BoneIdx];
+			FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride );
+			FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride, CACHE_LINE_SIZE );
+
+			FBoneSkinning& BoneMat = ChunkMatrices[BoneIdx];
+			const FMatrix& RefToLocal = ReferenceToLocalMatrices[RefToLocalIdx];
+			RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
+		}
+	}
+	if (FeatureLevel >= ERHIFeatureLevel::ES3_1)
+	{
+		if (NumBones)
+		{
+			RHIUnlockVertexBuffer(BoneBuffer.VertexBufferRHI);
+		}
+	}
+	else
+	{
 		UniformBuffer = RHICreateUniformBuffer(&GBoneUniformStruct, FBoneMatricesUniformShaderParameters::StaticStruct.GetLayout(), UniformBuffer_MultiFrame);
 	}
+	return false;
 }
 
 /*-----------------------------------------------------------------------------
@@ -173,31 +274,25 @@ void FGPUBaseSkinVertexFactory::ShaderDataType::UpdateBoneData(ERHIFeatureLevel:
 
 FBoneDataVertexBuffer::FBoneDataVertexBuffer()
 	: SizeX(80 * 1024)		// todo: we will replace this fixed size using FGlobalDynamicVertexBuffer
-	, AllocSize(0)
-	, AllocBlock(nullptr)
 {
 }
 
 float* FBoneDataVertexBuffer::LockData()
 {
-	check(IsInRenderingThread() && GetSizeX() && IsValidRef(BoneBuffer));
-	check(!AllocSize && !AllocBlock);
-	AllocSize = ComputeMemorySize();
-	AllocBlock = FMemory::Malloc(AllocSize + 15, 16);
-	float* Data = (float*)AllocBlock;
-	check(AllocSize && AllocBlock);
-	check(Data);
+	checkSlow(IsInRenderingThread());
+	checkSlow(GetSizeX());
+	checkSlow(IsValidRef(BoneBuffer));
+
+	float* Data = (float*)RHILockVertexBuffer(BoneBuffer.VertexBufferRHI, 0, ComputeMemorySize(), RLM_WriteOnly);
+	checkSlow(Data);
+
 	return Data;
 }
 
 void FBoneDataVertexBuffer::UnlockData(uint32 SizeInBytes)
 {
-	check(IsValidRef(BoneBuffer));
-	check(IsInRenderingThread() && AllocBlock && AllocSize);
-	FRHICommandListExecutor::GetImmediateCommandList().UpdateVertexBuffer(BoneBuffer.VertexBufferRHI, AllocBlock, SizeInBytes ? SizeInBytes : 4);
-	FMemory::Free(AllocBlock);
-	AllocBlock = nullptr;
-	AllocSize = 0;
+	checkSlow(IsValidRef(BoneBuffer));
+	RHIUnlockVertexBuffer(BoneBuffer.VertexBufferRHI);
 }
 
 uint32 FBoneDataVertexBuffer::GetSizeX() const
@@ -321,7 +416,7 @@ template <bool bExtraBoneInfluencesT>
 void TGPUSkinVertexFactory<bExtraBoneInfluencesT>::InitDynamicRHI()
 {
 	FVertexFactory::InitDynamicRHI();
-	ShaderData.UpdateBoneData(GetFeatureLevel());
+	//ShaderData.UpdateBoneData(GetFeatureLevel());
 }
 
 template <bool bExtraBoneInfluencesT>
@@ -421,15 +516,17 @@ public:
 			}
 
 			bool bLocalPerBoneMotionBlur = false;
-			
-			if (FeatureLevel >= ERHIFeatureLevel::SM4 && GPrevPerBoneMotionBlur.IsAppendStarted())
+
+
+			if (FeatureLevel >= ERHIFeatureLevel::SM4 && GPrevPerBoneMotionBlur.IsVelocityPass(RHICmdList) && PreviousBoneMatrices.IsBound() &&
+				ShaderData.HackReferenceToLocalMatrices && ShaderData.HackBoneMap)
 			{
 				const bool bWorldIsPaused = View.Family->bWorldIsPaused;
 
 				// we are in the velocity rendering pass
 
 				// 0xffffffff or valid index
-				uint32 OldBoneDataIndex = ShaderData.GetOldBoneData(FrameNumber);
+				uint32 OldBoneDataIndex = ShaderData.GetOldBoneData(bWorldIsPaused ? (FrameNumber - 1) : FrameNumber);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 				{
@@ -448,7 +545,10 @@ public:
 				// we tell the shader where to pickup the data (always, even if we don't have bone data, to avoid false binding)
 				if(PreviousBoneMatrices.IsBound())
 				{
-					RHICmdList.SetShaderResourceViewParameter(Shader->GetVertexShader(), PreviousBoneMatrices.GetBaseIndex(), GPrevPerBoneMotionBlur.GetReadData()->BoneBuffer.VertexBufferSRV);
+					RHICmdList.SetShaderResourceViewParameter(
+						Shader->GetVertexShader(),
+						PreviousBoneMatrices.GetBaseIndex(),
+						GPrevPerBoneMotionBlur.GetBoneDataVertexBuffer(GPrevPerBoneMotionBlur.GetReadBufferIndex())->BoneBuffer.VertexBufferSRV);
 				}
 
 				if(bLocalPerBoneMotionBlur)
@@ -474,18 +574,58 @@ public:
 				// if we haven't copied the data yet we skip the update (e.g. split screen)
 				if(ShaderData.IsOldBoneDataUpdateNeeded(FrameNumber))
 				{
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-					if (CVarVelocityTest.GetValueOnRenderThread())
+					if (bWorldIsPaused)
 					{
-						FBoneSkinning Tab[10];
-						GPrevPerBoneMotionBlur.AppendData(Tab, (FMath::Rand() % 55) + 1);
+						GPUVertexFactory->MaintainBoneDataStartIndex();
 					}
+					else
+					{
+						check(GPrevPerBoneMotionBlur.IsAppendStarted());
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+						if (CVarVelocityTest.GetValueOnRenderThread())
+						{
+							// We add some black gap between the elements, to ensure we pick the right data for this frame
+							// wwe create different gap size on alternating frames.
+							FBoneSkinning* ChunkMatrices = nullptr;
+							GPrevPerBoneMotionBlur.AppendData(ChunkMatrices, (FrameNumber % 2) + 4);
+							if (ChunkMatrices)
+							{
+								FMemory::Memset(ChunkMatrices, 0, sizeof(FBoneSkinning) * 10);
+							}
+						}
 #endif // if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-					// copy the bone data and tell the instance where it can pick it up next frame
-					// append data to a buffer we bind next frame to read old matrix data for motion blur
-					uint32 OldBoneDataStartIndex = GPrevPerBoneMotionBlur.AppendData(ShaderData.BoneMatrices.GetData(), ShaderData.BoneMatrices.Num());
-					GPUVertexFactory->SetOldBoneDataStartIndex(FrameNumber, OldBoneDataStartIndex);
+						const TArray<FMatrix>& ReferenceToLocalMatrices = *ShaderData.HackReferenceToLocalMatrices;
+						const TArray<FBoneIndexType>& BoneMap = *ShaderData.HackBoneMap;
+						// copy the bone data and tell the instance where it can pick it up next frame
+						// append data to a buffer we bind next frame to read old matrix data for motion blur
+						const int32 NumBones = BoneMap.Num();
+						FBoneSkinning* ChunkMatrices = nullptr;
+						uint32 OldBoneDataStartIndex = GPrevPerBoneMotionBlur.AppendData(ChunkMatrices, NumBones);
+						if (ChunkMatrices)
+						{
+							//FSkinMatrix3x4 is sizeof() == 48
+							// CACHE_LINE_SIZE (128) / 48 = 2.6
+							//  sizeof(FMatrix) == 64
+							// CACHE_LINE_SIZE (128) / 64 = 2
+							const int32 PreFetchStride = 2; // FPlatformMisc::Prefetch stride
+
+							{
+								QUICK_SCOPE_CYCLE_COUNTER(STAT_FGPUBaseSkinVertexFactory_SFGPUSkinVertexFactoryShaderParameters_CopyMotionBlurBones);
+								for( int32 BoneIdx=0; BoneIdx < NumBones; BoneIdx++ )
+								{
+									const FBoneIndexType RefToLocalIdx = BoneMap[BoneIdx];
+									FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride );
+									FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride, CACHE_LINE_SIZE );
+
+									FBoneSkinning& BoneMat = ChunkMatrices[BoneIdx];
+									const FMatrix& RefToLocal = ReferenceToLocalMatrices[RefToLocalIdx];
+									RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
+								}
+							}
+						}
+						GPUVertexFactory->SetOldBoneDataStartIndex(FrameNumber, OldBoneDataStartIndex);
+					}
 				}
 			}
 			SetShaderValue(RHICmdList, Shader->GetVertexShader(), PerBoneMotionBlur, bLocalPerBoneMotionBlur);
@@ -664,8 +804,7 @@ public:
 	virtual void Bind(const FShaderParameterMap& ParameterMap) override
 	{
 		FGPUSkinVertexFactoryShaderParameters::Bind(ParameterMap);
-		ClothSimulPositionsParameter.Bind(ParameterMap,TEXT("ClothSimulVertsPositions"));
-		ClothSimulNormalsParameter.Bind(ParameterMap,TEXT("ClothSimulVertsNormals"));
+		ClothSimulVertsPositionsNormalsParameter.Bind(ParameterMap,TEXT("ClothSimulVertsPositionsNormals"));
 		ClothBlendWeightParameter.Bind(ParameterMap, TEXT("ClothBlendWeight"));
 	}
 	/**
@@ -675,8 +814,7 @@ public:
 	virtual void Serialize(FArchive& Ar) override
 	{ 
 		FGPUSkinVertexFactoryShaderParameters::Serialize(Ar);
-		Ar << ClothSimulPositionsParameter;
-		Ar << ClothSimulNormalsParameter;
+		Ar << ClothSimulVertsPositionsNormalsParameter;
 		Ar << ClothBlendWeightParameter;
 	}
 
@@ -696,16 +834,11 @@ public:
 			SetUniformBufferParameter(RHICmdList, Shader->GetVertexShader(),Shader->GetUniformBufferParameter<FAPEXClothUniformShaderParameters>(),ClothShaderData.GetClothUniformBuffer());
 
 			// we tell the shader where to pickup the data
-			if(ClothSimulPositionsParameter.IsBound())
+			if(ClothSimulVertsPositionsNormalsParameter.IsBound())
 			{
-				RHICmdList.SetShaderResourceViewParameter(Shader->GetVertexShader(), ClothSimulPositionsParameter.GetBaseIndex(), ClothShaderData.GetClothSimulPositionBuffer().VertexBufferSRV);
+				RHICmdList.SetShaderResourceViewParameter(Shader->GetVertexShader(), ClothSimulVertsPositionsNormalsParameter.GetBaseIndex(), ClothShaderData.GetClothSimulPositionNormalBuffer().VertexBufferSRV);
 			}
 			
-			if(ClothSimulNormalsParameter.IsBound())
-			{
-				RHICmdList.SetShaderResourceViewParameter(Shader->GetVertexShader(), ClothSimulNormalsParameter.GetBaseIndex(), ClothShaderData.GetClothSimulNormalBuffer().VertexBufferSRV);
-			}
-
 			SetShaderValue(
 				RHICmdList,
 				Shader->GetVertexShader(),
@@ -716,61 +849,107 @@ public:
 	}
 
 protected:
-	FShaderResourceParameter ClothSimulPositionsParameter;
-	FShaderResourceParameter ClothSimulNormalsParameter;
+	FShaderResourceParameter ClothSimulVertsPositionsNormalsParameter;
 	FShaderParameter ClothBlendWeightParameter;
 };
 
 /*-----------------------------------------------------------------------------
 	TGPUSkinAPEXClothVertexFactory::ClothShaderType
 -----------------------------------------------------------------------------*/
-void FGPUBaseSkinAPEXClothVertexFactory::ClothShaderType::UpdateClothSimulData(const TArray<FVector4>& InSimulPositions, const TArray<FVector4>& InSimulNormals, ERHIFeatureLevel::Type FeatureLevel)
+
+struct FRHICommandUpdateClothBuffer : public FRHICommand<FRHICommandUpdateClothBuffer>
 {
+	FVertexBufferRHIParamRef VertexBuffer;
+	uint32 BufferSize;
+	const TArray<FVector4>& SimulPositions;
+	const TArray<FVector4>& SimulNormals;
+
+
+	FORCEINLINE_DEBUGGABLE FRHICommandUpdateClothBuffer(FVertexBufferRHIParamRef InVertexBuffer, uint32 InBufferSize, const TArray<FVector4>& InSimulPositions, const TArray<FVector4>& InSimulNormals)
+		: VertexBuffer(InVertexBuffer)
+		, BufferSize(InBufferSize)
+		, SimulPositions(InSimulPositions)
+		, SimulNormals(InSimulNormals)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandUpdateBoneBuffer_Execute);
+		float* RESTRICT Data = (float* RESTRICT)GDynamicRHI->RHILockVertexBuffer(VertexBuffer, 0, BufferSize, RLM_WriteOnly);
+		uint32 NumSimulVerts = SimulPositions.Num();
+		check(NumSimulVerts > 0 && NumSimulVerts <= MAX_APEXCLOTH_VERTICES_FOR_VB);
+		float* RESTRICT Pos = (float* RESTRICT) &SimulPositions[0].X;
+		float* RESTRICT Normal = (float* RESTRICT) &SimulNormals[0].X;
+		for (uint32 Index = 0; Index < NumSimulVerts; Index++)
+		{
+			Data[0] = Pos[0];
+			Data[1] = Pos[1];
+			Data[2] = Pos[2];
+			Data[3] = Normal[0];
+			Data[4] = Normal[1];
+			Data[5] = Normal[2];
+			Data += 6;
+			Pos += 4;
+			Normal += 4;
+		}
+		GDynamicRHI->RHIUnlockVertexBuffer(VertexBuffer);
+	}
+};
+
+bool FGPUBaseSkinAPEXClothVertexFactory::ClothShaderType::UpdateClothSimulData(FRHICommandListImmediate& RHICmdList, const TArray<FVector4>& InSimulPositions, const TArray<FVector4>& InSimulNormals, ERHIFeatureLevel::Type FeatureLevel)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FGPUBaseSkinAPEXClothVertexFactory_UpdateClothSimulData);
 	uint32 NumSimulVerts = InSimulPositions.Num();
 
 	if (FeatureLevel >= ERHIFeatureLevel::SM4)
 	{
 		FMath::Min(NumSimulVerts, (uint32)MAX_APEXCLOTH_VERTICES_FOR_VB);
 
-		uint32 VectorArraySize = NumSimulVerts * sizeof(FVector4);
+		uint32 VectorArraySize = NumSimulVerts * sizeof(float) * 6;
 		uint32 PooledArraySize = ClothSimulDataBufferPool.PooledSizeForCreationArguments(VectorArraySize);
-		if(!IsValidRef(ClothSimulPositionBuffer) || PooledArraySize != ClothSimulPositionBuffer.VertexBufferRHI->GetSize())
+		if(!IsValidRef(ClothSimulPositionNormalBuffer) || PooledArraySize != ClothSimulPositionNormalBuffer.VertexBufferRHI->GetSize())
 		{
-			if(IsValidRef(ClothSimulPositionBuffer))
+			if(IsValidRef(ClothSimulPositionNormalBuffer))
 			{
-				ClothSimulDataBufferPool.ReleasePooledResource(ClothSimulPositionBuffer);
+				ClothSimulDataBufferPool.ReleasePooledResource(ClothSimulPositionNormalBuffer);
 			}
-			ClothSimulPositionBuffer = ClothSimulDataBufferPool.CreatePooledResource(VectorArraySize);
-			check(IsValidRef(ClothSimulPositionBuffer));
-		}
-
-		if(!IsValidRef(ClothSimulNormalBuffer) || PooledArraySize != ClothSimulNormalBuffer.VertexBufferRHI->GetSize())
-		{
-			if(IsValidRef(ClothSimulNormalBuffer))
-			{
-				ClothSimulDataBufferPool.ReleasePooledResource(ClothSimulNormalBuffer);
-			}
-			ClothSimulNormalBuffer = ClothSimulDataBufferPool.CreatePooledResource(VectorArraySize);
-			check(IsValidRef(ClothSimulNormalBuffer));
+			ClothSimulPositionNormalBuffer = ClothSimulDataBufferPool.CreatePooledResource(VectorArraySize);
+			check(IsValidRef(ClothSimulPositionNormalBuffer));
 		}
 
 		if(NumSimulVerts)
 		{
-			float* Data = (float*)RHILockVertexBuffer(ClothSimulPositionBuffer.VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
-			checkSlow(Data);
-			FMemory::Memcpy(Data, InSimulPositions.GetData(), NumSimulVerts * sizeof(FVector4));
-			RHIUnlockVertexBuffer(ClothSimulPositionBuffer.VertexBufferRHI);
-
-			Data = (float*)RHILockVertexBuffer(ClothSimulNormalBuffer.VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
-			checkSlow(Data);
-			FMemory::Memcpy(Data, InSimulNormals.GetData(), NumSimulVerts * sizeof(FVector4));
-			RHIUnlockVertexBuffer(ClothSimulNormalBuffer.VertexBufferRHI);
+			if (DeferSkeletalLockAndFillToRHIThread())
+			{
+				new (RHICmdList.AllocCommand<FRHICommandUpdateClothBuffer>()) FRHICommandUpdateClothBuffer(ClothSimulPositionNormalBuffer.VertexBufferRHI, VectorArraySize, InSimulPositions, InSimulNormals);
+				return true;
+			}
+			float* RESTRICT Data = (float* RESTRICT)RHILockVertexBuffer(ClothSimulPositionNormalBuffer.VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
+			{
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_FGPUBaseSkinAPEXClothVertexFactory_UpdateClothSimulData_CopyData);
+				float* RESTRICT Pos = (float* RESTRICT) &InSimulPositions[0].X;
+				float* RESTRICT Normal = (float* RESTRICT) &InSimulNormals[0].X;
+				for (uint32 Index = 0; Index < NumSimulVerts; Index++)
+				{
+					Data[0] = Pos[0];
+					Data[1] = Pos[1];
+					Data[2] = Pos[2];
+					Data[3] = Normal[0];
+					Data[4] = Normal[1];
+					Data[5] = Normal[2];
+					Data += 6;
+					Pos += 4;
+					Normal += 4;
+				}
+			}
+			RHIUnlockVertexBuffer(ClothSimulPositionNormalBuffer.VertexBufferRHI);
 		}
 	}
 	else
 	{
 		UpdateClothUniformBuffer(InSimulPositions, InSimulNormals);
 	}
+	return false;
 }
 
 /*-----------------------------------------------------------------------------

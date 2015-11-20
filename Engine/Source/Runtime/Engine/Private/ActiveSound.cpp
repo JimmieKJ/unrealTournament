@@ -9,16 +9,20 @@
 #include "SubtitleManager.h"
 
 FActiveSound::FActiveSound()
-	: Sound(NULL)
-	, World(NULL)
-	, AudioComponent(NULL)
-	, SoundClassOverride(NULL)
+	: Sound(nullptr)
+	, World(nullptr)
+	, AudioComponent(nullptr)
+	, AudioDevice(nullptr)
+	, ConcurrencyGroupID(0)
+	, ConcurrencySettings(nullptr)
+	, SoundClassOverride(nullptr)
 	, bOccluded(false)
 	, bAllowSpatialization(true)
 	, bHasAttenuationSettings(false)
 	, bShouldRemainActiveIfDropped(false)
 	, bFadingOut(false)
 	, bFinished(false)
+	, bShouldStopDueToMaxConcurrency(false)
 	, bRadioFilterSelected(false)
 	, bApplyRadioFilter(false)
 	, bHandleSubtitles(true)
@@ -43,12 +47,14 @@ FActiveSound::FActiveSound()
 	, VolumeMultiplier(1.f)
 	, PitchMultiplier(1.f)
 	, HighFrequencyGainMultiplier(1.f)
+	, ConcurrencyVolumeScale(1.f)
 	, SubtitlePriority(0.f)
 	, VolumeWeightedPriorityScale(1.0f)
+	, VolumeConcurrency(0.0f)
 	, OcclusionCheckInterval(0.f)
 	, LastOcclusionCheckTime(0.f)
 	, LastLocation(FVector::ZeroVector)
-	, LastAudioVolume(NULL)
+	, LastAudioVolume(nullptr)
 	, LastUpdateTime(0.f)
 	, SourceInteriorVolume(1.f)
 	, SourceInteriorLPF(1.f)
@@ -59,7 +65,7 @@ FActiveSound::FActiveSound()
 
 FActiveSound::~FActiveSound()
 {
-	ensureMsg(WaveInstances.Num() == 0, TEXT("Destroyed an active sound that had active wave instances."));
+	ensureMsgf(WaveInstances.Num() == 0, TEXT("Destroyed an active sound that had active wave instances."));
 }
 
 FArchive& operator<<( FArchive& Ar, FActiveSound* ActiveSound )
@@ -123,10 +129,50 @@ int32 FActiveSound::FindClosestListener( const TArray<FListener>& InListeners ) 
 	return ClosestListenerIndex;
 }
 
-
-void FActiveSound::UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveInstance*> &InWaveInstances, const float DeltaTime )
+uint32 FActiveSound::TryGetOwnerID() const
 {
-	check( AudioDevice );
+	// Only have an owner of the active sound if the audio component is valid and if the audio component has an owner.
+	if (UAudioComponent* AudioComponentPtr = AudioComponent.Get())
+	{
+		AActor* Owner = AudioComponentPtr->GetOwner();
+		if (Owner)
+		{
+			return Owner->GetUniqueID();
+		}
+	}
+
+	return 0;
+}
+
+const FSoundConcurrencySettings* FActiveSound::GetSoundConcurrencySettingsToApply() const
+{
+	if (ConcurrencySettings)
+	{
+		return &ConcurrencySettings->Concurrency;
+	}
+	else if (Sound)
+	{
+		return Sound->GetSoundConcurrencySettingsToApply();
+	}
+	return nullptr;
+}
+
+uint32 FActiveSound::GetSoundConcurrencyObjectID() const
+{
+	if (ConcurrencySettings)
+	{
+		return ConcurrencySettings->GetUniqueID();
+	}
+	else
+	{
+		return Sound->GetSoundConcurrencyObjectID();
+	}
+}
+
+
+void FActiveSound::UpdateWaveInstances( TArray<FWaveInstance*> &InWaveInstances, const float DeltaTime )
+{
+	check(AudioDevice);
 
 	// Early outs.
 	if( Sound == NULL || !Sound->IsPlayable() )
@@ -174,7 +220,7 @@ void FActiveSound::UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveI
 	// (even after the Sound has started playing, and this line takes them all into account and gives us
 	// final value that is correct
 	UpdateAdjustVolumeMultiplier(DeltaTime);
-	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * AudioDevice->TransientMasterVolume * (bOccluded ? 0.5f : 1.0f);
+	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * AudioDevice->TransientMasterVolume * (bOccluded ? 0.5f : 1.0f) * ConcurrencyVolumeScale;
 	ParseParams.VolumeWeightedPriorityScale = VolumeWeightedPriorityScale;
 	ParseParams.Pitch *= PitchMultiplier * Sound->GetPitchMultiplier();
 	ParseParams.HighFrequencyGain *= HighFrequencyGainMultiplier;
@@ -200,14 +246,17 @@ void FActiveSound::UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveI
 		ParseParams.Transform = ParseParams.Transform * ClosestListener.Transform.Inverse() * Listener.Transform;
 	}
 
+	TArray<FWaveInstance*> ThisSoundsWaveInstances;
+
 	// Recurse nodes, have SoundWave's create new wave instances and update bFinished unless we finished fading out.
 	bFinished = true;
-	if( !bFadingOut || ( PlaybackTime <= TargetAdjustVolumeStopTime ) )
+	if (!bFadingOut || (PlaybackTime <= TargetAdjustVolumeStopTime))
 	{
 		if (bHasAttenuationSettings)
 		{
-			AttenuationSettings.ApplyAttenuation(ParseParams.Transform, Listener.Transform.GetTranslation(), ParseParams.Volume, ParseParams.HighFrequencyGain );
+			AttenuationSettings.ApplyAttenuation(ParseParams.Transform, Listener.Transform.GetTranslation(), ParseParams.Volume, ParseParams.HighFrequencyGain);
 			ParseParams.OmniRadius = AttenuationSettings.OmniRadius;
+			ParseParams.StereoSpread = AttenuationSettings.StereoSpread;
 			ParseParams.bUseSpatialization = AttenuationSettings.bSpatialize;
 			if (AttenuationSettings.SpatializationAlgorithm == SPATIALIZATION_Default && AudioDevice->IsHRTFEnabledForAll())
 			{
@@ -219,16 +268,38 @@ void FActiveSound::UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveI
 			}
 		}
 
-		Sound->Parse( AudioDevice, 0, *this, ParseParams, InWaveInstances );
+
+		Sound->Parse(AudioDevice, 0, *this, ParseParams, ThisSoundsWaveInstances);
 	}
 
-	if( bFinished )
+	if (bFinished)
 	{
-		Stop(AudioDevice);
+		AudioDevice->StopActiveSound(this);
 	}
+	else if (ThisSoundsWaveInstances.Num() > 0)
+	{
+		// If this active sound is told to limit concurrency by the quietest sound
+		const FSoundConcurrencySettings* ConcurrencySettingsToApply = GetSoundConcurrencySettingsToApply();
+		if (ConcurrencySettingsToApply && ConcurrencySettingsToApply->ResolutionRule == EMaxConcurrentResolutionRule::StopQuietist)
+		{
+			check(ConcurrencyGroupID != 0);
+			// Now that we have this sound's active wave instances, lets find the loudest active wave instance to represent the "volume" of this active sound
+			VolumeConcurrency = 0.0f;
+			for (const FWaveInstance* WaveInstance : ThisSoundsWaveInstances)
+			{
+				const float WaveInstanceVolume = WaveInstance->GetActualVolume();
+				if (WaveInstanceVolume > VolumeConcurrency)
+				{
+					VolumeConcurrency = WaveInstanceVolume;
+				}
+			}
+		}
+	}
+
+	InWaveInstances.Append(ThisSoundsWaveInstances);
 }
 
-void FActiveSound::Stop(FAudioDevice* AudioDevice)
+void FActiveSound::Stop()
 {
 	check(AudioDevice);
 
@@ -259,13 +330,9 @@ void FActiveSound::Stop(FAudioDevice* AudioDevice)
 	}
 	WaveInstances.Empty();
 
-	// TODO - Audio Threading. This call would be a task back to game thread
-	if (AudioComponent.IsValid())
-	{
-		AudioComponent->PlaybackCompleted(false);
-	}
-
 	AudioDevice->RemoveActiveSound(this);
+
+	delete this;
 }
 
 FWaveInstance* FActiveSound::FindWaveInstance( const UPTRINT WaveInstanceHash )
@@ -277,7 +344,7 @@ FWaveInstance* FActiveSound::FindWaveInstance( const UPTRINT WaveInstanceHash )
 void FActiveSound::UpdateAdjustVolumeMultiplier( const float DeltaTime )
 {
 	// keep stepping towards our target until we hit our stop time
-	if( PlaybackTime <= TargetAdjustVolumeStopTime )
+	if( PlaybackTime < TargetAdjustVolumeStopTime )
 	{
 		CurrentAdjustVolumeMultiplier += (TargetAdjustVolumeMultiplier - CurrentAdjustVolumeMultiplier) * DeltaTime / (TargetAdjustVolumeStopTime - PlaybackTime);
 	}
@@ -389,8 +456,9 @@ void FActiveSound::HandleInteriorVolumes( const FListener& Listener, FSoundParse
 	}
 }
 
-void FActiveSound::ApplyRadioFilter( FAudioDevice* AudioDevice, const FSoundParseParameters& ParseParams )
+void FActiveSound::ApplyRadioFilter(const FSoundParseParameters& ParseParams )
 {
+	check(AudioDevice);
 	if( AudioDevice->GetMixDebugState() != DEBUGSTATE_DisableRadio )
 	{
 		// Make sure the radio filter is requested

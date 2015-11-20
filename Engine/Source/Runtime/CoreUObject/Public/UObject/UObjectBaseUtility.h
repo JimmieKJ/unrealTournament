@@ -6,6 +6,14 @@
 
 #pragma once
 
+#if _MSC_VER == 1900
+	#ifdef PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+		PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
+	#endif
+#endif
+
+#include "Templates/PointerIsConvertibleFromTo.h"
+
 class COREUOBJECT_API UObjectBaseUtility : public UObjectBase
 {
 public:
@@ -220,9 +228,12 @@ public:
 	UPackage* GetOutermost() const;
 
 	/** 
-	 * Finds the outermost package and marks it dirty
+	 * Finds the outermost package and marks it dirty. 
+	 * The editor suppresses this behavior during load as it is against policy to dirty packages simply by loading them.
+	 *
+	 * @return false if the request to mark the package dirty was suppressed by the editor and true otherwise.
 	 */
-	void MarkPackageDirty() const;
+	bool MarkPackageDirty() const;
 
 	/**
 	* Determines whether this object is a template object
@@ -278,7 +289,37 @@ public:
 	/**
 	 * @return	true if this object is of the specified type.
 	 */
-	bool IsA( const UClass* SomeBaseClass ) const;
+	#if UCLASS_FAST_ISA_IMPL == 2
+	private:
+		template <typename ClassType>
+		static FORCEINLINE bool IsAWorkaround(const ClassType* ObjClass, const ClassType* TestCls)
+		{
+			return ObjClass->IsAUsingFastTree(*TestCls);
+		}
+
+	public:
+		template <typename OtherClassType>
+		FORCEINLINE bool IsA( OtherClassType SomeBase ) const
+		{
+			// We have a cyclic dependency between UObjectBaseUtility and UClass,
+			// so we use a template to allow inlining of something we haven't yet seen, because it delays compilation until the function is called.
+
+			// 'static_assert' that this thing is actually a UClass pointer or convertible to it.
+			const UClass* SomeBaseClass = SomeBase;
+			(void)SomeBaseClass;
+			checkfSlow(SomeBaseClass, TEXT("IsA(NULL) cannot yield meaningful results"));
+
+			const UClass* ThisClass = GetClass();
+
+			// Stop the compiler doing some unnecessary branching for nullptr checks
+			ASSUME(SomeBaseClass);
+			ASSUME(ThisClass);
+
+			return IsAWorkaround(ThisClass, SomeBaseClass);
+		}
+	#else
+		bool IsA( const UClass* SomeBase ) const;
+	#endif
 
 	/**
 	 * @return	true if this object is of the template type.
@@ -493,4 +534,10 @@ struct FScopeCycleCounterUObject
 	{
 	}
 };
+#endif
+
+#if _MSC_VER == 1900
+	#ifdef PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+		PRAGMA_ENABLE_SHADOW_VARIABLE_WARNINGS
+	#endif
 #endif

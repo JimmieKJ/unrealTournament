@@ -689,6 +689,9 @@ namespace NSwarm
 		delegate int SwarmEndJobSpecificationProc();
 		delegate int SwarmCloseJobProc();
 		delegate int SwarmLogProc(EVerbosityLevel Verbosity, ELogColour TextColour, IntPtr Message);
+		delegate int SwarmInterfaceLogDelegate(EVerbosityLevel Verbosity, IntPtr Message);
+
+		static SwarmInterfaceLogDelegate SwarmInterfaceLogCppProc;
 
 		private delegate void RegisterSwarmOpenConnectionProc(SwarmOpenConnectionProc Proc);
 		private delegate void RegisterSwarmCloseConnectionProc(SwarmCloseConnectionProc Proc);
@@ -1080,6 +1083,11 @@ namespace NSwarm
 				var Proc = (RegisterSwarmLogProc)Marshal.GetDelegateForFunctionPointer(ProcAddress, typeof(RegisterSwarmLogProc));
 				Proc(LogProc);
 			}
+
+			{
+				IntPtr ProcAddress = GetProcAddress(DllHandle, "SwarmInterfaceLog");
+				SwarmInterfaceLogCppProc = (SwarmInterfaceLogDelegate)Marshal.GetDelegateForFunctionPointer(ProcAddress, typeof(SwarmInterfaceLogDelegate));
+			}
 #else
 			IntPtr DllHandle = dlopen(SwarmInterfaceDllName, 9 /* RTLD_LAZY | RTLD_GLOBAL */);
 			if (DllHandle == IntPtr.Zero)
@@ -1176,6 +1184,11 @@ namespace NSwarm
 				var Proc = (RegisterSwarmLogProc)Marshal.GetDelegateForFunctionPointer(ProcAddress, typeof(RegisterSwarmLogProc));
 				Proc(SwarmLog);
 			}
+
+			{
+				IntPtr ProcAddress = dlsym(-2 /* RTLD_DEFAULT */, "SwarmInterfaceLog");
+				SwarmInterfaceLogCppProc = (SwarmInterfaceLogDelegate)Marshal.GetDelegateForFunctionPointer(ProcAddress, typeof(SwarmInterfaceLogDelegate));
+			}
 #endif
 
 			return Constants.SUCCESS;
@@ -1203,7 +1216,7 @@ namespace NSwarm
 			Int32 ReturnValue = Constants.INVALID;
 			try
 			{
-				DebugLog.Write("[OpenConnection] Registering TCP channel ...");
+				EditorLog(EVerbosityLevel.Informative, "[OpenConnection] Registering TCP channel ...");
 
 				// Start up network services, by opening a network communication channel
 				NetworkChannel = new TcpClientChannel();
@@ -1213,13 +1226,14 @@ namespace NSwarm
 				EnsureAgentIsRunning(OptionsFolder);
 				if (AgentProcess != null)
 				{
-					DebugLog.Write("[OpenConnection] Connecting to agent ...");
+					EditorLog(EVerbosityLevel.Informative, "[OpenConnection] Connecting to agent ...");
 					ReturnValue = TryOpenConnection(CallbackFunc, CallbackData, LoggingFlags);
 					if (ReturnValue >= 0)
 					{
 						AgentCacheFolder = ConnectionConfiguration.AgentCachePath;
 						if (AgentCacheFolder.Length == 0)
 						{
+							EditorLog(EVerbosityLevel.Critical, "[OpenConnection] Agent cache folder with 0 length.");
 							CloseConnection();
 							ReturnValue = Constants.ERROR_FILE_FOUND_NOT;
 						}
@@ -1227,13 +1241,13 @@ namespace NSwarm
 				}
 				else
 				{
-					DebugLog.Write("[OpenConnection] Failed to find Swarm Agent");
+					EditorLog(EVerbosityLevel.Critical, "[OpenConnection] Failed to find Swarm Agent");
                     ReturnValue = Constants.ERROR_FILE_FOUND_NOT;
 				}
 			}
 			catch (Exception Ex)
 			{
-				DebugLog.Write("[OpenConnection] Error: " + Ex.Message);
+				EditorLog(EVerbosityLevel.Critical, "[OpenConnection] Error: " + Ex.Message);
 				ReturnValue = Constants.ERROR_EXCEPTION;
 			}
 
@@ -2783,7 +2797,7 @@ namespace NSwarm
 				Connection = new IAgentInterfaceWrapper();
 
 				// Make sure the agent is alive and responsive before continuing
-				DebugLog.Write("[TryOpenConnection] Testing the Agent");
+				EditorLog(EVerbosityLevel.Informative, "[TryOpenConnection] Testing the Agent");
 				Hashtable InParameters = null;
 				Hashtable OutParameters = null;
 				bool AgentIsReady = false;
@@ -2799,15 +2813,15 @@ namespace NSwarm
 					catch (Exception ex)
 					{
 						// Wait a little longer
-						DebugLog.Write("[TryOpenConnection] Waiting for the agent to start up ...");
-						DebugLog.Write(ex.ToString());
+						EditorLog(EVerbosityLevel.Critical, "[TryOpenConnection] Waiting for the agent to start up ...");
+						EditorLog(EVerbosityLevel.Critical, ex.ToString());
 						Thread.Sleep(5000);
 					}
 				}
 
 				// Request an official connection to the Agent
-				DebugLog.Write("[TryOpenConnection] Opening Connection to Agent");
-				DebugLog.Write("[TryOpenConnection] Local Process ID is " + Process.GetCurrentProcess().Id.ToString());
+				EditorLog(EVerbosityLevel.Informative, "[TryOpenConnection] Opening Connection to Agent");
+				EditorLog(EVerbosityLevel.Informative, "[TryOpenConnection] Local Process ID is " + Process.GetCurrentProcess().Id.ToString());
 
 				StartTiming("OpenConnection-Remote", false);
 				ConnectionHandle = Connection.OpenConnection(AgentProcess, AgentProcessOwner, Process.GetCurrentProcess().Id, LoggingFlags, out ConnectionConfiguration);
@@ -2844,7 +2858,8 @@ namespace NSwarm
 			}
 			catch (Exception Ex)
 			{
-				DebugLog.Write("[TryOpenConnection] Error: " + Ex.Message);
+				EditorLog(EVerbosityLevel.Critical, "[TryOpenConnection] Error: " + Ex.Message);
+				EditorLog(EVerbosityLevel.Critical, Ex.ToString());
 				ConnectionHandle = Constants.INVALID;
 				Connection = null;
 			}
@@ -3222,5 +3237,18 @@ namespace NSwarm
 			}
 			return ReturnValue;
 		}
+
+		private void EditorLog(EVerbosityLevel Verbosity, string Message)
+		{
+			if(SwarmInterfaceLogCppProc != null)
+			{
+				SwarmInterfaceLogCppProc(Verbosity, FStringMarshaler.MarshalManagedToNative(Message));
+			}
+			else
+			{
+				DebugLog.Write(Message);
+			}
+		}
+
 	}
 }

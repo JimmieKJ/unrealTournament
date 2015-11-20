@@ -45,16 +45,6 @@ public:
 	CORE_API void RemoveTicker(FDelegateHandle Handle);
 
 	/**
-	 * Removes a previously added ticker delegate.
-	 *
-	 * Note: will remove ALL tickers that use this handle, as there's no way to uniquely identify which one you are trying to remove.
-	 *
-	 * @param Delegate The delegate to remove.
-	 */
-	DELEGATE_DEPRECATED("This RemoveTicker overload is deprecated - please remove tickers using the FDelegateHandle returned by the AddTicker function.")
-	CORE_API void RemoveTicker(const FTickerDelegate& Delegate);
-
-	/**
 	 * Fire all tickers who have passed their delay and reschedule the ones that return true
 	 * 
 	 * Note: This reschedule has timer skew, meaning we always wait a full Delay period after 

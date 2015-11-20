@@ -99,7 +99,7 @@ namespace EHttpResponseCodes
 	 */
 	inline bool IsOk(int32 StatusCode)
 	{
-		return StatusCode >= Ok && StatusCode < BadRequest;
+		return StatusCode >= Ok && StatusCode <= PartialContent;
 	}
 }
 

@@ -54,9 +54,9 @@ class USoundNodeOscillator : public USoundNode
 	float CenterMax;
 
 public:	
-	// Begin USoundNode interface. 
+	//~ Begin USoundNode Interface. 
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	// End USoundNode interface. 
+	//~ End USoundNode Interface. 
 };
 
 

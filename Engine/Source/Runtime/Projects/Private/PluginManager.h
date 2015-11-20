@@ -61,7 +61,7 @@ public:
 	~FPluginManager();
 
 	/** IPluginManager interface */
-	virtual void RefreshPluginsList();
+	virtual void RefreshPluginsList() override;
 	virtual bool LoadModulesForEnabledPlugins( const ELoadingPhase::Type LoadingPhase ) override;
 	virtual void SetRegisterMountPointDelegate( const FRegisterMountPointDelegate& Delegate ) override;
 	virtual bool AreRequiredPluginsAvailable() override;
@@ -70,6 +70,7 @@ public:
 	virtual TArray<TSharedRef<IPlugin>> GetEnabledPlugins() override;
 	virtual TArray<TSharedRef<IPlugin>> GetDiscoveredPlugins() override;
 	virtual TArray< FPluginStatus > QueryStatusForAllPlugins() const override;
+	virtual void AddPluginSearchPath(const FString& ExtraDiscoveryPath, bool bRefresh = true) override;
 
 private:
 
@@ -78,7 +79,7 @@ private:
 	void DiscoverAllPlugins();
 
 	/** Reads all the plugin descriptors */
-	static void ReadAllPlugins(TArray<TSharedRef<FPlugin>>& Plugins);
+	static void ReadAllPlugins(TArray<TSharedRef<FPlugin>>& Plugins, const TSet<FString>& ExtraSearchPaths);
 
 	/** Reads all the plugin descriptors from disk */
 	static void ReadPluginsInDirectory(const FString& PluginsDirectory, const EPluginLoadedFrom LoadedFrom, TArray<TSharedRef<FPlugin>>& Plugins);
@@ -105,6 +106,9 @@ private:
 
 	/** Set if all the required plugins are available */
 	bool bHaveAllRequiredPlugins;
+
+	/** List of additional directory paths to search for plugins within */
+	TSet<FString> PluginDiscoveryPaths;
 };
 
 

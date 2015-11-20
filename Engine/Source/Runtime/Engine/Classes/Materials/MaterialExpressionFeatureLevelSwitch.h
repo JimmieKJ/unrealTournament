@@ -17,11 +17,11 @@ class UMaterialExpressionFeatureLevelSwitch : public UMaterialExpression
 	UPROPERTY()
 	FExpressionInput Inputs[ERHIFeatureLevel::Num];
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	
@@ -34,5 +34,5 @@ class UMaterialExpressionFeatureLevelSwitch : public UMaterialExpression
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Unknown;}
 	virtual uint32 GetOutputType(int32 OutputIndex) override {return MCT_Unknown;}
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };

@@ -109,7 +109,8 @@ namespace shdfnd
 				for(PxI32 j=i+1; j<=last; j++)
 					if(compare(elements[j], elements[m])) m = j;
 
-				swap(elements[m], elements[i]);
+				if(m!=i)
+					swap(elements[m], elements[i]);
 			}
 		}
 

@@ -772,7 +772,8 @@ void FLandscapeEditorCustomNodeBuilder_TargetLayers::OnTargetLayerCreateClicked(
 			TArray<UObject*> Objects;
 			Objects.Add(LayerInfo);
 			GEditor->SyncBrowserToObjects(Objects);
-			//LandscapeEdMode->UpdateTargetList();
+			
+			LandscapeEdMode->TargetsListUpdated.Broadcast();
 		}
 	}
 }
@@ -915,7 +916,9 @@ FReply SLandscapeEditorSelectableBorder::OnMouseButtonUp(const FGeometry& MyGeom
 			TSharedPtr<SWidget> Content = OnContextMenuOpening.Execute();
 			if (Content.IsValid())
 			{
-				FSlateApplication::Get().PushMenu(SharedThis(this), Content.ToSharedRef(), MouseEvent.GetScreenSpacePosition(), FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
+				FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+
+				FSlateApplication::Get().PushMenu(SharedThis(this), WidgetPath, Content.ToSharedRef(), MouseEvent.GetScreenSpacePosition(), FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 			}
 
 			return FReply::Handled().ReleaseMouseCapture();

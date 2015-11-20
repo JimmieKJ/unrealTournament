@@ -52,17 +52,19 @@
 
 // We require at least Visual Studio 2010 w/ SP1 to compile
 #if defined(_MSC_VER)
-#	if _MSC_VER >= 1800
+#	if _MSC_VER >= 1900
+	PX_COMPILE_TIME_ASSERT(_MSC_FULL_VER >= 190000000);
+#	elif _MSC_VER >= 1800
 	PX_COMPILE_TIME_ASSERT(_MSC_FULL_VER >= 180000000);
 #	elif _MSC_VER >= 1700
-PX_COMPILE_TIME_ASSERT(_MSC_FULL_VER >= 170000000);
+	PX_COMPILE_TIME_ASSERT(_MSC_FULL_VER >= 170000000);
 #	elif _MSC_VER >= 1600
 	PX_COMPILE_TIME_ASSERT(_MSC_FULL_VER >= 160040219);
 #	endif
 
-#	if _MSC_VER > 1800
-	#pragma message("Detected compiler newer than Visual Studio 2013, please update min version checking in ApexSDK.cpp")
-	PX_COMPILE_TIME_ASSERT(_MSC_VER <= 1800);
+#	if _MSC_VER > 1900
+	#pragma message("Detected compiler newer than Visual Studio 2015, please update min version checking in ApexSDK.cpp")
+	PX_COMPILE_TIME_ASSERT(_MSC_VER <= 1900);
 #	endif
 #endif
 

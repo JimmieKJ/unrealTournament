@@ -14,12 +14,11 @@ void FTestIdentityInterface::Test(UWorld* InWorld, const FOnlineAccountCredentia
 	}
 
 	AccountCredentials = InAccountCredentials;
-
 	OnlineIdentity = Online::GetIdentityInterface(InWorld, SubsystemName.Len() ? FName(*SubsystemName, FNAME_Find) : NAME_None);
 	if (OnlineIdentity.IsValid())
 	{
 		// Add delegates for the various async calls
-		OnLoginCompleteDelegateHandle  = OnlineIdentity->AddOnLoginCompleteDelegate_Handle (LocalUserIdx, OnLoginCompleteDelegate);
+		OnLoginCompleteDelegateHandle  = OnlineIdentity->AddOnLoginCompleteDelegate_Handle(LocalUserIdx, OnLoginCompleteDelegate);
 		OnLogoutCompleteDelegateHandle = OnlineIdentity->AddOnLogoutCompleteDelegate_Handle(LocalUserIdx, OnLogoutCompleteDelegate);
 		
 		// kick off next test
@@ -44,6 +43,7 @@ void FTestIdentityInterface::StartNextTest()
 	}
 	else if (bRunLogoutTest)
 	{
+		IsTheUserLoggedIn();
 		OnlineIdentity->Logout(LocalUserIdx);
 	}
 	else
@@ -58,9 +58,10 @@ void FTestIdentityInterface::FinishTest()
 	if (OnlineIdentity.IsValid())
 	{
 		// Clear delegates for the various async calls
-		OnlineIdentity->ClearOnLoginCompleteDelegate_Handle (LocalUserIdx, OnLoginCompleteDelegateHandle);
+		OnlineIdentity->ClearOnLoginCompleteDelegate_Handle(LocalUserIdx, OnLoginCompleteDelegateHandle);
 		OnlineIdentity->ClearOnLogoutCompleteDelegate_Handle(LocalUserIdx, OnLogoutCompleteDelegateHandle);
 	}
+	SetTestStatus(true);
 	delete this;
 }
 
@@ -68,7 +69,7 @@ void FTestIdentityInterface::OnLoginComplete(int32 LocalUserNum, bool bWasSucces
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogOnline, Log, TEXT("Successful authenticated user. UserId=[%s] "), 
+		UE_LOG(LogOnline, Display, TEXT("Successful logged in user. UserId=[%s] "), 
 			*UserId.ToDebugString());
 
 		// update user info for newly registered user
@@ -76,8 +77,9 @@ void FTestIdentityInterface::OnLoginComplete(int32 LocalUserNum, bool bWasSucces
 	}
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Failed to authenticate new user. Error=[%s]"), 
+		UE_LOG(LogOnline, Error, TEXT("Failed to log in new user. Error=[%s]"), 
 			*Error);
+
 	}
 	// Mark test as done
 	bRunLoginTest = false;
@@ -89,13 +91,19 @@ void FTestIdentityInterface::OnLogoutComplete(int32 LocalUserNum, bool bWasSucce
 {
 	if (bWasSuccessful)
 	{
-		UE_LOG(LogOnline, Log, TEXT("Successful logged out user. LocalUserNum=[%d] "),
+		UE_LOG(LogOnline, Display, TEXT("Successful logged out user. LocalUserNum=[%d] "),
 			LocalUserNum);
 	}
+	else if (!bIsUserLoggedIn)
+	{
+		UE_LOG(LogOnline, Display, TEXT("User is not logged in to be able to be logged out."));
+	}
+	// If the user was logged out at the start of the test then there will be nothing to log out.
 	else
 	{
-		UE_LOG(LogOnline, Warning, TEXT("Failed to log out user."));
+		UE_LOG(LogOnline, Error, TEXT("Failed to log out user."));
 	}
+
 	UserInfo.Reset();
 	// Mark test as done
 	bRunLogoutTest = false;
@@ -103,3 +111,30 @@ void FTestIdentityInterface::OnLogoutComplete(int32 LocalUserNum, bool bWasSucce
 	StartNextTest();
 }
 
+bool FTestIdentityInterface::GetTestStatus() const
+{
+	return bIsTestFinished;
+}
+
+void FTestIdentityInterface::SetTestStatus(const bool& NewStatus)
+{
+	bIsTestFinished = NewStatus;
+}
+
+bool FTestIdentityInterface::IsTheUserLoggedIn()
+{
+	// Create a new Identity pointer since this function can be potentially called before original pointer can be initialized.
+	IOnlineIdentityPtr TempInterfacePointer = Online::GetIdentityInterface( 
+		GEngine->GetWorld(), 
+		SubsystemName.Len() ? FName( *SubsystemName, FNAME_Find ) : NAME_None );
+	
+	ELoginStatus::Type CurrentLoginStatus = TempInterfacePointer->GetLoginStatus(LocalUserIdx);
+	bIsUserLoggedIn = false;
+
+	if ( CurrentLoginStatus == ELoginStatus::LoggedIn )
+	{
+		bIsUserLoggedIn = true;
+	}
+
+	return bIsUserLoggedIn;
+}

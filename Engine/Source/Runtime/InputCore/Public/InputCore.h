@@ -4,4 +4,4 @@
 
 #include "InputCoreModule.h"
 #include "../Classes/InputCoreTypes.h"
-#include "InputCoreClasses.h"
+#include "InputCoreTypes.h"

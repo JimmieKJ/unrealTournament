@@ -37,6 +37,8 @@ float2 ProjectionDepthBiasParameters;
 	float InvFadePlaneLength;
 #endif
 
+float4 ModulatedShadowColor;
+
 /**
 * Entry point for uniform manual PCF that supports lights using normal shadows.
 */
@@ -57,6 +59,7 @@ void Main(
 	float LightSpacePixelDepthForOpaque = min(ShadowPosition.z, 0.99999f);
 	// Must not clamp for SSS shadowing, the subsurface gradient must continue past the far plane
 	float LightSpacePixelDepthForSSS = ShadowPosition.z;
+
 
 	float Shadow = 1;
 	float SSSTransmission = 1;
@@ -104,13 +107,14 @@ void Main(
 		BRANCH
 		if (IsSubsurfaceModel(InGBufferData.ShadingModelID))
 		{
+			float Opacity = InGBufferData.ShadingModelID == SHADINGMODELID_HAIR ? 1 : InGBufferData.CustomData.a;
 			// Derive density from a heuristic using opacity, tweaked for useful falloff ranges and to give a linear depth falloff with opacity
-			float Density = -.05f * log(1 - min(InGBufferData.Opacity, .999f));
+			float Density = -.05f * log(1 - min(Opacity, .999f));
 			//@todo - Use a larger kernel filter based on material opacity
 			// This is not being done currently because a varying opacity causes discontinuities in the shadow result
 			// Note: Snapping based on the largest size kernel is done in FProjectedShadowInfo::FProjectedShadowInfo, MaxDownsampleFactor is set to 4
 			// Only factors of MaxDownsampleFactor will be stable
-			float SquareRootFilterScale = lerp(1.999f, 0, InGBufferData.Opacity);
+			float SquareRootFilterScale = lerp(1.999f, 0, Opacity);
 			int SquareRootFilterScaleInt = SquareRootFilterScale + 1;
 
 			#if UNFILTERED_SHADOW_PROJECTION
@@ -154,6 +158,11 @@ void Main(
 		// When the fade plane is in use for CSMs, we output the fade value in the alpha channel for blending.
 		OutColor.a = BlendFactor;
 	#endif
+
+#if MODULATED_SHADOWS
+	OutColor.rgb = lerp(ModulatedShadowColor.rgb, float3(1, 1, 1), Shadow);
+	OutColor.a = 0;
+#endif
 }
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_SM4

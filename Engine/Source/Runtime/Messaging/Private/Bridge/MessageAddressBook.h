@@ -30,7 +30,7 @@ public:
 	 * @Address The message address to add.
 	 * @NodeId The identifier of the remote node that handles the message address.
 	 */
-	void Add( const FMessageAddress& Address, const FGuid& NodeId )
+	void Add(const FMessageAddress& Address, const FGuid& NodeId)
 	{
 		FScopeLock Lock(CriticalSection);
 
@@ -51,7 +51,7 @@ public:
 	 * @param Address The address to check.
 	 * @return true if the address is known, false otherwise.
 	 */
-	bool Contains( const FMessageAddress& Address )
+	bool Contains(const FMessageAddress& Address)
 	{
 		FScopeLock Lock(CriticalSection);
 
@@ -64,15 +64,15 @@ public:
 	 * @param Addresses The address list to retrieve the node identifiers for.
 	 * @return The list of node identifiers.
 	 */
-	TArray<FGuid> GetNodesFor( const TArray<FMessageAddress>& Addresses )
+	TArray<FGuid> GetNodesFor(const TArray<FMessageAddress>& Addresses)
 	{
 		TArray<FGuid> FoundNodes;
 
 		FScopeLock Lock(CriticalSection);
 
-		for (int32 AddressIndex = 0; AddressIndex < Addresses.Num(); ++AddressIndex)
+		for (const auto& Address : Addresses)
 		{
-			FGuid* NodeId = Entries.Find(Addresses[AddressIndex]);
+			FGuid* NodeId = Entries.Find(Address);
 
 			if (NodeId != nullptr)
 			{
@@ -92,7 +92,7 @@ public:
 	 * @param OutRemovedRecipients Will hold a list of recipients that were removed.
 	 * @see Clear, RemoveNode
 	 */
-	void RemoveAll( TArray<FMessageAddress>& OutRemovedAddresses )
+	void RemoveAll(TArray<FMessageAddress>& OutRemovedAddresses)
 	{
 		OutRemovedAddresses.Reset();
 
@@ -109,23 +109,23 @@ public:
 	 * @param OutRemovedRecipients Will hold a list of recipients that were removed.
 	 * @see Clear, RemoveAllNodes
 	 */
-	void RemoveNode( const FGuid& NodeId, TArray<FMessageAddress>& OutRemovedAddresses )
+	void RemoveNode(const FGuid& NodeId, TArray<FMessageAddress>& OutRemovedAddresses)
 	{
 		OutRemovedAddresses.Reset();
 
 		FScopeLock Lock(CriticalSection);
 
-		for (TMap<FMessageAddress, FGuid>::TConstIterator It(Entries); It; ++It)
+		for (const auto& EntryPair : Entries)
 		{
-			if (It.Value() == NodeId)
+			if (EntryPair.Value == NodeId)
 			{
-				OutRemovedAddresses.Add(It.Key());
+				OutRemovedAddresses.Add(EntryPair.Key);
 			}
 		}
 
-		for (int32 Index = 0; Index < OutRemovedAddresses.Num(); ++Index)
+		for (const auto& Address : OutRemovedAddresses)
 		{
-			Entries.Remove(OutRemovedAddresses[Index]);
+			Entries.Remove(Address);
 		}
 	}
 

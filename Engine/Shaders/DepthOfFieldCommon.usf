@@ -4,7 +4,7 @@
 	DepthOfFieldCommon.usf: depth of field common
 =============================================================================*/
 
-// [0] .x:SkyFocusDistance or very value if 0, .yz:unused, w:OcclusionTweak1
+// [0] .x:SkyFocusDistance or very value if 0, .y:DepthOfFieldVignetteMul, .z:DepthOfFieldVignetteAdd, w:OcclusionTweak1
 // [1] .x:MaxBokehSizeInPixel, y:vertical offset in UV, z:UsedY/TextureY, w:vertical offset to put two views in one texture with safety border
 float4 DepthOfFieldParams[2];
 

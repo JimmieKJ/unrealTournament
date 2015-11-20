@@ -243,7 +243,7 @@ UBlueprintFunctionNodeSpawner* UBlueprintFunctionNodeSpawner::Create(TSubclassOf
 
 	FBlueprintActionUiSpec& MenuSignature = NodeSpawner->DefaultMenuSignature;
 	MenuSignature.MenuName = UK2Node_CallFunction::GetUserFacingFunctionName(Function);
-	MenuSignature.Category = FText::FromString( UK2Node_CallFunction::GetDefaultCategoryForFunction(Function, TEXT("")) );
+	MenuSignature.Category = UK2Node_CallFunction::GetDefaultCategoryForFunction(Function, FText::GetEmpty());
 	MenuSignature.Tooltip  = FText::FromString( UK2Node_CallFunction::GetDefaultTooltipForFunction(Function) );
 	// add at least one character, so that PrimeDefaultUiSpec() doesn't attempt to query the template node
 	MenuSignature.Keywords = UK2Node_CallFunction::GetKeywordsForFunction(Function);

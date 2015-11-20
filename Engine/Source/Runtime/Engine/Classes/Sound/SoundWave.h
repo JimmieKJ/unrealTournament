@@ -5,8 +5,11 @@
 /** 
  * Playable sound object for raw wave files
  */
+#include "BulkData.h"
+#include "Engine/EngineTypes.h"
 #include "Sound/SoundBase.h"
 #include "Sound/SoundGroups.h"
+
 #include "SoundWave.generated.h"
 
 struct FActiveSound;
@@ -132,6 +135,9 @@ class ENGINE_API USoundWave : public USoundBase
 	/** Set to true for programmatically-generated, streamed audio. */
 	uint32 bProcedural:1;
 
+	/** Set to true for procedural waves that can be processed asynchronously. */
+	uint32 bCanProcessAsync:1;
+
 	/** Whether to free the resource data after it has been uploaded to the hardware */
 	uint32 bDynamicResource:1;
 
@@ -210,20 +216,23 @@ class ENGINE_API USoundWave : public USoundBase
 	TArray<struct FLocalizedSubtitle> LocalizedSubtitles;
 
 #if WITH_EDITORONLY_DATA
-	/** Path to the resource used to construct this sound node wave. Relative to the object's package, BaseDir() or absolute. */
-	UPROPERTY(Category=Info, VisibleAnywhere)
-	FString SourceFilePath;
+	UPROPERTY()
+	FString SourceFilePath_DEPRECATED;
+	UPROPERTY()
+	FString SourceFileTimestamp_DEPRECATED;
 
-	/** Date/Time-stamp of the file from the last import */
-	UPROPERTY(Category=Info, VisibleAnywhere)
-	FString SourceFileTimestamp;
-
+	UPROPERTY(VisibleAnywhere, Instanced, Category=ImportSettings)
+	class UAssetImportData* AssetImportData;
+	
 #endif // WITH_EDITORONLY_DATA
 
 public:	
 	/** Async worker that decompresses the audio data on a different thread */
 	typedef FAsyncTask< class FAsyncAudioDecompressWorker > FAsyncAudioDecompress;	// Forward declare typedef
 	FAsyncAudioDecompress*		AudioDecompressor;
+
+	/** Pointer to 16 bit PCM data - used to avoid synchronous operation to obtain first block of the relatime decompressed buffer */
+	uint8*						CachedRealtimeFirstBuffer;
 
 	/** Pointer to 16 bit PCM data - used to decompress data to and preview sounds */
 	uint8*						RawPCMData;
@@ -260,7 +269,7 @@ public:
 	/** Codec used to compress/encode this audio data */
 	FName CompressionName;
 
-	// Begin UObject interface. 
+	//~ Begin UObject Interface. 
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void PostInitProperties() override;
 	virtual bool IsReadyForFinishDestroy() override;
@@ -274,14 +283,14 @@ public:
 	virtual FName GetExporterName() override;
 	virtual FString GetDesc() override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
-	// End UObject interface. 
+	//~ End UObject Interface. 
 
-	// Begin USoundBase interface.
+	//~ Begin USoundBase Interface.
 	virtual bool IsPlayable() const override;
 	virtual void Parse( class FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
 	virtual float GetMaxAudibleDistance() override;
 	virtual float GetDuration() override;
-	// End USoundBase interface.
+	//~ End USoundBase Interface.
 
 	/**
 	 *	@param		Format		Format to check

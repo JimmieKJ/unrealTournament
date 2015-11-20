@@ -69,6 +69,10 @@ public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 
+#if ENABLE_VISUAL_LOG
+	virtual void BeginPlay() override;
+#endif // ENABLE_VISUAL_LOG
+
 	virtual FBox GetComponentsBoundingBox(bool bNonColliding = false) const override;
 
 	//////////////////////////////////////////////////////////////////////////

@@ -253,17 +253,20 @@ void UAIGraphNode::DiffProperties(UStruct* Struct, void* DataA, void* DataB, FDi
 
 		if (ValueStringA != ValueStringB)
 		{
-			if (Results)
+			// Only bother setting up the display data if we're storing the result
+			if(Results.CanStoreResults())
 			{
 				Diff.DisplayString = FText::Format(LOCTEXT("DIF_NodePropertyFmt", "Property Changed: {0} "), FText::FromString(Prop->GetName()));
-				Results.Add(Diff);
 			}
+			Results.Add(Diff);
 		}
 	}
 }
 
 void UAIGraphNode::FindDiffs(UEdGraphNode* OtherNode, FDiffResults& Results)
 {
+	Super::FindDiffs(OtherNode, Results);
+
 	FDiffSingleResult Diff;
 	Diff.Diff = EDiffType::NODE_PROPERTY;
 	Diff.Node1 = this;

@@ -256,4 +256,7 @@ private:
 	void SetInputLineFromAutoComplete();
 
 	void NormalizeHistoryBuffer();
+
+	// Widget that was focused before the console was opened (focus will be restored to this if it's valid after the console closes)
+	TWeakPtr<SWidget> PreviousFocusedWidget;
 };

@@ -13,6 +13,7 @@
 #include "AssetToolsModule.h"
 #include "AssetEditorManager.h"
 #include "Editor.h"					// for OnShutdownPostPackagesSaved
+#include "ProjectDescriptor.h"
 
 #define LOCTEXT_NAMESPACE "EditorCommandLineUtils"
 

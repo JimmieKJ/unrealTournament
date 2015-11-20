@@ -8,6 +8,10 @@
 #include "KismetDebugUtilities.h" // for HasDebuggingData(), GetWatchText()
 #include "KismetCompiler.h"
 #include "GraphEditorSettings.h"
+#include "BlueprintEditorSettings.h"
+#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
+
+#include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "K2Node"
 
@@ -142,6 +146,12 @@ void UK2Node::AutowireNewNode(UEdGraphPin* FromPin)
 		{
 			UEdGraphPin* Pin = Pins[i];
 			check(Pin);
+
+			// Never consider for auto-wiring a hidden pin being connected to a Wildcard. It is never what the user expects
+			if (Pin->bHidden && FromPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Wildcard)
+			{
+				continue;
+			}
 
 			ECanCreateConnectionResponse ConnectResponse = K2Schema->CanCreateConnection(FromPin, Pin).Response;
 			if (ConnectResponse == ECanCreateConnectionResponse::CONNECT_RESPONSE_MAKE)
@@ -289,6 +299,7 @@ void UK2Node::ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins)
 					{
 						NewPin->PinType = OldPin->ParentPin->PinType;
 						GetSchema()->SplitPin(NewPin);
+						break;
 					}
 				}
 			}
@@ -457,7 +468,7 @@ UK2Node::ERedirectType UK2Node::DoPinsMatchForReconstruction(const UEdGraphPin* 
 		if( OuterGraph && OuterGraph->Schema )
 		{
 			const UEdGraphSchema_K2* K2Schema = Cast<const UEdGraphSchema_K2>(GetSchema());
-			if( !K2Schema || K2Schema->IsSelfPin(*NewPin) || K2Schema->ArePinTypesCompatible(OldPin->PinType, NewPin->PinType) )
+			if (!K2Schema || K2Schema->IsSelfPin(*NewPin) || K2Schema->ArePinTypesCompatible(OldPin->PinType, NewPin->PinType) || GetBlueprint()->bIsRegeneratingOnLoad)
 			{
 				RedirectType = ERedirectType_Name;
 			}
@@ -621,6 +632,12 @@ void UK2Node::ReconstructSinglePin(UEdGraphPin* NewPin, UEdGraphPin* OldPin, ERe
 
 void UK2Node::RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEdGraphPin*>& InNewPins)
 {
+	// No need to attempt anything if there are no new pins
+	if (InNewPins.Num() == 0)
+	{
+		return;
+	}
+
 	// Rewire any connection to pins that are matched by name (O(N^2) right now)
 	//@TODO: Can do moderately smart things here if only one pin changes name by looking at it's relative position, etc...,
 	// rather than just failing to map it and breaking the links
@@ -628,8 +645,13 @@ void UK2Node::RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEd
 	{
 		UEdGraphPin* OldPin = InOldPins[OldPinIndex];
 
-		for (int32 NewPinIndex = 0; NewPinIndex < InNewPins.Num(); ++NewPinIndex)
+		// common case is for InOldPins and InNewPins to match, so we start searching from the current index:
+		const int32 NumNewPins = InNewPins.Num();
+		int32 NewPinIndex = OldPinIndex % InNewPins.Num();
+		for (int32 NewPinCount = 0; NewPinCount < InNewPins.Num(); ++NewPinCount)
 		{
+			// if InNewPins grows in this loop then we may skip entries and fail to find a match:
+			check(NumNewPins == InNewPins.Num());
 			UEdGraphPin* NewPin = InNewPins[NewPinIndex];
 
 			const ERedirectType RedirectType = DoPinsMatchForReconstruction(NewPin, NewPinIndex, OldPin, OldPinIndex);
@@ -638,6 +660,8 @@ void UK2Node::RewireOldPinsToNewPins(TArray<UEdGraphPin*>& InOldPins, TArray<UEd
 				ReconstructSinglePin(NewPin, OldPin, RedirectType);
 				break;
 			}
+
+			NewPinIndex = (NewPinIndex + 1) % InNewPins.Num();
 		}
 	}
 }
@@ -819,28 +843,72 @@ void FOptionalPinManager::RebuildPropertyList(TArray<FOptionalPinFromProperty>& 
 	// Rebuild the property list
 	Properties.Empty();
 
+	// find all "bOverride_" properties
+	TMap<FName, UProperty*> OverridesMap;
+	const FString OverridePrefix(TEXT("bOverride_"));
 	for (TFieldIterator<UProperty> It(SourceStruct, EFieldIteratorFlags::IncludeSuper); It; ++It)
 	{
 		UProperty* TestProperty = *It;
-
-		if (CanTreatPropertyAsOptional(TestProperty))
+		if (CanTreatPropertyAsOptional(TestProperty) && TestProperty->GetName().StartsWith(OverridePrefix))
 		{
-			FOptionalPinFromProperty* Record = new (Properties) FOptionalPinFromProperty;
-			Record->PropertyName = TestProperty->GetFName();
-			Record->PropertyFriendlyName = UEditorEngine::GetFriendlyName(TestProperty, SourceStruct);
-			Record->PropertyTooltip = TestProperty->GetToolTipText();
-
-			// Get the defaults
-			GetRecordDefaults(TestProperty, *Record);
-
-			// If this is a refresh, propagate the old visibility
-			if (Record->bCanToggleVisibility)
+			FString OriginalName = TestProperty->GetName();
+			if (OriginalName.RemoveFromStart(OverridePrefix) && !OriginalName.IsEmpty())
 			{
-				if (bool* pShowHide = OldVisibility.Find(Record->PropertyName))
-				{
-					Record->bShowPin = *pShowHide;
-				}
+				OverridesMap.Add(FName(*OriginalName), TestProperty);
 			}
+		}
+	}
+
+	// handle regular properties
+	for (TFieldIterator<UProperty> It(SourceStruct, EFieldIteratorFlags::IncludeSuper); It; ++It)
+	{
+		UProperty* TestProperty = *It;
+		if (CanTreatPropertyAsOptional(TestProperty) && !TestProperty->GetName().StartsWith(OverridePrefix))
+		{
+			FName CategoryName = NAME_None;
+#if WITH_EDITOR
+			CategoryName = FObjectEditorUtils::GetCategoryFName(TestProperty);
+#endif //WITH_EDITOR
+
+			OverridesMap.Remove(TestProperty->GetFName());
+			RebuildProperty(TestProperty, CategoryName, Properties, SourceStruct, OldVisibility);
+		}
+	}
+
+	// add remaining "bOverride_" properties
+	for (auto Pair : OverridesMap)
+	{
+		UProperty* TestProperty = Pair.Value;
+
+		FName CategoryName = NAME_None;
+#if WITH_EDITOR
+		CategoryName = FObjectEditorUtils::GetCategoryFName(TestProperty);
+#endif //WITH_EDITOR
+
+		RebuildProperty(TestProperty, CategoryName, Properties, SourceStruct, OldVisibility);
+	}
+}
+
+void FOptionalPinManager::RebuildProperty(UProperty* TestProperty, FName CategoryName, TArray<FOptionalPinFromProperty>& Properties, UStruct* SourceStruct, TMap<FName, bool>& OldVisibility)
+{
+	FOptionalPinFromProperty* Record = new (Properties)FOptionalPinFromProperty;
+	Record->PropertyName = TestProperty->GetFName();
+	Record->PropertyFriendlyName = UEditorEngine::GetFriendlyName(TestProperty, SourceStruct);
+	Record->PropertyTooltip = TestProperty->GetToolTipText();
+	Record->CategoryName = CategoryName;
+
+	bool bNegate = false;
+	Record->bHasOverridePin = PropertyCustomizationHelpers::GetEditConditionProperty(TestProperty, bNegate) != nullptr;
+
+	// Get the defaults
+	GetRecordDefaults(TestProperty, *Record);
+
+	// If this is a refresh, propagate the old visibility
+	if (Record->bCanToggleVisibility)
+	{
+		if (bool* pShowHide = OldVisibility.Find(Record->PropertyName))
+		{
+			Record->bShowPin = *pShowHide;
 		}
 	}
 }
@@ -878,7 +946,7 @@ void FOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& Pr
 							Args.Add(TEXT("Index"), Index);
 							const FText PinFriendlyName = FText::Format(LOCTEXT("PinFriendlyNameWithIndex", "{PinName}_{Index}"), Args);
 							const FString PinName = PinFriendlyName.ToString();
-							NewPin = TargetNode->CreatePin(Direction, PinType.PinCategory, PinType.PinSubCategory, PinType.PinSubCategoryObject.Get(), PinType.bIsArray, PinType.bIsReference, PinName);
+							NewPin = TargetNode->CreatePin(Direction, PinType, PinName);
 							NewPin->PinFriendlyName = PinFriendlyName;
 							Schema->ConstructBasicPinTooltip(*NewPin, PropertyEntry.PropertyTooltip, NewPin->PinToolTip);
 
@@ -911,7 +979,7 @@ void FOptionalPinManager::CreateVisiblePins(TArray<FOptionalPinFromProperty>& Pr
 					if (PropertyEntry.bShowPin)
 					{
 						const FString PinName = PropertyEntry.PropertyName.ToString();
-						NewPin = TargetNode->CreatePin(Direction, PinType.PinCategory, PinType.PinSubCategory, PinType.PinSubCategoryObject.Get(), PinType.bIsArray, PinType.bIsReference, PinName);
+						NewPin = TargetNode->CreatePin(Direction, PinType, PinName);
 						NewPin->PinFriendlyName = PropertyEntry.PropertyFriendlyName.IsEmpty() ? FText::FromString(PinName) : FText::FromString(PropertyEntry.PropertyFriendlyName);
 						Schema->ConstructBasicPinTooltip(*NewPin, PropertyEntry.PropertyTooltip, NewPin->PinToolTip);
 
@@ -949,24 +1017,39 @@ UEdGraphPin* UK2Node::GetExecPin() const
 
 UEdGraphPin* UK2Node::GetPassThroughPin(const UEdGraphPin* FromPin) const
 {
-	UEdGraphPin* MatchedPin = nullptr;
+	UEdGraphPin* PassThroughPin = nullptr;
 	if(FromPin && Pins.Contains(FromPin))
 	{
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 		if(K2Schema->IsExecPin(*FromPin))
 		{
-			if(FromPin->Direction == EGPD_Input)
+			// Locate the first exec pin that's opposite the given exec pin, if any.
+			for(auto Pin : Pins)
 			{
-				MatchedPin = FindPin(K2Schema->PN_Then);
-			}
-			else
-			{
-				MatchedPin = FindPin(K2Schema->PN_Execute);
+				if(Pin && Pin != FromPin && Pin->Direction != FromPin->Direction && K2Schema->IsExecPin(*Pin))
+				{
+					PassThroughPin = Pin;
+					break;
+				}
 			}
 		}
 	}
 
-	return MatchedPin;
+	return PassThroughPin;
+}
+
+bool UK2Node::IsInDevelopmentMode() const
+{
+	// Check class setting (which can override the default setting)
+	const UBlueprint* OwningBP = GetBlueprint();
+	if(OwningBP != nullptr
+		&& OwningBP->CompileMode != EBlueprintCompileMode::Default)
+	{
+		return OwningBP->CompileMode == EBlueprintCompileMode::Development;
+	}
+
+	// Check default setting
+	return Super::IsInDevelopmentMode();
 }
 
 bool UK2Node::CanCreateUnderSpecifiedSchema(const UEdGraphSchema* DesiredSchema) const
@@ -1066,7 +1149,6 @@ void UK2Node::GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) con
 	// grab the debug value of the pin
 	FString WatchText;
 	const FKismetDebugUtilities::EWatchTextResult WatchStatus = FKismetDebugUtilities::GetWatchText(/*inout*/ WatchText, Blueprint, ActiveObject, &Pin);
-
 	// if this is an array pin, then we possibly have too many lines (too many entries)
 	if (Pin.PinType.bIsArray)
 	{

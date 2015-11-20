@@ -168,6 +168,10 @@ public:
 	{
 		return LowerLevel->DeleteDirectory(Directory);
 	}
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override
+	{
+		return LowerLevel->GetStatData(FilenameOrDirectory);
+	}
 	virtual bool		IterateDirectory(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override
 	{
 		return LowerLevel->IterateDirectory( Directory, Visitor );
@@ -175,6 +179,14 @@ public:
 	virtual bool		IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override
 	{
 		return LowerLevel->IterateDirectoryRecursively( Directory, Visitor );
+	}
+	virtual bool		IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		return LowerLevel->IterateDirectoryStat( Directory, Visitor );
+	}
+	virtual bool		IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		return LowerLevel->IterateDirectoryStatRecursively( Directory, Visitor );
 	}
 	virtual bool		DeleteDirectoryRecursively(const TCHAR* Directory) override
 	{

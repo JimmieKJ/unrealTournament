@@ -22,6 +22,8 @@ void SNodeTitle::Construct(const FArguments& InArgs, UEdGraphNode* InNode)
 
 	ExtraLineStyle = InArgs._ExtraLineStyle;
 
+	CachedSize = FVector2D::ZeroVector;
+
 	// If the user set the text, use it, otherwise use the node title by default
 	if(InArgs._Text.IsSet())
 	{
@@ -37,6 +39,8 @@ void SNodeTitle::Construct(const FArguments& InArgs, UEdGraphNode* InNode)
 
 void SNodeTitle::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
+	CachedSize = AllottedGeometry.GetLocalSize();
+
 	// Checks to see if the cached string is valid, and if not, updates it.
 	if (NodeTitleCache.IsOutOfDate(GraphNode))
 	{
@@ -54,7 +58,12 @@ FText SNodeTitle::GetNodeTitle() const
 
 FText SNodeTitle::GetHeadTitle() const
 {
-	return GraphNode->bCanRenameNode ? GraphNode->GetNodeTitle(ENodeTitleType::EditableTitle) : CachedHeadTitle;
+	return (GraphNode && GraphNode->bCanRenameNode) ? GraphNode->GetNodeTitle(ENodeTitleType::EditableTitle) : CachedHeadTitle;
+}
+
+FVector2D SNodeTitle::GetTitleSize() const
+{
+	return CachedSize;
 }
 
 void SNodeTitle::RebuildWidget()
@@ -169,6 +178,11 @@ void SGraphNode::SetTextCommittedEvent(FOnNodeTextCommitted InOnTextCommitted)
 void SGraphNode::OnCommentTextCommitted(const FText& NewComment, ETextCommit::Type CommitInfo)
 {
 	GetNodeObj()->OnUpdateCommentText(NewComment.ToString());
+}
+
+void SGraphNode::OnCommentBubbleToggled(bool bInCommentBubbleVisible)
+{
+	GetNodeObj()->OnCommentBubbleToggled(bInCommentBubbleVisible);
 }
 
 void SGraphNode::SetDisallowedPinConnectionEvent(SGraphEditor::FOnDisallowedPinConnection InOnDisallowedPinConnection)
@@ -435,7 +449,7 @@ void SGraphNode::SetOwner( const TSharedRef<SGraphPanel>& OwnerPanel )
 	check( !OwnerGraphPanelPtr.IsValid() );
 	SetParentPanel(OwnerPanel);
 	OwnerGraphPanelPtr = OwnerPanel;
-	GraphNode->NodeWidget = SharedThis(this);
+	GraphNode->DEPRECATED_NodeWidget = SharedThis(this);
 
 	/*Once we have an owner, and if hide Unused pins is enabled, we need to remake our pins to drop the hidden ones*/
 	if(OwnerGraphPanelPtr.Pin()->GetPinVisibility() != SGraphEditor::Pin_Show 
@@ -509,7 +523,7 @@ FSlateColor SGraphNode::GetNodeTitleColor() const
 {
 	FLinearColor ReturnTitleColor = GraphNode->IsDeprecated() ? FLinearColor::Red : GetNodeObj()->GetNodeTitleColor();
 
-	if(!GraphNode->bIsNodeEnabled)
+	if(!GraphNode->IsNodeEnabled())
 	{
 		ReturnTitleColor *= FLinearColor(0.5f, 0.5f, 0.5f, 0.4f);
 	}
@@ -523,7 +537,7 @@ FSlateColor SGraphNode::GetNodeTitleColor() const
 FSlateColor SGraphNode::GetNodeBodyColor() const
 {
 	FLinearColor ReturnBodyColor = FLinearColor::White;
-	if(!GraphNode->bIsNodeEnabled)
+	if(!GraphNode->IsNodeEnabled())
 	{
 		ReturnBodyColor *= FLinearColor(1.0f, 1.0f, 1.0f, 0.5f); 
 	}
@@ -533,7 +547,7 @@ FSlateColor SGraphNode::GetNodeBodyColor() const
 FSlateColor SGraphNode::GetNodeTitleIconColor() const
 {
 	FLinearColor ReturnIconColor = IconColor;
-	if(!GraphNode->bIsNodeEnabled)
+	if(!GraphNode->IsNodeEnabled())
 	{
 		ReturnIconColor *= FLinearColor(1.0f, 1.0f, 1.0f, 0.3f); 
 	}
@@ -543,7 +557,7 @@ FSlateColor SGraphNode::GetNodeTitleIconColor() const
 FLinearColor SGraphNode::GetNodeTitleTextColor() const
 {
 	FLinearColor ReturnTextColor = FLinearColor::White;
-	if(!GraphNode->bIsNodeEnabled)
+	if(!GraphNode->IsNodeEnabled())
 	{
 		ReturnTextColor *= FLinearColor(1.0f, 1.0f, 1.0f, 0.3f); 
 	}
@@ -851,6 +865,7 @@ void SGraphNode::UpdateGraphNode()
 	.GraphNode( GraphNode )
 	.Text( this, &SGraphNode::GetNodeComment )
 	.OnTextCommitted( this, &SGraphNode::OnCommentTextCommitted )
+	.OnToggled( this, &SGraphNode::OnCommentBubbleToggled )
 	.ColorAndOpacity( CommentColor )
 	.AllowPinning( true )
 	.EnableTitleBarBubble( true )
@@ -1247,10 +1262,13 @@ bool SGraphNode::OnVerifyNameTextChanged(const FText& InText, FText& OutErrorMes
 
 	if ((GetEditableNodeTitle() != InText.ToString()) && OnVerifyTextCommit.IsBound())
 	{
-		bValid = OnVerifyTextCommit.Execute(InText, GraphNode);
+		bValid = OnVerifyTextCommit.Execute(InText, GraphNode, OutErrorMessage);
 	}
 
-	OutErrorMessage = FText::FromString(TEXT("Error"));
+	if( OutErrorMessage.IsEmpty() )
+	{
+		OutErrorMessage = FText::FromString(TEXT("Error"));
+	}
 
 	//UpdateErrorInfo();
 	//ErrorReporting->SetError(ErrorMsg);

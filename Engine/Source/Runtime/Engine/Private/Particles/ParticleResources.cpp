@@ -17,8 +17,9 @@ void FParticleTexCoordVertexBuffer::InitRHI()
 {
 	const uint32 Size = sizeof(FVector2D) * 4 * MAX_PARTICLES_PER_INSTANCE;
 	FRHIResourceCreateInfo CreateInfo;
-	VertexBufferRHI = RHICreateVertexBuffer( Size, BUF_Static, CreateInfo);
-	FVector2D* Vertices = (FVector2D*)RHILockVertexBuffer( VertexBufferRHI, 0, Size, RLM_WriteOnly );
+	void* BufferData = nullptr;
+	VertexBufferRHI = RHICreateAndLockVertexBuffer(Size, BUF_Static, CreateInfo, BufferData);
+	FVector2D* Vertices = (FVector2D*)BufferData;
 	for (uint32 SpriteIndex = 0; SpriteIndex < MAX_PARTICLES_PER_INSTANCE; ++SpriteIndex)
 	{
 		Vertices[SpriteIndex*4 + 0] = FVector2D(0.0f, 0.0f);
@@ -44,8 +45,9 @@ void FParticleIndexBuffer::InitRHI()
 	const uint32 Size = sizeof(uint16) * 6 * MaxParticles;
 	const uint32 Stride = sizeof(uint16);
 	FRHIResourceCreateInfo CreateInfo;
-	IndexBufferRHI = RHICreateIndexBuffer( Stride, Size, BUF_Static, CreateInfo);
-	uint16* Indices = (uint16*)RHILockIndexBuffer( IndexBufferRHI, 0, Size, RLM_WriteOnly );
+	void* Buffer = nullptr;
+	IndexBufferRHI = RHICreateAndLockIndexBuffer( Stride, Size, BUF_Static, CreateInfo, Buffer);
+	uint16* Indices = (uint16*)Buffer;
 	for (uint32 SpriteIndex = 0; SpriteIndex < MaxParticles; ++SpriteIndex)
 	{
 		Indices[SpriteIndex*6 + 0] = SpriteIndex*4 + 0;

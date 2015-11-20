@@ -12,6 +12,14 @@
 
 
 /**
+ * Globals
+ */
+
+FStackTraceManager GTraceManager;
+FLogStackTraceManager GLogTraceManager;
+
+
+/**
  * FScopedLog
  */
 
@@ -124,10 +132,10 @@ FScopedLog::~FScopedLog()
 
 #if !UE_BUILD_SHIPPING
 /**
- * FScopedProcessEventLog
+ * FProcessEventHookBase
  */
 
-FScopedProcessEventLog::FScopedProcessEventLog()
+FProcessEventHookBase::FProcessEventHookBase()
 	: OrigEventHook()
 {
 	if (AActor::ProcessEventDelegate.IsBound())
@@ -135,23 +143,18 @@ FScopedProcessEventLog::FScopedProcessEventLog()
 		OrigEventHook = AActor::ProcessEventDelegate;
 	}
 
-	AActor::ProcessEventDelegate.BindRaw(this, &FScopedProcessEventLog::ProcessEventHook);
+	AActor::ProcessEventDelegate.BindRaw(this, &FProcessEventHookBase::InternalProcessEventHook);
 }
 
-FScopedProcessEventLog::~FScopedProcessEventLog()
+FProcessEventHookBase::~FProcessEventHookBase()
 {
 	AActor::ProcessEventDelegate = OrigEventHook;
 	OrigEventHook.Unbind();
 }
 
-bool FScopedProcessEventLog::ProcessEventHook(AActor* Actor, UFunction* Function, void* Parameters)
+bool FProcessEventHookBase::InternalProcessEventHook(AActor* Actor, UFunction* Function, void* Parameters)
 {
 	bool bReturnVal = false;
-
-	UE_LOG(LogUnitTest, Log, TEXT("FScopedProcessEventLog: Actor: %s, Function: %s"),
-			(Actor != NULL ? *Actor->GetName() : TEXT("NULL")),
-			*Function->GetName());
-
 
 	// If there was originally already a ProcessEvent hook in place, transparently pass on the event, so it's not disrupted
 	if (OrigEventHook.IsBound())
@@ -159,9 +162,221 @@ bool FScopedProcessEventLog::ProcessEventHook(AActor* Actor, UFunction* Function
 		bReturnVal = OrigEventHook.Execute(Actor, Function, Parameters);
 	}
 
+	ProcessEventHook(Actor, Function, Parameters);
+
 	return bReturnVal;
 }
+
+void FScopedProcessEventLog::ProcessEventHook(AActor* Actor, UFunction* Function, void* Parameters)
+{
+	UE_LOG(LogUnitTest, Log, TEXT("FScopedProcessEventLog: Actor: %s, Function: %s"),
+			(Actor != NULL ? *Actor->GetName() : TEXT("NULL")),
+			*Function->GetName());
+}
 #endif
+
+
+/**
+ * FNUTStackTrace
+ */
+
+FNUTStackTrace::FNUTStackTrace(FString InTraceName)
+	: TraceName(InTraceName)
+	, Tracker()
+{
+	Tracker.ResetTracking();
+}
+
+FNUTStackTrace::~FNUTStackTrace()
+{
+	Tracker.ResetTracking();
+}
+void FNUTStackTrace::Enable()
+{
+	if (!IsTrackingEnabled())
+	{
+		Tracker.ToggleTracking();
+	}
+}
+
+void FNUTStackTrace::Disable()
+{
+	if (IsTrackingEnabled())
+	{
+		Tracker.ToggleTracking();
+	}
+}
+
+void FNUTStackTrace::AddTrace(bool bLogAdd/*=false*/)
+{
+	if (IsTrackingEnabled())
+	{
+		if (bLogAdd)
+		{
+			UE_LOG(LogUnitTest, Log, TEXT("Adding stack trace for TraceName '%s'."), *TraceName);
+		}
+
+		Tracker.CaptureStackTrace(TRACE_IGNORE_DEPTH);
+	}
+}
+
+void FNUTStackTrace::Dump(bool bKeepTraceHistory/*=false*/)
+{
+	UE_LOG(LogUnitTest, Log, TEXT("Dumping tracked stack traces for TraceName '%s':"), *TraceName);
+
+	Tracker.DumpStackTraces(0, *GLog);
+
+	if (!bKeepTraceHistory)
+	{
+		Tracker.ResetTracking();
+	}
+}
+
+
+/**
+ * FStackTraceManager
+ */
+
+FStackTraceManager::FStackTraceManager()
+	: Traces()
+{
+}
+
+FStackTraceManager::~FStackTraceManager()
+{
+	for (auto It=Traces.CreateConstIterator(); It; ++It)
+	{
+		FNUTStackTrace* Trace = It->Value;
+
+		if (Trace != NULL)
+		{
+			delete Trace;
+		}
+	}
+
+	Traces.Empty();
+}
+
+void FStackTraceManager::Enable(FString TraceName)
+{
+	FNUTStackTrace* Trace = GetOrCreateTrace(TraceName);
+
+	Trace->Enable();
+}
+
+void FStackTraceManager::Disable(FString TraceName)
+{
+	FNUTStackTrace* Trace = GetTrace(TraceName);
+
+	if (Trace != NULL)
+	{
+		Trace->Disable();
+	}
+	else
+	{
+		UE_LOG(LogUnitTest, Log, TEXT("Trace disable: No trace tracking found for TraceName '%s'."), *TraceName);
+	}
+}
+
+void FStackTraceManager::AddTrace(FString TraceName, bool bLogAdd/*=false*/, bool bDump/*=false*/, bool bStartDisabled/*=false*/)
+{
+	bool bIsNewTrace = false;
+	FNUTStackTrace* Trace = GetOrCreateTrace(TraceName, &bIsNewTrace);
+
+	if (bIsNewTrace)
+	{
+		if (bStartDisabled)
+		{
+			Trace->Disable();
+		}
+		else
+		{
+			Trace->Enable();
+		}
+	}
+
+	if (Trace->IsTrackingEnabled())
+	{
+		Trace->AddTrace(bLogAdd);
+
+		if (bDump)
+		{
+			Trace->Dump(true);
+		}
+	}
+}
+
+void FStackTraceManager::Dump(FString TraceName, bool bKeepTraceHistory/*=false*/, bool bKeepTracking/*=true*/)
+{
+	FNUTStackTrace* Trace = GetTrace(TraceName);
+
+	if (Trace != NULL)
+	{
+		Trace->Dump(bKeepTraceHistory);
+
+		if (!bKeepTracking)
+		{
+			delete Trace;
+			Traces.FindAndRemoveChecked(TraceName);
+		}
+	}
+	else
+	{
+		UE_LOG(LogUnitTest, Log, TEXT("No trace tracking found for TraceName '%s'."), *TraceName);
+	}
+}
+
+void FStackTraceManager::Clear(FString TraceName)
+{
+	FNUTStackTrace* Trace = GetTrace(TraceName);
+
+	if (Trace != NULL)
+	{
+		delete Trace;
+		Traces.FindAndRemoveChecked(TraceName);
+	}
+	else
+	{
+		UE_LOG(LogUnitTest, Log, TEXT("No trace tracking found for TraceName '%s'."), *TraceName);
+	}
+}
+
+void FStackTraceManager::DumpAll(bool bKeepTraceHistory/*=false*/, bool bKeepTracking/*=true*/)
+{
+	UE_LOG(LogUnitTest, Log, TEXT("Dumping all tracked stack traces:"));
+
+	for (auto It=Traces.CreateIterator(); It; ++It)
+	{
+		FNUTStackTrace* Trace = It->Value;
+
+		if (Trace != NULL)
+		{
+			Trace->Dump(bKeepTraceHistory);
+
+			if (!bKeepTracking)
+			{
+				delete Trace;
+				It.RemoveCurrent();
+			}
+		}
+	}
+}
+
+void FStackTraceManager::TraceAndDump(FString TraceName)
+{
+	FNUTStackTrace* Trace = GetTrace(TraceName);
+
+	if (Trace == NULL || Trace->IsTrackingEnabled())
+	{
+		UE_LOG(LogUnitTest, Log, TEXT("Dumping once-off stack trace for TraceName '%s':"), *TraceName);
+
+		FStackTracker TempTracker(NULL, NULL, true);
+
+		TempTracker.CaptureStackTrace(TRACE_IGNORE_DEPTH);
+		TempTracker.DumpStackTraces(0, *GLog);
+		TempTracker.ResetTracking();
+	}
+}
 
 
 /**
@@ -270,4 +485,5 @@ FString NUTDebug::HexDump(const TArray<uint8>& InBytes, bool bDumpASCII/*=true*/
 
 	return ReturnValue;
 }
+
 

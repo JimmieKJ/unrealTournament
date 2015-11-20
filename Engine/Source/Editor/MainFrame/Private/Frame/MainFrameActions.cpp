@@ -73,6 +73,9 @@ void FMainFrameCommands::RegisterCommands()
 	UI_COMMAND( OpenIDE, "Open IDE", "Opens your C++ code in an integrated development environment.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( OpenIDE, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::OpenIDE ), DefaultExecuteAction );
 
+	UI_COMMAND( ZipUpProject, "Zip Up Project", "Zips up the project into a zip file.", EUserInterfaceActionType::Button, FInputChord() );
+	ActionList->MapAction(ZipUpProject, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::ZipUpProject ), DefaultExecuteAction);
+
 	UI_COMMAND( PackagingSettings, "Packaging Settings...", "Opens the settings for project packaging", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( PackagingSettings, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::PackagingSettings ), DefaultExecuteAction );
 
@@ -121,29 +124,20 @@ void FMainFrameCommands::RegisterCommands()
 												FCanExecuteAction(),
 												FIsActionChecked::CreateStatic( &FMainFrameActionCallbacks::OpenSlateApp_IsChecked, FName("SessionFrontend" ) ) );
 
-	UI_COMMAND(VisitUTWiki, "UT Wiki...", "Go to the Unreal Tournament Wiki page", EUserInterfaceActionType::Button, FInputGesture());
-	ActionList->MapAction(VisitUTWiki, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTWiki));
-
-	UI_COMMAND(VisitWiki, "Engine Wiki...", "Go to the Unreal Engine Wiki page", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(VisitWiki, "Wiki...", "Go to the Unreal Engine Wiki page to view community-created resources, or to create your own.", EUserInterfaceActionType::Button, FInputChord());
 	ActionList->MapAction(VisitWiki, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitWiki));
 
-	UI_COMMAND(VisitUTForums, "UT Forums...", "Go to the Unreal Tournament forums", EUserInterfaceActionType::Button, FInputGesture());
-	ActionList->MapAction(VisitUTForums, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTForums));
-
-	UI_COMMAND(VisitForums, "Engine Forums...", "Go to the Unreal Engine forums", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(VisitForums, "Forums...", "Go the the Unreal Engine forums to view announcements and engage in discussions with other developers.", EUserInterfaceActionType::Button, FInputChord());
 	ActionList->MapAction(VisitForums, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitForums));
 
 	UI_COMMAND( VisitAskAQuestionPage, "Ask a Question...", "Have a question?  Go here to ask about anything and everything related to Unreal.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitAskAQuestionPage, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitAskAQuestionPage ) );
 
-	UI_COMMAND( VisitSearchForAnswersPage, "Answer Hub...", "Searches for useful answers on UDN provided by other users and experts.", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( VisitSearchForAnswersPage, "Answer Hub...", "Go to the AnswerHub to ask questions, search existing answers, and share your knowledge with other UE4 developers.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitSearchForAnswersPage, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitSearchForAnswersPage ) );
 
 	UI_COMMAND( VisitSupportWebSite, "Unreal Engine Support Web Site...", "Navigates to the Unreal Engine Support web site's main page.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitSupportWebSite, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitSupportWebSite ) );
-
-	UI_COMMAND(VisitUTDotCom, "Visit UnrealTournament.com...", "Navigates to UnrealTournament.com where you can learn more about Unreal Tournament.", EUserInterfaceActionType::Button, FInputGesture());
-	ActionList->MapAction(VisitUTDotCom, FExecuteAction::CreateStatic(&FMainFrameActionCallbacks::VisitUTDotCom));
 
 	UI_COMMAND( VisitEpicGamesDotCom, "Visit UnrealEngine.com...", "Navigates to UnrealEngine.com where you can learn more about Unreal Technology.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction( VisitEpicGamesDotCom, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::VisitEpicGamesDotCom ) );
@@ -292,10 +286,34 @@ void FMainFrameActionCallbacks::AddCodeToProject()
  */
 const TCHAR* GetUATCompilationFlags()
 {
-	return FRocketSupport::IsRocket() || !FSourceCodeNavigation::IsCompilerAvailable()
-		? TEXT("-nocompile")
+	// We never want to compile editor targets when invoking UAT in this context.
+	// If we are rocket or don't have a compiler, we must assume we have a precompiled UAT.
+	return (FApp::GetEngineIsPromotedBuild() || FApp::IsEngineInstalled())
+		? TEXT("-nocompile -nocompileeditor")
 		: TEXT("-nocompileeditor");
 }
+
+FString GetCookingOptionalParams()
+{
+	FString OptionalParams;
+	const UProjectPackagingSettings* const PackagingSettings = GetDefault<UProjectPackagingSettings>();
+	if (PackagingSettings->bCookAll)
+	{
+		OptionalParams += TEXT(" -CookAll");
+		// maps only flag only affects cook all
+		if (PackagingSettings->bCookMapsOnly)
+		{
+			OptionalParams += TEXT(" -CookMapsOnly");
+		}
+	}
+
+	if (PackagingSettings->bSkipEditorContent)
+	{
+		OptionalParams += TEXT(" -SKIPEDITORCONTENT");
+	}
+	return OptionalParams;
+}
+
 
 void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 {
@@ -328,6 +346,8 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 		OptionalParams += *PlatformInfo->TargetPlatformName.ToString();
 	}
 
+	OptionalParams += GetCookingOptionalParams();
+
 	const bool bRunningDebug = FParse::Param(FCommandLine::Get(), TEXT("debug"));
 
 	if (bRunningDebug)
@@ -344,7 +364,7 @@ void FMainFrameActionCallbacks::CookContent(const FName InPlatformInfoName)
 		*FUnrealEdMisc::Get().GetExecutableForCommandlets(),
 		*OptionalParams
 	);
-
+	
 	CreateUatTask(CommandLine, PlatformInfo->DisplayName, LOCTEXT("CookingContentTaskName", "Cooking content"), LOCTEXT("CookingTaskName", "Cooking"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 }
 
@@ -376,6 +396,8 @@ bool FMainFrameActionCallbacks::PackageBuildConfigurationIsChecked( EProjectPack
 
 void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 {
+	GUnrealEd->CancelPlayingViaLauncher();
+	
 	// does the project have any code?
 	FGameProjectGenerationModule& GameProjectModule = FModuleManager::LoadModuleChecked<FGameProjectGenerationModule>(TEXT("GameProjectGeneration"));
 	bool bProjectHasCode = GameProjectModule.Get().ProjectRequiresBuild(InPlatformInfoName);
@@ -506,15 +528,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		OptionalParams += TEXT(" -compressed");
 	}
 
-	if ( PackagingSettings->bCookAll )
-	{
-		OptionalParams += TEXT(" -CookAll");
-		// maps only flag only affects cook all
-		if ( PackagingSettings->bCookMapsOnly )
-		{
-			OptionalParams += TEXT(" -CookMapsOnly");
-		}
-	}
+	OptionalParams += GetCookingOptionalParams();
 
 	if (PackagingSettings->UsePakFile)
 	{
@@ -565,7 +579,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	}
 
 	// only build if the project has code that might need to be built
-	if (bProjectHasCode && FSourceCodeNavigation::IsCompilerAvailable())
+	if (bProjectHasCode || (!FApp::GetEngineIsPromotedBuild() && !FApp::IsEngineInstalled()))
 	{
 		OptionalParams += TEXT(" -build");
 	}
@@ -581,18 +595,11 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		OptionalParams += FString::Printf(TEXT(" -manifests -createchunkinstall -chunkinstalldirectory=\"%s\" -chunkinstallversion=%s"), *(PackagingSettings->HttpChunkInstallDataDirectory.Path), *(PackagingSettings->HttpChunkInstallDataVersion));
 	}
 
-	FString ExecutableName = FPlatformProcess::ExecutableName(false);
-#if PLATFORM_WINDOWS
-	// turn UE4editor into UE4editor.cmd
-	if(ExecutableName.EndsWith(".exe", ESearchCase::IgnoreCase) && !FPaths::GetBaseFilename(ExecutableName).EndsWith("-cmd", ESearchCase::IgnoreCase))
+	int32 NumCookers = GetDefault<UEditorExperimentalSettings>()->MultiProcessCooking;
+	if (NumCookers > 0 )
 	{
-		FString NewExeName = ExecutableName.Left(ExecutableName.Len() - 4) + "-Cmd.exe";
-		if (FPaths::FileExists(NewExeName))
-		{
-			ExecutableName = NewExeName;
-		}
+		OptionalParams += FString::Printf(TEXT(" -NumCookersToSpawn=%d"), NumCookers);
 	}
-#endif
 
 	const bool bRunningDebug = FParse::Param(FCommandLine::Get(), TEXT("debug"));
 
@@ -605,14 +612,15 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	Configuration = Configuration.Replace(TEXT("PPBC_"), TEXT(""));
 
 	FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath()) : FPaths::RootDir() / FApp::GetGameName() / FApp::GetGameName() + TEXT(".uproject");
-	FString CommandLine = FString::Printf(TEXT("BuildCookRun %s%s%s -nop4 -project=\"%s\" -cook -stage -archive -archivedirectory=\"%s\" -package -clientconfig=%s -ue4exe=%s %s -utf8output"),
+	FString CommandLine = FString::Printf(TEXT("-ScriptsForProject=\"%s\" BuildCookRun %s%s%s -nop4 -project=\"%s\" -cook -stage -archive -archivedirectory=\"%s\" -package -clientconfig=%s -ue4exe=%s %s -utf8output"),
+		*ProjectPath,
 		FRocketSupport::IsRocket() ? TEXT("-rocket ") : TEXT(""),
 		GetUATCompilationFlags(),
 		FApp::IsEngineInstalled() ? TEXT(" -installed") : TEXT(""),
 		*ProjectPath,
 		*PackagingSettings->StagingDirectory.Path,
 		*Configuration,
-		*ExecutableName,
+		*FUnrealEdMisc::Get().GetExecutableForCommandlets(),
 		*OptionalParams
 	);
 
@@ -661,6 +669,49 @@ void FMainFrameActionCallbacks::OpenIDE()
 			{
 				FMessageDialog::Open( EAppMsgType::Ok, LOCTEXT("OpenIDEFailed_MissingSolution", "Couldn't find solution"));
 			}
+		}
+	}
+}
+
+void FMainFrameActionCallbacks::ZipUpProject()
+{
+#if PLATFORM_WINDOWS
+	FText PlatformName = LOCTEXT("Platform Name", "Windows");
+#elif PLATFORM_MAC
+	FText PlatformName = LOCTEXT("Platform Name", "Mac");
+#elif PLATFORM_LINUX
+	FText PlatformName = LOCTEXT("Platform Name", "Linux");
+#else
+	FText PlatformName = LOCTEXT("Platform Name", "Other OS");
+#endif
+
+	bool bOpened = false;
+	TArray<FString> SaveFilenames;
+	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
+	if (DesktopPlatform != NULL)
+	{
+		bOpened = DesktopPlatform->SaveFileDialog(
+			NULL,
+			NSLOCTEXT("UnrealEd", "InterpEd_ExportSoundCueInfoDialogTitle", "Zip file location").ToString(),
+			FPaths::GameDir(),
+			FApp::GetGameName(),
+			TEXT("Zip file|*.zip"),
+			EFileDialogFlags::None,
+			SaveFilenames);
+	}
+
+	if (bOpened)
+	{
+		for (FString FileName : SaveFilenames)
+		{
+			// Ensure path is full rather than relative (for macs)
+			FString FinalFileName = FPaths::ConvertRelativePathToFull(FileName);
+			FString ProjectPath = FPaths::IsProjectFilePathSet() ? FPaths::ConvertRelativePathToFull(FPaths::GameDir()) : FPaths::RootDir() / FApp::GetGameName();
+
+			FString CommandLine = FString::Printf(TEXT("ZipProjectUp -project=\"%s\" -install=\"%s\""), *ProjectPath, *FinalFileName);
+
+			CreateUatTask(CommandLine, PlatformName, LOCTEXT("ZipTaskName", "Zipping Up Project"),
+				LOCTEXT("ZipTaskShortName", "Zip Project Task"), FEditorStyle::GetBrush(TEXT("MainFrame.CookContent")));
 		}
 	}
 }
@@ -879,32 +930,6 @@ void FMainFrameActionCallbacks::VisitSupportWebSite()
 	}
 }
 
-void FMainFrameActionCallbacks::VisitUTDotCom()
-{
-	FString UTURL;
-	if (FUnrealEdMisc::Get().GetURL(TEXT("UTURL"), UTURL))
-	{
-		FPlatformProcess::LaunchURL(*UTURL, NULL, NULL);
-	}
-}
-
-void FMainFrameActionCallbacks::VisitUTWiki()
-{
-	FString URL;
-	if (FUnrealEdMisc::Get().GetURL(TEXT("UTWikiURL"), URL))
-	{
-		FPlatformProcess::LaunchURL(*URL, NULL, NULL);
-	}
-}
-
-void FMainFrameActionCallbacks::VisitUTForums()
-{
-	FString URL;
-	if (FUnrealEdMisc::Get().GetURL(TEXT("UTForumsURL"), URL))
-	{
-		FPlatformProcess::LaunchURL(*URL, NULL, NULL);
-	}
-}
 
 void FMainFrameActionCallbacks::VisitEpicGamesDotCom()
 {
@@ -1193,6 +1218,90 @@ void FMainFrameActionCallbacks::HandleUatProcessCanceled( TWeakPtr<SNotification
 }
 
 
+/**
+ * Helper class to deal with packaging issues encountered in UAT.
+ **/
+class FPackagingErrorHandler
+{
+private:
+
+	/**
+	 * Create a message to send to the Message Log.
+	 *
+	 * @Param MessageString - The error we wish to send to the Message Log.
+	 * @Param MessageType - The severity of the message, i.e. error, warning etc.
+	 **/
+	static void AddMessageToMessageLog(FString MessageString, EMessageSeverity::Type MessageType)
+	{
+		FText MsgText = FText::FromString(MessageString);
+
+		TSharedRef<FTokenizedMessage> Message = FTokenizedMessage::Create(MessageType);
+		Message->AddToken(FTextToken::Create(MsgText));
+
+		FMessageLog MessageLog("PackagingResults");
+		MessageLog.AddMessage(Message);
+	}
+
+	/**
+	 * Send Error to the Message Log.
+	 *
+	 * @Param MessageString - The error we wish to send to the Message Log.
+	 * @Param MessageType - The severity of the message, i.e. error, warning etc.
+	 **/
+	static void SyncMessageWithMessageLog(FString MessageString, EMessageSeverity::Type MessageType)
+	{
+		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.SendPackageErrorToMessageLog"),
+		STAT_FSimpleDelegateGraphTask_SendPackageErrorToMessageLog,
+			STATGROUP_TaskGraphTasks);
+
+		// Remove any new line terminators
+		MessageString.ReplaceInline(TEXT("\r"), TEXT(""));
+		MessageString.ReplaceInline(TEXT("\n"), TEXT(""));
+
+		/**
+		 * Dispatch the error from packaging to the message log.
+		 **/
+		FSimpleDelegateGraphTask::CreateAndDispatchWhenReady(
+			FSimpleDelegateGraphTask::FDelegate::CreateStatic(&FPackagingErrorHandler::AddMessageToMessageLog, MessageString, MessageType),
+			GET_STATID(STAT_FSimpleDelegateGraphTask_SendPackageErrorToMessageLog),
+			nullptr, ENamedThreads::GameThread
+			);
+	}
+
+public:
+	/**
+	 * Determine if the output is an error we wish to send to the Message Log.
+	 *
+	 * @Param UATOutput - The current line of output from the UAT package process.
+	 **/
+	static void ProcessAndHandleCookErrorOutput(FString UATOutput)
+	{
+		FString LhsUATOutputMsg, ParsedCookIssue;
+
+		// note: CookResults:Warning: actually outputs some unhandled errors.
+		if (UATOutput.Split(TEXT("CookResults:Warning: "), &LhsUATOutputMsg, &ParsedCookIssue))
+		{
+			SyncMessageWithMessageLog(ParsedCookIssue, EMessageSeverity::Warning);
+		}
+
+		if (UATOutput.Split(TEXT("CookResults:Error: "), &LhsUATOutputMsg, &ParsedCookIssue))
+		{
+			SyncMessageWithMessageLog(ParsedCookIssue, EMessageSeverity::Error);
+		}
+	}
+
+	/**
+	 * Send the UAT Packaging error message to the Message Log.
+	 *
+	 * @Param ErrorCode - The UAT return code we received and wish to display the error message for.
+	 **/
+	static void SendPackagingErrorToMessageLog(int32 ErrorCode)
+	{
+		SyncMessageWithMessageLog(FEditorAnalytics::TranslateErrorCode(ErrorCode), EMessageSeverity::Error);
+	}
+};
+
+
 DECLARE_CYCLE_STAT(TEXT("Requesting FMainFrameActionCallbacks::HandleUatProcessCompleted message dialog to present the error message"), STAT_FMainFrameActionCallbacks_HandleUatProcessCompleted_DialogMessage, STATGROUP_TaskGraphTasks);
 void FMainFrameActionCallbacks::HandleUatProcessCompleted( int32 ReturnCode, TWeakPtr<SNotificationItem> NotificationItemPtr, FText PlatformDisplayName, FText TaskName, EventData Event )
 {
@@ -1226,6 +1335,12 @@ void FMainFrameActionCallbacks::HandleUatProcessCompleted( int32 ReturnCode, TWe
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Time"), FPlatformTime::Seconds() - Event.StartTime));
 		FEditorAnalytics::ReportEvent(Event.EventName + TEXT(".Failed"), PlatformDisplayName.ToString(), Event.bProjectHasCode, ReturnCode, ParamArray);
 
+		// Send the error to the Message Log.
+		if (TaskName.EqualTo(LOCTEXT("PackagingTaskName", "Packaging")))
+		{
+			FPackagingErrorHandler::SendPackagingErrorToMessageLog(ReturnCode);
+		}
+
 		// Present a message dialog if we want the error message to be prominent.
 		if (FEditorAnalytics::ShouldElevateMessageThroughDialog(ReturnCode))
 		{
@@ -1248,6 +1363,12 @@ void FMainFrameActionCallbacks::HandleUatProcessOutput( FString Output, TWeakPtr
 	if (!Output.IsEmpty() && !Output.Equals("\r"))
 	{
 		UE_LOG(MainFrameActions, Log, TEXT("%s (%s): %s"), *TaskName.ToString(), *PlatformDisplayName.ToString(), *Output);
+
+		if (TaskName.EqualTo(LOCTEXT("PackagingTaskName", "Packaging")))
+		{
+			// Deal with any cook errors that may have been encountered.
+			FPackagingErrorHandler::ProcessAndHandleCookErrorOutput(Output);
+		}
 	}	
 }
 

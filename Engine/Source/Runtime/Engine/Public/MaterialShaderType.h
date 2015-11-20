@@ -58,10 +58,11 @@ public:
 			FShaderResource* InResource,
 			const FUniformExpressionSet& InUniformExpressionSet,
 			const FSHAHash& InMaterialShaderMapHash,
+			const FShaderPipelineType* InShaderPipeline,
 			FVertexFactoryType* InVertexFactoryType,
 			const FString& InDebugDescription
 			)
-		: FGlobalShaderType::CompiledShaderInitializerType(InType,CompilerOutput,InResource,InMaterialShaderMapHash,InVertexFactoryType)
+		: FGlobalShaderType::CompiledShaderInitializerType(InType,CompilerOutput,InResource,InMaterialShaderMapHash,InShaderPipeline,InVertexFactoryType)
 		, UniformExpressionSet(InUniformExpressionSet)
 		, DebugDescription(InDebugDescription)
 		{}
@@ -96,8 +97,17 @@ public:
 		const FMaterial* Material,
 		FShaderCompilerEnvironment* MaterialEnvironment,
 		EShaderPlatform Platform,
-		TArray<FShaderCompileJob*>& NewJobs
+		TArray<FShaderCommonCompileJob*>& NewJobs
 		);
+
+	static void BeginCompileShaderPipeline(
+		uint32 ShaderMapId,
+		EShaderPlatform Platform,
+		const FMaterial* Material,
+		FShaderCompilerEnvironment* MaterialEnvironment,
+		const FShaderPipelineType* ShaderPipeline,
+		const TArray<FMaterialShaderType*>& ShaderStages,
+		TArray<FShaderCommonCompileJob*>& NewJobs);
 
 	/**
 	 * Either creates a new instance of this type or returns an equivalent existing shader.
@@ -108,6 +118,7 @@ public:
 		const FUniformExpressionSet& UniformExpressionSet,
 		const FSHAHash& MaterialShaderMapHash,
 		const FShaderCompileJob& CurrentJob,
+		const FShaderPipelineType* ShaderPipeline,
 		const FString& InDebugDescription
 		);
 
@@ -123,7 +134,8 @@ public:
 	}
 
 	// Dynamic casting.
-	virtual FMaterialShaderType* GetMaterialShaderType() { return this; }
+	virtual FMaterialShaderType* GetMaterialShaderType() override { return this; }
+	virtual const FMaterialShaderType* GetMaterialShaderType() const override { return this; }
 
 protected:
 

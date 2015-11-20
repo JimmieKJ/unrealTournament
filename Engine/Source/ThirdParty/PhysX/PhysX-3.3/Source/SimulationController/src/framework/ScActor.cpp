@@ -224,7 +224,7 @@ void Sc::Actor::registerInteraction(Interaction* interaction)
 
 void Sc::Actor::unregisterInteraction(Interaction* interaction)
 {
-	PxU32 i = interaction->getActorId(this);
+	const PxU32 i = interaction->getActorId(this);
 	if (i>=mNumTransferringInteractions)
 	{
 		mInteractions.replaceWithLast(i); 
@@ -273,7 +273,7 @@ void Sc::Actor::onElementDetach(Element& element)
 	PX_ASSERT(0);
 }
 
-
+// PT: TODO: refactor with Sc::ParticlePacketShape::reallocInteractions
 void Sc::Actor::reallocInteractions(Sc::Interaction**& mem, PxU32& capacity, PxU32 size, PxU32 requiredMinCapacity)
 {
 	Interaction** newMem;

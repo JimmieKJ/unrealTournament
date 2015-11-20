@@ -23,13 +23,13 @@ IMPLEMENT_MODULE(FRendererModule, Renderer);
 void FRendererModule::ReallocateSceneRenderTargets()
 {
 	FLightPrimitiveInteraction::InitializeMemoryPool();
-	GSceneRenderTargets.UpdateRHI();
+	FSceneRenderTargets::Get_Todo_PassContext().UpdateRHI();
 }
 
 void FRendererModule::SceneRenderTargetsSetBufferSize(uint32 SizeX, uint32 SizeY)
 {
-	GSceneRenderTargets.SetBufferSize(SizeX, SizeY);
-	GSceneRenderTargets.UpdateRHI();
+	FSceneRenderTargets::Get_Todo_PassContext().SetBufferSize(SizeX, SizeY);
+	FSceneRenderTargets::Get_Todo_PassContext().UpdateRHI();
 }
 
 void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, const FSceneView& SceneView, const FMeshBatch& Mesh, bool bIsHitTesting, const FHitProxyId& HitProxyId)
@@ -53,7 +53,7 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, const F
 		{
 			if (FeatureLevel >= ERHIFeatureLevel::SM4)
 			{
-				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(), Mesh, false, false, NULL, HitProxyId);
+				FTranslucencyDrawingPolicyFactory::DrawDynamicMesh(RHICmdList, View, FTranslucencyDrawingPolicyFactory::ContextType(nullptr, TPT_NonSeparateTransluceny, true), Mesh, false, false, NULL, HitProxyId);
 			}
 			else
 			{
@@ -86,9 +86,9 @@ void FRendererModule::DrawTileMesh(FRHICommandListImmediate& RHICmdList, const F
 	}
 }
 
-void FRendererModule::RenderTargetPoolFindFreeElement(const FPooledRenderTargetDesc& Desc, TRefCountPtr<IPooledRenderTarget> &Out, const TCHAR* InDebugName)
+void FRendererModule::RenderTargetPoolFindFreeElement(FRHICommandListImmediate& RHICmdList, const FPooledRenderTargetDesc& Desc, TRefCountPtr<IPooledRenderTarget> &Out, const TCHAR* InDebugName)
 {
-	GRenderTargetPool.FindFreeElement(Desc, Out, InDebugName);
+	GRenderTargetPool.FindFreeElement(RHICmdList, Desc, Out, InDebugName);
 }
 
 void FRendererModule::TickRenderTargetPool()
@@ -218,6 +218,8 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		{
 			// Init
 			GRenderTargetPool.VisualizeTexture.RGBMul = 1;
+			GRenderTargetPool.VisualizeTexture.SingleChannelMul = 0.0f;
+			GRenderTargetPool.VisualizeTexture.SingleChannel = -1;
 			GRenderTargetPool.VisualizeTexture.AMul = 0;
 			GRenderTargetPool.VisualizeTexture.UVInputMapping = 3;
 			GRenderTargetPool.VisualizeTexture.Flags = 0;
@@ -313,18 +315,28 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		// e.g. RGB*6, A, *22, /2.7, A*7
 		else if(Parameter.Left(3) == TEXT("rgb")
 			|| Parameter.Left(1) == TEXT("a")
+			|| Parameter.Left(1) == TEXT("r")
+			|| Parameter.Left(1) == TEXT("g")
+			|| Parameter.Left(1) == TEXT("b")
 			|| Parameter.Left(1) == TEXT("*")
 			|| Parameter.Left(1) == TEXT("/"))
 		{
+			int SingleChannel = -1;
+
 			if(Parameter.Left(3) == TEXT("rgb"))
 			{
 				Parameter = Parameter.Right(Parameter.Len() - 3);
 			}
-			else if(Parameter.Left(1) == TEXT("a"))
+			else if(Parameter.Left(1) == TEXT("r")) SingleChannel = 0;
+			else if(Parameter.Left(1) == TEXT("g")) SingleChannel = 1;
+			else if(Parameter.Left(1) == TEXT("b")) SingleChannel = 2;
+			else if(Parameter.Left(1) == TEXT("a")) SingleChannel = 3;
+			if ( SingleChannel >= 0 )
 			{
 				Parameter = Parameter.Right(Parameter.Len() - 1);
+				GRenderTargetPool.VisualizeTexture.SingleChannel = SingleChannel;
+				GRenderTargetPool.VisualizeTexture.SingleChannelMul = 1;
 				GRenderTargetPool.VisualizeTexture.RGBMul = 0;
-				GRenderTargetPool.VisualizeTexture.AMul = 1;
 			}
 
 			float Mul = 1.0f;
@@ -341,6 +353,7 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 				Mul = 1.0f / FCString::Atof(*Parameter);
 			}
 			GRenderTargetPool.VisualizeTexture.RGBMul *= Mul;
+			GRenderTargetPool.VisualizeTexture.SingleChannelMul *= Mul;
 			GRenderTargetPool.VisualizeTexture.AMul *= Mul;
 		}
 		else
@@ -360,6 +373,9 @@ static void VisualizeTextureExec( const TCHAR* Cmd, FOutputDevice &Ar )
 		Ar.Logf(TEXT("  RGB      = RGB in range 0..1 (default)"));
 		Ar.Logf(TEXT("  *8       = RGB * 8"));
 		Ar.Logf(TEXT("  A        = alpha channel in range 0..1"));
+		Ar.Logf(TEXT("  R        = red channel in range 0..1"));
+		Ar.Logf(TEXT("  G        = green channel in range 0..1"));
+		Ar.Logf(TEXT("  B        = blue channel in range 0..1"));
 		Ar.Logf(TEXT("  A*16     = Alpha * 16"));
 		Ar.Logf(TEXT("  RGB/2    = RGB / 2"));
 		Ar.Logf(TEXT("SubResource:"));

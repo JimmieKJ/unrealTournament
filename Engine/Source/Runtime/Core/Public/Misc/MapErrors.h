@@ -173,7 +173,7 @@ struct CORE_API FMapErrors
 	/** {StaticMesh} has simple collision but is being scaled non-uniformly - collision creation will fail: Simple collision cannot be used with non-uniform scale. Please either fix the scale or the collision type. */
     static FName SimpleCollisionButNonUniformScale;
 
-	/** More overriden materials {Count} on static mesh component than are referenced {Count} in source mesh {StaticMesh}: **TODO** */
+	/** More overridden materials {Count} on static mesh component than are referenced {Count} in source mesh {StaticMesh}: **TODO** */
     static FName MoreMaterialsThanReferenced;
 
 	 /** {Count} element(s) with zero triangles in static mesh {StaticMesh}: **TODO** */
@@ -211,6 +211,9 @@ struct CORE_API FMapErrors
 
 	/** {LODActor} : NoActor is assigned. We recommend to delete this actor. */
 	static FName LODActorNoActorFound;
+
+	/** Hierarchical LOD System is disabled, unable to build LOD actors */
+	static FName HLODSystemNotEnabled;
 };
 
 /**

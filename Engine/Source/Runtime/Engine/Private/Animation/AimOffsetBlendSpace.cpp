@@ -12,6 +12,7 @@
 UAimOffsetBlendSpace::UAimOffsetBlendSpace(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	bRotationBlendInMeshSpace = true;
 }
 
 bool UAimOffsetBlendSpace::IsValidAdditive()  const

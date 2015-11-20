@@ -14,46 +14,44 @@
 UENUM()
 enum EBlueprintStatus
 {
-	// Blueprint is in an unknown state
+	/** Blueprint is in an unknown state. */
 	BS_Unknown,
-	// Blueprint has been modified but not recompiled
+	/** Blueprint has been modified but not recompiled. */
 	BS_Dirty,
-	// Blueprint tried but failed to be compiled
+	/** Blueprint tried but failed to be compiled. */
 	BS_Error,
-	// Blueprint has been compiled since it was last modified
+	/** Blueprint has been compiled since it was last modified. */
 	BS_UpToDate,
-	// Blueprint is in the process of being created for the first time
+	/** Blueprint is in the process of being created for the first time. */
 	BS_BeingCreated,
-	// Blueprint has been compiled since it was last modified. There are warnings.
+	/** Blueprint has been compiled since it was last modified. There are warnings. */
 	BS_UpToDateWithWarnings,
 	BS_MAX,
 };
 
 
-/**
- * Enumerates types of blueprints.
- */
+/** Enumerates types of blueprints. */
 UENUM()
 enum EBlueprintType
 {
-	// Normal blueprint
+	/** Normal blueprint. */
 	BPTYPE_Normal				UMETA(DisplayName="Blueprint Class"),
-	// Blueprint that is const during execution (no state graph and methods cannot modify member variables)
+	/** Blueprint that is const during execution (no state graph and methods cannot modify member variables). */
 	BPTYPE_Const				UMETA(DisplayName="Const Blueprint Class"),
-	// Blueprint that serves as a container for macros to be used in other blueprints
+	/** Blueprint that serves as a container for macros to be used in other blueprints. */
 	BPTYPE_MacroLibrary			UMETA(DisplayName="Blueprint Macro Library"),
-	// Blueprint that serves as an interface to be implemented by other blueprints
+	/** Blueprint that serves as an interface to be implemented by other blueprints. */
 	BPTYPE_Interface			UMETA(DisplayName="Blueprint Interface"),
-	// Blueprint that handles level scripting
+	/** Blueprint that handles level scripting. */
 	BPTYPE_LevelScript			UMETA(DisplayName="Level Blueprint"),
-	// Blueprint that servers as a container for functions to be used in other blueprints
+	/** Blueprint that servers as a container for functions to be used in other blueprints. */
 	BPTYPE_FunctionLibrary		UMETA(DisplayName="Blueprint Function Library"),
 
 	BPTYPE_MAX,
 };
 
 
-// Type of compilation
+/** Type of compilation. */
 namespace EKismetCompileType
 {
 	enum Type
@@ -66,6 +64,14 @@ namespace EKismetCompileType
 	};
 };
 
+/** Compile modes. */
+UENUM()
+enum class EBlueprintCompileMode : uint8
+{
+	Default UMETA(DisplayName="Use Default", ToolTip="Use the default setting."),
+	Development UMETA(ToolTip="Always compile in development mode (even when cooking)."),
+	FinalRelease UMETA(ToolTip="Always compile in final release mode.")
+};
 
 struct FKismetCompilerOptions
 {
@@ -76,12 +82,14 @@ public:
 	/** Whether or not to save intermediate build products (temporary graphs and expanded macros) for debugging */
 	bool bSaveIntermediateProducts;
 
+	/** Whether to regenerate the skeleton first, when compiling on load we don't need to regenerate the skeleton. */
+	bool bRegenerateSkelton;
+
 	/** Whether or not this compile is for a duplicated blueprint */
 	bool bIsDuplicationInstigated;
 
 	TSharedPtr<FString> OutHeaderSourceCode;
 	TSharedPtr<FString> OutCppSourceCode;
-	FString NewCppClassName;
 
 	bool DoesRequireCppCodeGeneration() const
 	{
@@ -104,6 +112,7 @@ public:
 	FKismetCompilerOptions()
 		: CompileType(EKismetCompileType::Full)
 		, bSaveIntermediateProducts(false)
+		, bRegenerateSkelton(true)
 		, bIsDuplicationInstigated(false)
 	{
 	};
@@ -159,7 +168,7 @@ struct FBPVariableDescription
 
 	/** Category this variable should be in */
 	UPROPERTY(EditAnywhere, Category=BPVariableDescription)
-	FName Category;
+	FText Category;
 
 	/** Property flags for this variable - Changed from int32 to uint64*/
 	UPROPERTY(EditAnywhere, Category=BPVariableDescription)
@@ -330,6 +339,10 @@ class ENGINE_API UBlueprint : public UBlueprintCore
 	/** Deprecates the Blueprint, marking the generated class with the CLASS_Deprecated flag */
 	UPROPERTY(EditAnywhere, Category=ClassOptions, AdvancedDisplay)
 	bool bDeprecate;
+
+	/** The mode that will be used when compiling this class. */
+	UPROPERTY(EditAnywhere, Category=ClassOptions, AdvancedDisplay)
+	EBlueprintCompileMode CompileMode;
 #endif //WITH_EDITORONLY_DATA
 
 	/** 'Simple' construction script - graph of components to instance */
@@ -473,6 +486,9 @@ public:
 	bool bCachedDependenciesUpToDate;
 	TSet<TWeakObjectPtr<UBlueprint>> CachedDependencies;
 
+	// User Defined Structures, the blueprint depends on
+	TSet<TWeakObjectPtr<UStruct>> CachedUDSDependencies;
+
 	bool IsUpToDate() const
 	{
 		return BS_UpToDate == Status || BS_UpToDateWithWarnings == Status;
@@ -554,7 +570,7 @@ public:
 	/** Renames only the generated classes. Should only be used internally or when testing for rename. */
 	virtual bool RenameGeneratedClasses(const TCHAR* NewName = nullptr, UObject* NewOuter = nullptr, ERenameFlags Flags = REN_None);
 
-	// Begin UObject interface (WITH_EDITOR)
+	//~ Begin UObject Interface (WITH_EDITOR)
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	virtual bool Rename(const TCHAR* NewName = nullptr, UObject* NewOuter = nullptr, ERenameFlags Flags = REN_None) override;
 	virtual UClass* RegenerateClass(UClass* ClassToRegenerate, UObject* PreviousCDO, TArray<UObject*>& ObjLoaded) override;
@@ -562,7 +578,7 @@ public:
 	virtual void PostLoadSubobjects( FObjectInstancingGraph* OuterInstanceGraph ) override;
 	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
-	// End of UObject interface
+	//~ End UObject Interface
 
 	/** Consigns the GeneratedClass and the SkeletonGeneratedClass to oblivion, and nulls their references */
 	void RemoveGeneratedClasses();
@@ -580,16 +596,19 @@ public:
 
 	UInheritableComponentHandler* GetInheritableComponentHandler(bool bCreateIfNecessary);
 
+	/** Collect blueprints that depend on this blueprint. */
+	virtual void GatherDependencies(TSet<TWeakObjectPtr<UBlueprint>>& InDependencies) const;
+
 #endif	//#if WITH_EDITOR
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual FString GetDesc(void) override;
 	virtual void TagSubobjects(EObjectFlags NewFlags) override;
 	virtual bool NeedsLoadForClient() const override;
 	virtual bool NeedsLoadForServer() const override;
 	virtual bool NeedsLoadForEditorGame() const override;
-	// End of UObject interface
+	//~ End UObject Interface
 
 	/** Get the Blueprint object that generated the supplied class */
 	static UBlueprint* GetBlueprintFromClass(const UClass* InClass);
@@ -655,6 +674,12 @@ public:
 
 	static FName GetFunctionNameFromClassByGuid(const UClass* InClass, const FGuid FunctionGuid);
 	static bool GetFunctionGuidFromClassByFieldName(const UClass* InClass, const FName FunctionName, FGuid& FunctionGuid);
+
+	/**
+	 * Gets the last edited uber graph.  If no graph was found in the last edited document set, the first
+	 * ubergraph is returned.  If there are no ubergraphs nullptr is returned.
+	 */
+	UEdGraph* GetLastEditedUberGraph() const;
 #endif
 
 	/** Find a function given its name and optionally an object property name within this Blueprint */

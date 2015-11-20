@@ -112,42 +112,50 @@ class FActiveTextEditContextMenu
 public:
 	FActiveTextEditContextMenu()
 		: bIsPendingSummon(false)
-		, ActiveMenuWindow()
+		, ActiveMenu()
 	{
 	}
 
 	/** Check to see whether this context is valid (either pending or active) */
 	bool IsValid() const
 	{
-		return bIsPendingSummon || ActiveMenuWindow.IsValid();
+		return bIsPendingSummon || ActiveMenu.IsValid();
 	}
 
 	/** Called to reset the active context menu state */
 	void Reset()
 	{
 		bIsPendingSummon = false;
-		ActiveMenuWindow.Reset();
+		ActiveMenu.Reset();
 	}
 
 	/** Called before you summon your context menu */
 	void PrepareToSummon()
 	{
 		bIsPendingSummon = true;
-		ActiveMenuWindow.Reset();
+		ActiveMenu.Reset();
+	}
+
+	DEPRECATED(4.9, "SummonSucceeded() taking an SWindow parameter is deprecated. Use the new version of SummonSucceeded() takes an IMenu.")
+	void SummonSucceeded(const TSharedRef<SWindow>& InWindow)
+	{
+		// deprecated
+		bIsPendingSummon = false;
+		ActiveMenu.Reset();
 	}
 
 	/** Called when you've successfully summoned your context menu */
-	void SummonSucceeded(const TSharedRef<SWindow>& InActiveMenuWindow)
+	void SummonSucceeded(const TSharedRef<IMenu>& InMenu)
 	{
 		bIsPendingSummon = false;
-		ActiveMenuWindow = InActiveMenuWindow;
+		ActiveMenu = InMenu;
 	}
 
 	/** Called if your context menu summon fails */
 	void SummonFailed()
 	{
 		bIsPendingSummon = false;
-		ActiveMenuWindow.Reset();
+		ActiveMenu.Reset();
 	}
 
 private:
@@ -155,7 +163,7 @@ private:
 	bool bIsPendingSummon;
 
 	/** Handle to the active context menu (if any) */
-	TWeakPtr<SWindow> ActiveMenuWindow;
+	TWeakPtr<IMenu> ActiveMenu;
 };
 
 class SLATE_API ITextEditorWidget 
@@ -307,7 +315,13 @@ class SLATE_API ITextEditorWidget
 
 	virtual TSharedRef< SWidget > GetWidget() = 0;
 
-	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow = TSharedPtr<SWindow>()) = 0;
+	DEPRECATED(4.9, "SummonContextMenu() without a FWidgetPath parameter is deprecated. Use the new version of SummonContextMenu().")
+	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow = TSharedPtr<SWindow>())
+	{
+		SummonContextMenu(InLocation, ParentWindow, FWidgetPath());
+	}
+
+	virtual void SummonContextMenu(const FVector2D& InLocation, TSharedPtr<SWindow> ParentWindow, const FWidgetPath& EventPath) = 0;
 
 	virtual void LoadText() = 0;
 };

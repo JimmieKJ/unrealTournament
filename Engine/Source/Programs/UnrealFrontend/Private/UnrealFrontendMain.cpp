@@ -10,6 +10,7 @@
 #include "StatsConvertCommand.h"
 #include "StatsDumpMemoryCommand.h"
 #include "UserInterfaceCommand.h"
+#include "LaunchFromProfileCommand.h"
 
 
 IMPLEMENT_APPLICATION(UnrealFrontend, "UnrealFrontend");
@@ -29,9 +30,14 @@ int32 UnrealFrontendMain( const TCHAR* CommandLine )
 	// process command line parameters
 	bool bRunCommand = FParse::Value(*NewCommandLine, TEXT("-RUN="), Command);
 	
+	if (Command.IsEmpty())
+	{
+		GLog->Logf(ELogVerbosity::Warning, TEXT("The command line argument '-RUN=' does not have a command name associated with it."));
+	}
+
 	if (bRunCommand)
 	{
-		// extract off any -PARAM= parameters so that they aren't accidentally parsed by engine init
+		// extract off any '-PARAM=' parameters so that they aren't accidentally parsed by engine init
 		FParse::Value(*NewCommandLine, TEXT("-PARAMS="), Params);
 
 		if (Params.Len() > 0)
@@ -42,9 +48,16 @@ int32 UnrealFrontendMain( const TCHAR* CommandLine )
 		}
 	}
 
-	if (!FParse::Param(*NewCommandLine, TEXT("-Messaging")))
+	// Add -Messaging if it was not given in the command line.
+	if (!FParse::Param(*NewCommandLine, TEXT("MESSAGING")))
 	{
 		NewCommandLine += TEXT(" -Messaging");
+	}
+
+	// Add '-Log' if the Frontend was run with '-RUN=' without '-LOG' so we can read any potential log output.
+	if (bRunCommand && !FParse::Param(*NewCommandLine, TEXT("LOG")))
+	{
+		NewCommandLine += TEXT(" -Log");
 	}
 
 	// initialize core
@@ -53,7 +66,9 @@ int32 UnrealFrontendMain( const TCHAR* CommandLine )
 
 	bool Succeeded = true;
 
-	// execute desired command
+	// Execute desired command
+	// To execute, run with '-RUN="COMMAND_NAME_FOUND_BELOW"'. 
+	// NOTE - Some commands may require extra command line parameters.
 	if (bRunCommand)
 	{
 		if (Command.Equals(TEXT("PACKAGE"), ESearchCase::IgnoreCase))
@@ -75,6 +90,12 @@ int32 UnrealFrontendMain( const TCHAR* CommandLine )
 		else if( Command.Equals( TEXT("MEMORYDUMP"), ESearchCase::IgnoreCase ) )
 		{
 			FStatsMemoryDumpCommand::Run();
+		}
+		// The 'LAUNCHPROFILE' command also needs '-PROFILENAME="MY_PROFILE_NAME"' as a command line parameter.
+		else if (Command.Equals(TEXT("LAUNCHPROFILE"), ESearchCase::IgnoreCase))
+		{
+			FLaunchFromProfileCommand* ProfileLaunch = new FLaunchFromProfileCommand;
+			ProfileLaunch->Run(Params);
 		}
 	}
 	else

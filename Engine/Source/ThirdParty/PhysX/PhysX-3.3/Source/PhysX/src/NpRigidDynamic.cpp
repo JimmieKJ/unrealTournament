@@ -39,14 +39,6 @@ NpRigidDynamic* NpRigidDynamic::createObject(PxU8*& address, PxDeserializationCo
 }
 //~PX_SERIALIZATION
 
-PxActor* NpGetPxActorBC(Sc::BodyCore& scBody)
-{
-	char* p = reinterpret_cast<char*>(&scBody);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpRigidDynamic*>(0)->getScbBodyFast()));
-	return reinterpret_cast<NpRigidDynamic*>(p - scbOffset - Scb::Body::getScOffset());
-}
-
-
 void NpRigidDynamic::release()
 {
 	NP_WRITE_CHECK(NpActor::getOwnerScene(*this));
@@ -325,7 +317,7 @@ void NpRigidDynamic::clearForce(PxForceMode::Enum mode)
 	PX_CHECK_AND_RETURN(!(getScbBodyFast().getFlags() & PxRigidBodyFlag::eKINEMATIC), "RigidDynamic::clearForce: Body must be non-kinematic!");
 	PX_CHECK_AND_RETURN(!(getScbBodyFast().getActorFlags() & PxActorFlag::eDISABLE_SIMULATION), "RigidDynamic::clearForce: Not allowed if PxActorFlag::eDISABLE_SIMULATION is set!");
 
-	clearSpatialForce(mode);
+	clearSpatialForce(mode, true, false);
 }
 
 
@@ -336,7 +328,7 @@ void NpRigidDynamic::clearTorque(PxForceMode::Enum mode)
 	PX_CHECK_AND_RETURN(!(getScbBodyFast().getFlags() & PxRigidBodyFlag::eKINEMATIC), "RigidDynamic::clearTorque: Body must be non-kinematic!");
 	PX_CHECK_AND_RETURN(!(getScbBodyFast().getActorFlags() & PxActorFlag::eDISABLE_SIMULATION), "RigidDynamic::clearTorque: Not allowed if PxActorFlag::eDISABLE_SIMULATION is set!");
 
-	clearSpatialForce(mode);
+	clearSpatialForce(mode, false, true);
 }
 
 

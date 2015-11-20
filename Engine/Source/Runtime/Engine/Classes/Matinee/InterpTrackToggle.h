@@ -78,7 +78,7 @@ class UInterpTrackToggle : public UInterpTrack
 	uint32 bFireEventsWhenJumpingForwards:1;
 
 
-	// Begin UInterpTrack interface.
+	//~ Begin UInterpTrack Interface.
 	virtual int32 GetNumKeyframes() const override;
 	virtual void GetTimeRange(float& StartTime, float& EndTime) const override;
 	virtual float GetTrackEndTime() const override;
@@ -98,7 +98,7 @@ class UInterpTrackToggle : public UInterpTrack
 #endif // WITH_EDITORONLY_DATA
 	virtual bool AllowStaticActors() override { return true; }
 	virtual void DrawTrack( FCanvas* Canvas, UInterpGroup* Group, const FInterpTrackDrawParams& Params ) override;
-	// Begin UInterpTrack interface.
+	//~ Begin UInterpTrack Interface.
 };
 
 

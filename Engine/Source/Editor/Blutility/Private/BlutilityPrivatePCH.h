@@ -6,5 +6,10 @@
 #include "UnrealEd.h"
 
 #include "IBlutilityModule.h"
+#include "Classes/EditorUtilityBlueprint.h"
+#include "Classes/EditorUtilityBlueprintFactory.h"
+#include "Classes/GlobalEditorUtilityBase.h"
+#include "Classes/PlacedEditorUtilityBase.h"
+
 
 #endif // __BlutilityPrivatePCH_h__

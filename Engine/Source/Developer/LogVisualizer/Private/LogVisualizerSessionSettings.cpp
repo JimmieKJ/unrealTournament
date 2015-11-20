@@ -6,7 +6,6 @@
 #if WITH_EDITOR
 #include "Editor/EditorEngine.h"
 #include "ISettingsModule.h"
-#include "GeometryEdMode.h"
 #include "UnrealEdMisc.h"
 #endif // WITH_EDITOR
 

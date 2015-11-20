@@ -1,7 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #pragma once
+
+#include "GameplayTagsK2Node_MultiCompareBase.h"
 #include "GameplayTagsK2Node_MultiCompareGameplayTagContainerSingleTags.generated.h"
 
 

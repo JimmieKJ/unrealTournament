@@ -28,34 +28,31 @@ public:
 	/**
 	 * Creates and initializes a new socket receiver.
 	 *
-	 * @param InSocket - The UDP socket to receive data from.
-	 * @param InWaitTime - The amount of time to wait for the socket to be readable.
-	 * @param ThreadDescription - The thread description text (for debugging).
+	 * @param InSocket The UDP socket to receive data from.
+	 * @param InWaitTime The amount of time to wait for the socket to be readable.
+	 * @param ThreadDescription The thread description text (for debugging).
 	 */
-	FUdpSocketReceiver( FSocket* InSocket, const FTimespan& InWaitTime, const TCHAR* ThreadDescription )
+	FUdpSocketReceiver(FSocket* InSocket, const FTimespan& InWaitTime, const TCHAR* ThreadDescription)
 		: Socket(InSocket)
 		, Stopping(false)
 		, WaitTime(InWaitTime)
 	{
-		check(Socket != NULL);
+		check(Socket != nullptr);
 		check(Socket->GetSocketType() == SOCKTYPE_Datagram);
 
 		SocketSubsystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 		Thread = FRunnableThread::Create(this, ThreadDescription, 128 * 1024, TPri_AboveNormal, FPlatformAffinity::GetPoolThreadMask());
 	}
 
-	/**
-	 * Destructor.
-	 */
-	~FUdpSocketReceiver( )
+	/** Virtual destructor. */
+	virtual ~FUdpSocketReceiver()
 	{
-		if (Thread != NULL)
+		if (Thread != nullptr)
 		{
 			Thread->Kill(true);
 			delete Thread;
 		}
 	}
-
 
 public:
 
@@ -64,20 +61,21 @@ public:
 	 *
 	 * @return The delegate.
 	 */
-	FOnSocketDataReceived& OnDataReceived( )
+	FOnSocketDataReceived& OnDataReceived()
 	{
 		return DataReceivedDelegate;
 	}
 
-
 public:
 
-	virtual bool Init( ) override
+	// FRunnable interface
+
+	virtual bool Init() override
 	{
 		return true;
 	}
 
-	virtual uint32 Run( ) override
+	virtual uint32 Run() override
 	{
 		TSharedRef<FInternetAddr> Sender = SocketSubsystem->CreateInternetAddr();
 
@@ -96,43 +94,44 @@ public:
 				Reader->SetNumUninitialized(FMath::Min(Size, 65507u));
 
 				int32 Read = 0;
-				Socket->RecvFrom(Reader->GetData(), Reader->Num(), Read, *Sender);
-
-				DataReceivedDelegate.ExecuteIfBound(Reader, FIPv4Endpoint(Sender));
+				
+				if (Socket->RecvFrom(Reader->GetData(), Reader->Num(), Read, *Sender))
+				{
+					Reader->RemoveAt(Read, Reader->Num() - Read, false);
+					DataReceivedDelegate.ExecuteIfBound(Reader, FIPv4Endpoint(Sender));
+				}
 			}
 		}
 
 		return 0;
 	}
 
-	virtual void Stop( ) override
+	virtual void Stop() override
 	{
 		Stopping = true;
 	}
 
-	virtual void Exit( ) override { }
-
+	virtual void Exit() override { }
 
 private:
 
-	// Holds the network socket.
+	/** Holds the network socket. */
 	FSocket* Socket;
 
-	// Holds a pointer to the socket sub-system.
+	/** Holds a pointer to the socket sub-system. */
 	ISocketSubsystem* SocketSubsystem;
 
-	// Holds a flag indicating that the thread is stopping.
+	/** Holds a flag indicating that the thread is stopping. */
 	bool Stopping;
 
-	// Holds the thread object.
+	/** Holds the thread object. */
 	FRunnableThread* Thread;
 
-	// Holds the amount of time to wait for inbound packets.
+	/** Holds the amount of time to wait for inbound packets. */
 	FTimespan WaitTime;
-
 
 private:
 
-	// Holds the data received delegate.
+	/** Holds the data received delegate. */
 	FOnSocketDataReceived DataReceivedDelegate;
 };

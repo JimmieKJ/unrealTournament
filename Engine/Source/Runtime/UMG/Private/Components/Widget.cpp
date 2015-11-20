@@ -75,11 +75,14 @@ public:
 
 	virtual void OnClosed() override
 	{
+		//TODO Notify interface implementing widget of closure
+
 		CachedToolTip.Reset();
 	}
 
 	virtual void OnOpening() override
 	{
+		//TODO Notify interface implementing widget of opening
 	}
 
 public:
@@ -100,12 +103,12 @@ UWidget::UWidget(const FObjectInitializer& ObjectInitializer)
 {
 	bIsEnabled = true;
 	bIsVariable = true;
-	bDesignTime = false;
+#if WITH_EDITOR
+	DesignerFlags = EWidgetDesignFlags::None;
+#endif
 	Visiblity_DEPRECATED = Visibility = ESlateVisibility::Visible;	
 	RenderTransformPivot = FVector2D(0.5f, 0.5f);
-
-	//TODO UMG ToolTipWidget
-	//TODO UMG Cursor doesn't work yet, the underlying slate version needs it to be TOptional.
+	Cursor = EMouseCursor::Default;
 }
 
 void UWidget::SetRenderTransform(FWidgetTransform Transform)
@@ -143,14 +146,13 @@ void UWidget::UpdateRenderTransform()
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
 	if (SafeWidget.IsValid())
 	{
-		if (!RenderTransform.IsIdentity())
+		if (RenderTransform.IsIdentity())
 		{
-			FSlateRenderTransform Transform2D = ::Concatenate(FScale2D(RenderTransform.Scale), FShear2D::FromShearAngles(RenderTransform.Shear), FQuat2D(FMath::DegreesToRadians(RenderTransform.Angle)), FVector2D(RenderTransform.Translation));
-			SafeWidget->SetRenderTransform(Transform2D);
+			SafeWidget->SetRenderTransform(TOptional<FSlateRenderTransform>());
 		}
 		else
 		{
-			SafeWidget->SetRenderTransform(TOptional<FSlateRenderTransform>());
+			SafeWidget->SetRenderTransform(RenderTransform.ToSlateRenderTransform());
 		}
 	}
 }
@@ -183,6 +185,29 @@ void UWidget::SetIsEnabled(bool bInIsEnabled)
 	}
 }
 
+void UWidget::SetCursor(EMouseCursor::Type InCursor)
+{
+	bOverride_Cursor = true;
+	Cursor = InCursor;
+
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		SafeWidget->SetCursor(Cursor);
+	}
+}
+
+void UWidget::ResetCursor()
+{
+	bOverride_Cursor = false;
+
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		SafeWidget->SetCursor(TOptional<EMouseCursor::Type>());
+	}
+}
+
 bool UWidget::IsVisible() const
 {
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
@@ -212,7 +237,18 @@ void UWidget::SetVisibility(ESlateVisibility InVisibility)
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
 	if (SafeWidget.IsValid())
 	{
-		return SafeWidget->SetVisibility(UWidget::ConvertSerializedVisibilityToRuntime(InVisibility));
+		EVisibility SlateVisibility = UWidget::ConvertSerializedVisibilityToRuntime(InVisibility);
+		return SafeWidget->SetVisibility(SlateVisibility);
+	}
+}
+
+void UWidget::ForceVolatile(bool bForce)
+{
+	bIsVolatile = bForce;
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		SafeWidget->ForceVolatile(bForce);
 	}
 }
 
@@ -269,17 +305,6 @@ bool UWidget::HasKeyboardFocus() const
 	if (SafeWidget.IsValid())
 	{
 		return SafeWidget->HasKeyboardFocus();
-	}
-
-	return false;
-}
-
-bool UWidget::HasFocusedDescendants() const
-{
-	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
-	if (SafeWidget.IsValid())
-	{
-		return SafeWidget->HasFocusedDescendants();
 	}
 
 	return false;
@@ -342,6 +367,41 @@ bool UWidget::HasAnyUserFocus() const
 	return false;
 }
 
+bool UWidget::HasFocusedDescendants() const
+{
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		return SafeWidget->HasFocusedDescendants();
+	}
+
+	return false;
+}
+
+bool UWidget::HasUserFocusedDescendants(APlayerController* PlayerController) const
+{
+	if ( PlayerController == nullptr || !PlayerController->IsLocalPlayerController() )
+	{
+		return false;
+	}
+
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		FLocalPlayerContext Context(PlayerController);
+
+		if ( ULocalPlayer* LocalPlayer = Context.GetLocalPlayer() )
+		{
+			// HACK: We use the controller Id as the local player index for focusing widgets in Slate.
+			int32 UserIndex = LocalPlayer->GetControllerId();
+
+			return SafeWidget->HasUserFocusedDescendants(UserIndex);
+		}
+	}
+
+	return false;
+}
+
 void UWidget::SetUserFocus(APlayerController* PlayerController)
 {
 	if ( PlayerController == nullptr || !PlayerController->IsLocalPlayerController() )
@@ -370,6 +430,15 @@ void UWidget::ForceLayoutPrepass()
 	if (SafeWidget.IsValid())
 	{
 		SafeWidget->SlatePrepass();
+	}
+}
+
+void UWidget::InvalidateLayoutAndVolatility()
+{
+	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( SafeWidget.IsValid() )
+	{
+		SafeWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 	}
 }
 
@@ -441,9 +510,14 @@ TSharedRef<SWidget> UWidget::TakeWidget()
 
 			MyGCWidget = SafeGCWidget;
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			bRoutedSynchronizeProperties = false;
+#endif
+
 			// Always synchronize properties of a user widget and call construct AFTER we've
 			// properly setup the GCWidget and synced all the properties.
 			SynchronizeProperties();
+			VerifySynchronizeProperties();
 			OnWidgetRebuilt();
 
 			return SafeGCWidget.ToSharedRef();
@@ -453,13 +527,25 @@ TSharedRef<SWidget> UWidget::TakeWidget()
 	{
 		if ( bNewlyCreated )
 		{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			bRoutedSynchronizeProperties = false;
+#endif
+
 			SynchronizeProperties();
+			VerifySynchronizeProperties();
 			OnWidgetRebuilt();
 		}
 
 		return SafeWidget.ToSharedRef();
 	}
 }
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+void UWidget::VerifySynchronizeProperties()
+{
+	ensureMsgf(bRoutedSynchronizeProperties, TEXT("%s failed to route SynchronizeProperties.  Please call Super::SynchronizeProperties() in your <className>::SynchronizeProperties() function."), *GetFullName());
+}
+#endif
 
 void UWidget::OnWidgetRebuilt()
 {
@@ -477,6 +563,7 @@ TSharedPtr<SWidget> UWidget::GetCachedWidget() const
 
 TSharedRef<SWidget> UWidget::BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidget)
 {
+#if WITH_EDITOR
 	if (IsDesignTime())
 	{
 		return SNew(SOverlay)
@@ -493,7 +580,7 @@ TSharedRef<SWidget> UWidget::BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidge
 		.VAlign(VAlign_Fill)
 		[
 			SNew(SBorder)
-			.Visibility( EVisibility::HitTestInvisible )
+			.Visibility(HasAnyDesignerFlags(EWidgetDesignFlags::ShowOutline) ? EVisibility::HitTestInvisible : EVisibility::Collapsed)
 			.BorderImage(FUMGStyle::Get().GetBrush("MarchingAnts"))
 		];
 	}
@@ -501,19 +588,36 @@ TSharedRef<SWidget> UWidget::BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidge
 	{
 		return WrapWidget;
 	}
+#else
+	return WrapWidget;
+#endif
 }
 
 #if WITH_EDITOR
 #define LOCTEXT_NAMESPACE "UMGEditor"
 
+void UWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
+{
+	DesignerFlags = ( EWidgetDesignFlags::Type )( DesignerFlags | NewFlags );
+}
+
 bool UWidget::IsGeneratedName() const
 {
 	FString Name = GetName();
-	FString BaseName = GetClass()->GetName() + TEXT("_");
 
-	if ( Name.StartsWith(BaseName) )
+	if (Name == GetClass()->GetName() || Name.StartsWith(GetClass()->GetName() + TEXT("_")))
 	{
 		return true;
+	}
+	else if (GetClass()->ClassGeneratedBy != nullptr)
+	{
+		FString BaseNameForBP = GetClass()->GetName();
+		BaseNameForBP.RemoveFromEnd(TEXT("_C"), ESearchCase::CaseSensitive);
+
+		if (Name == BaseNameForBP || Name.StartsWith(BaseNameForBP + TEXT("_")))
+		{
+			return true;
+		}
 	}
 
 	return false;
@@ -631,16 +735,24 @@ bool UWidget::IsChildOf(UWidget* PossibleParent)
 
 TSharedRef<SWidget> UWidget::RebuildWidget()
 {
-	ensureMsg(false, TEXT("You must implement RebuildWidget() in your child class"));
+	ensureMsgf(false, TEXT("You must implement RebuildWidget() in your child class"));
 	return SNew(SSpacer);
 }
 
 void UWidget::SynchronizeProperties()
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	bRoutedSynchronizeProperties = true;
+#endif
+
 	// We want to apply the bindings to the cached widget, which could be the SWidget, or the SObjectWidget, 
 	// in the case where it's a user widget.  We always want to prefer the SObjectWidget so that bindings to 
 	// visibility and enabled status are not stomping values setup in the root widget in the User Widget.
 	TSharedPtr<SWidget> SafeWidget = GetCachedWidget();
+	if ( !SafeWidget.IsValid() )
+	{
+		return;
+	}
 
 #if WITH_EDITOR
 	// Always use an enabled and visible state in the designer.
@@ -649,12 +761,19 @@ void UWidget::SynchronizeProperties()
 		SafeWidget->SetEnabled(true);
 		SafeWidget->SetVisibility(BIND_UOBJECT_ATTRIBUTE(EVisibility, GetVisibilityInDesigner));
 	}
-	else
+	else 
 #endif
 	{
+		if ( bOverride_Cursor /*|| CursorDelegate.IsBound()*/ )
+		{
+			SafeWidget->SetCursor(Cursor);// GAME_SAFE_OPTIONAL_BINDING(EMouseCursor::Type, Cursor));
+		}
+
 		SafeWidget->SetEnabled(GAME_SAFE_OPTIONAL_BINDING( bool, bIsEnabled ));
 		SafeWidget->SetVisibility(OPTIONAL_BINDING_CONVERT(ESlateVisibility, Visibility, EVisibility, ConvertVisibility));
 	}
+
+	SafeWidget->ForceVolatile(bIsVolatile);
 
 	UpdateRenderTransform();
 	SafeWidget->SetRenderTransformPivot(RenderTransformPivot);
@@ -681,10 +800,16 @@ void UWidget::SynchronizeProperties()
 		SafeWidget->SetToolTipText(GAME_SAFE_OPTIONAL_BINDING(FText, ToolTipText));
 	}
 
-#if WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 	// In editor builds we add metadata to the widget so that once hit with the widget reflector it can report
 	// where it comes from, what blueprint, what the name of the widget was...etc.
 	SafeWidget->AddMetadata<FReflectionMetaData>(MakeShareable(new FReflectionMetaData(GetFName(), GetClass(), WidgetGeneratedBy)));
+#else
+
+#if !UE_BUILD_SHIPPING
+	SafeWidget->AddMetadata<FReflectionMetaData>(MakeShareable(new FReflectionMetaData(GetFName(), GetClass(), WidgetGeneratedByClass)));
+#endif
+
 #endif
 }
 
@@ -704,18 +829,6 @@ void UWidget::BuildNavigation()
 
 		Navigation->UpdateMetaData(MetaData.ToSharedRef());
 	}
-}
-
-#if WITH_EDITOR
-bool UWidget::IsDesignTime() const
-{
-	return bDesignTime;
-}
-#endif
-
-void UWidget::SetIsDesignTime(bool bInDesignTime)
-{
-	bDesignTime = bInDesignTime;
 }
 
 UWorld* UWidget::GetWorld() const

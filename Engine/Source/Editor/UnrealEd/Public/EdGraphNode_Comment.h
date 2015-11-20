@@ -12,10 +12,10 @@ namespace ECommentBoxMode
 {
 	enum Type
 	{
-		// This comment box will move any fully contained nodes when it moves
+		/** This comment box will move any fully contained nodes when it moves. */
 		GroupMovement UMETA(DisplayName="Group Movement"),
 
-		// This comment box has no effect on nodes contained inside it
+		/** This comment box has no effect on nodes contained inside it. */
 		NoGroupMovement UMETA(DisplayName="Comment")
 	};
 }
@@ -47,11 +47,11 @@ public:
 
 public:
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	UNREALED_API static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override {}
 	UNREALED_API virtual FText GetTooltipText() const override;
 	UNREALED_API virtual FLinearColor GetNodeCommentColor() const override;
@@ -66,7 +66,7 @@ public:
 	UNREALED_API virtual FString GetDocumentationLink() const override;
 	UNREALED_API virtual FString GetDocumentationExcerptName() const override;
 	UNREALED_API virtual FName GetPaletteIcon(FLinearColor& OutColor) const override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
 	/** Add a node that will be dragged when this comment is dragged */
 	UNREALED_API void	AddNodeUnderComment(UObject* Object);

@@ -66,7 +66,7 @@ static void dprintf(const char* Format, ...)
 
 struct FGlslCodeBackend : public FCodeBackend
 {
-	FGlslCodeBackend(unsigned int InHlslCompileFlags) : FCodeBackend(InHlslCompileFlags) {}
+	FGlslCodeBackend(unsigned int InHlslCompileFlags, EHlslCompileTarget InTarget) : FCodeBackend(InHlslCompileFlags, InTarget) {}
 
 	// Returns false if any issues
 	virtual bool GenerateMain(EHlslShaderFrequency Frequency, const char* EntryPoint, exec_list* Instructions, _mesa_glsl_parse_state* ParseState) override
@@ -83,7 +83,7 @@ struct FGlslCodeBackend : public FCodeBackend
 
 	virtual char* GenerateCode(struct exec_list* ir, struct _mesa_glsl_parse_state* ParseState, EHlslShaderFrequency Frequency) override
 	{
-		IRDump(ir);
+		IRDump(ir, ParseState);
 		return 0;
 	}
 };
@@ -95,6 +95,7 @@ struct FGlslLanguageSpec : public ILanguageSpec
 	virtual bool SupportsDeterminantIntrinsic() const {return false;}
 	virtual bool SupportsTransposeIntrinsic() const {return false;}
 	virtual bool SupportsIntegerModulo() const {return true;}
+	virtual bool AllowsSharingSamplers() const { return false; }
 
 	// half3x3 <-> float3x3
 	virtual bool SupportsMatrixConversions() const {return false;}
@@ -118,10 +119,12 @@ struct SCmdOptions
 	bool bNoPreprocess;
 	bool bFlattenUB;
 	bool bFlattenUBStructures;
+	bool bUseDX11Clip;
 	bool bGroupFlattenedUB;
 	bool bExpandExpressions;
 	bool bCSE;
 	bool bSeparateShaderObjects;
+	bool bPackIntoUBs;
 	const char* OutFile;
 
 	SCmdOptions() 
@@ -135,10 +138,12 @@ struct SCmdOptions
 		bNoPreprocess = false;
 		bFlattenUB = false;
 		bFlattenUBStructures = false;
+		bUseDX11Clip = false;
 		bGroupFlattenedUB = false;
 		bExpandExpressions = false;
 		bCSE = false;
 		bSeparateShaderObjects = false;
+		bPackIntoUBs = false;
 		OutFile = nullptr;
 	}
 };
@@ -212,6 +217,10 @@ static int ParseCommandLine( int argc, char** argv, SCmdOptions& OutOptions)
 			{
 				OutOptions.bFlattenUBStructures = true;
 			}
+			else if (!strcmp(*argv, "-dx11clip"))
+			{
+				OutOptions.bUseDX11Clip = true;
+			}
 			else if (!strcmp(*argv, "-groupflatub"))
 			{
 				OutOptions.bGroupFlattenedUB = true;
@@ -231,6 +240,10 @@ static int ParseCommandLine( int argc, char** argv, SCmdOptions& OutOptions)
 			else if (!strcmp( *argv, "-separateshaders"))
 			{
 				OutOptions.bSeparateShaderObjects = true;
+			}
+			else if (!strcmp(*argv, "-packintoubs"))
+			{
+				OutOptions.bPackIntoUBs = true;
 			}
 			else
 			{
@@ -342,14 +355,16 @@ int main( int argc, char** argv)
 	int Flags = HLSLCC_PackUniforms; // | HLSLCC_NoValidation | HLSLCC_PackUniforms;
 	Flags |= Options.bNoPreprocess ? HLSLCC_NoPreprocess : 0;
 	Flags |= Options.bDumpAST ? HLSLCC_PrintAST : 0;
+	Flags |= Options.bUseDX11Clip ? HLSLCC_DX11ClipSpace : 0;
 	Flags |= Options.bFlattenUB ? HLSLCC_FlattenUniformBuffers : 0;
 	Flags |= Options.bFlattenUBStructures ? HLSLCC_FlattenUniformBufferStructures : 0;
 	Flags |= Options.bGroupFlattenedUB ? HLSLCC_GroupFlattenedUniformBuffers : 0;
 	Flags |= Options.bCSE ? HLSLCC_ApplyCommonSubexpressionElimination : 0;
 	Flags |= Options.bExpandExpressions ? HLSLCC_ExpandSubexpressions : 0;
 	Flags |= Options.bSeparateShaderObjects ? HLSLCC_SeparateShaderObjects : 0;
+	Flags |= Options.bPackIntoUBs ? HLSLCC_PackUniformsIntoUniformBuffers : 0;
 
-	FGlslCodeBackend GlslCodeBackend(Flags);
+	FGlslCodeBackend GlslCodeBackend(Flags, Options.Target);
 	FGlslLanguageSpec GlslLanguageSpec;//(Options.Target == HCT_FeatureLevelES2);
 
 	FCodeBackend* CodeBackend = &GlslCodeBackend;

@@ -906,6 +906,9 @@ void SDialogueContextHeaderWidget::Construct( const FArguments& InArgs, const TS
 		];
 	}
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
+
+
 void SDialogueContextHeaderWidget::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
 	if( !IsSpeakerValid() )

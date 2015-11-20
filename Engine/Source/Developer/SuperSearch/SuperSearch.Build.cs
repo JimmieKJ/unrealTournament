@@ -4,12 +4,12 @@ using UnrealBuildTool;
 
 public class SuperSearch : ModuleRules
 {
-	public SuperSearch(TargetInfo Target)
-	{
-		if (UEBuildConfiguration.bBuildEditor == true)
-		{
-		PrivateDependencyModuleNames.AddRange(
-			new string[] {
+    public SuperSearch(TargetInfo Target)
+    {
+        if (UEBuildConfiguration.bBuildEditor == true)
+        {
+            PrivateDependencyModuleNames.AddRange(
+                new string[] {
 					"Core",
 					"CoreUObject", // @todo Mac: for some reason it's needed to link in debug on Mac
 					"Engine",
@@ -22,19 +22,21 @@ public class SuperSearch : ModuleRules
 					"HTTP",
 					"IntroTutorials"
 				}
-			);
-		}
-		else
-		{
-	   		PrivateDependencyModuleNames.AddRange(
-				new string[] {
+            );
+        }
+        else
+        {
+            PrivateDependencyModuleNames.AddRange(
+                new string[] {
 					"Core",
 					"CoreUObject", // @todo Mac: for some reason it's needed to link in debug on Mac
+                    "InputCore",
 					"Slate",
 					"SlateCore",
-	                "HTTP"
-			}
-		);
-	}
-}
+	                "HTTP",
+                    "Json",
+			    }
+            );
+        }
+    }
 }

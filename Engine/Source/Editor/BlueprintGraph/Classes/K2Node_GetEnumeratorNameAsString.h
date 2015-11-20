@@ -9,17 +9,17 @@ class UK2Node_GetEnumeratorNameAsString : public UK2Node_GetEnumeratorName
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Enum_16x"); }
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
 	virtual FName GetFunctionName() const override;
 };

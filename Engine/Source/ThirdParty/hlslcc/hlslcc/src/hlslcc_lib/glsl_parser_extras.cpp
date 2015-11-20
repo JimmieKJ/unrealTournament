@@ -41,38 +41,43 @@
 /* TODO: Move this in to _mesa_glsl_parse_state. */
 static unsigned int g_anon_struct_count = 0;
 
-_mesa_glsl_parse_state::_mesa_glsl_parse_state(
-	void *mem_ctx,
-	_mesa_glsl_parser_targets target,
-	ILanguageSpec* InLanguageSpec,
-	int glsl_version) :
-	LanguageSpec(InLanguageSpec)
+_mesa_glsl_parse_state::_mesa_glsl_parse_state(void *mem_ctx, _mesa_glsl_parser_targets InTarget, ILanguageSpec* InLanguageSpec, int glsl_version) :
+	scanner(nullptr),
+	base_source_file(nullptr),
+	current_source_file(nullptr),
+	LanguageSpec(InLanguageSpec),
+	bFlattenUniformBuffers(false),
+	bGenerateES(false),
+	bSeparateShaderObjects(false),
+	language_version(glsl_version),
+	target(InTarget),
+	maxvertexcount(0),
+	geometryinput(0),
+	outputstream_type(0),
+	bGenerateLayoutLocations(false),
+	next_in_location_slot(0),
+	next_out_location_slot(0),
+	adjust_clip_space_dx11_to_opengl(false),
+	current_function(nullptr),
+	toplevel_ir(nullptr),
+	found_return(false),
+	error(false),
+	all_invariant(false),
+	loop_nesting_ast(nullptr),
+	user_structures(nullptr),
+	num_user_structures(0),
+	uniform_blocks(nullptr),
+	num_uniform_blocks(0),
+	has_packed_uniforms(false)
 {
 	check(InLanguageSpec);
-	this->target = target;
 
-	this->scanner = NULL;
 	this->translation_unit.make_empty();
 	this->symbols = new(mem_ctx)glsl_symbol_table;
 	this->info_log = ralloc_strdup(mem_ctx, "");
-	this->error = false;
-	this->loop_nesting_ast = NULL;
-	this->switch_state.switch_nesting_ast = NULL;
-
-	/* Set default language version and extensions */
-	this->language_version = glsl_version;
-	this->maxvertexcount = 0;
 
 	/* Reset the anonymous struct count. */
 	g_anon_struct_count = 0;
-
-	this->adjust_clip_space_dx11_to_opengl = false;
-	bFlattenUniformBuffers = false;
-	bGenerateES = false;
-	bGenerateLayoutLocations = false;
-	bSeparateShaderObjects = false;
-	next_in_location_slot = 0;
-	next_out_location_slot = 0;
 }
 
 void _mesa_glsl_parse_state::FindOffsetIntoCBufferInFloats(bool bFlattenStructure, const char* CBName, const char* Member, unsigned& OffsetInCBInFloats, unsigned& SizeInFloats)

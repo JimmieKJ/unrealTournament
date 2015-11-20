@@ -768,7 +768,7 @@ void UWorldComposition::EvaluateWorldOriginLocation(const FVector& ViewLocation)
 	}
 		
 	// Request to shift world in case current view is quite far from current origin
-	if (Location.Size() > RebaseOriginDistance)
+	if (Location.SizeSquared() > FMath::Square(RebaseOriginDistance))
 	{
 		OwningWorld->RequestNewWorldOrigin(FIntVector(Location.X, Location.Y, Location.Z) + OwningWorld->OriginLocation);
 	}

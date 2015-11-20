@@ -31,6 +31,18 @@ static TAutoConsoleVariable<FString> GProfileGPURootCVar(
 	TEXT("Allows to filter the tree when using ProfileGPU, the pattern match is case sensitive."),
 	ECVF_Default);
 
+static TAutoConsoleVariable<int32> GProfileGPUShowEvents(
+	TEXT("r.ProfileGPU.ShowLeafEvents"),
+	0,
+	TEXT("Allows profileGPU to display event-only leaf nodes with no draws associated."),
+	ECVF_Default);
+
+static TAutoConsoleVariable<int32> GProfileGPUTransitions(
+	TEXT("r.ProfileGPU.ShowTransitions"),
+	0,
+	TEXT("Allows profileGPU to display resource transition events."),
+	ECVF_Default);
+
 struct FNodeStatsCompare
 {
 	/** Sorts nodes by descending durations. */
@@ -77,10 +89,10 @@ static void GatherStatsEventNode(FGPUProfilerEventNode* Node, int32 Depth, TMap<
 }
 
 /** Recursively dumps stats for each node with a depth first traversal. */
-static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, int32 Depth, const FWildcardString& WildcardFilter, bool bParentMatchedFilter, int32& NumNodes, int32& NumDraws)
+static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, int32 Depth, const FWildcardString& WildcardFilter, bool bParentMatchedFilter, int32& NumNodes, int32& NumDraws, bool bDumpEventLeafNodes)
 {
 	NumNodes++;
-	if (Node->NumDraws > 0 || Node->Children.Num() > 0)
+	if (Node->NumDraws > 0 || Node->Children.Num() > 0 || bDumpEventLeafNodes)
 	{
 		NumDraws += Node->NumDraws;
 		// Percent that this node was of the total frame time
@@ -92,15 +104,25 @@ static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, in
 
 		if (bMatchesFilter)
 		{
+			FString Extra;
+			
+			if(Node->TimingResult >= 0.1f && Node->NumVertices * Node->NumDraws > 100)
+			{
+				Extra = FString::Printf(TEXT(" %.0f prims/ms %.0f verts/ms"),
+					Node->NumPrimitives / Node->TimingResult,
+					Node->NumVertices / Node->TimingResult);
+			}
+
 			// Print information about this node, padded to its depth in the tree
-			UE_LOG(LogRHI, Warning, TEXT("%s%4.1f%%%5.2fms   %s %u draws %u prims %u verts"), 
+			UE_LOG(LogRHI, Warning, TEXT("%s%4.1f%%%5.2fms   %s %u draws %u prims %u verts%s"), 
 				*FString(TEXT("")).LeftPad(EffectiveDepth * 3), 
 				Percent,
 				Node->TimingResult,
 				*Node->Name,
 				Node->NumDraws,
 				Node->NumPrimitives,
-				Node->NumVertices
+				Node->NumVertices,
+				*Extra
 				);
 		}
 
@@ -111,8 +133,8 @@ static void DumpStatsEventNode(FGPUProfilerEventNode* Node, float RootResult, in
 			FGPUProfilerEventNode* ChildNode = Node->Children[ChildIndex];
 
 			int32 NumChildDraws = 0;
-			// Traverse children
-			DumpStatsEventNode(Node->Children[ChildIndex], RootResult, Depth + 1, WildcardFilter, bMatchesFilter, NumNodes, NumChildDraws);
+			// Traverse children			
+			DumpStatsEventNode(Node->Children[ChildIndex], RootResult, Depth + 1, WildcardFilter, bMatchesFilter, NumNodes, NumChildDraws, bDumpEventLeafNodes);
 			NumDraws += NumChildDraws;
 
 			TotalChildTime += ChildNode->TimingResult;
@@ -215,9 +237,10 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 
 		int32 NumNodes = 0;
 		int32 NumDraws = 0;
+		bool bDumpEventLeafNodes = GProfileGPUShowEvents.GetValueOnRenderThread() != 0;
 		for (int32 BaseNodeIndex = 0; BaseNodeIndex < EventTree.Num(); BaseNodeIndex++)
 		{
-			DumpStatsEventNode(EventTree[BaseNodeIndex], RootResult, 0, RootWildcard, false, NumNodes, NumDraws);
+			DumpStatsEventNode(EventTree[BaseNodeIndex], RootResult, 0, RootWildcard, false, NumNodes, NumDraws, bDumpEventLeafNodes);
 		}
 
 		//@todo - calculate overhead instead of hardcoding
@@ -240,6 +263,8 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 			// bad: reading on render thread but we don't support ECVF_RenderThreadSafe on strings yet
 			// It's very unlikely to cause a problem as the cvar is only changes by the user.
 			FString WildcardString = CVar->GetString(); 
+
+			FGPUProfilerEventNodeStats Sum;
 
 			const float ThresholdInMS = 5.0f;
 
@@ -276,6 +301,7 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 				if (bDump)
 				{
 					UE_LOG(LogRHI, Warning, TEXT("   %.2fms   %s   Events %u   Draws %u"), NodeStats.TimingResult, *It.Key(), NodeStats.NumEvents, NodeStats.NumDraws);
+					Sum += NodeStats;
 				}
 				else
 				{
@@ -283,7 +309,8 @@ void FGPUProfilerEventNodeFrame::DumpEventTree()
 				}
 			}
 
-			UE_LOG(LogRHI, Warning, TEXT("   %u buckets not shown"), NumNotShown);
+			UE_LOG(LogRHI, Warning, TEXT("   Total %.2fms   Events %u   Draws %u,    %u buckets not shown"), 
+				Sum.TimingResult, Sum.NumEvents, Sum.NumDraws, NumNotShown);
 		}
 
 #if !UE_BUILD_SHIPPING
@@ -368,5 +395,37 @@ uint64 FGPUTiming::GTimingFrequency = 0;
 
 /** Whether the static variables have been initialized. */
 bool FGPUTiming::GAreGlobalsInitialized = false;
+
+
+
+float FWindowedGPUTimer::GetElapsedAverage(FRHICommandListImmediate& RHICmdList, float &OutAvgTimeInSeconds)
+{
+	if (QueriesFinished < StartQueries.Num())
+	{
+		return 0.0f;
+	}
+
+	float TotalTime = 0;
+
+	// Grab the queries in our window (specified number of frames old) and calculate total time as an average of the winow size
+	//
+	for (int32 i = StartQueries.Num() - WindowSize; i < StartQueries.Num(); i++)
+	{
+		uint64 StartTime, EndTime;
+		bool StartSucceeded = RHICmdList.GetRenderQueryResult(StartQueries[i], StartTime, false);
+		bool EndSucceeded = RHICmdList.GetRenderQueryResult(EndQueries[i], EndTime, false);
+
+		// figure out what the failure rate of the queries is; they fail because the GPU hasn't finished them when we
+		// try to get the data, so if the failure rate is too high, number of frames behind needs to be increased
+		QueriesFailed += StartSucceeded&&EndSucceeded ? -1 : 1;
+		QueriesFailed = FMath::Max<int32>(0, QueriesFailed);
+		TotalTime += (EndTime - StartTime) / 1000000.0f;
+	}
+
+	float FailRate = static_cast<float>(QueriesFailed) / WindowSize;
+	OutAvgTimeInSeconds = TotalTime / WindowSize;
+
+	return FailRate;
+}
 
 #undef LOCTEXT_NAMESPACE

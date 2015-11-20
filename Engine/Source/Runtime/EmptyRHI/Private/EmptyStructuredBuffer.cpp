@@ -25,16 +25,16 @@ FEmptyStructuredBuffer::~FEmptyStructuredBuffer()
 
 
 
-FStructuredBufferRHIRef FEmptyDynamicRHI::RHICreateStructuredBuffer(uint32 Stride,uint32 Size,FResourceArrayInterface* ResourceArray,uint32 InUsage)
+FStructuredBufferRHIRef FEmptyDynamicRHI::RHICreateStructuredBuffer(uint32 Stride, uint32 Size, uint32 InUsage, FRHIResourceCreateInfo& CreateInfo)
 {
-	return new FEmptyStructuredBuffer(Stride, Size, ResourceArray, InUsage);
+	return nullptr;//new FEmptyStructuredBuffer(Stride, Size, ResourceArray, InUsage);
 }
 
 void* FEmptyDynamicRHI::RHILockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI,uint32 Offset,uint32 Size,EResourceLockMode LockMode)
 {
 	FEmptyStructuredBuffer* StructuredBuffer = ResourceCast(StructuredBufferRHI);
 
-	return NULL;
+	return nullptr;
 }
 
 void FEmptyDynamicRHI::RHIUnlockStructuredBuffer(FStructuredBufferRHIParamRef StructuredBufferRHI)

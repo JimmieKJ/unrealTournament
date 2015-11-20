@@ -51,6 +51,7 @@ public class Core : ModuleRules
 			new string[] {
 				"TargetPlatform",
 				"DerivedDataCache",
+                "CookingStats",
 				"InputDevice",
                 "Analytics"
 			}
@@ -129,6 +130,7 @@ public class Core : ModuleRules
             {
                 AddThirdPartyPrivateStaticDependencies(Target, "FreeType2");
 				AddThirdPartyPrivateStaticDependencies(Target, "OpenGL");
+				PrivateIncludePathModuleNames.Add("ImageWrapper");
 			}
         }
 		else if (Target.Platform == UnrealTargetPlatform.HTML5 && Target.Architecture == "-win32")

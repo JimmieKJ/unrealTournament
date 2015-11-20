@@ -32,6 +32,9 @@ public:
 	/** Sets search text which should be used to filter the content sources. */
 	void SetSearchText(FText SearchTextIn);
 
+	/** Get any error information that was reported the last time SetSearchText was called. */
+	FText GetSearchErrorText() const;
+
 	/** Gets a filtered array of content sources which match both the selected category and the search
 		text if it has been set. */
 	const TArray<TSharedPtr<FContentSourceViewModel>>* GetContentSources();

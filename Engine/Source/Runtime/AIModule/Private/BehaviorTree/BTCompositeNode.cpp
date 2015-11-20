@@ -354,6 +354,7 @@ static bool UpdateOperationStack(const UBehaviorTreeComponent& OwnerComp, FStrin
 
 bool UBTCompositeNode::DoDecoratorsAllowExecution(UBehaviorTreeComponent& OwnerComp, int32 InstanceIdx, int32 ChildIdx) const
 {
+	ensure(Children.IsValidIndex(ChildIdx));
 	if (Children.IsValidIndex(ChildIdx) == false)
 	{
 		UE_VLOG(OwnerComp.GetOwner(), LogBehaviorTree, Error, TEXT("%s: DoDecoratorsAllowExecution called with ChildIdx = %d which is not a valid child index")

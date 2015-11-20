@@ -61,10 +61,10 @@ enum EPlayModeType
 	/** Runs in VR. */
 	PlayMode_InVR,
 
-	/** Simulates in viewport without possessing the player */
+	/** Simulates in viewport without possessing the player. */
 	PlayMode_Simulate,
 
-	/** The number of different Play Modes */
+	/** The number of different Play Modes. */
 	PlayMode_Count,
 };
 
@@ -81,16 +81,31 @@ enum EPlayNetMode
 UENUM()
 enum EPlayOnBuildMode
 {
-	/** Always build */
+	/** Always build. */
 	PlayOnBuild_Always UMETA(DisplayName="Always Build"),
 
 	/** Never build. */
 	PlayOnBuild_Never UMETA(DisplayName="Never Build"),
 
-	/** Build based on project type */
+	/** Build based on project type. */
 	PlayOnBuild_Default UMETA(DisplayName="Only Build Code Projects"),
 };
 
+/* Configuration to use when launching on device. */
+UENUM()
+enum EPlayOnLaunchConfiguration
+{
+	/** Launch on device with the same build configuration as the editor. */
+	LaunchConfig_Default UMETA(DisplayName = "Same as Editor"),
+	/** Launch on device with a Debug build configuration. */
+	LaunchConfig_Debug UMETA(DisplayName = "Debug"),
+	/** Launch on device with a Development build configuration. */
+	LaunchConfig_Development UMETA(DisplayName = "Development"),
+	/** Launch on device with a Test build configuration. */
+	LaunchConfig_Test UMETA(DisplayName = "Test"),
+	/** Launch on device with a Shipping build configuration. */
+	LaunchConfig_Shipping UMETA(DisplayName = "Shipping"),
+};
 
 /**
  * Holds information about a screen resolution to be used for playing.
@@ -118,7 +133,6 @@ public:
 	UPROPERTY(config)
 	FString AspectRatio;
 };
-
 
 /**
  * Implements the Editor's play settings.
@@ -150,7 +164,7 @@ public:
 	TEnumAsByte<ELabelAnchorMode> MouseControlLabelPosition;
 
 	/** Should Play-in-Viewport respect HMD orientations (default = false) */
-	UPROPERTY(config, EditAnywhere, Category = PlayInEditor, meta = (ToolTip = "Whether or not HMD orientation should be used when playing in viewport"))
+	UPROPERTY(config, EditAnywhere, Category=PlayInEditor, meta=(ToolTip="Whether or not HMD orientation should be used when playing in viewport"))
 	bool ViewportGetsHMDControl;
 
 	/** Whether to automatically recompile blueprints on PIE */
@@ -158,17 +172,25 @@ public:
 	bool AutoRecompileBlueprints;
 
 	/** Whether to play sounds during PIE */
-	UPROPERTY(config, EditAnywhere, Category = PlayInEditor, meta = (ToolTip = "Whether to play sounds when in a Play In Editor session"))
+	UPROPERTY(config, EditAnywhere, Category=PlayInEditor, meta=(ToolTip="Whether to play sounds when in a Play In Editor session"))
 	bool EnableSound;
+
+	/** Which quality level to use when playing in editor */
+	UPROPERTY(config, EditAnywhere, Category=PlayInEditor)
+	int32 PlayInEditorSoundQualityLevel;
 
 	/** True if Play In Editor should only load currently-visible levels in PIE. */
 	UPROPERTY(config)
 	uint32 bOnlyLoadVisibleLevelsInPIE:1;
 
-	UPROPERTY(config, EditAnywhere, Category = PlayInEditor, meta = (DisplayName="Stream Sub-Levels during Play in Editor", ToolTip = "Prefer to stream sub-levels from the disk instead of duplicating editor sub-levels"))
+	UPROPERTY(config, EditAnywhere, Category = PlayInEditor, meta = (DisplayName="Stream Sub-Levels during Play in Editor", ToolTip="Prefer to stream sub-levels from the disk instead of duplicating editor sub-levels"))
 	uint32 bPreferToStreamLevelsInPIE:1;
 
 public:
+
+	/** Whether to always have the PIE window on top of the parent windows. */
+	UPROPERTY(config, EditAnywhere, Category = PlayInNewWindow, meta = (ToolTip="Always have the PIE window on top of the parent windows."))
+	bool PIEAlwaysOnTop;
 
 	/** The width of the new view port window in pixels (0 = use the desktop's screen resolution). */
 	UPROPERTY(config, EditAnywhere, Category=PlayInNewWindow)
@@ -196,6 +218,14 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
 	int32 StandaloneWindowHeight;
 
+	/** The position of the standalone game window on the screen in pixels. */
+	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
+	FIntPoint StandaloneWindowPosition;
+
+	/** Whether the standalone game window should be centered on the screen. */
+	UPROPERTY(config, EditAnywhere, Category=PlayInStandaloneGame)
+	bool CenterStandaloneWindow;
+
 	/** Whether sound should be disabled when playing standalone games. */
 	UPROPERTY(config , EditAnywhere, Category=PlayInStandaloneGame, AdvancedDisplay)
 	uint32 DisableStandaloneSound:1;
@@ -206,9 +236,17 @@ public:
 
 public:
 
-	/** The width of the new view port window in pixels (0 = use the desktop's screen resolution). */
+	/** Whether to build the game before launching on device. */
 	UPROPERTY(config, EditAnywhere, Category = PlayOnDevice)
 	TEnumAsByte<EPlayOnBuildMode> BuildGameBeforeLaunch;
+
+	/* Which build configuration to use when launching on device. */
+	UPROPERTY(config, EditAnywhere, Category = PlayOnDevice)
+	TEnumAsByte<EPlayOnLaunchConfiguration> LaunchConfiguration;
+
+	/** Whether to automatically recompile dirty Blueprints before launching */
+	UPROPERTY(config, EditAnywhere, Category=PlayOnDevice)
+	bool bAutoCompileBlueprintsOnLaunch;
 
 private:
 
@@ -231,6 +269,14 @@ private:
 	/** Width to use when spawning additional windows. */
 	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
 	int32 ClientWindowWidth;
+
+	/**
+	 * When running multiple players or a dedicated server the client need to connect to the server, this option sets how they connect
+	 *
+	 * If this is checked, the clients will automatically connect to the launched server, if false they will launch into the map and wait
+	 */
+	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
+	bool AutoConnectToServer;
 
 	/**
 	 * When running multiple player windows in a single process, this option determines how the game pad input gets routed.
@@ -256,11 +302,11 @@ private:
 	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
 	int32 ClientWindowHeight;
 
-	/** Additional options that will be passed to the server as URL parameters. */
+	/** Additional options that will be passed to the server as URL parameters, in the format ?bIsLanMatch=1?listen - any additional command line switches should be passed in the Command Line Arguments field below. */
 	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
 	FString AdditionalServerGameOptions;
 
-	/** Additional command line options that will be passed to standalone game instances. */
+	/** Additional command line options that will be passed to standalone game instances, for example -debug */
 	UPROPERTY(config, EditAnywhere, Category=MultiplayerOptions)
 	FString AdditionalLaunchOptions;
 
@@ -284,6 +330,10 @@ public:
 	bool IsPlayNumberOfClientsActive() const { return (PlayNetMode != PIE_Standalone) || RunUnderOneProcess; }
 	bool GetPlayNumberOfClients( int32 &OutPlayNumberOfClients ) const { OutPlayNumberOfClients = PlayNumberOfClients; return IsPlayNumberOfClientsActive(); }
 	
+	bool IsAutoConnectToServerActive() const { return PlayNumberOfClients > 1 || PlayNetDedicated; }
+	bool GetAutoConnectToServer(bool &OutAutoConnectToServer) const { OutAutoConnectToServer = AutoConnectToServer; return IsAutoConnectToServerActive(); }
+	EVisibility GetAutoConnectToServerVisibility() const { return (RunUnderOneProcess ? EVisibility::Visible : EVisibility::Hidden); }
+
 	bool IsRouteGamepadToSecondWindowActive() const { return PlayNumberOfClients > 1; }
 	bool GetRouteGamepadToSecondWindow( bool &OutRouteGamepadToSecondWindow ) const { OutRouteGamepadToSecondWindow = RouteGamepadToSecondWindow; return IsRouteGamepadToSecondWindowActive(); }
 	EVisibility GetRouteGamepadToSecondWindowVisibility() const { return (RunUnderOneProcess ? EVisibility::Visible : EVisibility::Hidden); }

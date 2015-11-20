@@ -137,7 +137,7 @@ float CubemapHardwarePCF(float3 WorldPosition, float3 LightPosition, float Light
 		// Figure out which cube face we're sampling from
 		float3 AbsLightVector = abs(LightVector);
 		float MaxCoordinate = max(AbsLightVector.x, max(AbsLightVector.y, AbsLightVector.z));
-#if MAC // @todo Remove once there is a fix for the Apple Intel HD driver/GLSL compiler failing to correctly index into the uniform array using the dynamically calculated CubeFaceIndex variable. radr://19190281 "Intel HD 4000 fails to index uniform array with dynamic variable, causes point lights to render incorrectly in UE4"
+#if MAC && COMPILER_GLSL // @todo Remove once there is a fix for the Apple Intel HD driver/GLSL compiler failing to correctly index into the uniform array using the dynamically calculated CubeFaceIndex variable. radr://19190281 "Intel HD 4000 fails to index uniform array with dynamic variable, causes point lights to render incorrectly in UE4"
 		// Transform the position into shadow space
 		float4 ShadowPosition;
 		if (MaxCoordinate == AbsLightVector.x)

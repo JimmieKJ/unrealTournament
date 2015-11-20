@@ -256,11 +256,9 @@ FVector2D SGraphNodeResizable::GetCorrectedNodePosition() const
 SGraphNodeResizable::EResizableWindowZone SGraphNodeResizable::FindMouseZone(const FVector2D& LocalMouseCoordinates) const
 {
 	EResizableWindowZone OutMouseZone = CRWZ_NotInWindow;
-
-	const float InverseZoomFactor = 1.0f / FMath::Min(GetOwnerPanel()->GetZoomAmount(), 1.0f);
-	const FSlateRect HitResultBorderSize = GetHitTestingBorder( InverseZoomFactor );
-
+	const FSlateRect HitResultBorderSize = GetHitTestingBorder();
 	const FVector2D NodeSize = GetDesiredSize();
+
 	// Test for hit in location of 'grab' zone
 	if (LocalMouseCoordinates.Y > ( NodeSize.Y - HitResultBorderSize.Bottom))
 	{
@@ -270,7 +268,7 @@ SGraphNodeResizable::EResizableWindowZone SGraphNodeResizable::FindMouseZone(con
 	{
 		OutMouseZone = CRWZ_TopBorder;
 	}
-	else if (LocalMouseCoordinates.Y <= (HitResultBorderSize.Top + GetTitleBarHeight()))
+	else if (LocalMouseCoordinates.Y <= GetTitleBarHeight())
 	{
 		OutMouseZone = CRWZ_TitleBar;
 	}
@@ -337,10 +335,7 @@ FVector2D SGraphNodeResizable::GetNodeMaximumSize() const
 	return GraphNodeResizableDefs::MaxNodeSize;
 }
 
-FSlateRect SGraphNodeResizable::GetHitTestingBorder(float InverseZoomFactor) const
+FSlateRect SGraphNodeResizable::GetHitTestingBorder() const
 {
-	return FSlateRect(	GraphNodeResizableDefs::HitResultBorderSize.Left * InverseZoomFactor,
-						GraphNodeResizableDefs::HitResultBorderSize.Top * InverseZoomFactor,
-						GraphNodeResizableDefs::HitResultBorderSize.Right * InverseZoomFactor,
-						GraphNodeResizableDefs::HitResultBorderSize.Bottom * InverseZoomFactor );
+	return GraphNodeResizableDefs::HitResultBorderSize;
 }

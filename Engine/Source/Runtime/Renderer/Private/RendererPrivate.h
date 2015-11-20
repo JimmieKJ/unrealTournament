@@ -32,7 +32,7 @@ public:
 	virtual void ReallocateSceneRenderTargets() override;
 	virtual void SceneRenderTargetsSetBufferSize(uint32 SizeX, uint32 SizeY) override;
 	virtual void DrawTileMesh(FRHICommandListImmediate& RHICmdList, const FSceneView& View, const FMeshBatch& Mesh, bool bIsHitTesting, const FHitProxyId& HitProxyId) override;
-	virtual void RenderTargetPoolFindFreeElement(const FPooledRenderTargetDesc& Desc, TRefCountPtr<IPooledRenderTarget> &Out, const TCHAR* InDebugName) override;
+	virtual void RenderTargetPoolFindFreeElement(FRHICommandListImmediate& RHICmdList, const FPooledRenderTargetDesc& Desc, TRefCountPtr<IPooledRenderTarget> &Out, const TCHAR* InDebugName) override;
 	virtual void TickRenderTargetPool() override;
 	virtual void DebugLogOnCrash() override;
 	virtual void GPUBenchmark(FSynthBenchmarkResults& InOut, float WorkScale) override;
@@ -64,9 +64,21 @@ public:
 	virtual void RegisterCustomCullingImpl(ICustomCulling* impl) override;
 	virtual void UnregisterCustomCullingImpl(ICustomCulling* impl) override;
 
+	virtual void RegisterPostOpaqueRenderDelegate(const FPostOpaqueRenderDelegate& PostOpaqueRenderDelegate) override;
+	virtual void RegisterOverlayRenderDelegate(const FPostOpaqueRenderDelegate& OverlayRenderDelegate) override;
+	virtual void RenderPostOpaqueExtensions(const FSceneView& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) override;
+	virtual void RenderOverlayExtensions(const FSceneView& View, FRHICommandListImmediate& RHICmdList, FSceneRenderTargets& SceneContext) override;
+
+	virtual bool HasPostOpaqueExtentions() const override
+	{
+		return PostOpaqueRenderDelegate.IsBound();
+	}
+
 private:
 	TSet<FSceneInterface*> AllocatedScenes;
 	ICustomCulling* CustomCullingImpl;
+	FPostOpaqueRenderDelegate PostOpaqueRenderDelegate;
+	FPostOpaqueRenderDelegate OverlayRenderDelegate;
 };
 
 extern ICustomCulling* GCustomCullingImpl;

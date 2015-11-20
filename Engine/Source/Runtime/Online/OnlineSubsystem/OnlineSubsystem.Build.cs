@@ -23,8 +23,13 @@ public class OnlineSubsystem : ModuleRules
 				"Core", 
 				"CoreUObject",
 				"ImageCore",
-				"Sockets"
+				"Sockets",
+				"JsonUtilities"
 			}
 		);
+
+
 	}
+
+  
 }

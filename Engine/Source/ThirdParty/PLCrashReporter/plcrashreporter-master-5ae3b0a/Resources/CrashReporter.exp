@@ -29,3 +29,6 @@ _*PLCrashSignalHandlerForward
 # though the entirity of the current internal set of symbols will likely be exposed as unsupported
 # API in a future release.
 _*PLCrashMachExceptionForward
+
+# @todo mark.satterthwaite@epicgames.com 7/6/15 Export a function for backtracing as we can't rely on system backtrace when plcrashreporter is handling the crash
+_*plcrashreporter_backtrace

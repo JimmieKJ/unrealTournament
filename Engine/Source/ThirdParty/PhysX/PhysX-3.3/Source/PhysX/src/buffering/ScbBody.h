@@ -26,8 +26,6 @@ namespace physx
 {
 namespace Scb
 {
-
-
 #if defined(PX_VC) 
     #pragma warning(push)
 	#pragma warning( disable : 4324 ) // Padding was added at the end of a structure because of a __declspec(align) value.
@@ -40,18 +38,18 @@ struct BodyBuffer : public RigidObjectBuffer		//once RigidObject has its own buf
 	typedef BodyBuffer Buf;
 
 	// regular attributes
-	SCB_REGULAR_ATTRIBUTE(0,		PxReal,				InverseMass)
-	SCB_REGULAR_ATTRIBUTE(1,		PxVec3,				InverseInertia)
-	SCB_REGULAR_ATTRIBUTE(2,		PxReal,				LinearDamping)
-	SCB_REGULAR_ATTRIBUTE(3,		PxReal,				AngularDamping)
-	SCB_REGULAR_ATTRIBUTE(4,		PxReal,				MaxAngVelSq)
-	SCB_REGULAR_ATTRIBUTE(5,		PxReal,				SleepThreshold)
-	SCB_REGULAR_ATTRIBUTE(6,		PxReal,				CCDAdvanceCoefficient)
-	SCB_REGULAR_ATTRIBUTE(7,		PxReal,				ContactReportThreshold)
-	SCB_REGULAR_ATTRIBUTE(8,		PxU16,				SolverIterationCounts)
-	SCB_REGULAR_ATTRIBUTE_ALIGNED(9,PxTransform,		Body2Actor, 16)
-	SCB_REGULAR_ATTRIBUTE(10,		PxReal,				MaxPenetrationBias)
-	SCB_REGULAR_ATTRIBUTE(11,		PxReal,				FreezeThreshold)
+	SCB_REGULAR_ATTRIBUTE(0,		PxReal,			InverseMass)
+	SCB_REGULAR_ATTRIBUTE(1,		PxVec3,			InverseInertia)
+	SCB_REGULAR_ATTRIBUTE(2,		PxReal,			LinearDamping)
+	SCB_REGULAR_ATTRIBUTE(3,		PxReal,			AngularDamping)
+	SCB_REGULAR_ATTRIBUTE(4,		PxReal,			MaxAngVelSq)
+	SCB_REGULAR_ATTRIBUTE(5,		PxReal,			SleepThreshold)
+	SCB_REGULAR_ATTRIBUTE(6,		PxReal,			CCDAdvanceCoefficient)
+	SCB_REGULAR_ATTRIBUTE(7,		PxReal,			ContactReportThreshold)
+	SCB_REGULAR_ATTRIBUTE(8,		PxU16,			SolverIterationCounts)
+	SCB_REGULAR_ATTRIBUTE_ALIGNED(9,PxTransform,	Body2Actor, 16)
+	SCB_REGULAR_ATTRIBUTE(10,		PxReal,			MaxPenetrationBias)
+	SCB_REGULAR_ATTRIBUTE(11,		PxReal,			FreezeThreshold)
 
 	// irregular attributes
 
@@ -67,15 +65,19 @@ struct BodyBuffer : public RigidObjectBuffer		//once RigidObject has its own buf
 	{
 		BF_RigidBodyFlags		= 1<<12,
 		BF_KinematicTarget		= 1<<13,
-		BF_Acceleration			= 1<<14,
-		BF_DeltaVelocity		= 1<<15,
-		BF_Body2World			= 1<<16,
-		BF_Body2World_CoM		= 1<<17,  // the body pose was adjusted because of a center of mass change only
-		BF_LinearVelocity		= 1<<18,
-		BF_AngularVelocity		= 1<<19,
-		BF_WakeCounter			= 1<<20,
-		BF_PutToSleep			= 1<<21,
-		BF_WakeUp				= 1<<22
+		BF_AccelerationLinear	= 1<<14,
+		BF_AccelerationAngular	= 1<<15,
+		BF_Acceleration			= BF_AccelerationLinear|BF_AccelerationAngular,
+		BF_DeltaVelocityLinear	= 1<<16,
+		BF_DeltaVelocityAngular	= 1<<17,
+		BF_DeltaVelocity		= BF_DeltaVelocityLinear|BF_DeltaVelocityAngular,
+		BF_Body2World			= 1<<18,
+		BF_Body2World_CoM		= 1<<19,  // the body pose was adjusted because of a center of mass change only
+		BF_LinearVelocity		= 1<<20,
+		BF_AngularVelocity		= 1<<21,
+		BF_WakeCounter			= 1<<22,
+		BF_PutToSleep			= 1<<23,
+		BF_WakeUp				= 1<<24
 	};
 
 	BodyBuffer(): mLinAcceleration(0), mAngAcceleration(0), mLinDeltaVelocity(0), mAngDeltaVelocity(0) {}
@@ -162,9 +164,9 @@ public:
 	PX_INLINE		void				setContactReportThreshold(PxReal t) { write<Buf::BF_ContactReportThreshold>(t); }
 
 	PX_INLINE		void				addSpatialAcceleration(const PxVec3* linAcc, const PxVec3* angAcc);
-	PX_INLINE		void				clearSpatialAcceleration();
+	PX_INLINE		void				clearSpatialAcceleration(bool force, bool torque);
 	PX_INLINE		void				addSpatialVelocity(const PxVec3* linVelDelta, const PxVec3* angVelDelta);
-	PX_INLINE		void				clearSpatialVelocity();
+	PX_INLINE		void				clearSpatialVelocity(bool force, bool torque);
 
 	PX_INLINE		bool				getKinematicTarget(PxTransform& p) const;
 	PX_INLINE		void				setKinematicTarget(const PxTransform& p);
@@ -236,20 +238,39 @@ private:
 	PX_FORCE_INLINE	const Buf*		getBodyBuffer()	const	{ return (const Buf*)getStream();	}
 	PX_FORCE_INLINE	Buf*			getBodyBuffer()			{ return (Buf*)getStream();			}
 
-	PX_INLINE void accumulate(PxVec3 &linear, PxVec3& angular, PxU32 flag, const PxVec3* linIncrement, const PxVec3* angIncrement)
+	PX_INLINE void accumulate(PxVec3& linear, PxVec3& angular, PxU32 linearFlag, PxU32 angularFlag, const PxVec3* linIncrement, const PxVec3* angIncrement)
 	{
+		PxU32 flag = 0;
 		if(linIncrement)
-			linear+=*linIncrement;
+		{
+			linear += *linIncrement;
+			flag |= linearFlag;
+		}
+
 		if(angIncrement)
-			angular+=*angIncrement;
+		{
+			angular += *angIncrement;
+			flag |= angularFlag;
+		}
+
 		markUpdated(flag);
 	}
 		
-	PX_INLINE void resetAccumulator(PxVec3 &linear, PxVec3& angular, PxU32 flag)
+	PX_INLINE void resetAccumulator(PxVec3& linear, PxVec3& angular, PxU32 linearFlag, PxU32 angularFlag, bool force, bool torque)
 	{
-		linear = PxVec3(0);
-		angular = PxVec3(0);
-		mBodyBufferFlags &= ~flag;
+		PxU32 flags = mBodyBufferFlags;
+		if(force)
+		{
+			linear = PxVec3(0.0f);
+			flags &= ~linearFlag;
+		}
+
+		if(torque)
+		{
+			angular = PxVec3(0.0f);
+			flags &= ~angularFlag;
+		}
+		mBodyBufferFlags = flags;
 	}
 
 	PX_FORCE_INLINE void setBufferedParamsForAsleep()  // use this in the non-buffered case to set the buffered properties
@@ -473,22 +494,22 @@ PX_INLINE void Body::addSpatialAcceleration(const PxVec3* linAcc, const PxVec3* 
 	else if (fetchDataBuffer())
 	{
 		Buf* b = getBodyBuffer();
-		accumulate(b->mLinAcceleration, b->mAngAcceleration, Buf::BF_Acceleration, linAcc, angAcc);
+		accumulate(b->mLinAcceleration, b->mAngAcceleration, Buf::BF_AccelerationLinear, Buf::BF_AccelerationAngular, linAcc, angAcc);
 	}
 }
 
 
-PX_INLINE void Body::clearSpatialAcceleration()
+PX_INLINE void Body::clearSpatialAcceleration(bool force, bool torque)
 {
 	if (!isSimulating())
 	{
-		mBodyCore.clearSpatialAcceleration();
+		mBodyCore.clearSpatialAcceleration(force, torque);
 		//Spatial acceleration isn't sent to PVD.
 	}
 	else if (fetchDataBuffer())
 	{
 		Buf* b = getBodyBuffer();
-		resetAccumulator(b->mLinAcceleration, b->mAngAcceleration, Buf::BF_Acceleration);
+		resetAccumulator(b->mLinAcceleration, b->mAngAcceleration, Buf::BF_AccelerationLinear, Buf::BF_AccelerationAngular, force, torque);
 	}
 }
 
@@ -503,22 +524,22 @@ PX_INLINE void Body::addSpatialVelocity(const PxVec3* linVelDelta, const PxVec3*
 	else if (fetchDataBuffer())
 	{
 		Buf* b = getBodyBuffer();
-		accumulate(b->mLinDeltaVelocity, b->mAngDeltaVelocity, Buf::BF_DeltaVelocity, linVelDelta, angVelDelta);
+		accumulate(b->mLinDeltaVelocity, b->mAngDeltaVelocity, Buf::BF_DeltaVelocityLinear, Buf::BF_DeltaVelocityAngular, linVelDelta, angVelDelta);
 	}
 }
 
 
-PX_INLINE void Body::clearSpatialVelocity()
+PX_INLINE void Body::clearSpatialVelocity(bool force, bool torque)
 {
 	if (!isSimulating())
 	{
-		mBodyCore.clearSpatialVelocity();
+		mBodyCore.clearSpatialVelocity(force, torque);
 		UPDATE_PVD_PROPERTIES_OBJECT()
 	}
 	else if (fetchDataBuffer())
 	{
 		Buf* b = getBodyBuffer();
-		resetAccumulator(b->mLinDeltaVelocity, b->mAngDeltaVelocity, Buf::BF_DeltaVelocity);
+		resetAccumulator(b->mLinDeltaVelocity, b->mAngDeltaVelocity, Buf::BF_DeltaVelocityLinear, Buf::BF_DeltaVelocityAngular, force, torque);
 	}
 }
 
@@ -727,8 +748,8 @@ PX_INLINE void Body::syncState()
 	// IMPORTANT: Since we ran out of space for buffered property flags, the Scb::Body property related flags are stored in mBodyBufferFlags.
 	//            To get the buffer flags from the base classes, use getBufferFlags()
 	//
-	PxU32 bufferFlags = mBodyBufferFlags;
-	PxU32 baseBufferFlags = getBufferFlags();
+	const PxU32 bufferFlags = mBodyBufferFlags;
+	const PxU32 baseBufferFlags = getBufferFlags();
 
 	if ((bufferFlags & Buf::BF_Body2World) == 0)
 		mBufferedBody2World = mBodyCore.getBody2World();
@@ -739,7 +760,7 @@ PX_INLINE void Body::syncState()
 		// IMPORTANT: Do this before adjusting body2Actor
 		PX_ASSERT(bufferFlags & Buf::BF_Body2Actor);
 		Buf& buffer = *getBodyBuffer();
-		PxTransform newBody2oldBody = mBodyCore.getBody2Actor().transformInv(buffer.mBody2Actor);
+		const PxTransform newBody2oldBody = mBodyCore.getBody2Actor().transformInv(buffer.mBody2Actor);
 
 		PxTransform b2w = mBodyCore.getBody2World();
 		b2w = b2w.transform(newBody2oldBody);  // translate simulation result from old CoM to new CoM
@@ -804,31 +825,31 @@ PX_INLINE void Body::syncState()
 		flush<Buf::BF_Body2Actor>(buffer);
 		flush<Buf::BF_FreezeThreshold>(buffer);
 		flush<Buf::BF_MaxPenetrationBias>(buffer);
+		Ps::Pool<Sc::SimStateData>* pool = getScbScene()->getScScene().getSimStateDataPool();
 		if (bufferFlags & Buf::BF_RigidBodyFlags)
 		{
-			mBodyCore.setFlags(getScbScene()->getScScene().getSimStateDataPool(), buffer.mRigidBodyFlags);
+			mBodyCore.setFlags(pool, buffer.mRigidBodyFlags);
 		}
 
 		if (bufferFlags & Buf::BF_KinematicTarget)
 		{
 			PX_ASSERT(mBodyCore.getFlags() & PxRigidBodyFlag::eKINEMATIC);
 			PX_ASSERT(mBufferedWakeCounter > 0.0f);  // that is the expected behavior
-
-			mBodyCore.setKinematicTarget(getScbScene()->getScScene().getSimStateDataPool(), buffer.mKinematicTarget, mBufferedWakeCounter);
+			mBodyCore.setKinematicTarget(pool, buffer.mKinematicTarget, mBufferedWakeCounter);
 		}
 
 		if (bufferFlags & Buf::BF_Acceleration)
 		{
 			PX_ASSERT(!(mBodyCore.getFlags() & PxRigidBodyFlag::eKINEMATIC));
 			PX_ASSERT(!mBufferedIsSleeping || (buffer.mLinAcceleration.isZero() && buffer.mAngAcceleration.isZero()));
-			mBodyCore.addSpatialAcceleration(getScbScene()->getScScene().getSimStateDataPool(), &buffer.mLinAcceleration, &buffer.mAngAcceleration);
+			mBodyCore.addSpatialAcceleration(pool, &buffer.mLinAcceleration, &buffer.mAngAcceleration);
 		}
 
 		if (bufferFlags & Buf::BF_DeltaVelocity)
 		{
 			PX_ASSERT(!(mBodyCore.getFlags() & PxRigidBodyFlag::eKINEMATIC));
 			PX_ASSERT(!mBufferedIsSleeping || (buffer.mLinDeltaVelocity.isZero() && buffer.mAngDeltaVelocity.isZero()));
-			mBodyCore.addSpatialVelocity(getScbScene()->getScScene().getSimStateDataPool(), &buffer.mLinDeltaVelocity, &buffer.mAngDeltaVelocity);
+			mBodyCore.addSpatialVelocity(pool, &buffer.mLinDeltaVelocity, &buffer.mAngDeltaVelocity);
 		}
 	}
 

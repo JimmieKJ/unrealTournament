@@ -47,20 +47,13 @@ public class UMGEditor : ModuleRules
 				"EditorStyle",
 				"Slate",
 				"SlateCore",
-				"MovieSceneCore",
+				"MovieScene",
+				"MovieSceneTools",
+                "MovieSceneTracks",
 				"Sequencer",
 				"DetailCustomizations",
                 "Settings",
 				"RenderCore",
-			}
-			);
-
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[] {
-				"PropertyEditor",
-				"AssetTools",
-				"UMG",
-				"Sequencer",
 			}
 			);
 	}

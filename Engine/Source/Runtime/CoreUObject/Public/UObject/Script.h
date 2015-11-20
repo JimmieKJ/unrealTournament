@@ -137,7 +137,7 @@ enum EExprToken
 	// Variable references.
 	EX_LocalVariable		= 0x00,	// A local variable.
 	EX_InstanceVariable		= 0x01,	// An object variable.
-	//						= 0x02,
+	EX_DefaultVariable		= 0x02, // Default variable for a class context.
 	//						= 0x03,
 	EX_Return				= 0x04,	// Return from function.
 	//						= 0x05,
@@ -153,7 +153,7 @@ enum EExprToken
 	EX_Let					= 0x0F,	// Assign an arbitrary size value to a variable.
 	//						= 0x10,
 	//						= 0x11,
-	//						= 0x12,
+	EX_ClassContext			= 0x12,	// Class default object context.
 	EX_MetaCast             = 0x13, // Metaclass cast.
 	EX_LetBool				= 0x14, // Let boolean variable.
 	EX_EndParmValue			= 0x15,	// end of default value for optional function parameter
@@ -235,9 +235,12 @@ enum EExprToken
 	EX_BindDelegate			= 0x61, // bind object and name to delegate
 	EX_RemoveMulticastDelegate = 0x62, // Remove a delegate from a multicast delegate's targets
 	EX_CallMulticastDelegate = 0x63, // Call multicast delegate
-	Ex_LetValueOnPersistentFrame = 0x64,
+	EX_LetValueOnPersistentFrame = 0x64,
 	EX_ArrayConst			= 0x65,
 	EX_EndArrayConst		= 0x66,
+	EX_AssetConst			= 0x67,
+	EX_CallMath				= 0x68, // static pure function from on local call space
+	EX_SwitchValue			= 0x69,
 	EX_Max					= 0x100,
 };
 
@@ -320,3 +323,18 @@ public:
 private:
 	bool bOldGAllowScriptExecutionInEditor;
 };
+
+/** @return True if the char can be used in an identifier in c++ */
+COREUOBJECT_API bool IsValidCPPIdentifierChar(TCHAR Char);
+
+/** @return A string that contains only Char if Char IsValidCPPIdentifierChar, otherwise returns a corresponding sequence of valid c++ chars */
+COREUOBJECT_API FString ToValidCPPIdentifierChars(TCHAR Char);
+
+/** 
+	@param InName The string to transform
+	@param bDeprecated whether the name has been deprecated
+	@Param Prefix The prefix to be prepended to the return value, accepts nullptr or empty string
+	@return A corresponding string that contains only valid c++ characters and is prefixed with Prefix
+*/
+COREUOBJECT_API FString UnicodeToCPPIdentifier(const FString& InName, bool bDeprecated, const TCHAR* Prefix);
+

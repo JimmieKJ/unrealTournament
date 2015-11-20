@@ -327,7 +327,7 @@ static void GenerateSharpenedMipB8G8R8A8Templ(
 
 			if ( bSharpenWithoutColorShift )
 			{
-				float NewLuminance = 0;
+				FLinearColor SharpenedColor(0, 0, 0, 0);
 
 				for ( uint32 KernelY = 0; KernelY < Kernel.GetFilterTableSize();  ++KernelY )
 				{
@@ -335,11 +335,11 @@ static void GenerateSharpenedMipB8G8R8A8Templ(
 					{
 						float Weight = Kernel.GetAt( KernelX, KernelY );
 						FLinearColor Sample = LookupSourceMip<AddressMode>( SourceImageData, SourceX + KernelX - KernelCenter, SourceY + KernelY - KernelCenter );
-						float LuminanceSample = Sample.ComputeLuminance();
-
-						NewLuminance += Weight * LuminanceSample;
+						SharpenedColor += Weight * Sample;
 					}
 				}
+
+				float NewLuminance = SharpenedColor.ComputeLuminance();
 
 				// simple 2x2 kernel to compute the color
 				FilteredColor =
@@ -357,6 +357,9 @@ static void GenerateSharpenedMipB8G8R8A8Templ(
 					FilteredColor.G *= Factor;
 					FilteredColor.B *= Factor;
 				}
+
+				// We also want to sharpen the alpha channel (was missing before)
+				FilteredColor.A = SharpenedColor.A;
 			}
 			else
 			{
@@ -498,7 +501,7 @@ static void GenerateTopMip(const FImage& SrcImage, FImage& DestImage, const FTex
 	// /2 as input resolution is same as output resolution and the settings assumed the output is half resolution
 	KernelDownsample.BuildSeparatableGaussWithSharpen( FMath::Max( 2u, Settings.SharpenMipKernelSize / 2 ), Settings.MipSharpening );
 	
-	DestImage.Init(SrcImage.SizeX, SrcImage.SizeY, SrcImage.Format, SrcImage.bSRGB);
+	DestImage.Init(SrcImage.SizeX, SrcImage.SizeY, SrcImage.Format, SrcImage.GammaSpace);
 
 	for (int32 SliceIndex = 0; SliceIndex < SrcImage.NumSlices; ++SliceIndex)
 	{
@@ -545,7 +548,7 @@ static void GenerateMipChain(
 	FImage IntermediateDst(FMath::Max<uint32>( 1, SrcWidth >> 1 ), FMath::Max<uint32>( 1, SrcHeight >> 1 ), SrcNumSlices, ImageFormat);
 
 	// copy base mip
-	BaseMip.CopyTo(IntermediateSrc, ERawImageFormat::RGBA32F, false);
+	BaseMip.CopyTo(IntermediateSrc, ERawImageFormat::RGBA32F, EGammaSpace::Linear);
 
 	// Filtering kernels.
 	FImageKernel2D KernelSimpleAverage;
@@ -792,13 +795,13 @@ static int32 ComputeLongLatCubemapExtents(const FImage& SrcImage, const int32 Ma
 static void GenerateBaseCubeMipFromLongitudeLatitude2D(FImage* OutMip, const FImage& SrcImage, const int32 MaxCubemapTextureResolution)
 {
 	FImage LongLatImage;
-	SrcImage.CopyTo(LongLatImage, ERawImageFormat::RGBA32F, false);
+	SrcImage.CopyTo(LongLatImage, ERawImageFormat::RGBA32F, EGammaSpace::Linear);
 	FImageViewLongLat LongLatView(LongLatImage);
 
 	// TODO_TEXTURE: Expose target size to user.
 	int32 Extent = ComputeLongLatCubemapExtents(LongLatImage, MaxCubemapTextureResolution);
 	float InvExtent = 1.0f / Extent;
-	OutMip->Init(Extent, Extent, 6, ERawImageFormat::RGBA32F, false);
+	OutMip->Init(Extent, Extent, 6, ERawImageFormat::RGBA32F, EGammaSpace::Linear);
 
 	for(uint32 Face = 0; Face < 6; ++Face)
 	{
@@ -1200,7 +1203,7 @@ static void AdjustImageColors( FImage& Image, const FTextureBuildSettings& InBui
 		const float ChromaKeyThreshold = InBuildSettings.ChromaKeyThreshold + SMALL_NUMBER;
 		const int32 NumPixels = Image.SizeX * Image.SizeY * Image.NumSlices;
 		FLinearColor* ImageColors = Image.AsRGBA32F();
-		const bool bIsSRGB = Image.bSRGB;
+
 		for( int32 CurPixelIndex = 0; CurPixelIndex < NumPixels; ++CurPixelIndex )
 		{
 			const FLinearColor OriginalColorRaw = ImageColors[ CurPixelIndex ];
@@ -1288,7 +1291,6 @@ static void ComputeBokehAlpha(FImage& Image)
 
 	const int32 NumPixels = Image.SizeX * Image.SizeY * Image.NumSlices;
 	FLinearColor* ImageColors = Image.AsRGBA32F();
-	const bool bIsSRGB = Image.bSRGB;
 
 	// compute LinearAverage
 	FLinearColor LinearAverage;
@@ -1824,7 +1826,7 @@ private:
 				if (!bSuitableFormat)
 				{
 					// convert to RGBA32F
-					FirstSourceMipImage.CopyTo(Temp, ERawImageFormat::RGBA32F, false);
+					FirstSourceMipImage.CopyTo(Temp, ERawImageFormat::RGBA32F, EGammaSpace::Linear);
 				}
 
 				// space for one source mip and one destination mip
@@ -1891,7 +1893,7 @@ private:
 			if (!bSuitableFormat)
 			{
 				// convert to RGBA32F
-				BaseImage.CopyTo(Temp, ERawImageFormat::RGBA32F, false);
+				BaseImage.CopyTo(Temp, ERawImageFormat::RGBA32F, EGammaSpace::Linear);
 			}
 
 			UE_LOG(LogTextureCompressor, Verbose,
@@ -1936,7 +1938,7 @@ private:
 				{
 					FImage Temp;
 					
-					Image.CopyTo(Temp, MipFormat, false);
+					Image.CopyTo(Temp, MipFormat, EGammaSpace::Linear);
 
 					if(BuildSettings.bRenormalizeTopMip)
 					{
@@ -1947,7 +1949,7 @@ private:
 				}
 				else
 				{
-					Image.CopyTo(*Mip, MipFormat, false);
+					Image.CopyTo(*Mip, MipFormat, EGammaSpace::Linear);
 
 					if(BuildSettings.bRenormalizeTopMip)
 					{

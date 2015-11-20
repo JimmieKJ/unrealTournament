@@ -1,7 +1,7 @@
 Title:T
 Crumbs:Shared/Glossary
 Description:
-Availability:Public
+Availability:NoPublish
 
 [EXCERPT:Glossary_T]
 
@@ -42,7 +42,7 @@ time cursor
 	[PARAM:Definition]
 
 [EXCERPT:Glossary_time_cursor]
-The **time cursor** is the black vertical bar at the bottom of the a timeline that indicates the position in time of the animation's playback. You can drag the time cursor back and forth to preview the animation in the 3D viewport.
+The **time cursor** is the black vertical bar at the bottom of the timeline that indicates the position in time of the animation's playback. You can drag the time cursor back and forth to preview the animation in the 3D viewport.
 [/EXCERPT:Glossary_time_cursor]
 
 	[/PARAM]
@@ -74,7 +74,7 @@ Timeline node
 [EXCERPT:Glossary_Timeline_node]
 **Timeline nodes** are special nodes within Blueprints that allow for simple time-based animation to be quickly designed and played back based on in-game events. Timelines are somewhat like simple Matinee sequences 
 in that they allow simple values to be animated and events to be fired off over time. These can be edited 
-directly inside the Blueprint editor by **double-clicking** on the Timeline in the Graph tab or in the My Blueprint tab. They are specifically built for handling simple, non-cinematic tasks such as opening doors, altering 
+directly inside the Blueprint editor by **Double-clicking** on the Timeline in the Graph tab or in the My Blueprint tab. They are specifically built for handling simple, non-cinematic tasks such as opening doors, altering 
 lights, or performing other time-centric manipulations to Actors within a scene.
 [/EXCERPT:Glossary_Timeline_node]
 

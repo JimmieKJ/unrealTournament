@@ -14,7 +14,6 @@ public class UnrealEd : ModuleRules
 			{
 				"Editor/UnrealEd/Private",
 				"Editor/UnrealEd/Private/Settings",
-				"Editor/UnrealEd/Private/FeaturePack",
 				"Editor/PackagesDialog/Public",				
 				"Developer/DerivedDataCache/Public",
 				"Developer/TargetPlatform/Public",
@@ -26,6 +25,7 @@ public class UnrealEd : ModuleRules
 			{
 				"Analytics",
 				"AssetRegistry",
+                "CookingStats",
 				"AssetTools",
                 "BehaviorTreeEditor",
 				"ClassViewer",
@@ -42,6 +42,7 @@ public class UnrealEd : ModuleRules
                 "MergeActors",
 				"MeshUtilities",
 				"Messaging",
+				"MovieSceneCapture",
 				"NiagaraEditor",
 				"PlacementMode",
 				"Settings",
@@ -56,6 +57,11 @@ public class UnrealEd : ModuleRules
 				"Landscape",
                 "Niagara",
 				"SizeMap",
+                "LocalizationService",
+                "HierarchicalLODUtilities",
+                "MessagingRpc",
+                "PortalRpc",
+                "PortalServices",
 			}
 		);
 
@@ -82,16 +88,19 @@ public class UnrealEd : ModuleRules
 				"UnrealAudio",
                 "Niagara",
                 "VectorVM",
+                "FunctionalTesting"
 			}
 		);
 
 		PrivateDependencyModuleNames.AddRange(
 			new string[] 
 			{ 
+                "LevelSequence",
 				"AnimGraph",
                 "AppFramework",
 				"BlueprintGraph",
 				"OnlineSubsystem",
+				"OnlineSubsystemUtils",
 				"OnlineBlueprintSupport",
 				"DesktopPlatform",
 				"EditorStyle",
@@ -99,7 +108,6 @@ public class UnrealEd : ModuleRules
 				"InputCore",
 				"InputBindingEditor",
 				"Internationalization",
-				"LauncherAutomatedService",
 				"LauncherServices",
 				"MaterialEditor",
 				"MessageLog",
@@ -130,6 +138,11 @@ public class UnrealEd : ModuleRules
                 "Foliage",
                 "VectorVM",
 				"TreeMap",
+                "MaterialUtilities",
+                "LocalizationService",
+				"AddContentDialog",
+				"GameProjectGeneration",
+                "HierarchicalLODUtilities"
 			}
 		);
 
@@ -137,7 +150,6 @@ public class UnrealEd : ModuleRules
 			new string[] 
 			{
 				"CrashTracker",
-				"MaterialEditor",
 				"FontEditor",
 				"StaticMeshEditor",
 				"TextureEditor",
@@ -159,7 +171,6 @@ public class UnrealEd : ModuleRules
 				"ComponentVisualizers",
 				"MainFrame",
 				"LevelEditor",
-				"InputBindingEditor",
 				"PackagesDialog",
 				"Persona",
 				"PhAT",
@@ -168,7 +179,6 @@ public class UnrealEd : ModuleRules
 				"SettingsEditor",
 				"SessionFrontend",
 				"Sequencer",
-				"SoundClassEditor",
 				"GeometryMode",
 				"TextureAlignMode",
 				"FoliageEdit",
@@ -177,23 +187,20 @@ public class UnrealEd : ModuleRules
 				"Blutility",
 				"IntroTutorials",
                 "SuperSearch",
-				"DesktopPlatform",
 				"WorkspaceMenuStructure",
-				"BspMode",
 				"PlacementMode",
 				"NiagaraEditor",
 				"MeshUtilities",
                 "MergeActors",
-				"GameProjectGeneration",
 				"ProjectSettingsViewer",
 				"ProjectTargetPlatformEditor",
 				"PListEditor",
-                "Documentation",
                 "BehaviorTreeEditor",
                 "EnvironmentQueryEditor",
 				"ViewportSnapping",
 				"UserFeedback",
 				"GameplayTagsEditor",
+                "GameplayTasksEditor",
                 "GameplayAbilitiesEditor",
 				"UndoHistory",
 				"SourceCodeAccess",
@@ -203,6 +210,9 @@ public class UnrealEd : ModuleRules
                 "IOSPlatformEditor",
 				"HTML5PlatformEditor",
 				"SizeMap",
+                "PortalProxies",
+                "PortalServices",
+                "GeometryCacheEd"
 			}
 		);
 
@@ -231,6 +241,8 @@ public class UnrealEd : ModuleRules
 				"NiagaraEditor",
                 "Niagara",
                 "VectorVM",
+				"AddContentDialog",                
+                "MeshUtilities"
 			}
 			);
 
@@ -257,7 +269,7 @@ public class UnrealEd : ModuleRules
 
         if (Target.Platform == UnrealTargetPlatform.HTML5)
         {
-            PublicDependencyModuleNames.Add("HTML5Audio");
+			PublicDependencyModuleNames.Add("ALAudio");
         }
 
 		AddThirdPartyPrivateStaticDependencies(Target,

@@ -72,7 +72,7 @@ void FlattenUniformBufferStructures(exec_list* Instructions, _mesa_glsl_parse_st
  * @param bGroupFlattenedUBs - 
  * @param OutUniformMap - Mapping table used during backend code gen for cross referencing source/packed uniforms
  */
-void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, TVarVarMap& OutUniformMap);
+void PackUniforms(exec_list* Instructions, _mesa_glsl_parse_state* ParseState, bool bFlattenStructure, bool bGroupFlattenedUBs, bool bPackGlobalArraysIntoUniformBuffers, TVarVarMap& OutUniformMap);
 
 // Expand any full assignments (a = b) to per element (a[0] = b[0]; a[1] = b[1]; etc) so the array can be split
 bool ExpandArrayAssignments(exec_list* ir, _mesa_glsl_parse_state* State);
@@ -82,6 +82,12 @@ bool ExtractSamplerStatesNameInformation(exec_list* Instructions, _mesa_glsl_par
 
 // Expands matrices to arrays to help on some cases (e.g., non-square matrices on ES 2)
 bool ExpandMatricesIntoArrays(exec_list* Instructions, _mesa_glsl_parse_state* ParseState);
+
+// Find all variables that are at any point used by an atomic instruction
+void FindAtomicVariables(exec_list* ir, TIRVarSet& OutAtomicVariables);
+
+// Find all variables that are at any point used by an atomic instruction
+void FixAtomicReferences(exec_list* ir, _mesa_glsl_parse_state* State, TIRVarSet& AtomicVariables);
 
 #endif
 

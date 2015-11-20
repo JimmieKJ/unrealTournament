@@ -101,6 +101,35 @@ bool FWidgetBlueprintEditorUtils::VerifyWidgetRename(TSharedRef<class FWidgetBlu
 			bIsSameWidget = true;
 		}
 	}
+	else
+	{
+		if (!FName(*NewNameString).IsValidObjectName(OutErrorMessage))
+		{
+			return false;
+		}
+
+		// Not an existing widget in the tree BUT it still mustn't create a UObject name clash
+		UWidget* WidgetPreview = Widget.GetPreview();
+		if (WidgetPreview)
+		{
+			// Dummy rename with flag REN_Test returns if rename is possible
+			if (!WidgetPreview->Rename(*NewNameString, nullptr, REN_Test))
+			{
+				OutErrorMessage = LOCTEXT("ExistingObjectName", "Existing Object Name");
+				return false;
+			}
+		}
+		UWidget* WidgetTemplate = Widget.GetTemplate();
+		if (WidgetTemplate)
+		{
+			// Dummy rename with flag REN_Test returns if rename is possible
+			if (!WidgetTemplate->Rename(*NewNameString, nullptr, REN_Test))
+			{
+				OutErrorMessage = LOCTEXT("ExistingObjectName", "Existing Object Name");
+				return false;
+			}
+		}
+	}
 
 	FKismetNameValidator Validator(Blueprint);
 
@@ -227,7 +256,7 @@ void FWidgetBlueprintEditorUtils::CreateWidgetContextMenu(FMenuBuilder& MenuBuil
 		MenuBuilder.AddSubMenu(
 			LOCTEXT("WidgetTree_WrapWith", "Wrap With..."),
 			LOCTEXT("WidgetTree_WrapWithToolTip", "Wraps the currently selected widgets inside of another container widget"),
-			FNewMenuDelegate::CreateStatic(&FWidgetBlueprintEditorUtils::BuildWrapWithMenu, BP, Widgets)
+			FNewMenuDelegate::CreateStatic(&FWidgetBlueprintEditorUtils::BuildWrapWithMenu, BlueprintEditor, BP, Widgets)
 			);
 
 		if ( Widgets.Num() == 1 )
@@ -321,40 +350,75 @@ void FWidgetBlueprintEditorUtils::DeleteWidgets(UWidgetBlueprint* BP, TSet<FWidg
 	}
 }
 
-bool FWidgetBlueprintEditorUtils::FindAndRemoveNamedSlotContent(UWidget* WidgetTemplate, UWidgetTree* WidgetTree)
+INamedSlotInterface* FWidgetBlueprintEditorUtils::FindNamedSlotHostForContent(UWidget* WidgetTemplate, UWidgetTree* WidgetTree)
 {
-	bool bSuccess = false;
+	return Cast<INamedSlotInterface>(FindNamedSlotHostWidgetForContent(WidgetTemplate, WidgetTree));
+}
 
-	WidgetTree->ForEachWidget([&] (UWidget* Widget) {
+UWidget* FWidgetBlueprintEditorUtils::FindNamedSlotHostWidgetForContent(UWidget* WidgetTemplate, UWidgetTree* WidgetTree)
+{
+	UWidget* HostWidget = nullptr;
 
-		if ( bSuccess )
+	WidgetTree->ForEachWidget([&](UWidget* Widget) {
+
+		if (HostWidget != nullptr)
 		{
 			return;
 		}
 
-		if ( INamedSlotInterface* NamedSlotHost = Cast<INamedSlotInterface>(Widget) )
+		if (INamedSlotInterface* NamedSlotHost = Cast<INamedSlotInterface>(Widget))
 		{
 			TArray<FName> SlotNames;
 			NamedSlotHost->GetSlotNames(SlotNames);
 
-			for ( FName SlotName : SlotNames )
+			for (FName SlotName : SlotNames)
 			{
-				if ( UWidget* SlotContent = NamedSlotHost->GetContentForSlot(SlotName) )
+				if (UWidget* SlotContent = NamedSlotHost->GetContentForSlot(SlotName))
 				{
-					if ( SlotContent == WidgetTemplate )
+					if (SlotContent == WidgetTemplate)
 					{
-						NamedSlotHost->SetContentForSlot(SlotName, nullptr);
-						bSuccess = true;
+						HostWidget = Widget;
 					}
 				}
 			}
 		}
 	});
 
-	return bSuccess;
+	return HostWidget;
 }
 
-void FWidgetBlueprintEditorUtils::BuildWrapWithMenu(FMenuBuilder& Menu, UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets)
+bool FWidgetBlueprintEditorUtils::RemoveNamedSlotHostContent(UWidget* WidgetTemplate, INamedSlotInterface* NamedSlotHost)
+{
+	TArray<FName> SlotNames;
+	NamedSlotHost->GetSlotNames(SlotNames);
+
+	for (FName SlotName : SlotNames)
+	{
+		if (UWidget* SlotContent = NamedSlotHost->GetContentForSlot(SlotName))
+		{
+			if (SlotContent == WidgetTemplate)
+			{
+				NamedSlotHost->SetContentForSlot(SlotName, nullptr);
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+bool FWidgetBlueprintEditorUtils::FindAndRemoveNamedSlotContent(UWidget* WidgetTemplate, UWidgetTree* WidgetTree)
+{
+	INamedSlotInterface* NamedSlotHost = FindNamedSlotHostForContent(WidgetTemplate, WidgetTree);
+	if (NamedSlotHost != nullptr)
+	{
+		return RemoveNamedSlotHostContent(WidgetTemplate, NamedSlotHost);
+	}
+
+	return false;
+}
+
+void FWidgetBlueprintEditorUtils::BuildWrapWithMenu(FMenuBuilder& Menu, TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets)
 {
 	Menu.BeginSection("WrapWith", LOCTEXT("WidgetTree_WrapWith", "Wrap With..."));
 	{
@@ -370,7 +434,7 @@ void FWidgetBlueprintEditorUtils::BuildWrapWithMenu(FMenuBuilder& Menu, UWidgetB
 						FText::GetEmpty(),
 						FSlateIcon(),
 						FUIAction(
-							FExecuteAction::CreateStatic(&FWidgetBlueprintEditorUtils::WrapWidgets, BP, Widgets, WidgetClass),
+						FExecuteAction::CreateStatic(&FWidgetBlueprintEditorUtils::WrapWidgets, BlueprintEditor, BP, Widgets, WidgetClass),
 							FCanExecuteAction()
 						));
 				}
@@ -380,7 +444,7 @@ void FWidgetBlueprintEditorUtils::BuildWrapWithMenu(FMenuBuilder& Menu, UWidgetB
 	Menu.EndSection();
 }
 
-void FWidgetBlueprintEditorUtils::WrapWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets, UClass* WidgetClass)
+void FWidgetBlueprintEditorUtils::WrapWidgets(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets, UClass* WidgetClass)
 {
 	const FScopedTransaction Transaction(LOCTEXT("WrapWidgets", "Wrap Widgets"));
 
@@ -389,35 +453,42 @@ void FWidgetBlueprintEditorUtils::WrapWidgets(UWidgetBlueprint* BP, TSet<FWidget
 	// Old Parent -> New Parent Map
 	TMap<UPanelWidget*, UPanelWidget*> OldParentToNewParent;
 
-	for ( FWidgetReference& Item : Widgets )
+	for (FWidgetReference& Item : Widgets)
 	{
 		int32 OutIndex;
-		UPanelWidget* CurrentParent = BP->WidgetTree->FindWidgetParent(Item.GetTemplate(), OutIndex);
+		UWidget* Widget = Item.GetTemplate();
+		UPanelWidget* CurrentParent = BP->WidgetTree->FindWidgetParent(Widget, OutIndex);
 
 		// If the widget doesn't currently have a parent, and isn't the root, ignore it.
-		if ( CurrentParent == nullptr && Item.GetTemplate() != BP->WidgetTree->RootWidget )
+		if (CurrentParent == nullptr && Widget != BP->WidgetTree->RootWidget)
 		{
 			continue;
 		}
 
+		Widget->Modify();
+
 		UPanelWidget*& NewWrapperWidget = OldParentToNewParent.FindOrAdd(CurrentParent);
-		if ( NewWrapperWidget == nullptr || !NewWrapperWidget->CanAddMoreChildren() )
+		if (NewWrapperWidget == nullptr || !NewWrapperWidget->CanAddMoreChildren())
 		{
 			NewWrapperWidget = CastChecked<UPanelWidget>(Template->Create(BP->WidgetTree));
+			NewWrapperWidget->SetDesignerFlags(BlueprintEditor->GetCurrentDesignerFlags());
 
-			if ( CurrentParent )
+			BP->WidgetTree->SetFlags(RF_Transactional);
+			BP->WidgetTree->Modify();
+
+			if (CurrentParent)
 			{
+				CurrentParent->SetFlags(RF_Transactional);
 				CurrentParent->Modify();
 				CurrentParent->ReplaceChildAt(OutIndex, NewWrapperWidget);
 			}
 			else // Root Widget
 			{
-				BP->WidgetTree->Modify();
 				BP->WidgetTree->RootWidget = NewWrapperWidget;
 			}
 		}
 
-		NewWrapperWidget->AddChild(Item.GetTemplate());
+		NewWrapperWidget->AddChild(Widget);
 	}
 
 	FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
@@ -427,6 +498,25 @@ void FWidgetBlueprintEditorUtils::BuildReplaceWithMenu(FMenuBuilder& Menu, UWidg
 {
 	Menu.BeginSection("ReplaceWith", LOCTEXT("WidgetTree_ReplaceWith", "Replace With..."));
 	{
+		if ( Widgets.Num() == 1 )
+		{
+			FWidgetReference Widget = *Widgets.CreateIterator();
+			UClass* WidgetClass = Widget.GetTemplate()->GetClass();
+			if ( WidgetClass->IsChildOf(UPanelWidget::StaticClass()) && Cast<UPanelWidget>(Widget.GetTemplate())->GetChildrenCount() == 1 )
+			{
+				Menu.AddMenuEntry(
+					LOCTEXT("ReplaceWithChild", "Replace With Child"),
+					LOCTEXT("ReplaceWithChildTooltip", "Remove this widget and insert the children of this widget into the parent."),
+					FSlateIcon(),
+					FUIAction(
+						FExecuteAction::CreateStatic(&FWidgetBlueprintEditorUtils::ReplaceWidgetWithChildren, BP, Widget),
+						FCanExecuteAction()
+					));
+
+				Menu.AddMenuSeparator();
+			}
+		}
+
 		for ( TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt )
 		{
 			UClass* WidgetClass = *ClassIt;
@@ -451,6 +541,44 @@ void FWidgetBlueprintEditorUtils::BuildReplaceWithMenu(FMenuBuilder& Menu, UWidg
 		}
 	}
 	Menu.EndSection();
+}
+
+void FWidgetBlueprintEditorUtils::ReplaceWidgetWithChildren(UWidgetBlueprint* BP, FWidgetReference Widget)
+{
+	if ( UPanelWidget* ExistingPanelTemplate = Cast<UPanelWidget>(Widget.GetTemplate()) )
+	{
+		UWidget* FirstChildTemplate = ExistingPanelTemplate->GetChildAt(0);
+
+		FScopedTransaction Transaction(LOCTEXT("ReplaceWidgets", "Replace Widgets"));
+
+		ExistingPanelTemplate->Modify();
+		FirstChildTemplate->Modify();
+
+		if ( UPanelWidget* PanelParentTemplate = ExistingPanelTemplate->GetParent() )
+		{
+			PanelParentTemplate->Modify();
+
+			FirstChildTemplate->RemoveFromParent();
+			PanelParentTemplate->ReplaceChild(ExistingPanelTemplate, FirstChildTemplate);
+		}
+		else if ( ExistingPanelTemplate == BP->WidgetTree->RootWidget )
+		{
+			FirstChildTemplate->RemoveFromParent();
+
+			BP->WidgetTree->Modify();
+			BP->WidgetTree->RootWidget = FirstChildTemplate;
+		}
+		else
+		{
+			Transaction.Cancel();
+			return;
+		}
+
+		// Rename the removed widget to the transient package so that it doesn't conflict with future widgets sharing the same name.
+		ExistingPanelTemplate->Rename(nullptr, nullptr);
+
+		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(BP);
+	}
 }
 
 void FWidgetBlueprintEditorUtils::ReplaceWidgets(UWidgetBlueprint* BP, TSet<FWidgetReference> Widgets, UClass* WidgetClass)
@@ -489,6 +617,9 @@ void FWidgetBlueprintEditorUtils::ReplaceWidgets(UWidgetBlueprint* BP, TSet<FWid
 
 				NewReplacementWidget->AddChild(Widget);
 			}
+
+			// Rename the removed widget to the transient package so that it doesn't conflict with future widgets sharing the same name.
+			ExistingPanel->Rename(nullptr, nullptr);
 		}
 	}
 

@@ -3,6 +3,8 @@
 #pragma once
 
 #include "TextureAtlas.h"
+#include "SlateElementIndexBuffer.h"
+#include "SlateElementVertexBuffer.h"
 
 class FSlateDynamicTextureResource;
 class FSlateUTextureResource;
@@ -11,20 +13,22 @@ class FSlateMaterialResource;
 struct FDynamicResourceMap
 {
 public:
+	FDynamicResourceMap();
+
 	TSharedPtr<FSlateDynamicTextureResource> GetDynamicTextureResource( FName ResourceName ) const;
 
-	TSharedPtr<FSlateUTextureResource> GetUTextureResource( UTexture2D* TextureObject ) const;
+	TSharedPtr<FSlateUTextureResource> GetUTextureResource( UTexture* TextureObject ) const;
 
-	TSharedPtr<FSlateMaterialResource> GetMaterialResource( UMaterialInterface* Material ) const;
+	TSharedPtr<FSlateMaterialResource> GetMaterialResource( const UMaterialInterface* Material ) const;
 
-	void AddUTextureResource( UTexture2D* TextureObject, TSharedRef<FSlateUTextureResource> InResource );
-	void RemoveUTextureResource( UTexture2D* TextureObject );
+	void AddUTextureResource( UTexture* TextureObject, TSharedRef<FSlateUTextureResource> InResource );
+	void RemoveUTextureResource( UTexture* TextureObject );
 
 	void AddDynamicTextureResource( FName ResourceName, TSharedRef<FSlateDynamicTextureResource> InResource);
 	void RemoveDynamicTextureResource( FName ResourceName );
 
-	void AddMaterialResource( UMaterialInterface* Material, TSharedRef<FSlateMaterialResource> InResource );
-	void RemoveMaterialResource( UMaterialInterface* Material );
+	void AddMaterialResource( const UMaterialInterface* Material, TSharedRef<FSlateMaterialResource> InResource );
+	void RemoveMaterialResource( const UMaterialInterface* Material );
 
 	void Empty();
 
@@ -34,21 +38,42 @@ public:
 
 	void ReleaseResources();
 
-	uint32 GetNumObjectResources() const { return UTextureResourceMap.Num() + MaterialResourceMap.Num(); }
+	uint32 GetNumObjectResources() const { return TextureMap.Num() + MaterialMap.Num(); }
+
+private:
+	void RemoveExpiredTextureResources();
+	void RemoveExpiredMaterialResources();
+
 private:
 	TMap<FName, TSharedPtr<FSlateDynamicTextureResource> > NativeTextureMap;
 	
-	TMap<TWeakObjectPtr<UTexture2D>, TSharedPtr<FSlateUTextureResource> > UTextureResourceMap;
+	typedef TMap<TWeakObjectPtr<UTexture>, TSharedPtr<FSlateUTextureResource> > TextureResourceMap;
+
+	/** Map of all texture resources */
+	TextureResourceMap TextureMap;
+
+	uint64 TextureMemorySincePurge;
+
+	typedef TMap<TWeakObjectPtr<UMaterialInterface>, TSharedPtr<FSlateMaterialResource> > MaterialResourceMap;
 
 	/** Map of all material resources */
-	TMap<TWeakObjectPtr<UMaterialInterface>, TSharedPtr<FSlateMaterialResource> > MaterialResourceMap;
+	MaterialResourceMap MaterialMap;
+
+	int32 LastExpiredMaterialNumMarker;
+};
+
+
+struct FCachedRenderBuffers
+{
+	TSlateElementVertexBuffer<FSlateVertex> VertexBuffer;
+	FSlateElementIndexBuffer IndexBuffer;
 };
 
 
 /**
  * Stores a mapping of texture names to their RHI texture resource               
  */
-class FSlateRHIResourceManager : public ISlateAtlasProvider, public FSlateShaderResourceManager
+class FSlateRHIResourceManager : public ISlateAtlasProvider, public FSlateShaderResourceManager, public FGCObject
 {
 public:
 	FSlateRHIResourceManager();
@@ -60,6 +85,8 @@ public:
 	virtual FSlateShaderResource* GetAtlasPageResource(const int32 InIndex) const override;
 	virtual bool IsAtlasPageResourceAlphaOnly() const override;
 
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
 	/**
 	 * Loads and creates rendering resources for all used textures.  
 	 * In this implementation all textures must be known at startup time or they will not be found
@@ -69,11 +96,11 @@ public:
 	void LoadStyleResources( const ISlateStyle& Style );
 
 	/**
-	 * Clears accessed UTexture resources from the previous frame
+	 * Clears accessed UTexture and Material resources from the previous frame
 	 * The accessed textures is used to determine which textures need be updated on the render thread
 	 * so they can be used by slate
 	 */
-	void ClearAccessedUTextures();
+	void ReleaseAccessedResources();
 
 	/**
 	 * Updates texture atlases if needed
@@ -82,6 +109,7 @@ public:
 
 	/** FSlateShaderResourceManager interface */
 	virtual FSlateShaderResourceProxy* GetShaderResource( const FSlateBrush& InBrush ) override;
+	virtual FSlateShaderResource* GetFontShaderResource( uint32 FontAtlasIndex, FSlateShaderResource* FontTextureAtlas, const class UObject* FontMaterial ) override;
 	virtual ISlateAtlasProvider* GetTextureAtlasProvider() override;
 
 	/**
@@ -89,7 +117,7 @@ public:
 	 *
 	 * @param InTextureObject	The texture object to create the resource from
 	 */
-	TSharedPtr<FSlateUTextureResource> MakeDynamicUTextureResource( UTexture2D* InTextureObject);
+	TSharedPtr<FSlateUTextureResource> MakeDynamicUTextureResource( UTexture* InTextureObject);
 	
 	/**
 	 * Makes a dynamic texture resource and begins use of it
@@ -124,6 +152,14 @@ public:
 	virtual bool LoadTexture( const FName& TextureName, const FString& ResourcePath, uint32& Width, uint32& Height, TArray<uint8>& DecodedImage );
 	virtual bool LoadTexture( const FSlateBrush& InBrush, uint32& Width, uint32& Height, TArray<uint8>& DecodedImage );
 
+	FCachedRenderBuffers* FindCachedBuffersForHandle(const FSlateRenderDataHandle* RenderHandle) const
+	{
+		return CachedBuffers.FindRef(RenderHandle);
+	}
+
+	FCachedRenderBuffers* FindOrCreateCachedBuffersForHandle(const TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe>& RenderHandle);
+	void ReleaseCachedRenderData(FSlateRenderDataHandle* InRenderHandle);
+	void ReleaseCachingResourcesFor(const ILayoutCache* Cacher);
 
 	/**
 	 * Releases rendering resources
@@ -168,9 +204,9 @@ private:
 	/**
 	 * Returns a rendering resource for a material
 	 *
-	 * @param InBrush	Slate brush for the material
+	 * @param InMaterial	The material object
 	 */
-	FSlateShaderResourceProxy* GetMaterialResource( const FSlateBrush& InBrush );
+	FSlateMaterialResource* GetMaterialResource( const UObject* InMaterial, FVector2D ImageSize, FSlateShaderResource* TextureMask );
 
 	/**
 	 * Called when the application exists before the UObject system shuts down so we can free object resources
@@ -186,7 +222,9 @@ private:
 	/** Map of all active dynamic resources being used by brushes */
 	FDynamicResourceMap DynamicResourceMap;
 	/** Set of dynamic textures that are currently being accessed */
-	TSet< TWeakObjectPtr<UTexture2D> > AccessedUTextures;
+	TSet<UTexture*> AccessedUTextures;
+	/** Set of dynamic materials that are current being accessed */
+	TSet<UMaterialInterface*> AccessedMaterials;
 	/** List of old utexture resources that are free to use as new resources */
 	TArray< TSharedPtr<FSlateUTextureResource> > UTextureFreeList;
 	/** List of old dynamic resources that are free to use as new resources */
@@ -203,5 +241,11 @@ private:
 	FIntPoint MaxAltasedTextureSize;
 	/** Needed for displaying an error texture when we end up with bad resources. */
 	UTexture* BadResourceTexture;
+
+	typedef TMap< FSlateRenderDataHandle*, FCachedRenderBuffers* > TCachedBufferMap;
+	TCachedBufferMap CachedBuffers;
+
+	typedef TMap< const ILayoutCache*, TArray< FCachedRenderBuffers* > > TCachedBufferPoolMap;
+	TCachedBufferPoolMap CachedBufferPool;
 };
 

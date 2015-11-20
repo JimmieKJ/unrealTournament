@@ -29,8 +29,12 @@ bool UReimportSpeedTreeFactory::CanReimport(UObject* Obj, TArray<FString>& OutFi
 	UStaticMesh* Mesh = Cast<UStaticMesh>(Obj);
 	if (Mesh && Mesh->AssetImportData)
 	{
-		OutFilenames.Add(FReimportManager::ResolveImportFilename(Mesh->AssetImportData->SourceFilePath, Mesh));
-		return true;
+		if (FPaths::GetExtension(Mesh->AssetImportData->GetFirstFilename()).ToLower() == "srt")
+		{
+			// SpeedTrees file extension matches with filepath			
+			Mesh->AssetImportData->ExtractFilenames(OutFilenames);
+			return true;
+		}		
 	}
 #endif // #if WITH_SPEEDTREE
 	return false;
@@ -40,9 +44,9 @@ void UReimportSpeedTreeFactory::SetReimportPaths(UObject* Obj, const TArray<FStr
 {
 #if WITH_SPEEDTREE
 	UStaticMesh* Mesh = Cast<UStaticMesh>(Obj);
-	if (Mesh && ensure(NewReimportPaths.Num() == 1))
+	if (Mesh && Mesh->AssetImportData && ensure(NewReimportPaths.Num() == 1))
 	{
-		Mesh->AssetImportData->SourceFilePath = FReimportManager::ResolveImportFilename(NewReimportPaths[0], Mesh);
+		Mesh->AssetImportData->UpdateFilenameOnly(NewReimportPaths[0]);
 	}
 #endif // #if WITH_SPEEDTREE
 }
@@ -56,7 +60,7 @@ EReimportResult::Type UReimportSpeedTreeFactory::Reimport(UObject* Obj)
 		return EReimportResult::Failed;
 	}
 
-	const FString Filename = FReimportManager::ResolveImportFilename(Mesh->AssetImportData->SourceFilePath, Mesh);
+	const FString Filename = Mesh->AssetImportData->GetFirstFilename();
 	const FString FileExtension = FPaths::GetExtension(Filename);
 	const bool bIsSRT = FCString::Stricmp(*FileExtension, TEXT("SRT")) == 0;
 
@@ -77,6 +81,8 @@ EReimportResult::Type UReimportSpeedTreeFactory::Reimport(UObject* Obj)
 	if (UFactory::StaticImportObject(Mesh->GetClass(), Mesh->GetOuter(), *Mesh->GetName(), RF_Public | RF_Standalone, *Filename, NULL, this))
 	{
 		UE_LOG(LogEditorFactories, Log, TEXT("-- imported successfully"));
+
+		Mesh->AssetImportData->Update(Filename);
 
 		// Mark the package dirty after the successful import
 		Mesh->MarkPackageDirty();

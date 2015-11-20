@@ -34,16 +34,16 @@ public:
 		return false;
 	}
 
-	IPerfCounters * GetPerformanceCounters() const
+	IPerfCounters* GetPerformanceCounters() const
 	{
 		return PerfCountersSingleton;
 	}
 
-	IPerfCounters * CreatePerformanceCounters(const FString& UniqueInstanceId) override
+	IPerfCounters* CreatePerformanceCounters(const FString& UniqueInstanceId) override
 	{
 		if (PerfCountersSingleton)
 		{
-			UE_LOG(LogPerfCounters, Warning, TEXT("CreatePerformanceCounters: instance already exists, new instance not created."));
+			UE_LOG(LogPerfCounters, Display, TEXT("CreatePerformanceCounters: instance already exists, new instance not created."));
 			return PerfCountersSingleton;
 		}
 
@@ -53,7 +53,7 @@ public:
 			InstanceUID = FString::Printf(TEXT("perfcounters-of-pid-%d"), FPlatformProcess::GetCurrentProcessId());
 		}
 
-		FPerfCounters * PerfCounters = new FPerfCounters(InstanceUID);
+		FPerfCounters* PerfCounters = new FPerfCounters(InstanceUID);
 		if (!PerfCounters->Initialize())
 		{
 			UE_LOG(LogPerfCounters, Warning, TEXT("CreatePerformanceCounters: could not create perfcounters"));

@@ -7,8 +7,8 @@
 /**
  * Allows the user to type in custom text.  Only permits a single line of text to be entered.
  * 
- * ● No Children
- * ● Text Entry
+ * * No Children
+ * * Text Entry
  */
 UCLASS(meta=(DisplayName="Text Box"))
 class UMG_API UEditableTextBox : public UWidget
@@ -48,20 +48,20 @@ public:
 	FGetText HintTextDelegate;
 
 	/** Font color and opacity (overrides Style) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
-	FSlateFontInfo Font;
+	UPROPERTY()
+	FSlateFontInfo Font_DEPRECATED;
 
 	/** Text color and opacity (overrides Style) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
-	FLinearColor ForegroundColor;
+	UPROPERTY()
+	FLinearColor ForegroundColor_DEPRECATED;
 
 	/** The color of the background/border around the editable text (overrides Style) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
-	FLinearColor BackgroundColor;
+	UPROPERTY()
+	FLinearColor BackgroundColor_DEPRECATED;
 
 	/** Text color and opacity when read-only (overrides Style) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
-	FLinearColor ReadOnlyForegroundColor;
+	UPROPERTY()
+	FLinearColor ReadOnlyForegroundColor_DEPRECATED;
 
 	/** Sets whether this text box can actually be modified interactively by the user */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
@@ -76,8 +76,8 @@ public:
 	float MinimumDesiredWidth;
 
 	/** Padding between the box/border and the text widget inside (overrides Style) */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Appearance)
-	FMargin Padding;
+	UPROPERTY()
+	FMargin Padding_DEPRECATED;
 
 	/** Workaround as we lose focus when the auto completion closes. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Behavior, AdvancedDisplay)
@@ -98,6 +98,10 @@ public:
 	/** Whether to select all text when pressing enter to commit changes */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Behavior, AdvancedDisplay)
 	bool SelectAllTextOnCommit;
+
+	/** If we're on a platform that requires a virtual keyboard, what kind of keyboard should this widget use? */
+	UPROPERTY(EditAnywhere, Category = Behavior, AdvancedDisplay)
+	TEnumAsByte< EVirtualKeyboardType::Type > KeyboardType;
 
 public:
 
@@ -128,17 +132,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ClearError();
 
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
-	// UVisual interface
+	//~ Begin UVisual Interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
+	//~ End UVisual Interface
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End of UObject interface
+	//~ End UObject Interface
 
 #if WITH_EDITOR
 	virtual const FSlateBrush* GetEditorIcon() override;
@@ -146,7 +150,7 @@ public:
 #endif
 
 protected:
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	// End of UWidget
 

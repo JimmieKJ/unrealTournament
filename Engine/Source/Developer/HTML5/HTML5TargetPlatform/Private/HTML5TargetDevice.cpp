@@ -21,10 +21,9 @@ void FHTML5TargetDevice::Disconnect( )
 {
 }
 
-
 FTargetDeviceId FHTML5TargetDevice::GetId( ) const
 {
-	return FTargetDeviceId(TargetPlatform.PlatformName(), GetName());
+	return FTargetDeviceId(TargetPlatform.PlatformName(), Path);
 }
 
 

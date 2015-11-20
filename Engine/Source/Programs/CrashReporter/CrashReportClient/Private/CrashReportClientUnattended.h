@@ -14,7 +14,7 @@ public:
 	 * Set up uploader object
 	 * @param ErrorReport Error report to upload
 	 */
-	explicit FCrashReportClientUnattended(const FPlatformErrorReport& ErrorReport);
+	explicit FCrashReportClientUnattended(FPlatformErrorReport& ErrorReport);
 
 private:
 	/**

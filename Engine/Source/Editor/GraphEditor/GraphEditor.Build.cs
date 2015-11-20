@@ -56,7 +56,6 @@ public class GraphEditor : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"ContentBrowser",
-				"Documentation",
 				"EditorWidgets"
 			}
 		);

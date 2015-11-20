@@ -14,6 +14,26 @@ enum class ESymbolParseOption
 	CloseTemplateBracket
 };
 
+// A specifier with optional value
+struct FPropertySpecifier
+{
+public:
+	explicit FPropertySpecifier(FString&& InKey)
+		: Key(MoveTemp(InKey))
+	{
+	}
+
+	explicit FPropertySpecifier(const FString& InKey)
+		: Key(InKey)
+	{
+	}
+
+	FString Key;
+	TArray<FString> Values;
+
+	FString ConvertToString() const;
+};
+
 //
 // Base class of header parsers.
 //

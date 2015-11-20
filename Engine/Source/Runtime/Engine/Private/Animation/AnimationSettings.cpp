@@ -20,7 +20,7 @@ UAnimationSettings::UAnimationSettings(const FObjectInitializer& ObjectInitializ
 	, bTryPerTrackBitwiseCompression(true)
 	, bTryLinearKeyRemovalCompression(true)
 	, bTryIntervalKeyRemoval(true)
-
+	, bEnablePerformanceLog(false)
 {
 	SectionName = TEXT("Animation");
 

@@ -13,5 +13,9 @@ UBTService_BlackboardBase::UBTService_BlackboardBase(const FObjectInitializer& O
 void UBTService_BlackboardBase::InitializeFromAsset(UBehaviorTree& Asset)
 {
 	Super::InitializeFromAsset(Asset);
-	BlackboardKey.CacheSelectedKey(GetBlackboardAsset());
+	UBlackboardData* BBAsset = GetBlackboardAsset();
+	if (ensure(BBAsset))
+	{
+		BlackboardKey.ResolveSelectedKey(*BBAsset);
+	}
 }

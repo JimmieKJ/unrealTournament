@@ -36,13 +36,18 @@ UENUM()
 namespace EBTDecoratorLogic
 {
 	// keep in sync with DescribeLogicOp() in BTCompositeNode.cpp
+
 	enum Type
 	{
 		Invalid,
-		Test,		// test decorator conditions
-		And,		// logic op: AND
-		Or,			// logic op: OR
-		Not,		// logic op: NOT
+		/** Test decorator conditions. */
+		Test,
+		/** logic op: AND */
+		And,
+		/** logic op: OR */
+		Or,
+		/** logic op: NOT */
+		Not,
 	};
 }
 

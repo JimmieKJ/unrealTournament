@@ -6,6 +6,7 @@
 #include "LandscapeEditorObject.h"
 #include "LandscapeEditorDetails.h"
 #include "LandscapeEditorDetailCustomizations.h"
+#include "LandscapeEditorUtils.h"
 
 #include "DetailLayoutBuilder.h"
 #include "DetailCategoryBuilder.h"
@@ -223,6 +224,7 @@ void FLandscapeEditorDetailCustomization_NewLandscape::CustomizeDetails(IDetailL
 	[
 		SNew(SRotatorInputBox)
 		.bColorAxisLabels(true)
+		.AllowResponsiveLayout(true)
 		.Font(DetailBuilder.GetDetailFont())
 		.Roll_Static(&GetOptionalPropertyValue<float>, PropertyHandle_Rotation_Roll)
 		.Pitch_Static(&GetOptionalPropertyValue<float>, PropertyHandle_Rotation_Pitch)
@@ -861,8 +863,7 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 			LandscapeEdMode->UISettings->ClearImportLandscapeData();
 		}
 
-		const float ComponentSize = QuadsPerComponent;
-		const FVector Offset = FTransform(LandscapeEdMode->UISettings->NewLandscape_Rotation, FVector::ZeroVector, LandscapeEdMode->UISettings->NewLandscape_Scale).TransformVector(FVector(-ComponentCountX * ComponentSize / 2, -ComponentCountY * ComponentSize / 2, 0));
+		const FVector Offset = FTransform(LandscapeEdMode->UISettings->NewLandscape_Rotation, FVector::ZeroVector, LandscapeEdMode->UISettings->NewLandscape_Scale).TransformVector(FVector(-ComponentCountX * QuadsPerComponent / 2, -ComponentCountY * QuadsPerComponent / 2, 0));
 		ALandscape* Landscape = LandscapeEdMode->GetWorld()->SpawnActor<ALandscape>(LandscapeEdMode->UISettings->NewLandscape_Location + Offset, LandscapeEdMode->UISettings->NewLandscape_Rotation);
 
 		//if (LandscapeEdMode->NewLandscapePreviewMode == ENewLandscapePreviewMode::ImportLandscape)
@@ -871,7 +872,7 @@ FReply FLandscapeEditorDetailCustomization_NewLandscape::OnCreateButtonClicked()
 		}
 
 		Landscape->SetActorRelativeScale3D(LandscapeEdMode->UISettings->NewLandscape_Scale);
-		Landscape->Import(FGuid::NewGuid(), SizeX, SizeY, QuadsPerComponent, LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent, LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection, Data.GetData(), NULL, LayerInfos);
+		Landscape->Import(FGuid::NewGuid(), 0, 0, SizeX-1, SizeY-1, LandscapeEdMode->UISettings->NewLandscape_SectionsPerComponent, LandscapeEdMode->UISettings->NewLandscape_QuadsPerSection, Data.GetData(), NULL, LayerInfos, LandscapeEdMode->UISettings->ImportLandscape_AlphamapType);
 
 		// automatically calculate a lighting LOD that won't crash lightmass (hopefully)
 		// < 2048x2048 -> LOD0

@@ -34,16 +34,17 @@ private:
 };
 
 
-class SNewLayerPopup 
+class SNewWorldLayerPopup 
 	: public SBorder
 {
 public:
 	DECLARE_DELEGATE_RetVal_OneParam(FReply, FOnCreateLayer, const FWorldTileLayer&)
 	
-	SLATE_BEGIN_ARGS(SNewLayerPopup)
+	SLATE_BEGIN_ARGS(SNewWorldLayerPopup)
 	{}
 	SLATE_EVENT(FOnCreateLayer, OnCreateLayer)
 	SLATE_ARGUMENT(FString, DefaultName)
+	SLATE_ARGUMENT(TSharedPtr<FWorldTileCollectionModel>, InWorldModel)
 	SLATE_END_ARGS()
 		
 	void Construct(const FArguments& InArgs);
@@ -75,6 +76,7 @@ public:
 	
 private:
 	FReply OnClickedCreate();
+	bool CanCreateLayer() const;
 
 	void SetLayerName(const FText& InText)
 	{
@@ -93,6 +95,7 @@ private:
 
 private:
 	/** The delegate to execute when the create button is clicked */
-	FOnCreateLayer			OnCreateLayer;
-	FWorldTileLayer			LayerData;
+	FOnCreateLayer							OnCreateLayer;
+	FWorldTileLayer							LayerData;
+	TSet<FString>							ExistingLayerNames;
 };

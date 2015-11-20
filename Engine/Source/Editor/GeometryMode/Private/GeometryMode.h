@@ -3,6 +3,7 @@
 #pragma once
 
 
+class UGeomModifier;
 
 /** Geometry Mode widget for controls */
 class SGeometryModeControls : public SCompoundWidget, public FNotifyHook

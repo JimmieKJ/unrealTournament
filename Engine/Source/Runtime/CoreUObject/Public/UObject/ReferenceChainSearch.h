@@ -21,6 +21,8 @@ public:
 			StructARO,
 			/** Object is added to the references list by an AddReferencedObject call */
 			ARO,
+			/** Object is referenced by a map */
+			MapProperty,
 		};
 	};
 
@@ -55,7 +57,7 @@ public:
 #endif // !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
 
 		/** Returns whether this link is a property reference or not */
-		FORCEINLINE bool IsProperty() const { return ReferenceType == EReferenceType::Property || ReferenceType == EReferenceType::ArrayProperty; }
+		FORCEINLINE bool IsProperty() const { return ReferenceType == EReferenceType::Property || ReferenceType == EReferenceType::ArrayProperty || ReferenceType == EReferenceType::MapProperty; }
 
 		FORCEINLINE bool operator == (const FReferenceChainLink& Rhs) const { return ReferencedBy == Rhs.ReferencedBy && ReferencedObj == Rhs.ReferencedObj; }
 
@@ -93,7 +95,7 @@ public:
 		{
 		}
 
-		virtual void HandleObjectReference( UObject*& InObject, const UObject* ReferencingObject, const UProperty* ReferencingProperty ) override;
+		virtual void HandleObjectReference( UObject*& InObject, const UObject* InReferencingObject, const UProperty* ReferencingProperty ) override;
 
 		virtual bool IsIgnoringArchetypeRef() const override	{ return false; }
 		virtual bool IsIgnoringTransient() const override		{ return false; }

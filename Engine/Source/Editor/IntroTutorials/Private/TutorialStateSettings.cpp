@@ -15,7 +15,7 @@ void UTutorialStateSettings::PostInitProperties()
 
 	for(const auto& Progress : TutorialsProgress)
 	{
-		TSubclassOf<UEditorTutorial> TutorialClass = LoadClass<UEditorTutorial>(NULL, *Progress.Tutorial.AssetLongPathname, NULL, LOAD_None, NULL);
+		TSubclassOf<UEditorTutorial> TutorialClass = LoadClass<UEditorTutorial>(NULL, *Progress.Tutorial.ToString(), NULL, LOAD_None, NULL);
 		if(TutorialClass != nullptr)
 		{
 			UEditorTutorial* Tutorial = TutorialClass->GetDefaultObject<UEditorTutorial>();

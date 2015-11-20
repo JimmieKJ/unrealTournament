@@ -260,7 +260,7 @@ TSharedRef<SWidget> FGameplayEffectExecutionScopedModifierInfoDetails::OnGenerat
 
 TSharedPtr<FGameplayEffectAttributeCaptureDefinition> FGameplayEffectExecutionScopedModifierInfoDetails::GetCurrentCaptureDef() const
 {
-	if (CaptureDefPropertyHandle.IsValid())
+	if (CaptureDefPropertyHandle.IsValid() && CaptureDefPropertyHandle->GetProperty())
 	{
 		TArray<const void*> RawStructPtrs;
 		CaptureDefPropertyHandle->AccessRawData(RawStructPtrs);
@@ -282,7 +282,7 @@ TSharedPtr<FGameplayEffectAttributeCaptureDefinition> FGameplayEffectExecutionSc
 
 void FGameplayEffectExecutionScopedModifierInfoDetails::SetCurrentCaptureDef(TSharedPtr<FGameplayEffectAttributeCaptureDefinition> InDef)
 {
-	if (CaptureDefPropertyHandle.IsValid() && InDef.IsValid())
+	if (CaptureDefPropertyHandle.IsValid() && CaptureDefPropertyHandle->GetProperty() && InDef.IsValid())
 	{
 		TArray<void*> RawStructPtrs;
 		CaptureDefPropertyHandle->AccessRawData(RawStructPtrs);

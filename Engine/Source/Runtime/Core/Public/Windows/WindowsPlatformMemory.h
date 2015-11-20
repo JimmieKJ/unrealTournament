@@ -61,7 +61,7 @@ struct CORE_API FWindowsPlatformMemory
 		HANDLE				Mapping;
 	};
 
-	// Begin FGenericPlatformMemory interface
+	//~ Begin FGenericPlatformMemory Interface
 	static void Init();
 	static class FMalloc* BaseAllocator();
 	static FPlatformMemoryStats GetStats();
@@ -72,7 +72,7 @@ struct CORE_API FWindowsPlatformMemory
 	static void BinnedFreeToOS( void* Ptr );
 	static FSharedMemoryRegion* MapNamedSharedMemoryRegion(const FString& InName, bool bCreate, uint32 AccessMode, SIZE_T Size);
 	static bool UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * MemoryRegion);
-	// End FGenericPlatformMemory interface
+	//~ End FGenericPlatformMemory Interface
 };
 
 

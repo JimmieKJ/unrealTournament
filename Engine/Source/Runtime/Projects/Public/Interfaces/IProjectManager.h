@@ -193,13 +193,26 @@ public:
 	virtual bool IsNonDefaultPluginEnabled() const = 0;
 
 	/**
-	 * Sets whether a plugin is enabled, and updates the project descriptor on disk. May require restarting to load it.
+	 * Sets whether a plugin is enabled, and updates the current project descriptor. Does not save to disk and may require restarting to load it.
 	 * 
 	 * @param	PluginName		Name of the plugin
 	 * @param	bEnabled		Whether to enable or disable the plugin
 	 * @param	OutFailReason	On failure, gives an error message
 	 * @param	MarketplaceURL	Marketplace URL to open if the user does not have this plugin installed
-	 * @return	True if the plugin has been marked as enabled, and the project descriptor has been saved.
+	 * @return	True if the plugin has been marked as enabled, and the project descriptor has been updated.
 	 */
 	virtual bool SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason, const FString& MarketplaceURL = TEXT("")) = 0;
+
+	/**
+	 * Checks whether the current loaded project has been modified but not saved to disk
+	 */
+	virtual bool IsCurrentProjectDirty() const = 0;
+
+	/**
+	 * Saves the current project to the project path
+	 *
+	 * @param	OutFailReason	On failure, gives an error message
+	 * @return	True if the project was saved successfully
+	 */
+	virtual bool SaveCurrentProjectToDisk(FText& OutFailReason) = 0;
 };

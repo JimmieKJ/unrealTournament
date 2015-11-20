@@ -5,7 +5,6 @@
 
 class FSlateShaderResource;
 
-
 /**
  * A class which batches Slate elements for rendering
  */
@@ -21,15 +20,7 @@ public:
 	 * 
 	 * @param DrawElements	The elements to batch
 	 */
-	void AddElements( const TArray<FSlateDrawElement>& DrawElements );
-
-	/**
-	 * Populates the window element list with batched data for use in rendering
-	 *
-	 * @param WindowElementList		The window element list to update
-	 * @param bRequiresStencilTest	Will be set to true if stencil testing should be enabled when drawing this viewport (currently for anti-aliased lines)
-	 */
-	void FillBatchBuffers(FSlateWindowElementList& WindowElementList, bool& bRequiresStencilTest);
+	void AddElements( FSlateWindowElementList& ElementList );
 
 	/**
 	 * Returns true if the elements in this batcher require v-sync.
@@ -41,14 +32,15 @@ public:
 	 */
 	void ResetBatches();
 
-	void ResetStats();
-
 private:
+	void AddElements(FSlateDrawLayer& InDrawLayer);
+	
+	FColor PackVertexColor(const FLinearColor& InLinearColor);
 
 	/** 
 	 * Creates vertices necessary to draw a Quad element 
 	 */
-	void AddQuadElement( const FSlateDrawElement& DrawElement, FColor Color = FColor(255,255,255));
+	void AddQuadElement( const FSlateDrawElement& DrawElement, FColor Color = FColor::White);
 
 	/** 
 	 * Creates vertices necessary to draw a 3x3 element
@@ -97,6 +89,12 @@ private:
 	 */
 	void AddCustomElement( const FSlateDrawElement& DrawElement );
 
+	void AddCustomVerts( const FSlateDrawElement& DrawElement );
+
+	void AddCachedBuffer( const FSlateDrawElement& DrawElement );
+
+	void AddLayer(const FSlateDrawElement& DrawElement);
+
 	/** 
 	 * Finds an batch for an element based on the passed in parameters
 	 * Elements with common parameters and layers will batched together.
@@ -116,26 +114,12 @@ private:
 											 ESlateDrawEffect::Type DrawEffects, 
 											 ESlateBatchDrawFlag::Type DrawFlags,
 											 const TOptional<FShortRect>& ScissorRect);
-
-	void AddVertices( TArray<FSlateVertex>& OutVertices, FSlateElementBatch& ElementBatch, const TArray<FSlateVertex>& VertexBatch );
-
-	void AddIndices( TArray<SlateIndex>& OutIndices, FSlateElementBatch& ElementBatch, const TArray<SlateIndex>& IndexBatch );
-
 private:
-	// Element batch maps sorted by layer.
-	TMap<uint32, TSet<FSlateElementBatch>> LayerToElementBatches;
+	/** Batch data currently being filled in */
+	FSlateBatchData* BatchData;
 
-	// Array of vertex lists that are currently free (have no elements in them).
-	TArray<uint32> VertexArrayFreeList;
-
-	// Array of index lists that are currently free (have no elements in them).
-	TArray<uint32> IndexArrayFreeList;
-
-	// Array of vertex lists for batching vertices. We use this method for quickly resetting the arrays without deleting memory.
-	TArray<TArray<FSlateVertex>> BatchVertexArrays;
-
-	// Array of vertex lists for batching indices. We use this method for quickly resetting the arrays without deleting memory.
-	TArray<TArray<SlateIndex>> BatchIndexArrays;
+	/** The draw layer currently being accumulated */
+	FSlateDrawLayer* DrawLayer;
 
 	/** Resource manager for accessing shader resources */
 	FSlateShaderResourceManager& ResourceManager;
@@ -143,17 +127,21 @@ private:
 	/** Font cache used to layout text */
 	FSlateFontCache& FontCache;
 
+	/** Track the number of drawn batches from the previous frame to report to stats. */
+	int32 NumDrawnBatchesStat;
+
+	/** Track the number of drawn boxes from the previous frame to report to stats. */
+	int32 NumDrawnBoxesStat;
+
+	/** Track the number of drawn texts from the previous frame to report to stats. */
+	int32 NumDrawnTextsStat;
+
 	/** Offset to use when supporting 1:1 texture to pixel snapping */
 	const float PixelCenterOffset;
 
+	/** Are the vertex colors expected to be in sRGB space? */
+	const bool bSRGBVertexColor;
+
 	// true if any element in the batch requires vsync.
 	bool bRequiresVsync;
-
-	uint32 NumVertices;
-	uint32 NumBatches;
-	uint32 NumLayers;
-	uint32 TotalVertexMemory;
-	uint32 RequiredVertexMemory;
-	uint32 TotalIndexMemory;
-	uint32 RequiredIndexMemory;
 };

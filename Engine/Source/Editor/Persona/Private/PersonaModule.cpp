@@ -13,6 +13,7 @@
 #include "AnimNotifyDetails.h"
 #include "AnimGraphNodeDetails.h"
 #include "AnimInstanceDetails.h"
+#include "Editor/UnrealEd/Public/Kismet2/KismetEditorUtilities.h"
 
 IMPLEMENT_MODULE( FPersonaModule, Persona );
 
@@ -37,18 +38,8 @@ void FPersonaModule::StartupModule()
 
 		for (int32 AssetIndex = 0; AssetIndex < AssetData.Num(); ++AssetIndex)
 		{
-			bool FoundBPNotify = false;
-			for (TMap<FName, FString>::TConstIterator TagIt(AssetData[ AssetIndex ].TagsAndValues); TagIt; ++TagIt)
-			{
-				FString TagValue = AssetData[ AssetIndex ].TagsAndValues.FindRef(BPParentClassName);
-				if(TagValue == BPAnimNotify)
-				{
-					FoundBPNotify = true;
-					break;
-				}
-			}
-
-			if(FoundBPNotify)
+			FString TagValue = AssetData[ AssetIndex ].TagsAndValues.FindRef(BPParentClassName);
+			if (TagValue == BPAnimNotify)
 			{
 				FString BlueprintPath = AssetData[AssetIndex].ObjectPath.ToString();
 				LoadObject<UBlueprint>(NULL, *BlueprintPath, NULL, 0, NULL);
@@ -65,14 +56,18 @@ void FPersonaModule::StartupModule()
 		PropertyModule.RegisterCustomPropertyTypeLayout( "InputScaleBias", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FInputScaleBiasCustomization::MakeInstance ) );
 		PropertyModule.RegisterCustomPropertyTypeLayout( "BoneReference", FOnGetPropertyTypeCustomizationInstance::CreateStatic( &FBoneReferenceCustomization::MakeInstance ) );
 	}
+
+	FKismetEditorUtilities::RegisterOnBlueprintCreatedCallback(this, UAnimInstance::StaticClass(), FKismetEditorUtilities::FOnBlueprintCreated::CreateRaw(this, &FPersonaModule::OnNewBlueprintCreated));
 }
 
 void FPersonaModule::ShutdownModule()
 {
+	FKismetEditorUtilities::UnregisterAutoBlueprintNodeCreation(this);
+
 	MenuExtensibilityManager.Reset();
 	ToolBarExtensibilityManager.Reset();
 
-	// unregsiter when shut down
+	// Unregister when shut down
 	if(FModuleManager::Get().IsModuleLoaded("PropertyEditor"))
 	{
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
@@ -91,4 +86,36 @@ TSharedRef<IBlueprintEditor> FPersonaModule::CreatePersona( const EToolkitMode::
 	TSharedRef< FPersona > NewPersona( new FPersona() );
 	NewPersona->InitPersona( Mode, InitToolkitHost, Skeleton, Blueprint, AnimationAsset, Mesh );
 	return NewPersona;
+}
+
+void FPersonaModule::OnNewBlueprintCreated(UBlueprint* InBlueprint)
+{
+	if (ensure(InBlueprint->UbergraphPages.Num() > 0))
+	{
+		UEdGraph* EventGraph = InBlueprint->UbergraphPages[0];
+
+		int32 SafeXPosition = 0;
+		int32 SafeYPosition = 0;
+
+		if (EventGraph->Nodes.Num() != 0)
+		{
+			SafeXPosition = EventGraph->Nodes[0]->NodePosX;
+			SafeYPosition = EventGraph->Nodes[EventGraph->Nodes.Num() - 1]->NodePosY + EventGraph->Nodes[EventGraph->Nodes.Num() - 1]->NodeHeight + 100;
+		}
+
+		// add try get owner node
+		UK2Node_CallFunction* GetOwnerNode = NewObject<UK2Node_CallFunction>(EventGraph);
+		UFunction* MakeNodeFunction = UAnimInstance::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UAnimInstance, TryGetPawnOwner));
+		GetOwnerNode->CreateNewGuid();
+		GetOwnerNode->PostPlacedNewNode();
+		GetOwnerNode->SetFromFunction(MakeNodeFunction);
+		GetOwnerNode->SetFlags(RF_Transactional);
+		GetOwnerNode->AllocateDefaultPins();
+		GetOwnerNode->NodePosX = SafeXPosition;
+		GetOwnerNode->NodePosY = SafeYPosition;
+		UEdGraphSchema_K2::SetNodeMetaData(GetOwnerNode, FNodeMetadata::DefaultGraphNode);
+		GetOwnerNode->DisableNode();
+
+		EventGraph->AddNode(GetOwnerNode);
+	}
 }

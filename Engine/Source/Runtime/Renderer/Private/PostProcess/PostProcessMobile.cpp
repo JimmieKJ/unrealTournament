@@ -14,6 +14,13 @@
 #include "PostProcessEyeAdaptation.h"
 #include "SceneUtils.h"
 
+
+static EPixelFormat GetHDRPixelFormat()
+{
+	// PF_B8G8R8A8 instead of floats for 32bpp hdr encoding.
+	return IsMobileHDR32bpp() ? PF_B8G8R8A8 : PF_FloatRGBA;
+}
+
 //
 // BLOOM SETUP
 //
@@ -241,7 +248,7 @@ FPooledRenderTargetDesc FRCPassPostProcessBloomSetupES2::ComputeOutputDesc(EPass
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportRect.Width() / 4);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportRect.Height() / 4);
@@ -441,7 +448,7 @@ FPooledRenderTargetDesc FRCPassPostProcessBloomSetupSmallES2::ComputeOutputDesc(
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X/4);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportSize.Y/4);
@@ -604,7 +611,7 @@ FPooledRenderTargetDesc FRCPassPostProcessBloomDownES2::ComputeOutputDesc(EPassO
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X/2);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportSize.Y/2);
@@ -775,7 +782,7 @@ FPooledRenderTargetDesc FRCPassPostProcessBloomUpES2::ComputeOutputDesc(EPassOut
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportSize.Y);
@@ -1037,7 +1044,7 @@ FPooledRenderTargetDesc FRCPassPostProcessSunMaskES2::ComputeOutputDesc(EPassOut
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportSize.Y);
@@ -1614,7 +1621,7 @@ FPooledRenderTargetDesc FRCPassPostProcessSunMergeES2::ComputeOutputDesc(EPassOu
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X/4);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportSize.Y/4);
@@ -1808,7 +1815,7 @@ FPooledRenderTargetDesc FRCPassPostProcessSunMergeSmallES2::ComputeOutputDesc(EP
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X/4);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportSize.Y/4);
@@ -2021,7 +2028,7 @@ FPooledRenderTargetDesc FRCPassPostProcessDofDownES2::ComputeOutputDesc(EPassOut
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	FIntPoint PrePostSourceViewportSize = PrePostSourceViewportRect.Size();
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X/2);
@@ -2368,7 +2375,7 @@ FPooledRenderTargetDesc FRCPassPostProcessDofBlurES2::ComputeOutputDesc(EPassOut
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X/2);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportSize.Y/2);
@@ -2541,7 +2548,7 @@ FPooledRenderTargetDesc FRCPassPostProcessSunAvgES2::ComputeOutputDesc(EPassOutp
 	Ret.NumMips = 1;
 	Ret.TargetableFlags = TexCreate_RenderTargetable;
 	Ret.bForceSeparateTargetAndShaderResource = false;
-	Ret.Format = PF_FloatRGBA;
+	Ret.Format = GetHDRPixelFormat();
 	Ret.NumSamples = 1;
 	Ret.Extent.X = FMath::Max(1, PrePostSourceViewportSize.X/4);
 	Ret.Extent.Y = FMath::Max(1, PrePostSourceViewportSize.Y/4);
@@ -2807,7 +2814,7 @@ FPooledRenderTargetDesc FRCPassPostProcessAaES2::ComputeOutputDesc(EPassOutputId
 	Ret.Format = PF_B8G8R8A8;
 	Ret.NumSamples = 1;
 	Ret.DebugName = TEXT("Aa");
-	Ret.Extent = PassInputs[0].GetOutput()->RenderTargetDesc.Extent;
+	Ret.Extent = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc.Extent;
 	return Ret;
 }
 

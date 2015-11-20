@@ -8,7 +8,7 @@
 //////////////////////////////////////////////////////////////////////////
 // FPhysicsFilterBuilder
 
-FPhysicsFilterBuilder::FPhysicsFilterBuilder(TEnumAsByte<enum ECollisionChannel> InObjectType, const struct FCollisionResponseContainer& ResponseToChannels)
+FPhysicsFilterBuilder::FPhysicsFilterBuilder(TEnumAsByte<enum ECollisionChannel> InObjectType, FMaskFilter MaskFilter, const struct FCollisionResponseContainer& ResponseToChannels)
 	: BlockingBits(0)
 	, TouchingBits(0)
 	, Word3(0)
@@ -27,7 +27,5 @@ FPhysicsFilterBuilder::FPhysicsFilterBuilder(TEnumAsByte<enum ECollisionChannel>
 		}
 	}
 
-	uint8 MyChannel = InObjectType;
-
-	Word3 = (MyChannel << 24);
+	Word3 = CreateChannelAndFilter(InObjectType, MaskFilter);
 }

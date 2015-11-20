@@ -15,6 +15,7 @@ public class OnlineBlueprintSupport : ModuleRules
 				"OnlineSubsystem",
 				"OnlineSubsystemUtils",
 				"Sockets",
+				"Json"
 			}
 		);
 	}

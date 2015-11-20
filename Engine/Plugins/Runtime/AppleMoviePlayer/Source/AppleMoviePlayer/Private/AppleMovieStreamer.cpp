@@ -185,7 +185,9 @@ float FAVPlayerMovieStreamer::GetAspectRatio() const
 
 void FAVPlayerMovieStreamer::Cleanup()
 {
-    // Schedule textures for release.
+	MovieViewport->SetTexture(NULL);
+
+	// Schedule textures for release.
     if (Texture.IsValid())
     {
         TexturesPendingDeletion.Add(Texture);
@@ -425,10 +427,17 @@ bool FAVPlayerMovieStreamer::CheckForNextFrameAndCopy()
         {
             check( SrcWidth > 0 && SrcHeight > 0 );
 
-            // Now that we have video information, check on texture allocation. If we don't have a texture yet, create one.
+			TArray<uint8> TempData;
+			TempData.AddZeroed(SrcWidth * SrcHeight * 4);
+			TextureData->SetRawData(SrcWidth, SrcHeight, SrcWidth * 4, TempData);
+			check( TextureData->GetRawBytesPtr() != NULL );
+
+			// Now that we have video information, check on texture allocation. If we don't have a texture yet, create one.
             if(!Texture.IsValid() || (Texture->GetWidth() != SrcWidth || Texture->GetHeight() != SrcHeight))
             {
-                // Release any resources associated with the previous texture
+				MovieViewport->SetTexture(NULL);
+
+				// Release any resources associated with the previous texture
                 if (Texture.IsValid())
                 {
                     // *** Aren't we already in the rendering thread? Why can't we just release the resource right here, right now?
@@ -438,19 +447,14 @@ bool FAVPlayerMovieStreamer::CheckForNextFrameAndCopy()
                 }
 
                 // Create and initialize a new texture
-                Texture = MakeShareable(new FSlateTexture2DRHIRef(SrcWidth, SrcHeight, PF_B8G8R8A8, TextureData, TexCreate_Dynamic | TexCreate_NoTiling));
+                Texture = MakeShareable(new FSlateTexture2DRHIRef(SrcWidth, SrcHeight, PF_B8G8R8A8, nullptr, TexCreate_Dynamic | TexCreate_NoTiling, true));
                 Texture->InitResource();
 
                 // Make sure the texture is at least updated once.
                 Texture->UpdateRHI();
                 MovieViewport->SetTexture(Texture);
-            }
-
-			TArray<uint8> TempData;
-			TempData.AddZeroed(SrcWidth * SrcHeight * 4);
-            TextureData->SetRawData(SrcWidth, SrcHeight, SrcWidth * 4, TempData);
-            check( TextureData->GetRawBytesPtr() != NULL );
-        }
+			}
+		}
 
         check( TextureData->GetBytesPerPixel() > 0 );
         
@@ -479,9 +483,6 @@ bool FAVPlayerMovieStreamer::CheckForNextFrameAndCopy()
 
 void FAVPlayerMovieStreamer::TeardownPlayback()
 {
-    // Make sure the movie viewport doesn't hold on to the texture any longer
-    MovieViewport->SetTexture(NULL);
-
     if( LatestSamples != NULL )
     {
         CFRelease( LatestSamples );

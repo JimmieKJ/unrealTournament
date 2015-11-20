@@ -25,12 +25,18 @@
 #include "common/PxTypeInfo.h"
 #include "common/PxStringTable.h"
 
+//
+// Important: if you adjust the comment about binary compatible versions below, don't forget to adjust the compatibility list in
+// sBinaryCompatibleVersionsbinary as well
+//
 /**
 PX_BINARY_SERIAL_VERSION is used to specify the binary data format compatibility additionally to the physics sdk version. 
 The binary format version is defined as "PX_PHYSICS_VERSION_MAJOR.PX_PHYSICS_VERSION_MINOR.PX_PHYSICS_VERSION_BUGFIX-PX_BINARY_SERIAL_VERSION".
 The following binary format versions are compatible with the current physics version:
   3.3.1-0
   3.3.2-0
+  3.3.3-0
+  3.3.4-0
 
 The PX_BINARY_SERIAL_VERSION for a given PhysX release is typically 0. If incompatible modifications are made to a cutomer specific branch the
 number should be increased.

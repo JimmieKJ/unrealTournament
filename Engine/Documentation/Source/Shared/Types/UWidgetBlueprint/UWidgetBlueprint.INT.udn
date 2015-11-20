@@ -5,7 +5,7 @@ Description:Overview of the WidgetBlueprint class
 
 [EXCERPT:UWidgetBlueprint]
 
-The widget blueprint enables extending UUserWidget the user extensible UWidget.
+The widget blueprint enables extending UUserWidget, the user extensible UWidget.
 
 [VAR:ToolTipFullLink]
 

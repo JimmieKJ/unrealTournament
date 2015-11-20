@@ -12,5 +12,5 @@ class AIMODULE_API UAISenseConfig_Prediction : public UAISenseConfig
 {
 	GENERATED_BODY()
 public:	
-	virtual TSubclassOf<UAISense> GetSenseImplementation() const override { return UAISense_Prediction::StaticClass(); }
+	virtual TSubclassOf<UAISense> GetSenseImplementation() const override;
 };

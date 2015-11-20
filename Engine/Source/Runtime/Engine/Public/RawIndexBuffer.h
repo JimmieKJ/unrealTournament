@@ -36,6 +36,10 @@ typedef FRawIndexBuffer FRawIndexBuffer16or32;
 class FRawIndexBuffer16or32 : public FIndexBuffer
 {
 public:
+	FRawIndexBuffer16or32()
+		: b32Bit(true)
+	{
+	}
 
 	TArray<uint32> Indices;
 
@@ -44,11 +48,19 @@ public:
 	 */
 	void CacheOptimize();
 
+	/**
+	 * Computes whether index buffer should be 32 bit
+	 */
+	void ComputeIndexWidth();
+
 	// FRenderResource interface.
 	virtual void InitRHI() override;
 
 	// Serialization.
 	friend FArchive& operator<<(FArchive& Ar,FRawIndexBuffer16or32& I);
+
+private:
+	bool b32Bit;
 };
 #endif
 
@@ -199,7 +211,7 @@ public:
 	virtual void Insert(int32 Idx, int32 Num = 1) = 0;
 	virtual void Remove(int32 Idx, int32 Num = 1) = 0;
 	virtual void Empty(int32 Slack = 0) = 0;
-	virtual int32 GetResourceDataSize() = 0;
+	virtual int32 GetResourceDataSize() const = 0;
 };
 
 template <typename INDEX_TYPE>
@@ -289,7 +301,7 @@ public:
 		Indices.Empty(Slack);
 	}
 
-	virtual int32 GetResourceDataSize() override
+	virtual int32 GetResourceDataSize() const override
 	{
 		return Indices.GetResourceDataSize();
 	}

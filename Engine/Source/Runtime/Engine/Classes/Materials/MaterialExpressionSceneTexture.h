@@ -13,16 +13,16 @@ enum ESceneTextureId
 	PPI_SceneColor UMETA(DisplayName="SceneColor"),
 	/** Scene depth, single channel, contains the linear depth of the opaque objects */
 	PPI_SceneDepth UMETA(DisplayName="SceneDepth"),
-	/** Material diffuse, RGB color (GBuffer) */
+	/** Material diffuse, RGB color (computed from GBuffer) */
 	PPI_DiffuseColor UMETA(DisplayName="DiffuseColor"),
-	/** Material specular, RGB color (GBuffer) */
+	/** Material specular, RGB color (computed from GBuffer) */
 	PPI_SpecularColor UMETA(DisplayName="SpecularColor"),
-	/** Material subsurface, RGB color (GBuffer) */
+	/** Material subsurface, RGB color (GBuffer, only for some ShadingModels) */
 	PPI_SubsurfaceColor UMETA(DisplayName="SubsurfaceColor"),
-	/** Material base, RGB color (GBuffer) */
-	PPI_BaseColor UMETA(DisplayName="BaseColor"),
-	/** Material specular, single channel (GBuffer) */
-	PPI_Specular UMETA(DisplayName="Specular"),
+	/** Material base, RGB color (GBuffer), can be modified on read by the ShadingModel, consider StoredBasedColor */
+	PPI_BaseColor UMETA(DisplayName="BaseColor (for lighting)"),
+	/** Material specular, single channel (GBuffer), can be modified on read by the ShadingModel, consider StoredSpecular */
+	PPI_Specular UMETA(DisplayName="Specular (for lighting)"),
 	/** Material metallic, single channel (GBuffer) */
 	PPI_Metallic UMETA(DisplayName="Metallic"),
 	/** Normal, RGB in -1..1 range, not normalized (GBuffer) */
@@ -57,6 +57,12 @@ enum ESceneTextureId
 	PPI_ShadingModel UMETA(DisplayName="Shading Model"),
 	/** Ambient Occlusion, single channel */
 	PPI_AmbientOcclusion UMETA(DisplayName="Ambient Occlusion"),
+	/** Scene stencil, contains CustomStencil mesh property of the opaque objects rendered with CustomDepth */
+	PPI_CustomStencil UMETA(DisplayName="CustomStencil"),
+	/** Material base, RGB color (GBuffer) */
+	PPI_StoredBaseColor UMETA(DisplayName="BaseColor (as stored in GBuffer)"),
+	/** Material specular, single channel (GBuffer) */
+	PPI_StoredSpecular UMETA(DisplayName="Specular (as stored in GBuffer)"),
 };
 
 UCLASS(collapsecategories, hidecategories=Object)
@@ -80,9 +86,9 @@ class UMaterialExpressionSceneTexture : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=UMaterialExpressionSceneTexture, meta=(DisplayName = "Filtered"))
 	bool bFiltered;
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 };
 

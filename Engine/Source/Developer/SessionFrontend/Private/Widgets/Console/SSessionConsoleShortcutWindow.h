@@ -36,14 +36,14 @@ public:
 	 * @param InName The name of the shortcut to add.
 	 * @param InCommandString The command associated with the shortcut.
 	 */
-	void AddShortcut( const FString& InName, const FString& InCommandString );
+	void AddShortcut(const FString& InName, const FString& InCommandString);
 
 	/**
 	 * Constructs this widget.
 	 *
 	 * @param InArgs The construction arguments.
 	 */
-	void Construct( const FArguments& InArgs );
+	void Construct(const FArguments& InArgs);
 
 protected:
 
@@ -53,7 +53,7 @@ protected:
 	 * @param InName The name of the shortcut.
 	 * @param InCommandString The command string.
 	 */
-	void AddShortcutInternal( const FString& InName, const FString& InCommandString );
+	void AddShortcutInternal(const FString& InName, const FString& InCommandString);
 
 	/**
 	 * Gets the name of the file that stores the shortcuts.
@@ -82,19 +82,19 @@ protected:
 private:
 
 	/** Callback for when a shortcut should be removed. */
-	void HandleDeleteCommandActionExecute( TSharedPtr<FConsoleShortcutData> InShortcut );
+	void HandleDeleteCommandActionExecute(TSharedPtr<FConsoleShortcutData> InShortcut);
 
 	/** Callback for when a shortcut is executed. */
-	FReply HandleExecuteButtonClicked( TSharedPtr<FConsoleShortcutData> InShortcut );
+	FReply HandleExecuteButtonClicked(TSharedPtr<FConsoleShortcutData> InShortcut);
 
 	/** Callback for when a shortcut name or command is being edited. */
-	void HandleEditCommandActionExecute( TSharedPtr<FConsoleShortcutData> InShortcut, bool bInEditCommand, FText InPromptTitle );
+	void HandleEditCommandActionExecute(TSharedPtr<FConsoleShortcutData> InShortcut, bool bInEditCommand, FText InPromptTitle);
 
 	/** Generates a row widget for a shortcut. */
-	TSharedRef<ITableRow> HandleShortcutListViewGenerateRow( TSharedPtr<FConsoleShortcutData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
+	TSharedRef<ITableRow> HandleShortcutListViewGenerateRow(TSharedPtr<FConsoleShortcutData> InItem, const TSharedRef<STableViewBase>& OwnerTable);
 
 	/** Callback for committing changes to command. */
-	void HandleShortcutTextEntryCommitted( const FText& CommandText, ETextCommit::Type CommitInfo );
+	void HandleShortcutTextEntryCommitted(const FText& CommandText, ETextCommit::Type CommitInfo);
 
 private:
 
@@ -105,7 +105,7 @@ private:
 	TSharedPtr<FConsoleShortcutData> EditedShortcut;
 
 	/** Reference to owner of the current pop-up. */
-	TSharedPtr<class SWindow> NameEntryPopupWindow;
+	TWeakPtr<class IMenu> NameEntryMenu;
 
 	/** Holds a delegate that is executed when a command is submitted. */
 	FOnSessionConsoleCommandSubmitted OnCommandSubmitted;

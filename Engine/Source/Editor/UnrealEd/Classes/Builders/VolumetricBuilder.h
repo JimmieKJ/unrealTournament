@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // VolumetricBuilder: Builds a volumetric brush (criss-crossed sheets).
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "VolumetricBuilder.generated.h"
@@ -29,9 +29,9 @@ public:
 	FName GroupName;
 
 
-	// Begin UBrushBuilder Interface
+	//~ Begin UBrushBuilder Interface
 	virtual bool Build( UWorld* InWorld, ABrush* InBrush = NULL ) override;
-	// End UBrushBuilder Interface
+	//~ End UBrushBuilder Interface
 
 	// @todo document
 	virtual void BuildVolumetric( int32 Direction, int32 InNumSheets, float InZ, float InRadius );

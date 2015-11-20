@@ -2,7 +2,7 @@
 
 #include "GameplayTagsModulePrivatePCH.h"
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGameplayTagTest, "System.GameplayTags.GameplayTag", EAutomationTestFlags::ATF_Editor)
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGameplayTagTest, "System.GameplayTags.GameplayTag", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 #if WITH_EDITOR
 static UDataTable* CreateGameplayDataTable()

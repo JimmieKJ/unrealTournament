@@ -72,6 +72,9 @@ public:
 
 	PxVec3 getPolygonNormal(PxU32 index) const;
 
+	const Cm::FastVertex2ShapeScaling&	getVertex2ShapeScaling() const { return mVertex2ShapeSkew; }
+	
+
 private:
 	PxcConvexTriangles& operator=(const PxcConvexTriangles&);
 	void calcCenterAndBounds(const physx::PxTransform& transform) const;
@@ -91,8 +94,7 @@ private:
 PxcConvexTriangles::PxcConvexTriangles(const PxTriangleMeshGeometryLL& md, 
 									   const Cm::FastVertex2ShapeScaling& skew,
 									   const PxU32* tg, PxU32 ntg, PxU32 * tb) 
-:	shapeMesh(md), mVertex2ShapeSkew(skew), trigsInGroup(tg), numTrigsInGroup(ntg), trigIndexDestBuffer(tb),
-	bounds(PxBounds3::empty()), mCenter(0.0f), haveCenterAndBounds(false)
+: shapeMesh(md), mVertex2ShapeSkew(skew), trigsInGroup(tg), numTrigsInGroup(ntg), trigIndexDestBuffer(tb), bounds(PxBounds3::empty()), mCenter(0.0f), haveCenterAndBounds(false)
 {
 //	selectedPolygon.mFlags = 0xff;
 }
@@ -123,7 +125,6 @@ void PxcConvexTriangles::calcCenterAndBounds(const physx::PxTransform& transform
 
 		//gotta take bounds in shape space because building it in vertex space and transforming it out would skew it.
 		
-		// AP: no need to flip v1 and v2 here because normal is not computed
 		//unrolled loop of 3
 		const PxVec3 v0 = transform.transform(mVertex2ShapeSkew * T[0]);
 		mCenter += v0;
@@ -153,12 +154,8 @@ PxVec3 PxcConvexTriangles::getPolygonNormal(PxU32 index) const
 	const PxVec3 v0 = t0 - t1;
 	const PxVec3 v1 = t0 - t2;
 	const PxVec3 nor = v0.cross(v1);
-	if (mVertex2ShapeSkew.flipsNormal())
-		return -nor.getNormalized();
-	else
-		return nor.getNormalized();
+	return nor.getNormalized();
 }
-
 
 typedef bool (*PxcTriangleSweepMethod) (TRIANGLE_SWEEP_METHOD_ARGS);
 
@@ -491,6 +488,7 @@ static PxReal PxcSweepAnyShapeMesh(	const PxsCCDShape& shape0, const PxsCCDShape
 
 	PxVec3 tempWorldNormal(0.f), tempWorldPoint(0.f);
 
+	Cm::FastVertex2ShapeScaling idScale;
 	context.mCCDFaceIndex = PXC_CONTACT_NO_FACE_INDEX;
 
 	PxVec3 sphereCenter(shape0.mPrevTransform.p);
@@ -524,7 +522,8 @@ static PxReal PxcSweepAnyShapeMesh(	const PxsCCDShape& shape0, const PxsCCDShape
 		const PxcTriangleSweepMethod2 sweepMethod = g_TriangleSweepMethodTable[type0];
 		PxReal res = sweepMethod(
 			shape0, shape1, transform0, transform1, lastTransform0, lastTransform1, restDistance,
-			resultNormal, resultPoint, cache, context, Cm::FastVertex2ShapeScaling(), triangle, 0.f);
+			resultNormal, resultPoint, cache, context, Cm::FastVertex2ShapeScaling(), triangle,
+			0.f);
 
 		if(res <= 0.f)
 		{
@@ -762,6 +761,7 @@ static PxReal PxcSweepAnyShapeHeightfield(	const PxsCCDShape& shape0, const PxsC
 
 	worldNormal = PxVec3(PxReal(0));
 	worldPoint = PxVec3(PxReal(0));
+	Cm::FastVertex2ShapeScaling idScale;
 	context.mCCDFaceIndex = PXC_CONTACT_NO_FACE_INDEX;
 
 	PxVec3 sphereCenter(shape0.mPrevTransform.p);
@@ -798,7 +798,8 @@ static PxReal PxcSweepAnyShapeHeightfield(	const PxsCCDShape& shape0, const PxsC
 		const PxcTriangleSweepMethod2 sweepMethod = g_TriangleSweepMethodTable[type0];
 		PxReal res = sweepMethod(
 			shape0, shape1, transform0, transform1, lastTransform0, lastTransform1, restDistance,
-			resultNormal, resultPoint, cache, context, Cm::FastVertex2ShapeScaling(), triangle, 0.f);
+			resultNormal, resultPoint, cache, context, Cm::FastVertex2ShapeScaling(), triangle,
+			0.f);
 
 		if(res <= 0.f)
 		{
@@ -891,6 +892,7 @@ PxReal PxcSweepSphereSphere(SWEEP_METHOD_ARGS)
 	if(CCDSweep(capsule0, capsule1, aToB, capTrans1, trA, toi, zeroV, relTr, 
 		lambda, normal, closestA, shapeSpecific0.radius + shapeSpecific1.radius + restDistance))
 	{
+		//closestA = V3NegScaleSub(normal, capsule0.radius, closestA);
 		PxF32 res;
 		FStore(lambda, &res);
 		V3StoreU(normal, worldNormal);
@@ -942,6 +944,7 @@ PxReal PxcSweepSphereBox(SWEEP_METHOD_ARGS)
 
 	if(CCDSweep(capsule, box, aToB, boxTrans, trA, toi, zeroV, relTr, lambda, normal, closestA, shapeSpecific0.radius+restDistance))
 	{
+		//closestA = V3NegScaleSub(normal, capsule.radius, closestA);
 		PxF32 res;
 		FStore(lambda, &res);
 		V3StoreU(normal, worldNormal);
@@ -997,6 +1000,7 @@ PxReal PxcSweepCapsuleCapsule(SWEEP_METHOD_ARGS)
 	
 	if(CCDSweep(capsule0, capsule1, aToB, capTrans1, trA, toi, zeroV, relTr, lambda, normal, closestA, shapeSpecific0.radius+ shapeSpecific1.radius + restDistance))
 	{
+		//closestA = V3NegScaleSub(normal, capsule0.radius, closestA);
 		PxF32 res;  
 		FStore(lambda, &res);
 		V3StoreU(normal, worldNormal);
@@ -1051,6 +1055,8 @@ PxReal PxcSweepCapsuleBox(SWEEP_METHOD_ARGS)
 	
 	if(CCDSweep(capsule, box, aToB, boxTrans, trA, toi, zeroV, relTr, lambda, normal, closestA, shapeSpecific0.radius+restDistance))
 	{
+		
+		//closestA = V3NegScaleSub(normal, capsule.radius, closestA);
 		PxF32 res;
 		FStore(lambda, &res);
 		V3StoreU(normal, worldNormal);
@@ -1111,6 +1117,7 @@ PxReal PxcSweepCapsuleConvex(SWEEP_METHOD_ARGS)
 
 	if(CCDSweep(capsule, convexHull, aToB, convexTrans, trA, toi, zeroV, relTr, lambda, normal, closestA, shapeSpecific0.radius+restDistance))
 	{
+		//closestA = V3NegScaleSub(normal, capsule.radius, closestA);
 		PxF32 res;
 		FStore(lambda, &res);
 		V3StoreU(normal, worldNormal);

@@ -210,10 +210,6 @@ PxF32 sweepAABBAABB(const PxVec3& centerA, const PxVec3& extentsA, const PxVec3&
 	return tfirst; 
 }
 
-const PxShape* ScGetPxShapeFromPxsShapeCore(const PxsShapeCore* bodyShape);
-const PxRigidActor* ScGetPxRigidBodyFromPxsRigidCore(const PxsRigidCore* core);
-const PxRigidActor* ScGetPxRigidStaticFromPxsRigidCore(const PxsRigidCore* core);
-
 namespace
 {
 	PX_INLINE PxTransform getShapeAbsPose(const PxsShapeCore* shapeCore, const PxsRigidCore* rigidCore, PxU32 isDynamic)
@@ -1991,14 +1987,14 @@ void PxsCCDContext::runCCDModifiableContact(PxModifiableContact* PX_RESTRICT con
 	{
 			PxContactModifyPair p;
 
-			p.shape[0] = ScGetPxShapeFromPxsShapeCore(shapeCore0);
-			p.shape[1] = ScGetPxShapeFromPxsShapeCore(shapeCore1);
+			p.shape[0] = gPxvOffsetTable.convertPxsShape2Px(shapeCore0);
+			p.shape[1] = gPxvOffsetTable.convertPxsShape2Px(shapeCore1);
 
-			p.actor[0] = rigid0 != NULL ? ScGetPxRigidBodyFromPxsRigidCore(rigidCore0) 
-										: ScGetPxRigidStaticFromPxsRigidCore(rigidCore0);
+			p.actor[0] = rigid0 != NULL ? gPxvOffsetTable.convertPxsRigidCore2PxRigidBody(rigidCore0) 
+										: gPxvOffsetTable.convertPxsRigidCore2PxRigidStatic(rigidCore0);
 
-			p.actor[1] = rigid1 != NULL ? ScGetPxRigidBodyFromPxsRigidCore(rigidCore1) 
-										: ScGetPxRigidStaticFromPxsRigidCore(rigidCore1);
+			p.actor[1] = rigid1 != NULL ? gPxvOffsetTable.convertPxsRigidCore2PxRigidBody(rigidCore1) 
+										: gPxvOffsetTable.convertPxsRigidCore2PxRigidStatic(rigidCore1);
 
 			p.transform[0] = getShapeAbsPose(shapeCore0, rigidCore0, PxU32(rigid0 != NULL));
 			p.transform[1] = getShapeAbsPose(shapeCore1, rigidCore1, PxU32(rigid1 != NULL));

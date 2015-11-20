@@ -284,7 +284,7 @@ float UTexture2D::GetAverageBrightness(bool bIgnoreTrueBlack, bool bUseGrayscale
 
 				if (SRGB == true)
 				{
-					CurrentColor = FLinearColor(*ColorData);
+					CurrentColor = bUseLegacyGamma ? FLinearColor::FromPow22Color(*ColorData) : FLinearColor(*ColorData);
 				}
 				else
 				{
@@ -751,6 +751,9 @@ void UTexture2D::CalcAllowedMips( int32 MipCount, int32 NumNonStreamingMips, int
 	int32 MaxAllowedMips = FMath::Max( MipCount - LODBias, MinAllowedMips );
 	MaxAllowedMips = FMath::Min( MaxAllowedMips, GMaxTextureMipCount );
 
+	// Make sure min <= max
+	MinAllowedMips = FMath::Min(MinAllowedMips, MaxAllowedMips);
+
 	// Return results.
 	OutMinAllowedMips = MinAllowedMips;
 	OutMaxAllowedMips = MaxAllowedMips;
@@ -988,31 +991,21 @@ int32 UTexture2D::Blueprint_GetSizeY() const
 	return GetSizeY();
 }
 
-#if WITH_EDITOR
-void UTexture2D::TemporarilyDisableStreaming()
+void UTexture2D::UpdateTextureRegions(int32 MipIndex, uint32 NumRegions, const FUpdateTextureRegion2D* Regions, uint32 SrcPitch, uint32 SrcBpp, uint8* SrcData, TFunction<void(uint8* SrcData, const FUpdateTextureRegion2D* Regions)> DataCleanupFunc)
 {
-	if( !bTemporarilyDisableStreaming )
-	{
-		bTemporarilyDisableStreaming = true;
-		UpdateResource();
-	}
-}
-
-void UTexture2D::UpdateTextureRegions( int32 MipIndex, uint32 NumRegions, FUpdateTextureRegion2D* Regions, uint32 SrcPitch, uint32 SrcBpp, uint8* SrcData, bool bFreeData )
-{
-	if( !bTemporarilyDisableStreaming )
+	if (!bTemporarilyDisableStreaming && bIsStreamable)
 	{
 		UE_LOG(LogTexture, Log, TEXT("UpdateTextureRegions called for %s without calling TemporarilyDisableStreaming"), *GetPathName());
 	}
 	else
-	if( Resource )
+	if (Resource)
 	{
 		struct FUpdateTextureRegionsData
 		{
 			FTexture2DResource* Texture2DResource;
 			int32 MipIndex;
 			uint32 NumRegions;
-			FUpdateTextureRegion2D* Regions;
+			const FUpdateTextureRegion2D* Regions;
 			uint32 SrcPitch;
 			uint32 SrcBpp;
 			uint8* SrcData;
@@ -1030,13 +1023,13 @@ void UTexture2D::UpdateTextureRegions( int32 MipIndex, uint32 NumRegions, FUpdat
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			UpdateTextureRegionsData,
-			FUpdateTextureRegionsData*,RegionData,RegionData,
-			bool,bFreeData,bFreeData,
-		{
-			for(uint32 RegionIndex = 0;RegionIndex < RegionData->NumRegions;++RegionIndex)
+			FUpdateTextureRegionsData*, RegionData, RegionData,			
+			TFunction<void(uint8* SrcData, const FUpdateTextureRegion2D* Regions)>, DataCleanupFunc, DataCleanupFunc,
+			{
+			for (uint32 RegionIndex = 0; RegionIndex < RegionData->NumRegions; ++RegionIndex)
 			{
 				int32 CurrentFirstMip = RegionData->Texture2DResource->GetCurrentFirstMip();
-				if( RegionData->MipIndex >= CurrentFirstMip )
+				if (RegionData->MipIndex >= CurrentFirstMip)
 				{
 					RHIUpdateTexture2D(
 						RegionData->Texture2DResource->GetTexture2DRHI(),
@@ -1044,18 +1037,24 @@ void UTexture2D::UpdateTextureRegions( int32 MipIndex, uint32 NumRegions, FUpdat
 						RegionData->Regions[RegionIndex],
 						RegionData->SrcPitch,
 						RegionData->SrcData
-						  + RegionData->Regions[RegionIndex].SrcY * RegionData->SrcPitch
-						  + RegionData->Regions[RegionIndex].SrcX * RegionData->SrcBpp
+						+ RegionData->Regions[RegionIndex].SrcY * RegionData->SrcPitch
+						+ RegionData->Regions[RegionIndex].SrcX * RegionData->SrcBpp
 						);
 				}
 			}
-			if( bFreeData )
-			{
-				FMemory::Free(RegionData->Regions);
-				FMemory::Free(RegionData->SrcData);
-			}
+			DataCleanupFunc(RegionData->SrcData, RegionData->Regions);
 			delete RegionData;
 		});
+	}
+}
+
+#if WITH_EDITOR
+void UTexture2D::TemporarilyDisableStreaming()
+{
+	if( !bTemporarilyDisableStreaming )
+	{
+		bTemporarilyDisableStreaming = true;
+		UpdateResource();
 	}
 }
 
@@ -2159,10 +2158,10 @@ void FTexture2DResource::FinalizeMipCount()
 				TotalBandwidth -= FStreamingManagerTexture::BandwidthSamples[FStreamingManagerTexture::BandwidthSampleIndex];
 				TotalBandwidth += BandwidthSample;
 				FStreamingManagerTexture::BandwidthSamples[FStreamingManagerTexture::BandwidthSampleIndex] = BandwidthSample;
- 				FStreamingManagerTexture::BandwidthSampleIndex = (FStreamingManagerTexture::BandwidthSampleIndex + 1) % NUM_BANDWIDTHSAMPLES;
- 				FStreamingManagerTexture::NumBandwidthSamples = ( FStreamingManagerTexture::NumBandwidthSamples == NUM_BANDWIDTHSAMPLES ) ? FStreamingManagerTexture::NumBandwidthSamples : (FStreamingManagerTexture::NumBandwidthSamples+1);
- 				FStreamingManagerTexture::BandwidthAverage = TotalBandwidth / FStreamingManagerTexture::NumBandwidthSamples;
- 				FStreamingManagerTexture::BandwidthMaximum = FMath::Max<float>(FStreamingManagerTexture::BandwidthMaximum, BandwidthSample);
+				FStreamingManagerTexture::BandwidthSampleIndex = (FStreamingManagerTexture::BandwidthSampleIndex + 1) % NUM_BANDWIDTHSAMPLES;
+				FStreamingManagerTexture::NumBandwidthSamples = ( FStreamingManagerTexture::NumBandwidthSamples == NUM_BANDWIDTHSAMPLES ) ? FStreamingManagerTexture::NumBandwidthSamples : (FStreamingManagerTexture::NumBandwidthSamples+1);
+				FStreamingManagerTexture::BandwidthAverage = TotalBandwidth / FStreamingManagerTexture::NumBandwidthSamples;
+				FStreamingManagerTexture::BandwidthMaximum = FMath::Max<float>(FStreamingManagerTexture::BandwidthMaximum, BandwidthSample);
 				FStreamingManagerTexture::BandwidthMinimum = FMath::IsNearlyZero(FStreamingManagerTexture::BandwidthMinimum) ? BandwidthSample : FMath::Min<float>(FStreamingManagerTexture::BandwidthMinimum, BandwidthSample);
 			}
 #endif

@@ -275,6 +275,11 @@ INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 		GSavedCommandLine += Argument;
 	}
 
+#if UE_GAME
+	// On Mac we always want games to save files to user dir instead of inside the app bundle
+	GSavedCommandLine += TEXT(" -installed");
+#endif
+
 	SCOPED_AUTORELEASE_POOL;
 	[NSApplication sharedApplication];
 	[NSApp setDelegate:[UE4AppDelegate new]];

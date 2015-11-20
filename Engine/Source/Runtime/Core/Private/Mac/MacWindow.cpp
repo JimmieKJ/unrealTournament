@@ -445,17 +445,24 @@ bool FMacWindow::IsVisible() const
 
 bool FMacWindow::GetRestoredDimensions(int32& X, int32& Y, int32& Width, int32& Height)
 {
-	SCOPED_AUTORELEASE_POOL;
-
-	NSRect Frame = [WindowHandle frame];
-
-	X = Frame.origin.x;
-	Y = FPlatformMisc::ConvertSlateYPositionToCocoa(Frame.origin.y) - Frame.size.height + 1;
-
-	Width = Frame.size.width;
-	Height = Frame.size.height;
-
-	return true;
+	if (WindowHandle)
+	{
+		SCOPED_AUTORELEASE_POOL;
+		
+		NSRect Frame = [WindowHandle frame];
+		
+		X = Frame.origin.x;
+		Y = FPlatformMisc::ConvertSlateYPositionToCocoa(Frame.origin.y) - Frame.size.height + 1;
+		
+		Width = Frame.size.width;
+		Height = Frame.size.height;
+		
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 void FMacWindow::SetWindowFocus()

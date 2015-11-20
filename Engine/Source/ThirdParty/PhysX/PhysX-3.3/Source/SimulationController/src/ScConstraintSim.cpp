@@ -24,13 +24,24 @@
 
 using namespace physx;
 
-Sc::ConstraintSim::ConstraintSim(ConstraintCore& core, 
-							 RigidCore* r0,
-							 RigidCore* r1,
-							 Scene& scene) :
-	mScene				(scene),
-	mCore				(core),
-	mFlags				(0)
+
+PX_FORCE_INLINE void invalidateConstraintGroupsOnAdd(Sc::ConstraintProjectionManager& cpm, Sc::BodySim* b0, Sc::BodySim* b1, Sc::ConstraintSim& constraint)
+{
+	// constraint groups get built by starting from dirty constraints that need projection. If a non-projecting constraint gets added
+	// we need to restart the whole process (we do not want to track dirty non-projecting constraints because of a scenario where
+	// all constraints of a group get switched to non-projecting which should kill the group and not rebuild a new one).
+	if (b0 && b0->getConstraintGroup())
+		cpm.invalidateGroup(*b0->getConstraintGroup(), &constraint);
+	if (b1 && b1->getConstraintGroup())
+		cpm.invalidateGroup(*b1->getConstraintGroup(), &constraint);
+}
+
+
+Sc::ConstraintSim::ConstraintSim(ConstraintCore& core, RigidCore* r0, RigidCore* r1, Scene& scene) :
+	mScene		(scene),
+	mCore		(core),
+	mInteraction(NULL),
+	mFlags		(0)
 {
 	mSolverOutput.linearImpulse = PxVec3(0);
 	mSolverOutput.angularImpulse = PxVec3(0);
@@ -51,8 +62,11 @@ Sc::ConstraintSim::ConstraintSim(ConstraintCore& core,
 
 	core.setSim(this);
 
-	if (needsProjection())
-		scene.getProjectionManager().addToPendingGroupUpdates(*this);
+	ConstraintProjectionManager& cpm = scene.getProjectionManager();
+	if (!needsProjection())
+		invalidateConstraintGroupsOnAdd(cpm, mBodies[0], mBodies[1], *this);
+	else
+		cpm.addToPendingGroupUpdates(*this);
 
 	ConstraintSim* cs = this;  // to make the Wii U compiler happy
 	mInteraction = mScene.getConstraintInteractionPool()->construct(cs, 
@@ -139,12 +153,7 @@ void Sc::ConstraintSim::preBodiesChange()
 
 	BodySim* b = getConstraintGroupBody();
 	if (b)
-	{
 		mScene.getProjectionManager().invalidateGroup(*b->getConstraintGroup(), this);
-		if (needsProjection() && (!readFlag(ConstraintSim::ePENDING_GROUP_UPDATE)))
-			mScene.getProjectionManager().addToPendingGroupUpdates(*this);
-	}
-
 
 	if (!isBroken())
 		mInteraction->destroy();
@@ -154,13 +163,20 @@ void Sc::ConstraintSim::preBodiesChange()
 		PX_ASSERT(!mInteraction->isRegistered());
 	}
 	mScene.getConstraintInteractionPool()->destroy(mInteraction);
-	mInteraction = 0;
+	mInteraction = NULL;
 }
 
 void Sc::ConstraintSim::postBodiesChange(RigidCore* r0, RigidCore* r1)
 {
 	BodySim* b0 = (r0 && (r0->getActorCoreType() != PxActorType::eRIGID_STATIC)) ? static_cast<BodySim*>(r0->getSim()) : 0;
 	BodySim* b1 = (r1 && (r1->getActorCoreType() != PxActorType::eRIGID_STATIC)) ? static_cast<BodySim*>(r1->getSim()) : 0;
+
+	ConstraintProjectionManager& cpm = mScene.getProjectionManager();
+	PxConstraintFlags::InternalType projectionNeeded = getCore().getFlags() & PxConstraintFlag::ePROJECTION;  // can not use "needsProjection()" because that takes into account whether the constraint is broken
+	if (!projectionNeeded)
+		invalidateConstraintGroupsOnAdd(cpm, b0, b1, *this);
+	else if (!readFlag(ConstraintSim::ePENDING_GROUP_UPDATE))
+		cpm.addToPendingGroupUpdates(*this);
 
 	PxsConstraint& c = mLowLevelConstraint;
 
@@ -174,7 +190,7 @@ void Sc::ConstraintSim::postBodiesChange(RigidCore* r0, RigidCore* r1)
 	mBodies[1] = b1;
 
 	ConstraintSim* cs = this;  // to make the Wii U compiler happy
-	PX_ASSERT(mInteraction == 0);	// done in preBodiesChange()
+	PX_ASSERT(mInteraction == NULL);	// done in preBodiesChange()
 
 	mInteraction = mScene.getConstraintInteractionPool()->construct(cs, 
 																	r0 ? *r0->getSim() : mScene.getStaticAnchor(), 
@@ -275,9 +291,9 @@ void Sc::ConstraintSim::postFlagChange(PxConstraintFlags oldFlags, PxConstraintF
 			// Already part of a constraint group but not as a projection constraint -> re-generate projection tree
 			PX_ASSERT(b0 != NULL || b1 != NULL);
 			if (b0)
-				b0->getConstraintGroup()->rebuildProjectionTrees();
+				b0->getConstraintGroup()->markForProjectionTreeRebuild(mScene.getProjectionManager());
 			else
-				b1->getConstraintGroup()->rebuildProjectionTrees();
+				b1->getConstraintGroup()->markForProjectionTreeRebuild(mScene.getProjectionManager());
 		}
 		else
 		{
@@ -302,6 +318,8 @@ void Sc::ConstraintSim::postFlagChange(PxConstraintFlags oldFlags, PxConstraintF
 		}
 		else
 			mScene.getProjectionManager().removeFromPendingGroupUpdates(*this);  // Was part of a group which got invalidated
+
+		PX_ASSERT(!readFlag(ConstraintSim::ePENDING_GROUP_UPDATE));  // make sure the expected post-condition is met for all paths
 	}
 }
 

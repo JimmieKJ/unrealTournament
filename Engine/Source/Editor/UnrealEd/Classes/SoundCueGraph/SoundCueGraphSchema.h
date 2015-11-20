@@ -23,14 +23,14 @@ struct UNREALED_API FSoundCueGraphSchemaAction_NewNode : public FEdGraphSchemaAc
 		, SoundNodeClass(NULL)
 	{}
 
-	FSoundCueGraphSchemaAction_NewNode(const FString& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
+	FSoundCueGraphSchemaAction_NewNode(const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(InNodeCategory, InMenuDesc, InToolTip, InGrouping) 
 		, SoundNodeClass(NULL)
 	{}
 
-	// FEdGraphSchemaAction interface
+	//~ Begin FEdGraphSchemaAction Interface
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
-	// End of FEdGraphSchemaAction interface
+	//~ End FEdGraphSchemaAction Interface
 
 private:
 	/** Connects new node to output of selected nodes */
@@ -47,13 +47,13 @@ struct UNREALED_API FSoundCueGraphSchemaAction_NewFromSelected : public FSoundCu
 		: FSoundCueGraphSchemaAction_NewNode()
 	{}
 
-	FSoundCueGraphSchemaAction_NewFromSelected(const FString& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
+	FSoundCueGraphSchemaAction_NewFromSelected(const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
 		: FSoundCueGraphSchemaAction_NewNode(InNodeCategory, InMenuDesc, InToolTip, InGrouping) 
 	{}
 
-	// FEdGraphSchemaAction interface
+	//~ Begin FEdGraphSchemaAction Interface
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
-	// End of FEdGraphSchemaAction interface
+	//~ End FEdGraphSchemaAction Interface
 };
 
 /** Action to create new comment */
@@ -66,13 +66,13 @@ struct UNREALED_API FSoundCueGraphSchemaAction_NewComment : public FEdGraphSchem
 		: FEdGraphSchemaAction()
 	{}
 
-	FSoundCueGraphSchemaAction_NewComment(const FString& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
+	FSoundCueGraphSchemaAction_NewComment(const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(InNodeCategory, InMenuDesc, InToolTip, InGrouping)
 	{}
 
-	// FEdGraphSchemaAction interface
+	//~ Begin FEdGraphSchemaAction Interface
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
-	// End of FEdGraphSchemaAction interface
+	//~ End FEdGraphSchemaAction Interface
 };
 
 /** Action to paste clipboard contents into the graph */
@@ -85,13 +85,13 @@ struct UNREALED_API FSoundCueGraphSchemaAction_Paste : public FEdGraphSchemaActi
 		: FEdGraphSchemaAction()
 	{}
 
-	FSoundCueGraphSchemaAction_Paste(const FString& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
+	FSoundCueGraphSchemaAction_Paste(const FText& InNodeCategory, const FText& InMenuDesc, const FString& InToolTip, const int32 InGrouping)
 		: FEdGraphSchemaAction(InNodeCategory, InMenuDesc, InToolTip, InGrouping)
 	{}
 
-	// FEdGraphSchemaAction interface
+	//~ Begin FEdGraphSchemaAction Interface
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override;
-	// End of FEdGraphSchemaAction interface
+	//~ End FEdGraphSchemaAction Interface
 };
 
 UCLASS(MinimalAPI)
@@ -108,7 +108,7 @@ class USoundCueGraphSchema : public UEdGraphSchema
 	/** Attempts to connect the output of multiple nodes to the inputs of a single one */
 	void TryConnectNodes(const TArray<USoundNode*>& OutputNodes, USoundNode* InputNode) const;
 
-	// Begin EdGraphSchema interface
+	//~ Begin EdGraphSchema Interface
 	virtual void GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual void GetContextMenuActions(const UEdGraph* CurrentGraph, const UEdGraphNode* InGraphNode, const UEdGraphPin* InGraphPin, class FMenuBuilder* MenuBuilder, bool bIsDebugging) const override;
 	virtual void CreateDefaultNodesForGraph(UEdGraph& Graph) const override;
@@ -121,7 +121,7 @@ class USoundCueGraphSchema : public UEdGraphSchema
 	virtual void DroppedAssetsOnGraph(const TArray<class FAssetData>& Assets, const FVector2D& GraphPosition, UEdGraph* Graph) const override;
 	virtual int32 GetNodeSelectionCount(const UEdGraph* Graph) const override;
 	virtual TSharedPtr<FEdGraphSchemaAction> GetCreateCommentAction() const override;
-	// End EdGraphSchema interface
+	//~ End EdGraphSchema Interface
 
 private:
 	/** Adds actions for creating every type of SoundNode */

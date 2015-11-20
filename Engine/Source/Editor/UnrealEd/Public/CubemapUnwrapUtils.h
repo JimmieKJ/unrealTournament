@@ -42,7 +42,7 @@ class FCubemapTexturePropertiesVS : public FGlobalShader
 	DECLARE_SHADER_TYPE(FCubemapTexturePropertiesVS,Global);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform) { return true; }
+	static bool ShouldCache(EShaderPlatform Platform) { return !IsConsolePlatform(Platform); }
 
 	FCubemapTexturePropertiesVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer):
 		FGlobalShader(Initializer)
@@ -74,7 +74,7 @@ class FCubemapTexturePropertiesPS : public FGlobalShader
 	DECLARE_SHADER_TYPE(FCubemapTexturePropertiesPS,Global);
 public:
 
-	static bool ShouldCache(EShaderPlatform Platform) { return true; }
+	static bool ShouldCache(EShaderPlatform Platform) { return !IsConsolePlatform(Platform); }
 
 	FCubemapTexturePropertiesPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FGlobalShader(Initializer)
@@ -141,7 +141,7 @@ public:
 
 	static bool ShouldCache(EShaderPlatform Platform)
 	{
-		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4);
+		return IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) && !IsConsolePlatform(Platform);
 	}
 
 	FIESLightProfilePS() {}

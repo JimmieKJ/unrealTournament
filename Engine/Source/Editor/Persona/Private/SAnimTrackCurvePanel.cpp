@@ -253,6 +253,9 @@ public:
 
 	// Bound to attribute for curve name, uses curve interface to request from skeleton
 	FText GetCurveName(USkeleton::AnimCurveUID Uid, ETransformCurve::Type Type) const;
+
+	float GetLength() const { return PanelPtr.Pin()->GetLength(); }
+	TOptional<float> GetOptionalLength() const { return GetLength(); }
 };
 
 //////////////////////////////////////////////////////////////////////////
@@ -299,9 +302,8 @@ void STransformCurveEdTrack::Construct(const FArguments& InArgs)
 					.ViewMinInput(InArgs._ViewInputMin)
 					.ViewMaxInput(InArgs._ViewInputMax)
 					.DataMinInput(0.f)
-					.DataMaxInput(Sequence->SequenceLength)
-					// @fixme fix this to delegate
-					.TimelineLength(Sequence->SequenceLength)
+					.DataMaxInput(this, &STransformCurveEdTrack::GetOptionalLength)
+					.TimelineLength(this, &STransformCurveEdTrack::GetLength)
 					.NumberOfKeys(NumberOfKeys)
 					.DesiredSize(this, &STransformCurveEdTrack::GetDesiredSize)
 					.OnSetInputViewRange(InArgs._OnSetInputViewRange)
@@ -364,9 +366,8 @@ void STransformCurveEdTrack::Construct(const FArguments& InArgs)
 					.ViewMinInput(InArgs._ViewInputMin)
 					.ViewMaxInput(InArgs._ViewInputMax)
 					.DataMinInput(0.f)
-					.DataMaxInput(Sequence->SequenceLength)
-					// @fixme fix this to delegate
-					.TimelineLength(Sequence->SequenceLength)
+					.DataMaxInput(this, &STransformCurveEdTrack::GetOptionalLength)
+					.TimelineLength(this, &STransformCurveEdTrack::GetLength)
 					.NumberOfKeys(NumberOfKeys)
 					.DesiredSize(this, &STransformCurveEdTrack::GetDesiredSize)
 					.OnSetInputViewRange(InArgs._OnSetInputViewRange)
@@ -414,9 +415,8 @@ void STransformCurveEdTrack::Construct(const FArguments& InArgs)
 					.ViewMinInput(InArgs._ViewInputMin)
 					.ViewMaxInput(InArgs._ViewInputMax)
 					.DataMinInput(0.f)
-					.DataMaxInput(Sequence->SequenceLength)
-					// @fixme fix this to delegate
-					.TimelineLength(Sequence->SequenceLength)
+					.DataMaxInput(this, &STransformCurveEdTrack::GetOptionalLength)
+					.TimelineLength(this, &STransformCurveEdTrack::GetLength)
 					.NumberOfKeys(NumberOfKeys)
 					.DesiredSize(this, &STransformCurveEdTrack::GetDesiredSize)
 					.OnSetInputViewRange(InArgs._OnSetInputViewRange)
@@ -481,6 +481,7 @@ FReply STransformCurveEdTrack::OnContextMenu()
 	if(PanelShared.IsValid())
 	{
 		FSlateApplication::Get().PushMenu(SharedThis(this),
+										  FWidgetPath(),
 										  PanelShared->CreateCurveContextMenu(CurveUid),
 										  FSlateApplication::Get().GetCursorPos(),
 										  FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup));

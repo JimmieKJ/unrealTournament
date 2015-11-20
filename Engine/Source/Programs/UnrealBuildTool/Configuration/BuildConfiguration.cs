@@ -10,16 +10,33 @@ namespace UnrealBuildTool
 {
 	public class BuildConfiguration
 	{
+		static BuildConfiguration()
+		{
+			if (!UnrealBuildTool.bIsSafeToReferenceConfigurationValues)
+			{
+				throw new BuildException("UEBuildConfiguration was referenced before the XmlConfig files could be loaded.");
+			}
+		}
+
 		/// <summary>
 		/// Whether to unify C++ code into larger files for faster compilation.
 		/// </summary>
 		[XmlConfig]
 		public static bool bUseUnityBuild;
-        /// <summary>
-        /// Whether to _force_ unify C++ code into larger files for faster compilation.
-        /// </summary>
+		/// <summary>
+		/// Whether to _force_ unify C++ code into larger files for faster compilation.
+		/// </summary>
 		[XmlConfig]
-        public static bool bForceUnityBuild;
+		public static bool bForceUnityBuild;
+
+		/// <summary>
+		/// An experimental new feature that, when enabled, will try to determine source files that you are actively iteratively changing, 
+		/// and break those files out of their unity blobs so that you can compile them as individual translation units, much faster than 
+		/// recompiling the entire unity blob each time.
+		/// IMPORTANT: This feature is not complete yet!  Currently, it requires source files to be read-only that you aren't actively working with!
+		/// </summary>
+		[XmlConfig]
+		public static bool bUseAdaptiveUnityBuild;
 
 		/// <summary>
 		/// The number of source files in a game module before unity build will be activated for that module.  This
@@ -30,12 +47,37 @@ namespace UnrealBuildTool
 		public static int MinGameModuleSourceFilesForUnityBuild;
 
 		/// <summary>
+		/// Forces shadow variable warnings to be treated as errors on platforms that support it.
+		/// </summary>
+		[XmlConfig]
+		public static bool bShadowVariableErrors;
+
+		/// <summary>
 		/// New Monolithic Graphics drivers have optional "fast calls" replacing various D3d functions
 		/// </summary>
 		[XmlConfig]
 		public static bool bUseFastMonoCalls;
 
-        /// <summary>
+		/// <summary>
+		/// New Xbox driver supports a "fast semantics" context type. This switches it on for the immediate context
+		/// EXPERIMENTAL - WILL CAUSE RENDERING ISSUES AND/OR CRASHES AT PRESENT!
+		/// </summary>
+		[XmlConfig]
+		public static bool bUseFastSemanticsImmediateContext;
+
+		/// <summary>
+		/// New Xbox driver supports a "fast semantics" context type. This switches it on for the deferred contexts
+		/// EXPERIMENTAL - WILL CAUSE RENDERING ISSUES AND/OR CRASHES AT PRESENT!
+		/// </summary>
+		[XmlConfig]
+		public static bool bUseFastSemanticsDeferredContexts;
+
+		/// Async Compute context support. Requires Mono and Fastcalls
+		/// </summary>
+		[XmlConfig]
+		public static bool bUseAsyncComputeContext;
+
+		/// <summary>
 		/// An approximate number of bytes of C++ code to target for inclusion in a single unified C++ file.
 		/// </summary>
 		[XmlConfig]
@@ -83,8 +125,8 @@ namespace UnrealBuildTool
 		[XmlConfig]
 		public static bool bUsePDBFiles;
 
- 		/// <summary>
- 		/// Whether PCH files should be used.
+		/// <summary>
+		/// Whether PCH files should be used.
 		/// </summary>
 		[XmlConfig]
 		public static bool bUsePCHFiles;
@@ -115,6 +157,12 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfig]
 		public static bool bPrintDebugInfo;
+
+		/// <summary>
+		/// Allows logging to a file
+		/// </summary>
+		[XmlConfig]
+		public static string LogFilename;
 
 		/// <summary>
 		/// Prints performance diagnostics about include dependencies and other bits
@@ -170,11 +218,11 @@ namespace UnrealBuildTool
 		[XmlConfig]
 		public static bool bAllowRemotelyCompiledPCHs;
 
-        /// <summary>
-        /// Whether SN-DBS may be used.
-        /// </summary>
-        [XmlConfig]
-        public static bool bAllowSNDBS;
+		/// <summary>
+		/// Whether SN-DBS may be used.
+		/// </summary>
+		[XmlConfig]
+		public static bool bAllowSNDBS;
 
 		/// <summary>
 		/// Whether or not to delete outdated produced items.
@@ -205,7 +253,13 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfig]
 		public static bool bOmitFramePointers;
-        
+
+		/// <summary>
+		/// What level of logging we wish to show
+		/// </summary>
+		[XmlConfig]
+		public static string LogLevel;
+
 		/// <summary>
 		/// Processor count multiplier for local execution. Can be below 1 to reserve CPU for other tasks.
 		/// </summary>
@@ -318,7 +372,7 @@ namespace UnrealBuildTool
 		public static bool bEnableCodeAnalysis;
 
 		/// <summary>
-		/// Enables "Shared PCHs", an experimental feature which may significantly speed up compile times by attempting to
+		/// Enables "Shared PCHs", a feature which significantly speeds up compile times by attempting to
 		/// share certain PCH files between modules that UBT detects is including those PCH's header files
 		/// </summary>
 		[XmlConfig]
@@ -345,6 +399,18 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfig]
 		public static bool bDebugBuildsActuallyUseDebugCRT;
+
+		/// <summary>
+		/// True if Development and Release builds should use the release configuration of PhysX/APEX.
+		/// </summary>
+		[XmlConfig]
+		public static bool bUseShippingPhysXLibraries;
+
+        /// <summary>
+        /// True if Development and Release builds should use the checked configuration of PhysX/APEX. if bUseShippingPhysXLibraries is true this is ignored
+        /// </summary>
+        [XmlConfig]
+        public static bool bUseCheckedPhysXLibraries;
 
 		/// <summary>
 		/// Tells the UBT to check if module currently being built is violating EULA.
@@ -381,7 +447,7 @@ namespace UnrealBuildTool
 		/// </summary>
 		[XmlConfig]
 		public static bool bUseUBTMakefiles;
-	
+
 		/// <summary>
 		/// Whether DMUCS/Distcc may be used.
 		/// </summary>
@@ -395,16 +461,46 @@ namespace UnrealBuildTool
 		public static bool bAllowDistccLocalFallback;
 
 		/// <summary>
+		/// When true enable verbose distcc output to aid debugging.
+		/// </summary>
+		[XmlConfig]
+		public static bool bVerboseDistccOutput;
+
+		/// <summary>
 		/// Path to the Distcc & DMUCS executables.
 		/// </summary>
 		[XmlConfig]
 		public static string DistccExecutablesPath;
 
 		/// <summary>
-		/// Run UnrealCodeAnalyzer instead of regular compilation.
+		/// DMUCS coordinator hostname or IP address.
+		/// </summary>
+		[XmlConfig]
+		public static string DMUCSCoordinator;
+
+		/// <summary>
+		/// The DMUCS distinguishing property value to request for compile hosts.
+		/// </summary>
+		[XmlConfig]
+		public static string DMUCSDistProp;
+
+		/// <summary>
+		/// Run UnrealCodeAnalyzer instead of regular compilation. Requires setting UCA mode by bUCACheckUObjectThreadSafety or bUCACheckPCHFiles.
 		/// </summary>
 		[XmlConfig]
 		public static bool bRunUnrealCodeAnalyzer;
+
+		/// <summary>
+		/// Perform basic UObject thread safety checks. Dumps information whether UObject constructors, Serialize and PostInitProperties functions access any global/static variables or functions.
+		/// </summary>
+		[XmlConfig]
+		public static bool bUCACheckUObjectThreadSafety;
+
+		/// <summary>
+		/// Dumps information about header inclusion in PCH.
+		/// </summary>
+		[XmlConfig]
+		public static bool bUCACheckPCHFiles;
 
 		/// <summary>
 		/// Percentage of cpp files in module where header must be included to get included in PCH.
@@ -426,7 +522,7 @@ namespace UnrealBuildTool
 			bAllowLTCG = false;
 			bAllowRemotelyCompiledPCHs = false;
 			bAllowXGE = true;
-            bAllowSNDBS = true;
+			bAllowSNDBS = true;
 
 			// Don't bother to check external (stable) headers for modification.  It slows down UBT's dependency checking.
 			bCheckExternalHeadersForModification = false;
@@ -458,6 +554,8 @@ namespace UnrealBuildTool
 			bSupportEditAndContinue = false;
 			bUseActionHistory = true;
 
+			LogLevel = "Log";
+
 			// Incremental linking can yield faster iteration times when making small changes
 			// NOTE: We currently don't use incremental linking because it tends to behave a bit buggy on some computers (PDB-related compile errors)
 			bUseIncrementalLinking = false;
@@ -475,6 +573,10 @@ namespace UnrealBuildTool
 			// changes, consider turning this off.  In some cases, unity builds can cause linker errors after iterative changes to files, because
 			// the synthesized file names for unity code files may change between builds.
 			bUseUnityBuild = true;
+
+			// This experimental feature may help to improve iterative compile times when working on code, but is
+			// disabled by default until we test it sufficiently
+			bUseAdaptiveUnityBuild = true;
 
 			bForceUnityBuild = false;
 
@@ -510,7 +612,13 @@ namespace UnrealBuildTool
 			//IMPORTANT THIS IS THE MAIN SWITCH FOR MONO FAST CALLS
 			//  if this is set to true, then fast calls will be on by default on Dingo, and if false it will be off by default on Dingo.
 			//  This can be overridden by -fastmonocalls  or -nofastmonocalls in the NMAKE params.
-			bUseFastMonoCalls = false;
+			bUseFastMonoCalls = true;
+			bUseAsyncComputeContext = bUseFastMonoCalls;
+
+			// Switches for fast semantics D3D contexts
+			// EXPERIMENTAL - WILL CAUSE RENDERING ISSUES AND/OR CRASHES AT PRESENT!
+			bUseFastSemanticsImmediateContext = false;
+			bUseFastSemanticsDeferredContexts = false;
 
 			// By default we use the Release C++ Runtime (CRT), even when compiling Debug builds.  This is because the Debug C++
 			// Runtime isn't very useful when debugging Unreal Engine projects, and linking against the Debug CRT libraries forces
@@ -518,6 +626,14 @@ namespace UnrealBuildTool
 			// it can be inconvenient to require a separate copy of the debug versions of third party static libraries simply
 			// so that you can debug your program's code.
 			bDebugBuildsActuallyUseDebugCRT = false;
+
+			// By default we use the Profile PhysX/APEX binaries.
+			// We do this in order to keep all configurations the same for behavior consistency. Profile gives some nice debug tools and warnings so we use it instead of Release
+			bUseShippingPhysXLibraries = false;
+
+            // By default we use the Profile PhysX/APEX binaries.
+            // We do this in order to keep all configurations the same for behavior consistency.
+            bUseCheckedPhysXLibraries = false;
 
 			// set up some paths
 			BaseIntermediateFolder = "Intermediate/Build/";
@@ -529,20 +645,27 @@ namespace UnrealBuildTool
 			// Enables support for fast include dependency scanning, as well as gathering data for 'UBT Makefiles', then quickly
 			// assembling builds in subsequent runs using data in those cached makefiles
 			// NOTE: This feature is new and has a number of known issues (search the code for '@todo ubtmake')
-			bUseUBTMakefiles = false;// !Utils.IsRunningOnMono;	// @todo ubtmake: Needs support for Mac
+			bUseUBTMakefiles = true;
 
 			// Distcc requires some setup - so by default disable it so we don't break local or remote building
 			bAllowDistcc = false;
 			bAllowDistccLocalFallback = true;
+			bVerboseDistccOutput = false;
 
 			// The normal Posix place to install distcc/dmucs would be /usr/local so start there
 			DistccExecutablesPath = "/usr/local/bin";
 
+			// The standard coordinator is localhost and the default distprop is empty
+			DMUCSCoordinator = "localhost";
+			DMUCSDistProp = "";
+
 			// By default compile code instead of analyzing it.
 			bRunUnrealCodeAnalyzer = false;
 
-			// If header is included in 30% or more cpp files in module it should be included in PCH.
-			UCAUsageThreshold = 0.3f;
+			// If header is included in 0% or more cpp files in module it should be included in PCH.
+			UCAUsageThreshold = 100.0f;
+
+			bUCACheckUObjectThreadSafety = false;
 
 			// The default for normal Mac users should be to use DistCode which installs as an Xcode plugin and provides dynamic host management
 			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Mac)
@@ -551,9 +674,34 @@ namespace UnrealBuildTool
 				string MacDistccExecutablesPath = UserDir + "/Library/Application Support/Developer/Shared/Xcode/Plug-ins/Distcc 3.2.xcplugin/Contents/usr/bin";
 
 				// But we should use the standard Posix directory when not installed - a build farm would use a static .dmucs hosts file not DistCode.
-				if (System.IO.Directory.Exists (MacDistccExecutablesPath)) 
+				if (System.IO.Directory.Exists(MacDistccExecutablesPath))
 				{
 					DistccExecutablesPath = MacDistccExecutablesPath;
+				}
+
+				if (System.IO.File.Exists(UserDir + "/Library/Preferences/com.marksatt.DistCode.plist"))
+				{
+					using (System.Diagnostics.Process DefaultsProcess = new System.Diagnostics.Process())
+					{
+						try
+						{
+							DefaultsProcess.StartInfo.FileName = "/usr/bin/defaults";
+							DefaultsProcess.StartInfo.CreateNoWindow = true;
+							DefaultsProcess.StartInfo.UseShellExecute = false;
+							DefaultsProcess.StartInfo.RedirectStandardOutput = true;
+							DefaultsProcess.StartInfo.Arguments = "read com.marksatt.DistCode DistProp";
+							DefaultsProcess.Start();
+							string Output = DefaultsProcess.StandardOutput.ReadToEnd();
+							DefaultsProcess.WaitForExit();
+							if (DefaultsProcess.ExitCode == 0)
+							{
+								DMUCSDistProp = Output;
+							}
+						}
+						catch (Exception)
+						{
+						}
+					}
 				}
 			}
 		}
@@ -566,12 +714,12 @@ namespace UnrealBuildTool
 		/// <param name="Configuration">Current configuration (e.g. development, debug, ...)</param>
 		/// <param name="Platform">Current platform (e.g. Win32, PS3, ...)</param>
 		/// <param name="bCreateDebugInfo">True if debug info should be created</param>
-		public static void ValidateConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo)
+		public static void ValidateConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo, UEBuildPlatformContext PlatformContext)
 		{
 			var BuildPlatform = UEBuildPlatform.GetBuildPlatformForCPPTargetPlatform(Platform);
 
 			// E&C support.
-			if( bSupportEditAndContinue )
+			if (bSupportEditAndContinue)
 			{
 				bUseIncrementalLinking = BuildPlatform.ShouldUseIncrementalLinking(Platform, Configuration);
 			}
@@ -583,10 +731,10 @@ namespace UnrealBuildTool
 			}
 
 			// Detailed stats
-            if (bLogDetailedActionStats && bAllowXGE)
+			if (bLogDetailedActionStats && bAllowXGE)
 			{
-                // Some build machines apparently have this turned on, so if you really want detailed stats, don't run with XGE
-                bLogDetailedActionStats = false;
+				// Some build machines apparently have this turned on, so if you really want detailed stats, don't run with XGE
+				bLogDetailedActionStats = false;
 			}
 
 			// PDB
@@ -605,21 +753,49 @@ namespace UnrealBuildTool
 
 			// Allow for the build platform to perform custom validation here...
 			// NOTE: This CAN modify the static BuildConfiguration settings!!!!
-			BuildPlatform.ValidateBuildConfiguration(Configuration, Platform, bCreateDebugInfo);
+			PlatformContext.ValidateBuildConfiguration(Configuration, Platform, bCreateDebugInfo);
 
-            if (!BuildPlatform.CanUseXGE())
-            {
-                bAllowXGE = false;
-            }
+			if (!BuildPlatform.CanUseXGE())
+			{
+				bAllowXGE = false;
+			}
 
-			if (!BuildPlatform.CanUseDistcc()) 
+			if (!BuildPlatform.CanUseDistcc())
 			{
 				bAllowDistcc = false;
 			}
-			
-			if (!BuildPlatform.CanUseSNDBS()) 
+
+			if (!BuildPlatform.CanUseSNDBS())
 			{
 				bAllowSNDBS = false;
+			}
+		}
+
+		/// <summary>
+		/// Function to call to after reset default data.
+		/// </summary>
+		public static void PostReset()
+		{
+			// Analyzing UCA is disabled for debugging convenience.
+			if (UnrealBuildTool.CommandLineContains(@"UnrealCodeAnalyzer")
+				// UHT is necessary to generate code for proper compilation.
+				|| UnrealBuildTool.CommandLineContains(@"UnrealHeaderTool"))
+			{
+				BuildConfiguration.bRunUnrealCodeAnalyzer = false;
+			}
+
+			// Couple flags have to be set properly when running UCA.
+			if (BuildConfiguration.bRunUnrealCodeAnalyzer)
+			{
+				// Analyzing header usage makes more sense on non unity builds.
+				BuildConfiguration.bUseUnityBuild = false;
+
+				// Unfortunately clang doesn't work with PCH files specified via cl.exe syntax.
+				BuildConfiguration.bUsePCHFiles = false;
+				BuildConfiguration.bUseSharedPCHs = false;
+
+				BuildConfiguration.bUseUBTMakefiles = false;
+				BuildConfiguration.bUseActionHistory = false;
 			}
 		}
 	}

@@ -8,36 +8,48 @@
 #include "Material.usf"
 #include "LightFunctionCommon.usf"
 
-float4x4 ScreenToLight;
+// used like this: mul(float4(SvPosition.xyz, 1), SvPositionToLight);
+float4x4 SvPositionToLight;
 
 /** Fade distance in x, disabled brightness in y, output for preview shadows mask in z. */
 float3 LightFunctionParameters2;
 
 void Main(
 	in float4 ScreenPosition : TEXCOORD0,
+	in float4 SvPosition : SV_Position,		// after all interpolators
 	out float4 OutColor : SV_Target0
 	)
 {
-	half SceneW = PreviousDepth(ScreenPosition);
-	float4 ProjectedScreenPosition = float4(ScreenPosition.xy / ScreenPosition.w * SceneW, SceneW, 1);
-	float4 LightVector = mul(ProjectedScreenPosition, ScreenToLight);
-	LightVector.xyz /= LightVector.w;
+	float2 ScreenUV = SvPositionToBufferUV(SvPosition);
 
-	float4 HomogeneousWorldPosition = mul(ProjectedScreenPosition, View.ScreenToWorld);
-	float3 WorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+	// make SvPosition appear to be rasterized with the depth from the depth buffer
+	SvPosition.z = LookupDeviceZ(ScreenUV);
+
+	float3 LightVector;
+	{
+		float4 Hom = mul(float4(SvPosition.xyz, 1), SvPositionToLight);
+		LightVector = Hom.xyz / Hom.w;
+	}
+	
+	// todo: TranslatedWorld would be better for quality
+	float3 AbsoluteWorldPosition = SvPositionToWorld(SvPosition);
+
 	// Calculate radial view distance for stable fading
-	float ViewDistance = length(View.ViewOrigin.xyz - WorldPosition);
+	float ViewDistance = length(View.WorldCameraOrigin - AbsoluteWorldPosition);
 
-	float3 Color = GetLightFunctionColor(LightVector.xyz, WorldPosition);
+	float GreyScale;
+	{
+		float3 Color = GetLightFunctionColor(LightVector, AbsoluteWorldPosition);
+		GreyScale = dot(Color, .3333f);
+	}
 
 	float DistanceFadeAlpha = saturate((LightFunctionParameters2.x - ViewDistance) / (LightFunctionParameters2.x * .2f));
 	// Fade to disabled based on LightFunctionFadeDistance
-	Color = lerp(LightFunctionParameters2.yyy, Color, DistanceFadeAlpha);
+	GreyScale = lerp(LightFunctionParameters2.y, GreyScale, DistanceFadeAlpha);
 
 	// Fade to disabled based on ShadowFadeFraction
-	Color = lerp(LightFunctionParameters2.yyy, Color, LightFunctionParameters.y);
+	GreyScale = lerp(LightFunctionParameters2.y, GreyScale, LightFunctionParameters.y);
 
-	float GreyScale = dot(Color, .3333f);
 	float EncodedLightAttenuation = EncodeLightAttenuation(GreyScale);
 
 	// Light function shadows write to the blue channel.

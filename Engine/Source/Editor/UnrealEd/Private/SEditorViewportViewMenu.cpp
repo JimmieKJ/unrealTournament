@@ -94,6 +94,10 @@ FText SEditorViewportViewMenu::GetViewMenuLabel() const
 
 			case VMI_LitLightmapDensity:
 				break;
+
+			case VMI_LODColoration:
+				Label = LOCTEXT("ViewMenuTitle_LODColoration", "LOD Coloration");
+				break;
 		}
 	}
 
@@ -116,6 +120,7 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 		static FName LightOverlapIcon("EditorViewport.StationaryLightOverlapMode");
 		static FName LightmapDensityIcon("EditorViewport.LightmapDensityMode");
 		static FName ReflectionModeIcon("EditorViewport.ReflectionOverrideMode");
+		static FName LODColorationIcon("EditorViewport.LODColorationMode");
 		static FName VisualizeBufferIcon("EditorViewport.VisualizeBufferMode");
 		static FName CollisionPawnIcon("EditorViewport.CollisionPawn");
 		static FName CollisionVisibilityIcon("EditorViewport.CollisionVisibility");
@@ -180,6 +185,10 @@ const FSlateBrush* SEditorViewportViewMenu::GetViewMenuLabelIcon() const
 
 			case VMI_LitLightmapDensity:
 				break;
+
+			case VMI_LODColoration:
+				Icon = LODColorationIcon;
+				break;
 		}
 	}
 
@@ -209,6 +218,7 @@ TSharedRef<SWidget> SEditorViewportViewMenu::GenerateViewMenuContent() const
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.StationaryLightOverlapMode, NAME_None, LOCTEXT("StationaryLightOverlapViewModeDisplayName", "Stationary Light Overlap") );
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.LightmapDensityMode, NAME_None, LOCTEXT("LightmapDensityViewModeDisplayName", "Lightmap Density") );
 				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.ReflectionOverrideMode, NAME_None, LOCTEXT("ReflectionOverrideViewModeDisplayName", "Reflections") );
+				ViewMenuBuilder.AddMenuEntry( BaseViewportActions.LODColorationMode, NAME_None, LOCTEXT("LODColorationViewModeDisplayName", "LOD Coloration") );
 			}
 			ViewMenuBuilder.EndSection();
 		}

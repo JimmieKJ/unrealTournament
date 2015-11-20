@@ -49,9 +49,12 @@ void UAIPerceptionStimuliSourceComponent::RegisterWithPerceptionSystem()
 		{
 			for (auto& SenseClass : RegisterAsSourceForSenses)
 			{
-				check(SenseClass);
-				PerceptionSystem->RegisterSourceForSenseClass(SenseClass, *OwnerActor);
-				bSuccessfullyRegistered = true;
+				if(SenseClass)
+				{
+					PerceptionSystem->RegisterSourceForSenseClass(SenseClass, *OwnerActor);
+					bSuccessfullyRegistered = true;
+				}
+				// we just ignore the empty entries
 			}
 		}
 	}

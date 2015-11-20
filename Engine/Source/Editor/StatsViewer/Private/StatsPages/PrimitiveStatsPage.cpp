@@ -243,7 +243,7 @@ struct PrimitiveStatsGenerator
 				else if( StaticMeshComponent )
 				{
 					// This stat is used by multiple components so accumulate instanced vertex color memory.
-					StatsEntry->InstVertexColorMem += InstVertexColorMem;
+					StatsEntry->InstVertexColorMem += (float)InstVertexColorMem / 1024.0f;
 				}
 				else if (LandscapeComponent)
 				{

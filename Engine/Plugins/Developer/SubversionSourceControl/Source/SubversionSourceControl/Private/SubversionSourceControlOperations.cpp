@@ -133,7 +133,7 @@ FName FSubversionCheckInWorker::GetName() const
 	return "CheckIn";
 }
 
-/** Helper function for AddDirectoriesToCommit() - determines whether a direcotry is currently marked for add */
+/** Helper function for AddDirectoriesToCommit() - determines whether a directory is currently marked for add */
 static bool IsDirectoryAdded(const FSubversionSourceControlCommand& InCommand, const FString& InDirectory)
 {
 	TArray<FXmlFile> ResultsXml;
@@ -175,25 +175,38 @@ static void AddDirectoriesToCommit(const FSubversionSourceControlCommand& InComm
 
 	TArray<FString> Directories;
 
-	for(const auto& Filename : InOutFiles )
+	FString WorkingCopyRoot = InCommand.WorkingCopyRoot;
+	FPaths::NormalizeDirectoryName(WorkingCopyRoot);
+
+	for(const auto& Filename : InOutFiles)
 	{
 		FString Directory = FPaths::GetPath(Filename);
+		FPaths::NormalizeDirectoryName(Directory);
 
-		bool bDirectoryIsAdded = false;
-		do 
+		// Stop once we leave our working copy, or find a directory that isn't marked for add
+		while(Directory.StartsWith(WorkingCopyRoot))
 		{
-			bDirectoryIsAdded = false;
-			if(Directories.Find(Directory) == INDEX_NONE && IsDirectoryAdded(InCommand, Directory))
+			// Stop if we've already processed this directory, or if this directory isn't marked for add
+			if(Directories.Contains(Directory) || !IsDirectoryAdded(InCommand, Directory))
 			{
-				Directories.Add(Directory);
-				bDirectoryIsAdded = true;
-
-				FString ParentDir = Directory / TEXT("../");
-				FPaths::CollapseRelativeDirectories(ParentDir);
-				Directory = ParentDir;
+				break;
 			}
-		} 
-		while(bDirectoryIsAdded);
+
+			Directories.Add(Directory);
+
+			// Chop off the end of this directory to move up to our parent directory
+			// This is safe to do since we called NormalizeDirectoryName on it, and we're testing to make sure we stay within the working copy
+			int32 ChopPoint = INDEX_NONE;
+			if(Directory.FindLastChar('/', ChopPoint))
+			{
+				Directory = Directory.Left(ChopPoint);
+			}
+			else
+			{
+				// No more path to process
+				break;
+			}
+		}
 	}
 
 	InOutFiles.Append(MoveTemp(Directories));
@@ -347,6 +360,20 @@ bool FSubversionCheckInWorker::Execute(FSubversionSourceControlCommand& InComman
 				InCommand.bCommandSuccessful = SubversionSourceControlUtils::RunAtomicCommand(TEXT("commit"), TArray<FString>(), Parameters, InCommand.InfoMessages, InCommand.ErrorMessages, InCommand.UserName);
 				if(InCommand.bCommandSuccessful)
 				{
+					// Remove any deleted files from status cache
+					FSubversionSourceControlModule& SubversionSourceControl = FModuleManager::LoadModuleChecked<FSubversionSourceControlModule>("SubversionSourceControl");
+					FSubversionSourceControlProvider& Provider = SubversionSourceControl.GetProvider();
+
+					TArray<TSharedRef<ISourceControlState, ESPMode::ThreadSafe>> States;
+					Provider.GetState(InCommand.Files, States, EStateCacheUsage::Use);
+					for (const auto& State : States)
+					{
+						if (State->IsDeleted())
+						{
+							Provider.RemoveFileFromCache(State->GetFilename());
+						}
+					}
+
 					StaticCastSharedRef<FCheckIn>(InCommand.Operation)->SetSuccessMessage(ParseCommitResults(InCommand.InfoMessages));
 				}
 			}

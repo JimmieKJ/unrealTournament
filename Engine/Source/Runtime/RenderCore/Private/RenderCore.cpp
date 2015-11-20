@@ -54,6 +54,7 @@ DEFINE_STAT(STAT_StaticDrawListMeshDrawCalls);
 
 DEFINE_STAT(STAT_SceneDecals);
 DEFINE_STAT(STAT_Decals);
+DEFINE_STAT(STAT_DecalsDrawTime);
 
 // Memory stats for tracking virtual allocations used by the renderer to represent the scene
 // The purpose of these memory stats is to capture where most of the renderer allocated memory is going, 
@@ -71,6 +72,10 @@ DEFINE_STAT(STAT_LightInteractionMemory);
 
 DEFINE_STAT(STAT_GatherShadowPrimitivesTime);
 DEFINE_STAT(STAT_UpdateIndirectLightingCache);
+DEFINE_STAT(STAT_UpdateIndirectLightingCachePrims);
+DEFINE_STAT(STAT_UpdateIndirectLightingCacheBlocks);
+DEFINE_STAT(STAT_UpdateIndirectLightingCacheTransitions);
+DEFINE_STAT(STAT_UpdateIndirectLightingCacheFinalize);
 DEFINE_STAT(STAT_SortStaticDrawLists);
 DEFINE_STAT(STAT_InitDynamicShadowsTime);
 DEFINE_STAT(STAT_InitProjectedShadowVisibility);

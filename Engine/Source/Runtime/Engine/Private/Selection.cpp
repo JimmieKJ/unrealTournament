@@ -163,3 +163,18 @@ void USelection::Serialize(FArchive& Ar)
 	Super::Serialize( Ar );
 	Ar << SelectedObjects;
 }
+
+bool USelection::Modify(bool bAlwaysMarkDirty/* =true */)
+{
+	// If the selection currently contains any PIE objects we should not be including it in the transaction buffer
+	for (auto ObjectPtr : SelectedObjects)
+	{
+		UObject* Object = ObjectPtr.Get();
+		if (Object && (Object->GetOutermost()->PackageFlags & (PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn)) != 0)
+		{
+			return false;
+		}
+	}
+
+	return Super::Modify(bAlwaysMarkDirty);
+}

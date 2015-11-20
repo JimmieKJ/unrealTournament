@@ -36,32 +36,20 @@ public abstract class BaseWinPlatform : Platform
 		}
 
 		// Stage all the build products
-		foreach(BuildReceipt Receipt in SC.StageTargetReceipts)
+		foreach(StageTarget Target in SC.StageTargets)
 		{
-			SC.StageBuildProductsFromReceipt(Receipt);
+			SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
 		}
 
 		// Copy the splash screen, windows specific
 		SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.ProjectRoot, "Content/Splash"), "Splash.bmp", false, null, null, true);
 
-        if (Params.bUsesCEF3)
-        {
-            // CEF3 files
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/ThirdParty/CEF3", SC.PlatformDir), "*", true, null, null, true);
-        }
-
-        // Only staging Oculus Audio for win 64
-        if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64)
-        {
-            SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Binaries/Oculus/Audio", SC.PlatformDir), "*", true, null, null, true);
-        }
-
 		// Stage the bootstrap executable
 		if(!Params.NoBootstrapExe)
 		{
-			foreach(BuildReceipt Receipt in SC.StageTargetReceipts)
+			foreach(StageTarget Target in SC.StageTargets)
 			{
-				BuildProduct Executable = Receipt.BuildProducts.FirstOrDefault(x => x.Type == BuildProductType.Executable);
+				BuildProduct Executable = Target.Receipt.BuildProducts.FirstOrDefault(x => x.Type == BuildProductType.Executable);
 				if(Executable != null)
 				{
 					// only create bootstraps for executables
@@ -73,6 +61,27 @@ public abstract class BaseWinPlatform : Platform
 							BootstrapArguments = String.Format("..\\..\\..\\{0}\\{0}.uproject", SC.ShortProjectName);
 						}
 
+
+                        foreach (string StageExePath in GetExecutableNames(SC))
+                        {
+                            // set the icon on the original exe this will be used in the task bar when the bootstrap exe runs
+                            if (InternalUtils.SafeFileExists(CombinePaths(SC.ProjectRoot, "Build/Windows/Application.ico")))
+                            {
+                                GroupIconResource GroupIcon = null;
+                                GroupIcon = GroupIconResource.FromIco(CombinePaths(SC.ProjectRoot, "Build/Windows/Application.ico"));
+
+                                // Update the icon on the original exe because this will be used when the game is running in the task bar
+                                using (ModuleResourceUpdate Update = new ModuleResourceUpdate(StageExePath, false))
+                                {
+                                    const int IconResourceId = 101;
+                                    if (GroupIcon != null)
+                                    {
+                                        Update.SetIcons(IconResourceId, GroupIcon);
+                                    }
+                                }
+                            }
+                        }
+
 						string BootstrapExeName;
 						if(SC.StageTargetConfigurations.Count > 1)
 						{
@@ -80,14 +89,17 @@ public abstract class BaseWinPlatform : Platform
 						}
 						else if(Params.IsCodeBasedProject)
 						{
-							BootstrapExeName = Receipt.GetProperty("TargetName", SC.ShortProjectName) + ".exe";
+							BootstrapExeName = Target.Receipt.TargetName + ".exe";
 						}
 						else
 						{
 							BootstrapExeName = SC.ShortProjectName + ".exe";
 						}
 
-						StageBootstrapExecutable(SC, BootstrapExeName, Executable.Path, SC.NonUFSStagingFiles[Executable.Path], BootstrapArguments);
+						foreach (string StagePath in SC.NonUFSStagingFiles[Executable.Path])
+						{
+							StageBootstrapExecutable(SC, BootstrapExeName, Executable.Path, StagePath, BootstrapArguments);
+						}
 					}
 				}
 			}
@@ -104,7 +116,8 @@ public abstract class BaseWinPlatform : Platform
 			InternalUtils.SafeCreateDirectory(IntermediateDir);
 
 			string IntermediateFile = CombinePaths(IntermediateDir, ExeName);
-			File.Copy(InputFile, IntermediateFile, true);
+			CommandUtils.CopyFile(InputFile, IntermediateFile);
+			CommandUtils.SetFileAttributes(IntermediateFile, ReadOnly: false);
 	
 			// currently the icon updating doesn't run under mono
 			if (UnrealBuildTool.BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Win64 ||
@@ -248,12 +261,21 @@ public abstract class BaseWinPlatform : Platform
 
 	public override bool ShouldStageCommandLine(ProjectParams Params, DeploymentContext SC)
 	{
-		return !String.IsNullOrEmpty(Params.StageCommandline) || !String.IsNullOrEmpty(Params.RunCommandline) || (!Params.IsCodeBasedProject && Params.NoBootstrapExe);
+		return false; // !String.IsNullOrEmpty(Params.StageCommandline) || !String.IsNullOrEmpty(Params.RunCommandline) || (!Params.IsCodeBasedProject && Params.NoBootstrapExe);
 	}
 
 	public override List<string> GetDebugFileExtentions()
 	{
 		return new List<string> { ".pdb", ".map" };
+	}
+
+	public override bool SignExecutables(DeploymentContext SC, ProjectParams Params)
+	{
+		// Sign everything we built
+		List<string> FilesToSign = GetExecutableNames(SC);
+		CodeSign.SignMultipleFilesIfEXEOrDLL(FilesToSign);
+
+		return true;
 	}
 }
 

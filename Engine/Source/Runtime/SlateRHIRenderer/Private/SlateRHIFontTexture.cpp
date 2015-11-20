@@ -53,32 +53,11 @@ void FSlateFontTextureRHI::InitDynamicRHI()
 
 		INC_MEMORY_STAT_BY(STAT_SlateTextureGPUMemory, Width*Height*GPixelFormats[PF_A8].BlockBytes);
 	}
-
-	// Restore previous data if it exists
-	if( TempData.Num() > 0 )
-	{
-		// Set texture data back to the previous state
-		uint32 Stride;
-		uint8* TextureData = (uint8*)RHILockTexture2D( GetTypedResource(), 0, RLM_WriteOnly, Stride, false );
-		FMemory::Memcpy( TextureData, TempData.GetData(), GPixelFormats[PF_A8].BlockBytes*Width*Height );
-		RHIUnlockTexture2D( GetTypedResource(), 0, false );
-
-		TempData.Empty();
-	}
 }
 
 void FSlateFontTextureRHI::ReleaseDynamicRHI()
 {
 	check( IsInRenderingThread() );
-
-	// Copy the data to temporary storage until InitDynamicRHI is called
-	uint32 Stride;
-	TempData.Empty();
-	TempData.AddUninitialized( GPixelFormats[PF_A8].BlockBytes*Width*Height );
-
-	uint8* TextureData = (uint8*)RHILockTexture2D( GetTypedResource(), 0, RLM_ReadOnly, Stride, false );
-	FMemory::Memcpy( TempData.GetData(), TextureData, GPixelFormats[PF_A8].BlockBytes*Width*Height );
-	RHIUnlockTexture2D( GetTypedResource(), 0, false );
 
 	// Release the texture
 	if( IsValidRef(ShaderResource) )
@@ -101,7 +80,7 @@ FSlateFontAtlasRHI::~FSlateFontAtlasRHI()
 
 void FSlateFontAtlasRHI::ReleaseResources()
 {
-	check( IsThreadSafeForSlateRendering() );
+	checkSlow( IsThreadSafeForSlateRendering() );
 
 	BeginReleaseResource( FontTexture.Get() );
 }
@@ -122,7 +101,7 @@ void FSlateFontAtlasRHI::ConditionalUpdateTexture()
 		}
 		else
 		{
-			check( IsThreadSafeForSlateRendering() );
+			checkSlow( IsThreadSafeForSlateRendering() );
 
 			BeginInitResource( FontTexture.Get() );
 

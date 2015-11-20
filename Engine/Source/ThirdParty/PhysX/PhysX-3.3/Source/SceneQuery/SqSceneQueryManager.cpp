@@ -24,6 +24,13 @@
 using namespace physx;
 using namespace Sq;
 
+namespace physx
+{
+	namespace Sq
+	{
+		OffsetTable gOffsetTable;
+	}
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -101,7 +108,7 @@ ActorShape* SceneQueryManager::addShape(const NpShape& shape, const PxRigidActor
 
 	PrunerPayload pp;
 	const Scb::Shape& scbShape = shape.getScbShape();
-	const Scb::Actor& scbActor = NpActor::getScbFromPxActor(actor);
+	const Scb::Actor& scbActor = gOffsetTable.convertPxActor2Scb(actor);
 	pp.data[0] = (size_t)&scbShape;
 	pp.data[1] = (size_t)&scbActor;
 
@@ -312,7 +319,9 @@ void SceneQueryManager::shiftOrigin(const PxVec3& shift)
 
 PxScene* SceneQueryManager::getPxScene() const
 {
-	return getScene().getPxScene();
+	char* p = reinterpret_cast<char*>(&getScene());
+	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpScene*>(0)->getScene()));
+	return reinterpret_cast<NpScene*>(p - scbOffset);
 }
 
 #if PX_IS_PS3 && !PX_IS_SPU // the task only exists on PPU
@@ -499,6 +508,7 @@ void SceneQueryManager::blockingSPURaycastOverlapSweep(NpBatchQuery* bq, bool ru
 		task->mSpuContext.dynamicNodes = dp->getAABBTree() ? (AABBTreeNode*)dp->getAABBTree()->getNodes() : NULL;
 		task->mSpuContext.scenePassForeignShapes = getScene().getClientBehaviorFlags(bq->mDesc.ownerClient) & PxClientBehaviorFlag::eREPORT_FOREIGN_OBJECTS_TO_SCENE_QUERY;
 		task->mSpuContext.actorOffsets = &NpActor::sOffsets;
+		task->mSpuContext.scOffsets = &Sc::gOffsetTable;
 
 		task->setArgs(0, PxU32(&task->mSpuContext), PxU32(bq));
 		task->setContinuation(*getPxScene()->getTaskManager(), NULL);

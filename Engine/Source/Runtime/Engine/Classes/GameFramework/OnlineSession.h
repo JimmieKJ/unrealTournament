@@ -17,10 +17,10 @@ class ENGINE_API UOnlineSession : public UObject
 public:
 
 	/** Register all delegates needed to manage online sessions.  */
-	virtual void RegisterOnlineDelegates(class UWorld* InWorld) {};
+	virtual void RegisterOnlineDelegates() {};
 
 	/** Tear down all delegates used to manage online sessions.	 */
-	virtual void ClearOnlineDelegates(class UWorld* InWorld) {};
+	virtual void ClearOnlineDelegates() {};
 
 	/** Called to tear down any online sessions and return to main menu	 */
 	virtual void HandleDisconnect(UWorld *World, class UNetDriver *NetDriver);
@@ -32,7 +32,7 @@ public:
 	virtual void EndOnlineSession(FName SessionName) {};
 
 	/** Called when a user accepts an invite */
-	virtual void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult) {};
+	virtual void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult & InviteResult) {};
 };
 
 

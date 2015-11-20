@@ -60,6 +60,7 @@ public:
 	bool Delete( const TCHAR* Filename, bool RequireExists=0, bool EvenReadOnly=0, bool Quiet=0 ) override;
 	bool IsReadOnly( const TCHAR* Filename ) override;
 	bool Move( const TCHAR* Dest, const TCHAR* Src, bool Replace=1, bool EvenIfReadOnly=0, bool Attributes=0, bool bDoNotRetryOrError=0 ) override;
+	bool FileExists( const TCHAR* Filename ) override;
 	bool DirectoryExists(const TCHAR* InDirectory) override;
 	void FindFiles( TArray<FString>& Result, const TCHAR* Filename, bool Files, bool Directories ) override;
 	void FindFilesRecursive( TArray<FString>& FileNames, const TCHAR* StartDirectory, const TCHAR* Filename, bool Files, bool Directories, bool bClearFileNames=true) override;
@@ -72,6 +73,20 @@ public:
 	virtual uint32	Copy( const TCHAR* InDestFile, const TCHAR* InSrcFile, bool ReplaceExisting, bool EvenIfReadOnly, bool Attributes, FCopyProgress* Progress ) override;
 	virtual bool	MakeDirectory( const TCHAR* Path, bool Tree=0 ) override;
 	virtual bool	DeleteDirectory( const TCHAR* Path, bool RequireExists=0, bool Tree=0 ) override;
+
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override;
+
+	/**
+	 * Finds all the files within the given directory, with optional file extension filter.
+	 *
+	 * @param Directory, the absolute path to the directory to search. Ex: "C:\UE4\Pictures"
+	 *
+	 * @param FileExtension, If FileExtension is NULL, or an empty string "" then all files are found.
+	 * 			Otherwise FileExtension can be of the form .EXT or just EXT and only files with that extension will be returned.
+	 *
+	 * @return FoundFiles, All the files that matched the optional FileExtension filter, or all files if none was specified.
+	 */
+	virtual void FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension = nullptr) override;
 
 	/** 
 	 * Call the Visit function of the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
@@ -88,6 +103,22 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	bool IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) override;
+
+	/** 
+	 * Call the Visit function of the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
+	 * @param Directory		The directory to iterate the contents of.
+	 * @param Visitor		Visitor to call for each element of the directory
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	bool IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override;
+
+	/** 
+	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.
+	 * @param Directory		The directory to iterate the contents of, recursively.
+	 * @param Visitor		Visitor to call for each element of the directory and each element of all subdirectories.
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	bool IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override;
 
 	/**
 	 * Converts passed in filename to use a relative path.
@@ -197,13 +228,13 @@ protected:
 	virtual void ReadLowLevel(uint8* Dest, int64 CountToRead, int64& OutBytesRead);
 
 	/** Filename for debugging purposes. */
-	FString			Filename;
-	int64            Size;
-	int64            Pos;
-	int64            BufferBase;
-	int64            BufferCount;
-	TAutoPtr<IFileHandle>	Handle;
-	uint8            Buffer[1024];	
+	FString Filename;
+	int64 Size;
+	int64 Pos;
+	int64 BufferBase;
+	int64 BufferCount;
+	TAutoPtr<IFileHandle> Handle;
+	uint8 Buffer[1024];
 };
 
 
@@ -222,7 +253,7 @@ public:
 	{
 		return Pos;
 	}
-	virtual int64 TotalSize();
+	virtual int64 TotalSize() override;
 	virtual bool Close() final;
 	virtual void Serialize( void* V, int64 Length ) final;
 	virtual void Flush() final;
@@ -261,9 +292,10 @@ protected:
 	void LogWriteError(const TCHAR* Message);
 
 	/** Filename for debugging purposes */
-	FString			Filename;
-	int64            Pos;
-	int64            BufferCount;
-	TAutoPtr<IFileHandle>		 Handle;
-	uint8            Buffer[4096];
+	FString Filename;
+	int64 Pos;
+	int64 BufferCount;
+	TAutoPtr<IFileHandle> Handle;
+	uint8 Buffer[4096];
+	bool bLoggingError;
 };

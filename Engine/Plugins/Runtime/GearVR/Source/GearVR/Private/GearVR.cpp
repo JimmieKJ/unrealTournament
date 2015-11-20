@@ -5,36 +5,17 @@
 #include "EngineAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Android/AndroidJNI.h"
+#include "Android/AndroidApplication.h"
 #include "RHIStaticStates.h"
+#include "SceneViewport.h"
 
+#if GEARVR_SUPPORTED_PLATFORMS
 #include "VrApi_Helpers.h"
+#endif
+
+#include <android_native_app_glue.h>
 
 #define DEFAULT_PREDICTION_IN_SECONDS 0.035
-
-#if !UE_BUILD_SHIPPING
-// Should be changed to CAPI when available.
-#if PLATFORM_SUPPORTS_PRAGMA_PACK
-#pragma pack (push,8)
-#endif
-#include "../Src/Kernel/OVR_Log.h"
-#if PLATFORM_SUPPORTS_PRAGMA_PACK
-#pragma pack (pop)
-#endif
-
-#define GL_CHECK_ERROR \
-do \
-{ \
-int err; \
-	while ((err = glGetError()) != GL_NO_ERROR) \
-	{ \
-		UE_LOG(LogHMD, Warning, TEXT("%s:%d GL error (#%x)\n"), ANSI_TO_TCHAR(__FILE__), __LINE__, err); \
-	} \
-} while (0) 
-
-#else // #if !UE_BUILD_SHIPPING
-#define GL_CHECK_ERROR (void)0
-#endif // #if !UE_BUILD_SHIPPING
-
 
 // call out to JNI to see if the application was packaged for GearVR
 extern bool AndroidThunkCpp_IsGearVRApplication();
@@ -43,6 +24,10 @@ extern bool AndroidThunkCpp_IsGearVRApplication();
 //---------------------------------------------------
 // GearVR Plugin Implementation
 //---------------------------------------------------
+
+#if GEARVR_SUPPORTED_PLATFORMS
+static TAutoConsoleVariable<int32> CVarGearVREnableMSAA(TEXT("gearvr.EnableMSAA"), 1, TEXT("Enable MSAA when rendering on GearVR"));
+#endif
 
 class FGearVRPlugin : public IGearVRPlugin
 {
@@ -56,6 +41,22 @@ class FGearVRPlugin : public IGearVRPlugin
 	{
 		return FString(TEXT("GearVR"));
 	}
+
+	virtual void StartOVRGlobalMenu() const ;
+
+	virtual void StartOVRQuitMenu() const ;
+
+	virtual void SetCPUAndGPULevels(int32 CPULevel, int32 GPULevel) const ;
+
+	virtual bool IsPowerLevelStateMinimum() const;
+
+	virtual bool IsPowerLevelStateThrottled() const;
+	
+	virtual float GetTemperatureInCelsius() const;
+
+	virtual float GetBatteryLevel() const;
+
+	virtual bool AreHeadPhonesPluggedIn() const;
 };
 
 IMPLEMENT_MODULE( FGearVRPlugin, GearVR )
@@ -86,27 +87,25 @@ void FGearVRPlugin::PreInit()
 		// don't do anything if we aren't packaged for GearVR
 		return;
 	}
-
-	FGearVR::PreInit();
 #endif//GEARVR_SUPPORTED_PLATFORMS
 }
 
 
 #if GEARVR_SUPPORTED_PLATFORMS
 FSettings::FSettings()
-	: RenderTargetWidth(2048)
-	, RenderTargetHeight(1024)
+	: RenderTargetSize(OVR_DEFAULT_EYE_RENDER_TARGET_WIDTH * 2, OVR_DEFAULT_EYE_RENDER_TARGET_HEIGHT)
 	, MotionPredictionInSeconds(DEFAULT_PREDICTION_IN_SECONDS)
 	, HeadModel(0.12f, 0.0f, 0.17f)
 {
+	CpuLevel = 2;
+	GpuLevel = 3;
 	HFOVInRadians = FMath::DegreesToRadians(90.f);
 	VFOVInRadians = FMath::DegreesToRadians(90.f);
 	HmdToEyeViewOffset[0] = HmdToEyeViewOffset[1] = OVR::Vector3f(0,0,0);
 	IdealScreenPercentage = ScreenPercentage = SavedScrPerc = 100.f;
 	InterpupillaryDistance = OVR_DEFAULT_IPD;
-	FMemory::Memzero(VrModeParms);
 
-	Flags.bStereoEnabled = Flags.bHMDEnabled = true;
+	Flags.bStereoEnabled = false; Flags.bHMDEnabled = true;
 	Flags.bUpdateOnRT = Flags.bTimeWarp = true;
 }
 
@@ -124,6 +123,7 @@ FGameFrame::FGameFrame()
 	FMemory::Memzero(EyeRenderPose);
 	FMemory::Memzero(HeadPose);
 	FMemory::Memzero(TanAngleMatrix);
+	GameThreadId = 0;
 }
 
 TSharedPtr<FHMDGameFrame, ESPMode::ThreadSafe> FGameFrame::Clone() const
@@ -137,18 +137,6 @@ TSharedPtr<FHMDGameFrame, ESPMode::ThreadSafe> FGameFrame::Clone() const
 // GearVR IHeadMountedDisplay Implementation
 //---------------------------------------------------
 
-void FGearVR::PreInit()
-{
-	// ignore the first call as it's from the engine PreInit, we need to handle the second call which is from the Java UI thread
-	static int NumCalls = 0;
-
-	if (++NumCalls == 2)
-	{
-		ovr_OnLoad(GJavaVM);
-		ovr_Init();
-	}
-}
-
 TSharedPtr<FHMDGameFrame, ESPMode::ThreadSafe> FGearVR::CreateNewGameFrame() const
 {
 	TSharedPtr<FGameFrame, ESPMode::ThreadSafe> Result(MakeShareable(new FGameFrame()));
@@ -161,9 +149,29 @@ TSharedPtr<FHMDSettings, ESPMode::ThreadSafe> FGearVR::CreateNewSettings() const
 	return Result;
 }
 
-bool FGearVR::OnStartGameFrame()
+bool FGearVR::OnStartGameFrame( FWorldContext& WorldContext )
 {
-	bool rv = FHeadMountedDisplay::OnStartGameFrame();
+	// Temp fix to a bug in ovr_DeviceIsDocked() that can't return
+	// actual state of docking. We are switching to stereo at the start
+	// (missing the first frame to let it render at least once; otherwise
+	// a blurry image may appear on Note4 with Adreno 420).
+	if (GFrameNumber > 2 && !Settings->Flags.bStereoEnforced)
+	{
+		EnableStereo(true);
+	}
+
+#if 0 // temporarily out of order. Until ovr_DeviceIsDocked returns the actual state.
+	if (ovr_DeviceIsDocked() != Settings->IsStereoEnabled())
+	{
+		if (!Settings->IsStereoEnabled() || !Settings->Flags.bStereoEnforced)
+		{
+			UE_LOG(LogHMD, Log, TEXT("Device is docked/undocked, changing stereo mode to %s"), (ovr_DeviceIsDocked()) ? TEXT("ON") : TEXT("OFF"));
+			EnableStereo(ovr_DeviceIsDocked());
+		}
+	}
+#endif // if 0
+
+	bool rv = FHeadMountedDisplay::OnStartGameFrame(WorldContext);
 	if (!rv)
 	{
 		return false;
@@ -175,8 +183,24 @@ bool FGearVR::OnStartGameFrame()
 	CurrentFrame->Settings = Settings->Clone();
 	FSettings* CurrentSettings = CurrentFrame->GetSettings();
 
+	if (CurrentSettings->IsStereoEnabled() && pGearVRBridge && pGearVRBridge->IsTextureSetCreated())
+	{
+		// re-enter VR mode if necessary
+		EnterVRMode();
+	}
+	CurrentFrame->GameThreadId = gettid();
+
 	rv = GetEyePoses(*CurrentFrame, CurrentFrame->CurEyeRenderPose, CurrentFrame->CurSensorState);
 
+#if !UE_BUILD_SHIPPING
+	{ // used for debugging, do not remove
+		FQuat CurHmdOrientation;
+		FVector CurHmdPosition;
+		GetCurrentPose(CurHmdOrientation, CurHmdPosition, false, false);
+		//UE_LOG(LogHMD, Log, TEXT("BFPOSE: Pos %.3f %.3f %.3f, fr: %d"), CurHmdPosition.X, CurHmdPosition.Y, CurHmdPosition.Y,(int)CurrentFrame->FrameNumber);
+		//UE_LOG(LogHMD, Log, TEXT("BFPOSE: Yaw %.3f Pitch %.3f Roll %.3f, fr: %d"), CurHmdOrientation.Rotator().Yaw, CurHmdOrientation.Rotator().Pitch, CurHmdOrientation.Rotator().Roll, (int)CurrentFrame->FrameNumber);
+	}
+#endif
 	return rv;
 }
 
@@ -192,11 +216,21 @@ EHMDDeviceType::Type FGearVR::GetHMDDeviceType() const
 
 bool FGearVR::GetHMDMonitorInfo(MonitorInfo& MonitorDesc)
 {
+	if (!GetSettings()->IsStereoEnabled())
+	{
+		return false;
+	}
 	MonitorDesc.MonitorName = "";
 	MonitorDesc.MonitorId = 0;
 	MonitorDesc.DesktopX = MonitorDesc.DesktopY = 0;
-	MonitorDesc.ResolutionX = GetSettings()->RenderTargetWidth;
-	MonitorDesc.ResolutionY = GetSettings()->RenderTargetHeight;
+	MonitorDesc.ResolutionX = GetSettings()->RenderTargetSize.X;
+	MonitorDesc.ResolutionY = GetSettings()->RenderTargetSize.Y;
+	return true;
+}
+
+bool FGearVR::IsHMDConnected()
+{
+	//? @todo
 	return true;
 }
 
@@ -205,16 +239,30 @@ bool FGearVR::IsInLowPersistenceMode() const
 	return true;
 }
 
-bool FGearVR::GetEyePoses(const FGameFrame& InFrame, ovrPosef outEyePoses[2], ovrSensorState& outSensorState)
+bool FGearVR::GetEyePoses(const FGameFrame& InFrame, ovrPosef outEyePoses[2], ovrTracking& outTracking)
 {
-	FScopeLock lock(&OvrMobileLock);
-	if (!OvrMobile_RT)
+	FOvrMobileSynced OvrMobile = GetMobileSynced();
+
+	if (!OvrMobile.IsValid())
 	{
+		FMemory::Memzero(outTracking);
+		ovrQuatf identityQ;
+		FMemory::Memzero(identityQ);
+		identityQ.w = 1;
+		outTracking.HeadPose.Pose.Orientation = identityQ;
+		const OVR::Vector3f OvrHeadModel = ToOVRVector<OVR::Vector3f>(InFrame.GetSettings()->HeadModel); // HeadModel is already in meters here
+		const OVR::Vector3f HmdToEyeViewOffset0 = (OVR::Vector3f)InFrame.GetSettings()->HmdToEyeViewOffset[0];
+		const OVR::Vector3f HmdToEyeViewOffset1 = (OVR::Vector3f)InFrame.GetSettings()->HmdToEyeViewOffset[1];
+		const OVR::Vector3f transl0 = OvrHeadModel + HmdToEyeViewOffset0;
+		const OVR::Vector3f transl1 = OvrHeadModel + HmdToEyeViewOffset1;
+		outEyePoses[0].Orientation = outEyePoses[1].Orientation = outTracking.HeadPose.Pose.Orientation;
+		outEyePoses[0].Position = transl0;
+		outEyePoses[1].Position = transl1;
 		return false;
 	}
 
 	double predictedTime = 0.0;
-	const double now = ovr_GetTimeInSeconds();
+	const double now = vrapi_GetTimeInSeconds();
 	if (IsInGameThread())
 	{
 		if (OCFlags.NeedResetOrientationAndPosition)
@@ -235,18 +283,21 @@ bool FGearVR::GetEyePoses(const FGameFrame& InFrame, ovrPosef outEyePoses[2], ov
 	}
 	else if (IsInRenderingThread())
 	{
-		predictedTime = ovr_GetPredictedDisplayTime(OvrMobile_RT, 1, 1);
+		predictedTime = vrapi_GetPredictedDisplayTime(*OvrMobile, InFrame.FrameNumber);
 		//UE_LOG(LogHMD, Log, TEXT("RT Frame %d, predicted time: %.6f"), InFrame.FrameNumber, (float)(predictedTime - now));
 	}
-	outSensorState = ovr_GetPredictedSensorState(OvrMobile_RT, predictedTime);
+	outTracking = vrapi_GetPredictedTracking(*OvrMobile, predictedTime);
 
-	OVR::Posef hmdPose = (OVR::Posef)outSensorState.Predicted.Pose;
-	OVR::Vector3f transl0 = hmdPose.Orientation.Rotate(-((OVR::Vector3f)InFrame.GetSettings()->HmdToEyeViewOffset[0])) + hmdPose.Position;
-	OVR::Vector3f transl1 = hmdPose.Orientation.Rotate(-((OVR::Vector3f)InFrame.GetSettings()->HmdToEyeViewOffset[1])) + hmdPose.Position;
+	const OVR::Posef hmdPose = (OVR::Posef)outTracking.HeadPose.Pose;
+	const OVR::Vector3f OvrHeadModel = ToOVRVector<OVR::Vector3f>(InFrame.GetSettings()->HeadModel); // HeadModel is already in meters here
+	const OVR::Vector3f HmdToEyeViewOffset0 = (OVR::Vector3f)InFrame.GetSettings()->HmdToEyeViewOffset[0];
+	const OVR::Vector3f HmdToEyeViewOffset1 = (OVR::Vector3f)InFrame.GetSettings()->HmdToEyeViewOffset[1];
+	const OVR::Vector3f transl0 = hmdPose.Orientation.Rotate(OvrHeadModel + HmdToEyeViewOffset0);
+	const OVR::Vector3f transl1 = hmdPose.Orientation.Rotate(OvrHeadModel + HmdToEyeViewOffset1);
 
 	// Currently HmdToEyeViewOffset is only a 3D vector
 	// (Negate HmdToEyeViewOffset because offset is a view matrix offset and not a camera offset)
-	outEyePoses[0].Orientation = outEyePoses[1].Orientation = outSensorState.Predicted.Pose.Orientation;
+	outEyePoses[0].Orientation = outEyePoses[1].Orientation = outTracking.HeadPose.Pose.Orientation;
 	outEyePoses[0].Position = transl0;
 	outEyePoses[1].Position = transl1;
 	return true;
@@ -266,49 +317,6 @@ void FGameFrame::PoseToOrientationAndPosition(const ovrPosef& InPose, FQuat& Out
 	OutOrientation.Normalize();
 }
 
-void FGearVR::GetCurrentOrientationAndPosition(FQuat& CurrentOrientation, FVector& CurrentPosition)
-{
-	// only supposed to be used from the game thread
-	check(IsInGameThread());
-	auto frame = GetFrame();
-	if (!frame)
-	{
-		CurrentOrientation = FQuat::Identity;
-		CurrentPosition = FVector::ZeroVector;
-		return;
-	}
-	//if (PositionScale != FVector::ZeroVector)
-	//{
-	//	frame->CameraScale3D = PositionScale;
-	//	frame->Flags.bCameraScale3DAlreadySet = true;
-	//}
-	const bool bUseOrienationForPlayerCamera = false, bUsePositionForPlayerCamera = false;
-	GetCurrentPose(CurrentOrientation, CurrentPosition, bUseOrienationForPlayerCamera, bUsePositionForPlayerCamera);
-	if (bUseOrienationForPlayerCamera)
-	{
-		frame->LastHmdOrientation = CurrentOrientation;
-		frame->Flags.bOrientationChanged = bUseOrienationForPlayerCamera;
-	}
-	if (bUsePositionForPlayerCamera)
-	{
-		frame->LastHmdPosition = CurrentPosition;
-		frame->Flags.bPositionChanged = bUsePositionForPlayerCamera;
-	}
-}
-
-FVector FGearVR::GetNeckPosition(const FQuat& CurrentOrientation, const FVector& CurrentPosition, const FVector& PositionScale)
-{
-	const auto frame = GetFrame();
-	if (!frame)
-	{
-		return FVector::ZeroVector;
-	}
-	FVector UnrotatedPos = CurrentOrientation.Inverse().RotateVector(CurrentPosition);
-	UnrotatedPos.X -= frame->Settings->NeckToEyeInMeters.X * frame->WorldToMetersScale;
-	UnrotatedPos.Z -= frame->Settings->NeckToEyeInMeters.Y * frame->WorldToMetersScale;
-	return UnrotatedPos;
-}
-
 void FGearVR::GetCurrentPose(FQuat& CurrentHmdOrientation, FVector& CurrentHmdPosition, bool bUseOrienationForPlayerCamera, bool bUsePositionForPlayerCamera)
 {
 	check(IsInGameThread());
@@ -322,10 +330,10 @@ void FGearVR::GetCurrentPose(FQuat& CurrentHmdOrientation, FVector& CurrentHmdPo
 		// This matters only if bUpdateOnRT is OFF.
 		frame->EyeRenderPose[0] = frame->CurEyeRenderPose[0];
 		frame->EyeRenderPose[1] = frame->CurEyeRenderPose[1];
-		frame->HeadPose = frame->CurSensorState.Predicted.Pose;
+		frame->HeadPose = frame->CurSensorState.HeadPose;
 	}
 
-	frame->PoseToOrientationAndPosition(frame->CurSensorState.Predicted.Pose, CurrentHmdOrientation, CurrentHmdPosition);
+	frame->PoseToOrientationAndPosition(frame->CurSensorState.HeadPose.Pose, CurrentHmdOrientation, CurrentHmdPosition);
 	//UE_LOG(LogHMD, Log, TEXT("CRPOSE: Pos %.3f %.3f %.3f"), CurrentHmdPosition.X, CurrentHmdPosition.Y, CurrentHmdPosition.Z);
 	//UE_LOG(LogHMD, Log, TEXT("CRPOSE: Yaw %.3f Pitch %.3f Roll %.3f"), CurrentHmdOrientation.Rotator().Yaw, CurrentHmdOrientation.Rotator().Pitch, CurrentHmdOrientation.Rotator().Roll);
 }
@@ -356,22 +364,33 @@ bool FGearVR::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 			{
 				Plugin->StartOVRGlobalMenu();
 			});
+		return true;
+	}
+	else if (FParse::Command(&Cmd, TEXT("OVRQUITMENU")))
+	{
+		// fire off the global menu from the render thread
+		ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(OVRQuitMenu,
+			FGearVR*, Plugin, this,
+			{
+				Plugin->StartOVRQuitMenu();
+			});
+		return true;
 	}
 	return false;
 }
 
 FString FGearVR::GetVersionString() const
 {
-	static const char* Results = OVR_VERSION_STRING;
-	FString s = FString::Printf(TEXT("%s, VrLib: %s, built %s, %s"), *GEngineVersion.ToString(), UTF8_TO_TCHAR(Results),
+	FString VerStr = ANSI_TO_TCHAR(vrapi_GetVersionString());
+	FString s = FString::Printf(TEXT("%s, VrLib: %s, built %s, %s"), *FEngineVersion::Current().ToString(), *VerStr,
 		UTF8_TO_TCHAR(__DATE__), UTF8_TO_TCHAR(__TIME__));
 	return s;
 }
 
 void FGearVR::OnScreenModeChange(EWindowMode::Type WindowMode)
 {
-	EnableStereo(WindowMode != EWindowMode::Windowed);
-	UpdateStereoRenderingParams();
+	//EnableStereo(WindowMode != EWindowMode::Windowed);
+	//UpdateStereoRenderingParams();
 }
 
 bool FGearVR::IsPositionalTrackingEnabled() const
@@ -384,9 +403,60 @@ bool FGearVR::EnablePositionalTracking(bool enable)
 	return false;
 }
 
+static class FSceneViewport* FindSceneViewport()
+{
+	UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
+	return GameEngine->SceneViewport.Get();
+}
+
+bool FGearVR::EnableStereo(bool bStereo)
+{
+	Settings->Flags.bStereoEnforced = false;
+	if (bStereo)
+	{
+		Flags.bNeedEnableStereo = true;
+	}
+	else
+	{
+		Flags.bNeedDisableStereo = true;
+	}
+	return Settings->Flags.bStereoEnabled;
+}
+
 bool FGearVR::DoEnableStereo(bool bStereo, bool bApplyToHmd)
 {
-	return true;
+	check(IsInGameThread());
+
+	FSceneViewport* SceneVP = FindSceneViewport();
+	if (bStereo && (!SceneVP || !SceneVP->IsStereoRenderingAllowed()))
+	{
+		return false;
+	}
+
+	// Uncap fps to enable FPS higher than 62
+	GEngine->bForceDisableFrameRateSmoothing = bStereo;
+
+	bool stereoToBeEnabled = (Settings->Flags.bHMDEnabled) ? bStereo : false;
+
+	if ((Settings->Flags.bStereoEnabled && stereoToBeEnabled) || (!Settings->Flags.bStereoEnabled && !stereoToBeEnabled))
+	{
+		// already in the desired mode
+		return Settings->Flags.bStereoEnabled;
+	}
+
+ 	TSharedPtr<SWindow> Window;
+ 	if (SceneVP)
+ 	{
+ 		Window = SceneVP->FindWindow();
+ 	}
+
+	Settings->Flags.bStereoEnabled = stereoToBeEnabled;
+
+	if (!stereoToBeEnabled)
+	{
+		LeaveVRMode();
+	}
+	return Settings->Flags.bStereoEnabled;
 }
 
 void FGearVR::ApplySystemOverridesOnStereo(bool bForce)
@@ -453,7 +523,7 @@ void FGearVR::CalculateStereoViewOffset(const EStereoscopicPass StereoPassType, 
 		{
 			if (!frame->Flags.bOrientationChanged)
 			{
-				UE_LOG(LogHMD, Log, TEXT("Orientation wasn't applied to a camera in frame %d"), GFrameCounter);
+				UE_LOG(LogHMD, Log, TEXT("Orientation wasn't applied to a camera in frame %d"), int(GFrameCounter));
 			}
 
 			FVector CurEyePosition;
@@ -467,7 +537,7 @@ void FGearVR::CalculateStereoViewOffset(const EStereoscopicPass StereoPassType, 
 			if (!frame->Flags.bPlayerControllerFollowsHmd)
 			{
 				FQuat HeadOrient;
-				frame->PoseToOrientationAndPosition(frame->HeadPose, HeadOrient, HeadPosition);
+				frame->PoseToOrientationAndPosition(frame->HeadPose.Pose, HeadOrient, HeadPosition);
 			}
 
 			// apply stereo disparity to ViewLocation. Note, ViewLocation already contains HeadPose.Position, thus
@@ -510,7 +580,7 @@ void FGearVR::ResetOrientationAndPosition(float yaw)
 		return;
 	}
 
-	const ovrPosef& pose = frame->CurSensorState.Recorded.Pose;
+	const ovrPosef& pose = frame->CurSensorState.HeadPose.Pose;
 	const OVR::Quatf orientation = OVR::Quatf(pose.Orientation);
 
 	// Reset position
@@ -532,6 +602,10 @@ void FGearVR::ResetOrientationAndPosition(float yaw)
 	OCFlags.NeedResetOrientationAndPosition = false;
 }
 
+void FGearVR::RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const
+{
+}
+
 FMatrix FGearVR::GetStereoProjectionMatrix(enum EStereoscopicPass StereoPassType, const float FOV) const
 {
 	auto frame = GetFrame();
@@ -544,8 +618,8 @@ FMatrix FGearVR::GetStereoProjectionMatrix(enum EStereoscopicPass StereoPassType
 	const float PassProjectionOffset = (StereoPassType == eSSP_LEFT_EYE) ? ProjectionCenterOffset : -ProjectionCenterOffset;
 
 	const float HalfFov = FrameSettings->HFOVInRadians / 2.0f;
-	const float InWidth = FrameSettings->RenderTargetWidth / 2.0f;
-	const float InHeight = FrameSettings->RenderTargetHeight;
+	const float InWidth = FrameSettings->RenderTargetSize.X / 2.0f;
+	const float InHeight = FrameSettings->RenderTargetSize.Y;
 	const float XS = 1.0f / tan(HalfFov);
 	const float YS = InWidth / tan(HalfFov) / InHeight;
 
@@ -565,7 +639,7 @@ FMatrix FGearVR::GetStereoProjectionMatrix(enum EStereoscopicPass StereoPassType
 		* FTranslationMatrix(FVector(PassProjectionOffset,0,0));
 	
 	ovrMatrix4f tanAngleMatrix = ToMatrix4f(proj);
-	frame->TanAngleMatrix = TanAngleMatrixFromProjection( &tanAngleMatrix );
+	frame->TanAngleMatrix = ovrMatrix4f_TanAngleMatrixFromProjection(&tanAngleMatrix);
 	return proj;
 }
 
@@ -585,7 +659,7 @@ void FGearVR::SetupViewFamily(FSceneViewFamily& InViewFamily)
 {
 	InViewFamily.EngineShowFlags.MotionBlur = 0;
 	InViewFamily.EngineShowFlags.HMDDistortion = false;
-	InViewFamily.EngineShowFlags.ScreenPercentage = true;
+	InViewFamily.EngineShowFlags.ScreenPercentage =false;
 	InViewFamily.EngineShowFlags.StereoRendering = IsStereoEnabled();
 }
 
@@ -600,12 +674,14 @@ void FGearVR::SetupView(FSceneViewFamily& InViewFamily, FSceneView& InView)
 	InViewFamily.bUseSeparateRenderTarget = ShouldUseSeparateRenderTarget();
 
 	const int eyeIdx = (InView.StereoPass == eSSP_LEFT_EYE) ? 0 : 1;
+
+	InView.ViewRect = frame->GetSettings()->EyeRenderViewport[eyeIdx];
+
 	frame->CachedViewRotation[eyeIdx] = InView.ViewRotation;
 }
 
 FGearVR::FGearVR()
 	: DeltaControlRotation(FRotator::ZeroRotator)
-	, OvrMobile_RT(nullptr)
 {
 	OCFlags.Raw = 0;
 	DeltaControlRotation = FRotator::ZeroRotator;
@@ -623,10 +699,12 @@ FGearVR::~FGearVR()
 
 void FGearVR::Startup()
 {
+//	Flags.bNeedEnableStereo = true;
+
 	// grab the clock settings out of the ini
 	const TCHAR* GearVRSettings = TEXT("GearVR.Settings");
 	int CpuLevel = 2;
-	int GpuLevel = 2;
+	int GpuLevel = 3;
 	int MinimumVsyncs = 1;
 	float HeadModelScale = 1.0f;
 	GConfig->GetInt(GearVRSettings, TEXT("CpuLevel"), CpuLevel, GEngineIni);
@@ -636,17 +714,20 @@ void FGearVR::Startup()
 
 	UE_LOG(LogHMD, Log, TEXT("GearVR starting with CPU: %d GPU: %d MinimumVsyncs: %d"), CpuLevel, GpuLevel, MinimumVsyncs);
 
-	GetSettings()->VrModeParms.SkipWindowFullscreenReset = true;
-	GetSettings()->VrModeParms.AsynchronousTimeWarp = true;
-	GetSettings()->VrModeParms.DistortionFileName = NULL;
-	GetSettings()->VrModeParms.EnableImageServer = false;
-	GetSettings()->VrModeParms.GameThreadTid = gettid();
-	GetSettings()->VrModeParms.CpuLevel = CpuLevel;
-	GetSettings()->VrModeParms.GpuLevel = GpuLevel;
-	GetSettings()->VrModeParms.ActivityObject = FJavaWrapper::GameActivityThis;
+	JavaGT.Vm = GJavaVM;
+	JavaGT.Env = FAndroidApplication::GetJavaEnv();
+	extern struct android_app* GNativeAndroidApp;
+	JavaGT.ActivityObject = GNativeAndroidApp->activity->clazz;
+
+	HmdInfo = vrapi_GetHmdInfo(&JavaGT);
+
+	const ovrInitParms initParms = vrapi_DefaultInitParms(&JavaGT);
+	vrapi_Initialize(&initParms);
 
 	GetSettings()->HeadModel *= HeadModelScale;
 	GetSettings()->MinimumVsyncs = MinimumVsyncs;
+	GetSettings()->CpuLevel = CpuLevel;
+	GetSettings()->GpuLevel = GpuLevel;
 
 	FPlatformMisc::MemoryBarrier();
 
@@ -666,13 +747,24 @@ void FGearVR::Startup()
 	UpdateHmdRenderInfo();
 	UpdateStereoRenderingParams();
 
-	// Uncap fps to enable FPS higher than 62
-	GEngine->bSmoothFrameRate = false;
-
-	pGearVRBridge = new FGearVRCustomPresent(MinimumVsyncs);
+#if !OVR_DEBUG_DRAW
+	pGearVRBridge = new FGearVRCustomPresent(GNativeAndroidApp->activity->clazz, MinimumVsyncs);
+#endif
 
 	LoadFromIni();
 	SaveSystemValues();
+
+	if(CVarGearVREnableMSAA.GetValueOnAnyThread())
+	{
+		static IConsoleVariable* CVarMobileOnChipMSAA = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MobileOnChipMSAA"));
+		if (CVarMobileOnChipMSAA)
+		{
+			UE_LOG(LogHMD, Log, TEXT("Enabling r.MobileOnChipMSAA, previous value %d"), CVarMobileOnChipMSAA->GetInt());
+			CVarMobileOnChipMSAA->Set(1);
+		}
+	}
+
+	UE_LOG(LogHMD, Log, TEXT("GearVR has started"));
 }
 
 void FGearVR::Shutdown()
@@ -686,12 +778,21 @@ void FGearVR::Shutdown()
 		FGearVR*, Plugin, this,
 		{
 			Plugin->ShutdownRendering();
+			if (Plugin->pGearVRBridge)
+			{
+				Plugin->pGearVRBridge->Shutdown();
+				Plugin->pGearVRBridge = nullptr;
+			}
+
 		});
 
 	// Wait for all resources to be released
 	FlushRenderingCommands();
 
 	Settings->Flags.InitStatus = 0;
+
+	vrapi_Shutdown();
+
 	UE_LOG(LogHMD, Log, TEXT("GearVR shutdown."));
 }
 
@@ -699,24 +800,12 @@ void FGearVR::ApplicationPauseDelegate()
 {
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("+++++++ GEARVR APP PAUSE ++++++"));
 
-	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(ShutdownRen,
-		FGearVR*, Plugin, this,
-		{
-			Plugin->ShutdownRendering();
-		});
-
-	// Wait for all resources to be released
-	FlushRenderingCommands();
+	LeaveVRMode();
 }
 
 void FGearVR::ApplicationResumeDelegate()
 {
 	FPlatformMisc::LowLevelOutputDebugString(TEXT("+++++++ GEARVR APP RESUME ++++++"));
-
-	if(!pGearVRBridge)
-	{
-		pGearVRBridge = new FGearVRCustomPresent(GetSettings()->MinimumVsyncs);
-	}
 }
 
 void FGearVR::UpdateHmdRenderInfo()
@@ -734,8 +823,20 @@ void FGearVR::UpdateStereoRenderingParams()
 	if (IsInitialized())
 	{
 		CurrentSettings->HmdToEyeViewOffset[0] = CurrentSettings->HmdToEyeViewOffset[1] = OVR::Vector3f(0,0,0);
-		CurrentSettings->HmdToEyeViewOffset[0].x = CurrentSettings->InterpupillaryDistance * 0.5f;
-		CurrentSettings->HmdToEyeViewOffset[1].x = -CurrentSettings->InterpupillaryDistance * 0.5f;
+		CurrentSettings->HmdToEyeViewOffset[0].x = -CurrentSettings->InterpupillaryDistance * 0.5f; // -X <=, +X => (OVR coord sys)
+		CurrentSettings->HmdToEyeViewOffset[1].x = CurrentSettings->InterpupillaryDistance * 0.5f;  // -X <=, +X => (OVR coord sys)
+
+		CurrentSettings->RenderTargetSize.X = HmdInfo.SuggestedEyeResolutionWidth * 2;
+		CurrentSettings->RenderTargetSize.Y = HmdInfo.SuggestedEyeResolutionHeight;
+		//FSceneRenderTargets::QuantizeBufferSize(CurrentSettings->RenderTargetSize.X, CurrentSettings->RenderTargetSize.Y);
+
+		CurrentSettings->HFOVInRadians = FMath::DegreesToRadians(HmdInfo.SuggestedEyeFovDegreesX);
+		CurrentSettings->VFOVInRadians = FMath::DegreesToRadians(HmdInfo.SuggestedEyeFovDegreesY);
+
+		const int32 RTSizeX = CurrentSettings->RenderTargetSize.X;
+		const int32 RTSizeY = CurrentSettings->RenderTargetSize.Y;
+		CurrentSettings->EyeRenderViewport[0] = FIntRect(1, 1, RTSizeX / 2 - 1, RTSizeY - 1);
+		CurrentSettings->EyeRenderViewport[1] = FIntRect(RTSizeX / 2 + 1, 1, RTSizeX-1, RTSizeY-1);
 	}
 
 	Flags.bNeedUpdateStereoRenderingParams = false;
@@ -819,163 +920,6 @@ void FGearVR::LoadFromIni()
 	}
 }
 
-void FViewExtension::PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& View)
-{
-	check(IsInRenderingThread());
-
-	FViewExtension& RenderContext = *this; 
-	const FGameFrame* CurrentFrame = static_cast<const FGameFrame*>(RenderContext.RenderFrame.Get());
-
-	if (!RenderContext.ShowFlags.Rendering || !CurrentFrame || !CurrentFrame->Settings->IsStereoEnabled())
-	{
-		return;
-	}
-
-	if (RenderContext.ShowFlags.Rendering && CurrentFrame->Settings->Flags.bUpdateOnRT)
-	{
-		const unsigned eyeIdx = (View.StereoPass == eSSP_LEFT_EYE) ? 0 : 1;
-		FQuat	CurrentEyeOrientation;
-		FVector	CurrentEyePosition;
-		CurrentFrame->PoseToOrientationAndPosition(RenderContext.CurEyeRenderPose[eyeIdx], CurrentEyeOrientation, CurrentEyePosition);
-
-		FQuat ViewOrientation = View.ViewRotation.Quaternion();
-
-		// recalculate delta control orientation; it should match the one we used in CalculateStereoViewOffset on a game thread.
-		FVector GameEyePosition;
-		FQuat GameEyeOrient;
-
-		CurrentFrame->PoseToOrientationAndPosition(CurrentFrame->EyeRenderPose[eyeIdx], GameEyeOrient, GameEyePosition);
-		const FQuat DeltaControlOrientation =  ViewOrientation * GameEyeOrient.Inverse();
-		// make sure we use the same viewrotation as we had on a game thread
-		check(View.ViewRotation == CurrentFrame->CachedViewRotation[eyeIdx]);
-
-		if (CurrentFrame->Flags.bOrientationChanged)
-		{
-			// Apply updated orientation to corresponding View at recalc matrices.
-			// The updated position will be applied from inside of the UpdateViewMatrix() call.
-			const FQuat DeltaOrient = View.BaseHmdOrientation.Inverse() * CurrentEyeOrientation;
-			View.ViewRotation = FRotator(ViewOrientation * DeltaOrient);
-
-			//UE_LOG(LogHMD, Log, TEXT("VIEWDLT: Yaw %.3f Pitch %.3f Roll %.3f"), DeltaOrient.Rotator().Yaw, DeltaOrient.Rotator().Pitch, DeltaOrient.Rotator().Roll);
-		}
-
-		if (!CurrentFrame->Flags.bPositionChanged)
-		{
-			// if no positional change applied then we still need to calculate proper stereo disparity.
-			// use the current head pose for this calculation instead of the one that was saved on a game thread.
-			FQuat HeadOrientation;
-			CurrentFrame->PoseToOrientationAndPosition(RenderContext.CurHeadPose, HeadOrientation, View.BaseHmdLocation);
-		}
-
-		// The HMDPosition already has HMD orientation applied.
-		// Apply rotational difference between HMD orientation and ViewRotation
-		// to HMDPosition vector. 
-		// PositionOffset should be already applied to View.ViewLocation on GT in PlayerCameraUpdate.
-		const FVector DeltaPosition = CurrentEyePosition - View.BaseHmdLocation;
-		const FVector vEyePosition = DeltaControlOrientation.RotateVector(DeltaPosition);
-		View.ViewLocation += vEyePosition;
-
-		//UE_LOG(LogHMD, Log, TEXT("VDLTPOS: %.3f %.3f %.3f"), vEyePosition.X, vEyePosition.Y, vEyePosition.Z);
-
-		if (CurrentFrame->Flags.bOrientationChanged || CurrentFrame->Flags.bPositionChanged)
-		{
-			View.UpdateViewMatrix();
-		}
-	}
-}
-
-void FGearVR::EnterVrMode(const ovrModeParms& InVrModeParms)
-{
-	FScopeLock lock(&OvrMobileLock);
-	if (!OvrMobile_RT)
-	{
-		// enter vr mode
-		OvrMobile_RT = ovr_EnterVrMode(InVrModeParms, &HmdInfo_RT);
-		UE_LOG(LogHMD, Log, TEXT("++++ENTERED VR MODE++++"));
-	}
-}
-
-void FViewExtension::PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& ViewFamily)
-{
-	check(IsInRenderingThread());
-
-	FViewExtension& RenderContext = *this;
-	FGameFrame* CurrentFrame = static_cast<FGameFrame*>(RenderContext.RenderFrame.Get());
-
-	if (bFrameBegun || !CurrentFrame || !CurrentFrame->Settings->IsStereoEnabled())
-	{
-		return;
-	}
-	FSettings* FrameSettings = CurrentFrame->GetSettings();
-	RenderContext.ShowFlags = ViewFamily.EngineShowFlags;
-
-	auto pGearVRPlugin = static_cast<FGearVR*>(Delegate);
-	pGearVRPlugin->EnterVrMode(FrameSettings->VrModeParms);
-	RenderContext.OvrMobile = pGearVRPlugin->OvrMobile_RT;
-
-
-	RenderContext.CurHeadPose = CurrentFrame->HeadPose;
-
-// 	if (FrameSettings->TexturePaddingPerEye != 0)
-// 	{
-// 		// clear the padding between two eyes
-// 		const int32 GapMinX = ViewFamily.Views[0]->ViewRect.Max.X;
-// 		const int32 GapMaxX = ViewFamily.Views[1]->ViewRect.Min.X;
-// 
-// 		const int ViewportSizeY = (ViewFamily.RenderTarget->GetRenderTargetTexture()) ? 
-// 			ViewFamily.RenderTarget->GetRenderTargetTexture()->GetSizeY() : ViewFamily.RenderTarget->GetSizeXY().Y;
-// 		RHICmdList.SetViewport(GapMinX, 0, 0, GapMaxX, ViewportSizeY, 1.0f);
-// 		RHICmdList.Clear(true, FLinearColor::Black, false, 0, false, 0, FIntRect());
-// 	}
-
-	check(ViewFamily.RenderTarget->GetRenderTargetTexture());
-	uint32 RenderTargetWidth = ViewFamily.RenderTarget->GetRenderTargetTexture()->GetSizeX();
-	uint32 RenderTargetHeight= ViewFamily.RenderTarget->GetRenderTargetTexture()->GetSizeY();
-	CurrentFrame->GetSettings()->SetEyeRenderViewport(RenderTargetWidth/2, RenderTargetHeight);
-	pPresentBridge->BeginRendering(RenderContext, ViewFamily.RenderTarget->GetRenderTargetTexture());
-
-	bFrameBegun = true;
-
-	if (ShowFlags.Rendering)
-	{
-		// get latest orientation/position and cache it
-		ovrPosef NewEyeRenderPose[2];
-		ovrSensorState ss;
-		if (!pGearVRPlugin->GetEyePoses(*CurrentFrame, NewEyeRenderPose, ss))
-		{
-			return;
-		}
-		const ovrPosef& pose = ss.Predicted.Pose;
-
-		pPresentBridge->SwapParms.Images[0][0].Pose = ss.Predicted;
-		pPresentBridge->SwapParms.Images[1][0].Pose = ss.Predicted;
-
-		// Take new EyeRenderPose is bUpdateOnRT.
-		// if !bOrientationChanged && !bPositionChanged then we still need to use new eye pose (for timewarp)
-		if (FrameSettings->Flags.bUpdateOnRT ||
-			(!CurrentFrame->Flags.bOrientationChanged && !CurrentFrame->Flags.bPositionChanged))
-		{
-			RenderContext.CurHeadPose = pose;
-			FMemory::Memcpy(RenderContext.CurEyeRenderPose, NewEyeRenderPose);
-		}
-		else
-		{
-			FMemory::Memcpy<ovrPosef[2]>(RenderContext.CurEyeRenderPose, CurrentFrame->EyeRenderPose);
-			// use previous EyeRenderPose for proper timewarp when !bUpdateOnRt
-			pPresentBridge->SwapParms.Images[0][0].Pose.Pose = CurrentFrame->HeadPose;
-			pPresentBridge->SwapParms.Images[1][0].Pose.Pose = CurrentFrame->HeadPose;
-		}
-	}
-}
-
-void FGearVR::CalculateRenderTargetSize(const FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY)
-{
-	check(IsInGameThread());
-
-	InOutSizeX = GetFrame()->GetSettings()->RenderTargetWidth;
-	InOutSizeY = GetFrame()->GetSettings()->RenderTargetHeight;
-}
-
 void FGearVR::GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDistance, FMatrix OrthoProjection[2]) const
 {
 	OrthoProjection[0] = OrthoProjection[1] = FMatrix::Identity;
@@ -984,61 +928,21 @@ void FGearVR::GetOrthoProjection(int32 RTWidth, int32 RTHeight, float OrthoDista
 	OrthoProjection[1] = FTranslationMatrix(FVector(OrthoProjection[1].M[0][3] * RTWidth * .25 + RTWidth * .5, 0 , 0));
 }
 
-bool FGearVR::NeedReAllocateViewportRenderTarget(const FViewport& Viewport)
-{
-	check(IsInGameThread());
-
-	if (IsStereoEnabled())
-	{
-		const uint32 InSizeX = Viewport.GetSizeXY().X;
-		const uint32 InSizeY = Viewport.GetSizeXY().Y;
-		const FIntPoint RenderTargetSize = Viewport.GetRenderTargetTextureSizeXY();
-
-		uint32 NewSizeX = InSizeX, NewSizeY = InSizeY;
-		CalculateRenderTargetSize(Viewport, NewSizeX, NewSizeY);
-		if (NewSizeX != RenderTargetSize.X || NewSizeY != RenderTargetSize.Y)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-void FGearVR::ShutdownRendering()
-{
-	check(IsInRenderingThread());
-	
-	if (OvrMobile_RT)
-	{
-		{
-			FScopeLock lock(&OvrMobileLock);
-			ovr_LeaveVrMode(OvrMobile_RT);
-			OvrMobile_RT = nullptr;
-		}
-
-		check(GJavaVM);
-		const jint DetachResult = GJavaVM->DetachCurrentThread();
-		if (DetachResult == JNI_ERR)
-		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("FJNIHelper failed to detach thread from Java VM!"));
-		}
-	}
-
-	if (pGearVRBridge)
-	{
-		pGearVRBridge->Shutdown();
-		pGearVRBridge = nullptr;
-	}
-}
-
 void FGearVR::StartOVRGlobalMenu()
 {
 	check(IsInRenderingThread());
 
-	if (OvrMobile_RT)
+	check(pGearVRBridge);
+	ovr_StartSystemActivity(&pGearVRBridge->JavaRT, PUI_GLOBAL_MENU, NULL);
+}
+
+void FGearVR::StartOVRQuitMenu()
+{
+	check(IsInRenderingThread());
+
+	if (pGearVRBridge)
 	{
-		ovr_StartSystemActivity(OvrMobile_RT, PUI_GLOBAL_MENU, NULL);
+		ovr_StartSystemActivity(&pGearVRBridge->JavaRT, PUI_CONFIRM_QUIT, NULL);
 	}
 }
 
@@ -1079,213 +983,39 @@ void FGearVR::DrawDebug(UCanvas* Canvas)
 #endif // #if !UE_BUILD_SHIPPING
 }
 
-//////////////////////////////////////////////////////////////////////////
-FGearVRCustomPresent::FGearVRCustomPresent(int MinimumVsyncs) :
-	FRHICustomPresent(nullptr),
-	bInitialized(false),
-	MinimumVsyncs(MinimumVsyncs)
+float FGearVR::GetBatteryLevel() const
 {
-	Init();
+	return ovr_GetBatteryLevel() / 100.f;
 }
 
-void FGearVRCustomPresent::DicedBlit(uint32 SourceX, uint32 SourceY, uint32 DestX, uint32 DestY, uint32 Width, uint32 Height, uint32 NumXSteps, uint32 NumYSteps)
+float FGearVR::GetTemperatureInCelsius() const
 {
-	check((NumXSteps > 0) && (NumYSteps > 0))
-	uint32 StepX = Width / NumXSteps;
-	uint32 StepY = Height / NumYSteps;
-
-	uint32 MaxX = SourceX + Width;
-	uint32 MaxY = SourceY + Height;
-	
-	for (; SourceY < MaxY; SourceY += StepY, DestY += StepY)
-	{
-		uint32 CurHeight = FMath::Min(StepY, MaxY - SourceY);
-
-		for (uint32 CurSourceX = SourceX, CurDestX = DestX; CurSourceX < MaxX; CurSourceX += StepX, CurDestX += StepX)
-		{
-			uint32 CurWidth = FMath::Min(StepX, MaxX - CurSourceX);
-
-			glCopyTexSubImage2D(GL_TEXTURE_2D, 0, CurDestX, DestY, CurSourceX, SourceY, CurWidth, CurHeight);
-			GL_CHECK_ERROR;
-		}
-	}
+	return ovr_GetBatteryTemperature() / 10.0f;
 }
 
-void FGearVRCustomPresent::SetRenderContext(FHMDViewExtension* InRenderContext)
+bool FGearVR::AreHeadPhonesPluggedIn() const
 {
-	if (InRenderContext)
-	{
-		RenderContext = StaticCastSharedRef<FViewExtension>(InRenderContext->AsShared());
-	}
-	else
-	{
-		RenderContext.Reset();
-	}
+	return ovr_HeadPhonesArePluggedIn();
 }
 
-void FGearVRCustomPresent::BeginRendering(FHMDViewExtension& InRenderContext, const FTexture2DRHIRef& RT)
+bool FGearVR::IsPowerLevelStateThrottled() const
 {
-	check(IsInRenderingThread());
-
-	SetRenderContext(&InRenderContext);
-
-	check(IsValidRef(RT));
-	const uint32 RTSizeX = RT->GetSizeX();
-	const uint32 RTSizeY = RT->GetSizeY();
-	RTTexId = *(GLuint*)RT->GetNativeResource();
-
-	FGameFrame* CurrentFrame = GetRenderFrame();
-	check(CurrentFrame);
-
-	SwapParms.Images[0][0].TexCoordsFromTanAngles = CurrentFrame->TanAngleMatrix;
-	//SwapParms.Images[0][0].TexId = RTTexId;
-	//SwapParms.Images[0][0].Pose = Plugin->RenderParams.EyeRenderPose[0];
-	// 
-	SwapParms.Images[1][0].TexCoordsFromTanAngles = CurrentFrame->TanAngleMatrix;
-	//SwapParms.Images[1][0].TexId = RTTexId;
-	//SwapParms.Images[1][0].Pose = Plugin->RenderParams.EyeRenderPose[1];
-
-#if 0	// split screen stereo
-	for ( int i = 0 ; i < 2 ; i++ )
-	{
-		for ( int j = 0 ; j < 3 ; j++ )
-		{
-			SwapParms.Images[i][0].TexCoordsFromTanAngles.M[0][j] *= ((float)RenderTargetHeight/(float)RenderTargetWidth);
-		}
-	}
-	SwapParms.Images[1][0].TexCoordsFromTanAngles.M[0][2] -= 1.0 - ((float)RenderTargetHeight/(float)RenderTargetWidth);
-	SwapParms.WarpProgram = WP_MIDDLE_CLAMP;
-#else
-	SwapParms.WarpProgram = WP_SIMPLE;
-#endif
+	return ovr_GetPowerLevelStateThrottled();
 }
 
-void FGearVRCustomPresent::FinishRendering()
+bool FGearVR::IsPowerLevelStateMinimum() const
 {
-	check(IsInRenderingThread());
-
-	// initialize our eye textures if they don't exist yet
-	if (SwapChainTextures[0][0] == 0)
-	{
-		// Initialize buffers to black
-		const uint NumBytes = GetFrameSetting()->RenderTargetWidth * GetFrameSetting()->RenderTargetHeight * 4;
-		uint8* InitBuffer = (uint8*)FMemory::Malloc(NumBytes);
-		check(InitBuffer);
-		FMemory::Memzero(InitBuffer, NumBytes);
-
-		CurrentSwapChainIndex = 0;
-		glGenTextures(6, &SwapChainTextures[0][0]);
-
-		for( int i = 0; i < 3; i++ ) 
-		{
-			for (int Eye = 0; Eye < 2; ++Eye)
-			{
-				glBindTexture(GL_TEXTURE_2D, SwapChainTextures[Eye][i]);
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, GetFrameSetting()->RenderTargetWidth/2, GetFrameSetting()->RenderTargetHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, InitBuffer);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-				GL_CHECK_ERROR;
-			}
-		}
-
-		FMemory::Free(InitBuffer);
-
-		glBindTexture( GL_TEXTURE_2D, 0 );
-	}
-
-	if (RenderContext->bFrameBegun)
-	{
- 		// Finish the frame and let OVR do buffer swap (Present) and flush/sync.
-		if (RenderContext->OvrMobile)
-		{
-			uint32 CopyWidth = GetFrameSetting()->RenderTargetWidth / 2;
-			uint32 CopyHeight = GetFrameSetting()->RenderTargetHeight;
-			uint32 CurStartX = 0;
-
-			// blit two 1022x1022 eye buffers into the swapparms textures
-			for (uint32 Eye = 0; Eye < 2; ++Eye)
-			{
-				GLuint TexId = SwapChainTextures[Eye][CurrentSwapChainIndex];
-				glBindTexture(GL_TEXTURE_2D, TexId );
-				GL_CHECK_ERROR;
-
-				DicedBlit(CurStartX+1, 1, 1, 1, CopyWidth-2, CopyHeight-2, 1, 1);
-				
-				CurStartX += CopyWidth;
-				SwapParms.Images[Eye][0].TexId = TexId;
-			}
-
-			glBindTexture(GL_TEXTURE_2D, 0 );
-
-			ovr_WarpSwap(RenderContext->OvrMobile, &SwapParms);
-			ovr_HandleDeviceStateChanges(RenderContext->OvrMobile);
-			CurrentSwapChainIndex = (CurrentSwapChainIndex + 1) % 3;
-		}
-	}
-	else
-	{
-		UE_LOG(LogHMD, Warning, TEXT("Skipping frame: FinishRendering called with no corresponding BeginRendering (was BackBuffer re-allocated?)"));
-	}
-	SetRenderContext(nullptr);
+	return ovr_GetPowerLevelStateMinimum();
 }
 
-void FGearVRCustomPresent::Init()
-{
-	bInitialized = true;
-	FMemory::Memzero(SwapChainTextures);
-	CurrentSwapChainIndex = 0;
-	RTTexId = 0;
-	SwapParms = InitTimeWarpParms();
-	SwapParms.MinimumVsyncs = MinimumVsyncs;
-}
-
-void FGearVRCustomPresent::Reset()
-{
-	check(IsInRenderingThread());
-
-	if (SwapChainTextures[0][0] != 0)
-	{
-		glDeleteTextures(6, &SwapChainTextures[0][0]);
-	}
-
-	if (RenderContext.IsValid())
-	{
-
-		RenderContext->bFrameBegun = false;
-		RenderContext.Reset();
-	}
-	bInitialized = false;
-}
-
-void FGearVRCustomPresent::OnBackBufferResize()
-{
-	// if we are in the middle of rendering: prevent from calling EndFrame
-	if (RenderContext.IsValid())
-	{
-		RenderContext->bFrameBegun = false;
-	}
-}
-
-void FGearVRCustomPresent::UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI)
+void FGearVR::SetCPUAndGPULevels(int32 CPULevel, int32 GPULevel)
 {
 	check(IsInGameThread());
-	check(ViewportRHI);
+	UE_LOG(LogHMD, Log, TEXT("SetCPUAndGPULevels: Adjusting levels to CPU=%d - GPU=%d"), CPULevel, GPULevel);
 
-	this->ViewportRHI = ViewportRHI;
-	ViewportRHI->SetCustomPresent(this);
-}
-
-
-
-bool FGearVRCustomPresent::Present(int& SyncInterval)
-{
-	check(IsInRenderingThread());
-
-	FinishRendering();
-
-	return false; // indicates that we are presenting here, UE shouldn't do Present.
+	FSettings* CurrentSettings = GetSettings();
+	CurrentSettings->CpuLevel = CPULevel;
+	CurrentSettings->GpuLevel = GPULevel;
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1297,6 +1027,111 @@ FViewExtension::FViewExtension(FHeadMountedDisplay* InDelegate)
 	auto GearVRHMD = static_cast<FGearVR*>(InDelegate);
 	pPresentBridge = GearVRHMD->pGearVRBridge;
 }
+
+//////////////////////////////////////////////////////////////////////////
+void FGearVRPlugin::StartOVRGlobalMenu() const 
+{
+	check(IsInGameThread());
+	IHeadMountedDisplay* HMD = GEngine->HMDDevice.Get();
+	if (HMD && HMD->GetHMDDeviceType() == EHMDDeviceType::DT_GearVR)
+	{
+		FGearVR* OculusHMD = static_cast<FGearVR*>(HMD);
+
+		OculusHMD->StartOVRGlobalMenu();
+	}
+}
+
+void FGearVRPlugin::StartOVRQuitMenu() const 
+{
+	check(IsInGameThread());
+	IHeadMountedDisplay* HMD = GEngine->HMDDevice.Get();
+	if (HMD && HMD->GetHMDDeviceType() == EHMDDeviceType::DT_GearVR)
+	{
+		FGearVR* OculusHMD = static_cast<FGearVR*>(HMD);
+
+		OculusHMD->StartOVRQuitMenu();
+	}
+}
+
+void FGearVRPlugin::SetCPUAndGPULevels(int32 CPULevel, int32 GPULevel) const
+{
+	check(IsInGameThread());
+	IHeadMountedDisplay* HMD = GEngine->HMDDevice.Get();
+	if (HMD && HMD->GetHMDDeviceType() == EHMDDeviceType::DT_GearVR)
+	{
+		FGearVR* OculusHMD = static_cast<FGearVR*>(HMD);
+
+		OculusHMD->SetCPUAndGPULevels(CPULevel, GPULevel);
+	}
+}
+
+bool FGearVRPlugin::IsPowerLevelStateMinimum() const
+{
+	check(IsInGameThread());
+	IHeadMountedDisplay* HMD = GEngine->HMDDevice.Get();
+	if (HMD && HMD->GetHMDDeviceType() == EHMDDeviceType::DT_GearVR)
+	{
+		FGearVR* OculusHMD = static_cast<FGearVR*>(HMD);
+
+		return OculusHMD->IsPowerLevelStateMinimum();
+	}
+	return false;
+}
+
+bool FGearVRPlugin::IsPowerLevelStateThrottled() const
+{
+	check(IsInGameThread());
+	IHeadMountedDisplay* HMD = GEngine->HMDDevice.Get();
+	if (HMD && HMD->GetHMDDeviceType() == EHMDDeviceType::DT_GearVR)
+	{
+		FGearVR* OculusHMD = static_cast<FGearVR*>(HMD);
+
+		return OculusHMD->IsPowerLevelStateThrottled();
+	}
+	return false;
+}
+
+float FGearVRPlugin::GetTemperatureInCelsius() const
+{
+	check(IsInGameThread());
+	IHeadMountedDisplay* HMD = GEngine->HMDDevice.Get();
+	if (HMD && HMD->GetHMDDeviceType() == EHMDDeviceType::DT_GearVR)
+	{
+		FGearVR* OculusHMD = static_cast<FGearVR*>(HMD);
+
+		return OculusHMD->GetTemperatureInCelsius();
+	}
+	return 0.f;
+}
+
+float FGearVRPlugin::GetBatteryLevel() const
+{
+	check(IsInGameThread());
+	IHeadMountedDisplay* HMD = GEngine->HMDDevice.Get();
+	if (HMD && HMD->GetHMDDeviceType() == EHMDDeviceType::DT_GearVR)
+	{
+		FGearVR* OculusHMD = static_cast<FGearVR*>(HMD);
+
+		return OculusHMD->GetBatteryLevel();
+	}
+	return 0.f;
+}
+
+bool FGearVRPlugin::AreHeadPhonesPluggedIn() const
+{
+	check(IsInGameThread());
+	IHeadMountedDisplay* HMD = GEngine->HMDDevice.Get();
+	if (HMD && HMD->GetHMDDeviceType() == EHMDDeviceType::DT_GearVR)
+	{
+		FGearVR* OculusHMD = static_cast<FGearVR*>(HMD);
+
+		return OculusHMD->AreHeadPhonesPluggedIn();
+	}
+	return false;
+}
+
+
+#include <HeadMountedDisplayCommon.cpp>
 
 #endif //GEARVR_SUPPORTED_PLATFORMS
 

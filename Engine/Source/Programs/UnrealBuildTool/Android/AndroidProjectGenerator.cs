@@ -8,17 +8,18 @@ using System.IO;
 
 namespace UnrealBuildTool
 {
-	/**
-	 *	Base class for platform-specific project generators 
-	 */
+	/// <summary>
+	/// Base class for platform-specific project generators
+	/// </summary>
 	class AndroidProjectGenerator : UEPlatformProjectGenerator
 	{
 		static bool CheckedForNsight = false;		// whether we have checked for a recent enough version of Nsight yet
 		static bool NsightInstalled = false;		// true if a recent enough version of Nsight is installed
+		static int NsightVersionCode = 0;			// version code matching detected Nsight
 
-		/**
-		 *	Check to see if a recent enough version of Nsight is installed.
-		 */
+		/// <summary>
+		/// Check to see if a recent enough version of Nsight is installed.
+		/// </summary>
 		bool IsNsightInstalled()
 		{
 			// cache the results since this gets called a number of times
@@ -34,16 +35,8 @@ namespace UnrealBuildTool
 
 			string ProgramFilesPath = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
 
-			string PlatformToolsetVersion;
-			if (VCProjectFileGenerator.ProjectFileFormat == VCProjectFileGenerator.VCProjectFileFormat.VisualStudio2013)
-			{
-				PlatformToolsetVersion = "v120";
-			}
-			else if (VCProjectFileGenerator.ProjectFileFormat == VCProjectFileGenerator.VCProjectFileFormat.VisualStudio2012)
-			{
-				PlatformToolsetVersion = "v110";
-			}
-			else
+			string PlatformToolsetVersion = VCProjectFileGenerator.ProjectFilePlatformToolsetVersionString;
+			if (String.IsNullOrEmpty(PlatformToolsetVersion))
 			{
 				// future maintainer: add toolset version and verify that the rest of the msbuild path, version, and location in ProgramFiles(x86) is still valid
 				Log.TraceInformation("Android project generation needs to be updated for this version of Visual Studio.");
@@ -61,14 +54,34 @@ namespace UnrealBuildTool
 			// grab the version info from the DLL
 			FileVersionInfo NsightVersion = FileVersionInfo.GetVersionInfo(NsightDllPath);
 
-			if (NsightVersion.ProductMajorPart >= 2)
+			if (NsightVersion.ProductMajorPart > 3)
+			{
+				// Mark as Nsight 3.1 (project will be updated)
+				NsightVersionCode = 11;
+				NsightInstalled = true;
+			}
+			else if (NsightVersion.ProductMajorPart == 3)
+			{
+				// Nsight 3.0 supported
+				NsightVersionCode = 9;
+				NsightInstalled = true;
+
+				if (NsightVersion.ProductMinorPart >= 1)
+				{
+					// Nsight 3.1+ should be valid (will update project if newer)
+					NsightVersionCode = 11;
+				}
+			}
+			else if (NsightVersion.ProductMajorPart == 2)
 			{
 				// Nsight 2.0+ should be valid
+				NsightVersionCode = 6;
 				NsightInstalled = true;
 			}
 			else if ((NsightVersion.ProductMajorPart == 1) && (NsightVersion.ProductMinorPart >= 5))
 			{
 				// Nsight 1.5+ should be valid
+				NsightVersionCode = 6;
 				NsightInstalled = true;
 			}
 
@@ -80,37 +93,33 @@ namespace UnrealBuildTool
 			return NsightInstalled;
 		}
 
-		/**
-		 *	Register the platform with the UEPlatformProjectGenerator class
-		 */
+		/// <summary>
+		/// Register the platform with the UEPlatformProjectGenerator class
+		/// </summary>
 		public override void RegisterPlatformProjectGenerator()
 		{
 			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.Android.ToString());
 			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.Android, this);
 		}
 
-        /**
-         *	Whether this build platform has native support for VisualStudio
-         *	
-         *	@param	InPlatform			The UnrealTargetPlatform being built
-         *	@param	InConfiguration		The UnrealTargetConfiguration being built
-         *	
-         *	@return	bool				true if native VisualStudio support (or custom VSI) is available
-         */
-        public override bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-        {
-            // Debugging, etc. are dependent on the TADP being installed
+		/// <summary>
+		/// Whether this build platform has native support for VisualStudio
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <returns>bool    true if native VisualStudio support (or custom VSI) is available</returns>
+		public override bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+		{
+			// Debugging, etc. are dependent on the TADP being installed
 			return IsNsightInstalled();
-        }
-	
-		/**
-		 *	Return the VisualStudio platform name for this build platform
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	@param	InConfiguration		The UnrealTargetConfiguration being built
-		 *	
-		 *	@return	string				The name of the platform that VisualStudio recognizes
-		 */
+		}
+
+		/// <summary>
+		/// Return the VisualStudio platform name for this build platform
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <returns>string    The name of the platform that VisualStudio recognizes</returns>
 		public override string GetVisualStudioPlatformName(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
 		{
 			if (InPlatform == UnrealTargetPlatform.Android)
@@ -121,13 +130,11 @@ namespace UnrealBuildTool
 			return InPlatform.ToString();
 		}
 
-		/**
-		 * Return any custom property group lines
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	
-		 *	@return	string				The custom property import lines for the project file; Empty string if it doesn't require one
-		 */
+		/// <summary>
+		/// Return any custom property group lines
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
 		public override string GetAdditionalVisualStudioPropertyGroups(UnrealTargetPlatform InPlatform)
 		{
 			if (!IsNsightInstalled())
@@ -135,18 +142,16 @@ namespace UnrealBuildTool
 				return base.GetAdditionalVisualStudioPropertyGroups(InPlatform);
 			}
 
-			return 	"	<PropertyGroup Label=\"NsightTegraProject\">" + ProjectFileGenerator.NewLine +
-					"		<NsightTegraProjectRevisionNumber>6</NsightTegraProjectRevisionNumber>" + ProjectFileGenerator.NewLine +
+			return "	<PropertyGroup Label=\"NsightTegraProject\">" + ProjectFileGenerator.NewLine +
+					"		<NsightTegraProjectRevisionNumber>" + NsightVersionCode.ToString() + "</NsightTegraProjectRevisionNumber>" + ProjectFileGenerator.NewLine +
 					"	</PropertyGroup>" + ProjectFileGenerator.NewLine;
 		}
 
-		/**
-		 * Return any custom property group lines
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	
-		 *	@return	string				The custom property import lines for the project file; Empty string if it doesn't require one
-		 */
+		/// <summary>
+		/// Return any custom property group lines
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <returns>string    The custom property import lines for the project file; Empty string if it doesn't require one</returns>
 		public override string GetVisualStudioPlatformConfigurationType(UnrealTargetPlatform InPlatform)
 		{
 			if (!IsNsightInstalled())
@@ -157,16 +162,31 @@ namespace UnrealBuildTool
 			return "ExternalBuildSystem";
 		}
 
-		/**
-		 * Return any custom paths for VisualStudio this platform requires
-		 * This include ReferencePath, LibraryPath, LibraryWPath, IncludePath and ExecutablePath.
-		 *	
-		 *	@param	InPlatform			The UnrealTargetPlatform being built
-		 *	@param	TargetType			The type of target (game or program)
-		 *	
-		 *	@return	string				The custom path lines for the project file; Empty string if it doesn't require one
-		 */
-		public override string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetRules.TargetType TargetType, string TargetRulesPath, string ProjectFilePath, string NMakeOutputPath)
+		/// <summary>
+		/// Return the platform toolset string to write into the project configuration
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <returns>string    The custom configuration section for the project file; Empty string if it doesn't require one</returns>
+		public override string GetVisualStudioPlatformToolsetString(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, VCProjectFile InProjectFile)
+		{
+			if (!IsNsightInstalled())
+			{
+				return "\t\t<PlatformToolset>" + VCProjectFileGenerator.ProjectFilePlatformToolsetVersionString + "</PlatformToolset>" + ProjectFileGenerator.NewLine;
+			}
+
+			return "\t\t<PlatformToolset>" + VCProjectFileGenerator.ProjectFilePlatformToolsetVersionString + "</PlatformToolset>" + ProjectFileGenerator.NewLine
+				+ "\t\t<AndroidNativeAPI>UseTarget</AndroidNativeAPI>" + ProjectFileGenerator.NewLine;
+		}
+
+		/// <summary>
+		/// Return any custom paths for VisualStudio this platform requires
+		/// This include ReferencePath, LibraryPath, LibraryWPath, IncludePath and ExecutablePath.
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="TargetType">  The type of target (game or program)</param>
+		/// <returns>string    The custom path lines for the project file; Empty string if it doesn't require one</returns>
+		public override string GetVisualStudioPathsEntries(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration, TargetRules.TargetType TargetType, FileReference TargetRulesPath, FileReference ProjectFilePath, FileReference NMakeOutputPath)
 		{
 			if (!IsNsightInstalled())
 			{
@@ -180,18 +200,18 @@ namespace UnrealBuildTool
 			//       environment variable
 
 			//@todo android: clean up debug path generation
-			string GameName = Path.GetFileNameWithoutExtension(TargetRulesPath);
+			string GameName = TargetRulesPath.GetFileNameWithoutExtension();
 			GameName = Path.GetFileNameWithoutExtension(GameName);
 
 
 			// intermediate path for Engine or Game's intermediate
 			string IntermediateDirectoryPath;
-			IntermediateDirectoryPath = Path.GetDirectoryName(NMakeOutputPath) + "/../../Intermediate/Android/APK";
+			IntermediateDirectoryPath = Path.GetDirectoryName(NMakeOutputPath.FullName) + "/../../Intermediate/Android/APK";
 
 			// string for <OverrideAPKPath>
 			string APKPath = Path.Combine(
-				Path.GetDirectoryName(NMakeOutputPath),
-				Path.GetFileNameWithoutExtension(NMakeOutputPath) + "-armv7-es2.apk");
+				Path.GetDirectoryName(NMakeOutputPath.FullName),
+				Path.GetFileNameWithoutExtension(NMakeOutputPath.FullName) + "-armv7-es2.apk");
 
 			// string for <BuildXmlPath> and <AndroidManifestPath>
 			string BuildXmlPath = IntermediateDirectoryPath;
@@ -203,13 +223,13 @@ namespace UnrealBuildTool
 			AdditionalLibDirs += ";" + IntermediateDirectoryPath + @"\obj\local\x86";
 			AdditionalLibDirs += @";$(AdditionalLibraryDirectories)";
 
-			string PathsLines = 
-				"		<IncludePath/>" + ProjectFileGenerator.NewLine +
-				"		<ReferencePath/>" + ProjectFileGenerator.NewLine +
-				"		<LibraryPath/>" + ProjectFileGenerator.NewLine +
-				"		<LibraryWPath/>" + ProjectFileGenerator.NewLine +
-				"		<SourcePath/>" + ProjectFileGenerator.NewLine +
-				"		<ExcludePath/>" + ProjectFileGenerator.NewLine +
+			string PathsLines =
+				"		<IncludePath />" + ProjectFileGenerator.NewLine +
+				"		<ReferencePath />" + ProjectFileGenerator.NewLine +
+				"		<LibraryPath />" + ProjectFileGenerator.NewLine +
+				"		<LibraryWPath />" + ProjectFileGenerator.NewLine +
+				"		<SourcePath />" + ProjectFileGenerator.NewLine +
+				"		<ExcludePath />" + ProjectFileGenerator.NewLine +
 				"		<AndroidAttach>False</AndroidAttach>" + ProjectFileGenerator.NewLine +
 				"		<DebuggerFlavor>AndroidDebugger</DebuggerFlavor>" + ProjectFileGenerator.NewLine +
 				"		<OverrideAPKPath>" + APKPath + "</OverrideAPKPath>" + ProjectFileGenerator.NewLine +

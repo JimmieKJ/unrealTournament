@@ -139,6 +139,14 @@ public:
 	UPROPERTY(EditAnywhere, config, Category=PinColors)
 	FLinearColor NamePinTypeColor;
 
+	/** Asset pin type color */
+	UPROPERTY(EditAnywhere, config, Category = PinColors)
+	FLinearColor AssetPinTypeColor;
+
+	/** Asset Class pin type color */
+	UPROPERTY(EditAnywhere, config, Category = PinColors)
+	FLinearColor AssetClassPinTypeColor;
+
 	/** Delegate pin type color */
 	UPROPERTY(EditAnywhere, config, Category=PinColors)
 	FLinearColor DelegatePinTypeColor;

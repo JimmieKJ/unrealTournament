@@ -30,7 +30,7 @@ class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver
 	/** Underlying socket communication */
 	FSocket* Socket;
 
-	// Begin UNetDriver interface.
+	//~ Begin UNetDriver Interface.
 	virtual bool IsAvailable() const override;
 	virtual bool InitBase(bool bInitAsClient, FNetworkNotify* InNotify, const FURL& URL, bool bReuseAddressAndPort, FString& Error) override;
 	virtual bool InitConnect( FNetworkNotify* InNotify, const FURL& ConnectURL, FString& Error ) override;
@@ -44,9 +44,9 @@ class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver
 	{
 		return Socket != NULL;
 	}
-	// End UNetDriver Interface
+	//~ End UNetDriver Interface
 
-	// Begin UIpNetDriver interface.
+	//~ Begin UIpNetDriver Interface.
 	virtual FSocket * CreateSocket();
 
 	/**
@@ -57,11 +57,11 @@ class ONLINESUBSYSTEMUTILS_API UIpNetDriver : public UNetDriver
 	 * @return The port number to use for client sockets. Base implementation returns 0.
 	 */
 	virtual int GetClientPort();
-	// End UIpNetDriver interface.
+	//~ End UIpNetDriver Interface.
 
-	// Begin FExec Interface
+	//~ Begin FExec Interface
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar=*GLog ) override;
-	// End FExec Interface
+	//~ End FExec Interface
 
 	/**
 	 * Exec command handlers

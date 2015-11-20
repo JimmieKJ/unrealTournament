@@ -85,15 +85,6 @@ NpArticulationLink::~NpArticulationLink()
 {
 }
 
-
-PxActor* NpGetPxActorForArticulationLink(Sc::BodyCore& scBody)
-{
-	char* p = reinterpret_cast<char*>(&scBody);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpArticulationLink*>(0)->getScbBodyFast()));
-	return reinterpret_cast<NpArticulationLink*>(p - scbOffset - Scb::Body::getScOffset());
-}
-
-
 void NpArticulationLink::releaseInternal()
 {
 	NpPhysics::getInstance().notifyDeletionListenersUserRelease(this, userData);
@@ -243,7 +234,7 @@ void NpArticulationLink::clearForce(PxForceMode::Enum mode)
 	NP_WRITE_CHECK(scene);
 	PX_CHECK_AND_RETURN(scene, "NpArticulationLink::clearForce: articulation link must be in a scene!");
 
-	clearSpatialForce(mode);
+	clearSpatialForce(mode, true, false);
 }
 
 void NpArticulationLink::clearTorque(PxForceMode::Enum mode)
@@ -253,7 +244,7 @@ void NpArticulationLink::clearTorque(PxForceMode::Enum mode)
 	NP_WRITE_CHECK(scene);
 	PX_CHECK_AND_RETURN(scene, "NpArticulationLink::clearTorque: articulation link must be in a scene!");
 
-	clearSpatialForce(mode);
+	clearSpatialForce(mode, false, true);
 }
 
 void NpArticulationLink::setGlobalPose(const PxTransform& pose)

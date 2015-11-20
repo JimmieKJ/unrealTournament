@@ -46,13 +46,14 @@ namespace
 class FRegexMatcherImplementation
 {
 public:
-	FRegexMatcherImplementation(const FRegexPatternImplementation& Pattern, const FString& InputString) : ICUInputString( ICUUtilities::ConvertString(InputString) ), ICURegexMatcher( CreateRegexMatcher(Pattern, ICUInputString) )
+	FRegexMatcherImplementation(const FRegexPatternImplementation& Pattern, const FString& InputString) : ICUInputString(ICUUtilities::ConvertString(InputString)), ICURegexMatcher(CreateRegexMatcher(Pattern, ICUInputString)), OriginalString(InputString)
 	{
 	}
 
 public:
 	const icu::UnicodeString ICUInputString;
 	TSharedRef<icu::RegexMatcher> ICURegexMatcher;
+	FString OriginalString;
 };
 
 FRegexMatcher::FRegexMatcher(const FRegexPattern& Pattern, const FString& InputString) : Implementation(new FRegexMatcherImplementation(Pattern.Implementation.Get(), InputString))
@@ -86,6 +87,11 @@ int32 FRegexMatcher::GetCaptureGroupEnding(const int32 Index)
 {
 	UErrorCode ICUStatus = U_ZERO_ERROR;
 	return Implementation->ICURegexMatcher->end(Index, ICUStatus);
+}
+
+FString FRegexMatcher::GetCaptureGroup(const int32 Index)
+{
+	return Implementation->OriginalString.Mid(GetCaptureGroupBeginning(Index), GetCaptureGroupEnding(Index) - GetCaptureGroupBeginning(Index));
 }
 
 int32 FRegexMatcher::GetBeginLimit()

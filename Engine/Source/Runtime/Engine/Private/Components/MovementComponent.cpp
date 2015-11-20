@@ -25,6 +25,7 @@ UMovementComponent::UMovementComponent(const FObjectInitializer& ObjectInitializ
 
 	bUpdateOnlyIfRendered = false;
 	bAutoUpdateTickRegistration = true;
+	bTickBeforeOwner = true;
 	bAutoRegisterUpdatedComponent = true;
 
 	PlaneConstraintNormal = FVector::ZeroVector;
@@ -141,7 +142,7 @@ void UMovementComponent::RegisterComponentTickFunctions(bool bRegister)
 
 	// If the owner ticks, make sure we tick first
 	AActor* Owner = GetOwner();
-	if (bRegister && PrimaryComponentTick.bCanEverTick && Owner && Owner->CanEverTick())
+	if (bTickBeforeOwner && bRegister && PrimaryComponentTick.bCanEverTick && Owner && Owner->CanEverTick())
 	{
 		Owner->PrimaryActorTick.AddPrerequisite(this, PrimaryComponentTick);
 	}
@@ -400,6 +401,11 @@ void UMovementComponent::SetPlaneConstraintOrigin(FVector PlaneOrigin)
 	PlaneConstraintOrigin = PlaneOrigin;
 }
 
+void UMovementComponent::SetPlaneConstraintEnabled(bool bEnabled)
+{
+	bConstrainToPlane = bEnabled;
+}
+
 const FVector& UMovementComponent::GetPlaneConstraintOrigin() const
 {
 	return PlaneConstraintOrigin;
@@ -453,25 +459,25 @@ void UMovementComponent::SnapUpdatedComponentToPlane()
 
 
 
-bool UMovementComponent::MoveUpdatedComponentImpl( const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit)
+bool UMovementComponent::MoveUpdatedComponentImpl( const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit, ETeleportType Teleport)
 {
 	if (UpdatedComponent)
 	{
 		const FVector NewDelta = ConstrainDirectionToPlane(Delta);
-		return UpdatedComponent->MoveComponent(NewDelta, NewRotation, bSweep, OutHit, MoveComponentFlags);
+		return UpdatedComponent->MoveComponent(NewDelta, NewRotation, bSweep, OutHit, MoveComponentFlags, Teleport);
 	}
 
 	return false;
 }
 
 
-bool UMovementComponent::K2_MoveUpdatedComponent(FVector Delta, FRotator NewRotation, FHitResult& OutHit, bool bSweep)
+bool UMovementComponent::K2_MoveUpdatedComponent(FVector Delta, FRotator NewRotation, FHitResult& OutHit, bool bSweep, bool bTeleport)
 {
-	return SafeMoveUpdatedComponent(Delta, NewRotation.Quaternion(), bSweep, OutHit);
+	return SafeMoveUpdatedComponent(Delta, NewRotation.Quaternion(), bSweep, OutHit, TeleportFlagToEnum(bTeleport));
 }
 
 
-bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult& OutHit)
+bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult& OutHit, ETeleportType Teleport)
 {
 	if (UpdatedComponent == NULL)
 	{
@@ -479,7 +485,7 @@ bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQ
 		return false;
 	}
 
-	bool bMoveResult = MoveUpdatedComponent(Delta, NewRotation, bSweep, &OutHit);
+	bool bMoveResult = MoveUpdatedComponent(Delta, NewRotation, bSweep, &OutHit, Teleport);
 
 	// Handle initial penetrations
 	if (OutHit.bStartPenetrating && UpdatedComponent)
@@ -488,7 +494,7 @@ bool UMovementComponent::SafeMoveUpdatedComponent(const FVector& Delta, const FQ
 		if (ResolvePenetration(RequestedAdjustment, OutHit, NewRotation))
 		{
 			// Retry original move
-			bMoveResult = MoveUpdatedComponent(Delta, NewRotation, bSweep, &OutHit);
+			bMoveResult = MoveUpdatedComponent(Delta, NewRotation, bSweep, &OutHit, Teleport);
 		}
 	}
 
@@ -543,7 +549,7 @@ bool UMovementComponent::ResolvePenetrationImpl(const FVector& ProposedAdjustmen
 		if (!bEncroached)
 		{
 			// Move without sweeping.
-			MoveUpdatedComponent(Adjustment, NewRotationQuat, false);
+			MoveUpdatedComponent(Adjustment, NewRotationQuat, false, nullptr, ETeleportType::TeleportPhysics);
 			UE_LOG(LogMovement, Verbose, TEXT("ResolvePenetration: teleport %s by %s"), *ActorOwner->GetName(), *Adjustment.ToString());
 			return true;
 		}
@@ -554,7 +560,7 @@ bool UMovementComponent::ResolvePenetrationImpl(const FVector& ProposedAdjustmen
 
 			// Try sweeping as far as possible...
 			FHitResult SweepOutHit(1.f);
-			bool bMoved = MoveUpdatedComponent(Adjustment, NewRotationQuat, true, &SweepOutHit);
+			bool bMoved = MoveUpdatedComponent(Adjustment, NewRotationQuat, true, &SweepOutHit, ETeleportType::TeleportPhysics);
 			UE_LOG(LogMovement, Verbose, TEXT("ResolvePenetration: sweep %s by %s (success = %d)"), *ActorOwner->GetName(), *Adjustment.ToString(), bMoved);
 			
 			// Still stuck?
@@ -565,7 +571,7 @@ bool UMovementComponent::ResolvePenetrationImpl(const FVector& ProposedAdjustmen
 				const FVector CombinedMTD = Adjustment + SecondMTD;
 				if (SecondMTD != Adjustment && !CombinedMTD.IsZero())
 				{
-					bMoved = MoveUpdatedComponent(CombinedMTD, NewRotationQuat, true);
+					bMoved = MoveUpdatedComponent(CombinedMTD, NewRotationQuat, true, nullptr, ETeleportType::TeleportPhysics);
 					UE_LOG(LogMovement, Verbose, TEXT("ResolvePenetration: sweep %s by %s (MTD combo success = %d)"), *ActorOwner->GetName(), *CombinedMTD.ToString(), bMoved);
 				}
 			}
@@ -577,7 +583,7 @@ bool UMovementComponent::ResolvePenetrationImpl(const FVector& ProposedAdjustmen
 				const FVector MoveDelta = ConstrainDirectionToPlane(Hit.TraceEnd - Hit.TraceStart);
 				if (!MoveDelta.IsZero())
 				{
-					bMoved = MoveUpdatedComponent(Adjustment + MoveDelta, NewRotationQuat, true);
+					bMoved = MoveUpdatedComponent(Adjustment + MoveDelta, NewRotationQuat, true, nullptr, ETeleportType::TeleportPhysics);
 					UE_LOG(LogMovement, Verbose, TEXT("ResolvePenetration: sweep %s by %s (adjusted attempt success = %d)"), *ActorOwner->GetName(), *(Adjustment + MoveDelta).ToString(), bMoved);
 				}
 			}	
@@ -618,7 +624,7 @@ float UMovementComponent::SlideAlongSurface(const FVector& Delta, float Time, co
 
 	if ((SlideDelta | Delta) > 0.f)
 	{
-		const FRotator Rotation = UpdatedComponent->GetComponentRotation();
+		const FQuat Rotation = UpdatedComponent->GetComponentQuat();
 		SafeMoveUpdatedComponent(SlideDelta, Rotation, true, Hit);
 
 		const float FirstHitPercent = Hit.Time;
@@ -634,8 +640,8 @@ float UMovementComponent::SlideAlongSurface(const FVector& Delta, float Time, co
 			// Compute new slide normal when hitting multiple surfaces.
 			TwoWallAdjust(SlideDelta, Hit, OldHitNormal);
 
-			// Only proceed if the new direction is of significant length.
-			if (!SlideDelta.IsNearlyZero(1e-3f))
+			// Only proceed if the new direction is of significant length and not in reverse of original attempted move.
+			if (!SlideDelta.IsNearlyZero(1e-3f) && (SlideDelta | Delta) > 0.f)
 			{
 				// Perform second move
 				SafeMoveUpdatedComponent(SlideDelta, Rotation, true, Hit);

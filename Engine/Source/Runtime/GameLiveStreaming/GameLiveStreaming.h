@@ -7,7 +7,7 @@
  * Implements support for broadcasting gameplay to a live internet stream
  */
 class FGameLiveStreaming
-	: public IGameLiveStreaming
+	: public IGameLiveStreaming, public FGCObject
 {
 
 public:
@@ -23,9 +23,16 @@ public:
 	virtual bool IsBroadcastingGame() const override;
 	virtual void StartBroadcastingGame( const FGameBroadcastConfig& GameBroadcastConfig ) override;
 	virtual void StopBroadcastingGame() override;
+	virtual bool IsWebCamEnabled() const override;
+	virtual void StartWebCam( const FGameWebCamConfig& GameWebCamConfig ) override;
+	virtual void StopWebCam() override;
 	virtual void DrawSimpleWebCamVideo( UCanvas* Canvas ) override;
 	virtual class UTexture2D* GetWebCamTexture( bool& bIsImageFlippedHorizontally, bool& bIsImageFlippedVertically ) override;
 	virtual class ILiveStreamingService* GetLiveStreamingService() override;
+
+	/** FGCObject overrides */
+	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
+
 
 protected:
 
@@ -50,11 +57,13 @@ protected:
 	/** Starts copying the last rendered game frame from the GPU back buffer to a mapped system memory texture */
 	void StartCopyingNextGameVideoFrame( const FViewportRHIRef& ViewportRHI );
 
-
-
 private:
+
 	/** Whether we're currently trying to broadcast */
 	bool bIsBroadcasting;
+
+	/** Whether the web camera is active */
+	bool bIsWebCamEnabled;
 
 	/** The live streaming service we're using.  Only valid while broadcasting. */
 	class ILiveStreamingService* LiveStreamer;
@@ -82,4 +91,13 @@ private:
 
 	/** Console command for stopping broadcast */
 	FAutoConsoleCommand BroadcastStopCommand;
+
+	/** Console command for starting web camera capture/preview */
+	FAutoConsoleCommand WebCamStartCommand;
+
+	/** Console command for stopping the web camera */
+	FAutoConsoleCommand WebCamStopCommand;
+
+	/** Optional image to broadcast, instead of what you're looking at on screen.  This is useful if you don't want to publicly share the visuals on screen. */
+	class UTexture2D* CoverUpImage;
 };

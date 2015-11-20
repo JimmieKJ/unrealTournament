@@ -19,7 +19,7 @@ public:
 	UPROPERTY(Category=Brush, EditAnywhere, meta=(ShowOnlyInnerProperties))
 	FSlateBrush Brush;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 };

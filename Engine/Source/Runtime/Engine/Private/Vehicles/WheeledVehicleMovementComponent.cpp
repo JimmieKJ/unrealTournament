@@ -8,6 +8,7 @@
 #include "Vehicles/VehicleWheel.h"
 #include "Vehicles/WheeledVehicleMovementComponent.h"
 #include "Vehicles/TireType.h"
+#include "DisplayDebugHelpers.h"
 
 #if WITH_PHYSX
 #include "../PhysicsEngine/PhysXSupport.h"
@@ -236,9 +237,9 @@ void UWheeledVehicleMovementComponent::SetupVehicleShapes()
 					MeshScaleV.Z = Wheel->ShapeRadius / MeshBounds.BoxExtent.Z;
 				}
 				PxMeshScale MeshScale(U2PVector(UpdatedComponent->RelativeScale3D * MeshScaleV), PxQuat::createIdentity());
-				if (Wheel->CollisionMesh->BodySetup->TriMesh)
+				if (Wheel->CollisionMesh->BodySetup->TriMeshes.Num())
 				{
-					PxTriangleMesh* TriMesh = Wheel->CollisionMesh->BodySetup->TriMesh;
+					PxTriangleMesh* TriMesh = Wheel->CollisionMesh->BodySetup->TriMeshes[0];
 
 					// No eSIMULATION_SHAPE flag for wheels
 					PWheelShape = PVehicleActor->createShape(PxTriangleMeshGeometry(TriMesh, MeshScale), *WheelMaterial, PxShapeFlag::eSCENE_QUERY_SHAPE | PxShapeFlag::eVISUALIZATION);
@@ -262,7 +263,7 @@ void UWheeledVehicleMovementComponent::SetupVehicleShapes()
 			CollisionResponse.SetAllChannels(ECR_Ignore);
 
 			PxFilterData PWheelQueryFilterData, PDummySimData;
-			CreateShapeFilterData(ECC_Vehicle, UpdatedComponent->GetUniqueID(), CollisionResponse, 0, 0, PWheelQueryFilterData, PDummySimData, false, false, false);
+			CreateShapeFilterData(ECC_Vehicle, FMaskFilter(0), UpdatedComponent->GetUniqueID(), CollisionResponse, 0, 0, PWheelQueryFilterData, PDummySimData, false, false, false);
 
 			//// Give suspension raycasts the same group ID as the chassis so that they don't hit each other
 			PWheelShape->setQueryFilterData(PWheelQueryFilterData);
@@ -658,6 +659,11 @@ void UWheeledVehicleMovementComponent::DestroyPhysicsState()
 
 bool UWheeledVehicleMovementComponent::ShouldCreatePhysicsState() const
 {
+	if (!IsRegistered() || IsBeingDestroyed())
+	{
+		return false;
+	}
+
 	// only create physx vehicle in game
 	if (GetWorld()->IsGameWorld())
 	{
@@ -1267,26 +1273,26 @@ float UWheeledVehicleMovementComponent::GetMaxSpringForce() const
 
 }
 
-void UWheeledVehicleMovementComponent::DrawDebug( UCanvas* Canvas, float& YL, float& YPos )
+void UWheeledVehicleMovementComponent::DrawDebug(UCanvas* Canvas, float& YL, float& YPos)
 {
-	if ( PVehicle == NULL )
+	if (PVehicle == NULL)
 	{
 		return;
 	}
-	
+
 	FPhysXVehicleManager* MyVehicleManager = World->GetPhysicsScene()->GetVehicleManager();
 
-	MyVehicleManager->SetRecordTelemetry( this, true );
+	MyVehicleManager->SetRecordTelemetry(this, true);
 
 	UFont* RenderFont = GEngine->GetSmallFont();
 	// draw drive data
 	{
-		Canvas->SetDrawColor( FColor::White );
+		Canvas->SetDrawColor(FColor::White);
 		float forwardSpeedKmH = GetForwardSpeed() * 3600.f / 100000.f;	//convert from cm/s to km/h
-		YPos += Canvas->DrawText( RenderFont, FString::Printf( TEXT("Speed (km/h): %d"), (int32)forwardSpeedKmH  ), 4, YPos );
-		YPos += Canvas->DrawText( RenderFont, FString::Printf( TEXT("Steering: %f"), SteeringInput ), 4, YPos  );
-		YPos += Canvas->DrawText( RenderFont, FString::Printf( TEXT("Throttle: %f"), ThrottleInput ), 4, YPos );
-		YPos += Canvas->DrawText( RenderFont, FString::Printf( TEXT("Brake: %f"), BrakeInput ), 4, YPos  );
+		YPos += Canvas->DrawText(RenderFont, FString::Printf(TEXT("Speed (km/h): %d"), (int32)forwardSpeedKmH), 4, YPos);
+		YPos += Canvas->DrawText(RenderFont, FString::Printf(TEXT("Steering: %f"), SteeringInput), 4, YPos);
+		YPos += Canvas->DrawText(RenderFont, FString::Printf(TEXT("Throttle: %f"), ThrottleInput), 4, YPos);
+		YPos += Canvas->DrawText(RenderFont, FString::Printf(TEXT("Brake: %f"), BrakeInput), 4, YPos);
 		YPos += Canvas->DrawText(RenderFont, FString::Printf(TEXT("RPM: %f"), GetEngineRotationSpeed()), 4, YPos);
 		YPos += Canvas->DrawText(RenderFont, FString::Printf(TEXT("Gear: %d"), GetCurrentGear()), 4, YPos);
 		YPos += Canvas->DrawText(RenderFont, FString::Printf(TEXT("Drag: %.3f"), DebugDragMagnitude), 4, YPos);
@@ -1298,7 +1304,7 @@ void UWheeledVehicleMovementComponent::DrawDebug( UCanvas* Canvas, float& YL, fl
 	check(WheelsStates);
 
 	// draw wheel data
-	for ( uint32 w = 0; w < PVehicle->mWheelsSimData.getNbWheels(); ++w )
+	for (uint32 w = 0; w < PVehicle->mWheelsSimData.getNbWheels(); ++w)
 	{
 
 		const PxMaterial* ContactSurface = WheelsStates[w].tireSurfaceMaterial;
@@ -1310,25 +1316,25 @@ void UWheeledVehicleMovementComponent::DrawDebug( UCanvas* Canvas, float& YL, fl
 		UPhysicalMaterial* ContactSurfaceMaterial = ContactSurface ? FPhysxUserData::Get<UPhysicalMaterial>(ContactSurface->userData) : NULL;
 		const FString ContactSurfaceString = ContactSurfaceMaterial ? ContactSurfaceMaterial->GetName() : FString(TEXT("NONE"));
 
-		Canvas->SetDrawColor( FColor::White );
+		Canvas->SetDrawColor(FColor::White);
 
-		Canvas->DrawText( RenderFont, FString::Printf( TEXT("[%d]"), w ), 4, YPos );
-		
-		Canvas->DrawText( RenderFont, FString::Printf( TEXT("LatSlip: %.3f"), LatSlip ), YL * 4 , YPos );
-		Canvas->DrawText( RenderFont, FString::Printf( TEXT("LongSlip: %.3f"), LongSlip ), YL * 12, YPos );
-		Canvas->DrawText( RenderFont, FString::Printf( TEXT("Speed: %d"), (int32)WheelSpeed ), YL * 22, YPos );
-		Canvas->DrawText( RenderFont, FString::Printf( TEXT("Contact Surface: %s"), *ContactSurfaceString ), YL * 74, YPos );
-		if( (int32)w < Wheels.Num() )
+		Canvas->DrawText(RenderFont, FString::Printf(TEXT("[%d]"), w), 4, YPos);
+
+		Canvas->DrawText(RenderFont, FString::Printf(TEXT("LatSlip: %.3f"), LatSlip), YL * 4, YPos);
+		Canvas->DrawText(RenderFont, FString::Printf(TEXT("LongSlip: %.3f"), LongSlip), YL * 12, YPos);
+		Canvas->DrawText(RenderFont, FString::Printf(TEXT("Speed: %d"), (int32)WheelSpeed), YL * 22, YPos);
+		Canvas->DrawText(RenderFont, FString::Printf(TEXT("Contact Surface: %s"), *ContactSurfaceString), YL * 74, YPos);
+		if ((int32)w < Wheels.Num())
 		{
 			UVehicleWheel* Wheel = Wheels[w];
-			Canvas->DrawText( RenderFont, FString::Printf( TEXT("Load: %.3f"), Wheel->DebugNormalizedTireLoad ), YL * 30, YPos );
-			Canvas->DrawText( RenderFont, FString::Printf( TEXT("Torque: %d"), (int32)Wheel->DebugWheelTorque ), YL * 40, YPos );
-			Canvas->DrawText( RenderFont, FString::Printf( TEXT("Long Force: %d"), (int32)Wheel->DebugLongForce ),YL * 50, YPos );
-			Canvas->DrawText( RenderFont, FString::Printf( TEXT("Lat Force: %d"), (int32)Wheel->DebugLatForce ), YL * 62, YPos );
+			Canvas->DrawText(RenderFont, FString::Printf(TEXT("Load: %.3f"), Wheel->DebugNormalizedTireLoad), YL * 30, YPos);
+			Canvas->DrawText(RenderFont, FString::Printf(TEXT("Torque: %d"), (int32)Wheel->DebugWheelTorque), YL * 40, YPos);
+			Canvas->DrawText(RenderFont, FString::Printf(TEXT("Long Force: %d"), (int32)Wheel->DebugLongForce), YL * 50, YPos);
+			Canvas->DrawText(RenderFont, FString::Printf(TEXT("Lat Force: %d"), (int32)Wheel->DebugLatForce), YL * 62, YPos);
 		}
 		else
 		{
-			Canvas->DrawText( RenderFont, TEXT("Wheels array insufficiently sized!"), YL * 50, YPos );
+			Canvas->DrawText(RenderFont, TEXT("Wheels array insufficiently sized!"), YL * 50, YPos);
 		}
 
 		YPos += YL;
@@ -1337,11 +1343,11 @@ void UWheeledVehicleMovementComponent::DrawDebug( UCanvas* Canvas, float& YL, fl
 	// draw wheel graphs
 	PxVehicleTelemetryData* TelemetryData = MyVehicleManager->GetTelemetryData_AssumesLocked();
 
-	if ( TelemetryData )
+	if (TelemetryData)
 	{
 		const float GraphWidth(100.0f), GraphHeight(100.0f);
-	
-			int GraphChannels[] = {
+
+		int GraphChannels[] = {
 			PxVehicleWheelGraphChannel::eWHEEL_OMEGA,
 			PxVehicleWheelGraphChannel::eSUSPFORCE,
 			PxVehicleWheelGraphChannel::eTIRE_LONG_SLIP,
@@ -1349,16 +1355,16 @@ void UWheeledVehicleMovementComponent::DrawDebug( UCanvas* Canvas, float& YL, fl
 			PxVehicleWheelGraphChannel::eTIRE_LAT_SLIP,
 			PxVehicleWheelGraphChannel::eNORM_TIRE_LAT_FORCE,
 			PxVehicleWheelGraphChannel::eNORMALIZED_TIRELOAD,
-			PxVehicleWheelGraphChannel::eTIRE_FRICTION			
+			PxVehicleWheelGraphChannel::eTIRE_FRICTION
 		};
 
-		for ( uint32 w = 0; w < PVehicle->mWheelsSimData.getNbWheels(); ++w )
+		for (uint32 w = 0; w < PVehicle->mWheelsSimData.getNbWheels(); ++w)
 		{
 			float CurX = 4;
-			for ( uint32 i = 0; i < ARRAY_COUNT(GraphChannels); ++i )
+			for (uint32 i = 0; i < ARRAY_COUNT(GraphChannels); ++i)
 			{
 				float OutX = GraphWidth;
-				DrawTelemetryGraph( GraphChannels[i], TelemetryData->getWheelGraph(w), Canvas, CurX, YPos, GraphWidth, GraphHeight, OutX );
+				DrawTelemetryGraph(GraphChannels[i], TelemetryData->getWheelGraph(w), Canvas, CurX, YPos, GraphWidth, GraphHeight, OutX);
 				CurX += OutX + 10.f;
 			}
 
@@ -1369,6 +1375,7 @@ void UWheeledVehicleMovementComponent::DrawDebug( UCanvas* Canvas, float& YL, fl
 
 	DrawDebugLines();
 }
+
 
 void UWheeledVehicleMovementComponent::FixupSkeletalMesh()
 {

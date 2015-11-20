@@ -133,6 +133,20 @@ void EdgeChangeManager::cleanupBrokenEdgeEvents(const Edge* allEdges)
 }
 #endif
 
+//b |= a
+//Necessary for spu because Cm::BitMap::combine pulls in the allocator.
+static PX_FORCE_INLINE void combineOr(const Cm::BitMap& a, Cm::BitMap& b)
+{
+	PX_ASSERT(a.getWordCount() == b.getWordCount());
+	const PxU32* awords = a.getWords();
+	PxU32* bwords = b.getWords();
+	const PxU32 count = a.getWordCount();
+	for(PxU32 i = 0; i < count; i++)
+	{
+		bwords[i] |= awords[i];
+	}
+}
+
 static PX_FORCE_INLINE void releaseIsland(const IslandType islandId, IslandManager& islands)
 {
 	islands.release(islandId);
@@ -283,7 +297,7 @@ static PX_FORCE_INLINE void setNodeIslandIdsAndJoinIslands
 }
 
 static void removeDeletedNodesFromIsland
-(const IslandType islandId, NodeManager& nodeManager,  EdgeManager& /*edgeManager*/, IslandManager& islands)
+(const IslandType islandId, NodeManager& nodeManager, IslandManager& islands)
 {
 	PX_ASSERT(islands.getBitmap().test(islandId));
 	Island& island=islands.get(islandId);
@@ -333,7 +347,7 @@ static void removeDeletedNodesFromIsland
 
 static void removeDeletedNodesFromIslands2
 (const IslandType* islandsToUpdate, const PxU32 numIslandsToUpdate,
- NodeManager& nodeManager,  EdgeManager& edgeManager, IslandManager& islands,
+ NodeManager& nodeManager, IslandManager& islands,
  Cm::BitMap& emptyIslandsBitmap)
 {
 	//Remove broken edges from affected islands.
@@ -342,7 +356,7 @@ static void removeDeletedNodesFromIslands2
 	{
 		//Get the island.
 		const IslandType islandId=islandsToUpdate[i];
-		removeDeletedNodesFromIsland(islandId,nodeManager,edgeManager,islands);
+		removeDeletedNodesFromIsland(islandId,nodeManager,islands);
 
 		PX_ASSERT(islands.getBitmap().test(islandId));
 		Island& island=islands.get(islandId);
@@ -354,10 +368,23 @@ static void removeDeletedNodesFromIslands2
 	}
 }
 
+/**
+\brief Nodes that have been marked as deleted are removed from their islands.
+\param[in] deletedNodes is the array of node ids that have been deleted.
+\param[in] numDeletedNodes is the number of nodes that have been deleted (the length of deletedNodes).
+\param[in,out] nodeManager is array of all nodes and a mapping that allows us to iterate over nodes in an island given the first node in the island.
+This mapping will be altered by deleting nodes from islands.
+\param[in,out]  islands is an array of all islands and a bitmap of active islands. 
+Removing a node can change the start node of an island and can leave an island with no nodes.  
+\param[] deletedNodeIslandsBitmap is a scratch bitmap that can be cleared and re-used after the function exits.
+deletedNodeIslandsBitmap should be cleared before calling this function.
+\param[out] emptyIslandsBitmap is a bitmap of all islands that are empty as a consequence of removing the deleted nodes.
+emptyIslandsBitmap should be cleared before calling this function.
+*/
 static void removeDeletedNodesFromIslands
 (const NodeType* deletedNodes, const PxU32 numDeletedNodes,
- NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands,
- Cm::BitMap& affectedIslandsBitmap, Cm::BitMap& emptyIslandsBitmap)
+ NodeManager& nodeManager, IslandManager& islands,
+ Cm::BitMap& deletedNodeIslandsBitmap, Cm::BitMap& emptyIslandsBitmap)
 {
 	Node* PX_RESTRICT allNodes=nodeManager.getAll();
 
@@ -377,7 +404,7 @@ static void removeDeletedNodesFromIslands
 			const IslandType islandId=node.getIslandId();
 			PX_ASSERT(islandId!=INVALID_ISLAND);
 			PX_ASSERT(islands.getBitmap().test(islandId));
-			affectedIslandsBitmap.set(islandId);
+			deletedNodeIslandsBitmap.set(islandId);
 		}
 	}
 
@@ -386,10 +413,10 @@ static void removeDeletedNodesFromIslands
 	//Gather a simple list of all islands affected by a deleted node.
 	IslandType islandsToUpdate[MAX_NUM_ISLANDS_TO_UPDATE];
 	PxU32 numIslandsToUpdate=0;
-	const PxU32 lastSetBit = affectedIslandsBitmap.findLast();
+	const PxU32 lastSetBit = deletedNodeIslandsBitmap.findLast();
 	for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
 	{
-		for(PxU32 b = affectedIslandsBitmap.getWords()[w]; b; b &= b-1)
+		for(PxU32 b = deletedNodeIslandsBitmap.getWords()[w]; b; b &= b-1)
 		{
 			const IslandType islandId = (IslandType)(w<<5|Ps::lowestSetBit(b));
 			PX_ASSERT(islands.getBitmap().test(islandId));
@@ -401,19 +428,19 @@ static void removeDeletedNodesFromIslands
 			}
 			else
 			{
-				removeDeletedNodesFromIslands2(islandsToUpdate,numIslandsToUpdate,nodeManager,edgeManager,islands,emptyIslandsBitmap);
+				removeDeletedNodesFromIslands2(islandsToUpdate,numIslandsToUpdate,nodeManager,islands,emptyIslandsBitmap);
 				islandsToUpdate[0]=islandId;
 				numIslandsToUpdate=1;
 			}
 		}
 	}
 
-	removeDeletedNodesFromIslands2(islandsToUpdate,numIslandsToUpdate,nodeManager,edgeManager,islands,emptyIslandsBitmap);
+	removeDeletedNodesFromIslands2(islandsToUpdate,numIslandsToUpdate,nodeManager,islands,emptyIslandsBitmap);
 }
 
 static void removeBrokenEdgesFromIslands2
 (const IslandType* PX_RESTRICT islandsToUpdate, const PxU32 numIslandsToUpdate,
- NodeManager& /*nodeManager*/, EdgeManager& edgeManager, IslandManager& islands)
+ EdgeManager& edgeManager, IslandManager& islands)
 {
 	Edge* PX_RESTRICT allEdges=edgeManager.getAll();
 	EdgeType* PX_RESTRICT nextEdgeIds=edgeManager.getNextEdgeIds();
@@ -468,15 +495,35 @@ static void removeBrokenEdgesFromIslands2
 	}
 }
 
+/**
+\brief Edges that are broken or deleted are removed from their islands.
+\param[in] brokenEdgeIds is an array of ids of all broken edges
+\param[in] numBrokenEdges is the length of the array of broken edge ids (the number of broken edges).
+\param[in] deletedEdgeIds is an array of ids of all deleted edges.
+This will be NULL in 2nd pass because we can only delete edges prior to 1st pass.
+\param[in] numDeletedEdges is the length of the array of broken edge ids (the number of broken edges).
+This will be zero in 2nd pass because we can only delete edges prior to 1st pass.
+\param[in] kinematicProxySourceNodes is a mapping between the id of a kinematic proxy node and the id of the source kinematic node.
+This is null in first pass island gen but must be non-null in second pass island gen if there are any kinematics.
+\param[in] nodeManager is array of all nodes used to look up nodes from affected edges.
+\param[in,out] edgeManager is an array of all edges and a mapping that allows us to iterate over edges in an island given the first edge in the island.
+Removing edges from islands changes the mapping.
+\param[in,out]  islands is an array of all islands and a bitmap of active islands
+Removing an edge can change the start edge of an island.
+\param[out] brokenEdgeIslandsBitmap is a bitmap of all islands affected by a broken edge.
+brokenEdgeIslandsBitmap should be cleared before callling this function.
+\param[out] nodeStateChangeBitmap is a bitmap of all nodes affected by a self-state change or by changes to edge states.
+Accumulate nodes affected by edge state changes in this function.
+In 2nd pass island gen this is null because we have a simpler method of tracking affected nodes and islands.
+*/
 static void removeBrokenEdgesFromIslands
 (const EdgeType* PX_RESTRICT brokenEdgeIds, const PxU32 numBrokenEdges, const EdgeType* PX_RESTRICT deletedEdgeIds, const PxU32 numDeletedEdges, 
- const NodeType* PX_RESTRICT kinematicProxySourceNodes, NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands,
- Cm::BitMap& brokenEdgeIslandsBitmap)
+ const NodeType* PX_RESTRICT kinematicProxySourceNodes, const NodeManager& nodeManager, 
+ EdgeManager& edgeManager, IslandManager& islands,
+ Cm::BitMap& brokenEdgeIslandsBitmap, Cm::BitMap* nodeStateChangeBitmap)
 {
-	Node* PX_RESTRICT allNodes=nodeManager.getAll();
-	//const PxU32 allNodesCapacity=nodeManager.getCapacity();
+	const Node* PX_RESTRICT allNodes=nodeManager.getAll();
 	Edge* PX_RESTRICT allEdges=edgeManager.getAll();
-	//const PxU32 allEdgesCapacity=edgeManager.getCapacity();
 
 	//Gather a list of islands that contain a broken edge.
 	for(PxU32 i=0;i<numBrokenEdges;i++)
@@ -498,7 +545,8 @@ static void removeBrokenEdgesFromIslands
 		if(INVALID_NODE!=nodeId1)
 		{
 			PX_ASSERT(nodeId1<nodeManager.getCapacity());
-			Node& node1=allNodes[nodeId1];
+			if(nodeStateChangeBitmap) nodeStateChangeBitmap->set(nodeId1);
+			const Node& node1=allNodes[nodeId1];
 			islandId1=node1.getIslandId();
 			if(INVALID_ISLAND!=islandId1)
 			{
@@ -517,7 +565,8 @@ static void removeBrokenEdgesFromIslands
 		if(INVALID_NODE!=nodeId2)
 		{
 			PX_ASSERT(nodeId2<nodeManager.getCapacity());
-			Node& node2=allNodes[nodeId2];
+			if(nodeStateChangeBitmap) nodeStateChangeBitmap->set(nodeId2);
+			const Node& node2=allNodes[nodeId2];
 			islandId2=node2.getIslandId();
 			if(INVALID_ISLAND!=islandId2)
 			{
@@ -558,6 +607,7 @@ static void removeBrokenEdgesFromIslands
 			if(INVALID_NODE!=nodeId1)
 			{
 				PX_ASSERT(nodeId1<nodeManager.getCapacity());
+				if(nodeStateChangeBitmap) nodeStateChangeBitmap->set(nodeId1);
 				islandId1=allNodes[nodeId1].getIslandId();
 				if(INVALID_ISLAND!=islandId1)
 				{
@@ -567,6 +617,7 @@ static void removeBrokenEdgesFromIslands
 			if(INVALID_NODE!=nodeId2)
 			{
 				PX_ASSERT(nodeId2<nodeManager.getCapacity());
+				if(nodeStateChangeBitmap) nodeStateChangeBitmap->set(nodeId2);
 				islandId2=allNodes[nodeId2].getIslandId();
 				if(INVALID_ISLAND!=islandId2)
 				{
@@ -597,16 +648,23 @@ static void removeBrokenEdgesFromIslands
 			}
 			else
 			{
-				removeBrokenEdgesFromIslands2(islandsToUpdate,numIslandsToUpdate,nodeManager,edgeManager,islands);
+				removeBrokenEdgesFromIslands2(islandsToUpdate,numIslandsToUpdate,edgeManager,islands);
 				islandsToUpdate[0]=islandId;
 				numIslandsToUpdate=1;
 			}
 		}
 	}
 
-	removeBrokenEdgesFromIslands2(islandsToUpdate,numIslandsToUpdate,nodeManager,edgeManager,islands);
+	removeBrokenEdgesFromIslands2(islandsToUpdate,numIslandsToUpdate,edgeManager,islands);
 }
 
+/**
+\brief Islands that are left empty as a consequence of deleted nodes are released so that they may be reused.
+\param[in] emptyIslandsBitmap is a bitmap of all islands that are empty and need released.
+\param[in] islands is a managed collection of islands.  This will be altered by releasing empty islands.
+\param[in] brokenEdgeIslandsBitmap is a bitmap of islands affected by broken or deleted edges.  If an island is released 
+then we no longer need to track this island in the bitmap.
+*/
 static void releaseEmptyIslands(const Cm::BitMap& emptyIslandsBitmap, IslandManager& islands, Cm::BitMap& brokenEdgeIslandsBitmap)
 {
 	const PxU32* PX_RESTRICT emptyIslandsBitmapWords=emptyIslandsBitmap.getWords();
@@ -629,12 +687,29 @@ static void releaseEmptyIslands(const Cm::BitMap& emptyIslandsBitmap, IslandMana
 }
 
 
+/**
+\brief Islands are merged as a consequence of edges that have been marked as joined.
+\param[in] joinedEdges is an array of edge ids for all edges that have been marked as joined since last update
+\param[in] numJoinedEdges is the number of edges that have been marked as joined since last update
+\param nodeManager[in,out] is a managed collection of nodes.
+Joined edges can merge two islands and update the node's island and the mapping that allows iteration over the nodes of an island.
+\param edgeManager[in,out] is a managed collection of edges.
+Joined edges can merge two islands and update the mapping that allows iteration over the edges of an island.
+\param[in,out] brokenEdgeIslandsBitmap is a bitmap of all islands affected by a broken edge.  When two islands are merged we
+discard one of the islands and need to update brokenEdgeIslandsBitmap accordingly.
+\param graphNextNodes is a scratch buffer for accelerating island merging
+\param graphStartIslands is a scratch buffer for accelerating island merging
+\param graphNextIslands is a scratch buffer for accelerating island merging
+\param[out] nodeStateChangeBitmap is a bitmap of all nodes affected by a self-state change or by changes to edge states.
+Accumulate nodes affected by edge state changes in this function.
+*/
 static void processJoinedEdges
-(const EdgeType* PX_RESTRICT joinedEdges, const PxU32 numJoinedEdges, 
- NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands,
- Cm::BitMap& brokenEdgeIslandsBitmap, 
- Cm::BitMap& affectedIslandsBitmap,
- NodeType* PX_RESTRICT graphNextNodes, IslandType* PX_RESTRICT graphStartIslands, IslandType* PX_RESTRICT graphNextIslands)
+	(const EdgeType* PX_RESTRICT joinedEdges, const PxU32 numJoinedEdges, 
+	NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands,
+	Cm::BitMap& brokenEdgeIslandsBitmap, 
+	Cm::BitMap& affectedIslandsBitmap,
+	NodeType* PX_RESTRICT graphNextNodes, IslandType* PX_RESTRICT graphStartIslands, IslandType* PX_RESTRICT graphNextIslands,
+	Cm::BitMap& nodeStateChangeBitmap)
 {
 	Node* PX_RESTRICT allNodes=nodeManager.getAll();
 	const PxU32 allNodesCapacity=nodeManager.getCapacity();
@@ -664,6 +739,7 @@ static void processJoinedEdges
 			const NodeType nodeId1=edge.getNode1();
 			if(INVALID_NODE!=nodeId1)
 			{
+				nodeStateChangeBitmap.set(nodeId1);
 				Node&  node=allNodes[nodeId1];
 				IslandType islandId=node.getIslandId();
 				if(INVALID_ISLAND!=islandId)
@@ -682,6 +758,7 @@ static void processJoinedEdges
 			const NodeType nodeId2=edge.getNode2();
 			if(INVALID_NODE!=nodeId2)
 			{
+				nodeStateChangeBitmap.set(nodeId2);
 				Node&  node=allNodes[nodeId2];
 				IslandType islandId=node.getIslandId();
 				if(INVALID_ISLAND!=islandId)
@@ -821,6 +898,7 @@ static void processJoinedEdges
 	NodeType nextNode=startNode;
 	while(INVALID_NODE!=nextNode)
 	{
+		//startIslandId has changed to islandId.
 		IslandType islandId=INVALID_ISLAND;
 		IslandType nextIsland=graphStartIslands[nextNode];
 		while(INVALID_ISLAND!=nextIsland)
@@ -828,12 +906,15 @@ static void processJoinedEdges
 			islandId=nextIsland;
 			nextIsland=graphNextIslands[nextIsland];
 		}
+
+		//Set the id of the node.
 		Node& node=allNodes[nextNode];
 		node.setIslandId(islandId);
+
+		//Next node
 		nextNode=graphNextNodes[nextNode];
 	}
 }
-
 
 PX_FORCE_INLINE PxU32 alignSize16(const PxU32 size)
 {
@@ -854,11 +935,29 @@ NodeType getLastNode(NodeType* nextNodes, const NodeType nodeId)
 }
 #endif
 
+/**
+\brief Kinematic nodes must not act as bridges between islands. This is enforced by creating a proxy node each time an
+edge references a node and replacing the edge's reference to the kinematic node with a reference to the proxy.
+\param[in] kinematicNodesBitmap is a bitmap of all nodes that are kinematic
+\param[in] processIslandsBitmap is a bitmap of all islands that need attention because a node or edge has changed state.
+\param[in,out] nodeManager is a managed collection of nodes. 
+We are going to create one new node each time an edge references a kinematic node. 
+\param[in,out] edgeManager is a managed collection of edges
+Edges that reference kinematic nodes will be modified so that they reference a kinematic proxy instead.
+\param[in,out] islands is a managed collection of islands.
+Islands that reference a kinematic node will have the kinematic node removed. 
+\param[out] kinematicProxySourceNodes is a mapping that allows us to determine the id of the source kinematic node
+given the id of one of its proxies.
+\param[out] kinematicProxyNextNodes allows us to iterate over the list of all proxies for a given kinematic source node.
+\param[out] kinematicProxyLastNodes allows us to determine the last proxy in the list of all proxies for a given kinematic source node.
+\param[out] kinematicNodeIslandsBitmap is a bitmap of islands affected by kinematic nodes.  These islands have effectively experienced 
+a broken edge event.
+*/
 static void duplicateKinematicNodes
-(const Cm::BitMap& kinematicNodesBitmap,
+(const Cm::BitMap& kinematicNodesBitmap, const Cm::BitMap& processIslandsBitmap,
  NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands,
  NodeType* kinematicProxySourceNodes, NodeType* kinematicProxyNextNodes,  NodeType* kinematicProxyLastNodes,
- Cm::BitMap& kinematicIslandsBitmap)
+ Cm::BitMap& kinematicNodeIslandsBitmap, Cm::BitMap& scratchBitmap)
 {
 	Node* PX_RESTRICT allNodes=nodeManager.getAll();
 	const PxU32 allNodesCapacity=nodeManager.getCapacity();
@@ -889,10 +988,17 @@ static void duplicateKinematicNodes
 				const IslandType islandId=node.getIslandId();
 				PX_ASSERT(INVALID_ISLAND!=islandId);
 				PX_ASSERT(islands.getBitmap().test(islandId));
-				kinematicIslandsBitmap.set(islandId);
+				if(processIslandsBitmap.test(islandId))
+				{
+					//We are interested in this island.
+					kinematicNodeIslandsBitmap.set(islandId);
 
-				//Set the node as deleted so it can be identified as needing to be removed.
-				node.setIsDeleted();
+					//Set the node as deleted so it can be identified as needing to be removed.
+					node.setIsDeleted();
+
+					//Keep a track of kinematic nodes that were in islands to process.
+					scratchBitmap.set(kinematicNodeId);
+				}
 			}
 		}
 	}
@@ -900,10 +1006,10 @@ static void duplicateKinematicNodes
 	//Remove all kinematics nodes from the islands.
 	//Replace kinematics with proxies from each edge referencing each kinematic.
 	{
-		const PxU32 lastSetBit = kinematicIslandsBitmap.findLast();
+		const PxU32 lastSetBit = kinematicNodeIslandsBitmap.findLast();
 		for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
 		{
-			for(PxU32 b = kinematicIslandsBitmap.getWords()[w]; b; b &= b-1)
+			for(PxU32 b = kinematicNodeIslandsBitmap.getWords()[w]; b; b &= b-1)
 			{
 				const IslandType islandId = (IslandType)(w<<5|Ps::lowestSetBit(b));
 				PX_ASSERT(islandId<islands.getCapacity());
@@ -912,7 +1018,7 @@ static void duplicateKinematicNodes
 				Island& island=islands.get(islandId);
 
 				//Remove all kinematics from the island so that we can replace them with proxy nodes.
-				removeDeletedNodesFromIsland(islandId,nodeManager,edgeManager,islands);
+				removeDeletedNodesFromIsland(islandId,nodeManager,islands);
 				
 				//Create a proxy kinematic node for each edge that references a kinematic.
 				EdgeType nextEdge=island.mStartEdgeId;
@@ -935,6 +1041,8 @@ static void duplicateKinematicNodes
 						Node& node1=allNodes[nodeId1];
 						if(node1.getIsKinematic())
 						{
+							PX_ASSERT(scratchBitmap.test(nodeId1));
+
 							//Add a proxy node.
 							const NodeType proxyNodeId=nodeManager.getAvailableElemNoResize();
 							kinematicProxySourceNodes[proxyNodeId]=nodeId1;
@@ -976,6 +1084,8 @@ static void duplicateKinematicNodes
 						Node& node2=allNodes[nodeId2];
 						if(node2.getIsKinematic())
 						{
+							PX_ASSERT(scratchBitmap.test(nodeId2));
+
 							//Add a proxy node.
 							const NodeType proxyNodeId=nodeManager.getAvailableElemNoResize();
 							kinematicProxySourceNodes[proxyNodeId]=nodeId2;
@@ -1020,33 +1130,40 @@ static void duplicateKinematicNodes
 	//no edges then it will have been removed flagged as deleted and then removed above but not 
 	//replaced by anything.  Just put lone kinematics back in their original island.
 	{
-		const PxU32* PX_RESTRICT kinematicNodesBitmapWords=kinematicNodesBitmap.getWords();
-		const PxU32 lastSetBit = kinematicNodesBitmap.findLast();
+		const PxU32* PX_RESTRICT kinematicNodesBitmapWords=scratchBitmap.getWords();
+		const PxU32 lastSetBit = scratchBitmap.findLast();
 		for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
 		{
 			for(PxU32 b = kinematicNodesBitmapWords[w]; b; b &= b-1)
 			{
+				//Remember that we were only interested in some nodes.  
+				//Those nodes were flagged as deleted at the start of this function.
 				const NodeType kinematicNodeId = (NodeType)(w<<5|Ps::lowestSetBit(b));
 				PX_ASSERT(kinematicNodeId<allNodesCapacity);
 				Node& node=allNodes[kinematicNodeId];
-				PX_ASSERT(node.getIsKinematic());
-				PX_ASSERT(node.getIsDeleted());
-				PX_ASSERT(node.getIslandId()!=INVALID_ISLAND);
-				PX_ASSERT(node.getIslandId()<islands.getCapacity());
-				node.clearIsDeleted();
+				if(node.getIsDeleted())
+				{
+					PX_ASSERT(node.getIsKinematic());
+					PX_ASSERT(node.getIsDeleted());
+					PX_ASSERT(node.getIslandId()!=INVALID_ISLAND);
+					PX_ASSERT(node.getIslandId()<islands.getCapacity());
+					node.clearIsDeleted();
 
-				//If the kinematic has no edges referencing it put it back in its own island.
-				//If the kinematic has edges referencing it makes sense to flag the kinematic as having been replaced with proxies.
-				if(INVALID_NODE==kinematicProxyNextNodes[kinematicNodeId])
-				{
-					const IslandType islandId=node.getIslandId();
-					PX_ASSERT(INVALID_ISLAND!=islandId);
-					addNodeToIsland(islandId,kinematicNodeId,allNodes,nextNodeIds,allNodesCapacity,islands);
-				}
-				else
-				{
-					//The node has been replaced with proxies so we can reset the node to neutral for now.
-					node.setIslandId(INVALID_ISLAND);
+					//If the kinematic has no edges referencing it put it back in its own island.
+					//If the kinematic has edges referencing it makes sense to flag the kinematic as having been replaced with proxies.
+					if(INVALID_NODE==kinematicProxyNextNodes[kinematicNodeId])
+					{
+						const IslandType islandId=node.getIslandId();
+						PX_ASSERT(INVALID_ISLAND!=islandId);
+						PX_ASSERT(processIslandsBitmap.test(islandId));
+						PX_ASSERT(kinematicNodeIslandsBitmap.test(islandId));
+						addNodeToIsland(islandId,kinematicNodeId,allNodes,nextNodeIds,allNodesCapacity,islands);
+					}
+					else
+					{
+						//The node has been replaced with proxies so we can reset the node to neutral for now.
+						node.setIslandId(INVALID_ISLAND);
+					}
 				}
 			}
 		}
@@ -1057,7 +1174,7 @@ static void processBrokenEdgeIslands2
 (const IslandType* islandsToUpdate, const PxU32 numIslandsToUpdate,
  NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands,
  NodeType* graphNextNodes, IslandType* graphStartIslands, IslandType* graphNextIslands,
- Cm::BitMap* affectedIslandsBitmap)
+ Cm::BitMap& affectedIslandsBitmap)
 {
 	Node* PX_RESTRICT allNodes=nodeManager.getAll();
 	const PxU32 allNodesCapacity=nodeManager.getCapacity();
@@ -1206,14 +1323,12 @@ static void processBrokenEdgeIslands2
 				PX_ASSERT(INVALID_EDGE==island.mEndEdgeId);
 				releaseIsland(islandId,islands);
 
-				if (affectedIslandsBitmap)
-					affectedIslandsBitmap->reset(islandId);  // remove from list of islands to process
+				affectedIslandsBitmap.reset(islandId);  // remove from list of islands to process
 			}
-			else if (affectedIslandsBitmap)
+			else
 			{
-				// for second pass island gen, we have a list of islands to process. If an island gets split up, we need
-				// to add the subislands to the list as well
-				affectedIslandsBitmap->set(islandId);
+				// If an island gets split up, we need to add the sub-islands to the list as well
+				affectedIslandsBitmap.set(islandId);
 			}
 
 			//Next node.
@@ -1261,11 +1376,28 @@ static void processBrokenEdgeIslands2
 	}
 }
 
+/**
+\brief All islands that have been marked as having a broken edge need to be rebuilt.  The result of this 
+operation can range from generating the same island with the same node list to a separate island for each node.
+\param[in] brokenEdgeIslandsBitmap is a bitmap of all islands marked as needing rebuilt.
+\param[in] nodeManager is a managed collection of nodes.  
+Rebuilding islands can result in nodes being in different islands.
+\param[in] edgeManager is a managed collection of edges
+Rebuilding islands can result in edges being in different islands.
+\param[in] islands is a managed collection of islands.
+Rebuilding islands can result in a different set of islands.
+\param graphNextNodes is a scratch buffer that accelerates rebuilding islands.
+\param graphStartIslands is a scratch buffer that accelerates rebuilding islands.
+\param graphNextIslands is a scratch buffer that accelerates rebuilding islands.
+\param[in,out] affectedIslandsBitmap is a bitmap of islands that have changed during 
+the update. The function processBrokenEdgeIslands generates a different list of active island ids
+so this needs reflected in affectedIslandsBitmap.
+*/
 static void processBrokenEdgeIslands
 (const Cm::BitMap& brokenEdgeIslandsBitmap,
  NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands,
  NodeType* graphNextNodes, IslandType* graphStartIslands, IslandType* graphNextIslands,
- Cm::BitMap* affectedIslandsBitmap)
+ Cm::BitMap& affectedIslandsBitmap)
 {
 #define MAX_NUM_ISLANDS_TO_UPDATE 1024
 
@@ -1301,6 +1433,13 @@ static void processBrokenEdgeIslands
 								affectedIslandsBitmap);
 }
 
+/**
+\brief All edges that are marked as deleted are prepared for re-use.
+\param[in] deletedEdges is an array of ids of all deleted edges.
+\param[in] numDeletedEdges is the number of edges that have been deleted.
+\param[in] edgeManager is a managed collection of nodes.  
+Edges that are deleted can be recycled.  
+*/
 static void releaseDeletedEdges(const EdgeType* PX_RESTRICT deletedEdges, const PxU32 numDeletedEdges, EdgeManager& edgeManager)
 {
 	//Now release the deleted edges.
@@ -1317,6 +1456,16 @@ static void releaseDeletedEdges(const EdgeType* PX_RESTRICT deletedEdges, const 
 	}
 }
 
+/**
+\Brief All new nodes are given their own island.
+\param[in] createdNodes is an array of ids of all nodes that have been freshly created.
+\param[in] numCreatedNodes is the number of nodes that have been freshly created.
+\param[in,out] nodeManager is a managed collection of nodes.
+Nodes that are created are initially put in an island containing just the created node. The id of the island 
+is stored on the node.
+\param[in,out] islands is a managed collection of islands.
+Nodes that are created are initially put in a new island containing just the created node. 
+*/
 static void processCreatedNodes
 (const NodeType* PX_RESTRICT createdNodes, const PxU32 numCreatedNodes, NodeManager& nodeManager, IslandManager& islands)
 {
@@ -1345,18 +1494,41 @@ static void processCreatedNodes
 	}
 }
 
-static void releaseDeletedNodes(const NodeType* PX_RESTRICT deletedNodes, const PxU32 numDeletedNodes, NodeManager& nodeManager)
+/**
+\brief All deleted nodes are prepared for re-used.
+\param[in] deletedNodes is an array of ids of all deleted nodes.
+\param[in] numDeletedNodes is the number of nodes that have been deleted.
+\param[in] nodeManager is a managed collection of nodes.  
+Nodes that are deleted can be recycled.  
+\param[out] nodeStateChangeBitmap is a bitmap of all nodes affected by a self-state change or by changes to edge states.
+Any node that has been deleted no longer needs tracked.
+*/
+static void releaseDeletedNodes(const NodeType* PX_RESTRICT deletedNodes, const PxU32 numDeletedNodes, NodeManager& nodeManager, Cm::BitMap& nodeStateChangeBitmap)
 {
 	for(PxU32 i=0;i<numDeletedNodes;i++)
 	{
 		const NodeType nodeId=deletedNodes[i];
 		PX_ASSERT(nodeManager.get(nodeId).getIsDeleted());
 		nodeManager.release(nodeId);
+		nodeStateChangeBitmap.reset(nodeId);
 	}
 }	
 
 static const bool tSecondPass = true;  // to make use of template parameter more readable
 
+/**
+\brief  The final list of islands is parsed to determine which islands are asleep and which are awake so that sleep state changes may be reported 
+and nodes/edges in awake islands can be sent to the solver.  
+\param[in] islandsToUpdate is a bitmap of all islands that need parsed.
+\param[in] rigidBodyOffset is a byte offset between the body ptr stored by a node and the body ptr reported to the solver.
+\param[in,out] nodeManager is a managed collection of nodes
+Nodes may be flagged as being in sleeping in islands or as being in awake islands.
+\param[in] edgeManager is a managed collection of edges
+\param[in] islands is managed collection of islands
+\param[in] articulationRootManager is a managed collection of articulation roots
+\param[in] kinematicSourceNodeIds allows us to get the source kinematic node from any of its proxies.
+\param[out] psicData is a structure of data that we gather and report to the solver
+*/
 #ifndef __SPU__
 template <bool TSecondPass>
 static void processSleepingIslands
@@ -1365,6 +1537,8 @@ static void processSleepingIslands
  const NodeType* kinematicSourceNodeIds,
  ProcessSleepingIslandsComputeData& psicData)
 {
+	PX_UNUSED(kinematicSourceNodeIds);
+
 	if (!TSecondPass)
 	{
 		psicData.mBodiesToWakeSize=0;
@@ -1396,7 +1570,7 @@ static void processSleepingIslands
 	//const PxU32 allIslandsCapacity=islands.getCapacity();
 
 	NodeType* PX_RESTRICT solverBodyMap=psicData.mSolverBodyMap;
-	const PxU32 solverBodyMapCapacity=psicData.mSolverBodyMapCapacity;
+	//const PxU32 solverBodyMapCapacity=psicData.mSolverBodyMapCapacity;
 	PxU8** PX_RESTRICT bodiesToWakeOrSleep=psicData.mBodiesToWakeOrSleep;
 	const PxU32 bodiesToWakeOrSleepCapacity=psicData.mBodiesToWakeOrSleepCapacity;
 	NarrowPhaseContactManager* PX_RESTRICT npContactManagers=psicData.mNarrowPhaseContactManagers;
@@ -1434,8 +1608,6 @@ static void processSleepingIslands
 	if (TSecondPass)
 		PX_UNUSED(islandIndicesSecondPassSize);
 
-	PxMemSet(solverBodyMap, 0xff, sizeof(NodeType)*solverBodyMapCapacity);
-
 	const PxU32* PX_RESTRICT bitmapWords=islandsToUpdate.getWords();
 	const PxU32 lastSetBit = islandsToUpdate.findLast();
 	for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
@@ -1472,7 +1644,7 @@ static void processSleepingIslands
 					Ps::prefetchLine((PxU8*)(((size_t)((PxU8*)&allNodes[nextNodeIds[nextNode]]) + 128) & ~127));
 					PX_ASSERT(node.getIsReadyForSleeping());
 					// in second island gen pass all nodes should have been woken up.
-					PX_ASSERT(!TSecondPass || node.getIsKinematic() || !node.getIsInSleepingIsland());
+					PX_ASSERT(!TSecondPass || node.getIsKinematic() || (node.getIsArticulated() && !node.getIsRootArticulationLink()) || !node.getIsInSleepingIsland());
 
 					//Work out if the node was previously in a sleeping island.
 					const bool wasInSleepingIsland=node.getIsInSleepingIsland();
@@ -1552,7 +1724,7 @@ static void processSleepingIslands
 						PX_UNUSED(wasInSleepingIsland);
 
 					// in second island gen pass all nodes should have been woken up.
-					PX_ASSERT(!TSecondPass || node.getIsKinematic() || !node.getIsInSleepingIsland());
+					PX_ASSERT(!TSecondPass || node.getIsKinematic() || (node.getIsArticulated() && !node.getIsRootArticulationLink()) || !node.getIsInSleepingIsland());
 
 					//If the node has changed from being in a sleeping island to 
 					//not being in a sleeping island then the node needs to be woken up
@@ -1618,43 +1790,16 @@ static void processSleepingIslands
 					}
 					else
 					{
-						if(INVALID_NODE != kinematicSourceNodeIds[nextNode] && INVALID_NODE != solverBodyMap[kinematicSourceNodeIds[nextNode]])
-						{
-							//Kinematic node participates in an edge and is a proxy.
-							//This is not the first time we've encountered the node represented by the proxy.
-							//To avoid duplicates we can use the value stored for the "source" node rather than the proxy.
+						//Create the mapping between the entry id in mNodeManager and the entry id in mSolverBoldies
+						PX_ASSERT(nextNode<psicData.mSolverBodyMapCapacity);
+						solverBodyMap[nextNode]=(NodeType)solverKinematicsSize;
 
-							PX_ASSERT(nextNode<psicData.mSolverBodyMapCapacity);
-							PX_ASSERT(kinematicSourceNodeIds[nextNode]<psicData.mSolverBodyMapCapacity);
-							solverBodyMap[nextNode]=solverBodyMap[kinematicSourceNodeIds[nextNode]];
-						}
-						else
-						{
-							//Kinematic will be a proxy if it participates in an edge but not if it has no edges.
-							//This is the first time we've encountered the node (the node represented by the proxy, if applicable).
-							//Set solverBodyMap for the proxy node (if applicable) and for the source node. Setting 
-							//solverBodyMap[sourceNode] means that we will know if we subsequently meet a proxy 
-							//node that represents the same source node. When this happens we can reuse the 
-							//source node rather than adding an entry for each proxy.  The result of this is that
-							//solverKinematicsSize is never greater than the number of kinematics in the scene
-							//ie we avoid duplicates in the solverKinematics array.
-
-							//Create the mapping between the entry id in mNodeManager and the entry id in mSolverBoldies
-							PX_ASSERT(nextNode<psicData.mSolverBodyMapCapacity);
-							solverBodyMap[nextNode]=(NodeType)solverKinematicsSize;
-							if(INVALID_NODE != kinematicSourceNodeIds[nextNode])
-							{
-								PX_ASSERT(kinematicSourceNodeIds[nextNode]<psicData.mSolverBodyMapCapacity);
-								solverBodyMap[kinematicSourceNodeIds[nextNode]]=(NodeType)solverKinematicsSize;
-							}
-
-							//Add kinematic to array of all kinematics.
-							PX_ASSERT(!node.getIsArticulated());
-							PX_ASSERT((solverKinematicsSize)<psicData.mSolverKinematicsCapacity);
-							solverKinematics[solverKinematicsSize]=node.getRigidBody(rigidBodyOffset);
-							Ps::prefetchLine((PxU8*)(((size_t)((PxU8*)&solverKinematics[solverKinematicsSize+1]) + 128) & ~127));
-							solverKinematicsSize++;
-						}
+						//Add kinematic to array of all kinematics.
+						PX_ASSERT(!node.getIsArticulated());
+						PX_ASSERT((solverKinematicsSize)<psicData.mSolverKinematicsCapacity);
+						solverKinematics[solverKinematicsSize]=node.getRigidBody(rigidBodyOffset);
+						Ps::prefetchLine((PxU8*)(((size_t)((PxU8*)&solverKinematics[solverKinematicsSize+1]) + 128) & ~127));
+						solverKinematicsSize++;
 					}
 	
 					nextNode=nextNodeIds[nextNode];
@@ -1936,8 +2081,7 @@ void physx::mergeKinematicProxiesBackToSource
 
 				//Remove all kinematic proxy nodes from all affected islands.
 				removeDeletedNodesFromIsland
-					(islandId,
-					nodeManager,edgeManager,islands);
+					(islandId,nodeManager,islands);
 
 				//Make the edges reference the original node.
 				const Island& island=islands.get(islandId);
@@ -2077,6 +2221,169 @@ void physx::mergeKinematicProxiesBackToSource
 	}
 }
 
+
+/**
+\brief Compute a bitmap of islands from a bitmap of nodes.
+\param[in] nodesToProcess is a bitmap of nodes affected by node state changes or by nodes referenced from edge that have experienced a state change.
+\param[in] kinematicProxyNextNodeIds is a mapping that iterates over the proxies of kinematic nodes. 
+If a kinematic node is affected by a state change we need to mark the islands of all proxy nodes.
+kinematicProxyNextNodeIds will be null if this is called before calling duplicateKinematicNodes.  
+\param[in] nodeManager is a managed collection of nodes. 
+\param[out] processIslandsBitmap is the bitmap of all islands affected by the nodes marked in the bitmap nodesToProcess.
+*/
+void updateIslandsToProcess(const Cm::BitMap& nodesToProcess, const NodeType* kinematicProxyNextNodeIds, const NodeManager& nodeManager, Cm::BitMap& processIslandsBitmap)
+{
+	const PxU32 lastSetBit = nodesToProcess.findLast();
+	for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
+	{
+		for(PxU32 b = nodesToProcess.getWords()[w]; b; b &= b-1)
+		{
+			const IslandType nodeId = (IslandType)(w<<5|Ps::lowestSetBit(b));
+			const Node& node = nodeManager.get(nodeId);
+			if(!node.getIsKinematic())
+			{
+				const IslandType islandId = node.getIslandId();
+				processIslandsBitmap.set(islandId);
+			}
+			else
+			{
+				const IslandType islandId = node.getIslandId();
+				if(INVALID_ISLAND != islandId)
+				{
+					processIslandsBitmap.set(islandId);
+				}
+				else
+				{
+					PX_ASSERT(INVALID_NODE != kinematicProxyNextNodeIds[nodeId]);
+					NodeType nextProxyNode = kinematicProxyNextNodeIds[nodeId];
+					while(nextProxyNode != INVALID_NODE)
+					{
+						const Node& nextNode = nodeManager.get(nextProxyNode);
+						const IslandType nextIslandId = nextNode.getIslandId();
+						processIslandsBitmap.set(nextIslandId);
+						nextProxyNode = kinematicProxyNextNodeIds[nextProxyNode];
+					}
+				}
+			}
+		}
+	}
+}
+
+#ifdef PX_DEBUG
+bool verifyNotReadyForSleepingNodeBitmap(const Cm::BitMap& nodeNotReadyForSleepingBitmap, const NodeManager& nodeManager, const IslandManager& islands)
+{
+	//Iterate over the bitmap and test that the nodes have the correct flag set.
+	{
+		const PxU32 lastSetBit = nodeNotReadyForSleepingBitmap.findLast();
+		for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
+		{
+			for(PxU32 b = nodeNotReadyForSleepingBitmap.getWords()[w]; b; b &= b-1)
+			{
+				const NodeType nodeId = (IslandType)(w<<5|Ps::lowestSetBit(b));
+				const Node& node = nodeManager.get(nodeId);
+				if(node.getIsReadyForSleeping())
+				{
+					return false;
+				}
+				if(node.getIsDeleted())
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	//Iterate over all nodes and test that the bitmap is correctly set.
+	{
+		const NodeType* nextNodeIds = nodeManager.getNextNodeIds();
+		const Cm::BitMap& islandsBitmap = islands.getBitmap();
+		const PxU32 lastSetBit = islandsBitmap.findLast();
+		for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
+		{
+			for(PxU32 b = islandsBitmap.getWords()[w]; b; b &= b-1)
+			{
+				const IslandType islandId = (IslandType)(w<<5|Ps::lowestSetBit(b));
+				const Island& island = islands.get(islandId);
+				NodeType nextNodeId = island.mStartNodeId;
+				while(INVALID_NODE != nextNodeId)
+				{
+					const Node& node = nodeManager.get(nextNodeId);
+					if(!node.getIsDeleted())
+					{
+						const bool b0 = !node.getIsReadyForSleeping();
+						const bool b1 = nodeNotReadyForSleepingBitmap.test(nextNodeId) ? true : false;
+						if(b0 != b1)
+						{
+							return false;
+						}
+					}
+					nextNodeId = nextNodeIds[nextNodeId];
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+bool verifyKinaticNodeBitmap(const Cm::BitMap& kinematicBitmap, const NodeManager& nodeManager, const IslandManager& islands)
+{
+	//Iterate over the bitmap and test that the nodes have the correct flag set.
+	{
+		const PxU32 lastSetBit = kinematicBitmap.findLast();
+		for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
+		{
+			for(PxU32 b = kinematicBitmap.getWords()[w]; b; b &= b-1)
+			{
+				const NodeType nodeId = (IslandType)(w<<5|Ps::lowestSetBit(b));
+				const Node& node = nodeManager.get(nodeId);
+				if(!node.getIsKinematic())
+				{
+					return false;
+				}
+				if(node.getIsDeleted())
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	//Iterate over all nodes and test that the bitmap is correctly set.
+	{
+		const NodeType* nextNodeIds = nodeManager.getNextNodeIds();
+		const Cm::BitMap& islandsBitmap = islands.getBitmap();
+		const PxU32 lastSetBit = islandsBitmap.findLast();
+		for(PxU32 w = 0; w <= lastSetBit >> 5; ++w)
+		{
+			for(PxU32 b = islandsBitmap.getWords()[w]; b; b &= b-1)
+			{
+				const IslandType islandId = (IslandType)(w<<5|Ps::lowestSetBit(b));
+				const Island& island = islands.get(islandId);
+				NodeType nextNodeId = island.mStartNodeId;
+				while(INVALID_NODE != nextNodeId)
+				{
+					const Node& node = nodeManager.get(nextNodeId);
+					if(!node.getIsDeleted())
+					{
+						const bool b0 = node.getIsKinematic();
+						const bool b1 = kinematicBitmap.test(nextNodeId) ? true : false;
+						if(b0 != b1)
+						{
+							return false;
+						}
+					}
+					nextNodeId = nextNodeIds[nextNodeId];
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+#endif
+
 #ifndef __SPU__
 #define ISLANDGEN_PROFILE 1
 #else
@@ -2091,7 +2398,8 @@ void physx::updateIslandsMain
  const EdgeType* PX_RESTRICT /*createdEdges*/, const PxU32 /*numCreatedEdges*/,
  const EdgeType* PX_RESTRICT brokenEdges, const PxU32 numBrokenEdges,
  const EdgeType* PX_RESTRICT joinedEdges, const PxU32 numJoinedEdges,
- const Cm::BitMap& kinematicNodesBitmap, const PxU32 numAddedKinematics,
+ const Cm::BitMap& kinematicNodesBitmap, const Cm::BitMap& kinematicChangeNodesBitmap, const PxU32 numKinematics,
+ const Cm::BitMap& notReadyForSleepingNodesBitmap, const Cm::BitMap& notReadyForSleepingChangeNodesBitmap,
  NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands, ArticulationRootManager& articulationRootManager,
  ProcessSleepingIslandsComputeData& psicData,
  IslandManagerUpdateWorkBuffers& workBuffers,
@@ -2101,17 +2409,104 @@ void physx::updateIslandsMain
 	PX_UNUSED(profiler);
 #endif
 
-	//Bitmaps of islands affected by joined/broken edges.
-	Cm::BitMap& brokenEdgeIslandsBitmap=*workBuffers.mIslandBitmap1;
+	//This function processes created/deleted nodes and broken/joined edges to create a list of connected islands with the caveat that 
+	//kinematics nodes don't act as bridges between islands ie if B is kinematic and we have edges A-B and B-C then we have two separate 
+	//islands (A,B) and (B,C).
+	//The final list of islands is parsed to determine which islands are asleep and which are awake so that sleep state changes may be reported 
+	//and nodes/edges in awake islands can be sent to the solver.  This is done in the function processSleepingIslands.
+
+	//The function processSleepingIslands achieves two goals
+	//(i)  Determine lists of nodes with modified sleep state.  These lists are stored so that they may be externally queried later.
+	//(ii) Parse all awake islands to generate lists of nodes and edges for the solver. 
+	//Every operation in updateIslandsMain can be thought of as preparing an updated list of islands so that processSleepingIslands can 
+	//be successfully called.  This involves processing all state changes to nodes and edges that occurred since the last island update.
+
+	//When the list of islands is parsed in processSleepingIslands we don't need to iterate over all islands in the list.  
+	//The key point here is we are are only interested in reporting changes to node sleep states and in reporting the nodes and edges of awake islands.
+	//More specifically we are interested in islands that 
+	//(i)   contain a node that changed kinematic state 
+	//			(PxsIslandManager::setKinematic)
+	//(ii)  contain a node that changed not-ready-for-sleeping state 
+	//			(PxsIslandManager::notifyReadyForSleeping, PxsIslandManager::notifyNotReadyForSleeping, PxsIslandManager::setAsleep, PxsIslandManager::setAwake)
+	//(iii) contain a node in the created list
+	//			(PxsIslandManager::addBody)
+	//(iv)  contain an edge in the joined edge list
+	//			(we'll need to work this out from the list of joined edges)
+	//(v)   contain an edge in the broken edge list
+	//			(we'll need to work this out from the lists of broken/deleted edges)
+	//(vi)  contain a node that is not-ready-for-sleeping
+	//			(PxsIslandManager::notifyNotReadyForSleeping, PxsIslandManager::setAwake)
+
+	//The algorithm proceeds by
+	//(a)   Computing a bit map of nodes that are of interest to us.  The bitmap nodeStateChangeBitmap describes the union of all nodes
+	//in the created list and all nodes that changed kinematic state and all nodes that changed not-ready-for-sleeping state. The bitmap
+	//nodeNotReadyForSleepingBitmap describes all nodes that cannot fall asleep.  We can directly compute the union of these two 
+	//bitmaps.  All nodes affected by broken, deleted and joined edges can be added to this union.  All nodes deleted are removed from the bitmap.
+	//We store the result in nodeStateChangeBitmap.
+	//An optimization is to add to nodeStateChangeBitmap as we naturally process the modified edges (stages (b) and (c)) and deleted nodes (stage (e)).
+	//(b)   Remove all deleted nodes from their islands and remove all broken edges from the islands.  Empty islands are released for re-use.
+	//      Islands affected by a broken edge are recorded in brokenEdgeIslandsBitmap.
+	//(c)   Update all islands affected by edges in the joined list.  brokenEdgeIslandsBitmap is updated to account for any islands 
+	//      that are discarded when islands are merged as a result of a joined edge.  Note that joined edges might reference a node in the 
+	//      created node list.
+	//(d)   Every created node that was not managed by processJoinedEdges is placed in its own island.  These nodes must be referenced by no joined edges.
+	//(e)   Nodes/edges that are in the deleted node/edge lists are recycled.
+	//(f)   To enforce the rule that kinematic nodes don't act as the bridge between two islands we replace each kinematic node with 
+	//      a set of proxy nodes: one proxy node for each edge referencing a kinematic. We don't need to do this for all kinematic nodes 
+	//      because we are only interested in kinematics that are in the set of islands that will be parsed in processSleepingIslands.
+	//      It is straightforward to compute the list of islands that will be parsed in processSleepingIslands and then only consider 
+	//      those islands that contain a kinematic.  This subset of islands-containing-kinematics have effectively experienced a broken edge 
+	//      event and need to be added to brokenEdgeIslandsBitmap. 
+	//(g)  All islands in brokenEdgeIslandsBitmap are recomputed from their edge lists.  This typically has the effect of increasing the 
+	//      number of islands.  The islands generated by this process are stored in processIslandsBitmap.
+	//(h) The list of islands to parse in processSleepingIslands is recomputed and processSleepingIslands is called.
+
+	//Note that stage (f) introduces proxy nodes that need to be replaced with the source kinematic nodes at some point before calling 
+	//updateIslandsMain again.  This is achieved with the function mergeKinematicProxiesBackToSource and is called from freeBuffers.
+
+	PX_ASSERT(verifyNotReadyForSleepingNodeBitmap(notReadyForSleepingNodesBitmap, nodeManager, islands));
+	PX_ASSERT(verifyKinaticNodeBitmap(kinematicNodesBitmap, nodeManager, islands));
+
+	Cm::BitMap& brokenEdgeIslandsBitmap = *workBuffers.mBitmap[IslandManagerUpdateWorkBuffers::eBROKEN_EDGE_ISLANDS];
 	brokenEdgeIslandsBitmap.clearFast();
 
-	//Remove deleted nodes from islands.
-	//Remove deleted/broken edges from islands.
-	//Release empty islands.
+	Cm::BitMap& processIslandsBitmap = *workBuffers.mBitmap[IslandManagerUpdateWorkBuffers::ePROCESS_ISLANDS];
+	processIslandsBitmap.clearFast();
+
+	Cm::BitMap& nodeStateChangeBitmap = *workBuffers.mBitmap[IslandManagerUpdateWorkBuffers::eCHANGED_NODES];
+	nodeStateChangeBitmap.clearFast();
+
+	//*************************************************************************
+	//Stage (a) - Computing a bit map of nodes that are of interest to us.
+	//For the time being we just compute the union of nodes that changed state and 
+	//nodes that are flagged not-ready-for-sleeping.  Nodes in broken/deleted edges are
+	//added in stage (b) (removeBrokenEdgesFromIslands), nodes in joined edges are
+	//added in stage (c) (processJoinedEdges), nodes that have been deleted are 
+	//removed in stage (e) (releaseDeletedNodes).  Note that we always account for 
+	//deleted nodes last because an edge could be modified and have a node deleted.
+	//*************************************************************************
+	{
+		//nodeStateChangeBitmap = notReadyForSleepingChangeNodesBitmap | kinematicChangeNodesBitmap | notReadyForSleepingNodesBitmap
+		combineOr(notReadyForSleepingChangeNodesBitmap, nodeStateChangeBitmap);
+		combineOr(kinematicChangeNodesBitmap, nodeStateChangeBitmap);
+		combineOr(notReadyForSleepingNodesBitmap, nodeStateChangeBitmap);
+		for(PxU32 i = 0; i < numCreatedNodes; i++)
+		{
+			const NodeType nodeId = createdNodes[i];
+			nodeStateChangeBitmap.set(nodeId);
+		}
+	}
+
+	//*******************************************************************************************************
+	//Stage (b) - Remove all deleted nodes from their islands and remove all broken edges from the islands.
+	//********************************************************************************************************
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetemptyIslands());
 #endif
+
+		//Use processIslandsBitmap locally to record empty islands.
+		Cm::BitMap& emptyIslandsBitmap = processIslandsBitmap;
 
 		//When removing deleted nodes from islands some islands end up empty.
 		//Don't immediately release these islands because we also want to 
@@ -2120,79 +2515,103 @@ void physx::updateIslandsMain
 		//Store a list of empty islands and release after removing 
 		//deleted edges from islands.
 
-		Cm::BitMap& emptyIslandsBitmap=*workBuffers.mIslandBitmap2;
-		emptyIslandsBitmap.clearFast();
+		//Remove deleted nodes from islands.
+		{
+			Cm::BitMap& scratchBitmap = brokenEdgeIslandsBitmap;
+			PX_ASSERT(0 == scratchBitmap.findLast());
 
-		//Remove deleted nodes from islands with the help of a bitmap to record
-		//all islands affected by a deleted node.
-		removeDeletedNodesFromIslands(
-			deletedNodes,numDeletedNodes,
-			nodeManager,edgeManager,islands,
-			brokenEdgeIslandsBitmap,emptyIslandsBitmap);
-		brokenEdgeIslandsBitmap.clearFast();
+			removeDeletedNodesFromIslands(
+				deletedNodes, numDeletedNodes,
+				nodeManager, islands,
+				scratchBitmap, emptyIslandsBitmap);
+
+			scratchBitmap.clearFast();
+		}
 
 		//Remove broken/deleted edges from islands.
-		removeBrokenEdgesFromIslands(
-			brokenEdges,numBrokenEdges,
-			deletedEdges,numDeletedEdges,
-			NULL,
-			nodeManager,edgeManager,islands,
-			brokenEdgeIslandsBitmap);
+		{
+			PX_ASSERT(0 == brokenEdgeIslandsBitmap.findLast());
+			removeBrokenEdgesFromIslands(
+				brokenEdges, numBrokenEdges,
+				deletedEdges, numDeletedEdges,
+				NULL,
+				nodeManager, edgeManager, islands,
+				brokenEdgeIslandsBitmap,
+				&nodeStateChangeBitmap);
+		}
 
-		//Now release all islands.
-		releaseEmptyIslands(
-			emptyIslandsBitmap,
-			islands,
-			brokenEdgeIslandsBitmap);
+		//Now release all empty islands.
+		{
+			releaseEmptyIslands(
+				emptyIslandsBitmap,
+				islands,
+				brokenEdgeIslandsBitmap);
+		}
+
+		//Make sure to clear out the empty islands.
 		emptyIslandsBitmap.clearFast();
+		PX_ASSERT(0 == processIslandsBitmap.findLast());
 
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_STOP(profiler, Cm::ProfileEventId::IslandGen::GetemptyIslands());
 #endif
 	}
 
-	//Process all edges that are flagged as connected by joining islands together.
+	//*************************************************************************
+	//Stage (c) - Update all islands affected by edges in the joined list.
+	//brokenEdgeIslandsBitmap is updated to account for any islands 
+	//that are discarded when islands are merged as a result of a joined edge.
+	//*************************************************************************
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetjoinedEdges());
 #endif
 
-		Cm::BitMap& affectedIslandsBitmap=*workBuffers.mIslandBitmap2;
-		affectedIslandsBitmap.clearFast();
+		Cm::BitMap& scratchBitmap = processIslandsBitmap;
+		PX_ASSERT(0 == scratchBitmap.findLast());
 
 		NodeType* graphNextNodes=workBuffers.mGraphNextNodes;
 		IslandType* graphStartIslands=workBuffers.mGraphStartIslands;
 		IslandType* graphNextIslands=workBuffers.mGraphNextIslands;
 
 		processJoinedEdges(
-			joinedEdges,numJoinedEdges,
-			nodeManager,edgeManager,islands,
+			joinedEdges, numJoinedEdges,
+			nodeManager, edgeManager, islands,
 			brokenEdgeIslandsBitmap,
-			affectedIslandsBitmap,
-			graphNextNodes,graphStartIslands,graphNextIslands);
+			scratchBitmap,
+			graphNextNodes, graphStartIslands, graphNextIslands,
+			nodeStateChangeBitmap);
+
+		//Make sure to clear out the work buffer.
+		scratchBitmap.clearFast();
+		PX_ASSERT(0 == processIslandsBitmap.findLast());
 
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_STOP(profiler, Cm::ProfileEventId::IslandGen::GetjoinedEdges());
 #endif
 	}
 
-	//Any new nodes not involved in a joined edge need to be placed in their own island.
-	//Release deleted edges/nodes so they are available for reuse.
+	//*************************************************************************
+	//Stage (d) - Every created node that was not managed by processJoinedEdges
+	//is placed in its own island.	
+	//*************************************************************************
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetcreatedNodes());
 #endif
 
 		processCreatedNodes(
-			createdNodes,numCreatedNodes,
-			nodeManager,islands);
+			createdNodes, numCreatedNodes,
+			nodeManager, islands);
 
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_STOP(profiler, Cm::ProfileEventId::IslandGen::GetcreatedNodes());
 #endif
 	}
 
-	//Release deleted edges/nodes so they are available for reuse.
+	//*****************************************************************************
+	//Stage (e) - Nodes/edges that are in the deleted node/edge lists are recycled.
+	//*****************************************************************************
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetdeletedNodesEdges());
@@ -2200,7 +2619,7 @@ void physx::updateIslandsMain
 
 		releaseDeletedNodes(
 			deletedNodes, numDeletedNodes, 
-			nodeManager);
+			nodeManager, nodeStateChangeBitmap);
 
 		releaseDeletedEdges(
 			deletedEdges,numDeletedEdges,
@@ -2210,36 +2629,61 @@ void physx::updateIslandsMain
 		CM_PROFILE_STOP(profiler, Cm::ProfileEventId::IslandGen::GetdeletedNodesEdges());
 #endif
 	}
+	PX_ASSERT(0 == processIslandsBitmap.findLast());
 
-	//Duplicate all kinematics with temporary proxy nodes to ensure that kinematics don't
-	//act as a bridge between islands.
-	if(numAddedKinematics>0)
+	//**************************************************************************************************************
+	//Stage (f) - To enforce the rule that kinematic nodes don't act as the bridge between two islands we replace 
+	//each kinematic node with  a set of proxy nodes with one proxy node for each edge referencing a kinematic.
+	//The subset of islands-containing-kinematics have effectively experienced a broken edge 
+	//event and need to be added to brokenEdgeIslandsBitmap. 
+	//**************************************************************************************************************
+	if(numKinematics > 0)
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetduplicateKinematicNodes());
 #endif
 
+		//Get a list of all islands that need processed.
+		//(We're only interested in islands that have a kinematic and need processed).
+		updateIslandsToProcess(nodeStateChangeBitmap, NULL, nodeManager, processIslandsBitmap);
+
+		//A mapping between source kinematic nodes and their proxies. 
 		NodeType* kinematicProxySourceNodeIds=workBuffers.mKinematicProxySourceNodeIds;
 		NodeType* kinematicProxyNextNodeIds=workBuffers.mKinematicProxyNextNodeIds;
 		NodeType* kinematicProxyLastNodeIds=workBuffers.mKinematicProxyLastNodeIds;
 
+		PxU8 scratchBitmapBuffer[sizeof(Cm::BitMap)];
+		Cm::BitMap* scratchBitmap = (Cm::BitMap*)scratchBitmapBuffer;
+		scratchBitmap->setWords((PxU32*)workBuffers.mGraphNextNodes, nodeManager.getCapacity() >> 5);
+		scratchBitmap->clearFast();
+
+		//Replace all kinematics with proxies.
+		//Update brokenEdgeIslandsBitmap with all affected islands.
 		duplicateKinematicNodes(
-			kinematicNodesBitmap,
+			kinematicNodesBitmap, processIslandsBitmap,
 			nodeManager,edgeManager,islands,
 			kinematicProxySourceNodeIds,kinematicProxyNextNodeIds,kinematicProxyLastNodeIds,
-			brokenEdgeIslandsBitmap);
+			brokenEdgeIslandsBitmap, *scratchBitmap);
+
+		//We don't need this any more (or rather it will be out of date soon).
+		processIslandsBitmap.clearFast();
 
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_STOP(profiler, Cm::ProfileEventId::IslandGen::GetduplicateKinematicNodes());
 #endif
 	}
+	PX_ASSERT(0 == processIslandsBitmap.findLast());
 
-	//Any islands with a broken edge or an edge referencing a kinematic need to be rebuilt into their sub-islands.
+	//*********************************************************************************
+	//(g)  All islands in brokenEdgeIslandsBitmap are recomputed from their edge lists.
+	//All islands generated by this process is recorded in processIslandsBitmap.
+	//*********************************************************************************
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetbrokenEdgeIslands());
 #endif
 
+		//Acceleration data.
 		NodeType* graphNextNodes=workBuffers.mGraphNextNodes;
 		IslandType* graphStartIslands=workBuffers.mGraphStartIslands;
 		IslandType* graphNextIslands=workBuffers.mGraphNextIslands;
@@ -2248,22 +2692,28 @@ void physx::updateIslandsMain
 			brokenEdgeIslandsBitmap,
 			nodeManager,edgeManager,islands,
 			graphNextNodes,graphStartIslands,graphNextIslands,
-			NULL);
+			processIslandsBitmap);
 
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_STOP(profiler, Cm::ProfileEventId::IslandGen::GetbrokenEdgeIslands());
 #endif
 	}
 
-	//Process all the sleeping and awake islands to compute the solver islands data.
+	//*********************************************************************************
+	//Stage (h) - The list of islands to parse in processSleepingIslands is recomputed 
+	//and processSleepingIslands is called.	
+	//*********************************************************************************
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetprocessSleepingIslands());
 #endif
+
+		//Compute all islands to process in processSleepingIslands
+		updateIslandsToProcess(nodeStateChangeBitmap, workBuffers.mKinematicProxyNextNodeIds, nodeManager, processIslandsBitmap);
 		
 #ifndef __SPU__
 		processSleepingIslands<!tSecondPass>(
-			islands.getBitmap(), rigidBodyOffset,
+			processIslandsBitmap, rigidBodyOffset,
 			nodeManager,edgeManager,islands,articulationRootManager,
 			workBuffers.mKinematicProxySourceNodeIds, 
 			psicData);
@@ -2282,7 +2732,7 @@ void physx::updateIslandsMain
 }
 
 void physx::updateIslandsSecondPassMain
-(const PxU32 rigidBodyOffset, Cm::BitMap& affectedIslandsBitmap,
+(const PxU32 rigidBodyOffset, Cm::BitMap& processIslandsBitmap,
  const EdgeType* PX_RESTRICT brokenEdges, const PxU32 numBrokenEdges,
  NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands, ArticulationRootManager& articulationRootManager,
  ProcessSleepingIslandsComputeData& psicData,
@@ -2293,12 +2743,13 @@ void physx::updateIslandsSecondPassMain
 	PX_UNUSED(profiler);
 #endif
 
+	PX_ASSERT(&processIslandsBitmap == workBuffers.mBitmap[IslandManagerUpdateWorkBuffers::ePROCESS_ISLANDS]);
+
 	//Bitmaps of islands affected by broken edges.
-	Cm::BitMap& brokenEdgeIslandsBitmap=*workBuffers.mIslandBitmap1;
+	Cm::BitMap& brokenEdgeIslandsBitmap=*workBuffers.mBitmap[IslandManagerUpdateWorkBuffers::eBROKEN_EDGE_ISLANDS];
 	brokenEdgeIslandsBitmap.clearFast();
 
 	//Remove broken edges from islands.
-	//Release empty islands.
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetemptyIslands());
@@ -2310,7 +2761,7 @@ void physx::updateIslandsSecondPassMain
 			NULL,0,
 			workBuffers.mKinematicProxySourceNodeIds,
 			nodeManager,edgeManager,islands,
-			brokenEdgeIslandsBitmap);
+			brokenEdgeIslandsBitmap, NULL);
 
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_STOP(profiler, Cm::ProfileEventId::IslandGen::GetemptyIslands());
@@ -2318,6 +2769,7 @@ void physx::updateIslandsSecondPassMain
 	}
 
 	//Any islands with a broken edge need to be rebuilt into their sub-islands.
+	//processIslandsBitmap needs updated to reflect the changes to active island ids.
 	{
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_START(profiler, Cm::ProfileEventId::IslandGen::GetbrokenEdgeIslands());
@@ -2331,7 +2783,7 @@ void physx::updateIslandsSecondPassMain
 			brokenEdgeIslandsBitmap,
 			nodeManager,edgeManager,islands,
 			graphNextNodes,graphStartIslands,graphNextIslands,
-			&affectedIslandsBitmap);
+			processIslandsBitmap);
 
 #if ISLANDGEN_PROFILE
 		CM_PROFILE_STOP(profiler, Cm::ProfileEventId::IslandGen::GetbrokenEdgeIslands());
@@ -2346,13 +2798,13 @@ void physx::updateIslandsSecondPassMain
 
 #ifndef __SPU__
 		processSleepingIslands<tSecondPass>(
-			affectedIslandsBitmap, rigidBodyOffset,
+			processIslandsBitmap, rigidBodyOffset,
 			nodeManager,edgeManager,islands,articulationRootManager,
 			workBuffers.mKinematicProxySourceNodeIds,
 			psicData);
 #else
 		processSleepingIslandsSecondPass(
-			affectedIslandsBitmap, rigidBodyOffset,
+			processIslandsBitmap, rigidBodyOffset,
 			nodeManager,edgeManager,islands,articulationRootManager,
 			workBuffers.mKinematicProxySourceNodeIds,
 			psicData);

@@ -24,9 +24,9 @@ class LauncherLocalization : BuildCommand
 			P4.Sync(P4Env.BuildRootP4 + "/Engine/Content/...");
 			P4.Sync(P4Env.BuildRootP4 + "/Engine/Source/...");
 
-			P4.Sync(P4Env.BuildRootP4 + "/Engine/Programs/NoRedist/UnrealEngineLauncher/Config/...");
-			P4.Sync(P4Env.BuildRootP4 + "/Engine/Programs/NoRedist/UnrealEngineLauncher/Content/...");
-			//P4.Sync(P4Env.BuildRootP4 + "/Engine/Source/..."); <- takes care of syncing Launcher source already
+            P4.Sync(P4Env.BuildRootP4 + "/Portal/Config/...");
+            P4.Sync(P4Env.BuildRootP4 + "/Portal/Content/...");
+            P4.Sync(P4Env.BuildRootP4 + "/Portal/Source/...");
 
 			Log("Localize from label {0}", P4Env.LabelToSync);
 		}
@@ -43,7 +43,7 @@ class LauncherLocalization : BuildCommand
 			//Export
 			if (appFile != null)
 			{
-				ExportFileToDirectory(appFile, new DirectoryInfo(CmdEnv.LocalRoot + "/Engine/Programs/NoRedist/UnrealEngineLauncher/Content/Localization/App"), launcherGroup.EnabledCultures);
+				ExportFileToDirectory(appFile, new DirectoryInfo(CmdEnv.LocalRoot + "/Portal/Content/Localization/App"), launcherGroup.EnabledCultures);
 			}
 		}
 
@@ -66,8 +66,7 @@ class LauncherLocalization : BuildCommand
 		// Setup commandlet arguments with configurations.
 		var CommandletArgumentSets = new string[] 
 			{
-				String.Format("-config={0}", @"./Programs/NoRedist/UnrealEngineLauncher/Config/Localization/App.ini") + (string.IsNullOrEmpty(CommandletSCCArguments) ? "" : " " + CommandletSCCArguments),
-				String.Format("-config={0}", @"./Programs/NoRedist/UnrealEngineLauncher/Config/Localization/WordCount.ini"),
+				String.Format("-config={0}", @"../Portal/Config/Localization/App.ini") + (string.IsNullOrEmpty(CommandletSCCArguments) ? "" : " " + CommandletSCCArguments)
 			};
 
 		// Execute commandlet for each set of arguments.
@@ -87,7 +86,7 @@ class LauncherLocalization : BuildCommand
 		}
 
 		// Upload Launcher text to OneSky
-		UploadDirectoryToProject(GetAppProject(oneSkyService), new DirectoryInfo(CmdEnv.LocalRoot + "/Engine/Programs/NoRedist/UnrealEngineLauncher/Content/Localization/App"), "*.po");
+		UploadDirectoryToProject(GetAppProject(oneSkyService), new DirectoryInfo(CmdEnv.LocalRoot + "/Portal/Content/Localization/App"), "*.po");
 	}
 
 	private static ProjectGroup GetLauncherGroup(OneSkyService oneSkyService)
@@ -264,7 +263,7 @@ namespace EpicGames.OneSkyLocalization.Config
 		{
 			CommandUtils.Log("Name : {0}", Name);
 			CommandUtils.Log("ApiKey : {0}", ApiKey);
-			//CommandUtils.Log("ApiSecret : {0}", ApiSecret);  // This should probably never be revealed.
+			//CommandUtils.LogConsole("ApiSecret : {0}", ApiSecret);  // This should probably never be revealed.
 		}
 	}
 }

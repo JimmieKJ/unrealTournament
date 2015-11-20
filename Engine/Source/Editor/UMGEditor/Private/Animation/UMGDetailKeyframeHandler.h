@@ -9,7 +9,7 @@ class FUMGDetailKeyframeHandler : public IDetailKeyframeHandler
 public:
 	FUMGDetailKeyframeHandler( TSharedPtr<class FWidgetBlueprintEditor> InBlueprintEditor );
 
-	virtual bool IsPropertyKeyable(const UClass& InObjectClass, const class IPropertyHandle& PropertyHandle) const override;
+	virtual bool IsPropertyKeyable(UClass* InObjectClass, const class IPropertyHandle& PropertyHandle) const override;
 
 	virtual bool IsPropertyKeyingEnabled() const override;
 

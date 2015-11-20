@@ -14,6 +14,7 @@
 #include "SAnimNotifyPanel.h"
 #include "SAnimCurvePanel.h"
 #include "AnimPreviewInstance.h"
+#include "SAnimTimingPanel.h"
 
 #define LOCTEXT_NAMESPACE "AnimSequenceEditor"
 
@@ -30,6 +31,8 @@ void SMontageEditor::Construct(const FArguments& InArgs)
 	MontageObj = InArgs._Montage;
 	check(MontageObj);
 
+	WeakPersona = InArgs._Persona;
+
 	bDragging = false;
 	bIsActiveTimerRegistered = false;
 
@@ -44,6 +47,20 @@ void SMontageEditor::Construct(const FArguments& InArgs)
 		SharedPersona->RegisterOnPersonaRefresh(FPersona::FOnPersonaRefresh::CreateSP(this, &SMontageEditor::RebuildMontagePanel));
 	}
 
+	SAssignNew(AnimTimingPanel, SAnimTimingPanel)
+		.InWeakPersona(PersonaPtr)
+		.InSequence(MontageObj)
+		.WidgetWidth(S2ColumnWidget::DEFAULT_RIGHT_COLUMN_WIDTH)
+		.ViewInputMin(this, &SAnimEditorBase::GetViewMinInput)
+		.ViewInputMax(this, &SAnimEditorBase::GetViewMaxInput)
+		.InputMin(this, &SAnimEditorBase::GetMinInput)
+		.InputMax(this, &SAnimEditorBase::GetMaxInput)
+		.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange);
+
+	TAttribute<EVisibility> SectionVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(AnimTimingPanel.ToSharedRef(), &SAnimTimingPanel::IsElementDisplayVisible, ETimingElementType::Section));
+	TAttribute<EVisibility> NotifyVisibility = TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(AnimTimingPanel.ToSharedRef(), &SAnimTimingPanel::IsElementDisplayVisible, ETimingElementType::QueuedNotify));
+	FOnGetTimingNodeVisibility TimingNodeVisibilityDelegate = FOnGetTimingNodeVisibility::CreateSP(AnimTimingPanel.ToSharedRef(), &SAnimTimingPanel::IsElementDisplayVisible);
+	
 	EditorPanels->AddSlot()
 	.AutoHeight()
 	.Padding(0, 10)
@@ -58,6 +75,7 @@ void SMontageEditor::Construct(const FArguments& InArgs)
 		.InputMin(this, &SAnimEditorBase::GetMinInput)
 		.InputMax(this, &SAnimEditorBase::GetMaxInput)
 		.OnSetInputViewRange(this, &SAnimEditorBase::SetInputViewRange)
+		.SectionTimingNodeVisibility(SectionVisibility)
 	];
 
 	EditorPanels->AddSlot()
@@ -67,6 +85,13 @@ void SMontageEditor::Construct(const FArguments& InArgs)
 		SAssignNew( AnimMontageSectionsPanel, SAnimMontageSectionsPanel )
 		.Montage(MontageObj)
 		.MontageEditor(SharedThis(this))
+	];
+
+	EditorPanels->AddSlot()
+	.AutoHeight()
+	.Padding(0, 10)
+	[
+		AnimTimingPanel.ToSharedRef()
 	];
 
 	EditorPanels->AddSlot()
@@ -86,6 +111,7 @@ void SMontageEditor::Construct(const FArguments& InArgs)
 		.OnSelectionChanged(this, &SAnimEditorBase::OnSelectionChanged)
 		.MarkerBars(this, &SMontageEditor::GetMarkerBarInformation)
 		.OnRequestRefreshOffsets(this, &SMontageEditor::RefreshNotifyTriggerOffsets)
+		.OnGetTimingNodeVisibility(TimingNodeVisibilityDelegate)
 	];
 
 	EditorPanels->AddSlot()
@@ -268,6 +294,8 @@ void SMontageEditor::OnEditSectionTime( int32 SectionIndex, float NewTime)
 		MontageObj->CompositeSections[SectionIndex].SetTime(NewTime);
 		MontageObj->CompositeSections[SectionIndex].LinkMontage(MontageObj, NewTime);
 	}
+
+	AnimMontagePanel->RefreshTimingNodes();
 }
 void SMontageEditor::OnEditSectionTimeFinish( int32 SectionIndex )
 {
@@ -279,6 +307,12 @@ void SMontageEditor::OnEditSectionTimeFinish( int32 SectionIndex )
 		RefreshNotifyTriggerOffsets();
 		MontageObj->MarkPackageDirty();
 		AnimMontageSectionsPanel->Update();
+	}
+
+	TSharedPtr<FPersona> SharedPersona = WeakPersona.Pin();
+	if(SharedPersona.IsValid())
+	{
+		SharedPersona->OnSectionsChanged.Broadcast();
 	}
 }
 
@@ -313,6 +347,8 @@ void SMontageEditor::OnMontageChange(class UObject *EditorAnimBaseObj, bool Rebu
 
 	if ( MontageObj != nullptr )
 	{
+		float PreviouewSeqLength = GetSequenceLength();
+
 		if(Rebuild && !bIsActiveTimerRegistered)
 		{
 			bIsActiveTimerRegistered = true;
@@ -324,6 +360,13 @@ void SMontageEditor::OnMontageChange(class UObject *EditorAnimBaseObj, bool Rebu
 		}
 		
 		MontageObj->MarkPackageDirty();
+
+		// if animation length changed, we might be out of range, let's restart
+		if (GetSequenceLength() != PreviouewSeqLength)
+		{
+			// this might not be safe
+			RestartPreview();
+		}
 	}
 }
 
@@ -371,6 +414,7 @@ void SMontageEditor::SortAndUpdateMontage()
 	// Update view (this will recreate everything)
 	AnimMontagePanel->Update();
 	AnimMontageSectionsPanel->Update();
+	AnimTimingPanel->Update();
 
 	// Restart the preview instance of the montage
 	RestartPreview();
@@ -496,6 +540,7 @@ void SMontageEditor::RemoveSection(int32 SectionIndex)
 		EnsureStartingSection();
 		MontageObj->MarkPackageDirty();
 		AnimMontageSectionsPanel->Update();
+		AnimTimingPanel->Update();
 		RestartPreview();
 	}
 }
@@ -560,6 +605,18 @@ void SMontageEditor::RemoveMontageSlot(int32 AnimSlotIndex)
 		MontageObj->SlotAnimTracks.RemoveAt(AnimSlotIndex);
 		MontageObj->MarkPackageDirty();
 		AnimMontagePanel->Update();
+
+		// Iterate the notifies and relink anything that is now invalid
+		for(FAnimNotifyEvent& Event : MontageObj->Notifies)
+		{
+			Event.ConditionalRelink();
+		}
+
+		// Do the same for sections
+		for(FCompositeSection& Section : MontageObj->CompositeSections)
+		{
+			Section.ConditionalRelink();
+		}
 	}
 }
 

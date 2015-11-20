@@ -57,7 +57,8 @@ FTemplateConfigValue::FTemplateConfigValue(const FString& InFile, const FString&
 UTemplateProjectDefs::UTemplateProjectDefs(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-
+	bAllowProjectCreation = true;
+	EditDetailLevelPreference = EFeaturePackDetailLevel::Standard;
 }
 
 void UTemplateProjectDefs::FixupStrings(const FString& TemplateName, const FString& ProjectName)

@@ -32,7 +32,6 @@ namespace Gu
 		FC_UNDEFINED
 	};
 
-	FeatureCode	computeFeatureCode(PxReal u, PxReal v);
 	bool		selectNormal(PxU8 data, PxReal u, PxReal v);
 }
 }

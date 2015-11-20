@@ -8,8 +8,7 @@
 USoundBase::USoundBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	MaxConcurrentPlayCount = 16;
-	MaxConcurrentResolutionRule = EMaxConcurrentResolutionRule::StopFarthestThenOldest;
+	MaxConcurrentPlayCount_DEPRECATED = 16;
 }
 
 void USoundBase::PostInitProperties()
@@ -107,3 +106,42 @@ USoundClass* USoundBase::GetSoundClass() const
 {
 	return SoundClassObject;
 }
+
+const FSoundConcurrencySettings* USoundBase::GetSoundConcurrencySettingsToApply()
+{
+	if (bOverrideConcurrency)
+	{
+		return &ConcurrencyOverrides;
+	}
+	else if (SoundConcurrencySettings)
+	{
+		return &SoundConcurrencySettings->Concurrency;
+	}
+	return nullptr;
+}
+
+uint32 USoundBase::GetSoundConcurrencyObjectID() const
+{
+	if (SoundConcurrencySettings != nullptr && !bOverrideConcurrency)
+	{
+		return SoundConcurrencySettings->GetUniqueID();
+	}
+	return 0;
+}
+
+void USoundBase::PostLoad()
+{
+	Super::PostLoad();
+
+	const int32 LinkerUE4Version = GetLinkerUE4Version();
+
+	if (LinkerUE4Version < VER_UE4_SOUND_CONCURRENCY_PACKAGE)
+	{
+		bOverrideConcurrency = true;
+		ConcurrencyOverrides.bLimitToOwner = false;
+		ConcurrencyOverrides.MaxCount = MaxConcurrentPlayCount_DEPRECATED;
+		ConcurrencyOverrides.ResolutionRule = MaxConcurrentResolutionRule_DEPRECATED;
+		ConcurrencyOverrides.VolumeScale = 1.0f;
+	}
+}
+

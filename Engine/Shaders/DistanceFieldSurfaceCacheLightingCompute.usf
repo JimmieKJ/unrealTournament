@@ -196,10 +196,10 @@ void CullObjectsForViewCS(
 		uint SourceIndex = ObjectIndex;
 
 		float4 ObjectBoundingSphere = float4(ObjectBounds[4 * SourceIndex + 0], ObjectBounds[4 * SourceIndex + 1], ObjectBounds[4 * SourceIndex + 2], ObjectBounds[4 * SourceIndex + 3]);
-		float DistanceToViewSq = dot(View.ViewOrigin.xyz - ObjectBoundingSphere.xyz, View.ViewOrigin.xyz - ObjectBoundingSphere.xyz);
+		float DistanceToViewSq = dot(View.WorldCameraOrigin - ObjectBoundingSphere.xyz, View.WorldCameraOrigin - ObjectBoundingSphere.xyz);
 
 		if (DistanceToViewSq < Square(AOMaxViewDistance + ObjectBoundingSphere.w)
-			&& ViewFrustumIntersectSphere(ObjectBoundingSphere.xyz, ObjectBoundingSphere.w + AOMaxDistance))
+			&& ViewFrustumIntersectSphere(ObjectBoundingSphere.xyz, ObjectBoundingSphere.w + AOObjectMaxDistance))
 		{
 			uint DestIndex;
 			InterlockedAdd(NumGroupObjects, 1U, DestIndex);
@@ -259,11 +259,6 @@ float2 NumGroups;
 
 RWBuffer<float4> RWTileConeAxisAndCos;
 RWBuffer<float4> RWTileConeDepthRanges;
-RWBuffer<uint> RWTileHeadDataUnpacked;
-
-#ifndef MAX_OBJECTS_PER_TILE
-#define MAX_OBJECTS_PER_TILE 1
-#endif
 
 /** Builds tile depth ranges and bounding cones. */
 [numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
@@ -293,8 +288,12 @@ void BuildTileConesMain(
     
 	// Use shared memory atomics to build the depth bounds for this tile
 	// Each thread is assigned to a pixel at this point
-    InterlockedMin(IntegerTileMinZ, asuint(SceneDepth));
-    InterlockedMax(IntegerTileMaxZ, asuint(SceneDepth));
+
+	if (SceneDepth < AOMaxViewDistance)
+	{
+		InterlockedMin(IntegerTileMinZ, asuint(SceneDepth));
+		InterlockedMax(IntegerTileMaxZ, asuint(SceneDepth));
+	}
 
     GroupMemoryBarrierWithGroupSync();
 
@@ -305,7 +304,7 @@ void BuildTileConesMain(
 
 	// Compute a second min and max Z, clipped by HalfZ, so that we get two depth bounds per tile
 	// This results in more conservative tile depth bounds and fewer intersections
-	if (SceneDepth >= HalfZ)
+	if (SceneDepth >= HalfZ && SceneDepth < AOMaxViewDistance)
 	{
 		InterlockedMin(IntegerTileMinZ2, asuint(SceneDepth));
 	}
@@ -378,9 +377,7 @@ groupshared uint MediumTileNumObjects;
 groupshared uint LargeTileNumObjects;
 groupshared uint TileArrayDataStart;
 
-RWBuffer<uint> RWTileArrayData;
 RWBuffer<uint> RWTileArrayNextAllocation;
-RWBuffer<uint4> RWTileHeadData;
 
 [numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
 void DistanceFieldAOBuildTileListMain(
@@ -472,6 +469,39 @@ void DistanceFieldAOBuildTileListMain(
 		TileConeVertex = float3(0, 0, 0) - TileConeAxis * VertexPullbackLength;
 	}
 	
+#if USE_DEPTH_RANGE_LISTS
+
+	// A value of 1 is conservative, but has a huge impact on performance
+	float RadiusScale = .5f;
+	uint TileIndex = GroupId.y * (uint)NumGroups.x + GroupId.x;
+	uint NumCulledObjects = GetCulledNumObjects();
+
+	// Compute per-tile lists of affecting objects through bounds culling
+	// Each thread now operates on a sample instead of a pixel
+	LOOP
+	for (uint ObjectIndex = ThreadIndex; ObjectIndex < NumCulledObjects; ObjectIndex += THREADGROUP_TOTALSIZE)
+	{
+		float4 WorldSphereCenterAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
+		float3 ViewSpaceSphereCenter = mul(float4(WorldSphereCenterAndRadius.xyz + View.PreViewTranslation.xyz, 1), View.TranslatedWorldToView).xyz;
+		float4 SphereCenterAndRadius = float4(ViewSpaceSphereCenter, WorldSphereCenterAndRadius.w + RadiusScale * AOObjectMaxDistance);
+
+		if (SphereIntersectCone(SphereCenterAndRadius, TileConeVertex, TileConeAxis, TileConeAngleCos, TileConeAngleSin))
+		{
+			float ConeAxisDistance = dot(SphereCenterAndRadius.xyz - TileConeVertex, TileConeAxis);
+			float2 ConeAxisDistanceMinMax = float2(ConeAxisDistance + SphereCenterAndRadius.w, ConeAxisDistance - SphereCenterAndRadius.w);
+
+			uint TotalNumGroups = (uint)(NumGroups.x * NumGroups.y + .5f);
+			IntersectObjectWithConeDepthRange(TileConeVertex, TileConeAxis, TileConeAngleCos, TileConeAngleSin, ConeAxisDepthRanges.xy, ConeAxisDistanceMinMax, TileIndex, 0, ObjectIndex, TotalNumGroups);
+			IntersectObjectWithConeDepthRange(TileConeVertex, TileConeAxis, TileConeAngleCos, TileConeAngleSin, ConeAxisDepthRanges.zw, ConeAxisDistanceMinMax, TileIndex, 1, ObjectIndex, TotalNumGroups);
+		}
+	}
+
+	if (ThreadIndex == 0)
+	{
+		RWTileHeadDataUnpacked[TileIndex * 4 + 0] = TileIndex;
+	}
+
+#else
 	// A value of 1 is conservative, but has huge impact on performance
 	float RadiusScale = .5f;
 	float SmallGroupMaxSampleRadius;
@@ -540,7 +570,12 @@ void DistanceFieldAOBuildTileListMain(
 		uint NumObjectsIntersecting = SmallTileNumObjects + MediumTileNumObjects + LargeTileNumObjects;
 		InterlockedAdd(RWTileArrayNextAllocation[0], NumObjectsIntersecting, ArrayStart);
 		TileArrayDataStart = ArrayStart;
-		RWTileHeadData[GroupId.y * (uint)NumGroups.x + GroupId.x] = uint4(TileArrayDataStart, SmallTileNumObjects, MediumTileNumObjects, LargeTileNumObjects);
+
+		uint HeadIndex = GroupId.y * (uint)NumGroups.x + GroupId.x;
+		RWTileHeadDataUnpacked[HeadIndex * 4 + 0] = TileArrayDataStart;
+		RWTileHeadDataUnpacked[HeadIndex * 4 + 1] = SmallTileNumObjects;
+		RWTileHeadDataUnpacked[HeadIndex * 4 + 2] = MediumTileNumObjects;
+		RWTileHeadDataUnpacked[HeadIndex * 4 + 3] = LargeTileNumObjects;
 	}
 	
 	GroupMemoryBarrierWithGroupSync();
@@ -568,6 +603,7 @@ void DistanceFieldAOBuildTileListMain(
 	{
 		RWTileArrayData[ArrayDataStart + LargeListIndex] = LargeTileObjectIndices[LargeListIndex];
 	}
+#endif
 }
 
 /** View rect min in xy, max in zw. */
@@ -649,9 +685,8 @@ void PopulateCacheCS(
 				// Sign of W stores whether the sample is fading in or out
 				float RadiusSign = 1;
 				CachedIrradianceCachePositionRadius[NextSampleIndex] = float4(WorldShadingPosition, RadiusSign * SceneDepth * CurrentLevelDownsampleFactor * MaxRadiusScale);
-				// abs(w) - 1 stores fade in amount (shifted away from 0 to retain sign when fade amount is 0)
 				// sign(w) stores bHasHeightfieldRepresentation
-				CachedIrradianceCacheNormal[NextSampleIndex] = float4(WorldNormal, 1 * (bHasHeightfieldRepresentation ? 1 : -1));
+				CachedIrradianceCacheNormal[NextSampleIndex] = float4(WorldNormal, (bHasHeightfieldRepresentation ? 1 : -1));
 				CachedIrradianceCacheTileCoordinate[NextSampleIndex] = TileCoordinate;
 			}
 		}
@@ -690,6 +725,8 @@ void PopulateCacheCS(
 float TanConeHalfAngle;
 float RecordRadiusScale;
 
+Buffer<float4> TileConeDepthRanges;
+
 RWBuffer<float> RWOccluderRadius;
 RWBuffer<float> RWRecordConeVisibility;
 RWBuffer<float> RWRecordConeData;
@@ -704,17 +741,12 @@ RWBuffer<float4> RWDebugBuffer;
 #define THREADS_PER_OBJECT (FINAL_GATHER_THREADGROUP_SIZE / SIMULTANEOUSLY_TRACED_OBJECTS)
 
 groupshared uint SharedConeVisibility[NUM_CONE_DIRECTIONS];
-groupshared uint SharedConeRawVisibility[NUM_CONE_DIRECTIONS][NUM_VISIBILITY_STEPS];
+groupshared uint SharedConeRawVisibility[NUM_CONE_DIRECTIONS * NUM_VISIBILITY_STEPS];
 groupshared uint SharedMinOcclusionDistance;
-
-groupshared float3 SharedGatheredLighting[FINAL_GATHER_THREADGROUP_SIZE];
 
 #define MAX_RECORD_CULLED_OBJECTS 128
 groupshared uint SharedCulledObjectList[MAX_RECORD_CULLED_OBJECTS];
 groupshared uint NumRecordCulledObjects;
-
-// Inconsistent performance savings + overflow of shared memory array
-#define CULL_OBJECTS_TO_RECORD 0
 
 /** Computes ambient occlusion for a surface cache record by cone stepping through the nearby object distance fields. */
 [numthreads(FINAL_GATHER_THREADGROUP_SIZE, 1, 1)]
@@ -736,12 +768,12 @@ void ConeTraceOcclusionCS(
 				UNROLL
 				for (uint i = 0; i < NUM_VISIBILITY_STEPS; i++)
 				{
-					SharedConeRawVisibility[ConeIndex][i] = asuint(1.0f);
+					SharedConeRawVisibility[(ConeIndex * NUM_VISIBILITY_STEPS) + i] = asuint(1.0f);
 				}
 			#endif
 		}
 
-		SharedMinOcclusionDistance = asuint(AOMaxDistance);
+		SharedMinOcclusionDistance = asuint(AOObjectMaxDistance);
 		NumRecordCulledObjects = 0;
 	}
 
@@ -762,55 +794,19 @@ void ConeTraceOcclusionCS(
 		uint2 TileCoordinate = IrradianceCacheTileCoordinate[RecordIndex];
 
 		uint4 TileHead = GetTileHead(TileCoordinate);
-		uint NumObjectsAffectingTile = TileHead.y + TileHead.z + TileHead.w;
-		uint NumCulledObjects = NumObjectsAffectingTile;
-
-		#if CULL_OBJECTS_TO_RECORD
-
-			LOOP 
-			for (uint ListObjectIndex = ThreadIndex; ListObjectIndex < NumObjectsAffectingTile; ListObjectIndex += FINAL_GATHER_THREADGROUP_SIZE)
-			{
-				if (ListObjectIndex < NumObjectsAffectingTile)
-				{
-					uint ListIndex = 0;
-					uint ArrayIndex = ListObjectIndex;
-
-					FLATTEN
-					if (ListObjectIndex >= TileHead.y + TileHead.z)
-					{
-						ListIndex = 2;
-						ArrayIndex = ListObjectIndex - TileHead.y - TileHead.z;
-					}
-					else if (ListObjectIndex >= TileHead.y)
-					{
-						ListIndex = 1;
-						ArrayIndex = ListObjectIndex - TileHead.y;
-					}
-
-					uint ObjectIndex = TileArrayData.Load((ArrayIndex * TileListGroupSize.x * TileListGroupSize.y + TileHead.x) * NUM_CULLED_OBJECT_LISTS + ListIndex);
-
-					float4 ObjectPositionAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
-					float ObjectDistanceSq = dot(ObjectPositionAndRadius.xyz - WorldShadingPosition, ObjectPositionAndRadius.xyz - WorldShadingPosition);
-
-					BRANCH
-					// Skip tracing objects with a small projected angle 
-					if (ObjectPositionAndRadius.w * ObjectPositionAndRadius.w / ObjectDistanceSq > Square(.25f)
-						// Skip tracing objects outside the max occlusion distance
-						//@todo - box distance
-						&& ObjectDistanceSq < Square(ObjectPositionAndRadius.w + AOMaxDistance))
-					{
-						uint DestIndex;
-						InterlockedAdd(NumRecordCulledObjects, 1U, DestIndex);
-						SharedCulledObjectList[DestIndex] = ObjectIndex;
-					}
-				}
-			}
-
-			GroupMemoryBarrierWithGroupSync();
-
-			NumCulledObjects = NumRecordCulledObjects;
-
+		
+		#if USE_DEPTH_RANGE_LISTS
+		
+			uint TileIndex = TileCoordinate.y * TileListGroupSize.x + TileCoordinate.x;
+			float4 ConeAxisDepthRanges = TileConeDepthRanges.Load(TileIndex);
+			float SceneDepth = mul(float4(WorldShadingPosition, 1), View.WorldToClip).w;
+			uint ListIndex = SceneDepth < ConeAxisDepthRanges.y ? 0 : 1;
+			uint NumObjectsAffectingTile = SceneDepth < ConeAxisDepthRanges.y ? TileHead.y : TileHead.z;
+		#else
+			uint NumObjectsAffectingTile = TileHead.y + TileHead.z + TileHead.w;
 		#endif
+
+		uint NumCulledObjects = NumObjectsAffectingTile;
 
 		FindBestAxisVectors2(WorldNormal, TangentX, TangentY);
 
@@ -827,8 +823,7 @@ void ConeTraceOcclusionCS(
 
 		float MinVisibility = 1;
 		float MinRawVisibility[NUM_VISIBILITY_STEPS];
-		float MinWorldDistanceToOccluder = AOMaxDistance;
-		float ConeDistanceAtClosestToOccluder = 0;
+		float MinWorldDistanceToOccluder = AOObjectMaxDistance;
 		float MaxWorldStepOffset = GetStepOffset(NUM_CONE_STEPS);
 
 #if SUPPORT_IRRADIANCE
@@ -848,26 +843,24 @@ void ConeTraceOcclusionCS(
 				// Ignore extra threads
 				&& ObjectOffsetIndex < SIMULTANEOUSLY_TRACED_OBJECTS)
 			{
+				#if USE_DEPTH_RANGE_LISTS
+					uint ArrayIndex = EffectiveListObjectIndex;
+				#else
+					uint ListIndex = 0;
+					uint ArrayIndex = EffectiveListObjectIndex;
 
-			#if CULL_OBJECTS_TO_RECORD
-				uint ObjectIndex = SharedCulledObjectList[EffectiveListObjectIndex];
-				{
-			#else
-
-				uint ListIndex = 0;
-				uint ArrayIndex = EffectiveListObjectIndex;
-
-				FLATTEN
-				if (EffectiveListObjectIndex >= TileHead.y + TileHead.z)
-				{
-					ListIndex = 2;
-					ArrayIndex = EffectiveListObjectIndex - TileHead.y - TileHead.z;
-				}
-				else if (EffectiveListObjectIndex >= TileHead.y)
-				{
-					ListIndex = 1;
-					ArrayIndex = EffectiveListObjectIndex - TileHead.y;
-				}
+					FLATTEN
+					if (EffectiveListObjectIndex >= TileHead.y + TileHead.z)
+					{
+						ListIndex = 2;
+						ArrayIndex = EffectiveListObjectIndex - TileHead.y - TileHead.z;
+					}
+					else if (EffectiveListObjectIndex >= TileHead.y)
+					{
+						ListIndex = 1;
+						ArrayIndex = EffectiveListObjectIndex - TileHead.y;
+					}
+				#endif
 
 				uint ObjectIndex = TileArrayData.Load((ArrayIndex * TileListGroupSize.x * TileListGroupSize.y + TileHead.x) * NUM_CULLED_OBJECT_LISTS + ListIndex);
 
@@ -878,8 +871,6 @@ void ConeTraceOcclusionCS(
 				// Skip tracing objects with a small projected angle 
 				if (ObjectPositionAndRadius.w * ObjectPositionAndRadius.w / ObjectDistanceSq > Square(.25f))
 				{
-
-			#endif
 					float3 LocalPositionExtent = LoadObjectLocalPositionExtent(ObjectIndex);
 					float4x4 WorldToVolume = LoadObjectWorldToVolume(ObjectIndex);
 					bool bGeneratedAsTwoSided;
@@ -890,13 +881,13 @@ void ConeTraceOcclusionCS(
 					float BoxDistance = ComputeDistanceFromBoxToPoint(-LocalPositionExtent, LocalPositionExtent, VolumeShadingPosition) * UVScaleAndVolumeScale.w;
 
 					BRANCH
-					if (BoxDistance < AOMaxDistance)
+					if (BoxDistance < AOObjectMaxDistance)
 					{
 						float3 UVAdd = LoadObjectUVAdd(ObjectIndex);
 
 						uint StartStepIndex = 0;
 			
-						#if !CULL_OBJECTS_TO_RECORD
+						#if !USE_DEPTH_RANGE_LISTS
 							FLATTEN
 							if (EffectiveListObjectIndex >= TileHead.y + TileHead.z)
 							{
@@ -929,10 +920,10 @@ void ConeTraceOcclusionCS(
 
 							// Don't allow small objects to fully occlude a cone step
 							Visibility = max(Visibility, 1 - saturate(ObjectOccluderRadius / SphereRadius));
-							float OccluderDistanceFraction = (WorldStepOffset + DistanceToOccluder) / AOMaxDistance;
+							float OccluderDistanceFraction = (WorldStepOffset + DistanceToOccluder) / AOObjectMaxDistance;
 
 							#if SUPPORT_IRRADIANCE
-								uint VisibilityIndex = NUM_VISIBILITY_STEPS * WorldStepOffset / AOMaxDistance;
+								uint VisibilityIndex = NUM_VISIBILITY_STEPS * WorldStepOffset / AOObjectMaxDistance;
 								// Less GI occlusion for two sided meshes, which can't separate self-occlusion
 								//@todo - expose
 								float TwoSidedVisibilityScale = bGeneratedAsTwoSided ? 100 : 1;
@@ -941,9 +932,13 @@ void ConeTraceOcclusionCS(
 							#endif
 
 							// Fade out occlusion based on distance to occluder to avoid a discontinuity at the max AO distance
-							Visibility = max(Visibility, saturate(OccluderDistanceFraction * OccluderDistanceFraction * .8f));
+							Visibility = max(Visibility, saturate(OccluderDistanceFraction * OccluderDistanceFraction * .6f));
 
-							MinVisibility = min(MinVisibility, Visibility);
+							FLATTEN
+							if (Visibility < MinVisibility)
+							{
+								MinVisibility = Visibility;
+							}
 
 							if (DistanceToOccluder < .9f * SphereRadius)
 							{
@@ -968,7 +963,7 @@ void ConeTraceOcclusionCS(
 		UNROLL
 		for (uint i = 0; i < NUM_VISIBILITY_STEPS; i++)
 		{
-			InterlockedMin(SharedConeRawVisibility[ConeIndex][i], asuint(MinRawVisibility[i]));
+			InterlockedMin(SharedConeRawVisibility[(ConeIndex * NUM_VISIBILITY_STEPS) + i], asuint(MinRawVisibility[i]));
 		}
 
 		GroupMemoryBarrierWithGroupSync();
@@ -983,7 +978,7 @@ void ConeTraceOcclusionCS(
 			UNROLL
 			for (uint i = 0; i < NUM_VISIBILITY_STEPS; i++)
 			{
-				float StepVisibility = asfloat(SharedConeRawVisibility[ConeIndex][i]);
+				float StepVisibility = asfloat(SharedConeRawVisibility[(ConeIndex * NUM_VISIBILITY_STEPS) + i]);
 				// Propagate min visibility down the cone
 				MinStepVisibility = min(MinStepVisibility, StepVisibility);
 				RWRecordConeData[RecordConeDataIndex + i] = MinStepVisibility;
@@ -994,15 +989,15 @@ void ConeTraceOcclusionCS(
 
 	GroupMemoryBarrierWithGroupSync();
 
+	if (ThreadIndex < NUM_CONE_DIRECTIONS)
+	{
+		uint ConeIndex = ThreadIndex;
+		float ConeVisibility = asfloat(SharedConeVisibility[ConeIndex]);
+		RWRecordConeVisibility[GroupId.x * NUM_CONE_DIRECTIONS + ConeIndex] = ConeVisibility;
+	}
+
 	if (ThreadIndex == 0)
 	{
-		for (uint ConeIndex = 0; ConeIndex < NUM_CONE_DIRECTIONS; ConeIndex++)
-		{
-			float ConeVisibility = asfloat(SharedConeVisibility[ConeIndex]);
-
-			RWRecordConeVisibility[GroupId.x * NUM_CONE_DIRECTIONS + ConeIndex] = ConeVisibility;
-		}
-
 		float RecordRadius = RecordRadiusScale * asfloat(SharedMinOcclusionDistance);
 		RWOccluderRadius[RecordIndex] = RecordRadius;
 	}
@@ -1077,26 +1072,13 @@ void SetupCopyIndirectArgumentsCS(
 	uint3 DispatchThreadId : SV_DispatchThreadID,
     uint3 GroupThreadId : SV_GroupThreadID) 
 {
-#if FADE_RECORDS_OVER_TIME
-	// Spawn a thread per record
-	RWDispatchParameters[0] = (DrawParameters[1] + COPY_THREADGROUP_SIZE - 1) / COPY_THREADGROUP_SIZE;
-#else
 	uint NumRecords = (1 - TrimFraction) * DrawParameters[1];
 
 	// Make sure we spawn at least one group so RWScatterDrawParameters gets written to in the next pass
-	RWDispatchParameters[0] = max((NumRecords + COPY_THREADGROUP_SIZE - 1) / COPY_THREADGROUP_SIZE, 1);
-#endif
+	RWDispatchParameters[0] = max((NumRecords + COPY_THREADGROUP_SIZE - 1) / COPY_THREADGROUP_SIZE, (uint)1);
 
 	RWDispatchParameters[1] = 1;
 	RWDispatchParameters[2] = 1;
-
-#if FADE_RECORDS_OVER_TIME
-	if (DispatchThreadId.x == 0)
-	{
-		// Clear to 0 to prepare for accumulation
-		RWScatterDrawParameters[1] = 0;
-	}
-#endif
 }
 
 RWBuffer<float4> RWCopyIrradianceCachePositionRadius;
@@ -1106,8 +1088,6 @@ RWBuffer<float4> RWCopyIrradianceCacheBentNormal;
 RWBuffer<float4> RWCopyIrradianceCacheIrradiance;
 RWBuffer<uint2> RWCopyIrradianceCacheTileCoordinate;
 
-Buffer<float> OccluderRadius;
-
 [numthreads(COPY_THREADGROUP_SIZE, 1, 1)]
 void CopyIrradianceCacheSamplesCS(
 	uint3 GroupId : SV_GroupID,
@@ -1115,52 +1095,6 @@ void CopyIrradianceCacheSamplesCS(
     uint3 GroupThreadId : SV_GroupThreadID) 
 {
 	uint NumRecords = DrawParameters[1];
-
-#if FADE_RECORDS_OVER_TIME
-
-	uint RecordIndex = DispatchThreadId.x;
-
-	if (RecordIndex < NumRecords)
-	{
-		float4 PositionAndPackedRadius = IrradianceCachePositionRadius[RecordIndex];
-		float4 NormalAndFade = IrradianceCacheNormal[RecordIndex];
-
-		// Update fade
-		float NewFade = abs(NormalAndFade.w) - 1 + clamp(View.GeneralPurposeTweak, .001f, 1);
-
-		// Only write out if still alive
-		if (NewFade < 1 /*RecordIndex > (uint)(NumRecords * TrimFraction)*/)
-		{
-			/*
-			// Always trim at least one to handle dynamic scene changes not accounted for with irradiance cache misses
-			if (RecordIndex <= (uint)(NumRecords * TrimFraction) && PositionAndPackedRadius.w > 0)
-			{
-				// Mark as fading out
-				PositionAndPackedRadius.w *= -1;
-
-				// Reset fade to 0
-				NewFade = 0;
-			}*/
-
-			NormalAndFade.w = (NewFade + 1) * sign(NormalAndFade.w);
-
-			uint DestIndex;
-			InterlockedAdd(RWScatterDrawParameters[1], 1U, DestIndex);
-
-			RWCopyIrradianceCachePositionRadius[DestIndex] = PositionAndPackedRadius;
-			RWCopyIrradianceCacheNormal[DestIndex] = NormalAndFade;
-			RWCopyOccluderRadius[DestIndex] = OccluderRadius[RecordIndex];
-			RWCopyIrradianceCacheBentNormal[DestIndex] = IrradianceCacheBentNormal[RecordIndex];
-
-			#if SUPPORT_IRRADIANCE
-				RWCopyIrradianceCacheIrradiance[DestIndex] = IrradianceCacheIrradiance[RecordIndex];
-			#endif
-
-			RWCopyIrradianceCacheTileCoordinate[DestIndex] = IrradianceCacheTileCoordinate[RecordIndex];
-		}
-	}
-
-#else
 
 	// Always trim at least one to handle dynamic scene changes not accounted for with irradiance cache misses
 	uint StartIndex = max(NumRecords * TrimFraction, 1);
@@ -1172,8 +1106,12 @@ void CopyIrradianceCacheSamplesCS(
 	{
 		RWCopyIrradianceCachePositionRadius[DestIndex] = IrradianceCachePositionRadius[SourceIndex];
 		RWCopyIrradianceCacheNormal[DestIndex] = IrradianceCacheNormal[SourceIndex];
-		RWCopyOccluderRadius[DestIndex] = OccluderRadius[SourceIndex];
-		RWCopyIrradianceCacheBentNormal[DestIndex] = IrradianceCacheBentNormal[SourceIndex];
+		RWCopyOccluderRadius[DestIndex] = IrradianceCacheOccluderRadius[SourceIndex];
+		
+		for (uint i = 0; i < BENT_NORMAL_STRIDE; i++)
+		{
+			RWCopyIrradianceCacheBentNormal[DestIndex * BENT_NORMAL_STRIDE + i] = IrradianceCacheBentNormal[SourceIndex * BENT_NORMAL_STRIDE + i];
+		}
 
 		#if SUPPORT_IRRADIANCE
 			RWCopyIrradianceCacheIrradiance[DestIndex] = IrradianceCacheIrradiance[SourceIndex];
@@ -1186,6 +1124,4 @@ void CopyIrradianceCacheSamplesCS(
 	{
 		RWScatterDrawParameters[1] = NumRecords - StartIndex;
 	}
-
-#endif
 }

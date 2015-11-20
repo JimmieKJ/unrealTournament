@@ -140,21 +140,6 @@ NpConstraint* NpConstraint::createObject(PxU8*& address, PxDeserializationContex
 
 // ~PX_SERIALIZATION
 
-PxConstraint* NpGetPxConstraint(Sc::ConstraintCore& constraint)
-{
-	char* p = reinterpret_cast<char*>(&constraint);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpConstraint*>(0)->getScbConstraint()));
-	return reinterpret_cast<NpConstraint*>(p - scbOffset - Scb::Constraint::getScOffset());
-}
-
-const PxConstraint* NpGetPxConstraint(const Sc::ConstraintCore& constraint)
-{
-	const char* p = reinterpret_cast<const char*>(&constraint);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<const NpConstraint*>(0)->getScbConstraint()));
-	return reinterpret_cast<const NpConstraint*>(p - scbOffset - Scb::Constraint::getScOffset());
-}
-
-
 PxScene* NpConstraint::getScene() const
 {
 	return getNpScene();

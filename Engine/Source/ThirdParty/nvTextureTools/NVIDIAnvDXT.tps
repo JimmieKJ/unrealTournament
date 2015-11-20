@@ -2,7 +2,7 @@
 <TpsData xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
   <Name>NVIDIA nvDXT</Name>
   <Location>//depot/UE4/Engine/Source/ThirdParty/nvTextureTools/</Location>
-  <Date>2015-01-02T14:08:24.7761535-05:00</Date>
+  <Date>2015-09-04T19:43:35.0679767-04:00</Date>
   <Function>Compresses textures to a more optimised format in SHTools</Function>
   <Justification>To compress textures to a more optimised format in SHTools</Justification>
   <Platforms>
@@ -20,7 +20,7 @@
   <RedistributeTo />
   <Redistribute>false</Redistribute>
   <IsSourceAvailable>false</IsSourceAvailable>
-  <NoticeType>None</NoticeType>
-  <Notification />
+  <NoticeType>Copyright Notice</NoticeType>
+  <Notification>"This product includes code licensed from NVIDIA."</Notification>
   <LicenseFolder />
 </TpsData>

@@ -91,6 +91,9 @@ public:
 	/** Handle time passing on this channel. */
 	virtual void Tick();
 
+	/** Return true to indicate that this channel no longer needs to Tick() every frame. */
+	virtual bool CanStopTicking() const { return !bPendingDormancy; }
+
 	// General channel functions.
 	/** Handle an acknowledgment on this channel. */
 	void ReceivedAcks();

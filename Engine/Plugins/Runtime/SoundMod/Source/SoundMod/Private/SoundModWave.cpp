@@ -6,6 +6,7 @@ USoundModWave::USoundModWave(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, xmpContext(NULL)
 {
+	bCanProcessAsync = true;
 }
 
 DECLARE_CYCLE_STAT(TEXT("Sound Mod Generate Data"), STAT_SoundModGeneratePCMData, STATGROUP_Audio );

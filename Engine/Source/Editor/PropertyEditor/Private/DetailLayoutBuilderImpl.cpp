@@ -125,9 +125,9 @@ void FDetailLayoutBuilderImpl::BuildCategories( const FCategoryMap& CategoryMap,
 	{
 		TSharedRef<FDetailCategoryImpl> DetailCategory = It.Value().ToSharedRef();
 
-		const bool bCategoryHiddenByClass = GetDetailsView().IsCategoryHiddenByClass( DetailCategory->GetCategoryName() );
+		const bool bCategoryHidden = GetDetailsView().IsCategoryHiddenByClass( DetailCategory->GetCategoryName() ) || ForceHiddenCategories.Contains( DetailCategory->GetCategoryName() );
 
-		if( !bCategoryHiddenByClass )
+		if( !bCategoryHidden )
 		{
 			DetailCategory->GenerateLayout();
 
@@ -427,6 +427,11 @@ bool FDetailLayoutBuilderImpl::IsPropertyVisible( TSharedRef<IPropertyHandle> Pr
 bool FDetailLayoutBuilderImpl::IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const
 {
 	return DetailsView.IsPropertyVisible( PropertyAndParent );
+}
+
+void FDetailLayoutBuilderImpl::HideCategory( FName CategoryName )
+{
+	ForceHiddenCategories.Add(CategoryName);
 }
 
 const IDetailsView& FDetailLayoutBuilderImpl::GetDetailsView() const

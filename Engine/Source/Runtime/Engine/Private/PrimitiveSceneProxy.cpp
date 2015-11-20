@@ -7,6 +7,7 @@
 #include "EnginePrivate.h"
 #include "PrimitiveSceneProxy.h"
 #include "Components/BrushComponent.h"
+#include "PrimitiveSceneInfo.h"
 
 FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponent, FName InResourceName)
 :	WireframeColor(FLinearColor::White)
@@ -27,12 +28,12 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	StaticDepthPriorityGroup(InComponent->GetStaticDepthPriorityGroup())
 ,	ViewOwnerDepthPriorityGroup(InComponent->ViewOwnerDepthPriorityGroup)
 ,	bStaticLighting(InComponent->HasStaticLighting())
-,	bRenderCustomDepth(InComponent->bRenderCustomDepth)
 ,	bRenderInMainPass(InComponent->bRenderInMainPass)
 ,	bRequiresVisibleLevelToRender(false)
 ,	bIsComponentLevelVisible(false)
 ,	bCollisionEnabled(InComponent->IsCollisionEnabled())
 ,	bTreatAsBackgroundForOcclusion(InComponent->bTreatAsBackgroundForOcclusion)
+,	bDisableStaticPath(false)
 ,	bNeedsUnbuiltPreviewLighting(InComponent->HasStaticLighting() && !InComponent->bHasCachedStaticLighting)
 ,	bHasValidSettingsForStaticLighting(InComponent->HasValidSettingsForStaticLighting())
 ,	bWillEverBeLit(true)
@@ -61,6 +62,8 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 ,	bSelectable(InComponent->bSelectable)
 ,	bHasPerInstanceHitProxies(InComponent->bHasPerInstanceHitProxies)
 ,	bUseEditorCompositing(InComponent->bUseEditorCompositing)
+,	bRenderCustomDepth(InComponent->bRenderCustomDepth)
+,	CustomDepthStencilValue((uint8)InComponent->CustomDepthStencilValue) 
 ,	LpvBiasMultiplier(InComponent->LpvBiasMultiplier)
 ,	IndirectLightingCacheQuality(InComponent->IndirectLightingCacheQuality)
 ,	Scene(InComponent->GetScene())
@@ -128,7 +131,7 @@ FPrimitiveSceneProxy::FPrimitiveSceneProxy(const UPrimitiveComponent* InComponen
 
 #if WITH_EDITOR
 		// cache the actor's group membership
-		HiddenEditorViews = InComponent->GetOwner()->HiddenEditorViews;
+		HiddenEditorViews = InComponent->GetHiddenEditorViews();
 #endif
 	}
 	
@@ -169,7 +172,7 @@ HHitProxy* FPrimitiveSceneProxy::CreateHitProxies(UPrimitiveComponent* Component
 	}
 }
 
-FPrimitiveViewRelevance FPrimitiveSceneProxy::GetViewRelevance(const FSceneView* View)
+FPrimitiveViewRelevance FPrimitiveSceneProxy::GetViewRelevance(const FSceneView* View) const
 {
 	return FPrimitiveViewRelevance();
 }
@@ -184,23 +187,52 @@ void FPrimitiveSceneProxy::UpdateActorPosition(FVector InActorPosition)
 		if (PrimitiveSceneProxy->ActorPosition != InActorPosition)
 		{
 			PrimitiveSceneProxy->ActorPosition = InActorPosition;
-			// Update the uniform shader parameters.
-			const FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters =
-			GetPrimitiveUniformShaderParameters(
-				PrimitiveSceneProxy->LocalToWorld, 
-				InActorPosition, 
-				PrimitiveSceneProxy->Bounds,
-				PrimitiveSceneProxy->LocalBounds, 
-				PrimitiveSceneProxy->bReceivesDecals, 
-				PrimitiveSceneProxy->HasDistanceFieldRepresentation(), 
-				PrimitiveSceneProxy->SupportsHeightfieldRepresentation(),
-				PrimitiveSceneProxy->UseEditorDepthTest(),
-				PrimitiveSceneProxy->GetLpvBiasMultiplier() );
-
-			PrimitiveSceneProxy->UniformBuffer.SetContents(PrimitiveUniformShaderParameters);
+			PrimitiveSceneProxy->UpdateUniformBufferMaybeLazy();
 			PrimitiveSceneProxy->OnActorPositionChanged();
 		}
 	});
+}
+
+static TAutoConsoleVariable<int32> CVarDeferUniformBufferUpdatesUntilVisible(
+	TEXT("r.DeferUniformBufferUpdatesUntilVisible"),
+	0,
+	TEXT("If > 0, then don't update the primitive uniform buffer until it is visible. Experimental option."));
+
+void FPrimitiveSceneProxy::UpdateUniformBufferMaybeLazy()
+{
+	if (CVarDeferUniformBufferUpdatesUntilVisible.GetValueOnAnyThread() > 0)
+	{
+		if (PrimitiveSceneInfo)
+		{
+			PrimitiveSceneInfo->SetNeedsUniformBufferUpdate(true);
+		}
+	}
+	else
+	{
+		UpdateUniformBuffer();
+		if (PrimitiveSceneInfo)
+		{
+			PrimitiveSceneInfo->SetNeedsUniformBufferUpdate(false);
+		}
+	}
+}
+
+void FPrimitiveSceneProxy::UpdateUniformBuffer()
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_FPrimitiveSceneProxy_UpdateUniformBuffer);
+	// Update the uniform shader parameters.
+	const FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = 
+		GetPrimitiveUniformShaderParameters(
+			LocalToWorld, 
+			ActorPosition, 
+			Bounds, 
+			LocalBounds, 
+			bReceivesDecals, 
+			HasDistanceFieldRepresentation(), 
+			SupportsHeightfieldRepresentation(), 
+			UseEditorDepthTest(), 
+			LpvBiasMultiplier );
+	UniformBuffer.SetContents(PrimitiveUniformShaderParameters);
 }
 
 void FPrimitiveSceneProxy::SetTransform(const FMatrix& InLocalToWorld, const FBoxSphereBounds& InBounds, const FBoxSphereBounds& InLocalBounds, FVector InActorPosition)
@@ -216,9 +248,7 @@ void FPrimitiveSceneProxy::SetTransform(const FMatrix& InLocalToWorld, const FBo
 	LocalBounds = InLocalBounds;
 	ActorPosition = InActorPosition;
 	
-	// Update the uniform shader parameters.
-	const FPrimitiveUniformShaderParameters PrimitiveUniformShaderParameters = GetPrimitiveUniformShaderParameters(LocalToWorld, ActorPosition, Bounds, LocalBounds, bReceivesDecals, HasDistanceFieldRepresentation(), SupportsHeightfieldRepresentation(), UseEditorDepthTest(), LpvBiasMultiplier );
-	UniformBuffer.SetContents(PrimitiveUniformShaderParameters);
+	UpdateUniformBufferMaybeLazy();
 	
 	// Notify the proxy's implementation of the change.
 	OnTransformChanged();

@@ -20,77 +20,107 @@ struct FForExpandNodeHelper
 	UEdGraphPin* InsideLoopExecOutPin;
 	UEdGraphPin* LoopCompleteOutExecPin;
 
-	UEdGraphPin* IndexOutPin;
-	// for(Index = 0; Index < IndexLimit; ++Index)
-	UEdGraphPin* IndexLimitInPin;
+	UEdGraphPin* ArrayIndexOutPin;
+	UEdGraphPin* LoopCounterOutPin;
+	// for(LoopCounter = 0; LoopCounter < LoopCounterLimit; ++LoopCounter)
+	UEdGraphPin* LoopCounterLimitInPin;
 
 	FForExpandNodeHelper()
-		: StartLoopExecInPin(NULL)
-		, InsideLoopExecOutPin(NULL)
-		, LoopCompleteOutExecPin(NULL)
-		, IndexOutPin(NULL)
-		, IndexLimitInPin(NULL)
+		: StartLoopExecInPin(nullptr)
+		, InsideLoopExecOutPin(nullptr)
+		, LoopCompleteOutExecPin(nullptr)
+		, ArrayIndexOutPin(nullptr)
+		, LoopCounterOutPin(nullptr)
+		, LoopCounterLimitInPin(nullptr)
 	{ }
 
-	bool BuildLoop(UK2Node* Node, FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)
+	bool BuildLoop(UK2Node* Node, FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph, UEnum* Enum)
 	{
 		const UEdGraphSchema_K2* Schema = CompilerContext.GetSchema();
 		check(Node && SourceGraph && Schema);
 
 		bool bResult = true;
 
-		// Create int Iterator
-		UK2Node_TemporaryVariable* IndexNode = CompilerContext.SpawnIntermediateNode<UK2Node_TemporaryVariable>(Node, SourceGraph);
-		IndexNode->VariableType.PinCategory = Schema->PC_Int;
-		IndexNode->AllocateDefaultPins();
-		IndexOutPin = IndexNode->GetVariablePin();
-		check(IndexOutPin);
+		// Create int Loop Counter
+		UK2Node_TemporaryVariable* LoopCounterNode = CompilerContext.SpawnIntermediateNode<UK2Node_TemporaryVariable>(Node, SourceGraph);
+		LoopCounterNode->VariableType.PinCategory = Schema->PC_Int;
+		LoopCounterNode->AllocateDefaultPins();
+		LoopCounterOutPin = LoopCounterNode->GetVariablePin();
+		check(LoopCounterOutPin);
 
-		// Initialize iterator
-		UK2Node_AssignmentStatement* IteratorInitialize = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(Node, SourceGraph);
-		IteratorInitialize->AllocateDefaultPins();
-		IteratorInitialize->GetValuePin()->DefaultValue = TEXT("0");
-		bResult &= Schema->TryCreateConnection(IndexOutPin, IteratorInitialize->GetVariablePin());
-		StartLoopExecInPin = IteratorInitialize->GetExecPin();
+		// Initialize loop counter
+		UK2Node_AssignmentStatement* LoopCounterInitialize = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(Node, SourceGraph);
+		LoopCounterInitialize->AllocateDefaultPins();
+		LoopCounterInitialize->GetValuePin()->DefaultValue = TEXT("0");
+		bResult &= Schema->TryCreateConnection(LoopCounterOutPin, LoopCounterInitialize->GetVariablePin());
+		StartLoopExecInPin = LoopCounterInitialize->GetExecPin();
 		check(StartLoopExecInPin);
+
+		// Create int Array Index
+		UK2Node_TemporaryVariable* ArrayIndexNode = CompilerContext.SpawnIntermediateNode<UK2Node_TemporaryVariable>(Node, SourceGraph);
+		ArrayIndexNode->VariableType.PinCategory = Schema->PC_Int;
+		ArrayIndexNode->AllocateDefaultPins();
+		ArrayIndexOutPin = ArrayIndexNode->GetVariablePin();
+		check(ArrayIndexOutPin);
+
+		// Initialize array index
+		UK2Node_AssignmentStatement* ArrayIndexInitialize = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(Node, SourceGraph);
+		ArrayIndexInitialize->AllocateDefaultPins();
+		ArrayIndexInitialize->GetValuePin()->DefaultValue = TEXT("0");
+		bResult &= Schema->TryCreateConnection(ArrayIndexOutPin, ArrayIndexInitialize->GetVariablePin());
+		bResult &= Schema->TryCreateConnection(LoopCounterInitialize->GetThenPin(), ArrayIndexInitialize->GetExecPin());
 
 		// Do loop branch
 		UK2Node_IfThenElse* Branch = CompilerContext.SpawnIntermediateNode<UK2Node_IfThenElse>(Node, SourceGraph);
 		Branch->AllocateDefaultPins();
-		bResult &= Schema->TryCreateConnection(IteratorInitialize->GetThenPin(), Branch->GetExecPin());
+		bResult &= Schema->TryCreateConnection(ArrayIndexInitialize->GetThenPin(), Branch->GetExecPin());
 		LoopCompleteOutExecPin = Branch->GetElsePin();
 		check(LoopCompleteOutExecPin);
 
 		// Do loop condition
 		UK2Node_CallFunction* Condition = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(Node, SourceGraph); 
-		Condition->SetFromFunction(UKismetMathLibrary::StaticClass()->FindFunctionByName(TEXT("Less_IntInt")));
+		Condition->SetFromFunction(UKismetMathLibrary::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UKismetMathLibrary, Less_IntInt)));
 		Condition->AllocateDefaultPins();
 		bResult &= Schema->TryCreateConnection(Condition->GetReturnValuePin(), Branch->GetConditionPin());
-		bResult &= Schema->TryCreateConnection(Condition->FindPinChecked(TEXT("A")), IndexOutPin);
-		IndexLimitInPin = Condition->FindPinChecked(TEXT("B"));
-		check(IndexLimitInPin);
+		bResult &= Schema->TryCreateConnection(Condition->FindPinChecked(TEXT("A")), LoopCounterOutPin);
+		LoopCounterLimitInPin = Condition->FindPinChecked(TEXT("B"));
+		check(LoopCounterLimitInPin);
+
+		// Convert the Enum index to a value
+		UK2Node_CallFunction* GetEnumeratorValueFromIndexCall = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(Node, SourceGraph); 
+		GetEnumeratorValueFromIndexCall->SetFromFunction(UKismetNodeHelperLibrary::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UKismetNodeHelperLibrary, GetEnumeratorValueFromIndex)));
+		GetEnumeratorValueFromIndexCall->AllocateDefaultPins();
+		Schema->TrySetDefaultObject(*GetEnumeratorValueFromIndexCall->FindPinChecked(TEXT("Enum")), Enum);
+		bResult &= Schema->TryCreateConnection(GetEnumeratorValueFromIndexCall->FindPinChecked(TEXT("EnumeratorIndex")), LoopCounterOutPin);
+
+		// Array Index assigned
+		UK2Node_AssignmentStatement* ArrayIndexAssign = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(Node, SourceGraph);
+		ArrayIndexAssign->AllocateDefaultPins();
+		bResult &= Schema->TryCreateConnection(Branch->GetThenPin(), ArrayIndexAssign->GetExecPin());
+		bResult &= Schema->TryCreateConnection(ArrayIndexAssign->GetVariablePin(), ArrayIndexOutPin);
+		bResult &= Schema->TryCreateConnection(ArrayIndexAssign->GetValuePin(), GetEnumeratorValueFromIndexCall->GetReturnValuePin());
 
 		// body sequence
 		UK2Node_ExecutionSequence* Sequence = CompilerContext.SpawnIntermediateNode<UK2Node_ExecutionSequence>(Node, SourceGraph);
 		Sequence->AllocateDefaultPins();
-		bResult &= Schema->TryCreateConnection(Branch->GetThenPin(), Sequence->GetExecPin());
+		bResult &= Schema->TryCreateConnection(ArrayIndexAssign->GetThenPin(), Sequence->GetExecPin());
 		InsideLoopExecOutPin = Sequence->GetThenPinGivenIndex(0);
 		check(InsideLoopExecOutPin);
 
-		// Iterator increment
+		// Loop Counter increment
 		UK2Node_CallFunction* Increment = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(Node, SourceGraph); 
-		Increment->SetFromFunction(UKismetMathLibrary::StaticClass()->FindFunctionByName(TEXT("Add_IntInt")));
+		Increment->SetFromFunction(UKismetMathLibrary::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UKismetMathLibrary, Add_IntInt)));
 		Increment->AllocateDefaultPins();
-		bResult &= Schema->TryCreateConnection(Increment->FindPinChecked(TEXT("A")), IndexOutPin);
+		bResult &= Schema->TryCreateConnection(Increment->FindPinChecked(TEXT("A")), LoopCounterOutPin);
 		Increment->FindPinChecked(TEXT("B"))->DefaultValue = TEXT("1");
 
-		// Iterator assigned
-		UK2Node_AssignmentStatement* IteratorAssign = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(Node, SourceGraph);
-		IteratorAssign->AllocateDefaultPins();
-		bResult &= Schema->TryCreateConnection(IteratorAssign->GetExecPin(), Sequence->GetThenPinGivenIndex(1));
-		bResult &= Schema->TryCreateConnection(IteratorAssign->GetVariablePin(), IndexOutPin);
-		bResult &= Schema->TryCreateConnection(IteratorAssign->GetValuePin(), Increment->GetReturnValuePin());
-		bResult &= Schema->TryCreateConnection(IteratorAssign->GetThenPin(), Branch->GetExecPin());
+		// Loop Counter assigned
+		UK2Node_AssignmentStatement* LoopCounterAssign = CompilerContext.SpawnIntermediateNode<UK2Node_AssignmentStatement>(Node, SourceGraph);
+		LoopCounterAssign->AllocateDefaultPins();
+		bResult &= Schema->TryCreateConnection(LoopCounterAssign->GetExecPin(), Sequence->GetThenPinGivenIndex(1));
+		bResult &= Schema->TryCreateConnection(LoopCounterAssign->GetVariablePin(), LoopCounterOutPin);
+		bResult &= Schema->TryCreateConnection(LoopCounterAssign->GetValuePin(), Increment->GetReturnValuePin());
+		bResult &= Schema->TryCreateConnection(LoopCounterAssign->GetThenPin(), Branch->GetExecPin());
 
 		return bResult;
 	}
@@ -163,7 +193,7 @@ void UK2Node_ForEachElementInEnum::ExpandNode(class FKismetCompilerContext& Comp
 	}
 
 	FForExpandNodeHelper ForLoop;
-	if (!ForLoop.BuildLoop(this, CompilerContext, SourceGraph))
+	if (!ForLoop.BuildLoop(this, CompilerContext, SourceGraph, Enum))
 	{
 		CompilerContext.MessageLog.Error(*NSLOCTEXT("K2Node", "ForEachElementInEnum_ForError", "For Expand error in @@").ToString(), this);
 	}
@@ -177,13 +207,13 @@ void UK2Node_ForEachElementInEnum::ExpandNode(class FKismetCompilerContext& Comp
 	UK2Node_GetNumEnumEntries* GetNumEnumEntries = CompilerContext.SpawnIntermediateNode<UK2Node_GetNumEnumEntries>(this, SourceGraph);
 	GetNumEnumEntries->Enum = Enum;
 	GetNumEnumEntries->AllocateDefaultPins();
-	bool bResult = Schema->TryCreateConnection(GetNumEnumEntries->FindPinChecked(Schema->PN_ReturnValue), ForLoop.IndexLimitInPin);
+	bool bResult = Schema->TryCreateConnection(GetNumEnumEntries->FindPinChecked(Schema->PN_ReturnValue), ForLoop.LoopCounterLimitInPin);
 
 	UK2Node_CallFunction* Conv_Func = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
 	FName Conv_Func_Name = GET_FUNCTION_NAME_CHECKED(UKismetMathLibrary, Conv_IntToByte);
 	Conv_Func->SetFromFunction(UKismetMathLibrary::StaticClass()->FindFunctionByName(Conv_Func_Name));
 	Conv_Func->AllocateDefaultPins();
-	bResult &= Schema->TryCreateConnection(Conv_Func->FindPinChecked(TEXT("InInt")), ForLoop.IndexOutPin);
+	bResult &= Schema->TryCreateConnection(Conv_Func->FindPinChecked(TEXT("InInt")), ForLoop.ArrayIndexOutPin);
 
 	UK2Node_CastByteToEnum* CastByteToEnum = CompilerContext.SpawnIntermediateNode<UK2Node_CastByteToEnum>(this, SourceGraph);
 	CastByteToEnum->Enum = Enum;
@@ -202,39 +232,25 @@ void UK2Node_ForEachElementInEnum::ExpandNode(class FKismetCompilerContext& Comp
 
 void UK2Node_ForEachElementInEnum::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	auto SetNodeEnumLambda = [](UEdGraphNode* NewNode, UField const* /*EnumField*/, TWeakObjectPtr<UEnum> NonConstEnumPtr)
+	struct GetMenuActions_Utils
 	{
-		UK2Node_ForEachElementInEnum* EnumNode = CastChecked<UK2Node_ForEachElementInEnum>(NewNode);
-		EnumNode->Enum = NonConstEnumPtr.Get();
+		static void SetNodeEnum(UEdGraphNode* NewNode, UField const* /*EnumField*/, TWeakObjectPtr<UEnum> NonConstEnumPtr)
+		{
+			UK2Node_ForEachElementInEnum* EnumNode = CastChecked<UK2Node_ForEachElementInEnum>(NewNode);
+			EnumNode->Enum = NonConstEnumPtr.Get();
+		}
 	};
 
-	for (TObjectIterator<UEnum> EnumIt; EnumIt; ++EnumIt)
+	UClass* NodeClass = GetClass();
+	ActionRegistrar.RegisterEnumActions( FBlueprintActionDatabaseRegistrar::FMakeEnumSpawnerDelegate::CreateLambda([NodeClass](const UEnum* InEnum)->UBlueprintNodeSpawner*
 	{
-		UEnum const* EnumToConsider = (*EnumIt);
-		if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(EnumToConsider))
-		{
-			continue;
-		}
-
-		// to keep from needlessly instantiating a UBlueprintNodeSpawners, first   
-		// check to make sure that the registrar is looking for actions of this type
-		// (could be regenerating actions for a specific asset, and therefore the 
-		// registrar would only accept actions corresponding to that asset)
-		if (!ActionRegistrar.IsOpenForRegistration(EnumToConsider))
-		{
-			continue;
-		}
-
-		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(GetClass(), EnumToConsider);
+		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(NodeClass, InEnum);
 		check(NodeSpawner != nullptr);
-		TWeakObjectPtr<UEnum> NonConstEnumPtr = EnumToConsider;
-		NodeSpawner->SetNodeFieldDelegate = UBlueprintFieldNodeSpawner::FSetNodeFieldDelegate::CreateStatic(SetNodeEnumLambda, NonConstEnumPtr);
+		TWeakObjectPtr<UEnum> NonConstEnumPtr = InEnum;
+		NodeSpawner->SetNodeFieldDelegate = UBlueprintFieldNodeSpawner::FSetNodeFieldDelegate::CreateStatic(GetMenuActions_Utils::SetNodeEnum, NonConstEnumPtr);
 
-		// this enum could belong to a class, or is a user defined enum (asset), 
-		// that's why we want to make sure to register it along with the action 
-		// (so the action can be refreshed when the class/asset is).
-		ActionRegistrar.AddBlueprintAction(EnumToConsider, NodeSpawner);
-	}
+		return NodeSpawner;
+	}) );
 }
 
 FText UK2Node_ForEachElementInEnum::GetMenuCategory() const

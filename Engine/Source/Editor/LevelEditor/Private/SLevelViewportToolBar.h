@@ -102,6 +102,14 @@ private:
 	TSharedRef<SWidget> GenerateCameraMenu() const;
 
 	/**
+	 * Generates menu entries for placed cameras (e.g CameraActors
+	 *
+	 * @param Builder	The menu builder to add menu entries to
+	 * @param Cameras	The list of cameras to add
+	 */
+	void GeneratePlacedCameraMenuEntries( FMenuBuilder& Builder, TArray<ACameraActor*> Cameras ) const;
+
+	/**
 	 * Generates the toolbar view menu content 
 	 *
 	 * @return The widget containing the view menu content
@@ -147,6 +155,14 @@ private:
 	 * @param MenuBuilder menu builder
 	 */
 	static void FillShowLayersMenu( class FMenuBuilder& MenuBuilder, TWeakPtr<class SLevelViewport> Viewport );
+
+	/**
+	 * Generates 'show foliage types' menu content for a viewport
+	 *
+	 * @param MenuBuilder	menu builder
+	 * @param Viewport		target vieport
+	 */
+	static void FillShowFoliageTypesMenu(class FMenuBuilder& MenuBuilder, TWeakPtr<class SLevelViewport> Viewport);
 
 	/** Generates the layout sub-menu content */
 	void GenerateViewportConfigsMenu(FMenuBuilder& MenuBuilder) const;

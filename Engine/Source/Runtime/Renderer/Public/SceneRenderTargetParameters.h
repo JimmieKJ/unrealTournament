@@ -13,7 +13,6 @@ namespace ESceneRenderTargetsMode
 		SetTextures,
 		DontSet,
 		DontSetIgnoreBoundByEditorCompositing,
-		NonSceneAlignedPass,
 	};
 }
 
@@ -54,6 +53,8 @@ private:
 	FShaderResourceParameter SceneDepthSurfaceParameter;
 	/**  */
 	FShaderResourceParameter SceneDepthTextureNonMS;
+	FShaderResourceParameter DirectionalOcclusionSampler;
+	FShaderResourceParameter DirectionalOcclusionTexture;
 };
 
 /** Pixel shader parameters needed for deferred passes. */
@@ -94,4 +95,5 @@ private:
 	FShaderResourceParameter ScreenSpaceAOTextureSampler;
 	FShaderResourceParameter CustomDepthTexture;
 	FShaderResourceParameter CustomDepthTextureSampler;
+	FShaderResourceParameter CustomStencilTexture;
 };

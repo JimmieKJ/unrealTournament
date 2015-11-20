@@ -282,7 +282,7 @@ public:
 							Collector.RegisterOneFrameMaterialProxy(SolidMaterialInstance);
 
 							FTransform GeomTransform(GetLocalToWorld());
-							BodySetup->AggGeom.GetAggGeom(GeomTransform, DrawColor, /*Material=*/SolidMaterialInstance, false, /*bSolid=*/ true, UseEditorDepthTest(), ViewIndex, Collector);
+							BodySetup->AggGeom.GetAggGeom(GeomTransform, DrawColor.ToFColor(true), /*Material=*/SolidMaterialInstance, false, /*bSolid=*/ true, UseEditorDepthTest(), ViewIndex, Collector);
 						}
 					}
 					// WIREFRAME
@@ -320,7 +320,7 @@ public:
 							// If not, use the body setup for wireframe
 						{
 							FTransform GeomTransform(GetLocalToWorld());
-							BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(DrawColor, IsSelected(), IsHovered()), /* Material=*/ NULL, false, /* bSolid=*/ false, UseEditorDepthTest(), ViewIndex, Collector);
+							BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(DrawColor, IsSelected(), IsHovered()).ToFColor(true), /* Material=*/ NULL, false, /* bSolid=*/ false, UseEditorDepthTest(), ViewIndex, Collector);
 						}
 
 					}
@@ -329,7 +329,7 @@ public:
 		}
 	}
 
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override
 	{
 		bool bVisible = false;
 
@@ -458,9 +458,9 @@ UBrushComponent::UBrushComponent(const FObjectInitializer& ObjectInitializer)
 	AlwaysLoadOnClient = false;
 	AlwaysLoadOnServer = false;
 	bUseAsOccluder = true;
-	bRequiresCustomLocation = true;
 	bUseEditorCompositing = true;
 	bCanEverAffectNavigation = true;
+	PrePivot_DEPRECATED = FVector::ZeroVector;
 }
 
 FPrimitiveSceneProxy* UBrushComponent::CreateSceneProxy()
@@ -518,27 +518,6 @@ FBoxSphereBounds UBrushComponent::CalcBounds(const FTransform& LocalToWorld) con
 	}
 }
 
-FVector UBrushComponent::GetCustomLocation() const
-{
-	const FVector LocationWithPivot = ComponentToWorld.GetLocation();
-	const FVector LocationNoPivot = LocationWithPivot + ComponentToWorld.TransformVector(PrePivot);
-
-	return LocationNoPivot;
-}
-
-FTransform UBrushComponent::CalcNewComponentToWorld(const FTransform& NewRelativeTransform, const USceneComponent* Parent) const
-{
-	FTransform CompToWorld = Super::CalcNewComponentToWorld(NewRelativeTransform, Parent);
-
-	const FVector LocationNoPivot = CompToWorld.GetLocation();
-	const FVector LocationWithPivot = LocationNoPivot + CompToWorld.TransformVector(-PrePivot);
-
-	CompToWorld.SetLocation(LocationWithPivot);
-
-	return CompToWorld;
-}
-
-
 void UBrushComponent::GetUsedMaterials( TArray<UMaterialInterface*>& OutMaterials ) const
 {
 #if WITH_EDITOR
@@ -566,6 +545,21 @@ void UBrushComponent::PostLoad()
 	{
 		BrushBodySetup->bGenerateMirroredCollision = false;
 	}
+
+#if WITH_EDITOR
+	// If loading a brush with mirroring whose body setup has not been created correctly, request that it be rebuilt now.
+	// The rebuilding will actually happen in the UBodySetup::PostLoad.
+	RequestUpdateBrushCollision();
+
+	AActor* Owner = GetOwner();
+
+	if (Owner)
+	{
+		AddRelativeLocation(GetComponentTransform().TransformVector(-PrePivot_DEPRECATED));
+		Owner->SetPivotOffset(PrePivot_DEPRECATED);
+		PrePivot_DEPRECATED = FVector::ZeroVector;
+	}
+#endif
 }
 
 
@@ -737,8 +731,23 @@ bool UBrushComponent::ComponentIsTouchingSelectionFrustum(const FConvexVolume& I
 
 	return false;
 }
-#endif
 
+void UBrushComponent::RequestUpdateBrushCollision()
+{
+	if (BrushBodySetup)
+	{
+		const bool bIsMirrored = (RelativeScale3D.X * RelativeScale3D.Y * RelativeScale3D.Z) < 0.0f;
+		if ((BrushBodySetup->bGenerateNonMirroredCollision && bIsMirrored) || (BrushBodySetup->bGenerateMirroredCollision && !bIsMirrored))
+		{
+			// Brushes only maintain one convex mesh as they can't be transformed at runtime.
+			// Here we invalidate the body setup, and specify whether we wish to build a non-mirrored or a mirrored mesh.
+			BrushBodySetup->bGenerateNonMirroredCollision = !bIsMirrored;
+			BrushBodySetup->bGenerateMirroredCollision = bIsMirrored;
+			BrushBodySetup->InvalidatePhysicsData();
+		}
+	}
+}
+#endif
 
 void UBrushComponent::BuildSimpleBrushCollision()
 {
@@ -757,12 +766,13 @@ void UBrushComponent::BuildSimpleBrushCollision()
 
 	// No complex collision, so use the simple for that
 	BrushBodySetup->CollisionTraceFlag = CTF_UseSimpleAsComplex;
-	// Don't need mirrored version of collision data
-	BrushBodySetup->bGenerateMirroredCollision = false;
 
 #if WITH_EDITOR
+	RequestUpdateBrushCollision();
+
 	// Convert collision model into convex hulls.
 	BrushBodySetup->CreateFromModel( Brush, true );
+
 	RecreatePhysicsState();
 #endif // WITH_EDITOR
 
@@ -770,4 +780,77 @@ void UBrushComponent::BuildSimpleBrushCollision()
 }
 
 
+#if WITH_EDITOR
+static FVector GetPolyCenter(const FPoly& Poly)
+{
+	FVector Result = FVector::ZeroVector;
+	for (const auto& Vertex : Poly.Vertices)
+	{
+		Result += Vertex;
+	}
 
+	return Result / Poly.Vertices.Num();
+}
+
+bool UBrushComponent::HasInvertedPolys() const
+{
+	// Determine if a brush looks as if it has had its sense inverted
+	// (due to the old behavior of inverting the poly winding and normal when performing a Mirror operation).
+
+	const bool bIsMirrored = (RelativeScale3D.X * RelativeScale3D.Y * RelativeScale3D.Z < 0.0f);
+	// Only attempt to fix up brushes with negative scale
+	if (bIsMirrored)
+	{
+		int NumInwardFacingPolys = 0;
+		for (auto& Poly : Brush->Polys->Element)
+		{
+			// Calculate a nominal center point for the poly
+			const FVector PolyCenter = GetPolyCenter(Poly);
+			bool bIntersected = false;
+
+			// Find intersections of a ray cast out from the center in the normal direction with the other polys
+			for (auto& OtherPoly : Brush->Polys->Element)
+			{
+				if (&Poly != &OtherPoly)
+				{
+					// Calculate a nominal center point for the poly being tested for intersection
+					const FVector OtherPolyCenter = GetPolyCenter(OtherPoly);
+					const float Dot = FVector::DotProduct(Poly.Normal, OtherPoly.Normal);
+					// If normals are perpendicular, skip it - this implies that the poly normal is parallel to the plane
+					if (Dot != 0.0f)
+					{
+						const float Distance = FVector::DotProduct(OtherPolyCenter - PolyCenter, OtherPoly.Normal) / Dot;
+						// Only consider intersections in the direction of the poly normal
+						if (Distance > 0.0f)
+						{
+							const FVector Intersection = PolyCenter + Poly.Normal * Distance;
+
+							// Does the ray intersect with the actual poly?
+							if (OtherPoly.OnPoly(Intersection))
+							{
+								// If so, toggle the intersected flag.
+								// An odd number of intersections implies an inwards facing poly.
+								// An even number of intersections implies an outwards facing poly.
+								bIntersected = !bIntersected;
+							}
+						}
+					}
+				}
+			}
+
+			if (bIntersected)
+			{
+				NumInwardFacingPolys++;
+			}
+		}
+
+		// If more than half of the polys are deemed to be inwards facing, consider this to be an inside out brush
+		if (NumInwardFacingPolys > Brush->Polys->Element.Num() / 2)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+#endif

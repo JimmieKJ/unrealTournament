@@ -8,391 +8,428 @@ using System.IO;
 
 namespace UnrealBuildTool
 {
-    class LinuxPlatform : UEBuildPlatform
-    {
-        /** This is the SDK version we support */
-		static private Dictionary<string, string> ExpectedSDKVersions = new Dictionary<string, string>()
+	class LinuxPlatformContext : UEBuildPlatformContext
+	{
+		public LinuxPlatformContext(FileReference InProjectFile) : base(UnrealTargetPlatform.Linux, InProjectFile)
 		{
-			{ "x86_64-unknown-linux-gnu", "v4_clang-3.5.0_ld-2.24_glibc-2.12.2" },
-			{ "arm-unknown-linux-gnueabihf", "arm-unknown-linux-gnueabihf_v5_clang-3.5.0-ld-2.23.1-glibc-2.13" },
-		};
+		}
 
-        /** Platform name (embeds architecture for now) */
-        static private string TargetPlatformName = "Linux_x64";
+		/// <summary>
+		/// The current architecture
+		/// </summary>
+		public override string GetActiveArchitecture()
+		{
+			return LinuxPlatform.DefaultArchitecture;
+		}
 
-        /** Linux architecture (compiler target triplet) */
-		// FIXME: for now switching between architectures is hard-coded
-		static private string DefaultArchitecture = "x86_64-unknown-linux-gnu";
-		//static private string DefaultArchitecture = "arm-unknown-linux-gnueabihf";
+		/// <summary>
+		/// Modify the rules for a newly created module, in a target that's being built for this platform.
+		/// This is not required - but allows for hiding details of a particular platform.
+		/// </summary>
+		/// <param name="ModuleName">The name of the module</param>
+		/// <param name="Rules">The module rules</param>
+		/// <param name="Target">The target being build</param>
+		public override void ModifyModuleRulesForActivePlatform(string ModuleName, ModuleRules Rules, TargetInfo Target)
+		{
+			bool bBuildShaderFormats = UEBuildConfiguration.bForceBuildShaderFormats;
 
-        /** The current architecture */
-        public override string GetActiveArchitecture()
-        {
-            return DefaultArchitecture;
-        }
-
-        /**
-         * Allow the platform to apply architecture-specific name according to its rules
-         */
-        public override string ApplyArchitectureName(string BinaryName)
-        {
-            // Linux ignores architecture-specific names, although it might be worth it to prepend architecture
-            return BinaryName;
-        }
-
-        /** 
-         * Whether platform supports switching SDKs during runtime
-         * 
-         * @return true if supports
-         */
-        protected override bool PlatformSupportsAutoSDKs()
-        {
-            return true;
-        }
-
-        /** 
-         * Returns platform-specific name used in SDK repository
-         * 
-         * @return path to SDK Repository
-         */
-        public override string GetSDKTargetPlatformName()
-        {
-            return TargetPlatformName;
-        }
-
-        /** 
-         * Returns SDK string as required by the platform 
-         * 
-         * @return Valid SDK string
-         */
-        protected override string GetRequiredSDKString()
-        {
-			string SDKString;
-			if (!ExpectedSDKVersions.TryGetValue(GetActiveArchitecture(), out SDKString))
+			if (!UEBuildConfiguration.bBuildRequiresCookedData)
 			{
-				throw new BuildException("LinuxPlatform::GetRequiredSDKString: no toolchain set up for architecture '{0}'", GetActiveArchitecture());
+				if (ModuleName == "TargetPlatform")
+				{
+					bBuildShaderFormats = true;
+				}
 			}
 
-			return SDKString;
-        }
+			// allow standalone tools to use target platform modules, without needing Engine
+			if (ModuleName == "TargetPlatform")
+			{
+				if (UEBuildConfiguration.bForceBuildTargetPlatforms)
+				{
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
+					Rules.DynamicallyLoadedModuleNames.Add("AllDesktopTargetPlatform");
+				}
 
-        protected override String GetRequiredScriptVersionString()
-        {
-            return "3.0";
-        }
+				if (bBuildShaderFormats)
+				{
+					// Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatD3D");
+					Rules.DynamicallyLoadedModuleNames.Add("ShaderFormatOpenGL");
+				}
+			}
+		}
 
-        protected override bool PreferAutoSDK()
-        {
-            // having LINUX_ROOT set (for legacy reasons or for convenience of cross-compiling certain third party libs) should not make UBT skip AutoSDKs
-            return true;
-        }
-
-        /**
-         *	Whether the required external SDKs are installed for this platform
-         */
-        protected override SDKStatus HasRequiredManualSDKInternal()
-        {
-            if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
-            {
-                return SDKStatus.Valid;
-            }
-
-            string BaseLinuxPath = Environment.GetEnvironmentVariable("LINUX_ROOT");
-
-            // we don't have an LINUX_ROOT specified
-            if (String.IsNullOrEmpty(BaseLinuxPath))
-                return SDKStatus.Invalid;
-
-            // paths to our toolchains
-            BaseLinuxPath = BaseLinuxPath.Replace("\"", "");
-            string ClangPath = Path.Combine(BaseLinuxPath, @"bin\Clang++.exe");
-            
-            if (File.Exists(ClangPath))
-                return SDKStatus.Valid;
-
-            return SDKStatus.Invalid;
-        }
-
-		public override bool CanUseXGE()
+		/// <summary>
+		/// Gives the platform a chance to 'override' the configuration settings
+		/// that are overridden on calls to RunUBT.
+		/// </summary>
+		/// <param name="Configuration"> The UnrealTargetConfiguration being built</param>
+		public override void ResetBuildConfiguration(UnrealTargetConfiguration Configuration)
 		{
-			// disabled until XGE crash is fixed - it is still happening as of 2014-09-30
+			ValidateUEBuildConfiguration();
+		}
+
+		/// <summary>
+		/// Validate configuration for this platform
+		/// NOTE: This function can/will modify BuildConfiguration!
+		/// </summary>
+		/// <param name="InPlatform">  The CPPTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The CPPTargetConfiguration being built</param>
+		/// <param name="bInCreateDebugInfo">true if debug info is getting create, false if not</param>
+		public override void ValidateBuildConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo)
+		{
+			UEBuildConfiguration.bCompileSimplygon = false;
+		}
+
+		/// <summary>
+		/// Validate the UEBuildConfiguration for this platform
+		/// This is called BEFORE calling UEBuildConfiguration to allow setting
+		/// various fields used in that function such as CompileLeanAndMean...
+		/// </summary>
+		public override void ValidateUEBuildConfiguration()
+		{
+			if (ProjectFileGenerator.bGenerateProjectFiles && !ProjectFileGenerator.bGeneratingRocketProjectFiles)
+			{
+				// When generating non-Rocket project files we need intellisense generator to include info from all modules,
+				// including editor-only third party libs
+				UEBuildConfiguration.bCompileLeanAndMeanUE = false;
+			}
+
+			BuildConfiguration.bUseUnityBuild = true;
+
+			// Don't stop compilation at first error...
+			BuildConfiguration.bStopXGECompilationAfterErrors = true;
+
+			BuildConfiguration.bUseSharedPCHs = false;
+		}
+
+		/// <summary>
+		/// Setup the target environment for building
+		/// </summary>
+		/// <param name="InBuildTarget"> The target being built</param>
+		public override void SetUpEnvironment(UEBuildTarget InBuildTarget)
+		{
+			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("PLATFORM_LINUX=1");
+			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("LINUX=1");
+
+			InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WITH_DATABASE_SUPPORT=0");		//@todo linux: valid?
+
+			if (GetActiveArchitecture().StartsWith("arm"))
+			{
+				InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
+			}
+
+			// link with Linux libraries.
+			InBuildTarget.GlobalLinkEnvironment.Config.AdditionalLibraries.Add("pthread");
+
+			// Disable Simplygon support if compiling against the NULL RHI.
+			if (InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Contains("USE_NULL_RHI=1"))
+			{
+				UEBuildConfiguration.bCompileSimplygon = false;
+			}
+
+			if (InBuildTarget.TargetType == TargetRules.TargetType.Server)
+			{
+				// Localization shouldn't be needed on servers by default, and ICU is pretty heavy
+				UEBuildConfiguration.bCompileICU = false;
+			}
+		}
+
+		/// <summary>
+		/// Whether this platform should create debug information or not
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <returns>bool    true if debug info should be generated, false if not</returns>
+		public override bool ShouldCreateDebugInfo(UnrealTargetConfiguration Configuration)
+		{
+			switch (Configuration)
+			{
+				case UnrealTargetConfiguration.Development:
+				case UnrealTargetConfiguration.Shipping:
+				case UnrealTargetConfiguration.Test:
+				case UnrealTargetConfiguration.Debug:
+				default:
+					return true;
+			};
+		}
+
+		/// <summary>
+		/// Creates a toolchain instance for the given platform.
+		/// </summary>
+		/// <param name="Platform">The platform to create a toolchain for</param>
+		/// <returns>New toolchain instance.</returns>
+		public override UEToolChain CreateToolChain(CPPTargetPlatform Platform)
+		{
+			return new LinuxToolChain(this);
+		}
+
+		/// <summary>
+		/// Create a build deployment handler
+		/// </summary>
+		/// <param name="ProjectFile">The project file of the target being deployed. Used to find any deployment specific settings.</param>
+		/// <param name="DeploymentHandler">The output deployment handler</param>
+		/// <returns>True if the platform requires a deployment handler, false otherwise</returns>
+		public override UEBuildDeploy CreateDeploymentHandler()
+		{
+			return null;
+		}
+	}
+
+	class LinuxPlatform : UEBuildPlatform
+	{
+		/// <summary>
+		/// Linux architecture (compiler target triplet)
+		/// </summary>
+		// FIXME: for now switching between architectures is hard-coded
+		public const string DefaultArchitecture = "x86_64-unknown-linux-gnu";
+		//static private string DefaultArchitecture = "arm-unknown-linux-gnueabihf";
+
+		LinuxPlatformSDK SDK;
+
+		/// <summary>
+		/// Constructor
+		/// </summary>
+		public LinuxPlatform(LinuxPlatformSDK InSDK) : base(UnrealTargetPlatform.Linux, CPPTargetPlatform.Linux)
+		{
+			SDK = InSDK;
+		}
+
+		/// <summary>
+		/// Whether the required external SDKs are installed for this platform. Could be either a manual install or an AutoSDK.
+		/// </summary>
+		public override SDKStatus HasRequiredSDKsInstalled()
+		{
+			return SDK.HasRequiredSDKsInstalled();
+		}
+
+		/// <summary>
+		/// Allows the platform to override whether the architecture name should be appended to the name of binaries.
+		/// </summary>
+		/// <returns>True if the architecture name should be appended to the binary</returns>
+		public override bool RequiresArchitectureSuffix()
+		{
+			// Linux ignores architecture-specific names, although it might be worth it to prepend architecture
 			return false;
 		}
 
-		/**
-		 *	Register the platform with the UEBuildPlatform class
-		 */
-        protected override void RegisterBuildPlatformInternal()
-        {
-			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (HasRequiredSDKsInstalled() == SDKStatus.Valid))
-            {
-                bool bRegisterBuildPlatform = true;
+		public override bool CanUseXGE()
+		{
+			// [RCL] 2015-08-04 FIXME: modular (cross-)builds (e.g. editor, UT server) fail with XGE as FixDeps step apparently depends on artifacts (object files) which aren't listed among its prerequisites.
+			return false;
+		}
 
-                string EngineSourcePath = Path.Combine(ProjectFileGenerator.RootRelativePath, "Engine", "Source");
-                string LinuxTargetPlatformFile = Path.Combine(EngineSourcePath, "Developer", "Linux", "LinuxTargetPlatform", "LinuxTargetPlatform.Build.cs");
-
-                if (File.Exists(LinuxTargetPlatformFile) == false)
-                {
-                    bRegisterBuildPlatform = false;
-                }
-
-                if (bRegisterBuildPlatform == true)
-                {
-                    // Register this build platform for Linux
-                    if (BuildConfiguration.bPrintDebugInfo)
-                    {
-                        Console.WriteLine("        Registering for {0}", UnrealTargetPlatform.Linux.ToString());
-                    }
-                    UEBuildPlatform.RegisterBuildPlatform(UnrealTargetPlatform.Linux, this);
-                    UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.Linux, UnrealPlatformGroup.Unix);
-                }
-            }
-        }
-
-        /**
-         *	Retrieve the CPPTargetPlatform for the given UnrealTargetPlatform
-         *
-         *	@param	InUnrealTargetPlatform		The UnrealTargetPlatform being build
-         *	
-         *	@return	CPPTargetPlatform			The CPPTargetPlatform to compile for
-         */
-        public override CPPTargetPlatform GetCPPTargetPlatform(UnrealTargetPlatform InUnrealTargetPlatform)
-        {
-            switch (InUnrealTargetPlatform)
-            {
-                case UnrealTargetPlatform.Linux:
-                    return CPPTargetPlatform.Linux;
-            }
-            throw new BuildException("LinuxPlatform::GetCPPTargetPlatform: Invalid request for {0}", InUnrealTargetPlatform.ToString());
-        }
-
-        /**
-         *	Get the extension to use for the given binary type
-         *	
-         *	@param	InBinaryType		The binary type being built
-         *	
-         *	@return	string				The binary extension (i.e. 'exe' or 'dll')
-         */
-        public override string GetBinaryExtension(UEBuildBinaryType InBinaryType)
-        {
-            switch (InBinaryType)
-            {
-                case UEBuildBinaryType.DynamicLinkLibrary:
-                    return ".so";
-                case UEBuildBinaryType.Executable:
-                    return "";
-                case UEBuildBinaryType.StaticLibrary:
-                    return ".a";
+		/// <summary>
+		/// Get the extension to use for the given binary type
+		/// </summary>
+		/// <param name="InBinaryType"> The binary type being built</param>
+		/// <returns>string    The binary extension (i.e. 'exe' or 'dll')</returns>
+		public override string GetBinaryExtension(UEBuildBinaryType InBinaryType)
+		{
+			switch (InBinaryType)
+			{
+				case UEBuildBinaryType.DynamicLinkLibrary:
+					return ".so";
+				case UEBuildBinaryType.Executable:
+					return "";
+				case UEBuildBinaryType.StaticLibrary:
+					return ".a";
 				case UEBuildBinaryType.Object:
 					return ".o";
 				case UEBuildBinaryType.PrecompiledHeader:
 					return ".gch";
-            }
-            return base.GetBinaryExtension(InBinaryType);
-        }
+			}
+			return base.GetBinaryExtension(InBinaryType);
+		}
 
-        /**
-         *	Get the extension to use for debug info for the given binary type
-         *	
-         *	@param	InBinaryType		The binary type being built
-         *	
-         *	@return	string				The debug info extension (i.e. 'pdb')
-         */
-        public override string GetDebugInfoExtension(UEBuildBinaryType InBinaryType)
-        {
-            return "";
-        }
+		/// <summary>
+		/// Get the extension to use for debug info for the given binary type
+		/// </summary>
+		/// <param name="InBinaryType"> The binary type being built</param>
+		/// <returns>string    The debug info extension (i.e. 'pdb')</returns>
+		public override string GetDebugInfoExtension(UEBuildBinaryType InBinaryType)
+		{
+			return "";
+		}
 
-        /**
-         *	Gives the platform a chance to 'override' the configuration settings 
-         *	that are overridden on calls to RunUBT.
-         *	
-         *	@param	InPlatform			The UnrealTargetPlatform being built
-         *	@param	InConfiguration		The UnrealTargetConfiguration being built
-         */
-        public override void ResetBuildConfiguration(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-        {
-            ValidateUEBuildConfiguration();
-        }
+		/// <summary>
+		/// Whether PDB files should be used
+		/// </summary>
+		/// <param name="InPlatform">  The CPPTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The CPPTargetConfiguration being built</param>
+		/// <param name="bInCreateDebugInfo">true if debug info is getting create, false if not</param>
+		/// <returns>bool true if PDB files should be used, false if not</returns>
+		public override bool ShouldUsePDBFiles(CPPTargetPlatform Platform, CPPTargetConfiguration Configuration, bool bCreateDebugInfo)
+		{
+			return true;
+		}
 
-        /**
-         *	Validate configuration for this platform
-         *	NOTE: This function can/will modify BuildConfiguration!
-         *	
-         *	@param	InPlatform			The CPPTargetPlatform being built
-         *	@param	InConfiguration		The CPPTargetConfiguration being built
-         *	@param	bInCreateDebugInfo	true if debug info is getting create, false if not
-         */
-        public override void ValidateBuildConfiguration(CPPTargetConfiguration Configuration, CPPTargetPlatform Platform, bool bCreateDebugInfo)
-        {
-            UEBuildConfiguration.bCompileSimplygon = false;
-        }
+		/// <summary>
+		/// Modify the rules for a newly created module, where the target is a different host platform.
+		/// This is not required - but allows for hiding details of a particular platform.
+		/// </summary>
+		/// <param name="ModuleName">The name of the module</param>
+		/// <param name="Rules">The module rules</param>
+		/// <param name="Target">The target being build</param>
+		public override void ModifyModuleRulesForOtherPlatform(string ModuleName, ModuleRules Rules, TargetInfo Target)
+		{
+			if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
+			{
+				if (!UEBuildConfiguration.bBuildRequiresCookedData)
+				{
+					if (ModuleName == "Engine")
+					{
+						if (UEBuildConfiguration.bBuildDeveloperTools)
+						{
+							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
+							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+							Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
+						}
+					}
+				}
 
-        /**
-         *	Validate the UEBuildConfiguration for this platform
-         *	This is called BEFORE calling UEBuildConfiguration to allow setting 
-         *	various fields used in that function such as CompileLeanAndMean...
-         */
-        public override void ValidateUEBuildConfiguration()
-        {
-            if (ProjectFileGenerator.bGenerateProjectFiles && !ProjectFileGenerator.bGeneratingRocketProjectFiles)
-            {
-                // When generating non-Rocket project files we need intellisense generator to include info from all modules,
-                // including editor-only third party libs
-                UEBuildConfiguration.bCompileLeanAndMeanUE = false;
-            }
+				// allow standalone tools to use targetplatform modules, without needing Engine
+				if (UEBuildConfiguration.bForceBuildTargetPlatforms && ModuleName == "TargetPlatform")
+				{
+					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxTargetPlatform");
+					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxNoEditorTargetPlatform");
+					Rules.PlatformSpecificDynamicallyLoadedModuleNames.Add("LinuxServerTargetPlatform");
+				}
+			}
+		}
 
-            BuildConfiguration.bUseUnityBuild = true;
+		/// <summary>
+		/// Creates a context for the given project on the current platform.
+		/// </summary>
+		/// <param name="ProjectFile">The project file for the current target</param>
+		/// <returns>New platform context object</returns>
+		public override UEBuildPlatformContext CreateContext(FileReference ProjectFile)
+		{
+			return new LinuxPlatformContext(ProjectFile);
+		}
+	}
 
-            // Don't stop compilation at first error...
-            BuildConfiguration.bStopXGECompilationAfterErrors = true;
+	class LinuxPlatformSDK : UEBuildPlatformSDK
+	{
+		/// <summary>
+		/// This is the SDK version we support
+		/// </summary>
+		static private Dictionary<string, string> ExpectedSDKVersions = new Dictionary<string, string>()
+		{
+			{ "x86_64-unknown-linux-gnu", "v6_clang-3.6.0_ld-2.24_glibc-2.12.2" },
+			{ "arm-unknown-linux-gnueabihf", "arm-unknown-linux-gnueabihf_v5_clang-3.5.0-ld-2.23.1-glibc-2.13" },
+		};
 
-            BuildConfiguration.bUseSharedPCHs = false;
-        }
+		/// <summary>
+		/// Platform name (embeds architecture for now)
+		/// </summary>
+		static private string TargetPlatformName = "Linux_x64";
 
-        /**
-         *	Whether PDB files should be used
-         *	
-         *	@param	InPlatform			The CPPTargetPlatform being built
-         *	@param	InConfiguration		The CPPTargetConfiguration being built
-         *	@param	bInCreateDebugInfo	true if debug info is getting create, false if not
-         *	
-         *	@return	bool	true if PDB files should be used, false if not
-         */
-        public override bool ShouldUsePDBFiles(CPPTargetPlatform Platform, CPPTargetConfiguration Configuration, bool bCreateDebugInfo)
-        {
-            return true;
-        }
+		/// <summary>
+		/// Whether platform supports switching SDKs during runtime
+		/// </summary>
+		/// <returns>true if supports</returns>
+		protected override bool PlatformSupportsAutoSDKs()
+		{
+			return true;
+		}
 
-        /**
-         *	Get a list of extra modules the platform requires.
-         *	This is to allow undisclosed platforms to add modules they need without exposing information about the platfomr.
-         *	
-         *	@param	Target						The target being build
-         *	@param	BuildTarget					The UEBuildTarget getting build
-         *	@param	PlatformExtraModules		OUTPUT the list of extra modules the platform needs to add to the target
-         */
-        public override void GetExtraModules(TargetInfo Target, UEBuildTarget BuildTarget, ref List<string> PlatformExtraModules)
-        {
-        }
+		/// <summary>
+		/// Returns platform-specific name used in SDK repository
+		/// </summary>
+		/// <returns>path to SDK Repository</returns>
+		public override string GetSDKTargetPlatformName()
+		{
+			return TargetPlatformName;
+		}
 
-        /**
-         *	Modify the newly created module passed in for this platform.
-         *	This is not required - but allows for hiding details of a
-         *	particular platform.
-         *	
-         *	@param	InModule		The newly loaded module
-         *	@param	Target			The target being build
-         */
-        public override void ModifyNewlyLoadedModule(UEBuildModule InModule, TargetInfo Target)
-        {
-            if ((Target.Platform == UnrealTargetPlatform.Win32) || (Target.Platform == UnrealTargetPlatform.Win64))
-            {
-                if (!UEBuildConfiguration.bBuildRequiresCookedData)
-                {
-                    if (InModule.ToString() == "Engine")
-                    {
-                        if (UEBuildConfiguration.bBuildDeveloperTools)
-                        {
-                            InModule.AddPlatformSpecificDynamicallyLoadedModule("LinuxTargetPlatform");
-                            InModule.AddPlatformSpecificDynamicallyLoadedModule("LinuxNoEditorTargetPlatform");
-                            InModule.AddPlatformSpecificDynamicallyLoadedModule("LinuxServerTargetPlatform");
-                        }
-                    }
-                }
+		/// <summary>
+		/// Returns SDK string as required by the platform
+		/// </summary>
+		/// <returns>Valid SDK string</returns>
+		protected override string GetRequiredSDKString()
+		{
+			string SDKString;
+			if (!ExpectedSDKVersions.TryGetValue(LinuxPlatform.DefaultArchitecture, out SDKString))
+			{
+				throw new BuildException("LinuxPlatform::GetRequiredSDKString: no toolchain set up for architecture '{0}'", LinuxPlatform.DefaultArchitecture);
+			}
 
-                // allow standalone tools to use targetplatform modules, without needing Engine
-                if (UEBuildConfiguration.bForceBuildTargetPlatforms)
-                {
-                    InModule.AddPlatformSpecificDynamicallyLoadedModule("LinuxTargetPlatform");
-                    InModule.AddPlatformSpecificDynamicallyLoadedModule("LinuxNoEditorTargetPlatform");
-                    InModule.AddPlatformSpecificDynamicallyLoadedModule("LinuxServerTargetPlatform");
-                }
-            }
-            else if (Target.Platform == UnrealTargetPlatform.Linux)
-            {
-                bool bBuildShaderFormats = UEBuildConfiguration.bForceBuildShaderFormats;
+			return SDKString;
+		}
 
-                if (!UEBuildConfiguration.bBuildRequiresCookedData)
-                {
-                    if (InModule.ToString() == "TargetPlatform")
-                    {
-                        bBuildShaderFormats = true;
-                    }
-                }
+		protected override String GetRequiredScriptVersionString()
+		{
+			return "3.0";
+		}
 
-                // allow standalone tools to use target platform modules, without needing Engine
-                if (UEBuildConfiguration.bForceBuildTargetPlatforms)
-                {
-                    InModule.AddDynamicallyLoadedModule("LinuxTargetPlatform");
-                    InModule.AddDynamicallyLoadedModule("LinuxNoEditorTargetPlatform");
-                    InModule.AddDynamicallyLoadedModule("LinuxServerTargetPlatform");
-					InModule.AddDynamicallyLoadedModule("DesktopTargetPlatform");
-                }
+		protected override bool PreferAutoSDK()
+		{
+			// having LINUX_ROOT set (for legacy reasons or for convenience of cross-compiling certain third party libs) should not make UBT skip AutoSDKs
+			return true;
+		}
 
-                if (bBuildShaderFormats)
-                {
-					// InModule.AddDynamicallyLoadedModule("ShaderFormatD3D");
-                    InModule.AddDynamicallyLoadedModule("ShaderFormatOpenGL");
-                }
-            }
-        }
+		/// <summary>
+		/// Whether the required external SDKs are installed for this platform
+		/// </summary>
+		protected override SDKStatus HasRequiredManualSDKInternal()
+		{
+			if (BuildHostPlatform.Current.Platform == UnrealTargetPlatform.Linux)
+			{
+				return SDKStatus.Valid;
+			}
 
-        /**
-         *	Setup the target environment for building
-         *	
-         *	@param	InBuildTarget		The target being built
-         */
-        public override void SetUpEnvironment(UEBuildTarget InBuildTarget)
-        {
-            InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("PLATFORM_LINUX=1");
-            InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("LINUX=1");
+			string BaseLinuxPath = Environment.GetEnvironmentVariable("LINUX_ROOT");
 
-            InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("WITH_DATABASE_SUPPORT=0");		//@todo linux: valid?
+			// we don't have an LINUX_ROOT specified
+			if (String.IsNullOrEmpty(BaseLinuxPath))
+				return SDKStatus.Invalid;
 
-            if (GetActiveArchitecture().StartsWith("arm"))
-            {
-                InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Add("REQUIRES_ALIGNED_INT_ACCESS");
-            }
+			// paths to our toolchains
+			BaseLinuxPath = BaseLinuxPath.Replace("\"", "");
+			string ClangPath = Path.Combine(BaseLinuxPath, @"bin\Clang++.exe");
 
-            // link with Linux libraries.
-            InBuildTarget.GlobalLinkEnvironment.Config.AdditionalLibraries.Add("pthread");
+			if (File.Exists(ClangPath))
+				return SDKStatus.Valid;
 
-            // Disable Simplygon support if compiling against the NULL RHI.
-            if (InBuildTarget.GlobalCompileEnvironment.Config.Definitions.Contains("USE_NULL_RHI=1"))
-            {
-                UEBuildConfiguration.bCompileSimplygon = false;
-            }
-        }
+			return SDKStatus.Invalid;
+		}
+	}
 
-        /**
-         *	Whether this platform should create debug information or not
-         *	
-         *	@param	InPlatform			The UnrealTargetPlatform being built
-         *	@param	InConfiguration		The UnrealTargetConfiguration being built
-         *	
-         *	@return	bool				true if debug info should be generated, false if not
-         */
-        public override bool ShouldCreateDebugInfo(UnrealTargetPlatform Platform, UnrealTargetConfiguration Configuration)
-        {
-            switch (Configuration)
-            {
-                case UnrealTargetConfiguration.Development:
-                case UnrealTargetConfiguration.Shipping:
-                case UnrealTargetConfiguration.Test:
-                case UnrealTargetConfiguration.Debug:
-                default:
-                    return true;
-            };
-        }
+	class LinuxPlatformFactory : UEBuildPlatformFactory
+	{
+		/// <summary>
+		/// Register the platform with the UEBuildPlatform class
+		/// </summary>
+		public override void RegisterBuildPlatforms()
+		{
+			LinuxPlatformSDK SDK = new LinuxPlatformSDK();
+			SDK.ManageAndValidateSDK();
 
-        /**
-         *	Setup the binaries for this specific platform.
-         *	
-         *	@param	InBuildTarget		The target being built
-         */
-        public override void SetupBinaries(UEBuildTarget InBuildTarget)
-        {
-        }
-    }
+			if ((ProjectFileGenerator.bGenerateProjectFiles == true) || (SDK.HasRequiredSDKsInstalled() == SDKStatus.Valid))
+			{
+				bool bRegisterBuildPlatform = true;
+
+				string EngineSourcePath = Path.Combine(ProjectFileGenerator.RootRelativePath, "Engine", "Source");
+				string LinuxTargetPlatformFile = Path.Combine(EngineSourcePath, "Developer", "Linux", "LinuxTargetPlatform", "LinuxTargetPlatform.Build.cs");
+
+				if (File.Exists(LinuxTargetPlatformFile) == false)
+				{
+					bRegisterBuildPlatform = false;
+				}
+
+				if (bRegisterBuildPlatform == true)
+				{
+					// Register this build platform for Linux
+					if (BuildConfiguration.bPrintDebugInfo)
+					{
+						Console.WriteLine("        Registering for {0}", UnrealTargetPlatform.Linux.ToString());
+					}
+					UEBuildPlatform.RegisterBuildPlatform(new LinuxPlatform(SDK));
+					UEBuildPlatform.RegisterPlatformWithGroup(UnrealTargetPlatform.Linux, UnrealPlatformGroup.Unix);
+				}
+			}
+		}
+	}
 }

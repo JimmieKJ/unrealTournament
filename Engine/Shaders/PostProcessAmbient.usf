@@ -94,7 +94,8 @@ float3 StandardShading( FGBufferData GBuffer, float Roughness, float3 L, float3 
 {
 	float3 H = normalize(V + L);
 	float NoL = saturate( dot(N, L) );
-	float NoV = saturate( dot(N, V) );
+	//float NoV = saturate( dot(N, V) );
+	float NoV = max( dot(N, V), 1e-5 );
 	float NoH = saturate( dot(N, H) );
 	float VoH = saturate( dot(V, H) );
 	
@@ -103,7 +104,7 @@ float3 StandardShading( FGBufferData GBuffer, float Roughness, float3 L, float3 
 	float Vis = Vis_SmithJointApprox( Roughness, NoV, NoL );
 	float3 F = F_Schlick( GBuffer.SpecularColor, VoH );
 
-	float3 Diffuse = Diffuse_Burley( GBuffer.DiffuseColor, Roughness, NoV, NoL, VoH );
+	float3 Diffuse = Diffuse_Lambert( GBuffer.DiffuseColor );
 
 	return Diffuse + (D * Vis) * F;
 }
@@ -308,6 +309,20 @@ float3 ImageBasedLightingMIS( FGBufferData GBuffer, float3 V, float3 N, uint2 Ra
 				}
 				else
 #endif
+#if USE_CLOTH
+				BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_CLOTH )
+				{
+					Shading = ClothShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1 );
+				}
+				else
+#endif
+#if USE_EYE
+				BRANCH if( GBuffer.ShadingModelID == SHADINGMODELID_EYE )
+				{
+					Shading = EyeShading( GBuffer, GBuffer.Roughness, 1, L, V, N, 1 );
+				}
+				else
+#endif
 				{
 					Shading = StandardShading( GBuffer, GBuffer.Roughness, L, V, N );
 				}
@@ -443,7 +458,7 @@ float3 ApproximateSpecularIBL( uint2 Random, float3 SpecularColor, float Roughne
 	return PrefilteredColor * ( SpecularColor * AB.x + AB.y );
 }
 
-void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainPS(in noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
 
@@ -453,7 +468,7 @@ void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targe
 
 	// screen position in [-1, 1] screen space
 	float2 ScreenSpacePos = UVAndScreenPos.zw;
-	int2 PixelPos = int2(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
+	int2 PixelPos = (int2)SvPosition.xy;
 
 	float3 ScreenVector = normalize(mul(float4(ScreenSpacePos, 1, 0), View.ScreenToWorld).xyz);
 
@@ -461,7 +476,8 @@ void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targe
 	float3 V = -ScreenVector;
 	float3 R = 2 * dot( V, N ) * N - V;
 
-	float NoV = abs( dot(N, V) ) + 1e-5;
+	//float NoV = max( dot(N, V), 1e-5 );
+	float NoV = saturate( dot(N, V) );
 
 	// Point lobe in off-specular peak direction
 	float a = Square( GBuffer.Roughness );
@@ -474,19 +490,8 @@ void MainPS(in float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Targe
 	float3 NonSpecularContribution = 0;
 	float3 SpecularContribution = 0;
 
-#if 1
-	float3 RetroReflectionDir = lerp( N, V, saturate( ( NoV * (1.02341 * a - 1.51174) + -0.511705 * a + 0.755868 ) * a ) );
-	float3 DiffuseLookup =  TextureCubeSampleLevel(AmbientCubemap, AmbientCubemapSampler, RetroReflectionDir, AbsoluteDiffuseMip).rgb;
-
-	float3 ABC = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rgb;
-	//float3 ABC = IntegrateBRDF( Random, GBuffer.Roughness, NoV );
-	
-	NonSpecularContribution += GBuffer.DiffuseColor * DiffuseLookup * ABC.z;
-	//NonSpecularContribution += DiffuseIBL( Random, GBuffer.DiffuseColor, GBuffer.Roughness, N, V );// * ABC.z;
-#else
 	float3 DiffuseLookup =  TextureCubeSampleLevel(AmbientCubemap, AmbientCubemapSampler, N, AbsoluteDiffuseMip).rgb;
 	NonSpecularContribution += GBuffer.DiffuseColor * DiffuseLookup;
-#endif
 
 	// Diffuse
 	{

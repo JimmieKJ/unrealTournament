@@ -1,3 +1,6 @@
+//
+//    Copyright (C) Microsoft.  All rights reserved.
+//
 
 #ifndef __dxgiformat_h__
 #define __dxgiformat_h__
@@ -106,6 +109,28 @@ typedef enum DXGI_FORMAT
     DXGI_FORMAT_BC7_TYPELESS                = 97,
     DXGI_FORMAT_BC7_UNORM                   = 98,
     DXGI_FORMAT_BC7_UNORM_SRGB              = 99,
+    DXGI_FORMAT_AYUV                        = 100,
+    DXGI_FORMAT_Y410                        = 101,
+    DXGI_FORMAT_Y416                        = 102,
+    DXGI_FORMAT_NV12                        = 103,
+    DXGI_FORMAT_P010                        = 104,
+    DXGI_FORMAT_P016                        = 105,
+    DXGI_FORMAT_420_OPAQUE                  = 106,
+    DXGI_FORMAT_YUY2                        = 107,
+    DXGI_FORMAT_Y210                        = 108,
+    DXGI_FORMAT_Y216                        = 109,
+    DXGI_FORMAT_NV11                        = 110,
+    DXGI_FORMAT_AI44                        = 111,
+    DXGI_FORMAT_IA44                        = 112,
+    DXGI_FORMAT_P8                          = 113,
+    DXGI_FORMAT_A8P8                        = 114,
+    DXGI_FORMAT_B4G4R4A4_UNORM              = 115,
+
+    DXGI_FORMAT_P208                        = 130,
+    DXGI_FORMAT_V208                        = 131,
+    DXGI_FORMAT_V408                        = 132,
+
+
     DXGI_FORMAT_FORCE_UINT                  = 0xffffffff
 } DXGI_FORMAT;
 

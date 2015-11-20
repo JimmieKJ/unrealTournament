@@ -186,16 +186,28 @@ bool UK2Node_BaseMCDelegate::IsAuthorityOnly() const
 
 }
 
-bool UK2Node_BaseMCDelegate::HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const
+bool UK2Node_BaseMCDelegate::HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const
 {
-	const UClass* SourceClass = DelegateReference.GetMemberParentClass(GetBlueprintClassFromNode());
 	const UBlueprint* SourceBlueprint = GetBlueprint();
-	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
-	if (bResult && OptionalOutput)
+
+	auto MCProperty = GetProperty();
+	UClass* PropertySourceClass = MCProperty ? MCProperty->GetOwnerClass() : nullptr;
+	const bool bPropertyResult = (PropertySourceClass != NULL) && (PropertySourceClass->ClassGeneratedBy != SourceBlueprint);
+	if (bPropertyResult && OptionalOutput)
 	{
-		OptionalOutput->AddUnique(GetDelegateSignature());
+		OptionalOutput->AddUnique(PropertySourceClass);
 	}
-	return Super::HasExternalBlueprintDependencies(OptionalOutput) || bResult;
+
+	auto Signature = GetDelegateSignature(true);
+	UClass* SignatureSourceClass = Signature ? Signature->GetOwnerClass() : nullptr;
+	const bool bSignatureResult = (SignatureSourceClass != NULL) && (SignatureSourceClass->ClassGeneratedBy != SourceBlueprint);
+	if (bSignatureResult && OptionalOutput)
+	{
+		OptionalOutput->AddUnique(Signature);
+	}
+
+	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);
+	return bSignatureResult || bPropertyResult || bSuperResult;
 }
 
 void UK2Node_BaseMCDelegate::GetNodeAttributes( TArray<TKeyValuePair<FString, FString>>& OutNodeAttributes ) const

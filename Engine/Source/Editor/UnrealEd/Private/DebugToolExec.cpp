@@ -194,7 +194,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 
 		if (FParse::Command(&Cmd, TEXT("TRACE")))
 		{
-			APlayerController* PlayerController = InWorld->GetFirstPlayerController();
+			APlayerController* PlayerController = InWorld->GetGameInstance() ? InWorld->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
 			if (PlayerController != NULL)
 			{
 				// Do a trace in the player's facing direction and edit anything that's hit.
@@ -213,7 +213,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 			
 			// Look for the closest actor of this class to the player.
 			FVector PlayerLocation(0.0f);
-			APlayerController* PlayerController = InWorld->GetFirstPlayerController();
+			APlayerController* PlayerController = InWorld->GetGameInstance() ? InWorld->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
 			if (PlayerController != NULL)
 			{
 				FRotator DummyRotation;

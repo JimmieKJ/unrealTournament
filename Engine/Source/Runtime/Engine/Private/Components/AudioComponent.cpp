@@ -17,6 +17,7 @@ UAudioComponent::UAudioComponent(const FObjectInitializer& ObjectInitializer)
 	bAllowSpatialization = true;
 	bStopWhenOwnerDestroyed = true;
 	bNeverNeedsRenderUpdate = true;
+	bWantsOnUpdateTransform = true;
 #if WITH_EDITORONLY_DATA
 	bVisualizeComponent = true;
 #endif
@@ -93,9 +94,9 @@ void UAudioComponent::SetSound( USoundBase* NewSound )
 	}
 }
 
-void UAudioComponent::OnUpdateTransform(bool bSkipPhysicsMove)
+void UAudioComponent::OnUpdateTransform(bool bSkipPhysicsMove, ETeleportType Teleport)
 {
-	Super::OnUpdateTransform(bSkipPhysicsMove);
+	Super::OnUpdateTransform(bSkipPhysicsMove, Teleport);
 
 	if (bIsActive && !bPreviewComponent)
 	{
@@ -139,10 +140,11 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 		if (FAudioDevice* AudioDevice = GetAudioDevice())
 		{
 			FActiveSound NewActiveSound;
-			NewActiveSound.AudioComponent = this;
+			NewActiveSound.SetAudioComponent(this);
 			NewActiveSound.World = GetWorld();
 			NewActiveSound.Sound = Sound;
 			NewActiveSound.SoundClassOverride = SoundClassOverride;
+			NewActiveSound.ConcurrencySettings = ConcurrencySettings;
 
 			NewActiveSound.VolumeMultiplier = (VolumeModulationMax + ((VolumeModulationMin - VolumeModulationMax) * FMath::SRand())) * VolumeMultiplier;
 			NewActiveSound.VolumeWeightedPriorityScale = VolumeWeightedPriorityScale;
@@ -190,6 +192,9 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			{
 				NewActiveSound.CurrentAdjustVolumeMultiplier = FadeVolumeLevel;
 			}
+
+			FName SoundName = NewActiveSound.Sound->GetFName();
+			UE_LOG(LogTemp, Log, TEXT("Playing ActiveSound: %s"), *SoundName.GetPlainNameString());
 
 			// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
 			AudioDevice->AddNewActiveSound(NewActiveSound);
@@ -368,6 +373,16 @@ const FAttenuationSettings* UAudioComponent::GetAttenuationSettingsToApply() con
 		return Sound->GetAttenuationSettingsToApply();
 	}
 	return nullptr;
+}
+
+bool UAudioComponent::BP_GetAttenuationSettingsToApply(FAttenuationSettings& OutAttenuationSettings)
+{
+	if (const FAttenuationSettings* Settings = GetAttenuationSettingsToApply())
+	{
+		OutAttenuationSettings = *Settings;
+		return true;
+	}
+	return false;
 }
 
 void UAudioComponent::CollectAttenuationShapesForVisualization(TMultiMap<EAttenuationShape::Type, FAttenuationSettings::AttenuationShapeDetails>& ShapeDetailsMap) const

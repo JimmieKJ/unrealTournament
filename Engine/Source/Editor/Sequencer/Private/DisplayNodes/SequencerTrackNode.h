@@ -1,0 +1,108 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "SequencerDisplayNode.h"
+
+
+class FSequencerSectionKeyAreaNode;
+class IKeyArea;
+class ISequencerSection;
+
+
+/**
+ * Represents an area to display Sequencer sections (possibly on multiple lines).
+ */
+class FSequencerTrackNode
+	: public FSequencerDisplayNode
+{
+public:
+
+	/**
+	 * Create and initialize a new instance.
+	 * 
+	 * @param InAssociatedType The track that this node represents.
+	 * @param InAssociatedEditor The track editor for the track that this node represents.
+	 * @param InParentNode The parent of this node, or nullptr if this is a root node.
+	 * @param InParentTree The tree this node is in.
+	 */
+	FSequencerTrackNode(UMovieSceneTrack& InAssociatedTrack, ISequencerTrackEditor& InAssociatedEditor, TSharedPtr<FSequencerDisplayNode> InParentNode, FSequencerNodeTree& InParentTree);
+
+public:
+
+	/**
+	 * Adds a section to this node
+	 *
+	 * @param SequencerSection	The section to add
+	 */
+	void AddSection(TSharedRef<ISequencerSection>& SequencerSection)
+	{
+		Sections.Add(SequencerSection);
+	}
+
+	/**
+	 * Makes the section itself a key area without taking up extra space
+	 *
+	 * @param KeyArea	Interface for the key area
+	 */
+	void SetSectionAsKeyArea(TSharedRef<IKeyArea>& KeyArea);
+	
+	/**
+	 * @return All sections in this node
+	 */
+	const TArray<TSharedRef<ISequencerSection>>& GetSections() const
+	{
+		return Sections;
+	}
+
+	TArray<TSharedRef<ISequencerSection>>& GetSections()
+	{
+		return Sections;
+	}
+
+	/** @return Returns the top level key node for the section area if it exists */
+	TSharedPtr<FSequencerSectionKeyAreaNode> GetTopLevelKeyNode()
+	{
+		return TopLevelKeyNode;
+	}
+
+	/** @return the track associated with this section */
+	UMovieSceneTrack* GetTrack() const
+	{
+		return AssociatedTrack.Get();
+	}
+
+	/** Gets the greatest row index of all the sections we have */
+	int32 GetMaxRowIndex() const;
+
+	/** Ensures all row indices which have no sections are gone */
+	void FixRowIndices();
+
+public:
+
+	// FSequencerDisplayNode interface
+
+	virtual void BuildContextMenu( FMenuBuilder& MenuBuilder );
+	virtual bool CanRenameNode() const override;
+	virtual TSharedRef<SWidget> GenerateEditWidgetForOutliner() override;
+	virtual void GetChildKeyAreaNodesRecursively(TArray<TSharedRef<FSequencerSectionKeyAreaNode>>& OutNodes) const override;
+	virtual FText GetDisplayName() const override;
+	virtual float GetNodeHeight() const override;
+	virtual FNodePadding GetNodePadding() const override;
+	virtual ESequencerNode::Type GetType() const override;
+	virtual void SetDisplayName(const FText& DisplayName) override;
+
+private:
+
+	/** The track editor for the track associated with this node. */
+	ISequencerTrackEditor& AssociatedEditor;
+
+	/** The type associated with the sections in this node */
+	TWeakObjectPtr<UMovieSceneTrack> AssociatedTrack;
+
+	/** All of the sequencer sections in this node */
+	TArray<TSharedRef<ISequencerSection>> Sections;
+
+	/** If the section area is a key area itself, this represents the node for the keys */
+	TSharedPtr<FSequencerSectionKeyAreaNode> TopLevelKeyNode;
+};

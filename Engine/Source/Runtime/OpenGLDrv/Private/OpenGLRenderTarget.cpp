@@ -23,6 +23,7 @@ class FOpenGLFramebufferKey
 	struct RenderTargetInfo
 	{
 		FOpenGLTextureBase* Texture;
+		GLuint				Resource;
 		uint32				MipmapLevel;
 		uint32				ArrayIndex;
 	};
@@ -43,14 +44,15 @@ public:
 		uint32 RenderTargetIndex;
 		for( RenderTargetIndex = 0; RenderTargetIndex < InNumRenderTargets; ++RenderTargetIndex )
 		{
+			FMemory::Memzero(RenderTargets[RenderTargetIndex]); // since memcmp is used, we need to zero memory
 			RenderTargets[RenderTargetIndex].Texture = InRenderTargets[RenderTargetIndex];
+			RenderTargets[RenderTargetIndex].Resource = (InRenderTargets[RenderTargetIndex]) ? InRenderTargets[RenderTargetIndex]->Resource : 0;
 			RenderTargets[RenderTargetIndex].MipmapLevel = InRenderTargetMipmapLevels[RenderTargetIndex];
 			RenderTargets[RenderTargetIndex].ArrayIndex = (InRenderTargetArrayIndices == NULL || InRenderTargetArrayIndices[RenderTargetIndex] == -1) ? ALL_SLICES : InRenderTargetArrayIndices[RenderTargetIndex];
 		}
 		for( ; RenderTargetIndex < MaxSimultaneousRenderTargets; ++RenderTargetIndex )
 		{
-			RenderTargets[RenderTargetIndex].Texture = 0;
-			RenderTargets[RenderTargetIndex].MipmapLevel = 0;
+			FMemory::Memzero(RenderTargets[RenderTargetIndex]); // since memcmp is used, we need to zero memory
 			RenderTargets[RenderTargetIndex].ArrayIndex = ALL_SLICES;
 		}
 	}
@@ -114,6 +116,10 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 		return GL_NONE;
 	}
 
+#if PLATFORM_ANDROID
+	static const auto CVarMobileOnChipMSAA = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileOnChipMSAA"));
+#endif
+
 	// Not found. Preparing new one.
 	GLuint Framebuffer;
 	glGenFramebuffers(1, &Framebuffer);
@@ -137,7 +143,17 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 			{
 			case GL_TEXTURE_2D:
 			case GL_TEXTURE_2D_MULTISAMPLE:
-				FOpenGL::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + RenderTargetIndex, RenderTarget->Target, RenderTarget->Resource, MipmapLevels[RenderTargetIndex]);
+#if PLATFORM_ANDROID
+				if (FOpenGL::SupportsMultisampledRenderToTexture() && CVarMobileOnChipMSAA->GetValueOnRenderThread())
+				{
+					glFramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + RenderTargetIndex, RenderTarget->Target, RenderTarget->Resource, MipmapLevels[RenderTargetIndex], 2);
+					VERIFY_GL(glFramebufferTexture2DMultisampleEXT);
+				}
+				else
+#endif
+				{
+					FOpenGL::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + RenderTargetIndex, RenderTarget->Target, RenderTarget->Resource, MipmapLevels[RenderTargetIndex]);
+				}
 				break;
 			case GL_TEXTURE_3D:
 			case GL_TEXTURE_2D_ARRAY:
@@ -158,7 +174,17 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 			case GL_TEXTURE_2D:
 			case GL_TEXTURE_2D_MULTISAMPLE:
 				check( ArrayIndices[RenderTargetIndex] == 0);
-				FOpenGL::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + RenderTargetIndex, RenderTarget->Target, RenderTarget->Resource, MipmapLevels[RenderTargetIndex]);
+#if PLATFORM_ANDROID
+				if (FOpenGL::SupportsMultisampledRenderToTexture() && CVarMobileOnChipMSAA->GetValueOnRenderThread())
+				{
+					glFramebufferTexture2DMultisampleEXT(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + RenderTargetIndex, RenderTarget->Target, RenderTarget->Resource, MipmapLevels[RenderTargetIndex], 2);
+					VERIFY_GL(glFramebufferTexture2DMultisampleEXT);
+				}
+				else
+#endif
+				{
+					FOpenGL::FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + RenderTargetIndex, RenderTarget->Target, RenderTarget->Resource, MipmapLevels[RenderTargetIndex]);
+				}
 				break;
 			case GL_TEXTURE_3D:
 				FOpenGL::FramebufferTexture3D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0 + RenderTargetIndex, RenderTarget->Target, RenderTarget->Resource, MipmapLevels[RenderTargetIndex], ArrayIndices[RenderTargetIndex]);
@@ -186,7 +212,32 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 		{
 		case GL_TEXTURE_2D:
 		case GL_TEXTURE_2D_MULTISAMPLE:
-			FOpenGL::FramebufferTexture2D(GL_FRAMEBUFFER, DepthStencilTarget->Attachment, DepthStencilTarget->Target, DepthStencilTarget->Resource, 0);
+#if PLATFORM_ANDROID
+			if (FOpenGL::SupportsMultisampledRenderToTexture() && CVarMobileOnChipMSAA->GetValueOnRenderThread())
+			{
+				FOpenGLTexture2D* DepthStencilTarget2D = (FOpenGLTexture2D*)DepthStencilTarget;
+				GLuint DepthBuffer;
+				glGenRenderbuffers(1, &DepthBuffer);
+				glBindRenderbuffer(GL_RENDERBUFFER, DepthBuffer);
+				glRenderbufferStorageMultisampleEXT(GL_RENDERBUFFER, 2, FOpenGL::SupportsPackedDepthStencil() ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT24, DepthStencilTarget2D->GetSizeX(), DepthStencilTarget2D->GetSizeY());
+				VERIFY_GL(glRenderbufferStorageMultisampleEXT);
+				glBindRenderbuffer(GL_RENDERBUFFER, 0);
+				glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, DepthBuffer);
+				VERIFY_GL(glFramebufferRenderbuffer);
+			}
+			else
+#endif
+			{
+				if (!FOpenGL::SupportsCombinedDepthStencilAttachment() && DepthStencilTarget->Attachment == GL_DEPTH_STENCIL_ATTACHMENT)
+				{
+					FOpenGL::FramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, DepthStencilTarget->Target, DepthStencilTarget->Resource, 0);
+					FOpenGL::FramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, DepthStencilTarget->Target, DepthStencilTarget->Resource, 0);
+				}
+				else
+				{
+					FOpenGL::FramebufferTexture2D(GL_FRAMEBUFFER, DepthStencilTarget->Attachment, DepthStencilTarget->Target, DepthStencilTarget->Resource, 0);
+				}
+			}
 			break;
 		case GL_TEXTURE_3D:
 		case GL_TEXTURE_2D_ARRAY:
@@ -195,7 +246,15 @@ GLuint FOpenGLDynamicRHI::GetOpenGLFramebuffer(uint32 NumSimultaneousRenderTarge
 			FOpenGL::FramebufferTexture(GL_FRAMEBUFFER, DepthStencilTarget->Attachment, DepthStencilTarget->Resource, 0);
 			break;
 		default:
-			FOpenGL::FramebufferRenderbuffer(GL_FRAMEBUFFER, DepthStencilTarget->Attachment, GL_RENDERBUFFER, DepthStencilTarget->Resource);
+			if (!FOpenGL::SupportsCombinedDepthStencilAttachment() && DepthStencilTarget->Attachment == GL_DEPTH_STENCIL_ATTACHMENT)
+			{
+				FOpenGL::FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, DepthStencilTarget->Resource);
+				FOpenGL::FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, DepthStencilTarget->Resource);
+			}
+			else
+			{
+				FOpenGL::FramebufferRenderbuffer(GL_FRAMEBUFFER, DepthStencilTarget->Attachment, GL_RENDERBUFFER, DepthStencilTarget->Resource);
+			}
 			break;
 		}
 	}
@@ -296,9 +355,6 @@ void FOpenGLDynamicRHI::PurgeFramebufferFromCaches( GLuint Framebuffer )
 		RenderingContextState.Framebuffer = -1;
 	}
 }
-
-// Ignore functions from RHIMethods.h when parsing documentation; Doxygen's preprocessor can't parse the declaration, so spews warnings for the definitions.
-#if !UE_BUILD_DOCS
 
 void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, bool bKeepOriginalSurface, const FResolveParams& ResolveParams)
 {
@@ -421,8 +477,8 @@ void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture
 		
 		// For CPU readback resolve targets we should issue the resolve to the internal PBO immediately.
 		// This makes any subsequent locking of that texture much cheaper as it won't have to stall on a pixel pack op.
-		bool bLockableTarget = DestTextureRHI->GetTexture2D() && (DestTextureRHI->GetFlags() & TexCreate_CPUReadback) && !(DestTextureRHI->GetFlags() & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable));
-		if(bTrueBlit && bLockableTarget && FOpenGL::SupportsPixelBuffers() && !ResolveParams.Rect.IsValid())
+		bool bLockableTarget = DestTextureRHI->GetTexture2D() && (DestTextureRHI->GetFlags() & TexCreate_CPUReadback) && !(DestTextureRHI->GetFlags() & (TexCreate_RenderTargetable|TexCreate_DepthStencilTargetable)) && !DestTextureRHI->IsMultisampled();
+		if(bLockableTarget && FOpenGL::SupportsPixelBuffers() && !ResolveParams.Rect.IsValid())
 		{
 			FOpenGLTexture2D* DestTex = (FOpenGLTexture2D*)DestTexture;
 			DestTex->Resolve(MipmapLevel, DestIndex);
@@ -436,7 +492,7 @@ void FOpenGLDynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTexture
 	}
 }
 
-#endif
+
 
 void FOpenGLDynamicRHI::ReadSurfaceDataRaw(FOpenGLContextState& ContextState, FTextureRHIParamRef TextureRHI,FIntRect Rect,TArray<uint8>& OutData, FReadSurfaceDataFlags InFlags)
 {
@@ -509,7 +565,7 @@ void FOpenGLDynamicRHI::ReadSurfaceDataRaw(FOpenGLContextState& ContextState, FT
 
 	check( !bDepthFormat || FOpenGL::SupportsDepthStencilReadSurface() );
 	check( !bFloatFormat || FOpenGL::SupportsFloatReadSurface() );
-	const GLenum Attachment = bDepthFormat ? (FOpenGL::SupportsCombinedDepthStencilAttachment() && bDepthStencilFormat ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT) : GL_COLOR_ATTACHMENT0;
+	const GLenum Attachment = bDepthFormat ? (FOpenGL::SupportsPackedDepthStencil() && bDepthStencilFormat ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT) : GL_COLOR_ATTACHMENT0;
 	const bool bIsColorBuffer = Texture->Attachment == GL_COLOR_ATTACHMENT0;
 
 	uint32 MipmapLevel = 0;
@@ -702,9 +758,6 @@ void FOpenGLDynamicRHI::ReadSurfaceDataRaw(FOpenGLContextState& ContextState, FT
 	ContextState.Framebuffer = (GLuint)-1;
 }
 
-// Ignore functions from RHIMethods.h when parsing documentation; Doxygen's preprocessor can't parse the declaration, so spews warnings for the definitions.
-#if !UE_BUILD_DOCS
-
 void FOpenGLDynamicRHI::RHIReadSurfaceData(FTextureRHIParamRef TextureRHI,FIntRect Rect,TArray<FColor>& OutData, FReadSurfaceDataFlags InFlags)
 {
 	TArray<uint8> Temp;
@@ -872,7 +925,7 @@ void FOpenGLDynamicRHI::RHIRead3DSurfaceFloatData(FTextureRHIParamRef TextureRHI
 	ContextState.Framebuffer = (GLuint)-1;
 }
 
-#endif
+
 
 void FOpenGLDynamicRHI::BindPendingFramebuffer( FOpenGLContextState& ContextState )
 {

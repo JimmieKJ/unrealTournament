@@ -6,7 +6,7 @@
 
 #pragma once
 
-DECLARE_STATS_GROUP(TEXT("ThreadPool Async Tasks"), STATGROUP_ThreadPoolAsyncTasks, STATCAT_Advanced);
+
 
 /**
 	FAutoDeleteAsyncTask - template task for jobs that delete themselves when complete
@@ -29,19 +29,21 @@ DECLARE_STATS_GROUP(TEXT("ThreadPool Async Tasks"), STATGROUP_ThreadPoolAsyncTas
 			... do the work here
 		}
 
- 		FORCEINLINE TStatId GetStatId() const
- 		{
+		FORCEINLINE TStatId GetStatId() const
+		{
 			RETURN_QUICK_DECLARE_CYCLE_STAT(ExampleAutoDeleteAsyncTask, STATGROUP_ThreadPoolAsyncTasks);
- 		}
+		}
 	};
 
-	start an example job
+	
+	void Example()
+	{
+		// start an example job
+		(new FAutoDeleteAsyncTask<ExampleAutoDeleteAsyncTask>(5)->StartBackgroundTask();
 
-	(new FAutoDeleteAsyncTask<ExampleAutoDeleteAsyncTask>(5)->StartBackgroundTask();
-
-	do an example job now, on this thread
-
-	(new FAutoDeleteAsyncTask<ExampleAutoDeleteAsyncTask>(5)->StartSynchronousTask();
+		// do an example job now, on this thread
+		(new FAutoDeleteAsyncTask<ExampleAutoDeleteAsyncTask>(5)->StartSynchronousTask();
+	}
 
 **/
 template<typename TTask>
@@ -216,31 +218,31 @@ public:
 		}
 	};
 
-	start an example job
-
-	FAutoDeleteAsyncTask<ExampleAutoDeleteAsyncTask> MyTask(5);
-	
-	MyTask.StartBackgroundTask();
-
-	-- or -- 
-
-	MyTask.StartSynchronousTask();
-
-	to just do it now on this thread
-
-	Check if the task is done:
-
-	if (MyTask.IsDone())
+	void Example()
 	{
+
+		//start an example job
+
+		FAsyncTask<ExampleAsyncTask>* MyTask = new FAsyncTask<ExampleAsyncTask>( 5 );
+		MyTask->StartBackgroundTask();
+
+		//--or --
+
+		MyTask->StartSynchronousTask();
+
+		//to just do it now on this thread
+		//Check if the task is done :
+
+		if (MyTask->IsDone())
+		{
+		}
+
+		//Spinning on IsDone is not acceptable( see EnsureCompletion ), but it is ok to check once a frame.
+		//Ensure the task is done, doing the task on the current thread if it has not been started, waiting until completion in all cases.
+
+		MyTask->EnsureCompletion();
+		delete Task;
 	}
-
-	Spinning on IsDone is not acceptable (see EnsureCompletion), but it is ok to check once a frame.
-
-	Ensure the task is done, doing the task on the current thread if it has not been started, waiting until completion in all cases.
-
-	Task.EnsureCompletion();
-
-
 **/
 template<typename TTask>
 class FAsyncTask
@@ -268,6 +270,9 @@ class FAsyncTask
 	**/
 	void Start(bool bForceSynchronous, FQueuedThreadPool* InQueuedPool)
 	{
+		FScopeCycleCounter Scope( Task.GetStatId(), true );
+		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FAsyncTask::Start" ), STAT_FAsyncTask_Start, STATGROUP_ThreadPoolAsyncTasks );
+
 		FPlatformMisc::MemoryBarrier();
 		CheckIdle();  // can't start a job twice without it being completed first
 		WorkNotFinishedCounter.Increment();
@@ -313,6 +318,8 @@ class FAsyncTask
 		check(QueuedPool);
 		if (DoneEvent)
 		{
+			FScopeCycleCounter Scope( Task.GetStatId(), true );
+			DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FAsyncTask::FinishThreadedWork" ), STAT_FAsyncTask_FinishThreadedWork, STATGROUP_ThreadPoolAsyncTasks );		
 			DoneEvent->Trigger();
 		}
 	}
@@ -362,6 +369,9 @@ class FAsyncTask
 		FPlatformMisc::MemoryBarrier();
 		if (QueuedPool)
 		{
+			FScopeCycleCounter Scope( Task.GetStatId() );
+			DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FAsyncTask::SyncCompletion" ), STAT_FAsyncTask_SyncCompletion, STATGROUP_ThreadPoolAsyncTasks );
+
 			check(DoneEvent); // if it is not done yet, we must have an event
 			DoneEvent->Wait();
 			QueuedPool = 0;
@@ -370,7 +380,7 @@ class FAsyncTask
 	}
 
 	/** 
-	* Internal call to intialize internal variables
+	* Internal call to initialize internal variables
 	**/
 	void Init()
 	{

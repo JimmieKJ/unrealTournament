@@ -255,23 +255,28 @@ bool FJsonStructDeserializerBackend::ReadProperty( UProperty* Property, UPropert
 			{
 				return SetPropertyValue<UStrProperty, FString>(Property, Outer, Data, ArrayIndex, StringValue);
 			}
-			
+		
 			if (Property->GetClass() == UNameProperty::StaticClass())
 			{
 				return SetPropertyValue<UNameProperty, FName>(Property, Outer, Data, ArrayIndex, *StringValue);
 			}
 			
+			if (Property->GetClass() == UTextProperty::StaticClass())
+			{
+				return SetPropertyValue<UTextProperty, FText>(Property, Outer, Data, ArrayIndex, FText::FromString(StringValue));
+			}
+
 			if (Property->GetClass() == UByteProperty::StaticClass())
 			{
 				UByteProperty* ByteProperty = Cast<UByteProperty>(Property);
-				int32 Index = ByteProperty->Enum->FindEnumIndex(*StringValue);
+				int32 Value = ByteProperty->Enum->GetValueByName(*StringValue);
 
-				if (Index == INDEX_NONE)
+				if (Value == INDEX_NONE)
 				{
 					return false;
 				}
 
-				return SetPropertyValue<UByteProperty, uint8>(Property, Outer, Data, ArrayIndex, (uint8)Index);
+				return SetPropertyValue<UByteProperty, uint8>(Property, Outer, Data, ArrayIndex, (uint8)Value);
 			}
 			
 			if (Property->GetClass() == UClassProperty::StaticClass())

@@ -36,6 +36,8 @@ struct SLATECORE_API FCharacterEntry
 	uint8 TextureIndex;
 	/** 1 if this entry has kerning, 0 otherwise. */
 	bool HasKerning;
+	/** The fallback level this character represents */
+	EFontFallback FallbackLevel;
 	/** 1 if this entry is valid, 0 otherwise. */
 	bool Valid;
 
@@ -49,7 +51,7 @@ struct SLATECORE_API FCharacterEntry
 	 * 
 	 * @param InEntry The entry to check
 	 */
-	FORCEINLINE bool IsValidEntry() const
+	FORCEINLINE bool IsCached() const
 	{
 		return Valid;
 	}
@@ -129,17 +131,16 @@ public:
 		return DirectIndexEntries.IsValidIndex( Character ) || ( Character >= MaxDirectIndexedEntries && MappedEntries.Contains( Character ) );
 	}
 
+
 	/**
 	 * Gets data about how to render and measure a character 
 	 * Caching and atlasing it if needed
 	 *
-	 * @param Character	The character to get
-	 * @return Data about the character
+	 * @param InFontInfo	The higher level font info (used for determining the font fallback level - FontKey does not cache this)
+	 * @param Character		The character to get
+	 * @return				Data about the character
 	 */
-	const FCharacterEntry& operator[]( TCHAR Character )
-	{
-		return GetCharacter( Character );
-	}
+	const FCharacterEntry& GetCharacter(const FSlateFontInfo& InFontInfo, TCHAR Character);
 
 	/** Check to see if our cached data is potentially stale for our font */
 	bool IsStale() const;
@@ -147,11 +148,12 @@ public:
 	/**
 	 * Gets a kerning value for a pair of characters
 	 *
+	 * @param InFontInfo	The higher level font info (used for determining the font fallback level - FontKey does not cache this)
 	 * @param FirstChar		The first character in the pair
 	 * @param SecondChar	The second character in the pair
 	 * @return The kerning value
 	 */
-	int8 GetKerning( TCHAR FirstChar, TCHAR SecondChar );
+	int8 GetKerning(const FSlateFontInfo& InFontInfo, TCHAR FirstChar, TCHAR SecondChar);
 
 	/**
 	 * Gets a kerning value for a pair of character entries
@@ -175,6 +177,13 @@ public:
 	int16 GetBaseline() const;
 
 private:
+
+	/**
+	 * Returns whether the specified character is valid for caching (i.e. whether it matches the FontFallback level)
+	 *
+	 * @param Character		The character to check
+	 */
+	bool CanCacheCharacter(TCHAR Character);
 
 	/**
 	 * Gets data about how to render and measure a character 
@@ -213,6 +222,8 @@ private:
 	mutable uint16 MaxHeight;
 	/** The offset from the bottom of the max character height to the baseline. */
 	mutable int16 Baseline;
+	/** Temporarily adjusts the font fallback level, during key functions calls */
+	EFontFallback FontFallback;
 };
 
 /**
@@ -221,6 +232,8 @@ private:
  */
 class SLATECORE_API FSlateFontCache : public ISlateAtlasProvider
 {
+	friend FCharacterList;
+
 public:
 	/**
 	 * Constructor
@@ -265,7 +278,7 @@ public:
 	/** 
 	 * Flush the cache if needed
 	 */
-	void ConditionalFlushCache();
+	bool ConditionalFlushCache();
 
 	/**
 	 * Updates the texture used for rendering

@@ -4,7 +4,6 @@
 #include "UnrealEd.h"
 #include "Tests/AutomationTestSettings.h"
 #include "ObjectTools.h"
-#include "Json.h"
 #include "AssetRegistryModule.h"
 #include "AssetToolsModule.h"
 #include "AssetSelection.h"
@@ -17,7 +16,6 @@
 
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/BlueprintEditorUtils.h"
-#include "BlueprintGraphClasses.h"
 
 #include "AutomationCommon.h"
 #include "AutomationEditorCommon.h"
@@ -31,6 +29,13 @@
 #include "Engine/BlockingVolume.h"
 #include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
+
+#include "K2Node_Event.h"
+#include "K2Node_CustomEvent.h"
+#include "K2Node_Timeline.h"
+#include "K2Node_MacroInstance.h"
+#include "K2Node_CallFunction.h"
+#include "K2Node_Composite.h"
 
 
 /**
@@ -115,7 +120,7 @@ void TakeLatentAutomationScreenshot(struct WindowScreenshotParameters Screenshot
  * in the Content Browser (does not allow for specific settings to be made per import factory). Cannot be run in a commandlet
  * as it executes code that routes through Slate UI.
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FGenericImportAssetsAutomationTest, "System.Editor.Import", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_NonNullRHI) )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FGenericImportAssetsAutomationTest, "System.Editor.Import", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::NonNullRHI | EAutomationTestFlags::EngineFilter))
 
 /** 
  * Requests a enumeration of all sample assets to import
@@ -191,682 +196,10 @@ bool FGenericImportAssetsAutomationTest::RunTest(const FString& Parameters)
 //////////////////////////////////////////////////////////////////////////
 
 /**
- * FJsonAutomationTest
- * Simple unit test that runs Json's in-built test cases
- */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FJsonAutomationTest, "System.Engine.FileSystem.JSON", EAutomationTestFlags::ATF_SmokeTest)
-
-typedef TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > FCondensedJsonStringWriterFactory;
-typedef TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > FCondensedJsonStringWriter;
-
-typedef TJsonWriterFactory< TCHAR, TPrettyJsonPrintPolicy<TCHAR> > FPrettyJsonStringWriterFactory;
-typedef TJsonWriter< TCHAR, TPrettyJsonPrintPolicy<TCHAR> > FPrettyJsonStringWriter;
-
-/** 
- * Execute the Json test cases
- *
- * @return	true if the test was successful, false otherwise
- */
-bool FJsonAutomationTest::RunTest(const FString& Parameters)
-{
-	// Null Case
-	{
-		const FString InputString = TEXT("");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) == false );
-		check( !Object.IsValid() );
-	}
-
-	// Empty Object Case
-	{
-		const FString InputString = TEXT("{}");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) );
-		check( Object.IsValid() );
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Object.ToSharedRef(), Writer ) );
-		check( InputString == OutputString );
-	}
-
-	// Empty Array Case
-	{
-		const FString InputString = TEXT("[]");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TArray< TSharedPtr<FJsonValue> > Array;
-		check( FJsonSerializer::Deserialize( Reader, Array ) );
-		check( Array.Num() == 0 );
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Array, Writer ) );
-		check( InputString == OutputString );
-	}
-
-	// Simple Array Case
-	{
-		const FString InputString = 
-			TEXT("[")
-			TEXT(	"{")
-			TEXT(		"\"Value\":\"Some String\"")
-			TEXT(	"}")
-			TEXT("]");
-
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TArray< TSharedPtr<FJsonValue> > Array;
-		check( FJsonSerializer::Deserialize( Reader, Array ) );
-		check( Array.Num() == 1 );
-		check( Array[0].IsValid() )
-
-		TSharedPtr< FJsonObject > Object = Array[0]->AsObject();
-		check( Object.IsValid() );
-		check( Object->GetStringField( TEXT("Value") ) == TEXT("Some String") )
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Array, Writer ) );
-		check( InputString == OutputString );
-	}
-
-	// Object Array Case
-	{
-		const FString InputString =
-			TEXT("[")
-			TEXT(	"{")
-			TEXT(		"\"Value\":\"Some String1\"")
-			TEXT(	"},")
-			TEXT(	"{")
-			TEXT(		"\"Value\":\"Some String2\"")
-			TEXT(	"},")
-			TEXT(	"{")
-			TEXT(		"\"Value\":\"Some String3\"")
-			TEXT(	"}")
-			TEXT("]");
-
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InputString);
-
-		TArray< TSharedPtr<FJsonValue> > Array;
-		check(FJsonSerializer::Deserialize(Reader, Array));
-		check(Array.Num() == 3);
-		check(Array[0].IsValid());
-		check(Array[1].IsValid());
-		check(Array[2].IsValid());
-
-		TSharedPtr< FJsonObject > Object = Array[0]->AsObject();
-		check(Object.IsValid());
-		check(Object->GetStringField(TEXT("Value")) == TEXT("Some String1"));
-
-		Object = Array[1]->AsObject();
-		check(Object.IsValid());
-		check(Object->GetStringField(TEXT("Value")) == TEXT("Some String2"));
-
-		Object = Array[2]->AsObject();
-		check(Object.IsValid());
-		check(Object->GetStringField(TEXT("Value")) == TEXT("Some String3"));
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create(&OutputString);
-		check(FJsonSerializer::Serialize(Array, Writer));
-		check(InputString == OutputString);
-	}
-
-	// Number Array Case
-	{
-		const FString InputString =
-			TEXT("[")
-			TEXT("10,")
-			TEXT("20,")
-			TEXT("30,")
-			TEXT("40")
-			TEXT("]");
-
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InputString);
-
-		TArray< TSharedPtr<FJsonValue> > Array;
-		check(FJsonSerializer::Deserialize(Reader, Array));
-		check(Array.Num() == 4);
-		check(Array[0].IsValid());
-		check(Array[1].IsValid());
-		check(Array[2].IsValid());
-		check(Array[3].IsValid());
-
-		double Number = Array[0]->AsNumber();
-		check(Number == 10);
-
-		Number = Array[1]->AsNumber();
-		check(Number == 20);
-
-		Number = Array[2]->AsNumber();
-		check(Number == 30);
-
-		Number = Array[3]->AsNumber();
-		check(Number == 40);
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create(&OutputString);
-		check(FJsonSerializer::Serialize(Array, Writer));
-		check(InputString == OutputString);
-	}
-
-	// String Array Case
-	{
-		const FString InputString =
-			TEXT("[")
-			TEXT("\"Some String1\",")
-			TEXT("\"Some String2\",")
-			TEXT("\"Some String3\",")
-			TEXT("\"Some String4\"")
-			TEXT("]");
-
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InputString);
-
-		TArray< TSharedPtr<FJsonValue> > Array;
-		check(FJsonSerializer::Deserialize(Reader, Array));
-		check(Array.Num() == 4);
-		check(Array[0].IsValid());
-		check(Array[1].IsValid());
-		check(Array[2].IsValid());
-		check(Array[3].IsValid());
-
-		FString Text = Array[0]->AsString();
-		check(Text == TEXT("Some String1"));
-
-		Text = Array[1]->AsString();
-		check(Text == TEXT("Some String2"));
-
-		Text = Array[2]->AsString();
-		check(Text == TEXT("Some String3"));
-
-		Text = Array[3]->AsString();
-		check(Text == TEXT("Some String4"));
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create(&OutputString);
-		check(FJsonSerializer::Serialize(Array, Writer));
-		check(InputString == OutputString);
-	}
-
-	// Complex Array Case
-	{
-		const FString InputString =
-			TEXT("[")
-			TEXT(	"\"Some String1\",")
-			TEXT(	"10,")
-			TEXT(	"{")
-			TEXT(		"\"Value\":\"Some String3\"")
-			TEXT(	"},")
-			TEXT(	"[")
-			TEXT(		"\"Some String4\",")
-			TEXT(		"\"Some String5\"")
-			TEXT(	"],")
-			TEXT(	"true,")
-			TEXT(	"null")
-			TEXT("]");
-
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create(InputString);
-
-		TArray< TSharedPtr<FJsonValue> > Array;
-		check(FJsonSerializer::Deserialize(Reader, Array));
-		check(Array.Num() == 6);
-		check(Array[0].IsValid());
-		check(Array[1].IsValid());
-		check(Array[2].IsValid());
-		check(Array[3].IsValid());
-		check(Array[4].IsValid());
-		check(Array[5].IsValid());
-
-		FString Text = Array[0]->AsString();
-		check(Text == TEXT("Some String1"));
-
-		double Number = Array[1]->AsNumber();
-		check(Number == 10);
-
-		TSharedPtr< FJsonObject > Object = Array[2]->AsObject();
-		check(Object.IsValid());
-		check(Object->GetStringField(TEXT("Value")) == TEXT("Some String3"));
-
-		const TArray<TSharedPtr< FJsonValue >>& InnerArray = Array[3]->AsArray();
-		check(InnerArray.Num() == 2);
-		check(Array[0].IsValid());
-		check(Array[1].IsValid());
-
-		Text = InnerArray[0]->AsString();
-		check(Text == TEXT("Some String4"));
-
-		Text = InnerArray[1]->AsString();
-		check(Text == TEXT("Some String5"));
-
-		bool Boolean = Array[4]->AsBool();
-		check(Boolean == true);
-
-		check(Array[5]->IsNull() == true);
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create(&OutputString);
-		check(FJsonSerializer::Serialize(Array, Writer));
-		check(InputString == OutputString);
-	}
-
-	// String Test
-	{
-		const FString InputString =
-			TEXT("{")
-			TEXT(	"\"Value\":\"Some String, Escape Chars: \\\\, \\\", \\/, \\b, \\f, \\n, \\r, \\t, \\u002B\"")
-			TEXT("}");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) );
-		check( Object.IsValid() );
-
-		const TSharedPtr<FJsonValue>* Value = Object->Values.Find(TEXT("Value"));
-		check(Value && (*Value)->Type == EJson::String);
-		const FString String = (*Value)->AsString();
-		check(String == TEXT("Some String, Escape Chars: \\, \", /, \b, \f, \n, \r, \t, +"));
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Object.ToSharedRef(), Writer ) );
-
-		const FString TestOutput =
-			TEXT("{")
-			TEXT(	"\"Value\":\"Some String, Escape Chars: \\\\, \\\", /, \\b, \\f, \\n, \\r, \\t, +\"")
-			TEXT("}");
-		check(OutputString == TestOutput);
-	}
-
-	// Number Test
-	{
-		const FString InputString =
-			TEXT("{")
-			TEXT(	"\"Value1\":2.544e+15,")
-			TEXT(	"\"Value2\":-0.544E-2,")
-			TEXT(	"\"Value3\":251e3,")
-			TEXT(	"\"Value4\":-0.0,")
-			TEXT(	"\"Value5\":843")
-			TEXT("}");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) );
-		check( Object.IsValid() );
-
-		double TestValues[] = {2.544e+15, -0.544e-2, 251e3, -0.0, 843};
-		for (int32 i = 0; i < 5; ++i)
-		{
-			const TSharedPtr<FJsonValue>* Value = Object->Values.Find(FString::Printf(TEXT("Value%i"), i + 1));
-			check(Value && (*Value)->Type == EJson::Number);
-			const double Number = (*Value)->AsNumber();
-			check(Number == TestValues[i]);
-		}
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Object.ToSharedRef(), Writer ) );
-
-		// %g isn't standardized, so we use the same %g format that is used inside PrintJson instead of hardcoding the values here
-		const FString TestOutput = FString::Printf(
-			TEXT("{")
-			TEXT(	"\"Value1\":%.17g,")
-			TEXT(	"\"Value2\":%.17g,")
-			TEXT(	"\"Value3\":%.17g,")
-			TEXT(	"\"Value4\":%.17g,")
-			TEXT(	"\"Value5\":%.17g")
-			TEXT("}"),
-			TestValues[0], TestValues[1], TestValues[2], TestValues[3], TestValues[4]);
-		check(OutputString == TestOutput);
-	}
-
-	// Boolean/Null Test
-	{
-		const FString InputString =
-			TEXT("{")
-			TEXT(	"\"Value1\":true,")
-			TEXT(	"\"Value2\":true,")
-			TEXT(	"\"Value3\":faLsE,")
-			TEXT(	"\"Value4\":null,")
-			TEXT(	"\"Value5\":NULL")
-			TEXT("}");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) );
-		check( Object.IsValid() );
-
-		bool TestValues[] = {true, true, false};
-		for (int32 i = 0; i < 5; ++i)
-		{
-			const TSharedPtr<FJsonValue>* Value = Object->Values.Find(FString::Printf(TEXT("Value%i"), i + 1));
-			check(Value);
-			if (i < 3)
-			{
-				check((*Value)->Type == EJson::Boolean);
-				const bool Bool = (*Value)->AsBool();
-				check(Bool == TestValues[i]);
-			}
-			else
-			{
-				check((*Value)->Type == EJson::Null);
-				check((*Value)->IsNull());
-			}
-		}
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Object.ToSharedRef(), Writer ) );
-
-		const FString TestOutput =
-			TEXT("{")
-			TEXT(	"\"Value1\":true,")
-			TEXT(	"\"Value2\":true,")
-			TEXT(	"\"Value3\":false,")
-			TEXT(	"\"Value4\":null,")
-			TEXT(	"\"Value5\":null")
-			TEXT("}");
-		check(OutputString == TestOutput);
-	}
-
-	// Object Test && extra whitespace test
-	{
-		const FString InputStringWithExtraWhitespace =
-			TEXT("		\n\r\n	   {")
-			TEXT(	"\"Object\":")
-			TEXT(	"{")
-			TEXT(		"\"NestedValue\":null,")
-			TEXT(		"\"NestedObject\":{}")
-			TEXT(	"},")
-			TEXT(	"\"Value\":true")
-			TEXT("}		\n\r\n	   ");
-
-		const FString InputString =
-			TEXT("{")
-			TEXT(	"\"Object\":")
-			TEXT(	"{")
-			TEXT(		"\"NestedValue\":null,")
-			TEXT(		"\"NestedObject\":{}")
-			TEXT(	"},")
-			TEXT(	"\"Value\":true")
-			TEXT("}");
-
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputStringWithExtraWhitespace );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) );
-		check( Object.IsValid() );
-
-		const TSharedPtr<FJsonValue>* InnerValueFail = Object->Values.Find(TEXT("InnerValue"));
-		check(!InnerValueFail);
-
-		const TSharedPtr<FJsonValue>* ObjectValue = Object->Values.Find(TEXT("Object"));
-		check(ObjectValue && (*ObjectValue)->Type == EJson::Object);
-		const TSharedPtr<FJsonObject> InnerObject = (*ObjectValue)->AsObject();
-		check(InnerObject.IsValid());
-
-		{
-			const TSharedPtr<FJsonValue>* NestedValueValue = InnerObject->Values.Find(TEXT("NestedValue"));
-			check(NestedValueValue && (*NestedValueValue)->Type == EJson::Null);
-			check((*NestedValueValue)->IsNull());
-
-			const TSharedPtr<FJsonValue>* NestedObjectValue = InnerObject->Values.Find(TEXT("NestedObject"));
-			check(NestedObjectValue && (*NestedObjectValue)->Type == EJson::Object);
-			const TSharedPtr<FJsonObject> InnerInnerObject = (*NestedObjectValue)->AsObject();
-			check(InnerInnerObject.IsValid());
-
-			{
-				const TSharedPtr<FJsonValue>* NestedValueValueFail = InnerInnerObject->Values.Find(TEXT("NestedValue"));
-				check(!NestedValueValueFail);
-			}
-		}
-
-		const TSharedPtr<FJsonValue>* ValueValue = Object->Values.Find(TEXT("Value"));
-		check(ValueValue && (*ValueValue)->Type == EJson::Boolean);
-		const bool Bool = (*ValueValue)->AsBool();
-		check(Bool);
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Object.ToSharedRef(), Writer ) );
-		check(OutputString == InputString);
-	}
-
-	// Array Test
-	{
-		const FString InputString =
-			TEXT("{")
-			TEXT(	"\"Array\":")
-			TEXT(	"[")
-			TEXT(		"[],")
-			TEXT(		"\"Some String\",")
-			TEXT(		"\"Another String\",")
-			TEXT(		"null,")
-			TEXT(		"true,")
-			TEXT(		"false,")
-			TEXT(		"45,")
-			TEXT(		"{}")
-			TEXT(	"]")
-			TEXT("}");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) );
-		check( Object.IsValid() );
-
-		const TSharedPtr<FJsonValue>* InnerValueFail = Object->Values.Find(TEXT("InnerValue"));
-		check(!InnerValueFail);
-
-		const TSharedPtr<FJsonValue>* ArrayValue = Object->Values.Find(TEXT("Array"));
-		check(ArrayValue && (*ArrayValue)->Type == EJson::Array);
-		const TArray< TSharedPtr<FJsonValue> > Array = (*ArrayValue)->AsArray();
-		check(Array.Num() == 8);
-
-		EJson ValueTypes[] = {EJson::Array, EJson::String, EJson::String, EJson::Null,
-			EJson::Boolean, EJson::Boolean, EJson::Number, EJson::Object};
-		for (int32 i = 0; i < Array.Num(); ++i)
-		{
-			const TSharedPtr<FJsonValue>& Value = Array[i];
-			check(Value.IsValid());
-			check(Value->Type == ValueTypes[i]);
-		}
-
-		const TArray< TSharedPtr<FJsonValue> >& InnerArray = Array[0]->AsArray();
-		check(InnerArray.Num() == 0);
-		check(Array[1]->AsString() == TEXT("Some String"));
-		check(Array[2]->AsString() == TEXT("Another String"));
-		check(Array[3]->IsNull());
-		check(Array[4]->AsBool());
-		check(!Array[5]->AsBool());
-		check(FMath::Abs(Array[6]->AsNumber() - 45.f) < KINDA_SMALL_NUMBER);
-		const TSharedPtr<FJsonObject> InnerObject = Array[7]->AsObject();
-		check(InnerObject.IsValid());
-
-		FString OutputString;
-		TSharedRef< FCondensedJsonStringWriter > Writer = FCondensedJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Object.ToSharedRef(), Writer ) );
-		check(OutputString == InputString);
-	}
-
-	// Pretty Print Test
-	{
-		const FString InputString =
-			TEXT("{")									LINE_TERMINATOR
-			TEXT("	\"Data1\": \"value\",")				LINE_TERMINATOR
-			TEXT("	\"Data2\": \"value\",")				LINE_TERMINATOR
-			TEXT("	\"Array\": [")						LINE_TERMINATOR
-			TEXT("		{")								LINE_TERMINATOR
-			TEXT("			\"InnerData1\": \"value\"")	LINE_TERMINATOR
-			TEXT("		},")							LINE_TERMINATOR
-			TEXT("		[],")							LINE_TERMINATOR
-			TEXT("		[ 1, 2, 3, 4 ],")				LINE_TERMINATOR
-			TEXT("		{")								LINE_TERMINATOR
-			TEXT("		},")							LINE_TERMINATOR
-			TEXT("		\"value\",")					LINE_TERMINATOR
-			TEXT("		\"value\"")						LINE_TERMINATOR
-			TEXT("	],")								LINE_TERMINATOR
-			TEXT("	\"Object\":")						LINE_TERMINATOR
-			TEXT("	{")									LINE_TERMINATOR
-			TEXT("	}")									LINE_TERMINATOR
-			TEXT("}");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) );
-		check( Object.IsValid() );
-
-		FString OutputString;
-		TSharedRef< FPrettyJsonStringWriter > Writer = FPrettyJsonStringWriterFactory::Create( &OutputString );
-		check( FJsonSerializer::Serialize( Object.ToSharedRef(), Writer ) );
-		check(OutputString == InputString);
-	}
-	  
-	// Line and Character # test
-	{
-		const FString InputString =
-			TEXT("{")									LINE_TERMINATOR
-			TEXT("	\"Data1\": \"value\",")				LINE_TERMINATOR
-			TEXT("	\"Array\":")						LINE_TERMINATOR
-			TEXT("	[")									LINE_TERMINATOR
-			TEXT("		12345,")						LINE_TERMINATOR
-			TEXT("		True")							LINE_TERMINATOR
-			TEXT("	],")								LINE_TERMINATOR
-			TEXT("	\"Object\":")						LINE_TERMINATOR
-			TEXT("	{")									LINE_TERMINATOR
-			TEXT("	}")									LINE_TERMINATOR
-			TEXT("}");
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( InputString );
-
-		EJsonNotation Notation = EJsonNotation::Null;
-		check( Reader->ReadNext( Notation ) && Notation == EJsonNotation::ObjectStart );
-		check( Reader->GetLineNumber() == 1 && Reader->GetCharacterNumber() == 1 );
-
-		check( Reader->ReadNext( Notation ) && Notation == EJsonNotation::String );
-		check( Reader->GetLineNumber() == 2 && Reader->GetCharacterNumber() == 17 );
-
-		check( Reader->ReadNext( Notation ) && Notation == EJsonNotation::ArrayStart );
-		check( Reader->GetLineNumber() == 4 && Reader->GetCharacterNumber() == 2 );
-
-		check( Reader->ReadNext( Notation ) && Notation == EJsonNotation::Number );
-		check( Reader->GetLineNumber() == 5 && Reader->GetCharacterNumber() == 7 );
-
-		check( Reader->ReadNext( Notation ) && Notation == EJsonNotation::Boolean );
-		check( Reader->GetLineNumber() == 6 && Reader->GetCharacterNumber() == 6 );
-	}
-
-	// Failure Cases
-	TArray<FString> FailureInputs;
-
-	// Unclosed Object
-	FailureInputs.Add(
-		TEXT("{"));
-
-	// Values in Object without identifiers
-	FailureInputs.Add(
-		TEXT("{")
-		TEXT(	"\"Value1\",")
-		TEXT(	"\"Value2\",")
-		TEXT(	"43")
-		TEXT("}"));
-
-	// Unexpected End Of Input Found
-	FailureInputs.Add(
-		TEXT("{")
-		TEXT(	"\"Object\":")
-		TEXT(	"{")
-		TEXT(		"\"NestedValue\":null,"));
-
-	// Missing first brace
-	FailureInputs.Add(
-		TEXT(	"\"Object\":")
-		TEXT(		"{")
-		TEXT(		"\"NestedValue\":null,")
-		TEXT(		"\"NestedObject\":{}")
-		TEXT(	"},")
-		TEXT(	"\"Value\":true")
-		TEXT("}"));
-
-	// Missing last character
-	FailureInputs.Add(
-		TEXT("{")
-		TEXT(	"\"Object\":")
-		TEXT(	"{")
-		TEXT(		"\"NestedValue\":null,")
-		TEXT(		"\"NestedObject\":{}")
-		TEXT(	"},")
-		TEXT(	"\"Value\":true"));
-
-	// Extra last character
-	FailureInputs.Add(
-		TEXT("{")
-		TEXT(	"\"Object\":")
-		TEXT(	"{")
-		TEXT(		"\"NestedValue\":null,")
-		TEXT(		"\"NestedObject\":{}")
-		TEXT(	"},")
-		TEXT(	"\"Value\":true")
-		TEXT("}0"));
-
-	// Missing comma
-	FailureInputs.Add(
-		TEXT("{")
-		TEXT(	"\"Value1\":null,")
-		TEXT(	"\"Value2\":\"string\"")
-		TEXT(	"\"Value3\":65.3")
-		TEXT("}"));
-
-	// Extra comma
-	FailureInputs.Add(
-		TEXT("{")
-		TEXT(	"\"Value1\":null,")
-		TEXT(	"\"Value2\":\"string\",")
-		TEXT(	"\"Value3\":65.3,")
-		TEXT("}"));
-
-	// Badly formed true/false/null
-	FailureInputs.Add(TEXT("{\"Value\":tru}"));
-	FailureInputs.Add(TEXT("{\"Value\":full}"));
-	FailureInputs.Add(TEXT("{\"Value\":nulle}"));
-	FailureInputs.Add(TEXT("{\"Value\":n%ll}"));
-
-	// Floating Point Failures
-	FailureInputs.Add(TEXT("{\"Value\":65.3e}"));
-	FailureInputs.Add(TEXT("{\"Value\":65.}"));
-	FailureInputs.Add(TEXT("{\"Value\":.7}"));
-	FailureInputs.Add(TEXT("{\"Value\":+6}"));
-	FailureInputs.Add(TEXT("{\"Value\":01}"));
-	FailureInputs.Add(TEXT("{\"Value\":00.56}"));
-	FailureInputs.Add(TEXT("{\"Value\":-1.e+4}"));
-	FailureInputs.Add(TEXT("{\"Value\":2e+}"));
-
-	// Bad Escape Characters
-	FailureInputs.Add(TEXT("{\"Value\":\"Hello\\xThere\"}"));
-	FailureInputs.Add(TEXT("{\"Value\":\"Hello\\u123There\"}"));
-	FailureInputs.Add(TEXT("{\"Value\":\"Hello\\RThere\"}"));
-
-	for (int32 i = 0; i < FailureInputs.Num(); ++i)
-	{
-		TSharedRef< TJsonReader<> > Reader = TJsonReaderFactory<>::Create( FailureInputs[i] );
-
-		TSharedPtr<FJsonObject> Object;
-		check( FJsonSerializer::Deserialize( Reader, Object ) == false );
-		check( !Object.IsValid() );
-	}
-
-	return true;
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-/**
  * Pie Test
  * Verification PIE works
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FPIETest, "System.Maps.PIE", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FPIETest, "System.Maps.PIE", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 /** 
  * Execute the loading of one map to verify PIE works
@@ -897,7 +230,7 @@ bool FPIETest::RunTest(const FString& Parameters)
  * LoadAllMaps
  * Verification automation test to make sure loading all maps succeed without crashing
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FLoadAllMapsInEditorTest, "Project.Maps.Load All In Editor", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FLoadAllMapsInEditorTest, "Project.Maps.Load All In Editor", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
 
 /** 
  * Requests a enumeration of all maps to be loaded
@@ -1004,7 +337,7 @@ bool FLoadAllMapsInEditorTest::RunTest(const FString& Parameters)
 /**
  * Reinitialize all RHI resources
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FReinitializeRHIResources, "System.Engine.Rendering.Reinit Resources", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FReinitializeRHIResources, "System.Engine.Rendering.Reinit Resources", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
 
 bool FReinitializeRHIResources::RunTest(const FString& Parameters)
 {
@@ -1015,158 +348,9 @@ bool FReinitializeRHIResources::RunTest(const FString& Parameters)
 
 //////////////////////////////////////////////////////////////////////////
 /**
- * QA BSP Regression Testing
- */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBSPValidation, "System.QA.BSP Validation", EAutomationTestFlags::ATF_Editor);
-
-bool FBSPValidation::RunTest(const FString& Parameters)
-{
-	UWorld* World = AutomationEditorCommonUtils::CreateNewMap();
-	GEditor->Exec( World, TEXT("BRUSH Scale 1 1 1"));
-
-	for( int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++ )
-	{
-		FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
-		if(!ViewportClient->IsOrtho() )
-		{
-			ViewportClient->SetViewLocation( FVector(176, 2625, 2075) );
-			ViewportClient->SetViewRotation( FRotator(319, 269, 1) );
-		}
-	}
-
-	//Cube Additive Brush
-	UCubeBuilder* CubeAdditiveBrushBuilder = Cast<UCubeBuilder>(GEditor->FindBrushBuilder( UCubeBuilder::StaticClass() ));
-	CubeAdditiveBrushBuilder->X = 4096.0f;
-	CubeAdditiveBrushBuilder->Y = 4096.0f;
-	CubeAdditiveBrushBuilder->Z = 128.0f;
-	CubeAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=0 Y=0 Z=0"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Cone Additive Brush
-	UConeBuilder* ConeAdditiveBrushBuilder = Cast<UConeBuilder>(GEditor->FindBrushBuilder( UConeBuilder::StaticClass() ));
-	ConeAdditiveBrushBuilder->Z = 1024.0f;
-	ConeAdditiveBrushBuilder->CapZ = 256.0f;
-	ConeAdditiveBrushBuilder->OuterRadius = 512.0f;
-	ConeAdditiveBrushBuilder->InnerRadius = 384;
-	ConeAdditiveBrushBuilder->Sides = 32;
-	ConeAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=-1525 Y=-1777 Z=64"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Sphere Additive Brush
-	UTetrahedronBuilder* TetraAdditiveBrushBuilder = Cast<UTetrahedronBuilder>(GEditor->FindBrushBuilder( UTetrahedronBuilder::StaticClass() ));
-	TetraAdditiveBrushBuilder->Radius = 512.0f;
-	TetraAdditiveBrushBuilder->SphereExtrapolation = 3;
-	TetraAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=-88 Y=-1777 Z=535"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Cylinder Additive Brush
-	UCylinderBuilder* CylinderAdditiveBrushBuilder = Cast<UCylinderBuilder>(GEditor->FindBrushBuilder( UCylinderBuilder::StaticClass() ));
-	CylinderAdditiveBrushBuilder->Z = 1024.0f;
-	CylinderAdditiveBrushBuilder->OuterRadius = 512.0f;
-	CylinderAdditiveBrushBuilder->InnerRadius = 384.0f;
-	CylinderAdditiveBrushBuilder->Sides = 16;
-	CylinderAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=1338 Y=-1776 Z=535"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Cylinder Additive Brush
-	USheetBuilder* SheetAdditiveBrushBuilder = Cast<USheetBuilder>(GEditor->FindBrushBuilder( USheetBuilder::StaticClass() ));
-	SheetAdditiveBrushBuilder->X = 512.0f;
-	SheetAdditiveBrushBuilder->Y = 512.0f;
-	SheetAdditiveBrushBuilder->XSegments = 1;
-	SheetAdditiveBrushBuilder->YSegments = 1;
-	SheetAdditiveBrushBuilder->Axis = AX_YAxis;
-	SheetAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=-760 Y=-346 Z=535"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Volume Additive Brush
-	UVolumetricBuilder* VolumetricAdditiveBrushBuilder = Cast<UVolumetricBuilder>(GEditor->FindBrushBuilder( UVolumetricBuilder::StaticClass() ));
-	VolumetricAdditiveBrushBuilder->Z = 512.0f;
-	VolumetricAdditiveBrushBuilder->Radius = 128.0f;
-	VolumetricAdditiveBrushBuilder->NumSheets = 3;
-	VolumetricAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=445 Y=-345 Z=535"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Linear Stair Additive Brush
-	ULinearStairBuilder* LinearStairAdditiveBrushBuilder = Cast<ULinearStairBuilder>(GEditor->FindBrushBuilder( ULinearStairBuilder::StaticClass() ));
-	LinearStairAdditiveBrushBuilder->StepLength = 64.0f;
-	LinearStairAdditiveBrushBuilder->StepHeight = 16.0f;
-	LinearStairAdditiveBrushBuilder->StepWidth = 256.0f;
-	LinearStairAdditiveBrushBuilder->NumSteps = 8;
-	LinearStairAdditiveBrushBuilder->AddToFirstStep = 0;
-	LinearStairAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=1464 Y=-345 Z=-61"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Curved Stair Additive Brush
-	UCurvedStairBuilder* CurvedStairAdditiveBrushBuilder = Cast<UCurvedStairBuilder>(GEditor->FindBrushBuilder( UCurvedStairBuilder::StaticClass() ));
-	CurvedStairAdditiveBrushBuilder->InnerRadius = 240.0f;
-	CurvedStairAdditiveBrushBuilder->StepHeight = 16.0f;
-	CurvedStairAdditiveBrushBuilder->StepWidth = 256.0f;
-	CurvedStairAdditiveBrushBuilder->AngleOfCurve = 90.0f;
-	CurvedStairAdditiveBrushBuilder->NumSteps = 4;
-	CurvedStairAdditiveBrushBuilder->AddToFirstStep = 0;
-	CurvedStairAdditiveBrushBuilder->CounterClockwise = false;
-	CurvedStairAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=-1290 Y=263 Z=193"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Spiral Stair Additive Brush
-	USpiralStairBuilder* SpiralStairAdditiveBrushBuilder = Cast<USpiralStairBuilder>(GEditor->FindBrushBuilder( USpiralStairBuilder::StaticClass() ));
-	SpiralStairAdditiveBrushBuilder->InnerRadius = 64;
-	SpiralStairAdditiveBrushBuilder->StepWidth = 256.0f;
-	SpiralStairAdditiveBrushBuilder->StepHeight = 16.0f;
-	SpiralStairAdditiveBrushBuilder->StepThickness = 32.0f;
-	SpiralStairAdditiveBrushBuilder->NumStepsPer360 = 8;
-	SpiralStairAdditiveBrushBuilder->NumSteps = 8;
-	SpiralStairAdditiveBrushBuilder->SlopedCeiling = true;
-	SpiralStairAdditiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=850 Y=263 Z=193"));
-	GEditor->Exec( World, TEXT("BRUSH ADD"));
-
-	//Cylinder Additive Brush
-	UCylinderBuilder* CylinderSubtractiveBrushBuilder = Cast<UCylinderBuilder>(GEditor->FindBrushBuilder( UCylinderBuilder::StaticClass() ));
-	CylinderSubtractiveBrushBuilder->Z = 256;
-	CylinderSubtractiveBrushBuilder->OuterRadius = 512.0f;
-	CylinderSubtractiveBrushBuilder->InnerRadius = 384.0f;
-	CylinderSubtractiveBrushBuilder->Sides = 3;
-	CylinderSubtractiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=0 Y=0 Z=128"));
-	GEditor->Exec( World, TEXT("BRUSH SUBTRACT"));
-
-	//Cube Subtractive Brush
-	UCubeBuilder* CubeSubtractiveBrushBuilder = Cast<UCubeBuilder>(GEditor->FindBrushBuilder( UCubeBuilder::StaticClass() ));
-	CubeSubtractiveBrushBuilder->X = 256.0f;
-	CubeSubtractiveBrushBuilder->Y = 1024.0f;
-	CubeSubtractiveBrushBuilder->Z = 256.0f;
-	CubeSubtractiveBrushBuilder->Build(World);
-	GEditor->Exec( World, TEXT("BRUSH MOVETO X=-88 Y=-1777 Z=535"));
-	GEditor->Exec( World, TEXT("BRUSH SUBTRACT"));
-
-	//Directional Light
-	const FTransform Transform(FVector(-611.0f, 242.0f, 805.0f));
-	ADirectionalLight* DirectionalLight = Cast<ADirectionalLight>(GEditor->AddActor(World->GetCurrentLevel(), ADirectionalLight::StaticClass(), Transform));
-	DirectionalLight->SetMobility(EComponentMobility::Movable);
-	DirectionalLight->SetActorRotation(FRotator(300, 250, -91));
-	DirectionalLight->SetBrightness(3.142f);
-	DirectionalLight->SetLightColor(FColor::White);
-
-	GLevelEditorModeTools().MapChangeNotify();
-	
-	return true;
-}
-
-
-//////////////////////////////////////////////////////////////////////////
-/**
  * QA Static Mesh Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshValidation, "System.QA.Mesh Factory Validation", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshValidation, "System.QA.Mesh Factory Validation", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
 
 bool FStaticMeshValidation::RunTest(const FString& Parameters)
 {
@@ -1242,7 +426,7 @@ bool FStaticMeshValidation::RunTest(const FString& Parameters)
 /**
  * QA Convert Meshes Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConvertToValidation, "System.QA.Convert Meshes", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FConvertToValidation, "System.QA.Convert Meshes", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
 
 //gather all brushes that exist now
 void ConvertTestFindAllBrushes(TArray<ABrush*> &PreviousBrushes)
@@ -1466,7 +650,7 @@ bool FCleanupConvertToValidation::Update()
 /**
  * QA Static Mesh Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshPlacement, "System.QA.Static Mesh Placement", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FStaticMeshPlacement, "System.QA.Static Mesh Placement", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
 
 bool FStaticMeshPlacement::RunTest(const FString& Parameters)
 {
@@ -1520,7 +704,7 @@ bool FStaticMeshPlacement::RunTest(const FString& Parameters)
 /**
  * QA Light Placement Regression Testing
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLightPlacement, "System.QA.Point Light Placement", EAutomationTestFlags::ATF_Editor);
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLightPlacement, "System.QA.Point Light Placement", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter);
 
 bool FLightPlacement::RunTest(const FString& Parameters)
 {
@@ -1619,7 +803,7 @@ bool FLightPlacement::RunTest(const FString& Parameters)
  * Unit test to find all timelines in blueprints and list the events that can trigger them.
  * Timelines implicitly tick and are usually used for cosmetic events, so they can cause performance problems on dedicated servers.
  */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FTraceAllTimelinesAutomationTest, "Project.Performance Audits.Find Timelines On Server", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FTraceAllTimelinesAutomationTest, "Project.Performance Audits.Find Timelines On Server", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::RequiresUser | EAutomationTestFlags::StressFilter))
 
 /** 
  * Requests an enumeration of all blueprints to be loaded
@@ -2014,7 +1198,7 @@ bool FTraceAllTimelinesAutomationTest::RunTest(const FString& BlueprintName)
 /**
 * Tool to look for overlapping UV's in static meshes.
 */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FStaticMeshUVCheck, "Project.Tools.Static Mesh.Static Mesh UVs Check", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser));
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FStaticMeshUVCheck, "Project.Tools.Static Mesh.Static Mesh UVs Check", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::RequiresUser | EAutomationTestFlags::StressFilter));
 
 void FStaticMeshUVCheck::GetTests(TArray<FString>& OutBeautifiedNames, TArray<FString>& OutTestCommands) const
 {
@@ -2044,7 +1228,7 @@ bool FStaticMeshUVCheck::RunTest(const FString& Parameters)
 /**
 * Launches a map onto a specified device after making a change to it.
 */
-IMPLEMENT_COMPLEX_AUTOMATION_TEST(FLaunchOnTest, "Project.Editor.Launch On Test", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FLaunchOnTest, "Project.Editor.Launch On Test", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::RequiresUser | EAutomationTestFlags::EngineFilter))
 
 void FLaunchOnTest::GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const
 {

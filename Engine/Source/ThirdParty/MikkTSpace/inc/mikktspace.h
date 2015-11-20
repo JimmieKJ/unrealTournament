@@ -107,6 +107,7 @@ struct SMikkTSpaceContext
 {
 	SMikkTSpaceInterface * m_pInterface;	// initialized with callback functions
 	void * m_pUserData;						// pointer to client side mesh data etc. (passed as the first parameter with every interface call)
+	tbool m_bIgnoreDegenerates;				// Skip the fix-up path for degenerate triangles which can be slow on larger meshes if they are handed externally
 };
 
 // these are both thread safe!

@@ -14,6 +14,14 @@ namespace FObjectEditorUtils
 	 * @param	InProperty	Property we want the category name of.
 	 * @return	Category name of the given property.
 	 */
+	ENGINE_API FText GetCategoryText( const class UProperty* InProperty );	
+
+	/**
+	 * Gets the category this property belongs to.
+	 *
+	 * @param	InProperty	Property we want the category name of.
+	 * @return	Category name of the given property.
+	 */
 	ENGINE_API FString GetCategory( const class UProperty* InProperty );	
 
 	/**

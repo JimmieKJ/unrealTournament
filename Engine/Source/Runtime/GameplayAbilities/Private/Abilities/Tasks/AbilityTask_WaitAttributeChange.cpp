@@ -16,7 +16,7 @@ UAbilityTask_WaitAttributeChange::UAbilityTask_WaitAttributeChange(const FObject
 
 UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttributeChange(UObject* WorldContextObject, FGameplayAttribute InAttribute, FGameplayTag InWithTag, FGameplayTag InWithoutTag, bool TriggerOnce)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitAttributeChange>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitAttributeChange>(WorldContextObject);
 	MyObj->WithTag = InWithTag;
 	MyObj->WithoutTag = InWithoutTag;
 	MyObj->Attribute = InAttribute;
@@ -28,7 +28,7 @@ UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttri
 
 UAbilityTask_WaitAttributeChange* UAbilityTask_WaitAttributeChange::WaitForAttributeChangeWithComparison(UObject* WorldContextObject, FGameplayAttribute InAttribute, FGameplayTag InWithTag, FGameplayTag InWithoutTag, TEnumAsByte<EWaitAttributeChangeComparison::Type> InComparisonType, float InComparisonValue, bool TriggerOnce)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitAttributeChange>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitAttributeChange>(WorldContextObject);
 	MyObj->WithTag = InWithTag;
 	MyObj->WithoutTag = InWithoutTag;
 	MyObj->Attribute = InAttribute;

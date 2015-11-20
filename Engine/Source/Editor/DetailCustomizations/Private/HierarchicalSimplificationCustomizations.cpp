@@ -5,6 +5,8 @@
 #include "Developer/MeshUtilities/Public/MeshUtilities.h"
 #include "GameFramework/WorldSettings.h"
 
+#define LOCTEXT_NAMESPACE "HierarchicalSimplificationCustomizations"
+
 TSharedRef<IPropertyTypeCustomization> FHierarchicalSimplificationCustomizations::MakeInstance() 
 {
 	return MakeShareable( new FHierarchicalSimplificationCustomizations );
@@ -12,10 +14,14 @@ TSharedRef<IPropertyTypeCustomization> FHierarchicalSimplificationCustomizations
 
 void FHierarchicalSimplificationCustomizations::CustomizeHeader(TSharedRef<IPropertyHandle> StructPropertyHandle, FDetailWidgetRow& HeaderRow, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
+	FFormatOrderedArguments Args;
+	Args.Add(StructPropertyHandle->GetPropertyDisplayName());
+	FText Name = FText::Format(LOCTEXT("HLODLevelName", "HLOD Level {0}"), Args);
+	
 	HeaderRow.
 	NameContent()
 	[
-		StructPropertyHandle->CreatePropertyNameWidget()
+		StructPropertyHandle->CreatePropertyNameWidget(Name)
 	]
 	.ValueContent()
 	[
@@ -25,11 +31,10 @@ void FHierarchicalSimplificationCustomizations::CustomizeHeader(TSharedRef<IProp
 
 void FHierarchicalSimplificationCustomizations::CustomizeChildren( TSharedRef<IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
 {
+	// Retrieve structure's child properties
 	uint32 NumChildren;
-	StructPropertyHandle->GetNumChildren( NumChildren );
-
-	TMap<FName, TSharedPtr< IPropertyHandle > > PropertyHandles;
-
+	StructPropertyHandle->GetNumChildren( NumChildren );	
+	TMap<FName, TSharedPtr< IPropertyHandle > > PropertyHandles;	
 	for( uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex )
 	{
 		TSharedRef<IPropertyHandle> ChildHandle = StructPropertyHandle->GetChildHandle( ChildIndex ).ToSharedRef();
@@ -37,32 +42,44 @@ void FHierarchicalSimplificationCustomizations::CustomizeChildren( TSharedRef<IP
 
 		PropertyHandles.Add(PropertyName, ChildHandle);
 	}
+	
+	// Create two sub-settings groups for clean overview
+	IDetailGroup& ClusterGroup = ChildBuilder.AddChildGroup(NAME_None, FText::FromString("Cluster generation settings"));
+	IDetailGroup& MergeGroup = ChildBuilder.AddChildGroup(NAME_None, FText::FromString("Mesh generation settings"));
 
+	// Retrieve special case properties
 	SimplifyMeshPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification, bSimplifyMesh));
-
-	IDetailPropertyRow& SimplifyMeshRow = ChildBuilder.AddChildProperty(SimplifyMeshPropertyHandle.ToSharedRef());
-	SimplifyMeshRow.Visibility(TAttribute<EVisibility>(this, &FHierarchicalSimplificationCustomizations::IsSimplifyMeshVisible));
-
 	TSharedPtr< IPropertyHandle > ProxyMeshSettingPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification, ProxySetting));
 	TSharedPtr< IPropertyHandle > MergeMeshSettingPropertyHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FHierarchicalSimplification, MergeSetting));
 
 	for( auto Iter(PropertyHandles.CreateConstIterator()); Iter; ++Iter  )
 	{
-		if (Iter.Value() != SimplifyMeshPropertyHandle && Iter.Value() != ProxyMeshSettingPropertyHandle && Iter.Value() != MergeMeshSettingPropertyHandle)
+		// Handle special property cases (done inside the loop to maintain order according to the struct
+		if (Iter.Value() == SimplifyMeshPropertyHandle)
 		{
-			ChildBuilder.AddChildProperty(Iter.Value().ToSharedRef());
+			IDetailPropertyRow& SimplifyMeshRow = MergeGroup.AddPropertyRow(SimplifyMeshPropertyHandle.ToSharedRef());
+			SimplifyMeshRow.Visibility(TAttribute<EVisibility>(this, &FHierarchicalSimplificationCustomizations::IsSimplifyMeshVisible));
 		}
-	}
-
-	IDetailPropertyRow& ProxyMeshSettingRow = ChildBuilder.AddChildProperty(ProxyMeshSettingPropertyHandle.ToSharedRef());
-	ProxyMeshSettingRow.Visibility(TAttribute<EVisibility>(this, &FHierarchicalSimplificationCustomizations::IsProxyMeshSettingVisible));
-
-	IDetailPropertyRow& MergeMeshSettingRow = ChildBuilder.AddChildProperty(MergeMeshSettingPropertyHandle.ToSharedRef());
-	MergeMeshSettingRow.Visibility(TAttribute<EVisibility>(this, &FHierarchicalSimplificationCustomizations::IsMergeMeshSettingVisible));
+		else if (Iter.Value() == ProxyMeshSettingPropertyHandle)
+		{
+			IDetailPropertyRow& SettingsRow = MergeGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			SettingsRow.Visibility(TAttribute<EVisibility>(this, &FHierarchicalSimplificationCustomizations::IsProxyMeshSettingVisible));
+		}
+		else if (Iter.Value() == MergeMeshSettingPropertyHandle)
+		{
+			IDetailPropertyRow& SettingsRow = MergeGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+			SettingsRow.Visibility(TAttribute<EVisibility>(this, &FHierarchicalSimplificationCustomizations::IsMergeMeshSettingVisible));
+		}
+		else
+		{
+			IDetailPropertyRow& SettingsRow = ClusterGroup.AddPropertyRow(Iter.Value().ToSharedRef());
+		}
+	}	
 }
 
 EVisibility FHierarchicalSimplificationCustomizations::IsSimplifyMeshVisible() const
 {
+	// Determine whether or not there is a mesh merging interface available (SimplygonMeshReduction/SimplygonSwarm)
 	IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 	if (MeshUtilities.GetMeshMergingInterface() != nullptr)
 	{
@@ -96,3 +113,5 @@ EVisibility FHierarchicalSimplificationCustomizations::IsMergeMeshSettingVisible
 
 	return EVisibility::Hidden;
 }
+
+#undef LOCTEXT_NAMESPACE // HierarchicalSimplificationCustomizations

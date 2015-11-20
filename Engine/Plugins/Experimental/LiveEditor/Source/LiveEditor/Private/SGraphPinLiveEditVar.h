@@ -52,7 +52,7 @@ private:
 	 *
 	 * @param EnumIndex	- The index of the enum to return the friendly name for
 	 */
-	FString OnGetFriendlyName(int32 EnumIndex) const;
+	FText OnGetFriendlyName(int32 EnumIndex) const;
 
 	/**
 	 * Executes a series of checks to determine if this is a variable that the LiveEditor should really have access to

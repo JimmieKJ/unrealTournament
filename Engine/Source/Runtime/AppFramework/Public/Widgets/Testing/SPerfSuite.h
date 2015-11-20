@@ -2,4 +2,8 @@
 
 #pragma once
 
-void SummonPerfTestSuite();
+#if !UE_BUILD_SHIPPING
+
+APPFRAMEWORK_API void SummonPerfTestSuite();
+
+#endif // #if !UE_BUILD_SHIPPING

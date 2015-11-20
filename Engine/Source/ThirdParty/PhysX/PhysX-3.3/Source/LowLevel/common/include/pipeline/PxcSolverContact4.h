@@ -131,7 +131,7 @@ struct PxcSolverFrictionSharedData4
 	Vec4V normalY[2];
 	Vec4V normalZ[2];
 };
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_X64) && !defined(PX_A64)
 PX_COMPILE_TIME_ASSERT(sizeof(PxcSolverFrictionSharedData4) == 128);
 #endif
 

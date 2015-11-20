@@ -6,6 +6,7 @@
 #include "GameplayTagContainer.h"
 #include "BlueprintGameplayTagLibrary.h"
 #include "GameplayTagsModule.h"
+#include "GameplayTagsK2Node_MultiCompareBase.h"
 #include "GameplayTagsK2Node_MultiCompareGameplayTagContainer.h"
 #include "KismetCompiler.h"
 

@@ -122,7 +122,7 @@ public:
 
 public:
 
-	// Begin IWindowTitleBar interface
+	//~ Begin IWindowTitleBar Interface
 
 	void Flash( ) override
 	{
@@ -130,7 +130,7 @@ public:
 		TitleFlashSequence.Play(this->AsShared());
 	}
 
-	// Begin IWindowTitleBar interface
+	//~ Begin IWindowTitleBar Interface
 	
 protected:
 

@@ -59,13 +59,13 @@ namespace NodePoolHelpers
 
 void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) const
 {
-	UObject* DataOwner = QueryInstance.Owner.Get();
-	BoolValue.BindData(DataOwner, QueryInstance.QueryID);
-	PathFromContext.BindData(DataOwner, QueryInstance.QueryID);
-	SkipUnreachable.BindData(DataOwner, QueryInstance.QueryID);
-	FloatValueMin.BindData(DataOwner, QueryInstance.QueryID);
-	FloatValueMax.BindData(DataOwner, QueryInstance.QueryID);
-	ScanRangeMultiplier.BindData(DataOwner, QueryInstance.QueryID);
+	UObject* QueryOwner = QueryInstance.Owner.Get();
+	BoolValue.BindData(QueryOwner, QueryInstance.QueryID);
+	PathFromContext.BindData(QueryOwner, QueryInstance.QueryID);
+	SkipUnreachable.BindData(QueryOwner, QueryInstance.QueryID);
+	FloatValueMin.BindData(QueryOwner, QueryInstance.QueryID);
+	FloatValueMax.BindData(QueryOwner, QueryInstance.QueryID);
+	ScanRangeMultiplier.BindData(QueryOwner, QueryInstance.QueryID);
 
 	bool bWantsPath = BoolValue.GetValue();
 	bool bPathToItem = PathFromContext.GetValue();
@@ -79,7 +79,7 @@ void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) c
 	{
 		return;
 	}
-	ANavigationData* NavData = FindNavigationData(*NavSys, QueryInstance.Owner.Get());
+	ANavigationData* NavData = FindNavigationData(*NavSys, QueryOwner);
 	ARecastNavMesh* NavMeshData = Cast<ARecastNavMesh>(NavData);
 	if (NavMeshData == nullptr)
 	{
@@ -96,7 +96,7 @@ void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) c
 	TArray<float> CollectDistanceSq;
 	CollectDistanceSq.Init(0.0f, ContextLocations.Num());
 
-	TSharedPtr<FNavigationQueryFilter> NavigationFilter = FilterClass != nullptr
+	FSharedNavQueryFilter NavigationFilter = FilterClass != nullptr
 		? UNavigationQueryFilter::GetQueryFilter(*NavMeshData, FilterClass)->GetCopy()
 		: NavMeshData->GetDefaultQueryFilter()->GetCopy();
 	NavigationFilter->SetBacktrackingEnabled(!bPathToItem);
@@ -156,7 +156,7 @@ void UEnvQueryTest_PathfindingBatch::RunTest(FEnvQueryInstance& QueryInstance) c
 
 				if (bDiscardFailed && PathValue >= BIG_NUMBER)
 				{
-					It.DiscardItem();
+					It.ForceItemState(EEnvItemStatus::Failed);
 				}
 			}
 		}

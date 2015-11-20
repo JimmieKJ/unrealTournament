@@ -199,14 +199,16 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 	const USkeletalMesh* const MasterCompMesh = MasterComp? MasterComp->SkeletalMesh : nullptr;
 	const FStaticLODModel& LOD = InSkeletalMeshResource->LODModels[LODIndex];
 
+	const TArray<int32>& MasterBoneMap = InMeshComponent->GetMasterBoneMap();
+
 	check( ThisMesh->RefBasesInvMatrix.Num() != 0 );
 	if(ReferenceToLocal.Num() != ThisMesh->RefBasesInvMatrix.Num())
 	{
-		ReferenceToLocal.Empty(ThisMesh->RefBasesInvMatrix.Num());
+		ReferenceToLocal.Reset();
 		ReferenceToLocal.AddUninitialized(ThisMesh->RefBasesInvMatrix.Num());
 	}
 
-	const bool bIsMasterCompValid = MasterComp && InMeshComponent->MasterBoneMap.Num() == ThisMesh->RefSkeleton.GetNum();
+	const bool bIsMasterCompValid = MasterComp && MasterBoneMap.Num() == ThisMesh->RefSkeleton.GetNum();
 
 	const TArray<FBoneIndexType>* RequiredBoneSets[3] = { &LOD.ActiveBoneIndices, ExtraRequiredBoneIndices, NULL };
 
@@ -230,7 +232,7 @@ void UpdateRefToLocalMatrices( TArray<FMatrix>& ReferenceToLocal, const USkinned
 				if( bIsMasterCompValid )
 				{
 					// If valid, use matrix from parent component.
-					const int32 MasterBoneIndex = InMeshComponent->MasterBoneMap[ThisBoneIndex];
+					const int32 MasterBoneIndex = MasterBoneMap[ThisBoneIndex];
 					if ( MasterComp->GetSpaceBases().IsValidIndex(MasterBoneIndex) )
 					{
 						const int32 ParentIndex = MasterCompMesh->RefSkeleton.GetParentIndex(MasterBoneIndex);
@@ -299,10 +301,11 @@ void UpdateCustomLeftRightVectors( TArray<FTwoVectors>& OutVectors, const USkinn
 	const USkinnedMeshComponent* const MasterComp = InMeshComponent->MasterPoseComponent.Get();
 	const FStaticLODModel& LOD = InSkeletalMeshResource->LODModels[LODIndex];
 	const FSkeletalMeshLODInfo& LODInfo = ThisMesh->LODInfo[LODIndex];
+	const TArray<int32>& MasterBoneMap = InMeshComponent->GetMasterBoneMap();
 
 	if(OutVectors.Num() != LODInfo.TriangleSortSettings.Num())
 	{
-		OutVectors.Empty(LODInfo.TriangleSortSettings.Num());
+		OutVectors.Reset();
 		OutVectors.AddUninitialized(LODInfo.TriangleSortSettings.Num());
 	}
 
@@ -324,10 +327,10 @@ void UpdateCustomLeftRightVectors( TArray<FTwoVectors>& OutVectors, const USkinn
 				const TArray<FTransform>* SpaceBases = &InMeshComponent->GetSpaceBases();
 				
 				// Handle case of using MasterPoseComponent for SpaceBases.
-				if( MasterComp && InMeshComponent->MasterBoneMap.Num() == ThisMesh->RefSkeleton.GetNum() && SpaceBasesBoneIndex != INDEX_NONE )
+				if( MasterComp && MasterBoneMap.Num() == ThisMesh->RefSkeleton.GetNum() && SpaceBasesBoneIndex != INDEX_NONE )
 				{
 					// If valid, use matrix from parent component.
-					SpaceBasesBoneIndex = InMeshComponent->MasterBoneMap[SpaceBasesBoneIndex];
+					SpaceBasesBoneIndex = MasterBoneMap[SpaceBasesBoneIndex];
 					SpaceBases = &MasterComp->GetSpaceBases();
 				}
 

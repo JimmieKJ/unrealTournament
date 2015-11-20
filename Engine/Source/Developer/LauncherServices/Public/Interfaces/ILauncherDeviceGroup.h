@@ -77,6 +77,12 @@ public:
 	virtual void RemoveDevice(const FString& DeviceID) = 0;
 
 	/**
+	* Removes all devices from the group.
+	*	
+	*/
+	virtual void RemoveAllDevices() = 0;
+
+	/**
 	 * Sets the name of the device group.
 	 *
 	 * @param NewName The new name.

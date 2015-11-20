@@ -172,7 +172,7 @@ struct PxRaycastHit : public PxLocationHit
 	// the following fields are set in accordance with the #PxHitFlags
 
 	PxReal	u, v;			//!< barycentric coordinates of hit point, for triangle mesh and height field (flag: #PxHitFlag::eUV)
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 	PxU32	padTo16Bytes[3];
 #endif
 };

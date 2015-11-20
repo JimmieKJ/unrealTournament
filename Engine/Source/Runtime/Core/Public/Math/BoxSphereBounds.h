@@ -250,13 +250,30 @@ public:
 #if ENABLE_NAN_DIAGNOSTIC
 	FORCEINLINE void DiagnosticCheckNaN() const
 	{
-		checkf(!Origin.ContainsNaN(), TEXT("Origin contains NaN: %s"), *Origin.ToString());
-		checkf(!BoxExtent.ContainsNaN(), TEXT("BoxExtent contains NaN: %s"), *BoxExtent.ToString());
-		checkf(!FMath::IsNaN(SphereRadius) && FMath::IsFinite(SphereRadius), TEXT("SphereRadius contains NaN: %f"), SphereRadius);
+		if (Origin.ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("Origin contains NaN: %s"), *Origin.ToString());
+			const_cast<FBoxSphereBounds*>(this)->Origin = FVector::ZeroVector;
+		}
+		if (BoxExtent.ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("BoxExtent contains NaN: %s"), *BoxExtent.ToString());
+			const_cast<FBoxSphereBounds*>(this)->BoxExtent = FVector::ZeroVector;
+		}
+		if (FMath::IsNaN(SphereRadius) || !FMath::IsFinite(SphereRadius))
+		{
+			logOrEnsureNanError(TEXT("SphereRadius contains NaN: %f"), SphereRadius);
+			const_cast<FBoxSphereBounds*>(this)->SphereRadius = 0.f;
+		}
 	}
 #else
 	FORCEINLINE void DiagnosticCheckNaN() const {}
 #endif
+
+	inline bool ContainsNaN() const
+	{
+		return Origin.ContainsNaN() || BoxExtent.ContainsNaN() || FMath::IsNaN(SphereRadius) || !FMath::IsFinite(SphereRadius);
+	}
 
 public:
 
@@ -324,3 +341,5 @@ FORCEINLINE FString FBoxSphereBounds::ToString() const
 {
 	return FString::Printf(TEXT("Origin=%s, BoxExtent=(%s), SphereRadius=(%f)"), *Origin.ToString(), *BoxExtent.ToString(), SphereRadius);
 }
+
+template <> struct TIsPODType<FBoxSphereBounds> { enum { Value = true }; };

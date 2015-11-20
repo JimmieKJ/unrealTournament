@@ -11,12 +11,15 @@
 UMultiLineEditableTextBox::UMultiLineEditableTextBox(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ForegroundColor = FLinearColor::Black;
-	BackgroundColor = FLinearColor::White;
-	ReadOnlyForegroundColor = FLinearColor::Black;
+	ForegroundColor_DEPRECATED = FLinearColor::Black;
+	BackgroundColor_DEPRECATED = FLinearColor::White;
+	ReadOnlyForegroundColor_DEPRECATED = FLinearColor::Black;
 
-	static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
-	Font = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	if (!UE_SERVER)
+	{
+		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
+		Font_DEPRECATED = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));
+	}
 
 	bAutoWrapText = true;
 
@@ -37,11 +40,7 @@ TSharedRef<SWidget> UMultiLineEditableTextBox::RebuildWidget()
 	MyEditableTextBlock = SNew(SMultiLineEditableTextBox)
 		.Style(&WidgetStyle)
 		.TextStyle(&TextStyle)
-		.Font(Font)
 		.Justification(Justification)
-		.ForegroundColor(ForegroundColor)
-		.BackgroundColor(BackgroundColor)
-		.ReadOnlyForegroundColor(ReadOnlyForegroundColor)
 		.AutoWrapText( bAutoWrapText )
 		.WrapTextAt( WrapTextAt )
 //		.MinDesiredWidth(MinimumDesiredWidth)
@@ -51,8 +50,8 @@ TSharedRef<SWidget> UMultiLineEditableTextBox::RebuildWidget()
 //		.RevertTextOnEscape(RevertTextOnEscape)
 //		.ClearKeyboardFocusOnCommit(ClearKeyboardFocusOnCommit)
 //		.SelectAllTextOnCommit(SelectAllTextOnCommit)
-//		.OnTextChanged(BIND_UOBJECT_DELEGATE(FOnTextChanged, HandleOnTextChanged))
-//		.OnTextCommitted(BIND_UOBJECT_DELEGATE(FOnTextCommitted, HandleOnTextCommitted))
+		.OnTextChanged(BIND_UOBJECT_DELEGATE(FOnTextChanged, HandleOnTextChanged))
+		.OnTextCommitted(BIND_UOBJECT_DELEGATE(FOnTextCommitted, HandleOnTextCommitted))
 		;
 
 	return MyEditableTextBlock.ToSharedRef();
@@ -62,6 +61,7 @@ void UMultiLineEditableTextBox::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
 
+	MyEditableTextBlock->SetStyle(&WidgetStyle);
 	MyEditableTextBlock->SetText(Text);
 //	MyEditableTextBlock->SetHintText(HintText);
 //	MyEditableTextBlock->SetIsReadOnly(IsReadOnly);
@@ -123,6 +123,33 @@ void UMultiLineEditableTextBox::PostLoad()
 			}
 
 			Style_DEPRECATED = nullptr;
+		}
+	}
+
+	if (GetLinkerUE4Version() < VER_UE4_DEPRECATE_UMG_STYLE_OVERRIDES)
+	{
+		if (Font_DEPRECATED.HasValidFont())
+		{
+			WidgetStyle.Font = Font_DEPRECATED;
+			Font_DEPRECATED = FSlateFontInfo();
+		}
+
+		if (ForegroundColor_DEPRECATED != FLinearColor::Black)
+		{
+			WidgetStyle.ForegroundColor = ForegroundColor_DEPRECATED;
+			ForegroundColor_DEPRECATED = FLinearColor::Black;
+		}
+
+		if (BackgroundColor_DEPRECATED != FLinearColor::White)
+		{
+			WidgetStyle.BackgroundColor = BackgroundColor_DEPRECATED;
+			BackgroundColor_DEPRECATED = FLinearColor::White;
+		}
+
+		if (ReadOnlyForegroundColor_DEPRECATED != FLinearColor::Black)
+		{
+			WidgetStyle.ReadOnlyForegroundColor = ReadOnlyForegroundColor_DEPRECATED;
+			ReadOnlyForegroundColor_DEPRECATED = FLinearColor::Black;
 		}
 	}
 }

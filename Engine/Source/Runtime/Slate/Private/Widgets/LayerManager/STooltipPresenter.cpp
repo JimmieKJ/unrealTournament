@@ -5,19 +5,13 @@
 
 void STooltipPresenter::Construct(const FArguments& InArgs)
 {
-	this->ChildSlot
-	[
-		InArgs._Content.Widget
-	];
+	this->ChildSlot.AttachWidget(InArgs._Content.Widget);
 	LocalCursorPosition = FVector2D::ZeroVector;
 }
 
 void STooltipPresenter::SetContent(const TSharedRef<SWidget>& InWidget)
 {
-	ChildSlot
-	[
-		InWidget
-	];
+	ChildSlot.AttachWidget(InWidget);
 }
 
 void STooltipPresenter::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
@@ -34,11 +28,15 @@ void STooltipPresenter::OnArrangeChildren(const FGeometry& AllottedGeometry, FAr
 	const FSlateRect TooltipPopup(LocalCursorPosition + CursorSize, LocalCursorPosition + CursorSize + ChildSlot.GetWidget()->GetDesiredSize());
 	
 	const FVector2D TooltipPosition = ComputePopupFitInRect(CursorAnchorRect, TooltipPopup, EOrientation::Orient_Vertical, FSlateRect(FVector2D::ZeroVector, AllottedGeometry.GetLocalSize()));
+	
+	// We round the final tooltip position so that our tooltip doesn't begin at a half pixel offset, which avoids the contents of the tooltip
+	// jittering in relation to one another.
+	const FVector2D TooltipPositionRounded = AllottedGeometry.LocalToRoundedLocal(TooltipPosition);
 
 	ArrangedChildren.AddWidget(AllottedGeometry.MakeChild(
 		ChildSlot.GetWidget(),
 		ChildSlot.GetWidget()->GetDesiredSize(),
-		FSlateLayoutTransform(TooltipPosition)
+		FSlateLayoutTransform(TooltipPositionRounded)
 	));
 }
 

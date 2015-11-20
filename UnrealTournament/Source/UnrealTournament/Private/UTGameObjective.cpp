@@ -97,7 +97,7 @@ void AUTGameObjective::InitializeObjective()
 			for (const FPotentialDefensePoint& Pt : Choices)
 			{
 				FActorSpawnParameters Params;
-				Params.bNoCollisionFail = true;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				AUTDefensePoint* NewPoint = GetWorld()->SpawnActor<AUTDefensePoint>(Pt.Loc, (MyLoc - Pt.Loc).Rotation(), Params);
 				if (NewPoint != NULL)
 				{

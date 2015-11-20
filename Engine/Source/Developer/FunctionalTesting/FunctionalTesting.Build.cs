@@ -12,9 +12,9 @@ public class FunctionalTesting : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"Slate",
-				"UnrealEd",
                 "MessageLog",
-                "AIModule"
+                "AIModule",
+                "RenderCore"
 			}
 			);
 
@@ -24,12 +24,6 @@ public class FunctionalTesting : ModuleRules
 				"MessageLog/Public",
 				"Stats/Public",
 				"Developer/FunctionalTesting/Private",
-			}
-			);
-
-		DynamicallyLoadedModuleNames.AddRange(
-			new string[] {
-				"MessageLog",
 			}
 			);
 	}

@@ -66,6 +66,16 @@ void UWidgetSwitcher::SetActiveWidget(UWidget* Widget)
 	}
 }
 
+UWidget* UWidgetSwitcher::GetWidgetAtIndex( int32 Index ) const
+{
+	if ( Slots.IsValidIndex( Index ) )
+	{
+		return Slots[ Index ]->Content;
+	}
+
+	return nullptr;
+}
+
 UClass* UWidgetSwitcher::GetSlotClass() const
 {
 	return UWidgetSwitcherSlot::StaticClass();
@@ -145,10 +155,14 @@ void UWidgetSwitcher::OnDescendantSelected(UWidget* DescendantWidget)
 
 void UWidgetSwitcher::OnDescendantDeselected(UWidget* DescendantWidget)
 {
-	if ( MyWidgetSwitcher.IsValid() )
-	{
-		MyWidgetSwitcher->SetActiveWidgetIndex(ActiveWidgetIndex);
-	}
+	SetActiveWidgetIndex(ActiveWidgetIndex);
+}
+
+void UWidgetSwitcher::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)
+{
+	ActiveWidgetIndex = FMath::Clamp(ActiveWidgetIndex, 0, FMath::Max(0, Slots.Num() - 1));
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 
 #endif

@@ -141,27 +141,40 @@ int32 UKismetNodeHelperLibrary::GetFirstUnmarkedBit(int32 Data, int32 StartIdx, 
 	return INDEX_NONE;
 }
 
-FName UKismetNodeHelperLibrary::GetEnumeratorName(const UEnum* Enum, uint8 EnumeratorIndex)
+FName UKismetNodeHelperLibrary::GetEnumeratorName(const UEnum* Enum, uint8 EnumeratorValue)
 {
+	int32 EnumeratorIndex = Enum->GetIndexByValue(EnumeratorValue);
 	return (NULL != Enum) ? Enum->GetEnum(EnumeratorIndex) : NAME_None;
 }
 
-FString UKismetNodeHelperLibrary::GetEnumeratorUserFriendlyName(const UEnum* Enum, uint8 EnumeratorIndex)
+FString UKismetNodeHelperLibrary::GetEnumeratorUserFriendlyName(const UEnum* Enum, uint8 EnumeratorValue)
 {
 	if (NULL != Enum)
 	{
+		int32 EnumeratorIndex = Enum->GetIndexByValue(EnumeratorValue);
 		return Enum->GetEnumText(EnumeratorIndex).ToString();
 	}
 
 	return FName().ToString();
 }
 
-uint8 UKismetNodeHelperLibrary::GetValidIndex(const UEnum* Enum, uint8 EnumeratorIndex)
+uint8 UKismetNodeHelperLibrary::GetValidValue(const UEnum* Enum, uint8 EnumeratorValue)
 {
-	const int32 EnumNum = Enum ? Enum->NumEnums() : 0;
-	if (ensure(EnumNum > 0))
+	if (NULL != Enum)
 	{
-		return (EnumeratorIndex < EnumNum) ? EnumeratorIndex : (EnumNum - 1);
+		if (Enum->IsValidEnumValue(EnumeratorValue))
+		{
+			return EnumeratorValue;
+		}
 	}
-	return 0;
+	return Enum->GetMaxEnumValue();
+}
+
+uint8 UKismetNodeHelperLibrary::GetEnumeratorValueFromIndex(const UEnum* Enum, uint8 EnumeratorIndex)
+{
+	if (NULL != Enum)
+	{
+		return Enum->GetValueByIndex(EnumeratorIndex);
+	}
+	return INDEX_NONE;
 }

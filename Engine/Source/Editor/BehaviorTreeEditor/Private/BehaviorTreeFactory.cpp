@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTreeEditorPrivatePCH.h"
+#include "Classes/BehaviorTreeFactory.h"
 #include "BehaviorTreeEditorModule.h"
 #include "BehaviorTree/BehaviorTree.h"
 

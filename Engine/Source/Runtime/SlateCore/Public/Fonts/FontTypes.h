@@ -82,6 +82,7 @@ struct FCharacterRenderData
 	bool HasKerning;
 };
 
+
 /** 
  * Representation of a texture for fonts in which characters are packed tightly based on their bounding rectangle 
  */

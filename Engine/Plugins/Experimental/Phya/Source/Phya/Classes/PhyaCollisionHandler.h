@@ -4,6 +4,8 @@
 
 #include "PhyaCollisionHandler.generated.h"
 
+class USoundWaveProcedural;
+
 struct FPhyaBodyInstancePair
 {
 	FBodyInstance* Body0; // lower pointer
@@ -30,20 +32,20 @@ class UPhyaCollisionHandler : public UPhysicsCollisionHandler
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UPhysicsCollisionHandler interface
+	//~ Begin UPhysicsCollisionHandler Interface
 	virtual void InitCollisionHandler() override;
 	virtual void HandlePhysicsCollisions_AssumesLocked(const TArray<FCollisionNotifyInfo>& PendingCollisionNotifies) override;
-	// End UPhysicsCollisionHandler interface
+	//~ End UPhysicsCollisionHandler Interface
 
 	void TestImpact();
 
-	void StreamingWaveUnderflow(USoundWaveStreaming* InStreamingWave, int32 SamplesRequired);
+	void ProceduralWaveUnderflow(USoundWaveProcedural* InProceduralWave, int32 SamplesRequired);
 
 	UPROPERTY()
 	UAudioComponent* AudioComp;
 
 	UPROPERTY()
-	USoundWaveStreaming* StreamingWave;
+	USoundWaveProcedural* ProceduralWave;
 
 	TMap< FPhyaBodyInstancePair, TSharedPtr<FPhyaPairInfo> >	PairHash;
 

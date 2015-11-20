@@ -18,24 +18,20 @@ class FWindowsMoviePlayerModule : public IModuleInterface
 	{
 		bool bLoadSuccessful = true;
 		// now attempt to load the delay loaded DLLs
-		if (LoadLibraryW(TEXT("shlwapi.dll")) == NULL)
+		if (!LoadMediaLibrary(TEXT("shlwapi.dll")))
 		{
-			UE_LOG(LogWindowsMoviePlayer, Warning, TEXT("Could not load shlwapi.dll") );
 			bLoadSuccessful = false;
 		}
-		if (LoadLibraryW(TEXT("mf.dll")) == NULL)
+		if (!LoadMediaLibrary(TEXT("mf.dll")))
 		{
-			UE_LOG(LogWindowsMoviePlayer, Warning, TEXT("Could not load mf.dll"));
 			bLoadSuccessful = false;
 		}
-		if (LoadLibraryW(TEXT("mfplat.dll")) == NULL)
+		if (!LoadMediaLibrary(TEXT("mfplat.dll")))
 		{
-			UE_LOG(LogWindowsMoviePlayer, Warning, TEXT("Could not load mfplat.dll"));
 			bLoadSuccessful = false;
 		}
-		if (LoadLibraryW(TEXT("mfplay.dll")) == NULL)
+		if (!LoadMediaLibrary(TEXT("mfplay.dll")))
 		{
-			UE_LOG(LogWindowsMoviePlayer, Warning, TEXT("Could not load mfplay.dll"));
 			bLoadSuccessful = false;
 		}
 
@@ -57,6 +53,26 @@ class FWindowsMoviePlayerModule : public IModuleInterface
 
 			MFShutdown();
 		}
+	}
+
+	bool LoadMediaLibrary(const FString& Library)
+	{
+		if (LoadLibraryW(*Library) == NULL)
+		{
+			uint32 ErrorCode = GetLastError();
+			if (ErrorCode == ERROR_MOD_NOT_FOUND)
+			{
+				UE_LOG(LogWindowsMoviePlayer, Log, TEXT("Could not load %s. Library not found."), *Library, ErrorCode);
+			}
+			else
+			{
+				UE_LOG(LogWindowsMoviePlayer, Warning, TEXT("Could not load %s. Error=%d"), *Library, ErrorCode);
+			}
+			
+			return false;
+		}
+
+		return true;
 	}
 };
 

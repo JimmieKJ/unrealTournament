@@ -176,6 +176,21 @@ void UPanelWidget::ShiftChild(int32 Index, UWidget* Child)
 	Slots.Insert(Child->Slot, FMath::Clamp(Index, 0, Slots.Num()));
 }
 
+void UPanelWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
+{
+	Super::SetDesignerFlags(NewFlags);
+
+	// Also mark all children as design time widgets.
+	int32 Children = GetChildrenCount();
+	for ( int32 SlotIndex = 0; SlotIndex < Children; SlotIndex++ )
+	{
+		if ( Slots[SlotIndex]->Content != nullptr )
+		{
+			Slots[SlotIndex]->Content->SetDesignerFlags(NewFlags);
+		}
+	}
+}
+
 #endif
 
 bool UPanelWidget::RemoveChild(UWidget* Content)
@@ -203,21 +218,6 @@ void UPanelWidget::ClearChildren()
 	}
 }
 
-void UPanelWidget::SetIsDesignTime(bool bInDesignTime)
-{
-	Super::SetIsDesignTime(bInDesignTime);
-
-	// Also mark all children as design time widgets.
-	int32 Children = GetChildrenCount();
-	for ( int32 SlotIndex = 0; SlotIndex < Children; SlotIndex++ )
-	{
-		if ( Slots[SlotIndex]->Content != nullptr )
-		{
-			Slots[SlotIndex]->Content->SetIsDesignTime(bInDesignTime);
-		}
-	}
-}
-
 void UPanelWidget::PostLoad()
 {
 	Super::PostLoad();
@@ -225,7 +225,7 @@ void UPanelWidget::PostLoad()
 	for ( int32 SlotIndex = 0; SlotIndex < Slots.Num(); SlotIndex++ )
 	{
 		// Remove any slots where their content is null, we don't support content-less slots.
-		if ( Slots[SlotIndex]->Content == nullptr )
+		if (!Slots[SlotIndex] || Slots[SlotIndex]->Content == nullptr)
 		{
 			Slots.RemoveAt(SlotIndex);
 			SlotIndex--;

@@ -27,8 +27,8 @@ float2 PixelToScreenPos(float2 PixelPos)
 void MainVS(
 	uint VId : SV_VertexID,
 	uint IId : SV_InstanceID,
-	out float2 OutTexCoord : TEXCOORD0,
-	out float4 OutColor : TEXCOORD1,
+	out noperspective float2 OutTexCoord : TEXCOORD0,
+	out noperspective float4 OutColor : TEXCOORD1,
 	out float4 OutPosition : SV_POSITION
 	)
 {
@@ -79,8 +79,8 @@ void MainVS(
 
 // pixel shader
 void MainPS(
-	float2 TexCoord : TEXCOORD0,
-	float4 InColor : TEXCOORD1,
+	noperspective float2 TexCoord : TEXCOORD0,
+	noperspective float4 InColor : TEXCOORD1,
 	out float4 OutColor : SV_Target0
 	)
 {

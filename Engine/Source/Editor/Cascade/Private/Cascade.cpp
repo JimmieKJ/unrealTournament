@@ -50,6 +50,7 @@
 #include "Distributions/DistributionVectorUniform.h"
 #include "Distributions/DistributionVectorUniformCurve.h"
 #include "UnrealEngine.h"
+#include "IMenu.h"
 
 static const FName Cascade_PreviewViewportTab("Cascade_PreviewViewport");
 static const FName Cascade_EmmitterCanvasTab("Cascade_EmitterCanvas");
@@ -2133,6 +2134,12 @@ void FCascade::BindCommands()
 		FIsActionChecked::CreateSP(this, &FCascade::IsViewParticleMemoryChecked));
 
 	ToolkitCommands->MapAction(
+		Commands.View_SystemCompleted,
+		FExecuteAction::CreateSP(this, &FCascade::OnViewSystemCompleted),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &FCascade::IsViewSystemCompletedChecked));
+
+	ToolkitCommands->MapAction(
 		Commands.ToggleGeometry,
 		FExecuteAction::CreateSP(this, &FCascade::OnViewGeometry),
 		FCanExecuteAction(),
@@ -3149,6 +3156,9 @@ void FCascade::ExportSelectedEmitter()
 				}
 			}
 
+			ParticleSystem->SetupSoloing();		// we may have changed the number of LODs, so our soloing information could be invalid
+
+
 			if (!DuplicateEmitter(SelectedEmitter, DestPartSys, false))
 			{
 				FText Message = FText::Format( NSLOCTEXT("UnrealEd", "Error_FailedToCopyFormatting", "Failed to copy {0} to {1}"), 
@@ -3577,6 +3587,16 @@ bool FCascade::IsViewParticleMemoryChecked() const
 	return IsDrawOptionEnabled(FCascadeEdPreviewViewportClient::ParticleMemory);
 }
 
+void FCascade::OnViewSystemCompleted()
+{
+	ToggleDrawOption(FCascadeEdPreviewViewportClient::ParticleSystemCompleted);
+}
+
+bool FCascade::IsViewSystemCompletedChecked() const
+{
+	return IsDrawOptionEnabled(FCascadeEdPreviewViewportClient::ParticleSystemCompleted);
+}
+
 void FCascade::OnViewGeometry()
 {
 	if ((PreviewViewport.IsValid() && PreviewViewport->GetViewportClient().IsValid()) &&
@@ -3711,8 +3731,9 @@ void FCascade::OnSetMotionRadius()
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		PreviewViewport.ToSharedRef(),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -3815,7 +3836,7 @@ void FCascade::OnToggleGrid()
 		EditorOptions->SaveConfig();
 		DrawHelper.bDrawGrid = bShowGrid;
 
-		PreviewViewport->GetViewportClient()->EngineShowFlags.Grid = bShowGrid;
+		PreviewViewport->GetViewportClient()->EngineShowFlags.SetGrid(bShowGrid);
 		PreviewViewport->RefreshViewport();
 	}
 }
@@ -3932,8 +3953,9 @@ void FCascade::OnToggleWireframeSphere()
 			.SelectAllTextWhenFocused(true)
 			.ClearKeyboardFocusOnCommit(false);
 
-		EntryPopupWindow = FSlateApplication::Get().PushMenu(
+		EntryMenu = FSlateApplication::Get().PushMenu(
 			PreviewViewport.ToSharedRef(),
+			FWidgetPath(),
 			TextEntry,
 			FSlateApplication::Get().GetCursorPos(),
 			FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -4823,8 +4845,9 @@ void FCascade::OnRenameEmitter()
 		.SelectAllTextWhenFocused(true)
 		.ClearKeyboardFocusOnCommit(false);
 
-	EntryPopupWindow = FSlateApplication::Get().PushMenu(
+	EntryMenu = FSlateApplication::Get().PushMenu(
 		EmitterCanvas.ToSharedRef(),
+		FWidgetPath(),
 		TextEntry,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect(FPopupTransitionEffect::TypeInPopup)
@@ -5043,9 +5066,9 @@ void FCascade::OnRemoveDuplicateModules()
 
 void FCascade::CloseEntryPopup()
 {
-	if( EntryPopupWindow.IsValid() )
+	if (EntryMenu.IsValid())
 	{
-		EntryPopupWindow.Pin()->RequestDestroyWindow();
+		EntryMenu.Pin()->Dismiss();
 	}
 }
 

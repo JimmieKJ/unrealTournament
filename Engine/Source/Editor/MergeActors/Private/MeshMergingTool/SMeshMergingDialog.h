@@ -50,9 +50,12 @@ private:
 	ECheckBoxState GetPivotPointAtZero() const;
 	void SetPivotPointAtZero(ECheckBoxState NewValue);
 
-	ECheckBoxState GetPlaceInWorld() const;
-	void SetPlaceInWorld(ECheckBoxState NewValue);
+	ECheckBoxState GetReplaceSourceActors() const;
+	void SetReplaceSourceActors(ECheckBoxState NewValue);
 
+	ECheckBoxState GetMergePhyisicData() const;
+	void SetMergePhyisicData(ECheckBoxState NewValue);
+	
 	/** Material merging */
 	bool IsMaterialMergingEnabled() const;
 	ECheckBoxState GetMergeMaterials() const;

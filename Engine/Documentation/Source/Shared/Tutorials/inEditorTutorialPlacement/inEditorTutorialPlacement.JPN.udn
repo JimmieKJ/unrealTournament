@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2419450
+﻿INTSourceChangelist:2574222
 Availability:NoPublish
 Title:アクタの配置
 Description:
@@ -61,7 +61,7 @@ Crumbs:
 
 ![](place_drag.png)
 
-[Would you like to know more?](DOCLINK:Engine/UI/LevelEditor/Modes/PlaceMode)
+[詳しい情報が必要ですか？](DOCLINK:Engine/UI/LevelEditor/Modes/PlaceMode)
 
 
 
@@ -78,7 +78,7 @@ Crumbs:
 
 ![](place_context.png)
 
-[Would you like to know more?](DOCLINK:Engine/Actors/Placement#PlacingActorsUsingtheContextMenu)
+[詳しい情報が必要ですか？](DOCLINK:Engine/Actors/Placement#PlacingActorsUsingtheContextMenu)
 
 
 
@@ -137,7 +137,7 @@ Crumbs:
 * ほとんどのブループリント クラスをレベルにドラッグして、そのブループリント タイプのインスタンスを追加することができます。
 
 
-[Would you like to know more?](DOCLINK:Engine/Content/Browser)
+[詳しい情報が必要ですか？](DOCLINK:Engine/Content/Browser)
 
 
 
@@ -150,7 +150,7 @@ Crumbs:
 Complete
 [/VAR]
 
-Placementチュートリアルはこれで終了です。別のチュートリアルや攻略ガイドを参照するには、このウィンドウの下にある [Home] ボタンをクリックします。もしくは、すぐにアンリアルエディタを使用する場合はこのチュートリアルを単に閉じてください。
+配置のチュートリアルはこれで終了です。別のチュートリアルや攻略ガイドを参照するには、このウィンドウの下にある [Home] ボタンをクリックします。もしくは、すぐにアンリアル エディタを使用する場合はこのチュートリアルを単に閉じてください。
 
 ![](Stage1.png)
 

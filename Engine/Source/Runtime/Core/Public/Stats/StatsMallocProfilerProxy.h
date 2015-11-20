@@ -25,6 +25,9 @@ private:
 	/** Malloc calls made this frame. */
 	FThreadSafeCounter AllocPtrCalls;
 
+	/** Realloc calls made this frame. */
+	FThreadSafeCounter ReallocPtrCalls;
+
 	/** Free calls made this frame. */
 	FThreadSafeCounter FreePtrCalls;
 
@@ -68,6 +71,17 @@ public:
 	 * @param	SequenceTag - Previous value for the memory sequence tag
 	 */
 	void TrackFree( void* Ptr, int32 SequenceTag );
+
+
+	/** 
+	 *	Tracks realloc operation
+	 *	
+	 * @param	Old - Previous pointer
+	 * @param	New - New pointer
+	 * @param	NewSize - Size of allocated pointer
+	 * @param	SequenceTag - Previous value for the memory sequence tag
+	 */
+	void TrackRealloc( void* OldPtr, void* NewPtr, int64 NewSize, int32 SequenceTag );
 
 	virtual void* Malloc( SIZE_T Size, uint32 Alignment ) override;
 	virtual void* Realloc( void* OldPtr, SIZE_T NewSize, uint32 Alignment ) override;

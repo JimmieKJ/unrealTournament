@@ -22,7 +22,7 @@ FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FStruc
 	return UAV;
 }
 
-FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI)
+FUnorderedAccessViewRHIRef FEmptyDynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI, uint32 MipLevel)
 {
 	FEmptySurface& Surface = GetEmptySurfaceFromRHITexture(TextureRHI);
 
@@ -72,6 +72,27 @@ FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FTexture
 {
 	FEmptyShaderResourceView* SRV = new FEmptyShaderResourceView;
 	SRV->SourceTexture = (FRHITexture*)Texture2DRHI;
+	return SRV;
+}
+
+FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FTexture3DRHIParamRef Texture3DRHI, uint8 MipLevel)
+{
+	FEmptyShaderResourceView* SRV = new FEmptyShaderResourceView;
+	SRV->SourceTexture = (FRHITexture*)Texture3DRHI;
+	return SRV;
+}
+
+FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FTexture2DArrayRHIParamRef Texture2DArrayRHI, uint8 MipLevel)
+{
+	FEmptyShaderResourceView* SRV = new FEmptyShaderResourceView;
+	SRV->SourceTexture = (FRHITexture*)Texture2DArrayRHI;
+	return SRV;
+}
+
+FShaderResourceViewRHIRef FEmptyDynamicRHI::RHICreateShaderResourceView(FTextureCubeRHIParamRef TextureCubeRHI, uint8 MipLevel)
+{
+	FEmptyShaderResourceView* SRV = new FEmptyShaderResourceView;
+	SRV->SourceTexture = (FRHITexture*)TextureCubeRHI;
 	return SRV;
 }
 

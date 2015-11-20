@@ -12,6 +12,8 @@
 #include "FbxImporter.h"
 #include "FbxErrors.h"
 #include "Engine/SkeletalMeshSocket.h"
+#include "LODUtilities.h"
+#include "Developer/MeshUtilities/Public/MeshUtilities.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSkeletalMeshImport, Log, All);
 
@@ -703,6 +705,7 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh)
 
 		ExistingMeshDataPtr->ExistingSockets = ExistingSkelMesh->GetMeshOnlySocketList();
 		ExistingMeshDataPtr->ExistingMaterials = ExistingSkelMesh->Materials;
+		ExistingMeshDataPtr->ExistingRetargetBasePose = ExistingSkelMesh->RetargetBasePose;
 
 		if( ImportedResource->LODModels.Num() > 0 &&
 			ExistingSkelMesh->LODInfo.Num() == ImportedResource->LODModels.Num() )
@@ -727,6 +730,10 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh)
 				FMultiSizeIndexContainerData ExistingData;
 				LODModel.MultiSizeIndexContainer.GetIndexBufferData( ExistingData );
 				ExistingMeshDataPtr->ExistingIndexBufferData.Add( ExistingData );
+
+				FMultiSizeIndexContainerData ExistingAdjacencyData;
+				LODModel.AdjacencyMultiSizeIndexContainer.GetIndexBufferData(ExistingAdjacencyData);
+				ExistingMeshDataPtr->ExistingAdjacencyIndexBufferData.Add(ExistingAdjacencyData);
 
 			}
 
@@ -763,6 +770,52 @@ ExistingSkelMeshData* SaveExistingSkelMeshData(USkeletalMesh* ExistingSkelMesh)
 	return ExistingMeshDataPtr;
 }
 
+void TryRegenerateLODs(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMesh)
+{
+	int32 TotalLOD = MeshData->ExistingLODModels.Num();
+
+	// see if mesh reduction util is available
+	static bool bAutoMeshReductionAvailable = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities").GetMeshReductionInterface() != NULL;
+
+	if (bAutoMeshReductionAvailable)
+	{
+		GWarn->BeginSlowTask(LOCTEXT("RegenLODs", "Generating new LODs"), true);
+		// warn users to see if they'd like to regen using the LOD
+		EAppReturnType::Type Ret = FMessageDialog::Open(EAppMsgType::YesNo,
+			LOCTEXT("LODDataWarningMessage", "Previous LODs exist, but the bone hierarchy is not compatible.\n\n This could cause crash if you keep the old LODs. Would you like to regenerate them using mesh reduction? Or the previous LODs will be lost.\n"));
+
+		if (Ret == EAppReturnType::Yes)
+		{
+			FSkeletalMeshUpdateContext UpdateContext;
+			UpdateContext.SkeletalMesh = SkeletalMesh;
+
+			for (int32 Index = 0; Index < TotalLOD; ++Index)
+			{
+				int32 LODIndex = Index + 1;
+				FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[Index];
+				// reset material maps, it won't work anyway. 
+				LODInfo.LODMaterialMap.Empty();
+				// add LOD info back
+				SkeletalMesh->LODInfo.Add(LODInfo);
+				// force it to regen
+				FLODUtilities::SimplifySkeletalMeshLOD(UpdateContext, LODInfo.ReductionSettings, LODIndex, false);
+			}
+		}
+		else
+		{
+			UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
+			FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, LOCTEXT("NoCompatibleSkeleton", "New base mesh is not compatible with previous LODs. LOD will be removed.")), FFbxErrors::SkeletalMesh_LOD_MissingBone);
+		}
+
+		GWarn->EndSlowTask();
+	}
+	else
+	{
+		UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
+		FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, LOCTEXT("NoCompatibleSkeleton", "New base mesh is not compatible with previous LODs. LOD will be removed.")), FFbxErrors::SkeletalMesh_LOD_MissingBone);
+	}
+}
+
 void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* SkeletalMesh)
 {
 	if(MeshData && SkeletalMesh)
@@ -779,6 +832,13 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 
 		SkeletalMesh->Materials = MeshData->ExistingMaterials;
 
+		// this is not ideal. Ideally we'll have to save only diff with indicating which joints, 
+		// but for now, we allow them to keep the previous pose IF the element count is same
+		if (MeshData->ExistingRetargetBasePose.Num() == SkeletalMesh->RefSkeleton.GetNum())
+		{
+			SkeletalMesh->RetargetBasePose = MeshData->ExistingRetargetBasePose;
+		}
+
 		// Assign sockets from old version of this SkeletalMesh.
 		// Only copy ones for bones that exist in the new mesh.
 		for(int32 i=0; i<MeshData->ExistingSockets.Num(); i++)
@@ -791,95 +851,107 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		}
 
 		// We copy back and fix-up the LODs that still work with this skeleton.
-		if( MeshData->ExistingLODModels.Num() > 0 && SkeletonsAreCompatible(SkeletalMesh->RefSkeleton, MeshData->ExistingRefSkeleton) )
+		if( MeshData->ExistingLODModels.Num() > 0 )
 		{
-			// First create mapping table from old skeleton to new skeleton.
-			TArray<int32> OldToNewMap;
-			OldToNewMap.AddUninitialized(MeshData->ExistingRefSkeleton.GetNum());
-			for(int32 i=0; i<MeshData->ExistingRefSkeleton.GetNum(); i++)
+			bool bRegenLODs = true;
+			if (SkeletonsAreCompatible(SkeletalMesh->RefSkeleton, MeshData->ExistingRefSkeleton))
 			{
-				OldToNewMap[i] = SkeletalMesh->RefSkeleton.FindBoneIndex(MeshData->ExistingRefSkeleton.GetBoneName(i));
-			}
-
-			for(int32 i=0; i<MeshData->ExistingLODModels.Num(); i++)
-			{
-				FStaticLODModel& LODModel = MeshData->ExistingLODModels[i];
-				FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[i];
-
-				
-				// Fix ActiveBoneIndices array.
-				bool bMissingBone = false;
-				FName MissingBoneName = NAME_None;
-				for(int32 j=0; j<LODModel.ActiveBoneIndices.Num() && !bMissingBone; j++)
+				bRegenLODs = false;
+				// First create mapping table from old skeleton to new skeleton.
+				TArray<int32> OldToNewMap;
+				OldToNewMap.AddUninitialized(MeshData->ExistingRefSkeleton.GetNum());
+				for (int32 i = 0; i < MeshData->ExistingRefSkeleton.GetNum(); i++)
 				{
-					int32 NewBoneIndex = OldToNewMap[ LODModel.ActiveBoneIndices[j] ];
-					if(NewBoneIndex == INDEX_NONE)
-					{
-						bMissingBone = true;
-						MissingBoneName = MeshData->ExistingRefSkeleton.GetBoneName( LODModel.ActiveBoneIndices[j] );
-					}
-					else
-					{
-						LODModel.ActiveBoneIndices[j] = NewBoneIndex;
-					}
+					OldToNewMap[i] = SkeletalMesh->RefSkeleton.FindBoneIndex(MeshData->ExistingRefSkeleton.GetBoneName(i));
 				}
 
-				// Fix RequiredBones array.
-				for(int32 j=0; j<LODModel.RequiredBones.Num() && !bMissingBone; j++)
+				for (int32 i = 0; i < MeshData->ExistingLODModels.Num(); i++)
 				{
-					int32 NewBoneIndex = OldToNewMap[ LODModel.RequiredBones[j] ];
-					if(NewBoneIndex == INDEX_NONE)
-					{
-						bMissingBone = true;
-						MissingBoneName = MeshData->ExistingRefSkeleton.GetBoneName( LODModel.RequiredBones[j] );
-					}
-					else
-					{
-						LODModel.RequiredBones[j] = NewBoneIndex;
-					}
-				}
+					FStaticLODModel& LODModel = MeshData->ExistingLODModels[i];
+					FSkeletalMeshLODInfo& LODInfo = MeshData->ExistingLODInfo[i];
 
-				// Sort ascending for parent child relationship
-				LODModel.RequiredBones.Sort();
-				LODModel.ActiveBoneIndices.Sort();
 
-				// Fix the chunks' BoneMaps.
-				for(int32 ChunkIndex = 0;ChunkIndex < LODModel.Chunks.Num();ChunkIndex++)
-				{
-					FSkelMeshChunk& Chunk = LODModel.Chunks[ChunkIndex];
-					for(int32 BoneIndex = 0;BoneIndex < Chunk.BoneMap.Num();BoneIndex++)
+					// Fix ActiveBoneIndices array.
+					bool bMissingBone = false;
+					FName MissingBoneName = NAME_None;
+					for (int32 j = 0; j < LODModel.ActiveBoneIndices.Num() && !bMissingBone; j++)
 					{
-						int32 NewBoneIndex = OldToNewMap[ Chunk.BoneMap[BoneIndex] ];
-						if(NewBoneIndex == INDEX_NONE)
+						int32 NewBoneIndex = OldToNewMap[LODModel.ActiveBoneIndices[j]];
+						if (NewBoneIndex == INDEX_NONE)
 						{
 							bMissingBone = true;
-							MissingBoneName = MeshData->ExistingRefSkeleton.GetBoneName(Chunk.BoneMap[BoneIndex]);
-							break;
+							MissingBoneName = MeshData->ExistingRefSkeleton.GetBoneName(LODModel.ActiveBoneIndices[j]);
 						}
 						else
 						{
-							Chunk.BoneMap[BoneIndex] = NewBoneIndex;
+							LODModel.ActiveBoneIndices[j] = NewBoneIndex;
 						}
 					}
-					if(bMissingBone)
+
+					// Fix RequiredBones array.
+					for (int32 j = 0; j < LODModel.RequiredBones.Num() && !bMissingBone; j++)
 					{
+						int32 NewBoneIndex = OldToNewMap[LODModel.RequiredBones[j]];
+						if (NewBoneIndex == INDEX_NONE)
+						{
+							bMissingBone = true;
+							MissingBoneName = MeshData->ExistingRefSkeleton.GetBoneName(LODModel.RequiredBones[j]);
+						}
+						else
+						{
+							LODModel.RequiredBones[j] = NewBoneIndex;
+						}
+					}
+
+					// Sort ascending for parent child relationship
+					LODModel.RequiredBones.Sort();
+					LODModel.ActiveBoneIndices.Sort();
+
+					// Fix the chunks' BoneMaps.
+					for (int32 ChunkIndex = 0; ChunkIndex < LODModel.Chunks.Num(); ChunkIndex++)
+					{
+						FSkelMeshChunk& Chunk = LODModel.Chunks[ChunkIndex];
+						for (int32 BoneIndex = 0; BoneIndex < Chunk.BoneMap.Num(); BoneIndex++)
+						{
+							int32 NewBoneIndex = OldToNewMap[Chunk.BoneMap[BoneIndex]];
+							if (NewBoneIndex == INDEX_NONE)
+							{
+								bMissingBone = true;
+								MissingBoneName = MeshData->ExistingRefSkeleton.GetBoneName(Chunk.BoneMap[BoneIndex]);
+								break;
+							}
+							else
+							{
+								Chunk.BoneMap[BoneIndex] = NewBoneIndex;
+							}
+						}
+						if (bMissingBone)
+						{
+							break;
+						}
+					}
+
+					if (bMissingBone)
+					{
+						UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
+						FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("NewMeshMissingBoneFromLOD", "New mesh is missing bone '{0}' required by an LOD."), FText::FromName(MissingBoneName))), FFbxErrors::SkeletalMesh_LOD_MissingBone);
+						bRegenLODs = true;
 						break;
 					}
-				}
+					else
+					{
+						FStaticLODModel* NewLODModel = new(SkeletalMesh->GetImportedResource()->LODModels) FStaticLODModel(LODModel);
 
-				if(bMissingBone)
-				{
-					UnFbx::FFbxImporter* FFbxImporter = UnFbx::FFbxImporter::GetInstance();
-					FFbxImporter->AddTokenizedErrorMessage(FTokenizedMessage::Create(EMessageSeverity::Warning, FText::Format(LOCTEXT("NewMeshMissingBoneFromLOD", "New mesh is missing bone '{0}' required by an LOD. LOD will be removed."), FText::FromName(MissingBoneName))), FFbxErrors::SkeletalMesh_LOD_MissingBone);
-				}
-				else
-				{
-					FStaticLODModel* NewLODModel = new(SkeletalMesh->GetImportedResource()->LODModels) FStaticLODModel( LODModel );
-			
-					NewLODModel->MultiSizeIndexContainer.RebuildIndexBuffer( MeshData->ExistingIndexBufferData[i] );
+						NewLODModel->RebuildIndexBuffer(&MeshData->ExistingIndexBufferData[i], &MeshData->ExistingAdjacencyIndexBufferData[i]);
 
-					SkeletalMesh->LODInfo.Add( LODInfo );
+						SkeletalMesh->LODInfo.Add(LODInfo);
+					}
 				}
+			}
+ 			
+			if (bRegenLODs)
+			{
+				TryRegenerateLODs(MeshData, SkeletalMesh);
 			}
 		}
 
@@ -915,5 +987,4 @@ void RestoreExistingSkelMeshData(ExistingSkelMeshData* MeshData, USkeletalMesh* 
 		SkeletalMesh->ThumbnailInfo = MeshData->ExistingThumbnailInfo.Get();
 	}
 }
-
 #undef LOCTEXT_NAMESPACE

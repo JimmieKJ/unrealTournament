@@ -76,10 +76,18 @@ uint32 FOnlineAsyncTaskManager::Run(void)
 
 				if (Task->IsDone())
 				{
-					UE_LOG(LogOnline, Log, TEXT("Async task '%s' completed in %f seconds with %d (Parallel)"),
-						*Task->ToString(),
-						Task->GetElapsedTime(),
-						Task->WasSuccessful());
+					if (Task->WasSuccessful())
+					{
+						UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' succeeded in %f seconds (Parallel)"),
+							*Task->ToString(),
+							Task->GetElapsedTime());
+					}
+					else
+					{
+						UE_LOG(LogOnline, Log, TEXT("Async task '%s' failed in %f seconds (Parallel)"),
+							*Task->ToString(),
+							Task->GetElapsedTime());
+					}
 
 					// Task is done, remove from the incoming queue and add to the outgoing queue
 					RemoveFromParallelTasks( Task );
@@ -111,17 +119,15 @@ uint32 FOnlineAsyncTaskManager::Run(void)
 					{
 						if (Task->WasSuccessful())
 						{
-							UE_LOG(LogOnline, Log, TEXT("Async task '%s' completed in %f seconds with %d"),
+							UE_LOG(LogOnline, Verbose, TEXT("Async task '%s' succeeded in %f seconds"),
 								*Task->ToString(),
-								Task->GetElapsedTime(),
-								Task->WasSuccessful());
+								Task->GetElapsedTime());
 						}
 						else
 						{
-							UE_LOG(LogOnline, Warning, TEXT("Async task '%s' completed in %f seconds with %d"),
+							UE_LOG(LogOnline, Warning, TEXT("Async task '%s' failed in %f seconds"),
 								*Task->ToString(),
-								Task->GetElapsedTime(),
-								Task->WasSuccessful());
+								Task->GetElapsedTime());
 						}
 						
 						// Task is done, remove from the incoming queue and add to the outgoing queue
@@ -144,8 +150,8 @@ uint32 FOnlineAsyncTaskManager::Run(void)
 
 void FOnlineAsyncTaskManager::Stop(void)
 {
-	FPlatformAtomics::InterlockedExchange(&bRequestingExit, 1);
 	WorkEvent->Trigger();
+	FPlatformAtomics::InterlockedExchange(&bRequestingExit, 1);
 }
 
 void FOnlineAsyncTaskManager::Exit(void)

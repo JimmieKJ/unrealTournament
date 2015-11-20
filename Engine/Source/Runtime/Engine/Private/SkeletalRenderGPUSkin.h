@@ -8,7 +8,8 @@
 
 #include "SkeletalRender.h"
 #include "SkeletalRenderPublic.h"
-#include "GPUSkinVertexFactory.h" 
+#include "GPUSkinVertexFactory.h"
+#include "ClothSimData.h"
 
 // 1 for a single buffer, this creates and releases textures every frame (the driver has to keep the reference and need to defer the release, low memory as it only occupies rendered buffers (up to 3 copies), best Xbox360 method?)
 // 2 for double buffering (works well for PC, caused Xbox360 to stall)
@@ -19,9 +20,28 @@
 * Stores the updated matrices needed to skin the verts.
 * Created by the game thread and sent to the rendering thread as an update 
 */
-class FDynamicSkelMeshObjectDataGPUSkin : public FDynamicSkelMeshObjectData
+class FDynamicSkelMeshObjectDataGPUSkin
 {
+	/**
+	* Constructor, these are recycled, so you never use a constructor
+	*/
+	FDynamicSkelMeshObjectDataGPUSkin()
+	{
+		Clear();
+	}
+
+	virtual ~FDynamicSkelMeshObjectDataGPUSkin()
+	{
+		// we leak these
+		check(0);
+	}
+
+	void Clear();
+
 public:
+
+	static FDynamicSkelMeshObjectDataGPUSkin* AllocDynamicSkelMeshObjectDataGPUSkin();
+	static void FreeDynamicSkelMeshObjectDataGPUSkin(FDynamicSkelMeshObjectDataGPUSkin* Who);
 
 	/**
 	* Constructor
@@ -30,7 +50,7 @@ public:
 	* @param	InLODIndex - each lod has its own bone map 
 	* @param	InActiveVertexAnims - vertex anims active for the mesh
 	*/
-	FDynamicSkelMeshObjectDataGPUSkin(
+	void InitDynamicSkelMeshObjectDataGPUSkin(
 		USkinnedMeshComponent* InMeshComponent,
 		FSkeletalMeshResource* InSkeletalMeshResource,
 		int32 InLODIndex,
@@ -179,9 +199,6 @@ public:
 	*/
 	void ReleaseResources();
 
-	/** */
-	ENGINE_API void RestoreForPausedMotionBlur();
-
 	void InitIfNeeded();
 
 	/** Returns the width of the texture in pixels. */
@@ -191,30 +208,61 @@ public:
 	bool IsAppendStarted() const;
 
 	/** needed before AppendData() ccan be called */
-	ENGINE_API void StartAppend(bool bWorldIsPaused);
+	ENGINE_API void StartAppend(FRHICommandListImmediate& RHICmdList, bool bWorldIsPaused);
+
+	ENGINE_API void SetVelocityPassCallback(TFunction<bool(FRHICommandList& RHICmdList)> InIsVelocityFunc);
 
 	/**
 	 * use between LockData() and UnlockData()
-	 * @param	DataStart, must not be 0
+	 * @param	OutChunkMatrices, filled in with a pointer to bones that should be filled in
 	 * @param	BoneCount number of FBoneSkinning elements, must not be 0
 	 * @return	StartIndex where the data can be referenced in the texture, 0xffffffff if this failed (not enough space in the buffer, will be fixed next frame)
 	 */
-	uint32 AppendData(FBoneSkinning *DataStart, uint32 BoneCount);
+	uint32 AppendData(FBoneSkinning*& OutChunkMatrices, uint32 BoneCount);
 
 	/** only call if StartAppend(), if the append wasn't started it silently ignores the call */
-	ENGINE_API void EndAppend();
+	ENGINE_API void EndAppendFence(FRHICommandListImmediate& RHICmdList);
 
-	/** @return 0 if there should be no bone based motion blur (no previous data available or it's not active) */
-	FBoneDataVertexBuffer* GetReadData();
+	/** only call if StartAppend(), if the append wasn't started it silently ignores the call */
+	ENGINE_API void EndAppend(FRHICommandListImmediate& RHICmdList);
+
+	/**
+	 * @param Index 0 .. PER_BONE_BUFFER_COUNT - 1, usually from GetReadBufferIndex()
+	 * @return 0 if there should be no bone based motion blur (no previous data available or it's not active)
+	 */
+	FBoneDataVertexBuffer* GetBoneDataVertexBuffer(uint32 Index)
+	{
+		checkSlow(Index < PER_BONE_BUFFER_COUNT);
+
+		return &PerChunkBoneMatricesTexture[Index];
+	}
 
 	FString GetDebugString() const;
+
+	/** @return 0 .. PER_BONE_BUFFER_COUNT-1 */
+	uint32 GetReadBufferIndex() const
+	{
+		// we move the buffers for easier internal so it's a fixed position
+		return 0;
+	}
+
+	/** @return 0 .. PER_BONE_BUFFER_COUNT-1 */
+	uint32 GetWriteBufferIndex() const
+	{
+		// we move the buffers for easier internal so it's a fixed position
+		return 1;
+	}
+
+	bool IsVelocityPass(FRHICommandList& RHICmdList)
+	{
+		return IsVelocityFunc(RHICmdList);
+	}
+
 
 private:
 
 	/** Stores the bone information with one frame delay, required for per bone motion blur. Buffered to avoid stalls on texture Lock() */
 	FBoneDataVertexBuffer PerChunkBoneMatricesTexture[PER_BONE_BUFFER_COUNT];
-	/** cycles between the buffers to avoid stalls (when CPU would need to wait on GPU) */
-	uint32 BufferIndex;
 	/* !=0 if data is locked, does not change during the lock */
 	float* LockedData;
 	/** only valid if LockedData != 0, advances with every Append() */
@@ -222,16 +270,17 @@ private:
 	/** only valid if LockedData != 0 */
 	uint32 LockedTexelCount;
 
+	/** Fence for render thread tasks that use this. */
+	FGraphEventRef EndAppendRenderThreadTaskFence;
+
+	/** Callback if we should save bone data or not. */
+	TFunction<bool(FRHICommandList& RHICmdList)> IsVelocityFunc;
+
 	bool bWarningBufferSizeExceeded;
 
-	/** @return 0 .. PER_BONE_BUFFER_COUNT-1 */
-	uint32 GetReadBufferIndex() const;
-
-	/** @return 0 .. PER_BONE_BUFFER_COUNT-1 */
-	uint32 GetWriteBufferIndex() const;
 
 	/** to cycle the internal buffer counter */
-	void AdvanceBufferIndex();
+	void AdvanceBufferLocation();
 };
 
 
@@ -246,11 +295,12 @@ public:
 	FSkeletalMeshObjectGPUSkin(USkinnedMeshComponent* InMeshComponent, FSkeletalMeshResource* InSkeletalMeshResource, ERHIFeatureLevel::Type InFeatureLevel);
 	virtual ~FSkeletalMeshObjectGPUSkin();
 
-	// Begin FSkeletalMeshObject interface
+	//~ Begin FSkeletalMeshObject Interface
 	virtual void InitResources() override;
 	virtual void ReleaseResources() override;
 	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveVertexAnim>& ActiveVertexAnims) override;
-	virtual void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectData* InDynamicData) override;
+	void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataGPUSkin* InDynamicData);
+	virtual void PreGDMECallback() override;
 	virtual const FVertexFactory* GetVertexFactory(int32 LODIndex,int32 ChunkIdx) const override;
 	virtual void CacheVertices(int32 LODIndex, bool bForce) const override {}
 	virtual bool IsCPUSkinned() const override { return false; }
@@ -293,7 +343,7 @@ public:
 
 		return ResourceSize;
 	}
-	// End FSkeletalMeshObject interface
+	//~ End FSkeletalMeshObject Interface
 
 	/** 
 	 * Vertex buffers that can be used for GPU skinning factories 
@@ -336,10 +386,6 @@ private:
 		/** Vertex factory defining both the base mesh as well as the APEX cloth vertex data */
 		TArray<FGPUBaseSkinAPEXClothVertexFactory*> ClothVertexFactories;
 
-		/** shared ref pose to local space matrices */
-		TArray< TArray<FBoneSkinning>, TInlineAllocator<1> > PerChunkBoneMatricesArray;
-
-
 		/** 
 		 * Init default vertex factory resources for this LOD 
 		 *
@@ -375,12 +421,6 @@ private:
 		void ReleaseAPEXClothVertexFactories();
 
 		/**
-		 * Init one array of matrices for each chunk (shared across vertex factory types)
-		 *
-		 * @param Chunks - relevant chunk information (either original or from swapped influence)
-		 */
-		void InitPerChunkBoneMatrices(const TArray<FSkelMeshChunk>& Chunks);
-		/**
 		 * Clear factory arrays
 		 */
 		void ClearFactories()
@@ -401,8 +441,6 @@ private:
 			Size += MorphVertexFactories.GetAllocatedSize();
 
 			Size += ClothVertexFactories.GetAllocatedSize();
-
-			Size += PerChunkBoneMatricesArray.GetAllocatedSize();
 
 			return Size;
 		}	
@@ -496,11 +534,24 @@ private:
 	*/
 	void ReleaseMorphResources();
 
+	void ProcessUpdatedDynamicData(FRHICommandListImmediate& RHICmdList, bool bMorphNeedsUpdate);
+
+	void WaitForRHIThreadFenceForDynamicData();
+
 	/** Render data for each LOD */
 	TArray<struct FSkeletalMeshObjectLOD> LODs;
 
 	/** Data that is updated dynamically and is needed for rendering */
 	FDynamicSkelMeshObjectDataGPUSkin* DynamicData;
+
+	/** Fence for dynamic Data */
+	FGraphEventRef RHIThreadFenceForDynamicData;
+
+	/** True if we are doing a deferred update later in GDME. */
+	bool bNeedsUpdateDeferred;
+
+	/** If true and we are doing a deferred update, then also update the morphs */
+	bool bMorphNeedsUpdateDeferred;
 
 	/** true if the morph resources have been initialized */
 	bool bMorphResourcesInitialized;

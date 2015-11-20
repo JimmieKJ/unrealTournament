@@ -4,10 +4,12 @@
 #include "AnimationEditorUtils.h"
 #include "AssetToolsModule.h"
 #include "Animation/AnimComposite.h"
+#include "Animation/AnimCompress.h"
 #include "Animation/BlendSpace.h"
 #include "Animation/BlendSpace1D.h"
 #include "Animation/AimOffsetBlendSpace.h"
 #include "Animation/AimOffsetBlendSpace1D.h"
+#include "Animation/AnimCompress.h"
 
 #define LOCTEXT_NAMESPACE "AnimationEditorUtils"
 
@@ -329,18 +331,19 @@ namespace AnimationEditorUtils
 	{
 		MenuBuilder.BeginSection("CreateAnimAssets", LOCTEXT("CreateAnimAssetsMenuHeading", "Anim Assets"));
 		{
-// commented out for UE-13743
-/*
-			MenuBuilder.AddMenuEntry(
-				LOCTEXT("Skeleton_NewAnimBlueprint", "Anim Blueprint"),
-				LOCTEXT("Skeleton_NewAnimBlueprintTooltip", "Creates an Anim Blueprint using the selected skeleton."),
-				FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.AnimBlueprint"),
-				FUIAction(
-					FExecuteAction::CreateStatic(&CreateNewAnimBlueprint, Skeletons, AssetCreated),
-					FCanExecuteAction()
-					)
-				);
-*/
+			// only allow for content browser until we support multi assets so we can open new persona with this BP
+			if (bInContentBrowser)
+			{
+				MenuBuilder.AddMenuEntry(
+					LOCTEXT("Skeleton_NewAnimBlueprint", "Anim Blueprint"),
+					LOCTEXT("Skeleton_NewAnimBlueprintTooltip", "Creates an Anim Blueprint using the selected skeleton."),
+					FSlateIcon(FEditorStyle::GetStyleSetName(), "ClassIcon.AnimBlueprint"),
+					FUIAction(
+						FExecuteAction::CreateStatic(&CreateNewAnimBlueprint, Skeletons, AssetCreated),
+						FCanExecuteAction()
+						)
+					);
+			}
 
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("Skeleton_NewAnimComposite", "Anim Composite"),
@@ -411,6 +414,27 @@ namespace AnimationEditorUtils
 				);
 		}
 		MenuBuilder.EndSection();
+	}
+
+	bool ApplyCompressionAlgorithm(TArray<UAnimSequence*>& AnimSequencePtrs, class UAnimCompress* Algorithm)
+	{
+		if(Algorithm)
+		{
+			const bool bProceed = (AnimSequencePtrs.Num() > 1)? EAppReturnType::Yes == FMessageDialog::Open(EAppMsgType::YesNo,
+				FText::Format(NSLOCTEXT("UnrealEd", "AboutToCompressAnimations_F", "About to compress {0} animations.  Proceed?"), FText::AsNumber(AnimSequencePtrs.Num()))) : true;
+			if(bProceed)
+			{
+				GWarn->BeginSlowTask(LOCTEXT("AnimCompressing", "Compressing"), true);
+
+				Algorithm->Reduce(AnimSequencePtrs, true);
+
+				GWarn->EndSlowTask();
+
+				return true;
+			}
+		}
+
+		return false;
 	}
 }
 

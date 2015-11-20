@@ -35,8 +35,6 @@
 
 static void print_type(const glsl_type *t);
 
-int ir_instruction::ID = 0;
-
 void ir_instruction::print() const
 {
 	ir_instruction *deconsted = const_cast<ir_instruction *>(this);

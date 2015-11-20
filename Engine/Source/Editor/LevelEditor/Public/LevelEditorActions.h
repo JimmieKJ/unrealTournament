@@ -19,7 +19,7 @@ public:
 	(
 		"LevelEditor", // Context name for fast lookup
 		NSLOCTEXT("Contexts", "LevelEditor", "Level Editor"), // Localized context name for displaying
-		"MainFrame", // Parent
+		"LevelViewport", // Parent
 		FEditorStyle::GetStyleSetName() // Icon Style Set
 	)
 	{
@@ -349,6 +349,9 @@ public:
 	/** Selects all actors using the same static mesh(es) and same actor class as the current selection */
 	TSharedPtr< FUICommandInfo > SelectStaticMeshesAllClasses;
 
+	/** Selects the HLOD cluster (ALODActor), if available, that has this actor as one of its SubActors */
+	TSharedPtr< FUICommandInfo > SelectOwningHierarchicalLODCluster;
+
 	/** Selects all actors using the same skeletal mesh(es) as the current selection */
 	TSharedPtr< FUICommandInfo > SelectSkeletalMeshesOfSameClass;
 
@@ -460,9 +463,6 @@ public:
 	/** Create a blocking volume from the meshes using a rough convex shape */
 	TSharedPtr< FUICommandInfo > CreateRoughConvexVolume;
 
-	/** Set the collision model on the static meshes to be the same shape as the builder brush */
-	TSharedPtr< FUICommandInfo > SaveBrushAsCollision;
-
 	/** Set the actors collision to block all */
 	TSharedPtr< FUICommandInfo > SetCollisionBlockAll;
 
@@ -552,10 +552,15 @@ public:
 	TSharedPtr< FUICommandInfo > AddMatinee;
 
 	TSharedPtr< FUICommandInfo > MaterialQualityLevel_Low;
+	TSharedPtr< FUICommandInfo > MaterialQualityLevel_Medium;
 	TSharedPtr< FUICommandInfo > MaterialQualityLevel_High;
 
 	TSharedPtr< FUICommandInfo > FeatureLevelPreview[ERHIFeatureLevel::Num];
 	
+	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_DefaultES2;
+	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_AndroidES2;
+	TSharedPtr< FUICommandInfo > PreviewPlatformOverride_IOSES2;
+
 	///**
 	// * Mode Commands                   
 	// */
@@ -737,6 +742,8 @@ public:
 	static void AttachToSocketSelection(FName SocketName, AActor* ParentActorPtr);
 	static void SetMaterialQualityLevel( EMaterialQualityLevel::Type NewQualityLevel );
 	static bool IsMaterialQualityLevelChecked( EMaterialQualityLevel::Type TestQualityLevel );
+	static void SetPreviewPlatform(FName MaterialQualityPlatform);
+	static bool IsPreviewPlatformChecked(FName MaterialQualityPlatform);
 	static void SetFeatureLevelPreview(ERHIFeatureLevel::Type InFeatureLevel);
 	static bool IsFeatureLevelPreviewChecked(ERHIFeatureLevel::Type InFeatureLevel);
 	
@@ -930,6 +937,11 @@ public:
 	static void OnSelectAllActorsControlledByMatinee();
 	
 	/**
+	* Called when selecting an Actor's (if available) owning HLOD cluster
+	*/
+	static void OnSelectOwningHLODCluster();
+	
+	/**
 	 * Called to change bsp surface alignment
 	 *
 	 * @param AlignmentMode	The new alignment mode
@@ -1040,11 +1052,6 @@ public:
 	 * Finds references to the currently selected actor(s) in level scripts
 	 */
 	static void OnFindActorInLevelScript();
-
-	/**
-	* Take the currently selected static mesh, and save the builder brush as its low poly collision model.
-	*/
-	static void OnSaveBrushAsCollision();
 
 	/** Select the world info actor and show the properties */
 	static void OnShowWorldProperties( TWeakPtr< SLevelEditor > LevelEditor );

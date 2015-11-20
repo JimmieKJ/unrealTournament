@@ -84,7 +84,7 @@ public:
 	/** Creates a uniform buffer with the given value, and returns a structured reference to it. */
 	static TUniformBufferRef<TBufferStruct> CreateUniformBufferImmediate(const TBufferStruct& Value, EUniformBufferUsage Usage)
 	{
-		check(IsInRenderingThread());
+		check(IsInRenderingThread() || IsInRHIThread());
 		return TUniformBufferRef<TBufferStruct>(RHICreateUniformBuffer(&Value,TBufferStruct::StaticStruct.GetLayout(),Usage));
 	}
 	/** Creates a uniform buffer with the given value, and returns a structured reference to it. */
@@ -192,11 +192,12 @@ public:
 	typedef class FShaderUniformBufferParameter* (*ConstructUniformBufferParameterType)();
 
 	/** Initialization constructor. */
-	FUniformBufferStruct(const TCHAR* InStructTypeName, const TCHAR* InShaderVariableName, ConstructUniformBufferParameterType InConstructRef, uint32 InSize, const TArray<FMember>& InMembers, bool bRegisterForAutoBinding)
+	FUniformBufferStruct(const FName& InLayoutName, const TCHAR* InStructTypeName, const TCHAR* InShaderVariableName, ConstructUniformBufferParameterType InConstructRef, uint32 InSize, const TArray<FMember>& InMembers, bool bRegisterForAutoBinding)
 	:	StructTypeName(InStructTypeName)
 	,	ShaderVariableName(InShaderVariableName)
 	,	ConstructUniformBufferParameterRef(InConstructRef)
 	,	Size(InSize)
+	,	Layout(InLayoutName)
 	,	Members(InMembers)
 	,	GlobalListLink(this)
 	{
@@ -221,7 +222,7 @@ public:
 
 		if (bRegisterForAutoBinding)
 		{
-			GlobalListLink.Link(GetStructList());
+			GlobalListLink.LinkHead(GetStructList());
 			FName StrutTypeFName(StructTypeName);
 			// Verify that during FName creation there's no case conversion
 			checkSlow(FCString::Strcmp(StructTypeName, *StrutTypeFName.GetPlainNameString()) == 0);
@@ -581,6 +582,7 @@ private:
 
 #define IMPLEMENT_UNIFORM_BUFFER_STRUCT(StructTypeName,ShaderVariableName) \
 	FUniformBufferStruct StructTypeName::StaticStruct( \
+	FName(TEXT(#StructTypeName)), \
 	TEXT(#StructTypeName), \
 	ShaderVariableName, \
 	StructTypeName::ConstructUniformBufferParameter, \

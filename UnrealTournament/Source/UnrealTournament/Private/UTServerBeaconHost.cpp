@@ -7,6 +7,7 @@
 AUTServerBeaconHost::AUTServerBeaconHost(const FObjectInitializer& ObjectInitializer) :
 Super(ObjectInitializer)
 {
+	ClientBeaconActorClass = AUTServerBeaconClient::StaticClass();
 	BeaconTypeName = TEXT("UTServerBeacon");
 }
 

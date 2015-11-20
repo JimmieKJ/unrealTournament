@@ -89,13 +89,12 @@ UDebugSkelMeshComponent::UDebugSkelMeshComponent(const FObjectInitializer& Objec
 	bSkeletonSocketsVisible = true;
 
 	TurnTableSpeedScaling = 1.f;
-	PlaybackSpeedScaling = 1.f;
 	TurnTableMode = EPersonaTurnTableMode::Stopped;
 
 #if WITH_APEX_CLOTHING
 	SectionsDisplayMode = ESectionDisplayMode::None;
 	// always shows cloth morph target when previewing in editor
-	bClothMorphTarget = true;
+	bClothMorphTarget = false;
 #endif //#if WITH_APEX_CLOTHING
 }
 
@@ -247,13 +246,17 @@ FString UDebugSkelMeshComponent::GetPreviewText() const
 
 	if (IsPreviewOn())
 	{
-		if (UBlendSpace* BlendSpace = Cast<UBlendSpace>(PreviewInstance->CurrentAsset))
+		if (UBlendSpaceBase* BlendSpace = Cast<UBlendSpaceBase>(PreviewInstance->CurrentAsset))
 		{
 			return FText::Format( LOCTEXT("BlendSpace", "Blend Space {0}"), FText::FromString(BlendSpace->GetName()) ).ToString();
 		}
 		else if (UAnimMontage* Montage = Cast<UAnimMontage>(PreviewInstance->CurrentAsset))
 		{
 			return FText::Format( LOCTEXT("Montage", "Montage {0}"), FText::FromString(Montage->GetName()) ).ToString();
+		}
+		else if(UAnimComposite* Composite = Cast<UAnimComposite>(PreviewInstance->CurrentAsset))
+		{
+			return FText::Format(LOCTEXT("Composite", "Composite {0}"), FText::FromString(Composite->GetName())).ToString();
 		}
 		else if (UAnimSequence* Sequence = Cast<UAnimSequence>(PreviewInstance->CurrentAsset))
 		{
@@ -265,7 +268,7 @@ FString UDebugSkelMeshComponent::GetPreviewText() const
 		}
 	}
 
-	return LOCTEXT("None", "None").ToString();
+	return LOCTEXT("ReferencePose", "Reference Pose").ToString();
 
 #undef LOCTEXT_NAMESPACE
 }
@@ -413,9 +416,11 @@ void UDebugSkelMeshComponent::SetShowBoneWeight(bool bNewShowBoneWeight)
 void UDebugSkelMeshComponent::GenSpaceBases(TArray<FTransform>& OutSpaceBases)
 {
 	TArray<FTransform> TempLocalAtoms;
+	TempLocalAtoms.AddUninitialized(OutSpaceBases.Num());
 	TArray<FActiveVertexAnim> TempVertexAnims;
 	FVector TempRootBoneTranslation;
-	PerformAnimationEvaluation(SkeletalMesh, AnimScriptInstance, OutSpaceBases, CachedLocalAtoms, TempVertexAnims, TempRootBoneTranslation);
+	FBlendedCurve TempCurve;
+	PerformAnimationEvaluation(SkeletalMesh, AnimScriptInstance, OutSpaceBases, TempLocalAtoms, TempVertexAnims, TempRootBoneTranslation, TempCurve);
 }
 
 void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction* TickFunction)
@@ -425,7 +430,7 @@ void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction*
 
 	const bool bIsPreviewInstance = (PreviewInstance && PreviewInstance == AnimScriptInstance);
 
-	BakedAnimationPoses.Empty();
+	BakedAnimationPoses.Reset();
 	if(bDisplayBakedAnimation && bIsPreviewInstance && PreviewInstance->RequiredBones.IsValid())
 	{
 		if(UAnimSequence* Sequence = Cast<UAnimSequence>(PreviewInstance->CurrentAsset))
@@ -442,7 +447,7 @@ void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction*
 		}
 	}
 
-	SourceAnimationPoses.Empty();
+	SourceAnimationPoses.Reset();
 	if(bDisplaySourceAnimation && bIsPreviewInstance && PreviewInstance->RequiredBones.IsValid())
 	{
 		if(UAnimSequence* Sequence = Cast<UAnimSequence>(PreviewInstance->CurrentAsset))
@@ -457,7 +462,7 @@ void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction*
 		}
 	}
 
-	UncompressedSpaceBases.Empty();
+	UncompressedSpaceBases.Reset();
 	if (bDisplayRawAnimation && AnimScriptInstance && AnimScriptInstance->RequiredBones.IsValid())
 	{
 		UncompressedSpaceBases.AddUninitialized(AnimScriptInstance->RequiredBones.GetNumBones());
@@ -468,7 +473,7 @@ void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction*
 	}
 
 	// Non retargeted pose.
-	NonRetargetedSpaceBases.Empty();
+	NonRetargetedSpaceBases.Reset();
 	if( bDisplayNonRetargetedPose && AnimScriptInstance && AnimScriptInstance->RequiredBones.IsValid() )
 	{
 		NonRetargetedSpaceBases.AddUninitialized(AnimScriptInstance->RequiredBones.GetNumBones());
@@ -478,21 +483,27 @@ void UDebugSkelMeshComponent::RefreshBoneTransforms(FActorComponentTickFunction*
 	}
 
 	// Only works in PreviewInstance, and not for anim blueprint. This is intended.
-	AdditiveBasePoses.Empty();
+	AdditiveBasePoses.Reset();
 	if( bDisplayAdditiveBasePose && bIsPreviewInstance && PreviewInstance->RequiredBones.IsValid() )
 	{
 		if (UAnimSequence* Sequence = Cast<UAnimSequence>(PreviewInstance->CurrentAsset)) 
 		{ 
 			if (Sequence->IsValidAdditive()) 
 			{ 
-				AdditiveBasePoses.AddUninitialized(PreviewInstance->RequiredBones.GetNumBones());
-				Sequence->GetAdditiveBasePose(AdditiveBasePoses, PreviewInstance->RequiredBones, FAnimExtractContext(PreviewInstance->CurrentTime));
-				
-				FA2CSPose CSPose;
-				CSPose.AllocateLocalPoses(AnimScriptInstance->RequiredBones, AdditiveBasePoses);
-				for(int32 i=0; i<AdditiveBasePoses.Num(); ++i)
+				FCSPose<FCompactPose> CSAdditiveBasePose;
 				{
-					AdditiveBasePoses[i] = CSPose.GetComponentSpaceTransform(i);
+					FCompactPose AdditiveBasePose;
+					FBlendedCurve AdditiveCurve(PreviewInstance);
+					AdditiveBasePose.SetBoneContainer(&PreviewInstance->RequiredBones);
+					Sequence->GetAdditiveBasePose(AdditiveBasePose, AdditiveCurve, FAnimExtractContext(PreviewInstance->CurrentTime));
+					CSAdditiveBasePose.InitPose(AdditiveBasePose);
+				}
+
+				AdditiveBasePoses.AddUninitialized(PreviewInstance->RequiredBones.GetNumBones());
+				for (int32 i = 0; i < AdditiveBasePoses.Num(); ++i)
+				{
+					FCompactPoseBoneIndex CompactIndex = PreviewInstance->RequiredBones.MakeCompactPoseIndex(FMeshPoseBoneIndex(i));
+					AdditiveBasePoses[i] = CSAdditiveBasePose.GetComponentSpaceTransform(CompactIndex);
 				}
 			}
 		}
@@ -694,7 +705,7 @@ int32 UDebugSkelMeshComponent::FindCurrentSectionDisplayMode()
 	return DisplayMode;
 }
 
-void UDebugSkelMeshComponent::CheckClothTeleport(float DeltaTime)
+void UDebugSkelMeshComponent::CheckClothTeleport(float DeltaTime, FClothSimulationContext& ClothSimulationContext) const
 {
 	// do nothing to avoid clothing reset while modifying properties
 	// modifying values can cause frame delay and clothes will be reset by a large delta time (low fps)
@@ -708,8 +719,13 @@ void UDebugSkelMeshComponent::TickComponent(float DeltaTime, enum ELevelTick Tic
 	if (TurnTableMode == EPersonaTurnTableMode::Playing)
 	{
 		FRotator Rotation = GetRelativeTransform().Rotator();
-		// Take into account PlaybackSpeedScaling, so it doesn't affect turn table turn rate.
-		Rotation.Yaw += 36.f * TurnTableSpeedScaling * DeltaTime / FMath::Max(PlaybackSpeedScaling, KINDA_SMALL_NUMBER);
+		// Take into account time dilation, so it doesn't affect turn table turn rate.
+		float CurrentTimeDilation = 1.0f;
+		if(GetWorld())
+		{
+			CurrentTimeDilation = GetWorld()->GetWorldSettings()->GetEffectiveTimeDilation();
+		}
+		Rotation.Yaw += 36.f * TurnTableSpeedScaling * DeltaTime / FMath::Max(CurrentTimeDilation, KINDA_SMALL_NUMBER);
 		SetRelativeRotation(Rotation);
 	}
 

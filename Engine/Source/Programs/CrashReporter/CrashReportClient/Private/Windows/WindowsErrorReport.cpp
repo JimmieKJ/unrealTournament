@@ -1,11 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CrashReportClientApp.h"
-
 #include "WindowsErrorReport.h"
-#include "XmlFile.h"
 #include "CrashDebugHelperModule.h"
-#include "../CrashReportUtil.h"
+#include "CrashReportUtil.h"
 
 #include "AllowWindowsPlatformTypes.h"
 #include <ShlObj.h>
@@ -74,6 +72,9 @@ FString FWindowsErrorReport::FindCrashedAppPath() const
 
 FText FWindowsErrorReport::DiagnoseReport() const
 {
+	// Mark the callstack as invalid.
+	bValidCallstack = false;
+
 	// Should check if there are local PDBs before doing anything
 	auto CrashDebugHelper = CrashHelperModule ? CrashHelperModule->Get() : nullptr;
 	if (!CrashDebugHelper)
@@ -96,30 +97,49 @@ FText FWindowsErrorReport::DiagnoseReport() const
 		return LOCTEXT("NoDebuggingSymbols", "You do not have any debugging symbols required to display the callstack for this crash.");
 	}
 
-	// There's a callstack, so write it out to save the server trying to do it
-	CrashDebugHelper->CrashInfo.GenerateReport(ReportDirectory / FCrashReportClientConfig::Get().GetDiagnosticsFilename());
+	// No longer required, only for backward compatibility, mark the callstack as valid.
+	bValidCallstack = true;
+	return FText();
+}
 
-	const auto& Exception = CrashDebugHelper->CrashInfo.Exception;
-	const FString Assertion = FWindowsReportParser::Find( ReportDirectory, TEXT( "AssertLog=" ) );
+static bool TryGetDirectoryCreationTime(const FString& InDirectoryName, FDateTime& OutCreationTime)
+{
+	FString DirectoryName(InDirectoryName);
+	FPaths::MakePlatformFilename(DirectoryName);
 
-	return FCrashReportUtil::FormatReportDescription( Exception.ExceptionString, Assertion, Exception.CallStackString );
+	WIN32_FILE_ATTRIBUTE_DATA Info;
+	if (!GetFileAttributesExW(*DirectoryName, GetFileExInfoStandard, &Info))
+	{
+		OutCreationTime = FDateTime();
+		return false;
+	}
+
+	SYSTEMTIME SysTime;
+	if (!FileTimeToSystemTime(&Info.ftCreationTime, &SysTime))
+	{
+		OutCreationTime = FDateTime();
+		return false;
+	}
+
+	OutCreationTime = FDateTime(SysTime.wYear, SysTime.wMonth, SysTime.wDay, SysTime.wHour, SysTime.wMinute, SysTime.wSecond);
+	return true;
 }
 
 FString FWindowsErrorReport::FindMostRecentErrorReport()
 {
 	auto& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
-	auto DirectoryModifiedTime = FDateTime::MinValue();
+	auto DirectoryCreationTime = FDateTime::MinValue();
 	FString ReportDirectory;
 	auto ReportFinder = MakeDirectoryVisitor([&](const TCHAR* FilenameOrDirectory, bool bIsDirectory) 
 	{
 		if (bIsDirectory)
 		{
-			auto TimeStamp = PlatformFile.GetTimeStamp(FilenameOrDirectory);
-			if (TimeStamp > DirectoryModifiedTime && FCString::Strstr( FilenameOrDirectory, TEXT("UE4-") ) )
+			FDateTime CreationTime;
+			if(TryGetDirectoryCreationTime(FilenameOrDirectory, CreationTime) && CreationTime > DirectoryCreationTime && FCString::Strstr( FilenameOrDirectory, TEXT("UE4-") ) )
 			{
 				ReportDirectory = FilenameOrDirectory;
-				DirectoryModifiedTime = TimeStamp;
+				DirectoryCreationTime = CreationTime;
 			}
 		}
 		return true;
@@ -128,6 +148,13 @@ FString FWindowsErrorReport::FindMostRecentErrorReport()
 	TCHAR LocalAppDataPath[MAX_PATH];
 	SHGetFolderPath(0, CSIDL_LOCAL_APPDATA, NULL, 0, LocalAppDataPath);
 	PlatformFile.IterateDirectory( *(FString(LocalAppDataPath) / TEXT("Microsoft/Windows/WER/ReportQueue")), ReportFinder);
+
+	if (ReportDirectory.Len() == 0)
+	{
+		TCHAR LocalAppDataPath[MAX_PATH];
+		SHGetFolderPath( 0, CSIDL_COMMON_APPDATA, NULL, 0, LocalAppDataPath );
+		PlatformFile.IterateDirectory( *(FString( LocalAppDataPath ) / TEXT( "Microsoft/Windows/WER/ReportQueue" )), ReportFinder );
+	}
 
 	return ReportDirectory;
 }

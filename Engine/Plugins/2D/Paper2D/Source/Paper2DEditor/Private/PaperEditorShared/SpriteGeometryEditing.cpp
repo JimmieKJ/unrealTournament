@@ -350,7 +350,7 @@ void FSpriteGeometryEditingHelper::DrawGeometry(const FSceneView& View, FPrimiti
 			PDI.SetHitProxy(new HSpriteSelectableObjectHitProxy(Data));
 		}
 
-		FColor BackgroundColor(bIsShapeSelected ? SpriteEditingConstantsEX::GeometrySelectedColor : LineColor);
+		FColor BackgroundColor(( bIsShapeSelected ? SpriteEditingConstantsEX::GeometrySelectedColor : LineColor ).ToFColor(true));
 		BackgroundColor.A = 4;
 		FMaterialRenderProxy* ShapeMaterialProxy = WidgetVertexColorMaterial->GetRenderProxy(bIsShapeSelected);
 

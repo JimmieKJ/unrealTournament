@@ -14,12 +14,12 @@ DEFINE_LOG_CATEGORY_STATIC(LogHTML5Input, Log, All);
 #include "emscripten.h"
 #include "html5.h"
 
-static EControllerButtons::Type AxisMapping[4] =
+static FGamepadKeyNames::Type AxisMapping[4] =
 {
-	EControllerButtons::LeftAnalogX,
-	EControllerButtons::LeftAnalogY, 
-	EControllerButtons::RightAnalogX,
-	EControllerButtons::RightAnalogY
+	FGamepadKeyNames::LeftAnalogX,
+	FGamepadKeyNames::LeftAnalogY, 
+	FGamepadKeyNames::RightAnalogX,
+	FGamepadKeyNames::RightAnalogY
 };
 
 // Axis Mapping, reversed or not. 
@@ -32,24 +32,24 @@ static int Reversed[4] =
 };
 
 // all are digital except Left and Right Trigger Analog. 
-static EControllerButtons::Type  ButtonMapping[16] = 
+static FGamepadKeyNames::Type ButtonMapping[16] = 
 {
-	EControllerButtons::FaceButtonBottom,
-	EControllerButtons::FaceButtonRight,
-	EControllerButtons::FaceButtonLeft,
-	EControllerButtons::FaceButtonTop,
-	EControllerButtons::LeftShoulder,
-	EControllerButtons::RightShoulder,
-	EControllerButtons::LeftTriggerThreshold, 
-	EControllerButtons::RightTriggerThreshold,
-	EControllerButtons::SpecialLeft, 
-	EControllerButtons::SpecialRight,
-	EControllerButtons::LeftStickDown,
-	EControllerButtons::RightStickDown,
-	EControllerButtons::DPadUp,
-	EControllerButtons::DPadDown,
-	EControllerButtons::DPadLeft,
-	EControllerButtons::DPadRight
+	FGamepadKeyNames::FaceButtonBottom,
+	FGamepadKeyNames::FaceButtonRight,
+	FGamepadKeyNames::FaceButtonLeft,
+	FGamepadKeyNames::FaceButtonTop,
+	FGamepadKeyNames::LeftShoulder,
+	FGamepadKeyNames::RightShoulder,
+	FGamepadKeyNames::LeftTriggerThreshold, 
+	FGamepadKeyNames::RightTriggerThreshold,
+	FGamepadKeyNames::SpecialLeft, 
+	FGamepadKeyNames::SpecialRight,
+	FGamepadKeyNames::LeftStickDown,
+	FGamepadKeyNames::RightStickDown,
+	FGamepadKeyNames::DPadUp,
+	FGamepadKeyNames::DPadDown,
+	FGamepadKeyNames::DPadLeft,
+	FGamepadKeyNames::DPadRight
 };
 
 #endif 

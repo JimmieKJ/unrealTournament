@@ -55,8 +55,9 @@ private:
 	{
 		FString ClientID;
 		FString RedirectURI;
-		FString UserName;
-		FString Password;
+		int32 LocalPortNumber;
+		FString AuthSuccessRedirectURI;
+		FString AuthFailureRedirectURI;
 		FString ClientSecret;
 	};
 
@@ -69,8 +70,11 @@ private:
 	/** Tries to authenticate credentials with Twitch by connecting directly to the service */
 	void Async_AuthenticateWithTwitchDirectly( const FString& UserName, const FString& Password, const FString& ClientSecret );
 
-	/** Tries to authenticate credentials with Twitch using a web browser to login */
-	void Async_AuthenticateWithTwitchUsingBrowser();
+	/** Tries to authenticate credentials with Twitch using a web browser to login (Twitch SDK's implementation) */
+	void Async_AuthenticateWithTwitchUsingBrowser_UsingTwitchSDK();
+
+	/** Tries to authenticate credentials with Twitch using a web browser to login (manual implementation) */
+	void Async_AuthenticateWithTwitchUsingBrowser_Manually();
 
 	/** Checks to see if the user has successfully authenticated with Twitch using the web browser */
 	void CheckIfBrowserLoginCompleted();
@@ -108,8 +112,8 @@ private:
 	/** The various states we can be in.  Nearly everything happens asynchronously, so we track what's going on with a simple state machine. */
 	enum class ETwitchState
 	{
+		NotLoaded,
 		Uninitialized,
-		DLLLoaded,
 		ReadyToAuthenticate,
 		WaitingForBrowserBasedAuthentication,
 		WaitingForDirectAuthentication,
@@ -160,6 +164,9 @@ private:
 	typedef TTV_ErrorCode( *TwitchRequestAuthTokenFuncPtr )( const TTV_AuthParams* authParams, uint32_t flags, TTV_TaskCallback callback, void* userData, TTV_AuthToken* authToken );
 	TwitchRequestAuthTokenFuncPtr TwitchRequestAuthToken;
 
+	typedef TTV_ErrorCode( *TwitchImplicitGrantAuthTokenFuncPtr )( const char* clientId, const char* port, const char* successRedirect, const char* failureRedirect, uint32_t flags, TTV_TaskCallback callback, void* userData, TTV_AuthToken* authToken );
+	TwitchImplicitGrantAuthTokenFuncPtr TwitchImplicitGrantAuthToken;
+
 	typedef TTV_ErrorCode( *TwitchLoginFuncPtr )( const TTV_AuthToken* authToken, TTV_TaskCallback callback, void* userData, TTV_ChannelInfo* channelInfo );
 	TwitchLoginFuncPtr TwitchLogin;
 
@@ -180,7 +187,7 @@ private:
 		WaitingToStartBroadcasting,
 		Broadcasting,
 		WaitingToStopBroadcasting,
-		BroadcastingFailure,
+		BroadcastingFailure
 	};
 
 	/** Current broadcasting state */
@@ -295,7 +302,7 @@ private:
 	bool bIsWebCamTextureFlippedVertically;
 
 	/** Texture that stores the web cam image, copied asynchronously from the CPU */
-	class UTexture2D* WebCamTexture;
+	TWeakObjectPtr< class UTexture2D > WebCamTexture;
 
 
 	/**

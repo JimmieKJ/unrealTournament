@@ -16,7 +16,7 @@ public:
 	FWebImageCache();
 
 	/** Find or create a WebImage object for this URL (you probably just want to call ->Attr() on this) */
-	TSharedRef<const FWebImage> Download(const FString& Url);
+	TSharedRef<const FWebImage> Download(const FString& Url, const TOptional<FString>& DefaultImageUrl = TOptional<FString>());
 
 	/** Set the brush that will be returned until the download completes (only affects future downloads). */
 	FORCEINLINE void SetDefaultStandInBrush(TAttribute<const FSlateBrush*> StandInBrushIn) { DefaultStandInBrush = StandInBrushIn; }

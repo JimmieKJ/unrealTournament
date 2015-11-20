@@ -94,8 +94,10 @@ public:
 	void EstablishConnection(const FPerforceConnectionInfo& InConnectionInfo);
 
 public:
+#if USE_P4_API
 	/** Perforce API client object */
 	ClientApi P4Client;
+#endif
 
 	/** The current root for the client workspace */
 	FString ClientRoot;

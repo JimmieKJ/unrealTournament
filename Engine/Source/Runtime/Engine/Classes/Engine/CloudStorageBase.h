@@ -16,11 +16,9 @@ enum ECloudStorageDelegate
 	CSD_DocumentQueryComplete,
 	CSD_DocumentReadComplete,
 	CSD_DocumentWriteComplete,
-	// Data:Document index that has the conflict
-	// Type:Int
-	// Desc:Called when multiple machines have 
-	//      updated the document, and script needs to determine which one to use, via the Resolve*
-	//      functions
+	// Data: Document index that has the conflict
+	// Type: Int
+	/** Desc: Called when multiple machines have updated the document, and script needs to determine which one to use, via the Resolve functions. */
 	CSD_DocumentConflictDetected,
 	CSD_MAX,
 };
@@ -35,11 +33,11 @@ class UCloudStorageBase
 {
 	GENERATED_UCLASS_BODY()
 
-	/** When using local storage (aka "cloud emulation"), this maintains a list of the file paths */
+	/** When using local storage (aka "cloud emulation"), this maintains a list of the file paths. */
 	UPROPERTY()
 	TArray<FString> LocalCloudFiles;
 
-	/** If true, delegate callbacks should be skipped */
+	/** If true, delegate callbacks should be skipped. */
 	UPROPERTY()
 	uint32 bSuppressDelegateCalls:1;
 
@@ -47,7 +45,7 @@ class UCloudStorageBase
 	virtual void Init();
 
 	/**
-	 * Initiate reading a key/value pair from cloud storage. A CSD_KeyValueReadComplete
+	 * Initiate reading a key/value pair from cloud storage. A CSD_KeyValueReadComplete.
 	 * delegate will be called when it completes (if this function returns true).
 	 * 
 	 * @param KeyName String name of the key to retrieve.
@@ -58,7 +56,7 @@ class UCloudStorageBase
 	virtual bool ReadKeyValue(const FString& KeyName, EPlatformInterfaceDataType Type, class UObject* SerializedObj = nullptr);
 
 	/**
-	 * Write a key/value pair to the cloud. A CSD_KeyValueWriteComplete
+	 * Write a key/value pair to the cloud. A CSD_KeyValueWriteComplete.
 	 * delegate will be called when it completes (if this function returns true).
 	 *
 	 * @param KeyName String name of the key to write.

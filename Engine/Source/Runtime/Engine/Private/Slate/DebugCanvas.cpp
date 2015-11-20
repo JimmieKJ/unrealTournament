@@ -181,7 +181,6 @@ void FDebugCanvasDrawer::DrawRenderThread(FRHICommandListImmediate& RHICmdList, 
 		else
 		{
 			RenderThreadCanvas->Canvas.SetRenderTargetRect( RenderTarget->GetViewRect() );
-			RenderThreadCanvas->Canvas.Flush_RenderThread(RHICmdList, true);
 		}
 		RenderThreadCanvas->Canvas.Flush_RenderThread(RHICmdList, true);
 		RenderThreadCanvas->Canvas.SetAllowSwitchVerticalAxis(bNeedToFlipVertical);

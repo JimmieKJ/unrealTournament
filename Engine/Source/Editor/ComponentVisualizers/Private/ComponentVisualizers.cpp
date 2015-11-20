@@ -15,6 +15,7 @@
 #include "SpringArmComponentVisualizer.h"
 #include "SplineComponentVisualizer.h"
 #include "SplineMeshComponentVisualizer.h"
+#include "DecalComponentVisualizer.h"
 #include "SensingComponentVisualizer.h"
 #include "SpringComponentVisualizer.h"
 #include "PrimitiveComponentVisualizer.h"
@@ -42,6 +43,7 @@ void FComponentVisualizersModule::StartupModule()
 	RegisterComponentVisualizer(UPawnSensingComponent::StaticClass()->GetFName(), MakeShareable(new FSensingComponentVisualizer));
 	RegisterComponentVisualizer(UPhysicsSpringComponent::StaticClass()->GetFName(), MakeShareable(new FSpringComponentVisualizer));
 	RegisterComponentVisualizer(UPrimitiveComponent::StaticClass()->GetFName(), MakeShareable(new FPrimitiveComponentVisualizer));
+	RegisterComponentVisualizer(UDecalComponent::StaticClass()->GetFName(), MakeShareable(new FDecalComponentVisualizer));
 }
 
 void FComponentVisualizersModule::ShutdownModule()

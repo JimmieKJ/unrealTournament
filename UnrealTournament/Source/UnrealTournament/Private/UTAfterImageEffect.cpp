@@ -65,7 +65,7 @@ void AUTAfterImageEffect::SetMeshProperties(USkeletalMeshComponent* DestComp)
 			DestComp->SetAnimInstanceClass(TemplateComp->AnimBlueprintGeneratedClass);
 
 			// force mesh update, then freeze it
-			DestComp->TickAnimation(0.0f);
+			DestComp->TickAnimation(0.0f, false);
 			DestComp->RefreshBoneTransforms();
 			DestComp->UpdateComponentToWorld();
 			DestComp->SetMasterPoseComponent(NULL);

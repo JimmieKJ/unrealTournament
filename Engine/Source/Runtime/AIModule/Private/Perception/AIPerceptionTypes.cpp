@@ -10,10 +10,11 @@
 // @todo maybe should be a function (IsValidAge)
 const float FAIStimulus::NeverHappenedAge = FLT_MAX;
 
-FAIStimulus::FAIStimulus(const UAISense& Sense, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result)
+FAIStimulus::FAIStimulus(const UAISense& Sense, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result, FName InStimulusTag)
 	: Age(0.f), Strength(Result == SensingSucceeded ? StimulusStrength : -1.f)
 	, StimulusLocation(InStimulusLocation)
 	, ReceiverLocation(InReceiverLocation)
+	, Tag(InStimulusTag)
 	, bWantsToNotifyOnlyOnValueChange(Sense.WantsUpdateOnlyOnPerceptionValueChange())
 	, bSuccessfullySensed(Result == SensingSucceeded)
 	, bExpired(false)

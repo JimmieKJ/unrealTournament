@@ -34,7 +34,7 @@ public:
 	{
 		check(InArgs._Style);
 
-		SWidget::Construct( InArgs._ToolTipText, InArgs._ToolTip, InArgs._Cursor, InArgs._IsEnabled, InArgs._Visibility, InArgs._RenderTransform, InArgs._RenderTransformPivot, InArgs._Tag, InArgs.MetaData );
+		SWidget::Construct( InArgs._ToolTipText, InArgs._ToolTip, InArgs._Cursor, InArgs._IsEnabled, InArgs._Visibility, InArgs._RenderTransform, InArgs._RenderTransformPivot, InArgs._Tag, InArgs._ForceVolatile, InArgs.MetaData );
 
 		Style = InArgs._Style;
 		ColumnId = Column.ColumnId;
@@ -208,7 +208,7 @@ public:
 	{
 		if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && ContextMenuContent != SNullWidget::NullWidget )
 		{
-			OpenContextMenu( MouseEvent.GetScreenSpacePosition() );
+			OpenContextMenu( MouseEvent );
 			return FReply::Handled();
 		}
 
@@ -355,11 +355,14 @@ private:
 		return FReply::Handled();
 	}
 
-	void OpenContextMenu(const FVector2D& SummonLocation)
+	void OpenContextMenu(const FPointerEvent& MouseEvent)
 	{
 		if ( ContextMenuContent != SNullWidget::NullWidget )
 		{
-			FSlateApplication::Get().PushMenu( AsShared(), ContextMenuContent, SummonLocation, FPopupTransitionEffect( FPopupTransitionEffect::ContextMenu ) );
+			const FVector2D& SummonLocation = MouseEvent.GetScreenSpacePosition();
+			FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+
+			FSlateApplication::Get().PushMenu(AsShared(), WidgetPath, ContextMenuContent, SummonLocation, FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 		}
 	}
 
@@ -393,7 +396,7 @@ void SHeaderRow::Construct( const FArguments& InArgs )
 {
 	check(InArgs._Style);
 
-	SWidget::Construct( InArgs._ToolTipText, InArgs._ToolTip, InArgs._Cursor, InArgs._IsEnabled, InArgs._Visibility, InArgs._RenderTransform, InArgs._RenderTransformPivot, InArgs._Tag, InArgs.MetaData );
+	SWidget::Construct( InArgs._ToolTipText, InArgs._ToolTip, InArgs._Cursor, InArgs._IsEnabled, InArgs._Visibility, InArgs._RenderTransform, InArgs._RenderTransformPivot, InArgs._Tag, InArgs._ForceVolatile, InArgs.MetaData );
 
 	ScrollBarThickness = FVector2D::ZeroVector;
 	ScrollBarVisibility = EVisibility::Collapsed;
@@ -530,7 +533,7 @@ void SHeaderRow::RegenerateWidgets()
 			SAssignNew(Splitter, SSplitter)
 			.Style( &Style->ColumnSplitterStyle )
 			.ResizeMode( ESplitterResizeMode::Fill )
-			.PhysicalSplitterHandleSize( 2.0 )
+			.PhysicalSplitterHandleSize( 0.0f )
 			.HitDetectionSplitterHandleSize( SplitterHandleDetectionSize )
 		]
 

@@ -122,7 +122,7 @@ private:
 };
 
 } // namespace Cm
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 PX_COMPILE_TIME_ASSERT(sizeof(Cm::PtrTable)==8);
 #endif
 

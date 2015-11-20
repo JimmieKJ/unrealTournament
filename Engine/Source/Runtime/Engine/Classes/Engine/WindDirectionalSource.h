@@ -3,6 +3,7 @@
 #include "GameFramework/Info.h"
 #include "WindDirectionalSource.generated.h"
 
+/** Actor that provides a directional wind source. Only affects SpeedTree assets. */
 UCLASS(ClassGroup=Wind, showcategories=(Rendering, "Utilities|Transformation"))
 class ENGINE_API AWindDirectionalSource : public AInfo
 {

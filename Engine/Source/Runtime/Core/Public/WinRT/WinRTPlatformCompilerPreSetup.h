@@ -66,22 +66,13 @@
 	 */
 	#define DEPRECATED(VERSION, MESSAGE) __declspec(deprecated(MESSAGE " Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile."))
 
-	#ifndef EMIT_DEPRECATED_WARNING_MESSAGE_STR
-		#define EMIT_DEPRECATED_WARNING_MESSAGE_STR1(x) #x
-		#define EMIT_DEPRECATED_WARNING_MESSAGE_STR(x) EMIT_DEPRECATED_WARNING_MESSAGE_STR1(x)
-	#endif // EMIT_DEPRECATED_WARNING_MESSAGE_STR
-
-	#define EMIT_DEPRECATED_WARNING_MESSAGE(Msg) __pragma(message(__FILE__ "(" EMIT_DEPRECATED_WARNING_MESSAGE_STR(__LINE__) "): warning C4996: " Msg))
-
 	#define PRAGMA_DISABLE_DEPRECATION_WARNINGS \
 		__pragma (warning(push)) \
 		__pragma (warning(disable:4995)) \
 		__pragma (warning(disable:4996))
 
 	#define PRAGMA_ENABLE_DEPRECATION_WARNINGS \
-		__pragma (warning(push)) \
-		__pragma (warning(default:4995)) \
-		__pragma (warning(default:4996))
+		__pragma (warning(pop))
 
 #endif // DISABLE_DEPRECATION
 

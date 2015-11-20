@@ -25,7 +25,6 @@
 #include "Mac/MacPlatformSplash.h"
 #include "Apple/ApplePlatformFile.h"
 #include "Mac/MacPlatformSurvey.h"
-#include "Mac/MacPlatformHttp.h"
 
 typedef FGenericPlatformRHIFramePacer FPlatformRHIFramePacer;
 

@@ -19,7 +19,7 @@ namespace
 		FCustomVersion ToCustomVersion() const
 		{
 			// We'll invent a GUID from three zeroes and the original tag
-			return FCustomVersion(FGuid(0, 0, 0, Tag), Version, FString::Printf(TEXT("Old enum-based tag: %u"), Tag));
+			return FCustomVersion(FGuid(0, 0, 0, Tag), Version, *FString::Printf(TEXT("EnumTag%u"), Tag));
 		}
 	};
 
@@ -31,6 +31,36 @@ namespace
 
 		return Ar;
 	}
+
+	struct FGuidCustomVersion_DEPRECATED
+	{
+		FGuid Key;
+		int32 Version;
+		FString FriendlyName;
+
+		FCustomVersion ToCustomVersion() const
+		{
+			// We'll invent a GUID from three zeroes and the original tag
+			return FCustomVersion(Key, Version, *FriendlyName);
+		}
+	};
+
+	FArchive& operator<<(FArchive& Ar, FGuidCustomVersion_DEPRECATED& Version)
+	{
+		Ar << Version.Key;
+		Ar << Version.Version;
+		Ar << Version.FriendlyName;
+		return Ar;
+	}
+}
+
+const FName FCustomVersion::GetFriendlyName() const
+{
+	if (FriendlyName == NAME_None)
+	{
+		FriendlyName = FCustomVersionContainer::GetRegistered().GetFriendlyName(Key);
+	}
+	return FriendlyName;
 }
 
 const FCustomVersionContainer& FCustomVersionContainer::GetRegistered()
@@ -46,11 +76,10 @@ void FCustomVersionContainer::Empty()
 FString FCustomVersionContainer::ToString(const FString& Indent) const
 {
 	FString VersionsAsString;
-	for (int32 i=0; i<Versions.Num(); i++)
+	for (const FCustomVersion& SomeVersion : Versions)
 	{
-		const FCustomVersion& SomeVersion = Versions[i];
 		VersionsAsString += Indent;
-		VersionsAsString += FString::Printf(TEXT("Key=%s  Version=%d  Friendly Name=%s \n"), *SomeVersion.Key.ToString(), SomeVersion.Version, *SomeVersion.FriendlyName );
+		VersionsAsString += FString::Printf(TEXT("Key=%s  Version=%d  Friendly Name=%s \n"), *SomeVersion.Key.ToString(), SomeVersion.Version, *SomeVersion.GetFriendlyName().ToString() );
 	}
 
 	return VersionsAsString;
@@ -67,8 +96,6 @@ FArchive& operator<<(FArchive& Ar, FCustomVersion& Version)
 {
 	Ar << Version.Key;
 	Ar << Version.Version;
-	Ar << Version.FriendlyName;
-
 	return Ar;
 }
 
@@ -95,8 +122,25 @@ void FCustomVersionContainer::Serialize(FArchive& Ar, ECustomVersionSerializatio
 		break;
 
 		case ECustomVersionSerializationFormat::Guids:
+		{
+			// We should only ever be loading old versions.  They should never be saved - they only exist for backward compatibility.
+			check(Ar.IsLoading());
+
+			TArray<FGuidCustomVersion_DEPRECATED> VersionArray;
+			Ar << VersionArray;
+			Versions.Empty(VersionArray.Num());
+			for (FGuidCustomVersion_DEPRECATED& OldVer : VersionArray)
+			{
+				Versions.Add(OldVer.ToCustomVersion());
+			}
+		}
+		break;
+
+		case ECustomVersionSerializationFormat::Optimized:
+		{
 			Ar << Versions;
-			break;
+		}
+		break;
 	}
 }
 
@@ -105,40 +149,62 @@ const FCustomVersion* FCustomVersionContainer::GetVersion(FGuid Key) const
 	// A testing tag was written out to a few archives during testing so we need to
 	// handle the existence of it to ensure that those archives can still be loaded.
 	if (Key == UnusedCustomVersion.Key)
+	{
 		return &UnusedCustomVersion;
+	}
 
-	return Versions.FindByKey(Key);
+	return Versions.Find(Key);
 }
 
-void FCustomVersionContainer::SetVersion(FGuid CustomKey, int32 Version, FString FriendlyName)
+const FName FCustomVersionContainer::GetFriendlyName(FGuid Key) const
+{
+	FName FriendlyName = NAME_Name;
+	const FCustomVersion* CustomVersion = GetVersion(Key);
+	if (CustomVersion)
+	{
+		FriendlyName = CustomVersion->FriendlyName;
+	}
+	return FriendlyName;
+}
+
+void FCustomVersionContainer::SetVersion(FGuid CustomKey, int32 Version, FName FriendlyName)
 {
 	if (CustomKey == UnusedCustomVersion.Key)
 		return;
 
-	if (FCustomVersion* Found = Versions.FindByKey(CustomKey))
+	if (FCustomVersion* Found = Versions.Find(CustomKey))
 	{
 		Found->Version      = Version;
-		Found->FriendlyName = MoveTemp(FriendlyName);
+		Found->FriendlyName = FriendlyName;
 	}
 	else
 	{
-		Versions.Add(FCustomVersion(CustomKey, Version, MoveTemp(FriendlyName)));
+		Versions.Add(FCustomVersion(CustomKey, Version, FriendlyName));
 	}
 }
 
-FCustomVersionRegistration::FCustomVersionRegistration(FGuid InKey, int32 InVersion, const TCHAR* InFriendlyName)
+FCustomVersionRegistration::FCustomVersionRegistration(FGuid InKey, int32 InVersion, FName InFriendlyName)
 {
-	TArray<FCustomVersion>& Versions = FCustomVersionContainer::GetInstance().Versions;
+	FCustomVersionSet& Versions = FCustomVersionContainer::GetInstance().Versions;
 
 	// Check if this tag hasn't already been registered
-	if (FCustomVersion* ExistingRegistration = Versions.FindByKey(InKey))
+	if (FCustomVersion* ExistingRegistration = Versions.Find(InKey))
 	{
-		// We don't allow the version number to decrease between registrations
-		check(InVersion >= ExistingRegistration->Version);
+		// We don't allow the registration details to change across registrations - this code path only exists to support hotreload
+
+		// If you hit this then you've probably either:
+		// * Changed registration details during hotreload.
+		// * Accidentally copy-and-pasted an FCustomVersionRegistration object.
+		ensureMsgf(
+			ExistingRegistration->Version == InVersion && ExistingRegistration->GetFriendlyName() == InFriendlyName,
+			TEXT("Custom version registrations cannot change between hotreloads - \"%s\" version %d is being reregistered as \"%s\" version %d"),
+			*ExistingRegistration->GetFriendlyName().ToString(),
+			ExistingRegistration->Version,
+			InFriendlyName,
+			InVersion
+		);
 
 		++ExistingRegistration->ReferenceCount;
-		ExistingRegistration->Version      = InVersion;
-		ExistingRegistration->FriendlyName = InFriendlyName;
 	}
 	else
 	{
@@ -150,9 +216,9 @@ FCustomVersionRegistration::FCustomVersionRegistration(FGuid InKey, int32 InVers
 
 FCustomVersionRegistration::~FCustomVersionRegistration()
 {
-	TArray<FCustomVersion>& Versions = FCustomVersionContainer::GetInstance().Versions;
+	FCustomVersionSet& Versions = FCustomVersionContainer::GetInstance().Versions;
 
-	FCustomVersion* FoundKey = Versions.FindByKey(Key);
+	FCustomVersion* FoundKey = Versions.Find(Key);
 
 	// Ensure this tag has been registered
 	check(FoundKey);
@@ -160,6 +226,6 @@ FCustomVersionRegistration::~FCustomVersionRegistration()
 	--FoundKey->ReferenceCount;
 	if (FoundKey->ReferenceCount == 0)
 	{
-		Versions.RemoveAt(FoundKey - Versions.GetData());
+		Versions.Remove(Key);
 	}
 }

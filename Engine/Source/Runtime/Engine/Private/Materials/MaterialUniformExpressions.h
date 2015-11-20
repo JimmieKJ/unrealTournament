@@ -7,6 +7,7 @@
 
 #include "EnginePrivate.h"
 #include "MaterialShared.h"
+#include "Materials/MaterialExpressionTextureProperty.h"
 
 /**
  */
@@ -129,15 +130,24 @@ public:
 		Ar << ParameterName << DefaultValue;
 	}
 
+	// inefficient compared to GetGameThreadNumberValue(), for editor purpose
 	virtual void GetNumberValue(const FMaterialRenderContext& Context,FLinearColor& OutValue) const
 	{
 		OutValue.R = OutValue.G = OutValue.B = OutValue.A = 0;
 
 		if(!Context.MaterialRenderProxy->GetVectorValue(ParameterName, &OutValue, Context))
 		{
-			OutValue = bUseOverriddenDefault ? OverriddenDefaultValue : DefaultValue;
+			GetDefaultValue(OutValue);
 		}
 	}
+
+	void GetDefaultValue(FLinearColor& OutValue) const
+	{
+		OutValue = bUseOverriddenDefault ? OverriddenDefaultValue : DefaultValue;
+	}
+
+	// faster than GetNumberValue(), good for run-time use
+	void GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, FLinearColor& OutValue) const;
 
 	virtual bool IsConstant() const
 	{
@@ -195,6 +205,7 @@ public:
 		Ar << ParameterName << DefaultValue;
 	}
 
+	// inefficient compared to GetGameThreadNumberValue(), for editor purpose
 	virtual void GetNumberValue(const FMaterialRenderContext& Context,FLinearColor& OutValue) const
 	{
 		if(Context.MaterialRenderProxy->GetScalarValue(ParameterName, &OutValue.R, Context))
@@ -203,9 +214,18 @@ public:
 		}
 		else
 		{
-			OutValue.R = OutValue.G = OutValue.B = OutValue.A = bUseOverriddenDefault ? OverriddenDefaultValue : DefaultValue;
+			GetDefaultValue(OutValue.A);
+			OutValue.R = OutValue.G = OutValue.B = OutValue.A;
 		}
 	}
+
+	void GetDefaultValue(float& OutValue) const
+	{
+		OutValue = bUseOverriddenDefault ? OverriddenDefaultValue : DefaultValue;
+	}
+	
+	// faster than GetNumberValue(), good for run-time use
+	void GetGameThreadNumberValue(const UMaterialInterface* SourceMaterialToCopyFrom, float& OutValue) const;
 
 	virtual bool IsConstant() const
 	{
@@ -311,7 +331,7 @@ public:
 		else
 		{
 			OutValue = NULL;
-			if(!MaterialInterface->GetTextureParameterValue(ParameterName,OutValue))
+			if(!MaterialInterface->GetTextureParameterOverrideValue(ParameterName,OutValue))
 			{
 				OutValue = GetIndexedTexture(Material, TextureIndex);
 			}
@@ -322,6 +342,12 @@ public:
 	{
 		return false;
 	}
+
+	FName GetParameterName() const
+	{
+		return ParameterName;
+	}
+
 	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const
 	{
 		if (GetType() != OtherExpression->GetType())
@@ -495,6 +521,55 @@ public:
 		}
 		FMaterialUniformExpressionLength* OtherSqrt = (FMaterialUniformExpressionLength*)OtherExpression;
 		return X->IsIdentical(OtherSqrt->X);
+	}
+
+private:
+	TRefCountPtr<FMaterialUniformExpression> X;
+};
+
+/**
+ */
+class FMaterialUniformExpressionLogarithm2: public FMaterialUniformExpression
+{
+	DECLARE_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionLogarithm2);
+public:
+
+	FMaterialUniformExpressionLogarithm2() {}
+	FMaterialUniformExpressionLogarithm2(FMaterialUniformExpression* InX):
+		X(InX)
+	{}
+
+	// FMaterialUniformExpression interface.
+	void Serialize(FArchive& Ar) override
+	{
+		Ar << X;
+	}
+	void GetNumberValue(const FMaterialRenderContext& Context,FLinearColor& OutValue) const override
+	{
+		FLinearColor ValueX = FLinearColor::Black;
+		X->GetNumberValue(Context,ValueX);
+		OutValue.R = FMath::Log2(ValueX.R);
+		OutValue.G = FMath::Log2(ValueX.G);
+		OutValue.B = FMath::Log2(ValueX.B);
+		OutValue.A = FMath::Log2(ValueX.A);
+	}
+	bool IsConstant() const override
+	{
+		return X->IsConstant();
+	}
+	bool IsChangingPerFrame() const override
+	{
+		return X->IsChangingPerFrame();
+	}
+	bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const override
+	{
+		if (GetType() != OtherExpression->GetType())
+		{
+			return false;
+		}
+
+		auto OtherLog = static_cast<const FMaterialUniformExpressionLogarithm2 *>(OtherExpression);
+		return X->IsIdentical(OtherLog->X);
 	}
 
 private:
@@ -1283,4 +1358,73 @@ public:
 
 private:
 	TRefCountPtr<FMaterialUniformExpression> X;
+};
+
+/**
+ */
+class FMaterialUniformExpressionTextureProperty: public FMaterialUniformExpression
+{
+	DECLARE_MATERIALUNIFORMEXPRESSION_TYPE(FMaterialUniformExpressionTextureProperty);
+public:
+	
+	FMaterialUniformExpressionTextureProperty() {}
+	FMaterialUniformExpressionTextureProperty(FMaterialUniformExpressionTexture* InTextureExpression, EMaterialExposedTextureProperty InTextureProperty)
+		: TextureExpression(InTextureExpression)
+		, TextureProperty(InTextureProperty)
+	{}
+
+	// FMaterialUniformExpression interface.
+	virtual void Serialize(FArchive& Ar) override
+	{
+		Ar << TextureExpression << TextureProperty;
+	}
+	virtual void GetNumberValue(const FMaterialRenderContext& Context,FLinearColor& OutValue) const override
+	{
+		const UTexture* Texture;
+
+		{
+			ESamplerSourceMode SamplerSource;
+			TextureExpression->GetTextureValue(Context, Context.Material, Texture, SamplerSource);
+		}
+
+		if (!Texture || !Texture->Resource)
+		{
+			return;
+		}
+	
+		if (TextureProperty == TMTM_TextureSize)
+		{
+			OutValue.R = Texture->Resource->GetSizeX();
+			OutValue.G = Texture->Resource->GetSizeY();
+		}
+		else if (TextureProperty == TMTM_TexelSize)
+		{
+			OutValue.R = 1.0f / float(Texture->Resource->GetSizeX());
+			OutValue.G = 1.0f / float(Texture->Resource->GetSizeY());
+		}
+		else
+		{
+			check(0);
+		}
+	}
+	virtual bool IsIdentical(const FMaterialUniformExpression* OtherExpression) const override
+	{
+		if (GetType() != OtherExpression->GetType())
+		{
+			return false;
+		}
+
+		auto OtherTexturePropertyExpression = (const FMaterialUniformExpressionTextureProperty*)OtherExpression;
+		
+		if (TextureProperty != OtherTexturePropertyExpression->TextureProperty)
+		{
+			return false;
+		}
+
+		return TextureExpression->IsIdentical(OtherTexturePropertyExpression->TextureExpression);
+	}
+	
+private:
+	TRefCountPtr<FMaterialUniformExpressionTexture> TextureExpression;
+	int8 TextureProperty;
 };

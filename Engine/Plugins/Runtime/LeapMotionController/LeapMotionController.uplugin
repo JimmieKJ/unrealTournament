@@ -1,0 +1,23 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Leap Motion Controller Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.2.0",
+	"Description" : "Support for the Leap Motion input device",
+	"Category" : "Input Devices",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "LeapMotionController",
+			"Type" : "Runtime",
+			"WhitelistPlatforms" : [ "Win64", "Win32" ]
+		}
+	],
+	"CanContainContent" : true
+}

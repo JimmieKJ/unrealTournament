@@ -46,6 +46,14 @@ public:
 		GEditor->RegisterForUndo(this);
 	}
 
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(LandscapeInfo);
+		Collector.AddReferencedObjects(SelectedSplineControlPoints);
+		Collector.AddReferencedObjects(SelectedSplineSegments);
+		Collector.AddReferencedObject(DraggingTangent_Segment);
+	}
+
 	~FLandscapeToolSplines()
 	{
 		// GEditor is invalid at shutdown as the object system is unloaded before the landscape module.

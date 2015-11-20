@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintGraphPrivatePCH.h"
+#include "KismetDebugUtilities.h"
 
 UK2Node_EditablePinBase::UK2Node_EditablePinBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -18,10 +19,10 @@ void UK2Node_EditablePinBase::AllocateDefaultPins()
 	}
 }
 
-UEdGraphPin* UK2Node_EditablePinBase::CreateUserDefinedPin(const FString& InPinName, const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection)
+UEdGraphPin* UK2Node_EditablePinBase::CreateUserDefinedPin(const FString& InPinName, const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, bool bUseUniqueName)
 {
 	// Sanitize the name, if needed
-	const FString NewPinName = CreateUniquePinName(InPinName);
+	const FString NewPinName = bUseUniqueName ? CreateUniquePinName(InPinName) : InPinName;
 
 	// First, add this pin to the user-defined pins
 	TSharedPtr<FUserPinInfo> NewPinInfo = MakeShareable( new FUserPinInfo() );
@@ -48,11 +49,41 @@ void UK2Node_EditablePinBase::RemoveUserDefinedPin(TSharedPtr<FUserPinInfo> PinT
 			Pin->BreakAllPinLinks();
 			Pins.Remove(Pin);
 			Pin->MarkPendingKill();
+
+			if (UBlueprint* Blueprint = GetBlueprint())
+			{
+				FKismetDebugUtilities::RemovePinWatch(Blueprint, Pin);
+			}
 		}
 	}
 
 	// Remove the description from the user-defined pins array
 	UserDefinedPins.Remove(PinToRemove);
+}
+
+void UK2Node_EditablePinBase::RemoveUserDefinedPinByName(const FString& PinName)
+{
+	for (int32 i = 0; i < Pins.Num(); i++)
+	{
+		UEdGraphPin* Pin = Pins[i];
+		if (Pin->PinName == PinName)
+		{
+			Pin->BreakAllPinLinks();
+			Pins.Remove(Pin);
+			Pin->MarkPendingKill();
+
+			if (UBlueprint* Blueprint = GetBlueprint())
+			{
+				FKismetDebugUtilities::RemovePinWatch(Blueprint, Pin);
+			}
+		}
+	}
+
+	// Remove the description from the user-defined pins array
+	UserDefinedPins.RemoveAll([&](const TSharedPtr<FUserPinInfo>& UDPin)
+	{
+		return UDPin.IsValid() && (UDPin->PinName == PinName);
+	});
 }
 
 void UK2Node_EditablePinBase::ExportCustomProperties(FOutputDevice& Out, uint32 Indent)
@@ -151,11 +182,22 @@ void UK2Node_EditablePinBase::Serialize(FArchive& Ar)
 	else
 	{
 		SerializedItems.Empty(UserDefinedPins.Num());
+
 		for (int32 Index = 0; Index < UserDefinedPins.Num(); ++Index)
 		{
 			SerializedItems.Add(*(UserDefinedPins[Index].Get()));
 		}
+
 		Ar << SerializedItems;
+
+		if (Ar.IsModifyingWeakAndStrongReferences())
+		{
+			UserDefinedPins.Empty(SerializedItems.Num());
+			for (int32 Index = 0; Index < SerializedItems.Num(); ++Index)
+			{
+				UserDefinedPins.Add(MakeShareable(new FUserPinInfo(SerializedItems[Index])));
+			}
+		}
 	}
 }
 

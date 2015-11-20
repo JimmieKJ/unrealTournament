@@ -173,6 +173,9 @@ public:
 	 */
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) {}
 
+	/** Gathers a description of the mesh elements to be rendered for the given LOD index, without consideration for views. */
+	virtual void GetMeshDescription(int32 LODIndex, TArray<FMeshBatch>& OutMeshElements) const {};
+
 	/** 
 	 * Gathers the primitive's dynamic mesh elements.  This will only be called if GetViewRelevance declares dynamic relevance.
 	 * This is called from the rendering thread for each set of views that might be rendered.  
@@ -211,7 +214,7 @@ public:
 	 * @param View - The view to determine relevance for.
 	 * @return The relevance of the primitive's elements to the view.
 	 */
-	ENGINE_API virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View);
+	ENGINE_API virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const;
 
 	/** Callback from the renderer to gather simple lights that this proxy wants renderered. */
 	virtual void GatherSimpleLights(const FSceneViewFamily& ViewFamily, FSimpleLightArray& OutParticleLights) const {}
@@ -378,7 +381,9 @@ public:
 	inline bool IsParentSelected() const { return bParentSelected; }
 	inline bool IsIndividuallySelected() const { return bIndividuallySelected; }
 	inline bool IsSelected() const { return IsParentSelected() || IsIndividuallySelected(); }
+	inline bool WantsSelectionOutline() const { return bWantsSelectionOutline; }
 	inline bool ShouldRenderCustomDepth() const { return bRenderCustomDepth; }
+	inline uint8 GetCustomDepthStencilValue() const { return CustomDepthStencilValue; }
 	inline bool ShouldRenderInMainPass() const { return bRenderInMainPass; }
 	inline bool IsCollisionEnabled() const { return bCollisionEnabled; }
 	inline bool IsHovered() const { return bHovered; }
@@ -418,6 +423,7 @@ public:
 	inline bool TreatAsBackgroundForOcclusion() const { return bTreatAsBackgroundForOcclusion; }
 	inline bool NeedsLevelAddedToWorldNotification() const { return bNeedsLevelAddedToWorldNotification; }
 	inline bool IsComponentLevelVisible() const { return bIsComponentLevelVisible; }
+	inline bool IsStaticPathAvailable() const { return !bDisableStaticPath; }
 
 #if WITH_EDITOR
 	inline int32 GetNumUncachedStaticLightingInteractions() { return NumUncachedStaticLightingInteractions; }
@@ -487,7 +493,12 @@ public:
 	 * @param LateUpdateTransform - The post-transform to be applied to the LocalToWorld matrix
 	 */
 	ENGINE_API virtual void ApplyLateUpdateTransform(const FMatrix& LateUpdateTransform);
-	
+
+	/**
+	 * Updates the primitive proxy's uniform buffer.
+	 */
+	ENGINE_API void UpdateUniformBuffer();
+
 protected:
 
 	/** Allow subclasses to override the primitive name. Used primarily by BSP. */
@@ -534,9 +545,6 @@ private:
 	/** True if the primitive will cache static lighting. */
 	uint32 bStaticLighting : 1;
 
-	/** This primitive has bRenderCustomDepth enabled */
-	uint32 bRenderCustomDepth : 1;
-
 	/** If true this primitive Renders in the mainPass */
 	uint32 bRenderInMainPass : 1;
 
@@ -552,6 +560,9 @@ private:
 	/** Whether the primitive should be treated as part of the background for occlusion purposes. */
 	uint32 bTreatAsBackgroundForOcclusion : 1;
 
+	friend class FLightPrimitiveInteraction;
+	/** Whether the renderer needs us to temporarily use only the dynamic drawing path */
+	uint32 bDisableStaticPath : 1;
 protected:
 
 	/** Whether the primitive should be statically lit but has unbuilt lighting, and a preview should be used. */
@@ -636,6 +647,9 @@ protected:
 	/** Whether this primitive requires notification when its level is added to the world and made visible for the first time. */
 	uint32 bNeedsLevelAddedToWorldNotification : 1;
 
+	/** true by default, if set to false will make given proxy never drawn with selection outline */
+	uint32 bWantsSelectionOutline : 1;
+
 private:
 
 	/** If this is True, this primitive will be used to occlusion cull other primitives. */
@@ -652,6 +666,12 @@ private:
 
 	/** Whether this primitive should be composited onto the scene after post processing (editor only) */
 	uint32 bUseEditorCompositing : 1;
+
+	/** This primitive has bRenderCustomDepth enabled */
+	uint32 bRenderCustomDepth : 1;
+
+	/** Optionally write this stencil value during the CustomDepth pass */
+	uint8 CustomDepthStencilValue;
 
 protected:
 	/** The bias applied to LPV injection */
@@ -732,14 +752,13 @@ private:
 	*	How many invalid lights for this primitive, just refer for scene outliner
 	*/
 	int32 NumUncachedStaticLightingInteractions;
-	friend class FLightPrimitiveInteraction;
 
 	/** this is used if world setting has EnableHierarchical LOD true */
 	int32 HierarchicalLODOverride;
 #endif
 
 	/** Updates the proxy's actor position, called from the game thread. */
-	ENGINE_API void UpdateActorPosition(FVector ActorPosition);
+	ENGINE_API void UpdateActorPosition(FVector InActorPosition);
 
 	/**
 	 * Updates the primitive proxy's cached transforms, and calls OnUpdateTransform to notify it of the change.
@@ -748,7 +767,12 @@ private:
 	 * @param InBounds - The new bounds of the primitive.
 	 * @param InLocalBounds - The local space bounds of the primitive.
 	 */
-	ENGINE_API void SetTransform(const FMatrix& InLocalToWorld, const FBoxSphereBounds& InBounds, const FBoxSphereBounds& InLocalBounds, FVector ActorPosition);
+	ENGINE_API void SetTransform(const FMatrix& InLocalToWorld, const FBoxSphereBounds& InBounds, const FBoxSphereBounds& InLocalBounds, FVector InActorPosition);
+
+	/**
+	 * Either updates the uniform buffer or defers it until it becomes visible depending on a cvar
+	 */
+	ENGINE_API void UpdateUniformBufferMaybeLazy();
 
 	/** Updates the hidden editor view visibility map on the render thread */
 	void SetHiddenEdViews_RenderThread( uint64 InHiddenEditorViews );

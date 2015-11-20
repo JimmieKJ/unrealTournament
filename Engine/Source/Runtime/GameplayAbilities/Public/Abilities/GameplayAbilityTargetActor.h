@@ -24,7 +24,7 @@ class GAMEPLAYABILITIES_API AGameplayAbilityTargetActor : public AActor
 
 public:
 
-	void Destroyed() override;
+	void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** The TargetData this class produces can be entirely generated on the server. We don't require the client to send us full or partial TargetData (possibly just a 'confirm') */
 	UPROPERTY(EditAnywhere, Category=Advanced)
@@ -97,4 +97,7 @@ public:
 
 	FDelegateHandle GenericConfirmHandle;
 	FDelegateHandle GenericCancelHandle;
+
+	UPROPERTY()
+	UAbilitySystemComponent* GenericDelegateBoundASC;
 };

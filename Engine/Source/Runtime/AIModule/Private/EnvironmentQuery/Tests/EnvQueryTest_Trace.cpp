@@ -88,6 +88,12 @@ void UEnvQueryTest_Trace::RunTest(FEnvQueryInstance& QueryInstance) const
 	}
 }
 
+void UEnvQueryTest_Trace::PostLoad()
+{
+	Super::PostLoad();
+	TraceData.OnPostLoad();
+}
+
 FText UEnvQueryTest_Trace::GetDescriptionTitle() const
 {
 	UEnum* ChannelEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("ETraceTypeQuery"), true);

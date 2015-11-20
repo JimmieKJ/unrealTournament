@@ -12,6 +12,7 @@
 #include "GameplayEffect.h"
 #include "AbilitySystemComponent.h"
 #include "GameplayEffectExtension.h"
+#include "SGameplayAttributeWidget.h"
 
 #define LOCTEXT_NAMESPACE "AttributeDetailsCustomization"
 
@@ -89,14 +90,20 @@ void FAttributePropertyDetails::CustomizeHeader( TSharedRef<IPropertyHandle> Str
 		PropertyOptions.Add(MakeShareable(new FString(FString::Printf(TEXT("%s.%s"), *Property->GetOuter()->GetName(), *Property->GetName()))));
 	}
 
-	// Fixme: this should be unified to use SGameplayAttributeWidget instead of custom combo box
+	UProperty* PropertyValue = nullptr;
+	if (MyProperty.IsValid())
+	{
+		UObject *ObjPtr = nullptr;
+		MyProperty->GetValue(ObjPtr);
+		PropertyValue = Cast<UProperty>(ObjPtr);
+	}
 
 	HeaderRow.
 		NameContent()
 		[
 			StructPropertyHandle->CreatePropertyNameWidget()
 		]
-		.ValueContent()
+	.ValueContent()
 		.MinDesiredWidth(500)
 		.MaxDesiredWidth(4096)
 		[
@@ -106,13 +113,10 @@ void FAttributePropertyDetails::CustomizeHeader( TSharedRef<IPropertyHandle> Str
 			.HAlign(HAlign_Fill)
 			.Padding(0.f, 0.f, 2.f, 0.f)
 			[
-
-				SNew(STextComboBox)
-				.ContentPadding(FMargin(2.0f, 2.0f))
-				.IsEnabled(!StructPropertyHandle->IsEditConst())
-				.OptionsSource( &PropertyOptions )
-				.InitiallySelectedItem(GetPropertyType())
-				.OnSelectionChanged( this, &FAttributePropertyDetails::OnChangeProperty )
+				SNew(SGameplayAttributeWidget)
+				.OnAttributeChanged(this, &FAttributePropertyDetails::OnAttributeChanged)
+				.DefaultProperty(PropertyValue)
+				.FilterMetaData(FilterMetaStr)
 			]
 		];
 }
@@ -175,6 +179,16 @@ void FAttributePropertyDetails::OnChangeProperty(TSharedPtr<FString> ItemSelecte
 	}
 
 	
+}
+
+void FAttributePropertyDetails::OnAttributeChanged(UProperty* SelectedAttribute)
+{
+	const UObject* ObjPtr = SelectedAttribute;
+
+	if (MyProperty.IsValid())
+	{
+		MyProperty->SetValue(ObjPtr);
+	}
 }
 
 // ------------------------------------------------------------------------------------

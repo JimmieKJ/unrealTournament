@@ -369,8 +369,6 @@ void UAnimGraphNode_TwoBoneIK::CustomizeDetails(class IDetailLayoutBuilder& Deta
 		TSharedPtr<IPropertyHandle> PropertyHandle;
 		PropertyHandle = DetailBuilder.GetProperty(*JointTargetSpaceBoneName, GetClass());
 		EffectorCategory.AddProperty(PropertyHandle);
-
-		bPinVisibilityChanged = SetPinsVisibility(true);
 	}
 	else // hide all properties in JointTarget category except for JointTargetLocationSpace
 	{
@@ -378,8 +376,6 @@ void UAnimGraphNode_TwoBoneIK::CustomizeDetails(class IDetailLayoutBuilder& Deta
 		DetailBuilder.HideProperty(PropertyHandle);
 		PropertyHandle = DetailBuilder.GetProperty(*JointTargetSpaceBoneName, GetClass());
 		DetailBuilder.HideProperty(PropertyHandle);
-
-		bPinVisibilityChanged = SetPinsVisibility(false);
 	}
 
 	const FString EffectorLocationSpace = FString::Printf(TEXT("Node.%s"), GET_MEMBER_NAME_STRING_CHECKED(FAnimNode_TwoBoneIK, EffectorLocationSpace));
@@ -399,33 +395,6 @@ void UAnimGraphNode_TwoBoneIK::CustomizeDetails(class IDetailLayoutBuilder& Deta
 		FSimpleDelegate UpdateJointSpaceDelegate = FSimpleDelegate::CreateSP(TwoBoneIKDelegate.Get(), &FTwoBoneIKDelegate::UpdateLocationSpace, &DetailBuilder);
 		JointTragetLocHandle->SetOnPropertyValueChanged(UpdateJointSpaceDelegate);
 	}
-
-	// reconstruct node for showing/hiding Pins
-	if (bPinVisibilityChanged)
-	{
-		ReconstructNode();
-	}
-}
-
-bool UAnimGraphNode_TwoBoneIK::SetPinsVisibility(bool bShow)
-{
-	bool bChanged = false;
-
-	for (FOptionalPinFromProperty& Pin : ShowPinForProperties)
-	{
-		if (Pin.PropertyName == GET_MEMBER_NAME_CHECKED(FAnimNode_TwoBoneIK, JointTargetLocation))
-		{
-			PreEditChange(NULL);
-			if (Pin.bShowPin != bShow)
-			{
-				Pin.bShowPin = bShow;
-				bChanged = true;
-			}
-			break;
-		}
-	}
-
-	return bChanged;
 }
 
 #undef LOCTEXT_NAMESPACE

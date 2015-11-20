@@ -140,9 +140,9 @@ public:
 		SetShaderValue(RHICmdList, GetVertexShader(), RenderOffsetParameter, RenderOffset);
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), VertexFactory, View, Proxy, BatchElement);
+		FMeshMaterialShader::SetMesh(RHICmdList, GetVertexShader(), VertexFactory, View, Proxy, BatchElement,DitheredLODTransitionValue);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -184,9 +184,9 @@ public:
 		}
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement)
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory, const FSceneView& View, const FPrimitiveSceneProxy* Proxy, const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue)
 	{
-		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement);
+		FMeshMaterialShader::SetMesh(RHICmdList, GetPixelShader(), VertexFactory, View, Proxy, BatchElement,DitheredLODTransitionValue);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
@@ -254,14 +254,15 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const
 	{
 		const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-		VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement);
-		PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement);
-		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, bBackFace, ElementData, PolicyContext);
+		VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement,DitheredLODTransitionValue);
+		PixelShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement,DitheredLODTransitionValue);
+		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, bBackFace, DitheredLODTransitionValue, ElementData, PolicyContext);
 	}
 
 	friend int32 CompareDrawingPolicy(const FLandscapeGrassWeightDrawingPolicy& A, const FLandscapeGrassWeightDrawingPolicy& B)
@@ -351,7 +352,7 @@ public:
 				DrawingPolicy.SetSharedState(RHICmdList, View, FLandscapeGrassWeightDrawingPolicy::ContextDataType(), PassIdx, ComponentInfo.ViewOffset + FVector2D(PassOffsetX * PassIdx, 0));
 
 				// The first batch element contains the grass batch for the entire component
-				DrawingPolicy.SetMeshRenderState(RHICmdList, *View, ComponentInfo.SceneProxy, Mesh, 0, false, FMeshDrawingPolicy::ElementDataType(), FLandscapeGrassWeightDrawingPolicy::ContextDataType());
+				DrawingPolicy.SetMeshRenderState(RHICmdList, *View, ComponentInfo.SceneProxy, Mesh, 0, false, 0.0f, FMeshDrawingPolicy::ElementDataType(), FLandscapeGrassWeightDrawingPolicy::ContextDataType());
 				DrawingPolicy.DrawMesh(RHICmdList, Mesh, 0);
 			}
 		}
@@ -418,7 +419,7 @@ public:
 
 		RenderTargetTexture = NewObject<UTextureRenderTarget2D>();
 		check(RenderTargetTexture);
-		RenderTargetTexture->ClearColor = FLinearColor::Transparent;
+		RenderTargetTexture->ClearColor = FLinearColor::White;
 		RenderTargetTexture->TargetGamma = 1.f;
 		RenderTargetTexture->InitCustomFormat(TargetSize.X, TargetSize.Y, PF_B8G8R8A8, false);
 		RenderTargetResource = RenderTargetTexture->GameThread_GetRenderTargetResource()->GetTextureRenderTarget2DResource();
@@ -453,8 +454,16 @@ public:
 			GrassWeightArrays.Empty(GrassTypes.Num());
 			for (auto GrassType : GrassTypes)
 			{
-				int32 Index = GrassWeightArrays.Add(&NewGrassData->WeightData.Add(GrassType));
-				GrassWeightArrays[Index]->Empty(FMath::Square(ComponentSizeVerts));
+				NewGrassData->WeightData.Add(GrassType);
+			}
+
+			// need a second loop because the WeightData map will reallocate its arrays as grass types are added
+			for (auto GrassType : GrassTypes)
+			{
+				TArray<uint8>* DataArray = NewGrassData->WeightData.Find(GrassType);
+				check(DataArray);
+				DataArray->Empty(FMath::Square(ComponentSizeVerts));
+				GrassWeightArrays.Add(DataArray);
 			}
 
 			for (int32 PassIdx = 0; PassIdx < NumPasses; PassIdx++)
@@ -503,6 +512,18 @@ public:
 							}
 						}
 					}
+				}
+			}
+
+			// remove null grass type if we had one (can occur if the node has null entries)
+			NewGrassData->WeightData.Remove(nullptr);
+
+			// Remove any grass data that is entirely weight 0
+			for (auto Iter(NewGrassData->WeightData.CreateIterator()); Iter; ++Iter)
+			{
+				if (Iter.Value().IndexOfByPredicate([&](const int8& Weight){ return Weight != 0; }) == INDEX_NONE)
+				{
+					Iter.RemoveCurrent();
 				}
 			}
 
@@ -616,10 +637,7 @@ void ULandscapeComponent::RenderGrassMap()
 			GrassTypes.Empty(GrassExpressions[0]->GrassTypes.Num());
 			for (auto& GrassTypeInput : GrassExpressions[0]->GrassTypes)
 			{
-				if (GrassTypeInput.GrassType)
-				{
-					GrassTypes.Add(GrassTypeInput.GrassType);
-				}
+				GrassTypes.Add(GrassTypeInput.GrassType);
 			}
 
 			TArray<ULandscapeComponent*> LandscapeComponents;
@@ -654,10 +672,10 @@ UMaterialExpressionLandscapeGrassOutput::UMaterialExpressionLandscapeGrassOutput
 	// Structure to hold one-time initialization
 	struct FConstructorStatics
 	{
-		FString STRING_Landscape;
+		FText STRING_Landscape;
 		FName NAME_Grass;
 		FConstructorStatics()
-			: STRING_Landscape(LOCTEXT("Landscape", "Landscape").ToString())
+			: STRING_Landscape(LOCTEXT("Landscape", "Landscape"))
 			, NAME_Grass("Grass")
 		{
 		}
@@ -776,25 +794,27 @@ void ULandscapeGrassType::PostEditChangeProperty(FPropertyChangedEvent& Property
 
 	if (GIsEditor)
 	{
-		// Only care current world object
-		for (TActorIterator<ALandscapeProxy> It(GWorld); It; ++It)
+		for (TObjectIterator<ALandscapeProxy> It; It; ++It)
 		{
 			ALandscapeProxy* Proxy = *It;
-			const UMaterialInterface* MaterialInterface = Proxy->LandscapeMaterial;
-			if (MaterialInterface)
+			if (Proxy->GetWorld() && !Proxy->GetWorld()->IsPlayInEditor())
 			{
-				TArray<const UMaterialExpressionLandscapeGrassOutput*> GrassExpressions;
-				MaterialInterface->GetMaterial()->GetAllExpressionsOfType<UMaterialExpressionLandscapeGrassOutput>(GrassExpressions);
-
-				// Should only be one grass type node
-				if (GrassExpressions.Num() > 0)
+				const UMaterialInterface* MaterialInterface = Proxy->LandscapeMaterial;
+				if (MaterialInterface)
 				{
-					for (auto& Output : GrassExpressions[0]->GrassTypes)
+					TArray<const UMaterialExpressionLandscapeGrassOutput*> GrassExpressions;
+					MaterialInterface->GetMaterial()->GetAllExpressionsOfType<UMaterialExpressionLandscapeGrassOutput>(GrassExpressions);
+
+					// Should only be one grass type node
+					if (GrassExpressions.Num() > 0)
 					{
-						if (Output.GrassType == this)
+						for (auto& Output : GrassExpressions[0]->GrassTypes)
 						{
-							Proxy->FlushGrassComponents();
-							break;
+							if (Output.GrassType == this)
+							{
+								Proxy->FlushGrassComponents();
+								break;
+							}
 						}
 					}
 				}
@@ -1567,7 +1587,7 @@ void ALandscapeProxy::UpdateGrass(const TArray<FVector>& Cameras, bool bForceSyn
 											}
 										}
 
-										if (NumCompsCreated || (!bForceSync && AsyncFoliageTasks.Num() >= MaxTasks))
+										if (!bForceSync && (NumCompsCreated || AsyncFoliageTasks.Num() >= MaxTasks))
 										{
 											continue; // one per frame, but we still want to touch the existing ones
 										}

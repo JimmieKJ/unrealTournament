@@ -3,7 +3,6 @@
 #pragma once
 
 /** FName declaration of IOS subsystem */
-#define IOS_SUBSYSTEM FName(TEXT("IOS"))
 
 #include "Core.h"
 #include "SocketSubsystem.h"
@@ -18,6 +17,8 @@
 #include "OnlineAchievementsInterfaceIOS.h"
 #include "OnlineExternalUIInterfaceIOS.h"
 #include "OnlineTurnBasedInterfaceIOS.h"
+#include "OnlineUserCloudInterfaceIOS.h"
+#include "OnlineSharedCloudInterfaceIOS.h"
 
 #include "OnlineSubsystemIOS.h"
 #include "OnlineSubsystemIOSModule.h"

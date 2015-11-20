@@ -74,6 +74,22 @@ public:
 	int32& operator()( int32 ComponentIndex );
 
 	/**
+	 * Gets specific component of a point.
+	 *
+	 * @param ComponentIndex Index of point component.
+	 * @return const reference to component.
+	 */
+	const int32& operator[]( int32 ComponentIndex ) const;
+
+	/**
+	 * Gets specific component of a point.
+	 *
+	 * @param ComponentIndex Index of point component.
+	 * @return reference to component.
+	 */
+	int32& operator[]( int32 ComponentIndex );
+
+	/**
 	 * Compares points for equality.
 	 *
 	 * @param Other The other int point being compared.
@@ -222,6 +238,12 @@ public:
 	{
 		return Ar << Vector.X << Vector.Y << Vector.Z;
 	}
+
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
+	}
 };
 
 
@@ -264,6 +286,17 @@ FORCEINLINE int32& FIntVector::operator()( int32 ComponentIndex )
 	return (&X)[ComponentIndex];
 }
 
+
+FORCEINLINE const int32& FIntVector::operator[]( int32 ComponentIndex ) const
+{
+	return (&X)[ComponentIndex];
+}
+
+
+FORCEINLINE int32& FIntVector::operator[]( int32 ComponentIndex )
+{
+	return (&X)[ComponentIndex];
+}
 
 FORCEINLINE bool FIntVector::operator==( const FIntVector& Other ) const
 {
@@ -389,3 +422,5 @@ FORCEINLINE uint32 GetTypeHash(const FIntVector& Vector)
 {
 	return FCrc::MemCrc_DEPRECATED(&Vector,sizeof(FIntVector));
 }
+
+template <> struct TIsPODType<FIntVector> { enum { Value = true }; };

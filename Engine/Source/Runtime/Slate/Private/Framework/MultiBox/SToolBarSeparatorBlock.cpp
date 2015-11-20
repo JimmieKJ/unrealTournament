@@ -62,6 +62,8 @@ void SToolBarSeparatorBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, 
 				.SeparatorImage( StyleSet->GetBrush( ISlateStyle::Join( StyleName, ".Separator" ) ) )
 		]
 	];
+
+	// Add this widget to the search list of the multibox and hide it
+	if (MultiBlock->GetSearchable())
+		OwnerMultiBoxWidget.Pin()->AddSearchElement(this->AsWidget(), FText::GetEmpty());
 }
-
-

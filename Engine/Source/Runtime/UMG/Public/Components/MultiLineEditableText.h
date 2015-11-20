@@ -41,8 +41,8 @@ public:
 	float WrapTextAt;
 
 	/** Font color and opacity (overrides Style) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Appearance)
-	FSlateFontInfo Font;
+	UPROPERTY()
+	FSlateFontInfo Font_DEPRECATED;
 
 	/** Called whenever the text is changed interactively by the user */
 	UPROPERTY(BlueprintAssignable, Category="Widget Event", meta=(DisplayName="OnTextChanged (Multi-Line Editable Text)"))
@@ -62,13 +62,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="SetText (Multi-Line Editable Text)"))
 	void SetText(FText InText);
 	
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual void SynchronizeProperties() override;
-	// End of UWidget interface
+	//~ End UWidget Interface
 
-	// UVisual interface
+	//~ Begin UVisual Interface
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
-	// End of UVisual interface
+	//~ End UVisual Interface
+
+	//~ Begin UObject Interface
+	virtual void PostLoad() override;
+	//~ End UObject Interface
 
 #if WITH_EDITOR
 	virtual const FSlateBrush* GetEditorIcon() override;
@@ -76,7 +80,7 @@ public:
 #endif
 
 protected:
-	// UWidget interface
+	//~ Begin UWidget Interface
 	virtual TSharedRef<SWidget> RebuildWidget() override;
 	// End of UWidget
 

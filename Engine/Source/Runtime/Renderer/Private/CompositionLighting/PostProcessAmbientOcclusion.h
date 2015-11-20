@@ -30,8 +30,8 @@ private:
 	FShader* SetShaderSetupTempl(const FRenderingCompositePassContext& Context);
 };
 
-// ePId_Input0: defines the resolution we compute AO and provides the normal
-// ePId_Input1: setup in same resolution as ePId_Input1 for depth expect when running in full resolution, then it's half
+// ePId_Input0: defines the resolution we compute AO and provides the normal (only needed if bInAOSetupAsInput)
+// ePId_Input1: setup in same resolution as ePId_Input1 for depth expect when running in full resolution, then it's half (only needed if bInAOSetupAsInput)
 // ePId_Input2: optional AO result one lower resolution
 // ePId_Input3: optional HZB
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
@@ -51,7 +51,7 @@ public:
 private:
 	
 	template <uint32 bAOSetupAsInput, uint32 bDoUpsample, uint32 SampleSetQuality>
-		void SetShaderTempl(const FRenderingCompositePassContext& Context);
+		FShader* SetShaderTempl(const FRenderingCompositePassContext& Context);
 
 	bool bAOSetupAsInput;
 };
@@ -88,7 +88,7 @@ public:
 		FVector2D ViewportUVToRandomUV(InputTextureSize.X / (float)SSAORandomizationSize.X, InputTextureSize.Y / (float)SSAORandomizationSize.Y);
 
 		// e.g. 4 means the input texture is 4x smaller than the buffer size
-		uint32 ScaleToFullRes = GSceneRenderTargets.GetBufferSizeXY().X / InputTextureSize.X;
+		uint32 ScaleToFullRes = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY().X / InputTextureSize.X;
 
 		FIntRect ViewRect = FIntRect::DivideAndRoundUp(View.ViewRect, ScaleToFullRes);
 
@@ -149,80 +149,15 @@ private:
 	FShaderParameter ScreenSpaceAOandSSRShaderParams;
 };
 
-/** Pixel shader parameters needed for screen space TemporalAA and SSAO passes. */
-class FCameraMotionParameters
-{
-public:
-
-	void Bind(const FShaderParameterMap& ParameterMap);
-
-	template< typename ShaderRHIParamRef >
-	void Set(FRHICommandList& RHICmdList, const FSceneView& View, const ShaderRHIParamRef ShaderRHI) const;
-
-	friend FArchive& operator<<(FArchive& Ar, FCameraMotionParameters& This);
-
-private:
-	FShaderParameter CameraMotion;
-};
 
 
-template< typename ShaderRHIParamRef >
-void FCameraMotionParameters::Set(FRHICommandList& RHICmdList, const FSceneView& View, const ShaderRHIParamRef ShaderRHI) const
-{
-	FSceneViewState* ViewState = (FSceneViewState*)View.State;
+/** The uniform shader parameters needed for screen space TemporalAA and SSAO passes. */
+BEGIN_UNIFORM_BUFFER_STRUCT(FCameraMotionParameters,)
+	DECLARE_UNIFORM_BUFFER_STRUCT_MEMBER_ARRAY(FVector4, Value, [5])
+END_UNIFORM_BUFFER_STRUCT(FCameraMotionParameters)
 
-	FMatrix Proj = View.ViewMatrices.GetProjNoAAMatrix();
-	FMatrix PrevProj = ViewState->PrevViewMatrices.GetProjNoAAMatrix();
+TUniformBufferRef<FCameraMotionParameters> CreateCameraMotionParametersUniformBuffer(const FSceneView& View);
 
-	FVector DeltaTranslation = ViewState->PrevViewMatrices.PreViewTranslation - View.ViewMatrices.PreViewTranslation;
-	FMatrix ViewProj = ( View.ViewMatrices.TranslatedViewMatrix * Proj ).GetTransposed();
-	FMatrix PrevViewProj = ( FTranslationMatrix(DeltaTranslation) * ViewState->PrevViewMatrices.TranslatedViewMatrix * PrevProj ).GetTransposed();
-
-	double InvViewProj[16];
-	Inverse4x4( InvViewProj, (float*)ViewProj.M );
-
-	const float* p = (float*)PrevViewProj.M;
-
-	const double cxx = InvViewProj[ 0]; const double cxy = InvViewProj[ 1]; const double cxz = InvViewProj[ 2]; const double cxw = InvViewProj[ 3];
-	const double cyx = InvViewProj[ 4]; const double cyy = InvViewProj[ 5]; const double cyz = InvViewProj[ 6]; const double cyw = InvViewProj[ 7];
-	const double czx = InvViewProj[ 8]; const double czy = InvViewProj[ 9]; const double czz = InvViewProj[10]; const double czw = InvViewProj[11];
-	const double cwx = InvViewProj[12]; const double cwy = InvViewProj[13]; const double cwz = InvViewProj[14]; const double cww = InvViewProj[15];
-
-	const double pxx = (double)(p[ 0]); const double pxy = (double)(p[ 1]); const double pxz = (double)(p[ 2]); const double pxw = (double)(p[ 3]);
-	const double pyx = (double)(p[ 4]); const double pyy = (double)(p[ 5]); const double pyz = (double)(p[ 6]); const double pyw = (double)(p[ 7]);
-	const double pwx = (double)(p[12]); const double pwy = (double)(p[13]); const double pwz = (double)(p[14]); const double pww = (double)(p[15]);
-
-	FVector4 CameraMotionValue[5];
-
-	CameraMotionValue[0] = FVector4(
-		(float)(4.0*(cwx*pww + cxx*pwx + cyx*pwy + czx*pwz)),
-		(float)((-4.0)*(cwy*pww + cxy*pwx + cyy*pwy + czy*pwz)),
-		(float)(2.0*(cwz*pww + cxz*pwx + cyz*pwy + czz*pwz)),
-		(float)(2.0*(cww*pww - cwx*pww + cwy*pww + (cxw - cxx + cxy)*pwx + (cyw - cyx + cyy)*pwy + (czw - czx + czy)*pwz)));
-
-	CameraMotionValue[1] = FVector4(
-		(float)(( 4.0)*(cwy*pww + cxy*pwx + cyy*pwy + czy*pwz)),
-		(float)((-2.0)*(cwz*pww + cxz*pwx + cyz*pwy + czz*pwz)),
-		(float)((-2.0)*(cww*pww + cwy*pww + cxw*pwx - 2.0*cxx*pwx + cxy*pwx + cyw*pwy - 2.0*cyx*pwy + cyy*pwy + czw*pwz - 2.0*czx*pwz + czy*pwz - cwx*(2.0*pww + pxw) - cxx*pxx - cyx*pxy - czx*pxz)),
-		(float)(-2.0*(cyy*pwy + czy*pwz + cwy*(pww + pxw) + cxy*(pwx + pxx) + cyy*pxy + czy*pxz)));
-
-	CameraMotionValue[2] = FVector4(
-		(float)((-4.0)*(cwx*pww + cxx*pwx + cyx*pwy + czx*pwz)),
-		(float)(cyz*pwy + czz*pwz + cwz*(pww + pxw) + cxz*(pwx + pxx) + cyz*pxy + czz*pxz),
-		(float)(cwy*pww + cwy*pxw + cww*(pww + pxw) - cwx*(pww + pxw) + (cxw - cxx + cxy)*(pwx + pxx) + (cyw - cyx + cyy)*(pwy + pxy) + (czw - czx + czy)*(pwz + pxz)),
-		(float)(0));
-
-	CameraMotionValue[3] = FVector4(
-		(float)((-4.0)*(cwx*pww + cxx*pwx + cyx*pwy + czx*pwz)),
-		(float)((-2.0)*(cwz*pww + cxz*pwx + cyz*pwy + czz*pwz)),
-		(float)(2.0*((-cww)*pww + cwx*pww - 2.0*cwy*pww - cxw*pwx + cxx*pwx - 2.0*cxy*pwx - cyw*pwy + cyx*pwy - 2.0*cyy*pwy - czw*pwz + czx*pwz - 2.0*czy*pwz + cwy*pyw + cxy*pyx + cyy*pyy + czy*pyz)),
-		(float)(2.0*(cyx*pwy + czx*pwz + cwx*(pww - pyw) + cxx*(pwx - pyx) - cyx*pyy - czx*pyz)));
-
-	CameraMotionValue[4] = FVector4(
-		(float)(4.0*(cwy*pww + cxy*pwx + cyy*pwy + czy*pwz)),
-		(float)(cyz*pwy + czz*pwz + cwz*(pww - pyw) + cxz*(pwx - pyx) - cyz*pyy - czz*pyz),
-		(float)(cwy*pww + cww*(pww - pyw) - cwy*pyw + cwx*((-pww) + pyw) + (cxw - cxx + cxy)*(pwx - pyx) + (cyw - cyx + cyy)*(pwy - pyy) + (czw - czx + czy)*(pwz - pyz)),
-		(float)(0));
-
-	SetShaderValueArray(RHICmdList, ShaderRHI, CameraMotion, CameraMotionValue, 5);
-}
+// for render thread
+// @return usually in 0..100 range but could be outside, combines the view with the cvar setting
+float GetAmbientOcclusionQualityRT(const FSceneView& View);

@@ -11,9 +11,9 @@ public:
 	void Construct(const FArguments& InArgs, UEdGraphPin* InGraphPinObj);
 
 protected:
-	// Begin SGraphPin interface
+	//~ Begin SGraphPin Interface
 	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
-	// End SGraphPin interface
+	//~ End SGraphPin Interface
 
 	/** Determine if the check box should be checked or not */
 	ECheckBoxState IsDefaultValueChecked() const;

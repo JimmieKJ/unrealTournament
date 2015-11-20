@@ -111,51 +111,80 @@ void STimelineEdTrack::Construct(const FArguments& InArgs, TSharedPtr<FTimelineE
 
 	this->ChildSlot
 	[
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.AutoWidth()
-		.Padding(2)
+		SNew(SVerticalBox)
+		
+		// Heading Slot
+		+ SVerticalBox::Slot()
+		.AutoHeight()
 		[
-			SNew(SVerticalBox)
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0,0,0,0)
+			SNew(SBorder)
+			.BorderImage(FEditorStyle::GetBrush("DetailsView.CategoryTop_Hovered"))
+			.ForegroundColor(FLinearColor::White)
 			[
-				SNew(SBorder)
-				.VAlign(VAlign_Fill)
+				SNew(SHorizontalBox)
+
+				// Expander Button
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew(SBox)
-					.WidthOverride(128)
-					.HeightOverride(32)
-					[
-						// Name of track
-						SAssignNew(InlineTextBlock, SInlineEditableTextBlock)
-							.Text(FText::FromName(TrackBase->TrackName))
-							.ToolTipText(LOCTEXT("TrackNameTooltip", "Enter track name"))
-							.OnVerifyTextChanged(TimelineRef, &STimelineEditor::OnVerifyTrackNameCommit,TrackBase, this)
-							.OnTextCommitted(TimelineRef, &STimelineEditor::OnTrackNameCommitted,TrackBase, this)
-					]
+					SNew(SCheckBox)
+					.IsChecked(this, &STimelineEdTrack::GetIsExpandedState)
+					.OnCheckStateChanged(this, &STimelineEdTrack::OnIsExpandedStateChanged)
+					.CheckedImage(FEditorStyle::GetBrush("TreeArrow_Expanded"))
+					.CheckedHoveredImage(FEditorStyle::GetBrush("TreeArrow_Expanded_Hovered"))
+					.CheckedPressedImage(FEditorStyle::GetBrush("TreeArrow_Expanded"))
+					.UncheckedImage(FEditorStyle::GetBrush("TreeArrow_Collapsed"))
+					.UncheckedHoveredImage(FEditorStyle::GetBrush("TreeArrow_Collapsed_Hovered"))
+					.UncheckedPressedImage(FEditorStyle::GetBrush("TreeArrow_Collapsed"))
+				]
+
+				// Track Name
+				+ SHorizontalBox::Slot()
+				.FillWidth(1)
+				[
+					// Name of track
+					SAssignNew(InlineTextBlock, SInlineEditableTextBlock)
+					.Text(FText::FromName(TrackBase->TrackName))
+					.ToolTipText(LOCTEXT("TrackNameTooltip", "Enter track name"))
+					.OnVerifyTextChanged(TimelineRef, &STimelineEditor::OnVerifyTrackNameCommit, TrackBase, this)
+					.OnTextCommitted(TimelineRef, &STimelineEditor::OnTrackNameCommitted, TrackBase, this)
 				]
 			]
+		]
 
-			+SVerticalBox::Slot()
-			.AutoHeight()
-			.Padding(0,16,0,0)
+		// Content Slot
+		+ SVerticalBox::Slot()
+		[
+			// Box for content visibility
+			SNew(SBox)
+			.Visibility(this, &STimelineEdTrack::GetContentVisibility)
 			[
-				SNew(SBorder)
-				.VAlign(VAlign_Fill)
+				SNew(SHorizontalBox)
+
+				// Label Area
+				+SHorizontalBox::Slot()
+				.AutoWidth()
 				[
-					SNew(SBox)
-					.WidthOverride(128)
-					.HeightOverride(36)
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Fill)
+					SNew(SVerticalBox)
+
+					// External Curve Label
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(2)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("ExternalCurveLabel", "External Curve"))
+					]
+
+					// External Curve Controls
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(2, 0, 2, 4)
 					[
 						SNew(SHorizontalBox)
 						+SHorizontalBox::Slot()
-						.AutoWidth()
-						.Padding(1,0)
-						.MaxWidth(80)
+						.Padding(0, 0, 1, 0)
+						.FillWidth(1)
 						[
 							//External curve name display box
 							SNew(SEditableTextBox)
@@ -183,6 +212,7 @@ void STimelineEdTrack::Construct(const FArguments& InArgs, TSharedPtr<FTimelineE
 								.Image( FEditorStyle::GetBrush(TEXT("PropertyWindow.Button_Use")) )
 							]
 						]
+
 						// Browse external curve button
 						+SHorizontalBox::Slot()
 						.AutoWidth()
@@ -199,6 +229,7 @@ void STimelineEdTrack::Construct(const FArguments& InArgs, TSharedPtr<FTimelineE
 								.Image( FEditorStyle::GetBrush(TEXT("PropertyWindow.Button_Browse")) )
 							]
 						]
+
 						// Convert to internal curve button
 						+SHorizontalBox::Slot()
 						.AutoWidth()
@@ -216,29 +247,46 @@ void STimelineEdTrack::Construct(const FArguments& InArgs, TSharedPtr<FTimelineE
 							]
 						]
 					]
+
+					// Synchronize curve view checkbox.
+					+ SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(2, 0, 2, 0)
+					[
+						SNew(SCheckBox)
+						.IsChecked(this, &STimelineEdTrack::GetIsCurveViewSynchronizedState)
+						.OnCheckStateChanged(this, &STimelineEdTrack::OnIsCurveViewSynchronizedStateChanged)
+						.ToolTipText(LOCTEXT("SynchronizeViewToolTip", "Keep the zoom and pan of this curve synchronized with other curves."))
+						[
+							SNew(STextBlock)
+							.Text(LOCTEXT("SynchronizeViewLabel", "Synchronize View"))
+						]
+					]
+				]
+
+				// Graph Area
+				+SHorizontalBox::Slot()
+				.FillWidth(1)
+				[
+					SNew(SBorder)
+					.VAlign(VAlign_Fill)
+					[
+						SAssignNew(TrackWidget, SCurveEditor)
+						.ViewMinInput(this, &STimelineEdTrack::GetMinInput)
+						.ViewMaxInput(this, &STimelineEdTrack::GetMaxInput)
+						.ViewMinOutput(this, &STimelineEdTrack::GetMinOutput)
+						.ViewMaxOutput(this, &STimelineEdTrack::GetMaxOutput)
+						.TimelineLength(TimelineRef, &STimelineEditor::GetTimelineLength)
+						.OnSetInputViewRange(this, &STimelineEdTrack::OnSetInputViewRange)
+						.OnSetOutputViewRange(this, &STimelineEdTrack::OnSetOutputViewRange)
+						.DesiredSize(TimelineRef, &STimelineEditor::GetTimelineDesiredSize)
+						.DrawCurve(bDrawCurve)
+						.HideUI(false)
+						.OnCreateAsset(this, &STimelineEdTrack::OnCreateExternalCurve )
+					]
 				]
 			]
 		]
-		+SHorizontalBox::Slot()
-			.FillWidth(1)
-			[
-				SNew(SBorder)
-				.VAlign(VAlign_Fill)
-				[
-					SAssignNew(TrackWidget, SCurveEditor)
-					.ViewMinInput(TimelineRef, &STimelineEditor::GetViewMinInput)
-					.ViewMaxInput(TimelineRef, &STimelineEditor::GetViewMaxInput)
-					.ViewMinOutput(TimelineRef, &STimelineEditor::GetViewMinOutput)
-					.ViewMaxOutput(TimelineRef, &STimelineEditor::GetViewMaxOutput)
-					.TimelineLength(TimelineRef, &STimelineEditor::GetTimelineLength)
-					.OnSetInputViewRange(TimelineRef, &STimelineEditor::SetInputViewRange)
-					.OnSetOutputViewRange(TimelineRef, &STimelineEditor::SetOutputViewRange)
-					.DesiredSize(TimelineRef, &STimelineEditor::GetTimelineDesiredSize)
-					.DrawCurve(bDrawCurve)
-					.HideUI(false)
-					.OnCreateAsset(this, &STimelineEdTrack::OnCreateExternalCurve )
-				]
-			]
 	];
 
 	if( TrackBase )
@@ -644,6 +692,93 @@ void STimelineEdTrack::CopyCurveData( const FRichCurve* SrcCurve, FRichCurve* De
 	}
 }
 
+ECheckBoxState STimelineEdTrack::GetIsExpandedState() const
+{
+	return Track->bIsExpanded ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void STimelineEdTrack::OnIsExpandedStateChanged(ECheckBoxState IsExpandedState)
+{
+	Track->bIsExpanded = IsExpandedState == ECheckBoxState::Checked;
+}
+
+EVisibility STimelineEdTrack::GetContentVisibility() const
+{
+	return Track->bIsExpanded ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+ECheckBoxState  STimelineEdTrack::GetIsCurveViewSynchronizedState() const
+{
+	return Track->bIsCurveViewSynchronized ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+}
+
+void  STimelineEdTrack::OnIsCurveViewSynchronizedStateChanged(ECheckBoxState IsCurveViewSynchronizedState)
+{
+	Track->bIsCurveViewSynchronized = IsCurveViewSynchronizedState == ECheckBoxState::Checked;
+	if (Track->bIsCurveViewSynchronized == false)
+	{
+		TSharedPtr<STimelineEditor> TimelineEditor = TimelineEdPtr.Pin();
+		LocalInputMin = TimelineEditor->GetViewMinInput();
+		LocalInputMax = TimelineEditor->GetViewMaxInput();
+		LocalOutputMin = TimelineEditor->GetViewMinOutput();
+		LocalOutputMax = TimelineEditor->GetViewMaxOutput();
+	}
+}
+
+float STimelineEdTrack::GetMinInput() const
+{
+	return Track->bIsCurveViewSynchronized
+		? TimelineEdPtr.Pin()->GetViewMinInput()
+		: LocalInputMin;
+}
+
+float STimelineEdTrack::GetMaxInput() const
+{
+	return Track->bIsCurveViewSynchronized
+		? TimelineEdPtr.Pin()->GetViewMaxInput()
+		: LocalInputMax;
+}
+
+float STimelineEdTrack::GetMinOutput() const
+{
+	return Track->bIsCurveViewSynchronized
+		? TimelineEdPtr.Pin()->GetViewMinOutput()
+		: LocalOutputMin;
+}
+
+float STimelineEdTrack::GetMaxOutput() const
+{
+	return Track->bIsCurveViewSynchronized
+		? TimelineEdPtr.Pin()->GetViewMaxOutput()
+		: LocalOutputMax;
+}
+
+void STimelineEdTrack::OnSetInputViewRange(float Min, float Max)
+{
+	if (Track->bIsCurveViewSynchronized)
+	{
+		TimelineEdPtr.Pin()->SetInputViewRange(Min, Max);
+	}
+	else
+	{
+		LocalInputMin = Min;
+		LocalInputMax = Max;
+	}
+}
+
+void STimelineEdTrack::OnSetOutputViewRange(float Min, float Max)
+{
+	if (Track->bIsCurveViewSynchronized)
+	{
+		TimelineEdPtr.Pin()->SetOutputViewRange(Min, Max);
+	}
+	else
+	{
+		LocalOutputMin = Min;
+		LocalOutputMax = Max;
+	}
+}
+
 void STimelineEdTrack::ResetExternalCurveInfo( )
 {
 	ExternalCurveName = FString( TEXT( "None" ) );
@@ -944,6 +1079,7 @@ TSharedRef<ITableRow> STimelineEditor::MakeTrackWidget( TSharedPtr<FTimelineEdTr
 
 	return
 	SNew(STableRow< TSharedPtr<FTimelineEdTrack> >, OwnerTable )
+	.Padding(FMargin(0, 0, 0, 2))
 	[
 		SNew(STimelineEdTrack, Track, SharedThis(this))
 	];
@@ -1320,8 +1456,32 @@ bool STimelineEditor::OnVerifyTrackNameCommit(const FText& TrackName, FText& Out
 	else if(TrackBase->TrackName != RequestedName && 
 		false == TimelineObj->IsNewTrackNameValid(RequestedName))
 	{
-		OutErrorMessage = FText::FromString(FString(TEXT("\"")) + *TrackName.ToString() + LOCTEXT( "AlreadyInUse", "\" is already in use." ).ToString());
+		FFormatNamedArguments Args;
+		Args.Add(TEXT("TrackName"), TrackName);
+		OutErrorMessage = FText::Format(LOCTEXT("AlreadyInUse", "\"{TrackName}\" is already in use."), Args);
 		bValid = false;
+	}
+	else
+	{
+		TSharedPtr<FBlueprintEditor> Kismet2 = Kismet2Ptr.Pin();
+		UBlueprint* Blueprint = Kismet2->GetBlueprintObj();
+		UK2Node_Timeline* TimelineNode = FBlueprintEditorUtils::FindNodeForTimeline(Blueprint, TimelineObj);
+		if (TimelineNode)
+		{
+			for(TArray<UEdGraphPin*>::TIterator PinIt(TimelineNode->Pins);PinIt;++PinIt)
+			{
+				UEdGraphPin* Pin = *PinIt;
+
+				if (Pin->PinName == TrackName.ToString())
+				{
+					FFormatNamedArguments Args;
+					Args.Add(TEXT("TrackName"), TrackName);
+					OutErrorMessage = FText::Format(LOCTEXT("PinAlreadyInUse", "\"{TrackName}\" is already in use as a default pin!"), Args);
+					bValid = false;
+					break;
+				}
+			}
+		}
 	}
 
 	return bValid;
@@ -1340,10 +1500,12 @@ void STimelineEditor::OnTrackNameCommitted( const FText& StringName, ETextCommit
 		
 		if (TimelineNode)
 		{
-			//rename pin directly to avoid breaking links
-			for(TArray<UEdGraphPin*>::TIterator PinIt(TimelineNode->Pins);PinIt;++PinIt)
+			// Start looking from the bottom of the list of pins, where user defined ones are stored.
+			// It should not be possible to name pins to be the same as default pins, 
+			// but in the case (fixes broken nodes) that they happen to be the same, this protects them
+			for (int32 PinIdx = TimelineNode->Pins.Num() - 1; PinIdx >= 0; --PinIdx)
 			{
-				UEdGraphPin* Pin = *PinIt;
+				UEdGraphPin* Pin = TimelineNode->Pins[PinIdx];
 			
 				if (Pin->PinName == TrackBase->TrackName.ToString())
 				{

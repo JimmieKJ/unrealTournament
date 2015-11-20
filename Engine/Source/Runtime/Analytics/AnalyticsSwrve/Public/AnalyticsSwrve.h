@@ -38,7 +38,7 @@ public:
 		FString APIKeySwrve;
 		/** Swrve API Server - Defaults if empty to GetDefaultAPIServer. FAnalytics::Debug build types default to GetDefaultAPIServerDebug. */
 		FString APIServerSwrve;
-		/** AppVersion - defines the app version passed to the provider. By default this will be GEngineVersion.GetChangelist(). If you provide your own, ".<GEngineVersion.GetChangelist()>" is appended to it. */
+		/** AppVersion - defines the app version passed to the provider. By default this will be FEngineVersion::Current().GetChangelist(). If you provide your own, ".<FEngineVersion::Current().GetChangelist()>" is appended to it. */
 		FString AppVersionSwrve;
 
 		/** KeyName required for APIKey configuration. */

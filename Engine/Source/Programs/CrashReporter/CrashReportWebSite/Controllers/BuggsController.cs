@@ -22,6 +22,21 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 		{
 		}
 
+		/*
+		/// <summary>
+		/// The empty view of the buggs page.
+		/// </summary>
+		/// 
+		public ActionResult Index()
+		{
+			using (FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString(), bCreateNewLog: true ))
+			{
+				BuggsViewModel Results = new BuggsViewModel();
+				Results.GenerationTime = LogTimer.GetElapsedSeconds().ToString( "F2" );
+				return View( "Index", Results );
+			}
+		}*/
+
 		/// <summary>
 		/// The Index action.
 		/// </summary>
@@ -29,13 +44,13 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 		/// <returns>The view to display a list of Buggs on the client.</returns>
 		public ActionResult Index( FormCollection BuggsForm )
 		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString(), bCreateNewLog: true ) )
+			using (FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString(), bCreateNewLog: true ))
 			{
 				BuggRepository Buggs = new BuggRepository();
 
 				FormHelper FormData = new FormHelper( Request, BuggsForm, "CrashesInTimeFrameGroup" );
 				BuggsViewModel Results = Buggs.GetResults( FormData );
-				foreach( var Bugg in Results.Results )
+				foreach (var Bugg in Results.Results)
 				{
 					// Populate function calls.
 					Bugg.GetFunctionCalls();
@@ -112,14 +127,18 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 
 				Crashes = NewBugg.GetCrashes();
 
-				using( FAutoScopedLogTimer GetCrashesTimer = new FAutoScopedLogTimer( "Bugg.PrepareBuggForJira" ) )
+				using (FAutoScopedLogTimer GetCrashesTimer = new FAutoScopedLogTimer( "Bugg.PrepareBuggForJira" ))
 				{
-					NewBugg.PrepareBuggForJira( Crashes );
-
-					if( BuggIDToBeAddedToJira != 0 )
+					if (Crashes.Count > 0)
 					{
-						NewBugg.CopyToJira();
-					}			
+						NewBugg.PrepareBuggForJira( Crashes );
+
+						if (BuggIDToBeAddedToJira != 0)
+						{
+							NewBugg.CopyToJira();
+						}
+					}
+
 				}
 
 				using( FAutoScopedLogTimer JiraResultsTimer = new FAutoScopedLogTimer( "Bugg.GrabJira" ) )
@@ -128,10 +147,10 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 					bool bValidJira = false;
 
 					// Verify valid JiraID, this may be still a TTP 
-					if( !string.IsNullOrEmpty( NewBugg.TTPID ) )
+					if( !string.IsNullOrEmpty( NewBugg.Jira ) )
 					{
 						int TTPID = 0;
-						int.TryParse( NewBugg.TTPID, out TTPID );
+						int.TryParse( NewBugg.Jira, out TTPID );
 
 						if( TTPID == 0 )
 						{
@@ -143,9 +162,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 					if( JC.CanBeUsed() && bValidJira )
 					{
 						// Grab the data form JIRA.
-						string JiraSearchQuery = "key = " + NewBugg.TTPID;
+						string JiraSearchQuery = "key = " + NewBugg.Jira;
+						var JiraResults = new Dictionary<string, Dictionary<string, object>>();
 
-						var JiraResults = JC.SearchJiraTickets(
+						try
+						{
+							JiraResults = JC.SearchJiraTickets(
 							JiraSearchQuery,
 							new string[] 
 							{ 
@@ -157,6 +179,15 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 								"customfield_11200" // string
 							} );
 
+						}
+						catch (System.Exception)
+						{
+							NewBugg.JiraSummary = "JIRA MISMATCH";
+							NewBugg.JiraComponentsText = "JIRA MISMATCH";
+							NewBugg.JiraResolution = "JIRA MISMATCH";
+							NewBugg.JiraFixVersionsText = "JIRA MISMATCH";
+							NewBugg.JiraFixCL = "JIRA MISMATCH";
+						}
 
 						// Jira Key, Summary, Components, Resolution, Fix version, Fix changelist
 						foreach( var Jira in JiraResults )
@@ -217,8 +248,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Controllers
 
 					if( !string.IsNullOrEmpty( BuggsForm["SetTTP"] ) )
 					{
-						NewBugg.TTPID = BuggsForm["SetTTP"];
-						Buggs.SetJIRAForBuggAndCrashes( NewBugg.TTPID, id );
+						NewBugg.Jira = BuggsForm["SetTTP"];
+						Buggs.SetJIRAForBuggAndCrashes( NewBugg.Jira, id );
 					}
 
 					// <STATUS>

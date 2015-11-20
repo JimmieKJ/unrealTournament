@@ -69,6 +69,21 @@ class UPanelSlot;
 
 
 /**
+ * Flags used by the widget designer.
+ */
+UENUM()
+namespace EWidgetDesignFlags
+{
+	enum Type
+	{
+		None		= 0,
+		Designing	= 1,
+		ShowOutline	= 2,
+	};
+}
+
+
+/**
  * This is the base class for all wrapped Slate controls that are exposed to UObjects.
  */
 UCLASS(Abstract, BlueprintType)
@@ -135,7 +150,7 @@ public:
 	FGetText ToolTipTextDelegate;
 
 	/** Tooltip widget to show when the user hovers over the widget with the mouse */
-	UPROPERTY(EditAnywhere, Category="Behavior", AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Behavior", AdvancedDisplay)
 	UWidget* ToolTipWidget;
 
 	/** A bindable delegate for ToolTipWidget */
@@ -154,13 +169,30 @@ public:
 	UPROPERTY()
 	FGetSlateVisibility VisibilityDelegate;
 
+	/**  */
+	UPROPERTY()
+	uint32 bOverride_Cursor : 1;
+
 	/** The cursor to show when the mouse is over the widget */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Behavior", AdvancedDisplay)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Behavior", AdvancedDisplay, meta=( editcondition="bOverride_Cursor" ))
 	TEnumAsByte<EMouseCursor::Type> Cursor;
 
 	/** A bindable delegate for Cursor */
-	UPROPERTY()
-	FGetMouseCursor CursorDelegate;
+	//UPROPERTY()
+	//FGetMouseCursor CursorDelegate;
+
+protected:
+
+	/**
+	 * If true prevents the widget or its child's geometry or layout information from being cached.  If this widget
+	 * changes every frame, but you want it to still be in an invalidation panel you should make it as volatile
+	 * instead of invalidating it every frame, which would prevent the invalidation panel from actually
+	 * ever caching anything.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Performance")
+	bool bIsVolatile;
+
+public:
 
 	/** The render transform of the widget allows for arbitrary 2D transforms to be applied to the widget. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Render Transform", meta=( DisplayName="Transform" ))
@@ -193,9 +225,13 @@ public:
 
 	/** Stores a reference to the asset responsible for this widgets construction. */
 	UPROPERTY(Transient)
-	UObject* WidgetGeneratedBy;
+	const UObject* WidgetGeneratedBy;
 
 #endif
+
+	/** Stores a reference to the class responsible for this widgets construction. */
+	UPROPERTY(Transient)
+	const UClass* WidgetGeneratedByClass;
 
 public:
 
@@ -239,6 +275,14 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetToolTip(UWidget* Widget);
 
+	/** Sets the cursor to show over the widget. */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	void SetCursor(EMouseCursor::Type InCursor);
+
+	/** Resets the cursor to use on the widget, removing any customization for it. */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	void ResetCursor();
+
 	/** @return true if the widget is Visible, HitTestInvisible or SelfHitTestInvisible. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool IsVisible() const;
@@ -250,6 +294,10 @@ public:
 	/** Sets the visibility of the widget. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetVisibility(ESlateVisibility InVisibility);
+
+	/** Sets the forced volatility of the widget. */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	void ForceVolatile(bool bForce);
 
 	/** @return true if the widget is currently being hovered by a pointer device */
 	UFUNCTION(BlueprintCallable, Category="Widget")
@@ -264,12 +312,6 @@ public:
 	bool HasKeyboardFocus() const;
 
 	/**
-	 * @return Whether this widget has any descendants with keyboard focus
-	 */
-	UFUNCTION(BlueprintCallable, Category="Widget")
-	bool HasFocusedDescendants() const;
-
-	/**
 	 * Checks to see if this widget is the current mouse captor
 	 * @return  True if this widget has captured the mouse
 	 */
@@ -280,13 +322,21 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void SetKeyboardFocus();
 
-	/** Gets the focus to this widget. */
+	/** @return true if this widget is focused by a specific user. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasUserFocus(APlayerController* PlayerController) const;
 
-	/** Gets the focus to this widget. */
+	/** @return true if this widget is focused by any user. */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	bool HasAnyUserFocus() const;
+
+	/** @return true if any descendant widget is focused by any user. */
+	UFUNCTION(BlueprintCallable, Category="Widget", meta=(DisplayName="HasAnyUserFocusedDescendants"))
+	bool HasFocusedDescendants() const;
+
+	/** @return true if any descendant widget is focused by a specific user. */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	bool HasUserFocusedDescendants(APlayerController* PlayerController) const;
 	
 	/** Sets the focus to this widget for a specific user */
 	UFUNCTION(BlueprintCallable, Category="Widget")
@@ -299,6 +349,13 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category="Widget")
 	void ForceLayoutPrepass();
+
+	/**
+	 * Invalidates the widget from the view of a layout caching widget that may own this widget.
+	 * will force the owning widget to redraw and cache children on the next paint pass.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Widget")
+	void InvalidateLayoutAndVolatility();
 
 	/**
 	 * Gets the widgets desired size.
@@ -347,14 +404,30 @@ public:
 
 #if WITH_EDITOR
 	/** Returns if the widget is currently being displayed in the designer, it may want to display different data. */
-	bool IsDesignTime() const;
+	FORCEINLINE bool IsDesignTime() const
+	{
+		return HasAnyDesignerFlags(EWidgetDesignFlags::Designing);
+	}
+
+	/** Sets the designer flags on the widget. */
+	virtual void SetDesignerFlags(EWidgetDesignFlags::Type NewFlags);
+
+	/** Gets the designer flags currently set on the widget. */
+	FORCEINLINE EWidgetDesignFlags::Type GetDesignerFlags() const
+	{
+		return DesignerFlags;
+	}
+
+	/** Tests if any of the flags exist on this widget. */
+	FORCEINLINE bool HasAnyDesignerFlags(EWidgetDesignFlags::Type FlagToCheck) const
+	{
+		return ( DesignerFlags&FlagToCheck ) != 0;
+	}
+
 #else
 	FORCEINLINE bool IsDesignTime() const { return false; }
 #endif
 	
-	/** Sets that this widget is being designed */
-	virtual void SetIsDesignTime(bool bInDesignTime);
-
 	/** Mark this object as modified, also mark the slot as modified. */
 	virtual bool Modify(bool bAlwaysMarkDirty = true) override;
 
@@ -454,6 +527,7 @@ protected:
 	/** Function called after the underlying SWidget is constructed. */
 	virtual void OnWidgetRebuilt();
 	
+	/** Utility method for building a design time wrapper widget. */
 	TSharedRef<SWidget> BuildDesignTimeWidget(TSharedRef<SWidget> WrapWidget);
 
 	void UpdateRenderTransform();
@@ -486,10 +560,6 @@ protected:
 
 	/** The underlying SWidget contained in a SObjectWidget */
 	TWeakPtr<class SObjectWidget> MyGCWidget;
-	
-	/** Is this widget being displayed on a designer surface */
-	UPROPERTY(Transient)
-	bool bDesignTime;
 
 	/** Native property bindings. */
 	UPROPERTY(Transient)
@@ -498,6 +568,27 @@ protected:
 	static TArray<TSubclassOf<UPropertyBinding>> BinderClasses;
 
 private:
+
+#if WITH_EDITORONLY_DATA
+	/** Any flags used by the designer at edit time. */
+	UPROPERTY(Transient)
+	TEnumAsByte<EWidgetDesignFlags::Type> DesignerFlags;
+#endif
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+	void VerifySynchronizeProperties();
+
+	/** Did we route the synchronize properties call? */
+	UPROPERTY(Transient)
+	bool bRoutedSynchronizeProperties;
+
+#else
+	FORCEINLINE void VerifySynchronizeProperties() { }
+#endif
+
+private:
 	GAME_SAFE_BINDING_IMPLEMENTATION(FText, ToolTipText)
 	GAME_SAFE_BINDING_IMPLEMENTATION(bool, bIsEnabled)
+	//GAME_SAFE_BINDING_IMPLEMENTATION(EMouseCursor::Type, Cursor)
 };

@@ -177,27 +177,34 @@ class UParticleModuleTypeDataMesh : public UParticleModuleTypeDataBase
 	UPROPERTY(EditAnywhere, Category=CameraFacing)
 	uint32 bFaceCameraDirectionRatherThanPosition:1;
 
-	// Begin UObject Interface
+	/**
+	*	If true, all collisions for mesh particle on this emitter will take the particle size into account.
+	*	If false, particle size will be ignored in collision checks.
+	*/
+	UPROPERTY(EditAnywhere, Category = Collision)
+	uint32 bCollisionsConsiderPartilceSize : 1;
+
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void	PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 
 	virtual void	Serialize(FArchive& Ar) override;
 
-	// End UObject Interface
+	//~ End UObject Interface
 
 	void CreateDistribution();
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void	SetToSensibleDefaults(UParticleEmitter* Owner) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
-	// Begin UParticleModuleTypeDataBase Interface
+	//~ Begin UParticleModuleTypeDataBase Interface
 	virtual FParticleEmitterInstance*	CreateInstance(UParticleEmitter* InEmitterParent, UParticleSystemComponent* InComponent) override;
 	virtual bool	SupportsSpecificScreenAlignmentFlags() const override {	return true;	}	
 	virtual bool	SupportsSubUV() const override { return true; }
 	virtual bool	IsAMeshEmitter() const override { return true; }
-	// End UParticleModuleTypeDataBase Interface
+	//~ End UParticleModuleTypeDataBase Interface
 };
 
 

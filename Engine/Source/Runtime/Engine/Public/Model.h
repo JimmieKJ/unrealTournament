@@ -357,11 +357,11 @@ class UModel : public UObject
 	UPolys*						Polys;
 #endif // WITH_EDITOR
 
-	TTransArray<FBspNode>		Nodes;
-	TTransArray<FVert>			Verts;
-	TTransArray<FVector>		Vectors;
-	TTransArray<FVector>		Points;
-	TTransArray<FBspSurf>		Surfs;
+	TArray<FBspNode>		Nodes;
+	TArray<FVert>			Verts;
+	TArray<FVector>			Vectors;
+	TArray<FVector>			Points;
+	TArray<FBspSurf>		Surfs;
 
 #if WITH_EDITOR
 	TArray<int32>				LeafHulls;
@@ -384,6 +384,9 @@ class UModel : public UObject
 
 	/** True if surfaces in the model have been changed without calling ULevel::CommitModelSurfaces. */
 	bool InvalidSurfaces;
+
+	/** True if only the material index buffers should be rebuilt when committing model surfaces */
+	bool bOnlyRebuildMaterialIndexBuffers;
 
 	/** True if static lighting now can not be validly built for this model */
 	bool bInvalidForStaticLighting;
@@ -411,7 +414,6 @@ class UModel : public UObject
 	FVector OwnerLocationWhenLastBuilt;
 	FRotator OwnerRotationWhenLastBuilt;
 	FVector OwnerScaleWhenLastBuilt;
-	FVector OwnerPrepivotWhenLastBuilt;
 
 	/** Specifies whether the above cached transform is valid */
 	bool bCachedOwnerTransformValid;

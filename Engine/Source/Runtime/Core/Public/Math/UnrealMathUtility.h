@@ -104,6 +104,12 @@ struct FMath : public FPlatformMath
 		return Min + RandHelper(Range);
 	}
 
+	/** Util to generate a random number in a range. Overloaded to distinguish from int32 version, where passing a float is typically a mistake. */
+	static FORCEINLINE float RandRange(float InMin, float InMax)
+	{
+		return FRandRange(InMin, InMax);
+	}
+
 	/** Util to generate a random number in a range. */
 	static FORCEINLINE float FRandRange(float InMin, float InMax)
 	{
@@ -138,7 +144,7 @@ struct FMath : public FPlatformMath
 	 * Given a direction vector and a surface normal, returns the vector reflected across the surface normal.
 	 * Produces a result like shining a laser at a mirror!
 	 *
-	 * @param Direction Direction vector the ray is comming from.
+	 * @param Direction Direction vector the ray is coming from.
 	 * @param SurfaceNormal A normal of the surface the ray should be reflected on.
 	 *
 	 * @returns Reflected vector.
@@ -151,7 +157,7 @@ struct FMath : public FPlatformMath
 	template< class U > 
 	static FORCEINLINE bool IsWithin(const U& TestValue, const U& MinValue, const U& MaxValue)
 	{
-		return ((TestValue>=MinValue) && (TestValue < MaxValue));
+		return ((TestValue >= MinValue) && (TestValue < MaxValue));
 	}
 
 	/** Checks if value is within a range, inclusive on MaxValue) */
@@ -170,7 +176,7 @@ struct FMath : public FPlatformMath
 	 */
 	static FORCEINLINE bool IsNearlyEqual(float A, float B, float ErrorTolerance = SMALL_NUMBER)
 	{
-		return Abs<float>( A - B ) < ErrorTolerance;
+		return Abs<float>( A - B ) <= ErrorTolerance;
 	}
 
 	/**
@@ -182,7 +188,7 @@ struct FMath : public FPlatformMath
 	 */
 	static FORCEINLINE bool IsNearlyEqual(double A, double B, double ErrorTolerance = SMALL_NUMBER)
 	{
-		return Abs<double>( A - B ) < ErrorTolerance;
+		return Abs<double>( A - B ) <= ErrorTolerance;
 	}
 
 	/**
@@ -193,7 +199,7 @@ struct FMath : public FPlatformMath
 	 */
 	static FORCEINLINE bool IsNearlyZero(float Value, float ErrorTolerance = SMALL_NUMBER)
 	{
-		return Abs<float>( Value ) < ErrorTolerance;
+		return Abs<float>( Value ) <= ErrorTolerance;
 	}
 
 	/**
@@ -204,7 +210,7 @@ struct FMath : public FPlatformMath
 	 */
 	static FORCEINLINE bool IsNearlyZero(double Value, double ErrorTolerance = SMALL_NUMBER)
 	{
-		return Abs<double>( Value ) < ErrorTolerance;
+		return Abs<double>( Value ) <= ErrorTolerance;
 	}
 
 	/**
@@ -476,17 +482,22 @@ struct FMath : public FPlatformMath
 	static CORE_API float FixedTurn(float InCurrent, float InDesired, float InDeltaRate);
 
 	/** Converts given Cartesian coordinate pair to Polar coordinate system. */
-	static FORCEINLINE void CartesianToPolar(float X, float Y, float& OutRad, float& OutAng)
+	static FORCEINLINE void CartesianToPolar(const float X, const float Y, float& OutRad, float& OutAng)
 	{
 		OutRad = Sqrt(Square(X) + Square(Y));
 		OutAng = Atan2(Y, X);
 	}
+	/** Converts given Cartesian coordinate pair to Polar coordinate system. */
+	static FORCEINLINE void CartesianToPolar(const FVector2D InCart, FVector2D& OutPolar);
+
 	/** Converts given Polar coordinate pair to Cartesian coordinate system. */
-	static FORCEINLINE void PolarToCartesian(float Rad, float Ang, float& OutX, float& OutY)
+	static FORCEINLINE void PolarToCartesian(const float Rad, const float Ang, float& OutX, float& OutY)
 	{
 		OutX = Rad * Cos(Ang);
 		OutY = Rad * Sin(Ang);
 	}
+	/** Converts given Polar coordinate pair to Cartesian coordinate system. */
+	static FORCEINLINE void PolarToCartesian(const FVector2D InPolar, FVector2D& OutCart);
 
 	/**
 	 * Calculates the dotted distance of vector 'Direction' to coordinate system O(AxisX,AxisY,AxisZ).
@@ -539,16 +550,23 @@ struct FMath : public FPlatformMath
 	/** Basically a Vector2d version of Lerp. */
 	static float GetRangeValue(FVector2D const& Range, float Pct);
 
-	/**
-	 * For the given value in the input range, returns the corresponding value in the output range.
-	 * Useful for mapping one value range to another value range.  Output is clamped to the OutputRange.
-	 * e.g. given that velocities [50..100] correspond to a sound volume of [0.2..1.4], this makes it easy to 
-	 *      find the volume for a velocity of 77.
-	 */
-	static FORCEINLINE float GetMappedRangeValue(FVector2D const& InputRange, FVector2D const& OutputRange, float Value)
+	DEPRECATED(4.9, "GetMappedRangeValue is deprecated. Use GetMappedRangeValueClamped instead.")
+	static FORCEINLINE float GetMappedRangeValue(const FVector2D& InputRange, const FVector2D& OutputRange, const float Value)
 	{
-		float const ClampedPct = Clamp<float>(GetRangePct(InputRange, Value), 0.f, 1.f);
+		return GetMappedRangeValueClamped(InputRange, OutputRange, Value);
+	}
+
+	/** For the given Value clamped to the Input Range, returns the corresponding value in the Output Range. */
+	static FORCEINLINE float GetMappedRangeValueClamped(const FVector2D& InputRange, const FVector2D& OutputRange, const float Value)
+	{
+		const float ClampedPct = Clamp<float>(GetRangePct(InputRange, Value), 0.f, 1.f);
 		return GetRangeValue(OutputRange, ClampedPct);
+	}
+
+	/** Transform the given Value relative to the input range to the Output Range. */
+	static FORCEINLINE float GetMappedRangeValueUnclamped(const FVector2D& InputRange, const FVector2D& OutputRange, const float Value)
+	{
+		return GetRangeValue(OutputRange, GetRangePct(InputRange, Value));
 	}
 
 	/** Performs a linear interpolation between two values, Alpha ranges from 0-1 */
@@ -1002,14 +1020,27 @@ struct FMath : public FPlatformMath
 
 	/**
 	 * Returns true if there is an intersection between the segment specified by StartPoint and Endpoint, and
-	 * the plane on which polygon Plane lies. If there is an intersection, the point is placed in IntersectionPoint
+	 * the plane on which polygon Plane lies. If there is an intersection, the point is placed in out_IntersectionPoint
 	 * @param StartPoint - start point of segment
 	 * @param EndPoint   - end point of segment
 	 * @param Plane		- plane to intersect with
-	 * @param out_InterSectPoint - out var for the point on the segment that intersects the mesh (if any)
-	 * @return true if intersection occured
+	 * @param out_IntersectionPoint - out var for the point on the segment that intersects the mesh (if any)
+	 * @return true if intersection occurred
 	 */
-	static CORE_API bool SegmentPlaneIntersection(const FVector& StartPoint, const FVector& EndPoint, const FPlane& Plane, FVector& out_IntersectPoint);
+	static CORE_API bool SegmentPlaneIntersection(const FVector& StartPoint, const FVector& EndPoint, const FPlane& Plane, FVector& out_IntersectionPoint);
+
+	/**
+	 * Returns true if there is an intersection between the segment specified by SegmentStartA and SegmentEndA, and
+	 * the segment specified by SegmentStartB and SegmentEndB, in 2D space. If there is an intersection, the point is placed in out_IntersectionPoint
+	 * @param SegmentStartA - start point of first segment
+	 * @param SegmentEndA   - end point of first segment
+	 * @param SegmentStartB - start point of second segment
+	 * @param SegmentEndB   - end point of second segment
+	 * @param out_IntersectionPoint - out var for the intersection point (if any)
+	 * @return true if intersection occurred
+	 */
+	static CORE_API bool SegmentIntersection2D(const FVector& SegmentStartA, const FVector& SegmentEndA, const FVector& SegmentStartB, const FVector& SegmentEndB, FVector& out_IntersectionPoint);
+
 
 	/**
 	 * Returns closest point on a triangle to a point.
@@ -1069,6 +1100,62 @@ struct FMath : public FPlatformMath
 	 * @return Whether the points are relatively coplanar, based on the tolerance
 	 */
 	static CORE_API bool PointsAreCoplanar(const TArray<FVector>& Points, const float Tolerance = 0.1f);
+
+	/**
+	* Converts a floating point number to the nearest integer, equidistant ties go to the value which is closest to an even value: 1.5 becomes 2, 0.5 becomes 0
+	* @param F		Floating point value to convert
+	* @return		The rounded integer
+	*/
+	static CORE_API float RoundHalfToEven(float F);
+	static CORE_API double RoundHalfToEven(double F);
+
+	/**
+	* Converts a floating point number to the nearest integer, equidistant ties go to the value which is further from zero: -0.5 becomes -1.0, 0.5 becomes 1.0
+	* @param F		Floating point value to convert
+	* @return		The rounded integer
+	*/
+	static CORE_API float RoundHalfFromZero(float F);
+	static CORE_API double RoundHalfFromZero(double F);
+
+	/**
+	* Converts a floating point number to the nearest integer, equidistant ties go to the value which is closer to zero: -0.5 becomes 0, 0.5 becomes 0
+	* @param F		Floating point value to convert
+	* @return		The rounded integer
+	*/
+	static CORE_API float RoundHalfToZero(float F);
+	static CORE_API double RoundHalfToZero(double F);
+
+	/**
+	* Converts a floating point number to an integer which is further from zero, "larger" in absolute value: 0.1 becomes 1, -0.1 becomes -1
+	* @param F		Floating point value to convert
+	* @return		The rounded integer
+	*/
+	static float RoundFromZero(float F);
+	static double RoundFromZero(double F);
+
+	/**
+	* Converts a floating point number to an integer which is closer to zero, "smaller" in absolute value: 0.1 becomes 0, -0.1 becomes 0
+	* @param F		Floating point value to convert
+	* @return		The rounded integer
+	*/
+	static float RoundToZero(float F);
+	static double RoundToZero(double F);
+
+	/**
+	* Converts a floating point number to an integer which is more negative: 0.1 becomes 0, -0.1 becomes -1
+	* @param F		Floating point value to convert
+	* @return		The rounded integer
+	*/
+	static float RoundToNegativeInfinity(float F);
+	static double RoundToNegativeInfinity(double F);
+
+	/**
+	* Converts a floating point number to an integer which is more positive: 0.1 becomes 1, -0.1 becomes 0
+	* @param F		Floating point value to convert
+	* @return		The rounded integer
+	*/
+	static float RoundToPositiveInfinity(float F);
+	static double RoundToPositiveInfinity(double F);
 
 	// Formatting functions
 

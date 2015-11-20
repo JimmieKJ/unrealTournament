@@ -250,6 +250,12 @@ void UGameplayDebuggingControllerComponent::CloseDebugTool()
 		GetDebuggingReplicator()->ServerReplicateMessage(nullptr, EDebugComponentMessage::DeactivateReplilcation, EAIDebugDrawDataView::Empty);
 		GetDebuggingReplicator()->EnableDraw(false);
 		GetDebuggingReplicator()->ServerReplicateMessage(nullptr, EDebugComponentMessage::DeactivateReplilcation, EAIDebugDrawDataView::Empty);
+
+		if (PlayerOwner.IsValid())
+		{
+			PlayerOwner->PopInputComponent(AIDebugViewInputComponent);
+		}
+		AIDebugViewInputComponent = nullptr;
 		bToolActivated = false;
 	}
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -282,7 +288,7 @@ void UGameplayDebuggingControllerComponent::BindAIDebugViewKeys(class UInputComp
 			InputComponent->BindKey(FInputChord(EKeys::Seven, false, false, true, false), IE_Pressed, this, &UGameplayDebuggingControllerComponent::ToggleAIDebugView_SetView7);
 			InputComponent->BindKey(FInputChord(EKeys::Eight, false, false, true, false), IE_Pressed, this, &UGameplayDebuggingControllerComponent::ToggleAIDebugView_SetView8);
 			InputComponent->BindKey(FInputChord(EKeys::Nine, false, false, true, false), IE_Pressed, this, &UGameplayDebuggingControllerComponent::ToggleAIDebugView_SetView9);
-			InputComponent->BindKey(FInputChord(EKeys::Equals, false, false, true, false), IE_Released, this, &UGameplayDebuggingControllerComponent::NextEQSQuery);
+			InputComponent->BindKey(FInputChord(EKeys::Equals, false, false, true, false), IE_Released, this, &UGameplayDebuggingControllerComponent::CycleDetailsView);
 		}
 		else
 		{
@@ -296,9 +302,11 @@ void UGameplayDebuggingControllerComponent::BindAIDebugViewKeys(class UInputComp
 			InputComponent->BindKey(EKeys::NumPadSeven, IE_Pressed, this, &UGameplayDebuggingControllerComponent::ToggleAIDebugView_SetView7);
 			InputComponent->BindKey(EKeys::NumPadEight, IE_Pressed, this, &UGameplayDebuggingControllerComponent::ToggleAIDebugView_SetView8);
 			InputComponent->BindKey(EKeys::NumPadNine, IE_Pressed, this, &UGameplayDebuggingControllerComponent::ToggleAIDebugView_SetView9);
-			InputComponent->BindKey(EKeys::Add, IE_Released, this, &UGameplayDebuggingControllerComponent::NextEQSQuery);
+			InputComponent->BindKey(EKeys::Add, IE_Released, this, &UGameplayDebuggingControllerComponent::CycleDetailsView);
 		}
-		InputComponent->BindKey(EKeys::Tab, IE_Released, this, &UGameplayDebuggingControllerComponent::ToggleDebugCamera);
+		InputComponent->BindKey(FInputChord(EKeys::Tab, false, false, false, false), IE_Released, this, &UGameplayDebuggingControllerComponent::ToggleDebugCamera);
+		InputComponent->BindKey(FInputChord(EKeys::Tab, false, true, false, false), IE_Released, this, &UGameplayDebuggingControllerComponent::ToggleOnScreenDebugMessages);
+		InputComponent->BindKey(FInputChord(EKeys::Tilde, false, true, false, false), IE_Released, this, &UGameplayDebuggingControllerComponent::ToggleGameHUD);
 	}
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
@@ -369,12 +377,9 @@ DEFAULT_TOGGLE_HANDLER(ToggleAIDebugView_SetView7, EAIDebugDrawDataView::GameVie
 DEFAULT_TOGGLE_HANDLER(ToggleAIDebugView_SetView8, EAIDebugDrawDataView::GameView4);
 DEFAULT_TOGGLE_HANDLER(ToggleAIDebugView_SetView9, EAIDebugDrawDataView::GameView5);
 
-void UGameplayDebuggingControllerComponent::NextEQSQuery()
+void UGameplayDebuggingControllerComponent::CycleDetailsView()
 {
-	if (IsViewActive(EAIDebugDrawDataView::EQS))
-	{
-		GetDebuggingReplicator()->OnChangeEQSQuery.Broadcast();
-	}
+	GetDebuggingReplicator()->OnCycleDetailsView.Broadcast();
 }
 
 #ifdef DEFAULT_TOGGLE_HANDLER
@@ -431,6 +436,32 @@ void UGameplayDebuggingControllerComponent::UpdateNavMeshTimer()
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
 
+void UGameplayDebuggingControllerComponent::ToggleOnScreenDebugMessages()
+{
+	if (!bToolActivated || PlayerOwner == nullptr)
+	{
+		return;
+	}
+
+	if (GEngine)
+	{
+		GEngine->bEnableOnScreenDebugMessages = !GEngine->bEnableOnScreenDebugMessages;
+	}
+}
+
+void UGameplayDebuggingControllerComponent::ToggleGameHUD()
+{
+	if (!bToolActivated || PlayerOwner == nullptr)
+	{
+		return;
+	}
+
+	if (AHUD* const GameHUD = PlayerOwner->GetHUD())
+	{
+		GameHUD->bShowHUD = !GameHUD->bShowHUD;
+	}
+}
+
 void UGameplayDebuggingControllerComponent::ToggleDebugCamera()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -441,13 +472,9 @@ void UGameplayDebuggingControllerComponent::ToggleDebugCamera()
 
 	if (DebugCameraController.IsValid() == false)
 	{
-		// spawn if necessary
-		// and ungly @HACK to be able to spawn camera in game world rather then
-		// in editor world (if running PIE). Hate it, but it works, and 
-		// this is a debugging tool		
 		{
 			FActorSpawnParameters SpawnInfo;
-			SpawnInfo.bNoCollisionFail = true;
+			SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			SpawnInfo.Owner = PlayerOwner->GetWorldSettings();
 			SpawnInfo.Instigator = PlayerOwner->Instigator;
 			DebugCameraController = GetWorld()->SpawnActor<ADebugCameraController>(SpawnInfo);
@@ -464,7 +491,7 @@ void UGameplayDebuggingControllerComponent::ToggleDebugCamera()
 			FActorSpawnParameters SpawnInfo;
 			SpawnInfo.Owner = PlayerOwner.Get();
 			SpawnInfo.Instigator = PlayerOwner->Instigator;
-			SpawnInfo.bNoCollisionFail = true;
+			SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			SpawnInfo.ObjectFlags |= RF_Transient;	// We never want these to save into a map
 			AGaneplayDebuggerProxyHUD* ProxyHUD = GetWorld()->SpawnActor<AGaneplayDebuggerProxyHUD>(SpawnInfo);
 			ProxyHUD->RedirectedHUD = PlayerOwner->MyHUD;
@@ -476,6 +503,12 @@ void UGameplayDebuggingControllerComponent::ToggleDebugCamera()
 
 			DebugCameraController->ChangeState(NAME_Default);
 			DebugCameraController->ChangeState(NAME_Spectating);
+
+			if (PlayerOwner.IsValid())
+			{
+				PlayerOwner->PopInputComponent(AIDebugViewInputComponent);
+			}
+			AIDebugViewInputComponent = nullptr;
 		}
 	}
 	else
@@ -490,10 +523,10 @@ void UGameplayDebuggingControllerComponent::ToggleDebugCamera()
 		if(AIDebugViewInputComponent == nullptr)
 		{
 			BindAIDebugViewKeys(AIDebugViewInputComponent);
-		}
-		if (PlayerOwner.IsValid())
-		{
-			PlayerOwner->PushInputComponent(AIDebugViewInputComponent);
+			if (PlayerOwner.IsValid())
+			{
+				PlayerOwner->PushInputComponent(AIDebugViewInputComponent);
+			}
 		}
 
 	}

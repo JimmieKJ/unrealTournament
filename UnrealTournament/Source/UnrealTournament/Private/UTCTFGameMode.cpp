@@ -53,7 +53,7 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 {
 	if (!TranslocatorObject.IsNull())
 	{
-		TSubclassOf<AUTWeapon> WeaponClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		TSubclassOf<AUTWeapon> WeaponClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().ToString(), NULL, LOAD_NoWarn));
 		DefaultInventory.Add(WeaponClass);
 	}
 
@@ -64,7 +64,7 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	}
 
 	// HalftimeDuration is in seconds and used in seconds,
-	HalftimeDuration = FMath::Max(0, GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
+	HalftimeDuration = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
 
 	if (TimeLimit > 0)
 	{

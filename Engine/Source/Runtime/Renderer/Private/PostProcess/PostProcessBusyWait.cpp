@@ -84,15 +84,16 @@ IMPLEMENT_SHADER_TYPE(,FPostProcessBusyWaitPS,TEXT("PostProcessBusyWait"),TEXT("
 void FRCPassPostProcessBusyWait::Process(FRenderingCompositePassContext& Context)
 {
 	SCOPED_DRAW_EVENT(Context.RHICmdList, BusyWait);
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
 
 	const FSceneView& View = Context.View;
 	
 	FIntRect SrcRect = View.ViewRect;
 	FIntRect DestRect = View.UnscaledViewRect;
 	
-	GSceneRenderTargets.BeginRenderingLightAttenuation(Context.RHICmdList);
+	SceneContext.BeginRenderingLightAttenuation(Context.RHICmdList);
 	
-	const FSceneRenderTargetItem& DestRenderTarget = GSceneRenderTargets.GetLightAttenuation()->GetRenderTargetItem();
+	const FSceneRenderTargetItem& DestRenderTarget = SceneContext.GetLightAttenuation()->GetRenderTargetItem();
 
 	// Set the view family's render target/viewport.
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
@@ -126,7 +127,7 @@ void FRCPassPostProcessBusyWait::Process(FRenderingCompositePassContext& Context
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 
-	GSceneRenderTargets.SetLightAttenuation(0);
+	SceneContext.SetLightAttenuation(0);
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessBusyWait::ComputeOutputDesc(EPassOutputId InPassOutputId) const

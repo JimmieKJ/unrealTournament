@@ -408,25 +408,25 @@ FReply FVisualLoggerTimeSliderController::OnMouseMove( TSharedRef<SWidget> Widge
 				float NewViewOutputMin = LocalViewRangeMin - InputDelta.X;
 				float NewViewOutputMax = LocalViewRangeMax - InputDelta.X;
 
-				TOptional<float> LocalClampMin = TimeSliderArgs.ClampMin.Get();
-				TOptional<float> LocalClampMax = TimeSliderArgs.ClampMax.Get();
+				float LocalClampMin = TimeSliderArgs.ClampRange.Get().GetLowerBoundValue();
+				float LocalClampMax = TimeSliderArgs.ClampRange.Get().GetUpperBoundValue();
 
-				// Clamp the range if clamp values are set
-				if ( LocalClampMin.IsSet() && NewViewOutputMin < LocalClampMin.GetValue() )
+				// Clamp the range
+				if ( NewViewOutputMin < LocalClampMin )
 				{
-					NewViewOutputMin = LocalClampMin.GetValue();
+					NewViewOutputMin = LocalClampMin;
 				}
 			
-				if ( LocalClampMax.IsSet() && NewViewOutputMax > LocalClampMax.GetValue() )
+				if ( NewViewOutputMax > LocalClampMax )
 				{
-					NewViewOutputMax = LocalClampMax.GetValue();
+					NewViewOutputMax = LocalClampMax;
 				}
 
-				TimeSliderArgs.OnViewRangeChanged.ExecuteIfBound(TRange<float>(NewViewOutputMin, NewViewOutputMax));
+				TimeSliderArgs.OnViewRangeChanged.ExecuteIfBound(TRange<float>(NewViewOutputMin, NewViewOutputMax), EViewRangeInterpolation::Immediate);
 				if (Scrollbar.IsValid())
 				{
-					float InOffsetFraction = (NewViewOutputMin - LocalClampMin.GetValue()) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
-					float InThumbSizeFraction = (NewViewOutputMax - NewViewOutputMin) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
+					float InOffsetFraction = (NewViewOutputMin - LocalClampMin) / (LocalClampMax - LocalClampMin);
+					float InThumbSizeFraction = (NewViewOutputMax - NewViewOutputMin) / (LocalClampMax - LocalClampMin);
 					Scrollbar->SetState(InOffsetFraction, InThumbSizeFraction);
 				}
 
@@ -453,14 +453,18 @@ FReply FVisualLoggerTimeSliderController::OnMouseMove( TSharedRef<SWidget> Widge
 				FScrubRangeToScreen RangeToScreen( TimeSliderArgs.ViewRange.Get(), MyGeometry.Size );
 				FVector2D CursorPos = MyGeometry.AbsoluteToLocal( MouseEvent.GetLastScreenSpacePosition() );
 				float NewValue = RangeToScreen.LocalXToInput( CursorPos.X );
-				if (TimeSliderArgs.ClampMin.Get().IsSet() && NewValue < TimeSliderArgs.ClampMin.Get().GetValue())
+
+				float LocalClampMin = TimeSliderArgs.ClampRange.Get().GetLowerBoundValue();
+				float LocalClampMax = TimeSliderArgs.ClampRange.Get().GetUpperBoundValue();
+
+				if (NewValue < LocalClampMin)
 				{
-					NewValue = TimeSliderArgs.ClampMin.Get().GetValue();
+					NewValue = LocalClampMin;
 				}
 
-				if (TimeSliderArgs.ClampMax.Get().IsSet() && NewValue > TimeSliderArgs.ClampMax.Get().GetValue())
+				if (NewValue > LocalClampMax)
 				{
-					NewValue = TimeSliderArgs.ClampMax.Get().GetValue();
+					NewValue = LocalClampMax;
 				}
 
 				CommitScrubPosition(NewValue, /*bIsScrubbing=*/true);
@@ -507,17 +511,17 @@ void FVisualLoggerTimeSliderController::HorizontalScrollBar_OnUserScrolled(float
 		TRange<float> LocalViewRange = TimeSliderArgs.ViewRange.Get();
 		float LocalViewRangeMin = LocalViewRange.GetLowerBoundValue();
 		float LocalViewRangeMax = LocalViewRange.GetUpperBoundValue();
-		TOptional<float> LocalClampMin = TimeSliderArgs.ClampMin.Get();
-		TOptional<float> LocalClampMax = TimeSliderArgs.ClampMax.Get();
+		float LocalClampMin = TimeSliderArgs.ClampRange.Get().GetLowerBoundValue();
+		float LocalClampMax = TimeSliderArgs.ClampRange.Get().GetUpperBoundValue();
 
-		float InThumbSizeFraction = (LocalViewRangeMax - LocalViewRangeMin) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
+		float InThumbSizeFraction = (LocalViewRangeMax - LocalViewRangeMin) / (LocalClampMax - LocalClampMin);
 
-		float NewViewOutputMin = LocalClampMin.GetValue() + ScrollOffset * (LocalClampMax.GetValue() - LocalClampMin.GetValue());
+		float NewViewOutputMin = LocalClampMin + ScrollOffset * (LocalClampMax - LocalClampMin);
 		// The  output is not bound to a delegate so we'll manage the value ourselves
-		float NewViewOutputMax = FMath::Min<float>(NewViewOutputMin + (LocalViewRangeMax - LocalViewRangeMin), LocalClampMax.GetValue());
+		float NewViewOutputMax = FMath::Min<float>(NewViewOutputMin + (LocalViewRangeMax - LocalViewRangeMin), LocalClampMax);
 		NewViewOutputMin = NewViewOutputMax - (LocalViewRangeMax - LocalViewRangeMin);
 
-		float InOffsetFraction = (NewViewOutputMin - LocalClampMin.GetValue()) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
+		float InOffsetFraction = (NewViewOutputMin - LocalClampMin) / (LocalClampMax - LocalClampMin);
 		//if (InOffsetFraction + InThumbSizeFraction <= 1)
 		{
 			TimeSliderArgs.ViewRange.Set(TRange<float>(NewViewOutputMin, NewViewOutputMax));
@@ -530,26 +534,25 @@ void FVisualLoggerTimeSliderController::SetTimeRange(float NewViewOutputMin, flo
 {
 	TimeSliderArgs.ViewRange.Set(TRange<float>(NewViewOutputMin, NewViewOutputMax));
 
-	TOptional<float> LocalClampMin = TimeSliderArgs.ClampMin.Get();
-	TOptional<float> LocalClampMax = TimeSliderArgs.ClampMax.Get();
+	float LocalClampMin = TimeSliderArgs.ClampRange.Get().GetLowerBoundValue();
+	float LocalClampMax = TimeSliderArgs.ClampRange.Get().GetUpperBoundValue();
 
-	const float InOffsetFraction = (NewViewOutputMin - LocalClampMin.GetValue()) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
-	const float InThumbSizeFraction = (NewViewOutputMax - NewViewOutputMin) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
+	const float InOffsetFraction = (NewViewOutputMin - LocalClampMin) / (LocalClampMax - LocalClampMin);
+	const float InThumbSizeFraction = (NewViewOutputMax - NewViewOutputMin) / (LocalClampMax - LocalClampMin);
 	Scrollbar->SetState(InOffsetFraction, InThumbSizeFraction);
 }
 
 void FVisualLoggerTimeSliderController::SetClampRange(float MinValue, float MaxValue)
 {
 	TRange<float> LocalViewRange = TimeSliderArgs.ViewRange.Get();
-	float LocalClampMin = TimeSliderArgs.ClampMin.Get().GetValue();
-	float LocalClampMax = TimeSliderArgs.ClampMax.Get().GetValue();
+	float LocalClampMin = TimeSliderArgs.ClampRange.Get().GetLowerBoundValue();
+	float LocalClampMax = TimeSliderArgs.ClampRange.Get().GetUpperBoundValue();
 	const float CurrentDistance = LocalClampMax - LocalClampMin;
 	const float ZoomDelta = (LocalViewRange.GetUpperBoundValue() - LocalViewRange.GetLowerBoundValue()) / CurrentDistance;
 
 	MaxValue = MinValue + (MaxValue - MinValue < 2 ? CurrentDistance : MaxValue - MinValue);
 
-	TimeSliderArgs.ClampMin.Set(MinValue);
-	TimeSliderArgs.ClampMax.Set(MaxValue);
+	TimeSliderArgs.ClampRange = TRange<float>(MinValue, MaxValue);
 
 	const float LocalViewRangeMin = FMath::Clamp(LocalViewRange.GetLowerBoundValue(), MinValue, MaxValue);
 	const float LocalViewRangeMax = FMath::Clamp(LocalViewRange.GetUpperBoundValue(), MinValue, MaxValue);
@@ -562,7 +565,7 @@ FReply FVisualLoggerTimeSliderController::OnMouseWheel( TSharedRef<SWidget> Widg
 
 	if (MouseEvent.IsLeftShiftDown())
 	{
-		const float ZoomDelta = 0.1f * MouseEvent.GetWheelDelta();
+		const float ZoomDelta = 0.025f * MouseEvent.GetWheelDelta();
 		TimeSliderArgs.CursorSize.Set(FMath::Clamp(TimeSliderArgs.CursorSize.Get() + ZoomDelta, 0.0f, 1.0f));
 
 		ReturnValue = FReply::Handled();
@@ -583,25 +586,25 @@ FReply FVisualLoggerTimeSliderController::OnMouseWheel( TSharedRef<SWidget> Widg
 
 			if( FMath::Abs( OutputChange ) > 0.01f && NewViewOutputMin < NewViewOutputMax )
 			{
-				TOptional<float> LocalClampMin = TimeSliderArgs.ClampMin.Get();
-				TOptional<float> LocalClampMax = TimeSliderArgs.ClampMax.Get();
+				float LocalClampMin = TimeSliderArgs.ClampRange.Get().GetLowerBoundValue();
+				float LocalClampMax = TimeSliderArgs.ClampRange.Get().GetUpperBoundValue();
 
 				// Clamp the range if clamp values are set
-				if ( LocalClampMin.IsSet() && NewViewOutputMin < LocalClampMin.GetValue() )
+				if ( NewViewOutputMin < LocalClampMin )
 				{
-					NewViewOutputMin = LocalClampMin.GetValue();
+					NewViewOutputMin = LocalClampMin;
 				}
 				
-				if ( LocalClampMax.IsSet() && NewViewOutputMax > LocalClampMax.GetValue() )
+				if ( NewViewOutputMax > LocalClampMax )
 				{
-					NewViewOutputMax = LocalClampMax.GetValue();
+					NewViewOutputMax = LocalClampMax;
 				}
 
-				TimeSliderArgs.OnViewRangeChanged.ExecuteIfBound(TRange<float>(NewViewOutputMin, NewViewOutputMax));
+				TimeSliderArgs.OnViewRangeChanged.ExecuteIfBound(TRange<float>(NewViewOutputMin, NewViewOutputMax), EViewRangeInterpolation::Immediate);
 				if (Scrollbar.IsValid())
 				{
-					float InOffsetFraction = (NewViewOutputMin - LocalClampMin.GetValue()) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
-					float InThumbSizeFraction = (NewViewOutputMax - NewViewOutputMin) / (LocalClampMax.GetValue() - LocalClampMin.GetValue());
+					float InOffsetFraction = (NewViewOutputMin - LocalClampMin) / (LocalClampMax - LocalClampMin);
+					float InThumbSizeFraction = (NewViewOutputMax - NewViewOutputMin) / (LocalClampMax - LocalClampMin);
 					Scrollbar->SetState(InOffsetFraction, InThumbSizeFraction);
 				}
 				if( !TimeSliderArgs.ViewRange.IsBound() )
@@ -664,7 +667,7 @@ int32 FVisualLoggerTimeSliderController::OnPaintSectionView( const FGeometry& Al
 			CursorBackground,
 			MyClippingRect,
 			DrawEffects,
-			FColor(FLinearColor::White).WithAlpha(20)
+			FLinearColor::White.CopyWithNewOpacity(0.08f)
 			);
 
 		// Draw a line for the scrub position
@@ -680,7 +683,7 @@ int32 FVisualLoggerTimeSliderController::OnPaintSectionView( const FGeometry& Al
 			LinePoints,
 			MyClippingRect,
 			DrawEffects,
-			FColor(FLinearColor::White).WithAlpha(100),
+			FLinearColor::White.CopyWithNewOpacity(0.39f),
 			false
 			);
 

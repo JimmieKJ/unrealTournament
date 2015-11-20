@@ -6,13 +6,13 @@
 
 #pragma once
 
-#include "PhysicsEngine/BodySetup.h"
 #include "Engine/StaticMesh.h"
 #include "RawIndexBuffer.h"
 #include "TextureLayout3d.h"
 #include "LocalVertexFactory.h"
 #include "PrimitiveSceneProxy.h"
 #include "SceneManagement.h"
+#include "PhysicsEngine/BodySetupEnums.h"
 
 /**
  * The LOD settings to use for a group of static meshes.
@@ -539,8 +539,12 @@ struct FStaticMeshLODResources
 
 	/** Index buffer resource for rendering. */
 	FRawStaticIndexBuffer IndexBuffer;
+	/** Reversed index buffer, used to prevent changing culling state between drawcalls. */
+	FRawStaticIndexBuffer ReversedIndexBuffer;
 	/** Index buffer resource for rendering in depth only passes. */
 	FRawStaticIndexBuffer DepthOnlyIndexBuffer;
+	/** Reversed depth only index buffer, used to prevent changing culling state between drawcalls. */
+	FRawStaticIndexBuffer ReversedDepthOnlyIndexBuffer;
 	/** Index buffer resource for rendering wireframe mode. */
 	FRawStaticIndexBuffer WireframeIndexBuffer;
 	/** Index buffer containing adjacency information required by tessellation. */
@@ -559,7 +563,18 @@ struct FStaticMeshLODResources
 	float MaxDeviation;
 
 	/** True if the adjacency index buffer contained data at init. Needed as it will not be available to the CPU afterwards. */
-	bool bHasAdjacencyInfo;
+	uint32 bHasAdjacencyInfo : 1;
+
+	/** True if the depth only index buffers contained data at init. Needed as it will not be available to the CPU afterwards. */
+	uint32 bHasDepthOnlyIndices : 1;
+
+	/** True if the reversed index buffers contained data at init. Needed as it will not be available to the CPU afterwards. */
+	uint32 bHasReversedIndices : 1;
+
+	/** True if the reversed index buffers contained data at init. Needed as it will not be available to the CPU afterwards. */
+	uint32 bHasReversedDepthOnlyIndices: 1;
+
+	uint32 DepthOnlyNumTriangles;
 
 	/** Default constructor. */
 	FStaticMeshLODResources();
@@ -748,20 +763,28 @@ public:
 	}
 
 	/** Sets up a shadow FMeshBatch for a specific LOD. */
-	virtual bool GetShadowMeshElement(int32 LODIndex, int32 BatchIndex, uint8 InDepthPriorityGroup, FMeshBatch& OutMeshBatch) const;
+	virtual bool GetShadowMeshElement(int32 LODIndex, int32 BatchIndex, uint8 InDepthPriorityGroup, FMeshBatch& OutMeshBatch, bool bDitheredLODTransition) const;
 
 	/** Sets up a FMeshBatch for a specific LOD and element. */
-	virtual bool GetMeshElement(int32 LODIndex, int32 BatchIndex, int32 ElementIndex, uint8 InDepthPriorityGroup, const bool bUseSelectedMaterial, const bool bUseHoveredMaterial, FMeshBatch& OutMeshBatch) const;
+	virtual bool GetMeshElement(
+		int32 LODIndex, 
+		int32 BatchIndex, 
+		int32 ElementIndex, 
+		uint8 InDepthPriorityGroup, 
+		bool bUseSelectedMaterial, 
+		bool bUseHoveredMaterial, 
+		bool bAllowPreCulledIndices,
+		FMeshBatch& OutMeshBatch) const;
 
 	/** Sets up a wireframe FMeshBatch for a specific LOD. */
-	virtual bool GetWireframeMeshElement(int32 LODIndex, int32 BatchIndex, const FMaterialRenderProxy* WireframeRenderProxy, uint8 InDepthPriorityGroup, FMeshBatch& OutMeshBatch) const;
+	virtual bool GetWireframeMeshElement(int32 LODIndex, int32 BatchIndex, const FMaterialRenderProxy* WireframeRenderProxy, uint8 InDepthPriorityGroup, bool bAllowPreCulledIndices, FMeshBatch& OutMeshBatch) const;
 
 
 protected:
 	/**
 	 * Sets IndexBuffer, FirstIndex and NumPrimitives of OutMeshElement.
 	 */
-	virtual void SetIndexSource(int32 LODIndex, int32 ElementIndex, FMeshBatch& OutMeshElement, bool bWireframe, bool bRequiresAdjacencyInformation ) const;
+	virtual void SetIndexSource(int32 LODIndex, int32 ElementIndex, FMeshBatch& OutMeshElement, bool bWireframe, bool bRequiresAdjacencyInformation, bool bUseInversedIndices, bool bAllowPreCulledIndices) const;
 	bool IsCollisionView(const FEngineShowFlags& EngineShowFlags, bool& bDrawSimpleCollision, bool& bDrawComplexCollision) const;
 
 public:
@@ -772,7 +795,7 @@ public:
 	virtual void DrawStaticElements(FStaticPrimitiveDrawInterface* PDI) override;
 	virtual void OnTransformChanged() override;
 	virtual int32 GetLOD(const FSceneView* View) const override;
-	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) override;
+	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
 	virtual void GetLightRelevance(const FLightSceneProxy* LightSceneProxy, bool& bDynamic, bool& bRelevant, bool& bLightMapped, bool& bShadowMapped) const override;
 	virtual void GetDistancefieldAtlasData(FBox& LocalVolumeBounds, FIntVector& OutBlockMin, FIntVector& OutBlockSize, bool& bOutBuiltAsIfTwoSided, bool& bMeshWasPlane, TArray<FMatrix>& ObjectLocalToWorldTransforms) const override;
@@ -780,6 +803,8 @@ public:
 	virtual bool HasDistanceFieldRepresentation() const override;
 	virtual uint32 GetMemoryFootprint( void ) const override { return( sizeof( *this ) + GetAllocatedSize() ); }
 	uint32 GetAllocatedSize( void ) const { return( FPrimitiveSceneProxy::GetAllocatedSize() + LODs.GetAllocatedSize() ); }
+
+	virtual void GetMeshDescription(int32 LODIndex, TArray<FMeshBatch>& OutMeshElements) const override;
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
 protected:
@@ -799,6 +824,8 @@ protected:
 #if WITH_EDITOR
 				, HitProxy(NULL)
 #endif
+				, FirstPreCulledIndex(0)
+				, NumPreCulledTriangles(-1)
 			{}
 
 			/** The material with which to render this section. */
@@ -811,6 +838,9 @@ protected:
 			/** The editor needs to be able to individual sub-mesh hit detection, so we store a hit proxy on each mesh. */
 			HHitProxy* HitProxy;
 #endif
+
+			int32 FirstPreCulledIndex;
+			int32 NumPreCulledTriangles;
 		};
 
 		/** Per-section information. */
@@ -818,6 +848,8 @@ protected:
 
 		/** Vertex color data for this LOD (or NULL when not overridden), FStaticMeshComponentLODInfo handle the release of the memory */
 		FColorVertexBuffer* OverrideColorVertexBuffer;
+
+		const FRawStaticIndexBuffer* PreCulledIndexBuffer;
 
 		/** When the mesh component has overridden the LOD's vertex colors, this vertex factory will be created
 		    and passed along to the renderer instead of the mesh's stock vertex factory */
@@ -867,7 +899,7 @@ protected:
 
 	TIndirectArray<FLODInfo> LODs;
 
-	const FDistanceFieldVolumeData* DistanceFieldData;
+	const FDistanceFieldVolumeData* DistanceFieldData;	
 
 	/**
 	 * The forcedLOD set in the static mesh editor, copied from the mesh component
@@ -888,12 +920,22 @@ protected:
 	/** Collision Response of this component**/
 	FCollisionResponseContainer CollisionResponse;
 
+#if WITH_EDITORONLY_DATA
+	/** Index of the section to preview. If set to INDEX_NONE, all section will be rendered */
+	int32 SectionIndexPreview;
+#endif
+
 	/**
 	 * Returns the display factor for the given LOD level
 	 *
 	 * @Param LODIndex - The LOD to get the display factor for
 	 */
 	float GetScreenSize(int32 LODIndex) const;
+
+	/**
+	 * Returns the LOD mask for a view, this is like the ordinary LOD but can return two values for dither fading
+	 */
+	FLODMask GetLODMask(const FSceneView* View) const;
 };
 
 /*-----------------------------------------------------------------------------
@@ -1158,7 +1200,6 @@ public:
 		return GetData() + InstanceIndex;
 	}
 };
-
 
 #if WITH_EDITOR
 /**

@@ -309,6 +309,9 @@ public:
 	/** Output ToString */
 	void DebugPrint() const;
 
+	/** For debugging purpose, could be changed */
+	CORE_API uint32 ComputeHash() const; 
+
 	/**
 	 * Serializes the Matrix.
 	 *
@@ -317,6 +320,16 @@ public:
 	 * @return Reference to the Archive after serialization.
 	 */
 	friend CORE_API FArchive& operator<<(FArchive& Ar,FMatrix& M);
+
+	bool Serialize( FArchive& Ar )
+	{
+		if (Ar.UE4Ver() >= VER_UE4_ADDED_NATIVE_SERIALIZATION_FOR_IMMUTABLE_STRUCTURES)
+		{
+			Ar << *this;
+			return true;
+		}
+		return false;
+	}
 
 	/**
 	 * Convert this Atom to the 3x4 transpose of the transformation matrix.

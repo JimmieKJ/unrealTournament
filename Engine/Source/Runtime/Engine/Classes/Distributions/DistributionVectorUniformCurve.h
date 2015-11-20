@@ -48,7 +48,7 @@ class UDistributionVectorUniformCurve : public UDistributionVector
 	 */
 	virtual FTwoVectors GetMinMaxValue(float F = 0.f, UObject* Data = NULL) const;
 
-	// Begin FCurveEdInterface interface
+	//~ Begin FCurveEdInterface Interface
 	virtual int32		GetNumKeys() const override;
 	virtual int32		GetNumSubCurves() const override;
 	virtual FColor	GetSubCurveButtonColor(int32 SubCurveIndex, bool bIsSubCurveHidden) const override;
@@ -67,7 +67,7 @@ class UDistributionVectorUniformCurve : public UDistributionVector
 	virtual void	SetKeyInterpMode(int32 KeyIndex, EInterpCurveMode NewMode) override;
 	virtual void	SetTangents(int32 SubIndex, int32 KeyIndex, float ArriveTangent, float LeaveTangent) override;
 	virtual void	LockAndMirror(FTwoVectors& Val) const;
-	// Begin FCurveEdInterface interface
+	//~ Begin FCurveEdInterface Interface
 
 };
 

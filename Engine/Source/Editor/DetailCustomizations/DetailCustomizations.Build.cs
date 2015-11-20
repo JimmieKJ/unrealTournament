@@ -23,6 +23,7 @@ public class DetailCustomizations : ModuleRules
 				"UnrealEd",
 				"EditorWidgets",
 				"KismetWidgets",
+				"MovieSceneCapture",
 				"SharedSettingsWidgets",
                 "ContentBrowser",
 				"BlueprintGraph",
@@ -41,13 +42,15 @@ public class DetailCustomizations : ModuleRules
                 "MediaAssets",
                 "HardwareTargeting",
 				"SharedSettingsWidgets",
+                "LightPropagationVolumeRuntime",
                 "AIModule", 
                 "MeshUtilities",
 				"ConfigEditor",
+                "Persona",
 			}
 		);
 
-		PrivateIncludePathModuleNames.AddRange(
+        PrivateIncludePathModuleNames.AddRange(
 			new string[] {
                 "Engine",
                 "Media",
@@ -61,7 +64,6 @@ public class DetailCustomizations : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"Layers",
-				"PropertyEditor",
 				"GameProjectGeneration",
 			}
 		);

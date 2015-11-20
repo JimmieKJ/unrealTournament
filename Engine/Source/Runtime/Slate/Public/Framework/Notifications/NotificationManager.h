@@ -90,5 +90,5 @@ private:
 	TArray< FRegionalNotificationList > RegionalLists;
 
 	/** Thread safe queue of notifications to display */
-	TLockFreePointerList<FNotificationInfo> PendingNotifications;
+	TLockFreePointerListLIFO<FNotificationInfo> PendingNotifications;
 };

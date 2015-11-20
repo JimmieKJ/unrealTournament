@@ -140,15 +140,25 @@ bool FTextLocalizationResourceGenerator::FLocalizationEntryTracker::WriteToArchi
 	return WasSuccessful;
 }
 
-bool FTextLocalizationResourceGenerator::Generate(const FString& SourcePath, const TSharedRef<FInternationalizationManifest>& InternationalizationManifest, const FString& CultureToGenerate, FArchive* const DestinationArchive, IInternationalizationArchiveSerializer& ArchiveSerializer)
+bool FTextLocalizationResourceGenerator::Generate(const FString& SourcePath, const TSharedRef<FInternationalizationManifest>& InternationalizationManifest, const FString& NativeCulture, const FString& CultureToGenerate, FArchive* const DestinationArchive, IInternationalizationArchiveSerializer& ArchiveSerializer)
 {
 	FLocalizationEntryTracker LocalizationEntryTracker;
 
-	FString CulturePath = SourcePath / *(CultureToGenerate);
+	// Find archives in the native culture-specific folder.
+	const FString NativeCulturePath = SourcePath / *(NativeCulture);
+	TArray<FString> NativeArchiveFileNames;
+	IFileManager::Get().FindFiles(NativeArchiveFileNames, *(NativeCulturePath / TEXT("*.archive")), true, false);
 
 	// Find archives in the culture-specific folder.
+	const FString CulturePath = SourcePath / *(CultureToGenerate);
 	TArray<FString> ArchiveFileNames;
 	IFileManager::Get().FindFiles(ArchiveFileNames, *(CulturePath / TEXT("*.archive")), true, false);
+
+	if(NativeArchiveFileNames.Num() == 0)
+	{
+		FString Message = FString::Printf(TEXT("No archives were found for native culture %s."), *(CultureToGenerate));
+		UE_LOG(LogTextLocalizationResourceGenerator, Warning, TEXT("%s"), *Message);
+	}
 
 	if(ArchiveFileNames.Num() == 0)
 	{
@@ -156,13 +166,47 @@ bool FTextLocalizationResourceGenerator::Generate(const FString& SourcePath, con
 		UE_LOG(LogTextLocalizationResourceGenerator, Warning, TEXT("%s"), *Message);
 	}
 
-	// For each archive:
-	for(int32 ArchiveIndex = 0; ArchiveIndex < ArchiveFileNames.Num(); ++ArchiveIndex)
+	TArray< TSharedPtr<FInternationalizationArchive> > NativeArchives;
+	for (const FString& NativeArchiveFileName : NativeArchiveFileNames)
 	{
-		const FString ArchiveName = ArchiveFileNames[ArchiveIndex];
-
 		// Read each archive file from the culture-named directory in the source path.
-		FString ArchiveFilePath = CulturePath / ArchiveName;
+		FString ArchiveFilePath = NativeCulturePath / NativeArchiveFileName;
+		ArchiveFilePath = FPaths::ConvertRelativePathToFull(ArchiveFilePath);
+		TSharedRef<FInternationalizationArchive> InternationalizationArchive = MakeShareable(new FInternationalizationArchive);
+#if 0 // @todo Json: Serializing from FArchive is currently broken
+		FArchive* ArchiveFile = IFileManager::Get().CreateFileReader(*ArchiveFilePath);
+
+		if (ArchiveFile == nullptr)
+		{
+			UE_LOG(LogTextLocalizationResourceGenerator, Error, TEXT("No archive found at %s."), *ArchiveFilePath);
+			continue;
+		}
+
+		ArchiveSerializer.DeserializeArchive(*ArchiveFile, InternationalizationArchive);
+#else
+		FString ArchiveContent;
+
+		if (!FFileHelper::LoadFileToString(ArchiveContent, *ArchiveFilePath))
+		{
+			UE_LOG(LogTextLocalizationResourceGenerator, Error, TEXT("Failed to load file %s."), *ArchiveFilePath);
+			continue;
+		}
+
+		if (!ArchiveSerializer.DeserializeArchive(ArchiveContent, InternationalizationArchive))
+		{
+			UE_LOG(LogTextLocalizationResourceGenerator, Error, TEXT("Failed to serialize archive from file %s."), *ArchiveFilePath);
+			continue;
+		}
+#endif
+
+		NativeArchives.Add(InternationalizationArchive);
+	}
+
+	// For each archive:
+	for (const FString& ArchiveFileName : ArchiveFileNames)
+	{
+		// Read each archive file from the culture-named directory in the source path.
+		FString ArchiveFilePath = CulturePath / ArchiveFileName;
 		ArchiveFilePath = FPaths::ConvertRelativePathToFull(ArchiveFilePath);
 		TSharedRef<FInternationalizationArchive> InternationalizationArchive = MakeShareable(new FInternationalizationArchive);
 
@@ -216,8 +260,25 @@ bool FTextLocalizationResourceGenerator::Generate(const FString& SourcePath, con
 			{
 				const FString& Key = ContextIt->Key;
 
+				// Get proper source string to use - if the native source is different than the native translation, the native translation becomes the source.
+				FLocItem SourceToUse = Source;
+				if (CultureToGenerate != NativeCulture)
+				{
+					for (const auto& NativeArchive : NativeArchives)
+					{
+						if (NativeArchive.IsValid())
+						{
+							const TSharedPtr<FArchiveEntry> NativeArchiveEntry = NativeArchive->FindEntryBySource(Namespace, Source, ContextIt->KeyMetadataObj);
+							if (NativeArchiveEntry.IsValid() && !NativeArchiveEntry->Source.IsExactMatch(NativeArchiveEntry->Translation))
+							{
+								SourceToUse = NativeArchiveEntry->Translation;
+								break;
+							}
+						}
+					}
+				}
 				// Find matching archive entry.
-				TSharedPtr<FArchiveEntry> ArchiveEntry = InternationalizationArchive->FindEntryBySource(Namespace, Source, ContextIt->KeyMetadataObj);
+				TSharedPtr<FArchiveEntry> ArchiveEntry = InternationalizationArchive->FindEntryBySource(Namespace, SourceToUse, ContextIt->KeyMetadataObj);
 
 				if(ContextIt->bIsOptional && (!ArchiveEntry.IsValid() || (ArchiveEntry.IsValid() && ArchiveEntry->Translation.Text.IsEmpty())))
 				{
@@ -229,7 +290,7 @@ bool FTextLocalizationResourceGenerator::Generate(const FString& SourcePath, con
 				if( ArchiveEntry.IsValid() )
 				{
 					UnescapedTranslatedString = ArchiveEntry->Translation.Text;
-
+					
 					if(UnescapedTranslatedString.IsEmpty())
 					{
 						if ( !MissingArchiveTranslationKeyStrings.IsEmpty() )
@@ -241,6 +302,12 @@ bool FTextLocalizationResourceGenerator::Generate(const FString& SourcePath, con
 				}
 				else
 				{
+					// If we're not using the actual source string, then embed the fake source string as the foreign translation when we have no actual foreign translation.
+					if (!Source.IsExactMatch(SourceToUse))
+					{
+						UnescapedTranslatedString = SourceToUse.Text;
+					}
+
 					if ( !MissingArchiveEntryKeyStrings.IsEmpty() )
 					{
 						MissingArchiveEntryKeyStrings += TEXT(", ");

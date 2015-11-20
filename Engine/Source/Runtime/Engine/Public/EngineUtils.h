@@ -11,6 +11,9 @@
 #include "Engine/Level.h"
 #include "GameFramework/WorldSettings.h"
 #include "HitProxies.h"
+#include "Misc/Optional.h"
+
+class FActorRange;
 
 /*-----------------------------------------------------------------------------
 	Hit proxies.
@@ -136,17 +139,13 @@ struct HTranslucentActor : public HActor
 -----------------------------------------------------------------------------*/
 
 /**
- * Abstract base class for actor iteration. Implements all operators and relies on IsSuitable
- * to be overridden by derived classed. Also the code currently relies on the ++ operator being
- * called from within the constructor which is bad as it uses IsSuitable which is a virtual function.
- * This means that all derived classes are treated as "final" and they need to manually call
- * ++(*this) in their constructor so it ends up calling the right one. The long term plan is to
- * replace the use of virtual functions with template tricks.
+ * Abstract base class for actor iteration. Implements all operators and relies on IsActorSuitable
+ * to be overridden by derived class.
  * Note that when Playing In Editor, this will find actors only in CurrentWorld.
  */
-class FActorIteratorBase
+class FActorIteratorState
 {
-protected:
+public:
 	/** Current world we are iterating upon						*/
 	UWorld* CurrentWorld;
 	/** Results from the GetObjectsOfClass query				*/
@@ -159,8 +158,6 @@ protected:
 	int32		ConsideredCount;
 	/** Current actor pointed to by actor iterator				*/
 	AActor*	CurrentActor;
-	/** Delegate for catching spawned actors					*/
-	FOnActorSpawned::FDelegate ActorSpawnedDelegate;
 	/** Contains any actors spawned during iteration			*/
 	TArray<AActor*> SpawnedActorArray;
 	/** The class type we are iterating, kept for filtering		*/
@@ -171,7 +168,7 @@ protected:
 	/**
 	 * Default ctor, inits everything
 	 */
-	FActorIteratorBase( UWorld* InWorld, TSubclassOf<class AActor> InClass = AActor::StaticClass() ) :
+	FActorIteratorState( UWorld* InWorld, TSubclassOf<AActor> InClass ) :
 		CurrentWorld( InWorld ),
 		Index( -1 ),
 		ReachedEnd( false ),
@@ -184,15 +181,28 @@ protected:
 		EObjectFlags ExcludeFlags = RF_ClassDefaultObject|RF_PendingKill;
 		GetObjectsOfClass(InClass, ObjectArray, true, ExcludeFlags);
 
-		ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FActorIteratorBase::OnActorSpawned);
+		auto ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FActorIteratorState::OnActorSpawned);
 		ActorSpawnedDelegateHandle = CurrentWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 	}
 
-	~FActorIteratorBase()
+	~FActorIteratorState()
 	{
 		CurrentWorld->RemoveOnActorSpawnedHandler(ActorSpawnedDelegateHandle);
 	}
 
+	/**
+	 * Returns the current suitable actor pointed at by the Iterator
+	 *
+	 * @return	Current suitable actor
+	 */
+	FORCEINLINE AActor* GetActorChecked() const
+	{
+		check(CurrentActor);
+		checkf(!CurrentActor->HasAnyFlags(RF_Unreachable), TEXT("%s"), *CurrentActor->GetFullName());
+		return CurrentActor;
+	}
+
+private:
 	void OnActorSpawned(AActor* InActor)
 	{
 		if (InActor->IsA(DesiredClass))
@@ -200,32 +210,79 @@ protected:
 			SpawnedActorArray.AddUnique(InActor);
 		}
 	}
+};
 
+enum class EActorIteratorType
+{
+	End
+};
+
+/**
+ * Template class used to filter actors by certain characteristics
+ */
+template <typename Derived>
+class TActorIteratorBase
+{
 public:
-
-	
-
 	/**
-	 * Returns the current suitable actor pointed at by the Iterator
-	 *
-	 * @return	Current suitable actor
+	 * Iterates to next suitable actor.
 	 */
-	FORCEINLINE AActor* operator*()
+	void operator++()
 	{
-		check(CurrentActor);
-		checkf(!CurrentActor->HasAnyFlags(RF_Unreachable), TEXT("%s"), *CurrentActor->GetFullName());
-		return CurrentActor;
+		// Use local version to avoid LHSs as compiler is not required to write out member variables to memory.
+		AActor*           LocalCurrentActor      = nullptr;
+		int32             LocalIndex             = State->Index;
+		TArray<UObject*>& LocalObjectArray       = State->ObjectArray;
+		TArray<AActor*>&  LocalSpawnedActorArray = State->SpawnedActorArray;
+		UWorld*           LocalCurrentWorld      = State->CurrentWorld;
+		while(++LocalIndex < (LocalObjectArray.Num() + LocalSpawnedActorArray.Num()))
+		{
+			if (LocalIndex < LocalObjectArray.Num())
+			{
+				LocalCurrentActor = static_cast<AActor*>(LocalObjectArray[LocalIndex]);
+			}
+			else
+			{
+				LocalCurrentActor = LocalSpawnedActorArray[LocalIndex - LocalObjectArray.Num()];
+			}
+			State->ConsideredCount++;
+
+			if ( LocalCurrentActor != NULL
+				&& static_cast<const Derived*>(this)->IsActorSuitable(LocalCurrentActor)
+				&& static_cast<const Derived*>(this)->CanIterateLevel(LocalCurrentActor->GetLevel())
+				&& LocalCurrentActor->GetWorld() == LocalCurrentWorld)
+			{
+				// ignore non-persistent world settings
+				if (LocalCurrentActor->GetLevel() == LocalCurrentWorld->PersistentLevel || !LocalCurrentActor->IsA(AWorldSettings::StaticClass()))
+				{
+					State->CurrentActor = LocalCurrentActor;
+					State->Index = LocalIndex;
+					return;
+				}
+			}
+		}
+		State->CurrentActor = NULL;
+		State->ReachedEnd = true;
 	}
+
 	/**
 	 * Returns the current suitable actor pointed at by the Iterator
 	 *
 	 * @return	Current suitable actor
 	 */
-	FORCEINLINE AActor* operator->()
+	FORCEINLINE AActor* operator*() const
 	{
-		check(CurrentActor);
-		checkf(!CurrentActor->HasAnyFlags(RF_Unreachable), TEXT("%s"), *CurrentActor->GetFullName());
-		return CurrentActor;
+		return State->GetActorChecked();
+	}
+
+	/**
+	 * Returns the current suitable actor pointed at by the Iterator
+	 *
+	 * @return	Current suitable actor
+	 */
+	FORCEINLINE AActor* operator->() const
+	{
+		return State->GetActorChecked();
 	}
 	/**
 	 * Returns whether the iterator has reached the end and no longer points
@@ -233,9 +290,9 @@ public:
 	 *
 	 * @return true if iterator points to a suitable actor, false if it has reached the end
 	 */
-	FORCEINLINE operator bool()
+	FORCEINLINE_EXPLICIT_OPERATOR_BOOL() const
 	{
-		return !ReachedEnd;
+		return !State->ReachedEnd;
 	}
 
 	/**
@@ -243,8 +300,8 @@ public:
 	 */
 	void ClearCurrent()
 	{
-		check(!ReachedEnd);
-		CurrentWorld->RemoveActor(CurrentActor, true);
+		check(!State->ReachedEnd);
+		State->CurrentWorld->RemoveActor(State->CurrentActor, true);
 	}
 
 	/**
@@ -253,40 +310,89 @@ public:
 	 *
 	 * @return number of actors considered thus far.
 	 */
-	int32 GetProgressNumerator()
+	int32 GetProgressNumerator() const
 	{
-		return ConsideredCount;
+		return State->ConsideredCount;
 	}
-};
 
-/**
- * Default level iteration filter. Doesn't cull levels out.
- */
-struct FDefaultLevelFilter
-{
+protected:
+	/**
+	 * Hide the constructors as construction on this class should only be done by subclasses
+	 */
+	explicit TActorIteratorBase(EActorIteratorType)
+	{
+	}
+
+	TActorIteratorBase(UWorld* InWorld, TSubclassOf<AActor> InClass)
+	{
+		State.Emplace(InWorld, InClass);
+	}
+
+	/**
+	 * Determines whether this is a valid actor or not.
+	 * This function should be redefined (thus hiding this one) in a derived class if it wants special actor filtering.
+	 *
+	 * @param	Actor	Actor to check
+	 * @return	true
+	 */
+	FORCEINLINE static bool IsActorSuitable(AActor* Actor)
+	{
+		return !Actor->IsPendingKill();
+	}
+
 	/**
 	 * Used to examine whether this level is valid for iteration or not
+	 * This function should be redefined (thus hiding this one) in a derived class if it wants special level filtering.
 	 *
 	 * @param Level the level to check for iteration
-	 *
 	 * @return true if the level can be iterated, false otherwise
 	 */
-	bool CanIterateLevel(ULevel* Level) const
+	FORCEINLINE static bool CanIterateLevel(ULevel* Level)
 	{
 		return true;
 	}
+
+private:
+	TOptional<FActorIteratorState> State;
+
+	friend bool operator==(const TActorIteratorBase& Lhs, const TActorIteratorBase& Rhs) { check(!Rhs.State); return  !Lhs; }
+	friend bool operator!=(const TActorIteratorBase& Lhs, const TActorIteratorBase& Rhs) { check(!Rhs.State); return !!Lhs; }
 };
 
 /**
- * Filter class that prevents ticking of levels that are still loading
+ * Actor iterator
+ * Note that when Playing In Editor, this will find actors only in CurrentWorld
  */
-struct FTickableLevelFilter
+class FActorIterator : public TActorIteratorBase<FActorIterator>
 {
+	friend class TActorIteratorBase<FActorIterator>;
+	typedef TActorIteratorBase<FActorIterator> Super;
+
+public:
+	/**
+	 * Constructor
+	 *
+	 * @param  InWorld  The world whose actors are to be iterated over.
+	 */
+	explicit FActorIterator(UWorld* InWorld)
+		: Super(InWorld, AActor::StaticClass())
+	{
+		++(*this);
+	}
+
+	/**
+	 * Constructor for creating an end iterator
+	 */
+	explicit FActorIterator(EActorIteratorType)
+		: Super(EActorIteratorType::End)
+	{
+	}
+
+private:
 	/**
 	 * Used to examine whether this level is valid for iteration or not
 	 *
 	 * @param Level the level to check for iteration
-	 *
 	 * @return true if the level can be iterated, false otherwise
 	 */
 	static bool CanIterateLevel(ULevel* Level)
@@ -296,247 +402,181 @@ struct FTickableLevelFilter
 };
 
 /**
- * Template class used to avoid the virtual function call cost for filtering
- * actors by certain characteristics
- */
-template<typename FILTER_CLASS,typename LEVEL_FILTER_CLASS = FDefaultLevelFilter>
-class TActorIteratorBase :
-	public FActorIteratorBase
-{
-protected:
-	/**
-	 * Ref to the class that is going to filter actors
-	 */
-	const FILTER_CLASS& FilterClass;
-	/**
-	 * Ref to the object that is going to filter levels
-	 */
-	const LEVEL_FILTER_CLASS& LevelFilterClass;
-
-	/**
-	 * Hide the constructor as construction on this class should only be done by subclasses
-	 */
-	TActorIteratorBase( UWorld* InWorld, TSubclassOf<class AActor> InClass = AActor::StaticClass(),
-		const FILTER_CLASS& InFilterClass = FILTER_CLASS(),
-		const LEVEL_FILTER_CLASS& InLevelClass = LEVEL_FILTER_CLASS())
-	:	FActorIteratorBase( InWorld, InClass ),
-		FilterClass(InFilterClass),
-		LevelFilterClass(InLevelClass)
-	{
-	}
-
-public:
-	/**
-	 * Iterates to next suitable actor.
-	 */
-	void operator++()
-	{
-		// Use local version to avoid LHSs as compiler is not required to write out member variables to memory.
-		AActor*		LocalCurrentActor	= NULL;
-		int32		LocalIndex			= Index;
-		while(++LocalIndex < (ObjectArray.Num() + SpawnedActorArray.Num()))
-		{
-			if (LocalIndex < ObjectArray.Num())
-			{
-				LocalCurrentActor = static_cast<AActor*>(ObjectArray[LocalIndex]);
-			}
-			else
-			{
-				LocalCurrentActor = SpawnedActorArray[LocalIndex - ObjectArray.Num()];
-			}
-			ConsideredCount++;
-
-			if ( LocalCurrentActor != NULL
-				&& FilterClass.IsSuitable(LocalCurrentActor)
-				&& LevelFilterClass.CanIterateLevel(LocalCurrentActor->GetLevel())
-				&& LocalCurrentActor->GetWorld() == CurrentWorld)
-			{
-				// ignore non-persistent world settings
-				if (LocalCurrentActor->GetLevel() == CurrentWorld->PersistentLevel
-					|| !LocalCurrentActor->IsA(AWorldSettings::StaticClass()))
-				{
-					CurrentActor = LocalCurrentActor;
-					Index = LocalIndex;
-					return;
-				}
-			}
-		}
-		CurrentActor = NULL;
-		ReachedEnd = true;
-	}
-};
-
-/**
- * Base filter class for actor filtering in iterators.
- */
-class FActorFilter
-{
-public:
-	/**
-	 * Determines whether this is a valid actor or not
-	 *
-	 * @param	Actor	Actor to check
-	 * @return	true if actor is != NULL, false otherwise
-	 */
-	FORCEINLINE bool IsSuitable( AActor* Actor ) const
-	{
-		return Actor != NULL;
-	}
-};
-
-/**
- * Actor iterator
+ * Actor range for ranged-for support.
  * Note that when Playing In Editor, this will find actors only in CurrentWorld
  */
-class FActorIterator :
-	public TActorIteratorBase<FActorFilter, FTickableLevelFilter>
+class FActorRange
 {
 public:
 	/**
-	 * Constructor, inits the starting position for iteration
-	 * Also optionally takes in a custom UWorld
+	 * Constructor
+	 *
+	 * @param  InWorld  The world whose actors are to be iterated over.
 	 */
-	FActorIterator(UWorld* InWorld )
-		:TActorIteratorBase(InWorld)
+	explicit FActorRange(UWorld* InWorld)
+		: World(InWorld)
 	{
-		++(*this);
 	}
+
+private:
+	UWorld* World;
+
+	friend FActorIterator begin(const FActorRange& Range) { return FActorIterator(Range.World); }
+	friend FActorIterator end  (const FActorRange& Range) { return FActorIterator(EActorIteratorType::End); }
 };
 
 /**
  * Template actor iterator.
  */
 template <typename ActorType>
-class TActorIterator : 
-	public TActorIteratorBase< FActorFilter >
+class TActorIterator : public TActorIteratorBase<TActorIterator<ActorType>>
 {
+	friend class TActorIteratorBase<TActorIterator>;
+	typedef TActorIteratorBase<TActorIterator> Super;
+
 public:
 	/**
-	 * Constructor, inits the starting position for iteration
+	 * Constructor
+	 *
+	 * @param  InWorld  The world whose actors are to be iterated over.
+	 * @param  InClass  The subclass of actors to be iterated over.
 	 */
-	TActorIterator( UWorld* InWorld, TSubclassOf<ActorType> InClass = ActorType::StaticClass() )
-		: TActorIteratorBase< FActorFilter >( InWorld, InClass )
+	explicit TActorIterator( UWorld* InWorld, TSubclassOf<ActorType> InClass = ActorType::StaticClass() )
+		: Super( InWorld, InClass )
 	{
 		++(*this);
 	}
 
 	/**
-	 * Returns the current suitable actor pointed at by the Iterator
-	 *
-	 * @return	Current suitable actor
+	 * Constructor for creating an end iterator
 	 */
-	FORCEINLINE ActorType* operator*()
+	explicit TActorIterator(EActorIteratorType)
+		: Super(EActorIteratorType::End)
 	{
-		check(FActorIteratorBase::CurrentActor);
-		checkf(!FActorIteratorBase::CurrentActor->HasAnyFlags(RF_Unreachable), TEXT("%s"), *FActorIteratorBase::CurrentActor->GetFullName());
-		return CastChecked<ActorType>(FActorIteratorBase::CurrentActor);
 	}
+
 	/**
 	 * Returns the current suitable actor pointed at by the Iterator
 	 *
 	 * @return	Current suitable actor
 	 */
-	FORCEINLINE ActorType* operator->()
+	FORCEINLINE ActorType* operator*() const
 	{
-		check(FActorIteratorBase::CurrentActor);
-		checkf(!FActorIteratorBase::CurrentActor->HasAnyFlags(RF_Unreachable), TEXT("%s"), *FActorIteratorBase::CurrentActor->GetFullName());
-		return CastChecked<ActorType>(FActorIteratorBase::CurrentActor);
+		return CastChecked<ActorType>(**static_cast<const Super*>(this));
+	}
+
+	/**
+	 * Returns the current suitable actor pointed at by the Iterator
+	 *
+	 * @return	Current suitable actor
+	 */
+	FORCEINLINE ActorType* operator->() const
+	{
+		return **this;
+	}
+
+private:
+	/**
+	 * Used to examine whether this level is valid for iteration or not
+	 *
+	 * @param Level the level to check for iteration
+	 * @return true if the level can be iterated, false otherwise
+	 */
+	static bool CanIterateLevel(ULevel* Level)
+	{
+		return Level->bIsVisible;
 	}
 };
 
 /**
- * Filters actors by whether or not they are selected
+ * Template actor range for ranged-for support.
  */
-class FSelectedActorFilter :
-	public FActorFilter
+template <typename ActorType>
+class TActorRange
 {
 public:
 	/**
-	 * Determines if the actor should be returned during iteration or not
+	 * Constructor
 	 *
-	 * @param	Actor	Actor to check
-	 * @return	true if actor is selected, false otherwise
+	 * @param  InWorld  The world whose actors are to be iterated over.
+	 * @param  InClass  The subclass of actors to be iterated over.
 	 */
-	FORCEINLINE bool IsSuitable( AActor* Actor ) const
+	explicit TActorRange(UWorld* InWorld, TSubclassOf<ActorType> InClass = ActorType::StaticClass())
+		: World(InWorld)
+		, Class(InClass)
 	{
-		return Actor ? Actor->IsSelected() : false;
 	}
+
+private:
+	UWorld*                World;
+	TSubclassOf<ActorType> Class;
+
+	friend TActorIterator<ActorType> begin(const TActorRange& Range) { return TActorIterator<ActorType>(Range.World, Range.Class); }
+	friend TActorIterator<ActorType> end  (const TActorRange& Range) { return TActorIterator<ActorType>(EActorIteratorType::End); }
 };
 
 /**
  * Selected actor iterator
  */
-class FSelectedActorIterator :
-	public TActorIteratorBase<FSelectedActorFilter>
+class FSelectedActorIterator : public TActorIteratorBase<FSelectedActorIterator>
 {
+	friend class TActorIteratorBase<FSelectedActorIterator>;
+	typedef TActorIteratorBase<FSelectedActorIterator> Super;
+
 public:
 	/**
-	 * Constructor, inits the starting position for iteration
-	 */
-	FSelectedActorIterator( UWorld* InWorld )
-		:TActorIteratorBase( InWorld )
-	{
-		++(*this);
-	}
-};
-
-/**
- * Filters actors by whether or not they are network relevant
- */
-class FNetRelevantActorFilter :
-	public FActorFilter
-{
-	/**
-	 * The name of the net driver to filter actors by
-	 */
-	FName NetDriverName;
-
-public:
-	/** Filter by the name specified */
-	FNetRelevantActorFilter(FName InNetDriverName) :
-		NetDriverName(InNetDriverName)
-	{
-	}
-	/** Default to the game network driver if not specified */
-	FNetRelevantActorFilter() :
-		NetDriverName(NAME_GameNetDriver)
-	{
-	}
-
-	/**
-	 * Determines whether this actor is marked for the specified net driver or not
+	 * Constructor
 	 *
-	 * @param	Actor	Actor to check the net driver name of
-	 * @return	true if actor is != NULL, false otherwise
+	 * @param  InWorld  The world whose actors are to be iterated over.
 	 */
-	FORCEINLINE bool IsSuitable( AActor* Actor ) const
+	explicit FSelectedActorIterator( UWorld* InWorld )
+		:Super( InWorld, AActor::StaticClass() )
 	{
-		return Actor != NULL && Actor->NetDriverName == NetDriverName;
+		++(*this);
+	}
+
+	/**
+	 * Constructor for creating an end iterator
+	 */
+	explicit FSelectedActorIterator(EActorIteratorType)
+		: Super(EActorIteratorType::End)
+	{
+	}
+
+protected:
+	/**
+	 * Determines if the actor should be returned during iteration or not
+	 *
+	 * @param	Actor	Actor to check
+	 * @return	true if actor is not null and is selected, false otherwise
+	 */
+	FORCEINLINE static bool IsActorSuitable(AActor* Actor)
+	{
+		return !Actor->IsPendingKill() && Actor->IsSelected();
 	}
 };
 
 /**
- * Net relevant actor iterator
+ * Selected actor range for ranged-for support.
  */
-class FNetRelevantActorIterator :
-	public TActorIteratorBase<FNetRelevantActorFilter, FTickableLevelFilter>
+class FSelectedActorRange
 {
-	/** Holds a filter class for the lifetime of this iterator */
-	FNetRelevantActorFilter FilterByNetDriverName;
-
-	/** Hidden on purpose */
-	FNetRelevantActorIterator();
-
 public:
 	/**
-	 * Positions the iterator at the first network relevant actor
+	 * Constructor
+	 *
+	 * @param  InWorld  The world whose actors are to be iterated over.
 	 */
-	FNetRelevantActorIterator( UWorld* InWorld, FName NetDriverName ) :
-		TActorIteratorBase( InWorld, AActor::StaticClass(), FilterByNetDriverName ),
-		FilterByNetDriverName( NetDriverName )
+	explicit FSelectedActorRange(UWorld* InWorld)
+		: World(InWorld)
 	{
-		++(*this);
 	}
+
+private:
+	UWorld* World;
+
+	friend FSelectedActorIterator begin(const FSelectedActorRange& Range) { return FSelectedActorIterator(Range.World); }
+	friend FSelectedActorIterator end  (const FSelectedActorRange& Range) { return FSelectedActorIterator(EActorIteratorType::End); }
 };
 
 /**
@@ -544,13 +584,15 @@ public:
  */
 class ENGINE_API FConsoleOutputDevice : public FStringOutputDevice
 {
+	typedef FStringOutputDevice Super;
+
 public:
 
 	/**
 	 * Minimal initialization constructor.
 	 */
 	FConsoleOutputDevice(class UConsole* InConsole):
-		FStringOutputDevice(TEXT("")),
+		Super(TEXT("")),
 		Console(InConsole)
 	{}
 

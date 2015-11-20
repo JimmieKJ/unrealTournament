@@ -27,7 +27,6 @@ bool Sc::TriggerInteraction::isOneActorActive()
 	if (getActor0().isActive())
 	{
 		PX_ASSERT(getTriggerShape()->getBodySim());
-
 		PX_ASSERT(!getTriggerShape()->getBodySim()->isKinematic() || getTriggerShape()->getBodySim()->readInternalFlag(BodySim::BF_KINEMATIC_MOVED) || 
 			getTriggerShape()->getBodySim()->readInternalFlag(BodySim::BF_KINEMATIC_SETTLING));
 		return true;

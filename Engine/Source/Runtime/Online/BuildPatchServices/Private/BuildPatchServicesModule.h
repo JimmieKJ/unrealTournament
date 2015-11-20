@@ -66,12 +66,12 @@ class FBuildPatchServicesModule
 {
 public:
 
-	// Begin IModuleInterface interface
+	//~ Begin IModuleInterface Interface
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
-	// End IModuleInterface interface
+	//~ End IModuleInterface Interface
 
-	// Begin IBuildPatchServicesModule interface
+	//~ Begin IBuildPatchServicesModule Interface
 	virtual IBuildManifestPtr LoadManifestFromFile(const FString& Filename) override;
 	virtual IBuildManifestPtr MakeManifestFromData(const TArray<uint8>& ManifestData) override;
 	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary = true) override;
@@ -91,7 +91,7 @@ public:
 	virtual bool EnumerateManifestData(FString ManifestFilePath, FString OutputFile, const bool bIncludeSizes) override;
 #endif
 	virtual IBuildManifestPtr MakeManifestFromJSON(const FString& ManifestJSON) override;
-	// End IBuildPatchServicesModule interface
+	//~ End IBuildPatchServicesModule Interface
 
 	/**
 	 * Gets the directory used for staging intermediate files.

@@ -12,6 +12,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogBSPOps, Log, All);
 /** Errors encountered in Csg operation. */
 int32 FBSPOps::GErrors = 0;
 bool FBSPOps::GFastRebuild = false;
+FBspPointsGrid* FBspPointsGrid::GBspPoints = nullptr;
+FBspPointsGrid* FBspPointsGrid::GBspVectors = nullptr;
 
 static void TagReferencedNodes( UModel *Model, int32 *NodeRef, int32 *PolyRef, int32 iNode )
 {
@@ -550,9 +552,7 @@ void FBSPOps::csgCopyBrush( ABrush* Dest, ABrush* Src, uint32 PolyFlags, EObject
 	Dest->Brush = NewObject<UModel>(Dest, NAME_None, ResFlags);
 	Dest->Brush->Initialize(nullptr, Src->Brush->RootOutside);
 	Dest->Brush->Polys	= NewObject<UPolys>(Dest->Brush, NAME_None, ResFlags);
-	check(Dest->Brush->Polys->Element.GetOwner()==Dest->Brush->Polys);
-	Dest->Brush->Polys->Element.AssignButKeepOwner(Src->Brush->Polys->Element);
-	check(Dest->Brush->Polys->Element.GetOwner()==Dest->Brush->Polys);
+	Dest->Brush->Polys->Element = Src->Brush->Polys->Element;
 	Dest->GetBrushComponent()->Brush = Dest->Brush;
 	if(Src->BrushBuilder != nullptr)
 	{
@@ -665,6 +665,21 @@ static int32 AddThing( TArray<FVector>& Vectors, FVector& V, float Thresh, int32
 /** Add a new vector to the model, merging near-duplicates, and return its index. */
 int32 FBSPOps::bspAddVector( UModel* Model, FVector* V, bool Exact )
 {
+	const float Thresh = Exact ? THRESH_NORMALS_ARE_SAME : THRESH_VECTORS_ARE_NEAR;
+
+	if (FBspPointsGrid::GBspVectors)
+	{
+		// If a points grid has been built for quick vector lookup, use that instead of doing a linear search
+		const int32 NextIndex = Model->Vectors.Num();
+		const int32 ReturnedIndex = FBspPointsGrid::GBspVectors->FindOrAddPoint(*V, NextIndex, Thresh);
+		if (ReturnedIndex == NextIndex)
+		{
+			Model->Vectors.Add(*V);
+		}
+
+		return ReturnedIndex;
+	}
+
 	return AddThing
 	(
 		Model->Vectors,
@@ -677,7 +692,21 @@ int32 FBSPOps::bspAddVector( UModel* Model, FVector* V, bool Exact )
 /** Add a new point to the model, merging near-duplicates, and return its index. */
 int32 FBSPOps::bspAddPoint( UModel* Model, FVector* V, bool Exact )
 {
-	float Thresh = Exact ? THRESH_POINTS_ARE_SAME : THRESH_POINTS_ARE_NEAR;
+	const float Thresh = Exact ? THRESH_POINTS_ARE_SAME : THRESH_POINTS_ARE_NEAR;
+
+	if (FBspPointsGrid::GBspPoints)
+	{
+		// If a points grid has been built for quick point lookup, use that instead of doing a linear search
+		const int32 NextIndex = Model->Points.Num();
+		// Always look for points with a low threshold; a generous threshold can result in 'leaks' in the BSP and unwanted polys being generated
+		const int32 ReturnedIndex = FBspPointsGrid::GBspPoints->FindOrAddPoint(*V, NextIndex, THRESH_POINTS_ARE_SAME);
+		if (ReturnedIndex == NextIndex)
+		{
+			Model->Points.Add(*V);
+		}
+
+		return ReturnedIndex;
+	}
 
 	// Try to find a match quickly from the Bsp. This finds all potential matches
 	// except for any dissociated from nodes/surfaces during a rebuild.
@@ -692,12 +721,10 @@ int32 FBSPOps::bspAddPoint( UModel* Model, FVector* V, bool Exact )
 	else
 	{
 		// No match found; add it slowly to find duplicates.
-		return AddThing( Model->Points, *V, Thresh, !GFastRebuild );
+		return AddThing(Model->Points, *V, Thresh, !GFastRebuild);
 	}
 }
 
-
-//int32 FBSPOps::bspNodeToFPoly( UModel* Model, int32 iNode, FPoly* EdPoly );
 
 /**
  * Builds Bsp from the editor polygon set (EdPolys) of a model.
@@ -1112,10 +1139,6 @@ int32	FBSPOps::bspAddNode( UModel* Model, int32 iParent, ENodePlace NodePlace, u
 	else
 	{
 		// Add node.
-		if( NodePlace!=NODE_Root )
-		{
-			Model->Nodes.ModifyItem( iParent );
-		}
 		int32 iNode			 = Model->Nodes.AddZeroed();
 		FBspNode& Node       = Model->Nodes[iNode];
 
@@ -1158,9 +1181,18 @@ int32	FBSPOps::bspAddNode( UModel* Model, int32 iParent, ENodePlace NodePlace, u
 		}
 
 		// Link parent to this node.
-		if     ( NodePlace==NODE_Front ) Parent->iFront = iNode;
-		else if( NodePlace==NODE_Back  ) Parent->iBack  = iNode;
-		else if( NodePlace==NODE_Plane ) Parent->iPlane = iNode;
+		if (NodePlace == NODE_Front)
+		{
+			Parent->iFront = iNode;
+		}
+		else if (NodePlace == NODE_Back)
+		{
+			Parent->iBack = iNode;
+		}
+		else if (NodePlace == NODE_Plane)
+		{
+			Parent->iPlane = iNode;
+		}
 
 		// Add all points to point table, merging nearly-overlapping polygon points
 		// with other points in the poly to prevent criscrossing vertices from
@@ -1227,9 +1259,9 @@ void FBSPOps::RotateBrushVerts(ABrush* Brush, const FRotator& Rotation, bool bCl
 			const FRotationMatrix RotMatrix( Rotation );
 			for( int32 vertex = 0 ; vertex < Poly->Vertices.Num() ; vertex++ )
 			{
-				Poly->Vertices[vertex] = Brush->GetPrePivot() + RotMatrix.TransformVector( Poly->Vertices[vertex] - Brush->GetPrePivot() );
+				Poly->Vertices[vertex] = Brush->GetPivotOffset() + RotMatrix.TransformVector(Poly->Vertices[vertex] - Brush->GetPivotOffset());
 			}
-			Poly->Base = Brush->GetPrePivot() + RotMatrix.TransformVector( Poly->Base - Brush->GetPrePivot() );
+			Poly->Base = Brush->GetPivotOffset() + RotMatrix.TransformVector(Poly->Base - Brush->GetPivotOffset());
 
 			// Rotate the texture vectors.
 			Poly->TextureU = RotMatrix.TransformVector( Poly->TextureU );
@@ -1262,4 +1294,114 @@ void FBSPOps::HandleVolumeShapeChanged(AVolume& Volume)
 	{
 		FBSPOps::csgPrepMovingBrush( &Volume );
 	}
+}
+
+
+void FBspPointsGrid::Clear(int32 InitialSize)
+{
+	GridMap.Empty(InitialSize);
+}
+
+
+// Given a grid index in one axis, a real position on the grid and a threshold radius,
+// return either:
+// - the additional grid index it can overlap in that axis, or
+// - the original grid index if there is no overlap.
+static FORCEINLINE int32 GetAdjacentIndexIfOverlapping(int32 GridIndex, float GridPos, float GridThreshold)
+{
+	if (GridPos - GridIndex < GridThreshold)
+	{
+		return GridIndex - 1;
+	}
+	else if (1.0f - (GridPos - GridIndex) < GridThreshold)
+	{
+		return GridIndex + 1;
+	}
+	else
+	{
+		return GridIndex;
+	}
+}
+
+int32 FBspPointsGrid::FindOrAddPoint(const FVector& Point, int32 Index, float PointThreshold)
+{
+	// Offset applied to the grid coordinates so aligned vertices (the normal case) don't overlap several grid items (taking into account the threshold)
+	const float GridOffset = 0.12345f;
+
+	const float AdjustedPointX = Point.X - GridOffset;
+	const float AdjustedPointY = Point.Y - GridOffset;
+	const float AdjustedPointZ = Point.Z - GridOffset;
+
+	const float GridX = AdjustedPointX * OneOverGranularity;
+	const float GridY = AdjustedPointY * OneOverGranularity;
+	const float GridZ = AdjustedPointZ * OneOverGranularity;
+
+	// Get the grid indices corresponding to the point coordinates
+	const int32 GridIndexX = FMath::FloorToInt(GridX);
+	const int32 GridIndexY = FMath::FloorToInt(GridY);
+	const int32 GridIndexZ = FMath::FloorToInt(GridZ);
+
+	// Find grid item in map
+	FBspPointsGridItem& GridItem = GridMap.FindOrAdd(FBspPointsKey(GridIndexX, GridIndexY, GridIndexZ));
+
+	// Iterate through grid item points and return a point if it's close to the threshold
+	const float PointThresholdSquared = PointThreshold * PointThreshold;
+	for (const FBspIndexedPoint& IndexedPoint : GridItem.IndexedPoints)
+	{
+		if (FVector::DistSquared(IndexedPoint.Point, Point) <= PointThresholdSquared)
+		{
+			return IndexedPoint.Index;
+		}
+	}
+
+	// Otherwise, the point is new: add it to the grid item.
+	GridItem.IndexedPoints.Emplace(Point, Index);
+
+	// The grid has a maximum threshold of a certain radius. If the point is near the edge of a grid cube, it may overlap into other items.
+	// Add it to all grid items it can be seen from.
+	const float GridThreshold = Threshold * OneOverGranularity;
+	const int32 NeighbourX = GetAdjacentIndexIfOverlapping(GridIndexX, GridX, GridThreshold);
+	const int32 NeighbourY = GetAdjacentIndexIfOverlapping(GridIndexY, GridY, GridThreshold);
+	const int32 NeighbourZ = GetAdjacentIndexIfOverlapping(GridIndexZ, GridZ, GridThreshold);
+
+	const bool bOverlapsInX = (NeighbourX != GridIndexX);
+	const bool bOverlapsInY = (NeighbourY != GridIndexY);
+	const bool bOverlapsInZ = (NeighbourZ != GridIndexZ);
+
+	if (bOverlapsInX)
+	{
+		GridMap.FindOrAdd(FBspPointsKey(NeighbourX, GridIndexY, GridIndexZ)).IndexedPoints.Emplace(Point, Index);
+
+		if (bOverlapsInY)
+		{
+			GridMap.FindOrAdd(FBspPointsKey(NeighbourX, NeighbourY, GridIndexZ)).IndexedPoints.Emplace(Point, Index);
+
+			if (bOverlapsInZ)
+			{
+				GridMap.FindOrAdd(FBspPointsKey(NeighbourX, NeighbourY, NeighbourZ)).IndexedPoints.Emplace(Point, Index);
+			}
+		}
+		else if (bOverlapsInZ)
+		{
+			GridMap.FindOrAdd(FBspPointsKey(NeighbourX, GridIndexY, NeighbourZ)).IndexedPoints.Emplace(Point, Index);
+		}
+	}
+	else
+	{
+		if (bOverlapsInY)
+		{
+			GridMap.FindOrAdd(FBspPointsKey(GridIndexX, NeighbourY, GridIndexZ)).IndexedPoints.Emplace(Point, Index);
+
+			if (bOverlapsInZ)
+			{
+				GridMap.FindOrAdd(FBspPointsKey(GridIndexX, NeighbourY, NeighbourZ)).IndexedPoints.Emplace(Point, Index);
+			}
+		}
+		else if (bOverlapsInZ)
+		{
+			GridMap.FindOrAdd(FBspPointsKey(GridIndexX, GridIndexY, NeighbourZ)).IndexedPoints.Emplace(Point, Index);
+		}
+	}
+
+	return Index;
 }

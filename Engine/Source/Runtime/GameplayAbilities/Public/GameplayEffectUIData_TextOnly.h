@@ -9,10 +9,10 @@
  * If your game needs only text, this is a reasonable class to use. To include more data, make a custom subclass of UGameplayEffectUIData.
  */
 UCLASS()
-class UGameplayEffectUIData_TextOnly : public UGameplayEffectUIData
+class GAMEPLAYABILITIES_API UGameplayEffectUIData_TextOnly : public UGameplayEffectUIData
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Data)
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Data, meta = (MultiLine = "true"))
 	FText Description;
 };

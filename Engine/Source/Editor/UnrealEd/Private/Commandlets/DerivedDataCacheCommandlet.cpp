@@ -226,9 +226,12 @@ int32 UDerivedDataCacheCommandlet::Main( const FString& Params )
 				// cache all the resources for this platform
 				for ( TObjectIterator<UObject> It; It; ++It )
 				{
-					for ( auto Platform : Platforms )
+					if (ProcessedPackages.Contains(It->GetOutermost()->GetName()))
 					{
-						It->BeginCacheForCookedPlatformData( Platform );
+						for (auto Platform : Platforms)
+						{
+							It->BeginCacheForCookedPlatformData(Platform);
+						}
 					}
 				}
 

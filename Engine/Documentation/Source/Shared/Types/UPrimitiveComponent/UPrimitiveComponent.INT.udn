@@ -131,6 +131,10 @@ Engine/Physics/PhysicsBodies#collision
 [EXCERPT:bRenderCustomDepth]
 [/EXCERPT:bRenderCustomDepth]
 
+<!-- Optionally write this 0-255 value to the stencil buffer in CustomDepth pass (Requires project setting or r.CustomDepth == 3)  -->
+[EXCERPT:CustomDepthStencilValue]
+[/EXCERPT:CustomDepthStencilValue]
+
 
 <!-- If true, this component will be rendered in the main pass (z prepass, basepass, transparency) -->
 [EXCERPT:bRenderInMainPass]

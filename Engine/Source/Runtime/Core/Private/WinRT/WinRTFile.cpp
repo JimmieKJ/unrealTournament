@@ -360,7 +360,12 @@ public:
 		HANDLE Handle	 = CreateFile2(*NormalizeFilename(Filename), Access, WinFlags, Create, NULL);
 		if(Handle != INVALID_HANDLE_VALUE)
 		{
-			return new FFileHandleWinRT(Handle);
+			FFileHandleWinRT *PlatformFileHandle = new FFileHandleWinRT(Handle);
+			if (bAppend)
+			{
+				PlatformFileHandle->SeekFromEnd(0);
+			}
+			return PlatformFileHandle;
 		}
 		return NULL;
 	}

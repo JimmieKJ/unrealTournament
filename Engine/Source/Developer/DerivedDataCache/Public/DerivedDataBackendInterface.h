@@ -14,6 +14,21 @@ DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Sync Put Time"),STAT_DDC_PutTime,STA
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Sync Build Time"),STAT_DDC_SyncBuildTime,STATGROUP_DDC, );
 DECLARE_FLOAT_ACCUMULATOR_STAT_EXTERN(TEXT("Exists Time"),STAT_DDC_ExistTime,STATGROUP_DDC, );
 
+struct FCacheStatRecord
+{
+	FString CacheKey;
+	uint32 DataSize;
+	double StartTime;
+	double EndTime;
+	double GetDuration;
+	double PutDuration;
+	uint32 CacheGet;
+	bool bSynchronous;
+	bool bFromNetwork;
+	bool bToNetwork;
+};
+
+
 /** 
  * Interface for cache server backends. 
  * The entire API should be callable from any thread (except the singleton can be assumed to be called at least once before concurrent access).
@@ -51,7 +66,7 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData)=0;
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData, FCacheStatRecord* Stats = NULL)=0;
 	/**
 	 * Asynchronous, fire-and-forget placement of a cache item
 	 *
@@ -59,7 +74,7 @@ public:
 	 * @param	InData				Buffer containing the data to cache, can be destroyed after the call returns, immediately
 	 * @param	bPutEvenIfExists	If true, then do not attempt skip the put even if CachedDataProbablyExists returns true
 	 */
-	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists)=0;
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists, FCacheStatRecord* Stats = NULL) = 0;
 
 	/**
 	 * Remove data from cache (used in the event that corruption is detected at a higher level and possibly house keeping)

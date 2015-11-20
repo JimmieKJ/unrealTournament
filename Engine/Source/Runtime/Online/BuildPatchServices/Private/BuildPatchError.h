@@ -10,51 +10,6 @@
 #pragma once
 
 /**
- * Declares the error type enum for use with the fatal error system
- */
-namespace EBuildPatchInstallError
-{
-	enum Type
-	{
-		// There has been no registered error
-		NoError = 0,
-
-		// A download registered a fatal error
-		DownloadError = 1,
-
-		// A file failed to construct properly
-		FileConstructionFail = 2,
-
-		// An error occurred trying to move the file to the install location
-		MoveFileToInstall = 3,
-
-		// The installed build failed to verify
-		BuildVerifyFail = 4,
-
-		// The user or some process has closed the application
-		ApplicationClosing = 5,
-
-		// An application error, such as module fail to load.
-		ApplicationError = 6,
-
-		// User canceled download
-		UserCanceled = 7,
-
-		// A prerequisites installer failed
-		PrerequisiteError = 8,
-
-		// An initialization error
-		InitializationError = 9,
-
-		// An error occurred creating a file due to excessive path length
-		PathLengthExceeded = 10,
-
-		// An error occurred creating a file due to their not being enough space left on the disk
-		OutOfDiskSpace = 11
-	};
-};
-
-/**
  * A struct to hold static fatal error flagging
  */
 struct FBuildPatchInstallError
@@ -65,7 +20,7 @@ private:
 	static FCriticalSection ThreadLock;
 
 	// The current error state
-	static EBuildPatchInstallError::Type ErrorState;
+	static EBuildPatchInstallError ErrorState;
 
 	// The current error string
 	static FString ErrorString;
@@ -99,7 +54,7 @@ public:
 	 * Static function to get fatal error
 	 * @return The fatal error type
 	 */
-	static EBuildPatchInstallError::Type GetErrorState();
+	static EBuildPatchInstallError GetErrorState();
 
 	/**
 	 * Static function to get the error string for logging
@@ -124,7 +79,7 @@ public:
 	 * @param ErrorType		The error type value.
 	 * @param ErrorLog		An optional string with extra information.
 	 */
-	static void SetFatalError( const EBuildPatchInstallError::Type& ErrorType, const FString& ErrorLog = TEXT( "" ) );
+	static void SetFatalError( const EBuildPatchInstallError& ErrorType, const FString& ErrorLog = TEXT( "" ) );
 
 private:
 	/**
@@ -132,7 +87,7 @@ private:
 	 * @param ErrorType - The error type value.
 	 * @return A string value.
 	 */
-	static const FString& ToString( const EBuildPatchInstallError::Type& ErrorType );
+	static const FString& ToString( const EBuildPatchInstallError& ErrorType );
 
 	/**
 	 * Returns the string representation of the current FBuildPatchInstallError value. Used for logging only.

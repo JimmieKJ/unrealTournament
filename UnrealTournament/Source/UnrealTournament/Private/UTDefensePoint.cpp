@@ -20,7 +20,7 @@ AUTDefensePoint::AUTDefensePoint(const FObjectInitializer& OI)
 	{
 		EditorArrow->AttachParent = RootComponent;
 		EditorArrow->ArrowSize = 0.5f;
-		EditorArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f);
+		EditorArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f).ToFColor(false);
 	}
 #endif
 

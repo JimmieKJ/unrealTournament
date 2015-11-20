@@ -89,25 +89,51 @@ void FSlateOpenGLShader::CompileShader( const FString& Filename, GLenum ShaderTy
 	bool bFileFound = FFileHelper::LoadFileToString( Source, *Filename );
 	check(bFileFound);
 	
-	// Allocate a buffer big enough to store the string in ascii format
-	ANSICHAR* Chars[2] = {0};
+	FString Header;
+	
 	// pass the #define along to the shader
 #if PLATFORM_USES_ES2
-	Chars[0] = (ANSICHAR*)"#define PLATFORM_USES_ES2 1\n\n#define PLATFORM_LINUX 0\n";
+	Header.Append("#define PLATFORM_USES_ES2 1\n");
 #elif PLATFORM_LINUX
 	#if LINUX_USE_OPENGL_3_2
-	Chars[0] = (ANSICHAR*)"#version 150\n\n#define PLATFORM_USES_ES2 0\n\n#define PLATFORM_LINUX 1\n";
+	Header.Append("#version 150\n#define PLATFORM_USES_ES2 0\n");
 	#else
-	Chars[0] = (ANSICHAR*)"#version 120\n\n#define PLATFORM_USES_ES2 0\n\n#define PLATFORM_LINUX 1\n";
+	Header.Append("#version 120\n#define PLATFORM_USES_ES2 0\n");
 	#endif // LINUX_USE_OPENGL_3_2
 #else
-	Chars[0] = (ANSICHAR*)"#version 120\n\n#define PLATFORM_USES_ES2 0\n\n#define PLATFORM_LINUX 0\n";
+	Header.Append("#version 120\n#define PLATFORM_USES_ES2 0\n");
 #endif
+	
+#if PLATFORM_LINUX
+	Header.Append("#define PLATFORM_LINUX 1\n");
+#else
+	Header.Append("#define PLATFORM_LINUX 0\n");
+#endif
+	
+#if PLATFORM_MAC
+	Header.Append("#define PLATFORM_MAC 1\n");
+#else
+	Header.Append("#define PLATFORM_MAC 0\n");
+#endif
+	
+#if USE_709
+	Header.Append("#define USE_709 1\n");
+#else
+	Header.Append("#define USE_709 0\n");
+#endif
+	
+	// Allocate a buffer big enough to store the string in ascii format
+	ANSICHAR* Chars[2] = {0};
+	
+	Chars[0] = new ANSICHAR[Header.Len()+1];
+	FCStringAnsi::Strcpy(Chars[0], Header.Len() + 1, TCHAR_TO_ANSI(*Header));
+	
 	Chars[1] = new ANSICHAR[Source.Len()+1];
 	FCStringAnsi::Strcpy(Chars[1], Source.Len() + 1, TCHAR_TO_ANSI(*Source));
 
 	// give opengl the source code for the shader
 	glShaderSource( ShaderID, 2, (const ANSICHAR**)Chars, NULL );
+	delete[] Chars[0];
 	delete[] Chars[1];
 
 	// Compile the shader and check for success
@@ -218,6 +244,7 @@ void FSlateOpenGLShaderProgram::LinkShaders( const FSlateOpenGLVS& VertexShader,
 	glBindAttribLocation(ProgramID, 2, "InClipOrigin");
 	glBindAttribLocation(ProgramID, 3, "InClipExtents");
 	glBindAttribLocation(ProgramID, 4, "InColor");
+	glBindAttribLocation(ProgramID, 5, "InMaterialTexCoords");
 
 	// Link the shaders
 	glLinkProgram( ProgramID );

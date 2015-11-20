@@ -31,7 +31,6 @@ namespace UnrealBuildTool.Rules
 			DynamicallyLoadedModuleNames.AddRange(
 				new string[] 
 				{
-					"LevelEditor",
 					"MainFrame",
 					"Settings"
 				}

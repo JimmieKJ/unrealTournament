@@ -2,8 +2,7 @@ Needs to be built on target machine.
 
 For Linux:
 
-1) Untar
-2) Run build.sh in the resulting directory, it will configure and build with the proper flags
-4s) copy files .a and .so files from /lib and .h from /include to ../lib/Linux/<architecture-triplet>
+1) Run build.sh in the resulting directory, it will untar, configure and build with the proper flags
+2) copy files .a and .so files from /lib and .h from /include to ../lib/Linux/<architecture-triplet>
 
 -RCL

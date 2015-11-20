@@ -12,30 +12,23 @@ struct FProfilerServiceAuthorize
 {
 	GENERATED_USTRUCT_BODY()
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid SessionId;
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	TArray<uint8> Data;
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceAuthorize( ) { }
+	/** Default constructor. */
+	FProfilerServiceAuthorize() { }
 
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceAuthorize( const FGuid& InSessionId, const FGuid& InInstanceId, const TArray<uint8>& InData )
+	/** Creates and initializes a new instance. */
+	FProfilerServiceAuthorize(const FGuid& InSessionId, const FGuid& InInstanceId, const TArray<uint8>& InData)
 		: SessionId(InSessionId)
 		, InstanceId(InInstanceId)
 	{
@@ -52,41 +45,34 @@ struct FProfilerServiceData2
 {
 	GENERATED_USTRUCT_BODY()
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	int64 Frame;
 
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	int32 CompressedSize;
 	
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	int32 UncompressedSize;
 
 	/** Profiler data encoded as string of hexes, cannot use TArray<uint8> because of the Message Bus limitation. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString HexData;
 
+	/** Default constructor. */
+	FProfilerServiceData2() { }
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceData2( ) { }
-
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceData2( const FGuid& InInstance, int64 InFrame, const FString& InHexData, int32 InCompressedSize, int32 InUncompressedSize )
-		: InstanceId( InInstance )
-		, Frame( InFrame )
-		, CompressedSize( InCompressedSize )
-		, UncompressedSize( InUncompressedSize )
-		, HexData( MoveTemp( InHexData ) )
-	{
-	}
+	/** Creates and initializes a new instance. */
+	FProfilerServiceData2(const FGuid& InInstance, int64 InFrame, const FString& InHexData, int32 InCompressedSize, int32 InUncompressedSize)
+		: InstanceId(InInstance)
+		, Frame(InFrame)
+		, CompressedSize(InCompressedSize)
+		, UncompressedSize(InUncompressedSize)
+		, HexData(MoveTemp(InHexData))
+	{ }
 };
 
 
@@ -97,23 +83,17 @@ struct FProfilerServicePreviewAck
 {
 	GENERATED_USTRUCT_BODY()
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServicePreviewAck( ) { }
+	/** Default constructor. */
+	FProfilerServicePreviewAck() { }
 
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServicePreviewAck( const FGuid& InInstance )
+	/** Creates and initializes a new instance. */
+	FProfilerServicePreviewAck(const FGuid& InInstance)
 		: InstanceId(InInstance)
-	{
-	}
+	{ }
 };
 
 
@@ -127,55 +107,48 @@ struct FProfilerServiceFileChunk
 	GENERATED_USTRUCT_BODY()
 
 	/** The ID of the instance where this message should be sent. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
 	/** The file containing this file chunk. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Filename;
 
-	/** Data to be sent through message bus. */
-	UPROPERTY()
-	TArray<uint8> Data;
+	/** Data to be sent through message bus. Message bug doesn't support TArray<>, so we encode the data as HexString. */
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString HexData;
 
 	/** FProfilerFileChunkHeader stored in the array. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	TArray<uint8> Header;
 
 	/** Hash of this data and header. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	TArray<uint8> ChunkHash;
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceFileChunk() 
-	{}
+	/** Default constructor. */
+	FProfilerServiceFileChunk()  { }
 
-	/**
-	 * Constructor for the new file chunk.
-	 */
+	/** Constructor for the new file chunk. */
 	FProfilerServiceFileChunk
 	( 
 		const FGuid& InInstanceID, 
 		const FString& InFilename, 
 		const TArray<uint8>& InHeader
 	)
-		: InstanceId( InInstanceID )
-		, Filename( InFilename )
-		, Header( InHeader )
-	{}
+		: InstanceId(InInstanceID)
+		, Filename(InFilename)
+		, Header(InHeader)
+	{ }
 
 	struct FNullTag{};
 
-	/**
-	 * Copy constructor, copies all properties, but not data.
-	 */
-	FProfilerServiceFileChunk( const FProfilerServiceFileChunk& ProfilerServiceFileChunk, FNullTag )
-		: InstanceId( ProfilerServiceFileChunk.InstanceId )
-		, Filename( ProfilerServiceFileChunk.Filename )
-		, Header( ProfilerServiceFileChunk.Header )
-	{}
+	/** Copy constructor, copies all properties, but not data. */
+	FProfilerServiceFileChunk(const FProfilerServiceFileChunk& ProfilerServiceFileChunk, FNullTag)
+		: InstanceId(ProfilerServiceFileChunk.InstanceId)
+		, Filename(ProfilerServiceFileChunk.Filename)
+		, Header(ProfilerServiceFileChunk.Header)
+	{ }
 };
 
 
@@ -205,25 +178,19 @@ struct FProfilerServiceSubscribe
 {
 	GENERATED_USTRUCT_BODY()
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid SessionId;
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceSubscribe( ) { }
+	/** Default constructor. */
+	FProfilerServiceSubscribe() { }
 
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceSubscribe( const FGuid& InSessionId, const FGuid& InInstanceId )
+	/** Creates and initializes a new instance. */
+	FProfilerServiceSubscribe(const FGuid& InSessionId, const FGuid& InInstanceId)
 		: SessionId(InSessionId)
 		, InstanceId(InInstanceId)
 	{ }
@@ -237,26 +204,19 @@ struct FProfilerServiceUnsubscribe
 {
 	GENERATED_USTRUCT_BODY()
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid SessionId;
 
-	/**
-	 */
-	UPROPERTY()
+	/** */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
+	/** Default constructor. */
+	FProfilerServiceUnsubscribe() { }
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceUnsubscribe( ) { }
-
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceUnsubscribe( const FGuid& InSessionId, const FGuid& InInstanceId )
+	/** Creates and initializes a new instance. */
+	FProfilerServiceUnsubscribe(const FGuid& InSessionId, const FGuid& InInstanceId)
 		: SessionId(InSessionId)
 		, InstanceId(InInstanceId)
 	{ }
@@ -270,22 +230,16 @@ struct FProfilerServiceCapture
 {
 	GENERATED_USTRUCT_BODY()
 
-	/**
-	 * The data capture state that should be set.
-	 */
-	UPROPERTY()
+	/** The data capture state that should be set. */
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool bRequestedCaptureState;
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceCapture( ) { }
+	/** Default constructor. */
+	FProfilerServiceCapture() { }
 
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceCapture( const bool bInRequestedCaptureState )
-		: bRequestedCaptureState( bInRequestedCaptureState )
+	/** Creates and initializes a new instance. */
+	FProfilerServiceCapture(const bool bInRequestedCaptureState)
+		: bRequestedCaptureState(bInRequestedCaptureState)
 	{ }
 };
 
@@ -300,19 +254,15 @@ struct FProfilerServicePreview
 	/**
 	 * The data preview state that should be set.
 	 */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool bRequestedPreviewState;
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServicePreview( ) { }
+	/** Default constructor. */
+	FProfilerServicePreview() { }
 
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServicePreview( const bool bInRequestedPreviewState )
-		: bRequestedPreviewState( bInRequestedPreviewState )
+	/** Creates and initializes a new instance. */
+	FProfilerServicePreview(const bool bInRequestedPreviewState)
+		: bRequestedPreviewState(bInRequestedPreviewState)
 	{ }
 };
 
@@ -325,18 +275,14 @@ struct FProfilerServiceRequest
 	GENERATED_USTRUCT_BODY()
 
 	/** Request @see EProfilerRequestType. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	uint32 Request;
 
-	/**
-	 * Default constructor.
-	 */
-	FProfilerServiceRequest( ) { }
+	/** Default constructor. */
+	FProfilerServiceRequest() { }
 
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FProfilerServiceRequest( uint32 InRequest )
+	/** Creates and initializes a new instance. */
+	FProfilerServiceRequest(uint32 InRequest)
 		: Request(InRequest)
 	{ }
 };

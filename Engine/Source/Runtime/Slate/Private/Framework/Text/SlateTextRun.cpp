@@ -54,7 +54,7 @@ FVector2D FSlateTextRun::Measure( int32 BeginIndex, int32 EndIndex, float Scale 
 int8 FSlateTextRun::GetKerning(int32 CurrentIndex, float Scale) const
 {
 	const int32 PreviousIndex = CurrentIndex - 1;
-	if ( PreviousIndex < 0 )
+	if ( PreviousIndex < 0 || CurrentIndex == Text->Len() )
 	{
 		return 0;
 	}
@@ -73,7 +73,7 @@ int32 FSlateTextRun::OnPaint( const FPaintArgs& Args, const FTextLayout::FLineVi
 	const FSlateRect ClippingRect = AllottedGeometry.GetClippingRect().IntersectionWith(MyClippingRect);
 	const ESlateDrawEffect::Type DrawEffects = bParentEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 
-	const bool ShouldDropShadow = Style.ShadowOffset.Size() > 0;
+	const bool ShouldDropShadow = Style.ShadowColorAndOpacity.A > 0.f && Style.ShadowOffset.SizeSquared() > 0.f;
 	const FVector2D BlockLocationOffset = Block->GetLocationOffset();
 	const FTextRange BlockRange = Block->GetTextRange();
 	

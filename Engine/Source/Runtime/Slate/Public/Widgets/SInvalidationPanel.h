@@ -1,0 +1,92 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+#include "Input/HittestGrid.h"
+
+class SLATE_API SInvalidationPanel : public SCompoundWidget, public FGCObject, public ILayoutCache
+{
+public:
+	SLATE_BEGIN_ARGS( SInvalidationPanel )
+	{
+		_Visibility = EVisibility::SelfHitTestInvisible;
+		_CacheRelativeTransforms = false;
+	}
+		SLATE_DEFAULT_SLOT( FArguments, Content )
+		SLATE_ARGUMENT( bool, CacheRelativeTransforms )
+	SLATE_END_ARGS()
+
+	void Construct( const FArguments& InArgs );
+	~SInvalidationPanel();
+
+	bool GetCanCache() const;
+	void SetCanCache(bool InCanCache);
+
+	FORCEINLINE void InvalidateCache() { bNeedsCaching = true; }
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	// ILayoutCache overrides
+	virtual void InvalidateWidget(SWidget* InvalidateWidget) override;
+	virtual FCachedWidgetNode* CreateCacheNode() const override;
+	// End ILayoutCache
+
+public:
+
+	// SWidget overrides
+	virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
+	virtual FChildren* GetChildren() override;
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+	virtual bool ComputeVolatility() const override;
+	// End SWidget
+
+	void SetContent(const TSharedRef< SWidget >& InContent);
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	static bool IsInvalidationDebuggingEnabled();
+	static void EnableInvalidationDebugging(bool bEnable);
+
+	static bool GetEnableWidgetCaching();
+	static void SetEnableWidgetCaching(bool bEnable);
+#else
+	static bool IsInvalidationDebuggingEnabled() { return false; }
+	static void EnableInvalidationDebugging(bool bEnable) { }
+
+	static bool GetEnableWidgetCaching() { return true; }
+	static void SetEnableWidgetCaching(bool bEnable) { }
+#endif
+
+private:
+	TSharedPtr< FSlateWindowElementList > GetNextCachedElementList(const TSharedPtr<SWindow>& CurrentWindow) const;
+	void OnGlobalInvalidate();
+private:
+	FGeometry LastAllottedGeometry;
+
+	FSimpleSlot EmptyChildSlot;
+	FVector2D CachedDesiredSize;
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	mutable TMap<TWeakPtr<SWidget>, double> InvalidatorWidgets;
+#endif
+
+	mutable FCachedWidgetNode* RootCacheNode;
+	mutable TSharedPtr< FSlateWindowElementList > CachedWindowElements;
+	mutable TSharedPtr<FSlateRenderDataHandle, ESPMode::ThreadSafe> CachedRenderData;
+
+	mutable TSet<UObject*> CachedResources;
+	
+	mutable FVector2D CachedAbsolutePosition;
+	mutable FVector2D AbsoluteDeltaPosition;
+
+	mutable TArray< FCachedWidgetNode* > NodePool;
+	mutable int32 LastUsedCachedNodeIndex;
+	mutable int32 LastHitTestIndex;
+	mutable FVector2D LastClipRectSize;
+
+	mutable int32 CachedMaxChildLayer;
+	mutable bool bNeedsCaching;
+	mutable bool bIsInvalidating;
+	bool bCanCache;
+
+	bool bCacheRelativeTransforms;
+};

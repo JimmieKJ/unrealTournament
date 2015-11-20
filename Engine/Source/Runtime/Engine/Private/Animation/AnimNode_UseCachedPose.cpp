@@ -12,6 +12,8 @@ FAnimNode_UseCachedPose::FAnimNode_UseCachedPose()
 
 void FAnimNode_UseCachedPose::Initialize(const FAnimationInitializeContext& Context)
 {
+	FAnimNode_Base::Initialize(Context);
+
 	LinkToCachingNode.Initialize(Context);
 }
 

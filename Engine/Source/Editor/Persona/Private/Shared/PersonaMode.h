@@ -38,6 +38,7 @@ struct FPersonaTabs
 	static const FName SkeletonSlotNamesID;
 	static const FName SkeletonSlotGroupNamesID;
 	static const FName CurveNameManagerID;
+	static const FName BlendProfileManagerID;
 
 	// Blueprint Document
 

@@ -4,17 +4,27 @@
 
 #include "ExpandableArea.generated.h"
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnExpandableAreaExpansionChanged, bool, bIsExpanded);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnExpandableAreaExpansionChanged, UExpandableArea*, Area, bool, bIsExpanded);
 
 /**
  * 
  */
-UCLASS(Experimental)
+UCLASS()
 class UMG_API UExpandableArea : public UWidget, public INamedSlotInterface
 {
 	GENERATED_UCLASS_BODY()
 
 public:
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Style")
+	FExpandableAreaStyle Style;
+
+	UPROPERTY( EditAnywhere, BlueprintReadOnly, Category = "Style" )
+	FSlateBrush BorderBrush;
+
+	UPROPERTY( EditAnywhere, BlueprintReadOnly, Category = "Style" )
+	FSlateColor BorderColor;
+
 	/**  */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Expansion")
 	bool bIsExpanded;
@@ -22,6 +32,9 @@ public:
 	/** The maximum height of the area */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Expansion")
 	float MaxHeight;
+	
+	UPROPERTY( EditAnywhere, BlueprintReadOnly, Category = "Expansion" )
+	FMargin HeaderPadding;
 	
 	/**  */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Expansion")

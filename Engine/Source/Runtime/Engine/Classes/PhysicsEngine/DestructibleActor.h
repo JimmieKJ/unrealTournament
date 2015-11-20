@@ -31,12 +31,14 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Components|Destructible")
 	FActorFractureSignature OnActorFracture;
 
-	// Begin AActor interface.
+	//~ Begin AActor Interface.
 #if WITH_EDITOR
 	ENGINE_API virtual bool GetReferencedContentObjects( TArray<UObject*>& Objects ) const override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End AActor interface.
+	//~ End AActor Interface.
 
+	virtual void PostLoad() override;
 
 
 public:

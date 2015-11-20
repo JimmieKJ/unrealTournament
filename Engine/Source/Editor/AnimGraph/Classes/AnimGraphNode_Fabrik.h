@@ -2,7 +2,7 @@
 
 #pragma once
 #include "AnimGraphNode_SkeletalControlBase.h"
-#include "Animation/BoneControllers/AnimNode_Fabrik.h"
+#include "BoneControllers/AnimNode_Fabrik.h"
 #include "AnimGraphNode_Fabrik.generated.h"
 
 // Editor node for FABRIK IK skeletal controller
@@ -33,5 +33,6 @@ public:
 protected:
 	// UAnimGraphNode_SkeletalControlBase interface
 	virtual FText GetControllerDescription() const override;
+	virtual const FAnimNode_SkeletalControlBase* GetNode() const override { return &Node; }
 	// End of UAnimGraphNode_SkeletalControlBase interface
 };

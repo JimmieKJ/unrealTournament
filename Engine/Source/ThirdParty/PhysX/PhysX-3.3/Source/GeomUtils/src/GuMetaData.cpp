@@ -377,7 +377,7 @@ void MaterialIndicesStruct::getBinaryMetaData(PxOutputStream& stream)
 	PX_DEF_BIN_METADATA_ITEM(stream,	MaterialIndicesStruct, PxU16,	indices,	PxMetaDataFlag::ePTR)
 	PX_DEF_BIN_METADATA_ITEM(stream,	MaterialIndicesStruct, PxU16,	numIndices,	0)
 	PX_DEF_BIN_METADATA_ITEM(stream,	MaterialIndicesStruct, PxU16,	pad,		PxMetaDataFlag::ePADDING)
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 	PX_DEF_BIN_METADATA_ITEM(stream,	MaterialIndicesStruct, PxU32,	pad64,		PxMetaDataFlag::ePADDING)
 #endif
 

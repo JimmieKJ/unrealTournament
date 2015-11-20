@@ -70,11 +70,11 @@ class UInterpTrackSound : public UInterpTrackVectorBase
 	// True if the sound should have been playing at any point
 	uint32 bPlaying:1;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UInterpTrack interface
+	//~ Begin UInterpTrack Interface
 	virtual int32 GetNumKeyframes() const override;
 	virtual void GetTimeRange(float& StartTime, float& EndTime) const override;
 	virtual float GetTrackEndTime() const override;
@@ -96,7 +96,7 @@ class UInterpTrackSound : public UInterpTrackVectorBase
 	virtual void DrawTrack( FCanvas* Canvas, UInterpGroup* Group, const FInterpTrackDrawParams& Params ) override;
 	virtual bool AllowStaticActors() override { return true; }
 	virtual void SetTrackToSensibleDefault() override;
-	// End UInterpTrack interface
+	//~ End UInterpTrack Interface
 
 	/**
 	 * Return the key at the specified position in the track.

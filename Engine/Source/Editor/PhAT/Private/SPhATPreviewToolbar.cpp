@@ -9,6 +9,10 @@
 #include "PhATActions.h"
 #include "SPhATPreviewToolbar.h"
 #include "Editor/UnrealEd//Public/SEditorViewport.h"
+#include "SPhATPreviewViewport.h"
+#include "PhATPreviewViewportClient.h"
+
+#define LOCTEXT_NAMESPACE "PhatViewportToolBar"
 
 
 void SPhATPreviewViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class SEditorViewport> InRealViewport)
@@ -28,14 +32,36 @@ void SPhATPreviewViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
-			.Padding(5.0f, 2.0f)
+			.Padding(2.0f, 2.0f)
 			[
 				SNew(SEditorViewportToolbarMenu)
 				.ParentToolBar(SharedThis(this))
 				.Cursor(EMouseCursor::Default)
-				.Label(NSLOCTEXT("PhAT", "CameraMenuTitle_Default", "Camera"))
+				.Image("EditorViewportToolBar.MenuDropdown")
+				.AddMetaData<FTagMetaData>(FTagMetaData(TEXT("EditorViewportToolBar.MenuDropdown")))
+				.OnGetMenuContent(this, &SPhATPreviewViewportToolBar::GenerateOptionsMenu)
+			]
+
+			// Camera Type (Perspective/Top/etc...)
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(2.0f, 2.0f)
+			[
+				SNew(SEditorViewportToolbarMenu)
+				.ParentToolBar(SharedThis(this))
+				.Label(this, &SPhATPreviewViewportToolBar::GetCameraMenuLabel)
+				.LabelIcon(this, &SPhATPreviewViewportToolBar::GetCameraMenuLabelIcon)
 				.OnGetMenuContent(this, &SPhATPreviewViewportToolBar::GeneratePerspectiveMenu)
 			]
+
+			// View menu (lit, unlit, etc...)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(5.0f, 2.0f)
+			[
+				SNew(SEditorViewportViewMenu, InRealViewport.ToSharedRef(), SharedThis(this))
+			]
+
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.Padding(5.0f, 2.0f)
@@ -43,9 +69,10 @@ void SPhATPreviewViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr
 				SNew(SEditorViewportToolbarMenu)
 				.ParentToolBar(SharedThis(this))
 				.Cursor(EMouseCursor::Default)
-				.Label(NSLOCTEXT("PhAT", "ViewMenuTitle_Default", "View"))
-				.OnGetMenuContent(this, &SPhATPreviewViewportToolBar::GenerateViewMenu) 
+				.Label(NSLOCTEXT("PhAT", "ShowMenuTitle_Default", "Show"))
+				.OnGetMenuContent(this, &SPhATPreviewViewportToolBar::GenerateShowMenu) 
 			]
+
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			.Padding(5.0f, 2.0f)
@@ -71,6 +98,92 @@ void SPhATPreviewViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr
 	SViewportToolBar::Construct(SViewportToolBar::FArguments());
 }
 
+FText SPhATPreviewViewportToolBar::GetCameraMenuLabel() const
+{
+	FText Label = LOCTEXT("Viewport_Default", "Camera");
+	TSharedPtr<SPhATPreviewViewport> EditorViewport = PhATPtr.Pin()->GetPreviewViewportWidget();
+	if (EditorViewport.IsValid())
+	{
+		switch (EditorViewport->GetViewportClient()->GetViewportType())
+		{
+		case LVT_Perspective:
+			Label = LOCTEXT("CameraMenuTitle_Perspective", "Perspective");
+			break;
+
+		case LVT_OrthoXY:
+			Label = LOCTEXT("CameraMenuTitle_Top", "Top");
+			break;
+
+		case LVT_OrthoYZ:
+			Label = LOCTEXT("CameraMenuTitle_Left", "Left");
+			break;
+
+		case LVT_OrthoXZ:
+			Label = LOCTEXT("CameraMenuTitle_Front", "Front");
+			break;
+
+		case LVT_OrthoNegativeXY:
+			Label = LOCTEXT("CameraMenuTitle_Bottom", "Bottom");
+			break;
+
+		case LVT_OrthoNegativeYZ:
+			Label = LOCTEXT("CameraMenuTitle_Right", "Right");
+			break;
+
+		case LVT_OrthoNegativeXZ:
+			Label = LOCTEXT("CameraMenuTitle_Back", "Back");
+			break;
+		case LVT_OrthoFreelook:
+			break;
+		}
+	}
+
+	return Label;
+}
+
+const FSlateBrush* SPhATPreviewViewportToolBar::GetCameraMenuLabelIcon() const
+{
+	FName Icon = NAME_None;
+	TSharedPtr<SPhATPreviewViewport> EditorViewport = PhATPtr.Pin()->GetPreviewViewportWidget();
+	if (EditorViewport.IsValid())
+	{
+		switch (EditorViewport->GetViewportClient()->GetViewportType())
+		{
+		case LVT_Perspective:
+			Icon = FName("EditorViewport.Perspective");
+			break;
+
+		case LVT_OrthoXY:
+			Icon = FName("EditorViewport.Top");
+			break;
+
+		case LVT_OrthoYZ:
+			Icon = FName("EditorViewport.Left");
+			break;
+
+		case LVT_OrthoXZ:
+			Icon = FName("EditorViewport.Front");
+			break;
+
+		case LVT_OrthoNegativeXY:
+			Icon = FName("EditorViewport.Bottom");
+			break;
+
+		case LVT_OrthoNegativeYZ:
+			Icon = FName("EditorViewport.Right");
+			break;
+
+		case LVT_OrthoNegativeXZ:
+			Icon = FName("EditorViewport.Back");
+			break;
+		case LVT_OrthoFreelook:
+			break;
+		}
+	}
+
+	return FEditorStyle::GetBrush(Icon);
+}
+
 TSharedRef<SWidget> SPhATPreviewViewportToolBar::GeneratePerspectiveMenu() const
 {
 	const FPhATCommands& Actions = FPhATCommands::Get();
@@ -90,23 +203,23 @@ TSharedRef<SWidget> SPhATPreviewViewportToolBar::GeneratePerspectiveMenu() const
 	return PerspectiveMenuBuilder.MakeWidget();
 }
 
-TSharedRef<SWidget> SPhATPreviewViewportToolBar::GenerateViewMenu() const
+TSharedRef<SWidget> SPhATPreviewViewportToolBar::GenerateShowMenu() const
 {
 	const FPhATCommands& Actions = FPhATCommands::Get();
 		
 	const bool bInShouldCloseWindowAfterMenuSelection = true;
-	FMenuBuilder ViewMenuBuilder(bInShouldCloseWindowAfterMenuSelection, PhATPtr.Pin()->GetToolkitCommands());
+	FMenuBuilder ShowMenuBuilder(bInShouldCloseWindowAfterMenuSelection, PhATPtr.Pin()->GetToolkitCommands());
 	{
-		ViewMenuBuilder.AddMenuEntry(Actions.ShowSkeleton);
-		ViewMenuBuilder.AddMenuEntry(Actions.DrawGroundBox);
-		ViewMenuBuilder.AddMenuEntry(Actions.InstanceProperties);
-		ViewMenuBuilder.AddMenuEntry(Actions.ShowKinematicBodies);
-		ViewMenuBuilder.AddMenuEntry(Actions.ToggleGraphicsHierarchy);
-		ViewMenuBuilder.AddMenuEntry(Actions.ToggleBoneInfuences);
-		ViewMenuBuilder.AddMenuEntry(Actions.ToggleMassProperties);
+		ShowMenuBuilder.AddMenuEntry(Actions.ShowSkeleton);
+		ShowMenuBuilder.AddMenuEntry(Actions.DrawGroundBox);
+		ShowMenuBuilder.AddMenuEntry(Actions.InstanceProperties);
+		ShowMenuBuilder.AddMenuEntry(Actions.ShowKinematicBodies);
+		ShowMenuBuilder.AddMenuEntry(Actions.ToggleGraphicsHierarchy);
+		ShowMenuBuilder.AddMenuEntry(Actions.ToggleBoneInfuences);
+		ShowMenuBuilder.AddMenuEntry(Actions.ToggleMassProperties);
 	}
 
-	return ViewMenuBuilder.MakeWidget();	
+	return ShowMenuBuilder.MakeWidget();	
 }
 
 TSharedRef<SWidget> SPhATPreviewViewportToolBar::GenerateModesMenu() const
@@ -172,3 +285,63 @@ TSharedRef<SWidget> SPhATPreviewViewportToolBar::GenerateModesMenu() const
 
 	return ModesMenuBuilder.MakeWidget();	
 }
+
+TSharedRef<SWidget> SPhATPreviewViewportToolBar::GenerateOptionsMenu() const
+{
+
+	const bool bIsPerspective = PhATPtr.Pin()->GetPreviewViewportWidget()->GetViewportClient()->IsPerspective();
+	const bool bInShouldCloseWindowAfterMenuSelection = true;
+	FMenuBuilder OptionsMenuBuilder(bInShouldCloseWindowAfterMenuSelection, PhATPtr.Pin()->GetToolkitCommands());
+	{
+		OptionsMenuBuilder.BeginSection("LevelViewportViewportOptions", LOCTEXT("OptionsMenuHeader", "Viewport Options"));
+		{
+			if (bIsPerspective)
+			{
+				OptionsMenuBuilder.AddWidget(GenerateFOVMenu(), LOCTEXT("FOVAngle", "Field of View (H)"));
+			}
+		}
+		OptionsMenuBuilder.EndSection();		
+	}
+
+	return OptionsMenuBuilder.MakeWidget();
+}
+
+TSharedRef<SWidget> SPhATPreviewViewportToolBar::GenerateFOVMenu() const
+{
+	const float FOVMin = 5.f;
+	const float FOVMax = 170.f;
+
+	return
+		SNew(SBox)
+		.HAlign(HAlign_Right)
+		[
+			SNew(SBox)
+			.Padding(FMargin(4.0f, 0.0f, 0.0f, 0.0f))
+			.WidthOverride(100.0f)
+			[
+				SNew(SSpinBox<float>)
+				.Font(FEditorStyle::GetFontStyle(TEXT("MenuItem.Font")))
+				.MinValue(FOVMin)
+				.MaxValue(FOVMax)
+				.Value(this, &SPhATPreviewViewportToolBar::OnGetFOVValue)
+				.OnValueChanged(this, &SPhATPreviewViewportToolBar::OnFOVValueChanged)
+			]
+		];
+}
+
+float SPhATPreviewViewportToolBar::OnGetFOVValue() const
+{
+	return PhATPtr.Pin()->GetPreviewViewportWidget()->GetViewportClient()->ViewFOV;
+}
+
+void SPhATPreviewViewportToolBar::OnFOVValueChanged(float NewValue)
+{
+	bool bUpdateStoredFOV = true;
+	FPhATEdPreviewViewportClient* ViewportClient = PhATPtr.Pin()->GetPreviewViewportWidget()->GetViewportClient().Get();
+	ViewportClient->FOVAngle = NewValue;
+	ViewportClient->ViewFOV = NewValue;
+	ViewportClient->Invalidate();
+}
+
+
+#undef LOCTEXT_NAMESPACE

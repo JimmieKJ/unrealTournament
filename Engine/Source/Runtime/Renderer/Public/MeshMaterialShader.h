@@ -18,7 +18,9 @@ public:
 	FMeshMaterialShader(const FMeshMaterialShaderType::CompiledShaderInitializerType& Initializer)
 		:	FMaterialShader(Initializer)
 		,	VertexFactoryParameters(Initializer.VertexFactoryType,Initializer.ParameterMap,(EShaderFrequency)Initializer.Target.Frequency)
-	{}
+	{
+		NonInstancedDitherLODFactorParameter.Bind(Initializer.ParameterMap, TEXT("NonInstancedDitherLODFactor"));
+	}
 
 	template< typename ShaderRHIParamRef >
 	void SetParameters(
@@ -45,6 +47,7 @@ public:
 		const FSceneView& View,
 		const FPrimitiveSceneProxy* Proxy,
 		const FMeshBatchElement& BatchElement,
+		float DitheredLODTransitionValue,
 		uint32 DataFlags = 0
 	);
 
@@ -61,4 +64,5 @@ public:
 
 private:
 	FVertexFactoryParameterRef VertexFactoryParameters;
+	FShaderParameter NonInstancedDitherLODFactorParameter;
 };

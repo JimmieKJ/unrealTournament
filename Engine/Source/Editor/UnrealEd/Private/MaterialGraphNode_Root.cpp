@@ -50,7 +50,7 @@ void UMaterialGraphNode_Root::CreateInputPins()
 
 	for (int32 Index = 0; Index < MaterialGraph->MaterialInputs.Num(); ++Index)
 	{
-		UEdGraphPin* InputPin = CreatePin(EGPD_Input, Schema->PC_MaterialInput, TEXT(""), NULL, /*bIsArray=*/ false, /*bIsReference=*/ false, MaterialGraph->MaterialInputs[Index].Name.ToString());
+		UEdGraphPin* InputPin = CreatePin(EGPD_Input, Schema->PC_MaterialInput, TEXT(""), NULL, /*bIsArray=*/ false, /*bIsReference=*/ false, MaterialGraph->MaterialInputs[Index].GetName().ToString());
 	}
 }
 
@@ -70,7 +70,7 @@ int32 UMaterialGraphNode_Root::GetInputIndex(const UEdGraphPin* InputPin) const
 uint32 UMaterialGraphNode_Root::GetInputType(const UEdGraphPin* InputPin) const
 {
 	UMaterialGraph* MaterialGraph = CastChecked<UMaterialGraph>(GetGraph());
-	return GetMaterialPropertyType(MaterialGraph->MaterialInputs[GetInputIndex(InputPin)].Property);
+	return GetMaterialPropertyType(MaterialGraph->MaterialInputs[GetInputIndex(InputPin)].GetProperty());
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -226,7 +226,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 						}
 
 						CurrentCrash.FixedChangeList = Bugg.FixedChangeList;
-						CurrentCrash.TTPID = Bugg.TTPID;
+						CurrentCrash.Jira = Bugg.Jira;
 						CurrentCrash.Status = Bugg.Status;
 
 						if( Bugg.Id != 0 )
@@ -331,20 +331,17 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		}
 
 		/// <summary>
-		/// Filter the list of Buggs by a search query.
+		/// Filter the list of Buggs by a callstack entry.
 		/// </summary>
-		/// <param name="Results">The unfiltered set of Buggs.</param>
-		/// <param name="Query">The query to use as a filter.</param>
-		/// <returns>A filtered set of Buggs.</returns>
-		public IEnumerable<Bugg> Search( IEnumerable<Bugg> Results, string Query )
+		public IEnumerable<Bugg> FilterByCallstack( IEnumerable<Bugg> Results, string CallstackEntry )
 		{
-			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(Query=" + Query + ")" ) )
+			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + "(Query=" + CallstackEntry + ")" ) )
 			{
 				// Also may want to revisit how we search since this could get inefficient for a big search set.
 				IEnumerable<Bugg> Buggs;
 				try
 				{
-					string QueryString = HttpUtility.HtmlDecode( Query.ToString() );
+					string QueryString = HttpUtility.HtmlDecode( CallstackEntry.ToString() );
 					if( QueryString == null )
 					{
 						QueryString = "";
@@ -366,8 +363,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					// Search for all function ids. OR operation, not very efficient, but for searching for one function should be ok.
 					foreach (int Id in AllFuncionCallIds)
 					{
-						string Pattern = "+" + Id + "+";
-						var BuggsForFunc = Results.Where( X => X.Pattern.Contains( Pattern ) ).ToList();
+						var BuggsForFunc = Results.Where( X => X.Pattern.Contains( Id + "+" ) || X.Pattern.Contains( "+" + Id ) ).ToList();
 						
 						foreach(Bugg Bugg in BuggsForFunc)
 						{
@@ -412,12 +408,12 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				Results = FilterByDate( ResultsAll, FormData.DateFrom, FormData.DateTo );
 
 				// Filter results by build version.
-				Results = FilterByBuildVersion( Results, FormData.BuildVersion );
+				Results = FilterByBuildVersion( Results, FormData.VersionName );
 
 				// Run at the end
 				if( !string.IsNullOrEmpty( FormData.SearchQuery ) )
 				{
-					Results = Search( Results, FormData.SearchQuery );
+					Results = FilterByCallstack( Results, FormData.SearchQuery );
 				}
 
 				// Filter by Crash Type
@@ -467,7 +463,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					SearchQuery = FormData.SearchQuery,
 					DateFrom = (long)( FormData.DateFrom - CrashesViewModel.Epoch ).TotalMilliseconds,
 					DateTo = (long)( FormData.DateTo - CrashesViewModel.Epoch ).TotalMilliseconds,
-					BuildVersion = FormData.BuildVersion,
+					VersionName = FormData.VersionName,
 					GroupCounts = GroupCounts,
 				};
 			}
@@ -564,7 +560,16 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		{
 			using( FAutoScopedLogTimer LogTimer = new FAutoScopedLogTimer( this.GetType().ToString() + " SQL" ) )
 			{
-				IQueryable<Bugg> BuggsInTimeFrame = Results.Where( Bugg => Bugg.TimeOfLastCrash >= DateFrom && Bugg.TimeOfLastCrash <= DateTo.AddDays( 1 ) );
+				var DateTo1 = DateTo.AddDays( 1 );
+
+				IQueryable<Bugg> BuggsInTimeFrame = Results
+					.Where( Bugg =>
+					( Bugg.TimeOfFirstCrash <= DateFrom && Bugg.TimeOfLastCrash >= DateTo1 ) ||
+					( Bugg.TimeOfFirstCrash >= DateFrom && Bugg.TimeOfLastCrash <= DateTo1 ) ||
+					( Bugg.TimeOfFirstCrash >= DateFrom && Bugg.TimeOfFirstCrash <= DateTo1 && Bugg.TimeOfLastCrash >= DateTo1 ) ||
+					( Bugg.TimeOfFirstCrash <= DateFrom && Bugg.TimeOfLastCrash <= DateTo1 && Bugg.TimeOfLastCrash >= DateFrom )
+					);
+
 				IEnumerable<Bugg> BuggsInTimeFrameEnumerable = BuggsInTimeFrame.ToList();
 				return BuggsInTimeFrameEnumerable;
 			}
@@ -687,7 +692,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 						(
 							from Crash in Context.Crashes
 							where Crash.TimeOfCrash >= DateFrom && Crash.TimeOfCrash <= DateTo.AddDays( 1 )
-							select new { Id = Crash.Id, UserName = Crash.UserName, MachineId = Crash.ComputerName }
+							select new { Id = Crash.Id, UserName = Crash.UserName, MachineId = Crash.MachineId }
 						);
 
 						CrashToUser = CrashesWithIdUserMachine.ToDictionary( x => x.Id, y => y.UserName );
@@ -829,7 +834,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 							break;
 
 						case "TTPID":
-							Results = EnumerableOrderBy( Results, BuggCrashInstance => BuggCrashInstance.TTPID, bSortDescending );
+							Results = EnumerableOrderBy( Results, BuggCrashInstance => BuggCrashInstance.Jira, bSortDescending );
 							break;
 
 					}

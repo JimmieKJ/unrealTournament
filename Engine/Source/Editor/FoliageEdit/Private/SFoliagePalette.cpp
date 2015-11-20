@@ -160,6 +160,8 @@ void SFoliagePalette::Construct(const FArguments& InArgs)
 	UICommandList = MakeShareable(new FUICommandList);
 	BindCommands();
 
+	ThumbnailPool = MakeShareable(new FAssetThumbnailPool(25, TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(this, &SFoliagePalette::IsHovered))));
+
 	TypeFilter = MakeShareable(new FoliageTypeTextFilter(
 		FoliageTypeTextFilter::FItemToStringArray::CreateSP(this, &SFoliagePalette::GetPaletteItemFilterString)));
 
@@ -235,7 +237,7 @@ void SFoliagePalette::Construct(const FArguments& InArgs)
 				.VAlign(VAlign_Center)
 				.Padding(6.f, 0.f)
 				[
-					SNew(SSearchBox)
+					SAssignNew(SearchBoxPtr, SSearchBox)
 					.HintText(LOCTEXT("SearchFoliagePaletteHint", "Search Foliage"))
 					.OnTextChanged(this, &SFoliagePalette::OnSearchTextChanged)
 				]
@@ -435,7 +437,7 @@ void SFoliagePalette::UpdateThumbnailForType(UFoliageType* FoliageType)
 		{
 			const bool bItemIsSelected = GetActiveViewWidget()->IsItemSelected(Item);
 
-			Item = MakeShareable(new FFoliagePaletteItemModel(Item->GetTypeUIInfo(), SharedThis(this), FoliageEditMode));
+			Item = MakeShareable(new FFoliagePaletteItemModel(Item->GetTypeUIInfo(), SharedThis(this), ThumbnailPool, FoliageEditMode));
 			if (bItemIsSelected)
 			{
 				GetActiveViewWidget()->SetItemSelection(Item, true);
@@ -641,6 +643,7 @@ void SFoliagePalette::GetPaletteItemFilterString(FFoliagePaletteItemModelPtr Pal
 void SFoliagePalette::OnSearchTextChanged(const FText& InFilterText)
 {
 	TypeFilter->SetRawFilterText(InFilterText);
+	SearchBoxPtr->SetError(TypeFilter->GetFilterErrorText());
 	UpdatePalette();
 }
 
@@ -719,7 +722,12 @@ FText SFoliagePalette::GetSearchText() const
 
 void SFoliagePalette::OnSelectionChanged(FFoliagePaletteItemModelPtr Item, ESelectInfo::Type SelectInfo)
 {
-	RefreshDetailsWidget();
+	if (SelectInfo != ESelectInfo::Direct)
+	{
+		// If we set the selection in code it's because we're restoring a previous selection after changing the palette.
+		// Refreshing the details palette causes problems if we're in the middle of a details change which caused a thumbnail invalidation.
+		RefreshDetailsWidget();
+	}
 
 	bIsUneditableFoliageTypeSelected = false;
 	for (FFoliagePaletteItemModelPtr& PaletteItem : GetActiveViewWidget()->GetSelectedItems())
@@ -1188,7 +1196,7 @@ ECheckBoxState SFoliagePalette::GetState_AllMeshes() const
 	bool bHasChecked = false;
 	bool bHasUnchecked = false;
 
-	for (FFoliagePaletteItemModelPtr& PaletteItem : GetActiveViewWidget()->GetSelectedItems())
+	for (const FFoliagePaletteItemModelPtr& PaletteItem : FilteredItems)
 	{
 		if (PaletteItem->IsActive())
 		{
@@ -1211,7 +1219,7 @@ ECheckBoxState SFoliagePalette::GetState_AllMeshes() const
 void SFoliagePalette::OnCheckStateChanged_AllMeshes(ECheckBoxState InState)
 {
 	const bool bActivate = InState == ECheckBoxState::Checked;
-	for (FFoliagePaletteItemModelPtr& PaletteItem : GetActiveViewWidget()->GetSelectedItems())
+	for (FFoliagePaletteItemModelPtr& PaletteItem : FilteredItems)
 	{
 		PaletteItem->SetTypeActiveInPalette(bActivate);
 	}
@@ -1345,7 +1353,7 @@ EActiveTimerReturnType SFoliagePalette::UpdatePaletteItems(double InCurrentTime,
 		PaletteItems.Empty(AllTypesList.Num());
 		for (const FFoliageMeshUIInfoPtr& TypeInfo : AllTypesList)
 		{
-			PaletteItems.Add(MakeShareable(new FFoliagePaletteItemModel(TypeInfo, SharedThis(this), FoliageEditMode)));
+			PaletteItems.Add(MakeShareable(new FFoliagePaletteItemModel(TypeInfo, SharedThis(this), ThumbnailPool, FoliageEditMode)));
 		}
 
 		// Restore the selection

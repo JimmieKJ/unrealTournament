@@ -1,9 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // ParticleEmitter
 // The base class for any particle emitter objects.
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "Components/SceneComponent.h"
@@ -13,9 +13,9 @@
 
 class UInterpCurveEdSetup;
 
-//=============================================================================
+//~=============================================================================
 //	Burst emissions
-//=============================================================================
+//~=============================================================================
 UENUM()
 enum EParticleBurstMethod
 {
@@ -24,9 +24,9 @@ enum EParticleBurstMethod
 	EPBM_MAX,
 };
 
-//=============================================================================
+//~=============================================================================
 //	SubUV-related
-//=============================================================================
+//~=============================================================================
 UENUM()
 enum EParticleSubUVInterpMethod
 {
@@ -38,9 +38,9 @@ enum EParticleSubUVInterpMethod
 	PSUVIM_MAX,
 };
 
-//=============================================================================
+//~=============================================================================
 //	Cascade-related
-//=============================================================================
+//~=============================================================================
 UENUM()
 enum EEmitterRenderMode
 {
@@ -85,9 +85,9 @@ class UParticleEmitter : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	//=============================================================================
+	//~=============================================================================
 	//	General variables
-	//=============================================================================
+	//~=============================================================================
 	/** The name of the emitter. */
 	UPROPERTY(EditAnywhere, Category=Particle)
 	FName EmitterName;
@@ -113,9 +113,9 @@ class UParticleEmitter : public UObject
 	FColor EmitterEditorColor;
 
 #endif // WITH_EDITORONLY_DATA
-	//=============================================================================
+	//~=============================================================================
 	//	'Private' data - not required by the editor
-	//=============================================================================
+	//~=============================================================================
 	UPROPERTY(instanced)
 	TArray<class UParticleLODLevel*> LODLevels;
 
@@ -125,9 +125,9 @@ class UParticleEmitter : public UObject
 	UPROPERTY()
 	int32 PeakActiveParticles;
 
-	//=============================================================================
+	//~=============================================================================
 	//	Performance/LOD Data
-	//=============================================================================
+	//~=============================================================================
 	
 	/**
 	 *	Initial allocation count - overrides calculated peak count if > 0
@@ -173,12 +173,12 @@ class UParticleEmitter : public UObject
 	UPROPERTY(EditAnywhere, Category = Particle)
 	uint32 bDisabledLODsKeepEmitterAlive : 1;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	// @todo document
 	virtual FParticleEmitterInstance* CreateInstance(UParticleSystemComponent* InComponent);
@@ -313,17 +313,7 @@ class UParticleEmitter : public UObject
 	/**
 	 *   Calculate spawn rate multiplier based on global effects quality level and emitter's quality scale
  	 */
-	FORCEINLINE float GetQualityLevelSpawnRateMult()
-	{
-		float Level = (1 - Scalability::GetQualityLevels().EffectsQuality);
-		float Q = 1;
-		for (int i = 0; i < Level + 1; i++)
-		{
-
-			Q = Q*QualityLevelSpawnRateScale;
-		}
-		return Q;
-	}
+	float GetQualityLevelSpawnRateMult();
 
 	/** Returns true if the is emitter has any enabled LODs, false otherwise. */
 	bool HasAnyEnabledLODs()const;

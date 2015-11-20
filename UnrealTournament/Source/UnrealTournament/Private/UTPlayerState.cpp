@@ -591,7 +591,7 @@ void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weap
 				FString WeaponPathName = Weapon->GetPathName();
 				for (int32 i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
 				{
-					if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType.AssetLongPathname == WeaponPathName)
+					if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType.ToString() == WeaponPathName)
 					{
 						if (!WeaponSkins.Contains(ProfileSettings->WeaponSkins[i]))
 						{
@@ -1077,33 +1077,24 @@ void AUTPlayerState::ServerNextChatDestination_Implementation()
 	}
 }
 
-void AUTPlayerState::SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId)
+void AUTPlayerState::ProfileNotification(const FOnlineNotification& Notification)
 {
-	Super::SetUniqueId(InUniqueId);
-
-	if (Role == ROLE_Authority && InUniqueId.IsValid())
+	if (Role == ROLE_Authority)
 	{
-		ReadProfileItems();
+		// route to client
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC != NULL && Notification.Payload.IsValid())
+		{
+			FString OutputJsonString;
+			TSharedRef< TJsonWriter< TCHAR, TCondensedJsonPrintPolicy<TCHAR> > > Writer = TJsonWriterFactory< TCHAR, TCondensedJsonPrintPolicy<TCHAR> >::Create(&OutputJsonString);
+			FJsonSerializer::Serialize(Notification.Payload->AsObject().ToSharedRef(), Writer);
+			PC->ClientBackendNotify(Notification.TypeStr, OutputJsonString);
+		}
 	}
 }
 
-void AUTPlayerState::ReadProfileItems()
+void AUTPlayerState::ProfileItemsChanged(const TSet<FString>& ChangedTypes, int64 ProfileRevision)
 {
-	if (!IsProfileItemListPending() && UniqueId.IsValid())
-	{
-		FHttpRequestCompleteDelegate Delegate;
-		Delegate.BindUObject(this, &AUTPlayerState::ProfileItemListReqComplete);
-		ItemListReq = ReadBackendStats(Delegate, UniqueId->ToString());
-	}
-}
-
-void AUTPlayerState::ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
-{
-	if (bSucceeded)
-	{
-		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems, PrevXP);
-	}
-	ItemListReq.Reset();
 	ValidateEntitlements();
 }
 
@@ -1632,13 +1623,20 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 
 bool AUTPlayerState::OwnsItemFor(const FString& Path, int32 VariantId) const
 {
-	for (const FProfileItemEntry& Entry : ProfileItems)
+#if WITH_PROFILE
+	if (GetMcpProfile() != NULL)
 	{
-		if (Entry.Item != NULL && Entry.Item->Grants(Path, VariantId))
+		TArray<UUTProfileItem*> ItemList;
+		GetMcpProfile()->GetItemsOfType<UUTProfileItem>(ItemList);
+		for (UUTProfileItem* Item : ItemList)
 		{
-			return true;
+			if (Item != NULL && Item->Grants(Path, VariantId))
+			{
+				return true;
+			}
 		}
 	}
+#endif
 	return false;
 }
 
@@ -2157,7 +2155,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 
 	if (LP && StatsID.IsEmpty() && OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
 		if (UserId.IsValid())
 		{
 			StatsID = UserId->ToString();
@@ -2455,7 +2453,7 @@ int32 AUTPlayerState::CountBanVotes()
 				// only count bans of people online
 				for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
 				{
-					if (GameState->PlayerArray[i]->UniqueId == BanVotes[Idx].Voter)
+					if (GameState->PlayerArray[i]->UniqueId.GetUniqueNetId() == BanVotes[Idx].Voter)
 					{
 						VoteCount++;
 						break;

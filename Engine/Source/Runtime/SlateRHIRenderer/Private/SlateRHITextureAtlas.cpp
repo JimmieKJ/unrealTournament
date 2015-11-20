@@ -60,7 +60,7 @@ void FSlateTextureAtlasRHI::UpdateTexture_RenderThread( FSlateTextureData* Rende
 
 void FSlateTextureAtlasRHI::ConditionalUpdateTexture( )
 {
-	check(IsThreadSafeForSlateRendering());
+	checkSlow(IsThreadSafeForSlateRendering());
 
 	if (bNeedsUpdate)
 	{

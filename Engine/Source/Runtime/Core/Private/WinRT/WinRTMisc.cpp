@@ -127,12 +127,12 @@ void FWinRTMisc::PumpMessages(bool bFromMainLoop)
 	FApp::SetVolumeMultiplier(HasFocus ? 1.0f : FApp::GetUnfocusedVolumeMultiplier());
 }
 
-uint32 FWinRTMisc::GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings)
+uint32 FWinRTMisc::GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
 {
 	return FGenericPlatformMisc::GetStandardPrintableKeyMap(KeyCodes, KeyNames, MaxMappings, true, false);
 }
 
-uint32 FWinRTMisc::GetKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings)
+uint32 FWinRTMisc::GetKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
 {
 #define ADDKEYMAP(KeyCode, KeyName)		if (NumMappings<MaxMappings) { KeyCodes[NumMappings]=KeyCode; KeyNames[NumMappings]=KeyName; ++NumMappings; };
 

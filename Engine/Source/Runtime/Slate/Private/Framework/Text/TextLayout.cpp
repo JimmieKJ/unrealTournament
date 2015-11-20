@@ -234,7 +234,7 @@ void FTextLayout::CreateLineViewBlocks( int32 LineModelIndex, const int32 StopIn
 	FVector2D LineSize( ForceInitToZero );
 	
 	// Use a negative scroll offset since positive scrolling moves things negatively in screen space
-	FVector2D CurrentOffset( Margin.Left - ScrollOffset.X, Margin.Top + TextLayoutSize.Height - ScrollOffset.Y );
+	FVector2D CurrentOffset(-ScrollOffset.X, TextLayoutSize.Height - ScrollOffset.Y);
 
 	if ( OutSoftLine.Num() > 0 )
 	{
@@ -281,7 +281,7 @@ void FTextLayout::JustifyLayout()
 		return;
 	}
 
-	const float LayoutWidthNoMargin = FMath::Max(TextLayoutSize.DrawWidth, ViewSize.X * Scale) - (Margin.GetTotalSpaceAlong<Orient_Horizontal>() * Scale);
+	const float LayoutWidthNoMargin = FMath::Max(TextLayoutSize.DrawWidth, ViewSize.X * Scale) - ( Margin.GetTotalSpaceAlong<Orient_Horizontal>() * Scale );
 
 	for (FLineView& LineView : LineViews)
 	{
@@ -323,13 +323,28 @@ void FTextLayout::FlowLayout()
 	{
 		FlowLineLayout(LineModelIndex, WrappingDrawWidth, SoftLine);
 	}
+}
 
+void FTextLayout::MarginLayout()
+{
 	// Add on the margins to the layout size
 	const float MarginWidth = Margin.GetTotalSpaceAlong<Orient_Horizontal>() * Scale;
 	const float MarginHeight = Margin.GetTotalSpaceAlong<Orient_Vertical>() * Scale;
 	TextLayoutSize.DrawWidth += MarginWidth;
 	TextLayoutSize.WrappedWidth += MarginWidth;
 	TextLayoutSize.Height += MarginHeight;
+
+	// Adjust the lines to be offset
+	FVector2D OffsetAdjustment = FVector2D(Margin.Left, Margin.Top) * Scale;
+	for (FLineView& LineView : LineViews)
+	{
+		LineView.Offset += OffsetAdjustment;
+
+		for (const TSharedRef< ILayoutBlock >& Block : LineView.Blocks)
+		{
+			Block->SetLocationOffset( Block->GetLocationOffset() + OffsetAdjustment );
+		}
+	}
 }
 
 void FTextLayout::FlowLineLayout(const int32 LineModelIndex, const float WrappingDrawWidth, TArray<TSharedRef<ILayoutBlock>>& SoftLine)
@@ -634,6 +649,7 @@ void FTextLayout::UpdateLayout()
 
 	FlowLayout();
 	JustifyLayout();
+	MarginLayout();
 
 	EndLayout();
 
@@ -1403,7 +1419,49 @@ bool FTextLayout::RemoveLine(int32 LineIndex)
 
 	LineModels.RemoveAt(LineIndex);
 
-	DirtyFlags |= EDirtyState::Layout;
+	// If our layout is clean, then we can remove this line immediately (and efficiently)
+	// If our layout is dirty, then we might as well wait as the next UpdateLayout call will remove it
+	if (!(DirtyFlags & EDirtyState::Layout))
+	{
+		//Lots of room for additional optimization
+		float OffsetAdjustment = 0;
+
+		for (int32 ViewIndex = 0; ViewIndex < LineViews.Num(); ViewIndex++)
+		{
+			FLineView& LineView = LineViews[ViewIndex];
+
+			if (LineView.ModelIndex == LineIndex)
+			{
+				if (ViewIndex - 1 <= 0)
+				{
+					OffsetAdjustment += LineView.Offset.Y;
+				}
+				else
+				{
+					//Since the offsets are not relative to other lines, if we aren't removing the top line then
+					//we don't aggregate the offset from any previous removals as we'd be double counting.
+					OffsetAdjustment = (LineView.Offset.Y - LineViews[ViewIndex - 1].Offset.Y);
+				}
+
+				LineViews.RemoveAt(ViewIndex);
+				--ViewIndex;
+			}
+			else if (LineView.ModelIndex > LineIndex)
+			{
+				//We've removed a line model so update the LineView indices
+				--LineView.ModelIndex;
+				LineView.Offset.Y -= OffsetAdjustment;
+
+				for (const TSharedRef< ILayoutBlock >& Block : LineView.Blocks)
+				{
+					FVector2D BlockOffset = Block->GetLocationOffset();
+					BlockOffset.Y -= OffsetAdjustment;
+					Block->SetLocationOffset(BlockOffset);
+				}
+			}
+		}
+	}
+
 	return true;
 }
 
@@ -1431,6 +1489,23 @@ void FTextLayout::AddLine( const TSharedRef< FString >& Text, const TArray< TSha
 
 		TArray<TSharedRef<ILayoutBlock>> SoftLine;
 		FlowLineLayout(LineModelIndex, GetWrappingDrawWidth(), SoftLine);
+
+		// Apply the current margin to the newly added line
+		if (LineViews.Num() > 0)
+		{
+			const FVector2D MarginOffsetAdjustment = FVector2D(Margin.Left, Margin.Top) * Scale;
+
+			FLineView& LastLineView = LineViews.Last();
+			if (LastLineView.ModelIndex == LineModelIndex)
+			{
+				LastLineView.Offset += MarginOffsetAdjustment;
+			}
+
+			for (const TSharedRef< ILayoutBlock >& Block : SoftLine)
+			{
+				Block->SetLocationOffset( Block->GetLocationOffset() + MarginOffsetAdjustment );
+			}
+		}
 
 		// We need to re-justify all lines, as the new line view(s) added by this line model may have affected everything
 		JustifyLayout();
@@ -1682,40 +1757,8 @@ void FTextLayout::SetMargin( const FMargin& InMargin )
 		return;
 	}
 
-	const FMargin PreviousMargin = Margin;
 	Margin = InMargin;
-
-	if ( WrappingWidth > 0 )
-	{
-		// Since we are wrapping our text we'll need to rebuild the view as the actual wrapping width includes the margin.
-		DirtyFlags |= EDirtyState::Layout;
-	}
-	else
-	{
-		FVector2D OffsetAdjustment( Margin.Left - PreviousMargin.Left, Margin.Top - PreviousMargin.Top );
-		OffsetAdjustment *= Scale;
-		for (int32 LineViewIndex = 0; LineViewIndex < LineViews.Num(); LineViewIndex++)
-		{
-			FLineView& LineView = LineViews[ LineViewIndex ];
-
-			for (int32 BlockIndex = 0; BlockIndex < LineView.Blocks.Num(); BlockIndex++)
-			{
-				const TSharedRef< ILayoutBlock >& Block = LineView.Blocks[ BlockIndex ];
-				Block->SetLocationOffset( Block->GetLocationOffset() + OffsetAdjustment );
-			}
-		}
-
-		const float MarginDeltaWidth = ( Margin.GetTotalSpaceAlong<Orient_Horizontal>() - PreviousMargin.GetTotalSpaceAlong<Orient_Horizontal>() ) * Scale;
-		const float MarginDeltaHeight = ( Margin.GetTotalSpaceAlong<Orient_Vertical>() - PreviousMargin.GetTotalSpaceAlong<Orient_Vertical>() ) * Scale;
-		TextLayoutSize.DrawWidth += MarginDeltaWidth;
-		TextLayoutSize.WrappedWidth += MarginDeltaWidth;
-		TextLayoutSize.Height += MarginDeltaHeight;
-	}
-}
-
-FMargin FTextLayout::GetMargin() const
-{
-	return Margin;
+	DirtyFlags |= EDirtyState::Layout;
 }
 
 void FTextLayout::SetScale( float Value )
@@ -1733,11 +1776,6 @@ void FTextLayout::SetScale( float Value )
 	ClearWrappingCache();
 }
 
-float FTextLayout::GetScale() const
-{
-	return Scale;
-}
-
 void FTextLayout::SetJustification( ETextJustify::Type Value )
 {
 	if ( Justification == Value )
@@ -1749,11 +1787,6 @@ void FTextLayout::SetJustification( ETextJustify::Type Value )
 	DirtyFlags |= EDirtyState::Layout;
 }
 
-ETextJustify::Type FTextLayout::GetJustification() const
-{
-	return Justification;
-}
-
 void FTextLayout::SetLineHeightPercentage( float Value )
 {
 	if ( LineHeightPercentage != Value )
@@ -1763,11 +1796,6 @@ void FTextLayout::SetLineHeightPercentage( float Value )
 	}
 }
 
-float FTextLayout::GetLineHeightPercentage() const
-{
-	return LineHeightPercentage;
-}
-
 void FTextLayout::SetWrappingWidth( float Value )
 {
 	if ( WrappingWidth != Value )
@@ -1775,11 +1803,6 @@ void FTextLayout::SetWrappingWidth( float Value )
 		WrappingWidth = Value; 
 		DirtyFlags |= EDirtyState::Layout;
 	}
-}
-
-float FTextLayout::GetWrappingWidth() const
-{
-	return WrappingWidth;
 }
 
 FVector2D FTextLayout::GetDrawSize() const
@@ -1795,16 +1818,6 @@ FVector2D FTextLayout::GetWrappedSize() const
 FVector2D FTextLayout::GetSize() const
 {
 	return TextLayoutSize.GetDrawSize() * ( 1 / Scale );
-}
-
-const TArray< FTextLayout::FLineModel >& FTextLayout::GetLineModels() const
-{
-	return LineModels;
-}
-
-const TArray< FTextLayout::FLineView >& FTextLayout::GetLineViews() const
-{
-	return LineViews;
 }
 
 FTextLayout::~FTextLayout()

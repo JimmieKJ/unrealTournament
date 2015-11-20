@@ -177,7 +177,7 @@ void SStaticMeshEditorViewport::OnObjectPropertyChanged(UObject* ObjectBeingModi
 	if( PreviewMeshComponent )
 	{
 		bool bShouldUpdatePreviewSocketMeshes = (ObjectBeingModified == PreviewMeshComponent->StaticMesh);
-		if( !bShouldUpdatePreviewSocketMeshes )
+		if( !bShouldUpdatePreviewSocketMeshes && PreviewMeshComponent->StaticMesh )
 		{
 			const int32 SocketCount = PreviewMeshComponent->StaticMesh->Sockets.Num();
 			for( int32 i = 0; i < SocketCount; ++i )
@@ -339,13 +339,13 @@ void SStaticMeshEditorViewport::SetViewModeVertexColor()
 {
 	if (!EditorViewportClient->EngineShowFlags.VertexColors)
 	{
-		EditorViewportClient->EngineShowFlags.VertexColors = true;
-		EditorViewportClient->EngineShowFlags.Lighting = false;
+		EditorViewportClient->EngineShowFlags.SetVertexColors(true);
+		EditorViewportClient->EngineShowFlags.SetLighting(false);
 	}
 	else
 	{
-		EditorViewportClient->EngineShowFlags.VertexColors = false;
-		EditorViewportClient->EngineShowFlags.Lighting = true;
+		EditorViewportClient->EngineShowFlags.SetVertexColors(false);
+		EditorViewportClient->EngineShowFlags.SetLighting(true);
 	}
 	if (FEngineAnalytics::IsAvailable())
 	{

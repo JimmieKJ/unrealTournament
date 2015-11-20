@@ -17,7 +17,7 @@ public:
 
 	// FOnlineUser
 
-	virtual TSharedRef<FUniqueNetId> GetUserId() const override;
+	virtual TSharedRef<const FUniqueNetId> GetUserId() const override;
 	virtual FString GetRealName() const override;
 	virtual FString GetDisplayName() const override;
 	virtual bool GetUserAttribute(const FString& AttrName, FString& OutAttrValue) const override;
@@ -64,7 +64,7 @@ public:
 	}
 
 	/** User Id represented as a FUniqueNetId */
-	TSharedRef<FUniqueNetId> UserId;
+	TSharedRef<const FUniqueNetId> UserId;
 	/** Any addition account data associated with the friend */
 	TMap<FString, FString> AccountData;
 	/** @temp presence info */
@@ -92,8 +92,12 @@ public:
 	virtual bool GetFriendsList(int32 LocalUserNum, const FString& ListName, TArray< TSharedRef<FOnlineFriend> >& OutFriends) override;
 	virtual TSharedPtr<FOnlineFriend> GetFriend(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName) override;
 	virtual bool IsFriend(int32 LocalUserNum, const FUniqueNetId& FriendId, const FString& ListName) override;
-	virtual bool QueryRecentPlayers(const FUniqueNetId& UserId) override;
-	virtual bool GetRecentPlayers(const FUniqueNetId& UserId, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers) override;
+	virtual bool QueryRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace) override;
+	virtual bool GetRecentPlayers(const FUniqueNetId& UserId, const FString& Namespace, TArray< TSharedRef<FOnlineRecentPlayer> >& OutRecentPlayers) override;
+	virtual bool BlockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId) override;
+	virtual bool UnblockPlayer(int32 LocalUserNum, const FUniqueNetId& PlayerId) override;
+	virtual bool QueryBlockedPlayers(const FUniqueNetId& UserId) override;
+	virtual bool GetBlockedPlayers(const FUniqueNetId& UserId, TArray< TSharedRef<FOnlineBlockedPlayer> >& OutBlockedPlayers) override;
 
 	// FOnlineFriendsFacebook
 
@@ -141,8 +145,8 @@ private:
 	 */
 	void ReadFriendsUsingGraphPath(int32 LocalUserNum, const FString& ListName);
 
-	/** Delegate used to notify this interface that permissions are updated, and that we can now read the friends list */
-	FOnRequestNewReadPermissionsCompleteDelegate RequestFriendsReadPermissionsDelegate;
+	/** Handle to delegate used to notify this interface that permissions are updated, and that we can now read the friends list */
+	FDelegateHandle RequestFriendsReadPermissionsDelegateHandle;
 
 	/** Delegate called when reading the friends list is completed */
 	FOnReadFriendsListComplete OnReadFriendsListCompleteDelegate;

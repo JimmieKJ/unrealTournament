@@ -275,7 +275,10 @@ dep_option(WAYLAND_SHARED      "Dynamically load Wayland support" ON "VIDEO_WAYL
 dep_option(VIDEO_WAYLAND_QT_TOUCH  "QtWayland server support for Wayland video driver" ON "VIDEO_WAYLAND" OFF)
 set_option(VIDEO_MIR           "Use Mir video driver" ${UNIX_SYS})
 dep_option(MIR_SHARED          "Dynamically load Mir support" ON "VIDEO_MIR" OFF)
-set_option(VIDEO_RPI           "Use Raspberry Pi video driver" ${UNIX_SYS})
+# EG BEGIN
+# disabling VIDEO_RPI due to additional libraries needed for that at link time 
+set_option(VIDEO_RPI           "Use Raspberry Pi video driver" OFF)
+# EG END
 dep_option(X11_SHARED          "Dynamically load X11 support" ON "VIDEO_X11" OFF)
 set(SDL_X11_OPTIONS Xcursor Xinerama XInput Xrandr Xscrnsaver XShape Xvm)
 foreach(_SUB ${SDL_X11_OPTIONS})

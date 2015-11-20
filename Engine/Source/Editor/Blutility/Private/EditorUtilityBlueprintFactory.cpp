@@ -3,7 +3,6 @@
 #include "BlutilityPrivatePCH.h"
 #include "ClassViewerModule.h"
 #include "ClassViewerFilter.h"
-#include "BlutilityClasses.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Kismet2/SClassPickerDialog.h"
 #include "Engine/BlueprintGeneratedClass.h"

@@ -44,4 +44,7 @@ public:
 
 	void GetHideCategories(TArray<FString>& OutHideCategories) const;
 	void GetShowCategories(TArray<FString>& OutShowCategories) const;
+
+	/** Helper function that checks if the field is a dynamic type (can be constructed post-startup) */
+	static bool IsDynamic(UField* Field);
 };

@@ -6,7 +6,6 @@
 #include "UnrealEd.h"
 #include "ScopedTransaction.h"
 #include "SKismetLinearExpression.h"
-#include "BlueprintGraphClasses.h"
 
 
 #endif // __KismetWidgetsPrivatePCH_h__

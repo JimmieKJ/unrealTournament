@@ -180,7 +180,7 @@ protected:
 public:
 	// The actual cached copy of all of the game rulesets
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Lobby)
-	TArray<TWeakObjectPtr<AUTReplicatedGameRuleset>> AvailableGameRulesets;
+	TArray< AUTReplicatedGameRuleset* > AvailableGameRulesets;
 
 	virtual TWeakObjectPtr<AUTReplicatedGameRuleset> FindRuleset(FString TagToFind);
 

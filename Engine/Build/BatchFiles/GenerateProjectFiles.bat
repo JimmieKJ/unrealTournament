@@ -1,5 +1,5 @@
 @echo off
-
+setlocal
 echo Setting up Unreal Engine 4 project files...
 
 rem ## Unreal Engine 4 Visual Studio project setup script
@@ -23,11 +23,26 @@ rem ## in order to run.  It's possible the user acquired source but did not down
 if not exist ..\Binaries\DotNET\RPCUtility.exe goto Error_MissingBinaryPrerequisites
 
 
+set MSBUILD_EXE=msbuild.exe
+
 rem ## Check to see if we're already running under a Visual Studio environment shell
 if not "%INCLUDE%" == "" if not "%LIB%" == "" goto ReadyToCompile
 
 
+rem ## Try to get the MSBuild executable directly (see https://msdn.microsoft.com/en-us/library/hh162058(v=vs.120).aspx)
+
+if exist "%ProgramFiles%\MSBuild\12.0\bin\MSBuild.exe" (
+ 	set MSBUILD_EXE="%ProgramFiles%\MSBuild\12.0\bin\MSBuild.exe"
+	goto ReadyToCompile
+)
+if exist "%ProgramFiles(x86)%\MSBuild\12.0\bin\MSBuild.exe" (
+	set MSBUILD_EXE="%ProgramFiles(x86)%\MSBuild\12.0\bin\MSBuild.exe"
+	goto ReadyToCompile
+)
+
 rem ## Check for Visual Studio 2013
+
+for %%P in (%*) do if "%%P" == "-2015" goto NoVisualStudio2013Environment
 
 pushd %~dp0
 call GetVSComnToolsPath 12
@@ -38,6 +53,17 @@ call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
 goto ReadyToCompile
 
 :NoVisualStudio2013Environment
+rem ## Check for Visual Studio 2015
+
+pushd %~dp0
+call GetVSComnToolsPath 14
+popd
+
+if "%VsComnToolsPath%" == "" goto NoVisualStudio2015Environment
+call "%VsComnToolsPath%/../../VC/bin/x86_amd64/vcvarsx86_amd64.bat" >NUL
+goto ReadyToCompile
+
+:NoVisualStudio2015Environment
 rem ## Check for Visual Studio 2012
 
 pushd %~dp0
@@ -55,7 +81,17 @@ goto Error_NoVisualStudioEnvironment
 
 
 :ReadyToCompile
-msbuild /nologo /verbosity:quiet Programs\UnrealBuildTool\UnrealBuildTool.csproj /property:Configuration=Development /property:Platform=AnyCPU /target:Clean,Build
+rem Check to see if the files in the UBT directory have changed. We conditionally include platform files from the .csproj file, but MSBuild doesn't recognize the dependency when new files are added. 
+md ..\Intermediate\Build >nul 2>nul
+dir /s /b Programs\UnrealBuildTool\*.cs >..\Intermediate\Build\UnrealBuildToolFiles.txt
+fc /b ..\Intermediate\Build\UnrealBuildToolFiles.txt ..\Intermediate\Build\UnrealBuildToolPrevFiles.txt >nul 2>nul
+if not errorlevel 1 goto SkipClean
+
+copy /y ..\Intermediate\Build\UnrealBuildToolFiles.txt ..\Intermediate\Build\UnrealBuildToolPrevFiles.txt >nul
+%MSBUILD_EXE% /nologo /verbosity:quiet Programs\UnrealBuildTool\UnrealBuildTool.csproj /property:Configuration=Development /property:Platform=AnyCPU /target:Clean
+
+:SkipClean
+%MSBUILD_EXE% /nologo /verbosity:quiet Programs\UnrealBuildTool\UnrealBuildTool.csproj /property:Configuration=Development /property:Platform=AnyCPU /target:Build
 if not %ERRORLEVEL% == 0 goto Error_UBTCompileFailed
 
 rem ## Run UnrealBuildTool to generate Visual Studio solution and project files
@@ -64,7 +100,8 @@ rem ## NOTE: We also pass along any arguments to the GenerateProjectFiles.bat he
 if not %ERRORLEVEL% == 0 goto Error_ProjectGenerationFailed
 
 rem ## Success!
-goto Exit
+popd
+exit /B 0
 
 
 :Error_BatchFileInWrongLocation
@@ -85,7 +122,7 @@ goto Exit
 
 :Error_NoVisualStudioEnvironment
 echo.
-echo GenerateProjectFiles ERROR: We couldn't find a valid installation of Visual Studio.  This program requires either Visual Studio 2013 or Visual Studio 2012.  Please check that you have Visual Studio installed, then verify that the HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\12.0\InstallDir (or HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\12.0\InstallDir on 32-bit machines) registry value is set.  Visual Studio configures this value when it is installed, and this program expects it to be set to the '\Common7\IDE\' sub-folder under a valid Visual Studio installation directory.
+echo GenerateProjectFiles ERROR: We couldn't find a valid installation of Visual Studio.  This program requires Visual Studio 2015 or Visual Studio 2013 or Visual Studio 2012.  Please check that you have Visual Studio installed, then verify that the HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\VisualStudio\14.0\InstallDir (or HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\VisualStudio\14.0\InstallDir on 32-bit machines) registry value is set.  Visual Studio configures this value when it is installed, and this program expects it to be set to the '\Common7\IDE\' sub-folder under a valid Visual Studio installation directory.
 echo.
 pause
 goto Exit
@@ -110,4 +147,4 @@ goto Exit
 :Exit
 rem ## Restore original CWD in case we change it
 popd
-
+exit /B 1

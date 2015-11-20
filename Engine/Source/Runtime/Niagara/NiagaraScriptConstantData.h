@@ -13,56 +13,63 @@ struct FNiagaraScriptConstantData
 
 	/** The set of external constants for this script. */
 	UPROPERTY()
-	FNiagaraConstants ExternalConstants;
-
-	/** The set of internal constants for this script. */
+	FDeprecatedNiagaraConstants ExternalConstants_DEPRECATED;
 	UPROPERTY()
-	FNiagaraConstants InternalConstants;
+	FDeprecatedNiagaraConstants InternalConstants_DEPRECATED;
+
+	/** Constants driven by the system. Named New for BC reasons. Once all data is updated beyond VER_UE4_NIAGARA_DATA_OBJECT_DEV_UI_FIX. Get rid of the deprecated consts and rename the New. */
+	UPROPERTY()
+	FNiagaraConstants ExternalConstantsNew;
+
+	/** The set of internal constants for this script. Named New for BC reasons. Once all data is updated beyond VER_UE4_NIAGARA_DATA_OBJECT_DEV_UI_FIX. Get rid of the deprecated consts and rename the New. */
+	UPROPERTY()
+	FNiagaraConstants InternalConstantsNew;
 
 	void Empty()
 	{
-		ExternalConstants.Empty();
-		InternalConstants.Empty();
+		ExternalConstantsNew.Empty();
+		InternalConstantsNew.Empty();
 	}
 
+	FNiagaraConstants& GetExternalConstants(){ return ExternalConstantsNew; }
+
 	/** Fill a constants table ready for use in an update or spawn. */
-	void FillConstantTable(const FNiagaraConstantMap& ExternalConstantsMap, TArray<FVector4>& OutConstantTable, TArray<FNiagaraDataObject *> &DataObjTable) const
+	void FillConstantTable(const FNiagaraConstantMap& ExternalConstantsMap, TArray<FVector4>& OutConstantTable, TArray<UNiagaraDataObject *> &DataObjTable) const
 	{
 		//First up in the table comes the External constants in scalar->vector->matrix order.
 		//Only fills the constants actually used by the script.
 		OutConstantTable.Empty();
-		ExternalConstants.AppendToConstantsTable(OutConstantTable, ExternalConstantsMap);
-		ExternalConstants.AppendExternalBufferConstants(DataObjTable, ExternalConstantsMap);
+		ExternalConstantsNew.AppendToConstantsTable(OutConstantTable, ExternalConstantsMap);
+		ExternalConstantsNew.AppendExternalBufferConstants(DataObjTable, ExternalConstantsMap);
 		//Next up add all the internal constants from the script.
-		InternalConstants.AppendToConstantsTable(OutConstantTable);
-		InternalConstants.AppendBufferConstants(DataObjTable);
+		InternalConstantsNew.AppendToConstantsTable(OutConstantTable);
+		InternalConstantsNew.AppendBufferConstants(DataObjTable);
 	}
 
 	template<typename T>
 	void SetOrAddInternal(const FNiagaraVariableInfo& Constant, const T& Value)
 	{
-		InternalConstants.SetOrAdd(Constant, Value);
+		InternalConstantsNew.SetOrAdd(Constant, Value);
 	}
 
 	template<typename T>
 	void SetOrAddExternal(const FNiagaraVariableInfo& Constant, const T& Value)
 	{
-		ExternalConstants.SetOrAdd(Constant, Value);
+		ExternalConstantsNew.SetOrAdd(Constant, Value);
 	}
 
 	/**
 	Calculates the index into a a constant table created from this constant data for the given constant name.
 	Obviously, assumes the constant data is complete. Any additions etc will invalidate previously calculated indexes.
 	*/
-	void GetTableIndex(const FNiagaraVariableInfo& Constant, bool bInternal, int32& OutConstantIdx, int32& OutComponentIndex, ENiagaraDataType& OutType)const
+	void GetTableIndex(const FNiagaraVariableInfo& Constant, bool bInternal, int32& OutConstantIdx, ENiagaraDataType& OutType)const
 	{
-		int32 Base = bInternal ? ExternalConstants.GetTableSize() : 0;
+		int32 Base = bInternal ? ExternalConstantsNew.GetTableSize() : 0;
 		int32 ConstIdx = INDEX_NONE;
-		int32 CompIdx = INDEX_NONE;
 		ENiagaraDataType Type;
-		const FNiagaraConstants& Consts = bInternal ? InternalConstants : ExternalConstants;
+		const FNiagaraConstants& Consts = bInternal ? InternalConstantsNew : ExternalConstantsNew;
 
-		ConstIdx = Consts.GetAbsoluteIndex_Scalar(Constant);
+		ConstIdx = Consts.GetTableIndex_Scalar(Constant);
 		Type = ENiagaraDataType::Scalar;
 		if (ConstIdx == INDEX_NONE)
 		{
@@ -81,14 +88,8 @@ struct FNiagaraScriptConstantData
 				}
 			}
 		}
-		else
-		{
-			CompIdx = ConstIdx % 4;
-			ConstIdx /= 4;
-		}
 
 		OutConstantIdx = Base + ConstIdx;
-		OutComponentIndex = CompIdx;
 		OutType = Type;
 	}
 };

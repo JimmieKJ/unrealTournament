@@ -57,28 +57,30 @@ void USoundNodeSwitch::RenamePins()
 	{
 		if (InputPins[i])
 		{
-			InputPins[i]->PinName = GetInputPinName(i);
+			InputPins[i]->PinName = GetInputPinName(i).ToString();
 		}
 	}
 }
 
-FString USoundNodeSwitch::GetInputPinName(int32 PinIndex) const
+FText USoundNodeSwitch::GetInputPinName(int32 PinIndex) const
 {
 	if (PinIndex == 0)
 	{
-		return LOCTEXT("ParamUnset", "Parameter Unset").ToString();
+		return LOCTEXT("ParamUnset", "Parameter Unset");
 	}
 	else
 	{
-		return FString::Printf(TEXT("%d"), PinIndex - 1);
+		return FText::FromString(FString::Printf(TEXT("%d"), PinIndex - 1));
 	}
-
-	return Super::GetInputPinName(PinIndex);
 }
 
-FString USoundNodeSwitch::GetTitle() const
+FText USoundNodeSwitch::GetTitle() const
 {
-	return FString::Printf(TEXT("%s (%s)"), *Super::GetTitle(), *IntParameterName.ToString());
+	FFormatNamedArguments Arguments;
+	Arguments.Add(TEXT("Description"), Super::GetTitle());
+	Arguments.Add(TEXT("ParameterName"), FText::FromName(IntParameterName));
+
+	return FText::Format(LOCTEXT("Title", "{Description} ({ParameterName})"), Arguments);
 }
 #endif //WITH_EDITOR
 

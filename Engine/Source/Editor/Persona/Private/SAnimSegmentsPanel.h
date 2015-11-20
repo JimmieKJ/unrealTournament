@@ -15,6 +15,21 @@ DECLARE_DELEGATE_OneParam( FOnAnimSegmentRemoved, int32 )
 //////////////////////////////////////////////////////////////////////////
 // SAnimSegmentsPanel
 
+// UI Commands
+class FAnimSegmentsPanelCommands : public TCommands < FAnimSegmentsPanelCommands >
+{
+public:
+	FAnimSegmentsPanelCommands()
+		: TCommands<FAnimSegmentsPanelCommands>("AnimMontagePanel", NSLOCTEXT("Contexts", "AnimMontagePanel", "Anim Montage Panel"), NAME_None, FEditorStyle::GetStyleSetName())
+	{
+
+	}
+
+	TSharedPtr<FUICommandInfo> DeleteSegment;
+
+	virtual void RegisterCommands() override;
+};
+
 // TODO: comment about segment panel
 class SAnimSegmentsPanel: public SCompoundWidget
 {
@@ -54,6 +69,12 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
+	// We support keyboard focus to recieve UI key events
+	bool SupportsKeyboardFocus() const override {return true;}
+
+	// Key handler
+	FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+
 private:
 
 	FOnPreAnimUpdate			OnPreAnimUpdateDelegate;
@@ -82,11 +103,20 @@ private:
 	void				SummonSegmentNodeContextMenu( FMenuBuilder& MenuBuilder, int32 AnimSegmentIndex );
 
 	void				AddAnimSegment(UAnimSequence *NewSequence, float NewStartPos );
-	void				RemoveAnimSegment(int32 AnimSegmentIndex);
+	
 	bool				DoesAnimTypeMatchTrack(UAnimSequence* NewSequence);
 
 	void				OnTrackDragDrop( TSharedPtr<FDragDropOperation> DragDropOp, float DataPos );
 	void				OnAnimSegmentNodeClicked(int32 SegmentIdx);
+
+	// Remove all selected anim segments in all segment tracks
+	void RemoveSelectedAnimSegments();
+
+	// Remove the specified anim segment
+	void RemoveAnimSegment(int32 AnimSegmentIndex);
+
+	/** Bind UI commands for this widget */
+	void				BindCommands();
 
 	ETrackViewStyle		TrackStyle;
 
@@ -96,4 +126,10 @@ private:
 	struct FAnimTrack*	AnimTrack;
 
 	bool bDragging;
+
+	/** List of UI commands for this widget */
+	TSharedPtr<FUICommandList> UICommandList;
+
+	/** List of widgets representing tracks */
+	TArray<TSharedPtr<STrack>> TrackWidgets;
 };

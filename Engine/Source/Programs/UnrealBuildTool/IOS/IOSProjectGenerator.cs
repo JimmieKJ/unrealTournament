@@ -8,36 +8,34 @@ using System.IO;
 
 namespace UnrealBuildTool
 {
-    /**
-     *	Base class for platform-specific project generators 
-     */
-    class IOSProjectGenerator : UEPlatformProjectGenerator
-    {
-        /**
-         *	Register the platform with the UEPlatformProjectGenerator class
-         */
-        public override void RegisterPlatformProjectGenerator()
-        {
-            // Register this project generator for Mac
-            Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.IOS.ToString());
-            UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.IOS, this);
-        }
+	/// <summary>
+	/// Base class for platform-specific project generators
+	/// </summary>
+	class IOSProjectGenerator : UEPlatformProjectGenerator
+	{
+		/// <summary>
+		/// Register the platform with the UEPlatformProjectGenerator class
+		/// </summary>
+		public override void RegisterPlatformProjectGenerator()
+		{
+			// Register this project generator for Mac
+			Log.TraceVerbose("        Registering for {0}", UnrealTargetPlatform.IOS.ToString());
+			UEPlatformProjectGenerator.RegisterPlatformProjectGenerator(UnrealTargetPlatform.IOS, this);
+		}
 
-        ///
-        ///	VisualStudio project generation functions
-        ///	
-        /**
-         *	Whether this build platform has native support for VisualStudio
-         *	
-         *	@param	InPlatform			The UnrealTargetPlatform being built
-         *	@param	InConfiguration		The UnrealTargetConfiguration being built
-         *	
-         *	@return	bool				true if native VisualStudio support (or custom VSI) is available
-         */
-        public override bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
-        {
-            // iOS is not supported in VisualStudio
-            return false;
-        }
-    }
+		///
+		///	VisualStudio project generation functions
+		///	
+		/// <summary>
+		/// Whether this build platform has native support for VisualStudio
+		/// </summary>
+		/// <param name="InPlatform">  The UnrealTargetPlatform being built</param>
+		/// <param name="InConfiguration"> The UnrealTargetConfiguration being built</param>
+		/// <returns>bool    true if native VisualStudio support (or custom VSI) is available</returns>
+		public override bool HasVisualStudioSupport(UnrealTargetPlatform InPlatform, UnrealTargetConfiguration InConfiguration)
+		{
+			// iOS is not supported in VisualStudio
+			return false;
+		}
+	}
 }

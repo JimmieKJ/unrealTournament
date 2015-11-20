@@ -104,7 +104,7 @@ public:
 		return false; 
 	}
 
-	/** Called once per frame, gathers and sets all memory allocator statistics into the corresponding stats. */
+	/** Called once per frame, gathers and sets all memory allocator statistics into the corresponding stats. MUST BE THREAD SAFE. */
 	virtual void UpdateStats();
 
 	/** Writes allocator stats from the last update into the specified destination. */

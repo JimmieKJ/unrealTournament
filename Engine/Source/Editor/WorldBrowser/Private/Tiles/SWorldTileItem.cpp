@@ -1,134 +1,53 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #include "WorldBrowserPrivatePCH.h"
 
-#include "ObjectTools.h"
 #include "EdGraphUtilities.h"
 #include "WorldTileCollectionModel.h"
 #include "SWorldTileItem.h"
 #include "WorldTileDetails.h"
+#include "WorldTileThumbnails.h"
 
 #define LOCTEXT_NAMESPACE "WorldBrowser"
 
-FTileItemThumbnail::FTileItemThumbnail(FSlateTextureRenderTarget2DResource* InThumbnailRenderTarget, 
-									   TSharedPtr<FLevelModel> InItemModel)
-	: LevelModel(InItemModel)
-	, ThumbnailTexture(NULL)
-	, ThumbnailRenderTarget(InThumbnailRenderTarget)
+//----------------------------------------------------------------
+//
+//
+//----------------------------------------------------------------
+int32 SWorldTileImage::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
-	FIntPoint RTSize = ThumbnailRenderTarget->GetSizeXY();
-	ThumbnailTexture = new FSlateTexture2DRHIRef(RTSize.X, RTSize.Y, PF_B8G8R8A8, NULL, TexCreate_Dynamic);
-	BeginInitResource(ThumbnailTexture);
-}
+	const FSlateBrush* ImageBrush = Image.Get();
 
-FTileItemThumbnail::~FTileItemThumbnail()
-{
-	BeginReleaseResource(ThumbnailTexture);
-	
-	// Wait for all resources to be released
-	FlushRenderingCommands();
-	delete ThumbnailTexture;
-	ThumbnailTexture = NULL;
-}
-
-FIntPoint FTileItemThumbnail::GetSize() const
-{
-	return ThumbnailRenderTarget->GetSizeXY();
-}
-
-FSlateShaderResource* FTileItemThumbnail::GetViewportRenderTargetTexture() const
-{
-	return ThumbnailTexture;
-}
-
-bool FTileItemThumbnail::RequiresVsync() const
-{
-	return false;
-}
-
-void FTileItemThumbnail::UpdateTextureData(FObjectThumbnail* ObjectThumbnail)
-{
-	check(ThumbnailTexture)
-	
-	if (ObjectThumbnail &&
-		ObjectThumbnail->GetImageWidth() > 0 && 
-		ObjectThumbnail->GetImageHeight() > 0 && 
-		ObjectThumbnail->GetUncompressedImageData().Num() > 0)
+	if ((ImageBrush != nullptr) && (ImageBrush->DrawAs != ESlateBrushDrawType::NoDrawType))
 	{
-		// Make bulk data for updating the texture memory later
-		FSlateTextureDataPtr ThumbnailBulkData = MakeShareable(new FSlateTextureData(
-			ObjectThumbnail->GetImageWidth(), 
-			ObjectThumbnail->GetImageHeight(), 
-			GPixelFormats[PF_B8G8R8A8].BlockBytes, 
-			ObjectThumbnail->AccessImageData())
-			);
-					
-		// Update the texture RHI
-		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
-			UpdateGridItemThumbnailResourse,
-			FSlateTexture2DRHIRef*, Texture, ThumbnailTexture,
-			FSlateTextureDataPtr, BulkData, ThumbnailBulkData,
-		{
-			Texture->SetTextureData(BulkData);
-			Texture->UpdateRHI();
-		});
+		const bool bIsEnabled = EditableTile.Get() && ShouldBeEnabled(bParentEnabled);
+		const uint32 DrawEffects = bIsEnabled ? 0 : ESlateDrawEffect::DisabledEffect;
+		FSlateDrawElement::MakeBox(
+			OutDrawElements, 
+			LayerId, 
+			AllottedGeometry.ToPaintGeometry(), 
+			ImageBrush, 
+			MyClippingRect, 
+			DrawEffects|ESlateDrawEffect::IgnoreTextureAlpha, 
+			FColor::White);
 	}
-}
-
-void FTileItemThumbnail::UpdateThumbnail()
-{
-	// No need images for persistent and always loaded levels
-	if (LevelModel->IsPersistent())
-	{
-		return;
-	}
-	
-	// Load image from a package header
-	if (!LevelModel->IsVisible() || LevelModel->IsSimulating())
-	{
-		TSet<FName> ObjectFullNames;
-		ObjectFullNames.Add(LevelModel->GetAssetName());
-		FThumbnailMap ThumbnailMap;
-			
-		if (ThumbnailTools::ConditionallyLoadThumbnailsFromPackage(LevelModel->GetPackageFileName(), ObjectFullNames, ThumbnailMap))
-		{
-			UpdateTextureData(ThumbnailMap.Find(LevelModel->GetAssetName()));
-		}
-	}
-	// Render image from a loaded visble level
-	else
-	{
-		ULevel* TargetLevel = LevelModel->GetLevelObject();
-		if (TargetLevel)
-		{
-			FIntPoint RTSize = ThumbnailRenderTarget->GetSizeXY();
-			
-			// Set persistent world package as transient to avoid package dirtying during thumbnail rendering
-			FUnmodifiableObject ImmuneWorld(TargetLevel->OwningWorld);
-			
-			FObjectThumbnail NewThumbnail;
-			// Generate the thumbnail
-			ThumbnailTools::RenderThumbnail(
-				TargetLevel,
-				RTSize.X,
-				RTSize.Y,
-				ThumbnailTools::EThumbnailTextureFlushMode::NeverFlush,
-				ThumbnailRenderTarget,
-				&NewThumbnail
-				);
-
-			UPackage* MyOutermostPackage = CastChecked<UPackage>(TargetLevel->GetOutermost());
-			ThumbnailTools::CacheThumbnail(LevelModel->GetAssetName().ToString(), &NewThumbnail, MyOutermostPackage);
-			UpdateTextureData(&NewThumbnail);
-		}
-	}
+	return LayerId;
 }
 
 //----------------------------------------------------------------
 //
 //
 //----------------------------------------------------------------
+SWorldTileItem::SWorldTileItem()
+ : bAffectedByMarquee(false)
+ , bNeedRefresh(false)
+ , bIsDragging(false)
+{
+}
+
 SWorldTileItem::~SWorldTileItem()
 {
+	ThumbnailImageWidget->SetImage(nullptr);
+	ThumbnailCollection->UnregisterTile(*TileModel.Get());
 	TileModel->ChangedEvent.RemoveAll(this);
 }
 
@@ -136,35 +55,23 @@ void SWorldTileItem::Construct(const FArguments& InArgs)
 {
 	WorldModel = InArgs._InWorldModel;
 	TileModel = InArgs._InItemModel;
-
-	ProgressBarImage = FEditorStyle::GetBrush(TEXT("ProgressBar.Marquee"));
+	ThumbnailCollection = InArgs._InThumbnailCollection;
 	
-	bNeedRefresh = true;
-	bIsDragging = false;
-	bAffectedByMarquee = false;
-
-	Thumbnail = MakeShareable(new FTileItemThumbnail(InArgs._ThumbnailRenderTarget, TileModel));
-	ThumbnailViewport = SNew(SViewport)
-							.EnableGammaCorrection(false);
-							
-	ThumbnailViewport->SetViewportInterface(Thumbnail.ToSharedRef());
-	// This will grey out tile in case level is not loaded or locked
-	ThumbnailViewport->SetEnabled(TAttribute<bool>(this, &SWorldTileItem::IsItemEnabled));
-
 	TileModel->ChangedEvent.AddSP(this, &SWorldTileItem::RequestRefresh);
-			
+	
 	GetOrAddSlot( ENodeZone::Center )
 	[
-		ThumbnailViewport.ToSharedRef()
+		SAssignNew(ThumbnailImageWidget, SWorldTileImage)
+		.EditableTile(this, &SWorldTileItem::IsItemEnabled)
 	];
+
+	ThumbnailCollection->RegisterTile(*TileModel.Get());
+	const FSlateBrush* TileBrush = ThumbnailCollection->GetTileBrush(*TileModel.Get());
+	ThumbnailImageWidget->SetImage(TileBrush);
 
 	SetToolTip(CreateToolTipWidget());
 
-	CurveSequence = FCurveSequence(0.0f, 0.5f);
-	if (TileModel->IsLoading())
-	{
-		CurveSequence.Play( this->AsShared(), true );
-	}
+	bNeedRefresh = true;
 }
 
 void SWorldTileItem::RequestRefresh()
@@ -337,7 +244,7 @@ FSlateRect SWorldTileItem::GetItemRect() const
 TSharedPtr<IToolTip> SWorldTileItem::GetToolTip()
 {
 	// Hide tooltip in case item is being dragged now
-	if (TileModel->GetLevelTranslationDelta().Size() > KINDA_SMALL_NUMBER)
+	if (TileModel->GetLevelTranslationDelta().SizeSquared() > FMath::Square(KINDA_SMALL_NUMBER))
 	{
 		return NULL;
 	}
@@ -361,18 +268,6 @@ FVector2D SWorldTileItem::ComputeDesiredSize( float ) const
 	return TileModel->GetLevelSize2D();
 }
 
-void SWorldTileItem::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	if ( TileModel->IsLoading() && !CurveSequence.IsPlaying() )
-	{
-		CurveSequence.Play( this->AsShared() );
-	}
-	else if ( !TileModel->IsLoading() && CurveSequence.IsPlaying() )
-	{
-		CurveSequence.JumpToEnd();
-	}
-}
-
 int32 SWorldTileItem::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& ClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const
 {
 	const bool bIsVisible = FSlateRect::DoRectanglesIntersect(AllottedGeometry.GetClippingRect(), ClippingRect);
@@ -380,10 +275,11 @@ int32 SWorldTileItem::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedG
 	if (bIsVisible)
 	{
 		// Redraw thumbnail image if requested
-		if (bNeedRefresh)
+		if (bNeedRefresh && !ThumbnailCollection->IsOnCooldown())
 		{
-			Thumbnail->UpdateThumbnail();
 			bNeedRefresh = false;
+			const FSlateBrush* TileBrush = ThumbnailCollection->UpdateTileThumbnail(*TileModel.Get());
+			ThumbnailImageWidget->SetImage(TileBrush);
 		}
 		
 		LayerId = SNodePanel::SNode::OnPaint(Args, AllottedGeometry, ClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
@@ -417,34 +313,6 @@ int32 SWorldTileItem::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedG
 				ESlateDrawEffect::None,
 				HighlightColor
 				);
-		}
-
-		// Draw progress bar if level is currently loading
-		if (TileModel->IsLoading())
-		{
-			const float ProgressBarAnimOffset = ProgressBarImage->ImageSize.X * CurveSequence.GetLerp();
-			const float ProgressBarImageSize = ProgressBarImage->ImageSize.X;
-			const float ProgressBarImageHeight = ProgressBarImage->ImageSize.Y;
-			const FVector2D ProggresBarOffset = FVector2D(ProgressBarAnimOffset - ProgressBarImageSize, 0);
-
-			FSlateLayoutTransform ProgressBarLayoutTransform(1.f, AllottedGeometry.GetAccumulatedLayoutTransform().GetTranslation() + ProggresBarOffset);
-			FSlateRenderTransform ProgressBarRenderTransform(1.f, AllottedGeometry.GetAccumulatedRenderTransform().GetTranslation() + ProggresBarOffset);
-			FPaintGeometry ProgressBarPaintGeometry(
-				ProgressBarLayoutTransform, 
-				ProgressBarRenderTransform, 
-				FVector2D(AllottedGeometry.Size.X*AllottedGeometry.Scale + ProgressBarImageSize, FMath::Min(AllottedGeometry.Size.Y*AllottedGeometry.Scale, ProgressBarImageHeight)));
-								
-			const FSlateRect ProgressBarClippingRect = AllottedGeometry.GetClippingRect().IntersectionWith(ClippingRect);
-								
-			FSlateDrawElement::MakeBox(
-				OutDrawElements,
-				LayerId + 1,
-				ProgressBarPaintGeometry,
-				ProgressBarImage,
-				ProgressBarClippingRect,
-				ESlateDrawEffect::None,
-				FLinearColor(1.0f, 1.0f, 1.0f, 0.5f)
-			);
 		}
 	}
 	

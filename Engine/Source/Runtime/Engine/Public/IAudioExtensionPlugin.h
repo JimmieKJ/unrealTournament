@@ -19,6 +19,28 @@ enum ESpatializationEffectType
 	SPATIALIZATION_TYPE_COUNT
 };
 
+class FAudioSpatializationParams
+{
+public:
+	FAudioSpatializationParams()
+		: EmitterPosition(0.0f)
+		, SpatializationAlgorithm(SPATIALIZATION_TYPE_FAST)
+	{}
+
+	FAudioSpatializationParams(const FVector& InEmitterPosition)
+		: EmitterPosition(InEmitterPosition)
+		, SpatializationAlgorithm(SPATIALIZATION_TYPE_FAST)
+	{}
+
+	FAudioSpatializationParams(const FVector& InEmitterPosition, ESpatializationEffectType InSpatializationAlgorithm)
+		: EmitterPosition(InEmitterPosition)
+		, SpatializationAlgorithm(InSpatializationAlgorithm)
+	{}
+
+	FVector						EmitterPosition;
+	ESpatializationEffectType	SpatializationAlgorithm;
+};
+
 /**
 * IAudioSpatializationAlgorithm
 *
@@ -41,9 +63,14 @@ public:
 	{
 
 	}
-	/** Sets the spatialization effect parameters. */
 
-	virtual void SetSpatializationParameters(uint32 VoiceId, const FVector& EmitterPosition, ESpatializationEffectType AlgorithmType)
+	/** Sets the spatialization effect parameters. */
+	virtual void SetSpatializationParameters(uint32 VoiceId, const FAudioSpatializationParams& Params)
+	{
+	}
+
+	/** Gets the spatialization effect parameters. */
+	virtual void GetSpatializationParameters(uint32 VoiceId, FAudioSpatializationParams& OutParams)
 	{
 	}
 

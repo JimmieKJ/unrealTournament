@@ -213,3 +213,6 @@ DECLARE_DELEGATE_RetVal_ThreeParams(bool, FAccessSourceCode, const FString& /*Fi
 
 /** A Delegate for an asset object to access */
 DECLARE_DELEGATE_RetVal_OneParam(bool, FAccessAsset, UObject* /*InAsset*/);
+
+/** A delegate for a callback during OnKeyDown from an SWidget */
+DECLARE_DELEGATE_RetVal_TwoParams( FReply, FOnKeyDown, const FGeometry&, const FKeyEvent&);

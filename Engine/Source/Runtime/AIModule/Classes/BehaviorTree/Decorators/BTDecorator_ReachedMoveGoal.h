@@ -8,7 +8,7 @@
  * Reached Move Goal decorator node.
  * A decorator node that bases its condition on whether the AI controller's path following component returns that it has reached its goal.
  */
-UCLASS()
+UCLASS(meta = (DeprecatedNode, DeprecationMessage = "Please use IsAtLocation decorator instead."))
 class AIMODULE_API UBTDecorator_ReachedMoveGoal : public UBTDecorator
 {
 	GENERATED_UCLASS_BODY()

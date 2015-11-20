@@ -235,63 +235,73 @@ struct ENGINE_API FLevelSimplificationDetails
 {
 	GENERATED_USTRUCT_BODY()
 
-	// Whether to create separate packages for each generated asset. All in map package otherwise
+	/** Whether to create separate packages for each generated asset. All in map package otherwise */
 	UPROPERTY(Category=General, EditAnywhere)
 	bool bCreatePackagePerAsset;
 
-	// Percentage of details for static mesh proxy
+	/** Percentage of details for static mesh proxy */
 	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Details Percentage", ClampMin = "0", ClampMax = "100", UIMin = "0", UIMax = "100"))	
 	float DetailsPercentage;
 
-	// Whether to generate normal map for static mesh proxy
-	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Normal Map"))
-	bool bGenerateMeshNormalMap;
-	
-	// Whether to generate metallic map for static mesh proxy
-	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Metallic Map"))
-	bool bGenerateMeshMetallicMap;
+	/** Static mesh material simplification */
+	UPROPERTY()
+	FMaterialSimplificationSettings StaticMeshMaterial_DEPRECATED;
 
-	// Whether to generate roughness map for static mesh proxy
-	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Roughness Map"))
-	bool bGenerateMeshRoughnessMap;
-	
-	// Whether to generate specular map for static mesh proxy
-	UPROPERTY(Category=StaticMesh, EditAnywhere, meta=(DisplayName="Static Mesh Specular Map"))
-	bool bGenerateMeshSpecularMap;
+	/** Landscape material simplification */
+	UPROPERTY(Category = Landscape, EditAnywhere)
+	FMaterialProxySettings StaticMeshMaterialSettings;
 
 	UPROPERTY()
 	bool bOverrideLandscapeExportLOD;
 
-	// Landscape LOD to use for static mesh generation, when not specified 'Max LODLevel' from landscape actor will be used
+	/** Landscape LOD to use for static mesh generation, when not specified 'Max LODLevel' from landscape actor will be used */
 	UPROPERTY(Category=Landscape, EditAnywhere, meta=(ClampMin = "0", ClampMax = "7", UIMin = "0", UIMax = "7", editcondition = "bOverrideLandscapeExportLOD"))
 	int32 LandscapeExportLOD;
 
-	// Whether to generate normal map for landscape static mesh
-	UPROPERTY(Category=Landscape, EditAnywhere, meta=(DisplayName="Landscape Normal Map"))
-	bool bGenerateLandscapeNormalMap;
+	/** Landscape material simplification */
+	UPROPERTY()
+	FMaterialSimplificationSettings LandscapeMaterial_DEPRECATED;
 
-	// Whether to generate metallic map for landscape static mesh
-	UPROPERTY(Category=Landscape, EditAnywhere, meta=(DisplayName="Landscape Metallic Map"))
-	bool bGenerateLandscapeMetallicMap;
+	/** Landscape material simplification */
+	UPROPERTY(Category = Landscape, EditAnywhere)
+	FMaterialProxySettings LandscapeMaterialSettings;
 
-	// Whether to generate roughness map for landscape static mesh
-	UPROPERTY(Category=Landscape, EditAnywhere, meta=(DisplayName="Landscape Roughness Map"))
-	bool bGenerateLandscapeRoughnessMap;
-	
-	// Whether to generate specular map for landscape static mesh
-	UPROPERTY(Category=Landscape, EditAnywhere, meta=(DisplayName="Landscape Specular Map"))
-	bool bGenerateLandscapeSpecularMap;
-	
-	// Whether to bake foliage into landscape static mesh texture
+	/** Whether to bake foliage into landscape static mesh texture */
 	UPROPERTY(Category=Landscape, EditAnywhere)
 	bool bBakeFoliageToLandscape;
 
-	// Whether to bake grass into landscape static mesh texture
+	/** Whether to bake grass into landscape static mesh texture */
 	UPROPERTY(Category=Landscape, EditAnywhere)
 	bool bBakeGrassToLandscape;
 
-	FLevelSimplificationDetails();
+	UPROPERTY()
+	bool bGenerateMeshNormalMap_DEPRECATED;
+	
+	UPROPERTY()
+	bool bGenerateMeshMetallicMap_DEPRECATED;
 
+	UPROPERTY()
+	bool bGenerateMeshRoughnessMap_DEPRECATED;
+	
+	UPROPERTY()
+	bool bGenerateMeshSpecularMap_DEPRECATED;
+	
+	UPROPERTY()
+	bool bGenerateLandscapeNormalMap_DEPRECATED;
+
+	UPROPERTY()
+	bool bGenerateLandscapeMetallicMap_DEPRECATED;
+
+	UPROPERTY()
+	bool bGenerateLandscapeRoughnessMap_DEPRECATED;
+	
+	UPROPERTY()
+	bool bGenerateLandscapeSpecularMap_DEPRECATED;
+
+	/** Handles deprecated properties */
+	void PostLoadDeprecated();
+	
+	FLevelSimplificationDetails();
 	bool operator == (const FLevelSimplificationDetails& Other) const;
 };
 
@@ -466,6 +476,13 @@ public:
 	/** Level simplification settings for each LOD */
 	UPROPERTY()
 	FLevelSimplificationDetails LevelSimplification[WORLDTILE_LOD_MAX_INDEX];
+
+	/** 
+	 * The level color used for visualization. (Show -> Advanced -> Level Coloration)
+	 * Used only in world composition mode
+	 */
+	UPROPERTY()
+	FLinearColor LevelColor;
 #endif //WITH_EDITORONLY_DATA
 
 	/** Actor which defines level logical bounding box				*/
@@ -487,16 +504,6 @@ private:
 	FLevelBoundsActorUpdatedEvent LevelBoundsActorUpdatedEvent; 
 
 protected:
-	/** Array of all MovieSceneBindings that are used in this level.  These store the relationship between
-	    a MovieScene asset and possessed actors in this level. */
-	UPROPERTY()
-	TArray< class UObject* > MovieSceneBindingsArray;
-
-	/** List of RuntimeMovieScenePlayers that are currently active in this level.  We'll keep references to these to keep
-	    them around until they're no longer needed.  Also, we'll tick them every frame! */
-	// @todo sequencer uobjects: Ideally this is using URuntimeMovieScenePlayer* and not UObject*, but there are DLL/interface issues with that
-	UPROPERTY( transient )
-	TArray< UObject* > ActiveRuntimeMovieScenePlayers;
 
 	/** Array of user data stored with the asset */
 	UPROPERTY()
@@ -505,6 +512,9 @@ protected:
 private:
 	// Actors awaiting input to be enabled once the appropriate PlayerController has been created
 	TArray<FPendingAutoReceiveInputActor> PendingAutoReceiveInputActors;
+
+	// Used internally to determine which actors should go on the world's NetworkActor list
+	static bool IsNetActor(const AActor* Actor);
 
 public:
 	/** Called when a level package has been dirtied. */
@@ -524,7 +534,7 @@ public:
 
 	~ULevel();
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
@@ -539,21 +549,7 @@ public:
 	virtual void PreSave() override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	// End UObject interface.
-
-	/**
-	 * Adds a newly-created RuntimeMovieScenePlayer to this level.  The level assumes ownership of this object.
-	 *
-	 * @param	RuntimeMovieScenePlayer	The RuntimeMovieScenePlayer instance to add
-	 */
-	ENGINE_API void AddActiveRuntimeMovieScenePlayer( class UObject* RuntimeMovieScenePlayer );
-
-	/**
-	 * Called by the engine every frame to tick all actively-playing RuntimeMovieScenePlayers
-	 *
-	 * @param	DeltaSeconds	Time elapsed since last tick
-	 */
-	void TickRuntimeMovieScenePlayers( const float DeltaSeconds );
+	//~ End UObject Interface.
 
 	/**
 	 * Clears all components of actors associated with this level (aka in Actors array) and 
@@ -580,8 +576,11 @@ public:
 	 * Invalidates the cached data used to render the level's UModel.
 	 */
 	void InvalidateModelGeometry();
-
+	
 #if WITH_EDITOR
+	/** Marks all level components render state as dirty */
+	ENGINE_API void MarkLevelComponentsRenderStateDirty();
+
 	/** Called to create ModelComponents for BSP rendering */
 	void CreateModelComponents();
 #endif // WITH_EDITOR
@@ -594,7 +593,7 @@ public:
 	/**
 	 * Commits changes made to the UModel's surfaces.
 	 */
-	void CommitModelSurfaces();
+	ENGINE_API void CommitModelSurfaces();
 
 	/**
 	 * Discards the cached data used to render the level's UModel.  Assumes that the
@@ -745,30 +744,15 @@ public:
 	/** Push any pending auto receive input actor's input components on to the player controller's input stack */
 	void PushPendingAutoReceiveInput(APlayerController* PC);
 	
-	// Begin IInterface_AssetUserData Interface
+	//~ Begin IInterface_AssetUserData Interface
 	virtual void AddAssetUserData(UAssetUserData* InUserData) override;
 	virtual void RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
 	virtual UAssetUserData* GetAssetUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
-	// End IInterface_AssetUserData Interface
+	//~ End IInterface_AssetUserData Interface
 
 #if WITH_EDITOR
 	/** meant to be called only from editor, calculating and storing static geometry to be used with off-line and/or on-line navigation building */
 	ENGINE_API void RebuildStaticNavigableGeometry();
-
-
-	/**
-	 * Adds a new MovieSceneBindings object to the level script actor.  This actor takes full ownership of
-	 * the MovieSceneBindings
-	 *
-	 * @param	MovieSceneBindings	The MovieSceneBindings object to take ownership of
-	 */
-	virtual void AddMovieSceneBindings( class UMovieSceneBindings* MovieSceneBindings );
-
-	/**
-	 * Clears all existing MovieSceneBindings off of the level.  Only meant to be called by the level script compiler.
-	 */
-	virtual void ClearMovieSceneBindings();
-
 
 #endif
 

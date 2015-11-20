@@ -10,7 +10,7 @@ class UGenerateBlueprintAPICommandlet : public UCommandlet
 	GENERATED_UCLASS_BODY()
 
 public:		
-	// Begin UCommandlet Interface
+	//~ Begin UCommandlet Interface
 	virtual int32 Main(FString const& Params) override;
-	// End UCommandlet Interface
+	//~ End UCommandlet Interface
 };

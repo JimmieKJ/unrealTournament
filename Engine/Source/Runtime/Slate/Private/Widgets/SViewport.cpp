@@ -3,6 +3,8 @@
 #include "SlatePrivatePCH.h"
 #include "HittestGrid.h"
 
+DECLARE_CYCLE_STAT(TEXT("Game UI Tick/Paint"), STAT_ViewportUpdateTime, STATGROUP_Slate);
+
 /* SViewport constructors
  *****************************************************************************/
 
@@ -52,6 +54,8 @@ EActiveTimerReturnType SViewport::EnsureTick(double InCurrentTime, float InDelta
 
 int32 SViewport::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_ViewportUpdateTime);
+
 	bool bEnabled = ShouldBeEnabled( bParentEnabled );
 	bool bShowDisabledEffect = ShowDisabledEffect.Get();
 	ESlateDrawEffect::Type DrawEffects = bShowDisabledEffect && !bEnabled ? ESlateDrawEffect::DisabledEffect : ESlateDrawEffect::None;
@@ -123,19 +127,20 @@ int32 SViewport::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 		);
 	}
 
-
-	if(CustomHitTestPath.IsValid())
+	// If there are any custom hit testable widgets in the 3D world we need to register their custom hit test path here.
+	if ( CustomHitTestPath.IsValid() )
 	{
 		Args.InsertCustomHitTestPath(CustomHitTestPath.ToSharedRef(), LastHitTestIndex);
 	}
-
 
 	return Layer;
 }
 
 void SViewport::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	if(ViewportInterface.IsValid())
+	SCOPE_CYCLE_COUNTER(STAT_ViewportUpdateTime);
+
+	if ( ViewportInterface.IsValid() )
 	{
 		ViewportInterface.Pin()->Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 	}
@@ -160,12 +165,10 @@ FReply SViewport::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointer
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnMouseButtonDown(MyGeometry, MouseEvent) : FReply::Unhandled();
 }
 
-
 FReply SViewport::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnMouseButtonUp(MyGeometry, MouseEvent) : FReply::Unhandled();
 }
-
 
 void SViewport::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
@@ -177,7 +180,6 @@ void SViewport::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& 
 	}
 }
 
-
 void SViewport::OnMouseLeave( const FPointerEvent& MouseEvent )
 {
 	SCompoundWidget::OnMouseLeave(MouseEvent);
@@ -188,31 +190,26 @@ void SViewport::OnMouseLeave( const FPointerEvent& MouseEvent )
 	}
 }
 
-
 FReply SViewport::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnMouseMove(MyGeometry, MouseEvent) : FReply::Unhandled();
 }
-
 
 FReply SViewport::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnMouseWheel(MyGeometry, MouseEvent) : FReply::Unhandled();
 }
 
-
 FReply SViewport::OnMouseButtonDoubleClick( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnMouseButtonDoubleClick(MyGeometry, MouseEvent) : FReply::Unhandled();
 }
-
 
 FReply SViewport::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnKeyDown(MyGeometry, KeyEvent) : FReply::Unhandled();
 }
 
- 
 FReply SViewport::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnKeyUp(MyGeometry, KeyEvent) : FReply::Unhandled();
@@ -237,7 +234,6 @@ FReply SViewport::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEven
 
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnFocusReceived(InFocusEvent) : FReply::Unhandled();
 }
-
 
 void SViewport::OnFocusLost( const FFocusEvent& InFocusEvent )
 {
@@ -273,30 +269,25 @@ void SViewport::OnWindowClosed( const TSharedRef<SWindow>& WindowBeingClosed )
 	}
 }
 
-
 FReply SViewport::OnTouchStarted( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnTouchStarted(MyGeometry, InTouchEvent) : FReply::Unhandled();
 }
-
 
 FReply SViewport::OnTouchMoved( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnTouchMoved(MyGeometry, InTouchEvent) : FReply::Unhandled();
 }
 
-
 FReply SViewport::OnTouchEnded( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnTouchEnded(MyGeometry, InTouchEvent) : FReply::Unhandled();
 }
 
-
 FReply SViewport::OnTouchGesture( const FGeometry& MyGeometry, const FPointerEvent& GestureEvent )
 {
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnTouchGesture(MyGeometry, GestureEvent) : FReply::Unhandled();
 }
-
 
 FReply SViewport::OnMotionDetected( const FGeometry& MyGeometry, const FMotionEvent& InMotionEvent )
 {
@@ -308,7 +299,7 @@ TOptional<bool> SViewport::OnQueryShowFocus(const EFocusCause InFocusCause) cons
 	return ViewportInterface.IsValid() ? ViewportInterface.Pin()->OnQueryShowFocus(InFocusCause) : TOptional<bool>();
 }
 
-TOptional<EPopupMethod> SViewport::OnQueryPopupMethod() const
+FPopupMethodReply SViewport::OnQueryPopupMethod() const
 {
 	TSharedPtr<ISlateViewport> PinnedInterface = ViewportInterface.Pin();
 	if (PinnedInterface.IsValid())
@@ -317,7 +308,7 @@ TOptional<EPopupMethod> SViewport::OnQueryPopupMethod() const
 	}
 	else
 	{
-		return EPopupMethod::CreateNewWindow;
+		return FPopupMethodReply::UseMethod(EPopupMethod::CreateNewWindow);
 	}	
 }
 

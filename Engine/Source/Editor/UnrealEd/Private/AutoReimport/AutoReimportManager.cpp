@@ -13,6 +13,7 @@
 #include "AssetRegistryModule.h"
 #include "ReimportFeedbackContext.h"
 #include "MessageLogModule.h"
+#include "AssetSourceFilenameCache.h"
 
 #define LOCTEXT_NAMESPACE "AutoReimportManager"
 #define yield if (TimeLimit.Exceeded()) return
@@ -23,15 +24,15 @@ enum class EStateMachineNode { CallOnce, CallMany };
 template<typename TState>
 struct FStateMachine
 {
-	typedef TFunction<TOptional<TState>(const FTimeLimit&)> FunctionType;
+	typedef TFunction<TOptional<TState>(const DirectoryWatcher::FTimeLimit&)> FunctionType;
 
 	/** Constructor that specifies the initial state of the machine */
 	FStateMachine(TState InitialState) : CurrentState(InitialState){}
 
 	/** Add an enum->function mapping for this state machine */
-	void Add(TState State, EStateMachineNode NodeType, const FunctionType& Function)
+	void Add(TState State, EStateMachineNode NodeType, FunctionType&& Function)
 	{
-		Nodes.Add(State, FStateMachineNode(NodeType, Function));
+		Nodes.Add(State, FStateMachineNode(NodeType, MoveTemp(Function)));
 	}
 
 	/** Set a new state for this machine */
@@ -41,7 +42,7 @@ struct FStateMachine
 	}
 
 	/** Tick this state machine with the given time limit. Will continuously enumerate the machine until TimeLimit is reached */
-	void Tick(const FTimeLimit& TimeLimit)
+	void Tick(const DirectoryWatcher::FTimeLimit& TimeLimit)
 	{
 		while (!TimeLimit.Exceeded())
 		{
@@ -67,7 +68,7 @@ private:
 
 	struct FStateMachineNode
 	{
-		FStateMachineNode(EStateMachineNode InType, const FunctionType& InEndpoint) : Endpoint(InEndpoint), Type(InType) {}
+		FStateMachineNode(EStateMachineNode InType, FunctionType&& InEndpoint) : Endpoint(MoveTemp(InEndpoint)), Type(InType) {}
 
 		/** The function endpoint for this node */
 		FunctionType Endpoint;
@@ -83,7 +84,7 @@ private:
 /** Enum and value to specify the current state of our processing */
 enum class ECurrentState
 {
-	Idle, PendingResponse, ProcessAdditions, ProcessModifications, ProcessDeletions, SavePackages
+	Idle, Paused, Aborting, ProcessAdditions, ProcessModifications, ProcessDeletions, SavePackages
 };
 uint32 GetTypeHash(ECurrentState State)
 {
@@ -143,9 +144,6 @@ private:
 	/** Get the number of unprocessed changes that are not part of the current processing operation */
 	int32 GetNumUnprocessedChanges() const;
 
-	/** Get the progress text to display on the context notification */
-	FText GetProgressText() const;
-
 private:
 
 	/** A state machine holding information about the current state of the manager */
@@ -157,22 +155,28 @@ private:
 	TOptional<ECurrentState> Idle();
 	
 	/** Process any remaining pending additions we have */
-	TOptional<ECurrentState> ProcessAdditions(const FTimeLimit& TimeLimit);
+	TOptional<ECurrentState> ProcessAdditions(const DirectoryWatcher::FTimeLimit& TimeLimit);
 
 	/** Save any packages that were created inside ProcessAdditions */
 	TOptional<ECurrentState> SavePackages();
 
 	/** Process any remaining pending modifications we have */
-	TOptional<ECurrentState> ProcessModifications(const FTimeLimit& TimeLimit);
+	TOptional<ECurrentState> ProcessModifications(const DirectoryWatcher::FTimeLimit& TimeLimit);
 
 	/** Process any remaining pending deletions we have */
 	TOptional<ECurrentState> ProcessDeletions();
 
 	/** Wait for a user's input. Just updates the progress text for now */
-	TOptional<ECurrentState> PendingResponse();
+	TOptional<ECurrentState> Paused();
+
+	/** Abort the process */
+	TOptional<ECurrentState> Abort();
 
 	/** Cleanup an operation that just processed some changes */
 	void Cleanup();
+
+	/** Check whether we should pause the operation or not */
+	TOptional<ECurrentState> HandlePauseAbort(ECurrentState InCurrentState);
 
 private:
 
@@ -189,12 +193,33 @@ private:
 	bool bGuardAssetChanges;
 
 	/** A timeout used to refresh directory monitors when the user has made an interactive change to the settings */
-	FTimeLimit ResetMonitorsTimeout;
+	DirectoryWatcher::FTimeLimit ResetMonitorsTimeout;
+
+	/** The paused state of the state machine */
+	ECurrentState PausedState;
+
+private:
+
+	void OnPauseClicked()
+	{
+		switch (State)
+		{
+		case EProcessState::Paused: State = EProcessState::Running; break;
+		case EProcessState::Running: State = EProcessState::Paused; break;
+		default: break;
+		}
+	}
+	void OnAbortClicked() { State = EProcessState::Aborted; }
+
+	/** Flags for paused/aborted */
+	enum class EProcessState { Running, Paused, Aborted };
+	EProcessState State;
 };
 
 FAutoReimportManager::FAutoReimportManager()
 	: StateMachine(ECurrentState::Idle)
 	, bGuardAssetChanges(false)
+	, PausedState(ECurrentState::Idle)
 {
 	auto* Settings = GetMutableDefault<UEditorLoadingSavingSettings>();
 	Settings->OnSettingChanged().AddRaw(this, &FAutoReimportManager::HandleLoadingSavingSettingChanged);
@@ -208,8 +233,7 @@ FAutoReimportManager::FAutoReimportManager()
 		MessageLogModule.RegisterLogListing("AssetReimport", LOCTEXT("AssetReimportLabel", "Asset Reimport"));
 	}
 
-	IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
-	AssetRegistry.OnAssetRenamed().AddRaw(this, &FAutoReimportManager::OnAssetRenamed);
+	FAssetSourceFilenameCache::Get().OnAssetRenamed().AddRaw(this, &FAutoReimportManager::OnAssetRenamed);
 
 	// Only set this up for content directories if the user has this enabled
 	if (Settings->bMonitorContentDirectories)
@@ -217,12 +241,13 @@ FAutoReimportManager::FAutoReimportManager()
 		SetUpDirectoryMonitors();
 	}
 
-	StateMachine.Add(ECurrentState::Idle,					EStateMachineNode::CallOnce,	[this](const FTimeLimit& T){ return this->Idle();					});
-	StateMachine.Add(ECurrentState::PendingResponse,		EStateMachineNode::CallOnce,	[this](const FTimeLimit& T){ return this->PendingResponse();		});
-	StateMachine.Add(ECurrentState::ProcessAdditions,		EStateMachineNode::CallMany,	[this](const FTimeLimit& T){ return this->ProcessAdditions(T);		});
-	StateMachine.Add(ECurrentState::ProcessModifications,	EStateMachineNode::CallMany,	[this](const FTimeLimit& T){ return this->ProcessModifications(T);	});
-	StateMachine.Add(ECurrentState::ProcessDeletions,		EStateMachineNode::CallMany,	[this](const FTimeLimit& T){ return this->ProcessDeletions();		});
-	StateMachine.Add(ECurrentState::SavePackages,			EStateMachineNode::CallOnce,	[this](const FTimeLimit& T){ return this->SavePackages();			});
+	StateMachine.Add(ECurrentState::Idle,					EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->Idle();					});
+	StateMachine.Add(ECurrentState::Paused,					EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->Paused();					});
+	StateMachine.Add(ECurrentState::Aborting,				EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->Abort();					});
+	StateMachine.Add(ECurrentState::ProcessAdditions,		EStateMachineNode::CallMany,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->ProcessAdditions(T);		});
+	StateMachine.Add(ECurrentState::ProcessModifications,	EStateMachineNode::CallMany,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->ProcessModifications(T);	});
+	StateMachine.Add(ECurrentState::ProcessDeletions,		EStateMachineNode::CallMany,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->ProcessDeletions();		});
+	StateMachine.Add(ECurrentState::SavePackages,			EStateMachineNode::CallOnce,	[this](const DirectoryWatcher::FTimeLimit& T){ return this->SavePackages();			});
 }
 
 TArray<FPathAndMountPoint> FAutoReimportManager::GetMonitoredDirectories() const
@@ -294,7 +319,7 @@ void FAutoReimportManager::Destroy()
 {
 	if (auto* AssetRegistryModule = FModuleManager::GetModulePtr<FAssetRegistryModule>("AssetRegistry"))
 	{
-		AssetRegistryModule->Get().OnAssetRenamed().RemoveAll(this);
+		FAssetSourceFilenameCache::Get().OnAssetRenamed().RemoveAll(this);
 	}
 	
 	if (auto* Settings = GetMutableDefault<UEditorLoadingSavingSettings>())
@@ -324,28 +349,30 @@ void FAutoReimportManager::OnAssetRenamed(const FAssetData& AssetData, const FSt
 	// This code moves a source content file that reside alongside assets when the assets are renamed. We do this under the following conditions:
 	// 	1. The sourcefile is solely referenced from the the asset that has been moved
 	//	2. Said asset only references a single file
-	//	3. The source file resides in the same folder as the asset
 	//
 	// Additionally, we rename the source file if it matched the name of the asset before the rename/move.
 	//	- If we rename the source file, then we also update the reimport paths for the asset
 
-	TArray<FString> SourceFilesRelativeToOldPath;
-	for (const auto& Pair : AssetData.TagsAndValues)
+	TOptional<FAssetImportInfo> ImportInfo = FAssetSourceFilenameCache::ExtractAssetImportInfo(AssetData.TagsAndValues);
+	if (!ImportInfo.IsSet() || ImportInfo->SourceFiles.Num() != 1)
 	{
-		if (Pair.Key.IsEqual(UObject::SourceFileTagName(), ENameCase::IgnoreCase, false))
-		{
-			SourceFilesRelativeToOldPath.Add(Pair.Value);
-		}
+		return;
 	}
+	
+	const FString& RelativeFilename = ImportInfo->SourceFiles[0].RelativeFilename;
+
+	FString OldPackagePath = FPackageName::GetLongPackagePath(OldPath);
+	FString NewReimportPath;
 
 	// We move the file with the asset provided it is the only file referenced, and sits right beside the uasset file
-	if (SourceFilesRelativeToOldPath.Num() == 1 && !SourceFilesRelativeToOldPath[0].GetCharArray().ContainsByPredicate([](const TCHAR Char) { return Char == '/' || Char == '\\'; }))
+	if (!RelativeFilename.GetCharArray().ContainsByPredicate([](const TCHAR Char) { return Char == '/' || Char == '\\'; }))
 	{
-		const FString AbsoluteSrcPath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(FPackageName::GetLongPackagePath(OldPath) / TEXT("")));
-		const FString AbsoluteDstPath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(AssetData.PackagePath.ToString() / TEXT("")));
+		// File resides in the same folder as the asset, so we can potentially rename the source file too
+		const FString AbsoluteSrcPath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(OldPackagePath + TEXT("/")));
+		const FString AbsoluteDstPath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(AssetData.PackagePath.ToString() + TEXT("/")));
 
 		const FString OldAssetName = FPackageName::GetLongPackageAssetName(FPackageName::ObjectPathToPackageName(OldPath));
-		FString NewFileName = FPaths::GetBaseFilename(SourceFilesRelativeToOldPath[0]);
+		FString NewFileName = FPaths::GetBaseFilename(RelativeFilename);
 
 		bool bRequireReimportPathUpdate = false;
 		if (PackageTools::SanitizePackageName(NewFileName) == OldAssetName)
@@ -354,31 +381,44 @@ void FAutoReimportManager::OnAssetRenamed(const FAssetData& AssetData, const FSt
 			bRequireReimportPathUpdate = true;
 		}
 
-		const FString SrcFile = AbsoluteSrcPath / SourceFilesRelativeToOldPath[0];
-		const FString DstFile = AbsoluteDstPath / NewFileName + TEXT(".") + FPaths::GetExtension(SourceFilesRelativeToOldPath[0]);
+		const FString SrcFile = AbsoluteSrcPath / RelativeFilename;
+		const FString DstFile = AbsoluteDstPath / NewFileName + TEXT(".") + FPaths::GetExtension(RelativeFilename);
 
 		// We can't do this if multiple assets reference the same file. We should be checking for > 1 referencing asset, but the asset registry
 		// filter lookup won't return the recently renamed package because it will be Empty by now, so we check for *anything* referencing the asset (assuming that we'll never find *this* asset).
 		const IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
-		if (Utils::FindAssetsPertainingToFile(Registry, SrcFile).Num() > 0)
+		if (Utils::FindAssetsPertainingToFile(Registry, SrcFile).Num() == 0)
 		{
-			return;
-		}
-
-		if (!FPlatformFileManager::Get().GetPlatformFile().FileExists(*DstFile) &&
-			IFileManager::Get().Move(*DstFile, *SrcFile, false /*bReplace */, false, true /* attributes */, true /* don't retry */))
-		{
-			IgnoreMovedFile(SrcFile, DstFile);
-
-			if (bRequireReimportPathUpdate)
+			if (!FPlatformFileManager::Get().GetPlatformFile().FileExists(*DstFile) &&
+				IFileManager::Get().Move(*DstFile, *SrcFile, false /*bReplace */, false, true /* attributes */, true /* don't retry */))
 			{
-				TArray<FString> Paths;
-				Paths.Add(DstFile);
+				IgnoreMovedFile(SrcFile, DstFile);
 
-				// Update the reimport file names
-				FReimportManager::Instance()->UpdateReimportPaths(AssetData.GetAsset(), Paths);
+				if (bRequireReimportPathUpdate)
+				{
+					NewReimportPath = DstFile;
+				}
 			}
 		}
+	}
+
+	if (NewReimportPath.IsEmpty() && FPackageName::GetLongPackagePath(OldPath) != AssetData.PackagePath.ToString())
+	{
+		// The asset has been moved, try and update its referenced path
+		FString OldSourceFilePath = FPaths::ConvertRelativePathToFull(FPackageName::LongPackageNameToFilename(OldPackagePath), RelativeFilename);
+		if (FPaths::FileExists(OldSourceFilePath))
+		{
+			NewReimportPath = MoveTemp(OldSourceFilePath);
+		}
+	}
+
+	if (!NewReimportPath.IsEmpty())
+	{
+		TArray<FString> Paths;
+		Paths.Add(NewReimportPath);
+
+		// Update the reimport file names
+		FReimportManager::Instance()->UpdateReimportPaths(AssetData.GetAsset(), Paths);
 	}
 }
 
@@ -389,35 +429,17 @@ int32 FAutoReimportManager::GetNumUnprocessedChanges() const
 	}, 0);
 }
 
-FText FAutoReimportManager::GetProgressText() const
+TOptional<ECurrentState> FAutoReimportManager::ProcessAdditions(const DirectoryWatcher::FTimeLimit& TimeLimit)
 {
-	FFormatOrderedArguments Args;
+	auto NewState = HandlePauseAbort(ECurrentState::ProcessAdditions);
+	if (NewState.IsSet())
 	{
-		const int32 Progress = Utils::Reduce(DirectoryMonitors, [](const FContentDirectoryMonitor& Monitor, int32 Total){
-			return Total + Monitor.GetWorkProgress();
-		}, 0);
-
-		Args.Add(Progress);
+		return NewState;
 	}
 
-	{
-		const int32 Total = Utils::Reduce(DirectoryMonitors, [](const FContentDirectoryMonitor& Monitor, int32 InTotal){
-			return InTotal + Monitor.GetTotalWork();
-		}, 0);
-
-		Args.Add(Total);
-	}
-
-	return FText::Format(LOCTEXT("ProcessingChanges", "Processing outstanding content changes ({0} of {1})..."), Args);
-}
-
-TOptional<ECurrentState> FAutoReimportManager::ProcessAdditions(const FTimeLimit& TimeLimit)
-{
 	// Override the global feedback context while we do this to avoid popping up dialogs
 	TGuardValue<FFeedbackContext*> ScopedContextOverride(GWarn, FeedbackContextOverride.Get());
 	TGuardValue<bool> ScopedAssetChangesGuard(bGuardAssetChanges, true);
-
-	FeedbackContextOverride->GetContent()->SetMainText(GetProgressText());
 
 	TMap<FString, TArray<UFactory*>> Factories;
 
@@ -462,13 +484,17 @@ TOptional<ECurrentState> FAutoReimportManager::ProcessAdditions(const FTimeLimit
 	return ECurrentState::ProcessModifications;
 }
 
-TOptional<ECurrentState> FAutoReimportManager::ProcessModifications(const FTimeLimit& TimeLimit)
+TOptional<ECurrentState> FAutoReimportManager::ProcessModifications(const DirectoryWatcher::FTimeLimit& TimeLimit)
 {
+	auto NewState = HandlePauseAbort(ECurrentState::ProcessModifications);
+	if (NewState.IsSet())
+	{
+		return NewState;
+	}
+
 	// Override the global feedback context while we do this to avoid popping up dialogs
 	TGuardValue<FFeedbackContext*> ScopedContextOverride(GWarn, FeedbackContextOverride.Get());
 	TGuardValue<bool> ScopedAssetChangesGuard(bGuardAssetChanges, true);
-
-	FeedbackContextOverride->GetContent()->SetMainText(GetProgressText());
 
 	const IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
 
@@ -483,11 +509,15 @@ TOptional<ECurrentState> FAutoReimportManager::ProcessModifications(const FTimeL
 
 TOptional<ECurrentState> FAutoReimportManager::ProcessDeletions()
 {
+	auto NewState = HandlePauseAbort(ECurrentState::ProcessDeletions);
+	if (NewState.IsSet())
+	{
+		return NewState;
+	}
+
 	TGuardValue<bool> ScopedAssetChangesGuard(bGuardAssetChanges, true);
 
 	const IAssetRegistry& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry").Get();
-
-	FeedbackContextOverride->GetContent()->SetMainText(GetProgressText());
 
 	TArray<FAssetData> AssetsToDelete;
 
@@ -495,6 +525,8 @@ TOptional<ECurrentState> FAutoReimportManager::ProcessDeletions()
 	{
 		Monitor.ExtractAssetsToDelete(Registry, AssetsToDelete);
 	}
+
+	FeedbackContextOverride->MainTask->EnterProgressFrame(AssetsToDelete.Num());
 
 	if (AssetsToDelete.Num() > 0)
 	{
@@ -516,8 +548,6 @@ TOptional<ECurrentState> FAutoReimportManager::SavePackages()
 
 	TGuardValue<bool> ScopedAssetChangesGuard(bGuardAssetChanges, true);
 
-	FeedbackContextOverride->GetContent()->SetMainText(GetProgressText());
-
 	if (PackagesToSave.Num() > 0)
 	{
 		const bool bAlreadyCheckedOut = false;
@@ -528,17 +558,48 @@ TOptional<ECurrentState> FAutoReimportManager::SavePackages()
 		PackagesToSave.Empty();
 	}
 
-	// Make sure the progress text is up to date before we close the notification
-	FeedbackContextOverride->GetContent()->SetMainText(GetProgressText());
-
 	Cleanup();
 	return ECurrentState::Idle;
 }
 
-TOptional<ECurrentState> FAutoReimportManager::PendingResponse()
+TOptional<ECurrentState> FAutoReimportManager::HandlePauseAbort(ECurrentState InCurrentState)
 {
-	FeedbackContextOverride->GetContent()->SetMainText(GetProgressText());
+	if (State == EProcessState::Aborted)
+	{
+		return ECurrentState::Aborting;
+	}
+	else if (State == EProcessState::Paused)
+	{
+		PausedState = InCurrentState;
+		return ECurrentState::Paused;
+	}
+
 	return TOptional<ECurrentState>();
+}
+
+TOptional<ECurrentState> FAutoReimportManager::Paused()
+{
+	TOptional<ECurrentState> NewState = HandlePauseAbort(PausedState);
+	if (NewState.IsSet())
+	{
+		return NewState.GetValue();
+	}
+
+	// No longer paused
+	return PausedState;
+}
+
+TOptional<ECurrentState> FAutoReimportManager::Abort()
+{
+	for (auto& Monitor : DirectoryMonitors)
+	{
+		Monitor.Abort();
+	}
+
+	PackagesToSave.Empty();
+
+	Cleanup();
+	return ECurrentState::Idle;
 }
 
 TOptional<ECurrentState> FAutoReimportManager::Idle()
@@ -562,7 +623,7 @@ TOptional<ECurrentState> FAutoReimportManager::Idle()
 			DirectoryMonitors.Empty();
 		}
 
-		ResetMonitorsTimeout = FTimeLimit();
+		ResetMonitorsTimeout = DirectoryWatcher::FTimeLimit();
 		return TOptional<ECurrentState>();
 	}
 
@@ -579,22 +640,27 @@ TOptional<ECurrentState> FAutoReimportManager::Idle()
 
 	if (GetNumUnprocessedChanges() > 0)
 	{
+		State = EProcessState::Running;
+
+		int32 TotalWork = 0;
 		// We have some changes so kick off the process
 		for (auto& Monitor : DirectoryMonitors)
 		{
-			Monitor.StartProcessing();
+			TotalWork += Monitor.StartProcessing();
 		}
 
-		// Check that we actually have anything to do before kicking off a process
-		const int32 WorkTotal = Utils::Reduce(DirectoryMonitors, [](const FContentDirectoryMonitor& Monitor, int32 Total){
-			return Total + Monitor.GetTotalWork();
-		}, 0);
-
-		if (WorkTotal > 0)
+		if (TotalWork > 0)
 		{
-			// Create a new feedback context override
-			FeedbackContextOverride = MakeShareable(new FReimportFeedbackContext);
-			FeedbackContextOverride->Initialize(SNew(SReimportFeedback, GetProgressText()));
+			if (!FeedbackContextOverride.IsValid())
+			{
+				// Create a new feedback context override
+				FeedbackContextOverride = MakeShareable(new FReimportFeedbackContext(
+					FSimpleDelegate::CreateSP(this, &FAutoReimportManager::OnPauseClicked),
+					FSimpleDelegate::CreateSP(this, &FAutoReimportManager::OnAbortClicked))
+				);
+			}
+
+			FeedbackContextOverride->Show(TotalWork);
 
 			return ECurrentState::ProcessAdditions;
 		}
@@ -605,14 +671,13 @@ TOptional<ECurrentState> FAutoReimportManager::Idle()
 
 void FAutoReimportManager::Cleanup()
 {
-	FeedbackContextOverride->Destroy();
-	FeedbackContextOverride = nullptr;
+	FeedbackContextOverride->Hide();
 }
 
 void FAutoReimportManager::Tick(float DeltaTime)
 {
 	// Never spend more than a 60fps frame doing this work (meaning we shouldn't drop below 30fps), we can do more if we're throttling CPU usage (ie editor running in background)
-	const FTimeLimit TimeLimit(GEditor->ShouldThrottleCPUUsage() ? 1 / 6.f : 1.f / 60.f);
+	const DirectoryWatcher::FTimeLimit TimeLimit(GEditor->ShouldThrottleCPUUsage() ? 1 / 6.f : 1.f / 60.f);
 	StateMachine.Tick(TimeLimit);
 }
 
@@ -634,7 +699,7 @@ void FAutoReimportManager::HandleLoadingSavingSettingChanged(FName PropertyName)
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UEditorLoadingSavingSettings, bMonitorContentDirectories) ||
 		PropertyName == GET_MEMBER_NAME_CHECKED(UEditorLoadingSavingSettings, AutoReimportDirectorySettings))
 	{
-		ResetMonitorsTimeout = FTimeLimit(5.f);
+		ResetMonitorsTimeout = DirectoryWatcher::FTimeLimit(5.f);
 	}
 }
 
@@ -654,7 +719,7 @@ void FAutoReimportManager::SetUpDirectoryMonitors()
 	{
 		FString SourceDirectory;
 		FString MountPoint;
-		FMatchRules Rules;
+		DirectoryWatcher::FMatchRules Rules;
 	};
 
 	TArray<FParsedSettings> FinalArray;

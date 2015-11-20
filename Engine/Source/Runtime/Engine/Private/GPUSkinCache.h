@@ -19,7 +19,8 @@ class FGPUSkinCache : public FRenderResource
 public:
 	enum SkinCacheInitSettings
 	{
-		MaxBufferSize = 1024 * 1024 * 32,
+//#todo-rco: Make this an ini setting
+		MaxBufferSize = PLATFORM_MAC ? 16 * 1024 * 1024 : 1024 * 1024 * 32,
 		MaxUniformBufferBones = 256,
 		MaxCachedElements = 1024,
 		MaxCachedVertexBufferSRVs = 128,
@@ -31,19 +32,20 @@ public:
 	// FRenderResource overrides
 	virtual void ReleaseRHI() override;
 
-	void	Initialize();
-	void	Cleanup();
+	void Initialize();
+	void Cleanup();
 
-	bool	IsElementProcessed(int32 Key);
+	bool IsElementProcessed(int32 Key) const;
 
 	// For each SkeletalMeshObject:
 	//	Call Begin*
 	//	For each Chunk:
 	//		Call Add*
 	//	Call End*
-	int32	StartCacheMesh(FRHICommandListImmediate& RHICmdList, int32 Key, const class FVertexFactory* VertexFactory, const FVertexFactory* TargetVertexFactory, const struct FSkelMeshChunk& BatchElement, const FSkeletalMeshObjectGPUSkin* Skin, bool bExtraBoneInfluences);
+	// @return -1 if failed, otherwise index into CachedElements[]
+	int32 StartCacheMesh(FRHICommandListImmediate& RHICmdList, int32 Key, const class FVertexFactory* VertexFactory, const FVertexFactory* TargetVertexFactory, const struct FSkelMeshChunk& BatchElement, const FSkeletalMeshObjectGPUSkin* Skin, bool bExtraBoneInfluences);
 
-	bool	SetVertexStreamFromCache(FRHICommandList& RHICmdList, int32 Key, FShader* Shader, const FVertexFactory* VertexFactory, uint32 BaseVertexIndex, bool VelocityPass, FShaderParameter PreviousStreamFloatOffset, FShaderParameter PreviousStreamFloatStride, FShaderResourceParameter PreviousStreamBuffer);
+	bool SetVertexStreamFromCache(FRHICommandList& RHICmdList, int32 Key, FShader* Shader, const FVertexFactory* VertexFactory, uint32 BaseVertexIndex, bool VelocityPass, FShaderParameter PreviousStreamFloatOffset, FShaderParameter PreviousStreamFloatStride, FShaderResourceParameter PreviousStreamBuffer);
 
 	struct FElementCacheStatusInfo
 	{
@@ -53,12 +55,15 @@ public:
 		const FSkeletalMeshObjectGPUSkin* Skin;
 
 		int32	Key;
+		// index into CachedVertexBuffers[] or -1 if it has no assignment yet
 		int32	VertexBufferSRVIndex;
 
 		uint32	FrameUpdated;
 
 		uint32	StreamStride;
+		// for non velocity rendering
 		uint32	StreamOffset;
+		// for velocity rendering (previous StreamOffset)
 		uint32	PreviousFrameStreamOffset;
 
 		bool	bExtraBoneInfluences;
@@ -72,11 +77,13 @@ public:
 			FSearchInfo(const FSkeletalMeshObjectGPUSkin* InSkin, const FSkelMeshChunk* InBatchElement) { BatchElement = InBatchElement; Skin = InSkin; }
 		};
 
+		// to support FindByKey()
 		bool operator == (const FSearchInfo& OtherSearchInfo) const 
 		{
 			return (BatchElement == OtherSearchInfo.BatchElement && Skin == OtherSearchInfo.Skin);
 		}
 
+		// to support == (confusing usage, better: IsSameBatchElement)
 		bool operator == (const FSkelMeshChunk& OtherBatchElement) const 
 		{
 			return (BatchElement == &OtherBatchElement);

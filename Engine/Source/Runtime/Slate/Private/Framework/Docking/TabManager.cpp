@@ -41,7 +41,7 @@ TSharedRef<FTabManager::FLayoutNode> FTabManager::FLayout::NewFromString_Helper(
 			}
 			else
 			{
-				ensureMsg(false, TEXT("Invalid placement mode."));
+				ensureMsgf(false, TEXT("Invalid placement mode."));
 				return FTabManager::FArea::Placement_Automatic;
 			}
 		}
@@ -61,7 +61,7 @@ TSharedRef<FTabManager::FLayoutNode> FTabManager::FLayout::NewFromString_Helper(
 			}
 			else
 			{
-				ensureMsg(false, TEXT("Invalid orientation."));
+				ensureMsgf(false, TEXT("Invalid orientation."));
 				return Orient_Horizontal;
 			}
 			
@@ -82,7 +82,7 @@ TSharedRef<FTabManager::FLayoutNode> FTabManager::FLayout::NewFromString_Helper(
 			}
 			else
 			{
-				ensureMsg(false, TEXT("Invalid tab state."));
+				ensureMsgf(false, TEXT("Invalid tab state."));
 				return ETabState::OpenedTab;
 			}
 		}
@@ -181,7 +181,7 @@ TSharedRef<FTabManager::FLayoutNode> FTabManager::FLayout::NewFromString_Helper(
 	}
 	else
 	{
-		ensureMsg(false, TEXT("Unrecognized node type."));
+		ensureMsgf(false, TEXT("Unrecognized node type."));
 		return FTabManager::NewArea(FTabManager::FallbackWindowSize);
 	}	
 }
@@ -324,7 +324,7 @@ TSharedRef<FJsonObject> FTabManager::FLayout::PersistToString_Helper(const TShar
 	}
 	else
 	{
-		ensureMsg( false, TEXT("Unable to persist layout node of unknown type.") );
+		ensureMsgf( false, TEXT("Unable to persist layout node of unknown type.") );
 	}
 
 	return JsonObj;
@@ -1566,11 +1566,6 @@ const TSharedRef<FGlobalTabmanager>& FGlobalTabmanager::Get()
 FDelegateHandle FGlobalTabmanager::OnActiveTabChanged_Subscribe( const FOnActiveTabChanged::FDelegate& InDelegate )
 {
 	return OnActiveTabChanged.Add( InDelegate );
-}
-
-void FGlobalTabmanager::OnActiveTabChanged_Unsubscribe( const FOnActiveTabChanged::FDelegate& InDelegate )
-{
-	OnActiveTabChanged.DEPRECATED_Remove( InDelegate );
 }
 
 void FGlobalTabmanager::OnActiveTabChanged_Unsubscribe( FDelegateHandle Handle )

@@ -27,8 +27,8 @@ void FSkyLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLa
 	if( LightIntensityProperty->IsValidHandle() )
 	{
 		// Point lights need to override the ui min and max for units of lumens, so we have to undo that
-		LightIntensityProperty->GetProperty()->SetMetaData("UIMin", TEXT("0.0f"));
-		LightIntensityProperty->GetProperty()->SetMetaData("UIMax", TEXT("20.0f"));
+		LightIntensityProperty->SetInstanceMetaData("UIMin", TEXT("0.0f"));
+		LightIntensityProperty->SetInstanceMetaData("UIMax", TEXT("20.0f"));
 	}
 
 	const TArray< TWeakObjectPtr<UObject> >& SelectedObjects = DetailLayout.GetDetailsView().GetSelectedObjects();
@@ -49,20 +49,27 @@ void FSkyLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& DetailLa
 
 	DetailLayout.EditCategory( "SkyLight" )
 	.AddCustomRow( NSLOCTEXT("SkyLightDetails", "UpdateSkyLight", "Recapture Scene") )
-	[
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.FillWidth(1.f)
-		.Padding(10,5)
+		.NameContent()
+		[
+			SNew( STextBlock )
+			.Font( IDetailLayoutBuilder::GetDetailFont() )
+			.Text( NSLOCTEXT("SkyLightDetails", "UpdateSkyLight", "Recapture Scene") )
+		]
+		.ValueContent()
+		.MaxDesiredWidth(125.f)
+		.MinDesiredWidth(125.f)
 		[
 			SNew(SButton)
-			.ContentPadding(3)
+			.ContentPadding(2)
 			.VAlign(VAlign_Center)
 			.HAlign(HAlign_Center)
 			.OnClicked( this, &FSkyLightComponentDetails::OnUpdateSkyCapture )
-			.Text( NSLOCTEXT("SkyLightDetails", "UpdateSkyCapture", "Recapture Scene") )
-		]
-	];
+			[
+				SNew( STextBlock )
+				.Font( IDetailLayoutBuilder::GetDetailFont() )
+				.Text( NSLOCTEXT("SkyLightDetails", "UpdateSkyCapture", "Recapture") )
+			]
+		];
 }
 
 FReply FSkyLightComponentDetails::OnUpdateSkyCapture()

@@ -24,27 +24,41 @@ UUserWidget* UWidgetBlueprintLibrary::Create(UObject* WorldContextObject, TSubcl
 		return nullptr;
 	}
 
+	UUserWidget* UserWidget = nullptr;
 	if ( OwningPlayer == nullptr )
 	{
 		UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject);
-		return CreateWidget<UUserWidget>(World, WidgetType);
+		UserWidget = CreateWidget<UUserWidget>(World, WidgetType);
 	}
 	else
 	{
-		return CreateWidget<UUserWidget>(OwningPlayer, WidgetType);
+		UserWidget = CreateWidget<UUserWidget>(OwningPlayer, WidgetType);
 	}
+
+	if (UserWidget)
+	{
+		UserWidget->SetFlags(RF_StrongRefOnFrame);
+	}
+	return UserWidget;
 }
 
 UDragDropOperation* UWidgetBlueprintLibrary::CreateDragDropOperation(TSubclassOf<UDragDropOperation> Operation)
 {
+	UDragDropOperation* DragDropOperation = nullptr;
 	if ( Operation )
 	{
-		return NewObject<UDragDropOperation>(GetTransientPackage(), Operation);
+		DragDropOperation = NewObject<UDragDropOperation>(GetTransientPackage(), Operation);
 	}
 	else
 	{
-		return NewObject<UDragDropOperation>();
+		DragDropOperation = NewObject<UDragDropOperation>();
 	}
+
+	if (DragDropOperation)
+	{
+		DragDropOperation->SetFlags(RF_StrongRefOnFrame);
+	}
+	return DragDropOperation;
 }
 
 void UWidgetBlueprintLibrary::SetInputMode_UIOnly(APlayerController* Target, UWidget* InWidgetToFocus, bool bLockMouseToViewport)
@@ -109,13 +123,28 @@ void UWidgetBlueprintLibrary::DrawBox(UPARAM(ref) FPaintContext& Context, FVecto
 	}
 }
 
-void UWidgetBlueprintLibrary::DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, float Thickness, FLinearColor Tint, bool bAntiAlias)
+void UWidgetBlueprintLibrary::DrawLine(UPARAM(ref) FPaintContext& Context, FVector2D PositionA, FVector2D PositionB, FLinearColor Tint, bool bAntiAlias)
 {
 	Context.MaxLayer++;
 
 	TArray<FVector2D> Points;
 	Points.Add(PositionA);
 	Points.Add(PositionB);
+
+	FSlateDrawElement::MakeLines(
+		Context.OutDrawElements,
+		Context.MaxLayer,
+		Context.AllottedGeometry.ToPaintGeometry(),
+		Points,
+		Context.MyClippingRect,
+		ESlateDrawEffect::None,
+		Tint,
+		bAntiAlias);
+}
+
+void UWidgetBlueprintLibrary::DrawLines(UPARAM(ref) FPaintContext& Context, const TArray<FVector2D>& Points, FLinearColor Tint, bool bAntiAlias)
+{
+	Context.MaxLayer++;
 
 	FSlateDrawElement::MakeLines(
 		Context.OutDrawElements,
@@ -138,12 +167,33 @@ void UWidgetBlueprintLibrary::DrawText(UPARAM(ref) FPaintContext& Context, const
 	FSlateDrawElement::MakeText(
 		Context.OutDrawElements,
 		Context.MaxLayer,
-		Context.AllottedGeometry.ToPaintGeometry(),
+		Context.AllottedGeometry.ToOffsetPaintGeometry(Position),
 		InString,
 		FontInfo,
 		Context.MyClippingRect,
 		ESlateDrawEffect::None,
 		Tint);
+}
+
+void UWidgetBlueprintLibrary::DrawTextFormatted(UPARAM(ref) FPaintContext& Context, const FText& Text, FVector2D Position, UFont* Font, int32 FontSize, FName FontTypeFace, FLinearColor Tint)
+{
+	if ( Font )
+	{
+		Context.MaxLayer++;
+
+		//TODO UMG Create a font asset usable as a UFont or as a slate font asset.
+		FSlateFontInfo FontInfo(Font, FontSize, FontTypeFace);
+
+		FSlateDrawElement::MakeText(
+			Context.OutDrawElements,
+			Context.MaxLayer,
+			Context.AllottedGeometry.ToOffsetPaintGeometry(Position),
+			Text,
+			FontInfo,
+			Context.MyClippingRect,
+			ESlateDrawEffect::None,
+			Tint);
+	}
 }
 
 FEventReply UWidgetBlueprintLibrary::Handled()
@@ -183,7 +233,28 @@ FEventReply UWidgetBlueprintLibrary::ReleaseMouseCapture(UPARAM(ref) FEventReply
 	return Reply;
 }
 
-FEventReply UWidgetBlueprintLibrary::SetUserFocus(UPARAM(ref) FEventReply& Reply, UWidget* FocusWidget, bool bInAllUsers/* = false*/)
+FEventReply UWidgetBlueprintLibrary::LockMouse( UPARAM( ref ) FEventReply& Reply, UWidget* CapturingWidget )
+{
+	if ( CapturingWidget )
+	{
+		TSharedPtr< SWidget > SlateWidget = CapturingWidget->GetCachedWidget();
+		if ( SlateWidget.IsValid() )
+		{
+			Reply.NativeReply = Reply.NativeReply.LockMouseToWidget( SlateWidget.ToSharedRef() );
+		}
+	}
+
+	return Reply;
+}
+
+FEventReply UWidgetBlueprintLibrary::UnlockMouse( UPARAM( ref ) FEventReply& Reply )
+{
+	Reply.NativeReply = Reply.NativeReply.ReleaseMouseLock();
+
+	return Reply;
+}
+
+FEventReply UWidgetBlueprintLibrary::SetUserFocus( UPARAM( ref ) FEventReply& Reply, UWidget* FocusWidget, bool bInAllUsers/* = false*/ )
 {
 	if (FocusWidget)
 	{
@@ -238,7 +309,7 @@ FEventReply UWidgetBlueprintLibrary::DetectDrag(UPARAM(ref) FEventReply& Reply, 
 
 FEventReply UWidgetBlueprintLibrary::DetectDragIfPressed(const FPointerEvent& PointerEvent, UWidget* WidgetDetectingDrag, FKey DragKey)
 {
-	if ( PointerEvent.GetEffectingButton() == DragKey )
+	if ( PointerEvent.GetEffectingButton() == DragKey || PointerEvent.IsTouchEvent() )
 	{
 		FEventReply Reply = UWidgetBlueprintLibrary::Handled();
 		return UWidgetBlueprintLibrary::DetectDrag(Reply, WidgetDetectingDrag, DragKey);
@@ -280,6 +351,11 @@ UDragDropOperation* UWidgetBlueprintLibrary::GetDragDroppingContent()
 	return nullptr;
 }
 
+void UWidgetBlueprintLibrary::CancelDragDrop()
+{
+	FSlateApplication::Get().CancelDragDrop();
+}
+
 FSlateBrush UWidgetBlueprintLibrary::MakeBrushFromAsset(USlateBrushAsset* BrushAsset)
 {
 	if ( BrushAsset )
@@ -317,6 +393,31 @@ FSlateBrush UWidgetBlueprintLibrary::MakeBrushFromMaterial(UMaterialInterface* M
 	}
 
 	return FSlateNoResource();
+}
+
+UObject* UWidgetBlueprintLibrary::GetBrushResource(FSlateBrush& Brush)
+{
+	return Brush.GetResourceObject();
+}
+
+UTexture2D* UWidgetBlueprintLibrary::GetBrushResourceAsTexture2D(UPARAM(ref) FSlateBrush& Brush)
+{
+	return Cast<UTexture2D>(Brush.GetResourceObject());
+}
+
+UMaterialInterface* UWidgetBlueprintLibrary::GetBrushResourceAsMaterial(UPARAM(ref) FSlateBrush& Brush)
+{
+	return Cast<UMaterialInterface>(Brush.GetResourceObject());
+}
+
+void UWidgetBlueprintLibrary::SetBrushResourceToTexture(FSlateBrush& Brush, UTexture2D* Texture)
+{
+	Brush.SetResourceObject(Texture);
+}
+
+void UWidgetBlueprintLibrary::SetBrushResourceToMaterial(FSlateBrush& Brush, UMaterialInterface* Material)
+{
+	Brush.SetResourceObject(Material);
 }
 
 FSlateBrush UWidgetBlueprintLibrary::NoResourceBrush()
@@ -435,4 +536,35 @@ void UWidgetBlueprintLibrary::GetAllWidgetsWithInterface(UObject* WorldContextOb
 		}
 	}
 }
+
+FInputEvent UWidgetBlueprintLibrary::GetInputEventFromKeyEvent(const FKeyEvent& Event)
+{
+	return Event;
+}
+
+FInputEvent UWidgetBlueprintLibrary::GetInputEventFromAnalogInputEvent(const FAnalogInputEvent& Event)
+{
+	return Event;
+}
+
+FInputEvent UWidgetBlueprintLibrary::GetInputEventFromCharacterEvent(const FCharacterEvent& Event)
+{
+	return Event;
+}
+
+FInputEvent UWidgetBlueprintLibrary::GetInputEventFromPointerEvent(const FPointerEvent& Event)
+{
+	return Event;
+}
+
+FInputEvent UWidgetBlueprintLibrary::GetInputEventFromControllerEvent(const FControllerEvent& Event)
+{
+	return Event;
+}
+
+FInputEvent UWidgetBlueprintLibrary::GetInputEventFromNavigationEvent(const FNavigationEvent& Event)
+{
+	return Event;
+}
+
 #undef LOCTEXT_NAMESPACE

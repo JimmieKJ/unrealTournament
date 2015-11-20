@@ -64,11 +64,6 @@ struct TInputUnifiedDelegate
 		FuncDynDelegate.Unbind();
 	}
 
-	inline bool operator==(const TInputUnifiedDelegate<DelegateType, DynamicDelegateType>& Other) const
-	{
-		return ( FuncDelegate.IsBound() && (FuncDelegate == Other.FuncDelegate) ) || ( FuncDynDelegate.IsBound() && (FuncDynDelegate == Other.FuncDynDelegate) );
-	}
-
 protected:
 	/** Holds the delegate to call. */
 	DelegateType FuncDelegate;
@@ -94,23 +89,113 @@ struct FInputBinding
 
 /** Delegate signature for action events. */
 DECLARE_DELEGATE( FInputActionHandlerSignature );
-DECLARE_DYNAMIC_DELEGATE( FInputActionHandlerDynamicSignature );
+DECLARE_DELEGATE_OneParam( FInputActionHandlerWithKeySignature, FKey );
+DECLARE_DYNAMIC_DELEGATE_OneParam( FInputActionHandlerDynamicSignature, FKey, Key );
 
-/** Unified delegate specialization for Input Actions. */
-struct FInputActionUnifiedDelegate : public TInputUnifiedDelegate<FInputActionHandlerSignature, FInputActionHandlerDynamicSignature>
+struct FInputActionUnifiedDelegate
 {
+	FInputActionUnifiedDelegate() {};
+	FInputActionUnifiedDelegate(FInputActionHandlerSignature const& D) : FuncDelegate(D) {};
+	FInputActionUnifiedDelegate(FInputActionHandlerWithKeySignature const& D) : FuncDelegateWithKey(D) {};
+	FInputActionUnifiedDelegate(FInputActionHandlerDynamicSignature const& D) : FuncDynDelegate(D) {};
+
+	/** Returns if either the native or dynamic delegate is bound */
+	inline bool IsBound() const
+	{
+		return ( FuncDelegate.IsBound() || FuncDelegateWithKey.IsBound() || FuncDynDelegate.IsBound() );
+	}
+
+	/** Returns if either the native or dynamic delegate is bound to an object */
+	inline bool IsBoundToObject(void const* Object) const
+	{
+		if (FuncDelegate.IsBound())
+		{
+			return FuncDelegate.IsBoundToObject(Object);
+		}
+		else if (FuncDelegateWithKey.IsBound())
+		{
+			return FuncDelegateWithKey.IsBoundToObject(Object);
+		}
+		else if (FuncDynDelegate.IsBound())
+		{
+			return FuncDynDelegate.IsBoundToObject(Object);
+		}
+
+		return false;
+	}
+
+	/** Binds a native delegate and unbinds any bound dynamic delegate */
+	template< class UserClass >
+	inline void BindDelegate(UserClass* Object, typename FInputActionHandlerSignature::template TUObjectMethodDelegate< UserClass >::FMethodPtr Func)
+	{
+		FuncDynDelegate.Unbind();
+		FuncDelegateWithKey.Unbind();
+		FuncDelegate.BindUObject(Object, Func);
+	}
+
+	template< class UserClass >
+	inline void BindDelegate(UserClass* Object, typename FInputActionHandlerWithKeySignature::template TUObjectMethodDelegate< UserClass >::FMethodPtr Func)
+	{
+		FuncDynDelegate.Unbind();
+		FuncDelegate.Unbind();
+		FuncDelegateWithKey.BindUObject(Object, Func);
+	}
+
+	/** Binds a dynamic delegate and unbinds any bound native delegate */
+	inline void BindDelegate(UObject* Object, const FName FuncName)
+	{
+		FuncDelegate.Unbind();
+		FuncDelegateWithKey.Unbind();
+		FuncDynDelegate.BindUFunction(Object, FuncName);
+	}
+
+	/** Returns a reference to the native delegate and unbinds any bound dynamic delegate */
+	FInputActionHandlerSignature& GetDelegateForManualSet()
+	{
+		FuncDynDelegate.Unbind();
+		FuncDelegateWithKey.Unbind();
+		return FuncDelegate;
+	}
+
+	/** Returns a reference to the native delegate and unbinds any bound dynamic delegate */
+	FInputActionHandlerWithKeySignature& GetDelegateWithKeyForManualSet()
+	{
+		FuncDynDelegate.Unbind();
+		FuncDelegate.Unbind();
+		return FuncDelegateWithKey;
+	}
+
+	/** Unbinds any bound delegates */
+	inline void Unbind()
+	{
+		FuncDelegate.Unbind();
+		FuncDelegateWithKey.Unbind();
+		FuncDynDelegate.Unbind();
+	}
+
 	/** Execute function for the action unified delegate. */
-	inline void Execute() const
+	inline void Execute(const FKey Key) const
 	{
 		if (FuncDelegate.IsBound())
 		{
 			FuncDelegate.Execute();
 		}
+		else if (FuncDelegateWithKey.IsBound())
+		{
+			FuncDelegateWithKey.Execute(Key);
+		}
 		else if (FuncDynDelegate.IsBound())
 		{
-			FuncDynDelegate.Execute();
+			FuncDynDelegate.Execute(Key);
 		}
 	}
+protected:
+	/** Holds the delegate to call. */
+	FInputActionHandlerSignature FuncDelegate;
+	/** Holds the delegate that wants to know the key to call. */
+	FInputActionHandlerWithKeySignature FuncDelegateWithKey;
+	/** Holds the dynamic delegate to call. */
+	FInputActionHandlerDynamicSignature FuncDynDelegate;
 };
 
 /** Binds a delegate to an action. */

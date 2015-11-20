@@ -11,10 +11,12 @@ struct FK2Node_ConstructObjectFromClassHelper
 {
 	static FString WorldContextPinName;
 	static FString ClassPinName;
+	static FString OuterPinName;
 };
 
 FString FK2Node_ConstructObjectFromClassHelper::WorldContextPinName(TEXT("WorldContextObject"));
 FString FK2Node_ConstructObjectFromClassHelper::ClassPinName(TEXT("Class"));
+FString FK2Node_ConstructObjectFromClassHelper::OuterPinName(TEXT("Outer"));
 
 #define LOCTEXT_NAMESPACE "K2Node_ConstructObjectFromClass"
 
@@ -29,6 +31,13 @@ UClass* UK2Node_ConstructObjectFromClass::GetClassPinBaseClass() const
 	return UObject::StaticClass();
 }
 
+bool UK2Node_ConstructObjectFromClass::UseWorldContext() const
+{
+	auto BP = GetBlueprint();
+	const UClass* ParentClass = BP ? BP->ParentClass : nullptr;
+	return ParentClass ? ParentClass->HasMetaData(FBlueprintMetadata::MD_ShowWorldContextPin) : false;
+}
+
 void UK2Node_ConstructObjectFromClass::AllocateDefaultPins()
 {
 	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
@@ -38,7 +47,7 @@ void UK2Node_ConstructObjectFromClass::AllocateDefaultPins()
 	CreatePin(EGPD_Output, K2Schema->PC_Exec, TEXT(""), NULL, false, false, K2Schema->PN_Then);
 
 	// If required add the world context pin
-	if ( GetBlueprint()->ParentClass->HasMetaData(FBlueprintMetadata::MD_ShowWorldContextPin) )
+	if (UseWorldContext())
 	{
 		CreatePin(EGPD_Input, K2Schema->PC_Object, TEXT(""), UObject::StaticClass(), false, false, FK2Node_ConstructObjectFromClassHelper::WorldContextPinName);
 	}
@@ -51,7 +60,20 @@ void UK2Node_ConstructObjectFromClass::AllocateDefaultPins()
 	UEdGraphPin* ResultPin = CreatePin(EGPD_Output, K2Schema->PC_Object, TEXT(""), GetClassPinBaseClass(), false, false, K2Schema->PN_ReturnValue);
 	SetPinToolTip(*ResultPin, LOCTEXT("ResultPinDescription", "The spawned object"));
 
+	if (UseOuter())
+	{
+		UEdGraphPin* OuterPin = CreatePin(EGPD_Input, K2Schema->PC_Object, TEXT(""), UObject::StaticClass(), false, false, FK2Node_ConstructObjectFromClassHelper::OuterPinName);
+		SetPinToolTip(*OuterPin, LOCTEXT("OuterPinDescription", "Owner of the created object"));
+	}
+
 	Super::AllocateDefaultPins();
+}
+
+UEdGraphPin* UK2Node_ConstructObjectFromClass::GetOuterPin() const
+{
+	UEdGraphPin* Pin = FindPinChecked(FK2Node_ConstructObjectFromClassHelper::OuterPinName);
+	ensure(nullptr == Pin || Pin->Direction == EGPD_Input);
+	return Pin;
 }
 
 void UK2Node_ConstructObjectFromClass::SetPinToolTip(UEdGraphPin& MutatablePin, const FText& PinDescription) const
@@ -68,7 +90,7 @@ void UK2Node_ConstructObjectFromClass::SetPinToolTip(UEdGraphPin& MutatablePin, 
 	MutatablePin.PinToolTip += FString(TEXT("\n")) + PinDescription.ToString();
 }
 
-void UK2Node_ConstructObjectFromClass::CreatePinsForClass(UClass* InClass)
+void UK2Node_ConstructObjectFromClass::CreatePinsForClass(UClass* InClass, TArray<UEdGraphPin*>* OutClassPins)
 {
 	check(InClass != NULL);
 
@@ -94,6 +116,11 @@ void UK2Node_ConstructObjectFromClass::CreatePinsForClass(UClass* InClass)
 			UEdGraphPin* Pin = CreatePin(EGPD_Input, TEXT(""), TEXT(""), NULL, false, false, Property->GetName());
 			const bool bPinGood = (Pin != NULL) && K2Schema->ConvertPropertyToPinType(Property, /*out*/ Pin->PinType);
 			
+			if (OutClassPins && Pin)
+			{
+				OutClassPins->Add(Pin);
+			}
+
 			if (ClassDefaultObject && Pin != NULL && K2Schema->PinDefaultValueIsEditable(*Pin))
 			{
 				FString DefaultValueAsString;
@@ -125,6 +152,11 @@ UClass* UK2Node_ConstructObjectFromClass::GetClassToSpawn(const TArray<UEdGraphP
 	{
 		UseSpawnClass = CastChecked<UClass>(ClassPin->DefaultObject);
 	}
+	else if (ClassPin && ClassPin->LinkedTo.Num())
+	{
+		auto ClassSource = ClassPin->LinkedTo[0];
+		UseSpawnClass = ClassSource ? Cast<UClass>(ClassSource->PinType.PinSubCategoryObject.Get()) : nullptr;
+	}
 
 	return UseSpawnClass;
 }
@@ -147,45 +179,64 @@ bool UK2Node_ConstructObjectFromClass::IsSpawnVarPin(UEdGraphPin* Pin)
 			Pin->PinName != K2Schema->PN_Then &&
 			Pin->PinName != K2Schema->PN_ReturnValue &&
 			Pin->PinName != FK2Node_ConstructObjectFromClassHelper::ClassPinName &&
-			Pin->PinName != FK2Node_ConstructObjectFromClassHelper::WorldContextPinName );
+			Pin->PinName != FK2Node_ConstructObjectFromClassHelper::WorldContextPinName &&
+			Pin->PinName != FK2Node_ConstructObjectFromClassHelper::OuterPinName);
+}
+
+void UK2Node_ConstructObjectFromClass::OnClassPinChanged()
+{
+	const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
+
+	// Remove all pins related to archetype variables
+	TArray<UEdGraphPin*> OldPins = Pins;
+	TArray<UEdGraphPin*> OldClassPins;
+
+	for (int32 i = 0; i < OldPins.Num(); i++)
+	{
+		UEdGraphPin* OldPin = OldPins[i];
+		if (IsSpawnVarPin(OldPin))
+		{
+			Pins.Remove(OldPin);
+			OldClassPins.Add(OldPin);
+		}
+	}
+
+	CachedNodeTitle.MarkDirty();
+
+	UClass* UseSpawnClass = GetClassToSpawn();
+	TArray<UEdGraphPin*> NewClassPins;
+	if (UseSpawnClass != NULL)
+	{
+		CreatePinsForClass(UseSpawnClass, &NewClassPins);
+	}
+
+	// Rewire the old pins to the new pins so connections are maintained if possible
+	RewireOldPinsToNewPins(OldClassPins, NewClassPins);
+
+	// Destroy the old pins
+	DestroyPinList(OldClassPins);
+
+	// Refresh the UI for the graph so the pin changes show up
+	UEdGraph* Graph = GetGraph();
+	Graph->NotifyGraphChanged();
+
+	// Mark dirty
+	FBlueprintEditorUtils::MarkBlueprintAsModified(GetBlueprint());
+}
+
+void UK2Node_ConstructObjectFromClass::PinConnectionListChanged(UEdGraphPin* Pin)
+{
+	if (Pin && (Pin->PinName == FK2Node_ConstructObjectFromClassHelper::ClassPinName))
+	{
+		OnClassPinChanged();
+	}
 }
 
 void UK2Node_ConstructObjectFromClass::PinDefaultValueChanged(UEdGraphPin* ChangedPin) 
 {
-	if (ChangedPin->PinName == FK2Node_ConstructObjectFromClassHelper::ClassPinName)
+	if (ChangedPin && (ChangedPin->PinName == FK2Node_ConstructObjectFromClassHelper::ClassPinName))
 	{
-		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
-
-		// Because the archetype has changed, we break the output link as the output pin type will change
-		//UEdGraphPin* ResultPin = GetResultPin();
-		//ResultPin->BreakAllPinLinks();
-
-		// Remove all pins related to archetype variables
-		TArray<UEdGraphPin*> OldPins = Pins;
-		for (int32 i = 0; i < OldPins.Num(); i++)
-		{
-			UEdGraphPin* OldPin = OldPins[i];
-			if (IsSpawnVarPin(OldPin))
-			{
-				OldPin->BreakAllPinLinks();
-				Pins.Remove(OldPin);
-			}
-		}
-
-		CachedNodeTitle.MarkDirty();
-
-		UClass* UseSpawnClass = GetClassToSpawn();
-		if (UseSpawnClass != NULL)
-		{
-			CreatePinsForClass(UseSpawnClass);
-		}
-
-		// Refresh the UI for the graph so the pin changes show up
-		UEdGraph* Graph = GetGraph();
-		Graph->NotifyGraphChanged();
-
-		// Mark dirty
-		FBlueprintEditorUtils::MarkBlueprintAsModified(GetBlueprint());
+		OnClassPinChanged();
 	}
 }
 
@@ -258,31 +309,18 @@ FText UK2Node_ConstructObjectFromClass::GetNodeTitle(ENodeTitleType::Type TitleT
 	{
 		return GetBaseNodeTitle();
 	}
-	else if (UEdGraphPin* ClassPin = GetClassPin())
+	else if (auto ClassToSpawn = GetClassToSpawn())
 	{
-		if (ClassPin->LinkedTo.Num() > 0)
-		{
-			// Blueprint will be determined dynamically, so we don't have the name in this case
-			return NSLOCTEXT("K2Node", "ConstructObject_Title_Unknown", "Construct");
-		}
-		else if (ClassPin->DefaultObject == nullptr)
-		{
-			return NSLOCTEXT("K2Node", "ConstructObject_Title_NONE", "Construct NONE");
-		}
-		else if (CachedNodeTitle.IsOutOfDate(this))
+		if (CachedNodeTitle.IsOutOfDate(this))
 		{
 			FFormatNamedArguments Args;
-			Args.Add(TEXT("ClassName"), FText::FromString(ClassPin->DefaultObject->GetName()));
+			Args.Add(TEXT("ClassName"), ClassToSpawn->GetDisplayNameText());
 			// FText::Format() is slow, so we cache this to save on performance
 			CachedNodeTitle.SetCachedText(FText::Format(GetNodeTitleFormat(), Args), this);
 		}
+		return CachedNodeTitle;
 	}
-	else
-	{
-		return NSLOCTEXT("K2Node", "ConstructObject_Title_NONE", "Construct NONE");
-	}
-
-	return CachedNodeTitle;
+	return NSLOCTEXT("K2Node", "ConstructObject_Title_NONE", "Construct NONE");
 }
 
 bool UK2Node_ConstructObjectFromClass::IsCompatibleWithGraph(const UEdGraph* TargetGraph) const 
@@ -326,26 +364,17 @@ FText UK2Node_ConstructObjectFromClass::GetMenuCategory() const
 	return FEditorCategoryUtils::GetCommonCategory(FCommonEditorCategory::Gameplay);
 }
 
-FNodeHandlingFunctor* UK2Node_ConstructObjectFromClass::CreateNodeHandler(FKismetCompilerContext& CompilerContext) const
-{
-	return new FNodeHandlingFunctor(CompilerContext);
-}
-
-void UK2Node_ConstructObjectFromClass::ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)
-{
-	Super::ExpandNode(CompilerContext, SourceGraph);	
-}
-
-bool UK2Node_ConstructObjectFromClass::HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const
+bool UK2Node_ConstructObjectFromClass::HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const
 {
 	UClass* SourceClass = GetClassToSpawn();
 	const UBlueprint* SourceBlueprint = GetBlueprint();
-	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
+	const bool bResult = (SourceClass != NULL) && (SourceClass->ClassGeneratedBy != SourceBlueprint);
 	if (bResult && OptionalOutput)
 	{
-		OptionalOutput->Add(SourceClass);
+		OptionalOutput->AddUnique(SourceClass);
 	}
-	return bResult || Super::HasExternalBlueprintDependencies(OptionalOutput);
+	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);
+	return bSuperResult || bResult;
 }
 
 #undef LOCTEXT_NAMESPACE

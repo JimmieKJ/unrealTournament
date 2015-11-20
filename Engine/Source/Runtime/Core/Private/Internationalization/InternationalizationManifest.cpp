@@ -192,7 +192,7 @@ bool FLocItem::IsExactMatch( const FLocItem& Other ) const
 {
 	if( Text.Equals( Other.Text, ESearchCase::CaseSensitive ) )
 	{
-		return FLocMetadataObject::IsMetadataExactMatch(MetadataObj, Other.MetadataObj );
+		return FLocMetadataObject::IsMetadataExactMatch(MetadataObj.Get(), Other.MetadataObj.Get() );
 	}
 	return false;
 }

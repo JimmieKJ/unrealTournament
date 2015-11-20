@@ -14,6 +14,7 @@
 #include "GameFramework/PhysicsVolume.h"
 #include "AIController.h"
 #include "Perception/AIPerceptionComponent.h"
+#include "GameplayTasksComponent.h"
 
 // mz@todo these need to be removed, legacy code
 #define CLOSEPROXIMITY					500.f
@@ -44,6 +45,7 @@ AAIController::AAIController(const FObjectInitializer& ObjectInitializer)
 
 	bSkipExtraLOSChecks = true;
 	bWantsPlayerState = false;
+	TeamID = FGenericTeamId::NoTeam;
 }
 
 void AAIController::Tick(float DeltaTime)
@@ -109,8 +111,8 @@ void AAIController::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& Debug
 		AActor* FocusActor = GetFocusActor();
 		if (FocusActor)
 		{
-			YL = Canvas->DrawText(GEngine->GetSmallFont(), FString::Printf(TEXT("      Focus %s"), *FocusActor->GetName()), 4.0f, YPos);
-			YPos += YL;
+			FDisplayDebugManager& DisplayDebugManager = Canvas->DisplayDebugManager;
+			DisplayDebugManager.DrawString(FString::Printf(TEXT("      Focus %s"), *FocusActor->GetName()));
 		}
 	}
 }
@@ -141,14 +143,19 @@ void AAIController::GrabDebugSnapshot(FVisualLogEntry* Snapshot) const
 		PathFollowingComponent->DescribeSelfToVisLog(Snapshot);
 	}
 
-	if (BrainComponent != NULL)
+	if (BrainComponent != nullptr)
 	{
 		BrainComponent->DescribeSelfToVisLog(Snapshot);
 	}
 
-	if (PerceptionComponent != NULL)
+	if (PerceptionComponent != nullptr)
 	{
 		PerceptionComponent->DescribeSelfToVisLog(Snapshot);
+	}
+
+	if (CachedGameplayTasksComponent != nullptr)
+	{
+		CachedGameplayTasksComponent->DescribeSelfToVisLog(Snapshot);
 	}
 }
 #endif // ENABLE_VISUAL_LOG
@@ -419,7 +426,6 @@ void AAIController::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 		{
 			NewControlRotation.Pitch = 0.f;
 		}
-		NewControlRotation.Yaw = FRotator::ClampAxis(NewControlRotation.Yaw);
 
 		if (GetControlRotation().Equals(NewControlRotation, 1e-3f) == false)
 		{
@@ -460,6 +466,23 @@ void AAIController::Possess(APawn* InPawn)
 		ChangeState(NAME_Playing);
 	}
 
+	// a Pawn controlled by AI _requires_ a GameplayTasksComponent, so if Pawn 
+	// doesn't have one we need to create it
+	UGameplayTasksComponent* GTComp = InPawn->FindComponentByClass<UGameplayTasksComponent>();
+	if (GTComp == nullptr)
+	{
+		GTComp = NewObject<UGameplayTasksComponent>(InPawn, TEXT("GameplayTasksComponent"));
+		GTComp->RegisterComponent();
+	}
+	CachedGameplayTasksComponent = GTComp;
+
+	if (GTComp)
+	{
+		GTComp->OnClaimedResourcesChange.AddDynamic(this, &AAIController::OnGameplayTaskResourcesClaimed);
+
+		REDIRECT_OBJECT_TO_VLOG(GTComp, this);
+	}
+
 	OnPossess(InPawn);
 }
 
@@ -475,6 +498,30 @@ void AAIController::UnPossess()
 	if (BrainComponent)
 	{
 		BrainComponent->Cleanup();
+	}
+
+	if (CachedGameplayTasksComponent)
+	{
+		CachedGameplayTasksComponent->OnClaimedResourcesChange.RemoveDynamic(this, &AAIController::OnGameplayTaskResourcesClaimed);
+		CachedGameplayTasksComponent = nullptr;
+	}
+}
+
+void AAIController::SetPawn(APawn* InPawn)
+{
+	Super::SetPawn(InPawn);
+
+	if (Blackboard)
+	{
+		const UBlackboardData* BBAsset = Blackboard->GetBlackboardAsset();
+		if (BBAsset)
+		{
+			const FBlackboard::FKey SelfKey = BBAsset->GetKeyID(FBlackboard::KeySelf);
+			if (SelfKey != FBlackboard::InvalidKey)
+			{
+				Blackboard->SetValue<UBlackboardKeyType_Object>(SelfKey, GetPawn());
+			}
+		}
 	}
 }
 
@@ -515,11 +562,17 @@ EPathFollowingRequestResult::Type AAIController::MoveTo(const FAIMoveRequest& Mo
 	SCOPE_CYCLE_COUNTER(STAT_MoveTo);
 	UE_VLOG(this, LogAINavigation, Log, TEXT("MoveTo: %s"), *MoveRequest.ToString());
 
+	if (MoveRequest.IsValid() == false)
+	{
+		UE_VLOG(this, LogAINavigation, Error, TEXT("MoveTo request failed due MoveRequest not being valid. Most probably desireg Goal Actor not longer exists"), *MoveRequest.ToString());
+		return EPathFollowingRequestResult::Failed;
+	}
+
 	EPathFollowingRequestResult::Type Result = EPathFollowingRequestResult::Failed;
 	bool bCanRequestMove = true;
 	bool bAlreadyAtGoal = false;
 
-	if (!MoveRequest.HasGoalActor())
+	if (!MoveRequest.IsMoveToActorRequest())
 	{
 		if (MoveRequest.GetGoalLocation().ContainsNaN() || FAISystem::IsValidLocation(MoveRequest.GetGoalLocation()) == false)
 		{
@@ -536,7 +589,7 @@ EPathFollowingRequestResult::Type AAIController::MoveTo(const FAIMoveRequest& Mo
 
 			if (NavSys && !NavSys->ProjectPointToNavigation(MoveRequest.GetGoalLocation(), ProjectedLocation, AgentProps.GetExtent(), &AgentProps))
 			{
-				UE_VLOG_LOCATION(this, LogAINavigation, Error, MoveRequest.GetGoalLocation(), 30.f, FLinearColor::Red, TEXT("AAIController::MoveTo failed to project destination location to navmesh"));
+				UE_VLOG_LOCATION(this, LogAINavigation, Error, MoveRequest.GetGoalLocation(), 30.f, FColor::Red, TEXT("AAIController::MoveTo failed to project destination location to navmesh"));
 				bCanRequestMove = false;
 			}
 
@@ -546,7 +599,7 @@ EPathFollowingRequestResult::Type AAIController::MoveTo(const FAIMoveRequest& Mo
 		bAlreadyAtGoal = bCanRequestMove && PathFollowingComponent &&
 			PathFollowingComponent->HasReached(MoveRequest.GetGoalLocation(), MoveRequest.GetAcceptanceRadius(), !MoveRequest.CanStopOnOverlap());
 	}
-	else
+	else 
 	{
 		bAlreadyAtGoal = bCanRequestMove && PathFollowingComponent &&
 			PathFollowingComponent->HasReached(*MoveRequest.GetGoalActor(), MoveRequest.GetAcceptanceRadius(), !MoveRequest.CanStopOnOverlap());
@@ -653,7 +706,7 @@ bool AAIController::PreparePathfinding(const FAIMoveRequest& MoveRequest, FPathF
 		if (NavData)
 		{
 			FVector GoalLocation = MoveRequest.GetGoalLocation();
-			if (MoveRequest.HasGoalActor())
+			if (MoveRequest.IsMoveToActorRequest())
 			{
 				const INavAgentInterface* NavGoal = Cast<const INavAgentInterface>(MoveRequest.GetGoalActor());
 				if (NavGoal)
@@ -717,7 +770,7 @@ FAIRequestID AAIController::RequestPathAndMove(const FAIMoveRequest& MoveRequest
 		{
 			if (PathResult.IsSuccessful() && PathResult.Path.IsValid())
 			{
-				if (MoveRequest.HasGoalActor())
+				if (MoveRequest.IsMoveToActorRequest())
 				{
 					PathResult.Path->SetGoalActorObservation(*MoveRequest.GetGoalActor(), 100.0f);
 				}
@@ -729,7 +782,10 @@ FAIRequestID AAIController::RequestPathAndMove(const FAIMoveRequest& MoveRequest
 		}
 		else
 		{
-			UE_VLOG(this, LogAINavigation, Error, TEXT("Trying to find path to %s resulted in Error"), *GetNameSafe(MoveRequest.GetGoalActor()));
+			UE_VLOG(this, LogAINavigation, Error, TEXT("Trying to find path to %s resulted in Error")
+				, MoveRequest.IsMoveToActorRequest() ? *GetNameSafe(MoveRequest.GetGoalActor()) : *MoveRequest.GetGoalLocation().ToString());
+			UE_VLOG_SEGMENT(this, LogAINavigation, Error, GetPawn() ? GetPawn()->GetActorLocation() : FAISystem::InvalidLocation
+				, MoveRequest.GetGoalLocation(), FColor::Red, TEXT("Failed move to %s"), *GetNameSafe(MoveRequest.GetGoalActor()));
 		}
 	}
 
@@ -827,8 +883,16 @@ bool AAIController::RunBehaviorTree(UBehaviorTree* BTAsset)
 bool AAIController::InitializeBlackboard(UBlackboardComponent& BlackboardComp, UBlackboardData& BlackboardAsset)
 {
 	check(BlackboardComp.GetOwner() == this);
+
 	if (BlackboardComp.InitializeBlackboard(BlackboardAsset))
 	{
+		// find the "self" key and set it to our pawn
+		const FBlackboard::FKey SelfKey = BlackboardAsset.GetKeyID(FBlackboard::KeySelf);
+		if (SelfKey != FBlackboard::InvalidKey)
+		{
+			BlackboardComp.SetValue<UBlackboardKeyType_Object>(SelfKey, GetPawn());
+		}
+
 		OnUsingBlackBoard(&BlackboardComp, &BlackboardAsset);
 		return true;
 	}
@@ -837,37 +901,38 @@ bool AAIController::InitializeBlackboard(UBlackboardComponent& BlackboardComp, U
 
 bool AAIController::UseBlackboard(UBlackboardData* BlackboardAsset, UBlackboardComponent*& BlackboardComponent)
 {
-	if (BlackboardAsset == NULL)
+	if (BlackboardAsset == nullptr)
 	{
 		UE_VLOG(this, LogBehaviorTree, Log, TEXT("UseBlackboard: trying to use NULL Blackboard asset. Ignoring"));
 		return false;
 	}
 
 	bool bSuccess = true;
-	UBlackboardComponent* BlackboardComp = FindComponentByClass<UBlackboardComponent>();
+	Blackboard = FindComponentByClass<UBlackboardComponent>();
 
-	if (BlackboardComp == NULL)
+	if (Blackboard == nullptr)
 	{
-		BlackboardComp = NewObject<UBlackboardComponent>(this, TEXT("BlackboardComponent"));
-		if (BlackboardComp != NULL)
+		Blackboard = NewObject<UBlackboardComponent>(this, TEXT("BlackboardComponent"));
+		if (Blackboard != nullptr)
 		{
-			InitializeBlackboard(*BlackboardComp, *BlackboardAsset);
-			BlackboardComp->RegisterComponent();
+			InitializeBlackboard(*Blackboard, *BlackboardAsset);
+			Blackboard->RegisterComponent();
 		}
 
 	}
-	else if (BlackboardComp->GetBlackboardAsset() == NULL)
+	else if (Blackboard->GetBlackboardAsset() == nullptr)
 	{
-		InitializeBlackboard(*BlackboardComp, *BlackboardAsset);
+		InitializeBlackboard(*Blackboard, *BlackboardAsset);
 	}
-	else if (BlackboardComp->GetBlackboardAsset() != BlackboardAsset)
+	else if (Blackboard->GetBlackboardAsset() != BlackboardAsset)
 	{
+		// @todo this behavior should be opt-out-able.
 		UE_VLOG(this, LogBehaviorTree, Log, TEXT("UseBlackboard: requested blackboard %s while already has %s instantiated. Forcing new BB.")
-			, *GetNameSafe(BlackboardAsset), *GetNameSafe(BlackboardComp->GetBlackboardAsset()));
-		InitializeBlackboard(*BlackboardComp, *BlackboardAsset);
+			, *GetNameSafe(BlackboardAsset), *GetNameSafe(Blackboard->GetBlackboardAsset()));
+		InitializeBlackboard(*Blackboard, *BlackboardAsset);
 	}
 
-	BlackboardComponent = BlackboardComp;
+	BlackboardComponent = Blackboard;
 
 	return bSuccess;
 }
@@ -910,4 +975,32 @@ UAIPerceptionComponent* AAIController::GetAIPerceptionComponent()
 const UAIPerceptionComponent* AAIController::GetAIPerceptionComponent() const 
 {
 	return PerceptionComponent;
+}
+
+void AAIController::OnGameplayTaskResourcesClaimed(FGameplayResourceSet NewlyClaimed, FGameplayResourceSet FreshlyReleased)
+{
+	if (BrainComponent)
+	{
+		const uint8 LogicID = UGameplayTaskResource::GetResourceID<UAIResource_Logic>();
+		if (NewlyClaimed.HasID(LogicID))
+		{
+			BrainComponent->LockResource(EAIRequestPriority::Logic);
+		}
+		else if (FreshlyReleased.HasID(LogicID))
+		{
+			BrainComponent->ClearResourceLock(EAIRequestPriority::Logic);
+		}
+	}
+}
+
+//----------------------------------------------------------------------//
+// IGenericTeamAgentInterface
+//----------------------------------------------------------------------//
+void AAIController::SetGenericTeamId(const FGenericTeamId& NewTeamID)
+{
+	if (TeamID != NewTeamID)
+	{
+		TeamID = NewTeamID;
+		// @todo notify perception system that a controller changed team ID
+	}
 }

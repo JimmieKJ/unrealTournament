@@ -7,7 +7,7 @@
 /**
  * A spacer widget; it does not have a visual representation, and just provides padding between other widgets.
  *
- * ● No Children
+ * * No Children
  */
 UCLASS()
 class UMG_API USpacer : public UWidget

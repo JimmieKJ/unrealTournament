@@ -18,10 +18,6 @@ UCLASS(notplaceable, transient, MinimalAPI)
 class ADefaultPhysicsVolume : public APhysicsVolume
 {
 	GENERATED_UCLASS_BODY()
-
-	// Begin AActor interface
-	ENGINE_API virtual void Destroyed() override;
-	// End AActor interface
 };
 
 

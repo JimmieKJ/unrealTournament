@@ -39,14 +39,14 @@ const UStruct* MaterialExpressionClasses::GetExpressionInputStruct()
 	return ExpressionInputStruct;
 }
 
-FCategorizedMaterialExpressionNode* MaterialExpressionClasses::GetCategoryNode(const FString& InCategoryName, bool bCreate)
+FCategorizedMaterialExpressionNode* MaterialExpressionClasses::GetCategoryNode(const FText& InCategoryName, bool bCreate)
 {
 	for (int32 CheckIndex = 0; CheckIndex < CategorizedExpressionClasses.Num(); CheckIndex++)
 	{
 		FCategorizedMaterialExpressionNode* CheckNode = &(CategorizedExpressionClasses[CheckIndex]);
 		if (CheckNode)
 		{
-			if (CheckNode->CategoryName == InCategoryName)
+			if (CheckNode->CategoryName.EqualTo(InCategoryName))
 			{
 				return CheckNode;
 			}
@@ -158,7 +158,7 @@ void MaterialExpressionClasses::InitMaterialExpressionClasses()
 		{
 			FORCEINLINE bool operator()( const FCategorizedMaterialExpressionNode& A, const FCategorizedMaterialExpressionNode& B ) const
 			{
-				return A.CategoryName < B.CategoryName;
+				return A.CategoryName.CompareTo(B.CategoryName) < 0;
 			}
 		};
 		CategorizedExpressionClasses.Sort( FCompareFCategorizedMaterialExpressionNode() );

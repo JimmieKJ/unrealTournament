@@ -41,11 +41,11 @@ public:
 
 public:
 
-	// Begin SWidget interface
+	//~ Begin SWidget Interface
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
-	// End SWidget interface
+	//~ End SWidget Interface
 
 protected:
 

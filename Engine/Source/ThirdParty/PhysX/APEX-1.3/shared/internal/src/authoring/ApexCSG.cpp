@@ -2705,7 +2705,7 @@ BSP::findInsideLeafNeighbors(physx::Array<IntPair>& neighbors, Node* root) const
 		return;
 	}
 
-	const Real tol = m_meshSize*(Real)0.000001;
+	const Real tol = m_meshSize*(Real)0.0001;
 
 	physx::Array<Plane> planes;
 

@@ -24,9 +24,6 @@ private:
 	/** Must we employ a workaround for radr://15553950, TTP# 315197 */
 	static bool MustFlushTexStorage(void);
 	
-	/** Is the current renderer the Intel HD3000? */
-	static bool IsIntelHD3000();
-	
 public:
 	static void ProcessQueryGLInt();
 	static void ProcessExtensions(const FString& ExtensionsString);
@@ -36,7 +33,7 @@ public:
 	{
 		// The Intel HD 3000 on OS X can't cope with our deferred renderer, but ES2 mode works fine :(
 		static bool bForceFeatureLevelES2 = FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES2"));
-		if (bForceFeatureLevelES2 || IsIntelHD3000())
+		if (bForceFeatureLevelES2)
 		{
 			return ERHIFeatureLevel::ES2;
 		}
@@ -48,7 +45,7 @@ public:
 	{
 		// The Intel HD 3000 on OS X can't cope with our deferred renderer, but ES2 mode works fine :(
 		static bool bForceFeatureLevelES2 = FParse::Param(FCommandLine::Get(), TEXT("FeatureLevelES2"));
-		if (bForceFeatureLevelES2 || IsIntelHD3000())
+		if (bForceFeatureLevelES2)
 		{
 			return SP_OPENGL_PCES2;
 		}
@@ -71,6 +68,9 @@ public:
 	static FORCEINLINE bool SupportsTextureRange()						{ return !bUsingApitrace; }
 	static FORCEINLINE bool SupportsDepthBoundsTest()					{ return true; }
 	static FORCEINLINE bool SupportsDrawIndirect()						{ return bSupportsDrawIndirect; }
+	static FORCEINLINE bool SupportsSRGBFramebuffer()					{ return bUseSRGBFramebuffer; }
+	
+	static FORCEINLINE bool SupportsCoreAnimation()						{ return !bUsingApitrace; }
 	
 	static FORCEINLINE void Flush()
 	{
@@ -353,6 +353,8 @@ private:
 	static bool bSupportsDrawIndirect;
 	static PFNGLDRAWARRAYSINDIRECTPROC glDrawArraysIndirect;
 	static PFNGLDRAWELEMENTSINDIRECTPROC glDrawElementsIndirect;
+	/** Should we use SRGB framebuffers? */
+	static bool bUseSRGBFramebuffer;
 };
 
 

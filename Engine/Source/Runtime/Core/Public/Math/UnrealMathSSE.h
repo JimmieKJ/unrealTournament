@@ -468,7 +468,7 @@ FORCEINLINE VectorRegister VectorReciprocalLen( const VectorRegister& Vector )
 */
 FORCEINLINE VectorRegister VectorReciprocalSqrtAccurate(const VectorRegister& Vec)
 {
-	// Perform a single pass of Newton-Raphson iteration on the hardware estimate
+	// Perform two passes of Newton-Raphson iteration on the hardware estimate
 	//    v^-0.5 = x
 	// => x^2 = v^-1
 	// => 1/(x^2) = v
@@ -487,11 +487,16 @@ FORCEINLINE VectorRegister VectorReciprocalSqrtAccurate(const VectorRegister& Ve
 	const VectorRegister x0 = VectorReciprocalSqrt(Vec);
 
 	// First iteration
-	const VectorRegister x0Squared = VectorMultiply(x0, x0);
-	const VectorRegister InnerTerm0 = VectorSubtract(OneHalf, VectorMultiply(VecDivBy2, x0Squared));
-	const VectorRegister x1 = VectorMultiplyAdd(x0, InnerTerm0, x0);
+	VectorRegister x1 = VectorMultiply(x0, x0);
+	x1 = VectorSubtract(OneHalf, VectorMultiply(VecDivBy2, x1));
+	x1 = VectorMultiplyAdd(x0, x1, x0);
 
-	return x1;
+	// Second iteration
+	VectorRegister x2 = VectorMultiply(x1, x1);
+	x2 = VectorSubtract(OneHalf, VectorMultiply(VecDivBy2, x2));
+	x2 = VectorMultiplyAdd(x1, x2, x1);
+
+	return x2;
 }
 
 /**
@@ -799,15 +804,6 @@ FORCEINLINE VectorRegister VectorTransformVector(const VectorRegister&  VecP,  c
 #define VectorMaskBits( VecMask )			_mm_movemask_ps( VecMask )
 
 /**
- * Returns the bitwise AND.
- *
- * @param	Vec1	Vector to AND
- * @param	Vec2	Vector to AND
- * @return	bitwise per component AND operation.
- */
-#define VectorBitwiseAND( Vec1, Vec2 )	_mm_and_ps( (Vec1), (Vec2) )
-
-/**
  * Divides two vectors (component-wise) and returns the result.
  *
  * @param Vec1	1st vector
@@ -964,33 +960,11 @@ FORCEINLINE void VectorQuaternionMultiply( void* RESTRICT Result, const void* RE
 	*((VectorRegister *)Result) = VectorQuaternionMultiply2(*((const VectorRegister *)Quat1), *((const VectorRegister *)Quat2));
 }
 
-
-/**
-* Computes the sine and cosine of each component of a Vector.
-*
-* @param VSinAngles	VectorRegister Pointer to where the Sin result should be stored
-* @param VCosAngles	VectorRegister Pointer to where the Cos result should be stored
-* @param VAngles VectorRegister Pointer to the input angles 
-*/
-FORCEINLINE void VectorSinCos(  VectorRegister* VSinAngles, VectorRegister* VCosAngles, const VectorRegister* VAngles )
-{	
-	union { VectorRegister v; float f[4]; } VecSin, VecCos, VecAngles;
-	VecAngles.v = *VAngles;
-
-	FMath::SinCos(&VecSin.f[0], &VecCos.f[0], VecAngles.f[0]);
-	FMath::SinCos(&VecSin.f[1], &VecCos.f[1], VecAngles.f[1]);
-	FMath::SinCos(&VecSin.f[2], &VecCos.f[2], VecAngles.f[2]);
-	FMath::SinCos(&VecSin.f[3], &VecCos.f[3], VecAngles.f[3]);
-
-	*VSinAngles = VecSin.v;
-	*VCosAngles = VecCos.v;
-}
-
 // Returns true if the vector contains a component that is either NAN or +/-infinite.
 inline bool VectorContainsNaNOrInfinite(const VectorRegister& Vec)
 {
-	bool IsNotNAN = _mm_movemask_ps(_mm_cmpeq_ps(Vec, Vec)) != 0; // Test for the fact that NAN != NAN
-
+	bool IsNotNAN = _mm_movemask_ps(_mm_cmpneq_ps(Vec, Vec)) == 0; // Test for the fact that NAN != NAN
+	
 	// Test for infinity, technique "stolen" from DirectXMathVector.inl
 
 	// Mask off signs
@@ -1029,7 +1003,7 @@ FORCEINLINE VectorRegister VectorFloor(const VectorRegister& X)
 
 FORCEINLINE VectorRegister VectorMod(const VectorRegister& X, const VectorRegister& Y)
 {
-	VectorRegister Temp = VectorFloor(VectorDivide(X, Y));
+	VectorRegister Temp = VectorTruncate(VectorDivide(X, Y));
 	return VectorSubtract(X, VectorMultiply(Y, Temp));
 }
 
@@ -1069,6 +1043,22 @@ FORCEINLINE VectorRegister VectorLog2(const VectorRegister& X)
 	return MakeVectorRegister((float)log2(VectorGetComponent(X, 0)), (float)log2(VectorGetComponent(X, 1)), (float)log2(VectorGetComponent(X, 2)), (float)log2(VectorGetComponent(X, 3)));
 }
 
+
+/**
+ * Using "static const float ..." or "static const VectorRegister ..." in functions creates the branch and code to construct those constants.
+ * Doing this in FORCEINLINE not only means you introduce a branch per static, but you bloat the inlined code immensely.
+ * Defining these constants at the global scope causes them to be created at startup, and avoids the cost at the function level.
+ * Doing it at the function level is okay for anything that is a simple "const float", but usage of "sqrt()" here forces actual function calls.
+ */
+namespace VectorSinConstantsSSE
+{
+	static const float p = 0.225f;
+	static const float a = (16 * sqrt(p));
+	static const float b = ((1 - p) / sqrt(p));
+	static const VectorRegister A = MakeVectorRegister(a, a, a, a);
+	static const VectorRegister B = MakeVectorRegister(b, b, b, b);
+}
+
 FORCEINLINE VectorRegister VectorSin(const VectorRegister& X)
 {
 	//Sine approximation using a squared parabola restrained to f(0) = 0, f(PI) = 0, f(PI/2) = 1.
@@ -1077,22 +1067,75 @@ FORCEINLINE VectorRegister VectorSin(const VectorRegister& X)
 	//Average error of 0.000128
 	//Max error of 0.001091
 
-	static const float p = 0.225f;
-	static const VectorRegister P = MakeVectorRegister(p, p, p, p);
-	static const float a = 16 * sqrt(p);
-	static const VectorRegister A = MakeVectorRegister(a, a, a, a);
-	static const float b = (1 - p) / sqrt(p);
-	static const VectorRegister B = MakeVectorRegister(b, b, b, b);
-
 	VectorRegister y = VectorMultiply(X, GlobalVectorConstants::OneOverTwoPi);
 	y = VectorSubtract(y, VectorFloor(VectorAdd(y, GlobalVectorConstants::FloatOneHalf)));
-	y = VectorMultiply(A, VectorMultiply(y, VectorSubtract(GlobalVectorConstants::FloatOneHalf, VectorAbs(y))));
-	return VectorMultiply(y, VectorAdd(B, VectorAbs(y)));
+	y = VectorMultiply(VectorSinConstantsSSE::A, VectorMultiply(y, VectorSubtract(GlobalVectorConstants::FloatOneHalf, VectorAbs(y))));
+	return VectorMultiply(y, VectorAdd(VectorSinConstantsSSE::B, VectorAbs(y)));
 }
 
 FORCEINLINE VectorRegister VectorCos(const VectorRegister& X)
 {
 	return VectorSin(VectorAdd(X, GlobalVectorConstants::PiByTwo));
+}
+
+
+/**
+* Computes the sine and cosine of each component of a Vector.
+*
+* @param VSinAngles	VectorRegister Pointer to where the Sin result should be stored
+* @param VCosAngles	VectorRegister Pointer to where the Cos result should be stored
+* @param VAngles VectorRegister Pointer to the input angles
+*/
+FORCEINLINE void VectorSinCos(VectorRegister* RESTRICT VSinAngles, VectorRegister* RESTRICT VCosAngles, const VectorRegister* RESTRICT VAngles)
+{
+	// Map to [-pi, pi]
+	// X = A - 2pi * round(A/2pi)
+	// Note the round(), not truncate(). In this case round() can round halfway cases using round-to-nearest-even OR round-to-nearest.
+
+	// Quotient = round(A/2pi)
+	VectorRegister Quotient = VectorMultiply(*VAngles, GlobalVectorConstants::OneOverTwoPi);
+	Quotient = _mm_cvtepi32_ps(_mm_cvtps_epi32(Quotient)); // round to nearest even is the default rounding mode but that's fine here.
+	// X = A - 2pi * Quotient
+	VectorRegister X = VectorSubtract(*VAngles, VectorMultiply(GlobalVectorConstants::TwoPi, Quotient));
+
+	// Map in [-pi/2,pi/2]
+	VectorRegister sign = VectorBitwiseAnd(X, GlobalVectorConstants::SignBit);
+	VectorRegister c = VectorBitwiseOr(GlobalVectorConstants::Pi, sign);  // pi when x >= 0, -pi when x < 0
+	VectorRegister absx = VectorAbs(X);
+	VectorRegister rflx = VectorSubtract(c, X);
+	VectorRegister comp = VectorCompareGT(absx, GlobalVectorConstants::PiByTwo);
+	X = VectorSelect(comp, rflx, X);
+	sign = VectorSelect(comp, GlobalVectorConstants::FloatMinusOne, GlobalVectorConstants::FloatOne);
+
+	const VectorRegister XSquared = VectorMultiply(X, X);
+
+	// 11-degree minimax approximation
+	//*ScalarSin = (((((-2.3889859e-08f * y2 + 2.7525562e-06f) * y2 - 0.00019840874f) * y2 + 0.0083333310f) * y2 - 0.16666667f) * y2 + 1.0f) * y;
+	const VectorRegister SinCoeff0 = MakeVectorRegister(1.0f, -0.16666667f, 0.0083333310f, -0.00019840874f);
+	const VectorRegister SinCoeff1 = MakeVectorRegister(2.7525562e-06f, -2.3889859e-08f, /*unused*/ 0.f, /*unused*/ 0.f);
+
+	VectorRegister S;
+	S = VectorReplicate(SinCoeff1, 1);
+	S = VectorMultiplyAdd(XSquared, S, VectorReplicate(SinCoeff1, 0));
+	S = VectorMultiplyAdd(XSquared, S, VectorReplicate(SinCoeff0, 3));
+	S = VectorMultiplyAdd(XSquared, S, VectorReplicate(SinCoeff0, 2));
+	S = VectorMultiplyAdd(XSquared, S, VectorReplicate(SinCoeff0, 1));
+	S = VectorMultiplyAdd(XSquared, S, VectorReplicate(SinCoeff0, 0));
+	*VSinAngles = VectorMultiply(S, X);
+
+	// 10-degree minimax approximation
+	//*ScalarCos = sign * (((((-2.6051615e-07f * y2 + 2.4760495e-05f) * y2 - 0.0013888378f) * y2 + 0.041666638f) * y2 - 0.5f) * y2 + 1.0f);
+	const VectorRegister CosCoeff0 = MakeVectorRegister(1.0f, -0.5f, 0.041666638f, -0.0013888378f);
+	const VectorRegister CosCoeff1 = MakeVectorRegister(2.4760495e-05f, -2.6051615e-07f, /*unused*/ 0.f, /*unused*/ 0.f);
+
+	VectorRegister C;
+	C = VectorReplicate(CosCoeff1, 1);
+	C = VectorMultiplyAdd(XSquared, C, VectorReplicate(CosCoeff1, 0));
+	C = VectorMultiplyAdd(XSquared, C, VectorReplicate(CosCoeff0, 3));
+	C = VectorMultiplyAdd(XSquared, C, VectorReplicate(CosCoeff0, 2));
+	C = VectorMultiplyAdd(XSquared, C, VectorReplicate(CosCoeff0, 1));
+	C = VectorMultiplyAdd(XSquared, C, VectorReplicate(CosCoeff0, 0));
+	*VCosAngles = VectorMultiply(C, sign);
 }
 
 //TODO: Vectorize

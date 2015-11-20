@@ -89,7 +89,7 @@ public:
 	/** every widget needs a construction function. */
 	void Construct(const FArguments& InArgs);
 
-	// Begin SWidget interface
+	//~ Begin SWidget Interface
 	/** Update function. */
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime ) override;
 
@@ -105,7 +105,7 @@ public:
 	/** The menu sets up the appropriate mouse settings upon focus. */
 	virtual FReply OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent) override;
 
-	// End SWidget interface
+	//~ End SWidget Interface
 
 	/**
 	 * Callback handler for when the state of the main panel changes.

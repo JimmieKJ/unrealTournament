@@ -5,7 +5,7 @@ Description:Overview of the RadialForceActor class
 
 [EXCERPT:ARadialForceActor]
 
-Using a Radial Force Actor, you can apply a Constant Force (listed as Force Strength in the editor) or an Impulse.
+Using a RadialForceActor, you can apply a Constant Force (listed as Force Strength in the editor) or an Impulse.
 
 [VAR:ToolTipFullLink]
 Resources/ContentExamples/Physics/1_3

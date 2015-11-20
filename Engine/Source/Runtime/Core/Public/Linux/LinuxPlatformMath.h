@@ -7,6 +7,9 @@
 #pragma once
 #include "GenericPlatform/GenericPlatformMath.h"
 #include "Linux/LinuxSystemIncludes.h"
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	#include "Math/UnrealPlatformMathSSE.h"
+#endif // PLATFORM_ENABLE_VECTORINTRINSICS
 
 /**
 * Linux implementation of the Math OS functions
@@ -60,28 +63,14 @@ struct FLinuxPlatformMath : public FGenericPlatformMath
 	static FORCEINLINE bool IsNaN( float A ) { return isnan(A) != 0; }
 	static FORCEINLINE bool IsFinite( float A ) { return isfinite(A); }
 
-	//
-	// MSM: Fast float inverse square root using SSE.
-	// Accurate to within 1 LSB.
-	//
 	static FORCEINLINE float InvSqrt( float F )
 	{
-		static const __m128 fThree = _mm_set_ss( 3.0f );
-		static const __m128 fOneHalf = _mm_set_ss( 0.5f );
-		__m128 Y0, X0, Temp;
-		float temp;
+		return UnrealPlatformMathSSE::InvSqrt(F);
+	}
 
-		Y0 = _mm_set_ss( F );
-		X0 = _mm_rsqrt_ss( Y0 );	// 1/sqrt estimate (12 bits)
-
-		// Newton-Raphson iteration (X1 = 0.5*X0*(3-(Y*X0)*X0))
-		Temp = _mm_mul_ss( _mm_mul_ss(Y0, X0), X0 );	// (Y*X0)*X0
-		Temp = _mm_sub_ss( fThree, Temp );				// (3-(Y*X0)*X0)
-		Temp = _mm_mul_ss( X0, Temp );					// X0*(3-(Y*X0)*X0)
-		Temp = _mm_mul_ss( fOneHalf, Temp );			// 0.5*X0*(3-(Y*X0)*X0)
-		_mm_store_ss( &temp, Temp );
-
-		return temp;
+	static FORCEINLINE float InvSqrtEst( float F )
+	{
+		return UnrealPlatformMathSSE::InvSqrtEst(F);
 	}
 #endif
 

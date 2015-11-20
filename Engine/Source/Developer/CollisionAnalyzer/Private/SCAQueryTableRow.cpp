@@ -12,7 +12,7 @@ void SCAQueryTableRow::Construct(const FArguments& InArgs, const TSharedRef<STab
 
 	if(Item->bIsGroup)
 	{
-		BorderImage = FEditorStyle::GetBrush("CollisionAnalyzer.GroupBackground");
+		BorderImage = FCollisionAnalyzerStyle::Get()->GetBrush("CollisionAnalyzer.GroupBackground");
 	}
 }
 
@@ -23,32 +23,32 @@ TSharedRef<SWidget> SCAQueryTableRow::GenerateWidgetForColumn(const FName& Colum
 	// GROUP
 	if(Item->bIsGroup)
 	{
-		if (ColumnName == TEXT("ID"))
+		if (ColumnName == SCollisionAnalyzer::IDColumnName)
 		{
 			return	SNew(SExpanderArrow, SharedThis(this));
 		}
-		else if (ColumnName == TEXT("Frame") && OwnerAnalyzerWidget->GroupBy == EQueryGroupMode::ByFrameNum)
+		else if (ColumnName == SCollisionAnalyzer::FrameColumnName && OwnerAnalyzerWidget->GroupBy == EQueryGroupMode::ByFrameNum)
 		{
 			return	SNew(STextBlock)
-					.Font(FEditorStyle::GetFontStyle("BoldFont"))
+					.Font(FCollisionAnalyzerStyle::Get()->GetFontStyle("BoldFont"))
 					.Text(FText::AsNumber(Item->FrameNum));
 		}
-		else if (ColumnName == TEXT("Tag") && OwnerAnalyzerWidget->GroupBy == EQueryGroupMode::ByTag)
+		else if (ColumnName == SCollisionAnalyzer::TagColumnName && OwnerAnalyzerWidget->GroupBy == EQueryGroupMode::ByTag)
 		{
 			return	SNew(STextBlock)
-					.Font(FEditorStyle::GetFontStyle("BoldFont"))
+					.Font(FCollisionAnalyzerStyle::Get()->GetFontStyle("BoldFont"))
 					.Text(FText::FromName(Item->GroupName));
 		}
-		else if (ColumnName == TEXT("Owner") && OwnerAnalyzerWidget->GroupBy == EQueryGroupMode::ByOwnerTag)
+		else if (ColumnName == SCollisionAnalyzer::OwnerColumnName && OwnerAnalyzerWidget->GroupBy == EQueryGroupMode::ByOwnerTag)
 		{
 			return	SNew(STextBlock)
-					.Font(FEditorStyle::GetFontStyle("BoldFont"))
+					.Font(FCollisionAnalyzerStyle::Get()->GetFontStyle("BoldFont"))
 					.Text(FText::FromName(Item->GroupName));
 		}
-		else if (ColumnName == TEXT("Time"))
+		else if (ColumnName == SCollisionAnalyzer::TimeColumnName)
 		{
 			return	SNew(STextBlock)
-					.Font(FEditorStyle::GetFontStyle("BoldFont"))
+					.Font(FCollisionAnalyzerStyle::Get()->GetFontStyle("BoldFont"))
 					.Text(this, &SCAQueryTableRow::GetTotalTimeText);
 		}
 	}
@@ -64,37 +64,49 @@ TSharedRef<SWidget> SCAQueryTableRow::GenerateWidgetForColumn(const FName& Colum
 
 		FCAQuery& Query = OwnerAnalyzerWidget->Analyzer->Queries[QueryId];
 
-		if (ColumnName == TEXT("ID"))
+		if (ColumnName == SCollisionAnalyzer::IDColumnName)
 		{	
 			return	SNew(STextBlock)
 					.Text( FText::AsNumber(QueryId) );
 		}
-		else if (ColumnName == TEXT("Frame"))
+		else if (ColumnName == SCollisionAnalyzer::FrameColumnName)
 		{
 			return	SNew(STextBlock)
 					.Text( FText::AsNumber(Query.FrameNum) );
 		}
-		else if (ColumnName == TEXT("Type"))
+		else if (ColumnName == SCollisionAnalyzer::TypeColumnName)
 		{
 			return	SNew(STextBlock)
 					.Text(FText::FromString(SCollisionAnalyzer::QueryTypeToString(Query.Type)));
 		}
-		else if (ColumnName == TEXT("Shape"))
+		else if (ColumnName == SCollisionAnalyzer::ShapeColumnName)
+		{
+			// Leave shape string blank if this is a raycast, it doesn't matter
+			FString ShapeString;
+			if(Query.Type != ECAQueryType::Raycast)
+			{
+				ShapeString = SCollisionAnalyzer::QueryShapeToString(Query.Shape);
+			}
+
+			return	SNew(STextBlock)
+					.Text(FText::FromString(ShapeString));
+		}
+		else if (ColumnName == SCollisionAnalyzer::ModeColumnName)
 		{
 			return	SNew(STextBlock)
-					.Text(FText::FromString(SCollisionAnalyzer::QueryShapeToString(Query.Shape)));
+					.Text(FText::FromString(SCollisionAnalyzer::QueryModeToString(Query.Mode)));
 		}
-		else if (ColumnName == TEXT("Tag"))
+		else if (ColumnName == SCollisionAnalyzer::TagColumnName)
 		{
 			return	SNew(STextBlock)
 					.Text(FText::FromName(Query.Params.TraceTag));
 		}
-		else if (ColumnName == TEXT("Owner"))
+		else if (ColumnName == SCollisionAnalyzer::OwnerColumnName)
 		{
 			return	SNew(STextBlock)
 					.Text(FText::FromName(Query.Params.OwnerTag));
 		}
-		else if (ColumnName == TEXT("NumBlock"))
+		else if (ColumnName == SCollisionAnalyzer::NumBlockColumnName)
 		{
 			FHitResult* FirstHit = FHitResult::GetFirstBlockingHit(Query.Results);
 			bool bStartPenetrating = (FirstHit != NULL) && FirstHit->bStartPenetrating;
@@ -103,19 +115,15 @@ TSharedRef<SWidget> SCAQueryTableRow::GenerateWidgetForColumn(const FName& Colum
 					.Text(FText::AsNumber(FHitResult::GetNumBlockingHits(Query.Results)))
 					.ColorAndOpacity(bStartPenetrating ? FLinearColor(1.f,0.25f,0.25f) : FSlateColor::UseForeground() );
 		}
-		else if (ColumnName == TEXT("NumTouch"))
+		else if (ColumnName == SCollisionAnalyzer::NumTouchColumnName)
 		{
 			return	SNew(STextBlock)
 					.Text(FText::AsNumber(FHitResult::GetNumOverlapHits(Query.Results)));
 		}
-		else if (ColumnName == TEXT("Time"))
+		else if (ColumnName == SCollisionAnalyzer::TimeColumnName)
 		{
-			static const FNumberFormattingOptions TimeFormatOptions = FNumberFormattingOptions()
-				.SetMinimumFractionalDigits(3)
-				.SetMaximumFractionalDigits(3);
-
 			return	SNew(STextBlock)
-					.Text(FText::AsNumber(Query.CPUTime, &TimeFormatOptions));
+					.Text(FText::FromString(FString::Printf(TEXT("%.3f"), Query.CPUTime)));
 		}
 	}
 
@@ -124,12 +132,8 @@ TSharedRef<SWidget> SCAQueryTableRow::GenerateWidgetForColumn(const FName& Colum
 
 FText SCAQueryTableRow::GetTotalTimeText() const
 {
-	static const FNumberFormattingOptions TimeFormatOptions = FNumberFormattingOptions()
-		.SetMinimumFractionalDigits(3)
-		.SetMaximumFractionalDigits(3);
-
 	check(Item->bIsGroup)
-	return FText::AsNumber(Item->TotalCPUTime, &TimeFormatOptions);
+	return FText::FromString(FString::Printf(TEXT("%.3f"), Item->TotalCPUTime));
 }
 
 #undef LOCTEXT_NAMESPACE

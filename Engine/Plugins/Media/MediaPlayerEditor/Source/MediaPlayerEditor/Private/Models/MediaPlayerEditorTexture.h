@@ -14,20 +14,20 @@ public:
 	 * @param InSlateTexture The Slate texture to render to.
 	 * @param InVideoTrack The video track to fetch.
 	 */
-	FMediaPlayerEditorTexture( FSlateTexture2DRHIRef* InSlateTexture, const IMediaTrackRef& InVideoTrack )
+	FMediaPlayerEditorTexture( FSlateTexture2DRHIRef* InSlateTexture, const IMediaVideoTrackRef& InVideoTrack )
 		: FTickableObjectRenderThread(false)
 		, LastFrameTime(FTimespan::MinValue())
 		, SlateTexture(InSlateTexture)
 		, VideoBuffer(MakeShareable(new FMediaSampleBuffer))
 		, VideoTrack(InVideoTrack)
 	{
-		VideoTrack->AddSink(VideoBuffer);
+		VideoTrack->GetStream().AddSink(VideoBuffer);
 	}
 
 	/** Destructor. */
 	~FMediaPlayerEditorTexture()
 	{
-		VideoTrack->RemoveSink(VideoBuffer);
+		VideoTrack->GetStream().RemoveSink(VideoBuffer);
 	}
 
 public:
@@ -92,5 +92,5 @@ private:
 	FMediaSampleBufferRef VideoBuffer;
 
 	/** Holds the selected video track. */
-	IMediaTrackRef VideoTrack;
+	IMediaVideoTrackRef VideoTrack;
 };

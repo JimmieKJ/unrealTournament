@@ -215,7 +215,7 @@ void FIESLoadHelper::Load(const uint8* Buffer)
 
 	if(HAnglesNum < 0)
 	{
-		Error = "VAnglesNum is not valid";
+		Error = "HAnglesNum is not valid";
 		return;
 	}
 

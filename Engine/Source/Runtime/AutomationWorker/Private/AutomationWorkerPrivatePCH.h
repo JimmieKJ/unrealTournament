@@ -22,3 +22,4 @@
  *****************************************************************************/
 
 #include "AutomationWorkerModule.h"
+#include "AutomationAnalytics.h"

@@ -6,7 +6,8 @@
 
 /** 
  * Selector composite node.
- * A selector node runs each child in turn until the first child node succeeds, in which case the selector fails.
+ * Selector Nodes execute their children from left to right, and will stop executing its children when one of their children succeeds.
+ * If a Selector's child succeeds, the Selector succeeds. If all the Selector's children fail, the Selector fails.
  */
 UCLASS()
 class AIMODULE_API UBTComposite_Selector: public UBTCompositeNode

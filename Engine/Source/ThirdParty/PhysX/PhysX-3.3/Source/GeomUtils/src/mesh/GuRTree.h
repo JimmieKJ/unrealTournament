@@ -217,9 +217,9 @@ namespace Gu {
 		PX_FORCE_INLINE
 
 		RTreePage*	get64BitBasePage() const;
-		#if defined(PX_X64) || defined(PX_ARM64)
+		#ifdef PX_P64
 		static RTreePage* sFirstPoolPage;
-		#endif // PX_X64
+		#endif // PX_P64
 
 		friend struct RTreePage;
 	} PX_ALIGN_SUFFIX(16);
@@ -230,30 +230,30 @@ namespace Gu {
 	/////////////////////////////////////////////////////////////////////////
 	PX_FORCE_INLINE PxU32 RTree::pagePtrTo32Bits(const RTreePage* page)
 	{
-		#if defined(PX_X64) || defined(PX_ARM64)
+		#ifdef PX_P64
 			PX_ASSERT(PxU64(page) >= PxU64(sFirstPoolPage));
 			PxU64 delta = PxU64(page)-PxU64(sFirstPoolPage);
 			PX_ASSERT(delta <= 0xFFFFffff);
 			return PxU32(delta);
 		#else
 			return PxU32(page);
-		#endif //PX_X64
+		#endif //PX_P64
 	}
 
 	/////////////////////////////////////////////////////////////////////////
 	PX_FORCE_INLINE RTreePage* RTree::pagePtrFrom32Bits(PxU32 page)
 	{
-		#if defined(PX_X64) || defined(PX_ARM64)
+		#ifdef PX_P64
 			return reinterpret_cast<RTreePage*>(PxU64(sFirstPoolPage)+page);
 		#else
 			return reinterpret_cast<RTreePage*>(page);
-		#endif //PX_X64
+		#endif //PX_P64
 	}
 
 	/////////////////////////////////////////////////////////////////////////
 	PX_FORCE_INLINE RTreePage* RTree::get64BitBasePage() const
 	{
-		#if defined(PX_X64) || defined(PX_ARM64)
+		#ifdef PX_P64
 			if (mFlags & IS_DYNAMIC)
 				return sFirstPoolPage;
 			else

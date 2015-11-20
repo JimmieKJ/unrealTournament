@@ -15,6 +15,7 @@ namespace Internal
 			case FReferenceChainSearch::EReferenceType::ArrayProperty: return TEXT("Array");
 			case FReferenceChainSearch::EReferenceType::StructARO: return TEXT("StructARO");
 			case FReferenceChainSearch::EReferenceType::ARO: return TEXT("ARO");
+			case FReferenceChainSearch::EReferenceType::MapProperty: return TEXT("Map");
 			default: return TEXT("Invalid");
 		}
 	}
@@ -162,7 +163,17 @@ void FReferenceChainSearch::PrintReferencers( FReferenceChain& Referencer )
 			ObjectReachability += TEXT("(standalone) ");
 		}
 
-		if (GetUObjectArray().IsDisregardForGC(RefInfo.ReferencedBy))
+		if( RefInfo.ReferencedBy->HasAnyFlags(RF_Async) )
+		{
+			ObjectReachability += TEXT("(async) ");
+		}
+
+		if( RefInfo.ReferencedBy->HasAnyFlags(RF_AsyncLoading) )
+		{
+			ObjectReachability += TEXT("(asyncloading) ");
+		}
+
+		if (GUObjectArray.IsDisregardForGC(RefInfo.ReferencedBy))
 		{
 			ObjectReachability += TEXT("(NeverGCed) ");
 		}
@@ -623,6 +634,24 @@ bool FReferenceChainSearch::ProcessObject( UObject* CurrentObject )
 				AddToReferenceList(ReferenceList, ReferenceCollector.References[i]);
 			}
 		}
+		else if( REFERENCE_INFO.Type == GCRT_AddTMapReferencedObjects )
+		{
+			void*         Map         = StackEntryData + REFERENCE_INFO.Offset;
+			UMapProperty* MapProperty = (UMapProperty*)TokenStream->ReadPointer( TokenStreamIndex );
+			TokenReturnCount = REFERENCE_INFO.ReturnCount;
+			FFindReferencerCollector ReferenceCollector(this, EReferenceType::MapProperty, (void*)MapProperty, CurrentObject);
+			FSimpleObjectReferenceCollectorArchive CollectorArchive(CurrentObject, ReferenceCollector);
+			MapProperty->SerializeItem(CollectorArchive, Map, nullptr);
+
+			for (const FReferenceChainLink& Ref : ReferenceCollector.References)
+			{
+				AddToReferenceList(ReferenceList, Ref);
+			}
+		}
+		else if (REFERENCE_INFO.Type == GCRT_EndOfPointer)
+		{
+			TokenReturnCount = REFERENCE_INFO.ReturnCount;
+		}
 		else if( REFERENCE_INFO.Type == GCRT_EndOfStream )
 		{
 			// Break out of loop.
@@ -816,7 +845,7 @@ FString FReferenceChainSearch::FReferenceChainLink::ToString() const
 		ObjectReachability += TEXT("(standalone) ");
 	}
 
-	if (GetUObjectArray().IsDisregardForGC(ReferencedBy))
+	if (GUObjectArray.IsDisregardForGC(ReferencedBy))
 	{
 		ObjectReachability += TEXT("(NeverGCed) ");
 	}

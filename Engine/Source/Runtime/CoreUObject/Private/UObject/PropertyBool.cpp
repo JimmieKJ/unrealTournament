@@ -188,7 +188,16 @@ void UBoolProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue
 {
 	check(FieldSize != 0);
 	const uint8* ByteValue = (uint8*)PropertyValue + ByteOffset;
-	TCHAR* Temp =	(TCHAR*) (((*ByteValue) & FieldMask) ? TEXT("True") : TEXT("False"));
+	const bool bValue = 0 != ((*ByteValue) & FieldMask);
+	const TCHAR* Temp = nullptr;
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		Temp = (bValue ? TEXT("true") : TEXT("false"));
+	}
+	else
+	{
+		Temp = (bValue ? TEXT("True") : TEXT("False"));
+	}
 	ValueStr += FString::Printf( TEXT("%s"), Temp );
 }
 const TCHAR* UBoolProperty::ImportText_Internal( const TCHAR* Buffer, void* Data, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText ) const

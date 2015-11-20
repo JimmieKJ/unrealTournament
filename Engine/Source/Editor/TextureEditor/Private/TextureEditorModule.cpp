@@ -4,9 +4,18 @@
 #include "TextureEditorPrivatePCH.h"
 #include "ISettingsModule.h"
 #include "ModuleManager.h"
+#include "Customizations/TextureDetailsCustomization.h"
 
+#include "PropertyEditorModule.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailCategoryBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
+#include "PropertyHandle.h"
+#include "SNumericEntryBox.h"
 
 #define LOCTEXT_NAMESPACE "FTextureEditorModule"
+
 
 const FName TextureEditorAppIdentifier = FName(TEXT("TextureEditorApp"));
 
@@ -61,6 +70,9 @@ public:
 				GetMutableDefault<UTextureEditorSettings>()
 			);
 		}
+
+		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.RegisterCustomClassLayout("Texture", FOnGetDetailCustomizationInstance::CreateStatic(&FTextureDetails::MakeInstance));
 	}
 
 	virtual void ShutdownModule( ) override
@@ -76,6 +88,9 @@ public:
 		// unregister menu extensions
 		MenuExtensibilityManager.Reset();
 		ToolBarExtensibilityManager.Reset();
+
+		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.UnregisterCustomClassLayout("Texture2D");
 	}
 
 private:

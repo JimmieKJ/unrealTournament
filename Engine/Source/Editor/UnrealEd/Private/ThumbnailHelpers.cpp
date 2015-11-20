@@ -103,6 +103,9 @@ void FThumbnailPreviewScene::GetView(FSceneViewFamily* ViewFamily, int32 X, int3
 			FPlane(0,	1,	0,	0),
 			FPlane(0,	0,	0,	1));
 
+		Origin -= ViewRotationMatrix.InverseTransformPosition( FVector::ZeroVector );
+		ViewRotationMatrix = ViewRotationMatrix.RemoveTranslation();
+
 		FSceneViewInitOptions ViewInitOptions;
 		ViewInitOptions.ViewFamily = ViewFamily;
 		ViewInitOptions.SetViewRectangle(ViewRect);
@@ -239,7 +242,7 @@ FMaterialThumbnailScene::FMaterialThumbnailScene()
 	// Create preview actor
 	// checked
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.bNoFail = true;
 	SpawnInfo.ObjectFlags = RF_Transient;
 	PreviewActor = GetWorld()->SpawnActor<AStaticMeshActor>( SpawnInfo );
@@ -253,6 +256,7 @@ void FMaterialThumbnailScene::SetMaterialInterface(UMaterialInterface* InMateria
 	check(PreviewActor);
 	check(PreviewActor->GetStaticMeshComponent());
 
+	bIsUIMaterial = false;
 	if ( InMaterial )
 	{
 		// Transform the preview mesh as necessary
@@ -264,7 +268,14 @@ void FMaterialThumbnailScene::SetMaterialInterface(UMaterialInterface* InMateria
 			ThumbnailInfo = USceneThumbnailInfoWithPrimitive::StaticClass()->GetDefaultObject<USceneThumbnailInfoWithPrimitive>();
 		}
 
-		switch( ThumbnailInfo->PrimitiveType )
+		UMaterial* BaseMaterial = InMaterial->GetBaseMaterial();
+
+		// UI material thumbnails always get a 2D plane centered at the camera which is a better representation of the
+		// what the material will look like on UI
+		bIsUIMaterial = BaseMaterial && BaseMaterial->IsUIMaterial();
+		EThumbnailPrimType PrimitiveType = bIsUIMaterial ? TPT_Plane : ThumbnailInfo->PrimitiveType.GetValue();
+
+		switch( PrimitiveType )
 		{
 		case TPT_None:
 			{
@@ -355,7 +366,7 @@ void FMaterialThumbnailScene::GetViewMatrixParameters(const float InFOVDegrees, 
 	}
 
 	OutOrigin = FVector(0, 0, -BoundsZOffset);
-	OutOrbitPitch = ThumbnailInfo->OrbitPitch;
+	OutOrbitPitch = bIsUIMaterial ? 0.0f : ThumbnailInfo->OrbitPitch;
 	OutOrbitYaw = ThumbnailInfo->OrbitYaw;
 	OutOrbitZoom = TargetDistance + ThumbnailInfo->OrbitZoom;
 }
@@ -374,7 +385,7 @@ FSkeletalMeshThumbnailScene::FSkeletalMeshThumbnailScene()
 	// Create preview actor
 	// checked
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.bNoFail = true;
 	SpawnInfo.ObjectFlags = RF_Transient;
 	PreviewActor = GetWorld()->SpawnActor<ASkeletalMeshActor>( SpawnInfo );
@@ -444,7 +455,7 @@ FDestructibleMeshThumbnailScene::FDestructibleMeshThumbnailScene()
 	// Create preview actor
 	// checked
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.bNoFail = true;
 	SpawnInfo.ObjectFlags = RF_Transient;
 	PreviewActor = GetWorld()->SpawnActor<ADestructibleActor>(SpawnInfo);
@@ -515,7 +526,7 @@ FStaticMeshThumbnailScene::FStaticMeshThumbnailScene()
 	// Create preview actor
 	// checked
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.bNoFail = true;
 	SpawnInfo.ObjectFlags = RF_Transient;
 	PreviewActor = GetWorld()->SpawnActor<AStaticMeshActor>( SpawnInfo );
@@ -540,6 +551,12 @@ void FStaticMeshThumbnailScene::SetStaticMesh(UStaticMesh* StaticMesh)
 		PreviewActor->SetActorLocation( -PreviewActor->GetStaticMeshComponent()->Bounds.Origin + FVector(0, 0, BoundsZOffset), false );
 		PreviewActor->GetStaticMeshComponent()->RecreateRenderState_Concurrent();
 	}
+}
+
+void FStaticMeshThumbnailScene::SetOverrideMaterials(const TArray<class UMaterialInterface*>& OverrideMaterials)
+{
+	PreviewActor->GetStaticMeshComponent()->OverrideMaterials = OverrideMaterials;
+	PreviewActor->GetStaticMeshComponent()->MarkRenderStateDirty();
 }
 
 void FStaticMeshThumbnailScene::GetViewMatrixParameters(const float InFOVDegrees, FVector& OutOrigin, float& OutOrbitPitch, float& OutOrbitYaw, float& OutOrbitZoom) const
@@ -586,7 +603,7 @@ FAnimationSequenceThumbnailScene::FAnimationSequenceThumbnailScene()
 	// Create preview actor
 	// checked
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.bNoFail = true;
 	SpawnInfo.ObjectFlags = RF_Transient;
 	PreviewActor = GetWorld()->SpawnActor<ASkeletalMeshActor>(SpawnInfo);
@@ -710,7 +727,7 @@ FBlendSpaceThumbnailScene::FBlendSpaceThumbnailScene()
 	// Create preview actor
 	// checked
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.bNoFail = true;
 	SpawnInfo.ObjectFlags = RF_Transient;
 	PreviewActor = GetWorld()->SpawnActor<ASkeletalMeshActor>(SpawnInfo);
@@ -836,7 +853,7 @@ FAnimBlueprintThumbnailScene::FAnimBlueprintThumbnailScene()
 	
 	// Create preview actor
 	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	SpawnInfo.bNoFail = true;
 	SpawnInfo.ObjectFlags = RF_Transient;
 	PreviewActor = GetWorld()->SpawnActor<ASkeletalMeshActor>(SpawnInfo);
@@ -974,9 +991,7 @@ void FClassActorThumbnailScene::SetObject(UObject* Obj)
 		}
 
 		VisualizableComponents.Empty();
-	}
-
-	GetWorld()->SendAllEndOfFrameUpdates();
+	}	
 }
 
 bool FClassActorThumbnailScene::IsValidComponentForVisualization(UActorComponent* Component) const
@@ -1132,13 +1147,13 @@ void FBlueprintThumbnailScene::BlueprintChanged(class UBlueprint* Blueprint)
 	ClearComponentsPool();
 }
 
-void FBlueprintThumbnailScene::InstanceComponents(USCS_Node* CurrentNode, USceneComponent* ParentComponent, const TMap<UActorComponent*, UActorComponent*>& NativeInstanceMap, TArray<UActorComponent*>& OutComponents)
+void FBlueprintThumbnailScene::InstanceComponents(USCS_Node* CurrentNode, USceneComponent* ParentComponent, const TMap<UActorComponent*, UActorComponent*>& NativeInstanceMap, TArray<UActorComponent*>& OutComponents, UBlueprintGeneratedClass* ActualBPGC)
 {
 	check(CurrentNode != NULL);
 
 	// Get the instanced actor component for this node. This is either an instance made from the native components, or a new instance we create using the current node's template.
 	UActorComponent* CurrentActorComp = NULL;
-	UActorComponent* ComponentTemplate = CurrentNode->ComponentTemplate;
+	UActorComponent* ComponentTemplate = CurrentNode->GetActualComponentTemplate(ActualBPGC);
 	if ( ComponentTemplate != NULL )
 	{
 		// Try to find the template in the list of native components we processed. If we find it, use the corresponding instance instead of making a new one.
@@ -1183,11 +1198,10 @@ void FBlueprintThumbnailScene::InstanceComponents(USCS_Node* CurrentNode, UScene
 		USceneComponent* ParentSceneComponentOfChildren = (NewSceneComp != NULL) ? NewSceneComp : ParentComponent;
 
 		// If we made a component, go ahead and process our children
-		for (int32 NodeIdx = 0; NodeIdx < CurrentNode->ChildNodes.Num(); NodeIdx++)
+		for (USCS_Node* Node : CurrentNode->GetChildNodes())
 		{
-			USCS_Node* Node = CurrentNode->ChildNodes[NodeIdx];
 			check(Node != NULL);
-			InstanceComponents(Node, ParentSceneComponentOfChildren, NativeInstanceMap, OutComponents);
+			InstanceComponents(Node, ParentSceneComponentOfChildren, NativeInstanceMap, OutComponents, ActualBPGC);
 		}
 	}
 }
@@ -1306,7 +1320,7 @@ TArray<UPrimitiveComponent*> FBlueprintThumbnailScene::GetPooledVisualizableComp
 								}
 							}
 
-							InstanceComponents(RootNode, ParentComponent, NativeInstanceMap, AllCreatedActorComponents);
+							InstanceComponents(RootNode, ParentComponent, NativeInstanceMap, AllCreatedActorComponents, Cast<UBlueprintGeneratedClass>(Blueprint->GeneratedClass));
 						}
 					}
 				}

@@ -128,8 +128,12 @@ private:
 	// Flag set when the volumes widget needs to be rebuilt.
 	bool bVolumesRefreshRequested;
 
-	// The last text the user searched
-	FText SearchText;
+	// The text filter used to filter the classes
+	typedef TTextFilter<TSharedRef<SPlacementAssetEntry>> FPlacementAssetEntryTextFilter;
+	TSharedPtr<FPlacementAssetEntryTextFilter> SearchTextFilter;
+
+	// The search box used to update the filter text
+	TSharedPtr<SSearchBox> SearchBoxPtr;
 
 	// The list of placeable classes in widget form, these get put in the search results or
 	// the all classes view depending on which is currently visible.

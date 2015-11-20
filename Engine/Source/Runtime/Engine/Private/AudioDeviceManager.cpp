@@ -5,6 +5,8 @@
 #include "AudioDevice.h"
 #include "AudioDeviceManager.h"
 #include "Sound/SoundWave.h"
+#include "Sound/AudioSettings.h"
+#include "GameFramework/GameUserSettings.h"
 
 // Private consts for helping with index/generation determination in audio device manager
 static const uint32 AUDIO_DEVICE_HANDLE_INDEX_BITS		= 24;
@@ -35,6 +37,8 @@ FAudioDeviceManager::FAudioDeviceManager()
 	, NextResourceID(1)
 	, SoloDeviceHandle(INDEX_NONE)
 	, ActiveAudioDeviceHandle(INDEX_NONE)
+	, bPlayAllDeviceAudio(false)
+	, bVisualize3dDebug(false)
 {
 }
 
@@ -136,6 +140,14 @@ FAudioDevice* FAudioDeviceManager::CreateAudioDevice(uint32& HandleOut, bool bCr
 	}
 
 	++NumActiveAudioDevices;
+
+	const UAudioSettings* AudioSettings = GetDefault<UAudioSettings>();
+	if (!NewAudioDevice->Init(AudioSettings->GetQualityLevelSettings(GEngine->GetGameUserSettings()->GetAudioQualityLevel()).MaxChannels))
+	{
+		ShutdownAudioDevice(HandleOut);
+		HandleOut = AUDIO_DEVICE_HANDLE_INVALID;
+		NewAudioDevice = nullptr;
+	}
 
 	return NewAudioDevice;
 }
@@ -481,3 +493,25 @@ void FAudioDeviceManager::RemoveSoundMix(USoundMix* SoundMix)
 		}
 	}
 }
+
+void FAudioDeviceManager::TogglePlayAllDeviceAudio()
+{
+	bPlayAllDeviceAudio = !bPlayAllDeviceAudio;
+}
+
+bool FAudioDeviceManager::IsPlayAllDeviceAudio() const
+{
+	return bPlayAllDeviceAudio;
+}
+
+bool FAudioDeviceManager::IsVisualizeDebug3dEnabled() const
+{
+	return bVisualize3dDebug;
+}
+
+void FAudioDeviceManager::ToggleVisualize3dDebug()
+{
+	bVisualize3dDebug = !bVisualize3dDebug;
+}
+
+

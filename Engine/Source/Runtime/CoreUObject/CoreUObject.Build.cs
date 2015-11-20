@@ -10,10 +10,18 @@ public class CoreUObject : ModuleRules
 
 		PrivateIncludePaths.Add("Runtime/CoreUObject/Private");
 
-		PrivateIncludePathModuleNames.Add("TargetPlatform");
+        PrivateIncludePathModuleNames.AddRange(
+                new string[] 
+			    {
+				    "TargetPlatform",
+				    "CookingStats",
+			    }
+            );
 
 		PublicDependencyModuleNames.Add("Core");
 
 		PrivateDependencyModuleNames.Add("Projects");
+
 	}
+
 }

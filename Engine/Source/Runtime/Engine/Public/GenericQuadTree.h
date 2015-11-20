@@ -151,7 +151,7 @@ TQuadTree<ElementType, NodeCapacity>::TQuadTree(const FBox2D& Box)
 template <typename ElementType, int32 NodeCapacity>
 TQuadTree<ElementType, NodeCapacity>::TQuadTree()
 {
-	EnsureRetrievingVTablePtr();
+	EnsureRetrievingVTablePtrDuringCtor(TEXT("TQuadTree()"));
 }
 #endif // WITH_HOT_RELOAD_CTORS
 
@@ -249,7 +249,7 @@ void TQuadTree<ElementType, NodeCapacity>::InsertElementRecursive(const ElementT
 		// It's possible that all elements in the leaf are bigger than the leaf or that more elements than NodeCapacity exist outside the top level quad
 		// In either case, we can get into an endless spiral of splitting
 		static const float MinimumQuadSize = 100.f;
-		const bool bCanSplitTree = TreeBox.GetSize().Size() > MinimumQuadSize;
+		const bool bCanSplitTree = TreeBox.GetSize().SizeSquared() > FMath::Square(MinimumQuadSize);
 		if (!bCanSplitTree || Nodes.Num() < NodeCapacity)
 		{
 			Nodes.Add(FNode(Element, Box));

@@ -130,6 +130,12 @@ protected:
 	int32 MaxTracesPerTick;
 
 	UPROPERTY(EditDefaultsOnly, Category = "AI Perception", config)
+	int32 MinQueriesPerTimeSliceCheck;
+
+	UPROPERTY(EditDefaultsOnly, Category = "AI Perception", config)
+	double MaxTimeSlicePerTick;
+
+	UPROPERTY(EditDefaultsOnly, Category = "AI Perception", config)
 	float HighImportanceQueryDistanceThreshold;
 
 	float HighImportanceDistanceSquare;

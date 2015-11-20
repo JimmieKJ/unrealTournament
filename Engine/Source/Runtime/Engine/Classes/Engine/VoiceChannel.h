@@ -50,6 +50,9 @@ protected:
 	 */
 	virtual void Tick() override;
 
+	/** Always tick voice channels for now. */
+	virtual bool CanStopTicking() const override { return false; }
+
 	/** Human readable information about the channel */
 	virtual FString Describe() override
 	{

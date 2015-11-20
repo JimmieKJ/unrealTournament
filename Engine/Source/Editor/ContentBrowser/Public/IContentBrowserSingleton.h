@@ -134,6 +134,13 @@ struct FAssetPickerConfig
 	/** Indicates that we would like to build the filter UI with the Asset Picker */
 	bool bAddFilterUI;
 
+	/** If true, show path in column view */
+	bool bShowPathInColumnView; 
+	/** If true, show class in column view */
+	bool bShowTypeInColumnView;
+	/** If true, sort by path in column view. Only works if initial view type is Column */
+	bool bSortByPathInColumnView;
+
 	/** Override the default filter context menu layout */
 	EAssetTypeCategories::Type DefaultFilterMenuExpansion;
 
@@ -153,6 +160,9 @@ struct FAssetPickerConfig
 		, bCanShowDevelopersFolder(false)
 		, bPreloadAssetsForContextMenu(true)
 		, bAddFilterUI(false)
+		, bShowPathInColumnView(false)
+		, bShowTypeInColumnView(true)
+		, bSortByPathInColumnView(false)
 		, DefaultFilterMenuExpansion(EAssetTypeCategories::Basic)
 	{}
 };

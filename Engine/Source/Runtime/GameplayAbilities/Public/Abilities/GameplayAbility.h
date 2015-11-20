@@ -9,6 +9,8 @@
 #include "GameplayAbilityTypes.h"
 #include "GameplayEffect.h"
 #include "Abilities/GameplayAbilityTargetDataFilter.h"
+#include "GameplayTask.h"
+#include "GameplayTaskOwnerInterface.h"
 #include "GameplayAbility.generated.h"
 
 /**
@@ -65,7 +67,7 @@
 
 
 /** Notification delegate definition for when the gameplay ability ends */
-DECLARE_DELEGATE_OneParam(FOnGameplayAbilityEnded, UGameplayAbility*);
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnGameplayAbilityEnded, UGameplayAbility*);
 
 /** Notification delegate definition for when the gameplay ability is cancelled */
 DECLARE_MULTICAST_DELEGATE(FOnGameplayAbilityCancelled);
@@ -96,7 +98,7 @@ struct FAbilityTriggerData
  *	Abilities define custom gameplay logic that can be activated by players or external game logic.
  */
 UCLASS(Blueprintable)
-class GAMEPLAYABILITIES_API UGameplayAbility : public UObject
+class GAMEPLAYABILITIES_API UGameplayAbility : public UObject, public IGameplayTaskOwnerInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -190,6 +192,14 @@ public:
 	/** Retrieves the actual AbilitySpec for this ability. Can only be called on instanced abilities. */
 	FGameplayAbilitySpec* GetCurrentAbilitySpec() const;
 
+	/** Retrieves the EffectContext of the GameplayEffect that granted this ability. Can only be called on instanced abilities. */
+	UFUNCTION(BlueprintCallable, Category = Ability)
+	FGameplayEffectContextHandle GetGrantedByEffectContext() const;
+
+	/** Removes the GameplayEffect that granted this ability. Can only be called on instanced abilities. */
+	UFUNCTION(BlueprintCallable, Category = Ability)
+	void RemoveGrantedByEffect();
+
 	/** Returns an effect context, given a specified actor info */
 	virtual FGameplayEffectContextHandle GetEffectContext(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo *ActorInfo) const;
 
@@ -228,12 +238,6 @@ public:
 	/** Callback for when this ability has been confirmed by the server */
 	FGenericAbilityDelegate	OnConfirmDelegate;
 
-	/** Called by an ability task, originating from this ability, when it starts */
-	virtual void TaskStarted(UAbilityTask* NewTask);
-
-	/** Called by an ability task, originating from this ability, when it ends */
-	virtual void TaskEnded(UAbilityTask* Task);
-
 	/** Is this ability triggered from TriggerData (or is it triggered explicitly through input/game code) */
 	bool IsTriggered() const;
 
@@ -252,6 +256,21 @@ public:
 
 	/** Called when the avatar actor is set/changes */
 	virtual void OnAvatarSet(const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilitySpec& Spec);
+	
+	// --------------------------------------
+	//	IGameplayTaskOwnerInterface
+	// --------------------------------------	
+	/** setup additional properties if given task is an AbilityTask */
+	virtual void OnTaskInitialized(UGameplayTask& Task) override;
+	/** Called by an ability task, originating from this ability, when it starts */
+	virtual void OnTaskActivated(UGameplayTask& Task) override;
+
+	/** Called by an ability task, originating from this ability, when it ends */
+	virtual void OnTaskDeactivated(UGameplayTask& Task) override;
+
+	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override;
+	virtual AActor* GetOwnerActor(const UGameplayTask* Task) const override;
+	virtual AActor* GetAvatarActor(const UGameplayTask* Task) const override;
 
 	// --------------------------------------
 	//	Input
@@ -322,7 +341,7 @@ protected:
 	bool bHasBlueprintActivate;
 	bool bHasBlueprintActivateFromEvent;
 
-	void CallActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded* OnGameplayAbilityEndedDelegate = nullptr, const FGameplayEventData* TriggerEventData = nullptr);
+	void CallActivateAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded::FDelegate* OnGameplayAbilityEndedDelegate = nullptr, const FGameplayEventData* TriggerEventData = nullptr);
 
 	/** Called on a predictive ability when the server confirms its execution */
 	virtual void ConfirmActivateSucceed();
@@ -380,7 +399,7 @@ public:
 	virtual void CommitExecute(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo);
 
 	/** Do boilerplate init stuff and then call ActivateAbility */
-	virtual void PreActivate(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded* OnGameplayAbilityEndedDelegate);
+	virtual void PreActivate(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FOnGameplayAbilityEnded::FDelegate* OnGameplayAbilityEndedDelegate);
 
 protected:
 	/** Destroys instanced-per-execution abilities. Instance-per-actor abilities should 'reset'. Non instance abilities - what can we do? */
@@ -391,12 +410,12 @@ protected:
 	void EndOrCancelTasksByInstanceName();
 	TArray<FName> CancelTaskInstanceNames;
 
-	/** Internal function, cancels all the tasks we asked to cancel last frame (by instance name). */
+	/** Add any task with this instance name to a list to be ended (not canceled) next frame.  See also CancelTaskByInstanceName. */
 	UFUNCTION(BlueprintCallable, Category = Ability)
 	void EndTaskByInstanceName(FName InstanceName);
 	TArray<FName> EndTaskInstanceNames;
 
-	/** Destroys instanced-per-execution abilities. Instance-per-actor abilities should 'reset'. Non instance abilities - what can we do? */
+	/** Add any task with this instance name to a list to be canceled (not ended) next frame.  See also EndTaskByInstanceName. */
 	UFUNCTION(BlueprintCallable, Category = Ability)
 	void CancelTaskByInstanceName(FName InstanceName);
 
@@ -432,13 +451,13 @@ protected:
 	// ---------
 
 	UFUNCTION(BlueprintCallable, Category = Ability, DisplayName="ApplyGameplayEffectToOwner")
-	FActiveGameplayEffectHandle BP_ApplyGameplayEffectToOwner(TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel = 1);
+	FActiveGameplayEffectHandle BP_ApplyGameplayEffectToOwner(TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel = 1, int32 Stacks = 1);
 
 	UFUNCTION(BlueprintCallable, Category = Ability, DisplayName="ApplyGameplayEffectToOwner", meta=(DeprecatedFunction, DeprecationMessage = "Use new ApplyGameplayEffectToOwner"))
-	FActiveGameplayEffectHandle K2_ApplyGameplayEffectToOwner(const UGameplayEffect* GameplayEffect, int32 GameplayEffectLevel = 1);
+	FActiveGameplayEffectHandle K2_ApplyGameplayEffectToOwner(const UGameplayEffect* GameplayEffect, int32 GameplayEffectLevel = 1, int32 Stacks = 1);
 
 	/** Non blueprintcallable, safe to call on CDO/NonInstance abilities */
-	FActiveGameplayEffectHandle ApplyGameplayEffectToOwner(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const UGameplayEffect* GameplayEffect, float GameplayEffectLevel) const;
+	FActiveGameplayEffectHandle ApplyGameplayEffectToOwner(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const UGameplayEffect* GameplayEffect, float GameplayEffectLevel, int32 Stacks = 1) const;
 
 	UFUNCTION(BlueprintCallable, Category = Ability, DisplayName = "ApplyGameplayEffectSpecToOwner")
 	FActiveGameplayEffectHandle K2_ApplyGameplayEffectSpecToOwner(const FGameplayEffectSpecHandle EffectSpecHandle);
@@ -450,13 +469,13 @@ protected:
 	// ---------
 
 	UFUNCTION(BlueprintCallable, Category = Ability, DisplayName = "ApplyGameplayEffectToTarget")
-	TArray<FActiveGameplayEffectHandle> BP_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle TargetData, TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel = 1);
+	TArray<FActiveGameplayEffectHandle> BP_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle TargetData, TSubclassOf<UGameplayEffect> GameplayEffectClass, int32 GameplayEffectLevel = 1, int32 Stacks = 1);
 
 	UFUNCTION(BlueprintCallable, Category = Ability, DisplayName = "ApplyGameplayEffectToTarget", meta=(DeprecatedFunction, DeprecationMessage = "Use new ApplyGameplayEffectToTarget"))
-	TArray<FActiveGameplayEffectHandle> K2_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle TargetData, const UGameplayEffect* GameplayEffect, int32 GameplayEffectLevel = 1);
+	TArray<FActiveGameplayEffectHandle> K2_ApplyGameplayEffectToTarget(FGameplayAbilityTargetDataHandle TargetData, const UGameplayEffect* GameplayEffect, int32 GameplayEffectLevel = 1, int32 Stacks = 1);
 
 	/** Non blueprintcallable, safe to call on CDO/NonInstance abilities */
-	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectToTarget(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, float GameplayEffectLevel) const;
+	TArray<FActiveGameplayEffectHandle> ApplyGameplayEffectToTarget(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, float GameplayEffectLevel, int32 Stacks = 1) const;
 
 	UFUNCTION(BlueprintCallable, Category = Ability, DisplayName = "ApplyGameplayEffectSpecToTarget")
 	TArray<FActiveGameplayEffectHandle> K2_ApplyGameplayEffectSpecToTarget(const FGameplayEffectSpecHandle EffectSpecHandle, FGameplayAbilityTargetDataHandle TargetData);
@@ -481,6 +500,9 @@ protected:
 	
 	UFUNCTION(BlueprintCallable, Category = Ability, meta=(GameplayTagFilter="GameplayCue"), DisplayName="ExecuteGameplayCue")
 	virtual void K2_ExecuteGameplayCue(FGameplayTag GameplayCueTag, FGameplayEffectContextHandle Context);
+
+	UFUNCTION(BlueprintCallable, Category = Ability, meta = (GameplayTagFilter = "GameplayCue"), DisplayName = "ExecuteGameplayCueWithParams")
+	virtual void K2_ExecuteGameplayCueWithParams(FGameplayTag GameplayCueTag, const FGameplayCueParameters& GameplayCueParameters);
 
 	UFUNCTION(BlueprintCallable, Category = Ability, meta=(GameplayTagFilter="GameplayCue"), DisplayName="AddGameplayCue")
 	virtual void K2_AddGameplayCue(FGameplayTag GameplayCueTag, FGameplayEffectContextHandle Context, bool bRemoveOnAbilityEnd = true);
@@ -592,11 +614,14 @@ public:
 	/** Applies CooldownGameplayEffect to the target */
 	virtual void ApplyCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const;
 
-	/** Checks cost. returns true if we can pay for the abilty. False if not */
+	/** Checks cost. returns true if we can pay for the ability. False if not */
 	virtual bool CheckCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, OUT FGameplayTagContainer* OptionalRelevantTags = nullptr) const;
 
 	/** Applies the ability's cost to the target */
 	virtual void ApplyCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo) const;
+
+	/** Movement Sync */
+	virtual void SetMovementSyncPoint(FName SyncName);
 
 protected:
 
@@ -651,13 +676,22 @@ protected:
 	/** Deprecated. Use CooldownGameplayEffectClass instead */
 	UPROPERTY(VisibleDefaultsOnly, Category=Deprecated)
 	class UGameplayEffect* CooldownGameplayEffect;
+
+	UFUNCTION(BlueprintCallable, Category = Ability)
+	float GetCooldownTimeRemaining() const; 
 	
 	// ----------------------------------------------------------------------------------------------------------------
 	//
 	//	Ability exclusion / canceling
 	//
 	// ----------------------------------------------------------------------------------------------------------------
-	
+
+	UPROPERTY(EditDefaultsOnly, Category = TagQueries)
+	FGameplayTagQuery CancelAbilitiesMatchingTagQuery;
+
+	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = TagQueries)
+	FGameplayTagQuery ConstTagQuery;
+
 	/** Abilities with these tags are cancelled when this ability is executed */
 	UPROPERTY(EditDefaultsOnly, Category = Tags)
 	FGameplayTagContainer CancelAbilitiesWithTag;
@@ -701,7 +735,8 @@ protected:
 	//
 	// ----------------------------------------------------------------------------------------------------------------
 	
-	TArray<TWeakObjectPtr<UAbilityTask> >	ActiveTasks;
+	UPROPERTY()
+	TArray<UGameplayTask*>	ActiveTasks;
 
 	// ----------------------------------------------------------------------------------------------------------------
 	//
@@ -729,11 +764,11 @@ protected:
 	//
 	// ----------------------------------------------------------------------------------------------------------------
 
-	UFUNCTION(BlueprintPure, Category = Ability, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
+	UFUNCTION(BlueprintPure, Category = Ability)
 	FGameplayAbilityTargetingLocationInfo MakeTargetLocationInfoFromOwnerActor();
 
-	UFUNCTION(BlueprintPure, Category = Ability, meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject"))
-	FGameplayAbilityTargetingLocationInfo MakeTargetLocationInfoFromOwnerSkeletalMeshComponent(FName SocketName) const;
+	UFUNCTION(BlueprintPure, Category = Ability)
+	FGameplayAbilityTargetingLocationInfo MakeTargetLocationInfoFromOwnerSkeletalMeshComponent(FName SocketName);
 
 	// ----------------------------------------------------------------------------------------------------------------
 	//
@@ -741,6 +776,7 @@ protected:
 	// 
 	// ----------------------------------------------------------------------------------------------------------------
 	
+public:
 	/** Returns current level of the Ability */
 	UFUNCTION(BlueprintCallable, Category = Ability)
 	int32 GetAbilityLevel() const;

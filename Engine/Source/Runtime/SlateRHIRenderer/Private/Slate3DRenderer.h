@@ -7,8 +7,8 @@
 class FSlate3DRenderer : public ISlate3DRenderer
 {
 public:
-	FSlate3DRenderer( TSharedPtr<FSlateRHIResourceManager> InResourceManager, TSharedPtr<FSlateFontCache> InFontCache );
-	~FSlate3DRenderer();
+	FSlate3DRenderer( TSharedPtr<FSlateRHIResourceManager> InResourceManager, TSharedPtr<FSlateFontCache> InFontCache, bool bUseGammaCorrection = false );
+	virtual ~FSlate3DRenderer();
 
 	virtual FSlateDrawBuffer& GetDrawBuffer() override;
 	virtual void DrawWindow_GameThread(FSlateDrawBuffer& DrawBuffer) override;
@@ -32,5 +32,4 @@ private:
 
 	/** The draw buffer that is currently free for use by the game thread */
 	uint8 FreeBufferIndex;
-
 };

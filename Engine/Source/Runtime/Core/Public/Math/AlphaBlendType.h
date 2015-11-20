@@ -37,7 +37,9 @@ FORCEINLINE float AlphaToBlendType(float InAlpha, uint8 BlendType)
 /**
  * Alpha Blend Type
  */
-struct FTAlphaBlend
+struct 
+DEPRECATED(4.9, "FTAlphaBlend is deprecated, please use FAlphaBlend instead")
+FTAlphaBlend
 {
 	/** Internal Lerped value for Alpha */
 	float	AlphaIn;
@@ -75,10 +77,12 @@ struct FTAlphaBlend
 	 *
 	 * @return Reference to the Archive after serialization.
 	 */
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 	friend FArchive& operator<<(FArchive& Ar, FTAlphaBlend& AlphaBlend)
 	{
 		return Ar << AlphaBlend.AlphaIn << AlphaBlend.AlphaOut << AlphaBlend.AlphaTarget << AlphaBlend.BlendTime << AlphaBlend.BlendTimeToGo << AlphaBlend.BlendType;
 	}
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 	/** Update transition blend time */
 	FORCEINLINE void SetBlendTime(float InBlendTime);
@@ -102,7 +106,10 @@ struct FTAlphaBlend
 	void Update(float InDeltaTime);
 };
 
-
+// We're disabling deprecation warnings here as we get a bunch because we're using
+// methods and members from the deprecated struct, we're only really concerned with
+// uses outside of this struct
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
 FORCEINLINE FTAlphaBlend::FTAlphaBlend() {}
 
 
@@ -189,3 +196,4 @@ FORCEINLINE void FTAlphaBlend::Update(float InDeltaTime)
 		AlphaOut = AlphaToBlendType(AlphaIn, BlendType);
 	}
 }
+PRAGMA_ENABLE_DEPRECATION_WARNINGS

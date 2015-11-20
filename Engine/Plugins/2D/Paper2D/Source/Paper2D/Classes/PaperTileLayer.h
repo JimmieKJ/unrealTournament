@@ -244,6 +244,20 @@ public:
 		return AllocatedCells.GetData();
 	}
 
+	void SetLayerCollides(bool bShouldCollide) { bLayerCollides = bShouldCollide; }
+
+	void SetLayerCollisionThickness(bool bShouldOverride, float OverrideValue)
+	{
+		bOverrideCollisionThickness = bShouldOverride;
+		CollisionThicknessOverride = OverrideValue;
+	}
+
+	void SetLayerCollisionOffset(bool bShouldOverride, float OverrideValue)
+	{
+		bOverrideCollisionOffset = bShouldOverride;
+		CollisionOffsetOverride = OverrideValue;
+	}
+
 protected:
 	void ReallocateAndCopyMap();
 

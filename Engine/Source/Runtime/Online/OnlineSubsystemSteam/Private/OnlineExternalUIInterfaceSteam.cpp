@@ -22,6 +22,14 @@ void FOnlineAsyncEventSteamExternalUITriggered::TriggerDelegates()
 	FOnlineAsyncEvent::TriggerDelegates();
 	IOnlineExternalUIPtr ExternalUIInterface = Subsystem->GetExternalUIInterface();
 	ExternalUIInterface->TriggerOnExternalUIChangeDelegates(bIsActive);
+
+	// Calling this to mimic behavior as close as possible with other platforms where this delegate is passed in (such as PS4/Xbox).
+	if (!bIsActive)
+	{
+		FOnlineExternalUISteamPtr ExternalUISteam = StaticCastSharedPtr<FOnlineExternalUISteam>(ExternalUIInterface);
+		ExternalUISteam->ProfileUIClosedDelegate.ExecuteIfBound();
+		ExternalUISteam->ProfileUIClosedDelegate.Unbind();
+	}
 }
 
 bool FOnlineExternalUISteam::ShowLoginUI(const int ControllerIndex, bool bShowOnlineOnly, const FOnLoginUIClosedDelegate& Delegate)
@@ -35,7 +43,7 @@ bool FOnlineExternalUISteam::ShowFriendsUI(int32 LocalUserNum)
 	return true;
 }
 
-bool FOnlineExternalUISteam::ShowInviteUI(int32 LocalUserNum)
+bool FOnlineExternalUISteam::ShowInviteUI(int32 LocalUserNum, FName SessionMame)
 {
 	IOnlineSessionPtr SessionInt = SteamSubsystem->GetSessionInterface();
 	if (SessionInt.IsValid() && SessionInt->HasPresenceSession())
@@ -74,8 +82,10 @@ bool FOnlineExternalUISteam::ShowWebURL(const FString& WebURL)
 
 bool FOnlineExternalUISteam::ShowProfileUI( const FUniqueNetId& Requestor, const FUniqueNetId& Requestee, const FOnProfileUIClosedDelegate& Delegate )
 {
-	//@todo
-	return false;
+	SteamFriends()->ActivateGameOverlayToUser(TCHAR_TO_UTF8(TEXT("steamid")), (const FUniqueNetIdSteam&)Requestee);
+
+	ProfileUIClosedDelegate = Delegate;
+	return true;
 }
 
 bool FOnlineExternalUISteam::ShowAccountUpgradeUI(const FUniqueNetId& UniqueId)

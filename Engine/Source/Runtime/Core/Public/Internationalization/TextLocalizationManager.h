@@ -66,8 +66,40 @@ private:
 			}
 		};
 
-		typedef TMap<FString, FDisplayStringEntry> FKeysTable;
-		typedef TMap<FString, FKeysTable> FNamespacesTable;
+		struct FKeyTableKeyFuncs : BaseKeyFuncs<FDisplayStringEntry, FString, false>
+		{
+			static FORCEINLINE const FString& GetSetKey(const TPair<FString, FDisplayStringEntry>& Element)
+			{
+				return Element.Key;
+			}
+			static FORCEINLINE bool Matches(const FString& A, const FString& B)
+			{
+				return A.Equals(B, ESearchCase::CaseSensitive);
+			}
+			static FORCEINLINE uint32 GetKeyHash(const FString& Key)
+			{
+				return FCrc::StrCrc32<TCHAR>(*Key);
+			}
+		};
+		typedef TMap<FString, FDisplayStringEntry, FDefaultSetAllocator, FKeyTableKeyFuncs> FKeysTable;
+
+		struct FNamespaceTableKeyFuncs : BaseKeyFuncs<FKeysTable, FString, false>
+		{
+			static FORCEINLINE const FString& GetSetKey(const TPair<FString, FKeysTable>& Element)
+			{
+				return Element.Key;
+			}
+			static FORCEINLINE bool Matches(const FString& A, const FString& B)
+			{
+				return A.Equals(B, ESearchCase::CaseSensitive);
+			}
+			static FORCEINLINE uint32 GetKeyHash(const FString& Key)
+			{
+				return FCrc::StrCrc32<TCHAR>(*Key);
+			}
+		};
+		typedef TMap<FString, FKeysTable, FDefaultSetAllocator, FNamespaceTableKeyFuncs> FNamespacesTable;
+
 		FNamespacesTable NamespacesTable;
 
 	public:
@@ -144,6 +176,12 @@ public:
 	/** Loads localizations for the current culture based on a configuration file specifying which manifests and archives to use. Effectively generates a localization resource in memory. */
 	void LoadFromManifestAndArchives(const FString& ConfigFilePath, IInternationalizationArchiveSerializer& ArchiveSerializer, IInternationalizationManifestSerializer& ManifestSerializer);
 
+	/** Updates display string entries and adds new display string entries based on localizations found in a specified localization resource. */
+	void UpdateFromLocalizationResource(const FString& LocalizationResourceFilePath);
+
+	/** Reloads resources for the current culture. */
+	void RefreshResources();
+
 	/**	Returns the current text revision number. This value can be cached when caching information from the text localization manager.
 	 *	If the revision does not match, cached information may be invalid and should be recached. */
 	int32 GetTextRevision() const { return TextRevisionCounter; }
@@ -159,7 +197,7 @@ private:
 	/** Loads localization resources for the specified culture, optionally loading localization resources that are editor-specific or game-specific. */
 	void LoadLocalizationResourcesForCulture(const FString& CultureName, const bool ShouldLoadEditor, const bool ShouldLoadGame);
 
-	/** Updates display string entries based on specified localizations and adds new display string entries. */
+	/** Updates display string entries and adds new display string entries based on provided localizations. */
 	void UpdateFromLocalizations(const TArray<FLocalizationEntryTracker>& LocalizationEntryTrackers);
 
 	/** Dirties the text revision counter by incrementing it, causing a revision mismatch for any information cached before this happens.  */

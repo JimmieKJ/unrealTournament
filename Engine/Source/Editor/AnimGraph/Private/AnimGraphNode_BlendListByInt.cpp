@@ -31,6 +31,8 @@ void UAnimGraphNode_BlendListByInt::PostPlacedNewNode()
 {
 	// Make sure we start out with a pin
 	Node.AddPose();
+	Node.AddPose();
+	ReconstructNode();
 }
 
 void UAnimGraphNode_BlendListByInt::AddPinToBlendList()

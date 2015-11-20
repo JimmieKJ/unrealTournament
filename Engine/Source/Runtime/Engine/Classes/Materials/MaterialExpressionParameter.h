@@ -22,14 +22,14 @@ class UMaterialExpressionParameter : public UMaterialExpression
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionParameter)
 	FName Group;
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
 #if WITH_EDITOR
 	virtual bool CanRenameNode() const override { return true; }
 	virtual FString GetEditableName() const override;
 	virtual void SetEditableName(const FString& NewName) override;
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 	ENGINE_API virtual FGuid& GetParameterExpressionId() override
 	{

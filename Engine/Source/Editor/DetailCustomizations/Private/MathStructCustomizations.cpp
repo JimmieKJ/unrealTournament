@@ -112,7 +112,7 @@ void FMathStructCustomization::OnPreserveScaleRatioToggled(ECheckBoxState NewSta
 {
 	bPreserveScaleRatio = ( NewState == ECheckBoxState::Checked ) ? true : false;
 
-	if ( PropertyHandle.IsValid() )
+	if ( PropertyHandle.IsValid() && PropertyHandle.Pin()->GetProperty() )
 	{
 		FString SettingKey = ( PropertyHandle.Pin()->GetProperty()->GetName() + TEXT("_PreserveScaleRatio") );
 		GConfig->SetBool(TEXT("SelectionDetails"), *SettingKey, bPreserveScaleRatio, GEditorPerProjectIni);
@@ -422,6 +422,11 @@ void FColorStructCustomization::CustomizeHeader( TSharedRef<class IPropertyHandl
 
 	bIsLinearColor = CastChecked<UStructProperty>( StructPropertyHandle->GetProperty() )->Struct->GetFName() == NAME_LinearColor;
 	bIgnoreAlpha = StructPropertyHandle->GetProperty()->HasMetaData(TEXT("HideAlphaChannel"));
+	
+	if ( StructPropertyHandle->GetProperty()->HasMetaData(TEXT("sRGB")) )
+	{
+		sRGBOverride = StructPropertyHandle->GetProperty()->GetBoolMetaData(TEXT("sRGB"));
+	}
 
 	auto PropertyUtils = StructCustomizationUtils.GetPropertyUtilities();
 	bDontUpdateWhileEditing = PropertyUtils.IsValid() ? PropertyUtils->DontUpdateValueWhileEditing() : false;
@@ -572,6 +577,7 @@ void FColorStructCustomization::CreateColorPicker( bool bUseAlpha, bool bOnlyRef
 	PickerArgs.bUseAlpha = !bIgnoreAlpha;
 	PickerArgs.bOnlyRefreshOnMouseUp = false;
 	PickerArgs.bOnlyRefreshOnOk = bRefreshOnlyOnOk;
+	PickerArgs.sRGBOverride = sRGBOverride;
 	PickerArgs.DisplayGamma = TAttribute<float>::Create( TAttribute<float>::FGetter::CreateUObject(GEngine, &UEngine::GetDisplayGamma) );
 	PickerArgs.OnColorCommitted = FOnLinearColorValueChanged::CreateSP( this, &FColorStructCustomization::OnSetColorFromColorPicker );
 	PickerArgs.OnColorPickerCancelled = FOnColorPickerCancelled::CreateSP( this, &FColorStructCustomization::OnColorPickerCancelled );
@@ -754,7 +760,7 @@ FReply FColorStructCustomization::OnMouseButtonDownColorBlock(const FGeometry& M
 		return FReply::Unhandled();
 	}
 	
-	CreateColorPicker( /*bUseAlpha*/ true, bDontUpdateWhileEditing);
+	CreateColorPicker( /*bUseAlpha*/ true, bDontUpdateWhileEditing );
 
 	//bIsInlineColorPickerVisible = !bIsInlineColorPickerVisible;
 
@@ -768,7 +774,7 @@ EVisibility FColorStructCustomization::GetInlineColorPickerVisibility() const
 
 FReply FColorStructCustomization::OnOpenFullColorPickerClicked()
 {
-	CreateColorPicker( /*bUseAlpha*/ true, bDontUpdateWhileEditing);
+	CreateColorPicker( /*bUseAlpha*/ true, bDontUpdateWhileEditing );
 
 	bIsInlineColorPickerVisible = false;
 

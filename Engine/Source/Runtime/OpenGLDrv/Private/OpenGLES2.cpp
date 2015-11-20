@@ -58,6 +58,9 @@ bool FOpenGLES2::bSupportsColorBufferHalfFloat = false;
 /** GL_EXT_shader_framebuffer_fetch */
 bool FOpenGLES2::bSupportsShaderFramebufferFetch = false;
 
+/** GL_ARM_shader_framebuffer_fetch_depth_stencil */
+bool FOpenGLES2::bSupportsShaderDepthStencilFetch = false;
+
 /** GL_EXT_multisampled_render_to_texture */
 bool FOpenGLES2::bSupportsMultisampledRenderToTexture = false;
 
@@ -130,6 +133,9 @@ bool FOpenGLES2::bNeedsVertexAttribRemap = false;
 /* This hack fixes an issue with SGX540 compiler which can get upset with some operations that mix highp and mediump */
 bool FOpenGLES2::bRequiresTexture2DPrecisionHack = false;
 
+/* Indicates shader compiler hack checks are being tested */
+bool FOpenGLES2::bIsCheckingShaderCompilerHacks = false;
+
 bool FOpenGLES2::SupportsDisjointTimeQueries()
 {
 	bool bAllowDisjointTimerQueries = false;
@@ -189,7 +195,8 @@ void FOpenGLES2::ProcessExtensions( const FString& ExtensionsString )
 	bSupportsTextureHalfFloat = ExtensionsString.Contains(TEXT("GL_OES_texture_half_float"));
 	bSupportsSGRB = ExtensionsString.Contains(TEXT("GL_EXT_sRGB"));
 	bSupportsColorBufferHalfFloat = ExtensionsString.Contains(TEXT("GL_EXT_color_buffer_half_float"));
-	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch"));
+	bSupportsShaderFramebufferFetch = ExtensionsString.Contains(TEXT("GL_EXT_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_NV_shader_framebuffer_fetch")) || ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch"));
+	bSupportsShaderDepthStencilFetch = ExtensionsString.Contains(TEXT("GL_ARM_shader_framebuffer_fetch_depth_stencil"));
 	bSupportsMultisampledRenderToTexture = ExtensionsString.Contains(TEXT("GL_EXT_multisampled_render_to_texture"));
 	// @todo ios7: SRGB support does not work with our texture format setup (ES2 docs indicate that internalFormat and format must match, but they don't at all with sRGB enabled)
 	//             One possible solution us to use GLFormat.InternalFormat[bSRGB] instead of GLFormat.Format

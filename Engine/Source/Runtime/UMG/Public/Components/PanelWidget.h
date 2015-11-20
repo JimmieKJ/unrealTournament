@@ -80,6 +80,8 @@ public:
 	 */
 	void ShiftChild(int32 Index, UWidget* Child);
 
+	void SetDesignerFlags(EWidgetDesignFlags::Type NewFlags);
+
 #endif
 
 	/**
@@ -111,9 +113,6 @@ public:
 	{
 		return CanHaveMultipleChildren() || GetChildrenCount() == 0;
 	}
-
-	/** Sets that this widget is being designed sets it on all children as well. */
-	virtual void SetIsDesignTime(bool bInDesignTime) override;
 
 	virtual void ReleaseSlateResources(bool bReleaseChildren) override;
 

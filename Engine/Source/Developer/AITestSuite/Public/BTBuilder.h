@@ -7,6 +7,7 @@
 #include "BehaviorTree/Composites/BTComposite_Sequence.h"
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
 #include "BehaviorTree/Decorators/BTDecorator_Blackboard.h"
+#include "BehaviorTree/Decorators/BTDecorator_Loop.h"
 #include "BehaviorTree/Decorators/BTDecorator_ForceSuccess.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
 
@@ -208,5 +209,11 @@ struct FBTBuilder
 		UTestBTDecorator_DelayedAbort& AbortDecorator = WithDecorator<UTestBTDecorator_DelayedAbort>(ParentNode);
 		AbortDecorator.DelayTicks = NumTicks;
 		AbortDecorator.bOnlyOnce = bAbortOnlyOnce;
+	}
+
+	static void WithDecoratorLoop(UBTCompositeNode& ParentNode, int32 NumLoops = 2)
+	{
+		UBTDecorator_Loop& LoopDecorator = WithDecorator<UBTDecorator_Loop>(ParentNode);
+		LoopDecorator.NumLoops = NumLoops;
 	}
 };

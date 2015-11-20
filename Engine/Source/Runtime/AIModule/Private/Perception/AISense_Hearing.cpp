@@ -9,14 +9,14 @@
 // FAINoiseEvent
 //----------------------------------------------------------------------//
 FAINoiseEvent::FAINoiseEvent()
-	: Age(0.f), NoiseLocation(FAISystem::InvalidLocation), Loudness(1.f)
-	, Instigator(nullptr), TeamIdentifier(FGenericTeamId::NoTeam)
+	: Age(0.f), NoiseLocation(FAISystem::InvalidLocation), Loudness(1.f), MaxRange(0.f)
+	, Instigator(nullptr), Tag(NAME_None), TeamIdentifier(FGenericTeamId::NoTeam)
 {
 }
 
-FAINoiseEvent::FAINoiseEvent(AActor* InInstigator, const FVector& InNoiseLocation, float InLoudness)
-	: Age(0.f), NoiseLocation(InNoiseLocation), Loudness(InLoudness)
-	, Instigator(InInstigator), TeamIdentifier(FGenericTeamId::NoTeam)
+FAINoiseEvent::FAINoiseEvent(AActor* InInstigator, const FVector& InNoiseLocation, float InLoudness, float InMaxRange, FName InTag)
+	: Age(0.f), NoiseLocation(InNoiseLocation), Loudness(InLoudness), MaxRange(InMaxRange)
+	, Instigator(InInstigator), Tag(InTag), TeamIdentifier(FGenericTeamId::NoTeam)
 {
 	Compile();
 }
@@ -71,12 +71,12 @@ UAISense_Hearing::UAISense_Hearing(const FObjectInitializer& ObjectInitializer)
 	}
 }
 
-void UAISense_Hearing::ReportNoiseEvent(UObject* WorldContext, FVector NoiseLocation, float Loudness, AActor* Instigator)
+void UAISense_Hearing::ReportNoiseEvent(UObject* WorldContext, FVector NoiseLocation, float Loudness, AActor* Instigator, float MaxRange, FName Tag)
 {
 	UAIPerceptionSystem* PerceptionSystem = UAIPerceptionSystem::GetCurrent(WorldContext);
 	if (PerceptionSystem)
 	{
-		FAINoiseEvent Event(Instigator, NoiseLocation, Loudness);
+		FAINoiseEvent Event(Instigator, NoiseLocation, Loudness, MaxRange, Tag);
 		PerceptionSystem->OnEvent(Event);
 	}
 }
@@ -104,7 +104,7 @@ void UAISense_Hearing::OnListenerUpdateImpl(const FPerceptionListener& UpdatedLi
 	}
 	else
 	{
-		DigestedProperties.FindAndRemoveChecked(ListenerID);
+		DigestedProperties.Remove(ListenerID);
 	}
 }
 
@@ -133,9 +133,28 @@ float UAISense_Hearing::Update()
 		for (int32 EventIndex = 0; EventIndex < NoiseEvents.Num(); ++EventIndex)
 		{
 			const FAINoiseEvent& Event = NoiseEvents[EventIndex];
-		
-			if (FVector::DistSquared(Event.NoiseLocation, Listener.CachedLocation) > PropDigest.HearingRangeSq * Event.Loudness
-				|| FAISenseAffiliationFilter::ShouldSenseTeam(Listener.TeamIdentifier, Event.TeamIdentifier, PropDigest.AffiliationFlags) == false)
+			const float ClampedLoudness = FMath::Max(0.f, Event.Loudness);
+			const float DistToSoundSquared = FVector::DistSquared(Event.NoiseLocation, Listener.CachedLocation);
+			
+			if (Event.MaxRange > 0.f)
+			{
+				// Limit by range
+				if (DistToSoundSquared > FMath::Square(Event.MaxRange * ClampedLoudness) ||
+					DistToSoundSquared > PropDigest.HearingRangeSq)
+				{
+					continue;
+				}
+			}
+			else
+			{
+				// Limit by loudness modified squared range (this is the old behavior)
+				if (DistToSoundSquared > PropDigest.HearingRangeSq * ClampedLoudness)
+				{
+					continue;
+				}
+			}
+							
+			if (FAISenseAffiliationFilter::ShouldSenseTeam(Listener.TeamIdentifier, Event.TeamIdentifier, PropDigest.AffiliationFlags) == false)
 			{
 				continue;
 			}
@@ -143,7 +162,7 @@ float UAISense_Hearing::Update()
 			const float Delay = SpeedOfSoundSq > 0.f ? FVector::DistSquared(Event.NoiseLocation, Listener.CachedLocation) / SpeedOfSoundSq : 0;
 			// pass over to listener to process 			
 			PerseptionSys->RegisterDelayedStimulus(Listener.GetListenerID(), Delay, Event.Instigator
-				, FAIStimulus(*this, Event.Loudness, Event.NoiseLocation, Listener.CachedLocation) );
+				, FAIStimulus(*this, ClampedLoudness, Event.NoiseLocation, Listener.CachedLocation, FAIStimulus::SensingSucceeded, Event.Tag) );
 		}
 	}
 

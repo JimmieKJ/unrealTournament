@@ -14,7 +14,7 @@
 #include "UnrealNetwork.h"
 #include "EngineVersion.h"
 #include "DataChannel.h"
-
+#include "OnlineBeaconClient.h"
 
 // Forward declarations
 class FWorldTickHook;
@@ -362,10 +362,15 @@ bool NUTNet::CreateFakePlayer(UWorld* InWorld, UNetDriver*& InNetDriver, FString
 #if TARGET_UE4_CL >= CL_FNETWORKVERSION
 			// Starting with 4.8.0, the network protocol has changed slightly
 			// @todo JohnB: Refactor this, to toggle at compile time only, based on CL (might require more accurate UT integrate CLs)
+#if TARGET_UE4_CL >= CL_FENGINEVERSION
+			FString VersionStr = FEngineVersion::Current().ToString(EVersionComponent::Minor);
+#else
 			FString VersionStr = GEngineVersion.ToString(EVersionComponent::Minor);
+#endif
 			int32 VersionDelim = VersionStr.Find(TEXT("."));
 			int32 MajorVersion = FCString::Atoi(*VersionStr.Left(VersionDelim));
-			int32 MinorVersion = FCString::Atoi(*VersionStr.Right(VersionDelim));
+			int32 MinorVersion = FCString::Atoi(*VersionStr.Mid(VersionDelim+1));
+
 
 			bool bOldProtocol = (MajorVersion <= 4 && MinorVersion <= 7) &&
 				/** Exception for UT (treat 4.7 as having the new protocol) */
@@ -374,8 +379,10 @@ bool NUTNet::CreateFakePlayer(UWorld* InWorld, UNetDriver*& InNetDriver, FString
 			if (bOldProtocol)
 #endif
 			{
-				*ControlChanBunch << GEngineMinNetVersion;
-				*ControlChanBunch << GEngineNetVersion;
+				int32 EngineMinNetVersion = GEngineMinNetVersion;
+				*ControlChanBunch << EngineMinNetVersion;
+				int32 EngineNetVersion = GEngineNetVersion;
+				*ControlChanBunch << EngineNetVersion;
 				*ControlChanBunch << (FGuid&)GetDefault<UGeneralProjectSettings>()->ProjectID;
 			}
 #if TARGET_UE4_CL >= CL_FNETWORKVERSION
@@ -405,7 +412,12 @@ bool NUTNet::CreateFakePlayer(UWorld* InWorld, UNetDriver*& InNetDriver, FString
 			else
 			{
 				// Then send NMT_Login
+#if TARGET_UE4_CL < CL_CONSTUNIQUEID
 				TSharedPtr<FUniqueNetId> DudPtr = MakeShareable(new FUniqueNetIdString(TEXT("Dud")));
+#else
+				TSharedPtr<const FUniqueNetId> DudPtr = MakeShareable(new FUniqueNetIdString(TEXT("Dud")));
+#endif
+
 				FUniqueNetIdRepl PlayerUID(DudPtr);
 				FString BlankStr = TEXT("");
 				FString ConnectURL = UUnitTest::UnitEnv->GetDefaultClientConnectURL();

@@ -55,7 +55,7 @@ static void CopyCaptureToTarget(FRHICommandListImmediate& RHICmdList, const FRen
 			ViewRect.Min.X, ViewRect.Min.Y,
 			ViewRect.Width(), ViewRect.Height(),
 			TargetSize,
-			GSceneRenderTargets.GetBufferSizeXY(),
+			FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY(),
 			*VertexShader,
 			EDRF_UseTriangleOptimization);
 	}
@@ -91,10 +91,11 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 			auto& RenderTarget = Target->GetRenderTargetTexture();
 			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(Target->GetSizeXY(), 
 				RenderTarget.GetReference()->GetFormat(), 
+				FClearValueBinding::None,
 				TexCreate_None, 
 				TexCreate_RenderTargetable,
 				false));
-			GRenderTargetPool.FindFreeElement(Desc, FlippedPooledRenderTarget, TEXT("SceneCaptureFlipped"));
+			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, FlippedPooledRenderTarget, TEXT("SceneCaptureFlipped"));
 		}
 
 		// Helper class to allow setting render target
@@ -115,7 +116,7 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 		FViewInfo& View = SceneRenderer->Views[0];
 		FIntRect ViewRect = View.ViewRect;
 		FIntRect UnconstrainedViewRect = View.UnconstrainedViewRect;
-		SetRenderTarget(RHICmdList, Target->GetRenderTargetTexture(), NULL);
+		SetRenderTarget(RHICmdList, Target->GetRenderTargetTexture(), NULL, true);
 		RHICmdList.Clear(true, FLinearColor::Black, false, (float)ERHIZBuffer::FarPlane, false, 0, ViewRect);
 
 		// Render the scene normally
@@ -148,13 +149,12 @@ static void UpdateSceneCaptureContent_RenderThread(FRHICommandListImmediate& RHI
 			// Copy the captured scene into the destination texture (only required on HDR or deferred as that implies post-processing)
 			SCOPED_DRAW_EVENT(RHICmdList, CaptureSceneColor);
 			FIntPoint TargetSize(UnconstrainedViewRect.Width(), UnconstrainedViewRect.Height());
-			CopyCaptureToTarget(RHICmdList, Target, TargetSize, View, ViewRect, GSceneRenderTargets.GetSceneColorTexture(), false);
+			CopyCaptureToTarget(RHICmdList, Target, TargetSize, View, ViewRect, FSceneRenderTargets::Get(RHICmdList).GetSceneColorTexture(), false);
 		}
 
 		RHICmdList.CopyToResolveTarget(TextureRenderTarget->GetRenderTargetTexture(), TextureRenderTarget->TextureRHI, false, ResolveParams);
 	}
-
-	delete SceneRenderer;
+	FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(RHICmdList, SceneRenderer);
 }
 
 
@@ -177,6 +177,7 @@ FSceneRenderer* FScene::CreateSceneRenderer( USceneCaptureComponent* SceneCaptur
 	ViewInitOptions.BackgroundColor = FLinearColor::Black;
 	ViewInitOptions.OverrideFarClippingPlaneDistance = MaxViewDistance;
 	ViewInitOptions.SceneViewStateInterface = SceneCaptureComponent->GetViewState();
+    ViewInitOptions.StereoPass = SceneCaptureComponent->CaptureStereoPass;
 
 	if (bCaptureSceneColour)
 	{

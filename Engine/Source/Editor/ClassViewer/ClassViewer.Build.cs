@@ -36,7 +36,6 @@ public class ClassViewer : ModuleRules
                 "AssetTools",
 				"EditorWidgets",
 				"GameProjectGeneration",
-				"PropertyEditor",
 			}
 		);
 	}

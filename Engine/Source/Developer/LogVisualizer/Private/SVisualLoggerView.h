@@ -2,7 +2,7 @@
 
 #pragma once
 
-class SVisualLoggerView : public SCompoundWidget
+class SVisualLoggerView : public SVisualLoggerBaseWidget
 {
 public:
 	SLATE_BEGIN_ARGS(SVisualLoggerView) 
@@ -16,6 +16,7 @@ public:
 		SLATE_EVENT(FOnFiltersSearchChanged, OnFiltersSearchChanged)
 	SLATE_END_ARGS();
 
+	virtual ~SVisualLoggerView();
 	void Construct(const FArguments& InArgs, const TSharedRef<FUICommandList>& InCommandList);
 	float GetAnimationOutlinerFillPercentage() const { 
 		SSplitter::FSlot const& LeftSplitterSlot = SearchSplitter->SlotAt(0);
@@ -28,15 +29,12 @@ public:
 	TSharedRef<SWidget> MakeSectionOverlay(TSharedRef<class FVisualLoggerTimeSliderController> TimeSliderController, const TAttribute< TRange<float> >& ViewRange, const TAttribute<float>& ScrubPosition, bool bTopOverlay);
 	void SetSearchString(FText SearchString);
 
-	void OnNewLogEntry(const FVisualLogDevice::FVisualLogEntryItem& Entry);
 	void OnFiltersChanged();
 	void OnSearchChanged(const FText& Filter);
 	void OnFiltersSearchChanged(const FText& Filter);
 	void OnSearchSplitterResized();
-	void OnObjectSelectionChanged(TSharedPtr<class STimeline> TimeLine);
 	void OnChangedClassesFilter();
 
-	void GetTimelines(TArray<TSharedPtr<class STimeline> >&, bool bOnlySelectedOnes = false);
 	virtual FCursorReply OnCursorQuery(const FGeometry& MyGeometry, const FPointerEvent& CursorEvent) const override;
 	TSharedRef<SWidget> MakeClassesFilterMenu();
 	void ResetData();
@@ -48,6 +46,5 @@ protected:
 	TSharedPtr<class SSearchBox> SearchBox;
 	TSharedPtr<class SComboButton> ClassesComboButton;
 
-	FVisualLoggerEvents	VisualLoggerEvents;
 	float AnimationOutlinerFillPercentage;
 };

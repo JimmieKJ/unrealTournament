@@ -76,10 +76,8 @@ void FFinalSkinVertexBuffer::InitVertexData(FStaticLODModel& LodModel)
 	uint32 Size = LodModel.NumVertices * sizeof(FFinalSkinVertex);
 
 	FRHIResourceCreateInfo CreateInfo;
-	VertexBufferRHI = RHICreateVertexBuffer(Size,BUF_Dynamic, CreateInfo);
-
-	// Lock the buffer.
-	void* Buffer = RHILockVertexBuffer(VertexBufferRHI,0,Size,RLM_WriteOnly);
+	void* Buffer = nullptr;
+	VertexBufferRHI = RHICreateAndLockVertexBuffer(Size,BUF_Dynamic, CreateInfo, Buffer);	
 
 	// Initialize the vertex data
 	// All chunks are combined into one (rigid first, soft next)
@@ -170,13 +168,13 @@ void FSkeletalMeshObjectCPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* In
 {
 	// create the new dynamic data for use by the rendering thread
 	// this data is only deleted when another update is sent
-	FDynamicSkelMeshObjectData* NewDynamicData = new FDynamicSkelMeshObjectDataCPUSkin(InMeshComponent,SkeletalMeshResource,LODIndex,ActiveVertexAnims);
+	FDynamicSkelMeshObjectDataCPUSkin* NewDynamicData = new FDynamicSkelMeshObjectDataCPUSkin(InMeshComponent,SkeletalMeshResource,LODIndex,ActiveVertexAnims);
 
 	// queue a call to update this data
 	ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 		SkelMeshObjectUpdateDataCommand,
-		FSkeletalMeshObject*, MeshObject, this,
-		FDynamicSkelMeshObjectData*, NewDynamicData, NewDynamicData,
+		FSkeletalMeshObjectCPUSkin*, MeshObject, this,
+		FDynamicSkelMeshObjectDataCPUSkin*, NewDynamicData, NewDynamicData,
 	{
 		FScopeCycleCounter Context(MeshObject->GetStatId());
 		MeshObject->UpdateDynamicData_RenderThread(RHICmdList, NewDynamicData);
@@ -191,48 +189,17 @@ void FSkeletalMeshObjectCPUSkin::Update(int32 LODIndex,USkinnedMeshComponent* In
 	}
 }
 
-void FSkeletalMeshObjectCPUSkin::UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectData* InDynamicData)
+void FSkeletalMeshObjectCPUSkin::UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataCPUSkin* InDynamicData)
 {
 	// we should be done with the old data at this point
 	delete DynamicData;
 	// update with new data
-	DynamicData = (FDynamicSkelMeshObjectDataCPUSkin*)InDynamicData;	
+	DynamicData = InDynamicData;	
 	check(DynamicData);
 
 	// update vertices using the new data
 	CacheVertices(DynamicData->LODIndex,true);
 }
-
-static bool ComputeTangent(FVector &t,
-							const FVector &p0, const FVector2D &c0,
-							const FVector &p1, const FVector2D &c1,
-							const FVector &p2, const FVector2D &c2)
-{
-	const float epsilon = 0.0001f;
-	bool   Ret = false;
-	FVector dp1 = p1 - p0;
-	FVector dp2 = p2 - p0;
-	float   du1 = c1.X - c0.X;
-	float   dv1 = c1.Y - c0.Y;
-	if(FMath::Abs(dv1) < epsilon && FMath::Abs(du1) >= epsilon)
-	{
-		t = dp1 / du1;
-		Ret = true;
-	}
-	else
-	{
-		float du2 = c2.X - c0.X;
-		float dv2 = c2.Y - c0.Y;
-		float det = dv1*du2 - dv2*du1;
-		if(FMath::Abs(det) >= epsilon)
-		{
-			t = (dp2*dv1-dp1*dv2)/det;
-			Ret = true;
-		}
-	}
-	return Ret;
-}
-
 
 void FSkeletalMeshObjectCPUSkin::CacheVertices(int32 LODIndex, bool bForce) const
 {
@@ -1002,7 +969,7 @@ static void CalculateBoneWeights(FFinalSkinVertex* DestVertex, FStaticLODModel& 
 		FSkelMeshSection& Section = LOD.Sections[SectionIndex];
 		FSkelMeshChunk& Chunk = LOD.Chunks[Section.ChunkIndex];
 
-		if (Chunk.HasExtraBoneInfluences())
+		if (LOD.VertexBufferGPUSkin.HasExtraBoneInfluences())
 		{
 			CalculateChunkBoneWeights<true>(DestVertex, LOD.VertexBufferGPUSkin, Chunk, BonesOfInterest);
 		}

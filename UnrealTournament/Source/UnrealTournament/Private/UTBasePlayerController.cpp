@@ -42,12 +42,15 @@ void AUTBasePlayerController::InitInputSystem()
 {
 	Super::InitInputSystem();
 
-	// read profile items on every level change so we can detect updates
+	// read profile on every level change so we can detect updates
+#if WITH_PROFILE
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL && LP->IsLoggedIn())
 	{
-		LP->ReadProfileItems();
+		FClientUrlContext QueryContext = FClientUrlContext::Default; // IMPORTANT to make a copy!
+		LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->ForceQueryProfile(QueryContext);
 	}
+#endif
 
 	// Let the viewport client know we have connected to a server.
 	if (GetWorld()->GetNetMode() == ENetMode::NM_Client)

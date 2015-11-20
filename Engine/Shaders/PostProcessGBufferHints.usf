@@ -97,10 +97,10 @@ void HighlightAdvice(inout float3 OutColor, float2 UV, uint2 PixelPos)
 	}
 }
 
-void MainPS(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainPS(noperspective float4 UVAndScreenPos : TEXCOORD0, float4 SvPosition : SV_POSITION, out float4 OutColor : SV_Target0)
 {
 	float2 UV = UVAndScreenPos.xy;
- 	uint2 PixelPos = (uint2)(UVAndScreenPos.zw * ScreenPosToPixel.xy + ScreenPosToPixel.zw + 0.5f);
+	int2 PixelPos = (uint2)SvPosition.xy;
 	
 	// background is the scene color
 	OutColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, UV);

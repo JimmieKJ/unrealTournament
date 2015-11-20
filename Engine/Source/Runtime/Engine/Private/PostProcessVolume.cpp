@@ -23,6 +23,16 @@ bool APostProcessVolume::EncompassesPoint(FVector Point, float SphereRadius/*=0.
 }
 
 #if WITH_EDITOR
+void APostProcessVolume::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if(Ar.IsLoading())
+	{
+		Settings.OnAfterLoad();
+	}
+}
+
 void APostProcessVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
@@ -32,16 +42,14 @@ void APostProcessVolume::PostEditChangeProperty(FPropertyChangedEvent& PropertyC
 	if(PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == NAME_Blendables)
 	{
 		// remove unsupported types
+		uint32 Count = Settings.WeightedBlendables.Array.Num();
+		for(uint32 i = 0; i < Count; ++i)
 		{
-			uint32 Count = Settings.Blendables.Num();
-			for(uint32 i = 0; i < Count; ++i)
-			{
-				UObject* Obj = Settings.Blendables[i];
+			UObject* Obj = Settings.WeightedBlendables.Array[i].Object;
 
-				if(!Cast<IBlendableInterface>(Obj))
-				{
-					Settings.Blendables[i] = 0;
-				}
+			if(!Cast<IBlendableInterface>(Obj))
+			{
+				Settings.WeightedBlendables.Array[i] = FWeightedBlendable();
 			}
 		}
 	}
@@ -52,6 +60,40 @@ bool APostProcessVolume::CanEditChange(const UProperty* InProperty) const
 	if (InProperty)
 	{
 		FString PropertyName = InProperty->GetName();
+
+		// Settings, can be shared for multiple objects types (volume, component, camera, player)
+		{
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldScale) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldMaxBokehSize) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldColorThreshold) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldSizeThreshold) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldBokehShape))
+			{
+				return Settings.DepthOfFieldMethod == EDepthOfFieldMethod::DOFM_BokehDOF;
+			}
+
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldNearBlurSize) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldFarBlurSize) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldSkyFocusDistance) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldVignetteSize))
+			{
+				return Settings.DepthOfFieldMethod == EDepthOfFieldMethod::DOFM_Gaussian;
+			}
+
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldNearTransitionRegion) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldFarTransitionRegion) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldFocalRegion))
+			{
+				return Settings.DepthOfFieldMethod != EDepthOfFieldMethod::DOFM_CircleDOF;
+			}
+
+			if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldDepthBlurAmount) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldDepthBlurRadius) ||
+				PropertyName == GET_MEMBER_NAME_STRING_CHECKED(FPostProcessSettings, DepthOfFieldFstop))
+			{
+				return Settings.DepthOfFieldMethod == EDepthOfFieldMethod::DOFM_CircleDOF;
+			}
+		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(APostProcessVolume, bEnabled))
 		{

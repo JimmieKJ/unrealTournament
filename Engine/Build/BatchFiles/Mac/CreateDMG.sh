@@ -1,4 +1,8 @@
-#/bin/sh
+#!/bin/bash
+
+# Automatically abort if any command returns a non-zero exit code.
+# Append something like "|| true" to the end of the command line if you really need to ignore errors for some reason.
+set -e
 
 APP_PATH=$(cd "$1" > /dev/null; pwd)
 APP_SIZE=$(expr $(du -sm "$APP_PATH" | awk '{print $1}') + 500)
@@ -15,7 +19,9 @@ VOLUME_ICON_PATH=$5
 test -d "$MOUNT_DIR" && hdiutil detach "$MOUNT_DIR" > /dev/null
 test -f "$DMG_TEMP_PATH" && rm -f "$DMG_TEMP_PATH"
 hdiutil create -srcfolder "$APP_PATH" -volname "$VOLUME_NAME" -fs HFS+ -fsargs "-c c=64,a=16,e=16" -format UDRW -size ${APP_SIZE}m "$DMG_TEMP_PATH" > /dev/null
+sleep 5
 hdiutil attach -readwrite -noverify -noautoopen "$DMG_TEMP_PATH" > /dev/null
+sleep 5
 
 # Create /Applications link
 ln -s /Applications "$MOUNT_DIR/Applications"
@@ -82,4 +88,4 @@ test -f "$DMG_PATH" && rm -f "$DMG_PATH"
 hdiutil convert "$DMG_TEMP_PATH" -format UDZO -imagekey zlib-level=9 -o "$DMG_PATH" > /dev/null
 rm -f "$DMG_TEMP_PATH"
 
-exit $?
+exit 0

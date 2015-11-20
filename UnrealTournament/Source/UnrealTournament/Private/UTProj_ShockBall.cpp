@@ -191,7 +191,7 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 
 		// if bot is low skill, delay clearing bot monitoring so that it will occasionally fire for the combo slightly too late - a realistic player mistake
 		AUTBot* B = Cast<AUTBot>(InstigatorController);
-		if (bPendingKillPending || B == NULL || B->WeaponProficiencyCheck())
+		if (IsPendingKillPending() || B == NULL || B->WeaponProficiencyCheck())
 		{
 			ClearBotCombo();
 		}

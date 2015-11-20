@@ -230,7 +230,7 @@ namespace EditorLevelUtils
 				if (SubLevelWorld != NULL)
 				{
 					FActorSpawnParameters SpawnInfo;
-					SpawnInfo.bNoCollisionFail = true;
+					SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 					SpawnInfo.Name = GEngine->WorldSettingsClass->GetFName();
 					AWorldSettings* NewWorldSettings = SubLevelWorld->SpawnActor<AWorldSettings>( GEngine->WorldSettingsClass, SpawnInfo );
 					NewLevel->Actors[0] = NewWorldSettings;
@@ -697,7 +697,7 @@ namespace EditorLevelUtils
 				StreamingLevel = FLevelUtils::FindStreamingLevel( Level );
 			}
 
-			//create a transaction so we can undo the visibilty toggle
+			// Create a transaction so we can undo the visibility toggle
 			const FScopedTransaction Transaction( LOCTEXT( "ToggleLevelVisibility", "Toggle Level Visibility" ) );		
 
 			// Handle the case of a streaming level
@@ -842,6 +842,12 @@ namespace EditorLevelUtils
 	void GetWorlds(UWorld* InWorld, TArray<UWorld*>& OutWorlds, bool bIncludeInWorld, bool bOnlyEditorVisible)
 	{
 		OutWorlds.Empty();
+
+		if (!InWorld)
+		{
+			return;
+		}
+
 		if ( bIncludeInWorld )
 		{
 			OutWorlds.AddUnique( InWorld );

@@ -19,8 +19,8 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 	virtual void Init();
 	virtual void StartGameInstance() override;
 
-	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName) override;
-	virtual void PlayReplay(const FString& Name) override;
+	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions = TArray<FString>()) override;
+	virtual void PlayReplay(const FString& Name, UWorld* WorldOverride = nullptr, const TArray<FString>& AdditionalOptions = TArray<FString>()) override;
 
 	virtual void HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr) override;
 

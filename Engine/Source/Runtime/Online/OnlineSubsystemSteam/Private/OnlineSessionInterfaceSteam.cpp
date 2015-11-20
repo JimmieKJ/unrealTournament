@@ -127,11 +127,14 @@ class FOnlineAsyncTaskSteamDestroySession : public FOnlineAsyncTaskSteam
 private:
 	/** Name of session ending */
 	FName SessionName;
+	/** */
+	FOnDestroySessionCompleteDelegate CompletionDelegate;
 
 public:
-	FOnlineAsyncTaskSteamDestroySession(FOnlineSubsystemSteam* InSubsystem, FName InSessionName) :
+	FOnlineAsyncTaskSteamDestroySession(FOnlineSubsystemSteam* InSubsystem, FName InSessionName, const FOnDestroySessionCompleteDelegate& InCompletionDelegate) :
 		FOnlineAsyncTaskSteam(InSubsystem, k_uAPICallInvalid),
-		SessionName(InSessionName)
+		SessionName(InSessionName),
+		CompletionDelegate(InCompletionDelegate)
 	{
 	}
 
@@ -197,6 +200,7 @@ public:
 		IOnlineSessionPtr SessionInt = Subsystem->GetSessionInterface();
 		if (SessionInt.IsValid())
 		{
+			CompletionDelegate.ExecuteIfBound(SessionName, bWasSuccessful);
 			SessionInt->TriggerOnDestroySessionCompleteDelegates(SessionName, bWasSuccessful);
 		}
 	}
@@ -531,7 +535,7 @@ uint32 FOnlineSessionSteam::EndInternetSession(FNamedOnlineSession* Session)
 	return ERROR_IO_PENDING;
 }
 
-bool FOnlineSessionSteam::DestroySession(FName SessionName)
+bool FOnlineSessionSteam::DestroySession(FName SessionName, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
 	uint32 Result = E_FAIL;
 	// Find the session in question
@@ -550,11 +554,11 @@ bool FOnlineSessionSteam::DestroySession(FName SessionName)
 
 				if (Session->SessionSettings.bUsesPresence)
 				{
-					Result = DestroyLobbySession(Session);
+					Result = DestroyLobbySession(Session, CompletionDelegate);
 				}
 				else
 				{
-					Result = DestroyInternetSession(Session);
+					Result = DestroyInternetSession(Session, CompletionDelegate);
 				}
 			}
 			else
@@ -574,6 +578,7 @@ bool FOnlineSessionSteam::DestroySession(FName SessionName)
 			{
 				// The session info is no longer needed
 				RemoveNamedSession(Session->SessionName);
+				CompletionDelegate.ExecuteIfBound(SessionName, (Result == ERROR_SUCCESS) ? true : false);
 				TriggerOnDestroySessionCompleteDelegates(SessionName, (Result == ERROR_SUCCESS) ? true : false);
 			}
 		}
@@ -586,13 +591,14 @@ bool FOnlineSessionSteam::DestroySession(FName SessionName)
 	else
 	{
 		UE_LOG_ONLINE(Warning, TEXT("Can't destroy a null online session (%s)"), *SessionName.ToString());
+		CompletionDelegate.ExecuteIfBound(SessionName, false);
 		TriggerOnDestroySessionCompleteDelegates(SessionName, false);
 	}
 
 	return Result == ERROR_SUCCESS || Result == ERROR_IO_PENDING;
 }
 
-uint32 FOnlineSessionSteam::DestroyLobbySession(FNamedOnlineSession* Session)
+uint32 FOnlineSessionSteam::DestroyLobbySession(FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
 	Session->SessionState = EOnlineSessionState::Destroying;
 
@@ -605,13 +611,13 @@ uint32 FOnlineSessionSteam::DestroyLobbySession(FNamedOnlineSession* Session)
 		SteamSubsystem->QueueAsyncTask(NewTask);
 	}
 
-	FOnlineAsyncTaskSteamDestroySession* NewTask = new FOnlineAsyncTaskSteamDestroySession(SteamSubsystem, Session->SessionName);
+	FOnlineAsyncTaskSteamDestroySession* NewTask = new FOnlineAsyncTaskSteamDestroySession(SteamSubsystem, Session->SessionName, CompletionDelegate);
 	SteamSubsystem->QueueAsyncTask(NewTask);
 
 	return ERROR_IO_PENDING;
 }
 
-uint32 FOnlineSessionSteam::DestroyInternetSession(FNamedOnlineSession* Session)
+uint32 FOnlineSessionSteam::DestroyInternetSession(FNamedOnlineSession* Session, const FOnDestroySessionCompleteDelegate& CompletionDelegate)
 {
 	Session->SessionState = EOnlineSessionState::Destroying;
 
@@ -629,7 +635,7 @@ uint32 FOnlineSessionSteam::DestroyInternetSession(FNamedOnlineSession* Session)
 	}
 
 	// Destroy the session
-	FOnlineAsyncTaskSteamDestroySession* DestroyTask = new FOnlineAsyncTaskSteamDestroySession(SteamSubsystem, Session->SessionName);
+	FOnlineAsyncTaskSteamDestroySession* DestroyTask = new FOnlineAsyncTaskSteamDestroySession(SteamSubsystem, Session->SessionName, CompletionDelegate);
 	SteamSubsystem->QueueAsyncTask(DestroyTask);
 
 	return ERROR_IO_PENDING;
@@ -640,23 +646,23 @@ bool FOnlineSessionSteam::IsPlayerInSession(FName SessionName, const FUniqueNetI
 	return IsPlayerInSessionImpl(this, SessionName, UniqueId);
 }
 
-bool FOnlineSessionSteam::StartMatchmaking(const TArray< TSharedRef<FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
+bool FOnlineSessionSteam::StartMatchmaking(const TArray< TSharedRef<const FUniqueNetId> >& LocalPlayers, FName SessionName, const FOnlineSessionSettings& NewSessionSettings, TSharedRef<FOnlineSessionSearch>& SearchSettings)
 {
-	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
+	UE_LOG(LogOnline, Warning, TEXT("StartMatchmaking is not supported on this platform. Use FindSessions or FindSessionById."));
 	TriggerOnMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
 
 bool FOnlineSessionSteam::CancelMatchmaking(int32 SearchingPlayerNum, FName SessionName)
 {
-	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
+	UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
 
 bool FOnlineSessionSteam::CancelMatchmaking(const FUniqueNetId& SearchingPlayerId, FName SessionName)
 {
-	UE_LOG(LogOnline, Warning, TEXT("Matchmaking is not supported on this platform."));
+	UE_LOG(LogOnline, Warning, TEXT("CancelMatchmaking is not supported on this platform. Use CancelFindSessions."));
 	TriggerOnCancelMatchmakingCompleteDelegates(SessionName, false);
 	return false;
 }
@@ -1039,10 +1045,10 @@ void FOnlineSessionSteam::CheckPendingSessionInvite()
 
 bool FOnlineSessionSteam::SendSessionInviteToFriend(int32 LocalUserNum, FName SessionName, const FUniqueNetId& Friend)
 {
-	TArray< TSharedRef<FUniqueNetId> > Friends;
+	TArray< TSharedRef<const FUniqueNetId> > Friends;
 
 	const FUniqueNetIdSteam& SteamFriend = (const FUniqueNetIdSteam&)Friend;
-	TSharedRef<FUniqueNetId> FriendCopy = MakeShareable(new FUniqueNetIdSteam(SteamFriend));
+	TSharedRef<const FUniqueNetId> FriendCopy = MakeShareable(new FUniqueNetIdSteam(SteamFriend));
 	Friends.Add(FriendCopy);
 	return SendSessionInviteToFriends(LocalUserNum, SessionName, Friends);
 }
@@ -1053,7 +1059,7 @@ bool FOnlineSessionSteam::SendSessionInviteToFriend(const FUniqueNetId& LocalUse
 	return SendSessionInviteToFriend(0, SessionName, Friend);
 }
 
-bool FOnlineSessionSteam::SendSessionInviteToFriends(int32 LocalUserNum, FName SessionName, const TArray< TSharedRef<FUniqueNetId> >& Friends)
+bool FOnlineSessionSteam::SendSessionInviteToFriends(int32 LocalUserNum, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends)
 {
 	bool bSuccess = false;
 
@@ -1113,7 +1119,7 @@ bool FOnlineSessionSteam::SendSessionInviteToFriends(int32 LocalUserNum, FName S
 	return bSuccess;
 }
 
-bool FOnlineSessionSteam::SendSessionInviteToFriends(const FUniqueNetId& LocalUserId, FName SessionName, const TArray< TSharedRef<FUniqueNetId> >& Friends)
+bool FOnlineSessionSteam::SendSessionInviteToFriends(const FUniqueNetId& LocalUserId, FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Friends)
 {
 	// @todo: use proper LocalUserId
 	return SendSessionInviteToFriends(0, SessionName, Friends);
@@ -1275,12 +1281,12 @@ void FOnlineSessionSteam::UnregisterVoice(const FUniqueNetId& PlayerId)
 
 bool FOnlineSessionSteam::RegisterPlayer(FName SessionName, const FUniqueNetId& PlayerId, bool bWasInvited)
 {
-	TArray< TSharedRef<FUniqueNetId> > Players;
+	TArray< TSharedRef<const FUniqueNetId> > Players;
 	Players.Add(MakeShareable(new FUniqueNetIdSteam(PlayerId)));
 	return RegisterPlayers(SessionName, Players, bWasInvited);
 }
 
-bool FOnlineSessionSteam::RegisterPlayers(FName SessionName, const TArray< TSharedRef<FUniqueNetId> >& Players, bool bWasInvited)
+bool FOnlineSessionSteam::RegisterPlayers(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players, bool bWasInvited)
 {
 	bool bSuccess = false;
 	FNamedOnlineSession* Session = GetNamedSession(SessionName);
@@ -1293,7 +1299,7 @@ bool FOnlineSessionSteam::RegisterPlayers(FName SessionName, const TArray< TShar
 			ISteamFriends* SteamFriendsPtr = SteamFriends();
 			for (int32 PlayerIdx=0; PlayerIdx < Players.Num(); PlayerIdx++)
 			{
-				const TSharedRef<FUniqueNetId>& PlayerId = Players[PlayerIdx];
+				const TSharedRef<const FUniqueNetId>& PlayerId = Players[PlayerIdx];
 				const FUniqueNetIdSteam& SteamId = (const FUniqueNetIdSteam&)*PlayerId;
 
 				FUniqueNetIdMatcher PlayerMatch(SteamId);
@@ -1352,12 +1358,12 @@ void FOnlineSessionSteam::RegisterLocalPlayers(FNamedOnlineSession* Session)
 
 bool FOnlineSessionSteam::UnregisterPlayer(FName SessionName, const FUniqueNetId& PlayerId)
 {
-	TArray< TSharedRef<FUniqueNetId> > Players;
+	TArray< TSharedRef<const FUniqueNetId> > Players;
 	Players.Add(MakeShareable(new FUniqueNetIdSteam(PlayerId)));
 	return UnregisterPlayers(SessionName, Players);
 }
 
-bool FOnlineSessionSteam::UnregisterPlayers(FName SessionName, const TArray< TSharedRef<FUniqueNetId> >& Players)
+bool FOnlineSessionSteam::UnregisterPlayers(FName SessionName, const TArray< TSharedRef<const FUniqueNetId> >& Players)
 {
 	bool bSuccess = false;
 
@@ -1370,7 +1376,7 @@ bool FOnlineSessionSteam::UnregisterPlayers(FName SessionName, const TArray< TSh
 
 			for (int32 PlayerIdx=0; PlayerIdx < Players.Num(); PlayerIdx++)
 			{
-				const TSharedRef<FUniqueNetId>& PlayerId = Players[PlayerIdx];
+				const TSharedRef<const FUniqueNetId>& PlayerId = Players[PlayerIdx];
 
 				FUniqueNetIdMatcher PlayerMatch(*PlayerId);
 				int32 RegistrantIndex = Session->RegisteredPlayers.IndexOfByPredicate(PlayerMatch);
@@ -1448,7 +1454,7 @@ void FOnlineSessionSteam::TickPendingInvites(float DeltaTime)
 void FOnlineSessionSteam::AppendSessionToPacket(FNboSerializeToBufferSteam& Packet, FOnlineSession* Session)
 {
 	/** Owner of the session */
-	Packet << *StaticCastSharedPtr<FUniqueNetIdSteam>(Session->OwningUserId)
+	Packet << *StaticCastSharedPtr<const FUniqueNetIdSteam>(Session->OwningUserId)
 		<< Session->OwningUserName
 		<< Session->NumOpenPrivateConnections
 		<< Session->NumOpenPublicConnections;
@@ -1687,8 +1693,11 @@ void FOnlineSessionSteam::OnLANSearchTimeout()
 
 	if (CurrentSessionSearch.IsValid())
 	{
-		// Allow game code to sort the servers
-		CurrentSessionSearch->SortSearchResults();
+		if (CurrentSessionSearch->SearchResults.Num() > 0)
+		{
+			// Allow game code to sort the servers
+			CurrentSessionSearch->SortSearchResults();
+		}
 		CurrentSessionSearch->SearchState = EOnlineAsyncTaskState::Done;
 
 		CurrentSessionSearch = NULL;

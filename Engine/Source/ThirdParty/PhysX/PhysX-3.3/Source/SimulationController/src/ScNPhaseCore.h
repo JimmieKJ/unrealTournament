@@ -108,7 +108,7 @@ namespace Sc
 
 #if PX_USE_PARTICLE_SYSTEM_API
 		// The ccdPass parameter is needed to avoid concurrent interaction updates while the gpu particle pipeline is running.
-		ParticleElementRbElementInteraction* insertParticleElementRbElementPair(ParticlePacketShape* particleShape, ShapeSim* rbShape, ActorElementPair* actorElementPair, const PxU32 ccdPass);
+		ParticleElementRbElementInteraction* insertParticleElementRbElementPair(ParticlePacketShape& particleShape, ShapeSim& rbShape, ActorElementPair* actorElementPair, const PxU32 ccdPass);
 #endif
 
 #if PX_USE_CLOTH_API

@@ -46,14 +46,14 @@ public:
 	 * @param	OutData		Buffer to receive the results, if any were found
 	 * @return				true if any data was found, and in this case OutData is non-empty
 	 */
-	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData) override
+	virtual bool GetCachedData(const TCHAR* CacheKey, TArray<uint8>& OutData, FCacheStatRecord* Stats) override
 	{
 		FString NewKey;
 		bool bOk;
 		if (!ShortenKey(CacheKey, NewKey))
 		{
 			// no shortening needed
-			bOk = InnerBackend->GetCachedData(CacheKey, OutData);
+			bOk = InnerBackend->GetCachedData(CacheKey, OutData, Stats);
 			// look for old bug
 			if (FString(CacheKey).StartsWith(TEXT("TEXTURE2D_0002")))
 			{
@@ -71,7 +71,7 @@ public:
 		}
 		else
 		{
-			bOk = InnerBackend->GetCachedData(*NewKey, OutData);
+			bOk = InnerBackend->GetCachedData(*NewKey, OutData, Stats);
 			if (bOk)
 			{
 				int32 KeyLen = FCString::Strlen(CacheKey) + 1;
@@ -114,7 +114,7 @@ public:
 	 * @param	InData		Buffer containing the data to cache, can be destroyed after the call returns, immediately
 	 * @param	bPutEvenIfExists	If true, then do not attempt skip the put even if CachedDataProbablyExists returns true
 	 */
-	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists) override
+	virtual void PutCachedData(const TCHAR* CacheKey, TArray<uint8>& InData, bool bPutEvenIfExists, FCacheStatRecord* Stats) override
 	{
 		if (!InnerBackend->IsWritable())
 		{
@@ -124,7 +124,7 @@ public:
 		if (!ShortenKey(CacheKey, NewKey))
 		{
 			// no shortening needed
-			InnerBackend->PutCachedData(CacheKey, InData, bPutEvenIfExists);
+			InnerBackend->PutCachedData(CacheKey, InData, bPutEvenIfExists, Stats);
 			return;
 		}
 		TArray<uint8> Data(InData);
@@ -133,7 +133,7 @@ public:
 		Data.AddUninitialized(KeyLen);
 		FCStringAnsi::Strcpy((char*)&Data[Data.Num() - KeyLen], KeyLen, TCHAR_TO_ANSI(CacheKey));
 		check(Data.Last()==0);
-		InnerBackend->PutCachedData(*NewKey, Data, bPutEvenIfExists);
+		InnerBackend->PutCachedData(*NewKey, Data, bPutEvenIfExists, Stats);
 	}
 
 	virtual void RemoveCachedData(const TCHAR* CacheKey, bool bTransient) override

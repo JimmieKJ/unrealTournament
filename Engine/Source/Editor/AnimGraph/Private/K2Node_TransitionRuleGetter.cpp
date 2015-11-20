@@ -262,14 +262,7 @@ void UK2Node_TransitionRuleGetter::GetNonStateSpecificMenuActions(FBlueprintActi
 
 void UK2Node_TransitionRuleGetter::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	if( const UAnimBlueprint* AnimBlueprint = Cast<UAnimBlueprint>( ActionRegistrar.GetActionKeyFilter() ) )
-	{
-		GetStateSpecificMenuActions(ActionRegistrar, AnimBlueprint);
-	}
-	else
-	{
-		GetNonStateSpecificMenuActions(ActionRegistrar);
-	}
+
 }
 
 FText UK2Node_TransitionRuleGetter::GetTooltipText() const

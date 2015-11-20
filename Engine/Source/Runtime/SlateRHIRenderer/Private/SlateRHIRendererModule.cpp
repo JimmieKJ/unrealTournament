@@ -2,6 +2,7 @@
 
 #include "SlateRHIRendererPrivatePCH.h"
 #include "Slate3DRenderer.h"
+#include "SlateUpdatableBuffer.h"
 
 class FSlateRHIFontAtlasFactory : public ISlateFontAtlasFactory
 {
@@ -59,16 +60,21 @@ public:
 		return MakeShareable( new FSlateRHIRenderer( ResourceManager, FontCache, FontMeasure ) );
 	}
 
-	virtual TSharedRef<ISlate3DRenderer> CreateSlate3DRenderer() override
+	virtual TSharedRef<ISlate3DRenderer> CreateSlate3DRenderer(bool bUseGammaCorrection) override
 	{
 		ConditionalCreateResources();
 
-		return MakeShareable( new FSlate3DRenderer( ResourceManager, FontCache ) );
+		return MakeShareable( new FSlate3DRenderer( ResourceManager, FontCache, bUseGammaCorrection ) );
 	}
 
 	virtual TSharedRef<ISlateFontAtlasFactory> CreateSlateFontAtlasFactory() override
 	{
 		return MakeShareable(new FSlateRHIFontAtlasFactory);
+	}
+
+	virtual TSharedRef<ISlateUpdatableInstanceBuffer> CreateInstanceBuffer( int32 InitialInstanceCount ) override
+	{
+		return MakeShareable( new FSlateUpdatableInstanceBuffer(InitialInstanceCount) );
 	}
 
 	virtual void StartupModule( ) override { }
@@ -81,6 +87,7 @@ private:
 		if( !ResourceManager.IsValid() )
 		{
 			ResourceManager = MakeShareable( new FSlateRHIResourceManager );
+			FSlateDataPayload::ResourceManager = ResourceManager.Get();
 		}
 
 		if( !FontCache.IsValid() )

@@ -63,6 +63,7 @@ private:
 	ECheckBoxState ShouldRecalculateNormals() const;
 	float GetHardAngleThreshold() const;
 	int32 GetMaxBonesPerVertex() const;
+	int32 GetBaseLOD() const;
 
 	void OnPercentTrianglesChanged(float NewValue);
 	void OnMaxDeviationChanged(float NewValue);
@@ -71,6 +72,7 @@ private:
 	void OnWeldingThresholdChanged(float NewValue);
 	void OnHardAngleThresholdChanged(float NewValue);
 	void OnMaxBonesPerVertexChanged(int32 NewValue);
+	void OnBaseLODChanged(int32 NewBasedLOD);
 
 	void OnSilhouetteImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
 	void OnTextureImportanceChanged(TSharedPtr<FString> NewValue, ESelectInfo::Type SelectInfo);
@@ -154,6 +156,20 @@ private:
 	 */
 	void OnSectionSelectedChanged(ECheckBoxState NewState, int32 SectionIndex);
 
+	/**
+	* Handler for check box display based on whether the material is isolated
+	*
+	* @param SectionIndex	The material section that is being tested
+	*/
+	ECheckBoxState IsIsolateSectionEnabled(int32 SectionIndex) const;
+
+	/**
+	* Handler for changing isolated status on a material
+	*
+	* @param SectionIndex	The material section that is being tested
+	*/
+	void OnSectionIsolatedChanged(ECheckBoxState NewState, int32 SectionIndex);
+
 		/**
 	 * Handler for check box display based on whether the material has shadow casting enabled
 	 *
@@ -199,21 +215,25 @@ private:
 	void OnLODCountChanged(int32 NewValue);
 	void OnLODCountCommitted(int32 InValue, ETextCommit::Type CommitInfo);
 	FText GetLODCountTooltip() const;
+	FText GetLODImportedText(int32 LODIndex) const;
 	/** apply LOD changes if the user modified LOD reduction settings */
 	FReply OnApplyChanges();
+	/** Removes the specified lod from the skeletal mesh */
+	FReply RemoveOneLOD(int32 LODIndex);
+	/** Remove Bones again */
+	FReply RemoveBones(int32 LODIndex);
 	/** hide properties which don't need to be showed to end users */
 	void HideUnnecessaryProperties(IDetailLayoutBuilder& DetailLayout);
-	/** clear "None" bones and remove already included bones */
-	void RefreshBonesToRemove(TArray<FBoneReference>& BonesToRemove, int32 LODIndex);
 
 public:
 
 	bool IsApplyNeeded() const;
 	bool IsGenerateAvailable() const;
-	void ApplyChanges(bool bForceUpdate);
+	void ApplyChanges(int32 DesiredLOD, const FSkeletalMeshOptimizationSettings& ReductionSettings);
+	void ApplyChanges();
 	FText GetApplyButtonText() const;
 
-	USkeletalMesh* GetMesh()
+	USkeletalMesh* GetMesh() const
 	{ 
 		if (PersonaPtr.IsValid())
 		{

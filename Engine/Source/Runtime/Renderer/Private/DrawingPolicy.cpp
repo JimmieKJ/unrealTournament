@@ -23,11 +23,13 @@ FMeshDrawingPolicy::FMeshDrawingPolicy(
 	const FMaterial& InMaterialResource,
 	bool bInOverrideWithShaderComplexity,
 	bool bInTwoSidedOverride,
+	bool bInDitheredLODTransitionOverride,
 	bool bInWireframeOverride
 	):
 	VertexFactory(InVertexFactory),
 	MaterialRenderProxy(InMaterialRenderProxy),
 	MaterialResource(&InMaterialResource),
+	bIsDitheredLODTransitionMaterial(InMaterialResource.IsDitheredLODTransition() || bInDitheredLODTransitionOverride),
 	bIsWireframeMaterial(InMaterialResource.IsWireframe() || bInWireframeOverride),
 	//convert from signed bool to unsigned uint32
 	bOverrideWithShaderComplexity(bInOverrideWithShaderComplexity != false)
@@ -51,6 +53,7 @@ void FMeshDrawingPolicy::SetMeshRenderState(
 	const FMeshBatch& Mesh,
 	int32 BatchElementIndex,
 	bool bBackFace,
+	float DitheredLODTransitionValue,
 	const ElementDataType& ElementData,
 	const ContextDataType PolicyContext
 	) const

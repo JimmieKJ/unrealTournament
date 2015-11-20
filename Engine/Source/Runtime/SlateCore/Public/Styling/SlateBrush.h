@@ -62,16 +62,16 @@ namespace ESlateBrushMirrorType
 {
 	enum Type
 	{
-		/** Don't mirror anything, just draw the texture as it is */
+		/** Don't mirror anything, just draw the texture as it is. */
 		NoMirror,
 
-		/** Mirror the image horizontally */
+		/** Mirror the image horizontally. */
 		Horizontal,
 
-		/** Mirror the image vertically */
+		/** Mirror the image vertically. */
 		Vertical,
 
-		/** Mirror in both directions */
+		/** Mirror in both directions. */
 		Both
 	};
 }
@@ -85,17 +85,21 @@ namespace ESlateBrushImageType
 {
 	enum Type
 	{
-		/** No image is loaded.  Color only brushes, transparent brushes etc */
+		/** No image is loaded.  Color only brushes, transparent brushes etc. */
 		NoImage,
 
-		/** The image to be loaded is in full color */
+		/** The image to be loaded is in full color. */
 		FullColor,
 
-		/** The image is a special texture in linear space (usually a rendering resource such as a lookup table)*/
+		/** The image is a special texture in linear space (usually a rendering resource such as a lookup table). */
 		Linear,
 	};
 }
 
+namespace SlateBrushDefs
+{
+	static const float DefaultImageSize = 32.0f;
+}
 
 /**
  * An brush which contains information about how to draw a Slate element
@@ -122,7 +126,7 @@ struct SLATECORE_API FSlateBrush
 	FLinearColor Tint_DEPRECATED;
 
 	/** Tinting applied to the image. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Brush, meta=( DisplayName="Tint" ))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Brush, meta=( DisplayName="Tint", sRGB="true" ))
 	FSlateColor TintColor;
 
 	/** How to tile the image in Image mode */
@@ -144,7 +148,7 @@ public:
 	 * Default constructor.
 	 */
 	FSlateBrush()
-		: ImageSize(32.0f, 32.0f)
+		: ImageSize(SlateBrushDefs::DefaultImageSize, SlateBrushDefs::DefaultImageSize)
 		, DrawAs(ESlateBrushDrawType::Image)
 		, Margin(0.0f)
 		, Tint_DEPRECATED(FLinearColor::White)
@@ -156,7 +160,10 @@ public:
 		, ResourceName(NAME_None)
 		, bIsDynamicallyLoaded(false)
 		, bHasUObject_DEPRECATED(false)
+		, UVRegion(ForceInit)
 	{ }
+
+	virtual ~FSlateBrush(){}
 
 public:
 
@@ -165,9 +172,9 @@ public:
 	 *
 	 * @return Resource name, or NAME_None if the resource object is not set.
 	 */
-	const FName GetResourceName( ) const
+	const FName GetResourceName() const
 	{
-		return ((ResourceName != NAME_None) || (ResourceObject == nullptr))
+		return ( ( ResourceName != NAME_None ) || ( ResourceObject == nullptr ) )
 			? ResourceName
 			: ResourceObject->GetFName();
 	}
@@ -185,8 +192,8 @@ public:
 	}
 
 	/**
-	* Sets the UObject that represents the brush resource.
-	*/
+	 * Sets the UObject that represents the brush resource.
+	 */
 	void SetResourceObject(class UObject* InResourceObject)
 	{
 		ResourceObject = InResourceObject;
@@ -224,6 +231,26 @@ public:
 	}
 
 	/**
+	 * Get brush UV region, should check if region is valid before using it
+	 *
+	 * @return UV region
+	 */
+	FBox2D GetUVRegion() const
+	{
+		return UVRegion;
+	}
+
+	/**
+	 * Set brush UV region
+	 *
+	 * @param InUVRegion When valid - overrides UV region specified in resource proxy
+	 */
+	void SetUVRegion(const FBox2D& InUVRegion)
+	{
+		UVRegion = InUVRegion;
+	}
+
+	/**
 	 * Compares this brush with another for equality.
 	 *
 	 * @param Other The other brush.
@@ -240,7 +267,8 @@ public:
 			&& Mirroring == Other.Mirroring
 			&& ResourceObject == Other.ResourceObject
 			&& ResourceName == Other.ResourceName
-			&& bIsDynamicallyLoaded == Other.bIsDynamicallyLoaded;
+			&& bIsDynamicallyLoaded == Other.bIsDynamicallyLoaded
+			&& UVRegion == Other.UVRegion;
 	}
 
 	/**
@@ -254,6 +282,8 @@ public:
 	{
 		return !(*this == Other);
 	}
+
+	void PostSerialize(const FArchive& Ar);
 
 public:
 
@@ -269,7 +299,7 @@ protected:
 	/**
 	 * The image to render for this brush, can be a UTexture2D or Material.
 	 */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Brush, meta=( DisplayThumbnail="true", ThumbnailSize="X=40 Y=40", DisplayName="Image", AllowedClasses="Texture2D,MaterialInterface" ))
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Brush, meta=( DisplayThumbnail="true", DisplayName="Image", AllowedClasses="Texture2D,MaterialInterface" ))
 	UObject* ResourceObject;
 
 	/** The name of the rendering resource to use */
@@ -283,6 +313,13 @@ protected:
 	/** Whether or not the brush has a UTexture resource */
 	UPROPERTY()
 	bool bHasUObject_DEPRECATED;
+
+	/** 
+	 *  Optional UV region for an image
+	 *  When valid - overrides UV region specified in resource proxy
+	 */
+	UPROPERTY()
+	FBox2D UVRegion;
 
 protected:
 

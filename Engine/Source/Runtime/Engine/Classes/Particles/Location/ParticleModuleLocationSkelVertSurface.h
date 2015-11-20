@@ -87,12 +87,12 @@ class UParticleModuleLocationSkelVertSurface : public UParticleModuleLocationBas
 	UPROPERTY(EditAnywhere, Category = VertSurface)
 	uint32 bInheritVertexColor : 1;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject Interface
+	//~ End UObject Interface
 
 	//Begin UParticleModule Interface
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;

@@ -128,7 +128,7 @@ bool SocketImpl::flush()
 	return true;
 };
 
-#if defined(PX_VC11) || defined(PX_VC12)
+#if defined(PX_VC11) || defined(PX_VC12) || defined(PX_VC14)
 #pragma warning(push)
 #pragma warning( disable : 4548 ) //for FD_SET on vc11 only
 #endif
@@ -188,7 +188,7 @@ bool SocketImpl::connect(const char* host, PxU16 port, PxU32 timeout)
 	mHost = host;
 	return true;
 }
-#if defined(PX_VC11) || defined(PX_VC12)
+#if defined(PX_VC11) || defined(PX_VC12) || defined(PX_VC14)
 #pragma warning(pop)
 #endif
 

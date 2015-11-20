@@ -2,12 +2,13 @@
 
 #pragma once
 #include "AnimGraphNode_Base.h"
-#include "Animation/AnimNode_SequenceEvaluator.h"
+#include "AnimGraphNode_AssetPlayerBase.h"
+#include "AnimNodes/AnimNode_SequenceEvaluator.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTextCache
 #include "AnimGraphNode_SequenceEvaluator.generated.h"
 
 UCLASS(MinimalAPI)
-class UAnimGraphNode_SequenceEvaluator : public UAnimGraphNode_Base
+class UAnimGraphNode_SequenceEvaluator : public UAnimGraphNode_AssetPlayerBase
 {
 	GENERATED_UCLASS_BODY()
 
@@ -21,7 +22,8 @@ class UAnimGraphNode_SequenceEvaluator : public UAnimGraphNode_Base
 
 	// UAnimGraphNode_Base interface
 	virtual void ValidateAnimNodeDuringCompilation(class USkeleton* ForSkeleton, class FCompilerResultsLog& MessageLog) override;
-	virtual void PreloadRequiredAssets() override;	
+	virtual void PreloadRequiredAssets() override;
+	virtual void BakeDataDuringCompilation(class FCompilerResultsLog& MessageLog) override;
 	// Interface to support transition getter
 	virtual bool DoesSupportTimeForTransitionGetter() const override;
 	virtual UAnimationAsset* GetAnimationAsset() const override;

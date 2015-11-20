@@ -16,12 +16,15 @@
 
 UUserWidget::UUserWidget(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bCanEverTick(true)
+	, bCanEverPaint(true)
 {
 	ViewportAnchors = FAnchors(0, 0, 1, 1);
 	Visiblity_DEPRECATED = Visibility = ESlateVisibility::SelfHitTestInvisible;
 
 	bInitialized = false;
-	bSupportsKeyboardFocus = true;
+	bSupportsKeyboardFocus_DEPRECATED = true;
+	bIsFocusable = false;
 	ColorAndOpacity = FLinearColor::White;
 	ForegroundColor = FSlateColor::UseForeground();
 
@@ -34,7 +37,7 @@ UUserWidget::UUserWidget(const FObjectInitializer& ObjectInitializer)
 #endif
 }
 
-void UUserWidget::Initialize()
+bool UUserWidget::Initialize()
 {
 	// If it's not initialized initialize it, as long as it's not the CDO, we never initialize the CDO.
 	if ( !bInitialized && !HasAnyFlags(RF_ClassDefaultObject) )
@@ -46,6 +49,15 @@ void UUserWidget::Initialize()
 		if ( BGClass != nullptr )
 		{
 			BGClass->InitializeWidget(this);
+		}
+		else
+		{
+			CustomNativeInitilize();
+		}
+
+		if ( WidgetTree == nullptr )
+		{
+			WidgetTree = NewObject<UWidgetTree>(this, TEXT("WidgetTree"));
 		}
 
 		// Map the named slot bindings to the available slots.
@@ -63,7 +75,10 @@ void UUserWidget::Initialize()
 				}
 			}
 		});
+
+		return true;
 	}
+	return false;
 }
 
 void UUserWidget::BeginDestroy()
@@ -124,6 +139,7 @@ void UUserWidget::SynchronizeProperties()
 
 		SafeGCWidget->SetColorAndOpacity(ColorBinding);
 		SafeGCWidget->SetForegroundColor(ForegroundColorBinding);
+		SafeGCWidget->SetPadding(Padding);
 	}
 }
 
@@ -149,6 +165,17 @@ void UUserWidget::SetForegroundColor(FSlateColor InForegroundColor)
 	}
 }
 
+void UUserWidget::SetPadding(FMargin InPadding)
+{
+	Padding = InPadding;
+
+	TSharedPtr<SObjectWidget> SafeGCWidget = MyGCWidget.Pin();
+	if ( SafeGCWidget.IsValid() )
+	{
+		SafeGCWidget->SetPadding(Padding);
+	}
+}
+
 void UUserWidget::PostInitProperties()
 {
 	Super::PostInitProperties();
@@ -156,6 +183,11 @@ void UUserWidget::PostInitProperties()
 
 UWorld* UUserWidget::GetWorld() const
 {
+	if ( UWorld* LastWorld = CachedWorld.Get() )
+	{
+		return LastWorld;
+	}
+
 	if ( HasAllFlags(RF_ClassDefaultObject) )
 	{
 		// If we are a CDO, we must return nullptr instead of calling Outer->GetWorld() to fool UObject::ImplementsGetWorld.
@@ -168,6 +200,7 @@ UWorld* UUserWidget::GetWorld() const
 	{
 		if ( UWorld* World = PlayerContext.GetWorld() )
 		{
+			CachedWorld = World;
 			return World;
 		}
 	}
@@ -181,6 +214,7 @@ UWorld* UUserWidget::GetWorld() const
 		UWorld* World = Outer->GetWorld();
 		if ( World )
 		{
+			CachedWorld = World;
 			return World;
 		}
 
@@ -188,15 +222,6 @@ UWorld* UUserWidget::GetWorld() const
 	}
 
 	return nullptr;
-}
-
-void UUserWidget::SetIsDesignTime(bool bInDesignTime)
-{
-	Super::SetIsDesignTime(bInDesignTime);
-
-	WidgetTree->ForEachWidget([&] (UWidget* Widget) {
-		Widget->SetIsDesignTime(bInDesignTime);
-	});
 }
 
 void UUserWidget::PlayAnimation( const UWidgetAnimation* InAnimation, float StartAtTime, int32 NumberOfLoops, EUMGSequencePlayMode::Type PlayMode)
@@ -224,6 +249,12 @@ void UUserWidget::PlayAnimation( const UWidgetAnimation* InAnimation, float Star
 		else
 		{
 			( *FoundPlayer )->Play( StartAtTime, NumberOfLoops, PlayMode );
+		}
+
+		TSharedPtr<SWidget> CachedWidget = GetCachedWidget();
+		if ( CachedWidget.IsValid() )
+		{
+			CachedWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
 		}
 
 		OnAnimationStarted( InAnimation );
@@ -261,7 +292,26 @@ float UUserWidget::PauseAnimation(const UWidgetAnimation* InAnimation)
 	return 0;
 }
 
-void UUserWidget::OnAnimationFinishedPlaying( UUMGSequencePlayer& Player )
+bool UUserWidget::IsAnimationPlaying(const UWidgetAnimation* InAnimation) const
+{
+	if (InAnimation)
+	{
+		UUMGSequencePlayer* const* FoundPlayer = ActiveSequencePlayers.FindByPredicate(
+			[ &](const UUMGSequencePlayer* Player)
+		{
+			return Player->GetAnimation() == InAnimation;
+		});
+
+		if (FoundPlayer)
+		{
+			return (*FoundPlayer)->GetPlaybackStatus() == EMovieScenePlayerStatus::Playing;
+		}
+	}
+
+	return false;
+}
+
+void UUserWidget::OnAnimationFinishedPlaying(UUMGSequencePlayer& Player)
 {
 	OnAnimationFinished( Player.GetAnimation() );
 	StoppedSequencePlayers.Add( &Player );
@@ -408,8 +458,11 @@ void UUserWidget::SetContentForSlot(FName SlotName, UWidget* Content)
 	if ( WidgetTree )
 	{
 		UNamedSlot* NamedSlot = Cast<UNamedSlot>(WidgetTree->FindWidget(SlotName));
-		NamedSlot->ClearChildren();
-		NamedSlot->AddChild(Content);
+		if (NamedSlot)
+		{
+			NamedSlot->ClearChildren();
+			NamedSlot->AddChild(Content);
+		}
 	}
 }
 
@@ -546,7 +599,7 @@ bool UUserWidget::IsInViewport() const
 	return FullScreenWidget.IsValid();
 }
 
-void UUserWidget::SetPlayerContext(FLocalPlayerContext InPlayerContext)
+void UUserWidget::SetPlayerContext(const FLocalPlayerContext& InPlayerContext)
 {
 	PlayerContext = InPlayerContext;
 }
@@ -558,15 +611,18 @@ const FLocalPlayerContext& UUserWidget::GetPlayerContext() const
 
 ULocalPlayer* UUserWidget::GetOwningLocalPlayer() const
 {
-	APlayerController* PC = PlayerContext.IsValid() ? PlayerContext.GetPlayerController() : nullptr;
-	return PC ? Cast<ULocalPlayer>(PC->Player) : nullptr;
+	if (PlayerContext.IsValid())
+	{
+		return PlayerContext.GetLocalPlayer();
+	}
+	return nullptr;
 }
 
 void UUserWidget::SetOwningLocalPlayer(ULocalPlayer* LocalPlayer)
 {
 	if ( LocalPlayer )
 	{
-		PlayerContext = FLocalPlayerContext(LocalPlayer);
+		PlayerContext = FLocalPlayerContext(LocalPlayer, GetWorld());
 	}
 }
 
@@ -647,6 +703,20 @@ FVector2D UUserWidget::GetFullScreenAlignment() const
 	return ViewportAlignment;
 }
 
+void UUserWidget::RemoveObsoleteBindings(const TArray<FName>& NamedSlots)
+{
+	for (int32 BindingIndex = 0; BindingIndex < NamedSlotBindings.Num(); BindingIndex++)
+	{
+		const FNamedSlotBinding& Binding = NamedSlotBindings[BindingIndex];
+
+		if (!NamedSlots.Contains(Binding.Name))
+		{
+			NamedSlotBindings.RemoveAt(BindingIndex);
+			BindingIndex--;
+		}
+	}
+}
+
 void UUserWidget::PreSave()
 {
 	Super::PreSave();
@@ -654,16 +724,7 @@ void UUserWidget::PreSave()
 	// Remove bindings that are no longer contained in the class.
 	if ( UWidgetBlueprintGeneratedClass* BGClass = Cast<UWidgetBlueprintGeneratedClass>(GetClass()) )
 	{
-		for ( int32 BindingIndex = 0; BindingIndex < NamedSlotBindings.Num(); BindingIndex++ )
-		{
-			const FNamedSlotBinding& Binding = NamedSlotBindings[BindingIndex];
-
-			if ( !BGClass->NamedSlots.Contains(Binding.Name) )
-			{
-				NamedSlotBindings.RemoveAt(BindingIndex);
-				BindingIndex--;
-			}
-		}
+		RemoveObsoleteBindings(BGClass->NamedSlots);
 	}
 }
 
@@ -677,6 +738,15 @@ const FSlateBrush* UUserWidget::GetEditorIcon()
 const FText UUserWidget::GetPaletteCategory()
 {
 	return PaletteCategory;
+}
+
+void UUserWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
+{
+	Super::SetDesignerFlags(NewFlags);
+
+	WidgetTree->ForEachWidget([&] (UWidget* Widget) {
+		Widget->SetDesignerFlags(NewFlags);
+	});
 }
 
 #endif
@@ -700,6 +770,7 @@ void UUserWidget::NativeConstruct()
 
 void UUserWidget::NativeDestruct()
 {
+	StopListeningForAllInputActions();
 	Destruct();
 }
 
@@ -709,29 +780,47 @@ void UUserWidget::NativeTick(const FGeometry& MyGeometry, float InDeltaTime)
 
 	TickActionsAndAnimation(MyGeometry, InDeltaTime);
 
-	Tick(MyGeometry, InDeltaTime);
+	if ( bCanEverTick )
+	{
+		Tick(MyGeometry, InDeltaTime);
+	}
 }
 
 void UUserWidget::TickActionsAndAnimation(const FGeometry& MyGeometry, float InDeltaTime)
 {
-	if ( bDesignTime )
+	if ( IsDesignTime() )
 	{
 		return;
 	}
 
-	// Update active movie scenes
-	for ( UUMGSequencePlayer* Player : ActiveSequencePlayers )
+	// Update active movie scenes, none will be removed here, but new
+	// ones can be added during the tick, if a player ends and triggers
+	// starting another animation
+	for ( int32 Index = 0; Index < ActiveSequencePlayers.Num(); Index++ )
 	{
-		Player->Tick(InDeltaTime);
+		UUMGSequencePlayer* Player = ActiveSequencePlayers[Index];
+		Player->Tick( InDeltaTime );
 	}
+
+	const bool bWasPlayingAnimation = IsPlayingAnimation();
 
 	// The process of ticking the players above can stop them so we remove them after all players have ticked
 	for ( UUMGSequencePlayer* StoppedPlayer : StoppedSequencePlayers )
 	{
-		ActiveSequencePlayers.Remove(StoppedPlayer);
+		ActiveSequencePlayers.RemoveSwap(StoppedPlayer);
 	}
 
 	StoppedSequencePlayers.Empty();
+
+	// If we're no longer playing animations invalidate layout so that we recache the volatility of the widget.
+	if ( bWasPlayingAnimation && IsPlayingAnimation() == false )
+	{
+		TSharedPtr<SWidget> CachedWidget = GetCachedWidget();
+		if ( CachedWidget.IsValid() )
+		{
+			CachedWidget->Invalidate(EInvalidateWidget::LayoutAndVolatility);
+		}
+	}
 
 	UWorld* World = GetWorld();
 	if ( World )
@@ -742,9 +831,113 @@ void UUserWidget::TickActionsAndAnimation(const FGeometry& MyGeometry, float InD
 	}
 }
 
-void UUserWidget::NativePaint( FPaintContext& InContext ) const 
+void UUserWidget::ListenForInputAction( FName ActionName, TEnumAsByte< EInputEvent > EventType, bool bConsume, FOnInputAction Callback )
 {
-	OnPaint( InContext );
+	if ( !InputComponent )
+	{
+		if ( APlayerController* Controller = GetOwningPlayer() )
+		{
+			InputComponent = NewObject< UInputComponent >( this, NAME_None, RF_Transient );
+			InputComponent->bBlockInput = bStopAction;
+			InputComponent->Priority = Priority;
+			Controller->PushInputComponent( InputComponent );
+		}
+		else
+		{
+			FMessageLog("PIE").Info(FText::Format(LOCTEXT("NoInputListeningWithoutPlayerController", "Unable to listen to input actions without a player controller in {0}."), FText::FromName(GetClass()->GetFName())));
+		}
+	}
+
+	if ( InputComponent )
+	{
+		FInputActionBinding NewBinding( ActionName, EventType.GetValue() );
+		NewBinding.bConsumeInput = bConsume;
+		NewBinding.ActionDelegate.GetDelegateForManualSet().BindUObject( this, &ThisClass::OnInputAction, Callback );
+
+		InputComponent->AddActionBinding( NewBinding );
+	}
+}
+
+void UUserWidget::StopListeningForInputAction( FName ActionName, TEnumAsByte< EInputEvent > EventType )
+{
+	if ( InputComponent )
+	{
+		for ( int32 ExistingIndex = InputComponent->GetNumActionBindings() - 1; ExistingIndex >= 0; --ExistingIndex )
+		{
+			const FInputActionBinding& ExistingBind = InputComponent->GetActionBinding( ExistingIndex );
+			if ( ExistingBind.ActionName == ActionName && ExistingBind.KeyEvent == EventType )
+			{
+				InputComponent->RemoveActionBinding( ExistingIndex );
+			}
+		}
+	}
+}
+
+void UUserWidget::StopListeningForAllInputActions()
+{
+	if ( InputComponent )
+	{
+		if ( APlayerController* Controller = GetOwningPlayer() )
+		{
+			Controller->PopInputComponent( InputComponent );
+		}
+
+		InputComponent->ClearActionBindings();
+		InputComponent = nullptr;
+	}
+}
+
+bool UUserWidget::IsListeningForInputAction( FName ActionName ) const
+{
+	bool bResult = false;
+	if ( InputComponent )
+	{
+		for ( int32 ExistingIndex = InputComponent->GetNumActionBindings() - 1; ExistingIndex >= 0; --ExistingIndex )
+		{
+			const FInputActionBinding& ExistingBind = InputComponent->GetActionBinding( ExistingIndex );
+			if ( ExistingBind.ActionName == ActionName )
+			{
+				bResult = true;
+				break;
+			}
+		}
+	}
+
+	return bResult;
+}
+
+void UUserWidget::SetInputActionPriority( int32 NewPriority )
+{
+	if ( InputComponent )
+	{
+		Priority = NewPriority;
+		InputComponent->Priority = Priority;
+	}
+}
+
+void UUserWidget::SetInputActionBlocking( bool bShouldBlock )
+{
+	if ( InputComponent )
+	{
+		bStopAction = bShouldBlock;
+		InputComponent->bBlockInput = bStopAction;
+	}
+}
+
+void UUserWidget::OnInputAction( FOnInputAction Callback )
+{
+	if ( GetIsEnabled() )
+	{
+		Callback.ExecuteIfBound();
+	}
+}
+
+void UUserWidget::NativePaint( FPaintContext& InContext ) const
+{
+	if ( bCanEverPaint )
+	{
+		OnPaint( InContext );
+	}
 }
 
 bool UUserWidget::NativeIsInteractable() const
@@ -754,7 +947,7 @@ bool UUserWidget::NativeIsInteractable() const
 
 bool UUserWidget::NativeSupportsKeyboardFocus() const
 {
-	return bSupportsKeyboardFocus;
+	return bIsFocusable;
 }
 
 FReply UUserWidget::NativeOnFocusReceived( const FGeometry& InGeometry, const FFocusEvent& InFocusEvent )
@@ -887,9 +1080,19 @@ FReply UUserWidget::NativeOnMotionDetected( const FGeometry& InGeometry, const F
 	return OnMotionDetected( InGeometry, InMotionEvent ).NativeReply;
 }
 
+FCursorReply UUserWidget::NativeOnCursorQuery( const FGeometry& InGeometry, const FPointerEvent& InCursorEvent )
+{
+	return FCursorReply::Unhandled();
+}
+
 void UUserWidget::PostLoad()
 {
 	Super::PostLoad();
+
+	if ( GetLinkerUE4Version() < VER_UE4_USERWIDGET_DEFAULT_FOCUSABLE_FALSE )
+	{
+		bIsFocusable = bSupportsKeyboardFocus_DEPRECATED;
+	}
 
 #if WITH_EDITORONLY_DATA
 

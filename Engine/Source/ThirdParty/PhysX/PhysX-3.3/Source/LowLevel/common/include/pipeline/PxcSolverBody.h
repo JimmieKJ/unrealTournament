@@ -37,7 +37,7 @@ struct PxcSolverBodyData
 	PxReal			invMass;			// 52 or 60 inverse mass
 	PxReal			penBiasClamp;		// 56 or 64 the penetration bias clamp
 
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 	PxU8    pad[8];
 #endif
 };

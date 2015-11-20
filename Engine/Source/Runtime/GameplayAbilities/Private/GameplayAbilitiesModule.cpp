@@ -13,6 +13,7 @@ class FGameplayAbilitiesModule : public IGameplayAbilitiesModule
 
 	virtual UAbilitySystemGlobals* GetAbilitySystemGlobals() override
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_IGameplayAbilitiesModule_GetAbilitySystemGlobals);
 		// Defer loading of globals to the first time it is requested
 		if (!AbilitySystemGlobals)
 		{
@@ -27,6 +28,12 @@ class FGameplayAbilitiesModule : public IGameplayAbilitiesModule
 
 		check(AbilitySystemGlobals);
 		return AbilitySystemGlobals;
+	}
+
+	virtual bool IsAbilitySystemGlobalsAvailable() override
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_IGameplayAbilitiesModule_IsAbilitySystemGlobalsAvailable);
+		return AbilitySystemGlobals != nullptr;
 	}
 
 	UAbilitySystemGlobals *AbilitySystemGlobals;

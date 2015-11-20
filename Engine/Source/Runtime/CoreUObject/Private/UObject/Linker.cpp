@@ -128,6 +128,11 @@ void FLinker::Serialize( FArchive& Ar )
 		}
 	}
 
+	if (Ar.IsSaving() || Ar.UE4Ver() >= VER_UE4_SERIALIZE_TEXT_IN_PACKAGES)
+	{
+		Ar << GatherableTextDataMap;
+	}
+
 	// Prevent garbage collecting of linker's names and package.
 	Ar << NameMap << LinkerRoot;
 	{
@@ -144,6 +149,7 @@ void FLinker::Serialize( FArchive& Ar )
 			Ar << I.ClassPackage << I.ClassName;
 		}
 	}
+
 }
 
 void FLinker::AddReferencedObjects(FReferenceCollector& Collector)
@@ -313,17 +319,22 @@ FLinker::~FLinker()
 	Global functions
 -----------------------------------------------------------------------------*/
 
-//
-// Empty the loaders.
-//
-void ResetLoaders( UObject* InPkg )
+void ResetLoaders(UObject* InPkg)
 {
 	// Make sure we're not in the middle of loading something in the background.
 	FlushAsyncLoading();
 	FLinkerManager::Get().ResetLoaders(InPkg);
 }
 
+void DeleteLoaders()
+{
+	FLinkerManager::Get().DeleteLinkers();
+}
 
+void DeleteLoader(FLinkerLoad* Loader)
+{
+	FLinkerManager::Get().RemoveLinker(Loader);
+}
 
 /**
  * Dissociates all linker import and forced export object references. This currently needs to 
@@ -456,11 +467,17 @@ FLinkerLoad* GetPackageLinker
 			LogGetPackageLinkerError(Result, InLongPackageName, ErrorText, ErrorText, InOuter, LoadFlags);
 			return nullptr;
 		}
+	
+		FString NativeFilename;
+		FString LocalizedFilename;
+		const bool DoesNativePackageExist = FPackageName::DoesPackageExist(InOuter->GetName(), CompatibleGuid, &NativeFilename, false);
+		const bool DoesLocalizedPackageExist = FPackageName::DoesPackageExist(InOuter->GetName(), CompatibleGuid, &LocalizedFilename, true);
 
-		if( !FPackageName::DoesPackageExist(InOuter->GetName(), CompatibleGuid, &NewFilename) )
+		// If we are the editor, we must have a native package. If we are the game, we must have a localized package or a native package.
+		if ( (GIsEditor && !DoesNativePackageExist) || (!GIsEditor && !DoesLocalizedPackageExist && !DoesNativePackageExist) )
 		{
 			// In memory-only packages have no linker and this is ok.
-			if (!(LoadFlags & LOAD_AllowDll) && !(InOuter->PackageFlags & PKG_InMemoryOnly))
+			if (!(LoadFlags & LOAD_AllowDll) && !(InOuter->PackageFlags & PKG_InMemoryOnly) && !FLinkerLoad::KnownMissingPackages.Contains(InOuter->GetFName()))
 			{
 				FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
 				FFormatNamedArguments Arguments;
@@ -475,6 +492,38 @@ FLinkerLoad* GetPackageLinker
 
 			return nullptr;
 		}
+
+		// The editor must not redirect packages for localization.
+		if (GIsEditor)
+		{
+			NewFilename = NativeFilename;
+		}
+		else
+		{
+			if (DoesLocalizedPackageExist)
+			{
+				NewFilename = LocalizedFilename;
+			}
+			// If we are the game, we can fallback to the native package, but must issue a warning.
+			else
+			{
+				// In memory-only packages have no linker and this is ok.
+				if (!(LoadFlags & LOAD_AllowDll) && !(InOuter->PackageFlags & PKG_InMemoryOnly))
+				{
+					FUObjectThreadContext& ThreadContext = FUObjectThreadContext::Get();
+					FFormatNamedArguments Arguments;
+					Arguments.Add(TEXT("AssetName"), FText::FromString(InOuter->GetName()));
+					Arguments.Add(TEXT("PackageName"), FText::FromString(ThreadContext.SerializedPackageLinker ? *(ThreadContext.SerializedPackageLinker->Filename) : TEXT("NULL")));
+					LogGetPackageLinkerError(Result, ThreadContext.SerializedPackageLinker ? *ThreadContext.SerializedPackageLinker->Filename : nullptr,
+						FText::Format(LOCTEXT("PackageNotFound", "Can't find localized file for asset '{AssetName}' while loading {PackageName}."), Arguments),
+						LOCTEXT("PackageNotFoundShort", "Can't find localized file for asset."),
+						InOuter,
+						LoadFlags);
+				}
+
+				NewFilename = NativeFilename;
+			}
+		}
 	}
 	else
 	{
@@ -487,7 +536,8 @@ FLinkerLoad* GetPackageLinker
 			return nullptr;
 		}
 
-		if (UPackage* ExistingPackage = FindObject<UPackage>(nullptr, *PackageName))
+		UPackage* ExistingPackage = FindObject<UPackage>(nullptr, *PackageName);
+		if (ExistingPackage)
 		{
 			if (!ExistingPackage->GetOuter() && (ExistingPackage->PackageFlags & PKG_InMemoryOnly))
 			{
@@ -497,19 +547,46 @@ FLinkerLoad* GetPackageLinker
 		}
 
 		// Verify that the file exists.
-		if( !FPackageName::DoesPackageExist( PackageName, CompatibleGuid, &NewFilename ) )
-		{
-			FFormatNamedArguments Arguments;
-			Arguments.Add(TEXT("Filename"), FText::FromString(InLongPackageName));
+		FString NativeFilename;
+		FString LocalizedFilename;
+		const bool DoesNativePackageExist = FPackageName::DoesPackageExist(PackageName, CompatibleGuid, &NativeFilename, false);
+		const bool DoesLocalizedPackageExist = FPackageName::DoesPackageExist(PackageName, CompatibleGuid, &LocalizedFilename, true);
 
-			// try to recover from this instead of throwing, it seems recoverable just by doing this
-			LogGetPackageLinkerError(Result, InLongPackageName, FText::Format(LOCTEXT("FileNotFound", "Can't find file '{Filename}'"), Arguments), LOCTEXT("FileNotFoundShort", "Can't find file"), InOuter, LoadFlags);
+		if( (GIsEditor && !DoesNativePackageExist) || (!GIsEditor && !DoesLocalizedPackageExist && !DoesNativePackageExist) )
+		{
+			if (!FLinkerLoad::KnownMissingPackages.Contains(InLongPackageName))
+			{
+				FFormatNamedArguments Arguments;
+				Arguments.Add(TEXT("Filename"), FText::FromString(InLongPackageName));
+
+				// try to recover from this instead of throwing, it seems recoverable just by doing this
+				LogGetPackageLinkerError(Result, InLongPackageName, FText::Format(LOCTEXT("FileNotFound", "Can't find file '{Filename}'"), Arguments), LOCTEXT("FileNotFoundShort", "Can't find file"), InOuter, LoadFlags);
+			}
 			return nullptr;
 		}
 
+		// The editor must not redirect packages for localization.
+		if (GIsEditor)
+		{
+			NewFilename = NativeFilename;
+		}
+		else
+		{
+			// Use the localized package if possible.
+			if (DoesLocalizedPackageExist)
+			{
+				NewFilename = LocalizedFilename;
+			}
+			// If we are the game, we can fallback to the native package.
+			else
+			{
+				NewFilename = NativeFilename;
+			}
+		}
+
 		// Create the package with the provided long package name.
-		UPackage* FilenamePkg = CreatePackage(nullptr, *PackageName);
-		if (FilenamePkg && (LoadFlags & LOAD_PackageForPIE))
+		UPackage* FilenamePkg = (ExistingPackage ? ExistingPackage : CreatePackage(nullptr, *PackageName));
+		if (FilenamePkg != ExistingPackage && (LoadFlags & LOAD_PackageForPIE))
 		{
 			FilenamePkg->PackageFlags |= PKG_PlayInEditor;
 		}

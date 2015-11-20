@@ -8,15 +8,6 @@
 
 #include "ObjectBase.h"
 
-// 1 = old behavior
-// 2 = new behavior
-// 3 = old behavior with checks against the new behavior
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	#define UCLASS_FAST_ISA_IMPL 3
-#else
-	#define UCLASS_FAST_ISA_IMPL 2
-#endif
-
 /*-----------------------------------------------------------------------------
 	Mirrors of mirror structures in Object.h. These are used by generated code 
 	to facilitate correct offsets and alignments for structures containing these '
@@ -26,16 +17,6 @@
 COREUOBJECT_API DECLARE_LOG_CATEGORY_EXTERN(LogClass, Log, All);
 
 struct FPropertyTag;
-
-// A specifier with optional value
-struct FPropertySpecifier
-{
-public:
-	FString Key;
-	TArray<FString> Values;
-
-	COREUOBJECT_API FString ConvertToString() const;
-};
 
 /*-----------------------------------------------------------------------------
 	FRepRecord.
@@ -301,7 +282,7 @@ public:
 	// UField interface.
 	virtual void AddCppProperty(UProperty* Property) override;
 
-	UProperty* FindPropertyByName(FName Name) const;
+	UProperty* FindPropertyByName(FName InName) const;
 
 	/**
 	 * Creates new copies of components
@@ -356,7 +337,7 @@ public:
 
 #if WITH_EDITOR
 private:
-	virtual UProperty* CustomFindProperty(const FName Name) const { return NULL; };
+	virtual UProperty* CustomFindProperty(const FName InName) const { return NULL; };
 #endif // WITH_EDITOR
 public:
 	virtual EExprToken SerializeExpr(int32& iCode, FArchive& Ar);
@@ -428,9 +409,9 @@ public:
 		Children = Child;
 	}
 
-	virtual FString PropertyNameToDisplayName(FName Name) const 
+	virtual FString PropertyNameToDisplayName(FName InName) const 
 	{ 
-		return Name.ToString(); 
+		return InName.ToString();
 	}
 
 #if WITH_EDITOR
@@ -1094,6 +1075,31 @@ public:
 		}
 	}
 
+	/** Returns true if this struct has a native serialize function */
+	bool UseNativeSerialization() const
+	{
+		if ((StructFlags&STRUCT_SerializeNative) != 0)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
+	/** Returns true if this struct should be binary serialized for the given archive */
+	COREUOBJECT_API bool UseBinarySerialization(const FArchive& Ar) const;
+
+	/** 
+	 * Serializes a specific instance of a struct 
+	 *
+	 * @param	Ar			Archive we are serializing to/from
+	 * @param	Value		Pointer to memory of struct
+	 * @param	Defaults	Default value for this struct, pass nullptr to not use defaults 
+	 */
+	COREUOBJECT_API void SerializeItem(FArchive& Ar, void* Value, void const* Defaults);
+
 	/**
 	 * Compare two script structs
 	 *
@@ -1141,10 +1147,12 @@ protected:
 		{
 			SampleStructMemory = (uint8*)FMemory::Malloc(ScriptStruct->GetStructureSize());
 			ScriptStruct.Get()->InitializeStruct(SampleStructMemory);
+			OwnsMemory = true;
 		}
 	}
 
 public:
+
 	FStructOnScope(const UStruct* InScriptStruct)
 		: ScriptStruct(InScriptStruct)
 		, SampleStructMemory(NULL)
@@ -1152,16 +1160,39 @@ public:
 		Initialize();
 	}
 
-	virtual uint8* GetStructMemory() { return SampleStructMemory; }
+	FStructOnScope(const UStruct* InScriptStruct, uint8* InData)
+		: ScriptStruct(InScriptStruct)
+		, SampleStructMemory(InData)
+		, OwnsMemory(false)
+	{ }
 
-	virtual const uint8* GetStructMemory() const { return SampleStructMemory; }
+	virtual uint8* GetStructMemory()
+	{
+		return SampleStructMemory;
+	}
 
-	virtual const UStruct* GetStruct() const { return ScriptStruct.Get(); }
+	virtual const uint8* GetStructMemory() const
+	{
+		return SampleStructMemory;
+	}
 
-	virtual bool IsValid() const { return ScriptStruct.IsValid() && SampleStructMemory; }
+	virtual const UStruct* GetStruct() const
+	{
+		return ScriptStruct.Get();
+	}
+
+	virtual bool IsValid() const
+	{
+		return ScriptStruct.IsValid() && SampleStructMemory;
+	}
 
 	virtual void Destroy()
 	{
+		if (!OwnsMemory)
+		{
+			return;
+		}
+
 		if (ScriptStruct.IsValid() && SampleStructMemory)
 		{
 			ScriptStruct.Get()->DestroyStruct(SampleStructMemory);
@@ -1180,9 +1211,22 @@ public:
 		Destroy();
 	}
 
+	/** Re-initializes the scope with a specified UStruct */
+	void Initialize(TWeakObjectPtr<const UStruct> InScriptStruct)
+	{
+		ScriptStruct = InScriptStruct;
+		Initialize();
+	}
+
 private:
+
 	FStructOnScope(const FStructOnScope&);
 	FStructOnScope& operator=(const FStructOnScope&);
+
+private:
+
+	/** Whether the struct memory is owned by this instance. */
+	bool OwnsMemory;
 };
 
 /*-----------------------------------------------------------------------------
@@ -1310,7 +1354,9 @@ public:
 	FORCEINLINE static uint64 GetDefaultIgnoredSignatureCompatibilityFlags()
 	{
 		//@TODO: UCREMOVAL: CPF_ConstParm added as a hack to get blueprints compiling with a const DamageType parameter.
-		const uint64 IgnoreFlags = CPF_PersistentInstance | CPF_ExportObject | CPF_InstancedReference | CPF_ContainsInstancedReference | CPF_ComputedFlags | CPF_ConstParm | CPF_HasGetValueTypeHash | CPF_UObjectWrapper;
+		const uint64 IgnoreFlags = CPF_PersistentInstance | CPF_ExportObject | CPF_InstancedReference 
+			| CPF_ContainsInstancedReference | CPF_ComputedFlags | CPF_ConstParm | CPF_HasGetValueTypeHash | CPF_UObjectWrapper
+			| CPF_NativeAccessSpecifiers;
 		return IgnoreFlags;
 	}
 
@@ -1354,9 +1400,9 @@ public:
 //
 // Reflection data for an enumeration.
 //
-class UEnum : public UField
+class COREUOBJECT_API UEnum : public UField
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UEnum,UField,0,CoreUObject,CASTCLASS_UEnum,COREUOBJECT_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UEnum,UField,0,CoreUObject,CASTCLASS_UEnum,NO_API)
 
 public:
 	enum class ECppForm
@@ -1369,16 +1415,40 @@ public:
 	// This will be the true type of the enum as a string, e.g. "ENamespacedEnum::InnerType" or "ERegularEnum" or "EEnumClass"
 	FString CppType;
 
+	/** Gets enum name by index in Names array. Returns NAME_None if Index is not valid. */
+	FName GetNameByIndex(uint8 Index) const;
+		
+	/** Gets enum value by index in Names array. */
+	uint8 GetValueByIndex(uint8 Index) const;
+
+	/** Gets enum name by value. Returns NAME_None if value is not found. */
+	FName GetNameByValue(uint8 InValue) const;
+		
+	/** Gets enum value by name. Returns INDEX_NONE when name is not found. */
+	int32 GetValueByName(FName InName) const;
+
+	/** Gets index of name in enum. Returns INDEX_NONE when name is not found. */
+	int32 GetIndexByName(FName InName) const;
+
+	/** Gets max value of Enum. Defaults to zero if there are no entries. */
+	uint8 GetMaxEnumValue() const;
+
+	/** Checks if enum has entry with given value. Includes autogenerated _MAX entry. */
+	bool IsValidEnumValue(uint8 InValue) const;
+
+	/** Checks if enum has entry with given name. Includes autogenerated _MAX entry. */
+	bool IsValidEnumName(FName InName) const;
+
 protected:
 	// Variables.
-	/** List of all enum names. */
-	TArray<FName> Names;
+	/** List of pairs of all enum names and values. */
+	TArray<TPair<FName, uint8>> Names;
 
 	/** How the enum was originally defined. */
 	ECppForm CppForm;
 
 	/** global list of all value names used by all enums in memory, used for property text import */
-	COREUOBJECT_API static TMap<FName, UEnum*> AllEnumNames;
+	static TMap<FName, UEnum*> AllEnumNames;
 
 protected: 
 	
@@ -1391,15 +1461,15 @@ public:
 	void RemoveNamesFromMasterList();
 
 	// UObject interface.
-	COREUOBJECT_API virtual void Serialize(FArchive& Ar) override;
+	virtual void Serialize(FArchive& Ar) override;
 	// End of UObject interface.
 
-	COREUOBJECT_API ~UEnum();
+	~UEnum();
 
 	/*
 	 *	Try to update an out-of-date enum index after an enum's change
 	 */
-	COREUOBJECT_API virtual int32 ResolveEnumerator(FArchive& Ar, int32 EnumeratorIndex) const;
+	virtual int32 ResolveEnumerator(FArchive& Ar, int32 EnumeratorIndex) const;
 
 	/**
 	 * Returns the type of enum: whether it's a regular enum, namespaced enum or C++11 enum class.
@@ -1429,15 +1499,7 @@ public:
 	 * @param InEnumName Enum name.
 	 * @return Full enum name.
 	 */
-	COREUOBJECT_API static FString GenerateFullEnumName(const UEnum* InEnum, const TCHAR* InEnumName)
-	{
-		if (InEnum->GetCppForm() == ECppForm::Regular || IsFullEnumName(InEnumName))
-		{
-			return InEnumName;
-		}
-
-		return FString::Printf(TEXT("%s::%s"), *InEnum->GetName(), InEnumName);
-	}
+	static FString GenerateFullEnumName(const UEnum* InEnum, const TCHAR* InEnumName);
 
 	/**
 	 * Generates full enum name give enum name.
@@ -1445,19 +1507,19 @@ public:
 	 * @param InEnumName Enum name.
 	 * @return Full enum name.
 	 */
-	COREUOBJECT_API virtual FString GenerateFullEnumName(const TCHAR* InEnumName) const;
+	virtual FString GenerateFullEnumName(const TCHAR* InEnumName) const;
 
 	/** searches the list of all enum value names for the specified name
 	 * @return the value the specified name represents if found, otherwise INDEX_NONE
 	 */
-	static int32 LookupEnumName(FName TestName, UEnum** FoundEnum = NULL)
+	static int32 LookupEnumName(FName TestName, UEnum** FoundEnum = nullptr)
 	{
 		UEnum* TheEnum = AllEnumNames.FindRef(TestName);
-		if (FoundEnum != NULL)
+		if (FoundEnum != nullptr)
 		{
 			*FoundEnum = TheEnum;
 		}
-		return (TheEnum != NULL) ? TheEnum->Names.Find(TestName) : INDEX_NONE;
+		return (TheEnum != nullptr) ? TheEnum->GetValueByName(TestName) : INDEX_NONE;
 	}
 
 	/** searches the list of all enum value names for the specified name
@@ -1481,7 +1543,7 @@ public:
 			{
 				*FoundEnum = TheEnum;
 			}
-			EnumIndex = (TheEnum != NULL) ? TheEnum->FindEnumIndex(InTestShortName) : INDEX_NONE;
+			EnumIndex = (TheEnum != NULL) ? TheEnum->GetValueByName(InTestShortName) : INDEX_NONE;
 		}
 		return EnumIndex;
 	}
@@ -1499,7 +1561,7 @@ public:
 	 * @param InCppForm The form of enum.
 	 * @return	true unless the MAX enum already exists and isn't the last enum.
 	 */
-	COREUOBJECT_API bool SetEnums(TArray<FName>& InNames, ECppForm InCppForm);
+	virtual bool SetEnums(TArray<TPair<FName, uint8>>& InNames, ECppForm InCppForm);
 
 	/**
 	 * @return	The enum name at the specified Index.
@@ -1508,54 +1570,49 @@ public:
 	{
 		if (Names.IsValidIndex(InIndex))
 		{
-			return Names[InIndex];
+			return Names[InIndex].Key;
 		}
 		return NAME_None;
+	}
+
+	int32 GetIndexByValue(int32 Value) const
+	{
+		for (int32 i = 0; i < Names.Num(); ++i)
+		{
+			if (Names[i].Value == Value)
+			{
+				return i;
+			}
+		}
+
+		return INDEX_NONE;
+	}
+	FString GetEnumNameStringByValue(int32 Value) const
+	{
+		int32 Index = GetIndexByValue(Value);
+		return GetEnumName(Index);
 	}
 
 	/**
 	 * @return	The short enum name at the specified Index.
 	 */
-	FString GetEnumName(int32 InIndex) const
-	{
-		if (Names.IsValidIndex(InIndex))
-		{
-			if (CppForm == ECppForm::Regular)
-			{
-				return Names[InIndex].ToString();
-			}
+	FString GetEnumName(int32 InIndex) const;
 
-			// Strip the namespace from the name.
-			FString EnumName(Names[InIndex].ToString());
-			int32 ScopeIndex = EnumName.Find(TEXT("::"), ESearchCase::CaseSensitive);
-			if (ScopeIndex != INDEX_NONE)
-			{
-				return EnumName.Mid(ScopeIndex + 2);
-			}
-		}
-		return FName(NAME_None).ToString();
+	FText GetEnumTextByValue(int32 Value)
+	{
+		int32 Index = GetIndexByValue(Value);
+		return GetEnumText(Index);
 	}
 
 	/**
 	 * @return	The enum string at the specified index.
 	 */
-	COREUOBJECT_API virtual FText GetEnumText(int32 InIndex) const
-	{
-#if WITH_EDITOR
-		//@todo These values should be properly localized [9/24/2013 justin.sargent]
-		FText LocalizedDisplayName = GetDisplayNameText(InIndex);
-		if(!LocalizedDisplayName.IsEmpty())
-		{
-			return LocalizedDisplayName;
-		}
-#endif
+	virtual FText GetEnumText(int32 InIndex) const;
 
-		return FText::FromString( GetEnumName(InIndex) );
-	}
 	/**
 	 * @return	The index of the specified name, if it exists in the enum names list.
 	 */
-	COREUOBJECT_API int32 FindEnumIndex(FName InName) const;
+	int32 FindEnumIndex(FName InName) const;
 
 	/**
 	 * @return	 The number of enum names.
@@ -1571,15 +1628,7 @@ public:
 	 * @return	the longest common prefix between all items in the enum.  If a common prefix
 	 *			cannot be found, returns the full name of the enum.
 	 */
-	COREUOBJECT_API FString GenerateEnumPrefix() const;
-
-	/**
-	 * Adds a virtual _MAX entry to the enum's list of names, unless the
-	 * enum already contains one.
-	 *
-	 * @return	true unless the MAX enum already exists and isn't the last enum.
-	 */
-	bool GenerateMaxEnum();
+	FString GenerateEnumPrefix() const;
 
 #if WITH_EDITOR
 	/**
@@ -1589,7 +1638,8 @@ public:
 	 *
 	 * @return The display name for this object.
 	 */
-	COREUOBJECT_API FText GetDisplayNameText(int32 NameIndex=INDEX_NONE) const;
+	FText GetDisplayNameText(int32 NameIndex=INDEX_NONE) const;
+	FText GetDisplayNameTextByValue(int32 Value = INDEX_NONE) const;
 
 	/**
 	 * Finds the localized tooltip or native tooltip as a fallback.
@@ -1598,7 +1648,7 @@ public:
 	 *
 	 * @return The tooltip for this object.
 	 */
-	COREUOBJECT_API FText GetToolTipText(int32 NameIndex=INDEX_NONE) const;
+	FText GetToolTipText(int32 NameIndex=INDEX_NONE) const;
 
 	/**
 	 * Wrapper method for easily determining whether this enum has metadata associated with it.
@@ -1608,7 +1658,7 @@ public:
 	 *
 	 * @return true if the specified key exists in the list of metadata for this enum, even if the value of that key is empty
 	 */
-	COREUOBJECT_API bool HasMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
+	bool HasMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
 
 	/**
 	 * Return the metadata value associated with the specified key.
@@ -1618,7 +1668,7 @@ public:
 	 *
 	 * @return	the value for the key specified, or an empty string if the key wasn't found or had no value.
 	 */
-	COREUOBJECT_API const FString& GetMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
+	const FString& GetMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
 
 	/**
 	 * Set the metadata value associated with the specified key.
@@ -1628,7 +1678,7 @@ public:
 	 * @param	InValue		Value of the metadata for the key
 	 *
 	 */
-	COREUOBJECT_API void SetMetaData( const TCHAR* Key, const TCHAR* InValue, int32 NameIndex=INDEX_NONE) const;
+	void SetMetaData( const TCHAR* Key, const TCHAR* InValue, int32 NameIndex=INDEX_NONE) const;
 	
 	/**
 	 * Remove given key meta data
@@ -1637,7 +1687,7 @@ public:
 	 * @param	NameIndex	if specified, will search the metadata linked for that enum value; otherwise, searches the metadata for the enum itself
 	 *
 	 */
-	COREUOBJECT_API void RemoveMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
+	void RemoveMetaData( const TCHAR* Key, int32 NameIndex=INDEX_NONE ) const;
 #endif
 	/**
 	 * Find the enum and entry value from EnumRedirects
@@ -1646,7 +1696,7 @@ public:
 	 * @param	EnumEntryName	Name of the entry of the enum
 	 *
 	 */
-	static COREUOBJECT_API int32 FindEnumRedirects(const UEnum* Enum, FName EnumEntryName);
+	static int32 FindEnumRedirects(const UEnum* Enum, FName EnumEntryName);
 
 
 	/**
@@ -1659,7 +1709,7 @@ public:
 	FORCEINLINE static FString GetValueAsString( const TCHAR* EnumPath, const T EnumValue )
 	{
 		// For the C++ enum.
-		static_assert(IS_ENUM(T), "Should only call this with enum types");
+		static_assert(TIsEnum<T>::Value, "Should only call this with enum types");
 		return GetValueAsString_Internal(EnumPath, (int32)EnumValue);
 	}
 
@@ -1685,7 +1735,7 @@ public:
 	FORCEINLINE static FText GetDisplayValueAsText( const TCHAR* EnumPath, const T EnumValue )
 	{
 		// For the C++ enum.
-		static_assert(IS_ENUM(T), "Should only call this with enum types");
+		static_assert(TIsEnum<T>::Value, "Should only call this with enum types");
 		return GetDisplayValueAsText_Internal(EnumPath, (int32)EnumValue);
 	}
 
@@ -1844,6 +1894,7 @@ public:
 	typedef UObject*	(*ClassVTableHelperCtorCallerType)	(FVTableHelper& Helper);
 #endif // WITH_HOT_RELOAD_CTORS
 	typedef void		(*ClassAddReferencedObjectsType)	(UObject*, class FReferenceCollector&);
+	typedef UClass* (*StaticClassFunctionType)();
 
 	ClassConstructorType ClassConstructor;
 #if WITH_HOT_RELOAD_CTORS
@@ -1919,8 +1970,14 @@ public:
 	UObject* ClassDefaultObject;
 
 private:
-	/** Map of all functions by name contained in this state */
+	/** Map of all functions by name contained in this class */
 	TMap<FName, UFunction*> FuncMap;
+
+	/** A cache of all functions by name that exist in a parent context */
+	mutable TMap<FName, UFunction*> ParentFuncMap;
+
+	/** A cache of all functions by name that exist in an interface context */
+	mutable TMap<FName, UFunction*> InterfaceFuncMap;
 
 public:
 	/**
@@ -2013,10 +2070,26 @@ public:
 	 **/
 	void AddNativeFunction(const ANSICHAR* InName, Native InPointer);
 
+	/**
+	 * Add a native function to the internal native function table, but with a unicode name. Used when generating code from blueprints, 
+	 * which can have unicode identifiers for functions and properties.
+	 * @param	InName							name of the function
+	 * @param	InPointer						pointer to the function
+	 **/
+	void AddNativeFunction(const WIDECHAR* InName, Native InPointer);
+
 	// Add a function to the function map
 	void AddFunctionToFunctionMap(UFunction* NewFunction)
 	{
 		FuncMap.Add(NewFunction->GetFName(), NewFunction);
+	}
+
+	// This is used by the code generator, which instantiates UFunctions with a name that is later overridden. Overridden names
+	// are needed to support generated versions of blueprint classes, properties of which do not have the same naming 
+	// restrictions as native C++ properties.
+	void AddFunctionToFunctionMapWithOverriddenName(UFunction* NewFunction, FName OverriddenName)
+	{
+		FuncMap.Add(OverriddenName, NewFunction);
 	}
 
 	// Remove a function from the function map
@@ -2025,13 +2098,19 @@ public:
 		FuncMap.Remove(Function->GetFName());
 	}
 
+	void ClearFunctionMapsCaches()
+	{
+		ParentFuncMap.Empty();
+		InterfaceFuncMap.Empty();
+	}
+
 	UFunction* FindFunctionByName(FName InName, EIncludeSuperFlag::Type IncludeSuper = EIncludeSuperFlag::IncludeSuper) const;
 
 	// UObject interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 	virtual void FinishDestroy() override;
-	virtual void DeferredRegister(UClass *UClassStaticClass,const TCHAR* PackageName,const TCHAR* Name) override;
+	virtual void DeferredRegister(UClass *UClassStaticClass,const TCHAR* PackageName,const TCHAR* InName) override;
 	virtual bool Rename(const TCHAR* NewName = NULL, UObject* NewOuter = NULL, ERenameFlags Flags = REN_None) override;
 	virtual void TagSubobjects(EObjectFlags NewFlags) override;
 	virtual void PostInitProperties() override;
@@ -2102,11 +2181,11 @@ public:
 		return NULL;
 	}
 
-	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false) const
+	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false) const
 	{
 	}
 
-	virtual void DestroyPersistentUberGraphFrame(UObject* Obj) const
+	virtual void DestroyPersistentUberGraphFrame(UObject* Obj, bool bSkipSuperClass = false) const
 	{
 	}
 
@@ -2364,6 +2443,46 @@ protected:
 };
 
 /**
+* Dynamic class (can be constructed after initial startup)
+*/
+class COREUOBJECT_API UDynamicClass : public UClass
+{
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UDynamicClass, UClass, 0, CoreUObject, CASTCLASS_None, NO_API)
+	DECLARE_WITHIN(UPackage)
+
+public:
+
+	UDynamicClass(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
+	explicit UDynamicClass(const FObjectInitializer& ObjectInitializer, UClass* InSuperClass);
+	UDynamicClass(EStaticConstructor, FName InName, uint32 InSize, uint32 InClassFlags, EClassCastFlags InClassCastFlags,
+		const TCHAR* InClassConfigName, EObjectFlags InFlags, ClassConstructorType InClassConstructor,
+#if WITH_HOT_RELOAD_CTORS
+		ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
+#endif // WITH_HOT_RELOAD_CTORS
+		ClassAddReferencedObjectsType InClassAddReferencedObjects);
+
+	// UObject interface.
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
+
+	// UClass interface
+	virtual void PurgeClass(bool bRecompilingOnLoad) override;
+
+	/** Misc objects owned by the class. */
+	TArray<UObject*> MiscConvertedSubobjects;
+
+	/** Additional converted fields, that are used by the class. */
+	TArray<UField*> ReferencedConvertedFields;
+
+	/** Outer assets used by the class */
+	TArray<UObject*> UsedAssets;
+
+	// Specialized sub-object containers
+	TArray<UObject*> DynamicBindingObjects;
+	TArray<UObject*> ComponentTemplates;
+	TArray<UObject*> Timelines;
+};
+
+/**
  * Helper template to call the default constructor for a class
  */
 template<class T>
@@ -2372,16 +2491,19 @@ void InternalConstructor( const FObjectInitializer& X )
 	T::__DefaultConstructor(X);
 }
 
-#if WITH_HOT_RELOAD_CTORS
+
 /**
  * Helper template to call the vtable ctor caller for a class
  */
 template<class T>
 UObject* InternalVTableHelperCtorCaller(FVTableHelper& Helper)
 {
+#if WITH_HOT_RELOAD_CTORS
 	return T::__VTableCtorCaller(Helper);
-}
+#else
+	return nullptr;
 #endif // WITH_HOT_RELOAD_CTORS
+}
 
 COREUOBJECT_API void InitializePrivateStaticClass(
 	class UClass* TClass_Super_StaticClass,
@@ -2397,77 +2519,33 @@ COREUOBJECT_API void InitializePrivateStaticClass(
  * @param PackageName name of the package this class will be inside
  * @param Name of the class
  * @param ReturnClass reference to pointer to result. This must be PrivateStaticClass.
+ * @param RegisterNativeFunc Native function registration function pointer.
+ * @param InSize Size of the class
+ * @param InClassFlags Class flags
+ * @param InClassCastFlags Class cast flags
+ * @param InConfigName Class config name
+ * @param InClassConstructor Class constructor function pointer
+ * @param InClassVTableHelperCtorCaller Class constructor function for vtable pointer
+ * @param InClassAddReferencedObjects Class AddReferencedObjects function pointer
+ * @param InSuperClassFn Super class function pointer
+ * @param WithinClass Within class
+ * @param bIsDynamic true if the class can be constructed dynamically at runtime
  */
-template<class TClass>
-void GetPrivateStaticClassBody( const TCHAR* PackageName, const TCHAR* Name, UClass*& ReturnClass, void (*RegisterNativeFunc)() )
-{ 
-#if WITH_HOT_RELOAD
-	if (GIsHotReload)
-	{
-		UPackage* Package = FindPackage(NULL, PackageName);
-		if (!Package)
-		{
-			UE_LOG(LogClass, Log, TEXT("Could not find existing package %s for HotReload."),PackageName);
-			return;
-		}
-		ReturnClass = FindObject<UClass>((UObject *)Package, Name);
-		if (ReturnClass)
-		{
-			if (ReturnClass->HotReloadPrivateStaticClass(
-				sizeof(TClass),
-				TClass::StaticClassFlags,
-				TClass::StaticClassCastFlags(),
-				TClass::StaticConfigName(),
-				(UClass::ClassConstructorType)InternalConstructor<TClass>,
-#if WITH_HOT_RELOAD_CTORS
-				(UClass::ClassVTableHelperCtorCallerType)InternalVTableHelperCtorCaller<TClass>,
-#endif // WITH_HOT_RELOAD_CTORS
-				&TClass::AddReferencedObjects,
-				TClass::Super::StaticClass(),
-				TClass::WithinClass::StaticClass()
-				))
-			{
-				// Register the class's native functions.
-				RegisterNativeFunc();
-			}
-			return;
-		}
-		else
-		{
-			UE_LOG(LogClass, Log, TEXT("Could not find existing class %s in package %s for HotReload, assuming new class"),Name,PackageName);
-		}
-	}
-#endif
-
-	ReturnClass = ::new (GUObjectAllocator.AllocateUObject(sizeof(UClass),ALIGNOF(UClass),true)) 
-		UClass
-		(
-		EC_StaticConstructor,
-		Name,
-		sizeof(TClass),
-		TClass::StaticClassFlags,
-		TClass::StaticClassCastFlags(),
-		TClass::StaticConfigName(),
-		EObjectFlags(RF_Public | RF_Standalone | RF_Transient | RF_Native | RF_RootSet),
-		(UClass::ClassConstructorType)InternalConstructor<TClass>,
-#if WITH_HOT_RELOAD_CTORS
-		(UClass::ClassVTableHelperCtorCallerType)InternalVTableHelperCtorCaller<TClass>,
-#endif // WITH_HOT_RELOAD_CTORS
-		&TClass::AddReferencedObjects
-		);
-	check(ReturnClass);
-	InitializePrivateStaticClass(
-		TClass::Super::StaticClass(),
-		ReturnClass,
-		TClass::WithinClass::StaticClass(),
-		PackageName,
-		Name
-		);
-
-	// Register the class's native functions.
-	RegisterNativeFunc();
-}
-
+COREUOBJECT_API void GetPrivateStaticClassBody(
+	const TCHAR* PackageName,
+	const TCHAR* Name,
+	UClass*& ReturnClass,
+	void(*RegisterNativeFunc)(),
+	uint32 InSize,
+	uint32 InClassFlags,
+	EClassCastFlags InClassCastFlags,
+	const TCHAR* InConfigName,
+	UClass::ClassConstructorType InClassConstructor,
+	UClass::ClassVTableHelperCtorCallerType InClassVTableHelperCtorCaller,
+	UClass::ClassAddReferencedObjectsType InClassAddReferencedObjects,
+	UClass::StaticClassFunctionType InSuperClassFn,
+	UClass::StaticClassFunctionType InWithinClassFn,
+	bool bIsDynamic = false);
 
 /*-----------------------------------------------------------------------------
 	FObjectInstancingGraph.
@@ -2764,4 +2842,52 @@ struct FStructUtils
 	COREUOBJECT_API static bool TheSameLayout(const UStruct* StructA, const UStruct* StructB, bool bCheckPropertiesNames = false);
 };
 
-COREUOBJECT_API UScriptStruct* GetBaseStructure(const TCHAR* Name);
+template< class T > struct TBaseStructure
+{
+};
+
+template<> struct TBaseStructure<FRotator>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+template<> struct TBaseStructure<FTransform>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+template<> struct TBaseStructure<FLinearColor>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+template<> struct TBaseStructure<FColor>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+template<> struct  TBaseStructure<FVector>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+template<> struct TBaseStructure<FVector2D>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+template<> struct TBaseStructure<FRandomStream>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+template<> struct TBaseStructure<FGuid>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};
+
+struct FFallbackStruct;
+template<> struct TBaseStructure<FFallbackStruct>
+{
+	COREUOBJECT_API static UScriptStruct* Get();
+};

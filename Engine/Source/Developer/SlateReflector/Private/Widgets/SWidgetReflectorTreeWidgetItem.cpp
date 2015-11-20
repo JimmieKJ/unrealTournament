@@ -1,7 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "SlateReflectorPrivatePCH.h"
-#include "ReflectionMetadata.h"
 #include "SWidgetReflectorTreeWidgetItem.h"
 #include "SHyperlink.h"
 
@@ -58,10 +57,7 @@ TSharedRef<SWidget> SReflectorTreeWidgetItem::GenerateWidgetForColumn(const FNam
 	}
 	else if (ColumnName == "ForegroundColor")
 	{
-		TSharedPtr<SWidget> ThisWidget = WidgetInfo.Get()->Widget.Pin();
-		FSlateColor Foreground = (ThisWidget.IsValid())
-			? ThisWidget->GetForegroundColor()
-			: FSlateColor::UseForeground();
+		const FSlateColor Foreground = WidgetInfo->GetWidgetForegroundColor();
 
 		return SNew(SBorder)
 			// Show unset color as an empty space.
@@ -79,15 +75,18 @@ TSharedRef<SWidget> SReflectorTreeWidgetItem::GenerateWidgetForColumn(const FNam
 	}
 	else if (ColumnName == "Address")
 	{
-		const TSharedPtr<SWidget> TheWidget = WidgetInfo.Get()->Widget.Pin();
-		const FText Address = (TheWidget.IsValid())
-			? FText::FromString(FString::Printf(TEXT("0x%08X"), TheWidget.Get()))
-			: NSLOCTEXT("SWidgetReflector","nullptr","nullptr");
-			
-		return SNew(SHyperlink)
-			.ToolTipText(NSLOCTEXT("SWidgetReflector", "ClickToCopy", "Click to copy address."))
-			.Text(Address)
-			.OnNavigate_Lambda([Address](){ FPlatformMisc::ClipboardCopy(*Address.ToString()); }) ;
+		const FText Address = FText::FromString(WidgetInfo->GetWidgetAddress());
+		
+		return SNew(SBox)
+			.HAlign(HAlign_Left)
+			.VAlign(VAlign_Center)
+			.Padding(FMargin(2.0f, 0.0f))
+			[
+				SNew(SHyperlink)
+				.ToolTipText(NSLOCTEXT("SWidgetReflector", "ClickToCopy", "Click to copy address."))
+				.Text(Address)
+				.OnNavigate_Lambda([Address](){ FPlatformMisc::ClipboardCopy(*Address.ToString()); })
+			];
 	}
 	else
 	{
@@ -96,36 +95,19 @@ TSharedRef<SWidget> SReflectorTreeWidgetItem::GenerateWidgetForColumn(const FNam
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-FString SReflectorTreeWidgetItem::GetReadableLocation() const
-{
-	TWeakPtr<SWidget> Widget = WidgetInfo.Get()->Widget;
-	if ( Widget.IsValid() )
-	{
-		TSharedPtr<SWidget> SafeWidget = Widget.Pin();
-		TSharedPtr<FReflectionMetaData> MetaData = SafeWidget->GetMetaData<FReflectionMetaData>();
-		if ( MetaData.IsValid() && MetaData->Asset.Get() != nullptr )
-		{
-			return MetaData->Asset->GetName() + TEXT(" [") + MetaData->Name.ToString() + TEXT("]");
-		}
-	}
-
-	return CachedReadableLocation;
-}
-
 void SReflectorTreeWidgetItem::HandleHyperlinkNavigate()
 {
-	TWeakPtr<SWidget> Widget = WidgetInfo.Get()->Widget;
-	if ( Widget.IsValid() )
+	const FName AssetName = WidgetInfo->GetWidgetAssetName();
+	if ( !AssetName.IsNone() )
 	{
-		TSharedPtr<SWidget> SafeWidget = Widget.Pin();
-		TSharedPtr<FReflectionMetaData> MetaData = SafeWidget->GetMetaData<FReflectionMetaData>();
-		if ( MetaData.IsValid() && MetaData->Asset.Get() != nullptr )
+		if ( OnAccessAsset.IsBound() )
 		{
-			if ( OnAccessAsset.IsBound() )
+			UObject* AssetObject = FindObject<UObject>(ANY_PACKAGE, *AssetName.ToString());
+			if ( AssetObject )
 			{
-				OnAccessAsset.Execute(MetaData->Asset.Get());
-				return;
+				OnAccessAsset.Execute(AssetObject);
 			}
+			return;
 		}
 	}
 

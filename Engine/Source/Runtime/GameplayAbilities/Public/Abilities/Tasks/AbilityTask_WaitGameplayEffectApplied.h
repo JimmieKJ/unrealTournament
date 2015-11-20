@@ -20,6 +20,7 @@ class UAbilityTask_WaitGameplayEffectApplied : public UAbilityTask
 	FGameplayTagRequirements SourceTagRequirements;
 	FGameplayTagRequirements TargetTagRequirements;
 	bool TriggerOnce;
+	bool ListenForPeriodicEffects;
 
 	void SetExternalActor(AActor* InActor);
 

@@ -6,6 +6,7 @@
 #include "AssetData.h"
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
 #include "PreviewScene.h"
+#include "EditorAnimUtils.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FAnimationAssetViewportClient
@@ -37,14 +38,18 @@ public:
 
 	void OnRequestOpenAsset(const FAssetData& AssetData, bool bFromHistory);
 
+	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
+
 	virtual ~SAnimationSequenceBrowser();
 
 	/** Delegate that handles creation of context menu */
 	TSharedPtr<SWidget> OnGetAssetContextMenu(const TArray<FAssetData>& SelectedAssets);
 
-	/** Delegate to handle "Go To" context menu option 
-		Sends selected assets to be highlighted in active Content Browser */
-	void OnGoToInContentBrowser(TArray<FAssetData> ObjectsToSync);
+	/** Delegate to handle "Find in Content Browser" context menu option */
+	void FindInContentBrowser();
+
+	/** Delegate to handle enabling the "Find in Content Browser" context menu option */
+	bool CanFindInContentBrowser() const;
 
 	/** Delegate to handle "Save" context menu option */
 	void SaveSelectedAssets(TArray<FAssetData> ObjectsToSave) const;
@@ -176,6 +181,11 @@ protected:
 	 */
 	FPreviewScene PreviewScene;
 
+	/**
+	 * Commands handled by this widget
+	 */
+	TSharedPtr<FUICommandList> Commands;
+
 	// Pointer back to persona tool that owns us
 	TWeakPtr<class FPersona> PersonaPtr;
 
@@ -198,7 +208,7 @@ protected:
 	FSyncToAssetsDelegate SyncToAssetsDelegate;
 	FGetCurrentSelectionDelegate GetCurrentSelectionDelegate;
 
-	void RetargetAnimationHandler(USkeleton* OldSkeleton, USkeleton* NewSkeleton, bool bRemapReferencedAssets, bool bConvertSpaces, TArray<TWeakObjectPtr<UObject>> InAnimAssets);
+	void RetargetAnimationHandler(USkeleton* OldSkeleton, USkeleton* NewSkeleton, bool bRemapReferencedAssets, bool bAllowRemapToExisting, bool bConvertSpaces, const EditorAnimUtils::FNameDuplicationRule* NameRule, TArray<TWeakObjectPtr<UObject>> InAnimAssets);
 
 private:
 	/** Updates the animation preview in the tooltip */

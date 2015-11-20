@@ -40,6 +40,8 @@ public class Matinee : ModuleRules
 				"RenderCore",
 				"AssetRegistry",
 				"ContentBrowser",
+				"MovieSceneCapture",
+                "MovieSceneCaptureDialog",
 				"BlueprintGraph"
 			}
 			);
@@ -49,7 +51,6 @@ public class Matinee : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"PropertyEditor",
-                "ContentBrowser"
 				}
 			);
 	}

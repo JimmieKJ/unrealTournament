@@ -3,6 +3,7 @@
 #include "Paper2DPrivatePCH.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "PhysicsEngine/BodySetup2D.h"
+#include "PaperCustomVersion.h"
 #include "PaperTileMap.h"
 #include "PaperTileLayer.h"
 #include "PaperRuntimeSettings.h"
@@ -37,6 +38,17 @@ UPaperTileMap::UPaperTileMap(const FObjectInitializer& ObjectInitializer)
 	Material = DefaultMaterial.Object;
 }
 
+void UPaperTileMap::PostInitProperties()
+{
+#if WITH_EDITORONLY_DATA
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
+	}
+#endif
+	Super::PostInitProperties();
+}
+
 #if WITH_EDITOR
 void UPaperTileMap::PreEditChange(UProperty* PropertyAboutToChange)
 {
@@ -49,6 +61,46 @@ void UPaperTileMap::PreEditChange(UProperty* PropertyAboutToChange)
 	Super::PreEditChange(PropertyAboutToChange);
 }
 #endif
+
+void UPaperTileMap::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	Ar.UsingCustomVersion(FPaperCustomVersion::GUID);
+
+#if WITH_EDITORONLY_DATA
+	if (Ar.IsLoading() && (Ar.UE4Ver() < VER_UE4_ASSET_IMPORT_DATA_AS_JSON) && (AssetImportData == nullptr))
+	{
+		// AssetImportData should always be valid
+		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
+	}
+#endif
+}
+
+void UPaperTileMap::PostLoad()
+{
+	Super::PostLoad();
+
+	const int32 PaperVer = GetLinkerCustomVersion(FPaperCustomVersion::GUID);
+
+	// Make sure that the layers are all of the right size (there was a bug at one point when undoing resizes that could cause the layers to get stuck at a bad size)
+	for (UPaperTileLayer* TileLayer : TileLayers)
+	{
+		TileLayer->ConditionalPostLoad();
+
+		TileLayer->ResizeMap(MapWidth, MapHeight);
+
+		if (PaperVer < FPaperCustomVersion::FixVertexColorSpace)
+		{
+			const FColor SRGBColor = TileLayer->GetLayerColor().ToFColor(/*bSRGB=*/ true);
+			TileLayer->SetLayerColor(SRGBColor.ReinterpretAsLinear());
+		}
+	}
+
+#if WITH_EDITOR
+	ValidateSelectedLayerIndex();
+#endif
+}
 
 #if WITH_EDITOR
 
@@ -160,21 +212,6 @@ bool UPaperTileMap::CanEditChange(const UProperty* InProperty) const
 	return bIsEditable;
 }
 
-void UPaperTileMap::PostLoad()
-{
-	Super::PostLoad();
-
-	// Make sure that the layers are all of the right size (there was a bug at one point when undoing resizes that could cause the layers to get stuck at a bad size)
-	for (UPaperTileLayer* TileLayer : TileLayers)
-	{
-		TileLayer->ConditionalPostLoad();
-
-		TileLayer->ResizeMap(MapWidth, MapHeight);
-	}
-
-	ValidateSelectedLayerIndex();
-}
-
 void UPaperTileMap::ValidateSelectedLayerIndex()
 {
 	if (!TileLayers.IsValidIndex(SelectedLayerIndex))
@@ -203,7 +240,7 @@ void UPaperTileMap::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) con
 {
 	if (AssetImportData)
 	{
-		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
 	}
 
 	Super::GetAssetRegistryTags(OutTags);
@@ -486,6 +523,16 @@ FVector UPaperTileMap::GetTileCenterInLocalSpace(float TileX, float TileY, int32
 			return GetTilePositionInLocalSpace(TileX, TileY, LayerIndex) + RecenterOffset;
 		}
 	}
+}
+
+void UPaperTileMap::SetCollisionThickness(float Thickness)
+{
+	CollisionThickness = Thickness;
+}
+
+void UPaperTileMap::SetCollisionDomain(ESpriteCollisionMode::Type Domain)
+{
+	SpriteCollisionDomain = Domain;
 }
 
 FBoxSphereBounds UPaperTileMap::GetRenderBounds() const

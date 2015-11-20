@@ -333,16 +333,16 @@ class UParticleModuleRequired : public UParticleModule
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void	PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual bool IsValidForLODLevel(UParticleLODLevel* LODLevel, FString& OutErrorString) override;
 #endif // WITH_EDITOR
 	virtual void	PostLoad() override;
 	virtual void	PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void SetToSensibleDefaults(UParticleEmitter* Owner) override;
 	virtual	bool AddModuleCurvesToEditor(UInterpCurveEdSetup* EdSetup, TArray<const FCurveEdEntry*>& OutCurveEntries) override
 	{
@@ -351,7 +351,7 @@ class UParticleModuleRequired : public UParticleModule
 	}
 	virtual EModuleType	GetModuleType() const override {	return EPMT_Required;	}
 	virtual bool	GenerateLODModuleValues(UParticleModule* SourceModule, float Percentage, UParticleLODLevel* LODLevel) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
 protected:
 	friend class FParticleModuleRequiredDetails;

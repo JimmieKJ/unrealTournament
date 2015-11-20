@@ -36,6 +36,7 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		const ElementDataType& ElementData, 
 		const ContextDataType PolicyContext
 		) const;
@@ -88,4 +89,5 @@ struct FVelocityRendering
 	static FPooledRenderTargetDesc GetRenderTargetDesc();
 
 	static bool OutputsToGBuffer();
+	static bool OutputsOnlyToGBuffer(bool bSupportsStaticLighting);
 };

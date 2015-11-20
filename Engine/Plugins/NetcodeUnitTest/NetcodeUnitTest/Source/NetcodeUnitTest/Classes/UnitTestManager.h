@@ -35,7 +35,7 @@ public:
 	UPROPERTY(config)
 	bool bCapUnitTestMemory;
 
-	// @todo JohnB: Add a bool, for specifying that unit tests can be terminated, when memory limits are breached
+	// @todo #JohnBLowPri: Add a bool, for specifying that unit tests can be terminated, when memory limits are breached
 
 	/** When total physical memory usage, as a percentage, reaches this limit, no new unit tests can be started */
 	UPROPERTY(config)
@@ -44,6 +44,10 @@ public:
 	/** As above, but when reaching this limit, recently started unit test(s) will be terminated/re-queued, to get back within limits */
 	UPROPERTY(config)
 	uint8 AutoCloseMemoryPercent;
+
+	/** Limits the number of auto-aborts a particular unit test will allow, before it is no longer accepted for re-queueing */
+	UPROPERTY(config)
+	uint8 MaxAutoCloseCount;
 
 
 	/** Holds a list of unit tests pending execution */
@@ -88,6 +92,9 @@ public:
 
 
 private:
+	/** The time at which the memory limit was last hit */
+	double LastMemoryLimitHit;
+
 	/** When a unit test is force-closed, wait a number of ticks for global memory values to update, before closing any more */
 	int32 MemoryTickCountdown;
 
@@ -201,8 +208,9 @@ public:
 	 *
 	 * @param InUnitTest		The unit test to print results information for
 	 * @param bFinalSummary		Whether or not this is the final summary printout (changes the formatting slightly)
+	 * @param bUnfinished		Whether or not the unit test was aborted and could not be run
 	 */
-	void PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSummary=false);
+	void PrintUnitTestResult(UUnitTest* InUnitTest, bool bFinalSummary=false, bool bUnfinished=false);
 
 	/**
 	 * Prints the final unit test summary, when all active/pending unit tests have completed
@@ -232,7 +240,7 @@ public:
 	// Must override in subclasses, that need ticking
 	virtual bool IsTickable() const override
 	{
-		// @todo JohnB: Find out how the CDO is getting registered for ticking - this is odd
+		// @todo #JohnBLowPri: Find out how the CDO is getting registered for ticking - this is odd
 		return !IsPendingKill() && !GIsServer && !HasAnyFlags(RF_ClassDefaultObject);
 	}
 
@@ -262,6 +270,11 @@ public:
 	 * FOutputDevice methods
 	 */
 
+	// We're hiding UObject::Serialize() by declaring this.  That's OK, but Clang will warn about it.
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
+#endif
 	/**
 	 * Write text to the console
 	 *
@@ -269,10 +282,6 @@ public:
 	 * @param Verbosity	The log level verbosity for the message
 	 * @param Category	The log category for the message
 	 */
-#if defined(__clang__)	// We're hiding UObject::Serialize() by declaring this.  That's OK, but Clang will warn about it.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Woverloaded-virtual"
-#endif
 	virtual void Serialize(const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category) override;
 #if defined(__clang__)
 #pragma clang diagnostic pop

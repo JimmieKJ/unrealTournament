@@ -13,6 +13,8 @@ AGameplayCueNotify_Actor::AGameplayCueNotify_Actor(const FObjectInitializer& Obj
 	PrimaryActorTick.bCanEverTick = true;
 	bAutoDestroyOnRemove = false;
 	AutoDestroyDelay = 0.f;
+	bUniqueInstancePerSourceObject = false;
+	bUniqueInstancePerInstigator = false;
 }
 
 #if WITH_EDITOR

@@ -71,11 +71,11 @@ void FPaperTileMapRenderSceneProxy::FinishConstruction_GameThread()
 
 void FPaperTileMapRenderSceneProxy::DrawBoundsForLayer(FPrimitiveDrawInterface* PDI, const FLinearColor& Color, int32 LayerIndex) const
 {
-	const FMatrix& LocalToWorld = GetLocalToWorld();
-	const FVector TL(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(0, 0, LayerIndex)));
-	const FVector TR(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(TileMap->MapWidth, 0, LayerIndex)));
-	const FVector BL(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(0, TileMap->MapHeight, LayerIndex)));
-	const FVector BR(LocalToWorld.TransformPosition(TileMap->GetTilePositionInLocalSpace(TileMap->MapWidth, TileMap->MapHeight, LayerIndex)));
+	const FMatrix& LocalToWorldMat = GetLocalToWorld();
+	const FVector TL(LocalToWorldMat.TransformPosition(TileMap->GetTilePositionInLocalSpace(0, 0, LayerIndex)));
+	const FVector TR(LocalToWorldMat.TransformPosition(TileMap->GetTilePositionInLocalSpace(TileMap->MapWidth, 0, LayerIndex)));
+	const FVector BL(LocalToWorldMat.TransformPosition(TileMap->GetTilePositionInLocalSpace(0, TileMap->MapHeight, LayerIndex)));
+	const FVector BR(LocalToWorldMat.TransformPosition(TileMap->GetTilePositionInLocalSpace(TileMap->MapWidth, TileMap->MapHeight, LayerIndex)));
 
 	PDI->DrawLine(TL, TR, Color, SDPG_Foreground, 0.0f, WireDepthBias);
 	PDI->DrawLine(TR, BR, Color, SDPG_Foreground, 0.0f, WireDepthBias);
@@ -85,7 +85,7 @@ void FPaperTileMapRenderSceneProxy::DrawBoundsForLayer(FPrimitiveDrawInterface* 
 
 void FPaperTileMapRenderSceneProxy::DrawNormalGridLines(FPrimitiveDrawInterface* PDI, const FLinearColor& Color, int32 LayerIndex) const
 {
-	const FMatrix& LocalToWorld = GetLocalToWorld();
+	const FMatrix& LocalToWorldMat = GetLocalToWorld();
 	const uint8 DPG = SDPG_Foreground;//GetDepthPriorityGroup(View);
 
 	// Draw horizontal lines on the selection
@@ -97,7 +97,7 @@ void FPaperTileMapRenderSceneProxy::DrawNormalGridLines(FPrimitiveDrawInterface*
 		X = TileMap->MapWidth;
 		const FVector End(TileMap->GetTilePositionInLocalSpace(X, Y, LayerIndex));
 
-		PDI->DrawLine(LocalToWorld.TransformPosition(Start), LocalToWorld.TransformPosition(End), Color, DPG, 0.0f, WireDepthBias);
+		PDI->DrawLine(LocalToWorldMat.TransformPosition(Start), LocalToWorldMat.TransformPosition(End), Color, DPG, 0.0f, WireDepthBias);
 	}
 
 	// Draw vertical lines
@@ -109,7 +109,7 @@ void FPaperTileMapRenderSceneProxy::DrawNormalGridLines(FPrimitiveDrawInterface*
 		Y = TileMap->MapHeight;
 		const FVector End(TileMap->GetTilePositionInLocalSpace(X, Y, LayerIndex));
 
-		PDI->DrawLine(LocalToWorld.TransformPosition(Start), LocalToWorld.TransformPosition(End), Color, DPG, 0.0f, WireDepthBias);
+		PDI->DrawLine(LocalToWorldMat.TransformPosition(Start), LocalToWorldMat.TransformPosition(End), Color, DPG, 0.0f, WireDepthBias);
 	}
 }
 
@@ -118,7 +118,7 @@ void FPaperTileMapRenderSceneProxy::DrawStaggeredGridLines(FPrimitiveDrawInterfa
 	TArray<FVector> Poly;
 	Poly.Empty(4);
 
-	const FMatrix& LocalToWorld = GetLocalToWorld();
+	const FMatrix& LocalToWorldMat = GetLocalToWorld();
 	const uint8 DPG = SDPG_Foreground;//GetDepthPriorityGroup(View);
 
 	FVector CornerPosition;
@@ -157,17 +157,17 @@ void FPaperTileMapRenderSceneProxy::DrawStaggeredGridLines(FPrimitiveDrawInterfa
 		XBottom -= XExcess;
 		YBottom -= XExcess * 2;
 
- 		if (XBottom == TileMap->MapWidth)
- 		{
+		if (XBottom == TileMap->MapWidth)
+		{
 			YBottom -= ((TileMap->MapHeight & 1) != 0) ? 0 : 1;
- 		}
+		}
 
 		// Bottom center
 		Poly.Reset();
 		TileMap->GetTilePolygon(XBottom, YBottom, LayerIndex, Poly);
 		const FVector LSB = Poly[2];
 
-		PDI->DrawLine(LocalToWorld.TransformPosition(LSA), LocalToWorld.TransformPosition(LSB), Color, DPG, 0.0f, WireDepthBias);
+		PDI->DrawLine(LocalToWorldMat.TransformPosition(LSA), LocalToWorldMat.TransformPosition(LSB), Color, DPG, 0.0f, WireDepthBias);
 	}
 
 	for (int32 X = 0; X < TileMap->MapWidth + ((TileMap->MapHeight + 1) / 2) + 1; ++X)
@@ -197,14 +197,14 @@ void FPaperTileMapRenderSceneProxy::DrawStaggeredGridLines(FPrimitiveDrawInterfa
 		TileMap->GetTilePolygon(XBottom, YBottom, LayerIndex, Poly);
 		const FVector LSB = Poly[3];
 
-		PDI->DrawLine(LocalToWorld.TransformPosition(LSA), LocalToWorld.TransformPosition(LSB), Color, DPG, 0.0f, WireDepthBias);
+		PDI->DrawLine(LocalToWorldMat.TransformPosition(LSA), LocalToWorldMat.TransformPosition(LSB), Color, DPG, 0.0f, WireDepthBias);
 	}
 }
 
 void FPaperTileMapRenderSceneProxy::DrawHexagonalGridLines(FPrimitiveDrawInterface* PDI, const FLinearColor& Color, int32 LayerIndex) const
 {
 	//@TODO: This isn't very efficient
-	const FMatrix& LocalToWorld = GetLocalToWorld();
+	const FMatrix& LocalToWorldMat = GetLocalToWorld();
 	const uint8 DPG = SDPG_Foreground;//GetDepthPriorityGroup(View);
 
 	TArray<FVector> Poly;
@@ -216,10 +216,10 @@ void FPaperTileMapRenderSceneProxy::DrawHexagonalGridLines(FPrimitiveDrawInterfa
 			Poly.Reset();
 			TileMap->GetTilePolygon(X, Y, LayerIndex, Poly);
 
-			FVector LastVertexWS = LocalToWorld.TransformPosition(Poly[5]);
+			FVector LastVertexWS = LocalToWorldMat.TransformPosition(Poly[5]);
 			for (int32 VI = 0; VI < Poly.Num(); ++VI)
 			{
-				FVector ThisVertexWS = LocalToWorld.TransformPosition(Poly[VI]);
+				FVector ThisVertexWS = LocalToWorldMat.TransformPosition(Poly[VI]);
 				PDI->DrawLine(LastVertexWS, ThisVertexWS, Color, DPG, 0.0f, WireDepthBias);
 				LastVertexWS = ThisVertexWS;
 			}
@@ -287,7 +287,7 @@ void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FS
 
 							const bool bPerHullColor = false;
 							const bool bDrawSimpleSolid = false;
-							BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(CollisionColor, bDrawWireSelected, IsHovered()), CollisionMaterialInstance, bPerHullColor, bDrawSimpleSolid, UseEditorDepthTest(), ViewIndex, Collector);
+							BodySetup->AggGeom.GetAggGeom(GeomTransform, GetSelectionColor(CollisionColor, bDrawWireSelected, IsHovered()).ToFColor(true), CollisionMaterialInstance, bPerHullColor, bDrawSimpleSolid, UseEditorDepthTest(), ViewIndex, Collector);
 						}
 					}
 				}
@@ -303,8 +303,6 @@ void FPaperTileMapRenderSceneProxy::GetDynamicMeshElements(const TArray<const FS
 
 				// Draw separation wires if selected
 				const FLinearColor OverrideColor = GetSelectionColor(FLinearColor::White, bShowAsSelected, IsHovered(), /*bUseOverlayIntensity=*/ false);
-
-				FTransform LocalToWorld(GetLocalToWorld());
 
 				// Draw the debug outline
 				if (bEffectivelySelected)

@@ -9,6 +9,7 @@
 UOnlineBlueprintCallProxyBase::UOnlineBlueprintCallProxyBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	SetFlags(RF_StrongRefOnFrame);
 }
 
 void UOnlineBlueprintCallProxyBase::Activate()

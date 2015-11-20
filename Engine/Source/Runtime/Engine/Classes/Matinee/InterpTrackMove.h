@@ -9,9 +9,9 @@ class UInterpGroup;
 UENUM()
 enum EInterpTrackMoveRotMode
 {
-	/** Should take orientation from the . */
+	/** Should take orientation from the keyframe. */
 	IMR_Keyframed,
-	/** Point the X-Axis of the controlled  AActor  at the group specified by LookAtGroupName. */
+	/** Point the X-Axis of the controlled Actor at the group specified by LookAtGroupName. */
 	IMR_LookAtGroup,
 	/** Should look along the direction of the translation path, with Z always up. */
 	// IMR_LookAlongPath // TODO!
@@ -22,7 +22,7 @@ enum EInterpTrackMoveRotMode
 };
 
 /**
- * Array of group names to retrieve position and rotation data from instead of using the datastored in the keyframe.
+ * Array of group names to retrieve position and rotation data from instead of using the data stored in the keyframe.
  * A value of NAME_None means to use the PosTrack and EulerTrack data for the keyframe.
  * There needs to be the same amount of elements in this array as there are keyframes.
  */
@@ -148,14 +148,14 @@ class UInterpTrackMove : public UInterpTrack
 	TEnumAsByte<enum EInterpTrackMoveRotMode> RotMode;
 
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditImport() override;
 #endif
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin UInterpTrack interface.
+	//~ Begin UInterpTrack Interface.
 	virtual int32 GetNumKeyframes() const override;
 	virtual void GetTimeRange(float& StartTime, float& EndTime) const override;
 	virtual float GetTrackEndTime() const override;
@@ -182,9 +182,9 @@ class UInterpTrackMove : public UInterpTrack
 	virtual void Render3DTrack(UInterpTrackInst* TrInst, const FSceneView* View, class FPrimitiveDrawInterface* PDI, int32 TrackIndex, const FColor& TrackColor, TArray<struct FInterpEdSelKey>& SelectedKeys) override;
 	virtual void SetTrackToSensibleDefault() override;
 	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift) override;
-	// End UInterpTrack interface.
+	//~ End UInterpTrack Interface.
 
-	// Begin FCurveEdInterface interface.
+	//~ Begin FCurveEdInterface Interface.
 	virtual int32		GetNumKeys() const override;
 	virtual int32		GetNumSubCurves() const override;
 	virtual FColor	GetSubCurveButtonColor(int32 SubCurveIndex, bool bIsSubCurveHidden) const override;
@@ -202,7 +202,7 @@ class UInterpTrackMove : public UInterpTrack
 	virtual void	SetKeyOut(int32 SubIndex, int32 KeyIndex, float NewOutVal) override;
 	virtual void	SetKeyInterpMode(int32 KeyIndex, EInterpCurveMode NewMode) override;
 	virtual void	SetTangents(int32 SubIndex, int32 KeyIndex, float ArriveTangent, float LeaveTangent) override;
-	// End FCurveEdInterface interface.
+	//~ End FCurveEdInterface Interface.
 
 
 	/**

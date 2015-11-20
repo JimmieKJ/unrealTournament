@@ -31,20 +31,34 @@ namespace SequencerSectionUtils
 	FGeometry GetSectionGeometry( const FGeometry& AllottedGeometry, int32 RowIndex, int32 MaxTracks, float NodeHeight, TSharedPtr<ISequencerSection> SectionInterface, const FTimeToPixel& TimeToPixelConverter )
 	{
 		const UMovieSceneSection* Section = SectionInterface->GetSectionObject();
-		// Where to start drawing the section
-		float StartX =  TimeToPixelConverter.TimeToPixel( Section->GetStartTime() );
-		// Where to stop drawing the section
-		float EndX = TimeToPixelConverter.TimeToPixel( Section->GetEndTime() );
-		
-		// Actual section length without grips.
-		float SectionLengthActual = EndX-StartX;
+		float PixelStartX = TimeToPixelConverter.TimeToPixel( Section->GetStartTime() );
+		// Note the -1 pixel at the end is because the section does not actually end at the end time if there is a section starting at that same time.  It is more important that a section lines up correctly with it's true start time
+		float PixelEndX = TimeToPixelConverter.TimeToPixel( Section->GetEndTime() );
 
-		float SectionLengthWithGrips = SectionLengthActual+SequencerSectionConstants::SectionGripSize*2;
+		// If the section is infinite, occupy the entire width of the geometry where the section is located.
+		if (Section->IsInfinite())
+		{
+			PixelStartX = AllottedGeometry.Position.X;
+			PixelEndX = AllottedGeometry.Position.X + AllottedGeometry.Size.X;
+		}
+
+		// Actual section length without grips.
+		float SectionLengthActual = FMath::Max(1.0f,PixelEndX-PixelStartX);
+
+		float SectionLengthWithGrips = SectionLengthActual;
+		float ExtentSize = 0;
+		if( !SectionInterface->AreSectionsConnected() )
+		{
+			// Extend the section to include areas for the grips
+			ExtentSize = SectionInterface->GetSectionGripSize();
+			// Connected sections do not display grips outside of their section area
+			SectionLengthWithGrips += (ExtentSize*2);
+		}
 
 		float ActualHeight = NodeHeight / MaxTracks;
 
 		// Compute allotted geometry area that can be used to draw the section
-		return AllottedGeometry.MakeChild( FVector2D( StartX-SequencerSectionConstants::SectionGripSize, ActualHeight * RowIndex ), FVector2D( SectionLengthWithGrips, ActualHeight ) );
+		return AllottedGeometry.MakeChild( FVector2D( PixelStartX-ExtentSize, ActualHeight * RowIndex ), FVector2D( SectionLengthWithGrips, ActualHeight ) );
 	}
 
 }
@@ -52,19 +66,28 @@ namespace SequencerSectionUtils
 
 void SSequencerSectionAreaView::Construct( const FArguments& InArgs, TSharedRef<FSequencerDisplayNode> Node )
 {
-	SSequencerSectionAreaViewBase::Construct( SSequencerSectionAreaViewBase::FArguments(), Node );
+	//SSequencerSectionAreaViewBase::Construct( SSequencerSectionAreaViewBase::FArguments(), Node );
 
 	ViewRange = InArgs._ViewRange;
 
 	check( Node->GetType() == ESequencerNode::Track );
-	SectionAreaNode = StaticCastSharedRef<FTrackNode>( Node );
-
-	SetVisibility( TAttribute<EVisibility>( this, &SSequencerSectionAreaView::GetNodeVisibility ) );
+	SectionAreaNode = StaticCastSharedRef<FSequencerTrackNode>( Node );
 
 	BackgroundBrush = FEditorStyle::GetBrush("Sequencer.SectionArea.Background");
 
 	// Generate widgets for sections in this view
 	GenerateSectionWidgets();
+};
+
+FVector2D SSequencerSectionAreaView::ComputeDesiredSize(float) const
+{
+	// Note: X Size is not used
+	FVector2D Size(100, 0.f);
+	for (int32 Index = 0; Index < Children.Num(); ++Index)
+	{
+		Size.Y = FMath::Max(Size.Y, Children[Index]->GetDesiredSize().Y);
+	}
+	return Size + SectionAreaNode->GetNodePadding().Bottom;
 }
 
 void SSequencerSectionAreaView::GenerateSectionWidgets()
@@ -73,12 +96,12 @@ void SSequencerSectionAreaView::GenerateSectionWidgets()
 
 	if( SectionAreaNode.IsValid() )
 	{
-		const TArray< TSharedRef<ISequencerSection> >& Sections = SectionAreaNode->GetSections();
+		TArray< TSharedRef<ISequencerSection> >& Sections = SectionAreaNode->GetSections();
 
 		for ( int32 SectionIndex = 0; SectionIndex < Sections.Num(); ++SectionIndex )
 		{
 			Children.Add( 
-				SNew( SSection, SectionAreaNode.ToSharedRef(), SectionIndex ) 
+				SNew( SSequencerSection, SectionAreaNode.ToSharedRef(), SectionIndex ) 
 				.Visibility( this, &SSequencerSectionAreaView::GetSectionVisibility, Sections[SectionIndex]->GetSectionObject() )
 				);
 		}
@@ -87,18 +110,7 @@ void SSequencerSectionAreaView::GenerateSectionWidgets()
 
 EVisibility SSequencerSectionAreaView::GetSectionVisibility( UMovieSceneSection* SectionObject ) const
 {
-	return GetSequencer().IsSectionVisible( SectionObject ) ? EVisibility::Visible : EVisibility::Collapsed;
-}
-
-float SSequencerSectionAreaView::GetSectionAreaHeight() const
-{
- 	return SectionAreaNode->GetNodeHeight() + ComputeHeightRecursive( SectionAreaNode->GetChildNodes() );
-}
-
-EVisibility SSequencerSectionAreaView::GetNodeVisibility() const
-{
-	// We are not visible if our node is hidden
-	return SectionAreaNode->IsVisible() ? EVisibility::Visible : EVisibility::Collapsed;
+	return EVisibility::Visible;
 }
 
 
@@ -107,20 +119,6 @@ int32 SSequencerSectionAreaView::OnPaint( const FPaintArgs& Args, const FGeometr
 {
 	FArrangedChildren ArrangedChildren(EVisibility::Visible);
 	ArrangeChildren(AllottedGeometry, ArrangedChildren);
-
-	if( SectionAreaNode.IsValid() )
-	{
-		// Draw a region around the entire section area
-		FSlateDrawElement::MakeBox( 
-			OutDrawElements, 
-			LayerId,
-			AllottedGeometry.ToPaintGeometry(),
-			BackgroundBrush,
-			MyClippingRect,
-			ESlateDrawEffect::None,
-			SequencerSectionAreaConstants::BackgroundColor
-			);
-	}
 
 	for (int32 ChildIndex = 0; ChildIndex < ArrangedChildren.Num(); ++ChildIndex)
 	{
@@ -132,23 +130,12 @@ int32 SSequencerSectionAreaView::OnPaint( const FPaintArgs& Args, const FGeometr
 	return LayerId+1;
 }
 
-FReply SSequencerSectionAreaView::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
-{
-	// Clear selected sections
-	if( !MouseEvent.IsControlDown() )
-	{
-		GetSequencer().GetSelection()->EmptySelectedSections();
-	}
-
-	return FReply::Handled();
-}
-
 void SSequencerSectionAreaView::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren ) const
 {
 	int32 MaxRowIndex = 0;
 	for( int32 WidgetIndex = 0; WidgetIndex < Children.Num(); ++WidgetIndex )
 	{
-		const TSharedRef<SSection>& Widget = Children[WidgetIndex];
+		const TSharedRef<SSequencerSection>& Widget = Children[WidgetIndex];
 
 		TSharedPtr<ISequencerSection> SectionInterface = Widget->GetSectionInterface();
 
@@ -157,13 +144,13 @@ void SSequencerSectionAreaView::OnArrangeChildren( const FGeometry& AllottedGeom
 	int32 MaxTracks = MaxRowIndex + 1;
 
 
-	float SectionHeight = GetSectionAreaHeight();
+	float SectionHeight = AllottedGeometry.GetLocalSize().Y - SectionAreaNode->GetNodePadding().Bottom;
 
 	FTimeToPixel TimeToPixelConverter = GetTimeToPixel( AllottedGeometry );
 
 	for( int32 WidgetIndex = 0; WidgetIndex < Children.Num(); ++WidgetIndex )
 	{
-		const TSharedRef<SSection>& Widget = Children[WidgetIndex];
+		const TSharedRef<SSequencerSection>& Widget = Children[WidgetIndex];
 
 		TSharedPtr<ISequencerSection> SectionInterface = Widget->GetSectionInterface();
 

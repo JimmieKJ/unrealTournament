@@ -82,6 +82,12 @@ UObject* USkeletonFactory::FactoryCreateNew(UClass* Class, UObject* InParent, FN
 			NewAsset->ClearFlags( RF_Public| RF_Standalone );
 			NewAsset = NULL;
 		}
+
+		if (TargetSkeletalMesh->Skeleton != NewAsset)
+		{
+			TargetSkeletalMesh->Skeleton = NewAsset;
+			TargetSkeletalMesh->MarkPackageDirty();
+		}
 	}
 	
 	return NewAsset;

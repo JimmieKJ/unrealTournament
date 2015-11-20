@@ -4,10 +4,6 @@
 
 #include "GenericPlatform/GenericPlatformStackWalk.h"
 
-#undef PLATFORM_SUPPORTS_STACK_SYMBOLS
-#define PLATFORM_SUPPORTS_STACK_SYMBOLS 1
-
-
 /**
  * Windows implementation of the stack walking.
  **/

@@ -22,18 +22,22 @@ class UK2Node_FunctionTerminator : public UK2Node_EditablePinBase
 	FName SignatureName;
 
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual bool CanDuplicateNode() const override { return false; }
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FString CreateUniquePinName(FString SourcePinName) const override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
-	// End UK2Node interface
+	virtual bool HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const override;
+	//~ End UK2Node Interface
 
-	// Begin UK2Node_EditablePinBase interface
+	//~ Begin UK2Node_EditablePinBase Interface
 	virtual bool CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage) override;
-	// End UK2Node_EditablePinBase interface
+	//~ End UK2Node_EditablePinBase Interface
+
+	/** Promotes the node from being a part of an interface override to a full function that allows for parameter and result pin additions */
+	virtual void PromoteFromInterfaceOverride(bool bIsPrimaryTerminator = true);
 };
 

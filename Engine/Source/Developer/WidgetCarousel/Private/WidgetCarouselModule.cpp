@@ -4,12 +4,12 @@
 
 void FWidgetCarouselModule::StartupModule()
 {
-	FWidgetCarouselModuleStyle::Initialize();
+
 }
 
 void FWidgetCarouselModule::ShutdownModule()
 {
-	FWidgetCarouselModuleStyle::Shutdown();
+
 }
 
 IMPLEMENT_MODULE(FWidgetCarouselModule, WidgetCarousel);

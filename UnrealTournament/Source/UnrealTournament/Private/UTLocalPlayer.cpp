@@ -77,6 +77,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	RosterUpgradeText = FText::GetEmpty();
 	CurrentSessionTrustLevel = 2;
 	EarnedStars = 0;
+
+	McpProfileManager = nullptr;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -190,7 +192,7 @@ FText UUTLocalPlayer::GetAccountDisplayName() const
 	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
 	{
 
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserId.IsValid())
 		{
 			TSharedPtr<FUserOnlineAccount> UserAccount = OnlineIdentityInterface->GetUserAccount(*UserId);
@@ -208,14 +210,14 @@ FString UUTLocalPlayer::GetAccountName() const
 {
 	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
 	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserId.IsValid())
 		{
 			TSharedPtr<FUserOnlineAccount> UserAccount = OnlineIdentityInterface->GetUserAccount(*UserId);
 			if (UserAccount.IsValid())
 			{
 				FString Result;
-				UserAccount->GetUserAccountData(TEXT("email"), Result);
+				UserAccount->GetAuthAttribute(TEXT("email"), Result);
 				return Result;
 			}
 		}
@@ -230,7 +232,7 @@ FText UUTLocalPlayer::GetAccountSummary() const
 	if (OnlineIdentityInterface.IsValid() && PlayerController && PlayerController->PlayerState)
 	{
 
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserId.IsValid())
 		{
 			TSharedPtr<FUserOnlineAccount> UserAccount = OnlineIdentityInterface->GetUserAccount(*UserId);
@@ -701,20 +703,20 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 			LastEpicIDLogin = PendingLoginUserName;
 			LastEpicRememberMeToken = RememberMeToken;
 			SaveConfig();
+
+			// Now download initial profiles.
+			TSharedPtr<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(UniqueID));
+			GetMcpProfileManager()->Init(UserId, UserId, Account->GetDisplayName(), FUTProfilesLoaded::CreateUObject(this, &UUTLocalPlayer::OnProfileManagerInitComplete));
 		}
 
 		PendingLoginUserName = TEXT("");
 
-		// reset cached online items in case this is a different user
-		ProfileItems.Empty();
-		OnlineXP = 0;
-
 		LoadProfileSettings();
 		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
 		ShowToast(WelcomeToast);
-
+		/*
 		// Init the Friends And Chat system
-		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->Login();
+		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, true);
 		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
 		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().IsBoundToObject(this))
@@ -733,7 +735,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		{
 			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsActionNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
 		}
-
+		*/
 		// on successful auto login, attempt to join an accepted friend game invite
 		if (bInitialSignInAttempt)
 		{
@@ -751,7 +753,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		{
 			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
 			{
-				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+				TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 				if (UserId.IsValid())
 				{
 					UTPC->ServerReceiveStatsID(UserId->ToString());
@@ -817,8 +819,6 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	// If we have logged out, or started using the local profile, then clear the online profile.
 	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)
 	{
-		ProfileItems.Empty();
-		OnlineXP = 0;
 		// Clear out the MCP storage
 		MCPPulledData.bValid = false;
 
@@ -831,7 +831,6 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			LoginOnline(PendingLoginName, PendingLoginPassword);
 			PendingLoginPassword = TEXT("");
 		}
-
 
 		// If we are connected to a server, then exit back to the main menu.
 		if (GetWorld()->GetNetMode() == NM_Client)
@@ -875,7 +874,7 @@ void UUTLocalPlayer::ReadCloudFileListing()
 {
 	if (OnlineUserCloudInterface.IsValid() && OnlineIdentityInterface.IsValid())
 	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserId.IsValid())
 		{
 			OnlineUserCloudInterface->EnumerateUserFiles(*UserId.Get());
@@ -965,7 +964,7 @@ void UUTLocalPlayer::AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16
 
 
 				// If we are in an active session, warn that this will cause you to go back to the main menu.
-				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+				TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
 				if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
 				{
 					ShowMessage(NSLOCTEXT("UTLocalPlayer", "SwitchLoginsTitle", "Change Users..."), NSLOCTEXT("UTLocalPlayer", "SwitchLoginsMsg", "Switching users will cause you to return to the main menu and leave any game you are currently in.  Are you sure you wish to do this?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::OnSwitchUserResult),FVector2D(0.25,0.25));					
@@ -1002,7 +1001,7 @@ void UUTLocalPlayer::OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint
 	{
 		// If we are in an active session, then we have to force a return to the main menu.  If we are not in an active session (ie: setting at the main menu)
 		// we can just logout/login..
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
 		if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
 		{
 			// kill the current menu....
@@ -1137,35 +1136,14 @@ void UUTLocalPlayer::LoadProfileSettings()
 
 	if (IsLoggedIn())
 	{
-		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserID.IsValid())
 		{
 			if (OnlineUserCloudInterface.IsValid())
 			{
 				OnlineUserCloudInterface->ReadUserFile(*UserID, GetProfileFilename());
 			}
-		
-			ReadProfileItems();
 		}
-	}
-}
-
-void UUTLocalPlayer::ReadProfileItems()
-{
-#if !UE_BUILD_SHIPPING
-	// this code ends up invoking the asset registry (slow in dev builds) so command line option to skip
-	if (FParse::Param(FCommandLine::Get(), TEXT("noitems")))
-	{
-		return;
-	}
-#endif
-	TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (UserID.IsValid() && (LastItemReadTime == 0.0 || FPlatformTime::Seconds() > LastItemReadTime + 60.0))
-	{
-		FHttpRequestCompleteDelegate Delegate;
-		Delegate.BindUObject(this, &UUTLocalPlayer::OnReadProfileItemsComplete);
-		ReadBackendStats(Delegate, UserID->ToString());
-		LastItemReadTime = FPlatformTime::Seconds();
 	}
 }
 
@@ -1183,7 +1161,7 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 {
 	if (IsLoggedIn() && ButtonID == UTDIALOG_BUTTON_YES)
 	{
-		TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
 		{
 			OnlineUserCloudInterface->DeleteUserFile(*UserID, GetProfileFilename(), true, true);
@@ -1328,23 +1306,22 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 	}
 }
 
-void UUTLocalPlayer::OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded)
-{
-	if (bSucceeded)
-	{
-		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems, OnlineXP);
-	}
-}
-
 bool UUTLocalPlayer::OwnsItemFor(const FString& Path, int32 VariantId) const
 {
-	for (const FProfileItemEntry& Entry : ProfileItems)
+#if WITH_PROFILE
+	if (GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile) != NULL)
 	{
-		if (Entry.Item != NULL && Entry.Item->Grants(Path))
+		TArray<UUTProfileItem*> ItemList;
+		GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->GetItemsOfType<UUTProfileItem>(ItemList);
+		for (UUTProfileItem* Item : ItemList)
 		{
-			return true;
+			if (Item != NULL && Item->Grants(Path, VariantId))
+			{
+				return true;
+			}
 		}
 	}
+#endif
 	return false;
 }
 
@@ -1381,7 +1358,7 @@ void UUTLocalPlayer::SaveProfileSettings()
 		else
 		{
 			// Save the blob to the cloud
-			TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+			TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 			if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
 			{
 				LastProfileCloudWriteTime = FApp::GetCurrentTime();
@@ -1448,7 +1425,7 @@ FName UUTLocalPlayer::TeamStyleRef(FName InName)
 
 void UUTLocalPlayer::ReadELOFromCloud()
 {
-	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+	TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 	if (OnlineUserCloudInterface.IsValid() && UserId.IsValid())
 	{
 		OnlineUserCloudInterface->ReadUserFile(*UserId, GetStatsFilename());
@@ -1458,7 +1435,7 @@ void UUTLocalPlayer::ReadELOFromCloud()
 void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 {
 	TArray<uint8> FileContents;
-	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+	TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 	if (UserId.IsValid() && OnlineUserCloudInterface.IsValid() && OnlineUserCloudInterface->GetFileContents(*UserId, GetStatsFilename(), FileContents))
 	{
 		if (FileContents.Num() <= 0)
@@ -2153,7 +2130,7 @@ void UUTLocalPlayer::LeaveSession()
 {
 	if (OnlineIdentityInterface.IsValid())
 	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
 		if (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
 		{
 			OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
@@ -2197,7 +2174,7 @@ void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvite
 {
 	if (OnlineIdentityInterface.IsValid() && OnlineSessionInterface.IsValid() && OnlinePresenceInterface.IsValid())
 	{
-		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 		if (UserId.IsValid())
 		{
 			FOnlineSessionSettings* GameSettings = OnlineSessionInterface->GetSessionSettings(TEXT("Game"));
@@ -2266,12 +2243,13 @@ void UUTLocalPlayer::HandleFriendsNotificationAvail(bool bAvailable)
 
 void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage)
 {
+	/*
 	if (FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::GameInvite ||
 		FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::FriendAccepted || 
 		FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::FriendInvite)
 	{
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
-	}
+	}*/
 }
 
 void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)
@@ -2472,7 +2450,7 @@ void UUTLocalPlayer::ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, 
 
 bool UUTLocalPlayer::IsInSession()
 { 
-	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+	TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
 	return (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName,*UserId));
 }
 
@@ -2497,7 +2475,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
 {
 	OutFriendsList.Empty();
-
+	/*
 	TArray< TSharedPtr< IFriendItem > > FriendsList;
 	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetFilteredFriendsList(FriendsList);
 	for (auto Friend : FriendsList)
@@ -2510,26 +2488,29 @@ int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
 		return A.DisplayName < B.DisplayName;
 	});
 
-	return RetVal;
+	return RetVal;*/
+	return 0;
 }
 
 int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayersList)
 {
 	OutRecentPlayersList.Empty();
-
+	// Need to readd GetRecentPlayersList function
+	/*
 	TArray< TSharedPtr< IFriendItem > > RecentPlayersList;
 	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetRecentPlayersList(RecentPlayersList);
 	for (auto RecentPlayer : RecentPlayersList)
 	{
 		OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUniqueID()->ToString(), RecentPlayer->GetName(), false));
 	}
-
 	OutRecentPlayersList.Sort([](const FUTFriend& A, const FUTFriend& B) -> bool
 	{
 		return A.DisplayName < B.DisplayName;
 	});
 
 	return RetVal;
+	*/
+	return 0;
 }
 
 
@@ -2553,7 +2534,7 @@ void UUTLocalPlayer::OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed)
 #endif
 }
 
-void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
+void UUTLocalPlayer::RequestFriendship(TSharedPtr<const FUniqueNetId> FriendID)
 {
 	if (OnlineFriendsInterface.IsValid() && FriendID.IsValid())
 	{
@@ -3234,11 +3215,11 @@ void UUTLocalPlayer::VerifyGameSession(const FString& ServerSessionId)
 		FNamedOnlineSession* Session = OnlineSessionInterface->GetNamedSession(FName(TEXT("Game")));
 		if (Session == NULL || !Session->SessionInfo.IsValid() || Session->SessionInfo->GetSessionId().ToString() != ServerSessionId)
 		{
-			TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+			TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 			if (UserId.IsValid())
 			{
-				TSharedPtr<FUniqueNetId> ServerId = MakeShareable(new FUniqueNetIdString(ServerSessionId));		
-				TSharedPtr<FUniqueNetId> EmptyId = MakeShareable(new FUniqueNetIdString(""));				
+				TSharedPtr<const FUniqueNetId> ServerId = MakeShareable(new FUniqueNetIdString(ServerSessionId));		
+				TSharedPtr<const FUniqueNetId> EmptyId = MakeShareable(new FUniqueNetIdString(""));				
 				FOnSingleSessionResultCompleteDelegate CompletionDelegate;
 				CompletionDelegate.BindUObject(this, &UUTLocalPlayer::OnFindSessionByIdComplete);
 				OnlineSessionInterface->FindSessionById(*UserId, *ServerId, *EmptyId, CompletionDelegate);
@@ -3801,10 +3782,149 @@ FUniqueNetIdRepl UUTLocalPlayer::GetGameAccountId() const
 
 bool UUTLocalPlayer::IsEarningXP() const
 {
-	if (IsOnTrustedServer() && IsLoggedIn())
+	return true; // we rely on the backend to cap or disallow XP as appropriate
+}
+
+void UUTLocalPlayer::PostInitProperties()
+{
+	Super::PostInitProperties();
+	if (!IsTemplate())
 	{
-		return true;
+#if WITH_PROFILE
+		if (McpProfileManager == nullptr)
+		{
+			McpProfileManager = NewObject<UUtMcpProfileManager>(this);
+			ActiveMcpProfileManager = McpProfileManager;
+		}
+#endif
 	}
-	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	return (Game && Game->bOfflineChallenge);
+}
+
+#if WITH_PROFILE
+
+UUtMcpProfileManager* UUTLocalPlayer::GetMcpProfileManager(const FString& AccountId)
+{
+	if ((AccountId == GetMcpProfileManager()->GetAccountId()) || AccountId.IsEmpty())
+	{
+		return GetMcpProfileManager();
+	}
+
+	// Decided to not use map because not expecting very many shared profiles, plus maps are not GC'd.
+	for (auto Manager : SharedMcpProfileManager)
+	{
+		if (AccountId == Cast<UUtMcpProfileManager>(Manager)->GetAccountId())
+		{
+			return Cast<UUtMcpProfileManager>(Manager);
+		}
+	}
+
+	/*
+	// To prevent many checks from happening while testing non MCP maps, this is used to create a dummy profile manager.
+	if (NullProfileManager == nullptr)
+	{
+		UE_LOG(UT, Error, TEXT("UUtLocalPlayer: Invalid Profile Manager request %s"), *AccountId);
+		NullProfileManager = NewObject<UUtMcpProfileManager>(this);
+		NullProfileManager->OfflineInit();
+		ActiveMcpProfileManager = NullProfileManager;
+	}
+	return NullProfileManager;
+	*/
+
+	return nullptr;
+}
+
+#endif
+
+void UUTLocalPlayer::OnProfileManagerInitComplete(bool bSuccess, const FText& ErrorText)
+{
+	if (bSuccess)
+	{
+		UpdateSharedProfiles();
+	}
+	else
+	{
+		// If failure, it is handled here, otherwise success callback when done is in UpdateSharedProfiles() - so that it can be call independently.
+		UpdateSharedProfilesComplete.ExecuteIfBound(false, ErrorText);
+		UpdateSharedProfilesComplete.Unbind();
+	}
+}
+
+void UUTLocalPlayer::UpdateSharedProfiles()
+{
+#if WITH_PROFILE
+	UUtMcpProfile* McpProfile = GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	TSharedPtr<const FJsonValue> SharedAccounts = McpProfile->GetStat(TEXT("sharedAccounts"));
+	if (SharedAccounts.IsValid())
+	{
+		const TArray< TSharedPtr<FJsonValue> >& AccountsArray = SharedAccounts->AsArray();
+
+		int32 SharedProfileIndex = SharedMcpProfileManager.Num();
+		if (AccountsArray.Num() > SharedProfileIndex)
+		{
+			FString McpAccountId = AccountsArray[SharedProfileIndex]->AsString();
+			
+			UUtMcpProfileManager* NewManager = NewObject<UUtMcpProfileManager>(this);
+			SharedMcpProfileManager.Add(NewManager);
+			TSharedPtr< const FUniqueNetId > ProfileNetID = MakeShareable(new FUniqueNetIdString(McpAccountId));
+
+			TSharedPtr<const FUniqueNetId> UserId = nullptr;
+			if (OnlineIdentityInterface.IsValid())
+			{
+				UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+			}
+
+			NewManager->Init(ProfileNetID, UserId, TEXT("Clan"), FUTProfilesLoaded::CreateUObject(this, &UUTLocalPlayer::OnProfileManagerInitComplete));
+			return;
+
+		}
+	}
+
+	// bind the delegate that will tell us about profile notifications
+	McpProfile->OnHandleNotification().BindUObject(this, &UUTLocalPlayer::HandleProfileNotification);
+	McpProfile->GrantXP(10);
+	// All profiles are loaded, not sure what to stuff into LoginResults here
+	FText LoginResults;
+	UpdateSharedProfilesComplete.ExecuteIfBound(true, LoginResults);
+	UpdateSharedProfilesComplete.Unbind();
+#endif
+}
+
+void UUTLocalPlayer::UpdateSharedProfiles(const FUTProfilesLoaded& Callback)
+{
+	UpdateSharedProfilesComplete = Callback;
+	UpdateSharedProfiles();
+}
+
+void UUTLocalPlayer::HandleProfileNotification(const FOnlineNotification& Notification)
+{
+	if (Notification.TypeStr == TEXT("XPProgress"))
+	{
+		FXPProgressNotifyPayload Payload;
+		Notification.ParsePayload(Payload, Notification.TypeStr);
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+		if (PC != NULL)
+		{
+			PC->XPBreakdown = FNewScoreXP(float(Payload.XP - Payload.PrevXP));
+		}
+	}
+	else if (Notification.TypeStr == TEXT("LevelUpReward"))
+	{
+#if WITH_PROFILE
+		FLevelUpRewardNotifyPayload Payload;
+		Notification.ParsePayload(Payload, Notification.TypeStr);
+		const UUTProfileItem* ProfileItem = Cast<UUTProfileItem>(GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->GetItemTemplateObject(UUTProfileItem::StaticClass(), Payload.RewardID));
+		if (ProfileItem != NULL)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+			if (PC != NULL)
+			{
+				PC->LevelRewards.Add(ProfileItem);
+			}
+			else
+			{
+				ShowToast(FText::Format(NSLOCTEXT("UTLocalPlayer", "GotItem", "Received item {0}"), ProfileItem->DisplayName));
+			}
+		}
+#endif
+	}
 }

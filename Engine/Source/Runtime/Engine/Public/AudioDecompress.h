@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "Sound/SoundWave.h"
+
 // 186ms of 44.1KHz data
 // 372ms of 22KHz data
 #define MONO_PCM_BUFFER_SAMPLES		8192
@@ -146,3 +148,95 @@ public:
 
 typedef FAsyncTask<FAsyncAudioDecompressWorker> FAsyncAudioDecompress;
 
+enum class ERealtimeAudioTaskType : uint8
+{
+	Decompress,
+	Procedural
+};
+
+template<class T>
+class FAsyncRealtimeAudioTaskWorker : public FNonAbandonableTask
+{
+protected:
+	T* AudioBuffer;
+	USoundWave* WaveData;
+	uint8* AudioData;
+	int32 MaxSamples;
+	int32 BytesWritten;
+	ERealtimeAudioTaskType TaskType;
+	uint32 bSkipFirstBuffer:1;
+	uint32 bLoopingMode:1;
+	uint32 bLooped:1;
+
+public:
+	FAsyncRealtimeAudioTaskWorker(T* InAudioBuffer, uint8* InAudioData, bool bInLoopingMode, bool bInSkipFirstBuffer)
+		: AudioBuffer(InAudioBuffer)
+		, AudioData(InAudioData)
+		, TaskType(ERealtimeAudioTaskType::Decompress)
+		, bSkipFirstBuffer(bInSkipFirstBuffer)
+		, bLoopingMode(bInLoopingMode)
+		, bLooped(false)
+	{
+	}
+
+	FAsyncRealtimeAudioTaskWorker(USoundWave* InWaveData, uint8* InAudioData, int32 InMaxSamples)
+		: WaveData(InWaveData)
+		, AudioData(InAudioData)
+		, MaxSamples(InMaxSamples)
+		, BytesWritten(0)
+		, TaskType(ERealtimeAudioTaskType::Procedural)
+	{
+	}
+
+	void DoWork()
+	{
+		switch(TaskType)
+		{
+		case ERealtimeAudioTaskType::Decompress:
+			if (bSkipFirstBuffer)
+			{
+				// If we're using cached data we need to skip the first two reads from the data
+				AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
+				AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
+			}
+			bLooped = AudioBuffer->ReadCompressedData( ( uint8* )AudioData, bLoopingMode );
+			break;
+
+		case ERealtimeAudioTaskType::Procedural:
+			BytesWritten = WaveData->GeneratePCMData( (uint8*)AudioData, MaxSamples );
+			break;
+
+		default:
+			check(false);
+		}
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		if (TaskType == ERealtimeAudioTaskType::Procedural)
+		{
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncRealtimeAudioProceduralWorker, STATGROUP_ThreadPoolAsyncTasks);
+		}
+		else
+		{
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FAsyncRealtimeAudioDecompressWorker, STATGROUP_ThreadPoolAsyncTasks);
+		}
+	}
+
+	ERealtimeAudioTaskType GetTaskType() const
+	{
+		return TaskType;
+	}
+
+	bool GetBufferLooped() const
+	{ 
+		check(TaskType == ERealtimeAudioTaskType::Decompress);
+		return bLooped;
+	}
+
+	int32 GetBytesWritten() const
+	{ 
+		check(TaskType == ERealtimeAudioTaskType::Procedural);
+		return BytesWritten;
+	}
+};

@@ -61,8 +61,12 @@ public:
 	virtual IInputInterface* GetInputInterface() override;
 
 	virtual TSharedRef< FGenericWindow > MakeWindow() override;
-	
+
+	virtual void AddExternalInputDevice(TSharedPtr<class IInputDevice> InputDevice);
+
 	void InitializeWindow( const TSharedRef< FGenericWindow >& InWindow, const TSharedRef< FGenericWindowDefinition >& InDefinition, const TSharedPtr< FGenericWindow >& InParent, const bool bShowImmediately );
+
+	static void OnWindowSizeChanged();
 
 private:
 
@@ -72,8 +76,11 @@ private:
 private:
 
 	TSharedPtr< class FAndroidInputInterface > InputInterface;
+	bool bHasLoadedInputPlugins;
 
 	TArray< TSharedRef< FAndroidWindow > > Windows;
+
+	static bool bWindowSizeChanged;
 };
 
 PRAGMA_ENABLE_DEPRECATION_WARNINGS

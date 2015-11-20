@@ -108,6 +108,8 @@ void UK2Node_Literal::PostReconstructNode()
 		ValuePin->PinType = ConnectedPin->PinType;
 		ValuePin->PinType.PinSubCategoryObject = PinSubtype;
 	}
+
+	Super::PostReconstructNode();
 }
 
 FText UK2Node_Literal::GetTooltipText() const

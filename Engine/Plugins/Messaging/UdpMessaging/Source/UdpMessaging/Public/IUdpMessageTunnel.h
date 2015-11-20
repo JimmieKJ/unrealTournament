@@ -22,7 +22,7 @@ public:
 	 * @return true if the connection has been established, false otherwise.
 	 * @see GetConnections
 	 */
-	virtual bool Connect( const FIPv4Endpoint& RemoteEndpoint ) = 0;
+	virtual bool Connect(const FIPv4Endpoint& RemoteEndpoint) = 0;
 
 	/** 
 	 * Starts the tunnel server.
@@ -30,7 +30,7 @@ public:
 	 * @param LocalEndpoint The IP endpoint to listen for incoming connections on.
 	 * @see IsServerRunning, StopServer
 	 */
-	virtual void StartServer( const FIPv4Endpoint& LocalEndpoint ) = 0;
+	virtual void StartServer(const FIPv4Endpoint& LocalEndpoint) = 0;
 
 	/**
 	 * Stops the tunnel server.
@@ -48,7 +48,7 @@ public:
 	 * @return The number of connections returned.
 	 * @see Connect
 	 */
-	virtual int32 GetConnections( TArray<TSharedPtr<IUdpMessageTunnelConnection>>& OutConnections ) = 0;
+	virtual int32 GetConnections(TArray<TSharedPtr<IUdpMessageTunnelConnection>>& OutConnections) = 0;
 
 	/**
 	 * Gets the total number of bytes that were received from tunnels.

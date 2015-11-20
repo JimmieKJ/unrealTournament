@@ -55,10 +55,10 @@ protected:
 public:
 
 
-	// Begin AActor Interface
-	ENGINE_API virtual void Destroyed() override;
+	//~ Begin AActor Interface
+	ENGINE_API virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	ENGINE_API virtual void PostInitializeComponents() override;
-	// End AActor Interface
+	//~ End AActor Interface
 
 	/** Tell the emitter what camera it is attached to. */
 	ENGINE_API virtual void RegisterCamera(APlayerCameraManager* C);

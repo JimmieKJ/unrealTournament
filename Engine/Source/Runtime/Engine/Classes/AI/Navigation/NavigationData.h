@@ -104,11 +104,6 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 	{
 		return ObserverDelegate.Add(NewObserver);
 	}
-	DELEGATE_DEPRECATED("This RemoveObserver overload has been deprecated - please pass the handle returned from AddObserver instead.")
-	FORCEINLINE void RemoveObserver(FPathObserverDelegate::FDelegate& ObserverToRemove)
-	{
-		ObserverDelegate.DEPRECATED_Remove(ObserverToRemove);
-	}
 	FORCEINLINE void RemoveObserver(FDelegateHandle HandleOfObserverToRemove)
 	{
 		ObserverDelegate.Remove(HandleOfObserverToRemove);
@@ -143,11 +138,11 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 		bReachedSearchLimit = bLimited;
 	}
 
-	FORCEINLINE void SetFilter(TSharedPtr<const FNavigationQueryFilter> InFilter)
+	FORCEINLINE void SetFilter(FSharedConstNavQueryFilter InFilter)
 	{
 		Filter = InFilter;
 	}
-	FORCEINLINE TSharedPtr<const FNavigationQueryFilter> GetFilter() const
+	FORCEINLINE FSharedConstNavQueryFilter GetFilter() const
 	{
 		return Filter;
 	}
@@ -212,7 +207,7 @@ struct ENGINE_API FNavigationPath : public TSharedFromThis<FNavigationPath, ESPM
 	}
 
 	/** calculates total length of segments from NextPathPoint to the end of path, plus distance from CurrentPosition to NextPathPoint */
-	float GetLengthFromPosition(FVector SegmentStart, uint32 NextPathPointIndex) const;
+	virtual float GetLengthFromPosition(FVector SegmentStart, uint32 NextPathPointIndex) const;
 
 	FORCEINLINE float GetLength() const
 	{
@@ -261,13 +256,13 @@ public:
 	template<typename PathClass>
 	FORCEINLINE const PathClass* CastPath() const
 	{
-		return PathType == PathClass::Type ? static_cast<PathClass*>(this) : NULL;
+		return PathType.IsA(PathClass::Type) ? static_cast<PathClass*>(this) : NULL;
 	}
 
 	template<typename PathClass>
 	FORCEINLINE PathClass* CastPath()
 	{
-		return PathType == PathClass::Type ? static_cast<PathClass*>(this) : NULL;
+		return PathType.IsA(PathClass::Type) ? static_cast<PathClass*>(this) : NULL;
 	}
 
 	/** enables path observing specified AActor's location and update itself if actor changes location */
@@ -342,7 +337,7 @@ private:
 
 protected:
 	/** filter used to build this path */
-	TSharedPtr<const struct FNavigationQueryFilter> Filter;
+	FSharedConstNavQueryFilter Filter;
 
 	/** type of path */
 	static const FNavPathType Type;
@@ -427,6 +422,19 @@ protected:
 	// game-time config
 	//----------------------------------------------------------------------//
 	
+	/** By default navigation will skip the first update after being successfully loaded
+	*  setting bForceRebuildOnLoad to false can override this behavior */
+	UPROPERTY(config, EditAnywhere, Category = Runtime)
+	uint32 bForceRebuildOnLoad : 1;
+
+	/** If set, navigation data can act as default one in navigation system's queries */
+	UPROPERTY(config, VisibleAnywhere, Category = Runtime, AdvancedDisplay)
+	uint32 bCanBeMainNavData : 1;
+
+	/** If set, navigation data will be spawned in persistent level during rebuild if actor doesn't exist */
+	UPROPERTY(config, VisibleAnywhere, Category = Runtime, AdvancedDisplay)
+	uint32 bCanSpawnOnRebuild : 1;
+
 	/** If true, the NavMesh can be dynamically rebuilt at runtime. */
 	UPROPERTY(config)
 	uint32 bRebuildAtRuntime_DEPRECATED:1;
@@ -435,24 +443,16 @@ protected:
 	UPROPERTY(EditAnywhere, Category = Runtime, config)
 	ERuntimeGenerationType RuntimeGeneration;
 
-	/** By default navigation will skip the first update after being successfully loaded
-	 *  setting bForceRebuildOnLoad to false can override this behavior */
-	UPROPERTY(config, EditAnywhere, Category = Runtime)
-	uint32 bForceRebuildOnLoad : 1;
-
 	/** all observed paths will be processed every ObservedPathsTickInterval seconds */
 	UPROPERTY(EditAnywhere, Category = Runtime, config)
 	float ObservedPathsTickInterval;
-
-	UPROPERTY(Transient)
-	UWorld* CachedWorld;
 
 public:
 	//----------------------------------------------------------------------//
 	// Life cycle                                                                
 	//----------------------------------------------------------------------//
 
-	// Begin UObject/AActor Interface
+	//~ Begin UObject/AActor Interface
 	virtual void PostInitProperties() override;
 	virtual void PostInitializeComponents() override;
 	virtual void PostLoad() override;
@@ -460,10 +460,16 @@ public:
 	virtual void PostEditUndo() override;
 #endif // WITH_EDITOR
 	virtual void Destroyed() override;
-	// End UObject Interface
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	//~ End UObject Interface
 		
 	virtual void CleanUp();
 
+private:
+	/** Simply unregisters self from navigation system and calls CleanUp */
+	void UnregisterAndCleanUp();
+
+public:
 	virtual void CleanUpAndMarkPendingKill();
 
 	FORCEINLINE bool IsRegistered() const { return bRegistered; }
@@ -499,6 +505,9 @@ public:
 	FORCEINLINE void MarkAsNeedingUpdate() { bWantsUpdate = true; }
 
 	virtual void RestrictBuildingToActiveTiles(bool InRestrictBuildingToActiveTiles) {}
+
+	bool CanBeMainNavData() const { return bCanBeMainNavData; }
+	bool CanSpawnOnRebuild() const { return bCanSpawnOnRebuild; }
 
 protected:
 	virtual void FillConfig(FNavDataConfig& Dest) { Dest = NavDataConfig; }
@@ -611,7 +620,7 @@ public:
 	//----------------------------------------------------------------------//
 	// Querying                                                                
 	//----------------------------------------------------------------------//
-	FORCEINLINE TSharedPtr<const FNavigationQueryFilter> GetDefaultQueryFilter() const { return DefaultQueryFilter; }
+	FORCEINLINE FSharedConstNavQueryFilter GetDefaultQueryFilter() const { return DefaultQueryFilter; }
 	FORCEINLINE const class INavigationQueryFilterInterface* GetDefaultQueryFilterImpl() const { return DefaultQueryFilter->GetImplementation(); }	
 	FORCEINLINE FVector GetDefaultQueryExtent() const { return NavDataConfig.DefaultQueryExtent; }
 
@@ -680,7 +689,7 @@ public:
 	 *
 	 *	@note don't make this function virtual! Look at implementation details and its comments for more info.
 	 */
-	FORCEINLINE bool Raycast(const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation, TSharedPtr<const FNavigationQueryFilter> QueryFilter, const UObject* Querier = NULL) const
+	FORCEINLINE bool Raycast(const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation, FSharedConstNavQueryFilter QueryFilter, const UObject* Querier = NULL) const
 	{
 		check(RaycastImplementation);
 		// this awkward implementation avoids virtual call overhead - it's possible this function will be called a lot
@@ -688,45 +697,44 @@ public:
 	}
 
 	/** Raycasts batched for efficiency */
-	virtual void BatchRaycast(TArray<FNavigationRaycastWork>& Workload, TSharedPtr<const FNavigationQueryFilter> QueryFilter, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::BatchRaycast, );
+	virtual void BatchRaycast(TArray<FNavigationRaycastWork>& Workload, FSharedConstNavQueryFilter QueryFilter, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::BatchRaycast, );
 
-	virtual FNavLocation GetRandomPoint(TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPoint, return FNavLocation(););
+	virtual FNavLocation GetRandomPoint(FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPoint, return FNavLocation(););
 
 	/** finds a random location in Radius, reachable from Origin */
-	virtual bool GetRandomReachablePointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomReachablePointInRadius, return false;);
+	virtual bool GetRandomReachablePointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomReachablePointInRadius, return false;);
 
 	/** finds a random location in navigable space, in given Radius */
-	virtual bool GetRandomPointInNavigableRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPointInNavigableRadius, return false;);
+	virtual bool GetRandomPointInNavigableRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPointInNavigableRadius, return false;);
 	
 	/**	Tries to project given Point to this navigation type, within given Extent.
 	 *	@param OutLocation if successful this variable will be filed with result
 	 *	@return true if successful, false otherwise
 	 */
-	virtual bool ProjectPoint(const FVector& Point, FNavLocation& OutLocation, const FVector& Extent, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::ProjectPoint, return false;);
+	virtual bool ProjectPoint(const FVector& Point, FNavLocation& OutLocation, const FVector& Extent, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::ProjectPoint, return false;);
 
 	/**	batches ProjectPoint's work for efficiency */
-	virtual void BatchProjectPoints(TArray<FNavigationProjectionWork>& Workload, const FVector& Extent, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::BatchProjectPoints, );
+	virtual void BatchProjectPoints(TArray<FNavigationProjectionWork>& Workload, const FVector& Extent, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::BatchProjectPoints, );
 
 	/** Calculates path from PathStart to PathEnd and retrieves its cost. 
 	 *	@NOTE this function does not generate string pulled path so the result is an (over-estimated) approximation
 	 *	@NOTE potentially expensive, so use it with caution */
-	virtual ENavigationQueryResult::Type CalcPathCost(const FVector& PathStart, const FVector& PathEnd, float& OutPathCost, TSharedPtr<const FNavigationQueryFilter> QueryFilter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::CalcPathCost, return ENavigationQueryResult::Invalid;);
+	virtual ENavigationQueryResult::Type CalcPathCost(const FVector& PathStart, const FVector& PathEnd, float& OutPathCost, FSharedConstNavQueryFilter QueryFilter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::CalcPathCost, return ENavigationQueryResult::Invalid;);
 
 	/** Calculates path from PathStart to PathEnd and retrieves its length.
 	 *	@NOTE this function does not generate string pulled path so the result is an (over-estimated) approximation
 	 *	@NOTE potentially expensive, so use it with caution */
-	virtual ENavigationQueryResult::Type CalcPathLength(const FVector& PathStart, const FVector& PathEnd, float& OutPathLength, TSharedPtr<const FNavigationQueryFilter> QueryFilter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::CalcPathLength, return ENavigationQueryResult::Invalid;);
+	virtual ENavigationQueryResult::Type CalcPathLength(const FVector& PathStart, const FVector& PathEnd, float& OutPathLength, FSharedConstNavQueryFilter QueryFilter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::CalcPathLength, return ENavigationQueryResult::Invalid;);
 
 	/** Calculates path from PathStart to PathEnd and retrieves its length.
 	 *	@NOTE this function does not generate string pulled path so the result is an (over-estimated) approximation
 	 *	@NOTE potentially expensive, so use it with caution */
-	virtual ENavigationQueryResult::Type CalcPathLengthAndCost(const FVector& PathStart, const FVector& PathEnd, float& OutPathLength, float& OutPathCost, TSharedPtr<const FNavigationQueryFilter> QueryFilter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::CalcPathLength, return ENavigationQueryResult::Invalid;);
+	virtual ENavigationQueryResult::Type CalcPathLengthAndCost(const FVector& PathStart, const FVector& PathEnd, float& OutPathLength, float& OutPathCost, FSharedConstNavQueryFilter QueryFilter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::CalcPathLength, return ENavigationQueryResult::Invalid;);
 
 	/** Checks if specified navigation node contains given location 
 	 *	@param Location is expressed in WorldSpace, navigation data is responsible for tansforming if need be */
 	virtual bool DoesNodeContainLocation(NavNodeRef NodeRef, const FVector& WorldSpaceLocation) const PURE_VIRTUAL(ANavigationData::DoesNodeContainLocation, return false;);
 
-	const UWorld* GetCachedWorld() const;
 	float GetWorldTimeStamp() const;
 
 	//----------------------------------------------------------------------//
@@ -745,7 +753,7 @@ public:
 	void OnNavAreaEvent(const UClass* NavAreaClass, ENavAreaEvent::Type Event);
 
 	/** add all existing areas */
-	void ProcessNavAreas(const TArray<const UClass*>& AreaClasses, int32 AgentIndex);
+	void ProcessNavAreas(const TSet<const UClass*>& AreaClasses, int32 AgentIndex);
 
 	/** get class associated with AreaID */
 	const UClass* GetAreaClass(int32 AreaID) const;
@@ -773,10 +781,10 @@ public:
 	//----------------------------------------------------------------------//
 
 	/** get cached query filter */
-	TSharedPtr<const FNavigationQueryFilter> GetQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass) const;
+	FSharedConstNavQueryFilter GetQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass) const;
 
 	/** store cached query filter */
-	void StoreQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass, TSharedPtr<const FNavigationQueryFilter> NavFilter);
+	void StoreQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass, FSharedConstNavQueryFilter NavFilter);
 
 	/** removes cached query filter */
 	void RemoveQueryFilter(TSubclassOf<UNavigationQueryFilter> FilterClass);
@@ -797,6 +805,7 @@ protected:
 	
 protected:
 	/** Navigation data versioning. */
+	UPROPERTY()
 	uint32 DataVersion;
 
 	typedef FPathFindingResult (*FFindPathPtr)(const FNavAgentProperties& AgentProperties, const FPathFindingQuery& Query);
@@ -807,7 +816,7 @@ protected:
 	FTestPathPtr TestPathImplementation;
 	FTestPathPtr TestHierarchicalPathImplementation; 
 
-	typedef bool(*FNavRaycastPtr)(const ANavigationData* NavDataInstance, const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation, TSharedPtr<const FNavigationQueryFilter> QueryFilter, const UObject* Querier);
+	typedef bool(*FNavRaycastPtr)(const ANavigationData* NavDataInstance, const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation, FSharedConstNavQueryFilter QueryFilter, const UObject* Querier);
 	FNavRaycastPtr RaycastImplementation; 
 
 protected:
@@ -831,10 +840,10 @@ protected:
 	float NextObservedPathsTickInSeconds;
 
 	/** Query filter used when no other has been passed to relevant functions */
-	TSharedPtr<FNavigationQueryFilter> DefaultQueryFilter;
+	FSharedNavQueryFilter DefaultQueryFilter;
 
 	/** Map of query filters by UNavigationQueryFilter class */
-	TMap<UClass*,TSharedPtr<const FNavigationQueryFilter> > QueryFilters;
+	TMap<UClass*,FSharedConstNavQueryFilter > QueryFilters;
 
 	/** serialized area class - ID mapping */
 	UPROPERTY()
@@ -860,7 +869,7 @@ private:
 
 public:
 	DEPRECATED(4.8, "GetRandomPointInRadius is deprecated, please use GetRandomReachablePointInRadius")
-	virtual bool GetRandomPointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPointInRadius, return false;);
+	virtual bool GetRandomPointInRadius(const FVector& Origin, float Radius, FNavLocation& OutResult, FSharedConstNavQueryFilter Filter = NULL, const UObject* Querier = NULL) const PURE_VIRTUAL(ANavigationData::GetRandomPointInRadius, return false;);
 };
 
 struct FAsyncPathFindingQuery : public FPathFindingQuery
@@ -875,9 +884,9 @@ struct FAsyncPathFindingQuery : public FPathFindingQuery
 	{ }
 
 	DEPRECATED(4.8, "This version of FAsyncPathFindingQuery constructor is deprecated. Please use ANavigationData reference rather than a pointer version")
-	FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter);
+	FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData* InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, FSharedConstNavQueryFilter SourceQueryFilter);
 
-	FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, TSharedPtr<const FNavigationQueryFilter> SourceQueryFilter);
+	FAsyncPathFindingQuery(const UObject* InOwner, const ANavigationData& InNavData, const FVector& Start, const FVector& End, const FNavPathQueryDelegate& Delegate, FSharedConstNavQueryFilter SourceQueryFilter);
 	FAsyncPathFindingQuery(const FPathFindingQuery& Query, const FNavPathQueryDelegate& Delegate, const EPathFindingMode::Type QueryMode);
 
 protected:

@@ -5,6 +5,9 @@
 =============================================================================*/
 
 #include "RendererPrivate.h"
+
+#if WITH_EDITOR
+
 #include "PostProcessing.h"
 #include "SceneFilterRendering.h"
 #include "PostProcessSelectionOutline.h"
@@ -63,7 +66,7 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 #else
 			bool bActorSelectionColorIsSubdued = false;
 #endif
-			if (PrimitiveSceneProxy->IsSelected() && MeshBatchAndRelevance.Mesh->bUseSelectionOutline)
+			if (PrimitiveSceneProxy->IsSelected() && MeshBatchAndRelevance.Mesh->bUseSelectionOutline && PrimitiveSceneProxy->WantsSelectionOutline())
 			{
 				const int32* AssignedStencilIndexPtr = PrimitiveSceneProxy->IsIndividuallySelected() ? IndividuallySelectedProxies.Find( PrimitiveSceneProxy ) : ActorNameToStencilIndex.Find(PrimitiveSceneProxy->GetOwnerName());
 
@@ -125,7 +128,7 @@ void FRCPassPostProcessSelectionOutlineColor::Process(FRenderingCompositePassCon
 
 FPooledRenderTargetDesc FRCPassPostProcessSelectionOutlineColor::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
 
@@ -133,7 +136,7 @@ FPooledRenderTargetDesc FRCPassPostProcessSelectionOutlineColor::ComputeOutputDe
 	Ret.Flags = TexCreate_None;
 	Ret.TargetableFlags = TexCreate_DepthStencilTargetable;
 	Ret.DebugName = TEXT("SelectionDepthStencil");
-	Ret.NumSamples = GSceneRenderTargets.GetEditorMSAACompositingSampleCount();
+	Ret.NumSamples = FSceneRenderTargets::Get_FrameConstantsOnly().GetEditorMSAACompositingSampleCount();
 
 	return Ret;
 }
@@ -348,7 +351,7 @@ void FRCPassPostProcessSelectionOutline::Process(FRenderingCompositePassContext&
 	Context.RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
 	Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
-	const uint32 MSAASampleCount = GSceneRenderTargets.GetEditorMSAACompositingSampleCount();
+	const uint32 MSAASampleCount = FSceneRenderTargets::Get(Context.RHICmdList).GetEditorMSAACompositingSampleCount();
 
 	if(MSAASampleCount == 1)
 	{
@@ -390,9 +393,11 @@ void FRCPassPostProcessSelectionOutline::Process(FRenderingCompositePassContext&
 
 FPooledRenderTargetDesc FRCPassPostProcessSelectionOutline::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.DebugName = TEXT("SelectionComposited");
 
 	return Ret;
 }
+
+#endif

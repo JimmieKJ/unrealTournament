@@ -6,7 +6,9 @@
 //#include "LinuxNativeFeedbackContext.h"
 // custom dialogs
 #if WITH_LINUX_NATIVE_DIALOGS
-#include "UNativeDialogs.h"
+	#include "UNativeDialogs.h"
+#else
+	#include "SlateFileDialogs.h"
 #endif // WITH_LINUX_NATIVE_DIALOGS
 #include "SDL.h"
 
@@ -28,8 +30,8 @@ FDesktopPlatformLinux::FDesktopPlatformLinux()
 		UE_LOG(LogDesktopPlatform, Warning, TEXT("DesktopPlatformLinux could not initialize LinuxNativeDialogs - it will not work properly."));
 	}
 #else
-	UE_LOG(LogDesktopPlatform, Warning, TEXT("DesktopPlatformLinux is not using LinuxNativeDialogs - it will not work properly."));
-#endif
+	UE_LOG(LogDesktopPlatform, Log, TEXT("DesktopPlatformLinux is not using LinuxNativeDialogs."));
+#endif // WITH_LINUX_NATIVE_DIALOGS
 }
 
 FDesktopPlatformLinux::~FDesktopPlatformLinux()
@@ -41,22 +43,68 @@ FDesktopPlatformLinux::~FDesktopPlatformLinux()
 
 bool FDesktopPlatformLinux::OpenFileDialog(const void* ParentWindowHandle, const FString& DialogTitle, const FString& DefaultPath, const FString& DefaultFile, const FString& FileTypes, uint32 Flags, TArray<FString>& OutFilenames, int32& OutFilterIndex)
 {
+#if WITH_LINUX_NATIVE_DIALOGS
 	return FileDialogShared(false, ParentWindowHandle, DialogTitle, DefaultPath, DefaultFile, FileTypes, Flags, OutFilenames, OutFilterIndex);
+#else
+	if (!FModuleManager::Get().IsModuleLoaded("SlateFileDialogs"))
+	{
+		FModuleManager::Get().LoadModule("SlateFileDialogs");
+	}
+
+	ISlateFileDialogsModule *FileDialog = FModuleManager::GetModulePtr<ISlateFileDialogsModule>("SlateFileDialogs");
+
+	if (FileDialog)
+	{
+		return FileDialog->OpenFileDialog(ParentWindowHandle, DialogTitle, DefaultPath, DefaultFile, FileTypes, Flags, OutFilenames, OutFilterIndex);
+	}
+
+	return false;
+#endif // WITH_LINUX_NATIVE_DIALOGS
 }
 
 bool FDesktopPlatformLinux::OpenFileDialog(const void* ParentWindowHandle, const FString& DialogTitle, const FString& DefaultPath, const FString& DefaultFile, const FString& FileTypes, uint32 Flags, TArray<FString>& OutFilenames)
 {
+#if WITH_LINUX_NATIVE_DIALOGS
 	int32 DummyFilterIndex;
 	return FileDialogShared(false, ParentWindowHandle, DialogTitle, DefaultPath, DefaultFile, FileTypes, Flags, OutFilenames, DummyFilterIndex);
+#else
+	if (!FModuleManager::Get().IsModuleLoaded("SlateFileDialogs"))
+	{
+		FModuleManager::Get().LoadModule("SlateFileDialogs");
+	}
+
+	ISlateFileDialogsModule *FileDialog = FModuleManager::GetModulePtr<ISlateFileDialogsModule>("SlateFileDialogs");
+
+	if (FileDialog)
+	{
+		return FileDialog->OpenFileDialog(ParentWindowHandle, DialogTitle, DefaultPath, DefaultFile, FileTypes, Flags, OutFilenames);
+	}
+
+	return false;
+#endif // WITH_LINUX_NATIVE_DIALOGS
 }
 
 bool FDesktopPlatformLinux::SaveFileDialog(const void* ParentWindowHandle, const FString& DialogTitle, const FString& DefaultPath, const FString& DefaultFile, const FString& FileTypes, uint32 Flags, TArray<FString>& OutFilenames)
 {
+#if WITH_LINUX_NATIVE_DIALOGS
 	int32 DummyFilterIndex = 0;
 	return FileDialogShared(true, ParentWindowHandle, DialogTitle, DefaultPath, DefaultFile, FileTypes, Flags, OutFilenames, DummyFilterIndex);
+#else
+	if (!FModuleManager::Get().IsModuleLoaded("SlateFileDialogs"))
+	{
+		FModuleManager::Get().LoadModule("SlateFileDialogs");
+	}
+
+	ISlateFileDialogsModule *FileDialog = FModuleManager::GetModulePtr<ISlateFileDialogsModule>("SlateFileDialogs");
+
+	if (FileDialog)
+	{
+		return FileDialog->SaveFileDialog(ParentWindowHandle, DialogTitle, DefaultPath, DefaultFile, FileTypes, Flags, OutFilenames);
+	}
+
+	return false;
+#endif // WITH_LINUX_NATIVE_DIALOGS
 }
-
-
 
 bool FDesktopPlatformLinux::OpenDirectoryDialog(const void* ParentWindowHandle, const FString& DialogTitle, const FString& DefaultPath, FString& OutFolderName)
 {
@@ -103,6 +151,18 @@ bool FDesktopPlatformLinux::OpenDirectoryDialog(const void* ParentWindowHandle, 
 
 	return bSuccess;
 #else
+	if (!FModuleManager::Get().IsModuleLoaded("SlateFileDialogs"))
+	{
+		FModuleManager::Get().LoadModule("SlateFileDialogs");
+	}
+
+	ISlateFileDialogsModule *FileDialog = FModuleManager::GetModulePtr<ISlateFileDialogsModule>("SlateFileDialogs");
+
+	if (FileDialog)
+	{
+		return FileDialog->OpenDirectoryDialog(ParentWindowHandle, DialogTitle, DefaultPath, OutFolderName);
+	}
+
 	return false;
 #endif // WITH_LINUX_NATIVE_DIALOGS
 }
@@ -119,7 +179,7 @@ bool FDesktopPlatformLinux::CanOpenLauncher(bool Install)
 	return false;
 }
 
-bool FDesktopPlatformLinux::OpenLauncher(bool Install, FString CommandLineParams )
+bool FDesktopPlatformLinux::OpenLauncher(bool Install, FString LauncherRelativeUrl, FString CommandLineParams)
 {
 	// TODO: support launcher for realz
 	return true;

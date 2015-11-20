@@ -7,44 +7,35 @@
 
 #include "CapturePin.h"
 #include "CaptureSource.h"
+#include "AVIWriter.h"
 
 
 #if PLATFORM_WINDOWS && !UE_BUILD_MINIMAL
 
-FCaptureSource::FCaptureSource(IUnknown *pUnk, HRESULT *phr)
-           : CSource(NAME("PushSource"), pUnk, CLSID_CaptureSource)
+FCaptureSource::FCaptureSource(const FAVIWriter& Writer)
+           : CSource(NAME("ViewportCaptureFilter"), nullptr, CLSID_ViewportCaptureSource)
 {
-	CapturePin = new FCapturePin(phr, this);
+	HRESULT hr;
+	new FCapturePin(&hr, this, Writer);
 
-	if (phr)
-	{
-		if (CapturePin == NULL)
-			*phr = E_OUTOFMEMORY;
-		else
-			*phr = S_OK;
-	}  
+	ShutdownEvent = FPlatformProcess::GetSynchEventFromPool();
+	bShutdownRequested = false;
 }
-
 
 FCaptureSource::~FCaptureSource()
 {
-	delete CapturePin;
+	FPlatformProcess::ReturnSynchEventToPool(ShutdownEvent);
 }
 
-
-CUnknown * WINAPI FCaptureSource::CreateInstance(IUnknown *pUnk, HRESULT *phr)
+void FCaptureSource::StopCapturing()
 {
-	FCaptureSource *pNewFilter = new FCaptureSource(pUnk, phr );
+	bShutdownRequested = true;
+	ShutdownEvent->Wait(~0);
+}
 
-	if (phr)
-	{
-		if (pNewFilter == NULL) 
-			*phr = E_OUTOFMEMORY;
-		else
-			*phr = S_OK;
-	}
-	return pNewFilter;
-
+void FCaptureSource::OnFinishedCapturing()
+{
+	ShutdownEvent->Trigger();
 }
 
 #endif //#if PLATFORM_WINDOWS

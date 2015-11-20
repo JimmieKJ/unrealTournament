@@ -217,6 +217,8 @@ public:
 	 */
 	ENGINE_API UTexture2D* GetSkyOcclusionTexture();
 
+	ENGINE_API UTexture2D* GetAOMaterialMaskTexture();
+
 	/**
 	 * Returns whether the specified basis has a valid lightmap texture or not.
 	 * @param	BasisIndex - The basis index.
@@ -291,6 +293,8 @@ protected:
 	ULightMapTexture2D* Textures[2];
 
 	ULightMapTexture2D* SkyOcclusionTexture;
+
+	ULightMapTexture2D* AOMaterialMaskTexture;
 
 	/** A scale to apply to the coefficients. */
 	FVector4 ScaleVectors[NUM_STORED_LIGHTMAP_COEF];
@@ -470,13 +474,18 @@ struct FLightMapCoefficients
 	uint8 Coverage;
 	uint8 Coefficients[NUM_STORED_LIGHTMAP_COEF][4];
 	uint8 SkyOcclusion[4];
+	uint8 AOMaterialMask;
 
 	/** Equality operator */
 	bool operator==( const FLightMapCoefficients& RHS ) const
 	{
 		return Coverage == RHS.Coverage &&
 			   Coefficients == RHS.Coefficients &&
-			   SkyOcclusion == RHS.SkyOcclusion;
+			   SkyOcclusion[0] == RHS.SkyOcclusion[0] &&
+			   SkyOcclusion[1] == RHS.SkyOcclusion[1] &&
+			   SkyOcclusion[2] == RHS.SkyOcclusion[2] &&
+			   SkyOcclusion[3] == RHS.SkyOcclusion[3] &&
+			   AOMaterialMask == RHS.AOMaterialMask;
 	}
 };
 

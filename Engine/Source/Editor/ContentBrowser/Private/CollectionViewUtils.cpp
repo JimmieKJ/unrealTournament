@@ -158,7 +158,7 @@ bool CollectionViewUtils::HasCustomColors( TArray< FLinearColor >* OutColors )
 	GConfig->GetSection(TEXT("CollectionColor"), Section, GEditorPerProjectIni);
 
 	bool bHasCustom = false;
-	const FCollectionManagerModule& CollectionManagerModule = FModuleManager::Get().LoadModuleChecked<FCollectionManagerModule>("CollectionManager");
+	const FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 	const ICollectionManager& CollectionManager = CollectionManagerModule.Get();
 
 	for(FString& EntryStr : Section)

@@ -11,10 +11,17 @@
 #include "GameFramework/Character.h"
 #include "Engine/Canvas.h"
 #include "TimerManager.h"
+#include "DisplayDebugHelpers.h"
 
 #include "Navigation/PathFollowingComponent.h"
 
 #define USE_PHYSIC_FOR_VISIBILITY_TESTS 1 // Physic will be used for visibility tests if set or only raycasts on navmesh if not
+
+#if UE_BUILD_TEST || UE_BUILD_SHIPPING
+#define SHIPPING_STATIC static
+#else
+#define SHIPPING_STATIC
+#endif // UE_BUILD_TEST || UE_BUILD_SHIPPING
 
 DEFINE_LOG_CATEGORY(LogPathFollowing);
 
@@ -35,6 +42,7 @@ UPathFollowingComponent::UPathFollowingComponent(const FObjectInitializer& Objec
 	BlockDetectionDistance = 10.0f;
 	BlockDetectionInterval = 0.5f;
 	BlockDetectionSampleCount = 10;
+	WaitingTimeout = 1.0f;
 	LastSampleTime = 0.0f;
 	NextSampleIdx = 0;
 	bUseBlockDetection = true;
@@ -232,6 +240,7 @@ FAIRequestID UPathFollowingComponent::RequestMove(FNavPathSharedPtr InPath, FReq
 		else
 		{
 			Status = EPathFollowingStatus::Waiting;
+			GetWorld()->GetTimerManager().SetTimer(WaitingForPathTimer, this, &UPathFollowingComponent::OnWaitingPathTimeout, WaitingTimeout);
 		}
 	}
 
@@ -246,6 +255,14 @@ bool UPathFollowingComponent::UpdateMove(FNavPathSharedPtr InPath, FAIRequestID 
 
 	LogPathHelper(GetOwner(), InPath, DestinationActor.Get());
 
+	if (Status == EPathFollowingStatus::Waiting && InPath.IsValid() && !InPath->IsValid())
+	{
+		UE_VLOG(GetOwner(), LogPathFollowing, Error, TEXT("Received unusable path in Waiting state! (ready:%d upToDate:%d pathPoints:%d)"),
+			InPath->IsReady() ? 1 : 0,
+			InPath->IsUpToDate() ? 1 : 0,
+			InPath->GetPathPoints().Num());
+	}
+
 	if (!InPath.IsValid() || !InPath->IsValid() || Status == EPathFollowingStatus::Idle 
 		|| RequestID.IsEquivalent(GetCurrentRequestId()) == false)
 	{
@@ -255,6 +272,7 @@ bool UPathFollowingComponent::UpdateMove(FNavPathSharedPtr InPath, FAIRequestID 
 
 	Path = InPath;
 	OnPathUpdated();
+	GetWorld()->GetTimerManager().ClearTimer(WaitingForPathTimer);
 
 	if (Status == EPathFollowingStatus::Waiting || Status == EPathFollowingStatus::Moving)
 	{
@@ -289,6 +307,7 @@ void UPathFollowingComponent::AbortMove(const FString& Reason, FAIRequestID Requ
 		bLastMoveReachedGoal = false;
 		UpdateMoveFocus();
 
+		GetWorld()->GetTimerManager().ClearTimer(WaitingForPathTimer);
 		if (bResetVelocity && MovementComp && MovementComp->CanStopPathFollowing())
 		{
 			MovementComp->StopMovementKeepPathing();
@@ -576,6 +595,9 @@ void UPathFollowingComponent::SetDestinationActor(const AActor* InDestinationAct
 
 void UPathFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 {
+	SHIPPING_STATIC	const float PathPointAcceptanceRadius = GET_AI_CONFIG_VAR(PathfollowingRegularPathPointAcceptanceRadius);
+	SHIPPING_STATIC const float NavLinkAcceptanceRadius = GET_AI_CONFIG_VAR(PathfollowingNavLinkAcceptanceRadius);
+
 	int32 EndSegmentIndex = SegmentStartIndex + 1;
 	if (Path.IsValid() && Path->GetPathPoints().IsValidIndex(SegmentStartIndex) && Path->GetPathPoints().IsValidIndex(EndSegmentIndex))
 	{
@@ -602,7 +624,11 @@ void UPathFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 			SegmentEnd = *CurrentDestination;
 		}
 
-		CurrentAcceptanceRadius = (Path->GetPathPoints().Num() == (MoveSegmentEndIndex + 1)) ? AcceptanceRadius : 0.0f;
+		CurrentAcceptanceRadius = (Path->GetPathPoints().Num() == (MoveSegmentEndIndex + 1)) 
+			? AcceptanceRadius 
+			// pick appropriate value base on whether we're going to nav link or not
+			: (FNavMeshNodeFlags(PathPt1.Flags).IsNavLink() == false ? PathPointAcceptanceRadius : NavLinkAcceptanceRadius);
+
 		MoveSegmentDirection = (SegmentEnd - SegmentStart).GetSafeNormal();
 
 		// handle moving through custom nav links
@@ -679,7 +705,7 @@ int32 UPathFollowingComponent::OptimizeSegmentVisibility(int32 StartIndex)
 	}
 
 #endif
-	TSharedPtr<FNavigationQueryFilter> QueryFilter = Path->GetFilter()->GetCopy();
+	FSharedNavQueryFilter QueryFilter = Path->GetFilter()->GetCopy();
 #if WITH_RECAST
 	const uint8 StartArea = FNavMeshNodeFlags(Path->GetPathPoints()[StartIndex].Flags).Area;
 	TArray<float> CostArray;
@@ -872,7 +898,7 @@ bool UPathFollowingComponent::HasReached(const FVector& TestPoint, float InAccep
 	return HasReachedInternal(TestPoint, GoalRadius, GoalHalfHeight, CurrentLocation, InAcceptanceRadius, bExactSpot ? 0.0f : MinAgentRadiusPct);
 }
 
-bool UPathFollowingComponent::HasReached(const AActor& TestGoal, float InAcceptanceRadius, bool bExactSpot) const
+bool UPathFollowingComponent::HasReached(const AActor& TestGoal, float InAcceptanceRadius, bool bExactSpot, bool bUseNavAgentGoalLocation) const
 {
 	// simple test for stationary agent, used as early finish condition
 	float GoalRadius = 0.0f;
@@ -884,12 +910,15 @@ bool UPathFollowingComponent::HasReached(const AActor& TestGoal, float InAccepta
 		InAcceptanceRadius = MyDefaultAcceptanceRadius;
 	}
 
-	const INavAgentInterface* NavAgent = Cast<const INavAgentInterface>(&TestGoal);
-	if (NavAgent)
+	if (bUseNavAgentGoalLocation)
 	{
-		const FVector GoalMoveOffset = NavAgent->GetMoveGoalOffset(GetOwner());
-		NavAgent->GetMoveGoalReachTest(GetOwner(), GoalMoveOffset, GoalOffset, GoalRadius, GoalHalfHeight);
-		TestPoint = FQuatRotationTranslationMatrix(TestGoal.GetActorQuat(), NavAgent->GetNavAgentLocation()).TransformPosition(GoalOffset);
+		const INavAgentInterface* NavAgent = Cast<const INavAgentInterface>(&TestGoal);
+		if (NavAgent)
+		{
+			const FVector GoalMoveOffset = NavAgent->GetMoveGoalOffset(GetOwner());
+			NavAgent->GetMoveGoalReachTest(GetOwner(), GoalMoveOffset, GoalOffset, GoalRadius, GoalHalfHeight);
+			TestPoint = FQuatRotationTranslationMatrix(TestGoal.GetActorQuat(), NavAgent->GetNavAgentLocation()).TransformPosition(GoalOffset);
+		}
 	}
 
 	const FVector CurrentLocation = MovementComp ? MovementComp->GetActorFeetLocation() : FVector::ZeroVector;
@@ -1351,11 +1380,9 @@ FString UPathFollowingComponent::GetResultDesc(EPathFollowingResult::Type Result
 
 void UPathFollowingComponent::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos) const
 {
-	Canvas->SetDrawColor(FColor::Blue);
-	UFont* RenderFont = GEngine->GetSmallFont();
-	FString StatusDesc = FString::Printf(TEXT("  Move status: %s"), *GetStatusDesc());
-	YL = Canvas->DrawText(RenderFont, StatusDesc, 4.0f, YPos);
-	YPos += YL;
+	FDisplayDebugManager& DisplayDebugManager = Canvas->DisplayDebugManager;
+	DisplayDebugManager.SetDrawColor(FColor::Blue);
+	DisplayDebugManager.DrawString(FString::Printf(TEXT("  Move status: %s"), *GetStatusDesc()));
 
 	if (Status == EPathFollowingStatus::Moving)
 	{
@@ -1363,8 +1390,7 @@ void UPathFollowingComponent::DisplayDebug(UCanvas* Canvas, const FDebugDisplayI
 		FString TargetDesc = FString::Printf(TEXT("  Move target [%d/%d]: %s (%s)"),
 			MoveSegmentEndIndex, NumMoveSegments, *GetCurrentTargetLocation().ToString(), *GetNameSafe(DestinationActor.Get()));
 		
-		YL = Canvas->DrawText(RenderFont, TargetDesc, 4.0f, YPos);
-		YPos += YL;
+		DisplayDebugManager.DrawString(FString::Printf(TEXT("  Move status: %s"), *GetStatusDesc()));
 	}
 }
 
@@ -1523,3 +1549,14 @@ void UPathFollowingComponent::SetLastMoveAtGoal(bool bFinishedAtGoal)
 {
 	bLastMoveReachedGoal = bFinishedAtGoal;
 }
+
+void UPathFollowingComponent::OnWaitingPathTimeout()
+{
+	if (Status == EPathFollowingStatus::Waiting)
+	{
+		UE_VLOG(GetOwner(), LogPathFollowing, Warning, TEXT("Waiting for path timeout! Aborting current move"));
+		AbortMove(TEXT("waiting timeout"), CurrentRequestId);
+	}
+}
+
+#undef SHIPPING_STATIC

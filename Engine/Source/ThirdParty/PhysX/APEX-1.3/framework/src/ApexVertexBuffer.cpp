@@ -99,6 +99,15 @@ PX_INLINE void transform_BYTE_SNORM3_by_PxMat33Legacy(BYTE_SNORM3_TYPE& dst, con
 	convert_BYTE_SNORM3_from_FLOAT3(dst, (const FLOAT3_TYPE&)v);
 }
 
+// Transform signed normalized byte 4-vector by PxMat33Legacy
+PX_INLINE void transform_BYTE_SNORM4_by_PxMat33Legacy(BYTE_SNORM4_TYPE& dst, const BYTE_SNORM4_TYPE& src, const physx::PxMat33Legacy& m)
+{
+	physx::PxVec4 v;
+	convert_FLOAT4_from_BYTE_SNORM4((FLOAT4_TYPE&)v, src);
+	transform_FLOAT4_by_PxMat33Legacy((FLOAT4_TYPE&)v, (const FLOAT4_TYPE&)v, m);
+	convert_BYTE_SNORM4_from_FLOAT4(dst, (const FLOAT4_TYPE&)v);
+}
+
 // Multiply signed normalized byte 3-vector by scalar
 PX_INLINE void transform_BYTE_SNORM3_by_PxF32(BYTE_SNORM3_TYPE& dst, const BYTE_SNORM3_TYPE& src, const physx::PxF32& s)
 {
@@ -130,6 +139,15 @@ PX_INLINE void transform_SHORT_SNORM3_by_PxMat33Legacy(SHORT_SNORM3_TYPE& dst, c
 	convert_FLOAT3_from_SHORT_SNORM3((FLOAT3_TYPE&)v, src);
 	transform_FLOAT3_by_PxMat33Legacy((FLOAT3_TYPE&)v, (const FLOAT3_TYPE&)v, m);
 	convert_SHORT_SNORM3_from_FLOAT3(dst, (const FLOAT3_TYPE&)v);
+}
+
+// Transform signed normalized short 4-vector by PxMat33Legacy
+PX_INLINE void transform_SHORT_SNORM4_by_PxMat33Legacy(SHORT_SNORM4_TYPE& dst, const SHORT_SNORM4_TYPE& src, const physx::PxMat33Legacy& m)
+{
+	physx::PxVec4 v;
+	convert_FLOAT4_from_SHORT_SNORM4((FLOAT4_TYPE&)v, src);
+	transform_FLOAT4_by_PxMat33Legacy((FLOAT4_TYPE&)v, (const FLOAT4_TYPE&)v, m);
+	convert_SHORT_SNORM4_from_FLOAT4(dst, (const FLOAT4_TYPE&)v);
 }
 
 // Multiply signed normalized short 3-vector by scalar
@@ -183,8 +201,10 @@ void transformRenderBuffer(void* dst, const void* src, NxRenderDataFormat::Enum 
 		HANDLE_TRANSFORM(FLOAT4, PxMat33Legacy)
 		HANDLE_TRANSFORM(FLOAT4_QUAT, PxMat33Legacy)
 		HANDLE_TRANSFORM(BYTE_SNORM3, PxMat33Legacy)
+		HANDLE_TRANSFORM(BYTE_SNORM4, PxMat33Legacy)
 		HANDLE_TRANSFORM(BYTE_SNORM4_QUATXYZW, PxMat33Legacy)
 		HANDLE_TRANSFORM(SHORT_SNORM3, PxMat33Legacy)
+		HANDLE_TRANSFORM(SHORT_SNORM4, PxMat33Legacy)
 		HANDLE_TRANSFORM(SHORT_SNORM4_QUATXYZW, PxMat33Legacy)
 	default:
 		break;

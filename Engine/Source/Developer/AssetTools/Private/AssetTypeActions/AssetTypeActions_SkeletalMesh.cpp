@@ -551,10 +551,7 @@ void FAssetTypeActions_SkeletalMesh::GetResolvedSourceFilePaths(const TArray<UOb
 	for (auto& Asset : TypeAssets)
 	{
 		const auto SkeletalMesh = CastChecked<USkeletalMesh>(Asset);
-		if (SkeletalMesh->AssetImportData)
-		{
-			OutSourceFilePaths.Add(FReimportManager::ResolveImportFilename(SkeletalMesh->AssetImportData->SourceFilePath, SkeletalMesh));
-		}
+		SkeletalMesh->AssetImportData->ExtractFilenames(OutSourceFilePaths);
 	}
 }
 
@@ -804,6 +801,11 @@ void FAssetTypeActions_SkeletalMesh::AssignSkeletonToMesh(USkeletalMesh* SkelMes
 				bool bSuccess = SelectedSkeleton->MergeBonesToBoneTree( SkelMesh, RequiredBones );
 				if ( bSuccess )
 				{
+					if (SkelMesh->Skeleton != SelectedSkeleton)
+					{
+						SkelMesh->Skeleton = SelectedSkeleton;
+						SkelMesh->MarkPackageDirty();
+					}
 					FAssetNotifications::SkeletonNeedsToBeSaved(SelectedSkeleton);
 				}
 				else

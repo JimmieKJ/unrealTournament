@@ -13,28 +13,19 @@ struct FFileServerReady
 {
 	GENERATED_USTRUCT_BODY()
 	
-	/**
-	 * Holds the list of IP addresses that the file server is listening on.
-	 */
-	UPROPERTY()
+	/** Holds the list of IP addresses that the file server is listening on. */
+	UPROPERTY(EditAnywhere, Category="Message")
 	TArray<FString> AddressList;
 	
-	/**
-	 * Holds the file server's application identifier.
-	 */
-	UPROPERTY()
+	/** Holds the file server's application identifier. */
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
+	/** Default constructor. */
+	FFileServerReady() { }
 
-	/**
-	 * Default constructor.
-	 */
-	FFileServerReady( ) { }
-
-	/**
-	 * Creates and initializes a new instance.
-	 */
-	FFileServerReady( const TArray<FString>& InAddressList, const FGuid& InInstanceId )
+	/** Creates and initializes a new instance. */
+	FFileServerReady(const TArray<FString>& InAddressList, const FGuid& InInstanceId)
 		: AddressList(InAddressList)
 		, InstanceId(InInstanceId)
 	{ }

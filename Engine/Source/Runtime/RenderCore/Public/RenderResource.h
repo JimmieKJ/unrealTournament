@@ -437,8 +437,10 @@ public:
 	{
 		// create a static vertex buffer
 		FRHIResourceCreateInfo CreateInfo;
-		VertexBufferRHI = RHICreateVertexBuffer(sizeof(uint32), BUF_Static | BUF_ZeroStride, CreateInfo);
-		uint32* Vertices = (uint32*)RHILockVertexBuffer(VertexBufferRHI, 0, sizeof(uint32), RLM_WriteOnly);
+		
+		void* LockedData = nullptr;
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(sizeof(uint32), BUF_Static | BUF_ZeroStride, CreateInfo, LockedData);
+		uint32* Vertices = (uint32*)LockedData;
 		Vertices[0] = FColor(255, 255, 255, 255).DWColor();
 		RHIUnlockVertexBuffer(VertexBufferRHI);
 	}
@@ -508,7 +510,7 @@ public:
 	 * @param SizeInBytes - The amount of memory to allocate in bytes.
 	 * @returns An FAllocation with information regarding the allocated memory.
 	 */
-	FAllocation Allocate(uint32 SizeInBytes, bool bDeferLock = false);
+	FAllocation Allocate(uint32 SizeInBytes);
 
 	/**
 	 * Commits allocated memory to the GPU.

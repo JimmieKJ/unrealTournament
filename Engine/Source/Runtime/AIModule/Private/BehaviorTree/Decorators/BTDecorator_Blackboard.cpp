@@ -66,9 +66,9 @@ EBlackboardNotificationResult UBTDecorator_Blackboard::OnBlackboardKeyValueChang
 	if (BlackboardKey.GetSelectedKeyID() == ChangedKeyID && GetFlowAbortMode() != EBTFlowAbortMode::None)
 	{
 		const bool bIsExecutingBranch = BehaviorComp->IsExecutingBranch(this, GetChildIndex());
-		const bool bPass = EvaluateOnBlackboard(Blackboard);
+		const bool bPass = (EvaluateOnBlackboard(Blackboard) != IsInversed());
 
-		UE_VLOG(BehaviorComp->GetOwner(), LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] pass:%d executing:%d => %s"),
+		UE_VLOG(BehaviorComp, LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] pass:%d executing:%d => %s"),
 			*UBehaviorTreeTypes::DescribeNodeHelper(this),
 			*Blackboard.GetKeyName(ChangedKeyID).ToString(), bPass, bIsExecutingBranch,
 			(bIsExecutingBranch && !bPass) || (!bIsExecutingBranch && bPass) ? TEXT("restart") : TEXT("skip"));
@@ -80,12 +80,16 @@ EBlackboardNotificationResult UBTDecorator_Blackboard::OnBlackboardKeyValueChang
 		}
 		else if (!bIsExecutingBranch && !bPass && GetParentNode() && GetParentNode()->Children.IsValidIndex(GetChildIndex()))
 		{
+			// this condition here is to remove all active observers _BELOW_ this node
+			// because if this condition failed we no longer want to react to child-conditions
+			// value changes anyway since their nodes execution will be blocked by this condition 
+			// during tree search
 			const UBTCompositeNode* BranchRoot = GetParentNode()->Children[GetChildIndex()].ChildComposite;
 			BehaviorComp->UnregisterAuxNodesInBranch(BranchRoot);
 		}
 		else if (bIsExecutingBranch && bPass && NotifyObserver == EBTBlackboardRestart::ValueChange)
 		{
-			UE_VLOG(BehaviorComp->GetOwner(), LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] => restart"),
+			UE_VLOG(BehaviorComp, LogBehaviorTree, Verbose, TEXT("%s, OnBlackboardChange[%s] => restart"),
 				*UBehaviorTreeTypes::DescribeNodeHelper(this),
 				*Blackboard.GetKeyName(ChangedKeyID).ToString());
 

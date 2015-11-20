@@ -21,7 +21,9 @@ public class Niagara : ModuleRules
 
         PublicDependencyModuleNames.AddRange(
             new string[] {
-                "RHI"
+                "MovieScene",
+                "VectorVM",
+                "RHI",
             }
         );
 

@@ -7,7 +7,7 @@
  * Abstract base class for media tracks using the AV Foundation Framework.
  */
 class FAvfMediaTrack
-	: public IMediaTrack
+	: public IMediaStream
 {
 public:
 
@@ -19,19 +19,27 @@ public:
 
 public:
 
-	// IMediaTrack interface
+	/**
+	 * Check whether the track is ready.
+	 *
+	 * @return true if the track is ready, false otherwise.
+	 */
+	virtual bool IsReady() const = 0;
 
-	virtual void AddSink( const IMediaSinkRef& Sink ) = 0;
+public:
+
+	// IMediaStream interface
+
+	virtual void AddSink(const IMediaSinkRef& Sink) = 0;
 	virtual bool Disable() override;
 	virtual bool Enable() override;
 	virtual FText GetDisplayName() const override;
-	virtual uint32 GetIndex() const override;
 	virtual FString GetLanguage() const override;
 	virtual FString GetName() const override;
 	virtual bool IsEnabled() const override;
-	virtual bool IsMutuallyExclusive( const IMediaTrackRef& Other ) const override;
+	virtual bool IsMutuallyExclusive(const IMediaStreamRef& Other) const override;
 	virtual bool IsProtected() const override;
-	virtual void RemoveSink( const IMediaSinkRef& Sink ) = 0;
+	virtual void RemoveSink(const IMediaSinkRef& Sink) = 0;
     
 private:
 

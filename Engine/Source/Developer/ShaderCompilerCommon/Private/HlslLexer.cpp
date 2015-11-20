@@ -340,13 +340,18 @@ namespace CrossCompiler
 				InsertToken(TEXT("Texture"), EHlslToken::Texture);
 				InsertToken(TEXT("Texture1D"), EHlslToken::Texture1D);
 				InsertToken(TEXT("Texture1DArray"), EHlslToken::Texture1DArray);
+				InsertToken(TEXT("Texture1D_Array"), EHlslToken::Texture1DArray);	// PSSL
 				InsertToken(TEXT("Texture2D"), EHlslToken::Texture2D);
 				InsertToken(TEXT("Texture2DArray"), EHlslToken::Texture2DArray);
+				InsertToken(TEXT("Texture2D_Array"), EHlslToken::Texture2DArray);	// PSSL
 				InsertToken(TEXT("Texture2DMS"), EHlslToken::Texture2DMS);
+				InsertToken(TEXT("MS_Texture2D"), EHlslToken::Texture2DMS);	// PSSL
 				InsertToken(TEXT("Texture2DMSArray"), EHlslToken::Texture2DMSArray);
+				InsertToken(TEXT("MS_Texture2D_Array"), EHlslToken::Texture2DMS);	// PSSL
 				InsertToken(TEXT("Texture3D"), EHlslToken::Texture3D);
 				InsertToken(TEXT("TextureCube"), EHlslToken::TextureCube);
 				InsertToken(TEXT("TextureCubeArray"), EHlslToken::TextureCubeArray);
+				InsertToken(TEXT("TextureCube_Array"), EHlslToken::TextureCubeArray);	// PSSL
 
 				InsertToken(TEXT("Sampler"), EHlslToken::Sampler);
 				InsertToken(TEXT("Sampler1D"), EHlslToken::Sampler1D);
@@ -357,18 +362,31 @@ namespace CrossCompiler
 				InsertToken(TEXT("SamplerComparisonState"), EHlslToken::SamplerComparisonState);
 
 				InsertToken(TEXT("Buffer"), EHlslToken::Buffer);
+				InsertToken(TEXT("DataBuffer"), EHlslToken::Buffer);	// PSSL
 				InsertToken(TEXT("AppendStructuredBuffer"), EHlslToken::AppendStructuredBuffer);
+				InsertToken(TEXT("AppendRegularBuffer"), EHlslToken::AppendStructuredBuffer);	// PSSL
 				InsertToken(TEXT("ByteAddressBuffer"), EHlslToken::ByteAddressBuffer);
+				InsertToken(TEXT("ByteBuffer"), EHlslToken::ByteAddressBuffer);	// PSSL
 				InsertToken(TEXT("ConsumeStructuredBuffer"), EHlslToken::ConsumeStructuredBuffer);
+				InsertToken(TEXT("ConsumeRegularBuffer"), EHlslToken::ConsumeStructuredBuffer);	// PSSL
 				InsertToken(TEXT("RWBuffer"), EHlslToken::RWBuffer);
+				InsertToken(TEXT("RW_DataBuffer"), EHlslToken::RWBuffer);	// PSSL
 				InsertToken(TEXT("RWByteAddressBuffer"), EHlslToken::RWByteAddressBuffer);
+				InsertToken(TEXT("RW_ByteBuffer"), EHlslToken::RWByteAddressBuffer);	// PSSL
 				InsertToken(TEXT("RWStructuredBuffer"), EHlslToken::RWStructuredBuffer);
+				InsertToken(TEXT("RW_RegularBuffer"), EHlslToken::RWStructuredBuffer);	// PSSL
 				InsertToken(TEXT("RWTexture1D"), EHlslToken::RWTexture1D);
+				InsertToken(TEXT("RWTexture_1D"), EHlslToken::RWTexture1D);	// PSSL
 				InsertToken(TEXT("RWTexture1DArray"), EHlslToken::RWTexture1DArray);
+				InsertToken(TEXT("RWTexture_1D_Array"), EHlslToken::RWTexture1DArray);	// PSSL
 				InsertToken(TEXT("RWTexture2D"), EHlslToken::RWTexture2D);
+				InsertToken(TEXT("RWTexture_2D"), EHlslToken::RWTexture2D);	// PSSL
 				InsertToken(TEXT("RWTexture2DArray"), EHlslToken::RWTexture2DArray);
+				InsertToken(TEXT("RWTexture_2D_Array"), EHlslToken::RWTexture2DArray);	// PSSL
 				InsertToken(TEXT("RWTexture3D"), EHlslToken::RWTexture3D);
+				InsertToken(TEXT("RWTexture_3D"), EHlslToken::RWTexture3D);	// PSSL
 				InsertToken(TEXT("StructuredBuffer"), EHlslToken::StructuredBuffer);
+				InsertToken(TEXT("RegularBuffer"), EHlslToken::StructuredBuffer);	// PSSL
 
 				// Modifiers
 				InsertToken(TEXT("in"), EHlslToken::In);
@@ -381,11 +399,13 @@ namespace CrossCompiler
 				InsertToken(TEXT("["), EHlslToken::LeftSquareBracket);
 				InsertToken(TEXT("]"), EHlslToken::RightSquareBracket);
 				InsertToken(TEXT("?"), EHlslToken::Question);
+				InsertToken(TEXT("::"), EHlslToken::ColonColon);
 				InsertToken(TEXT(":"), EHlslToken::Colon);
 				InsertToken(TEXT(","), EHlslToken::Comma);
 				InsertToken(TEXT("."), EHlslToken::Dot);
 				InsertToken(TEXT("struct"), EHlslToken::Struct);
 				InsertToken(TEXT("cbuffer"), EHlslToken::CBuffer);
+				InsertToken(TEXT("ConstantBuffer"), EHlslToken::CBuffer);	// PSSL
 				InsertToken(TEXT("groupshared"), EHlslToken::GroupShared);
 				InsertToken(TEXT("row_major"), EHlslToken::RowMajor);
 			}
@@ -726,7 +746,7 @@ namespace CrossCompiler
 			return false;
 		}
 
-		static void ProcessDirective(FTokenizer& Tokenizer)
+		static void ProcessDirective(FTokenizer& Tokenizer, FCompilerMessages& CompilerMessages)
 		{
 			check(Tokenizer.Peek() == '#');
 			if (Tokenizer.MatchString(MATCH_TARGET(TEXT("#line"))))
@@ -752,7 +772,7 @@ namespace CrossCompiler
 			else if (Tokenizer.MatchString(MATCH_TARGET(TEXT("#pragma"))))
 			{
 				//@todo-rco: Pragma!
-				SourceWarning(*FString::Printf(TEXT("Ignoring pragma!")));
+				CompilerMessages.SourceWarning(TEXT("Ignoring pragma!"));
 			}
 			else
 			{
@@ -880,7 +900,8 @@ namespace CrossCompiler
 		}
 	};
 
-	FHlslScanner::FHlslScanner() :
+	FHlslScanner::FHlslScanner(FCompilerMessages& InCompilerMessages) :
+		CompilerMessages(InCompilerMessages),
 		CurrentToken(0)
 	{
 	}
@@ -917,7 +938,7 @@ namespace CrossCompiler
 			Tokenizer.SkipWhitespaceAndEmptyLines();
 			if (Tokenizer.Peek() == '#')
 			{
-				FTokenizer::ProcessDirective(Tokenizer);
+				FTokenizer::ProcessDirective(Tokenizer, CompilerMessages);
 				if (Tokenizer.Filename != SourceFilenames.Last())
 				{
 					new(SourceFilenames) FString(Tokenizer.Filename);
@@ -969,11 +990,11 @@ namespace CrossCompiler
 					//@todo-rco: Unknown token!
 					if (Tokenizer.Filename.Len() > 0)
 					{
-						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Unknown token at line %d, file '%s'!"), Tokenizer.Line, *Tokenizer.Filename);
+						CompilerMessages.SourceError(*FString::Printf(TEXT("Unknown token at line %d, file '%s'!"), Tokenizer.Line, *Tokenizer.Filename));
 					}
 					else
 					{
-						FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Unknown token at line %d!"), Tokenizer.Line);
+						CompilerMessages.SourceError(*FString::Printf(TEXT("Unknown token at line %d!"), Tokenizer.Line));
 					}
 					return false;
 				}
@@ -1070,11 +1091,11 @@ namespace CrossCompiler
 		{
 			const auto& Token = Tokens[CurrentToken];
 			check(Token.SourceInfo.Filename);
-			CrossCompiler::SourceError(Token.SourceInfo, *Error);
+			CompilerMessages.SourceError(Token.SourceInfo, *Error);
 		}
 		else
 		{
-			CrossCompiler::SourceError(*Error);
+			CompilerMessages.SourceError(*Error);
 		}
 	}
 }

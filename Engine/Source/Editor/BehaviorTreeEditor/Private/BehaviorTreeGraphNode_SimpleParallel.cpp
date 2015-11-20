@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTreeEditorPrivatePCH.h"
+#include "Classes/BehaviorTreeGraphNode_SimpleParallel.h"
 #include "Internationalization.h" // for LOCTEXT()
 
 #define LOCTEXT_NAMESPACE "BehaviorTreeEditor"

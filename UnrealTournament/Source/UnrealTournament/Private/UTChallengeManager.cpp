@@ -277,7 +277,7 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
 
-		FString GameMode = CurrentGame->ParseOption(Challenge->GameURL, TEXT("Game"));
+		FString GameMode = UGameplayStatics::ParseOption(Challenge->GameURL, TEXT("Game"));
 
 		if (MapName != Challenge->Map.Right(MapName.Len()))
 		{

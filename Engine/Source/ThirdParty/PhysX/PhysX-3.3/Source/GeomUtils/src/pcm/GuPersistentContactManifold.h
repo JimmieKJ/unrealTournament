@@ -724,7 +724,9 @@ PX_FORCE_INLINE Ps::aos::Vec3V PersistentContactManifold::getWorldNormal(const P
 	}
 
 	const Vec3V n = Vec3V_From_Vec4V(nPen);
-	return V3Normalize(trB.rotate(n));
+	const FloatV sqLength = V3Dot(n, n);
+	const Vec3V nn = V3Sel(FIsGrtr(sqLength, FEps()), n, Vec3V_From_Vec4V(mContactPoints[0].mLocalNormalPen));
+	return V3Normalize(trB.rotate(nn));
 }
 
 /*

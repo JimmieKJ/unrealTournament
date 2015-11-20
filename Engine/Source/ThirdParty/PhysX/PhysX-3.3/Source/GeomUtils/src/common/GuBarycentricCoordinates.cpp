@@ -28,25 +28,26 @@ void Gu::barycentricCoordinates(const Vec3VArg p, const Vec3VArg a, const Vec3VA
 
 void Gu::barycentricCoordinates(const Ps::aos::Vec3VArg p, const Ps::aos::Vec3VArg a, const Ps::aos::Vec3VArg b, const Ps::aos::Vec3VArg c, Ps::aos::FloatV& v, Ps::aos::FloatV& w)
 {
-	const Vec3V v0 = V3Sub(b, a);
-	const Vec3V v1 = V3Sub(c, a);
-	const Vec3V v2 = V3Sub(p, a);
-	const FloatV d00 = V3Dot(v0, v0);
-	const FloatV d01 = V3Dot(v0, v1);
-	const FloatV d11 = V3Dot(v1, v1);
-	const FloatV d20 = V3Dot(v2, v0);
-	const FloatV d21 = V3Dot(v2, v1);
-	const FloatV d00d11 = FMul(d00, d11);
-	const FloatV d01d01 = FMul(d01, d01);
-	const FloatV d11d20 = FMul(d11, d20);
-	const FloatV d01d21 = FMul(d01, d21);
-	const FloatV d00d21 = FMul(d00, d21);
-	const FloatV d01d20 = FMul(d01, d20);
+	const Vec3V ab = V3Sub(b, a);
+	const Vec3V ac = V3Sub(c, a);
+
+	const Vec3V n = V3Cross(ab, ac);
+
+	const VecCrossV crossA = V3PrepareCross(V3Sub(a, p));
+	const VecCrossV crossB = V3PrepareCross(V3Sub(b, p));
+	const VecCrossV crossC = V3PrepareCross(V3Sub(c, p));
+	const Vec3V bCrossC = V3Cross(crossB, crossC);
+	const Vec3V cCrossA = V3Cross(crossC, crossA);
+	const Vec3V aCrossB = V3Cross(crossA, crossB);
+
+	const FloatV va = V3Dot(n, bCrossC);//edge region of BC, signed area rbc, u = S(rbc)/S(abc) for a
+	const FloatV vb = V3Dot(n, cCrossA);//edge region of AC, signed area rac, v = S(rca)/S(abc) for b
+	const FloatV vc = V3Dot(n, aCrossB);//edge region of AB, signed area rab, w = S(rab)/S(abc) for c
+	const FloatV totalArea =FAdd(va, FAdd(vb, vc));
 	const FloatV zero = FZero();
-	const FloatV dif = FSub(d00d11, d01d01);
-	const FloatV denom = FSel(FIsEq(dif, zero), zero, FRecip(dif));
-	v = FMul(FSub(d11d20, d01d21), denom);
-	w = FMul(FSub(d00d21, d01d20), denom);
+	const FloatV denom = FSel(FIsEq(totalArea, zero), zero, FRecip(totalArea));
+	v = FMul(vb, denom);
+	w = FMul(vc, denom);
 }
 
 /*

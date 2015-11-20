@@ -7,10 +7,49 @@
 
 #define LOCTEXT_NAMESPACE "SoundNodeWavePlayer"
 
-USoundNodeWavePlayer::USoundNodeWavePlayer(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
+void USoundNodeWavePlayer::LoadAsset()
 {
+	if (IsAsyncLoading())
+	{
+		SoundWave = SoundWaveAssetPtr.Get();
+		if (SoundWave == nullptr)
+		{
+			const FString LongPackageName = SoundWaveAssetPtr.GetLongPackageName();
+			if (!LongPackageName.IsEmpty())
+			{
+				LoadPackageAsync(LongPackageName, FLoadPackageAsyncDelegate::CreateUObject(this, &USoundNodeWavePlayer::OnSoundWaveLoaded));
+			}
+		}
+	}
+	else
+	{
+		SoundWave = SoundWaveAssetPtr.LoadSynchronous();
+	}
 }
+
+void USoundNodeWavePlayer::OnSoundWaveLoaded(const FName& PackageName, UPackage * Package, EAsyncLoadingResult::Type Result)
+{
+	if (Result == EAsyncLoadingResult::Succeeded)
+	{
+		SoundWave = SoundWaveAssetPtr.Get();
+	}
+}
+
+void USoundNodeWavePlayer::SetSoundWave(USoundWave* InSoundWave)
+{
+	SoundWave = InSoundWave;
+	SoundWaveAssetPtr = InSoundWave;
+}
+
+#if WITH_EDITOR
+void USoundNodeWavePlayer::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
+{
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(USoundNodeWavePlayer, SoundWaveAssetPtr))
+	{
+		LoadAsset();
+	}
+}
+#endif
 
 void USoundNodeWavePlayer::ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances )
 {
@@ -54,7 +93,7 @@ float USoundNodeWavePlayer::GetDuration()
 }
 
 #if WITH_EDITOR
-FString USoundNodeWavePlayer::GetTitle() const
+FText USoundNodeWavePlayer::GetTitle() const
 {
 	FText SoundWaveName;
 	if (SoundWave)
@@ -66,18 +105,18 @@ FString USoundNodeWavePlayer::GetTitle() const
 		SoundWaveName = LOCTEXT("NoSoundWave", "NONE");
 	}
 
-	FString Title;
+	FText Title;
 
+	FFormatNamedArguments Arguments;
+	Arguments.Add(TEXT("Description"), Super::GetTitle());
+	Arguments.Add(TEXT("SoundWaveName"), SoundWaveName);
 	if (bLooping)
 	{
-		FFormatNamedArguments Arguments;
-		Arguments.Add(TEXT("Description"), FText::FromString(Super::GetTitle()));
-		Arguments.Add(TEXT("SoundWaveName"), SoundWaveName);
-		Title = FText::Format(LOCTEXT("LoopingSoundWaveDescription", "Looping {Description} : {SoundWaveName}"), Arguments).ToString();
+		Title = FText::Format(LOCTEXT("LoopingSoundWaveDescription", "Looping {Description} : {SoundWaveName}"), Arguments);
 	}
 	else
 	{
-		Title = Super::GetTitle() + FString(TEXT(" : ")) + SoundWaveName.ToString();
+		Title = FText::Format(LOCTEXT("NonLoopingSoundWaveDescription", "{Description} : {SoundWaveName}"), Arguments);
 	}
 
 	return Title;

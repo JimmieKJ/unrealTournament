@@ -50,12 +50,17 @@ bool FCoreAudioDevice::InitializeHardware()
 
 	InverseTransform = FMatrix::Identity;
 
-	for( SInt32 Index = 0; Index < MAX_AUDIOCHANNELS; ++Index )
+	for (int32 Index = 0; Index < CORE_AUDIO_MAX_CHANNELS + 1; ++Index)
+	{
+		AudioChannels[Index] = nullptr;
+	}
+
+	for( SInt32 Index = 0; Index < CORE_AUDIO_MAX_CHANNELS; ++Index )
 	{
 		Mixer3DInputStatus[ Index ] = false;
 	}
 
-	for( SInt32 Index = 0; Index < MAX_MULTICHANNEL_AUDIOCHANNELS; ++Index )
+	for( SInt32 Index = 0; Index < CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS; ++Index )
 	{
 		MatrixMixerInputStatus[ Index ] = false;
 	}
@@ -144,7 +149,7 @@ bool FCoreAudioDevice::InitializeHardware()
 		Status = AUGraphNodeInfo( AudioUnitGraph, MatrixMixerNode, NULL, &MatrixMixerUnit );
 		
 		// Set number of buses for input
-		uint32 NumBuses = MAX_MULTICHANNEL_AUDIOCHANNELS;
+		uint32 NumBuses = CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS;
 		Size = sizeof( NumBuses );
 		
 		Status = AudioUnitSetProperty( MatrixMixerUnit, kAudioUnitProperty_ElementCount, kAudioUnitScope_Input, 0, &NumBuses, Size );
@@ -172,7 +177,7 @@ bool FCoreAudioDevice::InitializeHardware()
 		MatrixMixerInputFormat.mBytesPerPacket = MatrixMixerInputFormat.mBytesPerFrame;
 		MatrixMixerInputFormat.mFormatFlags |= kAudioFormatFlagIsNonInterleaved;
 		
-		for( int32 Index = 0; Index < MAX_MULTICHANNEL_AUDIOCHANNELS; Index++ )
+		for( int32 Index = 0; Index < CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS; Index++ )
 		{
 			Status = AudioUnitSetProperty( MatrixMixerUnit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Input, Index, &MatrixMixerInputFormat, Size );
 
@@ -224,6 +229,9 @@ bool FCoreAudioDevice::InitializeHardware()
 		Status = AUGraphConnectNodeInput( AudioUnitGraph, Mixer3DNode, 0, OutputNode, 0 );
 	}
 
+	// Set the sample rate
+	SampleRate = Mixer3DFormat.mSampleRate;
+
 	if( Status != noErr )
 	{
 		UE_LOG(LogInit, Log, TEXT( "Failed to start audio graph!" ) );
@@ -273,12 +281,12 @@ void FCoreAudioDevice::TeardownHardware()
 		MatrixMixerUnit = NULL;
 	}
 	
-	for( int32 Index = 0; Index < MAX_AUDIOCHANNELS; ++Index )
+	for( int32 Index = 0; Index < CORE_AUDIO_MAX_CHANNELS; ++Index )
 	{
 		Mixer3DInputStatus[ Index ] = false;
 	}
 	
-	for( int32 Index = 0; Index < MAX_MULTICHANNEL_AUDIOCHANNELS; ++Index )
+	for( int32 Index = 0; Index < CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS; ++Index )
 	{
 		MatrixMixerInputStatus[ Index ] = false;
 	}
@@ -307,7 +315,7 @@ FSoundSource* FCoreAudioDevice::CreateSoundSource()
 
 void FCoreAudioDevice::SetupMatrixMixerInput( int32 Input, bool bIs6ChannelOGG )
 {
-	check( Input < MAX_MULTICHANNEL_AUDIOCHANNELS );
+	check( Input < CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS );
 	
 	uint32 InputOffset = Input * MatrixMixerInputFormat.mChannelsPerFrame;
 
@@ -368,7 +376,7 @@ void FCoreAudioDevice::SetupMatrixMixerInput( int32 Input, bool bIs6ChannelOGG )
 
 void FCoreAudioDevice::SetMatrixMixerInputVolume( int32 Input, float Volume )
 {
-	check( Input < MAX_MULTICHANNEL_AUDIOCHANNELS );
+	check( Input < CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS );
 	
 	uint32 InputOffset = Input * MatrixMixerInputFormat.mChannelsPerFrame;
 	
@@ -399,7 +407,7 @@ void FCoreAudioDevice::SetMatrixMixerInputVolume( int32 Input, float Volume )
 
 int32 FCoreAudioDevice::GetFreeMixer3DInput()
 {
-	for( int32 Index = 0; Index < MAX_AUDIOCHANNELS; ++Index )
+	for( int32 Index = 0; Index < CORE_AUDIO_MAX_CHANNELS; ++Index )
 	{
 		if( Mixer3DInputStatus[ Index ] == false )
 		{
@@ -418,7 +426,7 @@ void FCoreAudioDevice::SetFreeMixer3DInput( int32 Input )
 
 int32 FCoreAudioDevice::GetFreeMatrixMixerInput()
 {
-	for( int32 Index = 0; Index < MAX_MULTICHANNEL_AUDIOCHANNELS; ++Index )
+	for( int32 Index = 0; Index < CORE_AUDIO_MAX_MULTICHANNEL_AUDIOCHANNELS; ++Index )
 	{
 		if( MatrixMixerInputStatus[ Index ] == false )
 		{

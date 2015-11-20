@@ -33,6 +33,8 @@ public:
 	}
 };
 
+DECLARE_DELEGATE_OneParam(FOnSteamUserStatsStoreStatsFinished, EOnlineAsyncTaskState::Type);
+
 /**
  * Interface definition for the online services leaderboard services 
  */
@@ -54,12 +56,10 @@ PACKAGE_SCOPE:
 
 	/** Critical section for thread safe operation of the leaderboard metadata */
 	FCriticalSection LeaderboardMetadataLock;
-	/** All known stats received/removed requests from Steam */
-	TArray<FUserStatsStateSteam> UserStatsReceivedState;
 	/** Critical section for thread safe operation of the stats stored state */
 	FCriticalSection UserStatsStoredLock;
-	/** All known stats received/removed requests from Steam */
-	TArray<FUserStatsStateSteam> UserStatsStoredState;
+	/** Called when the event from SteamUserStats()->StoreStats() finishing is triggered */
+	FOnSteamUserStatsStoreStatsFinished UserStatsStoreStatsFinishedDelegate;
 
 	FOnlineLeaderboardsSteam(FOnlineSubsystemSteam* InSteamSubsystem) :
 		SteamSubsystem(InSteamSubsystem)
@@ -114,22 +114,6 @@ PACKAGE_SCOPE:
 	void SetUserStatsState(const FUniqueNetIdSteam& UserId, EOnlineAsyncTaskState::Type NewState);
 
 	/**
-	 *	Get the stored stats state for a given user
-	 * 
-	 * @param User user to check if stats have been stored
-	 * @return State of the stats store for a given user, or NotStarted if user isn't found
-	 */
-	EOnlineAsyncTaskState::Type GetUserStatsStoreState(const FUniqueNetIdSteam& UserId);
-
-	/**
-	 *	Set the received stats state for a given user (game thread only)
-	 * 
-	 * @param User user to set state of stats stored
-	 * @param NewState state of the stats store for a given user
-	 */
-	void SetUserStatsStoreState(const FUniqueNetIdSteam& UserId, EOnlineAsyncTaskState::Type NewState);
-
-	/**
 	 * Commits any changes in the online stats cache to the permanent storage (internal helper for FOnlineAchievementsSteam::WriteAchievements)
 	 *
 	 * @param UserId user to set state of stats stored
@@ -150,7 +134,7 @@ public:
 	virtual ~FOnlineLeaderboardsSteam() {};
 
 	// IOnlineLeaderboards
-	virtual bool ReadLeaderboards(const TArray< TSharedRef<FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject) override;
+	virtual bool ReadLeaderboards(const TArray< TSharedRef<const FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject) override;
 	virtual bool ReadLeaderboardsForFriends(int32 LocalUserNum, FOnlineLeaderboardReadRef& ReadObject) override;
 	virtual void FreeStats(FOnlineLeaderboardRead& ReadObject) override;
 	virtual bool WriteLeaderboards(const FName& SessionName, const FUniqueNetId& Player, FOnlineLeaderboardWrite& WriteObject) override;

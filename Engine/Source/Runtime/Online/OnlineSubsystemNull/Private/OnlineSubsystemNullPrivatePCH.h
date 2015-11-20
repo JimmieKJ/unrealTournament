@@ -10,8 +10,6 @@
 
 #define INVALID_INDEX -1
 
-/** FName declaration of Null subsystem */
-#define NULL_SUBSYSTEM FName(TEXT("Null"))
 /** URL Prefix when using Null socket connection */
 #define NULL_URL_PREFIX TEXT("Null.")
 

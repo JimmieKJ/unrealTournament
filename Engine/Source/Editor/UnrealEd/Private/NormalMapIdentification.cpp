@@ -115,11 +115,11 @@ public:
 typedef SampleNormalMapPixel8<2, 1, 0, 3> SampleNormalMapPixelBGRA8;
 typedef SampleNormalMapPixel8<0, 1, 2, 3> SampleNormalMapPixelRGBA8;
 
-class SampleNormalMapPixel16 : public NormalMapSamplerBase
+class SampleNormalMapPixelRGBA16 : public NormalMapSamplerBase
 {
 public:
-	SampleNormalMapPixel16() {}
-	~SampleNormalMapPixel16() {}
+	SampleNormalMapPixelRGBA16() {}
+	~SampleNormalMapPixelRGBA16() {}
 
 	FLinearColor DoSampleColor( int32 X, int32 Y )
 	{
@@ -128,11 +128,10 @@ public:
 
 		const float OneOver65535 = 1.0f / 65535.0f;
 
-		// Need to verify component order
-		Result.R = (float)((uint16*)PixelToSample)[3] * OneOver65535;
-		Result.G = (float)((uint16*)PixelToSample)[2] * OneOver65535;
-		Result.B = (float)((uint16*)PixelToSample)[1] * OneOver65535;
-		Result.A = (float)((uint16*)PixelToSample)[0] * OneOver65535;
+		Result.R = (float)((uint16*)PixelToSample)[0] * OneOver65535;
+		Result.G = (float)((uint16*)PixelToSample)[1] * OneOver65535;
+		Result.B = (float)((uint16*)PixelToSample)[2] * OneOver65535;
+		Result.A = (float)((uint16*)PixelToSample)[3] * OneOver65535;
 
 		return Result;
 	}
@@ -153,11 +152,11 @@ public:
 		FLinearColor Result;
 		uint8* PixelToSample = SourceTextureData + ((Y * TextureSizeX + X) * 8);
 
-		// Need to verify component order
-		Result.R = (float)((FFloat16*)PixelToSample)[3];
-		Result.G = (float)((FFloat16*)PixelToSample)[2];
-		Result.B = (float)((FFloat16*)PixelToSample)[1];
-		Result.A = (float)((FFloat16*)PixelToSample)[0];
+		// this assume the normal map to be in linear (not the case if Photoshop converts a 8bit normalmap to float and saves it as 16bit dds)
+		Result.R = (float)((FFloat16*)PixelToSample)[0];
+		Result.G = (float)((FFloat16*)PixelToSample)[1];
+		Result.B = (float)((FFloat16*)PixelToSample)[2];
+		Result.A = (float)((FFloat16*)PixelToSample)[3];
 
 		return Result;
 	}
@@ -370,7 +369,7 @@ static bool IsTextureANormalMap( UTexture* Texture )
 			break;
 		case TSF_RGBA16:
 			{
-				TNormalMapAnalyzer<SampleNormalMapPixel16> Analyzer;
+				TNormalMapAnalyzer<SampleNormalMapPixelRGBA16> Analyzer;
 				bIsNormalMap = Analyzer.DoesTextureLookLikelyToBeANormalMap( Texture );
 			}
 			break;
@@ -395,7 +394,7 @@ static bool IsTextureANormalMap( UTexture* Texture )
 #if NORMALMAP_IDENTIFICATION_TIMING
 	double EndSeconds = FPlatformTime::Seconds();
 
-	FString Msg = FString::Printf( TEXT("NormalMapIdentification took %f seconds to analyze %s"), (EndSeconds-StartSeconds), *Texture->GetFullName() ); 
+	FString Msg = FString::Printf( TEXT("NormalMapIdentification took %.2f seconds to analyze %s"), (EndSeconds-StartSeconds), *Texture->GetFullName() ); 
 
 	GLog->Log(Msg);
 #endif

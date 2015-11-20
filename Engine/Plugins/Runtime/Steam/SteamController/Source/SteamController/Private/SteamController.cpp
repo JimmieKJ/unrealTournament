@@ -65,6 +65,16 @@ bool LoadSteamModule()
 	return true;
 }
 
+namespace SteamControllerKeyNames
+{
+	const FGamepadKeyNames::Type Touch0("Steam_Touch_0");
+	const FGamepadKeyNames::Type Touch1("Steam_Touch_1");
+	const FGamepadKeyNames::Type Touch2("Steam_Touch_2");
+	const FGamepadKeyNames::Type Touch3("Steam_Touch_3");
+	const FGamepadKeyNames::Type BackLeft("Steam_Back_Left");
+	const FGamepadKeyNames::Type BackRight("Steam_Back_Right");
+}
+
 class FSteamController : public IInputDevice
 {
 
@@ -107,32 +117,32 @@ public:
 		ButtonRepeatDelay = 0.1f;
 
 		// set up mapping
-		Buttons[0] = EControllerButtons::FaceButtonBottom;
-		Buttons[1] = EControllerButtons::FaceButtonRight;
-		Buttons[2] = EControllerButtons::FaceButtonLeft;
-		Buttons[3] = EControllerButtons::FaceButtonTop;
-		Buttons[4] = EControllerButtons::LeftShoulder;
-		Buttons[5] = EControllerButtons::RightShoulder;
-		Buttons[6] = EControllerButtons::SpecialRight;
-		Buttons[7] = EControllerButtons::SpecialLeft;
-		Buttons[8] = EControllerButtons::LeftThumb;
-		Buttons[9] = EControllerButtons::RightThumb;
-		Buttons[10] = EControllerButtons::LeftTriggerThreshold;
-		Buttons[11] = EControllerButtons::RightTriggerThreshold;
-		Buttons[12] = EControllerButtons::Touch0;
-		Buttons[13] = EControllerButtons::Touch1;
-		Buttons[14] = EControllerButtons::Touch2;
-		Buttons[15] = EControllerButtons::Touch3;
-		Buttons[16] = EControllerButtons::LeftStickUp;
-		Buttons[17] = EControllerButtons::LeftStickDown;
-		Buttons[18] = EControllerButtons::LeftStickLeft;
-		Buttons[19] = EControllerButtons::LeftStickRight;
-		Buttons[20] = EControllerButtons::RightStickUp;
-		Buttons[21] = EControllerButtons::RightStickDown;
-		Buttons[22] = EControllerButtons::RightStickLeft;
-		Buttons[23] = EControllerButtons::RightStickRight;
-		Buttons[24] = EControllerButtons::BackLeft;
-		Buttons[25] = EControllerButtons::BackRight;
+		Buttons[0] = FGamepadKeyNames::FaceButtonBottom;
+		Buttons[1] = FGamepadKeyNames::FaceButtonRight;
+		Buttons[2] = FGamepadKeyNames::FaceButtonLeft;
+		Buttons[3] = FGamepadKeyNames::FaceButtonTop;
+		Buttons[4] = FGamepadKeyNames::LeftShoulder;
+		Buttons[5] = FGamepadKeyNames::RightShoulder;
+		Buttons[6] = FGamepadKeyNames::SpecialRight;
+		Buttons[7] = FGamepadKeyNames::SpecialLeft;
+		Buttons[8] = FGamepadKeyNames::LeftThumb;
+		Buttons[9] = FGamepadKeyNames::RightThumb;
+		Buttons[10] = FGamepadKeyNames::LeftTriggerThreshold;
+		Buttons[11] = FGamepadKeyNames::RightTriggerThreshold;
+		Buttons[12] = SteamControllerKeyNames::Touch0;
+		Buttons[13] = SteamControllerKeyNames::Touch1;
+		Buttons[14] = SteamControllerKeyNames::Touch2;
+		Buttons[15] = SteamControllerKeyNames::Touch3;
+		Buttons[16] = FGamepadKeyNames::LeftStickUp;
+		Buttons[17] = FGamepadKeyNames::LeftStickDown;
+		Buttons[18] = FGamepadKeyNames::LeftStickLeft;
+		Buttons[19] = FGamepadKeyNames::LeftStickRight;
+		Buttons[20] = FGamepadKeyNames::RightStickUp;
+		Buttons[21] = FGamepadKeyNames::RightStickDown;
+		Buttons[22] = FGamepadKeyNames::RightStickLeft;
+		Buttons[23] = FGamepadKeyNames::RightStickRight;
+		Buttons[24] = SteamControllerKeyNames::BackLeft;
+		Buttons[25] = SteamControllerKeyNames::BackLeft;
 	}
 
 	virtual ~FSteamController()
@@ -193,25 +203,25 @@ public:
 
 						if (ControllerStates[ControllerIndex].LeftXAnalog != ControllerState.sLeftPadX)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::LeftAnalogX, ControllerIndex, ShortToNormalizedFloat(ControllerState.sLeftPadX));
+							MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogX, ControllerIndex, ShortToNormalizedFloat(ControllerState.sLeftPadX));
 							ControllerStates[ControllerIndex].LeftXAnalog = ControllerState.sLeftPadX;
 						}
 
 						if (ControllerStates[ControllerIndex].LeftYAnalog != ControllerState.sLeftPadY)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::LeftAnalogY, ControllerIndex, ShortToNormalizedFloat(ControllerState.sLeftPadY));
+							MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogY, ControllerIndex, ShortToNormalizedFloat(ControllerState.sLeftPadY));
 							ControllerStates[ControllerIndex].LeftYAnalog = ControllerState.sLeftPadY;
 						}
 
 						if (ControllerStates[ControllerIndex].RightXAnalog != ControllerState.sRightPadX)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::RightAnalogX, ControllerIndex, ShortToNormalizedFloat(ControllerState.sRightPadX));
+							MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogX, ControllerIndex, ShortToNormalizedFloat(ControllerState.sRightPadX));
 							ControllerStates[ControllerIndex].RightXAnalog = ControllerState.sRightPadX;
 						}
 
 						if (ControllerStates[ControllerIndex].RightYAnalog != ControllerState.sRightPadY)
 						{
-							MessageHandler->OnControllerAnalog(EControllerButtons::RightAnalogY, ControllerIndex, ShortToNormalizedFloat(ControllerState.sRightPadY));
+							MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogY, ControllerIndex, ShortToNormalizedFloat(ControllerState.sRightPadY));
 							ControllerStates[ControllerIndex].RightYAnalog = ControllerState.sRightPadY;
 						}
 
@@ -358,7 +368,7 @@ private:
 	float ButtonRepeatDelay;
 
 	/** Mapping of controller buttons */
-	EControllerButtons::Type Buttons[MAX_NUM_CONTROLLER_BUTTONS];
+	FGamepadKeyNames::Type Buttons[MAX_NUM_CONTROLLER_BUTTONS];
 
 	/** handler to send all messages to */
 	TSharedRef<FGenericApplicationMessageHandler> MessageHandler;

@@ -4,6 +4,7 @@
 #include "MakeStructHandler.h"
 #include "K2Node_MakeStruct.h"
 #include "KismetCompiler.h"
+#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "FKCHandler_MakeStruct"
 
@@ -110,6 +111,59 @@ void FKCHandler_MakeStruct::Compile(FKismetFunctionContext& Context, UEdGraphNod
 			FKismetCompilerUtilities::CreateObjectAssignmentStatement(Context, Node, SrcTerm, DstTerm);
 		}
 	}
+
+	// Search through all Properties for this node and set their override value (if any) to true or false based on if the value is being used
+	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
+	TMap<UProperty*, FBPTerminal*> OverridePropertyToTerminalMap;
+	for (FOptionalPinFromProperty& PropertyEntry : Node->ShowPinForProperties)
+	{
+		if (UProperty* Property = FindFieldChecked<UProperty>(Node->StructType, PropertyEntry.PropertyName))
+		{
+			bool bNegate = false;
+			UProperty* OverrideProperty = PropertyCustomizationHelpers::GetEditConditionProperty(Property, bNegate);
+
+			if (OverrideProperty)
+			{
+				FBPTerminal** OverridePropertyTerminal = OverridePropertyToTerminalMap.Find(OverrideProperty);
+
+				// Setup a new terminal for the OverrideProperty if one hasn't been created
+				if (OverridePropertyTerminal == nullptr)
+				{
+					FEdGraphPinType PinType;
+					Schema->ConvertPropertyToPinType(OverrideProperty, /*out*/ PinType);
+
+					// Create the term in the list
+					FBPTerminal* Term = new (Context.VariableReferences) FBPTerminal();
+					Term->Type = PinType;
+					Term->AssociatedVarProperty = OverrideProperty;
+					Term->Context = OutputStructTerm;
+
+					FBlueprintCompiledStatement& AssignBoolStatement = Context.AppendStatementForNode(InNode);
+					AssignBoolStatement.Type = KCST_Assignment;
+
+					// Literal Bool Term to set the OverrideProperty to
+					FBPTerminal* BoolTerm = Context.CreateLocalTerminal(ETerminalSpecification::TS_Literal);
+					BoolTerm->Type.PinCategory = CompilerContext.GetSchema()->PC_Boolean;
+					BoolTerm->bIsLiteral = true;
+					// If we are showing the pin, then we are overriding the property
+					BoolTerm->Name = PropertyEntry.bShowPin? TEXT("true") : TEXT("false");
+
+					// Assigning the OverrideProperty to the literal bool term
+					AssignBoolStatement.LHS = Term;
+					AssignBoolStatement.RHS.Add(BoolTerm);
+
+					OverridePropertyToTerminalMap.Add(OverrideProperty, Term);
+				}
+				// When updating a terminal, we only want to set it to true
+				else if (PropertyEntry.bShowPin)
+				{
+					check(*OverridePropertyTerminal);
+					(*OverridePropertyTerminal)->Name = TEXT("true");
+				}
+			}
+		}
+	}
+
 	if (!Node->IsNodePure())
 	{
 		GenerateSimpleThenGoto(Context, *Node);

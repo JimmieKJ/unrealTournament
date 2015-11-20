@@ -20,7 +20,7 @@ void FAssetTypeActions_CurveTable::GetActions( const TArray<UObject*>& InObjects
 		const UCurveTable* CurTable = Cast<UCurveTable>((*TableIter).Get());
 		if (CurTable)
 		{
-			ImportPaths.Add(FReimportManager::ResolveImportFilename(CurTable->ImportPath, CurTable));
+			CurTable->AssetImportData->ExtractFilenames(ImportPaths);
 		}
 	}
 
@@ -79,7 +79,7 @@ void FAssetTypeActions_CurveTable::ExecuteExportAsCSV(TArray< TWeakObjectPtr<UOb
 		if (CurTable)
 		{
 			const FText Title = FText::Format(LOCTEXT("CurveTable_ExportCSVDialogTitle", "Export '{0}' as CSV..."), FText::FromString(*CurTable->GetName()));
-			const FString CurrentFilename = (CurTable->ImportPath.IsEmpty()) ? TEXT("") : FReimportManager::ResolveImportFilename(CurTable->ImportPath, CurTable);
+			const FString CurrentFilename = CurTable->AssetImportData->GetFirstFilename();
 			const FString FileTypes = TEXT("Curve Table CSV (*.csv)|*.csv");
 
 			TArray<FString> OutFilenames;
@@ -120,7 +120,7 @@ void FAssetTypeActions_CurveTable::ExecuteExportAsJSON(TArray< TWeakObjectPtr<UO
 		if (CurTable)
 		{
 			const FText Title = FText::Format(LOCTEXT("CurveTable_ExportCSVDialogTitle", "Export '{0}' as JSON..."), FText::FromString(*CurTable->GetName()));
-			const FString CurrentFilename = (CurTable->ImportPath.IsEmpty()) ? TEXT("") : FReimportManager::ResolveImportFilename(CurTable->ImportPath, CurTable);
+			const FString CurrentFilename = CurTable->AssetImportData->GetFirstFilename();
 			const FString FileTypes = TEXT("Curve Table JSON (*.json)|*.json");
 
 			TArray<FString> OutFilenames;
@@ -160,7 +160,7 @@ void FAssetTypeActions_CurveTable::GetResolvedSourceFilePaths(const TArray<UObje
 	for (auto& Asset : TypeAssets)
 	{
 		const auto CurveTable = CastChecked<UCurveTable>(Asset);
-		OutSourceFilePaths.Add(FReimportManager::ResolveImportFilename(CurveTable->ImportPath, CurveTable));
+		CurveTable->AssetImportData->ExtractFilenames(OutSourceFilePaths);
 	}
 }
 

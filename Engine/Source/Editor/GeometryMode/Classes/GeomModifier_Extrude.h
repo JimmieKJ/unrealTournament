@@ -23,7 +23,7 @@ class UGeomModifier_Extrude : public UGeomModifier_Edit
 	int32 SaveCoordSystem;
 
 
-	// Begin UGeomModifier Interface
+	//~ Begin UGeomModifier Interface
 	virtual bool Supports() override;
 	virtual void Initialize() override;
 	virtual void WasActivated() override;
@@ -34,7 +34,7 @@ class UGeomModifier_Extrude : public UGeomModifier_Edit
 
 protected:
 	virtual bool OnApply() override;
-	// End UGeomModifier Interface
+	//~ End UGeomModifier Interface
 private:
 	void Apply(int32 InLength, int32 InSegments);
 };

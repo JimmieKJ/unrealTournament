@@ -67,6 +67,7 @@ namespace DeviceProfileCVarFormatHelper
 		CVG_Console,
 		CVG_Compatibility,
 		CVG_UserInterface,
+		CVG_ScalabilityGroups,
 
 		Max_CVarCategories,
 	};
@@ -110,6 +111,10 @@ namespace DeviceProfileCVarFormatHelper
 		{
 			CategoryText = LOCTEXT("UICVarGroupTitle", "User Interface");
 		}
+		else if (CatEnum == ECVarGroup::CVG_ScalabilityGroups)
+		{
+			CategoryText = LOCTEXT("ScalabilityGroupCVarGroupTitle", "Scalability Group");
+		}
 
 		return CategoryText;
 	}
@@ -150,6 +155,10 @@ namespace DeviceProfileCVarFormatHelper
 		else if (LowerPrefix == TEXT("ui") || LowerPrefix == TEXT("ui."))
 		{
 			CategoryText = LOCTEXT("UICVarGroupTitle", "User Interface");
+		}
+		else if (LowerPrefix == TEXT("sg") || LowerPrefix == TEXT("sg."))
+		{
+			CategoryText = LOCTEXT("ScalabilityGroupCVarGroupTitle", "Scalability Group");
 		}
 		else
 		{
@@ -195,6 +204,10 @@ namespace DeviceProfileCVarFormatHelper
 		else if (LowerCategory == TEXT("user interface"))
 		{
 			CVarPrefix = TEXT("ui");
+		}
+		else if (LowerCategory == TEXT("scalability group"))
+		{
+			CVarPrefix = TEXT("sg");
 		}
 
 		return CVarPrefix;

@@ -16,11 +16,11 @@ public:
 
 	GENERATED_UCLASS_BODY()
 
-	/** If enabled the game waits for startup movies to complete even if loading has finished */
+	/** If enabled, The game waits for startup movies to complete even if loading has finished. */
 	UPROPERTY(globalconfig, EditAnywhere, Category="Movies")
 	bool bWaitForMoviesToComplete;
 
-	/** If enabled startup movies can be skipped by the user when a mouse button is pressed */
+	/** If enabled, Startup movies can be skipped by the user when a mouse button is pressed. */
 	UPROPERTY(globalconfig, EditAnywhere, Category="Movies")
 	bool bMoviesAreSkippable;
 

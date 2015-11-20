@@ -114,6 +114,7 @@ void FKCHandler_DynamicCast::Compile(FKismetFunctionContext& Context, UEdGraphNo
 			return;
 		}
 		CastOpType = KCST_MetaCast;
+		ClassTerm->Type.PinCategory = CompilerContext.GetSchema()->PC_Class;
 	}
 
 	// Cast Statement

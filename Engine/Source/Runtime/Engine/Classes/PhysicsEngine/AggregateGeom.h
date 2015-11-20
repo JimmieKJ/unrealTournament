@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "ShapeElem.h"
 #include "ConvexElem.h"
 #include "BoxElem.h"
 #include "SphereElem.h"

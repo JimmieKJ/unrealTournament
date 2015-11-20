@@ -154,6 +154,8 @@ int32 EditorInit( IEngineLoop& EngineLoop )
 		}
 	}
 
+	FModuleManager::LoadModuleChecked<IModuleInterface>(TEXT("HierarchicalLODOutliner"));
+
 	// this will be ultimately returned from main(), so no error should be 0.
 	return 0;
 }

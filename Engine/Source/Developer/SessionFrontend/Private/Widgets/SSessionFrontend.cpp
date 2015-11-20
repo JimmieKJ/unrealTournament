@@ -55,18 +55,18 @@ void SSessionFrontend::Construct( const FArguments& InArgs, const TSharedRef<SDo
 		.SetGroup(AppMenuGroup);
 	
 	// create tab layout
-	const TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout("SessionFrontendLayout_v1.1")
+	const TSharedRef<FTabManager::FLayout> Layout = FTabManager::NewLayout("SessionFrontendLayout_v1.2")
 		->AddArea
 		(
 			FTabManager::NewPrimaryArea()
-				->SetOrientation(Orient_Vertical)
+				->SetOrientation(Orient_Horizontal)
 				->Split
 				(
 					// session browser
 					FTabManager::NewStack()
 						->AddTab(SessionBrowserTabId, ETabState::OpenedTab)
 						->SetHideTabWell(true)
-						->SetSizeCoefficient(0.15f)
+						->SetSizeCoefficient(0.25f)
 				)
 				->Split
 				(
@@ -76,7 +76,7 @@ void SSessionFrontend::Construct( const FArguments& InArgs, const TSharedRef<SDo
 						->AddTab(AutomationTabId, ETabState::OpenedTab)
 						->AddTab(SessionScreenTabId, ETabState::ClosedTab)
 						->AddTab(ProfilerTabId, ETabState::OpenedTab)
-						->SetSizeCoefficient(0.85f)
+						->SetSizeCoefficient(0.75f)
 						->SetForegroundTab(SessionConsoleTabId)
 				)							
 		);

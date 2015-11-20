@@ -73,7 +73,10 @@ void UPawnAction_Sequence::OnChildFinished(UPawnAction& Action, EPawnActionResul
 	{
 		if (WithResult == EPawnActionResult::Success || (WithResult == EPawnActionResult::Failed && ChildFailureHandlingMode == EPawnActionFailHandling::IgnoreFailure))
 		{
-			PushNextActionCopy();
+			if (GetAbortState() == EPawnActionAbortState::NotBeingAborted)
+			{
+				PushNextActionCopy();
+			}
 		}
 		else
 		{

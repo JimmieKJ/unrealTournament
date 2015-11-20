@@ -17,6 +17,7 @@ FUMGDragDropOp::FUMGDragDropOp()
 void FUMGDragDropOp::AddReferencedObjects(FReferenceCollector& Collector)
 {
 	Collector.AddReferencedObject(DragOperation);
+	Collector.AddReferencedObject(GameViewport);
 }
 
 void FUMGDragDropOp::Construct()
@@ -117,6 +118,27 @@ TSharedPtr<SWidget> FUMGDragDropOp::GetDefaultDecorator() const
 	return DecoratorWidget;
 }
 
+FCursorReply FUMGDragDropOp::OnCursorQuery()
+{
+	FCursorReply CursorReply = FGameDragDropOperation::OnCursorQuery();
+
+	if ( !CursorReply.IsEventHandled() )
+	{
+		CursorReply = CursorReply.Cursor(EMouseCursor::Default);
+	}
+
+	if ( GameViewport )
+	{
+		TOptional<TSharedRef<SWidget>> CursorWidget = GameViewport->MapCursor(nullptr, CursorReply);
+		if ( CursorWidget.IsSet() )
+		{
+			CursorReply.SetCursorWidget(GameViewport->GetWindow(), CursorWidget.GetValue());
+		}
+	}
+
+	return CursorReply;
+}
+
 TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfDragee, float DPIScale, TSharedPtr<SObjectWidget> SourceUserWidget)
 {
 	check(InOperation);
@@ -125,6 +147,7 @@ TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, 
 	Operation->MouseDownOffset = ScreenPositionOfDragee - CursorPosition;
 	Operation->StartingScreenPos = ScreenPositionOfDragee;
 	Operation->SourceUserWidget = SourceUserWidget;
+	Operation->GameViewport = SourceUserWidget->GetWidgetObject()->GetWorld()->GetGameViewport();
 	Operation->DragOperation = InOperation;
 
 	TSharedPtr<SWidget> DragVisual;
@@ -135,6 +158,7 @@ TSharedRef<FUMGDragDropOp> FUMGDragDropOp::New(UDragDropOperation* InOperation, 
 	}
 	else
 	{
+		//TODO Make sure users are not trying to add a widget that already exists elsewhere.
 		DragVisual = InOperation->DefaultDragVisual->TakeWidget();
 	}
 

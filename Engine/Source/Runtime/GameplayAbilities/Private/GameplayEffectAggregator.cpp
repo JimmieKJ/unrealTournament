@@ -189,6 +189,35 @@ void FAggregator::AddAggregatorMod(float EvaluatedMagnitude, TEnumAsByte<EGamepl
 
 void FAggregator::RemoveAggregatorMod(FActiveGameplayEffectHandle ActiveHandle)
 {
+	InternalRemoveAggregatorMod(ActiveHandle);
+
+	// mark it as dirty so that all the stats get updated
+	BroadcastOnDirty();
+}
+
+void FAggregator::UpdateAggregatorMod(FActiveGameplayEffectHandle ActiveHandle, const FGameplayAttribute& Attribute, const FGameplayEffectSpec& Spec, bool bWasLocalyGenerated, FActiveGameplayEffectHandle InHandle)
+{
+	// remove the mods but dont mark it as dirty until we re-add the aggregators, we are doing this so the UAttributeSets stats only know about the delta change.
+	InternalRemoveAggregatorMod(ActiveHandle);
+
+	// Now re-add ALL of our mods
+	for (int32 ModIdx = 0; ModIdx < Spec.Modifiers.Num(); ++ModIdx)
+	{
+		const FGameplayModifierInfo& ModDef = Spec.Def->Modifiers[ModIdx];
+
+		if (ModDef.Attribute == Attribute)
+		{
+			AddAggregatorMod(Spec.GetModifierMagnitude(ModIdx, true), ModDef.ModifierOp, &ModDef.SourceTags, &ModDef.TargetTags, bWasLocalyGenerated, InHandle);
+		}
+	}
+
+	// mark it as dirty so that all the stats get updated
+	BroadcastOnDirty();
+}
+
+// moved the remove into a common function since now we will need to remove w/o marking it as dirty so we can support updating the aggregators 
+void FAggregator::InternalRemoveAggregatorMod(FActiveGameplayEffectHandle ActiveHandle)
+{
 	if (ActiveHandle.IsValid())
 	{
 		RemoveModsWithActiveHandle(Mods[EGameplayModOp::Additive], ActiveHandle);
@@ -196,8 +225,6 @@ void FAggregator::RemoveAggregatorMod(FActiveGameplayEffectHandle ActiveHandle)
 		RemoveModsWithActiveHandle(Mods[EGameplayModOp::Division], ActiveHandle);
 		RemoveModsWithActiveHandle(Mods[EGameplayModOp::Override], ActiveHandle);
 	}
-
-	BroadcastOnDirty();
 }
 
 void FAggregator::AddModsFrom(const FAggregator& SourceAggregator)
@@ -263,6 +290,14 @@ void FAggregator::BroadcastOnDirty()
 	{
 		// Apologies for the vague warning but its very hard from this spot to call out what data has caused this. If this frequently happens we should improve this.
 		ABILITY_LOG(Warning, TEXT("FAggregator detected cyclic attribute dependencies. We are skipping a recursive dirty call. Its possible the resulting attribute values are not what you expect!"));
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		// Additional, slow, debugging that will print all aggregator/attributes that are currently dirty
+		for (TObjectIterator<UAbilitySystemComponent> It; It; ++It)
+		{
+			It->DebugCyclicAggregatorBroadcasts(this);
+		}
+#endif
 		return;
 	}
 

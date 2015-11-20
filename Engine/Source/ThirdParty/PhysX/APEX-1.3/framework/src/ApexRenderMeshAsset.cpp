@@ -237,8 +237,8 @@ void ApexRenderMeshAsset::applyTransformation(const physx::PxMat34Legacy& transf
 	for (physx::PxU32 submeshId = 0; submeshId < mSubmeshes.size(); submeshId++)
 	{
 		NiApexVertexBuffer& vb = mSubmeshes[submeshId]->getVertexBufferWritable();
-		vb.applyTransformation(transformation);
 		vb.applyScale(scale);
+		vb.applyTransformation(transformation);
 	}
 
 	// if the transform will mirror the mesh, change the triangle winding in the ib
@@ -265,7 +265,17 @@ void ApexRenderMeshAsset::applyScale(physx::PxF32 scale)
 	for (int partId = 0; partId < mParams->partBounds.arraySizes[0]; partId++)
 	{
 		PX_ASSERT(!mParams->partBounds.buf[partId].isEmpty());
-		mParams->partBounds.buf[partId].scaleFast(scale);
+		mParams->partBounds.buf[partId].minimum *= scale;
+		mParams->partBounds.buf[partId].maximum *= scale;
+	}
+
+	if (scale < 0.0f)
+	{
+		for (int partId = 0; partId < mParams->partBounds.arraySizes[0]; partId++)
+		{
+			PX_ASSERT(!mParams->partBounds.buf[partId].isEmpty());
+			physx::swap(mParams->partBounds.buf[partId].minimum, mParams->partBounds.buf[partId].maximum);
+		}
 	}
 }
 

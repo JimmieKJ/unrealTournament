@@ -23,7 +23,7 @@ static TArray<FRandomStream*> FindRandomStreams(AActor* InActor)
 {
 	check(InActor);
 	TArray<FRandomStream*> OutStreams;
-	UScriptStruct* RandomStreamStruct = GetBaseStructure(TEXT("RandomStream"));
+	UScriptStruct* RandomStreamStruct = TBaseStructure<FRandomStream>::Get();
 	for( TFieldIterator<UStructProperty> It(InActor->GetClass()) ; It ; ++It )
 	{
 		UStructProperty* StructProp = *It;
@@ -80,7 +80,8 @@ void AActor::ResetPropertiesForConstruction()
 				&& !bCanEditInstanceValue
 				&& bCanBeSetInBlueprints
 				&& !Prop->IsA(UDelegateProperty::StaticClass()) 
-				&& !Prop->IsA(UMulticastDelegateProperty::StaticClass()) )
+				&& !Prop->IsA(UMulticastDelegateProperty::StaticClass())
+				&& !Prop->ContainsInstancedObjectProperty())
 		{
 			Prop->CopyCompleteValue_InContainer(this, Default);
 		}
@@ -444,7 +445,7 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 					CurrentBPGClass->SimpleConstructionScript->ExecuteScriptOnActor(this, Transform, bIsDefaultTransform);
 				}
 				// Now that the construction scripts have been run, we can create timelines and hook them up
-				CurrentBPGClass->CreateComponentsForActor(this);
+				UBlueprintGeneratedClass::CreateComponentsForActor(CurrentBPGClass, this);
 			}
 
 			// If we passed in cached data, we apply it now, so that the UserConstructionScript can use the updated values
@@ -477,7 +478,7 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 			}
 
 			// Bind any delegates on components			
-			((UBlueprintGeneratedClass*)GetClass())->BindDynamicDelegates(this); // We have a BP stack, we must have a UBlueprintGeneratedClass...
+			UBlueprintGeneratedClass::BindDynamicDelegates(GetClass(), this); // We have a BP stack, we must have a UBlueprintGeneratedClass...
 
 			// Apply any cached data procedural components
 			// @TODO Don't re-apply to components we already applied to above
@@ -504,6 +505,20 @@ void AActor::ExecuteConstruction(const FTransform& Transform, const FComponentIn
 				FinishAndRegisterComponent(BillboardComponent);
 			}
 		}
+	}
+	else
+	{
+		UBlueprintGeneratedClass::CreateComponentsForActor(GetClass(), this);
+#if WITH_EDITOR
+		bool bDoUserConstructionScript;
+		GConfig->GetBool(TEXT("Kismet"), TEXT("bTurnOffEditorConstructionScript"), bDoUserConstructionScript, GEngineIni);
+		if (!GIsEditor || !bDoUserConstructionScript)
+#endif
+		{
+			// Then run the user script, which is responsible for calling its own super, if desired
+			ProcessUserConstructionScript();
+		}
+		UBlueprintGeneratedClass::BindDynamicDelegates(GetClass(), this);
 	}
 
 	GetWorld()->UpdateCullDistanceVolumes(this);
@@ -596,15 +611,22 @@ UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, 
 UActorComponent* AActor::AddComponent(FName TemplateName, bool bManualAttachment, const FTransform& RelativeTransform, const UObject* ComponentTemplateContext)
 {
 	UActorComponent* Template = nullptr;
-	UBlueprintGeneratedClass* BlueprintGeneratedClass = Cast<UBlueprintGeneratedClass>((ComponentTemplateContext != nullptr) ? ComponentTemplateContext->GetClass() : GetClass());
-	while(BlueprintGeneratedClass != nullptr)
+	for (UClass* TemplateOwnerClass = (ComponentTemplateContext != nullptr) ? ComponentTemplateContext->GetClass() : GetClass()
+		; TemplateOwnerClass && !Template
+		; TemplateOwnerClass = TemplateOwnerClass->GetSuperClass())
 	{
-		Template = BlueprintGeneratedClass->FindComponentTemplateByName(TemplateName);
-		if(nullptr != Template)
+		if (auto BPGC = Cast<UBlueprintGeneratedClass>(TemplateOwnerClass))
 		{
-			break;
+			Template = BPGC->FindComponentTemplateByName(TemplateName);
 		}
-		BlueprintGeneratedClass = Cast<UBlueprintGeneratedClass>(BlueprintGeneratedClass->GetSuperClass());
+		else if (auto DynamicClass = Cast<UDynamicClass>(TemplateOwnerClass))
+		{
+			UObject** FoundTemplatePtr = DynamicClass->ComponentTemplates.FindByPredicate([=](UObject* Obj) -> bool
+			{
+				return Obj && Obj->IsA<UActorComponent>() && (Obj->GetFName() == TemplateName);
+			});
+			Template = (nullptr != FoundTemplatePtr) ? Cast<UActorComponent>(*FoundTemplatePtr) : nullptr;
+		}
 	}
 
 	bool bIsSceneComponent = false;

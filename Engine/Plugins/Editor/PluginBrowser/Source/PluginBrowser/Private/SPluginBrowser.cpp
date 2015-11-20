@@ -8,6 +8,8 @@
 #include "SSearchBox.h"
 #include "PluginBrowserModule.h"
 #include "DirectoryWatcherModule.h"
+#include "IProjectManager.h"
+#include "GameProjectGenerationModule.h"
 
 #define LOCTEXT_NAMESPACE "PluginsEditor"
 
@@ -18,6 +20,8 @@ SPluginBrowser::~SPluginBrowser()
 	{
 		DirectoryWatcherModule.Get()->UnregisterDirectoryChangedCallback_Handle(Pair.Key, Pair.Value);
 	}
+
+	FPluginBrowserModule::Get().OnNewPluginCreated().RemoveAll(this);
 }
 
 void SPluginBrowser::Construct( const FArguments& Args )
@@ -35,11 +39,13 @@ void SPluginBrowser::Construct( const FArguments& Args )
 	for(const FString& WatchDirectoryName: WatchDirectoryNames)
 	{
 		FDelegateHandle Handle;
-		if(DirectoryWatcherModule.Get()->RegisterDirectoryChangedCallback_Handle(WatchDirectoryName, IDirectoryWatcher::FDirectoryChanged::CreateRaw(this, &SPluginBrowser::OnPluginDirectoryChanged), Handle, true))
+		if(DirectoryWatcherModule.Get()->RegisterDirectoryChangedCallback_Handle(WatchDirectoryName, IDirectoryWatcher::FDirectoryChanged::CreateRaw(this, &SPluginBrowser::OnPluginDirectoryChanged), Handle, IDirectoryWatcher::WatchOptions::IncludeDirectoryChanges))
 		{
 			WatchDirectories.Add(WatchDirectoryName, Handle);
 		}
 	}
+
+	FPluginBrowserModule::Get().OnNewPluginCreated().AddSP(this, &SPluginBrowser::OnNewPluginCreated);
 
 	RegisterActiveTimer (0.f, FWidgetActiveTimerDelegate::CreateSP (this, &SPluginBrowser::TriggerBreadcrumbRefresh));
 
@@ -60,9 +66,9 @@ void SPluginBrowser::Construct( const FArguments& Args )
 
 	PluginCategories = SNew( SPluginCategoryTree, SharedThis( this ) );
 
-
-	ChildSlot
-	[ 
+	TSharedRef<SVerticalBox> MainContent = SNew( SVerticalBox )
+	+SVerticalBox::Slot()
+	[
 		SNew( SHorizontalBox )
 
 		+SHorizontalBox::Slot()
@@ -95,7 +101,7 @@ void SPluginBrowser::Construct( const FArguments& Args )
 				+SHorizontalBox::Slot()
 				.Padding( PaddingAmount )
 				[
-					SNew( SSearchBox )
+					SAssignNew( SearchBoxPtr, SSearchBox )
 					.OnTextChanged( this, &SPluginBrowser::SearchBox_OnPluginSearchTextChanged )
 				]
 			]
@@ -146,12 +152,38 @@ void SPluginBrowser::Construct( const FArguments& Args )
 			]
 		]
 	];
+
+	// Don't create new plugin button in content only projects as they won't compile
+	const FProjectDescriptor* CurrentProject = IProjectManager::Get().GetCurrentProject();
+	bool bIsContentOnlyProject = CurrentProject == nullptr || CurrentProject->Modules.Num() == 0 || !FGameProjectGenerationModule::Get().ProjectHasCodeFiles();
+
+	if (!bIsContentOnlyProject)
+	{
+		MainContent->AddSlot()
+		.AutoHeight()
+		.Padding(5)
+		.HAlign(HAlign_Right)
+		[
+			SNew(SButton)
+			.ContentPadding(5)
+			.TextStyle(FEditorStyle::Get(), "LargeText")
+			.ButtonStyle(FEditorStyle::Get(), "FlatButton.Success")
+			.HAlign(HAlign_Center)
+			.Text(LOCTEXT("NewPluginLabel", "New plugin"))
+			.OnClicked(this, &SPluginBrowser::HandleNewPluginButtonClicked)
+		];
+	}
+
+	ChildSlot
+	[
+		MainContent
+	];
 }
 
 
 EVisibility SPluginBrowser::HandleRestartEditorNoticeVisibility() const
 {
-	return (FPluginBrowserModule::Get().PendingEnablePlugins.Num() > 0)? EVisibility::Visible : EVisibility::Collapsed;
+	return FPluginBrowserModule::Get().HasPluginsPendingEnable() ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 
@@ -166,6 +198,7 @@ FReply SPluginBrowser::HandleRestartEditorButtonClicked() const
 void SPluginBrowser::SearchBox_OnPluginSearchTextChanged( const FText& NewText )
 {
 	PluginTextFilter->SetRawFilterText( NewText );
+	SearchBoxPtr->SetError( PluginTextFilter->GetFilterErrorText() );
 }
 
 
@@ -205,6 +238,15 @@ void SPluginBrowser::SetNeedsRefresh()
 void SPluginBrowser::OnPluginDirectoryChanged(const TArray<struct FFileChangeData>&)
 {
 	if(UpdatePluginsTimerHandle.IsValid())
+	{
+		UnRegisterActiveTimer(UpdatePluginsTimerHandle.ToSharedRef());
+	}
+	UpdatePluginsTimerHandle = RegisterActiveTimer(2.0f, FWidgetActiveTimerDelegate::CreateSP(this, &SPluginBrowser::UpdatePluginsTimerCallback));
+}
+
+void SPluginBrowser::OnNewPluginCreated()
+{
+	if (UpdatePluginsTimerHandle.IsValid())
 	{
 		UnRegisterActiveTimer(UpdatePluginsTimerHandle.ToSharedRef());
 	}
@@ -259,6 +301,11 @@ void SPluginBrowser::BreadcrumbTrail_OnCrumbClicked( const TSharedPtr<FPluginCat
 	}
 }
 
+FReply SPluginBrowser::HandleNewPluginButtonClicked() const
+{
+	FGlobalTabmanager::Get()->InvokeTab( FPluginBrowserModule::PluginCreatorTabName );
 
+	return FReply::Handled();
+}
 
 #undef LOCTEXT_NAMESPACE

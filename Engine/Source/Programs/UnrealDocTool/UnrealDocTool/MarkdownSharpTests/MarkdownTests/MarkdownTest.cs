@@ -331,6 +331,11 @@ namespace MarkdownSharpTests.MarkdownTests
             markdown.ThisIsPreview = false;
 
             markdown.SupportedLanguages = Settings.Default.SupportedLanguages.ToUpper().Split(',');
+            markdown.SupportedLanguageLabels = Settings.Default.SupportedLanguageLabels.Split(',');
+            for(int i = 0; i < markdown.SupportedLanguages.Length ; i++)
+            {
+                markdown.SupportedLanguageMap.Add(markdown.SupportedLanguages[i], markdown.SupportedLanguageLabels[i]);
+            }
 
             //Pass the default conversion settings to Markdown for use in the imagedetails creation.
             markdown.DefaultImageDoCompress = Settings.Default.DoCompressImages;

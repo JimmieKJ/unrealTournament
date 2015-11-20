@@ -39,7 +39,9 @@ public:
 	class UAssetImportData* AssetImportData;
 
 	// UObject interface
+	virtual void PostInitProperties() override;
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	virtual void Serialize(FArchive& Ar) override;
 	// End of UObject interface
 #endif
 };

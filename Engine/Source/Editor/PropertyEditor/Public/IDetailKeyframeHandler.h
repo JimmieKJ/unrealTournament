@@ -7,7 +7,7 @@ class IDetailKeyframeHandler
 public:
 	virtual ~IDetailKeyframeHandler(){}
 
-	virtual bool IsPropertyKeyable(const UClass& InObjectClass, const class IPropertyHandle& PropertyHandle) const = 0;
+	virtual bool IsPropertyKeyable(UClass* InObjectClass, const class IPropertyHandle& PropertyHandle) const = 0;
 
 	virtual bool IsPropertyKeyingEnabled() const = 0;
 

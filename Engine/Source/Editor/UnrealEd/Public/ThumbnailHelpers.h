@@ -70,6 +70,8 @@ protected:
 protected:
 	/** The static mesh actor used to display all material thumbnails */
 	AStaticMeshActor* PreviewActor;
+	/** Material being rendered is for UI */
+	bool bIsUIMaterial;
 };
 
 class UNREALED_API FSkeletalMeshThumbnailScene : public FThumbnailPreviewScene
@@ -116,6 +118,9 @@ public:
 
 	/** Sets the static mesh to use in the next GetView() */
 	void SetStaticMesh(class UStaticMesh* StaticMesh);
+
+	/** Sets override materials for the static mesh  */
+	void SetOverrideMaterials(const TArray<class UMaterialInterface*>& OverrideMaterials);
 
 protected:
 	// FThumbnailPreviewScene implementation
@@ -260,7 +265,7 @@ public:
 
 protected:
 	/** Creates instances of template components found in a blueprint's simple construction script */
-	void InstanceComponents(USCS_Node* CurrentNode, USceneComponent* ParentComponent, const TMap<UActorComponent*, UActorComponent*>& NativeInstanceMap, TArray<UActorComponent*>& OutComponents);
+	void InstanceComponents(USCS_Node* CurrentNode, USceneComponent* ParentComponent, const TMap<UActorComponent*, UActorComponent*>& NativeInstanceMap, TArray<UActorComponent*>& OutComponents, UBlueprintGeneratedClass* ActualBPGC);
 
 	/** Get/Release for the component pool */
 	virtual TArray<UPrimitiveComponent*> GetPooledVisualizableComponents(UObject* Obj) override;

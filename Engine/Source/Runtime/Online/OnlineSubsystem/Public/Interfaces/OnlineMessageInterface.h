@@ -104,7 +104,7 @@ public:
 	}
 
 	/** Unique id of user that sent the message */
-	TSharedRef<FUniqueNetId> FromUserId;
+	TSharedRef<const FUniqueNetId> FromUserId;
 	/** Name of user that sent the message */
 	FString FromName;
 	/** Unique id of the message. Needed to download the message payload */
@@ -283,7 +283,7 @@ public:
 	 * 
 	 * @return true if request was started
 	 */
-	virtual bool SendMessage(int32 LocalUserNum, const TArray< TSharedRef<FUniqueNetId> >& RecipientIds, const FString& MessageType, const FOnlineMessagePayload& Payload) = 0;
+	virtual bool SendMessage(int32 LocalUserNum, const TArray< TSharedRef<const FUniqueNetId> >& RecipientIds, const FString& MessageType, const FOnlineMessagePayload& Payload) = 0;
 	
 	/**
 	 * Delegate used when sending of message has completed

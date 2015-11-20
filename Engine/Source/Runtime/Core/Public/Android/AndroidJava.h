@@ -41,7 +41,6 @@ public:
 
 protected:
 
-	FName			ClassName;
 	jobject			Object;
 	jclass			Class;
 

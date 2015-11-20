@@ -4,6 +4,7 @@
 #include "PersonaPrivatePCH.h"
 #include "BoneSelectionWidget.h"
 #include "SSearchBox.h"
+#include "Editor/PropertyEditor/Public/DetailLayoutBuilder.h"
 
 #define LOCTEXT_NAMESPACE "SBoneSelectionWidget"
 
@@ -34,11 +35,12 @@ void SBoneSelectionWidget::Construct(const FArguments& InArgs)
 	[
 		SAssignNew(BonePickerButton, SComboButton)
 		.OnGetMenuContent(FOnGetContent::CreateSP(this, &SBoneSelectionWidget::CreateSkeletonWidgetMenu))
-		.ContentPadding(0)
+		.ContentPadding(FMargin(4.0f, 2.0f, 4.0f, 2.0f))
 		.ButtonContent()
 		[
 			SNew(STextBlock)
 			.Text(this, &SBoneSelectionWidget::GetCurrentBoneName)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
 			.ToolTipText(FinalTooltip)
 		]
 	];

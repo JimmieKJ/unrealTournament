@@ -137,6 +137,8 @@ public:
 			LightMapSamplerParameter.Bind(ParameterMap,TEXT("LightMapSampler"));
 			SkyOcclusionTexture.Bind(ParameterMap,TEXT("SkyOcclusionTexture"));
 			SkyOcclusionSampler.Bind(ParameterMap,TEXT("SkyOcclusionSampler"));
+			AOMaterialMaskTexture.Bind(ParameterMap,TEXT("AOMaterialMaskTexture"));
+			AOMaterialMaskSampler.Bind(ParameterMap,TEXT("AOMaterialMaskSampler"));
 			LightMapScaleParameter.Bind(ParameterMap,TEXT("LightMapScale"));
 			LightMapAddParameter.Bind(ParameterMap,TEXT("LightMapAdd"));
 		}
@@ -177,6 +179,24 @@ public:
 				);
 		}
 
+		void SetAOMaterialMaskTexture(FRHICommandList& RHICmdList, FShader* PixelShader, const UTexture2D* AOMaterialMaskTextureValue) const
+		{
+			FTexture* TextureResource = GBlackTexture;
+
+			if (AOMaterialMaskTextureValue)
+			{
+				TextureResource = AOMaterialMaskTextureValue->Resource;
+			}
+
+			SetTextureParameter(
+				RHICmdList, 
+				PixelShader->GetPixelShader(),
+				AOMaterialMaskTexture,
+				AOMaterialMaskSampler,
+				TextureResource
+				);
+		}
+
 		void SetLightMapScale(FRHICommandList& RHICmdList, FShader* PixelShader,const FLightMapInteraction& LightMapInteraction) const
 		{
 			const FPixelShaderRHIParamRef ShaderRHI = PixelShader->GetPixelShader();
@@ -191,6 +211,8 @@ public:
 			Ar << LightMapSamplerParameter;
 			Ar << SkyOcclusionTexture;
 			Ar << SkyOcclusionSampler;
+			Ar << AOMaterialMaskTexture;
+			Ar << AOMaterialMaskSampler;
 			Ar << LightMapScaleParameter;
 			Ar << LightMapAddParameter;
 		}
@@ -200,6 +222,8 @@ public:
 		FShaderResourceParameter LightMapSamplerParameter;
 		FShaderResourceParameter SkyOcclusionTexture;
 		FShaderResourceParameter SkyOcclusionSampler;
+		FShaderResourceParameter AOMaterialMaskTexture;
+		FShaderResourceParameter AOMaterialMaskSampler;
 		FShaderParameter LightMapScaleParameter;
 		FShaderParameter LightMapAddParameter;
 	};
@@ -273,6 +297,7 @@ public:
 			PixelShaderParameters->SetLightMapScale(RHICmdList, PixelShader,LightMapInteraction);
 			PixelShaderParameters->SetLightMapTexture(RHICmdList, PixelShader, LightMapInteraction.GetTexture(AllowHighQualityLightmaps(View.GetFeatureLevel())));
 			PixelShaderParameters->SetSkyOcclusionTexture(RHICmdList, PixelShader, LightMapInteraction.GetSkyOcclusionTexture());
+			PixelShaderParameters->SetAOMaterialMaskTexture(RHICmdList, PixelShader, LightMapInteraction.GetAOMaterialMaskTexture());
 		}
 	}
 

@@ -7,7 +7,7 @@
 /**
  *	Used to emit a radial force or impulse that can affect physics objects and or destructible objects.
  */
-UCLASS(hidecategories=(Object, Mobility), ClassGroup=Physics, showcategories=Trigger, meta=(BlueprintSpawnableComponent), MinimalAPI)
+UCLASS(hidecategories=(Object, Mobility, LOD, Physics), ClassGroup=Physics, showcategories=Trigger, meta=(BlueprintSpawnableComponent), MinimalAPI)
 class URadialForceComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
@@ -64,16 +64,16 @@ protected:
 	FCollisionObjectQueryParams CollisionObjectQueryParams;
 
 protected:
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-	// End UActorComponent interface.
+	//~ End UActorComponent Interface.
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	/** Update CollisionObjectQueryParams from ObjectTypesToAffect */
 	void UpdateCollisionObjectQueryParams();

@@ -12,19 +12,19 @@ namespace CrossCompiler
 {
 	namespace AST
 	{
-		void DumpOptionalArraySize(bool bIsArray, const TLinearArray<FExpression*>& ArraySize)
+		static void WriteOptionArraySize(FASTWriter& Writer, bool bIsArray, const TLinearArray<FExpression*>& ArraySize)
 		{
 			if (bIsArray && ArraySize.Num() == 0)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("[]"));
+				Writer << TEXT("[]");
 			}
 			else
 			{
 				for (const auto* Dimension : ArraySize)
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("["));
-					Dimension->Dump(0);
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("]"));
+					Writer << (TCHAR)'[';
+					Dimension->Write(Writer);
+					Writer << (TCHAR)']';
 				}
 			}
 		}
@@ -45,24 +45,25 @@ namespace CrossCompiler
 		{
 		}
 
-		void FNode::DumpIndent(int32 Indent)
+		void FASTWriter::DoIndent()
 		{
-			while (--Indent >= 0)
+			int32 N = Indent;
+			while (--N >= 0)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("\t"));
+				(*this) << (TCHAR)'\t';
 			}
 		}
 
-		void FNode::DumpAttributes() const
+		void FNode::WriteAttributes(FASTWriter& Writer) const
 		{
 			if (Attributes.Num() > 0)
 			{
 				for (auto* Attr : Attributes)
 				{
-					Attr->Dump(0);
+					Attr->Write(Writer);
 				}
 
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" "));
+				Writer << (TCHAR)' ';
 			}
 		}
 
@@ -78,161 +79,161 @@ namespace CrossCompiler
 			TypeSpecifier = 0;
 		}
 
-		void FExpression::DumpOperator() const
+		void FExpression::WriteOperator(FASTWriter& Writer) const
 		{
 			switch (Operator)
 			{
 			case EOperators::Plus:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("+"));
+				Writer << TEXT("+");
 				break;
 
 			case EOperators::Neg:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("-"));
+				Writer << TEXT("-");
 				break;
 
 			case EOperators::Assign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("="));
+				Writer << TEXT("=");
 				break;
 
 			case EOperators::AddAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("+="));
+				Writer << TEXT("+=");
 				break;
 
 			case EOperators::SubAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("-="));
+				Writer << TEXT("-=");
 				break;
 
 			case EOperators::MulAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("*="));
+				Writer << TEXT("*=");
 				break;
 
 			case EOperators::DivAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("/="));
+				Writer << TEXT("/=");
 				break;
 
 			case EOperators::ModAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("%="));
+				Writer << TEXT("%=");
 				break;
 
 			case EOperators::RSAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(">>="));
+				Writer << TEXT(">>=");
 				break;
 
 			case EOperators::LSAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("<<="));
+				Writer << TEXT("<<=");
 				break;
 
 			case EOperators::AndAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("&="));
+				Writer << TEXT("&=");
 				break;
 
 			case EOperators::OrAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("|="));
+				Writer << TEXT("|=");
 				break;
 
 			case EOperators::XorAssign:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("^="));
+				Writer << TEXT("^=");
 				break;
 
 			case EOperators::Conditional:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("?"));
+				Writer << TEXT("?");
 				break;
 
 			case EOperators::LogicOr:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("||"));
+				Writer << TEXT("||");
 				break;
 
 			case EOperators::LogicAnd:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("&&"));
+				Writer << TEXT("&&");
 				break;
 
 			case EOperators::LogicNot:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("!"));
+				Writer << TEXT("!");
 				break;
 
 			case EOperators::BitOr:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("|"));
+				Writer << TEXT("|");
 				break;
 
 			case EOperators::BitXor:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("^"));
+				Writer << TEXT("^");
 				break;
 
 			case EOperators::BitAnd:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("&"));
+				Writer << TEXT("&");
 				break;
 
 			case EOperators::Equal:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("=="));
+				Writer << TEXT("==");
 				break;
 
 			case EOperators::NEqual:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("!="));
+				Writer << TEXT("!=");
 				break;
 
 			case EOperators::Less:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("<"));
+				Writer << TEXT("<");
 				break;
 
 			case EOperators::Greater:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(">"));
+				Writer << TEXT(">");
 				break;
 
 			case EOperators::LEqual:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("<="));
+				Writer << TEXT("<=");
 				break;
 
 			case EOperators::GEqual:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(">="));
+				Writer << TEXT(">=");
 				break;
 
 			case EOperators::LShift:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("<<"));
+				Writer << TEXT("<<");
 				break;
 
 			case EOperators::RShift:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(">>"));
+				Writer << TEXT(">>");
 				break;
 
 			case EOperators::Add:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("+"));
+				Writer << TEXT("+");
 				break;
 
 			case EOperators::Sub:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("-"));
+				Writer << TEXT("-");
 				break;
 
 			case EOperators::Mul:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("*"));
+				Writer << TEXT("*");
 				break;
 
 			case EOperators::Div:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("/"));
+				Writer << TEXT("/");
 				break;
 
 			case EOperators::Mod:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("%"));
+				Writer << TEXT("%");
 				break;
 
 			case EOperators::PreInc:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("++"));
+				Writer << TEXT("++");
 				break;
 
 			case EOperators::PreDec:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("--"));
+				Writer << TEXT("--");
 				break;
 
 			case EOperators::Identifier:
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s"), Identifier);
+				Writer << Identifier;
 				break;
 
 			case EOperators::UintConstant:
 			case EOperators::BoolConstant:
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%d"), UintConstant);
+				Writer << UintConstant;
 				break;
 
 			case EOperators::FloatConstant:
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%f"), FloatConstant);
+				Writer << FloatConstant;
 				break;
 
 			case EOperators::InitializerList:
@@ -246,34 +247,38 @@ namespace CrossCompiler
 				break;
 
 			case EOperators::TypeCast:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("("));
-				TypeSpecifier->Dump(0);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(")"));
+				Writer << (TCHAR)'(';
+				TypeSpecifier->Write(Writer);
+				Writer << TEXT(")");
 				break;
 
 			default:
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*MISSING_%d*"), Operator);
+				Writer << TEXT("*MISSING_");
+				Writer << (uint32)Operator;
+				Writer << (TCHAR)'*';
 				check(0);
 				break;
 			}
 		}
 
-		void FExpression::Dump(int32 Indent) const
+		void FExpression::Write(FASTWriter& Writer) const
 		{
 			switch (Operator)
 			{
 			case EOperators::Conditional:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("("));
-				SubExpressions[0]->Dump(0);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" ? "));
-				SubExpressions[1]->Dump(0);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" : "));
-				SubExpressions[2]->Dump(0);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(")"));
+				Writer << (TCHAR)'(';
+				SubExpressions[0]->Write(Writer);
+				Writer << TEXT(" ? ");
+				SubExpressions[1]->Write(Writer);
+				Writer << TEXT(" : ");
+				SubExpressions[2]->Write(Writer);
+				Writer << TEXT(")");
 				break;
 
 			default:
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*MISSING_%d*"), Operator);
+				Writer << TEXT("*MISSING_");
+				Writer << (uint32)Operator;
+				Writer << (TCHAR)'*';
 				check(0);
 				break;
 			}
@@ -307,34 +312,54 @@ namespace CrossCompiler
 		{
 		}
 
-		void FUnaryExpression::Dump(int32 Indent) const
+		void FUnaryExpression::Write(FASTWriter& Writer) const
 		{
-			DumpOperator();
+			WriteOperator(Writer);
 			if (SubExpressions[0])
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("("));
-				SubExpressions[0]->Dump(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(")"));
+				if (Writer.ExpressionScope != 0)
+				{
+					Writer << (TCHAR)'(';
+				}
+				++Writer.ExpressionScope;
+				SubExpressions[0]->Write(Writer);
+				--Writer.ExpressionScope;
+				if (Writer.ExpressionScope != 0)
+				{
+					Writer << (TCHAR)')';
+				}
 			}
 
 			// Suffix
 			switch (Operator)
 			{
 			case EOperators::PostInc:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("++"));
+				Writer << TEXT("++");
 				break;
 
 			case EOperators::PostDec:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("--"));
+				Writer << TEXT("--");
 				break;
 
 			case EOperators::FieldSelection:
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT(".%s"), Identifier);
+				Writer << (TCHAR)'.';
+				Writer << Identifier;
 				break;
 
 			default:
 				break;
 			}
+		}
+
+		bool FUnaryExpression::GetConstantIntValue(int32& OutValue) const
+		{
+			if (IsConstant())
+			{
+				OutValue = (int32)GetUintConstantValue();
+				return true;
+			}
+
+			return false;
 		}
 
 		FBinaryExpression::FBinaryExpression(FLinearAllocator* InAllocator, EOperators InOperator, FExpression* E0, FExpression* E1, const FSourceInfo& InInfo) :
@@ -342,27 +367,73 @@ namespace CrossCompiler
 		{
 		}
 
-		void FBinaryExpression::Dump(int32 Indent) const
+		void FBinaryExpression::Write(FASTWriter& Writer) const
 		{
 			switch (Operator)
 			{
 			case EOperators::ArrayIndex:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("("));
-				SubExpressions[0]->Dump(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(")"));
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("["));
-				SubExpressions[1]->Dump(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("]"));
+				Writer << (TCHAR)'(';
+				SubExpressions[0]->Write(Writer);
+				Writer << TEXT(")");
+				Writer << (TCHAR)'[';
+				SubExpressions[1]->Write(Writer);
+				Writer << TEXT("]");
 				break;
 
 			default:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("("));
-				SubExpressions[0]->Dump(Indent);
-				DumpOperator();
-				SubExpressions[1]->Dump(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(")"));
+				if (Writer.ExpressionScope != 0)
+				{
+					Writer << (TCHAR)'(';
+				}
+				++Writer.ExpressionScope;
+				SubExpressions[0]->Write(Writer);
+				Writer << (TCHAR)' ';
+				WriteOperator(Writer);
+				Writer << (TCHAR)' ';
+				SubExpressions[1]->Write(Writer);
+				--Writer.ExpressionScope;
+				if (Writer.ExpressionScope != 0)
+				{
+					Writer << (TCHAR)')';
+				}
 				break;
 			}
+		}
+
+		bool FBinaryExpression::GetConstantIntValue(int32& OutValue) const
+		{
+			int32 LHS = 0;
+			int32 RHS = 0;
+			if (!SubExpressions[0]->GetConstantIntValue(LHS) || !SubExpressions[1]->GetConstantIntValue(RHS))
+			{
+				return false;
+			}
+
+			switch (Operator)
+			{
+			default:
+				return false;
+
+			case EOperators::LogicOr:	OutValue = LHS || RHS; break;
+			case EOperators::LogicAnd:	OutValue = LHS && RHS; break;
+			case EOperators::BitOr:		OutValue = LHS | RHS; break;
+			case EOperators::BitXor:	OutValue = LHS ^ RHS; break;
+			case EOperators::BitAnd:	OutValue = LHS ^ RHS; break;
+			case EOperators::Equal:		OutValue = LHS == RHS; break;
+			case EOperators::NEqual:	OutValue = LHS != RHS; break;
+			case EOperators::Less:		OutValue = LHS < RHS; break;
+			case EOperators::Greater:	OutValue = LHS > RHS; break;
+			case EOperators::LEqual:	OutValue = LHS <= RHS; break;
+			case EOperators::GEqual:	OutValue = LHS >= RHS; break;
+			case EOperators::LShift:	OutValue = LHS << RHS; break;
+			case EOperators::RShift:	OutValue = LHS >> RHS; break;
+			case EOperators::Add:		OutValue = LHS + RHS; break;
+			case EOperators::Sub:		OutValue = LHS - RHS; break;
+			case EOperators::Mul:		OutValue = LHS * RHS; break;
+			case EOperators::Div:		OutValue = LHS / RHS; break;
+			case EOperators::Mod:		OutValue = LHS % RHS; break;
+			}
+			return true;
 		}
 
 		FExpressionStatement::FExpressionStatement(FLinearAllocator* InAllocator, FExpression* InExpr, const FSourceInfo& InInfo) :
@@ -371,11 +442,11 @@ namespace CrossCompiler
 		{
 		}
 
-		void FExpressionStatement::Dump(int32 Indent) const
+		void FExpressionStatement::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
-			Expression->Dump(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT(";\n"));
+			Writer.DoIndent();
+			Expression->Write(Writer);
+			Writer << TEXT(";\n");
 		}
 
 		FExpressionStatement::~FExpressionStatement()
@@ -392,16 +463,17 @@ namespace CrossCompiler
 		{
 		}
 
-		void FCompoundStatement::Dump(int32 Indent) const
+		void FCompoundStatement::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
+			Writer.DoIndent();
+			Writer << TEXT("{\n");
 			for (auto* Statement : Statements)
 			{
-				Statement->Dump(Indent + 1);
+				FASTWriterIncrementScope Scope(Writer);
+				Statement->Write(Writer);
 			}
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
+			Writer.DoIndent();
+			Writer << TEXT("}\n");
 		}
 
 		FCompoundStatement::~FCompoundStatement()
@@ -422,13 +494,13 @@ namespace CrossCompiler
 		{
 		}
 
-		void FFunctionDefinition::Dump(int32 Indent) const
+		void FFunctionDefinition::Write(FASTWriter& Writer) const
 		{
-			DumpAttributes();
-			Prototype->Dump(0);
+			WriteAttributes(Writer);
+			Prototype->Write(Writer);
 			if (Body)
 			{
-				Body->Dump(Indent);
+				Body->Write(Writer);
 			}
 		}
 
@@ -447,32 +519,52 @@ namespace CrossCompiler
 		{
 		}
 
-		void FFunction::Dump(int32 Indent) const
+		void FFunction::Write(FASTWriter& Writer) const
 		{
-			DumpAttributes();
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("\n"));
-			ReturnType->Dump(0);
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" %s("), Identifier);
+			WriteAttributes(Writer);
+			Writer << TEXT("\n");
+			ReturnType->Write(Writer);
+			Writer << (TCHAR)' ';
+			Writer << Identifier;
+			Writer << (TCHAR)'(';
 			bool bFirst = true;
-			for (auto* Param : Parameters)
+			if (Parameters.Num() > 2)
 			{
-				if (bFirst)
+				for (auto* Param : Parameters)
 				{
-					bFirst = false;
+					if (bFirst)
+					{
+						bFirst = false;
+					}
+					else
+					{
+						Writer << TEXT(",\n\t");
+					}
+					Param->Write(Writer);
 				}
-				else
+			}
+			else
+			{
+				for (auto* Param : Parameters)
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT(", "));
+					if (bFirst)
+					{
+						bFirst = false;
+					}
+					else
+					{
+						Writer << TEXT(", ");
+					}
+					Param->Write(Writer);
 				}
-				Param->Dump(0);
 			}
 
+			Writer << TEXT(")");
 			if (ReturnSemantic && *ReturnSemantic)
 			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT(": %s"), ReturnSemantic);
+				Writer << TEXT(" : ") << ReturnSemantic;
 			}
-
-			FPlatformMisc::LowLevelOutputDebugString(TEXT(")\n"));
+			Writer << TEXT("\n");
 		}
 
 		FFunction::~FFunction()
@@ -490,36 +582,38 @@ namespace CrossCompiler
 		{
 		}
 
-		void FJumpStatement::Dump(int32 Indent) const
+		void FJumpStatement::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
+			Writer.DoIndent();
 
 			switch (Type)
 			{
 			case EJumpType::Return:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("return"));
+				Writer << TEXT("return");
 				break;
 
 			case EJumpType::Break:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("break"));
+				Writer << TEXT("break");
 				break;
 
 			case EJumpType::Continue:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("continue"));
+				Writer << TEXT("continue");
 				break;
 
 			default:
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("*MISSING_%d*"), Type);
+				Writer << TEXT("*MISSING_");
+				Writer << (uint32)Type;
+				Writer << (TCHAR)'*';
 				check(0);
 				break;
 			}
 
 			if (OptionalExpression)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" "));
-				OptionalExpression->Dump(Indent);
+				Writer << TEXT(" ");
+				OptionalExpression->Write(Writer);
 			}
-			FPlatformMisc::LowLevelOutputDebugString(TEXT(";\n"));
+			Writer << TEXT(";\n");
 		}
 
 		FJumpStatement::~FJumpStatement()
@@ -538,19 +632,19 @@ namespace CrossCompiler
 		{
 		}
 
-		void FSelectionStatement::Dump(int32 Indent) const
+		void FSelectionStatement::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
-			DumpAttributes();
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("if ("));
-			Condition->Dump(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT(")\n"));
-			ThenStatement->Dump(Indent);
+			Writer.DoIndent();
+			WriteAttributes(Writer);
+			Writer << TEXT("if (");
+			Condition->Write(Writer);
+			Writer << TEXT(")\n");
+			ThenStatement->Write(Writer);
 			if (ElseStatement)
 			{
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("else\n"));
-				ElseStatement->Dump(Indent);
+				Writer.DoIndent();
+				Writer << TEXT("else\n");
+				ElseStatement->Write(Writer);
 			}
 		}
 
@@ -577,32 +671,38 @@ namespace CrossCompiler
 		{
 		}
 
-		void FTypeSpecifier::Dump(int32 Indent) const
+		void FTypeSpecifier::Write(FASTWriter& Writer) const
 		{
 			if (Structure)
 			{
-				Structure->Dump(Indent);
+				Structure->Write(Writer);
 			}
 			else
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TypeName);
+				Writer << TypeName;
 				if (TextureMSNumSamples > 1)
 				{
-					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("<%s, %d>"), InnerType, TextureMSNumSamples);
+					Writer << (TCHAR)'<';
+					Writer << InnerType;
+					Writer << TEXT(", ");
+					Writer << (uint32)TextureMSNumSamples;
+					Writer << (TCHAR)'>';
 				}
 				else if (InnerType && *InnerType)
 				{
-					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("<%s>"), InnerType);
+					Writer << (TCHAR)'<';
+					Writer << InnerType;
+					Writer << (TCHAR)'>';
 				}
 			}
 
 			if (bIsArray)
 			{
-				printf("[ ");
+				Writer << TEXT("[ ");
 
 				if (ArraySize)
 				{
-					ArraySize->Dump(Indent);
+					ArraySize->Write(Writer);
 				}
 
 				printf("]");
@@ -629,21 +729,24 @@ namespace CrossCompiler
 		{
 		}
 
-		void FCBufferDeclaration::Dump(int32 Indent) const
+		void FCBufferDeclaration::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("cbuffer %s\n"), Name);
+			Writer.DoIndent();
+			Writer << TEXT("cbuffer ");
+			Writer << Name;
+			Writer << (TCHAR)'\n';
 
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
+			Writer.DoIndent();
+			Writer << TEXT("{\n");
 
 			for (auto* Declaration : Declarations)
 			{
-				Declaration->Dump(Indent + 1);
+				FASTWriterIncrementScope Scope(Writer);
+				Declaration->Write(Writer);
 			}
 
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n\n"));
+			Writer.DoIndent();
+			Writer << TEXT("}\n\n");
 		}
 
 		FCBufferDeclaration::~FCBufferDeclaration()
@@ -659,59 +762,59 @@ namespace CrossCompiler
 			Raw = 0;
 		}
 
-		void FTypeQualifier::Dump() const
+		void FTypeQualifier::Write(FASTWriter& Writer) const
 		{
 			if (bConstant)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("const "));
+				Writer << TEXT("const ");
 			}
 
 			if (bIsStatic)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("static "));
+				Writer << TEXT("static ");
 			}
 
 			if (bShared)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("groupshared "));
+				Writer << TEXT("groupshared ");
 			}
 			else if (bIn && bOut)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("inout "));
+				Writer << TEXT("inout ");
 			}
 			else if (bIn)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("in "));
+				Writer << TEXT("in ");
 			}
 			else if (bOut)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("out "));
+				Writer << TEXT("out ");
 			}
 
 			if (bLinear)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("linear "));
+				Writer << TEXT("linear ");
 			}
 			if (bCentroid)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("centroid "));
+				Writer << TEXT("centroid ");
 			}
 			if (bNoInterpolation)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("nointerpolation "));
+				Writer << TEXT("nointerpolation ");
 			}
 			if (bNoPerspective)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("noperspective "));
+				Writer << TEXT("noperspective ");
 			}
 			if (bSample)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("sample "));
+				Writer << TEXT("sample ");
 			}
 
 			if (bRowMajor)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("row_major "));
+				Writer << TEXT("row_major ");
 			}
 		}
 
@@ -721,10 +824,10 @@ namespace CrossCompiler
 		{
 		}
 
-		void FFullySpecifiedType::Dump(int32 Indent) const
+		void FFullySpecifiedType::Write(FASTWriter& Writer) const
 		{
-			Qualifier.Dump();
-			Specifier->Dump(Indent);
+			Qualifier.Write(Writer);
+			Specifier->Write(Writer);
 		}
 
 		FFullySpecifiedType::~FFullySpecifiedType()
@@ -742,22 +845,22 @@ namespace CrossCompiler
 		{
 		}
 
-		void FDeclaration::Dump(int32 Indent) const
+		void FDeclaration::Write(FASTWriter& Writer) const
 		{
-			DumpAttributes();
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("%s"), Identifier);
+			WriteAttributes(Writer);
+			Writer << Identifier;
 
-			DumpOptionalArraySize(bIsArray, ArraySize);
+			WriteOptionArraySize(Writer, bIsArray, ArraySize);
 
 			if (Initializer)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" = "));
-				Initializer->Dump(Indent);
+				Writer << TEXT(" = ");
+				Initializer->Write(Writer);
 			}
 
 			if (Semantic && *Semantic)
 			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" : %s"), Semantic);
+				Writer << TEXT(" : ") << Semantic;
 			}
 		}
 
@@ -781,13 +884,14 @@ namespace CrossCompiler
 		{
 		}
 
-		void FDeclaratorList::Dump(int32 Indent) const
+		void FDeclaratorList::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
-			DumpAttributes();
+			Writer.DoIndent();
+			WriteAttributes(Writer);
 			if (Type)
 			{
-				Type->Dump(Indent);
+				Type->Write(Writer);
+				Writer << TEXT(" ");
 			}
 
 			bool bFirst = true;
@@ -795,18 +899,17 @@ namespace CrossCompiler
 			{
 				if (bFirst)
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT(" "));
 					bFirst = false;
 				}
 				else
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT(", "));
+					Writer << TEXT(", ");
 				}
 
-				Decl->Dump(0);
+				Decl->Write(Writer);
 			}
 
-			FPlatformMisc::LowLevelOutputDebugString(TEXT(";\n"));
+			Writer << TEXT(";\n");
 		}
 
 		FDeclaratorList::~FDeclaratorList()
@@ -824,9 +927,9 @@ namespace CrossCompiler
 		{
 		}
 
-		void FInitializerListExpression::Dump(int32 Indent) const
+		void FInitializerListExpression::Write(FASTWriter& Writer) const
 		{
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("{"));
+			Writer << TEXT("{");
 			bool bFirst = true;
 			for (auto* Expr : Expressions)
 			{
@@ -836,12 +939,12 @@ namespace CrossCompiler
 				}
 				else
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT(", "));
+					Writer << TEXT(", ");
 				}
 
-				Expr->Dump(0);
+				Expr->Write(Writer);
 			}
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("}"));
+			Writer << TEXT("}");
 		}
 
 		FParameterDeclarator::FParameterDeclarator(FLinearAllocator* InAllocator, const FSourceInfo& InInfo) :
@@ -853,23 +956,23 @@ namespace CrossCompiler
 		{
 		}
 
-		void FParameterDeclarator::Dump(int32 Indent) const
+		void FParameterDeclarator::Write(FASTWriter& Writer) const
 		{
-			DumpAttributes();
-			Type->Dump(Indent);
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" %s"), Identifier);
+			WriteAttributes(Writer);
+			Type->Write(Writer);
+			Writer << (TCHAR)' ' << Identifier;
 
-			DumpOptionalArraySize(bIsArray, ArraySize);
+			WriteOptionArraySize(Writer, bIsArray, ArraySize);
 
 			if (Semantic && *Semantic)
 			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" : %s"), Semantic);
+				Writer << TEXT(" : ") << Semantic;
 			}
 
 			if (DefaultValue)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(" = "));
-				DefaultValue->Dump(Indent);
+				Writer << TEXT(" = ");
+				DefaultValue->Write(Writer);
 			}
 		}
 
@@ -914,74 +1017,80 @@ namespace CrossCompiler
 		{
 		}
 
-		void FIterationStatement::Dump(int32 Indent) const
+		void FIterationStatement::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
-			DumpAttributes();
+			Writer.DoIndent();
+			WriteAttributes(Writer);
 			switch (Type)
 			{
 			case EIterationType::For:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("for ("));
+				Writer << TEXT("for (");
 				if (InitStatement)
 				{
-					InitStatement->Dump(0);
-					DumpIndent(Indent + 1);
+					InitStatement->Write(Writer);
+					{
+						FASTWriterIncrementScope Scope(Writer);
+						Writer.DoIndent();
+					}
 				}
 				else
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("; "));
+					Writer << TEXT("; ");
 				}
 				if (Condition)
 				{
-					Condition->Dump(0);
+					Condition->Write(Writer);
 				}
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(";"));
+				Writer << TEXT(";");
 				if (RestExpression)
 				{
-					RestExpression->Dump(0);
+					RestExpression->Write(Writer);
 				}
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(")\n"));
+				Writer << TEXT(")\n");
 				if (Body)
 				{
-					Body->Dump(Indent + 1);
+					FASTWriterIncrementScope Scope(Writer);
+					Body->Write(Writer);
 				}
 				else
 				{
-					DumpIndent(Indent);
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
-					DumpIndent(Indent);
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
+					Writer.DoIndent();
+					Writer << TEXT("{\n");
+					Writer.DoIndent();
+					Writer << TEXT("}\n");
 				}
 				break;
 
 			case EIterationType::While:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("while ("));
-				Condition->Dump(0);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(")\n"));
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
+				Writer << TEXT("while (");
+				Condition->Write(Writer);
+				Writer << TEXT(")\n");
+				Writer.DoIndent();
+				Writer << TEXT("{\n");
 				if (Body)
 				{
-					Body->Dump(Indent + 1);
+					FASTWriterIncrementScope Scope(Writer);
+					Body->Write(Writer);
 				}
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
+				Writer.DoIndent();
+				Writer << TEXT("}\n");
 				break;
 
 			case EIterationType::DoWhile:
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("do\n"));
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
+				Writer << TEXT("do\n");
+				Writer.DoIndent();
+				Writer << TEXT("{\n");
 				if (Body)
 				{
-					Body->Dump(Indent + 1);
+					FASTWriterIncrementScope Scope(Writer);
+					Body->Write(Writer);
 				}
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("while ("));
-				Condition->Dump(0);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(");\n"));
+				Writer.DoIndent();
+				Writer << TEXT("}\n");
+				Writer.DoIndent();
+				Writer << TEXT("while (");
+				Condition->Write(Writer);
+				Writer << TEXT(");\n");
 				break;
 
 			default:
@@ -1017,10 +1126,10 @@ namespace CrossCompiler
 		{
 		}
 
-		void FFunctionExpression::Dump(int32 Indent) const
+		void FFunctionExpression::Write(FASTWriter& Writer) const
 		{
-			SubExpressions[0]->Dump(0);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("("));
+			SubExpressions[0]->Write(Writer);
+			Writer << (TCHAR)'(';
 			bool bFirst = true;
 			for (auto* Expr : Expressions)
 			{
@@ -1030,11 +1139,11 @@ namespace CrossCompiler
 				}
 				else
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT(", "));
+					Writer << TEXT(", ");
 				}
-				Expr->Dump(0);
+				Expr->Write(Writer);
 			}
-			FPlatformMisc::LowLevelOutputDebugString(TEXT(")"));
+			Writer << TEXT(")");
 		}
 
 		FSwitchStatement::FSwitchStatement(FLinearAllocator* InAllocator, const FSourceInfo& InInfo, FExpression* InCondition, FSwitchBody* InBody) :
@@ -1044,13 +1153,13 @@ namespace CrossCompiler
 		{
 		}
 
-		void FSwitchStatement::Dump(int32 Indent) const
+		void FSwitchStatement::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("switch ("));
-			Condition->Dump(0);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT(")\n"));
-			Body->Dump(Indent);
+			Writer.DoIndent();
+			Writer << TEXT("switch (");
+			Condition->Write(Writer);
+			Writer << TEXT(")\n");
+			Body->Write(Writer);
 		}
 
 		FSwitchStatement::~FSwitchStatement()
@@ -1065,13 +1174,16 @@ namespace CrossCompiler
 		{
 		}
 
-		void FSwitchBody::Dump(int32 Indent) const
+		void FSwitchBody::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
-			CaseList->Dump(Indent + 1);
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
+			Writer.DoIndent();
+			Writer << TEXT("{\n");
+			{
+				FASTWriterIncrementScope Scope(Writer);
+				CaseList->Write(Writer);
+			}
+			Writer.DoIndent();
+			Writer << TEXT("}\n");
 		}
 
 		FSwitchBody::~FSwitchBody()
@@ -1085,20 +1197,20 @@ namespace CrossCompiler
 		{
 		}
 
-		void FCaseLabel::Dump(int32 Indent) const
+		void FCaseLabel::Write(FASTWriter& Writer) const
 		{
-			DumpIndent(Indent);
+			Writer.DoIndent();
 			if (TestExpression)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("case "));
-				TestExpression->Dump(0);
+				Writer << TEXT("case ");
+				TestExpression->Write(Writer);
 			}
 			else
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("default"));
+				Writer << TEXT("default");
 			}
 
-			FPlatformMisc::LowLevelOutputDebugString(TEXT(":\n"));
+			Writer << TEXT(":\n");
 		}
 
 		FCaseLabel::~FCaseLabel()
@@ -1117,24 +1229,26 @@ namespace CrossCompiler
 		{
 		}
 
-		void FCaseStatement::Dump(int32 Indent) const
+		void FCaseStatement::Write(FASTWriter& Writer) const
 		{
-			Labels->Dump(Indent);
+			Labels->Write(Writer);
 
 			if (Statements.Num() > 1)
 			{
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
+				Writer.DoIndent();
+				Writer << TEXT("{\n");
 				for (auto* Statement : Statements)
 				{
-					Statement->Dump(Indent + 1);
+					FASTWriterIncrementScope Scope(Writer);
+					Statement->Write(Writer);
 				}
-				DumpIndent(Indent);
-				FPlatformMisc::LowLevelOutputDebugString(TEXT("}\n"));
+				Writer.DoIndent();
+				Writer << TEXT("}\n");
 			}
 			else if (Statements.Num() > 0)
 			{
-				Statements[0]->Dump(Indent + 1);
+				FASTWriterIncrementScope Scope(Writer);
+				Statements[0]->Write(Writer);
 			}
 		}
 
@@ -1156,11 +1270,11 @@ namespace CrossCompiler
 		{
 		}
 
-		void FCaseLabelList::Dump(int32 Indent) const
+		void FCaseLabelList::Write(FASTWriter& Writer) const
 		{
 			for (auto* Label : Labels)
 			{
-				Label->Dump(Indent);
+				Label->Write(Writer);
 			}
 		}
 
@@ -1178,11 +1292,11 @@ namespace CrossCompiler
 		{
 		}
 
-		void FCaseStatementList::Dump(int32 Indent) const
+		void FCaseStatementList::Write(FASTWriter& Writer) const
 		{
 			for (auto* Case : Cases)
 			{
-				Case->Dump(Indent);
+				Case->Write(Writer);
 			}
 		}
 
@@ -1202,25 +1316,27 @@ namespace CrossCompiler
 		{
 		}
 
-		void FStructSpecifier::Dump(int32 Indent) const
+		void FStructSpecifier::Write(FASTWriter& Writer) const
 		{
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("struct %s"), Name ? Name : TEXT(""));
+			Writer << TEXT("struct ");
+			Writer << (Name ? Name : TEXT(""));
 			if (ParentName && *ParentName)
 			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT(" : %s"), ParentName);
+				Writer << TEXT(" : ");
+				Writer << ParentName;
 			}
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("\n"));
-
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("{\n"));
+			Writer << (TCHAR)'\n';
+			Writer.DoIndent();
+			Writer << TEXT("{\n");
 
 			for (auto* Decl : Declarations)
 			{
-				Decl->Dump(Indent + 1);
+				FASTWriterIncrementScope Scope(Writer);
+				Decl->Write(Writer);
 			}
 
-			DumpIndent(Indent);
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("}"));
+			Writer.DoIndent();
+			Writer << TEXT("}");
 		}
 
 		FStructSpecifier::~FStructSpecifier()
@@ -1238,32 +1354,33 @@ namespace CrossCompiler
 		{
 		}
 
-		void FAttribute::Dump(int32 Indent) const
+		void FAttribute::Write(FASTWriter& Writer) const
 		{
-			FPlatformMisc::LowLevelOutputDebugStringf(TEXT("[%s"), Name);
+			Writer << (TCHAR)'[';
+			Writer << Name;
 
 			bool bFirst = true;
 			for (auto* Arg : Arguments)
 			{
 				if (bFirst)
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT("("));
+					Writer << (TCHAR)'(';
 					bFirst = false;
 				}
 				else
 				{
-					FPlatformMisc::LowLevelOutputDebugString(TEXT(", "));
+					Writer << TEXT(", ");
 				}
 
-				Arg->Dump(0);
+				Arg->Write(Writer);
 			}
 
 			if (!bFirst)
 			{
-				FPlatformMisc::LowLevelOutputDebugString(TEXT(")"));
+				Writer << TEXT(")");
 			}
 
-			FPlatformMisc::LowLevelOutputDebugString(TEXT("]"));
+			Writer << TEXT("]");
 		}
 
 		FAttribute::~FAttribute()
@@ -1281,15 +1398,17 @@ namespace CrossCompiler
 		{
 		}
 
-		void FAttributeArgument::Dump(int32 Indent) const
+		void FAttributeArgument::Write(FASTWriter& Writer) const
 		{
 			if (ExpressionArgument)
 			{
-				ExpressionArgument->Dump(0);
+				ExpressionArgument->Write(Writer);
 			}
 			else
 			{
-				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("\"%s\""), StringArgument);
+				Writer << (TCHAR)'"';
+				Writer << StringArgument;
+				Writer << (TCHAR)'"';
 			}
 		}
 

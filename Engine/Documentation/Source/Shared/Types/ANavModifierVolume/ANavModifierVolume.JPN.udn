@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2246990
+﻿INTSourceChangelist:2572471
 Availability:NoPublish
 Title:ANavModifierVolume
 Crumbs:
@@ -6,7 +6,7 @@ Description: NavModifierVolume クラスの概要
 
 [EXCERPT:ANavModifierVolume]
 
-ボリュームの形状を利用して選択した NavAreaDefinition を navemesh へ適用します
+ボリュームの形状を利用して選択した NavAreaDefinition を NavMesh へ適用します
 
 [VAR:ToolTipFullLink]
 Engine/Actors/Volumes#Volume Types

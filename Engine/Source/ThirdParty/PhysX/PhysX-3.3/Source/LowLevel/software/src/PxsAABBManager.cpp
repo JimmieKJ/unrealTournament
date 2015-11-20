@@ -153,10 +153,10 @@ PxsAABBManager::PxsAABBManager(Cm::EventProfiler& eventProfiler, PxcScratchAlloc
 	{
 		mBitmasks[i] = PxU32(1<<i);
 	}
-	mBitmasks[28] = PxU32(0x100000000);
-	mBitmasks[29] = PxU32(0x200000000);
-	mBitmasks[30] = PxU32(0x400000000);
-	mBitmasks[31] = PxU32(0x800000000);
+	mBitmasks[28] = PxU32(0x10000000);
+	mBitmasks[29] = PxU32(0x20000000);
+	mBitmasks[30] = PxU32(0x40000000);
+	mBitmasks[31] = PxU32(0x80000000);
 #else
 	for(PxU32 i=0;i<32;i++)
 	{
@@ -178,8 +178,8 @@ PxsAABBManager::~PxsAABBManager()
 		}
 	}
 
-	PX_FREE(mCreatedPairs);
-	PX_FREE(mDeletedPairs);
+	mCreatedPairs = NULL;
+	mDeletedPairs = NULL;
 	PX_FREE(mAggregatePairs);
 
 	mBPUpdatedElemIds.free();
@@ -251,22 +251,18 @@ void PxsAABBManager::destroyV()
 
 void PxsAABBManager::freeCreatedOverlaps()
 {
-	if(mCreatedPairsCapacity > DEFAULT_CREATEDDELETED_PAIR_ARRAY_CAPACITY)
-	{
-		PX_FREE(mCreatedPairs);
-		mCreatedPairs = (PxvBroadPhaseOverlap*)PX_ALLOC(sizeof(PxvBroadPhaseOverlap)*DEFAULT_CREATEDDELETED_PAIR_ARRAY_CAPACITY, "PxsAABBManager");
-		mCreatedPairsCapacity = DEFAULT_CREATEDDELETED_PAIR_ARRAY_CAPACITY;
-	}
+	if(mCreatedPairs) mScratchAllocator.free(mCreatedPairs);
+	mCreatedPairs = NULL;
+	mCreatedPairsCapacity = 0;
+	mCreatedPairsSize = 0;
 }
 
 void PxsAABBManager::freeDestroyedOverlaps()
 {
-	if(mDeletedPairsCapacity > DEFAULT_CREATEDDELETED_PAIR_ARRAY_CAPACITY)
-	{
-		PX_FREE(mDeletedPairs);
-		mDeletedPairs = (PxvBroadPhaseOverlap*)PX_ALLOC(sizeof(PxvBroadPhaseOverlap)*DEFAULT_CREATEDDELETED_PAIR_ARRAY_CAPACITY, "PxsAABBManager");
-		mDeletedPairsCapacity = DEFAULT_CREATEDDELETED_PAIR_ARRAY_CAPACITY;
-	}
+	if(mDeletedPairs) mScratchAllocator.free(mDeletedPairs);
+	mDeletedPairs = NULL;
+	mDeletedPairsCapacity = 0;
+	mDeletedPairsSize = 0;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -648,8 +644,10 @@ bool PxsAABBManager::releaseVolume(const PxcBpHandle shapeHandle)
 		//If the volume wasn't in the created list then add it to the removed list.
 		//Remember that we only need to remove elements from the bp that have already been added and sorted.
 		//If the element has never been inserted into the bp then don't add it to the list to be removed from the bp.
+		bool reuseBpElemId = false;
 		if(mBPCreatedElems.isInList(bpElemId))
 		{
+			reuseBpElemId = true;
 			mBPCreatedElems.removeElem(bpElemId);
 		}
 		else
@@ -697,6 +695,11 @@ bool PxsAABBManager::releaseVolume(const PxcBpHandle shapeHandle)
 		//NOTE: Don't free the shape id yet because it could then be immediately reused, leading to confusion
 		//		because the same id would appear in the created and removed lists.
 		//		Only reuse the id when the next simulate is called during updateAABBsAndBP.
+		//NOTE: If the id was added and immediately removed then we can reuse the id immediately.
+		if(reuseBpElemId)
+		{
+			mBPElems.freeElem(bpElemId);
+		}
 	}
 	else
 	{
@@ -777,8 +780,10 @@ bool PxsAABBManager::releaseVolume(const PxcBpHandle shapeHandle)
 			//If the volume wasn't in the created list then add it to the removed list.
 			//Remember that we only need to remove elements from the bp that have already been added and sorted.
 			//If the element has never been inserted into the bp then don't add it to the list to be removed from the bp.
+			bool reuseBpElemId = false;
 			if(mBPCreatedElems.isInList(bpElemId))
 			{
+				reuseBpElemId = true;
 				mBPCreatedElems.removeElem(bpElemId);
 			}
 			else
@@ -802,6 +807,11 @@ bool PxsAABBManager::releaseVolume(const PxcBpHandle shapeHandle)
 
 			//NOTE: Don't free the actor ids until the aggregate is removed because
 			//		actors persist without shapes.
+			//NOTE: If the bp elem id was added and immediately removed then we can reuse the id immediately.
+			if(reuseBpElemId)
+			{
+				mBPElems.freeElem(bpElemId);
+			}
 		}
 	}
 
@@ -1000,6 +1010,10 @@ void PxsAABBManager::updateAABBsAndBP
 	mAggregateUpdatedElemWordEnds.resize(mAggregateUpdatedElemWordCount);
 #endif
 
+	//Resize arrays of unknown size to a default size
+	mCreatedPairs = (PxvBroadPhaseOverlap*)mScratchAllocator.alloc(sizeof(PxvBroadPhaseOverlap)*DEFAULT_CREATEDDELETED_PAIR_ARRAY_CAPACITY, true);
+	mDeletedPairs = (PxvBroadPhaseOverlap*)mScratchAllocator.alloc(sizeof(PxvBroadPhaseOverlap)*DEFAULT_CREATEDDELETED_PAIR_ARRAY_CAPACITY, true);
+
 	//Need to compute the update lists before we release the handles.
 	computeAABBUpdateLists(changedActorWords, changedActorWordCount, params);				
 
@@ -1027,6 +1041,7 @@ void PxsAABBManager::updateAABBsAndBP
 	mSingleShapeAABBTask.setUpdateType(SingleAABBUpdateTask::eUPDATE_TYPE_SHAPE_SINGLE | SingleAABBUpdateTask::eUPDATE_TYPE_SHAPE_AGGREGATE);
 	mAggregateShapeAABBTask.setUpdateType(SingleAABBUpdateTask::eUPDATE_TYPE_SHAPE_AGGREGATE);
 
+	mFinishTask.setAABBMgr(this);
 	mAggregateOverlapTask.setAABBMgr(this);
 	mAggregateShapeAABBTask.setAABBMgr(this);
 	mProcessBPResultsTask.setAABBMgr(this);
@@ -1035,6 +1050,7 @@ void PxsAABBManager::updateAABBsAndBP
 	mSingleShapeAABBTask.setAABBMgr(this);
 	mActorAABBTask.setAABBMgr(this);
 
+	mFinishTask.set(params);
 	mAggregateOverlapTask.set(params);
 	mAggregateShapeAABBTask.set(params);
 	mProcessBPResultsTask.set(params);
@@ -1043,7 +1059,8 @@ void PxsAABBManager::updateAABBsAndBP
 	mSingleShapeAABBTask.set(params);
 	mActorAABBTask.set(params);
 
-	mAggregateOverlapTask.setContinuation(continuation);
+	mFinishTask.setContinuation(continuation);
+	mAggregateOverlapTask.setContinuation(&mFinishTask);
 	mAggregateShapeAABBTask.setContinuation(&mAggregateOverlapTask);
 	mProcessBPResultsTask.setContinuation(&mAggregateShapeAABBTask);
 	mBPWorkTask.setContinuation(&mProcessBPResultsTask);
@@ -1051,6 +1068,7 @@ void PxsAABBManager::updateAABBsAndBP
 	mSingleShapeAABBTask.setContinuation(&mAggregateAABBTask);
 	mActorAABBTask.setContinuation(&mSingleShapeAABBTask);
 
+	mFinishTask.removeReference();
 	mAggregateOverlapTask.removeReference();
 	mAggregateShapeAABBTask.removeReference();
 	mProcessBPResultsTask.removeReference();
@@ -1459,7 +1477,10 @@ void PxsAABBManager::processBPResults(const PxsComputeAABBParams& params)
 		// If either is a aggregate then store in an array for later use cos we need to consider the aggregate elems.
 		if(s0 && s1)
 		{
-			addCreatedPair(mBPElems.getUserData(volA), mBPElems.getUserData(volB));
+			addCreatedPair
+				(&mScratchAllocator, 
+				 mBPElems.getUserData(volA), mBPElems.getUserData(volB), 
+				 mCreatedPairs, mCreatedPairsSize, mCreatedPairsCapacity);
 		}
 		else 
 		{
@@ -1488,7 +1509,10 @@ void PxsAABBManager::processBPResults(const PxsComputeAABBParams& params)
 		// If either is a aggregate then store in an array for later use cos we need to consider the aggregate elems.
 		if(s0 && s1)
 		{
-			addDeletedPair(mBPElems.getUserData(volA), mBPElems.getUserData(volB));
+			addDeletedPair
+				(&mScratchAllocator, 
+				 mBPElems.getUserData(volA), mBPElems.getUserData(volB), 
+				 mDeletedPairs, mDeletedPairsSize, mDeletedPairsCapacity);		
 		}
 		else
 		{
@@ -1554,7 +1578,7 @@ void PxsAABBManager::processBPResults(const PxsComputeAABBParams& params)
 				{
 					const PxcBpHandle aggregateId = updatedAggregates[i];
 					const Aggregate& aggregate = *mAggregateManager.getAggregate(aggregateId);
-					if(aggregate.selfCollide && aggregate.nbActive > 0)	
+					if(aggregate.performSelfCollision())
 					{
 						aggregatesNeedingSorted.set(aggregateId);
 						NumAggregatesToSort++;
@@ -1936,32 +1960,37 @@ void PxsAABBManager::purgeAggregatePairs(const PxcBpHandle bpElemId)
 
 ///////////////////////////////////////////////////////////////////////////////
 
-PX_FORCE_INLINE void PxsAABBManager::addCreatedPair(void* userdata0, void* userdata1)
+void PxsAABBManager::addCreatedPair
+	(PxcScratchAllocator* scratchAllocator, 
+	void* userdata0, void* userdata1, 
+	PxvBroadPhaseOverlap*& createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity)
 {
-	if(mCreatedPairsSize == mCreatedPairsCapacity)
+	if(createdPairsSize == createdPairsCapacity)
 	{
-		const PxU32 oldCapacity = mCreatedPairsCapacity;
-		const PxU32 newCapacity = mCreatedPairsCapacity ? mCreatedPairsCapacity*2 : 32;
-		mCreatedPairs = resizePODArray<PxvBroadPhaseOverlap>(oldCapacity, newCapacity, mCreatedPairs);
-		mCreatedPairsCapacity = newCapacity;
+		const PxU32 oldCapacity = createdPairsCapacity;
+		const PxU32 newCapacity = createdPairsCapacity ? createdPairsCapacity*2 : 32;
+		createdPairs = resizePODArray<PxvBroadPhaseOverlap>(oldCapacity, newCapacity, scratchAllocator, createdPairs);
+		createdPairsCapacity = newCapacity;
 	}
 
-	PxvBroadPhaseOverlap& pair = mCreatedPairs[mCreatedPairsSize++];
+	PxvBroadPhaseOverlap& pair = createdPairs[createdPairsSize++];
 	pair.userdata0 = userdata0;
 	pair.userdata1 = userdata1;
+
 }
 
-PX_FORCE_INLINE void PxsAABBManager::addDeletedPair(void* userdata0, void* userdata1)
+void PxsAABBManager::addDeletedPair
+	(PxcScratchAllocator* scratchAllocator, void* userdata0, void* userdata1, PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity)
 {
-	if(mDeletedPairsSize==mDeletedPairsCapacity)
+	if(deletedPairsSize==deletedPairsCapacity)
 	{
-		const PxU32 oldCapacity = mDeletedPairsCapacity;
-		const PxU32 newCapacity = mDeletedPairsCapacity ? mDeletedPairsCapacity*2 : 32;
-		mDeletedPairs = resizePODArray<PxvBroadPhaseOverlap>(oldCapacity, newCapacity, mDeletedPairs);
-		mDeletedPairsCapacity = newCapacity;
+		const PxU32 oldCapacity = deletedPairsCapacity;
+		const PxU32 newCapacity = deletedPairsCapacity ? deletedPairsCapacity*2 : 32;
+		deletedPairs = resizePODArray<PxvBroadPhaseOverlap>(oldCapacity, newCapacity, scratchAllocator, deletedPairs);
+		deletedPairsCapacity = newCapacity;
 	}
 
-	PxvBroadPhaseOverlap& pair = mDeletedPairs[mDeletedPairsSize++];
+	PxvBroadPhaseOverlap& pair = deletedPairs[deletedPairsSize++];
 	pair.userdata0 = userdata0;
 	pair.userdata1 = userdata1;
 }
@@ -2045,7 +2074,10 @@ void PxsAABBManager::removeAggregateAggregatePair(Aggregate* PX_RESTRICT c0, Agg
 		const PxU32& index1 = index % nb1;
 
 		resetBitmap(*aggregateCollBitmap, mBitmasks, index);
-		addDeletedPair(mAggregateElems.getUserData(c0eleIds[index0]),mAggregateElems.getUserData(c1eleIds[index1]));
+		addDeletedPair
+			(&mScratchAllocator, 
+			 mAggregateElems.getUserData(c0eleIds[index0]), mAggregateElems.getUserData(c1eleIds[index1]), 
+			 mDeletedPairs, mDeletedPairsSize, mDeletedPairsCapacity);
 		index = it.getNext();
 	}
 }
@@ -2079,7 +2111,10 @@ void PxsAABBManager::removeAggregateSinglePair(const PxcBpHandle s0, Aggregate* 
 	while(index != Cm::BitMap::Iterator::DONE)
 	{
 		resetBitmap(*aggregateCollBitmap, mBitmasks, index);
-		addDeletedPair(userData0,mAggregateElems.getUserData(c1eleIds[index]));
+		addDeletedPair
+			(&mScratchAllocator, 
+			 userData0, mAggregateElems.getUserData(c1eleIds[index]),
+			 mDeletedPairs, mDeletedPairsSize, mDeletedPairsCapacity);
 		index = it.getNext();
 	}
 }
@@ -2161,19 +2196,29 @@ void PxsAABBManager::sortAggregates
 }
 
 
-void PxsAABBManager::selfCollideAggregates(const AggregateSortedData* aggregateSortedDatas)
+void PxsAABBManager::selfCollideAggregates
+(const PxU32 startId, const PxU32 nbWorkItems, const AggregateSortedData* aggregateSortedDatas,
+ PxvBroadPhaseOverlap*& createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity,
+ PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity)
 {
-	const PxU32 N = mAggregatesUpdated.getElemsSize();
+	PX_ASSERT((startId + nbWorkItems) <= mAggregatesUpdated.getElemsSize());
+
 	const PxcBpHandle* updatedAggregates = mAggregatesUpdated.getElems();
-	for(PxU32 i=0;i<N;i++)
+	for(PxU32 i = startId ; i < startId + nbWorkItems ;i++)
 	{
+		PX_ASSERT(i < mAggregatesUpdated.getElemsSize());
 		const PxcBpHandle aggregateId = updatedAggregates[i];
+		PX_ASSERT(aggregateId < mAggregateManager.getAggregatesCapacity());
 		const AggregateSortedData& aggregateSortedData = aggregateSortedDatas[aggregateId];
 		Aggregate* aggregate = mAggregateManager.getAggregate(aggregateId);
 		SelfCollideBitmap* selfCollideBitmap = &aggregate->selfCollBitmap;
-		if(aggregate->selfCollide && aggregate->nbElems>0)
+		if(aggregate->performSelfCollision())
 		{
-			selfCollideAggregate(aggregateSortedData, *aggregate, selfCollideBitmap);
+			PX_ASSERT(aggregateSortedData.elemIds && aggregateSortedData.rankIds);
+			selfCollideAggregate
+				(aggregateSortedData, *aggregate, selfCollideBitmap,
+				createdPairs, createdPairsSize, createdPairsCapacity,
+				deletedPairs, deletedPairsSize, deletedPairsCapacity);
 		}
 	}
 }
@@ -2181,10 +2226,12 @@ void PxsAABBManager::selfCollideAggregates(const AggregateSortedData* aggregateS
 #define BPHANDLE_INTERSECT(bounds0,bounds1) \
 	(bounds0.mMinMax[5] >= bounds1.mMinMax[2] && bounds1.mMinMax[5] >= bounds0.mMinMax[2] && bounds0.mMinMax[4] >= bounds1.mMinMax[1] && bounds1.mMinMax[4] >= bounds0.mMinMax[1])
 
-void PxsAABBManager::selfCollideAggregate(const AggregateSortedData& aggregateSortedData, const Aggregate& aggregate, SelfCollideBitmap* selfCollBitmap)
+void PxsAABBManager::selfCollideAggregate
+(const AggregateSortedData& aggregateSortedData, const Aggregate& aggregate, SelfCollideBitmap* selfCollBitmap,
+ PxvBroadPhaseOverlap*& createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity,
+ PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity)
 {
-	PX_ASSERT(aggregate.selfCollide);
-	PX_ASSERT(aggregate.nbElems > 0);
+	PX_ASSERT(aggregate.performSelfCollision());
 
 	//A new bitmap of overlap pairs.
 	SelfCollideBitmap newBitmap;
@@ -2237,7 +2284,10 @@ void PxsAABBManager::selfCollideAggregate(const AggregateSortedData& aggregateSo
 							newBitmap.set(minElemId, maxElemId);
 							if(!selfCollBitmap->test(minElemId, maxElemId))
 							{
-								addCreatedPair(mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1));
+								addCreatedPair
+									(&mScratchAllocator, 
+									 mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1), 
+									 createdPairs, createdPairsSize, createdPairsCapacity);							
 							}
 						}
 					}
@@ -2264,7 +2314,10 @@ void PxsAABBManager::selfCollideAggregate(const AggregateSortedData& aggregateSo
 
 			if((mAggregateElems.getGroup(elemId0) != PX_INVALID_BP_HANDLE) && (mAggregateElems.getGroup(elemId1) != PX_INVALID_BP_HANDLE))
 			{
-				addDeletedPair(mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1));
+				addDeletedPair
+					(&mScratchAllocator, 
+					 mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1), 
+					 deletedPairs, deletedPairsSize, deletedPairsCapacity);
 			}
 		}
 		index = it.getNext(i, j);
@@ -2274,14 +2327,56 @@ void PxsAABBManager::selfCollideAggregate(const AggregateSortedData& aggregateSo
 	*selfCollBitmap = newBitmap;
 }
 
-void PxsAABBManager::processAggregatePairs(const AggregateSortedData* aggregateSortedData)
+void PxsAABBManager::initialiseAggregateAggregateBitmaps()
+{
+	 //Allocate all memory serially.
+	 for(PxU32 i = 0; i < mNumAggregatePairsToOverlap; i++)
+	 {
+		 AggregatePair& aggregatePair = mAggregatePairs[mAggregatePairsToOverlap.mBuffer[i]];
+
+		 if(!aggregatePair.aggregateCollBitmap)
+		 {
+			 //Get the bp elem ids for each element of the pair (one might be a single).
+			 const PxcBpHandle bpElemId0 = aggregatePair.mBPElemId0;
+			 const PxcBpHandle bpElemId1 = aggregatePair.mBPElemId1;
+
+			 PxU8 nbElems0 = 1;
+			 if(!mBPElems.isSingle(bpElemId0))
+			 {
+				 const PxcBpHandle aggregateId0 = mBPElems.getAggregateOwnerId(bpElemId0);
+				 const Aggregate* aggregate0 = mAggregateManager.getAggregate(aggregateId0);
+				 nbElems0 = aggregate0->nbElems;
+			 }
+
+			 PxU8 nbElems1 = 1;
+			 if(!mBPElems.isSingle(bpElemId1))
+			 {
+				 const PxcBpHandle aggregateId1 = mBPElems.getAggregateOwnerId(bpElemId1);
+				 const Aggregate* aggregate1 = mAggregateManager.getAggregate(aggregateId1);
+				 nbElems1 = aggregate1->nbElems;
+			 }
+
+			 aggregatePair.aggregateCollBitmap = PX_NEW(Cm::BitMap);
+			 const PxU32 bitCount = (PxU32)(nbElems0 * nbElems1);
+			 aggregatePair.aggregateCollBitmap->clear(bitCount);
+		 }
+	 }
+ }
+
+void PxsAABBManager::processAggregatePairs
+(const PxU32 startId, const PxU32 nbWorkItems, const AggregateSortedData* aggregateSortedData,
+ PxvBroadPhaseOverlap*& createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity,
+ PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity)
 {
 	// Process all active aggregate pairs to complete the number of normal created/deleted pairs
 	// An aggregate pair can be (Single, Aggregate) or (Aggregate, Aggregate)
 
-	for(PxU32 i = 0; i < mNumAggregatePairsToOverlap; i++)
+	//Add the created and deleted pairs to createdPairs and deletedPairs.
+	for(PxU32 i = startId; i < (startId + nbWorkItems); i++)
 	{
+		PX_ASSERT(i < mNumAggregatePairsToOverlap);
 		AggregatePair& aggregatePair = mAggregatePairs[mAggregatePairsToOverlap.mBuffer[i]];
+		PX_ASSERT(aggregatePair.aggregateCollBitmap);
 
 		//Get the bp elem ids for each element of the pair (one might be a single).
 		const PxcBpHandle bpElemId0 = aggregatePair.mBPElemId0;
@@ -2313,42 +2408,30 @@ void PxsAABBManager::processAggregatePairs(const AggregateSortedData* aggregateS
 		{
 			if(aggregate1)
 			{
-				//Aggregate-aggregate
-				if(!aggregatePair.aggregateCollBitmap)
-				{
-					aggregatePair.aggregateCollBitmap = PX_NEW(Cm::BitMap);
-					const PxU32 newBitCount = (PxU32)(aggregate0->nbElems) * (PxU32)(aggregate1->nbElems);
-					aggregatePair.aggregateCollBitmap->clear(newBitCount);
-				}
-
-				processAggregateAggregate(aggregateSortedData[aggregateId0], *aggregate0, aggregateSortedData[aggregateId1], *aggregate1, aggregatePair.aggregateCollBitmap);
+				processAggregateAggregate
+					(aggregateSortedData[aggregateId0], *aggregate0, aggregateSortedData[aggregateId1], *aggregate1, 
+					 aggregatePair.aggregateCollBitmap, 
+					 createdPairs, createdPairsSize, createdPairsCapacity, 
+					 deletedPairs, deletedPairsSize, deletedPairsCapacity);
 			}
 			else
 			{
-				//Aggregate-single
-				if(!aggregatePair.aggregateCollBitmap)
-				{
-					aggregatePair.aggregateCollBitmap = PX_NEW(Cm::BitMap);
-					const PxU32 newBitCount = (PxU32)(aggregate0->nbElems);
-					aggregatePair.aggregateCollBitmap->clear(newBitCount);
-				}
-
-				processAggregateSingle(aggregateSortedData[aggregateId0], *aggregate0, bpElemId1, aggregatePair.aggregateCollBitmap);
+				processAggregateSingle
+					(aggregateSortedData[aggregateId0], *aggregate0, bpElemId1, 
+					aggregatePair.aggregateCollBitmap, 
+					createdPairs, createdPairsSize, createdPairsCapacity, 
+					deletedPairs, deletedPairsSize, deletedPairsCapacity);
 			}
 		}
 		else
 		{
 			if(aggregate1)
 			{
-				//Aggregate-single
-				if(!aggregatePair.aggregateCollBitmap)
-				{
-					aggregatePair.aggregateCollBitmap = PX_NEW(Cm::BitMap);
-					const PxU32 newBitCount = (PxU32)(aggregate1->nbElems);
-					aggregatePair.aggregateCollBitmap->clear(newBitCount);
-				}
-
-				processAggregateSingle(aggregateSortedData[aggregateId1], *aggregate1, bpElemId0, aggregatePair.aggregateCollBitmap);
+				processAggregateSingle
+					(aggregateSortedData[aggregateId1], *aggregate1, bpElemId0, 
+					aggregatePair.aggregateCollBitmap, 
+					createdPairs, createdPairsSize, createdPairsCapacity, 
+					deletedPairs, deletedPairsSize, deletedPairsCapacity);
 			}
 			else
 			{
@@ -2362,7 +2445,9 @@ void PxsAABBManager::processAggregatePairs(const AggregateSortedData* aggregateS
 void PxsAABBManager::processAggregateAggregate
 (const AggregateSortedData& aggregateSortedData0, const Aggregate& aggregate0, 
  const AggregateSortedData& aggregateSortedData1, const Aggregate& aggregate1, 
- Cm::BitMap* overlapBitmap)
+ Cm::BitMap* overlapBitmap,
+ PxvBroadPhaseOverlap*&createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity, 
+ PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity)
 {
 	const PxU32 nb1 = aggregate1.nbElems;
 
@@ -2419,7 +2504,10 @@ void PxsAABBManager::processAggregateAggregate
 						setBitmap(newBitmap.mBitmap, mBitmasks, Index0*nb1 + Index1);
 						if(!testBitmap(*overlapBitmap, mBitmasks, Index0*nb1 + Index1))
 						{
-							addCreatedPair(mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1));
+							addCreatedPair
+								(&mScratchAllocator, 
+								 mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1), 
+								 createdPairs, createdPairsSize, createdPairsCapacity);
 						}
 					}
 				}
@@ -2459,7 +2547,10 @@ void PxsAABBManager::processAggregateAggregate
 						setBitmap(newBitmap.mBitmap, mBitmasks, Index1*nb1 + Index0);
 						if(!testBitmap(*overlapBitmap, mBitmasks, Index1*nb1 + Index0))
 						{
-							addCreatedPair(mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1));
+							addCreatedPair
+								(&mScratchAllocator, 
+								 mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1), 
+								 createdPairs, createdPairsSize, createdPairsCapacity);
 						}
 					}
 				}
@@ -2486,7 +2577,10 @@ void PxsAABBManager::processAggregateAggregate
 
 			if((mAggregateElems.getGroup(elemId0) != PX_INVALID_BP_HANDLE) && (mAggregateElems.getGroup(elemId1) != PX_INVALID_BP_HANDLE))
 			{
-				addDeletedPair(mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1));
+				addDeletedPair
+					(&mScratchAllocator, 
+					 mAggregateElems.getUserData(elemId0), mAggregateElems.getUserData(elemId1), 
+					 deletedPairs, deletedPairsSize, deletedPairsCapacity);
 			}
 		}
 
@@ -2497,7 +2591,11 @@ void PxsAABBManager::processAggregateAggregate
 	PxMemCopy(overlapBitmap->getWords(), newBitmap.mBitmap.getWords(), sizeof(PxU32) * overlapBitmap->getWordCount());
 }
 
-void PxsAABBManager::processAggregateSingle(const AggregateSortedData& aggregateSortedData, const Aggregate& aggregate, const PxU32 singleId, Cm::BitMap* overlapBitmap)
+void PxsAABBManager::processAggregateSingle
+(const AggregateSortedData& aggregateSortedData, const Aggregate& aggregate, const PxU32 singleId, 
+ Cm::BitMap* overlapBitmap,
+ PxvBroadPhaseOverlap*&createdPairs, PxU32& createdPairsSize, PxU32& createdPairsCapacity, 
+ PxvBroadPhaseOverlap*& deletedPairs, PxU32& deletedPairsSize, PxU32& deletedPairsCapacity)
 {
 	//A new bitmap of overlap pairs
 	InlineBitmap<MAX_AGGREGATE_BOUND_SIZE*1> newBitmap(MAX_AGGREGATE_BOUND_SIZE*1, &mScratchAllocator);
@@ -2555,7 +2653,10 @@ void PxsAABBManager::processAggregateSingle(const AggregateSortedData& aggregate
 						setBitmap(newBitmap.mBitmap, mBitmasks, Index0*nb1 + Index1);
 						if(!testBitmap(*overlapBitmap, mBitmasks, Index0*nb1 + Index1))
 						{
-							addCreatedPair(mAggregateElems.getUserData(elemId1), mBPElems.getUserData(singleId));
+							addCreatedPair
+								(&mScratchAllocator, 
+								 mAggregateElems.getUserData(elemId1), mBPElems.getUserData(singleId), 
+								 createdPairs, createdPairsSize, createdPairsCapacity);
 						}
 					}
 				}
@@ -2590,7 +2691,10 @@ void PxsAABBManager::processAggregateSingle(const AggregateSortedData& aggregate
 						setBitmap(newBitmap.mBitmap, mBitmasks, Index1*nb1 + Index0);
 						if(!testBitmap(*overlapBitmap, mBitmasks, Index1*nb1 + Index0))
 						{
-							addCreatedPair(mAggregateElems.getUserData(elemId1), mBPElems.getUserData(singleId));
+							addCreatedPair
+								(&mScratchAllocator, 
+								 mAggregateElems.getUserData(elemId1), mBPElems.getUserData(singleId), 
+								 createdPairs, createdPairsSize, createdPairsCapacity);
 						}
 					}
 				}
@@ -2615,7 +2719,10 @@ void PxsAABBManager::processAggregateSingle(const AggregateSortedData& aggregate
 
 			if((mAggregateElems.getGroup(elemId1) != PX_INVALID_BP_HANDLE))
 			{
-				addDeletedPair(mAggregateElems.getUserData(elemId1), mBPElems.getUserData(singleId));
+				addDeletedPair
+					(&mScratchAllocator, 
+					 mAggregateElems.getUserData(elemId1), mBPElems.getUserData(singleId), 
+					 deletedPairs, deletedPairsSize, deletedPairsCapacity);
 			}
 		}
 

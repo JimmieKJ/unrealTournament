@@ -82,7 +82,12 @@ SamplerState AtmosphereInscatterTextureSampler;
 struct FAtmosphereVSOutput
 {
 	float2 OutTexCoord : TEXCOORD0;
-	float4 OutPosition : SV_POSITION;
+    float4 OutPosition : SV_POSITION;
+#if USING_VERTEX_SHADER_LAYER
+    uint LayerIndex : SV_RenderTargetArrayIndex;
+#else
+    uint LayerIndex : TEXCOORD1;
+#endif
 };
 
 float2 GetTransmittanceUV(float Radius, float Mu) 

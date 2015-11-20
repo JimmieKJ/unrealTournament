@@ -29,6 +29,8 @@ public:
 	virtual void GetEnabledPlugins(TArray<FString>& OutPluginNames) const override;
 	virtual bool IsNonDefaultPluginEnabled() const override;
 	virtual bool SetPluginEnabled(const FString& PluginName, bool bEnabled, FText& OutFailReason, const FString& MarketplaceURL) override;
+	virtual bool IsCurrentProjectDirty() const override;
+	virtual bool SaveCurrentProjectToDisk(FText& OutFailReason) override;
 
 private:
 	static void QueryStatusForProjectImpl(const FProjectDescriptor& Project, const FString& FilePath, FProjectStatus& OutProjectStatus);
@@ -38,6 +40,9 @@ private:
 
 	/** The project that is currently loaded in the editor */
 	TSharedPtr< FProjectDescriptor > CurrentProject;
+
+	/** Whether the current project has been modified but not saved to disk */
+	bool bIsCurrentProjectDirty;
 
 	/** Delegate called when the target platforms for the current project are changed */
 	FOnTargetPlatformsForCurrentProjectChangedEvent OnTargetPlatformsForCurrentProjectChangedEvent;

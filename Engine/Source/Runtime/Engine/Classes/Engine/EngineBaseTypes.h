@@ -27,45 +27,52 @@ enum EInputEvent
 /** Type of tick we wish to perform on the level */
 enum ELevelTick
 {
-	LEVELTICK_TimeOnly = 0,	// Update the level time only.
-	LEVELTICK_ViewportsOnly = 1,	// Update time and viewports.
-	LEVELTICK_All = 2,	// Update all.
-	LEVELTICK_PauseTick = 3,	// Delta time is zero, we are paused. Components don't tick.
+	/** Update the level time only. */
+	LEVELTICK_TimeOnly = 0,
+	/** Update time and viewports. */
+	LEVELTICK_ViewportsOnly = 1,
+	/** Update all. */
+	LEVELTICK_All = 2,
+	/** Delta time is zero, we are paused. Components don't tick. */
+	LEVELTICK_PauseTick = 3,
 };
 
-/** Determines which ticking group a tick function belongs to */
-UENUM()
+/** Determines which ticking group a tick function belongs to. */
+UENUM(BlueprintType)
 enum ETickingGroup
 {
-	/** Any item that needs to be executed before physics simulation starts */
-	TG_PrePhysics,
+	/** Any item that needs to be executed before physics simulation starts. */
+	TG_PrePhysics UMETA(DisplayName="Pre Physics"),
 
-	/** Special tick group that starts physics simulation */							
-	TG_StartPhysics,
+	/** Any item that can safely run during parallel animation processing (i.e. that cannot touch the animation system) */
+	TG_DuringAnimation UMETA(DisplayName="During Animation"),
 
-	/** Any item that can be run in parallel with our physics simulation work */
-	TG_DuringPhysics,
+	/** Special tick group that starts physics simulation. */							
+	TG_StartPhysics UMETA(Hidden, DisplayName="Start Physics"),
 
-	/** Special tick group that ends physics simulation */
-	TG_EndPhysics,
+	/** Any item that can be run in parallel with our physics simulation work. */
+	TG_DuringPhysics UMETA(DisplayName="During Physics"),
 
-	/** Any item that needs physics to be complete before being executed */
-	TG_PreCloth,
+	/** Special tick group that ends physics simulation. */
+	TG_EndPhysics UMETA(Hidden, DisplayName="End Physics"),
 
-	/** Any item that needs to be updated after rigid body simulation is done, but before cloth is simulation is done */
-	TG_StartCloth,
+	/** Any item that needs physics to be complete before being executed. */
+	TG_PreCloth UMETA(Hidden, DisplayName="Pre Cloth"),
 
-	/** Any item that can be run during cloth simulation */	
-	TG_EndCloth,
+	/** Any item that needs to be updated after rigid body simulation is done, but before cloth is simulation is done. */
+	TG_StartCloth UMETA(Hidden, DisplayName = "Start Cloth"),
 
-	/** Any item that needs rigid body and cloth sim to be complete before being executed */
-	TG_PostPhysics,
+	/** Any item that needs rigid body and cloth simulation to be complete before being executed. */
+	TG_PostPhysics UMETA(DisplayName="Post Physics"),
 
-	/** Any item that needs the update work to be done before being ticked */
-	TG_PostUpdateWork,
+	/** Any item that needs the update work to be done before being ticked. */
+	TG_PostUpdateWork UMETA(DisplayName="Post Update Work"),
 
-	/** Special tick group that is not actually a tick group. After every tick group this is repeatedly re-run until there are no more newly spawned items to run */
-	TG_NewlySpawned,
+	/** Special tick group that ends cloth simulation. */
+	TG_EndCloth UMETA(Hidden, DisplayName="End Cloth"),
+
+	/** Special tick group that is not actually a tick group. After every tick group this is repeatedly re-run until there are no more newly spawned items to run. */
+	TG_NewlySpawned UMETA(Hidden, DisplayName="Newly Spawned"),
 
 	TG_MAX,
 };
@@ -78,46 +85,43 @@ struct FTickPrerequisite
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Tick functions live inside of UObjects, so we need a separate weak pointer to the UObject solely for the purpose of determining if PrerequisiteTickFunction is still valid **/
+	/** Tick functions live inside of UObjects, so we need a separate weak pointer to the UObject solely for the purpose of determining if PrerequisiteTickFunction is still valid. */
 	TWeakObjectPtr<class UObject> PrerequisiteObject;
 
+	/** Pointer to the actual tick function and must be completed prior to our tick running. */
+	struct FTickFunction*		PrerequisiteTickFunction;
 
-
-		/** Pointer to the actual tick function and must be completed prior to our tick running **/
-		struct FTickFunction*		PrerequisiteTickFunction;
-
-		/** Noop constructor **/
-		FTickPrerequisite()
-		: PrerequisiteTickFunction(nullptr)
+	/** Noop constructor. */
+	FTickPrerequisite()
+	: PrerequisiteTickFunction(nullptr)
+	{
+	}
+	/** 
+		* Constructor
+		* @param TargetObject - UObject containing this tick function. Only used to verify that the other pointer is still usable
+		* @param TargetTickFunction - Actual tick function to use as a prerequisite
+	**/
+	FTickPrerequisite(UObject* TargetObject, struct FTickFunction& TargetTickFunction)
+	: PrerequisiteObject(TargetObject)
+	, PrerequisiteTickFunction(&TargetTickFunction)
+	{
+		check(PrerequisiteTickFunction);
+	}
+	/** Equality operator, used to prevent duplicates and allow removal by value. */
+	bool operator==(const FTickPrerequisite& Other) const
+	{
+		return PrerequisiteObject == Other.PrerequisiteObject &&
+			PrerequisiteTickFunction == Other.PrerequisiteTickFunction;
+	}
+	/** Return the tick function, if it is still valid. Can be null if the tick function was null or the containing UObject has been garbage collected. */
+	struct FTickFunction* Get()
+	{
+		if (PrerequisiteObject.IsValid(true))
 		{
+			return PrerequisiteTickFunction;
 		}
-		/** 
-		 * Constructor
-		 * @param TargetObject - UObject containing this tick function. Only used to verify that the other pointer is still usable
-		 * @param TargetTickFunction - Actual tick function to use as a prerequisite
-		**/
-		FTickPrerequisite(UObject* TargetObject, struct FTickFunction& TargetTickFunction)
-		: PrerequisiteObject(TargetObject)
-		, PrerequisiteTickFunction(&TargetTickFunction)
-		{
-			check(PrerequisiteTickFunction);
-		}
-		/** Equality operator, used to prevent duplicates and allow removal by value **/
-		bool operator==(const FTickPrerequisite& Other) const
-		{
-			return PrerequisiteObject == Other.PrerequisiteObject &&
-				PrerequisiteTickFunction == Other.PrerequisiteTickFunction;
-		}
-		/** Return the tick function, if it is still valid. Can be null if the tick function was null or the containing UObject has been garbage collected. **/
-		struct FTickFunction* Get()
-		{
-			if (PrerequisiteObject.IsValid(true))
-			{
-				return PrerequisiteTickFunction;
-			}
-			return nullptr;
-		}
-	
+		return nullptr;
+	}
 };
 
 /** 
@@ -138,7 +142,7 @@ public:
 	 * @see ETickingGroup 
 	 * @see FTickFunction::AddPrerequisite()
 	 */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category="Tick", AdvancedDisplay)
 	TEnumAsByte<enum ETickingGroup> TickGroup;
 
 protected:
@@ -148,32 +152,43 @@ protected:
 public:
 	/** Bool indicating that this function should execute even if the game is paused. Pause ticks are very limited in capabilities. **/
 	UPROPERTY(EditDefaultsOnly, Category="Tick", AdvancedDisplay)
-	uint32 bTickEvenWhenPaused:1;
+	uint8 bTickEvenWhenPaused:1;
 
 	/** If false, this tick function will never be registered and will never tick. Only settable in defaults. */
 	UPROPERTY()
-	uint32 bCanEverTick:1;
+	uint8 bCanEverTick:1;
 
 	/** If true, this tick function will start enabled, but can be disabled later on. */
 	UPROPERTY(EditDefaultsOnly, Category="Tick")
-	uint32 bStartWithTickEnabled:1;
+	uint8 bStartWithTickEnabled:1;
 
 	/** If we allow this tick to run on a dedicated server */
 	UPROPERTY(EditDefaultsOnly, Category="Tick", AdvancedDisplay)
-	uint32 bAllowTickOnDedicatedServer:1;
+	uint8 bAllowTickOnDedicatedServer:1;
+
+	/** Run this tick first within the tick group, presumably to start async tasks that must be completed with this tick group, hiding the latency. */
+	uint8 bHighPriority:1;
 
 	/** If false, this tick will run on the game thread, otherwise it will run on any thread in parallel with the game thread and in parallel with other "async ticks" **/
-	uint32 bRunOnAnyThread:1;
+	uint8 bRunOnAnyThread:1;
 
 private:
 	/** If true, means that this tick function is in the master array of tick functions **/
-	uint32 bRegistered:1;
+	uint8 bRegistered:1;
+
+	enum class ETickState : uint8
+	{
+		Disabled,
+		Enabled,
+		CoolingDown
+	};
 
 	/** 
-	 * If false, this tick will not fire, nor will any other tick that has this tick function as an EnableParent. 
+	 * If Disabled, this tick will not fire
+	 * If CoolingDown, this tick has an interval frequency that is being adhered to currently
 	 * CAUTION: Do not set this directly
 	 **/
-	uint32 bTickEnabled:1;
+	ETickState TickState;
 
 	/** Internal data to track if we have started visiting this tick function yet this frame **/
 	int32 TickVisitedGFrameCounter;
@@ -181,19 +196,26 @@ private:
 	/** Internal data to track if we have finshed visiting this tick function yet this frame **/
 	int32 TickQueuedGFrameCounter;
 
-private:
-	/** Completion handle for the task that will run this tick. Caution, this is no reset to nullptr until an unspecified future time **/
-	FGraphEventRef CompletionHandle;
+	/** Pointer to the task, only used during setup. This is often stale. **/
+	void *TaskPointer;
 
 	/** Prerequisites for this tick function **/
 	TArray<struct FTickPrerequisite> Prerequisites;
 
-public:
+	/** The next function in the cooling down list for ticks with an interval*/
+	FTickFunction* Next;
+
 	/** 
-	 * If the "EnableParent" is not enabled, then this tick function is implicitly disabled as well. 
-	 * Caution, there is no protection on this strong pointer. It is assumed your enable parent will not be destroyed before you are.
-	 **/
-	FTickFunction*								EnableParent;
+	  * If TickFrequency is greater than 0 and tick state is CoolingDown, this is the time, 
+	  * relative to the element ahead of it in the cooling down list, remaining until the next time this function will tick 
+	  */
+	float RelativeTickCooldown;
+public:
+
+	/** The frequency in seconds at which this tick function will be executed.  If less than or equal to 0 then it will tick every frame */
+	UPROPERTY(EditDefaultsOnly, Category="Tick", meta=(DisplayName="Tick Interval (secs)"))
+	float TickInterval;
+
 	/** Back pointer to the FTickTaskLevel containing this tick function if it is registered **/
 	class FTickTaskLevel*						TickTaskLevel;
 
@@ -215,17 +237,16 @@ public:
 	/** Enables or disables this tick function. **/
 	void SetTickFunctionEnable(bool bInEnabled);
 	/** Returns whether the tick function is currently enabled */
-	bool IsTickFunctionEnabled() const { return bTickEnabled; }
-
+	bool IsTickFunctionEnabled() const { return TickState != ETickState::Disabled; }
+	/** Returns whether it is valid to access this tick function's completion handle */
+	bool IsCompletionHandleValid() const { return TaskPointer != nullptr; }
 	/**
 	* Gets the current completion handle of this tick function, so it can be delayed until a later point when some additional
-	* tasks have been completed.  Only valid after TG_PreAsyncWork has started and then only until the TickFunction itself has
-	* started to run
+	* tasks have been completed.  Only valid after TG_PreAsyncWork has started and then only until the TickFunction finishes
+	* execution
 	**/
-	FGraphEventRef GetCompletionHandle() const
-	{
-		return CompletionHandle;
-	}
+	FGraphEventRef GetCompletionHandle() const;
+
 	/** 
 	* Gets the action tick group that this function will execute in this frame.
 	* Only valid after TG_PreAsyncWork has started through the end of the frame.
@@ -247,6 +268,11 @@ public:
 	 * @param TargetTickFunction - Actual tick function to use as a prerequisite
 	 **/
 	void RemovePrerequisite(UObject* TargetObject, struct FTickFunction& TargetTickFunction);
+	/** 
+	 * Sets this function to hipri and all prerequisites recursively
+	 * @param bInHighPriority - priority to set
+	 **/
+	void SetPriorityIncludingPrerequisites(bool bInHighPriority);
 
 	/**
 	 * @return a reference to prerequisites for this tick function.
@@ -271,6 +297,19 @@ private:
 	 */
 	void QueueTickFunction(class FTickTaskSequencer& TTS, const struct FTickContext& TickContext);
 
+	/**
+	 * Queues a tick function for execution from the game thread
+	 * @param TickContext - context to tick in
+	 * @param StackForCycleDetection - Stack For Cycle Detection
+	 * @param bWasInterval - true if this was an interval tick
+	 */
+	void QueueTickFunctionParallel(const struct FTickContext& TickContext, TArray<FTickFunction*, TInlineAllocator<8> >& StackForCycleDetection, bool bWasInterval);
+
+	/** 
+	 * Logs the prerequisites
+	 */
+	void ShowPrerequistes(int32 Indent = 1);
+
 	/** 
 	 * Abstract function actually execute the tick. 
 	 * @param DeltaTime - frame time to advance, in seconds
@@ -292,6 +331,7 @@ private:
 	friend class FTickTaskSequencer;
 	friend class FTickTaskManager;
 	friend class FTickTaskLevel;
+	friend class FTickFunctionTask;
 };
 
 template<>
@@ -528,11 +568,11 @@ namespace ETravelFailure
 UENUM()
 enum ETravelType
 {
-	// Absolute URL.
+	/** Absolute URL. */
 	TRAVEL_Absolute,
-	// Partial (carry name, reset server).
+	/** Partial (carry name, reset server). */
 	TRAVEL_Partial,
-	// Relative URL.
+	/** Relative URL. */
 	TRAVEL_Relative,
 	TRAVEL_MAX,
 };
@@ -543,13 +583,13 @@ namespace EDemoPlayFailure
 {
 	enum Type
 	{
-		/** A Generic failure */
+		/** A Generic failure. */
 		Generic,
-		/** Demo was not found */
+		/** Demo was not found. */
 		DemoNotFound,
-		/** Demo is corrupt */
+		/** Demo is corrupt. */
 		Corrupt,
-		/** Invalid version */
+		/** Invalid version. */
 		InvalidVersion,
 	};
 }
@@ -580,26 +620,33 @@ struct ENGINE_API FURL
 {
 	GENERATED_USTRUCT_BODY()
 
+	// Protocol, i.e. "unreal" or "http".
 	UPROPERTY()
-	FString Protocol;    // Protocol, i.e. "unreal" or "http".
+	FString Protocol;
 
+	// Optional hostname, i.e. "204.157.115.40" or "unreal.epicgames.com", blank if local.
 	UPROPERTY()
-	FString Host;    // Optional hostname, i.e. "204.157.115.40" or "unreal.epicgames.com", blank if local.
+	FString Host;
 
+	// Optional host port.
 	UPROPERTY()
-	int32 Port;    // Optional host port.
+	int32 Port;
 
+	// Map name, i.e. "SkyCity", default is "Entry".
 	UPROPERTY()
-	FString Map;    // Map name, i.e. "SkyCity", default is "Entry".
+	FString Map;
 
+	// Optional place to download Map if client does not possess it
 	UPROPERTY()
-	FString RedirectURL;    // Optional place to download Map if client does not possess it
+	FString RedirectURL;
 
+	// Options.
 	UPROPERTY()
-	TArray<FString> Op;    // Options.
+	TArray<FString> Op;
 
+	// Portal to enter through, default is "".
 	UPROPERTY()
-	FString Portal;    // Portal to enter through, default is "".
+	FString Portal;
 
 	UPROPERTY()
 	int32 Valid;
@@ -608,11 +655,21 @@ struct ENGINE_API FURL
 	static FUrlConfig UrlConfig;
 	static bool bDefaultsInitialized;
 
-	// Constructors.
-	/* FURL() prevent default from being generated */
+	/**
+	 * Prevent default from being generated.
+	 */
 	explicit FURL( ENoInit ) { }
+
+	/**
+	 * Construct a purely default, local URL from an optional filename.
+	 */
 	FURL( const TCHAR* Filename=nullptr );
+
+	/**
+	 * Construct a URL from text and an optional relative base.
+	 */
 	FURL( FURL* Base, const TCHAR* TextURL, ETravelType Type );
+
 	static void StaticInit();
 	static void StaticExit();
 
@@ -623,19 +680,68 @@ struct ENGINE_API FURL
 	 */
 	static void FilterURLString( FString& Str );
 
-	// Functions.
+	/**
+	 * Returns whether this URL corresponds to an internal object, i.e. an Unreal
+	 * level which this app can try to connect to locally or on the net. If this
+	 * is false, the URL refers to an object that a remote application like Internet
+	 * Explorer can execute.
+	 */
 	bool IsInternal() const;
+
+	/**
+	 * Returns whether this URL corresponds to an internal object on this local 
+	 * process. In this case, no Internet use is necessary.
+	 */
 	bool IsLocalInternal() const;
+
+	/**
+	 * Tests if the URL contains an option string.
+	 */
 	bool HasOption( const TCHAR* Test ) const;
+
+	/**
+	 * Returns the value associated with an option.
+	 *
+	 * @param Match The name of the option to get.
+	 * @param Default The value to return if the option wasn't found.
+	 *
+	 * @return The value of the named option, or Default if the option wasn't found.
+	 */
 	const TCHAR* GetOption( const TCHAR* Match, const TCHAR* Default ) const;
+
+	/**
+	 * Load URL from config.
+	 */
 	void LoadURLConfig( const TCHAR* Section, const FString& Filename=GGameIni );
+
+	/**
+	 * Save URL to config.
+	 */
 	void SaveURLConfig( const TCHAR* Section, const TCHAR* Item, const FString& Filename=GGameIni ) const;
+
+	/**
+	 * Add a unique option to the URL, replacing any existing one.
+	 */
 	void AddOption( const TCHAR* Str );
+
+	/**
+	 * Remove an option from the URL
+	 */
 	void RemoveOption( const TCHAR* Key, const TCHAR* Section = nullptr, const FString& Filename = GGameIni);
+
+	/**
+	 * Convert this URL to text.
+	 */
 	FString ToString( bool FullyQualified=0 ) const;
+
+	/**
+	 * Serializes a FURL to or from an archive.
+	 */
 	ENGINE_API friend FArchive& operator<<( FArchive& Ar, FURL& U );
 
-	// Operators.
+	/**
+	 * Compare two URLs to see if they refer to the same exact thing.
+	 */
 	bool operator==( const FURL& Other ) const;
 };
 
@@ -670,33 +776,37 @@ enum ENetMode
 UENUM()
 enum EViewModeIndex 
 {
-	// Wireframe w/ brushes
+	/** Wireframe w/ brushes. */
 	VMI_BrushWireframe = 0,
-	// Wireframe w/ BSP
+	/** Wireframe w/ BSP. */
 	VMI_Wireframe = 1,
-	// Unlit
+	/** Unlit. */
 	VMI_Unlit = 2,
-	// Lit
+	/** Lit. */
 	VMI_Lit = 3,
 	VMI_Lit_DetailLighting = 4,
-	// Lit wo/ materials
+	/** Lit wo/ materials. */
 	VMI_LightingOnly = 5,
-	// Colored according to light count.
+	/** Colored according to light count. */
 	VMI_LightComplexity = 6,
-	// Colored according to shader complexity.
+	/** Colored according to shader complexity. */
 	VMI_ShaderComplexity = 8,
-	// Colored according to world-space LightMap texture density.
+	/** Colored according to world-space LightMap texture density. */
 	VMI_LightmapDensity = 9,
-	// Colored according to light count - showing lightmap texel density on texture mapped objects.
+	/** Colored according to light count - showing lightmap texel density on texture mapped objects. */
 	VMI_LitLightmapDensity = 10,
 	VMI_ReflectionOverride = 11,
 	VMI_VisualizeBuffer = 12,
-//	VMI_VoxelLighting = 13,
-	// Colored according to stationary light overlap.
+	//	VMI_VoxelLighting = 13,
+
+	/** Colored according to stationary light overlap. */
 	VMI_StationaryLightOverlap = 14,
-//	VMI_VertexDensity = 15,
+
 	VMI_CollisionPawn = 15, 
 	VMI_CollisionVisibility = 16, 
+	VMI_VertexDensities = 17,
+	/** Colored according to the current LOD index. */
+	VMI_LODColoration = 18,
 	VMI_Max UMETA(Hidden),
 
 	VMI_Unknown = 255 UMETA(Hidden),

@@ -64,10 +64,10 @@ protected:
 	/** Pointer to kinematic actor jointed to grabbed object */
 	physx::PxRigidDynamic* KinActorData;
 
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 	virtual void OnUnregister() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
-	// End UActorComponent interface.
+	//~ End UActorComponent Interface.
 
 public:
 

@@ -11,6 +11,7 @@ enum class EContentSourceCategory:uint8
 	BlueprintFeature,
 	CodeFeature,
 	Content,
+	SharedPack,
 	Unknown
 };
 
@@ -117,5 +118,6 @@ public:
 
 	virtual ~IContentSource() { };
 
-
+	/** Gets the identity of the content. */
+	virtual FString GetIdent() const = 0;
 };

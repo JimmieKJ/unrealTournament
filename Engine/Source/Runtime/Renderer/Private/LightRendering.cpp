@@ -119,7 +119,7 @@ private:
 				LightAttenuationTexture,
 				LightAttenuationTextureSampler,
 				TStaticSamplerState<SF_Point,AM_Wrap,AM_Wrap,AM_Wrap>::GetRHI(),
-				GSceneRenderTargets.GetEffectiveLightAttenuationTexture(true)
+				FSceneRenderTargets::Get(RHICmdList).GetEffectiveLightAttenuationTexture(true)
 				);
 		}
 
@@ -359,6 +359,8 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 	{
 		SCOPED_DRAW_EVENT(RHICmdList, DirectLighting);
 
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+
 		int32 AttenuationLightStart = SortedLights.Num();
 		int32 SupportedByTiledDeferredLightEnd = SortedLights.Num();
 		bool bAnyUnsupportedByTiledDeferred = false;
@@ -401,7 +403,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 		{
 			SCOPED_DRAW_EVENT(RHICmdList, NonShadowedLights);
 			INC_DWORD_STAT_BY(STAT_NumUnshadowedLights, AttenuationLightStart);
-			GSceneRenderTargets.SetLightAttenuationMode(false);
+			SceneContext.SetLightAttenuationMode(false);
 
 			int32 StandardDeferredStart = 0;
 
@@ -434,7 +436,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			}
 			else if (SimpleLights.InstanceData.Num() > 0)
 			{
-				GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 				RenderSimpleLightsStandardDeferred(RHICmdList, SimpleLights);
 			}
 
@@ -442,7 +444,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				SCOPED_DRAW_EVENT(RHICmdList, StandardDeferredLighting);
 
 				// make sure we don't clear the depth
-				GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+				SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, true);
 
 				// Draw non-shadowed non-light function lights without changing render targets between them
 				for (int32 LightIndex = StandardDeferredStart; LightIndex < AttenuationLightStart; LightIndex++)
@@ -473,6 +475,74 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			}
 		}
 
+		EShaderPlatform ShaderPlatform = GShaderPlatformForFeatureLevel[FeatureLevel]; 
+
+//INTEGRATETODO4_5: Equivalent Epic code changed from 'if ( IsFeatureLevelSupported(GRHIShaderPlatform, ERHIFeatureLevel::SM5) )' to 'if( FeatureLevel >= ERHIFeatureLevel::SM5 )'
+		if ( IsFeatureLevelSupported(ShaderPlatform, ERHIFeatureLevel::SM5) )
+		{
+			SCOPED_DRAW_EVENT(RHICmdList, IndirectLighting);
+			bool bRenderedRSM = false;
+			// Render Reflective shadow maps
+			// Draw shadowed and light function lights
+			for (int32 LightIndex = AttenuationLightStart; LightIndex < SortedLights.Num(); LightIndex++)
+			{
+				const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
+				const FLightSceneInfoCompact& LightSceneInfoCompact = SortedLightInfo.SceneInfo;
+				const FLightSceneInfo& LightSceneInfo = *LightSceneInfoCompact.LightSceneInfo;
+				// Render any reflective shadow maps (if necessary)
+				if ( LightSceneInfo.Proxy && LightSceneInfo.Proxy->NeedsLPVInjection() )
+				{
+					if ( LightSceneInfo.Proxy->HasReflectiveShadowMap() )
+					{
+						INC_DWORD_STAT(STAT_NumReflectiveShadowMapLights);
+						RenderReflectiveShadowMaps( RHICmdList, &LightSceneInfo );
+						bRenderedRSM = true;
+					}
+				}
+			}
+
+			// LPV Direct Light Injection
+			if ( bRenderedRSM )
+			{
+				for (int32 LightIndex = 0; LightIndex < SortedLights.Num(); LightIndex++)
+				{
+					const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
+					const FLightSceneInfoCompact& LightSceneInfoCompact = SortedLightInfo.SceneInfo;
+					const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
+
+					// Render any reflective shadow maps (if necessary)
+					if ( LightSceneInfo && LightSceneInfo->Proxy && LightSceneInfo->Proxy->NeedsLPVInjection() )
+					{
+						if ( !LightSceneInfo->Proxy->HasReflectiveShadowMap() )
+						{
+							// Inject the light directly into all relevant LPVs
+							for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+							{
+								FViewInfo& View = Views[ViewIndex];
+
+								if (LightSceneInfo->ShouldRenderLight(View))
+								{
+									FSceneViewState* ViewState = (FSceneViewState*)View.State;
+									FLightPropagationVolume* Lpv = ViewState->GetLightPropagationVolume(View.GetFeatureLevel());
+									if ( Lpv && LightSceneInfo->Proxy )
+									{
+										Lpv->InjectLightDirect( RHICmdList, *LightSceneInfo->Proxy, View );
+									}
+								}
+							}					
+						}
+					}
+				}
+			}
+
+			// Kickoff the LPV update (asynchronously if possible)
+			UpdateLPVs(RHICmdList);
+		}
+
+		
+		{
+			SCOPED_DRAW_EVENT(RHICmdList, ShadowedLights);
+
 		bool bDirectLighting = ViewFamily.EngineShowFlags.DirectLighting;
 
 		// Draw shadowed and light function lights
@@ -492,7 +562,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			SCOPED_DRAW_EVENTF(RHICmdList, EventLightPass, *LightNameWithLevel);
 
 			// Do not resolve to scene color texture, this is done lazily
-			GSceneRenderTargets.FinishRenderingSceneColor(RHICmdList, false);
+			SceneContext.FinishRenderingSceneColor(RHICmdList, false);
 
 			if (bDrawShadows)
 			{
@@ -506,23 +576,13 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 
 				// All shadows render with min blending
 				bool bClearToWhite = true;
-				GSceneRenderTargets.BeginRenderingLightAttenuation(RHICmdList, bClearToWhite);
+				SceneContext.BeginRenderingLightAttenuation(RHICmdList, bClearToWhite);
 
 				bool bRenderedTranslucentObjectShadows = RenderTranslucentProjectedShadows(RHICmdList, &LightSceneInfo );
 				// Render non-modulated projected shadows to the attenuation buffer.
 				RenderProjectedShadows(RHICmdList, &LightSceneInfo, bRenderedTranslucentObjectShadows, bInjectedTranslucentVolume );
 				
 				bUsedLightAttenuation = true;
-			}
-
-			// Render any reflective shadow maps (if necessary)
-			if(ViewFamily.EngineShowFlags.GlobalIllumination && LightSceneInfo.Proxy->NeedsLPVInjection())
-			{
-				if ( LightSceneInfo.Proxy->HasReflectiveShadowMap() )
-				{
-					INC_DWORD_STAT(STAT_NumReflectiveShadowMapLights);
-					RenderReflectiveShadowMaps(RHICmdList, &LightSceneInfo );
-				}
 			}
 
 			for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
@@ -553,7 +613,7 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 			if( bUsedLightAttenuation )
 			{
 				// Resolve light attenuation buffer
-				GSceneRenderTargets.FinishRenderingLightAttenuation(RHICmdList);
+				SceneContext.FinishRenderingLightAttenuation(RHICmdList);
 			}
 			
 			if(bDirectLighting && !bInjectedTranslucentVolume)
@@ -563,8 +623,8 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 				InjectTranslucentVolumeLighting(RHICmdList, LightSceneInfo, NULL);
 			}
 
-			GSceneRenderTargets.SetLightAttenuationMode(bUsedLightAttenuation);
-			GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+			SceneContext.SetLightAttenuationMode(bUsedLightAttenuation);
+			SceneContext.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
 			// Render the light to the scene color buffer, conditionally using the attenuation buffer or a 1x1 white texture as input 
 			if(bDirectLighting)
@@ -574,43 +634,11 @@ void FDeferredShadingSceneRenderer::RenderLights(FRHICommandListImmediate& RHICm
 		}
 
 		// Do not resolve to scene color texture, this is done lazily
-		GSceneRenderTargets.FinishRenderingSceneColor(RHICmdList, false);
+		SceneContext.FinishRenderingSceneColor(RHICmdList, false);
 
 		// Restore the default mode
-		GSceneRenderTargets.SetLightAttenuationMode(true);
+		SceneContext.SetLightAttenuationMode(true);
 
-		// LPV Direct Light Injection
-		for (int32 LightIndex = 0; LightIndex < SortedLights.Num(); LightIndex++)
-		{
-			const FSortedLightSceneInfo& SortedLightInfo = SortedLights[LightIndex];
-			const FLightSceneInfoCompact& LightSceneInfoCompact = SortedLightInfo.SceneInfo;
-			const FLightSceneInfo* const LightSceneInfo = LightSceneInfoCompact.LightSceneInfo;
-
-			// Render any reflective shadow maps (if necessary)
-			if ( LightSceneInfo && LightSceneInfo->Proxy && LightSceneInfo->Proxy->NeedsLPVInjection() )
-			{
-				if ( !LightSceneInfo->Proxy->HasReflectiveShadowMap() )
-				{
-					// Inject the light directly into all relevant LPVs
-					for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
-					{
-						FViewInfo& View = Views[ViewIndex];
-						FSceneViewState* ViewState = (FSceneViewState*)View.State;
-
-						if (ViewState)
-						{
-							if (LightSceneInfo->ShouldRenderLight(View))
-							{
-								FLightPropagationVolume* Lpv = ViewState->GetLightPropagationVolume();
-								if (Lpv && LightSceneInfo->Proxy)
-								{
-									Lpv->InjectLightDirect(RHICmdList, *LightSceneInfo->Proxy, View);
-								}
-							}
-						}
-					}					
-				}
-			}
 		}
 	}
 }
@@ -651,7 +679,7 @@ void FDeferredShadingSceneRenderer::RenderStationaryLightOverlap(FRHICommandList
 {
 	if (Scene->bIsEditorScene)
 	{
-		GSceneRenderTargets.BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+		FSceneRenderTargets::Get(RHICmdList).BeginRenderingSceneColor(RHICmdList, ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
 		// Clear to discard base pass values in scene color since we didn't skip that, to have valid scene depths
 		RHICmdList.Clear(true, FLinearColor::Black, false, (float)ERHIZBuffer::FarPlane, false, 0, FIntRect());
@@ -849,7 +877,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 				View.ViewRect.Min.X, View.ViewRect.Min.Y, 
 				View.ViewRect.Width(), View.ViewRect.Height(),
 				View.ViewRect.Size(),
-				GSceneRenderTargets.GetBufferSizeXY(),
+				FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY(),
 				*VertexShader,
 				EDRF_UseTriangleOptimization);
 		}
@@ -922,7 +950,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			VertexShader->SetParameters(RHICmdList, View, LightSceneInfo);
 
 			// NUse DBT to allow work culling on shadow lights
-			if (bAllowDepthBoundsTest != 0)
+			if (GSupportsDepthBoundsTest && bAllowDepthBoundsTest != 0)
 			{
 				// Can use the depth bounds test to skip work for pixels which won't be touched by the light (i.e outside the depth range)
 				float NearDepth = 1.f;
@@ -951,7 +979,7 @@ void FDeferredShadingSceneRenderer::RenderLight(FRHICommandList& RHICmdList, con
 			}
 
 			// Use DBT to allow work culling on shadow lights
-			if (bAllowDepthBoundsTest != 0)
+			if (GSupportsDepthBoundsTest && bAllowDepthBoundsTest != 0)
 			{
 				// Turn DBT back off
 				RHICmdList.EnableDepthBoundsTest(false, 0, 1);

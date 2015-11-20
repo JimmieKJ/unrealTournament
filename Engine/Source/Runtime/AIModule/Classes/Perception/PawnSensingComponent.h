@@ -120,9 +120,9 @@ public:
 	/** @Returns true if sensor can hear this noise. Only executed if the noise has been determined to be relevant (via IsNoiseRelevant) */
 	virtual bool CanHear(const FVector& NoiseLoc, float Loudness, bool bFailedLOS) const;
 
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 	virtual void InitializeComponent() override;
-	// End UActorComponent interface.
+	//~ End UActorComponent Interface.
 
 	/** Get position where hearing/seeing occurs (i.e. ear/eye position).  If we ever need different positions for hearing/seeing, we'll deal with that then! */
 	virtual FVector GetSensorLocation() const;

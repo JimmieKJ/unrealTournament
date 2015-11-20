@@ -161,9 +161,9 @@ uint32 FClassNetCacheMgr::GetFieldChecksum( const UField* Field, uint32 Checksum
 	return Checksum;
 }
 
-const FClassNetCache * FClassNetCacheMgr::GetClassNetCache( const UClass* Class )
+const FClassNetCache* FClassNetCacheMgr::GetClassNetCache( const UClass* Class )
 {
-	FClassNetCache * Result = ClassFieldIndices.FindRef( Class );
+	FClassNetCache* Result = ClassFieldIndices.FindRef( Class );
 
 	if ( !Result )
 	{
@@ -182,11 +182,12 @@ const FClassNetCache * FClassNetCacheMgr::GetClassNetCache( const UClass* Class 
 		Result->Fields.Empty( Class->NetFields.Num() );
 
 		TArray< UProperty* > Properties;
+		Properties.Empty( Class->NetFields.Num() );
 
 		for( int32 i = 0; i < Class->NetFields.Num(); i++ )
 		{
 			// Add each net field to cache, and assign index/checksum
-			UField * Field = Class->NetFields[i];
+			UField* Field = Class->NetFields[i];
 
 			UProperty* Property = Cast< UProperty >( Field );
 			
@@ -245,7 +246,7 @@ void FClassNetCacheMgr::ClearClassNetCache()
 	UPackageMap implementation.
 -----------------------------------------------------------------------------*/
 
-bool UPackageMap::SerializeName(FArchive& Ar, FName& Name)
+bool UPackageMap::SerializeName(FArchive& Ar, FName& InName)
 {
 	if (Ar.IsLoading())
 	{
@@ -256,7 +257,7 @@ bool UPackageMap::SerializeName(FArchive& Ar, FName& Name)
 			// replicated by hardcoded index
 			uint32 NameIndex;
 			Ar.SerializeInt(NameIndex, MAX_NETWORKED_HARDCODED_NAME + 1);
-			Name = EName(NameIndex);
+			InName = EName(NameIndex);
 			// hardcoded names never have a Number
 		}
 		else
@@ -265,25 +266,25 @@ bool UPackageMap::SerializeName(FArchive& Ar, FName& Name)
 			FString InString;
 			int32 InNumber;
 			Ar << InString << InNumber;
-			Name = FName(*InString, InNumber);
+			InName = FName(*InString, InNumber);
 		}
 	}
 	else if (Ar.IsSaving())
 	{
-		uint8 bHardcoded = Name.GetComparisonIndex() <= MAX_NETWORKED_HARDCODED_NAME;
+		uint8 bHardcoded = InName.GetComparisonIndex() <= MAX_NETWORKED_HARDCODED_NAME;
 		Ar.SerializeBits(&bHardcoded, 1);
 		if (bHardcoded)
 		{
 			// send by hardcoded index
-			checkSlow(Name.GetNumber() <= 0); // hardcoded names should never have a Number
-			uint32 NameIndex = uint32(Name.GetComparisonIndex());
+			checkSlow(InName.GetNumber() <= 0); // hardcoded names should never have a Number
+			uint32 NameIndex = uint32(InName.GetComparisonIndex());
 			Ar.SerializeInt(NameIndex, MAX_NETWORKED_HARDCODED_NAME + 1);
 		}
 		else
 		{
 			// send by string
-			FString OutString = Name.GetPlainNameString();
-			int32 OutNumber = Name.GetNumber();
+			FString OutString = InName.GetPlainNameString();
+			int32 OutNumber = InName.GetNumber();
 			Ar << OutString << OutNumber;
 		}
 	}
@@ -351,7 +352,16 @@ FArchive& FNetBitWriter::operator<<( UObject*& Object )
 
 FArchive& FNetBitWriter::operator<<(FStringAssetReference& Value)
 {
-	return *this << Value.AssetLongPathname;
+	FString Path = Value.ToString();
+
+	*this << Path;
+
+	if (IsLoading())
+	{
+		Value.SetPath(MoveTemp(Path));
+	}
+
+	return *this;
 }
 
 
@@ -378,7 +388,16 @@ FArchive& FNetBitReader::operator<<( class FName& N )
 
 FArchive& FNetBitReader::operator<<(FStringAssetReference& Value)
 {
-	return *this << Value.AssetLongPathname;
+	FString Path = Value.ToString();
+
+	*this << Path;
+
+	if (IsLoading())
+	{
+		Value.SetPath(MoveTemp(Path));
+	}
+
+	return *this;
 }
 
 static const TCHAR* GLastRPCFailedReason = NULL;

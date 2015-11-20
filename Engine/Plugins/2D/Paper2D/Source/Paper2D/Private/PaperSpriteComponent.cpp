@@ -58,6 +58,12 @@ void UPaperSpriteComponent::PostLoad()
 			SetMaterial(0, MaterialOverride_DEPRECATED);
 		}
 	}
+
+	if (PaperVer < FPaperCustomVersion::FixVertexColorSpace)
+	{
+		const FColor SRGBColor = SpriteColor.ToFColor(/*bSRGB=*/ true);
+		SpriteColor = SRGBColor.ReinterpretAsLinear();
+	}
 }
 
 FPrimitiveSceneProxy* UPaperSpriteComponent::CreateSceneProxy()
@@ -67,7 +73,7 @@ FPrimitiveSceneProxy* UPaperSpriteComponent::CreateSceneProxy()
 	{
 		FSpriteDrawCallRecord DrawCall;
 		DrawCall.BuildFromSprite(SourceSprite);
-		DrawCall.Color = SpriteColor;
+		DrawCall.Color = SpriteColor.ToFColor(/*bSRGB=*/ false);
 		NewProxy->SetSprite_RenderThread(DrawCall, SourceSprite->AlternateMaterialSplitIndex);
 	}
 	return NewProxy;
@@ -108,8 +114,8 @@ void UPaperSpriteComponent::SendRenderDynamicData_Concurrent()
 	{
 		FSpriteDrawCallRecord DrawCall;
 		DrawCall.BuildFromSprite(SourceSprite);
-		DrawCall.Color = SpriteColor;
-		int32 SplitIndex = (SourceSprite != nullptr) ? SourceSprite->AlternateMaterialSplitIndex : INDEX_NONE;
+		DrawCall.Color = SpriteColor.ToFColor(/*bSRGB=*/ false);
+		const int32 SplitIndex = (SourceSprite != nullptr) ? SourceSprite->AlternateMaterialSplitIndex : INDEX_NONE;
 
 		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
 				FSendPaperSpriteComponentDynamicData,
@@ -197,8 +203,8 @@ bool UPaperSpriteComponent::SetSprite(class UPaperSprite* NewSprite)
 	if (NewSprite != SourceSprite)
 	{
 		// Don't allow changing the sprite if we are "static".
-		AActor* Owner = GetOwner();
-		if (!IsRegistered() || (Owner == nullptr) || (Mobility != EComponentMobility::Static))
+		AActor* ComponentOwner = GetOwner();
+		if ((ComponentOwner == nullptr) || AreDynamicDataChangesAllowed())
 		{
 			SourceSprite = NewSprite;
 

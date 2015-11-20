@@ -147,7 +147,6 @@ void Sc::ConstraintCore::getBinaryMetaData(PxOutputStream& stream)
 	PX_DEF_BIN_METADATA_ITEM(stream,	ConstraintCore, PxU32,					mDataSize,				0)
 	PX_DEF_BIN_METADATA_ITEM(stream,	ConstraintCore, PxReal,					mLinearBreakForce,		0)
 	PX_DEF_BIN_METADATA_ITEM(stream,	ConstraintCore, PxReal,					mAngularBreakForce,		0)
-	PX_DEF_BIN_METADATA_ITEM(stream,	ConstraintCore, PxReal,					mMinResponseThreshold,	0)
 	PX_DEF_BIN_METADATA_ITEM(stream,	ConstraintCore, ConstraintSim,			mSim,					PxMetaDataFlag::ePTR)
 }
 

@@ -75,16 +75,16 @@ static bool SquarifyImage(FImage& Image, uint32 MinSquareSize)
 		return true;
 	}
 
-    // Figure out the squarified size
-    uint32 SquareSize = FMath::Max(Image.SizeX, Image.SizeY);
+	// Figure out the squarified size
+	uint32 SquareSize = FMath::Max(Image.SizeX, Image.SizeY);
 	if(SquareSize < MinSquareSize)
 	{
 		SquareSize = MinSquareSize;
 	}
-    
-    // Calculate how many times to duplicate each row of column
-    uint32 MultX = SquareSize / Image.SizeX;
-    uint32 MultY = SquareSize / Image.SizeY;
+	
+	// Calculate how many times to duplicate each row of column
+	uint32 MultX = SquareSize / Image.SizeX;
+	uint32 MultY = SquareSize / Image.SizeY;
 
 	// Only give memory overhead warning if we're actually going to use a larger image
 	// Small mips that have to be upscaled for compression only save the smaller mip for use
@@ -102,11 +102,11 @@ static bool SquarifyImage(FImage& Image, uint32 MinSquareSize)
 		UE_LOG(LogTextureFormatPVR, Warning, TEXT("Expanding mip (%d,%d) to (%d, %d). Memory overhead: ~%d%%"),
 			Image.SizeX, Image.SizeY, FMath::Max(Image.SizeX, Image.SizeY), FMath::Max(Image.SizeX, Image.SizeY), POverhead);
 	}
-    
-    // Allocate room to fill out into
-    TArray<uint32> SquareRawData;
+	
+	// Allocate room to fill out into
+	TArray<uint32> SquareRawData;
 	SquareRawData.SetNumUninitialized(SquareSize * SquareSize * Image.NumSlices);
-    
+	
 	int32 SourceSliceSize = Image.SizeX * Image.SizeY;
 	int32 DestSliceSize = SquareSize * SquareSize;
 	for ( int32 SliceIndex=0; SliceIndex < Image.NumSlices; ++SliceIndex )
@@ -118,7 +118,7 @@ static bool SquarifyImage(FImage& Image, uint32 MinSquareSize)
 			for ( int32 X = 0; X < Image.SizeX; ++X )
 			{
 				uint32 SourceColor = *(RectData + Y * Image.SizeX + X);
-            
+			
 				for ( uint32 YDup = 0; YDup < MultY; ++YDup )
 				{
 					for ( uint32 XDup = 0; XDup < MultX; ++XDup )
@@ -137,10 +137,10 @@ static bool SquarifyImage(FImage& Image, uint32 MinSquareSize)
 	uint32* FinalData = (uint32*)Image.RawData.GetData();
 	FMemory::Memcpy(Image.RawData.GetData(), SquareRawData.GetData(), SquareSize * SquareSize * Image.NumSlices * sizeof(uint32));
 
-    Image.SizeX = SquareSize;
-    Image.SizeY = SquareSize;
+	Image.SizeX = SquareSize;
+	Image.SizeY = SquareSize;
 
-    return true;
+	return true;
 }
 
 static void DeriveNormalZ(FImage& Image)
@@ -172,33 +172,33 @@ static void DeriveNormalZ(FImage& Image)
  */
 static bool ValidateImagePower(const FImage& Image)
 {
-    // Image must already have power of 2 dimensions
-    bool bDimensionsValid = true;
-    int DimX = Image.SizeX;
-    int DimY = Image.SizeY;
-    while(DimX >= 2)
-    {
-        if(DimX % 2 == 1)
-        {
-            bDimensionsValid = false;
-            break;
-        }
-        DimX /= 2;
-    }
-    while(DimY >= 2 && bDimensionsValid)
-    {
-        if(DimY % 2 == 1)
-        {
-            bDimensionsValid = false;
-            break;
-        }
-        DimY /= 2;
-    }
-    
-    if(!bDimensionsValid)
-    {
-        return false;
-    }
+	// Image must already have power of 2 dimensions
+	bool bDimensionsValid = true;
+	int DimX = Image.SizeX;
+	int DimY = Image.SizeY;
+	while(DimX >= 2)
+	{
+		if(DimX % 2 == 1)
+		{
+			bDimensionsValid = false;
+			break;
+		}
+		DimX /= 2;
+	}
+	while(DimY >= 2 && bDimensionsValid)
+	{
+		if(DimY % 2 == 1)
+		{
+			bDimensionsValid = false;
+			break;
+		}
+		DimY /= 2;
+	}
+	
+	if(!bDimensionsValid)
+	{
+		return false;
+	}
 
 	return true;
 }
@@ -209,21 +209,21 @@ static bool ValidateImagePower(const FImage& Image)
  * @param InImage The mip to compress
  * @param OutCompressImage The output image (uncompressed in this case)
  */
-static void UseOriginal(const FImage& InImage, FCompressedImage2D& OutCompressedImage, EPixelFormat CompressedPixelFormat, bool bSRGB)
+static void UseOriginal(const FImage& InImage, FCompressedImage2D& OutCompressedImage, EPixelFormat CompressedPixelFormat, EGammaSpace GammaSpace)
 {   
 	// Get Raw Data
 	FImage Image;
-	InImage.CopyTo(Image, ERawImageFormat::BGRA8, bSRGB);
+	InImage.CopyTo(Image, ERawImageFormat::BGRA8, GammaSpace);
 
-    // Fill out the output information
-    OutCompressedImage.SizeX = Image.SizeX;
-    OutCompressedImage.SizeY = Image.SizeY;
-    OutCompressedImage.PixelFormat = CompressedPixelFormat;
+	// Fill out the output information
+	OutCompressedImage.SizeX = Image.SizeX;
+	OutCompressedImage.SizeY = Image.SizeY;
+	OutCompressedImage.PixelFormat = CompressedPixelFormat;
 	
 	// Output Data
 	OutCompressedImage.RawData.SetNumUninitialized(Image.SizeX * Image.SizeY * 4);
-    void* MipData = (void*)Image.RawData.GetData();
-    FMemory::Memcpy(MipData, Image.RawData.GetData(), Image.SizeX * Image.SizeY * 4);
+	void* MipData = (void*)Image.RawData.GetData();
+	FMemory::Memcpy(MipData, Image.RawData.GetData(), Image.SizeX * Image.SizeY * 4);
 }
 
 static int32 GetDefaultCompressionValue()
@@ -299,12 +299,12 @@ class FTextureFormatPVR : public ITextureFormat
 		FCompressedImage2D& OutCompressedImage
 		) const override
 	{
-        // Get Raw Image Data from passed in FImage
-        FImage Image;
-        InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.bSRGB);
-        
-        // Get the compressed format
-        EPixelFormat CompressedPixelFormat = PF_Unknown;
+		// Get Raw Image Data from passed in FImage
+		FImage Image;
+		InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.GetGammaSpace());
+		
+		// Get the compressed format
+		EPixelFormat CompressedPixelFormat = PF_Unknown;
 		if (BuildSettings.TextureFormatName == GTextureFormatNamePVRTC2)
 		{
 			CompressedPixelFormat = PF_PVRTC2;
@@ -321,9 +321,9 @@ class FTextureFormatPVR : public ITextureFormat
 		// Verify Power of 2
 		if ( !ValidateImagePower(Image) )
 		{
-            UE_LOG(LogTextureFormatPVR, Warning, TEXT("Mip size (%d,%d) does not have power-of-two dimensions and cannot be compressed to PVRTC%d"), 
+			UE_LOG(LogTextureFormatPVR, Warning, TEXT("Mip size (%d,%d) does not have power-of-two dimensions and cannot be compressed to PVRTC%d"), 
 				Image.SizeX, Image.SizeY, CompressedPixelFormat == PF_PVRTC2 ? 2 : 4);
-            return false;
+			return false;
 		}
 
 		// Squarify image
@@ -347,7 +347,7 @@ class FTextureFormatPVR : public ITextureFormat
 				CompressedPixelFormat,
 				Image.SizeX,
 				Image.SizeY,
-				Image.bSRGB,
+				Image.IsGammaCorrected(),
 				FinalSquareSize,
 				CompressedSliceData
 				);
@@ -361,8 +361,8 @@ class FTextureFormatPVR : public ITextureFormat
 			OutCompressedImage.PixelFormat = CompressedPixelFormat;
 		}
 
-        // Return success status
-        return bCompressionSucceeded;
+		// Return success status
+		return bCompressionSucceeded;
 	}
 
 	static bool CompressImageUsingPVRTexTool( void* SourceData, EPixelFormat PixelFormat, int32 SizeX, int32 SizeY, bool bSRGB, int32 FinalSquareSize, TArray<uint8>& OutCompressedData )
@@ -436,13 +436,13 @@ class FTextureFormatPVR : public ITextureFormat
 		delete PVRFile;
 
 		// Compress PVR file to PVRTC
-        FString CompressionMode = GetPVRTCQualityString();
+		FString CompressionMode = GetPVRTCQualityString();
 
 		// Use PowerVR's new CLI tool commandline
 		FString Params = FString::Printf(TEXT("-i \"%s\" -o \"%s\" %s -legacypvr -q pvrtc%s -f PVRTC1_%d"),
 			*InputFilePath, *OutputFilePath,
 			bGenerateMips ? TEXT("-m") : TEXT(""),
-            *CompressionMode,
+			*CompressionMode,
 			bIsPVRTC2 ? 2 : 4);
 #if PLATFORM_MAC
 		FString CompressorPath(FPaths::EngineDir() + TEXT("Binaries/ThirdParty/ImgTec/PVRTexToolCLI"));

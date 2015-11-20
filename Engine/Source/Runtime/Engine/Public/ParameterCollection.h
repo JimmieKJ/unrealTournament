@@ -37,6 +37,7 @@ public:
 		return UniformBuffer;
 	}
 
+	FMaterialParameterCollectionInstanceResource();
 	~FMaterialParameterCollectionInstanceResource();
 
 private:

@@ -6,6 +6,8 @@
 
 #pragma once
 
+#if WITH_EDITOR
+
 #include "RenderingCompositionGraph.h"
 
 // derives from TRenderingCompositePassBase<InputCount, OutputCount>
@@ -30,3 +32,5 @@ public:
 	virtual void Release() override { delete this; }
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
+
+#endif

@@ -6,6 +6,7 @@
 //#include "Toolkits/ToolkitManager.h"
 #include "WorkspaceMenuStructureModule.h"
 #include "MessageLogModule.h"
+#include "LocalizationConfigurationScript.h"
 
 class FTranslationEditor;
 
@@ -39,18 +40,44 @@ void FTranslationEditorModule::ShutdownModule()
 #endif
 }
 
-TSharedRef<FTranslationEditor> FTranslationEditorModule::CreateTranslationEditor(const FString& ManifestFile, const FString& ArchiveFile)
+TSharedRef<FTranslationEditor> FTranslationEditorModule::CreateTranslationEditor(const FString& ManifestFile, const FString& NativeArchiveFile, const FString& ArchiveFileToEdit, bool& OutLoadedSuccessfully)
 {
-	TSharedRef< FTranslationDataManager > DataManager = MakeShareable( new FTranslationDataManager(ManifestFile, ArchiveFile) );
+	TSharedRef< FTranslationDataManager > DataManager = MakeShareable( new FTranslationDataManager(ManifestFile, NativeArchiveFile, ArchiveFileToEdit) );
+	OutLoadedSuccessfully = DataManager->GetLoadedSuccessfully();
 
 	GWarn->BeginSlowTask(LOCTEXT("BuildingUserInterface", "Building Translation Editor UI..."), true);
 
-	TSharedRef< FTranslationEditor > NewTranslationEditor( FTranslationEditor::Create(DataManager, ManifestFile, ArchiveFile) );
-	NewTranslationEditor->InitTranslationEditor( EToolkitMode::Standalone, TSharedPtr<IToolkitHost>() );
+	TSharedRef< FTranslationEditor > NewTranslationEditor(FTranslationEditor::Create(DataManager, ManifestFile, ArchiveFileToEdit));
+	NewTranslationEditor->InitTranslationEditor(EToolkitMode::Standalone, TSharedPtr<IToolkitHost>());
 
 	GWarn->EndSlowTask();
 
 	return NewTranslationEditor;
 }
+
+TSharedRef<FTranslationEditor> FTranslationEditorModule::CreateTranslationEditor(ULocalizationTarget* const LocalizationTarget, const FString& CultureToEdit, bool& OutLoadedSuccessfully)
+{
+	const FString ManifestFile = LocalizationConfigurationScript::GetManifestPath(LocalizationTarget);
+	FString NativeCultureName;
+	if (LocalizationTarget->Settings.SupportedCulturesStatistics.IsValidIndex(LocalizationTarget->Settings.NativeCultureIndex))
+	{
+		NativeCultureName = LocalizationTarget->Settings.SupportedCulturesStatistics[LocalizationTarget->Settings.NativeCultureIndex].CultureName;
+	}
+	const FString NativeArchiveFile = NativeCultureName.IsEmpty() ? FString() : LocalizationConfigurationScript::GetArchivePath(LocalizationTarget, NativeCultureName);
+	const FString ArchiveFileToEdit = LocalizationConfigurationScript::GetArchivePath(LocalizationTarget, CultureToEdit);
+
+	TSharedRef< FTranslationDataManager > DataManager = MakeShareable( new FTranslationDataManager(LocalizationTarget, CultureToEdit) );
+	OutLoadedSuccessfully = DataManager->GetLoadedSuccessfully();
+
+	GWarn->BeginSlowTask(LOCTEXT("BuildingUserInterface", "Building Translation Editor UI..."), true);
+
+	TSharedRef< FTranslationEditor > NewTranslationEditor(FTranslationEditor::Create(DataManager, LocalizationTarget, CultureToEdit));
+	NewTranslationEditor->InitTranslationEditor(EToolkitMode::Standalone, TSharedPtr<IToolkitHost>());
+
+	GWarn->EndSlowTask();
+
+	return NewTranslationEditor;
+}
+
 
 #undef LOCTEXT_NAMESPACE

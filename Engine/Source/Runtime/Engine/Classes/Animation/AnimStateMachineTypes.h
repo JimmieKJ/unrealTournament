@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "AlphaBlend.h"
 #include "AnimStateMachineTypes.generated.h"
 
 //@TODO: Document
@@ -128,7 +129,13 @@ struct FAnimationTransitionBetweenStates : public FAnimationStateBase
 	int32 InterruptNotify;
 
 	UPROPERTY()
-	TEnumAsByte<ETransitionBlendMode::Type> CrossfadeMode;
+	EAlphaBlendOption BlendMode;
+
+	UPROPERTY()
+	UCurveFloat* CustomCurve;
+
+	UPROPERTY()
+	UBlendProfile* BlendProfile;
 
 	UPROPERTY()
 	TEnumAsByte<ETransitionLogicType::Type> LogicType;
@@ -145,7 +152,9 @@ struct FAnimationTransitionBetweenStates : public FAnimationStateBase
 		, StartNotify(INDEX_NONE)
 		, EndNotify(INDEX_NONE)
 		, InterruptNotify(INDEX_NONE)
-		, CrossfadeMode(ETransitionBlendMode::TBM_Cubic)
+		, BlendMode(EAlphaBlendOption::CubicInOut)
+		, CustomCurve(nullptr)
+		, BlendProfile(nullptr)
 		, LogicType(ETransitionLogicType::TLT_StandardBlend)
 #if WITH_EDITOR
 		, ReverseTransition(false)
@@ -226,6 +235,9 @@ struct FBakedAnimationState
 	UPROPERTY()
 	int32 EntryRuleNodeIndex;
 
+	// Indices into the property array for player nodes in the state
+	UPROPERTY()
+	TArray<int32> PlayerNodeIndices;
 
 public:
 	FBakedAnimationState()
@@ -258,19 +270,33 @@ struct FBakedAnimationStateMachine
 	UPROPERTY()
 	TArray<FAnimationTransitionBetweenStates> Transitions;
 
+	// Cached StatID for this state machine
+	STAT(mutable TStatId StatID;)
+
 public:
 	FBakedAnimationStateMachine()
 		: InitialState(INDEX_NONE)
 	{}
 
-	// Finds a state by name or NULL if no such state exists
-	int32 FindStateIndex(FName StateName);
+	// Finds a state by name or INDEX_NONE if no such state exists
+	ENGINE_API int32 FindStateIndex(const FName& StateName) const;
+
+	// Find the index of a transition from StateNameFrom to StateNameTo
+	ENGINE_API int32 FindTransitionIndex(const FName& InStateNameFrom, const FName& InStateNameTo) const;
+	ENGINE_API int32 FindTransitionIndex(const int32 InStateIdxFrom, const int32 InStateIdxTo) const;
+
+#if STATS
+	/** Get the StatID for timing this state machine */
+	FORCEINLINE TStatId GetStatID() const
+	{
+		if (!StatID.IsValidStat())
+		{
+			StatID = FDynamicStats::CreateStatId<FStatGroup_STATGROUP_Anim>(MachineName);
+		}
+		return StatID;
+	}
+#endif // STATS
 };
-
-
-
-
-
 
 UCLASS()
 class UAnimStateMachineTypes : public UObject

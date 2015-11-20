@@ -25,8 +25,8 @@ public class UnrealAudioCoreAudio : ModuleRules
 		PublicFrameworks.AddRange(
 			new string[] { 
 				"CoreAudio", 
-				"AudioToolbox", 
-				"AudioUnit" 
+				"AudioUnit",
+				"AudioToolbox"
 			}
 		);
 	}

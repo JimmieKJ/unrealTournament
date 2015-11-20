@@ -52,6 +52,9 @@ private:
 	/** Constructing FText strings can be costly, so we cache the node's tooltip */
 	FNodeTextCache CachedTooltip;
 
+	/** Flag used to track validity of pin tooltips, when tooltips are invalid they will be refreshed before being displayed */
+	mutable bool bPinTooltipsValid;
+
 public:
 
 	// UObject interface
@@ -60,6 +63,7 @@ public:
 	// End of UObject interface
 
 	// UEdGraphNode interface
+	virtual void GetPinHoverText(const UEdGraphPin& Pin, FString& HoverTextOut) const override;
 	virtual void AllocateDefaultPins() override;
 	virtual void DestroyNode() override;
 	virtual FLinearColor GetNodeTitleColor() const override;
@@ -75,12 +79,13 @@ public:
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override;
 	virtual bool CanPasteHere(const UEdGraph* TargetGraph) const override;
 	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
+	virtual void AddSearchMetaDataInfo(TArray<struct FSearchTagDataPair>& OutTaggedMetaData) const override;
 	// End of UEdGraphNode interface
 
 	// UK2Node interface
 	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
 	virtual bool IsNodePure() const override { return bIsPureFunc; }
-	virtual bool HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const override;
+	virtual bool HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const override;
 	virtual void PostReconstructNode() override;
 	virtual bool ShouldDrawCompact() const override;
 	virtual bool ShouldDrawAsBead() const override;
@@ -97,6 +102,7 @@ public:
 	virtual void GetNodeAttributes( TArray<TKeyValuePair<FString, FString>>& OutNodeAttributes ) const override;
 	virtual FText GetMenuCategory() const override;
 	virtual bool IsActionFilteredOut(class FBlueprintActionFilter const& Filter) override;
+	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
 	// End of UK2Node interface
 
 	/** Returns the UFunction that this class is pointing to */
@@ -144,7 +150,7 @@ public:
 	/** Gets the non-specific tooltip for the function */
 	static FString GetDefaultTooltipForFunction(const UFunction* Function);
 	/** Get default category for this function in action menu */
-	static FString GetDefaultCategoryForFunction(const UFunction* Function, const FString& BaseCategory);
+	static FText GetDefaultCategoryForFunction(const UFunction* Function, const FText& BaseCategory);
 	/** Get keywords for this function in the action menu */
 	static FText GetKeywordsForFunction(const UFunction* Function);
 	/** Should be drawn compact for this function */
@@ -197,6 +203,9 @@ private:
 	 * Connect Execute and Then pins for functions, which became pure.
 	 */
 	bool ReconnectPureExecPins(TArray<UEdGraphPin*>& OldPins);
+
+	/** Invalidates current pin tool tips, so that they will be refreshed before being displayed: */
+	void InvalidatePinTooltips();
 
 protected:
 	/** Helper function to ensure function is called in our context */

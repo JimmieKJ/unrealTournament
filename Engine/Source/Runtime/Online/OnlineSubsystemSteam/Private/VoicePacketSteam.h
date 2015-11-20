@@ -5,6 +5,8 @@
 #include "VoiceDataCommon.h"
 #include "OnlineSubsystemSteamPackage.h"
 
+class FUniqueNetId;
+
 /** Defines the data involved in a Steam voice packet */
 class FVoicePacketSteam : public FVoicePacket
 {
@@ -12,7 +14,7 @@ class FVoicePacketSteam : public FVoicePacket
 PACKAGE_SCOPE:
 
 	/** The unique net id of the talker sending the data */
-	TSharedPtr<class FUniqueNetId> Sender;
+	TSharedPtr<const FUniqueNetId> Sender;
 	/** The data that is to be sent/processed */
 	TArray<uint8> Buffer;
 	/** The current amount of space used in the buffer for this packet */
@@ -47,7 +49,7 @@ public:
 	virtual uint16 GetBufferSize() override;
 
 	/** @return the sender of this voice packet */
-	virtual TSharedPtr<class FUniqueNetId> GetSender() override;
+	virtual TSharedPtr<const FUniqueNetId> GetSender() override;
 
 	virtual bool IsReliable() override { return false; }
 

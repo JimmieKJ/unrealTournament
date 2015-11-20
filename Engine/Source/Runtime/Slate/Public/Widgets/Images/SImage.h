@@ -27,6 +27,13 @@ public:
 
 	SLATE_END_ARGS()
 
+	/** Constructor */
+	SImage()
+	{
+		bCanTick = false;
+		bCanSupportFocus = false;
+	}
+
 	/**
 	 * Construct this widget
 	 *

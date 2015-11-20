@@ -86,7 +86,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 			Canvas->K2_DrawTexture(PlayerStartBGIcon.Texture, Pos - FVector2D(IconSize * 0.5f, IconSize * 0.5f), FVector2D(IconSize, IconSize), NormalizedUV, NormalizedULVL, Canvas->DrawColor, BLEND_Translucent, It->GetActorRotation().Yaw + 90.0f);
 			if (OwningPS != NULL && OwningPS->Team != NULL)
 			{
-				Canvas->DrawColor = OwningPS->Team->TeamColor;
+				Canvas->DrawColor = OwningPS->Team->TeamColor.ToFColor(false);
 			}
 			Canvas->DrawTile(PlayerStartIcon.Texture, Pos.X - IconSize * 0.25f, Pos.Y - IconSize * 0.25f, IconSize * 0.5f, IconSize * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
 			if (OwningPS != NULL)
@@ -108,7 +108,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 		{
 			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
 			const float Ratio = Icon.UL / Icon.VL;
-			Canvas->DrawColor = It->IconColor;
+			Canvas->DrawColor = It->IconColor.ToFColor(false);
 			Canvas->DrawTile(Icon.Texture, Pos.X - 24.0f * Ratio * RenderScale, Pos.Y - 24.0f * RenderScale, 48.0f * Ratio * RenderScale, 48.0f * RenderScale, Icon.U, Icon.V, Icon.UL, Icon.VL);
 			if (LastHoveredActor == *It)
 			{
@@ -121,7 +121,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 	if (NamedPickup != NULL)
 	{
 		float XL, YL;
-		Canvas->DrawColor = NamedPickup->IconColor;
+		Canvas->DrawColor = NamedPickup->IconColor.ToFColor(false);
 		Canvas->TextSize(TinyFont, NamedPickup->GetDisplayName().ToString(), XL, YL);
 		Canvas->DrawText(TinyFont, NamedPickup->GetDisplayName(), NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - YL);
 	}
@@ -209,7 +209,7 @@ void AUTHUD_Showdown::DrawHUD()
 			
 			for (AUTPlayerState* UTPS : LivePlayers)
 			{
-				Canvas->DrawColor = UTPS->Team->TeamColor;
+				Canvas->DrawColor = UTPS->Team->TeamColor.ToFColor(false);
 				float XL, YL;
 				Canvas->TextSize(MediumFont, UTPS->PlayerName, XL, YL);
 				Canvas->DrawText(MediumFont, UTPS->PlayerName, 1.0f, YPos);
@@ -253,7 +253,7 @@ void AUTHUD_Showdown::DrawHUD()
 					if (UTPS->GetTeamNum() == i)
 					{
 						float XL, YL;
-						Canvas->DrawColor = UTPS->Team->TeamColor;
+						Canvas->DrawColor = UTPS->Team->TeamColor.ToRGBE();
 						Canvas->TextSize(MediumFont, UTPS->PlayerName, XL, YL);
 						Canvas->DrawText(MediumFont, UTPS->PlayerName, i == 0 ? 1.0f : Canvas->SizeX - XL - 1.0f, YPos);
 						YPos += YL;

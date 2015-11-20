@@ -15,7 +15,7 @@ UAbilityTask_WaitGameplayEffectRemoved::UAbilityTask_WaitGameplayEffectRemoved(c
 
 UAbilityTask_WaitGameplayEffectRemoved* UAbilityTask_WaitGameplayEffectRemoved::WaitForGameplayEffectRemoved(UObject* WorldContextObject, FActiveGameplayEffectHandle InHandle)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitGameplayEffectRemoved>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitGameplayEffectRemoved>(WorldContextObject);
 	MyObj->Handle = InHandle;
 
 	return MyObj;

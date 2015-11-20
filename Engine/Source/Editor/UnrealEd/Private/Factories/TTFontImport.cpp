@@ -165,8 +165,8 @@ UObject* UTrueTypeFontFactory::FactoryCreateNew(
 		ImportOptions->Data.DistanceFieldScaleFactor = FMath::RoundUpToPowerOfTwo(FMath::Max<int32>(ImportOptions->Data.DistanceFieldScaleFactor,2));
 		ImportOptions->Data.DistanceFieldScanRadiusScale = FMath::Clamp<float>(ImportOptions->Data.DistanceFieldScanRadiusScale,0.f,8.f);
 		// need a minimum padding of 4,4 to prevent bleeding of distance values across characters
- 		ImportOptions->Data.XPadding = FMath::Max<int32>(4,ImportOptions->Data.XPadding);
- 		ImportOptions->Data.YPadding = FMath::Max<int32>(4,ImportOptions->Data.YPadding);
+		ImportOptions->Data.XPadding = FMath::Max<int32>(4,ImportOptions->Data.XPadding);
+		ImportOptions->Data.YPadding = FMath::Max<int32>(4,ImportOptions->Data.YPadding);
 	}
 
 	// Copy the import settings into the font for later reference
@@ -626,7 +626,7 @@ float FTextureAlphaToDistanceField::FBuildDistanceFieldTask::CalcSignedDistanceT
 	//        2 1 * 1 2
 	//        2 1 1 1 2
 	//        2 2 2 2 2
-    //  
+	//  
 	// Note that the "rings" are not actually circular, so
 	// we may find a sample that is up to Sqrt(2*(RingSize^2)) away.
 	// Once we have found such a sample, we must search a few more
@@ -759,7 +759,7 @@ UTexture2D* UTrueTypeFontFactory::CreateTextureFromDC( UFont* Font, HDC dc, int3
 		TextureString = TextureString + FString::Printf(TEXT("%c%c"), 'A'+TextureNum/26, 'A'+TextureNum%26 );
 	}
 
- 	if( StaticFindObject( NULL, Font, *TextureString ) )
+	if( StaticFindObject( NULL, Font, *TextureString ) )
 	{
 		UE_LOG(LogTTFontImport, Warning, TEXT("A texture named %s already exists!"), *TextureString );
 	}
@@ -788,7 +788,7 @@ UTexture2D* UTrueTypeFontFactory::CreateTextureFromDC( UFont* Font, HDC dc, int3
 	Texture->NeverStream = true;
 
 	// Copy bitmap data to texture page.
-	FColor FontColor8Bit( ImportOptions->Data.ForegroundColor );
+	FColor FontColor8Bit(ImportOptions->Data.ForegroundColor.ToFColor(true));
 
 	// restart progress bar for font bitmap generation since this takes a while
 	int32 TotalProgress = BitmapWidth-1;
@@ -1143,7 +1143,7 @@ bool UTrueTypeFontFactory::CreateFontTexture(
 
 		for( int32 CurCharIndex = 0; CurCharIndex < CharsPerPage; ++CurCharIndex )
 		{
-  			GWarn->UpdateProgress( Page * CharsPerPage + CurCharIndex, TotalProgress );
+			GWarn->UpdateProgress( Page * CharsPerPage + CurCharIndex, TotalProgress );
 
 			// Remap the character if we need to
 			TCHAR Char = ( TCHAR )CurCharIndex;
@@ -1277,8 +1277,6 @@ bool UTrueTypeFontFactory::CreateFontTexture(
 				CurrentTexture++;
 
 				// blank out DC
-				HBRUSH Black = CreateSolidBrush(0x00000000);
-				RECT r = {0, 0, BitmapWidth, BitmapHeight};
 				FillRect( DCHandle, &r, Black );
 
 				X=BitmapPaddingX;
@@ -1656,7 +1654,7 @@ UTexture2D* UTrueTypeFontFactory::CreateTextureFromBitmap( UFont* Font, uint8* B
 		TextureString = TextureString + FString::Printf(TEXT("%c%c"), 'A'+TextureNum/26, 'A'+TextureNum%26 );
 	}
 
- 	if( StaticFindObject( NULL, Font, *TextureString ) )
+	if( StaticFindObject( NULL, Font, *TextureString ) )
 	{
 		UE_LOG(LogTTFontImport, Warning, TEXT("A texture named %s already exists!"), *TextureString );
 	}
@@ -1685,7 +1683,7 @@ UTexture2D* UTrueTypeFontFactory::CreateTextureFromBitmap( UFont* Font, uint8* B
 	Texture->NeverStream = true;
 
 	// Copy bitmap data to texture page.
-	FColor FontColor8Bit( ImportOptions->Data.ForegroundColor );
+	FColor FontColor8Bit( ImportOptions->Data.ForegroundColor.ToFColor(true) );
 
 	// restart progress bar for font bitmap generation since this takes a while
 	int32 TotalProgress = BitmapWidth-1;
@@ -1905,7 +1903,7 @@ bool UTrueTypeFontFactory::CreateFontTexture(
 
 		for( int32 CurCharIndex = 0; CurCharIndex < CharsPerPage; ++CurCharIndex )
 		{
-  			GWarn->UpdateProgress( Page * CharsPerPage + CurCharIndex, TotalProgress );
+			GWarn->UpdateProgress( Page * CharsPerPage + CurCharIndex, TotalProgress );
 
 			// Remap the character if we need to
 			TCHAR Char = ( TCHAR )CurCharIndex;
@@ -2223,21 +2221,21 @@ bool UTrueTypeFontFactory::ImportTrueTypeFont(
 
 	// Add space for characters.
 	Font->Characters.AddZeroed(CharsPerPage * NumResolutions );
-    
+	
 	// If all upper case chars have lower case char counterparts no mapping is required.   
 	if( !Font->IsRemapped )
 	{
 		bool NeedToRemap = false;
-        
+		
 		for( const TCHAR* p = *ImportOptions->Data.Chars; *p; p++ )
 		{
 			TCHAR c;
-            
+			
 			if( !FChar::IsAlpha( *p ) )
 			{
 				continue;
 			}
-            
+			
 			if( FChar::IsUpper( *p ) )
 			{
 				c = FChar::ToLower( *p );
@@ -2251,11 +2249,11 @@ bool UTrueTypeFontFactory::ImportTrueTypeFont(
 			{
 				continue;
 			}
-            
+			
 			NeedToRemap = true;
 			break;
 		}
-        
+		
 		if( NeedToRemap )
 		{
 			Font->IsRemapped = 1;
@@ -2270,7 +2268,7 @@ bool UTrueTypeFontFactory::ImportTrueTypeFont(
 					InverseMap.Add( *p, *p );
 					continue;
 				}
-                
+				
 				if( FChar::IsUpper( *p ) )
 				{
 					c = FChar::ToLower( *p );

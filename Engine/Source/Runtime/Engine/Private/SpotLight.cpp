@@ -23,7 +23,6 @@ ASpotLight::ASpotLight(const FObjectInitializer& ObjectInitializer)
 	SpotLightComponent = CastChecked<USpotLightComponent>(GetLightComponent());
 	SpotLightComponent->Mobility = EComponentMobility::Stationary;
 	SpotLightComponent->RelativeRotation = FRotator(-90, 0, 0);
-	SpotLightComponent->UpdateComponentToWorld();
 
 	RootComponent = SpotLightComponent;
 
@@ -31,7 +30,7 @@ ASpotLight::ASpotLight(const FObjectInitializer& ObjectInitializer)
 	ArrowComponent = CreateEditorOnlyDefaultSubobject<UArrowComponent>(TEXT("ArrowComponent0"));
 	if (ArrowComponent)
 	{
-		ArrowComponent->ArrowColor = GetLightColor();
+		ArrowComponent->ArrowColor = GetLightColor().ToFColor(true);
 		ArrowComponent->bTreatAsASprite = true;
 		ArrowComponent->SpriteInfo.Category = ConstructorStatics.ID_Lighting;
 		ArrowComponent->SpriteInfo.DisplayName = ConstructorStatics.NAME_Lighting;
@@ -54,7 +53,7 @@ void ASpotLight::PostLoad()
 #if WITH_EDITORONLY_DATA
 	if(ArrowComponent)
 	{
-		ArrowComponent->ArrowColor = GetLightColor();
+		ArrowComponent->ArrowColor = GetLightColor().ToFColor(true);
 	}
 #endif
 }
@@ -135,7 +134,7 @@ void ASpotLight::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEv
 
 	if(ArrowComponent)
 	{
-		ArrowComponent->ArrowColor = GetLightColor();
+		ArrowComponent->ArrowColor = GetLightColor().ToFColor(true);
 	}
 }
 #endif

@@ -54,9 +54,31 @@ class UNamedInterfaces: public UObject
 {
 	GENERATED_UCLASS_BODY()
 
+	/**
+	 * Cleanup delegate fired on destruction
+	 */
+	DECLARE_MULTICAST_DELEGATE(FOnCleanup);
+
+	// UObject interface begin
+	virtual void BeginDestroy() override;
+	// UObject interface end
+
+	/**
+	 * Initialize the named interface and create any predefined interfaces
+	 */
 	void Initialize();
+
+	/** @return an interface stored by name */
 	class UObject* GetNamedInterface(FName InterfaceName) const;
+
+	/** set an interface stored by name, replacing any existing */
 	void SetNamedInterface(FName InterfaceName, class UObject* NewInterface);
+
+	/** get number of current named interfaces */
+	int32 GetNumInterfaces() { return NamedInterfaces.Num(); }
+
+	/** @return delegate fired on cleanup */
+	FOnCleanup& OnCleanup() { return CleanupDelegates; }
 
 private:
 
@@ -67,5 +89,7 @@ private:
 	/** The list of named interfaces to automatically create and store */
 	UPROPERTY(config)
 	TArray<FNamedInterfaceDef> NamedInterfaceDefs;
+
+	FOnCleanup CleanupDelegates;
 };
 

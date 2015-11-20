@@ -24,14 +24,14 @@ public:
 		CRWZ_TitleBar			= 10,
 	};
 
-	// Begin SWidget Interface
+	//~ Begin SWidget Interface
 	virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual void OnMouseLeave( const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
-	// End SWidget Interface
+	//~ End SWidget Interface
 	
 protected:
 
@@ -60,7 +60,7 @@ protected:
 	virtual FVector2D GetNodeMaximumSize() const;
 
 	//** Return slate rect border for hit testing */
-	virtual FSlateRect GetHitTestingBorder( float InverseZoomFactor ) const;
+	virtual FSlateRect GetHitTestingBorder() const;
 
 protected:
 

@@ -61,6 +61,9 @@ struct PROJECTS_API FPluginDescriptor
 	/** Marketplace URL for this plugin. This URL will be embedded into projects that enable this plugin, so we can redirect to the marketplace if a user doesn't have it installed. */
 	FString MarketplaceURL;
 
+	/** Support URL/email for this plugin. */
+	FString SupportURL;
+
 	/** List of all modules associated with this plugin */
 	TArray<FModuleDescriptor> Modules;
 

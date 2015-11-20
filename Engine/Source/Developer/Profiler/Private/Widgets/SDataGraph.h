@@ -342,7 +342,7 @@ protected:
 	const int32 CalculateFrameIndex( const FVector2D MousePosition ) const;
 
 
-	void ShowContextMenu( const FVector2D& ScreenSpacePosition );
+	void ShowContextMenu(const FVector2D& ScreenSpacePosition, const FPointerEvent& MouseEvent);
 
 	/**	Binds our UI commands to delegates. */
 	void BindCommands();

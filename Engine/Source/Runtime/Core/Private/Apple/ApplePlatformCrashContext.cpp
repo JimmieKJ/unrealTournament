@@ -12,6 +12,7 @@ FApplePlatformCrashContext::FApplePlatformCrashContext()
 :	Signal(0)
 ,	Info(NULL)
 ,	Context(NULL)
+,	IgnoreDepth(6)
 {
 	SignalDescription[ 0 ] = 0;
 	MinidumpCallstackInfo[ 0 ] = 0;
@@ -73,7 +74,7 @@ int32 FApplePlatformCrashContext::ReportCrash() const
 		*StackBuffer = 0;
 		
 		// Walk the stack and dump it to the allocated memory (ignore first 2 callstack lines as those are in stack walking code)
-		FPlatformStackWalk::StackWalkAndDump( StackBuffer, ARRAY_COUNT(MinidumpCallstackInfo) - 1, 6, Context );
+		FPlatformStackWalk::StackWalkAndDump( StackBuffer, ARRAY_COUNT(MinidumpCallstackInfo) - 1, IgnoreDepth, Context );
 		
 		FUTF8ToTCHAR_Convert::Convert(GErrorHist, ARRAY_COUNT(GErrorHist) - 1, MinidumpCallstackInfo, FCStringAnsi::Strlen(MinidumpCallstackInfo));
 		CreateExceptionInfoString(Signal, Info);

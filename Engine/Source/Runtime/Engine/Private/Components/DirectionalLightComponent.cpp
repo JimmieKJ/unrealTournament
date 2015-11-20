@@ -93,6 +93,9 @@ public:
 	/** Light source angle in degrees. */
 	float LightSourceAngle;
 
+	/** Determines how far shadows can be cast, in world units.  Larger values increase the shadowing cost. */
+	float TraceDistance;
+
 	/** Initialization constructor. */
 	FDirectionalLightSceneProxy(const UDirectionalLightComponent* Component):
 		FLightSceneProxy(Component),
@@ -106,7 +109,8 @@ public:
 		ShadowDistanceFadeoutFraction(Component->ShadowDistanceFadeoutFraction),
 		bUseInsetShadowsForMovableObjects(Component->bUseInsetShadowsForMovableObjects),
 		DistanceFieldShadowDistance(Component->bUseRayTracedDistanceFieldShadows ? Component->DistanceFieldShadowDistance : 0),
-		LightSourceAngle(Component->LightSourceAngle)
+		LightSourceAngle(Component->LightSourceAngle),
+		TraceDistance(FMath::Clamp(Component->TraceDistance, 1000.0f, 1000000.0f))
 	{
 		LightShaftOverrideDirection.Normalize();
 
@@ -127,6 +131,9 @@ public:
 			FarShadowDistance = Component->FarShadowDistance;
 			FarShadowCascadeCount = Component->FarShadowCascadeCount;
 		}
+
+		bCastModulatedShadows = Component->bCastModulatedShadows;
+		ModulatedShadowColor = FLinearColor(Component->ModulatedShadowColor);
 	}
 
 	void UpdateLightShaftOverrideDirection_GameThread(const UDirectionalLightComponent* Component)
@@ -164,6 +171,11 @@ public:
 	virtual float GetLightSourceAngle() const override
 	{
 		return LightSourceAngle;
+	}
+
+	virtual float GetTraceDistance() const override
+	{
+		return TraceDistance;
 	}
 
 	virtual bool GetLightShaftOcclusionParameters(float& OutOcclusionMaskDarkness, float& OutOcclusionDepthRange) const override
@@ -329,7 +341,7 @@ private:
 	uint32 GetNumShadowMappedCascades(uint32 MaxShadowCascades, bool bPrecomputedLightingIsValid) const
 	{
 		const int32 EffectiveNumDynamicShadowCascades = bPrecomputedLightingIsValid ? DynamicShadowCascades : FMath::Max(0, CVarUnbuiltNumWholeSceneDynamicShadowCascades.GetValueOnAnyThread());
-		const int32 NumCascades = GetEffectiveWholeSceneDynamicShadowRadius(bPrecomputedLightingIsValid) > 0.0f ? EffectiveNumDynamicShadowCascades : 0;
+		const int32 NumCascades = GetCSMMaxDistance(bPrecomputedLightingIsValid) > 0.0f ? EffectiveNumDynamicShadowCascades : 0;
 		return FMath::Min<int32>(NumCascades, MaxShadowCascades);
 	}
 
@@ -337,7 +349,7 @@ private:
 	{
 		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.Shadow.DistanceScale"));
 		 
-		float Scale = FMath::Clamp(CVar->GetValueOnRenderThread(), 0.1f, 2.0f);
+		float Scale = FMath::Clamp(CVar->GetValueOnRenderThread(), 0.0f, 2.0f);
 		float Distance = GetEffectiveWholeSceneDynamicShadowRadius(bPrecomputedLightingIsValid) * Scale;
 		return Distance;
 	}
@@ -670,6 +682,7 @@ UDirectionalLightComponent::UDirectionalLightComponent(const FObjectInitializer&
 	DynamicShadowDistanceStationaryLight = 0.f;
 
 	DistanceFieldShadowDistance = 30000.0f;
+	TraceDistance = 10000.0f;
 	FarShadowDistance = 300000.0f;
 	LightSourceAngle = 1;
 
@@ -680,6 +693,8 @@ UDirectionalLightComponent::UDirectionalLightComponent(const FObjectInitializer&
 	IndirectLightingIntensity = 1.0f;
 	CastTranslucentShadows = true;
 	bUseInsetShadowsForMovableObjects = true;
+
+	ModulatedShadowColor = FColor(128, 128, 128);
 }
 
 #if WITH_EDITOR
@@ -713,7 +728,7 @@ bool UDirectionalLightComponent::CanEditChange(const UProperty* InProperty) cons
 	{
 		FString PropertyName = InProperty->GetName();
 		
-		bool bShadowCascases = CastShadows
+		bool bShadowCascades = CastShadows
 			&& CastDynamicShadows 
 			&& ((DynamicShadowDistanceMovableLight > 0 && Mobility == EComponentMobility::Movable)
 			|| (DynamicShadowDistanceStationaryLight > 0 && Mobility == EComponentMobility::Stationary));
@@ -735,16 +750,19 @@ bool UDirectionalLightComponent::CanEditChange(const UProperty* InProperty) cons
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, bUseInsetShadowsForMovableObjects)
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, FarShadowCascadeCount))
 		{
-			return bShadowCascases;
+			return bShadowCascades;
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, FarShadowDistance))
 		{
-			return bShadowCascases && FarShadowCascadeCount > 0;
+			return bShadowCascades && FarShadowCascadeCount > 0;
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, DistanceFieldShadowDistance)
-			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, LightSourceAngle))
+			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, TraceDistance)
+			|| (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, LightSourceAngle)
+				// Make sure we don't accidentally affect the LightSourceAngle property in LightmassSettings
+				&& InProperty && InProperty->GetOuter() && InProperty->GetOuter()->GetName() == TEXT("DirectionalLightComponent")))
 		{
 			static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.GenerateMeshDistanceFields"));
 			bool bCanEdit = CastShadows && CastDynamicShadows && bUseRayTracedDistanceFieldShadows && Mobility != EComponentMobility::Static && CVar->GetValueOnGameThread() != 0;
@@ -755,6 +773,11 @@ bool UDirectionalLightComponent::CanEditChange(const UProperty* InProperty) cons
 			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, OcclusionDepthRange))
 		{
 			return bEnableLightShaftOcclusion;
+		}
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UDirectionalLightComponent, ModulatedShadowColor))
+		{
+			return bCastModulatedShadows;
 		}
 	}
 

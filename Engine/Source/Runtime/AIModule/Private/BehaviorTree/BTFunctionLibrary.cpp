@@ -34,6 +34,18 @@ namespace
 	}
 }
 
+UBehaviorTreeComponent* UBTFunctionLibrary::GetOwnerComponent(UBTNode* NodeOwner)
+{
+	check(NodeOwner);
+	check(NodeOwner->GetClass()->HasAnyClassFlags(CLASS_CompiledFromBlueprint) && "This function call is valid only for BP-implemented BT nodes");
+	check(NodeOwner->GetOuter());
+
+	UBehaviorTreeComponent* OwnerComp = Cast<UBehaviorTreeComponent>(NodeOwner->GetOuter());
+	check(OwnerComp);
+
+	return OwnerComp;
+}
+
 UBlackboardComponent* UBTFunctionLibrary::GetOwnersBlackboard(UBTNode* NodeOwner)
 {
 	check(NodeOwner != NULL);

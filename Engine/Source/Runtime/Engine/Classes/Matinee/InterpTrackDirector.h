@@ -64,11 +64,11 @@ private:
 #endif // WITH_EDITORONLY_DATA
 
 public:
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	// End UObject interface
+	//~ End UObject Interface
 	
-	// Begin UInterpTrack Interface
+	//~ Begin UInterpTrack Interface
 	virtual int32 GetNumKeyframes() const override;
 	virtual void GetTimeRange( float& StartTime, float& EndTime ) const override;
 	virtual float GetTrackEndTime() const override;
@@ -87,7 +87,7 @@ public:
 	virtual class UTexture2D* GetTrackIcon() const override;
 #endif // WITH_EDITORONLY_DATA
 	virtual void DrawTrack( FCanvas* Canvas, UInterpGroup* Group, const FInterpTrackDrawParams& Params ) override;
-	// End UInterpTrack Interface
+	//~ End UInterpTrack Interface
 
 	/** Get the keyframe index nearest the time, without going over */
 	int32 GetNearestKeyframeIndex( float KeyTime ) const;

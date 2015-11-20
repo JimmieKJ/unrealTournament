@@ -8,8 +8,8 @@ namespace UnrealBuildTool
 {
 	public class ModuleProcessingException : Exception
 	{
-		public ModuleProcessingException(UEBuildModule Module, Exception InnerException):
-			base( string.Format("Exception thrown while processing dependent modules of {0}", Module.Name), InnerException )
+		public ModuleProcessingException(UEBuildModule Module, Exception InnerException) :
+			base(string.Format("Exception thrown while processing dependent modules of {0}", Module.Name), InnerException)
 		{
 		}
 

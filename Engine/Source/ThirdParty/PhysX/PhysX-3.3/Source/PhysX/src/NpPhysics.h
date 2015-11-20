@@ -61,6 +61,8 @@ namespace physx
 	};
 
 	class NpScene;	
+	struct PxvOffsetTable;
+
 #pragma warning(push)
 #pragma warning(disable:4996)	// We have to implement deprecated member functions, do not warn.
 
@@ -72,33 +74,19 @@ class NpPhysics : public PxPhysics, public Ps::UserAllocated
 
 	struct NpDelListenerEntry : public UserAllocated
 	{
-		NpDelListenerEntry(PxDeletionListener* ls, const PxDeletionEventFlags& de)
-			: listener(ls)
-			, flags(de)
-			, restrictedObjectSet(false)
+		NpDelListenerEntry(const PxDeletionEventFlags& de, bool restrictedObjSet)
+			: flags(de)
+			, restrictedObjectSet(restrictedObjSet)
 		{
 		}
 
 		Ps::HashSet<const PxBase*> registeredObjects;  // specifically registered objects for deletion events
-		PxDeletionListener* listener;
 		PxDeletionEventFlags flags;
 		bool restrictedObjectSet;
-
-		static PxU32 find(const Ps::Array<NpDelListenerEntry*>& listeners, const PxDeletionListener* l)
-		{
-			PxU32 i=0;
-			for(; i < listeners.size(); i++)
-			{
-				if (listeners[i]->listener == l)
-					return i;
-			}
-
-			return i;
-		}
 	};
 
 
-									NpPhysics(const PxTolerancesScale& scale, bool trackOutstandingAllocations, PxProfileZoneManager* profileZoneManager);
+									NpPhysics(const PxTolerancesScale& scale, const PxvOffsetTable& pxvOffsetTable, bool trackOutstandingAllocations, PxProfileZoneManager* profileZoneManager);
 	virtual							~NpPhysics();
 
 public:
@@ -222,9 +210,13 @@ public:
 
 				NpMaterial*			addMaterial(NpMaterial* np);
 
+	static		void				initOffsetTables(PxvOffsetTable& pxvOffsetTable);
+
 	static bool apiReentryLock;
 
 private:
+				typedef Ps::CoalescedHashMap<PxDeletionListener*, NpDelListenerEntry*> DeletionListenerMap;
+
 				Ps::Array<NpScene*>	mSceneArray;
 
 				void*				mSceneRunning;
@@ -244,7 +236,7 @@ private:
 				};
 
 				Ps::Mutex								mDeletionListenerMutex;
-				Ps::Array<NpDelListenerEntry*>			mDeletionListenerArray;
+				DeletionListenerMap						mDeletionListenerMap;
 				MeshDeletionListener					mDeletionMeshListener;
 				bool									mDeletionListenersExist;
 

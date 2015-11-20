@@ -33,6 +33,8 @@ class SUTSpectatorWindow;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
+DECLARE_DELEGATE_TwoParams(FUTProfilesLoaded, bool, const FText&);
+
 // This delegate will be triggered whenever a chat message is updated.
 
 class FStoredChatMessage : public TSharedFromThis<FStoredChatMessage>
@@ -72,7 +74,6 @@ public:
 	{
 		return MakeShareable( new FStoredChatMessage( inType, inSender, inMessage, inColor, inTimestamp, inbMyChat, inTeamNum ) );
 	}
-
 };
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FChatArchiveChanged, class UUTLocalPlayer*, TSharedPtr<FStoredChatMessage>);
@@ -98,6 +99,32 @@ public:
 
 	UPROPERTY()
 	bool bActualFriend;
+};
+
+/** profile notification data from the backend */
+USTRUCT()
+struct FXPProgressNotifyPayload
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	int64 PrevXP;
+	UPROPERTY()
+	int64 XP;
+	UPROPERTY()
+	int32 PrevLevel;
+	UPROPERTY()
+	int32 Level;
+};
+USTRUCT()
+struct FLevelUpRewardNotifyPayload
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	int32 Level;
+	UPROPERTY()
+	FString RewardID;
 };
 
 UCLASS(config=Engine)
@@ -386,7 +413,6 @@ protected:
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
-	virtual void OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
 	virtual void OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
 
@@ -547,7 +573,7 @@ public:
 	virtual void OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed);
 
 	// Request someone be my friend...
-	virtual void RequestFriendship(TSharedPtr<FUniqueNetId> FriendID);
+	virtual void RequestFriendship(TSharedPtr<const FUniqueNetId> FriendID);
 
 	// Holds a list of maps to play in Single player
 	TArray<FString> SinglePlayerMapList;
@@ -630,14 +656,6 @@ protected:
 	// Will be true if we are attempting to force the player in to an existing session.
 	bool bAttemptingForceJoin;
 
-	/** Profile items this player owns, downloaded from the server */
-	UPROPERTY()
-	TArray<FProfileItemEntry> ProfileItems;
-
-	/** XP gained in trusted online servers - read from backend */
-	UPROPERTY()
-	int32 OnlineXP;
-
 	/** Used to avoid reading too often */
 	double LastItemReadTime;
 	
@@ -645,12 +663,8 @@ protected:
 	FString PendingJoinMatchId;
 
 public:
-	/** Read profile items from the backend */
-	virtual void ReadProfileItems();
-	inline const TArray<FProfileItemEntry>& GetProfileItems() const
-	{
-		return ProfileItems;
-	}
+	virtual void HandleProfileNotification(const FOnlineNotification& Notification);
+
 	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
 	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
 
@@ -658,16 +672,15 @@ public:
 
 	inline int32 GetOnlineXP() const
 	{
-		return OnlineXP;
-	}
-	inline void AddOnlineXP(int32 NewXP)
-	{
-		OnlineXP += FMath::Max<int32>(0, NewXP);
-		LastItemReadTime = 0.0; // so next time we query we'll get real updated value
+#if WITH_PROFILE
+		return GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->GetXP();
+#else
+		return 0;
+#endif
 	}
 	inline void AddProfileItem(const UUTProfileItem* NewItem)
 	{
-		LastItemReadTime = 0.0;
+		/*LastItemReadTime = 0.0;
 		for (FProfileItemEntry& Entry : ProfileItems)
 		{
 			if (Entry.Item == NewItem)
@@ -676,7 +689,7 @@ public:
 				return;
 			}
 		}
-		new(ProfileItems) FProfileItemEntry(NewItem, 1);
+		new(ProfileItems) FProfileItemEntry(NewItem, 1);*/
 	}
 
 	bool IsOnTrustedServer() const
@@ -756,12 +769,12 @@ public:
 	void CloseDownloadAll();
 
 protected:
+
 #if !UE_SERVER
 	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
-
-	
-
 #endif
+	
+	void PostInitProperties() override;
 
 public:
 	virtual void OpenSpectatorWindow();
@@ -770,10 +783,36 @@ public:
 	bool IsFragCenterNew();
 	void UpdateFragCenter();
 
+#if WITH_PROFILE
+	/** Get manager for the McpProfiles for this user */
+	UUtMcpProfileManager* GetMcpProfileManager() const { return Cast<UUtMcpProfileManager>(McpProfileManager); }
+
+	/** Get profile manager for a specific account (can be this user).  "" will return users.  Use non-param version if it is known to have to be users (non-shared) */
+	UUtMcpProfileManager* GetMcpProfileManager(const FString& AccountId);
+
+	UUtMcpProfileManager* GetActiveMcpProfileManager() const { return Cast<UUtMcpProfileManager>(ActiveMcpProfileManager); }
+#endif
+
 protected:
 	UPROPERTY(Config)
 	int32 FragCenterCounter;
-	
+
 	bool bCancelJoinSession;
 
+	void OnProfileManagerInitComplete(bool bSuccess, const FText& ErrorText);
+	void UpdateSharedProfiles();
+	void UpdateSharedProfiles(const FUTProfilesLoaded& Callback);
+	FUTProfilesLoaded UpdateSharedProfilesComplete;
+
+	/** Our main account with associated profiles. */
+	UPROPERTY()
+	UObject* McpProfileManager;
+
+	/** Current active one - it may be shared profile or main profile. */
+	UPROPERTY()
+	UObject* ActiveMcpProfileManager;
+
+	/** Any shared accounts with associated profiles. */
+	UPROPERTY()
+	TArray<UObject*> SharedMcpProfileManager;
 };

@@ -129,7 +129,7 @@ ECommandResult::Type FGitSourceControlProvider::GetState( const TArray<FString>&
 	return ECommandResult::Succeeded;
 }
 
-TArray<FSourceControlStateRef> FGitSourceControlProvider::GetCachedStateByPredicate(const TFunctionRef<bool(const FSourceControlStateRef&)>& Predicate) const
+TArray<FSourceControlStateRef> FGitSourceControlProvider::GetCachedStateByPredicate(TFunctionRef<bool(const FSourceControlStateRef&)> Predicate) const
 {
 	TArray<FSourceControlStateRef> Result;
 	for(const auto& CacheItem : StateCache)
@@ -143,14 +143,9 @@ TArray<FSourceControlStateRef> FGitSourceControlProvider::GetCachedStateByPredic
 	return Result;
 }
 
-void FGitSourceControlProvider::RegisterSourceControlStateChanged(const FSourceControlStateChanged::FDelegate& SourceControlStateChanged)
+bool FGitSourceControlProvider::RemoveFileFromCache(const FString& Filename)
 {
-	OnSourceControlStateChanged.Add( SourceControlStateChanged );
-}
-
-void FGitSourceControlProvider::UnregisterSourceControlStateChanged( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
-{
-	OnSourceControlStateChanged.DEPRECATED_Remove( SourceControlStateChanged );
+	return StateCache.Remove(Filename) > 0;
 }
 
 FDelegateHandle FGitSourceControlProvider::RegisterSourceControlStateChanged_Handle( const FSourceControlStateChanged::FDelegate& SourceControlStateChanged )
@@ -339,6 +334,12 @@ ECommandResult::Type FGitSourceControlProvider::ExecuteSynchronousCommand(FGitSo
 
 	// Delete the command now (asynchronous commands are deleted in the Tick() method)
 	check(!InCommand.bAutoDelete);
+
+	// ensure commands that are not auto deleted do not end up in the command queue
+	if ( CommandQueue.Contains( &InCommand ) ) 
+	{
+		CommandQueue.Remove( &InCommand );
+	}
 	delete &InCommand;
 
 	return Result;

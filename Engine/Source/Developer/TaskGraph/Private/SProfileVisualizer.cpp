@@ -134,11 +134,12 @@ void SProfileVisualizer::RouteBarEventSelectionChanged( int32 Thread, TSharedPtr
 	EventsTree->HandleBarEventSelectionChanged( Thread, Selection );
 }
 
-void SProfileVisualizer::OnBarGraphContextMenu( TSharedPtr< FVisualizerEvent > Selection )
+void SProfileVisualizer::OnBarGraphContextMenu( TSharedPtr< FVisualizerEvent > Selection, const FPointerEvent& InputEvent )
 {
 	SelectedBarGraph = Selection;
 
-	FSlateApplication::Get().PushMenu( SharedThis( this ), MakeBarVisualizerContextMenu(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect::ContextMenu );
+	FWidgetPath WidgetPath = InputEvent.GetEventPath() != nullptr ? *InputEvent.GetEventPath() : FWidgetPath();
+	FSlateApplication::Get().PushMenu(SharedThis(this), WidgetPath, MakeBarVisualizerContextMenu(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect::ContextMenu);
 }
 
 TSharedRef<SWidget> SProfileVisualizer::MakeBarVisualizerContextMenu()

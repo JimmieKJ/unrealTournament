@@ -1,5 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
+#include "GammaCorrectionCommon.hlsl"
 
 // Shader types
 #define ESlateShader::Default		0
@@ -13,6 +14,12 @@
 
 Texture2D ElementTexture;
 SamplerState ElementTextureSampler;
+
+cbuffer PerFramePSConstants
+{
+	/** Display gamma x:gamma curve adjustment, y:inverse gamma (1/GEngine->DisplayGamma) */
+	float2 GammaValues;
+};
 
 cbuffer PerElementPSConstants
 {
@@ -34,10 +41,22 @@ struct VertexOut
 
 float3 Hue( float H )
 {
-    float R = abs(H * 6 - 3) - 1;
-    float G = 2 - abs(H * 6 - 2);
-    float B = 2 - abs(H * 6 - 4);
-    return saturate( float3(R,G,B) );
+	float R = abs(H * 6 - 3) - 1;
+	float G = 2 - abs(H * 6 - 2);
+	float B = 2 - abs(H * 6 - 4);
+	return saturate( float3(R,G,B) );
+}
+
+float3 GammaCorrect(float3 InColor)
+{
+	float3 CorrectedColor = InColor;
+
+	if ( GammaValues.y != 1.0f )
+	{
+		CorrectedColor = ApplyGammaCorrection(CorrectedColor, GammaValues.x);
+	}
+
+	return CorrectedColor;
 }
 
 float4 GetFontElementColor( VertexOut InVertex )
@@ -54,10 +73,10 @@ float4 GetColor( VertexOut InVertex, float2 UV )
 	float4 FinalColor;
 	
 	float4 BaseColor = ElementTexture.Sample(ElementTextureSampler, UV );
-    if( ( DrawEffects & DE_IgnoreTextureAlpha ) != 0 )
-    {
-        BaseColor.a = 1.0f;
-    }
+	if( ( DrawEffects & DE_IgnoreTextureAlpha ) != 0 )
+	{
+		BaseColor.a = 1.0f;
+	}
 
 	FinalColor = BaseColor*InVertex.Color;
 	return FinalColor;
@@ -213,7 +232,7 @@ float4 Main( VertexOut InVertex ) : SV_Target
 	}
 
 	// gamma correct
-	OutColor.rgb = pow(OutColor.rgb,1.0f/2.2f);
+	OutColor.rgb = GammaCorrect(OutColor.rgb);
 
 	if( DrawEffects & DE_Disabled )
 	{

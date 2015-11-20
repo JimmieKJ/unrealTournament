@@ -400,9 +400,9 @@ public:
 
 private:
 
-	// Begin SWidget Interface
+	//~ Begin SWidget Interface
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
-	// End SWidget Interface
+	//~ End SWidget Interface
 
 	/**
 	 * Called when the checkbox items have changed state

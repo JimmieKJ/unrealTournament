@@ -123,8 +123,9 @@ void FSceneRenderer::GammaCorrectToViewportRenderTarget(FRHICommandList& RHICmdL
 		);
 	SetShaderValue(RHICmdList, ShaderRHI,PixelShader->ColorScale,View->ColorScale);
 	SetShaderValue(RHICmdList, ShaderRHI,PixelShader->OverlayColor,View->OverlayColor);
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 
-	const FTextureRHIRef DesiredSceneColorTexture = GSceneRenderTargets.GetSceneColorTexture();
+	const FTextureRHIRef DesiredSceneColorTexture = SceneContext.GetSceneColorTexture();
 
 	SetTextureParameter(
 		RHICmdList, 
@@ -143,7 +144,7 @@ void FSceneRenderer::GammaCorrectToViewportRenderTarget(FRHICommandList& RHICmdL
 		View->ViewRect.Min.X,View->ViewRect.Min.Y,
 		View->ViewRect.Width(),View->ViewRect.Height(),
 		ViewFamily.RenderTarget->GetSizeXY(),
-		GSceneRenderTargets.GetBufferSizeXY(),
+		SceneContext.GetBufferSizeXY(),
 		*VertexShader,
 		EDRF_UseTriangleOptimization);
 }

@@ -23,15 +23,23 @@ public:
 	static bool ProjectWorldLocationToWidgetPosition(APlayerController* PlayerController, FVector WorldLocation, FVector2D& ScreenPosition);
 
 	/**
+	 * Convert a World Space 3D position into a 2D Widget Screen Space position, with distance from the camera the Z component.  This
+	 * takes into account any quality scaling as well.
+	 *
+	 * @return true if the world coordinate was successfully projected to the screen.
+	 */
+	static bool ProjectWorldLocationToWidgetPositionWithDistance(APlayerController* PlayerController, FVector WorldLocation, FVector& ScreenPosition);
+
+	/**
 	 * Gets the current DPI Scale being applied to the viewport and all the Widgets.
 	 */
-	UFUNCTION(BlueprintPure, BlueprintCosmetic, Category="Viewport", meta=( HidePin="WorldContextObject", DefaultToSelf="WorldContextObject" ))
+	UFUNCTION(BlueprintPure, BlueprintCosmetic, Category="Viewport", meta=( WorldContext="WorldContextObject" ))
 	static float GetViewportScale(UObject* WorldContextObject);
 
 	/**
 	 * Gets the size of the game viewport.
 	 */
-	UFUNCTION(BlueprintPure, BlueprintCosmetic, Category="Viewport", meta=( HidePin="WorldContextObject", DefaultToSelf="WorldContextObject" ))
+	UFUNCTION(BlueprintPure, BlueprintCosmetic, Category="Viewport", meta=( WorldContext="WorldContextObject" ))
 	static FVector2D GetViewportSize(UObject* WorldContextObject);
 
 	/**
@@ -42,6 +50,13 @@ public:
 	 */
 	UFUNCTION(BlueprintPure, BlueprintCosmetic, Category="Viewport")
 	static bool GetMousePositionScaledByDPI(APlayerController* Player, float& LocationX, float& LocationY);
+
+	/**
+	* Gets the slot object on the child widget as a Border Slot, allowing you to manipulate layout information.
+	* @param Widget The child widget of a border panel.
+	*/
+	UFUNCTION(BlueprintPure, Category = "Slot")
+	static class UBorderSlot* SlotAsBorderSlot(UWidget* Widget);
 
 	/**
 	 * Gets the slot object on the child widget as a Canvas Slot, allowing you to manipulate layout information.
@@ -88,6 +103,6 @@ public:
 	/**
 	 * Removes all widgets from the viewport.
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Viewport", meta=( HidePin="WorldContextObject", DefaultToSelf="WorldContextObject" ))
+	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category="Viewport", meta=( WorldContext="WorldContextObject" ))
 	static void RemoveAllWidgets(UObject* WorldContextObject);
 };

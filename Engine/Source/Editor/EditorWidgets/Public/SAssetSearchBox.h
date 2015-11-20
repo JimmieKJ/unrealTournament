@@ -52,6 +52,10 @@ public:
 	/** Sets the text string currently being edited */
 	void SetText(const TAttribute< FText >& InNewText);
 
+	/** Set or clear the current error reporting information for this search box */
+	void SetError( const FText& InError );
+	void SetError( const FString& InError );
+
 	// SWidget implementation
 	virtual FReply OnPreviewKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;

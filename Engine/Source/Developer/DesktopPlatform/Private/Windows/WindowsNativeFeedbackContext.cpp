@@ -99,10 +99,10 @@ bool FWindowsNativeFeedbackContext::ReceivedUserCancel()
 	return bReceivedUserCancel;
 }
 
-void FWindowsNativeFeedbackContext::StartSlowTask( const FText& Task, bool bShowCancelButton )
+void FWindowsNativeFeedbackContext::StartSlowTask( const FText& Task, bool bShouldShowCancelButton )
 {
-	FFeedbackContext::StartSlowTask( Task, bShowCancelButton );
-	CreateSlowTaskWindow(Task, bShowCancelButton);
+	FFeedbackContext::StartSlowTask( Task, bShouldShowCancelButton );
+	CreateSlowTaskWindow(Task, bShouldShowCancelButton);
 }
 void FWindowsNativeFeedbackContext::FinalizeSlowTask( )
 {
@@ -178,16 +178,16 @@ DWORD FWindowsNativeFeedbackContext::SlowTaskThreadProc(void* ThreadParam)
 {
 	FWindowsNativeFeedbackContext* Context = (FWindowsNativeFeedbackContext*)ThreadParam;
 
-	HINSTANCE hInstance = (HINSTANCE)GetModuleHandle(NULL);
+	HINSTANCE HInstance = (HINSTANCE)GetModuleHandle(NULL);
 
 	WNDCLASSEX WndClassEx;
 	ZeroMemory(&WndClassEx, sizeof(WndClassEx));
 	WndClassEx.cbSize = sizeof(WndClassEx);
 	WndClassEx.style = CS_HREDRAW | CS_VREDRAW | (Context->bShowCancelButton? 0 : CS_NOCLOSE);
 	WndClassEx.lpfnWndProc = &SlowTaskWindowProc;
-	WndClassEx.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(FWindowsPlatformMisc::GetAppIcon()));
+	WndClassEx.hIcon = LoadIcon(HInstance, MAKEINTRESOURCE(FWindowsPlatformMisc::GetAppIcon()));
 	WndClassEx.hCursor = LoadCursor(NULL, IDC_ARROW);
-	WndClassEx.hInstance = hInstance;
+	WndClassEx.hInstance = HInstance;
 	WndClassEx.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
 	WndClassEx.lpszClassName = TEXT("FFeedbackContextWindows");
 	ATOM WndClassAtom = RegisterClassEx(&WndClassEx);
@@ -226,20 +226,20 @@ DWORD FWindowsNativeFeedbackContext::SlowTaskThreadProc(void* ThreadParam)
 	AdjustWindowRectEx(&WindowRect, WindowStyle, 0, 0);
 
 	const TCHAR* WindowClassName = MAKEINTATOM( WndClassAtom );
-	HWND hWnd = CreateWindow(WindowClassName, TEXT("Unreal Engine"), WindowStyle, WindowRect.left, WindowRect.top, WindowRect.right - WindowRect.left, WindowRect.bottom - WindowRect.top, NULL, NULL, hInstance, NULL);
+	HWND hWnd = CreateWindow(WindowClassName, TEXT("Unreal Engine"), WindowStyle, WindowRect.left, WindowRect.top, WindowRect.right - WindowRect.left, WindowRect.bottom - WindowRect.top, NULL, NULL, HInstance, NULL);
 	SetWindowLongPtr(hWnd, GWLP_USERDATA, (LONG_PTR)&Params);
 	SendMessage(hWnd, WM_SETFONT, (WPARAM)hFont, 0);
 
-	HWND hWndOpenLog = CreateWindow(WC_BUTTON, TEXT("Show log"), BS_CENTER | BS_VCENTER | BS_PUSHBUTTON | BS_TEXT | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)ShowLogCtlId, hInstance, NULL);
+	HWND hWndOpenLog = CreateWindow(WC_BUTTON, TEXT("Show log"), BS_CENTER | BS_VCENTER | BS_PUSHBUTTON | BS_TEXT | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)ShowLogCtlId, HInstance, NULL);
 	SendMessage(hWndOpenLog, WM_SETFONT, (WPARAM)hFont, 0);
 
-	HWND hWndStatus = CreateWindow(WC_STATIC, TEXT(""), SS_CENTER | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)StatusCtlId, hInstance, NULL);
+	HWND hWndStatus = CreateWindow(WC_STATIC, TEXT(""), SS_CENTER | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)StatusCtlId, HInstance, NULL);
 	SendMessage(hWndStatus, WM_SETFONT, (WPARAM)hFont, 0);
 
-	HWND hWndProgress = CreateWindowEx(0, PROGRESS_CLASS, TEXT(""), WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)ProgressCtlId, hInstance, NULL);
+	HWND hWndProgress = CreateWindowEx(0, PROGRESS_CLASS, TEXT(""), WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)ProgressCtlId, HInstance, NULL);
 	SendMessage(hWndProgress, PBM_SETRANGE32, 0, 1000);
 
-	HWND hWndLogOutput = CreateWindowEx(WS_EX_STATICEDGE, WC_EDIT, TEXT(""), ES_MULTILINE | ES_READONLY | WS_HSCROLL | WS_VSCROLL | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)LogOutputCtlId, hInstance, NULL);
+	HWND hWndLogOutput = CreateWindowEx(WS_EX_STATICEDGE, WC_EDIT, TEXT(""), ES_MULTILINE | ES_READONLY | WS_HSCROLL | WS_VSCROLL | WS_CHILD | WS_VISIBLE, 10, 10, 10, 10, hWnd, (HMENU)LogOutputCtlId, HInstance, NULL);
 	SendMessage(hWndLogOutput, WM_SETFONT, (WPARAM)hLogFont, 0);
 
 	LayoutControls(hWnd, &Params);
@@ -294,7 +294,7 @@ DWORD FWindowsNativeFeedbackContext::SlowTaskThreadProc(void* ThreadParam)
 	DestroyWindow(hWnd);
 	DeleteObject(hLogFont);
 	DeleteObject(hFont);
-	UnregisterClass(WindowClassName, hInstance);
+	UnregisterClass(WindowClassName, HInstance);
 
 	return 0;
 }

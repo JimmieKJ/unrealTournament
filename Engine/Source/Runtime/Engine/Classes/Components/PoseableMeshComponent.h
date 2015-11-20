@@ -44,11 +44,15 @@ class ENGINE_API UPoseableMeshComponent : public USkinnedMeshComponent
 	UFUNCTION(BlueprintCallable, Category="Components|PoseableMesh")
 	void ResetBoneTransformByName(FName BoneName);
 
-	// Begin USkinnedMeshComponent Interface
+	UFUNCTION(BlueprintCallable, Category="Components|PoseableMesh")
+	void CopyPoseFromSkeletalComponent(const USkeletalMeshComponent* InComponentToCopy);
+
+	//~ Begin USkinnedMeshComponent Interface
 	virtual void RefreshBoneTransforms(FActorComponentTickFunction* TickFunction = NULL) override;
 	virtual bool AllocateTransformData() override;
-	// End USkinnedMeshComponent Interface
+	//~ End USkinnedMeshComponent Interface
 
+	bool IsRunningParallelEvaluation() const { return false; }
 	/**
 	 * Take the LocalAtoms array (translation vector, rotation quaternion and scale vector) and update the array of component-space bone transformation matrices (SpaceBases).
 	 * It will work down hierarchy multiplying the component-space transform of the parent by the relative transform of the child.

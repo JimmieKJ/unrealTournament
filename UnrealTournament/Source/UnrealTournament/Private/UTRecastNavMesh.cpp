@@ -774,7 +774,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 														// move over POIs that are inside the split polygons
 														for (int32 POIIndex = 0; POIIndex < DestNode->POIs.Num(); POIIndex++)
 														{
-															if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex].Get()))))
+															if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex]))))
 															{
 																NewNode->POIs.Add(DestNode->POIs[POIIndex]);
 																DestNode->POIs.RemoveAt(POIIndex--);
@@ -1075,7 +1075,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 			dtNavMeshQuery& InternalQuery = GetRecastNavMeshImpl()->SharedNavQuery;
 
 			FActorSpawnParameters SpawnParams;
-			SpawnParams.bNoCollisionFail = true;
+			SpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			ACharacter* DefaultScout = ScoutClass.GetDefaultObject();
 			float BaseJumpZ = DefaultEffectiveJumpZ;
 			if (BaseJumpZ == 0.0 && DefaultScout->GetCharacterMovement() != NULL)
@@ -2713,7 +2713,7 @@ void AUTRecastNavMesh::LoadMapLearningData()
 void AUTRecastNavMesh::AddToNavigation(AActor* NewPOI)
 {
 	// in editor this will be handled by path building
-	if (GetWorld()->IsGameWorld() && NewPOI != NULL && !NewPOI->bPendingKillPending)
+	if (GetWorld()->IsGameWorld() && NewPOI != NULL && !NewPOI->IsPendingKillPending())
 	{
 		// remove any previous entry
 		// we don't early out because the POI may have moved

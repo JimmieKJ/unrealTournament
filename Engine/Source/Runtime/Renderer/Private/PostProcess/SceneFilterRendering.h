@@ -7,8 +7,6 @@
 #ifndef _INC_SCENEFILTERRENDERING
 #define _INC_SCENEFILTERRENDERING
 
-#define MAX_FILTER_SAMPLES	32
-
 #include "SceneRenderTargets.h"
 
 /**
@@ -57,6 +55,40 @@ extern void DrawTransformedRectangle(
     FIntPoint TargetSize,
     FIntPoint TextureSize
     );
+
+extern void DrawHmdMesh(
+	FRHICommandList& RHICmdList,
+	float X,
+	float Y,
+	float SizeX,
+	float SizeY,
+	float U,
+	float V,
+	float SizeU,
+	float SizeV,
+	FIntPoint TargetSize,
+	FIntPoint TextureSize,
+	EStereoscopicPass StereoView,
+	FShader* VertexShader
+	);
+
+extern void DrawPostProcessPass(
+	FRHICommandList& RHICmdList,
+	float X,
+	float Y,
+	float SizeX,
+	float SizeY,
+	float U,
+	float V,
+	float SizeU,
+	float SizeV,
+	FIntPoint TargetSize,
+	FIntPoint TextureSize,
+	class FShader* VertexShader,
+	EStereoscopicPass StereoView,
+	bool bHasCustomMesh,
+	EDrawRectangleFlags Flags = EDRF_Default
+	);
 
 extern TGlobalResource<FFilterVertexDeclaration> GFilterVertexDeclaration;
 extern TGlobalResource<FEmptyVertexDeclaration> GEmptyVertexDeclaration;
@@ -122,7 +154,7 @@ public:
 			OverlayColor
 			);
 
-		FIntPoint BufferSize = GSceneRenderTargets.GetBufferSizeXY();
+		FIntPoint BufferSize = FSceneRenderTargets::Get(RHICmdList).GetBufferSizeXY();
 		float BufferSizeX = (float)BufferSize.X;
 		float BufferSizeY = (float)BufferSize.Y;
 		float InvBufferSizeX = 1.0f / BufferSizeX;

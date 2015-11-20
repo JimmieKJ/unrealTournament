@@ -47,7 +47,7 @@ void UGameplayTagsK2Node_MultiCompareGameplayTagAssetInterface::ExpandNode(class
 
 		// Create call function node for the Compare function HasAllMatchingGameplayTags
 		UK2Node_CallFunction* PinCallFunction = CompilerContext.SpawnIntermediateNode<UK2Node_CallFunction>(this, SourceGraph);
-		const UFunction* Function = UBlueprintGameplayTagLibrary::StaticClass()->FindFunctionByName(TEXT("HasAllMatchingGameplayTags"));
+		const UFunction* Function = UBlueprintGameplayTagLibrary::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(UBlueprintGameplayTagLibrary, HasAllMatchingGameplayTags));
 		PinCallFunction->SetFromFunction(Function);
 		PinCallFunction->AllocateDefaultPins();
 

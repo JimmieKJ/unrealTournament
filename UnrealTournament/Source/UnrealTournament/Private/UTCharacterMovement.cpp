@@ -1671,7 +1671,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 	AUTCharacter* UTCharOwner = Cast<AUTCharacter>(CharacterOwner);
 	FHitResult Hit(1.f);
 	bIsAgainstWall = false;
-	if (!HasRootMotion())
+	if (!HasRootMotionSources())
 	{
 		// test for slope to avoid using air control to climb walls 
 		float TickAirControl = GetCurrentAirControl();
@@ -1758,7 +1758,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 		FVector OldVelocity = Velocity;
 
 		// Apply input
-		if (!HasRootMotion())
+		if (!HasRootMotionSources())
 		{
 			// Acceleration = FallAcceleration for CalcVelocity, but we restore it after using it.
 			TGuardValue<FVector> RestoreAcceleration(Acceleration, FallAcceleration);
@@ -1778,7 +1778,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			NotifyJumpApex();
 		}
 
-		if (!HasRootMotion())
+		if (!HasRootMotionSources())
 		{
 			// make sure not exceeding acceptable speed
 			Velocity = Velocity.GetClampedToMaxSize2D(BoundSpeed);
@@ -1922,7 +1922,7 @@ void UUTCharacterMovement::PhysFalling(float deltaTime, int32 Iterations)
 			}
 		}
 
-		if (!HasRootMotion() && !bJustTeleported && MovementMode != MOVE_None)
+		if (!HasRootMotionSources() && !bJustTeleported && MovementMode != MOVE_None)
 		{
 			// refine the velocity by figuring out the average actual velocity over the tick, and then the final velocity.
 			// This particularly corrects for situations where level geometry affected the fall.

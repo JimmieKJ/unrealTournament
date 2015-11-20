@@ -75,11 +75,11 @@ class ENGINE_API UDestructibleComponent : public USkinnedMeshComponent
 #endif // WITH_PHYSX 
 
 #if WITH_EDITOR
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void Serialize(FArchive& Ar) override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	// Take damage
 	UFUNCTION(BlueprintCallable, Category="Components|Destructible")
@@ -105,20 +105,20 @@ public:
 	physx::apex::NxDestructibleActor* ApexDestructibleActor;
 #endif	//WITH_APEX
 
-	// Begin USceneComponent interface.
+	//~ Begin USceneComponent Interface.
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	virtual void OnUpdateTransform(bool bSkipPhysicsMove) override;
+	virtual void OnUpdateTransform(bool bSkipPhysicsMove, ETeleportType Teleport = ETeleportType::None) override;
 	virtual void Activate(bool bReset=false) override;
 	virtual void Deactivate() override;
-	// End USceneComponent interface.
+	//~ End USceneComponent Interface.
 
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 	virtual void CreatePhysicsState() override;
 	virtual void DestroyPhysicsState() override;
 	virtual class UBodySetup* GetBodySetup() override;
-	// End UActorComponent interface.
+	//~ End UActorComponent Interface.
 
-	// Begin UPrimitiveComponent interface.
+	//~ Begin UPrimitiveComponent Interface.
 	virtual FBodyInstance* GetBodyInstance(FName BoneName = NAME_None, bool bGetWelded = true) const override;
 	virtual bool CanEditSimulatePhysics() override;
 	virtual bool IsAnySimulatingPhysics() const override;
@@ -135,18 +135,21 @@ public:
 	virtual bool SweepComponent( FHitResult& OutHit, const FVector Start, const FVector End, const FCollisionShape& CollisionShape, bool bTraceComplex=false) override;
 	virtual void SetEnableGravity(bool bGravityEnabled) override;
 
-	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
-	// End UPrimitiveComponent interface.
+	virtual void WakeRigidBody(FName BoneName /* = NAME_None */) override;
+	virtual void SetSimulatePhysics(bool bSimulate) override;
 
-	// Begin SkinnedMeshComponent interface.
+	virtual void SetMaterial(int32 ElementIndex, UMaterialInterface* Material) override;
+	//~ End UPrimitiveComponent Interface.
+
+	//~ Begin SkinnedMeshComponent Interface.
 	virtual bool ShouldUpdateTransform(bool bLODHasChanged) const override;
 	virtual void RefreshBoneTransforms(FActorComponentTickFunction* TickFunction = NULL) override;
 	virtual void SetSkeletalMesh(USkeletalMesh* InSkelMesh) override;
 	virtual FTransform GetSocketTransform(FName InSocketName, ERelativeTransformSpace TransformSpace = RTS_World) const override;
-	// End SkinnedMeshComponent interface.
+	//~ End SkinnedMeshComponent Interface.
 
 
-	// Begin DestructibleComponent interface.
+	//~ Begin DestructibleComponent Interface.
 #if WITH_APEX
 	struct FFakeBodyInstanceState
 	{
@@ -170,7 +173,7 @@ public:
 	 * @param ChunkIndex - Which chunk to affect.  ChunkIndex must lie in the range: 0 <= ChunkIndex < ((DestructibleMesh*)USkeletalMesh)->ApexDestructibleAsset->chunkCount().
 	 * @param bVisible - If true, the chunk will be made visible.  Otherwise, the chunk is made invisible.
 	 */
-	void SetChunkVisible( int32 ChunkIndex, bool bVisible );
+	void SetChunkVisible( int32 ChunkIndex, bool bInVisible );
 
 #if WITH_APEX
 	/** This method takes a collection of active actors and updates the chunks in one pass. Saves a lot of duplicate work instead of calling each individual chunk
@@ -201,7 +204,7 @@ public:
 	void OnVisibilityEvent(const physx::apex::NxApexChunkStateEventData & InDamageEvent);
 #endif // WITH_APEX
 
-	// End DestructibleComponent interface.
+	//~ End DestructibleComponent Interface.
 
 	virtual bool DoCustomNavigableGeometryExport(FNavigableGeometryExport& GeomExport) const override;
 
@@ -222,6 +225,12 @@ private:
 
 	bool IsFracturedOrInitiallyStatic() const;
 
+	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda. */
+	bool ExecuteOnPhysicsReadOnly(TFunctionRef<void()> Func) const;
+
+	/** Obtains the appropriate PhysX scene lock for WRITING and executes the passed in lambda. */
+	bool ExecuteOnPhysicsReadWrite(TFunctionRef<void()> Func) const;
+
 	/** Collision response used for chunks */
 	FCollisionResponse LargeChunkCollisionResponse;
 	FCollisionResponse SmallChunkCollisionResponse;
@@ -231,13 +240,12 @@ private:
 
 	void SetCollisionResponseForShape(physx::PxShape* Shape, int32 ChunkIdx);
 	void SetCollisionResponseForActor(physx::PxRigidDynamic* Actor, int32 ChunkIdx, const FCollisionResponseContainer* ResponseOverride = NULL);
-	void SetCollisionResponseForAllActors(const FCollisionResponseContainer& ResponseOverride);
 
 
 public:
 	/** User data wrapper for the chunks passed to physx */
 	TArray<FPhysxUserData> PhysxChunkUserData;
-	bool IsChunkLarge(int32 ChunkIdx) const;
+	bool IsChunkLarge(physx::PxRigidActor* ChunkActor) const;
 #endif
 };
 

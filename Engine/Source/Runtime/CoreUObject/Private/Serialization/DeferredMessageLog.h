@@ -8,11 +8,18 @@
 
 #include "MessageLog.h"
 
+/**
+ * Thread safe proxy for the FMessageLog while performing async loading.
+ * Makes sure the messages does not get added to the log until async loading is 
+ * finished to prevent modules from being loaded outside of game thread.
+ * Also makes sure the messages are added to the message queue in a thread-safe way.
+*/
 class FDeferredMessageLog
 {
 	FName LogCategory;
 
 	static TMap<FName, TArray<TSharedRef<FTokenizedMessage>>*> Messages;
+	static FCriticalSection MessagesCritical;
 
 	void AddMessage(TSharedRef<FTokenizedMessage>& Message);
 
@@ -24,4 +31,5 @@ public:
 	TSharedRef<FTokenizedMessage> Error(const FText& Message);
 
 	static void Flush();
+	static void Cleanup();
 };

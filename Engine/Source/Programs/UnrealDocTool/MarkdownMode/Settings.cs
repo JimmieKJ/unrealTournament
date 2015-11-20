@@ -13,6 +13,7 @@ namespace MarkdownMode.Properties {
     internal sealed partial class Settings {
         static public System.Drawing.Color DefaultImageFillColor;
         static public string[] SupportedLanguages;
+        static public string[] SupportedLanguageLabels;
         static public string[] MetadataErrorIfMissing;
         static public string[] MetadataInfoIfMissing;
         static public List<string> SupportedAvailabilities;
@@ -26,6 +27,7 @@ namespace MarkdownMode.Properties {
             //
             DefaultImageFillColor = ImageConversion.GetColorFromHexString(DefaultImageFillColorText);
             SupportedLanguages = SupportedLanguagesString.Split(',');
+            SupportedLanguageLabels = SupportedLanguageLabelsString.Split(',');
             MetadataErrorIfMissing = MetadataErrorIfMissingString.Split(',');
             MetadataInfoIfMissing = MetadataInfoIfMissingString.Split(',');
             SupportedAvailabilities = new List<string>(SupportedAvailabilitiesString.Split(','));

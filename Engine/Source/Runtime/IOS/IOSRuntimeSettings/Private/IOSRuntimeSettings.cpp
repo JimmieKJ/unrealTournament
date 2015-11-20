@@ -8,6 +8,7 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	: Super(ObjectInitializer)
 {
 	bEnableGameCenterSupport = true;
+	bEnableCloudKitSupport = false;
 	bSupportsPortraitOrientation = true;
 	BundleDisplayName = TEXT("UE4 Game");
 	BundleName = TEXT("MyUE4Game");
@@ -25,6 +26,8 @@ UIOSRuntimeSettings::UIOSRuntimeSettings(const FObjectInitializer& ObjectInitial
 	bShipForArmV7S = false;
 	bUseRSync = true;
 	AdditionalPlistData = TEXT("");
+	AdditionalLinkerFlags = TEXT("");
+	AdditionalShippingLinkerFlags = TEXT("");
 }
 
 #if WITH_EDITOR
@@ -36,22 +39,26 @@ void UIOSRuntimeSettings::PostEditChangeProperty(struct FPropertyChangedEvent& P
 	if (!bSupportsPortraitOrientation && !bSupportsUpsideDownOrientation && !bSupportsLandscapeLeftOrientation && !bSupportsLandscapeRightOrientation)
 	{
 		bSupportsPortraitOrientation = true;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsPortraitOrientation)), GetDefaultConfigFilename());
 	}
 
 	// Ensure that at least one API is supported
 	if (!bSupportsMetal && !bSupportsOpenGLES2 && !bSupportsMetalMRT)
 	{
 		bSupportsOpenGLES2 = true;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bSupportsOpenGLES2)), GetDefaultConfigFilename());
 	}
 
 	// Ensure that at least armv7 is selected for shipping and dev
 	if (!bDevForArmV7 && !bDevForArm64 && !bDevForArmV7S)
 	{
 		bDevForArmV7 = true;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bDevForArmV7)), GetDefaultConfigFilename());
 	}
 	if (!bShipForArmV7 && !bShipForArm64 && !bShipForArmV7S)
 	{
 		bShipForArmV7 = true;
+		UpdateSinglePropertyInConfigFile(GetClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, bShipForArmV7)), GetDefaultConfigFilename());
 	}
 }
 

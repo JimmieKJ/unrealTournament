@@ -9,6 +9,8 @@
 /** Called in FSceneViewport::ResizeFrame after ResizeViewport*/
 DECLARE_DELEGATE_OneParam( FOnSceneViewportResize, FVector2D );
 
+class SViewport;
+
 /**
  * A viewport for use with Slate SViewport widgets.
  */
@@ -203,7 +205,7 @@ public:
 	virtual FReply OnTouchEnded( const FGeometry& MyGeometry, const FPointerEvent& InTouchEvent ) override;
 	virtual FReply OnTouchGesture( const FGeometry& MyGeometry, const FPointerEvent& InGestureEvent ) override;
 	virtual FReply OnMotionDetected( const FGeometry& MyGeometry, const FMotionEvent& InMotionEvent ) override;
-	virtual TOptional<EPopupMethod> OnQueryPopupMethod() const override;
+	virtual FPopupMethodReply OnQueryPopupMethod() const override;
 	virtual TOptional<bool> OnQueryShowFocus(const EFocusCause InFocusCause) const override;
 	virtual void OnFinishedPointerInput() override;
 	virtual FReply OnKeyDown( const FGeometry& InGeometry, const FKeyEvent& InKeyEvent ) override;

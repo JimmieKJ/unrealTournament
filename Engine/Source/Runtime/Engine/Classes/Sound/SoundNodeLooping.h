@@ -6,7 +6,10 @@
 #include "SoundNodeLooping.generated.h"
 
 /** 
- * Defines how a sound loops; either indefinitely, or for a set number of times
+ * Defines how a sound loops; either indefinitely, or for a set number of times.
+ * Note: The Looping node should only be used for logical or procedural looping such as introducing a delay.
+ * These sounds will not be played seamlessly. If you want a sound to loop seamlessly and indefinitely,
+ * use the Looping flag on the Wave Player node for that sound.
  */
 UCLASS(hidecategories=Object, editinlinenew, MinimalAPI, meta=( DisplayName="Looping" ))
 class USoundNodeLooping : public USoundNode
@@ -14,7 +17,7 @@ class USoundNodeLooping : public USoundNode
 	GENERATED_UCLASS_BODY()
 
 	/* The amount of times to loop */
-	UPROPERTY(EditAnywhere, Category = Looping, meta = (ClampMin = 1))
+	UPROPERTY(EditAnywhere, Category = Looping, meta = (ClampMin = 1, EditCondition = "!bLoopIndefinitely"))
 	int32 LoopCount;
 
 	/* If enabled, the node will continue to loop indefinitely regardless of the Loop Count value. */
@@ -22,7 +25,7 @@ class USoundNodeLooping : public USoundNode
 	uint32 bLoopIndefinitely : 1;
 
 public:	
-	// Begin USoundNode interface. 
+	//~ Begin USoundNode interface. 
 	virtual bool NotifyWaveInstanceFinished( struct FWaveInstance* WaveInstance ) override;
 	virtual float MaxAudibleDistance( float CurrentMaxDistance ) override 
 	{ 
@@ -30,7 +33,7 @@ public:
 	}
 	virtual float GetDuration( void ) override;
 	virtual void ParseNodes( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanceHash, FActiveSound& ActiveSound, const FSoundParseParameters& ParseParams, TArray<FWaveInstance*>& WaveInstances ) override;
-	// End USoundNode interface. 
+	//~ End USoundNode interface. 
 };
 
 

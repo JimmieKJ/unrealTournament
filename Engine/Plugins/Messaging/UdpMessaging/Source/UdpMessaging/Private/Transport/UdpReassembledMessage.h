@@ -141,7 +141,7 @@ public:
 	 * @param SegmentData The segment data.
 	 * @param CurrentTime The current time.
 	 */
-	void Reassemble( int32 SegmentNumber, int32 SegmentOffset, const TArray<uint8>& SegmentData, const FDateTime& CurrentTime )
+	void Reassemble(int32 SegmentNumber, int32 SegmentOffset, const TArray<uint8>& SegmentData, const FDateTime& CurrentTime)
 	{
 		if (SegmentNumber >= PendingSegments.Num())
 		{

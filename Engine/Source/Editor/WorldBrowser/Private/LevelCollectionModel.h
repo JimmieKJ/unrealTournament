@@ -22,7 +22,7 @@ public:
 
 
 public:
-	FLevelCollectionModel(UEditorEngine* InEditor);
+	FLevelCollectionModel();
 	virtual ~FLevelCollectionModel();
 
 	/** FTickableEditorObject interface */
@@ -38,7 +38,7 @@ public:
 	bool IsSimulating() const;
 
 	/**	@return	Current simulation world */
-	UWorld* GetSimulationWorld() const { return Editor->PlayWorld; }
+	UWorld* GetSimulationWorld() const;
 
 	/**	@return	Current editor world */
 	UWorld* GetWorld(bool bEvenIfPendingKill = false) const { return CurrentWorld.Get(bEvenIfPendingKill); }
@@ -380,7 +380,7 @@ protected:
 	void LockSelectedLevels_Executed();
 
 	/** Unlocks selected levels */
-	void UnockSelectedLevels_Executed();
+	void UnlockSelectedLevels_Executed();
 
 	/** Locks all levels */
 	void LockAllLevels_Executed();
@@ -430,6 +430,12 @@ protected:
 	
 	/**  */
 	virtual void BindCommands();
+
+	/** Removes the Actors in all read-only Levels from the viewport's existing selection */
+	void DeselectActorsInAllReadOnlyLevel(const FLevelModelList& InLevelList);
+
+	/** Removes the Actors in all read-only Levels from the viewport's existing selection */
+	void DeselectSurfaceInAllReadOnlyLevel(const FLevelModelList& InLevelList);
 	
 	/** Called whenever level collection has been changed */
 	virtual void OnLevelsCollectionChanged();
@@ -471,8 +477,6 @@ protected:
 	void CacheCanExecuteSourceControlVars() const;
 		
 protected:
-	//
-	const TWeakObjectPtr<UEditorEngine> Editor;
 	
 	// The editor world from where we pull our data
 	TWeakObjectPtr<UWorld>				CurrentWorld;
@@ -579,6 +583,7 @@ struct FTiledLandscapeImportSettings
 		, SectionsPerComponent(1)
 		, TilesCoordinatesOffset(0,0)
 		, SizeX(1009)
+		, bFlipYAxis(true)
 	{}
 	
 	FVector				Scale3D;
@@ -590,6 +595,7 @@ struct FTiledLandscapeImportSettings
 	TArray<FIntPoint>	TileCoordinates;
 	FIntPoint			TilesCoordinatesOffset;	
 	int32				SizeX;
+	bool				bFlipYAxis;
 
 
 	TWeakObjectPtr<UMaterialInterface>	LandscapeMaterial;

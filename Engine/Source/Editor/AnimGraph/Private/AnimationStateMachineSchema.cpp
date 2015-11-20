@@ -27,7 +27,7 @@
 
 /////////////////////////////////////////////////////
 
-TSharedPtr<FEdGraphSchemaAction_NewStateNode> AddNewStateNodeAction(FGraphContextMenuBuilder& ContextMenuBuilder, const FString& Category, const FText& MenuDesc, const FString& Tooltip, const int32 Grouping = 0)
+TSharedPtr<FEdGraphSchemaAction_NewStateNode> AddNewStateNodeAction(FGraphContextMenuBuilder& ContextMenuBuilder, const FText& Category, const FText& MenuDesc, const FString& Tooltip, const int32 Grouping = 0)
 {
 	TSharedPtr<FEdGraphSchemaAction_NewStateNode> NewStateNode( new FEdGraphSchemaAction_NewStateNode(Category, MenuDesc, Tooltip, Grouping) );
 	ContextMenuBuilder.AddAction( NewStateNode );
@@ -50,8 +50,6 @@ UEdGraphNode* FEdGraphSchemaAction_NewStateNode::PerformAction(class UEdGraph* P
 		{
 			FromPin->Modify();
 		}
-
-		NodeTemplate->SetFlags(RF_Transactional);
 
 		// set outer to be the graph so it doesn't go away
 		NodeTemplate->Rename(NULL, ParentGraph);
@@ -266,13 +264,13 @@ void UAnimationStateMachineSchema::GetGraphContextActions(FGraphContextMenuBuild
 {
 	// Add state node
 	{
-		TSharedPtr<FEdGraphSchemaAction_NewStateNode> Action = AddNewStateNodeAction(ContextMenuBuilder, TEXT(""), LOCTEXT("AddState", "Add State..."), TEXT("A new state"));
+		TSharedPtr<FEdGraphSchemaAction_NewStateNode> Action = AddNewStateNodeAction(ContextMenuBuilder, FText::GetEmpty(), LOCTEXT("AddState", "Add State..."), TEXT("A new state"));
 		Action->NodeTemplate = NewObject<UAnimStateNode>(ContextMenuBuilder.OwnerOfTemporaries);
 	}
 
 	// Add conduit node
 	{
-		TSharedPtr<FEdGraphSchemaAction_NewStateNode> Action = AddNewStateNodeAction(ContextMenuBuilder, TEXT(""), LOCTEXT("AddConduit", "Add Conduit..."), TEXT("A new conduit state"));
+		TSharedPtr<FEdGraphSchemaAction_NewStateNode> Action = AddNewStateNodeAction(ContextMenuBuilder, FText::GetEmpty(), LOCTEXT("AddConduit", "Add Conduit..."), TEXT("A new conduit state"));
 		Action->NodeTemplate = NewObject<UAnimStateConduitNode>(ContextMenuBuilder.OwnerOfTemporaries);
 	}
 
@@ -291,7 +289,7 @@ void UAnimationStateMachineSchema::GetGraphContextActions(FGraphContextMenuBuild
 
 		if (!bHasEntry)
 		{
-			TSharedPtr<FEdGraphSchemaAction_NewStateNode> Action = AddNewStateNodeAction(ContextMenuBuilder, TEXT(""), LOCTEXT("AddEntryPoint", "Add Entry Point..."), TEXT("Define State Machine's Entry Point"));
+			TSharedPtr<FEdGraphSchemaAction_NewStateNode> Action = AddNewStateNodeAction(ContextMenuBuilder, FText::GetEmpty(), LOCTEXT("AddEntryPoint", "Add Entry Point..."), TEXT("Define State Machine's Entry Point"));
 			Action->NodeTemplate = NewObject<UAnimStateEntryNode>(ContextMenuBuilder.OwnerOfTemporaries);
 		}
 	}
@@ -304,7 +302,7 @@ void UAnimationStateMachineSchema::GetGraphContextActions(FGraphContextMenuBuild
 		const FText MenuDescription = bIsManyNodesSelected ? LOCTEXT("CreateCommentSelection", "Create Comment from Selection") : LOCTEXT("AddComment", "Add Comment...");
 		const FString ToolTip = TEXT("Create a resizeable comment box around selected nodes.");
 
-		TSharedPtr<FEdGraphSchemaAction_NewStateComment> NewComment( new FEdGraphSchemaAction_NewStateComment(TEXT(""), MenuDescription, ToolTip, 0) );
+		TSharedPtr<FEdGraphSchemaAction_NewStateComment> NewComment( new FEdGraphSchemaAction_NewStateComment(FText::GetEmpty(), MenuDescription, ToolTip, 0) );
 		ContextMenuBuilder.AddAction( NewComment );
 	}
 }

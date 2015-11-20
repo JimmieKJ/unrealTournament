@@ -277,26 +277,26 @@ public:
 
 	virtual ~FTextLayout();
 
-	const TArray< FTextLayout::FLineView >& GetLineViews() const;
-	const TArray< FTextLayout::FLineModel >& GetLineModels() const;
+	FORCEINLINE const TArray< FTextLayout::FLineView >& GetLineViews() const { return LineViews; }
+	FORCEINLINE const TArray< FTextLayout::FLineModel >& GetLineModels() const { return LineModels; }
 
 	FVector2D GetSize() const;
 	FVector2D GetDrawSize() const;
 	FVector2D GetWrappedSize() const;
 
-	float GetWrappingWidth() const;
+	FORCEINLINE float GetWrappingWidth() const { return WrappingWidth; }
 	void SetWrappingWidth( float Value );
 
-	float GetLineHeightPercentage() const;
+	FORCEINLINE float GetLineHeightPercentage() const { return LineHeightPercentage; }
 	void SetLineHeightPercentage( float Value );
 
-	ETextJustify::Type GetJustification() const;
+	FORCEINLINE ETextJustify::Type GetJustification() const { return Justification; }
 	void SetJustification( ETextJustify::Type Value );
 
-	float GetScale() const;
+	FORCEINLINE float GetScale() const { return Scale; }
 	void SetScale( float Value );
 
-	FMargin GetMargin() const;
+	FORCEINLINE FMargin GetMargin() const { return Margin; }
 	void SetMargin( const FMargin& InMargin );
 
 	void SetVisibleRegion( const FVector2D& InViewSize, const FVector2D& InScrollOffset );
@@ -447,6 +447,7 @@ private:
 	float GetWrappingDrawWidth() const;
 
 	void FlowLayout();
+	void MarginLayout();
 
 	void FlowLineLayout(const int32 LineModelIndex, const float WrappingDrawWidth, TArray<TSharedRef<ILayoutBlock>>& SoftLine);
 

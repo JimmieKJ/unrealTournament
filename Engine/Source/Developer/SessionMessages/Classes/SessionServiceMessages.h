@@ -16,6 +16,17 @@ struct FSessionServicePing
 {
 	GENERATED_USTRUCT_BODY()
 
+	/** The name of the user who sent this ping. */
+	UPROPERTY(EditAnywhere, Category="Message")
+	FString UserName;
+
+	/** Default constructor. */
+	FSessionServicePing() { }
+
+	/** Creates and initializes a new instance. */
+	FSessionServicePing(const FString& InUserName)
+		: UserName(InUserName)
+	{ }
 };
 
 
@@ -27,44 +38,48 @@ struct FSessionServicePong
 {
 	GENERATED_USTRUCT_BODY()
 
+	/** Indicates whether the pinging user is authorized to interact with this session. */
+	UPROPERTY(EditAnywhere, Category="Message")
+	bool Authorized;
+
 	/** Holds the application's build date. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString BuildDate;
 
 	/** Holds the name of the device that the application is running on. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString DeviceName;
 
 	/** Holds the application's instance identifier. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
 	/** Holds the application's instance name. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString InstanceName;
 
-	/** Holds a flag indicating whether the application is running on a console. */
-	UPROPERTY()
+	/** Indicates whether the application is running on a console. */
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool IsConsoleBuild;
 
 	/** Holds the name of the platform that the application is running on. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString PlatformName;
 
 	/** Holds the identifier of the session that the application belongs to. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid SessionId;
 
 	/** Holds the user defined name of the session. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString SessionName;
 
 	/** Holds the name of the user that started the session. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString SessionOwner;
 
-	/** Holds a flag indicating whether the application is the only one in that session. */
-	UPROPERTY()
+	/** Indicates whether the application is the only one in that session. */
+	UPROPERTY(EditAnywhere, Category="Message")
 	bool Standalone;
 };
 
@@ -81,36 +96,34 @@ struct FSessionServiceLog
 	GENERATED_USTRUCT_BODY()
 
 	/** Holds the log message category. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FName Category;
 
 	/** Holds the log message data. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FString Data;
 
 	/** Holds the application instance identifier. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	FGuid InstanceId;
 
 	/** Holds the time in seconds since the application was started. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	double TimeSeconds;
 
 	/** Holds the log message's verbosity level. */
-	UPROPERTY()
+	UPROPERTY(EditAnywhere, Category="Message")
 	uint8 Verbosity;
 
 public:
 
-	/**
-	 * Default constructor.
-	 */
-	FSessionServiceLog( ) { }
+	/** Default constructor. */
+	FSessionServiceLog() { }
 
 	/**
 	 * Creates and initializes a new instance.
 	 */
-	FSessionServiceLog( const FName& InCategory, const FString& InData, const FGuid& InInstanceId, double InTimeSeconds, uint8 InVerbosity )
+	FSessionServiceLog(const FName& InCategory, const FString& InData, const FGuid& InInstanceId, double InTimeSeconds, uint8 InVerbosity)
 		: Category(InCategory)
 		, Data(InData)
 		, InstanceId(InInstanceId)

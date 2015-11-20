@@ -3,4 +3,3 @@
 #include "AssetRegistryPCH.h"
 
 DEFINE_LOG_CATEGORY(LogAssetData);
-

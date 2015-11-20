@@ -5,6 +5,7 @@
 #include "SEditorViewport.h"
 
 class FPhAT;
+class FPhATEdPreviewViewportClient;
 
 /*-----------------------------------------------------------------------------
    SPhATViewport
@@ -30,6 +31,8 @@ public:
 
 	/** Returns true if the viewport is visible */
 	bool IsVisible() const override;
+
+	virtual void OnFocusViewportToSelection() override;
 
 	/** Accessors */
 	TSharedPtr<FSceneViewport> GetViewport() const;

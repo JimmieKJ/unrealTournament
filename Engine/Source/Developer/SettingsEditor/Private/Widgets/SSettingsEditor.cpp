@@ -244,7 +244,18 @@ void SSettingsEditor::NotifyPostChange( const FPropertyChangedEvent& PropertyCha
 	{
 		RecordPreferenceChangedAnalytics( SelectedSection, PropertyChangedEvent );
 
-		SelectedSection->Save();
+		// Determine if the Property is an Array or Array Element
+		UObject* Outer = PropertyChangedEvent.Property->GetOuter();
+		bool bIsArrayOrArrayElement = PropertyThatChanged->GetActiveMemberNode()->GetValue()->IsA(UArrayProperty::StaticClass()) || ((Outer != nullptr) && Outer->IsA(UArrayProperty::StaticClass()));
+
+		if (SelectedSection->GetSettingsObject()->GetClass()->HasAnyClassFlags(CLASS_DefaultConfig) && !bIsArrayOrArrayElement)
+		{
+			SelectedSection->GetSettingsObject()->UpdateSinglePropertyInConfigFile(PropertyThatChanged->GetActiveMemberNode()->GetValue(), SelectedSection->GetSettingsObject()->GetDefaultConfigFilename());
+		}
+		else
+		{
+			SelectedSection->Save();
+		}
 
 		static const FName ConfigRestartRequiredKey = "ConfigRestartRequired";
 		if (PropertyChangedEvent.Property->GetBoolMetaData(ConfigRestartRequiredKey))
@@ -753,7 +764,7 @@ FReply SSettingsEditor::HandleSetAsDefaultButtonClicked()
 		{
 			if (ISourceControlModule::Get().IsEnabled())
 			{
-				if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("SaveAsDefaultNeedsCheckoutMessage", "The default configuration file for these settings is currently not checked out. Would you like to check it out from source control?")) != EAppReturnType::Yes)
+				if (FMessageDialog::Open(EAppMsgType::YesNo, LOCTEXT("SaveAsDefaultNeedsCheckoutMessage", "The default configuration file for these settings is currently not checked out. Would you like to check it out from source control? \n\nIf checked into source control this would affect other developers.")) != EAppReturnType::Yes)
 				{
 					return FReply::Handled();
 				}
@@ -773,7 +784,7 @@ FReply SSettingsEditor::HandleSetAsDefaultButtonClicked()
 
 		SelectedSection->SaveDefaults();
 
-		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveAsDefaultsSucceededMessage", "The default configuration file for these settings was updated successfully."));
+		FMessageDialog::Open(EAppMsgType::Ok, LOCTEXT("SaveAsDefaultsSucceededMessage", "The default configuration file for these settings was updated successfully. \n\nIf checked into source control this would affect other developers."));
 	}
 
 	return FReply::Handled();

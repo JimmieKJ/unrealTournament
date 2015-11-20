@@ -23,24 +23,37 @@ public class APEX : ModuleRules
 				{ 
 					return APEXLibraryMode.Debug;
 				}
+				else if(BuildConfiguration.bUseCheckedPhysXLibraries)
+                {
+   	                return APEXLibraryMode.Checked;
+       	        }
 				else
 				{
-					return APEXLibraryMode.Profile;
+                	return APEXLibraryMode.Profile;
 				}
 			case UnrealTargetConfiguration.Shipping:
 			case UnrealTargetConfiguration.Test:
-				return APEXLibraryMode.Shipping;
 			case UnrealTargetConfiguration.Development:
 			case UnrealTargetConfiguration.DebugGame:
 			case UnrealTargetConfiguration.Unknown:
 			default:
-				return APEXLibraryMode.Profile;
+                if(BuildConfiguration.bUseShippingPhysXLibraries)
+                {
+                    return APEXLibraryMode.Shipping;
+                }
+                else if(BuildConfiguration.bUseCheckedPhysXLibraries)
+                {
+                    return APEXLibraryMode.Checked;
+                }
+                else
+                {
+                    return APEXLibraryMode.Profile;
+                }
 		}
 	}
 
 	static string GetAPEXLibrarySuffix(APEXLibraryMode Mode)
 	{
-		bool bShippingBuildsActuallyUseShippingAPEXLibraries = false;
 
 		switch (Mode)
 		{
@@ -52,16 +65,7 @@ public class APEX : ModuleRules
 				return "PROFILE";
 			default:
 			case APEXLibraryMode.Shipping:
-				{
-					if( bShippingBuildsActuallyUseShippingAPEXLibraries )
-					{
-						return "";	
-					}
-					else
-					{
-						return "PROFILE";
-					}
-				}
+                return "";
 		}
 	}
 
@@ -118,15 +122,15 @@ public class APEX : ModuleRules
 				"APEX_Clothing{0}_x64.dll",
 				"APEX_Destructible{0}_x64.dll",
 				"APEX_Legacy{0}_x64.dll",
-				"APEX_Loader{0}_x64.dll",
-				"APEX_Particles{0}_x64.dll",
 				"ApexFramework{0}_x64.dll",
 			};
 
 			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/APEX-1.3/Win64/VS{0}/", WindowsPlatform.GetVisualStudioCompilerVersionName());
 			foreach(string RuntimeDependency in RuntimeDependenciesX64)
 			{
-				RuntimeDependencies.Add(new RuntimeDependency(ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix)));
+				string FileName = ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix);
+				RuntimeDependencies.Add(new RuntimeDependency(FileName));
+				RuntimeDependencies.Add(new RuntimeDependency(FileName + ".pdb"));
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Win32)
@@ -142,15 +146,15 @@ public class APEX : ModuleRules
 				"APEX_Clothing{0}_x86.dll",
 				"APEX_Destructible{0}_x86.dll",
 				"APEX_Legacy{0}_x86.dll",
-				"APEX_Loader{0}_x86.dll",
-				"APEX_Particles{0}_x86.dll",
 				"ApexFramework{0}_x86.dll",
 			};
 
 			string ApexBinariesDir = String.Format("$(EngineDir)/Binaries/ThirdParty/PhysX/APEX-1.3/Win32/VS{0}/", WindowsPlatform.GetVisualStudioCompilerVersionName());
 			foreach(string RuntimeDependency in RuntimeDependenciesX86)
 			{
-				RuntimeDependencies.Add(new RuntimeDependency(ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix)));
+				string FileName = ApexBinariesDir + String.Format(RuntimeDependency, LibrarySuffix);
+				RuntimeDependencies.Add(new RuntimeDependency(FileName));
+				RuntimeDependencies.Add(new RuntimeDependency(FileName + ".pdb"));
 			}
 		}
 		else if (Target.Platform == UnrealTargetPlatform.Mac)
@@ -159,7 +163,6 @@ public class APEX : ModuleRules
 			Definitions.Add("APEX_STATICALLY_LINKED=1");
 
 			ApexLibraries.Add("APEX_Legacy{0}");
-			ApexLibraries.Add("APEX_Loader{0}");
 
 			LibraryFormatString = APEXLibDir + "/lib{0}" + ".a";
 		}
@@ -169,7 +172,6 @@ public class APEX : ModuleRules
             Definitions.Add("APEX_STATICALLY_LINKED=1");
 
             ApexLibraries.Add("APEX_Legacy{0}");
-            ApexLibraries.Add("APEX_Loader{0}");
 
             LibraryFormatString = APEXLibDir + "/lib{0}" + ".a";
         }

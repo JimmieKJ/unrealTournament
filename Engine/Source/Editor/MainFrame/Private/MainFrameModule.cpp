@@ -6,6 +6,7 @@
 #include "Developer/HotReload/Public/IHotReload.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h"
+#include "GenericCommands.h"
 
 DEFINE_LOG_CATEGORY(LogMainFrame);
 #define LOCTEXT_NAMESPACE "FMainFrameModule"
@@ -271,7 +272,7 @@ TSharedRef<SWidget> FMainFrameModule::MakeDeveloperTools() const
 
 		static FText GetUObjectCountAsString() 
 		{
-			return FText::AsNumber(GetUObjectArray().GetObjectArrayNumMinusAvailable());
+			return FText::AsNumber(GUObjectArray.GetObjectArrayNumMinusAvailable());
 		}
 
 		static void OpenVideo( FString SourceFilePath )
@@ -608,8 +609,10 @@ void FMainFrameModule::StartupModule( )
 {
 	MRUFavoritesList = NULL;
 
+	ensureMsgf(!IsRunningGame(), TEXT("The MainFrame module should only be loaded when running the editor.  Code that extends the editor, adds menu items, etc... should not run when running in -game mode or in a non-WITH_EDITOR build"));
 	MainFrameHandler = MakeShareable(new FMainFrameHandler);
 
+	FGenericCommands::Register();
 	FMainFrameCommands::Register();
 
 	SetLevelNameForWindowTitle(TEXT(""));

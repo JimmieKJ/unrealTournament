@@ -55,7 +55,6 @@ public:
 	virtual void StopPlaying() = 0;
 	virtual void ResumePlaying() = 0;
 
-	virtual void StartRecordingMovie() = 0;
 	virtual bool Hide3DTrackView() = 0;
 	virtual void ToggleRecordMenuDisplay() = 0;
 	virtual void ToggleRecordInterpValues() = 0;

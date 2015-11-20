@@ -64,6 +64,9 @@ namespace EMouseCursor
 		/** Eye-dropper cursor for picking colors */
 		EyeDropper,
 
+		/** Custom cursor shape for platforms that support setting a native cursor shape. Same as specifying None if not set. */
+		Custom,
+
 		/** Number of cursors we support */
 		TotalCursorCount
 	};

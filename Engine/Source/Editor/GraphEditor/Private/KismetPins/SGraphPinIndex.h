@@ -14,7 +14,7 @@ public:
 	void OnTypeChanged(const FEdGraphPinType& PinType);
 
 protected:
-	// Begin SGraphPin interface
+	//~ Begin SGraphPin Interface
 	virtual TSharedRef<SWidget>	GetDefaultValueWidget() override;
-	// End SGraphPin interface
+	//~ End SGraphPin Interface
 };

@@ -16,8 +16,10 @@ namespace EContextTargetFlags
 		TARGET_NodeTarget			= 0x00000004 UMETA(DisplayName="Node Target", ToolTip="Include functions and variables that belong to the same class that the pin's node does."),
 		TARGET_PinObject			= 0x00000008 UMETA(DisplayName="Pin Type Class", ToolTip="Include functions and variables that belong to this pin type."),
 		TARGET_SiblingPinObjects	= 0x00000010 UMETA(DisplayName="Other Object Outputs", ToolTip="Include functions and variables that belong to any of this node's output types."),
+		TARGET_BlueprintLibraries	= 0x00000020 UMETA(DisplayName="Libraries", ToolTip="Include static functions that are globally accessible (belonging to function/macro libraries, etc.)."),
 
-		ContextTargetFlagsEnd UMETA(Hidden), // +1 to the last flag (so we can easily iterate these flags)
+		// +1 to the last flag (so we can easily iterate these flags)
+		ContextTargetFlagsEnd UMETA(Hidden),
 	};
 }
 

@@ -295,7 +295,7 @@ protected:
 	virtual FReply UpdateLastMousePosition( const FGeometry& MyGeometry, const FVector2D& ScreenSpacePosition, bool bClampToWindowRect = false, bool bSnapToGrid = false  ) PURE_VIRTUAL(SBlendSpaceWidget::UpdateLastMousePosition, return FReply::Handled(););
 
 	/** Display sample editing popup */
-	void ShowPopupEditWindow(int32 SampleIndex);
+	void ShowPopupEditWindow(int32 SampleIndex, const FPointerEvent& MouseEvent);
 
 	/** Handler for sample editing popup to delete selected sample */
 	FReply DeleteSample(int32 SampleIndex);

@@ -744,6 +744,11 @@ public:
 		return (m_tileWidth > 0 && m_tileHeight > 0) == false;
 	}
 
+	inline unsigned int getSaltBits() const
+	{
+		return m_saltBits;
+	}
+
 	void applyAreaCostOrder(unsigned char* costOrder);
 	//@UE4 END
 	

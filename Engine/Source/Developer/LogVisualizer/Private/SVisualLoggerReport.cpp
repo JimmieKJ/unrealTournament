@@ -9,7 +9,6 @@
 #include "Editor/UnrealEd/Public/EditorReimportHandler.h"
 #include "Editor/UnrealEd/Public/TexAlignTools.h"
 #include "Editor/UnrealEd/Public/TickableEditorObject.h"
-#include "UnrealEdClasses.h"
 #include "Editor/UnrealEd/Public/Editor.h"
 #include "Editor/UnrealEd/Public/EditorViewportClient.h"
 #include "VisualLoggerTypes.h"

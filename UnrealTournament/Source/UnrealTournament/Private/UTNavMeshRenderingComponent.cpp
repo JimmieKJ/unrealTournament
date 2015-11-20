@@ -8,7 +8,7 @@ FPrimitiveSceneProxy* UUTNavMeshRenderingComponent::CreateSceneProxy()
 #if WITH_RECAST && WITH_EDITOR
 	FPrimitiveSceneProxy* SceneProxy = NULL;
 	ARecastNavMesh* NavMesh = Cast<ARecastNavMesh>(GetOwner());
-	if (IsVisible() && NavMesh != NULL && !NavMesh->bPendingKillPending)
+	if (IsVisible() && NavMesh != NULL && !NavMesh->IsPendingKillPending())
 	{
 		FNavMeshSceneProxyData ProxyData;
 		ProxyData.Reset();
@@ -45,7 +45,7 @@ void UUTNavMeshRenderingComponent::GatherTriangleData(FNavMeshSceneProxyData* Cu
 	int32 CurrentBaseIndex = 0;
 	for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
 	{
-		FColor NodeColor = It.Key()->DebugDrawColor;
+		FColor NodeColor = It.Key()->DebugDrawColor.ToRGBE();
 		const FNavMeshTriangleList& TriangleData = It.Value();
 
 		FNavMeshSceneProxyData::FDebugMeshData DebugMeshData;

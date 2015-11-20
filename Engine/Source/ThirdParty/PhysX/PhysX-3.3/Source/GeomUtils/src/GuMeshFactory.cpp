@@ -41,28 +41,28 @@ void GuMeshFactory::release()
 {
 	// Release all objects in case the user didn't do it
 
-	while(mTriangleMeshArray.size() > 0)
+	while(mTriangleMeshes.size())
 	{
-		// force destruction
-		PX_ASSERT(mTriangleMeshArray[0]->getRefCount()==1);
-		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseTriangleMesh, *mTriangleMeshArray[0])
-		mTriangleMeshArray[0]->release();
+		Gu::TriangleMesh* mesh = mTriangleMeshes.getEntries()[0];
+		PX_ASSERT(mesh->getRefCount()==1);
+		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseTriangleMesh, *mesh);
+		mesh->release();
 	}
 
-	while(mConvexMeshArray.size() > 0)
+	while(mConvexMeshes.size())
 	{
-		// force destruction
-		PX_ASSERT(mConvexMeshArray[0]->getRefCount()==1);
-		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseConvexMesh, *mConvexMeshArray[0])
-		mConvexMeshArray[0]->release();
+		Gu::ConvexMesh* mesh = mConvexMeshes.getEntries()[0];
+		PX_ASSERT(mesh->getRefCount()==1);
+		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseConvexMesh, *mesh);
+		mesh->release();
 	}
 
-	while(mHeightFieldArray.size() > 0)
+	while(mHeightFields.size())
 	{
-		// force destruction
-		PX_ASSERT(mHeightFieldArray[0]->getRefCount()==1);
-		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseHeightField, *mHeightFieldArray[0])
-		mHeightFieldArray[0]->release();
+		Gu::HeightField* mesh = mHeightFields.getEntries()[0];
+		PX_ASSERT(mesh->getRefCount()==1);
+		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseHeightField, *mesh);
+		mesh->release();
 	}
 
 	PX_DELETE(this);
@@ -78,18 +78,16 @@ namespace
 			listeners[idx]->onGuMeshFactoryBufferRelease( type, typeID, memRelease );
 	}
 
-	template <typename T> void addToArray(Ps::Array<T*>& array, T* element, Ps::Mutex* mutex)
+	template <typename T> void addToHash(Ps::CoalescedHashSet<T*>& hash, T* element, Ps::Mutex* mutex)
 	{
 		if(!element)
 			return;
 
 		if(mutex)
 			mutex->lock();
-		{
-			if(!array.size())
-				array.reserve(64);
-			array.pushBack(element);
-		}
+
+		hash.insert(element);
+
 		if(mutex)
 			mutex->unlock();
 	}
@@ -99,7 +97,7 @@ namespace
 
 void GuMeshFactory::addTriangleMesh(Gu::TriangleMesh* np, bool lock)
 {
-	addToArray(mTriangleMeshArray, np, lock ? &mTrackingMutex : NULL);
+	addToHash(mTriangleMeshes, np, lock ? &mTrackingMutex : NULL);
 }
 
 PxTriangleMesh* GuMeshFactory::createTriangleMesh(PxInputStream& desc)
@@ -126,31 +124,33 @@ bool GuMeshFactory::removeTriangleMesh(PxTriangleMesh& m)
 	Ps::Mutex::ScopedLock lock(mTrackingMutex);
 	Gu::TriangleMesh* gu = static_cast<Gu::TriangleMesh*>(&m);
 
-	for(PxU32 i=0; i<mTriangleMeshArray.size(); i++)
+	bool found = mTriangleMeshes.erase(gu);
+
+	if(found)
 	{
-		if(mTriangleMeshArray[i]==gu)
-		{
-			GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseTriangleMesh, m)
-			mTriangleMeshArray.replaceWithLast(i);
-			return true;
-		}
+		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseTriangleMesh, m)
 	}
-	return false;
+
+	return found;
 }
 
 PxU32 GuMeshFactory::getNbTriangleMeshes() const
 {
-	return mTriangleMeshArray.size();
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
+	return mTriangleMeshes.size();
 }
 
 PxU32 GuMeshFactory::getTriangleMeshes(PxTriangleMesh** userBuffer, PxU32 bufferSize, PxU32 startIndex) const
 {
-	const PxU32 size = mTriangleMeshArray.size();
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
 
+	const PxU32 size = mTriangleMeshes.size();
 	const PxU32 remainder = (PxU32)PxMax<PxI32>(PxI32(size - startIndex), 0);
 	const PxU32 writeCount = PxMin(remainder, bufferSize);
+
+	Gu::TriangleMesh*const* meshes = mTriangleMeshes.getEntries();
 	for(PxU32 i=0; i<writeCount; i++)
-		userBuffer[i] = mTriangleMeshArray[i+startIndex];
+		userBuffer[i] = meshes[i+startIndex];
 
 	return writeCount;
 }
@@ -159,7 +159,7 @@ PxU32 GuMeshFactory::getTriangleMeshes(PxTriangleMesh** userBuffer, PxU32 buffer
 
 void GuMeshFactory::addConvexMesh(Gu::ConvexMesh* np, bool lock)
 {
-	addToArray(mConvexMeshArray, np, lock ? &mTrackingMutex : NULL);
+	addToHash(mConvexMeshes, np, lock ? &mTrackingMutex : NULL);
 }
 
 PxConvexMesh* GuMeshFactory::createConvexMesh(PxInputStream& desc)
@@ -183,35 +183,35 @@ PxConvexMesh* GuMeshFactory::createConvexMesh(PxInputStream& desc)
 
 bool GuMeshFactory::removeConvexMesh(PxConvexMesh& m)
 {
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
 	Gu::ConvexMesh* gu = static_cast<Gu::ConvexMesh*>(&m);
 
-	Ps::Mutex::ScopedLock lock(mTrackingMutex);
-	for(PxU32 i=0; i<mConvexMeshArray.size(); i++)
+	bool found = mConvexMeshes.erase(gu);
+	if(found)
 	{
-		if(mConvexMeshArray[i]==gu)
-		{
-			GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseConvexMesh, m)
-			mConvexMeshArray.replaceWithLast(i);
-			return true;
-		}
+		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseConvexMesh, m)
 	}
 
-	return false;
+	return found;
 }
 
 PxU32 GuMeshFactory::getNbConvexMeshes() const
 {
-	return mConvexMeshArray.size();
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
+	return mConvexMeshes.size();
 }
 
 PxU32 GuMeshFactory::getConvexMeshes(PxConvexMesh** userBuffer, PxU32 bufferSize, PxU32 startIndex) const
 {
-	const PxU32 size = mConvexMeshArray.size();
-
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
+	
+	const PxU32 size = mConvexMeshes.size();
 	const PxU32 remainder = (PxU32)PxMax<PxI32>(PxI32(size - startIndex), 0);
 	const PxU32 writeCount = PxMin(remainder, bufferSize);
+
+	Gu::ConvexMesh*const* meshes = mConvexMeshes.getEntries();
 	for(PxU32 i=0; i<writeCount; i++)
-		userBuffer[i] = mConvexMeshArray[i+startIndex];
+		userBuffer[i] = meshes[i+startIndex];
 
 	return writeCount;
 }
@@ -220,7 +220,7 @@ PxU32 GuMeshFactory::getConvexMeshes(PxConvexMesh** userBuffer, PxU32 bufferSize
 
 void GuMeshFactory::addHeightField(Gu::HeightField* np, bool lock)
 {
-	addToArray(mHeightFieldArray, np, lock ? &mTrackingMutex : NULL);
+	addToHash(mHeightFields, np, lock ? &mTrackingMutex : NULL);
 }
 
 PxHeightField* GuMeshFactory::createHeightField(const PxHeightFieldDesc& desc)
@@ -259,35 +259,35 @@ PxHeightField* GuMeshFactory::createHeightField(PxInputStream& stream)
 
 bool GuMeshFactory::removeHeightField(PxHeightField& hf)
 {
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
 	Gu::HeightField* gu = static_cast<Gu::HeightField*>(&hf);
 
-	Ps::Mutex::ScopedLock lock(mTrackingMutex);
-
-	for(PxU32 i=0; i<mHeightFieldArray.size(); i++)
+	bool found = mHeightFields.erase(gu);
+	if(found)
 	{
-		if(mHeightFieldArray[i]==gu)
-		{
-			GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseHeightField, hf)
-			mHeightFieldArray.replaceWithLast(i);
-			return true;
-		}
+		GU_MESH_FACTORY_GPU_NOTIFICATION(notifyReleaseHeightField, hf)
 	}
-	return false;
+
+	return found;
 }
 
 PxU32 GuMeshFactory::getNbHeightFields() const
 {
-	return mHeightFieldArray.size();
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
+	return mHeightFields.size();
 }
 
 PxU32 GuMeshFactory::getHeightFields(PxHeightField** userBuffer, PxU32 bufferSize, PxU32 startIndex) const
 {
-	const PxU32 size = mHeightFieldArray.size();
-
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
+	
+	const PxU32 size = mHeightFields.size();
 	const PxU32 remainder = (PxU32)PxMax<PxI32>(PxI32(size - startIndex), 0);
 	const PxU32 writeCount = PxMin(remainder, bufferSize);
+
+	Gu::HeightField*const* meshes = mHeightFields.getEntries();
 	for(PxU32 i=0; i<writeCount; i++)
-		userBuffer[i] = mHeightFieldArray[i+startIndex];
+		userBuffer[i] = meshes[i+startIndex];
 
 	return writeCount;
 }
@@ -295,10 +295,12 @@ PxU32 GuMeshFactory::getHeightFields(PxHeightField** userBuffer, PxU32 bufferSiz
 
 void GuMeshFactory::addFactoryListener( GuMeshFactoryListener& listener )
 {
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
 	mFactoryListeners.pushBack( &listener );
 }
 void GuMeshFactory::removeFactoryListener( GuMeshFactoryListener& listener )
 {
+	Ps::Mutex::ScopedLock lock(mTrackingMutex);
 	for ( PxU32 idx = 0; idx < mFactoryListeners.size(); ++idx )
 	{
 		if ( mFactoryListeners[idx] == &listener )

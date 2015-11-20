@@ -737,7 +737,7 @@ public:
 	* @param DepthSortKey - the key used to find the sort element entry
 	* @return sort element entry
 	*/
-	FCanvasSortElement& GetSortElement(int32 DepthSortKey);
+	ENGINE_API FCanvasSortElement& GetSortElement(int32 DepthSortKey);
 
 };
 

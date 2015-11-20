@@ -4,7 +4,7 @@ using UnrealBuildTool;
 
 public class HTML5JS : ModuleRules
 {
-	// does not depend on any unreal modules.
+	// Does not depend on any Unreal modules.
 	// UBT doesn't automatically understand .js code and the fact that it needs to be linked in or not. 
 	public HTML5JS(TargetInfo Target)
 	{

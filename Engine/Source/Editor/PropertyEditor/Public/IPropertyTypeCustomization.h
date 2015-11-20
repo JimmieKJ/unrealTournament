@@ -2,17 +2,24 @@
 
 #pragma once
 
+#include "EditorStyleSet.h"
+
+
 class IPropertyHandle;
 class FDetailWidgetRow;
+class IPropertyHandle;
 class IPropertyTypeCustomizationUtils;
+class IPropertyUtilities;
 class IDetailChildrenBuilder;
 class FAssetThumbnailPool;
 class IPropertyUtilities;
 
+
 /**
  * Base class for property type customizations
  */
-class IPropertyTypeCustomization : public TSharedFromThis<IPropertyTypeCustomization>
+class IPropertyTypeCustomization
+	: public TSharedFromThis<IPropertyTypeCustomization>
 {
 public:
 	virtual ~IPropertyTypeCustomization() {}
@@ -64,7 +71,7 @@ public:
 	/**
 	*	@return the utilities various widgets need access to certain features of PropertyDetails
 	*/
-	virtual TSharedPtr<IPropertyUtilities> GetPropertyUtilities() const { return NULL; }
+	virtual TSharedPtr<IPropertyUtilities> GetPropertyUtilities() const { return nullptr; }
 };
 
 

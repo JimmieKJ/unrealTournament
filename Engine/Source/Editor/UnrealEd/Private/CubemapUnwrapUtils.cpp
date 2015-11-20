@@ -84,6 +84,7 @@ namespace CubemapHelpers
 			break;
 		}
 		// Clean up.
+		RenderTargetLongLat->ReleaseResource();
 		RenderTargetLongLat->RemoveFromRoot();
 		RenderTargetLongLat = NULL;
 		delete Canvas;

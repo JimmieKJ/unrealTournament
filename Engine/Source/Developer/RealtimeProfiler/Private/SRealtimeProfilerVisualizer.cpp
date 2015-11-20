@@ -99,11 +99,12 @@ void SRealtimeProfilerVisualizer::RouteBarEventSelectionChanged( int32 Thread, T
 	EventsTree->HandleBarEventSelectionChanged( Thread, Selection );
 }
 
-void SRealtimeProfilerVisualizer::OnBarGraphContextMenu( TSharedPtr< FVisualizerEvent > Selection )
+void SRealtimeProfilerVisualizer::OnBarGraphContextMenu( TSharedPtr< FVisualizerEvent > Selection, const FPointerEvent& InputEvent )
 {
 	SelectedBarGraph = Selection;
 
-	FSlateApplication::Get().PushMenu( SharedThis( this ), MakeBarVisualizerContextMenu(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect::ContextMenu );
+	FWidgetPath WidgetPath = InputEvent.GetEventPath() != nullptr ? *InputEvent.GetEventPath() : FWidgetPath();
+	FSlateApplication::Get().PushMenu(SharedThis(this), WidgetPath, MakeBarVisualizerContextMenu(), FSlateApplication::Get().GetCursorPos(), FPopupTransitionEffect::ContextMenu);
 }
 
 TSharedRef<SWidget> SRealtimeProfilerVisualizer::MakeBarVisualizerContextMenu()

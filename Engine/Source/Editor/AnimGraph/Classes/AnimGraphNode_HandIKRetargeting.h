@@ -2,7 +2,7 @@
 
 #pragma once
 #include "AnimGraphNode_SkeletalControlBase.h"
-#include "Animation/BoneControllers/AnimNode_HandIKRetargeting.h"
+#include "BoneControllers/AnimNode_HandIKRetargeting.h"
 #include "AnimGraphNode_HandIKRetargeting.generated.h"
 
 UCLASS(MinimalAPI)
@@ -22,5 +22,6 @@ public:
 protected:
 	// UAnimGraphNode_SkeletalControlBase interface
 	virtual FText GetControllerDescription() const override;
+	virtual const FAnimNode_SkeletalControlBase* GetNode() const override { return &Node; }
 	// End of UAnimGraphNode_SkeletalControlBase interface
 };

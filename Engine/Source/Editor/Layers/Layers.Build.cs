@@ -23,7 +23,6 @@ public class Layers : ModuleRules
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"PropertyEditor",
-				"SceneOutliner",
 			}
 		);
 	}

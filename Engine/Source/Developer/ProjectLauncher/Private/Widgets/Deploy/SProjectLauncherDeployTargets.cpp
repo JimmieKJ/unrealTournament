@@ -26,11 +26,27 @@ SProjectLauncherDeployTargets::~SProjectLauncherDeployTargets()
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SProjectLauncherDeployTargets::Construct(const FArguments& InArgs, const FProjectLauncherModelRef& InModel)
 {
-	Model = InModel;
+	Model = InModel; 
 
 	ChildSlot
 	[
 		SNew(SVerticalBox)
+
+		+ SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Left)
+		.Padding(10.0f, 10.0f)
+		[			
+			SAssignNew(PlatformComboBox, SComboBox<TSharedPtr<FName>>)			
+			.ContentPadding(FMargin(6.0f, 2.0f))
+			.OptionsSource(&VanillaPlatformList)
+			.OnGenerateWidget(this, &SProjectLauncherDeployTargets::HandlePlatformComboBoxGenerateWidget)
+			.OnSelectionChanged(this, &SProjectLauncherDeployTargets::HandlePlatformComboBoxSelectionChanged)
+			[
+				SNew(STextBlock)
+				.Text(this, &SProjectLauncherDeployTargets::HandlePlatformComboBoxContentText)
+			]
+		]
 
 		+ SVerticalBox::Slot()
 		.AutoHeight()
@@ -103,6 +119,25 @@ void SProjectLauncherDeployTargets::Construct(const FArguments& InArgs, const FP
 	DeviceProxyManager->OnProxyRemoved().AddSP(this, &SProjectLauncherDeployTargets::HandleDeviceProxyManagerProxyRemoved);
 
 	DeviceProxyManager->GetProxies(NAME_None, false, DeviceProxyList);
+
+	VanillaPlatformList.Reset();
+	TSet<FName> VanillaNames;
+	VanillaNames.Add(NAME_None);
+	VanillaPlatformList.Add(MakeShareable(new FName(NAME_None)));
+
+	TArray<ITargetPlatform*> Platforms = GetTargetPlatformManager()->GetTargetPlatforms();
+	if (Platforms.Num() > 0)
+	{
+		for (int32 PlatformIndex = 0; PlatformIndex < Platforms.Num(); ++PlatformIndex)
+		{
+			FName VanillaName = Platforms[PlatformIndex]->GetPlatformInfo().VanillaPlatformName;
+			if (!VanillaNames.Contains(VanillaName))
+			{				
+				VanillaPlatformList.AddUnique(MakeShareable(new FName(VanillaName)));
+			}
+		}
+	}
+	PlatformComboBox->SetSelectedItem(VanillaPlatformList[0]);
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -181,7 +216,10 @@ TSharedRef<ITableRow> SProjectLauncherDeployTargets::HandleDeviceProxyListViewGe
 
 EVisibility SProjectLauncherDeployTargets::HandleDeviceProxyListViewVisibility() const
 {
-	if (DeviceProxyList.Num() > 0)
+	TSharedPtr<FName> DefaultPlatformNamePtr = PlatformComboBox->GetSelectedItem();
+	const FName DefaultPlatformName = DefaultPlatformNamePtr.IsValid() ? *DefaultPlatformNamePtr.Get() : NAME_None;	
+
+	if (DeviceProxyList.Num() > 0 && (DefaultPlatformName == NAME_None))
 	{
 		return EVisibility::Visible;
 	}
@@ -217,6 +255,57 @@ void SProjectLauncherDeployTargets::HandleDeviceProxyManagerProxyAdded(const ITa
 void SProjectLauncherDeployTargets::HandleDeviceProxyManagerProxyRemoved(const ITargetDeviceProxyRef& RemovedProxy)
 {
 	RefreshDeviceProxyList();
+}
+
+FText SProjectLauncherDeployTargets::HandlePlatformComboBoxContentText() const
+{	
+	FName DefaultPlatformName = NAME_None;
+	if (Model.IsValid())
+	{
+		const ILauncherProfilePtr Profile = Model->GetSelectedProfile();
+		if (Profile.IsValid())
+		{
+			DefaultPlatformName = Profile->GetDefaultDeployPlatform();
+		}
+	}
+
+	FString ComboText(TEXT("Default Deploy Platform: "));
+	ComboText += DefaultPlatformName.ToString();
+
+	//avoid creating new FTexts as much as possible.
+	if (DefaultPlatformText.ToString().Compare(ComboText) != 0)
+	{
+		DefaultPlatformText = FText::FromString(ComboText);
+		for (int32 i = 0; i < VanillaPlatformList.Num(); ++i)
+		{
+			if (*VanillaPlatformList[i] == DefaultPlatformName)
+			{
+				PlatformComboBox->SetSelectedItem(VanillaPlatformList[i]);
+				break;
+			}
+		}		
+	}
+
+	return DefaultPlatformText;
+}
+
+TSharedRef<SWidget> SProjectLauncherDeployTargets::HandlePlatformComboBoxGenerateWidget(TSharedPtr<FName> StringItem)
+{
+	FName DefaultPlatformName = StringItem.IsValid() ? *StringItem : NAME_None;	
+
+	return SNew(STextBlock).Text(FText::FromName(DefaultPlatformName));
+}
+
+void SProjectLauncherDeployTargets::HandlePlatformComboBoxSelectionChanged(TSharedPtr<FName> StringItem, ESelectInfo::Type SelectInfo)
+{
+	if (Model.IsValid())
+	{
+		const ILauncherProfilePtr Profile = Model->GetSelectedProfile();
+		if (Profile.IsValid())
+		{
+			Profile->SetDefaultDeployPlatform(StringItem.IsValid() ? *StringItem : NAME_None);
+		}
+	} 	
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -175,11 +175,13 @@ FText SSettingsEditorCheckoutNotice::HandleCheckOutButtonToolTip( ) const
 	return LOCTEXT("MakeWritableTooltip", "Make the default configuration file that holds these settings writable.");
 }
 
-EVisibility SSettingsEditorCheckoutNotice::HandleCheckOutButtonVisibility( ) const
+EVisibility SSettingsEditorCheckoutNotice::HandleCheckOutButtonVisibility() const
 {
-	if (ISourceControlModule::Get().IsEnabled() && ISourceControlModule::Get().GetProvider().IsAvailable())
+	// Display for checking out the file, or for making writable
+	if ((ISourceControlModule::Get().IsEnabled() && ISourceControlModule::Get().GetProvider().IsAvailable() && !DefaultConfigQueryInProgress) || 
+		(!ISourceControlModule::Get().IsEnabled() && (DefaultConfigQueryInProgress || DefaultConfigCheckOutNeeded)))
 	{
-		return !DefaultConfigQueryInProgress ? EVisibility::Visible : EVisibility::Hidden;
+		return EVisibility::Visible;
 	}
 
 	return EVisibility::Hidden;

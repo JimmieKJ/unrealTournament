@@ -68,7 +68,7 @@ UAnimStateTransitionNode::UAnimStateTransitionNode(const FObjectInitializer& Obj
 {
 
 	CrossfadeDuration = 0.2f;
-	CrossfadeMode = ETransitionBlendMode::TBM_Cubic;
+	BlendMode = EAlphaBlendOption::HermiteCubic;
 	bSharedRules = false;
 	SharedRulesGuid.Invalidate();
 	bSharedCrossfade = false;
@@ -106,6 +106,22 @@ void UAnimStateTransitionNode::PostLoad()
 	if (bSharedCrossfade && !SharedCrossfadeGuid.IsValid())
 	{
 		FAnimStateTransitionNodeSharedCrossfadeHelper().MakeSureGuidExists(this);
+	}
+
+	if(GetLinkerUE4Version() < VER_UE4_ADDED_NON_LINEAR_TRANSITION_BLENDS)
+	{
+		switch(CrossfadeMode_DEPRECATED)
+		{
+			case ETransitionBlendMode::TBM_Linear:
+				BlendMode = EAlphaBlendOption::Linear;
+				break;
+			case ETransitionBlendMode::TBM_Cubic:
+				// Old cubic was actually an in/out hermite polynomial (FMath::SmoothStep)
+				BlendMode = EAlphaBlendOption::HermiteCubic;
+				break;
+			default:
+				break;
+		}
 	}
 }
 
@@ -352,7 +368,8 @@ void UAnimStateTransitionNode::UseSharedCrossfade(const UAnimStateTransitionNode
 void UAnimStateTransitionNode::CopyCrossfadeSettings(const UAnimStateTransitionNode* SrcNode)
 {
 	CrossfadeDuration = SrcNode->CrossfadeDuration;
-	CrossfadeMode = SrcNode->CrossfadeMode;
+	CrossfadeMode_DEPRECATED = SrcNode->CrossfadeMode_DEPRECATED;
+	BlendMode = SrcNode->BlendMode;
 	SharedCrossfadeIdx = SrcNode->SharedCrossfadeIdx;
 	SharedCrossfadeName = SrcNode->SharedCrossfadeName;
 	SharedCrossfadeGuid = SrcNode->SharedCrossfadeGuid;
@@ -415,6 +432,7 @@ void UAnimStateTransitionNode::CreateCustomTransitionGraph()
 	Schema->CreateDefaultNodesForGraph(*CustomTransitionGraph);
 
 	// Add the new graph as a child of our parent graph
+	GetGraph()->Modify();
 	GetGraph()->SubGraphs.Add(CustomTransitionGraph);
 }
 

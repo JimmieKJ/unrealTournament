@@ -163,6 +163,14 @@ namespace MarkdownMode.ToolWindow
                 markdownTransform.ThisIsPreview = true;
 
                 markdownTransform.SupportedLanguages = Settings.SupportedLanguages;
+                markdownTransform.SupportedLanguageLabels = Settings.SupportedLanguageLabels;
+                for (int i = 0; i < markdownTransform.SupportedLanguages.Length; i++)
+                {
+                    if (!markdownTransform.SupportedLanguageMap.ContainsKey(markdownTransform.SupportedLanguages[i]))
+                    {
+                        markdownTransform.SupportedLanguageMap.Add(markdownTransform.SupportedLanguages[i], markdownTransform.SupportedLanguageLabels[i]);
+                    }
+                }
 
                 markdownTransform.AllSupportedAvailability = new List<string>();
                 foreach (string Availablity in Settings.SupportedAvailabilities)

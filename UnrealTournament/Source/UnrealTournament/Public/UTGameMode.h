@@ -357,7 +357,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
 	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
 	virtual void InitGameState() override;
-	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
+	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void Reset();
 	virtual void RestartGame();
 	virtual void BeginGame();
@@ -410,7 +410,7 @@ public:
 	virtual void RestartPlayer(AController* aPlayer);
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
-	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
+	virtual FString InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal = TEXT("")) override;
 
 	virtual void GiveDefaultInventory(APawn* PlayerPawn);
 
@@ -621,8 +621,6 @@ private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);
 
-	bool CanAwardXP();
-
 public:
 	/**
 	 *	Tells an associated lobby that this game is ready for joins.
@@ -751,13 +749,6 @@ public:
 	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects) override;
 
 private:
-	// note: one based
-	UPROPERTY()
-	TArray<FStringAssetReference> LevelUpRewards;
-
-	UPROPERTY(globalconfig)
-	FStringAssetReference EventReward;
-
 	UTAntiCheatModularFeature* AntiCheatEngine;
 
 public:

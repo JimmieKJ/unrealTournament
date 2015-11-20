@@ -29,23 +29,23 @@ class CABLECOMPONENT_API UCableComponent : public UMeshComponent
 
 public:
 
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 	virtual void OnRegister() override;
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
 	virtual void SendRenderDynamicData_Concurrent() override;
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 
-	// Begin USceneComponent interface.
+	//~ Begin USceneComponent Interface.
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	// Begin USceneComponent interface.
+	//~ Begin USceneComponent Interface.
 
-	// Begin UPrimitiveComponent interface.
+	//~ Begin UPrimitiveComponent Interface.
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
-	// End UPrimitiveComponent interface.
+	//~ End UPrimitiveComponent Interface.
 
-	// Begin UMeshComponent interface.
+	//~ Begin UMeshComponent Interface.
 	virtual int32 GetNumMaterials() const override;
-	// End UMeshComponent interface.
+	//~ End UMeshComponent Interface.
 
 
 	/** Actor or Component that the end of the cable should be attached to */
@@ -102,9 +102,9 @@ private:
 	/** Solve the cable spring constraints */
 	void SolveConstraints();
 	/** Integrate cable point positions */
-	void VerletIntegrate(float SubstepTime, const FVector& Gravity);
+	void VerletIntegrate(float InSubstepTime, const FVector& Gravity);
 	/** Perform a simulation substep */
-	void PerformSubstep(float SubstepTime, const FVector& Gravity);
+	void PerformSubstep(float InSubstepTime, const FVector& Gravity);
 	/** Get start and end position for the cable */
 	void GetEndPositions(FVector& OutStartPosition, FVector& OutEndPosition);
 	/** Amount of time 'left over' from last tick */

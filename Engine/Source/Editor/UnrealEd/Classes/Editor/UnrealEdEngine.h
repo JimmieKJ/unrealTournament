@@ -10,13 +10,13 @@
 UENUM()
 enum EPackageNotifyState
 {
-	// The user has been prompted with the balloon taskbar message
+	/** The user has been prompted with the balloon taskbar message. */
 	NS_BalloonPrompted,
-	// The user responded to the balloon task bar message and got the modal prompt to checkout dialog and responded to it
+	/** The user responded to the balloon task bar message and got the modal prompt to checkout dialog and responded to it. */
 	NS_DialogPrompted,
-	// The package has been marked dirty and is pending a balloon prompt
+	/** The package has been marked dirty and is pending a balloon prompt. */
 	NS_PendingPrompt,
-	// The package has been marked dirty but cannot be checked out, and is pending a modal warning dialog
+	/** The package has been marked dirty but cannot be checked out, and is pending a modal warning dialog. */
 	NS_PendingWarning,
 	NS_MAX,
 };
@@ -24,11 +24,11 @@ enum EPackageNotifyState
 UENUM()
 enum EWriteDisallowedWarningState
 {
-	// The user needs to be warned about the package
+	/** The user needs to be warned about the package. */
 	WDWS_PendingWarn,
-	// The user has been warned about the package
+	/** The user has been warned about the package. */
 	WDWS_Warned,
-	// Warning for the package unnecessary
+	/** Warning for the package unnecessary. */
 	WDWS_WarningUnnecessary,
 	WDWS_MAX,
 };
@@ -168,24 +168,25 @@ public:
 	/** Manages currently active visualizer and routes interactions to it */
 	FComponentVisualizerManager	ComponentVisManager;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	~UUnrealEdEngine();
 	virtual void FinishDestroy() override;
 	virtual void Serialize( FArchive& Ar ) override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin FNotify interface.
+	//~ Begin FNotify Interface.
 	virtual void NotifyPreChange( UProperty* PropertyAboutToChange ) override;
 	virtual void NotifyPostChange( const FPropertyChangedEvent& PropertyChangedEvent, UProperty* PropertyThatChanged ) override;
-	// End FNotify interface.
+	//~ End FNotify Interface.
 
-	// Begin UEditorEngine Interface
+	//~ Begin UEditorEngine Interface
 	virtual void SelectActor(AActor* Actor, bool InSelected, bool bNotify, bool bSelectEvenIfHidden = false, bool bForceRefresh = false) override;
 	virtual bool CanSelectActor(AActor* Actor, bool InSelected, bool bSelectEvenIfHidden=false, bool bWarnIfLevelLocked=false) const override;
 	virtual void SelectGroup(AGroupActor* InGroupActor, bool bForceSelection=false, bool bInSelected=true, bool bNotify=true) override;
 	virtual void SelectComponent(class UActorComponent* Component, bool bInSelected, bool bNotify, bool bSelectEvenIfHidden = false) override;
 	virtual void SelectBSPSurf(UModel* InModel, int32 iSurf, bool bSelected, bool bNoteSelectionChange) override;
 	virtual void SelectNone(bool bNoteSelectionChange, bool bDeselectBSPSurfs, bool WarnAboutManyActors=true) override;
+	virtual void DeselectAllSurfaces() override;
 	virtual void NoteSelectionChange() override;
 	virtual void NoteActorMovement() override;
 	virtual void FinishAllSnaps() override;
@@ -201,18 +202,19 @@ public:
 	virtual bool ShouldAbortActorDeletion() const override;
 	virtual void CloseEditor() override;
 	virtual void OnOpenMatinee() override;
-	// End UEditorEngine Interface 
+	virtual bool IsAutosaving() const override;
+	//~ End UEditorEngine Interface 
 	
-	// Begin FExec Interface
+	//~ Begin FExec Interface
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar=*GLog ) override;
-	// End FExec Interface
+	//~ End FExec Interface
 
 
-	// Begin UEngine Interface.
+	//~ Begin UEngine Interface.
 	virtual void Init(IEngineLoop* InEngineLoop) override;
 	virtual void PreExit() override;
 	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
-	// End UEngine Interface.
+	//~ End UEngine Interface.
 
 	/** Builds a list of sprite categories for use in menus */
 	static void MakeSortedSpriteInfo(TArray<struct FSpriteCategoryInfo>& OutSortedSpriteInfo);
@@ -263,6 +265,16 @@ public:
 	 * @param InActor - the actor to toggle view flags for
 	 */
 	virtual void SetActorSelectionFlags (AActor* InActor);
+
+	/**
+	 * Set whether the pivot has been moved independently or not
+	 */
+	void SetPivotMovedIndependently( bool bMovedIndependently );
+
+	/**
+	 * Return whether the pivot has been moved independently or not
+	 */
+	bool IsPivotMovedIndependently() const;
 
 	/**
 	 * Called to reset the editor's pivot (widget) location using the currently selected objects.  Usually
@@ -674,6 +686,11 @@ public:
 	void UpdateVolumeActorVisibility( UClass* InVolumeActorClass = NULL , FLevelEditorViewportClient* InViewport = NULL);
 
 	/**
+	 * Identify any brushes whose sense is inverted and repair them
+	 */
+	void FixAnyInvertedBrushes(UWorld* World);
+
+	/**
 	 * Get the index of the provided sprite category
 	 *
 	 * @param	InSpriteCategory	Sprite category to get the index of
@@ -755,4 +772,7 @@ protected:
 
 	/** Handle to the registered OnMatineeEditorClosed delegate. */
 	FDelegateHandle OnMatineeEditorClosedDelegateHandle;
+
+	/** Whether the pivot has been moved independently */
+	bool bPivotMovedIndependently;
 };

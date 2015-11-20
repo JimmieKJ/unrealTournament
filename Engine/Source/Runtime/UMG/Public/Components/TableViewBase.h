@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Widget.h"
 #include "TableViewBase.generated.h"
 
 /** The base class for all wrapped table views */

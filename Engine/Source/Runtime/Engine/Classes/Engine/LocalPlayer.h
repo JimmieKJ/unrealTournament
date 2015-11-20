@@ -10,11 +10,16 @@
 #include "Player.h"
 #include "LocalPlayer.generated.h"
 
+#define INVALID_CONTROLLERID 255
+
+class FUniqueNetId;
+class UWorld;
+
 /** A context object that binds to a LocalPlayer. Useful for UI or other things that need to pass around player references */
 struct ENGINE_API FLocalPlayerContext
 {
 	FLocalPlayerContext();
-	FLocalPlayerContext(const class ULocalPlayer* InLocalPlayer);
+	FLocalPlayerContext(const class ULocalPlayer* InLocalPlayer, UWorld* InWorld = nullptr);
 	FLocalPlayerContext(const class APlayerController* InPlayerController);
 	FLocalPlayerContext(const FLocalPlayerContext& InPlayerContext);
 
@@ -128,6 +133,8 @@ private:
 	void SetPlayerController( const class APlayerController* InPlayerController );
 
 	TWeakObjectPtr<class ULocalPlayer>		LocalPlayer;
+
+	TWeakObjectPtr<UWorld>					World;
 };
 
 /**
@@ -146,7 +153,7 @@ class ENGINE_API ULocalPlayer : public UPlayer
 #endif // WITH_HOT_RELOAD_CTORS
 
 	/** The FUniqueNetId which this player is associated with. */
-	TSharedPtr<class FUniqueNetId> CachedUniqueNetId;
+	TSharedPtr<const FUniqueNetId> CachedUniqueNetId;
 
 	/** The master viewport containing this player's view. */
 	UPROPERTY()
@@ -176,13 +183,6 @@ class ENGINE_API ULocalPlayer : public UPlayer
 private:
 	FSceneViewStateReference ViewState;
 	FSceneViewStateReference StereoViewState;
-
-	/** Class to manage online services */
-	UPROPERTY()
-	class UOnlineSession* OnlineSession;
-
-	/** @return OnlineSession class to use for this player controller  */
-	virtual TSubclassOf<UOnlineSession> GetOnlineSessionClass();
 
 	/** The controller ID which this player accepts input from. */
 	int32 ControllerId;
@@ -217,17 +217,13 @@ public:
 	bool HandleToggleStreamingVolumesCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleCancelMatineeCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	
-	// UPlayer interface
-	virtual void HandleDisconnect(class UWorld *World, class UNetDriver *NetDriver) override;
-	// End of UPlayer interface
-
 protected:
 	/**
 	 * Retrieve the viewpoint of this player.
 	 * @param OutViewInfo - Upon return contains the view information for the player.
 	 * @param StereoPass - Which stereoscopic pass, if any, to get the viewport for.  This will include eye offsetting
 	 */
-	void GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass StereoPass = eSSP_FULL);
+	void GetViewPoint(FMinimalViewInfo& OutViewInfo, EStereoscopicPass StereoPass = eSSP_FULL) const;
 
 	/** @todo document */
 	void ExecMacro( const TCHAR* Filename, FOutputDevice& Ar );
@@ -292,9 +288,6 @@ public:
 	 */
 	virtual void InitOnlineSession();
 
-	/** @return online session management object associated with this player */
-	UOnlineSession* GetOnlineSession() const { return OnlineSession; }
-
 	/**
 	 * Called when the player is removed from the viewport client
 	 */
@@ -354,24 +347,24 @@ public:
 	 *
 	 * @return unique Id associated with this player
 	 */
-	TSharedPtr<class FUniqueNetId> GetUniqueNetIdFromCachedControllerId() const;
+	TSharedPtr<const FUniqueNetId> GetUniqueNetIdFromCachedControllerId() const;
 
 	/** 
 	 * Retrieves this player's unique net ID that was previously cached
 	 *
 	 * @return unique Id associated with this player
 	 */
-	TSharedPtr<class FUniqueNetId> GetCachedUniqueNetId() const;
+	TSharedPtr<const FUniqueNetId> GetCachedUniqueNetId() const;
 
 	/** Sets the players current cached unique net id */
-	void SetCachedUniqueNetId( TSharedPtr<class FUniqueNetId> NewUniqueNetId );
+	void SetCachedUniqueNetId(TSharedPtr<const FUniqueNetId> NewUniqueNetId);
 
 	/** 
 	 * Retrieves the preferred unique net id. This is for backwards compatibility for games that don't use the cached unique net id logic
 	 *
 	 * @return unique Id associated with this player
 	 */
-	TSharedPtr<FUniqueNetId> GetPreferredUniqueNetId() const;
+	TSharedPtr<const FUniqueNetId> GetPreferredUniqueNetId() const;
 
 	/** Returns true if the cached unique net id, is the one assigned to the controller id from the OSS */
 	bool IsCachedUniqueNetIdPairedWithControllerId() const;
@@ -404,7 +397,7 @@ public:
 	 * @param	ProjectionData			The structure to be filled with projection data
 	 * @return  False if there is no viewport, or if the Actor is null
 	 */
-	bool GetProjectionData(FViewport* Viewport, EStereoscopicPass StereoPass, FSceneViewProjectionData& ProjectionData);
+	bool GetProjectionData(FViewport* Viewport, EStereoscopicPass StereoPass, FSceneViewProjectionData& ProjectionData) const;
 
 	/**
 	 * Determines whether this player is the first and primary player on their machine.

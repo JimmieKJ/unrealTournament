@@ -49,6 +49,33 @@ inline bool OuterIsCDO(const UObject* Obj, UObject*& OutCDO)
 	return bOuterIsCDO;
 }
 
+inline bool OuterIsCDO(const UObject* Obj, UObject*& OutCDO, TArray<FName>& OutHierarchyNames)
+{
+	bool bOuterIsCDO = false;
+	UObject* Iter = Obj->GetOuter();
+	while (Iter)
+	{
+		if (Iter->HasAllFlags(RF_ClassDefaultObject))
+		{
+			bOuterIsCDO = true;
+			OutCDO = Iter;
+			break;
+		}
+		else
+		{
+			OutHierarchyNames.Add(Iter->GetFName());
+		}
+		Iter = Iter->GetOuter();
+	}
+
+	// If the outer is not a CDO, clear the hierarchy of names, they will not be used
+	if (bOuterIsCDO == false)
+	{
+		OutHierarchyNames.Empty();
+	}
+	return bOuterIsCDO;
+}
+
 /*-----------------------------------------------------------------------------
 	FTransaction.
 -----------------------------------------------------------------------------*/
@@ -97,36 +124,63 @@ protected:
 		private:
 			UObject* Object;
 			UClass* SourceCDO;
-			FName SubObjectId;
-
+			TArray<FName> SubObjectHierarchyID;
 		public:
 			FPersistentObjectRef()
 				: Object(nullptr)
 				, SourceCDO(nullptr)
-				, SubObjectId()
 			{}
 
 			FPersistentObjectRef(UObject* InObject)
 			{
+				// we want to reference CDOs and default sub-objects in a unique 
+				// way... Blueprints can delete and reconstruct CDOs and their
+				// sub-objects during compilation; when undoing, we want changes 
+				// to be reverted for the most recent version of the CDO/sub-
+				// object (not one that has since been thrown out); therefore, 
+				// we record the CDO's class (which remains static) and sub-
+				// objects' names so we can look them up later in Get() 
 				const bool bIsCDO = InObject && InObject->HasAllFlags(RF_ClassDefaultObject);
-				UObject* CDO = nullptr;
-				const bool bIsSubobjectOfCDO = OuterIsCDO(InObject, CDO);
-				if (bIsCDO )
+				UObject* CDO = bIsCDO ? InObject : nullptr;
+				const bool bIsSubobjectOfCDO = OuterIsCDO(InObject, CDO, SubObjectHierarchyID);
+				
+				// we have to be careful though, Blueprints also duplicate CDOs 
+				// and their sub-objects; we don't want changes to the 
+				// duplicated CDO/sub-object to be applied back to the original 
+				// (the original would most likely be destroyed when we attempt 
+				// to undo the duplication)... here we check that the class
+				// recognizes this CDO as its own (if not, then we're most 
+				// likely in the middle of a duplicate)
+				const bool bIsClassCDO = (CDO != nullptr) ? (CDO->GetClass()->ClassDefaultObject == CDO) : false;
+				const bool bRefObjectsByClass = (bIsCDO || bIsSubobjectOfCDO) && bIsClassCDO;
+
+				if (bRefObjectsByClass)
 				{
 					Object = nullptr;
-					SourceCDO = InObject->GetClass();
-				}
-				else if (bIsSubobjectOfCDO)
-				{
-					Object = nullptr;
-					SubObjectId = InObject->GetFName();
 					SourceCDO = CDO->GetClass();
+
+					if (bIsSubobjectOfCDO)
+					{
+						SubObjectHierarchyID.Add(InObject->GetFName());
+					}
 				}
 				else
 				{
+					// @TODO: if bIsCDO/bIsSubobjectOfCDO is true, but bRefObjectsByClass is not,
+					//        then we end up here and the transaction buffer ends up most likely 
+					//        referencing an intermediate REINST/TRASH class (keeping it from being GC'd)     
 					Object = InObject;
 					SourceCDO = nullptr;
 				}
+
+				// can be used to verify that this struct is referencing the object correctly
+				//ensure(Get() == InObject);
+			}
+
+			/** Returns TRUE if the recorded object is part of the CDO */
+			bool IsPartOfCDO() const
+			{
+				return SourceCDO != nullptr;
 			}
 
 			UObject* Get() const
@@ -134,10 +188,44 @@ protected:
 				checkSlow(!SourceCDO || !Object);
 				if (SourceCDO)
 				{
-					if (SubObjectId != FName())
+					if (SubObjectHierarchyID.Num() > 0)
 					{
 						// find the subobject:
-						return SourceCDO->GetDefaultSubobjectByName(SubObjectId);
+						UObject* CurrentObject = SourceCDO->GetDefaultObject();
+						UObject* NextObject = CurrentObject->GetDefaultSubobjectByName(SubObjectHierarchyID[0]);
+
+						// Current increasing depth into sub-objects, starts at 1 to avoid the sub-object found and placed in NextObject.
+						int SubObjectDepth = 1;
+
+						// Only continue digging deeper if the current target sub-object was found
+						bool bFoundTargetSubObject = true;
+						while(NextObject && bFoundTargetSubObject)
+						{
+							CurrentObject = NextObject;
+							NextObject = nullptr;
+
+							// If there is no more depth to dig for our object, we are done.
+							if (SubObjectDepth < SubObjectHierarchyID.Num())
+							{
+								bFoundTargetSubObject = false;
+
+								// Look for any UObject's with the CurrentObject's outer to find the next sub-object
+								TArray<UObject*> OutDefaultSubobjects;
+								GetObjectsWithOuter(CurrentObject, OutDefaultSubobjects, false);
+								for (int32 SubobjectIndex = 0; SubobjectIndex < OutDefaultSubobjects.Num(); SubobjectIndex++)
+								{
+									if (OutDefaultSubobjects[SubobjectIndex]->GetFName() == SubObjectHierarchyID[SubObjectDepth])
+									{
+										SubObjectDepth++;
+										NextObject = OutDefaultSubobjects[SubobjectIndex];
+										bFoundTargetSubObject = true;
+										break;
+									}
+								}
+							}
+						}
+
+						return bFoundTargetSubObject? CurrentObject : nullptr;
 					}
 					else
 					{
@@ -147,9 +235,15 @@ protected:
 				return Object;
 			}
 
+			/** Determines if the object referenced by this struct, needs to be kept from garbage collection */
 			bool ShouldAddReference() const
 			{
-				return !(SourceCDO != nullptr && SubObjectId != FName());
+				// if the object is being referenced through SourceCDO (instead 
+				// of a direct Object pointer), then we don't need keep it from 
+				// garbage collection, this will continue to reference its 
+				// replacement post GC... we only need to keep hard Object 
+				// references from getting GC'd
+				return (Object != nullptr);
 			}
 
 			UObject* operator->() const
@@ -228,6 +322,9 @@ protected:
 		/** Used by GC to collect referenced objects. */
 		void AddReferencedObjects( FReferenceCollector& Collector );
 
+		/** @return True if this record contains a reference to a pie object */
+		bool ContainsPieObject() const;
+
 		/** Transfers data from an array. */
 		class FReader : public FArchiveUObject
 		{
@@ -280,11 +377,14 @@ protected:
 			{
 				if( Owner )
 				{
-					for( int32 i=0; i<Owner->Records.Num(); i++ )
+					if ( Owner->ObjectMap.Contains( InObject ) )
 					{
-						if( Owner->Records[i].Object.Get()==InObject )
+						for (int32 i = 0; i < Owner->Records.Num(); i++)
 						{
-							Owner->Records[i].Restore( Owner );
+							if (Owner->Records[i].Object.Get() == InObject)
+							{
+								Owner->Records[i].Restore(Owner);
+							}
 						}
 					}
 				}
@@ -458,6 +558,10 @@ public:
 	int32 GetRecordCount() const;
 
 	const UObject* GetPrimaryObject() const { return PrimaryObject; }
+
+	/** @return True if this record contains a reference to a pie object */
+	bool ContainsPieObject() const;
+
 	/**
 	 * Outputs the contents of the ObjectMap to the specified output device.
 	 */
@@ -620,8 +724,11 @@ class UTransactor : public UObject
 	 */
 	virtual void SetPrimaryUndoObject( UObject* Object ) PURE_VIRTUAL(UTransactor::MakePrimaryUndoObject,);
 
+	/** Checks if a specific object is referenced by the transaction buffer */
 	virtual bool IsObjectInTransationBuffer( const UObject* Object ) const { return false; }
 
+	/** @return True if this record contains a reference to a pie object */
+	virtual bool ContainsPieObject() const { return false; }
 
 	// @todo document
 	virtual ITransaction* CreateInternalTransaction() PURE_VIRTUAL(UTransactor::CreateInternalTransaction,return NULL;);

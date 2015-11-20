@@ -39,7 +39,7 @@ void UAbilityTask_WaitInputPress::OnPressCallback()
 
 UAbilityTask_WaitInputPress* UAbilityTask_WaitInputPress::WaitInputPress(class UObject* WorldContextObject, bool bTestAlreadyPressed)
 {
-	UAbilityTask_WaitInputPress* Task = NewTask<UAbilityTask_WaitInputPress>(WorldContextObject);
+	UAbilityTask_WaitInputPress* Task = NewAbilityTask<UAbilityTask_WaitInputPress>(WorldContextObject);
 	Task->bTestInitialState = bTestAlreadyPressed;
 	return Task;
 }

@@ -53,6 +53,12 @@ void FHttpModule::StartupModule()
 
 void FHttpModule::ShutdownModule()
 {
+	if (HttpManager != nullptr)
+	{
+		// block on any http requests that have already been queued up
+		HttpManager->Flush(true);
+	}
+
 #if PLATFORM_WINDOWS
 
 	extern bool bUseCurl;

@@ -65,6 +65,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Layout|Grid Slot")
 	void SetColumnSpan(int32 InColumnSpan);
 
+	/** Sets positive values offset this cell to be hit-tested and drawn on top of others. */
+	UFUNCTION(BlueprintCallable, Category = "Layout|Grid Slot")
+	void SetLayer(int32 InLayer);
+
 	/**  */
 	UFUNCTION(BlueprintCallable, Category="Layout|Grid Slot")
 	void SetHorizontalAlignment(EHorizontalAlignment InHorizontalAlignment);

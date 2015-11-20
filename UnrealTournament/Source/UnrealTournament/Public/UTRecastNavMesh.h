@@ -9,6 +9,7 @@
 #include "UTReachSpec.h"
 #include "AI/Navigation/NavigationTypes.h"
 #include "UTPathNode.h"
+#include "AI/Navigation/RecastNavMesh.h"
 
 #include "UTRecastNavMesh.generated.h"
 

@@ -13,6 +13,10 @@ class UNREALED_API UPhATSimOptions : public UObject
 	UPROPERTY(EditAnywhere, transient, Category=Anim)
 	float PhysicsBlend;
 
+	/** Lets you manually control the physics/animation */
+	UPROPERTY(EditAnywhere, transient, Category = Anim)
+	bool bUpdateJointsFromAnimation;
+
 	/** Time between poking ragdoll and starting to blend back. */
 	UPROPERTY(EditAnywhere, config, Category=Anim)
 	float PokePauseTime;
@@ -27,6 +31,14 @@ class UNREALED_API UPhATSimOptions : public UObject
 	/** Scale factor for the gravity used in the simulation */
 	UPROPERTY(EditAnywhere, config, Category=Simulation)
 	float GravScale;
+
+	/** Max FPS for simulation in PhAT. This is helpful for targeting the same FPS as your game. -1 means disabled*/
+	UPROPERTY(EditAnywhere, config, Category = Simulation)
+	int32 MaxFPS;
+
+	/** Dilate time by scale*/
+	UPROPERTY(EditAnywhere, config, Category = Simulation, meta = (UIMin = 0) )
+	float TimeDilation;
 
 	/** Linear damping of mouse spring forces */
 	UPROPERTY(EditAnywhere, config, Category=MouseSpring)

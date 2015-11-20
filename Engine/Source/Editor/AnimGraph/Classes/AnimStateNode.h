@@ -35,11 +35,11 @@ public:
 	UPROPERTY(EditAnywhere, Category=Events)
 	FAnimNotifyEvent StateFullyBlended;
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End UObject interface
+	//~ End UObject Interface
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
@@ -48,14 +48,14 @@ public:
 	virtual void PostPasteNode() override;
 	virtual void PostPlacedNewNode() override;
 	virtual void DestroyNode() override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 	
-	// Begin UAnimStateNodeBase interface
+	//~ Begin UAnimStateNodeBase Interface
 	virtual UEdGraphPin* GetInputPin() const override;
 	virtual UEdGraphPin* GetOutputPin() const override;
 	virtual FString GetStateName() const override;
 	virtual void GetTransitionList(TArray<class UAnimStateTransitionNode*>& OutTransitions, bool bWantSortedList = false) override;
-	// End of UAnimStateNodeBase interface
+	//~ End UAnimStateNodeBase Interface
 
 	// @return the pose pin of the state sink node within the anim graph of this state
 	ANIMGRAPH_API UEdGraphPin* GetPoseSinkPinInsideState() const;

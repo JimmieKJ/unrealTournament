@@ -106,8 +106,9 @@ static int32 CaptureStackTraceHelper( uint64 *BackTrace, uint32 MaxDepth, CONTEX
 				break;
 			}
 
-			// Stop if the frame pointer or address is NULL.
-			if( StackFrame64.AddrFrame.Offset == 0 || StackFrame64.AddrPC.Offset == 0 )
+			// Stop if the frame pointer is NULL.
+			// Note that the thread's PC 'StackFrame64.AddrPC.Offset' COULD be 0 in case something calls a nullptr.
+			if( StackFrame64.AddrFrame.Offset == 0 )
 			{
 				break;
 			}
@@ -569,7 +570,7 @@ bool FWindowsPlatformStackWalk::InitStackWalking()
 
 		// Initialize the symbol engine.
 		SymInitialize( GetCurrentProcess(), NULL, true );
-		LoadProcessModules();
+		//LoadProcessModules();
 	
 		GNeedToRefreshSymbols = false;
 		GStackWalkingInitialized = true;
@@ -579,7 +580,7 @@ bool FWindowsPlatformStackWalk::InitStackWalking()
 	{
 		// Refresh and reload symbols
 		SymRefreshModuleList( GetCurrentProcess() );
-		LoadProcessModules();
+		//LoadProcessModules();
 		GNeedToRefreshSymbols = false;
 	}
 #endif

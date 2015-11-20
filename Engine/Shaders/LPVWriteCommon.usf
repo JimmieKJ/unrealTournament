@@ -102,22 +102,6 @@ VplListEntry PackVpl( Vpl vpl )
 void AccumulateLighting(float3 colour, float3 n, float solidAngle, in out LPVCell cell ) 
 { 
 	const float ONE_OVER_PI = 1.0f/3.1415927f;
-#if LPV_AMBIENT_CUBE
-	// Calculate weights
-	colour *= solidAngle;
-	float weight[6];
-	weight[AMBIENT_CUBE_NEGATIVE_X] = saturate(-n.x );
-	weight[AMBIENT_CUBE_POSITIVE_X] = saturate( n.x );
-	weight[AMBIENT_CUBE_NEGATIVE_Y] = saturate(-n.y );
-	weight[AMBIENT_CUBE_POSITIVE_Y] = saturate( n.y );
-	weight[AMBIENT_CUBE_NEGATIVE_Z] = saturate(-n.z );
-	weight[AMBIENT_CUBE_POSITIVE_Z] = saturate( n.z );
-	[unroll]
-	for ( int i=0; i<6; i++ )
-	{
-		cell.ambientCube[i] += colour * weight[i];
-	}
-#else
 	const float c0 = 0.282095f;
 	const float c1 = 0.488603f;
 	const float c2 = 1.092548f;
@@ -135,7 +119,6 @@ void AccumulateLighting(float3 colour, float3 n, float solidAngle, in out LPVCel
 	cell.coeffs[7] += colour*(c2*n.x*n.z)*solidAngle ; 
 	cell.coeffs[6] += colour*(c3*(3.0f*n.z*n.z-1.0f))*solidAngle ; 
 	cell.coeffs[8] += colour*(c4*(n.x*n.x-n.y*n.y))*solidAngle ;
-#endif
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -143,24 +126,14 @@ void AccumulateLighting(float3 colour, float3 n, float solidAngle, in out LPVCel
 #if LPV_WRITE_SHADER
 void WriteLpvCell( in LPVCell cell, uint cellIndex )
 {
-#if LPV_VOLUME_TEXTURE
 	int3 texIndex = IndexToGridPos( cellIndex );
 
-	gLpv3DTextureRW0[ texIndex ] = float4( cell.coeffs[0],     0.0f ); // tex0.a is reserved for secondary occlusion;
+	gLpv3DTextureRW0[ texIndex ] = float4( cell.coeffs[0],     cell.AO ); // tex0.a is reserved for secondary occlusion;
 	gLpv3DTextureRW1[ texIndex ] = float4( cell.coeffs[1].rgb, cell.coeffs[2].r );
 	gLpv3DTextureRW2[ texIndex ] = float4( cell.coeffs[2].gb,  cell.coeffs[3].rg );
 	gLpv3DTextureRW3[ texIndex ] = float4( cell.coeffs[3].b,   cell.coeffs[4].rgb );
 	gLpv3DTextureRW4[ texIndex ] = float4( cell.coeffs[5].rgb, cell.coeffs[6].r );
 	gLpv3DTextureRW5[ texIndex ] = float4( cell.coeffs[6].gb,  cell.coeffs[7].rg );
 	gLpv3DTextureRW6[ texIndex ] = float4( cell.coeffs[7].b,   cell.coeffs[8].rgb );
-#elif LPV_AMBIENT_CUBE
-	LPVCellPackedAmbientCube packedCube;
-	PackAmbientCube( cell.ambientCube, packedCube );
-	gLpvBufferRW[cellIndex] = packedCube;
-#else
-	LPVCellPackedSH packedCell;
-	PackSH3( cell.coeffs, packedCell );
-	gLpvBufferRW[cellIndex] = packedCell;
-#endif 
 }
 #endif

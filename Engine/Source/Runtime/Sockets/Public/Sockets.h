@@ -103,7 +103,7 @@ public:
 	 * @param		SocketDescription debug description of socket
 	 * @return		The new (heap-allocated) socket, or NULL if unsuccessful.
 	 */
-	virtual class FSocket* Accept(const FString& SocketDescription) = 0;
+	virtual class FSocket* Accept(const FString& InSocketDescription) = 0;
 
 	/**
 	 * Accepts a connection that is pending
@@ -113,7 +113,7 @@ public:
 	 *
 	 * @return		The new (heap-allocated) socket, or NULL if unsuccessful.
 	 */
-	virtual class FSocket* Accept(FInternetAddr& OutAddr, const FString& SocketDescription) = 0;
+	virtual class FSocket* Accept(FInternetAddr& OutAddr, const FString& InSocketDescription) = 0;
 
 	/**
 	 * Sends a buffer to a network byte ordered address

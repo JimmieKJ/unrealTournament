@@ -3,6 +3,7 @@
 
 #include "CoreUObjectPrivate.h"
 #include "TargetPlatform.h"
+#include "DebugSerializationFlags.h"
 
 /*-----------------------------------------------------------------------------
 	Constructors and operators
@@ -11,6 +12,8 @@
 /** Whether to track information of how bulk data is being used */
 #define TRACK_BULKDATA_USE 0
 
+DECLARE_STATS_GROUP(TEXT("Bulk Data"), STATGROUP_BulkData, STATCAT_Advanced);
+DECLARE_DWORD_ACCUMULATOR_STAT(TEXT("Leaked async buffers"), STAT_BulkDataAsyncLeaks, STATGROUP_BulkData);
 
 #if TRACK_BULKDATA_USE
 
@@ -133,6 +136,7 @@ FUntypedBulkData::~FUntypedBulkData()
 	if (BulkData != BulkDataAsync)
 	{
 		FMemory::Free(BulkDataAsync);
+		DEC_DWORD_STAT_BY(STAT_BulkDataAsyncLeaks, 1);
 	}
 	BulkData = nullptr;
 	BulkDataAsync = nullptr;
@@ -415,6 +419,7 @@ void FUntypedBulkData::GetCopy( void** Dest, bool bDiscardInternalCopy )
 		{
 			WaitForAsyncLoading();
 			BulkData = BulkDataAsync;
+			DEC_DWORD_STAT_BY(STAT_BulkDataAsyncLeaks, 1);
 			ResetAsyncData();
 		}
 		// The data is already loaded so we can simply use a mempcy.
@@ -671,6 +676,7 @@ void FUntypedBulkData::StartSerializingBulkData(FArchive& Ar, UObject* Owner, in
 		{
 			BulkDataAsync = FMemory::Realloc(BulkDataAsync, GetBulkDataSize(), BulkDataAlignment);
 		}
+		INC_DWORD_STAT_BY(STAT_BulkDataAsyncLeaks, 1);
 
 		FArchive* FileReaderAr = IFileManager::Get().CreateFileReader(*Filename, FILEREAD_Silent);
 		checkf(FileReaderAr != NULL, TEXT("Attempted to load bulk data from an invalid filename '%s'."), *Filename);
@@ -690,25 +696,22 @@ void FUntypedBulkData::StartSerializingBulkData(FArchive& Ar, UObject* Owner, in
 	}
 }
 
+int32 GMinimumBulkDataSizeForAsyncLoading = 131072;
+static FAutoConsoleVariableRef CVarMinimumBulkDataSizeForAsyncLoading(
+	TEXT("s.MinBulkDataSizeForAsyncLoading"),
+	GMinimumBulkDataSizeForAsyncLoading,
+	TEXT("Minimum time the time limit exceeded warning will be triggered by."),
+	ECVF_Default
+	);
+
 bool FUntypedBulkData::ShouldStreamBulkData()
 {
-	// Minimum bulk data size to start async loading
-	static struct FMinBulkDataSizeForAsyncLoadingSetting
-	{
-		int32 Value;
-		FMinBulkDataSizeForAsyncLoadingSetting()
-			: Value(131072) // 128K by default
-		{
-			GConfig->GetInt(TEXT("Core.System"), TEXT("MinBulkDataSizeForAsyncLoading"), Value, GEngineIni);
-		}
-	} MinBulkDataSizeForAsyncLoading;
-
 	const bool bForceStream = !!(BulkDataFlags & BULKDATA_ForceStreamPayload);
 
 	return (FPlatformProperties::RequiresCookedData() && !Filename.IsEmpty() &&
 		FPlatformProcess::SupportsMultithreading() && IsInGameThread() &&
-		(bForceStream || GetBulkDataSize() > MinBulkDataSizeForAsyncLoading.Value) &&
-		MinBulkDataSizeForAsyncLoading.Value >= 0);
+		(bForceStream || GetBulkDataSize() > GMinimumBulkDataSizeForAsyncLoading) &&
+		GMinimumBulkDataSizeForAsyncLoading >= 0);
 }
 
 /**
@@ -776,8 +779,12 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 		FThreadSafeBulkDataToObjectMap::Get().Add( this, Owner );
 #endif
 		// Offset where the bulkdata flags are stored
-		int64 SavedBulkDataFlagsPos	= Ar.Tell();
-		Ar << BulkDataFlags;
+		int64 SavedBulkDataFlagsPos = Ar.Tell();
+		{
+			FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
+			Ar << BulkDataFlags;
+		}
+
 
 		// Number of elements in array.
 		Ar << ElementCount;
@@ -917,14 +924,19 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 			// Keep track of position we are going to serialize placeholder BulkDataSizeOnDisk.
 			SavedBulkDataSizeOnDiskPos = Ar.Tell();
 			BulkDataSizeOnDisk = INDEX_NONE;
-			// And serialize the placeholder which is going to be overwritten later.
-			Ar << BulkDataSizeOnDisk;
 
-			// Keep track of position we are going to serialize placeholder BulkDataOffsetInFile.
-			SavedBulkDataOffsetInFilePos = Ar.Tell();
-			BulkDataOffsetInFile = INDEX_NONE;
-			// And serialize the placeholder which is going to be overwritten later.
-			Ar << BulkDataOffsetInFile;
+			{
+				FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
+
+				// And serialize the placeholder which is going to be overwritten later.
+				Ar << BulkDataSizeOnDisk;
+				// Keep track of position we are going to serialize placeholder BulkDataOffsetInFile.
+				SavedBulkDataOffsetInFilePos = Ar.Tell();
+				BulkDataOffsetInFile = INDEX_NONE;
+				// And serialize the placeholder which is going to be overwritten later.
+				Ar << BulkDataOffsetInFile;
+
+			}
 
 				// try to get the linkersave object
 			FLinkerSave* LinkerSave = Cast<FLinkerSave>(Ar.GetLinker());
@@ -975,17 +987,21 @@ void FUntypedBulkData::Serialize( FArchive& Ar, UObject* Owner, int32 Idx )
 			// store current file offset before seeking back
 			int64 CurrentFileOffset = Ar.Tell();
 
-			// Seek back and overwrite the flags 
-			Ar.Seek(SavedBulkDataFlagsPos);
-			Ar << BulkDataFlags;
+			{
+				FArchive::FScopeSetDebugSerializationFlags S(Ar, DSF_IgnoreDiff);
 
-			// Seek back and overwrite placeholder for BulkDataSizeOnDisk
-			Ar.Seek( SavedBulkDataSizeOnDiskPos );
-			Ar << BulkDataSizeOnDisk;
+				// Seek back and overwrite the flags 
+				Ar.Seek(SavedBulkDataFlagsPos);
+				Ar << BulkDataFlags;
 
-			// Seek back and overwrite placeholder for BulkDataOffsetInFile
-			Ar.Seek( SavedBulkDataOffsetInFilePos );
-			Ar << BulkDataOffsetInFile;
+				// Seek back and overwrite placeholder for BulkDataSizeOnDisk
+				Ar.Seek(SavedBulkDataSizeOnDiskPos);
+				Ar << BulkDataSizeOnDisk;
+
+				// Seek back and overwrite placeholder for BulkDataOffsetInFile
+				Ar.Seek(SavedBulkDataOffsetInFilePos);
+				Ar << BulkDataOffsetInFile;
+			}
 
 			// Seek to the end of written data so we don't clobber any data in subsequent write 
 			// operations
@@ -1234,6 +1250,7 @@ void FUntypedBulkData::MakeSureBulkDataIsLoaded()
 		{
 			WaitForAsyncLoading();
 			BulkData = BulkDataAsync;
+			DEC_DWORD_STAT_BY(STAT_BulkDataAsyncLeaks, 1);
 			ResetAsyncData();
 		}
 		else
@@ -1270,6 +1287,7 @@ bool FUntypedBulkData::FlushAsyncLoading(void* Dest)
 	{
 		WaitForAsyncLoading();
 		FMemory::Memcpy(Dest, BulkDataAsync, GetBulkDataSize());
+		DEC_DWORD_STAT_BY(STAT_BulkDataAsyncLeaks, 1);
 	}
 	return bIsLoadingAsync;
 }

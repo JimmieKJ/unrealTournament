@@ -345,7 +345,6 @@ void CleanupNodes( UModel *Model, int32 iNode, int32 iParent )
 	// If this is an empty node with a coplanar, replace it with the coplanar.
 	if( Node->NumVertices==0 && Node->iPlane!=INDEX_NONE )
 	{
-		Model->Nodes.ModifyItem( Node->iPlane );
 		FBspNode* PlaneNode = &Model->Nodes[ Node->iPlane ];
 
 		// Stick our front, back, and parent nodes on the coplanar.
@@ -363,14 +362,12 @@ void CleanupNodes( UModel *Model, int32 iNode, int32 iParent )
 		if( iParent == INDEX_NONE )
 		{
 			// This node is the root.
-			Model->Nodes.ModifyItem( iNode );
 			*Node                  = *PlaneNode;   // Replace root.
 			PlaneNode->NumVertices = 0;            // Mark as unused.
 		}
 		else
 		{
 			// This is a child node.
-			Model->Nodes.ModifyItem( iParent );
 			FBspNode *ParentNode = &Model->Nodes[iParent];
 
 			if      ( ParentNode->iFront == iNode ) ParentNode->iFront = Node->iPlane;
@@ -398,7 +395,6 @@ void CleanupNodes( UModel *Model, int32 iNode, int32 iParent )
 			}
 			else
 			{
-				Model->Nodes.ModifyItem( iNode );
          		*Node = Model->Nodes[iReplacementNode];
 			}
 		}
@@ -406,7 +402,6 @@ void CleanupNodes( UModel *Model, int32 iNode, int32 iParent )
 		{
 			// Regular node.
 			FBspNode *ParentNode = &Model->Nodes[iParent];
-			Model->Nodes.ModifyItem( iParent );
 
 			if     ( ParentNode->iFront == iNode ) ParentNode->iFront = iReplacementNode;
 			else if( ParentNode->iBack  == iNode ) ParentNode->iBack  = iReplacementNode;
@@ -466,7 +461,6 @@ void AddWorldToBrushFunc( UModel* Model, int32 iNode, FPoly* EdPoly,
 			GDiscarded++;
 			if( GModel->Nodes[GNode].NumVertices )
 			{
-				GModel->Nodes.ModifyItem( GNode );
 				GModel->Nodes[GNode].NumVertices = 0;
 			}
 			break;
@@ -511,7 +505,6 @@ void SubtractWorldToBrushFunc( UModel* Model, int32 iNode, FPoly* EdPoly,
 			GDiscarded++;
 			if( GModel->Nodes[GNode].NumVertices )
 			{
-				GModel->Nodes.ModifyItem( GNode );
 				GModel->Nodes[GNode].NumVertices = 0;
 			}
 			break;
@@ -1028,14 +1021,14 @@ void FilterWorldThroughBrush
 				{
 					// Get rid of all the fragments we added.
 					Model->Nodes[GLastCoplanar].iPlane = INDEX_NONE;
-					Model->Nodes.RemoveAt( GNumNodes, Model->Nodes.Num()-GNumNodes );
+					const bool bAllowShrinking = false;
+					Model->Nodes.RemoveAt( GNumNodes, Model->Nodes.Num()-GNumNodes, bAllowShrinking );
 				}
 				else
 				{
 					// Tag original world poly for deletion; has been deleted or replaced by partial fragments.
 					if( GModel->Nodes[GNode].NumVertices )
 					{
-						GModel->Nodes.ModifyItem( GNode );
 						GModel->Nodes[GNode].NumVertices = 0;
 					}
 				}
@@ -1106,14 +1099,6 @@ int UEditorEngine::bspBrushCSG
 		NotPolyFlags |= (PF_Semisolid | PF_NotSolid);
 	}
 
-	// Prep the model.
-	Model->Modify();
-
-	// Prep the brush.
-	Actor->Modify();
-
-	// Prep the temporary model.
-	TempModel->Modify();
 	TempModel->EmptyModel(1,1);
 
 	// Update status.
@@ -1155,16 +1140,16 @@ int UEditorEngine::bspBrushCSG
 
 	UMaterialInterface* SelectedMaterialInstance = GetSelectedObjects()->GetTop<UMaterialInterface>();
 
-	const FVector PrePivot = Actor->GetPrePivot();
 	const FVector Scale = Actor->GetActorScale();
 	const FRotator Rotation = Actor->GetActorRotation();
 	const FVector Location = Actor->GetActorLocation();
+
+	const bool bIsMirrored = (Scale.X * Scale.Y * Scale.Z < 0.0f);
 
 	// Cache actor transform which is used for the geometry being built
 	Brush->OwnerLocationWhenLastBuilt = Location;
 	Brush->OwnerRotationWhenLastBuilt = Rotation;
 	Brush->OwnerScaleWhenLastBuilt = Scale;
-	Brush->OwnerPrepivotWhenLastBuilt = PrePivot;
 	Brush->bCachedOwnerTransformValid = true;
 
 	for( i=0; i<Brush->Polys->Element.Num(); i++ )
@@ -1197,9 +1182,16 @@ int UEditorEngine::bspBrushCSG
 			DestEdPoly.iLink = i;
 
 		// Transform it.
-		DestEdPoly.Scale( PrePivot, Scale );
-		DestEdPoly.Rotate( PrePivot, Rotation );
-		DestEdPoly.Transform( PrePivot, Location );
+		DestEdPoly.Scale( Scale );
+		DestEdPoly.Rotate( Rotation );
+		DestEdPoly.Transform( Location );
+
+		// Reverse winding and normal if the parent brush is mirrored
+		if (bIsMirrored)
+		{
+			DestEdPoly.Reverse();
+			DestEdPoly.CalcNormal();
+		}
 
 		// Add poly to the temp model.
 		new(TempModel->Polys->Element)FPoly( DestEdPoly );
@@ -1255,10 +1247,23 @@ int UEditorEngine::bspBrushCSG
 		// the tree.  We only need the cutting planes, though the entire Bsp struct (polys and
 		// all) is built.
 
+		FBspPointsGrid* LevelModelPointsGrid = FBspPointsGrid::GBspPoints;
+		FBspPointsGrid* LevelModelVectorsGrid = FBspPointsGrid::GBspVectors;
+
+		// For the bspBuild call, temporarily create a new pair of BspPointsGrids for the TempModel.
+		TUniquePtr<FBspPointsGrid> BspPoints = MakeUnique<FBspPointsGrid>(50.0f, THRESH_POINTS_ARE_SAME);
+ 		TUniquePtr<FBspPointsGrid> BspVectors = MakeUnique<FBspPointsGrid>(1 / 16.0f, FMath::Max(THRESH_NORMALS_ARE_SAME, THRESH_VECTORS_ARE_NEAR));
+ 		FBspPointsGrid::GBspPoints = BspPoints.Get();
+ 		FBspPointsGrid::GBspVectors = BspVectors.Get();
+
 		if( ReallyBig ) GWarn->StatusUpdate( 0, 0, NSLOCTEXT("UnrealEd", "BuildingBSP", "Building BSP") );
 		
 		FBSPOps::bspBuild( TempModel, FBSPOps::BSP_Lame, 0, 70, 1, 0 );
-		
+
+		// Reinstate the original BspPointsGrids used for building the level Model.
+		FBspPointsGrid::GBspPoints = LevelModelPointsGrid;
+		FBspPointsGrid::GBspVectors = LevelModelVectorsGrid;
+
 		if( ReallyBig ) GWarn->StatusUpdate( 0, 0, NSLOCTEXT("UnrealEd", "FilteringWorld", "Filtering world") );
 		GModel = Brush;
 		TempModel->BuildBound();
@@ -1305,7 +1310,9 @@ int UEditorEngine::bspBrushCSG
 		for( i=0; i<Brush->Polys->Element.Num(); i++ )
 		{
 			FPoly *DestEdPoly = &Brush->Polys->Element[i];
-			DestEdPoly->Transform( Actor->GetActorLocation(), Actor->GetPrePivot() );
+			DestEdPoly->Transform(-Location);
+			DestEdPoly->Rotate(Rotation.GetInverse());
+			DestEdPoly->Scale(FVector(1.0f) / Scale);
 			DestEdPoly->Fix();
 			DestEdPoly->Actor		= NULL;
 			DestEdPoly->iBrushPoly	= i;

@@ -12,7 +12,7 @@ class WIDGETCAROUSEL_API SCarouselNavigationBar : public SCompoundWidget
 
 public:
 	SLATE_BEGIN_ARGS(SCarouselNavigationBar)
-		: _Style(&FWidgetCarouselModuleStyle::Get().GetWidgetStyle<FWidgetCarouselNavigationBarStyle>("CarouselNavigationBar")) 
+		: _Style() 
 		, _OnSelectedIndexChanged()
 		, _ItemCount(0)
 		, _CurrentItemIndex(0)

@@ -5,7 +5,7 @@
 #include "Toolkits/AssetEditorToolkit.h"
 #include "PhATSharedData.h"
 #include "EditorUndoClient.h"
-#include "PhysicsEngine/BodySetup.h"
+#include "PhysicsEngine/BodySetupEnums.h"
 
 class SPhATPreviewViewport;
 class FPhATTreeInfo;
@@ -88,11 +88,13 @@ public:
 	/** Returns whether a PIE session is running. */
 	static bool IsPIERunning();
 
-	// FTickableEditorObject interface
+	//~ Begin FTickableEditorObject Interface
 	virtual void Tick(float DeltaTime) override;
 	virtual bool IsTickable() const override { return true; }
 	virtual TStatId GetStatId() const override;
-	// End of FTickableEditorObject interface
+	//~ End FTickableEditorObject Interface
+
+	void OnFocusSelection();
 
 private:
 
@@ -102,7 +104,7 @@ private:
 		PHFM_Bodies
 	};
 
-	// Begin FEditorUndoClient Interface
+	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo(bool bSuccess) override;
 	virtual void PostRedo(bool bSuccess) override;
 	// End of FEditorUndoClient
@@ -230,7 +232,7 @@ private:
 	void OnToggleSwing1();
 	void OnToggleSwing2();
 	void OnToggleTwist();
-	void OnFocusSelection();
+	
 	void Mirror();
 
 	//menu commands
@@ -251,6 +253,9 @@ private:
 
 	/** Preview Viewport */
 	TSharedPtr<SPhATPreviewViewport> PreviewViewport;
+
+	/** Ticks until forcing viewport refresh */
+	int32 TickCountUntilViewportRefresh;
 
 	/** Properties Tab */
 	TSharedPtr<class IDetailsView> Properties;

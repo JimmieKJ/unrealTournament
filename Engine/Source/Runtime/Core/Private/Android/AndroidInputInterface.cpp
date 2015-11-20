@@ -2,6 +2,8 @@
 
 #include "CorePrivatePCH.h"
 #include "AndroidInputInterface.h"
+//#include "AndroidInputDeviceMappings.h"
+#include "IInputDevice.h"
 #include "GenericApplicationMessageHandler.h"
 #include <android/input.h>
 
@@ -9,10 +11,15 @@
 TArray<TouchInput> FAndroidInputInterface::TouchInputStack = TArray<TouchInput>();
 FCriticalSection FAndroidInputInterface::TouchInputCriticalSection;
 
+FAndroidGamepadDeviceMapping FAndroidInputInterface::DeviceMapping[MAX_NUM_CONTROLLERS];
+
+bool FAndroidInputInterface::VibeIsOn;
+FForceFeedbackValues FAndroidInputInterface::VibeValues;
+
 FAndroidControllerData FAndroidInputInterface::OldControllerData[MAX_NUM_CONTROLLERS];
 FAndroidControllerData FAndroidInputInterface::NewControllerData[MAX_NUM_CONTROLLERS];
 
-EControllerButtons::Type FAndroidInputInterface::ButtonMapping[MAX_NUM_CONTROLLER_BUTTONS];
+FGamepadKeyNames::Type FAndroidInputInterface::ButtonMapping[MAX_NUM_CONTROLLER_BUTTONS];
 float FAndroidInputInterface::InitialButtonRepeatDelay;
 float FAndroidInputInterface::ButtonRepeatDelay;
 
@@ -33,51 +40,102 @@ FAndroidInputInterface::~FAndroidInputInterface()
 {
 }
 
+namespace AndroidKeyNames
+{
+	const FGamepadKeyNames::Type Android_Back("Android_Back");
+	const FGamepadKeyNames::Type Android_Menu("Android_Menu");
+}
+
 FAndroidInputInterface::FAndroidInputInterface( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
 	: MessageHandler( InMessageHandler )
 {
-	ButtonMapping[0] = EControllerButtons::FaceButtonBottom;
-	ButtonMapping[1] = EControllerButtons::FaceButtonRight;
-	ButtonMapping[2] = EControllerButtons::FaceButtonLeft;
-	ButtonMapping[3] = EControllerButtons::FaceButtonTop;
-	ButtonMapping[4] = EControllerButtons::LeftShoulder;
-	ButtonMapping[5] = EControllerButtons::RightShoulder;
-	ButtonMapping[6] = EControllerButtons::SpecialRight;
-	ButtonMapping[7] = EControllerButtons::SpecialLeft;
-	ButtonMapping[8] = EControllerButtons::LeftThumb;
-	ButtonMapping[9] = EControllerButtons::RightThumb;
-	ButtonMapping[10] = EControllerButtons::LeftTriggerThreshold;
-	ButtonMapping[11] = EControllerButtons::RightTriggerThreshold;
-	ButtonMapping[12] = EControllerButtons::DPadUp;
-	ButtonMapping[13] = EControllerButtons::DPadDown;
-	ButtonMapping[14] = EControllerButtons::DPadLeft;
-	ButtonMapping[15] = EControllerButtons::DPadRight;
-	ButtonMapping[16] = EControllerButtons::AndroidBack;  // Technically just an alias for SpecialLeft
-	ButtonMapping[17] = EControllerButtons::AndroidVolumeUp;
-	ButtonMapping[18] = EControllerButtons::AndroidVolumeDown;
-	ButtonMapping[19] = EControllerButtons::AndroidMenu;  // Technically just an alias for SpecialRightNewControllerData[deviceId].ButtonStates[6] = buttonDown; 
+	ButtonMapping[0] = FGamepadKeyNames::FaceButtonBottom;
+	ButtonMapping[1] = FGamepadKeyNames::FaceButtonRight;
+	ButtonMapping[2] = FGamepadKeyNames::FaceButtonLeft;
+	ButtonMapping[3] = FGamepadKeyNames::FaceButtonTop;
+	ButtonMapping[4] = FGamepadKeyNames::LeftShoulder;
+	ButtonMapping[5] = FGamepadKeyNames::RightShoulder;
+	ButtonMapping[6] = FGamepadKeyNames::SpecialRight;
+	ButtonMapping[7] = FGamepadKeyNames::SpecialLeft;
+	ButtonMapping[8] = FGamepadKeyNames::LeftThumb;
+	ButtonMapping[9] = FGamepadKeyNames::RightThumb;
+	ButtonMapping[10] = FGamepadKeyNames::LeftTriggerThreshold;
+	ButtonMapping[11] = FGamepadKeyNames::RightTriggerThreshold;
+	ButtonMapping[12] = FGamepadKeyNames::DPadUp;
+	ButtonMapping[13] = FGamepadKeyNames::DPadDown;
+	ButtonMapping[14] = FGamepadKeyNames::DPadLeft;
+	ButtonMapping[15] = FGamepadKeyNames::DPadRight;
+	ButtonMapping[16] = AndroidKeyNames::Android_Back;  // Technically just an alias for SpecialLeft
+	ButtonMapping[17] = AndroidKeyNames::Android_Menu;  // Technically just an alias for SpecialRight
 
 	InitialButtonRepeatDelay = 0.2f;
 	ButtonRepeatDelay = 0.1f;
+
+	VibeIsOn = false;
+
+	ResetGamepadAssignments();
+}
+
+void FAndroidInputInterface::ResetGamepadAssignments()
+{
+	for (int32 DeviceIndex = 0; DeviceIndex < MAX_NUM_CONTROLLERS; DeviceIndex++)
+	{
+		DeviceMapping[DeviceIndex].DeviceInfo.DeviceId = 0;
+		DeviceMapping[DeviceIndex].DeviceState = MappingState::Unassigned;
+	}
+}
+
+void FAndroidInputInterface::ResetGamepadAssignmentToController(int32 ControllerId)
+{
+	if (ControllerId < 0 || ControllerId >= MAX_NUM_CONTROLLERS)
+		return;
+
+	DeviceMapping[ControllerId].DeviceInfo.DeviceId = 0;
+	DeviceMapping[ControllerId].DeviceState = MappingState::Unassigned;
+}
+
+bool FAndroidInputInterface::IsControllerAssignedToGamepad(int32 ControllerId)
+{
+	if (ControllerId < 0 || ControllerId >= MAX_NUM_CONTROLLERS)
+		return false;
+
+	return (DeviceMapping[ControllerId].DeviceState == MappingState::Valid);
 }
 
 void FAndroidInputInterface::SetMessageHandler( const TSharedRef< FGenericApplicationMessageHandler >& InMessageHandler )
 {
 	MessageHandler = InMessageHandler;
+
+	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
+	{
+		(*DeviceIt)->SetMessageHandler(InMessageHandler);
+	}
 }
+
+void FAndroidInputInterface::AddExternalInputDevice(TSharedPtr<IInputDevice> InputDevice)
+{
+	if (InputDevice.IsValid())
+	{
+		ExternalInputDevices.Add(InputDevice);
+	}
+}
+
+extern bool AndroidThunkCpp_GetInputDeviceInfo(int32 deviceId, FAndroidInputDeviceInfo &results);
 
 void FAndroidInputInterface::Tick(float DeltaTime)
 {
-
-
+	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
+	{
+		(*DeviceIt)->Tick(DeltaTime);
+	}
 }
 
 void FAndroidInputInterface::SetForceFeedbackChannelValue(int32 ControllerId, FForceFeedbackChannelType ChannelType, float Value)
 {
-	// For now, force the device to 0
-	// Should use Java to enumerate number of controllers and assign device ID
-	// to controller number
-	ControllerId = 0;
+	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
+	{
+		(*DeviceIt)->SetChannelValue(ControllerId, ChannelType, Value);
+	}
 
 	// Note: only one motor on Android at the moment, but remember all the settings
 	// update will look at combination of all values to pick state
@@ -86,19 +144,19 @@ void FAndroidInputInterface::SetForceFeedbackChannelValue(int32 ControllerId, FF
 	switch (ChannelType)
 	{
 		case FForceFeedbackChannelType::LEFT_LARGE:
-			NewControllerData[ControllerId].VibeValues.LeftLarge = Value;
+			VibeValues.LeftLarge = Value;
 			break;
 
 		case FForceFeedbackChannelType::LEFT_SMALL:
-			NewControllerData[ControllerId].VibeValues.LeftSmall = Value;
+			VibeValues.LeftSmall = Value;
 			break;
 
 		case FForceFeedbackChannelType::RIGHT_LARGE:
-			NewControllerData[ControllerId].VibeValues.RightLarge = Value;
+			VibeValues.RightLarge = Value;
 			break;
 
 		case FForceFeedbackChannelType::RIGHT_SMALL:
-			NewControllerData[ControllerId].VibeValues.RightSmall = Value;
+			VibeValues.RightSmall = Value;
 			break;
 
 		default:
@@ -107,41 +165,41 @@ void FAndroidInputInterface::SetForceFeedbackChannelValue(int32 ControllerId, FF
 	}
 
 	// Update with the latest values (wait for SendControllerEvents later?)
-	UpdateVibeMotors(NewControllerData[ControllerId]);
+	UpdateVibeMotors();
 }
 
 void FAndroidInputInterface::SetForceFeedbackChannelValues(int32 ControllerId, const FForceFeedbackValues &Values)
 {
-	// For now, force the device to 0
-	// Should use Java to enumerate number of controllers and assign device ID
-	// to controller number
-	ControllerId = 0;
+	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
+	{
+		(*DeviceIt)->SetChannelValues(ControllerId, Values);
+	}
 
 	// Note: only one motor on Android at the moment, but remember all the settings
 	// update will look at combination of all values to pick state
 
-	NewControllerData[ControllerId].VibeValues = Values;
+	VibeValues = Values;
 
 	// Update with the latest values (wait for SendControllerEvents later?)
-	UpdateVibeMotors(NewControllerData[ControllerId]);
+	UpdateVibeMotors();
 }
 
 extern void AndroidThunkCpp_Vibrate(int32 Duration);
 
-void FAndroidInputInterface::UpdateVibeMotors(FAndroidControllerData &State)
+void FAndroidInputInterface::UpdateVibeMotors()
 {
 	// Use largest vibration state as value
-	float MaxLeft = State.VibeValues.LeftLarge > State.VibeValues.LeftSmall ? State.VibeValues.LeftLarge : State.VibeValues.LeftSmall;
-	float MaxRight = State.VibeValues.RightLarge > State.VibeValues.RightSmall ? State.VibeValues.RightLarge : State.VibeValues.RightSmall;
+	float MaxLeft = VibeValues.LeftLarge > VibeValues.LeftSmall ? VibeValues.LeftLarge : VibeValues.LeftSmall;
+	float MaxRight = VibeValues.RightLarge > VibeValues.RightSmall ? VibeValues.RightLarge : VibeValues.RightSmall;
 	float Value = MaxLeft > MaxRight ? MaxLeft : MaxRight;
 
-	if (State.VibeIsOn)
+	if (VibeIsOn)
 	{
 		// Turn it off if below threshold
 		if (Value < 0.3f)
 		{
 			AndroidThunkCpp_Vibrate(0);
-			State.VibeIsOn = false;
+			VibeIsOn = false;
 		}
 	}
 	else {
@@ -149,7 +207,7 @@ void FAndroidInputInterface::UpdateVibeMotors(FAndroidControllerData &State)
 		{
 			// Turn it on for 10 seconds (or until below threshold)
 			AndroidThunkCpp_Vibrate(10000);
-			State.VibeIsOn = true;
+			VibeIsOn = true;
 		}
 	}
 }
@@ -612,66 +670,164 @@ void FAndroidInputInterface::SendControllerEvents()
 {
 	FScopeLock Lock(&TouchInputCriticalSection);
 
+	// Check for gamepads needing validation
+	for (int32 DeviceIndex = 0; DeviceIndex < MAX_NUM_CONTROLLERS; DeviceIndex++)
+	{
+		FAndroidGamepadDeviceMapping& CurrentDevice = DeviceMapping[DeviceIndex];
+
+		if (CurrentDevice.DeviceState == MappingState::ToValidate)
+		{
+			// Query for the device type from Java side
+			if (AndroidThunkCpp_GetInputDeviceInfo(CurrentDevice.DeviceInfo.DeviceId, CurrentDevice.DeviceInfo))
+			{
+				// It is possible this is actually a previously assigned controller if it disconnected and reconnected (device ID can change)
+				int32 FoundMatch = -1;
+				for (int32 DeviceScan = 0; DeviceScan < MAX_NUM_CONTROLLERS; DeviceScan++)
+				{
+					if (DeviceMapping[DeviceScan].DeviceState != MappingState::Valid)
+						continue;
+
+					if (DeviceMapping[DeviceScan].DeviceInfo.Descriptor.Equals(CurrentDevice.DeviceInfo.Descriptor))
+					{
+						FoundMatch = DeviceScan;
+						break;
+					}
+				}
+
+				// Deal with new controller
+				if (FoundMatch == -1)
+				{
+					CurrentDevice.DeviceState = MappingState::Valid;
+
+					// Generic mappings
+					CurrentDevice.bSupportsHat = false;
+					CurrentDevice.bMapL1R1ToTriggers = false;
+					CurrentDevice.bRightStickZRZ = true;
+					CurrentDevice.bRightStickRXRY = false;
+
+					// Use device name to decide on mapping scheme
+					if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon")))
+					{
+						if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon Fire Game Controller")))
+						{
+							CurrentDevice.bSupportsHat = true;
+						}
+						else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Amazon Fire TV Remote")))
+						{
+						}
+						else
+						{
+						}
+					}
+					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("NVIDIA Corporation NVIDIA Controller")))
+					{
+						CurrentDevice.bSupportsHat = true;
+					}
+					else if (CurrentDevice.DeviceInfo.Name.StartsWith(TEXT("Samsung Game Pad EI-GP20")))
+					{
+						CurrentDevice.bSupportsHat = true;
+						CurrentDevice.bMapL1R1ToTriggers = true;
+						CurrentDevice.bRightStickZRZ = false;
+						CurrentDevice.bRightStickRXRY = true;
+					}
+
+					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Assigned new gamepad controller %d: DeviceId=%d, ControllerId=%d, DeviceName=%s, Descriptor=%s"),
+						DeviceIndex, CurrentDevice.DeviceInfo.DeviceId, CurrentDevice.DeviceInfo.ControllerId, *CurrentDevice.DeviceInfo.Name, *CurrentDevice.DeviceInfo.Descriptor);
+					continue;
+				}
+				else
+				{
+					// Already assigned this controller so reconnect it
+					DeviceMapping[FoundMatch].DeviceInfo.DeviceId = CurrentDevice.DeviceInfo.DeviceId;
+					CurrentDevice.DeviceInfo.DeviceId = 0;
+					CurrentDevice.DeviceState = MappingState::Unassigned;
+
+					// Transfer state back to this controller
+					NewControllerData[FoundMatch] = NewControllerData[DeviceIndex];
+					NewControllerData[FoundMatch].DeviceId = FoundMatch;
+					OldControllerData[FoundMatch].DeviceId = FoundMatch;
+
+					FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Reconnected gamepad controller %d: DeviceId=%d, ControllerId=%d, DeviceName=%s, Descriptor=%s"),
+						FoundMatch, DeviceMapping[FoundMatch].DeviceInfo.DeviceId, CurrentDevice.DeviceInfo.ControllerId, *CurrentDevice.DeviceInfo.Name, *CurrentDevice.DeviceInfo.Descriptor);
+				}
+			}
+			else
+			{
+				// Did not find match so clear the assignment
+				FPlatformMisc::LowLevelOutputDebugStringf(TEXT("Failed to assign gamepad controller %d: DeviceId=%d"), DeviceIndex, CurrentDevice.DeviceInfo.DeviceId);
+			}
+
+		}
+	}
+
 	for(int i = 0; i < FAndroidInputInterface::TouchInputStack.Num(); ++i)
 	{
 		TouchInput Touch = FAndroidInputInterface::TouchInputStack[i];
+		int32 ControllerId = FindExistingDevice(Touch.DeviceId);
+		ControllerId = (ControllerId == -1) ? 0 : ControllerId;
 
 		// send input to handler
 		if (Touch.Type == TouchBegan)
 		{
-			MessageHandler->OnTouchStarted( NULL, Touch.Position, Touch.Handle, 0);
+			MessageHandler->OnTouchStarted(NULL, Touch.Position, Touch.Handle, ControllerId);
 		}
 		else if (Touch.Type == TouchEnded)
 		{
-			MessageHandler->OnTouchEnded(Touch.Position, Touch.Handle, 0);
+			MessageHandler->OnTouchEnded(Touch.Position, Touch.Handle, ControllerId);
 		}
 		else
 		{
-			MessageHandler->OnTouchMoved(Touch.Position, Touch.Handle, 0);
+			MessageHandler->OnTouchMoved(Touch.Position, Touch.Handle, ControllerId);
 		}
 	}
 
 	// Extract differences in new and old states and send messages
 	for (int32 ControllerIndex = 0; ControllerIndex < MAX_NUM_CONTROLLERS; ControllerIndex++)
 	{
+		// Skip unassigned or invalid controllers (treat first one as special case)
+		if (ControllerIndex > 0 && (DeviceMapping[ControllerIndex].DeviceState !=  MappingState::Valid))
+		{
+			continue;
+		}
+
 		FAndroidControllerData& OldControllerState = OldControllerData[ControllerIndex];
 		FAndroidControllerData& NewControllerState = NewControllerData[ControllerIndex];
 
 		if (NewControllerState.LXAnalog != OldControllerState.LXAnalog)
 		{
-			MessageHandler->OnControllerAnalog(EControllerButtons::LeftAnalogX, NewControllerState.DeviceId, NewControllerState.LXAnalog);
+			MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogX, NewControllerState.DeviceId, NewControllerState.LXAnalog);
 		}
 		if (NewControllerState.LYAnalog != OldControllerState.LYAnalog)
 		{
 			//LOGD("    Sending updated LeftAnalogY value of %f", NewControllerState.LYAnalog);
-			MessageHandler->OnControllerAnalog(EControllerButtons::LeftAnalogY, NewControllerState.DeviceId, NewControllerState.LYAnalog);
+			MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftAnalogY, NewControllerState.DeviceId, NewControllerState.LYAnalog);
 		}
 		if (NewControllerState.RXAnalog != OldControllerState.RXAnalog)
 		{
 			//LOGD("    Sending updated RightAnalogX value of %f", NewControllerState.RXAnalog);
-			MessageHandler->OnControllerAnalog(EControllerButtons::RightAnalogX, NewControllerState.DeviceId, NewControllerState.RXAnalog);
+			MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogX, NewControllerState.DeviceId, NewControllerState.RXAnalog);
 		}
 		if (NewControllerState.RYAnalog != OldControllerState.RYAnalog)
 		{
 			//LOGD("    Sending updated RightAnalogY value of %f", NewControllerState.RYAnalog);
-			MessageHandler->OnControllerAnalog(EControllerButtons::RightAnalogY, NewControllerState.DeviceId, NewControllerState.RYAnalog);
+			MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightAnalogY, NewControllerState.DeviceId, NewControllerState.RYAnalog);
 		}
 		if (NewControllerState.LTAnalog != OldControllerState.LTAnalog)
 		{
 			//LOGD("    Sending updated LeftTriggerAnalog value of %f", NewControllerState.LTAnalog);
-			MessageHandler->OnControllerAnalog(EControllerButtons::LeftTriggerAnalog, NewControllerState.DeviceId, NewControllerState.LTAnalog);
+			MessageHandler->OnControllerAnalog(FGamepadKeyNames::LeftTriggerAnalog, NewControllerState.DeviceId, NewControllerState.LTAnalog);
 
 			// Handle the trigger theshold "virtual" button state
-			//check(ButtonMapping[10] == EControllerButtons::LeftTriggerThreshold);
+			//check(ButtonMapping[10] == FGamepadKeyNames::LeftTriggerThreshold);
 			NewControllerState.ButtonStates[10] = NewControllerState.LTAnalog >= 0.1f;
 		}
 		if (NewControllerState.RTAnalog != OldControllerState.RTAnalog)
 		{
 			//LOGD("    Sending updated RightTriggerAnalog value of %f", NewControllerState.RTAnalog);
-			MessageHandler->OnControllerAnalog(EControllerButtons::RightTriggerAnalog, NewControllerState.DeviceId, NewControllerState.RTAnalog);
+			MessageHandler->OnControllerAnalog(FGamepadKeyNames::RightTriggerAnalog, NewControllerState.DeviceId, NewControllerState.RTAnalog);
 
 			// Handle the trigger theshold "virtual" button state
-			//check(ButtonMapping[11] == EControllerButtons::RightTriggerThreshold);
+			//check(ButtonMapping[11] == FGamepadKeyNames::RightTriggerThreshold);
 			NewControllerState.ButtonStates[11] = NewControllerState.RTAnalog >= 0.1f;
 		}
 
@@ -755,6 +911,11 @@ void FAndroidInputInterface::SendControllerEvents()
 	FAndroidInputInterface::TouchInputStack.Empty(0);
 
 	FAndroidInputInterface::MotionDataStack.Empty();
+
+	for (auto DeviceIt = ExternalInputDevices.CreateIterator(); DeviceIt; ++DeviceIt)
+	{
+		(*DeviceIt)->SendControllerEvents();
+	}
 }
 
 void FAndroidInputInterface::QueueTouchInput(TArray<TouchInput> InTouchEvents)
@@ -764,26 +925,145 @@ void FAndroidInputInterface::QueueTouchInput(TArray<TouchInput> InTouchEvents)
 	FAndroidInputInterface::TouchInputStack.Append(InTouchEvents);
 }
 
+int32 FAndroidInputInterface::FindExistingDevice(int32 deviceId)
+{
+	// Treat non-positive devices ids special
+	if (deviceId < 1)
+		return -1;
+
+	for (int32 ControllerIndex = 0; ControllerIndex < MAX_NUM_CONTROLLERS; ControllerIndex++)
+	{
+		if (DeviceMapping[ControllerIndex].DeviceInfo.DeviceId == deviceId && DeviceMapping[ControllerIndex].DeviceState == MappingState::Valid)
+		{
+			return ControllerIndex;
+		}
+	}
+
+	// Did not find it
+	return -1;
+}
+
+int32 FAndroidInputInterface::GetControllerIndex(int32 deviceId)
+{
+	// Treat non-positive device ids special (always controller 0)
+	if (deviceId < 1)
+		return 0;
+
+	// Look for this deviceId in controllers discovered
+	int32 UnassignedIndex = -1;
+	for (int32 ControllerIndex = 0; ControllerIndex < MAX_NUM_CONTROLLERS; ControllerIndex++)
+	{
+		if (DeviceMapping[ControllerIndex].DeviceState == MappingState::Unassigned)
+		{
+			if (UnassignedIndex == -1)
+				UnassignedIndex = ControllerIndex;
+			continue;
+		}
+
+		if (DeviceMapping[ControllerIndex].DeviceInfo.DeviceId == deviceId)
+		{
+			return ControllerIndex;
+		}
+	}
+
+	// Haven't seen this one before, make sure there is room for a new one
+	if (UnassignedIndex == -1)
+		return -1;
+
+	// Register it
+	DeviceMapping[UnassignedIndex].DeviceInfo.DeviceId = deviceId;
+	OldControllerData[UnassignedIndex].DeviceId = UnassignedIndex;
+	NewControllerData[UnassignedIndex].DeviceId = UnassignedIndex;
+
+	// Mark it for validation later
+	DeviceMapping[UnassignedIndex].DeviceState = MappingState::ToValidate;
+
+	return UnassignedIndex;
+}
+
 void FAndroidInputInterface::JoystickAxisEvent(int32 deviceId, int32 axisId, float axisValue)
 {
 	FScopeLock Lock(&TouchInputCriticalSection);
 
-	// For now, force the device to 0
-	// Should use Java to enumerate number of controllers and assign device ID
-	// to controller number
-	deviceId = 0;
+	// Get the controller index matching deviceId (if there is one)
+	deviceId = GetControllerIndex(deviceId);
+	if (deviceId == -1)
+		return;
 
-	// Apply a small dead zone to the analog sticks
-	const float deadZone = 0.2f;
+	// Deal with left stick and triggers (generic)
 	switch (axisId)
 	{
-		// Also, invert Y and RZ to match what the engine expects
-		case AMOTION_EVENT_AXIS_X:        NewControllerData[deviceId].LXAnalog =  axisValue; break;
-		case AMOTION_EVENT_AXIS_Y:        NewControllerData[deviceId].LYAnalog = -axisValue; break;
-		case AMOTION_EVENT_AXIS_Z:        NewControllerData[deviceId].RXAnalog =  axisValue; break;
-		case AMOTION_EVENT_AXIS_RZ:       NewControllerData[deviceId].RYAnalog = -axisValue; break;
-		case AMOTION_EVENT_AXIS_LTRIGGER: NewControllerData[deviceId].LTAnalog =  axisValue; break;
-		case AMOTION_EVENT_AXIS_RTRIGGER: NewControllerData[deviceId].RTAnalog =  axisValue; break;
+		case AMOTION_EVENT_AXIS_X:			NewControllerData[deviceId].LXAnalog =  axisValue; return;
+		case AMOTION_EVENT_AXIS_Y:			NewControllerData[deviceId].LYAnalog = -axisValue; return;
+		case AMOTION_EVENT_AXIS_LTRIGGER:	NewControllerData[deviceId].LTAnalog =  axisValue; return;
+		case AMOTION_EVENT_AXIS_RTRIGGER:	NewControllerData[deviceId].RTAnalog =  axisValue; return;
+	}
+
+	// Deal with right stick Z/RZ events
+	if (DeviceMapping[deviceId].bRightStickZRZ)
+	{
+		switch (axisId)
+		{
+			case AMOTION_EVENT_AXIS_Z:		NewControllerData[deviceId].RXAnalog =  axisValue; return;
+			case AMOTION_EVENT_AXIS_RZ:		NewControllerData[deviceId].RYAnalog = -axisValue; return;
+		}
+	}
+
+	// Deal with right stick RX/RY events
+	if (DeviceMapping[deviceId].bRightStickRXRY)
+	{
+		switch (axisId)
+		{
+			case AMOTION_EVENT_AXIS_RX:		NewControllerData[deviceId].RXAnalog =  axisValue; return;
+			case AMOTION_EVENT_AXIS_RY:		NewControllerData[deviceId].RYAnalog = -axisValue; return;
+		}
+	}
+
+	// Deal with hat (convert to DPAD buttons)
+	if (DeviceMapping[deviceId].bSupportsHat)
+	{
+		// Apply a small dead zone to hats
+		const float deadZone = 0.2f;
+
+		switch (axisId)
+		{
+			case AMOTION_EVENT_AXIS_HAT_X:
+				// AMOTION_EVENT_AXIS_HAT_X translates to KEYCODE_DPAD_LEFT and AKEYCODE_DPAD_RIGHT
+				if (axisValue > deadZone)
+				{
+					NewControllerData[deviceId].ButtonStates[14] = false;	// DPAD_LEFT released
+					NewControllerData[deviceId].ButtonStates[15] = true;	// DPAD_RIGHT pressed
+				}
+				else if (axisValue < -deadZone)
+				{
+					NewControllerData[deviceId].ButtonStates[14] = true;	// DPAD_LEFT pressed
+					NewControllerData[deviceId].ButtonStates[15] = false;	// DPAD_RIGHT released
+				}
+				else
+				{
+					NewControllerData[deviceId].ButtonStates[14] = false;	// DPAD_LEFT released
+					NewControllerData[deviceId].ButtonStates[15] = false;	// DPAD_RIGHT released
+				}
+				return;
+			case AMOTION_EVENT_AXIS_HAT_Y:
+				// AMOTION_EVENT_AXIS_HAT_Y translates to KEYCODE_DPAD_UP and AKEYCODE_DPAD_DOWN
+				if (axisValue > deadZone)
+				{
+					NewControllerData[deviceId].ButtonStates[12] = false;	// DPAD_UP released
+					NewControllerData[deviceId].ButtonStates[13] = true;	// DPAD_DOWN pressed
+				}
+				else if (axisValue < -deadZone)
+				{
+					NewControllerData[deviceId].ButtonStates[12] = true;	// DPAD_UP pressed
+					NewControllerData[deviceId].ButtonStates[13] = false;	// DPAD_DOWN released
+				}
+				else
+				{
+					NewControllerData[deviceId].ButtonStates[12] = false;	// DPAD_UP released
+					NewControllerData[deviceId].ButtonStates[13] = false;	// DPAD_DOWN released
+				}
+				return;
+		}
 	}
 }
 
@@ -791,10 +1071,10 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 {
 	FScopeLock Lock(&TouchInputCriticalSection);
 
-	// For now, force the device to 0
-	// Should use Java to enumerate number of controllers and assign device ID
-	// to controller number
-	deviceId = 0;
+	// Get the controller index matching deviceId (if there is one)
+	deviceId = GetControllerIndex(deviceId);
+	if (deviceId == -1)
+		return;
 
 	switch (buttonId)
 	{
@@ -803,10 +1083,20 @@ void FAndroidInputInterface::JoystickButtonEvent(int32 deviceId, int32 buttonId,
 		case AKEYCODE_BUTTON_B:      NewControllerData[deviceId].ButtonStates[1] = buttonDown; break;
 		case AKEYCODE_BUTTON_X:      NewControllerData[deviceId].ButtonStates[2] = buttonDown; break;
 		case AKEYCODE_BUTTON_Y:      NewControllerData[deviceId].ButtonStates[3] = buttonDown; break;
-		case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[4] = buttonDown; break;
-		case AKEYCODE_BUTTON_R1:     NewControllerData[deviceId].ButtonStates[5] = buttonDown; break;
+		case AKEYCODE_BUTTON_L1:     NewControllerData[deviceId].ButtonStates[4] = buttonDown;
+									 if (DeviceMapping[deviceId].bMapL1R1ToTriggers)
+									 {
+										 NewControllerData[deviceId].ButtonStates[10] = buttonDown;
+									 }
+									 break;
+		case AKEYCODE_BUTTON_R1:     NewControllerData[deviceId].ButtonStates[5] = buttonDown;
+									 if (DeviceMapping[deviceId].bMapL1R1ToTriggers)
+									 {
+										 NewControllerData[deviceId].ButtonStates[11] = buttonDown;
+									 }
+									 break;
 		case AKEYCODE_BUTTON_START:
-		case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[19] = buttonDown;  break;
+		case AKEYCODE_MENU:          NewControllerData[deviceId].ButtonStates[6] = buttonDown; NewControllerData[deviceId].ButtonStates[17] = buttonDown;  break;
 		case AKEYCODE_BUTTON_SELECT: 
 		case AKEYCODE_BACK:          NewControllerData[deviceId].ButtonStates[7] = buttonDown; NewControllerData[deviceId].ButtonStates[16] = buttonDown;  break;
 		case AKEYCODE_BUTTON_THUMBL: NewControllerData[deviceId].ButtonStates[8] = buttonDown; break;

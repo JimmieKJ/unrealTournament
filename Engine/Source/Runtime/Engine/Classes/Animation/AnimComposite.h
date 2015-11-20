@@ -19,15 +19,21 @@ public:
 	UPROPERTY()
 	struct FAnimTrack AnimationTrack;
 
-	// Begin UAnimSequenceBase interface
-	ENGINE_API virtual void OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InstanceOwner) const override;
-	// End UAnimSequenceBase interface
+#if WITH_EDITORONLY_DATA
+	/** Preview Base pose for additive BlendSpace **/
+	UPROPERTY(EditAnywhere, Category=AdditiveSettings)
+	UAnimSequence* PreviewBasePose;
+#endif // WITH_EDITORONLY_DATA
 
-	// Begin UAnimSequence interface
+	//~ Begin UAnimSequenceBase Interface
+	ENGINE_API virtual void OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InstanceOwner) const override;
+	virtual void GetAnimationPose(FCompactPose& OutPose, FBlendedCurve& OutCurve, const FAnimExtractContext& ExtractionContext) const override;	
+	//~ End UAnimSequenceBase Interface
+	//~ Begin UAnimSequence Interface
 #if WITH_EDITOR
 	virtual bool GetAllAnimationSequencesReferred(TArray<UAnimSequence*>& AnimationSequences) override;
 	virtual void ReplaceReferredAnimations(const TMap<UAnimSequence*, UAnimSequence*>& ReplacementMap) override;
 #endif
-	// End UAnimSequence interface
+	//~ End UAnimSequence Interface
 };
 

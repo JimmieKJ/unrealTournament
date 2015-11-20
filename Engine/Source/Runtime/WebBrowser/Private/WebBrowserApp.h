@@ -7,7 +7,10 @@
 #if PLATFORM_WINDOWS
 #include "AllowWindowsPlatformTypes.h"
 #endif
+#pragma push_macro("OVERRIDE")
+#undef OVERRIDE // cef headers provide their own OVERRIDE macro
 #include "include/cef_app.h"
+#pragma pop_macro("OVERRIDE")
 #if PLATFORM_WINDOWS
 #include "HideWindowsPlatformTypes.h"
 #endif
@@ -24,13 +27,23 @@ public:
 	 * Default Constructor
 	 */
 	FWebBrowserApp();
+
+	/** A delegate this is invoked when an existing browser requests creation of a new browser window. */
+	DECLARE_DELEGATE_OneParam(FOnRenderProcessThreadCreated, CefRefPtr<CefListValue> /*ExtraInfo*/);
+	virtual FOnRenderProcessThreadCreated& OnRenderProcessThreadCreated()
+	{
+		return RenderProcessThreadCreatedDelegate;
+	}
+
 private:
 	// CefApp methods.
 	virtual CefRefPtr<CefBrowserProcessHandler> GetBrowserProcessHandler() override { return this; }
 
 	// CefBrowserProcessHandler methods:
-	virtual void OnContextInitialized() override;
-    virtual void OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> CommandLine) override;
+	virtual void OnBeforeChildProcessLaunch(CefRefPtr<CefCommandLine> CommandLine) override;
+	virtual void OnRenderProcessThreadCreated(CefRefPtr<CefListValue> ExtraInfo) override;
+
+	FOnRenderProcessThreadCreated RenderProcessThreadCreatedDelegate;
 
 	// Include the default reference counting implementation.
 	IMPLEMENT_REFCOUNTING(FWebBrowserApp);

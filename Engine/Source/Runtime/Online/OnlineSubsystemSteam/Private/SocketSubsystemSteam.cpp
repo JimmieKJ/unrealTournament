@@ -7,10 +7,8 @@
 #include "OnlineSessionInterfaceSteam.h"
 #include "SocketSubsystemModule.h"
 #include "ModuleManager.h"
-
+#include "Classes/SteamNetConnection.h"
 #include "Engine.h"
-#include "OnlineSubsystemUtilsClasses.h"
-#include "OnlineSubsystemSteamClasses.h"
 
 FSocketSubsystemSteam* FSocketSubsystemSteam::SocketSingleton = NULL;
 

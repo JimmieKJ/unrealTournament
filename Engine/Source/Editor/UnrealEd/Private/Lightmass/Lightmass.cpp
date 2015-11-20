@@ -1400,8 +1400,15 @@ void FLightmassExporter::WriteMeshInstances( int32 Channel )
 			if (Primitive)
 			{
 				// All FStaticMeshStaticLightingMesh's in the OtherMeshLODs array need to get the same MeshIndex but different LODIndex
-				// So that they won't shadow each other in Lightmass
-				if (SMLightingMesh->OtherMeshLODs.Num() > 0)
+				// So that they won't shadow each other in Lightmass. HLODs are forced as new meshes and rely on custom handling
+				if (SMLightingMesh->HLODTreeIndex)
+				{
+					FMeshAndLODId NewId;
+					NewId.MeshIndex = NextId++;
+					NewId.LODIndex = 0;
+					ComponentToIDMap.Add(Primitive, NewId);
+				}
+				else if (SMLightingMesh->OtherMeshLODs.Num() > 0)
 				{
 					FMeshAndLODId* ExistingLODId = NULL;
 					int32 LargestLODIndex = INDEX_NONE;
@@ -1481,7 +1488,8 @@ void FLightmassExporter::WriteMeshInstances( int32 Channel )
 						NewElementData.MaterialId = Material->GetLightingGuid();
 						NewElementData.bUseTwoSidedLighting = Primitive->LightmassSettings.bUseTwoSidedLighting;
 						NewElementData.bShadowIndirectOnly = Primitive->LightmassSettings.bShadowIndirectOnly;
-						NewElementData.bUseEmissiveForStaticLighting = Primitive->LightmassSettings.bUseEmissiveForStaticLighting;;
+						NewElementData.bUseEmissiveForStaticLighting = Primitive->LightmassSettings.bUseEmissiveForStaticLighting;
+						NewElementData.bUseVertexNormalForHemisphereGather = Primitive->LightmassSettings.bUseVertexNormalForHemisphereGather;
 						// Combine primitive and level boost settings so we don't have to send the level settings over to Lightmass  
 						NewElementData.EmissiveLightFalloffExponent = Primitive->LightmassSettings.EmissiveLightFalloffExponent;
 						NewElementData.EmissiveLightExplicitInfluenceRadius = Primitive->LightmassSettings.EmissiveLightExplicitInfluenceRadius;
@@ -1498,8 +1506,13 @@ void FLightmassExporter::WriteMeshInstances( int32 Channel )
 
 		Lightmass::FStaticMeshStaticLightingMeshData SMInstanceMeshData;
 		FMemory::Memzero(&SMInstanceMeshData,sizeof(SMInstanceMeshData));
-		// store the mesh LOD in with the MassiveLOD, by shifting the MassiveLOD by 16
-		SMInstanceMeshData.EncodedLODIndex = SMLightingMesh->LODIndex + (MeshId ? (MeshId->LODIndex << 16) : 0);
+
+		// Store HLOD data in upper 16 bits
+		SMInstanceMeshData.EncodedLODIndices = SMLightingMesh->LODIndex & 0xFFFF;
+		SMInstanceMeshData.EncodedLODIndices |= (SMLightingMesh->HLODTreeIndex & 0xFFFF) << 16;
+		SMInstanceMeshData.EncodedHLODRange = SMLightingMesh->HLODChildStartIndex & 0xFFFF;
+		SMInstanceMeshData.EncodedHLODRange |= (SMLightingMesh->HLODChildEndIndex & 0xFFFF) << 16;
+
 		SMInstanceMeshData.LocalToWorld = SMLightingMesh->LocalToWorld;
 		SMInstanceMeshData.bReverseWinding = SMLightingMesh->bReverseWinding;
 		SMInstanceMeshData.bShouldSelfShadow = true;
@@ -1564,6 +1577,7 @@ void FLightmassExporter::WriteLandscapeInstances( int32 Channel )
 			NewElementData.bUseTwoSidedLighting = LMSetting.bUseTwoSidedLighting;
 			NewElementData.bShadowIndirectOnly = LMSetting.bShadowIndirectOnly;
 			NewElementData.bUseEmissiveForStaticLighting = LMSetting.bUseEmissiveForStaticLighting;
+			NewElementData.bUseVertexNormalForHemisphereGather = LMSetting.bUseVertexNormalForHemisphereGather;
 			// Combine primitive and level boost settings so we don't have to send the level settings over to Lightmass  
 			NewElementData.EmissiveLightFalloffExponent = LMSetting.EmissiveLightFalloffExponent;
 			NewElementData.EmissiveLightExplicitInfluenceRadius = LMSetting.EmissiveLightExplicitInfluenceRadius;
@@ -1668,6 +1682,7 @@ void FLightmassExporter::WriteMappings( int32 Channel )
 			TempData.bUseTwoSidedLighting = PrimitiveSettings.bUseTwoSidedLighting;
 			TempData.bShadowIndirectOnly = PrimitiveSettings.bShadowIndirectOnly;
 			TempData.bUseEmissiveForStaticLighting = PrimitiveSettings.bUseEmissiveForStaticLighting;
+			TempData.bUseVertexNormalForHemisphereGather = PrimitiveSettings.bUseVertexNormalForHemisphereGather;
 			TempData.EmissiveLightFalloffExponent = PrimitiveSettings.EmissiveLightFalloffExponent;
 			TempData.EmissiveLightExplicitInfluenceRadius = PrimitiveSettings.EmissiveLightExplicitInfluenceRadius;
 			TempData.EmissiveBoost = PrimitiveSettings.EmissiveBoost * LevelSettings.EmissiveBoost;
@@ -1893,6 +1908,7 @@ void FLightmassExporter::WriteSceneSettings( Lightmass::FSceneFileHeader& Scene 
 	}
 	{
 		Scene.AmbientOcclusionSettings.bUseAmbientOcclusion = LevelSettings.bUseAmbientOcclusion;
+		Scene.AmbientOcclusionSettings.bGenerateAmbientOcclusionMaterialMask = LevelSettings.bGenerateAmbientOcclusionMaterialMask;
 		Scene.AmbientOcclusionSettings.bVisualizeAmbientOcclusion = LevelSettings.bVisualizeAmbientOcclusion;
 		Scene.AmbientOcclusionSettings.DirectIlluminationOcclusionFraction = LevelSettings.DirectIlluminationOcclusionFraction;
 		Scene.AmbientOcclusionSettings.IndirectIlluminationOcclusionFraction = LevelSettings.IndirectIlluminationOcclusionFraction;
@@ -2317,10 +2333,11 @@ FLightmassProcessor::FLightmassProcessor(const FStaticLightingSystem& InSystem, 
 
 FLightmassProcessor::~FLightmassProcessor()
 {
+	// Note: the connection must be closed before deleting anything that SwarmCallback accesses
+	Swarm.CloseConnection();
+
 	delete Exporter;
 	delete Importer;
-
-	Swarm.CloseConnection();
 
 	for ( TMap<FGuid, FMappingImportHelper*>::TIterator It(ImportedMappings); It; ++It )
 	{
@@ -3594,11 +3611,11 @@ void FLightmassProcessor::ImportStaticShadowDepthMap(ULightComponent* Light)
 		BeginReleaseResource(&DepthMap);
 		DepthMap.Empty();
 
-		DepthMap.WorldToLight = ShadowMapData.WorldToLight;
-		DepthMap.ShadowMapSizeX = ShadowMapData.ShadowMapSizeX;
-		DepthMap.ShadowMapSizeY = ShadowMapData.ShadowMapSizeY;
+		DepthMap.Data.WorldToLight = ShadowMapData.WorldToLight;
+		DepthMap.Data.ShadowMapSizeX = ShadowMapData.ShadowMapSizeX;
+		DepthMap.Data.ShadowMapSizeY = ShadowMapData.ShadowMapSizeY;
 
-		ReadArray(Channel, DepthMap.DepthSamples);
+		ReadArray(Channel, DepthMap.Data.DepthSamples);
 		Swarm.CloseChannel(Channel);
 
 		DepthMap.InitializeAfterImport();

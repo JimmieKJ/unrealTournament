@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // Emitter actor class.
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "Emitter.generated.h"
@@ -124,18 +124,18 @@ public:
 
 	void AutoPopulateInstanceProperties();
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual FString GetDetailedInfoInternal() const override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 
-	// Begin AActor interface
+	//~ Begin AActor Interface
 	virtual void PostActorCreated() override;
 	virtual void PostInitializeComponents() override;
 #if WITH_EDITOR
 	virtual void CheckForErrors() override;
 	virtual bool GetReferencedContentObjects( TArray<UObject*>& Objects ) const override;
-	// End AActor interface
+	//~ End AActor Interface
 
 	/**
 	 *	Called to reset the emitter actor in the level.

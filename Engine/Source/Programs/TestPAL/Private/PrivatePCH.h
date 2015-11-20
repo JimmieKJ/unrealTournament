@@ -13,6 +13,7 @@
 #define ARG_THREAD_SINGLETON_TEST			"threadsingleton"
 #define ARG_SYSINFO_TEST					"sysinfo"
 #define ARG_CRASH_TEST						"crash"
+#define ARG_STRINGPRECISION_TEST			"stringprecision"
 
 // this module headers
 #include "Parent.h"

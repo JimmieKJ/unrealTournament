@@ -217,7 +217,7 @@ namespace UnrealBuildTool
 		public List<KeyValuePair<string, byte[]>> Sections = new List<KeyValuePair<string, byte[]>>();
 
 		public VCOleContainer()
-		{ 
+		{
 		}
 
 		public VCOleContainer(string InputFileName)
@@ -234,7 +234,7 @@ namespace UnrealBuildTool
 					STATSTG[] Stats = new STATSTG[200];
 					Enumerator.Next((uint)Stats.Length, Stats, out Fetched);
 
-					for(uint Idx = 0; Idx < Fetched; Idx++)
+					for (uint Idx = 0; Idx < Fetched; Idx++)
 					{
 						IOleStream OleStream;
 						Storage.OpenStream(Stats[Idx].pwcsName, IntPtr.Zero, STGM.Read | STGM.ShareExclusive, 0, out OleStream);
@@ -268,7 +268,7 @@ namespace UnrealBuildTool
 			StgCreateDocfile(OutputFileName, STGM.Direct | STGM.Create | STGM.Write | STGM.ShareExclusive, 0, out OleStorage);
 			try
 			{
-				foreach(KeyValuePair<string, byte[]> Section in Sections)
+				foreach (KeyValuePair<string, byte[]> Section in Sections)
 				{
 					IOleStream OleStream = null;
 					OleStorage.CreateStream(Section.Key, STGM.Write | STGM.ShareExclusive, 0, 0, out OleStream);
@@ -298,20 +298,20 @@ namespace UnrealBuildTool
 		public void SetSection(string Name, byte[] Data)
 		{
 			int Idx = FindIndex(Name);
-			if(Idx == -1)
+			if (Idx == -1)
 			{
-				Sections.Add(new KeyValuePair<string,byte[]>(Name, Data));
+				Sections.Add(new KeyValuePair<string, byte[]>(Name, Data));
 			}
 			else
 			{
-				Sections[Idx] = new KeyValuePair<string,byte[]>(Name, Data);
+				Sections[Idx] = new KeyValuePair<string, byte[]>(Name, Data);
 			}
 		}
 
 		public byte[] GetSection(string Name)
 		{
 			byte[] Data;
-			if(!TryGetSection(Name, out Data))
+			if (!TryGetSection(Name, out Data))
 			{
 				throw new KeyNotFoundException();
 			}
@@ -321,7 +321,7 @@ namespace UnrealBuildTool
 		public bool TryGetSection(string Name, out byte[] Data)
 		{
 			int Idx = FindIndex(Name);
-			if(Idx == -1)
+			if (Idx == -1)
 			{
 				Data = null;
 				return false;
@@ -338,8 +338,8 @@ namespace UnrealBuildTool
 	{
 		const string EpilogueGuid = "00000000-0000-0000-0000-000000000000";
 
-		public List<Tuple<string, string[]>> OpenProjects = new List<Tuple<string,string[]>>();
-		public List<Tuple<string, string[]>> SelectedProjects = new List<Tuple<string,string[]>>();
+		public List<Tuple<string, string[]>> OpenProjects = new List<Tuple<string, string[]>>();
+		public List<Tuple<string, string[]>> SelectedProjects = new List<Tuple<string, string[]>>();
 
 		public VCSolutionExplorerState()
 		{
@@ -364,18 +364,18 @@ namespace UnrealBuildTool
 		void ReadOpenProjects(BinaryReader Reader)
 		{
 			long OpenFoldersEnd = Reader.BaseStream.Position + Reader.ReadInt32();
-			if(Reader.ReadInt32() != 11 || Reader.ReadInt16() != 1 || Reader.ReadByte() != 0)
+			if (Reader.ReadInt32() != 11 || Reader.ReadInt16() != 1 || Reader.ReadByte() != 0)
 			{
 				throw new Exception("Unexpected data in open projects section");
 			}
 
 			int NumProjects = Reader.ReadInt16();
-			for(int ProjectIdx = 0; ProjectIdx < NumProjects; ProjectIdx++)
+			for (int ProjectIdx = 0; ProjectIdx < NumProjects; ProjectIdx++)
 			{
 				string ProjectName = ReadString(Reader);
 
 				string[] Folders = new string[Reader.ReadInt16()];
-				for(int FolderIdx = 0; FolderIdx < Folders.Length; FolderIdx++)
+				for (int FolderIdx = 0; FolderIdx < Folders.Length; FolderIdx++)
 				{
 					Folders[FolderIdx] = ReadString(Reader);
 				}
@@ -393,11 +393,11 @@ namespace UnrealBuildTool
 			Writer.Write((short)1);
 			Writer.Write((byte)0);
 			Writer.Write((short)OpenProjects.Count);
-			foreach(Tuple<string, string[]> OpenProject in OpenProjects)
+			foreach (Tuple<string, string[]> OpenProject in OpenProjects)
 			{
 				WriteString(Writer, OpenProject.Item1);
 				Writer.Write((short)OpenProject.Item2.Length);
-				foreach(string OpenFolder in OpenProject.Item2)
+				foreach (string OpenFolder in OpenProject.Item2)
 				{
 					WriteString(Writer, OpenFolder);
 				}
@@ -407,23 +407,23 @@ namespace UnrealBuildTool
 		void ReadSelectedProjects(BinaryReader Reader)
 		{
 			long SelectedProjectsEnd = Reader.BaseStream.Position + Reader.ReadInt32();
-			if(Reader.ReadInt32() != 1)
+			if (Reader.ReadInt32() != 1)
 			{
 				throw new Exception("Unexpected data in selected projects section");
 			}
 
 			int NumProjects = Reader.ReadInt32();
-			for(int ProjectIdx = 0; ProjectIdx < NumProjects; ProjectIdx++)
+			for (int ProjectIdx = 0; ProjectIdx < NumProjects; ProjectIdx++)
 			{
 				string ProjectName = ReadString(Reader);
 
 				string[] Items = new string[Reader.ReadInt32()];
-				for(int ItemIdx = 0; ItemIdx < Items.Length; ItemIdx++)
+				for (int ItemIdx = 0; ItemIdx < Items.Length; ItemIdx++)
 				{
 					Items[ItemIdx] = ReadString(Reader);
 				}
 
-				SelectedProjects.Add(new Tuple<string,string[]>(ProjectName, Items));
+				SelectedProjects.Add(new Tuple<string, string[]>(ProjectName, Items));
 			}
 
 			Debug.Assert(Reader.BaseStream.Position == SelectedProjectsEnd);
@@ -434,11 +434,11 @@ namespace UnrealBuildTool
 			Writer.Write(4 + 4 + 4 + SelectedProjects.Sum(x => GetStringSize(x.Item1) + 4 + x.Item2.Sum(y => GetStringSize(y))));
 			Writer.Write(1);
 			Writer.Write(SelectedProjects.Count);
-			foreach(Tuple<string, string[]> SelectedProject in SelectedProjects)
+			foreach (Tuple<string, string[]> SelectedProject in SelectedProjects)
 			{
 				WriteString(Writer, SelectedProject.Item1);
 				Writer.Write(SelectedProject.Item2.Length);
-				foreach(string SelectedItem in SelectedProject.Item2)
+				foreach (string SelectedItem in SelectedProject.Item2)
 				{
 					WriteString(Writer, SelectedItem);
 				}
@@ -448,7 +448,7 @@ namespace UnrealBuildTool
 		void ReadEpilogue(BinaryReader Reader)
 		{
 			long EpilogueEnd = Reader.BaseStream.Position + Reader.ReadInt32();
-			if(Reader.ReadInt32() != 1 || ReadString(Reader) != EpilogueGuid || Reader.ReadInt32() != 0)
+			if (Reader.ReadInt32() != 1 || ReadString(Reader) != EpilogueGuid || Reader.ReadInt32() != 0)
 			{
 				throw new Exception("Unexpected data in epilogue");
 			}
@@ -467,7 +467,7 @@ namespace UnrealBuildTool
 		{
 			// Read the number of bytes
 			int NumBytes = Reader.ReadByte();
-			for(int Shift = 7; (NumBytes & (1 << Shift)) != 0; Shift += 7)
+			for (int Shift = 7; (NumBytes & (1 << Shift)) != 0; Shift += 7)
 			{
 				NumBytes &= (1 << Shift) - 1;
 				NumBytes |= Reader.ReadByte() << Shift;
@@ -481,7 +481,7 @@ namespace UnrealBuildTool
 		{
 			// Write the number of bytes in the string, encoded as a sequence of 7-bit values with the top bit set on all but the last
 			int NumBytes = Text.Length * 2;
-			while(NumBytes >= 128)
+			while (NumBytes >= 128)
 			{
 				Writer.Write((byte)((NumBytes & 127) | 128));
 				NumBytes >>= 7;
@@ -495,7 +495,7 @@ namespace UnrealBuildTool
 		int GetStringSize(string Text)
 		{
 			int Size = 1 + (Text.Length * 2);
-			for(int Length = Text.Length; Length > 127; Length >>= 7)
+			for (int Length = Text.Length; Length > 127; Length >>= 7)
 			{
 				Size++;
 			}
@@ -509,14 +509,15 @@ namespace UnrealBuildTool
 		{
 		}
 
-		public VCSolutionOptions(string FileName) : base(FileName)
+		public VCSolutionOptions(string FileName)
+			: base(FileName)
 		{
 		}
 
 		public IEnumerable<VCBinarySetting> GetConfiguration()
 		{
 			byte[] Data;
-			if(TryGetSection("SolutionConfiguration", out Data))
+			if (TryGetSection("SolutionConfiguration", out Data))
 			{
 				using (MemoryStream InputStream = new MemoryStream(Data, false))
 				{
@@ -531,7 +532,7 @@ namespace UnrealBuildTool
 
 		public void SetConfiguration(IEnumerable<VCBinarySetting> Settings)
 		{
-			using(MemoryStream OutputStream = new MemoryStream())
+			using (MemoryStream OutputStream = new MemoryStream())
 			{
 				BinaryWriter Writer = new BinaryWriter(OutputStream, Encoding.Unicode);
 				foreach (VCBinarySetting Setting in Settings)
@@ -545,7 +546,7 @@ namespace UnrealBuildTool
 		public VCSolutionExplorerState GetExplorerState()
 		{
 			byte[] Data;
-			if(TryGetSection("ProjExplorerState", out Data))
+			if (TryGetSection("ProjExplorerState", out Data))
 			{
 				VCSolutionExplorerState State = new VCSolutionExplorerState();
 				State.Read(new MemoryStream(Data, false));
@@ -556,7 +557,7 @@ namespace UnrealBuildTool
 
 		public void SetExplorerState(VCSolutionExplorerState State)
 		{
-			using(MemoryStream OutputStream = new MemoryStream())
+			using (MemoryStream OutputStream = new MemoryStream())
 			{
 				State.Write(OutputStream);
 				SetSection("ProjExplorerState", OutputStream.ToArray());

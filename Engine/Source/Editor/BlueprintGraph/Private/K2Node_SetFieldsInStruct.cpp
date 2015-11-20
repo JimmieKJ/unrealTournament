@@ -4,6 +4,8 @@
 #include "K2Node_SetFieldsInStruct.h"
 #include "MakeStructHandler.h"
 #include "CompilerResultsLog.h"
+#include "KismetCompiler.h"
+#include "Editor/PropertyEditor/Public/PropertyCustomizationHelpers.h"
 
 #define LOCTEXT_NAMESPACE "K2Node_MakeStruct"
 
@@ -12,6 +14,11 @@ struct SetFieldsInStructHelper
 	static const TCHAR* StructRefPinName()
 	{
 		return TEXT("StructRef");
+	}
+
+	static const TCHAR* StructOutPinName()
+	{
+		return TEXT("StructOut");
 	}
 };
 
@@ -31,6 +38,7 @@ public:
 
 UK2Node_SetFieldsInStruct::UK2Node_SetFieldsInStruct(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bMadeAfterOverridePinRemoval(false)
 {
 }
 
@@ -44,6 +52,8 @@ void UK2Node_SetFieldsInStruct::AllocateDefaultPins()
 
 		CreatePin(EGPD_Input, Schema->PC_Struct, TEXT(""), StructType, false, true, SetFieldsInStructHelper::StructRefPinName());
 
+		auto OutPin = CreatePin(EGPD_Output, Schema->PC_Struct, TEXT(""), StructType, false, true, SetFieldsInStructHelper::StructOutPinName());
+		OutPin->PinToolTip = LOCTEXT("SetFieldsInStruct_OutPinTooltip", "Reference to the input struct").ToString();
 		{
 			FStructOnScope StructOnScope(Cast<UScriptStruct>(StructType));
 			FSetFieldsInStructPinManager OptionalPinManager(StructOnScope.GetStructMemory());
@@ -95,13 +105,16 @@ void UK2Node_SetFieldsInStruct::ValidateNodeDuringCompilation(FCompilerResultsLo
 {
 	Super::ValidateNodeDuringCompilation(MessageLog);
 
-	if (UEdGraphPin* FoundPin = FindPinChecked(SetFieldsInStructHelper::StructRefPinName()))
+	UEdGraphPin* FoundPin = FindPin(SetFieldsInStructHelper::StructRefPinName());
+	if (!ensure(FoundPin) || (FoundPin->LinkedTo.Num() <= 0))
 	{
-		if (FoundPin->LinkedTo.Num() <= 0)
-		{
-			FText ErrorMessage = LOCTEXT("SetStructFields_NoStructRefError", "The @@ pin must be connected to the struct that you wish to set.");
-			MessageLog.Error(*ErrorMessage.ToString(), FoundPin);
-		}
+		FText ErrorMessage = LOCTEXT("SetStructFields_NoStructRefError", "The @@ pin must be connected to the struct that you wish to set.");
+		MessageLog.Error(*ErrorMessage.ToString(), FoundPin);
+	}
+
+	if (!bMadeAfterOverridePinRemoval)
+	{
+		MessageLog.Warning(*NSLOCTEXT("K2Node", "OverridePinRemoval", "Override pins have been removed from @@, please verify the Blueprint works as expected! See tooltips for enabling pin visibility for more details. This warning will go away after you resave the asset!").ToString(), this);
 	}
 }
 
@@ -112,7 +125,7 @@ FNodeHandlingFunctor* UK2Node_SetFieldsInStruct::CreateNodeHandler(class FKismet
 
 bool UK2Node_SetFieldsInStruct::ShowCustomPinActions(const UEdGraphPin* Pin, bool bIgnorePinsNum)
 {
-	const int32 MinimalPinsNum = 4;
+	const int32 MinimalPinsNum = 5;
 	const UEdGraphSchema_K2* Schema = GetDefault<UEdGraphSchema_K2>();
 	const auto Node = Pin ? Cast<const UK2Node_SetFieldsInStruct>(Pin->GetOwningNodeUnchecked()) : NULL;
 	return Node
@@ -189,6 +202,70 @@ void UK2Node_SetFieldsInStruct::FSetFieldsInStructPinManager::GetRecordDefaults(
 	FMakeStructPinManager::GetRecordDefaults(TestProperty, Record);
 
 	Record.bShowPin = false;
+}
+
+void UK2Node_SetFieldsInStruct::PostPlacedNewNode()
+{
+	// New nodes automatically have this set.
+	bMadeAfterOverridePinRemoval = true;
+}
+
+void UK2Node_SetFieldsInStruct::ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph)
+{
+	Super::ExpandNode(CompilerContext, SourceGraph);
+
+	UEdGraphPin* OutPin = FindPin(SetFieldsInStructHelper::StructOutPinName());
+	if (OutPin && OutPin->LinkedTo.Num())
+	{
+		UEdGraphPin* InPin = FindPin(SetFieldsInStructHelper::StructRefPinName());
+		UEdGraphPin* SourcePin = (InPin && (1 == InPin->LinkedTo.Num())) ? InPin->LinkedTo[0] : nullptr;
+		auto Schema = CompilerContext.GetSchema();
+		const bool bCopied = SourcePin && Schema->MovePinLinks(*OutPin, *SourcePin, true).CanSafeConnect();
+		
+		if (!bCopied)
+		{
+			CompilerContext.MessageLog.Error(*LOCTEXT("ExpansionError", "Cannot copy links from @@").ToString(), OutPin);
+		}
+	}
+	Pins.Remove(OutPin);
+}
+
+void UK2Node_SetFieldsInStruct::Serialize(FArchive& Ar)
+{
+	UK2Node_StructOperation::Serialize(Ar);
+
+	if (Ar.IsLoading() && !bMadeAfterOverridePinRemoval)
+	{
+		// Check if this node actually requires warning the user that functionality has changed.
+
+		bMadeAfterOverridePinRemoval = true;
+		FOptionalPinManager PinManager;
+
+		// Have to check if this node is even in danger.
+		for (TFieldIterator<UProperty> It(StructType, EFieldIteratorFlags::IncludeSuper); It; ++It)
+		{
+			UProperty* TestProperty = *It;
+			if (PinManager.CanTreatPropertyAsOptional(TestProperty))
+			{
+				bool bNegate = false;
+				if (UProperty* OverrideProperty = PropertyCustomizationHelpers::GetEditConditionProperty(TestProperty, bNegate))
+				{
+					// We have confirmed that there is a property that uses an override variable to enable it, so set it to true.
+					bMadeAfterOverridePinRemoval = false;
+					break;
+				}
+			}
+		}
+	}
+	else if (Ar.IsSaving() && !Ar.IsTransacting())
+	{
+		UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNode(this);
+
+		if (Blueprint && !Blueprint->bBeingCompiled)
+		{
+			bMadeAfterOverridePinRemoval = true;
+		}
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

@@ -90,31 +90,38 @@ void D6Joint::setMotion(PxD6Axis::Enum index, PxD6Motion::Enum t)
 	markDirty(); 
 }
 
-
 PxReal D6Joint::getTwist() const
 {
 	PxQuat q = getRelativeTransform().q, swing, twist;
 	Ps::separateSwingTwist(q, swing, twist);
-	PxReal angle = twist.getAngle();
-	return angle<=PxPi ? angle : angle - 2*PxPi;
+	if (twist.x < 0)
+		twist = -twist;
+	PxReal angle = twist.getAngle();				// angle is in range [0, 2pi]
+	return angle < PxPi ? angle : angle - PxTwoPi;
 }
 
 PxReal D6Joint::getSwingYAngle()	const
 {
 	PxQuat q = getRelativeTransform().q, swing, twist;
 	Ps::separateSwingTwist(q, swing, twist);
-	PxReal tqY = Ps::tanHalf(swing.y, swing.w);
-	PxReal angle = 4*PxAtan(tqY);
-	return angle<=PxPi ? angle : angle - 2*PxPi;
+	if (swing.w < 0)		// choose the shortest rotation
+		swing = -swing;
+
+	PxReal angle = 4 * PxAtan2(swing.y, 1 + swing.w);	// tan (t/2) = sin(t)/(1+cos t), so this is the quarter angle
+	PX_ASSERT(angle>-PxPi && angle<=PxPi);				// since |y| < w+1, the atan magnitude is < PI/4
+	return angle;
 }
 
 PxReal D6Joint::getSwingZAngle()	const
 {
 	PxQuat q = getRelativeTransform().q, swing, twist;
 	Ps::separateSwingTwist(q, swing, twist);
-	PxReal tqZ = Ps::tanHalf(swing.z, swing.w);
-	PxReal angle = 4*PxAtan(tqZ);
-	return angle<=PxPi ? angle : angle - 2*PxPi;
+	if (swing.w < 0)		// choose the shortest rotation
+		swing = -swing;
+
+	PxReal angle = 4 * PxAtan2(swing.z, 1 + swing.w);	// tan (t/2) = sin(t)/(1+cos t), so this is the quarter angle
+	PX_ASSERT(angle>-PxPi && angle <= PxPi);			// since |y| < w+1, the atan magnitude is < PI/4
+	return angle;
 }
 
 
@@ -322,38 +329,78 @@ This used to be in angular locked:
 
 namespace
 {
-	PxReal tanHalfFromSin(PxReal sin)
+PxReal tanHalfFromSin(PxReal sin)
+{
+	return Ps::tanHalf(sin, 1 - sin*sin);
+}
+
+PxQuat truncate(const PxQuat& qIn, PxReal minCosHalfTol, bool& truncated)
+{
+	PxQuat q = qIn.w >= 0 ? qIn : -qIn;
+	truncated = q.w < minCosHalfTol;
+	if (!truncated)
+		return q;
+	PxVec3 v = q.getImaginaryPart().getNormalized() * PxSqrt(1 - minCosHalfTol * minCosHalfTol);
+	return PxQuat(v.x, v.y, v.z, minCosHalfTol);
+}
+
+// we decompose the quaternion as q1 * q2, where q1 is a rotation orthogonal to the unit axis, and q2 a rotation around it.
+// (so for example if 'axis' is the twist axis, this is separateSwingTwist).
+
+PxQuat project(const PxQuat& q, const PxVec3& axis, PxReal cosHalfTol, bool& truncated)
+{
+	PxReal a = q.getImaginaryPart().dot(axis);
+	PxQuat q2 = PxAbs(a) >= 1e-6f ? PxQuat(a*axis.x, a*axis.y, a*axis.z, q.w).getNormalized() : PxQuat(PxIdentity);
+	PxQuat q1 = q * q2.getConjugate();
+
+	PX_ASSERT(PxAbs(q1.getImaginaryPart().dot(q2.getImaginaryPart())) < 1e-6f);
+
+	return truncate(q1, cosHalfTol, truncated) * q2;
+}
+}
+
+namespace physx
+{
+// Here's how the angular part works:
+// * if no DOFs are locked, there's nothing to do.
+// * if all DOFs are locked, we just truncate the rotation
+// * if two DOFs are locked
+//  * we decompose the rotation into swing * twist, where twist is a rotation around the free DOF and swing is a rotation around an axis orthogonal to the free DOF
+//  * then we truncate swing
+// The case of one locked DOF is currently unimplemented, but one option would be:
+// * if one DOF is locked (the tricky case), we define the 'free' axis as follows (as the velocity solver prep function does)
+// TWIST: cB[0]
+// SWING1: cB[0].cross(cA[2])
+// SWING2: cB[0].cross(cA[1])
+// then, as above, we decompose into swing * free, and truncate the free rotation
+
+//export this in the physx namespace so we can unit test it
+PxQuat angularProject(PxU32 lockedDofs, const PxQuat& q, PxReal cosHalfTol, bool& truncated)
+{
+	PX_ASSERT(lockedDofs <= 7);
+	truncated = false;
+
+	switch (lockedDofs)
 	{
-		return Ps::tanHalf(sin, 1-sin*sin);
+	case 0: return q;
+	case 1: return q;		// currently unimplemented
+	case 2: return q;		// currently unimplemented
+	case 3: return project(q, PxVec3(0.0f, 0.0f, 1.0f), cosHalfTol, truncated);
+	case 4: return q;		// currently unimplemented
+	case 5: return project(q, PxVec3(0.0f, 1.0f, 0.0f), cosHalfTol, truncated);
+	case 6: return project(q, PxVec3(1.0f, 0.0f, 0.0f), cosHalfTol, truncated);
+	case 7: return truncate(q, cosHalfTol, truncated);
+	default: return PxQuat(PxIdentity);
 	}
+}
 }
 
 namespace
 {
-
-PxQuat truncateSwing(const PxQuat& in, const PxVec3& twistAxis, PxReal shat, PxReal chat, bool& angularTrunc)
-{
-	using namespace joint;
-	// q.w should be positive, but there can be precision issues here
-	PxQuat q = in.w>=0 ? in : -in;
-
-	PxReal tw = twistAxis.dot(q.getImaginaryPart());
-	PxQuat twist = PxQuat(PxIdentity);
-	if(PxAbs(tw) > 1e-6f)
-	{
-		PxVec3 tv = twistAxis*PxSqrt(1-tw*tw);
-		twist = PxQuat(tv.x, tv.y, tv.z, tw);
-	}
-	PxQuat swing = q * twist.getConjugate();
-
-	swing = truncateAngular(swing,shat,chat,angularTrunc);
-	return angularTrunc ? swing * twist : in;
-}
-
 void D6JointProject(const void* constantBlock,
-					PxTransform& bodyAToWorld,
-					PxTransform& bodyBToWorld,
-					bool projectToA)
+	PxTransform& bodyAToWorld,
+	PxTransform& bodyBToWorld,
+	bool projectToA)
 {
 	using namespace joint;
 	const D6JointData &data = *reinterpret_cast<const D6JointData*>(constantBlock);
@@ -362,30 +409,16 @@ void D6JointProject(const void* constantBlock,
 	computeDerived(data, bodyAToWorld, bodyBToWorld, cA2w, cB2w, cB2cA);
 
 	PxVec3 v(data.locked & 1 ? cB2cA.p.x : 0,
-		     data.locked & 2 ? cB2cA.p.y : 0,
-			 data.locked & 4 ? cB2cA.p.z : 0);
+		data.locked & 2 ? cB2cA.p.y : 0,
+		data.locked & 4 ? cB2cA.p.z : 0);
 
 	bool linearTrunc, angularTrunc = false;
-	projected.p = truncateLinear(v, data.projectionLinearTolerance, linearTrunc) + (cB2cA.p-v);
+	projected.p = truncateLinear(v, data.projectionLinearTolerance, linearTrunc) + (cB2cA.p - v);
 
-	PxU32 angularLocked = data.locked>>3;
+	projected.q = angularProject(data.locked >> 3, cB2cA.q, PxCos(data.projectionAngularTolerance / 2), angularTrunc);
 
-	PxReal chat = PxCos(data.projectionAngularTolerance/2), shat = PxSin(data.projectionAngularTolerance/2);
-	switch(angularLocked)
-	{
-	case 0: projected.q = cB2cA.q; break;
-	case 1: projected.q = cB2cA.q; break;	// TODO
-	case 2:	projected.q = cB2cA.q; break;   // TODO
-	case 3: projected.q = truncateSwing(cB2cA.q, PxVec3(0,0,1.f), shat, chat, angularTrunc); break;
-	case 4: projected.q = cB2cA.q; break;   // TODO
-	case 5: projected.q = truncateSwing(cB2cA.q, PxVec3(0,1.f,0), shat, chat, angularTrunc); break; 
-	case 6: projected.q = truncateSwing(cB2cA.q, PxVec3(0,0,1.f), shat, chat, angularTrunc); break;
-	case 7: projected.q = truncateAngular(cB2cA.q, shat, chat, angularTrunc); break;
-	}
-
-	if(linearTrunc || angularTrunc)
+	if (linearTrunc || angularTrunc)
 		projectTransforms(bodyAToWorld, bodyBToWorld, cA2w, cB2w, projected, data, projectToA);
-
 }
 
 

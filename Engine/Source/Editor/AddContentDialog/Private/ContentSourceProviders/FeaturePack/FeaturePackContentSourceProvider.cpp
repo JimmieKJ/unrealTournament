@@ -29,7 +29,8 @@ public:
 
 FFeaturePackContentSourceProvider::FFeaturePackContentSourceProvider()
 {
-	FeaturePackPath = FPaths::Combine(*FPaths::RootDir(), TEXT("FeaturePacks"));
+	FeaturePackPath = FPaths::FeaturePackDir();
+	TemplatePath = FPaths::RootDir() + TEXT("Templates/");
 	StartUpDirectoryWatcher();
 	RefreshFeaturePacks();
 }
@@ -81,6 +82,8 @@ struct FFeaturePackCompareSortKey
 void FFeaturePackContentSourceProvider::RefreshFeaturePacks()
 {
 	ContentSources.Empty();
+	// TODO improve this and seperate handling of .upack and manifest (loose) parsing
+	// first the .upack files
 	IPlatformFile &PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 	FFillArrayDirectoryVisitor DirectoryVisitor;
 	PlatformFile.IterateDirectory( *FeaturePackPath, DirectoryVisitor );
@@ -95,6 +98,27 @@ void FFeaturePackContentSourceProvider::RefreshFeaturePacks()
 			}
 		}
 	}
+	
+	// Now the 'loose' feature packs
+	FFillArrayDirectoryVisitor TemplateDirectoryVisitor;
+	PlatformFile.IterateDirectoryRecursively(*TemplatePath, TemplateDirectoryVisitor);
+	for (auto TemplatePackFile: TemplateDirectoryVisitor.Files)
+	{
+		FString ThisPackRoot = FPaths::GetPath(TemplatePackFile);
+		if (ThisPackRoot.EndsWith(TEXT("FeaturePack")) == true)
+		{			
+			if(TemplatePackFile.EndsWith(TEXT("manifest.json")) == true)
+			{
+				TUniquePtr<FFeaturePackContentSource> NewContentSource = MakeUnique<FFeaturePackContentSource>(TemplatePackFile);
+				if (NewContentSource->IsDataValid())
+				{
+					ContentSources.Add(MakeShareable(NewContentSource.Release()));
+				}
+			}
+		}
+	}
+
+
 	ContentSources.Sort(FFeaturePackCompareSortKey());
 	OnContentSourcesChanged.ExecuteIfBound();
 }

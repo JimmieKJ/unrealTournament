@@ -417,17 +417,18 @@ static void DumpSortedRanges(TDMARangeList& SortedRanges)
 	}
 }
 
-// Returns true if the FramebufferFetchES2() 'intrinsic' is used
-static bool UsesFramebufferFetchES2(exec_list* Instructions)
+// Returns true if the passed 'intrinsic' is used
+static bool UsesUEIntrinsic(exec_list* Instructions, const char * UEIntrinsic)
 {
-	struct SFindFramebufferFetchES2Intrinsic : public ir_hierarchical_visitor
+	struct SFindUEIntrinsic : public ir_hierarchical_visitor
 	{
 		bool bFound;
-		SFindFramebufferFetchES2Intrinsic() : bFound(false) {}
+		const char * UEIntrinsic;
+		SFindUEIntrinsic(const char * InUEIntrinsic) : bFound(false), UEIntrinsic(InUEIntrinsic) {}
 
 		virtual ir_visitor_status visit_enter(ir_call* IR) override
 		{
-			if (IR->use_builtin && !strcmp(IR->callee_name(), FRAMEBUFFER_FETCH_ES2))
+			if (IR->use_builtin && !strcmp(IR->callee_name(), UEIntrinsic))
 			{
 				bFound = true;
 				return visit_stop;
@@ -437,10 +438,11 @@ static bool UsesFramebufferFetchES2(exec_list* Instructions)
 		}
 	};
 
-	SFindFramebufferFetchES2Intrinsic Visitor;
+	SFindUEIntrinsic Visitor(UEIntrinsic);
 	Visitor.run(Instructions);
 	return Visitor.bFound;
 }
+
 
 /**
  * IR visitor used to generate GLSL. Based on ir_print_visitor.
@@ -496,6 +498,8 @@ class ir_gen_glsl_visitor : public ir_visitor
 
 	// Code generation flags
 	bool bIsES;
+	bool bEmitPrecision;
+	bool bIsES31;
 	_mesa_glsl_parser_targets ShaderTarget;
 
 	bool bGenerateLayoutLocations;
@@ -722,6 +726,67 @@ class ir_gen_glsl_visitor : public ir_visitor
 		}
 	}
 
+	enum EPrecisionModifier
+	{
+		GLSL_PRECISION_DEFAULT,
+		GLSL_PRECISION_LOWP,
+		GLSL_PRECISION_MEDIUMP,
+		GLSL_PRECISION_HIGHP,
+	};
+
+	EPrecisionModifier GetPrecisionModifier(const struct glsl_type *type)
+	{
+		if (type->is_sampler() || type->is_image())
+		{
+			if (GDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_FLOAT)
+			{
+				return GLSL_PRECISION_HIGHP;
+			}
+			else if (!GDefaultPrecisionIsHalf && type->inner_type->base_type == GLSL_TYPE_HALF)
+			{
+				return GLSL_PRECISION_MEDIUMP;
+			}
+			else // shadow samplers, integer textures etc
+			{
+				return GLSL_PRECISION_HIGHP;
+			}
+		}
+		else if (GDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_FLOAT || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_FLOAT)))
+		{
+			return GLSL_PRECISION_HIGHP;
+		}
+		else if (!GDefaultPrecisionIsHalf && (type->base_type == GLSL_TYPE_HALF || (type->is_array() && type->element_type()->base_type == GLSL_TYPE_HALF)))
+		{
+			return GLSL_PRECISION_MEDIUMP;
+		}
+		else if (type->is_integer())
+		{
+			return GLSL_PRECISION_HIGHP;
+		}
+		return GLSL_PRECISION_DEFAULT;
+	}
+
+	void AppendPrecisionModifier(char** inBuffer, EPrecisionModifier PrecisionModifier)
+	{
+		switch (PrecisionModifier)
+		{
+			case GLSL_PRECISION_LOWP:
+				ralloc_asprintf_append(inBuffer, "lowp ");
+				break;
+			case GLSL_PRECISION_MEDIUMP:
+				ralloc_asprintf_append(inBuffer, "mediump ");
+				break;
+			case GLSL_PRECISION_HIGHP:
+				ralloc_asprintf_append(inBuffer, "highp ");
+				break;
+			case GLSL_PRECISION_DEFAULT:
+				break;
+			default:
+				// we missed a type
+				check(false);
+		}
+	}
+
 	/**
 	* \name Visit methods
 	*
@@ -860,6 +925,14 @@ class ir_gen_glsl_visitor : public ir_visitor
 					const glsl_struct_field* field = &inner_type->fields.structure[0];
 					check(strcmp(field->name,"Data")==0);
 					
+					if (bEmitPrecision)
+					{
+						if (field->type->is_integer())
+						{
+							ralloc_asprintf_append(buffer, "flat ");
+						}
+						AppendPrecisionModifier(buffer, GetPrecisionModifier(field->type));
+					}
 					print_type_pre(field->type);
 					ralloc_asprintf_append(buffer, ", Data");
 					print_type_post(field->type);
@@ -899,9 +972,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 			}
 			else if (var->type->is_image())
 			{
+				const bool bSingleComp = (var->type->inner_type->vector_elements == 1);
 				const char * const coherent_str[] = { "", "coherent " };
 				const char * const writeonly_str[] = { "", "writeonly " };
-				const char * const type_str[] = { "32ui", "32i", "16f", "32f" };
+				const char * const type_str[] = { "32ui", "32i", "16f", (bIsES31 && !bSingleComp) ? "16f" : "32f" };
+				const char * const comp_str = bSingleComp ? "r" : "rgba";
 				const int writeonly = var->image_write && !(var->image_read);
 
 				check( var->type->inner_type->base_type >= GLSL_TYPE_UINT &&
@@ -921,7 +996,8 @@ class ir_gen_glsl_visitor : public ir_visitor
 					//should check here on base type
 					ralloc_asprintf_append(
 						buffer,
-						"layout(r%s,binding=%d) ",
+						"layout(%s%s,binding=%d) ",
+						comp_str,
 						type_str[var->type->inner_type->base_type],
 						var->location
 						);
@@ -931,27 +1007,15 @@ class ir_gen_glsl_visitor : public ir_visitor
 					//should check here on base type
 					ralloc_asprintf_append(
 						buffer,
-						"layout(r%s) ",
+						"layout(%s%s) ",
+						comp_str,
 						type_str[var->type->inner_type->base_type]
 						);
 				}
 
-				if (GDefaultPrecisionIsHalf && var->type->inner_type->base_type == GLSL_TYPE_FLOAT)
+				if (bEmitPrecision)
 				{
-					ralloc_asprintf_append(buffer, "highp ");
-				}
-				else if (!GDefaultPrecisionIsHalf && var->type->inner_type->base_type == GLSL_TYPE_HALF)
-				{
-					ralloc_asprintf_append(buffer, "mediump ");
-				}
-				else if (var->type->inner_type->is_integer())
-				{
-					ralloc_asprintf_append(buffer, "highp ");
-				}
-				else
-				{
-					// we missed a type
-					check(false);
+					AppendPrecisionModifier(buffer, GetPrecisionModifier(var->type));
 				}
 				print_type_pre(var->type);
 			}
@@ -976,32 +1040,9 @@ class ir_gen_glsl_visitor : public ir_visitor
 					mode_str[var->mode],
 					interp_str[var->interpolation]
 					);
-				if (var->type->is_sampler())
+				if (bEmitPrecision)
 				{
-					if (GDefaultPrecisionIsHalf && var->type->inner_type->base_type == GLSL_TYPE_FLOAT)
-					{
-						ralloc_asprintf_append(buffer, "highp ");
-					}
-					else if (!GDefaultPrecisionIsHalf && var->type->inner_type->base_type == GLSL_TYPE_HALF)
-					{
-						ralloc_asprintf_append(buffer, "mediump ");
-					}
-					else // shadow samplers, integer textures etc
-					{
-						ralloc_asprintf_append(buffer, "highp ");
-					}
-				}
-				else if (GDefaultPrecisionIsHalf && (var->type->base_type == GLSL_TYPE_FLOAT || (var->type->is_array() && var->type->element_type()->base_type == GLSL_TYPE_FLOAT)))
-				{
-					ralloc_asprintf_append(buffer, "highp ");
-				}
-				else if (!GDefaultPrecisionIsHalf && (var->type->base_type == GLSL_TYPE_HALF || (var->type->is_array() && var->type->element_type()->base_type == GLSL_TYPE_HALF)))
-				{
-					ralloc_asprintf_append(buffer, "mediump ");
-				}
-				else if (var->type->is_integer())
-				{
-					ralloc_asprintf_append(buffer, "highp ");
+					AppendPrecisionModifier(buffer, GetPrecisionModifier(var->type));
 				}
 
 				if (bGenerateLayoutLocations && var->explicit_location)
@@ -2157,13 +2198,20 @@ class ir_gen_glsl_visitor : public ir_visitor
 
 			if (s->length == 0)
 			{
-				ralloc_asprintf_append(buffer, "\thighp float glsl_doesnt_like_empty_structs;\n");
+				if (bEmitPrecision)
+				{
+					ralloc_asprintf_append(buffer, "\thighp float glsl_doesnt_like_empty_structs;\n");
+				}
+				else
+				{
+					ralloc_asprintf_append(buffer, "\tfloat glsl_doesnt_like_empty_structs;\n");
+				}
 			}
 			else
 			{
 				for (unsigned j = 0; j < s->length; j++)
 				{
-					ralloc_asprintf_append(buffer, "\t%s ", (state->language_version == 310) ? "highp" : "") ;
+					ralloc_asprintf_append(buffer, "\t%s ", (state->language_version == 310 && bEmitPrecision) ? "highp" : "") ;
 					print_type_pre(s->fields.structure[j].type);
 					ralloc_asprintf_append(buffer, " %s", s->fields.structure[j].name);
 					print_type_post(s->fields.structure[j].type);
@@ -2204,7 +2252,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 					{
 						for (unsigned j = 0; j < type->length; j++)
 						{
-							ralloc_asprintf_append(buffer, "\t%s",  (state->language_version == 310) ? "highp" : "");
+							ralloc_asprintf_append(buffer, "\t%s",  (state->language_version == 310 && bEmitPrecision) ? "highp" : "");
 							print_type_pre(type->fields.structure[j].type);
 							ralloc_asprintf_append(buffer, " %s", type->fields.structure[j].name);
 							print_type_post(type->fields.structure[j].type);
@@ -2225,7 +2273,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 						//EHart - name-mangle variables to prevent colliding names
 						ralloc_asprintf_append(buffer, "#define %s %s%s\n", var->name, var->name, block_name);
 
-						ralloc_asprintf_append(buffer, "\t%s", (state->language_version == 310) ? "highp " : "");
+						ralloc_asprintf_append(buffer, "\t%s", (state->language_version == 310 && bEmitPrecision) ? "highp " : "");
 						print_type_pre(var->type);
 						ralloc_asprintf_append(buffer, " %s", var->name);
 						print_type_post(var->type);
@@ -2572,7 +2620,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 			}
 			ralloc_asprintf_append(buffer, "%s%s%s%s",
 				need_comma ? "," : "",
-				type_str[type->base_type],
+				type->base_type == GLSL_TYPE_STRUCT ? type->name : type_str[type->base_type],
 				col_str[type->matrix_columns],
 				row_str[type->vector_elements]);
 			if (is_array)
@@ -2755,7 +2803,7 @@ class ir_gen_glsl_visitor : public ir_visitor
 #endif		
 	}
 
-	void print_extensions(_mesa_glsl_parse_state* state, bool bUsesFramebufferFetchES2, bool bUsesES31Extensions)
+	void print_extensions(_mesa_glsl_parse_state* state, bool bUsesFramebufferFetchES2, bool bUsesDepthbufferFetchES2, bool bUsesES31Extensions)
 	{
 		if (bUsesES2TextureLODExtension)
 		{
@@ -2780,6 +2828,14 @@ class ir_gen_glsl_visitor : public ir_visitor
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_shader_framebuffer_fetch\n");
 			ralloc_asprintf_append(buffer, "#extension GL_EXT_shader_framebuffer_fetch : enable\n");
 			ralloc_asprintf_append(buffer, "#endif\n");
+			ralloc_asprintf_append(buffer, "\n#ifdef GL_ARM_shader_framebuffer_fetch\n");
+			ralloc_asprintf_append(buffer, "#extension GL_ARM_shader_framebuffer_fetch : enable\n");
+			ralloc_asprintf_append(buffer, "#endif\n");
+		}
+
+		if (bUsesDepthbufferFetchES2)
+		{
+			ralloc_asprintf_append(buffer, "#extension GL_ARM_shader_framebuffer_fetch_depth_stencil : enable\n");
 		}
 
 		if (bUsesES31Extensions)
@@ -2805,9 +2861,11 @@ class ir_gen_glsl_visitor : public ir_visitor
 public:
 
 	/** Constructor. */
-	ir_gen_glsl_visitor(bool bInIsES, _mesa_glsl_parser_targets InShaderTarget, bool bInGenerateLayoutLocations)
+	ir_gen_glsl_visitor(bool bInIsES, bool bInEmitPrecision, bool bInIsES31, _mesa_glsl_parser_targets InShaderTarget, bool bInGenerateLayoutLocations)
 		: early_depth_stencil(false)
 		, bIsES(bInIsES)
+		, bEmitPrecision(bInEmitPrecision)
+		, bIsES31(bInIsES31)
 		, ShaderTarget(InShaderTarget)
 		, bGenerateLayoutLocations(bInGenerateLayoutLocations)
 		, buffer(0)
@@ -2845,7 +2903,7 @@ public:
 		char* code_buffer = ralloc_asprintf(mem_ctx, "");
 		buffer = &code_buffer;
 
-		if (bIsES && !(ShaderTarget == vertex_shader))
+		if (bEmitPrecision && !(ShaderTarget == vertex_shader))
 		{
 			// TODO: Improve this...
 			
@@ -2870,21 +2928,40 @@ public:
 			ralloc_asprintf_append(buffer, "#endif\n");
 		}
 
-		if ((state->language_version == 310) && (ShaderTarget == fragment_shader))
+		if ((state->language_version == 310) && (ShaderTarget == fragment_shader) && bEmitPrecision)
 		{
 			ralloc_asprintf_append(buffer, "precision %s float;\n", "highp");
 			ralloc_asprintf_append(buffer, "precision %s int;\n", "highp");
 		}
 
 		// FramebufferFetchES2 'intrinsic'
-		bool bUsesFramebufferFetchES2 = UsesFramebufferFetchES2(ir);
+		bool bUsesFramebufferFetchES2 = UsesUEIntrinsic(ir, FRAMEBUFFER_FETCH_ES2);
 		if (bUsesFramebufferFetchES2)
 		{
 			ralloc_asprintf_append(buffer, "\n#ifdef GL_EXT_shader_framebuffer_fetch\n");
-			ralloc_asprintf_append(buffer, "vec4 FramebufferFetchES2() { return gl_LastFragData[0]; }\n");
+			ralloc_asprintf_append(buffer, "	vec4 FramebufferFetchES2() { return gl_LastFragData[0]; }\n");
 			ralloc_asprintf_append(buffer, "#else\n");
-			ralloc_asprintf_append(buffer, "vec4 FramebufferFetchES2() { return vec4(65000.0, 65000.0, 65000.0, 65000.0); }\n");
+			ralloc_asprintf_append(buffer, "	#ifdef GL_ARM_shader_framebuffer_fetch\n");
+			ralloc_asprintf_append(buffer, "		vec4 FramebufferFetchES2() { return gl_LastFragColorARM; }\n");
+			ralloc_asprintf_append(buffer, "	#else\n");
+			ralloc_asprintf_append(buffer, "		vec4 FramebufferFetchES2() { return vec4(65000.0, 65000.0, 65000.0, 65000.0); }\n");
+			ralloc_asprintf_append(buffer, "	#endif\n");
 			ralloc_asprintf_append(buffer, "#endif\n\n");
+		}
+
+		bool bUsesDepthbufferFetchES2 = UsesUEIntrinsic(ir, DEPTHBUFFER_FETCH_ES2);
+		if (bUsesDepthbufferFetchES2)
+		{
+			ralloc_asprintf_append(buffer, "\n#ifdef GL_ARM_shader_framebuffer_fetch_depth_stencil\n");
+			ralloc_asprintf_append(buffer, "float DepthbufferFetchES2(float OptionalDepth, float C1, float C2) { float w = 1.0f/(gl_LastFragDepthARM*C1-C2); return clamp(w, 0.0f, 65000.0f); }\n");
+			ralloc_asprintf_append(buffer, "#else\n");
+			ralloc_asprintf_append(buffer, "float DepthbufferFetchES2(float OptionalDepth, float C1, float C2) { return OptionalDepth; }\n");
+			ralloc_asprintf_append(buffer, "#endif\n\n");
+		}
+
+		if (UsesUEIntrinsic(ir, GET_HDR_32BPP_HDR_ENCODE_MODE_ES2))
+		{
+			ralloc_asprintf_append(buffer, "\nfloat %s() { return HDR_32BPP_ENCODE_MODE; }\n", GET_HDR_32BPP_HDR_ENCODE_MODE_ES2);
 		}
 
 		foreach_iter(exec_list_iterator, iter, *ir)
@@ -2923,7 +3000,7 @@ public:
 
 		char* Extensions = ralloc_asprintf(mem_ctx, "");
 		buffer = &Extensions;
-		print_extensions(state, bUsesFramebufferFetchES2, state->language_version == 310);
+		print_extensions(state, bUsesFramebufferFetchES2, bUsesDepthbufferFetchES2, state->language_version == 310);
 		if (state->bSeparateShaderObjects && !state->bGenerateES)
 		{
 			switch (state->target)
@@ -3099,7 +3176,8 @@ char* FGlslCodeBackend::GenerateCode(exec_list* ir, _mesa_glsl_parse_state* stat
 
 	const bool bGroupFlattenedUBs = ((HlslCompileFlags & HLSLCC_GroupFlattenedUniformBuffers) == HLSLCC_GroupFlattenedUniformBuffers);
 	const bool bGenerateLayoutLocations = state->bGenerateLayoutLocations;
-	ir_gen_glsl_visitor visitor(state->bGenerateES, state->target, bGenerateLayoutLocations);
+	const bool bEmitPrecision = (Target == HCT_FeatureLevelES2 || Target == HCT_FeatureLevelES3_1 || Target == HCT_FeatureLevelES3_1Ext);
+	ir_gen_glsl_visitor visitor(state->bGenerateES, bEmitPrecision, (Target == HCT_FeatureLevelES3_1Ext), state->target, bGenerateLayoutLocations);
 	const char* code = visitor.run(ir, state, bGroupFlattenedUBs);
 	return _strdup(code);
 }
@@ -5132,6 +5210,8 @@ void FGlslLanguageSpec::SetupLanguageIntrinsics(_mesa_glsl_parse_state* State, e
 	if (bIsES2)
 	{
 		make_intrinsic_genType(ir, State, FRAMEBUFFER_FETCH_ES2, ir_invalid_opcode, IR_INTRINSIC_FLOAT, 0, 4, 4);
+		make_intrinsic_genType(ir, State, DEPTHBUFFER_FETCH_ES2, ir_invalid_opcode, IR_INTRINSIC_ALL_FLOATING, 3, 1, 1);
+		make_intrinsic_genType(ir, State, GET_HDR_32BPP_HDR_ENCODE_MODE_ES2, ir_invalid_opcode, IR_INTRINSIC_ALL_FLOATING, 0);
 	}
 
 	if (State->language_version >= 310)

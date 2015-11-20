@@ -5,7 +5,8 @@
 #include "UTPickupWeapon.h"
 
 #if WITH_PROFILE
-#include "UTMcpProfile.h"
+#include "UtMcpProfile.h"
+#include "UtMcpProfileManager.h"
 #endif
 
 #include "UTPlayerController.generated.h"
@@ -196,10 +197,11 @@ public:
 	/** Timer function to bring up scoreboard after end of game. */
 	virtual void ShowEndGameScoreboard();
 
+	/** currently, when the server reports XP, etc to the player's profile, the server gets the results notifications (levelups, etc) and the client does not
+	 * until the backend routing is fixed, this works around the issue by having the server send the notify to the client manually
+	 */
 	UFUNCTION(reliable, client)
-	void ClientReceiveXP(FXPBreakdown GainedXP);
-	UFUNCTION(reliable, client)
-	void ClientReceiveLevelReward(int32 Level, const UUTProfileItem* NewItem);
+	void ClientBackendNotify(const FString& TypeStr, const FString& Data);
 
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
@@ -846,12 +848,13 @@ protected:
 	FString FixedupKeyname(FString KeyName);
 
 	void TurnOffPawns();
-
-	FUniqueNetIdRepl GetGameAccountId() const;
-	virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
-	FDelegateHandle OnLoginStatusChangedDelegate;
+	
+	//virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
+	//FDelegateHandle OnLoginStatusChangedDelegate;
 
 public:
+	FUniqueNetIdRepl GetGameAccountId() const;
+
 	TMap<int32,FString> WeaponGroupKeys;
 	virtual void UpdateWeaponGroupKeys();
 
@@ -951,18 +954,25 @@ public:
 	 */
 	UPROPERTY()
 	TArray<const class UUTProfileItem*> LevelRewards;
-
+	
 #if WITH_PROFILE
-	void InitializeMcpProfile();
 
-	void SynchronizeProfileWithMcp(const FMcpQueryComplete& OnComplete = FMcpQueryComplete());
+	/* Get the profile manager */
+	UUtMcpProfileManager* GetMcpProfileManager();
 
-	UFUNCTION()
-	void SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback);
+	/* Get the profile manager */
+	UUtMcpProfileManager* GetActiveMcpProfileManager();
 
-	UPROPERTY(Transient)
-	UUTMcpProfile* McpProfile;
+	/* Get the profile manager for a shared account (or can be main) */
+	UUtMcpProfileManager* GetMcpProfileManager(const FString& AccountId);
+
+	UUtMcpProfile* GetMcpProfile()
+	{
+		return GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	}
+
 #endif
+	
 };
 
 

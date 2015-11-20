@@ -11,18 +11,12 @@
 class UWorld;
 class APlayerController;
 
-#define INVALID_CONTROLLERID 255
-
 UCLASS(config=Game)
 class ONLINESUBSYSTEMUTILS_API UOnlineSessionClient : public UOnlineSession
 {
 	GENERATED_UCLASS_BODY()
 
 protected:
-
-	/** Reference to the online sessions interface */
-	IOnlineSessionPtr SessionInt;
-
 	/** Delegate for destroying a session after previously ending it */
 	FOnEndSessionCompleteDelegate OnEndForJoinSessionCompleteDelegate;
 	/** Delegate for joining a new session after previously destroying it */
@@ -53,23 +47,13 @@ protected:
 	UPROPERTY(Transient)
 	bool bHandlingDisconnect;
 
+	/** @return the current game instance */
+	virtual UGameInstance* GetGameInstance() const;
+
 	/** @return the current game world */
 	virtual UWorld* GetWorld() const override;
 
-	/**
-	 * Get the player controller associated with this session (from the owning ULocalPlayer)
-	 */
-	APlayerController* GetPlayerController();
-
-	/** @return the unique id associated with the player who owns this class */
-	TSharedPtr<FUniqueNetId> GetUniqueId();
-
-	/**
-	 * Helper function to retrieve the controller id of the owning controller
-	 *
-	 * @return controller id of the controller
-	 */
-	int32 GetControllerId();
+	virtual IOnlineSessionPtr GetSessionInt();
 
 	/**
 	 * Chance for the session client to handle the disconnect
@@ -166,7 +150,7 @@ protected:
 	* @param UserId the user being invited
 	* @param InviteResult the search/settings result for the session we're joining via invite
 	*/
-	void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr<FUniqueNetId> UserId, const FOnlineSessionSearchResult& InviteResult) override;
+	void OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr<const FUniqueNetId> UserId, const FOnlineSessionSearchResult& InviteResult) override;
 
 	/**
 	 * Delegate fired when the joining process for an online session has completed
@@ -188,12 +172,20 @@ protected:
 public:
 
 	// UOnlineSession interface begin
-	virtual void RegisterOnlineDelegates(class UWorld* InWorld) override;
-	virtual void ClearOnlineDelegates(class UWorld* InWorld) override;
+	virtual void RegisterOnlineDelegates() override;
+	virtual void ClearOnlineDelegates() override;
 	virtual void HandleDisconnect(UWorld *World, UNetDriver *NetDriver) override;
 	virtual void StartOnlineSession(FName SessionName) override;
 	virtual void EndOnlineSession(FName SessionName) override;
 	// UOnlineSession interface end
+
+	/** 
+	 * Update the session settings on the client 
+	 *
+	 * @param World reference to the current world
+	 * @param Settings settings to apply to the session
+	 */
+	virtual void SetInviteFlags(UWorld* World, const FJoinabilitySettings& Settings);
 };
 
 

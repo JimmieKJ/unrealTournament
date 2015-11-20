@@ -37,4 +37,8 @@ protected:
 	static FReply OnApplyRampButtonClicked();
 	static bool GetApplyRampButtonIsEnabled();
 	static FReply OnResetRampButtonClicked();
+
+	// Mirror Tool
+	static FReply OnApplyMirrorButtonClicked();
+	static FReply OnResetMirrorPointButtonClicked();
 };

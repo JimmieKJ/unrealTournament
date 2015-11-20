@@ -7,7 +7,6 @@
 #include <GameKit/GKLeaderboard.h>
 #include <GameKit/GKScore.h>
 
-
 FOnlineLeaderboardsIOS::FOnlineLeaderboardsIOS(FOnlineSubsystemIOS* InSubsystem)
 {
 	UE_LOG(LogOnline, Display, TEXT("FOnlineLeaderboardsIOS::FOnlineLeaderboardsIOS()"));
@@ -106,7 +105,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboardCompletionDelegate(NSArray* players,
                         UE_LOG(LogOnline, Display, TEXT("Value: %d"), score.value);
                         UE_LOG(LogOnline, Display, TEXT("----------------------------------------------------------------"));
                             
-                        TSharedRef<FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(PlayerIDString));
+                        TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(PlayerIDString));
                             
                         FOnlineStatsRow* UserRow = ReadObject.Get().FindPlayerRecord(UserId.Get());
                         if (UserRow == NULL)
@@ -167,7 +166,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboardCompletionDelegate(NSArray* players,
     return bTriggeredReadRequest;
 }
 
-bool FOnlineLeaderboardsIOS::ReadLeaderboards(const TArray< TSharedRef<FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& InReadObject)
+bool FOnlineLeaderboardsIOS::ReadLeaderboards(const TArray< TSharedRef<const FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& InReadObject)
 {
 	auto ReadObject = InReadObject;
 
@@ -184,7 +183,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboards(const TArray< TSharedRef<FUniqueNe
 		NSMutableArray* FriendIds = [NSMutableArray arrayWithCapacity: (Players.Num() + 1)];
 		
 		// Add the local player to the list of ids to look up.
-		TSharedPtr<FUniqueNetId> LocalPlayerUID = IdentityInterface->GetUniquePlayerId(0);
+		TSharedPtr<const FUniqueNetId> LocalPlayerUID = IdentityInterface->GetUniquePlayerId(0);
 		check(LocalPlayerUID.IsValid());
 
 		FriendIds[0] = [NSString stringWithFString:LocalPlayerUID->ToString()];
@@ -232,7 +231,7 @@ bool FOnlineLeaderboardsIOS::ReadLeaderboardsForFriends(int32 LocalUserNum, FOnl
 		TArray< TSharedRef<FOnlineFriend> > Friends;
 		FriendsInterface->GetFriendsList( 0, EFriendsLists::ToString(EFriendsLists::Default), Friends );
 
-		TArray< TSharedRef< FUniqueNetId > > FriendIds;
+		TArray< TSharedRef<const FUniqueNetId> > FriendIds;
 		for( int32 Idx = 0; Idx < Friends.Num(); Idx++ )
 		{
 			FriendIds.Add( Friends[ Idx ]->GetUserId() );

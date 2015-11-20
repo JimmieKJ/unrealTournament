@@ -12,8 +12,15 @@
 #include "Engine.h"
 #include "SlateStyle.h"
 #include "EditorStyle.h"
+#include "DetailCategoryBuilder.h"
+#include "DetailLayoutBuilder.h"
+#include "DetailWidgetRow.h"
+#include "IDetailPropertyRow.h"
 #include "IDetailsView.h"
-#include "IMediaTrack.h"
+#include "IMediaStream.h"
+#include "IMediaAudioTrack.h"
+#include "IMediaCaptionTrack.h"
+#include "IMediaVideoTrack.h"
 #include "MediaPlayer.h"
 #include "MediaSampleBuffer.h"
 #include "MediaSoundWave.h"
@@ -31,6 +38,10 @@
 
 /* Private includes
  *****************************************************************************/
+
+#include "MediaPlayerCustomization.h"
+#include "MediaSoundWaveCustomization.h"
+#include "MediaTextureCustomization.h"
 
 #include "MediaPlayerFactory.h"
 #include "MediaPlayerFactoryNew.h"

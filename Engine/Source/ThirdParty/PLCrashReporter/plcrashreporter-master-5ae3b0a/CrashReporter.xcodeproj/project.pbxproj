@@ -4207,6 +4207,10 @@
 				PRODUCT_NAME = "CrashReporter$(EFFECTIVE_PLATFORM_NAME)-Static";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-shorten-64-to-32",
+				);
 			};
 			name = Debug;
 		};
@@ -4236,6 +4240,10 @@
 				PRODUCT_NAME = "CrashReporter$(EFFECTIVE_PLATFORM_NAME)-Static";
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-shorten-64-to-32",
+				);
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -4320,6 +4328,7 @@
 				PRODUCT_NAME = CrashReporter;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = "-Wall-Wno-shorten-64-to-32";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Debug;
@@ -4347,6 +4356,7 @@
 				PRODUCT_NAME = CrashReporter;
 				SDKROOT = macosx;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = "-Wall-Wno-shorten-64-to-32";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Release;

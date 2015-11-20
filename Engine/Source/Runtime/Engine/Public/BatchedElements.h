@@ -296,23 +296,43 @@ private:
 	TArray<FBatchedQuadMeshElement> QuadMeshElements;
 
 	/** bound shader state for the fast path */
-	static FGlobalBoundShaderState SimpleBoundShaderState;
+	class FSimpleElementBSSContainer
+	{
+		static const uint32 NumBSS = (uint32)SE_BLEND_RGBA_MASK_START;
+		FGlobalBoundShaderState UnencodedBSS;
+		FGlobalBoundShaderState EncodedBSS[NumBSS];
+	public:
+		FGlobalBoundShaderState& GetBSS(bool bEncoded, ESimpleElementBlendMode BlendMode)
+		{
+			if (bEncoded)
+			{
+				check((uint32)BlendMode < NumBSS);
+				return EncodedBSS[BlendMode];
+			}
+			else
+			{
+				return UnencodedBSS;
+			}
+		}
+	};
+
+	static FSimpleElementBSSContainer SimpleBoundShaderState;
 	/** bound shader state for the regular mesh elements with a linear texture */
-	static FGlobalBoundShaderState RegularLinearBoundShaderState;
+	static FSimpleElementBSSContainer RegularLinearBoundShaderState;
 	/** bound shader state for the regular mesh elements with an sRGB texture */
-	static FGlobalBoundShaderState RegularSRGBBoundShaderState;
+	static FSimpleElementBSSContainer RegularSRGBBoundShaderState;
 	/** bound shader state for masked mesh elements */
-	static FGlobalBoundShaderState MaskedBoundShaderState;
+	static FSimpleElementBSSContainer MaskedBoundShaderState;
 	/** bound shader state for masked mesh elements */
-	static FGlobalBoundShaderState DistanceFieldBoundShaderState;
+	static FSimpleElementBSSContainer DistanceFieldBoundShaderState;
 	/** bound shader state for the hit testing mesh elements */
-	static FGlobalBoundShaderState HitTestingBoundShaderState;
+	static FSimpleElementBSSContainer HitTestingBoundShaderState;
 	/** bound shader state for color masked elements */
-	static FGlobalBoundShaderState ColorChannelMaskShaderState;
+	static FSimpleElementBSSContainer ColorChannelMaskShaderState;
 	/** bound shader state for alpha only fonts */
-	static FGlobalBoundShaderState AlphaOnlyShaderState;
+	static FSimpleElementBSSContainer AlphaOnlyShaderState;
 	/** bound shader state for gamma corrected alpha only fonts */
-	static FGlobalBoundShaderState GammaAlphaOnlyShaderState;
+	static FSimpleElementBSSContainer GammaAlphaOnlyShaderState;
 
 	/**
 	 * Sets the appropriate vertex and pixel shader.

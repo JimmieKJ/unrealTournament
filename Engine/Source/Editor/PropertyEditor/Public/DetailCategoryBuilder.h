@@ -2,11 +2,14 @@
 
 #pragma once
 
+
 class IDetailPropertyRow;
 class IDetailCategoryBuilder;
 class FDetailWidgetRow;
 class IDetailGroup;
 class IDetailCustomNodeBuilder;
+class IPropertyHandle;
+
 
 /** The location of a property within a category */
 namespace EPropertyLocation
@@ -134,4 +137,10 @@ public:
 	 * @return The localized display name of the category
 	 */
 	virtual const FText& GetDisplayName() const = 0;
+
+	/**
+	 * Sets whether or not this category is hidden or shown
+	 * This is designed to be used for dynamic category visibility after construction of the category
+	 */
+	virtual void SetCategoryVisibility( bool bVisible ) = 0;
 };

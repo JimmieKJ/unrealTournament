@@ -59,30 +59,30 @@ XInputInterface::XInputInterface( const TSharedRef< FGenericApplicationMessageHa
 	X360ToXboxControllerMapping[22] = 22;	// Right stick left
 	X360ToXboxControllerMapping[23] = 23;	// Right stick right
 
-	Buttons[0] = EControllerButtons::FaceButtonBottom;
-	Buttons[1] = EControllerButtons::FaceButtonRight;
-	Buttons[2] = EControllerButtons::FaceButtonLeft;
-	Buttons[3] = EControllerButtons::FaceButtonTop;
-	Buttons[4] = EControllerButtons::LeftShoulder;
-	Buttons[5] = EControllerButtons::RightShoulder;
-	Buttons[6] = EControllerButtons::SpecialRight;
-	Buttons[7] = EControllerButtons::SpecialLeft;
-	Buttons[8] = EControllerButtons::LeftThumb;
-	Buttons[9] = EControllerButtons::RightThumb;
-	Buttons[10] = EControllerButtons::LeftTriggerThreshold;
-	Buttons[11] = EControllerButtons::RightTriggerThreshold;
-	Buttons[12] = EControllerButtons::DPadUp;
-	Buttons[13] = EControllerButtons::DPadDown;
-	Buttons[14] = EControllerButtons::DPadLeft;
-	Buttons[15] = EControllerButtons::DPadRight;
-	Buttons[16] = EControllerButtons::LeftStickUp;
-	Buttons[17] = EControllerButtons::LeftStickDown;
-	Buttons[18] = EControllerButtons::LeftStickLeft;
-	Buttons[19] = EControllerButtons::LeftStickRight;
-	Buttons[20] = EControllerButtons::RightStickUp;
-	Buttons[21] = EControllerButtons::RightStickDown;
-	Buttons[22] = EControllerButtons::RightStickLeft;
-	Buttons[23] = EControllerButtons::RightStickRight;
+	Buttons[0] = FGamepadKeyNames::FaceButtonBottom;
+	Buttons[1] = FGamepadKeyNames::FaceButtonRight;
+	Buttons[2] = FGamepadKeyNames::FaceButtonLeft;
+	Buttons[3] = FGamepadKeyNames::FaceButtonTop;
+	Buttons[4] = FGamepadKeyNames::LeftShoulder;
+	Buttons[5] = FGamepadKeyNames::RightShoulder;
+	Buttons[6] = FGamepadKeyNames::SpecialRight;
+	Buttons[7] = FGamepadKeyNames::SpecialLeft;
+	Buttons[8] = FGamepadKeyNames::LeftThumb;
+	Buttons[9] = FGamepadKeyNames::RightThumb;
+	Buttons[10] = FGamepadKeyNames::LeftTriggerThreshold;
+	Buttons[11] = FGamepadKeyNames::RightTriggerThreshold;
+	Buttons[12] = FGamepadKeyNames::DPadUp;
+	Buttons[13] = FGamepadKeyNames::DPadDown;
+	Buttons[14] = FGamepadKeyNames::DPadLeft;
+	Buttons[15] = FGamepadKeyNames::DPadRight;
+	Buttons[16] = FGamepadKeyNames::LeftStickUp;
+	Buttons[17] = FGamepadKeyNames::LeftStickDown;
+	Buttons[18] = FGamepadKeyNames::LeftStickLeft;
+	Buttons[19] = FGamepadKeyNames::LeftStickRight;
+	Buttons[20] = FGamepadKeyNames::RightStickUp;
+	Buttons[21] = FGamepadKeyNames::RightStickDown;
+	Buttons[22] = FGamepadKeyNames::RightStickLeft;
+	Buttons[23] = FGamepadKeyNames::RightStickRight;
 }
 
 
@@ -104,9 +104,13 @@ void XInputInterface::SendControllerEvents()
 			XINPUT_STATE XInputState;
 			FMemory::Memzero( &XInputState, sizeof(XINPUT_STATE) );
 
-			ControllerState.bIsConnected = ( XInputGetState( ControllerIndex, &XInputState ) == ERROR_SUCCESS ) ? true : false;
+			bool bWasConnected = ControllerState.bIsConnected;
 
-			if( ControllerState.bIsConnected )
+			ControllerState.bIsConnected = ( XInputGetState( ControllerIndex, &XInputState ) == ERROR_SUCCESS ) ? true : false;
+			
+			// If the controller is connected send events or if the controller was connected send a final event with default states so that 
+			// the game doesnt think that controller buttons are still held down
+			if( ControllerState.bIsConnected || bWasConnected )
 			{
 				bool CurrentStates[MAX_NUM_CONTROLLER_BUTTONS] = {0};
 		
@@ -140,37 +144,37 @@ void XInputInterface::SendControllerEvents()
 
 				if( ControllerState.LeftXAnalog != XInputState.Gamepad.sThumbLX )
 				{
-					MessageHandler->OnControllerAnalog( EControllerButtons::LeftAnalogX, ControllerState.ControllerId, ShortToNormalizedFloat(XInputState.Gamepad.sThumbLX) );
+					MessageHandler->OnControllerAnalog( FGamepadKeyNames::LeftAnalogX, ControllerState.ControllerId, ShortToNormalizedFloat(XInputState.Gamepad.sThumbLX) );
 					ControllerState.LeftXAnalog = XInputState.Gamepad.sThumbLX;
 				}
 
 				if( ControllerState.LeftYAnalog != XInputState.Gamepad.sThumbLY )
 				{
-					MessageHandler->OnControllerAnalog( EControllerButtons::LeftAnalogY, ControllerState.ControllerId, ShortToNormalizedFloat(XInputState.Gamepad.sThumbLY) );
+					MessageHandler->OnControllerAnalog( FGamepadKeyNames::LeftAnalogY, ControllerState.ControllerId, ShortToNormalizedFloat(XInputState.Gamepad.sThumbLY) );
 					ControllerState.LeftYAnalog = XInputState.Gamepad.sThumbLY;
 				}
 
 				if( ControllerState.RightXAnalog != XInputState.Gamepad.sThumbRX )
 				{
-					MessageHandler->OnControllerAnalog( EControllerButtons::RightAnalogX, ControllerState.ControllerId, ShortToNormalizedFloat(XInputState.Gamepad.sThumbRX) );
+					MessageHandler->OnControllerAnalog( FGamepadKeyNames::RightAnalogX, ControllerState.ControllerId, ShortToNormalizedFloat(XInputState.Gamepad.sThumbRX) );
 					ControllerState.RightXAnalog = XInputState.Gamepad.sThumbRX;
 				}
 
 				if( ControllerState.RightYAnalog != XInputState.Gamepad.sThumbRY )
 				{
-					MessageHandler->OnControllerAnalog( EControllerButtons::RightAnalogY, ControllerState.ControllerId, ShortToNormalizedFloat(XInputState.Gamepad.sThumbRY) );
+					MessageHandler->OnControllerAnalog( FGamepadKeyNames::RightAnalogY, ControllerState.ControllerId, ShortToNormalizedFloat(XInputState.Gamepad.sThumbRY) );
 					ControllerState.RightYAnalog = XInputState.Gamepad.sThumbRY;
 				}
 
 				if( ControllerState.LeftTriggerAnalog != XInputState.Gamepad.bLeftTrigger )
 				{
-					MessageHandler->OnControllerAnalog( EControllerButtons::LeftTriggerAnalog, ControllerState.ControllerId, XInputState.Gamepad.bLeftTrigger / 255.f );
+					MessageHandler->OnControllerAnalog( FGamepadKeyNames::LeftTriggerAnalog, ControllerState.ControllerId, XInputState.Gamepad.bLeftTrigger / 255.f );
 					ControllerState.LeftTriggerAnalog = XInputState.Gamepad.bLeftTrigger;
 				}
 
 				if( ControllerState.RightTriggerAnalog != XInputState.Gamepad.bRightTrigger )
 				{
-					MessageHandler->OnControllerAnalog( EControllerButtons::RightTriggerAnalog, ControllerState.ControllerId, XInputState.Gamepad.bRightTrigger / 255.f );
+					MessageHandler->OnControllerAnalog( FGamepadKeyNames::RightTriggerAnalog, ControllerState.ControllerId, XInputState.Gamepad.bRightTrigger / 255.f );
 					ControllerState.RightTriggerAnalog = XInputState.Gamepad.bRightTrigger;
 				}
 

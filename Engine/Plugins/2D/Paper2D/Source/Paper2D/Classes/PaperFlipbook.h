@@ -29,13 +29,13 @@ namespace EFlipbookCollisionMode
 {
 	enum Type
 	{
-		// The flipbook has no collision
+		/** The flipbook has no collision */
 		NoCollision,
 
-		// The flipbook has non-animated collision based on the first frame of the animation
+		/** The flipbook has non-animated collision based on the first frame of the animation */
 		FirstFrameCollision,
 
-		// The flipbook changes collision each frame based on the animation (Note: This setting is not recommended and is very expensive, recreating the physics state every frame)
+		/** The flipbook changes collision each frame based on the animation (Note: This setting is not recommended and is very expensive, recreating the physics state every frame) */
 		EachFrameCollision,
 	};
 }
@@ -135,13 +135,13 @@ public:
 	// Rebuilds cached data about the animation (such as total number of frames that the keyframes span, etc...)
 	void InvalidateCachedData();
 
-	// UObject interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
-	// End of UObject interface
+	//~ End UObject Interface
 
 	// Returns true if the flipbook asset contains the specified sprite asset in any frames
 	bool ContainsSprite(UPaperSprite* SpriteAsset) const;

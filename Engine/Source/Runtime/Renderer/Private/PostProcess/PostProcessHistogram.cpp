@@ -110,12 +110,13 @@ void FRCPassPostProcessHistogram::Process(FRenderingCompositePassContext& Contex
 
 	TShaderMapRef<FPostProcessHistogramCS> ComputeShader(Context.GetShaderMap());
 
-	Context.RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
 	SetRenderTarget(Context.RHICmdList, FTextureRHIRef(), FTextureRHIRef());
-	
+    Context.RHICmdList.SetComputeShader(ComputeShader->GetComputeShader());
+    
 
 	// set destination
 	check(DestRenderTarget.UAV);
+	Context.RHICmdList.TransitionResource(EResourceTransitionAccess::ERWBarrier, EResourceTransitionPipeline::EGfxToCompute, DestRenderTarget.UAV);
 	Context.RHICmdList.SetUAVParameter(ComputeShader->GetComputeShader(), ComputeShader->HistogramRWTexture.GetBaseIndex(), DestRenderTarget.UAV);
 
 	FIntPoint GatherExtent = ComputeGatherExtent(View);
@@ -128,7 +129,8 @@ void FRCPassPostProcessHistogram::Process(FRenderingCompositePassContext& Contex
 	// un-set destination
 	Context.RHICmdList.SetUAVParameter(ComputeShader->GetComputeShader(), ComputeShader->HistogramRWTexture.GetBaseIndex(), NULL);
 
-	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
+	Context.RHICmdList.TransitionResource(EResourceTransitionAccess::EReadable, EResourceTransitionPipeline::EComputeToGfx, DestRenderTarget.UAV);
+	ensureMsgf(DestRenderTarget.TargetableTexture == DestRenderTarget.ShaderResourceTexture, TEXT("%s should be resolved to a separate SRV"), *DestRenderTarget.TargetableTexture->GetName().ToString());	
 }
 
 
@@ -151,7 +153,7 @@ FIntPoint FRCPassPostProcessHistogram::ComputeThreadGroupCount(FIntPoint PixelEx
 
 FPooledRenderTargetDesc FRCPassPostProcessHistogram::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc UnmodifiedRet = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc UnmodifiedRet = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	UnmodifiedRet.Reset();
 	FIntPoint PixelExtent = UnmodifiedRet.Extent;
@@ -162,7 +164,7 @@ FPooledRenderTargetDesc FRCPassPostProcessHistogram::ComputeOutputDesc(EPassOutp
 	FIntPoint NewSize = FIntPoint(HistogramTexelCount, ThreadGroupCount.X * ThreadGroupCount.Y);
 
 	// format can be optimized later
-	FPooledRenderTargetDesc Ret(FPooledRenderTargetDesc::Create2DDesc(NewSize, PF_FloatRGBA, TexCreate_None, TexCreate_RenderTargetable | TexCreate_UAV, false));
+	FPooledRenderTargetDesc Ret(FPooledRenderTargetDesc::Create2DDesc(NewSize, PF_FloatRGBA, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_UAV, false));
 
 	Ret.DebugName = TEXT("Histogram");
 

@@ -372,13 +372,19 @@ FReply FSceneViewport::OnMouseButtonDown( const FGeometry& InGeometry, const FPo
 			ApplyModifierKeys( KeysState );
 		}
 
+		const bool bAnyMenuWasVisible = FSlateApplication::Get().AnyMenusVisible();
+
 		// Process the mouse event
 		if (!ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), InMouseEvent.GetEffectingButton(), IE_Pressed))
 		{
 			CurrentReplyState = FReply::Unhandled(); 
 		}
 
+		// a new menu was opened if there was previously not a menu visible but now there is
+		const bool bNewMenuWasOpened = !bAnyMenuWasVisible && FSlateApplication::Get().AnyMenusVisible();
+
 		if (!ViewportClient->IgnoreInput() &&
+			!bNewMenuWasOpened && // We should not focus the viewport if a menu was opened as it would close the menu
 			( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CapturePermanently ||
 			  ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringMouseDown ||
 			  ( ViewportClient->CaptureMouseOnClick() == EMouseCaptureMode::CaptureDuringRightMouseDown && InMouseEvent.GetEffectingButton() == EKeys::RightMouseButton ) ) )
@@ -389,12 +395,12 @@ FReply FSceneViewport::OnMouseButtonDown( const FGeometry& InGeometry, const FPo
 			CurrentReplyState.SetUserFocus(ViewportWidgetRef, EFocusCause::SetDirectly, true);
 			
 			UWorld* World = ViewportClient->GetWorld();
-			if (World && World->IsGameWorld() && World->GetFirstPlayerController())
+			if (World && World->IsGameWorld() && World->GetGameInstance() && World->GetGameInstance()->GetFirstLocalPlayerController())
 			{
 				CurrentReplyState.CaptureMouse(ViewportWidgetRef);
 				CurrentReplyState.LockMouseToWidget(ViewportWidgetRef);
 
-				bool bShouldShowMouseCursor = World->GetFirstPlayerController()->ShouldShowMouseCursor();
+				bool bShouldShowMouseCursor = World->GetGameInstance()->GetFirstLocalPlayerController()->ShouldShowMouseCursor();
 				if (ViewportClient->HideCursorDuringCapture() && bShouldShowMouseCursor)
 				{
 					bCursorHiddenDueToCapture = true;
@@ -520,6 +526,13 @@ FReply FSceneViewport::OnMouseMove( const FGeometry& InGeometry, const FPointerE
 			MouseDelta.Y -= CursorDelta.Y;
 			++NumMouseSamplesY;
 		}
+
+		if ( bCursorHiddenDueToCapture )
+		{
+			// If hidden during capture, don't actually move the cursor
+			FVector2D RevertedCursorPos( MousePosBeforeHiddenDueToCapture.X, MousePosBeforeHiddenDueToCapture.Y );
+			FSlateApplication::Get().SetCursorPos(RevertedCursorPos);
+		}
 	}
 
 	return CurrentReplyState;
@@ -544,6 +557,7 @@ FReply FSceneViewport::OnMouseWheel( const FGeometry& InGeometry, const FPointer
 		// Pressed and released should be sent
 		ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Pressed);
 		ViewportClient->InputKey(this, InMouseEvent.GetUserIndex(), ViewportClientKey, IE_Released);
+		ViewportClient->InputAxis(this, InMouseEvent.GetUserIndex(), EKeys::MouseWheelAxis, InMouseEvent.GetWheelDelta(), FApp::GetDeltaTime());
 	}
 	return CurrentReplyState;
 }
@@ -690,7 +704,7 @@ FReply FSceneViewport::OnMotionDetected( const FGeometry& MyGeometry, const FMot
 	return CurrentReplyState;
 }
 
-TOptional<EPopupMethod> FSceneViewport::OnQueryPopupMethod() const
+FPopupMethodReply FSceneViewport::OnQueryPopupMethod() const
 {
 	if (ViewportClient != nullptr)
 	{
@@ -698,7 +712,7 @@ TOptional<EPopupMethod> FSceneViewport::OnQueryPopupMethod() const
 	}
 	else
 	{
-		return TOptional<EPopupMethod>();
+		return FPopupMethodReply::Unhandled();
 	}
 }
 
@@ -818,9 +832,9 @@ FReply FSceneViewport::OnFocusReceived(const FFocusEvent& InFocusEvent)
 			if (IsForegroundWindow())
 			{
 				bool bIsCursorForcedVisible = false;
-				if (ViewportClient->GetWorld() && ViewportClient->GetWorld()->GetFirstPlayerController())
+				if (ViewportClient->GetWorld() && ViewportClient->GetWorld()->GetGameInstance() && ViewportClient->GetWorld()->GetGameInstance()->GetFirstLocalPlayerController())
 				{
-					bIsCursorForcedVisible = ViewportClient->GetWorld()->GetFirstPlayerController()->GetMouseCursor() != EMouseCursor::None;
+					bIsCursorForcedVisible = ViewportClient->GetWorld()->GetGameInstance()->GetFirstLocalPlayerController()->GetMouseCursor() != EMouseCursor::None;
 				}
 
 				const bool bPlayInEditorCapture = !bIsPlayInEditorViewport || InFocusEvent.GetCause() != EFocusCause::SetDirectly || bPlayInEditorGetsMouseControl;
@@ -1007,7 +1021,7 @@ void FSceneViewport::SetViewportSize(uint32 NewViewportSizeX, uint32 NewViewport
 	if (Window.IsValid())
 	{
 		Window->SetIndependentViewportSize(FVector2D(NewViewportSizeX, NewViewportSizeY));
-		const FVector2D vp = Window->GetViewportSize();
+		const FVector2D vp = (Window->GetWindowMode() == EWindowMode::WindowedMirror) ? Window->GetSizeInScreen() : Window->GetViewportSize();
 		FSlateApplicationBase::Get().GetRenderer()->UpdateFullscreenState(Window.ToSharedRef(), vp.X, vp.Y);
 		ResizeViewport(NewViewportSizeX, NewViewportSizeY, Window->GetWindowMode(), 0, 0);
 	}
@@ -1120,9 +1134,6 @@ void FSceneViewport::SetRenderTargetTextureRenderThread(FTexture2DRHIRef& RT)
 
 void FSceneViewport::UpdateViewportRHI(bool bDestroyed, uint32 NewSizeX, uint32 NewSizeY, EWindowMode::Type NewWindowMode)
 {
-	// Make sure we're not in the middle of streaming textures.
-	(*GFlushStreamingFunc)();
-
 	{
 		SCOPED_SUSPEND_RENDERING_THREAD(true);
 
@@ -1245,7 +1256,8 @@ void FSceneViewport::BeginRenderFrame(FRHICommandListImmediate& RHICmdList)
 	check( IsInRenderingThread() );
 	if (bUseSeparateRenderTarget)
 	{		
-		SetRenderTarget(RHICmdList,  RenderTargetTextureRenderThreadRHI,  FTexture2DRHIRef() );
+		RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, RenderTargetTextureRenderThreadRHI);
+		SetRenderTarget(RHICmdList,  RenderTargetTextureRenderThreadRHI,  FTexture2DRHIRef(), true);
 	}
 	else if( IsValidRef( ViewportRHI ) ) 
 	{
@@ -1255,7 +1267,7 @@ void FSceneViewport::BeginRenderFrame(FRHICommandListImmediate& RHICmdList)
 		if (GRHIRequiresEarlyBackBufferRenderTarget)
 		{
 			// unused set render targets are bad on Metal
-			SetRenderTarget(RHICmdList, RenderTargetTextureRenderThreadRHI, FTexture2DRHIRef());
+			SetRenderTarget(RHICmdList, RenderTargetTextureRenderThreadRHI, FTexture2DRHIRef(), true);
 		}
 	}
 }

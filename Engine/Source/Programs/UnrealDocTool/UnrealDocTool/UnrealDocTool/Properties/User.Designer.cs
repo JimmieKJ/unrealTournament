@@ -70,6 +70,21 @@ namespace UnrealDocTool.Properties {
                 this["SupportedLanguages"] = value;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("INT,CHN,JPN,KOR")]
+        public string SupportedLanguageLabels
+        {
+            get
+            {
+                return ((string)(this["SupportedLanguageLabels"]));
+            }
+            set
+            {
+                this["SupportedLanguageLabels"] = value;
+            }
+        }
         
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]

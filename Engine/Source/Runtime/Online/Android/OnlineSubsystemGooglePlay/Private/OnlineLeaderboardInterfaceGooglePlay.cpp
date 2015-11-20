@@ -13,7 +13,7 @@ FOnlineLeaderboardsGooglePlay::FOnlineLeaderboardsGooglePlay(FOnlineSubsystemGoo
 	check(Subsystem);
 }
 
-bool FOnlineLeaderboardsGooglePlay::ReadLeaderboards(const TArray< TSharedRef<FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject)
+bool FOnlineLeaderboardsGooglePlay::ReadLeaderboards(const TArray< TSharedRef<const FUniqueNetId> >& Players, FOnlineLeaderboardReadRef& ReadObject)
 {
 	ReadObject->Rows.Empty();
 
@@ -66,7 +66,6 @@ bool FOnlineLeaderboardsGooglePlay::WriteLeaderboards(const FName& SessionName, 
 		{
 			const FVariantData& Stat = It.Value();
 			uint64 Score;
-			FOnlinePendingLeaderboardWrite UnreportedScore;
 
 			UE_LOG_ONLINE(Display, TEXT("Here's a stat"));
 

@@ -15,7 +15,7 @@ void FSlateRenderer::FlushFontCache( )
 
 bool FSlateRenderer::IsViewportFullscreen( const SWindow& Window ) const
 {
-	check( IsThreadSafeForSlateRendering() );
+	checkSlow( IsThreadSafeForSlateRendering() );
 
 	bool bFullscreen = false;
 
@@ -55,6 +55,15 @@ ISlateAtlasProvider* FSlateRenderer::GetFontAtlasProvider()
 	return nullptr;
 }
 
+TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> FSlateRenderer::CacheElementRenderData(const ILayoutCache* Cacher, FSlateWindowElementList& ElementList)
+{
+	return MakeShareable(new FSlateRenderDataHandle(Cacher, this));
+}
+
+void FSlateRenderer::ReleaseCachingResourcesFor(const ILayoutCache* Cacher)
+{
+
+}
 
 /* Global functions
  *****************************************************************************/

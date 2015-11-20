@@ -53,9 +53,9 @@ public:
 		, _OnMouseButtonDoubleClick()
 		, _OnSelectionChanged()
 		, _SelectionMode(ESelectionMode::Multi)
-		, _ClearSelectionOnClick(false)
+		, _ClearSelectionOnClick(true)
 		, _ExternalScrollbar()
-		, _AllowOverscroll(EAllowOverscroll::No)
+		, _AllowOverscroll(EAllowOverscroll::Yes)
 		, _ConsumeMouseWheel( EConsumeMouseWheel::WhenScrollingPossible )
 		{ }
 
@@ -237,7 +237,7 @@ public:
 
 				bWasHandled = true;
 			}
-			else if ( InKeyEvent.GetKey() == EKeys::Up )
+			else if (InKeyEvent.GetKey() == EKeys::Up || InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Up || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Up)
 			{
 				int32 SelectionIndex = 0;
 				if( TListTypeTraits<ItemType>::IsPtrValid(SelectorItem) )
@@ -255,7 +255,7 @@ public:
 
 				bWasHandled = true;
 			}
-			else if ( InKeyEvent.GetKey() == EKeys::Down )
+			else if (InKeyEvent.GetKey() == EKeys::Down || InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Down || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Down)
 			{
 				// Begin at INDEX_NONE so the first item will get selected
 				int32 SelectionIndex = INDEX_NONE;
@@ -288,7 +288,7 @@ public:
 					ItemType SelectorItemDereference( TListTypeTraits<ItemType>::NullableItemTypeConvertToItemType( SelectorItem ) );
 
 					// Deselect.
-					if( InKeyEvent.IsControlDown() || this->SelectionMode == ESelectionMode::SingleToggle )
+					if( InKeyEvent.IsControlDown() || SelectionMode.Get() == ESelectionMode::SingleToggle )
 					{
 						this->Private_SetItemSelection( SelectorItemDereference, !( this->Private_IsItemSelected( SelectorItemDereference ) ), true );
 						this->Private_SignalSelectionChanged( ESelectInfo::OnKeyPress );
@@ -320,7 +320,7 @@ public:
 					}
 				}
 				// Select all items
-				else if ( (!InKeyEvent.IsShiftDown() && !InKeyEvent.IsAltDown() && InKeyEvent.IsControlDown() && InKeyEvent.GetKey() == EKeys::A) && this->SelectionMode == ESelectionMode::Multi )
+				else if ( (!InKeyEvent.IsShiftDown() && !InKeyEvent.IsAltDown() && InKeyEvent.IsControlDown() && InKeyEvent.GetKey() == EKeys::A) && SelectionMode.Get() == ESelectionMode::Multi )
 				{
 					this->Private_ClearSelection();
 
@@ -344,7 +344,7 @@ public:
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
 		if ( bClearSelectionOnClick
-			&& SelectionMode != ESelectionMode::None
+			&& SelectionMode.Get() != ESelectionMode::None
 			&& MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton
 			&& !MouseEvent.IsControlDown()
 			&& !MouseEvent.IsShiftDown()
@@ -367,7 +367,7 @@ public:
 	virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override
 	{
 		if ( bClearSelectionOnClick
-			&& SelectionMode != ESelectionMode::None
+			&& SelectionMode.Get() != ESelectionMode::None
 			&& MouseEvent.GetEffectingButton() == EKeys::RightMouseButton
 			&& !MouseEvent.IsControlDown()
 			&& !MouseEvent.IsShiftDown()
@@ -529,7 +529,7 @@ public:
 
 	virtual void Private_SetItemSelection( ItemType TheItem, bool bShouldBeSelected, bool bWasUserDirected = false ) override
 	{
-		if ( SelectionMode == ESelectionMode::None )
+		if ( SelectionMode.Get() == ESelectionMode::None )
 		{
 			return;
 		}
@@ -562,7 +562,7 @@ public:
 
 	virtual void Private_SelectRangeFromCurrentTo( ItemType InRangeSelectionEnd ) override
 	{
-		if ( SelectionMode == ESelectionMode::None )
+		if ( SelectionMode.Get() == ESelectionMode::None )
 		{
 			return;
 		}
@@ -595,7 +595,7 @@ public:
 
 	virtual void Private_SignalSelectionChanged(ESelectInfo::Type SelectInfo) override
 	{
-		if ( SelectionMode == ESelectionMode::None )
+		if ( SelectionMode.Get() == ESelectionMode::None )
 		{
 			return;
 		}
@@ -671,7 +671,7 @@ public:
 
 	virtual void Private_OnItemRightClicked( ItemType TheItem, const FPointerEvent& MouseEvent ) override
 	{
-		this->OnRightMouseButtonUp( MouseEvent.GetScreenSpacePosition() );
+		this->OnRightMouseButtonUp( MouseEvent );
 	}
 
 	virtual bool Private_OnItemClicked(ItemType TheItem) override
@@ -969,7 +969,7 @@ public:
 	 */
 	bool IsItemSelected( const ItemType& InItem ) const
 	{
-		if ( SelectionMode == ESelectionMode::None )
+		if ( SelectionMode.Get() == ESelectionMode::None )
 		{
 			return false;
 		}
@@ -986,7 +986,7 @@ public:
 	 */
 	void SetItemSelection( const ItemType& InItem, bool bSelected, ESelectInfo::Type SelectInfo = ESelectInfo::Direct )
 	{
-		if ( SelectionMode == ESelectionMode::None )
+		if ( SelectionMode.Get() == ESelectionMode::None )
 		{
 			return;
 		}
@@ -1000,7 +1000,7 @@ public:
 	 */
 	void ClearSelection()
 	{
-		if ( SelectionMode == ESelectionMode::None )
+		if ( SelectionMode.Get() == ESelectionMode::None )
 		{
 			return;
 		}
@@ -1233,8 +1233,8 @@ protected:
 
 					if ( ScrollByAmountInSlateUnits > 0 )
 					{
-						FVector2D DesiredSize = RowWidget->AsWidget()->GetDesiredSize();
-						const float RemainingHeight = DesiredSize.Y * ( 1.0 - FMath::Fractional( NewScrollOffset ) );
+						FVector2D WidgetDesiredSize = RowWidget->AsWidget()->GetDesiredSize();
+						const float RemainingHeight = WidgetDesiredSize.Y * ( 1.0 - FMath::Fractional( NewScrollOffset ) );
 
 						if ( AbsScrollByAmount > RemainingHeight )
 						{
@@ -1257,13 +1257,13 @@ protected:
 						}
 						else
 						{
-							NewScrollOffset = (int32)NewScrollOffset + ( 1.0f - ( ( RemainingHeight - AbsScrollByAmount ) / DesiredSize.Y ) );
+							NewScrollOffset = (int32)NewScrollOffset + ( 1.0f - ( ( RemainingHeight - AbsScrollByAmount ) / WidgetDesiredSize.Y ) );
 							break;
 						}
 					}
 					else
 					{
-						FVector2D DesiredSize = RowWidget->AsWidget()->GetDesiredSize();
+						FVector2D WidgetDesiredSize = RowWidget->AsWidget()->GetDesiredSize();
 
 						float Fractional = FMath::Fractional( NewScrollOffset );
 						if ( Fractional == 0 )
@@ -1272,7 +1272,7 @@ protected:
 							--NewScrollOffset;
 						}
 
-						const float PrecedingHeight = DesiredSize.Y * Fractional;
+						const float PrecedingHeight = WidgetDesiredSize.Y * Fractional;
 
 						if ( AbsScrollByAmount > PrecedingHeight )
 						{
@@ -1295,7 +1295,7 @@ protected:
 						}
 						else
 						{
-							NewScrollOffset = (int32)NewScrollOffset + ( ( PrecedingHeight - AbsScrollByAmount ) / DesiredSize.Y );
+							NewScrollOffset = (int32)NewScrollOffset + ( ( PrecedingHeight - AbsScrollByAmount ) / WidgetDesiredSize.Y );
 							break;
 						}
 					}
@@ -1319,12 +1319,14 @@ protected:
 	 */
 	virtual void KeyboardSelect(const ItemType& ItemToSelect, const FKeyEvent& InKeyEvent, bool bCausedByNavigation=false)
 	{
-		if ( SelectionMode != ESelectionMode::None )
+		const ESelectionMode::Type CurrentSelectionMode = SelectionMode.Get();
+
+		if ( CurrentSelectionMode != ESelectionMode::None )
 		{
 			// Must be set before signaling selection changes because sometimes new items will be selected that need to stomp this value
 			SelectorItem = ItemToSelect;
 
-			if ( SelectionMode == ESelectionMode::Multi && ( InKeyEvent.IsShiftDown() || InKeyEvent.IsControlDown() ) )
+			if ( CurrentSelectionMode == ESelectionMode::Multi && ( InKeyEvent.IsShiftDown() || InKeyEvent.IsControlDown() ) )
 			{
 				// Range select.
 				if ( InKeyEvent.IsShiftDown() )

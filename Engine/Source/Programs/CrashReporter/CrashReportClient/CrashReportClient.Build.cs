@@ -37,9 +37,20 @@ public class CrashReportClient : ModuleRules
 				{
 					"Slate",
 					"SlateCore",
-					"SlateReflector",
 					"StandaloneRenderer",
 					"MessageLog",
+				}
+			);
+
+			PrivateIncludePathModuleNames.AddRange(
+				new string[] {
+					"SlateReflector",
+				}
+			);
+
+			DynamicallyLoadedModuleNames.AddRange(
+				new string[] {
+					"SlateReflector",
 				}
 			);
 		}

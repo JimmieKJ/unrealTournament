@@ -28,7 +28,7 @@ class UGeomModifier_Clip : public UGeomModifier_Edit
 	FVector SnappedMouseWorldSpacePos;
 
 
-	// Begin UGeomModifier Interface
+	//~ Begin UGeomModifier Interface
 	virtual bool Supports() override;
 	virtual bool InputKey(class FEditorViewportClient* ViewportClient, FViewport* Viewport, FKey Key, EInputEvent Event) override;
 	virtual void Render(const FSceneView* View,FViewport* Viewport,FPrimitiveDrawInterface* PDI) override;
@@ -37,7 +37,7 @@ class UGeomModifier_Clip : public UGeomModifier_Edit
 	virtual void WasActivated() override;
 protected:
 	virtual bool OnApply() override;
-	// End UGeomModifier Interface
+	//~ End UGeomModifier Interface
 
 private:
 	// @todo document

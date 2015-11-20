@@ -471,7 +471,7 @@ AActor* UViewport::Spawn(TSubclassOf<AActor> ActorClass)
 	{
 		UWorld* World = GetViewportWorld();
 		FActorSpawnParameters SpawnParameters;
-		SpawnParameters.bNoCollisionFail = true;
+		SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
 		return World->SpawnActor<AActor>(ActorClass, FVector(0, 0, 0), FRotator(), SpawnParameters);
 	}

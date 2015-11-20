@@ -155,9 +155,9 @@ namespace UE4Function_Private
 	#endif
 
 	template <typename T>
-	inline T& FakeCall(T* Ptr)
+	inline T&& FakeCall(T* Ptr)
 	{
-		return *Ptr;
+		return MoveTemp(*Ptr);
 	}
 
 	inline void FakeCall(void* Ptr)
@@ -279,7 +279,7 @@ namespace UE4Function_Private
  * {
  *     for (const FString& Str : SomeBunchOfStrings)
  *     {
- *         int32 Int = Func(Str);
+ *         int32 Int = Convert(Str);
  *         DoSomething(Int);
  *     }
  * }
@@ -492,7 +492,7 @@ private:
  * Example:
  *
  * // Something.h
- * TFunction<FString (int32)> GetTransform();
+ * TFunction<FString (int32)> GetTransform(const FString& Prefix);
  *
  * // Something.cpp
  * TFunction<FString (int32)> GetTransform(const FString& Prefix)

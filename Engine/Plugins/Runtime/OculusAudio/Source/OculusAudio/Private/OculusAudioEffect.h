@@ -16,41 +16,22 @@
 
 #define AUDIO_HRTF_EFFECT_CLASS_ID __declspec( uuid( "{8E67E588-FFF5-4860-A323-5E89B325D5EF}" ) )
 
-class FAudioHRTFEffectParameters
-{
-public:
-	FAudioHRTFEffectParameters()
-		: EmitterPosition(0.0f)
-		, SpatializationAlgorithm(SPATIALIZATION_TYPE_FAST)
-	{}
 
-	FAudioHRTFEffectParameters(const FVector& InEmitterPosition)
-		: EmitterPosition(InEmitterPosition)
-		, SpatializationAlgorithm(SPATIALIZATION_TYPE_FAST)
-	{}
-
-	FAudioHRTFEffectParameters(const FVector& InEmitterPosition, ESpatializationEffectType InSpatializationAlgorithm)
-		: EmitterPosition(InEmitterPosition)
-		, SpatializationAlgorithm(InSpatializationAlgorithm)
-	{}
-
-	FVector						EmitterPosition;
-	ESpatializationEffectType	SpatializationAlgorithm;
-};
-
-
-
-class AUDIO_HRTF_EFFECT_CLASS_ID FXAudio2HRTFEffect : public CXAPOParametersBase
+class AUDIO_HRTF_EFFECT_CLASS_ID FXAudio2HRTFEffect : public CXAPOBase
 {
 public:
 	FXAudio2HRTFEffect(uint32 InVoiceId, FAudioDevice* InAudioDevice);
+	~FXAudio2HRTFEffect();
+
 	STDMETHOD(LockForProcess)(UINT32 InputLockedParameterCount, const XAPO_LOCKFORPROCESS_BUFFER_PARAMETERS *pInputLockedParameters, UINT32 OutputLockedParameterCount, const XAPO_LOCKFORPROCESS_BUFFER_PARAMETERS *pOutputLockedParameters);
 	STDMETHOD_(void, Process)(UINT32 InputProcessParameterCount, const XAPO_PROCESS_BUFFER_PARAMETERS *pInputProcessParameters, UINT32 OutputProcessParameterCount, XAPO_PROCESS_BUFFER_PARAMETERS *pOutputProcessParameters, BOOL IsEnabled);
 
+	// Override AddRef/Release because we will be doing our own lifetime management without COM
+	STDMETHOD_(ULONG, AddRef)() override { return 0; }
+	STDMETHOD_(ULONG, Release)() override { return 0; }
+
 private:
 
-	FAudioHRTFEffectParameters				HRTFEffectParameters[3];
-	FVector									EmitterPosition;
 	WAVEFORMATEX							WaveFormat;
 
 	/* Which voice index this effect is attached to. */

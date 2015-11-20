@@ -263,7 +263,7 @@ inline FMatrix FMatrix::InverseFast() const
 		GetScaledAxis( EAxis::Z ).IsNearlyZero(SMALL_NUMBER) ) 
 	{
 		UE_LOG(LogUnrealMath, Error, TEXT("FMatrix::InverseFast(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
-		ensureMsg(false, TEXT("FMatrix::InverseFast(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
+		ensureMsgf(false, TEXT("FMatrix::InverseFast(), trying to invert a NIL matrix, this results in NaNs! Use Inverse() instead."));
 	}
 #endif
 	FMatrix Result;
@@ -502,11 +502,11 @@ inline float FMatrix::GetMaximumAxisScale() const
 	return FMath::Sqrt(MaxRowScaleSquared);
 }
 
-inline void FMatrix::ScaleTranslation(const FVector& Scale3D)
+inline void FMatrix::ScaleTranslation(const FVector& InScale3D)
 {
-	M[3][0] *= Scale3D.X;
-	M[3][1] *= Scale3D.Y;
-	M[3][2] *= Scale3D.Z;
+	M[3][0] *= InScale3D.X;
+	M[3][1] *= InScale3D.Y;
+	M[3][2] *= InScale3D.Z;
 }
 
 // GetOrigin

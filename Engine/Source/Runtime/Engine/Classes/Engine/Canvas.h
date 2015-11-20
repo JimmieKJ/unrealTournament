@@ -2,13 +2,12 @@
 
 #pragma once
 
+#include "Engine/Engine.h"
 #include "CanvasTypes.h"
 #include "Canvas.generated.h"
 
-
 class FSceneView;
 class UFont;
-
 
 /**
  * Holds texture information with UV coordinates as well.
@@ -45,6 +44,101 @@ struct FCanvasIcon
 
 };
 
+struct FDisplayDebugManager
+{
+private:
+	FCanvasTextItem DebugTextItem;
+	FVector2D CurrentPos;
+	float NextColumXPos;
+	float MaxCharHeight;
+	FVector2D InitialPos;
+	class UCanvas* Canvas;
+
+public:
+	FDisplayDebugManager()
+		: DebugTextItem(FCanvasTextItem(FVector2D(0, 0), FText::GetEmpty(), nullptr, FLinearColor::White))
+		, CurrentPos(FVector2D::ZeroVector)
+		, NextColumXPos(0.f)
+		, MaxCharHeight(0.f)
+		, InitialPos(FVector2D::ZeroVector)
+		, Canvas(nullptr)
+	{
+		DebugTextItem.EnableShadow(FLinearColor::Black);
+	}
+
+	void Initialize(class UCanvas* InCanvas, const UFont* NewFont, FVector2D InInitialPosition)
+	{
+		SetFont(NewFont);
+		Canvas = InCanvas;
+		InitialPos = InInitialPosition;
+		CurrentPos = InitialPos;
+		NextColumXPos = 0.f;
+	}
+
+	void SetFont(const UFont* NewFont)
+	{
+		if (NewFont && (NewFont != DebugTextItem.Font))
+		{
+			DebugTextItem.Font = NewFont;
+			MaxCharHeight = DebugTextItem.Font->GetMaxCharHeight();
+		}
+	}
+
+	void SetDrawColor(const FColor& NewColor)
+	{
+		DebugTextItem.SetColor(NewColor.ReinterpretAsLinear());
+	}
+
+	void SetLinearDrawColor(const FLinearColor& NewColor)
+	{
+		DebugTextItem.SetColor(NewColor);
+	}
+
+	void ENGINE_API DrawString(const FString& InDebugString, const float& OptionalXOffset = 0.f);
+
+	void AddColumnIfNeeded();
+
+	float GetYStep() const
+	{
+		return MaxCharHeight * 1.15f;
+	}
+
+	float GetXPos() const
+	{
+		return CurrentPos.X;
+	}
+
+	float GetYPos() const
+	{
+		return CurrentPos.Y;
+	}
+
+	float& GetYPosRef()
+	{
+		return CurrentPos.Y;
+	}
+
+	void SetYPos(const float NewYPos)
+	{
+		CurrentPos.Y = NewYPos;
+	}
+
+	float GetMaxCharHeight() const
+	{
+		return MaxCharHeight;
+	}
+
+	float& GetMaxCharHeightRef()
+	{
+		return MaxCharHeight;
+	}
+
+	void ShiftYDrawPosition(const float& YOffset)
+	{
+		CurrentPos.Y += YOffset;
+		AddColumnIfNeeded();
+	}
+};
 
 /**
  * A drawing canvas.
@@ -110,6 +204,7 @@ class ENGINE_API UCanvas
 	int32 CachedDisplayWidth;
 	int32 CachedDisplayHeight;
 
+	FDisplayDebugManager DisplayDebugManager;
 public:
 
 	FCanvas* Canvas;

@@ -2,7 +2,6 @@
 
 #include "PackageContentPrivatePCH.h"
 #include "IPackageContent.h"
-#include "MainFrame.h"
 #include "PackageContent.h"
 #include "PackageContentStyle.h"
 

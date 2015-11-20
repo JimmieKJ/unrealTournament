@@ -78,6 +78,7 @@ void FVerticalSlotExtension::ShiftVertical(UWidget* Widget, int32 ShiftAmount)
 {
 	UVerticalBox* Parent = CastChecked<UVerticalBox>(Widget->GetParent());
 
+	Parent->Modify();
 	int32 CurrentIndex = Parent->GetChildIndex(Widget);
 	Parent->ShiftChild(CurrentIndex + ShiftAmount, Widget);
 }

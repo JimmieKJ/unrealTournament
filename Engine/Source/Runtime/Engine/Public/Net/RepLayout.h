@@ -31,7 +31,12 @@ public:
 class FRepChangedPropertyTracker : public IRepChangedPropertyTracker
 {
 public:
-	FRepChangedPropertyTracker() : LastReplicationGroupFrame( 0 ), LastReplicationFrame( 0 ), ActiveStatusChanged( false ), UnconditionalPropChanged( false ) { }
+	FRepChangedPropertyTracker(bool InForceAlwaysActive)
+		: LastReplicationGroupFrame( 0 )
+		, LastReplicationFrame( 0 )
+		, ActiveStatusChanged( false )
+		, UnconditionalPropChanged( false )
+		, ForceAlwaysActive( InForceAlwaysActive ) { }
 	virtual ~FRepChangedPropertyTracker() { }
 
 	virtual void SetCustomIsActiveOverride( const uint16 RepIndex, const bool bIsActive ) override
@@ -40,7 +45,7 @@ public:
 
 		checkSlow( Parent.IsConditional );
 
-		Parent.Active = bIsActive ? 1 : 0;
+		Parent.Active = (bIsActive || ForceAlwaysActive) ? 1 : 0;
 
 		if ( Parent.Active != Parent.OldActive )
 		{
@@ -58,6 +63,7 @@ public:
 
 	uint32						ActiveStatusChanged;
 	bool						UnconditionalPropChanged;
+	bool						ForceAlwaysActive;				// Used for client replay recording. The server has already evaluated any custom conditions, so the client doesn't need to.
 };
 
 class FRepLayout;

@@ -348,7 +348,8 @@ public:
 		USkeletalMesh* SkeletalMesh,
 		int32 LODIndex,
 		const FSkeletalMeshOptimizationSettings& Settings,
-		bool bCalcLODDistance
+		bool bCalcLODDistance,
+		bool bReregisterComponent = true
 		) override
 	{
 		return false;

@@ -11,6 +11,7 @@ namespace UnrealBuildTool.Rules
 					"GearVR/Private",
 					"../../../../Source/Runtime/Renderer/Private",
 					"../../../../Source/Runtime/Launch/Private",
+ 					"../../../../Source/ThirdParty/Oculus/Common",
 					// ... add other private include paths required here ...
 				}
 				);
@@ -29,6 +30,14 @@ namespace UnrealBuildTool.Rules
 				}
 				);
 
+			PrivateDependencyModuleNames.AddRange(new string[] { "OpenGLDrv" });
+			AddThirdPartyPrivateStaticDependencies(Target, "OpenGL");
+            PrivateIncludePaths.AddRange(
+				new string[] {
+					"../../../../Source/Runtime/OpenGLDrv/Private",
+					// ... add other private include paths required here ...
+					}
+				);
 			if (Target.Platform == UnrealTargetPlatform.Android)
 			{
 				PrivateDependencyModuleNames.AddRange(new string[] { "LibOVRMobile" });

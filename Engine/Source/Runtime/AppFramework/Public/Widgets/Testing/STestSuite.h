@@ -2,6 +2,9 @@
 
 #pragma once
 
+#if !UE_BUILD_SHIPPING
 
 APPFRAMEWORK_API void RestoreSlateTestSuite();
 APPFRAMEWORK_API void MakeSplitterTest();
+
+#endif // #if !UE_BUILD_SHIPPING

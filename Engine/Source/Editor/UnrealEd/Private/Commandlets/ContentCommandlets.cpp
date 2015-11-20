@@ -27,6 +27,10 @@ DEFINE_LOG_CATEGORY_STATIC(LogContentCommandlet, Log, All);
 #include "Engine/LevelStreaming.h"
 #include "Engine/StaticMesh.h"
 
+// for UResavePackagesCommandlet::PerformAdditionalOperations building lighting code
+#include "Engine/WorldComposition.h"
+#include "LightingBuildOptions.h"
+
 
 /**-----------------------------------------------------------------------------
  *	UResavePackages commandlet.
@@ -47,7 +51,7 @@ UResavePackagesCommandlet::UResavePackagesCommandlet(const FObjectInitializer& O
 }
 
 
-int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FString>& Tokens, const TArray<FString>& Switches, TArray<FString>& PackageNames )
+int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FString>& Tokens, TArray<FString>& PackageNames )
 {
 	Verbosity = VERY_VERBOSE;
 
@@ -76,8 +80,8 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 				FString PackageFile(FilesInPackageFolder[FileIndex]);
 				FPaths::MakeStandardFilename(PackageFile);
 				PackageNames.Add( *PackageFile );
-                bExplicitPackages = true;
             }
+			bExplicitPackages = true;
         }
 	}
 
@@ -297,6 +301,13 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 				}
 			}
 
+			{
+				UWorld* World = UWorld::FindWorldInPackage(Package);
+				if (World)
+				{
+					PerformAdditionalOperations(World, bSavePackage);
+				}
+			}
 
 			// hook to allow performing additional checks without lumping everything into this one function
 			PerformAdditionalOperations(Package,bSavePackage);
@@ -485,7 +496,7 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 int32 UResavePackagesCommandlet::Main( const FString& Params )
 {
 	const TCHAR* Parms = *Params;
-	TArray<FString> Tokens, Switches;
+	TArray<FString> Tokens;
 	ParseCommandLine(Parms, Tokens, Switches);
 
 	// Ensure source control is initialized and shut down properly
@@ -505,7 +516,7 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	bAutoCheckIn = bAutoCheckOut && Switches.Contains(TEXT("AutoCheckIn"));
 
 	TArray<FString> PackageNames;
-	int32 ResultCode = InitializeResaveParameters(Tokens, Switches, PackageNames);
+	int32 ResultCode = InitializeResaveParameters(Tokens, PackageNames);
 	if ( ResultCode != 0 )
 	{
 		return ResultCode;
@@ -642,7 +653,106 @@ bool UResavePackagesCommandlet::PerformPreloadOperations( FLinkerLoad* PackageLi
 
 	return bResult;
 }
+void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World, bool& bSavePackage)
+{
+	check(World);
+	static bool bBuildLighting = FParse::Param(FCommandLine::Get(), TEXT("buildlighting")) == true;
 
+	if (bBuildLighting)
+	{
+		TArray<FString> CmdLineMapEntries;
+		for (const FString& Switch : Switches)
+		{
+			auto GetSwitchValueElements = [&Switch](const FString SwitchKey) -> TArray < FString >
+			{
+				TArray<FString> ValueElements;
+				if (Switch.StartsWith(SwitchKey + TEXT("=")) == true)
+				{
+					FString ValuesList = Switch.Right(Switch.Len() - (SwitchKey + TEXT("=")).Len());
+
+					// Allow support for -KEY=Value1+Value2+Value3 as well as -KEY=Value1 -KEY=Value2
+					for (int32 PlusIdx = ValuesList.Find(TEXT("+")); PlusIdx != INDEX_NONE; PlusIdx = ValuesList.Find(TEXT("+")))
+					{
+						const FString ValueElement = ValuesList.Left(PlusIdx);
+						ValueElements.Add(ValueElement);
+
+						ValuesList = ValuesList.Right(ValuesList.Len() - (PlusIdx + 1));
+					}
+					ValueElements.Add(ValuesList);
+				}
+				return ValueElements;
+			};
+
+			CmdLineMapEntries += GetSwitchValueElements(TEXT("MAP"));
+		}
+
+		// If specific maps were specified, then only continue if we are processing one that was required.
+		bool bShouldBuildLightmapsForWorld = CmdLineMapEntries.Num() == 0 || CmdLineMapEntries.Contains(World->GetMapName());
+		if (bShouldBuildLightmapsForWorld)
+		{
+			World->AddToRoot();
+			if (!World->bIsWorldInitialized)
+			{
+				UWorld::InitializationValues IVS;
+				IVS.RequiresHitProxies(false);
+				IVS.ShouldSimulatePhysics(false);
+				IVS.EnableTraceCollision(false);
+				IVS.CreateNavigation(false);
+				IVS.CreateAISystem(false);
+				IVS.AllowAudioPlayback(false);
+				IVS.CreatePhysicsScene(false);
+
+				World->InitWorld(IVS);
+				World->PersistentLevel->UpdateModelComponents();
+				World->UpdateWorldComponents(true, false);
+			}
+
+			// load all the sublevels
+
+			if (World->StreamingLevels.Num())
+			{
+				//World->LoadSecondaryLevels(true, &PreviouslyCookedPackages);
+				World->LoadSecondaryLevels(true, NULL);
+			}
+
+			GWorld = World;
+
+			TArray<FString> SubPackages;
+
+			// force load all of the map to be loaded so we can get good rebuilt lighting 
+			if (World->WorldComposition)
+			{
+				World->WorldComposition->CollectTilesToCook(SubPackages);
+			}
+
+			for (const auto& SubPackage : SubPackages)
+			{
+				UPackage* Package = LoadPackage(nullptr, *SubPackage, 0);
+				check(Package->IsFullyLoaded());
+			}
+
+			GRedirectCollector.ResolveStringAssetReference();
+
+
+			FLightingBuildOptions LightingOptions;
+
+			int32 QualityLevel = Quality_Production;
+			GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorPerProjectIni);
+			QualityLevel = FMath::Clamp<int32>(QualityLevel, Quality_Preview, Quality_Production);
+			
+			LightingOptions.QualityLevel = (ELightingBuildQuality)QualityLevel;
+
+			GEditor->BuildLighting(LightingOptions);
+			while (GEditor->IsLightingBuildCurrentlyRunning())
+			{
+				GEditor->UpdateBuildLighting();
+			}
+
+			World->RemoveFromRoot();
+		}
+
+	}
+}
 
 void UResavePackagesCommandlet::PerformAdditionalOperations( class UObject* Object, bool& bSavePackage )
 {
@@ -1006,10 +1116,10 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 
 		// gather any per map packages for cooking
 		TArray<FString> PerMapPackagesToLoad;
-		for (FConfigSectionMap::TIterator PacakgeIt(PackagesToFullyLoad); PacakgeIt; ++PacakgeIt)
+		for (FConfigSectionMap::TIterator PackageIt(PackagesToFullyLoad); PackageIt; ++PackageIt)
 		{
 			// add dependencies for the per-map packages for this map (if any)
-			TArray<FString>* Packages = PerMapCookPackages.Find(PacakgeIt.Value());
+			TArray<FString>* Packages = PerMapCookPackages.Find(PackageIt.Value());
 			if (Packages != NULL)
 			{
 				for (int32 PackageIndex = 0; PackageIndex < Packages->Num(); PackageIndex++)
@@ -1038,12 +1148,12 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 		}
 
 		// go over all the packages that we want to fully load
-		for (FConfigSectionMap::TIterator PacakgeIt(PackagesToFullyLoad); PacakgeIt; ++PacakgeIt)
+		for (FConfigSectionMap::TIterator PackageIt(PackagesToFullyLoad); PackageIt; ++PackageIt)
 		{
 			// there may be multiple sublevels to load if this package is a persistent level with sublevels
 			TArray<FString> PackagesToLoad;
 			// start off just loading this package (more may be added in the loop)
-			PackagesToLoad.Add(*PacakgeIt.Value());
+			PackagesToLoad.Add(*PackageIt.Value());
 
 			for (int32 PackageIndex = 0; PackageIndex < PackagesToLoad.Num(); PackageIndex++)
 			{

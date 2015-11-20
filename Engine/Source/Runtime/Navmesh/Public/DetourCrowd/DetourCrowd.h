@@ -212,6 +212,7 @@ struct NAVMESH_API dtCrowdAgentDebugInfo
 	int idx;
 	float optStart[3], optEnd[3];
 	dtObstacleAvoidanceDebugData* vod;
+	TMap<int32, FString> agentLog;
 };
 
 /// Provides local steering behaviors for a group of agents. 
@@ -252,6 +253,8 @@ class NAVMESH_API dtCrowd
 	bool m_raycastSingleArea;
 	// [UE4] if set, offmesh connections won't be cut from corridor
 	bool m_keepOffmeshConnections;
+	// [UE4] if set, crowd agents will use early reach test
+	bool m_earlyReachTest;
 
 	void updateTopologyOptimization(dtCrowdAgent** agents, const int nagents, const float dt);
 	void updateMoveRequest(const float dt);
@@ -453,6 +456,8 @@ public:
 	/// This will allow removing offmesh connection poly ref from corridor
 	/// as soon as offmesh connection anim is triggered (default behavior)
 	void setPruneStartedOffmeshConnections(bool bRemoveFromCorridor);
+
+	void setEarlyReachTestOptimization(bool bEnable);
 
 	/// [UE4] Check if agent moved away from its path corridor
 	bool isOutsideCorridor(const int idx) const;

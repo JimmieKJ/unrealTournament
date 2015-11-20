@@ -7,10 +7,10 @@
 #include "FileHelpers.h"
 #include "ContentBrowserModule.h"
 #include "AssetRegistryModule.h"
-#include "MaterialExportUtils.h"
 #include "MeshUtilities.h"
+#include "MaterialUtilities.h"
 #include "RawMesh.h"
-#include "LandscapeEdMode.h"
+#include "LandscapeEditorUtils.h"
 #include "ImageWrapper.h"
 
 #include "WorldTileDetails.h"
@@ -32,8 +32,9 @@
 static const FName HeightmapLayerName = FName("__Heightmap__");
 
 
-FWorldTileCollectionModel::FWorldTileCollectionModel(UEditorEngine* InEditor)
-	: FLevelCollectionModel(InEditor)
+FWorldTileCollectionModel::FWorldTileCollectionModel()
+	: FLevelCollectionModel()
+	, PreviewLocation(0.0f,0.0f,0.0f)
 	, bIsSavingLevel(false)
 	, bMeshProxyAvailable(false)
 {
@@ -46,7 +47,7 @@ FWorldTileCollectionModel::~FWorldTileCollectionModel()
 	
 	CurrentWorld = NULL;
 
-	Editor->UnregisterForUndo(this);
+	GEditor->UnregisterForUndo(this);
 	FCoreDelegates::PreWorldOriginOffset.RemoveAll(this);
 	FCoreDelegates::PostWorldOriginOffset.RemoveAll(this);
 	FEditorDelegates::PreSaveWorld.RemoveAll(this);
@@ -61,7 +62,7 @@ void FWorldTileCollectionModel::Initialize(UWorld* InWorld)
 	ManagedLayers.Empty();
 	ManagedLayers.Add(Layer);
 
-	Editor->RegisterForUndo(this);
+	GEditor->RegisterForUndo(this);
 	FCoreDelegates::PreWorldOriginOffset.AddSP(this, &FWorldTileCollectionModel::PreWorldOriginOffset);
 	FCoreDelegates::PostWorldOriginOffset.AddSP(this, &FWorldTileCollectionModel::PostWorldOriginOffset);
 	FEditorDelegates::PreSaveWorld.AddSP(this, &FWorldTileCollectionModel::OnPreSaveWorld);
@@ -594,10 +595,8 @@ bool FWorldTileCollectionModel::GetPlayerView(FVector& Location, FRotator& Rotat
 
 bool FWorldTileCollectionModel::GetObserverView(FVector& Location, FRotator& Rotation) const
 {
-	const UEditorEngine* EditorEngine = Editor.Get();
-
 	// We are in the SIE
-	if (EditorEngine->bIsSimulatingInEditor && GCurrentLevelEditingViewportClient->IsSimulateInEditorViewport())
+	if (GEditor->bIsSimulatingInEditor && GCurrentLevelEditingViewportClient->IsSimulateInEditorViewport())
 	{
 		Rotation = GCurrentLevelEditingViewportClient->GetViewRotation();
 		Location = GCurrentLevelEditingViewportClient->GetViewLocation();
@@ -605,9 +604,9 @@ bool FWorldTileCollectionModel::GetObserverView(FVector& Location, FRotator& Rot
 	}
 
 	// We are in the editor world
-	if (EditorEngine->PlayWorld == nullptr)
+	if (GEditor->PlayWorld == nullptr)
 	{
-		for (const FLevelEditorViewportClient* ViewportClient : EditorEngine->LevelViewportClients)
+		for (const FLevelEditorViewportClient* ViewportClient : GEditor->LevelViewportClients)
 		{
 			if (ViewportClient && ViewportClient->IsPerspective())
 			{
@@ -787,7 +786,7 @@ void FWorldTileCollectionModel::OnLevelsCollectionChanged()
 
 TSharedPtr<FWorldTileModel> FWorldTileCollectionModel::AddLevelFromTile(int32 TileIdx)
 {
-	TSharedPtr<FWorldTileModel> LevelModel = MakeShareable(new FWorldTileModel(Editor, *this, TileIdx));
+	TSharedPtr<FWorldTileModel> LevelModel = MakeShareable(new FWorldTileModel(*this, TileIdx));
 	AllLevelsList.Add(LevelModel);
 	AllLevelsMap.Add(LevelModel->TileDetails->PackageName, LevelModel);
 	
@@ -910,7 +909,7 @@ void FWorldTileCollectionModel::UpdateStreamingPreview(FVector2D InLocation, boo
 	{
 		FVector NewPreviewLocation = FVector(InLocation, 0);
 		
-		if ((PreviewLocation-NewPreviewLocation).Size() > KINDA_SMALL_NUMBER)
+		if ((PreviewLocation-NewPreviewLocation).SizeSquared() > FMath::Square(KINDA_SMALL_NUMBER))
 		{
 			PreviewLocation = NewPreviewLocation;
 			PreviewVisibleTiles.Empty();
@@ -1518,10 +1517,10 @@ static void SetupLandscapeImportLayers(const FTiledLandscapeImportSettings& InIm
 				ReadWeightmapFile(LayerImportInfo.LayerData, LayerImportInfo.SourceFilePath, FILEREAD_Silent);
 			}
 		}
-		
+
 		LayerImportInfo.LayerInfo = GetLandscapeLayerInfoObject(LayerImportInfo.LayerName, ContentPath);
 		LayerImportInfo.LayerInfo->bNoWeightBlend = LayerSettings.bNoBlendWeight;
-						
+
 		OutLayerInfo.Add(LayerImportInfo);
 	}
 }
@@ -1541,7 +1540,7 @@ void FWorldTileCollectionModel::ImportTiledLandscape_Executed()
 	ImportWidnow->SetContent(ImportDialog);
 
 	/** Show the dialog window as a modal window */
-	Editor->EditorAddModalWindow(ImportWidnow);
+	GEditor->EditorAddModalWindow(ImportWidnow);
 		
 	if (ImportDialog->ShouldImport() && ImportDialog->GetImportSettings().HeightmapFileList.Num())
 	{
@@ -1607,7 +1606,8 @@ void FWorldTileCollectionModel::ImportTiledLandscape_Executed()
 
 			// Setup layers list for importing
 			SetupLandscapeImportLayers(ImportSettings, GetWorld()->GetOutermost()->GetName(), TileIndex, TileImportSettings.ImportLayers);
-						
+			TileImportSettings.ImportLayerType = ELandscapeImportAlphamapType::Additive;
+
 			if (ReadRawFile(TileImportSettings.HeightData, Filename, FILEREAD_Silent))
 			{
 				FString MapFileName = WorldRootPath + TileName + FPackageName::GetMapPackageExtension();
@@ -1638,6 +1638,10 @@ void FWorldTileCollectionModel::ImportTiledLandscape_Executed()
 						float WidthY = NewLandscapeRect.Height()*TileScale.Y;
 						FIntPoint TileCoordinates = ImportSettings.TileCoordinates[TileIndex] + ImportSettings.TilesCoordinatesOffset;
 						FIntPoint TileOffset = FIntPoint(TileCoordinates.X*WidthX, TileCoordinates.Y*WidthY);
+						if (ImportSettings.bFlipYAxis)
+						{
+							TileOffset.Y = -(TileOffset.Y + WidthY);
+						}
 						
 						// Place level tile at correct position in the world
 						NewTileModel->SetLevelPosition(TileOffset);
@@ -1953,33 +1957,32 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 
 			FMeshProxySettings ProxySettings;
 			ProxySettings.ScreenSize = ProxySettings.ScreenSize*(SimplificationDetails.DetailsPercentage/100.f);
-			ProxySettings.TextureWidth = 1024; // TODO: Expose texture size
-			ProxySettings.TextureHeight = 1024;
-			ProxySettings.bExportNormalMap = SimplificationDetails.bGenerateMeshNormalMap;
-			ProxySettings.bExportMetallicMap = SimplificationDetails.bGenerateMeshMetallicMap;
-			ProxySettings.bExportRoughnessMap = SimplificationDetails.bGenerateMeshRoughnessMap;
-			ProxySettings.bExportSpecularMap = SimplificationDetails.bGenerateMeshSpecularMap;
+			ProxySettings.MaterialSettings = SimplificationDetails.StaticMeshMaterialSettings;
 
 			TArray<UObject*> OutAssets;
-			FVector OutProxyLocation;
 			FString ProxyPackageName = FString::Printf(TEXT("PROXY_%s_LOD%d"), *FPackageName::GetShortName(TileModel->TileDetails->PackageName), TargetLODIndex + 1);
 			
-			// Generate proxy mesh and proxy material assets
-			MeshUtilities.CreateProxyMesh(Actors, ProxySettings, AssetsOuter, AssetsPath + ProxyPackageName, OutAssets, OutProxyLocation);
-		
-			if (OutAssets.Num())
+			// Generate proxy mesh and proxy material assets 
+			FCreateProxyDelegate ProxyDelegate;
+			ProxyDelegate.BindLambda(
+				[&](const FGuid Guid, TArray<UObject*>& AssetsToSync)
 			{
-				UStaticMesh* ProxyMesh = nullptr;
-				if (OutAssets.FindItemByClass(&ProxyMesh))
+				//Update the asset registry that a new static mash and material has been created
+				if (AssetsToSync.Num())
 				{
-					new(AssetsToSpawn) FAssetToSpawnInfo(ProxyMesh, FTransform(OutProxyLocation - ActorsOffset));
+					UStaticMesh* ProxyMesh = nullptr;
+					if (OutAssets.FindItemByClass(&ProxyMesh))
+					{
+						new(AssetsToSpawn)FAssetToSpawnInfo(ProxyMesh, FTransform(-ActorsOffset));
+					}
+
+					GeneratedAssets.Append(OutAssets);
 				}
+			});
 
-				GeneratedAssets.Append(OutAssets);
-			}
+			FGuid JobGuid = FGuid::NewGuid();
+			MeshUtilities.CreateProxyMesh(Actors, ProxySettings, NULL, ProxyPackageName, JobGuid, ProxyDelegate);
 		}
-
-		using namespace MaterialExportUtils;
 
 		// Convert landscape actors into static meshes
 		int32 LandscapeActorIndex = 0;
@@ -2030,14 +2033,35 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			}
 								
 			// This is texture resolution for a landscape mesh, probably needs to be calculated using landscape size
-			const FIntPoint LandscapeTextureSize(1024, 1024);
-			LandscapeFlattenMaterial.DiffuseSize	= LandscapeTextureSize;
-			LandscapeFlattenMaterial.NormalSize		= SimplificationDetails.bGenerateLandscapeNormalMap ? LandscapeTextureSize : FIntPoint::ZeroValue;
-			LandscapeFlattenMaterial.MetallicSize	= SimplificationDetails.bGenerateLandscapeMetallicMap ? LandscapeTextureSize : FIntPoint::ZeroValue;
-			LandscapeFlattenMaterial.RoughnessSize	= SimplificationDetails.bGenerateLandscapeRoughnessMap ? LandscapeTextureSize : FIntPoint::ZeroValue;
-			LandscapeFlattenMaterial.SpecularSize	= SimplificationDetails.bGenerateLandscapeSpecularMap ? LandscapeTextureSize : FIntPoint::ZeroValue;
+			LandscapeFlattenMaterial.DiffuseSize = SimplificationDetails.LandscapeMaterialSettings.TextureSize;
+			LandscapeFlattenMaterial.NormalSize = SimplificationDetails.LandscapeMaterialSettings.bNormalMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
+			LandscapeFlattenMaterial.MetallicSize = SimplificationDetails.LandscapeMaterialSettings.bMetallicMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
+			LandscapeFlattenMaterial.RoughnessSize = SimplificationDetails.LandscapeMaterialSettings.bRoughnessMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
+			LandscapeFlattenMaterial.SpecularSize = SimplificationDetails.LandscapeMaterialSettings.bSpecularMap ? SimplificationDetails.LandscapeMaterialSettings.TextureSize : FIntPoint::ZeroValue;
 			
-			ExportMaterial(Landscape, PrimitivesToHide, LandscapeFlattenMaterial);
+			FMaterialUtilities::ExportLandscapeMaterial(Landscape, PrimitivesToHide, LandscapeFlattenMaterial);
+
+			// Fill landscape material constants
+			{
+				if (LandscapeFlattenMaterial.MetallicSamples.Num() == 0)
+				{
+					LandscapeFlattenMaterial.MetallicSize = FIntPoint(1, 1);
+					LandscapeFlattenMaterial.MetallicSamples.SetNum(1);
+					LandscapeFlattenMaterial.MetallicSamples[0].DWColor() = *(uint32*)(&SimplificationDetails.LandscapeMaterialSettings.MetallicConstant);
+				}
+				if (LandscapeFlattenMaterial.RoughnessSamples.Num() == 0)
+				{
+					LandscapeFlattenMaterial.RoughnessSize = FIntPoint(1, 1);
+					LandscapeFlattenMaterial.RoughnessSamples.SetNum(1);
+					LandscapeFlattenMaterial.RoughnessSamples[0].DWColor() = *(uint32*)(&SimplificationDetails.LandscapeMaterialSettings.RoughnessConstant);
+				}
+				if (LandscapeFlattenMaterial.SpecularSamples.Num() == 0)
+				{
+					LandscapeFlattenMaterial.SpecularSize = FIntPoint(1, 1);
+					LandscapeFlattenMaterial.SpecularSamples.SetNum(1);
+					LandscapeFlattenMaterial.SpecularSamples[0].DWColor() = *(uint32*)(&SimplificationDetails.LandscapeMaterialSettings.SpecularConstant);
+				}
+			}
 		
 			if (SimplificationDetails.bBakeGrassToLandscape)
 			{
@@ -2045,7 +2069,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 			}
 			FString LandscapeBaseAssetName = FString::Printf(TEXT("%s_LOD%d"), *Landscape->GetName(), TargetLODIndex + 1);
 			// Construct landscape material
-			UMaterial* StaticLandscapeMaterial = MaterialExportUtils::CreateMaterial(
+			UMaterial* StaticLandscapeMaterial = FMaterialUtilities::CreateMaterial(
 				LandscapeFlattenMaterial, AssetsOuter, *(AssetsPath + LandscapeBaseAssetName), RF_Public|RF_Standalone, GeneratedAssets);
 			// Currently landscape exports world space normal map
 			StaticLandscapeMaterial->bTangentSpaceNormal = false;
@@ -2113,7 +2137,7 @@ bool FWorldTileCollectionModel::GenerateLODLevels(FLevelModelList InLevelList, i
 				for (UObject* Asset : GeneratedAssets)
 				{
 					FAssetRegistryModule::AssetCreated(Asset);
-					Editor->BroadcastObjectReimported(Asset);
+					GEditor->BroadcastObjectReimported(Asset);
 					PackagesToSave.Add(Asset->GetOutermost());
 				}
 								

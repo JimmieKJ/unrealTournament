@@ -124,7 +124,7 @@ void FSmartNameMapping::Serialize(FArchive& Ar)
 	}
 }
 
-int32 FSmartNameMapping::GetNumNames()
+int32 FSmartNameMapping::GetNumNames() const
 {
 	return UidMap.Num();
 }
@@ -149,7 +149,7 @@ bool FSmartNameMapping::Exists(const FName& Name)
 	return UidMap.FindKey(Name) != nullptr;
 }
 
-const FSmartNameMapping::UID* FSmartNameMapping::FindUID(const FName& Name)
+const FSmartNameMapping::UID* FSmartNameMapping::FindUID(const FName& Name) const
 {
 	return UidMap.FindKey(Name);
 }

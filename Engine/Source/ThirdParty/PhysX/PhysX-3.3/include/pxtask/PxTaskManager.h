@@ -26,11 +26,7 @@ class PxBaseTask;
 class PxTask;
 class PxLightCpuTask;
 class PxSpuTask;
-#if defined(PX_ARM64)
-typedef unsigned int PxTaskID;
-#else
-typedef unsigned long PxTaskID;
-#endif
+typedef PxU32 PxTaskID;
 
 /**
 \brief Identifies the type of each heavyweight PxTask object

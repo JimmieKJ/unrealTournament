@@ -72,9 +72,9 @@ class UParticleLODLevel : public UObject
 	int32 PeakActiveParticles;
 
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void	PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	// @todo document
 	virtual void	UpdateModuleLists();

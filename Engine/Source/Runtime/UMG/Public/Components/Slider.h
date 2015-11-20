@@ -11,7 +11,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnFloatValueChangedEvent, float, Va
 /**
  * A simple widget that shows a sliding bar with a handle that allows you to control the value between 0..1.
  *
- * ● No Children
+ * * No Children
  */
 UCLASS()
 class UMG_API USlider : public UWidget
@@ -20,7 +20,7 @@ class UMG_API USlider : public UWidget
 
 public:
 	/** The volume value to display. */
-	UPROPERTY(EditAnywhere, Category=Appearance)
+	UPROPERTY(EditAnywhere, Category=Appearance, meta=( ClampMin="0", ClampMax="1", UIMin="0", UIMax="1"))
 	float Value;
 
 	/** A bindable delegate to allow logic to drive the value of the widget */
@@ -74,6 +74,14 @@ public:
 	/** Sets the current value of the slider. */
 	UFUNCTION(BlueprintCallable, Category="Behavior")
 	void SetValue(float InValue);
+
+	/** Sets if the slidable area should be indented to fit the handle */
+	UFUNCTION(BlueprintCallable, Category="Behavior")
+	void SetIndentHandle(bool InValue);
+
+	/** Sets the handle to be interactive or fixed */
+	UFUNCTION(BlueprintCallable, Category="Behavior")
+	void SetLocked(bool InValue);
 	
 	// UWidget interface
 	virtual void SynchronizeProperties() override;

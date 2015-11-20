@@ -143,6 +143,37 @@ void FLandscapeEditorDetailCustomization_MiscTools::CustomizeDetails(IDetailLayo
 			]
 		];
 	}
+
+	if (IsToolActive("Mirror"))
+	{
+		ToolsCategory.AddProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, MirrorPoint));
+		ToolsCategory.AddProperty(GET_MEMBER_NAME_CHECKED(ULandscapeEditorObject, MirrorOp));
+		ToolsCategory.AddCustomRow(LOCTEXT("ApplyMirrorLabel", "Apply Mirror"))
+		[
+			SNew(SBox)
+			.Padding(FMargin(0, 0, 12, 0)) // Line up with the other properties due to having no reset to default button
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(0, 0, 3, 0)
+				[
+					SNew(SButton)
+					.Text(LOCTEXT("Mirror.Reset", "Recenter"))
+					.HAlign(HAlign_Center)
+					.OnClicked_Lambda(&FLandscapeEditorDetailCustomization_MiscTools::OnResetMirrorPointButtonClicked)
+				]
+				+ SHorizontalBox::Slot()
+				.Padding(3, 0, 0, 0)
+				[
+					SNew(SButton)
+					//.IsEnabled_Static(&FLandscapeEditorDetailCustomization_MiscTools::GetApplyMirrorButtonIsEnabled)
+					.Text(LOCTEXT("Mirror.Apply", "Apply"))
+					.HAlign(HAlign_Center)
+					.OnClicked_Static(&FLandscapeEditorDetailCustomization_MiscTools::OnApplyMirrorButtonClicked)
+				]
+			]
+		];
+	}
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -210,6 +241,8 @@ FReply FLandscapeEditorDetailCustomization_MiscTools::OnClearRegionSelectionButt
 		ULandscapeInfo* LandscapeInfo = LandscapeEdMode->CurrentToolTarget.LandscapeInfo.Get();
 		if (LandscapeInfo)
 		{
+			FScopedTransaction Transaction(LOCTEXT("Region.Undo_ClearSelected", "Clearing Region Selection"));
+			LandscapeInfo->Modify();
 			LandscapeInfo->ClearSelectedRegion(false);
 		}
 	}
@@ -286,6 +319,28 @@ FReply FLandscapeEditorDetailCustomization_MiscTools::OnResetRampButtonClicked()
 	if (LandscapeEdMode != NULL && IsToolActive(FName("Ramp")))
 	{
 		LandscapeEdMode->ResetRampTool();
+	}
+
+	return FReply::Handled();
+}
+
+FReply FLandscapeEditorDetailCustomization_MiscTools::OnApplyMirrorButtonClicked()
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode != NULL && IsToolActive(FName("Mirror")))
+	{
+		LandscapeEdMode->ApplyMirrorTool();
+	}
+
+	return FReply::Handled();
+}
+
+FReply FLandscapeEditorDetailCustomization_MiscTools::OnResetMirrorPointButtonClicked()
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode != NULL && IsToolActive(FName("Mirror")))
+	{
+		LandscapeEdMode->CenterMirrorTool();
 	}
 
 	return FReply::Handled();

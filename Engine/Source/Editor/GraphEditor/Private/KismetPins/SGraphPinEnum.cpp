@@ -13,6 +13,7 @@ void SPinComboBox::Construct( const FArguments& InArgs )
 	OnSelectionChanged = InArgs._OnSelectionChanged;
 	VisibleText = InArgs._VisibleText;
 	OnGetDisplayName = InArgs._OnGetDisplayName;
+	OnGetTooltip = InArgs._OnGetTooltip;
 
 	this->ChildSlot
 	[
@@ -77,6 +78,7 @@ TSharedRef<ITableRow> SPinComboBox::OnGenerateComboWidget( TSharedPtr<int32> InC
 			[
 				SNew(STextBlock)
 				.Text( this, &SPinComboBox::GetRowString, RowIndex )
+				.ToolTipText( this, &SPinComboBox::GetRowTooltip, RowIndex )
 				.Font( FEditorStyle::GetFontStyle( TEXT("PropertyWindow.NormalFont") ) )
 			]
 		];
@@ -99,23 +101,35 @@ TSharedRef<SWidget>	SGraphPinEnum::GetDefaultValueWidget()
 		.VisibleText( this, &SGraphPinEnum::OnGetText )
 		.OnSelectionChanged( this, &SGraphPinEnum::ComboBoxSelectionChanged )
 		.Visibility( this, &SGraphPin::GetDefaultValueVisibility )
-		.OnGetDisplayName(this, &SGraphPinEnum::OnGetFriendlyName);
+		.OnGetDisplayName(this, &SGraphPinEnum::OnGetFriendlyName)
+		.OnGetTooltip(this, &SGraphPinEnum::OnGetTooltip);
 }
 
-FString SGraphPinEnum::OnGetFriendlyName(int32 EnumIndex)
+FText SGraphPinEnum::OnGetFriendlyName(int32 EnumIndex)
 {
 	UEnum* EnumPtr = Cast<UEnum>(GraphPinObj->PinType.PinSubCategoryObject.Get());
 
 	check(EnumPtr);
 	check(EnumIndex < EnumPtr->NumEnums());
 
-	FString EnumValueName = EnumPtr->GetDisplayNameText(EnumIndex).ToString();
-	if (EnumValueName.Len() == 0) 
+	FText EnumValueName = EnumPtr->GetDisplayNameText(EnumIndex);
+	if (EnumValueName.IsEmpty()) 
 	{
-		EnumValueName = EnumPtr->GetEnumName(EnumIndex);
+		EnumValueName = FText::FromString(EnumPtr->GetEnumName(EnumIndex));
 	}
 
 	return EnumValueName;
+}
+
+FText SGraphPinEnum::OnGetTooltip(int32 EnumIndex)
+{
+	UEnum* EnumPtr = Cast<UEnum>(GraphPinObj->PinType.PinSubCategoryObject.Get());
+
+	check(EnumPtr);
+	check(EnumIndex < EnumPtr->NumEnums());
+
+	FText EnumValueTooltip = EnumPtr->GetToolTipText(EnumIndex);
+	return EnumValueTooltip;
 }
 
 void SGraphPinEnum::ComboBoxSelectionChanged( TSharedPtr<int32> NewSelection, ESelectInfo::Type /*SelectInfo*/ )

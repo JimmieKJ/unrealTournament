@@ -40,13 +40,6 @@ NpParticleFluid* NpParticleFluid::createObject(PxU8*& address, PxDeserialization
 }
 //~PX_SERIALIZATION
 
-PxParticleFluid* NpGetNxParticleFluid(Sc::ParticleSystemCore& ps)
-{
-	char* p = reinterpret_cast<char*>(&ps);
-	size_t scbOffset = reinterpret_cast<size_t>(&(reinterpret_cast<NpParticleFluid*>(0)->getScbParticleSystem()));
-	return reinterpret_cast<NpParticleFluid*>(p - scbOffset - Scb::ParticleSystem::getScOffset());
-}
-
 PxParticleFluidReadData* NpParticleFluid::lockParticleFluidReadData(PxDataAccessFlags flags)
 {
 	return static_cast<PxParticleFluidReadData*>(lockParticleReadData(flags));

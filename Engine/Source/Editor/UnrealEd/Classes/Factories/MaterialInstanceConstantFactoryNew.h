@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // MaterialInstanceConstantFactoryNew
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "MaterialInstanceConstantFactoryNew.generated.h"
@@ -15,9 +15,9 @@ class UMaterialInstanceConstantFactoryNew : public UFactory
 	UPROPERTY()
 	class UMaterialInterface* InitialParent;
 
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	UNREALED_API virtual UObject* FactoryCreateNew(UClass* Class,UObject* InParent,FName Name,EObjectFlags Flags,UObject* Context,FFeedbackContext* Warn) override;
-	// Begin UFactory Interface	
+	//~ Begin UFactory Interface	
 };
 
 

@@ -13,6 +13,9 @@ UEditorPerProjectUserSettings::UEditorPerProjectUserSettings(const FObjectInitia
 	MaterialQualityLevel = 1;
 	bMonitorEditorPerformance = true;
 	BlueprintFavorites = CreateDefaultSubobject<UBlueprintPaletteFavorites>(TEXT("BlueprintFavorites"));
+	SCSViewportCameraSpeed = 4;
+
+	SimplygonServerIP = "127.0.0.1";
 }
 
 void UEditorPerProjectUserSettings::PostInitProperties()
@@ -32,7 +35,7 @@ void UEditorPerProjectUserSettings::PostEditChangeProperty( FPropertyChangedEven
 
 	if (Name == FName(TEXT("bUseCurvesForDistributions")))
 	{
-		extern CORE_API uint32 GDistributionType;
+		extern ENGINE_API uint32 GDistributionType;
 		//GDistributionType == 0 for curves
 		GDistributionType = (bUseCurvesForDistributions) ? 0 : 1;
 	}

@@ -415,7 +415,7 @@ void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, 
 	}
 	else
 	{
-		UMaterialInterface* FoundMaterial = LoadObject<UMaterialInterface>(NULL, *ObjectPath.ToString());
+		UMaterialInterface* FoundMaterial = LoadObject<UMaterialInterface>(NULL, *ObjectPath.ToString(), NULL, LOAD_Quiet);
 		// do not override existing materials
 		if (FoundMaterial)
 		{
@@ -465,13 +465,9 @@ void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, 
 	// compile shaders for PC (from UPrecompileShadersCommandlet::ProcessMaterial
 	// and FMaterialEditor::UpdateOriginalMaterial)
 
-	// make sure that any static meshes, etc using this material will stop using the FMaterialResource of the original 
-	// material, and will use the new FMaterialResource created when we make a new UMaterial in place
-	FGlobalComponentReregisterContext RecreateComponents;
-	
 	// let the material update itself if necessary
 	UnrealMaterial->PreEditChange(NULL);
-		UnrealMaterial->PostEditChange();
+	UnrealMaterial->PostEditChange();
 	
 	ImportedMaterialData.AddImportedMaterial( FbxMaterial, *UnrealMaterial );
 

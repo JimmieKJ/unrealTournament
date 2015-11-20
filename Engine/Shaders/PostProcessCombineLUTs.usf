@@ -162,7 +162,7 @@ void MainPS(FWriteToSliceGeometryOutput Input, out float4 OutColor : SV_Target0)
 		Neutral = float4(UV * LUTSize / (LUTSize - 1), Input.LayerIndex / (LUTSize - 1), 0);
 	}
 #else
-void MainPS(float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
+void MainPS(noperspective float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 {
 	// construct the neutral color from a 2d position in 256x16
 	float4 Neutral;

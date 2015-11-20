@@ -161,9 +161,25 @@ void UModel::Serialize( FArchive& Ar )
 
 	Ar << Bounds;
 
-	Vectors.BulkSerialize( Ar );
-	Points.BulkSerialize( Ar );
-	Nodes.BulkSerialize( Ar );
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_BSP_UNDO_FIX )
+	{
+		TTransArray<FVector> OldVectors(this);
+		TTransArray<FVector> OldPoints(this);
+		TTransArray<FBspNode> OldNodes(this);
+		OldVectors.BulkSerialize(Ar);
+		OldPoints.BulkSerialize(Ar);
+		OldNodes.BulkSerialize(Ar);
+
+		Vectors = OldVectors;
+		Points = OldPoints;
+		Nodes = OldNodes;
+	}
+	else
+	{
+		Vectors.BulkSerialize(Ar);
+		Points.BulkSerialize(Ar);
+		Nodes.BulkSerialize(Ar);
+	}
 	if( Ar.IsLoading() )
 	{
 		for( int32 NodeIndex=0; NodeIndex<Nodes.Num(); NodeIndex++ )
@@ -171,8 +187,23 @@ void UModel::Serialize( FArchive& Ar )
 			Nodes[NodeIndex].NodeFlags &= ~(NF_IsNew|NF_IsFront|NF_IsBack);
 		}
 	}
-	Ar << Surfs;
-	Verts.BulkSerialize( Ar );
+	
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_BSP_UNDO_FIX )
+	{
+		TTransArray<FBspSurf> OldSurfs(this);
+		TTransArray<FVert> OldVerts(this);
+
+		Ar << OldSurfs;
+		OldVerts.BulkSerialize(Ar);
+
+		Surfs = OldSurfs;
+		Verts = OldVerts;
+	}
+	else
+	{
+		Ar << Surfs;
+		Verts.BulkSerialize(Ar);
+	}
 
 	if( Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_REMOVE_ZONES_FROM_MODEL)
 	{
@@ -264,16 +295,6 @@ void UModel::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collecto
 	{
 		This->Surfs[ Index ].AddReferencedObjects( Collector );
 	}
-	UObject* NodesOwner = This->Nodes.GetOwner();
-	Collector.AddReferencedObject( NodesOwner, This );
-	UObject* VertsOwner = This->Verts.GetOwner();
-	Collector.AddReferencedObject( VertsOwner, This );
-	UObject* VectorsOwner = This->Vectors.GetOwner();
-	Collector.AddReferencedObject( VectorsOwner, This );
-	UObject* PointsOwner = This->Points.GetOwner();
-	Collector.AddReferencedObject( PointsOwner, This );
-	UObject* SurfsOwner = This->Surfs.GetOwner();
-	Collector.AddReferencedObject( SurfsOwner, This );
 
 	Super::AddReferencedObjects( This, Collector );
 }
@@ -333,16 +354,15 @@ void UModel::PostLoad()
 			CurSurf.bHiddenEdLevel = 0;
 		}
 
+#if WITH_EDITOR
 		if (ABrush* Owner = Cast<ABrush>(GetOuter()))
 		{
-#if WITH_EDITOR
 			OwnerLocationWhenLastBuilt = Owner->GetActorLocation();
-			OwnerPrepivotWhenLastBuilt = Owner->GetPrePivot();
 			OwnerScaleWhenLastBuilt = Owner->GetActorScale();
-			OwnerRotationWhenLastBuilt = -Owner->GetActorRotation();
+			OwnerRotationWhenLastBuilt = Owner->GetActorRotation();
 			bCachedOwnerTransformValid = true;
-#endif
 		}
+#endif
 	}
 }
 
@@ -356,11 +376,12 @@ void UModel::PostEditUndo()
 
 void UModel::ModifySurf( int32 InIndex, bool UpdateMaster )
 {
-	Surfs.ModifyItem( InIndex );
+	// TODO: Remove this method and replace calls to it with Modify()
+	//Surfs.ModifyItem( InIndex );
 	FBspSurf& Surf = Surfs[InIndex];
 	if( UpdateMaster && Surf.Actor )
 	{
-		Surf.Actor->Brush->Polys->Element.ModifyItem( Surf.iBrushPoly );
+		//Surf.Actor->Brush->Polys->Element.ModifyItem( Surf.iBrushPoly );
 	}
 }
 void UModel::ModifyAllSurfs( bool UpdateMaster )
@@ -533,12 +554,14 @@ void UModel::EmptyModel( int32 EmptySurfInfo, int32 EmptyPolys )
 //
 UModel::UModel(const FObjectInitializer& ObjectInitializer)
 	: UObject(ObjectInitializer)
-	, Nodes(this)
-	, Verts(this)
-	, Vectors(this)
-	, Points(this)
-	, Surfs(this)
+	, Nodes()
+	, Verts()
+	, Vectors()
+	, Points()
+	, Surfs()
 	, VertexBuffer(this)
+	, InvalidSurfaces(false)
+	, bOnlyRebuildMaterialIndexBuffers(false)
 #if WITH_EDITOR
 	, bCachedOwnerTransformValid(false)
 #endif
@@ -549,12 +572,14 @@ UModel::UModel(const FObjectInitializer& ObjectInitializer)
 #if WITH_HOT_RELOAD_CTORS
 UModel::UModel(FVTableHelper& Helper)
 	: Super(Helper)
-	, Nodes(this)
-	, Verts(this)
-	, Vectors(this)
-	, Points(this)
-	, Surfs(this)
+	, Nodes()
+	, Verts()
+	, Vectors()
+	, Points()
+	, Surfs()
 	, VertexBuffer(this)
+	, InvalidSurfaces(false)
+	, bOnlyRebuildMaterialIndexBuffers(false)
 #if WITH_EDITOR
 	, bCachedOwnerTransformValid(false)
 #endif
@@ -617,10 +642,8 @@ void UModel::Transform( ABrush* Owner )
 {
 	check(Owner);
 
-	Polys->Element.ModifyAllItems();
-
 	for( int32 i=0; i<Polys->Element.Num(); i++ )
-		Polys->Element[ i ].Transform( Owner->GetPrePivot(), Owner->GetActorLocation());
+		Polys->Element[i].Transform(Owner->GetActorLocation());
 
 }
 

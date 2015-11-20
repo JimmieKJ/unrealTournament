@@ -18,7 +18,7 @@ public:
 	virtual ~FChatRoomInfo() {}
 
 	virtual const FChatRoomId& GetRoomId() const = 0;
-	virtual const TSharedRef<FUniqueNetId>& GetOwnerId() const = 0;
+	virtual const TSharedRef<const FUniqueNetId>& GetOwnerId() const = 0;
 	virtual const FString& GetSubject() const = 0;
 	virtual bool IsPrivate() const = 0;
 	virtual bool IsJoined() const = 0;
@@ -59,7 +59,7 @@ class FChatRoomMember
 public:
 	virtual ~FChatRoomMember() {}
 
-	virtual const TSharedRef<FUniqueNetId>& GetUserId() const = 0;
+	virtual const TSharedRef<const FUniqueNetId>& GetUserId() const = 0;
 	virtual const FString& GetNickname() const = 0;
 };
 
@@ -71,22 +71,55 @@ class FChatMessage
 public:
 	virtual ~FChatMessage() {}
 
-	virtual const TSharedRef<FUniqueNetId>& GetUserId() const = 0;
+	virtual const TSharedRef<const FUniqueNetId>& GetUserId() const = 0;
 	virtual const FString& GetNickname() const = 0;
 	virtual const FString& GetBody() const = 0;
 	virtual const FDateTime& GetTimestamp() const = 0;
 };
 
 /**
- * Delegate used when joining a public chat room
+* Delegate used when creating a new chat room
+*
+* @param UserId the user that made the request
+* @param RoomId room that was requested
+* @param bWasSuccessful true if the async action completed without error, false if there was an error
+* @param Error string representing the error condition
+*/
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnChatRoomCreated, const FUniqueNetId& /*UserId*/, const FChatRoomId& /*RoomId*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
+typedef FOnChatRoomCreated::FDelegate FOnChatRoomCreatedDelegate;
+
+/**
+* Delegate used when configuring a chat room
+*
+* @param UserId the user that made the request
+* @param RoomId room that was requested
+* @param bWasSuccessful true if the async action completed without error, false if there was an error
+* @param Error string representing the error condition
+*/
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnChatRoomConfigured, const FUniqueNetId& /*UserId*/, const FChatRoomId& /*RoomId*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
+typedef FOnChatRoomConfigured::FDelegate FOnChatRoomConfiguredDelegate;
+
+/**
+* Delegate used when joining a public chat room
+*
+* @param UserId the user that made the request
+* @param RoomId room that was requested
+* @param bWasSuccessful true if the async action completed without error, false if there was an error
+* @param Error string representing the error condition
+*/
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnChatRoomJoinPublic, const FUniqueNetId& /*UserId*/, const FChatRoomId& /*RoomId*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
+typedef FOnChatRoomJoinPublic::FDelegate FOnChatRoomJoinPublicDelegate;
+
+/**
+ * Delegate used when joining a private chat room
  *
  * @param UserId the user that made the request
  * @param RoomId room that was requested
  * @param bWasSuccessful true if the async action completed without error, false if there was an error
  * @param Error string representing the error condition
  */
-DECLARE_MULTICAST_DELEGATE_FourParams(FOnChatRoomJoinPublic, const FUniqueNetId& /*UserId*/, const FChatRoomId& /*RoomId*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
-typedef FOnChatRoomJoinPublic::FDelegate FOnChatRoomJoinPublicDelegate;
+DECLARE_MULTICAST_DELEGATE_FourParams(FOnChatRoomJoinPrivate, const FUniqueNetId& /*UserId*/, const FChatRoomId& /*RoomId*/, bool /*bWasSuccessful*/, const FString& /*Error*/);
+typedef FOnChatRoomJoinPrivate::FDelegate FOnChatRoomJoinPrivateDelegate;
 
 /**
  * Delegate used when exiting a chat room
@@ -190,6 +223,18 @@ public:
 	virtual bool JoinPublicRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FString& Nickname) = 0;
 
 	/**
+	* Kick off request for joining a private chat room
+	*
+	* @param UserId id of user that is joining
+	* @param RoomId name of room to join
+	* @param Nickname display name for the chat room. Name must be unique and is reserved for duration of join
+	* @param Password for the room
+	*
+	* @return if successfully started the async operation
+	*/
+	virtual bool JoinPrivateRoom(const FUniqueNetId& UserId, const FChatRoomId& RoomId, const FString& Nickname, const FString& Password) = 0;
+
+	/**
 	 * Kick off request for exiting a previously joined chat room
 	 * 
 	 * @param UserId id of user that is exiting
@@ -274,7 +319,10 @@ public:
 	virtual bool GetLastMessages(const FUniqueNetId& UserId, const FChatRoomId& RoomId, int32 NumMessages, TArray< TSharedRef<FChatMessage> >& OutMessages) = 0;
 
 	// delegate callbacks (see declarations above)
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnChatRoomCreated, const FUniqueNetId&, const FChatRoomId&, bool, const FString&);
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnChatRoomConfigured, const FUniqueNetId&, const FChatRoomId&, bool, const FString&);
 	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnChatRoomJoinPublic, const FUniqueNetId&, const FChatRoomId&, bool, const FString&);
+	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnChatRoomJoinPrivate, const FUniqueNetId&, const FChatRoomId&, bool, const FString&);
 	DEFINE_ONLINE_DELEGATE_FOUR_PARAM(OnChatRoomExit, const FUniqueNetId&, const FChatRoomId&, bool, const FString&);
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnChatRoomMemberJoin, const FUniqueNetId&, const FChatRoomId&, const FUniqueNetId&);
 	DEFINE_ONLINE_DELEGATE_THREE_PARAM(OnChatRoomMemberExit, const FUniqueNetId&, const FChatRoomId&, const FUniqueNetId&);

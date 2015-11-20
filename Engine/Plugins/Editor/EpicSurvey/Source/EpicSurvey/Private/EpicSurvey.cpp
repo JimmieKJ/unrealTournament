@@ -105,7 +105,7 @@ TSharedPtr< FSlateDynamicImageBrush > FEpicSurvey::LoadRawDataAsBrush( FName Res
 
 void FEpicSurvey::Initialize()
 {
-	//IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get("Mcp");
+	//IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get(MCP_SUBSYSTEM);
 	//if (OnlineSub)
 	//{
 	//	TitleCloud = OnlineSub->GetTitleFileInterface();

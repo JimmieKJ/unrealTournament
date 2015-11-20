@@ -21,14 +21,41 @@ public:
 
 	TSharedPtr<FUICommandInfo> ZoomToFitHorizontal;
 	TSharedPtr<FUICommandInfo> ZoomToFitVertical;
+	TSharedPtr<FUICommandInfo> ZoomToFit;
 	TSharedPtr<FUICommandInfo> ZoomToFitAll;
-	TSharedPtr<FUICommandInfo> ZoomToFitSelected;
 	TSharedPtr<FUICommandInfo> ToggleSnapping;
+
 	TSharedPtr<FUICommandInfo> InterpolationConstant;
 	TSharedPtr<FUICommandInfo> InterpolationLinear;
 	TSharedPtr<FUICommandInfo> InterpolationCubicAuto;
 	TSharedPtr<FUICommandInfo> InterpolationCubicUser;
 	TSharedPtr<FUICommandInfo> InterpolationCubicBreak;
+
+	TSharedPtr<FUICommandInfo> FlattenTangents;
+	TSharedPtr<FUICommandInfo> StraightenTangents;
+
+	TSharedPtr<FUICommandInfo> SetPreInfinityExtrapCycle;
+	TSharedPtr<FUICommandInfo> SetPreInfinityExtrapCycleWithOffset;
+	TSharedPtr<FUICommandInfo> SetPreInfinityExtrapOscillate;
+	TSharedPtr<FUICommandInfo> SetPreInfinityExtrapLinear;
+	TSharedPtr<FUICommandInfo> SetPreInfinityExtrapConstant;
+
+	TSharedPtr<FUICommandInfo> SetPostInfinityExtrapCycle;
+	TSharedPtr<FUICommandInfo> SetPostInfinityExtrapCycleWithOffset;
+	TSharedPtr<FUICommandInfo> SetPostInfinityExtrapOscillate;
+	TSharedPtr<FUICommandInfo> SetPostInfinityExtrapLinear;
+	TSharedPtr<FUICommandInfo> SetPostInfinityExtrapConstant;
+
+	TSharedPtr<FUICommandInfo> SetAllCurveVisibility;
+	TSharedPtr<FUICommandInfo> SetSelectedCurveVisibility;
+	TSharedPtr<FUICommandInfo> SetAnimatedCurveVisibility;
+
+	TSharedPtr<FUICommandInfo> SetAllTangentsVisibility;
+	TSharedPtr<FUICommandInfo> SetSelectedKeysTangentVisibility;
+	TSharedPtr<FUICommandInfo> SetNoTangentsVisibility;
+
+	TSharedPtr<FUICommandInfo> ToggleAutoFrameCurveEditor;
+	TSharedPtr<FUICommandInfo> ToggleShowCurveEditorCurveToolTips;
 
 public:
 	virtual void RegisterCommands() override;

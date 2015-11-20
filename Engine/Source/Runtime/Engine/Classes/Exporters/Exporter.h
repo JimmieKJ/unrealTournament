@@ -60,9 +60,9 @@ class UExporter : public UObject
 	/** (debugging purposes only) */
 	static	const		bool	bEnableDebugBrackets;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	ENGINE_API virtual void Serialize( FArchive& Ar ) override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	// Returns whether this exporter supports the specific object
 	ENGINE_API virtual bool SupportsObject(UObject* Object) const;

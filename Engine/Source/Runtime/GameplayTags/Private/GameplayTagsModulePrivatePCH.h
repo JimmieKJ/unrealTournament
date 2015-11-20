@@ -14,7 +14,12 @@
 #include "Core.h"
 #include "Engine.h"
 
-#include "GameplayTagsClasses.h"
+#include "Classes/GameplayTagContainer.h"
+#include "Classes/GameplayTagAssetInterface.h"
+#include "Classes/BlueprintGameplayTagLibrary.h"
+#include "Classes/GameplayTagsManager.h"
+#include "Classes/GameplayTagsSettings.h"
+
 #include "GameplayTagsModule.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogGameplayTags, Log, All);

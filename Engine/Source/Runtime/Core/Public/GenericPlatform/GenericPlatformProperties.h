@@ -258,4 +258,10 @@ struct FGenericPlatformProperties
 	{
 		return false;
 	}
+
+	// Whether the platform allows the call stack to be dumped during an assert
+	static FORCEINLINE bool AllowsCallStackDumpDuringAssert()
+	{
+		return false;
+	}
 };

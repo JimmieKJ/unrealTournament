@@ -4,12 +4,12 @@
 #include "TimeSliderController.h"
 #include "VisualLoggerRenderingActor.h"
 #include "STimelinesContainer.h"
+#include "VisualLoggerCameraController.h"
 #if WITH_EDITOR
 #	include "Editor/UnrealEd/Public/EditorComponents.h"
 #	include "Editor/UnrealEd/Public/EditorReimportHandler.h"
 #	include "Editor/UnrealEd/Public/TexAlignTools.h"
 #	include "Editor/UnrealEd/Public/TickableEditorObject.h"
-#	include "UnrealEdClasses.h"
 #	include "Editor/UnrealEd/Public/Editor.h"
 #	include "Editor/UnrealEd/Public/EditorViewportClient.h"
 #endif
@@ -68,7 +68,6 @@ void FLogVisualizer::Initialize()
 {
 	StaticInstance = MakeShareable(new FLogVisualizer);
 	Get().TimeSliderController = MakeShareable(new FVisualLoggerTimeSliderController(FVisualLoggerTimeSliderArgs()));
-
 }
 
 void FLogVisualizer::Shutdown()
@@ -76,47 +75,14 @@ void FLogVisualizer::Shutdown()
 	StaticInstance.Reset();
 }
 
+void FLogVisualizer::Reset()
+{
+	TimeSliderController->SetTimesliderArgs(FVisualLoggerTimeSliderArgs());
+}
+
 FLogVisualizer& FLogVisualizer::Get()
 {
 	return *StaticInstance;
-}
-
-void FLogVisualizer::Goto(float Timestamp, FName LogOwner)
-{
-	if (CurrentVisualizer.IsValid())
-	{
-		TArray<TSharedPtr<class STimeline> > TimeLines;
-		CurrentVisualizer.Pin()->GetTimelines(TimeLines, false);
-		for (TSharedPtr<class STimeline> Timeline : TimeLines)
-		{
-			if (Timeline->GetName() == LogOwner)
-			{
-				Timeline->GetOwner()->SetSelectionState(Timeline, true, true);
-				break;
-			}
-		}
-	}
-
-	if (CurrentTimeLine.IsValid())
-	{
-		CurrentTimeLine.Pin()->Goto(Timestamp);
-	}
-}
-
-void FLogVisualizer::GotoNextItem()
-{
-	if (CurrentTimeLine.IsValid())
-	{
-		CurrentTimeLine.Pin()->GotoNextItem();
-	}
-}
-
-void FLogVisualizer::GotoPreviousItem()
-{
-	if (CurrentTimeLine.IsValid())
-	{
-		CurrentTimeLine.Pin()->GotoPreviousItem();
-	}
 }
 
 FLinearColor FLogVisualizer::GetColorForCategory(int32 Index) const
@@ -175,18 +141,196 @@ UWorld* FLogVisualizer::GetWorld(UObject* OptionalObject)
 	return World;
 }
 
-AActor* FLogVisualizer::GetVisualLoggerHelperActor()
+void FLogVisualizer::UpdateCameraPosition(FName RowName, int32 ItemIndes)
 {
-	UWorld* World = FLogVisualizer::Get().GetWorld();
-	for (TActorIterator<AVisualLoggerRenderingActor> It(World); It; ++It)
+	const FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+	auto &Entries = DBRow.GetItems();
+	if (DBRow.GetCurrentItemIndex() == INDEX_NONE || Entries.IsValidIndex(DBRow.GetCurrentItemIndex()) == false)
 	{
-		return *It;
+		return;
 	}
 
-	FActorSpawnParameters SpawnInfo;
-	SpawnInfo.bNoCollisionFail = true;
-	SpawnInfo.Name = *FString::Printf(TEXT("VisualLoggerRenderingActor"));
-	AActor* HelperActor = World->SpawnActor<AVisualLoggerRenderingActor>(SpawnInfo);
+	UWorld* World = GetWorld();
+	
+	FVector CurrentLocation = Entries[DBRow.GetCurrentItemIndex()].Entry.Location;
 
-	return HelperActor;
+	FVector Extent(150);
+	bool bFoundActor = false;
+	FName OwnerName = Entries[DBRow.GetCurrentItemIndex()].OwnerName;
+	for (FActorIterator It(World); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (Actor->GetFName() == OwnerName)
+		{
+			FVector Orgin;
+			Actor->GetActorBounds(false, Orgin, Extent);
+			bFoundActor = true;
+			break;
+		}
+	}
+
+
+	const float DefaultCameraDistance = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->DefaultCameraDistance;
+	Extent = Extent.SizeSquared() < FMath::Square(DefaultCameraDistance) ? FVector(DefaultCameraDistance) : Extent;
+
+#if WITH_EDITOR
+	UEditorEngine *EEngine = Cast<UEditorEngine>(GEngine);
+	if (GIsEditor && EEngine != NULL)
+	{
+		for (auto ViewportClient : EEngine->AllViewportClients)
+		{
+			ViewportClient->FocusViewportOnBox(FBox::BuildAABB(CurrentLocation, Extent));
+		}
+	}
+	else if (AVisualLoggerCameraController::IsEnabled(World) && AVisualLoggerCameraController::Instance.IsValid() && AVisualLoggerCameraController::Instance->GetSpectatorPawn())
+	{
+		ULocalPlayer* LocalPlayer = Cast<ULocalPlayer>(AVisualLoggerCameraController::Instance->Player);
+		if (LocalPlayer && LocalPlayer->ViewportClient && LocalPlayer->ViewportClient->Viewport)
+		{
+
+			FViewport* Viewport = LocalPlayer->ViewportClient->Viewport;
+
+			FBox BoundingBox = FBox::BuildAABB(CurrentLocation, Extent);
+			const FVector Position = BoundingBox.GetCenter();
+			float Radius = BoundingBox.GetExtent().Size();
+			
+			FViewportCameraTransform ViewTransform;
+			ViewTransform.TransitionToLocation(Position, nullptr, true);
+
+			float NewOrthoZoom;
+			const float AspectRatio = 1.777777f;
+			uint32 MinAxisSize = (AspectRatio > 1.0f) ? Viewport->GetSizeXY().Y : Viewport->GetSizeXY().X;
+			float Zoom = Radius / (MinAxisSize / 2.0f);
+
+			NewOrthoZoom = Zoom * (Viewport->GetSizeXY().X*15.0f);
+			NewOrthoZoom = FMath::Clamp<float>(NewOrthoZoom, 250, MAX_FLT);
+			ViewTransform.SetOrthoZoom(NewOrthoZoom);
+
+			AVisualLoggerCameraController::Instance->GetSpectatorPawn()->TeleportTo(ViewTransform.GetLocation(), ViewTransform.GetRotation(), false, true);
+		}
+	}
+#endif
 }
+
+int32 FLogVisualizer::GetNextItem(FName RowName, int32 MoveDistance)
+{
+	FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+	int32 NewItemIndex = DBRow.GetCurrentItemIndex();
+
+	int32 Index = 0;
+	auto &Entries = DBRow.GetItems();
+	while (true)
+	{
+		NewItemIndex++;
+		if (Entries.IsValidIndex(NewItemIndex))
+		{
+			if (DBRow.IsItemVisible(NewItemIndex) == true && ++Index == MoveDistance)
+			{
+				break;
+			}
+		}
+		else
+		{
+			NewItemIndex = FMath::Clamp(NewItemIndex, 0, Entries.Num() - 1);
+			break;
+		}
+	}
+
+	return NewItemIndex;
+}
+
+int32 FLogVisualizer::GetPreviousItem(FName RowName, int32 MoveDistance)
+{
+	FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+	int32 NewItemIndex = DBRow.GetCurrentItemIndex();
+
+	int32 Index = 0;
+	auto &Entries = DBRow.GetItems();
+	while (true)
+	{
+		NewItemIndex--;
+		if (Entries.IsValidIndex(NewItemIndex))
+		{
+			if (DBRow.IsItemVisible(NewItemIndex) == true && ++Index == MoveDistance)
+			{
+				break;
+			}
+		}
+		else
+		{
+			NewItemIndex = FMath::Clamp(NewItemIndex, 0, Entries.Num() - 1);
+			break;
+		}
+	}
+	return NewItemIndex;
+}
+
+void FLogVisualizer::GotoNextItem(FName RowName, int32 MoveDistance)
+{
+	FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+	const int32 NewItemIndex = GetNextItem(RowName, MoveDistance);
+
+	if (NewItemIndex != DBRow.GetCurrentItemIndex())
+	{
+		auto &Entries = DBRow.GetItems();
+		float NewTimeStamp = Entries[NewItemIndex].Entry.TimeStamp;
+	}
+}
+
+void FLogVisualizer::GotoPreviousItem(FName RowName, int32 MoveDistance)
+{
+	FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+	const int32 NewItemIndex = GetPreviousItem(RowName, MoveDistance);
+
+	if (NewItemIndex != DBRow.GetCurrentItemIndex())
+	{
+		auto &Entries = DBRow.GetItems();
+		float NewTimeStamp = Entries[NewItemIndex].Entry.TimeStamp;
+	}
+}
+
+void FLogVisualizer::GotoFirstItem(FName RowName)
+{
+	FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+	int32 NewItemIndex = DBRow.GetCurrentItemIndex();
+
+	auto &Entries = DBRow.GetItems();
+	for (int32 Index = 0; Index <= DBRow.GetCurrentItemIndex(); Index++)
+	{
+		if (DBRow.IsItemVisible(Index))
+		{
+			NewItemIndex = Index;
+			break;
+		}
+	}
+
+	if (NewItemIndex != DBRow.GetCurrentItemIndex())
+	{
+		//DBRow.MoveTo(NewItemIndex);
+		TimeSliderController->CommitScrubPosition(Entries[NewItemIndex].Entry.TimeStamp, false);
+	}
+}
+
+void FLogVisualizer::GotoLastItem(FName RowName)
+{
+	FVisualLoggerDBRow& DBRow = FVisualLoggerDatabase::Get().GetRowByName(RowName);
+	int32 NewItemIndex = DBRow.GetCurrentItemIndex();
+
+	auto &Entries = DBRow.GetItems();
+	for (int32 Index = Entries.Num() - 1; Index >= DBRow.GetCurrentItemIndex(); Index--)
+	{
+		if (DBRow.IsItemVisible(Index))
+		{
+			NewItemIndex = Index;
+			break;
+		}
+	}
+
+
+	if (NewItemIndex != DBRow.GetCurrentItemIndex())
+	{
+		//DBRow.MoveTo(NewItemIndex);
+		TimeSliderController->CommitScrubPosition(Entries[NewItemIndex].Entry.TimeStamp, false);
+	}
+}
+

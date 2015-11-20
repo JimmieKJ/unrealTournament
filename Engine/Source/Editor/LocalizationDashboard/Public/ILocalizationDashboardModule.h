@@ -5,6 +5,7 @@
 #include "ModuleInterface.h"
 
 class ILocalizationServiceProvider;
+class ULocalizationTarget;
 
 /**
  * Interface for localization dashboard module.

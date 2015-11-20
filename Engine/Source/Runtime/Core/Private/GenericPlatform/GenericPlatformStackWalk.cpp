@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
-#include "GenericPlatformContext.h"
+#include "GenericPlatformCrashContext.h"
 
 FProgramCounterSymbolInfo::FProgramCounterSymbolInfo() :
 	LineNumber( 0 ),
@@ -28,12 +28,12 @@ bool FGenericPlatformStackWalk::ProgramCounterToHumanReadableString( int32 Curre
 
 bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableString( const FProgramCounterSymbolInfo& SymbolInfo, ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize )
 {
-	const int32 MAX_TEMP_SPRINTF = 512;
+	const int32 MAX_TEMP_SPRINTF = 256;
 	// Valid callstack line 
-	// ModuleName!FunctionName {ProgramCounter} + offset bytes [Filename:LineNumber]
+	// ModuleName!FunctionName [Filename:LineNumber]
 	// 
 	// Invalid callstack line
-	// ModuleName! {ProgramCounter} + offset bytes
+	// ModuleName!
 	// 
 	if( HumanReadableString && HumanReadableStringSize > 0 )
 	{
@@ -45,20 +45,14 @@ bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableString( const FProgramC
 		const UPTRINT RealPos = FMath::Max( (UPTRINT)Pos0, (UPTRINT)Pos1 );
 		const ANSICHAR* StrippedModuleName = RealPos > 0 ? (const ANSICHAR*)(RealPos + 1) : SymbolInfo.ModuleName;
 
-		//FCStringAnsi::Sprintf( StackLine, "%s!%s {0x%016llx} + %i bytes [%s:%i]", StrippedModuleName, (const ANSICHAR*)SymbolInfo.FunctionName, SymbolInfo.ProgramCounter, SymbolInfo.SymbolDisplacement, (const ANSICHAR*)SymbolInfo.Filename, SymbolInfo.LineNumber );
-		FCStringAnsi::Strcat( StackLine, MAX_SPRINTF, StrippedModuleName );
+		//FCStringAnsi::Sprintf( StackLine, "%s!%s [%s:%i]", StrippedModuleName, (const ANSICHAR*)SymbolInfo.FunctionName, (const ANSICHAR*)SymbolInfo.Filename, SymbolInfo.LineNumber );
+		FCStringAnsi::Strncat(StackLine, StrippedModuleName, MAX_SPRINTF);
 		
 		const bool bHasValidFunctionName = FCStringAnsi::Strlen( SymbolInfo.FunctionName ) > 0;
 		if( bHasValidFunctionName )
 		{
-			FCStringAnsi::Strcat( StackLine, MAX_SPRINTF, "!" );
-			FCStringAnsi::Strcat( StackLine, MAX_SPRINTF, SymbolInfo.FunctionName );
-		}
-
-		{
-			ANSICHAR ProgramCounterAndSymbolDisplacement[MAX_TEMP_SPRINTF] = {0};
-			FCStringAnsi::Snprintf( ProgramCounterAndSymbolDisplacement, MAX_TEMP_SPRINTF, " {0x%016llx} + %i bytes", SymbolInfo.ProgramCounter, SymbolInfo.SymbolDisplacement );
-			FCStringAnsi::Strcat( StackLine, MAX_SPRINTF, ProgramCounterAndSymbolDisplacement );
+			FCStringAnsi::Strncat(StackLine, "!", MAX_SPRINTF);
+			FCStringAnsi::Strncat(StackLine, SymbolInfo.FunctionName, MAX_SPRINTF);
 		}
 
 		const bool bHasValidFilename = FCStringAnsi::Strlen( SymbolInfo.Filename ) > 0 && SymbolInfo.LineNumber > 0;
@@ -66,12 +60,12 @@ bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableString( const FProgramC
 		{
 			ANSICHAR FilenameAndLineNumber[MAX_TEMP_SPRINTF] = {0};
 			FCStringAnsi::Snprintf( FilenameAndLineNumber, MAX_TEMP_SPRINTF, " [%s:%i]", SymbolInfo.Filename, SymbolInfo.LineNumber );
-			FCStringAnsi::Strcat( StackLine, MAX_SPRINTF, FilenameAndLineNumber );
+			FCStringAnsi::Strncat(StackLine, FilenameAndLineNumber, MAX_SPRINTF);
 		}
 
 
 		// Append the stack line.
-		FCStringAnsi::Strcat( HumanReadableString, HumanReadableStringSize, StackLine );
+		FCStringAnsi::Strncat(HumanReadableString, StackLine, HumanReadableStringSize);
 
 		// Return true, if we have a valid function name.
 		return bHasValidFunctionName;
@@ -83,10 +77,10 @@ bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableString( const FProgramC
 bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableStringEx( const FProgramCounterSymbolInfoEx& SymbolInfo, FString& out_HumanReadableString )
 {
 	// Valid callstack line 
-	// ModuleName!FunctionName {ProgramCounter} + offset bytes [Filename:LineNumber]
+	// ModuleName!FunctionName [Filename:LineNumber]
 	// 
 	// Invalid callstack line
-	// ModuleName! {ProgramCounter} + offset bytes
+	// ModuleName! {ProgramCounter}
 	
 	// Strip module path.
 	const TCHAR* Pos0 = FCString::Strrchr( *SymbolInfo.ModuleName, '\\' );
@@ -102,8 +96,6 @@ bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableStringEx( const FProgra
 		out_HumanReadableString += TEXT( "!" );
 		out_HumanReadableString += SymbolInfo.FunctionName;
 	}
-
-	//out_HumanReadableString += FString::Printf( TEXT( " {0x%016llx} + %i bytes" ), SymbolInfo.ProgramCounter, SymbolInfo.SymbolDisplacement );
 
 	const bool bHasValidFilename = SymbolInfo.Filename.Len() > 0 && SymbolInfo.LineNumber > 0;
 	if( bHasValidFilename )
@@ -138,16 +130,8 @@ void FGenericPlatformStackWalk::StackWalkAndDump( ANSICHAR* HumanReadableString,
 	while( StackTrace[CurrentDepth] || ( CurrentDepth == IgnoreCount ) )
 	{
 		FPlatformStackWalk::ProgramCounterToHumanReadableString( CurrentDepth, StackTrace[CurrentDepth], HumanReadableString, HumanReadableStringSize, reinterpret_cast< FGenericCrashContext* >( Context ) );
-		FCStringAnsi::Strcat( HumanReadableString, HumanReadableStringSize, LINE_TERMINATOR_ANSI );
+		FCStringAnsi::Strncat(HumanReadableString, LINE_TERMINATOR_ANSI, HumanReadableStringSize);
 		CurrentDepth++;
-	}
-	if (FParse::Param(FCommandLine::Get(), TEXT("CrashForUAT")) && FParse::Param(FCommandLine::Get(), TEXT("stdout")))
-	{
-		FPlatformMisc::LowLevelOutputDebugString(ANSI_TO_TCHAR(HumanReadableString));
-		wprintf(TEXT("\nbegin: stack for UAT"));
-		wprintf(TEXT("\n%s"), ANSI_TO_TCHAR(HumanReadableString));
-		wprintf(TEXT("\nend: stack for UAT"));
-		fflush(stdout);
 	}
 }
 

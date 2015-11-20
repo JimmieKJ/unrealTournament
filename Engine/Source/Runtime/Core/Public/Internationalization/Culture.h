@@ -29,9 +29,9 @@ public:
 									const FDateTimeFormattingRules& InDateTimeFormattingRule);
 #endif
 
-	FString GetDisplayName() const;
+	const FString& GetDisplayName() const;
 
-	FString GetEnglishName() const;
+	const FString& GetEnglishName() const;
 
 	int GetKeyboardLayoutId() const;
 
@@ -41,25 +41,25 @@ public:
 
 	static FString GetCanonicalName(const FString& Name);
 
-	FString GetName() const;
+	const FString& GetName() const;
 	
-	FString GetNativeName() const;
+	const FString& GetNativeName() const;
 
-	FString GetUnrealLegacyThreeLetterISOLanguageName() const;
+	const FString& GetUnrealLegacyThreeLetterISOLanguageName() const;
 
-	FString GetThreeLetterISOLanguageName() const;
+	const FString& GetThreeLetterISOLanguageName() const;
 
-	FString GetTwoLetterISOLanguageName() const;
+	const FString& GetTwoLetterISOLanguageName() const;
 
-	FString GetNativeLanguage() const;
+	const FString& GetNativeLanguage() const;
 
-	FString GetRegion() const;
+	const FString& GetRegion() const;
 
-	FString GetNativeRegion() const;
+	const FString& GetNativeRegion() const;
 
-	FString GetScript() const;
+	const FString& GetScript() const;
 
-	FString GetVariant() const;
+	const FString& GetVariant() const;
 
 public:
 #if UE_ENABLE_ICU
@@ -97,6 +97,19 @@ private:
 	const FTextFormattingRules TextFormattingRule;
 	const FNumberFormattingRules NumberFormattingRule;
 #endif
+
+	FString CachedDisplayName;
+	FString CachedEnglishName;
+	FString CachedName;
+	FString CachedNativeName;
+	FString CachedUnrealLegacyThreeLetterISOLanguageName;
+	FString CachedThreeLetterISOLanguageName;
+	FString CachedTwoLetterISOLanguageName;
+	FString CachedNativeLanguage;
+	FString CachedRegion;
+	FString CachedNativeRegion;
+	FString CachedScript;
+	FString CachedVariant;
 };
 
 #include "CulturePointer.h"

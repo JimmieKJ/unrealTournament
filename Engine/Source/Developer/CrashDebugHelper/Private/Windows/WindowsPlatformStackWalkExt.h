@@ -2,9 +2,6 @@
 
 #pragma once
 
-#undef PLATFORM_SUPPORTS_STACK_SYMBOLS
-#define PLATFORM_SUPPORTS_STACK_SYMBOLS 1
-
 class FCrashInfo;
 class FCrashModuleInfo;
 

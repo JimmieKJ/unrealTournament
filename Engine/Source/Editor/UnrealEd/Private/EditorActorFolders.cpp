@@ -335,7 +335,7 @@ void FActorFolders::SetSelectedFolderPath(FName Path) const
 			}
 		}
 
-		Actor->SetFolderPath(Path);
+		Actor->SetFolderPath_Recursively(Path);
 	}
 }
 
@@ -426,7 +426,8 @@ bool FActorFolders::RenameFolderInWorld(UWorld& World, FName OldPath, FName NewP
 		if (Actor->GetFolderPath() == OldPath || PathIsChildOf(OldActorPath.ToString(), OldPathString))
 		{
 			RenamedFolders.Add(OldActorPath);
-			ActorIt->SetFolderPath(OldPathToNewPath(OldPathString, NewPathString, OldActorPath.ToString()), false);
+
+			ActorIt->SetFolderPath_Recursively(OldPathToNewPath(OldPathString, NewPathString, OldActorPath.ToString()));
 		}
 	}
 

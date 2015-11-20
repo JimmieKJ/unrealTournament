@@ -157,6 +157,10 @@ void UCameraAnimInst::SetDuration(float NewDuration)
 	bFinished = false;
 }
 
+void UCameraAnimInst::SetScale(float NewScale)
+{
+	BasePlayScale = NewScale;
+}
 
 void UCameraAnimInst::Play(UCameraAnim* Anim, class AActor* CamActor, float InRate, float InScale, float InBlendInTime, float InBlendOutTime, bool bInLooping, bool bRandomStartTime, float Duration)
 {

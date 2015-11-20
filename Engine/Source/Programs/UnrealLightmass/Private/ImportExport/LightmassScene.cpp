@@ -407,7 +407,6 @@ void FScene::ApplyStaticLightingScale()
 	SceneConstants.SmallestTexelRadius *= SceneConstants.StaticLightingLevelScale;
 	MeshAreaLightSettings.MeshAreaLightSimplifyCornerDistanceThreshold *= SceneConstants.StaticLightingLevelScale;
 	MeshAreaLightSettings.MeshAreaLightGeneratedDynamicLightSurfaceOffset *= SceneConstants.StaticLightingLevelScale;
-	AmbientOcclusionSettings.MaxOcclusionDistance *= SceneConstants.StaticLightingLevelScale;
 	DynamicObjectSettings.FirstSurfaceSampleLayerHeight *= SceneConstants.StaticLightingLevelScale;
 	DynamicObjectSettings.SurfaceLightSampleSpacing *= SceneConstants.StaticLightingLevelScale;
 	DynamicObjectSettings.SurfaceSampleLayerHeightSpacing *= SceneConstants.StaticLightingLevelScale;

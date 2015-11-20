@@ -32,7 +32,7 @@ class ENGINE_API UInputTouchDelegateBinding : public UInputDelegateBinding
 	UPROPERTY()
 	TArray<FBlueprintInputTouchDelegateBinding> InputTouchDelegateBindings;
 
-	// Begin UInputDelegateBinding interface
+	//~ Begin UInputDelegateBinding Interface
 	virtual void BindToInputComponent(UInputComponent* InputComponent) const override;
-	// End UInputDelegateBinding interface
+	//~ End UInputDelegateBinding Interface
 };

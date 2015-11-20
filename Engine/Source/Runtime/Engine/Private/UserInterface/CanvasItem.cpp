@@ -507,7 +507,7 @@ void FCanvasTileItem::RenderMaterialTile( class FCanvas* InCanvas, const FVector
 	}
 	FHitProxyId HitProxyId = InCanvas->GetHitProxyId();
 	// add the quad to the tile render batch
-	RenderBatch->AddTile( InPosition.X, InPosition.Y ,Size.X, Size.Y, UV0.X, UV0.Y, UV1.X-UV0.X, UV1.Y-UV0.Y, HitProxyId, Color);
+	RenderBatch->AddTile( InPosition.X, InPosition.Y ,Size.X, Size.Y, UV0.X, UV0.Y, UV1.X-UV0.X, UV1.Y-UV0.Y, HitProxyId, Color.ToFColor(true));
 }
 
 
@@ -830,7 +830,7 @@ void FCanvasTextItem::Draw( class FCanvas* InCanvas )
 	}
 
 	bool bHasShadow = FontRenderInfo.bEnableShadow;
-	if( bHasShadow && ShadowOffset.Size() == 0.0f )
+	if( bHasShadow && ShadowOffset.SizeSquared() == 0.0f )
 	{
 		// EnableShadow will set a default ShadowOffset value
 		EnableShadow( FLinearColor::Black );
@@ -1155,7 +1155,7 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 		}
 		else
 		{
-			const FCharacterEntry& Entry = CharacterList[ CurrentChar ];
+			const FCharacterEntry& Entry = CharacterList.GetCharacter(LegacyFontInfo, CurrentChar);
 
 			if( FontTexture == nullptr || Entry.TextureIndex != FontTextureIndex )
 			{
@@ -1174,7 +1174,7 @@ void FCanvasTextItem::DrawStringInternal_RuntimeCache( FCanvas* InCanvas, const 
 
 			const bool bIsWhitespace = FChar::IsWhitespace(CurrentChar);
 
-			if( !bIsWhitespace && PreviousCharEntry.IsValidEntry() )
+			if( !bIsWhitespace && PreviousCharEntry.IsCached() )
 			{
 				Kerning = CharacterList.GetKerning( PreviousCharEntry, Entry ) * Scale.X;
 			}

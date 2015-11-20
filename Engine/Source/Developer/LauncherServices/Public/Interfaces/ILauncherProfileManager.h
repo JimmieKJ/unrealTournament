@@ -184,6 +184,17 @@ public:
 	virtual ILauncherProfilePtr LoadProfile( FArchive& Archive ) = 0;
 
 	/**
+	* Attempts to load a profile from the specified file.
+	*
+	* The loaded profile is NOT automatically added to the profile manager.
+	* Use AddProfile() to add it to the collection.
+	*
+	* @param ProfileFile The file to load from.
+	* @return The loaded profile, or nullptr if loading failed.
+	* @see AddProfile, SaveProfile
+	*/
+	virtual ILauncherProfilePtr LoadJSONProfile(FString ProfileFile) = 0;
+	/**
 	 * Deletes the given profile.
 	 *
 	 * @param Profile The profile to delete.
@@ -197,7 +208,22 @@ public:
 	 * @param Archive The archive to save to.
 	 * @see LoadProfile
 	 */
-	virtual void SaveProfile(const ILauncherProfileRef& Profile) = 0;
+	virtual bool SaveProfile(const ILauncherProfileRef& Profile) = 0;
+
+	/**
+	* Saves the given profile to the specified file.
+	*
+	* @param Profile The profile to save.
+	* @see LoadJSONProfile
+	*/
+	virtual bool SaveJSONProfile(const ILauncherProfileRef& Profile) = 0;
+
+	/**
+	* Modifies profile name. Saves file to new location and deletes old one to avoid duplicating profiles.
+	*
+	* @param Profile The profile to change	
+	*/
+	virtual void ChangeProfileName(const ILauncherProfileRef& Profile, FString Name) = 0;
 
 public:
 

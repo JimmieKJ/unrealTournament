@@ -1,13 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "AIModulePrivate.h"
+#include "GameplayTasksComponent.h"
 #include "BehaviorTree/BTTaskNode.h"
 
 UBTTaskNode::UBTTaskNode(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	NodeName = "UnknownTask";
+	NodeName = GetClass()->GetName();
 	bNotifyTick = false;
 	bNotifyTaskFinished = false;
+	bIgnoreRestartSelf = false;
 }
 
 EBTNodeResult::Type UBTTaskNode::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
@@ -28,8 +30,20 @@ EBTNodeResult::Type UBTTaskNode::WrappedExecuteTask(UBehaviorTreeComponent& Owne
 
 EBTNodeResult::Type UBTTaskNode::WrappedAbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) const
 {
-	const UBTNode* NodeOb = bCreateNodeInstance ? GetNodeInstance(OwnerComp, NodeMemory) : this;
-	return NodeOb ? ((UBTTaskNode*)NodeOb)->AbortTask(OwnerComp, NodeMemory) : EBTNodeResult::Aborted;
+	UBTNode* NodeOb = const_cast<UBTNode*>(bCreateNodeInstance ? GetNodeInstance(OwnerComp, NodeMemory) : this);
+	UBTTaskNode* TaskNodeOb = static_cast<UBTTaskNode*>(NodeOb);
+	EBTNodeResult::Type Result = TaskNodeOb ? TaskNodeOb->AbortTask(OwnerComp, NodeMemory) : EBTNodeResult::Aborted;
+
+	if (TaskNodeOb && TaskNodeOb->bOwnsGameplayTasks && OwnerComp.GetAIOwner())
+	{
+		UGameplayTasksComponent* GTComp = OwnerComp.GetAIOwner()->GetGameplayTasksComponent();
+		if (GTComp)
+		{
+			GTComp->EndAllResourceConsumingTasksOwnedBy(*TaskNodeOb);
+		}
+	}
+
+	return Result;
 }
 
 void UBTTaskNode::WrappedTickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds) const
@@ -46,12 +60,23 @@ void UBTTaskNode::WrappedTickTask(UBehaviorTreeComponent& OwnerComp, uint8* Node
 
 void UBTTaskNode::WrappedOnTaskFinished(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTNodeResult::Type TaskResult) const
 {
-	if (bNotifyTaskFinished)
+	UBTNode* NodeOb = const_cast<UBTNode*>(bCreateNodeInstance ? GetNodeInstance(OwnerComp, NodeMemory) : this);
+
+	if (NodeOb)
 	{
-		const UBTNode* NodeOb = bCreateNodeInstance ? GetNodeInstance(OwnerComp, NodeMemory) : this;
-		if (NodeOb)
+		UBTTaskNode* TaskNodeOb = static_cast<UBTTaskNode*>(NodeOb);
+		if (TaskNodeOb->bNotifyTaskFinished)
 		{
-			((UBTTaskNode*)NodeOb)->OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
+			TaskNodeOb->OnTaskFinished(OwnerComp, NodeMemory, TaskResult);
+		}
+
+		if (TaskNodeOb->bOwnsGameplayTasks && OwnerComp.GetAIOwner())
+		{
+			UGameplayTasksComponent* GTComp = OwnerComp.GetAIOwner()->GetGameplayTasksComponent();
+			if (GTComp)
+			{
+				GTComp->EndAllResourceConsumingTasksOwnedBy(*TaskNodeOb);
+			}
 		}
 	}
 }
@@ -137,6 +162,21 @@ FName UBTTaskNode::GetNodeIconName() const
 }
 
 #endif	// WITH_EDITOR
+
+//----------------------------------------------------------------------//
+// UBTTaskNode IGameplayTaskOwnerInterface
+//----------------------------------------------------------------------//
+void UBTTaskNode::OnTaskDeactivated(UGameplayTask& Task)
+{
+	ensure(Task.GetTaskOwner() == this);
+	UBehaviorTreeComponent* BTComp = GetBTComponentForTask(Task);
+	if (BTComp)
+	{
+		// this is a super-default behavior. Specific task will surely like to 
+		// handle this themselves, finishing with specific result
+		FinishLatentTask(*BTComp, EBTNodeResult::Succeeded);
+	}
+}
 
 //----------------------------------------------------------------------//
 // DEPRECATED

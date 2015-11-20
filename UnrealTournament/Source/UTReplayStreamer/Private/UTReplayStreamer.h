@@ -19,5 +19,5 @@ class FUTReplayStreamingFactory : public FHttpNetworkReplayStreamingFactory
 {
 public:
 	/** INetworkReplayStreamingFactory */
-	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer(const struct FURL& URL) override;
+	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer() override;
 };

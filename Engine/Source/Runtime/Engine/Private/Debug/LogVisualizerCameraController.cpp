@@ -57,7 +57,7 @@ void ALogVisualizerCameraController::PostInitializeComponents()
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.Owner = this;
 	SpawnInfo.Instigator = Instigator;
-	SpawnInfo.bNoCollisionFail = true;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	MyHUD = GetWorld()->SpawnActor<ALogVisualizerHUD>( SpawnInfo );
 
 	/** TO DO: somehow this two configuration settings are set to zero for this controller, have to fix it later */
@@ -82,7 +82,7 @@ ALogVisualizerCameraController* ALogVisualizerCameraController::EnableCamera(UWo
 		// in editor world (if running PIE). Hate it, but it works, and 
 		// this is a debugging tool		
 		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.bNoCollisionFail = true;
+		SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		SpawnInfo.Owner = PC->GetWorldSettings();
 		SpawnInfo.Instigator = PC->Instigator;
 		Instance = InWorld->SpawnActor<ALogVisualizerCameraController>( SpawnInfo );

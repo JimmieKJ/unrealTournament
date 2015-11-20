@@ -21,11 +21,11 @@ class UFileServerCommandlet
 
 public:
 
-	// Begin UCommandlet Interface
+	//~ Begin UCommandlet Interface
 
 	virtual int32 Main( const FString& Params ) override;
 	
-	// End UCommandlet Interface
+	//~ End UCommandlet Interface
 
 
 private:

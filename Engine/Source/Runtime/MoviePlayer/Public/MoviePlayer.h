@@ -7,14 +7,14 @@
 #include "SlateBasics.h"
 #include "Slate/SlateTextures.h"
 
-/** This viewport is a simple interface for the loading to use to display the video textures */
+/** This viewport is a simple interface for the loading to use to display the video textures. */
 class FMovieViewport : public ISlateViewport, public TSharedFromThis<FMovieViewport>
 {
 public:
 	FMovieViewport() {}
 	~FMovieViewport() {}
 
-	/* ISlateViewport interface */
+	/* ISlateViewport interface. */
 	virtual FIntPoint GetSize() const override
 	{
 		return SlateTexture.IsValid() ? FIntPoint(SlateTexture.Pin()->GetWidth(), SlateTexture.Pin()->GetHeight()) : FIntPoint();
@@ -40,7 +40,7 @@ private:
 };
 
 
-/** Interface for creating a movie streaming player. Should be one instance per platform */
+/** Interface for creating a movie streaming player. Should be one instance per platform. */
 class IMovieStreamer
 {
 public:
@@ -50,19 +50,19 @@ public:
 	 */
 	virtual bool Init(const TArray<FString>& MoviePaths) = 0;
 	
-	/** Forces the movie streamer to cancel what it's streaming and close */
+	/** Forces the movie streamer to cancel what it's streaming and close. */
 	virtual void ForceCompletion() = 0;
 
 	/** Code run every tick for any additional per tick handling of playing the movie. Returns true if done. */
 	virtual bool Tick(float DeltaTime) = 0;
 
-	/** Gets a viewport interface which will be used to draw the movie */
+	/** Gets a viewport interface which will be used to draw the movie. */
 	virtual TSharedPtr<class ISlateViewport> GetViewportInterface() = 0;
 
-	/** Gets the aspect ratio of the movie frames being streamed */
+	/** Gets the aspect ratio of the movie frames being streamed. */
 	virtual float GetAspectRatio() const = 0;
 
-	/** Called to allow the movie streamer to cleanup any resources once there are no movies left to play */
+	/** Called to allow the movie streamer to cleanup any resources once there are no movies left to play. */
 	virtual void Cleanup() = 0;
 
 	virtual ~IMovieStreamer() {}
@@ -70,33 +70,37 @@ public:
 
 
 
-/** Struct of all the attributes a loading screen will have */
+/** Struct of all the attributes a loading screen will have. */
 struct MOVIEPLAYER_API FLoadingScreenAttributes
 {
 	FLoadingScreenAttributes()
 		: MinimumLoadingScreenDisplayTime(-1.0f)
 		, bAutoCompleteWhenLoadingCompletes(true)
-		, bMoviesAreSkippable(true) {}
+		, bMoviesAreSkippable(true)
+		, bWaitForManualStop(false) {}
 
-	/** The widget to be displayed on top of the movie or simply standalone if there is no movie */
+	/** The widget to be displayed on top of the movie or simply standalone if there is no movie. */
 	TSharedPtr<class SWidget> WidgetLoadingScreen;
 
-	/** The movie paths local to the game's Content/Movies/ directory we will play */
+	/** The movie paths local to the game's Content/Movies/ directory we will play. */
 	TArray<FString> MoviePaths;
 
-	/** The minimum time that a loading screen should be opened for */
+	/** The minimum time that a loading screen should be opened for. */
 	float MinimumLoadingScreenDisplayTime;
 
-	/** If true, the loading screen will disappear as soon as all movies are played and loading is done */
+	/** If true, the loading screen will disappear as soon as all movies are played and loading is done. */
 	bool bAutoCompleteWhenLoadingCompletes;
 
-	/** If true, movies can be skipped by clicking the loading screen as long as loading is done */
+	/** If true, movies can be skipped by clicking the loading screen as long as loading is done. */
 	bool bMoviesAreSkippable;
 
-	/** True if there is either a standalone widget or any movie paths or both */
+	/** If true, movie playback continues until Stop is called. */
+	bool bWaitForManualStop;
+
+	/** True if there is either a standalone widget or any movie paths or both. */
 	bool IsValid() const;
 
-	/** Creates a simple test loading screen widget */
+	/** Creates a simple test loading screen widget. */
 	static TSharedRef<class SWidget> NewTestLoadingScreenWidget();
 };
 
@@ -111,13 +115,13 @@ public:
 	/** This movie player needs to be given the slate renderer in order to run properly. Set in the launch engine loop. */
 	virtual void SetSlateRenderer(TSharedPtr<class FSlateRenderer> InSlateRenderer) = 0;
 	
-	/** Initializes this movie player, creating the startup window and hiding the splash screen. To be called in the launch engine loop */
+	/** Initializes this movie player, creating the startup window and hiding the splash screen. To be called in the launch engine loop. */
 	virtual void Initialize() = 0;
 
-	/** Shutsdown the movie player */
+	/** Shutsdown the movie player. */
 	virtual void Shutdown() = 0;
 
-	/** Passes the loading screen window back to the game to use. For use by the launch engine loop only */
+	/** Passes the loading screen window back to the game to use. For use by the launch engine loop only. */
 	virtual void PassLoadingScreenWindowBackToGame() const = 0;
 	
 	/** Passes in a slate loading screen UI, movie paths, and any additional data. */
@@ -125,12 +129,12 @@ public:
 	
 	/** 
 	 * Starts playing the movie given the last FLoadingScreenAttributes passed in
-	 * @return true of a movie started playing
+	 * @return true of a movie started playing.
 	 */
 	virtual bool PlayMovie() = 0;
 
 	/** 
-	 * Stops the currently playing movie, if any
+	 * Stops the currently playing movie, if any.
 	 */
 	virtual void StopMovie() = 0;
 	
@@ -140,13 +144,13 @@ public:
 	/** Called from to check if the game thread is finished loading. */
 	virtual bool IsLoadingFinished() const = 0;
 
-	/** True if the loading screen is currently running (i.e. PlayMovie but no WaitForMovieToFinish has been called) */
+	/** True if the loading screen is currently running (i.e. PlayMovie but no WaitForMovieToFinish has been called). */
 	virtual bool IsMovieCurrentlyPlaying() const = 0;
 
-	/** True if we have either slate widgets or a movie to show */
+	/** True if we have either slate widgets or a movie to show. */
 	virtual bool LoadingScreenIsPrepared() const = 0;
 	
-	/** Sets up an FLoadingScreenAttributes from the game's engine.ini, then calls the virtual SetupLoadingScreen */
+	/** Sets up an FLoadingScreenAttributes from the game's engine.ini, then calls the virtual SetupLoadingScreen. */
 	virtual void SetupLoadingScreenFromIni() = 0;
 
 	DECLARE_EVENT(IGameMoviePlayer, FOnMoviePlaybackFinished)
@@ -157,8 +161,8 @@ public:
 	virtual ~IGameMoviePlayer() {}
 };
 
-/** Gets the movie player singleton for the engine */
+/** Gets the movie player singleton for the engine. */
 TSharedPtr<IGameMoviePlayer> MOVIEPLAYER_API GetMoviePlayer();
 
-/** Returns true if the movie player is enabled */
+/** Returns true if the movie player is enabled. */
 bool MOVIEPLAYER_API IsMoviePlayerEnabled();

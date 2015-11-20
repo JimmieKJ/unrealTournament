@@ -124,6 +124,7 @@ void UParticleModuleOrbit::Spawn(FParticleEmitterInstance* Owner, int32 Offset, 
 				LocalOffset = OffsetAmount.GetValue(Owner->EmitterTime, Owner->Component);
 			}
 			OrbitPayload.BaseOffset += LocalOffset;
+			OrbitPayload.PreviousOffset = OrbitPayload.Offset;
 			OrbitPayload.Offset += LocalOffset;
 		}
 
@@ -181,6 +182,7 @@ void UParticleModuleOrbit::Update(FParticleEmitterInstance* Owner, int32 Offset,
 
 			//@todo. Do we need to update the base offset here???
 //			OrbitPayload.BaseOffset += LocalOffset;
+			OrbitPayload.PreviousOffset = OrbitPayload.Offset;
 			OrbitPayload.Offset += LocalOffset;
 		}
 

@@ -8,6 +8,7 @@
 #include "DeferredShadingCommon.usf"
 #include "DistanceFieldLightingShared.usf"
 #include "DistanceFieldAOShared.usf"
+#include "GlobalDistanceFieldShared.usf"
 
 struct FObjectCullVertexOutput
 {
@@ -28,15 +29,12 @@ void ObjectCullVS(
 	//@todo - implement ConservativelyBoundSphere
 	float4 ObjectPositionAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
 	//@todo - expand to handle conservative rasterization
-	float EffectiveRadius = (ObjectPositionAndRadius.w + AOMaxDistance) * ConservativeRadiusScale;
+	float EffectiveRadius = (ObjectPositionAndRadius.w + AOObjectMaxDistance) * ConservativeRadiusScale;
 	float3 WorldPosition = InPosition.xyz * EffectiveRadius + ObjectPositionAndRadius.xyz;
 	OutPosition = mul(float4(WorldPosition, 1), View.WorldToClip);
 	Output.PositionAndRadius = ObjectPositionAndRadius;
 	Output.ObjectIndex = ObjectIndex;
 } 
-
-RWBuffer<uint> RWTileHeadDataUnpacked;
-RWBuffer<uint> RWTileArrayData;
 
 Buffer<float4> TileConeAxisAndCos;
 Buffer<float4> TileConeDepthRanges;
@@ -60,11 +58,31 @@ void ObjectCullPS(
 	float TileConeAngleCos = ConeAxisAndCos.w;
 	float TileConeAngleSin = sqrt(1 - TileConeAngleCos * TileConeAngleCos);
 
+	float4 WorldSphereCenterAndRadius = Input.PositionAndRadius;
+	float3 ViewSpaceSphereCenter = mul(float4(WorldSphereCenterAndRadius.xyz + View.PreViewTranslation.xyz, 1), View.TranslatedWorldToView).xyz;
+	
+#if USE_DEPTH_RANGE_LISTS
+
 	// A value of 1 is conservative, but has a huge impact on performance
 	float RadiusScale = .5f;
-	float4 SphereCenterAndRadius = Input.PositionAndRadius;
-	float3 ViewSpaceSphereCenter = mul(float4(SphereCenterAndRadius.xyz + View.PreViewTranslation.xyz, 1), View.TranslatedWorldToView).xyz;
-	
+
+	float4 SphereCenterAndRadius = float4(ViewSpaceSphereCenter, WorldSphereCenterAndRadius.w + RadiusScale * AOObjectMaxDistance);
+
+	if (SphereIntersectCone(SphereCenterAndRadius, TileConeVertex, TileConeAxis, TileConeAngleCos, TileConeAngleSin))
+	{
+		float ConeAxisDistance = dot(SphereCenterAndRadius.xyz - TileConeVertex, TileConeAxis);
+		float2 ConeAxisDistanceMinMax = float2(ConeAxisDistance + SphereCenterAndRadius.w, ConeAxisDistance - SphereCenterAndRadius.w);
+
+		uint TotalNumGroups = (uint)(NumGroups.x * NumGroups.y + .5f);
+		IntersectObjectWithConeDepthRange(TileConeVertex, TileConeAxis, TileConeAngleCos, TileConeAngleSin, ConeAxisDepthRanges.xy, ConeAxisDistanceMinMax, TileIndex, 0, Input.ObjectIndex, TotalNumGroups);
+		IntersectObjectWithConeDepthRange(TileConeVertex, TileConeAxis, TileConeAngleCos, TileConeAngleSin, ConeAxisDepthRanges.zw, ConeAxisDistanceMinMax, TileIndex, 1, Input.ObjectIndex, TotalNumGroups);
+	}
+
+#else
+
+	// A value of 1 is conservative, but has a huge impact on performance
+	float RadiusScale = .5f;
+
 	int SmallestGroupIndex = -1;
 
 	UNROLL
@@ -76,7 +94,7 @@ void ObjectCullPS(
 		float GroupMaxSampleRadius = GetStepOffset(EndIndex) * 2 * RadiusScale;
 	
 		BRANCH
-		if (SphereIntersectConeWithDepthRanges(float4(ViewSpaceSphereCenter, SphereCenterAndRadius.w + GroupMaxSampleRadius), TileConeVertex, TileConeAxis, TileConeAngleCos, TileConeAngleSin, ConeAxisDepthRanges))
+		if (SphereIntersectConeWithDepthRanges(float4(ViewSpaceSphereCenter, WorldSphereCenterAndRadius.w + GroupMaxSampleRadius), TileConeVertex, TileConeAxis, TileConeAngleCos, TileConeAngleSin, ConeAxisDepthRanges))
 		{
 			SmallestGroupIndex = GroupIndex;
 		}
@@ -95,6 +113,7 @@ void ObjectCullPS(
 			RWTileArrayData[DataIndex] = Input.ObjectIndex;
 		}
 	}
+#endif
 }
 
 /** Computes the distance field normal, using a search through all the nearby objects to find the closest one, whose normal is used. */
@@ -148,11 +167,11 @@ struct FIrradianceCacheSplatVertexOutput
 #if FINAL_INTERPOLATION_PASS
 	nointerpolation float3 BentNormal : TEXCOORD2;
 	#if SUPPORT_IRRADIANCE
-		nointerpolation float3 Irradiance : TEXCOORD3;
+		nointerpolation float3 Irradiance : TEXCOORD5;
 	#endif
 #endif
 #if USE_SCREENVECTOR_WORLD_POSITION
-	float3 ScreenVector : TEXCOORD5;
+	float3 ScreenVector : TEXCOORD6;
 #endif
 };
 
@@ -182,8 +201,8 @@ void IrradianceCacheSplatVS(
 	float OccluderRadius = IrradianceCacheOccluderRadius[JobIndex];
 	RecordRadius = min(RecordRadius, OccluderRadius);
 
-	float ViewToCenterLength = length(RecordPosition - View.ViewOrigin.xyz);
-	float3 NormalizedViewToCenter = (RecordPosition - View.ViewOrigin.xyz) / ViewToCenterLength;
+	float ViewToCenterLength = length(RecordPosition - View.WorldCameraOrigin);
+	float3 NormalizedViewToCenter = (RecordPosition - View.WorldCameraOrigin) / ViewToCenterLength;
 
 	// Only allow full interpolation expanding for small samples, it won't be noticeable for large samples but adds a lot of splatting cost
 	float EffectiveInterpolationRadiusScale = lerp(InterpolationRadiusScale, 1, max(saturate(RecordRadius / 80), .2f));
@@ -230,30 +249,12 @@ void IrradianceCacheSplatVS(
 
 	Output.PositionRadius = float4(RecordPosition, RecordRadius); 
 
-#if FADE_RECORDS_OVER_TIME
-	float Fade = 1 - (abs(RecordNormalAndFade.w) - 1);
-	/*
-	FLATTEN
-	if (PositionAndPackedRadius.w < 0)
-	{
-		// Fading out
-		Fade = 1 - Fade;
-	}
-	else
-	{
-		Fade = max(Fade, .001f);
-	}
-	*/
-#else
-	float Fade = 1;
-#endif
-
-	Output.NormalAndFade = float4(RecordNormalAndFade.xyz, Fade);
+	Output.NormalAndFade = float4(RecordNormalAndFade.xyz, 1);
 
 #if FINAL_INTERPOLATION_PASS
-	Output.BentNormal = IrradianceCacheBentNormal[JobIndex].xyz;
+	Output.BentNormal = IrradianceCacheBentNormal[JobIndex * BENT_NORMAL_STRIDE].xyz;
 	#if SUPPORT_IRRADIANCE
-		float ViewDistance = length(View.ViewOrigin.xyz - RecordPosition);
+		float ViewDistance = length(View.WorldCameraOrigin - RecordPosition);
 		float FadeAlpha = saturate(.001f * (.95f * AOMaxViewDistance - ViewDistance));
 		Output.Irradiance = IrradianceCacheIrradiance[JobIndex].xyz * FadeAlpha;
 	#endif
@@ -288,7 +289,7 @@ void IrradianceCacheSplatPS(
 
 #if USE_SCREENVECTOR_WORLD_POSITION
 
-	float3 OpaqueWorldPosition = View.ViewOrigin.xyz + Input.ScreenVector * SceneDepth;
+	float3 OpaqueWorldPosition = View.WorldCameraOrigin + Input.ScreenVector * SceneDepth;
 
 #else
 
@@ -352,88 +353,6 @@ void IrradianceCacheSplatPS(
 	#endif
 }
 
-Buffer<float4> DebugBuffer;
-
-// 1 / ((1 - FadeDistanceFraction) * AOMaxViewDistance)
-float DistanceFadeScale;
-float SelfOcclusionReplacement;
-
-/** Normalizes the splatted surface cache values, packs depth in alpha. */
-void AOCombinePS(
-	in float4 UVAndScreenPos : TEXCOORD0
-	,out float4 OutBentNormal : SV_Target0
-#if SUPPORT_IRRADIANCE
-	,out float4 OutIrradiance : SV_Target1
-#endif
-	)
-{
-#if SUPPORT_IRRADIANCE
-	OutIrradiance = 0;
-#endif
-
-	float3 WorldNormal;
-	float SceneDepth;
-	bool bHasDistanceFieldRepresentation;
-	bool bHasHeightfieldRepresentation;
-	GetDownsampledGBuffer(UVAndScreenPos.xy, WorldNormal, SceneDepth, bHasDistanceFieldRepresentation, bHasHeightfieldRepresentation);
-
-#define VISUALIZE_ACCUMULATED_WEIGHTS 0
-#if VISUALIZE_ACCUMULATED_WEIGHTS
-
-	float3 BentNormalAO = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UVAndScreenPos.xy, 0).aaa;
-	OutBentNormal = float4(BentNormalAO, SceneDepth); 
-
-#else
-
-	float4 BentNormalAccumulation = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UVAndScreenPos.xy, 0);
-
-	if (BentNormalAccumulation.w > 0)
-	{
-		OutBentNormal.rgb = BentNormalAccumulation.xyz / BentNormalAccumulation.w;
-		OutBentNormal.a = SceneDepth;
-
-		if (!bHasDistanceFieldRepresentation)
-		{
-			// Pixels without a distance field representation interpolate AO instead of a bent normal
-			// Construct a bent normal from the interpolated AO
-			OutBentNormal.rgb = OutBentNormal.r * WorldNormal;
-		}
-
-		#if SUPPORT_IRRADIANCE
-			OutIrradiance.rgb = Texture2DSampleLevel(IrradianceTexture, IrradianceSampler, UVAndScreenPos.xy, 0).xyz / BentNormalAccumulation.w;
-
-			if (!bHasDistanceFieldRepresentation && !bHasHeightfieldRepresentation)
-			{
-				OutIrradiance.rgb *= SelfOcclusionReplacement;
-			}
-		#endif
-	}
-	else
-	{
-		OutBentNormal.rgb = float3(0, 0, .1f);
-		// Sign bit stores whether texel is valid
-		OutBentNormal.a = -SceneDepth;
-	}
-
-	float BentNormalLength = length(OutBentNormal.rgb);
-	// Fade to unoccluded in the distance
-	float FadeAlpha = saturate((AOMaxViewDistance - SceneDepth) * DistanceFadeScale);
-	float3 NormalizedBentNormal = OutBentNormal.rgb / max(BentNormalLength, .0001f);
-	OutBentNormal.rgb = NormalizedBentNormal * lerp(1, BentNormalLength, FadeAlpha);
-
-	// Clamp Nan's before they get to the filter
-	OutBentNormal.rgb = clamp(OutBentNormal.rgb, -1, 1);
-
-	FLATTEN
-	if (SceneDepth > AOMaxViewDistance)
-	{
-		// Mark as valid for the gap filling pass, so we don't get overwritten
-		OutBentNormal.a = abs(OutBentNormal.a);
-	}
-
-#endif
-}
-
 RWTexture2D<float4> RWVisualizeMeshDistanceFields;
 
 bool RayHitSphere( float3 RayOrigin, float3 UnitRayDirection, float3 SphereCenter, float SphereRadius )
@@ -454,7 +373,7 @@ void RayTraceThroughTileCulledDistanceFields(float3 WorldRayStart, float3 WorldR
 	TotalStepsTaken = 0;
 
 	LOOP
-	for (uint ListObjectIndex = 0; ListObjectIndex < min(NumIntersectingObjects, MAX_INTERSECTING_OBJECTS); ListObjectIndex++)
+	for (uint ListObjectIndex = 0; ListObjectIndex < min(NumIntersectingObjects, (uint)MAX_INTERSECTING_OBJECTS); ListObjectIndex++)
 	{
 		uint ObjectIndex = IntersectingObjectIndices[ListObjectIndex];
 		float4 SphereCenterAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
@@ -477,7 +396,6 @@ void RayTraceThroughTileCulledDistanceFields(float3 WorldRayStart, float3 WorldR
 			float SampleRayTime = IntersectionTimes.x * VolumeRayLength;
 
 			float MinDistance = 1000000;
-			float3 IntersectionPosition = float3(0, 0, 0);
 
 			uint StepIndex = 0;
 			uint MaxSteps = 256;
@@ -490,7 +408,6 @@ void RayTraceThroughTileCulledDistanceFields(float3 WorldRayStart, float3 WorldR
 				float3 VolumeUV = DistanceFieldVolumePositionToUV(ClampedSamplePosition, UVScaleAndVolumeScale.xyz, UVAdd);
 				float DistanceField = Texture3DSampleLevel(DistanceFieldTexture, DistanceFieldSampler, VolumeUV, 0).x;
 				MinDistance = min(MinDistance, DistanceField);
-				IntersectionPosition = SampleVolumePosition;
 
 				float MinStepSize = 1.0f / (4 * MaxSteps);
 				float StepDistance = max(DistanceField, MinStepSize);
@@ -516,6 +433,72 @@ void RayTraceThroughTileCulledDistanceFields(float3 WorldRayStart, float3 WorldR
 	}
 }
 
+void RayTraceThroughGlobalDistanceField(
+	uniform uint ClipmapIndex,
+	float3 WorldRayStart, 
+	float3 WorldRayEnd, 
+	float RayLength, 
+	float MinRayTime, 
+	out float OutMaxRayTime, 
+	out float OutIntersectRayTime, 
+	out float OutTotalStepsTaken)
+{
+	OutIntersectRayTime = RayLength;
+	OutTotalStepsTaken = 0;
+	OutMaxRayTime = 1;
+
+	float3 GlobalVolumeCenter = GlobalVolumeCenterAndExtent[ClipmapIndex].xyz;
+	float GlobalVolumeExtent = GlobalVolumeCenterAndExtent[ClipmapIndex].w;
+	float3 VolumeRayStart = WorldRayStart - GlobalVolumeCenter;
+	float3 VolumeRayEnd = WorldRayEnd - GlobalVolumeCenter;
+	float3 VolumeRayDirection = VolumeRayEnd - VolumeRayStart;
+	float VolumeRayLength = length(VolumeRayDirection);
+	VolumeRayDirection /= VolumeRayLength;
+
+	float2 IntersectionTimes = LineBoxIntersect(VolumeRayStart, VolumeRayEnd, -GlobalVolumeExtent.xxx, GlobalVolumeExtent.xxx);
+
+	if (IntersectionTimes.x < IntersectionTimes.y && IntersectionTimes.x < 1)
+	{
+		OutMaxRayTime = IntersectionTimes.y;
+		float SampleRayTime = max(MinRayTime, IntersectionTimes.x) * VolumeRayLength;
+
+		float MinDistance = 1000000;
+
+		uint StepIndex = 0;
+		uint MaxSteps = 512;
+
+		LOOP
+		for (; StepIndex < MaxSteps; StepIndex++)
+		{
+			float3 SampleVolumePosition = VolumeRayStart + VolumeRayDirection * SampleRayTime;
+			float3 VolumeUV = ComputeGlobalUV(SampleVolumePosition + GlobalVolumeCenter, ClipmapIndex);
+			float DistanceField = SampleGlobalDistanceField(ClipmapIndex, VolumeUV).x;
+			MinDistance = min(MinDistance, DistanceField);
+
+			float MinStepSize = GlobalVolumeExtent * 2 / 8000.0f;
+			float StepDistance = max(DistanceField, MinStepSize);
+			SampleRayTime += StepDistance;
+
+			// Terminate the trace if we reached a negative area or went past the end of the ray
+			if (DistanceField < 0 
+				|| SampleRayTime > IntersectionTimes.y * VolumeRayLength)
+			{
+				break;
+			}
+		}
+
+		//Result = max(Result, StepIndex / (float)MaxSteps);
+
+		if (MinDistance < 0 || StepIndex == MaxSteps)
+		{
+			OutIntersectRayTime = min(OutIntersectRayTime, SampleRayTime);
+		}
+
+		OutTotalStepsTaken += StepIndex;
+	}
+}
+
+
 [numthreads(THREADGROUP_SIZEX, THREADGROUP_SIZEY, 1)]
 void VisualizeMeshDistanceFieldCS(
 	uint3 GroupId : SV_GroupID,
@@ -531,12 +514,47 @@ void VisualizeMeshDistanceFieldCS(
 	float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
 	float3 OpaqueWorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
 
-	float TraceDistance = 20000;
-	float3 WorldRayStart = View.ViewOrigin.xyz;
-	float3 WorldRayEnd = WorldRayStart + normalize(OpaqueWorldPosition - View.ViewOrigin.xyz) * TraceDistance;
+	float TraceDistance = 40000;
+	float3 WorldRayStart = View.WorldCameraOrigin;
+	float3 WorldRayEnd = WorldRayStart + normalize(OpaqueWorldPosition - View.WorldCameraOrigin) * TraceDistance;
 	float3 WorldRayDirection = WorldRayEnd - WorldRayStart;
 	float3 UnitWorldRayDirection = normalize(WorldRayDirection);
 
+#if USE_GLOBAL_DISTANCE_FIELD
+	
+	float TotalStepsTaken = 0;
+
+	float MaxRayTime0;
+	float IntersectRayTime;
+	float StepsTaken;
+	RayTraceThroughGlobalDistanceField((uint)0, WorldRayStart, WorldRayEnd, TraceDistance, 0, MaxRayTime0, IntersectRayTime, StepsTaken);
+
+	TotalStepsTaken += StepsTaken;
+
+	if (IntersectRayTime >= TraceDistance)
+	{
+		float MaxRayTime1;
+		RayTraceThroughGlobalDistanceField((uint)1, WorldRayStart, WorldRayEnd, TraceDistance, MaxRayTime0, MaxRayTime1, IntersectRayTime, StepsTaken);
+		TotalStepsTaken += StepsTaken;
+
+		if (IntersectRayTime >= TraceDistance)
+		{
+			float MaxRayTime2;
+			RayTraceThroughGlobalDistanceField((uint)2, WorldRayStart, WorldRayEnd, TraceDistance, MaxRayTime1, MaxRayTime2, IntersectRayTime, StepsTaken);
+			TotalStepsTaken += StepsTaken;
+
+			if (IntersectRayTime >= TraceDistance)
+			{
+				float MaxRayTime3;
+				RayTraceThroughGlobalDistanceField((uint)3, WorldRayStart, WorldRayEnd, TraceDistance, MaxRayTime2, MaxRayTime3, IntersectRayTime, StepsTaken);
+				TotalStepsTaken += StepsTaken;
+			}
+		}
+	}
+
+	float3 Result = saturate(TotalStepsTaken / 400.0f);
+
+#else
 	if (ThreadIndex == 0)
 	{
 		NumIntersectingObjects = 0;
@@ -585,6 +603,8 @@ void VisualizeMeshDistanceFieldCS(
 	{
 		Result += .1f;
 	}
+
+#endif
 
 	RWVisualizeMeshDistanceFields[DispatchThreadId.xy] = float4(Result, 0);
 }

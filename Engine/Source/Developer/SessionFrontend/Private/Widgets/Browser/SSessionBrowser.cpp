@@ -13,6 +13,7 @@ SSessionBrowser::~SSessionBrowser()
 {
 	if (SessionManager.IsValid())
 	{
+		SessionManager->OnInstanceSelectionChanged().RemoveAll(this);
 		SessionManager->OnSelectedSessionChanged().RemoveAll(this);
 		SessionManager->OnSessionsUpdated().RemoveAll(this);
 	}
@@ -22,8 +23,11 @@ SSessionBrowser::~SSessionBrowser()
 /* SSessionBrowser interface
  *****************************************************************************/
 
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SSessionBrowser::Construct( const FArguments& InArgs, ISessionManagerRef InSessionManager )
 {
+	IgnoreSessionManagerEvents = false;
+	IgnoreSessionTreeEvents = false;
 	SessionManager = InSessionManager;
 
 	ChildSlot
@@ -31,43 +35,51 @@ void SSessionBrowser::Construct( const FArguments& InArgs, ISessionManagerRef In
 		SNew(SVerticalBox)
 
 		+ SVerticalBox::Slot()
+			.FillHeight(1.0f)
+			[
+				// session tree
+				SNew(SBorder)
+					.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
+					.Padding(0.0f)
+					[
+						SAssignNew(SessionTreeView, STreeView<TSharedPtr<FSessionBrowserTreeItem>>)
+							.ItemHeight(20.0f)
+							.OnExpansionChanged(this, &SSessionBrowser::HandleSessionTreeViewExpansionChanged)
+							.OnGenerateRow(this, &SSessionBrowser::HandleSessionTreeViewGenerateRow)
+							.OnGetChildren(this, &SSessionBrowser::HandleSessionTreeViewGetChildren)
+							.OnSelectionChanged(this, &SSessionBrowser::HandleSessionTreeViewSelectionChanged)
+							.SelectionMode(ESelectionMode::Multi)
+							.TreeItemsSource(&SessionTreeItems)
+							.HeaderRow
+							(
+								SNew(SHeaderRow)
+
+								+ SHeaderRow::Column("Name")
+									.DefaultLabel(LOCTEXT("InstanceListNameColumnHeader", "Name"))
+									.FillWidth(0.3f)
+
+								+ SHeaderRow::Column("Type")
+									.DefaultLabel(LOCTEXT("InstanceListTypeColumnHeader", "Type"))
+									.FillWidth(0.2f)
+
+								+ SHeaderRow::Column("Device")
+									.DefaultLabel(LOCTEXT("InstanceListDeviceColumnHeader", "Device"))
+									.FillWidth(0.3f)
+
+								+ SHeaderRow::Column("Status")
+									.DefaultLabel(LOCTEXT("InstanceListStatusColumnHeader", "Status"))
+									.FillWidth(0.2f)
+									.HAlignCell(HAlign_Right)
+									.HAlignHeader(HAlign_Right)
+							)
+					]
+			]
+		/*
+		+ SVerticalBox::Slot()
 			.AutoHeight()
+			.Padding(0.0f, 4.0f, 0.0f, 0.0f)
 			[
 				SNew(SHorizontalBox)
-
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						// session combo box
-						SAssignNew(SessionComboBox, SComboBox<ISessionInfoPtr>)
-							.ContentPadding(FMargin(6.0f, 2.0f))
-							.OptionsSource(&SessionList)
-							.ToolTipText(LOCTEXT("SessionComboBoxToolTip", "Select the game session to interact with."))
-							.OnGenerateWidget(this, &SSessionBrowser::HandleSessionComboBoxGenerateWidget)
-							.OnSelectionChanged(this, &SSessionBrowser::HandleSessionComboBoxSelectionChanged)
-							[
-								SNew(STextBlock)
-									.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 13))
-									.Text(this, &SSessionBrowser::HandleSessionComboBoxText)
-							]
-					]
-
-				+ SHorizontalBox::Slot()
-					.FillWidth(1.0f)
-					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-							.Text(this, &SSessionBrowser::HandleSessionDetailsText)
-					]
-
-				+ SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(8.0f, 0.0f)
-					[
-						SNew(SSeparator)
-							.Orientation(Orient_Vertical)
-					]
 
 				+ SHorizontalBox::Slot()
 					.AutoWidth()
@@ -101,89 +113,136 @@ void SSessionBrowser::Construct( const FArguments& InArgs, ISessionManagerRef In
 									]
 							]
 					]
-			]
-
-		+ SVerticalBox::Slot()
-			.FillHeight(1.0f)
-			.Padding(0.0f, 4.0f, 0.0f, 0.0f)
-			[
-				SNew(SBorder)
-					.BorderImage(FEditorStyle::GetBrush("ToolPanel.GroupBorder"))
-					.Padding(0.0f)
-					[
-						// instance list
-						SAssignNew(InstanceListView, SSessionInstanceList, SessionManager.ToSharedRef())
-							.SelectionMode(ESelectionMode::Multi)
-					]
-			]
+			]*/
 	];
 
+	AppGroupItem = MakeShareable(new FSessionBrowserGroupTreeItem(LOCTEXT("AppGroupName", "This Application"), LOCTEXT("AppGroupToolTip", "The application instance that this session browser belongs to")));
+	OtherGroupItem = MakeShareable(new FSessionBrowserGroupTreeItem(LOCTEXT("OtherGroupName", "Other Sessions"), LOCTEXT("OtherGroupToolTip", "All sessions that belong to other users")));
+	OwnerGroupItem = MakeShareable(new FSessionBrowserGroupTreeItem(LOCTEXT("OwnerGroupName", "My Sessions"), LOCTEXT("OwnerGroupToolTip", "All sessions that were started by you")));
+	StandaloneGroupItem = MakeShareable(new FSessionBrowserGroupTreeItem(LOCTEXT("StandaloneGroupName", "Standalone Instances"), LOCTEXT("StandaloneGroupToolTip", "Engine instances that don't belong to any particular session")));
+
+	SessionTreeItems.Add(AppGroupItem);
+	SessionTreeItems.Add(OwnerGroupItem);
+	SessionTreeItems.Add(OtherGroupItem);
+	SessionTreeItems.Add(StandaloneGroupItem);
+
+	SessionManager->OnInstanceSelectionChanged().AddSP(this, &SSessionBrowser::HandleSessionManagerInstanceSelectionChanged);
 	SessionManager->OnSelectedSessionChanged().AddSP(this, &SSessionBrowser::HandleSessionManagerSelectedSessionChanged);
 	SessionManager->OnSessionsUpdated().AddSP(this, &SSessionBrowser::HandleSessionManagerSessionsUpdated);
 
+	SessionTreeView->SetSingleExpandedItem(AppGroupItem);
+
 	ReloadSessions();
 }
+END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
 
 /* SSessionBrowser implementation
  *****************************************************************************/
 
-void SSessionBrowser::FilterSessions()
+void SSessionBrowser::ExpandItem(const TSharedPtr<FSessionBrowserTreeItem>& Item)
 {
-	SessionList.Reset();
+	SessionTreeView->SetSingleExpandedItem(Item);
 
-	for (int32 Index = 0; Index < AvailableSessions.Num(); ++Index)
+	if (Item.IsValid())
 	{
-		const ISessionInfoPtr& Session = AvailableSessions[Index];
+		const auto& ParentItem = Item->GetParent();
 
-		if (Session->GetSessionOwner() == FPlatformProcess::UserName(true))
+		if (ParentItem.IsValid())
 		{
-			SessionList.Add(Session);
+			SessionTreeView->SetItemExpansion(ParentItem, true);
 		}
 	}
-
-	SessionComboBox->RefreshOptions();
-	SessionComboBox->SetSelectedItem(SessionManager->GetSelectedSession());
 }
 
 
-FText SSessionBrowser::GetSessionName( const ISessionInfoPtr& SessionInfo ) const
+void SSessionBrowser::FilterSessions()
 {
-	FText SessionName;
+	// clear tree groups
+	AppGroupItem->ClearChildren();
+	OwnerGroupItem->ClearChildren();
+	OtherGroupItem->ClearChildren();
+	StandaloneGroupItem->ClearChildren();
 
-	if (!SessionInfo->IsStandalone() || !SessionInfo->GetSessionName().IsEmpty())
-	{
-		SessionName = FText::FromString(SessionInfo->GetSessionName());
-	}
-	else
-	{
-		TArray<ISessionInstanceInfoPtr> Instances;
-		SessionInfo->GetInstances(Instances);
+	// update tree items
+	TMap<FGuid, TSharedPtr<FSessionBrowserTreeItem>> NewItemMap;
 
-		if (Instances.Num() > 0)
+	for (auto& SessionInfo : AvailableSessions)
+	{
+		// process session
+		bool LocalOwner = SessionInfo->GetSessionOwner() == FPlatformProcess::UserName(false);
+
+		if (!SessionInfo->IsStandalone() && !LocalOwner)
 		{
-			const ISessionInstanceInfoPtr& FirstInstance = Instances[0];
+			continue;
+		}
 
-			if ((Instances.Num() == 1) && (FirstInstance->GetInstanceId() == FApp::GetInstanceId()))
-			{
-				SessionName = LOCTEXT("ThisApplicationSessionText", "This Application");
-			}
-			else if (FirstInstance->GetDeviceName() == FPlatformProcess::ComputerName())
-			{
-				SessionName = LOCTEXT("UnnamedLocalSessionText", "Unnamed Session (Local)");
-			}
-			else
-			{
-				SessionName = LOCTEXT("UnnamedRemoteSessionText", "Unnamed Session (Remote)");
-			}
+		TSharedPtr<FSessionBrowserTreeItem> SessionItem = ItemMap.FindRef(SessionInfo->GetSessionId());
+
+		if (SessionItem.IsValid())
+		{
+			SessionItem->ClearChildren();
 		}
 		else
 		{
-			SessionName = LOCTEXT("UnnamedSessionText", "Unnamed Session");
+			SessionItem = MakeShareable(new FSessionBrowserSessionTreeItem(SessionInfo.ToSharedRef()));
+		}
+
+		NewItemMap.Add(SessionInfo->GetSessionId(), SessionItem);
+
+		// add session to group
+		TArray<ISessionInstanceInfoPtr> Instances;
+		SessionInfo->GetInstances(Instances);
+
+		if (LocalOwner)
+		{
+			if (!FApp::IsThisInstance(Instances[0]->GetInstanceId()))
+			{
+				OwnerGroupItem->AddChild(SessionItem.ToSharedRef());
+				SessionItem->SetParent(OwnerGroupItem);
+			}
+		}
+		else if (SessionInfo->IsStandalone())
+		{
+			StandaloneGroupItem->AddChild(SessionItem.ToSharedRef());
+			SessionItem->SetParent(StandaloneGroupItem);
+		}
+		else
+		{
+			OtherGroupItem->AddChild(SessionItem.ToSharedRef());
+			SessionItem->SetParent(OtherGroupItem);
+		}
+		
+		// process session instances
+		for (auto& InstanceInfo : Instances)
+		{
+			TSharedPtr<FSessionBrowserTreeItem> InstanceItem = ItemMap.FindRef(InstanceInfo->GetInstanceId());
+
+			if (!InstanceItem.IsValid())
+			{
+				InstanceItem = MakeShareable(new FSessionBrowserInstanceTreeItem(InstanceInfo.ToSharedRef()));
+			}
+
+			NewItemMap.Add(InstanceInfo->GetInstanceId(), InstanceItem);
+
+			// add instance to group or session
+			if (FApp::IsThisInstance(InstanceInfo->GetInstanceId()))
+			{
+				AppGroupItem->AddChild(InstanceItem.ToSharedRef());
+				InstanceItem->SetParent(AppGroupItem);
+			}
+			else
+			{
+				InstanceItem->SetParent(SessionItem);
+				SessionItem->AddChild(InstanceItem.ToSharedRef());
+			}
 		}
 	}
 
-	return SessionName;
+	ItemMap = NewItemMap;
+
+	// refresh tree view
+	SessionTreeView->RequestTreeRefresh();
 }
 
 
@@ -191,124 +250,203 @@ void SSessionBrowser::ReloadSessions()
 {
 	SessionManager->GetSessions(AvailableSessions);
 	FilterSessions();
-
-	if ((SessionList.Num() > 0) && !SessionManager->GetSelectedSession().IsValid())
-	{
-		SessionManager->SelectSession(SessionList[0]);
-	}
 }
 
 
 /* SSessionBrowser event handlers
  *****************************************************************************/
 
-TSharedRef<SWidget> SSessionBrowser::HandleSessionComboBoxGenerateWidget( ISessionInfoPtr SessionInfo ) const
+void SSessionBrowser::HandleSessionManagerInstanceSelectionChanged(const TSharedPtr<ISessionInstanceInfo>& Instance, bool Selected)
 {
-	return SNew(SVerticalBox)
-
-	+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(4.0f, 0.0f)
-		[
-			SNew(STextBlock)
-				.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 14))
-				.Text(GetSessionName(SessionInfo))
-		]
-
-	+ SVerticalBox::Slot()
-		.AutoHeight()
-		.Padding(4.0f, 0.0f)
-		[
-			SNew(SHorizontalBox)
-
-			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.HAlign(HAlign_Left)
-				[
-					SNew(STextBlock)
-						.Text(FText::FromString(SessionInfo->GetSessionOwner()))
-				]
-
-			+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.HAlign(HAlign_Right)
-				.Padding(16.0f, 0.0f, 0.0f, 0.0f)
-				[
-					SNew(STextBlock)
-						.Text(FText::Format(LOCTEXT("InstanceCountFormat", "{0} Instance(s)"), FText::AsNumber(SessionInfo->GetNumInstances())))
-				]
-		];
-}
-
-
-void SSessionBrowser::HandleSessionComboBoxSelectionChanged( ISessionInfoPtr SelectedItem, ESelectInfo::Type SelectInfo )
-{
-	if (!SessionManager->SelectSession(SelectedItem))
+	if (IgnoreSessionManagerEvents)
 	{
-		SessionComboBox->SetSelectedItem(SessionManager->GetSelectedSession());
+		return;
+	}
+
+	const auto& InstanceItem = ItemMap.FindRef(Instance->GetInstanceId());
+
+	if (InstanceItem.IsValid())
+	{
+		SessionTreeView->SetItemSelection(InstanceItem, Selected);
 	}
 }
 
 
-FText SSessionBrowser::HandleSessionComboBoxText() const
+void SSessionBrowser::HandleSessionManagerSelectedSessionChanged(const ISessionInfoPtr& SelectedSession)
 {
-	const ISessionInfoPtr& SelectedSession = SessionManager->GetSelectedSession();
-
-	if (SelectedSession.IsValid())
+	if (IgnoreSessionManagerEvents)
 	{
-		return GetSessionName(SelectedSession);
+		return;
 	}
 
-	return LOCTEXT("SelectSessionHint", "Select a session...");
-}
-
-
-FText SSessionBrowser::HandleSessionDetailsText() const
-{
-	const ISessionInfoPtr& SelectedSession = SessionManager->GetSelectedSession();
-
-	if (!SelectedSession.IsValid())
+	IgnoreSessionTreeEvents = true;
 	{
-		return FText::GetEmpty();
+		if (SelectedSession.IsValid())
+		{
+			ExpandItem(ItemMap.FindRef(SelectedSession->GetSessionId()));
+		}
+		else
+		{
+			SessionTreeView->SetSingleExpandedItem(nullptr);
+		}
 	}
-
-	FFormatNamedArguments FormatArguments;
-	FormatArguments.Add(TEXT("NumInstances"), SelectedSession->GetNumInstances());
-	FormatArguments.Add(TEXT("OwnerName"), SelectedSession->GetSessionOwner().IsEmpty() ? LOCTEXT("UnknownOwner", "<unknown>") : FText::FromString(SelectedSession->GetSessionOwner()));
-
-	return FText::Format(LOCTEXT("SessionDetails", "Owner: {OwnerName}, {NumInstances} Instance(s)"), FormatArguments);
-}
-
-
-TSharedRef<ITableRow> SSessionBrowser::HandleSessionListViewGenerateRow( ISessionInfoPtr Item, const TSharedRef<STableViewBase>& OwnerTable )
-{
-	return SNew(SSessionBrowserSessionListRow, OwnerTable)
-		.SessionInfo(Item)
-		.ToolTipText(FText::Format(LOCTEXT("SessionToolTipSessionIdFmt", "Session ID: {0}"), FText::FromString(Item->GetSessionId().ToString(EGuidFormats::DigitsWithHyphensInBraces))));
-}
-
-
-void SSessionBrowser::HandleSessionListViewSelectionChanged( ISessionInfoPtr Item, ESelectInfo::Type SelectInfo )
-{
-	if (!SessionManager->SelectSession(Item))
-	{
-		SessionListView->SetSelection(SessionManager->GetSelectedSession());
-	}
-}
-
-
-void SSessionBrowser::HandleSessionManagerSelectedSessionChanged( const ISessionInfoPtr& SelectedSession )
-{
-	if (SessionComboBox->GetSelectedItem() != SelectedSession)
-	{
-		SessionComboBox->SetSelectedItem(SelectedSession);
-	}
+	IgnoreSessionTreeEvents = false;
 }
 
 
 void SSessionBrowser::HandleSessionManagerSessionsUpdated()
 {
 	ReloadSessions();
+}
+
+
+FText SSessionBrowser::HandleSessionTreeRowGetToolTipText(TSharedPtr<FSessionBrowserTreeItem> Item) const
+{
+	FTextBuilder ToolTipTextBuilder;
+
+	if (Item->GetType() == ESessionBrowserTreeNodeType::Instance)
+	{
+		ISessionInstanceInfoPtr InstanceInfo = StaticCastSharedPtr<FSessionBrowserInstanceTreeItem>(Item)->GetInstanceInfo();
+
+		if (InstanceInfo.IsValid())
+		{
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("InstanceToolTipInstanceId", "Instance ID: {0}"), FText::FromString(InstanceInfo->GetInstanceId().ToString(EGuidFormats::DigitsWithHyphensInBraces)));
+			ToolTipTextBuilder.AppendLine();
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("InstanceToolTipBuildDate", "Build Date: {0}"), FText::FromString(InstanceInfo->GetBuildDate()));
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("InstanceToolTipConsoleBuild", "Console Build: {0}"), InstanceInfo->IsConsole() ? LOCTEXT("LabelYes", "Yes") : LOCTEXT("LabelNo", "No"));
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("InstanceToolTipEngineVersion", "Engine Version: {0}"), InstanceInfo->GetEngineVersion() == 0 ? LOCTEXT("CustomBuildVersion", "Custom Build") : FText::FromString(FString::FromInt(InstanceInfo->GetEngineVersion())));
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("InstanceToolTipPlatform", "Platform: {0}"), FText::FromString(InstanceInfo->GetPlatformName()));
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("InstanceToolTipCurrentLevel", "Current Level: {0}"), FText::FromString(InstanceInfo->GetCurrentLevel()));
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("InstanceToolTipWorldTimeSeconds", "World Time: {0}"), FText::AsTimespan(FTimespan::FromSeconds(InstanceInfo->GetWorldTimeSeconds())));
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("InstanceToolTipPlayBegun", "Play Has Begun: {0}"), InstanceInfo->PlayHasBegun() ? GYes : GNo);
+			ToolTipTextBuilder.AppendLine();
+			ToolTipTextBuilder.AppendLineFormat(LOCTEXT("SessionToolTipLastUpdateTime", "Last Update Time: {0}"), FText::AsDateTime(InstanceInfo->GetLastUpdateTime()));
+		}
+	}
+
+	return ToolTipTextBuilder.ToText();
+}
+
+
+void SSessionBrowser::HandleSessionTreeViewExpansionChanged(TSharedPtr<FSessionBrowserTreeItem> TreeItem, bool bIsExpanded)
+{
+	if (IgnoreSessionTreeEvents || !TreeItem.IsValid())
+	{
+		return;
+	}
+
+	if (TreeItem->GetType() == ESessionBrowserTreeNodeType::Instance)
+	{
+		return;
+	}
+
+	IgnoreSessionManagerEvents = true;
+	{
+		if (bIsExpanded)
+		{
+			IgnoreSessionTreeEvents = true;
+			{
+				ExpandItem(TreeItem);
+			}
+			IgnoreSessionTreeEvents = false;
+
+			// select session
+			if (TreeItem->GetType() == ESessionBrowserTreeNodeType::Session)
+			{
+				SessionManager->SelectSession(StaticCastSharedPtr<FSessionBrowserSessionTreeItem>(TreeItem)->GetSessionInfo());
+			}
+			else
+			{
+				SessionManager->SelectSession(nullptr);
+			}
+		}
+		else if (TreeItem->GetType() != ESessionBrowserTreeNodeType::Instance)
+		{
+			// deselect session
+			SessionManager->SelectSession(nullptr);
+		}
+	}
+	IgnoreSessionManagerEvents = false;
+}
+
+
+TSharedRef<ITableRow> SSessionBrowser::HandleSessionTreeViewGenerateRow(TSharedPtr<FSessionBrowserTreeItem> Item, const TSharedRef<STableViewBase>& OwnerTable)
+{
+	if (Item->GetType() == ESessionBrowserTreeNodeType::Group)
+	{
+		return SNew(SSessionBrowserTreeGroupRow, OwnerTable)
+			.Item(StaticCastSharedRef<FSessionBrowserGroupTreeItem>(Item.ToSharedRef()));
+	}
+
+	if (Item->GetType() == ESessionBrowserTreeNodeType::Session)
+	{
+		return SNew(SSessionBrowserTreeSessionRow, OwnerTable)
+			.Item(StaticCastSharedRef<FSessionBrowserSessionTreeItem>(Item.ToSharedRef()));
+	}
+
+	return SNew(SSessionBrowserTreeInstanceRow, OwnerTable)
+		.Item(StaticCastSharedRef<FSessionBrowserInstanceTreeItem>(Item.ToSharedRef()))
+		.ToolTipText(this, &SSessionBrowser::HandleSessionTreeRowGetToolTipText, Item);
+}
+
+
+void SSessionBrowser::HandleSessionTreeViewGetChildren(TSharedPtr<FSessionBrowserTreeItem> Item, TArray<TSharedPtr<FSessionBrowserTreeItem>>& OutChildren)
+{
+	if (Item.IsValid())
+	{
+		OutChildren = Item->GetChildren();
+	}
+}
+
+
+void SSessionBrowser::HandleSessionTreeViewSelectionChanged(const TSharedPtr<FSessionBrowserTreeItem> Item, ESelectInfo::Type SelectInfo)
+{
+	if (IgnoreSessionTreeEvents || (SelectInfo == ESelectInfo::Direct))
+	{
+		return;
+	}
+
+	IgnoreSessionManagerEvents = true;
+	{
+		if (Item.IsValid())
+		{
+			if (Item->GetType() == ESessionBrowserTreeNodeType::Instance)
+			{
+				const auto& InstanceInfo = StaticCastSharedPtr<FSessionBrowserInstanceTreeItem>(Item)->GetInstanceInfo();
+
+				if (InstanceInfo.IsValid())
+				{
+					// special handling for local application
+					if (Item->GetParent() == AppGroupItem)
+					{
+						SessionManager->SelectSession(InstanceInfo->GetOwnerSession());
+					}
+
+					SessionManager->SetInstanceSelected(InstanceInfo.ToSharedRef(), true);
+				}
+			}
+		}
+		else
+		{
+			// an instance got deselected
+			TArray<ISessionInstanceInfoPtr> UnselectedSessions;
+			for (const auto& InstanceInfo : SessionManager->GetSelectedInstances())
+			{
+				const TSharedPtr<FSessionBrowserTreeItem>& InstanceItem = ItemMap.FindRef(InstanceInfo->GetInstanceId());
+
+				if (!SessionTreeView->IsItemSelected(InstanceItem))
+				{
+					UnselectedSessions.Add(InstanceInfo);
+				}
+			}
+
+			for (const auto& Session : UnselectedSessions)
+			{
+				SessionManager->SetInstanceSelected(Session.ToSharedRef(), false);
+			}
+		}
+	}
+	IgnoreSessionManagerEvents = false;
 }
 
 
@@ -322,7 +460,7 @@ FReply SSessionBrowser::HandleTerminateSessionButtonClicked()
 
 		if (SelectedSession.IsValid())
 		{
-			if (SelectedSession->GetSessionOwner() == FPlatformProcess::UserName(true))
+			if (SelectedSession->GetSessionOwner() == FPlatformProcess::UserName(false))
 			{
 				SelectedSession->Terminate();
 			}

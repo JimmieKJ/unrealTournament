@@ -308,7 +308,7 @@ struct FOpenGLTextureFormat
 
 };
 
-extern FOpenGLTextureFormat GOpenGLTextureFormats[PF_MAX];
+extern FOpenGLTextureFormat OPENGLDRV_API GOpenGLTextureFormats[PF_MAX];
 
 inline uint32 FindMaxMipmapLevel(uint32 Size)
 {
@@ -479,7 +479,7 @@ inline uint32 CalcDynamicBufferSize(uint32 Size)
 void InitDefaultGLContextState(void);
 
 /** Vertex declaration for just one FVector4 position. */
-class FVector4VertexDeclaration : public FRenderResource
+class FOpenGLVector4VertexDeclaration : public FRenderResource
 {
 public:
 	FVertexDeclarationRHIRef VertexDeclarationRHI;
@@ -495,7 +495,7 @@ public:
 	}
 };
 
-extern TGlobalResource<FVector4VertexDeclaration> GOpenGLVector4VertexDeclaration;
+extern TGlobalResource<FOpenGLVector4VertexDeclaration> GOpenGLVector4VertexDeclaration;
 
 extern bool GUseEmulatedUniformBuffers;
 
@@ -510,7 +510,7 @@ inline bool OpenGLShaderPlatformNeedsBindLocation(const EShaderPlatform InShader
 		case SP_OPENGL_SM4:
 		case SP_OPENGL_SM4_MAC:
 		case SP_OPENGL_PCES2:
-		case SP_OPENGL_ES2:
+		case SP_OPENGL_ES2_ANDROID:
 		case SP_OPENGL_ES2_WEBGL:
 		case SP_OPENGL_ES2_IOS:
 			return true;
@@ -533,7 +533,7 @@ inline bool OpenGLShaderPlatformSeparable(const EShaderPlatform InShaderPlatform
 			return true;
 
 		case SP_OPENGL_ES31_EXT:
-		case SP_OPENGL_ES2:
+		case SP_OPENGL_ES2_ANDROID:
 		case SP_OPENGL_ES2_WEBGL:
 		case SP_OPENGL_ES2_IOS:
 			return false;

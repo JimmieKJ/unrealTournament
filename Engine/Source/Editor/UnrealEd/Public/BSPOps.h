@@ -4,6 +4,7 @@
 #ifndef __BSPOPS_H__
 #define __BSPOPS_H__
 
+
 class FBSPOps
 {
 public:
@@ -75,5 +76,78 @@ protected:
 
 /** @todo: remove when uses of ENodePlane have been replaced with FBSPOps::ENodePlace. */
 typedef FBSPOps::ENodePlace ENodePlace;
+
+
+struct FBspPointsKey
+{
+	int32 X;
+	int32 Y;
+	int32 Z;
+
+	FBspPointsKey(int32 InX, int32 InY, int32 InZ)
+		: X(InX)
+		, Y(InY)
+		, Z(InZ)
+	{}
+
+	friend FORCEINLINE bool operator == (const FBspPointsKey& A, const FBspPointsKey& B)
+	{
+		return A.X == B.X && A.Y == B.Y && A.Z == B.Z;
+	}
+
+	friend FORCEINLINE uint32 GetTypeHash(const FBspPointsKey& Key)
+	{
+		return HashCombine(static_cast<uint32>(Key.X), HashCombine(static_cast<uint32>(Key.Y), static_cast<uint32>(Key.Z)));
+	}
+};
+
+struct FBspIndexedPoint
+{
+	FBspIndexedPoint(const FVector& InPoint, int32 InIndex)
+		: Point(InPoint)
+		, Index(InIndex)
+	{}
+
+	FVector Point;
+	int32 Index;
+};
+
+
+struct FBspPointsGridItem
+{
+	TArray<FBspIndexedPoint, TInlineAllocator<16>> IndexedPoints;
+};
+
+
+// Represents a sparse granular 3D grid into which points are added for quick (~O(1)) lookup.
+// The 3D space is divided into a grid with a given granularity.
+// Points are considered to have a given radius (threshold) and are added to the grid cube they fall in, and to up to seven neighbours if they overlap.
+class FBspPointsGrid
+{
+public:
+	FBspPointsGrid(float InGranularity, float InThreshold, int32 InitialSize = 0)
+		: OneOverGranularity(1.0f / InGranularity)
+		, Threshold(InThreshold)
+	{
+		check(InThreshold / InGranularity <= 0.5f);
+		Clear(InitialSize);
+	}
+
+	void Clear(int32 InitialSize = 0);
+
+	int32 FindOrAddPoint(const FVector& Point, int32 Index, float Threshold);
+
+	static FBspPointsGrid* GBspPoints;
+	static FBspPointsGrid* GBspVectors;
+
+private:
+	float OneOverGranularity;
+	float Threshold;
+
+	typedef TMap<FBspPointsKey, FBspPointsGridItem> FGridMap;
+	FGridMap GridMap;
+};
+
+
 
 #endif // __BSPOPS_H__

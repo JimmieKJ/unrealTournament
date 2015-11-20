@@ -4,6 +4,7 @@
 #include "ISteamVRPlugin.h"
 #include "HeadMountedDisplay.h"
 #include "IHeadMountedDisplay.h"
+#include "SteamVRFunctionLibrary.h"
 
 #if PLATFORM_WINDOWS
 #include "AllowWindowsPlatformTypes.h"
@@ -14,21 +15,6 @@
 #if STEAMVR_SUPPORTED_PLATFORMS
 
 #include "SceneViewExtension.h"
-
-namespace ESteamVRTrackedDeviceType
-{
-	enum Type;
-}
-
-namespace ESteamVRTrackingSpace
-{
-	enum Type;
-}
-
-//@todo steamvr: better association between SteamVRController plugin and SteamVR plugin
-#ifndef MAX_STEAMVR_CONTROLLERS
-	#define MAX_STEAMVR_CONTROLLERS 8
-#endif
 
 /** Stores vectors, in clockwise order, to define soft and hard bounds for Chaperone */
 struct FBoundingQuad
@@ -62,6 +48,7 @@ public:
 	virtual bool DoesSupportPositionalTracking() const override;
 	virtual bool HasValidTrackingPosition() override;
 	virtual void GetPositionalTrackingCameraProperties(FVector& OutOrigin, FQuat& OutOrientation, float& OutHFOV, float& OutVFOV, float& OutCameraDistance, float& OutNearPlane, float& OutFarPlane) const override;
+	virtual void RebaseObjectOrientationAndPosition(FVector& OutPosition, FQuat& OutOrientation) const override;
 
 	virtual void SetInterpupillaryDistance(float NewInterpupillaryDistance) override;
 	virtual float GetInterpupillaryDistance() const override;
@@ -98,6 +85,12 @@ public:
 	virtual void SetBaseOrientation(const FQuat& BaseOrient) override;
 	virtual FQuat GetBaseOrientation() const override;
 
+	virtual bool HasHiddenAreaMesh() const override { return HiddenAreaMeshes[0].IsValid() && HiddenAreaMeshes[1].IsValid(); }
+	virtual void DrawHiddenAreaMesh_RenderThread(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const override;
+
+	virtual bool HasVisibleAreaMesh() const override { return VisibleAreaMeshes[0].IsValid() && VisibleAreaMeshes[1].IsValid(); }
+	virtual void DrawVisibleAreaMesh_RenderThread(FRHICommandList& RHICmdList, EStereoscopicPass StereoPass) const override;
+
 	virtual void DrawDistortionMesh_RenderThread(struct FRenderingCompositePassContext& Context, const FIntPoint& TextureSize) override;
 
 	virtual void UpdateScreenSettings(const FViewport* InViewport) override {}
@@ -112,7 +105,6 @@ public:
 	virtual void InitCanvasFromView(FSceneView* InView, UCanvas* Canvas) override;
 	virtual void RenderTexture_RenderThread(FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef BackBuffer, FTexture2DRHIParamRef SrcTexture) const override;
 	virtual void GetEyeRenderParams_RenderThread(const FRenderingCompositePassContext& Context, FVector2D& EyeToSrcUVScaleValue, FVector2D& EyeToSrcUVOffsetValue) const override;
-
 	virtual void CalculateRenderTargetSize(const class FViewport& Viewport, uint32& InOutSizeX, uint32& InOutSizeY) override;
 	virtual bool NeedReAllocateViewportRenderTarget(const FViewport& Viewport) override;
 	virtual bool ShouldUseSeparateRenderTarget() const override
@@ -120,6 +112,7 @@ public:
 		check(IsInGameThread());
 		return IsStereoEnabled();
 	}
+	virtual void UpdateViewport(bool bUseSeparateRenderTarget, const FViewport& Viewport, SViewport*) override;
 
 	/** ISceneViewExtension interface */
 	virtual void SetupViewFamily(FSceneViewFamily& InViewFamily) override;
@@ -127,8 +120,6 @@ public:
 	virtual void BeginRenderViewFamily(FSceneViewFamily& InViewFamily) override {}
 	virtual void PreRenderView_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneView& InView) override;
 	virtual void PreRenderViewFamily_RenderThread(FRHICommandListImmediate& RHICmdList, FSceneViewFamily& InViewFamily) override;
-
-	virtual void UpdateViewport(bool bUseSeparateRenderTarget, const FViewport& Viewport, SViewport*) override;
 
 	class BridgeBaseImpl : public FRHICustomPresent
 	{
@@ -143,7 +134,7 @@ public:
 		bool IsInitialized() const { return bInitialized; }
 
 		virtual void BeginRendering() = 0;
-		virtual void UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI) = 0;
+		virtual void UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI) = 0;
 		virtual void SetNeedReinitRendererAPI() { bNeedReinitRendererAPI = true; }
 
 		virtual void Reset() = 0;
@@ -166,7 +157,7 @@ public:
 
 		virtual void BeginRendering() override;
 		void FinishRendering();
-		virtual void UpdateViewport(const FViewport& Viewport, FRHIViewport* ViewportRHI) override;
+		virtual void UpdateViewport(const FViewport& Viewport, FRHIViewport* InViewportRHI) override;
 		virtual void Reset() override;
 		virtual void Shutdown() override
 		{
@@ -182,10 +173,11 @@ public:
 	void ShutdownRendering();
 
 	/** Motion Controllers */
-	ESteamVRTrackedDeviceType::Type GetTrackedDeviceType(uint32 DeviceId) const;
-	void GetTrackedDeviceIds(ESteamVRTrackedDeviceType::Type DeviceType, TArray<int32>& TrackedIds);
+	ESteamVRTrackedDeviceType GetTrackedDeviceType(uint32 DeviceId) const;
+	void GetTrackedDeviceIds(ESteamVRTrackedDeviceType DeviceType, TArray<int32>& TrackedIds);
 	bool GetTrackedObjectOrientationAndPosition(uint32 DeviceId, FQuat& CurrentOrientation, FVector& CurrentPosition);
-	bool GetTrackedDeviceIdFromControllerIndex(int32 ControllerIndex, int32& OutDeviceId);
+	STEAMVR_API bool GetControllerHandPositionAndOrientation( const int32 ControllerIndex, EControllerHand Hand, FVector& OutPosition, FQuat& OutOrientation );
+
 
 	/** Chaperone */
 	/** Returns whether or not the player is currently inside the soft bounds */
@@ -201,13 +193,13 @@ public:
 	int32 GetWindowMirrorMode() const { return WindowMirrorMode; }
 
 	/** Sets the tracking space for the returned coordinate system (e.g. standing, sitting) */
-	void SetTrackingSpace(TEnumAsByte<ESteamVRTrackingSpace::Type> NewSpace);
+	void SetTrackingSpace(TEnumAsByte<ESteamVRTrackingSpace> NewSpace);
 
 	/** Returns the tracking space for the returned coordinate system (e.g. standing, sitting) */
-	ESteamVRTrackingSpace::Type GetTrackingSpace() const;
+	ESteamVRTrackingSpace GetTrackingSpace() const;
 
-	/** Sets the map from controller index to tracked device index. */
-	void SetControllerToDeviceMap(int32* InControllerToDeviceMap);
+	/** Sets the map from Unreal controller id and hand index, to tracked device id. */
+	void SetUnrealControllerIdAndHandToDeviceIdMap(int32 InUnrealControllerIdAndHandToDeviceIdMap[ MAX_STEAMVR_CONTROLLER_PAIRS ][ 2 ]);
 
 public:
 	/** Constructor */
@@ -262,6 +254,8 @@ private:
 
 private:
 
+	void SetupOcclusionMeshes();
+
 	bool bHmdEnabled;
 	bool bStereoEnabled;
 	bool bHmdPosTracking;
@@ -308,6 +302,9 @@ private:
 	{
 		return FVector(InVector.v[0], InVector.v[1], InVector.v[2]);
 	}
+
+	FHMDViewMesh HiddenAreaMeshes[2];
+	FHMDViewMesh VisibleAreaMeshes[2];
 
 	/** Chaperone Support */
 	struct FChaperoneBounds
@@ -380,8 +377,8 @@ private:
 	/** World units (UU) to Meters scale.  Read from the level, and used to transform positional tracking data */
 	float WorldToMetersScale;
 
-	/** Mapping from Controller index to tracked device index.  Passed in from the controller plugin */
-	int32 ControllerToDeviceMap[MAX_STEAMVR_CONTROLLERS];
+	/** Mapping from Unreal Controller Id and Hand to a tracked device id.  Passed in from the controller plugin */
+	int32 UnrealControllerIdAndHandToDeviceIdMap[MAX_STEAMVR_CONTROLLER_PAIRS][2];
 
 	IRendererModule* RendererModule;
 	ISteamVRPlugin* SteamVRPlugin;

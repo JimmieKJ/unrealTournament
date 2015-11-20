@@ -566,6 +566,7 @@ void SRetargetSourceWindow::OnAddRetargetSource()
 
 	FSlateApplication::Get().PushMenu(
 		AsShared(),
+		FWidgetPath(),
 		Widget,
 		FSlateApplication::Get().GetCursorPos(),
 		FPopupTransitionEffect( FPopupTransitionEffect::TopMenu )

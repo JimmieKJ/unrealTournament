@@ -80,6 +80,8 @@ public:
 
 	void SetupVisibleHeightfields(const FViewInfo& View, FRHICommandListImmediate& RHICmdList);
 
+	void SetupHeightfieldsForScene(const FScene& Scene, FRHICommandListImmediate& RHICmdList);
+
 	void ClearShadowing(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, const FLightSceneInfo& LightSceneInfo) const;
 
 	void ComputeShadowMapShadowing(const FViewInfo& View, FRHICommandListImmediate& RHICmdList, const FProjectedShadowInfo* ProjectedShadowInfo) const;
@@ -106,6 +108,28 @@ public:
 		const class FTemporaryIrradianceCacheResources& TemporaryIrradianceCacheResources,
 		int32 DepthLevel,
 		const class FDistanceFieldAOParameters& Parameters) const;
+
+	void ComputeOcclusionForScreenGrid(
+		const FViewInfo& View, 
+		FRHICommandListImmediate& RHICmdList, 
+		FSceneRenderTargetItem& DistanceFieldNormal,
+		const class FAOScreenGridResources& ScreenGridResources,
+		const class FDistanceFieldAOParameters& Parameters) const;
+
+	void ComputeIrradianceForScreenGrid(
+		const FViewInfo& View, 
+		FRHICommandListImmediate& RHICmdList, 
+		FSceneRenderTargetItem& DistanceFieldNormal, 
+		const FAOScreenGridResources& ScreenGridResources,
+		const FDistanceFieldAOParameters& Parameters) const;
+
+	void PreCullTriangles(
+		const FViewInfo& View, 
+		FRHICommandListImmediate& RHICmdList,
+		class FPreCulledTriangleBuffers& PreCulledTriangleBuffers,
+		int32 StartIndexValue,
+		int32 NumTrianglesValue,
+		const class FUniformMeshBuffers& UniformMeshBuffers) const;
 
 private:
 

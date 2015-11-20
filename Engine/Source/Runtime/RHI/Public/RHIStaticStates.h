@@ -142,10 +142,10 @@ template<ESamplerFilter Filter=SF_Point,
 	ESamplerAddressMode AddressV=AM_Clamp,
 	ESamplerAddressMode AddressW=AM_Clamp, 
 	int32 MipBias = 0,
-	// Note: setting to a different value than GSystemSettings.MaxAnisotropy is only supported in D3D11
+	// Note: setting to a different value than GSystemSettings.MaxAnisotropy is only supported in D3D11 (is that still true?)
 	// A value of 0 will use GSystemSettings.MaxAnisotropy
-	int32 MaxAnisotropy=0,
-	uint32 BorderColor=0,
+	int32 MaxAnisotropy = 1,
+	uint32 BorderColor = 0,
 	/** Only supported in D3D11 */
 	ESamplerCompareFunction SamplerComparisonFunction=SCF_Never>
 class TStaticSamplerState : public TStaticStateRHI<TStaticSamplerState<Filter,AddressU,AddressV,AddressW,MipBias,MaxAnisotropy,BorderColor,SamplerComparisonFunction>,FSamplerStateRHIRef,FSamplerStateRHIParamRef>

@@ -118,6 +118,16 @@ struct FGenericPlatformMath
 	}
 
 	/**
+	* Converts a double to the nearest integer. Rounds up when the fraction is .5
+	* @param F		Floating point value to convert
+	* @return		The nearest integer to 'F'.
+	*/
+	static FORCEINLINE double RoundToDouble(double F)
+	{
+		return FloorToDouble(F + 0.5);
+	}
+
+	/**
 	* Converts a float to the nearest integer. Rounds up when the fraction is .5
 	* @param F		Floating point value to convert
 	* @return		The nearest integer to 'F'.
@@ -149,6 +159,16 @@ struct FGenericPlatformMath
 	}
 
 	/**
+	* Converts a double to the nearest greater or equal integer.
+	* @param F		Floating point value to convert
+	* @return		An integer greater or equal to 'F'.
+	*/
+	static FORCEINLINE double CeilToDouble(double F)
+	{
+		return ceil(F);
+	}
+
+	/**
 	* Converts a float to a greater or equal integer.
 	* @param F		Floating point value to convert
 	* @return		An integer greater or equal to 'F'.
@@ -177,6 +197,28 @@ struct FGenericPlatformMath
 	static FORCEINLINE float Frac(float Value)
 	{
 		return Value - FloorToFloat(Value);
+	}
+
+	/**
+	* Breaks the given value into an integral and a fractional part.
+	* @param InValue	Floating point value to convert
+	* @param OutIntPart Floating point value that receives the integral part of the number.
+	* @return			The fractional part of the number.
+	*/
+	static FORCEINLINE float Modf(const float InValue, float* OutIntPart)
+	{
+		return modff(InValue, OutIntPart);
+	}
+
+	/**
+	* Breaks the given value into an integral and a fractional part.
+	* @param InValue	Floating point value to convert
+	* @param OutIntPart Floating point value that receives the integral part of the number.
+	* @return			The fractional part of the number.
+	*/
+	static FORCEINLINE double Modf(const double InValue, double* OutIntPart)
+	{
+		return modf(InValue, OutIntPart);
 	}
 
 	static FORCEINLINE float Exp( float Value ) { return expf(Value); }
@@ -329,6 +371,28 @@ struct FGenericPlatformMath
 	{
 		if (Value == 0) return 32;
 		return 31 - FloorLog2(Value);
+	}
+
+	/**
+	 * Counts the number of trailing zeros in the bit representation of the value
+	 *
+	 * @param Value the value to determine the number of trailing zeros for
+	 *
+	 * @return the number of zeros after the last "on" bit
+	 */
+	static FORCEINLINE uint32 CountTrailingZeros(uint32 Value)
+	{
+		if (Value == 0)
+		{
+			return 32;
+		}
+		uint32 Result = 0;
+		while ((Value & 1) == 0)
+		{
+			Value >>= 1;
+			++Result;
+		}
+		return Result;
 	}
 
 	/**

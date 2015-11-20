@@ -136,6 +136,11 @@ public:
 	UNREALED_API TArray<FEditorModeInfo> GetSortedModeInfo() const;
 
 	/**
+	 * Get a currently registered mode information for specified ID
+	 */
+	UNREALED_API FEditorModeInfo GetModeInfo(FEditorModeID ModeID) const;
+
+	/**
 	 * Registers an editor mode. Typically called from a module's StartupModule() routine.
 	 *
 	 * @param ModeID	ID of the mode to register

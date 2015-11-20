@@ -4,7 +4,7 @@
 
 
 /**
- * A breadcrumb trail. Allows the user to see his currently selected path and navigate upwards.
+ * A breadcrumb trail. Allows the user to see their currently selected path and navigate upwards.
  */
 template <typename ItemType>
 class SBreadcrumbTrail : public SCompoundWidget
@@ -16,12 +16,16 @@ private:
 		int32 CrumbID;
 		TSharedRef<SButton> Button;
 		TSharedRef<SMenuAnchor> Delimiter;
+		TSharedRef<SVerticalBox> ButtonBox;
+		TSharedRef<SVerticalBox> DelimiterBox;
 		ItemType CrumbData;
 
-		FCrumbItem(int32 InCrumbID, TSharedRef<SButton> InButton, TSharedRef<SMenuAnchor> InDelimiter, ItemType InCrumbData)
+		FCrumbItem(int32 InCrumbID, TSharedRef<SButton> InButton, TSharedRef<SMenuAnchor> InDelimiter, TSharedRef<SVerticalBox> InButtonBox, TSharedRef<SVerticalBox> InDelimiterBox, ItemType InCrumbData)
 			: CrumbID(InCrumbID)
 			, Button(InButton)
 			, Delimiter(InDelimiter)
+			, ButtonBox(InButtonBox)
+			, DelimiterBox(InDelimiterBox)
 			, CrumbData(InCrumbData)
 		{}
 	};
@@ -39,6 +43,8 @@ public:
 	/** Callback for getting the menu content to be displayed when clicking on a crumb's delimiter arrow */
 	DECLARE_DELEGATE_RetVal_OneParam( TSharedPtr< SWidget >, FGetCrumbMenuContent, const ItemType& /*CrumbData*/ );
 
+	DECLARE_DELEGATE_RetVal_TwoParams( FSlateColor, FOnGetCrumbColor, int32 /*CrumbId*/, bool /*bInvert*/ );
+
 
 	SLATE_BEGIN_ARGS( SBreadcrumbTrail )
 		: _InvertTextColorOnHover(true)
@@ -49,7 +55,8 @@ public:
 		, _ShowLeadingDelimiter(false)
 		, _PersistentBreadcrumbs(false)
 		, _GetCrumbMenuContent()
-	{}
+		, _OnGetCrumbColor()
+	    {}
 
 		/** When true, will invert the button text color when a crumb button is hovered */
 		SLATE_ARGUMENT( bool, InvertTextColorOnHover )
@@ -83,6 +90,8 @@ public:
 
 		SLATE_EVENT( FGetCrumbMenuContent, GetCrumbMenuContent )
 
+		SLATE_EVENT( FOnGetCrumbColor, OnGetCrumbColor )
+
 	SLATE_END_ARGS()
 
 	/** Constructs this widget with InArgs */
@@ -99,6 +108,8 @@ public:
 		OnCrumbClicked = InArgs._OnCrumbClicked;
 		bHasStaticBreadcrumbs = InArgs._PersistentBreadcrumbs;
 		GetCrumbMenuContentCallback = InArgs._GetCrumbMenuContent;
+		OnGetCrumbColor = InArgs._OnGetCrumbColor;
+
 
 		NextValidCrumbID = 0;
 
@@ -119,10 +130,13 @@ public:
 		TSharedPtr<SButton> NewButton;
 		TSharedPtr<SMenuAnchor> NewDelimiter;
 
+		TSharedPtr<SVerticalBox> NewButtonBox;
+		TSharedPtr<SVerticalBox> NewDelimiterBox;
+
 		// Add the crumb button
 		CrumbBox->AddSlot()
 		[
-			SNew(SVerticalBox)
+			SAssignNew(NewButtonBox, SVerticalBox)
 
 			+SVerticalBox::Slot()
 			.FillHeight( 1.0f )
@@ -167,7 +181,7 @@ public:
 
 		CrumbBox->AddSlot()
 		[
-			SNew(SVerticalBox)
+			SAssignNew(NewDelimiterBox, SVerticalBox)
 
 			+SVerticalBox::Slot()
 			.FillHeight(1.0f)
@@ -181,7 +195,7 @@ public:
 		];
 
 		// Push the crumb data
-		new (CrumbList) FCrumbItem(NextValidCrumbID, NewButton.ToSharedRef(), NewDelimiter.ToSharedRef(), NewCrumbData);
+		new (CrumbList) FCrumbItem(NextValidCrumbID, NewButton.ToSharedRef(), NewDelimiter.ToSharedRef(), NewButtonBox.ToSharedRef(), NewDelimiterBox.ToSharedRef(), NewCrumbData);
 
 		// Increment the crumb ID for the next crumb
 		NextValidCrumbID = (NextValidCrumbID + 1) % (INT_MAX - 1);
@@ -199,9 +213,10 @@ public:
 		check(HasCrumbs());
 
 		// Remove from the crumb list and box
-		FCrumbItem LastCrumbItem = CrumbList.Pop();
-		CrumbBox->RemoveSlot(LastCrumbItem.Button);
-		CrumbBox->RemoveSlot(LastCrumbItem.Delimiter);
+		const FCrumbItem& LastCrumbItem = CrumbList.Pop();
+
+		CrumbBox->RemoveSlot(LastCrumbItem.ButtonBox);
+		CrumbBox->RemoveSlot(LastCrumbItem.DelimiterBox);
 
 		// Trigger event
 		OnCrumbPopped.ExecuteIfBound(LastCrumbItem.CrumbData);
@@ -326,27 +341,46 @@ private:
 	/** Handler to determine the text color of crumb buttons. Will invert the text color if allowed. */
 	FSlateColor GetButtonForegroundColor(int32 CrumbID) const
 	{
-		if ( bInvertTextColorOnHover )
-		{
-			TSharedPtr<SButton> CrumbButton;
+		TSharedPtr< SButton > CrumbButton;
 
-			for (int32 CrumbListIdx = 0; CrumbListIdx < NumCrumbs(); ++CrumbListIdx)
+		if ( !OnGetCrumbColor.IsBound() )
+		{
+			if ( bInvertTextColorOnHover )
 			{
-				if (CrumbList[CrumbListIdx].CrumbID == CrumbID)
+				for ( int32 CrumbListIdx = 0; CrumbListIdx < NumCrumbs(); ++CrumbListIdx )
 				{
-					CrumbButton = CrumbList[CrumbListIdx].Button;
+					if ( CrumbList[ CrumbListIdx ].CrumbID == CrumbID )
+					{
+						CrumbButton = CrumbList[ CrumbListIdx ].Button;
+						break;
+					}
+				}
+
+				if ( CrumbButton.IsValid() && CrumbButton->IsHovered() )
+				{
+					static const FName InvertedForegroundName( "InvertedForeground" );
+					return FCoreStyle::Get().GetSlateColor( InvertedForegroundName );
 				}
 			}
 
-			if ( CrumbButton.IsValid() && CrumbButton->IsHovered() )
-			{
-				static const FName InvertedForegroundName("InvertedForeground");
-				return FCoreStyle::Get().GetSlateColor(InvertedForegroundName);
-			}
+			static const FName DefaultForegroundName;
+			return FCoreStyle::Get().GetSlateColor( DefaultForegroundName );
 		}
+		else
+		{
+			int32 CrumbPosition = INDEX_NONE;
+			for ( int32 CrumbListIdx = 0; CrumbListIdx < NumCrumbs(); ++CrumbListIdx )
+			{
+				if ( CrumbList[ CrumbListIdx ].CrumbID == CrumbID )
+				{
+					CrumbButton = CrumbList[ CrumbListIdx ].Button;
+					CrumbPosition = CrumbListIdx;
+					break;
+				}
+			}
 
-		static const FName DefaultForegroundName;
-		return FCoreStyle::Get().GetSlateColor(DefaultForegroundName);
+			return OnGetCrumbColor.Execute( CrumbPosition, ( CrumbButton.IsValid() && CrumbButton->IsHovered() ) );
+		}
 	}
 
 	/** Handler for when a crumb is clicked. Will pop crumbs down to the selected one. */
@@ -372,6 +406,7 @@ private:
 				if (CrumbList[CrumbListIdx].CrumbID == CrumbID)
 				{
 					CrumbIdx = CrumbListIdx;
+					break;
 				}
 			}
 
@@ -443,4 +478,6 @@ private:
 
 	/** If true, don't dynamically remove items when clicking */
 	bool bHasStaticBreadcrumbs;
+
+	FOnGetCrumbColor OnGetCrumbColor;
 };

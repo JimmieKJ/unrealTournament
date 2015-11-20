@@ -10,6 +10,8 @@ class UK2Node_CustomEvent;
 class UEdGraphPin;
 class UK2Node_TemporaryVariable;
 
+/** !!! The proxy object should have RF_StrongRefOnFrame flag. !!! */
+
 UCLASS(Abstract)
 class BLUEPRINTGRAPH_API UK2Node_BaseAsyncTask : public UK2Node
 {
@@ -25,7 +27,7 @@ class BLUEPRINTGRAPH_API UK2Node_BaseAsyncTask : public UK2Node
 
 	// UK2Node interface
 	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
-	virtual bool HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const override;
+	virtual bool HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const override;
 	virtual FName GetCornerIcon() const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
@@ -69,5 +71,7 @@ protected:
 			UMulticastDelegateProperty* CurrentProperty, const TArray<FBaseAsyncTaskHelper::FOutputPinAndLocalVariable>& VariableOutputs,
 			UEdGraphPin* ProxyObjectPin, UEdGraphPin*& InOutLastThenPin,
 			UK2Node* CurrentNode, UEdGraph* SourceGraph, FKismetCompilerContext& CompilerContext);
+
+		static const FString& GetAsyncTaskProxyName();
 	};
 };

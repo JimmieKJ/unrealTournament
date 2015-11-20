@@ -53,6 +53,16 @@ enum EPassOutputId
 	ePId_Output7
 };
 
+enum EFallbackColor
+{
+	// float4(0,0,0,0) BlackDummy
+	eFC_0000,
+	// float4(1,1,1,1) WhiteDummy 
+	eFC_1111,
+	// float4(0,0,0,1) BlackAlphaOneDummy
+	eFC_0001,
+};
+
 // currently hard coded to 4 input textures
 // convenient but not the most optimized solution
 struct FPostProcessPassParameters 
@@ -61,13 +71,13 @@ struct FPostProcessPassParameters
 	void Bind(const FShaderParameterMap& ParameterMap);
 
 	/** Set the pixel shader parameter values. */
-	void SetPS(const FPixelShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), bool bWhiteIfNoTexture = false, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
+	void SetPS(const FPixelShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), EFallbackColor FallbackColor = eFC_0000, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
 
 	/** Set the compute shader parameter values. */
-	void SetCS(const FComputeShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), bool bWhiteIfNoTexture = false, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
+	void SetCS(const FComputeShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), EFallbackColor FallbackColor = eFC_0000, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
 
 	/** Set the vertex shader parameter values. */
-	void SetVS(const FVertexShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), bool bWhiteIfNoTexture = false, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
+	void SetVS(const FVertexShaderRHIParamRef& ShaderRHI, const FRenderingCompositePassContext& Context, FSamplerStateRHIParamRef Filter = TStaticSamplerState<>::GetRHI(), EFallbackColor FallbackColor = eFC_0000, FSamplerStateRHIParamRef* FilterOverrideArray = 0);
 
 	/** Serializer. */
 	friend FArchive& operator<<(FArchive& Ar,FPostProcessPassParameters& P);
@@ -92,7 +102,7 @@ public:
 		const ShaderRHIParamRef& ShaderRHI,
 		const FRenderingCompositePassContext& Context,
 		FSamplerStateRHIParamRef Filter,
-		bool bWhiteIfNoTexture = false,
+		EFallbackColor FallbackColor,
 		FSamplerStateRHIParamRef* FilterOverrideArray = 0
 	);
 };

@@ -12,7 +12,7 @@ class UReimportDestructibleMeshFactory : public UDestructibleMeshFactory, public
 public:
 	virtual FText GetDisplayName() const override;
 #if WITH_APEX
-	// Begin FReimportHandler interface
+	//~ Begin FReimportHandler Interface
 	virtual bool CanReimport( UObject* Obj, TArray<FString>& OutFilenames ) override;
 	virtual void SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths ) override;
 	virtual EReimportResult::Type Reimport( UObject* Obj ) override;
@@ -22,7 +22,7 @@ public:
 	virtual void SetReimportPaths( UObject* Obj, const TArray<FString>& NewReimportPaths ) {}
 	virtual EReimportResult::Type Reimport( UObject* Obj ) override { return EReimportResult::Failed; }
 	virtual int32 GetPriority() const override { return -1; }
-	// End FReimportHandler interface
+	//~ End FReimportHandler Interface
 #endif // WITH_APEX
 };
 

@@ -54,6 +54,10 @@ struct FDebugTextInfo
 	UPROPERTY()
 	uint32 bKeepAttachedToActor:1;
 
+	/** Whether to draw a shadow for the text */
+	UPROPERTY()
+	uint32 bDrawShadow:1;
+
 	/** When we first spawn store off the original actor location for use with bKeepAttachedToActor */
 	UPROPERTY()
 	FVector OrigActorLocation;
@@ -75,6 +79,7 @@ struct FDebugTextInfo
 		, TextColor(ForceInit)
 		, bAbsoluteLocation(false)
 		, bKeepAttachedToActor(false)
+		, bDrawShadow(false)
 		, OrigActorLocation(ForceInit)
 		, Font(NULL)
 		, FontScale(1.0f)

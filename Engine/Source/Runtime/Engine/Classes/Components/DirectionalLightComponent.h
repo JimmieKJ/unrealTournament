@@ -115,9 +115,25 @@ class UDirectionalLightComponent : public ULightComponent
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=DistanceFieldShadows, meta=(UIMin = "0", UIMax = "5"))
 	float LightSourceAngle;
 
+	/** Determines how far shadows can be cast, in world units.  Larger values increase the shadowing cost. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=DistanceFieldShadows, meta=(UIMin = "1000", UIMax = "100000"), DisplayName = "DistanceField Trace Distance")
+	float TraceDistance;
+
 	/** The Lightmass settings for this object. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(ShowOnlyInnerProperties))
 	struct FLightmassDirectionalLightSettings LightmassSettings;
+
+	/**
+	* Whether the light should cast modulated shadows from dynamic objects (mobile only).  Also requires Cast Shadows to be set to True.
+	**/
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Light, AdvancedDisplay)
+	uint32 bCastModulatedShadows : 1;
+
+	/**
+	* Color to modulate against the scene color when rendering modulated shadows. (mobile only)
+	**/
+	UPROPERTY(BlueprintReadOnly, interp, Category = Light, meta = (HideAlphaChannel), AdvancedDisplay)
+	FColor ModulatedShadowColor;
 
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Light, meta=(DisplayName = "Atmosphere Sun Light"))
 	uint32 bUsedAsAtmosphereSunLight : 1;
@@ -149,7 +165,7 @@ class UDirectionalLightComponent : public ULightComponent
 	UFUNCTION(BlueprintCallable, Category="Rendering|Lighting")
 	void SetLightShaftOverrideDirection(FVector NewValue);
 
-	// ULightComponent interface.
+	//~ Begin ULightComponent Interface.
 	virtual FVector4 GetLightPosition() const override;
 	virtual ELightComponentType GetLightType() const override;
 	virtual FLightmassLightSettings GetLightmassSettings() const override
@@ -165,13 +181,13 @@ class UDirectionalLightComponent : public ULightComponent
 		return bUsedAsAtmosphereSunLight;
 	}
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual bool CanEditChange(const UProperty* InProperty) const override;
 #endif // WITH_EDITOR
 	virtual void Serialize(FArchive& Ar) override;
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 
 	virtual void InvalidateLightingCacheDetailed(bool bInvalidateBuildEnqueuedLighting, bool bTranslationOnly) override;
 };

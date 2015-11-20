@@ -6,7 +6,7 @@
 =============================================================================*/
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
-
+#include "OnlineSessionClient.h"
 #include "Engine/GameInstance.h"
 
 UOnlineSessionClient::UOnlineSessionClient(const FObjectInitializer& ObjectInitializer)
@@ -16,66 +16,40 @@ UOnlineSessionClient::UOnlineSessionClient(const FObjectInitializer& ObjectIniti
 	bIsFromInvite = false;
 }
 
+UGameInstance* UOnlineSessionClient::GetGameInstance() const
+{
+	return CastChecked<UGameInstance>(GetOuter());
+}
+
 UWorld* UOnlineSessionClient::GetWorld() const
 {
-	ULocalPlayer* LP = Cast<ULocalPlayer>(GetOuter());
-	check(LP);
-	return LP->GetWorld();
+	return GetGameInstance()->GetWorld();
 }
 
-APlayerController* UOnlineSessionClient::GetPlayerController()
+IOnlineSessionPtr UOnlineSessionClient::GetSessionInt()
 {
-	ULocalPlayer* LP = Cast<ULocalPlayer>(GetOuter());
-	if (LP != nullptr)
+	if (GetWorld() == nullptr)
 	{
-		return LP->PlayerController;
+		UE_LOG(LogOnline, Warning, TEXT("UOnlineSessionClient::GetSessionInt: Called with NULL world."));
+		return nullptr;
 	}
 
-	return nullptr;
+	return Online::GetSessionInterface(GetWorld());
 }
 
-int32 UOnlineSessionClient::GetControllerId()
+void UOnlineSessionClient::RegisterOnlineDelegates()
 {
-	ULocalPlayer* LP = Cast<ULocalPlayer>(GetOuter());
-	if (LP != nullptr)
-	{
-		return LP->GetControllerId();
-	}
-
-	return INVALID_CONTROLLERID;
+	OnJoinSessionCompleteDelegate           = FOnJoinSessionCompleteDelegate   ::CreateUObject(this, &UOnlineSessionClient::OnJoinSessionComplete);
+	OnEndForJoinSessionCompleteDelegate     = FOnEndSessionCompleteDelegate    ::CreateUObject(this, &UOnlineSessionClient::OnEndForJoinSessionComplete);
+	OnDestroyForJoinSessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UOnlineSessionClient::OnDestroyForJoinSessionComplete);
+	OnDestroyForMainMenuCompleteDelegate	= FOnDestroySessionCompleteDelegate::CreateUObject(this, &UOnlineSessionClient::OnDestroyForMainMenuComplete);
 }
 
-TSharedPtr<FUniqueNetId> UOnlineSessionClient::GetUniqueId()
+void UOnlineSessionClient::ClearOnlineDelegates()
 {
-	ULocalPlayer* LP = Cast<ULocalPlayer>(GetOuter());
-	if (LP != nullptr)
-	{
-		return LP->GetPreferredUniqueNetId();
-	}
-
-	return nullptr;
 }
 
-void UOnlineSessionClient::RegisterOnlineDelegates(UWorld* InWorld)
-{
-	IOnlineSubsystem* OnlineSub = Online::GetSubsystem(InWorld);
-	if (OnlineSub)
-	{
-		OnJoinSessionCompleteDelegate           = FOnJoinSessionCompleteDelegate   ::CreateUObject(this, &UOnlineSessionClient::OnJoinSessionComplete);
-		OnEndForJoinSessionCompleteDelegate     = FOnEndSessionCompleteDelegate    ::CreateUObject(this, &UOnlineSessionClient::OnEndForJoinSessionComplete);
-		OnDestroyForJoinSessionCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UOnlineSessionClient::OnDestroyForJoinSessionComplete);
-	}
-
-	// Register disconnect delegate even if we don't have an online system
-	OnDestroyForMainMenuCompleteDelegate = FOnDestroySessionCompleteDelegate::CreateUObject(this, &UOnlineSessionClient::OnDestroyForMainMenuComplete);
-}
-
-void UOnlineSessionClient::ClearOnlineDelegates(UWorld* InWorld)
-{
-	SessionInt = NULL;
-}
-
-void UOnlineSessionClient::OnSessionUserInviteAccepted(bool bWasSuccessful, int32 ControllerId, TSharedPtr<FUniqueNetId> UserId, const FOnlineSessionSearchResult& SearchResult)
+void UOnlineSessionClient::OnSessionUserInviteAccepted(bool bWasSuccessful, int32 ControllerId, TSharedPtr<const FUniqueNetId> UserId, const FOnlineSessionSearchResult& SearchResult)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("OnSessionInviteAccepted LocalUserNum: %d bSuccess: %d"), ControllerId, bWasSuccessful);
 	// Don't clear invite accept delegate
@@ -97,7 +71,11 @@ void UOnlineSessionClient::OnSessionUserInviteAccepted(bool bWasSuccessful, int3
 void UOnlineSessionClient::OnEndForJoinSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("OnEndForJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
-	SessionInt->ClearOnEndSessionCompleteDelegate_Handle(OnEndForJoinSessionCompleteDelegateHandle);
+	IOnlineSessionPtr SessionInt = GetSessionInt();
+	if (SessionInt.IsValid())
+	{
+		SessionInt->ClearOnEndSessionCompleteDelegate_Handle(OnEndForJoinSessionCompleteDelegateHandle);
+	}
 	DestroyExistingSession_Impl(OnDestroyForJoinSessionCompleteDelegateHandle, SessionName, OnDestroyForJoinSessionCompleteDelegate);
 }
 
@@ -117,6 +95,8 @@ FDelegateHandle UOnlineSessionClient::EndExistingSession_Impl(FName SessionName,
 {
 	FDelegateHandle Result;
 
+	IOnlineSessionPtr SessionInt = GetSessionInt();
+
 	if (SessionInt.IsValid())
 	{
 		Result = SessionInt->AddOnEndSessionCompleteDelegate_Handle(Delegate);
@@ -133,6 +113,9 @@ FDelegateHandle UOnlineSessionClient::EndExistingSession_Impl(FName SessionName,
 void UOnlineSessionClient::OnDestroyForJoinSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("OnDestroyForJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+
+	IOnlineSessionPtr SessionInt = GetSessionInt();
+
 	if (SessionInt.IsValid())
 	{
 		SessionInt->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroyForJoinSessionCompleteDelegateHandle);
@@ -149,13 +132,20 @@ void UOnlineSessionClient::OnDestroyForJoinSessionComplete(FName SessionName, bo
 void UOnlineSessionClient::OnDestroyForMainMenuComplete(FName SessionName, bool bWasSuccessful)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("OnDestroyForMainMenuComplete %s bSuccess: %d"), *SessionName.ToString(), bWasSuccessful);
+
+	IOnlineSessionPtr SessionInt = GetSessionInt();
+
 	if (SessionInt.IsValid())
 	{
 		SessionInt->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroyForMainMenuCompleteDelegateHandle);
 	}	
 
+
+	UWorld* World = GetWorld();
+	UNetDriver* NetDriver = World ? World->GetNetDriver() : nullptr;
+		
 	// Call disconnect to force us back to the menu level
-	GEngine->HandleDisconnect(GetWorld(), GetWorld()->GetNetDriver());
+	GEngine->HandleDisconnect(World, NetDriver);
 
 	bHandlingDisconnect = false;
 }
@@ -175,6 +165,8 @@ void UOnlineSessionClient::DestroyExistingSession(FName SessionName, FOnDestroyS
  */
 void UOnlineSessionClient::DestroyExistingSession_Impl(FDelegateHandle& OutResult, FName SessionName, FOnDestroySessionCompleteDelegate& Delegate)
 {
+	IOnlineSessionPtr SessionInt = GetSessionInt();
+
 	if (SessionInt.IsValid())
 	{
 		OutResult = SessionInt->AddOnDestroySessionCompleteDelegate_Handle(Delegate);
@@ -190,27 +182,33 @@ void UOnlineSessionClient::DestroyExistingSession_Impl(FDelegateHandle& OutResul
 void UOnlineSessionClient::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
 	UE_LOG(LogOnline, Verbose, TEXT("OnJoinSessionComplete %s bSuccess: %d"), *SessionName.ToString(), static_cast<int32>(Result));
-	SessionInt->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegateHandle);
 
-	if (Result == EOnJoinSessionCompleteResult::Success)
+	IOnlineSessionPtr SessionInt = GetSessionInt();
+
+	if (SessionInt.IsValid())
 	{
-		FString URL;
-		if (SessionInt->GetResolvedConnectString(SessionName, URL))
+		SessionInt->ClearOnJoinSessionCompleteDelegate_Handle(OnJoinSessionCompleteDelegateHandle);
+
+		if (Result == EOnJoinSessionCompleteResult::Success)
 		{
-			APlayerController* PC = GetPlayerController();
-			if (PC)
+			FString URL;
+			if (SessionInt->GetResolvedConnectString(SessionName, URL))
 			{
-				if (bIsFromInvite)
+				APlayerController* PC = GetGameInstance()->GetFirstLocalPlayerController(GetWorld());
+				if (PC)
 				{
-					URL += TEXT("?bIsFromInvite");
-					bIsFromInvite = false;
+					if (bIsFromInvite)
+					{
+						URL += TEXT("?bIsFromInvite");
+						bIsFromInvite = false;
+					}
+					PC->ClientTravel(URL, TRAVEL_Absolute);
 				}
-				PC->ClientTravel(URL, TRAVEL_Absolute);
 			}
-		}
-		else
-		{
-			UE_LOG(LogOnline, Warning, TEXT("Failed to join session %s"), *SessionName.ToString());
+			else
+			{
+				UE_LOG(LogOnline, Warning, TEXT("Failed to join session %s"), *SessionName.ToString());
+			}
 		}
 	}
 }
@@ -218,20 +216,20 @@ void UOnlineSessionClient::OnJoinSessionComplete(FName SessionName, EOnJoinSessi
 void UOnlineSessionClient::JoinSession(FName SessionName, const FOnlineSessionSearchResult& SearchResult)
 {
 	// Clean up existing sessions if applicable
-	EOnlineSessionState::Type SessionState = SessionInt->GetSessionState(SessionName);
-	if (SessionState != EOnlineSessionState::NoSession)
-	{
-		CachedSessionResult = SearchResult;
-		OnEndForJoinSessionCompleteDelegateHandle = EndExistingSession_Impl(SessionName, OnEndForJoinSessionCompleteDelegate);
-	}
-	else
-	{
-		ULocalPlayer* LocalPlayer = static_cast<ULocalPlayer*>(GetOuter());
-		check(LocalPlayer);
-		UGameInstance * const GameInstance = LocalPlayer->GetGameInstance();
-		check(GameInstance);
+	IOnlineSessionPtr SessionInt = GetSessionInt();
 
-		GameInstance->JoinSession(LocalPlayer, SearchResult);
+	if (SessionInt.IsValid())
+	{
+		EOnlineSessionState::Type SessionState = SessionInt->GetSessionState(SessionName);
+		if (SessionState != EOnlineSessionState::NoSession)
+		{
+			CachedSessionResult = SearchResult;
+			OnEndForJoinSessionCompleteDelegateHandle = EndExistingSession_Impl(SessionName, OnEndForJoinSessionCompleteDelegate);
+		}
+		else
+		{
+			GetGameInstance()->JoinSession(GetGameInstance()->GetFirstGamePlayer(), SearchResult);
+		}
 	}
 }
 
@@ -314,5 +312,23 @@ void UOnlineSessionClient::OnEndSessionComplete(FName SessionName, bool bWasSucc
 	if (SessionInterface.IsValid())
 	{
 		SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(EndSessionCompleteHandle);
+	}
+}
+
+void UOnlineSessionClient::SetInviteFlags(UWorld* World, const FJoinabilitySettings& Settings)
+{
+	IOnlineSessionPtr SessionInt = Online::GetSessionInterface(World);
+	if (SessionInt.IsValid())
+	{
+		FOnlineSessionSettings* GameSettings = SessionInt->GetSessionSettings(Settings.SessionName);
+		if (GameSettings != NULL)
+		{
+			GameSettings->bShouldAdvertise = Settings.bPublicSearchable;
+			GameSettings->bAllowInvites = Settings.bAllowInvites;
+			GameSettings->bAllowJoinViaPresence = Settings.bJoinViaPresence && !Settings.bJoinViaPresenceFriendsOnly;
+			GameSettings->bAllowJoinViaPresenceFriendsOnly = Settings.bJoinViaPresenceFriendsOnly;
+			GameSettings->NumPublicConnections = Settings.MaxPlayers;
+			SessionInt->UpdateSession(Settings.SessionName, *GameSettings, false);
+		}
 	}
 }

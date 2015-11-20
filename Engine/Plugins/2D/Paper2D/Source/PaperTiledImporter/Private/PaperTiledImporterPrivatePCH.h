@@ -6,4 +6,4 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPaperTiledImporter, Verbose, All);
 
-#include "PaperTiledImporterClasses.h"
+#include "Classes/PaperTiledImporterFactory.h"

@@ -175,13 +175,13 @@ bool FTargetDeviceService::Start()
 		// notify other services
 		ClaimAddress = MessageEndpoint->GetAddress();
 		ClaimHost = FPlatformProcess::ComputerName();
-		ClaimUser = FPlatformProcess::UserName(true);
+		ClaimUser = FPlatformProcess::UserName(false);
 
 		MessageEndpoint->Publish(new FTargetDeviceClaimed(DeviceName, ClaimHost, ClaimUser));
 
 		Running = true;
 	}
-
+		
 	return true;
 }
 
@@ -190,10 +190,12 @@ void FTargetDeviceService::Stop()
 {
 	if (Running)
 	{
-		// notify other services
-		MessageEndpoint->Publish(new FTargetDeviceUnclaimed(DeviceName, FPlatformProcess::ComputerName(), FPlatformProcess::UserName(true)));
+	
+		MessageEndpoint->Publish(new FTargetDeviceUnclaimed(DeviceName, FPlatformProcess::ComputerName(), FPlatformProcess::UserName(false)));
+	    // Only stop the device if we care about device claiming
 
-		Running = false;
+		GConfig->GetBool(TEXT("/Script/Engine.Engine"), TEXT("DisableDeviceClaiming"), Running, GEngineIni);
+		
 	}
 }
 
@@ -255,14 +257,19 @@ bool FTargetDeviceService::StoreDeployedFile(FArchive* FileReader, const FString
 
 void FTargetDeviceService::HandleClaimDeniedMessage(const FTargetDeviceClaimDenied& Message, const IMessageContextRef& Context)
 {
-	if (Running && (Message.DeviceName == DeviceName))
-	{
-		Stop();
-
-		ClaimAddress = Context->GetSender();
-		ClaimHost = Message.HostName;
-		ClaimUser = Message.HostUser;
-	}
+// HACK: Disabling claim denied message. Allows the editor to always claim a device and should prevent cases where instances of the
+// editor running on other machines can steal a device from us - which is undesirable on some platforms.
+// Also see FTargetDeviceProxyManager::HandlePongMessage()
+#if 0
+ 	if (Running && (Message.DeviceName == DeviceName))
+ 	{
+ 		Stop();
+ 
+ 		ClaimAddress = Context->GetSender();
+ 		ClaimHost = Message.HostName;
+ 		ClaimUser = Message.HostUser;
+ 	}
+#endif
 }
 
 
@@ -277,7 +284,7 @@ void FTargetDeviceService::HandleClaimedMessage(const FTargetDeviceClaimed& Mess
 	{
 		if (Context->GetSender() != MessageEndpoint->GetAddress())
 		{
-			MessageEndpoint->Send(new FTargetDeviceClaimDenied(DeviceName, FPlatformProcess::ComputerName(), FPlatformProcess::UserName(true)), Context->GetSender());
+			MessageEndpoint->Send(new FTargetDeviceClaimDenied(DeviceName, FPlatformProcess::ComputerName(), FPlatformProcess::UserName(false)), Context->GetSender());
 		}
 	}
 	else
@@ -380,7 +387,7 @@ void FTargetDeviceService::HandlePingMessage(const FTargetDeviceServicePing& InM
 		return;
 	}
 
-	if (!Shared && (InMessage.HostUser != FPlatformProcess::UserName(true)))
+	if (!Shared && (InMessage.HostUser != FPlatformProcess::UserName(false)))
 	{
 		return;
 	}
@@ -397,7 +404,7 @@ void FTargetDeviceService::HandlePingMessage(const FTargetDeviceServicePing& InM
 		Message->Name = DefaultDevice->GetName();
 		Message->Type = TargetDeviceTypes::ToString(DefaultDevice->GetDeviceType());
 		Message->HostName = FPlatformProcess::ComputerName();
-		Message->HostUser = FPlatformProcess::UserName(true);
+		Message->HostUser = FPlatformProcess::UserName(false);
 		Message->Connected = DefaultDevice->IsConnected();
 		Message->Make = TEXT("@todo");
 		Message->Model = TEXT("@todo");

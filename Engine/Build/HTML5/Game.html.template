@@ -249,6 +249,10 @@ if (webgl_detect())
   printErr: function(text) {
     console.log(text);
   },
+  // file location. 
+  locateFile : function (name){ 
+    return name + ".gz";
+  },
   canvas: document.getElementById('canvas'),
   setStatus: function(text) {
     if (Module.setStatus.interval) clearInterval(Module.setStatus.interval);
@@ -276,11 +280,9 @@ if (webgl_detect())
 Module.setStatus('Downloading...');
 
   // add these scripts to the dom. 
-  loadJavaScriptFile("json2.js",false);
-  loadJavaScriptFile("moz_binarystring.js",false);
-  loadJavaScriptFile("jStorage.js",false);
-  loadJavaScriptFile("%GAME%.data.js",false);
-  loadJavaScriptFile("%CONFIG%.js",true);
+  loadJavaScriptFile("Utility.js.gz",false);
+  loadJavaScriptFile("%GAME%.data.js.gz",false);
+  loadJavaScriptFile("%CONFIG%.js.gz",true);
 
 }
 else

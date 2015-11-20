@@ -106,7 +106,7 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 		UByteProperty* SpecificProperty = Cast<UByteProperty>(TestProperty);
 		bTypeMismatch = (SpecificProperty == NULL);
 	}
-	else if (PinCategory == Schema->PC_Class)
+	else if ((PinCategory == Schema->PC_Class) || (PinCategory == Schema->PC_AssetClass))
 	{
 		const UClass* ClassType = (PinSubCategory == Schema->PSC_Self) ? SelfClass : Cast<const UClass>(PinSubCategoryObject);
 
@@ -135,6 +135,11 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 
 				// It matches if it's an exact match or if the output class is more derived than the input class
 				bTypeMismatch = bSubtypeMismatch = !((OutputClass == InputClass) || (OutputClass->IsChildOf(InputClass)));
+
+				if ((PinCategory == Schema->PC_AssetClass) && (!TestProperty->IsA<UAssetClassProperty>()))
+				{
+					bTypeMismatch = true;
+				}
 			}
 			else
 			{
@@ -166,7 +171,7 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 			&& PropertyDelegate->SignatureFunction 
 			&& PropertyDelegate->SignatureFunction->IsSignatureCompatibleWith(SignatureFunction));
 	}
-	else if ((PinCategory == Schema->PC_Object) || (PinCategory == Schema->PC_Interface))
+	else if ((PinCategory == Schema->PC_Object) || (PinCategory == Schema->PC_Interface) || (PinCategory == Schema->PC_Asset))
 	{
 		const UClass* ObjectType = (PinSubCategory == Schema->PSC_Self) ? SelfClass : Cast<const UClass>(PinSubCategoryObject);
 
@@ -186,6 +191,11 @@ bool FKismetCompilerUtilities::IsTypeCompatibleWithProperty(UEdGraphPin* SourceP
 
 				// It matches if it's an exact match or if the output class is more derived than the input class
 				bTypeMismatch = bSubtypeMismatch = !((OutputClass == InputClass) || (OutputClass->IsChildOf(InputClass)));
+
+				if ((PinCategory == Schema->PC_Asset) && (!TestProperty->IsA<UAssetObjectProperty>()))
+				{
+					bTypeMismatch = true;
+				}
 			}
 			else if (UInterfaceProperty* IntefaceProperty = Cast<UInterfaceProperty>(TestProperty))
 			{
@@ -490,16 +500,17 @@ void FKismetCompilerUtilities::ValidateEnumProperties(UObject* DefaultObject, FC
 			const UEnum* Enum = ByteProperty->GetIntPropertyEnum();
 			if(Enum)
 			{		
-				const uint8 EnumIndex = ByteProperty->GetPropertyValue_InContainer(DefaultObject);
-				const int32 EnumAcceptableMax = Enum->NumEnums() - 1;
-				if(EnumIndex >= EnumAcceptableMax)
+				const uint8 EnumValue = ByteProperty->GetPropertyValue_InContainer(DefaultObject);
+				if(!Enum->IsValidEnumValue(EnumValue))
 				{
 					MessageLog.Warning(
 						*FString::Printf(
-							*LOCTEXT("InvalidEnumDefaultValue_Error", "Default Enum value '%s' for class '%s' is invalid in object '%s' ").ToString(),
+							*LOCTEXT("InvalidEnumDefaultValue_Error", "Default Enum value '%s' for class '%s' is invalid in object '%s'. EnumVal: %d. EnumAcceptableMax: %d ").ToString(),
 							*ByteProperty->GetName(),
 							*DefaultObject->GetClass()->GetName(),
-							*DefaultObject->GetName()
+							*DefaultObject->GetName(),
+							EnumValue,
+							Enum->GetMaxEnumValue()
 						)
 					);
 				}
@@ -591,13 +602,13 @@ UEdGraphPin* FKismetCompilerUtilities::GenerateAssignmentNodes(class FKismetComp
 					continue;
 				}
 
-				if( ForClass->ClassDefaultObject )
+				if (ForClass->ClassDefaultObject)
 				{
 					// We don't want to generate an assignment node unless the default value 
 					// differs from the value in the CDO:
 					FString DefaultValueAsString;
 					FBlueprintEditorUtils::PropertyValueToString(Property, (uint8*)ForClass->ClassDefaultObject, DefaultValueAsString);
-					if (DefaultValueAsString == OrgPin->DefaultValue)
+					if (DefaultValueAsString == OrgPin->GetDefaultAsString())
 					{
 						continue;
 					}
@@ -742,7 +753,7 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 	}
 
 	//@TODO: Nasty string if-else tree
-	if ((Type.PinCategory == Schema->PC_Object) || (Type.PinCategory == Schema->PC_Interface))
+	if ((Type.PinCategory == Schema->PC_Object) || (Type.PinCategory == Schema->PC_Interface) || (Type.PinCategory == Schema->PC_Asset))
 	{
 		UClass* SubType = (Type.PinSubCategory == Schema->PSC_Self) ? SelfClass : Cast<UClass>(Type.PinSubCategoryObject.Get());
 
@@ -754,7 +765,10 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 
 		if (SubType != NULL)
 		{
-			if (SubType->HasAnyClassFlags(CLASS_Interface))
+			const bool bIsInterface = SubType->HasAnyClassFlags(CLASS_Interface)
+				|| ((SubType == SelfClass) && ensure(SelfClass->ClassGeneratedBy) && FBlueprintEditorUtils::IsInterfaceBlueprint(CastChecked<UBlueprint>(SelfClass->ClassGeneratedBy)));
+
+			if (bIsInterface)
 			{
 				UInterfaceProperty* NewPropertyObj = NewObject<UInterfaceProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 				// we want to use this setter function instead of setting the 
@@ -767,7 +781,11 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 			{
 				UObjectPropertyBase* NewPropertyObj = NULL;
 
-				if( Type.bIsWeakPointer )
+				if (Type.PinCategory == Schema->PC_Asset)
+				{
+					NewPropertyObj = NewObject<UAssetObjectProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+				}
+				else if( Type.bIsWeakPointer )
 				{
 					NewPropertyObj = NewObject<UWeakObjectProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 				}
@@ -794,6 +812,15 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 				UStructProperty* NewPropertyStruct = NewObject<UStructProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
 				NewPropertyStruct->Struct = SubType;
 				NewProperty = NewPropertyStruct;
+
+				if (SubType->StructFlags & STRUCT_HasInstancedReference)
+				{
+					NewProperty->SetPropertyFlags(CPF_ContainsInstancedReference);
+					if (NewArrayProperty)
+					{
+						NewArrayProperty->SetPropertyFlags(CPF_ContainsInstancedReference);
+					}
+				}
 			}
 			else
 			{
@@ -807,7 +834,7 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 			}
 		}
 	}
-	else if (Type.PinCategory == Schema->PC_Class)
+	else if ((Type.PinCategory == Schema->PC_Class) || (Type.PinCategory == Schema->PC_AssetClass))
 	{
 		UClass* SubType = Cast<UClass>(Type.PinSubCategoryObject.Get());
 		
@@ -825,13 +852,22 @@ UProperty* FKismetCompilerUtilities::CreatePropertyOnScope(UStruct* Scope, const
 
 		if (SubType != NULL)
 		{
-			UClassProperty* NewPropertyClass = NewObject<UClassProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
-			// we want to use this setter function instead of setting the 
-			// MetaClass member directly, because it properly handles  
-			// placeholder classes (classes that are stubbed in during load)
-			NewPropertyClass->SetMetaClass(SubType);
-			NewPropertyClass->PropertyClass = UClass::StaticClass();
-			NewProperty = NewPropertyClass;
+			if (Type.PinCategory == Schema->PC_AssetClass)
+			{
+				auto AssetClassProperty = NewObject<UAssetClassProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+				AssetClassProperty->MetaClass = SubType;
+				NewProperty = AssetClassProperty;
+			}
+			else
+			{
+				UClassProperty* NewPropertyClass = NewObject<UClassProperty>(PropertyScope, ValidatedPropertyName, ObjectFlags);
+				// we want to use this setter function instead of setting the 
+				// MetaClass member directly, because it properly handles  
+				// placeholder classes (classes that are stubbed in during load)
+				NewPropertyClass->SetMetaClass(SubType);
+				NewPropertyClass->PropertyClass = UClass::StaticClass();
+				NewProperty = NewPropertyClass;
+			}
 		}
 	}
 	else if (Type.PinCategory == Schema->PC_Delegate)
@@ -1128,8 +1164,6 @@ void FKismetCompilerUtilities::ValidateProperEndExecutionPath(FKismetFunctionCon
 
 void FKismetCompilerUtilities::DetectValuesReturnedByRef(const UFunction* Func, const UK2Node * Node, FCompilerResultsLog& MessageLog)
 {
-	// this warning works properly with the fix from cl#2536849. Since this change-list wasn't included into 4.8, the warning is temporarily disabled.
-	/*
 	for (TFieldIterator<UProperty> PropIt(Func); PropIt && (PropIt->PropertyFlags & CPF_Parm); ++PropIt)
 	{
 		UProperty* FuncParam = *PropIt;
@@ -1148,7 +1182,6 @@ void FKismetCompilerUtilities::DetectValuesReturnedByRef(const UFunction* Func, 
 			}
 		}
 	}
-	*/
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -1178,7 +1211,7 @@ void FNodeHandlingFunctor::ResolveAndRegisterScopedTerm(FKismetFunctionContext& 
 		// Check if the property is a local variable and mark it so
 		if( SearchScope == Context.Function && BoundProperty->GetOuter() == Context.Function)
 		{
-			Term->bIsLocal = true;
+			Term->SetVarTypeLocal(true);
 		}
 		else if (BoundProperty->HasAnyPropertyFlags(CPF_BlueprintReadOnly) || (Context.IsConstFunction() && Context.NewClass->IsChildOf(SearchScope)))
 		{
@@ -1261,6 +1294,38 @@ void FNodeHandlingFunctor::SanitizeName(FString& Name)
 	}
 }
 
+FBPTerminal* FNodeHandlingFunctor::RegisterLiteral(FKismetFunctionContext& Context, UEdGraphPin* Net)
+{
+	FBPTerminal* Term = nullptr;
+	// Make sure the default value is valid
+	FString DefaultAllowedResult = CompilerContext.GetSchema()->IsCurrentPinDefaultValid(Net);
+	if (!DefaultAllowedResult.IsEmpty())
+	{
+		FText ErrorFormat = LOCTEXT("InvalidDefault_Error", "The current value of the '@@' pin is invalid: {0}");
+		const FText InvalidReasonText = FText::FromString(DefaultAllowedResult);
+
+		FText DefaultValue = FText::FromString(Net->GetDefaultAsString());
+		if (!DefaultValue.IsEmpty())
+		{
+			ErrorFormat = LOCTEXT("InvalidDefaultVal_Error", "The current value ({1}) of the '@@' pin is invalid: {0}");
+		}
+
+		FString ErrorString = FText::Format(ErrorFormat, InvalidReasonText, DefaultValue).ToString();
+		CompilerContext.MessageLog.Error(*ErrorString, Net);
+
+		// Skip over these properties if they are array or ref properties, because the backend can't emit valid code for them
+		if (Net->PinType.bIsArray || Net->PinType.bIsReference)
+		{
+			return nullptr;
+		}
+	}
+
+	Term = Context.RegisterLiteral(Net);
+	Context.NetMap.Add(Net, Term);
+
+	return Term;
+}
+
 void FNodeHandlingFunctor::RegisterNets(FKismetFunctionContext& Context, UEdGraphNode* Node)
 {
 	for (int32 PinIndex = 0; PinIndex < Node->Pins.Num(); ++PinIndex)
@@ -1273,36 +1338,9 @@ void FNodeHandlingFunctor::RegisterNets(FKismetFunctionContext& Context, UEdGrap
 
 			if (Context.NetMap.Find(Net) == NULL)
 			{
-				// New net, resolve the term that will be used to construct it
-				FBPTerminal* Term = NULL;
-
 				if ((Net->Direction == EGPD_Input) && (Net->LinkedTo.Num() == 0))
 				{
-					// Make sure the default value is valid
-					FString DefaultAllowedResult = CompilerContext.GetSchema()->IsCurrentPinDefaultValid(Net);
-					if (!DefaultAllowedResult.IsEmpty())
-					{
-						FText ErrorFormat = LOCTEXT("InvalidDefault_Error", "The current value of the '@@' pin is invalid: {0}");
-						const FText InvalidReasonText = FText::FromString(DefaultAllowedResult);
-
-						FText DefaultValue = FText::FromString(Net->GetDefaultAsString());
-						if (!DefaultValue.IsEmpty())
-						{
-							ErrorFormat = LOCTEXT("InvalidDefaultVal_Error", "The current value ({1}) of the '@@' pin is invalid: {0}");
-						}
-
-						FString ErrorString = FText::Format(ErrorFormat, InvalidReasonText, DefaultValue).ToString();
-						CompilerContext.MessageLog.Error(*ErrorString, Net);
-
-						// Skip over these properties if they are array or ref properties, because the backend can't emit valid code for them
-						if( Pin->PinType.bIsArray || Pin->PinType.bIsReference )
-						{
-							continue;
-						}
-					}
-
-					Term = Context.RegisterLiteral(Net);
-					Context.NetMap.Add(Net, Term);
+					RegisterLiteral(Context, Net);
 				}
 				else
 				{
@@ -1399,6 +1437,33 @@ int32 FKismetFunctionContext::GetContextUniqueID()
 	return UUIDCounter++;
 }
 
+bool FKismetFunctionContext::MustUseSwitchState(const FBlueprintCompiledStatement* ExcludeThisOne) const
+{
+	for (auto Node : LinearExecutionList)
+	{
+		auto StatementList = StatementsPerNode.Find(Node);
+		if (StatementList)
+		{
+			for (auto Statement : (*StatementList))
+			{
+				if (Statement && (Statement != ExcludeThisOne) && (
+					Statement->Type == KCST_UnconditionalGoto ||
+					Statement->Type == KCST_PushState ||
+					Statement->Type == KCST_GotoIfNot ||
+					Statement->Type == KCST_ComputedGoto ||
+					Statement->Type == KCST_EndOfThread ||
+					Statement->Type == KCST_EndOfThreadIfNot ||
+					Statement->Type == KCST_GotoReturn ||
+					Statement->Type == KCST_GotoReturnIfNot))
+				{
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
 void FKismetFunctionContext::MergeAdjacentStates()
 {
 	for (int32 ExecIndex = 0; ExecIndex < LinearExecutionList.Num(); ++ExecIndex)
@@ -1431,7 +1496,8 @@ void FKismetFunctionContext::MergeAdjacentStates()
 	const auto LastExecutedNode = LinearExecutionList.Num() ? LinearExecutionList.Last() : NULL;
 	TArray<FBlueprintCompiledStatement*>* StatementList = StatementsPerNode.Find(LastExecutedNode);
 	FBlueprintCompiledStatement* LastStatementInLastNode = (StatementList && StatementList->Num()) ? StatementList->Last() : NULL;
-	if (LastStatementInLastNode && (KCST_GotoReturn == LastStatementInLastNode->Type) && !LastStatementInLastNode->bIsJumpTarget)
+	const bool SafeForNativeCode = !bGeneratingCpp || !MustUseSwitchState(LastStatementInLastNode);
+	if (LastStatementInLastNode && SafeForNativeCode && (KCST_GotoReturn == LastStatementInLastNode->Type) && !LastStatementInLastNode->bIsJumpTarget)
 	{
 		StatementList->RemoveAt(StatementList->Num() - 1);
 	}
@@ -1764,7 +1830,7 @@ FBPTerminal* FKismetFunctionContext::CreateLocalTerminal(ETerminalSpecification 
 	switch (Spec)
 	{
 	case ETerminalSpecification::TS_ForcedShared:
-		// ensure(IsEventGraph()); it's used in function by UK2Node_AddComponent
+		ensure(IsEventGraph());
 		Result = new (EventGraphLocals)FBPTerminal();
 		break;
 	case ETerminalSpecification::TS_Literal:
@@ -1774,7 +1840,7 @@ FBPTerminal* FKismetFunctionContext::CreateLocalTerminal(ETerminalSpecification 
 	default:
 		const bool bIsLocal = !IsEventGraph();
 		Result = new (bIsLocal ? Locals : EventGraphLocals) FBPTerminal();
-		Result->bIsLocal = bIsLocal;
+		Result->SetVarTypeLocal(bIsLocal);
 		break;
 	}
 	return Result;
@@ -1817,5 +1883,5 @@ void FBPTerminal::CopyFromPin(UEdGraphPin* Net, const FString& NewName)
 	const UEdGraphSchema_K2* Schema = Cast<const UEdGraphSchema_K2>(Net->GetSchema());
 	const bool bStructCategory = Schema && (Schema->PC_Struct == Net->PinType.PinCategory);
 	const bool bStructSubCategoryObj = (NULL != Cast<UScriptStruct>(Net->PinType.PinSubCategoryObject.Get()));
-	bIsStructContext = bStructCategory && bStructSubCategoryObj;
+	SetContextTypeStruct(bStructCategory && bStructSubCategoryObj);
 }

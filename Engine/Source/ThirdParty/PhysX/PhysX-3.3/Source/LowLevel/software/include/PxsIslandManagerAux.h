@@ -89,7 +89,7 @@ struct PxsIndexedConstraint : public PxsIndexedInteraction
 	PxsConstraint* constraint;
 	PxsIndexedConstraint(PxsConstraint* c) : constraint(c) {}
 };
-#if !defined(PX_X64) && !defined(PX_ARM64)
+#if !defined(PX_P64)
 PX_COMPILE_TIME_ASSERT(0==(sizeof(PxsIndexedConstraint) & 0x0f));
 #endif
 
@@ -402,23 +402,24 @@ public:
 	enum
 	{
 		//EDGE_TYPE_RIGIDCM =		0,
-		EDGE_TYPE_CONSTRAINT =	(1<<0),
-		EDGE_TYPE_ARTICULATION =(1<<1),
-		EDGE_STATE_CONNECTED =	(1<<2),
-		EDGE_STATE_REMOVED =	(1<<3)
+		EDGE_TYPE_CONSTRAINT_OR_ARTICULATION =	(1<<0),
+		EDGE_STATE_CONNECTED =					(1<<1),
+		EDGE_STATE_CREATED =					(1<<2),
+		EDGE_STATE_REMOVED =					(1<<3),
+		EDGE_ALL_FLAGS =						(EDGE_TYPE_CONSTRAINT_OR_ARTICULATION | EDGE_STATE_CONNECTED | EDGE_STATE_CREATED | EDGE_STATE_REMOVED)
 	};
 
 	Edge()
 		: mNode1(INVALID_NODE),
-		mNode2(INVALID_NODE),
-		mContactManager(NULL)
+ 		  mNode2(INVALID_NODE),
+		  mContactManager(NULL)
 	{
 	}
 
 	Edge(NodeType node1, NodeType node2)
 		: mNode1(node1),
-		mNode2(node2),
-		mContactManager(NULL)
+		  mNode2(node2),
+		  mContactManager(NULL)
 	{
 	}
 
@@ -434,9 +435,18 @@ public:
 		mContactManager=NULL;
 	}
 
-	PX_FORCE_INLINE bool getIsTypeCM() const {return 0==((size_t)mContactManager & (EDGE_TYPE_CONSTRAINT | EDGE_TYPE_ARTICULATION));}
-	PX_FORCE_INLINE bool getIsTypeConstraint() const {return !!((size_t)mContactManager & EDGE_TYPE_CONSTRAINT);}
-	PX_FORCE_INLINE bool getIsTypeArticulation() const {return !!((size_t)mContactManager & EDGE_TYPE_ARTICULATION);}
+	PX_FORCE_INLINE bool getIsTypeCM() const 
+	{
+		return (0==((size_t)mContactManager & (EDGE_TYPE_CONSTRAINT_OR_ARTICULATION)));
+	}
+	PX_FORCE_INLINE bool getIsTypeConstraint() const 
+	{
+		return ( ((size_t)mContactManager & EDGE_TYPE_CONSTRAINT_OR_ARTICULATION) &&  (0 != ((size_t)mContactManager & ~EDGE_ALL_FLAGS)) );
+	}
+	PX_FORCE_INLINE bool getIsTypeArticulation() const 
+	{
+		return ( ((size_t)mContactManager & EDGE_TYPE_CONSTRAINT_OR_ARTICULATION) &&  (0 == ((size_t)mContactManager & ~EDGE_ALL_FLAGS)) );
+	}
 
 	PX_FORCE_INLINE void setNode1(const NodeType node1) {mNode1=node1;}
 	PX_FORCE_INLINE void setNode2(const NodeType node2) {mNode2=node2;}
@@ -472,23 +482,14 @@ public:
 		PX_ASSERT(0 == ((size_t)constraint & 0x0f));
 		PX_ASSERT(mNode1!=INVALID_NODE || mNode2!=INVALID_NODE);
 		PX_ASSERT(NULL==getConstraint());
-		PX_ASSERT(NULL==mConstraint || !getIsTypeCM());
-		PX_ASSERT(NULL==mConstraint || !getIsTypeArticulation());
-		mConstraint = (PxsConstraint*)((size_t)constraint | (EDGE_TYPE_CONSTRAINT | (size_t)mConstraint));
-	}
-	PX_FORCE_INLINE void clearConstraint()
-	{
-		PX_ASSERT(mNode1!=INVALID_NODE || mNode2!=INVALID_NODE);
-		PX_ASSERT(getConstraint());
-		PX_ASSERT(!getIsTypeCM());
-		PX_ASSERT(getIsTypeConstraint());
-		PX_ASSERT(!getIsTypeArticulation());
-		mConstraint = (PxsConstraint*)((size_t)mConstraint & 0x0f);
+		PX_ASSERT((0==((size_t)mConstraint & ~EDGE_ALL_FLAGS)) || !getIsTypeCM());
+		PX_ASSERT((0==((size_t)mConstraint & ~EDGE_ALL_FLAGS)) || !getIsTypeArticulation());
+		mConstraint = (PxsConstraint*)((size_t)constraint | (EDGE_TYPE_CONSTRAINT_OR_ARTICULATION | (size_t)mConstraint));
 	}
 	PX_FORCE_INLINE PxsConstraint* getConstraint()
 	{
-		PX_ASSERT(NULL==mConstraint || !getIsTypeCM());
-		PX_ASSERT(NULL==mConstraint || !getIsTypeArticulation());
+		PX_ASSERT((0==((size_t)mConstraint & ~EDGE_ALL_FLAGS)) || !getIsTypeCM());
+		PX_ASSERT((0==((size_t)mConstraint & ~EDGE_ALL_FLAGS)) || !getIsTypeArticulation());
 		return (PxsConstraint*)((size_t)mConstraint & ~0x0f);
 	}
 
@@ -496,18 +497,9 @@ public:
 	{
 		PX_ASSERT(mNode1!=INVALID_NODE || mNode2!=INVALID_NODE);
 		PX_ASSERT(NULL==getConstraint());
-		PX_ASSERT(NULL==mConstraint || !getIsTypeCM());
-		PX_ASSERT(NULL==mConstraint || !getIsTypeConstraint());
-		mConstraint = (PxsConstraint*)(0 | (EDGE_TYPE_ARTICULATION | (size_t)mConstraint));
-	}
-	PX_FORCE_INLINE void clearArticulation()
-	{
-		PX_ASSERT(mNode1!=INVALID_NODE || mNode2!=INVALID_NODE);
-		PX_ASSERT(NULL==getConstraint());
-		PX_ASSERT(!getIsTypeCM());
-		PX_ASSERT(!getIsTypeConstraint());
-		PX_ASSERT(getIsTypeArticulation());
-		mConstraint = (PxsConstraint*)((size_t)mConstraint & ~EDGE_TYPE_ARTICULATION);
+		PX_ASSERT((0==((size_t)mConstraint & ~EDGE_ALL_FLAGS)) || !getIsTypeCM());
+		PX_ASSERT((0==((size_t)mConstraint & ~EDGE_ALL_FLAGS)) || !getIsTypeConstraint());
+		mConstraint = (PxsConstraint*)(0 | (EDGE_TYPE_CONSTRAINT_OR_ARTICULATION | (size_t)mConstraint));
 	}
 
 	PX_FORCE_INLINE void setConnected() 
@@ -539,6 +531,23 @@ public:
 	{
 		PX_ASSERT(mNode1!=INVALID_NODE || mNode2!=INVALID_NODE);
 		return !!((size_t)mConstraint & EDGE_STATE_REMOVED);
+	}
+
+	PX_FORCE_INLINE void setCreated()
+	{
+		PX_ASSERT(mNode1!=INVALID_NODE || mNode2!=INVALID_NODE);
+		PX_ASSERT(!getIsTypeCM() || !getCM());
+		PX_ASSERT(!getIsCreated());
+		mConstraint = (PxsConstraint*)((size_t)mConstraint | EDGE_STATE_CREATED);
+	}
+	PX_FORCE_INLINE bool getIsCreated() const
+	{
+		PX_ASSERT(mNode1!=INVALID_NODE || mNode2!=INVALID_NODE);
+		return !!((size_t)mConstraint & EDGE_STATE_CREATED);
+	}
+	PX_FORCE_INLINE void clearCreated()
+	{
+		mConstraint = (PxsConstraint*)((size_t)mConstraint & ~EDGE_STATE_CREATED);
 	}
 
 private:
@@ -629,29 +638,20 @@ public:
 	friend class IslandGenSpuTask;
 #endif
 
+#ifndef __SPU__
+
 	ElemManager()
 		: mElems(NULL),
 		  mFreeElems(NULL),
 		  mCapacity(0),
-		  mNextFreeElem(PxU32(T::INVALID))
+		  mNextFreeElem(PxU32(T::INVALID)),
+		  mNumFreeElems(0)
 	{
 	}
 
-#ifdef __SPU__
-	void set(T* allElems, IdType* freeElems, const IdType nextFreeElem, const PxU32 capacity)
-	{
-		mElems=allElems;
-		mFreeElems=freeElems;
-		mNextFreeElem=nextFreeElem;
-		mCapacity=capacity;
-	}
-#endif
-
-#ifndef __SPU__
 	virtual ~ElemManager()
 	{
 	}
-#endif
 
 	void init(const PxU32 capacity)
 	{
@@ -664,6 +664,7 @@ public:
 		PX_ASSERT(mCapacity>0);
 		if(T::INVALID==mNextFreeElem)
 		{
+			PX_ASSERT(0 == mNumFreeElems);
 			bool success = grow();
 			if(!success)
 			{
@@ -675,17 +676,33 @@ public:
 		mNextFreeElem=mFreeElems[freeElem];
 		mFreeElems[freeElem]=IdType(T::INVALID);
 		mElems[freeElem].init();
+		mNumFreeElems--;
 		return freeElem;
 	}
+
+#else
+
+	void set(T* allElems, IdType* freeElems, const IdType nextFreeElem, const PxU32 numFreeElems, const PxU32 capacity)
+	{
+		mElems=allElems;
+		mFreeElems=freeElems;
+		mNextFreeElem=nextFreeElem;
+		mNumFreeElems=numFreeElems;
+		mCapacity=capacity;
+	}
+
+#endif 
 
 	PX_FORCE_INLINE IdType getAvailableElemNoResize()
 	{
 		PX_ASSERT(mCapacity>0);
+		PX_ASSERT(mNumFreeElems>0);
 		PX_ASSERT(INVALID_ISLAND!=mNextFreeElem);
 		const IdType freeElem=(IdType)mNextFreeElem;
 		mNextFreeElem=mFreeElems[freeElem];
 		mFreeElems[freeElem]=IdType(T::INVALID);
 		mElems[freeElem].init();
+		mNumFreeElems--;
 		return freeElem;
 	}
 
@@ -696,6 +713,7 @@ public:
 		t.release();
 		mFreeElems[id]=(IdType)mNextFreeElem;
 		mNextFreeElem=id;
+		mNumFreeElems++;
 	}
 
 	PX_FORCE_INLINE const T& get(const IdType id) const
@@ -730,8 +748,6 @@ public:
 	{
 		return mNextFreeElem;
 	}
-	bool grow(){return true;}
-	void resize(const PxU32 newCapacity){}
 #else
 	bool grow()
 	{
@@ -740,13 +756,15 @@ public:
 			return false;
 		}
 
+		PX_ASSERT(0 == mNumFreeElems);
 		resize(mCapacity*2);
 		return true;
 	}
 	virtual void resize(const PxU32 newCapacity) = 0;
 #endif
 
-	PX_FORCE_INLINE PxU32 getNumAvailableElems() const
+#ifdef PX_DEBUG
+	PX_FORCE_INLINE PxU32 computeNumAvailableElems() const
 	{
 		PxU32 count=0;
 		PxU32 nextFree=mNextFreeElem;
@@ -757,6 +775,13 @@ public:
 		}
 		return count;
 	}
+#endif
+
+	PX_FORCE_INLINE PxU32 getNumAvailableElems() const 
+	{
+		PX_ASSERT(mNumFreeElems == computeNumAvailableElems());
+		return mNumFreeElems;
+	}
 
 protected:
 
@@ -764,15 +789,17 @@ protected:
 	IdType* mFreeElems;
 	PxU32 mCapacity;
 	PxU32 mNextFreeElem;
+	PxU32 mNumFreeElems;
 
 	void setupNewFreeElems(const PxU32 oldCapacity, const PxU32 newCapacity)
 	{
-		mFreeElems[newCapacity-1]=(IdType)mNextFreeElem;
-		for(PxU32 i=oldCapacity;i<(newCapacity-1);i++)
+		mFreeElems[newCapacity-1] = (IdType)mNextFreeElem;
+		for(PxU32 i = oldCapacity; i < (newCapacity-1); i++)
 		{
-			mFreeElems[i]=(IdType)(i+1);
+			mFreeElems[i] = (IdType)(i + 1);
 		}
-		mNextFreeElem=oldCapacity;
+		mNextFreeElem = oldCapacity;
+		mNumFreeElems += ((newCapacity - oldCapacity) + ((newCapacity == (T::INVALID + 1)) ? -1 : 0));
 	}
 };
 
@@ -788,20 +815,28 @@ public:
 
 	NodeManager() 
 		: ElemManager<Node,NodeType>(),
-		  mNextNodeIds(NULL),
-		  mKinematicNodeIdBitmapWords(NULL),
-		  mKinematicNodeIdBitmapWordsSize(0)
+		  mNextNodeIds(NULL)
 	{
-		mKinematicNodeBitmap=(Cm::BitMap*)mKinematicNodeBitmapBuffer;
+		for(PxU32 i = 0; i < eMAX_NB_BITMAPS; i++)
+		{
+			mBitmapWords[i] = NULL;
+			mBitmapWordCounts[i] = 0;
+			mBitmaps[i] = (Cm::BitMap*)mBitmapBuffers[i];
+		}
 	}
 
 #ifdef __SPU__
-	void set(Node* allNodes, NodeType* freeNodes, const NodeType nextFreeElem, const PxU32 capacity, NodeType* nextNodeIds, PxU32* kinematicNodeBitmapWords, const PxU32 kinematicNodeBitmapWordCount)
+	void set(Node* allNodes, NodeType* freeNodes, const NodeType nextFreeElem, const PxU32 numFreeElems, const PxU32 capacity, NodeType* nextNodeIds, PxU32** nodeBitmapWords, PxU32* nodeBitmapWordCounts)
 	{
-		ElemManager<Node,NodeType>::set(allNodes,freeNodes,nextFreeElem,capacity);
+		ElemManager<Node,NodeType>::set(allNodes,freeNodes,nextFreeElem,numFreeElems,capacity);
 		mNextNodeIds=nextNodeIds;
-		mKinematicNodeBitmap=(Cm::BitMap*)mKinematicNodeBitmapBuffer;
-		mKinematicNodeBitmap->setWords(kinematicNodeBitmapWords,kinematicNodeBitmapWordCount);
+		for(PxU32 i = 0; i < eMAX_NB_BITMAPS; i++)
+		{
+			mBitmaps[i] = (Cm::BitMap*)mBitmapBuffers[i];
+			mBitmapWords[i] = nodeBitmapWords[i];
+			mBitmapWordCounts[i] = nodeBitmapWordCounts[i];
+			mBitmaps[i]->setWords(nodeBitmapWords[i], nodeBitmapWordCounts[i]);
+		}
 	}
 #endif
 
@@ -815,40 +850,110 @@ public:
 	PX_FORCE_INLINE NodeType* getNextNodeIds() {return mNextNodeIds;}
 	PX_FORCE_INLINE const NodeType* getNextNodeIds() const {return mNextNodeIds;}
 
-	PX_FORCE_INLINE void setKinematicNode(const PxU32 id)
+	PX_FORCE_INLINE void setKinematicNode(const NodeType id)
 	{
 		PX_ASSERT(id<mCapacity);
-		PX_ASSERT(!mKinematicNodeBitmap->test(id));
+		PX_ASSERT(!mBitmaps[eKINEMATIC]->test(id));
 		PX_ASSERT(get((NodeType)id).getIsKinematic());
-		mKinematicNodeBitmap->set(id);
+		mBitmaps[eKINEMATIC]->set(id);
 	}
-
-	PX_FORCE_INLINE void clearKinematicNode(const PxU32 id)
+	PX_FORCE_INLINE void clearKinematicNode(const NodeType id)
 	{
 		PX_ASSERT(id<mCapacity);
-		PX_ASSERT(mKinematicNodeBitmap->test(id));
+		PX_ASSERT(mBitmaps[eKINEMATIC]->test(id));
 		PX_ASSERT(!get((NodeType)id).getIsKinematic());
-		mKinematicNodeBitmap->reset(id);
+		mBitmaps[eKINEMATIC]->reset(id);
 	}
 
-	PX_FORCE_INLINE void deleteKinematicNode(const PxU32 id)
+	PX_FORCE_INLINE void setNotReadyForSleeping(const NodeType id)
+	{
+		PX_ASSERT(id < mCapacity);
+		PX_ASSERT(!mBitmaps[eNOT_READY_FOR_SLEEPING]->test(id));
+		PX_ASSERT(!get((NodeType)id).getIsReadyForSleeping());
+		mBitmaps[eNOT_READY_FOR_SLEEPING]->set(id);
+	}
+	PX_FORCE_INLINE void clearNotReadyForSleeping(const NodeType id)
+	{
+		PX_ASSERT(id < mCapacity);
+		PX_ASSERT(mBitmaps[eNOT_READY_FOR_SLEEPING]->test(id));
+		PX_ASSERT(get((NodeType)id).getIsReadyForSleeping());
+		mBitmaps[eNOT_READY_FOR_SLEEPING]->reset(id);
+	}
+
+	PX_FORCE_INLINE void setKinematicStateChange(const NodeType id)
 	{
 		PX_ASSERT(id<mCapacity);
-		PX_ASSERT(mKinematicNodeBitmap->test(id));
-		PX_ASSERT(get((NodeType)id).getIsKinematic());
-		mKinematicNodeBitmap->reset(id);
+
+		if(get(id).getIsNew())
+			return;
+
+		if(!mBitmaps[eKINEMATIC_CHANGE]->test(id))
+		{
+			mBitmaps[eKINEMATIC_CHANGE]->set(id);
+		}
+		else
+		{
+			mBitmaps[eKINEMATIC_CHANGE]->reset(id);
+		}
+	}
+	PX_FORCE_INLINE void clearKinematicStateChanges()
+	{
+		mBitmaps[eKINEMATIC_CHANGE]->clearFast();
 	}
 
-	PX_FORCE_INLINE const Cm::BitMap& getKinematicNodeBitmap() const {return *mKinematicNodeBitmap;}
+
+	PX_FORCE_INLINE void setNotReadyForSleepStateChange(const NodeType id)
+	{
+		PX_ASSERT(id<mCapacity);
+		if(get(id).getIsNew())
+			return;
+
+		if(!mBitmaps[eNOT_READY_FOR_SLEEPING_CHANGE]->test(id))
+		{
+			mBitmaps[eNOT_READY_FOR_SLEEPING_CHANGE]->set(id);
+		}
+		else
+		{
+			mBitmaps[eNOT_READY_FOR_SLEEPING_CHANGE]->reset(id);
+		}
+	}
+	PX_FORCE_INLINE void clearNotReadyForSleepStateChanges()
+	{
+		mBitmaps[eNOT_READY_FOR_SLEEPING_CHANGE]->clearFast();
+	}
+
+	PX_FORCE_INLINE void deleteNode(const NodeType nodeId)
+	{
+		for(PxU32 i = 0; i < eMAX_NB_BITMAPS; i++)
+		{
+			mBitmaps[i]->reset(nodeId);
+		}
+	}
+
+	PX_FORCE_INLINE const Cm::BitMap& getBitmap(const PxU32 type) const
+	{
+		PX_ASSERT(type < eMAX_NB_BITMAPS);
+		return *mBitmaps[type];
+	}
+
+	enum 
+	{
+		eKINEMATIC,
+		eKINEMATIC_CHANGE,
+		eNOT_READY_FOR_SLEEPING,
+		eNOT_READY_FOR_SLEEPING_CHANGE,
+		eMAX_NB_BITMAPS
+	};
 
 private:
 
 	NodeType* mNextNodeIds;
 
-	PxU32* mKinematicNodeIdBitmapWords;
-	PxU32 mKinematicNodeIdBitmapWordsSize;
-	PxU8* mKinematicNodeBitmapBuffer[sizeof(Cm::BitMap)];
-	Cm::BitMap* mKinematicNodeBitmap;
+	PxU32* mBitmapWords[eMAX_NB_BITMAPS];
+	PxU32 mBitmapWordCounts[eMAX_NB_BITMAPS];
+	PxU32 mBitmapBuffers[eMAX_NB_BITMAPS][sizeof(Cm::BitMap)];
+	Cm::BitMap* mBitmaps[eMAX_NB_BITMAPS];
+
 
 #ifndef __SPU__
 	virtual void resize(const PxU32 newCapacity)
@@ -858,9 +963,10 @@ private:
 
 		const PxU32 nodeByteSize=(((sizeof(Node)*newCapacity) + 15) & ~15);
 		const PxU32 nodeTypeByteSize=(((sizeof(NodeType)*newCapacity) + 15) & ~15);
-		const PxU32 newKinematicNodeBitmapWordSize = (((newCapacity + 31) & ~31) >> 5);
-		const PxU32 kinematicNodeBitmapWordByteSize=(((sizeof(PxU32)*newKinematicNodeBitmapWordSize) + 15) & ~15);
-		const PxU32 byteSize=(nodeByteSize + nodeTypeByteSize + nodeTypeByteSize + kinematicNodeBitmapWordByteSize);
+		const PxU32 nodeBitMapWordCount = (((newCapacity + 31) & ~31) >> 5);
+		const PxU32 nodeBitmapWordByteSize=(((sizeof(PxU32)*nodeBitMapWordCount) + 15) & ~15);
+
+		const PxU32 byteSize=(nodeByteSize + nodeTypeByteSize + nodeTypeByteSize + nodeBitmapWordByteSize*eMAX_NB_BITMAPS);
 		PxU8* newBuffer=(PxU8*)PX_ALLOC(byteSize, PX_DEBUG_EXP("IslandManager"));
 
 		PxU32 offset=0;
@@ -870,32 +976,41 @@ private:
 		offset+=nodeTypeByteSize;
 		NodeType* newNextNodeIds=(NodeType*)(newBuffer + offset);
 		offset+=nodeTypeByteSize;
-		PxU32* newKinematicNodeBitmapWords=(PxU32*)(newBuffer + offset);
-		offset+=kinematicNodeBitmapWordByteSize;
+		PxU32* newBitMapWords[eMAX_NB_BITMAPS];
+		for(PxU32 i = 0; i < eMAX_NB_BITMAPS; i++)
+		{
+			newBitMapWords[i] = (PxU32*)(newBuffer + offset);
+			PxMemZero(newBitMapWords[i], nodeBitmapWordByteSize);
+			offset += nodeBitmapWordByteSize;
+		}
 		PX_ASSERT(byteSize==offset);
-
-		PxMemZero(newKinematicNodeBitmapWords, kinematicNodeBitmapWordByteSize);
 
 		if(mElems)
 		{
 			PxMemCopy(newElems, mElems, sizeof(Node)*mCapacity);
 			PxMemCopy(newFreeElems, mFreeElems, sizeof(NodeType)*mCapacity);
 			PxMemCopy(newNextNodeIds, mNextNodeIds, sizeof(NodeType)*mCapacity);
-			PxMemCopy(newKinematicNodeBitmapWords, mKinematicNodeIdBitmapWords, sizeof(PxU32)*mKinematicNodeIdBitmapWordsSize);
+			for(PxU32 i = 0; i < eMAX_NB_BITMAPS; i++)
+			{
+				PxMemCopy(newBitMapWords[i], mBitmapWords[i], sizeof(PxU32)*mBitmapWordCounts[i]);
+			}
 			PX_FREE(mElems);
 		}
 
 		mElems=newElems;
 		mFreeElems=newFreeElems;
 		setupNewFreeElems(mCapacity,newCapacity);
+		PX_ASSERT(getNumAvailableElems() == computeNumAvailableElems());
 
 		PxMemSet(&newNextNodeIds[mCapacity],0xff,sizeof(NodeType)*(newCapacity-mCapacity));
 		mNextNodeIds=newNextNodeIds;
 
-		PxMemZero(&newKinematicNodeBitmapWords[mKinematicNodeIdBitmapWordsSize], sizeof(PxU32)*(newKinematicNodeBitmapWordSize-mKinematicNodeIdBitmapWordsSize));
-		mKinematicNodeIdBitmapWords=newKinematicNodeBitmapWords;
-		mKinematicNodeIdBitmapWordsSize=newKinematicNodeBitmapWordSize;
-		mKinematicNodeBitmap->setWords(newKinematicNodeBitmapWords,newKinematicNodeBitmapWordSize);
+		for(PxU32 i = 0; i < eMAX_NB_BITMAPS; i++)
+		{
+			mBitmapWords[i] = newBitMapWords[i];
+			mBitmapWordCounts[i] = nodeBitMapWordCount;
+			mBitmaps[i]->setWords(newBitMapWords[i],nodeBitMapWordCount);
+		}
 
 		//Set the new capacity.
 		mCapacity=newCapacity;
@@ -918,9 +1033,9 @@ public:
 	}
 
 #ifdef __SPU__
-	void set(Edge* allEdges, EdgeType* freeEdges, const EdgeType nextFreeElem, const PxU32 capacity, EdgeType* nextEdgeIds)
+	void set(Edge* allEdges, EdgeType* freeEdges, const EdgeType nextFreeElem, const PxU32 numFreeElems, const PxU32 capacity, EdgeType* nextEdgeIds)
 	{
-		ElemManager<Edge,EdgeType>::set(allEdges,freeEdges,nextFreeElem,capacity);
+		ElemManager<Edge,EdgeType>::set(allEdges,freeEdges,nextFreeElem,numFreeElems,capacity);
 		mNextEdgeIds=nextEdgeIds;
 	}
 #endif
@@ -988,15 +1103,17 @@ public:
 		mBitmapWords(NULL),
 		mBitmapWordCount(0)
 	{
+		mBitMap = (Cm::BitMap*)mbmBuffer;
+		new(mBitMap) Cm::BitMap();
 	}
 
 #ifdef __SPU__
-	void set(Island* allIslands, IslandType* freeIslands, const IslandType nextFreeElem, const PxU32 capacity, PxU32* islandsBitmapWords, const PxU32 islandsBitmapWordCount)
+	void set(Island* allIslands, IslandType* freeIslands, const IslandType nextFreeElem, const PxU32 numFreeElems, const PxU32 capacity, PxU32* islandsBitmapWords, const PxU32 islandsBitmapWordCount)
 	{
-		ElemManager<Island,IslandType>::set(allIslands,freeIslands,nextFreeElem,capacity);
+		ElemManager<Island,IslandType>::set(allIslands,freeIslands,nextFreeElem,numFreeElems,capacity);
 		mBitmapWords=islandsBitmapWords;
 		mBitmapWordCount=islandsBitmapWordCount;
-		((Cm::BitMap*)mbmBuffer)->setWords(islandsBitmapWords,islandsBitmapWordCount);
+		mBitMap->setWords(islandsBitmapWords,islandsBitmapWordCount);
 	}
 #endif
 
@@ -1007,9 +1124,8 @@ public:
 	}
 #endif
 
-	PX_FORCE_INLINE Cm::BitMap& getBitmap() {return *((Cm::BitMap*)mbmBuffer);}
-	PX_FORCE_INLINE const Cm::BitMap& getBitmap() const {return *((Cm::BitMap*)mbmBuffer);}
-
+	PX_FORCE_INLINE Cm::BitMap& getBitmap() {return *mBitMap;}
+	PX_FORCE_INLINE const Cm::BitMap& getBitmap() const {return *mBitMap;}
 #ifndef __SPU__
 	virtual void resize(const PxU32 newCapacity)
 	{
@@ -1042,7 +1158,7 @@ public:
 		setupNewFreeElems(mCapacity,newCapacity);
 
 		PxMemZero(&newBitmapWords[mBitmapWordCount],sizeof(PxU32)*(newBitmapWordCount-mBitmapWordCount));
-		((Cm::BitMap*)mbmBuffer)->setWords(newBitmapWords,newBitmapWordCount);
+		mBitMap->setWords(newBitmapWords,newBitmapWordCount);
 		mBitmapWords=newBitmapWords;
 		mBitmapWordCount=newBitmapWordCount;
 
@@ -1059,6 +1175,7 @@ public:
 private:
 
 	PxU8 mbmBuffer[sizeof(Cm::BitMap)];
+	Cm::BitMap* mBitMap;
 	PxU32* mBitmapWords;
 	PxU32 mBitmapWordCount;
 };
@@ -1076,7 +1193,7 @@ public:
 #ifdef __SPU__
 	void set(ArticulationRoot* allArtics, const PxU32 capacity)
 	{
-		ElemManager<ArticulationRoot,NodeType>::set(allArtics,NULL,0,capacity);
+		ElemManager<ArticulationRoot,NodeType>::set(allArtics,NULL,0,0,capacity);
 	}
 #endif
 
@@ -1185,16 +1302,18 @@ struct IslandManagerUpdateWorkBuffers
 	//These buffers don't need to persist across the entire island manager update.
 
 	//Bitmap of islands containing edges that have been disconnected or deleted.
-	PxU32* mIslandBitmap1Words;
-	PxU32 mIslandBitmap1WordCount;
-	PxU8 mIslandsBitmap1Buffer[sizeof(Cm::BitMap)];
-	Cm::BitMap* mIslandBitmap1;
-
-	//Bitmap of empty islands.
-	PxU32* mIslandBitmap2Words;
-	PxU32 mIslandBitmap2WordCount;
-	PxU8 mIslandsBitmap2Buffer[sizeof(Cm::BitMap)];
-	Cm::BitMap* mIslandBitmap2;
+	//Bitmap of islands that need processed in processSleepingIslands
+	enum 
+	{
+		eBROKEN_EDGE_ISLANDS = 0,
+		ePROCESS_ISLANDS,
+		eCHANGED_NODES,
+		eMAX_NB_BITMAPS
+	};
+	PxU32* mBitmapWords[eMAX_NB_BITMAPS];
+	PxU32 mBitmapWordCount[eMAX_NB_BITMAPS];
+	PxU8 mBitmapBuffer[eMAX_NB_BITMAPS][sizeof(Cm::BitMap)];
+	Cm::BitMap* mBitmap[eMAX_NB_BITMAPS];
 
 	//Buffer to store a copy of the nodes in each island.
 	NodeType* mGraphNextNodes;
@@ -1227,7 +1346,8 @@ void updateIslandsMain
  const EdgeType* PX_RESTRICT createdEdges, const PxU32 numCreatedEdges,
  const EdgeType* PX_RESTRICT brokenEdges, const PxU32 numBrokenEdges,
  const EdgeType* PX_RESTRICT joinedEdges, const PxU32 numJoinedEdges,
- const Cm::BitMap& kinematicNodeBitmap, const PxU32 numAddedKinematics,
+ const Cm::BitMap& kinematicNodesBitmap, const Cm::BitMap& kinematicChangeNodesBitmap, const PxU32 numKinematics,
+ const Cm::BitMap& notReadyForSleepingNodesBitmap, const Cm::BitMap& notReadyForSleepingChangeNodesBitmap,
  NodeManager& nodeManager, EdgeManager& edgeManager, IslandManager& islands, ArticulationRootManager& articulationRootManager,
  ProcessSleepingIslandsComputeData& psicData,
  IslandManagerUpdateWorkBuffers& workBuffers,

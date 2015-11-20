@@ -32,18 +32,18 @@ public:
 
 public:
 
-	// Begin TTargetPlatformBase interface
+	//~ Begin TTargetPlatformBase Interface
 
 	virtual bool IsServerOnly( ) const override
 	{
 		return false;
 	}
 
-	// End TTargetPlatformBase interface
+	//~ End TTargetPlatformBase Interface
 
 public:
 
-	// Begin ITargetPlatform interface
+	//~ Begin ITargetPlatform Interface
 
 	virtual void EnableDeviceCheck(bool OnOff) override;
 
@@ -110,7 +110,7 @@ public:
 		OutSection = TEXT("/Script/IOSRuntimeSettings.IOSRuntimeSettings");
 		InBoolKeys.Add(TEXT("bDevForArmV7")); InBoolKeys.Add(TEXT("bDevForArm64")); InBoolKeys.Add(TEXT("bDevForArmV7S"));
 		InBoolKeys.Add(TEXT("bShipForArmV7")); InBoolKeys.Add(TEXT("bShipForArm64")); InBoolKeys.Add(TEXT("bShipForArmV7S"));
-		InBoolKeys.Add(TEXT("bGenerateSYMFile"));
+		InBoolKeys.Add(TEXT("bGeneratedSYMFile"));
 		InStringKeys.Add(TEXT("MinimumiOSVersion"));
 	}
 
@@ -126,7 +126,7 @@ public:
 		return DeviceLostEvent;
 	}
 
-	// Begin ITargetPlatform interface
+	//~ Begin ITargetPlatform Interface
 
 protected:
 

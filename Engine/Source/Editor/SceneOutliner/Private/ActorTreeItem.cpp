@@ -139,6 +139,7 @@ void FActorDropTarget::OnDrop(FDragDropPayload& DraggedObjects, UWorld& World, c
 			// Create the popup
 			FSlateApplication::Get().PushMenu(
 				DroppedOnWidget,
+				FWidgetPath(),
 				SNew(SSocketChooserPopup)
 				.SceneComponent( Component )
 				.OnSocketChosen_Static(&FActorDropTarget::PerformAttachment, Actor, MoveTemp(DraggedActors) ),
@@ -185,7 +186,8 @@ void FActorDropTarget::DetachActorFromParent(AActor* ChildActor)
 		AActor* OldParent = RootComp->AttachParent->GetOwner();
 		OldParent->Modify();
 		RootComp->DetachFromParent(true);
-		ChildActor->SetFolderPath(OldParent->GetFolderPath());
+		
+		ChildActor->SetFolderPath_Recursively(OldParent->GetFolderPath());
 	}
 }
 

@@ -30,7 +30,7 @@ public:
 
 public:
 
-	// Begin ILauncherDeviceGroup interface
+	//~ Begin ILauncherDeviceGroup Interface
 
 	virtual void AddDevice(const FString& DeviceID) override
 	{
@@ -76,12 +76,23 @@ public:
 		DeviceRemovedDelegate.Broadcast(AsShared(), DeviceID);
 	}
 
+	virtual void RemoveAllDevices() override
+	{
+		for (int32 i = Devices.Num() - 1; i >= 0; --i)
+		{
+			FString DeviceId = Devices[i];
+			Devices.RemoveAt(i, 1, false);
+
+			DeviceRemovedDelegate.Broadcast(AsShared(), DeviceId);
+		}
+	}
+
 	virtual void SetName(const FString& NewName) override
 	{
 		Name = NewName;
 	}
 
-	// End ILauncherDeviceGroup interface
+	//~ End ILauncherDeviceGroup Interface
 
 private:
 

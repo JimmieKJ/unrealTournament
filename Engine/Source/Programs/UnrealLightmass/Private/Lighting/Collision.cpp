@@ -59,7 +59,9 @@ void FStaticLightingAggregateMesh::AddMesh(const FStaticLightingMesh* Mesh, cons
 		Vertices.AddUninitialized(Mesh->NumVertices);
 		UVs.AddZeroed(Mesh->NumVertices);
 		LightmapUVs.AddZeroed(Mesh->NumVertices);
-		const int32 MeshLODIndex = Mesh->GetLODIndex();
+
+		const uint32 MeshLODIndices = Mesh->GetLODIndices();
+		const uint32 MeshHLODRange = Mesh->GetHLODRange();
 
 		const FBoxSphereBounds ImportanceBounds = Scene.GetImportanceBounds();
 		for(int32 TriangleIndex = 0;TriangleIndex < Mesh->NumTriangles;TriangleIndex++)
@@ -110,7 +112,8 @@ void FStaticLightingAggregateMesh::AddMesh(const FStaticLightingMesh* Mesh, cons
 					PayloadIndex, // Use the triangle's material index as an index into TrianglePayloads.
 					V0.WorldPosition,V1.WorldPosition,V2.WorldPosition,
 					Mesh->MeshIndex,
-					MeshLODIndex,
+					MeshLODIndices,
+					MeshHLODRange,
 					bTwoSided,
 					bStaticAndOpaque
 					);
@@ -353,7 +356,8 @@ bool FStaticLightingAggregateMesh::IntersectLightRay(
 			(LightRay.TraceFlags & LIGHTRAY_FLIP_SIDEDNESS) != 0,
 			kDOPDataProvider,
 			LightRay.Mapping ? LightRay.Mapping->Mesh->MeshIndex : INDEX_NONE,
-			LightRay.Mapping ? LightRay.Mapping->Mesh->GetLODIndex() : INDEX_NONE,
+			LightRay.Mapping ? LightRay.Mapping->Mesh->GetLODIndices() : INDEX_NONE,
+			LightRay.Mapping ? LightRay.Mapping->Mesh->GetHLODRange() : INDEX_NONE,
 			&Result);
 
 		bool bHit = false; 

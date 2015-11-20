@@ -11,15 +11,15 @@ class UK2Node_GetEnumeratorName : public UK2Node
 
 	static FString EnumeratorPinName;
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Enum_16x"); }
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual FText GetCompactNodeTitle() const override;
 	virtual bool ShouldDrawCompact() const override { return true; }
 	virtual bool IsNodePure() const override { return true; }
@@ -31,7 +31,7 @@ class UK2Node_GetEnumeratorName : public UK2Node
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
 	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
 	void UpdatePinType();
 	class UEnum* GetEnum() const;

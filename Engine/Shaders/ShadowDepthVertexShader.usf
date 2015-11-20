@@ -104,7 +104,7 @@ void MainOnePassPointLightGS(triangle FPassSpecificVSToGS Input[3], inout Triang
 					#endif
 
 #if INTERPOLATE_POSITION
-					Output.PSInputs.PixelPosition = Input[VertexIndex].GSPosition;
+					Output.PSInputs.PixelPosition = Input[VertexIndex].GSPosition.xyz;
 #endif
 					OutStream.Append(Output);
 				}
@@ -210,7 +210,7 @@ void Main(
 	#endif
 
 	#if INTERPOLATE_POSITION
-		OutParameters.PixelPosition = WorldPos;
+		OutParameters.PixelPosition = WorldPos.xyz;
 	#endif
 
 #else
@@ -231,7 +231,7 @@ void Main(
 		OutParameters.FactoryInterpolants = VertexFactoryGetInterpolantsVSToPS(Input, VFIntermediates, VertexParameters);
 
 		#if INTERPOLATE_POSITION
-			OutParameters.PixelPosition = WorldPos;
+			OutParameters.PixelPosition = WorldPos.xyz;
 		#endif
 	#endif
 

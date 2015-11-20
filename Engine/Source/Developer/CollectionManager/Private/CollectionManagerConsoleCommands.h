@@ -43,20 +43,21 @@ public:
 		}
 
 		FName CollectionName = FName(*Args[0]);
+
 		FString ShareStr = Args[1];
-		ECollectionShareType::Type Type;
+		ECollectionShareType::Type ShareType;
 
 		if ( ShareStr == TEXT("LOCAL") )
 		{
-			Type = ECollectionShareType::CST_Local;
+			ShareType = ECollectionShareType::CST_Local;
 		}
 		else if ( ShareStr == TEXT("PRIVATE") )
 		{
-			Type = ECollectionShareType::CST_Private;
+			ShareType = ECollectionShareType::CST_Private;
 		}
 		else if ( ShareStr == TEXT("SHARED") )
 		{
-			Type = ECollectionShareType::CST_Shared;
+			ShareType = ECollectionShareType::CST_Shared;
 		}
 		else
 		{
@@ -64,7 +65,13 @@ public:
 			return;
 		}
 		
-		if ( Module.Get().CreateCollection(CollectionName, Type) )
+		ECollectionStorageMode::Type StorageMode = ECollectionStorageMode::Static;
+		if (Args.Num() >= 3)
+		{
+			StorageMode = ECollectionStorageMode::FromString(*Args[2]);
+		}
+
+		if ( Module.Get().CreateCollection(CollectionName, ShareType, StorageMode) )
 		{
 			UE_LOG(LogCollectionManager, Log, TEXT("Collection created: %s"), *CollectionName.ToString());
 		}

@@ -18,6 +18,30 @@
 
 #include "NavMeshRenderingHelpers.h"
 
+#if WITH_EDITOR
+namespace
+{
+	bool AreAnyViewportsRelevant(const UWorld* World)
+	{
+		FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(World);
+		if (WorldContext && WorldContext->GameViewport)
+		{
+			return true;
+		}
+		
+		for (FEditorViewportClient* CurrentViewport : GEditor->AllViewportClients)
+		{
+			if (CurrentViewport && CurrentViewport->IsVisible())
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+}
+#endif
+
 UNavMeshRenderingComponent::UNavMeshRenderingComponent(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -68,10 +92,20 @@ bool UNavMeshRenderingComponent::IsNavigationShowFlagSet(const UWorld* World)
 
 void UNavMeshRenderingComponent::TimerFunction()
 {
-	const bool bShowNavigation = IsNavigationShowFlagSet(GetWorld());
-
-	if (bShowNavigation != !!bCollectNavigationData)
+	const UWorld* World = GetWorld();
+#if WITH_EDITOR
+	if (GEditor && (AreAnyViewportsRelevant(World) == false))
 	{
+		// unable to tell if the flag is on or not
+		return;
+	}
+#endif // WITH_EDITOR
+
+	const bool bShowNavigation = bForceUpdate || IsNavigationShowFlagSet(World);
+
+	if (bShowNavigation != !!bCollectNavigationData && bShowNavigation == true)
+	{
+		bForceUpdate = false;
 		bCollectNavigationData = bShowNavigation;
 		MarkRenderStateDirty();
 	}
@@ -412,54 +446,57 @@ void UNavMeshRenderingComponent::GatherData(FNavMeshSceneProxyData& CurrentData)
 		NavMesh->FinishBatchQuery();
 
 		// Draw Mesh
-		if (NavMesh->bDrawClusters)
+		if (NavMesh->bDrawFilledPolys)
 		{
-			for (int32 Idx = 0; Idx < CurrentData.NavMeshGeometry.Clusters.Num(); ++Idx)
+			if (NavMesh->bDrawClusters)
 			{
-				const TArray<int32>& MeshIndices = CurrentData.NavMeshGeometry.Clusters[Idx].MeshIndices;
-
-				if (MeshIndices.Num() == 0)
+				for (int32 Idx = 0; Idx < CurrentData.NavMeshGeometry.Clusters.Num(); ++Idx)
 				{
-					continue;
-				}
+					const TArray<int32>& MeshIndices = CurrentData.NavMeshGeometry.Clusters[Idx].MeshIndices;
 
-				FNavMeshSceneProxyData::FDebugMeshData DebugMeshData;
-				DebugMeshData.ClusterColor = GetClusterColor(Idx);
-				for (int32 VertIdx=0; VertIdx < MeshVerts.Num(); ++VertIdx)
-				{
-					AddVertexHelper(DebugMeshData, MeshVerts[VertIdx] + CurrentData.NavMeshDrawOffset, DebugMeshData.ClusterColor);
-				}
-				for (int32 TriIdx=0; TriIdx < MeshIndices.Num(); TriIdx+=3)
-				{
-					AddTriangleHelper(DebugMeshData, MeshIndices[TriIdx], MeshIndices[TriIdx+1], MeshIndices[TriIdx+2]);
-				}
+					if (MeshIndices.Num() == 0)
+					{
+						continue;
+					}
 
-				CurrentData.MeshBuilders.Add(DebugMeshData);
+					FNavMeshSceneProxyData::FDebugMeshData DebugMeshData;
+					DebugMeshData.ClusterColor = GetClusterColor(Idx);
+					for (int32 VertIdx = 0; VertIdx < MeshVerts.Num(); ++VertIdx)
+					{
+						AddVertexHelper(DebugMeshData, MeshVerts[VertIdx] + CurrentData.NavMeshDrawOffset, DebugMeshData.ClusterColor);
+					}
+					for (int32 TriIdx = 0; TriIdx < MeshIndices.Num(); TriIdx += 3)
+					{
+						AddTriangleHelper(DebugMeshData, MeshIndices[TriIdx], MeshIndices[TriIdx + 1], MeshIndices[TriIdx + 2]);
+					}
+
+					CurrentData.MeshBuilders.Add(DebugMeshData);
+				}
 			}
-		}
-		else if (NavMesh->bDrawNavMesh)
-		{			
-			for (int32 AreaType = 0; AreaType < RECAST_MAX_AREAS; ++AreaType)
+			else if (NavMesh->bDrawNavMesh)
 			{
-				const TArray<int32>& MeshIndices = CurrentData.NavMeshGeometry.AreaIndices[AreaType];
-
-				if (MeshIndices.Num() == 0)
+				for (int32 AreaType = 0; AreaType < RECAST_MAX_AREAS; ++AreaType)
 				{
-					continue;
-				}
+					const TArray<int32>& MeshIndices = CurrentData.NavMeshGeometry.AreaIndices[AreaType];
 
-				FNavMeshSceneProxyData::FDebugMeshData DebugMeshData;
-				for (int32 VertIdx=0; VertIdx < MeshVerts.Num(); ++VertIdx)
-				{
-					AddVertexHelper(DebugMeshData, MeshVerts[VertIdx] + CurrentData.NavMeshDrawOffset, CurrentData.NavMeshColors[AreaType]);
-				}
-				for (int32 TriIdx=0; TriIdx < MeshIndices.Num(); TriIdx+=3)
-				{
-					AddTriangleHelper(DebugMeshData, MeshIndices[TriIdx], MeshIndices[TriIdx+1], MeshIndices[TriIdx+2]);
-				}
+					if (MeshIndices.Num() == 0)
+					{
+						continue;
+					}
 
-				DebugMeshData.ClusterColor = CurrentData.NavMeshColors[AreaType];
-				CurrentData.MeshBuilders.Add(DebugMeshData);
+					FNavMeshSceneProxyData::FDebugMeshData DebugMeshData;
+					for (int32 VertIdx = 0; VertIdx < MeshVerts.Num(); ++VertIdx)
+					{
+						AddVertexHelper(DebugMeshData, MeshVerts[VertIdx] + CurrentData.NavMeshDrawOffset, CurrentData.NavMeshColors[AreaType]);
+					}
+					for (int32 TriIdx = 0; TriIdx < MeshIndices.Num(); TriIdx += 3)
+					{
+						AddTriangleHelper(DebugMeshData, MeshIndices[TriIdx], MeshIndices[TriIdx + 1], MeshIndices[TriIdx + 2]);
+					}
+
+					DebugMeshData.ClusterColor = CurrentData.NavMeshColors[AreaType];
+					CurrentData.MeshBuilders.Add(DebugMeshData);
+				}
 			}
 		}
 

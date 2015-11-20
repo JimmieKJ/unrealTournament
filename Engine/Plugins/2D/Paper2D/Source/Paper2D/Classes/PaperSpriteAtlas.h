@@ -33,9 +33,9 @@ struct FPaperSpriteAtlasSlot
 UENUM()
 enum class EPaperSpriteAtlasPadding : uint8
 {
-	// Dilate the texture to pad the atlas.
+	/** Dilate the texture to pad the atlas. */
 	DilateBorder,
-	// Padding border filled with zeros.
+	/** Padding border filled with zeros. */
 	PadWithZero,
 	//TODO: Tiled padding
 	//TODO: Sample outside bounds from source texture (for seamless reconstruction of a larger image)

@@ -17,6 +17,7 @@ enum EShowFlagGroup
 	SFG_CollisionModes,
 	SFG_Developer,
 	SFG_Visualize,
+	SFG_LightTypes,
 	SFG_LightingComponents,
 	SFG_LightingFeatures,
 	SFG_Hidden,
@@ -38,9 +39,11 @@ enum EShowFlagInitMode
 #endif
 
 /**
- * Meant to replace the old FShowflag system, first we start with some new flags and
- * then incrementally we can move over to the new system. ViewModes should be a separate layer that can manipulate show flags before they get used.
- * So the view needs it's own show flags and the ones that should be finally used after manipulation from view mode and user (editor/show command)
+ * ShowFlags are a set of bits (some are fixed in SHIPPING) that are stored in the ViewFamily.
+ * They can be used by the artist/designer/developer to debug/profile parts of the rendering.
+ * Some ShowFlags are used to customize the rendering e.g. by the SceneCaptureActor, those should not be locked in shipping and not used in inner loops (for performance)
+ * They should not be used for scalability (as some might be compiled out for SHIPPING), there we use console variables.
+ * ViewModes are on a higher level, they can manipulate show flags before they get used.
  */
 struct FEngineShowFlags
 {
@@ -50,9 +53,9 @@ struct FEngineShowFlags
 	#define SHOWFLAG_ALWAYS_ACCESSIBLE(a,...) uint32 a : 1; void Set##a(bool bVal){ a = bVal?1:0;}
 
 	#if UE_BUILD_OPTIMIZED_SHOWFLAGS 
-		#define SHOWFLAG_FIXED_IN_SHIPPING(a,b,...) static const bool a = b; void Set##a(bool bVal){}
+		#define SHOWFLAG_FIXED_IN_SHIPPING(v,a,...) static const bool a = v; void Set##a(bool bVal){}
 	#else
-		#define SHOWFLAG_FIXED_IN_SHIPPING(a,b,c,d) SHOWFLAG_ALWAYS_ACCESSIBLE(a,c,d)
+		#define SHOWFLAG_FIXED_IN_SHIPPING(v,a,b,c) SHOWFLAG_ALWAYS_ACCESSIBLE(a,b,c)
 	#endif
 
 	#include "ShowFlagsValues.inl"
@@ -78,7 +81,7 @@ struct FEngineShowFlags
 		if (LocNames.Num() == 0)
 		{
 			#define SHOWFLAG_ALWAYS_ACCESSIBLE(a,b,c) LocNames.Add( TEXT(PREPROCESSOR_TO_STRING(a)), c);
-			#define SHOWFLAG_FIXED_IN_SHIPPING(a,b,c,d) LocNames.Add( TEXT(PREPROCESSOR_TO_STRING(a)), d);
+			#define SHOWFLAG_FIXED_IN_SHIPPING(v,a,b,c) LocNames.Add( TEXT(PREPROCESSOR_TO_STRING(a)), c);
 			#include "ShowFlagsValues.inl"
 
 			// Additional strings that don't correspond to a showflag variable:
@@ -122,7 +125,7 @@ struct FEngineShowFlags
 		switch (FlagIndex)
 		{
 			#define SHOWFLAG_ALWAYS_ACCESSIBLE(a,b,c) case SF_##a: return b;
-			#define SHOWFLAG_FIXED_IN_SHIPPING(a,b,c,d) case SF_##a: return c;
+			#define SHOWFLAG_FIXED_IN_SHIPPING(v,a,b,c) case SF_##a: return b;
 			#include "ShowFlagsValues.inl"
 
 			default:
@@ -142,7 +145,7 @@ struct FEngineShowFlags
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	FEngineShowFlags()
 	{
-		EnsureRetrievingVTablePtr();
+		EnsureRetrievingVTablePtrDuringCtor(TEXT("FEngineShowFlags()"));
 		Init(ESFIM_Game);
 	}
 #endif // WITH_HOT_RELOAD_CTORS
@@ -170,7 +173,6 @@ struct FEngineShowFlags
 		SetScreenPercentage(false);
 		SetScreenSpaceReflections(false);
 		SetTemporalAA(false);
-		SetTextRender(false);
 
 		// might cause reallocation if we render rarely to it - for now off
 		SetAmbientOcclusion(false);
@@ -185,8 +187,6 @@ struct FEngineShowFlags
 		SetStereoRendering(false);
 		SetDistanceFieldAO(false);
 		SetDistanceFieldGI(false);
-
-		SetForceGBuffer(true);
 	}
 
 	// ---------------------------------------------------------
@@ -274,7 +274,6 @@ private:
 		SetVisualizeHDR(false);
 		SetOverrideDiffuseAndSpecular(false);
 		SetReflectionOverride(false);
-		SetLpvLightingOnly(false);
 		SetVisualizeBuffer(false);
 		SetVectorFields(false);
 		SetGBufferHints(false);
@@ -291,6 +290,8 @@ private:
 		SetShaderComplexity(false);
 		SetStationaryLightOverlap(false);
 		SetLightMapDensity(false);
+		SetVertexDensities(false);
+		SetLODColoration(false);
 		SetVisualizeLPV(false);
 		SetStreamingBounds(false);
 		SetConstraints(false);
@@ -336,7 +337,6 @@ private:
 		SetVisualizeDistanceFieldAO(false);
 		SetVisualizeDistanceFieldGI(false);
 		SetVisualizeSSR(false);
-		SetForceGBuffer(false);
 		SetVisualizeSSS(false);
 		SetVisualizeBloom(false);
 	}

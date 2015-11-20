@@ -47,7 +47,7 @@ void FEmptyDynamicRHI::RHIBeginDrawingViewport(FViewportRHIParamRef ViewportRHI,
 {
 	FEmptyViewport* Viewport = ResourceCast(ViewportRHI);
 
-	RHISetRenderTarget(RHIGetViewportBackBuffer(ViewportRHI), NULL);
+	//RHISetRenderTarget(RHIGetViewportBackBuffer(ViewportRHI), NULL);
 }
 
 void FEmptyDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bool bPresent,bool bLockToVsync)

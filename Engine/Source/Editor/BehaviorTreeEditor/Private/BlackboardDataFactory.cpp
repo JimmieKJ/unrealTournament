@@ -4,7 +4,7 @@
 #include "BehaviorTree/BlackboardData.h"
 #include "BlackboardDataFactory.h"
 
-#define LOCTEXT_NAMESPACE "BehaviorTreeFactory"
+#define LOCTEXT_NAMESPACE "BlackboardDataFactory"
 
 UBlackboardDataFactory::UBlackboardDataFactory(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

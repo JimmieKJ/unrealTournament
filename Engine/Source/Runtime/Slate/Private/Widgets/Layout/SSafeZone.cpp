@@ -15,18 +15,7 @@ void SSafeZone::Construct(const FArguments& InArgs)
 		]
 	);
 
-	// @todo: should we have a function that just returns the safe area size?
-	FDisplayMetrics Metrics;
-	FSlateApplication::Get().GetDisplayMetrics(Metrics);
-
-	if (InArgs._IsTitleSafe)
-	{
-		SafeMargin = FMargin(Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y);
-	}
-	else
-	{
-		SafeMargin = FMargin(Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y);
-	}
+	SetTitleSafe( InArgs._IsTitleSafe );
 
 	Padding = InArgs._Padding;
 }
@@ -35,4 +24,19 @@ FMargin SSafeZone::GetSafeZonePadding() const
 {
 	// return either the TitleSafe or the ActionSafe size, added to the user padding
 	return Padding.Get() + SafeMargin;
+}
+
+void SSafeZone::SetTitleSafe( bool bIsTitleSafe )
+{
+	FDisplayMetrics Metrics;
+	FSlateApplication::Get().GetDisplayMetrics( Metrics );
+
+	if ( bIsTitleSafe )
+	{
+		SafeMargin = FMargin( Metrics.TitleSafePaddingSize.X, Metrics.TitleSafePaddingSize.Y );
+	}
+	else
+	{
+		SafeMargin = FMargin( Metrics.ActionSafePaddingSize.X, Metrics.ActionSafePaddingSize.Y );
+	}
 }

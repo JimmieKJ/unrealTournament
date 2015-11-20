@@ -27,7 +27,7 @@ public:
 
 	/**
 	 * Returns the input pointer as output to allow this:
-	 * Example:  SceneColor = Graph.RegisterPass(new FRCPassPostProcessInput(GSceneRenderTargets.SceneColor));
+	 * Example:  SceneColor = Graph.RegisterPass(new FRCPassPostProcessInput(FSceneRenderTargets::Get(RHICmdList).SceneColor));
 	 * @param InPass - must not be 0
 	 */
 	template<class T>
@@ -45,19 +45,19 @@ private:
 	/** */
 	TArray<FRenderingCompositePass*> Nodes;
 
-	/** */
+	/** release all nodes */
 	void Free();
-
-	/** calls ResetDependency() in OutputId in each pass */
-	void ResetDependencies();
 
 	/** */
 	void ProcessGatherDependency(const FRenderingCompositeOutputRef* OutputRefIt);
 
-	/** should only be called by GatherDependencies(), can also be implemented without recursion */
-	static void RecursivelyGatherDependencies(const FRenderingCompositeOutputRef& InOutputRef);
+	/**
+	 * Is called by FRenderingCompositePassContext::Process(), could be implemented without recursion
+	 * @param Pass must not be 0
+	 */
+	static void RecursivelyGatherDependencies(FRenderingCompositePass *Pass);
 
-	/** can also be implemented without recursion */
+	/** could be implemented without recursion */
 	void RecursivelyProcess(const FRenderingCompositeOutputRef& InOutputRef, FRenderingCompositePassContext& Context) const;
 
 	/** Write the contents of the specified output to a file */
@@ -79,18 +79,15 @@ private:
 
 struct FRenderingCompositePassContext
 {
+	// constructor
 	FRenderingCompositePassContext(FRHICommandListImmediate& RHICmdList, FViewInfo& InView);
 
+	// destructor
 	~FRenderingCompositePassContext();
 
+	// call this only once after all nodes have been registered and connected (SetInput() or SetDependency())
 	// @param GraphDebugName must not be 0
-	void Process(const TCHAR *GraphDebugName);
-
-	//
-	FViewInfo& View;
-	FSceneViewState* ViewState;
-	// is updated before each Pass->Process() call
-	FRenderingCompositePass* Pass;
+	void Process(FRenderingCompositePass* Root, const TCHAR *GraphDebugName);
 
 	// call this method instead of RHISetViewport() so we can cache the values and use them to map beteen ScreenPos and pixels
 	void SetViewportAndCallRHI(FIntRect InViewPortRect, float InMinZ = 0.0f, float InMaxZ = 1.0f)
@@ -117,7 +114,7 @@ struct FRenderingCompositePassContext
 		check(!IsViewportValid());
 	}
 	
-	//
+	// Return the hardware viewport rectangle, not necessarily the current view rectangle (e.g. a post process can Set it to be larger than that)
 	FIntRect GetViewport() const
 	{
 		// need to call SetViewportAndCallRHI() before
@@ -126,27 +123,45 @@ struct FRenderingCompositePassContext
 		return ViewPortRect;
 	}
 
+	//
 	bool IsViewportValid() const
 	{
 		return ViewPortRect.Min != ViewPortRect.Max;
+	}
+
+	bool HasHmdMesh() const
+	{
+		return bHasHmdMesh;
 	}
 
 	ERHIFeatureLevel::Type GetFeatureLevel() const { return FeatureLevel; }
 	EShaderPlatform GetShaderPlatform() const { return GShaderPlatformForFeatureLevel[FeatureLevel]; }
 	TShaderMap<FGlobalShaderType>* GetShaderMap() const { check(ShaderMap); return ShaderMap; }
 
-	FRenderingCompositePass* Root;
-
+	//
+	FViewInfo& View;
+	//
+	FSceneViewState* ViewState;
+	// is updated before each Pass->Process() call
+	FRenderingCompositePass* Pass;
+	//
 	FRenderingCompositionGraph Graph;
-
+	//
 	FRHICommandListImmediate& RHICmdList;
 
 private:
+
 	// cached state to map between ScreenPos and pixels
 	FIntRect ViewPortRect;
-
+	//
 	ERHIFeatureLevel::Type FeatureLevel;
+	//
 	TShaderMap<FGlobalShaderType>* ShaderMap;
+	// to ensure we only process the graph once
+	bool bWasProcessed;
+	// updated once a frame in Process()
+	// If true there's a custom mesh to use instead of a full screen quad when rendering post process passes.
+	bool bHasHmdMesh;
 };
 
 // ---------------------------------------------------------------------------
@@ -154,7 +169,9 @@ private:
 struct FRenderingCompositePass
 {
 	/** constructor */
-	FRenderingCompositePass() : bGraphMarker(false)
+	FRenderingCompositePass() 
+		: bComputeOutputDescWasCalled(false)
+		, bProcessWasCalled(false)
 	{
 	}
 
@@ -162,6 +179,12 @@ struct FRenderingCompositePass
 
 	/** @return 0 if outside the range */
 	virtual FRenderingCompositeOutputRef* GetInput(EPassInputId InPassInputId) = 0;
+
+	/**
+	 * const version of GetInput()
+	 * @return 0 if outside the range
+	 */
+	virtual const FRenderingCompositeOutputRef* GetInput(EPassInputId InPassInputId) const = 0;
 
 	/**
 	 * Each input is a dependency and will be processed before the node itself (don't generate cycles)
@@ -242,10 +265,15 @@ struct FRenderingCompositePass
 	/** */
 	virtual void Release() = 0;
 
-private:
+	/** can be called after RecursivelyGatherDependencies to detect if the node is reference by any other node - if not we don't need to run it */
+	bool WasComputeOutputDescCalled() const { return bComputeOutputDescWasCalled; }
 
-	/** to allow the graph to mark already processed nodes */
-	bool bGraphMarker;
+protected:
+
+	/** to avoid wasteful recomputation and to support graph/DAG traversal, if ComputeOutputDesc() was called */
+	bool bComputeOutputDescWasCalled;
+	/** to allows reuse and to support graph/DAG traversal, if Process() was called */
+	bool bProcessWasCalled;
 
 	friend class FRenderingCompositionGraph;
 };
@@ -367,6 +395,17 @@ struct TRenderingCompositePassBase :public FRenderingCompositePass
 		return 0;
 	}
 	
+	// const version of GetInput()
+	virtual const FRenderingCompositeOutputRef* GetInput(EPassInputId InPassInputId) const
+	{
+		if((int32)InPassInputId < InputCount)
+		{
+			return &PassInputs[InPassInputId];
+		}
+
+		return 0;
+	}
+
 	virtual void SetInput(EPassInputId InPassInputId, const FRenderingCompositeOutputRef& VirtualBuffer)
 	{
 		if((int32)InPassInputId < InputCount)
@@ -455,9 +494,10 @@ struct TRenderingCompositePassBase :public FRenderingCompositePass
 		PassOutputColorArrays[OutputId] = OutputBuffer;
 	}
 
-protected:
-	/** hack to allow 0 inputs */
+private:
+	/** use GetInput() instead of accessing PassInputs directly */
 	FRenderingCompositeOutputRef PassInputs[InputCount == 0 ? 1 : InputCount];
+protected:
 	/** */
 	FRenderingCompositeOutput PassOutputs[OutputCount];
 	/** Filenames that the outputs can be written to after being processed */
@@ -466,17 +506,6 @@ protected:
 	TArray<FColor>* PassOutputColorArrays[OutputCount];
 	/** All dependencies: PassInputs and all objects in this container */
 	TArray<FRenderingCompositeOutputRef> AdditionalDependencies;
-};
-
-
-// derives from TRenderingCompositePassBase<InputCount, OutputCount>
-class FRCPassPostProcessRoot : public TRenderingCompositePassBase<0, 1>
-{
-public:
-	// interface FRenderingCompositePass ---------
-	virtual void Process(FRenderingCompositePassContext& Context) override {}
-	virtual void Release() override { delete this; }
-	FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override { FPooledRenderTargetDesc Desc; Desc.DebugName = TEXT("Root"); return Desc; }
 };
 
 void CompositionGraph_OnStartFrame();

@@ -10,52 +10,88 @@ FAvfMediaVideoTrack::FAvfMediaVideoTrack( AVAssetTrack* InVideoTrack )
     : FAvfMediaTrack()
     , SyncStatus(Default)
     , BitRate(0)
+	, Height(0)
+	, Width(0)
 {
-    LatestSamples = nil;
-    
-    NSError* nsError = nil;
-	VideoTrack = InVideoTrack;
-    AVReader = [[AVAssetReader alloc] initWithAsset: [VideoTrack asset] error:&nsError];
-    if( nsError != nil )
-    {
-        FString ErrorStr( [nsError localizedDescription] );
-		UE_LOG(LogAvfMedia, Error, TEXT("Failed to create asset reader: %s"), *ErrorStr);
-    }
-    else
-    {
-        // Initialize our video output to match the format of the texture we'll be streaming to.
-        NSMutableDictionary* OutputSettings = [NSMutableDictionary dictionary];
-        [OutputSettings setObject: [NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(NSString*)kCVPixelBufferPixelFormatTypeKey];
-        
-        AVVideoOutput = [[AVAssetReaderTrackOutput alloc] initWithTrack:VideoTrack outputSettings:OutputSettings];
-        AVVideoOutput.alwaysCopiesSampleData = NO;
-    
-        FrameRate = 1.0f / [[AVVideoOutput track] nominalFrameRate];
-        
-        [AVReader addOutput:AVVideoOutput];
-        bVideoTracksLoaded = [AVReader startReading];
+	LatestSamples = nil;
 
-        // The initial read of a frame will allow us to gather information on the video track, before we start playing the samples
-        ReadFrameAtTime( kCMTimeZero, true );
-    }
+	NSError* nsError = nil;
+	VideoTrack = InVideoTrack;
+	AVReader = [[AVAssetReader alloc] initWithAsset: [VideoTrack asset] error:&nsError];
+	if( nsError != nil )
+	{
+		FString ErrorStr( [nsError localizedDescription] );
+		UE_LOG(LogAvfMedia, Error, TEXT("Failed to create asset reader: %s"), *ErrorStr);
+	}
+	else
+	{
+		// Initialize our video output to match the format of the texture we'll be streaming to.
+		NSMutableDictionary* OutputSettings = [NSMutableDictionary dictionary];
+		[OutputSettings setObject: [NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey:(NSString*)kCVPixelBufferPixelFormatTypeKey];
+
+		AVVideoOutput = [[AVAssetReaderTrackOutput alloc] initWithTrack:VideoTrack outputSettings:OutputSettings];
+		AVVideoOutput.alwaysCopiesSampleData = NO;
+
+		FrameRate = 1.0f / [[AVVideoOutput track] nominalFrameRate];
+
+		[AVReader addOutput:AVVideoOutput];
+		bVideoTracksLoaded = [AVReader startReading];
+
+		// The initial read of a frame will allow us to gather information on the video track, before we start playing the samples
+		if (!ReadFrameAtTime( kCMTimeZero, true ))
+		{
+			[AVVideoOutput release];
+			AVVideoOutput = nil;
+			[AVReader release];
+			AVReader = nil;
+		}
+	}
 }
 
 
 FAvfMediaVideoTrack::~FAvfMediaVideoTrack()
 {
-    if( AVVideoOutput != nil )
-    {
-        AVVideoOutput = nil;
-    }
-    
-    if( AVReader != nil )
-    {
-        AVReader = nil;
-    }
+	if( AVVideoOutput != nil )
+	{
+		[AVVideoOutput release];
+		AVVideoOutput = nil;
+	}
+
+	if( AVReader != nil )
+	{
+		[AVReader release];
+		AVReader = nil;
+	}
 }
 
 
 /* FAvfMediaVideoTrack interface
+ *****************************************************************************/
+
+bool FAvfMediaVideoTrack::IsReady() const
+{
+    return AVReader != nil && AVReader.status == AVAssetReaderStatusReading;
+}
+
+
+/* IMediaVideoTrack interface
+ *****************************************************************************/
+
+#if WITH_ENGINE
+void FAvfMediaVideoTrack::BindTexture(class FRHITexture* Texture)
+{
+	// @todo avf: trepka: implement texture binding
+}
+
+
+void FAvfMediaVideoTrack::UnbindTexture(class FRHITexture* Texture)
+{
+	// @todo avf: trepka: implement texture binding
+}
+#endif
+
+
+/* FAvfMediaVideoTrack implementation
  *****************************************************************************/
 
 bool FAvfMediaVideoTrack::SeekToTime( const CMTime& SeekTime )
@@ -101,16 +137,10 @@ void FAvfMediaVideoTrack::ResetAssetReader()
 }
 
 
-bool FAvfMediaVideoTrack::IsReady() const
-{
-    return AVReader != nil && AVReader.status == AVAssetReaderStatusReading;
-}
-
-
-void FAvfMediaVideoTrack::ReadFrameAtTime( const CMTime& AVPlayerTime, bool bInIsInitialFrameRead )
+bool FAvfMediaVideoTrack::ReadFrameAtTime( const CMTime& AVPlayerTime, bool bInIsInitialFrameRead )
 {
     check( bVideoTracksLoaded );
-    
+	
     if( AVReader.status == AVAssetReaderStatusReading )
     {
         double CurrentAVTime = CMTimeGetSeconds( AVPlayerTime );
@@ -129,7 +159,7 @@ void FAvfMediaVideoTrack::ReadFrameAtTime( const CMTime& AVPlayerTime, bool bInI
                 if( LatestSamples == NULL )
                 {
                     // Failed to get next sample buffer.
-                    break;
+					return false;
                 }
             }
         
@@ -208,4 +238,12 @@ void FAvfMediaVideoTrack::ReadFrameAtTime( const CMTime& AVPlayerTime, bool bInI
             SyncStatus = bInIsInitialFrameRead ? Ready : Default;
         }
     }
+
+	return true;
+}
+
+bool FAvfMediaVideoTrack::ReachedEnd() const
+{
+	AVAssetReaderStatus Status = AVReader.status;
+    return (AVReader != nil) && (Status == AVAssetReaderStatusCompleted);
 }

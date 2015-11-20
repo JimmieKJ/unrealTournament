@@ -142,12 +142,6 @@ public:
 	TArray<FAttachedActorInfo> AttachedActors;
 };
 
-FName UChildActorComponent::GetComponentInstanceDataType() const
-{
-	static const FName ChildActorComponentInstanceDataName(TEXT("ChildActorInstanceData"));
-	return ChildActorComponentInstanceDataName;
-}
-
 FActorComponentInstanceData* UChildActorComponent::GetComponentInstanceData() const
 {
 	FChildActorComponentInstanceData* InstanceData = CachedInstanceData;
@@ -178,7 +172,7 @@ void UChildActorComponent::ApplyComponentInstanceData(FChildActorComponentInstan
 			const FString ChildActorNameString = ChildActorName.ToString();
 			if (ChildActor->Rename(*ChildActorNameString, nullptr, REN_Test))
 			{
-				ChildActor->Rename(*ChildActorNameString, nullptr, REN_DoNotDirty);
+				ChildActor->Rename(*ChildActorNameString, nullptr, REN_DoNotDirty | (IsLoading() ? REN_ForceNoResetLoaders : REN_None));
 			}
 		}
 
@@ -249,7 +243,7 @@ void UChildActorComponent::CreateChildActor()
 			if (bSpawn)
 			{
 				FActorSpawnParameters Params;
-				Params.bNoCollisionFail = true;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				Params.bDeferConstruction = true; // We defer construction so that we set ParentComponentActor prior to component registration so they appear selected
 				Params.bAllowDuringConstructionScript = true;
 				Params.OverrideLevel = (MyOwner ? MyOwner->GetLevel() : nullptr);
@@ -272,10 +266,10 @@ void UChildActorComponent::CreateChildActor()
 					// Remember which actor spawned it (for selection in editor etc)
 					ChildActor->ParentComponentActor = MyOwner;
 
-					ChildActor->AttachRootComponentTo(this, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
-
 					// Parts that we deferred from SpawnActor
 					ChildActor->FinishSpawning(ComponentToWorld);
+
+					ChildActor->AttachRootComponentTo(this, NAME_None, EAttachLocation::SnapToTargetIncludingScale);
 				}
 			}
 		}
@@ -313,7 +307,7 @@ void UChildActorComponent::DestroyChildActor(const bool bRequiresRename)
 				if (bRequiresRename)
 				{
 					const FString ObjectBaseName = FString::Printf(TEXT("DESTROYED_%s_CHILDACTOR"), *ChildClass->GetName());
-					const ERenameFlags RenameFlags = (GetWorld()->IsGameWorld() ? REN_DoNotDirty | REN_ForceNoResetLoaders : REN_DoNotDirty);
+					const ERenameFlags RenameFlags = ((GetWorld()->IsGameWorld() || IsLoading()) ? REN_DoNotDirty | REN_ForceNoResetLoaders : REN_DoNotDirty);
 					ChildActor->Rename(*MakeUniqueObjectName(ChildActor->GetOuter(), ChildClass, *ObjectBaseName).ToString(), nullptr, RenameFlags);
 				}
 				World->DestroyActor(ChildActor);

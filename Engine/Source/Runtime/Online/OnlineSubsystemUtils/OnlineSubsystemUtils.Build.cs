@@ -19,7 +19,9 @@ public class OnlineSubsystemUtils : ModuleRules
                 "ImageCore",
 				"OnlineSubsystem",
 				"Sockets",
-				"Voice"
+				"Voice",
+                "PacketHandler",
+				"Json"
 			}
 		);
 	}

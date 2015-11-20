@@ -47,6 +47,7 @@ public class Kismet : ModuleRules
                 "DerivedDataCache",
 				"DesktopPlatform",
 				"HotReload",
+                "BlueprintNativeCodeGen"
 			}
 			);
 
@@ -59,5 +60,11 @@ public class Kismet : ModuleRules
                 "BlueprintCompilerCppBackend",
 			}
             );
+
+        CircularlyReferencedDependentModules.AddRange(
+            new string[] {
+                "BlueprintGraph",
+            }
+        ); 
 	}
 }

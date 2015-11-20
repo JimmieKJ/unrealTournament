@@ -1044,6 +1044,7 @@ void FParticleBeam2EmitterInstance::SetupBeamModifierModulesOffsets()
  */
 void FParticleBeam2EmitterInstance::ResolveSource()
 {
+	check(IsInGameThread());
 	if (BeamModule_Source)
 	{
 		if (BeamModule_Source->SourceName != NAME_None)
@@ -1089,6 +1090,7 @@ void FParticleBeam2EmitterInstance::ResolveSource()
  */
 void FParticleBeam2EmitterInstance::ResolveTarget()
 {
+	check(IsInGameThread());
 	if (BeamModule_Target)
 	{
 		if (BeamModule_Target->TargetName != NAME_None)
@@ -1235,7 +1237,7 @@ FDynamicEmitterDataBase* FParticleBeam2EmitterInstance::GetDynamicData(bool bSel
 	}
 
 	// Allocate the dynamic data
-	FDynamicBeam2EmitterData* NewEmitterData = ::new FDynamicBeam2EmitterData(LODLevel->RequiredModule);
+	FDynamicBeam2EmitterData* NewEmitterData = new FDynamicBeam2EmitterData(LODLevel->RequiredModule);
 	{
 		SCOPE_CYCLE_COUNTER(STAT_ParticleMemTime);
 		INC_DWORD_STAT(STAT_DynamicEmitterCount);
@@ -1325,7 +1327,7 @@ bool FParticleBeam2EmitterInstance::UpdateDynamicData(FDynamicEmitterDataBase* D
  */
 FDynamicEmitterReplayDataBase* FParticleBeam2EmitterInstance::GetReplayData()
 {
-	FDynamicEmitterReplayDataBase* NewEmitterReplayData = ::new FDynamicBeam2EmitterReplayData();
+	FDynamicEmitterReplayDataBase* NewEmitterReplayData = new FDynamicBeam2EmitterReplayData();
 	check( NewEmitterReplayData != NULL );
 
 	if( !FillReplayData( *NewEmitterReplayData ) )
@@ -1571,7 +1573,7 @@ bool FParticleBeam2EmitterInstance::FillReplayData( FDynamicEmitterReplayDataBas
 
 	//@todo. SORTING IS A DIFFERENT ISSUE NOW! 
 	//		 GParticleView isn't going to be valid anymore?
-	uint8* PData = NewReplayData->ParticleData.GetData();
+	uint8* PData = NewReplayData->DataContainer.ParticleData;
 	for (int32 i = 0; i < NewReplayData->ActiveParticleCount; i++)
 	{
 		DECLARE_PARTICLE(Particle, ParticleData + ParticleStride * ParticleIndices[i]);

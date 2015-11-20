@@ -1,10 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-
+#include "BaseTextLayoutMarshaller.h"
 
 class FOutputLogTextLayoutMarshaller;
-
 
 /**
  * A single log message for the output log, holding a message and
@@ -31,6 +30,7 @@ class SConsoleInputBox
 {
 
 public:
+	DECLARE_DELEGATE_OneParam(FExecuteConsoleCommand, const FString& /*ExecCommand*/)
 
 	SLATE_BEGIN_ARGS( SConsoleInputBox )
 		: _SuggestionListPlacement( MenuPlacement_BelowAnchor )
@@ -38,6 +38,9 @@ public:
 
 		/** Where to place the suggestion list */
 		SLATE_ARGUMENT( EMenuPlacement, SuggestionListPlacement )
+
+		/** Custom executor for console command, will be used when bound */
+		SLATE_EVENT( FExecuteConsoleCommand, ConsoleCommandCustomExec)
 
 		/** Called when a console command is executed */
 		SLATE_EVENT( FSimpleDelegate, OnConsoleCommandExecuted )
@@ -67,7 +70,7 @@ protected:
 	virtual bool SupportsKeyboardFocus() const override { return true; }
 
 	// e.g. Tab or Key_Up
-	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent ) override;
+	virtual FReply OnPreviewKeyDown( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent ) override;
 
 	void OnFocusLost( const FFocusEvent& InFocusEvent ) override;
 
@@ -89,7 +92,6 @@ protected:
 
 	FString GetSelectionText() const;
 
-
 private:
 
 	/** Editable text widget */
@@ -106,6 +108,9 @@ private:
 
 	/** Delegate to call when a console command is executed */
 	FSimpleDelegate OnConsoleCommandExecuted;
+
+	/** Delegate to call to execute console command */
+	FExecuteConsoleCommand ConsoleCommandCustomExec;
 
 	/** -1 if not set, otherwise index into Suggestions */
 	int32 SelectedSuggestion;
@@ -160,7 +165,7 @@ protected:
 
 	virtual void Serialize( const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category ) override;
 
-private:
+protected:
 	/**
 	 * Extends the context menu used by the text box
 	 */
@@ -195,4 +200,34 @@ private:
 
 	/** True if the user has scrolled the window upwards */
 	bool bIsUserScrolled;
+};
+
+
+/** Output log text marshaller to convert an array of FLogMessages into styled lines to be consumed by an FTextLayout */
+class FOutputLogTextLayoutMarshaller : public FBaseTextLayoutMarshaller
+{
+public:
+
+	static TSharedRef< FOutputLogTextLayoutMarshaller > Create(TArray< TSharedPtr<FLogMessage> > InMessages);
+
+	virtual ~FOutputLogTextLayoutMarshaller();
+	
+	// ITextLayoutMarshaller
+	virtual void SetText(const FString& SourceString, FTextLayout& TargetTextLayout) override;
+	virtual void GetText(FString& TargetString, const FTextLayout& SourceTextLayout) override;
+
+	bool AppendMessage(const TCHAR* InText, const ELogVerbosity::Type InVerbosity, const FName& InCategory);
+	void ClearMessages();
+	int32 GetNumMessages() const;
+
+protected:
+
+	FOutputLogTextLayoutMarshaller(TArray< TSharedPtr<FLogMessage> > InMessages);
+
+	void AppendMessageToTextLayout(const TSharedPtr<FLogMessage>& Message);
+
+	/** All log messages to show in the text box */
+	TArray< TSharedPtr<FLogMessage> > Messages;
+
+	FTextLayout* TextLayout;
 };

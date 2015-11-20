@@ -4,7 +4,10 @@
 
 #include "BehaviorTreeComponent.h"
 #include "BehaviorTreeTypes.h"
+#include "GameplayTaskOwnerInterface.h"
 #include "BTNode.generated.h"
+
+AIMODULE_API DECLARE_LOG_CATEGORY_EXTERN(LogBehaviorTree, Display, All);
 
 class AAIController;
 class UWorld;
@@ -20,7 +23,7 @@ struct FBTInstancedNodeMemory
 };
 
 UCLASS(Abstract,config=Game)
-class AIMODULE_API UBTNode : public UObject
+class AIMODULE_API UBTNode : public UObject, public IGameplayTaskOwnerInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -137,8 +140,33 @@ class AIMODULE_API UBTNode : public UObject
 	virtual bool UsesBlueprint() const;
 #endif
 
-	/** Gets called only for instanced nodes(bCreateNodeInstance == true). In practive overriden by BP-implemented BT nodes */
+	/** Gets called only for instanced nodes(bCreateNodeInstance == true). In practive overridden by BP-implemented BT nodes */
 	virtual void SetOwner(AActor* ActorOwner) {}
+
+	//----------------------------------------------------------------------//
+	// IGameplayTaskOwnerInterface & other gameplay task stuff
+	//----------------------------------------------------------------------//
+	virtual UGameplayTasksComponent* GetGameplayTasksComponent(const UGameplayTask& Task) const override;
+	virtual void OnTaskActivated(UGameplayTask& Task) override;
+	virtual void OnTaskDeactivated(UGameplayTask& Task) override;
+	virtual void OnTaskInitialized(UGameplayTask& Task) override;
+	virtual AActor* GetOwnerActor(const UGameplayTask* Task) const;
+	virtual AActor* GetAvatarActor(const UGameplayTask* Task) const;
+	virtual uint8 GetDefaultPriority() const;
+
+	UBehaviorTreeComponent* GetBTComponentForTask(UGameplayTask& Task) const;
+	
+	template <class T>
+	T* NewBTAITask(UBehaviorTreeComponent& BTComponent)
+	{
+		T* NewAITask = NewObject<T>();
+		AAIController* AIController = BTComponent.GetAIOwner();
+		check(AIController && "Can\'t spawn an AI task without AI controller!");
+		NewAITask->InitAITask(*AIController, *this, GetDefaultPriority());
+		bOwnsGameplayTasks = true;
+
+		return NewAITask;
+	}
 
 	/** node name */
 	UPROPERTY(Category=Description, EditAnywhere)
@@ -168,16 +196,20 @@ private:
 	/** depth in tree */
 	uint8 TreeDepth;
 
+	/** set automatically for node instances. Should never be set manually */
+	uint8 bIsInstanced : 1;
+
+	/** if set, node is injected by subtree. Should never be set manually */
+	uint8 bIsInjected : 1;
+
 protected:
 
 	/** if set, node will be instanced instead of using memory block and template shared with all other BT components */
 	uint8 bCreateNodeInstance : 1;
 
-	/** set automatically for node instances */
-	uint8 bIsInstanced : 1;
-
-	/** if set, node is injected by subtree */
-	uint8 bIsInjected : 1;
+	/** set to true if task owns any GameplayTasks. Note this requires tasks to be created via NewBTAITask
+	 *	Otherwise specific BT task node class is responsible for ending the gameplay tasks on node finish */
+	uint8 bOwnsGameplayTasks : 1;
 
 	//----------------------------------------------------------------------//
 	// DEPRECATED

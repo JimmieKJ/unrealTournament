@@ -36,7 +36,7 @@ static PxQueryHitType::Enum WheelRaycastPreFilter(
 	}
 
 	// collision channels filter
-	ECollisionChannel SuspensionChannel = (ECollisionChannel)(SuspensionData.word3 >> 24);
+	ECollisionChannel SuspensionChannel = GetCollisionChannel(SuspensionData.word3);
 
 	if ( ECC_TO_BITFIELD(SuspensionChannel) & HitData.word1)
 	{

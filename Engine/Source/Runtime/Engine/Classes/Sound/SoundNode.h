@@ -59,17 +59,16 @@ class ENGINE_API USoundNode : public UObject
 #endif
 
 public:
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
-
-	virtual void Serialize(FArchive& Ar) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 #endif //WITH_EDITOR
-	// End UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject Interface
 
 	//
-	// USoundNode interface. 
+	//~ Begin USoundNode Interface. 
 	//
 
 	/**
@@ -141,9 +140,9 @@ public:
 	virtual void SetChildNodes(TArray<USoundNode*>& InChildNodes);
 
 	/** Get the name of a specific input pin */
-	virtual FString GetInputPinName(int32 PinIndex) const { return TEXT(""); }
+	virtual FText GetInputPinName(int32 PinIndex) const { return FText::GetEmpty(); }
 
-	virtual FString GetTitle() const { return GetClass()->GetDescription(); }
+	virtual FText GetTitle() const { return GetClass()->GetDisplayNameText(); }
 
 	/** Helper function to set the position of a sound node on a grid */
 	void PlaceNode(int32 NodeColumn, int32 NodeRow, int32 RowCount );

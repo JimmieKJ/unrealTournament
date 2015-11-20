@@ -6,15 +6,9 @@
 
 #pragma once
 
+#include "PhysXPublic.h"
+
 #if WITH_PHYSX
-
-#include "PhysXIncludes.h"
-#include "EngineLogs.h"
-
-// Whether or not to use the PhysX scene lock
-#ifndef USE_SCENE_LOCK
-#define USE_SCENE_LOCK			1
-#endif
 
 // Whether to track PhysX memory allocations
 #ifndef PHYSX_MEMORY_VALIDATION
@@ -33,281 +27,10 @@
 
 #define PHYSX_MEMORY_STAT_ONLY (0)
 
-#if USE_SCENE_LOCK
-
-/** Scoped scene read lock - we use this instead of PxSceneReadLock because it handles NULL scene */
-class FPhysXSceneReadLock
-{
-public:
-	
-	FPhysXSceneReadLock(PxScene* PInScene)
-		: PScene(PInScene)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_PhysSceneReadLock);
-		if(PScene)
-		{
-			PScene->lockRead();
-		}
-	}
-
-	~FPhysXSceneReadLock()
-	{
-		if(PScene)
-		{
-			PScene->unlockRead();
-		}
-	}
-
-private:
-	PxScene* PScene;
-};
-
-/** Scoped scene write lock - we use this instead of PxSceneReadLock because it handles NULL scene */
-class FPhysXSceneWriteLock
-{
-public:
-	FPhysXSceneWriteLock(PxScene* PInScene)
-		: PScene(PInScene)
-	{
-		SCOPE_CYCLE_COUNTER(STAT_PhysSceneWriteLock);
-		if(PScene)
-		{
-			PScene->lockWrite();
-		}
-	}
-
-	~FPhysXSceneWriteLock()
-	{
-		if(PScene)
-		{
-			PScene->unlockWrite();
-		}
-	}
-
-private:
-	PxScene* PScene;
-};
-
-#define SCOPED_SCENE_READ_LOCK( _scene ) FPhysXSceneReadLock PREPROCESSOR_JOIN(_rlock,__LINE__)(_scene)
-#define SCOPED_SCENE_WRITE_LOCK( _scene ) FPhysXSceneWriteLock PREPROCESSOR_JOIN(_wlock,__LINE__)(_scene)
-
-#define SCENE_LOCK_READ( _scene )		{ SCOPE_CYCLE_COUNTER(STAT_PhysSceneReadLock); if((_scene) != NULL) { (_scene)->lockRead(); } }
-#define SCENE_UNLOCK_READ( _scene )		{ if((_scene) != NULL) { (_scene)->unlockRead(); } }
-#define SCENE_LOCK_WRITE( _scene )		{ SCOPE_CYCLE_COUNTER(STAT_PhysSceneWriteLock); if((_scene) != NULL) { (_scene)->lockWrite(); } }
-#define SCENE_UNLOCK_WRITE( _scene )	{ if((_scene) != NULL) { (_scene)->unlockWrite(); } }
-#else
-#define SCOPED_SCENE_READ_LOCK_INDEXED( _scene, _index )
-#define SCOPED_SCENE_READ_LOCK( _scene )
-#define SCOPED_SCENE_WRITE_LOCK_INDEXED( _scene, _index )
-#define SCOPED_SCENE_WRITE_LOCK( _scene )
-#define SCENE_LOCK_READ( _scene )
-#define SCENE_UNLOCK_READ( _scene )
-#define SCENE_LOCK_WRITE( _scene )
-#define SCENE_UNLOCK_WRITE( _scene )
-#endif
-
-/** Get a pointer to the PxScene from an SceneIndex (will be NULL if scene already shut down) */
-PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex);
-
 #if WITH_APEX
 /** Get a pointer to the NxApexScene from an SceneIndex (will be NULL if scene already shut down) */
 NxApexScene* GetApexSceneFromIndex(int32 InSceneIndex);
 #endif
-
-template <bool NeedsLock>
-struct FPhysXSupport
-{
-	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda.
-	 *  If SceneType < 0, the Sync actor is used, otherwise the async.
-	 *  Note: The lambda is only executed if the physx actor requested is non-null.
-	 *  returns true if the requested actor is non-null
-	 */
-	template <typename LambdaType>
-	static bool ExecuteOnPxRigidActorReadOnly(const FBodyInstance* BI, const LambdaType& Func, int32 SceneType = -1)
-	{
-		if (const PxRigidActor* PRigidActor = BI->GetPxRigidActor_AssumesLocked(SceneType))
-		{
-			const int32 SceneIndex = (PRigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
-			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
-			if (NeedsLock)
-			{
-				SCENE_LOCK_READ(PScene);
-			}
-
-			Func(PRigidActor);
-
-			if (NeedsLock)
-			{
-				SCENE_UNLOCK_READ(PScene);
-			}
-
-			return true;
-		}
-
-		return false;
-	}
-
-	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda.
-	 *  Note: The lambda is only executed if the physx actor is a non-null RigidBody
-	 *  returns true if found a non-null RigidBody
-	 */
-	template <typename LambdaType>
-	static bool ExecuteOnPxRigidBodyReadOnly(const FBodyInstance* BI, const LambdaType& Func)
-	{
-		bool bSuccess = false;
-		if (const physx::PxRigidActor* RigidActor = BI->GetPxRigidActor_AssumesLocked())
-		{
-			const int32 SceneIndex = (RigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
-			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
-			if (NeedsLock)
-			{
-				SCENE_LOCK_READ(PScene);
-			}
-
-			if (const physx::PxRigidBody* PRigidBody = RigidActor->isRigidBody())
-			{
-				Func(PRigidBody);
-				bSuccess = true;
-			}
-
-			if (NeedsLock)
-			{
-				SCENE_UNLOCK_READ(PScene);
-			}
-		}
-
-		return bSuccess;
-	}
-
-	/** Obtains the appropriate PhysX scene lock for WRITING and executes the passed in lambda.
-	 *  Note: The lambda is only executed if the physx actor is a non-null RigidBody
-	 *  returns true if found a non-null RigidBody.
-	 */
-	template <typename LambdaType>
-	static bool ExecuteOnPxRigidBodyReadWrite(const FBodyInstance* BI, const LambdaType& Func)
-	{
-		bool bSuccess = false;
-		if (physx::PxRigidActor* RigidActor = BI->GetPxRigidActor_AssumesLocked())
-		{
-			const int32 SceneIndex = (RigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
-			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
-			if(NeedsLock)
-			{
-				SCENE_LOCK_WRITE(PScene);
-			}
-			
-			if (physx::PxRigidBody* PRigidBody = RigidActor->isRigidBody())
-			{
-				Func(PRigidBody);
-				bSuccess = true;
-			}
-
-			if(NeedsLock)
-			{
-				SCENE_UNLOCK_WRITE(PScene);
-			}
-		}
-
-		return bSuccess;
-	}
-
-	/** Obtains the appropriate PhysX scene lock for READING and executes the passed in lambda.
-	 *  Note: The lambda is only executed if the physx actor is a non-null RigidDynamic
-	 *  returns true if found a non-null RigidDynamic.
-	 */
-	template <typename LambdaType>
-	static bool ExecuteOnPxRigidDynamicReadOnly(const FBodyInstance* BI, const LambdaType& Func)
-	{
-		bool bSuccess = false;
-		if (physx::PxRigidActor* RigidActor = BI->GetPxRigidActor_AssumesLocked())
-		{
-			const int32 SceneIndex = (RigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
-			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
-			if (NeedsLock)
-			{
-				SCENE_LOCK_READ(PScene);
-			}
-
-			if (physx::PxRigidDynamic* PRigidDynamic = RigidActor->isRigidDynamic())
-			{
-				Func(PRigidDynamic);
-				bSuccess = true;
-			}
-
-			if (NeedsLock)
-			{
-				SCENE_UNLOCK_READ(PScene);
-			}
-		}
-
-		return bSuccess;
-	}
-
-	/** Obtains the appropriate PhysX scene lock for WRITING and executes the passed in lambda.
-	 *  Note: The lambda is only executed if the physx actor is a non-null RigidDynamic
-	 *  returns true if found a non-null RigidDynamic.
-	 */
-	template <typename LambdaType>
-	static bool ExecuteOnPxRigidDynamicReadWrite(const FBodyInstance* BI, const LambdaType& Func)
-	{
-		bool bSuccess = false;
-		if (physx::PxRigidActor* RigidActor = BI->GetPxRigidActor_AssumesLocked())
-		{
-			const int32 SceneIndex = (RigidActor == BI->RigidActorSync ? BI->SceneIndexSync : BI->SceneIndexAsync);
-			PxScene* PScene = GetPhysXSceneFromIndex(SceneIndex);
-			if (NeedsLock)
-			{
-				SCENE_LOCK_WRITE(PScene);
-			}
-
-			if (physx::PxRigidDynamic* PRigidDynamic = RigidActor->isRigidDynamic())
-			{
-				Func(PRigidDynamic);
-				bSuccess = true;
-			}
-
-			if (NeedsLock)
-			{
-				SCENE_UNLOCK_WRITE(PScene);
-			}
-		}
-
-		return bSuccess;
-	}
-};
-
-// Utility functions for obtaining locks and executing lambda. This indirection is needed for vs2012 but should be inlined
-template <typename LambdaType> bool ExecuteOnPxRigidActorReadOnly(const FBodyInstance* BI, const LambdaType& Func, int32 SceneType = -1){ return FPhysXSupport<true>::ExecuteOnPxRigidActorReadOnly(BI, Func, SceneType); }
-template <typename LambdaType> bool ExecuteOnPxRigidBodyReadOnly(const FBodyInstance* BI, const LambdaType& Func) { return FPhysXSupport<true>::ExecuteOnPxRigidBodyReadOnly(BI, Func); }
-template <typename LambdaType> bool ExecuteOnPxRigidBodyReadWrite(const FBodyInstance* BI, const LambdaType& Func){ return FPhysXSupport<true>::ExecuteOnPxRigidBodyReadWrite(BI, Func); }
-template <typename LambdaType> bool ExecuteOnPxRigidDynamicReadOnly(const FBodyInstance* BI, const LambdaType& Func){ return FPhysXSupport<true>::ExecuteOnPxRigidDynamicReadOnly(BI, Func); }
-template <typename LambdaType> bool ExecuteOnPxRigidDynamicReadWrite(const FBodyInstance* BI, const LambdaType& Func){ return FPhysXSupport<true>::ExecuteOnPxRigidDynamicReadWrite(BI, Func); }
-
-//////// BASIC TYPE CONVERSION
-
-/** Convert Unreal FMatrix to PhysX PxTransform */
-ENGINE_API PxTransform UMatrix2PTransform(const FMatrix& UTM);
-/** Convert Unreal FTransform to PhysX PxTransform */
-ENGINE_API PxTransform U2PTransform(const FTransform& UTransform);
-/** Convert Unreal FVector to PhysX PxVec3 */
-ENGINE_API PxVec3 U2PVector(const FVector& UVec);
-/** Convert Unreal FQuat to PhysX PxTransform */
-ENGINE_API PxQuat U2PQuat(const FQuat& UQuat);
-/** Convert Unreal FMatrix to PhysX PxMat44 */
-ENGINE_API PxMat44 U2PMatrix(const FMatrix& UTM);
-/** Convert Unreal FPlane to PhysX plane def */
-ENGINE_API PxPlane U2PPlane(FPlane& Plane);
-/** Convert PhysX PxTransform to Unreal PxTransform */
-ENGINE_API FTransform P2UTransform(const PxTransform& PTM);
-/** Convert PhysX PxQuat to Unreal FQuat */
-ENGINE_API FQuat P2UQuat(const PxQuat& PQuat);
-/** Convert PhysX plane def to Unreal FPlane */
-ENGINE_API FPlane P2UPlane(PxReal P[4]);
-ENGINE_API FPlane P2UPlane(PxPlane& Plane);
-/** Convert PhysX PxMat44 to Unreal FMatrix */
-ENGINE_API FMatrix P2UMatrix(const PxMat44& PMat);
-/** Convert PhysX PxTransform to Unreal FMatrix */
-ENGINE_API FMatrix PTransform2UMatrix(const PxTransform& PTM);
 
 //////// GEOM CONVERSION
 // we need this helper struct since PhysX needs geoms to be on the stack
@@ -331,8 +54,6 @@ private:
 const uint32 AggregateMaxSize	   = 128;
 const uint32 AggregateBodyShapesThreshold	   = 999999999;
 
-/** Global CCD Switch*/
-const bool bGlobalCCD = true;
 
 /////// UTILS
 
@@ -382,13 +103,13 @@ extern PxProfileZoneManager*	GPhysXProfileZoneManager;
  *	Map from SceneIndex to actual NxApexScene. This indirection allows us to set it to null when we kill the scene, 
  *	and therefore abort trying to destroy PhysX objects after the scene has been destroyed (eg. on game exit). 
  */
-extern TMap<int32, NxApexScene*>	GPhysXSceneMap;
+extern TMap<int16, NxApexScene*>	GPhysXSceneMap;
 #else // #if WITH_APEX
 /** 
  *	Map from SceneIndex to actual PxScene. This indirection allows us to set it to null when we kill the scene, 
  *	and therefore abort trying to destroy PhysX objects after the scene has been destroyed (eg. on game exit). 
  */
-extern TMap<int32, PxScene*>	GPhysXSceneMap;
+extern TMap<int16, PxScene*>	GPhysXSceneMap;
 #endif // #if WITH_APEX
 
 /** Total number of PhysX convex meshes around currently. */
@@ -408,21 +129,18 @@ extern ENGINE_API TArray<PxHeightField*>	GPhysXPendingKillHeightfield;
 /** Array of PxMaterial objects which are awaiting cleaning up. */
 extern TArray<PxMaterial*>		GPhysXPendingKillMaterial;
 
+
+#if WITH_PHYSX
+extern const physx::PxQuat U2PSphylBasis;
+#endif // WITH_PHYSX
+
 /** Utility class to keep track of shared physics data */
 class FPhysxSharedData
 {
 public:
-	static FPhysxSharedData& Get();
-
-	FPhysxSharedData()
-	{
-		SharedObjects = PxCreateCollection();
-	}
-
-	~FPhysxSharedData()
-	{
-		SharedObjects->release();
-	}
+	static FPhysxSharedData& Get(){ return *Singleton; }
+	static void Initialize();
+	static void Terminate();
 
 	void Add(PxBase* Obj);
 	void Remove(PxBase* Obj)	{ if(Obj) { SharedObjects->remove(*Obj); } }
@@ -433,6 +151,18 @@ public:
 private:
 	/** Collection of shared physx objects */
 	PxCollection* SharedObjects;
+	
+	static FPhysxSharedData* Singleton;
+
+	FPhysxSharedData()
+	{
+		SharedObjects = PxCreateCollection();
+	}
+
+	~FPhysxSharedData()
+	{
+		SharedObjects->release();
+	}
 
 };
 
@@ -484,10 +214,9 @@ public:
 class FPhysXFormatDataReader
 {
 public:
-	TArray< PxConvexMesh* > ConvexMeshes;
-	TArray< PxConvexMesh* > ConvexMeshesNegX;
-	PxTriangleMesh* TriMesh;
-	PxTriangleMesh* TriMeshNegX;
+	TArray<PxConvexMesh*> ConvexMeshes;
+	TArray<PxConvexMesh*> ConvexMeshesNegX;
+	TArray<PxTriangleMesh*> TriMeshes;
 
 	FPhysXFormatDataReader( FByteBulkData& InBulkData );
 
@@ -740,30 +469,25 @@ PxFilterFlags PhysXSimFilterShader(	PxFilterObjectAttributes attributes0, PxFilt
 									PxFilterObjectAttributes attributes1, PxFilterData filterData1,
 									PxPairFlags& pairFlags, const void* constantBlock, PxU32 constantBlockSize );
 
+class FPhysScene;
 
 /** Event callback used to notify engine about various collision events */
 class FPhysXSimEventCallback : public PxSimulationEventCallback
 {
+public:
+	FPhysXSimEventCallback(FPhysScene* InOwningScene, int32 InSceneType) : OwningScene(InOwningScene), SceneType(InSceneType){}
+
 	virtual void onConstraintBreak(PxConstraintInfo* constraints, PxU32 count) override;
-	virtual void onWake(PxActor** actors, PxU32 count) override {}
-	virtual void onSleep(PxActor** actors, PxU32 count) override {}
+	virtual void onWake(PxActor** actors, PxU32 count) override;
+	virtual void onSleep(PxActor** actors, PxU32 count) override;
 	virtual void onTrigger(PxTriggerPair* pairs, PxU32 count) override {}
 	virtual void onContact(const PxContactPairHeader& PairHeader, const PxContactPair* Pairs, PxU32 NumPairs) override;
+
+private:	
+	FPhysScene* OwningScene;
+	int32 SceneType;
 };
 
-/** Used to dispatch physx tasks to task graph */
-class FPhysXCPUDispatcher : public PxCpuDispatcher
-{
-	virtual void submitTask(PxBaseTask& task ) override;
-	virtual PxU32 getWorkerCount() const override;
-};
-
-/** Used to dispatch physx tasks to the game thread */
-class FPhysXCPUDispatcherSingleThread : public PxCpuDispatcher
-{
-	virtual void submitTask( PxBaseTask& task ) override;
-	virtual PxU32 getWorkerCount() const override;
-};
 
 #if WITH_APEX
 /**
@@ -885,6 +609,8 @@ public:
 	virtual void	onDamageNotify(const NxApexDamageEventReportData& damageEvent) override;
 	virtual void	onStateChangeNotify(const NxApexChunkStateEventData& visibilityEvent) override;
 	virtual bool	releaseOnNoChunksVisible(const NxDestructibleActor* destructible) override;
+	virtual void	onDestructibleWake(physx::NxDestructibleActor** destructibles, physx::PxU32 count) override;
+	virtual void	onDestructibleSleep(physx::NxDestructibleActor** destructibles, physx::PxU32 count) override;
 };
 extern FApexChunkReport GApexChunkReport;
 #endif // #if WITH_APEX
@@ -935,7 +661,8 @@ struct FShapeFilterData
 struct FShapeData
 {
 	FShapeData()
-		: SyncShapeFlags(0)
+		: CollisionEnabled(ECollisionEnabled::NoCollision)
+		, SyncShapeFlags(0)
 		, AsyncShapeFlags(0)
 		, SimpleShapeFlags(0)
 		, ComplexShapeFlags(0)

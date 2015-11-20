@@ -95,14 +95,14 @@ public:
 		Obj->Serialize(*this);
 	}
 
-	// FArchive interface
+	//~ Begin FArchive Interface
 	COREUOBJECT_API virtual FArchive& operator<<( class FName& N ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( class UObject*& Res ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( FAssetPtr& AssetPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<(FStringAssetReference& AssetPtr) override;
 	COREUOBJECT_API virtual FString GetArchiveName() const override;
-	// End of FArchive interface
+	//~ End FArchive Interface
 
 protected:
 	FObjectWriter(TArray<uint8>& InBytes)
@@ -128,14 +128,14 @@ public:
 		Obj->Serialize(*this);
 	}
 
-	// FArchive interface
+	//~ Begin FArchive Interface
 	COREUOBJECT_API virtual FArchive& operator<<( class FName& N ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( class UObject*& Res ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( FLazyObjectPtr& LazyObjectPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<( FAssetPtr& AssetPtr ) override;
 	COREUOBJECT_API virtual FArchive& operator<<(FStringAssetReference& AssetPtr) override;
 	COREUOBJECT_API virtual FString GetArchiveName() const override;
-	// End of FArchive interface
+	//~ End FArchive Interface
 
 protected:
 	FObjectReader(TArray<uint8>& InBytes)
@@ -407,8 +407,9 @@ public:
 	 *
 	 * @param	PotentialReferencer		the object to serialize which may contain references to our target objects
 	 * @param	InTargetObjects			array of objects to search for references to
+	 * @param	bFindAlsoWeakReferences should we also look into weak references?
 	 */
-	COREUOBJECT_API FFindReferencersArchive( class UObject* PotentialReferencer, TArray<class UObject*> InTargetObjects );
+	COREUOBJECT_API FFindReferencersArchive(class UObject* PotentialReferencer, TArray<class UObject*> InTargetObjects, bool bFindAlsoWeakReferences = false);
 
 	/**
 	 * Retrieves the number of references from PotentialReferencer to the object specified.
@@ -491,14 +492,15 @@ public:
 	 * @param	PackageToCheck	if specified, only objects contained in this package will be searched
 	 *							for references to 
 	 * @param	bIgnoreTemplates If true, do not record template objects
+	 * @param	bFindAlsoWeakReferences If true, also look into weak references
 	 */
-	TFindObjectReferencers( TArray< T* > TargetObjects, UPackage* PackageToCheck=NULL, bool bIgnoreTemplates = true )
+	TFindObjectReferencers( TArray< T* > TargetObjects, UPackage* PackageToCheck=NULL, bool bIgnoreTemplates = true, bool bFindAlsoWeakReferences = false)
 	: TMultiMap< T*, UObject* >()
 	{
 		TArray<UObject*> ReferencedObjects;
 		TMap<UObject*, int32> ReferenceCounts;
 
-		FFindReferencersArchive FindReferencerAr(nullptr, ( TArray<UObject*>& )TargetObjects);
+		FFindReferencersArchive FindReferencerAr(nullptr, (TArray<UObject*>&)TargetObjects, bFindAlsoWeakReferences);
 
 		// Loop over every object to find any reference that may exist for the target objects
 		for (FObjectIterator It; It; ++It)
@@ -856,7 +858,7 @@ private:
 	const TArray<uint8>&					ObjectData;
 	int32									Offset;
 
-	// FArchive interface.
+	//~ Begin FArchive Interface.
 
 	virtual FArchive& operator<<(FName& N);
 	virtual FArchive& operator<<(UObject*& Object);
@@ -932,7 +934,7 @@ private:
 	 */
 	struct FObjectInstancingGraph*			InstanceGraph;
 
-	// FArchive interface.
+	//~ Begin FArchive Interface.
 
 	virtual FArchive& operator<<(FName& N);
 	virtual FArchive& operator<<(UObject*& Object);
@@ -1576,12 +1578,12 @@ public:
 	*/
 	FArchiveObjectCrc32();
 
-	// Begin FArchive Interface
+	//~ Begin FArchive Interface
 	virtual void Serialize(void* Data, int64 Length);
 	virtual FArchive& operator<<(class FName& Name);
 	virtual FArchive& operator<<(class UObject*& Object);
 	virtual FString GetArchiveName() const { return TEXT("FArchiveObjectCrc32"); }
-	// End FArchive Interface
+	//~ End FArchive Interface
 
 	/**
 	* Serialize the given object, calculate and return its checksum.

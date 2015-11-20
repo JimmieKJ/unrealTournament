@@ -36,7 +36,7 @@ FWmfMediaTrack::FWmfMediaTrack( IMFPresentationDescriptor* InPresentationDescrip
 }
 
 
-/* IMediaTrack interface
+/* IMediaStream interface
  *****************************************************************************/
 
 void FWmfMediaTrack::AddSink( const IMediaSinkRef& Sink )
@@ -63,7 +63,7 @@ FText FWmfMediaTrack::GetDisplayName() const
 
 	if (Name.IsEmpty())
 	{
-		DisplayName = FText::Format(LOCTEXT("UnnamedTrackFormat", "Unnamed Track {0}"), FText::AsNumber((uint32)StreamIndex));
+		DisplayName = FText::Format(LOCTEXT("UnnamedStreamFormat", "Unnamed Stream {0}"), FText::AsNumber((uint32)StreamIndex));
 	}
 	else
 	{
@@ -76,12 +76,6 @@ FText FWmfMediaTrack::GetDisplayName() const
 	}
 
 	return FText::Format(LOCTEXT("LocalizedTrackFormat", "{0} ({1})"), DisplayName, FText::FromString(Language));
-}
-
-
-uint32 FWmfMediaTrack::GetIndex() const
-{
-	return StreamIndex;
 }
 
 
@@ -106,7 +100,7 @@ bool FWmfMediaTrack::IsEnabled() const
 }
 
 
-bool FWmfMediaTrack::IsMutuallyExclusive( const IMediaTrackRef& Other ) const
+bool FWmfMediaTrack::IsMutuallyExclusive( const IMediaStreamRef& Other ) const
 {
 	return false;
 }

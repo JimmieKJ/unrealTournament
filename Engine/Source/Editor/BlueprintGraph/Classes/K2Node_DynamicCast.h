@@ -15,7 +15,7 @@ class UK2Node_DynamicCast : public UK2Node
 	UPROPERTY()
 	TSubclassOf<class UObject>  TargetType;
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FLinearColor GetNodeTitleColor() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
@@ -23,12 +23,12 @@ class UK2Node_DynamicCast : public UK2Node
 	virtual void GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const override;
 	virtual void PostReconstructNode() override;
 	virtual void PostPlacedNewNode() override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual ERedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const override;
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
-	virtual bool HasExternalBlueprintDependencies(TArray<class UStruct*>* OptionalOutput) const override;
+	virtual bool HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const override;
 	virtual FText GetMenuCategory() const override;
 	virtual FBlueprintNodeSignature GetSignature() const override;
 	virtual bool IsNodePure() const override { return bIsPureCast; }
@@ -36,7 +36,7 @@ class UK2Node_DynamicCast : public UK2Node
 	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
 	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
-	// End of UK2Node interface
+	//~ End UK2Node Interface
 
 	/** Get the 'valid cast' exec pin */
 	BLUEPRINTGRAPH_API UEdGraphPin* GetValidCastPin() const;

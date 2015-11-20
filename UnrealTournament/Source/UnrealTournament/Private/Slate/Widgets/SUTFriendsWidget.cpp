@@ -19,13 +19,13 @@ void SUTFriendsWidget::Construct(const FArguments& InArgs, const FLocalPlayerCon
 		[
 			SAssignNew(ContentWidget, SWeakWidget)
 		];
-
+	/*
 	if (FModuleManager::Get().IsModuleLoaded(TEXT("FriendsAndChat")))
 	{
 		ContentWidget->SetContent(
 			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GenerateFriendsListWidget(&SUWindowsStyle::Get().GetWidgetStyle< FFriendsAndChatStyle >("FriendsStyle")).ToSharedRef()
 			);
-	}
+	}*/
 }
 
 SUTFriendsWidget::~SUTFriendsWidget()

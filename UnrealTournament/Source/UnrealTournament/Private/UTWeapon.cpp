@@ -1488,7 +1488,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 	FActorSpawnParameters Params;
 	Params.Instigator = UTOwner;
 	Params.Owner = UTOwner;
-	Params.bNoCollisionFail = true; // we already checked this in GetFireStartLoc()
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 	AUTProjectile* NewProjectile = 
 		((Role == ROLE_Authority) || (CatchupTickDelta > 0.f))
 		? GetWorld()->SpawnActor<AUTProjectile>(ProjectileClass, SpawnLocation, SpawnRotation, Params)
@@ -1539,7 +1539,7 @@ void AUTWeapon::SpawnDelayedFakeProjectile()
 		FActorSpawnParameters Params;
 		Params.Instigator = UTOwner;
 		Params.Owner = UTOwner;
-		Params.bNoCollisionFail = true; // we already checked this in GetFireStartLoc()
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		AUTProjectile* NewProjectile = GetWorld()->SpawnActor<AUTProjectile>(DelayedProjectile.ProjectileClass, DelayedProjectile.SpawnLocation, DelayedProjectile.SpawnRotation, Params);
 		if (NewProjectile)
 		{
@@ -1633,7 +1633,7 @@ float AUTWeapon::LagWeaponRotation(float NewValue, float LastValue, float DeltaT
 void AUTWeapon::Tick(float DeltaTime)
 {
 	// try to gracefully detect being active with no owner, which should never happen because we should always end up going through Removed() and going to the inactive state
-	if (CurrentState != InactiveState && (UTOwner == NULL || UTOwner->bPendingKillPending) && CurrentState != NULL)
+	if (CurrentState != InactiveState && (UTOwner == NULL || UTOwner->IsPendingKillPending()) && CurrentState != NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("%s lost Owner while active (state %s"), *GetName(), *GetNameSafe(CurrentState));
 		GotoState(InactiveState);

@@ -15,9 +15,9 @@ class APlaneReflectionCapture : public AReflectionCapture
 public:
 
 #if WITH_EDITOR
-	// Begin AActor interface.
+	//~ Begin AActor Interface.
 	virtual void EditorApplyScale(const FVector& DeltaScale, const FVector* PivotLocation, bool bAltDown, bool bShiftDown, bool bCtrlDown) override;
-	// End AActor interface.
+	//~ End AActor Interface.
 #endif
 
 };

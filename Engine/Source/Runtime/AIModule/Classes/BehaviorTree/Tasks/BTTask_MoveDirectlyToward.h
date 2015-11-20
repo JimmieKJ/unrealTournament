@@ -36,7 +36,7 @@ class AIMODULE_API UBTTask_MoveDirectlyToward : public UBTTask_BlackboardBase
 
 	/** if set to true agent's radius will be added to AcceptableRadius for purposes of checking
 	 *	if path's end point has been reached. Will result in AI stopping on contact with destination location*/
-	UPROPERTY(Category = Node, EditAnywhere, config)
+	UPROPERTY(Category = Node, EditAnywhere)
 	uint32 bStopOnOverlap : 1;
 
 	virtual EBTNodeResult::Type ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory) override;

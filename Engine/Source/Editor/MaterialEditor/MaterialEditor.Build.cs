@@ -39,7 +39,6 @@ public class MaterialEditor : ModuleRules
 			new string[] {
 				"AssetTools",
 				"MainFrame",
-				"PropertyEditor",
 				"SceneOutliner",
 				"ClassViewer",
 				"ContentBrowser",

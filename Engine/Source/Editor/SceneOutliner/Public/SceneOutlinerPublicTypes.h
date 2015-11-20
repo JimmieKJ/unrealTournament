@@ -90,6 +90,9 @@ namespace SceneOutliner
 		/** True to only show folders in this outliner */
 		bool bOnlyShowFolders : 1;
 
+		/** Show transient objects */
+		bool bShowTransient : 1;
+
 	public:
 
 		/** Constructor */
@@ -97,6 +100,7 @@ namespace SceneOutliner
 			: Mode( ESceneOutlinerMode::ActorPicker )
 			, bShowParentTree( true )
 			, bOnlyShowFolders( false )
+			, bShowTransient( false )
 		{}
 
 		/** Set up a default array of columns for this outliner */

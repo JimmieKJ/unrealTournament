@@ -128,6 +128,9 @@
 			break;
 		}
 		case EX_Let:
+		{
+			XFER_PROP_POINTER;
+		}
 		case EX_LetObj:
 		case EX_LetWeakObjPtr:
 		case EX_LetBool:
@@ -138,7 +141,7 @@
 			SerializeExpr( iCode, Ar ); // Assignment expr.
 			break;
 		}
-		case Ex_LetValueOnPersistentFrame:
+		case EX_LetValueOnPersistentFrame:
 		{
 			XFER_PROP_POINTER;			// Destination property.
 			SerializeExpr(iCode, Ar);	// Assignment expr.
@@ -162,6 +165,7 @@
 		}
 		case EX_LocalVariable:
 		case EX_InstanceVariable:
+		case EX_DefaultVariable:
 		case EX_LocalOutVariable:
 		{
 			XFER_PROP_POINTER;
@@ -215,6 +219,7 @@
 			SerializeExpr( iCode, Ar ); // Return expression.
 			break;
 		}
+		case EX_CallMath:
 		case EX_FinalFunction:
 		{
 			XFER_FUNC_POINTER;											// Stack node.
@@ -235,13 +240,13 @@
 			while( SerializeExpr( iCode, Ar ) != EX_EndFunctionParms ); // Parms.
 			break;
 		}
+		case EX_ClassContext:
 		case EX_Context:
 		case EX_Context_FailSilent:
 		{
 			SerializeExpr( iCode, Ar ); // Object expression.
 			XFER(CodeSkipSizeType);		// Code offset for NULL expressions.
 			XFERPTR(UField*);			// Property corresponding to the r-value data, in case the l-value needs to be mem-zero'd
-			XFER(uint8);					// Property type, in case the r-value is a non-property such as dynamic array length
 			SerializeExpr( iCode, Ar ); // Context expression.
 			break;
 		}
@@ -294,6 +299,11 @@
 			XFER_OBJECT_POINTER(UObject*);
 			FIXUP_EXPR_OBJECT_POINTER(UObject*);
 
+			break;
+		}
+		case EX_AssetConst:
+		{
+			SerializeExpr(iCode, Ar);
 			break;
 		}
 		case EX_NameConst:
@@ -408,6 +418,23 @@
 			XFER_FUNC_NAME;
 			SerializeExpr( iCode, Ar );	// Delegate property to assign to
 			SerializeExpr( iCode, Ar ); 
+			break;
+		}
+		case EX_SwitchValue:
+		{
+			XFER(uint16); // number of cases, without default one
+			const uint16 NumCases = *(uint16*)(&Script[iCode - sizeof(uint16)]);
+			XFER(CodeSkipSizeType); // Code offset, go to it, when done.
+			SerializeExpr(iCode, Ar);	//index term
+
+			for (uint16 CaseIndex = 0; CaseIndex < NumCases; ++CaseIndex)
+			{
+				SerializeExpr(iCode, Ar);	// case index value term
+				XFER(CodeSkipSizeType);		// offset to the next case
+				SerializeExpr(iCode, Ar);	// case term
+			}
+
+			SerializeExpr(iCode, Ar);	//default term
 			break;
 		}
 		default:

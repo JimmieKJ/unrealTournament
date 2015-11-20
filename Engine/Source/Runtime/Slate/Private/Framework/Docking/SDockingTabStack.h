@@ -53,7 +53,7 @@ public:
 	void BringToFront( const TSharedRef<SDockTab>& TabToBringToFront );
 
 	/** Set the content that the DockNode is presenting. */
-	void SetNodeContent( const TSharedRef<SWidget>& InContent, const TSharedRef<SWidget>& InContentLeft, const TSharedRef<SWidget>& InContentRight );
+	void SetNodeContent( const TSharedRef<SWidget>& InContent, const TSharedRef<SWidget>& InContentLeft, const TSharedRef<SWidget>& InContentRight, const TSharedRef<SWidget>& InContentBackground );
 
 	virtual FReply OnUserAttemptingDock( SDockingNode::RelativeDirection Direction, const FDragDropEvent& DragDropEvent ) override;
 	
@@ -192,6 +192,7 @@ private:
 	/** The borders that hold any potential inline content areas. */
 	SHorizontalBox::FSlot* InlineContentAreaLeft;
 	SHorizontalBox::FSlot* InlineContentAreaRight;
+	SOverlay::FOverlaySlot* BackgroundContentArea;
 	SVerticalBox::FSlot* TitleBarSlot;
 	TSharedPtr<SWidget> TitleBarContent;
 

@@ -162,7 +162,7 @@ static bool GetBarycentricWeights(
 	return false;
 }
 
-float TriangleTolerance = .01f;
+float TriangleTolerance = 1;
 
 /** Updates GCurrentSelectedLightmapSample given a selected actor's components and the location of the click. */
 void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model, int32 iSurf, FVector ClickLocation)

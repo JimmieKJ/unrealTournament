@@ -46,7 +46,7 @@ class UGameplayCueSet;
  *	
  */
 
-/** Type of payload to pass along with this cue */
+/** Type of payload to pass along with this cue. */
 UENUM()
 enum class EGameplayCuePayloadType : uint8
 {
@@ -55,7 +55,7 @@ enum class EGameplayCuePayloadType : uint8
 	FromSpec,
 };
 
-/** Structure to keep track of pending gameplay cues that haven't been applied yet */
+/** Structure to keep track of pending gameplay cues that haven't been applied yet. */
 USTRUCT()
 struct FGameplayCuePendingExecute
 {
@@ -101,6 +101,9 @@ struct GAMEPLAYABILITIES_API FScopedGameplayCueSendContext
 	~FScopedGameplayCueSendContext();
 };
 
+/** Delegate for when GC notifies are added or removed from manager */
+DECLARE_MULTICAST_DELEGATE(FOnGameplayCueNotifyChange);
+
 /**
  *	A self contained handler of a GameplayCue. These are similar to AnimNotifies in implementation.
  */
@@ -135,15 +138,15 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 	// Handling GameplayCues at runtime:
 	// -------------------------------------------------------------
 
-	virtual void HandleGameplayCues(AActor* TargetActor, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+	virtual void HandleGameplayCues(AActor* TargetActor, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
 
-	virtual void HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+	virtual void HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters);
 
 	/** Force any instanced GameplayCueNotifies to stop */
 	virtual void EndGameplayCuesFor(AActor* TargetActor);
 
 	/** Returns the cached instance cue. Creates it if it doesn't exist */
-	virtual AGameplayCueNotify_Actor* GetInstancedCueActor(AActor* TargetActor, UClass* CueClass);
+	virtual AGameplayCueNotify_Actor* GetInstancedCueActor(AActor* TargetActor, UClass* CueClass, const FGameplayCueParameters& Parameters);
 
 	// -------------------------------------------------------------
 	//  Loading GameplayCueNotifies from ObjectLibraries
@@ -153,7 +156,7 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 	void LoadObjectLibraryFromPaths(const TArray<FString>& Paths);
 
 	UPROPERTY(transient)
-	UGameplayCueSet* GlobalCueSet;
+	class UGameplayCueSet* GlobalCueSet;
 	
 	UPROPERTY(transient)
 	UObjectLibrary* GameplayCueNotifyActorObjectLibrary;
@@ -169,12 +172,44 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 
 	int32	FinishLoadingGameplayCueNotifies();
 
+	UPROPERTY(transient)
 	FStreamableManager	StreamableManager;
 
-	// Fixme: we can combine the AActor* and the FGameplayTag into a single struct with a decent hash and avoid double map lookups
-	TMap<TWeakObjectPtr<AActor>, TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<AGameplayCueNotify_Actor>>>		NotifyMapActor;
+	struct FGCNotifyActorKey
+	{
+		FGCNotifyActorKey(AActor* InTargetActor, UClass* InCueClass, AActor* InInstigatorActor=nullptr, const UObject* InSourceObj=nullptr)
+		{
+			TargetActor = InTargetActor;
+			OptionalInstigatorActor = InInstigatorActor;
+			OptionalSourceObject = InSourceObj;
+			CueClass = InCueClass;
+		}
+
+		TWeakObjectPtr<AActor>	TargetActor;
+		TWeakObjectPtr<AActor>	OptionalInstigatorActor;
+		TWeakObjectPtr<UObject>	OptionalSourceObject;
+		TWeakObjectPtr<UClass>	CueClass;
+
+		FORCEINLINE bool operator==(const FGCNotifyActorKey& Other) const
+		{
+			return TargetActor == Other.TargetActor && CueClass == Other.CueClass &&
+					OptionalInstigatorActor == Other.OptionalInstigatorActor && OptionalSourceObject == Other.OptionalSourceObject;
+		}
+	};
+
+	FORCEINLINE friend uint32 GetTypeHash(const FGCNotifyActorKey& Key)
+	{
+		return GetTypeHash(Key.TargetActor)	^
+				GetTypeHash(Key.OptionalInstigatorActor) ^
+				GetTypeHash(Key.OptionalSourceObject) ^
+				GetTypeHash(Key.CueClass);
+	}
+	
+	TMap<FGCNotifyActorKey, TWeakObjectPtr<AGameplayCueNotify_Actor> >		NotifyMapActor;
 
 	void PrintGameplayCueNotifyMap();
+
+	virtual class UWorld* GetWorld() const override;
 
 #if WITH_EDITOR
 	bool IsAssetInLoadedPaths(UObject *Object) const;
@@ -185,10 +220,23 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 	/** Handles cleaning up an object library if it matches the passed in object */
 	void HandleAssetDeleted(UObject *Object);
 
+	/** Warns if we move a GameplayCue notify out of the valid search paths */
+	void HandleAssetRenamed(const FAssetData& Data, const FString& String);
+
+	void VerifyNotifyAssetIsInValidPath(FString Path);
+
 	bool RegisteredEditorCallbacks;
 
 	bool bAccelerationMapOutdated;
+
+	FOnGameplayCueNotifyChange	OnGameplayCueNotifyAddOrRemove;
+
+	static class USceneComponent* PreviewComponent;
+
+	static UWorld* PreviewWorld;
 #endif
+	
+	virtual bool ShouldAsyncLoadObjectLibrariesAtStart() const { return true; }
 
 protected:
 
@@ -198,6 +246,8 @@ protected:
 #endif
 
 	void LoadObjectLibrary_Internal();
+
+	virtual bool ShouldAsyncLoadAtStartup() const { return true; }
 
 	void BuildCuesToAddToGlobalSet(const TArray<FAssetData>& AssetDataList, FName TagPropertyName, bool bAsyncLoadAfterAdd, TArray<struct FGameplayCueReferencePair>& OutCuesToAdd);
 
@@ -210,4 +260,7 @@ protected:
 	/** Number of active gameplay cue send contexts, when it goes to 0 cues are flushed */
 	UPROPERTY()
 	int32 GameplayCueSendContextCount;
+
+	/** Cached world we are currently handling cues for. Used for non instanced GC Notifies that need world. */
+	UWorld* CurrentWorld;
 };

@@ -3,6 +3,7 @@
 #pragma once
 
 #include "FrontendFilterBase.h"
+#include "TextFilterExpressionEvaluator.h"
 
 #define LOCTEXT_NAMESPACE "ContentBrowser"
 
@@ -28,15 +29,42 @@ public:
 	/** Set the Text to be used as the Filter's restrictions */
 	void SetRawFilterText(const FText& InFilterText);
 
+	/** Get the last error returned from lexing or compiling the current filter text */
+	FText GetFilterErrorText() const;
+
 	/** If bIncludeClassName is true, the text filter will include an asset's class name in the search */
-	void SetIncludeClassName(bool bIncludeClassName);
+	void SetIncludeClassName(const bool InIncludeClassName);
 
 private:
+	/** Handles an on collection created event */
+	void HandleCollectionCreated(const FCollectionNameType& Collection);
 
-	/** Handler for the internal text filter */
-	void HandleOnChangedEvent();
+	/** Handles an on collection destroyed event */
+	void HandleCollectionDestroyed(const FCollectionNameType& Collection);
 
-	TTextFilter<FAssetFilterType> TextFilter;
+	/** Handles an on collection renamed event */
+	void HandleCollectionRenamed(const FCollectionNameType& OriginalCollection, const FCollectionNameType& NewCollection);
+
+	/** Handles an on collection updated event */
+	void HandleCollectionUpdated(const FCollectionNameType& Collection);
+
+	/** Rebuild the array of dynamic collections that are being referenced by the current query */
+	void RebuildReferencedDynamicCollections();
+
+	/** An array of dynamic collections that are being referenced by the current query. These should be tested against each asset when it's looking for collections that contain it */
+	TArray<FCollectionNameType> ReferencedDynamicCollections;
+
+	/** Transient context data, used when calling PassesFilter. Kept around to minimize re-allocations between multiple calls to PassesFilter */
+	TSharedRef<class FFrontendFilter_TextFilterExpressionContext> TextFilterExpressionContext;
+
+	/** Expression evaluator that can be used to perform complex text filter queries */
+	FTextFilterExpressionEvaluator TextFilterExpressionEvaluator;
+
+	/** Delegate handles */
+	FDelegateHandle OnCollectionCreatedHandle;
+	FDelegateHandle OnCollectionDestroyedHandle;
+	FDelegateHandle OnCollectionRenamedHandle;
+	FDelegateHandle OnCollectionUpdatedHandle;
 };
 
 /** A filter that displays only checked out assets */

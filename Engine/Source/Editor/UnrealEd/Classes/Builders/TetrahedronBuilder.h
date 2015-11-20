@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // TetrahedronBuilder: Builds an octahedron (not tetrahedron) - experimental.
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "TetrahedronBuilder.generated.h"
@@ -28,9 +28,9 @@ public:
 	FName GroupName;
 
 
-	// Begin UBrushBuilder Interface
+	//~ Begin UBrushBuilder Interface
 	virtual bool Build( UWorld* InWorld, ABrush* InBrush = NULL ) override;
-	// End UBrushBuilder Interface
+	//~ End UBrushBuilder Interface
 
 	// @todo document
 	virtual void Extrapolate( int32 a, int32 b, int32 c, int32 Count, float InRadius );

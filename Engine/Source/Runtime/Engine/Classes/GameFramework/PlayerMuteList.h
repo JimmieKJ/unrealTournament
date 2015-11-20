@@ -5,6 +5,7 @@
 #include "PlayerMuteList.generated.h"
 
 struct FUniqueNetIdRepl;
+class FUniqueNetId;
 
 /**
  * Container responsible for managing the mute state of a player controller
@@ -24,11 +25,11 @@ public:
 	}
 
 	/** List of player id's muted explicitly by the player */
-	TArray< TSharedRef<class FUniqueNetId> > VoiceMuteList;
+	TArray< TSharedRef<const FUniqueNetId> > VoiceMuteList;
 	/** List of player id's muted for gameplay reasons (teams, spectators, etc) */
-	TArray< TSharedRef<class FUniqueNetId> > GameplayVoiceMuteList;
+	TArray< TSharedRef<const FUniqueNetId> > GameplayVoiceMuteList;
 	/** Combined list of the above for efficient processing of voice packets */
-	TArray< TSharedRef<class FUniqueNetId> > VoicePacketFilter;
+	TArray< TSharedRef<const FUniqueNetId> > VoicePacketFilter;
 	/** Has server and client handshake completed */
 	UPROPERTY()
 	bool bHasVoiceHandshakeCompleted;

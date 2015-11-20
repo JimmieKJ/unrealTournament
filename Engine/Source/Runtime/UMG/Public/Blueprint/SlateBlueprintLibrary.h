@@ -40,4 +40,28 @@ public:
 	/** @return the size of the geometry in local space. */
 	UFUNCTION(BlueprintPure, Category="User Interface|Geometry")
 	static FVector2D GetLocalSize(const FGeometry& Geometry);
+
+	/**
+	 * Translates local coordinate of the geometry provided into local viewport coordinates.
+	 *
+	 * @param PixelPosition The position in the game's viewport, usable for line traces and 
+	 * other uses where you need a coordinate in the space of viewport resolution units.
+	 * @param ViewportPosition The position in the space of other widgets in the viewport.  Like if you wanted
+	 * to add another widget to the viewport at the same position in viewport space as this location, this is
+	 * what you would use.
+	 */
+	UFUNCTION(BlueprintPure, Category="User Interface|Geometry", meta=( WorldContext="WorldContextObject" ))
+	static void LocalToViewport(UObject* WorldContextObject, const FGeometry& Geometry, FVector2D LocalCoordinate, FVector2D& PixelPosition, FVector2D& ViewportPosition);
+
+	/**
+	 * Translates absolute coordinate in desktop space of the geometry provided into local viewport coordinates.
+	 *
+	 * @param PixelPosition The position in the game's viewport, usable for line traces and
+	 * other uses where you need a coordinate in the space of viewport resolution units.
+	 * @param ViewportPosition The position in the space of other widgets in the viewport.  Like if you wanted
+	 * to add another widget to the viewport at the same position in viewport space as this location, this is
+	 * what you would use.
+	 */
+	UFUNCTION(BlueprintPure, Category="User Interface|Geometry", meta=( WorldContext="WorldContextObject" ))
+	static void AbsoluteToViewport(UObject* WorldContextObject, FVector2D AbsoluteDesktopCoordinate, FVector2D& PixelPosition, FVector2D& ViewportPosition);
 };

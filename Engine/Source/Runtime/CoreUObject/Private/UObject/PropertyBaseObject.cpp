@@ -134,6 +134,13 @@ FString UObjectPropertyBase::GetExportPath(const UObject* Object, const UObject*
 	{
 		StopOuter = (ExportRootScope || (Parent == nullptr)) ? ExportRootScope : Parent->GetOutermost();
 		bExportFullyQualified = !Object->IsIn(StopOuter);
+
+		// Also don't fully qualify the name if it's a sibling of the root scope, since it may be included in the exported set of objects
+		if (bExportFullyQualified)
+		{
+			StopOuter = StopOuter->GetOuter();
+			bExportFullyQualified = (StopOuter == nullptr) || (!Object->IsIn(StopOuter));
+		}
 	}
 
 	// if we want a full qualified object reference, use the pathname, otherwise, use just the object name
@@ -165,6 +172,20 @@ FString UObjectPropertyBase::GetExportPath(const UObject* Object, const UObject*
 void UObjectPropertyBase::ExportTextItem( FString& ValueStr, const void* PropertyValue, const void* DefaultValue, UObject* Parent, int32 PortFlags, UObject* ExportRootScope ) const
 {
 	UObject* Temp = GetObjectPropertyValue(PropertyValue);
+
+	if (0 != (PortFlags & PPF_ExportCpp))
+	{
+		FString::Printf(TEXT("%s%s*"), PropertyClass->GetPrefixCPP(), *PropertyClass->GetName());
+
+		ValueStr += Temp
+			? FString::Printf(TEXT("LoadObject<%s%s>(nullptr, TEXT(\"%s\"))")
+				, PropertyClass->GetPrefixCPP()
+				, *PropertyClass->GetName()
+				, *(Temp->GetPathName().ReplaceCharWithEscapedChar()))
+			: TEXT("nullptr");
+		return;
+	}
+
 	if( Temp != NULL )
 	{
 		if (PortFlags & PPF_DebugDump)

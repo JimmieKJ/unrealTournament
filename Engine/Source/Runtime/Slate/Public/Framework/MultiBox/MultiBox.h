@@ -131,6 +131,19 @@ public:
 		return Type;
 	}
 
+	/**
+	* Sets the searchable state of this block
+	*
+	* @param	bSearchable		The searchable state to set
+	*/
+	void SetSearchable(bool bSearchable);
+	/**
+	* Gets the searchable state of this block
+	*
+	* @return	Whether this block is searchable
+	*/
+	bool GetSearchable() const;
+
 private:
 	/**
 	 * Allocates a widget for this type of MultiBlock.  Override this in derived classes.
@@ -164,6 +177,9 @@ private:
 
 	/** Name to identify a widget for tutorials */
 	FName TutorialHighlightName;
+
+	/** Whether this block can be searched */
+	bool bSearchable;
 };
 
 
@@ -228,7 +244,7 @@ public:
 	 *
 	 * @return  MultiBox widget object
 	 */
-	TSharedRef< class SMultiBoxWidget > MakeWidget();
+	TSharedRef< class SMultiBoxWidget > MakeWidget( bool bSearchable );
 
 
 	/**
@@ -273,6 +289,10 @@ public:
 	TSharedPtr<const FMultiBlock> FindBlockFromCommand( TSharedPtr<const FUICommandInfo> Command ) const;
 
 	bool IsInEditMode() const { return FMultiBoxSettings::IsInToolbarEditMode() && IsCustomizable(); }
+
+	/* The search widget to be displayed at the top of the multibox */
+	TSharedPtr<STextBlock> SearchTextWidget;
+
 private:
 	
 	/**
@@ -424,7 +444,7 @@ protected:
  * MultiBox Slate widget
  */
 class SLATE_API SMultiBoxWidget
-	: public SCompoundWidget
+	: public SMenuOwner
 {
 
 public:
@@ -464,33 +484,23 @@ public:
 		return MultiBox.ToSharedRef();
 	}
 
+	/**
+	* Sets the searchable state of this multibox
+	*
+	* @param	bSearchable		The searchable state to set
+	*/
+	void SetSearchable(bool bSearchable);
+	/**
+	* Gets the searchable state of this multibox
+	*
+	* @return	Whether this block is searchable
+	*/
+	bool GetSearchable() const;
 	
 	/**
 	 * Builds this MultiBox widget up from the MultiBox associated with it
 	 */
 	void BuildMultiBoxWidget();
-
-	
-	/**
-	 * For menu bar multibox widgets, tells the multibox widget about a currently active pull-down menu
-	 *
-	 * @param	InMenuAnchor	Menu anchor for active pull-down menu or sub-menu
-	 */
-	void SetSummonedMenu( TSharedRef< SMenuAnchor > InMenuAnchor );
-	
-
-	/**
-	 * For menu bar or sub-menu multibox widgets, returns the currently open menu, if there is one open
-	 *
-	 * @return	Menu anchor, or null pointer
-	 */
-	TSharedPtr< const SMenuAnchor > GetOpenMenu() const;
-
-	/**
-	 * For menu bar multibox widget, closes any open pull-down or sub menus
-	 */
-	void CloseSummonedMenus();
-	
 
 	/** Generates the tiles for an STileView for button rows */
 	TSharedRef<ITableRow> GenerateTiles(TSharedPtr<SWidget> Item, const TSharedRef<STableViewBase>& OwnerTable);
@@ -534,6 +544,58 @@ public:
 	virtual bool SupportsKeyboardFocus() const override;
 	virtual FReply OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent ) override;
 	virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& KeyEvent ) override;
+	virtual FReply OnKeyChar( const FGeometry& MyGeometry, const FCharacterEvent& InCharacterEvent ) override;
+
+	void TypeChar(const int32 InChar);
+
+	/**
+	* Changes visibility of widgets in the multibox
+	*
+	* @param	InSearchText	The search text to check against
+	*/
+	void UpdateSearch(const int32);
+
+	/**
+	* Resets the search to be empty
+	*/
+	void ResetSearch();
+
+	void ReduceSearch();
+
+	/**
+	* Changes visibility of widgets in the multibox
+	*/
+	void FilterMultiBoxEntries();
+
+	/**
+	* Get the text to search by
+	*
+	* @return	The text currently being searched
+	*/
+	FText GetSearchText() const;
+
+	/**
+	* Get the SSearchText widget holding the search text
+	*
+	* @return	The widget to get
+	*/
+	TSharedPtr<STextBlock> GetSearchTextWidget(); 
+
+	/**
+	* Get the block widget holding the search text
+	*
+	* @param	BlockWidget		The widget to set
+	*/
+	void SetSearchBlockWidget(TSharedPtr<SWidget>);
+
+	/**
+	* Adds a widget to SearchElement map, making the widget searchable
+	*
+	* @param	BlockWidget			The widget to add
+	* @param	BlockDisplayText	The display text of the widget to search by
+	*/
+	void AddSearchElement( TSharedPtr<SWidget>, FText );
+
 private:
 	/** Adds a block Widget to this widget */
 	void AddBlockWidget( const FMultiBlock& Block, TSharedPtr<SHorizontalBox> HorizontalBox, TSharedPtr<SVerticalBox> VerticalBox, EMultiBlockLocation::Type InLocation, bool bSectionContainsIcons );
@@ -555,6 +617,7 @@ private:
 	
 	/** Called when a user clicks the delete button on a block */
 	FReply OnDeleteBlockClicked( TWeakPtr<const FMultiBlock> BlockWeakPtr );
+
 private:
 	/** A preview of a block being dragged */
 	struct FDraggedMultiBlockPreview
@@ -585,9 +648,6 @@ private:
 	/** The MultiBox we're associated with */
 	TSharedPtr< FMultiBox > MultiBox;
 
-	/** For menu bar multibox widgets, this stores a weak reference to the last pull-down or sub-menu that was summoned. */
-	TWeakPtr< SMenuAnchor > SummonedMenuAnchor;
-
 	/** An array of widgets used for an STileView if used */
 	TArray< TSharedPtr<SWidget> > TileViewWidgets;
 
@@ -596,4 +656,19 @@ private:
 
 	/** A preview of a block being dragged inside this box */
 	FDraggedMultiBlockPreview DragPreview;
+
+	/* The multibox widgets that should be search, linked with their display text */
+	TMap<TSharedPtr<SWidget>, FText > SearchElements;
+
+	/* The search widget to be displayed at the top of the multibox */
+	TSharedPtr<STextBlock> SearchTextWidget;
+
+	/* The search widget to be displayed at the top of the multibox */
+	TSharedPtr<SWidget> SearchBlockWidget;
+
+	/* The text being searched for */
+	FText SearchText;
+
+	/** Whether this multibox can be searched */
+	bool bSearchable;
 };

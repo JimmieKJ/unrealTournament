@@ -48,11 +48,11 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bBalanceTeams = !bOfflineChallenge && EvalBoolOptions(ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
+	bBalanceTeams = !bOfflineChallenge && EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
 
 	if (bAllowURLTeamCountOverride)
 	{
-		NumTeams = GetIntOption(Options, TEXT("NumTeams"), NumTeams);
+		NumTeams = UGameplayStatics::GetIntOption(Options, TEXT("NumTeams"), NumTeams);
 	}
 	NumTeams = FMath::Max<uint8>(NumTeams, 2);
 
@@ -78,7 +78,7 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 		checkSlow(Teams[i] == NewTeam);
 	}
 
-	MercyScore = FMath::Max(0, GetIntOption(Options, TEXT("MercyScore"), MercyScore));
+	MercyScore = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("MercyScore"), MercyScore));
 }
 
 void AUTTeamGameMode::InitGameState()
@@ -108,13 +108,13 @@ void AUTTeamGameMode::AnnounceMatchStart()
 	}
 }
 
-APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
-		uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(GetIntOption(Options, TEXT("Team"), 255), 0, 255));
+		uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(UGameplayStatics::GetIntOption(Options, TEXT("Team"), 255), 0, 255));
 		ChangeTeam(PC, DesiredTeam, false);
 	}
 

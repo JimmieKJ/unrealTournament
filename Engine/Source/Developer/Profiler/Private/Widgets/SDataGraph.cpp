@@ -1085,7 +1085,7 @@ FReply SDataGraph::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerE
 		{
 			if( !bIsRMB_Scrolling && bIsValidForMouseClick )
 			{
-				ShowContextMenu( MouseEvent.GetScreenSpacePosition() );
+				ShowContextMenu(MouseEvent.GetScreenSpacePosition(), MouseEvent);
 				Reply = FReply::Handled();
 			}
 			else
@@ -1277,7 +1277,7 @@ FCursorReply SDataGraph::OnCursorQuery( const FGeometry& MyGeometry, const FPoin
 	return FCursorReply::Unhandled();
 }
 
-void SDataGraph::ShowContextMenu( const FVector2D& ScreenSpacePosition )
+void SDataGraph::ShowContextMenu(const FVector2D& ScreenSpacePosition, const FPointerEvent& MouseEvent)
 {
 	TSharedPtr<FUICommandList> ProfilerCommandList = FProfilerManager::Get()->GetCommandList();
 	const FProfilerCommands& ProfilerCommands = FProfilerManager::GetCommands();
@@ -1381,7 +1381,10 @@ void SDataGraph::ShowContextMenu( const FVector2D& ScreenSpacePosition )
 	MenuBuilder.EndSection();
 
 	TSharedRef<SWidget> MenuWidget = MenuBuilder.MakeWidget();
-	FSlateApplication::Get().PushMenu( SharedThis( this ), MenuWidget, ScreenSpacePosition, FPopupTransitionEffect::ContextMenu );
+
+	FWidgetPath EventPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+	FSlateApplication::Get().PushMenu(SharedThis(this), EventPath, MenuWidget, ScreenSpacePosition, FPopupTransitionEffect::ContextMenu);
+
 }
 
 void SDataGraph::BindCommands()

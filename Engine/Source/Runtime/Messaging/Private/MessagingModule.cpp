@@ -23,32 +23,32 @@ public:
 
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar ) override
 	{
-		if (FParse::Command(&Cmd, TEXT("MESSAGING")))
+		if (!FParse::Command(&Cmd, TEXT("MESSAGING")))
 		{
-			if (FParse::Command(&Cmd, TEXT("STATUS")))
+			return false;
+		}
+
+		if (FParse::Command(&Cmd, TEXT("STATUS")))
+		{
+			if (DefaultBus.IsValid())
 			{
-				if (DefaultBus.IsValid())
-				{
-					Ar.Log(TEXT("Default message bus has been initialized."));
-				}
-				else
-				{
-					Ar.Log(TEXT("Default message bus has NOT been initialized yet."));
-				}
+				Ar.Log(TEXT("Default message bus has been initialized."));
 			}
 			else
 			{
-				// show usage
-				Ar.Log(TEXT("Usage: MESSAGING <Command>"));
-				Ar.Log(TEXT(""));
-				Ar.Log(TEXT("Command"));
-				Ar.Log(TEXT("    STATUS = Displays the status of the default message bus"));
+				Ar.Log(TEXT("Default message bus has NOT been initialized yet."));
 			}
-
-			return true;
+		}
+		else
+		{
+			// show usage
+			Ar.Log(TEXT("Usage: MESSAGING <Command>"));
+			Ar.Log(TEXT(""));
+			Ar.Log(TEXT("Command"));
+			Ar.Log(TEXT("    STATUS = Displays the status of the default message bus"));
 		}
 
-		return false;
+		return true;
 	}
 
 public:

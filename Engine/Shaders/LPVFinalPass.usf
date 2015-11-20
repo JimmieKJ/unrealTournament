@@ -31,9 +31,6 @@
 
 // Indirect strength
 #define INDIRECT_LEVEL		( 0.00375 * REFINE_LIGHTING_MULTIPLIER )
-#define INDIRECT_SPECULAR_LEVEL	1.0
-#define INDIRECT_DIFFUSE_LEVEL	0.333
-
 #define INDIRECT_DIFFUSE	1
 #define INDIRECT_SPECULAR	1
 
@@ -43,19 +40,15 @@
 #define FILTER_TRILINEAR			2 
 #define FILTER_HARDWARE_TRILINEAR	3 // Use hardware volume texture filtering
 
+#ifndef LPV_USE_SEPARATE_AO_VOLUME
+#define LPV_USE_SEPARATE_AO_VOLUME	1 // Use the separate (low precision) AO texture for AO lookups
+#endif
+
+#define LPV_DEFAULT_AO_VALUE		0.4
+
 // Filtering settings
-#if LPV_VOLUME_TEXTURE 
 	#define DIFFUSE_FILTER		FILTER_HARDWARE_TRILINEAR 
 	#define SPECULAR_FILTER		FILTER_HARDWARE_TRILINEAR 
-#else
-	#ifndef DIFFUSE_FILTER
-	#define DIFFUSE_FILTER		FILTER_TRILINEAR
-	#endif
-
-	#ifndef SPECULAR_FILTER
-	#define SPECULAR_FILTER		FILTER_TRILINEAR
-	#endif
-#endif
 
 //-------------------------------------------------------------------------------------------------
 
@@ -113,12 +106,12 @@ void GetGridIndicesAndWeightsTetra( float3 gridPos, out int indices[4], out floa
 	if ( flip2.z < 0 ) cubePos.z = 1-cubePos.z;
 
 	[unroll]
-	for ( uint i=0; i<4; i++ )
+	for ( uint j=0; j<4; j++ )
 	{
-		float3 tip = tips[i];
+		float3 tip = tips[j];
 		float3 d = abs(cubePos-tip);
 		float mDist = d.x+d.y+d.z;
-		if ( mDist <= 1.0f ) tetra=i;
+		if ( mDist <= 1.0f ) tetra=j;
 	}
 
 	if ( tetra<4 )
@@ -402,7 +395,6 @@ LPVCell LPVGetCellTrilinear( float3 worldPos )
 
 //-------------------------------------------------------------------------------------------------
 
-#if LPV_VOLUME_TEXTURE
 LPVCell LPVGetCellHardwareTrilinear( float3 worldPos )
 {
 	float3 colour = 0;
@@ -411,7 +403,6 @@ LPVCell LPVGetCellHardwareTrilinear( float3 worldPos )
 
 	return ReadLpvCellVolumeTextureFiltered( gridPos );
 }
-#endif
 
 //-------------------------------------------------------------------------------------------------
 
@@ -428,8 +419,29 @@ LPVCell LPVGetCell( float3 worldPos )
 #endif
 }
 
-//-------------------------------------------------------------------------------------------------
+float LPVGetCellAO_Grid( float3 gridPos )
+{
+	float3 absGridPos = abs(gridPos-16.0f);
+	float m = max( absGridPos.x, max( absGridPos.y, absGridPos.z ));
+	if ( m<=16.0f )
+	{
+		float3 texPos = gridPos / 32.0f;
+#if LPV_USE_SEPARATE_AO_VOLUME
+		return gAOVolumeTexture.SampleLevel( gLpv3DTextureSampler, texPos, 0 ).r;
+#else
+		return gLpv3DTexture0.SampleLevel( gLpv3DTextureSampler, texPos, 0 ).a;
+#endif
+	}
+	return LPV_DEFAULT_AO_VALUE;
+}
 
+float LPVGetCellAO( float3 WorldPos )
+{
+	float3 gridPos = WorldToGrid( WorldPos );
+	return LPVGetCellAO_Grid( gridPos );
+}
+
+//-------------------------------------------------------------------------------------------------
 
 float3 LPVSpecular( float3 worldPos, float3 reflectionVec, float rOffsetLength )
 {
@@ -439,7 +451,7 @@ float3 LPVSpecular( float3 worldPos, float3 reflectionVec, float rOffsetLength )
 
 	LPVCell Cell = LPVGetCell( worldPos + reflectionVec * rOffsetLength * LpvRead.LpvScale );
 
-	float3 Colour = LPVCellLookup( Cell, reflectionVec ) * INDIRECT_LEVEL * INDIRECT_SPECULAR_LEVEL;
+	float3 Colour = LPVCellLookup( Cell, reflectionVec ) * INDIRECT_LEVEL * LpvRead.SpecularIntensity;
 
 #if SHOW_GRID
 	Colour = DebugGridColour( WorldToGrid( worldPos ), colour );
@@ -458,7 +470,7 @@ float3 LPVSpecular( float3 worldPos, float3 reflectionVec )
 
 //-------------------------------------------------------------------------------------------------
 
-float3 LPVLookup( float3 worldPos, float3 normal )
+float3 LPVDiffuse( float3 worldPos, float3 normal )
 {
 #if !INDIRECT_DIFFUSE
 	return 0;
@@ -466,7 +478,7 @@ float3 LPVLookup( float3 worldPos, float3 normal )
 
 	LPVCell Cell = LPVGetCell( worldPos );
 
-	float3 Colour = LPVCellLookup( Cell, normal ) * INDIRECT_LEVEL * INDIRECT_DIFFUSE_LEVEL;
+	float3 Colour = LPVCellLookup( Cell, normal ) * INDIRECT_LEVEL * LpvRead.DiffuseIntensity;
 
 	return Colour;
 }
@@ -477,8 +489,88 @@ void LPVGetDiffuseAndSpecular( float3 worldPos, float3 normal, float3 reflection
 {
 	// TODO: could implement optimised ref lookup by using SH from diffuse for reflection
 
-	diffuseOut = LPVLookup( worldPos, normal ) ;
+	diffuseOut = LPVDiffuse( worldPos, normal ) ;
 	specularOut = LPVSpecular( worldPos, reflectionVec ) ; 
 }
+
+
+//-------------------------------------------------------------------------------------------------
+
+// Directional occlusion lookup
+float2 LPVGetDirectionalOcclusion_DiffuseSpec( float3 WorldPosition, float3 R, float Roughness, float3 N )
+{
+	BRANCH
+	if ( LpvRead.DirectionalOcclusionIntensity < 0.0001f )
+	{
+		return float2(1,1);
+	}
+	float SpecularOcclusion = 0.0f;
+	float DiffuseOcclusion = 0.0f;
+	const int NumSpecularSteps = 6; 
+	const int NumDiffuseSteps  = 2;
+
+	float3 gridPos = WorldToGrid( WorldPosition );
+	float StepLength = 1.333 / float(NumDiffuseSteps);//0.301f;
+	float Weight = 1.0f;
+	float TotalWeight = 0.0f;
+
+#if DEBUG_USE_RAW_AO
+	float ao = saturate( LPVGetCellAO_Grid( gridPos ) );
+	if ( ao > 0.5 ) return 1;
+	return ao.xx;
+#endif
+
+	float DiffuseOcclusionRaw = LPVGetCellAO_Grid( gridPos + N * 0.25 );
+	DiffuseOcclusion = saturate( DiffuseOcclusionRaw * 2.0f / LpvRead.DiffuseOcclusionIntensity );
+	DiffuseOcclusion = pow( DiffuseOcclusion, LpvRead.DiffuseOcclusionExponent );
+	DiffuseOcclusion = saturate(DiffuseOcclusion);
+
+	gridPos = WorldToGrid( WorldPosition );
+	StepLength = 2.0f / (float)NumSpecularSteps;
+	SpecularOcclusion = 0.0f;
+	TotalWeight=0;
+	Weight=1.0f;
+
+	// Use the diffuse occlusion tap as the first specular tap (since it's nearly identical)
+	SpecularOcclusion = saturate( 1-DiffuseOcclusionRaw ) * Weight;
+	StepLength *= 1.3f;
+	gridPos+=R*StepLength;
+	TotalWeight+=Weight; 
+	Weight *= 0.9;
+	for  ( int i=1; i<NumSpecularSteps; i++ )
+	{
+		float AO = saturate( 1-LPVGetCellAO_Grid( gridPos ) );
+		SpecularOcclusion += AO * Weight;
+		StepLength *= 1.3f;
+		gridPos+=R*StepLength;
+		TotalWeight+=Weight; 
+		Weight *= 0.9;
+	}
+
+	// Increase intensity as power increases	
+	float LerpValue = saturate( LpvRead.SpecularOcclusionExponent * 0.1f ); // 0-1 range
+	float Strength = lerp( 0.9f, 1.3f, LerpValue ) * LpvRead.SpecularOcclusionIntensity;
+	SpecularOcclusion *= Strength;
+	SpecularOcclusion /= TotalWeight;
+	SpecularOcclusion = pow( SpecularOcclusion, LpvRead.SpecularOcclusionExponent );
+
+	SpecularOcclusion = 1-SpecularOcclusion;
+
+	float2 DirectionalOcclusion = lerp( float2( 1,1 ), saturate( float2( DiffuseOcclusion, SpecularOcclusion) ), LpvRead.DirectionalOcclusionIntensity );
+
+#if LPV_OCCLUSION_EDGE_FADE
+	float3 grid = WorldToGrid( WorldPosition );
+	float minGrid = min( grid.x, min(grid.y,grid.z ) );
+	float maxGrid = max( grid.x, max(grid.y,grid.z ) );
+
+	float inside = min(	saturate(minGrid*0.5),
+						saturate((32.0f-maxGrid)*0.5) );
+
+	DirectionalOcclusion = lerp( float2(0.5,0.5), DirectionalOcclusion, inside );
+#endif
+
+	return DirectionalOcclusion;
+}
+
 
 #endif

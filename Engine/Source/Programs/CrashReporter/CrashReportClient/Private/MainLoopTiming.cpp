@@ -8,14 +8,15 @@
 
 FMainLoopTiming::FMainLoopTiming(float InIdealTickRate, EMainLoopOptions::Type Options)
 	: IdealFrameTime(1.f / InIdealTickRate)
-	, ActualDeltaTime(0)
-	, LastTime(FPlatformTime::Seconds())
 	, bTickSlate(Options & EMainLoopOptions::UsingSlate)
 {
 }
 
 void FMainLoopTiming::Tick()
 {
+	static double ActualDeltaTime = IdealFrameTime;
+	static double LastTime = FPlatformTime::Seconds();
+
 	// Tick app logic
 	FTaskGraphInterface::Get().ProcessThreadUntilIdle(ENamedThreads::GameThread);
 	FTicker::GetCoreTicker().Tick(ActualDeltaTime);
@@ -28,9 +29,6 @@ void FMainLoopTiming::Tick()
 		FSlateApplication::Get().Tick();
 	}
 #endif // !CRASH_REPORT_UNATTENDED_ONLY
-
-	static const float TickRate = 30.f;
-	static const float TickInterval = 1.f / TickRate;
 
 	// Sleep Throttling
 	// Copied from Community Portal - should be shared

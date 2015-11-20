@@ -45,6 +45,37 @@ void SetShaderValue(
 	}
 }
 
+template<typename ShaderRHIParamRef, class ParameterType>
+void SetShaderValue(
+	IRHICommandContext& RHICmdListContext,
+	ShaderRHIParamRef Shader,
+	const FShaderParameter& Parameter,
+	const ParameterType& Value,
+	uint32 ElementIndex = 0
+	)
+{
+	static_assert(!TIsPointerType<ParameterType>::Value, "Passing by value is not valid.");
+
+	const uint32 AlignedTypeSize = Align(sizeof(ParameterType), ShaderArrayElementAlignBytes);
+	const int32 NumBytesToSet = FMath::Min<int32>(sizeof(ParameterType), Parameter.GetNumBytes() - ElementIndex * AlignedTypeSize);
+
+	// This will trigger if the parameter was not serialized
+	checkSlow(Parameter.IsInitialized());
+
+	if (NumBytesToSet > 0)
+	{
+		RHICmdListContext.RHISetShaderParameter(
+			Shader,
+			Parameter.GetBufferIndex(),
+			Parameter.GetBaseIndex() + ElementIndex * AlignedTypeSize,
+			(uint32)NumBytesToSet,
+			&Value
+			);
+	}
+}
+
+
+
 /** Specialization of the above for C++ bool type. */
 template<typename ShaderRHIParamRef>
 void SetShaderValue(

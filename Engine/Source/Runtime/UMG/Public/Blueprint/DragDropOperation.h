@@ -30,7 +30,7 @@ enum class EDragPivot : uint8
 /**
  * This class is the base drag drop operation for UMG, extend it to add additional data and add new functionality.
  */
-UCLASS(BlueprintType, Blueprintable)
+UCLASS(BlueprintType, Blueprintable, meta=( DontUseGenericSpawnObject="True" ))
 class UMG_API UDragDropOperation : public UObject
 {
 	GENERATED_UCLASS_BODY()

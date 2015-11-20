@@ -35,7 +35,7 @@ protected:
 	void OnTypeChanged();
 	void InitCachedTypes();
 
-	EEnvQueryParam::Type ParamType;
+	EAIParamType ParamType;
 	mutable uint8 CachedBool : 1;
 	mutable float CachedFloat;
 	mutable int32 CachedInt;

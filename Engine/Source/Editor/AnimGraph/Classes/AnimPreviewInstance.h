@@ -5,7 +5,7 @@
 #include "BlueprintGraphDefinitions.h"
 #include "AnimGraphNode_ModifyBone.h"
 #include "Animation/AnimSingleNodeInstance.h"
-#include "Animation/BoneControllers/AnimNode_ModifyBone.h"
+#include "BoneControllers/AnimNode_ModifyBone.h"
 #include "AnimPreviewInstance.generated.h"
 
 /** Enum to know how montage is being played */
@@ -48,21 +48,21 @@ class ANIMGRAPH_API UAnimPreviewInstance : public UAnimSingleNodeInstance
 	UPROPERTY(transient)
 	int32 MontagePreviewStartSectionIdx;
 
-	// Begin UAnimInstance interface
+	//~ Begin UAnimInstance Interface
 	virtual void NativeInitializeAnimation() override;
-	virtual void NativeUpdateAnimation(float DeltaTimeX) override;
+	virtual void UpdateAnimationNode(float DeltaTimeX) override;
 	virtual bool NativeEvaluateAnimation(FPoseContext& Output) override;
-	// End UAnimInstance interface
+	//~ End UAnimInstance Interface
 
 	/** Set SkeletalControl Alpha**/
 	void SetSkeletalControlAlpha(float SkeletalControlAlpha);
 
 	UAnimSequence* GetAnimSequence();
 
-	// Begin UAnimSingleNodeInstance interface
+	//~ Begin UAnimSingleNodeInstance Interface
 	virtual void RestartMontage(UAnimMontage* Montage, FName FromSection = FName()) override;
 	virtual void SetAnimationAsset(UAnimationAsset* NewAsset, bool bIsLooping = true, float InPlayRate = 1.f) override;
-	// End UAnimSingleNodeInstance interface
+	//~ End UAnimSingleNodeInstance Interface
 
 	/** Montage preview functions */
 	void MontagePreview_JumpToStart();
@@ -150,7 +150,7 @@ private:
 	 * @param	BoneControllers	 List of Bone Controllers to apply
 	 * @param 	OutMeshPose	Outpose in Mesh Space once applied
 	 */
-	void ApplyBoneControllers(USkeletalMeshComponent* Component, TArray<FAnimNode_ModifyBone> &BoneControllers, FA2CSPose& OutMeshPose);
+	void ApplyBoneControllers(USkeletalMeshComponent* Component, TArray<FAnimNode_ModifyBone> &BoneControllers, FCSPose<FCompactPose>& OutMeshPose);
 	/** 
 	 * Update CurveControllers based on TransformCurves of Animation
 	 */
@@ -160,7 +160,7 @@ private:
 	 * Set Key Implementation function
 	 * It gets Pre Controller Local Space and gets Post Controller Local Space, and add the key to the curve 
 	 */
-	void SetKeyImplementation(const TArray<FTransform>& PreControllerInLocalSpace, const TArray<FTransform>& PostControllerInLocalSpace);
+	void SetKeyImplementation(const FCompactPose& PreControllerInLocalSpace, const FCompactPose& PostControllerInLocalSpace);
 	/** 
 	 * Add Key to the Sequence
 	 * Now Additive Key is generated, add to the curves

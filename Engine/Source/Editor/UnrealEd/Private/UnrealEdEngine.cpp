@@ -31,10 +31,12 @@
 #include "AutoReimport/AutoReimportManager.h"
 #include "NotificationManager.h"
 #include "SNotificationList.h"
+#include "AutoReimport/AssetSourceFilenameCache.h"
 #include "UObject/UObjectThreadContext.h"
 #include "Components/BillboardComponent.h"
 #include "Components/ArrowComponent.h"
 #include "Engine/Selection.h"
+#include "IMovieSceneCapture.h"
 #include "EngineUtils.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUnrealEdEngine, Log, All);
@@ -125,32 +127,29 @@ void UUnrealEdEngine::Init(IEngineLoop* InEngineLoop)
 		PropertyModule.RegisterCustomClassLayout("ProjectPackagingSettings", FOnGetDetailCustomizationInstance::CreateStatic(&FProjectPackagingSettingsCustomization::MakeInstance));
 	}
 
-	UEditorExperimentalSettings const* ExperimentalSettings =  GetDefault<UEditorExperimentalSettings>();
-	ECookInitializationFlags BaseCookingFlags = ECookInitializationFlags::AutoTick | ECookInitializationFlags::AsyncSave | ECookInitializationFlags::Compressed;
-	BaseCookingFlags |= ExperimentalSettings->bIterativeCookingForLaunchOn ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
-
-	bool bEnableCookOnTheSide = false;
-	GConfig->GetBool(TEXT("/Script/UnrealEd.CookerSettings"), TEXT("bEnableCookOnTheSide"), bEnableCookOnTheSide, GEngineIni);
-
-	if ( bEnableCookOnTheSide )
+	if (!IsRunningCommandlet())
 	{
-		CookServer = NewObject<UCookOnTheFlyServer>();
-		CookServer->Initialize( ECookMode::CookOnTheFlyFromTheEditor, BaseCookingFlags );
-		CookServer->StartNetworkFileServer( false );
+		UEditorExperimentalSettings const* ExperimentalSettings = GetDefault<UEditorExperimentalSettings>();
+		ECookInitializationFlags BaseCookingFlags = ECookInitializationFlags::AutoTick | ECookInitializationFlags::AsyncSave | ECookInitializationFlags::Compressed;
+		BaseCookingFlags |= ExperimentalSettings->bIterativeCookingForLaunchOn ? ECookInitializationFlags::Iterative : ECookInitializationFlags::None;
 
-		FCoreUObjectDelegates::OnObjectPropertyChanged.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectPropertyChanged);
-		FCoreUObjectDelegates::OnObjectModified.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectModified);
-		FCoreUObjectDelegates::OnObjectSaved.AddUObject( CookServer, &UCookOnTheFlyServer::OnObjectSaved );
-	}
-	else if ( !ExperimentalSettings->bDisableCookInEditor)
-	{
-		CookServer = NewObject<UCookOnTheFlyServer>();
-		CookServer->Initialize( ECookMode::CookByTheBookFromTheEditor, BaseCookingFlags );
+		bool bEnableCookOnTheSide = false;
+		GConfig->GetBool(TEXT("/Script/UnrealEd.CookerSettings"), TEXT("bEnableCookOnTheSide"), bEnableCookOnTheSide, GEngineIni);
 
-		FCoreUObjectDelegates::OnObjectPropertyChanged.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectPropertyChanged);
-		FCoreUObjectDelegates::OnObjectModified.AddUObject(CookServer, &UCookOnTheFlyServer::OnObjectModified);
-		FCoreUObjectDelegates::OnObjectSaved.AddUObject( CookServer, &UCookOnTheFlyServer::OnObjectSaved );
+		if (bEnableCookOnTheSide)
+		{
+			CookServer = NewObject<UCookOnTheFlyServer>();
+			CookServer->Initialize(ECookMode::CookOnTheFlyFromTheEditor, BaseCookingFlags);
+			CookServer->StartNetworkFileServer(false);
+		}
+		else if (!ExperimentalSettings->bDisableCookInEditor)
+		{
+			CookServer = NewObject<UCookOnTheFlyServer>();
+			CookServer->Initialize(ECookMode::CookByTheBookFromTheEditor, BaseCookingFlags);
+		}
 	}
+
+	bPivotMovedIndependently = false;
 }
 
 bool CanCookForPlatformInThisProcess( const FString& PlatformName )
@@ -309,14 +308,10 @@ void UUnrealEdEngine::MakeSortedSpriteInfo(TArray<FSpriteCategoryInfo>& OutSorte
 
 void UUnrealEdEngine::PreExit()
 {
+	FAssetSourceFilenameCache::Get().Shutdown();
+
 	// Notify edit modes we're mode at exit
 	FEditorModeRegistry::Get().Shutdown();
-
-	FAVIWriter* AVIWriter = FAVIWriter::GetInstance();
-	if (AVIWriter)
-	{
-		AVIWriter->Close();
-	}
 
 	Super::PreExit();
 }
@@ -403,12 +398,6 @@ void UUnrealEdEngine::Tick(float DeltaSeconds, bool bIdleMode)
 
 	// Update lightmass
 	UpdateBuildLighting();
-
-	FAVIWriter* AVIWriter = FAVIWriter::GetInstance();
-	if (AVIWriter)
-	{
-		AVIWriter->Update(DeltaSeconds);
-	}
 	
 	ICrashTrackerModule* CrashTracker = FModuleManager::LoadModulePtr<ICrashTrackerModule>( FName("CrashTracker") );
 	bool bCrashTrackerEnabled = false;
@@ -455,7 +444,7 @@ void UUnrealEdEngine::OnPackageDirtyStateUpdated( UPackage* Pkg)
 				FPackageFileSummary Summary;
 				*PackageReader << Summary;
 
-				if ( Summary.GetFileVersionUE4() > GPackageFileUE4Version || !GEngineVersion.IsCompatibleWith(Summary.CompatibleWithEngineVersion) )
+				if ( Summary.GetFileVersionUE4() > GPackageFileUE4Version || !FEngineVersion::Current().IsCompatibleWith(Summary.CompatibleWithEngineVersion) )
 				{
 					WarningStateToSet = WDWS_PendingWarn;
 					bNeedWarningForPkgEngineVer = true;
@@ -536,21 +525,22 @@ void UUnrealEdEngine::OnSourceControlStateUpdated(const FSourceControlOperationR
 			}
 			else
 			{
-				if (SourceControlState->CanCheckout() || !SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther())
+				// Note when cooking in the editor we ignore package notifications.  The cooker is saving packages in a temp location which generates bogus checkout messages otherwise.
+				if ((SourceControlState->CanCheckout() || !SourceControlState->IsCurrent() || SourceControlState->IsCheckedOutOther()) && (!CookServer || !CookServer->IsCookingInEditor() ) )
 				{
 					// To get here, either "prompt for checkout on asset modification" is set, or "automatically checkout on asset modification"
 					// is set, but it failed.
 
-			// Allow packages that are not checked out to pass through.
-			// Allow packages that are not current or checked out by others pass through.  
-			// The user wont be able to checkout these packages but the checkout dialog will show up with a special icon 
-			// to let the user know they wont be able to checkout the package they are modifying.
+					// Allow packages that are not checked out to pass through.
+					// Allow packages that are not current or checked out by others pass through.  
+					// The user wont be able to checkout these packages but the checkout dialog will show up with a special icon 
+					// to let the user know they wont be able to checkout the package they are modifying.
 
 					PackageToNotifyState.Add(Package, SourceControlState->CanCheckout() ? NS_PendingPrompt : NS_PendingWarning);
-			// We need to prompt since a new package was added
-			bNeedToPromptForCheckout = true;
-		}
-	}
+					// We need to prompt since a new package was added
+					bNeedToPromptForCheckout = true;
+				}
+			}
 		}
 	}
 }
@@ -657,6 +647,16 @@ void UUnrealEdEngine::OnOpenMatinee()
 {
 	// Register a delegate to pickup when Matinee is closed.
 	OnMatineeEditorClosedDelegateHandle = GLevelEditorModeTools().OnEditorModeChanged().AddUObject( this, &UUnrealEdEngine::OnMatineeEditorClosed );
+}
+
+bool UUnrealEdEngine::IsAutosaving() const
+{
+	if (PackageAutoSaver)
+	{
+		return PackageAutoSaver->IsAutoSaving();
+	}
+	
+	return false;
 }
 
 
@@ -1176,6 +1176,56 @@ void UUnrealEdEngine::UpdateVolumeActorVisibility( UClass* InVolumeActorClass, F
 					PrimitiveComponent->PushEditorVisibilityToProxy( ActorToUpdate->HiddenEditorViews );
 				}
 			}
+		}
+	}
+}
+
+
+void UUnrealEdEngine::FixAnyInvertedBrushes(UWorld* World)
+{
+	// Get list of brushes with inverted polys
+	TArray<ABrush*> Brushes;
+	for (TActorIterator<ABrush> It(World); It; ++It)
+	{
+		ABrush* Brush = *It;
+		if (Brush->BrushComponent && Brush->BrushComponent->HasInvertedPolys())
+		{
+			Brushes.Add(Brush);
+		}
+	}
+
+	bool bAnyStaticBrushesFixed = false;
+	if (Brushes.Num() > 0)
+	{
+		for (ABrush* Brush : Brushes)
+		{
+			UE_LOG(LogUnrealEdEngine, Warning, TEXT("Brush '%s' appears to be inside out - fixing."), *Brush->GetName());
+
+			// Invert the polys of the brush
+			for (auto& Poly : Brush->BrushComponent->Brush->Polys->Element)
+			{
+				Poly.Reverse();
+				Poly.CalcNormal();
+			}
+
+			if (Brush->IsStaticBrush())
+			{
+				// Static brushes require a full BSP rebuild
+				bAnyStaticBrushesFixed = true;
+			}
+			else
+			{
+				// Dynamic brushes can be fixed up here
+				FBSPOps::csgPrepMovingBrush(Brush);
+				Brush->BrushComponent->BuildSimpleBrushCollision();
+			}
+
+			Brush->MarkPackageDirty();
+		}
+
+		if (bAnyStaticBrushesFixed)
+		{
+			RebuildAlteredBSP();
 		}
 	}
 }

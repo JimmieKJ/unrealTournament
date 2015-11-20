@@ -30,6 +30,7 @@ public:
 	TSharedPtr< FUICommandInfo > AddCodeToProject;
 	TSharedPtr< FUICommandInfo > OpenIDE;
 	TSharedPtr< FUICommandInfo > RefreshCodeProject;
+	TSharedPtr< FUICommandInfo > ZipUpProject;
 	TSharedPtr< FUICommandInfo > PackagingSettings;
 	TSharedPtr< FUICommandInfo > LocalizeProject;
 	TArray< TSharedPtr< FUICommandInfo > > SwitchProjectCommands;
@@ -46,14 +47,11 @@ public:
 	TSharedPtr< FUICommandInfo > OpenClassViewer;
 	TSharedPtr< FUICommandInfo > OpenWidgetReflector;
 
-	TSharedPtr< FUICommandInfo > VisitUTWiki;
 	TSharedPtr< FUICommandInfo > VisitWiki;
-	TSharedPtr< FUICommandInfo > VisitUTForums;
 	TSharedPtr< FUICommandInfo > VisitForums;
 	TSharedPtr< FUICommandInfo > VisitAskAQuestionPage;
 	TSharedPtr< FUICommandInfo > VisitSearchForAnswersPage;
 	TSharedPtr< FUICommandInfo > VisitSupportWebSite;
-	TSharedPtr< FUICommandInfo > VisitUTDotCom;
 	TSharedPtr< FUICommandInfo > VisitEpicGamesDotCom;
 	TSharedPtr< FUICommandInfo > AboutUnrealEd;
 	TSharedPtr< FUICommandInfo > CreditsUnrealEd;
@@ -139,10 +137,6 @@ public:
 	/** Visits the UDN support web site */
 	static void VisitSupportWebSite();
 
-	static void VisitUTDotCom();
-	static void VisitUTWiki();
-	static void VisitUTForums();
-
 	/** Visits EpicGames.com */
 	static void VisitEpicGamesDotCom();
 
@@ -188,6 +182,9 @@ public:
 
 	/** Opens an IDE to edit c++ code */
 	static void OpenIDE();
+
+	/** Zips up the project */
+	static void ZipUpProject();
 
 	/** Opens the Packaging settings tab */
 	static void PackagingSettings();

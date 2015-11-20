@@ -4,6 +4,7 @@
 #ifndef __SCurveEditor_h__
 #define __SCurveEditor_h__
 
+#include "CurveEditorSettings.h"
 #include "EditorUndoClient.h"
 
 //////////////////////////////////////////////////////////////////////////
@@ -85,6 +86,8 @@ public:
 	bool bIsVisible;
 	/** Whether or not the curve is locked from editing. */
 	bool bIsLocked;
+	/** Whether or not the curve is selected. */
+	bool bIsSelected;
 
 	FCurveViewModel(FRichCurveEditInfo InCurveInfo, FLinearColor InColor, bool bInIsLocked)
 	{
@@ -92,6 +95,7 @@ public:
 		Color = InColor;
 		bIsVisible = true;
 		bIsLocked = bInIsLocked;
+		bIsSelected = true;
 	}
 };
 
@@ -115,13 +119,27 @@ private:
 		PreDrag,
 		/** The user is dragging the selected keys. */
 		DragKey,
+		/** The user is free dragging the selected keys. */
+		FreeDrag,
 		/** The user is dragging a selected tangent handle. */
 		DragTangent,
 		/** The user is performing a marquee selection of keys. */
 		MarqueeSelect,
 		/** The user is panning the curve view. */
 		Pan,
+		/** The user is zooming the curve view. */
+		Zoom,
 		/** There is no active drag operation. */
+		None
+	};
+
+	enum class EMovementAxisLock
+	{
+		/** Lock movement to horizontal axis */
+		AxisLock_Horizontal,
+		/** Lock movement to vertical axis */
+		AxisLock_Vertical,
+		/** Don't lock movement */
 		None
 	};
 
@@ -136,7 +154,6 @@ public:
 		, _SnappingEnabled(false)
 		, _TimelineLength(5.0f)
 		, _DesiredSize(FVector2D::ZeroVector)
-		, _ShowCurveToolTips(false)
 		, _DrawCurve(true)
 		, _HideUI(true)
 		, _AllowZoomOutput(true)
@@ -163,7 +180,6 @@ public:
 		SLATE_ATTRIBUTE( bool, SnappingEnabled )
 		SLATE_ATTRIBUTE( float, TimelineLength )
 		SLATE_ATTRIBUTE( FVector2D, DesiredSize )
-		SLATE_ATTRIBUTE( bool, ShowCurveToolTips )
 		SLATE_ARGUMENT( bool, DrawCurve )
 		SLATE_ARGUMENT( bool, HideUI )
 		SLATE_ARGUMENT( bool, AllowZoomOutput )
@@ -220,6 +236,21 @@ public:
 	/** Gets a list of the commands handled by this control */
 	UNREALED_API TSharedPtr<FUICommandList> GetCommands();
 
+	/** Gets or sets whether autoframing is allowed */
+	UNREALED_API bool GetAllowAutoFrame() const { return bAllowAutoFrame; }
+	UNREALED_API void SetAllowAutoFrame(bool bInAllowAutoFrame) { bAllowAutoFrame = bInAllowAutoFrame; }
+
+	/** Gets whether autoframe will be invoked (combination of allow auto frame and curve editor auto frame setting) */
+	UNREALED_API bool GetAutoFrame() const;
+
+	/* Get the curves to will be used during a fit operation */
+	UNREALED_API virtual TArray<FRichCurve*> GetCurvesToFit()const;
+
+	/** Zoom to fit */
+	UNREALED_API void ZoomToFitHorizontal(const bool bZoomToFitAll = false);
+	UNREALED_API void ZoomToFitVertical(const bool bZoomToFitAll = false);
+	UNREALED_API void ZoomToFit(const bool bZoomToFitAll = false);
+
 private:
 	/** Used to track a key and the curve that owns it */
 	struct FSelectedCurveKey
@@ -256,6 +287,16 @@ private:
 		{
 		}
 
+		FSelectedTangent(FSelectedCurveKey InKey) : Key(InKey)
+		{
+		}
+
+		/** Does the key and the arrival match ?*/
+		bool			operator == (const FSelectedTangent& Other) const 
+		{
+			return (Key == Other.Key) && (bIsArrival == Other.bIsArrival);
+		}
+
 		/** If this is a valid Curve/Key */
 		bool			IsValid() const;
 
@@ -268,7 +309,7 @@ private:
 
 private:
 	/** Adds a new key to the curve. */
-	void AddNewKey(FGeometry InMyGeometry, FVector2D ScreenPosition);
+	void AddNewKey(FGeometry InMyGeometry, FVector2D ScreenPosition, TSharedPtr<TArray<TSharedPtr<FCurveViewModel>>> CurvesToAddKeysTo, bool bAddKeysInline);
 
 	/** Test if the curve is exists, and if it being displayed on this widget */
 	bool		IsValidCurve(FRichCurve* Curve) const;
@@ -297,16 +338,39 @@ private:
 	/** Get the set of keys within a rectangle in local space */
 	TArray<FSelectedCurveKey> GetEditableKeysWithinMarquee(const FGeometry& InMyGeometry, FVector2D MarqueeTopLeft, FVector2D MarqueeBottomRight) const;
 
-	/** Empy key selecttion set */
-	void EmptySelection();
+	/** Get the set of tangents within a rectangle in local space */
+	TArray<FSelectedTangent> GetEditableTangentsWithinMarquee(const FGeometry& InMyGeometry, FVector2D MarqueeTopLeft, FVector2D MarqueeBottomRight) const;
+
+	/** Empty key selection set */
+	void EmptyKeySelection();
 	/** Add a key to the selection set */
-	void AddToSelection(FSelectedCurveKey Key);
+	void AddToKeySelection(FSelectedCurveKey Key);
 	/** Remove a key from the selection set */
-	void RemoveFromSelection(FSelectedCurveKey Key);
+	void RemoveFromKeySelection(FSelectedCurveKey Key);
 	/** See if a key is currently selected */
 	bool IsKeySelected(FSelectedCurveKey Key) const;
 	/** See if any keys are selected */
 	bool AreKeysSelected() const;
+
+	/** Empty tangent selection set */
+	void EmptyTangentSelection();
+	/** Add a tangent to the selection set */
+	void AddToTangentSelection(FSelectedTangent Tangent);
+	/** Remove a tangent from the selection set */
+	void RemoveFromTangentSelection(FSelectedTangent Tangent);
+	/** See if a tangent is currently selected */
+	bool IsTangentSelected(FSelectedTangent Tangent) const;
+	/** See if any tangents are selected */
+	bool AreTangentsSelected() const;
+
+	/** Is the tangent visible? */
+	bool IsTangentVisible(FRichCurve*, FKeyHandle, bool& IsTangentSelected, bool& IsArrivalSelected, bool& IsLeaveSelected) const;
+
+	/** Empty key and tangent selection set */
+	void EmptyAllSelection();
+
+	/** Ensure that selected keys and tangents are still valid */
+	void ValidateSelection();
 
 	/** Get the value of the desired key as text */
 	TOptional<float> GetKeyValue(FSelectedCurveKey Key) const;
@@ -314,17 +378,10 @@ private:
 	TOptional<float> GetKeyTime(FSelectedCurveKey Key) const;
 
 	/** Move the selected keys */
-	void MoveSelectedKeys(FVector2D NewLocation);
+	void MoveSelectedKeys(FVector2D Delta);
 
 	/** Function to check whether the current track is editable */
 	bool IsEditingEnabled() const;
-
-	/* Get the curves to will be used during a fit operation */
-	TArray<FRichCurve*> GetCurvesToFit()const;
-
-	void ZoomToFitHorizontal(bool OnlySelected);
-	void ZoomToFitVertical(bool OnlySelected);
-	void ZoomToFitAll(bool OnlySelected);
 
 	FReply ZoomToFitHorizontalClicked();
 	FReply ZoomToFitVerticalClicked();
@@ -352,7 +409,7 @@ private:
 	bool GetInputEditEnabled() const;
 
 	/** Function to create context menu on mouse right click*/
-	void CreateContextMenu(const FGeometry& InMyGeometry, const FVector2D& ScreenPosition);
+	void CreateContextMenu(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent);
 
 	/** Callback function called when item is select in the context menu */
 	void OnCreateExternalCurveClicked();
@@ -366,19 +423,19 @@ private:
 	/** Function pointer to execute callback function when user select 'Create external curve'*/
 	FSimpleDelegate OnCreateAsset;
 
-	// SWidget interface
+	//~ Begin SWidget Interface
 	UNREALED_API virtual FVector2D ComputeDesiredSize(float) const override;
 
 	/** Paint a curve */
 	void PaintCurve(TSharedPtr<FCurveViewModel> CurveViewModel, const FGeometry &AllottedGeometry, FTrackScaleInfo &ScaleInfo, FSlateWindowElementList &OutDrawElements, 
-					int32 LayerId, const FSlateRect& MyClippingRect, ESlateDrawEffect::Type DrawEffects, const FWidgetStyle &InWidgetStyle) const;
+					int32 LayerId, const FSlateRect& MyClippingRect, ESlateDrawEffect::Type DrawEffects, const FWidgetStyle &InWidgetStyle, bool bAnyCurveViewModelsSelected) const;
 
 	/** Paint the keys that make up a curve */
-	void PaintKeys(TSharedPtr<FCurveViewModel> CurveViewModel, FTrackScaleInfo &ScaleInfo, FSlateWindowElementList &OutDrawElements, int32 LayerId, int32 SelectedLayerId, const FGeometry &AllottedGeometry, const FSlateRect& MyClippingRect, ESlateDrawEffect::Type DrawEffects, const FWidgetStyle &InWidgetStyle ) const;
+	void PaintKeys(TSharedPtr<FCurveViewModel> CurveViewModel, FTrackScaleInfo &ScaleInfo, FSlateWindowElementList &OutDrawElements, int32 LayerId, int32 SelectedLayerId, const FGeometry &AllottedGeometry, const FSlateRect& MyClippingRect, ESlateDrawEffect::Type DrawEffects, const FWidgetStyle &InWidgetStyle, bool bAnyCurveViewModelsSelected ) const;
 
 	/** Paint the tangent for a key with cubic curves */
-	void PaintTangent( FTrackScaleInfo &ScaleInfo, FRichCurve* Curve, FKeyHandle KeyHandle, FVector2D KeyLocation, FSlateWindowElementList &OutDrawElements, int32 LayerId, 
-					   const FGeometry &AllottedGeometry, const FSlateRect& MyClippingRect, ESlateDrawEffect::Type DrawEffects, int32 LayerToUse, const FWidgetStyle &InWidgetStyle ) const;
+	void PaintTangent( TSharedPtr<FCurveViewModel> CurveViewModel, FTrackScaleInfo &ScaleInfo, FRichCurve* Curve, FKeyHandle KeyHandle, FVector2D KeyLocation, FSlateWindowElementList &OutDrawElements, int32 LayerId, 
+					   const FGeometry &AllottedGeometry, const FSlateRect& MyClippingRect, ESlateDrawEffect::Type DrawEffects, int32 LayerToUse, const FWidgetStyle &InWidgetStyle, bool bTangentSelected, bool bIsArrivalSelected, bool bIsLeaveSelected, bool bAnyCurveViewModelsSelected ) const;
 
 	/** Paint Grid lines, these make it easier to visualize relative distance */
 	void PaintGridLines( const FGeometry &AllottedGeometry, FTrackScaleInfo &ScaleInfo, FSlateWindowElementList &OutDrawElements, int32 LayerId, const FSlateRect& MyClippingRect, ESlateDrawEffect::Type DrawEffects )const;
@@ -386,7 +443,8 @@ private:
 	/** Paints the marquee for selection */
 	void PaintMarquee(const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId) const;
 
-	// SWidget interface
+protected:
+	//~ Begin SWidget Interface
 	UNREALED_API virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	UNREALED_API virtual FReply OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	UNREALED_API virtual FReply OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
@@ -394,6 +452,7 @@ private:
 	UNREALED_API virtual FReply OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent ) override;
 	UNREALED_API virtual void   OnMouseCaptureLost() override;
 
+private:
 	/** Attempts to start a drag operation when the mouse moves. */
 	void TryStartDrag(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
@@ -411,30 +470,42 @@ private:
 		return true;
 	}
 
+	/** Zoom the view. */
+	void ZoomView(FVector2D Delta);
+
 	/* Generates the line(s) for rendering between KeyIndex and the following key. */
 	void CreateLinesForSegment( FRichCurve* Curve, const FRichCurveKey& Key1, const FRichCurveKey& Key2, TArray<FVector2D>& Points, FTrackScaleInfo &ScaleInfo) const;
 	
 	/** Detect if user is clicking on a curve */
 	TSharedPtr<FCurveViewModel> HitTestCurves(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent);
 
-	/* user is moving the tangent for a key */
-	void OnMoveTangent(FVector2D MouseCurvePosition);
+	/* user is moving the tangents */
+	void MoveTangents(FTrackScaleInfo& ScaleInfo, FVector2D Delta);
 
 	//Curve Selection interface 
 
-	/** Construct widget that allows user to select which curve to edit if there are multiple */
+	/** Construct widget that allows user to select which curve to edit if tthere are multiple */
 	TSharedRef<SWidget> CreateCurveSelectionWidget() const;
 
-	/** Create ontext Menu for waring menu*/
+	/** Create context Menu for waring menu*/
 	void	PushWarningMenu(FVector2D Position, const FText& Message);
 
 	/** Create context Menu for key interpolation settings*/
-	void	PushKeyMenu(const FGeometry& InMyGeometry, FVector2D Position);
+	void	PushKeyMenu(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent);
 
 	/** Called when the user selects the interpolation mode */
 	void	OnSelectInterpolationMode(ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode);
 
 	bool IsInterpolationModeSelected(ERichCurveInterpMode InterpMode, ERichCurveTangentMode TangentMode);
+
+	/** Flatten or straighten tangents */
+	void OnFlattenOrStraightenTangents(bool bFlattenTangents);
+
+	/** Called when the user selects the extrapolation type */
+	void OnSelectPreInfinityExtrap(ERichCurveExtrapolation Extrapolation);
+	bool IsPreInfinityExtrapSelected(ERichCurveExtrapolation Extrapolation);
+	void OnSelectPostInfinityExtrap(ERichCurveExtrapolation Extrapolation);
+	bool IsPostInfinityExtrapSelected(ERichCurveExtrapolation Extrapolation);
 
 	/** Begin a transaction for dragging a key or tangent */
 	void	BeginDragTransaction();
@@ -450,7 +521,7 @@ private:
 	/** Perform redo*/
 	void	RedoAction();
 
-	// Begin FEditorUndoClient Interface
+	//~ Begin FEditorUndoClient Interface
 	UNREALED_API virtual void PostUndo(bool bSuccess) override;
 	UNREALED_API virtual void PostRedo(bool bSuccess) override { PostUndo(bSuccess); }
 	// End of FEditorUndoClient
@@ -486,7 +557,7 @@ protected:
 	/** Get Time Step for vertical line drawing **/
 	UNREALED_API virtual float GetTimeStep(FTrackScaleInfo &ScaleInfo) const;
 	
-	// SWidget interface
+	//~ Begin SWidget Interface
 	UNREALED_API virtual int32 OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, 
 		FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 
@@ -494,7 +565,22 @@ protected:
 	UNREALED_API void SetInputMinMax(float NewMin, float NewMax);
 	UNREALED_API void SetOutputMinMax(float NewMin, float NewMax);
 
+	/** Access the user-supplied settings object */
+	UCurveEditorSettings* GetSettings() const { return Settings; }
+
+	/** Clear the selected curve view models */
+	UNREALED_API void ClearSelectedCurveViewModels();
+
+	/** Set the selected curve view model that matches the rich curve */
+	UNREALED_API void SetSelectedCurveViewModel(FRichCurve* Curve);
+
+	/** Return whether any curve view models are selected */
+	UNREALED_API bool AnyCurveViewModelsSelected() const;
+
 private:
+
+	/** User-supplied object for this curve editor */
+	UCurveEditorSettings* Settings;
 
 	/** Curve selection*/
 	TWeakPtr<SBox>		CurveSelectionWidget;
@@ -524,8 +610,8 @@ private:
 	/** Array of selected keys*/
 	TArray<FSelectedCurveKey> SelectedKeys;
 
-	/** Currently selected tangent */
-	FSelectedTangent	SelectedTangent;
+	/** Array of selected tangents */
+	TArray<FSelectedTangent> SelectedTangents;
 
 	/** Minimum input of data range  */
 	TAttribute< TOptional<float> >	DataMinInput;
@@ -563,6 +649,9 @@ private:
 	/** Gradient editor */
 	TSharedPtr<class SColorGradientEditor> GradientViewer;
 
+	/** Flag to allow auto framing */
+	bool bAllowAutoFrame;
+
 protected:
 	/** Minimum input of view range  */
 	TAttribute<float>	ViewMinInput;
@@ -585,14 +674,11 @@ protected:
 	/** Whether or not snapping is enabled. */
 	TAttribute<bool> bSnappingEnabled;
 
-	/** Whether or not to show tool tips for curves. */
-	TAttribute<bool> bShowCurveToolTips;
+	/** True if you want the curve editor to fit to zoom **/
+	bool bZoomToFitVertical;
 
 	/** True if you want the curve editor to fit to zoom **/
-	bool				bZoomToFitVertical;
-
-	/** True if you want the curve editor to fit to zoom **/
-	bool				bZoomToFitHorizontal;
+	bool bZoomToFitHorizontal;
 
 	/** True if the sliders are being used to adjust point values **/
 	bool bIsUsingSlider;
@@ -612,6 +698,9 @@ protected:
 	/** The state of the current drag operation happening with the widget, if any. */
 	EDragState DragState;
 
+	/** The movement axis lock state */
+	EMovementAxisLock MovementAxisLock;
+
 	/** The number of pixels which the mouse must move before a drag operation starts. */
 	float DragThreshold;
 
@@ -620,6 +709,9 @@ protected:
 
 	/** A map of selected key handle to their starting locations at the beginning of a drag operation. */
 	TMap<FKeyHandle, FVector2D> PreDragKeyLocations;
+
+	/** A map of selected key handles to their tangent values at the beginning of a drag operation. */
+	TMap<FKeyHandle, FVector2D> PreDragTangents;
 
 	/** The text to display for the input axis. */
 	FText InputAxisName;

@@ -35,12 +35,42 @@ struct ENGINE_API FCollisionQueryParams
 	/** Only fill in the PhysMaterial field of  */
 	bool bReturnPhysicalMaterial;
 
+	/** Whether to ignore blocking results. */
+	bool bIgnoreBlocks;
+
 	/** TArray typedef of components to ignore. */
 	typedef TArray<uint32, TInlineAllocator<NumInlinedActorComponents>> IgnoreComponentsArrayType;
 
-	/** Set of components to ignore during the trace */
-	IgnoreComponentsArrayType IgnoreComponents;
+	/** Extra filtering done on the query. See declaration for filtering logic */
+	FMaskFilter IgnoreMask;
 
+private:
+
+	/** Tracks whether the IgnoreComponents list is verified unique. */
+	mutable bool bComponentListUnique;
+
+	/** Set of components to ignore during the trace */
+	mutable IgnoreComponentsArrayType IgnoreComponents;
+
+	void Internal_AddIgnoredComponent(const UPrimitiveComponent* InIgnoreComponent);
+
+public:
+
+	/** Returns set of unique components to ignore during the trace. Elements are guaranteed to be unique (they are made so internally if they are not already). */
+	const IgnoreComponentsArrayType& GetIgnoredComponents() const;
+
+	/** Clears the set of components to ignore during the trace. */
+	void ClearIgnoredComponents()
+	{
+		IgnoreComponents.Reset();
+		bComponentListUnique = true;
+	}
+
+	/**
+	 * Set the number of ignored components in the list. Uniqueness is not changed, it operates on the current state (unique or not).
+	 * Useful for temporarily adding some, then restoring to a previous size. NewNum must be <= number of current components for there to be any effect.
+	 */
+	void SetNumIgnoredComponents(int32 NewNum);
 
 	// Constructors
 	FCollisionQueryParams(bool bInTraceComplex=false)
@@ -51,6 +81,9 @@ struct ENGINE_API FCollisionQueryParams
 		bFindInitialOverlaps = true;
 		bReturnFaceIndex = false;
 		bReturnPhysicalMaterial = false;
+		bComponentListUnique = true;
+		IgnoreMask = 0;
+		bIgnoreBlocks = false;
 	}
 
 	FCollisionQueryParams(FName InTraceTag, bool bInTraceComplex=false, const AActor* InIgnoreActor=NULL);
@@ -74,6 +107,12 @@ struct ENGINE_API FCollisionQueryParams
 	
 	/** Variant that uses an array of TWeakObjectPtrs */
 	void AddIgnoredComponents(const TArray<TWeakObjectPtr<UPrimitiveComponent>>& InIgnoreComponents);
+
+	/**
+	 * Special variant that hints that we are likely adding a duplicate of the root component or first ignored component.
+	 * Helps avoid invalidating the potential uniquess of the IgnoreComponents array.
+	 */
+	void AddIgnoredComponent_LikelyDuplicatedRoot(const UPrimitiveComponent* InIgnoreComponent);
 
 	FString ToString() const
 	{
@@ -224,14 +263,19 @@ struct ENGINE_API FCollisionObjectQueryParams
 	/** Set of object type queries that it is interested in **/
 	int32 ObjectTypesToQuery;
 
+	/** Extra filtering done during object query. See declaration for filtering logic */
+	FMaskFilter IgnoreMask;
+
 	FCollisionObjectQueryParams()
 		: ObjectTypesToQuery(0)
+		, IgnoreMask(0)
 	{
 	}
 
 	FCollisionObjectQueryParams(ECollisionChannel QueryChannel)
 	{
 		ObjectTypesToQuery = ECC_TO_BITFIELD(QueryChannel);
+		IgnoreMask = 0;
 	}
 
 	FCollisionObjectQueryParams(const TArray<TEnumAsByte<EObjectTypeQuery> > & ObjectTypes)
@@ -242,6 +286,8 @@ struct ENGINE_API FCollisionObjectQueryParams
 		{
 			AddObjectTypesToQuery(UEngineTypes::ConvertToCollisionChannel((*Iter).GetValue()));
 		}
+
+		IgnoreMask = 0;
 	}
 
 	FCollisionObjectQueryParams(enum FCollisionObjectQueryParams::InitType QueryType)
@@ -258,6 +304,8 @@ struct ENGINE_API FCollisionObjectQueryParams
 			ObjectTypesToQuery = FCollisionQueryFlag::Get().GetAllDynamicObjectsQueryFlag();
 			break;
 		}
+
+		IgnoreMask = 0;
 		
 	};
 
@@ -266,6 +314,7 @@ struct ENGINE_API FCollisionObjectQueryParams
 	FCollisionObjectQueryParams(int32 InObjectTypesToQuery)
 	{
 		ObjectTypesToQuery = InObjectTypesToQuery;
+		IgnoreMask = 0;
 		DoVerify();
 	}
 

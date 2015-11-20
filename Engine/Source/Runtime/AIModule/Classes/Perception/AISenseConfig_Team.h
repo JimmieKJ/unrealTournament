@@ -3,6 +3,7 @@
 #pragma once
 
 #include "AISenseConfig.h"
+#include "Perception/AISense_Team.h"
 #include "AISenseConfig_Team.generated.h"
 
 class UAISense_Team;

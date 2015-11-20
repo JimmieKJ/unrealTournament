@@ -18,7 +18,7 @@ public:
 	 * @param InRecipient The message recipient.
 	 * @param InTracer The message tracer to notify.
 	 */
-	FMessageDispatchTask( ENamedThreads::Type InThread, IMessageContextRef InContext, IReceiveMessagesWeakPtr InRecipient, FMessageTracerPtr InTracer )
+	FMessageDispatchTask(ENamedThreads::Type InThread, IMessageContextRef InContext, IReceiveMessagesWeakPtr InRecipient, FMessageTracerPtr InTracer)
 		: Context(InContext)
 		, RecipientPtr(InRecipient)
 		, Thread(InThread)
@@ -33,25 +33,27 @@ public:
 	 * @param CurrentThread The thread that this task is executing on.
 	 * @param MyCompletionGraphEvent The completion event.
 	 */
-	void DoTask( ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent )
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
 		IReceiveMessagesPtr Recipient = RecipientPtr.Pin();
 
-		if (Recipient.IsValid())
+		if (!Recipient.IsValid())
 		{
-			FMessageTracerPtr Tracer = TracerPtr.Pin();
+			return;
+		}
 
-			if (Tracer.IsValid())
-			{
-				Tracer->TraceDispatchedMessage(Context, Recipient.ToSharedRef(), true);
-			}
+		FMessageTracerPtr Tracer = TracerPtr.Pin();
+
+		if (Tracer.IsValid())
+		{
+			Tracer->TraceDispatchedMessage(Context, Recipient.ToSharedRef(), true);
+		}
 		
-			Recipient->ReceiveMessage(Context);
+		Recipient->ReceiveMessage(Context);
 
-			if (TracerPtr.IsValid())
-			{
-				Tracer->TraceHandledMessage(Context, Recipient.ToSharedRef());
-			}
+		if (TracerPtr.IsValid())
+		{
+			Tracer->TraceHandledMessage(Context, Recipient.ToSharedRef());
 		}
 	}
 	

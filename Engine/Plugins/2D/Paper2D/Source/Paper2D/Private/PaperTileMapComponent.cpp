@@ -109,7 +109,9 @@ void UPaperTileMapComponent::PostLoad()
 {
 	Super::PostLoad();
 
-	if (GetLinkerCustomVersion(FPaperCustomVersion::GUID) < FPaperCustomVersion::MovedTileMapDataToSeparateClass)
+	const int32 PaperVer = GetLinkerCustomVersion(FPaperCustomVersion::GUID);
+	
+	if (PaperVer < FPaperCustomVersion::MovedTileMapDataToSeparateClass)
 	{
 		// Create a tile map object and move our old properties over to it
 		TileMap = NewObject<UPaperTileMap>(this);
@@ -134,6 +136,12 @@ void UPaperTileMapComponent::PostLoad()
 		DefaultLayerTileSet_DEPRECATED = nullptr;
 		Material_DEPRECATED = nullptr;
 		TileLayers_DEPRECATED.Empty();
+	}
+
+	if (PaperVer < FPaperCustomVersion::FixVertexColorSpace)
+	{
+		const FColor SRGBColor = TileMapColor.ToFColor(/*bSRGB=*/ true);
+		TileMapColor = SRGBColor.ReinterpretAsLinear();
 	}
 }
 
@@ -271,7 +279,7 @@ void UPaperTileMapComponent::RebuildRenderData(TArray<FSpriteRenderSection>& Sec
 		}
 	}
 
- 	Vertices.Empty(EstimatedNumVerts);
+	Vertices.Empty(EstimatedNumVerts);
 
 	UMaterialInterface* TileMapMaterial = GetMaterial(0);
 	if (TileMapMaterial == nullptr)
@@ -297,7 +305,8 @@ void UPaperTileMapComponent::RebuildRenderData(TArray<FSpriteRenderSection>& Sec
 			}
 		}
 
-		const FColor DrawColor(TileMapColor * Layer->GetLayerColor());
+		const FLinearColor DrawColorLinear = TileMapColor * Layer->GetLayerColor();
+		const FColor DrawColor(DrawColorLinear.ToFColor(/*bSRGB=*/ false));
 
 #if WITH_EDITORONLY_DATA
 		if (!Layer->ShouldRenderInEditor())
@@ -486,8 +495,8 @@ bool UPaperTileMapComponent::SetTileMap(class UPaperTileMap* NewTileMap)
 	if (NewTileMap != TileMap)
 	{
 		// Don't allow changing the tile map if we are "static".
-		AActor* Owner = GetOwner();
-		if (!IsRegistered() || (Owner == nullptr) || (Mobility != EComponentMobility::Static))
+		AActor* ComponentOwner = GetOwner();
+		if ((ComponentOwner == nullptr) || AreDynamicDataChangesAllowed())
 		{
 			TileMap = NewTileMap;
 
@@ -686,6 +695,51 @@ void UPaperTileMapComponent::GetTilePolygon(int32 TileX, int32 TileY, TArray<FVe
 			Point = ComponentToWorld.TransformPosition(Point);
 		}
 	}
+}
+
+void UPaperTileMapComponent::SetDefaultCollisionThickness(float Thickness, bool bRebuildCollision)
+{
+	if (OwnsTileMap())
+	{
+		TileMap->SetCollisionThickness(Thickness);
+
+		if (bRebuildCollision)
+		{
+			RecreatePhysicsState();
+			UpdateBounds();
+		}
+	}
+}
+
+void UPaperTileMapComponent::SetLayerCollision(int32 Layer, bool bHasCollision, bool bOverrideThickness, float CustomThickness, bool bOverrideOffset, float CustomOffset, bool bRebuildCollision)
+{
+	if (OwnsTileMap())
+	{
+		if (TileMap->TileLayers.IsValidIndex(Layer))
+		{
+			UPaperTileLayer* TileLayer = TileMap->TileLayers[Layer];
+
+			TileLayer->SetLayerCollides(bHasCollision);
+			TileLayer->SetLayerCollisionThickness(bOverrideThickness, CustomThickness);
+			TileLayer->SetLayerCollisionOffset(bOverrideOffset, CustomThickness);
+
+			if (bRebuildCollision)
+			{
+				RecreatePhysicsState();
+				UpdateBounds();
+			}
+		}
+		else
+		{
+			UE_LOG(LogPaper2D, Warning, TEXT("Invalid layer index %d for %s"), Layer, *TileMap->GetPathName());
+		}
+	}
+}
+
+void UPaperTileMapComponent::RebuildCollision()
+{
+	RecreatePhysicsState();
+	UpdateBounds();
 }
 
 //////////////////////////////////////////////////////////////////////////

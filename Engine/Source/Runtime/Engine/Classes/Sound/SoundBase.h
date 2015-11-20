@@ -6,27 +6,19 @@
  * The base class for a playable sound object 
  */
 
+#include "Sound/SoundConcurrency.h"
 #include "SoundBase.generated.h"
+
 
 struct FActiveSound;
 struct FSoundParseParameters;
 struct FWaveInstance;
 struct FAttenuationSettings; 
+struct FSoundConcurrencySettings;
+
 class USoundClass;
 class USoundAttenuation;
-
-
-UENUM()
-namespace EMaxConcurrentResolutionRule
-{
-	enum Type
-	{
-		PreventNew					UMETA(ToolTip = "When Max Concurrent sounds are active do not start a new sound."),
-		StopOldest					UMETA(ToolTip = "When Max Concurrent sounds are active stop the oldest and start a new one."),
-		StopFarthestThenPreventNew	UMETA(ToolTip = "When Max Concurrent sounds are active stop the furthest sound.  If all sounds are the same distance then do not start a new sound."),
-		StopFarthestThenOldest		UMETA(ToolTip = "When Max Concurrent sounds are active stop the furthest sound.  If all sounds are the same distance then stop the oldest.")
-	};
-}
+class USoundConcurrency;
 
 UCLASS(config=Engine, hidecategories=Object, abstract, editinlinenew, BlueprintType)
 class ENGINE_API USoundBase : public UObject
@@ -40,16 +32,26 @@ protected:
 
 public:
 	/** When "stat sounds -debug" has been specified, draw this sound's attenuation shape when the sound is audible. For debugging purpose only. */
-	UPROPERTY(EditAnywhere, Category=Playback)
+	UPROPERTY(EditAnywhere, Category = Debug)
 	uint32 bDebug:1;
 
-	/** If we try to play a new version of this sound when at the max concurrent count how should it be resolved. */
-	UPROPERTY(EditAnywhere, Category=Playback)
-	TEnumAsByte<EMaxConcurrentResolutionRule::Type> MaxConcurrentResolutionRule;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
+	uint32 bOverrideConcurrency:1;
+
+	/** If bOverridePlayback is false, the sound concurrency settings to use for this sound. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "!bOverrideConcurrency"))
+	class USoundConcurrency* SoundConcurrencySettings;
+
+	/** If bOverridePlayback is true, concurrency settings to use. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "bOverrideConcurrency"))
+	struct FSoundConcurrencySettings ConcurrencyOverrides;
+
+	UPROPERTY()
+	TEnumAsByte<enum EMaxConcurrentResolutionRule::Type> MaxConcurrentResolutionRule_DEPRECATED;
 
 	/** Maximum number of times this sound can be played concurrently. */
-	UPROPERTY(EditAnywhere, Category=Playback)
-	int32 MaxConcurrentPlayCount;
+	UPROPERTY()
+	int32 MaxConcurrentPlayCount_DEPRECATED;
 
 	/** Duration of sound in seconds. */
 	UPROPERTY(Category=Info, AssetRegistrySearchable, VisibleAnywhere, BlueprintReadOnly)
@@ -63,9 +65,10 @@ public:
 	/** Number of times this cue is currently being played. */
 	int32 CurrentPlayCount;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostInitProperties() override;
-	// End UObject interface.
+	virtual void PostLoad() override;
+	//~ End UObject interface.
 	
 	/** Returns whether the sound base is set up in a playable manner */
 	virtual bool IsPlayable() const;
@@ -84,7 +87,7 @@ public:
 	 * @param Location				Location to check against
 	 * @param AttenuationSettings	Optional Attenuation override if not using settings from the sound
 	 */
-	bool IsAudibleSimple( class FAudioDevice* AudioDevice, const FVector Location, USoundAttenuation* AttenuationSettings = NULL );
+	bool IsAudibleSimple( class FAudioDevice* AudioDevice, const FVector Location, USoundAttenuation* InAttenuationSettings = NULL );
 
 	/** 
 	 * Returns the farthest distance at which the sound could be heard
@@ -108,5 +111,11 @@ public:
 	 * Returns the SoundClass used for this sound
 	 */
 	virtual USoundClass* GetSoundClass() const;
+
+	/** Returns the FSoundConcurrencySettings struct to use */
+	const FSoundConcurrencySettings* GetSoundConcurrencySettingsToApply();
+
+	/** Returns the sound concurrency object ID if it exists. If it doesn't exist, returns 0. */
+	uint32 GetSoundConcurrencyObjectID() const;
 };
 

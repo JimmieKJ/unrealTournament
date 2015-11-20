@@ -8,6 +8,10 @@
 
 #define STEAMVR_SUPPORTED_PLATFORMS (PLATFORM_WINDOWS)
 
+/** Up to 8 motion controller devices supported (two VR motion controllers per Unreal controller, one for either the left or right hand.) */
+#define MAX_STEAMVR_CONTROLLER_PAIRS 4
+
+
 /**
  * The public interface to this module.  In most cases, this interface is only public to sibling modules 
  * within this plugin.
@@ -55,7 +59,7 @@ public:
 	 * Update the Controller to Device mapping.
 	 * The controller passes this to the HMD.
 	 */
-	virtual void SetControllerToDeviceMap(int32* InControllerToDeviceMap)=0;
+	virtual void SetUnrealControllerIdAndHandToDeviceIdMap(int32 InUnrealControllerIdAndHandToDeviceIdMap[ MAX_STEAMVR_CONTROLLER_PAIRS ][ 2 ] ) = 0;
 
 private:
 };

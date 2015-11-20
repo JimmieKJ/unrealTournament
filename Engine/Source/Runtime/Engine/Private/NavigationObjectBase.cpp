@@ -20,6 +20,7 @@ ANavigationObjectBase::ANavigationObjectBase(const FObjectInitializer& ObjectIni
 	CapsuleComponent->Mobility = EComponentMobility::Static;
 	RootComponent = CapsuleComponent;
 	bCollideWhenPlacing = true;
+	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 
 	GoodSprite = CreateEditorOnlyDefaultSubobject<UBillboardComponent>(TEXT("Sprite"));
 

@@ -22,7 +22,7 @@ class UMaterialExpressionFontSampleParameter : public UMaterialExpressionFontSam
 	UPROPERTY(EditAnywhere, Category=MaterialExpressionFontSampleParameter)
 	FName Group;
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
 	virtual bool MatchesSearchQuery( const TCHAR* SearchQuery ) override;
@@ -31,7 +31,7 @@ class UMaterialExpressionFontSampleParameter : public UMaterialExpressionFontSam
 	virtual FString GetEditableName() const override;
 	virtual void SetEditableName(const FString& NewName) override;
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 	
 	/** Return whether this is the named parameter, and fill in its value */
 	bool IsNamedParameter(FName InParameterName, UFont*& OutFontValue, int32& OutFontPage) const;

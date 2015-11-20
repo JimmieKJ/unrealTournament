@@ -117,6 +117,7 @@ void FStaticLightingMesh::Import( FLightmassImporter& Importer )
 		CurrentMaterialElement.bUseTwoSidedLighting = METempData.bUseTwoSidedLighting;
 		CurrentMaterialElement.bShadowIndirectOnly = METempData.bShadowIndirectOnly;
 		CurrentMaterialElement.bUseEmissiveForStaticLighting = METempData.bUseEmissiveForStaticLighting;
+		CurrentMaterialElement.bUseVertexNormalForHemisphereGather = METempData.bUseVertexNormalForHemisphereGather;
 		// Validating data here instead of in Unreal since EmissiveLightFalloffExponent is used in so many different object types
 		CurrentMaterialElement.EmissiveLightFalloffExponent = FMath::Max(METempData.EmissiveLightFalloffExponent, 0.0f);
 		CurrentMaterialElement.EmissiveLightExplicitInfluenceRadius = FMath::Max(METempData.EmissiveLightExplicitInfluenceRadius, 0.0f);

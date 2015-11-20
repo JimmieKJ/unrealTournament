@@ -123,28 +123,6 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bOfflineChallenge = false;
 	bBasicTrainingGame = false;
 
-	// note: one based
-	LevelUpRewards.AddZeroed(51);
-	LevelUpRewards[2] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieBlack.BeanieBlack"));
-	LevelUpRewards[3] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/Sunglasses.Sunglasses"));
-	LevelUpRewards[4] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/HockeyMask.HockeyMask"));
-	LevelUpRewards[5] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale05.ThundercrashMale05"));
-	LevelUpRewards[7] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/NecrisMale01.NecrisMale01"));
-	LevelUpRewards[8] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale03.ThundercrashMale03"));
-	LevelUpRewards[10] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/NecrisHelm01.NecrisHelm01"));
-	LevelUpRewards[12] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeanieGreen.ThundercrashBeanieGreen"));
-	LevelUpRewards[14] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/HockeyMask02.HockeyMask02"));
-	LevelUpRewards[17] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale02.ThundercrashMale02"));
-	LevelUpRewards[20] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/NecrisFemale02.NecrisFemale02"));
-	LevelUpRewards[23] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieWhite.BeanieWhite"));
-	LevelUpRewards[26] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/NecrisHelm02.NecrisHelm02"));
-	LevelUpRewards[30] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/SkaarjMale01.SkaarjMale01"));
-	LevelUpRewards[34] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieGrey.BeanieGrey"));
-	LevelUpRewards[39] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeanieRed.ThundercrashBeanieRed"));
-	LevelUpRewards[40] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/SkaarjMale02.SkaarjMale02"));
-	LevelUpRewards[45] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeret.ThundercrashBeret"));
-	LevelUpRewards[50] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/NecrisMale04.NecrisMale04"));
-
 	bDisableMapVote = false;
 
 	AntiCheatEngine = nullptr;
@@ -210,42 +188,42 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	GameDifficulty = FMath::Max(0, GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
+	GameDifficulty = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("Difficulty"), GameDifficulty));
 	
-	HostLobbyListenPort = GetIntOption(Options, TEXT("HostPort"), 14000);
-	FString InOpt = ParseOption(Options, TEXT("ForceRespawn"));
+	HostLobbyListenPort = UGameplayStatics::GetIntOption(Options, TEXT("HostPort"), 14000);
+	FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("ForceRespawn"));
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
 
-	MaxWaitForPlayers = GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
-	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
+	MaxWaitForPlayers = UGameplayStatics::GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
+	MaxReadyWaitTime = UGameplayStatics::GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
 
-	TimeLimit = FMath::Max(0,GetIntOption( Options, TEXT("TimeLimit"), TimeLimit ));
+	TimeLimit = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("TimeLimit"), TimeLimit));
 	TimeLimit *= 60;
 
 	// Set goal score to end match.
-	GoalScore = FMath::Max(0,GetIntOption( Options, TEXT("GoalScore"), GoalScore ));
+	GoalScore = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("GoalScore"), GoalScore));
 
-	MinPlayersToStart = FMath::Max(1, GetIntOption( Options, TEXT("MinPlayers"), MinPlayersToStart));
+	MinPlayersToStart = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
 
-	RespawnWaitTime = FMath::Max(0,GetIntOption( Options, TEXT("RespawnWait"), RespawnWaitTime ));
+	RespawnWaitTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("RespawnWait"), RespawnWaitTime));
 
-	InOpt = ParseOption(Options, TEXT("Hub"));
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Hub"));
 	if (!InOpt.IsEmpty()) HubAddress = InOpt;
 
-	InOpt = ParseOption(Options, TEXT("HubKey"));
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("HubKey"));
 	if (!InOpt.IsEmpty()) HubKey = InOpt;
 
 	// alias for testing convenience
-	if (HasOption(Options, TEXT("Bots")))
+	if (UGameplayStatics::HasOption(Options, TEXT("Bots")))
 	{
-		BotFillCount = GetIntOption(Options, TEXT("Bots"), BotFillCount) + 1;
+		BotFillCount = UGameplayStatics::GetIntOption(Options, TEXT("Bots"), BotFillCount) + 1;
 	}
 	else
 	{
-		BotFillCount = GetIntOption(Options, TEXT("BotFill"), BotFillCount);
+		BotFillCount = UGameplayStatics::GetIntOption(Options, TEXT("BotFill"), BotFillCount);
 	}
 
-	InOpt = ParseOption(Options, TEXT("CasterControl"));
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("CasterControl"));
 	bCasterControl = EvalBoolOptions(InOpt, bCasterControl);
 
 	for (int32 i = 0; i < BuiltInMutators.Num(); i++)
@@ -258,7 +236,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		AddMutator(ConfigMutators[i]);
 	}
 
-	InOpt = ParseOption(Options, TEXT("Mutator"));
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Mutator"));
 	if (InOpt.Len() > 0)
 	{
 		UE_LOG(UT, Log, TEXT("Mutators: %s"), *InOpt);
@@ -280,7 +258,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		}
 	}
 
-	InOpt = ParseOption(Options, TEXT("Demorec"));
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Demorec"));
 	if (InOpt.Len() > 0)
 	{
 		bRecordDemo = InOpt != TEXT("off") && InOpt != TEXT("false") && InOpt != TEXT("0") && InOpt != TEXT("no") && InOpt != GFalse.ToString() && InOpt != GNo.ToString();
@@ -290,19 +268,19 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		}
 	}
 
-	InOpt = ParseOption(Options, TEXT("PlayPlayerIntro"));
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("PlayPlayerIntro"));
 	bPlayPlayerIntro = EvalBoolOptions(InOpt, bPlayPlayerIntro);
 
-	if (HasOption(Options, TEXT("Challenge")) && (GetNetMode() == NM_Standalone))
+	if (UGameplayStatics::HasOption(Options, TEXT("Challenge")) && (GetNetMode() == NM_Standalone))
 	{
-		InOpt = ParseOption(Options, TEXT("Challenge"));
+		InOpt = UGameplayStatics::ParseOption(Options, TEXT("Challenge"));
 		if (!InOpt.IsEmpty())
 		{
 			TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
 			if (ChallengeManager.IsValid())
 			{
 				ChallengeTag = FName(*InOpt);
-				ChallengeDifficulty = GetIntOption(Options, TEXT("ChallengeDiff"), 0);
+				ChallengeDifficulty = UGameplayStatics::GetIntOption(Options, TEXT("ChallengeDiff"), 0);
 				GameDifficulty = 1.f + 2.5f*ChallengeDifficulty;
 				BotFillCount = ChallengeManager->GetNumPlayers(this);
 				bOfflineChallenge = ChallengeManager->IsValidChallenge(this, MapName);
@@ -359,7 +337,11 @@ void AUTGameMode::AddMutator(const FString& MutatorPath)
 				{
 					FAssetData NewData;
 					NewData.AssetName = It->GetFName();
-					NewData.TagsAndValues.Add(NAME_GeneratedClass, It->GetPathName());
+
+					TMap<FName, FString> TagsAndValuesMap;
+					TagsAndValuesMap.Add(NAME_GeneratedClass, It->GetPathName());
+					NewData.TagsAndValues = MakeSharedMapView(MoveTemp(TagsAndValuesMap));
+
 					MutatorAssets.Add(NewData);
 				}
 			}
@@ -526,9 +508,9 @@ void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 	// Allow subclasses to track game objectives as they are initialized
 }
 
-APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
-	bool bCastingView = EvalBoolOptions(ParseOption(Options, TEXT("CastingView")), false);
+	bool bCastingView = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("CastingView")), false);
 	if (bCastingView)
 	{
 		// we allow the casting split views to ignore certain restrictions, so make sure they aren't lying
@@ -553,7 +535,7 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(Result);
 		if (UTPC != NULL)
 		{
-			UTPC->bCastingGuide = EvalBoolOptions(ParseOption(Options, TEXT("CastingGuide")), false);
+			UTPC->bCastingGuide = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("CastingGuide")), false);
 			// TODO: check if allowed?
 			if (UTPC->bCastingGuide)
 			{
@@ -570,39 +552,39 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 		AUTPlayerState* PS = Cast<AUTPlayerState>(Result->PlayerState);
 		if (PS != NULL)
 		{
-			FString InOpt = ParseOption(Options, TEXT("Character"));
+			FString InOpt = UGameplayStatics::ParseOption(Options, TEXT("Character"));
 			if (InOpt.Len() > 0)
 			{
 				PS->SetCharacter(InOpt);
 			}
-			InOpt = ParseOption(Options, TEXT("Hat"));
+			InOpt = UGameplayStatics::ParseOption(Options, TEXT("Hat"));
 			if (InOpt.Len() > 0)
 			{
 				PS->ServerReceiveHatClass(InOpt);
 			}
-			InOpt = ParseOption(Options, TEXT("LeaderHat"));
+			InOpt = UGameplayStatics::ParseOption(Options, TEXT("LeaderHat"));
 			if (InOpt.Len() > 0)
 			{
 				PS->ServerReceiveLeaderHatClass(InOpt);
 			}
-			InOpt = ParseOption(Options, TEXT("Eyewear"));
+			InOpt = UGameplayStatics::ParseOption(Options, TEXT("Eyewear"));
 			if (InOpt.Len() > 0)
 			{
 				PS->ServerReceiveEyewearClass(InOpt);
 			}
-			InOpt = ParseOption(Options, TEXT("Taunt"));
+			InOpt = UGameplayStatics::ParseOption(Options, TEXT("Taunt"));
 			if (InOpt.Len() > 0)
 			{
 				PS->ServerReceiveTauntClass(InOpt);
 			}
-			InOpt = ParseOption(Options, TEXT("Taunt2"));
+			InOpt = UGameplayStatics::ParseOption(Options, TEXT("Taunt2"));
 			if (InOpt.Len() > 0)
 			{
 				PS->ServerReceiveTaunt2Class(InOpt);
 			}
-			int32 HatVar = GetIntOption(Options, TEXT("HatVar"), 0);
+			int32 HatVar = UGameplayStatics::GetIntOption(Options, TEXT("HatVar"), 0);
 			PS->ServerReceiveHatVariant(HatVar);
-			int32 EyewearVar = GetIntOption(Options, TEXT("EyewearVar"), 0);
+			int32 EyewearVar = UGameplayStatics::GetIntOption(Options, TEXT("EyewearVar"), 0);
 			PS->ServerReceiveEyewearVariant(EyewearVar);
 
 			// warning: blindly calling this here relies on ValidateEntitlements() defaulting to "allow" if we have not yet obtained this user's entitlement information
@@ -620,7 +602,7 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 				}
 			}
 
-			bool bCaster = EvalBoolOptions(ParseOption(Options, TEXT("Caster")), false);
+			bool bCaster = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("Caster")), false);
 			if (bCaster && bCasterControl)
 			{
 				PS->bCaster = true;
@@ -1236,7 +1218,7 @@ void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* 
 		if (It->IsValid())
 		{
 			AUTBot* B = Cast<AUTBot>(It->Get());
-			if (B != NULL && !B->bPendingKillPending)
+			if (B != NULL && !B->IsPendingKillPending())
 			{
 				B->UTNotifyKilled(Killer, Killed, KilledPawn, DamageType.GetDefaultObject());
 			}
@@ -1722,19 +1704,8 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 	}
 }
 
-bool AUTGameMode::CanAwardXP()
-{
-	return ((GetNetMode() != NM_Standalone) || bOfflineChallenge);
-}
-
 void AUTGameMode::AwardXP()
 {
-	if (!CanAwardXP())
-	{
-		return;
-	}
-	// TODO: ideally we wouldn't execute this if the server isn't approved for XP/items, but servers can't easily get their own status...
-	// client does a redundant check anyway so not a huge deal
 	static const bool bXPCheatEnabled = FParse::Param(FCommandLine::Get(), TEXT("XPGiveaway"));
 	for (APlayerState* PS : GameState->PlayerArray)
 	{
@@ -1744,6 +1715,7 @@ void AUTGameMode::AwardXP()
 			AUTPlayerController* PC = Cast<AUTPlayerController>(UTPS->GetOwner());
 			if (PC != NULL)
 			{
+				// TODO: move some of this to the backend
 				UTPS->GiveXP(FNewScoreXP(FMath::Max<int32>(0, FMath::TruncToInt(UTPS->Score))));
 				if (XPCapPerMin > 0)
 				{
@@ -1766,43 +1738,9 @@ void AUTGameMode::AwardXP()
 				{
 					UTPS->GiveXP(FNewKillAwardXP(250000));
 				}
-				if (UTPS->CanAwardOnlineXP()) // if we failed to read their previous values, we can't award them anything
-				{
-					int32 PrevLevel = GetLevelForXP(UTPS->GetPrevXP());
-					int32 NewLevel = GetLevelForXP(UTPS->GetPrevXP() + UTPS->GetXP().Total());
-					TArray<FProfileItemEntry> Rewards;
-					for (int32 CurrentLevel = 1; CurrentLevel <= NewLevel; CurrentLevel++)
-					{
-						if (LevelUpRewards.IsValidIndex(CurrentLevel) && LevelUpRewards[CurrentLevel].IsValid())
-						{
-							const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(LevelUpRewards[CurrentLevel].TryLoad());
-							// award if player just gained this level, or retroactively should have at least one but doesn't
-							if (RewardItem != NULL && (CurrentLevel > PrevLevel || !UTPS->OwnsItem(RewardItem)))
-							{
-								UE_LOG(UT, Verbose, TEXT("%s has earned item %s for reaching level %i"), *UTPS->PlayerName, *RewardItem->GetName(), CurrentLevel);
-								new(Rewards) FProfileItemEntry(RewardItem, 1);
-								PC->ClientReceiveLevelReward(CurrentLevel, RewardItem);
-							}
-						}
-					}
-					if (EventReward.IsValid())
-					{
-						const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(EventReward.TryLoad());
-						if (RewardItem != NULL)
-						{
-							UE_LOG(UT, Log, TEXT("Granting event item %s to %s "), *RewardItem->GetName(), *UTPS->PlayerName);
-							new(Rewards) FProfileItemEntry(RewardItem, 1);
-						}
-					}
-					if (Rewards.Num() > 0)
-					{
-						GiveProfileItems(UTPS->UniqueId.GetUniqueNetId(), Rewards);
-					}
-					// set for transmission to backend
-					UTPS->SetStatsValue(NAME_PlayerXP, UTPS->GetXP().Total());
-				}
-				// still send RPC for offline/untrusted server XP
-				PC->ClientReceiveXP(UTPS->GetXP());
+#if WITH_PROFILE
+				UTPS->GetMcpProfile()->GrantXP(UTPS->GetXP().Total());
+#endif
 			}
 		}
 	}
@@ -2311,7 +2249,7 @@ AActor* AUTGameMode::FindPlayerStart_Implementation(AController* Player, const F
 	return Best;
 }
 
-FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString ErrorMessage = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
 

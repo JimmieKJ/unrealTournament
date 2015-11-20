@@ -2,6 +2,7 @@
 
 #pragma once
 
+#include "Json.h"
 
 namespace ELauncherProfileRoleInstanceTypes
 {
@@ -80,7 +81,7 @@ public:
 	 * @return The command line string.
 	 * @see SetCommandLine
 	 */
-	virtual const FString& GetCommandLine( ) const = 0;
+	virtual const FString& GetUATCommandLine( ) const = 0;
 
 	/**
 	 * Gets the initial culture to launch with.
@@ -120,6 +121,10 @@ public:
 	 */
 	virtual bool IsVsyncEnabled( ) const = 0;
 
+	virtual void Load(const FJsonObject& Object) = 0;
+
+	virtual void Save(TJsonWriter<>& Writer, const TCHAR* Name = TEXT("")) = 0;
+
 	/**
 	 * Serializes the role from or into the specified archive.
 	 *
@@ -131,7 +136,7 @@ public:
 	 * Sets optional command line parameters to launch with.
 	 *
 	 * @param NewCommandLine Command line string.
-	 * @see GetCommandLine
+	 * @see GetUATCommandLine
 	 */
 	virtual void SetCommandLine( const FString& NewCommandLine ) = 0;
 

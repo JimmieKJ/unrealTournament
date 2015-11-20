@@ -1,5 +1,6 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
+#include "GameplayTask.h"
 #include "GameplayAbility.h"
 #include "AbilitySystemComponent.h"
 #include "AbilityTask.generated.h"
@@ -57,90 +58,21 @@
  *	
  *	
  */
-UCLASS()
-class GAMEPLAYABILITIES_API UAbilityTask : public UObject
+
+UCLASS(Abstract)
+class GAMEPLAYABILITIES_API UAbilityTask : public UGameplayTask
 {
 	GENERATED_UCLASS_BODY()
-
-	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FGenericAbilityTaskDelegate);
-
-	// Called to trigger the actual task once the delegates have been set up
-	UFUNCTION(BlueprintCallable, meta = (BlueprintInternalUseOnly = "true"), Category = "Abilities")
-	virtual void Activate();
-
-	/** Initailizes the task with the owning GameplayAbility but does not actviate until Activate() is called */
-	void InitTask(UGameplayAbility* InAbility);
-
-	virtual void InitSimulatedTask(UAbilitySystemComponent* InAbilitySystemComponent);
-
-	/** Tick function for this task, if bTickingTask == true */
-	virtual void TickTask(float DeltaTime) {}
-
-	/** Called when the ability is asked to confirm from an outside node. What this means depends on the individual task. By default, this does nothing other than ending if bEndTask is true. */
-	virtual void ExternalConfirm(bool bEndTask);
-
-	/** Called when the ability is asked to cancel from an outside node. What this means depends on the individual task. By default, this does nothing other than ending the task. */
-	virtual void ExternalCancel();
-
-	/** Return debug string describing task */
-	virtual FString GetDebugString() const;
 	
-	/** GameplayAbility that created us */
-	TWeakObjectPtr<UGameplayAbility> Ability;
-
-	TWeakObjectPtr<UAbilitySystemComponent>	AbilitySystemComponent;
-
-	/** Helper function for getting UWorld off a task */
-	UWorld* GetWorld() const override;
-
-	/** Proper way to get the owning actor of the ability that owns this task and the gameplay effects */
-	AActor* GetOwnerActor() const;
-
-	/** Proper way to get the avatar actor of the ability that owns this task (usually a pawn, tower, etc) */
-	AActor* GetAvatarActor() const;
-
 	/** Returns spec handle for owning ability */
 	FGameplayAbilitySpecHandle GetAbilitySpecHandle() const;
 
-	/** Returns ActivationPredictionKey of owning ability */
-	FPredictionKey GetActivationPredictionKey() const;
+	void SetAbilitySystemComponent(UAbilitySystemComponent* InAbilitySystemComponent);
 
-	/** Helper function for instantiating and initializing a new task */
-	template <class T>
-	static T*	NewTask(UObject* WorldContextObject, FName InstanceName = FName())
-	{
-		check(WorldContextObject);
+	/** GameplayAbility that created us */
+	TWeakObjectPtr<UGameplayAbility> Ability;
 
-		T* MyObj = NewObject<T>();
-		UGameplayAbility* ThisAbility = CastChecked<UGameplayAbility>(WorldContextObject);
-		MyObj->InitTask(ThisAbility);
-		MyObj->InstanceName = InstanceName;
-		return MyObj;
-	}
-
-	/** Called when owning ability is ended (before the task ends) kills the task. Calls OnDestroy. */
-	void AbilityEnded();
-
-	/** Called explicitly to end the task (usually by the task itself). Calls OnDestroy. */
-	void EndTask();
-
-	/** This name allows us to find the task later so that we can end it. */
-	UPROPERTY()
-	FName InstanceName;
-
-	bool IsSupportedForNetworking() const override
-	{
-		return bSimulatedTask;
-	}
-
-	/** If true, this task will receive TickTask calls from AbilitySystemComponent */
-	bool bTickingTask;
-
-	/** Should this task run on simulated clients? This should only be used in rare cases, such as movement tasks. Simulated Tasks do not broadcast their end delegates.  */
-	bool bSimulatedTask;
-
-	/** Am I actually running this as a simulated task. (This will be true on clients that simulating. This will be false on the server and the owning client) */
-	bool bIsSimulating;
+	TWeakObjectPtr<UAbilitySystemComponent> AbilitySystemComponent;
 
 	/** Returns true if the ability is a locally predicted ability running on a client. Usually this means we need to tell the server something. */
 	bool IsPredictingClient() const;
@@ -151,13 +83,39 @@ class GAMEPLAYABILITIES_API UAbilityTask : public UObject
 	/** Returns true if we are executing the ability on the locally controlled client */
 	bool IsLocallyControlled() const;
 
+	/** Returns ActivationPredictionKey of owning ability */
+	FPredictionKey GetActivationPredictionKey() const;
+
+	virtual void InitSimulatedTask(UGameplayTasksComponent& InGameplayTasksComponent) override;
+
+	/** Helper function for instantiating and initializing a new task */
+	template <class T>
+	static T* NewAbilityTask(UObject* WorldContextObject, FName InstanceName = FName())
+	{
+		check(WorldContextObject);
+
+		T* MyObj = NewObject<T>();
+		UGameplayAbility* ThisAbility = CastChecked<UGameplayAbility>(WorldContextObject);
+		MyObj->InitTask(*ThisAbility, ThisAbility->GetDefaultPriority());
+		MyObj->InstanceName = InstanceName;
+		return MyObj;
+	}
+
+	template<typename T>
+	static bool DelayedFalse()
+	{
+		return false;
+	}
+
+	// this function has been added to make sure AbilityTasks don't use this method
+	template <class T>
+	FORCEINLINE static T* NewTask(UObject* WorldContextObject, FName InstanceName = FName())
+	{
+		static_assert(DelayedFalse<T>(), "UAbilityTask::NewTask should never be used. Use NewAbilityTask instead");
+	}
+
 protected:
-
-	/** End and CleanUp the task - may be called by the task itself or by the owning ability if the ability is ending. Do NOT call directly! Call EndTask() or AbilityEnded() */
-	virtual void OnDestroy(bool AbilityIsEnding);
-
 	/** Helper method for registering client replicated callbacks */
-	
 	bool CallOrAddReplicatedDelegate(EAbilityGenericReplicatedEvent::Type Event, FSimpleMulticastDelegate::FDelegate Delegate);
 };
 
@@ -171,7 +129,7 @@ struct FAbilityInstanceNamePredicate
 
 	bool operator()(const TWeakObjectPtr<UAbilityTask> A) const
 	{
-		return (A.IsValid() && !A.Get()->InstanceName.IsNone() && A.Get()->InstanceName.IsValid() && (A.Get()->InstanceName == InstanceName));
+		return (A.IsValid() && !A.Get()->GetInstanceName().IsNone() && A.Get()->GetInstanceName().IsValid() && (A.Get()->GetInstanceName() == InstanceName));
 	}
 
 	FName InstanceName;

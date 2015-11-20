@@ -104,7 +104,7 @@ void UEditorExperimentalSettings::PostEditChangeProperty( struct FPropertyChange
 UEditorLoadingSavingSettings::UEditorLoadingSavingSettings( const FObjectInitializer& ObjectInitializer )
 	: Super(ObjectInitializer)
 	, bEnableSourceControlCompatabilityCheck(true)
-	, bMonitorContentDirectories(false)
+	, bMonitorContentDirectories(true)
 	, AutoReimportThreshold(3.f)
 	, bAutoCreateAssets(true)
 	, bAutoDeleteAssets(true)
@@ -198,7 +198,9 @@ void UEditorLoadingSavingSettings::CheckSourceControlCompatability()
 		Info.bFireAndForget = false;
 
 		Info.CheckBoxStateChanged = FOnCheckStateChanged::CreateLambda([](ECheckBoxState State){
-			GetMutableDefault<UEditorLoadingSavingSettings>()->bEnableSourceControlCompatabilityCheck = (State != ECheckBoxState::Checked);
+			auto* Settings = GetMutableDefault<UEditorLoadingSavingSettings>();
+			Settings->bEnableSourceControlCompatabilityCheck = (State != ECheckBoxState::Checked);
+			Settings->SaveConfig();
 		});
 		Info.CheckBoxText = LOCTEXT("AutoReimport_DontShowAgain", "Don't show again");
 
@@ -349,7 +351,12 @@ ULevelEditorPlaySettings::ULevelEditorPlaySettings( const FObjectInitializer& Ob
 	PlayNetDedicated = false;
 	RunUnderOneProcess = true;
 	RouteGamepadToSecondWindow = false;
+	AutoConnectToServer = true;
 	BuildGameBeforeLaunch = EPlayOnBuildMode::PlayOnBuild_Default;
+	LaunchConfiguration = EPlayOnLaunchConfiguration::LaunchConfig_Default;
+	bAutoCompileBlueprintsOnLaunch = true;
+	CenterNewWindow = true;
+	CenterStandaloneWindow = true;
 }
 
 void ULevelEditorPlaySettings::PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent)

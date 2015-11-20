@@ -1,9 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-//=============================================================================
+//~=============================================================================
 // The Basic constraint actor class.
-//=============================================================================
+//~=============================================================================
 #include "PhysicsEngine/RigidBodyBase.h"
 #include "PhysicsConstraintActor.generated.h"
 
@@ -26,12 +26,12 @@ public:
 	UPROPERTY()
 	uint32 bDisableCollision_DEPRECATED:1;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void LoadedFromAnotherClass(const FName& OldClassName) override;
 #endif // WITH_EDITOR	
-	// End UObject Interface
+	//~ End UObject Interface
 
 public:
 	/** Returns ConstraintComp subobject **/

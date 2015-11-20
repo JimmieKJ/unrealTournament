@@ -267,6 +267,11 @@ FText FCodeProjectEditor::GetToolkitName() const
 	return LOCTEXT("CodeAppLabel", "Code Editor");
 }
 
+FText FCodeProjectEditor::GetToolkitToolTipText() const
+{
+	return LOCTEXT("CodeAppLabel", "Code Editor");
+}
+
 FString FCodeProjectEditor::GetWorldCentricTabPrefix() const
 {
 	return TEXT("CodeEditor");

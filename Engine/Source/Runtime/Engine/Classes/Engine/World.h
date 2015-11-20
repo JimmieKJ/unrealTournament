@@ -14,10 +14,6 @@
 #include "GameFramework/Actor.h"
 #include "GameInstance.h"
 
-#if WITH_EDITOR
-	#include "Editor/UnrealEd/Public/HierarchicalLOD.h"
-#endif // WITH_EDITOR
-
 #include "World.generated.h"
 
 class FPhysScene;
@@ -33,6 +29,7 @@ class APlayerController;
 class AMatineeActor;
 class AWorldSettings;
 class ACameraActor;
+class FUniqueNetId;
 
 template<typename,typename> class TOctree;
 
@@ -377,7 +374,7 @@ struct FEndPhysicsTickFunction : public FTickFunction
 * Tick function that starts the cloth tick
 **/
 USTRUCT()
-struct FStartClothSimulationFunction : public FTickFunction
+struct FStartAsyncSimulationFunction : public FTickFunction
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -422,20 +419,10 @@ struct FEndClothSimulationFunction : public FTickFunction
 /* Struct of optional parameters passed to SpawnActor function(s). */
 struct ENGINE_API FActorSpawnParameters
 {
-	FActorSpawnParameters()
-		:	Name(NAME_None)
-		,	Template(NULL)
-		,	Owner(NULL)
-		,	Instigator(NULL)
-		,	OverrideLevel(NULL)
-		,	bNoCollisionFail(false)
-		,	bRemoteOwned(false)
-		,	bNoFail(false)
-		,	bDeferConstruction(false)		
-		,	bAllowDuringConstructionScript(false)
-		,	ObjectFlags(RF_Transactional)
-	{
-	}
+	FActorSpawnParameters();
+
+	// Assignment operator overriden to allow disabling of deprecation warning when copying bNoCollisionFail
+	FActorSpawnParameters& operator=(const FActorSpawnParameters& Other);
 
 	/* A name to assign as the Name of the Actor being spawned. If no value is specified, the name of the spawned Actor will be automatically generated using the form [Class]_[Number]. */
 	FName Name;
@@ -452,24 +439,29 @@ struct ENGINE_API FActorSpawnParameters
 	/* The ULevel to spawn the Actor in, i.e. the Outer of the Actor. If left as NULL the Outer of the Owner is used. If the Owner is NULL the persistent level is used. */
 	class	ULevel* OverrideLevel;
 
+	/** Method for resolving collisions at the spawn point. Undefined means no override, use the actor's setting. */
+	ESpawnActorCollisionHandlingMethod SpawnCollisionHandlingOverride;
+
 	/* Determines whether a collision test will be performed when spawning the Actor. If true, no collision test will be performed when spawning the Actor regardless of the collision settings of the root component or template Actor. */
-	uint32	bNoCollisionFail:1;
+	DEPRECATED(4.9, "bNoCollisionFail is deprecated. Use SpawnCollisionHandlingOverride to override the actor class's spawn collision handling setting.")
+	uint16	bNoCollisionFail:1;
 
 	/* Is the actor remotely owned. */
-	uint32	bRemoteOwned:1;
+	uint16	bRemoteOwned:1;
 
 	/* Determines whether spawning will not fail if certain conditions are not met. If true, spawning will not fail because the class being spawned is `bStatic=true` or because the class of the template Actor is not the same as the class of the Actor being spawned. */
-	uint32	bNoFail:1;
+	uint16	bNoFail:1;
 
 	/* Determines whether the construction script will be run. If true, the construction script will not be run on the spawned Actor. Only applicable if the Actor is being spawned from a Blueprint. */
-	uint32	bDeferConstruction:1;
+	uint16	bDeferConstruction:1;
 	
 	/* Determines whether or not the actor may be spawned when running a construction script. If true spawning will fail if a construction script is being run. */
-	uint32	bAllowDuringConstructionScript:1;
+	uint16	bAllowDuringConstructionScript:1;
 	
 	/* Flags used to describe the spawned actor/object instance. */
 	EObjectFlags ObjectFlags;		
 };
+
 
 /**
  *  This encapsulate World's async trace functionality. This contains two buffers of trace data buffer and alternates it for each tick. 
@@ -631,9 +623,12 @@ class ENGINE_API UWorld : public UObject, public FNetworkNotify
 	UPROPERTY()
 	class AParticleEventManager*				MyParticleEventManager;
 
+private:
 	/** DefaultPhysicsVolume used for whole game **/
 	UPROPERTY()
 	APhysicsVolume*								DefaultPhysicsVolume;
+
+public:
 
 	/** View locations rendered in the previous frame, if any. */
 	TArray<FVector>								ViewLocationsRenderedLastFrame;
@@ -670,11 +665,11 @@ private:
 
 public:
 	/** Array of actors that are candidates for sending over the network */
-	TArray<class AActor*>						NetworkActors;
+	TSet<class AActor*>						NetworkActors;
 
 #if WITH_EDITOR
 	/** Hierarchical LOD System. Used when WorldSetting.bEnableHierarchicalLODSystem is true */
-	FHierarchicalLODBuilder						HierarchicalLODBuilder;
+	struct FHierarchicalLODBuilder*						HierarchicalLODBuilder;
 #endif // WITH_EDITOR
 
 private:
@@ -781,6 +776,9 @@ private:
 	/** Finish Async Trace Buffer **/
 	void FinishAsyncTrace();
 
+	/** Utility function that is used to ensure that a World has the correct WorldSettings */
+	void RepairWorldSettings();
+
 	/** Gameplay timers. */
 	class FTimerManager* TimerManager;
 
@@ -875,9 +873,7 @@ public:
 	FEndPhysicsTickFunction EndPhysicsTickFunction;
 
 	/** Tick function for starting cloth simulation																				*/
-	FStartClothSimulationFunction StartClothTickFunction;
-	/** Tick function for ending cloth simulation																				*/
-	FEndClothSimulationFunction EndClothTickFunction;
+	FStartAsyncSimulationFunction StartAsyncTickFunction;
 
 	/** 
 	 * Indicates that during world ticking we are doing the final component update of dirty components 
@@ -1273,9 +1269,9 @@ public:
 	bool LineTraceMultiByProfile(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, FName ProfileName, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
-	 *  Sweep a sphere against the world using a specific channel and return if a blocking hit is found.
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  Sweep a shape against the world using a specific channel and return if a blocking hit is found.
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  TraceChannel    The 'channel' that this trace uses, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1289,9 +1285,9 @@ public:
 	}
 
 	/**
-	 *  Sweep a sphere against the world using a specific channel and return if a blocking hit is found.
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  Sweep a shape against the world using a specific channel and return if a blocking hit is found.
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  TraceChannel    The 'channel' that this trace uses, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1301,9 +1297,9 @@ public:
 	bool SweepTestByChannel(const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
 
 	/**
-	 *  Sweep a sphere against the world using object types and return if a blocking hit is found.
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  Sweep a shape against the world using object types and return if a blocking hit is found.
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
@@ -1316,9 +1312,9 @@ public:
 	}
 
 	/**
-	 *  Sweep a sphere against the world using object types and return if a blocking hit is found.
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  Sweep a shape against the world using object types and return if a blocking hit is found.
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1328,9 +1324,9 @@ public:
 
 
 	/**
-	 *  Sweep a sphere against the world using a specific profile and return if a blocking hit is found.
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  Sweep a shape against the world using a specific profile and return if a blocking hit is found.
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  ProfileName     The 'profile' used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1339,10 +1335,10 @@ public:
 	bool SweepTestByProfile(const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params) const;
 
 	/**
-	 *  Sweep a sphere against the world and return the first blocking hit using a specific channel
+	 *  Sweep a shape against the world and return the first blocking hit using a specific channel
 	 *  @param  OutHit          First blocking hit found
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  TraceChannel    The 'channel' that this trace is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1356,10 +1352,10 @@ public:
 	}
 
 	/**
-	 *  Sweep a sphere against the world and return the first blocking hit using a specific channel
+	 *  Sweep a shape against the world and return the first blocking hit using a specific channel
 	 *  @param  OutHit          First blocking hit found
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  TraceChannel    The 'channel' that this trace is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1369,10 +1365,10 @@ public:
 	bool SweepSingleByChannel(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
 
 	/**
-	 *  Sweep a sphere against the world and return the first blocking hit using object types
+	 *  Sweep a shape against the world and return the first blocking hit using object types
 	 *  @param  OutHit          First blocking hit found
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
@@ -1385,10 +1381,10 @@ public:
 	}
 
 	/**
-	 *  Sweep a sphere against the world and return the first blocking hit using object types
+	 *  Sweep a shape against the world and return the first blocking hit using object types
 	 *  @param  OutHit          First blocking hit found
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1397,10 +1393,10 @@ public:
 	bool SweepSingleByObjectType(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
-	 *  Sweep a sphere against the world and return the first blocking hit using a specific profile
+	 *  Sweep a shape against the world and return the first blocking hit using a specific profile
 	 *  @param  OutHit          First blocking hit found
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  ProfileName     The 'profile' used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1409,12 +1405,12 @@ public:
 	bool SweepSingleByProfile(struct FHitResult& OutHit, const FVector& Start, const FVector& End, const FQuat& Rot, FName ProfileName, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
-	 *  Sweep a sphere against the world and return all initial overlaps using a specific channel (including blocking) if requested, then overlapping hits and then first blocking hit
+	 *  Sweep a shape against the world and return all initial overlaps using a specific channel (including blocking) if requested, then overlapping hits and then first blocking hit
 	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
 	 *  Only the single closest blocking result will be generated, no tests will be done after that
 	 *  @param  OutHits         Array of hits found between ray and the world
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  TraceChannel    The 'channel' that this ray is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1428,12 +1424,12 @@ public:
 	}
 
 	/**
-	 *  Sweep a sphere against the world and return all initial overlaps using a specific channel (including blocking) if requested, then overlapping hits and then first blocking hit
+	 *  Sweep a shape against the world and return all initial overlaps using a specific channel (including blocking) if requested, then overlapping hits and then first blocking hit
 	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
 	 *  Only the single closest blocking result will be generated, no tests will be done after that
 	 *  @param  OutHits         Array of hits found between ray and the world
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  TraceChannel    The 'channel' that this ray is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1443,12 +1439,12 @@ public:
 	bool SweepMultiByChannel(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, ECollisionChannel TraceChannel, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam, const FCollisionResponseParams& ResponseParam = FCollisionResponseParams::DefaultResponseParam) const;
 
 	/**
-	 *  Sweep a sphere against the world and return all initial overlaps using object types (including blocking) if requested, then overlapping hits and then first blocking hit
+	 *  Sweep a shape against the world and return all initial overlaps using object types (including blocking) if requested, then overlapping hits and then first blocking hit
 	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
 	 *  Only the single closest blocking result will be generated, no tests will be done after that
 	 *  @param  OutHits         Array of hits found between ray and the world
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
@@ -1461,12 +1457,12 @@ public:
 	}
 
 	/**
-	 *  Sweep a sphere against the world and return all initial overlaps using object types (including blocking) if requested, then overlapping hits and then first blocking hit
+	 *  Sweep a shape against the world and return all initial overlaps using object types (including blocking) if requested, then overlapping hits and then first blocking hit
 	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
 	 *  Only the single closest blocking result will be generated, no tests will be done after that
 	 *  @param  OutHits         Array of hits found between ray and the world
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1475,12 +1471,12 @@ public:
 	bool SweepMultiByObjectType(TArray<struct FHitResult>& OutHits, const FVector& Start, const FVector& End, const FQuat& Rot, const FCollisionObjectQueryParams& ObjectQueryParams, const FCollisionShape& CollisionShape, const FCollisionQueryParams& Params = FCollisionQueryParams::DefaultQueryParam) const;
 
 	/**
-	 *  Sweep a sphere against the world and return all initial overlaps using a specific profile, then overlapping hits and then first blocking hit
+	 *  Sweep a shape against the world and return all initial overlaps using a specific profile, then overlapping hits and then first blocking hit
 	 *  Results are sorted, so a blocking hit (if found) will be the last element of the array
 	 *  Only the single closest blocking result will be generated, no tests will be done after that
 	 *  @param  OutHits         Array of hits found between ray and the world
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  ProfileName     The 'profile' used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1586,7 +1582,7 @@ public:
 	/**
 	 *  Test the collision of a shape at the supplied location using a specific channel, and determine the set of components that it overlaps
 	 *  @param  OutOverlap      Component found to overlap supplied shape
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1599,7 +1595,7 @@ public:
 	/**
 	 *  Test the collision of a shape at the supplied location using object types, and determine the set of components that it overlaps
 	 *  @param  OutOverlap      Component found to overlap supplied shape
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
@@ -1611,7 +1607,7 @@ public:
 	/**
 	 *  Test the collision of a shape at the supplied location using a specific profile, and determine the set of components that it overlaps
 	 *  @param  OutOverlap      Component found to overlap supplied shape
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *  @param  ProfileName     The 'profile' used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1623,7 +1619,7 @@ public:
 	/**
 	 *  Test the collision of a shape at the supplied location using a specific channel, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of components found to overlap supplied box
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1639,7 +1635,7 @@ public:
 	/**
 	 *  Test the collision of a shape at the supplied location using a specific channel, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of components found to overlap supplied box
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1651,7 +1647,7 @@ public:
 	/**
 	 *  Test the collision of a shape at the supplied location using object types, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of components found to overlap supplied box
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
@@ -1666,7 +1662,7 @@ public:
 	/**
 	 *  Test the collision of a shape at the supplied location using object types, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of components found to overlap supplied box
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1677,7 +1673,7 @@ public:
 	/**
 	 *  Test the collision of a shape at the supplied location using a specific profile, and determine the set of components that it overlaps
 	 *  @param  OutOverlaps     Array of components found to overlap supplied box
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *  @param  ProfileName     The 'profile' used to determine which components to hit
 	 *  @param	CollisionShape	CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1844,8 +1840,8 @@ public:
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
 	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
 	 *
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  TraceChannel    The 'channel' that this trace is in, used to determine which components to hit
 	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1872,8 +1868,8 @@ public:
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
 	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
 	 *
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param  TraceChannel    The 'channel' that this trace is in, used to determine which components to hit
 	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1896,8 +1892,8 @@ public:
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
 	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
 	 *
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
 	 *	@param	ObjectQueryParams	List of object types it's looking for
@@ -1924,8 +1920,8 @@ public:
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
 	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
 	 *
-	 *  @param  Start           Start location of the sphere
-	 *  @param  End             End location of the sphere
+	 *  @param  Start           Start location of the shape
+	 *  @param  End             End location of the shape
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -1949,7 +1945,7 @@ public:
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
 	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
 	 *
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *	@param	bMultiTrace		true if you'd like to do multi trace, or false otherwise
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
 	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
@@ -1976,7 +1972,7 @@ public:
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
 	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
 	 *
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *	@param	bMultiTrace		true if you'd like to do multi trace, or false otherwise
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
 	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
@@ -1999,7 +1995,7 @@ public:
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
 	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
 	 *
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *  @param  TraceChannel    The 'channel' that this query is in, used to determine which components to hit
 	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -2025,7 +2021,7 @@ public:
 	 * if no delegate, you can query trace data using QueryTraceData or QueryOverlapData
 	 * the data is available only in the next frame after request is made - in other words, if request is made in frame X, you can get the result in frame (X+1)
 	 *
-	 *  @param  Pos             Location of center of sphere to test against the world
+	 *  @param  Pos             Location of center of shape to test against the world
 	 *	@param	ObjectQueryParams	List of object types it's looking for
 	 *  @param	CollisionShape		CollisionShape - supports Box, Sphere, Capsule
 	 *  @param  Params          Additional parameters used for the trace
@@ -2117,6 +2113,14 @@ public:
 	/** Returns a reference to the game viewport displaying this world if one exists. */
 	UGameViewportClient* GetGameViewport() const;
 
+private:
+	/** Begin async simulation */
+	void StartAsyncSim();
+
+	friend FStartAsyncSimulationFunction;
+
+public:
+
 	DEPRECATED(4.3, "GetBrush is deprecated use GetDefaultBrush instead.")
 	ABrush* GetBrush() const;
 	/** 
@@ -2177,6 +2181,9 @@ public:
 	 * @return default physics volume
 	 */
 	APhysicsVolume* GetDefaultPhysicsVolume() const;
+
+	/** Returns true if a DefaultPhysicsVolume has been created. */
+	bool HasDefaultPhysicsVolume() const { return DefaultPhysicsVolume != nullptr; }
 
 	/** Add a physics volume to the list of those in the world. DefaultPhysicsVolume is not tracked. Used internally by APhysicsVolume. */
 	void AddPhysicsVolume(APhysicsVolume* Volume);
@@ -2287,10 +2294,6 @@ public:
 	FDelegateHandle AddOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler );
 
 	/** Remove a listener for OnActorSpawned events */
-	DELEGATE_DEPRECATED("This overload of RemoveOnActorSpawnedHandler is deprecated, instead pass the result of AddOnActorSpawnedHandler.")
-	void RemoveOnActorSpawnedHandler( const FOnActorSpawned::FDelegate& InHandler );
-
-	/** Remove a listener for OnActorSpawned events */
 	void RemoveOnActorSpawnedHandler( FDelegateHandle InHandle );
 
 	/**
@@ -2310,7 +2313,7 @@ public:
 	 */
 	virtual bool AllowAudioPlayback();
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void FinishDestroy() override;
 	virtual void PostLoad() override;
@@ -2323,7 +2326,7 @@ public:
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
 #endif
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
-	// End UObject Interface
+	//~ End UObject Interface
 	
 	/**
 	 * Clears all level components and world components like e.g. line batcher.
@@ -2410,9 +2413,19 @@ public:
 	 * on all async operation like updating components.
 	 *
 	 * @param FlushType					Whether to only flush level visibility operations (optional)
+	 */
+	void FlushLevelStreaming(EFlushLevelStreamingType FlushType = EFlushLevelStreamingType::Full);
+
+	/**
+	 * [Deprecated] Flushes level streaming in blocking fashion and returns when all levels are loaded/ visible/ hidden
+	 * so further calls to UpdateLevelStreaming won't do any work unless state changes. Basically blocks
+	 * on all async operation like updating components.
+	 *
+	 * @param FlushType					Whether to only flush level visibility operations
 	 * @param ExcludeType				Exclude packages of this type from flushing
 	 */
-	void FlushLevelStreaming(EFlushLevelStreamingType FlushType = EFlushLevelStreamingType::Full, FName ExcludeType = NAME_None);
+	DEPRECATED(4.9, "FlushLevelStreaming override that takes ExcludeType parameter is deprecated.")
+	void FlushLevelStreaming(EFlushLevelStreamingType FlushType, FName ExcludeType);
 
 	/**
 	 * Triggers a call to ULevel::BuildStreamingData(this,NULL,NULL) within a few seconds.
@@ -2528,6 +2541,11 @@ public:
 	 */
 	void DestroyWorld( bool bInformEngineOfWorld, UWorld* NewWorld = nullptr );
 
+	/** 
+	 * Marks all objects that have this World as an Outer as pending kill
+	 */
+	void MarkObjectsPendingKill();
+
 	/**
 	 *  Interface to allow WorldSettings to request immediate garbage collection
 	 */
@@ -2589,9 +2607,8 @@ public:
 
 	/**
 	 * Send all render updates to the rendering thread.
-	 * @param OutCompletion - all async updates are added to this array, they typically need to be completed before GC or anything else
 	 */
-	void SendAllEndOfFrameUpdates(FGraphEventArray* OutCompletion = NULL);
+	void SendAllEndOfFrameUpdates();
 
 
 	/** Do per frame tick behaviors related to the network driver */
@@ -2717,6 +2734,15 @@ private:
 	/** Utility function to handle Exec/Console Commands related to stopping demo playback */
 	bool HandleDemoStopCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 
+	/** Utility function to handle Exec/Console Command for scrubbing to a specific time */
+	bool HandleDemoScrubCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
+
+	/** Utility function to handle Exec/Console Command for pausing and unpausing a replay */
+	bool HandleDemoPauseCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
+
+	/** Utility function to handle Exec/Console Command for setting the speed of a replay */
+	bool HandleDemoSpeedCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld);
+
 public:
 
 	// Destroys the current demo net driver
@@ -2763,7 +2789,38 @@ public:
 	 */
 	void RemoveActor( AActor* Actor, bool bShouldModifyLevel );
 
-	AActor* SpawnActor( UClass* Class, FVector const* Location=NULL, FRotator const* Rotation=NULL, const FActorSpawnParameters& SpawnParameters = FActorSpawnParameters() );
+	/**
+	 * Spawn Actors with given transform and SpawnParameters
+	 * 
+	 * @param	Class					Class to Spawn
+	 * @param	Location				Location To Spawn
+	 * @param	Rotation				Rotation To Spawn
+	 * @param	SpawnParameters			Spawn Parameters
+	 *
+	 * @return	Actor that just spawned
+	 */
+	AActor* SpawnActor( UClass* InClass, FVector const* Location=NULL, FRotator const* Rotation=NULL, const FActorSpawnParameters& SpawnParameters = FActorSpawnParameters() );
+	/**
+	 * Spawn Actors with given transform and SpawnParameters
+	 * 
+	 * @param	Class					Class to Spawn
+	 * @param	Transform				World Transform to spawn on
+	 * @param	SpawnParameters			Spawn Parameters
+	 *
+	 * @return	Actor that just spawned
+	 */
+	AActor* SpawnActor( UClass* Class, FTransform const* Transform, const FActorSpawnParameters& SpawnParameters = FActorSpawnParameters());
+
+	/**
+	 * Spawn Actors with given absolute transform (override root component transform) and SpawnParameters
+	 * 
+	 * @param	Class					Class to Spawn
+	 * @param	AbsoluteTransform		World Transform to spawn on - without considering CDO's relative transform, thus Absolute
+	 * @param	SpawnParameters			Spawn Parameters
+	 *
+	 * @return	Actor that just spawned
+	 */
+	AActor* SpawnActorAbsolute( UClass* Class, FTransform const& AbsoluteTransform, const FActorSpawnParameters& SpawnParameters = FActorSpawnParameters());
 
 	/** Templated version of SpawnActor that allows you to specify a class type via the template type */
 	template< class T >
@@ -2795,20 +2852,46 @@ public:
 	{
 		return CastChecked<T>(SpawnActor(Class, &Location, &Rotation, SpawnParameters),ECastCheckedType::NullAllowed);
 	}
-	
+	/** 
+	 *  Templated version of SpawnActor that allows you to specify whole Transform
+	 *  class type via parameter while the return type is a parent class of that type 
+	 */
+	template< class T >
+	T* SpawnActor(UClass* Class, FTransform const& Transform,const FActorSpawnParameters& SpawnParameters = FActorSpawnParameters())
+	{
+		return CastChecked<T>(SpawnActor(Class, &Transform, SpawnParameters), ECastCheckedType::NullAllowed);
+	}
+
+	/** Templated version of SpawnActorAbsolute that allows you to specify absolute location and rotation in addition to class type via the template type */
+	template< class T >
+	T* SpawnActorAbsolute(FVector const& AbsoluteLocation, FRotator const& AbsoluteRotation, const FActorSpawnParameters& SpawnParameters = FActorSpawnParameters())
+	{
+		return CastChecked<T>(SpawnActorAbsolute(T::StaticClass(), FTransform(AbsoluteRotation, AbsoluteLocation), SpawnParameters), ECastCheckedType::NullAllowed);
+	}
+
+	/** 
+	 *  Templated version of SpawnActorAbsolute that allows you to specify whole absolute Transform
+	 *  class type via parameter while the return type is a parent class of that type 
+	 */
+	template< class T >
+	T* SpawnActorAbsolute(UClass* Class, FTransform const& Transform,const FActorSpawnParameters& SpawnParameters = FActorSpawnParameters())
+	{
+		return CastChecked<T>(SpawnActorAbsolute(Class, Transform, SpawnParameters), ECastCheckedType::NullAllowed);
+	}
 	/**
 	* Spawns given class and returns class T pointer, forcibly sets world position. WILL NOT run Construction Script of Blueprints 
 	* to give caller an opportunity to set parameters beforehand.  Caller is responsible for invoking construction
 	* manually by calling UGameplayStatics::FinishSpawningActor (see AActor::OnConstruction).
 	*/
 	template< class T >
+	DEPRECATED(4.9, "This version of SpawnActorDeferred is deprecated. Please use the version that takes an FTransform and ESpawnActorCollisionHandlingMethod.")
 	T* SpawnActorDeferred(
 		UClass* Class,
 		FVector const& Location,
 		FRotator const& Rotation,
-		AActor* Owner=NULL,
-		APawn* Instigator=NULL,
-		bool bNoCollisionFail=false
+		AActor* Owner = nullptr,
+		APawn* Instigator = nullptr,
+		bool bNoCollisionFail = false
 		)
 	{
 		if( Owner )
@@ -2816,11 +2899,37 @@ public:
 			check(this==Owner->GetWorld());
 		}
 		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.bNoCollisionFail = bNoCollisionFail;
+		SpawnInfo.SpawnCollisionHandlingOverride = bNoCollisionFail ? ESpawnActorCollisionHandlingMethod::AlwaysSpawn : ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 		SpawnInfo.Owner = Owner;
 		SpawnInfo.Instigator = Instigator;
 		SpawnInfo.bDeferConstruction = true;
 		return (Class != NULL) ? Cast<T>(SpawnActor(Class, &Location, &Rotation, SpawnInfo )) : NULL;
+	}
+
+	/**
+	 * Spawns given class and returns class T pointer, forcibly sets world transform (note this allows scale as well). WILL NOT run Construction Script of Blueprints 
+	 * to give caller an opportunity to set parameters beforehand.  Caller is responsible for invoking construction
+	 * manually by calling UGameplayStatics::FinishSpawningActor (see AActor::OnConstruction).
+	 */
+	template< class T >
+	T* SpawnActorDeferred(
+		UClass* Class,
+		FTransform const& Transform,
+		AActor* Owner = nullptr,
+		APawn* Instigator = nullptr,
+		ESpawnActorCollisionHandlingMethod CollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::Undefined
+		)
+	{
+		if( Owner )
+		{
+			check(this==Owner->GetWorld());
+		}
+		FActorSpawnParameters SpawnInfo;
+		SpawnInfo.SpawnCollisionHandlingOverride = CollisionHandlingOverride;
+		SpawnInfo.Owner = Owner;
+		SpawnInfo.Instigator = Instigator;
+		SpawnInfo.bDeferConstruction = true;
+		return (Class != nullptr) ? Cast<T>(SpawnActor(Class, &Transform, SpawnInfo)) : nullptr;
 	}
 
 	/** 
@@ -2867,7 +2976,7 @@ public:
 	 * @param InNetPlayerIndex (optional) - the NetPlayerIndex to set on the PlayerController
 	 * @return the PlayerController that was spawned (may fail and return NULL)
 	 */
-	APlayerController* SpawnPlayActor(class UPlayer* Player, ENetRole RemoteRole, const FURL& URL, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& Error, uint8 InNetPlayerIndex = 0);
+	APlayerController* SpawnPlayActor(class UPlayer* Player, ENetRole RemoteRole, const FURL& InURL, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& Error, uint8 InNetPlayerIndex = 0);
 
 	/** Try to find an acceptable position to place TestActor as close to possible to PlaceLocation.  Expects PlaceLocation to be a valid location inside the level. */
 	bool FindTeleportSpot( AActor* TestActor, FVector& PlaceLocation, FRotator PlaceRotation );
@@ -2880,9 +2989,6 @@ public:
 
 	/** Waits for the physics scene to be done processing */
 	void FinishPhysicsSim();
-
-	/** Begin cloth simulation */
-	void StartClothSim();
 
 	/** Spawns GameMode for the level. */
 	bool SetGameMode(const FURL& InURL);
@@ -2907,12 +3013,12 @@ public:
 	 */
 	bool DestroySwappedPC(UNetConnection* Connection);
 
-	// Begin FNetworkNotify interface
+	//~ Begin FNetworkNotify Interface
 	virtual EAcceptConnection::Type NotifyAcceptingConnection() override;
 	virtual void NotifyAcceptedConnection( class UNetConnection* Connection ) override;
 	virtual bool NotifyAcceptingChannel( class UChannel* Channel ) override;
 	virtual void NotifyControlMessage(UNetConnection* Connection, uint8 MessageType, class FInBunch& Bunch) override;
-	// End FNetworkNotify interface
+	//~ End FNetworkNotify Interface
 
 	/** Welcome a new player joining this server. */
 	void WelcomePlayer(UNetConnection* Connection);
@@ -2930,6 +3036,14 @@ public:
 	/** Returns the net mode this world is running under */
 	ENetMode GetNetMode() const;
 
+#if WITH_EDITOR
+	/** Attempts to derive the net mode from PlayInSettings for PIE*/
+	ENetMode AttemptDeriveFromPlayInSettings() const;
+#endif
+
+	/** Attempts to derive the net mode from URL */
+	ENetMode AttemptDeriveFromURL() const;
+
 	/**
 	 * Sets the net driver to use for this world
 	 * @param NewDriver the new net driver to use
@@ -2938,6 +3052,11 @@ public:
 	{
 		NetDriver = NewDriver;
 	}
+
+	/**
+	 * Returns true if the game net driver exists and is a client and the demo net driver exists and is a server.
+	 */
+	bool IsRecordingClientReplay() const;
 
 	/**
 	 * Sets the number of frames to delay Streaming Volume updating, 
@@ -3014,6 +3133,9 @@ public:
 	/** Returns true if this world is any kind of game world (including PIE worlds) */
 	bool IsGameWorld() const;
 
+	/** Returns true if this world is a preview game world (blueprint editor) */
+	bool IsPreviewWorld() const;
+
 	/** Returns true if this world should look at game hidden flags instead of editor hidden flags for the purposes of rendering */
 	bool UsesGameHiddenFlags() const;
 
@@ -3056,7 +3178,7 @@ public:
 	 * @param bAbsolute whether we are using relative or absolute travel
 	 * @param bShouldSkipGameNotify whether to notify the clients/game or not
 	 */
-	virtual void ServerTravel(const FString& URL, bool bAbsolute = false, bool bShouldSkipGameNotify = false);
+	virtual void ServerTravel(const FString& InURL, bool bAbsolute = false, bool bShouldSkipGameNotify = false);
 
 	/** seamlessly travels to the given URL by first loading the entry level in the background,
 	 * switching to it, and then loading the specified level. Does not disrupt network communication or disconnect clients.
@@ -3070,7 +3192,7 @@ public:
 	 * @param MapPackageGuid (opt) - the GUID of the map package to travel to - this is used to find the file when it has been auto-downloaded,
 	 * 				so it is only needed for clients
 	 */
-	void SeamlessTravel(const FString& URL, bool bAbsolute = false, FGuid MapPackageGuid = FGuid());
+	void SeamlessTravel(const FString& InURL, bool bAbsolute = false, FGuid MapPackageGuid = FGuid());
 
 	/** @return whether we're currently in a seamless transition */
 	bool IsInSeamlessTravel();
@@ -3219,6 +3341,9 @@ public:
 
 	// delegate for generating world asset registry tags so project/game scope can add additional tags for filtering levels in their UI, etc
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FWorldGetAssetTags, const UWorld*, TArray<UObject::FAssetRegistryTag>&);
+
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnWorldTickStart, ELevelTick, float);
+	static FOnWorldTickStart OnWorldTickStart;
 
 	// Callback for world creation
 	static FWorldEvent OnPostWorldCreation;

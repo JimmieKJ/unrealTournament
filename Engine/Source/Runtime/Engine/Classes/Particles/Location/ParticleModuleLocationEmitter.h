@@ -1,12 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // ParticleModuleLocationEmitter
 //
 // A location module that uses particles from another emitters particles as
 // spawn points for its particles.
 //
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "Particles/Location/ParticleModuleLocationBase.h"
@@ -25,9 +25,9 @@ class UParticleModuleLocationEmitter : public UParticleModuleLocationBase
 {
 	GENERATED_UCLASS_BODY()
 
-	//=============================================================================
+	//~=============================================================================
 	// Variables
-	//=============================================================================
+	//~=============================================================================
 	// LocationEmitter
 	
 	/** The name of the emitter to use that the source location for particle. */
@@ -60,10 +60,10 @@ class UParticleModuleLocationEmitter : public UParticleModuleLocationBase
 	float InheritSourceRotationScale;
 
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual uint32	RequiredBytesPerInstance(FParticleEmitterInstance* Owner = NULL) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 };
 
 

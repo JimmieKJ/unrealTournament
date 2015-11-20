@@ -23,8 +23,8 @@ struct FAnimationActiveTransitionEntry
 	// Duration of this cross-fade (may be shorter than the nominal duration specified by the state machine if the target state had non-zero weight at the start)
 	float CrossfadeDuration;
 
-	// Blend type (type of curve applied to time)
-	TEnumAsByte<ETransitionBlendMode::Type> CrossfadeMode;
+	// Type of blend to use
+	EAlphaBlendOption BlendOption;
 
 	// Is this transition active?
 	bool bActive;
@@ -51,15 +51,21 @@ struct FAnimationActiveTransitionEntry
 
 	TArray<FAnimNode_TransitionPoseEvaluator*> PoseEvaluators;
 
+	// Blend data used for per-bone animation evaluation
+	TArray<FBlendSampleData> StateBlendData;
+
 #if WITH_EDITORONLY_DATA
 	TArray<int32, TInlineAllocator<3>> SourceTransitionIndices;
 #endif
 
+	// Blend profile to use for this transition. Specifying this will make the transition evaluate per-bone
+	UPROPERTY()
+	UBlendProfile* BlendProfile;
 
 public:
 	FAnimationActiveTransitionEntry();
-	FAnimationActiveTransitionEntry(int32 NextStateID, float ExistingWeightOfNextState, int32 PreviousStateID, const FAnimationTransitionBetweenStates& ReferenceTransitionInfo);
-	
+	FAnimationActiveTransitionEntry(int32 NextStateID, float ExistingWeightOfNextState, FAnimationActiveTransitionEntry* ExistingTransitionForNextState, int32 PreviousStateID, const FAnimationTransitionBetweenStates& ReferenceTransitionInfo);
+
 	void InitializeCustomGraphLinks(const FAnimationUpdateContext& Context, const FBakedStateExitTransition& TransitionRule);
 
 	void Update(const FAnimationUpdateContext& Context, int32 CurrentStateIndex, bool &OutFinished);
@@ -70,8 +76,11 @@ public:
 	bool Serialize(FArchive& Ar);
 
 protected:
-	float CalculateInverseAlpha(ETransitionBlendMode::Type BlendType, float InFraction) const;
+	float CalculateInverseAlpha(EAlphaBlendOption BlendMode, float InFraction) const;
 	float CalculateAlpha(float InFraction) const;
+
+	// Blend object to handle alpha interpolation
+	FAlphaBlend Blend;
 };
 
 USTRUCT()
@@ -121,6 +130,8 @@ public:
 		return ElapsedTime;
 	}
 
+	FName GetCurrentStateName() const;
+
 #if WITH_EDITORONLY_DATA
 	bool IsTransitionActive(int32 TransIndex) const;
 #endif
@@ -159,6 +170,8 @@ private:
 	// true if it is the first update.
 	bool bFirstUpdate;
 
+	TArray<FPoseContext*> StateCachedPoses;
+
 public:
 	FAnimNode_StateMachine()
 		: MaxTransitionsPerFrame(3)
@@ -182,6 +195,8 @@ public:
 	const FBakedAnimationState& GetStateInfo(int32 StateIndex) const;
 	const FAnimationTransitionBetweenStates& GetTransitionInfo(int32 TransIndex) const;
 	
+	bool IsValidTransitionIndex(int32 TransitionIndex) const;
+
 protected:
 	// Tries to get the instance information for the state machine
 	FBakedAnimationStateMachine* GetMachineDescription();
@@ -207,10 +222,11 @@ protected:
 
 	// helper functions for calling update and evaluate on state nodes
 	void UpdateState(int32 StateIndex, const FAnimationUpdateContext& Context);
-	void EvaluateState(int32 StateIndex, FPoseContext& Output);
+	const FPoseContext& EvaluateState(int32 StateIndex, const FPoseContext& Context);
 
 	// transition type evaluation functions
 	void EvaluateTransitionStandardBlend(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, bool bIntermediatePoseIsValid);
+	void EvaluateTransitionStandardBlendInternal(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, const FPoseContext& PreviousStateResult, const FPoseContext& NextStateResult);
 	void EvaluateTransitionCustomBlend(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, bool bIntermediatePoseIsValid);
 
 public:

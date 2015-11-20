@@ -14,10 +14,10 @@
 UENUM()
 enum ERotationGridMode
 {
-	/** Using Divisions of 360 degrees (e.g 360/2. 360/3, 360/4, ... ) */
+	/** Using Divisions of 360 degrees (e.g 360/2. 360/3, 360/4, ... ). */
 	GridMode_DivisionsOf360,
 
-	/** Uses the user defined grid values */
+	/** Uses the user defined grid values. */
 	GridMode_Common,
 };
 
@@ -74,6 +74,7 @@ struct UNREALED_API FLevelEditorViewportInstanceSettings
 		, BufferVisualizationMode()
 		, ExposureSettings()
 		, FOVAngle(EditorViewportDefs::DefaultPerspectiveFOVAngle)
+		, FarViewPlane(0)
 		, bIsRealtime(false)
 		, bShowFPS_DEPRECATED(false)
 		, bShowStats(false)
@@ -116,6 +117,10 @@ struct UNREALED_API FLevelEditorViewportInstanceSettings
 	/* Field of view angle for the viewport. */
 	UPROPERTY(config)
 	float FOVAngle;
+
+	/* Position of the var plane in the editor viewport */
+	UPROPERTY(config)
+	float FarViewPlane;
 
 	/* Whether this viewport is updating in real-time. */
 	UPROPERTY(config)

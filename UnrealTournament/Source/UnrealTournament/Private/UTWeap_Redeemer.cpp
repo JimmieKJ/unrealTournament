@@ -64,7 +64,7 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 			RemoteRedeemer = GetWorld()->SpawnActor<AUTRemoteRedeemer>(RemoteRedeemerClass, SpawnLocation, SpawnRotation, Params);
 			if (!RemoteRedeemer)
 			{
-				Params.bNoCollisionFail = true;
+				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 				RemoteRedeemer = GetWorld()->SpawnActor<AUTRemoteRedeemer>(RemoteRedeemerClass, UTOwner->GetActorLocation(), SpawnRotation, Params);
 			}
 			if (RemoteRedeemer)

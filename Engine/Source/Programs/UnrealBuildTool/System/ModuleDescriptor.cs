@@ -70,25 +70,25 @@ namespace UnrealBuildTool
 			ModuleDescriptor Module = new ModuleDescriptor(InObject.GetStringField("Name"), InObject.GetEnumField<ModuleHostType>("Type"));
 
 			ModuleLoadingPhase LoadingPhase;
-			if(InObject.TryGetEnumField<ModuleLoadingPhase>("LoadingPhase", out LoadingPhase))
+			if (InObject.TryGetEnumField<ModuleLoadingPhase>("LoadingPhase", out LoadingPhase))
 			{
 				Module.LoadingPhase = LoadingPhase;
 			}
 
 			UnrealTargetPlatform[] WhitelistPlatforms;
-			if(InObject.TryGetEnumArrayField<UnrealTargetPlatform>("WhitelistPlatforms", out WhitelistPlatforms))
+			if (InObject.TryGetEnumArrayField<UnrealTargetPlatform>("WhitelistPlatforms", out WhitelistPlatforms))
 			{
 				Module.WhitelistPlatforms = WhitelistPlatforms;
 			}
 
 			UnrealTargetPlatform[] BlacklistPlatforms;
-			if(InObject.TryGetEnumArrayField<UnrealTargetPlatform>("BlacklistPlatforms", out BlacklistPlatforms))
+			if (InObject.TryGetEnumArrayField<UnrealTargetPlatform>("BlacklistPlatforms", out BlacklistPlatforms))
 			{
 				Module.BlacklistPlatforms = BlacklistPlatforms;
 			}
 
 			string[] AdditionalDependencies;
-			if(InObject.TryGetStringArrayField("AdditionalDependencies", out AdditionalDependencies))
+			if (InObject.TryGetStringArrayField("AdditionalDependencies", out AdditionalDependencies))
 			{
 				Module.AdditionalDependencies = AdditionalDependencies;
 			}
@@ -109,7 +109,7 @@ namespace UnrealBuildTool
 			if (WhitelistPlatforms != null && WhitelistPlatforms.Length > 0)
 			{
 				Writer.WriteArrayStart("WhitelistPlatforms");
-				foreach(UnrealTargetPlatform WhitelistPlatform in WhitelistPlatforms)
+				foreach (UnrealTargetPlatform WhitelistPlatform in WhitelistPlatforms)
 				{
 					Writer.WriteValue(WhitelistPlatform.ToString());
 				}
@@ -118,7 +118,7 @@ namespace UnrealBuildTool
 			if (BlacklistPlatforms != null && BlacklistPlatforms.Length > 0)
 			{
 				Writer.WriteArrayStart("BlacklistPlatforms");
-				foreach(UnrealTargetPlatform BlacklistPlatform in BlacklistPlatforms)
+				foreach (UnrealTargetPlatform BlacklistPlatform in BlacklistPlatforms)
 				{
 					Writer.WriteValue(BlacklistPlatform.ToString());
 				}
@@ -127,7 +127,7 @@ namespace UnrealBuildTool
 			if (AdditionalDependencies != null && AdditionalDependencies.Length > 0)
 			{
 				Writer.WriteArrayStart("AdditionalDependencies");
-				foreach(string AdditionalDependency in AdditionalDependencies)
+				foreach (string AdditionalDependency in AdditionalDependencies)
 				{
 					Writer.WriteValue(AdditionalDependency);
 				}
@@ -144,10 +144,10 @@ namespace UnrealBuildTool
 		/// <param name="Modules">Array of modules</param>
 		public static void WriteArray(JsonWriter Writer, string Name, ModuleDescriptor[] Modules)
 		{
-			if(Modules.Length > 0)
+			if (Modules.Length > 0)
 			{
 				Writer.WriteArrayStart(Name);
-				foreach(ModuleDescriptor Module in Modules)
+				foreach (ModuleDescriptor Module in Modules)
 				{
 					Module.Write(Writer);
 				}
@@ -165,13 +165,13 @@ namespace UnrealBuildTool
 		public bool IsCompiledInConfiguration(UnrealTargetPlatform Platform, TargetRules.TargetType TargetType, bool bBuildDeveloperTools, bool bBuildEditor)
 		{
 			// Check the platform is whitelisted
-			if(WhitelistPlatforms != null && WhitelistPlatforms.Length > 0 && !WhitelistPlatforms.Contains(Platform))
+			if (WhitelistPlatforms != null && WhitelistPlatforms.Length > 0 && !WhitelistPlatforms.Contains(Platform))
 			{
 				return false;
 			}
 
 			// Check the platform is not blacklisted
-			if(BlacklistPlatforms != null && BlacklistPlatforms.Contains(Platform))
+			if (BlacklistPlatforms != null && BlacklistPlatforms.Contains(Platform))
 			{
 				return false;
 			}

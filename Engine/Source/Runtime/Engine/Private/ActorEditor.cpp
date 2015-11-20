@@ -12,6 +12,8 @@
 
 #if WITH_EDITOR
 
+#include "Editor.h"
+
 #define LOCTEXT_NAMESPACE "ErrorChecking"
 
 void AActor::PreEditChange(UProperty* PropertyThatWillChange)
@@ -25,7 +27,8 @@ void AActor::PreEditChange(UProperty* PropertyThatWillChange)
 		BPGC->UnbindDynamicDelegatesForProperty(this, ObjProp);
 	}
 
-	if ( ReregisterComponentsWhenModified() )
+	// During SIE, allow components to be unregistered here, and then reregistered and reconstructed in PostEditChangeProperty.
+	if (GEditor->bIsSimulatingInEditor || ReregisterComponentsWhenModified())
 	{
 		UnregisterAllComponents();
 	}
@@ -42,7 +45,9 @@ void AActor::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
 	
 	const bool bTransformationChanged = (PropertyName == Name_RelativeLocation || PropertyName == Name_RelativeRotation || PropertyName == Name_RelativeScale3D);
 
-	if ( ReregisterComponentsWhenModified() )
+	// During SIE, allow components to reregistered and reconstructed in PostEditChangeProperty.
+	// This is essential as construction is deferred during spawning / duplication when in SIE.
+	if ((GEditor && GEditor->bIsSimulatingInEditor) || ReregisterComponentsWhenModified())
 	{
 		// In the Undo case we have an annotation storing information about constructed components and we do not want
 		// to improperly apply out of date changes so we need to skip registration of all blueprint created components
@@ -161,16 +166,16 @@ void AActor::PostEditMove(bool bFinished)
 		// update actor and all its components in navigation system after finishing move
 		// USceneComponent::UpdateNavigationData works only in game world
 		UNavigationSystem::UpdateNavOctreeBounds(this);
-		UNavigationSystem::UpdateNavOctreeAll(this);
 
 		TArray<AActor*> ParentedActors;
 		GetAttachedActors(ParentedActors);
-
 		for (int32 Idx = 0; Idx < ParentedActors.Num(); Idx++)
 		{
 			UNavigationSystem::UpdateNavOctreeBounds(ParentedActors[Idx]);
-			UNavigationSystem::UpdateNavOctreeAll(ParentedActors[Idx]);
 		}
+
+		// not doing manual update of all attached actors since UpdateActorAndComponentsInNavOctree should take care of it
+		UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
 	}
 }
 
@@ -362,7 +367,7 @@ void AActor::PostEditUndo()
 	{
 		ResetOwnedComponents();
 		// notify navigation system
-		UNavigationSystem::UpdateNavOctreeAll(this);
+		UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
 	}
 	else
 	{
@@ -387,7 +392,7 @@ void AActor::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAn
 	{
 		ResetOwnedComponents();
 		// notify navigation system
-		UNavigationSystem::UpdateNavOctreeAll(this);
+		UNavigationSystem::UpdateActorAndComponentsInNavOctree(*this);
 	}
 	else
 	{
@@ -600,12 +605,13 @@ const FString& AActor::GetActorLabel() const
 	return ActorLabel;
 }
 
-void AActor::SetActorLabel( const FString& NewActorLabelDirty )
+void AActor::SetActorLabel( const FString& NewActorLabelDirty, bool bMarkDirty )
 {
-	SetActorLabelInternal(NewActorLabelDirty, false);
+	const bool bMakeGloballyUniqueFName = false;
+	SetActorLabelInternal(NewActorLabelDirty, bMakeGloballyUniqueFName, bMarkDirty );
 }
 
-void AActor::SetActorLabelInternal( const FString& NewActorLabelDirty, bool bMakeGloballyUniqueFName )
+void AActor::SetActorLabelInternal( const FString& NewActorLabelDirty, bool bMakeGloballyUniqueFName, bool bMarkDirty )
 {
 	// Clean up the incoming string a bit
 	FString NewActorLabel = NewActorLabelDirty;
@@ -619,7 +625,7 @@ void AActor::SetActorLabelInternal( const FString& NewActorLabelDirty, bool bMak
 		if( FCString::Strcmp( *NewActorLabel, *GetActorLabel() ) != 0 )
 		{
 			// Store new label
-			Modify();
+			Modify( bMarkDirty );
 			ActorLabel = NewActorLabel;
 		}
 	}
@@ -683,48 +689,28 @@ const FName& AActor::GetFolderPath() const
 	return FolderPath;
 }
 
-void AActor::SetFolderPath(const FName& NewFolderPath, bool bDetachFromParent)
+void AActor::SetFolderPath(const FName& NewFolderPath)
 {
-	// Detach the actor if it is attached
-	USceneComponent* RootComp = GetRootComponent();
-	const bool bIsAttached = RootComp  && RootComp->AttachParent;
-
-	if (NewFolderPath == FolderPath && !bIsAttached)
+	if (NewFolderPath != FolderPath)
 	{
-		return;
-	}
+		Modify();
 
-	Modify();
+		FName OldPath = FolderPath;
+		FolderPath = NewFolderPath;
 
-	FName OldPath = FolderPath;
-	FolderPath = NewFolderPath;
-	
-	// Detach the actor if it is attached
-	if (RootComp && bIsAttached && bDetachFromParent)
-	{
-		AActor* OldParentActor = RootComp->AttachParent->GetOwner();
-		OldParentActor->Modify();
-
-		RootComp->DetachFromParent(true);
-	}
-
-	if (GEngine)
-	{
-		GEngine->BroadcastLevelActorFolderChanged(this, OldPath);
-	}
-
-	//recursively change folder path for children (but do not detach so they remain as child)
-	if(RootComp)
-	{
-		for(auto ChildSceneComponent : RootComp->AttachChildren)
+		if (GEngine)
 		{
-			AActor* ChildActor = ChildSceneComponent ? ChildSceneComponent->GetOwner() : nullptr;
-			if(ChildActor)
-			{
-				ChildActor->SetFolderPath(NewFolderPath, false);
-			}
+			GEngine->BroadcastLevelActorFolderChanged(this, OldPath);
 		}
 	}
+}
+
+void AActor::SetFolderPath_Recursively(const FName& NewFolderPath)
+{
+	FActorEditorUtils::TraverseActorTree_ParentFirst(this, [&](AActor* InActor){
+		InActor->SetFolderPath(NewFolderPath);
+		return true;
+	});
 }
 
 void AActor::CheckForDeprecated()

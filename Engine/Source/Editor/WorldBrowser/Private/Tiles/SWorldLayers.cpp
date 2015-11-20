@@ -12,10 +12,19 @@
 //
 //----------------------------------------------------------------
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void SNewLayerPopup::Construct(const FArguments& InArgs)
+void SNewWorldLayerPopup::Construct(const FArguments& InArgs)
 {
-	OnCreateLayer = InArgs._OnCreateLayer;
-	LayerData.Name = InArgs._DefaultName;
+	OnCreateLayer	= InArgs._OnCreateLayer;
+	LayerData.Name	= InArgs._DefaultName;
+
+	// store set of currently existing layer names
+	{
+		const auto& AllLayersList = InArgs._InWorldModel->GetLayers();
+		for (const auto& WorldLayer : AllLayersList)
+		{
+			ExistingLayerNames.Add(WorldLayer.Name);
+		}
+	}
 	
 	ChildSlot
 	[
@@ -42,10 +51,9 @@ void SNewLayerPopup::Construct(const FArguments& InArgs)
 				.Padding(4,0,0,0)
 				[
 					SNew(SEditableTextBox)
-					.Text(this, &SNewLayerPopup::GetLayerName)
+					.Text(this, &SNewWorldLayerPopup::GetLayerName)
 					.SelectAllTextWhenFocused(true)
-					//.OnTextCommitted(this, &SNewLayerPopup::SetLayerName)
-					.OnTextChanged(this, &SNewLayerPopup::SetLayerName)
+					.OnTextChanged(this, &SNewWorldLayerPopup::SetLayerName)
 				]
 
 			]
@@ -60,19 +68,19 @@ void SNewLayerPopup::Construct(const FArguments& InArgs)
 				.AutoWidth()
 				[
 					SNew(SCheckBox)
-					.IsChecked(this, &SNewLayerPopup::GetDistanceStreamingState)
-					.OnCheckStateChanged(this, &SNewLayerPopup::OnDistanceStreamingStateChanged)
+					.IsChecked(this, &SNewWorldLayerPopup::GetDistanceStreamingState)
+					.OnCheckStateChanged(this, &SNewWorldLayerPopup::OnDistanceStreamingStateChanged)
 				]
 
 				+SHorizontalBox::Slot()
 				.AutoWidth()
 				[
 					SNew(SNumericEntryBox<int32>)
-					.IsEnabled(this, &SNewLayerPopup::IsDistanceStreamingEnabled)
-					.Value(this, &SNewLayerPopup::GetStreamingDistance)
+					.IsEnabled(this, &SNewWorldLayerPopup::IsDistanceStreamingEnabled)
+					.Value(this, &SNewWorldLayerPopup::GetStreamingDistance)
 					.MinValue(1)
 					.MaxValue(TNumericLimits<int32>::Max())
-					.OnValueChanged(this, &SNewLayerPopup::SetStreamingDistance)
+					.OnValueChanged(this, &SNewWorldLayerPopup::SetStreamingDistance)
 					.LabelPadding(0)
 					.Label()
 					[
@@ -90,7 +98,8 @@ void SNewLayerPopup::Construct(const FArguments& InArgs)
 			.Padding(2,2,0,0)
 			[
 				SNew(SButton)
-				.OnClicked(this, &SNewLayerPopup::OnClickedCreate)
+				.OnClicked(this, &SNewWorldLayerPopup::OnClickedCreate)
+				.IsEnabled(this, &SNewWorldLayerPopup::CanCreateLayer)
 				.Text(LOCTEXT("Layer_Create", "Create"))
 			]
 
@@ -99,7 +108,7 @@ void SNewLayerPopup::Construct(const FArguments& InArgs)
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-FReply SNewLayerPopup::OnClickedCreate()
+FReply SNewWorldLayerPopup::OnClickedCreate()
 {
 	if (OnCreateLayer.IsBound())
 	{
@@ -107,6 +116,11 @@ FReply SNewLayerPopup::OnClickedCreate()
 	}
 	
 	return FReply::Unhandled();
+}
+
+bool SNewWorldLayerPopup::CanCreateLayer() const
+{
+	return LayerData.Name.Len() > 0 && !ExistingLayerNames.Contains(LayerData.Name);
 }
 
 /** A class for check boxes in the layer list. 

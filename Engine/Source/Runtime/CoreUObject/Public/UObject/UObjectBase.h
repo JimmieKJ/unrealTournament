@@ -90,7 +90,7 @@ public:
 
 	/**
 	 * Faster version of IsValidLowLevel.
-	 * Checks to see if the object appears to be valid by checking pointers and their alingment.
+	 * Checks to see if the object appears to be valid by checking pointers and their alignment.
 	 * Name and InternalIndex checks are less accurate than IsValidLowLevel.
 	 * @param bRecursive true if the Class pointer should be checked with IsValidLowLevelFast
 	 * @return true if this appears to be a valid object
@@ -326,26 +326,26 @@ struct TClassCompiledInDefer : public FFieldCompiledInInfo
 /**
  * Stashes the singleton function that builds a compiled in class. Later, this is executed.
  */
-COREUOBJECT_API void UObjectCompiledInDefer(class UClass *(*InRegister)(), const TCHAR* Name);
+COREUOBJECT_API void UObjectCompiledInDefer(class UClass *(*InRegister)(), class UClass *(*InStaticClass)(), const TCHAR* Name, bool bDynamic);
 
 struct FCompiledInDefer
 {
-	FCompiledInDefer(class UClass *(*InRegister)(), const TCHAR* Name)
+	FCompiledInDefer(class UClass *(*InRegister)(), class UClass *(*InStaticClass)(), const TCHAR* Name, bool bDynamic)
 	{
-		UObjectCompiledInDefer(InRegister, Name);
+		UObjectCompiledInDefer(InRegister, InStaticClass, Name, bDynamic);
 	}
 };
 
 /**
  * Stashes the singleton function that builds a compiled in struct (StaticStruct). Later, this is executed.
  */
-COREUOBJECT_API void UObjectCompiledInDeferStruct(class UScriptStruct *(*InRegister)(), const TCHAR* PackageName);
+COREUOBJECT_API void UObjectCompiledInDeferStruct(class UScriptStruct *(*InRegister)(), const TCHAR* PackageName, const TCHAR* Name, bool bDynamic);
 
 struct FCompiledInDeferStruct
 {
-	FCompiledInDeferStruct(class UScriptStruct *(*InRegister)(), const TCHAR* PackageName)
+	FCompiledInDeferStruct(class UScriptStruct *(*InRegister)(), const TCHAR* PackageName, const TCHAR* Name, bool bDynamic)
 	{
-		UObjectCompiledInDeferStruct(InRegister, PackageName);
+		UObjectCompiledInDeferStruct(InRegister, PackageName, Name, bDynamic);
 	}
 };
 
@@ -357,13 +357,13 @@ COREUOBJECT_API class UScriptStruct *GetStaticStruct(class UScriptStruct *(*InRe
 /**
  * Stashes the singleton function that builds a compiled in enum. Later, this is executed.
  */
-COREUOBJECT_API void UObjectCompiledInDeferEnum(class UEnum *(*InRegister)(), const TCHAR* PackageName);
+COREUOBJECT_API void UObjectCompiledInDeferEnum(class UEnum *(*InRegister)(), const TCHAR* PackageName, const TCHAR* Name, bool bDynamic);
 
 struct FCompiledInDeferEnum
 {
-	FCompiledInDeferEnum(class UEnum *(*InRegister)(), const TCHAR* PackageName)
+	FCompiledInDeferEnum(class UEnum *(*InRegister)(), const TCHAR* PackageName, const TCHAR* Name, bool bDynamic)
 	{
-		UObjectCompiledInDeferEnum(InRegister, PackageName);
+		UObjectCompiledInDeferEnum(InRegister, PackageName, Name, bDynamic);
 	}
 };
 
@@ -371,6 +371,9 @@ struct FCompiledInDeferEnum
  * Either call the passed in singleton, or if this is hot reload, find the existing enum
  */
 COREUOBJECT_API class UEnum *GetStaticEnum(class UEnum *(*InRegister)(), UObject* EnumOuter, const TCHAR* EnumName);
+
+COREUOBJECT_API class UScriptStruct* FindExistingStructIfHotReloadOrDynamic(UObject* Outer, const TCHAR* StructName, SIZE_T Size, uint32 Crc, bool bIsDynamic);
+COREUOBJECT_API class UEnum* FindExistingEnumIfHotReload(UObject* Outer, const TCHAR* EnumName, SIZE_T Size, uint32 Crc);
 
 /** @return	True if there are any newly-loaded UObjects that are waiting to be registered by calling ProcessNewlyLoadedUObjects() */
 COREUOBJECT_API bool AnyNewlyLoadedUObjects();
@@ -380,7 +383,7 @@ COREUOBJECT_API void ProcessNewlyLoadedUObjects();
 
 #if WITH_HOT_RELOAD
 /** Map of duplicated CDOs for reinstancing during hot-reload purposes. */
-COREUOBJECT_API TMap<UClass*, UObject*>& GetDuplicatedCDOMap();
+COREUOBJECT_API TMap<UObject*, UObject*>& GetDuplicatedCDOMap();
 #endif // WITH_HOT_RELOAD
 
 /**

@@ -137,7 +137,7 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 
 	class FSkyLightSceneProxy* CreateSceneProxy() const;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
 	virtual void PostInterpChange(UProperty* PropertyThatChanged) override;
@@ -148,14 +148,14 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 #endif // WITH_EDITOR
 	virtual void BeginDestroy() override;
 	virtual bool IsReadyForFinishDestroy() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	virtual FActorComponentInstanceData* GetComponentInstanceData() const override;
-	virtual FName GetComponentInstanceDataType() const override;
 	void ApplyComponentInstanceData(class FPrecomputedSkyLightInstanceData* ComponentInstanceData);
 
 	/** Called each tick to recapture and queued sky captures. */
 	static void UpdateSkyCaptureContents(UWorld* WorldToUpdate);
+	static void UpdateSkyCaptureContentsArray(UWorld* WorldToUpdate, TArray<USkyLightComponent*>& ComponentArray, bool bBlendSources);
 
 	/** Computes an irradiance environment map using only emissive contribution from the sky light. */
 	void CaptureEmissiveIrradianceEnvironmentMap(FSHVectorRGB3& OutIrradianceMap) const;
@@ -174,6 +174,15 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	UFUNCTION(BlueprintCallable, Category="SkyLight")
 	void SetCubemap(UTextureCube* NewCubemap);
 
+	/** 
+	 * Creates sky lighting from a blend between two cubemaps, which is only valid when SourceType is set to SpecifiedCubemap. 
+	 * This can be used to seamlessly transition sky lighting between different times of day.
+	 * The caller should continue to update the blend until BlendFraction is 0 or 1 to reduce rendering cost.
+	 * The caller is responsible for avoiding pops due to changing the source or destination.
+	 */
+	UFUNCTION(BlueprintCallable, Category="SkyLight")
+	void SetCubemapBlend(UTextureCube* SourceCubemap, UTextureCube* DestinationCubemap, float InBlendFraction);
+
 	UFUNCTION(BlueprintCallable, Category="Rendering|Components|SkyLight")
 	void SetOcclusionTint(const FColor& InTint);
 
@@ -184,6 +193,7 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 
 	/** Indicates that the capture needs to recapture the scene, adds it to the recapture queue. */
 	void SetCaptureIsDirty();
+	void SetBlendDestinationCaptureIsDirty();
 
 	/** 
 	 * Recaptures the scene for the skylight. 
@@ -200,17 +210,24 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 
 protected:
 
-	/** Whether the reflection capture needs to re-capture the scene. */
-	bool bCaptureDirty;
-
 	/** Indicates whether the cached data stored in GetComponentInstanceData is valid to be applied in ApplyComponentInstanceData. */
 	bool bSavedConstructionScriptValuesValid;
 
 	bool bHasEverCaptured;
 
 	TRefCountPtr<FSkyTextureCubeResource> ProcessedSkyTexture;
-
 	FSHVectorRGB3 IrradianceEnvironmentMap;
+
+	/** If 0, no blend is present.  If > 0, BlendDestinationProcessedSkyTexture and BlendDestinationIrradianceEnvironmentMap must be generated and used for rendering. */
+	float BlendFraction;
+
+	UPROPERTY(transient)
+	class UTextureCube* BlendDestinationCubemap;
+	TRefCountPtr<FSkyTextureCubeResource> BlendDestinationProcessedSkyTexture;
+	FSHVectorRGB3 BlendDestinationIrradianceEnvironmentMap;
+
+	/** Tracks when the rendering thread has completed its writes to IrradianceEnvironmentMap. */
+	FRenderCommandFence IrradianceMapFence;
 
 	/** Fence used to track progress of releasing resources on the rendering thread. */
 	FRenderCommandFence ReleaseResourcesFence;
@@ -223,11 +240,12 @@ protected:
 	 * This queue should be in the UWorld or the FSceneInterface, but those are not available yet in PostLoad.
 	 */
 	static TArray<USkyLightComponent*> SkyCapturesToUpdate;
+	static TArray<USkyLightComponent*> SkyCapturesToUpdateBlendDestinations;
 
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
-	// Begin UActorComponent Interface
+	//~ Begin UActorComponent Interface
 
 	void UpdateLimitedRenderingStateFast();
 

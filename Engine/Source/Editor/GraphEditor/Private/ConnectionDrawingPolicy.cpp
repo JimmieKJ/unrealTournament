@@ -479,8 +479,8 @@ bool FConnectionDrawingPolicy::IsConnectionCulled( const FArrangedWidget& StartL
 {
 	const float Top		= FMath::Min( StartLink.Geometry.AbsolutePosition.Y, EndLink.Geometry.AbsolutePosition.Y );
 	const float Left	= FMath::Min( StartLink.Geometry.AbsolutePosition.X, EndLink.Geometry.AbsolutePosition.X );
-	const float Bottom	= FMath::Max( StartLink.Geometry.AbsolutePosition.Y, EndLink.Geometry.AbsolutePosition.Y );
-	const float Right	= FMath::Max( StartLink.Geometry.AbsolutePosition.X, EndLink.Geometry.AbsolutePosition.X ); 
+	const float Bottom	= FMath::Max( StartLink.Geometry.AbsolutePosition.Y + StartLink.Geometry.Size.Y, EndLink.Geometry.AbsolutePosition.Y + EndLink.Geometry.Size.Y );
+	const float Right	= FMath::Max( StartLink.Geometry.AbsolutePosition.X + StartLink.Geometry.Size.X, EndLink.Geometry.AbsolutePosition.X + EndLink.Geometry.Size.X ); 
 
 	return	Left > ClippingRect.Right || Right < ClippingRect.Left || 
 			Bottom < ClippingRect.Top || Top > ClippingRect.Bottom;

@@ -193,7 +193,7 @@ FSamplerStateRHIRef FOpenGLDynamicRHI::RHICreateSamplerState(const FSamplerState
 	case SF_AnisotropicLinear:
 		SamplerState->Data.MagFilter	= GL_LINEAR;
 		SamplerState->Data.MinFilter	= bComparisonEnabled ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR;
-		SamplerState->Data.MaxAnisotropy = FMath::Clamp(Initializer.MaxAnisotropy > 0 ? Initializer.MaxAnisotropy : GetCachedScalabilityCVars().MaxAnisotropy, 1, GMaxOpenGLTextureFilterAnisotropic);
+		SamplerState->Data.MaxAnisotropy = FMath::Min<uint32>(ComputeAnisotropyRT(Initializer.MaxAnisotropy), GMaxOpenGLTextureFilterAnisotropic);
 		break;
 	case SF_Trilinear:
 		SamplerState->Data.MagFilter	= GL_LINEAR;
@@ -330,4 +330,31 @@ FBlendStateRHIRef FOpenGLDynamicRHI::RHICreateBlendState(const FBlendStateInitia
 	
 	FShaderCache::LogBlendState(Initializer, BlendState);
 	return BlendState;
+}
+
+//!AB: moved from the header, since it was causing linker error when the header is included externally
+void FOpenGLRHIState::InitializeResources(int32 NumCombinedTextures, int32 NumComputeUAVUnits)
+{
+	check(!ShaderParameters);
+	FOpenGLCommonState::InitializeResources(NumCombinedTextures, NumComputeUAVUnits);
+	ShaderParameters = new FOpenGLShaderParameterCache[CrossCompiler::NUM_SHADER_STAGES];
+	ShaderParameters[CrossCompiler::SHADER_STAGE_VERTEX].InitializeResources(FOpenGL::GetMaxVertexUniformComponents() * 4 * sizeof(float));
+	ShaderParameters[CrossCompiler::SHADER_STAGE_PIXEL].InitializeResources(FOpenGL::GetMaxPixelUniformComponents() * 4 * sizeof(float));
+	ShaderParameters[CrossCompiler::SHADER_STAGE_GEOMETRY].InitializeResources(FOpenGL::GetMaxGeometryUniformComponents() * 4 * sizeof(float));
+		
+	if ( FOpenGL::SupportsTessellation() )
+	{
+		ShaderParameters[CrossCompiler::SHADER_STAGE_HULL].InitializeResources(FOpenGL::GetMaxHullUniformComponents() * 4 * sizeof(float));
+		ShaderParameters[CrossCompiler::SHADER_STAGE_DOMAIN].InitializeResources(FOpenGL::GetMaxDomainUniformComponents() * 4 * sizeof(float));
+	}
+
+	if ( FOpenGL::SupportsComputeShaders() )
+	{
+		ShaderParameters[CrossCompiler::SHADER_STAGE_COMPUTE].InitializeResources(FOpenGL::GetMaxComputeUniformComponents() * 4 * sizeof(float));
+	}
+
+	for (int32 Frequency = 0; Frequency < SF_NumFrequencies; ++Frequency)
+	{
+		DirtyUniformBuffers[Frequency] = MAX_uint16;
+	}
 }

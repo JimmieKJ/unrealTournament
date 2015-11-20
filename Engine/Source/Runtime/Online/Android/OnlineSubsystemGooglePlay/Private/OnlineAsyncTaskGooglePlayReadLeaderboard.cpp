@@ -48,7 +48,7 @@ void FOnlineAsyncTaskGooglePlayReadLeaderboard::Tick()
 	}
 
 	// We can only get the current user's leaderboard score from Google Play, so just add one row with it.
-	//TSharedRef<FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(FString(TEXT("0"))));
+	//TSharedRef<const FUniqueNetId> UserId = MakeShareable(new FUniqueNetIdString(FString(TEXT("0"))));
 	auto UserId = Subsystem->GetIdentityGooglePlay()->GetCurrentUserId();
 	if (!UserId.IsValid())
 	{

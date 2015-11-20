@@ -257,6 +257,15 @@ public:
 		FILE_LOG(LogPlatformFile, Log, TEXT("DeleteDirectory return %d [%fms]"), int32(Result), ThisTime);
 		return Result;
 	}
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override
+	{
+		FILE_LOG(LogPlatformFile, Log, TEXT("GetStatData %s"), FilenameOrDirectory);
+		double StartTime = FPlatformTime::Seconds();
+		FFileStatData Result = LowerLevel->GetStatData(FilenameOrDirectory);
+		float ThisTime = 1000.0f * float(FPlatformTime::Seconds() - StartTime);
+		FILE_LOG(LogPlatformFile, Log, TEXT("GetStatData return %d [%fms]"), int32(Result.bIsValid), ThisTime);
+		return Result;
+	}
 
 	class FLogVisitor : public IPlatformFile::FDirectoryVisitor
 	{
@@ -266,7 +275,7 @@ public:
 			: Visitor(InVisitor)
 		{
 		}
-		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory) override
 		{
 			FILE_LOG(LogPlatformFile, Verbose, TEXT("Visit %s %d"), FilenameOrDirectory, int32(bIsDirectory));
 			double StartTime = FPlatformTime::Seconds();
@@ -297,6 +306,47 @@ public:
 		FILE_LOG(LogPlatformFile, Log, TEXT("IterateDirectoryRecursively return %d [%fms]"), int32(Result), ThisTime);
 		return Result;
 	}
+
+	class FLogStatVisitor : public IPlatformFile::FDirectoryStatVisitor
+	{
+	public:
+		FDirectoryStatVisitor&	Visitor;
+		FLogStatVisitor(FDirectoryStatVisitor& InVisitor)
+			: Visitor(InVisitor)
+		{
+		}
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, const FFileStatData& StatData) override
+		{
+			FILE_LOG(LogPlatformFile, Verbose, TEXT("Visit %s %d"), FilenameOrDirectory, int32(StatData.bIsDirectory));
+			double StartTime = FPlatformTime::Seconds();
+			bool Result = Visitor.Visit(FilenameOrDirectory, StatData);
+			float ThisTime = 1000.0f * float(FPlatformTime::Seconds() - StartTime);
+			FILE_LOG(LogPlatformFile, Verbose, TEXT("Visit return %d [%fms]"), int32(Result), ThisTime);
+			return Result;
+		}
+	};
+
+	virtual bool		IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		FILE_LOG(LogPlatformFile, Log, TEXT("IterateDirectoryStat %s"), Directory);
+		double StartTime = FPlatformTime::Seconds();
+		FLogStatVisitor LogVisitor(Visitor);
+		bool Result = LowerLevel->IterateDirectoryStat(Directory, LogVisitor);
+		float ThisTime = 1000.0f * float(FPlatformTime::Seconds() - StartTime);
+		FILE_LOG(LogPlatformFile, Log, TEXT("IterateDirectoryStat return %d [%fms]"), int32(Result), ThisTime);
+		return Result;
+	}
+	virtual bool		IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) override
+	{
+		FILE_LOG(LogPlatformFile, Log, TEXT("IterateDirectoryStatRecursively %s"), Directory);
+		double StartTime = FPlatformTime::Seconds();
+		FLogStatVisitor LogVisitor(Visitor);
+		bool Result = LowerLevel->IterateDirectoryStatRecursively(Directory, LogVisitor);
+		float ThisTime = 1000.0f * float(FPlatformTime::Seconds() - StartTime);
+		FILE_LOG(LogPlatformFile, Log, TEXT("IterateDirectoryStatRecursively return %d [%fms]"), int32(Result), ThisTime);
+		return Result;
+	}
+
 	virtual bool		DeleteDirectoryRecursively(const TCHAR* Directory) override
 	{
 		FILE_LOG(LogPlatformFile, Log, TEXT("DeleteDirectoryRecursively %s"), Directory);

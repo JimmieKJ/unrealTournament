@@ -23,6 +23,8 @@
 #include "DetourTileCacheBuilder.h"
 #include "RecastHelpers.h"
 #include "NavigationSystemHelpers.h"
+#include "VisualLogger/VisualLogger.h"
+#include "NavMeshRenderingHelpers.h"
 
 #define SEAMLESS_REBUILDING_ENABLED 1
 
@@ -319,15 +321,12 @@ void ExportPxConvexMesh(PxConvexMesh const * const ConvexMesh, const FTransform&
 	}
 
 	int32 StartVertOffset = VertexBuffer.Num() / 3;
+	const bool bNegX = LocalToWorld.GetDeterminant() < 0;
 
 	// get PhysX data
 	const PxVec3* PVertices = ConvexMesh->getVertices();
 	const PxU8* PIndexBuffer = ConvexMesh->getIndexBuffer();
 	const PxU32 NbPolygons = ConvexMesh->getNbPolygons();
-
-	const bool bFlipWinding = (LocalToWorld.GetDeterminant() < 0.f);
-	const int FirstIndex = bFlipWinding ? 1 : 2;
-	const int SecondIndex = bFlipWinding ? 2 : 1;
 
 #if SHOW_NAV_EXPORT_PREVIEW
 	UWorld* DebugWorld = FindEditorWorld();
@@ -358,19 +357,19 @@ void ExportPxConvexMesh(PxConvexMesh const * const ConvexMesh, const FTransform&
 		for(PxU32 j = 0; j < nbTris; ++j)
 		{
 			IndexBuffer.Add(StartVertOffset + 0 );
-			IndexBuffer.Add(StartVertOffset + j + FirstIndex);
-			IndexBuffer.Add(StartVertOffset + j + SecondIndex);
+			IndexBuffer.Add(StartVertOffset + j + 2);
+			IndexBuffer.Add(StartVertOffset + j + 1);
 
 #if SHOW_NAV_EXPORT_PREVIEW
 			if (DebugWorld)
 			{
 				FVector V0(VertexBuffer[(StartVertOffset + 0) * 3+0], VertexBuffer[(StartVertOffset + 0) * 3+1], VertexBuffer[(StartVertOffset + 0) * 3+2]);
-				FVector V1(VertexBuffer[(StartVertOffset + j + FirstIndex) * 3+0], VertexBuffer[(StartVertOffset + j + FirstIndex) * 3+1], VertexBuffer[(StartVertOffset + j + FirstIndex) * 3+2]);
-				FVector V2(VertexBuffer[(StartVertOffset + j + SecondIndex) * 3+0], VertexBuffer[(StartVertOffset + j + SecondIndex) * 3+1], VertexBuffer[(StartVertOffset + j + SecondIndex) * 3+2]);
+				FVector V1(VertexBuffer[(StartVertOffset + j + 2) * 3+0], VertexBuffer[(StartVertOffset + j + 2) * 3+1], VertexBuffer[(StartVertOffset + j + 2) * 3+2]);
+				FVector V2(VertexBuffer[(StartVertOffset + j + 1) * 3+0], VertexBuffer[(StartVertOffset + j + 1) * 3+1], VertexBuffer[(StartVertOffset + j + 1) * 3+2]);
 
-				DrawDebugLine(DebugWorld, V0, V1, bFlipWinding ? FColor::Red : FColor::Blue, true);
-				DrawDebugLine(DebugWorld, V1, V2, bFlipWinding ? FColor::Red : FColor::Blue, true);
-				DrawDebugLine(DebugWorld, V2, V0, bFlipWinding ? FColor::Red : FColor::Blue, true);
+				DrawDebugLine(DebugWorld, V0, V1, bNegX ? FColor::Red : FColor::Blue, true);
+				DrawDebugLine(DebugWorld, V1, V2, bNegX ? FColor::Red : FColor::Blue, true);
+				DrawDebugLine(DebugWorld, V2, V0, bNegX ? FColor::Red : FColor::Blue, true);
 			}
 #endif // SHOW_NAV_EXPORT_PREVIEW
 		}
@@ -694,13 +693,24 @@ FORCEINLINE_DEBUGGABLE void ExportRigidBodyConvexElements(UBodySetup& BodySetup,
 	const int32 ConvexCount = BodySetup.AggGeom.ConvexElems.Num();
 	FKConvexElem const * ConvexElem = BodySetup.AggGeom.ConvexElems.GetData();
 
+	const FTransform NegXScale(FQuat::Identity, FVector::ZeroVector, FVector(-1, 1, 1));
+
 	for(int32 i=0; i< ConvexCount; ++i, ++ConvexElem)
 	{
 		// Store index of first vertex in shape buffer
 		ShapeBuffer.Add(VertexBuffer.Num() / 3);
 
 		// Get verts/triangles from this hull.
-		ExportPxConvexMesh(ConvexElem->ConvexMesh, LocalToWorld, VertexBuffer, IndexBuffer, UnrealBounds);
+		if (!ConvexElem->ConvexMesh && ConvexElem->ConvexMeshNegX)
+		{
+			// If there is only a NegX mesh (e.g. a mirrored volume), use it
+			ExportPxConvexMesh(ConvexElem->ConvexMeshNegX, NegXScale * ConvexElem->Transform * LocalToWorld, VertexBuffer, IndexBuffer, UnrealBounds);
+		}
+		else
+		{
+			// Otherwise use the regular mesh in the case that both exist
+			ExportPxConvexMesh(ConvexElem->ConvexMesh, ConvexElem->Transform * LocalToWorld, VertexBuffer, IndexBuffer, UnrealBounds);
+		}
 	}
 #endif // WITH_PHYSX
 }
@@ -709,15 +719,18 @@ FORCEINLINE_DEBUGGABLE void ExportRigidBodyTriMesh(UBodySetup& BodySetup, TNavSt
 												   FBox& UnrealBounds, const FTransform& LocalToWorld)
 {
 #if WITH_PHYSX
-	if (BodySetup.TriMesh != NULL && BodySetup.CollisionTraceFlag == CTF_UseComplexAsSimple)
+	if (BodySetup.GetCollisionTraceFlag() == CTF_UseComplexAsSimple)
 	{
-		if (BodySetup.TriMesh->getTriangleMeshFlags() & PxTriangleMeshFlag::eHAS_16BIT_TRIANGLE_INDICES)
+		for(PxTriangleMesh* TriMesh : BodySetup.TriMeshes)
 		{
-			ExportPxTriMesh<PxU16>(BodySetup.TriMesh, LocalToWorld, VertexBuffer, IndexBuffer, UnrealBounds);
-		}
-		else
-		{
-			ExportPxTriMesh<PxU32>(BodySetup.TriMesh, LocalToWorld, VertexBuffer, IndexBuffer, UnrealBounds);
+			if (TriMesh->getTriangleMeshFlags() & PxTriangleMeshFlag::eHAS_16BIT_TRIANGLE_INDICES)
+			{
+				ExportPxTriMesh<PxU16>(TriMesh, LocalToWorld, VertexBuffer, IndexBuffer, UnrealBounds);
+			}
+			else
+			{
+				ExportPxTriMesh<PxU32>(TriMesh, LocalToWorld, VertexBuffer, IndexBuffer, UnrealBounds);
+			}
 		}
 	}
 #endif // WITH_PHYSX
@@ -1254,12 +1267,12 @@ struct FOffMeshData
 		LinkParams.Reserve(ElementsCount);
 	}
 
-	void AddLinks(const TArray<FNavigationLink>& Links, const FTransform& LocalToWorld, uint32 AgentMask, float DefaultSnapHeight)
+	void AddLinks(const TArray<FNavigationLink>& Links, const FTransform& LocalToWorld, int32 AgentIndex, float DefaultSnapHeight)
 	{
 		for (int32 LinkIndex = 0; LinkIndex < Links.Num(); ++LinkIndex)
 		{
 			const FNavigationLink& Link = Links[LinkIndex];
-			if ((Link.SupportedAgentsBits & AgentMask) == 0)
+			if (!Link.SupportedAgents.Contains(AgentIndex))
 			{
 				continue;
 			}
@@ -1295,12 +1308,12 @@ struct FOffMeshData
 			LinkParams.Add(NewInfo);
 		}
 	}
-	void AddSegmentLinks(const TArray<FNavigationSegmentLink>& Links, const FTransform& LocalToWorld, uint32 AgentMask, float DefaultSnapHeight)
+	void AddSegmentLinks(const TArray<FNavigationSegmentLink>& Links, const FTransform& LocalToWorld, int32 AgentIndex, float DefaultSnapHeight)
 	{
 		for (int32 LinkIndex = 0; LinkIndex < Links.Num(); ++LinkIndex)
 		{
 			const FNavigationSegmentLink& Link = Links[LinkIndex];
-			if ((Link.SupportedAgentsBits & AgentMask) == 0)
+			if (!Link.SupportedAgents.Contains(AgentIndex))
 			{
 				continue;
 			}
@@ -1791,9 +1804,12 @@ void FRecastTileGenerator::GatherGeometry(const FRecastNavMeshGenerator& ParentG
 {
 	QUICK_SCOPE_CYCLE_COUNTER(STAT_RecastNavMeshGenerator_GatherGeometry);
 
-	UNavigationSystem*	NavSys = UNavigationSystem::GetCurrent(ParentGenerator.GetWorld());
-	FNavigationOctree*	NavigationOctree = NavSys ? NavSys->GetMutableNavOctree() : nullptr;
-	check(NavigationOctree);
+	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(ParentGenerator.GetWorld());
+	FNavigationOctree* NavigationOctree = NavSys ? NavSys->GetMutableNavOctree() : nullptr;
+	if (NavigationOctree == nullptr)
+	{
+		return;
+	}
 	const FNavDataConfig& OwnerNavDataConfig = ParentGenerator.GetOwner()->GetConfig();
 
 	for (FNavigationOctree::TConstElementBoxIterator<FNavigationOctree::DefaultStackAllocator> It(*NavigationOctree, ParentGenerator.GrowBoundingBox(TileBB, /*bIncludeAgentHeight*/ false));
@@ -2680,15 +2696,14 @@ bool FRecastTileGenerator::GenerateNavigationData(FNavMeshBuildContext& BuildCon
 				OffMeshData.Reserve(OffmeshLinks.Num());
 				OffMeshData.AreaClassToIdMap = &AdditionalCachedData.AreaClassToIdMap;
 				OffMeshData.FlagsPerArea = AdditionalCachedData.FlagsPerOffMeshLinkArea;
-				const uint32 AgentMask = (1 << TileConfig.AgentIndex);
 				const FSimpleLinkNavModifier* LinkModifier = OffmeshLinks.GetData();
 				const float DefaultSnapHeight = TileConfig.walkableClimb * TileConfig.ch;
 
 				for (int32 LinkModifierIndex = 0; LinkModifierIndex < OffmeshLinks.Num(); ++LinkModifierIndex, ++LinkModifier)
 				{
-					OffMeshData.AddLinks(LinkModifier->Links, LinkModifier->LocalToWorld, AgentMask, DefaultSnapHeight);
+					OffMeshData.AddLinks(LinkModifier->Links, LinkModifier->LocalToWorld, TileConfig.AgentIndex, DefaultSnapHeight);
 #if GENERATE_SEGMENT_LINKS
-					OffMeshData.AddSegmentLinks(LinkModifier->SegmentLinks, LinkModifier->LocalToWorld, AgentMask, DefaultSnapHeight);
+					OffMeshData.AddSegmentLinks(LinkModifier->SegmentLinks, LinkModifier->LocalToWorld, TileConfig.AgentIndex, DefaultSnapHeight);
 #endif // GENERATE_SEGMENT_LINKS
 				}
 			}
@@ -3017,27 +3032,37 @@ FRecastNavMeshGenerator::FRecastNavMeshGenerator(ARecastNavMesh& InDestNavMesh)
 	bool bRecreateNavmesh = true;
 	if (DestNavMesh->HasValidNavmesh())
 	{
+		const bool bGameStaticNavMesh = IsGameStaticNavMesh(DestNavMesh);
 		const dtNavMeshParams* SavedNavParams = DestNavMesh->GetRecastNavMeshImpl()->DetourNavMesh->getParams();
 		if (SavedNavParams)
 		{
-			const float TileDim = Config.tileSize * Config.cs;
-			if (SavedNavParams->tileHeight == TileDim && SavedNavParams->tileWidth == TileDim)
+			if (bGameStaticNavMesh)
 			{
-				const FVector Orig = Recast2UnrealPoint(SavedNavParams->orig);
-				const FVector OrigError(FMath::Fmod(Orig.X, TileDim), FMath::Fmod(Orig.X, TileDim), FMath::Fmod(Orig.X, TileDim));
-				if (OrigError.IsNearlyZero())
-				{
-					bRecreateNavmesh = false;
-				}
+				bRecreateNavmesh = false;
+				MaxTiles = SavedNavParams->maxTiles;
+				MaxPolysPerTile = SavedNavParams->maxPolys;
 			}
-
-			// if new navmesh needs more tiles, force recreating
-			if (!bRecreateNavmesh)
+			else
 			{
-				CalcNavMeshProperties(MaxTiles, MaxPolysPerTile);
-				if (FMath::Log2(MaxTiles) != FMath::Log2(SavedNavParams->maxTiles))
+				const float TileDim = Config.tileSize * Config.cs;
+				if (SavedNavParams->tileHeight == TileDim && SavedNavParams->tileWidth == TileDim)
 				{
-					bRecreateNavmesh = true;
+					const FVector Orig = Recast2UnrealPoint(SavedNavParams->orig);
+					const FVector OrigError(FMath::Fmod(Orig.X, TileDim), FMath::Fmod(Orig.X, TileDim), FMath::Fmod(Orig.X, TileDim));
+					if (OrigError.IsNearlyZero())
+					{
+						bRecreateNavmesh = false;
+					}
+				}
+
+				// if new navmesh needs more tiles, force recreating
+				if (!bRecreateNavmesh)
+				{
+					CalcNavMeshProperties(MaxTiles, MaxPolysPerTile);
+					if (FMath::Log2(MaxTiles) != FMath::Log2(SavedNavParams->maxTiles))
+					{
+						bRecreateNavmesh = true;
+					}
 				}
 			}
 		};
@@ -3143,6 +3168,7 @@ void FRecastNavMeshGenerator::UpdateNavigationBounds()
 {
 	const UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
 	const TSet<FNavigationBounds>& NavigationBoundsSet = NavSys->GetNavigationBounds();
+	const int32 AgentIndex = NavSys->GetSupportedAgentIndex(DestNavMesh);
 
 	TotalNavBounds = FBox(0);
 	InclusionBounds.Empty(NavigationBoundsSet.Num());
@@ -3152,8 +3178,11 @@ void FRecastNavMeshGenerator::UpdateNavigationBounds()
 	{
 		for (const auto& NavigationBounds : NavigationBoundsSet)
 		{
-			InclusionBounds.Add(NavigationBounds.AreaBox);
-			TotalNavBounds+= NavigationBounds.AreaBox;
+			if (NavigationBounds.SupportedAgents.Contains(AgentIndex))
+			{
+				InclusionBounds.Add(NavigationBounds.AreaBox);
+				TotalNavBounds += NavigationBounds.AreaBox;
+			}
 		}
 	}
 	else
@@ -3540,10 +3569,28 @@ void FRecastNavMeshGenerator::ReAddTiles(const TArray<FIntPoint>& Tiles)
 	MarkDirtyTiles(DirtyAreasContainer);*/
 }
 
-TArray<uint32> FRecastNavMeshGenerator::RemoveTileLayers(const int32 TileX, const int32 TileY)
+namespace RecastTileVersionHelper
 {
-	TArray<uint32> ResultTileIndices;
+	inline uint32 GetUpdatedTileId(dtPolyRef& TileRef, dtNavMesh* DetourMesh)
+	{
+		uint32 DecodedTileId = 0, DecodedPolyId = 0, DecodedSaltId = 0;
+		DetourMesh->decodePolyId(TileRef, DecodedSaltId, DecodedTileId, DecodedPolyId);
+
+		DecodedSaltId = (DecodedSaltId + 1) & ((1 << DetourMesh->getSaltBits()) - 1);
+		if (DecodedSaltId == 0)
+		{
+			DecodedSaltId++;
+		}
+
+		TileRef = DetourMesh->encodePolyId(DecodedSaltId, DecodedTileId, DecodedPolyId);
+		return DecodedTileId;
+	}
+}
+
+TArray<uint32> FRecastNavMeshGenerator::RemoveTileLayers(const int32 TileX, const int32 TileY, TMap<int32, dtPolyRef>* OldLayerTileIdMap)
+{
 	dtNavMesh* DetourMesh = DestNavMesh->GetRecastNavMeshImpl()->GetRecastMesh();
+	TArray<uint32> UpdatedIndices;
 	
 	if (DetourMesh != nullptr && DetourMesh->isEmpty() == false)
 	{
@@ -3558,7 +3605,7 @@ TArray<uint32> FRecastNavMeshGenerator::RemoveTileLayers(const int32 TileX, cons
 			for (int32 i = 0; i < NumLayers; i++)
 			{
 				const int32 LayerIndex = Tiles[i]->header->layer;
-				const dtTileRef TileRef = DetourMesh->getTileRef(Tiles[i]);
+				dtPolyRef TileRef = DetourMesh->getTileRef(Tiles[i]);
 
 				NumActiveTiles--;
 				UE_LOG(LogNavigation, Log, TEXT("%s> Tile (%d,%d:%d), removing TileRef: 0x%X (active:%d)"),
@@ -3566,7 +3613,13 @@ TArray<uint32> FRecastNavMeshGenerator::RemoveTileLayers(const int32 TileX, cons
 
 				DetourMesh->removeTile(TileRef, nullptr, nullptr);
 
-				ResultTileIndices.AddUnique(DetourMesh->decodePolyIdTile(TileRef));
+				uint32 TileId = RecastTileVersionHelper::GetUpdatedTileId(TileRef, DetourMesh);
+				UpdatedIndices.AddUnique(TileId);
+
+				if (OldLayerTileIdMap)
+				{
+					OldLayerTileIdMap->Add(LayerIndex, TileRef);
+				}
 			}
 		}
 
@@ -3574,13 +3627,14 @@ TArray<uint32> FRecastNavMeshGenerator::RemoveTileLayers(const int32 TileX, cons
 		DestNavMesh->RemoveTileCacheLayers(TileX, TileY);
 	}
 
-	return ResultTileIndices;
+	return UpdatedIndices;
 }
 
 TArray<uint32> FRecastNavMeshGenerator::AddGeneratedTiles(FRecastTileGenerator& TileGenerator)
 {
 	SCOPE_CYCLE_COUNTER(STAT_Navigation_AddGeneratedTiles);
 	
+	TMap<int32, dtPolyRef> OldLayerTileIdMap;
 	TArray<uint32> ResultTileIndices;
 	const int32 TileX = TileGenerator.GetTileX();
 	const int32 TileY = TileGenerator.GetTileY();
@@ -3589,10 +3643,9 @@ TArray<uint32> FRecastNavMeshGenerator::AddGeneratedTiles(FRecastTileGenerator& 
 	if (TileGenerator.IsFullyRegenerated())
 	{
 		// remove all layers
-		ResultTileIndices = RemoveTileLayers(TileX, TileY);
+		ResultTileIndices = RemoveTileLayers(TileX, TileY, &OldLayerTileIdMap);
 	}
 
-	
 	dtNavMesh* DetourMesh = DestNavMesh->GetRecastNavMeshImpl()->GetRecastMesh();
 	if (DetourMesh != nullptr && IsInActiveSet(FIntPoint(TileX, TileY)))
 	{
@@ -3608,8 +3661,7 @@ TArray<uint32> FRecastNavMeshGenerator::AddGeneratedTiles(FRecastTileGenerator& 
 				continue;
 			}
 				
-			const dtTileRef OldTileRef = DetourMesh->getTileRefAt(TileX, TileY, LayerIndex);
-
+			dtTileRef OldTileRef = DetourMesh->getTileRefAt(TileX, TileY, LayerIndex);
 			if (OldTileRef)
 			{
 				QUICK_SCOPE_CYCLE_COUNTER(STAT_NavMesh_RemoveOldTIle);
@@ -3619,8 +3671,13 @@ TArray<uint32> FRecastNavMeshGenerator::AddGeneratedTiles(FRecastTileGenerator& 
 					*DestNavMesh->GetName(), TileX, TileY, LayerIndex, OldTileRef, NumActiveTiles);
 
 				DetourMesh->removeTile(OldTileRef, nullptr, nullptr);
-			
-				ResultTileIndices.AddUnique(DetourMesh->decodePolyIdTile(OldTileRef));
+
+				const uint32 TileId = RecastTileVersionHelper::GetUpdatedTileId(OldTileRef, DetourMesh);
+				ResultTileIndices.AddUnique(TileId);
+			}
+			else
+			{
+				OldTileRef = OldLayerTileIdMap.FindRef(LayerIndex);
 			}
 
 			if (TileLayers[i].IsValid()) 
@@ -4146,7 +4203,99 @@ uint32 FRecastNavMeshGenerator::LogMemUsed() const
 	return GeneratorsMem + sizeof(FRecastNavMeshGenerator) + PendingDirtyTiles.GetAllocatedSize() + PendingDirtyTiles.GetAllocatedSize();
 }
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && ENABLE_VISUAL_LOG
+void FRecastNavMeshGenerator::GrabDebugSnapshot(struct FVisualLogEntry* Snapshot, const FBox& BoundingBox, const struct FLogCategoryBase& LogCategory, ELogVerbosity::Type LogVerbosity) const
+{
+	const UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+	const FNavigationOctree* NavOctree = NavSys ? NavSys->GetNavOctree() : NULL;
+	if (Snapshot == nullptr)
+	{
+		return;
+	}
+
+	if (NavOctree == NULL)
+	{
+		UE_LOG(LogNavigation, Error, TEXT("Failed to vlog navigation data due to %s being NULL"), NavSys == NULL ? TEXT("NavigationSystem") : TEXT("NavOctree"));
+		return;
+	}
+
+	ELogVerbosity::Type NavAreaVerbosity = FMath::Clamp(ELogVerbosity::Type(LogVerbosity + 1), ELogVerbosity::NoLogging, ELogVerbosity::VeryVerbose);
+
+	for (int32 Index = 0; Index < NavSys->NavDataSet.Num(); ++Index)
+	{
+		TArray<FVector> CoordBuffer;
+		TArray<int32> Indices;
+		TNavStatArray<FVector> Faces;
+		const ARecastNavMesh* NavData = Cast<const ARecastNavMesh>(NavSys->NavDataSet[Index]);
+		if (NavData)
+		{
+			for (FNavigationOctree::TConstElementBoxIterator<FNavigationOctree::DefaultStackAllocator> It(*NavOctree, BoundingBox);
+				It.HasPendingElements();
+				It.Advance())
+			{
+				const FNavigationOctreeElement& Element = It.GetCurrentElement();
+				const bool bExportGeometry = Element.Data->HasGeometry() && Element.ShouldUseGeometry(DestNavMesh->GetConfig());
+
+				if (bExportGeometry && Element.Data->CollisionData.Num())
+				{
+					FRecastGeometryCache CachedGeometry(Element.Data->CollisionData.GetData());
+					AppendGeometry(CoordBuffer, Indices, CachedGeometry.Verts, CachedGeometry.Header.NumVerts, CachedGeometry.Indices, CachedGeometry.Header.NumFaces);
+					Snapshot->AddElement(CoordBuffer, Indices, LogCategory.GetCategoryName(), LogVerbosity, FColorList::LightGrey.WithAlpha(255));
+				}
+				else
+				{
+					TArray<FVector> Verts;
+					const TArray<FAreaNavModifier>& AreaMods = Element.Data->Modifiers.GetAreas();
+					for (int32 i = 0; i < AreaMods.Num(); i++)
+					{
+						if (AreaMods[i].GetShapeType() == ENavigationShapeType::Unknown)
+						{
+							continue;
+						}
+
+						const uint8 AreaId = NavData->GetAreaID(AreaMods[i].GetAreaClass());
+						const UClass* AreaClass = NavData->GetAreaClass(AreaId);
+						const UNavArea* DefArea = AreaClass ? ((UClass*)AreaClass)->GetDefaultObject<UNavArea>() : NULL;
+						const FColor PolygonColor = AreaClass != UNavigationSystem::GetDefaultWalkableArea() ? (DefArea ? DefArea->DrawColor : NavData->GetConfig().Color) : FColorList::Cyan;
+
+						if (AreaMods[i].GetShapeType() == ENavigationShapeType::Box)
+						{
+							FBoxNavAreaData Box;
+							AreaMods[i].GetBox(Box);
+
+							Snapshot->AddElement(FBox::BuildAABB(Box.Origin, Box.Extent), FMatrix::Identity, LogCategory.GetCategoryName(), NavAreaVerbosity, PolygonColor.WithAlpha(255));
+						}
+						else if (AreaMods[i].GetShapeType() == ENavigationShapeType::Cylinder)
+						{
+							FCylinderNavAreaData Cylinder;
+							AreaMods[i].GetCylinder(Cylinder);
+
+							Snapshot->AddElement(Cylinder.Origin, Cylinder.Origin + FVector(0, 0, Cylinder.Height), Cylinder.Radius, LogCategory.GetCategoryName(), NavAreaVerbosity, PolygonColor.WithAlpha(255));
+						}
+						else
+						{
+							FConvexNavAreaData Convex;
+							AreaMods[i].GetConvex(Convex);
+							Verts.Reset();
+							GrowConvexHull(NavData->AgentRadius, Convex.Points, Verts);
+
+							Snapshot->AddElement(
+								Verts,
+								Convex.MinZ - NavData->CellHeight, 
+								Convex.MaxZ + NavData->CellHeight, 
+								LogCategory.GetCategoryName(), NavAreaVerbosity, PolygonColor.WithAlpha(255));
+						}
+					}
+				}
+			}
+
+		}
+
+	}
+}
+#endif
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) && ENABLE_VISUAL_LOG
 void FRecastNavMeshGenerator::ExportNavigationData(const FString& FileName) const
 {
 	const UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());

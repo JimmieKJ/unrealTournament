@@ -48,7 +48,11 @@ private:
 	TOptional<int32> GetTileOffsetY() const;
 	void SetTileOffsetX(int32 InValue);
 	void SetTileOffsetY(int32 InValue);
-	
+
+	/** */
+	ECheckBoxState GetFlipYAxisState() const;
+	void OnFlipYAxisStateChanged(ECheckBoxState NewState);
+		
 	/** */
 	void OnSetImportConfiguration(TSharedPtr<FTileImportConfiguration> InTileConfig, ESelectInfo::Type SelectInfo);
 

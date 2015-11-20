@@ -4,6 +4,8 @@
 
 #include "OnlineSubsystemPackage.h"
 
+class FUniqueNetId;
+
 /** Enable to pipe local voice data back to this client as remote data */
 #define VOICE_LOOPBACK 0
 
@@ -14,7 +16,7 @@
  * @param TalkerId the player whose talking state has changed
  * @param bIsTalking if true, player is now talking, otherwise they have now stopped
  */
-DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPlayerTalkingStateChanged, TSharedRef<FUniqueNetId>, bool);
+DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPlayerTalkingStateChanged, TSharedRef<const FUniqueNetId>, bool);
 typedef FOnPlayerTalkingStateChanged::FDelegate FOnPlayerTalkingStateChangedDelegate;
 
 /**
@@ -327,7 +329,7 @@ public:
 	 * @param TalkerId the player whose talking state has changed
 	 * @param bIsTalking if true, player is now talking, otherwise they have now stopped
 	 */
-	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnPlayerTalkingStateChanged, TSharedRef<FUniqueNetId>, bool);
+	DEFINE_ONLINE_DELEGATE_TWO_PARAM(OnPlayerTalkingStateChanged, TSharedRef<const FUniqueNetId>, bool);
 
 	/**
 	 * Checks that a unique player id is on the specified user's mute list
@@ -434,7 +436,7 @@ struct FLocalTalker
 struct FRemoteTalker
 {
 	/** The unique id for this talker */
-	TSharedPtr<class FUniqueNetId> TalkerId;
+	TSharedPtr<const FUniqueNetId> TalkerId;
 	/** Used to trigger talking delegates only after a certain period of time has passed */
 	float LastNotificationTime;
 	/** Whether the remote talker was speaking last frame */

@@ -157,7 +157,7 @@ bool FTestExternalUIInterface::TestProfileUI()
 	}
 
 	// Show our own profile
-	TSharedPtr<FUniqueNetId> UserId = OnlineSub->GetIdentityInterface()->GetUniquePlayerId(0);
+	TSharedPtr<const FUniqueNetId> UserId = OnlineSub->GetIdentityInterface()->GetUniquePlayerId(0);
 	bool bShowingUI = ExternalUI->ShowProfileUI(
 		*UserId.Get(),
 		*UserId.Get(),
@@ -179,7 +179,7 @@ void FTestExternalUIInterface::OnExternalUIChange(bool bIsOpening)
 	}
 }
 
-void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<FUniqueNetId> LoggedInUserId, const int LocalUserId)
+void FTestExternalUIInterface::OnLoginUIClosed(TSharedPtr<const FUniqueNetId> LoggedInUserId, const int LocalUserId)
 {
 	UE_LOG(LogOnline, Log, TEXT("Login UI closed by local user %d. Logged-in user = %s"), LocalUserId, *LoggedInUserId->ToString());
 }

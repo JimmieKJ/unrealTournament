@@ -1578,7 +1578,7 @@ void UParticleModuleLocationBoneSocket::Update(FParticleEmitterInstance* Owner, 
 		for(int32 SourceIndex = 0; SourceIndex < SourceLocations.Num(); ++SourceIndex)
 		{
 			int32 BoneIndex = SourceComponent->GetBoneIndex(SourceLocations[SourceIndex].BoneSocketName);
-			if (BoneIndex != INDEX_NONE)
+			if (BoneIndex != INDEX_NONE && SourceIndex < InstancePayload->BoneSocketVelocities.Num())
 			{
 				// Calculate the velocity
 				const FMatrix WorldBoneTM = SourceComponent->GetBoneMatrix(BoneIndex);
@@ -1645,7 +1645,7 @@ void UParticleModuleLocationBoneSocket::FinalUpdate(FParticleEmitterInstance* Ow
 		for(int32 SourceIndex = 0; SourceIndex < SourceLocations.Num(); ++SourceIndex)
 		{
 			int32 BoneIndex = InstancePayload->SourceComponent->GetBoneIndex(SourceLocations[SourceIndex].BoneSocketName);
-			if (BoneIndex != INDEX_NONE)
+			if (BoneIndex != INDEX_NONE && InstancePayload->PrevFrameBoneSocketPositions.Num() > SourceIndex)
 			{
 				const FMatrix WorldBoneTM = SourceComponent->GetBoneMatrix(BoneIndex);
 				InstancePayload->PrevFrameBoneSocketPositions[SourceIndex] = WorldBoneTM.GetOrigin();
@@ -1728,6 +1728,7 @@ uint32 UParticleModuleLocationBoneSocket::PrepPerInstanceBlock(FParticleEmitterI
 
 void UParticleModuleLocationBoneSocket::AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp)
 {
+	check(IsInGameThread());
 	bool bFound = false;
 	for (int32 ParamIdx = 0; ParamIdx < PSysComp->InstanceParameters.Num(); ParamIdx++)
 	{
@@ -2406,6 +2407,7 @@ uint32 UParticleModuleLocationSkelVertSurface::RequiredBytesPerInstance(FParticl
 
 void UParticleModuleLocationSkelVertSurface::AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp)
 {
+	check(IsInGameThread());
 	bool bFound = false;
 	for (int32 ParamIdx = 0; ParamIdx < PSysComp->InstanceParameters.Num(); ParamIdx++)
 	{
@@ -2661,7 +2663,7 @@ bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBone(FParticl
 
 		const FSkelMeshChunk& Chunk = Model.Chunks[ChunkIndex];
 
-		return Chunk.HasExtraBoneInfluences()
+		return Model.VertexBufferGPUSkin.HasExtraBoneInfluences()
 			? VertInfluencedByActiveBoneTyped<true>(bSoftVertex, Model, Chunk, VertIndex, InSkelMeshComponent, InstancePayload, OutBoneIndex)
 			: VertInfluencedByActiveBoneTyped<false>(bSoftVertex, Model, Chunk, VertIndex, InSkelMeshComponent, InstancePayload, OutBoneIndex);
 	}
@@ -2671,6 +2673,7 @@ bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBone(FParticl
 template<bool bExtraBoneInfluencesT>
 bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBoneTyped(bool bSoftVertex, FStaticLODModel& Model, const FSkelMeshChunk& Chunk, int32 VertIndex, USkeletalMeshComponent* InSkelMeshComponent, FModuleLocationVertSurfaceInstancePayload* InstancePayload, int32* OutBoneIndex)
 {
+	const TArray<int32>& MasterBoneMap = InSkelMeshComponent->GetMasterBoneMap();
 	// Do soft skinning for this vertex.
 	if(bSoftVertex)
 	{
@@ -2686,8 +2689,8 @@ bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBoneTyped(boo
 			int32 BoneIndex = Chunk.BoneMap[SrcSoftVertex->InfluenceBones[InfluenceIndex]];
 			if(InSkelMeshComponent->MasterPoseComponent.IsValid())
 			{		
-				check(InSkelMeshComponent->MasterBoneMap.Num() == InSkelMeshComponent->SkeletalMesh->RefSkeleton.GetNum());
-				BoneIndex = InSkelMeshComponent->MasterBoneMap[BoneIndex];
+				check(MasterBoneMap.Num() == InSkelMeshComponent->SkeletalMesh->RefSkeleton.GetNum());
+				BoneIndex = MasterBoneMap[BoneIndex];
 			}
 
 			if(!InstancePayload->NumValidAssociatedBoneIndices || InstancePayload->ValidAssociatedBoneIndices.Contains(BoneIndex))
@@ -2710,8 +2713,8 @@ bool UParticleModuleLocationSkelVertSurface::VertInfluencedByActiveBoneTyped(boo
 		int32 BoneIndex = Chunk.BoneMap[SrcRigidVertex->InfluenceBones[RigidInfluenceIndex]];
 		if(InSkelMeshComponent->MasterPoseComponent.IsValid())
 		{
-			check(InSkelMeshComponent->MasterBoneMap.Num() == InSkelMeshComponent->SkeletalMesh->RefSkeleton.GetNum());
-			BoneIndex = InSkelMeshComponent->MasterBoneMap[BoneIndex];
+			check(MasterBoneMap.Num() == InSkelMeshComponent->SkeletalMesh->RefSkeleton.GetNum());
+			BoneIndex = MasterBoneMap[BoneIndex];
 		}
 
 		if(!InstancePayload->NumValidAssociatedBoneIndices || InstancePayload->ValidAssociatedBoneIndices.Contains(BoneIndex))

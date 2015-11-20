@@ -2,6 +2,7 @@
 
 #include "HttpPrivatePCH.h"
 #include "HttpWinInet.h"
+#include "EngineVersion.h"
 
 bool FWinInetConnection::bStaticConnectionInitialized = false;
 
@@ -892,18 +893,8 @@ FString FHttpResponseWinInet::GetContentAsString()
 
 void FHttpResponseWinInet::ProcessResponse()
 {
-	//Update if we read any AsyncBytes
-	if (AsyncBytesRead > 0)
-	{
-		// Keep track of total read from last async callback
-		TotalBytesRead += AsyncBytesRead;
-
-		// Update progress bytes
-		ProgressBytesRead.Set(TotalBytesRead);
-		Request.ResetRequestTimeout();
-		AsyncBytesRead = 0;
-	}
-
+	// Keep track of total read from last async callback
+	TotalBytesRead += AsyncBytesRead;
 	// We might be calling back into this from another asynchronous read, so continue where we left off.
 	// if there is no content length, we're probably receiving chunked data.
 	ContentLength = QueryContentLength();

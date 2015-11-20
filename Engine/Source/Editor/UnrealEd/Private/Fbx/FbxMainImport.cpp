@@ -33,7 +33,6 @@
 =============================================================================*/
 
 #include "UnrealEd.h"
-#include "FeedbackContextEditor.h"
 
 #include "Factories.h"
 #include "Engine.h"
@@ -189,6 +188,7 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	{
 		UFbxStaticMeshImportData* StaticMeshData	= ImportUI->StaticMeshImportData;
 		InOutImportOptions.NormalImportMethod		= StaticMeshData->NormalImportMethod;
+		InOutImportOptions.NormalGenerationMethod	= StaticMeshData->NormalGenerationMethod;
 		InOutImportOptions.ImportTranslation		= StaticMeshData->ImportTranslation;
 		InOutImportOptions.ImportRotation			= StaticMeshData->ImportRotation;
 		InOutImportOptions.ImportUniformScale		= StaticMeshData->ImportUniformScale;
@@ -197,6 +197,7 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	{
 		UFbxSkeletalMeshImportData* SkeletalMeshData	= ImportUI->SkeletalMeshImportData;
 		InOutImportOptions.NormalImportMethod			= SkeletalMeshData->NormalImportMethod;
+		InOutImportOptions.NormalGenerationMethod		= SkeletalMeshData->NormalGenerationMethod;
 		InOutImportOptions.ImportTranslation			= SkeletalMeshData->ImportTranslation;
 		InOutImportOptions.ImportRotation				= SkeletalMeshData->ImportRotation;
 		InOutImportOptions.ImportUniformScale			= SkeletalMeshData->ImportUniformScale;
@@ -220,8 +221,6 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 		InOutImportOptions.ImportUniformScale	= AnimData->ImportUniformScale;
 	}
 
-	// only re-sample if they don't want to use default sample rate
-	InOutImportOptions.bResample = ImportUI->bUseDefaultSampleRate==false;
 	InOutImportOptions.bImportMorph = ImportUI->SkeletalMeshImportData->bImportMorphTargets;
 	InOutImportOptions.bUpdateSkeletonReferencePose = ImportUI->SkeletalMeshImportData->bUpdateSkeletonReferencePose;
 	InOutImportOptions.bImportRigidMesh = ImportUI->OriginalImportType == FBXIT_StaticMesh && ImportUI->MeshTypeToImport == FBXIT_SkeletalMesh;
@@ -232,6 +231,8 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	InOutImportOptions.VertexColorImportOption = ImportUI->StaticMeshImportData->VertexColorImportOption;
 	InOutImportOptions.VertexOverrideColor = ImportUI->StaticMeshImportData->VertexOverrideColor;
 	InOutImportOptions.bRemoveDegenerates = ImportUI->StaticMeshImportData->bRemoveDegenerates;
+	InOutImportOptions.bBuildAdjacencyBuffer = ImportUI->StaticMeshImportData->bBuildAdjacencyBuffer;
+	InOutImportOptions.bBuildReversedIndexBuffer = ImportUI->StaticMeshImportData->bBuildReversedIndexBuffer;
 	InOutImportOptions.bGenerateLightmapUVs = ImportUI->StaticMeshImportData->bGenerateLightmapUVs;
 	InOutImportOptions.bOneConvexHullPerUCX = ImportUI->StaticMeshImportData->bOneConvexHullPerUCX;
 	InOutImportOptions.bAutoGenerateCollision = ImportUI->StaticMeshImportData->bAutoGenerateCollision;
@@ -239,11 +240,14 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	InOutImportOptions.bImportMeshesInBoneHierarchy = ImportUI->SkeletalMeshImportData->bImportMeshesInBoneHierarchy;
 	InOutImportOptions.bCreatePhysicsAsset = ImportUI->bCreatePhysicsAsset;
 	InOutImportOptions.PhysicsAsset = ImportUI->PhysicsAsset;
+	InOutImportOptions.bUseExperimentalTangentGeneration = ImportUI->SkeletalMeshImportData->bUseExperimentalTangentGeneration;
 	// animation options
 	InOutImportOptions.AnimationLengthImportType = ImportUI->AnimSequenceImportData->AnimationLength;
 	InOutImportOptions.AnimationRange.X = ImportUI->AnimSequenceImportData->StartFrame;
 	InOutImportOptions.AnimationRange.Y = ImportUI->AnimSequenceImportData->EndFrame;
 	InOutImportOptions.AnimationName = ImportUI->AnimationName;
+	// only re-sample if they don't want to use default sample rate
+	InOutImportOptions.bResample = !ImportUI->AnimSequenceImportData->bUseDefaultSampleRate;
 	InOutImportOptions.bPreserveLocalTransform = ImportUI->AnimSequenceImportData->bPreserveLocalTransform;
 	InOutImportOptions.bDeleteExistingMorphTargetCurves = ImportUI->AnimSequenceImportData->bDeleteExistingMorphTargetCurves;
 	InOutImportOptions.bImportCustomAttribute = ImportUI->AnimSequenceImportData->bImportCustomAttribute;
@@ -368,6 +372,7 @@ void FFbxImporter::ReleaseScene()
 	CollisionModels.Clear();
 	CurPhase = NOTSTARTED;
 	bFirstMesh = true;
+	LastMergeBonesChoice = EAppReturnType::Ok;
 }
 
 FBXImportOptions* UnFbx::FFbxImporter::GetImportOptions() const
@@ -397,30 +402,26 @@ int32 FFbxImporter::GetImportType(const FString& InFilename)
 			UE_LOG(LogFbx, Log, TEXT("ItemName: %s, ItemCount : %d"), *NameBuffer, ItemCount);
 		}
 
-		for ( ItemIndex = 0; ItemIndex < Statistics.GetNbItems(); ItemIndex++ )
+		FbxSceneInfo SceneInfo;
+		if (GetSceneInfo(Filename, SceneInfo))
 		{
-			Statistics.GetItemPair(ItemIndex, ItemName, ItemCount);
-			const char* NameBuffer = ItemName.Buffer();
-			if ( ItemName == "Deformer" && ItemCount > 0 )
+			if (SceneInfo.SkinnedMeshNum > 0)
 			{
-				// if SkeletalMesh is found, just return
 				Result = 1;
-				break;
 			}
-			// if Geometry is found, sets it, but it can be overwritten by Deformer
-			else if ( ItemName == "Geometry" && ItemCount > 0)
+			else if (SceneInfo.TotalGeometryNum > 0)
 			{
-				// let it still loop through even if Geometry is found
-				// Deformer can overwrite this information
 				Result = 0;
 			}
-			// Check for animation data. It can be overwritten by Geometry or Deformer
-			else if ( (ItemName == "AnimationStack" || ItemName == "AnimationLayer" || ItemName == "AnimationCurve" || ItemName == "AnimationCurveNode") && ItemCount > 0 )
-			{
-				bHasAnimation = true;
-			}
+
+			bHasAnimation = SceneInfo.bHasAnimation;
 		}
-		Importer->Destroy();
+
+		if (Importer)
+		{
+			Importer->Destroy();
+		}
+
 		Importer = NULL;
 		CurPhase = NOTSTARTED;
 
@@ -445,8 +446,7 @@ int32 FFbxImporter::GetImportType(const FString& InFilename)
 bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 {
 	bool Result = true;
-	FFeedbackContextEditor FbxImportWarn;
-	FbxImportWarn.BeginSlowTask( NSLOCTEXT("FbxImporter", "BeginGetSceneInfoTask", "Parse FBX file to get scene info"), true );
+	GWarn->BeginSlowTask( NSLOCTEXT("FbxImporter", "BeginGetSceneInfoTask", "Parse FBX file to get scene info"), true );
 	
 	bool bSceneInfo = true;
 	switch (CurPhase)
@@ -457,14 +457,14 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 			Result = false;
 			break;
 		}
-		FbxImportWarn.UpdateProgress( 40, 100 );
+		GWarn->UpdateProgress( 40, 100 );
 	case FILEOPENED:
 		if (!ImportFile(Filename))
 		{
 			Result = false;
 			break;
 		}
-		FbxImportWarn.UpdateProgress( 90, 100 );
+		GWarn->UpdateProgress( 90, 100 );
 	case IMPORTED:
 	
 	default:
@@ -542,17 +542,32 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 					MeshInfo.MorphNum = Mesh->GetShapeCount();
 					// skeleton root
 					FbxSkin* Skin = (FbxSkin*)Mesh->GetDeformer(0, FbxDeformer::eSkin);
-					FbxNode* Link = Skin->GetCluster(0)->GetLink();
-					while (Link->GetParent() && Link->GetParent()->GetSkeleton())
+					int32 ClusterCount = Skin->GetClusterCount();
+					FbxNode* Link = NULL;
+					for (int32 ClusterId = 0; ClusterId < ClusterCount; ++ClusterId)
 					{
-						Link = Link->GetParent();
+						FbxCluster* Cluster = Skin->GetCluster(ClusterId);
+						Link = Cluster->GetLink();
+						while (Link && Link->GetParent() && Link->GetParent()->GetSkeleton())
+						{
+							Link = Link->GetParent();
+						}
+
+						if (Link != NULL)
+						{
+							break;
+						}
 					}
-					MeshInfo.SkeletonRoot = MakeName(Link->GetName());
-					MeshInfo.SkeletonElemNum = Link->GetChildCount(true);
-					
-					FbxTimeSpan AnimTimeSpan(FBXSDK_TIME_INFINITE,FBXSDK_TIME_MINUS_INFINITE);
-					Link->GetAnimationInterval(AnimTimeSpan);
-					GlobalTimeSpan.UnionAssignment(AnimTimeSpan);
+
+					MeshInfo.SkeletonRoot = Link ? MakeName(Link->GetName()) : MakeName("None");
+					MeshInfo.SkeletonElemNum = Link ? Link->GetChildCount(true) : 0;
+
+					if (Link)
+					{
+						FbxTimeSpan AnimTimeSpan(FBXSDK_TIME_INFINITE, FBXSDK_TIME_MINUS_INFINITE);
+						Link->GetAnimationInterval(AnimTimeSpan);
+						GlobalTimeSpan.UnionAssignment(AnimTimeSpan);
+					}
 				}
 				else
 				{
@@ -563,17 +578,21 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 			}
 		}
 		
-		// TODO: display multiple anim stack
-		SceneInfo.TakeName = NULL;
-		for (int32 AnimStackIndex = 0; AnimStackIndex < Scene->GetSrcObjectCount<FbxAnimStack>(); AnimStackIndex++)
+		SceneInfo.bHasAnimation = false;
+		int32 AnimCurveNodeCount = Scene->GetSrcObjectCount<FbxAnimCurveNode>();
+		// sadly Max export with animation curve node by default without any change, so 
+		// we'll have to skip the first two curves, which is translation/rotation
+		// if there is a valid animation, we'd expect there are more curve nodes than 2. 
+		for (int32 AnimCurveNodeIndex = 2; AnimCurveNodeIndex < AnimCurveNodeCount; AnimCurveNodeIndex++)
 		{
-			FbxAnimStack* CurAnimStack = Scene->GetSrcObject<FbxAnimStack>(0);
-			// TODO: skip empty anim stack
-			const char* AnimStackName = CurAnimStack->GetName();
-			SceneInfo.TakeName = new char[FCStringAnsi::Strlen(AnimStackName) + 1];
-
-			FCStringAnsi::Strcpy(SceneInfo.TakeName, FCStringAnsi::Strlen(AnimStackName) + 1, AnimStackName);
+			FbxAnimCurveNode* CurAnimCruveNode = Scene->GetSrcObject<FbxAnimCurveNode>(AnimCurveNodeIndex);
+			if (CurAnimCruveNode->IsAnimated(true))
+			{
+				SceneInfo.bHasAnimation = true;
+				break;
+			}
 		}
+
 		SceneInfo.FrameRate = FbxTime::GetFrameRate(Scene->GetGlobalSettings().GetTimeMode());
 		
 		if ( GlobalTimeSpan.GetDirection() == FBXSDK_TIME_FORWARD)
@@ -586,7 +605,7 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 		}
 	}
 	
-	FbxImportWarn.EndSlowTask();
+	GWarn->EndSlowTask();
 	return Result;
 }
 
@@ -827,14 +846,14 @@ bool FFbxImporter::ImportFromFile(const FString& Filename, const FString& Type)
 
 ANSICHAR* FFbxImporter::MakeName(const ANSICHAR* Name)
 {
-	int SpecialChars[] = {'.', ',', '/', '`', '%'};
+	const int SpecialChars[] = {'.', ',', '/', '`', '%'};
 
-	int len = FCStringAnsi::Strlen(Name);
+	const int len = FCStringAnsi::Strlen(Name);
 	ANSICHAR* TmpName = new ANSICHAR[len+1];
 	
 	FCStringAnsi::Strcpy(TmpName, len + 1, Name);
 
-	for ( int32 i = 0; i < 5; i++ )
+	for ( int32 i = 0; i < ARRAY_COUNT(SpecialChars); i++ )
 	{
 		ANSICHAR* CharPtr = TmpName;
 		while ( (CharPtr = FCStringAnsi::Strchr(CharPtr,SpecialChars[i])) != NULL )
@@ -1123,7 +1142,7 @@ FbxNode* FFbxImporter::GetRootSkeleton(FbxNode* Link)
 
 	// get Unreal skeleton root
 	// mesh and dummy are used as bone if they are in the skeleton hierarchy
-	while (RootBone->GetParent())
+	while (RootBone && RootBone->GetParent())
 	{
 		FbxNodeAttribute* Attr = RootBone->GetParent()->GetNodeAttribute();
 		if (Attr && 
@@ -1324,34 +1343,44 @@ void FFbxImporter::RecursiveFindFbxSkelMesh(FbxNode* Node, TArray< TArray<FbxNod
 		
 		if (Deformer != NULL )
 		{
-			if( Deformer->GetClusterCount() > 0 )
+			int32 ClusterCount = Deformer->GetClusterCount();
+			bool bFoundCorrectLink = false;
+			for (int32 ClusterId = 0; ClusterId < ClusterCount; ++ClusterId)
 			{
-				FbxNode* Link = Deformer->GetCluster(0)->GetLink(); //Get the bone influences by this first cluster
+				FbxNode* Link = Deformer->GetCluster(ClusterId)->GetLink(); //Get the bone influences by this first cluster
 				Link = GetRootSkeleton(Link); // Get the skeleton root itself
 
-				int32 i;
-				for (i = 0; i < SkeletonArray.Num(); i++)
+				if (Link)
 				{
-					if (Link == SkeletonArray[i])
+					int32 i;
+					for (i = 0; i < SkeletonArray.Num(); i++)
 					{
-						// append to existed outSkelMeshArray element
-						TArray<FbxNode*>* TempArray = outSkelMeshArray[i];
-						TempArray->Add(NodeToAdd);
-						break;
+						if (Link == SkeletonArray[i])
+						{
+							// append to existed outSkelMeshArray element
+							TArray<FbxNode*>* TempArray = outSkelMeshArray[i];
+							TempArray->Add(NodeToAdd);
+							break;
+						}
 					}
-				}
 
-				// if there is no outSkelMeshArray element that is bind to this skeleton
-				// create new element for outSkelMeshArray
-				if (i == SkeletonArray.Num())
-				{
-					TArray<FbxNode*>* TempArray = new TArray<FbxNode*>();
-					TempArray->Add(NodeToAdd);
-					outSkelMeshArray.Add(TempArray);
-					SkeletonArray.Add(Link);
+					// if there is no outSkelMeshArray element that is bind to this skeleton
+					// create new element for outSkelMeshArray
+					if (i == SkeletonArray.Num())
+					{
+						TArray<FbxNode*>* TempArray = new TArray<FbxNode*>();
+						TempArray->Add(NodeToAdd);
+						outSkelMeshArray.Add(TempArray);
+						SkeletonArray.Add(Link);
+					}
+
+					bFoundCorrectLink = true;
+					break;
 				}
 			}
-			else
+			
+			// we didn't find the correct link
+			if (!bFoundCorrectLink)
 			{
 				AddTokenizedErrorMessage(
 					FTokenizedMessage::Create(

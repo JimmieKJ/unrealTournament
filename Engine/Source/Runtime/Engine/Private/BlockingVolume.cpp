@@ -9,7 +9,7 @@ static FName InvisibleWall_NAME(TEXT("InvisibleWall"));
 ABlockingVolume::ABlockingVolume(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	GetBrushComponent()->bCanEverAffectNavigation = true;
+	GetBrushComponent()->SetCanEverAffectNavigation(true);
 	GetBrushComponent()->SetCollisionProfileName(InvisibleWall_NAME);
 }
 

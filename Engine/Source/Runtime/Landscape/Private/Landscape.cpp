@@ -38,7 +38,7 @@ Landscape.cpp: Terrain rendering
 #include "Materials/MaterialExpressionLandscapeVisibilityMask.h"
 
 #if WITH_EDITOR
-#include "MaterialExportUtils.h"
+#include "MaterialUtilities.h"
 #endif
 
 /** Landscape stats */
@@ -130,23 +130,70 @@ void ULandscapeComponent::AddReferencedObjects(UObject* InThis, FReferenceCollec
 	Super::AddReferencedObjects(This, Collector);
 }
 
-void ULandscapeComponent::Serialize(FArchive& Ar)
+#if WITH_EDITOR
+
+void ULandscapeComponent::BeginCacheForCookedPlatformData(const ITargetPlatform* TargetPlatform)
 {
-#if ENABLE_LANDSCAPE_COOKING && WITH_EDITOR
-	// Saving for cooking path
-	if (Ar.IsCooking() && Ar.IsSaving() && !HasAnyFlags(RF_ClassDefaultObject))
+	if (!TargetPlatform->SupportsFeature(ETargetPlatformFeatures::VertexShaderTextureSampling))
 	{
-		if (!Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::VertexShaderTextureSampling))
+		CheckGenerateLandscapePlatformData(true);
+	}
+}
+
+void ULandscapeComponent::CheckGenerateLandscapePlatformData(bool bIsCooking)
+{
+#if ENABLE_LANDSCAPE_COOKING
+	// Calculate hash of source data and skip generation if the data we have in memory is unchanged
+	FBufferArchive ComponentStateAr;
+	SerializeStateHashes(ComponentStateAr);
+	uint32 Hash[5];
+	FSHA1::HashBuffer(ComponentStateAr.GetData(), ComponentStateAr.Num(), (uint8*)Hash);
+
+	FGuid NewSourceHash = FGuid(Hash[0] ^ Hash[4], Hash[1], Hash[2], Hash[3]);
+
+	bool bGenerateVertexData = true;
+	bool bGeneratePixelData = true;
+
+	// Skip generation if the source hash matches
+	if (MobileDataSourceHash.IsValid() && MobileDataSourceHash == NewSourceHash)
+	{
+		if (MobileMaterialInterface != nullptr && MobileWeightNormalmapTexture != nullptr)
 		{
-			if (!PlatformData.HasValidPlatformData())
-			{
-				GeneratePlatformVertexData();
-				GeneratePlatformPixelData(true);
-			}
+			bGeneratePixelData = false;
+		}
+
+		if (PlatformData.HasValidPlatformData())
+		{
+			bGenerateVertexData = false;
+		}
+		else
+		if (PlatformData.LoadFromDDC(NewSourceHash))
+		{
+			bGenerateVertexData = false;
 		}
 	}
+
+	if (bGenerateVertexData)
+	{
+		GeneratePlatformVertexData();
+		if (bIsCooking)
+		{
+			PlatformData.SaveToDDC(NewSourceHash);
+		}
+	}
+
+	if (bGeneratePixelData)
+	{
+		GeneratePlatformPixelData();
+	}
+
+	MobileDataSourceHash = NewSourceHash;
+#endif
+}
 #endif
 
+void ULandscapeComponent::Serialize(FArchive& Ar)
+{
 	if (Ar.IsCooking() && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::VertexShaderTextureSampling))
 	{
 		// These properties are not used for ES2 so we back them up and clear them before serializing them.
@@ -235,16 +282,17 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 		// Saving for cooking path
 		if (Ar.IsCooking() && !Ar.CookingTarget()->SupportsFeature(ETargetPlatformFeatures::VertexShaderTextureSampling))
 		{
-			bool bValid = PlatformData.HasValidPlatformData();
+			bool bValid = ensure(PlatformData.HasValidPlatformData());
 			Ar << bValid;
 			if (bValid)
 			{
 				Ar << PlatformData;
 			}
-			
+			if (Ar.UE4Ver() >= VER_UE4_SERIALIZE_LANDSCAPE_ES2_TEXTURES)
+			{
 				Ar << MobileMaterialInterface;
 				Ar << MobileWeightNormalmapTexture;
-			
+			}
 		}
 		else if (!FPlatformProperties::SupportsVertexShaderTextureSampling())
 		{
@@ -256,10 +304,11 @@ void ULandscapeComponent::Serialize(FArchive& Ar)
 			{
 				Ar << PlatformData;
 			}
-			
+			if (Ar.UE4Ver() >= VER_UE4_SERIALIZE_LANDSCAPE_ES2_TEXTURES)
+			{
 				Ar << MobileMaterialInterface;
 				Ar << MobileWeightNormalmapTexture;
-			
+			}
 		}
 		if (Ar.UE4Ver() >= VER_UE4_LANDSCAPE_GRASS_COOKING && Ar.UE4Ver() < VER_UE4_SERIALIZE_LANDSCAPE_GRASS_DATA)
 		{
@@ -782,22 +831,9 @@ FPrimitiveSceneProxy* ULandscapeComponent::CreateSceneProxy()
 	else // i.e. (FeatureLevel <= ERHIFeatureLevel::ES3_1)
 	{
 #if WITH_EDITOR
-		// We need to cook platform data for ES2 preview in editor
+		// See if we need to cook platform data for ES2 preview in editor
 		// We can't always pre-cook it in PostLoad/Serialize etc because landscape can be edited
-		if (!PlatformData.HasValidPlatformData())
-		{
-			// Try to reload the ES2 landscape data from the DDC
-			if (!PlatformData.LoadFromDDC(StateId))
-			{
-				// Generate and save to the derived data cache
-				GeneratePlatformVertexData();
-
-				if (PlatformData.HasValidPlatformData())
-				{
-					PlatformData.SaveToDDC(StateId);
-				}
-			}
-		}
+		CheckGenerateLandscapePlatformData(false);
 
 		if (PlatformData.HasValidPlatformData())
 		{
@@ -1361,26 +1397,22 @@ void ALandscapeProxy::Destroyed()
 {
 	Super::Destroyed();
 
-	if (GIsEditor)
+	if (GIsEditor && !GetWorld()->IsGameWorld())
 	{
 		ULandscapeInfo::RecreateLandscapeInfo(GetWorld(), false);
-	}
 
-	if (SplineComponent)
-	{
-		SplineComponent->ModifySplines();
-	}
+		if (SplineComponent)
+		{
+			SplineComponent->ModifySplines();
+		}
 
-#if WITH_EDITOR
-	TotalComponentsNeedingGrassMapRender -= NumComponentsNeedingGrassMapRender;
-	NumComponentsNeedingGrassMapRender = 0;
-	TotalTexturesToStreamForVisibleGrassMapRender -= NumTexturesToStreamForVisibleGrassMapRender;
-	NumTexturesToStreamForVisibleGrassMapRender = 0;
-#endif
+		TotalComponentsNeedingGrassMapRender -= NumComponentsNeedingGrassMapRender;
+		NumComponentsNeedingGrassMapRender = 0;
+		TotalTexturesToStreamForVisibleGrassMapRender -= NumTexturesToStreamForVisibleGrassMapRender;
+		NumTexturesToStreamForVisibleGrassMapRender = 0;
+	}
 }
-#endif
 
-#if WITH_EDITOR
 void ALandscapeProxy::GetSharedProperties(ALandscapeProxy* Landscape)
 {
 	if (GIsEditor && Landscape)
@@ -2142,8 +2174,11 @@ void FLandscapeComponentDerivedData::GetUncompressedData(TArray<uint8>& OutUncom
 
 	verify(FCompression::UncompressMemory((ECompressionFlags)COMPRESS_ZLIB, OutUncompressedData.GetData(), UncompressedSize, CompressedData.GetData(), CompressedSize));
 
-	// free the compressed data now that we have the uncompressed version
-	CompressedLandscapeData.Empty();
+	if (FPlatformProperties::RequiresCookedData())
+	{
+		// free the compressed data now that we have the uncompressed version if running with cooked data
+		CompressedLandscapeData.Empty();
+	}
 }
 
 FArchive& operator<<(FArchive& Ar, FLandscapeComponentDerivedData& Data)
@@ -2466,7 +2501,7 @@ void ALandscapeProxy::UpdateBakedTextures()
 
 						int32 BakeSize = ComponentSamples >> 3;
 						TArray<FColor> Samples;
-						if (MaterialExportUtils::ExportBaseColor(Component, BakeSize, Samples))
+						if (FMaterialUtilities::ExportBaseColor(Component, BakeSize, Samples))
 						{
 							int32 AtlasOffsetX = FMath::RoundToInt(Component->HeightmapScaleBias.Z * (float)HeightmapTexture->GetSizeX()) >> 3;
 							int32 AtlasOffsetY = FMath::RoundToInt(Component->HeightmapScaleBias.W * (float)HeightmapTexture->GetSizeY()) >> 3;
@@ -2477,7 +2512,7 @@ void ALandscapeProxy::UpdateBakedTextures()
 							NumGenerated++;
 						}
 					}
-					UTexture2D* AtlasTexture = MaterialExportUtils::CreateTexture(GetOutermost(), HeightmapTexture->GetName() + TEXT("_BaseColor"), AtlasSize, AtlasSamples, TC_Default, TEXTUREGROUP_World, RF_Public, true, CombinedStateId);
+					UTexture2D* AtlasTexture = FMaterialUtilities::CreateTexture(GetOutermost(), HeightmapTexture->GetName() + TEXT("_BaseColor"), AtlasSize, AtlasSamples, TC_Default, TEXTUREGROUP_World, RF_Public, true, CombinedStateId);
 					AtlasTexture->MarkPackageDirty();
 
 					for (ULandscapeComponent* Component : Info.Components)

@@ -254,7 +254,7 @@ void SHighResScreenshotDialog::ResetViewport()
 			if (ConfigViewport->GetClient() &&
 				ConfigViewport->GetClient()->GetEngineShowFlags())
 			{
-				ConfigViewport->GetClient()->GetEngineShowFlags()->HighResScreenshotMask = bMaskVisualizationWasEnabled;
+				ConfigViewport->GetClient()->GetEngineShowFlags()->SetHighResScreenshotMask(bMaskVisualizationWasEnabled);
 			}
 		}
 	}
@@ -330,7 +330,7 @@ TWeakPtr<class SWindow> SHighResScreenshotDialog::OpenDialog(const TSharedPtr<FS
 		if (InViewport.IsValid())
 		{
 			bMaskVisualizationWasEnabled = InViewport->GetClient()->GetEngineShowFlags()->HighResScreenshotMask;
-			InViewport->GetClient()->GetEngineShowFlags()->HighResScreenshotMask = Config.bMaskEnabled;
+			InViewport->GetClient()->GetEngineShowFlags()->SetHighResScreenshotMask(Config.bMaskEnabled);
 		}
 	}
 

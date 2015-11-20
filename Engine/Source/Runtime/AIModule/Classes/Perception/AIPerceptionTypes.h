@@ -28,8 +28,10 @@ typedef FAIGenericID<FPerceptionListenerCounter> FPerceptionListenerID;
 UENUM()
 enum class EAISenseNotifyType : uint8
 {
-	OnEveryPerception,	// continuous update whenever target is perceived
-	OnPerceptionChange, // from "visible" to "not visible" or vice versa
+	/** Continuous update whenever target is perceived. */
+	OnEveryPerception,
+	/** From "visible" to "not visible" or vice versa. */
+	OnPerceptionChange,
 };
 
 struct FPerceptionChannelWhitelist
@@ -153,6 +155,8 @@ public:
 	FVector StimulusLocation;
 	UPROPERTY(BlueprintReadWrite, Category = "AI|Perception")
 	FVector ReceiverLocation;
+	UPROPERTY(BlueprintReadWrite, Category = "AI|Perception")
+	FName Tag;
 
 	FAISenseID Type;
 
@@ -169,7 +173,7 @@ protected:
 public:
 	
 	/** this is the recommended constructor. Use others if you know what you're doing. */
-	FAIStimulus(const UAISense& Sense, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result = SensingSucceeded);
+	FAIStimulus(const UAISense& Sense, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result = SensingSucceeded, FName InStimulusTag = NAME_None);
 
 	/*FAIStimulus(FAISenseID SenseType, float StimulusStrength, const FVector& InStimulusLocation, const FVector& InReceiverLocation, FResult Result = SensingSucceeded)
 		: Age(0.f), ExpirationAge(NeverHappenedAge)
@@ -182,7 +186,7 @@ public:
 	// default constructor
 	FAIStimulus()
 		: Age(NeverHappenedAge), ExpirationAge(NeverHappenedAge), Strength(-1.f), StimulusLocation(FAISystem::InvalidLocation)
-		, ReceiverLocation(FAISystem::InvalidLocation), Type(FAISenseID::InvalidID()), bWantsToNotifyOnlyOnValueChange(false)
+		, ReceiverLocation(FAISystem::InvalidLocation), Tag(NAME_None), Type(FAISenseID::InvalidID()), bWantsToNotifyOnlyOnValueChange(false)
 		, bSuccessfullySensed(false), bExpired(false)
 	{}
 

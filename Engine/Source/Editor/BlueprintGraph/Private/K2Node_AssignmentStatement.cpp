@@ -149,6 +149,8 @@ void UK2Node_AssignmentStatement::PostReconstructNode()
 
 	PinConnectionListChanged(VariablePin);
 	PinConnectionListChanged(ValuePin);
+
+	Super::PostReconstructNode();
 }
 
 UEdGraphPin* UK2Node_AssignmentStatement::GetThenPin() const

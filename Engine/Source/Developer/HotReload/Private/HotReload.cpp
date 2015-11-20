@@ -7,6 +7,8 @@
 #if WITH_ENGINE
 #include "HotReloadClassReinstancer.h"
 #include "EngineAnalytics.h"
+#include "Runtime/Engine/Classes/Engine/BlueprintGeneratedClass.h"
+#include "KismetEditorUtilities.h"
 #endif
 
 DEFINE_LOG_CATEGORY(LogHotReload);
@@ -152,6 +154,20 @@ private:
 	ECompilationResult::Type DoHotReloadInternal(bool bRecompileFinished, ECompilationResult::Type CompilationResult, TArray<UPackage*> Packages, TArray<FName> InDependentModules, FOutputDevice &HotReloadAr);
 
 	/**
+	 * Finds all references to old CDOs and replaces them with the new ones.
+	 * Skipping UBlueprintGeneratedClass::OverridenArchetypeForCDO as it's the
+	 * only one needed.
+	 */
+	void ReplaceReferencesToReconstructedCDOs();
+
+#if WITH_ENGINE
+	/**
+	 * Recompiles blueprints that were touched during this hot-reload.
+	 */
+	void RecompileTouchedBlueprints();
+#endif // WITH_ENGINE
+
+	/**
 	* Callback for async ompilation
 	*/
 	void DoHotReloadCallback(bool bRecompileFinished, ECompilationResult::Type CompilationResult, TArray<UPackage*> Packages, TArray<FName> InDependentModules, FOutputDevice &HotReloadAr);
@@ -167,10 +183,13 @@ private:
 	void GetPackagesToRebindAndDependentModules(const TArray<FString>& InGameModuleNames, TArray<UPackage*>& OutPackagesToRebind, TArray<FName>& OutDependentModules);
 
 #if WITH_ENGINE
+	void RegisterForReinstancing(UClass* OldClass, UClass* NewClass);
+	void ReinstanceClasses();
+
 	/**
 	 * Called from CoreUObject to re-instance hot-reloaded classes
 	 */
-	void ReinstanceClass(UClass* OldClass, UClass* NewClass);
+	void ReinstanceClass(UClass* OldClass, UClass* NewClass, const TMap<UClass*, UClass*>& OldToNewClassesMap);
 #endif
 
 	/**
@@ -350,6 +369,9 @@ private:
 
 	/** True if the directory watcher has been successfully initialized */
 	bool bDirectoryWatcherInitialized;
+
+	/** Reconstructed CDOs map during hot-reload. */
+	TMap<UObject*, UObject*> ReconstructedCDOsMap;
 };
 
 namespace HotReloadDefs
@@ -368,13 +390,80 @@ namespace HotReloadDefs
 
 IMPLEMENT_MODULE(FHotReloadModule, HotReload);
 
+namespace
+{
+	/**
+	 * Gets editor runs directory.
+	 */
+	FString GetEditorRunsDir()
+	{
+		FString TempDir = FPaths::EngineIntermediateDir();
+
+		return FPaths::Combine(*TempDir, TEXT("EditorRuns"));
+	}
+
+	/**
+	 * Creates a file that informs UBT that the editor is currently running.
+	 */
+	void CreateFileThatIndicatesEditorRunIfNeeded()
+	{
+#if WITH_EDITOR
+		IPlatformFile& FS = IPlatformFile::GetPlatformPhysical();
+
+		FString EditorRunsDir = GetEditorRunsDir();
+		FString FileName = FPaths::Combine(*EditorRunsDir, *FString::Printf(TEXT("%d"), FPlatformProcess::GetCurrentProcessId()));
+
+		if (FS.FileExists(*FileName))
+		{
+			if (!GIsEditor)
+			{
+				FS.DeleteFile(*FileName);
+			}
+		}
+		else
+		{
+			if (GIsEditor)
+			{
+				if (!FS.CreateDirectory(*EditorRunsDir))
+				{
+					return;
+				}
+
+				delete FS.OpenWrite(*FileName); // Touch file.
+			}
+		}
+#endif // WITH_EDITOR
+	}
+
+	/**
+	 * Deletes file left by CreateFileThatIndicatesEditorRunIfNeeded function.
+	 */
+	void DeleteFileThatIndicatesEditorRunIfNeeded()
+	{
+#if WITH_EDITOR
+		IPlatformFile& FS = IPlatformFile::GetPlatformPhysical();
+
+		FString EditorRunsDir = GetEditorRunsDir();
+		FString FileName = FPaths::Combine(*EditorRunsDir, *FString::Printf(TEXT("%d"), FPlatformProcess::GetCurrentProcessId()));
+
+		if (FS.FileExists(*FileName))
+		{
+			FS.DeleteFile(*FileName);
+		}
+#endif // WITH_EDITOR
+	}
+}
+
 void FHotReloadModule::StartupModule()
 {
+	CreateFileThatIndicatesEditorRunIfNeeded();
+
 	bIsHotReloadingFromEditor = false;
 
 #if WITH_ENGINE
 	// Register re-instancing delegate (Core)
-	FCoreUObjectDelegates::ReplaceHotReloadClassDelegate.BindRaw(this, &FHotReloadModule::ReinstanceClass);
+	FCoreUObjectDelegates::RegisterClassForHotReloadReinstancingDelegate.BindRaw(this, &FHotReloadModule::RegisterForReinstancing);
+	FCoreUObjectDelegates::ReinstanceHotReloadedClassesDelegate.BindRaw(this, &FHotReloadModule::ReinstanceClasses);
 #endif
 
 	// Register directory watcher delegate
@@ -391,6 +480,8 @@ void FHotReloadModule::ShutdownModule()
 {
 	FTicker::GetCoreTicker().RemoveTicker(TickerDelegateHandle);
 	ShutdownHotReloadWatcher();
+
+	DeleteFileThatIndicatesEditorRunIfNeeded();
 }
 
 bool FHotReloadModule::Exec( UWorld* Inworld, const TCHAR* Cmd, FOutputDevice& Ar )
@@ -577,6 +668,9 @@ inline uint32 GetTypeHash(Native A)
 /** Map from old function pointer to new function pointer for hot reload. */
 static TMap<Native, Native> HotReloadFunctionRemap;
 
+static TSet<UBlueprint*> HotReloadBPSetToRecompile;
+static TSet<UBlueprint*> HotReloadBPSetToRecompileBytecodeOnly;
+
 /** Adds and entry for the UFunction native pointer remap table */
 void FHotReloadModule::AddHotReloadFunctionRemap(Native NewFunctionPointer, Native OldFunctionPointer)
 {
@@ -624,11 +718,11 @@ void FHotReloadModule::DoHotReloadCallback(bool bRecompileFinished, ECompilation
 /**
  * Gets duplicated CDO from the cache, renames it and returns.
  */
-UObject* GetCachedCDODuplicate(UClass* Class, FName Name)
+UObject* GetCachedCDODuplicate(UObject* CDO, FName Name)
 {
 	UObject* DupCDO = nullptr;
 
-	UObject** DupCDOPtr = GetDuplicatedCDOMap().Find(Class);
+	UObject** DupCDOPtr = GetDuplicatedCDOMap().Find(CDO);
 	if (DupCDOPtr != nullptr)
 	{
 		DupCDO = *DupCDOPtr;
@@ -644,12 +738,15 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 {
 	ECompilationResult::Type Result = ECompilationResult::Unsupported;
 #if WITH_HOT_RELOAD
+#if WITH_ENGINE
 	FBlueprintCompileReinstancer::FCDODuplicatesProvider& CDODuplicatesProvider = FBlueprintCompileReinstancer::GetCDODuplicatesProviderDelegate();
-
 	CDODuplicatesProvider.BindStatic(&GetCachedCDODuplicate);
+#endif
 
 	if (CompilationResult == ECompilationResult::Succeeded)
 	{
+		FModuleManager::Get().ResetModulePathsCache();
+
 		FFeedbackContext& ErrorsFC = UClass::GetDefaultPropertiesFeedbackContext();
 		ErrorsFC.Errors.Empty();
 		ErrorsFC.Warnings.Empty();
@@ -752,7 +849,14 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 			}
 			HotReloadAr.Logf(ELogVerbosity::Warning, TEXT("HotReload successful (%d functions remapped  %d scriptstructs remapped)"), Count, ScriptStructs.Num());
 
+#if WITH_ENGINE
+			RecompileTouchedBlueprints();
+#endif // WITH_ENGINE
+
 			HotReloadFunctionRemap.Empty();
+
+			ReplaceReferencesToReconstructedCDOs();
+
 			Result = ECompilationResult::Succeeded;
 		}
 
@@ -766,12 +870,97 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 		Result = ECompilationResult::OtherCompilationError;
 	}
 
+#if WITH_ENGINE
 	CDODuplicatesProvider.Unbind();
 	GetDuplicatedCDOMap().Empty();
+#endif
 #endif
 	bIsHotReloadingFromEditor = false;
 	return Result;
 }
+
+void FHotReloadModule::ReplaceReferencesToReconstructedCDOs()
+{
+	if (ReconstructedCDOsMap.Num() == 0)
+	{
+		return;
+	}
+
+	TArray<UObject*> OldCDOs;
+	ReconstructedCDOsMap.GetKeys(OldCDOs);
+
+	for (FObjectIterator ObjIter; ObjIter; ++ObjIter)
+	{
+		UObject* CurObject = *ObjIter;
+
+		FFindReferencersArchive FindRefsArchive(CurObject, OldCDOs);
+
+		TMap<UObject*, int32> ReferenceCounts;
+		TMultiMap<UObject*, UProperty*> ReferencingProperties;
+
+		FindRefsArchive.GetReferenceCounts(ReferenceCounts, ReferencingProperties);
+
+		for (auto& ReferencingProperty : ReferencingProperties)
+		{
+			static const UProperty* PropertyToSkip =
+#if WITH_ENGINE
+				UBlueprintGeneratedClass::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UBlueprintGeneratedClass, OverridenArchetypeForCDO));
+#else
+				nullptr;
+#endif
+			if (!ReferencingProperty.Value->IsA<UObjectProperty>() || ReferencingProperty.Value == PropertyToSkip)
+			{
+				continue;
+			}
+
+			UObject* OldCDO = ReferencingProperty.Key;
+			UObjectProperty* Prop = (UObjectProperty*)ReferencingProperty.Value;
+
+			Prop->SetObjectPropertyValue((uint8*)CurObject + Prop->GetOffset_ForInternal(), ReconstructedCDOsMap[OldCDO]);
+		}
+	}
+
+	ReconstructedCDOsMap.Empty();
+}
+
+#if WITH_ENGINE
+void FHotReloadModule::RecompileTouchedBlueprints()
+{
+	bool bCollectGarbage = HotReloadBPSetToRecompile.Num() > 0;
+
+	while (HotReloadBPSetToRecompile.Num())
+	{
+		auto Iter = HotReloadBPSetToRecompile.CreateIterator();
+		TWeakObjectPtr<UBlueprint> BPPtr = *Iter;
+		Iter.RemoveCurrent();
+		if (auto BP = BPPtr.Get())
+		{
+			FKismetEditorUtilities::CompileBlueprint(BP, false, true);
+		}
+	}
+
+	if (bCollectGarbage)
+	{
+		// Garbage collect to make sure the old class and actors are disposed of
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
+	}
+
+	HotReloadBPSetToRecompile.Empty();
+
+	while (HotReloadBPSetToRecompileBytecodeOnly.Num())
+	{
+		auto Iter = HotReloadBPSetToRecompileBytecodeOnly.CreateIterator();
+		TWeakObjectPtr<UBlueprint> BPPtr = *Iter;
+		Iter.RemoveCurrent();
+		if (auto BP = BPPtr.Get())
+		{
+			FKismetEditorUtilities::RecompileBlueprintBytecode(BP);
+		}
+	}
+
+	HotReloadBPSetToRecompileBytecodeOnly.Empty();
+}
+#endif // WITH_ENGINE
 
 ECompilationResult::Type FHotReloadModule::RebindPackages(TArray<UPackage*> InPackages, TArray<FName> DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar)
 {
@@ -817,6 +1006,8 @@ ECompilationResult::Type FHotReloadModule::RebindPackagesInternal(TArray<UPackag
 
 	if (bCanRebind)
 	{
+		FModuleManager::Get().ResetModulePathsCache();
+
 		bIsHotReloadingFromEditor = true;
 
 		const double StartTime = FPlatformTime::Seconds();
@@ -868,9 +1059,46 @@ ECompilationResult::Type FHotReloadModule::RebindPackagesInternal(TArray<UPackag
 }
 
 #if WITH_ENGINE
-void FHotReloadModule::ReinstanceClass(UClass* OldClass, UClass* NewClass)
+namespace {
+	static TArray<TPair<UClass*, UClass*> >& GetClassesToReinstance()
+	{
+		static TArray<TPair<UClass*, UClass*> > Data;
+		return Data;
+	}
+}
+
+void FHotReloadModule::RegisterForReinstancing(UClass* OldClass, UClass* NewClass)
+{
+	TPair<UClass*, UClass*> Pair;
+	
+	Pair.Key = OldClass;
+	Pair.Value = NewClass;
+
+	GetClassesToReinstance().Add(MoveTemp(Pair));
+}
+
+void FHotReloadModule::ReinstanceClasses()
+{
+	TMap<UClass*, UClass*> OldToNewClassesMap;
+	for (TPair<UClass*, UClass*>& Pair : GetClassesToReinstance())
+	{
+		if (Pair.Value != nullptr)
+		{
+			OldToNewClassesMap.Add(Pair.Key, Pair.Value);
+		}
+	}
+
+	for (TPair<UClass*, UClass*>& Pair : GetClassesToReinstance())
+	{
+		ReinstanceClass(Pair.Key, Pair.Value, OldToNewClassesMap);
+	}
+
+	GetClassesToReinstance().Empty();
+}
+
+void FHotReloadModule::ReinstanceClass(UClass* OldClass, UClass* NewClass, const TMap<UClass*, UClass*>& OldToNewClassesMap)
 {	
-	auto ReinstanceHelper = FHotReloadClassReinstancer::Create(NewClass, OldClass);
+	TSharedPtr<FHotReloadClassReinstancer> ReinstanceHelper = FHotReloadClassReinstancer::Create(NewClass, OldClass, OldToNewClassesMap, ReconstructedCDOsMap, HotReloadBPSetToRecompile, HotReloadBPSetToRecompileBytecodeOnly);
 	if (ReinstanceHelper->ClassNeedsReinstancing())
 	{
 		UE_LOG(LogHotReload, Log, TEXT("Re-instancing %s after hot-reload."), NewClass ? *NewClass->GetName() : *OldClass->GetName());
@@ -1117,28 +1345,16 @@ bool FHotReloadModule::RecompileModulesAsync( const TArray< FName > ModuleNames,
 
 	TArray< FModuleToRecompile > ModulesToRecompile;
 
-	for( TArray< FName >::TConstIterator CurModuleIt( ModuleNames ); CurModuleIt; ++CurModuleIt )
+	for( FName CurModuleName : ModuleNames )
 	{
-		const FName CurModuleName = *CurModuleIt;
-
 		// Update our set of known modules, in case we don't already know about this module
 		FModuleManager::Get().AddModule( CurModuleName );
 
-		FString NewModuleFileNameOnSuccess = FModuleManager::Get().GetModuleFilename(CurModuleName);
-
 		// Find a unique file name for the module
-		FString UniqueSuffix;
-		FString UniqueModuleFileName;
-		FModuleManager::Get().MakeUniqueModuleFilename( CurModuleName, UniqueSuffix, UniqueModuleFileName );
-
-		// If the recompile succeeds, we'll update our cached file name to use the new unique file name
-		// that we setup for the module
-		NewModuleFileNameOnSuccess = UniqueModuleFileName;
-
 		FModuleToRecompile ModuleToRecompile;
 		ModuleToRecompile.ModuleName = CurModuleName.ToString();
-		ModuleToRecompile.ModuleFileSuffix = UniqueSuffix;
-		ModuleToRecompile.NewModuleFilename = UniqueModuleFileName;
+		FModuleManager::Get().MakeUniqueModuleFilename( CurModuleName, ModuleToRecompile.ModuleFileSuffix, ModuleToRecompile.NewModuleFilename );
+
 		ModulesToRecompile.Add( ModuleToRecompile );
 	}
 
@@ -1253,20 +1469,20 @@ bool FHotReloadModule::StartCompilingModuleDLLs(const FString& GameName, const T
 
 	// Pass a module file suffix to UBT if we have one
 	FString ModuleArg;
-	for( int32 CurModuleIndex = 0; CurModuleIndex < ModuleNames.Num(); ++CurModuleIndex )
+	for( const FModuleToRecompile& Module : ModuleNames )
 	{
-		if( !ModuleNames[ CurModuleIndex ].ModuleFileSuffix.IsEmpty() )
+		if( !Module.ModuleFileSuffix.IsEmpty() )
 		{
-			ModuleArg += FString::Printf( TEXT( " -ModuleWithSuffix %s %s" ), *ModuleNames[ CurModuleIndex ].ModuleName, *ModuleNames[ CurModuleIndex ].ModuleFileSuffix );
+			ModuleArg += FString::Printf( TEXT( " -ModuleWithSuffix %s %s" ), *Module.ModuleName, *Module.ModuleFileSuffix );
 		}
 		else
 		{
-			ModuleArg += FString::Printf( TEXT( " -Module %s" ), *ModuleNames[ CurModuleIndex ].ModuleName );
+			ModuleArg += FString::Printf( TEXT( " -Module %s" ), *Module.ModuleName );
 		}
-		Ar.Logf( TEXT( "Recompiling %s..." ), *ModuleNames[ CurModuleIndex ].ModuleName );
+		Ar.Logf( TEXT( "Recompiling %s..." ), *Module.ModuleName );
 
 		// prepare the compile info in the FModuleInfo so that it can be compared after compiling
-		FName ModuleFName(*ModuleNames[ CurModuleIndex ].ModuleName);
+		FName ModuleFName(*Module.ModuleName);
 		UpdateModuleCompileData(ModuleFName);
 	}
 

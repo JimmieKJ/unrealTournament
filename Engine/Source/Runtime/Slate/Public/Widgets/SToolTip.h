@@ -23,7 +23,7 @@ public:
 	{ }
 
 		/** The text displayed in this tool tip */
-		SLATE_TEXT_ATTRIBUTE(Text)
+		SLATE_ATTRIBUTE(FText, Text)
 
 		/** Arbitrary content to be displayed in the tool tip; overrides any text that may be set. */
 		SLATE_DEFAULT_SLOT(FArguments, Content)

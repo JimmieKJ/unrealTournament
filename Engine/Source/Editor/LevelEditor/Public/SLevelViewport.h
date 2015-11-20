@@ -174,6 +174,27 @@ public:
 	 */
 	bool IsLayerVisible( FName LayerName ) const;
 
+	/**
+	 * Toggles foliage type visibility in this viewport
+	 *
+	 * @param FoliageType	Target foliage type
+	 */
+	void ToggleShowFoliageType(TWeakObjectPtr<class UFoliageType> FoliageType);
+
+	/**
+	 * Toggles all foliage types visibility
+	 *
+	 * @param Visible	true if foliage types should be visible, false otherwise
+	 */
+	void ToggleAllFoliageTypes(bool bVisible);
+
+	/**
+	 * Checks if a foliage type is visible in this viewport
+	 *
+	 * @param FoliageType	Target foliage type
+	 */
+	bool IsFoliageTypeVisible(TWeakObjectPtr<class UFoliageType> FoliageType) const;
+
 
 	/** Called to lock/unlock the actor from the viewport's context menu */
 	void OnActorLockToggleFromMenu(AActor* Actor);
@@ -438,12 +459,12 @@ private:
 	/**
 	 * Called to toggle allowing matinee to use this viewport to preview in
 	 */
-	void OnToggleAllowMatineePreview();
+	void OnToggleAllowCinematicPreview();
 
 	/**
 	 * @return true if this viewport allows matinee to be previewed in it                   
 	 */
-	bool DoesAllowMatineePreview() const;
+	bool AllowsCinematicPreview() const;
 
 	/** Find currently selected actor in the level script.  */
 	void FindSelectedInLevelScript();
@@ -546,7 +567,7 @@ private:
 	/**
 	 * Called when a map is changed (loaded,saved,new map, etc)
 	 */
-	void OnMapChanged( UWorld* World, EMapChangeType::Type MapChangeType );
+	void OnMapChanged( UWorld* World, EMapChangeType MapChangeType );
 
 	/** Called in response to an actor being deleted in the level */
 	void OnLevelActorsRemoved(AActor* InActor);

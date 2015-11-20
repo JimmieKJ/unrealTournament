@@ -86,3 +86,9 @@ void FClass::GetShowCategories(TArray<FString>& OutShowCategories) const
 		ShowCategories.ParseIntoArray(OutShowCategories, TEXT(" "), true);
 	}
 }
+
+bool FClass::IsDynamic(UField* Field)
+{
+	static const FName NAME_ReplaceConverted(TEXT("ReplaceConverted"));
+	return Field->HasMetaData(NAME_ReplaceConverted);
+}

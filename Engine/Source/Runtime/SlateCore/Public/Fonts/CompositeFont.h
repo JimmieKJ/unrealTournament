@@ -8,19 +8,19 @@
 UENUM()
 enum class EFontHinting : uint8
 {
-	/** Use the default hinting specified in the font */
+	/** Use the default hinting specified in the font. */
 	Default,
-	/** Force the use of an automatic hinting algorithm */
+	/** Force the use of an automatic hinting algorithm. */
 	Auto,
-	/** Force the use of an automatic light hinting algorithm, optimized for non-monochrome displays */
+	/** Force the use of an automatic light hinting algorithm, optimized for non-monochrome displays. */
 	AutoLight,
-	/** Force the use of an automatic hinting algorithm optimized for monochrome displays */
+	/** Force the use of an automatic hinting algorithm optimized for monochrome displays. */
 	Monochrome,
-	/** Do not use hinting */
+	/** Do not use hinting. */
 	None,
 };
 
-/** Payload data describing an individual font in a typeface */
+/** Payload data describing an individual font in a typeface. */
 USTRUCT(BlueprintType)
 struct SLATECORE_API FFontData
 {

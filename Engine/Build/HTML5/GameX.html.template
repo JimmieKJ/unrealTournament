@@ -4,7 +4,7 @@
 	<title>%GAME%</title>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=2">
-	<script src="https://code.jquery.com/jquery-2.1.3.min.js"></script>
+	<script src="http://code.jquery.com/jquery-2.1.3.min.js"></script>
 	<script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
 	<link href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css" rel="stylesheet">
 </head>
@@ -140,7 +140,12 @@ addLog( "Starting download " + urlName );
 return $.ajax({
 	url: urlName,
 	dataType: "text",
-	success: function(scriptText){
+	success: function(scriptText, dataType, xhrobject) {
+		var encoding = xhrobject.getResponseHeader('Content-Encoding');
+		var type = xhrobject.getResponseHeader('Content-Type');
+		if (encoding != 'gzip' && (type == 'application/x-javascript' || type == 'application/javascript')) {
+			addLog("downloaded uncompressed javascript, please host compressed javascript when in production");
+		}
 		// insert into dom - this bit is tricky, standard way makes asm.js complain about caching. 
 		// use a blob object. 
 		var scriptblob = new Blob([scriptText], { type: 'text/javascript' });
@@ -163,9 +168,6 @@ return $.ajax({
 
 				if (!this.totaladded) { 
 					totalDownloadSize += e.total; 
-					if ( e.total > 20*1024*1024){
-						addLog("possibly downloading uncompressed javascript, please host compressed javascript when in production");
-					}
 					this.totaladded = true; 
 				}
 				  
@@ -376,6 +378,12 @@ var Module = {
 		infoPrinted: false, 
 		lastcurrentDownloadedSize: 0,
 
+		// file location. 
+		locateFile : function (name){ 
+		      return name;
+		},
+
+
 		// packaged data download, sets this information. 
 		setStatus: function(text) {
 		 	var matches = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
@@ -429,9 +437,7 @@ $(document).ready(function() {
     addLog( "Starting downloads" );
     // start downloads in parallel, print when done.  
     var promises = [
-			'json2.js',
-			'jStorage.js',
-			'moz_binarystring.js',
+			'Utility.js',
 			'%GAME%.data.js',
 			'%CONFIG%.js'   
 		].map(download); 

@@ -138,6 +138,12 @@ private:
 	/** Called by the editable text control when the user commits a text change */
 	void OnSearchBoxCommitted(const FText& InSearchText, ETextCommit::Type CommitInfo);
 
+	/** Should the "Save Search" button be enabled? */
+	bool IsSaveSearchButtonEnabled() const;
+
+	/** Open the menu to let you save the current search text as a dynamic collection */
+	FReply OnSaveSearchButtonClicked();
+
 	/** Called when a crumb in the path breadcrumb trail or menu is clicked */
 	void OnPathClicked(const FString& CrumbData);
 
@@ -302,6 +308,9 @@ private:
 	/** Handles an on collection renamed event */
 	void HandleCollectionRenamed(const FCollectionNameType& OriginalCollection, const FCollectionNameType& NewCollection);
 
+	/** Handles an on collection updated event */
+	void HandleCollectionUpdated(const FCollectionNameType& Collection);
+
 	/** Handles a path removed event */
 	void HandlePathRemoved(const FString& Path);
 
@@ -319,15 +328,6 @@ private:
 
 	/** Bind our UI commands */
 	void BindCommands();
-
-	/** Adds menu extensions to the asset view */
-	void ExtendAssetViewMenu( FMenuBuilder& MenuBuilder );
-
-	/** Enables or disables collections from being shown */
-	void ToggleShowCollections();
-
-	/** @return Whether or not we are showing collections */
-	bool IsShowingCollections() const;
 
 	/** Gets the visibility of the collection view */
 	EVisibility GetCollectionViewVisibility() const;
@@ -395,6 +395,9 @@ private:
 
 	/** The splitter between the path & collection view */
 	TSharedPtr<SSplitter> PathCollectionSplitterPtr;
+
+	/** When viewing a dynamic collection, the active search query will be stashed in this variable so that it can be restored again later */
+	TOptional<FText> StashedSearchBoxText;
 
 public: 
 

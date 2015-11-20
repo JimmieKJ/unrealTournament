@@ -209,11 +209,11 @@ class UParticleModule : public UObject
 
 #endif // WITH_EDITORONLY_DATA
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject Interface
+	//~ End UObject Interface
 
 	/**
 	 * Called once to compile the effects of this module on runtime simulation.

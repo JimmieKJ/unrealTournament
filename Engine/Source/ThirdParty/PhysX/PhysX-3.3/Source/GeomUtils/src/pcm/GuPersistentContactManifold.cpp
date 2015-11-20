@@ -777,7 +777,10 @@ void Gu::PersistentContactManifold::addManifoldContactsToContactBuffer(Gu::Conta
 		V4StoreA(Vec4V_From_Vec3V(normal), (PxF32*)&contact.normal.x);
 		V4StoreA(Vec4V_From_Vec3V(worldP), (PxF32*)&contact.point.x);
 		FStore(dist, &contact.separation);
-		//PX_ASSERT(PxAbs(contact.separation) < 2.f);
+
+		PX_ASSERT(contact.point.isFinite());
+		PX_ASSERT(contact.normal.isFinite());
+		PX_ASSERT(PxIsFinite(contact.separation));
 
 		contact.internalFaceIndex0 = PXC_CONTACT_NO_FACE_INDEX;
 		contact.internalFaceIndex1 = PXC_CONTACT_NO_FACE_INDEX;

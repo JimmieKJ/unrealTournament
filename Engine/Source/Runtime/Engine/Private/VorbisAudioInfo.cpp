@@ -325,6 +325,9 @@ void LoadVorbisLibraries()
 		FString VSVersion = TEXT("VS2013/");
 		FString PlatformString = TEXT("Win32");
 		FString DLLNameStub = TEXT(".dll");
+#if _MSC_VER == 1900
+		VSVersion = TEXT("VS2015/");
+#endif
 #if PLATFORM_64BITS
 		PlatformString = TEXT("Win64");
 		DLLNameStub = TEXT("_64.dll");

@@ -16,6 +16,10 @@ class UNavModifierComponent : public UNavRelevantComponent
 	UPROPERTY(EditAnywhere, Category = Navigation)
 	TSubclassOf<UNavArea> AreaClass;
 
+	/** box extent used ONLY when owning actor doesn't have collision component */
+	UPROPERTY(EditAnywhere, Category = Navigation)
+	FVector FailsafeExtent;
+
 	virtual void CalcAndCacheBounds() const override;
 	virtual void GetNavigationData(FNavigationRelevantData& Data) const override;
 

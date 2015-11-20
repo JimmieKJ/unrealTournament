@@ -17,7 +17,7 @@
 #include "SceneUtils.h"
 
 /** The texture size allocated for particle curves. */
-extern const int32 GParticleCurveTextureSizeX = 256;
+extern const int32 GParticleCurveTextureSizeX = 512;
 extern const int32 GParticleCurveTextureSizeY = 256;
 
 /** The texel allocator uses 16-bit integers internally. */
@@ -501,14 +501,14 @@ FParticleCurveTexture::FParticleCurveTexture()
 void FParticleCurveTexture::InitRHI()
 {
 	// 8-bit per channel RGBA texture for curves.
-	FRHIResourceCreateInfo CreateInfo;
+	FRHIResourceCreateInfo CreateInfo(FClearValueBinding::None);
 	RHICreateTargetableShaderResource2D(
 		GParticleCurveTextureSizeX,
 		GParticleCurveTextureSizeY,
 		PF_B8G8R8A8,
 		/*NumMips=*/ 1,
 		TexCreate_None,
-		TexCreate_RenderTargetable,
+		TexCreate_RenderTargetable | TexCreate_NoFastClear,
 		/*bForceSeparateTargetAndShaderResource=*/ false,
 		CreateInfo,
 		CurveTextureTargetRHI,
@@ -535,21 +535,26 @@ FTexelAllocation FParticleCurveTexture::AddCurve( const TArray<FColor>& CurveSam
 	check( IsInGameThread() );
 	check( CurveSamples.Num() <= GParticleCurveTextureSizeX );
 
-	if ( CurveSamples.Num() )
+	if (FApp::CanEverRender())
 	{
-		FTexelAllocation TexelAllocation = TexelAllocator.Allocate( CurveSamples.Num() );
-		if ( TexelAllocation.Size > 0 )
+		if ( CurveSamples.Num() )
 		{
-			check( TexelAllocation.Size == CurveSamples.Num() );
-			FCurveSamples* PendingCurve = new(PendingCurves) FCurveSamples;
-			PendingCurve->TexelAllocation = TexelAllocation;
-			PendingCurve->Samples = (FColor*)FMemory::Malloc( TexelAllocation.Size * sizeof(FColor) );
-			FMemory::Memcpy( PendingCurve->Samples, CurveSamples.GetData(), TexelAllocation.Size * sizeof(FColor) );
+			FTexelAllocation TexelAllocation = TexelAllocator.Allocate( CurveSamples.Num() );
+			if ( TexelAllocation.Size > 0 )
+			{
+				check( TexelAllocation.Size == CurveSamples.Num() );
+				FCurveSamples* PendingCurve = new(PendingCurves) FCurveSamples;
+				PendingCurve->TexelAllocation = TexelAllocation;
+				PendingCurve->Samples = (FColor*)FMemory::Malloc( TexelAllocation.Size * sizeof(FColor) );
+				FMemory::Memcpy( PendingCurve->Samples, CurveSamples.GetData(), TexelAllocation.Size * sizeof(FColor) );
+				return TexelAllocation;
+			}
+			UE_LOG(LogParticles, Warning, TEXT("FParticleCurveTexture: Failed to allocate %d texels for a curve (may need to increase the size of GParticleCurveTextureSizeX or GParticleCurveTextureSizeY)."), CurveSamples.Num() );
+
 			return TexelAllocation;
 		}
-		UE_LOG(LogParticles, Warning, TEXT("FParticleCurveTexture: Failed to allocate %d texels for a curve."), CurveSamples.Num() );
-		return TexelAllocation;
 	}
+
 	return FTexelAllocation();
 }
 

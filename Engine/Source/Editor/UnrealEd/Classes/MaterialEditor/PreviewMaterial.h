@@ -12,9 +12,9 @@ class UNREALED_API UPreviewMaterial : public UMaterial
 	GENERATED_UCLASS_BODY()
 
 
-	// Begin UMaterial interface.
+	//~ Begin UMaterial Interface.
 	virtual FMaterialResource* AllocateResource() override;
 	virtual bool IsAsset()  const override  { return false; }
-	// End UMaterial interface.
+	//~ End UMaterial Interface.
 };
 

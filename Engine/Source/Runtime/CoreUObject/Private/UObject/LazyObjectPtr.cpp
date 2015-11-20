@@ -23,12 +23,12 @@ FUniqueObjectGuid::FUniqueObjectGuid(const class UObject* InObject)
 {
 }
 
-FUniqueObjectGuid FUniqueObjectGuid::FixupForPIE() const
+FUniqueObjectGuid FUniqueObjectGuid::FixupForPIE(int32 PlayInEditorID) const
 {
 	FUniqueObjectGuid Temp(*this);
 
-	check(GPlayInEditorID != -1)
-	const FGuid *FoundGuid = PIEGuidMap[GPlayInEditorID % MAX_PIE_INSTANCES].Find(Temp.GetGuid());
+	check(PlayInEditorID != -1)
+	const FGuid *FoundGuid = PIEGuidMap[PlayInEditorID % MAX_PIE_INSTANCES].Find(Temp.GetGuid());
 
 	if (FoundGuid)
 	{

@@ -14,7 +14,8 @@ half4 InscatteringLightDirection;
 half4 DirectionalInscatteringColor;
 float DirectionalInscatteringStartDistance;
 
-half4 GetExponentialHeightFog(float3 WorldPosition, float3 InCameraPosition)
+// @param WorldPositionRelativeToCamera = WorldPosition - InCameraPosition
+half4 GetExponentialHeightFog(float3 WorldPositionRelativeToCamera)
 {
 	/** FogDensity * exp2(-FogHeightFalloff * (CameraWorldPosition.z - FogHeight)) in x, FogHeightFalloff in y, CosTerminatorAngle in z, StartDistance in w. */
 	const float4 ExponentialFogParameters = SharedFogParameter0;
@@ -22,7 +23,7 @@ half4 GetExponentialHeightFog(float3 WorldPosition, float3 InCameraPosition)
 	const half3 ExponentialFogColor = SharedFogParameter1.xyz;
 	const half MinFogOpacity = SharedFogParameter1.w;
 
-	float3 CameraToReceiver = WorldPosition - InCameraPosition;
+	float3 CameraToReceiver = WorldPositionRelativeToCamera;
 	float CameraToReceiverLengthSqr = dot( CameraToReceiver, CameraToReceiver );
 	float CameraToReceiverLengthInv = rsqrt( CameraToReceiverLengthSqr );
 	float CameraToReceiverLength = CameraToReceiverLengthSqr * CameraToReceiverLengthInv;
@@ -57,8 +58,8 @@ half4 GetExponentialHeightFog(float3 WorldPosition, float3 InCameraPosition)
 	return half4((ExponentialFogColor) * (1 - ExpFogFactor) + DirectionalInscattering, ExpFogFactor);
 }
 
-half4 CalculateVertexHeightFog(float3 WorldPosition, float4 InCameraPosition)
+half4 CalculateVertexHeightFog(float3 WorldPositionRelativeToCamera)
 {
-	return GetExponentialHeightFog(WorldPosition, InCameraPosition.xyz);
+	return GetExponentialHeightFog(WorldPositionRelativeToCamera);
 }
 

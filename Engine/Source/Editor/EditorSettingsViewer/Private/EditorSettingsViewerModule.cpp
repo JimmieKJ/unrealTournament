@@ -66,7 +66,8 @@ public:
 
 		FGlobalTabmanager::Get()->RegisterNomadTabSpawner(EditorSettingsTabName, FOnSpawnTab::CreateRaw(this, &FEditorSettingsViewerModule::HandleSpawnSettingsTab))
 			.SetDisplayName(LOCTEXT("EditorSettingsTabTitle", "Editor Preferences"))
-			.SetMenuType(ETabSpawnerMenuType::Hidden);
+			.SetMenuType(ETabSpawnerMenuType::Hidden)
+			.SetIcon(FSlateIcon(FEditorStyle::GetStyleSetName(), "EditorPreferences.TabIcon"));
 	}
 
 	virtual void ShutdownModule() override
@@ -97,20 +98,11 @@ protected:
 		);
 
 		// region & language
-		ISettingsSectionPtr RegionAndLanguageSettingsSection = SettingsModule.RegisterSettings("Editor", "General", "Internationalization",
+		ISettingsSectionPtr RegionAndLanguageSettings = SettingsModule.RegisterSettings("Editor", "General", "Internationalization",
 			LOCTEXT("InternationalizationSettingsModelName", "Region & Language"),
 			LOCTEXT("InternationalizationSettingsModelDescription", "Configure the editor's behavior to use a language and fit a region's culture."),
 			GetMutableDefault<UInternationalizationSettingsModel>()
 		);
-
-		if (RegionAndLanguageSettingsSection.IsValid())
-		{
-			RegionAndLanguageSettingsSection->OnExport().BindRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageExport);
-			RegionAndLanguageSettingsSection->OnImport().BindRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageImport);
-			RegionAndLanguageSettingsSection->OnSaveDefaults().BindRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageSaveDefaults);
-			RegionAndLanguageSettingsSection->OnResetDefaults().BindRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageResetToDefault);
-			GetMutableDefault<UInternationalizationSettingsModel>()->OnSettingChanged().AddRaw(this, &FEditorSettingsViewerModule::HandleRegionAndLanguageSettingChanged);
-		}
 
 		// input bindings
 		TWeakPtr<SWidget> InputBindingEditorPanel = FModuleManager::LoadModuleChecked<IInputBindingEditorModule>("InputBindingEditor").CreateInputBindingEditorPanel();
@@ -366,41 +358,6 @@ private:
 		FInputBindingManager::Get().RemoveUserDefinedChords();
 		GConfig->Flush(false, GEditorKeyBindingsIni);
 		return true;
-	}
-
-	bool HandleRegionAndLanguageExport(const FString& FileName)
-	{
-		FString CultureName = GetMutableDefault<UInternationalizationSettingsModel>()->GetCultureName();
-		GConfig->SetString( TEXT("Internationalization"), TEXT("Culture"), *CultureName, FileName );
-		GConfig->Flush( false, FileName );
-		return true;
-	}
-
-	bool HandleRegionAndLanguageImport(const FString& FileName)
-	{
-		FString CultureName;
-		GConfig->LoadFile(FileName);
-		GConfig->GetString( TEXT("Internationalization"), TEXT("Culture"), CultureName, FileName );
-		GetMutableDefault<UInternationalizationSettingsModel>()->SetCultureName(CultureName);
-		return true;
-	}
-
-	bool HandleRegionAndLanguageSaveDefaults()
-	{
-		GetMutableDefault<UInternationalizationSettingsModel>()->SaveDefaults();
-		return true;
-	}
-
-	bool HandleRegionAndLanguageResetToDefault()
-	{
-		GetMutableDefault<UInternationalizationSettingsModel>()->ResetToDefault();
-		return true;
-	}
-
-	void HandleRegionAndLanguageSettingChanged()
-	{
-		ISettingsEditorModule& SettingsEditorModule = FModuleManager::GetModuleChecked<ISettingsEditorModule>("SettingsEditor");
-		SettingsEditorModule.OnApplicationRestartRequired();
 	}
 
 private:

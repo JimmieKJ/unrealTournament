@@ -5,6 +5,7 @@
 #include "MeshBatch.h"
 #include "BlueprintGeneratedClass.generated.h"
 
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Persistent Uber Graph Frame memory"), STAT_PersistentUberGraphFrameMemory, STATGROUP_Memory, );
 
 class UEdGraphPin;
 
@@ -450,7 +451,8 @@ public:
 	UActorComponent* FindComponentTemplateByName(const FName& TemplateName) const;
 
 	/** Create Timeline objects for this Actor based on the Timelines array*/
-	virtual void CreateComponentsForActor(AActor* Actor) const;
+	static void CreateComponentsForActor(const UClass* ThisClass, AActor* Actor);
+	static void CreateTimelineComponent(AActor* Actor, const UTimelineTemplate* TimelineTemplate);
 
 	// UObject interface
 	virtual void Serialize(FArchive& Ar) override;
@@ -466,8 +468,8 @@ public:
 #endif //WITH_EDITOR
 	virtual bool IsFunctionImplementedInBlueprint(FName InFunctionName) const override;
 	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
-	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false) const override;
-	virtual void DestroyPersistentUberGraphFrame(UObject* Obj) const override;
+	virtual void CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty = false, bool bSkipSuperClass = false) const override;
+	virtual void DestroyPersistentUberGraphFrame(UObject* Obj, bool bSkipSuperClass = false) const override;
 	virtual void Link(FArchive& Ar, bool bRelinkExistingProperties) override;
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
 	virtual void Bind() override;
@@ -491,13 +493,15 @@ public:
 #endif
 
 	/** Bind functions on supplied actor to delegates */
-	void BindDynamicDelegates(UObject* InInstance) const;
+	static void BindDynamicDelegates(const UClass* ThisClass, UObject* InInstance);
 
+	// Finds the desired dynamic binding object for this blueprint generated class
+	static UDynamicBlueprintBinding* GetDynamicBindingObject(const UClass* ThisClass, UClass* BindingClass);
+
+#if WITH_EDITOR
 	/** Unbind functions on supplied actor from delegates tied to a specific property */
 	void UnbindDynamicDelegatesForProperty(UObject* InInstance, const UObjectProperty* InObjectProperty);
-	
-	// Finds the desired dynamic binding object for this blueprint generated class
-	UDynamicBlueprintBinding* GetDynamicBindingObject(UClass* Class) const;
+#endif
 
 	/** called to gather blueprint replicated properties */
 	virtual void GetLifetimeBlueprintReplicationList(TArray<class FLifetimeProperty>& OutLifetimeProps) const;

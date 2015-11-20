@@ -59,6 +59,17 @@ void SWidgetBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, const FNam
 	bool bHasLabel = !WidgetBlock->Label.IsEmpty();
 	FMargin Padding = WidgetBlock->bNoIndent ? StyleSet->GetMargin( StyleName, ".Block.Padding" ) : StyleSet->GetMargin( StyleName, ".Block.IndentedPadding" );
 
+	// Add this widget to the search list of the multibox
+	if (MultiBlock->GetSearchable())
+		OwnerMultiBoxWidget.Pin()->AddSearchElement(this->AsWidget(), WidgetBlock->Label);
+
+	// This widget holds the search text, set it as the search block widget
+	if (OwnerMultiBoxWidget.Pin()->GetSearchTextWidget() == WidgetBlock->ContentWidget)
+	{
+		OwnerMultiBoxWidget.Pin()->SetSearchBlockWidget(this->AsWidget());
+		this->AsWidget()->SetVisibility(EVisibility::Collapsed);
+	}
+
 	ChildSlot
 	.Padding( Padding )	// Large left margin mimics the indent of normal menu items when bNoIndent is false
 	[

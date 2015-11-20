@@ -53,7 +53,7 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FStruc
 	return new FD3D11UnorderedAccessView(UnorderedAccessView,StructuredBuffer);
 }
 
-FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI)
+FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI, uint32 MipLevel)
 {
 	FD3D11TextureBase* Texture = GetD3D11TextureFromRHITexture(TextureRHI);
 	
@@ -63,14 +63,30 @@ FUnorderedAccessViewRHIRef FD3D11DynamicRHI::RHICreateUnorderedAccessView(FTextu
 	{
 		FD3D11Texture3D* Texture3D = (FD3D11Texture3D*)Texture;
 		UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE3D;
-		UAVDesc.Texture3D.MipSlice = 0;
+		UAVDesc.Texture3D.MipSlice = MipLevel;
 		UAVDesc.Texture3D.FirstWSlice = 0;
-		UAVDesc.Texture3D.WSize = Texture3D->GetSizeZ();
+		UAVDesc.Texture3D.WSize = Texture3D->GetSizeZ() >> MipLevel;
+	}
+	else if (TextureRHI->GetTexture2DArray() != NULL)
+	{
+		FD3D11Texture2DArray* Texture2DArray = (FD3D11Texture2DArray*)Texture;
+		UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2DARRAY;
+		UAVDesc.Texture2DArray.MipSlice = MipLevel;
+		UAVDesc.Texture2DArray.FirstArraySlice = 0;
+		UAVDesc.Texture2DArray.ArraySize = Texture2DArray->GetSizeZ();
+	}
+	else if (TextureRHI->GetTextureCube() != NULL)
+	{
+		FD3D11TextureCube* TextureCube = (FD3D11TextureCube*)Texture;
+		UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2DARRAY;
+		UAVDesc.Texture2DArray.MipSlice = MipLevel;
+		UAVDesc.Texture2DArray.FirstArraySlice = 0;
+		UAVDesc.Texture2DArray.ArraySize = 6;
 	}
 	else
 	{
 		UAVDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
-		UAVDesc.Texture2D.MipSlice = 0;
+		UAVDesc.Texture2D.MipSlice = MipLevel;
 	}
 	
 	UAVDesc.Format = FindShaderResourceDXGIFormat((DXGI_FORMAT)GPixelFormats[TextureRHI->GetFormat()].PlatformFormat, false);

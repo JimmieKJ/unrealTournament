@@ -136,7 +136,7 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 	bool bInIsShadowMapped,
 	bool bInHasTranslucentObjectShadow,
 	bool bInHasInsetObjectShadow
-	):
+	) :
 	LightSceneInfo(InLightSceneInfo),
 	PrimitiveSceneInfo(InPrimitiveSceneInfo),
 	LightId(InLightSceneInfo->Id),
@@ -146,7 +146,8 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 	bUncachedStaticLighting(false),
 	bHasTranslucentObjectShadow(bInHasTranslucentObjectShadow),
 	bHasInsetObjectShadow(bInHasInsetObjectShadow),
-	bSelfShadowOnly(false)
+	bSelfShadowOnly(false),
+	bES2DynamicPointLight(false)
 {
 	// Determine whether this light-primitive interaction produces a shadow.
 	if(PrimitiveSceneInfo->Proxy->HasStaticLighting())
@@ -195,6 +196,15 @@ FLightPrimitiveInteraction::FLightPrimitiveInteraction(
 	{
 		// Add the interaction to the light's interaction list.
 		PrevPrimitiveLink = &LightSceneInfo->DynamicPrimitiveList;
+
+		// ES2 dynamic point lights
+		if (PrimitiveSceneInfo->Scene->GetFeatureLevel() < ERHIFeatureLevel::SM4 && LightSceneInfo->Proxy->GetLightType() == LightType_Point && LightSceneInfo->Proxy->IsMovable())
+		{
+			bES2DynamicPointLight = true;
+			PrimitiveSceneInfo->NumES2DynamicPointLights++;
+			// The forward renderer renders dynamic point lights as part of the base pass using the dynamic path only.
+			PrimitiveSceneInfo->Proxy->bDisableStaticPath = true;
+		}
 	}
 
 	NextPrimitive = *PrevPrimitiveLink;
@@ -229,6 +239,16 @@ FLightPrimitiveInteraction::~FLightPrimitiveInteraction()
 #endif
 	}
 #endif
+
+	// Track ES2 dynamic point light count
+	if (bES2DynamicPointLight)
+	{
+		PrimitiveSceneInfo->NumES2DynamicPointLights--;
+		if (PrimitiveSceneInfo->NumES2DynamicPointLights == 0)
+		{
+			PrimitiveSceneInfo->Proxy->bDisableStaticPath = false;
+		}
+	}
 
 	// Remove the interaction from the light's interaction list.
 	if(NextPrimitive)
@@ -271,18 +291,15 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 		FShadowDepthDrawingPolicyFactory::AddStaticMesh(Scene, this);
 	}
 
-	if (!bShadowOnly && PrimitiveSceneInfo->Proxy->ShouldRenderInMainPass())
-	{
-		const bool bRequiresHitProxies = Scene->RequiresHitProxies();
-		if (bRequiresHitProxies && PrimitiveSceneInfo->Proxy->IsSelectable())
-		{
-			// Add the static mesh to the DPG's hit proxy draw list.
-			FHitProxyDrawingPolicyFactory::AddStaticMesh(Scene, this);
-		}
-	}
-	else
+	if (!PrimitiveSceneInfo->Proxy->ShouldRenderInMainPass())
 	{
 		return;
+	}
+
+	if (bUseForMaterial && Scene->RequiresHitProxies() && PrimitiveSceneInfo->Proxy->IsSelectable())
+	{
+		// Add the static mesh to the DPG's hit proxy draw list.
+		FHitProxyDrawingPolicyFactory::AddStaticMesh(Scene, this);
 	}
 
 	if (IsTranslucent(FeatureLevel))
@@ -292,28 +309,37 @@ void FStaticMesh::AddToDrawLists(FRHICommandListImmediate& RHICmdList, FScene* S
 
 	if (Scene->ShouldUseDeferredRenderer())
 	{
-		extern TAutoConsoleVariable<int32> CVarEarlyZPass;
-		int32 EarlyZPass = CVarEarlyZPass.GetValueOnRenderThread();
-
-		extern int32 GEarlyZPassMovable;
-
-		// Render non-masked materials in the depth only pass
-		if (PrimitiveSceneInfo->Proxy->ShouldUseAsOccluder() 
-			&& (!IsMasked(FeatureLevel) || EarlyZPass == 2)
-			&& (!PrimitiveSceneInfo->Proxy->IsMovable() || GEarlyZPassMovable))
+		if (bUseAsOccluder)
 		{
-			FDepthDrawingPolicyFactory::AddStaticMesh(Scene,this);
+			// Render non-masked materials in the depth only pass
+			extern TAutoConsoleVariable<int32> CVarEarlyZPass;
+			int32 EarlyZPass = CVarEarlyZPass.GetValueOnRenderThread();
+
+			extern int32 GEarlyZPassMovable;
+
+			// WARNING : If you change this condition, also change the logic in FStaticMeshSceneProxy::DrawStaticElements.
+			if (PrimitiveSceneInfo->Proxy->ShouldUseAsOccluder() 
+				&& (!IsMasked(FeatureLevel) || EarlyZPass == 2)
+				&& (!PrimitiveSceneInfo->Proxy->IsMovable() || GEarlyZPassMovable))
+			{
+				FDepthDrawingPolicyFactory::AddStaticMesh(Scene,this);
+			}
 		}
 
-		// Add the static mesh to the DPG's base pass draw list.
-		FBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
-
-		FVelocityDrawingPolicyFactory::AddStaticMesh(Scene, this);
+		if (bUseForMaterial)
+		{
+			// Add the static mesh to the DPG's base pass draw list.
+			FBasePassOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
+			FVelocityDrawingPolicyFactory::AddStaticMesh(Scene, this);
+		}
 	}
 	else
 	{
-		// Add the static mesh to the DPG's base pass draw list.
-		FBasePassForwardOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
+		if (bUseForMaterial)
+		{
+			// Add the static mesh to the DPG's base pass draw list.
+			FBasePassForwardOpaqueDrawingPolicyFactory::AddStaticMesh(RHICmdList, Scene, this);
+		}
 	}
 }
 

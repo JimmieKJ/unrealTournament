@@ -1608,6 +1608,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	//Chat Window Style
 	Style.Set("FriendsStyle", FFriendsAndChatStyle()
+		/*
 		.SetOnlineBrush(*Style.GetBrush("OnlineState"))
 		.SetOfflineBrush(*Style.GetBrush("OfflineState"))
 		.SetAwayBrush(*Style.GetBrush("AwayState"))
@@ -1627,7 +1628,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetFriendComboBackgroundLeftFlippedBrush(*MenuBorderBrush)
 		.SetFriendComboBackgroundRightFlippedBrush(*MenuBorderBrush)
 		.SetAddFriendButtonContentBrush(*Style.GetBrush("FriendsList.AddFriendContent"))
-		.SetAddFriendButtonContentHoveredBrush(*Style.GetBrush("FriendsList.AddFriendContent"))
+//		.SetAddFriendButtonContentHoveredBrush(*Style.GetBrush("FriendsList.AddFriendContent"))
 		.SetAddFriendCloseButtonStyle(FriendsListCloseAddFriendButtonStyle)
 		.SetBackgroundBrush(*FriendsDefaultBackgroundBrush)
 		.SetFriendContainerHeader(*FriendContainerHeaderBrush)
@@ -1667,8 +1668,8 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetChatEditableTextStyle(ChatEntryEditableTextStyle)
 		.SetFriendCheckboxStyle(FCoreStyle::Get().GetWidgetStyle< FCheckBoxStyle >("Checkbox"))
 		.SetStatusButtonSize(FVector2D(136, 40))
-		.SetActionComboButtonStyle(ActionButtonComboButtonStyle)
-		.SetActionComboButtonSize(FVector2D(25, 25))
+//		.SetActionComboButtonStyle(ActionButtonComboButtonStyle)
+		//.SetActionComboButtonSize(FVector2D(25, 25))
 		.SetButtonInvertedForegroundColor(FLinearColor::White)
 		.SetBorderPadding(FMargin(10, 20))
 		.SetFriendsListWidth(500.f)
@@ -1683,7 +1684,7 @@ void SUWindowsStyle::SetFriendsChatStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetComboItemContentPadding(FMargin(10, 4, 10, 4))
 		.SetChatFooterBrush(IMAGE_BRUSH("UI/White", FVector2D(8, 8), FLinearColor::Black))
 		.SetFriendUserHeaderBackground(*FriendsListPanelBackgroundBrush)
-		.SetHasUserHeader(true)
+		.SetHasUserHeader(true)*/
 		);
 }
 

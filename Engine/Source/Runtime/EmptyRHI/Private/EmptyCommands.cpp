@@ -396,6 +396,10 @@ void FEmptyDynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const F
 
 }
 
+void FEmptyDynamicRHI::RHIBindClearMRTValues(bool bClearColor, bool bClearDepth, bool bClearStencil)
+{
+}
+
 
 
 void FEmptyDynamicRHI::RHISuspendRendering()
@@ -439,3 +443,10 @@ void* FEmptyDynamicRHI::RHIGetNativeDevice()
 	return nullptr;
 }
 
+void FEmptyDynamicRHI::RHIExecuteCommandList(FRHICommandList* CmdList)
+{
+}
+
+void FEmptyDynamicRHI::RHIEnableDepthBoundsTest(bool bEnable, float MinDepth, float MaxDepth)
+{
+}

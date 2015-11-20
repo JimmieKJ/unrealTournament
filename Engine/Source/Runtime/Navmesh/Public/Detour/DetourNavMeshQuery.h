@@ -53,6 +53,9 @@ struct NAVMESH_API dtQuerySpecialLinkFilter
 	/// Returns true if special link can be visited.  (I.e. Is traversable.)
 	///  @param[in]		UserId		Unique Id of link
 	virtual bool isLinkAllowed(const int UserId) const { return true; }
+
+	/// Called before accessing in A* loop (can be called multiple time for updateSlicedFindPath)
+	virtual void initialize() {}
 };
 
 // [UE4: moved all filter variables to struct, DO NOT mess with virtual functions here!]
@@ -319,10 +322,10 @@ public:
 	///  @param[in]		maxNodes	Maximum number of search nodes. [Limits: 0 < value <= 65536]
 	///  @param[in]		linkFilter	Special link filter used for every query
 	/// @returns The status flags for the query.
-	dtStatus init(const dtNavMesh* nav, const int maxNodes, const dtQuerySpecialLinkFilter* linkFilter = 0);
+	dtStatus init(const dtNavMesh* nav, const int maxNodes, dtQuerySpecialLinkFilter* linkFilter = 0);
 
 	/// UE4: updates special link filter for this query
-	void updateLinkFilter(const dtQuerySpecialLinkFilter* linkFilter);
+	void updateLinkFilter(dtQuerySpecialLinkFilter* linkFilter);
 	
 	/// @name Standard Pathfinding Functions
 	// /@{
@@ -734,7 +737,7 @@ private:
 	}
 
 	const dtNavMesh* m_nav;							///< Pointer to navmesh data.
-	const dtQuerySpecialLinkFilter* m_linkFilter;	///< Pointer to optional special link filter
+	dtQuerySpecialLinkFilter* m_linkFilter;			///< Pointer to optional special link filter
 
 	struct dtQueryData
 	{

@@ -1,7 +1,7 @@
 ﻿USE [CrashReport]
 GO
 
-/****** Object:  StoredProcedure [dbo].[UpdateCrashesByPattern]    Script Date: 2015-03-20 15:19:10 ******/
+/****** Object:  StoredProcedure [dbo].[UpdateCrashesByPattern]    Script Date: 08/18/2015 16:45:13 ******/
 SET ANSI_NULLS ON
 GO
 
@@ -21,10 +21,11 @@ BEGIN
 	-- Update crash user names
 
 	UPDATE [dbo].[Crashes]
-	SET [UserName] = CASE WHEN c.[UserName] is NULL THEN u.[UserName] ELSE c.[UserName] END
+	SET [UserName] = u.[UserName]
 
 	FROM [dbo].[Crashes] c
-	LEFT JOIN [dbo].[Users] u on (u.[id] = c.[UserNameId]);
+	LEFT JOIN [dbo].[Users] u on (u.[id] = c.[UserNameId])
+	WHERE c.UserName IS NULL;
 
 	
 	--Create Buggs
@@ -156,12 +157,6 @@ BEGIN
 		VALUES 
 
 			(C.BuggId, C.CrashId)	
-	 WHEN MATCHED
-
-		THEN UPDATE SET
-			BC.BuggId = C.BuggId, 
-
-			BC.CrashId = C.CrashId
 	OUTPUT $action, Inserted.*, Deleted.*;
 
 	
@@ -177,6 +172,7 @@ BEGIN
 		  FROM [dbo].[Crashes] c
 
 		  Join [dbo].Buggs b on (b.Pattern = c.Pattern)
+		  WHERE c.UserName IS NOT NULL
 		  Group by b.Id, c.UserName
 
 		) AS C

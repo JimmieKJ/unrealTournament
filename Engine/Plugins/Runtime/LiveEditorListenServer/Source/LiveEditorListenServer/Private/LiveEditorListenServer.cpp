@@ -221,10 +221,10 @@ void FLiveEditorListenServer::ShutdownModule()
 void FLiveEditorListenServer::InstallHooks()
 {
 	ObjectCreateListener = new nLiveEditorListenServer::FCreateListener(this);
-	GetUObjectArray().AddUObjectCreateListener(ObjectCreateListener);
+	GUObjectArray.AddUObjectCreateListener(ObjectCreateListener);
 
 	ObjectDeleteListener = new nLiveEditorListenServer::FDeleteListener(this);
-	GetUObjectArray().AddUObjectDeleteListener(ObjectDeleteListener);
+	GUObjectArray.AddUObjectDeleteListener(ObjectDeleteListener);
 
 	TickObject = new nLiveEditorListenServer::FTickObject(this);
 

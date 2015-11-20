@@ -12,6 +12,7 @@
 
 class UAnimSequence;
 class USkeletalMesh;
+class UBlendProfile;
 
 /** This is a mapping table between bone in a particular skeletal mesh and bone of this skeleton set. */
 USTRUCT()
@@ -54,21 +55,21 @@ namespace EBoneTranslationRetargetingMode
 	};
 }
 
-/** Each Bone node in BoneTree **/
+/** Each Bone node in BoneTree */
 USTRUCT()
 struct FBoneNode
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** Name of bone, this is the search criteria to match with mesh bone. This will be NAME_None if deleted **/
+	/** Name of bone, this is the search criteria to match with mesh bone. This will be NAME_None if deleted. */
 	UPROPERTY()
 	FName Name_DEPRECATED;
 
-	/** Parent Index. -1 if not used. The root has 0 as its parent. Do not delete the element but set this to -1. If it is revived by other reason, fix up this link. **/
+	/** Parent Index. -1 if not used. The root has 0 as its parent. Do not delete the element but set this to -1. If it is revived by other reason, fix up this link. */
 	UPROPERTY()
 	int32 ParentIndex_DEPRECATED;
 
-	/** Retargeting Mode for Translation Component */
+	/** Retargeting Mode for Translation Component. */
 	UPROPERTY(EditAnywhere, Category=BoneNode)
 	TEnumAsByte<EBoneTranslationRetargetingMode::Type> TranslationRetargetingMode;
 
@@ -277,6 +278,21 @@ public:
 	UPROPERTY()
 	FSmartNameContainer SmartNames;
 
+	//////////////////////////////////////////////////////////////////////////
+	// Blend Profiles
+
+	/** List of blend profiles available in this skeleton */
+	UPROPERTY(Instanced)
+	TArray<UBlendProfile*> BlendProfiles;
+
+	/** Get the specified blend profile by name */
+	ENGINE_API UBlendProfile* GetBlendProfile(const FName& InProfileName);
+
+	/** Create a new blend profile with the specified name */
+	ENGINE_API UBlendProfile* CreateNewBlendProfile(const FName& InProfileName);
+
+	//////////////////////////////////////////////////////////////////////////
+
 	/************************************************************************/
 	/* Slot Groups */
 	/************************************************************************/
@@ -339,9 +355,6 @@ public:
 	/* Attached assets component for this skeleton */
 	UPROPERTY()
 	FPreviewAssetAttachContainer PreviewAttachedAssetContainer;
-
-	UPROPERTY()
-	TArray< struct FBoneReductionSetting > BoneReductionSettingsForLODs;
 #endif // WITH_EDITORONLY_DATA
 
 private:
@@ -360,13 +373,6 @@ public:
 	const FGuid GetGuid() const
 	{
 		return Guid;
-	}
-
-	/** Unregisters a delegate to be called after the preview animation has been changed */
-	DELEGATE_DEPRECATED("This UnregisterOnRetargetSourceChanged overload has been deprecated - please pass the handle returned from RegisterOnRetargetSourceChanged instead.")
-	void UnregisterOnRetargetSourceChanged(const FOnRetargetSourceChanged& Delegate)
-	{
-		OnRetargetSourceChanged.DEPRECATED_Remove(Delegate);
 	}
 
 	/** Unregisters a delegate to be called after the preview animation has been changed */
@@ -417,31 +423,6 @@ public:
 	 */
 	ENGINE_API int32 GetChildBones(int32 ParentBoneIndex, TArray<int32> & Children) const;
 
-	/**
-	 * Remove Bone from the LOD
-	 *
-	 * @param	LODIndex	LOD to remove from
-	 * @param 	BoneIndex	Bone to remove
-	 */
-	ENGINE_API int32 RemoveBoneFromLOD(int32 LODIndex, int32 BoneIndex);
-	
-	/**
-	 * Return true if this bone is included in LOD. 
-	 * In other words, this returns true if it's not in BoneReductionSettingsForLODs
-	 *
-	 * @param	LODIndex	LOD to check
-	 * @param 	BoneIndex	Bone to check
-	 */
-	ENGINE_API bool IsBoneIncludedInLOD(int32 LODIndex, int32 BoneIndex);
-
-	/**
-	 * Add Bone back to the LOD
-	 *
-	 * @param	LODIndex	LOD to add back to 
-	 * @param 	BoneIndex	Bone to add back
-	 */	
-	ENGINE_API void AddBoneToLOD(int32 LODIndex, int32 BoneIndex);
-
 #endif
 
 	/**
@@ -470,7 +451,7 @@ public:
 	 * 
 	 * @return				true if animation set can play on supplied SkeletalMesh, false if not.
 	 */
-	ENGINE_API bool IsCompatibleMesh(USkeletalMesh * InSkelMesh) const;
+	ENGINE_API bool IsCompatibleMesh(const USkeletalMesh* InSkelMesh) const;
 
 	/** Clears all cache data **/
 	void ClearCacheData();
@@ -493,7 +474,7 @@ public:
 	 * 
 	 * @return true if success
 	 */
-	ENGINE_API bool MergeBonesToBoneTree(USkeletalMesh* InSkeletalMesh, const TArray<int32> &RequiredRefBones);
+	ENGINE_API bool MergeBonesToBoneTree(const USkeletalMesh* InSkeletalMesh, const TArray<int32> &RequiredRefBones);
 
 	/** 
 	 * Merge all Bones to BoneTrees if not exists
@@ -505,7 +486,7 @@ public:
 	 * 
 	 * @return true if success
 	 */
-	ENGINE_API bool MergeAllBonesToBoneTree(USkeletalMesh* InSkelMesh);
+	ENGINE_API bool MergeAllBonesToBoneTree(const USkeletalMesh* InSkelMesh);
 
 	/** 
 	 * Merge has failed, then Recreate BoneTree
@@ -614,7 +595,7 @@ public:
 	 *
 	 * @param Name	Name of pose to update
 	 */
-	ENGINE_API void UpdateRetargetSource( const FName Name );
+	ENGINE_API void UpdateRetargetSource( const FName InName );
 #endif
 protected:
 	/** 
@@ -628,7 +609,7 @@ protected:
 	 *
 	 * @return true if matches till root. false if not. 
 	 */
-	bool DoesParentChainMatch(int32 StartBoneTreeIndex, USkeletalMesh* InSkelMesh) const;
+	bool DoesParentChainMatch(int32 StartBoneTreeIndex, const USkeletalMesh* InSkelMesh) const;
 
 	/** 
 	 * Build Look up between SkelMesh to BoneTree

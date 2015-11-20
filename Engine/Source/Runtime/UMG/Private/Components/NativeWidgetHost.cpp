@@ -15,13 +15,16 @@ UNativeWidgetHost::UNativeWidgetHost(const FObjectInitializer& ObjectInitializer
 
 void UNativeWidgetHost::SetContent(TSharedRef<SWidget> InContent)
 {
-	NativeWidget = InContent;
-
-	TSharedPtr<SWidget> StableMyWidget = MyWidget.Pin();
-	if ( StableMyWidget.IsValid() )
+	if (NativeWidget != InContent)
 	{
-		TSharedPtr<SBox> MyBox = StaticCastSharedPtr<SBox>(StableMyWidget);
-		MyBox->SetContent(InContent);
+		NativeWidget = InContent;
+
+		TSharedPtr<SWidget> StableMyWidget = MyWidget.Pin();
+		if (StableMyWidget.IsValid())
+		{
+			TSharedPtr<SBox> MyBox = StaticCastSharedPtr<SBox>(StableMyWidget);
+			MyBox->SetContent(InContent);
+		}
 	}
 }
 

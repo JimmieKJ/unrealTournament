@@ -55,7 +55,7 @@ private:
 	 *
 	 *	@return	The category node.
 	 */
-	struct FCategorizedMaterialExpressionNode* GetCategoryNode(const FString& InCategoryName, bool bCreate);
+	struct FCategorizedMaterialExpressionNode* GetCategoryNode(const FText& InCategoryName, bool bCreate);
 
 	/**
 	 * Initializes the list of UMaterialExpression-derived classes shared between all material editor instances.

@@ -18,7 +18,8 @@ public class UnrealSync : ModuleRules
 				"SlateCore",
 				"StandaloneRenderer",
 				"XmlParser",
-				"JSON"
+				"JSON",
+				"DesktopPlatform"
 			}
 		);
 		

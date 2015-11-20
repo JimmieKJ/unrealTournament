@@ -50,6 +50,7 @@
 #include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
 #include "LevelEditor.h"
+#include "AutoReimport/AssetSourceFilenameCache.h"
 #include "ComponentEditorUtils.h"
 
 
@@ -212,7 +213,8 @@ private:
 			}
 			NewMenu.EndSection();
 
-			FSlateApplication::Get().PushMenu( SharedThis( this ), NewMenu.MakeWidget(), MouseEvent.GetScreenSpacePosition(), FPopupTransitionEffect( FPopupTransitionEffect::None ) );
+			FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+			FSlateApplication::Get().PushMenu(SharedThis(this), WidgetPath, NewMenu.MakeWidget(), MouseEvent.GetScreenSpacePosition(), FPopupTransitionEffect(FPopupTransitionEffect::None));
 
 			return FReply::Handled();
 		}
@@ -503,12 +505,12 @@ bool UUnrealEdEngine::HandleDumpSelectionCommand( const TCHAR* Str, FOutputDevic
 
 bool UUnrealEdEngine::HandleBuildLightingCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld )
 {
-	return FEditorBuildUtils::EditorBuild(InWorld, EBuildOptions::BuildLighting);	
+	return FEditorBuildUtils::EditorBuild(InWorld, FBuildOptions::BuildLighting);	
 }
 
 bool UUnrealEdEngine::HandleBuildPathsCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld )
 {
-	return FEditorBuildUtils::EditorBuild(InWorld, EBuildOptions::BuildAIPaths);
+	return FEditorBuildUtils::EditorBuild(InWorld, FBuildOptions::BuildAIPaths);
 }
 
 bool UUnrealEdEngine::HandleUpdateLandscapeEditorDataCommand( const TCHAR* Str, FOutputDevice& Ar, UWorld* InWorld )
@@ -936,11 +938,11 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 
 								Poly->TextureU /= ScaleVec;
 								Poly->TextureV /= ScaleVec;
-								Poly->Base = ((Poly->Base - Brush->GetPrePivot()) * ScaleVec) + Brush->GetPrePivot();
+								Poly->Base = ((Poly->Base - Brush->GetPivotOffset()) * ScaleVec) + Brush->GetPivotOffset();
 
 								for( int32 vtx = 0 ; vtx < Poly->Vertices.Num() ; vtx++ )
 								{
-									Poly->Vertices[vtx] = ((Poly->Vertices[vtx] - Brush->GetPrePivot()) * ScaleVec) + Brush->GetPrePivot();
+									Poly->Vertices[vtx] = ((Poly->Vertices[vtx] - Brush->GetPivotOffset()) * ScaleVec) + Brush->GetPivotOffset();
 
 									// "Then snap the vertices new positions by the specified Snap amount"
 									if ( bSnap )
@@ -1100,95 +1102,101 @@ bool UUnrealEdEngine::Exec( UWorld* InWorld, const TCHAR* Stream, FOutputDevice&
 	{
 		struct Local
 		{
-			static bool RemoveSourcePath( UAssetImportData* Data, const TArray<FString>& SearchTerms )
+			static bool RemoveSourcePath( const FAssetImportInfo& ImportInfo, const FAssetData& AssetData, const TArray<FString>* SearchTerms )
 			{
-				const FString& SourceFilePath = Data->SourceFilePath;
-				if( !SourceFilePath.IsEmpty() )
+				FAssetImportInfo AssetImportInfo;
+
+				bool bModified = false;
+				for (const auto& File : ImportInfo.SourceFiles)
 				{
-					for (const FString& SearchTerm : SearchTerms)
+					const bool bRemoveFile = File.RelativeFilename.IsEmpty() || !SearchTerms ||
+						SearchTerms->ContainsByPredicate([&](const FString& SearchTerm){ return File.RelativeFilename.Contains(SearchTerm); });
+
+					if( bRemoveFile )
 					{
-						if (SourceFilePath.Contains(SearchTerm))
+						UE_LOG(LogUnrealEdSrv, Log, TEXT("Removing Path: %s"), *File.RelativeFilename);
+						bModified = true;
+					}
+					else
+					{
+						AssetImportInfo.Insert(File);
+					}
+				}
+
+				if (bModified)
+				{
+					if (UObject* Asset = AssetData.GetAsset())
+					{
+						UAssetImportData* ImportData = nullptr;
+
+						// Root out the asset import data property
+						for (UObjectProperty* Property : TFieldRange<UObjectProperty>(Asset->GetClass()))
 						{
-							Data->Modify();
-							UE_LOG(LogUnrealEdSrv, Log, TEXT("Removing Path: %s"), *SourceFilePath);
-							Data->SourceFilePath.Empty();
-							Data->SourceFileTimestamp.Empty();
-							return true;
+							ImportData = Cast<UAssetImportData>(Property->GetObjectPropertyValue(Property->ContainerPtrToValuePtr<UObject*>(Asset)));
+							if (ImportData)
+							{
+								Asset->Modify();
+								ImportData->SourceData = AssetImportInfo;
+								return true;
+							}
 						}
 					}
 				}
 
 				return false;
 			}
+
+			static void RemoveSourcePaths( const TArray<FAssetData>& AllAssets, const TArray<FString>* SearchTerms )
+			{
+				FScopedSlowTask SlowTask(AllAssets.Num(), NSLOCTEXT("UnrealEd", "ClearingSourceFiles", "Clearing Source Files"));
+				SlowTask.MakeDialog(true);
+
+				for (const FAssetData& Asset : AllAssets)
+				{
+					SlowTask.EnterProgressFrame();
+
+					// Optimization - check the asset has import information before loading it
+					TOptional<FAssetImportInfo> ImportInfo = FAssetSourceFilenameCache::ExtractAssetImportInfo(Asset.TagsAndValues);
+					if (ImportInfo.IsSet() && ImportInfo->SourceFiles.Num())
+					{
+						RemoveSourcePath(ImportInfo.GetValue(), Asset, SearchTerms);
+					}
+				}
+			}
 		};
+
+		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+		FString Path;
+		FParse::Value(Str, TEXT("Path="), Path, false);
+
+		TArray<FAssetData> AllAssets;
+		if (!Path.IsEmpty())
+		{
+			AssetRegistryModule.Get().GetAssetsByPath(*Path, AllAssets, true);
+		}
+		else
+		{
+			AssetRegistryModule.Get().GetAllAssets(AllAssets);
+		}
 
 		FString SearchTermStr;
 		if (FParse::Value(Str, TEXT("Find="), SearchTermStr, false))
 		{
+			// Searching for particular paths to remove
 			TArray<FString> SearchTerms;
 			SearchTermStr.ParseIntoArray( SearchTerms, TEXT(","), true );
 
 			TArray<UObject*> ModifiedObjects;
 			if( SearchTerms.Num() )
 			{
-				FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-
-				TArray<FAssetData> StaticMeshes;
-				TArray<FAssetData> SkeletalMeshes;
-				TArray<FAssetData> AnimSequences;
-				TArray<FAssetData> DestructibleMeshes;
-
-				GWarn->BeginSlowTask(NSLOCTEXT("UnrealEd", "ClearingSourceFiles", "Clearing Source Files"), true, true);
-				AssetRegistryModule.Get().GetAssetsByClass(UStaticMesh::StaticClass()->GetFName(), StaticMeshes);
-
-				AssetRegistryModule.Get().GetAssetsByClass(USkeletalMesh::StaticClass()->GetFName(), SkeletalMeshes);
-
-				AssetRegistryModule.Get().GetAssetsByClass(UAnimSequence::StaticClass()->GetFName(), AnimSequences);
-
-				AssetRegistryModule.Get().GetAssetsByClass(UDestructibleMesh::StaticClass()->GetFName(), DestructibleMeshes);
-
-				for (const FAssetData& StaticMesh : StaticMeshes)
-				{
-					UStaticMesh* Mesh = Cast<UStaticMesh>(StaticMesh.GetAsset());
-
-					if (Mesh && Mesh->AssetImportData && Local::RemoveSourcePath( Mesh->AssetImportData, SearchTerms ) )
-					{
-						ModifiedObjects.Add( Mesh );
-					}
-				}
-
-				for (const FAssetData& SkelMesh : SkeletalMeshes)
-				{
-					USkeletalMesh* Mesh = Cast<USkeletalMesh>(SkelMesh.GetAsset());
-
-					if (Mesh && Mesh->AssetImportData && Local::RemoveSourcePath(Mesh->AssetImportData, SearchTerms))
-					{
-						ModifiedObjects.Add(Mesh);
-					}
-				}
-
-				for (const FAssetData& AnimSequence : AnimSequences)
-				{
-					UAnimSequence* Sequence = Cast<UAnimSequence>(AnimSequence.GetAsset());
-
-					if (Sequence && Sequence->AssetImportData && Local::RemoveSourcePath( Sequence->AssetImportData, SearchTerms ) )
-					{
-						ModifiedObjects.Add(Sequence);
-					}
-				}
-
-				for (const FAssetData& DestMesh : DestructibleMeshes)
-				{
-					UDestructibleMesh* Mesh = Cast<UDestructibleMesh>(DestMesh.GetAsset());
-
-					if (Mesh && Mesh->AssetImportData && Local::RemoveSourcePath(Mesh->AssetImportData, SearchTerms))
-					{
-						ModifiedObjects.Add(Mesh);
-					}
-				}
+				Local::RemoveSourcePaths(AllAssets, &SearchTerms);
 			}
-
-			GWarn->EndSlowTask();
+		}
+		else
+		{
+			// Remove every source path on any asset
+			Local::RemoveSourcePaths(AllAssets, nullptr);
 		}
 	}
 	else if (FParse::Command(&Str, TEXT("RenameAssets")))
@@ -1420,7 +1428,7 @@ bool UUnrealEdEngine::IsUserInteracting()
 
 void UUnrealEdEngine::AttemptModifiedPackageNotification()
 {
-	if( bNeedToPromptForCheckout )
+	if( bNeedToPromptForCheckout && !FApp::IsUnattended() )
 	{
 		// Defer prompting for checkout if we cant prompt because of the following:
 		// The user is interacting with something,
@@ -1685,6 +1693,7 @@ bool UUnrealEdEngine::Exec_Pivot( const TCHAR* Str, FOutputDevice& Ar )
 		NoteActorMovement();
 		SetPivot( ClickLocation, false, false );
 		FinishAllSnaps();
+		SetPivotMovedIndependently(true);
 		RedrawLevelEditingViewports();
 	}
 	else if( FParse::Command(&Str,TEXT("SNAPPED")) )
@@ -1692,6 +1701,7 @@ bool UUnrealEdEngine::Exec_Pivot( const TCHAR* Str, FOutputDevice& Ar )
 		NoteActorMovement();
 		SetPivot( ClickLocation, true, false );
 		FinishAllSnaps();
+		SetPivotMovedIndependently(true);
 		RedrawLevelEditingViewports();
 	}
 	else if( FParse::Command(&Str,TEXT("CENTERSELECTION")) )
@@ -1705,10 +1715,43 @@ bool UUnrealEdEngine::Exec_Pivot( const TCHAR* Str, FOutputDevice& Ar )
 
 		for ( FSelectionIterator It( GetSelectedActorIterator() ) ; It ; ++It )
 		{
-			AActor* Actor = static_cast<AActor*>( *It );
-			checkSlow( Actor->IsA(AActor::StaticClass()) );
+			AActor* Actor = CastChecked<AActor>(*It);
 
-			Center += Actor->GetActorLocation();
+			if (ABrush* Brush = Cast<ABrush>(Actor))
+			{
+				// Treat brushes as a special case; calculate an effective position from the center point of the vertices.
+				// This way, "Center on Selection" has a special meaning for brushes.
+				TSet<FVector> UniqueVertices;
+				FVector VertexCenter = FVector::ZeroVector;
+
+				if (Brush->Brush && Brush->Brush->Polys)
+				{
+					for (const auto& Element : Brush->Brush->Polys->Element)
+					{
+						for (const auto& Vertex : Element.Vertices)
+						{
+							UniqueVertices.Add(Vertex);
+						}
+					}
+
+					for (const auto& Vertex : UniqueVertices)
+					{
+						VertexCenter += Vertex;
+					}
+
+					if (UniqueVertices.Num() > 0)
+					{
+						VertexCenter /= UniqueVertices.Num();
+					}
+				}
+
+				Center += Brush->GetTransform().TransformPosition(VertexCenter);
+			}
+			else
+			{
+				Center += Actor->GetActorLocation();
+			}
+
 			Count++;
 		}
 
@@ -1721,6 +1764,7 @@ bool UUnrealEdEngine::Exec_Pivot( const TCHAR* Str, FOutputDevice& Ar )
 
 			SetPivot( ClickLocation, false, false );
 			FinishAllSnaps();
+			SetPivotMovedIndependently(true);
 		}
 
 		RedrawLevelEditingViewports();
@@ -1742,26 +1786,15 @@ static void MirrorActors(const FVector& MirrorScale)
 		checkSlow( Actor->IsA(AActor::StaticClass()) );
 
 		const FVector PivotLocation = GLevelEditorModeTools().PivotLocation;
-		ABrush* Brush = Cast< ABrush >( Actor );
-		if( Brush && Brush->Brush )
-		{
-			// Brushes have to reverse their poly vertex order and recalculate the normal as negating one of the scale axes
-			// changes the handedness of the local transform.
-			Brush->Modify();
-			Brush->Brush->Modify();
-			Brush->Brush->Polys->Modify();
-
-			for( int32 poly = 0 ; poly < Brush->Brush->Polys->Element.Num() ; poly++ )
-			{
-				FPoly* Poly = &(Brush->Brush->Polys->Element[poly]);
-
-				Poly->Reverse();
-				Poly->CalcNormal();
-			}
-		}
 
 		Actor->Modify();
 		Actor->EditorApplyMirror( MirrorScale, PivotLocation );
+
+		ABrush* Brush = Cast< ABrush >(Actor);
+		if (Brush && Brush->BrushComponent)
+		{
+			Brush->BrushComponent->RequestUpdateBrushCollision();
+		}
 
 		Actor->InvalidateLightingCache();
 		Actor->PostEditMove( true );
@@ -1779,6 +1812,7 @@ static void MirrorActors(const FVector& MirrorScale)
 
 	GEditor->RedrawLevelEditingViewports();
 }
+
 
 /**
 * Gathers up a list of selection FPolys from selected static meshes.
@@ -1814,11 +1848,11 @@ TArray<FPoly*> GetSelectedPolygons()
 					int32 NumLods = StaticMesh->GetNumLODs();
 					if ( NumLods )
 					{
-						FStaticMeshLODResources& MeshLodZero = StaticMesh->GetLODForExport(0);
+						const FStaticMeshLODResources& MeshLodZero = StaticMesh->GetLODForExport(0);
 						int32 NumTriangles = MeshLodZero.GetNumTriangles();
 						int32 NumVertices = MeshLodZero.GetNumVertices();
 			
-						FPositionVertexBuffer& PositionVertexBuffer = MeshLodZero.PositionVertexBuffer;
+						const FPositionVertexBuffer& PositionVertexBuffer = MeshLodZero.PositionVertexBuffer;
 						FIndexArrayView Indices = MeshLodZero.DepthOnlyIndexBuffer.GetArrayView();
 
 						for ( int32 TriangleIndex = 0; TriangleIndex < NumTriangles; TriangleIndex++ )
@@ -2583,7 +2617,7 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		FScopedLevelDirtied				LevelDirtyCallback;
 		FScopedActorPropertiesChange	ActorPropertiesChangeCallback;
 
-		// Bakes the current pivot position into all selected brushes as their PrePivot
+		// Bakes the current pivot position into all selected actors
 
 		FEditorModeTools& EditorModeTools = GLevelEditorModeTools();
 
@@ -2594,16 +2628,10 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 
 			FVector Delta( EditorModeTools.PivotLocation - Actor->GetActorLocation() );
 
-			ABrush* Brush = Cast<ABrush>(Actor);
-			if( Brush )
-			{
-				Brush->Modify();
-
-				Brush->SetActorLocation(Actor->GetActorLocation() + Delta, false);
-				Brush->SetPrePivot(Brush->GetPrePivot() + Delta);
-
-				Brush->PostEditMove( true );
-			}
+			Actor->Modify();
+			Actor->SetPivotOffset(Actor->GetTransform().InverseTransformVector(Delta));
+			SetPivotMovedIndependently(false);
+			Actor->PostEditMove(true);
 		}
 
 		GUnrealEd->NoteSelectionChange();
@@ -2613,7 +2641,7 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 		FScopedLevelDirtied		LevelDirtyCallback;
 		FScopedActorPropertiesChange	ActorPropertiesChangeCallback;
 
-		// Resets the PrePivot of the selected brushes to 0,0,0 while leaving them in the same world location.
+		// Resets the PrePivot of the selected actors to 0,0,0 while leaving them in the same world location.
 
 		FEditorModeTools& EditorModeTools = GLevelEditorModeTools();
 
@@ -2622,18 +2650,10 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 			AActor* Actor = static_cast<AActor*>( *It );
 			checkSlow( Actor->IsA(AActor::StaticClass()) );
 
-			ABrush* Brush = Cast<ABrush>(Actor);
-			if( Brush )
-			{
-				Brush->Modify();
-
-				FVector Delta = Brush->GetPrePivot();
-
-				Brush->SetActorLocation(Actor->GetActorLocation() - Delta, false);
-				Brush->SetPrePivot(FVector::ZeroVector);
-
-				Brush->PostEditMove( true );
-			}
+			Actor->Modify();
+			Actor->SetPivotOffset(FVector::ZeroVector);
+			SetPivotMovedIndependently(false);
+			Actor->PostEditMove(true);
 		}
 
 		GUnrealEd->NoteSelectionChange();
@@ -2695,12 +2715,9 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 				{
 					Actor->SetActorLocation(FVector::ZeroVector, false);
 				}
-				ABrush* Brush = Cast< ABrush >( Actor );
-				if( bPivot && Brush )
+				if( bPivot )
 				{
-					Brush->SetActorLocation(Brush->GetActorLocation() - Brush->GetPrePivot(), false);
-					Brush->SetPrePivot(FVector::ZeroVector);
-					Brush->PostEditChange();
+					Actor->SetPivotOffset(FVector::ZeroVector);
 				}
 
 				if( bScale && Actor->GetRootComponent() != NULL ) 
@@ -2745,7 +2762,9 @@ bool UUnrealEdEngine::Exec_Actor( UWorld* InWorld, const TCHAR* Str, FOutputDevi
 			const FScopedTransaction Transaction( NSLOCTEXT("UnrealEd", "DuplicateActors", "Duplicate Actors") );
 
 			// duplicate selected
+			ABrush::SetSuppressBSPRegeneration(true);
 			edactDuplicateSelected(InWorld->GetCurrentLevel(), GetDefault<ULevelEditorViewportSettings>()->GridEnabled);
+			ABrush::SetSuppressBSPRegeneration(false);
 
 			// Find out if any of the selected actors will change the BSP.
 			// and only then rebuild BSP as this is expensive.

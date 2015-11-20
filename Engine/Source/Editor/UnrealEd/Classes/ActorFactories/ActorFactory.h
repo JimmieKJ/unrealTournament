@@ -41,7 +41,7 @@ class UNREALED_API UActorFactory : public UObject
 	FVector SpawnPositionOffset;
 
 	/** Called to actual create an actor with the supplied transform (scale is ignored), using the properties in the ActorFactory */
-	AActor* CreateActor( UObject* Asset, ULevel* InLevel, FTransform Transform, EObjectFlags ObjectFlags = RF_Transactional, const FName Name = NAME_None );
+	AActor* CreateActor( UObject* Asset, ULevel* InLevel, FTransform Transform, EObjectFlags InObjectFlags = RF_Transactional, const FName InName = NAME_None );
 
 	/** Called to create a blueprint class that can be used to spawn an actor from this factory */
 	UBlueprint* CreateBlueprint( UObject* Instance, UObject* Outer, const FName Name, const FName CallingContext = NAME_None );

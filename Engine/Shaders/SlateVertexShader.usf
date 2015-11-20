@@ -2,52 +2,111 @@
 
 
 #include "Common.usf"
+#include "GammaCorrectionCommon.usf"
+#include "SlateShaderCommon.usf"
 
 float4x4 ViewProjection;
 
 float SwitchVerticalAxisMultiplier;
 
-struct VertexOut
-{
-	float4 Position : SV_POSITION;
-	float4 Color : COLOR0;
-	float4 TextureCoordinates : TEXCOORD0;
-	float4 ClipOriginAndPos : TEXCOORD1;
-	float4 ClipExtents : TEXCOORD2;
-};
-
-VertexOut Main(
+VertexToPixelInterpolants Main(
 	in float4 InTextureCoordinates : ATTRIBUTE0,
-/* Don't change these int streams to float, otherwise it WILL fail since the vertex declaration is defined as int on D3D11:
-		D3D11: WARNING: ID3D11Device::CreateInputLayout: The provided input signature expects to read an element with SemanticName/Index: 'ATTRIBUTE'/1 and component(s) of the type 'float32'.  However, the matching entry in the Input Layout declaration, element[1], specifies mismatched format: 'R16G16B16A16_SINT'.  This is not an error, since behavior is well defined: The element format determines what data conversion algorithm gets applied before it shows up in a shader register. Independently, the shader input signature defines how the shader will interpret the data that has been placed in its input registers, with no change in the bits stored.  It is valid for the application to reinterpret data as a different type once it is in the vertex shader, so this warning is issued just in case reinterpretation was not intended by the author. [ STATE_CREATION WARNING #391: CREATEINPUTLAYOUT_TYPE_MISMATCH ]
-*/
-#if ES2_PROFILE && COMPILER_GLSL_ES2
-	in float2 InPosition : ATTRIBUTE1,
-	in float2 InClipOrigin : ATTRIBUTE2,
-	in float4 InClipExtents : ATTRIBUTE3,
-#else
-	in int2 InPosition : ATTRIBUTE1,
-	in half2 InClipOrigin : ATTRIBUTE2,
-	in half4 InClipExtents : ATTRIBUTE3,
+	in float2 InMaterialTextureCoordinates : ATTRIBUTE1,
+	in float2 InPosition : ATTRIBUTE2,
+	in float2 InClipOrigin : ATTRIBUTE3,
+	in float4 InClipExtents : ATTRIBUTE4,
+	in float4 InColor : ATTRIBUTE5
+#if USE_SLATE_INSTANCING
+	, in float4 InstanceParam : ATTRIBUTE6
 #endif
-	in float4 InColor : ATTRIBUTE4
 	)
 {
-	VertexOut VOut;
-	VOut.Position = mul(float4(InPosition.xy,0,1), ViewProjection);
+	VertexToPixelInterpolants VOut = (VertexToPixelInterpolants)0;
+
+	float4 WorldPosition = float4(InPosition.xy,0,1);
+
+	InColor.rgb = sRGBToLinear(InColor.rgb);
+	float4 FinalVertexColor = InColor FCOLOR_COMPONENT_SWIZZLE;
+
+	VOut.MaterialTexCoords = InMaterialTextureCoordinates;
+	VOut.ClipOriginAndPos = float4(InClipOrigin, InPosition.xy);
+	VOut.ClipExtents = InClipExtents;
+	VOut.Color = FinalVertexColor;
+	VOut.TextureCoordinates[0] = InTextureCoordinates;
+
+#if USE_MATERIALS
+	FMaterialVertexParameters VertexParameters = (FMaterialVertexParameters)0;
+	VertexParameters.WorldPosition = WorldPosition.xyz;
+
+	VertexParameters.VertexColor = FinalVertexColor;
+
+	#if NUM_MATERIAL_TEXCOORDS_VERTEX
+
+#if !USE_SLATE_INSTANCING
+		float4 InstanceParam = float4(0, 0, 0, 0);
+#endif
+		float2 UVArrays[8] =
+		{
+			InTextureCoordinates.xy,
+			InTextureCoordinates.zw,
+			InstanceParam.xy,
+			InstanceParam.zw,
+			InMaterialTextureCoordinates,
+			InClipOrigin,
+			InClipExtents.xy,
+			InClipExtents.zw
+		};
+
+		UNROLL
+		for( int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS_VERTEX; CoordinateIndex++ )
+		{
+			VertexParameters.TexCoords[CoordinateIndex] = UVArrays[CoordinateIndex];
+		}
+
+		#if HAS_MATERIAL_TEXCOORDS
+
+			float2 CustomizedUVs[NUM_SLATE_TEXCOORDS];
+			GetMaterialCustomizedUVs(VertexParameters, CustomizedUVs);
+
+			#if ES2_PROFILE
+				#if NUM_SLATE_TEXCOORDS == 1
+					VOut.TextureCoordinates[0].xy = CustomizedUVs[0];
+				#elif NUM_SLATE_TEXCOORDS >= 2
+					VOut.TextureCoordinates[0].xy = CustomizedUVs[0];
+					VOut.TextureCoordinates[0].zw = CustomizedUVs[1];
+				#endif
+			#else
+				UNROLL
+				for( int CoordinateIndex = 0; CoordinateIndex < NUM_SLATE_TEXCOORDS; CoordinateIndex++ )
+				{
+					FLATTEN
+					if (CoordinateIndex % 2)
+					{
+						VOut.TextureCoordinates[CoordinateIndex / 2].zw = CustomizedUVs[CoordinateIndex];
+					}
+					else
+					{
+						VOut.TextureCoordinates[CoordinateIndex / 2].xy = CustomizedUVs[CoordinateIndex];
+					}
+				}
+			#endif
+		#endif // HAS_MATERIAL_TEXCOORDS
+	#endif // NUM_MATERIAL_TEXCOORDS_VERTEX
+
+	#if HAS_SCREEN_POSITION
+		WorldPosition.xyz = GetMaterialWorldPositionOffset(VertexParameters);
+	#endif
+
+#endif // USE_MATERIALS
+
+	
+
+	VOut.Position = mul(WorldPosition, ViewProjection);
 
 #if ES2_PROFILE && COMPILER_GLSL_ES2
 	// @todo-mobile: Fix this in the projection matrix
 	VOut.Position.y *= SwitchVerticalAxisMultiplier;
-#endif
-
-
-	// TextureCoordinates contains both the first and second texture coordinates in xy and zw respectively.
-	VOut.TextureCoordinates = InTextureCoordinates;
-	VOut.ClipOriginAndPos = float4(InClipOrigin, InPosition.xy);
-	VOut.ClipExtents = InClipExtents;
-
-	VOut.Color = InColor FCOLOR_COMPONENT_SWIZZLE;
+#endif //ES2_PROFILE && COMPILER_GLSL_ES2
 
 	return VOut;
 }

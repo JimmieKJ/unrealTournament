@@ -19,16 +19,16 @@ public:
 	}
 
 	/** Begin IMessageLog interface */
-	virtual void AddMessage( const TSharedRef<FTokenizedMessage>& NewMessage ) override
+	virtual void AddMessage( const TSharedRef<FTokenizedMessage>& NewMessage, bool bMirrorToOutputLog ) override
 	{
-		AddMessageInternal(NewMessage);
+		AddMessageInternal(NewMessage, bMirrorToOutputLog);
 	}
 
-	virtual void AddMessages( const TArray< TSharedRef<FTokenizedMessage> >& NewMessages ) override
+	virtual void AddMessages( const TArray< TSharedRef<FTokenizedMessage> >& NewMessages, bool bMirrorToOutputLog ) override
 	{
 		for(TArray< TSharedRef<FTokenizedMessage> >::TConstIterator It = NewMessages.CreateConstIterator(); It; It++)
 		{
-			AddMessageInternal(*It);
+			AddMessageInternal(*It, bMirrorToOutputLog);
 		}
 	}
 
@@ -58,15 +58,18 @@ public:
 	/** End IMessageLog interface */
 
 private:
-	void AddMessageInternal( const TSharedRef<FTokenizedMessage>& Message )
+	void AddMessageInternal( const TSharedRef<FTokenizedMessage>& Message, bool bMirrorToOutputLog )
 	{
-		const TCHAR* const LogColor = FMessageLog::GetLogColor(Message->GetSeverity());
-		if(LogColor)
+		if (bMirrorToOutputLog)
 		{
-			SET_WARN_COLOR(LogColor);
+			const TCHAR* const LogColor = FMessageLog::GetLogColor(Message->GetSeverity());
+			if (LogColor)
+			{
+				SET_WARN_COLOR(LogColor);
+			}
+			FMsg::Logf(__FILE__, __LINE__, LogName, FMessageLog::GetLogVerbosity(Message->GetSeverity()), *Message->ToText().ToString());
+			CLEAR_WARN_COLOR();
 		}
-		FMsg::Logf(__FILE__, __LINE__, LogName, FMessageLog::GetLogVerbosity(Message->GetSeverity()), *Message->ToText().ToString());
-		CLEAR_WARN_COLOR();
 	}
 
 private:
@@ -75,6 +78,7 @@ private:
 };
 
 FMessageLog::FMessageLog( const FName& InLogName )
+	: bSuppressLoggingToOutputLog(false)
 {
 	if(GetLog.IsBound())
 	{
@@ -180,11 +184,17 @@ void FMessageLog::NewPage( const FText& InLabel )
 	MessageLog->NewPage(InLabel);
 }
 
+FMessageLog& FMessageLog::SuppressLoggingToOutputLog(bool bShouldSuppress)
+{
+	bSuppressLoggingToOutputLog = bShouldSuppress;
+	return *this;
+}
+
 void FMessageLog::Flush()
 {
 	if(Messages.Num() > 0)
 	{
-		MessageLog->AddMessages(Messages);
+		MessageLog->AddMessages(Messages, !bSuppressLoggingToOutputLog);
 		Messages.Empty();
 	}
 }

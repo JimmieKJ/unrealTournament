@@ -44,9 +44,9 @@ EMaturityChildType GetMaturityTypeForChild( USoundNode* Node )
 	{
 		// Try to see if the given node is a sound wave node.
 		USoundNodeWavePlayer* WavePlayer = Cast<USoundNodeWavePlayer>( Node );
-		if( WavePlayer && WavePlayer->SoundWave )
+		if( WavePlayer && WavePlayer->GetSoundWave() )
 		{
-			if( WavePlayer->SoundWave->bMature )
+			if( WavePlayer->GetSoundWave()->bMature )
 			{
 				Type = ChildType_Mature;
 			}
@@ -154,10 +154,12 @@ void USoundNodeMature::PostLoad()
 
 	if( !GIsEditor && GEngine && !HasAnyFlags(RF_RootSet) && ChildNodes.Num() >= 2 )
 	{
+		// Make sure the SoundCue has gotten all the SoundWavePlayers in to memory
+		GetOuter()->ConditionalPostLoad();
 		for( int32 i = ChildNodes.Num() - 1; i >= 0 ; --i )
 		{
 			USoundNodeWavePlayer *WavePlayer = Cast<USoundNodeWavePlayer>(ChildNodes[i]);
-			if (WavePlayer && WavePlayer->SoundWave && WavePlayer->SoundWave->bMature != GEngine->bAllowMatureLanguage)
+			if (WavePlayer && WavePlayer->GetSoundWave() && WavePlayer->GetSoundWave()->bMature != GEngine->bAllowMatureLanguage)
 			{
 				ChildNodes.RemoveAt(i);
 			}

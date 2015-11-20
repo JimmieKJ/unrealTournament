@@ -7,7 +7,7 @@
 /* FUdpSerializeMessageTask interface
  *****************************************************************************/
 
-void FUdpSerializeMessageTask::DoTask( ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent )
+void FUdpSerializeMessageTask::DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
 	if (MessageContext->IsValid())
 	{
@@ -15,9 +15,8 @@ void FUdpSerializeMessageTask::DoTask( ENamedThreads::Type CurrentThread, const 
 		// a consistent wire format, if their implementations change. This allows us to sanity
 		// check the values during deserialization. @see FUdpDeserializeMessage::Deserialize()
 
-		FArchive& Archive = SerializedMessage.Get();
-
 		// serialize context
+		FArchive& Archive = SerializedMessage.Get();
 		{
 			const FName& MessageType = MessageContext->GetMessageType();
 			Archive << const_cast<FName&>(MessageType);
@@ -40,18 +39,16 @@ void FUdpSerializeMessageTask::DoTask( ENamedThreads::Type CurrentThread, const 
 			int32 NumAnnotations = MessageContext->GetAnnotations().Num();
 			Archive << NumAnnotations;
 
-			for (TMap<FName, FString>::TConstIterator It(MessageContext->GetAnnotations()); It; ++It)
+			for (const auto& AnnotationPair : MessageContext->GetAnnotations())
 			{
-				Archive << const_cast<FName&>(It->Key);
-				Archive << const_cast<FString&>(It->Value);
+				Archive << const_cast<FName&>(AnnotationPair.Key);
+				Archive << const_cast<FString&>(AnnotationPair.Value);
 			}
 		}
 
 		// serialize message body
-		{
-			FJsonStructSerializerBackend Backend(Archive);
-			FStructSerializer::Serialize(MessageContext->GetMessage(), *MessageContext->GetMessageTypeInfo(), Backend);
-		}
+		FJsonStructSerializerBackend Backend(Archive);
+		FStructSerializer::Serialize(MessageContext->GetMessage(), *MessageContext->GetMessageTypeInfo(), Backend);
 
 		SerializedMessage->UpdateState(EUdpSerializedMessageState::Complete);
 	}
@@ -76,5 +73,5 @@ TStatId FUdpSerializeMessageTask::GetStatId() const
 
 ESubsequentsMode::Type FUdpSerializeMessageTask::GetSubsequentsMode() 
 { 
-	return ESubsequentsMode::TrackSubsequents; 
+	return ESubsequentsMode::FireAndForget; 
 }

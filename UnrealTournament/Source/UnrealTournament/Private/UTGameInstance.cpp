@@ -168,7 +168,7 @@ void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 
 #endif
 }
 
-void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName)
+void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions)
 {
 	if (FParse::Param(FCommandLine::Get(), TEXT("NOREPLAYS")))
 	{
@@ -222,7 +222,7 @@ void UUTGameInstance::StartRecordingReplay(const FString& Name, const FString& F
 		UE_LOG(UT, VeryVerbose, TEXT("Num Network Actors: %i"), CurrentWorld->NetworkActors.Num());
 	}
 }
-void UUTGameInstance::PlayReplay(const FString& Name)
+void UUTGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, const TArray<FString>& AdditionalOptions)
 {
 	UWorld* CurrentWorld = GetWorld();
 

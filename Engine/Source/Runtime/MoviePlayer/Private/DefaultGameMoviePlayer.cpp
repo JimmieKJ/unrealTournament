@@ -15,6 +15,51 @@
 #include "MoviePlayerSettings.h"
 #include "ShaderCompiler.h"
 
+class SDefaultMovieBorder : public SBorder
+{
+public:
+
+	SLATE_BEGIN_ARGS(SDefaultMovieBorder)		
+		: _OnKeyDown()
+	{}
+
+		SLATE_EVENT(FPointerEventHandler, OnMouseButtonDown)
+		SLATE_EVENT(FOnKeyDown, OnKeyDown)
+		SLATE_DEFAULT_SLOT(FArguments, Content)
+
+	SLATE_END_ARGS()
+
+	/**
+	* Construct this widget
+	*
+	* @param	InArgs	The declaration data for this widget
+	*/
+	void Construct(const FArguments& InArgs)
+	{
+		OnKeyDown = InArgs._OnKeyDown;		
+
+		SBorder::Construct(SBorder::FArguments()			
+			.BorderImage(FCoreStyle::Get().GetBrush(TEXT("BlackBrush")))
+			.OnMouseButtonDown(InArgs._OnMouseButtonDown)
+			.Padding(0)[InArgs._Content.Widget]);
+		
+	}
+
+	/**
+	* Set the handler to be invoked when the user presses a key.
+	*
+	* @param InHandler   Method to execute when the user presses a key
+	*/
+	void SetOnOnKeyDown(const FOnKeyDown& InHandler)
+	{
+		OnKeyDown = InHandler;
+	}	
+
+protected:
+	
+	FOnKeyDown OnKeyDown;	
+};
+
 TSharedPtr<FDefaultGameMoviePlayer> FDefaultGameMoviePlayer::MoviePlayer;
 
 TSharedPtr<FDefaultGameMoviePlayer> FDefaultGameMoviePlayer::Get()
@@ -27,7 +72,7 @@ TSharedPtr<FDefaultGameMoviePlayer> FDefaultGameMoviePlayer::Get()
 }
 
 FDefaultGameMoviePlayer::FDefaultGameMoviePlayer()
-	: FTickableObjectRenderThread(false)
+	: FTickableObjectRenderThread(false, true)
 	, SyncMechanism(NULL)
 	, MovieStreamingIsDone(1)
 	, LoadingIsDone(1)
@@ -83,10 +128,10 @@ void FDefaultGameMoviePlayer::Initialize()
 	TSharedRef<SWindow> GameWindow = UGameEngine::CreateGameWindow();
 
 	TSharedPtr<SViewport> MovieViewport;
-	LoadingScreenContents = SNew(SBorder)
-		.BorderImage( FCoreStyle::Get().GetBrush(TEXT("BlackBrush")) )
+
+	LoadingScreenContents = SNew(SDefaultMovieBorder)	
+		.OnKeyDown(this, &FDefaultGameMoviePlayer::OnLoadingScreenKeyDown)
 		.OnMouseButtonDown(this, &FDefaultGameMoviePlayer::OnLoadingScreenMouseButtonDown)
-		.Padding(0)
 		[
 			SNew(SOverlay)
 			+SOverlay::Slot()
@@ -128,6 +173,8 @@ void FDefaultGameMoviePlayer::Initialize()
 
 void FDefaultGameMoviePlayer::Shutdown()
 {
+	StopMovie();
+	WaitForMovieToFinish();
 
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(UnregisterMoviePlayerTickable, FDefaultGameMoviePlayer*, MoviePlayer, this,
 	{
@@ -206,7 +253,10 @@ void FDefaultGameMoviePlayer::StopMovie()
 {
 	LastPlayTime = 0;
 	bUserCalledFinish = true;
-	LoadingScreenWidgetHolder->SetContent( SNullWidget::NullWidget );
+	if (LoadingScreenWidgetHolder.IsValid())
+	{
+		LoadingScreenWidgetHolder->SetContent( SNullWidget::NullWidget );
+	}
 }
 
 void FDefaultGameMoviePlayer::WaitForMovieToFinish()
@@ -228,11 +278,12 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 		}
 		
 		const bool bAutoCompleteWhenLoadingCompletes = LoadingScreenAttributes.bAutoCompleteWhenLoadingCompletes;
+		const bool bWaitForManualStop = LoadingScreenAttributes.bWaitForManualStop;
+		bUserCalledFinish = true;
 
 		FSlateApplication& SlateApp = FSlateApplication::Get();
-
 		// Continue to wait until the user calls finish (if enabled) or when loading completes or the minimum enforced time (if any) has been reached.
-		while ( !bUserCalledFinish && ( (!bEnforceMinimumTime && !IsMovieStreamingFinished() && !bAutoCompleteWhenLoadingCompletes ) || ( bEnforceMinimumTime &&  (FPlatformTime::Seconds() - LastPlayTime) < LoadingScreenAttributes.MinimumLoadingScreenDisplayTime ) ) )
+		while ( (bWaitForManualStop && !bUserCalledFinish) || (!bUserCalledFinish && ((!bEnforceMinimumTime && !IsMovieStreamingFinished() && !bAutoCompleteWhenLoadingCompletes) || (bEnforceMinimumTime && (FPlatformTime::Seconds() - LastPlayTime) < LoadingScreenAttributes.MinimumLoadingScreenDisplayTime))))
 		{
 			if (FSlateApplication::IsInitialized())
 			{
@@ -248,10 +299,24 @@ void FDefaultGameMoviePlayer::WaitForMovieToFinish()
 				// Gives widgets a chance to process any accumulated input
 				SlateApp.FinishedInputThisFrame();
 
+				float DeltaTime = SlateApp.GetDeltaTime();				
+
+				//pass this rather than doing ::Get() because the sharedptr isn't threadsafe.
+				ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+					WaitingTickStreamer,
+					FDefaultGameMoviePlayer*, MoviePlayer, this,
+					float, DeltaTime, DeltaTime,
+					{
+					MoviePlayer->TickStreamer(DeltaTime);
+				}
+				);
+				
 				SlateApp.Tick();
 
 				// Synchronize the game thread and the render thread so that the render thread doesn't get too far behind.
 				SlateApp.GetRenderer()->Sync();
+
+				FlushRenderingCommands();
 			}
 		}
 
@@ -308,24 +373,30 @@ bool FDefaultGameMoviePlayer::IsMovieStreamingFinished() const
 
 void FDefaultGameMoviePlayer::Tick( float DeltaTime )
 {
+	check(IsInRenderingThread());
 	if (LoadingScreenWindowPtr.IsValid() && RendererPtr.IsValid())
 	{
-		if (MovieStreamingIsPrepared() && !IsMovieStreamingFinished())
-		{
-			const bool bMovieIsDone = MovieStreamer->Tick(DeltaTime);
-			if (bMovieIsDone)
-			{
-				MovieStreamingIsDone.Set(1);
-			}
-		}
-
 		if (!IsLoadingFinished() && SyncMechanism)
 		{
 			if (SyncMechanism->IsSlateDrawPassEnqueued())
-			{
+			{				
+				TickStreamer(DeltaTime);
 				RendererPtr.Pin()->DrawWindows();
 				SyncMechanism->ResetSlateDrawPassEnqueued();
+				GRHICommandList.GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::FlushRHIThreadFlushResources);
 			}
+		}
+	}
+}
+
+void FDefaultGameMoviePlayer::TickStreamer(float DeltaTime)
+{	
+	if (MovieStreamingIsPrepared() && !IsMovieStreamingFinished())
+	{
+		const bool bMovieIsDone = MovieStreamer->Tick(DeltaTime);		
+		if (bMovieIsDone)
+		{
+			MovieStreamingIsDone.Set(1);
 		}
 	}
 }
@@ -427,6 +498,16 @@ EVisibility FDefaultGameMoviePlayer::GetViewportVisibility() const
 
 FReply FDefaultGameMoviePlayer::OnLoadingScreenMouseButtonDown(const FGeometry& Geometry, const FPointerEvent& PointerEvent)
 {
+	return OnAnyDown();
+}
+
+FReply FDefaultGameMoviePlayer::OnLoadingScreenKeyDown(const FGeometry& Geometry, const FKeyEvent& KeyEvent)
+{
+	return OnAnyDown();
+}
+
+FReply FDefaultGameMoviePlayer::OnAnyDown()
+{
 	if (IsLoadingFinished())
 	{
 		if (LoadingScreenAttributes.bMoviesAreSkippable)
@@ -446,7 +527,6 @@ FReply FDefaultGameMoviePlayer::OnLoadingScreenMouseButtonDown(const FGeometry& 
 
 	return FReply::Handled();
 }
-
 
 void FDefaultGameMoviePlayer::OnPreLoadMap()
 {

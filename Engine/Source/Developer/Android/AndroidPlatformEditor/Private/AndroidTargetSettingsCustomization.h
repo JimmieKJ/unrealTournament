@@ -24,6 +24,7 @@ private:
 
 	void BuildAppManifestSection(IDetailLayoutBuilder& DetailLayout);
 	void BuildIconSection(IDetailLayoutBuilder& DetailLayout);
+	void BuildLaunchImageSection(IDetailLayoutBuilder& DetailLayout);
 
 	// Navigates to the build files in the explorer or finder
 	FReply OpenBuildFolder();
@@ -53,6 +54,7 @@ private:
 	const FString GameProjectPropertiesPath;
 
 	TArray<struct FPlatformIconInfo> IconNames;
+	TArray<struct FPlatformIconInfo> LaunchImageNames;
 
 	// Is the manifest writable?
 	TAttribute<bool> SetupForPlatformAttribute;

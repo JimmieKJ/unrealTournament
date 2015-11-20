@@ -30,7 +30,7 @@ public:
 	 * @param UniqueId The unique id of the user who signed in. Null if no user signed in.
 	 * @param ControllerIndex The controller index of the controller that activated the login UI.
 	 */
-	DECLARE_DELEGATE_TwoParams(FOnLoginUIClosedDelegate, TSharedPtr<FUniqueNetId>, const int);
+	DECLARE_DELEGATE_TwoParams(FOnLoginUIClosedDelegate, TSharedPtr<const FUniqueNetId>, const int);
 
 	/**
 	 * Displays the UI that prompts the user for their login credentials. Each
@@ -61,7 +61,7 @@ public:
 	 *
 	 * @return true if it was able to show the UI, false if it failed
 	 */
-	virtual bool ShowInviteUI(int32 LocalUserNum) = 0;
+	virtual bool ShowInviteUI(int32 LocalUserNum, FName SessionMame = GameSessionName) = 0;
 
 	/**
 	 *	Displays the UI that shows a user's list of achievements

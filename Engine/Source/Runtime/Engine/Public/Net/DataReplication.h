@@ -130,7 +130,7 @@ public:
 
 	void StartBecomingDormant();
 
-	void CallRepNotifies();
+	void CallRepNotifies(bool bSkipIfChannelHasQueuedBunches);
 
 	void UpdateUnmappedObjects( bool & bOutHasMoreUnmapped );
 

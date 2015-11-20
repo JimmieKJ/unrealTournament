@@ -35,19 +35,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Components|Box")
 	FVector GetUnscaledBoxExtent() const;
 
-	// Begin UPrimitiveComponent interface.
+	//~ Begin UPrimitiveComponent Interface.
 	virtual bool IsZeroExtent() const override;
 	virtual FPrimitiveSceneProxy* CreateSceneProxy() override;
 	virtual struct FCollisionShape GetCollisionShape(float Inflation = 0.0f) const override;
-	// End UPrimitiveComponent interface.
+	//~ End UPrimitiveComponent Interface.
 
-	// Begin USceneComponent interface
+	//~ Begin USceneComponent Interface
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
-	// End USceneComponent interface
+	//~ End USceneComponent Interface
 
-	// Begin UShapeComponent interface
+	//~ Begin UShapeComponent Interface
 	virtual void UpdateBodySetup() override;
-	// End UShapeComponent interface
+	//~ End UShapeComponent Interface
 
 	// Sets the box extents without triggering a render or physics update.
 	FORCEINLINE void InitBoxExtent(const FVector& InBoxExtent) { BoxExtent = InBoxExtent; }

@@ -18,12 +18,12 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogBlueprintAutomationTests, Log, All);
 
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintCompileOnLoadTest, "Project.Blueprints.Compile-On-Load", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintInstancesTest, "Project.Blueprints.Instance Test", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintReparentTest, "System.Blueprints.Reparent", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FBlueprintRenameAndCloneTest, "Project.Blueprints.Rename And Clone", (EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_RequiresUser) )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FCompileBlueprintsTest, "Project.Blueprints.Compile Blueprints", EAutomationTestFlags::ATF_Editor )
-IMPLEMENT_COMPLEX_AUTOMATION_TEST( FCompileAnimBlueprintsTest, "Project.Blueprints.Compile Anims", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FBlueprintCompileOnLoadTest, "Project.Blueprints.Compile-On-Load", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FBlueprintInstancesTest, "Project.Blueprints.Instance Test", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FBlueprintReparentTest, "System.Blueprints.Reparent", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FBlueprintRenameAndCloneTest, "Project.Blueprints.Rename And Clone", (EAutomationTestFlags::EditorContext | EAutomationTestFlags::RequiresUser | EAutomationTestFlags::StressFilter))
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCompileBlueprintsTest, "Project.Blueprints.Compile Blueprints", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
+IMPLEMENT_COMPLEX_AUTOMATION_TEST(FCompileAnimBlueprintsTest, "Project.Blueprints.Compile Anims", EAutomationTestFlags::EditorContext | EAutomationTestFlags::StressFilter)
 
 class FBlueprintAutomationTestUtilities
 {
@@ -478,7 +478,6 @@ public:
 
 		bool bIsRegeneratingOnLoad = false;
 		bool bSkipGarbageCollection = true;
-		FBlueprintEditorUtils::RefreshAllNodes(BlueprintObj);
 		FKismetEditorUtilities::CompileBlueprint(BlueprintObj, bIsRegeneratingOnLoad, bSkipGarbageCollection);
 
 		if (BlueprintPackage != nullptr)
@@ -963,11 +962,6 @@ bool FBlueprintCompileOnLoadTest::RunTest(const FString& BlueprintAssetPath)
 				FArchiveReplaceObjectRef<UObject>(Subobj, ClassRedirects, /*bNullPrivateRefs=*/false, /*bIgnoreOuterRef=*/true, /*bIgnoreArchetypeRef=*/false);
 			}
 		}
-
-		UPackage* AssetPackage = ReloadedBlueprint->GetOutermost();
-		bool bHasUnsavedChanges = AssetPackage->IsDirty();
-		FBlueprintEditorUtils::RefreshAllNodes(ReloadedBlueprint);
-		AssetPackage->SetDirtyFlag(bHasUnsavedChanges);
 	}
 
 	// look for diffs between subsequent loads and log them as errors

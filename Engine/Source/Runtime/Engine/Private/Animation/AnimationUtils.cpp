@@ -436,7 +436,7 @@ bool FAnimationUtils::GetForcedRecompressionSetting()
 {																																							\
 	/* try the alternative compressor	*/																													\
 	(compressionalgorithm)->Reduce( AnimSeq, bOutput );																				\
-	const SIZE_T NewSize = AnimSeq->GetResourceSize(EResourceSizeMode::Exclusive);																												\
+	const SIZE_T NewSize = AnimSeq->GetResourceSize(EResourceSizeMode::Inclusive);																												\
 																																							\
 	/* compute the savings and compression error*/																											\
 	const SIZE_T MemorySavingsFromOriginal = OriginalSize - NewSize;																									\
@@ -489,7 +489,7 @@ bool FAnimationUtils::GetForcedRecompressionSetting()
 		AnimSeq->ScaleCodec = SavedScaleCodec;																												\
 		AnimationFormat_SetInterfaceLinks(*AnimSeq);																										\
 																																							\
-		const SIZE_T RestoredSize = AnimSeq->GetResourceSize(EResourceSizeMode::Exclusive);																										\
+		const SIZE_T RestoredSize = AnimSeq->GetResourceSize(EResourceSizeMode::Inclusive);																										\
 		check(RestoredSize == CurrentSize);																													\
 	}																																						\
 	else																																					\
@@ -685,7 +685,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 		bool const bTryAlternateCompressor = MasterTolerance > 0.0f;
 
 		// Get the current size
-		int32 OriginalSize = AnimSeq->GetResourceSize(EResourceSizeMode::Exclusive);
+		int32 OriginalSize = AnimSeq->GetResourceSize(EResourceSizeMode::Inclusive);
 		TotalSizeBefore += OriginalSize;
 
 		// Estimate total uncompressed
@@ -721,14 +721,14 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 			}
 
 			OriginalCompressionAlgorithm->Reduce( AnimSeq, bOutput );
-			AfterOriginalRecompression = AnimSeq->GetResourceSize(EResourceSizeMode::Exclusive);
+			AfterOriginalRecompression = AnimSeq->GetResourceSize(EResourceSizeMode::Inclusive);
 
 			// figure out our current compression error
 			FAnimationUtils::ComputeCompressionError(AnimSeq, BoneData, OriginalErrorStats);
 		}
 		else
 		{
-			AfterOriginalRecompression = AnimSeq->GetResourceSize(EResourceSizeMode::Exclusive);
+			AfterOriginalRecompression = AnimSeq->GetResourceSize(EResourceSizeMode::Inclusive);
 			OriginalErrorStats = TrueOriginalErrorStats;
 		}
  
@@ -764,7 +764,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 				++TotalRecompressions;
 
 				// Prepare to compress
-				int32 CurrentSize = AnimSeq->GetResourceSize(EResourceSizeMode::Exclusive);
+				int32 CurrentSize = AnimSeq->GetResourceSize(EResourceSizeMode::Inclusive);
 				int32* WinningCompressorCounter = NULL;
 				float* WinningCompressorErrorSum = NULL;
 				int32* WinningCompressorMarginalSavingsSum = NULL;
@@ -1254,7 +1254,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 				}
 
 				// Make sure we got that right.
-				check(CurrentSize == AnimSeq->GetResourceSize(EResourceSizeMode::Exclusive));
+				check(CurrentSize == AnimSeq->GetResourceSize(EResourceSizeMode::Inclusive));
 				TotalSizeNow += CurrentSize;
 
 				PctSaving = TotalSizeBefore > 0 ? 100.f - (100.f * float(TotalSizeNow) / float(TotalSizeBefore)) : 0.f;
@@ -1336,7 +1336,7 @@ void FAnimationUtils::CompressAnimSequenceExplicit(
 		// Do not recompress - Still take into account size for stats.
 		else
 		{
-			TotalSizeNow += AnimSeq->GetResourceSize(EResourceSizeMode::Exclusive);
+			TotalSizeNow += AnimSeq->GetResourceSize(EResourceSizeMode::Inclusive);
 		}
 	}
 	else

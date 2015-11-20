@@ -801,12 +801,12 @@ bool FMatineeViewportClient::InputKey(FViewport* Viewport, int32 ControllerId, F
 						TSharedPtr< SWindow > Parent = FSlateApplication::Get().GetActiveTopLevelWindow(); 
 						if ( Parent.IsValid() )
 						{
-								FSlateApplication::Get().PushMenu(
+							FSlateApplication::Get().PushMenu(
 								Parent.ToSharedRef(),
+								FWidgetPath(),
 								Menu.ToSharedRef(), 
 								FSlateApplication::Get().GetCursorPos(), 
-								FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu)
-							);
+								FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 						}
 					}
 				}

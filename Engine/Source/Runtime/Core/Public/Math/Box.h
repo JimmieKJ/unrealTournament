@@ -337,6 +337,18 @@ public:
 	}
 
 	/** 
+	 * Checks whether the given location is inside or on this box.
+	 * 
+	 * @param In The location to test for inside the bounding volume.
+	 * @return true if location is inside this volume.
+	 * @see IsInsideXY
+	 */
+	bool IsInsideOrOn( const FVector& In ) const
+	{
+		return ((In.X >= Min.X) && (In.X <= Max.X) && (In.Y >= Min.Y) && (In.Y <= Max.Y) && (In.Z >= Min.Z) && (In.Z <= Max.Z));
+	}
+
+	/** 
 	 * Checks whether a given box is fully encapsulated by this box.
 	 * 
 	 * @param Other The box to test for encapsulation within the bounding volume.
@@ -432,6 +444,12 @@ public:
 	friend FArchive& operator<<( FArchive& Ar, FBox& Box )
 	{
 		return Ar << Box.Min << Box.Max << Box.IsValid;
+	}
+
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
 	}
 };
 

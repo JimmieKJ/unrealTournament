@@ -265,9 +265,16 @@ namespace UnrealVS
 
 				if (ProjectRefMatch != null && ProjectRefMatch.Project != null)
 				{
-					// Switch to this project!
+					// Switch to this project using the standard SDK method set_StartupProject
 					var ProjectHierarchy = Utils.ProjectToHierarchyObject(ProjectRefMatch.Project);
 					UnrealVSPackage.Instance.SolutionBuildManager.set_StartupProject(ProjectHierarchy);
+
+					// Select in solution exp and set as startup project
+					// This forces the .suo to save the project change
+					if (Utils.SelectProjectInSolutionExplorer(ProjectRefMatch.Project))
+					{
+						UnrealVSPackage.Instance.DTE.ExecuteCommand("Project.SetasStartUpProject");
+					}
 				}					
 			}
 		}

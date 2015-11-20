@@ -34,20 +34,20 @@ public:
 		StencilingGeometryParameters.Bind(Initializer.ParameterMap);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView* View, const FLightSceneInfo* LightSceneInfo )
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FLightSceneInfo* LightSceneInfo )
 	{
-		FMaterialShader::SetParameters(RHICmdList, GetVertexShader(), *View);
+		FMaterialShader::SetParameters(RHICmdList, GetVertexShader(), View);
 		
 		// Light functions are projected using a bounding sphere.
 		// Calculate transform for bounding stencil sphere.
 		FSphere LightBounds = LightSceneInfo->Proxy->GetBoundingSphere();
 		if (LightSceneInfo->Proxy->GetLightType() == LightType_Directional)
 		{
-			LightBounds.Center = View->ViewMatrices.ViewOrigin;
+			LightBounds.Center = View.ViewMatrices.ViewOrigin;
 		}
 
 		FVector4 StencilingSpherePosAndScale;
-		StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(StencilingSpherePosAndScale, LightBounds, View->ViewMatrices.PreViewTranslation);
+		StencilingGeometry::GStencilSphereVertexBuffer.CalcTransform(StencilingSpherePosAndScale, LightBounds, View.ViewMatrices.PreViewTranslation);
 		StencilingGeometryParameters.Set(RHICmdList, this, StencilingSpherePosAndScale);
 	}
 
@@ -88,34 +88,49 @@ public:
 	FLightFunctionPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
 		: FMaterialShader(Initializer)
 	{
-		ScreenToLight.Bind(Initializer.ParameterMap,TEXT("ScreenToLight"));
+		SvPositionToLight.Bind(Initializer.ParameterMap,TEXT("SvPositionToLight"));
 		LightFunctionParameters.Bind(Initializer.ParameterMap);
 		LightFunctionParameters2.Bind(Initializer.ParameterMap,TEXT("LightFunctionParameters2"));
 		DeferredParameters.Bind(Initializer.ParameterMap);
 	}
 
-	void SetParameters(FRHICommandList& RHICmdList, const FSceneView* View, const FLightSceneInfo* LightSceneInfo, const FMaterialRenderProxy* MaterialProxy, bool bRenderingPreviewShadowIndicator, float ShadowFadeFraction )
+	void SetParameters(FRHICommandList& RHICmdList, const FSceneView& View, const FLightSceneInfo* LightSceneInfo, const FMaterialRenderProxy* MaterialProxy, bool bRenderingPreviewShadowIndicator, float ShadowFadeFraction )
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
-		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View->GetFeatureLevel()), *View, true, ESceneRenderTargetsMode::SetTextures);
+		FMaterialShader::SetParameters(RHICmdList, ShaderRHI, MaterialProxy, *MaterialProxy->GetMaterial(View.GetFeatureLevel()), View, true, ESceneRenderTargetsMode::SetTextures);
 
 		// Set the transform from screen space to light space.
-		if ( ScreenToLight.IsBound() )
+		if ( SvPositionToLight.IsBound() )
 		{
 			const FVector Scale = LightSceneInfo->Proxy->GetLightFunctionScale();
 			// Switch x and z so that z of the user specified scale affects the distance along the light direction
 			const FVector InverseScale = FVector( 1.f / Scale.Z, 1.f / Scale.Y, 1.f / Scale.X );
 			const FMatrix WorldToLight = LightSceneInfo->Proxy->GetWorldToLight() * FScaleMatrix(FVector(InverseScale));	
-			const FMatrix ScreenToLightValue = 
-				FMatrix(
-					FPlane(1,0,0,0),
-					FPlane(0,1,0,0),
-					FPlane(0,0,View->ViewMatrices.ProjMatrix.M[2][2],1),
-					FPlane(0,0,View->ViewMatrices.ProjMatrix.M[3][2],0))
-				* View->InvViewProjectionMatrix * WorldToLight;
 
-			SetShaderValue(RHICmdList, ShaderRHI, ScreenToLight, ScreenToLightValue );
+			FVector2D InvViewSize = FVector2D(1.0f / View.ViewRect.Width(), 1.0f / View.ViewRect.Height());
+
+			// setup a matrix to transform float4(SvPosition.xyz,1) directly to Light (quality, performance as we don't need to convert or use interpolator)
+
+			//	new_xy = (xy - ViewRectMin.xy) * ViewSizeAndInvSize.zw * float2(2,-2) + float2(-1, 1);
+
+			//  transformed into one MAD:  new_xy = xy * ViewSizeAndInvSize.zw * float2(2,-2)      +       (-ViewRectMin.xy) * ViewSizeAndInvSize.zw * float2(2,-2) + float2(-1, 1);
+
+			float Mx = 2.0f * InvViewSize.X;
+			float My = -2.0f * InvViewSize.Y;
+			float Ax = -1.0f - 2.0f * View.ViewRect.Min.X * InvViewSize.X;
+			float Ay = 1.0f + 2.0f * View.ViewRect.Min.Y * InvViewSize.Y;
+
+			// todo: we could use InvTranslatedViewProjectionMatrix and TranslatedWorldToLight for better quality
+			const FMatrix SvPositionToLightValue = 
+				FMatrix(
+					FPlane(Mx,  0,   0,  0),
+					FPlane( 0, My,   0,  0),
+					FPlane( 0,  0,   1,  0),
+					FPlane(Ax, Ay,   0,  1)
+				) * View.InvViewProjectionMatrix * WorldToLight;
+
+			SetShaderValue(RHICmdList, ShaderRHI, SvPositionToLight, SvPositionToLightValue );
 		}
 
 		LightFunctionParameters.Set(RHICmdList, ShaderRHI, LightSceneInfo, ShadowFadeFraction);
@@ -125,13 +140,13 @@ public:
 			LightSceneInfo->Proxy->GetLightFunctionDisabledBrightness(),
 			bRenderingPreviewShadowIndicator ? 1.0f : 0.0f));
 
-		DeferredParameters.Set(RHICmdList, ShaderRHI, *View);
+		DeferredParameters.Set(RHICmdList, ShaderRHI, View);
 	}
 
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FMaterialShader::Serialize(Ar);
-		Ar << ScreenToLight;
+		Ar << SvPositionToLight;
 		Ar << LightFunctionParameters;
 		Ar << LightFunctionParameters2;
 		Ar << DeferredParameters;
@@ -139,7 +154,7 @@ public:
 	}
 
 private:
-	FShaderParameter ScreenToLight;
+	FShaderParameter SvPositionToLight;
 	FLightFunctionSharedParameters LightFunctionParameters;
 	FShaderParameter LightFunctionParameters2;
 	FDeferredPixelShaderParameters DeferredParameters;
@@ -240,7 +255,7 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 
 	if (MaterialProxy && MaterialProxy->GetMaterial(Scene->GetFeatureLevel())->IsLightFunction())
 	{
-		GSceneRenderTargets.BeginRenderingLightAttenuation(RHICmdList);
+		FSceneRenderTargets::Get(RHICmdList).BeginRenderingLightAttenuation(RHICmdList);
 
 		bRenderedLightFunction = true;
 
@@ -324,8 +339,8 @@ bool FDeferredShadingSceneRenderer::RenderLightFunctionForMaterial(FRHICommandLi
 
 					// Render a bounding light sphere.
 					RHICmdList.SetLocalBoundShaderState(LightFunctionBoundShaderState);
-					VertexShader->SetParameters(RHICmdList, &View, LightSceneInfo);
-					PixelShader->SetParameters(RHICmdList, &View, LightSceneInfo, MaterialProxy, bRenderingPreviewShadowsIndicator, FadeAlpha);
+					VertexShader->SetParameters(RHICmdList, View, LightSceneInfo);
+					PixelShader->SetParameters(RHICmdList, View, LightSceneInfo, MaterialProxy, bRenderingPreviewShadowsIndicator, FadeAlpha);
 
 					// Project the light function using a sphere around the light
 					//@todo - could use a cone for spotlights

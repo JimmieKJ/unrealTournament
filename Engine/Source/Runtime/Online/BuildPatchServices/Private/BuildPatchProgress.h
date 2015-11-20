@@ -14,8 +14,11 @@ namespace EBuildPatchProgress
 {
 	enum Type
 	{
+		// The patch process is waiting for other installs
+		Queued = 0,
+
 		// The patch process is initializing
-		Initializing = 0,
+		Initializing,
 
 		// The patch process is enumerating existing staged data
 		Resuming,

@@ -19,9 +19,9 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 	bAllowScaling = InArgs._AllowScaling;
 
 
-	OnJSQueryReceived = InArgs._OnJSQueryReceived;
-	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
-	OnBeforeBrowse = InArgs._OnBeforeBrowse;
+//	OnJSQueryReceived = InArgs._OnJSQueryReceived;
+//	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
+//	OnBeforeBrowse = InArgs._OnBeforeBrowse;
 	OnBeforePopup = InArgs._OnBeforePopup;
 
 	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
@@ -76,9 +76,9 @@ void SUTWebBrowserPanel::Browse(FString URL)
 			.InitialURL(URL)
 			.ShowControls(ShowControls)
 			.ViewportSize(DesiredViewportSize)
-			.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateSP(this, &SUTWebBrowserPanel::QueryReceived))
-			.OnJSQueryCanceled(FOnJSQueryCanceledDelegate::CreateSP(this, &SUTWebBrowserPanel::QueryCancelled))
-			.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
+//			.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateSP(this, &SUTWebBrowserPanel::QueryReceived))
+	//		.OnJSQueryCanceled(FOnJSQueryCanceledDelegate::CreateSP(this, &SUTWebBrowserPanel::QueryCancelled))
+		//	.OnBeforeBrowse(FOnBeforeBrowseDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
 			.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
 		];
 	}
@@ -124,7 +124,7 @@ void SUTWebBrowserPanel::OnHidePanel()
 		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, UserSettings->GetSoundClassVolume(EUTSoundClass::Music));
 	}
 }
-
+/*
 bool SUTWebBrowserPanel::QueryReceived( int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate )
 {
 	if (OnJSQueryReceived.IsBound())
@@ -133,20 +133,20 @@ bool SUTWebBrowserPanel::QueryReceived( int64 QueryId, FString QueryString, bool
 	}
 	return false;
 }
-
+*/
 void SUTWebBrowserPanel::QueryCancelled(int64 QueryId)
 {
-	OnJSQueryCanceled.ExecuteIfBound(QueryId);
+//	OnJSQueryCanceled.ExecuteIfBound(QueryId);
 }
 
 
 bool SUTWebBrowserPanel::BeforeBrowse(FString TargetURL, bool bRedirect)
-{
+{/*
 	if (OnBeforeBrowse.IsBound())
 	{
 		return OnBeforeBrowse.Execute(TargetURL, bRedirect);
 	}
-
+	*/
 	return false;
 }
 

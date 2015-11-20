@@ -21,6 +21,12 @@
 #include "GameFramework/GameMode.h"
 #include "Engine/ChildConnection.h"
 #include "Engine/GameInstance.h"
+	
+#if WITH_EDITOR
+	#include "IMovieSceneCapture.h"
+	#include "MovieSceneCaptureModule.h"
+	#include "MovieSceneCaptureSettings.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogGameMode, Log, All);
 
@@ -52,6 +58,7 @@ AGameMode::AGameMode(const FObjectInitializer& ObjectInitializer)
 	DefaultPawnClass = ADefaultPawn::StaticClass();
 	PlayerControllerClass = APlayerController::StaticClass();
 	SpectatorClass = ASpectatorPawn::StaticClass();
+	ReplaySpectatorPlayerControllerClass = APlayerController::StaticClass();
 	EngineMessageClass = UEngineMessage::StaticClass();
 	GameStateClass = AGameState::StaticClass();
 	CurrentID = 1;
@@ -282,7 +289,7 @@ void AGameMode::PostLogin( APlayerController* NewPlayer )
 	bool HidePlayer=false, HideHUD=false, DisableMovement=false, DisableTurning=false;
 
 	//Check to see if we should start in cinematic mode (matinee movie capture)
-	if(ShouldStartInCinematicMode(HidePlayer, HideHUD, DisableMovement, DisableTurning))
+	if(ShouldStartInCinematicMode(NewPlayer, HidePlayer, HideHUD, DisableMovement, DisableTurning))
 	{
 		NewPlayer->SetCinematicMode(true, HidePlayer, HideHUD, DisableMovement, DisableTurning);
 	}
@@ -294,22 +301,34 @@ void AGameMode::PostLogin( APlayerController* NewPlayer )
 	K2_PostLogin(NewPlayer);
 }
 
-bool AGameMode::ShouldStartInCinematicMode(bool& OutHidePlayer,bool& OutHideHUD,bool& OutDisableMovement,bool& OutDisableTurning)
+bool AGameMode::ShouldStartInCinematicMode(APlayerController* Player, bool& OutHidePlayer,bool& OutHideHUD,bool& OutDisableMovement,bool& OutDisableTurning)
 {
-	bool StartInCinematicMode = false;
-	if(GEngine->MatineeScreenshotOptions.bStartWithMatineeCapture)
+	ULocalPlayer* LocPlayer = Player->GetLocalPlayer();
+	if (!LocPlayer)
 	{
-		GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("CinematicMode"), StartInCinematicMode, GEditorPerProjectIni );
-		if(StartInCinematicMode)
+		return false;
+	}
+
+#if WITH_EDITOR
+	// If we have an active movie scene capture, we can take the settings from that
+	if(LocPlayer->ViewportClient && LocPlayer->ViewportClient->Viewport)
+	{
+		if(auto* MovieSceneCapture = IMovieSceneCaptureModule::Get().GetFirstActiveMovieSceneCapture())
 		{
-			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("DisableMovement"), OutDisableMovement, GEditorPerProjectIni );
-			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("DisableTurning"), OutDisableTurning, GEditorPerProjectIni );
-			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("HidePlayer"), OutHidePlayer, GEditorPerProjectIni );
-			GConfig->GetBool( TEXT("MatineeCreateMovieOptions"), TEXT("HideHUD"), OutHideHUD, GEditorPerProjectIni );
-			return StartInCinematicMode;
+			const FMovieSceneCaptureSettings& Settings = MovieSceneCapture->GetSettings();
+			if (Settings.bCinematicMode)
+			{
+				OutDisableMovement = !Settings.bAllowMovement;
+				OutDisableTurning = !Settings.bAllowTurning;
+				OutHidePlayer = !Settings.bShowPlayer;
+				OutHideHUD = !Settings.bShowHUD;
+				return true;
+			}
 		}
 	}
-	return StartInCinematicMode;
+#endif
+
+	return false;
 }
 
 
@@ -357,10 +376,11 @@ AActor* AGameMode::FindPlayerStart_Implementation( AController* Player, const FS
 	// if incoming start is specified, then just use it
 	if( !IncomingName.IsEmpty() )
 	{
+		const FName IncomingPlayerStartTag = FName(*IncomingName);
 		for (TActorIterator<APlayerStart> It(World); It; ++It)
 		{
 			APlayerStart* Start = *It;
-			if (Start && Start->PlayerStartTag == FName(*IncomingName))
+			if (Start && Start->PlayerStartTag == IncomingPlayerStartTag)
 			{
 				return Start;
 			}
@@ -379,25 +399,9 @@ AActor* AGameMode::FindPlayerStart_Implementation( AController* Player, const FS
 		// no player start found
 		UE_LOG(LogGameMode, Log, TEXT("Warning - PATHS NOT DEFINED or NO PLAYERSTART with positive rating"));
 
-		// Search all loaded levels for possible player start object
-		for ( int32 LevelIndex = 0; LevelIndex < World->GetNumLevels(); ++LevelIndex )
-		{
-			ULevel* Level = World->GetLevel( LevelIndex );
-			for ( int32 ActorIndex = 0; ActorIndex < Level->Actors.Num(); ++ActorIndex )
-			{
-				AActor* NavObject = Cast<AActor>(Level->Actors[ActorIndex]);
-				if ( NavObject )
-				{
-					BestStart = NavObject;
-					break;
-				}
-			}
-
-			if (BestStart != NULL)
-			{
-				break;
-			}
-		}
+		// This is a bit odd, but there was a complex chunk of code that in the end always resulted in this, so we may as well just 
+		// short cut it down to this.  Basically we are saying spawn at 0,0,0 if we didn't find a proper player start
+		BestStart = World->GetWorldSettings();
 	}
 
 	return BestStart;
@@ -619,8 +623,8 @@ void AGameMode::HandleMatchHasStarted()
 	GetWorldSettings()->NotifyMatchStarted();
 
 	// if passed in bug info, send player to right location
-	FString BugLocString = ParseOption(OptionsString, TEXT("BugLoc"));
-	FString BugRotString = ParseOption(OptionsString, TEXT("BugRot"));
+	const FString BugLocString = UGameplayStatics::ParseOption(OptionsString, TEXT("BugLoc"));
+	const FString BugRotString = UGameplayStatics::ParseOption(OptionsString, TEXT("BugRot"));
 	if( !BugLocString.IsEmpty() || !BugRotString.IsEmpty() )
 	{
 		for( FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator )
@@ -628,9 +632,6 @@ void AGameMode::HandleMatchHasStarted()
 			APlayerController* PlayerController = *Iterator;
 			if( PlayerController->CheatManager != NULL )
 			{
-				//`log( "BugLocString:" @ BugLocString );
-				//`log( "BugRotString:" @ BugRotString );
-
 				PlayerController->CheatManager->BugItGoString( BugLocString, BugRotString );
 			}
 		}
@@ -662,13 +663,10 @@ void AGameMode::HandleMatchHasEnded()
 {
 	GameSession->HandleMatchHasEnded();
 
-	// PLK - going to end replays on timer for UT
-	/*
 	if (IsHandlingReplays() && GetGameInstance() != nullptr)
 	{
 		GetGameInstance()->StopRecordingReplay();
 	}
-	*/
 }
 
 void AGameMode::StartToLeaveMap()
@@ -1014,17 +1012,17 @@ void AGameMode::SetBandwidthLimit(float AsyncIOBandwidthLimit)
 	GAsyncIOBandwidthLimit = AsyncIOBandwidthLimit;
 }
 
-FString AGameMode::InitNewPlayer(APlayerController* NewPlayerController, const TSharedPtr<FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
+FString AGameMode::InitNewPlayer(APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
 {
 	check(NewPlayerController);
 
 	FString ErrorMessage;
 
 	// Register the player with the session
-	GameSession->RegisterPlayer(NewPlayerController, UniqueId, HasOption(Options, TEXT("bIsFromInvite")));
+	GameSession->RegisterPlayer(NewPlayerController, UniqueId, UGameplayStatics::HasOption(Options, TEXT("bIsFromInvite")));
 
 	// Init player's name
-	FString InName = ParseOption(Options, TEXT("Name")).Left(20);
+	FString InName = UGameplayStatics::ParseOption(Options, TEXT("Name")).Left(20);
 	if (InName.IsEmpty())
 	{
 		InName = FString::Printf(TEXT("%s%i"), *DefaultPlayerName.ToString(), NewPlayerController->PlayerState->PlayerId);
@@ -1055,7 +1053,7 @@ bool AGameMode::MustSpectate_Implementation(APlayerController* NewPlayerControll
 	return NewPlayerController->PlayerState->bOnlySpectator;
 }
 
-APlayerController* AGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<FUniqueNetId>& UniqueId, FString& ErrorMessage)
+APlayerController* AGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	ErrorMessage = GameSession->ApproveLogin(Options);
 	if (!ErrorMessage.IsEmpty())
@@ -1081,7 +1079,7 @@ APlayerController* AGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, con
 	}
 
 	// Set up spectating
-	bool bSpectator = FCString::Stricmp(*ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+	bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
 	if (bSpectator || MustSpectate(NewPlayerController))
 	{
 		NewPlayerController->StartSpectatingOnly();
@@ -1094,7 +1092,6 @@ APlayerController* AGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, con
 
 void AGameMode::DisplayDebug(UCanvas* Canvas, const FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
 {
-	Canvas->SetDrawColor(255,255,255);
 }
 
 
@@ -1179,82 +1176,27 @@ void AGameMode::ClearPause()
 
 bool AGameMode::GrabOption( FString& Options, FString& Result )
 {
-	if( Options.Left(1)==TEXT("?") )
-	{
-		// Get result.
-		Result = Options.Mid(1, MAX_int32);
-		if (Result.Contains(TEXT("?"), ESearchCase::CaseSensitive))
-		{
-			Result = Result.Left(Result.Find(TEXT("?"), ESearchCase::CaseSensitive));
-		}
-
-		// Update options.
-		Options = Options.Mid(1, MAX_int32);
-		if (Options.Contains(TEXT("?"), ESearchCase::CaseSensitive))
-		{
-			Options = Options.Mid(Options.Find(TEXT("?"), ESearchCase::CaseSensitive), MAX_int32);
-		}
-		else
-		{
-			Options = TEXT("");
-		}
-
-		return true;
-	}
-	else return false;
+	return UGameplayStatics::GrabOption(Options, Result);
 }
 
 void AGameMode::GetKeyValue( const FString& Pair, FString& Key, FString& Value )
 {
-	const int32 EqualSignIndex = Pair.Find(TEXT("="), ESearchCase::CaseSensitive);
-	if( EqualSignIndex != INDEX_NONE )
-	{
-		Key = Pair.Left(EqualSignIndex);
-		Value = Pair.Mid(EqualSignIndex + 1, MAX_int32);
-	}
-	else
-	{
-		Key = Pair;
-		Value = TEXT("");
-	}
+	return UGameplayStatics::GetKeyValue(Pair, Key, Value);
 }
 
-FString AGameMode::ParseOption( const FString& Options, const FString& InKey )
+FString AGameMode::ParseOption( FString Options, const FString& InKey )
 {
-	FString OptionsMod = Options;
-	FString Pair, Key, Value;
-	while( GrabOption( OptionsMod, Pair ) )
-	{
-		GetKeyValue( Pair, Key, Value );
-		if( FCString::Stricmp(*Key, *InKey) == 0 )
-			return Value;
-	}
-	return TEXT("");
+	return UGameplayStatics::ParseOption(Options, InKey);
 }
 
-bool AGameMode::HasOption( const FString& Options, const FString& InKey )
+bool AGameMode::HasOption( FString Options, const FString& InKey )
 {
-	FString OptionsMod = Options;
-	FString Pair, Key, Value;
-	while( GrabOption( OptionsMod, Pair ) )
-	{
-		GetKeyValue( Pair, Key, Value );
-		if( FCString::Stricmp(*Key, *InKey) == 0 )
-		{
-			return true;
-		}
-	}
-	return false;
+	return UGameplayStatics::HasOption(Options, InKey);
 }
 
 int32 AGameMode::GetIntOption( const FString& Options, const FString& ParseString, int32 CurrentValue)
 {
-	FString InOpt = ParseOption( Options, ParseString );
-	if ( !InOpt.IsEmpty() )
-	{
-		return FCString::Atoi(*InOpt);
-	}
-	return CurrentValue;
+	return UGameplayStatics::GetIntOption(Options, ParseString, CurrentValue);
 }
 
 FString AGameMode::GetDefaultGameClassPath(const FString& MapName, const FString& Options, const FString& Portal) const
@@ -1302,7 +1244,7 @@ APlayerController* AGameMode::ProcessClientTravel( FString& FURL, FGuid NextMapG
 	return LocalPlayerController;
 }
 
-void AGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	ErrorMessage = GameSession->ApproveLogin(Options);
 }
@@ -1343,10 +1285,11 @@ APawn* AGameMode::SpawnDefaultPawnFor_Implementation(AController* NewPlayer, AAc
 	FActorSpawnParameters SpawnInfo;
 	SpawnInfo.Instigator = Instigator;	
 	SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save default player pawns into a map
-	APawn* ResultPawn = GetWorld()->SpawnActor<APawn>(GetDefaultPawnClassForController(NewPlayer), StartLocation, StartRotation, SpawnInfo );
+	UClass* PawnClass = GetDefaultPawnClassForController(NewPlayer);
+	APawn* ResultPawn = GetWorld()->SpawnActor<APawn>(PawnClass, StartLocation, StartRotation, SpawnInfo );
 	if ( ResultPawn == NULL )
 	{
-		UE_LOG(LogGameMode, Warning, TEXT("Couldn't spawn Pawn of type %s at %s"), *GetNameSafe(DefaultPawnClass), *StartSpot->GetName());
+		UE_LOG(LogGameMode, Warning, TEXT("Couldn't spawn Pawn of type %s at %s"), *GetNameSafe(PawnClass), *StartSpot->GetName());
 	}
 	return ResultPawn;
 }
@@ -1456,7 +1399,7 @@ bool AGameMode::CanSpectate_Implementation( APlayerController* Viewer, APlayerSt
 
 void AGameMode::ChangeName( AController* Other, const FString& S, bool bNameChange )
 {
-	if( !S.IsEmpty() )
+	if( Other && !S.IsEmpty() )
 	{
 		Other->PlayerState->SetPlayerName(S);
 	}
@@ -1624,7 +1567,7 @@ void AGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* 
 		}
 	}
 
-	PlayerState->Destroy();
+	PlayerState->OnDeactivated();
 }
 
 
@@ -1666,6 +1609,7 @@ bool AGameMode::FindInactivePlayer(APlayerController* PC)
 			// in UnregisterPlayerWithSession()
 			OldPlayerState->SetUniqueId(NULL);
 			OldPlayerState->Destroy();
+			PC->PlayerState->OnReactivated();
 			return true;
 		}
 	}

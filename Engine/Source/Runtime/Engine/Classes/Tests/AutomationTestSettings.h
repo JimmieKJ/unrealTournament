@@ -208,23 +208,6 @@ struct FBuildPromotionOpenAssetSettings
 };
 
 /**
-* Holds settings for the blueprint stage of the build promotion test
-*/
-USTRUCT()
-struct FBuildPromotionBlueprintSettings
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** The starting mesh for the blueprint **/
-	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
-	FFilePath FirstMeshPath;
-
-	/** The mesh to set on the blueprint after the delay **/
-	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
-	FFilePath SecondMeshPath;
-};
-
-/**
 * Holds settings for the new project stage of the build promotion test
 */
 USTRUCT()
@@ -240,6 +223,64 @@ struct FBuildPromotionNewProjectSettings
 	UPROPERTY(EditAnywhere, Category = Automation)
 	FString NewProjectNameOverride;
 };
+
+/**
+* Holds settings for the material editor build promotion tests
+*/
+USTRUCT()
+struct FMaterialEditorPromotionSettings
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Default material asset to apply to static meshes **/
+	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
+	FFilePath DefaultMaterialAsset;
+
+	/** Default material asset to apply to static meshes **/
+	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
+	FFilePath DefaultDiffuseTexture;
+
+	/** Default material asset to apply to static meshes **/
+	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
+	FFilePath DefaultNormalTexture;
+
+};
+
+
+/**
+* Holds settings for the particle editor build promotion tests
+*/
+USTRUCT()
+struct FParticleEditorPromotionSettings
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** Default particle asset to use for tests*/
+	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
+	FFilePath DefaultParticleAsset;
+};
+
+/**
+* Holds settings for the blueprint editor build promotion tests
+*/
+USTRUCT()
+struct FBlueprintEditorPromotionSettings
+{
+	GENERATED_USTRUCT_BODY()
+
+	/** The starting mesh for the blueprint **/
+	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
+	FFilePath FirstMeshPath;
+
+	/** The mesh to set on the blueprint after the delay **/
+	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
+		FFilePath SecondMeshPath;
+
+	/** Default particle asset to use for tests*/
+	UPROPERTY(EditAnywhere, Category = Automation, meta = (FilePathFilter = "uasset"))
+	FFilePath DefaultParticleAsset;
+};
+
 
 /**
 * Holds settings for the editor build promotion test
@@ -260,10 +301,6 @@ struct FBuildPromotionTestSettings
 	/** Open assets settings **/
 	UPROPERTY(EditAnywhere, Category = Automation)
 	FBuildPromotionOpenAssetSettings	OpenAssets;
-
-	/** Blueprint settings **/
-	UPROPERTY(EditAnywhere, Category = Automation)
-	FBuildPromotionBlueprintSettings	BlueprintSettings;
 
 	/** New project settings **/
 	UPROPERTY(EditAnywhere, Category = Automation)
@@ -335,6 +372,24 @@ public:
 	*/
 	UPROPERTY(EditAnywhere, config, Category = Automation)
 	FBuildPromotionTestSettings BuildPromotionTest;
+
+	/**
+	* Material editor promotion test settings
+	*/
+	UPROPERTY(EditAnywhere, config, Category = Automation)
+	FMaterialEditorPromotionSettings MaterialEditorPromotionTest;
+
+	/**
+	* Particle editor promotion test settings
+	*/
+	UPROPERTY(EditAnywhere, config, Category = Automation)
+	FParticleEditorPromotionSettings ParticleEditorPromotionTest;
+
+	/**
+	* Blueprint editor promotion test settings
+	*/
+	UPROPERTY(EditAnywhere, config, Category = Automation)
+	FBlueprintEditorPromotionSettings BlueprintEditorPromotionTest;
 
 	/**
 	* Modules to load that have engine tests

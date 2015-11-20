@@ -7,6 +7,6 @@ void FAssetTypeActions_VectorFieldStatic::GetResolvedSourceFilePaths(const TArra
 	for (auto& Asset : TypeAssets)
 	{
 		const auto StaticVectorField = CastChecked<UVectorFieldStatic>(Asset);
-		OutSourceFilePaths.Add(FReimportManager::ResolveImportFilename(StaticVectorField->SourceFilePath, StaticVectorField));
+		StaticVectorField->AssetImportData->ExtractFilenames(OutSourceFilePaths);
 	}
 }

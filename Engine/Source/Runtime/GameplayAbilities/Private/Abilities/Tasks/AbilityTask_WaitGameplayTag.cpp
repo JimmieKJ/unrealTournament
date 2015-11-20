@@ -15,7 +15,7 @@ UAbilityTask_WaitGameplayTagAdded::UAbilityTask_WaitGameplayTagAdded(const FObje
 
 UAbilityTask_WaitGameplayTagAdded* UAbilityTask_WaitGameplayTagAdded::WaitGameplayTagAdd(UObject* WorldContextObject, FGameplayTag Tag, AActor* OptionalExternalTarget, bool OnlyTriggerOnce)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitGameplayTagAdded>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitGameplayTagAdded>(WorldContextObject);
 	MyObj->Tag = Tag;
 	MyObj->SetExternalTarget(OptionalExternalTarget);
 	MyObj->OnlyTriggerOnce = OnlyTriggerOnce;
@@ -61,7 +61,7 @@ UAbilityTask_WaitGameplayTagRemoved::UAbilityTask_WaitGameplayTagRemoved(const F
 
 UAbilityTask_WaitGameplayTagRemoved* UAbilityTask_WaitGameplayTagRemoved::WaitGameplayTagRemove(UObject* WorldContextObject, FGameplayTag Tag, AActor* OptionalExternalTarget, bool OnlyTriggerOnce)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitGameplayTagRemoved>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitGameplayTagRemoved>(WorldContextObject);
 	MyObj->Tag = Tag;
 	MyObj->SetExternalTarget(OptionalExternalTarget);
 	MyObj->OnlyTriggerOnce = OnlyTriggerOnce;

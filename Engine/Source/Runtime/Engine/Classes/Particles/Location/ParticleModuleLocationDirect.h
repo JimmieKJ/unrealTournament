@@ -44,18 +44,18 @@ class UParticleModuleLocationDirect : public UParticleModuleLocationBase
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void	PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void	Update(FParticleEmitterInstance* Owner, int32 Offset, float DeltaTime) override;
 	virtual uint32	RequiredBytes(FParticleEmitterInstance* Owner = NULL) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 };
 
 

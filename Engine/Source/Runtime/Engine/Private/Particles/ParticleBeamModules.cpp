@@ -1669,6 +1669,7 @@ void UParticleModuleBeamSource::PostEditChangeProperty(FPropertyChangedEvent& Pr
 
 void UParticleModuleBeamSource::AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp)
 {
+	check(IsInGameThread());
 	bool	bFound	= false;
 
 	for (int32 i = 0; i < PSysComp->InstanceParameters.Num(); i++)
@@ -2050,6 +2051,7 @@ void UParticleModuleBeamTarget::PostEditChangeProperty(FPropertyChangedEvent& Pr
 
 void UParticleModuleBeamTarget::AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp)
 {
+	check(IsInGameThread());
 	bool	bFound	= false;
 
 	for (int32 i = 0; i < PSysComp->InstanceParameters.Num(); i++)

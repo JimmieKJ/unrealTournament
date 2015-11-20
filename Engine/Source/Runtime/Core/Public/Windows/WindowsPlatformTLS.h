@@ -30,6 +30,7 @@ struct CORE_API FWindowsPlatformTLS
 	 */
 	static FORCEINLINE uint32 AllocTlsSlot(void)
 	{
+		static_assert(static_cast<uint32>(INDEX_NONE) == TLS_OUT_OF_INDEXES, "TLS_OUT_OF_INDEXES is different from INDEX_NONE, change FWindowsPlatformTLS::AllocTlsSlot() implementation.");
 		return ::TlsAlloc();
 	}
 

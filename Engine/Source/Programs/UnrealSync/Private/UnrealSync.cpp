@@ -5,6 +5,7 @@
 #include "P4DataCache.h"
 #include "P4Env.h"
 #include "XmlParser.h"
+#include "SettingsCache.h"
 
 #include "RequiredProgramMainCPPInclude.h"
 
@@ -29,7 +30,7 @@ bool FUnrealSync::RunDetachedUS(const FString& USPath, bool bDoNotRunFromCopy, b
 	return RunProcess(USPath, CommandLine);
 }
 
-bool FUnrealSync::DeleteIfExistsAndCopyFile(const FString& To, const FString& From)
+bool FUnrealSync::DeleteIfExistsAndCopy(const FString& To, const FString& From)
 {
 	auto& PlatformPhysical = IPlatformFile::GetPlatformPhysical();
 
@@ -38,8 +39,172 @@ bool FUnrealSync::DeleteIfExistsAndCopyFile(const FString& To, const FString& Fr
 		UE_LOG(LogUnrealSync, Warning, TEXT("Deleting existing file '%s' failed."), *To);
 		return false;
 	}
+	else if (PlatformPhysical.DirectoryExists(*To) && !PlatformPhysical.DeleteDirectoryRecursively(*To))
+	{
+		return false;
+	}
 
-	return PlatformPhysical.CopyFile(*To, *From);
+	if (PlatformPhysical.FileExists(*From))
+	{
+		return PlatformPhysical.CopyFile(*To, *From);
+	}
+	else if (PlatformPhysical.DirectoryExists(*From))
+	{
+		return PlatformPhysical.CopyDirectoryTree(*To, *From, true);
+	}
+
+	return false;
+}
+
+void FUnrealSync::DeleteStaleBinaries(const FOnSyncProgress& OnSyncProgress, bool bPreview)
+{
+	OnSyncProgress.Execute(TEXT("... obtaining P4 workspace have files.") LINE_TERMINATOR);
+
+	FString Haves;
+	FP4Env::RunP4Output(FString::Printf(TEXT("have %s/.../Binaries/..."), *FP4Env::Get().GetBranch()), Haves);
+
+	FRegexPattern HaveFilePattern(TEXT("\\s+//.+#\\d+ - (.+)"));
+	FRegexMatcher Matcher(HaveFilePattern, Haves);
+
+	TArray<FString> HaveFiles;
+
+	while (Matcher.FindNext())
+	{
+		FString HaveFile = Matcher.GetCaptureGroup(1);
+
+		FPaths::NormalizeFilename(HaveFile);
+
+#ifdef PLATFORM_WINDOWS
+		HaveFiles.Add(HaveFile.ToLower());
+#else
+		HaveFiles.Add(HaveFile);
+#endif
+	}
+
+	OnSyncProgress.Execute(TEXT("... searching file system and diffing with P4 have state.") LINE_TERMINATOR);
+
+	IPlatformFile& FS = IPlatformFile::GetPlatformPhysical();
+
+	FString BranchDir = FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::EngineDir(), TEXT("..")));
+	TArray<FString> ToDelete;
+	struct FPotentialStaleBinariesVisitor : public IPlatformFile::FDirectoryVisitor
+	{
+		FPotentialStaleBinariesVisitor(const FString& InBranchDir, const TArray<FString>& InP4HaveFiles, TArray<FString>& OutToDelete)
+			: BranchDir(InBranchDir), Output(OutToDelete), P4HaveFiles(InP4HaveFiles), FS(IPlatformFile::GetPlatformPhysical())
+		{
+			DirsBlacklist.Add(TEXT("Build"));
+			DirsBlacklist.Add(TEXT("Config"));
+			DirsBlacklist.Add(TEXT("Content"));
+			DirsBlacklist.Add(TEXT("DerivedDataCache"));
+			DirsBlacklist.Add(TEXT("Documentation"));
+			DirsBlacklist.Add(TEXT("Intermediate"));
+			DirsBlacklist.Add(TEXT("Saved"));
+			DirsBlacklist.Add(TEXT("Shaders"));
+			DirsBlacklist.Add(TEXT("Source"));
+		}
+
+		virtual bool Visit(const TCHAR* FilenameOrDirectory, bool bIsDirectory)
+		{
+
+#ifdef PLATFORM_WINDOWS
+			const ESearchCase::Type CaseSensitiveness = ESearchCase::IgnoreCase;
+#elif PLATFORM_LINUX || PLATFORM_MAC
+			const ESearchCase::Type CaseSensitiveness = ESearchCase::CaseSensitive;
+#endif
+
+			if (!bIsDirectory)
+			{
+				FString File(FilenameOrDirectory);
+
+				FString Filename = FPaths::GetBaseFilename(File);
+				FString Directory = FPaths::GetPath(File);
+				FString Extension = FPaths::GetExtension(File);
+
+				if (Directory.Contains(TEXT("Binaries"), CaseSensitiveness) &&
+					IsStaleBinaryExtension(Extension) &&
+					(
+						Filename.StartsWith(TEXT("UE4Editor")) ||
+						Filename.StartsWith(TEXT("UE4Game"))
+					))
+				{
+					FPaths::NormalizeFilename(File);
+#ifdef PLATFORM_WINDOWS
+					FString NormCaseFile = File.ToLower();
+#else
+					FString NormCaseFile = File;
+#endif
+					if (!P4HaveFiles.ContainsByPredicate([&NormCaseFile](const FString& Other)
+						{
+							return NormCaseFile.Equals(Other, ESearchCase::CaseSensitive);
+						}))
+					{
+						Output.Add(MoveTemp(File));
+					}
+				}
+			}
+			else
+			{
+				FString DirName = FPaths::GetBaseFilename(FilenameOrDirectory);
+
+				for (const auto& BlacklistedDirName : DirsBlacklist)
+				{
+					if (DirName.Equals(BlacklistedDirName, CaseSensitiveness))
+					{
+						return true;
+					}
+				}
+
+				FS.IterateDirectory(FilenameOrDirectory, *this);
+			}
+
+			return true;
+		}
+
+	private:
+		static bool IsStaleBinaryExtension(const FString& Extension)
+		{
+#ifdef PLATFORM_WINDOWS
+			return Extension.Equals(TEXT("pdb"), ESearchCase::IgnoreCase) ||
+				Extension.Equals(TEXT("exe"), ESearchCase::IgnoreCase) ||
+				Extension.Equals(TEXT("dll"), ESearchCase::IgnoreCase);
+#elif PLATFORM_LINUX
+			return Extension.Equals(TEXT("")) ||
+				Extension.Equals(TEXT("so"));
+#elif PLATFORM_MAC
+			return Extension.Equals(TEXT("")) ||
+				Extension.Equals(TEXT("dSYM")) ||
+				Extension.Equals(TEXT("dylib"));
+#endif
+		}
+
+		const FString& BranchDir;
+		TArray<FString>& Output;
+		const TArray<FString>& P4HaveFiles;
+		IPlatformFile& FS;
+
+		TArray<FString> DirsBlacklist;
+	} Visitor(BranchDir, HaveFiles, ToDelete);
+
+	FS.IterateDirectory(*BranchDir, Visitor);
+
+	if (bPreview)
+	{
+		for (const auto& FileToDelete : ToDelete)
+		{
+			OnSyncProgress.Execute(FString::Printf(TEXT("... would delete (preview) stale file %s") LINE_TERMINATOR, *FileToDelete));
+		}
+	}
+	else
+	{
+		for (const auto& FileToDelete : ToDelete)
+		{
+			OnSyncProgress.Execute(FString::Printf(TEXT("... deleting stale file %s") LINE_TERMINATOR, *FileToDelete));
+			if (!FS.DeleteFile(*FileToDelete))
+			{
+				OnSyncProgress.Execute(FString::Printf(TEXT("\t... failed to delete %s") LINE_TERMINATOR, *FileToDelete));
+			}
+		}
+	}
 }
 
 void FUnrealSync::RunUnrealSync(const TCHAR* CommandLine)
@@ -63,188 +228,11 @@ void FUnrealSync::RunUnrealSync(const TCHAR* CommandLine)
 		{
 			UE_LOG(LogUnrealSync, Fatal, TEXT("Error: %s"), *FUnrealSync::GetInitializationError());
 		}
-	}
-}
-
-FString FUnrealSync::GetLatestLabelForGame(const FString& GameName)
-{
-	auto Labels = GetPromotedLabelsForGame(GameName);
-	return Labels->Num() == 0 ? "" : (*Labels)[0];
-}
-
-/**
- * Tells if label is in the format: <BranchPath>/<Prefix>-<GameNameIfNotEmpty>-CL-*
- *
- * @param LabelName Label name to check.
- * @param LabelNamePrefix Prefix to use.
- * @param GameName Game name to use.
- *
- * @returns True if label is in the format. False otherwise.
- */
-bool IsPrefixedGameLabelName(const FString& LabelName, const FString& LabelNamePrefix, const FString& GameName)
-{
-	int32 BranchNameEnd = 0;
-
-	if (!LabelName.FindLastChar('/', BranchNameEnd))
-	{
-		return false;
-	}
-
-	FString Rest = LabelName.Mid(BranchNameEnd + 1);
-
-	FString LabelNameGamePart;
-	if (!GameName.Equals(""))
-	{
-		LabelNameGamePart = "-" + GameName;
-	}
-
-	return Rest.StartsWith(LabelNamePrefix + LabelNameGamePart + "-CL-", ESearchCase::CaseSensitive);
-}
-
-/**
- * Tells if label is in the format: <BranchPath>/Promoted-<GameNameIfNotEmpty>-CL-*
- *
- * @param LabelName Label name to check.
- * @param GameName Game name to use.
- *
- * @returns True if label is in the format. False otherwise.
- */
-bool IsPromotedGameLabelName(const FString& LabelName, const FString& GameName)
-{
-	return IsPrefixedGameLabelName(LabelName, "Promoted", GameName);
-}
-
-/**
- * Tells if label is in the format: <BranchPath>/Promotable-<GameNameIfNotEmpty>-CL-*
- *
- * @param LabelName Label name to check.
- * @param GameName Game name to use.
- *
- * @returns True if label is in the format. False otherwise.
- */
-bool IsPromotableGameLabelName(const FString& LabelName, const FString& GameName)
-{
-	return IsPrefixedGameLabelName(LabelName, "Promotable", GameName);
-}
-
-/**
- * Helper function to construct and get array of labels if data is fetched from the P4
- * using given policy.
- *
- * @template_param TFillLabelsPolicy Policy class that has to implement:
- *     static void Fill(TArray<FString>& OutLabelNames, const FString& GameName, const TArray<FP4Label>& Labels)
- *     that will fill the array on request.
- * @param GameName Game name to pass to the Fill method from policy.
- * @returns Filled out labels.
- */
-template <class TFillLabelsPolicy>
-TSharedPtr<TArray<FString> > GetLabelsForGame(const FString& GameName)
-{
-	TSharedPtr<TArray<FString> > OutputLabels = MakeShareable(new TArray<FString>());
-
-	if (FUnrealSync::HasValidData())
-	{
-		TFillLabelsPolicy::Fill(*OutputLabels, GameName, FUnrealSync::GetLabels());
-	}
-
-	return OutputLabels;
-}
-
-TSharedPtr<TArray<FString> > FUnrealSync::GetPromotedLabelsForGame(const FString& GameName)
-{
-	struct TFillLabelsPolicy 
-	{
-		static void Fill(TArray<FString>& OutLabelNames, const FString& GameName, const TArray<FP4Label>& Labels)
+		else
 		{
-			for (auto Label : Labels)
-			{
-				if (IsPromotedGameLabelName(Label.GetName(), GameName))
-				{
-					OutLabelNames.Add(Label.GetName());
-				}
-			}
+			GIsRequestingExit = true;
 		}
-	};
-
-	return GetLabelsForGame<TFillLabelsPolicy>(GameName);
-}
-
-TSharedPtr<TArray<FString> > FUnrealSync::GetPromotableLabelsForGame(const FString& GameName)
-{
-	struct TFillLabelsPolicy
-	{
-		static void Fill(TArray<FString>& OutLabelNames, const FString& GameName, const TArray<FP4Label>& Labels)
-		{
-			for (auto Label : Labels)
-			{
-				if (IsPromotedGameLabelName(Label.GetName(), GameName))
-				{
-					break;
-				}
-
-				if (IsPromotableGameLabelName(Label.GetName(), GameName))
-				{
-					OutLabelNames.Add(Label.GetName());
-				}
-			}
-		}
-	};
-
-	return GetLabelsForGame<TFillLabelsPolicy>(GameName);
-}
-
-TSharedPtr<TArray<FString> > FUnrealSync::GetAllLabels()
-{
-	struct TFillLabelsPolicy
-	{
-		static void Fill(TArray<FString>& OutLabelNames, const FString& GameName, const TArray<FP4Label>& Labels)
-		{
-			for (auto Label : Labels)
-			{
-				OutLabelNames.Add(Label.GetName());
-			}
-		}
-	};
-
-	return GetLabelsForGame<TFillLabelsPolicy>("");
-}
-
-TSharedPtr<TArray<FString> > FUnrealSync::GetPossibleGameNames()
-{
-	TSharedPtr<TArray<FString> > PossibleGames = MakeShareable(new TArray<FString>());
-
-	FP4Env& Env = FP4Env::Get();
-
-	FString FileList;
-	if (!Env.RunP4Output(FString::Printf(TEXT("files -e %s/.../Build/ArtistSyncRules.xml"), *Env.GetBranch()), FileList) || FileList.IsEmpty())
-	{
-		return PossibleGames;
 	}
-
-	FString Line, Rest = FileList;
-	while (Rest.Split(LINE_TERMINATOR, &Line, &Rest, ESearchCase::CaseSensitive))
-	{
-		if (!Line.StartsWith(Env.GetBranch()))
-		{
-			continue;
-		}
-
-		int32 ArtistSyncRulesPos = Line.Find("/Build/ArtistSyncRules.xml#", ESearchCase::IgnoreCase);
-
-		if (ArtistSyncRulesPos == INDEX_NONE)
-		{
-			continue;
-		}
-
-		FString MiddlePart = Line.Mid(Env.GetBranch().Len(), ArtistSyncRulesPos - Env.GetBranch().Len());
-
-		int32 LastSlash = INDEX_NONE;
-		MiddlePart.FindLastChar('/', LastSlash);
-
-		PossibleGames->Add(MiddlePart.Mid(LastSlash + 1));
-	}
-
-	return PossibleGames;
 }
 
 const FString& FUnrealSync::GetSharedPromotableDisplayName()
@@ -254,166 +242,11 @@ const FString& FUnrealSync::GetSharedPromotableDisplayName()
 	return DispName;
 }
 
-void FUnrealSync::RegisterOnDataLoaded(const FOnDataLoaded& OnDataLoaded)
+const FString& FUnrealSync::GetSharedPromotableP4FolderName()
 {
-	FUnrealSync::OnDataLoaded = OnDataLoaded;
-}
+	static const FString DispName = "Samples";
 
-void FUnrealSync::RegisterOnDataReset(const FOnDataReset& OnDataReset)
-{
-	FUnrealSync::OnDataReset = OnDataReset;
-}
-
-void FUnrealSync::StartLoadingData()
-{
-	bLoadingFinished = false;
-	Data.Reset();
-	LoaderThread.Reset();
-
-	OnDataReset.ExecuteIfBound();
-
-	LoaderThread = MakeShareable(new FP4DataLoader(
-		FP4DataLoader::FOnLoadingFinished::CreateStatic(&FUnrealSync::OnP4DataLoadingFinished)
-		));
-}
-
-void FUnrealSync::TerminateLoadingProcess()
-{
-	if (LoaderThread.IsValid())
-	{
-		LoaderThread->Terminate();
-	}
-}
-
-void FUnrealSync::OnP4DataLoadingFinished(TSharedPtr<FP4DataCache> Data)
-{
-	FUnrealSync::Data = Data;
-
-	bLoadingFinished = true;
-
-	OnDataLoaded.ExecuteIfBound();
-}
-
-bool FUnrealSync::LoadingFinished()
-{
-	return bLoadingFinished;
-}
-
-bool FUnrealSync::HasValidData()
-{
-	return Data.IsValid();
-}
-
-/**
- * Class to store info of syncing thread.
- */
-class FSyncingThread : public FRunnable
-{
-public:
-	/**
-	 * Constructor
-	 *
-	 * @param Settings Sync settings.
-	 * @param LabelNameProvider Label name provider.
-	 * @param OnSyncFinished Delegate to run when syncing process has finished.
-	 * @param OnSyncProgress Delegate to run when syncing process has made progress.
-	 */
-	FSyncingThread(FSyncSettings Settings, ILabelNameProvider& LabelNameProvider, const FUnrealSync::FOnSyncFinished& OnSyncFinished, const FUnrealSync::FOnSyncProgress& OnSyncProgress)
-		: Settings(MoveTemp(Settings)), LabelNameProvider(LabelNameProvider), OnSyncFinished(OnSyncFinished), OnSyncProgress(OnSyncProgress), bTerminate(false)
-	{
-		Thread = FRunnableThread::Create(this, TEXT("Syncing thread"));
-	}
-
-	/**
-	 * Main thread function.
-	 */
-	uint32 Run() override
-	{
-		if (OnSyncProgress.IsBound())
-		{
-			OnSyncProgress.Execute(LabelNameProvider.GetStartedMessage() + "\n");
-		}
-
-		FString Label = LabelNameProvider.GetLabelName();
-		FString Game = LabelNameProvider.GetGameName();
-
-		struct FProcessStopper
-		{
-			FProcessStopper(bool& bStop, FUnrealSync::FOnSyncProgress& OuterSyncProgress)
-				: bStop(bStop), OuterSyncProgress(OuterSyncProgress) {}
-
-			bool OnProgress(const FString& Text)
-			{
-				if (OuterSyncProgress.IsBound())
-				{
-					if (!OuterSyncProgress.Execute(Text))
-					{
-						bStop = true;
-					}
-				}
-
-				return !bStop;
-			}
-
-		private:
-			bool& bStop;
-			FUnrealSync::FOnSyncProgress& OuterSyncProgress;
-		};
-		
-		FProcessStopper Stopper(bTerminate, OnSyncProgress);
-		bool bSuccess = FUnrealSync::Sync(Settings, Label, Game, FUnrealSync::FOnSyncProgress::CreateRaw(&Stopper, &FProcessStopper::OnProgress));
-
-		if (OnSyncProgress.IsBound())
-		{
-			OnSyncProgress.Execute(LabelNameProvider.GetFinishedMessage() + "\n");
-		}
-
-		OnSyncFinished.ExecuteIfBound(bSuccess);
-
-		return 0;
-	}
-
-	/**
-	 * Stops process runnning in the background and terminates wait for the
-	 * watcher thread to finish.
-	 */
-	void Terminate()
-	{
-		bTerminate = true;
-		Thread->WaitForCompletion();
-	}
-
-private:
-	/* Tells the thread to terminate the process. */
-	bool bTerminate;
-
-	/* Handle for thread object. */
-	FRunnableThread* Thread;
-
-	/* Sync settings. */
-	FSyncSettings Settings;
-
-	/* Label name provider. */
-	ILabelNameProvider& LabelNameProvider;
-
-	/* Delegate that will be run when syncing process has finished. */
-	FUnrealSync::FOnSyncFinished OnSyncFinished;
-
-	/* Delegate that will be run when syncing process has finished. */
-	FUnrealSync::FOnSyncProgress OnSyncProgress;
-};
-
-void FUnrealSync::TerminateSyncingProcess()
-{
-	if (SyncingThread.IsValid())
-	{
-		SyncingThread->Terminate();
-	}
-}
-
-void FUnrealSync::LaunchSync(FSyncSettings Settings, ILabelNameProvider& LabelNameProvider, const FOnSyncFinished& OnSyncFinished, const FOnSyncProgress& OnSyncProgress)
-{
-	SyncingThread = MakeShareable(new FSyncingThread(MoveTemp(Settings), LabelNameProvider, OnSyncFinished, OnSyncProgress));
+	return DispName;
 }
 
 /**
@@ -435,8 +268,8 @@ void SyncingMessage(const FUnrealSync::FOnSyncProgress& OnSyncProgress, const FS
  */
 struct FSyncStep
 {
-	FSyncStep(FString FileSpec, FString RevSpec)
-		: FileSpec(MoveTemp(FileSpec)), RevSpec(MoveTemp(RevSpec))
+	FSyncStep(FString InFileSpec, FString InRevSpec)
+		: FileSpec(MoveTemp(InFileSpec)), RevSpec(MoveTemp(InRevSpec))
 	{}
 
 	const FString& GetFileSpec() const { return FileSpec; }
@@ -570,8 +403,8 @@ bool FUnrealSync::Sync(const FSyncSettings& Settings, const FString& Label, cons
 	class FSyncCollectAndPassThrough
 	{
 	public:
-		FSyncCollectAndPassThrough(const FOnSyncProgress& Progress)
-			: Progress(Progress)
+		FSyncCollectAndPassThrough(const FOnSyncProgress& InProgress)
+			: Progress(InProgress)
 		{ }
 
 		operator FOnSyncProgress() const
@@ -586,29 +419,26 @@ bool FUnrealSync::Sync(const FSyncSettings& Settings, const FString& Label, cons
 			return Progress.Execute(Text);
 		}
 
-		void ProcessLog()
+		TArray<FString> GetCantClobbers() const
 		{
-			Log = Log.Replace(TEXT("\r"), TEXT(""));
+			TArray<FString> CantClobbers;
+			FString NormalizedLog = Log.Replace(TEXT("\r"), TEXT(""));
 			const FRegexPattern CantClobber(TEXT("Can't clobber writable file ([^\\n]+)"));
 
-			FRegexMatcher Match(CantClobber, Log);
+			FRegexMatcher Match(CantClobber, NormalizedLog);
 
 			while (Match.FindNext())
 			{
-				CantClobbers.Add(Log.Mid(
-					Match.GetCaptureGroupBeginning(1),
-					Match.GetCaptureGroupEnding(1) - Match.GetCaptureGroupBeginning(1)));
+				CantClobbers.Add(Match.GetCaptureGroup(1));
 			}
-		}
 
-		const TArray<FString>& GetCantClobbers() const { return CantClobbers; }
+			return CantClobbers;
+		}
 
 	private:
 		const FOnSyncProgress& Progress;
 
 		FString Log;
-
-		TArray<FString> CantClobbers;
 	};
 
 	FString CommandPrefix = FString("sync ") + (Settings.bPreview ? "-n " : "") + FP4Env::Get().GetBranch();
@@ -622,8 +452,6 @@ bool FUnrealSync::Sync(const FSyncSettings& Settings, const FString& Label, cons
 				return false;
 			}
 
-			ErrorsCollector.ProcessLog();
-
 			FString AutoClobberCommandPrefix("sync -f ");
 			for (const auto& CantClobber : ErrorsCollector.GetCantClobbers())
 			{
@@ -635,7 +463,43 @@ bool FUnrealSync::Sync(const FSyncSettings& Settings, const FString& Label, cons
 		}
 	}
 
+	if (Settings.bDeleteStaleBinaries)
+	{
+		OnSyncProgress.Execute(TEXT("Deleting stale binaries...") LINE_TERMINATOR);
+		DeleteStaleBinaries(OnSyncProgress, Settings.bPreview);
+		OnSyncProgress.Execute(TEXT("Stale binaries deleted.") LINE_TERMINATOR);
+	}
+
 	return true;
+}
+
+void FUnrealSync::SaveGUISettingsToCache()
+{
+	SaveGUISettings();
+}
+
+void FUnrealSync::SaveSettings()
+{
+	FSettingsCache::Get().Save();
+}
+
+void FUnrealSync::SaveSettingsAndClose()
+{
+	SaveGUISettingsToCache();
+
+	SaveSettings();
+
+	FPlatformMisc::RequestExit(false);
+}
+
+void FUnrealSync::SaveSettingsAndRestart()
+{
+	SaveGUISettingsToCache();
+
+	SaveSettings();
+
+	FUnrealSync::RunDetachedUS(FPlatformProcess::ExecutableName(false), true, true, false);
+	FPlatformMisc::RequestExit(false);
 }
 
 bool FUnrealSync::IsDebugParameterSet()
@@ -647,25 +511,49 @@ bool FUnrealSync::IsDebugParameterSet()
 
 bool FUnrealSync::Initialization(const TCHAR* CommandLine)
 {
+	const TCHAR* Platform =
+#if PLATFORM_WINDOWS
+	#if PLATFORM_64BITS
+		TEXT("Win64")
+	#else
+		TEXT("Win32")
+	#endif
+#elif PLATFORM_MAC
+		TEXT("Mac")
+#elif PLATFORM_LINUX
+		TEXT("Linux")
+#endif
+		;
+
 	FString CommonExecutablePath =
 		FPaths::ConvertRelativePathToFull(
-		FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries"), TEXT("Win64"),
+		FPaths::Combine(*FPaths::EngineDir(), TEXT("Binaries"), Platform,
 #if !UE_BUILD_DEBUG
 		TEXT("UnrealSync")
 #else
-		TEXT("UnrealSync-Win64-Debug")
+		*FString::Printf(TEXT("UnrealSync-%s-Debug"), Platform)
 #endif
 		));
 
-	FString OriginalExecutablePath = CommonExecutablePath + TEXT(".exe");
-	FString TemporaryExecutablePath = CommonExecutablePath + TEXT(".Temporary.exe");
+	const TCHAR* AppPostfix =
+#if PLATFORM_WINDOWS
+		TEXT(".exe")
+#elif PLATFORM_MAC
+		TEXT(".app")
+#elif PLATFORM_LINUX
+		TEXT("")
+#endif
+		;
+
+	FString OriginalExecutablePath = CommonExecutablePath + AppPostfix;
+	FString TemporaryExecutablePath = CommonExecutablePath + TEXT(".Temporary") + AppPostfix;
 
 	bool bDoNotRunFromCopy = FParse::Param(CommandLine, TEXT("DoNotRunFromCopy"));
 	bool bDoNotUpdateOnStartUp = FParse::Param(CommandLine, TEXT("DoNotUpdateOnStartUp"));
 
 	if (!bDoNotRunFromCopy)
 	{
-		if (!DeleteIfExistsAndCopyFile(*TemporaryExecutablePath, *OriginalExecutablePath))
+		if (!DeleteIfExistsAndCopy(*TemporaryExecutablePath, *OriginalExecutablePath))
 		{
 			InitializationError = TEXT("Copying UnrealSync to temp location failed.");
 		}
@@ -696,10 +584,4 @@ bool FUnrealSync::Initialization(const TCHAR* CommandLine)
 
 
 /* Static fields initialization. */
-FUnrealSync::FOnDataLoaded FUnrealSync::OnDataLoaded;
-FUnrealSync::FOnDataReset FUnrealSync::OnDataReset;
-TSharedPtr<FP4DataCache> FUnrealSync::Data;
-bool FUnrealSync::bLoadingFinished = false;
-TSharedPtr<FP4DataLoader> FUnrealSync::LoaderThread;
-TSharedPtr<FSyncingThread> FUnrealSync::SyncingThread;
 FString FUnrealSync::InitializationError;

@@ -75,7 +75,7 @@ public:
 
 	/** Toolbar/menu command methods */
 	void OnDeleteKeys();
-	void OnFitToAll();
+	void OnFit();
 	void OnFitToSelected();
 	void OnFitHorizontally();
 	void OnFitVertically();
@@ -147,6 +147,9 @@ private:
 	/** Helper method to set selected tab */
 	TSharedPtr<FString> GetSelectedTab() const;
 
+	/** Helper function to iterate all selected curve keys if any are selected, otherwise all the keys in all the curves */
+	void IterateKeys(TFunctionRef<void(int32, int32, FCurveEdEntry&, FCurveEdInterface&)> IteratorCallback);
+
 private:
 	/** A list commands to execute if a user presses the corresponding keybinding in the text box */
 	TSharedRef<FUICommandList> UICommandList;
@@ -161,7 +164,7 @@ private:
 	TSharedPtr<FCurveEditorSharedData> SharedData;
 
 	/** Reference to owner of the current popup */
-	TWeakPtr<SWindow> EntryPopupWindow;
+	TWeakPtr<IMenu> EntryMenu;
 
 	/** Tabs dropdown */
 	TSharedPtr<STextComboBox> TabNamesComboBox;

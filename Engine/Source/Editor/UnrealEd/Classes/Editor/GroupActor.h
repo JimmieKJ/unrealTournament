@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // GroupActor: Collects a group of actors, allowing for management and universal transformation.
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "GameFramework/Actor.h"
@@ -26,7 +26,7 @@ class AGroupActor : public AActor
 #endif // WITH_EDITORONLY_DATA
 
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostEditUndo() override;
@@ -39,14 +39,14 @@ class AGroupActor : public AActor
 	{ 
 		return false;
 	}
-	// End UObject interface
+	//~ End UObject Interface
 
-	// Begin AActor interface
+	//~ Begin AActor Interface
 	virtual void PostActorCreated() override;
 	virtual void InvalidateLightingCacheDetailed(bool bTranslationOnly) override;
 	virtual void PostEditMove(bool bFinished) override;
 	virtual void SetIsTemporarilyHiddenInEditor( bool bIsHidden ) override;
-	// End AActor interface
+	//~ End AActor Interface
 
 	// @todo document
 	virtual bool IsSelected() const;

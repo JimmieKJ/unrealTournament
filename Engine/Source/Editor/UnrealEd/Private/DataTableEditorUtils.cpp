@@ -233,7 +233,7 @@ void FDataTableEditorUtils::CacheDataTableForEditing(const UDataTable* DataTable
 				const UProperty* Prop = StructProps[ColumnIndex];
 				FDataTableEditorColumnHeaderDataPtr CachedColumnData = OutAvailableColumns[ColumnIndex];
 
-				const FText CellText = FText::FromString(DataTableUtils::GetPropertyValueAsString(Prop, RowData));
+				const FText CellText = DataTableUtils::GetPropertyValueAsText(Prop, RowData);
 				CachedRowData->CellData.Add(CellText);
 
 				const float CellWidth = FontMeasure->Measure(CellText, CellTextStyle.Font).X + CellPadding;

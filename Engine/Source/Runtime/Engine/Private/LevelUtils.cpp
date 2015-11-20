@@ -11,6 +11,25 @@
 
 #define LOCTEXT_NAMESPACE "LevelUtils"
 
+
+#if WITH_EDITOR
+// Structure to hold the state of the Level file on disk, the goal is to query it only one time per frame.
+struct FLevelReadOnlyData
+{
+	FLevelReadOnlyData()
+		:IsReadOnly(false)
+		,LastUpdateTime(-1.0f)
+	{}
+	/** the current level file state */
+	bool IsReadOnly;
+	/** Last time when the level file state was update */
+	float LastUpdateTime;
+};
+// Map to link the level data with a level
+static TMap<ULevel*, FLevelReadOnlyData> LevelReadOnlyCache;
+
+#endif
+
 /////////////////////////////////////////////////////////////////////////////////////////
 //
 //	FindStreamingLevel methods.
@@ -87,28 +106,44 @@ ULevelStreaming* FLevelUtils::FindStreamingLevel(UWorld* InWorld, const TCHAR* I
  */
 bool FLevelUtils::IsLevelLocked(ULevel* Level)
 {
+//We should not check file status on disk if we are not running the editor
+#if WITH_EDITOR
 	// Don't permit spawning in read only levels if they are locked
 	if ( GIsEditor && !GIsEditorLoadingPackage )
 	{
 		if ( GEngine && GEngine->bLockReadOnlyLevels )
 		{
-			const UPackage* pPackage = Cast<UPackage>( Level->GetOutermost() );
-			if ( pPackage )
+			if (!LevelReadOnlyCache.Contains(Level))
 			{
-				FString PackageFileName;
-				if ( FPackageName::DoesPackageExist( pPackage->GetName(), NULL, &PackageFileName ) )
+				LevelReadOnlyCache.Add(Level, FLevelReadOnlyData());
+			}
+			check(LevelReadOnlyCache.Contains(Level));
+			FLevelReadOnlyData &LevelData = LevelReadOnlyCache[Level];
+			//Make sure we test if the level file on disk is readonly only once a frame,
+			//when the frame time get updated.
+			if (LevelData.LastUpdateTime < Level->OwningWorld->GetRealTimeSeconds())
+			{
+				LevelData.LastUpdateTime = Level->OwningWorld->GetRealTimeSeconds();
+				//If we dont find package we dont consider it as readonly
+				LevelData.IsReadOnly = false;
+				const UPackage* pPackage = Cast<UPackage>(Level->GetOutermost());
+				if (pPackage)
 				{
-					const bool bIsReadOnly = IFileManager::Get().IsReadOnly( *PackageFileName );
-					if( bIsReadOnly )
+					FString PackageFileName;
+					if (FPackageName::DoesPackageExist(pPackage->GetName(), NULL, &PackageFileName))
 					{
-						//This function is called from every slate tick so read-only levels spam this warning
-						//UE_LOG(LogLevel, Warning, TEXT( "Read-only packages are locked, unlock them from the Tools menu to permit changes to level: %s" ), *pPackage->GetName() );
-						return true;
+						LevelData.IsReadOnly = IFileManager::Get().IsReadOnly(*PackageFileName);
 					}
 				}
 			}
+
+			if (LevelData.IsReadOnly)
+			{
+				return true;
+			}
 		}
 	}
+#endif //#if WITH_EDITOR
 
 	// PIE levels, the persistent level, and transient move levels are usually never locked.
 	if ( Level->RootPackageHasAnyFlags(PKG_PlayInEditor) || Level->IsPersistentLevel() || Level->GetName() == TEXT("TransLevelMoveBuffer") )

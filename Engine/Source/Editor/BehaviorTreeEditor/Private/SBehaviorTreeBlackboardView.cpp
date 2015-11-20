@@ -50,9 +50,8 @@ FEdGraphSchemaAction_BlackboardEntry::FEdGraphSchemaAction_BlackboardEntry( UBla
 
 void FEdGraphSchemaAction_BlackboardEntry::Update()
 {
-	MenuDescription = FText::FromName(Key.EntryName);
-	TooltipDescription = FText::Format(LOCTEXT("BlackboardEntryFormat", "{0} '{1}'"), Key.KeyType ? Key.KeyType->GetClass()->GetDisplayNameText() : LOCTEXT("NullKeyDesc", "None"), FText::FromName(Key.EntryName)).ToString();
-	SectionID = bIsInherited ? EBlackboardSectionTitles::InheritedKeys : EBlackboardSectionTitles::Keys;	
+	UpdateSearchData(FText::FromName(Key.EntryName), FText::Format(LOCTEXT("BlackboardEntryFormat", "{0} '{1}'"), Key.KeyType ? Key.KeyType->GetClass()->GetDisplayNameText() : LOCTEXT("NullKeyDesc", "None"), FText::FromName(Key.EntryName)).ToString(), FText(), FText());
+	SectionID = bIsInherited ? EBlackboardSectionTitles::InheritedKeys : EBlackboardSectionTitles::Keys;
 }
 
 class SBehaviorTreeBlackboardItem : public SGraphPaletteItem
@@ -87,7 +86,7 @@ class SBehaviorTreeBlackboardItem : public SGraphPaletteItem
 		FSlateBrush const* IconBrush   = FEditorStyle::GetBrush(TEXT("NoBrush"));
 		GetPaletteItemIcon(GraphAction, IconBrush);
 
-		TSharedRef<SWidget> IconWidget = CreateIconWidget( FText::FromString(GraphAction->TooltipDescription), IconBrush, FLinearColor::White );
+		TSharedRef<SWidget> IconWidget = CreateIconWidget( FText::FromString(GraphAction->GetTooltipDescription()), IconBrush, FLinearColor::White );
 		TSharedRef<SWidget> NameSlotWidget = CreateTextSlotWidget( NameFont, InCreateData, BlackboardEntryAction->bIsInherited );
 		TSharedRef<SWidget> DebugSlotWidget = CreateDebugSlotWidget( NameFont );
 
@@ -171,7 +170,7 @@ private:
 
 	virtual FText GetItemTooltip() const override
 	{
-		return FText::FromString(ActionPtr.Pin()->TooltipDescription);
+		return FText::FromString(ActionPtr.Pin()->GetTooltipDescription());
 	}
 
 	virtual void OnNameTextCommitted(const FText& NewText, ETextCommit::Type InTextCommit) override

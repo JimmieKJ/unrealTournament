@@ -20,6 +20,7 @@ UENUM()
 namespace EBTParallelMode
 {
 	// keep in sync with DescribeFinishMode
+
 	enum Type
 	{
 		AbortBackground UMETA(DisplayName="Immediate" , ToolTip="When main task finishes, immediately abort background tree."),

@@ -56,9 +56,9 @@ public:
 		uint32 Size = 4 * sizeof(FMaterialTileVertex);
 		// create vertex buffer
 		FRHIResourceCreateInfo CreateInfo;
-		VertexBufferRHI = RHICreateVertexBuffer(Size,BUF_Static,CreateInfo);
-		// lock it
-		void* Buffer = RHILockVertexBuffer(VertexBufferRHI,0,Size,RLM_WriteOnly);
+		void* Buffer = nullptr;
+		VertexBufferRHI = RHICreateAndLockVertexBuffer(Size,BUF_Static,CreateInfo, Buffer);
+				
 		// first vertex element
 		FMaterialTileVertex* DestVertex = (FMaterialTileVertex*)Buffer;
 
@@ -319,8 +319,8 @@ bool FCanvasTileRendererItem::Render_GameThread(const FCanvas* Canvas)
 	{
 		View,
 		Data,
-		Canvas->IsHitTesting(),
-		bNeedsToSwitchVerticalAxis,
+		Canvas->IsHitTesting() ? uint32(1) : uint32(0),
+		bNeedsToSwitchVerticalAxis ? uint32(1) : uint32(0),
 		Canvas->GetAllowedModes()
 	};
 	ENQUEUE_UNIQUE_RENDER_COMMAND_ONEPARAMETER(

@@ -10,18 +10,30 @@ UCLASS(MinimalAPI)
 class UK2Node_SetFieldsInStruct : public UK2Node_MakeStruct
 {
 	GENERATED_UCLASS_BODY()
-	// Begin UEdGraphNode interface
+
+	/** Helper property to handle upgrades from an old system of displaying pins for 
+	 *	the override values that properties referenced as a conditional of being set in a struct */
+	UPROPERTY()
+	bool bMadeAfterOverridePinRemoval;
+
+	//~ Begin UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
+	//~ End UObject Interface
+
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FText GetTooltipText() const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override;
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
-	// End  UEdGraphNode interface
+	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph);
+	virtual void PostPlacedNewNode() override;
+	//~ End  UEdGraphNode Interface
 
-	// Begin K2Node interface
+	//~ Begin K2Node Interface
 	virtual bool IsNodePure() const override { return false; }
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
-	// End K2Node interface
+	//~ End K2Node Interface
 
 	BLUEPRINTGRAPH_API static bool ShowCustomPinActions(const UEdGraphPin* InGraphPin, bool bIgnorePinsNum);
 

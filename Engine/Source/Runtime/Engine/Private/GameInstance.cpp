@@ -12,11 +12,11 @@
 #include "OnlineSubsystem.h"
 #include "OnlineSessionInterface.h"
 #include "GameFramework/OnlineSession.h"
+#include "GameFramework/PlayerState.h"
 
 #if WITH_EDITOR
 #include "UnrealEd.h"
 #endif
-#include "Engine/GameEngine.h"
 
 
 UGameInstance::UGameInstance(const FObjectInitializer& ObjectInitializer)
@@ -59,6 +59,13 @@ void UGameInstance::Init()
 			SessionInt->AddOnSessionUserInviteAcceptedDelegate_Handle(FOnSessionUserInviteAcceptedDelegate::CreateUObject(this, &UGameInstance::HandleSessionUserInviteAccepted));
 		}
 	}
+
+	UClass* SpawnClass = GetOnlineSessionClass();
+	OnlineSession = NewObject<UOnlineSession>(this, SpawnClass);
+	if (OnlineSession)
+	{
+		OnlineSession->RegisterOnlineDelegates();
+	}
 }
 
 void UGameInstance::Shutdown()
@@ -81,10 +88,8 @@ void UGameInstance::Shutdown()
 
 void UGameInstance::InitializeStandalone()
 {
-	UGameEngine* const Engine = CastChecked<UGameEngine>(GetEngine());
-
 	// Creates the world context. This should be the only WorldContext that ever gets created for this GameInstance.
-	WorldContext = &Engine->CreateNewWorldContext(EWorldType::Game);
+	WorldContext = &GetEngine()->CreateNewWorldContext(EWorldType::Game);
 	WorldContext->OwningGameInstance = this;
 
 	// In standalone create a dummy world from the beginning to avoid issues of not having a world until LoadMap gets us our real world
@@ -96,7 +101,7 @@ void UGameInstance::InitializeStandalone()
 }
 
 #if WITH_EDITOR
-bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance)
+bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance, bool bRunAsDedicated)
 {
 	UEditorEngine* const EditorEngine = CastChecked<UEditorEngine>(GetEngine());
 
@@ -109,6 +114,8 @@ bool UGameInstance::InitializePIE(bool bAnyBlueprintErrors, int32 PIEInstance)
 		WorldContext = &EditorEngine->CreateNewWorldContext(EWorldType::PIE);
 		WorldContext->PIEInstance = PIEInstance;
 	}
+
+	WorldContext->RunAsDedicated = bRunAsDedicated;
 
 	WorldContext->OwningGameInstance = this;
 	
@@ -237,10 +244,11 @@ bool UGameInstance::StartPIEGameInstance(ULocalPlayer* LocalPlayer, bool bInSimu
 		// Make sure "always loaded" sub-levels are fully loaded
 		PlayWorld->FlushLevelStreaming(EFlushLevelStreamingType::Visibility);
 
-		UNavigationSystem::InitializeForWorld(PlayWorld, LocalPlayers.Num() > 0 ? FNavigationSystem::PIEMode : FNavigationSystem::SimulationMode);
 		PlayWorld->CreateAISystem();
 
 		PlayWorld->InitializeActorsForPlay(URL);
+		// calling it after InitializeActorsForPlay has been called to have all potential bounding boxed initialized
+		UNavigationSystem::InitializeForWorld(PlayWorld, LocalPlayers.Num() > 0 ? FNavigationSystemRunMode::PIEMode : FNavigationSystemRunMode::SimulationMode);
 
 		// @todo, just use WorldContext.GamePlayer[0]?
 		if (LocalPlayer)
@@ -292,7 +300,7 @@ void UGameInstance::StartGameInstance()
 	// Enter initial world.
 	EBrowseReturnVal::Type BrowseRet = EBrowseReturnVal::Failure;
 	FString Error;
-	TCHAR Parm[4096] = TEXT("");
+	
 	const TCHAR* Tmp = FCommandLine::Get();
 
 #if UE_BUILD_SHIPPING
@@ -300,46 +308,74 @@ void UGameInstance::StartGameInstance()
 	Tmp = TEXT("");
 #endif // UE_BUILD_SHIPPING
 
-	const UGameMapsSettings* GameMapsSettings = GetDefault<UGameMapsSettings>();
-	const FString& DefaultMap = GameMapsSettings->GetGameDefaultMap();
-	if (!FParse::Token(Tmp, Parm, ARRAY_COUNT(Parm), 0) || Parm[0] == '-')
+	// Parse replay name if specified on cmdline
+	FString ReplayCommand;
+	if ( FParse::Value( Tmp, TEXT( "-REPLAY=" ), ReplayCommand ) )
 	{
-		FCString::Strcpy(Parm, *(DefaultMap + GameMapsSettings->LocalMapOptions));
+		PlayReplay( ReplayCommand );
+		return;
 	}
 
-	FURL URL(&DefaultURL, Parm, TRAVEL_Partial);
+	const UGameMapsSettings* GameMapsSettings = GetDefault<UGameMapsSettings>();
+	const FString& DefaultMap = GameMapsSettings->GetGameDefaultMap();
+
+	FString PackageName;
+
+#if WITH_EDITOR
+	PackageName = InitialMapOverride;
+#endif
+
+	if (PackageName.IsEmpty() && (!FParse::Token(Tmp, PackageName, 0) || **PackageName == '-'))
+	{
+		PackageName = DefaultMap + GameMapsSettings->LocalMapOptions;
+	}
+
+	FURL URL(&DefaultURL, *PackageName, TRAVEL_Partial);
 	if (URL.Valid)
 	{
 		BrowseRet = Engine->Browse(*WorldContext, URL, Error);
 	}
 
 	// If waiting for a network connection, go into the starting level.
-	if (BrowseRet != EBrowseReturnVal::Success && FCString::Stricmp(Parm, *DefaultMap) != 0)
+	if (BrowseRet != EBrowseReturnVal::Success)
 	{
-		const FText Message = FText::Format(NSLOCTEXT("Engine", "MapNotFound", "The map specified on the commandline '{0}' could not be found. Would you like to load the default map instead?"), FText::FromString(URL.Map));
+		UE_LOG(LogLoad, Error, TEXT("%s"), *FString::Printf(TEXT("Failed to enter %s: %s. Please check the log for errors."), *URL.Map, *Error));
 
 		// the map specified on the command-line couldn't be loaded.  ask the user if we should load the default map instead
-		if (FCString::Stricmp(*URL.Map, *DefaultMap) != 0 &&
-			FMessageDialog::Open(EAppMsgType::OkCancel, Message) != EAppReturnType::Ok)
+		if (FCString::Stricmp(*PackageName, *DefaultMap) != 0)
 		{
-			// user canceled (maybe a typo while attempting to run a commandlet)
-			FPlatformMisc::RequestExit(false);
-			return;
+			const FText Message = FText::Format(NSLOCTEXT("Engine", "MapNotFound", "The map specified on the commandline '{0}' could not be found. Would you like to load the default map instead?"), FText::FromString(URL.Map));
+			if (   FCString::Stricmp(*URL.Map, *DefaultMap) != 0  
+				&& FMessageDialog::Open(EAppMsgType::OkCancel, Message) != EAppReturnType::Ok)
+			{
+				// user canceled (maybe a typo while attempting to run a commandlet)
+				FPlatformMisc::RequestExit(false);
+				return;
+			}
+			else
+			{
+				BrowseRet = Engine->Browse(*WorldContext, FURL(&DefaultURL, *(DefaultMap + GameMapsSettings->LocalMapOptions), TRAVEL_Partial), Error);
+			}
 		}
 		else
 		{
-			BrowseRet = Engine->Browse(*WorldContext, FURL(&DefaultURL, *(DefaultMap + GameMapsSettings->LocalMapOptions), TRAVEL_Partial), Error);
+			const FText Message = FText::Format(NSLOCTEXT("Engine", "MapNotFoundNoFallback", "The map specified on the commandline '{0}' could not be found. Exiting."), FText::FromString(URL.Map));
+			FMessageDialog::Open(EAppMsgType::Ok, Message);
+			FPlatformMisc::RequestExit(false);
+			return;
 		}
 	}
 
 	// Handle failure.
 	if (BrowseRet != EBrowseReturnVal::Success)
 	{
-		UE_LOG(LogLoad, Fatal, TEXT("%s"), *FString::Printf(TEXT("Failed to enter %s: %s. Please check the log for errors."), Parm, *Error));
+		UE_LOG(LogLoad, Error, TEXT("%s"), *FString::Printf(TEXT("Failed to enter %s: %s. Please check the log for errors."), *DefaultMap, *Error));
+		const FText Message = FText::Format(NSLOCTEXT("Engine", "DefaultMapNotFound", "The default map '{0}' could not be found. Exiting."), FText::FromString(DefaultMap));
+		FMessageDialog::Open(EAppMsgType::Ok, Message);
+		FPlatformMisc::RequestExit(false);
+		return;
 	}
-
 }
-
 
 bool UGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld)
 {
@@ -521,6 +557,7 @@ void UGameInstance::DebugCreatePlayer(int32 ControllerId)
 void UGameInstance::DebugRemovePlayer(int32 ControllerId)
 {
 #if !UE_BUILD_SHIPPING
+
 	ULocalPlayer* const ExistingPlayer = FindLocalPlayerFromControllerId(ControllerId);
 	if (ExistingPlayer != NULL)
 	{
@@ -539,19 +576,76 @@ ULocalPlayer* UGameInstance::GetLocalPlayerByIndex(const int32 Index) const
 	return LocalPlayers[Index];
 }
 
-APlayerController* UGameInstance::GetFirstLocalPlayerController() const
+APlayerController* UGameInstance::GetFirstLocalPlayerController(UWorld* World) const
 {
-	for (ULocalPlayer* Player : LocalPlayers)
+	if (World == nullptr)
 	{
-		if (Player && Player->PlayerController)
+		for (ULocalPlayer* Player : LocalPlayers)
 		{
-			// return first non-null entry
-			return Player->PlayerController;
+			// Returns the first non-null UPlayer::PlayerController without filtering by UWorld.
+			if (Player && Player->PlayerController)
+			{
+				// return first non-null entry
+				return Player->PlayerController;
+			}
+		}
+	}
+	else
+	{
+		// Only return a local PlayerController from the given World.
+		for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			if (*Iterator != nullptr && (*Iterator)->IsLocalController())
+			{
+				return *Iterator;
+			}
 		}
 	}
 
 	// didn't find one
 	return nullptr;
+}
+
+APlayerController* UGameInstance::GetPrimaryPlayerController() const
+{
+	UWorld* World = GetWorld();
+	check(World);
+
+	APlayerController* PrimaryController = nullptr;
+	for (FConstPlayerControllerIterator Iterator = World->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		APlayerController* NextPlayer = Cast<APlayerController>(*Iterator);
+		if (NextPlayer && NextPlayer->PlayerState && NextPlayer->PlayerState->UniqueId.IsValid() && NextPlayer->IsPrimaryPlayer())
+		{
+			PrimaryController = NextPlayer;
+			break;
+		}
+	}
+
+	return PrimaryController;
+}
+
+TSharedPtr<const FUniqueNetId> UGameInstance::GetPrimaryPlayerUniqueId() const
+{
+	ULocalPlayer* PrimaryLP = nullptr;
+
+	TArray<ULocalPlayer*>::TConstIterator LocalPlayerIt = GetLocalPlayerIterator();
+	for (; LocalPlayerIt && *LocalPlayerIt; ++LocalPlayerIt)
+	{
+		PrimaryLP = *LocalPlayerIt;
+		if (PrimaryLP && PrimaryLP->PlayerController && PrimaryLP->PlayerController->IsPrimaryPlayer())
+		{
+			break;
+		}
+	}
+
+	TSharedPtr<const FUniqueNetId> LocalUserId = nullptr;
+	if (PrimaryLP)
+	{
+		LocalUserId = PrimaryLP->GetPreferredUniqueNetId();
+	}
+
+	return LocalUserId;
 }
 
 ULocalPlayer* UGameInstance::FindLocalPlayerFromControllerId(const int32 ControllerId) const
@@ -576,7 +670,7 @@ ULocalPlayer* UGameInstance::FindLocalPlayerFromUniqueNetId(const FUniqueNetId& 
 			continue;
 		}
 
-		TSharedPtr<FUniqueNetId> OtherUniqueNetId = Player->GetPreferredUniqueNetId();
+		TSharedPtr<const FUniqueNetId> OtherUniqueNetId = Player->GetPreferredUniqueNetId();
 
 		if (!OtherUniqueNetId.IsValid())
 		{
@@ -594,7 +688,7 @@ ULocalPlayer* UGameInstance::FindLocalPlayerFromUniqueNetId(const FUniqueNetId& 
 	return nullptr;
 }
 
-ULocalPlayer* UGameInstance::FindLocalPlayerFromUniqueNetId(TSharedPtr<FUniqueNetId> UniqueNetId) const
+ULocalPlayer* UGameInstance::FindLocalPlayerFromUniqueNetId(TSharedPtr<const FUniqueNetId> UniqueNetId) const
 {
 	if (!UniqueNetId.IsValid())
 	{
@@ -623,12 +717,12 @@ void UGameInstance::CleanupGameViewport()
 	}
 }
 
-TArray<class ULocalPlayer*>::TConstIterator	UGameInstance::GetLocalPlayerIterator()
+TArray<class ULocalPlayer*>::TConstIterator	UGameInstance::GetLocalPlayerIterator() const
 {
 	return LocalPlayers.CreateConstIterator();
 }
 
-const TArray<class ULocalPlayer*>& UGameInstance::GetLocalPlayers()
+const TArray<class ULocalPlayer*>& UGameInstance::GetLocalPlayers() const
 {
 	return LocalPlayers;
 }
@@ -645,46 +739,7 @@ void UGameInstance::AddReferencedObjects(UObject* InThis, FReferenceCollector& C
 	Super::AddReferencedObjects(This, Collector);
 }
 
-void UGameInstance::HandleSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult &	InviteResult)
-{
-	OnSessionUserInviteAccepted(bWasSuccess, ControllerId, UserId, InviteResult);
-}
-
-void UGameInstance::OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< FUniqueNetId > UserId, const FOnlineSessionSearchResult &	InviteResult)
-{
-	UE_LOG(LogPlayerManagement, Verbose, TEXT("OnSessionUserInviteAccepted LocalUserNum: %d bSuccess: %d"), ControllerId, bWasSuccess);
-	// Don't clear invite accept delegate
-
-	if (bWasSuccess)
-	{
-		if (InviteResult.IsValid())
-		{
-			for (ULocalPlayer* LocalPlayer : LocalPlayers)
-			{
-				// Route the call to the actual user that accepted the invite
-				if (LocalPlayer->GetCachedUniqueNetId() == UserId)
-				{
-					LocalPlayer->GetOnlineSession()->OnSessionUserInviteAccepted(bWasSuccess, ControllerId, UserId, InviteResult);
-					return;
-				}
-			}
-
-			// Go ahead and have the active local player handle accepting the invite. A game can detect that the user id is different and handle
-			// it how it needs to.
-			ULocalPlayer* LocalPlayer = GetFirstGamePlayer();
-			if (LocalPlayer)
-			{
-				LocalPlayer->GetOnlineSession()->OnSessionUserInviteAccepted(bWasSuccess, ControllerId, UserId, InviteResult);
-			}
-		}
-		else
-		{
-			UE_LOG(LogPlayerManagement, Warning, TEXT("Invite accept returned invalid search result."));
-		}
-	}
-}
-
-void UGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName)
+void UGameInstance::StartRecordingReplay(const FString& Name, const FString& FriendlyName, const TArray<FString>& AdditionalOptions)
 {
 	if ( FParse::Param( FCommandLine::Get(),TEXT( "NOREPLAYS" ) ) )
 	{
@@ -708,6 +763,11 @@ void UGameInstance::StartRecordingReplay(const FString& Name, const FString& Fri
 	// replace the current URL's map with a demo extension
 	DemoURL.Map = DemoName;
 	DemoURL.AddOption( *FString::Printf( TEXT( "DemoFriendlyName=%s" ), *FriendlyName ) );
+
+	for (const FString& Option : AdditionalOptions)
+	{
+		DemoURL.AddOption(*Option);
+	}
 
 	CurrentWorld->DestroyDemoNetDriver();
 
@@ -751,9 +811,9 @@ void UGameInstance::StopRecordingReplay()
 	CurrentWorld->DestroyDemoNetDriver();
 }
 
-void UGameInstance::PlayReplay(const FString& Name)
+void UGameInstance::PlayReplay(const FString& Name, UWorld* WorldOverride, const TArray<FString>& AdditionalOptions)
 {
-	UWorld* CurrentWorld = GetWorld();
+	UWorld* CurrentWorld = WorldOverride != nullptr ? WorldOverride : GetWorld();
 
 	if ( CurrentWorld == nullptr )
 	{
@@ -767,6 +827,11 @@ void UGameInstance::PlayReplay(const FString& Name)
 	UE_LOG( LogDemo, Log, TEXT( "PlayReplay: Attempting to play demo %s" ), *Name );
 
 	DemoURL.Map = Name;
+	
+	for (const FString& Option : AdditionalOptions)
+	{
+		DemoURL.AddOption(*Option);
+	}
 
 	const FName NAME_DemoNetDriver( TEXT( "DemoNetDriver" ) );
 
@@ -802,5 +867,46 @@ void UGameInstance::AddUserToReplay(const FString& UserString)
 	if ( CurrentWorld != nullptr && CurrentWorld->DemoNetDriver != nullptr )
 	{
 		CurrentWorld->DemoNetDriver->AddUserToReplay( UserString );
+	}
+}
+
+TSubclassOf<UOnlineSession> UGameInstance::GetOnlineSessionClass()
+{
+	return UOnlineSession::StaticClass();
+}
+
+
+void UGameInstance::HandleSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult &	InviteResult)
+{
+	OnSessionUserInviteAccepted(bWasSuccess, ControllerId, UserId, InviteResult);
+}
+
+void UGameInstance::OnSessionUserInviteAccepted(const bool bWasSuccess, const int32 ControllerId, TSharedPtr< const FUniqueNetId > UserId, const FOnlineSessionSearchResult &	InviteResult)
+{
+	UE_LOG(LogPlayerManagement, Verbose, TEXT("OnSessionUserInviteAccepted LocalUserNum: %d bSuccess: %d"), ControllerId, bWasSuccess);
+	// Don't clear invite accept delegate
+
+	if (bWasSuccess)
+	{
+		if (InviteResult.IsValid())
+		{
+			GetOnlineSession()->OnSessionUserInviteAccepted(bWasSuccess, ControllerId, UserId, InviteResult);
+		}
+		else
+		{
+			UE_LOG(LogPlayerManagement, Warning, TEXT("Invite accept returned invalid search result."));
+		}
+	}
+}
+
+bool UGameInstance::IsDedicatedServerInstance() const
+{
+	if (IsRunningDedicatedServer())
+	{
+		return true;
+	}
+	else
+	{
+		return WorldContext ? WorldContext->RunAsDedicated : false;
 	}
 }

@@ -73,7 +73,7 @@ namespace Tools.DotNETCommon.SimpleWebRequest
 			{
 				HttpWebResponse WebResponse = ( HttpWebResponse )Request.GetResponse();
 				// Simple size check to prevent exploits
-				if( WebResponse.StatusCode == HttpStatusCode.OK && WebResponse.ContentLength < 1024 )
+				if( WebResponse.StatusCode == HttpStatusCode.OK && WebResponse.ContentLength < 4096 )
 				{
 					// Process the response
 					Stream ResponseStream = WebResponse.GetResponseStream();

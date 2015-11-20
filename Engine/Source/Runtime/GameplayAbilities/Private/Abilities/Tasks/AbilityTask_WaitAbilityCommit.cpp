@@ -15,7 +15,7 @@ UAbilityTask_WaitAbilityCommit::UAbilityTask_WaitAbilityCommit(const FObjectInit
 
 UAbilityTask_WaitAbilityCommit* UAbilityTask_WaitAbilityCommit::WaitForAbilityCommit(UObject* WorldContextObject, FGameplayTag InWithTag, FGameplayTag InWithoutTag, bool InTriggerOnce)
 {
-	auto MyObj = NewTask<UAbilityTask_WaitAbilityCommit>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_WaitAbilityCommit>(WorldContextObject);
 	MyObj->WithTag = InWithTag;
 	MyObj->WithoutTag = InWithoutTag;
 	MyObj->TriggerOnce = InTriggerOnce;

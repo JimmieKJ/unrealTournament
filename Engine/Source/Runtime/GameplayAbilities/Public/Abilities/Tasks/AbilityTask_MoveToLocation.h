@@ -8,6 +8,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE(FMoveToLocationDelegate);
 
 class AActor;
 class UPrimitiveComponent;
+class UGameplayTasksComponent;
 
 /**
  *	TODO:
@@ -28,11 +29,11 @@ class UAbilityTask_MoveToLocation : public UAbilityTask
 	UPROPERTY(BlueprintAssignable)
 	FMoveToLocationDelegate		OnTargetLocationReached;
 
-	virtual void InitSimulatedTask(UAbilitySystemComponent* InAbilitySystemComponent) override;
+	virtual void InitSimulatedTask(UGameplayTasksComponent& InGameplayTasksComponent) override;
 
-	/** Move to the specified location, using the curve (range 0 - 1) or linearly if no curve is specified */
+	/** Move to the specified location, using the vector curve (range 0 - 1) if specified, otherwise the float curve (range 0 - 1) or fallback to linear interpolation */
 	UFUNCTION(BlueprintCallable, Category = "Ability|Tasks", meta = (HidePin = "WorldContextObject", DefaultToSelf = "WorldContextObject", BlueprintInternalUseOnly = "TRUE"))
-	static UAbilityTask_MoveToLocation* MoveToLocation(UObject* WorldContextObject, FName TaskInstanceName, FVector Location, float Duration, UCurveFloat* OptionalInterpolationCurve);
+	static UAbilityTask_MoveToLocation* MoveToLocation(UObject* WorldContextObject, FName TaskInstanceName, FVector Location, float Duration, UCurveFloat* OptionalInterpolationCurve, UCurveVector* OptionalVectorInterpolationCurve);
 
 	virtual void Activate() override;
 
@@ -63,6 +64,9 @@ protected:
 
 	UPROPERTY(Replicated)
 	UCurveFloat* LerpCurve;
+
+	UPROPERTY(Replicated)
+	UCurveVector* LerpCurveVector;
 
 	
 };

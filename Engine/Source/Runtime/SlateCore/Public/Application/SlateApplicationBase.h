@@ -40,6 +40,15 @@ private:
 };
 
 /**
+ * Design constraints for Slate applications
+ */
+namespace SlateApplicationDefs
+{
+	/** How many users can we support at once? */
+	static const int32 MaxUsers = 8;
+}
+
+/**
  * Base class for Slate applications.
  *
  * This class currently serves a temporary workaround for solving SlateCore dependencies to FSlateApplication.
@@ -193,7 +202,7 @@ public:
 
 protected:
 	/**
-	 * Implementation of GetMouseCaptor which can be overriden without warnings.
+	 * Implementation of GetMouseCaptor which can be overridden without warnings.
 	 * 
 	 * @return Widget with the mouse capture
 	 */
@@ -223,6 +232,15 @@ public:
 	 * @return Area rectangle.
 	 */
 	virtual FSlateRect GetPreferredWorkArea( ) const = 0;
+
+	/**
+	 * Checks whether the specified widget has any descendants which are currently focused for the specified user user.
+	 *
+	 * @param Widget The widget to check.
+	 * @param InUserIndex Index of the user that we want to check for.
+	 * @return true if any descendants are focused, false otherwise.
+	 */
+	virtual bool HasUserFocusedDescendants(const TSharedRef< const SWidget >& Widget, int32 UserIndex) const = 0;
 
 	/**
 	 * Checks whether the specified widget has any descendants which are currently focused.
@@ -262,14 +280,6 @@ public:
 	 * @return The new image widget.
 	 */
 	virtual TSharedRef<SWidget> MakeImage( const TAttribute<const FSlateBrush*>& Image, const TAttribute<FSlateColor>& Color, const TAttribute<EVisibility>& Visibility ) const = 0;
-
-	/**
-	 * Creates a tool tip with the specified string.
-	 *
-	 * @param ToolTipString The string attribute to assign to the tool tip.
-	 * @return The tool tip.
-	 */
-	virtual TSharedRef<IToolTip> MakeToolTip( const TAttribute<FString>& ToolTipString ) = 0;
 
 	/**
 	 * Creates a tool tip with the specified text.
@@ -327,6 +337,25 @@ public:
 	 */
 	virtual bool SetUserFocus(const uint32 InUserIndex, const FWidgetPath& InFocusPath, const EFocusCause InCause) = 0;
 
+	/**
+	 * Sets the focus for all users to the specified widget.  The widget must be allowed to receive focus.
+	 *
+	 * @param InWidget WidgetPath to the Widget to being focused.
+	 * @param InCause The reason that focus is changing.
+	 */
+	virtual void SetAllUserFocus(const FWidgetPath& InFocusPath, const EFocusCause InCause) = 0;
+
+	/**
+	 * Gets a delegate that is invoked when a global invalidate of all widgets should occur
+	 */
+	DECLARE_EVENT(FSlateApplicationBase, FOnGlobalInvalidate);
+	FOnGlobalInvalidate& OnGlobalInvalidate()  { return OnGlobalInvalidateEvent; }
+
+	/**
+	 * Notifies all invalidation panels that they should invalidate their contents
+	 * Note: this is a very expensive call and should only be done in non-performance critical situations
+	 */
+	void InvalidateAllWidgets() const;
 private:
 	/**
 	 * Implementation for active timer registration. See SWidget::RegisterActiveTimer.
@@ -350,6 +379,7 @@ protected:
 
 public:
 	const static uint32 CursorPointerIndex;
+	const static uint32 CursorUserIndex;
 
 	/**
 	 * Returns the current instance of the application. The application should have been initialized before
@@ -359,7 +389,7 @@ public:
 	 */
 	static FSlateApplicationBase& Get( )
 	{
-		check(IsThreadSafeForSlateRendering());
+		checkSlow(IsThreadSafeForSlateRendering());
 		return *CurrentBaseApplication;
 	}
 
@@ -397,6 +427,14 @@ protected:
 	virtual TOptional<EFocusCause> HasAnyUserFocus(const TSharedPtr<const SWidget> Widget) const = 0;
 
 	/**
+	 * Gets whether or not a particular widget is directly hovered.
+	 * Directly hovered means that the widget is directly under the pointer, is not true for ancestors tho they are Hovered.
+	 *
+	 * @return True if the widget is directly hovered, otherwise false.
+	 */
+	virtual bool IsWidgetDirectlyHovered(const TSharedPtr<const SWidget> Widget) const = 0;
+
+	/**
 	 * Gets whether or not a particular widget should show user focus.
 	 *
 	 * @return True if we should show user focus
@@ -421,5 +459,27 @@ protected:
 
 	// Holds a pointer to the platform application.
 	static TSharedPtr<class GenericApplication> PlatformApplication;
+
+public:
+
+	/**
+	 * Is Slate currently sleeping or not.
+	 *
+	 * @return True if Slate is sleeping.
+	 */
+	bool IsSlateAsleep();
+
+	TSharedPtr<ICursor> GetPlatformCursor()
+	{
+		return PlatformApplication->Cursor;
+	}
+
+protected:
+	/** multicast delegate to broadcast when a global invalidate is requested */
+	FOnGlobalInvalidate OnGlobalInvalidateEvent;
+
+	// Gets set when Slate goes to sleep and cleared when active.
+	bool bIsSlateAsleep;
+
 };
 

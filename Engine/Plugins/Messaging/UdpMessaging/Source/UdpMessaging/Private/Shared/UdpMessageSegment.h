@@ -69,7 +69,7 @@ namespace FUdpMessageSegment
 		 * @param DateTime The header to serialize.
 		 * @return The archive.
 		 */
-		friend FArchive& operator<<( FArchive& Ar, FHeader& Header )
+		friend FArchive& operator<<(FArchive& Ar, FHeader& Header)
 		{
 			return Ar << Header.ProtocolVersion << Header.RecipientNodeId << Header.SenderNodeId << Header.SegmentType;
 		}
@@ -93,7 +93,7 @@ namespace FUdpMessageSegment
 		 * @param DateTime The header to serialize.
 		 * @return The archive.
 		 */
-		friend FArchive& operator<<( FArchive& Ar, FAbortChunk& Header )
+		friend FArchive& operator<<(FArchive& Ar, FAbortChunk& Header)
 		{
 			return Ar << Header.MessageId;
 		}
@@ -117,7 +117,7 @@ namespace FUdpMessageSegment
 		 * @param DateTime The header to serialize.
 		 * @return The archive.
 		 */
-		friend FArchive& operator<<( FArchive& Ar, FAcknowledgeChunk& Header )
+		friend FArchive& operator<<(FArchive& Ar, FAcknowledgeChunk& Header)
 		{
 			return Ar << Header.MessageId;
 		}
@@ -159,7 +159,7 @@ namespace FUdpMessageSegment
 		 * @param DateTime The header to serialize.
 		 * @return The archive.
 		 */
-		friend FArchive& operator<<( FArchive& Ar, FDataChunk& Chunk )
+		friend FArchive& operator<<(FArchive& Ar, FDataChunk& Chunk)
 		{
 			return Ar
 				<< Chunk.MessageId
@@ -197,7 +197,7 @@ namespace FUdpMessageSegment
 		 * @param DateTime The header to serialize.
 		 * @return The archive.
 		 */
-		friend FArchive& operator<<( FArchive& Ar, FRetransmitChunk& Header )
+		friend FArchive& operator<<(FArchive& Ar, FRetransmitChunk& Header)
 		{
 			return Ar << Header.MessageId << Header.Segments;
 		}
@@ -221,7 +221,7 @@ namespace FUdpMessageSegment
 		 * @param DateTime The header to serialize.
 		 * @return The archive.
 		 */
-		friend FArchive& operator<<( FArchive& Ar, FTimeoutChunk& Header )
+		friend FArchive& operator<<(FArchive& Ar, FTimeoutChunk& Header)
 		{
 			return Ar << Header.MessageId;
 		}

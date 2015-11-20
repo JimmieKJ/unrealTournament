@@ -842,6 +842,8 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, NxDestructibl
 
 	FStaticLODModel& LODModel = DestructibleMeshResource.LODModels[0];
 	
+	LODModel.ActiveBoneIndices.Add(0);
+
 	// Pass the number of texture coordinate sets to the LODModel.  Ensure there is at least one UV coord
 	LODModel.NumTexCoords = FMath::Max<uint32>(1,SkelMeshImportDataPtr->NumTexCoords);
 //	if( bCreateRenderData )	// We always create render data
@@ -856,8 +858,13 @@ bool SetApexDestructibleAsset(UDestructibleMesh& DestructibleMesh, NxDestructibl
 
 		IMeshUtilities& MeshUtilities = FModuleManager::Get().LoadModuleChecked<IMeshUtilities>("MeshUtilities");
 
+		IMeshUtilities::MeshBuildOptions BuildOptions;
+		BuildOptions.bKeepOverlappingVertices = false;
+		BuildOptions.bComputeNormals = !bHaveNormals;
+		BuildOptions.bComputeTangents = !bHaveTangents;
+
 		// Create actual rendering data.
-		if (!MeshUtilities.BuildSkeletalMesh(DestructibleMeshResource.LODModels[0], DestructibleMesh.RefSkeleton, LODInfluences,LODWedges,LODFaces,LODPoints,LODPointToRawMap,false,!bHaveNormals,!bHaveTangents))
+		if (!MeshUtilities.BuildSkeletalMesh(DestructibleMeshResource.LODModels[0], DestructibleMesh.RefSkeleton, LODInfluences,LODWedges,LODFaces,LODPoints,LODPointToRawMap,BuildOptions))
 		{
 			DestructibleMesh.MarkPendingKill();
 			return false;
@@ -946,7 +953,7 @@ UNREALED_API bool BuildDestructibleMeshFromFractureSettings(UDestructibleMesh& D
 
 		for (int32 MaterialIndex = 0; MaterialIndex < DestructibleMesh.Materials.Num(); ++MaterialIndex)
 		{
-			if (MaterialIndex < OverrideMaterials.Num())	//if user has overriden materials use it
+			if (MaterialIndex < OverrideMaterials.Num())	//if user has overridden materials use it
 			{
 				DestructibleMesh.Materials[MaterialIndex].MaterialInterface = OverrideMaterials[MaterialIndex];
 			}
@@ -1003,9 +1010,7 @@ UDestructibleMesh* ImportDestructibleMeshFromApexDestructibleAsset(UObject* InPa
 		// Store the current file path and timestamp for re-import purposes
 		// @todo AssetImportData make a data class for Apex destructible assets
 		DestructibleMesh->AssetImportData = NewObject<UAssetImportData>(DestructibleMesh);
-		DestructibleMesh->AssetImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(UFactory::CurrentFilename, DestructibleMesh);
-		DestructibleMesh->AssetImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*UFactory::CurrentFilename).ToString();
-		DestructibleMesh->AssetImportData->bDirty = false;
+		DestructibleMesh->AssetImportData->Update(UFactory::CurrentFilename);
 	}
 
 	DestructibleMesh->PreEditChange(NULL);

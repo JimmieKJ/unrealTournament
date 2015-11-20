@@ -75,7 +75,7 @@ protected:
 	bool bActive;
 
 
-#ifdef DELEGATE_DEPRECATED
+#if TARGET_UE4_CL >= CL_DEPRECATEDEL
 	/** Handle to the registered OnNewFrame delegate */
 	FDelegateHandle OnNewFrameDelegateHandle;
 #endif

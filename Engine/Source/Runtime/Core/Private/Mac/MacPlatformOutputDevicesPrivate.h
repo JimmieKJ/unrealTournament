@@ -27,7 +27,7 @@ public:
 	 * Error handling function that is being called from within the system wide global
 	 * error handler, e.g. using structured exception handling on the PC.
 	 */
-	void HandleError();
+	virtual void HandleError() override;
 
 private:
 	int32		ErrorPos;

@@ -12,6 +12,7 @@
 
 #if WITH_EDITORONLY_DATA
 #include "DDSLoader.h"
+#include "EditorFramework/AssetImportData.h"
 #endif
 #include "Engine/TextureCube.h"
 
@@ -54,10 +55,12 @@ UTexture::UTexture(const FObjectInitializer& ObjectInitializer)
 	MipGenSettings = TMGS_FromTextureGroup;
 	CompositeTextureMode = CTM_NormalRoughnessToAlpha;
 	CompositePower = 1.0f;
+	bUseLegacyGamma = false;
 
 	PaddingColor = FColor::Black;
 	ChromaKeyColor = FColorList::Magenta;
 	ChromaKeyThreshold = 1.0f / 255.0f;
+	
 #endif // #if WITH_EDITORONLY_DATA
 
 	if (FApp::CanEverRender() && !IsTemplate())
@@ -121,7 +124,6 @@ void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
 		static const FName DeferCompressionName("DeferCompression");
 #if WITH_EDITORONLY_DATA
 		static const FName MaxTextureSizeName("MaxTextureSize");
-		static const FName PowerOfTwoModeName("PowerOfTwoMode");
 #endif // #if WITH_EDITORONLY_DATA
 
 		const FName PropertyName = PropertyThatChanged->GetFName();
@@ -142,23 +144,7 @@ void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
 			}
 			else
 			{
-				if (!Source.IsPowerOfTwo() && PowerOfTwoMode == ETexturePowerOfTwoSetting::None)
-				{
-					// Force power-of-two padding if a max texture size is specified on a non power-of-two sized texture
-					PowerOfTwoMode = ETexturePowerOfTwoSetting::PadToPowerOfTwo;
-				}
-				else
-				{
-					MaxTextureSize = FMath::Min<int32>(FMath::RoundUpToPowerOfTwo(MaxTextureSize), GetMaximumDimension());
-				}
-			}
-		}
-		else if (PropertyName == PowerOfTwoModeName)
-		{
-			if (PowerOfTwoMode == ETexturePowerOfTwoSetting::None && MaxTextureSize > 0 && !Source.IsPowerOfTwo())
-			{
-				// Force no max texture size if the source texture is not power-of-two sized and we are requesting no power-of-two padding
-				MaxTextureSize = 0;
+				MaxTextureSize = FMath::Min<int32>(FMath::RoundUpToPowerOfTwo(MaxTextureSize), GetMaximumDimension());
 			}
 		}
 #endif // #if WITH_EDITORONLY_DATA
@@ -258,12 +244,38 @@ void UTexture::Serialize(FArchive& Ar)
 	{
 		Source.BulkData.Serialize(Ar, this);
 	}
+
+	if ( GetLinkerUE4Version() < VER_UE4_TEXTURE_LEGACY_GAMMA )
+	{
+		bUseLegacyGamma = true;
+	}
+
 #endif // #if WITH_EDITORONLY_DATA
+}
+
+void UTexture::PostInitProperties()
+{
+#if WITH_EDITORONLY_DATA
+	if (!HasAnyFlags(RF_ClassDefaultObject))
+	{
+		AssetImportData = NewObject<UAssetImportData>(this, TEXT("AssetImportData"));
+	}
+#endif
+	Super::PostInitProperties();
 }
 
 void UTexture::PostLoad()
 {
 	Super::PostLoad();
+
+#if WITH_EDITORONLY_DATA
+	if (!SourceFilePath_DEPRECATED.IsEmpty() && AssetImportData)
+	{
+		FAssetImportInfo Info;
+		Info.Insert(FAssetImportInfo::FSourceFile(SourceFilePath_DEPRECATED));
+		AssetImportData->SourceData = MoveTemp(Info);
+	}
+#endif
 
 	if( !IsTemplate() )
 	{
@@ -366,8 +378,11 @@ void UTexture::PreSave()
 		UpdateResource();
 	}
 
-	GWarn->StatusUpdate( 0, 0, FText::Format( NSLOCTEXT("UnrealEd", "SavingPackage_CompressingSourceArt", "Compressing source art for texture:  {0}"), FText::FromString(GetName()) ) );
-	Source.Compress();
+	if( !GEngine->IsAutosaving() )
+	{
+		GWarn->StatusUpdate(0, 0, FText::Format(NSLOCTEXT("UnrealEd", "SavingPackage_CompressingSourceArt", "Compressing source art for texture:  {0}"), FText::FromString(GetName())));
+		Source.Compress();
+	}
 
 #endif // #if WITH_EDITOR
 }
@@ -375,7 +390,10 @@ void UTexture::PreSave()
 #if WITH_EDITORONLY_DATA
 void UTexture::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 {
-	OutTags.Add( FAssetRegistryTag(SourceFileTagName(), SourceFilePath, FAssetRegistryTag::TT_Hidden) );
+	if (AssetImportData)
+	{
+		OutTags.Add( FAssetRegistryTag(SourceFileTagName(), AssetImportData->GetSourceData().ToJson(), FAssetRegistryTag::TT_Hidden) );
+	}
 
 	Super::GetAssetRegistryTags(OutTags);
 }

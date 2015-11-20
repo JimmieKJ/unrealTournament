@@ -145,7 +145,7 @@ namespace Gu
 		}
 
 	};
-	#if defined(PX_X64) || defined(PX_ARM64)
+	#if defined(PX_P64)
 	PX_COMPILE_TIME_ASSERT(sizeof(Gu::ConvexHullData) == 72);
 	#else
 	PX_COMPILE_TIME_ASSERT(sizeof(Gu::ConvexHullData) == 64);

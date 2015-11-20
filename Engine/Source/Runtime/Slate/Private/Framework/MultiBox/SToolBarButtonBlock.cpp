@@ -31,12 +31,12 @@ FToolBarButtonBlock::FToolBarButtonBlock( const TAttribute<FText>& InLabel, cons
 
 void FToolBarButtonBlock::CreateMenuEntry(FMenuBuilder& MenuBuilder) const
 {
-	TSharedPtr<const FUICommandInfo> Action = GetAction();
-	TSharedPtr<const FUICommandList> ActionList = GetActionList();
-	if (Action.IsValid() && ActionList.IsValid())
+	TSharedPtr<const FUICommandInfo> MenuEntryAction = GetAction();
+	TSharedPtr<const FUICommandList> MenuEntryActionList = GetActionList();
+	if (MenuEntryAction.IsValid() && MenuEntryActionList.IsValid())
 	{
-		MenuBuilder.PushCommandList(ActionList.ToSharedRef());
-		MenuBuilder.AddMenuEntry(Action);				
+		MenuBuilder.PushCommandList(MenuEntryActionList.ToSharedRef());
+		MenuBuilder.AddMenuEntry(MenuEntryAction);
 		MenuBuilder.PopCommandList();
 	}
 	else if ( LabelOverride.IsSet() )
@@ -138,6 +138,10 @@ void SToolBarButtonBlock::BuildMultiBlockWidget(const ISlateStyle* StyleSet, con
 	{
 		ActualLabel = ToolBarButtonBlock->GetAction()->GetLabel();
 	}
+
+	// Add this widget to the search list of the multibox
+	if (MultiBlock->GetSearchable())
+		OwnerMultiBoxWidget.Pin()->AddSearchElement(this->AsWidget(), ActualLabel.Get());
 
 	TAttribute<FText> ActualToolTip;
 	if (ToolBarButtonBlock->ToolTipOverride.IsSet())
@@ -333,18 +337,18 @@ ECheckBoxState SToolBarButtonBlock::OnIsChecked() const
 	TSharedPtr< const FUICommandInfo > Action = MultiBlock->GetAction();
 	const FUIAction& DirectActions = MultiBlock->GetDirectActions();
 
-	bool bIsChecked = true;
+	ECheckBoxState CheckState = ECheckBoxState::Unchecked;
 	if( ActionList.IsValid() && Action.IsValid() )
 	{
-		bIsChecked = ActionList->IsChecked( Action.ToSharedRef() );
+		CheckState = ActionList->GetCheckState( Action.ToSharedRef() );
 	}
 	else
 	{
 		// There is no action list or action associated with this block via a UI command.  Execute any direct action we have
-		bIsChecked = DirectActions.IsChecked();
+		CheckState = DirectActions.GetCheckState();
 	}
 
-	return bIsChecked ? ECheckBoxState::Checked : ECheckBoxState::Unchecked;
+	return CheckState;
 }
 
 /**

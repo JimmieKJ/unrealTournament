@@ -363,7 +363,7 @@ void PxSerialization::dumpBinaryMetaData(PxOutputStream& outputStream, PxSeriali
 
 	PxU32 platformTag = getBinaryPlatformTag();
 
-#ifdef PX_X64
+#if defined(PX_X64)
 	const PxU32 gaussMapLimit = PxGetGaussMapVertexLimitForPlatform(PxPlatform::ePC);
 	const PxU32 tiledHeightFieldSamples = 0;
 #endif
@@ -379,7 +379,7 @@ void PxSerialization::dumpBinaryMetaData(PxOutputStream& outputStream, PxSeriali
 	const PxU32 gaussMapLimit = PxGetGaussMapVertexLimitForPlatform(PxPlatform::ePLAYSTATION3);
 	const PxU32 tiledHeightFieldSamples = 1;
 #endif
-#ifdef PX_ARM
+#if defined(PX_ARM) || defined(PX_A64)
 	const PxU32 gaussMapLimit = PxGetGaussMapVertexLimitForPlatform(PxPlatform::eARM);
 	const PxU32 tiledHeightFieldSamples = 0;
 #endif

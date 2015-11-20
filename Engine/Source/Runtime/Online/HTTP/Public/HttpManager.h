@@ -5,6 +5,8 @@
 #include "Ticker.h"
 #include "HttpPackage.h"
 
+class IHttpRequest;
+
 /**
  * Manages Http request that are currently being processed
  */
@@ -50,14 +52,21 @@ public:
 	virtual bool IsValidRequest(const IHttpRequest* RequestPtr) const;
 
 	/**
+	 * Block until all pending requests are finished processing
+	 *
+	 * @param bShutdown true if final flush during shutdown
+	 */
+	virtual void Flush(bool bShutdown);
+
+	/**
 	 * FTicker callback
 	 *
 	 * @param DeltaSeconds - time in seconds since the last tick
 	 *
 	 * @return false if no longer needs ticking
 	 */
-	bool Tick(float DeltaSeconds) override;
-
+	virtual bool Tick(float DeltaSeconds) override;
+	
 	/**
 	 * List all of the Http requests currently being processed
 	 *

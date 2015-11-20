@@ -244,38 +244,15 @@ protected:
  */
 void SScrollBar::Construct(const FArguments& InArgs)
 {
-	check(InArgs._Style);
-
 	OnUserScrolled = InArgs._OnUserScrolled;
 	Orientation = InArgs._Orientation;
 	UserVisibility = InArgs._Visibility;
 
-	NormalThumbImage = &InArgs._Style->NormalThumbImage;
-	HoveredThumbImage = &InArgs._Style->HoveredThumbImage;
-	DraggedThumbImage = &InArgs._Style->DraggedThumbImage;
+	check(InArgs._Style);
+	SetStyle(InArgs._Style);
 
-	EHorizontalAlignment HorizontalAlignment;
-	EVerticalAlignment VerticalAlignment;
-	const FSlateBrush* BackgroundBrush;
-	const FSlateBrush* TopBrush;
-	const FSlateBrush* BottomBrush;
-
-	if(Orientation == Orient_Vertical)
-	{
-		HorizontalAlignment = HAlign_Center;
-		VerticalAlignment = VAlign_Fill;
-		BackgroundBrush = &InArgs._Style->VerticalBackgroundImage;
-		TopBrush = &InArgs._Style->VerticalTopSlotImage;
-		BottomBrush = &InArgs._Style->VerticalBottomSlotImage;
-	}
-	else
-	{
-		HorizontalAlignment = HAlign_Fill;
-		VerticalAlignment = VAlign_Center;
-		BackgroundBrush = &InArgs._Style->HorizontalBackgroundImage;
-		TopBrush = &InArgs._Style->HorizontalTopSlotImage;
-		BottomBrush = &InArgs._Style->HorizontalBottomSlotImage;
-	}
+	EHorizontalAlignment HorizontalAlignment = Orientation == Orient_Vertical ? HAlign_Center : HAlign_Fill;
+	EVerticalAlignment VerticalAlignment = Orientation == Orient_Vertical ? VAlign_Fill : VAlign_Center;
 
 	SBorder::Construct( SBorder::FArguments()
 		.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
@@ -536,6 +513,28 @@ EVisibility SScrollBar::ShouldBeVisible() const
 bool SScrollBar::IsScrolling() const
 {
 	return bDraggingThumb;
+}
+
+void SScrollBar::SetStyle(const FScrollBarStyle* InStyle)
+{
+	check(InStyle);
+
+	NormalThumbImage = &InStyle->NormalThumbImage;
+	HoveredThumbImage = &InStyle->HoveredThumbImage;
+	DraggedThumbImage = &InStyle->DraggedThumbImage;
+
+	if (Orientation == Orient_Vertical)
+	{
+		BackgroundBrush = &InStyle->VerticalBackgroundImage;
+		TopBrush = &InStyle->VerticalTopSlotImage;
+		BottomBrush = &InStyle->VerticalBottomSlotImage;
+	}
+	else
+	{
+		BackgroundBrush = &InStyle->HorizontalBackgroundImage;
+		TopBrush = &InStyle->HorizontalTopSlotImage;
+		BottomBrush = &InStyle->HorizontalBottomSlotImage;
+	}
 }
 
 void SScrollBar::SetThickness(TAttribute<FVector2D> InThickness)

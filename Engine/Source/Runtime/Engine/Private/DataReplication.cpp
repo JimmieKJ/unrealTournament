@@ -36,7 +36,7 @@ public:
 
 			if (!bSuccess)
 			{
-				UE_LOG(LogNet, Warning, TEXT("NetSerializeStruct: Native NetSerialize %s failed."), *Struct->GetFullName());
+				UE_LOG(LogRep, Warning, TEXT("NetSerializeStruct: Native NetSerialize %s failed."), *Struct->GetFullName());
 			}
 		}
 		else
@@ -145,19 +145,19 @@ bool FObjectReplicator::ValidateAgainstState( const UObject* ObjectState )
 {
 	if ( !RepLayout.IsValid() )
 	{
-		UE_LOG( LogNet, Warning, TEXT( "ValidateAgainstState: RepLayout.IsValid() == false" ) );
+		UE_LOG(LogRep, Warning, TEXT("ValidateAgainstState: RepLayout.IsValid() == false"));
 		return false;
 	}
 
 	if ( RepState == NULL )
 	{
-		UE_LOG( LogNet, Warning, TEXT( "ValidateAgainstState: RepState == NULL" ) );
+		UE_LOG(LogRep, Warning, TEXT("ValidateAgainstState: RepState == NULL"));
 		return false;
 	}
 
 	if ( RepLayout->DiffProperties( RepState, ObjectState, false ) )
 	{
-		UE_LOG( LogNet, Warning, TEXT( "ValidateAgainstState: Properties changed for %s" ), *ObjectState->GetName() );
+		UE_LOG(LogRep, Warning, TEXT("ValidateAgainstState: Properties changed for %s"), *ObjectState->GetName());
 		return false;
 	}
 
@@ -181,7 +181,7 @@ void FObjectReplicator::InitWithObject( UObject* InObject, UNetConnection * InCo
 	{
 		// This may seem weird that we're checking for NULL, but the SetObject above will wrap this object with TWeakObjectPtr
 		// If the object is pending kill, it will switch to NULL, we're just making sure we handle this invalid edge case
-		UE_LOG( LogNet, Error, TEXT( "InitWithObject: Object == NULL" ) );
+		UE_LOG(LogRep, Error, TEXT("InitWithObject: Object == NULL"));
 		return;
 	}
 
@@ -237,7 +237,7 @@ void FObjectReplicator::StartReplicating( class UActorChannel * InActorChannel )
 
 	if ( GetObject() == NULL )
 	{
-		UE_LOG( LogNet, Error, TEXT( "StartReplicating: Object == NULL" ) );
+		UE_LOG(LogRep, Error, TEXT("StartReplicating: Object == NULL"));
 		return;
 	}
 
@@ -331,7 +331,7 @@ void FObjectReplicator::ReceivedNak( int32 NakPacketId )
 
 	if ( Object == NULL )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "ReceivedNak: Object == NULL" ) );
+		UE_LOG(LogNet, Verbose, TEXT("ReceivedNak: Object == NULL"));
 		return;
 	}
 
@@ -358,7 +358,7 @@ void FObjectReplicator::ReceivedNak( int32 NakPacketId )
 				}
 				else if ( NakPacketId >= Rec->OutPacketIdRange.First && NakPacketId <= Rec->OutPacketIdRange.Last )
 				{
-					UE_LOG( LogNet, Verbose, TEXT( "Restoring Previous Base State of dynamic property Channel %d. NakId: %d  (%d -%d)" ), OwningChannel->ChIndex, NakPacketId, Rec->OutPacketIdRange.First, Rec->OutPacketIdRange.Last  );
+					UE_LOG(LogNet, Verbose, TEXT("Restoring Previous Base State of dynamic property Channel %d. NakId: %d  (%d -%d)"), OwningChannel->ChIndex, NakPacketId, Rec->OutPacketIdRange.First, Rec->OutPacketIdRange.Last);
 
 					// The Nack'd packet did update this property, so we need to replace the buffer in RecentDynamic
 					// with the buffer we used to create this update (which was dropped), so that the update will be recreated on the next replicate actor
@@ -400,7 +400,7 @@ const FFieldNetCache* FObjectReplicator::ReadField( const FClassNetCache* ClassC
 
 		if ( Bunch.IsError() )
 		{
-			UE_LOG( LogNet, Error, TEXT( "ReadField: Error reading checksum: %s" ), *GetObject()->GetFullName() );
+			UE_LOG(LogNet, Error, TEXT("ReadField: Error reading checksum: %s"), *GetObject()->GetFullName());
 			return NULL;
 		}
 
@@ -413,7 +413,7 @@ const FFieldNetCache* FObjectReplicator::ReadField( const FClassNetCache* ClassC
 
 		if ( FieldNetCache == NULL )
 		{
-			UE_LOG( LogNet, Error, TEXT( "ReadField: GetFromChecksum failed: %s" ), *GetObject()->GetFullName() );
+			UE_LOG(LogNet, Error, TEXT("ReadField: GetFromChecksum failed: %s"), *GetObject()->GetFullName());
 			Bunch.SetError();
 			return NULL;
 		}
@@ -425,7 +425,7 @@ const FFieldNetCache* FObjectReplicator::ReadField( const FClassNetCache* ClassC
 
 	if ( Bunch.IsError() )
 	{
-		UE_LOG( LogNet, Error, TEXT( "ReadField: Error reading RepIndex: %s" ), *GetObject()->GetFullName() );
+		UE_LOG(LogRep, Error, TEXT("ReadField: Error reading RepIndex: %s"), *GetObject()->GetFullName());
 		return NULL;
 	}
 
@@ -437,7 +437,7 @@ const FFieldNetCache* FObjectReplicator::ReadField( const FClassNetCache* ClassC
 	if ( RepIndex > ClassCache->GetMaxIndex() )
 	{
 		// We shouldn't be receiving this bunch of this object has no properties or RPC functions to process
-		UE_LOG( LogNet, Error, TEXT( "ReadField: RepIndex too large: %s" ), *GetObject()->GetFullName() );
+		UE_LOG(LogRep, Error, TEXT("ReadField: RepIndex too large: %s"), *GetObject()->GetFullName());
 		Bunch.SetError();
 		return NULL;
 	}
@@ -446,7 +446,7 @@ const FFieldNetCache* FObjectReplicator::ReadField( const FClassNetCache* ClassC
 
 	if ( FieldNetCache == NULL )
 	{
-		UE_LOG( LogNet, Error, TEXT( "ReadField: GetFromIndex failed: %s" ), *GetObject()->GetFullName() );
+		UE_LOG(LogNet, Error, TEXT("ReadField: GetFromIndex failed: %s"), *GetObject()->GetFullName());
 		Bunch.SetError();
 		return NULL;
 	}
@@ -460,7 +460,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 	if ( Object == NULL )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "ReceivedBunch: Object == NULL" ) );
+		UE_LOG(LogNet, Verbose, TEXT("ReceivedBunch: Object == NULL"));
 		return false;
 	}
 
@@ -472,7 +472,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 	if ( ClassCache == NULL )
 	{
-		UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: ClassCache == NULL: %s" ), *Object->GetFullName() );
+		UE_LOG(LogNet, Error, TEXT("ReceivedBunch: ClassCache == NULL: %s"), *Object->GetFullName());
 		return false;
 	}
 
@@ -483,7 +483,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 	if ( Bunch.IsError() )
 	{
-		UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: Error reading field 1: %s" ), *Object->GetFullName() );
+		UE_LOG(LogNet, Error, TEXT("ReceivedBunch: Error reading field 1: %s"), *Object->GetFullName());
 		return false;
 	}
 
@@ -506,7 +506,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 			// Server shouldn't receive properties.
 			if ( bIsServer )
 			{
-				UE_LOG( LogNet, Error, TEXT( "Server received unwanted property value %s in %s" ), *ReplicatedProp->GetName(), *Object->GetFullName() );
+				UE_LOG(LogNet, Error, TEXT("Server received unwanted property value %s in %s"), *ReplicatedProp->GetName(), *Object->GetFullName());
 				return false;
 			}
 		
@@ -524,18 +524,24 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 				static IConsoleVariable* CVar = IConsoleManager::Get().FindConsoleVariable(TEXT("net.Replication.DebugProperty"));
 				if (CVar && !CVar->GetString().IsEmpty() && ReplicatedProp->GetName().Contains(CVar->GetString()) )
 				{
-					UE_LOG(LogNet, Log, TEXT("Replicating Property[%d] %s on %s"), ReplicatedProp->RepIndex, *ReplicatedProp->GetName(), *Object->GetName());
+					UE_LOG(LogRep, Log, TEXT("Replicating Property[%d] %s on %s"), ReplicatedProp->RepIndex, *ReplicatedProp->GetName(), *Object->GetName());
 					DebugProperty = true;
 				}
 			}
 #endif
 			if ( !Retirement[ ReplicatedProp->RepIndex ].CustomDelta )
 			{
+				bool bLocalHasUnmapped = false;
 				// We hijack a non custom delta property to signify we are using FRepLayout to read the entire property block
-				if ( !RepLayout->ReceiveProperties( ObjectClass, RepState, (void*)Object, Bunch, bOutHasUnmapped ) )
+				if ( !RepLayout->ReceiveProperties( ObjectClass, RepState, (void*)Object, Bunch, bLocalHasUnmapped ) )
 				{
-					UE_LOG( LogNet, Error, TEXT( "ReceiveProperties FAILED %s in %s" ), *ReplicatedProp->GetName(), *Object->GetFullName() );
+					UE_LOG(LogRep, Error, TEXT("ReceiveProperties FAILED %s in %s"), *ReplicatedProp->GetName(), *Object->GetFullName());
 					return false;
+				}
+
+				if ( bLocalHasUnmapped )
+				{
+					bOutHasUnmapped = true;
 				}
 			}
 			else
@@ -550,7 +556,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 					if ( Element >= (uint32)ReplicatedProp->ArrayDim )
 					{
-						UE_LOG( LogNet, Error, TEXT( "Element index too large %s in %s" ), *ReplicatedProp->GetName(), *Object->GetFullName() );
+						UE_LOG(LogRep, Error, TEXT("Element index too large %s in %s"), *ReplicatedProp->GetName(), *Object->GetFullName());
 						return false;
 					}
 				}
@@ -566,7 +572,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 				if ( StructProperty == NULL )
 				{
 					// This property isn't custom delta
-					UE_LOG( LogNetTraffic, Error, TEXT( "Property isn't custom delta %s" ), *ReplicatedProp->GetName() );
+					UE_LOG(LogRepTraffic, Error, TEXT("Property isn't custom delta %s"), *ReplicatedProp->GetName());
 					return false;
 				}
 
@@ -575,7 +581,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 				if ( !( InnerStruct->StructFlags & STRUCT_NetDeltaSerializeNative ) )
 				{
 					// This property isn't custom delta
-					UE_LOG( LogNetTraffic, Error, TEXT( "Property isn't custom delta %s" ), *ReplicatedProp->GetName() );
+					UE_LOG(LogRepTraffic, Error, TEXT("Property isn't custom delta %s"), *ReplicatedProp->GetName());
 					return false;
 				}
 
@@ -599,17 +605,18 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 				if ( Bunch.IsError() )
 				{
-					UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: NetDeltaSerialize - Bunch.IsError() == true: %s" ), *Object->GetFullName() );
+					UE_LOG(LogNet, Error, TEXT("ReceivedBunch: NetDeltaSerialize - Bunch.IsError() == true: %s"), *Object->GetFullName());
 					return false;
 				}
 
 				if ( Parms.bOutHasMoreUnmapped )
 				{
 					UnmappedCustomProperties.Add( DataOffset, StructProperty );
+					bOutHasUnmapped = true;
 				}
 
 				// Successfully received it.
-				UE_LOG( LogNetTraffic, Log, TEXT( " %s - %s" ), *Object->GetName(), *ReplicatedProp->GetName());
+				UE_LOG(LogRepTraffic, Log, TEXT(" %s - %s"), *Object->GetName(), *ReplicatedProp->GetName());
 
 				// Notify the Object if this var is RepNotify
 				QueuePropertyRepNotify( Object, ReplicatedProp, Element, MetaData );
@@ -620,7 +627,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 			if ( Bunch.IsError() )
 			{
-				UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: Error reading field 2: %s" ), *Object->GetFullName() );
+				UE_LOG(LogNet, Error, TEXT("ReceivedBunch: Error reading field 2: %s"), *Object->GetFullName());
 				return false;
 			}
 		}
@@ -633,23 +640,23 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 			if ( Function == NULL )
 			{
-				UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: Function == NULL: %s" ), *Object->GetFullName() );
+				UE_LOG(LogNet, Error, TEXT("ReceivedBunch: Function == NULL: %s"), *Object->GetFullName());
 				return false;
 			}
 
 			if ( ( Function->FunctionFlags & FUNC_Net ) == 0 )
 			{
-				UE_LOG( LogNet, Error, TEXT( "Rejected non RPC function %s in %s" ), *Message.ToString(), *Object->GetFullName() );
+				UE_LOG(LogRep, Error, TEXT("Rejected non RPC function %s in %s"), *Message.ToString(), *Object->GetFullName());
 				return false;
 			}
 
 			if ( ( Function->FunctionFlags & ( bIsServer ? FUNC_NetServer : ( FUNC_NetClient | FUNC_NetMulticast ) ) ) == 0 )
 			{
-				UE_LOG( LogNet, Error, TEXT( "Rejected RPC function due to access rights %s in %s" ), *Message.ToString(), *Object->GetFullName() );
+				UE_LOG(LogRep, Error, TEXT("Rejected RPC function due to access rights %s in %s"), *Message.ToString(), *Object->GetFullName());
 				return false;
 			}
 
-			UE_LOG( LogNetTraffic, Log, TEXT( "      Received RPC: %s" ), *Message.ToString() );
+			UE_LOG(LogRepTraffic, Log, TEXT("      Received RPC: %s"), *Message.ToString());
 
 			// Get the parameters.
 			FMemMark Mark(FMemStack::Get());
@@ -662,7 +669,7 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 			if ( Bunch.IsError() )
 			{
-				UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: ReceivePropertiesForRPC - Bunch.IsError() == true: Function: %s, Object: %s" ), *Message.ToString(), *Object->GetFullName() );
+				UE_LOG(LogRep, Error, TEXT("ReceivedBunch: ReceivePropertiesForRPC - Bunch.IsError() == true: Function: %s, Object: %s"), *Message.ToString(), *Object->GetFullName());
 				return false;
 			}
 
@@ -678,19 +685,22 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 				if ( RPC_GetLastFailedReason() != NULL )
 				{
-					UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: RPC_GetLastFailedReason: %s" ), RPC_GetLastFailedReason() );
+					UE_LOG(LogRep, Error, TEXT("ReceivedBunch: RPC_GetLastFailedReason: %s"), RPC_GetLastFailedReason());
 					return false;
 				}
 			}
 			else
 			{
-				UE_LOG( LogNet, Verbose, TEXT( "Rejected unwanted function %s in %s" ), *Message.ToString(), *Object->GetFullName() );
+				UE_LOG(LogRep, Verbose, TEXT("Rejected unwanted function %s in %s"), *Message.ToString(), *Object->GetFullName());
 
+#if 0
+				// FIXME: This may cause false positives, need to think of a better way to handle this, removing it for now
 				if ( !OwningChannel->Connection->TrackLogsPerSecond() )	// This will disconnect the client if we get here too often
 				{
-					UE_LOG( LogNet, Error, TEXT( "Rejected too many unwanted functions %s in %s" ), *Message.ToString(), *Object->GetFullName() );
+					UE_LOG(LogRep, Error, TEXT("Rejected too many unwanted functions %s in %s"), *Message.ToString(), *Object->GetFullName());
 					return false;
 				}
+#endif
 			}
 
 			// Destroy the parameters.
@@ -716,13 +726,13 @@ bool FObjectReplicator::ReceivedBunch( FInBunch& Bunch, const FReplicationFlags&
 
 			if ( Bunch.IsError() )
 			{
-				UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: Error reading field 3: %s" ), *Object->GetFullName() );
+				UE_LOG(LogNet, Error, TEXT("ReceivedBunch: Error reading field 3: %s"), *Object->GetFullName());
 				return false;
 			}
 		}
 		else if ( FieldCache )
 		{
-			UE_LOG( LogNet, Error, TEXT( "ReceivedBunch: Invalid replicated field %i in %s" ), FieldCache->FieldNetIndex, *Object->GetFullName() );
+			UE_LOG(LogRep, Error, TEXT("ReceivedBunch: Invalid replicated field %i in %s"), FieldCache->FieldNetIndex, *Object->GetFullName());
 			return false;
 		}
 	}
@@ -734,7 +744,7 @@ void FObjectReplicator::PostReceivedBunch()
 {
 	if ( GetObject() == NULL )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "PostReceivedBunch: Object == NULL" ) );
+		UE_LOG(LogNet, Verbose, TEXT("PostReceivedBunch: Object == NULL"));
 		return;
 	}
 
@@ -754,7 +764,12 @@ void FObjectReplicator::PostReceivedBunch()
 	}
 
 	// Call RepNotifies
-	CallRepNotifies();
+	CallRepNotifies(true);
+
+	if (!Object->IsPendingKill())
+	{
+		Object->PostRepNotifies();
+	}
 }
 
 static FORCEINLINE FPropertyRetirement ** UpdateAckedRetirements( FPropertyRetirement &	Retire, int32 OutAckPacketId )
@@ -767,7 +782,7 @@ static FORCEINLINE FPropertyRetirement ** UpdateAckedRetirements( FPropertyRetir
 	{
 		if ( OutAckPacketId >= (*Rec)->OutPacketIdRange.Last )
 		{
-			UE_LOG( LogNetTraffic, Verbose, TEXT("Deleting Property Record (%d >= %d)"), OutAckPacketId, (*Rec)->OutPacketIdRange.Last );
+			UE_LOG(LogRepTraffic, Verbose, TEXT("Deleting Property Record (%d >= %d)"), OutAckPacketId, (*Rec)->OutPacketIdRange.Last);
 
 			// They've ack'd this packet so we can ditch this record (easier to do it here than look for these every Ack)
 			FPropertyRetirement * ToDelete = *Rec;
@@ -885,7 +900,7 @@ void FObjectReplicator::ReplicateCustomDeltaProperties( FOutBunch & Bunch, FRepl
 		// Send property.
 		Bunch.SerializeBits( TempBitWriter.GetData(), TempBitWriter.GetNumBits() );
 
-		NETWORK_PROFILER(GNetworkProfiler.TrackReplicateProperty(It, Bunch.GetNumBits() - NumStartingBits));
+		NETWORK_PROFILER(GNetworkProfiler.TrackReplicateProperty(It, Bunch.GetNumBits() - NumStartingBits, Connection));
 	}
 }
 
@@ -896,7 +911,7 @@ bool FObjectReplicator::ReplicateProperties( FOutBunch & Bunch, FReplicationFlag
 
 	if ( Object == NULL )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "ReplicateProperties: Object == NULL" ) );
+		UE_LOG(LogRep, Verbose, TEXT("ReplicateProperties: Object == NULL"));
 		return false;
 	}
 
@@ -929,7 +944,7 @@ bool FObjectReplicator::ReplicateProperties( FOutBunch & Bunch, FReplicationFlag
 
 		if ( CVar && CVar->GetValueOnGameThread() == 1 )
 		{
-			UE_LOG( LogNetTraffic, Warning,	TEXT("      Sending queued RPCs: %s. Channel[%d] [%.1f bytes]"), *Object->GetName(), OwningChannel->ChIndex, RemoteFunctions->GetNumBits() / 8.f );
+			UE_LOG( LogRepTraffic, Warning,	TEXT("      Sending queued RPCs: %s. Channel[%d] [%.1f bytes]"), *Object->GetName(), OwningChannel->ChIndex, RemoteFunctions->GetNumBits() / 8.f );
 		}
 
 		if ( !bContentBlockWritten )
@@ -962,7 +977,7 @@ void FObjectReplicator::ForceRefreshUnreliableProperties()
 {
 	if ( GetObject() == NULL )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "ForceRefreshUnreliableProperties: Object == NULL" ) );
+		UE_LOG( LogRep, Verbose, TEXT( "ForceRefreshUnreliableProperties: Object == NULL" ) );
 		return;
 	}
 
@@ -977,7 +992,7 @@ void FObjectReplicator::PostSendBunch( FPacketIdRange & PacketRange, uint8 bReli
 {
 	if ( GetObject() == NULL )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "PostSendBunch: Object == NULL" ) );
+		UE_LOG(LogNet, Verbose, TEXT("PostSendBunch: Object == NULL"));
 		return;
 	}
 
@@ -1043,7 +1058,7 @@ void FObjectReplicator::QueueRemoteFunctionBunch( UFunction* Func, FOutBunch &Bu
 	
 	if (++RemoteFuncInfo[InfoIdx].Calls > CVarMaxRPCPerNetUpdate.GetValueOnGameThread())
 	{
-		UE_LOG(LogNet, Log, TEXT("Too many calls to RPC %s within a single netupdate. Skipping. %s.  LastCallTime: %.2f. CurrentTime: %.2f. LastRelevantTime: %.2f. LastUpdateTime: %.2f "), 
+		UE_LOG(LogRep, Verbose, TEXT("Too many calls to RPC %s within a single netupdate. Skipping. %s.  LastCallTime: %.2f. CurrentTime: %.2f. LastRelevantTime: %.2f. LastUpdateTime: %.2f "), 
 			*Func->GetName(), *GetObject()->GetName(), RemoteFuncInfo[InfoIdx].LastCallTime, OwningChannel->Connection->Driver->Time, OwningChannel->RelevantTime, OwningChannel->LastUpdateTime );
 		return;
 	}
@@ -1077,7 +1092,7 @@ bool FObjectReplicator::ReadyForDormancy(bool suppressLogs)
 {
 	if ( GetObject() == NULL )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "ReadyForDormancy: Object == NULL" ) );
+		UE_LOG( LogRep, Verbose, TEXT( "ReadyForDormancy: Object == NULL" ) );
 		return true;		// Technically, we don't want to hold up dormancy, but the owner needs to clean us up, so we warn
 	}
 
@@ -1086,7 +1101,7 @@ bool FObjectReplicator::ReadyForDormancy(bool suppressLogs)
 	{
 		if ( !suppressLogs )
 		{
-			UE_LOG( LogNetTraffic, Verbose, TEXT( "    [%d] Not ready for dormancy. bLastUpdateEmpty = false" ), OwningChannel->ChIndex );
+			UE_LOG( LogRepTraffic, Verbose, TEXT( "    [%d] Not ready for dormancy. bLastUpdateEmpty = false" ), OwningChannel->ChIndex );
 		}
 
 		return false;
@@ -1099,7 +1114,7 @@ bool FObjectReplicator::ReadyForDormancy(bool suppressLogs)
 		{
 			if ( !suppressLogs )
 			{
-				UE_LOG( LogNetTraffic, Verbose, TEXT( "    [%d] OutAckPacketId: %d First: %d Last: %d " ), OwningChannel->ChIndex, OwningChannel->Connection->OutAckPacketId, Retirement[i].OutPacketIdRange.First, Retirement[i].OutPacketIdRange.Last );
+				UE_LOG( LogRepTraffic, Verbose, TEXT( "    [%d] OutAckPacketId: %d First: %d Last: %d " ), OwningChannel->ChIndex, OwningChannel->Connection->OutAckPacketId, Retirement[i].OutPacketIdRange.First, Retirement[i].OutPacketIdRange.Last );
 			}
 			return false;
 		}
@@ -1112,14 +1127,14 @@ void FObjectReplicator::StartBecomingDormant()
 {
 	if ( GetObject() == NULL )
 	{
-		UE_LOG( LogNet, Verbose, TEXT( "StartBecomingDormant: Object == NULL" ) );
+		UE_LOG( LogRep, Verbose, TEXT( "StartBecomingDormant: Object == NULL" ) );
 		return;
 	}
 
 	bLastUpdateEmpty = false; // Ensure we get one more attempt to update properties
 }
 
-void FObjectReplicator::CallRepNotifies()
+void FObjectReplicator::CallRepNotifies(bool bSkipIfChannelHasQueuedBunches)
 {
 	UObject* Object = GetObject();
 
@@ -1133,7 +1148,7 @@ void FObjectReplicator::CallRepNotifies()
 		return;
 	}
 
-	if ( OwningChannel != NULL && OwningChannel->QueuedBunches.Num() > 0 )
+	if ( bSkipIfChannelHasQueuedBunches && ( OwningChannel != NULL && OwningChannel->QueuedBunches.Num() > 0 ) )
 	{
 		return;
 	}
@@ -1144,7 +1159,7 @@ void FObjectReplicator::CallRepNotifies()
 	{
 		for (int32 RepNotifyIdx = 0; RepNotifyIdx < RepNotifies.Num(); RepNotifyIdx++)
 		{
-			//UE_LOG(LogNet, Log,  TEXT("Calling Object->%s with %s"), *RepNotifies(RepNotifyIdx)->RepNotifyFunc.ToString(), *RepNotifies(RepNotifyIdx)->GetName()); 						
+			//UE_LOG(LogRep, Log,  TEXT("Calling Object->%s with %s"), *RepNotifies(RepNotifyIdx)->RepNotifyFunc.ToString(), *RepNotifies(RepNotifyIdx)->GetName()); 						
 			UProperty* RepProperty = RepNotifies[RepNotifyIdx];
 			UFunction* RepNotifyFunc = Object->FindFunctionChecked(RepProperty->RepNotifyFunc);
 
@@ -1210,12 +1225,12 @@ void FObjectReplicator::UpdateUnmappedObjects( bool & bOutHasMoreUnmapped )
 
 	if ( Connection->State == USOCK_Closed )
 	{
-		UE_LOG( LogNet, Warning, TEXT( "FObjectReplicator::UpdateUnmappedObjects: Connection->State == USOCK_Closed" ) );
+		UE_LOG(LogNet, Warning, TEXT("FObjectReplicator::UpdateUnmappedObjects: Connection->State == USOCK_Closed"));
 		return;
 	}
 
-	check( RepState->RepNotifies.Num() == 0 );
-	check( RepNotifies.Num() == 0 );
+	checkf( RepState->RepNotifies.Num() == 0, TEXT("Failed RepState RepNotifies check. Num=%d. Object=%s"), RepState->RepNotifies.Num(), *Object->GetFullName() );
+	checkf( RepNotifies.Num() == 0, TEXT("Failed replicator RepNotifies check. Num=%d. Object=%s."), RepNotifies.Num(), *Object->GetFullName() );
 
 	bool bSomeObjectsWereMapped = false;
 
@@ -1271,7 +1286,9 @@ void FObjectReplicator::UpdateUnmappedObjects( bool & bOutHasMoreUnmapped )
 	}
 
 	// Call any rep notifies that need to happen when object pointers change
-	CallRepNotifies();
+	// Pass in false to override the check for queued bunches. Otherwise, if the owning channel has queued bunches,
+	// the RepNotifies will remain in the list and the check for 0 RepNotifies above will fail next time.
+	CallRepNotifies(false);
 
 	if ( bSomeObjectsWereMapped )
 	{
@@ -1300,7 +1317,7 @@ void FObjectReplicator::QueuePropertyRepNotify( UObject* Object, UProperty * Pro
 		if ( Property->ArrayDim != 1 )
 		{
 			// For static arrays, we build the meta data here, but adding the Element index that was just read into the PropMetaData array.
-			UE_LOG( LogNetTraffic, Verbose, TEXT("Property %s had ArrayDim: %d change"), *Property->GetName(), ElementIndex );
+			UE_LOG( LogRepTraffic, Verbose, TEXT("Property %s had ArrayDim: %d change"), *Property->GetName(), ElementIndex );
 
 			// Property is multi dimensional, keep track of what elements changed
 			TArray< uint8 > & PropMetaData = RepNotifyMetaData.FindOrAdd( Property );
@@ -1310,9 +1327,9 @@ void FObjectReplicator::QueuePropertyRepNotify( UObject* Object, UProperty * Pro
 		{
 			// For other properties (TArrays only now) the MetaData array is build within ::NetSerialize. Just add it to the RepNotifyMetaData map here.
 
-			//UE_LOG(LogNetTraffic, Verbose, TEXT("Property %s had MetaData: "), *Property->GetName() );
+			//UE_LOG(LogRepTraffic, Verbose, TEXT("Property %s had MetaData: "), *Property->GetName() );
 			//for (auto MetaIt = MetaData.CreateIterator(); MetaIt; ++MetaIt)
-			//	UE_LOG(LogNetTraffic, Verbose, TEXT("   %d"), *MetaIt );
+			//	UE_LOG(LogRepTraffic, Verbose, TEXT("   %d"), *MetaIt );
 
 			// Property included some meta data about what was serialized. 
 			TArray< uint8 > & PropMetaData = RepNotifyMetaData.FindOrAdd( Property );

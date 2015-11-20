@@ -38,25 +38,25 @@ void MainVertexShader(
  * Pixel shader
  =============================================================================*/
 
-float4 DrawColorMRT[8];
-
 #ifndef NUM_OUTPUTS
 #define NUM_OUTPUTS 1
 #endif
 
+//These shaders used for RHIClear.  Don't use any global uniform variables here as it greatly complicates
+//the state restoration for an inline shader clear.
 void MainPixelShaderMRT( 
 	out float4 OutColor[NUM_OUTPUTS] : SV_Target0)
 {
 	for (int i = 0; i < NUM_OUTPUTS; i++)
 	{
-		OutColor[i] = DrawColorMRT[i];
+		OutColor[i] = ClearShaderUB.DrawColorMRT[i];
 	}
 }
 
 void MainPixelShader( 
 	out float4 OutColor : SV_Target0)
 {
-	OutColor = DrawColorMRT[0];
+	OutColor = ClearShaderUB.DrawColorMRT[0];
 }
 
 /** 

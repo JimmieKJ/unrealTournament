@@ -12,8 +12,8 @@ DEFINE_LOG_CATEGORY(LogUnrealMath);
 * Math stats
 */
 
-DECLARE_CYCLE_STAT( TEXT( "Convert Rotator to Quat" ), STAT_MathConvertRotatorToQuat, STATGROUP_Math );
-DECLARE_CYCLE_STAT( TEXT( "Convert Quat to Rotator" ), STAT_MathConvertQuatToRotator, STATGROUP_Math );
+DECLARE_CYCLE_STAT( TEXT( "Convert Rotator to Quat" ), STAT_MathConvertRotatorToQuat, STATGROUP_MathVerbose );
+DECLARE_CYCLE_STAT( TEXT( "Convert Quat to Rotator" ), STAT_MathConvertQuatToRotator, STATGROUP_MathVerbose );
 
 /*-----------------------------------------------------------------------------
 	Globals
@@ -163,37 +163,100 @@ void FRotator::SerializeCompressedShort( FArchive& Ar )
 	}
 }
 
-CORE_API FRotator FVector::Rotation() const
+FRotator FVector::ToOrientationRotator() const
 {
 	FRotator R;
 
 	// Find yaw.
-	R.Yaw = FMath::Atan2(Y,X) * 180.f / PI;
+	R.Yaw = FMath::Atan2(Y,X) * (180.f / PI);
 
 	// Find pitch.
-	R.Pitch = FMath::Atan2(Z,FMath::Sqrt(X*X+Y*Y)) * 180.f / PI;
+	R.Pitch = FMath::Atan2(Z,FMath::Sqrt(X*X+Y*Y)) * (180.f / PI);
 
 	// Find roll.
 	R.Roll = 0;
 
+#if ENABLE_NAN_DIAGNOSTIC
+	if (R.ContainsNaN())
+	{
+		logOrEnsureNanError(TEXT("FVector::Rotation(): Rotator result %s contains NaN! Input FVector = %s"), *R.ToString(), *this->ToString());
+		R = FRotator::ZeroRotator;
+	}
+#endif
+
 	return R;
 }
 
-FRotator FVector4::Rotation() const
+FRotator FVector4::ToOrientationRotator() const
 {
 	FRotator R;
 
 	// Find yaw.
-	R.Yaw = FMath::Atan2(Y,X) * 180.f / PI;
+	R.Yaw = FMath::Atan2(Y,X) * (180.f / PI);
 
 	// Find pitch.
-	R.Pitch = FMath::Atan2(Z,FMath::Sqrt(X*X+Y*Y)) * 180.f / PI;
+	R.Pitch = FMath::Atan2(Z,FMath::Sqrt(X*X+Y*Y)) * (180.f / PI);
 
 	// Find roll.
 	R.Roll = 0;
 
+#if ENABLE_NAN_DIAGNOSTIC
+	if (R.ContainsNaN())
+	{
+		logOrEnsureNanError(TEXT("FVector4::Rotation(): Rotator result %s contains NaN! Input FVector4 = %s"), *R.ToString(), *this->ToString());
+		R = FRotator::ZeroRotator;
+	}
+#endif
+
 	return R;
 }
+
+
+FQuat FVector::ToOrientationQuat() const
+{
+	// Essentially an optimized Vector->Rotator->Quat made possible by knowing Roll == 0, and avoiding radians->degrees->radians.
+	// This is done to avoid adding any roll (which our API states as a constraint).
+	const float YawRad = FMath::Atan2(Y, X);
+	const float PitchRad = FMath::Atan2(Z, FMath::Sqrt(X*X + Y*Y));
+
+	const float DIVIDE_BY_2 = 0.5f;
+	float SP, SY;
+	float CP, CY;
+
+	FMath::SinCos(&SP, &CP, PitchRad * DIVIDE_BY_2);
+	FMath::SinCos(&SY, &CY, YawRad * DIVIDE_BY_2);
+
+	FQuat RotationQuat;
+	RotationQuat.X =  SP*SY;
+	RotationQuat.Y = -SP*CY;
+	RotationQuat.Z =  CP*SY;
+	RotationQuat.W =  CP*CY;
+	return RotationQuat;
+}
+
+
+FQuat FVector4::ToOrientationQuat() const
+{
+	// Essentially an optimized Vector->Rotator->Quat made possible by knowing Roll == 0, and avoiding radians->degrees->radians.
+	// This is done to avoid adding any roll (which our API states as a constraint).
+	const float YawRad = FMath::Atan2(Y, X);
+	const float PitchRad = FMath::Atan2(Z, FMath::Sqrt(X*X + Y*Y));
+
+	const float DIVIDE_BY_2 = 0.5f;
+	float SP, SY;
+	float CP, CY;
+
+	FMath::SinCos(&SP, &CP, PitchRad * DIVIDE_BY_2);
+	FMath::SinCos(&SY, &CY, YawRad * DIVIDE_BY_2);
+
+	FQuat RotationQuat;
+	RotationQuat.X =  SP*SY;
+	RotationQuat.Y = -SP*CY;
+	RotationQuat.Z =  CP*SY;
+	RotationQuat.W =  CP*CY;
+	return RotationQuat;
+}
+
 
 void FVector::FindBestAxisVectors( FVector& Axis1, FVector& Axis2 ) const
 {
@@ -258,6 +321,7 @@ void FVector::UnwindEuler()
 FRotator::FRotator(const FQuat& Quat)
 {
 	*this = Quat.Rotator();
+	DiagnosticCheckNaN();
 }
 
 
@@ -272,56 +336,68 @@ CORE_API FVector FRotator::Vector() const
 }
 
 
+FRotator FRotator::GetInverse() const
+{
+	return Quaternion().Inverse().Rotator();
+}
+
+
 FQuat FRotator::Quaternion() const
 {
 	SCOPE_CYCLE_COUNTER(STAT_MathConvertRotatorToQuat);
 
-#if USE_MATRIX_ROTATOR 
-	FQuat RotationMatrix = FQuat( FRotationMatrix( *this ) );
-#endif
+	DiagnosticCheckNaN();
 
-#if WITH_DIRECTXMATH	// Currently VectorSinCos() is only vectorized in DirectX implementation. Other platforms become slower if they use this.
-	VectorRegister Angles = MakeVectorRegister(Roll, Pitch, Yaw, 0.0f);
-	VectorRegister HalfAngles = VectorMultiply(Angles, GlobalVectorConstants::DEG_TO_RAD_HALF);
+#if PLATFORM_ENABLE_VECTORINTRINSICS
+	const VectorRegister Angles = MakeVectorRegister(Pitch, Yaw, Roll, 0.0f);
+	const VectorRegister HalfAngles = VectorMultiply(Angles, GlobalVectorConstants::DEG_TO_RAD_HALF);
 
-	union { VectorRegister v; float f[4]; } SinAngles, CosAngles;	
-	VectorSinCos(&SinAngles.v, &CosAngles.v, &HalfAngles);
+	VectorRegister SinAngles, CosAngles;
+	VectorSinCos(&SinAngles, &CosAngles, &HalfAngles);
 
-	const float	SR	= SinAngles.f[0];
-	const float	SP	= SinAngles.f[1];
-	const float	SY	= SinAngles.f[2];
-	const float	CR	= CosAngles.f[0];
-	const float	CP	= CosAngles.f[1];
-	const float	CY	= CosAngles.f[2];
+	// Vectorized conversion, measured 20% faster than using scalar version after VectorSinCos.
+	// Indices within VectorRegister (for shuffles): P=0, Y=1, R=2
+	const VectorRegister SR = VectorReplicate(SinAngles, 2);
+	const VectorRegister CR = VectorReplicate(CosAngles, 2);
 
+	const VectorRegister SY_SY_CY_CY_Temp = VectorShuffle(SinAngles, CosAngles, 1, 1, 1, 1);
+
+	const VectorRegister SP_SP_CP_CP = VectorShuffle(SinAngles, CosAngles, 0, 0, 0, 0);
+	const VectorRegister SY_CY_SY_CY = VectorShuffle(SY_SY_CY_CY_Temp, SY_SY_CY_CY_Temp, 0, 2, 0, 2);
+
+	const VectorRegister CP_CP_SP_SP = VectorShuffle(CosAngles, SinAngles, 0, 0, 0, 0);
+	const VectorRegister CY_SY_CY_SY = VectorShuffle(SY_SY_CY_CY_Temp, SY_SY_CY_CY_Temp, 2, 0, 2, 0);
+
+	const uint32 Neg = uint32(1 << 31);
+	const uint32 Pos = uint32(0);
+	const VectorRegister SignBitsLeft  = MakeVectorRegister(Pos, Neg, Pos, Pos);
+	const VectorRegister SignBitsRight = MakeVectorRegister(Neg, Neg, Neg, Pos);
+	const VectorRegister LeftTerm  = VectorBitwiseXor(SignBitsLeft , VectorMultiply(CR, VectorMultiply(SP_SP_CP_CP, SY_CY_SY_CY)));
+	const VectorRegister RightTerm = VectorBitwiseXor(SignBitsRight, VectorMultiply(SR, VectorMultiply(CP_CP_SP_SP, CY_SY_CY_SY)));
+
+	FQuat RotationQuat;
+	const VectorRegister Result = VectorAdd(LeftTerm, RightTerm);	
+	VectorStoreAligned(Result, &RotationQuat);
 #else
-	static const float DEG_TO_RAD = PI/(180.f);
-	static const float DIVIDE_BY_2 = DEG_TO_RAD/2.f;
-
+	const float DEG_TO_RAD = PI/(180.f);
+	const float DIVIDE_BY_2 = DEG_TO_RAD/2.f;
 	float SP, SY, SR;
 	float CP, CY, CR;
 
 	FMath::SinCos(&SP, &CP, Pitch*DIVIDE_BY_2);
 	FMath::SinCos(&SY, &CY, Yaw*DIVIDE_BY_2);
 	FMath::SinCos(&SR, &CR, Roll*DIVIDE_BY_2);
-#endif
 
 	FQuat RotationQuat;
-	RotationQuat.W = CR*CP*CY + SR*SP*SY;
-	RotationQuat.X = CR*SP*SY - SR*CP*CY;
+	RotationQuat.X =  CR*SP*SY - SR*CP*CY;
 	RotationQuat.Y = -CR*SP*CY - SR*CP*SY;
-	RotationQuat.Z = CR*CP*SY - SR*SP*CY;
+	RotationQuat.Z =  CR*CP*SY - SR*SP*CY;
+	RotationQuat.W =  CR*CP*CY + SR*SP*SY;
+#endif // PLATFORM_ENABLE_VECTORINTRINSICS
 
-#if USE_MATRIX_ROTATOR 
-	if (!RotationMatrix.Equals(RotationQuat, KINDA_SMALL_NUMBER) && !RotationMatrix.Equals(RotationQuat*-1.f, KINDA_SMALL_NUMBER))
-	{
-		UE_LOG(LogUnrealMath, Log, TEXT("RotationMatrix (%s), RotationQuat (%s)"), *RotationMatrix.ToString(), *RotationQuat.ToString());
-	}
-	return RotationMatrix;
+	RotationQuat.DiagnosticCheckNaN();
 
-#else
 	return RotationQuat;
-#endif
 }
 
 FVector FRotator::Euler() const
@@ -380,6 +456,7 @@ FRotator FMatrix::Rotator() const
 	const FVector		SYAxis	= FRotationMatrix( Rotator ).GetScaledAxis( EAxis::Y );
 	Rotator.Roll		= FMath::Atan2( ZAxis | SYAxis, YAxis | SYAxis ) * 180.f / PI;
 
+	Rotator.DiagnosticCheckNaN();
 	return Rotator;
 }
 
@@ -411,6 +488,20 @@ void FMatrix::DebugPrint() const
 	UE_LOG(LogUnrealMath, Log, TEXT("%s"), *ToString());
 }
 
+uint32 FMatrix::ComputeHash() const
+{
+	uint32 Ret = 0;
+
+	const uint32* Data = (uint32*)this;
+
+	for(uint32 i = 0; i < 16; ++i)
+	{
+		Ret ^= Data[i] + i;
+	}
+
+	return Ret;
+}
+
 //////////////////////////////////////////////////////////////////////////
 // FQuat
 
@@ -418,12 +509,7 @@ FRotator FQuat::Rotator() const
 {
 	SCOPE_CYCLE_COUNTER(STAT_MathConvertQuatToRotator);
 
-#if USE_MATRIX_ROTATOR 
-	// if you think this function is problem, you can undo previous matrix rotator by returning RotatorFromMatrix
-	FRotator RotatorFromMatrix = FQuatRotationTranslationMatrix(*this, FVector::ZeroVector).Rotator();
-	checkSlow(IsNormalized());
-#endif
-
+	DiagnosticCheckNaN();
 	const float SingularityTest = Z*X-W*Y;
 	const float YawY = 2.f*(W*Z+X*Y);
 	const float YawX = (1.f-2.f*(FMath::Square(Y) + FMath::Square(Z)));
@@ -436,61 +522,20 @@ FRotator FQuat::Rotator() const
 	// but that isn't the case for us, so I went through different testing, and finally found the case 
 	// where both of world lives happily. 
 	const float SINGULARITY_THRESHOLD = 0.4999995f;
-
-#if PLATFORM_ENABLE_VECTORINTRINSICS
-
-	FRotator RotatorFromQuat;
-	union { VectorRegister v; float f[4]; } VRotatorFromQuat;
-
-	if (SingularityTest < -SINGULARITY_THRESHOLD)
-	{
-		// Pitch
-		VRotatorFromQuat.f[0] = 3.0f*HALF_PI;	// 270 deg
-		// Yaw
-		VRotatorFromQuat.f[1] = FMath::Atan2(YawY, YawX);
-		// Roll
-		VRotatorFromQuat.f[2] = -VRotatorFromQuat.f[1] - (2.f * FMath::Atan2(X, W));
-	}
-	else if (SingularityTest > SINGULARITY_THRESHOLD)
-	{
-		// Pitch
-		VRotatorFromQuat.f[0] = HALF_PI;	// 90 deg
-		// Yaw
-		VRotatorFromQuat.f[1] = FMath::Atan2(YawY, YawX);
-		//Roll
-		VRotatorFromQuat.f[2] = VRotatorFromQuat.f[1] - (2.f * FMath::Atan2(X, W));
-	}
-	else
-	{
-		//Pitch
-		VRotatorFromQuat.f[0] = FMath::FastAsin(2.f*(SingularityTest));
-		// Yaw
-		VRotatorFromQuat.f[1] = FMath::Atan2(YawY, YawX);
-		// Roll
-		VRotatorFromQuat.f[2] = FMath::Atan2(-2.f*(W*X+Y*Z), (1.f-2.f*(FMath::Square(X) + FMath::Square(Y))));
-	}
-
-	VRotatorFromQuat.f[3] = 0.f; // We should initialize this, otherwise the value can be denormalized which is bad for floating point perf.
-	VRotatorFromQuat.v = VectorMultiply(VRotatorFromQuat.v, GlobalVectorConstants::RAD_TO_DEG);
-	VRotatorFromQuat.v = VectorNormalizeRotator(VRotatorFromQuat.v);
-	VectorStoreFloat3(VRotatorFromQuat.v, &RotatorFromQuat);
-
-#else // PLATFORM_ENABLE_VECTORINTRINSICS
-
-	static const float RAD_TO_DEG = (180.f)/PI;
+	const float RAD_TO_DEG = (180.f)/PI;
 	FRotator RotatorFromQuat;
 
 	if (SingularityTest < -SINGULARITY_THRESHOLD)
 	{
-		RotatorFromQuat.Pitch = 270.f;
+		RotatorFromQuat.Pitch = -90.f;
 		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = -RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG);
+		RotatorFromQuat.Roll = FRotator::NormalizeAxis(-RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG));
 	}
 	else if (SingularityTest > SINGULARITY_THRESHOLD)
 	{
 		RotatorFromQuat.Pitch = 90.f;
 		RotatorFromQuat.Yaw = FMath::Atan2(YawY, YawX) * RAD_TO_DEG;
-		RotatorFromQuat.Roll = RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG);
+		RotatorFromQuat.Roll = FRotator::NormalizeAxis(RotatorFromQuat.Yaw - (2.f * FMath::Atan2(X, W) * RAD_TO_DEG));
 	}
 	else
 	{
@@ -499,24 +544,15 @@ FRotator FQuat::Rotator() const
 		RotatorFromQuat.Roll = FMath::Atan2(-2.f*(W*X+Y*Z), (1.f-2.f*(FMath::Square(X) + FMath::Square(Y)))) * RAD_TO_DEG;
 	}
 
-	RotatorFromQuat.Normalize();
-
-#endif // PLATFORM_ENABLE_VECTORINTRINSICS
-
-
-#if USE_MATRIX_ROTATOR
-	RotatorFromMatrix = RotatorFromMatrix.Clamp();
-
-	// this Euler is degree, so less 1 is negligible
-	if (!DebugRotatorEquals(RotatorFromQuat, RotatorFromMatrix, 0.1f))
+#if ENABLE_NAN_DIAGNOSTIC
+	if (RotatorFromQuat.ContainsNaN())
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("WRONG: (Singularity: %.9f) RotationMatrix (%s), RotationQuat(%s)"), SingularityTest, *RotatorFromMatrix.ToString(), *RotatorFromQuat.ToString());
+		logOrEnsureNanError(TEXT("FQuat::Rotator(): Rotator result %s contains NaN! Quat = %s, YawY = %.9f, YawX = %.9f"), *RotatorFromQuat.ToString(), *this->ToString(), YawY, YawX);
+		RotatorFromQuat = FRotator::ZeroRotator;
 	}
-
-	return RotatorFromMatrix;
-#else
-	return RotatorFromQuat;
 #endif
+
+	return RotatorFromQuat;
 }
 
 FQuat FQuat::MakeFromEuler(const FVector& Euler)
@@ -738,52 +774,48 @@ bool FQuat::NetSerialize(FArchive& Ar, class UPackageMap*, bool& bOutSuccess)
 	return true;
 }
 
-FQuat FQuat::FindBetween(const FVector& vec1, const FVector& vec2)
+
+//
+// Based on:
+// http://lolengine.net/blog/2014/02/24/quaternion-from-two-vectors-final
+// http://www.euclideanspace.com/maths/algebra/vectors/angleBetween/index.htm
+//
+FORCEINLINE_DEBUGGABLE FQuat FindBetween_Helper(const FVector& A, const FVector& B, float NormAB)
 {
-	const FVector cross = vec1 ^ vec2;
-	const float crossMag = cross.Size();
+	float W = NormAB + FVector::DotProduct(A, B);
+	FQuat Result;
 
-	// See if vectors are parallel or anti-parallel
-	if(crossMag < KINDA_SMALL_NUMBER)
+	if (W >= 1e-6f * NormAB)
 	{
-		// If these vectors are parallel - just return identity quaternion (ie no rotation).
-		const float Dot = vec1 | vec2;
-		if(Dot > -KINDA_SMALL_NUMBER)
-		{
-			return FQuat::Identity; // no rotation
-		}
-		// Exactly opposite..
-		else
-		{
-			// ..rotation by 180 degrees around a vector orthogonal to vec1 & vec2
-			FVector Vec = vec1.SizeSquared() > vec2.SizeSquared() ? vec1 : vec2;
-			Vec.Normalize();
-
-			FVector AxisA, AxisB;
-			Vec.FindBestAxisVectors(AxisA, AxisB);
-
-			return FQuat(AxisA.X, AxisA.Y, AxisA.Z, 0.f); // (axis*sin(pi/2), cos(pi/2)) = (axis, 0)
-		}
+		//Axis = FVector::CrossProduct(A, B);
+		Result = FQuat(A.Y * B.Z - A.Z * B.Y,
+					   A.Z * B.X - A.X * B.Z,
+					   A.X * B.Y - A.Y * B.X,
+					   W);
+	}
+	else
+	{
+		// A and B point in opposite directions
+		W = 0.f;
+		Result = FMath::Abs(A.X) > FMath::Abs(A.Y)
+				? FQuat(-A.Z, 0.f, A.X, W)
+				: FQuat(0.f, -A.Z, A.Y, W);
 	}
 
-	// Not parallel, so use normal code
-	float angle = FMath::Asin(crossMag);
+	Result.Normalize();
+	return Result;
+}
 
-	const float dot = vec1 | vec2;
-	if(dot < 0.0f)
-	{
-		angle = PI - angle;
-	}
+FQuat FQuat::FindBetweenNormals(const FVector& A, const FVector& B)
+{
+	const float NormAB = 1.f;
+	return FindBetween_Helper(A, B, NormAB);
+}
 
-	float sinHalfAng, cosHalfAng;
-	FMath::SinCos(&sinHalfAng, &cosHalfAng, 0.5f * angle);
-	const FVector axis = cross / crossMag;
-
-	return FQuat(
-		sinHalfAng * axis.X,
-		sinHalfAng * axis.Y,
-		sinHalfAng * axis.Z,
-		cosHalfAng );
+FQuat FQuat::FindBetweenVectors(const FVector& A, const FVector& B)
+{
+	const float NormAB = FMath::Sqrt(A.SizeSquared() * B.SizeSquared());
+	return FindBetween_Helper(A, B, NormAB);
 }
 
 FQuat FQuat::Log() const
@@ -1090,7 +1122,7 @@ float FLinearColor::EvaluateBezier(const FLinearColor* ControlPoints, int32 NumP
 
 
 
-FQuat FQuat::Slerp(const FQuat& Quat1,const FQuat& Quat2, float Slerp)
+FQuat FQuat::Slerp_NotNormalized(const FQuat& Quat1,const FQuat& Quat2, float Slerp)
 {
 	// Get cosine of angle between quats.
 	const float RawCosom = 
@@ -1130,7 +1162,7 @@ FQuat FQuat::Slerp(const FQuat& Quat1,const FQuat& Quat2, float Slerp)
 	return Result;
 }
 
-FQuat FQuat::SlerpFullPath(const FQuat &quat1, const FQuat &quat2, float Alpha )
+FQuat FQuat::SlerpFullPath_NotNormalized(const FQuat &quat1, const FQuat &quat2, float Alpha )
 {
 	const float CosAngle = FMath::Clamp(quat1 | quat2, -1.f, 1.f);
 	const float Angle = FMath::Acos(CosAngle);
@@ -1153,10 +1185,10 @@ FQuat FQuat::SlerpFullPath(const FQuat &quat1, const FQuat &quat2, float Alpha )
 
 FQuat FQuat::Squad(const FQuat& quat1, const FQuat& tang1, const FQuat& quat2, const FQuat& tang2, float Alpha)
 {
-	const FQuat Q1 = FQuat::SlerpFullPath(quat1, quat2, Alpha);
+	const FQuat Q1 = FQuat::SlerpFullPath_NotNormalized(quat1, quat2, Alpha);
 	//UE_LOG(LogUnrealMath, Log, TEXT("Q1: %f %f %f %f"), Q1.X, Q1.Y, Q1.Z, Q1.W);
 
-	const FQuat Q2 = FQuat::SlerpFullPath(tang1, tang2, Alpha);
+	const FQuat Q2 = FQuat::SlerpFullPath_NotNormalized(tang1, tang2, Alpha);
 	//UE_LOG(LogUnrealMath, Log, TEXT("Q2: %f %f %f %f"), Q2.X, Q2.Y, Q2.Z, Q2.W);
 
 	const FQuat Result = FQuat::SlerpFullPath(Q1, Q2, 2.f * Alpha * (1.f - Alpha));
@@ -1616,18 +1648,37 @@ float FMath::GetTForSegmentPlaneIntersect(const FVector& StartPoint, const FVect
 	return ( Plane.W - (StartPoint|Plane) ) / ( (EndPoint - StartPoint)|Plane);	
 }
 
-bool FMath::SegmentPlaneIntersection(const FVector& StartPoint, const FVector& EndPoint, const FPlane& Plane, FVector& out_IntersectPoint)
+bool FMath::SegmentPlaneIntersection(const FVector& StartPoint, const FVector& EndPoint, const FPlane& Plane, FVector& out_IntersectionPoint)
 {
-	float T = FMath::GetTForSegmentPlaneIntersect(StartPoint,EndPoint,Plane);
+	float T = FMath::GetTForSegmentPlaneIntersect(StartPoint, EndPoint, Plane);
 	// If the parameter value is not between 0 and 1, there is no intersection
-	if( T > -KINDA_SMALL_NUMBER && T < 1.f+KINDA_SMALL_NUMBER )
+	if (T > -KINDA_SMALL_NUMBER && T < 1.f + KINDA_SMALL_NUMBER)
 	{
-		out_IntersectPoint = StartPoint + T * (EndPoint - StartPoint);
+		out_IntersectionPoint = StartPoint + T * (EndPoint - StartPoint);
 		return true;
 	}
 	return false;
 }
 
+bool FMath::SegmentIntersection2D(const FVector& SegmentStartA, const FVector& SegmentEndA, const FVector& SegmentStartB, const FVector& SegmentEndB, FVector& out_IntersectionPoint)
+{
+	const FVector VectorA = SegmentEndA - SegmentStartA;
+	const FVector VectorB = SegmentEndB - SegmentStartB;
+
+	const float S = (-VectorA.Y * (SegmentStartA.X - SegmentStartB.X) + VectorA.X * (SegmentStartA.Y - SegmentStartB.Y)) / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
+	const float T = (VectorB.X * (SegmentStartA.Y - SegmentStartB.Y) - VectorB.Y * (SegmentStartA.X - SegmentStartB.X)) / (-VectorB.X * VectorA.Y + VectorA.X * VectorB.Y);
+
+	const bool bIntersects = (S >= 0 && S <= 1 && T >= 0 && T <= 1);
+
+	if (bIntersects)
+	{
+		out_IntersectionPoint.X = SegmentStartA.X + (T * VectorA.X);
+		out_IntersectionPoint.Y = SegmentStartA.Y + (T * VectorA.Y);
+		out_IntersectionPoint.Z = SegmentStartA.Z + (T * VectorA.Z);
+	}
+
+	return bIntersects;
+}
 
 /**
  * Compute the screen bounds of a point light along one axis.
@@ -1701,7 +1752,7 @@ static bool ComputeProjectedSphereShaft(
 uint32 FMath::ComputeProjectedSphereScissorRect(FIntRect& InOutScissorRect, FVector SphereOrigin, float Radius, FVector ViewOrigin, const FMatrix& ViewMatrix, const FMatrix& ProjMatrix)
 {
 	// Calculate a scissor rectangle for the light's radius.
-	if((SphereOrigin - ViewOrigin).Size() > Radius)
+	if((SphereOrigin - ViewOrigin).SizeSquared() > FMath::Square(Radius))
 	{
 		FVector LightVector = ViewMatrix.TransformPosition(SphereOrigin);
 
@@ -2148,7 +2199,7 @@ CORE_API FVector FMath::VInterpNormalRotationTo(const FVector& Current, const FV
 	{
 		DeltaAngle = FMath::Clamp(DeltaAngle, -RotationStepRadians, RotationStepRadians);
 		DeltaQuat = FQuat(DeltaAxis, DeltaAngle);
-		return FQuatRotationTranslationMatrix( DeltaQuat, FVector::ZeroVector ).TransformVector(Current);
+		return DeltaQuat.RotateVector(Current);
 	}
 	return Target;
 }
@@ -2555,13 +2606,13 @@ void FVector::GenerateClusterCenters(TArray<FVector>& Clusters, const TArray<FVe
 
 			// Iterate over all clusters to find closes one
 			int32 NearestClusterIndex = INDEX_NONE;
-			float NearestClusterDist = BIG_NUMBER;
+			float NearestClusterDistSqr = BIG_NUMBER;
 			for(int32 j=0; j<Clusters.Num() ; j++)
 			{
-				const float Dist = (Pos - Clusters[j]).Size();
-				if(Dist < NearestClusterDist)
+				const float DistSqr = (Pos - Clusters[j]).SizeSquared();
+				if(DistSqr < NearestClusterDistSqr)
 				{
-					NearestClusterDist = Dist;
+					NearestClusterDistSqr = DistSqr;
 					NearestClusterIndex = j;
 				}
 			}
@@ -2591,6 +2642,99 @@ void FVector::GenerateClusterCenters(TArray<FVector>& Clusters, const TArray<FVe
 			Clusters.RemoveAt(i);
 		}
 	}
+}
+
+namespace MathRoundingUtil
+{
+
+float TruncateToHalfIfClose(float F)
+{
+	float ValueToFudgeIntegralPart = 0.0f;
+	float ValueToFudgeFractionalPart = FMath::Modf(F, &ValueToFudgeIntegralPart);
+	if (F < 0.0f)
+	{
+		return ValueToFudgeIntegralPart + ((FMath::IsNearlyEqual(ValueToFudgeFractionalPart, -0.5f)) ? -0.5f : ValueToFudgeFractionalPart);
+	}
+	else
+	{
+		return ValueToFudgeIntegralPart + ((FMath::IsNearlyEqual(ValueToFudgeFractionalPart, 0.5f)) ? 0.5f : ValueToFudgeFractionalPart);
+	}
+}
+
+double TruncateToHalfIfClose(double F)
+{
+	double ValueToFudgeIntegralPart = 0.0;
+	double ValueToFudgeFractionalPart = FMath::Modf(F, &ValueToFudgeIntegralPart);
+	if (F < 0.0)
+	{
+		return ValueToFudgeIntegralPart + ((FMath::IsNearlyEqual(ValueToFudgeFractionalPart, -0.5)) ? -0.5 : ValueToFudgeFractionalPart);
+	}
+	else
+	{
+		return ValueToFudgeIntegralPart + ((FMath::IsNearlyEqual(ValueToFudgeFractionalPart, 0.5)) ? 0.5 : ValueToFudgeFractionalPart);
+	}
+}
+
+} // namespace GenericPlatformMathInternal
+
+float FMath::RoundHalfToEven(float F)
+{
+	F = MathRoundingUtil::TruncateToHalfIfClose(F);
+
+	const bool bIsNegative = F < 0.0f;
+	const bool bValueIsEven = static_cast<uint32>(FloorToFloat(((bIsNegative) ? -F : F))) % 2 == 0;
+	if (bValueIsEven)
+	{
+		// Round towards value (eg, value is -2.5 or 2.5, and should become -2 or 2)
+		return (bIsNegative) ? FloorToFloat(F + 0.5f) : CeilToFloat(F - 0.5f);
+	}
+	else
+	{
+		// Round away from value (eg, value is -3.5 or 3.5, and should become -4 or 4)
+		return (bIsNegative) ? CeilToFloat(F - 0.5f) : FloorToFloat(F + 0.5f);
+	}
+}
+
+double FMath::RoundHalfToEven(double F)
+{
+	F = MathRoundingUtil::TruncateToHalfIfClose(F);
+
+	const bool bIsNegative = F < 0.0;
+	const bool bValueIsEven = static_cast<uint64>(FMath::FloorToDouble(((bIsNegative) ? -F : F))) % 2 == 0;
+	if (bValueIsEven)
+	{
+		// Round towards value (eg, value is -2.5 or 2.5, and should become -2 or 2)
+		return (bIsNegative) ? FloorToDouble(F + 0.5) : CeilToDouble(F - 0.5);
+	}
+	else
+	{
+		// Round away from value (eg, value is -3.5 or 3.5, and should become -4 or 4)
+		return (bIsNegative) ? CeilToDouble(F - 0.5) : FloorToDouble(F + 0.5);
+	}
+}
+
+float FMath::RoundHalfFromZero(float F)
+{
+	F = MathRoundingUtil::TruncateToHalfIfClose(F);
+	return (F < 0.0f) ? CeilToFloat(F - 0.5f) : FloorToFloat(F + 0.5f);
+}
+
+double FMath::RoundHalfFromZero(double F)
+{
+	F = MathRoundingUtil::TruncateToHalfIfClose(F);
+	return (F < 0.0) ? CeilToDouble(F - 0.5) : FloorToDouble(F + 0.5);
+}
+
+float FMath::RoundHalfToZero(float F)
+{
+	F = MathRoundingUtil::TruncateToHalfIfClose(F);
+	return (F < 0.0f) ? FloorToFloat(F + 0.5f) : CeilToFloat(F - 0.5f);
+}
+
+double FMath::RoundHalfToZero(double F)
+{
+	F = MathRoundingUtil::TruncateToHalfIfClose(F);
+	return (F < 0.0) ? FloorToDouble(F + 0.5) : CeilToDouble(F - 0.5);
 }
 
 bool FMath::MemoryTest( void* BaseAddress, uint32 NumBytes )
@@ -2961,6 +3105,11 @@ float FMath::FixedTurn(float InCurrent, float InDesired, float InDeltaRate)
 		return FRotator::ClampAxis(InCurrent);
 	}
 
+	if (InDeltaRate >= 360.f)
+	{
+		return FRotator::ClampAxis(InDesired);
+	}
+
 	float result = FRotator::ClampAxis(InCurrent);
 	InCurrent = result;
 	InDesired = FRotator::ClampAxis(InDesired);
@@ -3007,4 +3156,16 @@ void FMath::ApplyScaleToFloat(float& Dst, const FVector& DeltaScale, float Magni
 	const float Multiplier = ( DeltaScale.X > 0.0f || DeltaScale.Y > 0.0f || DeltaScale.Z > 0.0f ) ? Magnitude : -Magnitude;
 	Dst += Multiplier * DeltaScale.Size();
 	Dst = FMath::Max( 0.0f, Dst );
+}
+
+void FMath::CartesianToPolar(const FVector2D InCart, FVector2D& OutPolar)
+{
+	OutPolar.X = Sqrt(Square(InCart.X) + Square(InCart.Y));
+	OutPolar.Y = Atan2(InCart.Y, InCart.X);
+}
+
+void FMath::PolarToCartesian(const FVector2D InPolar, FVector2D& OutCart)
+{
+	OutCart.X = InPolar.X * Cos(InPolar.Y);
+	OutCart.Y = InPolar.X * Sin(InPolar.Y);
 }

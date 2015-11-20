@@ -34,16 +34,14 @@ public:
 	FByteBulkData SourceData;
 
 #if WITH_EDITORONLY_DATA
-	/** Path to the resource used to construct this vector field. Relative to the object's package, BaseDir() or absolute. */
-	UPROPERTY(Category=SourceAsset, VisibleAnywhere)
-	FString SourceFilePath;
+	UPROPERTY()
+	FString SourceFilePath_DEPRECATED;
 
-	/** Date/Time-stamp of the file from the last import */
-	UPROPERTY(Category=SourceAsset, VisibleAnywhere)
-	FString SourceFileTimestamp;
+	UPROPERTY(VisibleAnywhere, Instanced, Category=ImportSettings)
+	class UAssetImportData* AssetImportData;
 #endif // WITH_EDITORONLY_DATA
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostLoad() override;
 	virtual void BeginDestroy() override;
 #if WITH_EDITOR
@@ -52,12 +50,13 @@ public:
 	virtual void Serialize(FArchive& Ar) override;
 #if WITH_EDITORONLY_DATA
 	virtual void GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const override;
+	virtual void PostInitProperties() override;
 #endif
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin UVectorField Interface
+	//~ Begin UVectorField Interface
 	virtual void InitInstance(class FVectorFieldInstance* Instance, bool bPreviewInstance) override;
-	// End UVectorField Interface
+	//~ End UVectorField Interface
 
 	/**
 	 * Initialize resources.

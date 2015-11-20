@@ -11,6 +11,7 @@ struct FPropertyTag;
 struct COREUOBJECT_API FStringAssetReference
 {
 	/** Asset path */
+	DEPRECATED(4.9, "Please don't use AssetLongPathname directly. Instead use SetPath and ToString methods.")
 	FString AssetLongPathname;
 	
 	FStringAssetReference()
@@ -18,20 +19,16 @@ struct COREUOBJECT_API FStringAssetReference
 	}
 
 	FStringAssetReference(const FStringAssetReference& Other)
-		: AssetLongPathname(Other.AssetLongPathname)
 	{
+		SetPath(Other.ToString());
 	}
 
 	/**
 	 * Construct from a path string
 	 */
-	FStringAssetReference(const FString& PathString)
-		: AssetLongPathname(PathString)
+	FStringAssetReference(FString PathString)
 	{
-		if (AssetLongPathname == TEXT("None"))
-		{
-			AssetLongPathname = TEXT("");
-		}
+		SetPath(MoveTemp(PathString));
 	}
 
 	/**
@@ -39,13 +36,26 @@ struct COREUOBJECT_API FStringAssetReference
 	 */
 	FStringAssetReference(const UObject* InObject);
 
+	~FStringAssetReference();
+
 	/**
 	 * Converts in to a string
 	 */
-	const FString& ToString() const 
+	const FString& ToString() const;
+
+	const FString GetLongPackageName() const
 	{
-		return AssetLongPathname;
+		FString PackageName;
+		ToString().Split(TEXT("."), &PackageName, nullptr, ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+		return PackageName;
 	}
+
+	/**
+	 * Sets asset path of this reference.
+	 *
+	 * @param Path The path to the asset.
+	 */
+	void SetPath(FString Path);
 
 	/**
 	 * Attempts to load the asset.
@@ -64,7 +74,7 @@ struct COREUOBJECT_API FStringAssetReference
 	 */
 	void Reset()
 	{		
-		AssetLongPathname = TEXT("");
+		SetPath(TEXT(""));
 	}
 	
 	/**
@@ -72,7 +82,7 @@ struct COREUOBJECT_API FStringAssetReference
 	 */
 	bool IsValid() const
 	{
-		return AssetLongPathname.Len() > 0;
+		return ToString().Len() > 0;
 	}
 
 	bool Serialize(FArchive& Ar);
@@ -86,9 +96,9 @@ struct COREUOBJECT_API FStringAssetReference
 	bool ImportTextItem( const TCHAR*& Buffer, int32 PortFlags, UObject* Parent, FOutputDevice* ErrorText );
 	bool SerializeFromMismatchedTag(struct FPropertyTag const& Tag, FArchive& Ar);
 
-	friend uint32 GetTypeHash(FStringAssetReference const& This)
+	FORCEINLINE friend uint32 GetTypeHash(FStringAssetReference const& This)
 	{
-		return GetTypeHash(This.AssetLongPathname);
+		return GetTypeHash(This.ToString());
 	}
 
 	/** Code needed by AssetPtr to track rather object references should be rechecked */

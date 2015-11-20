@@ -12,7 +12,7 @@ namespace MarkdownSharp.EpicMarkdown.PathProviders
 
     public class EMLocalDocumentPath : EMPathProvider
     {
-        private readonly EMDocument currentDocument;
+        public readonly EMDocument currentDocument;
 
         private static readonly Regex DocumentPathPattern = new Regex("^(?<path>[^#]*)(#(?<bookmark>[^#]+))?$", RegexOptions.Compiled);
 

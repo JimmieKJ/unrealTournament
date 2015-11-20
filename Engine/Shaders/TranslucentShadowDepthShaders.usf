@@ -2,6 +2,8 @@
 
 #define SPHERICAL_OPACITY_FOR_SHADOW_DEPTHS 1
 
+#define SCENE_TEXTURES_DISABLED 1
+
 #include "Common.usf"
 #include "Material.usf"
 #include "VertexFactory.usf"
@@ -72,13 +74,13 @@ float TranslInvMaxSubjectDepth;
 /** Pixel shader used to accumulate layer opacities in different channels based on the first translucent layer's depth. */
 void MainOpacityPS( 
 	FTranslucencyShadowDepthVSToPS Inputs,
-	in float4 SvPosition : SV_Position,
+	in float4 SvPosition : SV_Position,		// after all interpolators
 	out float4 OutColor0 : SV_Target0,
 	out float4 OutColor1 : SV_Target1
 	)
 {
-	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Inputs.FactoryInterpolants, Inputs.PixelPosition);
-	CalcMaterialParameters(MaterialParameters, SvPosition, 1, Inputs.PixelPosition);
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Inputs.FactoryInterpolants, SvPosition);
+	CalcMaterialParameters(MaterialParameters, SvPosition, 1);
 	
 	// Evaluate the mask for translucent materials
 	GetMaterialClippingShadowDepth(MaterialParameters);

@@ -2,7 +2,7 @@
 
 #pragma once
 #include "AnimGraphNode_SkeletalControlBase.h"
-#include "Animation/BoneControllers/AnimNode_CopyBone.h"
+#include "BoneControllers/AnimNode_CopyBone.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
 #include "AnimGraphNode_CopyBone.generated.h"
 
@@ -23,6 +23,7 @@ public:
 protected:
 	// UAnimGraphNode_SkeletalControlBase interface
 	virtual FText GetControllerDescription() const override;
+	virtual const FAnimNode_SkeletalControlBase* GetNode() const override { return &Node; }
 	// End of UAnimGraphNode_SkeletalControlBase interface
 
 private:

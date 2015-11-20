@@ -8,6 +8,8 @@
 #include "BehaviorTree/BehaviorTree.h"
 #include "BehaviorTree/Composites/BTComposite_SimpleParallel.h"
 #include "BehaviorTree/Tasks/BTTask_Wait.h"
+#include "Classes/BehaviorTreeGraphNode_SimpleParallel.h"
+#include "Classes/BehaviorTreeGraphNode_SubtreeTask.h"
 
 //////////////////////////////////////////////////////////////////////////
 // BehaviorTreeGraph
@@ -936,7 +938,7 @@ void UBehaviorTreeGraph::SpawnMissingNodesForParallel()
 					UBehaviorTreeGraphNode* MainTaskNode = Cast<UBehaviorTreeGraphNode>(MainTaskPin->LinkedTo[0]->GetOwningNode());
 					if (MainTaskNode)
 					{
-						const int32 Width = MainTaskNode->NodeWidget.IsValid() ? MainTaskNode->NodeWidget.Pin()->GetDesiredSize().X : 200;
+						const int32 Width = MainTaskNode->DEPRECATED_NodeWidget.IsValid() ? MainTaskNode->DEPRECATED_NodeWidget.Pin()->GetDesiredSize().X : 200;
 						XOffset = MainTaskNode->NodePosX - ParallelNode->NodePosX + Width + 20;
 					}
 				}
@@ -946,7 +948,7 @@ void UBehaviorTreeGraph::SpawnMissingNodesForParallel()
 				WaitTaskNode->ClassData = FGraphNodeClassData(UBTTask_Wait::StaticClass(), "");
 				NodeBuilder.Finalize();
 
-				const int32 ParentHeight = ParallelNode->NodeWidget.IsValid() ? ParallelNode->NodeWidget.Pin()->GetDesiredSize().Y : 200;
+				const int32 ParentHeight = ParallelNode->DEPRECATED_NodeWidget.IsValid() ? ParallelNode->DEPRECATED_NodeWidget.Pin()->GetDesiredSize().Y : 200;
 				WaitTaskNode->NodePosX = ParallelNode->NodePosX + XOffset;
 				WaitTaskNode->NodePosY = ParallelNode->NodePosY + ParentHeight + 20;
 
@@ -1083,8 +1085,8 @@ namespace BTAutoArrangeHelpers
 				UBehaviorTreeGraphNode* GraphNode = Cast<UBehaviorTreeGraphNode>(Pin->LinkedTo[Idx]->GetOwningNode());
 				if (GraphNode && BBoxTree.Children.Num() > 0)
 				{
-					AutoArrangeNodes(GraphNode, BBoxTree.Children[BBoxIndex], PosX, PosY + GraphNode->NodeWidget.Pin()->GetDesiredSize().Y * 2.5f);
-					GraphNode->NodeWidget.Pin()->MoveTo(FVector2D(BBoxTree.Children[BBoxIndex].SubGraphBBox.X / 2 - GraphNode->NodeWidget.Pin()->GetDesiredSize().X / 2 + PosX, PosY), NodeFilter);
+					AutoArrangeNodes(GraphNode, BBoxTree.Children[BBoxIndex], PosX, PosY + GraphNode->DEPRECATED_NodeWidget.Pin()->GetDesiredSize().Y * 2.5f);
+					GraphNode->DEPRECATED_NodeWidget.Pin()->MoveTo(FVector2D(BBoxTree.Children[BBoxIndex].SubGraphBBox.X / 2 - GraphNode->DEPRECATED_NodeWidget.Pin()->GetDesiredSize().X / 2 + PosX, PosY), NodeFilter);
 					PosX += BBoxTree.Children[BBoxIndex].SubGraphBBox.X + 20;
 				}
 
@@ -1095,7 +1097,7 @@ namespace BTAutoArrangeHelpers
 
 	void GetNodeSizeInfo(UBehaviorTreeGraphNode* ParentNode, FNodeBoundsInfo& BBoxTree)
 	{
-		BBoxTree.SubGraphBBox = ParentNode->NodeWidget.Pin()->GetDesiredSize();
+		BBoxTree.SubGraphBBox = ParentNode->DEPRECATED_NodeWidget.Pin()->GetDesiredSize();
 		float LevelWidth = 0;
 		float LevelHeight = 0;
 
@@ -1145,12 +1147,12 @@ void UBehaviorTreeGraph::AutoArrange()
 
 	BTAutoArrangeHelpers::FNodeBoundsInfo BBoxTree;
 	BTAutoArrangeHelpers::GetNodeSizeInfo(RootNode, BBoxTree);
-	BTAutoArrangeHelpers::AutoArrangeNodes(RootNode, BBoxTree, 0, RootNode->NodeWidget.Pin()->GetDesiredSize().Y * 2.5f);
+	BTAutoArrangeHelpers::AutoArrangeNodes(RootNode, BBoxTree, 0, RootNode->DEPRECATED_NodeWidget.Pin()->GetDesiredSize().Y * 2.5f);
 
-	RootNode->NodePosX = BBoxTree.SubGraphBBox.X / 2 - RootNode->NodeWidget.Pin()->GetDesiredSize().X / 2;
+	RootNode->NodePosX = BBoxTree.SubGraphBBox.X / 2 - RootNode->DEPRECATED_NodeWidget.Pin()->GetDesiredSize().X / 2;
 	RootNode->NodePosY = 0;
 
-	RootNode->NodeWidget.Pin()->GetOwnerPanel()->ZoomToFit(/*bOnlySelection=*/ false);
+	RootNode->DEPRECATED_NodeWidget.Pin()->GetOwnerPanel()->ZoomToFit(/*bOnlySelection=*/ false);
 }
 
 void UBehaviorTreeGraph::OnSubNodeDropped()

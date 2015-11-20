@@ -60,16 +60,69 @@ void SLandscapeAssetThumbnail::SetAsset(UObject* Asset)
 
 //////////////////////////////////////////////////////////////////////////
 
-void FLandscapeToolKit::RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FLandscapeToolKit::RegisterTabSpawners(const TSharedRef<FTabManager>& TabManager)
 {
 }
 
-void FLandscapeToolKit::UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager)
+void FLandscapeToolKit::UnregisterTabSpawners(const TSharedRef<FTabManager>& TabManager)
 {
 }
 
-void FLandscapeToolKit::Init(const TSharedPtr< class IToolkitHost >& InitToolkitHost)
+void FLandscapeToolKit::Init(const TSharedPtr<IToolkitHost>& InitToolkitHost)
 {
+	auto NameToCommandMap = FLandscapeEditorCommands::Get().NameToCommandMap;
+
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	TSharedRef<FUICommandList> CommandList = LandscapeEdMode->GetUICommandList();
+
+#define MAP_MODE(ModeName) CommandList->MapAction(NameToCommandMap.FindChecked(ModeName), FUIAction(FExecuteAction::CreateSP(this, &FLandscapeToolKit::OnChangeMode, FName(ModeName)), FCanExecuteAction::CreateSP(this, &FLandscapeToolKit::IsModeEnabled, FName(ModeName)), FIsActionChecked::CreateSP(this, &FLandscapeToolKit::IsModeActive, FName(ModeName))));
+	MAP_MODE("ToolMode_Manage");
+	MAP_MODE("ToolMode_Sculpt");
+	MAP_MODE("ToolMode_Paint");
+#undef MAP_MODE
+
+#define MAP_TOOL(ToolName) CommandList->MapAction(NameToCommandMap.FindChecked("Tool_" ToolName), FUIAction(FExecuteAction::CreateSP(this, &FLandscapeToolKit::OnChangeTool, FName(ToolName)), FCanExecuteAction::CreateSP(this, &FLandscapeToolKit::IsToolEnabled, FName(ToolName)), FIsActionChecked::CreateSP(this, &FLandscapeToolKit::IsToolActive, FName(ToolName))));
+	MAP_TOOL("NewLandscape");
+	MAP_TOOL("ResizeLandscape");
+
+	MAP_TOOL("Sculpt");
+	MAP_TOOL("Paint");
+	MAP_TOOL("Smooth");
+	MAP_TOOL("Flatten");
+	MAP_TOOL("Ramp");
+	MAP_TOOL("Erosion");
+	MAP_TOOL("HydraErosion");
+	MAP_TOOL("Noise");
+	MAP_TOOL("Retopologize");
+	MAP_TOOL("Visibility");
+
+	MAP_TOOL("Select");
+	MAP_TOOL("AddComponent");
+	MAP_TOOL("DeleteComponent");
+	MAP_TOOL("MoveToLevel");
+
+	MAP_TOOL("Mask");
+	MAP_TOOL("CopyPaste");
+	MAP_TOOL("Mirror");
+
+	MAP_TOOL("Splines");
+#undef MAP_TOOL
+
+#define MAP_BRUSH_SET(BrushSetName) CommandList->MapAction(NameToCommandMap.FindChecked(BrushSetName), FUIAction(FExecuteAction::CreateSP(this, &FLandscapeToolKit::OnChangeBrushSet, FName(BrushSetName)), FCanExecuteAction::CreateSP(this, &FLandscapeToolKit::IsBrushSetEnabled, FName(BrushSetName)), FIsActionChecked::CreateSP(this, &FLandscapeToolKit::IsBrushSetActive, FName(BrushSetName))));
+	MAP_BRUSH_SET("BrushSet_Circle");
+	MAP_BRUSH_SET("BrushSet_Alpha");
+	MAP_BRUSH_SET("BrushSet_Pattern");
+	MAP_BRUSH_SET("BrushSet_Component");
+	MAP_BRUSH_SET("BrushSet_Gizmo");
+#undef MAP_BRUSH_SET
+
+#define MAP_BRUSH(BrushName) CommandList->MapAction(NameToCommandMap.FindChecked(BrushName), FUIAction(FExecuteAction::CreateSP(this, &FLandscapeToolKit::OnChangeBrush, FName(BrushName)), FCanExecuteAction(), FIsActionChecked::CreateSP(this, &FLandscapeToolKit::IsBrushActive, FName(BrushName))));
+	MAP_BRUSH("Circle_Smooth");
+	MAP_BRUSH("Circle_Linear");
+	MAP_BRUSH("Circle_Spherical");
+	MAP_BRUSH("Circle_Tip");
+#undef MAP_BRUSH
+
 	LandscapeEditorWidgets = SNew(SLandscapeEditor, SharedThis(this));
 
 	FModeToolkit::Init(InitToolkitHost);
@@ -85,7 +138,7 @@ FText FLandscapeToolKit::GetBaseToolkitName() const
 	return LOCTEXT("ToolkitName", "Landscape Editor");
 }
 
-class FEdModeLandscape* FLandscapeToolKit::GetEditorMode() const
+FEdModeLandscape* FLandscapeToolKit::GetEditorMode() const
 {
 	return (FEdModeLandscape*)GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_Landscape);
 }
@@ -105,22 +158,137 @@ void FLandscapeToolKit::NotifyBrushChanged()
 	LandscapeEditorWidgets->NotifyBrushChanged();
 }
 
+void FLandscapeToolKit::OnChangeMode(FName ModeName)
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode)
+	{
+		LandscapeEdMode->SetCurrentToolMode(ModeName);
+	}
+}
+
+bool FLandscapeToolKit::IsModeEnabled(FName ModeName) const
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode)
+	{
+		// Manage is the only mode enabled if we have no landscape
+		if (ModeName == "ToolMode_Manage" || LandscapeEdMode->GetLandscapeList().Num() > 0)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FLandscapeToolKit::IsModeActive(FName ModeName) const
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode && LandscapeEdMode->CurrentTool)
+	{
+		return LandscapeEdMode->CurrentToolMode->ToolModeName == ModeName;
+	}
+
+	return false;
+}
+
+void FLandscapeToolKit::OnChangeTool(FName ToolName)
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode != nullptr)
+	{
+		LandscapeEdMode->SetCurrentTool(ToolName);
+	}
+}
+
+bool FLandscapeToolKit::IsToolEnabled(FName ToolName) const
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode != nullptr)
+	{
+		if (ToolName == "NewLandscape" || LandscapeEdMode->GetLandscapeList().Num() > 0)
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
+bool FLandscapeToolKit::IsToolActive(FName ToolName) const
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode != nullptr && LandscapeEdMode->CurrentTool != nullptr)
+	{
+		const FName CurrentToolName = LandscapeEdMode->CurrentTool->GetToolName();
+		return CurrentToolName == ToolName;
+	}
+
+	return false;
+}
+
+void FLandscapeToolKit::OnChangeBrushSet(FName BrushSetName)
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode != nullptr)
+	{
+		LandscapeEdMode->SetCurrentBrushSet(BrushSetName);
+	}
+}
+
+bool FLandscapeToolKit::IsBrushSetEnabled(FName BrushSetName) const
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode && LandscapeEdMode->CurrentTool)
+	{
+		return LandscapeEdMode->CurrentTool->ValidBrushes.Contains(BrushSetName);
+	}
+
+	return false;
+}
+
+bool FLandscapeToolKit::IsBrushSetActive(FName BrushSetName) const
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode && LandscapeEdMode->CurrentBrushSetIndex >= 0)
+	{
+		const FName CurrentBrushSetName = LandscapeEdMode->LandscapeBrushSets[LandscapeEdMode->CurrentBrushSetIndex].BrushSetName;
+		return CurrentBrushSetName == BrushSetName;
+	}
+
+	return false;
+}
+
+void FLandscapeToolKit::OnChangeBrush(FName BrushName)
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode != nullptr)
+	{
+		LandscapeEdMode->SetCurrentBrush(BrushName);
+	}
+}
+
+bool FLandscapeToolKit::IsBrushActive(FName BrushName) const
+{
+	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
+	if (LandscapeEdMode && LandscapeEdMode->CurrentBrush)
+	{
+		const FName CurrentBrushName = LandscapeEdMode->CurrentBrush->GetBrushName();
+		return CurrentBrushName == BrushName;
+	}
+
+	return false;
+}
+
 //////////////////////////////////////////////////////////////////////////
 
 BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
 void SLandscapeEditor::Construct(const FArguments& InArgs, TSharedRef<FLandscapeToolKit> InParentToolkit)
 {
-	CommandList = InParentToolkit->GetToolkitCommands();
-
-	//FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	//TSharedPtr<SLevelEditor> LevelEditor = StaticCastSharedPtr<SLevelEditor>(LevelEditorModule.GetFirstLevelEditor());
-	//CommandList = LevelEditor->GetLevelEditorActions();
+	TSharedRef<FUICommandList> CommandList = InParentToolkit->GetToolkitCommands();
 
 	// Modes:
-	CommandList->MapAction(FLandscapeEditorCommands::Get().ManageMode, FUIAction(FExecuteAction::CreateSP(this, &SLandscapeEditor::OnChangeMode, FName("ToolMode_Manage")), FCanExecuteAction::CreateSP(this, &SLandscapeEditor::IsModeEnabled, FName(TEXT("ToolMode_Manage"))), FIsActionChecked::CreateSP(this, &SLandscapeEditor::IsModeActive, FName(TEXT("ToolMode_Manage")))));
-	CommandList->MapAction(FLandscapeEditorCommands::Get().SculptMode, FUIAction(FExecuteAction::CreateSP(this, &SLandscapeEditor::OnChangeMode, FName("ToolMode_Sculpt")), FCanExecuteAction::CreateSP(this, &SLandscapeEditor::IsModeEnabled, FName(TEXT("ToolMode_Sculpt"))), FIsActionChecked::CreateSP(this, &SLandscapeEditor::IsModeActive, FName(TEXT("ToolMode_Sculpt")))));
-	CommandList->MapAction(FLandscapeEditorCommands::Get().PaintMode,  FUIAction(FExecuteAction::CreateSP(this, &SLandscapeEditor::OnChangeMode, FName("ToolMode_Paint" )), FCanExecuteAction::CreateSP(this, &SLandscapeEditor::IsModeEnabled, FName(TEXT("ToolMode_Paint" ))), FIsActionChecked::CreateSP(this, &SLandscapeEditor::IsModeActive, FName(TEXT("ToolMode_Paint" )))));
-
 	FToolBarBuilder ModeSwitchButtons(CommandList, FMultiBoxCustomization::None);
 	{
 		ModeSwitchButtons.AddToolBarButton(FLandscapeEditorCommands::Get().ManageMode, NAME_None, LOCTEXT("Mode.Manage", "Manage"), LOCTEXT("Mode.Manage.Tooltip", "Contains tools to add a new landscape, import/export landscape, add/remove components and manage streaming"));
@@ -192,7 +360,7 @@ void SLandscapeEditor::Construct(const FArguments& InArgs, TSharedRef<FLandscape
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
-class FEdModeLandscape* SLandscapeEditor::GetEditorMode() const
+FEdModeLandscape* SLandscapeEditor::GetEditorMode() const
 {
 	return (FEdModeLandscape*)GLevelEditorModeTools().GetActiveMode(FBuiltinEditorModes::EM_Landscape);
 }
@@ -271,7 +439,7 @@ bool SLandscapeEditor::GetIsPropertyVisible(const FPropertyAndParent& PropertyAn
 	const UProperty& Property = PropertyAndParent.Property;
 
 	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode != NULL && LandscapeEdMode->CurrentTool != NULL)
+	if (LandscapeEdMode != nullptr && LandscapeEdMode->CurrentTool != nullptr)
 	{
 		if (Property.HasMetaData("ShowForMask"))
 		{
@@ -325,41 +493,6 @@ bool SLandscapeEditor::GetIsPropertyVisible(const FPropertyAndParent& PropertyAn
 		}
 
 		return true;
-	}
-
-	return false;
-}
-
-void SLandscapeEditor::OnChangeMode(FName ModeName)
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode)
-	{
-		LandscapeEdMode->SetCurrentToolMode(ModeName);
-	}
-}
-
-bool SLandscapeEditor::IsModeEnabled(FName ModeName) const
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode)
-	{
-		// Manage is the only mode enabled if we have no landscape
-		if (ModeName == "ToolMode_Manage" || LandscapeEdMode->GetLandscapeList().Num() > 0)
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
-bool SLandscapeEditor::IsModeActive(FName ModeName) const
-{
-	FEdModeLandscape* LandscapeEdMode = GetEditorMode();
-	if (LandscapeEdMode && LandscapeEdMode->CurrentTool)
-	{
-		return LandscapeEdMode->CurrentToolMode->ToolModeName == ModeName;
 	}
 
 	return false;

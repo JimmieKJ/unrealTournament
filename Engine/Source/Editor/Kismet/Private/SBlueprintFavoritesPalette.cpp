@@ -3,7 +3,7 @@
 #include "BlueprintEditorPrivatePCH.h"
 #include "SBlueprintFavoritesPalette.h"
 #include "Engine.h"
-#include "KismetClasses.h"
+#include "Classes/BlueprintPaletteFavorites.h"
 #include "BlueprintActionMenuUtils.h"
 #include "BlueprintActionMenuBuilder.h"
 #include "BlueprintActionFilter.h" // for FBlueprintActionContext

@@ -40,6 +40,9 @@ class ENGINE_API UAnimSingleNodeInstance : public UAnimInstance
 	UPROPERTY(transient)
 	float CurrentTime;
 
+	/** Cache for data needed during marker sync */
+	FMarkerTickRecord MarkerTickRecord;
+
 	UPROPERTY(transient)
 	float PlayRate;
 	 
@@ -55,16 +58,16 @@ class ENGINE_API UAnimSingleNodeInstance : public UAnimInstance
 	UPROPERTY(transient)
 	uint32 bReverse:1;
 
-	// Begin UAnimInstance interface
+	//~ Begin UAnimInstance Interface
 	virtual void NativeInitializeAnimation() override;
-	virtual void NativeUpdateAnimation(float DeltaTimeX) override;
 	virtual bool NativeEvaluateAnimation(FPoseContext& Output) override;
-	virtual void PostAnimEvaluation() override;
+	virtual void NativePostEvaluateAnimation() override;
+	virtual void OnMontageInstanceStopped(FAnimMontageInstance& StoppedMontageInstance) override;
 
 protected:
 	virtual void Montage_Advance(float DeltaTime) override;
-	void InternalBlendSpaceEvaluatePose(class UBlendSpaceBase* BlendSpace, TArray<FBlendSampleData>& BlendSampleDataCache, struct FA2Pose& Pose);
-	// End UAnimInstance interface
+	void InternalBlendSpaceEvaluatePose(class UBlendSpaceBase* BlendSpace, TArray<FBlendSampleData>& BlendSampleDataCache, FPoseContext& OutContext);
+	//~ End UAnimInstance Interface
 public:
 
 	UFUNCTION(BlueprintCallable, Category="Animation")
@@ -111,6 +114,13 @@ public:
 #if WITH_EDITORONLY_DATA
 	float PreviewPoseCurrentTime;
 #endif
+private:
+	/** Slot node weight transient data */
+	FSlotNodeWeightInfo WeightInfo;
+
+protected:
+	// UAnimInstance interface to override animation node part
+	virtual void UpdateAnimationNode(float DeltaSeconds) override;
 };
 
 

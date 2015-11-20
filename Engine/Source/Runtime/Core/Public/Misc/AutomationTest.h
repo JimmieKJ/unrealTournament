@@ -8,36 +8,28 @@ namespace EAutomationTestFlags
 {
 	enum Type
 	{
-		ATF_None						= 0,			//empty flags for tests that require no flags
+		//Application context required for the test - not specifying means it will be valid for any context
+		EditorContext				= 0x00000001,	// Test is suitable for running within the editor
+		ClientContext				= 0x00000002,	// Test is suitable for running within the client
+		ServerContext				= 0x00000004,	// Test is suitable for running within the server
+		CommandletContext			= 0x00000008,	// Test is suitable for running within a commandlet
+		ApplicationContextMask		= EditorContext | ClientContext | ServerContext | CommandletContext,
 
-		//application type required for the test - not specifying means it will be valid for any application
-		ATF_Editor						= 0x00000001,	// Test is suitable for running within the editor
-		ATF_Game						= 0x00000002,	// Test is suitable for running within the game
-		ATF_Commandlet					= 0x00000004,	// Test is suitable for running within a commandlet
-		ATF_ApplicationMask				= ATF_Editor | ATF_Game | ATF_Commandlet,
+		//Features required for the test - not specifying means it is valid for any feature combination
+		NonNullRHI					= 0x00000100,	// Test requires a non-null RHI to run correctly
+		RequiresUser				= 0x00000200,	// Test requires a user instigated session
+		FeatureMask					= NonNullRHI | RequiresUser,
 
-		//features required for the test - not specifying means it is valid for any feature combination
-		ATF_NonNullRHI					= 0x00000100,	// Test requires a non-null RHI to run correctly
-		ATF_RequiresUser				= 0x00000200,	// Test requires a user instigated session
-		ATF_FeatureMask					= ATF_NonNullRHI | ATF_RequiresUser,
+		//One-off flag to allow for fast disabling of tests without commenting code out
+		Disabled					= 0x00010000,	// Temp disabled and never returns for a filter
 
-		//action options - each autotest can have only one of this and this has to match
-		ATF_VisualCommandlet			= 0x00010000,	//Test requires visual commandlet
-		ATF_ActionMask					= ATF_VisualCommandlet,
-
-		//speed of the test
-		ATF_SmokeTest					= 0x01000000,	//Test should be run in "fast" mode
-	};
-};
-
-/** Flags for specifying the type of test */
-namespace EAutomationTestType
-{
-	enum Type
-	{
-		ATT_SmokeTest = 0x00000001,	// Smoke test
-		ATT_NormalTest = 0x00000002,	// Normal test
-		ATT_StressTest = 0x00000004	// Stress test
+		//Speed of the test
+		SmokeFilter					= 0x01000000,	//Super Fast Filter
+		EngineFilter				= 0x02000000,	//Engine Level Test
+		ProductFilter				= 0x04000000,	//Product Level Test
+		PerfFilter					= 0x08000000,	//Performance Test
+		StressFilter				= 0x10000000,	//Stress Test
+		FilterMask = SmokeFilter | EngineFilter | ProductFilter | PerfFilter | StressFilter
 	};
 };
 
@@ -64,6 +56,7 @@ public:
 		Errors.Empty();
 		Warnings.Empty();
 		LogItems.Empty();
+		AnalyticsItems.Empty();
 	}
 
 	/** Whether the automation test completed successfully or not */
@@ -74,6 +67,8 @@ public:
 	TArray<FString> Warnings;
 	/** Any log items that occurred during execution */
 	TArray<FString> LogItems;
+	/** Any analytics items that occurred during execution */
+	TArray<FString> AnalyticsItems;
 	/** Time to complete the task */
 	float Duration;
 };
@@ -85,7 +80,7 @@ public:
 
 	// Default constructor
 	FAutomationTestInfo( ) :
-		TestType( 0 )
+		TestFlags( 0 )
 		, NumParticipantsRequired( 0 )
 		, NumDevicesCurrentlyRunningTest( 0 )
 	{}
@@ -108,14 +103,14 @@ public:
 	 *
 	 * @param	InDisplayName - Name used in the UI
 	 * @param	InTestName - The test command string
-	 * @param	InTestType - Type of test e.g. smoke test
+	 * @param	InTestFlag - Test flags
 	 * @param	InParameterName - optional parameter. e.g. asset name
 	 */
-	FAutomationTestInfo( const FString& InDisplayName, const FString& InTestName, const uint8 InTestType, const int32 InNumParticipantsRequired, const FString& InParameterName = FString() )
+	FAutomationTestInfo( const FString& InDisplayName, const FString& InTestName, const uint8 InTestFlags, const int32 InNumParticipantsRequired, const FString& InParameterName = FString() )
 		: DisplayName( InDisplayName )
 		, TestName( InTestName )
 		, TestParameter( InParameterName )
-		, TestType( InTestType )
+		, TestFlags( InTestFlags )
 		, NumParticipantsRequired( InNumParticipantsRequired )
 		, NumDevicesCurrentlyRunningTest( 0 )
 	{}
@@ -123,13 +118,13 @@ public:
 public:
 
 	/**
-	 * Add a test type if a parent node.
+	 * Add a test flag if a parent node.
 	 *
-	 * @Param InTestType - the child test type to add.
+	 * @Param InTestFlags - the child test flag to add.
 	 */
-	void AddTestType( const uint8 InTestType )
+	void AddTestFlags( const uint8 InTestFlags)
 	{
-		TestType |= InTestType;
+		TestFlags |= InTestFlags;
 	}
 
 
@@ -151,7 +146,7 @@ public:
 	 */
 	const FString GetTestAsString()
 	{
-		return FString::Printf( TEXT("%s,%s,%i,%d,%s,"), *DisplayName, *TestName, TestType, NumParticipantsRequired, *TestParameter );
+		return FString::Printf( TEXT("%s,%s,%i,%d,%s,"), *DisplayName, *TestName, TestFlags, NumParticipantsRequired, *TestParameter );
 	}
 
 
@@ -182,9 +177,9 @@ public:
 	 *
 	 * @return the test type.
 	 */
-	const uint8 GetTestType() const
+	const uint8 GetTestFlags() const
 	{
-		return TestType;
+		return TestFlags;
 	}
 	
 	/**
@@ -263,7 +258,7 @@ private:
 
 		DisplayName = Pieces[0];
 		TestName = Pieces[1];
-		TestType = uint8( FCString::Atoi( *Pieces[2] ) );
+		TestFlags = uint8( FCString::Atoi( *Pieces[2] ) );
 
 		NumParticipantsRequired = FCString::Atoi( *Pieces[3] );
 
@@ -284,8 +279,8 @@ private:
 	/** Parameter - e.g. an asset name or map name */
 	FString TestParameter;
 
-	/** The test type - smoke test etc. */
-	uint8 TestType;
+	/** The test flags. */
+	uint8 TestFlags;
 
 	/** The number of participants this test requires */
 	uint32 NumParticipantsRequired;
@@ -491,9 +486,10 @@ public:
 	void SetDeveloperDirectoryIncluded(const bool bInDeveloperDirectoryIncluded);
 
 	/**
-	 * Sets whether the automation tests should include visual commandlet.
-	 */
-	void SetVisualCommandletFilter(const bool bInVisualCommandletFilterOn);
+	* Sets which set of tests to pull from.
+	*/
+	void SetRequestedTestFilter(const uint32 InRequestedTestFlags);
+	
 
 	/**
 	 * Accessor for delegate called when a png screenshot is captured 
@@ -524,6 +520,15 @@ public:
 	{
 		bForceSmokeTests = bInForceSmokeTests;
 	}
+
+	/**
+	 * Adds a analytics string to the current test to be parsed later.  Must be called only when an automation test is in progress
+	 *
+	 * @param	AnalyticsItem	Log item to add to the current test
+	 */
+	void AddAnalyticsItemToCurrentTest( const FString& AnalyticsItem );
+
+
 private:
 
 	/** Special feedback context used exclusively while automation testing */
@@ -623,7 +628,7 @@ private:
 	TQueue< TSharedPtr<IAutomationNetworkCommand> > NetworkCommands;
 
 	/** Whether we are currently executing smoke tests for startup/commandlet to minimize log spam */
-	bool bRunningSmokeTests;
+	uint32 RequestedTestFilter;
 
 	/** Time when the test began executing */
 	double StartTime;
@@ -639,9 +644,6 @@ private:
 
 	/** Whether we want to run automation tests on content within the Developer Directories */
 	bool bDeveloperDirectoryIncluded;
-
-	/** Whether we want to convert Anim Blueprint **/
-	bool bVisualCommandletFilterOn;
 
 	/** Wheather screenshots are enabled */
 	bool bScreenshotsEnabled;
@@ -722,6 +724,13 @@ public:
 	 * @param	InLogItem	Log item to add to this test
 	 */
 	void AddLogItem( const FString& InLogItem );
+
+	/**
+	* Adds a analytics string to parse later
+	*
+	* @param	InLogItem	Log item to add to this test
+	*/
+	void AddAnalyticsItem(const FString& InAnalyticsItem);
 
 	/**
 	 * Returns whether this test has any errors associated with it or not
@@ -1065,7 +1074,15 @@ public: \
 	{ \
 	public: \
 		TClass( const FString& InName ) \
-		:FAutomationTestBase( InName, false ) {} \
+		:FAutomationTestBase( InName, false ) {\
+			static_assert((TFlags)&EAutomationTestFlags::ApplicationContextMask, "AutomationTest has no application flag.  It shouldn't run.  See AutomationTest.h."); \
+			static_assert(	(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::SmokeFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::EngineFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::ProductFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::PerfFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::StressFilter), \
+							"All AutomationTests must have exactly 1 filter type specified.  See AutomationTest.h."); \
+		} \
 		virtual uint32 GetTestFlags() const override { return TFlags; } \
 		virtual bool IsStressTest() const { return false; } \
 		virtual uint32 GetRequiredDeviceNum() const override { return 1; } \
@@ -1084,8 +1101,16 @@ public: \
 	{ \
 	public: \
 		TClass( const FString& InName ) \
-		:FAutomationTestBase( InName, true ) {} \
-		virtual uint32 GetTestFlags() const override { return (TFlags & ~(EAutomationTestFlags::ATF_SmokeTest)); } \
+		:FAutomationTestBase( InName, true ) { \
+			static_assert((TFlags)&EAutomationTestFlags::ApplicationContextMask, "AutomationTest has no application flag.  It shouldn't run.  See AutomationTest.h."); \
+			static_assert(	(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::SmokeFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::EngineFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::ProductFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::PerfFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::StressFilter), \
+							"All AutomationTests must have exactly 1 filter type specified.  See AutomationTest.h."); \
+		} \
+		virtual uint32 GetTestFlags() const override { return ((TFlags) & ~(EAutomationTestFlags::SmokeFilter)); } \
 		virtual bool IsStressTest() const { return true; } \
 		virtual uint32 GetRequiredDeviceNum() const override { return 1; } \
 	protected: \
@@ -1099,8 +1124,16 @@ public: \
 	{ \
 	public: \
 		TClass( const FString& InName ) \
-		:FAutomationTestBase( InName, false ) {} \
-		virtual uint32 GetTestFlags() const override { return (TFlags & ~(EAutomationTestFlags::ATF_Editor | EAutomationTestFlags::ATF_Commandlet | EAutomationTestFlags::ATF_SmokeTest)); } \
+		:FAutomationTestBase( InName, false ) { \
+			static_assert((TFlags)&EAutomationTestFlags::ApplicationContextMask, "AutomationTest has no application flag.  It shouldn't run.  See AutomationTest.h."); \
+			static_assert(	(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::SmokeFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::EngineFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::ProductFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::PerfFilter) || \
+							(((TFlags)&EAutomationTestFlags::FilterMask) == EAutomationTestFlags::StressFilter), \
+							"All AutomationTests must have exactly 1 filter type specified.  See AutomationTest.h."); \
+		} \
+		virtual uint32 GetTestFlags() const override { return ((TFlags) & ~(EAutomationTestFlags::EditorContext | EAutomationTestFlags::CommandletContext | EAutomationTestFlags::SmokeFilter)); } \
 		virtual uint32 GetRequiredDeviceNum() const override { return NumParticipants; } \
 	protected: \
 		virtual void GetTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands) const override \

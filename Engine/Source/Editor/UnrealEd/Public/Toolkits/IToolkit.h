@@ -3,6 +3,15 @@
 #pragma once
 
 
+class FEdMode;
+class FTabManager;
+class FWorkspaceItem;
+class IToolkitHost;
+class SDockableTab;
+class SWidget;
+struct FKeyEvent;
+
+
 /** Some toolkits can be spawned as either standalone tools or within an existing level editing UI */
 namespace EToolkitMode
 {
@@ -54,9 +63,10 @@ class IToolkit
 public:
 
 	/** Register tabs that this toolkit can spawn with the TabManager */
-	virtual void RegisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) = 0;
+	virtual void RegisterTabSpawners(const TSharedRef<FTabManager>& TabManager) = 0;
+
 	/** Unregister tabs that this toolkit can spawn */	
-	virtual void UnregisterTabSpawners(const TSharedRef<class FTabManager>& TabManager) = 0;
+	virtual void UnregisterTabSpawners(const TSharedRef<FTabManager>& TabManager) = 0;
 
 public:
 
@@ -71,6 +81,9 @@ public:
 
 	/** Returns the localized name of this toolkit */
 	virtual FText GetToolkitName() const = 0;
+
+	/** Returns the localized tooltip text of this toolkit */
+	virtual FText GetToolkitToolTipText() const = 0;
 
 	/** Returns the workspace menu category of this toolkit */
 	virtual TSharedRef<FWorkspaceItem> GetWorkspaceMenuCategory() const = 0;
@@ -91,10 +104,10 @@ public:
 	virtual bool IsHosted() const = 0;
 
 	/** @return Returns the toolkit host for this toolkit */
-	virtual const TSharedRef< class IToolkitHost > GetToolkitHost() const = 0;
+	virtual const TSharedRef<IToolkitHost> GetToolkitHost() const = 0;
 
 	/** @return Returns a map of weak pointers to all of this toolkit's spawned tabs that may currently exist, indexed by the tab spots they are suitable for  */
-	virtual const TMap< EToolkitTabSpot::Type, TArray< TWeakPtr< class SDockableTab > > >& GetToolkitTabsInSpots() const = 0;
+	virtual const TMap<EToolkitTabSpot::Type, TArray<TWeakPtr<SDockableTab>>>& GetToolkitTabsInSpots() const = 0;
 
 	/**
 	 * Processes any UI commands which are activated by the specified event
@@ -103,16 +116,16 @@ public:
 	 *
 	 * @return true if an action was processed
 	 */
-	virtual bool ProcessCommandBindings( const struct FKeyEvent& InKeyEvent ) const = 0;
+	virtual bool ProcessCommandBindings(const FKeyEvent& InKeyEvent) const = 0;
 
 	/** Call this function to bring all of this toolkit's tabs to the foreground in their respective stacks.  Also causes the toolkit's host window to be foregrounded, too! */
 	virtual void BringToolkitToFront() = 0;
 
 	/** @returns the editor mode this toolkit is used for, or null if not relevant. */
-	virtual class FEdMode* GetEditorMode() const = 0;
+	virtual FEdMode* GetEditorMode() const = 0;
 
 	/** @returns the inline content that this toolkit returns if it is an editor mode */
-	virtual TSharedPtr<class SWidget> GetInlineContent() const = 0;
+	virtual TSharedPtr<SWidget> GetInlineContent() const = 0;
 
 	/** Returns if this is a IBlueprintEditor derivation */
 	virtual bool IsBlueprintEditor() const = 0;

@@ -6,9 +6,9 @@
  */
 
 
-//=============================================================================
+//~=============================================================================
 // GeomModifier_Edit: Maniupalating selected objects with the widget
-//=============================================================================
+//~=============================================================================
 
 #pragma once
 #include "GeomModifier_Edit.generated.h"
@@ -20,9 +20,9 @@ class UGeomModifier_Edit : public UGeomModifier
 
 
 
-	// Begin UGeomModifier Interface
+	//~ Begin UGeomModifier Interface
 	virtual bool InputDelta(class FEditorViewportClient* InViewportClient,FViewport* InViewport,FVector& InDrag,FRotator& InRot,FVector& InScale) override;	
-	// End UGeomModifier Interface
+	//~ End UGeomModifier Interface
 };
 
 

@@ -40,16 +40,15 @@ public:
 	 */
 	bool Pop(FUdpReassembledMessagePtr& OutMessage)
 	{
-		if (MessageHeap.HeapTop()->GetSequence() == NextSequence)
+		if (MessageHeap.HeapTop()->GetSequence() != NextSequence)
 		{
-			MessageHeap.HeapPop(OutMessage, FSequenceComparer());
-
-			NextSequence++;
-
-			return true;
+			return false;
 		}
 
-		return false;
+		MessageHeap.HeapPop(OutMessage, FSequenceComparer());
+		NextSequence++;
+
+		return true;
 	}
 
 	/**
@@ -69,7 +68,6 @@ public:
 	void Reset()
 	{
 		MessageHeap.Reset();
-
 		NextSequence = 1;
 	}
 

@@ -53,9 +53,9 @@ class UParticleModuleEventReceiverSpawn : public UParticleModuleEventReceiverBas
 	virtual void PostInitProperties() override;
 	//End UObject Interface
 
-	// Begin UParticleModuleEventBase Interface
+	//~ Begin UParticleModuleEventBase Interface
 	virtual bool ProcessParticleEvent(FParticleEmitterInstance* Owner, FParticleEventData& InEvent, float DeltaTime) override;
-	// End UParticleModuleEventBase Interface
+	//~ End UParticleModuleEventBase Interface
 };
 
 

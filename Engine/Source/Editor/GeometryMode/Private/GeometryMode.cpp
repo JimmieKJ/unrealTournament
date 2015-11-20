@@ -3,6 +3,7 @@
 #include "GeometryModePrivatePCH.h"
 #include "Editor/PropertyEditor/Public/PropertyEditorModule.h"
 #include "Editor/PropertyEditor/Public/IDetailsView.h"
+#include "Classes/GeomModifier.h"
 
 #define LOCTEXT_NAMESPACE "GeometryMode"
 

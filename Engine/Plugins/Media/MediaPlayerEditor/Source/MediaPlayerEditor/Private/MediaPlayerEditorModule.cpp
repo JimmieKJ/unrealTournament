@@ -45,6 +45,7 @@ public:
 		FMediaPlayerEditorCommands::Register();
 
 		RegisterAssetTools();
+		RegisterCustomizations();
 		RegisterMenuExtensions();
 		RegisterThumbnailRenderers();
 	}
@@ -52,6 +53,7 @@ public:
 	virtual void ShutdownModule() override
 	{
 		UnregisterAssetTools();
+		UnregisterCustomizations();
 		UnregisterMenuExtensions();
 		UnregisterThumbnailRenderers();
 	}
@@ -80,19 +82,6 @@ protected:
 		RegisteredAssetTypeActions.Add(Action);
 	}
 
-	/** Registers main menu and tool bar menu extensions. */
-	void RegisterMenuExtensions()
-	{
-		MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
-		ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
-	}
-
-	/** Registers asset thumbnail renderers .*/
-	void RegisterThumbnailRenderers()
-	{
-		UThumbnailManager::Get().RegisterCustomRenderer(UMediaTexture::StaticClass(), UTextureThumbnailRenderer::StaticClass());
-	}
-
 	/** Unregisters asset tool actions. */
 	void UnregisterAssetTools()
 	{
@@ -109,11 +98,48 @@ protected:
 		}
 	}
 
+protected:
+
+	/** Register details view customizations. */
+	void RegisterCustomizations()
+	{
+		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.RegisterCustomClassLayout(UMediaPlayer::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMediaPlayerCustomization::MakeInstance));
+		PropertyModule.RegisterCustomClassLayout(UMediaSoundWave::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMediaSoundWaveCustomization::MakeInstance));
+		PropertyModule.RegisterCustomClassLayout(UMediaTexture::StaticClass()->GetFName(), FOnGetDetailCustomizationInstance::CreateStatic(&FMediaTextureCustomization::MakeInstance));
+	}
+
+	/** Unregister details view customizations. */
+	void UnregisterCustomizations()
+	{
+		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
+		PropertyModule.UnregisterCustomClassLayout(UMediaPlayer::StaticClass()->GetFName());
+		PropertyModule.UnregisterCustomClassLayout(UMediaSoundWave::StaticClass()->GetFName());
+		PropertyModule.UnregisterCustomClassLayout(UMediaTexture::StaticClass()->GetFName());
+	}
+
+protected:
+
+	/** Registers main menu and tool bar menu extensions. */
+	void RegisterMenuExtensions()
+	{
+		MenuExtensibilityManager = MakeShareable(new FExtensibilityManager);
+		ToolBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
+	}
+
 	/** Unregisters main menu and tool bar menu extensions. */
 	void UnregisterMenuExtensions()
 	{
 		MenuExtensibilityManager.Reset();
 		ToolBarExtensibilityManager.Reset();
+	}
+
+protected:
+
+	/** Registers asset thumbnail renderers .*/
+	void RegisterThumbnailRenderers()
+	{
+		UThumbnailManager::Get().RegisterCustomRenderer(UMediaTexture::StaticClass(), UTextureThumbnailRenderer::StaticClass());
 	}
 
 	/** Unregisters all asset thumbnail renderers. */

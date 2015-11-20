@@ -97,7 +97,7 @@ TArray<FLayoutGeometry> SSplitter::ArrangeChildrenForLayout(const FGeometry& All
 			{
 				++NumNonCollapsedChildren;
 
-				if ( Children[ChildIndex].SizingRule == SSplitter::SizeToContent )
+				if ( Children[ChildIndex].SizingRule.Get() == SSplitter::SizeToContent )
 				{
 					NonResizeableSpace += Children[ChildIndex].GetWidget()->GetDesiredSize()[AxisIndex];
 				}
@@ -121,7 +121,7 @@ TArray<FLayoutGeometry> SSplitter::ArrangeChildrenForLayout(const FGeometry& All
 	{
 		const FSlot& CurSlot = Children[ChildIndex];
 
-		const float ChildSpace = ( CurSlot.SizingRule == SSplitter::SizeToContent )
+		const float ChildSpace = ( CurSlot.SizingRule.Get() == SSplitter::SizeToContent )
 			? CurSlot.GetWidget()->GetDesiredSize()[AxisIndex]
 		: ResizeableSpace * CurSlot.SizeValue.Get() / CoefficientTotal;
 
@@ -863,7 +863,7 @@ void SSplitter2x2::ResizeChildren( const FGeometry& MyGeometry, const TArray<FLa
 		NewSizeBL.X = BotLeftSize.X + Delta.X;
 
 		//workaround PS4 compiler crash.
-#if PLATFORM_PS4
+#if PLATFORM_PS4 || PLATFORM_ANDROID_X64
 		volatile float workaround = 0.0f;
 		NewSizeTR.X = TopRightSize.X - Delta.X + workaround;
 #else

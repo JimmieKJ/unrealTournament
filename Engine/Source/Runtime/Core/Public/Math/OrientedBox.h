@@ -113,3 +113,5 @@ FORCEINLINE FFloatInterval FOrientedBox::Project( const FVector& Axis ) const
 
 	return ProjectionInterval;
 }
+
+template <> struct TIsPODType<FOrientedBox> { enum { Value = true }; };

@@ -525,7 +525,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 							TrackedPlayers[Idx]->bInInstance = false;
 						}
 					}
-					else if (PlayerState && !PlayerState->bPendingKillPending)
+					else if (PlayerState && !PlayerState->IsPendingKillPending())
 					{
 						bListNeedsUpdate = true;
 						// This is a new player.. Add them.

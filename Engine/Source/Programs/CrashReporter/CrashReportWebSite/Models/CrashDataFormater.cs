@@ -253,11 +253,11 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			{
 			case 2:
 				bSkipping = true;
-				LineToSkipUpto = "FDebug::AssertFailed()";
+				LineToSkipUpto = "FDebug::AssertFailed";
 				break;
 			case 3:
 				bSkipping = true;
-				LineToSkipUpto = "FDebug::EnsureFailed()";
+				LineToSkipUpto = "FDebug::";
 				break;
 			}
 
@@ -394,6 +394,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					"FMsg::Logf",
 					"ReportCrash",
 					"NewReportEnsure",
+					"EngineCrashHandler", // Generic crash handler for all platforms
 				} );
 
 				bool Contains = FuncsToRemove.Contains( FuncName, new CustomFuncComparer() );

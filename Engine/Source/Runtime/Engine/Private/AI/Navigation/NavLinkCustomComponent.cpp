@@ -83,7 +83,7 @@ bool UNavLinkCustomComponent::OnLinkMoveStarted(UPathFollowingComponent* PathCom
 
 void UNavLinkCustomComponent::OnLinkMoveFinished(UPathFollowingComponent* PathComp)
 {
-	TWeakObjectPtr<UPathFollowingComponent> WeakPathComp;
+	TWeakObjectPtr<UPathFollowingComponent> WeakPathComp(PathComp);
 	MovingAgents.Remove(WeakPathComp);
 }
 
@@ -120,27 +120,14 @@ void UNavLinkCustomComponent::OnRegister()
 		NavLinkUserId = INavLinkCustomInterface::GetUniqueId();
 	}
 
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-	if (NavSys == NULL)
-	{
-		return;
-	}
-
-	NavSys->RegisterCustomLink(*this);
+	UNavigationSystem::RequestCustomLinkRegistering(*this, this);
 }
 
 void UNavLinkCustomComponent::OnUnregister()
 {
 	Super::OnUnregister();
 
-	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
-	if (NavSys == NULL)
-	{
-		return;
-	}
-
-	// always try to unregister, even if not relevant right now
-	NavSys->UnregisterCustomLink(*this);
+	UNavigationSystem::RequestCustomLinkUnregistering(*this, this);
 }
 
 void UNavLinkCustomComponent::SetLinkData(const FVector& RelativeStart, const FVector& RelativeEnd, ENavLinkDirection::Type Direction)
@@ -160,7 +147,7 @@ FNavigationLink UNavLinkCustomComponent::GetLinkModifier() const
 void UNavLinkCustomComponent::SetEnabledArea(TSubclassOf<UNavArea> AreaClass)
 {
 	EnabledAreaClass = AreaClass;
-	if (IsNavigationRelevant() && bLinkEnabled)
+	if (IsNavigationRelevant() && bLinkEnabled && GetWorld() != nullptr )
 	{
 		UNavigationSystem* NavSys = GetWorld()->GetNavigationSystem();
 		NavSys->UpdateCustomLink(this);
@@ -170,7 +157,7 @@ void UNavLinkCustomComponent::SetEnabledArea(TSubclassOf<UNavArea> AreaClass)
 void UNavLinkCustomComponent::SetDisabledArea(TSubclassOf<UNavArea> AreaClass)
 {
 	DisabledAreaClass = AreaClass;
-	if (IsNavigationRelevant() && !bLinkEnabled)
+	if (IsNavigationRelevant() && !bLinkEnabled && GetWorld() != nullptr )
 	{
 		UNavigationSystem* NavSys = GetWorld()->GetNavigationSystem();
 		NavSys->UpdateCustomLink(this);

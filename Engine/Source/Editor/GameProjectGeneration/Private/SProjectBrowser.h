@@ -132,6 +132,9 @@ private:
 	// Holds the collection of project categories.
 	TArray<TSharedRef<FProjectCategory> > ProjectCategories;
 
+	/** Search box used to set the filter text */
+	TSharedPtr<class SSearchBox> SearchBoxPtr;
+
 	/** Filter that is used to test for the visibility of projects */
 	typedef TTextFilter<const TSharedPtr<FProjectItem>> ProjectItemTextFilter;
 	ProjectItemTextFilter ProjectItemFilter;

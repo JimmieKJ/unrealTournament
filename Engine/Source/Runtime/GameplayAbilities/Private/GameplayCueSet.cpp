@@ -4,6 +4,7 @@
 #include "GameplayCueSet.h"
 #include "GameplayCueManager.h"
 #include "GameplayCueNotify_Static.h"
+#include "GameplayCueManager.h"
 
 // --------------------------------------------------------------------------------------------------------------------------------------------------------
 //
@@ -42,13 +43,20 @@ void UGameplayCueSet::AddCues(const TArray<FGameplayCueReferencePair>& CuesToAdd
 			const FStringAssetReference& StringRef = CueRefPair.StringRef;
 
 			// Check for duplicates: we may want to remove this eventually.
+			bool bDupe = false;
 			for (FGameplayCueNotifyData Data : GameplayCueData)
 			{
 				if (Data.GameplayCueTag == GameplayCueTag)
 				{
 					ABILITY_LOG(Warning, TEXT("AddGameplayCueData_Internal called for [%s,%s] when it already existed [%s,%s]. Skipping."), *GameplayCueTag.ToString(), *StringRef.ToString(), *Data.GameplayCueTag.ToString(), *Data.GameplayCueNotifyObj.ToString());
-					return;
+					bDupe = true;
+					break;
 				}
+			}
+
+			if (bDupe)
+			{
+				continue;
 			}
 
 			FGameplayCueNotifyData NewData;
@@ -82,6 +90,22 @@ void UGameplayCueSet::RemoveCuesByStringRefs(const TArray<FStringAssetReference>
 	}
 }
 
+#if WITH_EDITOR
+void UGameplayCueSet::UpdateCueByStringRefs(const FStringAssetReference& CueToRemove, FString NewPath)
+{
+	
+	for (int32 idx = 0; idx < GameplayCueData.Num(); ++idx)
+	{
+		if (GameplayCueData[idx].GameplayCueNotifyObj == CueToRemove)
+		{
+			GameplayCueData[idx].GameplayCueNotifyObj = NewPath;
+			BuildAccelerationMap_Internal();
+			break;
+		}
+	}
+}
+#endif
+
 void UGameplayCueSet::Empty()
 {
 	GameplayCueData.Empty();
@@ -106,7 +130,7 @@ void UGameplayCueSet::PrintCues() const
 	}
 }
 
-bool UGameplayCueSet::HandleGameplayCueNotify_Internal(AActor* TargetActor, int32 DataIdx, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
+bool UGameplayCueSet::HandleGameplayCueNotify_Internal(AActor* TargetActor, int32 DataIdx, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
 {	
 	bool bReturnVal = false;
 
@@ -167,7 +191,7 @@ bool UGameplayCueSet::HandleGameplayCueNotify_Internal(AActor* TargetActor, int3
 				if (ensure(CueManager))
 				{
 					//Get our instance. We should probably have a flag or something to determine if we want to reuse or stack instances. That would mean changing our map to have a list of active instances.
-					AGameplayCueNotify_Actor* SpawnedInstancedCue = CueManager->GetInstancedCueActor(TargetActor, CueData.LoadedGameplayCueClass);
+					AGameplayCueNotify_Actor* SpawnedInstancedCue = CueManager->GetInstancedCueActor(TargetActor, CueData.LoadedGameplayCueClass, Parameters);
 					if (ensure(SpawnedInstancedCue))
 					{
 						SpawnedInstancedCue->HandleGameplayCue(TargetActor, EventType, Parameters);
@@ -228,7 +252,7 @@ void UGameplayCueSet::BuildAccelerationMap_Internal()
 	for (FGameplayCueNotifyData& Data : GameplayCueData)
 	{
 		FGameplayTag Parent = Data.GameplayCueTag.RequestDirectParent();
-		while (Parent != BaseGameplayCueTag())
+		while (Parent != BaseGameplayCueTag() && Parent.IsValid())
 		{
 			int32* idxPtr = GameplayCueDataMap.Find(Parent);
 			if (idxPtr)
@@ -237,6 +261,10 @@ void UGameplayCueSet::BuildAccelerationMap_Internal()
 				break;
 			}
 			Parent = Parent.RequestDirectParent();
+			if (Parent.GetTagName() == NAME_None)
+			{
+				break;
+			}
 		}
 	}
 

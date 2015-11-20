@@ -1,0 +1,95 @@
+diff --git web_contents.cc web_contents.cc
+index aece7c6..63da2c9 100644
+--- web_contents.cc
++++ web_contents.cc
+@@ -18,7 +18,9 @@ WebContents::CreateParams::CreateParams(BrowserContext* context)
+       initially_hidden(false),
+       guest_delegate(nullptr),
+       context(nullptr),
+-      renderer_initiated_creation(false) {}
++      renderer_initiated_creation(false),
++      view(nullptr),
++      delegate_view(nullptr) {}
+ 
+ WebContents::CreateParams::CreateParams(
+     BrowserContext* context, SiteInstance* site)
+@@ -31,7 +33,9 @@ WebContents::CreateParams::CreateParams(
+       initially_hidden(false),
+       guest_delegate(nullptr),
+       context(nullptr),
+-      renderer_initiated_creation(false) {}
++      renderer_initiated_creation(false),
++      view(nullptr),
++      delegate_view(nullptr) {}
+ 
+ WebContents::CreateParams::~CreateParams() {
+ }
+diff --git web_contents.h web_contents.h
+index 4380412..a67739d 100644
+--- web_contents.h
++++ web_contents.h
+@@ -52,9 +52,11 @@ class PageState;
+ class RenderFrameHost;
+ class RenderProcessHost;
+ class RenderViewHost;
++class RenderViewHostDelegateView;
+ class RenderWidgetHostView;
+ class SiteInstance;
+ class WebContentsDelegate;
++class WebContentsView;
+ struct CustomContextMenuContext;
+ struct DropData;
+ struct Manifest;
+@@ -128,6 +130,10 @@ class WebContents : public PageNavigator,
+     // RenderFrame, have already been created on the renderer side, and
+     // WebContents construction should take this into account.
+     bool renderer_initiated_creation;
++
++    // Optionally specify the view and delegate view.
++    content::WebContentsView* view;
++    content::RenderViewHostDelegateView* delegate_view;
+   };
+ 
+   // Creates a new WebContents.
+diff --git web_contents_delegate.cc web_contents_delegate.cc
+index 0e48d7c..aa46ad9 100644
+--- web_contents_delegate.cc
++++ web_contents_delegate.cc
+@@ -133,7 +133,9 @@ bool WebContentsDelegate::ShouldCreateWebContents(
+     const base::string16& frame_name,
+     const GURL& target_url,
+     const std::string& partition_id,
+-    SessionStorageNamespace* session_storage_namespace) {
++    SessionStorageNamespace* session_storage_namespace,
++    content::WebContentsView** view,
++    content::RenderViewHostDelegateView** delegate_view) {
+   return true;
+ }
+ 
+diff --git web_contents_delegate.h web_contents_delegate.h
+index 1367f0b..7da1128 100644
+--- web_contents_delegate.h
++++ web_contents_delegate.h
+@@ -36,9 +36,11 @@ class DownloadItem;
+ class JavaScriptDialogManager;
+ class PageState;
+ class RenderViewHost;
++class RenderViewHostDelegateView;
+ class SessionStorageNamespace;
+ class WebContents;
+ class WebContentsImpl;
++class WebContentsView;
+ struct ColorSuggestion;
+ struct ContextMenuParams;
+ struct DropData;
+@@ -294,7 +296,9 @@ class CONTENT_EXPORT WebContentsDelegate {
+       const base::string16& frame_name,
+       const GURL& target_url,
+       const std::string& partition_id,
+-      SessionStorageNamespace* session_storage_namespace);
++      SessionStorageNamespace* session_storage_namespace,
++      content::WebContentsView** view,
++      content::RenderViewHostDelegateView** delegate_view);
+ 
+   // Notifies the delegate about the creation of a new WebContents. This
+   // typically happens when popups are created.

@@ -2,135 +2,141 @@
 
 #include "UMGEditorPrivatePCH.h"
 #include "Sequencer2DTransformTrackEditor.h"
-#include "Developer/MovieSceneTools/Public/PropertySection.h"
-#include "Developer/MovieSceneTools/Public/MovieSceneToolHelpers.h"
-#include "Runtime/UMG/Public/Animation/MovieScene2DTransformSection.h"
-#include "Runtime/UMG/Public/Animation/MovieScene2DTransformTrack.h"
-#include "Editor/Sequencer/Public/ISectionLayoutBuilder.h"
-#include "Editor/Sequencer/Public/ISequencerObjectChangeListener.h"
-#include "Editor/PropertyEditor/Public/PropertyHandle.h"
-#include "Slate/WidgetTransform.h"
+#include "MovieScene2DTransformSection.h"
+#include "MovieScene2DTransformTrack.h"
+#include "PropertySection.h"
+#include "ISectionLayoutBuilder.h"
+#include "MovieSceneToolHelpers.h"
 
-class F2DTransformSection : public FPropertySection
+FName F2DTransformTrackEditor::TranslationName( "Translation" );
+FName F2DTransformTrackEditor::ScaleName( "Scale" );
+FName F2DTransformTrackEditor::ShearName( "Shear" );
+FName F2DTransformTrackEditor::AngleName( "Angle" );
+
+class F2DTransformSection
+	: public FPropertySection
 {
 public:
-	F2DTransformSection( UMovieSceneSection& InSectionObject, FName SectionName )
+
+	F2DTransformSection( UMovieSceneSection& InSectionObject, const FText& SectionName )
 		: FPropertySection(InSectionObject, SectionName) {}
 
 	virtual void GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const override
 	{
 		UMovieScene2DTransformSection* TransformSection = Cast<UMovieScene2DTransformSection>(&SectionObject);
 
+		TranslationXKeyArea = MakeShareable( new FFloatCurveKeyArea( &TransformSection->GetTranslationCurve( EAxis::X ), TransformSection ) );
+		TranslationYKeyArea = MakeShareable( new FFloatCurveKeyArea( &TransformSection->GetTranslationCurve( EAxis::Y ), TransformSection ) );
+
+		RotationKeyArea = MakeShareable( new FFloatCurveKeyArea( &TransformSection->GetRotationCurve(), TransformSection ) );
+
+		ScaleXKeyArea = MakeShareable( new FFloatCurveKeyArea( &TransformSection->GetScaleCurve( EAxis::X ), TransformSection ) );
+		ScaleYKeyArea = MakeShareable( new FFloatCurveKeyArea( &TransformSection->GetScaleCurve( EAxis::Y ), TransformSection ) );
+
+		ShearXKeyArea = MakeShareable( new FFloatCurveKeyArea( &TransformSection->GetSheerCurve( EAxis::X ), TransformSection ) );
+		ShearYKeyArea = MakeShareable( new FFloatCurveKeyArea( &TransformSection->GetSheerCurve( EAxis::Y ), TransformSection ) );
+
 		// This generates the tree structure for the transform section
 		LayoutBuilder.PushCategory("Location", NSLOCTEXT("F2DTransformSection", "LocationArea", "Location"));
-			LayoutBuilder.AddKeyArea("Location.X", NSLOCTEXT("F2DTransformSection", "LocXArea", "X"), MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::X), TransformSection)));
-			LayoutBuilder.AddKeyArea("Location.Y", NSLOCTEXT("F2DTransformSection", "LocYArea", "Y"), MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetTranslationCurve(EAxis::Y), TransformSection)));
+			LayoutBuilder.AddKeyArea("Location.X", NSLOCTEXT("F2DTransformSection", "LocXArea", "X"), TranslationXKeyArea.ToSharedRef());
+			LayoutBuilder.AddKeyArea("Location.Y", NSLOCTEXT("F2DTransformSection", "LocYArea", "Y"), TranslationYKeyArea.ToSharedRef());
 		LayoutBuilder.PopCategory();
 
 		LayoutBuilder.PushCategory("Rotation", NSLOCTEXT("F2DTransformSection", "RotationArea", "Rotation"));
-			LayoutBuilder.AddKeyArea("Rotation.Angle", NSLOCTEXT("F2DTransformSection", "AngleArea", "Angle"), MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetRotationCurve(), TransformSection)));
+			LayoutBuilder.AddKeyArea("Rotation.Angle", NSLOCTEXT("F2DTransformSection", "AngleArea", "Angle"), RotationKeyArea.ToSharedRef());
 		LayoutBuilder.PopCategory();
 
 		LayoutBuilder.PushCategory("Scale", NSLOCTEXT("F2DTransformSection", "ScaleArea", "Scale"));
-			LayoutBuilder.AddKeyArea("Scale.X", NSLOCTEXT("F2DTransformSection", "ScaleXArea", "X"), MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::X), TransformSection)));
-			LayoutBuilder.AddKeyArea("Scale.Y", NSLOCTEXT("F2DTransformSection", "ScaleYArea", "Y"), MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetScaleCurve(EAxis::Y), TransformSection)));
+			LayoutBuilder.AddKeyArea("Scale.X", NSLOCTEXT("F2DTransformSection", "ScaleXArea", "X"), ScaleXKeyArea.ToSharedRef());
+			LayoutBuilder.AddKeyArea("Scale.Y", NSLOCTEXT("F2DTransformSection", "ScaleYArea", "Y"), ScaleYKeyArea.ToSharedRef());
 		LayoutBuilder.PopCategory();
 
-		LayoutBuilder.PushCategory("Sheer", NSLOCTEXT("F2DTransformSection", "SheerArea", "Sheer"));
-			LayoutBuilder.AddKeyArea("Sheer.X", NSLOCTEXT("F2DTransformSection", "SheerXArea", "X"), MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetSheerCurve(EAxis::X), TransformSection)));
-			LayoutBuilder.AddKeyArea("Sheer.Y", NSLOCTEXT("F2DTransformSection", "SheerYArea", "Y"), MakeShareable(new FFloatCurveKeyArea(&TransformSection->GetSheerCurve(EAxis::Y), TransformSection)));
+		LayoutBuilder.PushCategory("Shear", NSLOCTEXT("F2DTransformSection", "ShearArea", "Shear"));
+			LayoutBuilder.AddKeyArea("Shear.X", NSLOCTEXT("F2DTransformSection", "SheerXArea", "X"), ShearXKeyArea.ToSharedRef());
+			LayoutBuilder.AddKeyArea("Shear.Y", NSLOCTEXT("F2DTransformSection", "SheerYArea", "Y"), ShearYKeyArea.ToSharedRef());
 		LayoutBuilder.PopCategory();
 	}
+
+	virtual void SetIntermediateValue( FPropertyChangedParams PropertyChangedParams ) override
+	{
+		FWidgetTransform Transform = PropertyChangedParams.GetPropertyValue<FWidgetTransform>();
+
+		TranslationXKeyArea->SetIntermediateValue(Transform.Translation.X);
+		TranslationYKeyArea->SetIntermediateValue(Transform.Translation.Y);
+
+		RotationKeyArea->SetIntermediateValue(Transform.Angle);
+
+		ScaleXKeyArea->SetIntermediateValue(Transform.Scale.X);
+		ScaleYKeyArea->SetIntermediateValue(Transform.Scale.Y);
+
+		ShearXKeyArea->SetIntermediateValue(Transform.Shear.X);
+		ShearYKeyArea->SetIntermediateValue(Transform.Shear.Y);
+	}
+
+	virtual void ClearIntermediateValue() override
+	{
+		TranslationXKeyArea->ClearIntermediateValue();
+		TranslationYKeyArea->ClearIntermediateValue();
+
+		RotationKeyArea->ClearIntermediateValue();
+
+		ScaleXKeyArea->ClearIntermediateValue();
+		ScaleYKeyArea->ClearIntermediateValue();
+
+		ShearXKeyArea->ClearIntermediateValue();
+		ShearYKeyArea->ClearIntermediateValue();
+	}
+
+private:
+	mutable TSharedPtr<FFloatCurveKeyArea> TranslationXKeyArea;
+	mutable TSharedPtr<FFloatCurveKeyArea> TranslationYKeyArea;
+
+	mutable TSharedPtr<FFloatCurveKeyArea> ScaleXKeyArea;
+	mutable TSharedPtr<FFloatCurveKeyArea> ScaleYKeyArea;
+
+	mutable TSharedPtr<FFloatCurveKeyArea> ShearXKeyArea;
+	mutable TSharedPtr<FFloatCurveKeyArea> ShearYKeyArea;
+
+	mutable TSharedPtr<FFloatCurveKeyArea> RotationKeyArea;
 };
 
-F2DTransformTrackEditor::F2DTransformTrackEditor( TSharedRef<ISequencer> InSequencer )
-	: FMovieSceneTrackEditor( InSequencer ) 
-{
-	// Get the object change listener for the sequencer and register a delegates for when properties change that we care about
-	ISequencerObjectChangeListener& ObjectChangeListener = InSequencer->GetObjectChangeListener();
-	ObjectChangeListener.GetOnAnimatablePropertyChanged( "WidgetTransform" ).AddRaw( this, &F2DTransformTrackEditor::OnTransformChanged );
-}
 
-F2DTransformTrackEditor::~F2DTransformTrackEditor()
-{
-	TSharedPtr<ISequencer> Sequencer = GetSequencer();
-	if( Sequencer.IsValid() )
-	{
-		ISequencerObjectChangeListener& ObjectChangeListener = Sequencer->GetObjectChangeListener();
-		ObjectChangeListener.GetOnAnimatablePropertyChanged( "WidgetTransform" ).RemoveAll( this );
-	}
-}
-
-
-
-TSharedRef<FMovieSceneTrackEditor> F2DTransformTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> InSequencer )
+TSharedRef<ISequencerTrackEditor> F2DTransformTrackEditor::CreateTrackEditor( TSharedRef<ISequencer> InSequencer )
 {
 	return MakeShareable( new F2DTransformTrackEditor( InSequencer ) );
 }
 
-bool F2DTransformTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const
-{
-	return Type == UMovieScene2DTransformTrack::StaticClass();
-}
 
-TSharedRef<ISequencerSection> F2DTransformTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack* Track )
+TSharedRef<FPropertySection> F2DTransformTrackEditor::MakePropertySectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
 {
 	check( SupportsType( SectionObject.GetOuter()->GetClass() ) );
 
 	UClass* SectionClass = SectionObject.GetOuter()->GetClass();
-
-	TSharedRef<ISequencerSection> NewSection = MakeShareable( new F2DTransformSection( SectionObject, Track->GetTrackName() ) );
-
-	return NewSection;
+	return MakeShareable(new F2DTransformSection(SectionObject, Track.GetDisplayName()));
 }
 
 
-void F2DTransformTrackEditor::OnTransformChanged( const FKeyPropertyParams& PropertyKeyParams )
+void F2DTransformTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<F2DTransformKey>& GeneratedKeys )
 {
-	FName PropertyName = PropertyKeyParams.PropertyHandle->GetProperty()->GetFName();
-
-	AnimatablePropertyChanged
-	(
-		UMovieScene2DTransformTrack::StaticClass(), 
-		PropertyKeyParams.bRequireAutoKey,
-		FOnKeyProperty::CreateRaw(this, &F2DTransformTrackEditor::OnKeyTransform, &PropertyKeyParams ) 
-	);
-}
-
-
-void F2DTransformTrackEditor::OnKeyTransform( float KeyTime, const FKeyPropertyParams* PropertyKeyParams )
-{
-	TArray<const void*> TransformValues;
-	PropertyKeyParams->PropertyHandle->AccessRawData( TransformValues );
-
-	FName PropertyName = PropertyKeyParams->PropertyHandle->GetProperty()->GetFName();
-
-	for( int32 ObjectIndex = 0; ObjectIndex < PropertyKeyParams->ObjectsThatChanged.Num(); ++ObjectIndex )
+	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
+	FWidgetTransform Transform = PropertyChangedParams.GetPropertyValue<FWidgetTransform>();
+	if ( ChannelName == NAME_None || ChannelName == TranslationName )
 	{
-		UObject* Object = PropertyKeyParams->ObjectsThatChanged[ObjectIndex];
-		FWidgetTransform TransformValue = *(const FWidgetTransform*)TransformValues[ObjectIndex];
-
-		F2DTransformKey Key;
-		Key.bAddKeyEvenIfUnchanged = !PropertyKeyParams->bRequireAutoKey;
-		Key.CurveName = PropertyKeyParams->InnerStructPropertyName;
-		Key.Value = TransformValue;
-
-		FGuid ObjectHandle = FindOrCreateHandleToObject( Object );
-		if (ObjectHandle.IsValid())
-		{
-			UMovieSceneTrack* Track = GetTrackForObject( ObjectHandle, UMovieScene2DTransformTrack::StaticClass(), PropertyName );
-			if( ensure( Track ) )
-			{
-				UMovieScene2DTransformTrack* TransformTrack = CastChecked<UMovieScene2DTransformTrack>(Track);
-				TransformTrack->SetPropertyNameAndPath( PropertyName, PropertyKeyParams->PropertyPath );
-				// Find or add a new section at the auto-key time and changing the property same property
-				// AddKeyToSection is not actually a virtual, it's redefined in each class with a different type
-				bool bSuccessfulAdd = TransformTrack->AddKeyToSection( KeyTime, Key );
-				if (bSuccessfulAdd)
-				{
-					TransformTrack->SetAsShowable();
-				}
-			}
-		}
+		GeneratedKeys.Add( F2DTransformKey(EKey2DTransformChannel::Translation, EKey2DTransformAxis::X, Transform.Translation.X ) );
+		GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Translation, EKey2DTransformAxis::Y, Transform.Translation.Y ) );
+	}
+	if ( ChannelName == NAME_None || ChannelName == ScaleName )
+	{
+		GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Scale, EKey2DTransformAxis::X, Transform.Scale.X ) );
+		GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Scale, EKey2DTransformAxis::Y, Transform.Scale.Y ) );
+	}
+	if ( ChannelName == NAME_None || ChannelName == ShearName )
+	{
+		GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Shear, EKey2DTransformAxis::X, Transform.Shear.X ) );
+		GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Shear, EKey2DTransformAxis::Y, Transform.Shear.Y ) );
+	}
+	if ( ChannelName == NAME_None || ChannelName == AngleName )
+	{
+		GeneratedKeys.Add( F2DTransformKey( EKey2DTransformChannel::Rotation, EKey2DTransformAxis::None, Transform.Angle ) );
 	}
 }

@@ -11,24 +11,22 @@ class FAutomationWorkerModule
 {
 public:
 
-	// Begin IModuleInterface interface
+	//~ Begin IModuleInterface Interface
 
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 
 	virtual bool SupportsDynamicReloading() override;
 
-	// End IModuleInterface interface
+	//~ End IModuleInterface Interface
 
 public:
 
-	// Begin IAutomationWorkerModule interface
+	//~ Begin IAutomationWorkerModule Interface
 
 	virtual void Tick() override;
 
-	virtual void RunTest( const FString& InTestToRun, const int32 InRoleIndex, FStopTestEvent const& InStopTestEvent ) override;
-
-	// End IAutomationWorkerModule interface
+	//~ End IAutomationWorkerModule Interface
 
 protected:
 
@@ -69,6 +67,9 @@ private:
 	// Handles FAutomationWorkerFindWorkers messages.
 	void HandleFindWorkersMessage( const FAutomationWorkerFindWorkers& Message, const IMessageContextRef& Context );
 
+	//deferred handler for sending "find worker" response in case the asset registry isn't loaded yet
+	void SendWorkerFound();
+
 	// Handles message endpoint shutdowns.
 	void HandleMessageEndpointShutdown();
 
@@ -99,6 +100,12 @@ private:
 	void HandleScreenShotCapturedWithName(int32 Width, int32 Height, const TArray<FColor>& Bitmap, const FString& ScreenShotName);
 #endif
 
+	//dispatches analytics events to the data collector
+	void SendAnalyticsEvents(TArray<FString>& InAnalyticsItems);
+
+	// Helper for Performance Capture Analytics
+	void RecordPerformanceAnalytics( const FAutomationPerformanceSnapshot& PerfSnapshot );
+
 private:
 
 	// The collection of test data we are to send to a controller
@@ -118,6 +125,12 @@ private:
 	/** Execute one of the tests by request of the controller. */
 	FString TestName;
 
+	/** Beautified name of the test */
+	FString BeautifiedTestName;
+
+	/** Whether to send analytics events to the backend - sent from controller */
+	bool bSendAnalytics;
+
 	/** Whether the controller has requested that the network command should execute */
 	bool bExecuteNextNetworkCommand;
 
@@ -126,10 +139,4 @@ private:
 
 	/** Delegate to fire when the test is complete */
 	FStopTestEvent StopTestEvent;
-
-	// Holds the automation command line arguments.
-	TArray<FString> DeferredAutomationCommands;
-
-	// Cycles through and executes the automation commands in the deferred array.
-	void RunDeferredAutomationCommands();
 };

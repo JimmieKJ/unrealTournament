@@ -7,480 +7,11 @@
 #include "Animation/AnimSequenceBase.h"
 #include "Animation/AnimInstance.h"
 
-#define NOTIFY_TRIGGER_OFFSET KINDA_SMALL_NUMBER;
 
-float GetTriggerTimeOffsetForType(EAnimEventTriggerOffsets::Type OffsetType)
-{
-	switch (OffsetType)
-	{
-	case EAnimEventTriggerOffsets::OffsetBefore:
-		{
-			return -NOTIFY_TRIGGER_OFFSET;
-			break;
-		}
-	case EAnimEventTriggerOffsets::OffsetAfter:
-		{
-			return NOTIFY_TRIGGER_OFFSET;
-			break;
-		}
-	case EAnimEventTriggerOffsets::NoOffset:
-		{
-			return 0.f;
-			break;
-		}
-	default:
-		{
-			check(false); // Unknown value supplied for OffsetType
-			break;
-		}
-	}
-	return 0.f;
-}
+DEFINE_LOG_CATEGORY(LogAnimMarkerSync);
 
-/////////////////////////////////////////////////////
-// FAnimNotifyEvent
+DECLARE_CYCLE_STAT(TEXT("AnimSeq EvalCurveData"), STAT_AnimSeq_EvalCurveData, STATGROUP_Anim);
 
-void FAnimNotifyEvent::RefreshTriggerOffset(EAnimEventTriggerOffsets::Type PredictedOffsetType)
-{
-	if(PredictedOffsetType == EAnimEventTriggerOffsets::NoOffset || TriggerTimeOffset == 0.f)
-	{
-		TriggerTimeOffset = GetTriggerTimeOffsetForType(PredictedOffsetType);
-	}
-}
-
-void FAnimNotifyEvent::RefreshEndTriggerOffset( EAnimEventTriggerOffsets::Type PredictedOffsetType )
-{
-	if(PredictedOffsetType == EAnimEventTriggerOffsets::NoOffset || EndTriggerTimeOffset == 0.f)
-	{
-		EndTriggerTimeOffset = GetTriggerTimeOffsetForType(PredictedOffsetType);
-	}
-}
-
-float FAnimNotifyEvent::GetTriggerTime() const
-{
-	return GetTime() + TriggerTimeOffset;
-}
-
-float FAnimNotifyEvent::GetEndTriggerTime() const
-{
-	return GetTriggerTime() + GetDuration() + EndTriggerTimeOffset;
-}
-
-float FAnimNotifyEvent::GetDuration() const
-{
-	return NotifyStateClass ? EndLink.GetTime() - GetTime() : 0.0f;
-}
-
-void FAnimNotifyEvent::SetDuration(float NewDuration)
-{
-	Duration = NewDuration;
-	EndLink.SetTime(GetTime() + Duration);
-}
-
-void FAnimNotifyEvent::SetTime(float NewTime, EAnimLinkMethod::Type ReferenceFrame /*= EAnimLinkMethod::Absolute*/)
-{
-	FAnimLinkableElement::SetTime(NewTime, ReferenceFrame);
-	SetDuration(Duration);
-}
-
-/////////////////////////////////////////////////////
-// FFloatCurve
-
-void FAnimCurveBase::SetCurveTypeFlag(EAnimCurveFlags InFlag, bool bValue)
-{
-	if (bValue)
-	{
-		CurveTypeFlags |= InFlag;
-	}
-	else
-	{
-		CurveTypeFlags &= ~InFlag;
-	}
-}
-
-void FAnimCurveBase::ToggleCurveTypeFlag(EAnimCurveFlags InFlag)
-{
-	bool Current = GetCurveTypeFlag(InFlag);
-	SetCurveTypeFlag(InFlag, !Current);
-}
-
-bool FAnimCurveBase::GetCurveTypeFlag(EAnimCurveFlags InFlag) const
-{
-	return (CurveTypeFlags & InFlag) != 0;
-}
-
-
-void FAnimCurveBase::SetCurveTypeFlags(int32 NewCurveTypeFlags)
-{
-	CurveTypeFlags = NewCurveTypeFlags;
-}
-
-int32 FAnimCurveBase::GetCurveTypeFlags() const
-{
-	return CurveTypeFlags;
-}
-
-////////////////////////////////////////////////////
-//  FFloatCurve
-
-// we don't want to have = operator. This only copies curves, but leaving naming and everything else intact. 
-void FFloatCurve::CopyCurve(FFloatCurve& SourceCurve)
-{
-	FloatCurve = SourceCurve.FloatCurve;
-}
-
-float FFloatCurve::Evaluate(float CurrentTime, float BlendWeight) const
-{
-	return FloatCurve.Eval(CurrentTime)*BlendWeight;
-}
-
-void FFloatCurve::UpdateOrAddKey(float NewKey, float CurrentTime)
-{
-	FloatCurve.UpdateOrAddKey(CurrentTime, NewKey);
-}
-
-void FFloatCurve::Resize(float NewLength)
-{
-	FloatCurve.ResizeTimeRange(0, NewLength);
-}
-////////////////////////////////////////////////////
-//  FVectorCurve
-
-// we don't want to have = operator. This only copies curves, but leaving naming and everything else intact. 
-void FVectorCurve::CopyCurve(FVectorCurve& SourceCurve)
-{
-	FMemory::Memcpy(FloatCurves, SourceCurve.FloatCurves);
-}
-
-FVector FVectorCurve::Evaluate(float CurrentTime, float BlendWeight) const
-{
-	FVector Value;
-
-	Value.X = FloatCurves[X].Eval(CurrentTime)*BlendWeight;
-	Value.Y = FloatCurves[Y].Eval(CurrentTime)*BlendWeight;
-	Value.Z = FloatCurves[Z].Eval(CurrentTime)*BlendWeight;
-
-	return Value;
-}
-
-void FVectorCurve::UpdateOrAddKey(const FVector& NewKey, float CurrentTime)
-{
-	FloatCurves[X].UpdateOrAddKey(CurrentTime, NewKey.X);
-	FloatCurves[Y].UpdateOrAddKey(CurrentTime, NewKey.Y);
-	FloatCurves[Z].UpdateOrAddKey(CurrentTime, NewKey.Z);
-}
-
-void FVectorCurve::Resize(float NewLength)
-{
-	FloatCurves[X].ResizeTimeRange(0, NewLength);
-	FloatCurves[Y].ResizeTimeRange(0, NewLength);
-	FloatCurves[Z].ResizeTimeRange(0, NewLength);
-}
-////////////////////////////////////////////////////
-//  FTransformCurve
-
-// we don't want to have = operator. This only copies curves, but leaving naming and everything else intact. 
-void FTransformCurve::CopyCurve(FTransformCurve& SourceCurve)
-{
-	TranslationCurve.CopyCurve(SourceCurve.TranslationCurve);
-	RotationCurve.CopyCurve(SourceCurve.RotationCurve);
-	ScaleCurve.CopyCurve(SourceCurve.ScaleCurve);
-}
-
-FTransform FTransformCurve::Evaluate(float CurrentTime, float BlendWeight) const
-{
-	FTransform Value;
-	Value.SetTranslation(TranslationCurve.Evaluate(CurrentTime, BlendWeight));
-	if (ScaleCurve.DoesContainKey())
-	{
-		Value.SetScale3D(ScaleCurve.Evaluate(CurrentTime, BlendWeight));
-	}
-	else
-	{
-		Value.SetScale3D(FVector(1.f));
-	}
-
-	// blend rotation float curve
-	FVector RotationAsVector = RotationCurve.Evaluate(CurrentTime, BlendWeight);
-	// pitch, yaw, roll order - please check AddKey function
-	FRotator Rotator(RotationAsVector.Y, RotationAsVector.Z, RotationAsVector.X);
-	Value.SetRotation(FQuat(Rotator));
-
-	return Value;
-}
-
-void FTransformCurve::UpdateOrAddKey(const FTransform& NewKey, float CurrentTime)
-{
-	TranslationCurve.UpdateOrAddKey(NewKey.GetTranslation(), CurrentTime);
-	// pitch, yaw, roll order - please check Evaluate function
-	FVector RotationAsVector;
-	FRotator Rotator = NewKey.GetRotation().Rotator();
-	RotationAsVector.X = Rotator.Roll;
-	RotationAsVector.Y = Rotator.Pitch;
-	RotationAsVector.Z = Rotator.Yaw;
-
-	RotationCurve.UpdateOrAddKey(RotationAsVector, CurrentTime);
-	ScaleCurve.UpdateOrAddKey(NewKey.GetScale3D(), CurrentTime);
-}
-
-void FTransformCurve::Resize(float NewLength)
-{
-	TranslationCurve.Resize(NewLength);
-	RotationCurve.Resize(NewLength);
-	ScaleCurve.Resize(NewLength);
-}
-
-/////////////////////////////////////////////////////
-// FRawCurveTracks
-
-void FRawCurveTracks::EvaluateCurveData(class UAnimInstance* Instance, float CurrentTime, float BlendWeight ) const
-{
-	// evaluate the curve data at the CurrentTime and add to Instance
-	for(auto CurveIter = FloatCurves.CreateConstIterator(); CurveIter; ++CurveIter)
-	{
-		const FFloatCurve& Curve = *CurveIter;
-
-		Instance->AddCurveValue(Curve.CurveUid, Curve.Evaluate(CurrentTime, BlendWeight), Curve.GetCurveTypeFlags());
-	}
-}
-
-#if WITH_EDITOR
-/**
- * Since we don't care about blending, we just change this decoration to OutCurves
- * @TODO : Fix this if we're saving vectorcurves and blending
- */
-void FRawCurveTracks::EvaluateTransformCurveData(USkeleton * Skeleton, TMap<FName, FTransform>&OutCurves, float CurrentTime, float BlendWeight) const
-{
-	check (Skeleton);
-	// evaluate the curve data at the CurrentTime and add to Instance
-	for(auto CurveIter = TransformCurves.CreateConstIterator(); CurveIter; ++CurveIter)
-	{
-		const FTransformCurve& Curve = *CurveIter;
-
-		// if disabled, do not handle
-		if (Curve.GetCurveTypeFlag(ACF_Disabled))
-		{
-			continue;
-		}
-
-		FSmartNameMapping* NameMapping = Skeleton->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);
-
-		// Add or retrieve curve
-		FName CurveName;
-		
-		// make sure it was added
-		if (ensure (NameMapping->GetName(Curve.CurveUid, CurveName)))
-		{
-			// note we're not checking Curve.GetCurveTypeFlags() yet
-			FTransform & Value = OutCurves.FindOrAdd(CurveName);
-			Value = Curve.Evaluate(CurrentTime, BlendWeight);
-		}
-	}
-}
-#endif
-FAnimCurveBase * FRawCurveTracks::GetCurveData(USkeleton::AnimCurveUID Uid, ESupportedCurveType SupportedCurveType /*= FloatType*/)
-{
-	switch (SupportedCurveType)
-	{
-#if WITH_EDITOR
-	case VectorType:
-		return GetCurveDataImpl<FVectorCurve>(VectorCurves, Uid);
-	case TransformType:
-		return GetCurveDataImpl<FTransformCurve>(TransformCurves, Uid);
-#endif // WITH_EDITOR
-	case FloatType:
-	default:
-		return GetCurveDataImpl<FFloatCurve>(FloatCurves, Uid);
-	}
-}
-
-bool FRawCurveTracks::DeleteCurveData(USkeleton::AnimCurveUID Uid, ESupportedCurveType SupportedCurveType /*= FloatType*/)
-{
-	switch(SupportedCurveType)
-	{
-#if WITH_EDITOR
-	case VectorType:
-		return DeleteCurveDataImpl<FVectorCurve>(VectorCurves, Uid);
-	case TransformType:
-		return DeleteCurveDataImpl<FTransformCurve>(TransformCurves, Uid);
-#endif // WITH_EDITOR
-	case FloatType:
-	default:
-		return DeleteCurveDataImpl<FFloatCurve>(FloatCurves, Uid);
-	}
-}
-
-bool FRawCurveTracks::AddCurveData(USkeleton::AnimCurveUID Uid, int32 CurveFlags /*= ACF_DefaultCurve*/, ESupportedCurveType SupportedCurveType /*= FloatType*/)
-{
-	switch(SupportedCurveType)
-	{
-#if WITH_EDITOR
-	case VectorType:
-		return AddCurveDataImpl<FVectorCurve>(VectorCurves, Uid, CurveFlags);
-	case TransformType:
-		return AddCurveDataImpl<FTransformCurve>(TransformCurves, Uid, CurveFlags);
-#endif // WITH_EDITOR
-	case FloatType:
-	default:
-		return AddCurveDataImpl<FFloatCurve>(FloatCurves, Uid, CurveFlags);
-	}
-}
-
-void FRawCurveTracks::Resize(float TotalLength)
-{
-	for (auto& Curve: FloatCurves)
-	{
-		Curve.Resize(TotalLength);
-	}
-
-#if WITH_EDITORONLY_DATA
-	for(auto& Curve: VectorCurves)
-	{
-		Curve.Resize(TotalLength);
-	}
-
-	for(auto& Curve: TransformCurves)
-	{
-		Curve.Resize(TotalLength);
-	}
-#endif
-}
-
-void FRawCurveTracks::Serialize(FArchive& Ar)
-{
-	// @TODO: If we're about to serialize vector curve, add here
-	if(Ar.UE4Ver() >= VER_UE4_SKELETON_ADD_SMARTNAMES)
-	{
-		for(FFloatCurve& Curve : FloatCurves)
-		{
-			Curve.Serialize(Ar);
-		}
-	}
-#if WITH_EDITORONLY_DATA
-	if( !Ar.IsCooking() )
-	{
-		if( Ar.UE4Ver() >= VER_UE4_ANIMATION_ADD_TRACKCURVES )
-		{
-			for( FTransformCurve& Curve : TransformCurves )
-			{
-				Curve.Serialize( Ar );
-			}
-
-		}
-	}
-#endif // WITH_EDITORONLY_DATA
-}
-
-void FRawCurveTracks::UpdateLastObservedNames(FSmartNameMapping* NameMapping, ESupportedCurveType SupportedCurveType /*= FloatType*/)
-{
-	switch(SupportedCurveType)
-	{
-#if WITH_EDITOR
-	case VectorType:
-		UpdateLastObservedNamesImpl<FVectorCurve>(VectorCurves, NameMapping);
-		break;
-	case TransformType:
-		UpdateLastObservedNamesImpl<FTransformCurve>(TransformCurves, NameMapping);
-		break;
-#endif // WITH_EDITOR
-	case FloatType:
-	default:
-		UpdateLastObservedNamesImpl<FFloatCurve>(FloatCurves, NameMapping);
-	}
-}
-
-bool FRawCurveTracks::DuplicateCurveData(USkeleton::AnimCurveUID ToCopyUid, USkeleton::AnimCurveUID NewUid, ESupportedCurveType SupportedCurveType /*= FloatType*/)
-{
-	switch(SupportedCurveType)
-	{
-#if WITH_EDITOR
-	case VectorType:
-		return DuplicateCurveDataImpl<FVectorCurve>(VectorCurves, ToCopyUid, NewUid);
-	case TransformType:
-		return DuplicateCurveDataImpl<FTransformCurve>(TransformCurves, ToCopyUid, NewUid);
-#endif // WITH_EDITOR
-	case FloatType:
-	default:
-		return DuplicateCurveDataImpl<FFloatCurve>(FloatCurves, ToCopyUid, NewUid);
-	}
-}
-
-///////////////////////////////////
-// @TODO: REFACTOR THIS IF WE'RE SERIALIZING VECTOR CURVES
-//
-// implementation template functions to accomodate FloatCurve and VectorCurve
-// for now vector curve isn't used in run-time, so it's useless outside of editor
-// so just to reduce cost of run-time, functionality is split. 
-// this split worries me a bit because if the name conflict happens this will break down w.r.t. smart naming
-// currently vector curve is not saved and not evaluated, so it will be okay since the name doesn't matter much, 
-// but this has to be refactored once we'd like to move onto serialize
-///////////////////////////////////
-template <typename DataType>
-DataType * FRawCurveTracks::GetCurveDataImpl(TArray<DataType> & Curves, USkeleton::AnimCurveUID Uid)
-{
-	for(DataType& Curve : Curves)
-	{
-		if(Curve.CurveUid == Uid)
-		{
-			return &Curve;
-		}
-	}
-
-	return NULL;
-}
-
-template <typename DataType>
-bool FRawCurveTracks::DeleteCurveDataImpl(TArray<DataType> & Curves, USkeleton::AnimCurveUID Uid)
-{
-	for(int32 Idx = 0; Idx < Curves.Num(); ++Idx)
-	{
-		if(Curves[Idx].CurveUid == Uid)
-		{
-			Curves.RemoveAt(Idx);
-			return true;
-		}
-	}
-
-	return false;
-}
-
-template <typename DataType>
-bool FRawCurveTracks::AddCurveDataImpl(TArray<DataType> & Curves, USkeleton::AnimCurveUID Uid, int32 CurveFlags)
-{
-	if(GetCurveDataImpl<DataType>(Curves, Uid) == NULL)
-	{
-		Curves.Add(DataType(Uid, CurveFlags));
-		return true;
-	}
-	return false;
-}
-
-template <typename DataType>
-void FRawCurveTracks::UpdateLastObservedNamesImpl(TArray<DataType> & Curves, FSmartNameMapping* NameMapping)
-{
-	if(NameMapping)
-	{
-		for(DataType& Curve : Curves)
-		{
-			NameMapping->GetName(Curve.CurveUid, Curve.LastObservedName);
-		}
-	}
-}
-
-template <typename DataType>
-bool FRawCurveTracks::DuplicateCurveDataImpl(TArray<DataType> & Curves, USkeleton::AnimCurveUID ToCopyUid, USkeleton::AnimCurveUID NewUid)
-{
-	DataType* ExistingCurve = GetCurveDataImpl<DataType>(Curves, ToCopyUid);
-	if(ExistingCurve && GetCurveDataImpl<DataType>(Curves, NewUid) == NULL)
-	{
-		// Add the curve to the track and set its data to the existing curve
-		Curves.Add(DataType(NewUid, ExistingCurve->GetCurveTypeFlags()));
-		Curves.Last().CopyCurve(*ExistingCurve);
-
-		return true;
-	}
-	return false;
-}
 
 /////////////////////////////////////////////////////
 
@@ -557,8 +88,8 @@ void UAnimSequenceBase::PostLoad()
 
 #if WITH_EDITOR
 	InitializeNotifyTrack();
-	UpdateAnimNotifyTrackCache();
 #endif
+	RefreshCacheData();
 
 	if(USkeleton* Skeleton = GetSkeleton())
 	{
@@ -582,6 +113,11 @@ void UAnimSequenceBase::PostLoad()
 		VerifyCurveNames<FTransformCurve>(Skeleton, USkeleton::AnimTrackCurveMappingName, RawCurveData.TransformCurves);
 #endif
 	}
+}
+
+float UAnimSequenceBase::GetPlayLength()
+{
+	return SequenceLength;
 }
 
 void UAnimSequenceBase::SortNotifies()
@@ -683,10 +219,10 @@ void UAnimSequenceBase::GetAnimNotifiesFromDeltaPositions(const float& PreviousP
 	}
 }
 
-void UAnimSequenceBase::TickAssetPlayerInstance(const FAnimTickRecord& Instance, class UAnimInstance* InstanceOwner, FAnimAssetTickContext& Context) const
+void UAnimSequenceBase::TickAssetPlayerInstance(FAnimTickRecord& Instance, class UAnimInstance* InstanceOwner, FAnimAssetTickContext& Context) const
 {
 	float& CurrentTime = *(Instance.TimeAccumulator);
-	const float PreviousTime = CurrentTime;
+	float PreviousTime = CurrentTime;
 	const float PlayRate = Instance.PlayRateMultiplier * this->RateScale;
 
 	float MoveDelta = 0.f;
@@ -696,18 +232,37 @@ void UAnimSequenceBase::TickAssetPlayerInstance(const FAnimTickRecord& Instance,
 		const float DeltaTime = Context.GetDeltaTime();
 		MoveDelta = PlayRate * DeltaTime;
 
-		if( MoveDelta != 0.f )
+		Context.SetLeaderDelta(MoveDelta);
+		if (MoveDelta != 0.f)
 		{
-			// Advance time
-			FAnimationRuntime::AdvanceTime(Instance.bLooping, MoveDelta, CurrentTime, SequenceLength);
+			if (Instance.bCanUseMarkerSync && Context.CanUseMarkerPosition())
+			{
+				TickByMarkerAsLeader(*Instance.MarkerTickRecord, Context.MarkerTickContext, CurrentTime, PreviousTime, MoveDelta, Instance.bLooping);
+			}
+			else
+			{
+				// Advance time
+				FAnimationRuntime::AdvanceTime(Instance.bLooping, MoveDelta, CurrentTime, SequenceLength);
+				UE_LOG(LogAnimMarkerSync, Log, TEXT("Leader (%s) (normal advance)  - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping (%d) "), *GetName(), PreviousTime, CurrentTime, MoveDelta, Instance.bLooping ? 1 : 0);
+			}
 		}
 
-		Context.SetSyncPoint(CurrentTime / SequenceLength);
+		Context.SetAnimationPositionRatio(CurrentTime / SequenceLength);
 	}
 	else
 	{
 		// Follow the leader
-		CurrentTime = Context.GetSyncPoint() * SequenceLength;
+		if (Instance.bCanUseMarkerSync && Context.CanUseMarkerPosition() && Context.MarkerTickContext.IsMarkerSyncStartValid())
+		{
+			TickByMarkerAsFollower(*Instance.MarkerTickRecord, Context.MarkerTickContext, CurrentTime, PreviousTime, Context.GetLeaderDelta(), Instance.bLooping);
+		}
+		else
+		{
+			CurrentTime = Context.GetAnimationPositionRatio() * SequenceLength;
+			UE_LOG(LogAnimMarkerSync, Log, TEXT("Follower (%s) (normal advance) - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping (%d) "), *GetName(), PreviousTime, CurrentTime, MoveDelta, Instance.bLooping ? 1 : 0);
+		}
+
+
 		//@TODO: NOTIFIES: Calculate AdvanceType based on what the new delta time is
 
 		if( CurrentTime != PreviousTime )
@@ -723,15 +278,42 @@ void UAnimSequenceBase::TickAssetPlayerInstance(const FAnimTickRecord& Instance,
 	}
 
 	OnAssetPlayerTickedInternal(Context, PreviousTime, MoveDelta, Instance, InstanceOwner);
-
-	// Evaluate Curve data now - even if time did not move, we still need to return curve if it exists
-	EvaluateCurveData(InstanceOwner, CurrentTime, Instance.EffectiveBlendWeight);
 }
 
-#if WITH_EDITOR
-
-void UAnimSequenceBase::UpdateAnimNotifyTrackCache()
+void UAnimSequenceBase::TickByMarkerAsFollower(FMarkerTickRecord &Instance, FMarkerTickContext &MarkerContext, float& CurrentTime, float& OutPreviousTime, const float MoveDelta, const bool bLooping) const
 {
+	if (!Instance.IsValid())
+	{
+		GetMarkerIndicesForPosition(MarkerContext.GetMarkerSyncStartPosition(), bLooping, Instance.PreviousMarker, Instance.NextMarker, CurrentTime);
+	}
+
+	OutPreviousTime = CurrentTime;
+
+	AdvanceMarkerPhaseAsFollower(MarkerContext, MoveDelta, bLooping, CurrentTime, Instance.PreviousMarker, Instance.NextMarker);
+	UE_LOG(LogAnimMarkerSync, Log, TEXT("Follower (%s) - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping(%d) "), *GetName(), OutPreviousTime, CurrentTime, MoveDelta, bLooping ? 1 : 0);
+}
+
+void UAnimSequenceBase::TickByMarkerAsLeader(FMarkerTickRecord& Instance, FMarkerTickContext& MarkerContext, float& CurrentTime, float& OutPreviousTime, const float MoveDelta, const bool bLooping) const
+{
+	if (!Instance.IsValid())
+	{
+		GetMarkerIndicesForTime(CurrentTime, bLooping, MarkerContext.GetValidMarkerNames(), Instance.PreviousMarker, Instance.NextMarker);
+	}
+
+	MarkerContext.SetMarkerSyncStartPosition(GetMarkerSyncPositionfromMarkerIndicies(Instance.PreviousMarker.MarkerIndex, Instance.NextMarker.MarkerIndex, CurrentTime));
+
+	OutPreviousTime = CurrentTime;
+
+	AdvanceMarkerPhaseAsLeader(bLooping, MoveDelta, MarkerContext.GetValidMarkerNames(), CurrentTime, Instance.PreviousMarker, Instance.NextMarker, MarkerContext.MarkersPassedThisTick);
+
+	MarkerContext.SetMarkerSyncEndPosition(GetMarkerSyncPositionfromMarkerIndicies(Instance.PreviousMarker.MarkerIndex, Instance.NextMarker.MarkerIndex, CurrentTime));
+
+	UE_LOG(LogAnimMarkerSync, Log, TEXT("Leader (%s) - PreviousTime (%0.2f), CurrentTime (%0.2f), MoveDelta (%0.2f), Looping(%d) "), *GetName(), OutPreviousTime, CurrentTime, MoveDelta, bLooping ? 1 : 0);
+}
+
+void UAnimSequenceBase::RefreshCacheData()
+{
+#if WITH_EDITOR
 	SortNotifies();
 
 	for (int32 TrackIndex=0; TrackIndex<AnimNotifyTracks.Num(); ++TrackIndex)
@@ -750,15 +332,17 @@ void UAnimSequenceBase::UpdateAnimNotifyTrackCache()
 		{
 			// this notifyindex isn't valid, delete
 			// this should not happen, but if it doesn, find best place to add
-			ensureMsg(0, TEXT("AnimNotifyTrack: Wrong indices found"));
+			ensureMsgf(0, TEXT("AnimNotifyTrack: Wrong indices found"));
 			AnimNotifyTracks[0].Notifies.Add(&Notifies[NotifyIndex]);
 		}
 	}
 
 	// notification broadcast
 	OnNotifyChanged.Broadcast();
+#endif //WITH_EDITOR
 }
 
+#if WITH_EDITOR
 void UAnimSequenceBase::InitializeNotifyTrack()
 {
 	if ( AnimNotifyTracks.Num() == 0 ) 
@@ -862,38 +446,42 @@ uint8* UAnimSequenceBase::FindNotifyPropertyData(int32 NotifyIndex, UArrayProper
 
 	if(Notifies.IsValidIndex(NotifyIndex))
 	{
-		// find Notifies property start point
-		UProperty* Property = FindField<UProperty>(GetClass(), TEXT("Notifies"));
-
-		// found it and if it is array
-		if(Property && Property->IsA(UArrayProperty::StaticClass()))
-		{
-			// find Property Value from UObject we got
-			uint8* PropertyValue = Property->ContainerPtrToValuePtr<uint8>(this);
-
-			// it is array, so now get ArrayHelper and find the raw ptr of the data
-			ArrayProperty = CastChecked<UArrayProperty>(Property);
-			FScriptArrayHelper ArrayHelper(ArrayProperty, PropertyValue);
-
-			if(ArrayProperty->Inner && NotifyIndex < ArrayHelper.Num())
-			{
-				//Get property data based on selected index
-				return ArrayHelper.GetRawPtr(NotifyIndex);
-			}
-		}
+		return FindArrayProperty(TEXT("Notifies"), ArrayProperty, NotifyIndex);
 	}
 	return NULL;
 }
 
+uint8* UAnimSequenceBase::FindArrayProperty(const TCHAR* PropName, UArrayProperty*& ArrayProperty, int32 ArrayIndex)
+{
+	// find Notifies property start point
+	UProperty* Property = FindField<UProperty>(GetClass(), PropName);
+
+	// found it and if it is array
+	if (Property && Property->IsA(UArrayProperty::StaticClass()))
+	{
+		// find Property Value from UObject we got
+		uint8* PropertyValue = Property->ContainerPtrToValuePtr<uint8>(this);
+
+		// it is array, so now get ArrayHelper and find the raw ptr of the data
+		ArrayProperty = CastChecked<UArrayProperty>(Property);
+		FScriptArrayHelper ArrayHelper(ArrayProperty, PropertyValue);
+
+		if (ArrayProperty->Inner && ArrayIndex < ArrayHelper.Num())
+		{
+			//Get property data based on selected index
+			return ArrayHelper.GetRawPtr(ArrayIndex);
+		}
+	}
+	return NULL;
+}
 #endif	//WITH_EDITOR
 
 
 /** Add curve data to Instance at the time of CurrentTime **/
-void UAnimSequenceBase::EvaluateCurveData(class UAnimInstance* Instance, float CurrentTime, float BlendWeight ) const
+void UAnimSequenceBase::EvaluateCurveData(FBlendedCurve& OutCurve, float CurrentTime ) const
 {
-	// if we have compression, this should change
-	// this is raw data evaluation
-	RawCurveData.EvaluateCurveData(Instance, CurrentTime, BlendWeight);
+	SCOPE_CYCLE_COUNTER(STAT_AnimSeq_EvalCurveData);
+	RawCurveData.EvaluateCurveData(OutCurve, CurrentTime);
 }
 
 void UAnimSequenceBase::Serialize(FArchive& Ar)
@@ -915,7 +503,7 @@ void UAnimSequenceBase::Serialize(FArchive& Ar)
 	{
 		if(USkeleton* Skeleton = GetSkeleton())
 		{
-			// we don't add track curve container unless it has been editied. 
+			// we don't add track curve container unless it has been edited. 
 			if ( RawCurveData.TransformCurves.Num() > 0 )
 			{
 				FSmartNameMapping* Mapping = GetSkeleton()->SmartNames.GetContainer(USkeleton::AnimTrackCurveMappingName);

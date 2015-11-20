@@ -78,6 +78,7 @@ void FHorizontalSlotExtension::ShiftHorizontal(UWidget* Widget, int32 ShiftAmoun
 {
 	UHorizontalBox* Parent = CastChecked<UHorizontalBox>(Widget->GetParent());
 
+	Parent->Modify();
 	int32 CurrentIndex = Parent->GetChildIndex(Widget);
 	Parent->ShiftChild(CurrentIndex + ShiftAmount, Widget);
 }

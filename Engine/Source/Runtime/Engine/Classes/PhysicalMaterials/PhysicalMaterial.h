@@ -33,7 +33,7 @@ struct FTireFrictionScalePair
 /**
  * Physical materials are used to define the response of a physical object when interacting dynamically with the world.
  */
-UCLASS(collapsecategories, hidecategories=Object)
+UCLASS(BlueprintType, collapsecategories, hidecategories = Object)
 class ENGINE_API UPhysicalMaterial : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -111,14 +111,14 @@ public:
 	FPhysxUserData PhysxUserData;
 #endif
 
-	// Begin UObject interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	static void RebuildPhysicalMaterials();
 #endif // WITH_EDITOR
 	virtual void PostLoad() override;
 	virtual void FinishDestroy() override;
-	// End UObject interface
+	//~ End UObject Interface
 
 #if WITH_PHYSX
 	physx::PxMaterial* GetPhysXMaterial();

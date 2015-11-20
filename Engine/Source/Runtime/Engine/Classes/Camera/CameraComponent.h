@@ -9,38 +9,52 @@
   * Represents a camera viewpoint and settings, such as projection type, field of view, and post-process overrides.
   * The default behavior for an actor used as the camera view target is to look for an attached camera component and use its location, rotation, and settings.
   */
-UCLASS(HideCategories=(Mobility, Rendering, LOD), Blueprintable, ClassGroup=Camera, meta=(BlueprintSpawnableComponent), MinimalAPI)
-class UCameraComponent : public USceneComponent
+UCLASS(HideCategories=(Mobility, Rendering, LOD), Blueprintable, ClassGroup=Camera, meta=(BlueprintSpawnableComponent))
+class ENGINE_API UCameraComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
 
 	/** The horizontal field of view (in degrees) in perspective mode (ignored in Orthographic mode) */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings, meta=(UIMin = "5.0", UIMax = "170", ClampMin = "0.001", ClampMax = "360.0"))
 	float FieldOfView;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetFieldOfView(float InFieldOfView) { FieldOfView = InFieldOfView; }
 
 	/** The desired width (in world units) of the orthographic view (ignored in Perspective mode) */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	float OrthoWidth;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetOrthoWidth(float InOrthoWidth) { OrthoWidth = InOrthoWidth; }
 
 	/** The near plane distance of the orthographic view (in world units) */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	float OrthoNearClipPlane;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetOrthoNearClipPlane(float InOrthoNearClipPlane) { OrthoNearClipPlane = InOrthoNearClipPlane; }
 
 	/** The far plane distance of the orthographic view (in world units) */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	float OrthoFarClipPlane;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetOrthoFarClipPlane(float InOrthoFarClipPlane) { OrthoFarClipPlane = InOrthoFarClipPlane; }
 
 	// Aspect Ratio (Width/Height)
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings, meta=(ClampMin = "0.1", ClampMax = "100.0", EditCondition="bConstrainAspectRatio"))
 	float AspectRatio;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetAspectRatio(float InAspectRatio) { AspectRatio = InAspectRatio; }
 
 	// If bConstrainAspectRatio is true, black bars will be added if the destination view has a different aspect ratio than this camera requested.
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	uint32 bConstrainAspectRatio:1;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetConstraintAspectRatio(bool bInConstrainAspectRatio) { bConstrainAspectRatio = bInConstrainAspectRatio; }
 
 	// If true, account for the field of view angle when computing which level of detail to use for meshes.
 	UPROPERTY(Interp, EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=CameraSettings)
 	uint32 bUseFieldOfViewForLOD:1;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetUseFieldOfViewForLOD(bool bInUseFieldOfViewForLOD) { bUseFieldOfViewForLOD = bInUseFieldOfViewForLOD; }
 
 	/**
 	 * If this camera component is placed on a pawn, should it use the view/control rotation of the pawn where possible?
@@ -52,27 +66,32 @@ class UCameraComponent : public USceneComponent
 	// The type of camera
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings)
 	TEnumAsByte<ECameraProjectionMode::Type> ProjectionMode;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetProjectionMode(ECameraProjectionMode::Type InProjectionMode) { ProjectionMode = InProjectionMode; }
 
 	/** Indicates if PostProcessSettings should be used when using this Camera to view through. */
 	UPROPERTY(Interp, EditAnywhere, BlueprintReadWrite, Category=CameraSettings, meta=(UIMin = "0.0", UIMax = "1.0"))
 	float PostProcessBlendWeight;
+	UFUNCTION(BlueprintCallable, Category=Camera)
+	void SetPostProcessBlendWeight(float InPostProcessBlendWeight) { PostProcessBlendWeight = InPostProcessBlendWeight; }
 
 	/** Post process settings to use for this camera. Don't forget to check the properties you want to override */
 	UPROPERTY(Interp, BlueprintReadWrite, Category=CameraSettings)
 	struct FPostProcessSettings PostProcessSettings;
 
 	// UActorComponent interface
-	ENGINE_API virtual void OnRegister() override;
-	ENGINE_API virtual void OnUnregister() override;
-	ENGINE_API virtual void PostLoad() override;
+	virtual void OnRegister() override;
+	virtual void OnUnregister() override;
+	virtual void PostLoad() override;
 #if WITH_EDITOR
-	ENGINE_API virtual void OnComponentDestroyed() override;
-	ENGINE_API virtual void CheckForErrors() override;
+	virtual void OnComponentDestroyed() override;
+	virtual void CheckForErrors() override;
 	// End of UActorComponent interface
 
 	// UObject interface
-	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif
+	virtual void Serialize(FArchive& Ar) override;
 	// End of UObject interface
 
 	/**
@@ -80,7 +99,11 @@ class UCameraComponent : public USceneComponent
 	 * Called by Camera class. Subclass and postprocess to add any effects.
 	 */
 	UFUNCTION(BlueprintCallable, Category=Camera)
-	ENGINE_API virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView);
+	virtual void GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView);
+
+	/** Adds an Blendable (implements IBlendableInterface) to the array of Blendables (if it doesn't exist) and update the weight */
+	UFUNCTION(BlueprintCallable, Category="Rendering")
+	void AddOrUpdateBlendable(TScriptInterface<IBlendableInterface> InBlendableObject, float InWeight = 1.0f) { PostProcessSettings.AddBlendable(InBlendableObject, InWeight); }
 
 protected:
 #if WITH_EDITORONLY_DATA
@@ -90,25 +113,24 @@ protected:
 
 	UPROPERTY(transient)
 	class UStaticMesh* CameraMesh;
-
-public:
-
-	ENGINE_API virtual void SetCameraMesh(UStaticMesh* Mesh) { CameraMesh = Mesh; }
-
-protected:
-
+	
 	// The camera mesh to show visually where the camera is placed
 	UPROPERTY(transient)
 	class UStaticMeshComponent* ProxyMeshComponent;
+
+public:
+
+	virtual void SetCameraMesh(UStaticMesh* Mesh);
+
 #endif
 public:
 #if WITH_EDITORONLY_DATA
 	// Refreshes the visual components to match the component state
-	ENGINE_API virtual void RefreshVisualRepresentation();
+	virtual void RefreshVisualRepresentation();
 
 
-	ENGINE_API void OverrideFrustumColor(FColor OverrideColor);
-	ENGINE_API void RestoreFrustumColor();
+	void OverrideFrustumColor(FColor OverrideColor);
+	void RestoreFrustumColor();
 #endif
 
 public:

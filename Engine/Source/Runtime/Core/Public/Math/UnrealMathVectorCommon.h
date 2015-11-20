@@ -112,17 +112,14 @@ FORCEINLINE VectorRegister VectorNormalizeQuaternion(const VectorRegister& Unnor
 // Normalize Rotator
 FORCEINLINE VectorRegister VectorNormalizeRotator(const VectorRegister& UnnormalizedRotator)
 {
-	static const VectorRegister VEC_360 = MakeVectorRegister(360.f, 360.f, 360.f, 360.f);
-	static const VectorRegister VEC_180 = MakeVectorRegister(180.f, 180.f, 180.f, 180.f);
-
 	// shift in the range [-360,360]
-	VectorRegister V0	= VectorMod( UnnormalizedRotator, VEC_360);
-	VectorRegister V1	= VectorAdd( V0, VEC_360 );
+	VectorRegister V0	= VectorMod( UnnormalizedRotator, GlobalVectorConstants::Float360);
+	VectorRegister V1	= VectorAdd( V0, GlobalVectorConstants::Float360 );
 	VectorRegister V2	= VectorSelect(VectorCompareGE(V0, VectorZero()), V0, V1);
 
 	// shift to [-180,180]
-	VectorRegister V3	= VectorSubtract( V2, VEC_360 );
-	VectorRegister V4	= VectorSelect(VectorCompareGT(V2, VEC_180), V3, V2);
+	VectorRegister V3	= VectorSubtract( V2, GlobalVectorConstants::Float360 );
+	VectorRegister V4	= VectorSelect(VectorCompareGT(V2, GlobalVectorConstants::Float180), V3, V2);
 
 	return  V4;
 }
@@ -169,4 +166,79 @@ FORCEINLINE VectorRegister VectorBiLerpQuat(const VectorRegister& P00, const Vec
 FORCEINLINE VectorRegister VectorQuaternionInverse(const VectorRegister& NormalizedQuat)
 {
 	return VectorMultiply(GlobalVectorConstants::QINV_SIGN_MASK, NormalizedQuat);
+}
+
+
+/**
+ * Rotate a vector using a unit Quaternion.
+ *
+ * @param Quat Unit Quaternion to use for rotation.
+ * @param VectorW0 Vector to rotate. W component must be zero.
+ * @return Vector after rotation by Quat.
+ */
+FORCEINLINE VectorRegister VectorQuaternionRotateVector(const VectorRegister& Quat, const VectorRegister& VectorW0)
+{
+	// Q * V * Q.Inverse
+	//const VectorRegister InverseRotation = VectorQuaternionInverse(Quat);
+	//const VectorRegister Temp = VectorQuaternionMultiply2(Quat, VectorW0);
+	//const VectorRegister Rotated = VectorQuaternionMultiply2(Temp, InverseRotation);
+
+	// Equivalence of above can be shown to be:
+	// http://people.csail.mit.edu/bkph/articles/Quaternions.pdf
+	// V' = V + 2w(Q x V) + (2Q x (Q x V))
+	// refactor:
+	// V' = V + w(2(Q x V)) + (Q x (2(Q x V)))
+	// T = 2(Q x V);
+	// V' = V + w*(T) + (Q x T)
+
+	const VectorRegister QW = VectorReplicate(Quat, 3);
+	VectorRegister T = VectorCross(Quat, VectorW0);
+	T = VectorAdd(T, T);
+	const VectorRegister VTemp0 = VectorMultiplyAdd(QW, T, VectorW0);
+	const VectorRegister VTemp1 = VectorCross(Quat, T);
+	const VectorRegister Rotated = VectorAdd(VTemp0, VTemp1);
+	return Rotated;
+}
+
+/**
+ * Rotate a vector using the inverse of a unit Quaternion (rotation in the opposite direction).
+ *
+ * @param Quat Unit Quaternion to use for rotation.
+ * @param VectorW0 Vector to rotate. W component must be zero.
+ * @return Vector after rotation by the inverse of Quat.
+ */
+FORCEINLINE VectorRegister VectorQuaternionInverseRotateVector(const VectorRegister& Quat, const VectorRegister& VectorW0)
+{
+	// Q.Inverse * V * Q
+	//const VectorRegister InverseRotation = VectorQuaternionInverse(Quat);
+	//const VectorRegister Temp = VectorQuaternionMultiply2(InverseRotation, VectorW0);
+	//const VectorRegister Rotated = VectorQuaternionMultiply2(Temp, Quat);
+
+	const VectorRegister QInv = VectorQuaternionInverse(Quat);
+	return VectorQuaternionRotateVector(QInv, VectorW0);
+}
+
+
+/**
+* Rotate a vector using a pointer to a unit Quaternion.
+*
+* @param Result		Pointer to where the result should be stored
+* @param Quat		Pointer to the unit quaternion (must not be the destination)
+* @param VectorW0	Pointer to the vector (must not be the destination). W component must be zero.
+*/
+FORCEINLINE void VectorQuaternionRotateVectorPtr( void* RESTRICT Result, const void* RESTRICT Quat, const void* RESTRICT VectorW0)
+{
+	*((VectorRegister *)Result) = VectorQuaternionRotateVector(*((const VectorRegister *)Quat), *((const VectorRegister *)VectorW0));
+}
+
+/**
+* Rotate a vector using the inverse of a unit Quaternion (rotation in the opposite direction).
+*
+* @param Result		Pointer to where the result should be stored
+* @param Quat		Pointer to the unit quaternion (must not be the destination)
+* @param VectorW0	Pointer to the vector (must not be the destination). W component must be zero.
+*/
+FORCEINLINE void VectorQuaternionInverseRotateVectorPtr(void* RESTRICT Result, const void* RESTRICT Quat, const void* RESTRICT VectorW0)
+{
+	*((VectorRegister *)Result) = VectorQuaternionInverseRotateVector(*((const VectorRegister *)Quat), *((const VectorRegister *)VectorW0));
 }

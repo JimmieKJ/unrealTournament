@@ -49,6 +49,9 @@ public:
 		/** The secondary input (for sticks, this is the vertical/Y input, unused for buttons) */ 
 		FKey AltInputKey;
 
+		/** Positioned center in viewport */
+		FVector2D PositionedCenter;
+
 	private:
 		friend SVirtualJoystick;
 
@@ -64,6 +67,21 @@ public:
 
 		/** For recentered joysticks, this is the re-center location */
 		FVector2D VisualCenter;
+
+		/** The corrected actual center of the control */
+		FVector2D CorrectedCenter;
+
+		/** The corrected size of a joystick that can be re-centered within InteractionSize area */
+		FVector2D CorrectedVisualSize;
+
+		/** The corrected size of the thumb that can be re-centered within InteractionSize area */
+		FVector2D CorrectedThumbSize;
+
+		/** The corrected size of a the interactable area around Center */
+		FVector2D CorrectedInteractionSize;
+
+		/** The corrected scale for control input */
+		FVector2D CorrectedInputScale;
 
 		/** Which pointer index is interacting with this control right now, or -1 if not interacting */
 		int32 CapturedPointerIndex;
@@ -135,6 +153,9 @@ public:
 	virtual bool SupportsKeyboardFocus() const override;
 
 private:
+	/** Callback for handling display metrics changes. */
+	void HandleDisplayMetricsChanged(const FDisplayMetrics& NewDisplayMetric);
+
 	void AlignBoxIntoScreen(FVector2D& Position, const FVector2D& Size, const FVector2D& ScreenSize);
 
 	/**

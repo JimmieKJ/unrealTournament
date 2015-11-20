@@ -9,7 +9,7 @@ TSharedPtr<FAndroidMediaPlayerStreamer> AndroidMovieStreamer;
 class FAndroidMoviePlayerModule : public IModuleInterface
 {
 	/** IModuleInterface implementation */
-	virtual void StartupModule() OVERRIDE
+	virtual void StartupModule() override
 	{
 		if (IsSupported())
 		{
@@ -19,7 +19,7 @@ class FAndroidMoviePlayerModule : public IModuleInterface
 		}
 	}
 
-	virtual void ShutdownModule() OVERRIDE
+	virtual void ShutdownModule() override
 	{
 		if (IsSupported())
 		{

@@ -6,7 +6,7 @@
 /**
 * Emitter properties base class
 * Each Effectrenderer derives from this with its own class, and returns it in GetProperties; a copy
-* of those specific properties is stored on FNiagaraEmitterProperties (on the effect) for serialization 
+* of those specific properties is stored on UNiagaraEmitterProperties (on the effect) for serialization 
 * and handed back to the effect renderer on load.
 */
 UCLASS()

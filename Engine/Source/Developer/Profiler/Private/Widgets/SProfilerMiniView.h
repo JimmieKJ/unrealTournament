@@ -344,7 +344,6 @@ protected:
 
 	/** Recently added thread times, not processed yet. */
 	TArray<FFrameThreadTimes> RecentlyAddedFrames;
-	TLockFreePointerList<FFrameThreadTimes> RecentlyAddedFramesLockFree;
 
 	/** Maximum total mini-view frame time seen so far. */
 	float MaxFrameTime;

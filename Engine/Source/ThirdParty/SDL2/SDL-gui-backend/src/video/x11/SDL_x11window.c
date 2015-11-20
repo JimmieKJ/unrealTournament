@@ -379,6 +379,11 @@ X11_CreateWindow(_THIS, SDL_Window * window)
     XClassHint *classhints;
     Atom _NET_WM_BYPASS_COMPOSITOR;
     Atom _NET_WM_WINDOW_TYPE;
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    Atom _NET_WM_USER_TIME;
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
     Atom wintype;
     const char *wintype_name = NULL;
     int compositor = 1;
@@ -590,7 +595,18 @@ X11_CreateWindow(_THIS, SDL_Window * window)
     X11_XChangeProperty(display, w, _NET_WM_BYPASS_COMPOSITOR, XA_CARDINAL, 32,
                     PropModeReplace,
                     (unsigned char *)&compositor, 1);
-
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    // Disable focus on first show (see https://mail.gnome.org/archives/desktop-devel-list/2004-August/msg00158.html)
+    if((window->flags & SDL_WINDOW_TOOLTIP) || (window->flags & SDL_WINDOW_POPUP_MENU) || (window->flags & SDL_WINDOW_NOTIFICATION) || (window->flags & SDL_WINDOW_DND)) {
+        unsigned long timestamp = 0;
+        _NET_WM_USER_TIME = X11_XInternAtom(display, "_NET_WM_USER_TIME", False);
+        X11_XChangeProperty(display, w, _NET_WM_USER_TIME, XA_CARDINAL, 32,
+                            PropModeReplace,
+                            (unsigned char *)(&timestamp),1);
+    }
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
     {
         Atom protocols[] = {
             data->WM_DELETE_WINDOW, /* Allow window to be deleted by the WM */
@@ -956,6 +972,26 @@ X11_SetWindowOpacity(_THIS, SDL_Window * window, float opacity)
 
     return 0;
 }
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+int
+X11_SetKeyboardGrab(_THIS, SDL_Window * window, SDL_bool enable)
+{
+    SDL_WindowData *data = (SDL_WindowData *) window->driverdata;
+    Display *display = data->videodata->display;
+
+    if(enable) {
+        X11_XGrabKeyboard(display, data->xwindow, True, GrabModeAsync,
+                          GrabModeAsync, CurrentTime);
+    } else {
+        X11_XUngrabKeyboard(display, CurrentTime);
+    }
+    X11_XFlush(display);
+    return 0;
+}
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
 int 
 X11_SetWindowModalFor(_THIS, SDL_Window * modal_window, SDL_Window * parent_window) {

@@ -114,6 +114,18 @@ public:
 	/** Removes sound mix from all audio devices */
 	void RemoveSoundMix(USoundMix* SoundMix);
 
+	/** Toggles playing audio for all active PIE sessions (and all devices). */
+	void TogglePlayAllDeviceAudio();
+
+	/** Gets whether or not all devices should play their audio. */
+	bool IsPlayAllDeviceAudio() const;
+
+	/** Is debug visualization of 3d sounds enabled */
+	bool IsVisualizeDebug3dEnabled() const;
+
+	/** Toggles 3d visualization of 3d sounds on/off */
+	void ToggleVisualize3dDebug();
+
 public:
 
 	/** Array of all created buffers */
@@ -166,6 +178,12 @@ private:
 
 	/** Which audio device is currently active */
 	uint32 ActiveAudioDeviceHandle;
+
+	/** Whether or not to play all audio in all active audio devices. */
+	bool bPlayAllDeviceAudio;
+
+	/** Whether or not 3d debug visualization is enabled. */
+	bool bVisualize3dDebug;
 };
 
 

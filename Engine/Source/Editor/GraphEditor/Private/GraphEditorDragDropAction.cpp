@@ -60,9 +60,9 @@ void FGraphEditorDragDropAction::SetHoveredGraph(const TSharedPtr<SGraphPanel>& 
 	}
 }
 
-void FGraphEditorDragDropAction::SetHoveredCategoryName(const FString& InHoverCategoryName)
+void FGraphEditorDragDropAction::SetHoveredCategoryName(const FText& InHoverCategoryName)
 {
-	if(HoveredCategoryName != InHoverCategoryName)
+	if(!HoveredCategoryName.EqualTo(InHoverCategoryName))
 	{
 		HoveredCategoryName = InHoverCategoryName;
 		HoverTargetChanged();
@@ -183,7 +183,7 @@ void FGraphSchemaActionDragDropAction::HoverTargetChanged()
 		const FSlateBrush* StatusSymbol = FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.NewNode"));
 
 		//Create feedback message with the function name.
-		SetSimpleFeedbackMessage(StatusSymbol, FLinearColor::White, ActionNode->MenuDescription);
+		SetSimpleFeedbackMessage(StatusSymbol, FLinearColor::White, ActionNode->GetMenuDescription());
 	}
 }
 

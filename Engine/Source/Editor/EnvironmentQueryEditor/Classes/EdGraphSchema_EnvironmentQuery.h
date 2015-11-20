@@ -10,15 +10,15 @@ class UEdGraphSchema_EnvironmentQuery : public UAIGraphSchema
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin EdGraphSchema interface
+	//~ Begin EdGraphSchema Interface
 	virtual void CreateDefaultNodesForGraph(UEdGraph& Graph) const override;
 	virtual void GetGraphContextActions(FGraphContextMenuBuilder& ContextMenuBuilder) const override;
 	virtual const FPinConnectionResponse CanCreateConnection(const UEdGraphPin* A, const UEdGraphPin* B) const override;
 	virtual const FPinConnectionResponse CanMergeNodes(const UEdGraphNode* A, const UEdGraphNode* B) const override;
 	virtual int32 GetNodeSelectionCount(const UEdGraph* Graph) const override;
-	// End EdGraphSchema interface
+	//~ End EdGraphSchema Interface
 
-	// Begin UAIGraphSchema interface
+	//~ Begin UAIGraphSchema Interface
 	virtual void GetSubNodeClasses(int32 SubNodeFlags, TArray<FGraphNodeClassData>& ClassData, UClass*& GraphNodeClass) const override;
-	// End UAIGraphSchema interface
+	//~ End UAIGraphSchema Interface
 };

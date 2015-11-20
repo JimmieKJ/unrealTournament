@@ -1,8 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 /* ITargetDevice interface
  *****************************************************************************/
+#include "AndroidTargetDeviceOutput.h"
 
 inline bool FAndroidTargetDevice::Deploy( const FString& SourceFolder, FString& OutAppId )
 {
@@ -114,12 +114,30 @@ inline bool FAndroidTargetDevice::GetUserCredentials( FString& OutUserName, FStr
 	return false;
 }
 
+inline void FAndroidTargetDevice::ExecuteConsoleCommand(const FString& ExecCommand) const
+{
+	FString AdbCommand = FString::Printf(TEXT("shell am broadcast -a android.intent.action.RUN -e cmd \"%s\""), *ExecCommand);
+	ExecuteAdbCommand(AdbCommand, nullptr, nullptr);
+}
+
+inline ITargetDeviceOutputPtr FAndroidTargetDevice::CreateDeviceOutputRouter(FOutputDevice* Output) const
+{
+	FAndroidTargetDeviceOutputPtr DeviceOutputPtr = MakeShareable(new FAndroidTargetDeviceOutput());
+	if (DeviceOutputPtr->Init(*this, Output))
+	{
+		return DeviceOutputPtr;
+	}
+
+	return nullptr;
+}
 
 /* FAndroidTargetDevice implementation
  *****************************************************************************/
 
-inline bool FAndroidTargetDevice::ExecuteAdbCommand( const FString& CommandLine, FString* OutStdOut, FString* OutStdErr ) const
+inline bool FAndroidTargetDevice::GetAdbFullFilename(FString& OutFilename)
 {
+	TOptional<FString> ResultPath;
+
 	// get the SDK binaries folder
 	TCHAR AndroidDirectory[32768] = { 0 };
 
@@ -130,11 +148,22 @@ inline bool FAndroidTargetDevice::ExecuteAdbCommand( const FString& CommandLine,
 	}
 
 #if PLATFORM_WINDOWS
-	FString Filename = FString::Printf(TEXT("%s\\platform-tools\\adb.exe"), AndroidDirectory);
+	OutFilename = FString::Printf(TEXT("%s\\platform-tools\\adb.exe"), AndroidDirectory);
 #else
-	FString Filename = FString::Printf(TEXT("%s/platform-tools/adb"), AndroidDirectory);
+	OutFilename = FString::Printf(TEXT("%s/platform-tools/adb"), AndroidDirectory);
 #endif
 
+	return true;
+}
+
+inline bool FAndroidTargetDevice::ExecuteAdbCommand( const FString& CommandLine, FString* OutStdOut, FString* OutStdErr ) const
+{
+	FString Filename;
+	if (!GetAdbFullFilename(Filename))
+	{
+		return false;
+	}
+	
 	// execute the command
 	int32 ReturnCode;
 	FString DefaultError;

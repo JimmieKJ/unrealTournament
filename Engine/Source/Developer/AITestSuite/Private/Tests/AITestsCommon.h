@@ -68,11 +68,12 @@ protected:
 
 public:
 
-	void SetTestInstance(FAutomationTestBase& AutomationTestInstance) { TestRunner = &AutomationTestInstance; }
+	virtual void SetTestInstance(FAutomationTestBase& AutomationTestInstance) { TestRunner = &AutomationTestInstance; }
 
 	// interface
 	virtual ~FAITestBase();
 	virtual void SetUp() {}
+	/** @return true to indicate that the test is done. */
 	virtual bool Update() { return true; }
 	virtual void InstantTest() {}
 	// must be called!
@@ -85,7 +86,7 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FAITestCommand_TearDownTest, FAIT
 
 // @note that TestClass needs to derive from FAITestBase
 #define IMPLEMENT_AI_LATENT_TEST(TestClass, PrettyName) \
-	IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestClass##_Runner, PrettyName, (EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_Editor)) \
+	IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestClass##_Runner, PrettyName, (EAutomationTestFlags::ClientContext | EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)) \
 	bool TestClass##_Runner::RunTest(const FString& Parameters) \
 	{ \
 		/* spawn test instance. Setup should be done in test's constructor */ \
@@ -101,7 +102,7 @@ DEFINE_LATENT_AUTOMATION_COMMAND_ONE_PARAMETER(FAITestCommand_TearDownTest, FAIT
 	} 
 
 #define IMPLEMENT_AI_INSTANT_TEST(TestClass, PrettyName) \
-	IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestClass##Runner, PrettyName, (EAutomationTestFlags::ATF_Game | EAutomationTestFlags::ATF_Editor)) \
+	IMPLEMENT_SIMPLE_AUTOMATION_TEST(TestClass##Runner, PrettyName, (EAutomationTestFlags::ClientContext | EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)) \
 	bool TestClass##Runner::RunTest(const FString& Parameters) \
 	{ \
 		/* spawn test instance. Setup should be done in test's constructor */ \
@@ -135,13 +136,40 @@ struct FAITest_SimpleBT : public FAITestBase
 	virtual void VerifyResults();
 };
 
-struct FAITest_SimpleActionsTest : public FAITestBase
+template<class TComponent>
+struct FAITest_SimpleComponentBasedTest : public FAITestBase
 {
 	FTestLogger<int32> Logger;
-	UPawnActionsComponent* ActionsComponent;
+	TComponent* Component;
 
-	FAITest_SimpleActionsTest();
-	virtual ~FAITest_SimpleActionsTest();
-	virtual void SetUp() override;
+	FAITest_SimpleComponentBasedTest()
+	{
+		Component = NewAutoDestroyObject<TComponent>();
+	}
+
+	virtual void SetTestInstance(FAutomationTestBase& AutomationTestInstance) override
+	{ 
+		FAITestBase::SetTestInstance(AutomationTestInstance);
+		Logger.TestRunner = TestRunner;
+	}
+
+	virtual ~FAITest_SimpleComponentBasedTest()
+	{
+		Test(TEXT("Not all expected values has been logged"), Logger.ExpectedValues.Num() == 0 || Logger.ExpectedValues.Num() == Logger.LoggedValues.Num());
+	}
+
+	virtual void SetUp() override
+	{
+		UWorld* World = FAITestHelpers::GetWorld();
+		Component->RegisterComponentWithWorld(World);
+	}
+
+	void TickComponent()
+	{
+		Component->TickComponent(FAITestHelpers::TickInterval, ELevelTick::LEVELTICK_All, nullptr);
+	}
+
 	//virtual bool Update() override;
 };
+
+typedef FAITest_SimpleComponentBasedTest<UPawnActionsComponent> FAITest_SimpleActionsTest;

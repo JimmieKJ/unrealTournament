@@ -22,6 +22,7 @@ void FEditorCompositingParameters::SetParameters(
 	const FPixelShaderRHIParamRef ShaderRHI)
 {
 #if WITH_EDITOR
+		FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
 		if (GMaxRHIFeatureLevel >= ERHIFeatureLevel::SM4)
 		{
 			if (MaterialResource.IsUsedWithEditorCompositing())
@@ -39,7 +40,7 @@ void FEditorCompositingParameters::SetParameters(
 
 				if (FilteredSceneDepthTexture.IsBound())
 				{
-					const FTexture2DRHIRef* DepthTexture = GSceneRenderTargets.GetActualDepthTexture();
+					const FTexture2DRHIRef* DepthTexture = SceneContext.GetActualDepthTexture();
 					check(DepthTexture != NULL);
 					SetTextureParameter(
 						RHICmdList,
@@ -52,7 +53,7 @@ void FEditorCompositingParameters::SetParameters(
 				}
 
 				SetShaderValue(RHICmdList, ShaderRHI, EditorCompositeDepthTestParameter, bEnableEditorPrimitveDepthTest);
-				SetShaderValue(RHICmdList, ShaderRHI, MSAASampleCount, GSceneRenderTargets.EditorPrimitivesColor ? GSceneRenderTargets.EditorPrimitivesColor->GetDesc().NumSamples : 0);
+				SetShaderValue(RHICmdList, ShaderRHI, MSAASampleCount, SceneContext.EditorPrimitivesColor ? SceneContext.EditorPrimitivesColor->GetDesc().NumSamples : 0);
 			}
 		}
 #endif

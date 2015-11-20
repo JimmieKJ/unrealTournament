@@ -4,6 +4,7 @@
 #include "GameplayTagsGraphPanelPinFactory.h"
 #include "GameplayTagsGraphPanelNodeFactory.h"
 #include "GameplayTagContainerCustomization.h"
+#include "GameplayTagQueryCustomization.h"
 #include "GameplayTagCustomization.h"
 #include "GameplayTagsSettings.h"
 #include "ISettingsModule.h"
@@ -26,6 +27,7 @@ public:
 		FPropertyEditorModule& PropertyModule = FModuleManager::LoadModuleChecked<FPropertyEditorModule>("PropertyEditor");
 		PropertyModule.RegisterCustomPropertyTypeLayout("GameplayTagContainer", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayTagContainerCustomization::MakeInstance));
 		PropertyModule.RegisterCustomPropertyTypeLayout("GameplayTag", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayTagCustomization::MakeInstance));
+		PropertyModule.RegisterCustomPropertyTypeLayout("GameplayTagQuery", FOnGetPropertyTypeCustomizationInstance::CreateStatic(&FGameplayTagQueryCustomization::MakeInstance));
 
 		TSharedPtr<FGameplayTagsGraphPanelPinFactory> GameplayTagsGraphPanelPinFactory = MakeShareable( new FGameplayTagsGraphPanelPinFactory() );
 		FEdGraphUtilities::RegisterVisualPinFactory(GameplayTagsGraphPanelPinFactory);

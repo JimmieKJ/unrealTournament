@@ -6,6 +6,7 @@
 
 #include "EnginePrivate.h"
 #include "Animation/AnimNodeBase.h"
+#include "Animation/AnimInstance.h"
 
 /////////////////////////////////////////////////////
 // FStateMachineDebugData
@@ -247,6 +248,17 @@ void UAnimBlueprintGeneratedClass::PurgeClass(bool bRecompilingOnLoad)
 #endif
 
 	BakedStateMachines.Empty();
+}
+
+uint8* UAnimBlueprintGeneratedClass::GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const
+{
+	if(!IsInGameThread())
+	{
+		// we cant use the persistent frame if we are executing in parallel (as we could potentially thunk to BP)
+		return nullptr;
+	}
+
+	return Super::GetPersistentUberGraphFrame(Obj, FuncToCheck);
 }
 
 #if WITH_EDITORONLY_DATA

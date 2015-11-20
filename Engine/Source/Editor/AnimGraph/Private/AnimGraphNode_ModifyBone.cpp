@@ -2,6 +2,7 @@
 
 #include "AnimGraphPrivatePCH.h"
 #include "AnimGraphNode_ModifyBone.h"
+#include "CompilerResultsLog.h"
 
 /////////////////////////////////////////////////////
 // UAnimGraphNode_ModifyBone
@@ -12,6 +13,21 @@ UAnimGraphNode_ModifyBone::UAnimGraphNode_ModifyBone(const FObjectInitializer& O
 	: Super(ObjectInitializer)
 {
 	CurWidgetMode = (int32)FWidget::WM_Rotate;
+}
+
+void UAnimGraphNode_ModifyBone::ValidateAnimNodeDuringCompilation(USkeleton* ForSkeleton, FCompilerResultsLog& MessageLog)
+{
+	if (ForSkeleton->GetReferenceSkeleton().FindBoneIndex(Node.BoneToModify.BoneName) == INDEX_NONE)
+	{
+		MessageLog.Warning(*LOCTEXT("NoBoneToModify", "@@ - You must pick a bone to modify").ToString(), this);
+	}
+
+	if ((Node.TranslationMode == BMM_Ignore) && (Node.RotationMode == BMM_Ignore) && (Node.ScaleMode == BMM_Ignore))
+	{
+		MessageLog.Warning(*LOCTEXT("NothingToModify", "@@ - No components to modify selected.  Either Rotation, Translation, or Scale should be set to something other than Ignore").ToString(), this);
+	}
+
+	Super::ValidateAnimNodeDuringCompilation(ForSkeleton, MessageLog);
 }
 
 FText UAnimGraphNode_ModifyBone::GetControllerDescription() const
@@ -51,26 +67,58 @@ FText UAnimGraphNode_ModifyBone::GetNodeTitle(ENodeTitleType::Type TitleType) co
 	return CachedNodeTitles[TitleType];
 }
 
+int32 UAnimGraphNode_ModifyBone::GetWidgetCoordinateSystem(const USkeletalMeshComponent* SkelComp)
+{
+	EBoneControlSpace Space = BCS_BoneSpace;
+	switch (CurWidgetMode)
+	{
+	case FWidget::WM_Rotate:
+		Space = Node.RotationSpace;
+		break;
+	case FWidget::WM_Translate:
+		Space = Node.TranslationSpace;
+		break;
+	case FWidget::WM_Scale:
+		Space = Node.ScaleSpace;
+		break;
+	}
+
+	switch (Space)
+	{
+	default:
+	case BCS_ParentBoneSpace:
+		//@TODO: No good way of handling this one
+		return COORD_World;
+	case BCS_BoneSpace:
+		return COORD_Local;
+	case BCS_ComponentSpace:
+	case BCS_WorldSpace:
+		return COORD_World;
+	}
+}
+
 FVector UAnimGraphNode_ModifyBone::GetWidgetLocation(const USkeletalMeshComponent* SkelComp, FAnimNode_SkeletalControlBase* AnimNode)
 {
-	USkeleton * Skeleton = SkelComp->SkeletalMesh->Skeleton;
+	USkeleton* Skeleton = SkelComp->SkeletalMesh->Skeleton;
 	FVector WidgetLoc = FVector::ZeroVector;
 
 	// if the current widget mode is translate, then shows the widget according to translation space
 	if (CurWidgetMode == FWidget::WM_Translate)
 	{
-		FA2CSPose& MeshBases = AnimNode->ForwardedPose;
+		FCSPose<FCompactPose>& MeshBases = AnimNode->ForwardedPose;
 		WidgetLoc = ConvertWidgetLocation(SkelComp, MeshBases, Node.BoneToModify.BoneName, GetNodeValue(FString("Translation"), Node.Translation), Node.TranslationSpace);
 
-		if (MeshBases.IsValid() && Node.TranslationMode == BMM_Additive)
+		if (MeshBases.GetPose().IsValid() && Node.TranslationMode == BMM_Additive)
 		{
 			if(Node.TranslationSpace == EBoneControlSpace::BCS_WorldSpace ||
 				Node.TranslationSpace == EBoneControlSpace::BCS_ComponentSpace)
 			{
-				int32 MeshBoneIndex = SkelComp->GetBoneIndex(Node.BoneToModify.BoneName);
-				if(MeshBoneIndex != INDEX_NONE)
+				const FMeshPoseBoneIndex MeshBoneIndex(SkelComp->GetBoneIndex(Node.BoneToModify.BoneName));
+				const FCompactPoseBoneIndex BoneIndex = MeshBases.GetPose().GetBoneContainer().MakeCompactPoseIndex(MeshBoneIndex);
+
+				if (BoneIndex != INDEX_NONE)
 				{
-					FTransform BoneTM = MeshBases.GetComponentSpaceTransform(MeshBoneIndex);
+					const FTransform& BoneTM = MeshBases.GetComponentSpaceTransform(BoneIndex);
 					WidgetLoc += BoneTM.GetLocation();
 				}
 			}

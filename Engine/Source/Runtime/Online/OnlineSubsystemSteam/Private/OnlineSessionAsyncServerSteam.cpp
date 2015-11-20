@@ -423,7 +423,7 @@ void FOnlineAsyncTaskSteamCreateServer::Finalize()
 				SteamUser()->AdvertiseGame(NewSessionInfo->SessionId, SteamGameServerPtr->GetPublicIP(), Subsystem->GetGameServerGamePort());
 			}
 			
-			// Set host rich presence string so we can find via FindFriendSesssion()
+			// Set host rich presence string so we can find via FindFriendSession()
 // 			FString ConnectionString = Sessions->GetSteamConnectionString(Session->SessionName);
 // 			if (!SteamFriends()->SetRichPresence("connect", TCHAR_TO_UTF8(*ConnectionString)))
 // 			{
@@ -1129,7 +1129,11 @@ void FOnlineAsyncTaskSteamFindServerBase::Finalize()
 	SearchSettings->SearchState = bWasSuccessful ? EOnlineAsyncTaskState::Done : EOnlineAsyncTaskState::Failed;
 	if (bWasSuccessful)
 	{
-		SearchSettings->SortSearchResults();
+		if (SearchSettings->SearchResults.Num() > 0)
+		{
+			// Allow game code to sort the servers
+			SearchSettings->SortSearchResults();
+		}
 	}
 
 	if (SessionInt->CurrentSessionSearch.IsValid() && SearchSettings == SessionInt->CurrentSessionSearch)

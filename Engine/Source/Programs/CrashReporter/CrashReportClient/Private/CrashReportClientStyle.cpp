@@ -27,6 +27,7 @@ void FCrashReportClientStyle::Shutdown()
 #define TTF_FONT(RelativePath, ...) FSlateFontInfo(ContentFromEngine(TEXT(RelativePath), TEXT(".ttf")), __VA_ARGS__)
 #define IMAGE_BRUSH( RelativePath, ... ) FSlateImageBrush(ContentFromEngine(TEXT(RelativePath), TEXT(".png")), __VA_ARGS__)
 #define BOX_BRUSH( RelativePath, ... ) FSlateBoxBrush(ContentFromEngine(TEXT(RelativePath), TEXT(".png")), __VA_ARGS__)
+#define BORDER_BRUSH( RelativePath, ... ) FSlateBorderBrush(ContentFromEngine(RelativePath, TEXT(".png")), __VA_ARGS__)
 
 namespace
 {
@@ -85,6 +86,27 @@ TSharedRef< FSlateStyleSet > FCrashReportClientStyle::Create()
 	{
 		Style.Set( "NormalEditableTextBox", NormalEditableTextBoxStyle );
 	}
+
+	// RichText
+	const FTextBlockStyle CrashReportDataStyle = FTextBlockStyle()
+		.SetFont( TTF_FONT( "Testing/Fonts/Roboto-Italic", 9 ) )
+		.SetColorAndOpacity( FSlateColor( FLinearColor::White * 0.5f ) )
+		.SetShadowOffset( FVector2D::ZeroVector )
+		.SetShadowColorAndOpacity( FLinearColor::Black );
+
+	Style.Set( "CrashReportDataStyle", CrashReportDataStyle );
+
+	FButtonStyle DarkHyperlinkButton = FButtonStyle()
+		.SetNormal( BORDER_BRUSH( "Old/HyperlinkDotted", FMargin( 0, 0, 0, 3 / 16.0f ), FSlateColor( FLinearColor::White * 0.5f ) ) )
+		.SetPressed( FSlateNoResource() )
+		.SetHovered( BORDER_BRUSH( "Old/HyperlinkUnderline", FMargin( 0, 0, 0, 3 / 16.0f ), FSlateColor( FLinearColor::White * 0.5f ) ) );
+
+	const FHyperlinkStyle DarkHyperlink = FHyperlinkStyle()
+		.SetUnderlineStyle( DarkHyperlinkButton )
+		.SetTextStyle( CrashReportDataStyle )
+		.SetPadding( FMargin( 0.0f ) );
+
+	Style.Set( "RichText.Hyperlink", DarkHyperlink );
 
 	return StyleRef;
 }

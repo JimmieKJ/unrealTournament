@@ -2,7 +2,7 @@
 
 #pragma once
 #include "AnimGraphNode_BlendSpaceBase.h"
-#include "Animation/AnimNode_RotationOffsetBlendSpace.h"
+#include "AnimNodes/AnimNode_RotationOffsetBlendSpace.h"
 #include "EdGraph/EdGraphNodeUtils.h" // for FNodeTitleTextTable
 #include "AnimGraphNode_RotationOffsetBlendSpace.generated.h"
 

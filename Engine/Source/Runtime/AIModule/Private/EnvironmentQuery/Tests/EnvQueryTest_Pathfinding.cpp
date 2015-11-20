@@ -25,12 +25,12 @@ UEnvQueryTest_Pathfinding::UEnvQueryTest_Pathfinding(const FObjectInitializer& O
 
 void UEnvQueryTest_Pathfinding::RunTest(FEnvQueryInstance& QueryInstance) const
 {
-	UObject* DataOwner = QueryInstance.Owner.Get();
-	BoolValue.BindData(DataOwner, QueryInstance.QueryID);
-	PathFromContext.BindData(DataOwner, QueryInstance.QueryID);
-	SkipUnreachable.BindData(DataOwner, QueryInstance.QueryID);
-	FloatValueMin.BindData(DataOwner, QueryInstance.QueryID);
-	FloatValueMax.BindData(DataOwner, QueryInstance.QueryID);
+	UObject* QueryOwner = QueryInstance.Owner.Get();
+	BoolValue.BindData(QueryOwner, QueryInstance.QueryID);
+	PathFromContext.BindData(QueryOwner, QueryInstance.QueryID);
+	SkipUnreachable.BindData(QueryOwner, QueryInstance.QueryID);
+	FloatValueMin.BindData(QueryOwner, QueryInstance.QueryID);
+	FloatValueMax.BindData(QueryOwner, QueryInstance.QueryID);
 
 	bool bWantsPath = BoolValue.GetValue();
 	bool bPathToItem = PathFromContext.GetValue();
@@ -43,7 +43,7 @@ void UEnvQueryTest_Pathfinding::RunTest(FEnvQueryInstance& QueryInstance) const
 	{
 		return;
 	}
-	ANavigationData* NavData = FindNavigationData(*NavSys, QueryInstance.Owner.Get());
+	ANavigationData* NavData = FindNavigationData(*NavSys, QueryOwner);
 	if (NavData == nullptr)
 	{
 		return;
@@ -70,12 +70,12 @@ void UEnvQueryTest_Pathfinding::RunTest(FEnvQueryInstance& QueryInstance) const
 			const FVector ItemLocation = GetItemLocation(QueryInstance, It.GetIndex());
 			for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
 			{
-				const float PathValue = FindPathFunc.Execute(ItemLocation, ContextLocations[ContextIndex], PFMode, *NavData, *NavSys, QueryInstance.Owner.Get());
+				const float PathValue = FindPathFunc.Execute(ItemLocation, ContextLocations[ContextIndex], PFMode, *NavData, *NavSys, QueryOwner);
 				It.SetScore(TestPurpose, FilterType, PathValue, MinThresholdValue, MaxThresholdValue);
 
 				if (bDiscardFailed && PathValue >= BIG_NUMBER)
 				{
-					It.DiscardItem();
+					It.ForceItemState(EEnvItemStatus::Failed);
 				}
 			}
 		}
@@ -91,7 +91,7 @@ void UEnvQueryTest_Pathfinding::RunTest(FEnvQueryInstance& QueryInstance) const
 				const FVector ItemLocation = GetItemLocation(QueryInstance, It.GetIndex());
 				for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
 				{
-					const bool bFoundPath = TestPathTo(ItemLocation, ContextLocations[ContextIndex], PFMode, *NavData, *NavSys, QueryInstance.Owner.Get());
+					const bool bFoundPath = TestPathTo(ItemLocation, ContextLocations[ContextIndex], PFMode, *NavData, *NavSys, QueryOwner);
 					It.SetScore(TestPurpose, FilterType, bFoundPath, bWantsPath);
 				}
 			}
@@ -103,7 +103,7 @@ void UEnvQueryTest_Pathfinding::RunTest(FEnvQueryInstance& QueryInstance) const
 				const FVector ItemLocation = GetItemLocation(QueryInstance, It.GetIndex());
 				for (int32 ContextIndex = 0; ContextIndex < ContextLocations.Num(); ContextIndex++)
 				{
-					const bool bFoundPath = TestPathFrom(ItemLocation, ContextLocations[ContextIndex], PFMode, *NavData, *NavSys, QueryInstance.Owner.Get());
+					const bool bFoundPath = TestPathFrom(ItemLocation, ContextLocations[ContextIndex], PFMode, *NavData, *NavSys, QueryOwner);
 					It.SetScore(TestPurpose, FilterType, bFoundPath, bWantsPath);
 				}
 			}

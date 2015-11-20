@@ -9,7 +9,7 @@
 #include "GenericPlatform/GenericPlatformStackWalk.h"
 
 /**
-* Android platform stack walking
+* HTML5 platform stack walking
 */
 struct CORE_API FHTML5PlatformStackWalk : public FGenericPlatformStackWalk
 {

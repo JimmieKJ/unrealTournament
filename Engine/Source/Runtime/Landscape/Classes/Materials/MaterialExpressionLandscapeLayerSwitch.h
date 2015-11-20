@@ -29,11 +29,11 @@ class UMaterialExpressionLandscapeLayerSwitch : public UMaterialExpression
 
 public:
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void Serialize(FArchive& Ar) override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 	virtual bool IsResultMaterialAttributes(int32 OutputIndex) override;
 	virtual int32 Compile(class FMaterialCompiler* Compiler, int32 OutputIndex, int32 MultiplexIndex) override;
 	virtual void GetCaption(TArray<FString>& OutCaptions) const override;
@@ -42,7 +42,7 @@ public:
 	virtual uint32 GetInputType(int32 InputIndex) override {return MCT_Unknown;}
 	virtual uint32 GetOutputType(int32 InputIndex) override {return MCT_Unknown;}
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 	LANDSCAPE_API virtual FGuid& GetParameterExpressionId() override;
 

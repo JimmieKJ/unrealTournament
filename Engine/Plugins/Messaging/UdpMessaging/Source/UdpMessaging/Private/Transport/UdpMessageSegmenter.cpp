@@ -91,10 +91,8 @@ void FUdpMessageSegmenter::MarkAsSent(uint16 Segment)
 
 void FUdpMessageSegmenter::MarkForRetransmission(const TArray<uint16>& Segments)
 {
-	for (int32 Index = 0; Index < Segments.Num(); ++Index)
+	for (const auto& Segment : Segments)
 	{
-		uint16 Segment = Segments[Index];
-
 		if (Segment < PendingSegments.Num())
 		{
 			PendingSegments[Segment] = true;

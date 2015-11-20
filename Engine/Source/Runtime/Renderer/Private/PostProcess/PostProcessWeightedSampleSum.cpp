@@ -10,11 +10,50 @@
 #include "PostProcessWeightedSampleSum.h"
 #include "SceneUtils.h"
 
+// maximum number of sample using the shader that has the dynamic loop
+#define MAX_FILTER_SAMPLES	128
+
+// maximum number of sample available using unrolled loop shaders
+#define MAX_FILTER_COMPILE_TIME_SAMPLES 32
+
+#define MAX_PACKED_SAMPLES_OFFSET ((MAX_FILTER_SAMPLES + 1) / 2)
+
+static TAutoConsoleVariable<int32> CVarLoopMode(
+	TEXT("r.Filter.LoopMode"),
+	0,
+	TEXT("Controles when to use either dynamic or unrolled loops to iterates over the Gaussian filtering.\n")
+	TEXT("This passes is used for Gaussian Blur, Bloom and Depth of Field. The dynamic loop allows\n")
+	TEXT("up to 128 samples versus the 32 samples of unrolled loops, but add an additonal cost for\n")
+	TEXT("the loop's stop test at every iterations.\n")
+	TEXT(" 0: Unrolled loop only (default; limited to 32 samples).\n")
+	TEXT(" 1: Fall back to dynamic loop if needs more than 32 samples.\n")
+	TEXT(" 2: Dynamic loop only."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+static TAutoConsoleVariable<float> CVarFilterSizeScale(
+	TEXT("r.Filter.SizeScale"),
+	1.0f,
+	TEXT("Allows to scale down or up the sample count used for bloom and Gaussian depth of field (scale is clampled to give reasonable results).\n")
+	TEXT("Values down to 0.6 are hard to notice\n")
+	TEXT(" 1 full quality (default)\n")
+	TEXT(" >1 more samples (slower)\n")
+	TEXT(" <1 less samples (faster, artifacts with HDR content or boxy results with GaussianDOF)"),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
+// will be removed soon
+static TAutoConsoleVariable<int32> FilterNewMethod(
+	TEXT("r.Filter.NewMethod"),
+	1,
+	TEXT("Affects bloom and Gaussian depth of field.\n")
+	TEXT(" 0: old method (doesn't scale linearly with size)\n")
+	TEXT(" 1: new method, might need asset tweak (default)"),
+	ECVF_RenderThreadSafe);
+
 /**
  * A pixel shader which filters a texture.
  * @param CombineMethod 0:weighted filtering, 1: weighted filtering + additional texture, 2: max magnitude
  */
-template<uint32 NumSamples, uint32 CombineMethodInt>
+template<uint32 CompileTimeNumSamples, uint32 CombineMethodInt>
 class TFilterPS : public FGlobalShader
 {
 	DECLARE_SHADER_TYPE(TFilterPS,Global);
@@ -28,19 +67,26 @@ public:
 		}
 		else if( IsFeatureLevelSupported(Platform, ERHIFeatureLevel::SM4) )
 		{
-			return NumSamples <= 16;
+			return CompileTimeNumSamples <= 16;
 		}
 		else
 		{
-			return NumSamples <= 7;
+			return CompileTimeNumSamples <= 7;
 		}
 	}
 
 	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform, OutEnvironment);
-		OutEnvironment.SetDefine(TEXT("NUM_SAMPLES"), NumSamples);
+		OutEnvironment.SetDefine(TEXT("NUM_SAMPLES"), CompileTimeNumSamples);
 		OutEnvironment.SetDefine(TEXT("COMBINE_METHOD"), CombineMethodInt);
+
+		if (CompileTimeNumSamples == 0)
+		{
+			// CompileTimeNumSamples == 0 implies the dynamic loop, but we still needs to pass the number
+			// of maximum number of samples for the uniform arraies.
+			OutEnvironment.SetDefine(TEXT("MAX_NUM_SAMPLES"), MAX_FILTER_SAMPLES);
+		}
 	}
 
 	/** Default constructor. */
@@ -55,24 +101,54 @@ public:
 		AdditiveTexture.Bind(Initializer.ParameterMap,TEXT("AdditiveTexture"));
 		AdditiveTextureSampler.Bind(Initializer.ParameterMap,TEXT("AdditiveTextureSampler"));
 		SampleWeights.Bind(Initializer.ParameterMap,TEXT("SampleWeights"));
+		
+		if (CompileTimeNumSamples == 0)
+		{
+			// dynamic loop do UV offset in the pixel shader, and requires the number of samples.
+			SampleOffsets.Bind(Initializer.ParameterMap,TEXT("SampleOffsets"));
+			SampleCount.Bind(Initializer.ParameterMap,TEXT("SampleCount"));
+		}
 	}
 
 	/** Serializer */
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << FilterTexture << FilterTextureSampler << AdditiveTexture << AdditiveTextureSampler << SampleWeights;
+		Ar << FilterTexture << FilterTextureSampler << AdditiveTexture << AdditiveTextureSampler << SampleWeights << SampleOffsets << SampleCount;
 		return bShaderHasOutdatedParameters;
 	}
 
 	/** Sets shader parameter values */
-	void SetParameters(FRHICommandList& RHICmdList, FSamplerStateRHIParamRef SamplerStateRHI, FTextureRHIParamRef FilterTextureRHI, FTextureRHIParamRef AdditiveTextureRHI, const FLinearColor* SampleWeightValues)
+	void SetParameters(
+		FRHICommandList& RHICmdList, FSamplerStateRHIParamRef SamplerStateRHI, FTextureRHIParamRef FilterTextureRHI, FTextureRHIParamRef AdditiveTextureRHI, 
+		const FLinearColor* SampleWeightValues, const FVector2D* SampleOffsetValues, uint32 NumSamples )
 	{
+		check(CompileTimeNumSamples == 0 && NumSamples > 0 && NumSamples <= MAX_FILTER_SAMPLES || CompileTimeNumSamples == NumSamples);
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
 		SetTextureParameter(RHICmdList, ShaderRHI, FilterTexture, FilterTextureSampler, SamplerStateRHI, FilterTextureRHI);
 		SetTextureParameter(RHICmdList, ShaderRHI, AdditiveTexture, AdditiveTextureSampler, SamplerStateRHI, AdditiveTextureRHI);
 		SetShaderValueArray(RHICmdList, ShaderRHI, SampleWeights, SampleWeightValues, NumSamples);
+
+		if (CompileTimeNumSamples == 0)
+		{
+			// we needs additional setups for the dynamic loop
+			FVector4 PackedSampleOffsetsValues[MAX_PACKED_SAMPLES_OFFSET];
+
+			for(uint32 SampleIndex = 0;SampleIndex < NumSamples;SampleIndex += 2)
+			{
+				PackedSampleOffsetsValues[SampleIndex / 2].X = SampleOffsetValues[SampleIndex + 0].X;
+				PackedSampleOffsetsValues[SampleIndex / 2].Y = SampleOffsetValues[SampleIndex + 0].Y;
+				if(SampleIndex + 1 < NumSamples)
+				{
+					PackedSampleOffsetsValues[SampleIndex / 2].W = SampleOffsetValues[SampleIndex + 1].X;
+					PackedSampleOffsetsValues[SampleIndex / 2].Z = SampleOffsetValues[SampleIndex + 1].Y;
+				}
+			}
+
+			SetShaderValueArray(RHICmdList, ShaderRHI, SampleOffsets, PackedSampleOffsetsValues, MAX_PACKED_SAMPLES_OFFSET);
+			SetShaderValue(RHICmdList, ShaderRHI, SampleCount, NumSamples);
+		}
 	}
 
 	static const TCHAR* GetSourceFilename()
@@ -91,6 +167,10 @@ protected:
 	FShaderResourceParameter AdditiveTexture;
 	FShaderResourceParameter AdditiveTextureSampler;
 	FShaderParameter SampleWeights;
+
+	// parameters only for CompileTimeNumSamples == 0
+	FShaderParameter SampleOffsets;
+	FShaderParameter SampleCount;
 };
 
 
@@ -99,6 +179,7 @@ protected:
 #define VARIATION1(A)		VARIATION2(A,0)			VARIATION2(A,1)			VARIATION2(A,2)
 #define VARIATION2(A, B) typedef TFilterPS<A, B> TFilterPS##A##B; \
 	IMPLEMENT_SHADER_TYPE2(TFilterPS##A##B, SF_Pixel);
+	VARIATION1(0) // number of samples known at runtime
 	VARIATION1(1) VARIATION1(2) VARIATION1(3) VARIATION1(4) VARIATION1(5) VARIATION1(6) VARIATION1(7) VARIATION1(8)
 	VARIATION1(9) VARIATION1(10) VARIATION1(11) VARIATION1(12) VARIATION1(13) VARIATION1(14) VARIATION1(15) VARIATION1(16)
 	VARIATION1(17) VARIATION1(18) VARIATION1(19) VARIATION1(20) VARIATION1(21) VARIATION1(22) VARIATION1(23) VARIATION1(24)
@@ -172,44 +253,85 @@ void SetFilterShaders(
 	)
 {
 	check(CombineMethodInt <= 2);
+	check(NumSamples <= MAX_FILTER_SAMPLES && NumSamples > 0);
+
 	auto ShaderMap = GetGlobalShaderMap(FeatureLevel);
+	const auto DynamicNumSample = CVarLoopMode.GetValueOnRenderThread();
+	
+	if ((NumSamples > MAX_FILTER_COMPILE_TIME_SAMPLES && DynamicNumSample != 0) || (DynamicNumSample == 2))
+	{
+		// there is to many samples, so we use the dynamic sample count shader
+		
+		TShaderMapRef<FPostProcessVS> VertexShader(ShaderMap);
+		*OutVertexShader = *VertexShader;
+		if(CombineMethodInt == 0)
+		{
+			TShaderMapRef<TFilterPS<0, 0> > PixelShader(ShaderMap);
+			{
+				static FGlobalBoundShaderState BoundShaderState;
+				SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+			}
+			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights, SampleOffsets, NumSamples);
+		}
+		else if(CombineMethodInt == 1)
+		{
+			TShaderMapRef<TFilterPS<0, 1> > PixelShader(ShaderMap);
+			{
+				static FGlobalBoundShaderState BoundShaderState;
+				SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+			}
+			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights, SampleOffsets, NumSamples);
+		}
+		else\
+		{
+			TShaderMapRef<TFilterPS<0, 2> > PixelShader(ShaderMap);
+			{
+				static FGlobalBoundShaderState BoundShaderState;
+				SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
+			}
+			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights, SampleOffsets, NumSamples);
+		}
+		return;
+	}
 
 	// A macro to handle setting the filter shader for a specific number of samples.
-#define SET_FILTER_SHADER_TYPE(NumSamples) \
-	case NumSamples: \
+#define SET_FILTER_SHADER_TYPE(CompileTimeNumSamples) \
+	case CompileTimeNumSamples: \
 	{ \
-		TShaderMapRef<TFilterVS<NumSamples> > VertexShader(ShaderMap); \
+		TShaderMapRef<TFilterVS<CompileTimeNumSamples> > VertexShader(ShaderMap); \
 		*OutVertexShader = *VertexShader; \
 		if(CombineMethodInt == 0) \
 		{ \
-			TShaderMapRef<TFilterPS<NumSamples, 0> > PixelShader(ShaderMap); \
+			TShaderMapRef<TFilterPS<CompileTimeNumSamples, 0> > PixelShader(ShaderMap); \
 			{ \
 				static FGlobalBoundShaderState BoundShaderState; \
 				SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader); \
 			} \
-			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights); \
+			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights, SampleOffsets, NumSamples); \
 		} \
 		else if(CombineMethodInt == 1) \
 		{ \
-			TShaderMapRef<TFilterPS<NumSamples, 1> > PixelShader(ShaderMap); \
+			TShaderMapRef<TFilterPS<CompileTimeNumSamples, 1> > PixelShader(ShaderMap); \
 			{ \
 				static FGlobalBoundShaderState BoundShaderState; \
 				SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader); \
 			} \
-			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights); \
+			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights, SampleOffsets, NumSamples); \
 		} \
 		else\
 		{ \
-			TShaderMapRef<TFilterPS<NumSamples, 2> > PixelShader(ShaderMap); \
+			TShaderMapRef<TFilterPS<CompileTimeNumSamples, 2> > PixelShader(ShaderMap); \
 			{ \
 				static FGlobalBoundShaderState BoundShaderState; \
 				SetGlobalBoundShaderState(RHICmdList, FeatureLevel, BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader); \
 			} \
-			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights); \
+			PixelShader->SetParameters(RHICmdList, SamplerStateRHI, FilterTextureRHI, AdditiveTextureRHI, SampleWeights, SampleOffsets, NumSamples); \
 		} \
 		VertexShader->SetParameters(RHICmdList, SampleOffsets); \
 		break; \
 	};
+	
+	check(NumSamples <= MAX_FILTER_COMPILE_TIME_SAMPLES);
 
 	// Set the appropriate filter shader for the given number of samples.
 	switch(NumSamples)
@@ -254,28 +376,56 @@ void SetFilterShaders(
 }
 
 /**
- * Evaluates a normal distribution PDF at given X.
+ * Evaluates a normal distribution PDF (around 0) at given X.
  * This function misses the math for scaling the result (faster, not needed if the resulting values are renormalized).
  * @param X - The X to evaluate the PDF at.
- * @param Mean - The normal distribution's mean.
- * @param Variance - The normal distribution's variance.
+ * @param Scale - The normal distribution's variance.
  * @return The value of the normal distribution at X. (unscaled)
  */
-static float NormalDistributionUnscaled(float X,float Mean,float Variance, EFilterShape FilterShape, float CrossCenterWeight)
+static float NormalDistributionUnscaled(float X,float Scale, EFilterShape FilterShape, float CrossCenterWeight)
 {
-	float dx = FMath::Abs(X - Mean);
+	float Ret;
 
-	float Ret = FMath::Exp(-FMath::Square(dx) / (2.0f * Variance));
-
-	// tweak the gaussian shape e.g. "r.Bloom.Cross 3.5"
-	if(CrossCenterWeight > 1.0f)
+	if(FilterNewMethod.GetValueOnRenderThread())
 	{
-		Ret = FMath::Max(0.0f, 1.0f - dx / Variance);
-		Ret = FMath::Pow(Ret, CrossCenterWeight);
+		float dxUnScaled = FMath::Abs(X);
+		float dxScaled = dxUnScaled * Scale;
+
+		// Constant is tweaked give a similar look to UE4 before we fix the scale bug (Some content tweaking might be needed).
+		// The value defines how much of the Gaussian clipped by the sample window. 
+		// r.Filter.SizeScale allows to tweak that for performance/quality.
+		Ret = FMath::Exp(-16.7f * FMath::Square(dxScaled));
+
+		// tweak the gaussian shape e.g. "r.Bloom.Cross 3.5"
+		if (CrossCenterWeight > 1.0f)
+		{
+			Ret = FMath::Max(0.0f, 1.0f - dxUnScaled);
+			Ret = FMath::Pow(Ret, CrossCenterWeight);
+		}
+		else
+		{
+			Ret = FMath::Lerp(Ret, FMath::Max(0.0f, 1.0f - dxUnScaled), CrossCenterWeight);
+		}
 	}
 	else
 	{
-		Ret = FMath::Lerp(Ret, FMath::Max(0.0f, 1.0f - dx / Variance), CrossCenterWeight);
+		// will be removed soon
+		float OldVariance = 1.0f / Scale;
+
+		float dx = FMath::Abs(X);
+
+		Ret = FMath::Exp(-FMath::Square(dx) / (2.0f * OldVariance));
+
+		// tweak the gaussian shape e.g. "r.Bloom.Cross 3.5"
+		if(CrossCenterWeight > 1.0f)
+		{
+			Ret = FMath::Max(0.0f, 1.0f - dx / OldVariance);
+			Ret = FMath::Pow(Ret, CrossCenterWeight);
+		}
+		else
+		{
+			Ret = FMath::Lerp(Ret, FMath::Max(0.0f, 1.0f - dx / OldVariance), CrossCenterWeight);
+		}
 	}
 
 	return Ret;
@@ -287,8 +437,12 @@ static float NormalDistributionUnscaled(float X,float Mean,float Variance, EFilt
 
 static uint32 Compute1DGaussianFilterKernel(ERHIFeatureLevel::Type InFeatureLevel, float KernelRadius, FVector2D OutOffsetAndWeight[MAX_FILTER_SAMPLES], uint32 MaxFilterSamples, EFilterShape FilterShape, float CrossCenterWeight)
 {
-	float ClampedKernelRadius = FRCPassPostProcessWeightedSampleSum::GetClampedKernelRadius( InFeatureLevel, KernelRadius );
-	int32 IntegerKernelRadius = FRCPassPostProcessWeightedSampleSum::GetIntegerKernelRadius( InFeatureLevel, KernelRadius );
+	float FilterSizeScale = FMath::Clamp(CVarFilterSizeScale.GetValueOnRenderThread(), 0.1f, 10.0f);
+
+	float ClampedKernelRadius = FRCPassPostProcessWeightedSampleSum::GetClampedKernelRadius(InFeatureLevel, KernelRadius);
+	int32 IntegerKernelRadius = FRCPassPostProcessWeightedSampleSum::GetIntegerKernelRadius(InFeatureLevel, KernelRadius * FilterSizeScale);
+
+	float Scale = 1.0f / ClampedKernelRadius;
 
 	// smallest IntegerKernelRadius will be 1
 
@@ -296,7 +450,7 @@ static uint32 Compute1DGaussianFilterKernel(ERHIFeatureLevel::Type InFeatureLeve
 	float WeightSum = 0.0f;
 	for(int32 SampleIndex = -IntegerKernelRadius; SampleIndex <= IntegerKernelRadius; SampleIndex += 2)
 	{
-		float Weight0 = NormalDistributionUnscaled(SampleIndex, 0, ClampedKernelRadius, FilterShape, CrossCenterWeight);
+		float Weight0 = NormalDistributionUnscaled(SampleIndex, Scale, FilterShape, CrossCenterWeight);
 		float Weight1 = 0.0f;
 
 		// Because we use bilinear filtering we only require half the sample count.
@@ -306,7 +460,7 @@ static uint32 Compute1DGaussianFilterKernel(ERHIFeatureLevel::Type InFeatureLeve
 		//    c * .. but another texel to the right would accidentially leak into this computation.
 		if(SampleIndex != IntegerKernelRadius)
 		{
-			Weight1 = NormalDistributionUnscaled(SampleIndex + 1, 0, ClampedKernelRadius, FilterShape, CrossCenterWeight);
+			Weight1 = NormalDistributionUnscaled(SampleIndex + 1, Scale, FilterShape, CrossCenterWeight);
 		}
 
 		float TotalWeight = Weight0 + Weight1;
@@ -340,7 +494,7 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 {
 	const FSceneView& View = Context.View;
 
-	FRenderingCompositeOutput *Input = PassInputs[0].GetOutput();
+	FRenderingCompositeOutput *Input = GetInput(ePId_Input0)->GetOutput();
 
 	// input is not hooked up correctly
 	check(Input);
@@ -354,10 +508,11 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 
 	FIntPoint SrcSize = InputDesc->Extent;
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	FIntPoint SrcScaleFactor = GSceneRenderTargets.GetBufferSizeXY() / SrcSize;
-	FIntPoint DstScaleFactor = GSceneRenderTargets.GetBufferSizeXY() / DestSize;
+	FIntPoint SrcScaleFactor = SceneContext.GetBufferSizeXY() / SrcSize;
+	FIntPoint DstScaleFactor = SceneContext.GetBufferSizeXY() / DestSize;
 
 	TRefCountPtr<IPooledRenderTarget> InputPooledElement = Input->RequestInput();
 
@@ -365,9 +520,16 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
+	bool bDoFastBlur = DoFastBlur();
+
 	FVector2D InvSrcSize(1.0f / SrcSize.X, 1.0f / SrcSize.Y);
 	// we scale by width because FOV is defined horizontally
 	float SrcSizeForThisAxis = View.ViewRect.Width() / (float)SrcScaleFactor.X;
+
+	if(bDoFastBlur && FilterShape == EFS_Vert)
+	{
+		SrcSizeForThisAxis *= 2.0f;
+	}
 
 	// in texel (input resolution), /2 as we use the diameter, 100 as we use percent
 	float EffectiveBlurRadius = SizeScale * SrcSizeForThisAxis  / 2 / 100.0f;
@@ -383,7 +545,9 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 
 	uint32 NumSamples = Compute1DGaussianFilterKernel(FeatureLevel, EffectiveBlurRadius, OffsetAndWeight, MaxNumSamples, FilterShape, CrossCenterWeight);
 
-	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessWeightedSampleSum, TEXT("PostProcessWeightedSampleSum#%d"), NumSamples);
+	FIntRect DestRect = FIntRect::DivideAndRoundUp(View.ViewRect, DstScaleFactor);
+
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessWeightedSampleSum, TEXT("PostProcessWeightedSampleSum#%d %dx%d"), NumSamples, DestRect.Width(), DestRect.Height());
 
 	// compute weights as weighted contributions of the TintValue
 	for(uint32 i = 0; i < NumSamples; ++i)
@@ -391,7 +555,7 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 		BlurWeights[i] = TintValue * OffsetAndWeight[i].Y;
 	}
 
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EExistingColorAndDepth);
 
 	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f);
 
@@ -402,7 +566,9 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 
 	const FTextureRHIRef& FilterTexture = InputPooledElement->GetRenderTargetItem().ShaderResourceTexture;
 
-	FRenderingCompositeOutput *Input1 = PassInputs[1].GetOutput();
+	FRenderingCompositeOutputRef* NodeInput1 = GetInput(ePId_Input1);
+
+	FRenderingCompositeOutput *Input1 = NodeInput1 ? NodeInput1->GetOutput() : 0;
 
 	uint32 CombineMethodInt = 0;
 
@@ -423,8 +589,6 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 
 		CombineMethodInt = 1;
 	}
-
-	bool bDoFastBlur = DoFastBlur();
 
 	if (FilterShape == EFS_Horiz)
 	{
@@ -467,7 +631,6 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 	}
 
 	FIntRect SrcRect =  FIntRect::DivideAndRoundUp(View.ViewRect, SrcScaleFactor);
-	FIntRect DestRect = FIntRect::DivideAndRoundUp(View.ViewRect, DstScaleFactor);
 
 	DrawQuad(Context.RHICmdList, bDoFastBlur, SrcRect, DestRect, bRequiresClear, DestSize, SrcSize, VertexShader);
 
@@ -476,7 +639,7 @@ void FRCPassPostProcessWeightedSampleSum::Process(FRenderingCompositePassContext
 
 FPooledRenderTargetDesc FRCPassPostProcessWeightedSampleSum::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	if(DoFastBlur())
 	{
@@ -493,6 +656,7 @@ FPooledRenderTargetDesc FRCPassPostProcessWeightedSampleSum::ComputeOutputDesc(E
 
 	Ret.Reset();
 	Ret.DebugName = DebugName;
+	Ret.AutoWritable = false;
 
 	return Ret;
 }
@@ -543,7 +707,7 @@ bool FRCPassPostProcessWeightedSampleSum::DoFastBlur() const
 		else
 		{
 			FIntPoint SrcSize = InputDesc->Extent;
-			FIntPoint BufferSize = GSceneRenderTargets.GetBufferSizeXY();
+			FIntPoint BufferSize = FSceneRenderTargets::Get_FrameConstantsOnly().GetBufferSizeXY();
 
 			float InputRatio = SrcSize.X / (float)SrcSize.Y;
 			float BufferRatio = BufferSize.X / (float)BufferSize.Y;
@@ -592,16 +756,18 @@ void FRCPassPostProcessWeightedSampleSum::DrawQuad(FRHICommandListImmediate& RHI
 
 uint32 FRCPassPostProcessWeightedSampleSum::GetMaxNumSamples(ERHIFeatureLevel::Type InFeatureLevel)
 {
-	uint32 MaxNumSamples;
-	if (InFeatureLevel >= ERHIFeatureLevel::SM5)
+	if (CVarLoopMode.GetValueOnRenderThread() != 0)
 	{
-		MaxNumSamples = MAX_FILTER_SAMPLES;
+		return MAX_FILTER_SAMPLES;
 	}
-	else if (InFeatureLevel >= ERHIFeatureLevel::SM4)
+	
+	uint32 MaxNumSamples = MAX_FILTER_COMPILE_TIME_SAMPLES;
+
+	if (InFeatureLevel == ERHIFeatureLevel::SM4)
 	{
 		MaxNumSamples = 16;
 	}
-	else
+	else if (InFeatureLevel < ERHIFeatureLevel::SM4)
 	{
 		MaxNumSamples = 7;
 	}

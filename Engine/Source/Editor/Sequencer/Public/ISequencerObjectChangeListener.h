@@ -2,19 +2,11 @@
 
 #pragma once
 
+#include "KeyPropertyParams.h"
+
 class IPropertyHandle;
 
-struct FKeyPropertyParams
-{
-	const IPropertyHandle* PropertyHandle;
-	TArray<UObject*> ObjectsThatChanged;
-	FString PropertyPath;
-	FName InnerStructPropertyName;
-	bool bRequireAutoKey;
-};
-
-
-DECLARE_MULTICAST_DELEGATE_OneParam( FOnAnimatablePropertyChanged, const FKeyPropertyParams& );
+DECLARE_MULTICAST_DELEGATE_OneParam( FOnAnimatablePropertyChanged, const FPropertyChangedParams& );
 
 DECLARE_MULTICAST_DELEGATE_OneParam ( FOnPropagateObjectChanges, UObject* );
 
@@ -39,7 +31,7 @@ public:
 	 */
 	virtual void TriggerAllPropertiesChanged(UObject* Object) = 0;
 
-	virtual bool IsTypeKeyable(const UClass& ObjectClass, const IPropertyHandle& PropertyHandle) const = 0;
+	virtual bool CanKeyProperty(FCanKeyPropertyParams KeyPropertyParams) const = 0;
 
-	virtual void KeyProperty( const TArray<UObject*>& ObjectsToKey, const class IPropertyHandle& PropertyHandle ) const = 0;
+	virtual void KeyProperty(FKeyPropertyParams KeyPropertyParams) const = 0;
 };

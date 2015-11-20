@@ -1944,6 +1944,17 @@ SDL_MaximizeWindow(SDL_Window * window)
     if (_this->MaximizeWindow) {
         _this->MaximizeWindow(_this, window);
     }
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    SDL_Event e; 
+    SDL_zero(e); 
+    e.type = SDL_WINDOWEVENT; 
+    e.window.timestamp = SDL_GetTicks(); 
+    e.window.windowID = SDL_GetWindowID(window); 
+    e.window.event = SDL_WINDOWEVENT_MAXIMIZED; 
+    SDL_PushEvent(&e);
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
 }
 
 void
@@ -1974,6 +1985,17 @@ SDL_RestoreWindow(SDL_Window * window)
     if (_this->RestoreWindow) {
         _this->RestoreWindow(_this, window);
     }
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+    SDL_Event e; 
+    SDL_zero(e); 
+    e.type = SDL_WINDOWEVENT; 
+    e.window.timestamp = SDL_GetTicks(); 
+    e.window.windowID = SDL_GetWindowID(window); 
+    e.window.event = SDL_WINDOWEVENT_RESTORED; 
+    SDL_PushEvent(&e);
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
 }
 
 int
@@ -2273,6 +2295,22 @@ SDL_SetWindowGrab(SDL_Window * window, SDL_bool grabbed)
     }
     SDL_UpdateWindowGrab(window);
 }
+
+/* EG BEGIN */
+#ifdef SDL_WITH_EPIC_EXTENSIONS
+int
+SDL_SetKeyboardGrab(SDL_Window * window, SDL_bool enable)
+{
+    CHECK_WINDOW_MAGIC(window, -1);
+
+    if (!_this->SetKeyboardGrab) {
+        return SDL_Unsupported();
+    }
+    
+    return _this->SetKeyboardGrab(_this, window, enable);
+}
+#endif /* SDL_WITH_EPIC_EXTENSIONS */
+/* EG END */
 
 SDL_bool
 SDL_GetWindowGrab(SDL_Window * window)

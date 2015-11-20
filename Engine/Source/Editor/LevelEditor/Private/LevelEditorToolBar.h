@@ -64,17 +64,17 @@ protected:
 	static TSharedRef< SWidget > GenerateOpenBlueprintMenuContent( TSharedRef<FUICommandList> InCommandList, TWeakPtr< SLevelEditor > InLevelEditor );
 
 	/**
-	 * Generates menu content for the matinee combo button drop down menu
+	 * Generates menu content for the Cinematics combo button drop down menu
 	 *
 	 * @return	Menu content widget
 	 */
-	static TSharedRef< SWidget > GenerateMatineeMenuContent( TSharedRef<FUICommandList> InCommandList, TWeakPtr<SLevelEditor> LevelEditorWeakPtr );
+	static TSharedRef< SWidget > GenerateCinematicsMenuContent( TSharedRef<FUICommandList> InCommandList, TWeakPtr<SLevelEditor> LevelEditorWeakPtr );
 
 	/**
-	 * Delegate for actor selection within the Matinee popup menu's SceneOutliner.
-	 * Opens the matinee editor for the selected actor and dismisses all popup menus.
+	 * Delegate for actor selection within the Cinematics popup menu's SceneOutliner.
+	 * Opens the editor for the selected actor and dismisses all popup menus.
 	 */
-	static void OnMatineeActorPicked( AActor* Actor );
+	static void OnCinematicsActorPicked( AActor* Actor );
 
 	/**
 	 * Callback to open a sub-level script Blueprint

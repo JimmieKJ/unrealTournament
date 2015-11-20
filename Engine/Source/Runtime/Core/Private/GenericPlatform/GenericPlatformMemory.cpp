@@ -33,12 +33,26 @@ FGenericPlatformMemoryStats::FGenericPlatformMemoryStats()
 {}
 
 bool FGenericPlatformMemory::bIsOOM = false;
+uint64 FGenericPlatformMemory::OOMAllocationSize = 0;
+uint32 FGenericPlatformMemory::OOMAllocationAlignment = 0;
+
+/**
+ * Value determined by series of tests on Fortnite with limited process memory.
+ * 26MB sufficed to report all test crashes, using 32MB to have some slack.
+ * If this pool is too large, use the following values to determine proper size:
+ * 2MB pool allowed to report 78% of crashes.
+ * 6MB pool allowed to report 90% of crashes.
+ */
+uint32 FGenericPlatformMemory::BackupOOMMemoryPoolSize = 32 * 1024 * 1024;
+void* FGenericPlatformMemory::BackupOOMMemoryPool = nullptr;
 
 void FGenericPlatformMemory::SetupMemoryPools()
 {
 	SET_MEMORY_STAT(MCR_Physical, 0); // "unlimited" physical memory, we still need to make this call to set the short name, etc
 	SET_MEMORY_STAT(MCR_GPU, 0); // "unlimited" GPU memory, we still need to make this call to set the short name, etc
 	SET_MEMORY_STAT(MCR_TexturePool, 0); // "unlimited" Texture memory, we still need to make this call to set the short name, etc
+
+	BackupOOMMemoryPool = FPlatformMemory::BinnedAllocFromOS(BackupOOMMemoryPoolSize);
 }
 
 void FGenericPlatformMemory::Init()
@@ -49,7 +63,31 @@ void FGenericPlatformMemory::Init()
 
 void FGenericPlatformMemory::OnOutOfMemory(uint64 Size, uint32 Alignment)
 {
+	// Update memory stats before we enter the crash handler.
+
+	OOMAllocationSize = Size;
+	OOMAllocationAlignment = Alignment;
+
 	bIsOOM = true;
+	FPlatformMemoryStats PlatformMemoryStats = FPlatformMemory::GetStats();
+	if (BackupOOMMemoryPool)
+	{
+		FPlatformMemory::BinnedFreeToOS(BackupOOMMemoryPool);
+		UE_LOG(LogMemory, Warning, TEXT("Freeing %d bytes from backup pool to handle out of memory."), BackupOOMMemoryPoolSize);
+	}
+	UE_LOG(LogMemory, Warning, TEXT("MemoryStats:")\
+		TEXT("\n\tAvailablePhysical %llu")\
+		TEXT("\n\tAvailableVirtual %llu")\
+		TEXT("\n\tUsedPhysical %llu")\
+		TEXT("\n\tPeakUsedPhysical %llu")\
+		TEXT("\n\tUsedVirtual %llu")\
+		TEXT("\n\tPeakUsedVirtual %llu"),
+		(uint64)PlatformMemoryStats.AvailablePhysical,
+		(uint64)PlatformMemoryStats.AvailableVirtual,
+		(uint64)PlatformMemoryStats.UsedPhysical,
+		(uint64)PlatformMemoryStats.PeakUsedPhysical,
+		(uint64)PlatformMemoryStats.UsedVirtual,
+		(uint64)PlatformMemoryStats.PeakUsedVirtual);
 	UE_LOG(LogMemory, Fatal, TEXT("Ran out of memory allocating %llu bytes with alignment %u"), Size, Alignment);
 }
 
@@ -97,19 +135,25 @@ uint32 FGenericPlatformMemory::GetPhysicalGBRam()
 
 void FGenericPlatformMemory::UpdateStats()
 {
-	FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
+	// avoid getting OS data (costly on Linux, Windows - see CL 2460429) if we aren't collecting stats
+#if STATS
+	if (FThreadStats::IsCollectingData(GET_STATID(STAT_TotalPhysical)))
+	{
+		FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
 
-	SET_MEMORY_STAT(STAT_TotalPhysical,MemoryStats.TotalPhysical);
-	SET_MEMORY_STAT(STAT_TotalVirtual,MemoryStats.TotalVirtual);
-	SET_MEMORY_STAT(STAT_PageSize,MemoryStats.PageSize);
-	SET_MEMORY_STAT(STAT_TotalPhysicalGB,MemoryStats.TotalPhysicalGB);
+		SET_MEMORY_STAT(STAT_TotalPhysical,MemoryStats.TotalPhysical);
+		SET_MEMORY_STAT(STAT_TotalVirtual,MemoryStats.TotalVirtual);
+		SET_MEMORY_STAT(STAT_PageSize,MemoryStats.PageSize);
+		SET_MEMORY_STAT(STAT_TotalPhysicalGB,MemoryStats.TotalPhysicalGB);
 
-	SET_MEMORY_STAT(STAT_AvailablePhysical,MemoryStats.AvailablePhysical);
-	SET_MEMORY_STAT(STAT_AvailableVirtual,MemoryStats.AvailableVirtual);
-	SET_MEMORY_STAT(STAT_UsedPhysical,MemoryStats.UsedPhysical);
-	SET_MEMORY_STAT(STAT_PeakUsedPhysical,MemoryStats.PeakUsedPhysical);
-	SET_MEMORY_STAT(STAT_UsedVirtual,MemoryStats.UsedVirtual);
-	SET_MEMORY_STAT(STAT_PeakUsedVirtual,MemoryStats.PeakUsedVirtual);
+		SET_MEMORY_STAT(STAT_AvailablePhysical,MemoryStats.AvailablePhysical);
+		SET_MEMORY_STAT(STAT_AvailableVirtual,MemoryStats.AvailableVirtual);
+		SET_MEMORY_STAT(STAT_UsedPhysical,MemoryStats.UsedPhysical);
+		SET_MEMORY_STAT(STAT_PeakUsedPhysical,MemoryStats.PeakUsedPhysical);
+		SET_MEMORY_STAT(STAT_UsedVirtual,MemoryStats.UsedVirtual);
+		SET_MEMORY_STAT(STAT_PeakUsedVirtual,MemoryStats.PeakUsedVirtual);
+	}
+#endif	// STATS
 }
 
 void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
@@ -147,18 +191,80 @@ void FGenericPlatformMemory::DumpPlatformAndAllocatorStats( class FOutputDevice&
 	GMalloc->DumpAllocatorStats( Ar );
 }
 
-void FGenericPlatformMemory::Memswap( void* Ptr1, void* Ptr2, SIZE_T Size )
+void FGenericPlatformMemory::MemswapImpl( void* RESTRICT Ptr1, void* RESTRICT Ptr2, SIZE_T Size )
 {
-	if (Ptr1 != Ptr2)
+	union PtrUnion
 	{
-		// check that Ptr1 and Ptr2 do not overlap in undefined ways
-		checkf(reinterpret_cast<uint8 *>(Ptr1)+Size <= reinterpret_cast<uint8 *>(Ptr2) || reinterpret_cast<uint8 *>(Ptr2)+Size <= reinterpret_cast<uint8 *>(Ptr1),
-			TEXT("Pointers given to FPlatformMemory::Memswap() point to overlapping memory areas, results are undefined."));
+		void*   PtrVoid;
+		uint8*  Ptr8;
+		uint16* Ptr16;
+		uint32* Ptr32;
+		uint64* Ptr64;
+		UPTRINT PtrUint;
+	};
 
-		void* Temp = FMemory_Alloca(Size);
-		FPlatformMemory::Memcpy( Temp, Ptr1, Size );
-		FPlatformMemory::Memcpy( Ptr1, Ptr2, Size );
-		FPlatformMemory::Memcpy( Ptr2, Temp, Size );
+	if (!Size)
+	{
+		return;
+	}
+
+	PtrUnion Union1 = { Ptr1 };
+	PtrUnion Union2 = { Ptr2 };
+
+	if (Union1.PtrUint & 1)
+	{
+		Valswap(*Union1.Ptr8++, *Union2.Ptr8++);
+		Size -= 1;
+		if (!Size)
+		{
+			return;
+		}
+	}
+	if (Union1.PtrUint & 2)
+	{
+		Valswap(*Union1.Ptr16++, *Union2.Ptr16++);
+		Size -= 2;
+		if (!Size)
+		{
+			return;
+		}
+	}
+	if (Union1.PtrUint & 4)
+	{
+		Valswap(*Union1.Ptr32++, *Union2.Ptr32++);
+		Size -= 4;
+		if (!Size)
+		{
+			return;
+		}
+	}
+
+	uint32 CommonAlignment = FMath::Min(FMath::CountTrailingZeros(Union1.PtrUint - Union2.PtrUint), 3u);
+	switch (CommonAlignment)
+	{
+		default:
+			for (; Size >= 8; Size -= 8)
+			{
+				Valswap(*Union1.Ptr64++, *Union2.Ptr64++);
+			}
+
+		case 2:
+			for (; Size >= 4; Size -= 4)
+			{
+				Valswap(*Union1.Ptr32++, *Union2.Ptr32++);
+			}
+
+		case 1:
+			for (; Size >= 2; Size -= 2)
+			{
+				Valswap(*Union1.Ptr16++, *Union2.Ptr16++);
+			}
+
+		case 0:
+			for (; Size >= 1; Size -= 1)
+			{
+				Valswap(*Union1.Ptr8++, *Union2.Ptr8++);
+			}
 	}
 }
 

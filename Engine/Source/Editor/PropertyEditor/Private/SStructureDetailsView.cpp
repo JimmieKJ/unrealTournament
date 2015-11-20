@@ -19,7 +19,12 @@
 
 SStructureDetailsView::~SStructureDetailsView()
 {
-	SaveExpandedItems();
+	auto RootNodeLocal = GetRootNode();
+
+	if (RootNodeLocal.IsValid())
+	{
+		SaveExpandedItems(RootNodeLocal.ToSharedRef());
+	}
 }
 
 UStruct* SStructureDetailsView::GetBaseScriptStruct() const
@@ -170,7 +175,7 @@ void SStructureDetailsView::Construct(const FArguments& InArgs)
 void SStructureDetailsView::SetStructureData(TSharedPtr<FStructOnScope> InStructData)
 {
 	//PRE SET
-	SaveExpandedItems();
+	SaveExpandedItems( RootNode.ToSharedRef() );
 	RootNode->SetStructure(NULL);
 	RootNodePendingKill = RootNode;
 	RootNode = MakeShareable(new FStructurePropertyNode);
@@ -199,9 +204,11 @@ void SStructureDetailsView::SetStructureData(TSharedPtr<FStructOnScope> InStruct
 	RootNode->InitNode(InitParams);
 	RootNode->SetDisplayNameOverride(CustomName);
 
-	RestoreExpandedItems();
+	RestoreExpandedItems(RootNode.ToSharedRef());
 
 	UpdatePropertyMap();
+
+	UpdateFilteredDetails();
 }
 
 void SStructureDetailsView::ForceRefresh()

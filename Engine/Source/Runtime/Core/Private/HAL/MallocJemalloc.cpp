@@ -128,7 +128,10 @@ namespace
 		check(Ar);
 		if (Ar)
 		{
-			Ar->Logf(ANSI_TO_TCHAR(String));
+			FString Sanitized(ANSI_TO_TCHAR(String));
+			Sanitized.ReplaceInline(TEXT("\n"), TEXT(""), ESearchCase::CaseSensitive);
+			Sanitized.ReplaceInline(TEXT("\r"), TEXT(""), ESearchCase::CaseSensitive);
+			Ar->Logf(*Sanitized);
 		}
 	}
 }
@@ -136,7 +139,10 @@ namespace
 void FMallocJemalloc::DumpAllocatorStats( FOutputDevice& Ar ) 
 {
 	MEM_TIME(Ar.Logf( TEXT("Seconds     % 5.3f"), MemTime ));
-	je_malloc_stats_print(JemallocStatsPrintCallback, &Ar, NULL);
+	
+	// "g" omits static stats, "a" omits per-arena stats, "l" omits large object stats
+	// see http://www.canonware.com/download/jemalloc/jemalloc-latest/doc/jemalloc.html for detailed opts explanation.
+	je_malloc_stats_print(JemallocStatsPrintCallback, &Ar, "gla");
 }
 
 bool FMallocJemalloc::GetAllocationSize(void *Original, SIZE_T &SizeOut)

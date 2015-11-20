@@ -16,8 +16,10 @@ public:
 	FString Status;
 	bool bDistribution;
 	bool bSelected;
+	bool bManuallySelected;
 };
 typedef TSharedPtr<class FProvision> ProvisionPtr;
+typedef TSharedPtr<TArray<ProvisionPtr>> ProvisionListPtr;
 
 //////////////////////////////////////////////////////////////////////////
 // FCertificate structure
@@ -28,8 +30,10 @@ public:
 	FString Status;
 	FString Expires;
 	bool bSelected;
+	bool bManuallySelected;
 };
 typedef TSharedPtr<class FCertificate> CertificatePtr;
+typedef TSharedPtr<TArray<CertificatePtr>> CertificateListPtr;
 
 //////////////////////////////////////////////////////////////////////////
 // FIOSTargetSettingsCustomization
@@ -68,15 +72,17 @@ private:
 
 	TSharedPtr<FMonitoredProcess> IPPProcess;
 	FDelegateHandle TickerHandle;
-	TArray<ProvisionPtr> ProvisionList;
+	TSharedPtr<TArray<ProvisionPtr>> ProvisionList;
 	TArray<ProvisionPtr> FilteredProvisionList;
 	TSharedPtr<SListView<ProvisionPtr> > ProvisionListView;
 	TSharedPtr<SWidgetSwitcher > ProvisionInfoSwitcher;
-	TArray<CertificatePtr> CertificateList;
+	TSharedPtr<TArray<CertificatePtr>> CertificateList;
 	TArray<CertificatePtr> FilteredCertificateList;
 	TSharedPtr<SListView<CertificatePtr> > CertificateListView;
 	TSharedPtr<SWidgetSwitcher > CertificateInfoSwitcher;
 	TAttribute<bool> RunningIPPProcess;
+	TSharedPtr<IPropertyHandle> MobileProvisionProperty;
+	TSharedPtr<IPropertyHandle> SignCertificateProperty;
 
 	FString SelectedProvision;
 	FString SelectedFile;
@@ -151,6 +157,10 @@ private:
 
 	// updates the text in the ini file and checks for a valid provision/certificate
 	void OnRemoteServerChanged(const FText& NewText, ETextCommit::Type, TSharedRef<IPropertyHandle> InPropertyHandle);
+
+	void HandleProvisionChanged(FString Provision);
+
+	void HandleCertificateChanged(FString Certificate);
 
 	// 
 	FText GetBundleText(TSharedRef<IPropertyHandle> InPropertyHandle) const;

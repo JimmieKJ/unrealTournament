@@ -33,7 +33,14 @@ public:
 	virtual TStatId GetStatId() const override;
 	virtual bool IsTickable() const override;
 	
+	/** Callback for clicking on the viewport */
+	FReply OnLoadingScreenMouseButtonDown(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
+	FReply OnLoadingScreenKeyDown(const FGeometry& Geometry, const FKeyEvent& KeyEvent);
+
 private:
+
+	/** Ticks the underlying MovieStreamer.  Must be done exactly once before each DrawWindows call. */
+	void TickStreamer(float DeltaTime);
 
 	/** True if we have both a registered movie streamer and movies to stream */
 	bool MovieStreamingIsPrepared() const;
@@ -46,10 +53,7 @@ private:
 	FOptionalSize GetMovieWidth() const;
 	FOptionalSize GetMovieHeight() const;
 	EVisibility GetSlateBackgroundVisibility() const;
-	EVisibility GetViewportVisibility() const;
-
-	/** Callback for clicking on the viewport */
-	FReply OnLoadingScreenMouseButtonDown(const FGeometry& Geometry, const FPointerEvent& PointerEvent);
+	EVisibility GetViewportVisibility() const;	
 	
 	/** Called via a delegate in the engine when maps start to load */
 	void OnPreLoadMap();
@@ -58,6 +62,8 @@ private:
 	void OnPostLoadMap();
 private:
 	FDefaultGameMoviePlayer();
+
+	FReply OnAnyDown();
 	
 	/** The movie streaming system that will be used by us */
 	TSharedPtr<IMovieStreamer> MovieStreamer;

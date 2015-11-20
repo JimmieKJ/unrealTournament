@@ -2,6 +2,7 @@
 
 #include "BehaviorTreeEditorPrivatePCH.h"
 #include "BehaviorTree/Tasks/BTTask_RunBehavior.h"
+#include "BehaviorTreeGraphNode_SubtreeTask.h"
 
 UBehaviorTreeGraphNode_SubtreeTask::UBehaviorTreeGraphNode_SubtreeTask(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {

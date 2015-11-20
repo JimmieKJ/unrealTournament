@@ -16,16 +16,19 @@ struct FTypefaceListViewEntry
 {
 	TAttribute<FTypeface*> Typeface;
 	int32 TypefaceEntryIndex;
+	bool bRenameRequested;
 
 	FTypefaceListViewEntry()
 		: Typeface()
 		, TypefaceEntryIndex(INDEX_NONE)
+		, bRenameRequested(false)
 	{
 	}
 
 	FTypefaceListViewEntry(TAttribute<FTypeface*>& InTypeface, const int32 InTypefaceEntryIndex)
 		: Typeface(InTypeface)
 		, TypefaceEntryIndex(InTypefaceEntryIndex)
+		, bRenameRequested(false)
 	{
 	}
 
@@ -46,16 +49,19 @@ struct FSubTypefaceListViewEntry
 {
 	FCompositeFont* CompositeFont;
 	int32 SubTypefaceEntryIndex;
+	bool bRenameRequested;
 
 	FSubTypefaceListViewEntry()
 		: CompositeFont(nullptr)
 		, SubTypefaceEntryIndex(INDEX_NONE)
+		, bRenameRequested(false)
 	{
 	}
 
 	FSubTypefaceListViewEntry(FCompositeFont* const InCompositeFont, const int32 InSubTypefaceEntryIndex)
 		: CompositeFont(InCompositeFont)
 		, SubTypefaceEntryIndex(InSubTypefaceEntryIndex)
+		, bRenameRequested(false)
 	{
 	}
 
@@ -274,8 +280,12 @@ FReply SCompositeFontEditor::OnAddSubFontFamily()
 	FCompositeFont* const CompositeFontPtr = GetCompositeFont();
 	if(CompositeFontPtr)
 	{
-		CompositeFontPtr->SubTypefaces.Add(FCompositeSubFont());
+		const int32 NewSubFontIndex = CompositeFontPtr->SubTypefaces.Add(FCompositeSubFont());
 		UpdateSubTypefaceList();
+
+		// Ask for the newly added entry to be renamed to draw attention to it
+		check(SubTypefaceEntries.IsValidIndex(NewSubFontIndex));
+		SubTypefaceEntries[NewSubFontIndex]->bRenameRequested = true;
 
 		FlushCachedFont();
 	}
@@ -324,7 +334,7 @@ void STypefaceEditor::Construct(const FArguments& InArgs)
 
 				+SHorizontalBox::Slot()
 				[
-					SNew(SInlineEditableTextBlock)
+					SAssignNew(NameEditableTextBox, SInlineEditableTextBlock)
 					.Text(InArgs._TypefaceDisplayName)
 					.ToolTipText((InArgs._OnDisplayNameCommitted.IsBound()) ? LOCTEXT("FontFamilyNameTooltip", "The name of this font family (click to edit)") : FText::GetEmpty())
 					.Font(FEditorStyle::GetFontStyle("DetailsView.CategoryFontStyle"))
@@ -366,6 +376,11 @@ void STypefaceEditor::Construct(const FArguments& InArgs)
 void STypefaceEditor::Refresh()
 {
 	UpdateFontList();
+}
+
+void STypefaceEditor::RequestRename()
+{
+	NameEditableTextBox->EnterEditingMode();
 }
 
 void STypefaceEditor::UpdateFontList()
@@ -477,8 +492,12 @@ FReply STypefaceEditor::OnAddFont()
 			NewFontName.SetNumber(NewFontName.GetNumber() + 1);
 		}
 
-		TypefacePtr->Fonts.Add(FTypefaceEntry(NewFontName));
+		const int32 NewEntryIndex = TypefacePtr->Fonts.Add(FTypefaceEntry(NewFontName));
 		UpdateFontList();
+
+		// Ask for the newly added entry to be renamed to draw attention to it
+		check(TypefaceEntries.IsValidIndex(NewEntryIndex));
+		TypefaceEntries[NewEntryIndex]->bRenameRequested = true;
 
 		CompositeFontEditorPtr->FlushCachedFont();
 	}
@@ -563,7 +582,7 @@ void STypefaceEntryEditor::Construct(const FArguments& InArgs)
 			.AutoHeight()
 			.Padding(FMargin(0.0f, 0.0f, 0.0f, 4.0f))
 			[
-				SNew(SInlineEditableTextBlock)
+				SAssignNew(NameEditableTextBox, SInlineEditableTextBlock)
 				.Text(this, &STypefaceEntryEditor::GetTypefaceEntryName)
 				.ToolTipText(LOCTEXT("FontNameTooltip", "The name of this font within the font family (click to edit)"))
 				.OnTextCommitted(this, &STypefaceEntryEditor::OnTypefaceEntryNameCommitted)
@@ -597,9 +616,9 @@ void STypefaceEntryEditor::Construct(const FArguments& InArgs)
 					.ForegroundColor(FSlateColor::UseForeground())
 					.IsFocusable(false)
 					[
-						SNew(SImage)
-						.Image(FEditorStyle::GetBrush("PropertyWindow.Button_Ellipsis"))
-						.ColorAndOpacity(FSlateColor::UseForeground())
+						SNew(STextBlock)
+						.Font(FEditorStyle::Get().GetFontStyle("FontAwesome.10"))
+						.Text(FEditorFontGlyphs::Folder_Open)
 					]
 				]
 			]
@@ -643,6 +662,15 @@ void STypefaceEntryEditor::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+}
+
+void STypefaceEntryEditor::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	if (TypefaceEntry.IsValid() && TypefaceEntry->bRenameRequested)
+	{
+		TypefaceEntry->bRenameRequested = false;
+		NameEditableTextBox->EnterEditingMode();
+	}
 }
 
 FText STypefaceEntryEditor::GetTypefaceEntryName() const
@@ -722,7 +750,7 @@ FReply STypefaceEntryEditor::OnBrowseTypefaceEntryFontPath()
 			LOCTEXT("FontPickerTitle", "Choose a font file...").ToString(), 
 			DefaultPath, 
 			TEXT(""), 
-			TEXT("TrueType fonts (*.ttf)|*.ttf|OpenType fonts (*.otf)|*.otf"), 
+			TEXT("All Font Files (*.ttf, *.otf)|*.ttf;*.otf|TrueType fonts (*.ttf)|*.ttf|OpenType fonts (*.otf)|*.otf"), 
 			EFileDialogFlags::None, 
 			OutFiles
 			))
@@ -926,6 +954,15 @@ void SSubTypefaceEditor::Construct(const FArguments& InArgs)
 	];
 
 	UpdateCharacterRangesList();
+}
+
+void SSubTypefaceEditor::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+{
+	if (SubTypeface.IsValid() && SubTypeface->bRenameRequested)
+	{
+		SubTypeface->bRenameRequested = false;
+		TypefaceEditor->RequestRename();
+	}
 }
 
 FTypeface* SSubTypefaceEditor::GetTypeface() const
@@ -1227,6 +1264,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SEditableTextBox)
 			.Text(this, &SCharacterRangeEditor::GetRangeComponentAsTCHAR, 0)
 			.OnTextCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsTCHAR, 0)
+			.ToolTipText(LOCTEXT("MinCharacterRangeEditCharTooltip", "Specifies the lower inclusive boundary of this character range as a character value"))
 		]
 
 		+SGridPanel::Slot(0, 1)
@@ -1235,6 +1273,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SEditableTextBox)
 			.Text(this, &SCharacterRangeEditor::GetRangeComponentAsHexString, 0)
 			.OnTextCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsHexString, 0)
+			.ToolTipText(LOCTEXT("MinCharacterRangeEditHexTooltip", "Specifies the lower inclusive boundary of this character range as a hexadecimal value"))
 		]
 
 		+SGridPanel::Slot(0, 2)
@@ -1243,6 +1282,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SNumericEntryBox<int32>)
 			.Value(this, &SCharacterRangeEditor::GetRangeComponentAsOptional, 0)
 			.OnValueCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsNumeric, 0)
+			.ToolTipText(LOCTEXT("MinCharacterRangeEditDecTooltip", "Specifies the lower inclusive boundary of this character range as a decimal value"))
 		]
 
 		// Separator
@@ -1262,6 +1302,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SEditableTextBox)
 			.Text(this, &SCharacterRangeEditor::GetRangeComponentAsTCHAR, 1)
 			.OnTextCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsTCHAR, 1)
+			.ToolTipText(LOCTEXT("MaxCharacterRangeEditCharTooltip", "Specifies the upper inclusive boundary of this character range as a character value"))
 		]
 
 		+SGridPanel::Slot(2, 1)
@@ -1270,6 +1311,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SEditableTextBox)
 			.Text(this, &SCharacterRangeEditor::GetRangeComponentAsHexString, 1)
 			.OnTextCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsHexString, 1)
+			.ToolTipText(LOCTEXT("MaxCharacterRangeEditHexTooltip", "Specifies the upper inclusive boundary of this character range as a hexadecimal value"))
 		]
 
 		+SGridPanel::Slot(2, 2)
@@ -1278,6 +1320,7 @@ void SCharacterRangeEditor::Construct(const FArguments& InArgs)
 			SNew(SNumericEntryBox<int32>)
 			.Value(this, &SCharacterRangeEditor::GetRangeComponentAsOptional, 1)
 			.OnValueCommitted(this, &SCharacterRangeEditor::OnRangeComponentCommittedAsNumeric, 1)
+			.ToolTipText(LOCTEXT("MaxCharacterRangeEditDecTooltip", "Specifies the upper inclusive boundary of this character range as a decimal value"))
 		]
 	];
 }

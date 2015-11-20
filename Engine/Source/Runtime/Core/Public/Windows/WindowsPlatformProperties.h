@@ -64,7 +64,7 @@ struct FWindowsPlatformProperties
 
 	static FORCEINLINE bool SupportsAudioStreaming()
 	{
-		return true;
+		return !IsServerOnly();
 	}
 
 	static FORCEINLINE bool SupportsGrayscaleSRGB()

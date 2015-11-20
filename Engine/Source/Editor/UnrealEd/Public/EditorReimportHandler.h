@@ -60,26 +60,6 @@ public:
 	UNREALED_API virtual void UpdateReimportPaths( UObject* Obj, const TArray<FString>& InFilenames );
 
 	/**
-	 * Convert a file path to be relative to the specified object, if it resides in the same package folder
-	 * 
-	 * @param	InPath Absolute (or relative by cwd) path to the source file
-	 * @param	Obj Object file to make InPath relative to
-	 *
-	 * @return	A path relative to the specified object, BaseDir() or failing that, an absolute path
-	 */
-	UNREALED_API static FString SanitizeImportFilename(const FString& InPath, const UObject* Obj);
-
-	/**
-	 * Take an import filename and resolve it to an absolute filename on disk
-	 * 
-	 * @param	InRelativePath Path relative to the specified file or BaseDir(), or an absolute path
-	 * @param	Obj Object file to make InPath relative to
-	 *
-	 * @return	An absolute path to the import file
-	 */
-	UNREALED_API static FString ResolveImportFilename(const FString& InRelativePath, const UObject* Obj);
-
-	/**
 	 * Gets the delegate that's fired prior to reimporting an asset
 	 *
 	 * @return The event delegate.
@@ -96,9 +76,8 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FPostReimportNotification, UObject*, bool);
 	FPostReimportNotification& OnPostReimport(){ return PostReimport; }
 
-private:
 	/** Opens a file dialog to request a new reimport path */
-	void GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFilenames);
+	UNREALED_API void GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFilenames);
 
 private:
 	/** Reimport handlers registered with this manager */

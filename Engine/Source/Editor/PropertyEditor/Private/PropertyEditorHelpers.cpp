@@ -172,6 +172,22 @@ TSharedRef<SWidget> SPropertyValueWidget::ConstructPropertyEditorWidget( TShared
 
 			NumericWidget->GetDesiredWidth( MinDesiredWidth, MaxDesiredWidth );
 		}
+		else if (SPropertyEditorNumeric<int8>::Supports(PropertyEditorRef))
+		{
+			auto NumericWidget =
+				SAssignNew(PropertyWidget, SPropertyEditorNumeric<int8>, PropertyEditorRef)
+				.Font(FontStyle);
+
+			NumericWidget->GetDesiredWidth(MinDesiredWidth, MaxDesiredWidth);
+		}
+		else if (SPropertyEditorNumeric<int16>::Supports(PropertyEditorRef))
+		{
+			auto NumericWidget =
+				SAssignNew(PropertyWidget, SPropertyEditorNumeric<int16>, PropertyEditorRef)
+				.Font(FontStyle);
+
+			NumericWidget->GetDesiredWidth(MinDesiredWidth, MaxDesiredWidth);
+		}
 		else if ( SPropertyEditorNumeric<int32>::Supports( PropertyEditorRef ) )
 		{
 			auto NumericWidget = 
@@ -180,6 +196,14 @@ TSharedRef<SWidget> SPropertyValueWidget::ConstructPropertyEditorWidget( TShared
 
 			NumericWidget->GetDesiredWidth( MinDesiredWidth, MaxDesiredWidth );
 		}
+		else if (SPropertyEditorNumeric<int64>::Supports(PropertyEditorRef))
+		{
+			auto NumericWidget =
+				SAssignNew(PropertyWidget, SPropertyEditorNumeric<int64>, PropertyEditorRef)
+				.Font(FontStyle);
+
+			NumericWidget->GetDesiredWidth(MinDesiredWidth, MaxDesiredWidth);
+		}
 		else if ( SPropertyEditorNumeric<uint8>::Supports( PropertyEditorRef ) )
 		{
 			auto NumericWidget = 
@@ -187,6 +211,30 @@ TSharedRef<SWidget> SPropertyValueWidget::ConstructPropertyEditorWidget( TShared
 				.Font( FontStyle );
 
 			NumericWidget->GetDesiredWidth( MinDesiredWidth, MaxDesiredWidth );
+		}
+		else if (SPropertyEditorNumeric<uint16>::Supports(PropertyEditorRef))
+		{
+			auto NumericWidget =
+				SAssignNew(PropertyWidget, SPropertyEditorNumeric<uint16>, PropertyEditorRef)
+				.Font(FontStyle);
+
+			NumericWidget->GetDesiredWidth(MinDesiredWidth, MaxDesiredWidth);
+		}
+		else if (SPropertyEditorNumeric<uint32>::Supports(PropertyEditorRef))
+		{
+			auto NumericWidget =
+				SAssignNew(PropertyWidget, SPropertyEditorNumeric<uint32>, PropertyEditorRef)
+				.Font(FontStyle);
+
+			NumericWidget->GetDesiredWidth(MinDesiredWidth, MaxDesiredWidth);
+		}
+		else if (SPropertyEditorNumeric<uint64>::Supports(PropertyEditorRef))
+		{
+			auto NumericWidget =
+				SAssignNew(PropertyWidget, SPropertyEditorNumeric<uint64>, PropertyEditorRef)
+				.Font(FontStyle);
+
+			NumericWidget->GetDesiredWidth(MinDesiredWidth, MaxDesiredWidth);
 		}
 		else if ( SPropertyEditorCombo::Supports( PropertyEditorRef ) )
 		{

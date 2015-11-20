@@ -17,7 +17,7 @@
 // 0 : fastest (speculars leak in SSSSS)
 // 1 : luminance specular works well (needs 64bit SceneColor, stores luminance of specular in alpha, can be optimized further in LightAccumulator_Add() ) 
 // 2 : colored specular works well (best, requires another RT for light accumulation)
-#define SUBSURFACE_CHANNEL_MODE 1
+#define SUBSURFACE_CHANNEL_MODE 0
 
 struct FLightAccumulator
 {

@@ -15,6 +15,93 @@
 /** Whether to allow the indirect lighting cache to be applied to dynamic objects. */
 extern int32 GIndirectLightingCache;
 
+/** Whether some GBuffer targets are optionnal. */
+extern bool UseSelectiveBasePassOutputs();
+
+/** Parameters needed for looking up into translucency lighting volumes. */
+class FTranslucentLightingVolumeParameters
+{
+public:
+
+	void Bind(const FShaderParameterMap& ParameterMap)
+	{
+		TranslucencyLightingVolumeAmbientInner.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientInner"));
+		TranslucencyLightingVolumeAmbientInnerSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientInnerSampler"));
+		TranslucencyLightingVolumeAmbientOuter.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientOuter"));
+		TranslucencyLightingVolumeAmbientOuterSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientOuterSampler"));
+		TranslucencyLightingVolumeDirectionalInner.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalInner"));
+		TranslucencyLightingVolumeDirectionalInnerSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalInnerSampler"));
+		TranslucencyLightingVolumeDirectionalOuter.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalOuter"));
+		TranslucencyLightingVolumeDirectionalOuterSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalOuterSampler"));
+	}
+
+	template<typename ShaderRHIParamRef>
+	void Set(FRHICommandList& RHICmdList, const ShaderRHIParamRef& ShaderRHI)
+	{
+		if (TranslucencyLightingVolumeAmbientInner.IsBound())
+		{
+			FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+
+			SetTextureParameter(
+				RHICmdList, 
+				ShaderRHI, 
+				TranslucencyLightingVolumeAmbientInner, 
+				TranslucencyLightingVolumeAmbientInnerSampler, 
+				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
+				SceneContext.GetTranslucencyVolumeAmbient(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture);
+
+			SetTextureParameter(
+				RHICmdList, 
+				ShaderRHI, 
+				TranslucencyLightingVolumeAmbientOuter, 
+				TranslucencyLightingVolumeAmbientOuterSampler, 
+				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
+				SceneContext.GetTranslucencyVolumeAmbient(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture);
+
+			SetTextureParameter(
+				RHICmdList, 
+				ShaderRHI, 
+				TranslucencyLightingVolumeDirectionalInner, 
+				TranslucencyLightingVolumeDirectionalInnerSampler, 
+				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
+				SceneContext.GetTranslucencyVolumeDirectional(TVC_Inner)->GetRenderTargetItem().ShaderResourceTexture);
+
+			SetTextureParameter(
+				RHICmdList, 
+				ShaderRHI, 
+				TranslucencyLightingVolumeDirectionalOuter, 
+				TranslucencyLightingVolumeDirectionalOuterSampler, 
+				TStaticSamplerState<SF_Bilinear, AM_Clamp, AM_Clamp, AM_Clamp>::GetRHI(), 
+				SceneContext.GetTranslucencyVolumeDirectional(TVC_Outer)->GetRenderTargetItem().ShaderResourceTexture);
+		}
+	}
+
+	/** Serializer. */
+	friend FArchive& operator<<(FArchive& Ar,FTranslucentLightingVolumeParameters& P)
+	{
+		Ar << P.TranslucencyLightingVolumeAmbientInner;
+		Ar << P.TranslucencyLightingVolumeAmbientInnerSampler;
+		Ar << P.TranslucencyLightingVolumeAmbientOuter;
+		Ar << P.TranslucencyLightingVolumeAmbientOuterSampler;
+		Ar << P.TranslucencyLightingVolumeDirectionalInner;
+		Ar << P.TranslucencyLightingVolumeDirectionalInnerSampler;
+		Ar << P.TranslucencyLightingVolumeDirectionalOuter;
+		Ar << P.TranslucencyLightingVolumeDirectionalOuterSampler;
+		return Ar;
+	}
+
+private:
+
+	FShaderResourceParameter TranslucencyLightingVolumeAmbientInner;
+	FShaderResourceParameter TranslucencyLightingVolumeAmbientInnerSampler;
+	FShaderResourceParameter TranslucencyLightingVolumeAmbientOuter;
+	FShaderResourceParameter TranslucencyLightingVolumeAmbientOuterSampler;
+	FShaderResourceParameter TranslucencyLightingVolumeDirectionalInner;
+	FShaderResourceParameter TranslucencyLightingVolumeDirectionalInnerSampler;
+	FShaderResourceParameter TranslucencyLightingVolumeDirectionalOuter;
+	FShaderResourceParameter TranslucencyLightingVolumeDirectionalOuterSampler;
+};
+
 /**
  * The base shader type for vertex shaders that render the emissive color, and light-mapped/ambient lighting of a mesh.
  * The base type is shared between the versions with and without atmospheric fog.
@@ -31,6 +118,7 @@ protected:
 		LightMapPolicyType::VertexParametersType::Bind(Initializer.ParameterMap);
 		HeightFogParameters.Bind(Initializer.ParameterMap);
 		AtmosphericFogTextureParameters.Bind(Initializer.ParameterMap);
+		TranslucentLightingVolumeParameters.Bind(Initializer.ParameterMap);
 		const bool bOutputsVelocityToGBuffer = FVelocityRendering::OutputsToGBuffer();
 		if (bOutputsVelocityToGBuffer)
 		{
@@ -58,6 +146,7 @@ public:
 		LightMapPolicyType::VertexParametersType::Serialize(Ar);
 		Ar << HeightFogParameters;
 		Ar << AtmosphericFogTextureParameters;
+		Ar << TranslucentLightingVolumeParameters;
 		Ar << PreviousLocalToWorldParameter;
 		Ar << SkipOutputVelocityParameter;
 		return bShaderHasOutdatedParameters;
@@ -80,15 +169,18 @@ public:
 			HeightFogParameters.Set(RHICmdList, GetVertexShader(), &View);
 			AtmosphericFogTextureParameters.Set(RHICmdList, GetVertexShader(), View);
 		}
+
+		TranslucentLightingVolumeParameters.Set(RHICmdList, GetVertexShader());
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement);
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy, const FMeshBatch& Mesh, const FMeshBatchElement& BatchElement, float DitheredLODTransitionValue);
 
 private:
 	
 	/** The parameters needed to calculate the fog contribution from height fog layers. */
 	FHeightFogShaderParameters HeightFogParameters;
 	FAtmosphereShaderTextureParameters AtmosphericFogTextureParameters;
+	FTranslucentLightingVolumeParameters TranslucentLightingVolumeParameters;
 	// When outputting from base pass, the previous transform
 	FShaderParameter PreviousLocalToWorldParameter;
 	FShaderParameter SkipOutputVelocityParameter;
@@ -211,27 +303,35 @@ public:
 	{
 		SkyLightCubemap.Bind(ParameterMap, TEXT("SkyLightCubemap"));
 		SkyLightCubemapSampler.Bind(ParameterMap, TEXT("SkyLightCubemapSampler"));
+		SkyLightBlendDestinationCubemap.Bind(ParameterMap, TEXT("SkyLightBlendDestinationCubemap"));
+		SkyLightBlendDestinationCubemapSampler.Bind(ParameterMap, TEXT("SkyLightBlendDestinationCubemapSampler"));
 		SkyLightParameters.Bind(ParameterMap, TEXT("SkyLightParameters"));
 	}
 
 	template<typename TParamRef>
 	void SetParameters(FRHICommandList& RHICmdList, const TParamRef& ShaderRHI, const FScene* Scene, bool bApplySkyLight)
 	{
-		FTexture* SkyLightTextureResource = GBlackTextureCube;
-		float ApplySkyLightMask = 0;
-		float SkyMipCount = 1;
-		bool bSkyLightIsDynamic = false;
+		if (SkyLightCubemap.IsBound() || SkyLightBlendDestinationCubemap.IsBound() || SkyLightParameters.IsBound())
+		{
+			FTexture* SkyLightTextureResource = GBlackTextureCube;
+			FTexture* SkyLightBlendDestinationTextureResource = GBlackTextureCube;
+			float ApplySkyLightMask = 0;
+			float SkyMipCount = 1;
+			float BlendFraction = 0;
+			bool bSkyLightIsDynamic = false;
 
-		GetSkyParametersFromScene(Scene, bApplySkyLight, SkyLightTextureResource, ApplySkyLightMask, SkyMipCount, bSkyLightIsDynamic);
+			GetSkyParametersFromScene(Scene, bApplySkyLight, SkyLightTextureResource, SkyLightBlendDestinationTextureResource, ApplySkyLightMask, SkyMipCount, bSkyLightIsDynamic, BlendFraction);
 
-		SetTextureParameter(RHICmdList, ShaderRHI, SkyLightCubemap, SkyLightCubemapSampler, SkyLightTextureResource);
-		const FVector SkyParametersValue(SkyMipCount - 1.0f, ApplySkyLightMask, bSkyLightIsDynamic ? 1.0f : 0.0f);
-		SetShaderValue(RHICmdList, ShaderRHI, SkyLightParameters, SkyParametersValue);
+			SetTextureParameter(RHICmdList, ShaderRHI, SkyLightCubemap, SkyLightCubemapSampler, SkyLightTextureResource);
+			SetTextureParameter(RHICmdList, ShaderRHI, SkyLightBlendDestinationCubemap, SkyLightBlendDestinationCubemapSampler, SkyLightBlendDestinationTextureResource);
+			const FVector4 SkyParametersValue(SkyMipCount - 1.0f, ApplySkyLightMask, bSkyLightIsDynamic ? 1.0f : 0.0f, BlendFraction);
+			SetShaderValue(RHICmdList, ShaderRHI, SkyLightParameters, SkyParametersValue);
+		}
 	}
 
 	friend FArchive& operator<<(FArchive& Ar,FSkyLightReflectionParameters& P)
 	{
-		Ar << P.SkyLightCubemap << P.SkyLightCubemapSampler << P.SkyLightParameters;
+		Ar << P.SkyLightCubemap << P.SkyLightCubemapSampler << P.SkyLightParameters << P.SkyLightBlendDestinationCubemap << P.SkyLightBlendDestinationCubemapSampler;
 		return Ar;
 	}
 
@@ -239,9 +339,19 @@ private:
 
 	FShaderResourceParameter SkyLightCubemap;
 	FShaderResourceParameter SkyLightCubemapSampler;
+	FShaderResourceParameter SkyLightBlendDestinationCubemap;
+	FShaderResourceParameter SkyLightBlendDestinationCubemapSampler;
 	FShaderParameter SkyLightParameters;
 
-	void GetSkyParametersFromScene(const FScene* Scene, bool bApplySkyLight, FTexture*& OutSkyLightTextureResource, float& OutApplySkyLightMask, float& OutSkyMipCount, bool& bSkyLightIsDynamic);
+	void GetSkyParametersFromScene(
+		const FScene* Scene, 
+		bool bApplySkyLight, 
+		FTexture*& OutSkyLightTextureResource, 
+		FTexture*& OutSkyLightBlendDestinationTextureResource, 
+		float& OutApplySkyLightMask, 
+		float& OutSkyMipCount, 
+		bool& bSkyLightIsDynamic, 
+		float& OutBlendFraction);
 };
 
 /** Parameters needed for lighting translucency, shared by multiple shaders. */
@@ -251,20 +361,14 @@ public:
 
 	void Bind(const FShaderParameterMap& ParameterMap)
 	{
-		TranslucencyLightingVolumeAmbientInner.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientInner"));
-		TranslucencyLightingVolumeAmbientInnerSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientInnerSampler"));
-		TranslucencyLightingVolumeAmbientOuter.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientOuter"));
-		TranslucencyLightingVolumeAmbientOuterSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeAmbientOuterSampler"));
-		TranslucencyLightingVolumeDirectionalInner.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalInner"));
-		TranslucencyLightingVolumeDirectionalInnerSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalInnerSampler"));
-		TranslucencyLightingVolumeDirectionalOuter.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalOuter"));
-		TranslucencyLightingVolumeDirectionalOuterSampler.Bind(ParameterMap, TEXT("TranslucencyLightingVolumeDirectionalOuterSampler"));
+		TranslucentLightingVolumeParameters.Bind(ParameterMap);
 		ReflectionCubemap.Bind(ParameterMap, TEXT("ReflectionCubemap"));
 		ReflectionCubemapSampler.Bind(ParameterMap, TEXT("ReflectionCubemapSampler"));
 		CubemapArrayIndex.Bind(ParameterMap, TEXT("CubemapArrayIndex"));
 		SkyLightReflectionParameters.Bind(ParameterMap);
 		HZBTexture.Bind(ParameterMap, TEXT("HZBTexture"));
 		HZBSampler.Bind(ParameterMap, TEXT("HZBSampler"));
+		HZBUvFactorAndInvFactor.Bind(ParameterMap, TEXT("HZBUvFactorAndInvFactor"));
 		PrevSceneColor.Bind(ParameterMap, TEXT("PrevSceneColor"));
 		PrevSceneColorSampler.Bind(ParameterMap, TEXT("PrevSceneColorSampler"));
 	}
@@ -276,20 +380,14 @@ public:
 	/** Serializer. */
 	friend FArchive& operator<<(FArchive& Ar,FTranslucentLightingParameters& P)
 	{
-		Ar << P.TranslucencyLightingVolumeAmbientInner;
-		Ar << P.TranslucencyLightingVolumeAmbientInnerSampler;
-		Ar << P.TranslucencyLightingVolumeAmbientOuter;
-		Ar << P.TranslucencyLightingVolumeAmbientOuterSampler;
-		Ar << P.TranslucencyLightingVolumeDirectionalInner;
-		Ar << P.TranslucencyLightingVolumeDirectionalInnerSampler;
-		Ar << P.TranslucencyLightingVolumeDirectionalOuter;
-		Ar << P.TranslucencyLightingVolumeDirectionalOuterSampler;
+		Ar << P.TranslucentLightingVolumeParameters;
 		Ar << P.ReflectionCubemap;
 		Ar << P.ReflectionCubemapSampler;
 		Ar << P.CubemapArrayIndex;
 		Ar << P.SkyLightReflectionParameters;
 		Ar << P.HZBTexture;
 		Ar << P.HZBSampler;
+		Ar << P.HZBUvFactorAndInvFactor;
 		Ar << P.PrevSceneColor;
 		Ar << P.PrevSceneColorSampler;
 		return Ar;
@@ -297,20 +395,14 @@ public:
 
 private:
 
-	FShaderResourceParameter TranslucencyLightingVolumeAmbientInner;
-	FShaderResourceParameter TranslucencyLightingVolumeAmbientInnerSampler;
-	FShaderResourceParameter TranslucencyLightingVolumeAmbientOuter;
-	FShaderResourceParameter TranslucencyLightingVolumeAmbientOuterSampler;
-	FShaderResourceParameter TranslucencyLightingVolumeDirectionalInner;
-	FShaderResourceParameter TranslucencyLightingVolumeDirectionalInnerSampler;
-	FShaderResourceParameter TranslucencyLightingVolumeDirectionalOuter;
-	FShaderResourceParameter TranslucencyLightingVolumeDirectionalOuterSampler;
+	FTranslucentLightingVolumeParameters TranslucentLightingVolumeParameters;
 	FShaderResourceParameter ReflectionCubemap;
 	FShaderResourceParameter ReflectionCubemapSampler;
 	FShaderParameter CubemapArrayIndex;
 	FSkyLightReflectionParameters SkyLightReflectionParameters;
 	FShaderResourceParameter HZBTexture;
 	FShaderResourceParameter HZBSampler;
+	FShaderParameter HZBUvFactorAndInvFactor;
 	FShaderResourceParameter PrevSceneColor;
 	FShaderResourceParameter PrevSceneColorSampler;
 };
@@ -379,14 +471,19 @@ public:
 				{
 					check(GetUniformBufferParameter<FForwardLightData>().IsInitialized());
 
-					if(GetUniformBufferParameter<FForwardLightData>().IsBound())
+					static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ForwardLighting"));
+					bool bForwardLighting = CVar->GetValueOnRenderThread() != 0;
+
+					if(bForwardLighting)
 					{
 						SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FForwardLightData>(),View->ForwardLightData);
+						SetSRVParameter(RHICmdList, ShaderRHI, LightGrid, GLightGridVertexBuffer.VertexBufferSRV);
 					}
-
-					if(LightGrid.IsBound())
+					else
 					{
-						RHICmdList.SetShaderResourceViewParameter(ShaderRHI, LightGrid.GetBaseIndex(), GLightGridVertexBuffer.VertexBufferSRV);
+						// feature is disabled
+						SetUniformBufferParameter(RHICmdList, ShaderRHI,GetUniformBufferParameter<FForwardLightData>(), 0);
+						SetSRVParameter(RHICmdList, ShaderRHI, LightGrid, 0);
 					}
 				}
 			}
@@ -395,7 +492,7 @@ public:
 		EditorCompositeParams.SetParameters(RHICmdList, MaterialResource, View, bEnableEditorPrimitveDepthTest, GetPixelShader());
 	}
 
-	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, EBlendMode BlendMode);
+	void SetMesh(FRHICommandList& RHICmdList, const FVertexFactory* VertexFactory,const FSceneView& View,const FPrimitiveSceneProxy* Proxy,const FMeshBatchElement& BatchElement, EBlendMode BlendMode, float DitheredLODTransitionValue);
 
 	virtual bool Serialize(FArchive& Ar) override
 	{
@@ -484,7 +581,8 @@ public:
 		bool bInEnableAtmosphericFog,
 		bool bOverrideWithShaderComplexity = false,
 		bool bInAllowGlobalFog = false,
-		bool bInEnableEditorPrimitiveDepthTest = false
+		bool bInEnableEditorPrimitiveDepthTest = false,
+		bool bInEnableReceiveDecalOutput = false
 		):
 		FMeshDrawingPolicy(InVertexFactory,InMaterialRenderProxy,InMaterialResource,bOverrideWithShaderComplexity),
 		LightMapPolicy(InLightMapPolicy),
@@ -493,7 +591,8 @@ public:
 		bAllowGlobalFog(bInAllowGlobalFog),
 		bEnableSkyLight(bInEnableSkyLight),
 		bEnableEditorPrimitiveDepthTest(bInEnableEditorPrimitiveDepthTest),
-		bEnableAtmosphericFog(bInEnableAtmosphericFog)
+		bEnableAtmosphericFog(bInEnableAtmosphericFog),
+		bEnableReceiveDecalOutput(bInEnableReceiveDecalOutput)
 	{
 		HullShader = NULL;
 		DomainShader = NULL;
@@ -649,6 +748,7 @@ public:
 		const FMeshBatch& Mesh,
 		int32 BatchElementIndex,
 		bool bBackFace,
+		float DitheredLODTransitionValue,
 		const ElementDataType& ElementData,
 		const ContextDataType PolicyContext
 		) const
@@ -667,12 +767,12 @@ public:
 			ElementData.LightMapElementData);
 
 		const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
-		VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy, Mesh,BatchElement);
+		VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy, Mesh,BatchElement,DitheredLODTransitionValue);
 		
 		if(HullShader && DomainShader)
 		{
-			HullShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement);
-			DomainShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement);
+			HullShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DitheredLODTransitionValue);
+			DomainShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DitheredLODTransitionValue);
 		}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -694,10 +794,23 @@ public:
 		else
 #endif
 		{
-			PixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,BlendMode);
+			PixelShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,BlendMode,DitheredLODTransitionValue);
 		}
 
-		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,FMeshDrawingPolicy::ElementDataType(),PolicyContext);
+		if (bEnableReceiveDecalOutput)
+		{
+			// we hash the stencil group because we only have 6 bits.
+			const uint8 StencilValue = GET_STENCIL_BIT_MASK(RECEIVE_DECAL, PrimitiveSceneProxy ? !!PrimitiveSceneProxy->ReceivesDecals() : 0x00);
+
+			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<
+				true, CF_GreaterEqual,
+				true, CF_Always, SO_Keep, SO_Keep, SO_Replace,
+				false, CF_Always, SO_Keep, SO_Keep, SO_Keep,
+				0xFF, GET_STENCIL_BIT_MASK(RECEIVE_DECAL, 1)
+			>::GetRHI(), StencilValue);
+		}
+
+		FMeshDrawingPolicy::SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace, DitheredLODTransitionValue,FMeshDrawingPolicy::ElementDataType(),PolicyContext);
 	}
 
 	friend int32 CompareDrawingPolicy(const TBasePassDrawingPolicy& A,const TBasePassDrawingPolicy& B)
@@ -711,6 +824,7 @@ public:
 		COMPAREDRAWINGPOLICYMEMBERS(SceneTextureMode);
 		COMPAREDRAWINGPOLICYMEMBERS(bAllowGlobalFog);
 		COMPAREDRAWINGPOLICYMEMBERS(bEnableSkyLight);
+		COMPAREDRAWINGPOLICYMEMBERS(bEnableReceiveDecalOutput);
 
 		return CompareDrawingPolicy(A.LightMapPolicy,B.LightMapPolicy);
 	}
@@ -734,6 +848,9 @@ protected:
 	uint32 bEnableEditorPrimitiveDepthTest : 1;
 	/** Whether or not this policy enables atmospheric fog */
 	uint32 bEnableAtmosphericFog : 1;
+
+	/** Whether or not outputing the receive decal boolean */
+	uint32 bEnableReceiveDecalOutput : 1;
 };
 
 /**
@@ -920,13 +1037,15 @@ void ProcessBasePassMesh(
 							{
 								const FIndirectLightingCacheAllocation* IndirectLightingCacheAllocation = Parameters.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->IndirectLightingCacheAllocation;
 								const bool bPrimitiveIsMovable = Parameters.PrimitiveSceneProxy->IsMovable();
+								const bool bPrimitiveUsesILC = Parameters.PrimitiveSceneProxy->GetIndirectLightingCacheQuality() != ILCQ_Off;								
 
 								// Use the indirect lighting cache shaders if the object has a cache allocation
 								// This happens for objects with unbuilt lighting
-								if ((IndirectLightingCacheAllocation && IndirectLightingCacheAllocation->IsValid())
+								if (bPrimitiveUsesILC &&
+									((IndirectLightingCacheAllocation && IndirectLightingCacheAllocation->IsValid())
 									// Use the indirect lighting cache shaders if the object is movable, it may not have a cache allocation yet because that is done in InitViews
 									// And movable objects are sometimes rendered in the static draw lists
-									|| bPrimitiveIsMovable)
+									|| bPrimitiveIsMovable))
 								{
 									if (CanIndirectLightingCacheUseVolumeTexture(Parameters.FeatureLevel) 
 										// Translucency forces point sample for pixel performance

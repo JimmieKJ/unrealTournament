@@ -2,70 +2,100 @@
 
 #pragma once
 
-#include "IMovieScenePlayer.h"
+#include "MovieSceneSequence.h"
+#include "WidgetAnimationBinding.h"
 #include "WidgetAnimation.generated.h"
 
+
 class UMovieScene;
-class UWidgetTree;
+class UUserWidget;
 
-/** A single object bound to a umg sequence */
-USTRUCT()
-struct FWidgetAnimationBinding
-{
-	GENERATED_USTRUCT_BODY()
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnWidgetAnimationPlaybackStatusChanged);
 
-	UPROPERTY()
-	FName WidgetName;
-
-	UPROPERTY()
-	FName SlotWidgetName;
-
-	UPROPERTY()
-	FGuid AnimationGuid;
-
-public:
-	/**
-	 * Locates a runtime object to animate from the provided tree of widgets
-	 * @return the runtime object to animate or null if not found 
-	 */
-	UMG_API UObject* FindRuntimeObject(UWidgetTree& WidgetTree) const;
-
-	bool operator==(const FWidgetAnimationBinding& Other) const
-	{
-		return WidgetName == Other.WidgetName && SlotWidgetName == Other.SlotWidgetName && AnimationGuid == Other.AnimationGuid;
-	}
-
-	friend FArchive& operator<<(FArchive& Ar, FWidgetAnimationBinding& Binding)
-	{
-		Ar << Binding.WidgetName;
-		Ar << Binding.SlotWidgetName;
-		Ar << Binding.AnimationGuid;
-		return Ar;
-	}
-};
-
-
-UCLASS(MinimalAPI)
-class UWidgetAnimation : public UObject
+UCLASS(BlueprintType, MinimalAPI)
+class UWidgetAnimation
+	: public UMovieSceneSequence
 {
 	GENERATED_UCLASS_BODY()
 
 public:
 
 #if WITH_EDITOR
+	/**
+	 * Get a placeholder animation.
+	 *
+	 * @return Placeholder animation.
+	 */
 	static UMG_API UWidgetAnimation* GetNullAnimation();
 #endif
 
+	/**
+	 * Get the start time of this animation.
+	 *
+	 * @return Start time in seconds.
+	 * @see GetEndTime
+	 */
 	UFUNCTION(BlueprintCallable, Category="Animation")
 	UMG_API float GetStartTime() const;
 
+	/**
+	 * Get the end time of this animation.
+	 *
+	 * @return End time in seconds.
+	 * @see GetStartTime
+	 */
 	UFUNCTION(BlueprintCallable, Category="Animation")
 	UMG_API float GetEndTime() const;
 
+	/** Fires when the widget animation starts playing. */
+	UPROPERTY(BlueprintAssignable, Category="Animation")
+	FOnWidgetAnimationPlaybackStatusChanged OnAnimationStarted;
+
+	/** Fires when the widget animation is finished. */
+	UPROPERTY(BlueprintAssignable, Category="Animation")
+	FOnWidgetAnimationPlaybackStatusChanged OnAnimationFinished;
+
+	/**
+	 * Initialize the animation with a new user widget.
+	 *
+	 * @param InPreviewWidget The user widget to preview.
+	 */
+	UMG_API void Initialize(UUserWidget* InPreviewWidget);
+
 public:
+
+	// UMovieSceneAnimation overrides
+
+	virtual void BindPossessableObject(const FGuid& ObjectId, UObject& PossessedObject) override;
+	virtual bool CanPossessObject(UObject& Object) const override;
+	virtual UObject* FindObject(const FGuid& ObjectId) const override;
+	virtual FGuid FindObjectId(UObject& Object) const override;
+	virtual UMovieScene* GetMovieScene() const override;
+	virtual UObject* GetParentObject(UObject* Object) const override;
+	virtual void UnbindPossessableObjects(const FGuid& ObjectId) override;
+
+#if WITH_EDITOR
+	virtual bool TryGetObjectDisplayName(const FGuid& ObjectId, FText& OutDisplayName) const override;
+#endif
+
+	const TArray<FWidgetAnimationBinding>& GetBindings() const { return AnimationBindings; }
+public:
+
+	/** Pointer to the movie scene that controls this animation. */
 	UPROPERTY()
 	UMovieScene* MovieScene;
 
 	UPROPERTY()
 	TArray<FWidgetAnimationBinding> AnimationBindings;
+
+private:
+
+	/** The current preview widget, if any. */
+	TWeakObjectPtr<UUserWidget> PreviewWidget;
+
+	/** Mapping of preview objects to sequencer GUIDs */
+	TMultiMap<FGuid, TWeakObjectPtr<UObject>> IdToPreviewObjects;
+	TMultiMap<FGuid, TWeakObjectPtr<UObject>> IdToSlotContentPreviewObjects;
+	TMap<TWeakObjectPtr<UObject>, FGuid> PreviewObjectToIds;
+	TMap<TWeakObjectPtr<UObject>, FGuid> SlotContentPreviewObjectToIds;
 };

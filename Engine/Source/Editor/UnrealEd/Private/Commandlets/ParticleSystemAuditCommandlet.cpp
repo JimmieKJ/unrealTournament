@@ -7,7 +7,12 @@
 #include "Runtime/Engine/Classes/Particles/Color/ParticleModuleColorScaleOverLife.h"
 #include "Runtime/Engine/Classes/Particles/Collision/ParticleModuleCollision.h"
 #include "Runtime/Engine/Classes/Particles/Spawn/ParticleModuleSpawn.h"
+#include "Runtime/Engine/Classes/Particles/Spawn/ParticleModuleSpawnPerUnit.h"
+#include "Runtime/Engine/Classes/Particles/TypeData/ParticleModuleTypeDataRibbon.h"
+#include "Runtime/Engine/Classes/Particles/TypeData/ParticleModuleTypeDataBeam2.h"
+#include "Runtime/Engine/Classes/Particles/TypeData/ParticleModuleTypeDataAnimTrail.h"
 #include "Runtime/AssetRegistry/Public/AssetRegistryModule.h"
+#include "CollectionManagerModule.h"
 #include "Particles/ParticleLODLevel.h"
 #include "Distributions/DistributionFloatConstant.h"
 #include "Distributions/DistributionVectorConstant.h"
@@ -32,6 +37,8 @@ int32 UParticleSystemAuditCommandlet::Main(const FString& Params)
 	// Add a timestamp to the folder
 	AuditOutputFolder /= FDateTime::Now().ToString();
 
+	FParse::Value(*Params, TEXT("FilterCollection="), FilterCollection);
+
 	ProcessParticleSystems();
 	DumpResults();
 
@@ -40,12 +47,20 @@ int32 UParticleSystemAuditCommandlet::Main(const FString& Params)
 
 bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 {
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::GetModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 	AssetRegistry.SearchAllAssets(true);
 
+	FARFilter Filter;
+	Filter.ClassNames.Add(UParticleSystem::StaticClass()->GetFName());
+	if (!FilterCollection.IsEmpty())
+	{
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+		CollectionManagerModule.Get().GetObjectsInCollection(FName(*FilterCollection), ECollectionShareType::CST_All, Filter.ObjectPaths, ECollectionRecursionFlags::SelfAndChildren);
+	}
+
 	TArray<FAssetData> AssetList;
-	AssetRegistry.GetAssetsByClass(UParticleSystem::StaticClass()->GetFName(), AssetList);
+	AssetRegistry.GetAssets(Filter, AssetList);
 
 	double StartProcessParticleSystemsTime = FPlatformTime::Seconds();
 
@@ -95,8 +110,10 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 			bool bSingleLOD = false;
 			bool bFoundEmitter = false;
 			bool bMissingMaterial = false;
-			bool bHasCollisionEnabled = false;
 			bool bHasHighSpawnRateOrBurst = false;
+			bool bHasRibbonTrailOrBeam = false;
+			bool bHasOnlyBeamsOrHasNoEmitters = true;
+			bool bHasSpawnPerUnit = false;
 			for (int32 EmitterIdx = 0; EmitterIdx < PSys->Emitters.Num(); EmitterIdx++)
 			{
 				UParticleEmitter* Emitter = PSys->Emitters[EmitterIdx];
@@ -124,18 +141,23 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 								}
 							}
 
+							if (Cast<UParticleModuleTypeDataRibbon>(LODLevel->TypeDataModule) ||
+								Cast<UParticleModuleTypeDataBeam2>(LODLevel->TypeDataModule) ||
+								Cast<UParticleModuleTypeDataAnimTrail>(LODLevel->TypeDataModule))
+							{
+								bHasRibbonTrailOrBeam = true;
+							}
+
+							if (!Cast<UParticleModuleTypeDataBeam2>(LODLevel->TypeDataModule))
+							{
+								bHasOnlyBeamsOrHasNoEmitters = false;
+							}
+
 							for (int32 ModuleIdx = 0; ModuleIdx < LODLevel->Modules.Num(); ModuleIdx++)
 							{
 								UParticleModule* Module = LODLevel->Modules[ModuleIdx];
 
-								if ( UParticleModuleCollision* CollisionModule = Cast<UParticleModuleCollision>(Module) )
-								{
-									if (CollisionModule->bEnabled == true)
-									{
-										bHasCollisionEnabled = true;
-									}
-								}
-								else if (UParticleModuleSpawn* SpawnModule = Cast<UParticleModuleSpawn>(Module))
+								if (UParticleModuleSpawn* SpawnModule = Cast<UParticleModuleSpawn>(Module))
 								{
 									if ( !bHasHighSpawnRateOrBurst )
 									{
@@ -156,6 +178,10 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 										}
 									}
 								}
+								else if (Cast<UParticleModuleSpawnPerUnit>(Module) != nullptr)
+								{
+									bHasSpawnPerUnit = true;
+								}
 							}
 						}
 					}
@@ -169,13 +195,19 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 			}
 
 			// Note all PSystems w/ a far LOD distance...
+			bool bAtLeastOneLODUnderFarDistanceThresholdOrEmpty = (PSys->LODDistances.Num() == 0);
 			for ( float LODDistance : PSys->LODDistances )
 			{
-				if (LODDistance > FarLODDistanceTheshold)
+				if (LODDistance <= FarLODDistanceTheshold)
 				{
-					ParticleSystemsWithFarLODDistance.Add(PSys->GetPathName());
+					bAtLeastOneLODUnderFarDistanceThresholdOrEmpty = true;
 					break;
 				}
+			}
+
+			if (!bAtLeastOneLODUnderFarDistanceThresholdOrEmpty)
+			{
+				ParticleSystemsWithFarLODDistance.Add(PSys->GetPathName());
 			}
 
 			// Note all PSystems w/ no emitters...
@@ -190,25 +222,19 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 				ParticleSystemsWithMissingMaterials.Add(PSys->GetPathName());
 			}
 
-			// Note all PSystems that have at least one emitter w/ an enabled collision module...
-			if (bHasCollisionEnabled == true)
-			{
-				ParticleSystemsWithCollisionEnabled.Add(PSys->GetPathName());
-			}
-
 			// Note all 0 LOD case PSystems...
 			if (bInvalidLOD == true)
 			{
 				ParticleSystemsWithNoLODs.Add(PSys->GetPathName());
 			}
 			// Note all single LOD case PSystems...
-			if (bSingleLOD == true)
+			if (bSingleLOD == true && !bHasOnlyBeamsOrHasNoEmitters)
 			{
 				ParticleSystemsWithSingleLOD.Add(PSys->GetPathName());
 			}
 
-			// Note all non-fixed bound PSystems...
-			if (PSys->bUseFixedRelativeBoundingBox == false)
+			// Note all non-fixed bound PSystems, unless there is a ribbon, trail, or beam emitter, OR if we have a SpawnPerUnit module since it is often used in tail effects...
+			if (PSys->bUseFixedRelativeBoundingBox == false && !bHasRibbonTrailOrBeam && !bHasSpawnPerUnit)
 			{
 				ParticleSystemsWithoutFixedBounds.Add(PSys->GetPathName());
 			}
@@ -257,7 +283,7 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 	::CollectGarbage(RF_Native);
 
 	double ProcessParticleSystemsTime = FPlatformTime::Seconds() - StartProcessParticleSystemsTime;
-	UE_LOG(LogParticleSystemAuditCommandlet, Warning, TEXT("Took %5.3f seconds to process referenced particle systems..."), ProcessParticleSystemsTime);
+	UE_LOG(LogParticleSystemAuditCommandlet, Log, TEXT("Took %5.3f seconds to process referenced particle systems..."), ProcessParticleSystemsTime);
 
 	return true;
 }
@@ -272,7 +298,6 @@ void UParticleSystemAuditCommandlet::DumpResults()
 	DumpSimplePSysSet(ParticleSystemsWithBadLODCheckTimes, TEXT("PSysBadLODCheckTimes"));
 	DumpSimplePSysSet(ParticleSystemsWithMissingMaterials, TEXT("PSysMissingMaterial"));
 	DumpSimplePSysSet(ParticleSystemsWithNoEmitters, TEXT("PSysNoEmitters"));
-	DumpSimplePSysSet(ParticleSystemsWithCollisionEnabled, TEXT("PSysCollisionEnabled"));
 	DumpSimplePSysSet(ParticleSystemsWithOrientZAxisTowardCamera, TEXT("PSysOrientZTowardsCamera"));
 	DumpSimplePSysSet(ParticleSystemsWithHighSpawnRateOrBurst, TEXT("PSysHighSpawnRateOrBurst"));
 	DumpSimplePSysSet(ParticleSystemsWithFarLODDistance, TEXT("PSysFarLODDistance"));

@@ -2,24 +2,30 @@
 
 #include "SequencerPrivatePCH.h"
 #include "SCurveEditor.h"
-#include "SequencerSelection.h"
 #include "Sequencer.h"
+#include "TimeSliderController.h"
 
 #define LOCTEXT_NAMESPACE "SequencerCurveEditor"
 
-void SSequencerCurveEditor::Construct( const FArguments& InArgs, TSharedRef<FSequencer> InSequencer )
+void SSequencerCurveEditor::Construct( const FArguments& InArgs, TSharedRef<FSequencer> InSequencer, TSharedRef<ITimeSliderController> InTimeSliderController )
 {
-	ViewRange = InArgs._ViewRange;
 	Sequencer = InSequencer;
-	NodeTreeSelectionChangedHandle = Sequencer.Pin()->GetSelection()->GetOnOutlinerNodeSelectionChanged()->AddSP(this, &SSequencerCurveEditor::NodeTreeSelectionChanged);
-	GetMutableDefault<USequencerSettings>()->GetOnCurveVisibilityChanged()->AddSP( this, &SSequencerCurveEditor::SequencerCurveVisibilityChanged );
+	SequencerSettings = InSequencer->GetSettings();
 
-	ChildSlot
-	[
-		SAssignNew( CurveEditor, SCurveEditor )
-		.ViewMinInput_Lambda( [this]{ return ViewRange.Get().GetLowerBoundValue(); } )
-		.ViewMaxInput_Lambda( [this]{ return ViewRange.Get().GetUpperBoundValue(); } )
+	TimeSliderController = InTimeSliderController;
+	NodeTreeSelectionChangedHandle = Sequencer.Pin()->GetSelection().GetOnOutlinerNodeSelectionChanged().AddSP(this, &SSequencerCurveEditor::NodeTreeSelectionChanged);
+
+	// @todo sequencer: switch to lambda capture expressions when support is introduced?
+	auto ViewRange = InArgs._ViewRange;
+	auto OnViewRangeChanged = InArgs._OnViewRangeChanged;
+
+	SCurveEditor::Construct(
+		SCurveEditor::FArguments()
+		.ViewMinInput_Lambda( [=]{ return ViewRange.Get().GetLowerBoundValue(); } )
+		.ViewMaxInput_Lambda( [=]{ return ViewRange.Get().GetUpperBoundValue(); } )
+		.OnSetInputViewRange_Lambda( [=](float InLowerBound, float InUpperBound){ OnViewRangeChanged.ExecuteIfBound(TRange<float>(InLowerBound, InUpperBound), EViewRangeInterpolation::Immediate); } )
 		.HideUI( false )
+		.ZoomToFitHorizontal( true )
 		.ShowCurveSelector( false )
 		.ShowZoomButtons( false )
 		.ShowInputGridNumbers( false )
@@ -27,9 +33,58 @@ void SSequencerCurveEditor::Construct( const FArguments& InArgs, TSharedRef<FSeq
 		.InputSnap( this, &SSequencerCurveEditor::GetCurveTimeSnapInterval )
 		.OutputSnap( this, &SSequencerCurveEditor::GetCurveValueSnapInterval )
 		.TimelineLength( 0.0f )
-		.ShowCurveToolTips( this, &SSequencerCurveEditor::GetShowCurveEditorCurveToolTips )
 		.GridColor( FLinearColor( 0.3f, 0.3f, 0.3f, 0.3f ) )
-	];
+	);
+
+	GetSettings()->GetOnCurveEditorCurveVisibilityChanged().AddSP(this, &SSequencerCurveEditor::OnCurveEditorCurveVisibilityChanged);
+}
+
+FReply SSequencerCurveEditor::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	// Curve Editor takes precedence
+	FReply Reply = SCurveEditor::OnMouseButtonDown( MyGeometry, MouseEvent );
+	if ( Reply.IsEventHandled() )
+	{
+		return Reply;
+	}
+
+	return TimeSliderController->OnMouseButtonDown( AsShared(), MyGeometry, MouseEvent );
+}
+
+
+FReply SSequencerCurveEditor::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	// Curve Editor takes precedence
+	FReply Reply = SCurveEditor::OnMouseButtonUp( MyGeometry, MouseEvent );
+	if ( Reply.IsEventHandled() )
+	{
+		return Reply;
+	}
+
+	return TimeSliderController->OnMouseButtonUp( AsShared(), MyGeometry, MouseEvent );
+}
+
+
+FReply SSequencerCurveEditor::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	FReply Reply = SCurveEditor::OnMouseMove( MyGeometry, MouseEvent );
+	if ( Reply.IsEventHandled() )
+	{
+		return Reply;
+	}
+
+	return TimeSliderController->OnMouseMove( AsShared(), MyGeometry, MouseEvent );
+}
+
+FReply SSequencerCurveEditor::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	FReply Reply = TimeSliderController->OnMouseWheel( AsShared(), MyGeometry, MouseEvent );
+	if ( Reply.IsEventHandled() )
+	{
+		return Reply;
+	}
+
+	return SCurveEditor::OnMouseWheel( MyGeometry, MouseEvent );
 }
 
 template<class ParentNodeType>
@@ -55,62 +110,124 @@ void SSequencerCurveEditor::SetSequencerNodeTree( TSharedPtr<FSequencerNodeTree>
 
 void SSequencerCurveEditor::UpdateCurveOwner()
 {
-	CurveOwner = MakeShareable( new FSequencerCurveOwner( SequencerNodeTree ) );
-	CurveEditor->SetCurveOwner( CurveOwner.Get() );
+	TSharedRef<FSequencerCurveOwner> NewCurveOwner = MakeShareable( new FSequencerCurveOwner( SequencerNodeTree, GetSettings()->GetCurveVisibility() ) );
+
+	bool bAllFound = false;
+	if (CurveOwner.IsValid())
+	{
+		TSet<FName> NewCurveOwnerCurveNames;
+		for (auto Curve : NewCurveOwner->GetCurves())
+		{
+			NewCurveOwnerCurveNames.Add(Curve.CurveName);
+		}
+
+		TSet<FName> CurveOwnerCurveNames;
+		if (CurveOwner->GetCurves().Num() == NewCurveOwner->GetCurves().Num())
+		{
+			bAllFound = true;
+			for (auto Curve : CurveOwner->GetCurves())
+			{
+				if (!NewCurveOwnerCurveNames.Contains(Curve.CurveName))
+				{
+					bAllFound = false;
+					break;
+				}
+			}
+		}
+	}
+
+	if (!bAllFound)
+	{
+		CurveOwner = NewCurveOwner;
+		SetCurveOwner( CurveOwner.Get() );
+	}
+	
+	UpdateCurveViewModelSelection();
 }
 
 bool SSequencerCurveEditor::GetCurveSnapEnabled() const
 {
-	const USequencerSettings* Settings = GetDefault<USequencerSettings>();
-	return Settings->GetIsSnapEnabled();
+	return SequencerSettings->GetIsSnapEnabled();
 }
 
 float SSequencerCurveEditor::GetCurveTimeSnapInterval() const
 {
-	return GetDefault<USequencerSettings>()->GetSnapKeyTimesToInterval()
-		? GetDefault<USequencerSettings>()->GetTimeSnapInterval()
+	return SequencerSettings->GetSnapKeyTimesToInterval()
+		? SequencerSettings->GetTimeSnapInterval()
 		: 0;
 }
 
 float SSequencerCurveEditor::GetCurveValueSnapInterval() const
 {
-	return GetDefault<USequencerSettings>()->GetSnapCurveValueToInterval()
-		? GetDefault<USequencerSettings>()->GetCurveValueSnapInterval()
+	return SequencerSettings->GetSnapCurveValueToInterval()
+		? SequencerSettings->GetCurveValueSnapInterval()
 		: 0;
-}
-
-bool SSequencerCurveEditor::GetShowCurveEditorCurveToolTips() const
-{
-	return GetDefault<USequencerSettings>()->GetShowCurveEditorCurveToolTips();
 }
 
 void SSequencerCurveEditor::NodeTreeSelectionChanged()
 {
 	if (SequencerNodeTree.IsValid())
 	{
-		if (GetDefault<USequencerSettings>()->GetCurveVisibility() == ESequencerCurveVisibility::SelectedCurves)
+		if (GetSettings()->GetCurveVisibility() == ECurveEditorCurveVisibility::SelectedCurves)
 		{
 			UpdateCurveOwner();
 		}
+
+		if (GetAutoFrame())
+		{
+			ZoomToFit();
+		}
+
+		UpdateCurveViewModelSelection();
 	}
 }
 
-void SSequencerCurveEditor::SequencerCurveVisibilityChanged()
+void SSequencerCurveEditor::UpdateCurveViewModelSelection()
+{
+	ClearSelectedCurveViewModels();
+	for (auto SelectedCurve : CurveOwner->GetSelectedCurves())
+	{
+		SetSelectedCurveViewModel(SelectedCurve);
+	}
+}
+
+void SSequencerCurveEditor::OnCurveEditorCurveVisibilityChanged()
 {
 	UpdateCurveOwner();
 }
 
-TSharedPtr<FUICommandList> SSequencerCurveEditor::GetCommands()
+TArray<FRichCurve*> SSequencerCurveEditor::GetCurvesToFit() const
 {
-	return CurveEditor->GetCommands();
+	TArray<FRichCurve*> FitCurves;
+
+	for(auto CurveViewModel : CurveViewModels)
+	{
+		if (CurveViewModel->bIsVisible)
+		{
+			if (CurveOwner->GetSelectedCurves().Contains(CurveViewModel->CurveInfo.CurveToEdit))
+			{
+				FitCurves.Add(CurveViewModel->CurveInfo.CurveToEdit);
+			}
+		}
+	}
+
+	if (FitCurves.Num() > 0)
+	{
+		return FitCurves;
+	}
+
+	return SCurveEditor::GetCurvesToFit();
 }
+
 
 SSequencerCurveEditor::~SSequencerCurveEditor()
 {
 	if ( Sequencer.IsValid() )
 	{
-		Sequencer.Pin()->GetSelection()->GetOnOutlinerNodeSelectionChanged()->Remove( NodeTreeSelectionChangedHandle );
+		Sequencer.Pin()->GetSelection().GetOnOutlinerNodeSelectionChanged().Remove( NodeTreeSelectionChangedHandle );
 	}
+
+	GetSettings()->GetOnCurveEditorCurveVisibilityChanged().RemoveAll(this);
 }
 
 #undef LOCTEXT_NAMESPACE

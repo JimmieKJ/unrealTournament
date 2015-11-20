@@ -7,4 +7,4 @@
 
 #include "AnalyticsBlueprintLibraryModule.h"
 
-#include "AnalyticsBlueprintLibraryClasses.h"
+#include "Classes/AnalyticsBlueprintLibrary.h"

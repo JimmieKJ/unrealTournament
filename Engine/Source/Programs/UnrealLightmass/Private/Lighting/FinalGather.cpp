@@ -462,6 +462,13 @@ FLinearColor FStaticLightingSystem::FinalGatherSample(
 	const FVector4 TangentPathDirection = Vertex.TransformWorldVectorToTangent(WorldPathDirection);
 	checkSlow(TangentPathDirection.IsUnit3());
 
+#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
+	if (bDebugThisTexel)
+	{
+		int32 asdf = 0;
+	}
+#endif
+
 	FVector4 SampleOffset(0,0,0);
 	if (GeneralSettings.bAccountForTexelSize)
 	{
@@ -506,7 +513,9 @@ FLinearColor FStaticLightingSystem::FinalGatherSample(
 
 		if (IntersectionDistance < AmbientOcclusionSettings.MaxOcclusionDistance)
 		{
-			FinalGatherInfo.NumSamplesOccluded += 1.0f / RayIntersection.Mesh->GetFullyOccludedSamplesFraction(RayIntersection.ElementIndex);
+			const float DistanceFraction = IntersectionDistance / AmbientOcclusionSettings.MaxOcclusionDistance;
+			const float DistanceWeight = 1.0f - 1.0f * DistanceFraction * DistanceFraction;
+			FinalGatherInfo.NumSamplesOccluded += DistanceWeight / RayIntersection.Mesh->GetFullyOccludedSamplesFraction(RayIntersection.ElementIndex);
 		}
 
 		// Only continue if the ray hit the frontface of the polygon, otherwise the ray started inside a mesh
@@ -905,9 +914,6 @@ public:
 				FRefinementTraversalContext NodeContext = (*CurrentNodesToRefine)[NodeIndex];
 				FLinearColor SubsampledRadiance = FLinearColor::Black;
 				FLightingCacheGatherInfo SubsampleGatherInfo; 
-				// This final gather info is currently being discarded 
-				//@todo - use it to improve AO quality
-				FFinalGatherInfo SubsampleFinalGatherInfo;
 
 				for (int32 SubThetaIndex = 0; SubThetaIndex < NumSubsamples; SubThetaIndex++)
 				{
@@ -949,6 +955,7 @@ public:
 
 							FVector UnoccludedSkyVector;
 							FLinearColor StationarySkyLighting;
+							FFinalGatherInfo SubsampleFinalGatherInfo;
 
 							const FLinearColor SubsampleLighting = LightingSystem.FinalGatherSample(
 								Mapping,
@@ -964,7 +971,7 @@ public:
 								UnoccludedSkyVector,
 								StationarySkyLighting);
 
-							FreeNode->Element = FRefinementElement(FLightingAndOcclusion(SubsampleLighting, UnoccludedSkyVector, StationarySkyLighting), FVector2D(Fraction1, Fraction2));
+							FreeNode->Element = FRefinementElement(FLightingAndOcclusion(SubsampleLighting, UnoccludedSkyVector, StationarySkyLighting, SubsampleFinalGatherInfo.NumSamplesOccluded), FVector2D(Fraction1, Fraction2));
 
 							Stats.NumRefiningFinalGatherSamples[RefinementDepth]++;
 
@@ -1051,12 +1058,11 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 
 	const double StartBaseTraceTime = FPlatformTime::Seconds();
 
-	FFinalGatherInfo FinalGatherInfo;
-
 	const int32 NumThetaSteps = FMath::TruncToInt(FMath::Sqrt(UniformHemisphereSamples.Num() / (float)PI) + .5f);
 	const int32 NumPhiSteps = UniformHemisphereSamples.Num() / NumThetaSteps;
 	checkSlow(NumThetaSteps * NumPhiSteps == UniformHemisphereSamples.Num());
 
+	int32 NumBackfaceHits = 0;
 	FUniformHemisphereRefinementGrid RefinementGrid(NumThetaSteps, NumPhiSteps);
 
 	// Initialize the root level of the refinement grid with lighting values
@@ -1069,6 +1075,7 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 			
 			FVector UnoccludedSkyVector;
 			FLinearColor StationarySkyLighting;
+			FFinalGatherInfo FinalGatherInfo;
 
 			const FLinearColor Radiance = FinalGatherSample(
 				Mapping,
@@ -1084,7 +1091,8 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 				UnoccludedSkyVector,
 				StationarySkyLighting);
 
-			RefinementGrid.SetRootElement(ThetaIndex, PhiIndex, FRefinementElement(FLightingAndOcclusion(Radiance, UnoccludedSkyVector, StationarySkyLighting), UniformHemisphereSampleUniforms[SampleIndex]));
+			NumBackfaceHits += FinalGatherInfo.NumBackfaceHits;
+			RefinementGrid.SetRootElement(ThetaIndex, PhiIndex, FRefinementElement(FLightingAndOcclusion(Radiance, UnoccludedSkyVector, StationarySkyLighting, FinalGatherInfo.NumSamplesOccluded), UniformHemisphereSampleUniforms[SampleIndex]));
 		}
 	}
 
@@ -1092,7 +1100,7 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 
 	MappingContext.Stats.BaseFinalGatherSampleTime += EndBaseTraceTime - StartBaseTraceTime;
 	MappingContext.Stats.NumBaseFinalGatherSamples += NumThetaSteps * NumPhiSteps;
-	GatherInfo.BackfacingHitsFraction = FinalGatherInfo.NumBackfaceHits / (float)UniformHemisphereSamples.Num();
+	GatherInfo.BackfacingHitsFraction = NumBackfaceHits / (float)UniformHemisphereSamples.Num();
 
 	// Refine if we are not hidden inside some geometry
 	const bool bRefine = GatherInfo.BackfacingHitsFraction < .5f || bIntersectingSurface;
@@ -1123,8 +1131,16 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 
 	MappingContext.Stats.RefiningFinalGatherSampleTime += EndRefiningTime - EndBaseTraceTime;
 
+#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
+	if (bDebugThisTexel)
+	{
+		int32 TempBreak = 0;
+	}
+#endif
+
 	SampleType IncomingRadiance;
 	FVector CombinedSkyUnoccludedDirection(0);
+	float NumSamplesOccluded = 0;
 
 	// Accumulate lighting from all samples
 	for (int32 ThetaIndex = 0; ThetaIndex < NumThetaSteps; ThetaIndex++)
@@ -1154,13 +1170,13 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 			IncomingRadiance.AddIncomingRadiance(Radiance, SampleWeight, TangentPathDirection, WorldPathDirection);
 			IncomingRadiance.AddIncomingStationarySkyLight(FilteredLighting.StationarySkyLighting, SampleWeight, TangentPathDirection, WorldPathDirection);
 			checkSlow(IncomingRadiance.AreFloatsValid());
+			NumSamplesOccluded += FilteredLighting.NumSamplesOccluded;
 		}
 	}
 
-	//@todo - AO is not adaptively sampled
 	// Calculate the fraction of samples which were occluded
 	const float MaterialElementFullyOccludedSamplesFraction = Mapping ? Mapping->Mesh->GetFullyOccludedSamplesFraction(ElementIndex) : 1.0f;
-	const float OcclusionFraction = FMath::Min(FinalGatherInfo.NumSamplesOccluded / (AmbientOcclusionSettings.FullyOccludedSamplesFraction * MaterialElementFullyOccludedSamplesFraction * UniformHemisphereSamples.Num()), 1.0f);
+	const float OcclusionFraction = FMath::Min(NumSamplesOccluded / (AmbientOcclusionSettings.FullyOccludedSamplesFraction * MaterialElementFullyOccludedSamplesFraction * UniformHemisphereSamples.Num()), 1.0f);
 	// Constant which maintains an integral of .5 for the unclamped exponential function applied to occlusion below
 	// An integral of .5 is important because it makes an image with a uniform distribution of occlusion values stay the same brightness with different exponents.
 	// As a result, OcclusionExponent just controls contrast and doesn't affect brightness.

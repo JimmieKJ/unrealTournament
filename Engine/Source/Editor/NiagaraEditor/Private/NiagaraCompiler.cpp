@@ -12,7 +12,7 @@
 
 #define LOCTEXT_NAMESPACE "NiagaraCompiler"
 
-DEFINE_LOG_CATEGORY_STATIC(LogNiagaraCompiler,All,All);
+DEFINE_LOG_CATEGORY_STATIC(LogNiagaraCompiler, All, All);
 
 void FNiagaraEditorModule::CompileScript(UNiagaraScript* ScriptToCompile)
 {
@@ -44,10 +44,11 @@ public:
 		ResultLocation = ENiagaraExpressionResultLocation::InputData;
 	}
 
-	virtual void Process()override
+	virtual bool Process()override
 	{
 		check(ResultLocation == ENiagaraExpressionResultLocation::InputData);
 		ResultIndex = Compiler->GetAttributeIndex(Result);
+		return true;
 	}
 };
 
@@ -78,12 +79,12 @@ public:
 // 		}
 	}
 
-	virtual void Process()override
+	virtual bool Process()override
 	{
 		check(ResultLocation == ENiagaraExpressionResultLocation::Constants);
 		//Get the index of the constant. Also gets a component index if this is for a packed scalar constant.
-		Compiler->GetConstantResultIndex(Result, bInternal, ResultIndex, ComponentIndex);
-		
+		Compiler->GetConstantResultIndex(Result, bInternal, ResultIndex);
+
 		if (Result.Type == ENiagaraDataType::Matrix)
 		{
 			check(SourceExpressions.Num() == 4);
@@ -104,6 +105,8 @@ public:
 		{
 			ResultLocation = ENiagaraExpressionResultLocation::BufferConstants;
 		}
+
+		return true;
 	}
 
 	bool bInternal;
@@ -123,41 +126,119 @@ public:
 
 //////////////////////////////////////////////////////////////////////////
 
-void FNiagaraCompiler::CheckInputs(FName OpName, TArray<TNiagaraExprPtr>& Inputs)
+bool FNiagaraCompiler::CheckInputs(FName OpName, TArray<TNiagaraExprPtr>& Inputs)
 {
 	//check the types of the input expressions.
 	const FNiagaraOpInfo* OpInfo = FNiagaraOpInfo::GetOpInfo(OpName);
 	check(OpInfo);
 	int32 NumInputs = Inputs.Num();
 	check(OpInfo->Inputs.Num() == NumInputs);
+	bool bError = false;
 	for (int32 i = 0; i < NumInputs ; ++i)
 	{
+		check(Inputs[i].IsValid());
 		if (OpInfo->Inputs[i].DataType != Inputs[i]->Result.Type)
 		{
-			UE_LOG(LogNiagaraCompiler, Error, TEXT("Exression %s has incorrect inputs!\nExpected: %d - Actual: %d"), *OpName.ToString(), (int32)OpInfo->Inputs[i].DataType, (int32)((TNiagaraExprPtr)Inputs[i])->Result.Type.GetValue());
+			bError = true;
+			FText ErrorText = FText::Format(LOCTEXT("Expression {0} has incorrect inputs!\nExpected: {1} - Actual: {2}", ""),
+				FText::FromString(OpName.ToString()),
+				FText::AsNumber((int32)OpInfo->Inputs[i].DataType),
+				FText::AsNumber((int32)((TNiagaraExprPtr)Inputs[i])->Result.Type.GetValue()));
+			MessageLog.Error(*ErrorText.ToString());
 		}
 	}
+	return bError;
 }
 
-void FNiagaraCompiler::CheckOutputs(FName OpName, TArray<TNiagaraExprPtr>& Outputs)
+bool FNiagaraCompiler::CheckOutputs(FName OpName, TArray<TNiagaraExprPtr>& Outputs)
 {
 	//check the types of the input expressions.
 	const FNiagaraOpInfo* OpInfo = FNiagaraOpInfo::GetOpInfo(OpName);
 	check(OpInfo);
 	int32 NumOutputs = Outputs.Num();
+	bool bError = false;
 	check(OpInfo->Outputs.Num() == NumOutputs);
 	for (int32 i = 0; i < NumOutputs; ++i)
 	{
+		check(Outputs[i].IsValid());
 		if (OpInfo->Outputs[i].DataType != Outputs[i]->Result.Type)
 		{
-			UE_LOG(LogNiagaraCompiler, Error, TEXT("Exression %s has incorrect outputs!\nExpected: %d - Actual: %d"), *OpName.ToString(), (int32)OpInfo->Outputs[i].DataType, (int32)((TNiagaraExprPtr)Outputs[i])->Result.Type.GetValue());
+			bError = true;
+			FText ErrorText = FText::Format(LOCTEXT("Expression {0} has incorrect inputs!\nExpected: {1} - Actual: {2}", ""),
+				FText::FromString(OpName.ToString()),
+				FText::AsNumber((int32)OpInfo->Outputs[i].DataType),
+				FText::AsNumber((int32)((TNiagaraExprPtr)Outputs[i])->Result.Type.GetValue()));
+			MessageLog.Error(*ErrorText.ToString());
 		}
 	}
+	return bError;
+}
+
+void FNiagaraCompiler::Error(FText ErrorText, UNiagaraNode* Node, UEdGraphPin* Pin)
+{
+	FString ErrorString = FString::Printf(TEXT("Node: @@ - Pin: @@ - %s"), *ErrorText.ToString());
+	MessageLog.Error(*ErrorString, Node, Pin);
+}
+
+void FNiagaraCompiler::Warning(FText WarningText, UNiagaraNode* Node, UEdGraphPin* Pin)
+{
+	FString WarnString = FString::Printf(TEXT("Node: @@ - Pin: @@ - %s"), *WarningText.ToString());
+	MessageLog.Warning(*WarnString, Node, Pin);
 }
 
 int32 FNiagaraCompiler::GetAttributeIndex(const FNiagaraVariableInfo& Attr)const
 {
 	return SourceGraph->GetAttributeIndex(Attr);
+}
+
+FNiagaraDataSetProperties* FNiagaraCompiler::GetSharedDataIndex(FNiagaraDataSetID DataSet, bool bForRead, int32& OutIndex)
+{
+	//Shared data is laid out:
+	//EventReceivers
+	//EventGenerators
+
+	int32 SetIndex = 0;
+	FNiagaraDataSetProperties* Ret = NULL;
+	auto SearchSharedArea = [&](TArray<FNiagaraDataSetProperties>& SharedSetGroup) -> FNiagaraDataSetProperties*
+	{
+		for (FNiagaraDataSetProperties& Props : SharedSetGroup)
+		{
+			if (DataSet == Props.ID)
+			{
+				OutIndex = SetIndex;
+				return &Props;
+			}
+			++SetIndex;
+		}
+		return NULL;
+	};
+
+	if (bForRead)
+	{
+		Ret = SearchSharedArea(EventReceivers);
+	}
+	else
+	{
+		SetIndex = EventReceivers.Num();
+		Ret = SearchSharedArea(EventGenerators);
+	}
+	check(Ret);
+	return Ret;
+}
+
+int32 FNiagaraCompiler::GetSharedDataVariableIndex(FNiagaraDataSetProperties* SharedDataSet, const FNiagaraVariableInfo& Variable)
+{
+	check(SharedDataSet);
+
+	for (int32 i = 0; i < SharedDataSet->Variables.Num(); ++i)
+	{
+		if (SharedDataSet->Variables[i] == Variable)
+		{
+			return i;
+		}
+	}
+
+	return INDEX_NONE;
 }
 
 TNiagaraExprPtr FNiagaraCompiler::CompileOutputPin(UEdGraphPin* Pin)
@@ -177,7 +258,7 @@ TNiagaraExprPtr FNiagaraCompiler::CompileOutputPin(UEdGraphPin* Pin)
 		UNiagaraNode* Node = Cast<UNiagaraNode>(Pin->GetOwningNode());
 		TArray<FNiagaraNodeResult> Outputs;
 		Node->Compile(this, Outputs);
-		for (int32 i=0; i<Outputs.Num(); ++i)
+		for (int32 i = 0; i < Outputs.Num(); ++i)
 		{
 			PinToExpression.Add(Outputs[i].OutputPin, Outputs[i].Expression);
 			//We also grab the expression for the pin we're currently interested in. Otherwise we'd have to search the map for it.
@@ -196,7 +277,19 @@ TNiagaraExprPtr FNiagaraCompiler::CompilePin(UEdGraphPin* Pin)
 	{
 		if (Pin->LinkedTo.Num() > 0)
 		{
-			// > 1 ???
+			//If we link to a function call, merge it's graph in.
+			TArray<UNiagaraScript*> Stack;
+			UNiagaraNodeFunctionCall* Function = Cast<UNiagaraNodeFunctionCall>(Pin->LinkedTo[0]->GetOwningNode());
+			while(Function)
+			{
+				if (!MergeFunctionIntoMainGraph(Function, Stack))
+				{
+					return nullptr;
+				}
+				
+				Function = Cast<UNiagaraNodeFunctionCall>(Pin->LinkedTo[0]->GetOwningNode());
+			}
+			//Any functon calls linked to this pin are now merged into the main graph, compile it.
 			Ret = CompileOutputPin(Pin->LinkedTo[0]);
 		}
 		else if (!Pin->bDefaultValueIsIgnored)
@@ -235,7 +328,7 @@ TNiagaraExprPtr FNiagaraCompiler::CompilePin(UEdGraphPin* Pin)
 				break;
 			case ENiagaraDataType::Curve:
 			{
-				FNiagaraDataObject *Default = nullptr;
+				UNiagaraDataObject *Default = nullptr;
 				ConstantData.SetOrAddInternal(Var, Default);
 			}
 				break;
@@ -259,6 +352,8 @@ void FNiagaraCompiler::GetParticleAttributes(TArray<FNiagaraVariableInfo>& OutAt
 
 TNiagaraExprPtr FNiagaraCompiler::Expression_GetAttribute(const FNiagaraVariableInfo& Attribute)
 {
+	Usage.bReadsAttriubteData = true;
+
 	int32 Index = Expressions.Add(MakeShareable(new FNiagaraExpression_GetAttribute(this, Attribute)));
 	return Expressions[Index];
 }
@@ -303,6 +398,12 @@ TNiagaraExprPtr FNiagaraCompiler::GetExternalConstant(const FNiagaraVariableInfo
 	SetOrAddConstant(false, Constant, Default);
 	return Expression_GetExternalConstant(Constant);
 }
+TNiagaraExprPtr FNiagaraCompiler::GetExternalConstant(const FNiagaraVariableInfo& Constant, const UNiagaraDataObject* Default)
+{
+	UNiagaraDataObject* DefaultDupe = Default ? CastChecked<UNiagaraDataObject>(StaticDuplicateObject(Default, Script, NULL, ~RF_Transient)) : nullptr;
+	SetOrAddConstant(false, Constant, DefaultDupe);
+	return Expression_GetExternalConstant(Constant);
+}
 TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo& Constant, float Default)
 {
 	SetOrAddConstant(true, Constant, Default);
@@ -318,15 +419,14 @@ TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo
 	SetOrAddConstant(true, Constant, Default);
 	return Expression_GetInternalConstant(Constant);
 }
-
-TNiagaraExprPtr FNiagaraCompiler::GetExternalCurveConstant(const FNiagaraVariableInfo& Constant)
+TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo& Constant, const UNiagaraDataObject* Default)
 {
-	SetOrAddConstant<FNiagaraDataObject*>(false, Constant, nullptr);
-	return Expression_GetExternalConstant(Constant);
+	UNiagaraDataObject* DefaultDupe = Default ? CastChecked<UNiagaraDataObject>(StaticDuplicateObject(Default, Script, NULL, ~RF_Transient)) : nullptr;
+	SetOrAddConstant(true, Constant, DefaultDupe);
+	return Expression_GetInternalConstant(Constant);
 }
 
-// TODO: Refactor this (and some other stuff) into a preprocessing step for use by any compiler?
-bool FNiagaraCompiler::MergeInFunctionNodes()
+bool FNiagaraCompiler::MergeFunctionIntoMainGraph(UNiagaraNodeFunctionCall* FunctionNode, TArray<UNiagaraScript*>& FunctionStack)
 {
 	struct FReconnectionInfo
 	{
@@ -341,292 +441,228 @@ bool FNiagaraCompiler::MergeInFunctionNodes()
 			: From(NULL)
 		{}
 	};
-	TMap<FName, FReconnectionInfo> InputConnections;
-	TMap<FName, FReconnectionInfo> OutputConnections;
 
-	TArray<class UEdGraphPin*> FuncCallInputPins;
-	TArray<class UEdGraphPin*> FuncCallOutputPins;
-
-	//Copies the function graph into the main graph.
-	//Removes the Function call in the main graph and the input and output nodes in the function graph, reconnecting their pins appropriately.
-	auto MergeFunctionIntoMainGraph = [&](UNiagaraNodeFunctionCall* InFunc, UNiagaraGraph* FuncGraph)
+	if (UNiagaraScript* FuncScript = FunctionNode->FunctionScript)
 	{
-		InputConnections.Empty();
-		OutputConnections.Empty();
-		FuncCallInputPins.Empty();
-		FuncCallOutputPins.Empty();
-
-		check(InFunc && FuncGraph);
-		if (InFunc->FunctionScript)
+		//Check for reentrance.
+		if (FunctionStack.Find(FuncScript) != INDEX_NONE)
 		{
-			//Get all the pins that are connected to the inputs of the function call node in the main graph.
-			InFunc->GetInputPins(FuncCallInputPins);
-			for (UEdGraphPin* FuncCallInputPin : FuncCallInputPins)
+			FString Callstack;
+			Callstack.Append(FuncScript->GetPathName()); Callstack.Append(TEXT("\n"));
+			for (UNiagaraScript* StackScript : FunctionStack)
 			{
-				FName InputName(*FuncCallInputPin->PinName);
-				FReconnectionInfo& InputConnection = InputConnections.FindOrAdd(InputName);
-				if (FuncCallInputPin->LinkedTo.Num() > 0)
-				{
-					check(FuncCallInputPin->LinkedTo.Num() == 1);
-					UEdGraphPin* LinkFrom = FuncCallInputPin->LinkedTo[0];
-					check(LinkFrom->Direction == EGPD_Output);
-					InputConnection.From = LinkFrom;
-				}
-				else
-				{
-					//This input has no link so we need the default value from the pin.
-					InputConnection.FallbackDefault = FuncCallInputPin->GetDefaultAsString();
-				}
+				Callstack.Append(StackScript->GetPathName()); Callstack.Append(TEXT("\n"));
 			}
-			//Get all the pins that are connected to the outputs of the function call node in the main graph.
-			InFunc->GetOutputPins(FuncCallOutputPins);
-			for (UEdGraphPin* FuncCallOutputPin : FuncCallOutputPins)
+			MessageLog.Error(TEXT("Reentrant function call!\n%s"), *Callstack);
+			return false;
+		}
+		FunctionStack.Add(FuncScript);
+
+		// Clone the source graph so we can modify it as needed; merging in the child graphs
+		UNiagaraScriptSource* FuncSource = CastChecked<UNiagaraScriptSource>(FuncScript->Source);
+		UNiagaraGraph* FuncGraph = CastChecked<UNiagaraGraph>(FEdGraphUtilities::CloneGraph(FuncSource->NodeGraph, NULL, &MessageLog));
+		FEdGraphUtilities::MergeChildrenGraphsIn(FuncGraph, FuncGraph, /*bRequireSchemaMatch=*/ true);
+
+		//Copies the function graph into the main graph.
+		//Removes the Function call in the main graph and the input and output nodes in the function graph, reconnecting their pins appropriately.
+		//auto MergeFunctionIntoMainGraph = [&](UNiagaraNodeFunctionCall* InFunc, UNiagaraGraph* FuncGraph)
+
+		TMap<FName, FReconnectionInfo> InputConnections;
+		TMap<FName, FReconnectionInfo> OutputConnections;
+		TArray<class UEdGraphPin*> FuncCallInputPins;
+		TArray<class UEdGraphPin*> FuncCallOutputPins;
+
+		//Get all the pins that are connected to the inputs of the function call node in the main graph.
+		FunctionNode->GetInputPins(FuncCallInputPins);
+		for (UEdGraphPin* FuncCallInputPin : FuncCallInputPins)
+		{
+			FName InputName(*FuncCallInputPin->PinName);
+			FReconnectionInfo& InputConnection = InputConnections.FindOrAdd(InputName);
+			if (FuncCallInputPin->LinkedTo.Num() > 0)
 			{
-				FName OutputName(*FuncCallOutputPin->PinName);
-				for (UEdGraphPin* LinkTo : FuncCallOutputPin->LinkedTo)
+				check(FuncCallInputPin->LinkedTo.Num() == 1);
+				UEdGraphPin* LinkFrom = FuncCallInputPin->LinkedTo[0];
+				check(LinkFrom->Direction == EGPD_Output);
+				InputConnection.From = LinkFrom;
+			}
+			else
+			{
+				//This input has no link so we need the default value from the pin.
+				InputConnection.FallbackDefault = FuncCallInputPin->GetDefaultAsString();
+			}
+		}
+		//Get all the pins that are connected to the outputs of the function call node in the main graph.
+		FunctionNode->GetOutputPins(FuncCallOutputPins);
+		for (UEdGraphPin* FuncCallOutputPin : FuncCallOutputPins)
+		{
+			FName OutputName(*FuncCallOutputPin->PinName);
+			for (UEdGraphPin* LinkTo : FuncCallOutputPin->LinkedTo)
+			{
+				if (LinkTo)
 				{
 					check(LinkTo->Direction == EGPD_Input);
 					FReconnectionInfo& OutputConnection = OutputConnections.FindOrAdd(OutputName);
 					OutputConnection.To.Add(LinkTo);
 				}
 			}
+		}
 
-			//Remove the function call node from the graph now that we have everything we need from it.
-			SourceGraph->RemoveNode(InFunc);
+		//Remove the function call node from the graph now that we have everything we need from it.
+		SourceGraph->RemoveNode(FunctionNode);
+		UNiagaraNodeOutput* SourceGraphOuputNode = SourceGraph->FindOutputNode();
+		check(SourceGraphOuputNode);
 
-			//Keep a list of the Input and Output nodes we see in the function graph so that we can remove (most of) them later.
-			TArray<UEdGraphNode*, TInlineAllocator<64>> ToRemove;
+		//Keep a list of the Input and Output nodes we see in the function graph so that we can remove (most of) them later.
+		TArray<UEdGraphNode*, TInlineAllocator<64>> ToRemove;
 
-			//Search the nodes in the function graph, finding any connections to input or output nodes.
-			for (UEdGraphNode* FuncGraphNode : FuncGraph->Nodes)
+		//For each input node in the function graph, get all the LinkTo connections for reconnecting to the main graph later.
+		TArray <UNiagaraNodeInput*> FuncGraphInputNodes;
+		FuncGraph->FindInputNodes(FuncGraphInputNodes);
+		for (UNiagaraNodeInput* FuncGraphInputNode : FuncGraphInputNodes)
+		{
+			check(FuncGraphInputNode && FuncGraphInputNode->Pins.Num() == 1);
+			//Get an array of "To" pins from one or more input nodes referencing each named input.
+			FReconnectionInfo& InputConnection = InputConnections.FindOrAdd(FuncGraphInputNode->Input.Name);
+			if (InputConnection.From)
 			{
-				if (UNiagaraNodeInput* InputNode = Cast<UNiagaraNodeInput>(FuncGraphNode))
-				{
-					check(InputNode->Pins.Num() == 1);
-					//Get an array of "To" pins from one or more input nodes referencing each named input.
-					FReconnectionInfo& InputConnection = InputConnections.FindOrAdd(InputNode->Input.Name);
-					if (InputConnection.From)
-					{
-						//We have a connection from the function call so remove the input node and connect to that.
-						ToRemove.Add(InputNode);
-					}
-					else
-					{
-						//This input has no connection from the function call so what do we do here? 
-						//For now we just leave the input node and connect back to it. 
-						//This will mean unconnected pins from the function call will look for constants or attributes. 
-						//In some cases we may want to just take the default value from the function call pin instead?
-						//Maybe have some properties on the function call defining that.
-						InputConnection.From = InputNode->Pins[0];
-					}
+				//We have a connection from the function call so remove the input node and connect to that.
+				ToRemove.Add(FuncGraphInputNode);
+			}
+			else
+			{
+				//This input has no connection from the function call so what do we do here? 
+				//For now we just leave the input node and connect back to it. 
+				//This will mean unconnected pins from the function call will look for constants or attributes. 
+				//In some cases we may want to just take the default value from the function call pin instead?
+				//Maybe have some properties on the function call defining that.
+				InputConnection.From = FuncGraphInputNode->Pins[0];
+			}
 
-					TArray<UEdGraphPin*>& LinkToPins = InputNode->Pins[0]->LinkedTo;
-					for (UEdGraphPin* ToPin : LinkToPins)
-					{
-						check(ToPin->Direction == EGPD_Input);
-						InputConnection.To.Add(ToPin);
-					}
+			TArray<UEdGraphPin*>& LinkToPins = FuncGraphInputNode->Pins[0]->LinkedTo;
+			for (UEdGraphPin* ToPin : LinkToPins)
+			{
+				check(ToPin->Direction == EGPD_Input);
+				UEdGraphNode* OwningNode = ToPin->GetOwningNode();
+				if (!OwningNode->IsA(UNiagaraNodeOutput::StaticClass()))
+				{
+					//As long as the owning node will survive into the source graph, connect directly to it.
+					//Otherwise, we handle the connection in the OutputConnections.
+					InputConnection.To.Add(ToPin);
 				}
-				else if (UNiagaraNodeOutput* OutputNode = Cast<UNiagaraNodeOutput>(FuncGraphNode))
+			}
+		}
+
+		//For each output of the output node in the function graph, get the "From" pin to be reconnected later.
+		{
+			UNiagaraNodeOutput* FuncGraphOutputNode = FuncGraph->FindOutputNode();
+			check(FuncGraphOutputNode);
+
+			//Unlike the input nodes, we don't have the option of keeping these if there is no "From" pin. The default values from the node pins should be used.
+			ToRemove.Add(FuncGraphOutputNode);
+
+			for (int32 OutputIdx = 0; OutputIdx < FuncGraphOutputNode->Outputs.Num(); ++OutputIdx)
+			{
+				FName OutputName = FuncGraphOutputNode->Outputs[OutputIdx].Name;
+
+				UEdGraphPin* OutputNodePin = FuncGraphOutputNode->Pins[OutputIdx];
+				check(OutputNodePin->LinkedTo.Num() <= 1);
+				FReconnectionInfo& OutputConnection = OutputConnections.FindOrAdd(OutputName);
+				UEdGraphPin* LinkFromPin = OutputNodePin->LinkedTo.Num() == 1 ? OutputNodePin->LinkedTo[0] : NULL;
+
+				if (LinkFromPin)
 				{
-					//Unlike the input nodes, we don't have the option of keeping these if there is no "From" pin. The default values from the node pins should be used.
-					ToRemove.Add(OutputNode);
-
-					//For each output, get the "From" pin to be reconnected later.
-					for (int32 OutputIdx = 0; OutputIdx < OutputNode->Outputs.Num(); ++OutputIdx)
+					UEdGraphNode* OwningNode = LinkFromPin->GetOwningNode();
+					if (UNiagaraNodeInput* InputNode = Cast<UNiagaraNodeInput>(OwningNode))
 					{
-						FName OutputName = OutputNode->Outputs[OutputIdx].Name;
-
-						UEdGraphPin* OutputNodePin = OutputNode->Pins[OutputIdx];
-						check(OutputNodePin->LinkedTo.Num() <= 1);
-						FReconnectionInfo& OutputConnection = OutputConnections.FindOrAdd(OutputName);
-						UEdGraphPin* LinkFromPin = OutputNodePin->LinkedTo.Num() == 1 ? OutputNodePin->LinkedTo[0] : NULL;
-						if (LinkFromPin)
+						//We are connected directly to an input node so we must find the corresponding input connection and connect to that.
+						if (FReconnectionInfo* InputConnection = InputConnections.Find(InputNode->Input.Name))
 						{
-							check(LinkFromPin->Direction == EGPD_Output);
-							OutputConnection.From = LinkFromPin;
-						}
-						else
-						{
-							//This output is not connected so links to it in the main graph must use it's default value.
-							OutputConnection.FallbackDefault = OutputNodePin->GetDefaultAsString();
+							LinkFromPin = InputConnection->From;
 						}
 					}
 				}
-			}
 
-			//Remove all the In and Out nodes from the function graph.
-			for (UEdGraphNode* Remove : ToRemove)
-			{
-				FuncGraph->RemoveNode(Remove);
-			}
-
-			//Copy the nodes from the function graph over into the main graph.
-			FuncGraph->MoveNodesToAnotherGraph(SourceGraph, false);
-
-			//Finally, do all the reconnection.
-			auto MakeConnection = [&](FReconnectionInfo& Info)
-			{
-				for (UEdGraphPin* LinkTo : Info.To)
+				if (LinkFromPin)
 				{
-					if (Info.From)
-					{
-						Info.From->MakeLinkTo(LinkTo);
-					}
-					else
-					{
-						LinkTo->DefaultValue = Info.FallbackDefault;
-					}
-				}
-			};
-			for (TPair<FName, FReconnectionInfo>& ReconnectInfo : InputConnections){ MakeConnection(ReconnectInfo.Value); }
-			for (TPair<FName, FReconnectionInfo>& ReconnectInfo : OutputConnections){ MakeConnection(ReconnectInfo.Value); }
-		}
-	};
-
-	//Helper struct for traversing nested function calls.
-	struct FFunctionContext
-	{
-		//True if this context's function has been merged into the main graph.
-		bool bProcessed;
-		//The index of this context into the ContextPool. 
-		int32 PoolIdx;
-		//Pointer back to the parent context for traversal.
-		FFunctionContext* Parent;
-		//The function call node for this function in the source/parent graph.
-		UNiagaraNodeFunctionCall* Function;
-		//The graph for this function that we are going to merge into the main graph.
-		UNiagaraGraph* FunctionGraph;
-		//The script from which the graph is copied. Used for re entrance check.
-		UNiagaraScript* Script;
-
-		//Contexts for function calls in this function graph.
-		TArray<FFunctionContext*, TInlineAllocator<64>> SubFunctionCalls;
-
-		FFunctionContext()
-			: bProcessed(false)
-			, PoolIdx(INDEX_NONE)
-			, Parent(NULL)
-			, Function(NULL)
-			, FunctionGraph(NULL)
-			, Script(NULL)
-		{
-		}
-
-		/**
-		We don't allow re-entrant functions as this would cause an infinite loop of merging in graphs.
-		Maybe in the future if we allow branching in the VM we can allow this.
-		*/
-		bool CheckForReentrance()const
-		{
-			UNiagaraNodeFunctionCall* Func = Function;
-			FFunctionContext* Curr = Parent;
-			while (Curr)
-			{
-				if (Curr->Script == Script)
-					return true;
-
-				Curr = Curr->Parent;
-			}
-			return false;
-		}
-
-		FString GetCallstack()const
-		{
-			FString Ret;
-			const FFunctionContext* Curr = this;
-			while (Curr)
-			{
-				if (Curr->Script)
-				{
-					Ret.Append(*(Curr->Script->GetPathName()));
+					check(LinkFromPin->Direction == EGPD_Output);
+					OutputConnection.From = LinkFromPin;
 				}
 				else
 				{
-					Ret.Append(TEXT("Unknown"));
+					//This output is not connected so links to it in the main graph must use it's default value.
+					OutputConnection.FallbackDefault = OutputNodePin->GetDefaultAsString();
 				}
-
-				Ret.Append(TEXT("\n"));
-
-				Curr = Curr->Parent;
 			}
-			return Ret;
 		}
-	};
 
-	//A pool of contexts on the stack to avoid loads of needless, small heap allocations.
-	TArray<FFunctionContext, TInlineAllocator<512>> ContextPool;
-	ContextPool.Reserve(512);
-
-	FFunctionContext RootContext;
-	FFunctionContext* CurrentContext = &RootContext;
-	CurrentContext->FunctionGraph = SourceGraph;
-	CurrentContext->Script = Script;
-
-	//Depth first traversal of all function calls.
-	while (CurrentContext)
-	{
-		//Find any sub functions and process this function call.
-		if (!CurrentContext->bProcessed)
+		//Remove all the In and Out nodes from the function graph.
+		for (UEdGraphNode* Remove : ToRemove)
 		{
-			CurrentContext->bProcessed = true;
+			FuncGraph->RemoveNode(Remove);
+		}
 
-			//Find any sub functions and check for re-entrance.
-			if (CurrentContext->FunctionGraph)
+		TArray<UEdGraphNode*> FuncNodes = FuncGraph->Nodes;
+		TArray<UEdGraphNode*> ExistingNodes = SourceGraph->Nodes;
+		//Copy the nodes from the function graph over into the main graph.
+		FuncGraph->MoveNodesToAnotherGraph(SourceGraph, false);
+
+		FIntPoint FuncNodePos(FunctionNode->NodePosX, FunctionNode->NodePosY);
+		FIntRect Bounds = FEdGraphUtilities::CalculateApproximateNodeBoundaries(FuncNodes);
+		FIntPoint Center;
+		FIntPoint Extents;
+		Bounds.GetCenterAndExtents(Center, Extents);
+
+		FIntPoint Offset = FuncNodePos - Center;
+		for (UEdGraphNode* FuncNode : FuncNodes)
+		{
+			FuncNode->NodePosX += Offset.X;
+			FuncNode->NodePosY += Offset.Y;
+		}
+
+		for (UEdGraphNode* Node : ExistingNodes)
+		{
+			if (Node->NodePosX < FuncNodePos.X)
 			{
-				for (UEdGraphNode* Node : CurrentContext->FunctionGraph->Nodes)
+				Node->NodePosX -= Extents.X;
+			}
+			else
+			{
+				Node->NodePosX += Extents.X;
+			}
+
+			if (Node->NodePosY < FuncNodePos.Y)
+			{
+				Node->NodePosY -= Extents.Y;
+			}
+			else
+			{
+				Node->NodePosY += Extents.Y;
+			}
+		}
+
+		//Finally, do all the reconnection.
+		auto MakeConnection = [&](FReconnectionInfo& Info)
+		{
+			for (UEdGraphPin* LinkTo : Info.To)
+			{
+				if (Info.From)
 				{
-					UNiagaraNodeFunctionCall* FuncNode = Cast<UNiagaraNodeFunctionCall>(Node);
-					if (FuncNode)
-					{
-						int32 NewIdx = ContextPool.AddZeroed();
-						FFunctionContext* SubFuncContext = &ContextPool[NewIdx];
-						CurrentContext->SubFunctionCalls.Push(SubFuncContext);
-						SubFuncContext->Parent = CurrentContext;
-						SubFuncContext->Function = FuncNode;
-						SubFuncContext->PoolIdx = NewIdx;
-						SubFuncContext->Script = FuncNode->FunctionScript;
-
-						if (SubFuncContext->CheckForReentrance())
-						{
-							FString Callstack = SubFuncContext->GetCallstack();
-							MessageLog.Error(TEXT("Reentrant function call!\n%s"), *Callstack);
-							return false;
-						}
-
-						//Copy the function graph as we'll be modifying it as we merge in with the main graph.
-						UNiagaraScriptSource* FuncSource = CastChecked<UNiagaraScriptSource>(FuncNode->FunctionScript->Source);
-						check(FuncSource);
-						SubFuncContext->FunctionGraph = CastChecked<UNiagaraGraph>(FEdGraphUtilities::CloneGraph(FuncSource->NodeGraph, NULL, &MessageLog));
-					}
+					Info.From->MakeLinkTo(LinkTo);
+				}
+				else
+				{
+					LinkTo->DefaultValue = Info.FallbackDefault;
 				}
 			}
-
-			//Merge this function into the main graph now.
-			if (CurrentContext->Function && CurrentContext->FunctionGraph)
-			{
-				MergeFunctionIntoMainGraph(CurrentContext->Function, CurrentContext->FunctionGraph);
-			}
-		}
-
-		if (CurrentContext->SubFunctionCalls.Num() > 0)
-		{
-			//Move to the next sub function.
-			CurrentContext = CurrentContext->SubFunctionCalls.Pop();
-		}
-		else
-		{
-			//Done processing this function so remove it and move back to the parent.
-			if (CurrentContext->PoolIdx != INDEX_NONE)
-			{
-				CurrentContext->FunctionGraph->MarkPendingKill();
-
-				ContextPool.RemoveAtSwap(CurrentContext->PoolIdx);
-			}
-			CurrentContext = CurrentContext->Parent;
-		}
+		};
+		for (TPair<FName, FReconnectionInfo>& ReconnectInfo : InputConnections){ MakeConnection(ReconnectInfo.Value); }
+		for (TPair<FName, FReconnectionInfo>& ReconnectInfo : OutputConnections){ MakeConnection(ReconnectInfo.Value); }
 	}
-
+	else
+	{ 
+		Error(LOCTEXT("MergeNullFunction", "Function call node must reference a valid script."), FunctionNode, NULL);
+		return false;
+	}
 	return true;
 }
 

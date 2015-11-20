@@ -12,6 +12,21 @@ UUserDefinedEnum::UUserDefinedEnum(const FObjectInitializer& ObjectInitializer)
 
 }
 
+void UUserDefinedEnum::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+#if WITH_EDITOR
+	if (Ar.IsLoading() && Ar.IsPersistent())
+	{
+		for (int32 i = 0; i < Names.Num(); ++i)
+		{
+			Names[i].Value = i;
+		}
+	}
+#endif // WITH_EDITOR
+}
+
 FString UUserDefinedEnum::GenerateFullEnumName(const TCHAR* InEnumName) const
 {
 	check(CppForm == ECppForm::Namespaced);
@@ -77,13 +92,13 @@ FString UUserDefinedEnum::GenerateNewEnumeratorName()
 
 #endif	// WITH_EDITOR
 
-int32 UUserDefinedEnum::ResolveEnumerator(FArchive& Ar, int32 EnumeratorIndex) const
+int32 UUserDefinedEnum::ResolveEnumerator(FArchive& Ar, int32 EnumeratorValue) const
 {
 #if WITH_EDITOR
-	return FEnumEditorUtils::ResolveEnumerator(this, Ar, EnumeratorIndex);
+	return FEnumEditorUtils::ResolveEnumerator(this, Ar, EnumeratorValue);
 #else // WITH_EDITOR
 	ensure(false);
-	return EnumeratorIndex;
+	return EnumeratorValue;
 #endif // WITH_EDITOR
 }
 
@@ -95,4 +110,36 @@ FText UUserDefinedEnum::GetEnumText(int32 InIndex) const
 	}
 
 	return Super::GetEnumText(InIndex);
+}
+
+bool UUserDefinedEnum::SetEnums(TArray<TPair<FName, uint8>>& InNames, ECppForm InCppForm)
+{
+	if (Names.Num() > 0)
+	{
+		RemoveNamesFromMasterList();
+	}
+	Names = InNames;
+	CppForm = InCppForm;
+
+	const FString BaseEnumPrefix = GenerateEnumPrefix();
+	checkSlow(BaseEnumPrefix.Len());
+
+	const int32 MaxTryNum = 1024;
+	for (int32 TryNum = 0; TryNum < MaxTryNum; ++TryNum)
+	{
+		const FString EnumPrefix = (TryNum == 0) ? BaseEnumPrefix : FString::Printf(TEXT("%s_%d"), *BaseEnumPrefix, TryNum - 1);
+		const FName MaxEnumItem = *GenerateFullEnumName(*(EnumPrefix + TEXT("_MAX")));
+		const int32 MaxEnumItemIndex = GetValueByName(MaxEnumItem);
+		if ((MaxEnumItemIndex == INDEX_NONE) && (LookupEnumName(MaxEnumItem) == INDEX_NONE))
+		{
+			int MaxEnumValue = (InNames.Num() == 0)? 0 : GetMaxEnumValue() + 1;
+			Names.Add(TPairInitializer<FName, uint8>(MaxEnumItem, MaxEnumValue));
+			AddNamesToMasterList();
+			return true;
+		}
+	}
+
+	UE_LOG(LogClass, Error, TEXT("Unable to generate enum MAX entry due to name collision. Enum: %s"), *GetPathName());
+
+	return false;
 }

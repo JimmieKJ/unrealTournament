@@ -101,6 +101,8 @@ private:
 	void HookUpNextPtrs(FXmlNode* Node);
 	/** Creates the internal file representation as a bunch of FXmlNode's */
 	void CreateNodes(const TArray<FString>& Tokens);
+	/** Writes a node hierarchy at the given root to a string */
+	static void WriteNodeHierarchy(const FXmlNode& Node, const FString& Indent, FString& Output);
 
 private:
 

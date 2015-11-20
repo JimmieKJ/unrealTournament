@@ -216,7 +216,7 @@ void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float T
 			}
 			FHitResult NewHit;
 			SafeMoveUpdatedComponent(Delta, ActorOwner->GetActorRotation(), true, NewHit);
-			if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+			if (UpdatedComponent != NULL && !ActorOwner->IsPendingKillPending())
 			{
 				if (NewHit.Time < 1.f) // hit second wall
 				{
@@ -234,11 +234,11 @@ void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float T
 						//}
 
 						TwoWallAdjust(Delta, NewHit, OldHitNormal);
-						if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+						if (UpdatedComponent != NULL && !ActorOwner->IsPendingKillPending())
 						{
 							bool bDitch = ((OldHitNormal.Z > 0.0f) && (NewHit.Normal.Z > 0.0f) && (Delta.Z == 0.0f) && ((NewHit.Normal | OldHitNormal) < 0.0f));
 							SafeMoveUpdatedComponent(Delta, ActorOwner->GetActorRotation(), true, NewHit);
-							if (UpdatedComponent != NULL && !ActorOwner->bPendingKillPending)
+							if (UpdatedComponent != NULL && !ActorOwner->IsPendingKillPending())
 							{
 								if (bDitch || NewHit.Normal.Z >= HitZStopSimulatingThreshold)
 								{

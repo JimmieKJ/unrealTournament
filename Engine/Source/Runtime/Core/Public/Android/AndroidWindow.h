@@ -36,10 +36,15 @@ public:
 	virtual void SetOSWindowHandle(void*);
 
 	static FPlatformRect GetScreenRect();
+	static void InvalidateCachedScreenRect();
 
 	static void CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth, int32_t& SurfaceHeight);
+	static bool OnWindowOrientationChanged(bool bIsPortrait);
 
 	static int32 GetDepthBufferPreference();
+	
+	static void AcquireWindowRef(ANativeWindow* InWindow);
+	static void ReleaseWindowRef(ANativeWindow* InWindow);
 
 protected:
 	/** @return true if the native window is currently in fullscreen mode, false otherwise */

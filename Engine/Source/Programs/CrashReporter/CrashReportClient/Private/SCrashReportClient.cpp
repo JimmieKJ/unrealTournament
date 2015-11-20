@@ -8,6 +8,7 @@
 #include "CrashReportClientStyle.h"
 #include "SlateStyle.h"
 #include "SThrobber.h"
+#include "CrashDescription.h"
 
 #define LOCTEXT_NAMESPACE "CrashReportClient"
 
@@ -20,16 +21,30 @@ static void OnBrowserLinkClicked(const FSlateHyperlinkRun::FMetadata& Metadata, 
 	}
 }
 
+static void OnViewCrashDirectory( const FSlateHyperlinkRun::FMetadata& Metadata, TSharedRef<SWidget> ParentWidget )
+{
+	const FString* UrlPtr = Metadata.Find( TEXT( "href" ) );
+	if (UrlPtr)
+	{
+		FPlatformProcess::ExploreFolder( **UrlPtr );
+	}
+}
+
 void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashReportClient> Client)
 {
 	CrashReportClient = Client;
 
-	auto CrashedAppName = CrashReportClient->GetCrashedAppName();
+	auto CrashedAppName = FPrimaryCrashProperties::Get()->IsValid() ? FPrimaryCrashProperties::Get()->GameName : TEXT("");
 
 	// Set the text displaying the name of the crashed app, if available
-	FText CrashedAppText = CrashedAppName.IsEmpty() ?
-		LOCTEXT("CrashedAppNotFound", "An Unreal process has crashed") :
-		LOCTEXT("CrashedApp", "The following process has crashed: ");
+	const FText CrashedAppText = CrashedAppName.IsEmpty() ?
+		LOCTEXT( "CrashedAppNotFound", "An unknown process has crashed" ) :
+		LOCTEXT( "CrashedAppUnreal", "An Unreal process has crashed: " );
+
+	const FText CrashReportDataText = FText::Format( LOCTEXT(
+		"CrashReportData",
+		"Crash reports comprise diagnostics files (<a id=\"browser\" href=\"{0}\" style=\"Richtext.Hyperlink\">click here to view directory</>) and the following summary information: " ),
+		FText::FromString( CrashReportClient->GetCrashDirectory()) );
 
 	ChildSlot
 	[
@@ -130,12 +145,13 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 
 						+ SOverlay::Slot()
 						[
-							SNew(STextBlock)
-							.Margin(FMargin(4, 2, 0, 8))
-							.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Testing/Fonts/Roboto-Italic.ttf"), 9))
-							.Text(LOCTEXT("CrashReportData", "Crash report data:"))
-							.ColorAndOpacity(FSlateColor(FLinearColor::White * 0.5f))
-							.AutoWrapText(false)
+							SNew( SRichTextBlock )
+							.Margin( FMargin( 4, 2, 0, 8 ) )
+							.TextStyle( &FCrashReportClientStyle::Get().GetWidgetStyle<FTextBlockStyle>( "CrashReportDataStyle" ) )
+							.Text( CrashReportDataText )
+							.AutoWrapText( true )
+							.DecoratorStyleSet( &FCrashReportClientStyle::Get() )
+							+ SRichTextBlock::HyperlinkDecorator( TEXT( "browser" ), FSlateHyperlinkRun::FOnClick::CreateStatic( &OnViewCrashDirectory, AsShared() ) )
 						]
 					]
 
@@ -172,7 +188,32 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 
 			+SVerticalBox::Slot()
 			.AutoHeight()
-			.Padding( FMargin( 4, 12 ) )
+			.Padding( FMargin( 4, 12, 4, 4 ) )
+			[
+				SNew( SHorizontalBox )
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				.VAlign( VAlign_Center )
+				[
+					SNew( SCheckBox )
+					.IsChecked( FCrashReportClientConfig::Get().GetSendLogFile() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked )
+					.OnCheckStateChanged( CrashReportClient.ToSharedRef(), &FCrashReportClient::SendLogFile_OnCheckStateChanged )
+				]
+
+				+ SHorizontalBox::Slot()
+				.FillWidth( 1.0f )
+				.VAlign( VAlign_Center )
+				[
+					SNew( STextBlock )
+					.AutoWrapText( true )
+					.Text( LOCTEXT( "IncludeLogs", "Include log files with submission. I understand that logs contain some personal information such as my system and user name." ) )
+				]
+			]
+
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding( FMargin( 4, 4 ) )
 			[
 				SNew(SHorizontalBox)
 
@@ -181,10 +222,11 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 				.VAlign(VAlign_Center)
 				[
 					SNew(SCheckBox)
-					.IsChecked(ECheckBoxState::Checked)
-					.OnCheckStateChanged(CrashReportClient.ToSharedRef(), &FCrashReportClient::SCrashReportClient_OnCheckStateChanged)
+					.IsChecked( FCrashReportClientConfig::Get().GetAllowToBeContacted() ? ECheckBoxState::Checked : ECheckBoxState::Unchecked )
+					.OnCheckStateChanged(CrashReportClient.ToSharedRef(), &FCrashReportClient::AllowToBeContacted_OnCheckStateChanged)
 				]
 
+				
 				+SHorizontalBox::Slot()
 				.FillWidth(1.0f)
 				.VAlign(VAlign_Center)
@@ -201,6 +243,18 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 			.Padding( FMargin(4, 4+16, 4, 4) )
 			[
 				SNew(SHorizontalBox)
+	
+				+ SHorizontalBox::Slot()
+				.HAlign( HAlign_Center )
+				.VAlign( VAlign_Center )
+				.AutoWidth()
+				.Padding( FMargin( 0 ) )
+				[
+					SNew( SButton )
+					.ContentPadding( FMargin( 8, 2 ) )
+					.Text( LOCTEXT( "CloseWithoutSending", "Close Without Sending" ) )
+					.OnClicked( Client, &FCrashReportClient::CloseWithoutSending )
+				]
 
 				+SHorizontalBox::Slot()
 				.FillWidth(1.0f)
@@ -219,8 +273,9 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 				[
 					SNew(SButton)
 					.ContentPadding( FMargin(8,2) )
-					.Text(LOCTEXT("SendAndRestartEditor", "Send and Restart"))
-					.OnClicked(Client, &FCrashReportClient::SubmitAndRestart)
+					.Text(LOCTEXT("Send", "Send and Close"))
+					.OnClicked(Client, &FCrashReportClient::Submit)
+					.IsEnabled( !CrashedAppName.IsEmpty() )
 				]
 
 				+SHorizontalBox::Slot()
@@ -231,9 +286,10 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 				[
 					SNew(SButton)
 					.ContentPadding( FMargin(8,2) )
-					.Text(LOCTEXT("Send", "Send"))
-					.OnClicked(Client, &FCrashReportClient::Submit)
-				]
+					.Text(LOCTEXT("SendAndRestartEditor", "Send and Restart"))
+					.OnClicked(Client, &FCrashReportClient::SubmitAndRestart)
+					.IsEnabled( !CrashedAppName.IsEmpty() )
+				]			
 			]
 		]
 	];

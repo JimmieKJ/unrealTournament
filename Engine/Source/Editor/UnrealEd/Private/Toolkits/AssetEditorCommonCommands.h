@@ -10,7 +10,7 @@ class FAssetEditorCommonCommands : public TCommands< FAssetEditorCommonCommands 
 public:
 
 	FAssetEditorCommonCommands()
-		: TCommands< FAssetEditorCommonCommands >( TEXT("AssetEditor"), NSLOCTEXT("Contexts", "AssetEditor", "Asset Editor"), NAME_None, FEditorStyle::GetStyleSetName() )
+		: TCommands< FAssetEditorCommonCommands >( TEXT("AssetEditor"), NSLOCTEXT("Contexts", "AssetEditor", "Asset Editor"), TEXT("EditorViewport"), FEditorStyle::GetStyleSetName() )
 	{
 	}	
 

@@ -61,6 +61,12 @@ void UParticleModuleCameraOffset::PostEditChangeProperty(FPropertyChangedEvent& 
 }
 #endif // WITH_EDITOR
 
+bool UParticleModuleCameraOffset::CanTickInAnyThread()
+{
+	return CameraOffset.OkForParallel();
+}
+
+
 void UParticleModuleCameraOffset::Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase)
 {
 	check(Owner && Owner->Component)
@@ -71,7 +77,7 @@ void UParticleModuleCameraOffset::Spawn(FParticleEmitterInstance* Owner, int32 O
 	{
 		if (Owner != NULL && Owner->Component != NULL)
 		{
-			ScaleFactor = Owner->Component->ComponentToWorld.GetMaximumAxisScale();
+			ScaleFactor = Owner->Component->GetAsyncComponentToWorld().GetMaximumAxisScale();
 		}
 	}
 	SPAWN_INIT;

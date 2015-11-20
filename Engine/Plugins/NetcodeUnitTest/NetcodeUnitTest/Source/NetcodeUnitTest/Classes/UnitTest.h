@@ -7,7 +7,7 @@
 #include "UnitTest.generated.h"
 
 
-// @todo JohnB: For bugtracking/changelist info, consider adding auto-launching of P4/TTP/Browser-JIRA links,
+// @todo #JohnBFeature: For bugtracking/changelist info, consider adding auto-launching of P4/TTP/Browser-JIRA links,
 //				upon double-clicking these entries in the status windows
 
 
@@ -27,11 +27,16 @@ struct FTCCommonVars;
 UENUM()
 enum class EUnitTestVerification : uint8
 {
-	Unverified,				// Unit test is not yet verified
-	VerifiedNotFixed,		// Unit test is verified as not fixed
-	VerifiedFixed,			// Unit test is verified as fixed
-	VerifiedNeedsUpdate,	// Unit test is no longer functioning, needs manual check/update (issue may be fixed, or unit test broken)
-	VerifiedUnreliable,		// Unit test is verified as having executed unreliably
+	/** Unit test is not yet verified */
+	Unverified,
+	/** Unit test is verified as not fixed */
+	VerifiedNotFixed,
+	/** Unit test is verified as fixed */
+	VerifiedFixed,
+	/** Unit test is no longer functioning, needs manual check/update (issue may be fixed, or unit test broken) */
+	VerifiedNeedsUpdate,
+	/** Unit test is verified as having executed unreliably */
+	VerifiedUnreliable,
 };
 
 
@@ -137,6 +142,9 @@ protected:
 	/** The unit test environment (not set until the current games unit test module is loaded - not set at all, if no such module) */
 	static FUnitTestEnvironment* UnitEnv;
 
+	/** The null unit test environment - for unit tests which support all games, due to requiring no game-specific features */
+	static FUnitTestEnvironment* NullUnitEnv;
+
 	/** The time of the last NetTick event */
 	double LastNetTick;
 
@@ -165,7 +173,7 @@ protected:
 	bool bFirstTimeStats;
 
 
-	// @todo JohnB: Merge the two below variables
+	// @todo #JohnBRefactor: Merge the two below variables
 	/** Whether or not the unit test has completed */
 	bool bCompleted;
 
@@ -227,7 +235,14 @@ public:
 
 		FString CurGame = FApp::GetGameName();
 
-		Result = ExpectedResult[CurGame];
+		if (ExpectedResult.Contains(CurGame))
+		{
+			Result = ExpectedResult[CurGame];
+		}
+		else if (ExpectedResult.Contains(TEXT("NullUnitEnv")))
+		{
+			Result = ExpectedResult[TEXT("NullUnitEnv")];
+		}
 
 		return Result;
 	}
@@ -292,8 +307,10 @@ protected:
 	virtual void ResetTimeout(FString ResetReason, bool bResetConnTimeout=false, uint32 MinDuration=0)
 	{
 		uint32 CurrentTimeout = FMath::Max(MinDuration, UnitTestTimeout);
+		double NewTimeoutExpire = FPlatformTime::Seconds() + (double)CurrentTimeout;
 
-		TimeoutExpire = FPlatformTime::Seconds() + (double)CurrentTimeout;
+		// Don't reset to a shorter timeout, than is already in place
+		TimeoutExpire = FMath::Max(NewTimeoutExpire, TimeoutExpire);
 
 		LastTimeoutReset = FPlatformTime::Seconds();
 		LastTimeoutResetEvent = ResetReason;
@@ -305,7 +322,7 @@ public:
 	/**
 	 * Executes the main unit test
 	 *
-	 * @return	Whether or not the unit test was executed successfully
+	 * @return	Whether or not the unit test kicked off execution successfully
 	 */
 	virtual bool ExecuteUnitTest() PURE_VIRTUAL(UUnitTest::ExecuteUnitTest, return false;)
 
@@ -328,22 +345,50 @@ public:
 
 	/**
 	 * For implementation in subclasses, for helping to track local log entries related to this unit test.
-	 * This covers logs from within the unit test, and (for TCClientUnitTest) from processing net packets related to this unit test.
+	 * This covers logs from within the unit test, and (for UClientUnitTest) from processing net packets related to this unit test.
 	 *
 	 * NOTE: The parameters are the same as the unprocessed log 'serialize' parameters, to convert to a string, use:
 	 * FOutputDevice::FormatLogLine(Verbosity, Category, Data, GPrintLogTimes)
 	 *
 	 * NOTE: Verbosity ELogVerbosity::SetColor is a special category, whose log messages can be ignored.
 	 *
-	 * @param LogType	The type of local log message this is
+	 * @param InLogType	The type of local log message this is
 	 * @param Data		The base log message being written
 	 * @param Verbosity	The warning/filter level for the log message
 	 * @param Category	The log message category (LogNet, LogNetTraffic etc.)
 	 */
-	virtual void NotifyLocalLog(ELogType LogType, const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category);
+	virtual void NotifyLocalLog(ELogType InLogType, const TCHAR* Data, ELogVerbosity::Type Verbosity, const class FName& Category);
+
+
+	/**
+	 * Notifies that there was a request to enable/disable developer mode
+	 *
+	 * @param bInDeveloperMode	Whether or not developer mode is being enabled/disabled
+	 */
+	void NotifyDeveloperModeRequest(bool bInDeveloperMode);
+
+	/**
+	 * Notifies that there was a request to execute a console command for the unit test, which can occur in a specific context,
+	 * e.g. for a unit test server, for a local minimal-client (within the unit test), or for a separate unit test client process
+	 *
+	 * @param CommandContext	The context (local/server/client?) for the console command
+	 * @param Command			The command to be executed
+	 * @return					Whether or not the command was handled
+	 */
+	virtual bool NotifyConsoleCommandRequest(FString CommandContext, FString Command);
+
+	/**
+	 * Outputs the list of console command contexts, that this unit test supports (which can include custom contexts in subclasses)
+	 *
+	 * @param OutList				Outputs the list of supported console command contexts
+	 * @param OutDefaultContext		Outputs the context which should be auto-selected/defaulted-to
+	 */
+	virtual void GetCommandContextList(TArray<TSharedPtr<FString>>& OutList, FString& OutDefaultContext);
 
 
 	virtual void PostUnitTick(float DeltaTime) override;
+
+	virtual bool IsTickable() const override;
 
 	virtual void TickIsComplete(float DeltaTime) override;
 

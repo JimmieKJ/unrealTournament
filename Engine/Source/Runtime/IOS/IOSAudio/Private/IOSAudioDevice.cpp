@@ -122,7 +122,11 @@ bool FIOSAudioDevice::InitializeHardware()
 
 	// Setup audo mixer unit
 	UnitDescription.componentType         = kAudioUnitType_Mixer;
+#ifdef __IPHONE_9_0
+    UnitDescription.componentSubType      = kAudioUnitSubType_SpatialMixer;
+#else
 	UnitDescription.componentSubType      = kAudioUnitSubType_AU3DMixerEmbedded;
+#endif
 	UnitDescription.componentManufacturer = kAudioUnitManufacturer_Apple;
 	UnitDescription.componentFlags        = 0;
 	UnitDescription.componentFlagsMask    = 0;

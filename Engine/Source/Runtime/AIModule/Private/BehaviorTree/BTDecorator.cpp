@@ -6,8 +6,6 @@
 
 UBTDecorator::UBTDecorator(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	NodeName = "UnknownDecorator";
-
 	FlowAbortMode = EBTFlowAbortMode::None;
 	bAllowAbortNone = true;
 	bAllowAbortLowerPri = true;

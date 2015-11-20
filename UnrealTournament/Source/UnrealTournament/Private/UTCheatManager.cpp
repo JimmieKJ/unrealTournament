@@ -31,6 +31,11 @@
 #include "UTCharacterContent.h"
 #include "UTImpactEffect.h"
 
+#if WITH_PROFILE
+#include "OnlineSubsystemMcp.h"
+#include "GameServiceMcp.h"
+#endif
+
 UUTCheatManager::UUTCheatManager(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -333,30 +338,33 @@ void UUTCheatManager::Teleport()
 	}
 }
 
-#if WITH_PROFILE
-
 void UUTCheatManager::McpGrantItem(const FString& ItemId)
 {
+	/*
 	if (GetOuterAUTPlayerController()->McpProfile)
 	{
 		TArray<FString> ItemList;
 		ItemList.Push(ItemId);
 		FDevCheatUrlContext Context(FMcpQueryComplete::CreateUObject(this, &UUTCheatManager::LogWebResponse));
 		GetOuterAUTPlayerController()->McpProfile->GrantItems(ItemList, 1, Context);
-	}
+	}*/
 }
 
 void UUTCheatManager::McpDestroyItem(const FString& ItemId)
 {
+	/*
 	if (GetOuterAUTPlayerController()->McpProfile)
 	{
 		FDevCheatUrlContext Context(FMcpQueryComplete::CreateUObject(this, &UUTCheatManager::LogWebResponse));
 		GetOuterAUTPlayerController()->McpProfile->DestroyItems(ItemId, 1, Context);
-	}
+	}*/
 }
+
+#if WITH_PROFILE
 
 void UUTCheatManager::LogWebResponse(const FMcpQueryResult& Response)
 {
+	/*
 	if (!Response.bSucceeded)
 	{
 		GetOuterAPlayerController()->ClientMessage(TEXT("Cheat failed"));
@@ -365,7 +373,44 @@ void UUTCheatManager::LogWebResponse(const FMcpQueryResult& Response)
 	else
 	{
 		GetOuterAPlayerController()->ClientMessage(TEXT("Cheat succeeded"));
-	}
+	}*/
 }
 
 #endif
+
+void UUTCheatManager::McpCheat()
+{
+#if WITH_PROFILE
+	AUTPlayerController* const MyPC = GetOuterAUTPlayerController();
+	UUtMcpProfile* McpProfile = MyPC->GetMcpProfile();
+	if (McpProfile)
+	{
+		FOnlineSubsystemMcp* OnlineSubMcp = McpProfile->GetOnlineSubMcp();
+		if (OnlineSubMcp && OnlineSubMcp->GetMcpGameService().IsValid())
+		{
+			FString ServiceUrl = OnlineSubMcp->GetMcpGameService()->GetBaseUrl();
+
+			// this is a bit of a hack, but it's for a cheat...
+			ServiceUrl.ReplaceInline(TEXT("-public-service"), TEXT("-admin-service"));
+			ServiceUrl.ReplaceInline(TEXT(".epicgames.com/"), TEXT(".epicgames.net/"));
+			ServiceUrl += TEXT("/admin#");
+			ServiceUrl += McpProfile->GetProfileGroup().GetGameAccountId().ToString();
+
+			// open the url in the browser
+			FPlatformProcess::LaunchURL(*ServiceUrl, nullptr, nullptr);
+		}
+	}
+#endif
+}
+
+void UUTCheatManager::McpRefreshProfile()
+{
+#if WITH_PROFILE
+	AUTPlayerController* const MyPC = GetOuterAUTPlayerController();
+	UUtMcpProfile* McpProfile = MyPC->GetMcpProfile();
+	if (McpProfile)
+	{
+		McpProfile->ForceQueryProfile(FMcpQueryComplete());
+	}
+#endif
+}

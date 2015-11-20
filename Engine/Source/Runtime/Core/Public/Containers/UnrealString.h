@@ -12,6 +12,7 @@
 #include "Misc/CString.h"
 #include "Templates/MemoryOps.h"
 
+struct FStringFormatArg;
 
 /** Determines case sensitivity options for string comparisons. */
 namespace ESearchCase
@@ -200,7 +201,8 @@ public:
 	 */
 	FORCEINLINE TCHAR& operator[]( int32 Index )
 	{
-		return Data[Index];
+		checkf(IsValidIndex(Index), TEXT("String index out of bounds: Index %i from a string with a length of %i"), Index, Len());
+		return Data.GetData()[Index];
 	}
 
 	/**
@@ -211,7 +213,8 @@ public:
 	 */
 	FORCEINLINE const TCHAR& operator[]( int32 Index ) const
 	{
-		return Data[Index];
+		checkf(IsValidIndex(Index), TEXT("String index out of bounds: Index %i from a string with a length of %i"), Index, Len());
+		return Data.GetData()[Index];
 	}
 
 	/**
@@ -237,10 +240,10 @@ private:
 	 * DO NOT USE DIRECTLY
 	 * STL-like iterators to enable range-based for loop support.
 	 */
-	FORCEINLINE friend TIterator      begin(      FString& Str) { return begin(Str.Data); }
-	FORCEINLINE friend TConstIterator begin(const FString& Str) { return begin(Str.Data); }
-	FORCEINLINE friend TIterator      end  (      FString& Str) { TIterator      Result = end(Str.Data); if (Str.Data.Num()) { --Result; } return Result; }
-	FORCEINLINE friend TConstIterator end  (const FString& Str) { TConstIterator Result = end(Str.Data); if (Str.Data.Num()) { --Result; } return Result; }
+	FORCEINLINE friend DataType::RangedForIteratorType      begin(      FString& Str) { auto Result = begin(Str.Data);                                   return Result; }
+	FORCEINLINE friend DataType::RangedForConstIteratorType begin(const FString& Str) { auto Result = begin(Str.Data);                                   return Result; }
+	FORCEINLINE friend DataType::RangedForIteratorType      end  (      FString& Str) { auto Result = end  (Str.Data); if (Str.Data.Num()) { --Result; } return Result; }
+	FORCEINLINE friend DataType::RangedForConstIteratorType end  (const FString& Str) { auto Result = end  (Str.Data); if (Str.Data.Num()) { --Result; } return Result; }
 
 public:
 	FORCEINLINE uint32 GetAllocatedSize() const
@@ -298,6 +301,17 @@ public:
 		Data.Shrink();
 	}
 
+	/**
+	 * Tests if index is valid, i.e. greater than or equal to zero, and less than the number of characters in this string (excluding the null terminator).
+	 *
+	 * @param Index Index to test.
+	 *
+	 * @returns True if index is valid. False otherwise.
+	 */
+	FORCEINLINE bool IsValidIndex(int32 Index) const
+	{
+		return Index >= 0 && Index < Len();
+	}
 
 	/**
 	 * Get pointer to the string
@@ -308,7 +322,6 @@ public:
 	{
 		return Data.Num() ? Data.GetData() : TEXT("");
 	}
-
 
 	/** 
 	 *Get string as array of TCHARS 
@@ -739,13 +752,12 @@ public:
 	 */
 	FORCEINLINE FString& operator/=( const TCHAR* Str )
 	{
-		if( Data.Num() > 1 && Data[Data.Num()-2] != TEXT('/') && Data[Data.Num()-2] != TEXT('\\') )
+		if( Data.Num() > 1 && Data[Data.Num()-2] != TEXT('/') && Data[Data.Num()-2] != TEXT('\\') && (!Str || *Str != TEXT('/')) )
 		{
 			*this += TEXT("/");
 		}
 		return *this += Str;
 	}
-
 
 	/**
 	 * Concatenate this path with given path ensuring the / character is used between them
@@ -760,174 +772,308 @@ public:
 
 	/**
 	 * Concatenate this path with given path ensuring the / character is used between them
-	 * 
-	 * @param Str path array of TCHAR to be concatenated onto the end of this
+	 *
+	 * @param Lhs Path to concatenate onto.
+	 * @param Rhs Path to concatenate.
 	 * @return new FString of the path
 	 */
-	FORCEINLINE FString operator/( const TCHAR* Str ) const
+	FORCEINLINE friend FString operator/(const FString& Lhs, const TCHAR* Rhs)
 	{
-		return FString( *this ) /= Str;
+		return FString(Lhs) /= Rhs;
 	}
 
 	/**
 	 * Concatenate this path with given path ensuring the / character is used between them
-	 * 
-	 * @param Str path FString to be concatenated onto the end of this
+	 *
+	 * @param Lhs Path to concatenate onto.
+	 * @param Rhs Path to concatenate.
 	 * @return new FString of the path
 	 */
-	FORCEINLINE FString operator/( const FString& Str ) const
+	FORCEINLINE friend FString operator/(FString&& Lhs, const TCHAR* Rhs)
 	{
-		return operator/( *Str );
+		return FString(MoveTemp(Lhs)) /= Rhs;
 	}
 
 	/**
-	 * Lexicographically test whether this string is <= the Other given string
-	 * 
-	 * @param Other array of CharType to compare against
-	 * @return true if length of this string is lexicographically <= the other, otherwise false
+	 * Concatenate this path with given path ensuring the / character is used between them
+	 *
+	 * @param Lhs Path to concatenate onto.
+	 * @param Rhs Path to concatenate.
+	 * @return new FString of the path
+	 */
+	FORCEINLINE friend FString operator/(const FString& Lhs, const FString& Rhs)
+	{
+		return FString(Lhs) /= *Rhs;
+	}
+
+	/**
+	 * Concatenate this path with given path ensuring the / character is used between them
+	 *
+	 * @param Lhs Path to concatenate onto.
+	 * @param Rhs Path to concatenate.
+	 * @return new FString of the path
+	 */
+	FORCEINLINE friend FString operator/(FString&& Lhs, const FString& Rhs)
+	{
+		return FString(MoveTemp(Lhs)) /= *Rhs;
+	}
+
+	/**
+	 * Concatenate this path with given path ensuring the / character is used between them
+	 *
+	 * @param Lhs Path to concatenate onto.
+	 * @param Rhs Path to concatenate.
+	 * @return new FString of the path
+	 */
+	FORCEINLINE friend FString operator/(const TCHAR* Lhs, const FString& Rhs)
+	{
+		return FString(Lhs) /= *Rhs;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is <= the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically <= the right string, otherwise false
+	 * @note case insensitive
+	 */
+	FORCEINLINE friend bool operator<=(const FString& Lhs, const FString& Rhs)
+	{
+		return FPlatformString::Stricmp(*Lhs, *Rhs) <= 0;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is <= the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically <= the right string, otherwise false
 	 * @note case insensitive
 	 */
 	template <typename CharType>
-	FORCEINLINE bool operator<=(const CharType* Other) const
+	FORCEINLINE friend bool operator<=(const FString& Lhs, const CharType* Rhs)
 	{
-		return !(FPlatformString::Stricmp(**this, Other) > 0);
+		return FPlatformString::Stricmp(*Lhs, Rhs) <= 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is < the Other given string
-	 * 
-	 * @param Other array of CharType to compare against
-	 * @return true if length of this string is lexicographically < the other, otherwise false
+	 * Lexicographically test whether the left string is <= the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically <= the right string, otherwise false
 	 * @note case insensitive
 	 */
 	template <typename CharType>
-	FORCEINLINE bool operator<(const CharType* Other) const
+	FORCEINLINE friend bool operator<=(const CharType* Lhs, const FString& Rhs)
 	{
-		return FPlatformString::Stricmp(**this, Other) < 0;
+		return FPlatformString::Stricmp(Lhs, *Rhs) <= 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is < the Other given string
-	 * 
-	 * @param Other FString to compare against
-	 * @return true if length of this string is lexicographically < the other, otherwise false
+	 * Lexicographically test whether the left string is < the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically < the right string, otherwise false
 	 * @note case insensitive
 	 */
-	FORCEINLINE bool operator<( const FString& Other ) const
+	FORCEINLINE friend bool operator<(const FString& Lhs, const FString& Rhs)
 	{
-		return FCString::Stricmp( **this, *Other ) < 0;
+		return FPlatformString::Stricmp(*Lhs, *Rhs) < 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is >= the Other given string
-	 * 
-	 * @param Other array of CharType to compare against
-	 * @return true if length of this string is lexicographically >= the other, otherwise false
-	 * @note case insensitive
-	 */
-	template <typename CharType>
-	FORCEINLINE bool operator>=(const CharType* Other) const
-	{
-		return !(FPlatformString::Stricmp(**this, Other) < 0);
-	}
-
-	/**
-	 * Lexicographically test whether this string is > the Other given string
-	 * 
-	 * @param Other array of CharType to compare against
-	 * @return true if length of this string is lexicographically > the other, otherwise false
+	 * Lexicographically test whether the left string is < the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically < the right string, otherwise false
 	 * @note case insensitive
 	 */
 	template <typename CharType>
-	FORCEINLINE bool operator>(const CharType* Other) const
+	FORCEINLINE friend bool operator<(const FString& Lhs, const CharType* Rhs)
 	{
-		return FPlatformString::Stricmp(**this, Other) > 0;
+		return FPlatformString::Stricmp(*Lhs, Rhs) < 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is > the Other given string
-	 * 
-	 * @param Other FString to compare against
-	 * @return true if length of this string is lexicographically > the other, otherwise false
-	 * @note case insensitive
-	 */
-	FORCEINLINE bool operator>( const FString& Other ) const
-	{
-		return FCString::Stricmp( **this, *Other ) > 0;
-	}
-
-	/**
-	 * Lexicographically test whether this string is equivalent to the Other given string
-	 * 
-	 * @param Other array of CharType to compare against
-	 * @return true if length of this string is lexicographically equivalent to the other, otherwise false
+	 * Lexicographically test whether the left string is < the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically < the right string, otherwise false
 	 * @note case insensitive
 	 */
 	template <typename CharType>
-	FORCEINLINE bool operator==(const CharType* Other) const
+	FORCEINLINE friend bool operator<(const CharType* Lhs, const FString& Rhs)
 	{
-		return FPlatformString::Stricmp(**this, Other) == 0;
+		return FPlatformString::Stricmp(Lhs, *Rhs) < 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is equivalent to the Other given string
-	 * 
-	 * @param Other FString to compare against
-	 * @return true if length of this string is lexicographically equivalent to the other, otherwise false
+	 * Lexicographically test whether the left string is >= the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically >= the right string, otherwise false
 	 * @note case insensitive
 	 */
-	FORCEINLINE bool operator==( const FString& Other ) const
+	FORCEINLINE friend bool operator>=(const FString& Lhs, const FString& Rhs)
 	{
-		return FCString::Stricmp( **this, *Other )==0;
+		return FPlatformString::Stricmp(*Lhs, *Rhs) >= 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is not equivalent to the Other given string
-	 * 
-	 * @param Other array of CharType to compare against
-	 * @return true if length of this string is lexicographically not equivalent to the other, otherwise false
+	 * Lexicographically test whether the left string is >= the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically >= the right string, otherwise false
 	 * @note case insensitive
 	 */
 	template <typename CharType>
-	FORCEINLINE bool operator!=(const CharType* Other) const
+	FORCEINLINE friend bool operator>=(const FString& Lhs, const CharType* Rhs)
 	{
-		return FPlatformString::Stricmp(**this, Other) != 0;
+		return FPlatformString::Stricmp(*Lhs, Rhs) >= 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is not equivalent to the Other given string
-	 * 
-	 * @param Other FString to compare against
-	 * @return true if length of this string is lexicographically not equivalent to the other, otherwise false
+	 * Lexicographically test whether the left string is >= the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically >= the right string, otherwise false
 	 * @note case insensitive
 	 */
-	FORCEINLINE bool operator!=( const FString& Other ) const
+	template <typename CharType>
+	FORCEINLINE friend bool operator>=(const CharType* Lhs, const FString& Rhs)
 	{
-		return FCString::Stricmp( **this, *Other )!=0;
+		return FPlatformString::Stricmp(Lhs, *Rhs) >= 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is <= the Other given string
-	 * 
-	 * @param Other FString to compare against
-	 * @return true if length of this string is lexicographically <= the other, otherwise false
+	 * Lexicographically test whether the left string is > the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically > the right string, otherwise false
 	 * @note case insensitive
 	 */
-	FORCEINLINE bool operator<=(const FString& Str) const
+	FORCEINLINE friend bool operator>(const FString& Lhs, const FString& Rhs)
 	{
-		return !(FCString::Stricmp(**this, *Str) > 0);
+		return FPlatformString::Stricmp(*Lhs, *Rhs) > 0;
 	}
 
 	/**
-	 * Lexicographically test whether this string is >= the Other given string
-	 * 
-	 * @param Other FString to compare against
-	 * @return true if length of this string is lexicographically >= the other, otherwise false
+	 * Lexicographically test whether the left string is > the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically > the right string, otherwise false
 	 * @note case insensitive
 	 */
-	FORCEINLINE bool operator>=(const FString& Str) const
+	template <typename CharType>
+	FORCEINLINE friend bool operator>(const FString& Lhs, const CharType* Rhs)
 	{
-		return !(FCString::Stricmp(**this, *Str) < 0);
+		return FPlatformString::Stricmp(*Lhs, Rhs) > 0;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is > the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically > the right string, otherwise false
+	 * @note case insensitive
+	 */
+	template <typename CharType>
+	FORCEINLINE friend bool operator>(const CharType* Lhs, const FString& Rhs)
+	{
+		return FPlatformString::Stricmp(Lhs, *Rhs) > 0;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is == the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically == the right string, otherwise false
+	 * @note case insensitive
+	 */
+	FORCEINLINE friend bool operator==(const FString& Lhs, const FString& Rhs)
+	{
+		return FPlatformString::Stricmp(*Lhs, *Rhs) == 0;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is == the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically == the right string, otherwise false
+	 * @note case insensitive
+	 */
+	template <typename CharType>
+	FORCEINLINE friend bool operator==(const FString& Lhs, const CharType* Rhs)
+	{
+		return FPlatformString::Stricmp(*Lhs, Rhs) == 0;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is == the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically == the right string, otherwise false
+	 * @note case insensitive
+	 */
+	template <typename CharType>
+	FORCEINLINE friend bool operator==(const CharType* Lhs, const FString& Rhs)
+	{
+		return FPlatformString::Stricmp(Lhs, *Rhs) == 0;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is != the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically != the right string, otherwise false
+	 * @note case insensitive
+	 */
+	FORCEINLINE friend bool operator!=(const FString& Lhs, const FString& Rhs)
+	{
+		return FPlatformString::Stricmp(*Lhs, *Rhs) != 0;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is != the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically != the right string, otherwise false
+	 * @note case insensitive
+	 */
+	template <typename CharType>
+	FORCEINLINE friend bool operator!=(const FString& Lhs, const CharType* Rhs)
+	{
+		return FPlatformString::Stricmp(*Lhs, Rhs) != 0;
+	}
+
+	/**
+	 * Lexicographically test whether the left string is != the right string
+	 *
+	 * @param Lhs String to compare against.
+	 * @param Rhs String to compare against.
+	 * @return true if the left string is lexicographically != the right string, otherwise false
+	 * @note case insensitive
+	 */
+	template <typename CharType>
+	FORCEINLINE friend bool operator!=(const CharType* Lhs, const FString& Rhs)
+	{
+		return FPlatformString::Stricmp(Lhs, *Rhs) != 0;
 	}
 
 	/** Get the length of the sting, excluding terminating character */
@@ -1028,7 +1174,7 @@ public:
 	 * Searches the string for a character
 	 *
 	 * @param InChar the character to search for
-	 * @param Index out the position the character was found at, not updated if return is false
+	 * @param Index out the position the character was found at, INDEX_NONE if return is false
 	 * @return true if character was found in this string, otherwise false
 	 */
 	FORCEINLINE bool FindChar( TCHAR InChar, int32& Index ) const
@@ -1040,7 +1186,7 @@ public:
 	 * Searches the string for the last occurrence of a character
 	 *
 	 * @param InChar the character to search for
-	 * @param Index out the position the character was found at, not updated if return is false
+	 * @param Index out the position the character was found at, INDEX_NONE if return is false
 	 * @return true if character was found in this string, otherwise false
 	 */
 	FORCEINLINE bool FindLastChar( TCHAR InChar, int32& Index ) const
@@ -1059,6 +1205,7 @@ public:
 	template <typename Predicate>
 	FORCEINLINE int32 FindLastCharByPredicate(Predicate Pred, int32 StartIndex) const
 	{
+		check(StartIndex >= 0 && StartIndex <= this->Len());
 		return Data.FindLastByPredicate(Pred, StartIndex);
 	}
 
@@ -1073,7 +1220,7 @@ public:
 	template <typename Predicate>
 	FORCEINLINE int32 FindLastCharByPredicate(Predicate Pred) const
 	{
-		return Data.FindLastByPredicate(Pred, Data.Num() - 1);
+		return Data.FindLastByPredicate(Pred, this->Len());
 	}
 
 	/**
@@ -1100,7 +1247,7 @@ public:
 	 * 
 	 * @param Other 	The string test against
 	 * @param SearchCase 	Whether or not the comparison should ignore case
-	 * @return 0 if equal, -1 if less than, 1 if greater than
+	 * @return 0 if equal, negative if less than, positive if greater than
 	 */
 	FORCEINLINE int32 Compare( const FString& Other, ESearchCase::Type SearchCase = ESearchCase::CaseSensitive ) const
 	{
@@ -1140,8 +1287,14 @@ public:
 	/** @return a new string with the characters of this converted to uppercase */
 	FString ToUpper() const;
 
+	/** Converts all characters in this string to uppercase */
+	void ToUpperInline();
+
 	/** @return a new string with the characters of this converted to lowercase */
 	FString ToLower() const;
+
+	/** Converts all characters in this string to lowercase */
+	void ToLowerInline();
 
 	/** Pad the left of this string for ChCount characters */
 	FString LeftPad( int32 ChCount ) const;
@@ -1161,6 +1314,22 @@ public:
 	 * @returns FString object that was constructed using format and additional parameters.
 	 */
 	VARARG_DECL( static FString, static FString, return, Printf, VARARG_NONE, const TCHAR*, VARARG_NONE, VARARG_NONE );
+
+	/**
+	 * Format the specified string using the specified arguments. Replaces instances of { Argument } with keys in the map matching 'Argument'
+	 * @param InFormatString		A string representing the format expression
+	 * @param InNamedArguments		A map of named arguments that match the tokens specified in InExpression
+	 * @return A string containing the formatted text
+	 */
+	static FString Format(const TCHAR* InFormatString, const TMap<FString, FStringFormatArg>& InNamedArguments);
+
+	/**
+	 * Format the specified string using the specified arguments. Replaces instances of {0} with indices from the given array matching the index specified in the token
+	 * @param InFormatString		A string representing the format expression
+	 * @param InOrderedArguments	An array of ordered arguments that match the tokens specified in InExpression
+	 * @return A string containing the formatted text
+	 */
+	static FString Format(const TCHAR* InFormatString, const TArray<FStringFormatArg>& InOrderedArguments);
 
 	// @return string with Ch character
 	static FString Chr( TCHAR Ch );
@@ -1271,7 +1440,7 @@ public:
 	*
 	* @param	InArray			The array to fill with the string pieces
 	* @param	DelimArray		The strings to delimit on
-	* @param	NumDelims		The number of delimters.
+	* @param	NumDelims		The number of delimiters.
 	*
 	* @return	The number of elements in InArray
 	*/
@@ -1604,9 +1773,9 @@ inline const uint8 TCharToNibble( const TCHAR Char )
 inline int32 HexToBytes( const FString& HexString, uint8* OutBytes )
 {
 	int32 NumBytes = 0;
-	const bool bPaddNibble = ( HexString.Len() % 2 ) == 1;
+	const bool bPadNibble = ( HexString.Len() % 2 ) == 1;
 	const TCHAR* CharPos = *HexString;
-	if( bPaddNibble )
+	if( bPadNibble )
 	{
 		OutBytes[ NumBytes++ ] = TCharToNibble( *CharPos++ );
 	}
@@ -1616,7 +1785,7 @@ inline int32 HexToBytes( const FString& HexString, uint8* OutBytes )
 		OutBytes[ NumBytes ] += TCharToNibble( *CharPos++ );
 		++NumBytes;
 	}
-	return NumBytes - 1;
+	return NumBytes;
 }
 
 /** Namespace that houses lexical conversion for various types. User defined conversions can be implemented externally */
@@ -1643,7 +1812,7 @@ namespace LexicalConversion
 	inline void FromString(float& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atof(Buffer);		}
 	inline void FromString(double& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atod(Buffer);		}
 	inline void FromString(bool& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::ToBool(Buffer);	}
-	inline void FromString(FString& OutValue,   const TCHAR* Buffer)	{	OutValue = FString(Buffer);				}
+	inline void FromString(FString& OutValue, const TCHAR* Buffer)		{	OutValue = FString(Buffer);				}
 
 	/** Convert numeric types to a string */
 	template<typename T>
@@ -1666,13 +1835,7 @@ namespace LexicalConversion
 	{
 		return FString::SanitizeFloat( Value );
 	}
-	
-	/** Specialized for FString */
-	template<>
-	inline FString ToSanitizedString<FString>(const FString& value)
-	{
-		return FString(value);
-	}
+
 
 	/** Parse a string into this type, returning whether it was successful */
 	/** Specialization for arithmetic types */
@@ -1880,3 +2043,15 @@ public:
 		return *this;
 	}
 };
+
+/**
+ * A helper function to find closing parenthesis that matches the first open parenthesis found. The open parenthesis
+ * referred to must be at or further up from the start index.
+ *
+ * @param TargetString      The string to search in
+ * @param StartSearch       The index to start searching at
+ * @return the index in the given string of the closing parenthesis
+ */
+CORE_API int32 FindMatchingClosingParenthesis(const FString& TargetString, const int32 StartSearch = 0);
+
+#include "Misc/StringFormatArg.h"

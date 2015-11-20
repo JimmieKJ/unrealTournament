@@ -144,7 +144,7 @@ public:
 		FilterTable[0] = TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
 		FilterTable[1] = TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI();
 			
-		PostprocessParameter.SetPS(ShaderRHI, Context, 0, false, FilterTable);
+		PostprocessParameter.SetPS(ShaderRHI, Context, 0, eFC_0000, FilterTable);
 		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View);
 
 		{
@@ -243,21 +243,29 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 	const FSceneViewFamily& ViewFamily = *(View.Family);
 	
 	FIntRect SrcRect = View.ViewRect;
-	FIntRect DestRect = View.UnscaledViewRect;
+	// no upscale if separate ren target is used.
+	FIntRect DestRect = (ViewFamily.bUseSeparateRenderTarget) ? View.ViewRect : View.UnscaledViewRect; // Simple upscaling, ES2 post process does not currently have a specific upscaling pass.
 	FIntPoint SrcSize = InputDesc->Extent;
 
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
+	if (!DestRenderTarget.TargetableTexture)
+	{
+		return;
+	}
 
 	// Set the view family's render target/viewport.
 	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	Context.SetViewportAndCallRHI(DestRect);
 
 	bool bTessellatedQuad = PaniniConfig.D >= 0.01f;
 
 	// with distortion (bTessellatedQuad) we need to clear the background
-	FIntRect ExcludeRect = bTessellatedQuad ? FIntRect() : View.ViewRect;
+	FIntRect ExcludeRect = bTessellatedQuad ? FIntRect() : DestRect;
 
-	Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, ExcludeRect);
+	Context.SetViewportAndCallRHI(DestRect);
+	if (View.StereoPass == eSSP_FULL || View.StereoPass == eSSP_LEFT_EYE)
+	{
+		Context.RHICmdList.Clear(true, FLinearColor::Black, false, 1.0f, false, 0, ExcludeRect);
+	}
 
 	// set the state
 	Context.RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
@@ -310,7 +318,7 @@ void FRCPassPostProcessUpscale::Process(FRenderingCompositePassContext& Context)
 
 FPooledRenderTargetDesc FRCPassPostProcessUpscale::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
 	Ret.DebugName = TEXT("Upscale");

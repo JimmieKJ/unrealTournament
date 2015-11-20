@@ -27,6 +27,7 @@ public:
 
 	int32 GetCaptureGroupBeginning(const int32 Index);
 	int32 GetCaptureGroupEnding(const int32 Index);
+	FString GetCaptureGroup(const int32 Index);
 
 	int32 GetBeginLimit();
 	int32 GetEndLimit();

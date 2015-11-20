@@ -19,22 +19,22 @@ class UK2Node_DelegateSet : public UK2Node
 	UPROPERTY()
 	TSubclassOf<class UObject>  DelegatePropertyClass;
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual FLinearColor GetNodeTitleColor() const override { return FColor(216,88,88); }
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual bool DrawNodeAsEntry() const override { return true; }
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual ERedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const override;
 	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
 	// @todo document
 	BLUEPRINTGRAPH_API UEdGraphPin* GetDelegateOwner() const;

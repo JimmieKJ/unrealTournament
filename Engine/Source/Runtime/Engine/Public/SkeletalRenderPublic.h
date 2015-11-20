@@ -41,10 +41,11 @@ public:
 	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveVertexAnim>& ActiveVertexAnims) = 0;
 
 	/**
-	 * Called by the rendering thread to update the current dynamic data
-	 * @param	InDynamicData - data that was created by the game thread for use by the rendering thread
+	 * Called by FSkeletalMeshObject prior to GDME. This allows the GPU skin version to update bones etc now that we know we are going to render
 	 */
-	virtual void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, class FDynamicSkelMeshObjectData* InDynamicData) = 0;
+	virtual void PreGDMECallback()
+	{
+	}
 
 	/**
 	 * @param	LODIndex - each LOD has its own vertex data

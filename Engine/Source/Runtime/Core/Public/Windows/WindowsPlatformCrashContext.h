@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GenericPlatform/GenericPlatformContext.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 
 #include "AllowWindowsPlatformTypes.h"
 #include "DbgHelp.h"
@@ -18,7 +18,7 @@ struct CORE_API FWindowsPlatformCrashContext : public FGenericCrashContext
 
 	virtual void AddPlatformSpecificProperties() override
 	{
-		AddCrashProperty( TEXT( "Platform.IsRunningWindows" ), 1 );
+		AddCrashProperty( TEXT( "PlatformIsRunningWindows" ), 1 );
 	}
 };
 

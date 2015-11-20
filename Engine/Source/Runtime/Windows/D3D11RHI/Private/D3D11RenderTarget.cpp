@@ -143,7 +143,7 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 
 	if (SourceTexture)
 	{
-		SetShaderResourceView<SF_Pixel>(SourceTexture, SourceTexture->GetShaderResourceView(), TextureIndex);
+		SetShaderResourceView<SF_Pixel>(SourceTexture, SourceTexture->GetShaderResourceView(), TextureIndex, SourceTexture->GetName());
 	}
 
 	// Generate the vertices used
@@ -192,14 +192,16 @@ void FD3D11DynamicRHI::ResolveTextureUsingShader(
 */
 void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureRHI, FTextureRHIParamRef DestTextureRHI, bool bKeepOriginalSurface, const FResolveParams& ResolveParams)
 {
-	if(!SourceTextureRHI || !DestTextureRHI)
+	if (!SourceTextureRHI || !DestTextureRHI)
 	{
 		// no need to do anything (sliently ignored)
 		return;
 	}
 
-	FRHICommandList_RecursiveHazardous RHICmdList(this);
+	RHITransitionResources(EResourceTransitionAccess::EReadable, &SourceTextureRHI, 1);
 
+	FRHICommandList_RecursiveHazardous RHICmdList(this);
+	
 
 	FD3D11Texture2D* SourceTexture2D = static_cast<FD3D11Texture2D*>(SourceTextureRHI->GetTexture2D());
 	FD3D11Texture2D* DestTexture2D = static_cast<FD3D11Texture2D*>(DestTextureRHI->GetTexture2D());
@@ -209,39 +211,6 @@ void FD3D11DynamicRHI::RHICopyToResolveTarget(FTextureRHIParamRef SourceTextureR
 
 	FD3D11Texture3D* SourceTexture3D = static_cast<FD3D11Texture3D*>(SourceTextureRHI->GetTexture3D());
 	FD3D11Texture3D* DestTexture3D = static_cast<FD3D11Texture3D*>(DestTextureRHI->GetTexture3D());
-
-#if CHECK_SRV_TRANSITIONS
-	//check first, as some of the resolve shaders could trigger the resource we're currently resolving.
-	ID3D11Resource* SourceResource = nullptr;
-	int32 ResolveSlice = -1;
-	if (SourceTexture2D)
-	{
-		SourceResource = SourceTexture2D->GetResource();
-	}
-	if (SourceTextureCube)
-	{
-		SourceResource = SourceTextureCube->GetResource();
-		ResolveSlice = ResolveParams.SourceArrayIndex * 6 + ResolveParams.CubeFace;
-	}
-	if (SourceTexture3D)
-	{
-		SourceResource = SourceTexture3D->GetResource();
-	}
-
-	if (SourceResource)
-	{
-		// if we don't have specific resolve data remove all references.
-		// this is helpful when you clear many mips/slices but only want to do one resolve.
-		if (ResolveParams.MipIndex == -1 && ResolveParams.SourceArrayIndex == -1)
-		{
-			UnresolvedTargets.Remove(SourceResource);
-		}
-		else
-		{
-			UnresolvedTargets.Remove(SourceResource, FUnresolvedRTInfo(SourceTextureRHI->GetName(), ResolveParams.MipIndex, 1, ResolveSlice, 1));
-		}
-	}
-#endif
 		
 	if(SourceTexture2D && DestTexture2D)
 	{

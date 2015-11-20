@@ -544,7 +544,6 @@ UObject* USpriterImporterFactory::FactoryCreateText(UClass* InClass, UObject* In
 // 						UFbxAnimSequenceImportData* ImportData = UFbxAnimSequenceImportData::GetImportDataForAnimSequence(NewAnimation, TemplateImportData);
 // 						ImportData->SourceFilePath = FReimportManager::SanitizeImportFilename(UFactory::CurrentFilename, NewAnimation);
 // 						ImportData->SourceFileTimestamp = IFileManager::Get().GetTimeStamp(*UFactory::CurrentFilename).ToString();
-// 						ImportData->bDirty = false;
 // 					}
 
 

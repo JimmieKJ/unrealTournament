@@ -36,6 +36,7 @@ public:
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		if (!bAutoRemove)
 		{
+			FScopeLock AnntationMapLock(&AnnotationMapCritical);
 			// in this case we are only verifying that the external assurances of removal are met
 			check(!AnnotationMap.Find(Object));
 		}
@@ -73,6 +74,7 @@ public:
 	void AddAnnotation(const UObjectBase *Object,TAnnotation Annotation)
 	{
 		check(Object);
+		FScopeLock AnntationMapLock(&AnnotationMapCritical);
 		AnnotationCacheKey = Object;
 		AnnotationCacheValue = Annotation;
 		if (Annotation.IsDefault())
@@ -88,7 +90,7 @@ public:
 				if (bAutoRemove)
 #endif
 				{
-					GetUObjectArray().AddUObjectDeleteListener(this);
+					GUObjectArray.AddUObjectDeleteListener(this);
 				}
 			}
 			AnnotationMap.Add(AnnotationCacheKey,AnnotationCacheValue);
@@ -101,11 +103,12 @@ public:
 	 * @return				Old annotation
 	 */
 	TAnnotation GetAndRemoveAnnotation(const UObjectBase *Object)
-	{
+	{		
 		check(Object);
+		FScopeLock AnntationMapLock(&AnnotationMapCritical);
 		AnnotationCacheKey = Object;
 		AnnotationCacheValue = TAnnotation();
-		bool bHadElements = (AnnotationMap.Num() > 0);
+		const bool bHadElements = (AnnotationMap.Num() > 0);
 		TAnnotation Result;
 		AnnotationMap.RemoveAndCopyValue(AnnotationCacheKey, Result);
 		if (bHadElements && AnnotationMap.Num() == 0)
@@ -115,7 +118,7 @@ public:
 			if (bAutoRemove)
 #endif
 			{
-				GetUObjectArray().RemoveUObjectDeleteListener(this);
+				GUObjectArray.RemoveUObjectDeleteListener(this);
 			}
 		}
 		return Result;
@@ -128,9 +131,10 @@ public:
 	void RemoveAnnotation(const UObjectBase *Object)
 	{
 		check(Object);
+		FScopeLock AnntationMapLock(&AnnotationMapCritical);
 		AnnotationCacheKey = Object;
 		AnnotationCacheValue = TAnnotation();
-		bool bHadElements = (AnnotationMap.Num() > 0);
+		const bool bHadElements = (AnnotationMap.Num() > 0);
 		AnnotationMap.Remove(AnnotationCacheKey);
 		if (bHadElements && AnnotationMap.Num() == 0)
 		{
@@ -139,7 +143,7 @@ public:
 			if (bAutoRemove)
 #endif
 			{
-				GetUObjectArray().RemoveUObjectDeleteListener(this);
+				GUObjectArray.RemoveUObjectDeleteListener(this);
 			}
 		}
 	}
@@ -149,9 +153,10 @@ public:
 	 */
 	void RemoveAllAnnotations()
 	{
+		FScopeLock AnntationMapLock(&AnnotationMapCritical);
 		AnnotationCacheKey = NULL;
 		AnnotationCacheValue = TAnnotation();
-		bool bHadElements = (AnnotationMap.Num() > 0);
+		const bool bHadElements = (AnnotationMap.Num() > 0);
 		AnnotationMap.Empty();
 		if (bHadElements)
 		{
@@ -160,7 +165,7 @@ public:
 			if (bAutoRemove)
 #endif
 			{
-				GetUObjectArray().RemoveUObjectDeleteListener(this);
+				GUObjectArray.RemoveUObjectDeleteListener(this);
 			}
 		}
 	}
@@ -173,8 +178,9 @@ public:
 	FORCEINLINE TAnnotation GetAnnotation(const UObjectBase *Object)
 	{
 		check(Object);
+		FScopeLock AnntationMapLock(&AnnotationMapCritical);
 		if (Object != AnnotationCacheKey)
-		{
+		{			
 			AnnotationCacheKey = Object;
 			TAnnotation* Entry = AnnotationMap.Find(AnnotationCacheKey);
 			if (Entry)
@@ -203,6 +209,7 @@ public:
 	 */
 	void Reserve(int32 ExpectedNumElements)
 	{
+		FScopeLock AnntationMapLock(&AnnotationMapCritical);
 		AnnotationMap.Empty(ExpectedNumElements);
 	}
 
@@ -212,6 +219,7 @@ private:
 	 * Map from live objects to an annotation
 	 */
 	TMap<const UObjectBase *,TAnnotation> AnnotationMap;
+	FCriticalSection AnnotationMapCritical;
 
 	/**
 	 * Key for a one-item cache of the last lookup into AnnotationMap.
@@ -481,7 +489,7 @@ public:
 	void AddAnnotation(const UObjectBase *Object,TAnnotation Annotation)
 	{
 		check(Object);
-		AddAnnotation(GetUObjectArray().ObjectToIndex(Object),Annotation);
+		AddAnnotation(GUObjectArray.ObjectToIndex(Object),Annotation);
 	}
 	/**
 	 * Add an annotation to the annotation list. If the Annotation is the default, then the annotation is removed.
@@ -506,7 +514,7 @@ public:
 				if (bAutoRemove)
 #endif
 				{
-					GetUObjectArray().AddUObjectDeleteListener(this);
+					GUObjectArray.AddUObjectDeleteListener(this);
 				}
 			}
 			if (Index >= AnnotationArray.Num())
@@ -529,7 +537,7 @@ public:
 	void RemoveAnnotation(const UObjectBase *Object)
 	{
 		check(Object);
-		RemoveAnnotation(GetUObjectArray().ObjectToIndex(Object));
+		RemoveAnnotation(GUObjectArray.ObjectToIndex(Object));
 	}
 	/**
 	 * Removes an annotation from the annotation list. 
@@ -561,7 +569,7 @@ public:
 			if (bAutoRemove)
 #endif
 			{
-				GetUObjectArray().RemoveUObjectDeleteListener(this);
+				GUObjectArray.RemoveUObjectDeleteListener(this);
 			}
 		}
 	}
@@ -574,7 +582,7 @@ public:
 	FORCEINLINE TAnnotation GetAnnotation(const UObjectBase *Object)
 	{
 		check(Object);
-		return GetAnnotation(GetUObjectArray().ObjectToIndex(Object));
+		return GetAnnotation(GUObjectArray.ObjectToIndex(Object));
 	}
 
 	/**
@@ -602,7 +610,7 @@ public:
 	FORCEINLINE TAnnotation& GetAnnotationRef(const UObjectBase *Object)
 	{
 		check(Object);
-		return GetAnnotationRef(GetUObjectArray().ObjectToIndex(Object));
+		return GetAnnotationRef(GUObjectArray.ObjectToIndex(Object));
 	}
 
 	/**
@@ -668,11 +676,11 @@ public:
 	FORCEINLINE void Set(const UObjectBase *Object)
 	{
 		checkSlow(Object);
-		int32 Index = GetUObjectArray().ObjectToIndex(Object);
+		int32 Index = GUObjectArray.ObjectToIndex(Object);
 		checkSlow(Index >= 0);
 		if (AnnotationArray.Num() == 0)
 		{
-			GetUObjectArray().AddUObjectDeleteListener(this);
+			GUObjectArray.AddUObjectDeleteListener(this);
 		}
 		if (Index >= AnnotationArray.Num() * BitsPerElement)
 		{
@@ -692,7 +700,7 @@ public:
 	FORCEINLINE void Clear(const UObjectBase *Object)
 	{
 		checkSlow(Object);
-		int32 Index = GetUObjectArray().ObjectToIndex(Object);
+		int32 Index = GUObjectArray.ObjectToIndex(Object);
 		RemoveAnnotation(Index);
 	}
 
@@ -713,7 +721,7 @@ public:
 	FORCEINLINE bool Get(const UObjectBase *Object)
 	{
 		checkSlow(Object);
-		int32 Index = GetUObjectArray().ObjectToIndex(Object);
+		int32 Index = GUObjectArray.ObjectToIndex(Object);
 		checkSlow(Index >= 0);
 		if (Index < AnnotationArray.Num() * BitsPerElement)
 		{
@@ -746,7 +754,7 @@ private:
 		AnnotationArray.Empty();
 		if (bHadElements)
 		{
-			GetUObjectArray().RemoveUObjectDeleteListener(this);
+			GUObjectArray.RemoveUObjectDeleteListener(this);
 		}
 	}
 

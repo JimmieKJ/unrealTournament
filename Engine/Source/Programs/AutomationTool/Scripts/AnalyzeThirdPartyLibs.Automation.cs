@@ -95,7 +95,7 @@ class ThirdPartyLibraryInfo
 
 				if (!bAllowed)
 				{
-					CommandUtils.Log("WARNING: {0} is {1} with an unexpected extension", Filename, AnalyzeThirdPartyLibs.ToMegabytes(Size));
+					CommandUtils.LogWarning("{0} is {1} with an unexpected extension", Filename, AnalyzeThirdPartyLibs.ToMegabytes(Size));
 				}
 			}
 		}

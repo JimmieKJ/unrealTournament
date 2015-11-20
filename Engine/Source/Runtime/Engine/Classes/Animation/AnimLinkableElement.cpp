@@ -349,10 +349,28 @@ void FAnimLinkableElement::SetTime_Internal(float NewTime, EAnimLinkMethod::Type
 	}
 }
 
-void FAnimLinkableElement::ConditionalRelink()
+bool FAnimLinkableElement::ConditionalRelink()
 {
+	// Check slot index if we're in a montage
+	bool bRequiresRelink = false;
+	
+	if(LinkedMontage)
+	{
+		if(!LinkedMontage->SlotAnimTracks.IsValidIndex(SlotIndex))
+		{
+			bRequiresRelink = true;
+			SlotIndex = 0;
+		}
+	}
+
+	// Check to see if we've moved to a new segment
 	float CurrentAbsTime = GetTime();
 	if(CurrentAbsTime < SegmentBeginTime || CurrentAbsTime > SegmentBeginTime + SegmentLength)
+	{
+		bRequiresRelink = true;
+	}
+
+	if(bRequiresRelink)
 	{
 		if(LinkedMontage)
 		{
@@ -363,6 +381,8 @@ void FAnimLinkableElement::ConditionalRelink()
 			LinkSequence(LinkedSequence, CurrentAbsTime);
 		}
 	}
+
+	return bRequiresRelink;
 }
 
 void FAnimLinkableElement::Link(UAnimSequenceBase* AnimObject, float AbsTime, int32 InSlotIndex /*= 0*/)
@@ -374,5 +394,33 @@ void FAnimLinkableElement::Link(UAnimSequenceBase* AnimObject, float AbsTime, in
 	else
 	{
 		LinkSequence(AnimObject, AbsTime);
+	}
+}
+
+void FAnimLinkableElement::RefreshSegmentOnLoad()
+{
+	// We only perform this step if we have valid data from a previous link
+	if(LinkedMontage && SegmentIndex != INDEX_NONE && SlotIndex != INDEX_NONE)
+	{
+		if(LinkedMontage->SlotAnimTracks.IsValidIndex(SlotIndex))
+		{
+			FSlotAnimationTrack& Slot = LinkedMontage->SlotAnimTracks[SlotIndex];
+			if(Slot.AnimTrack.AnimSegments.IsValidIndex(SegmentIndex))
+			{
+				FAnimSegment& Segment = Slot.AnimTrack.AnimSegments[SegmentIndex];
+
+				if(Segment.AnimReference == LinkedSequence)
+				{
+					if(CachedLinkMethod == EAnimLinkMethod::Relative)
+					{
+						LinkValue = FMath::Clamp<float>(LinkValue, 0.0f, Segment.GetLength());
+					}
+
+					// Update timing
+					SegmentBeginTime = Segment.StartPos;
+					SegmentLength = Segment.GetLength();
+				}
+			}
+		}
 	}
 }

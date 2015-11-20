@@ -4,6 +4,8 @@
 #include "OnlineDelegateMacros.h"
 #include "OnlineSubsystemTypes.h"
 
+struct FOnlineNotification;
+
 // abstract base class for messages of the type understood by the specific transport mechanism, eg. xmpp
 class IOnlineNotificationTransportMessage
 {

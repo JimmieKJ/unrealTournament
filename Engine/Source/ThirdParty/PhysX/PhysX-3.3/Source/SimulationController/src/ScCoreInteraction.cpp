@@ -37,7 +37,9 @@ Sc::CoreInteraction* Sc::CoreInteraction::isCoreInteraction(Interaction* interac
 	case PX_INTERACTION_TYPE_OVERLAP:
 	case PX_INTERACTION_TYPE_TRIGGER:
 	case PX_INTERACTION_TYPE_MARKER:
+#if PX_USE_PARTICLE_SYSTEM_API
 	case PX_INTERACTION_TYPE_PARTICLE_BODY:
+#endif
 		return static_cast<ElementSimInteraction*>(interaction);
 	case PX_INTERACTION_TYPE_ARTICULATION:
 	case PX_INTERACTION_TYPE_COUNT:

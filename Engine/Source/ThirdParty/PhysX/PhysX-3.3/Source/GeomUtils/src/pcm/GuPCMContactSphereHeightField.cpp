@@ -106,7 +106,8 @@ bool Gu::pcmContactSphereHeightField(GU_CONTACT_METHOD_ARGS)
 
 	if(bLostContacts || multiManifold.invalidate(curTransform, sphereRadius, FLoad(0.02f)))
 	{
-
+		multiManifold.mNumManifolds = 0;
+		multiManifold.setRelativeTransform(curTransform); 
 #ifdef __SPU__
 		const Gu::HeightField& hf = *Cm::memFetchAsync<const Gu::HeightField>(HeightFieldBuffer, Cm::MemFetchPtr(static_cast<Gu::HeightField*>(shapeHeight.heightField)), sizeof(Gu::HeightField), 1);
 		Cm::memFetchWait(1);

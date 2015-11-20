@@ -30,7 +30,7 @@ class UK2Node_Timeline : public UK2Node
 	UPROPERTY(Transient)
 	uint32 bReplicated:1;
 
-	// Begin UEdGraphNode interface.
+	//~ Begin UEdGraphNode Interface.
 	virtual void AllocateDefaultPins() override;
 	virtual void DestroyNode() override;
 	virtual void PostPasteNode() override;
@@ -45,15 +45,15 @@ class UK2Node_Timeline : public UK2Node
 	virtual FString GetDocumentationExcerptName() const override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Timeline_16x"); }
 	virtual bool ShouldShowNodeProperties() const override { return true; }
-	// End UEdGraphNode interface.
+	//~ End UEdGraphNode Interface.
 
-	// Begin UK2Node interface.
+	//~ Begin UK2Node Interface.
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
 	virtual void GetNodeAttributes( TArray<TKeyValuePair<FString, FString>>& OutNodeAttributes ) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
-	// End UK2Node interface.
+	//~ End UK2Node Interface.
 
 	/** Get the 'play' input pin */
 	BLUEPRINTGRAPH_API UEdGraphPin* GetPlayPin() const;

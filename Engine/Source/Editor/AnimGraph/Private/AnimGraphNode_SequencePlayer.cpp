@@ -24,18 +24,12 @@ protected:
 	FAssetData AssetInfo;
 public:
 	FNewSequencePlayerAction(const FAssetData& InAssetInfo, FText Title)
+		: FEdGraphSchemaAction_K2NewNode(LOCTEXT("Animation", "Animations"), Title, TEXT("Evaluates an animation sequence to produce a pose"), 0, FText::FromName(InAssetInfo.ObjectPath))
 	{
 		AssetInfo = InAssetInfo;
 
 		UAnimGraphNode_SequencePlayer* Template = NewObject<UAnimGraphNode_SequencePlayer>();
 		NodeTemplate = Template;
-
-		MenuDescription = Title;
-		TooltipDescription = TEXT("Evaluates an animation sequence to produce a pose");
-		Category = TEXT("Animations");
-
-		// Grab extra keywords
-		Keywords = FText::FromName(InAssetInfo.ObjectPath);
 	}
 
 	virtual UEdGraphNode* PerformAction(class UEdGraph* ParentGraph, UEdGraphPin* FromPin, const FVector2D Location, bool bSelectNewNode = true) override

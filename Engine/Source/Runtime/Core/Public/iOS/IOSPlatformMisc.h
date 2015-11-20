@@ -62,12 +62,12 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	}
 
 	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	FORCEINLINE static bool DebugBreakAndPromptForRemoteReturningFalse()
+	FORCEINLINE static bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
 	{
 #if !UE_BUILD_SHIPPING
 		if (!IsDebuggerPresent())
 		{
-			PromptForRemoteDebugging(false);
+			PromptForRemoteDebugging(bIsEnsure);
 		}
 
 		DebugBreak();
@@ -94,6 +94,11 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 	static bool SetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, const FString& InValue);
 	static bool GetStoredValue(const FString& InStoreId, const FString& InSectionName, const FString& InKeyName, FString& OutValue);
 	static TArray<uint8> GetSystemFontBytes();
+	static TArray<FString> GetPreferredLanguages();
+	static FString GetLocalCurrencyCode();
+	static FString GetLocalCurrencySymbol();
+
+	static void RegisterForRemoteNotifications();
 
 	static class IPlatformChunkInstall* GetPlatformChunkInstall();
     
@@ -113,15 +118,19 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 		IOS_IPhone5, // also the IPhone5C
 		IOS_IPhone5S,
 		IOS_IPodTouch5,
+		IOS_IPodTouch6,
 		IOS_IPad2,
 		IOS_IPad3,
 		IOS_IPad4,
 		IOS_IPadMini,
-		IOS_IPadMini2,
+		IOS_IPadMini2, // also the iPadMini3
+		IOS_IPadMini4,
 		IOS_IPadAir,
 		IOS_IPadAir2,
 		IOS_IPhone6,
 		IOS_IPhone6Plus,
+		IOS_IPhone6S,
+		IOS_IPhone6SPlus,
 		IOS_Unknown,
 	};
 
@@ -136,15 +145,19 @@ struct CORE_API FIOSPlatformMisc : public FGenericPlatformMisc
 			L"IPhone5",
 			L"IPhone5S",
 			L"IPodTouch5",
+			L"IPodTouch6",
 			L"IPad2",
 			L"IPad3",
 			L"IPad4",
 			L"IPadMini",
 			L"IPadMini2",
+			L"IPadMini5",
 			L"IPadAir",
 			L"IPadAir2",
 			L"IPhone6",
 			L"IPhone6Plus",
+			L"IPhone6S",
+			L"IPhone6SPlus",
 			L"Unknown",
 		};
 		static_assert((sizeof(IOSDeviceNames) / sizeof(IOSDeviceNames[0])) == ((int32)IOS_Unknown + 1), "Mismatched IOSDeviceNames and EIOSDevice.");

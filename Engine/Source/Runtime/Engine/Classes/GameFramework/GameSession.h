@@ -10,7 +10,12 @@
 
 class UWorld;
 class APlayerController;
+struct FJoinabilitySettings;
 
+/**
+Acts as a game-specific wrapper around the session interface. The game code makes calls to this when it needs to interact with the session interface.
+A game session exists only the server, while running an online game.
+*/
 UCLASS(config=Game, notplaceable)
 class ENGINE_API AGameSession : public AInfo
 {
@@ -23,6 +28,10 @@ class ENGINE_API AGameSession : public AInfo
 	/** Maximum number of players allowed by this server. */
 	UPROPERTY(globalconfig)
 	int32 MaxPlayers;
+
+	/** Restrictions on the largest party that can join together */
+	UPROPERTY()
+	int32 MaxPartySize;
 
 	/** Maximum number of splitscreen players to allow from one connection */
 	UPROPERTY(globalconfig)
@@ -67,10 +76,11 @@ class ENGINE_API AGameSession : public AInfo
 	 * @param UniqueId uniqueId they sent over on Login
 	 * @param bWasFromInvite was this from an invite
 	 */
-	virtual void RegisterPlayer(APlayerController* NewPlayer, const TSharedPtr<FUniqueNetId>& UniqueId, bool bWasFromInvite);
+	virtual void RegisterPlayer(APlayerController* NewPlayer, const TSharedPtr<const FUniqueNetId>& UniqueId, bool bWasFromInvite);
 
 	/**
 	 * Called by GameMode::PostLogin to give session code chance to do work after PostLogin
+	 *
 	 * @param NewPlayer player logging in
 	 */
 	virtual void PostLogin(APlayerController* NewPlayer);
@@ -81,11 +91,35 @@ class ENGINE_API AGameSession : public AInfo
 	//=================================================================================
 	// LOGOUT
 
-	/** Called when a PlayerController logs out of game. */
-	virtual void NotifyLogout(APlayerController* PC);
+	/**
+	 * Called when a PlayerController logs out of game.
+	 *
+	 * @param PC player controller currently logging out 
+	 */
+	virtual void NotifyLogout(const APlayerController* PC);
 
-	/** Unregister a player from the online service session	 */
-	virtual void UnregisterPlayer(APlayerController* ExitingPlayer);
+	/**
+	 * Called when a player logs out of game.
+	 *
+	 * @param SessionName session related to the log out
+	 * @param UniqueId unique id of the player logging out
+	 */
+	virtual void NotifyLogout(FName InSessionName, const FUniqueNetIdRepl& UniqueId);
+
+	/**
+	 * Unregister a player from the online service session
+	 *
+	 * @param SessionName name of session to unregister from
+	 * @param UniqueId id of the player to unregister
+	 */
+	virtual void UnregisterPlayer(FName InSessionName, const FUniqueNetIdRepl& UniqueId);
+	
+	/**
+	 * Unregister a player from the online service session
+	 *
+	 * @param ExitingPlayer the player to unregister
+	 */
+	virtual void UnregisterPlayer(const APlayerController* ExitingPlayer);
 
 	/**
 	 * Add a player to the admin list of this session
@@ -139,6 +173,19 @@ class ENGINE_API AGameSession : public AInfo
 	/** Allow a dedicated server a chance to register itself with an online service */
 	virtual void RegisterServer();
 
+	/** Callback when autologin was expected but failed */
+	virtual void RegisterServerFailed();
+
+	/**
+	 * Get the current joinability settings for a given session
+	 * 
+	 * @param session to query
+	 * @param OutSettings [out] struct that will be filled in with current settings
+	 * 
+	 * @return true if session exists and data is valid, false otherwise
+	 */
+	virtual bool GetSessionJoinability(FName InSessionName, FJoinabilitySettings& OutSettings);
+
 	/**
 	 * Update session join parameters
 	 *
@@ -148,7 +195,7 @@ class ENGINE_API AGameSession : public AInfo
 	 * @param bJoinViaPresence anyone who can see you can join the game
 	 * @param bJoinViaPresenceFriendsOnly can only friends actively join your game 
 	 */
-	virtual void UpdateSessionJoinability(FName SessionName, bool bPublicSearchable, bool bAllowInvites, bool bJoinViaPresence, bool bJoinViaPresenceFriendsOnly);
+	virtual void UpdateSessionJoinability(FName InSessionName, bool bPublicSearchable, bool bAllowInvites, bool bJoinViaPresence, bool bJoinViaPresenceFriendsOnly);
 
 	/**
 	 * Travel to a session URL (as client) for a given session
@@ -158,7 +205,7 @@ class ENGINE_API AGameSession : public AInfo
 	 *
 	 * @return true if successful, false otherwise
 	 */
-	virtual bool TravelToSession(int32 ControllerId, FName SessionName);
+	virtual bool TravelToSession(int32 ControllerId, FName InSessionName);
 
     /**
      * Does the session require push to talk

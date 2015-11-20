@@ -546,18 +546,18 @@
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp">
-      <Command Condition="'$(Configuration)|$(Platform)'=='debug|x64'">cl.exe /c /Zi /Ox /MD /arch:AVX /Fd"$(TargetDir)\$(TargetName).pdb" /FoD:/Builds/UE4/Engine/Source/ThirdParty/PhysX/APEX-1.3/compiler/Win64/VS2013/build/x64/APEX_Clothing/debug/avx/SwSolveConstraints.obj ..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp</Command>
+      <Command Condition="'$(Configuration)|$(Platform)'=='debug|x64'">cl.exe /c /Zi /Ox /MD /arch:AVX /Fd"$(TargetDir)\$(TargetName).pdb" /Fo$(IntermediateOutputPath)/avx/%(Filename).obj ..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='debug|x64'">Building %(Identity)</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='debug|x64'">D:/Builds/UE4/Engine/Source/ThirdParty/PhysX/APEX-1.3/compiler/Win64/VS2013/build/x64/APEX_Clothing/debug/avx/SwSolveConstraints.obj;</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='checked|x64'">cl.exe /c /Zi /Ox /MD /arch:AVX /Fd"$(TargetDir)\$(TargetName).pdb" /FoD:/Builds/UE4/Engine/Source/ThirdParty/PhysX/APEX-1.3/compiler/Win64/VS2013/build/x64/APEX_Clothing/checked/avx/SwSolveConstraints.obj ..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='debug|x64'">$(IntermediateOutputPath)/avx/%(Filename).obj;</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='checked|x64'">cl.exe /c /Zi /Ox /MD /arch:AVX /Fd"$(TargetDir)\$(TargetName).pdb" /Fo$(IntermediateOutputPath)/avx/%(Filename).obj ..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='checked|x64'">Building %(Identity)</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='checked|x64'">D:/Builds/UE4/Engine/Source/ThirdParty/PhysX/APEX-1.3/compiler/Win64/VS2013/build/x64/APEX_Clothing/checked/avx/SwSolveConstraints.obj;</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='release|x64'">cl.exe /c /Zi /Ox /MD /arch:AVX /Fd"$(TargetDir)\$(TargetName).pdb" /FoD:/Builds/UE4/Engine/Source/ThirdParty/PhysX/APEX-1.3/compiler/Win64/VS2013/build/x64/APEX_Clothing/release/avx/SwSolveConstraints.obj ..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='checked|x64'">$(IntermediateOutputPath)/avx/%(Filename).obj;</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='release|x64'">cl.exe /c /Zi /Ox /MD /arch:AVX /Fd"$(TargetDir)\$(TargetName).pdb" /Fo$(IntermediateOutputPath)/avx/%(Filename).obj ..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='release|x64'">Building %(Identity)</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='release|x64'">D:/Builds/UE4/Engine/Source/ThirdParty/PhysX/APEX-1.3/compiler/Win64/VS2013/build/x64/APEX_Clothing/release/avx/SwSolveConstraints.obj;</Outputs>
-      <Command Condition="'$(Configuration)|$(Platform)'=='profile|x64'">cl.exe /c /Zi /Ox /MD /arch:AVX /Fd"$(TargetDir)\$(TargetName).pdb" /FoD:/Builds/UE4/Engine/Source/ThirdParty/PhysX/APEX-1.3/compiler/Win64/VS2013/build/x64/APEX_Clothing/profile/avx/SwSolveConstraints.obj ..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp</Command>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='release|x64'">$(IntermediateOutputPath)/avx/%(Filename).obj;</Outputs>
+      <Command Condition="'$(Configuration)|$(Platform)'=='profile|x64'">cl.exe /c /Zi /Ox /MD /arch:AVX /Fd"$(TargetDir)\$(TargetName).pdb" /Fo$(IntermediateOutputPath)/avx/%(Filename).obj ..\..\module\clothing\embedded\LowLevelCloth\src\avx\SwSolveConstraints.cpp</Command>
       <Message Condition="'$(Configuration)|$(Platform)'=='profile|x64'">Building %(Identity)</Message>
-      <Outputs Condition="'$(Configuration)|$(Platform)'=='profile|x64'">D:/Builds/UE4/Engine/Source/ThirdParty/PhysX/APEX-1.3/compiler/Win64/VS2013/build/x64/APEX_Clothing/profile/avx/SwSolveConstraints.obj;</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='profile|x64'">$(IntermediateOutputPath)/avx/%(Filename).obj;</Outputs>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>

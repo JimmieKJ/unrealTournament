@@ -213,6 +213,13 @@ public:
 	 */
 	bool bUseAmbientOcclusion;
 
+	/** 
+	 * Whether to generate textures storing the AO computed by Lightmass.
+	 * These can be accessed through the PrecomputedAmbientOcclusion material node, 
+	 * Which is useful for blending between material layers on environment assets.
+	 */
+	bool bGenerateAmbientOcclusionMaterialMask;
+
 	/** Debugging - whether to only show the ambient occlusion term, useful for seeing the impact of AO settings in isolation. */
 	bool bVisualizeAmbientOcclusion;
 
@@ -882,6 +889,11 @@ struct FMaterialElementData
 	uint32 bShadowIndirectOnly:1;
 	/** If true, allow using the emissive for static lighting.						*/
 	uint32 bUseEmissiveForStaticLighting:1;
+	/** 
+	 * Typically the triangle normal is used for hemisphere gathering which prevents incorrect self-shadowing from artist-tweaked vertex normals. 
+	 * However in the case of foliage whose vertex normal has been setup to match the underlying terrain, gathering in the direction of the vertex normal is desired.
+	 */
+	uint32 bUseVertexNormalForHemisphereGather:1;
 	/** Direct lighting falloff exponent for mesh area lights created from emissive areas on this primitive. */
 	float EmissiveLightFalloffExponent;
 	/** 
@@ -904,6 +916,7 @@ struct FMaterialElementData
 		  bUseTwoSidedLighting(false)
 		, bShadowIndirectOnly(false)
 		, bUseEmissiveForStaticLighting(true)
+		, bUseVertexNormalForHemisphereGather(false)
 	    , EmissiveLightFalloffExponent(2.0f)
 		, EmissiveLightExplicitInfluenceRadius(0.0f)
 		, EmissiveBoost(1.0f)
@@ -1001,7 +1014,8 @@ struct FSplineMeshParams
 struct FStaticMeshStaticLightingMeshData
 {
 	/** The LOD this mesh represents. */
-	int32 EncodedLODIndex;
+	uint32 EncodedLODIndices;
+	uint32 EncodedHLODRange;
 	FMatrix LocalToWorld;
 	/** true if the primitive has a transform which reverses the winding of its triangles. */
 	bool bReverseWinding;

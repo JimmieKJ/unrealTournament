@@ -5,12 +5,12 @@
 #include "SecureHash.h"
 #include "WindowsApplication.h"
 #include "EngineVersion.h"
+#include "WindowsPlatformCrashContext.h"
 
 #include "GenericPlatformChunkInstall.h"
 
 // Resource includes.
 #include "Runtime/Launch/Resources/Windows/Resource.h"
-#include "Runtime/Launch/Resources/Version.h"
 
 #include "AllowWindowsPlatformTypes.h"
 	#include <time.h>
@@ -46,6 +46,105 @@
 #define SM_CONVERTIBLESLATEMODE			0x2003
 #endif
 
+namespace
+{
+	/**
+	 * According to MSDN GetVersionEx without special targeting works to 6.2
+	 * version only. To retrive proper version for later version we can check
+	 * version of system libraries e.g. kernel32.dll.
+	 */
+	int32 GetWindowsGT62Versions(bool bIsWorkstation, FString& out_OSVersionLabel)
+	{
+		const int BufferSize = 256;
+		TCHAR Buffer[BufferSize];
+		
+		if (!GetSystemDirectory(Buffer, BufferSize))
+		{
+			return (int32)FWindowsOSVersionHelper::ERROR_GETWINDOWSGT62VERSIONS_FAILED;
+		}
+
+		FString SystemDir(Buffer);
+		FString KernelPath = FPaths::Combine(*SystemDir, TEXT("kernel32.dll"));
+
+		DWORD Size = GetFileVersionInfoSize(*KernelPath, nullptr);
+
+		if (Size <= 0)
+		{
+			return (int32)FWindowsOSVersionHelper::ERROR_GETWINDOWSGT62VERSIONS_FAILED;
+		}
+
+		TArray<uint8> VerBlock;
+		VerBlock.Reserve(Size);
+
+		if (!GetFileVersionInfo(*KernelPath, 0, Size, VerBlock.GetData()))
+		{
+			return (int32)FWindowsOSVersionHelper::ERROR_GETWINDOWSGT62VERSIONS_FAILED;
+		}
+
+		VS_FIXEDFILEINFO* FileInfo = nullptr;
+		uint32 Len;
+
+		if (!VerQueryValue(VerBlock.GetData(), TEXT("\\"), (void **)&FileInfo, &Len))
+		{
+			return (int32)FWindowsOSVersionHelper::ERROR_GETWINDOWSGT62VERSIONS_FAILED;
+		}
+
+		int Major = FileInfo->dwProductVersionMS >> 16;
+		int Minor = FileInfo->dwProductVersionMS & 0xFFFF;
+
+		switch (Major)
+		{
+		case 6:
+			switch (Minor)
+			{
+			case 3:
+				if (bIsWorkstation)
+				{
+					out_OSVersionLabel = TEXT("Windows 8.1");
+				}
+				else
+				{
+					out_OSVersionLabel = TEXT("Windows Server 2012 R2");
+				}
+				break;
+			case 2:
+				if (bIsWorkstation)
+				{
+					out_OSVersionLabel = TEXT("Windows 8");
+				}
+				else
+				{
+					out_OSVersionLabel = TEXT("Windows Server 2012");
+				}
+				break;
+			default:
+				return (int32)FWindowsOSVersionHelper::ERROR_UNKNOWNVERSION;
+			}
+			break;
+		case 10:
+			switch (Minor)
+			{
+			case 0:
+				if (bIsWorkstation)
+				{
+					out_OSVersionLabel = TEXT("Windows 10");
+				}
+				else
+				{
+					out_OSVersionLabel = TEXT("Windows Server Technical Preview");
+				}
+				break;
+			default:
+				return (int32)FWindowsOSVersionHelper::ERROR_UNKNOWNVERSION;
+			}
+			break;
+		default:
+			return (int32)FWindowsOSVersionHelper::ERROR_UNKNOWNVERSION;
+		}
+
+		return (int32)FWindowsOSVersionHelper::SUCCEEDED;
+	}
+}
 
 int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel )
 {
@@ -163,14 +262,7 @@ int32 FWindowsOSVersionHelper::GetOSVersions( FString& out_OSVersionLabel, FStri
 						}
 						break;
 					case 2:
-						if( OsVersionInfo.wProductType == VER_NT_WORKSTATION )
-						{
-							out_OSVersionLabel = TEXT( "Windows 8" );
-						}
-						else
-						{
-							out_OSVersionLabel = TEXT( "Windows Server 2012" );
-						}
+						ErrorCode |= GetWindowsGT62Versions(OsVersionInfo.wProductType == VER_NT_WORKSTATION, out_OSVersionLabel);
 						break;
 					default:
 						ErrorCode |= (int32)ERROR_UNKNOWNVERSION;
@@ -599,7 +691,7 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 			TCHAR UserName[MAX_STRING_LEN];
 			FCString::Strncpy(UserName, FPlatformProcess::UserName(), MAX_STRING_LEN);
 			TCHAR GameName[MAX_STRING_LEN];
-			FCString::Strncpy(GameName, *FString::Printf(TEXT("%s %s"), TEXT(BRANCH_NAME), FApp::GetGameName()), MAX_STRING_LEN);
+			FCString::Strncpy(GameName, *FString::Printf(TEXT("%s %s"), *FApp::GetBranchName(), FApp::GetGameName()), MAX_STRING_LEN);
 			TCHAR PlatformName[MAX_STRING_LEN];
 #if PLATFORM_64BITS
 			FCString::Strncpy(PlatformName, TEXT("PC 64-bit"), MAX_STRING_LEN);
@@ -611,7 +703,7 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 			TCHAR SystemTime[MAX_STRING_LEN];
 			FCString::Strncpy(SystemTime, *FDateTime::Now().ToString(), MAX_STRING_LEN);
 			TCHAR EngineVersionStr[MAX_STRING_LEN];
-			FCString::Strncpy(EngineVersionStr, *GEngineVersion.ToString(), 256 );
+			FCString::Strncpy(EngineVersionStr, *FEngineVersion::Current().ToString(), 256 );
 
 			TCHAR ChangelistVersionStr[MAX_STRING_LEN];
 			int32 ChangelistFromCommandLine = 0;
@@ -623,7 +715,7 @@ void FWindowsPlatformMisc::SubmitErrorReport( const TCHAR* InErrorHist, EErrorRe
 			// we are not passing in the changelist to use so use the one that was stored in the ObjectVersion
 			else
 			{
-				FCString::Strncpy(ChangelistVersionStr, *FString::FromInt(GEngineVersion.GetChangelist()), MAX_STRING_LEN);
+				FCString::Strncpy(ChangelistVersionStr, *FString::FromInt(FEngineVersion::Current().GetChangelist()), MAX_STRING_LEN);
 			}
 
 			TCHAR CmdLine[2048];
@@ -823,12 +915,12 @@ void FWindowsPlatformMisc::PumpMessages(bool bFromMainLoop)
 	FApp::SetVolumeMultiplier( HasFocus ? 1.0f : FApp::GetUnfocusedVolumeMultiplier() );
 }
 
-uint32 FWindowsPlatformMisc::GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings)
+uint32 FWindowsPlatformMisc::GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings)
 {
 	return FGenericPlatformMisc::GetStandardPrintableKeyMap(KeyCodes, KeyNames, MaxMappings, true, false);
 }
 
-uint32 FWindowsPlatformMisc::GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings )
+uint32 FWindowsPlatformMisc::GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings )
 {
 #define ADDKEYMAP(KeyCode, KeyName)		if (NumMappings<MaxMappings) { KeyCodes[NumMappings]=KeyCode; KeyNames[NumMappings]=KeyName; ++NumMappings; };
 
@@ -907,8 +999,8 @@ uint32 FWindowsPlatformMisc::GetKeyMap( uint16* KeyCodes, FString* KeyNames, uin
 		ADDKEYMAP( VK_LWIN, TEXT("LeftCommand") );
 		ADDKEYMAP( VK_RWIN, TEXT("RightCommand") );
 
-		TMap<uint16, uint16> ScanToVKMap;
-#define MAP_OEM_VK_TO_SCAN(KeyCode) { uint16 CharCode = MapVirtualKey(KeyCode,2); if (CharCode != 0) { ScanToVKMap.Add(CharCode,KeyCode); } }
+		TMap<uint32, uint32> ScanToVKMap;
+#define MAP_OEM_VK_TO_SCAN(KeyCode) { const uint32 CharCode = MapVirtualKey(KeyCode,2); if (CharCode != 0) { ScanToVKMap.Add(CharCode,KeyCode); } }
 		MAP_OEM_VK_TO_SCAN(VK_OEM_1);
 		MAP_OEM_VK_TO_SCAN(VK_OEM_2);
 		MAP_OEM_VK_TO_SCAN(VK_OEM_3);
@@ -925,7 +1017,7 @@ uint32 FWindowsPlatformMisc::GetKeyMap( uint16* KeyCodes, FString* KeyNames, uin
 #undef  MAP_OEM_VK_TO_SCAN
 
 		static const uint32 MAX_KEY_MAPPINGS(256);
-		uint16 CharCodes[MAX_KEY_MAPPINGS];
+		uint32 CharCodes[MAX_KEY_MAPPINGS];
 		FString CharKeyNames[MAX_KEY_MAPPINGS];
 		const int32 CharMappings = GetCharKeyMap(CharCodes, CharKeyNames, MAX_KEY_MAPPINGS);
 
@@ -1789,6 +1881,12 @@ void FWindowsPlatformMisc::LoadPreInitModules()
 	// D3D11 is not supported on WinXP, so in this case we use the OpenGL RHI
 	if(FWindowsPlatformMisc::VerifyWindowsVersion(6, 0))
 	{
+		//#todo-rco: Only try on Win10
+		const bool bForceD3D12 = FParse::Param(FCommandLine::Get(), TEXT("d3d12")) || FParse::Param(FCommandLine::Get(), TEXT("dx12"));
+		if (bForceD3D12)
+		{
+			FModuleManager::Get().LoadModule(TEXT("D3D12RHI"));
+		}
 		FModuleManager::Get().LoadModule(TEXT("D3D11RHI"));
 	}
 	FModuleManager::Get().LoadModule(TEXT("OpenGLDrv"));
@@ -1887,6 +1985,9 @@ bool FWindowsPlatformMisc::GetWindowTitleMatchingText(const TCHAR* TitleStartsWi
 
 void FWindowsPlatformMisc::RaiseException( uint32 ExceptionCode )
 {
+	/** This is the last place to gather memory stats before exception. */
+	FGenericCrashContext::CrashMemoryStats = FPlatformMemory::GetStats();
+
 	::RaiseException( ExceptionCode, 0, 0, NULL );
 }
 
@@ -1959,6 +2060,12 @@ void FWindowsPlatformMisc::PromptForRemoteDebugging(bool bIsEnsure)
 			return;
 		}
 
+		if (FApp::IsUnattended())
+		{
+			// Do not ask if there is no one to show a message
+			return;
+		}
+
 		FCString::Sprintf(GErrorRemoteDebugPromptMessage, 
 			TEXT("Have a programmer remote debug this crash?\n")
 			TEXT("Hit NO to exit and submit error report as normal.\n")
@@ -1967,7 +2074,7 @@ void FWindowsPlatformMisc::PromptForRemoteDebugging(bool bIsEnsure)
 			TEXT("Once he confirms he is connected to the machine,\n")
 			TEXT("hit YES to allow him to debug the crash.\n")
 			TEXT("[Changelist = %d]"),
-			GEngineVersion.GetChangelist());
+			FEngineVersion::Current().GetChangelist());
 		if (MessageBox(0, GErrorRemoteDebugPromptMessage, TEXT("CRASHED"), MB_YESNO|MB_SYSTEMMODAL) == IDYES)
 		{
 			::DebugBreak();
@@ -1976,27 +2083,18 @@ void FWindowsPlatformMisc::PromptForRemoteDebugging(bool bIsEnsure)
 }
 #endif	//#if !UE_BUILD_SHIPPING
 
-FLinearColor FWindowsPlatformMisc::GetScreenPixelColor(const FVector2D& InScreenPos, float InGamma)
+FLinearColor FWindowsPlatformMisc::GetScreenPixelColor(const FVector2D& InScreenPos, float /*InGamma*/)
 {
 	COLORREF PixelColorRef = GetPixel(GetDC(HWND_DESKTOP), InScreenPos.X, InScreenPos.Y);
 
-	const float DivideBy255 = 1.0f / 255.0f;
+	FColor sRGBScreenColor(
+		(PixelColorRef & 0xFF),
+		((PixelColorRef & 0xFF00) >> 8),
+		((PixelColorRef & 0xFF0000) >> 16),
+		255);
 
-	FLinearColor ScreenColor(
-		(PixelColorRef & 0xFF) * DivideBy255,
-		((PixelColorRef & 0xFF00) >> 8) * DivideBy255,
-		((PixelColorRef & 0xFF0000) >> 16) * DivideBy255,
-		1.0f);
-
-	if (InGamma > 1.0f)
-	{
-		// Correct for render gamma
-		ScreenColor.R = FMath::Pow(ScreenColor.R, InGamma);
-		ScreenColor.G = FMath::Pow(ScreenColor.G, InGamma);
-		ScreenColor.B = FMath::Pow(ScreenColor.B, InGamma);
-	}
-
-	return ScreenColor;
+	// Assume the screen color is coming in as sRGB space
+	return FLinearColor(sRGBScreenColor);
 }
 
 /**
@@ -2324,7 +2422,7 @@ bool FWindowsPlatformMisc::QueryRegKey( const HKEY InKey, const TCHAR* InSubKey,
 
 bool FWindowsPlatformMisc::GetVSComnTools(int32 Version, FString& OutData)
 {
-	checkf(11 <= Version && Version <= 12, L"Not supported Visual Studio version.");
+	checkf(11 <= Version && Version <= 14, L"Not supported Visual Studio version.");
 
 	const TCHAR* PossibleRegPaths[] = {
 		L"Wow6432Node\\Microsoft\\VisualStudio",	// Non-express VS2013 on 64-bit machine.

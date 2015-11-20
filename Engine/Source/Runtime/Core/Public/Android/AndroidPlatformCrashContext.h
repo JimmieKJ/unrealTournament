@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "GenericPlatform/GenericPlatformContext.h"
+#include "GenericPlatform/GenericPlatformCrashContext.h"
 
 struct CORE_API FAndroidCrashContext : public FGenericCrashContext
 {

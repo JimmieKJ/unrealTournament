@@ -5,7 +5,7 @@
 
 // FUserOnlineAccountAmazon
 
-TSharedRef<FUniqueNetId> FUserOnlineAccountAmazon::GetUserId() const
+TSharedRef<const FUniqueNetId> FUserOnlineAccountAmazon::GetUserId() const
 {
 	return UserIdPtr;
 }
@@ -21,6 +21,11 @@ FString FUserOnlineAccountAmazon::GetDisplayName() const
 }
 
 bool FUserOnlineAccountAmazon::GetUserAttribute(const FString& AttrName, FString& OutAttrValue) const
+{
+	return false;
+}
+
+bool FUserOnlineAccountAmazon::SetUserAttribute(const FString& AttrName, const FString& AttrValue)
 {
 	return false;
 }
@@ -203,9 +208,9 @@ TArray<TSharedPtr<FUserOnlineAccount> > FOnlineIdentityAmazon::GetAllUserAccount
 	return Result;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityAmazon::GetUniquePlayerId(int32 LocalUserNum) const
+TSharedPtr<const FUniqueNetId> FOnlineIdentityAmazon::GetUniquePlayerId(int32 LocalUserNum) const
 {
-	const TSharedPtr<FUniqueNetId>* FoundId = UserIds.Find(LocalUserNum);
+	const TSharedPtr<const FUniqueNetId>* FoundId = UserIds.Find(LocalUserNum);
 	if (FoundId != NULL)
 	{
 		return *FoundId;
@@ -243,7 +248,7 @@ bool FOnlineIdentityAmazon::Login(int32 LocalUserNum, const FOnlineAccountCreden
 	return bWasSuccessful;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityAmazon::CreateUniquePlayerId(uint8* Bytes, int32 Size)
+TSharedPtr<const FUniqueNetId> FOnlineIdentityAmazon::CreateUniquePlayerId(uint8* Bytes, int32 Size)
 {
 	if (Bytes != NULL && Size > 0)
 	{
@@ -253,7 +258,7 @@ TSharedPtr<FUniqueNetId> FOnlineIdentityAmazon::CreateUniquePlayerId(uint8* Byte
 	return NULL;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityAmazon::CreateUniquePlayerId(const FString& Str)
+TSharedPtr<const FUniqueNetId> FOnlineIdentityAmazon::CreateUniquePlayerId(const FString& Str)
 {
 	return MakeShareable(new FUniqueNetIdString(Str));
 }
@@ -262,7 +267,7 @@ TSharedPtr<FUniqueNetId> FOnlineIdentityAmazon::CreateUniquePlayerId(const FStri
 
 bool FOnlineIdentityAmazon::Logout(int32 LocalUserNum)
 {
-	TSharedPtr<FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
+	TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 	if (UserId.IsValid())
 	{
 		// remove cached user account
@@ -290,7 +295,7 @@ bool FOnlineIdentityAmazon::AutoLogin(int32 LocalUserNum)
 
 ELoginStatus::Type FOnlineIdentityAmazon::GetLoginStatus(int32 LocalUserNum) const
 {
-	TSharedPtr<FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
+	TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 	if (UserId.IsValid())
 	{
 		return GetLoginStatus(*UserId);
@@ -324,7 +329,7 @@ FString FOnlineIdentityAmazon::GetPlayerNickname(const FUniqueNetId& UserId) con
 
 FString FOnlineIdentityAmazon::GetAuthToken(int32 LocalUserNum) const
 {
-	TSharedPtr<FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
+	TSharedPtr<const FUniqueNetId> UserId = GetUniquePlayerId(LocalUserNum);
 	if (UserId.IsValid())
 	{
 		TSharedPtr<FUserOnlineAccount> UserAccount = GetUserAccount(*UserId);
@@ -353,4 +358,9 @@ FPlatformUserId FOnlineIdentityAmazon::GetPlatformUserIdFromUniqueNetId(const FU
 	}
 
 	return PLATFORMUSERID_NONE;
+}
+
+FString FOnlineIdentityAmazon::GetAuthType() const
+{
+	return TEXT("");
 }

@@ -9,6 +9,7 @@ public class CollectionManager : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[] {
 				"Core",
+				"DirectoryWatcher",
 				"SourceControl"
 			}
 			);

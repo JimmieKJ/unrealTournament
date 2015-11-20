@@ -92,26 +92,33 @@ bool FMeshProxyTool::RunMerge(const FString& PackageName)
 		GEditor->BeginTransaction(LOCTEXT("MeshProxy_Create", "Creating Mesh Proxy"));
 
 		FVector ProxyLocation = FVector::ZeroVector;
-		MeshUtilities.CreateProxyMesh(Actors, ProxySettings, NULL, PackageName, AssetsToSync, ProxyLocation);
+		
+		FCreateProxyDelegate ProxyDelegate;
+		ProxyDelegate.BindLambda(
+			[](const FGuid Guid, TArray<UObject*>& InAssetsToSync)
+		{
+			//Update the asset registry that a new static mash and material has been created
+			if (InAssetsToSync.Num())
+			{
+				FAssetRegistryModule& AssetRegistry = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+				int32 AssetCount = InAssetsToSync.Num();
+				for (int32 AssetIndex = 0; AssetIndex < AssetCount; AssetIndex++)
+				{
+					AssetRegistry.AssetCreated(InAssetsToSync[AssetIndex]);
+					GEditor->BroadcastObjectReimported(InAssetsToSync[AssetIndex]);
+				}
+
+				//Also notify the content browser that the new assets exists
+				FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+				ContentBrowserModule.Get().SyncBrowserToAssets(InAssetsToSync, true);
+			}
+		});		
+
+		FGuid JobGuid = FGuid::NewGuid();
+		MeshUtilities.CreateProxyMesh(Actors, ProxySettings, NULL, PackageName, JobGuid, ProxyDelegate);	
 
 		GEditor->EndTransaction();
 		GWarn->EndSlowTask();
-
-		//Update the asset registry that a new static mash and material has been created
-		if (AssetsToSync.Num())
-		{
-			FAssetRegistryModule& AssetRegistry = FModuleManager::Get().LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-			int32 AssetCount = AssetsToSync.Num();
-			for (int32 AssetIndex = 0; AssetIndex < AssetCount; AssetIndex++)
-			{
-				AssetRegistry.AssetCreated(AssetsToSync[AssetIndex]);
-				GEditor->BroadcastObjectReimported(AssetsToSync[AssetIndex]);
-			}
-
-			//Also notify the content browser that the new assets exists
-			FContentBrowserModule& ContentBrowserModule = FModuleManager::Get().LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
-			ContentBrowserModule.Get().SyncBrowserToAssets(AssetsToSync, true);
-		}
 	}
 
 	return true;

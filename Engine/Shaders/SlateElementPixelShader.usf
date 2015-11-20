@@ -3,42 +3,22 @@
 
 #include "Common.usf"
 #include "GammaCorrectionCommon.usf"
+#include "SlateShaderCommon.usf"
 
-#if USE_MATERIALS
-#include "Material.usf"
-#endif
-
-/** Shader types (mirrored from ESlateShader::Type in RenderingCommon.h */
-#define ST_Default		0
-#define ST_Border		1
-#define ST_Font			2
-#define ST_LineSegment	3
-
-/** Color Vision Deficiency Types (mirrored in EditorUserSettings.h) */
-#define CVD_NormalVision	0
-#define CVD_Deuteranomly	1
-#define CVD_Deuteranopia	2
-#define CVD_Protanomly		3
-#define CVD_Protanopia		4
-#define CVD_Tritanomaly		5
-#define CVD_Tritanopia		6
-#define CVD_Achromatopsia	7
 
 /** Enable to debug clipping issues */
 #define DEBUG_CLIPPING 0
+
+#define DO_CLIPPING SHADER_TYPE != ST_Custom
 
 /** Display gamma x:gamma curve adjustment, y:inverse gamma (1/GEngine->DisplayGamma) */
 float2 GammaValues;
 /** Per element params */
 float4 ShaderParams;
 
-#if !USE_MATERIALS
 /** Texture for the element */
 Texture2D ElementTexture;
 SamplerState ElementTextureSampler;
-
-#endif
-
 
 float3 GammaCorrect(float3 InColor)
 {
@@ -47,20 +27,7 @@ float3 GammaCorrect(float3 InColor)
 #if !(ES2_PROFILE || ES3_1_PROFILE)
 	FLATTEN if( GammaValues.y != 1.0f )
 	{
-		// Apply "gamma" curve adjustment.
-		CorrectedColor = pow(CorrectedColor, GammaValues.x);
-
-		#if MAC
-			// Note, MacOSX native output is raw gamma 2.2 not sRGB!
-			CorrectedColor = pow(CorrectedColor, 1.0/2.2);
-		#else
-			#if USE_709
-				// Didn't profile yet if the branching version would be faster (different linear segment).
-				CorrectedColor = LinearTo709Branchless(CorrectedColor);
-			#else
-				CorrectedColor = LinearToSrgbBranching(CorrectedColor);
-			#endif
-		#endif
+		CorrectedColor = ApplyGammaCorrection(CorrectedColor, GammaValues.x);
 	}
 #endif
 
@@ -68,45 +35,67 @@ float3 GammaCorrect(float3 InColor)
 }
 
 
-
-struct VertexOut
-{
-	float4 Position : SV_POSITION;
-	float4 Color : COLOR0;
-	float4 TextureCoordinates : TEXCOORD0;
-	float4 ClipOriginAndPos : TEXCOORD1;
-	float4 ClipExtents : TEXCOORD2;
-};
-	
 #if USE_MATERIALS
-float4 GetMaterialColor( VertexOut InVertex, float2 UV )
+void FillTexCoords( inout FMaterialPixelParameters Parameters, VertexToPixelInterpolants InVertex, float2 InDefaultUV )
+{
+#if SHADER_TYPE == ST_Font
+	#if NUM_MATERIAL_TEXCOORDS == 1
+		// Note: The first channel is used to look up into the texture atlas. The second channel is the custom 0-1 UV set for the text run
+		Parameters.TexCoords[0] = GetUV( InVertex, 1 );
+	#elif NUM_MATERIAL_TEXCOORDS == 2
+		// Note: The first channel is used to look up into the texture atlas. The second channel is the custom 0-1 UV set for the text run
+		Parameters.TexCoords[0] = GetUV( InVertex, 1 );
+		Parameters.TexCoords[1] = InVertex.MaterialTexCoords;
+	#endif
+#elif (SHADER_TYPE == ST_Custom || NUM_CUSTOMIZED_UVS == 0) && NUM_MATERIAL_TEXCOORDS > 0
+	// note: We assume users who customize UVs or are using completely custom elements know what they are doing with UVs and want no assumptions made about how uvs are used
+	UNROLL
+	for( int CoordinateIndex = 0; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++ )
+	{
+		Parameters.TexCoords[CoordinateIndex] = GetUV( InVertex, CoordinateIndex );
+	}
+#else
+	#if NUM_MATERIAL_TEXCOORDS == 1
+		Parameters.TexCoords[0] = InDefaultUV;
+	#elif NUM_MATERIAL_TEXCOORDS == 2
+		Parameters.TexCoords[0] = InDefaultUV;
+		Parameters.TexCoords[1] = GetUV( InVertex, 0 );
+	#elif NUM_MATERIAL_TEXCOORDS == 3
+		Parameters.TexCoords[0] = InDefaultUV;
+		Parameters.TexCoords[1] = GetUV( InVertex, 0 );
+		Parameters.TexCoords[2] = GetUV( InVertex, 1 );
+	#elif NUM_MATERIAL_TEXCOORDS >= 4
+		Parameters.TexCoords[0] = InDefaultUV;
+		Parameters.TexCoords[1] = GetUV( InVertex, 0 );
+		Parameters.TexCoords[2] = GetUV( InVertex, 1 );
+		UNROLL
+		for( int CoordinateIndex = 3; CoordinateIndex < NUM_MATERIAL_TEXCOORDS; CoordinateIndex++ )
+		{
+			Parameters.TexCoords[CoordinateIndex] = GetUV( InVertex, CoordinateIndex );
+		}
+	#endif // NUM_MATERIAL_TEXCOORDS == 1
+#endif	// SHADER_TYPE
+}
+
+float4 GetMaterialColor( VertexToPixelInterpolants InVertex, float2 MeshUV )
 {
 	FMaterialPixelParameters Parameters = MakeInitializedMaterialPixelParameters();
-	CalcMaterialParameters(Parameters, InVertex.Position, true, InVertex.Position);
-
-#if NUM_MATERIAL_TEXCOORDS == 1
-	Parameters.TexCoords[0] = UV;
-#elif NUM_MATERIAL_TEXCOORDS == 2
-	Parameters.TexCoords[0] = UV;
-	Parameters.TexCoords[1] = InVertex.TextureCoordinates.xy;
-#elif NUM_MATERIAL_TEXCOORDS == 3
-	Parameters.TexCoords[0] = UV;
-	Parameters.TexCoords[1] = InVertex.TextureCoordinates.xy;
-	Parameters.TexCoords[2] = InVertex.TextureCoordinates.zw;
-#endif
+	CalcMaterialParameters( Parameters, InVertex.Position, true );
 
 	Parameters.VertexColor = InVertex.Color;
+
+	FillTexCoords( Parameters, InVertex, MeshUV );
 
 	// Clip if masked
 	GetMaterialCoverageAndClipping( Parameters );
 	
-	float Opacity = GetMaterialOpacity(Parameters);
-	float3 Color = GetMaterialEmissive(Parameters);
+	float Opacity = GetMaterialOpacity( Parameters );
+	float3 Color = GetMaterialEmissive( Parameters );
 
 	float4 OutColor;
 
 	#if MATERIALBLENDING_ADDITIVE
-		OutColor = float4(Color * Opacity, 0.0f);
+		OutColor = float4( Color * Opacity, 0.0f );
 	#else
 		OutColor = float4( Color, Opacity );
 	#endif
@@ -116,7 +105,7 @@ float4 GetMaterialColor( VertexOut InVertex, float2 UV )
 #endif
 
 #if !USE_MATERIALS
-float4 GetTextureColor( VertexOut InVertex, float2 UV )
+float4 GetTextureColor( VertexToPixelInterpolants InVertex, float2 UV )
 {
 	float4 BaseColor = Texture2DSample(ElementTexture, ElementTextureSampler, UV );
 #if !USE_TEXTURE_ALPHA
@@ -128,7 +117,7 @@ float4 GetTextureColor( VertexOut InVertex, float2 UV )
 #endif
 
 /** Gets a color from a texture and supplied vertex color.  Adjusting for tint masking if necessary */
-float4 GetColor( VertexOut InVertex, float2 UV )
+float4 GetColor( VertexToPixelInterpolants InVertex, float2 UV )
 {
 	float4 FinalColor;
 	
@@ -138,31 +127,44 @@ float4 GetColor( VertexOut InVertex, float2 UV )
 	float4 BaseColor = GetTextureColor( InVertex, UV );
 #endif
 
+#if SHADER_TYPE == ST_Custom
+	// Make no assumptionn of what vertex color does in a custom material shader
+	FinalColor = BaseColor;
+#else
 	FinalColor = BaseColor*InVertex.Color;
+#endif
 
 	return FinalColor;
 }
 
 #if SHADER_TYPE == ST_Font
-float4 GetFontElementColor( VertexOut InVertex )
+float4 GetFontElementColor( VertexToPixelInterpolants InVertex )
 {
-	float4 OutColor = InVertex.Color;
-	OutColor.a *= Texture2DSample_A8(ElementTexture, ElementTextureSampler, InVertex.TextureCoordinates.xy);
+	float2 AtlasTextureCoordinates = GetUV( InVertex, 0 );
+#if USE_MATERIALS
+	float4 BaseColor = GetMaterialColor( InVertex, float2(0,0) )*InVertex.Color;
+#else
+	float4 BaseColor = InVertex.Color;
+#endif
+	float4 OutColor = BaseColor;
+
+	OutColor.a *= Texture2DSample_A8( ElementTexture, ElementTextureSampler, AtlasTextureCoordinates );
+
 	return OutColor;
 }
 #endif
 
-#if SHADER_TYPE == ST_Default
-float4 GetDefaultElementColor( VertexOut InVertex )
+#if SHADER_TYPE == ST_Default || SHADER_TYPE == ST_Custom
+float4 GetDefaultElementColor( VertexToPixelInterpolants InVertex )
 {
-	return GetColor( InVertex, InVertex.TextureCoordinates.xy*InVertex.TextureCoordinates.zw );
+	return GetColor( InVertex, GetUV( InVertex, 0) * GetUV( InVertex, 1 ) );
 }
 #endif
 
 #if SHADER_TYPE == ST_Border 
-float4 GetBorderElementColor( VertexOut InVertex )
+float4 GetBorderElementColor( VertexToPixelInterpolants InVertex )
 {
-	float4 TextureCoordinates = InVertex.TextureCoordinates;
+	float4 TextureCoordinates = InVertex.TextureCoordinates[0];
 	float2 NewUV;
 	if( TextureCoordinates.z == 0.0f && TextureCoordinates.w == 0.0f )
 	{
@@ -200,13 +202,13 @@ float4 GetBorderElementColor( VertexOut InVertex )
  * Generates an anti-aliased line segment pixel
  * The idea for the anti-alising technique is based on the fast prefiltered lines technique published in GPU Gems 2 
  */
-float4 GetLineSegmentElementColor( VertexOut InVertex )
+float4 GetLineSegmentElementColor( VertexToPixelInterpolants InVertex )
 {
 	float Width = ShaderParams.x;
 	float Radius = ShaderParams.y;
 
-	float2 StartPos = InVertex.TextureCoordinates.xy;
-	float2 EndPos = InVertex.TextureCoordinates.zw;
+	float2 StartPos = GetUV( InVertex, 0 );
+	float2 EndPos = GetUV( InVertex, 1 );
 
 	float2 Diff = float2( StartPos.y - EndPos.y, EndPos.x - StartPos.x ) ;
 
@@ -256,95 +258,22 @@ float4 GetLineSegmentElementColor( VertexOut InVertex )
 } 
 #endif
 
-float4 ApplyColorVisionDeficiencyFilter(float4 Color)
+float4 Main( VertexToPixelInterpolants VIn ) : SV_Target0
 {
-	float4 OutColor = Color;
-#if COLOR_VISION_DEFICIENCY_TYPE == CVD_Deuteranomly
-	OutColor.rgb = float3(
-		OutColor.r * 0.80000 + OutColor.g * 0.20000 + OutColor.b * 0.0,
-		OutColor.r * 0.25833 + OutColor.g * 0.74167 + OutColor.b * 0.0,
-		OutColor.r * 0.0     + OutColor.g * 0.14167 + OutColor.b * 0.85833);
-#elif COLOR_VISION_DEFICIENCY_TYPE == CVD_Deuteranopia
-	OutColor.rgb = float3(
-		OutColor.r * 0.625 + OutColor.g * 0.375 + OutColor.b * 0.0,
-		OutColor.r * 0.700 + OutColor.g * 0.300 + OutColor.b * 0.0,
-		OutColor.r * 0.0   + OutColor.g * 0.300 + OutColor.b * 0.700);
-#elif COLOR_VISION_DEFICIENCY_TYPE == CVD_Protanomly
-	OutColor.rgb = float3(
-		OutColor.r * 0.81667 + OutColor.g * 0.18333 + OutColor.b * 0.0,
-		OutColor.r * 0.33333 + OutColor.g * 0.66667 + OutColor.b * 0.0,
-		OutColor.r * 0.0     + OutColor.g * 0.12500 + OutColor.b * 0.87500);
-#elif COLOR_VISION_DEFICIENCY_TYPE == CVD_Protanopia
-	OutColor.rgb = float3(
-		OutColor.r * 0.56667 + OutColor.g * 0.43333 + OutColor.b * 0.0,
-		OutColor.r * 0.55833 + OutColor.g * 0.44167 + OutColor.b * 0.0,
-		OutColor.r * 0.0     + OutColor.g * 0.24167 + OutColor.b * 0.75833);
-#elif COLOR_VISION_DEFICIENCY_TYPE == CVD_Tritanomaly
-	OutColor.rgb = float3(
-		OutColor.r * 0.96667 + OutColor.g * 0.03333 + OutColor.b * 0.0,
-		OutColor.r * 0.0     + OutColor.g * 0.73333 + OutColor.b * 0.26667,
-		OutColor.r * 0.0     + OutColor.g * 0.18333 + OutColor.b * 0.81667);
-#elif COLOR_VISION_DEFICIENCY_TYPE == CVD_Tritanopia
-	OutColor.rgb = float3(
-		OutColor.r * 0.950 + OutColor.g * 0.050 + OutColor.b * 0.0,
-		OutColor.r * 0.0   + OutColor.g * 0.433 + OutColor.b * 0.567,
-		OutColor.r * 0.0   + OutColor.g * 0.475 + OutColor.b * 0.525);
-#elif COLOR_VISION_DEFICIENCY_TYPE == CVD_Achromatopsia
-	OutColor.rgb = float3(
-		OutColor.r * 0.299 + OutColor.g * 0.587 + OutColor.b * 0.114,
-		OutColor.r * 0.299 + OutColor.g * 0.587 + OutColor.b * 0.114,
-		OutColor.r * 0.299 + OutColor.g * 0.587 + OutColor.b * 0.114);
-#endif
-	return OutColor;
-}
-
-float cross(float2 a, float2 b)
-{
-	return a.x*b.y - a.y*b.x;
-}
-
-/**
- * Given a point p and a parallelogram defined by point a and vectors b and c, determines in p is inside the parallelogram. 
- * returns a 4-vector that can be used with the clip instruction.
- */
-float4 PointInParallelogram(float2 p, float2 a, float4 bc)
-{
-	// unoptomized form:
-	//float2 o = p - a;
-	//float2 b = bc.xy;
-	//float2 c = bc.zw;
-	//float d = cross(b, c);
-	//float s = -cross(o, b) / d;
-	//float t = cross(o, c) / d;
-	// test for s and t between 0 and 1
-	//return float4(s, 1 - s, t, 1 - t);
-
-	float2 o = p - a;
-	// precompute 1/d
-	float invD = 1/cross(bc.xy, bc.zw);
-	// Compute an optimized o x b and o x c, leveraging that b and c are in the same vector register already (and free swizzles):
-	//   (o.x * b .y  - o.y * b .x, o.x *  c.y - o.y *  c.x) ==
-	//   (o.x * bc.y  - o.y * bc.x, o.x * bc.w - o.y * bc.z) ==
-	//    o.x * bc.yw - o.y * bc.xz
-	float2 st = (o.x * bc.yw - o.y * bc.xz) * float2(-invD, invD);
-	// test for s and t between 0 and 1
-	return float4(st, float2(1,1) - st);
-}
-
-float4 Main( VertexOut VIn ) : SV_Target0
-{
-	// Clip pixels which are outside of the clipping rect
-	float2 ClipOrigin = VIn.ClipOriginAndPos.xy;
-	float2 WindowPos = VIn.ClipOriginAndPos.zw;
-	float4 ClipTest = PointInParallelogram(WindowPos, ClipOrigin, VIn.ClipExtents);
+#if DO_CLIPPING
+		// Clip pixels which are outside of the clipping rect
+		float2 ClipOrigin = VIn.ClipOriginAndPos.xy;
+		float2 WindowPos = VIn.ClipOriginAndPos.zw;
+		float4 ClipTest = PointInParallelogram(WindowPos, ClipOrigin, VIn.ClipExtents);
 	
-#if !DEBUG_CLIPPING
-	// Clip pixels which are outside of the clipping rect
-	clip(ClipTest);
+	#if !DEBUG_CLIPPING
+		// Clip pixels which are outside of the clipping rect
+		clip(ClipTest);
+	#endif
 #endif
 
 	float4 OutColor;
-#if SHADER_TYPE == ST_Default 
+#if SHADER_TYPE == ST_Default || SHADER_TYPE == ST_Custom
 	OutColor = GetDefaultElementColor( VIn );
 #elif SHADER_TYPE == ST_Border
 	OutColor = GetBorderElementColor( VIn );
@@ -372,19 +301,24 @@ float4 Main( VertexOut VIn ) : SV_Target0
 	// gamma correct
 	OutColor.rgb = GammaCorrect(OutColor.rgb);
 
-
 #if DEBUG_CLIPPING
 	if (any(ClipTest < 0))
 	{
 		// Shows red where any pixels discarded because part of the element was clipped
-		OutColor *= float4(1,0,0,1) ;
+		OutColor *= float4(1,0,0,1);
 	}
 #endif
+
+
+#if !PRE_MULTIPLIED_ALPHA
+	OutColor.rgb = OutColor.rgb * OutColor.a;
+#endif
+
 
 	return OutColor;
 }
 
-float4 DebugOverdrawMain( VertexOut VIn ) : SV_Target0
+float4 DebugOverdrawMain( VertexToPixelInterpolants VIn ) : SV_Target0
 {
 
 #if !DEBUG_CLIPPING

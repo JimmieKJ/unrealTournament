@@ -28,6 +28,7 @@ private:
 	void OnTextCommitted( const FText& InText, ETextCommit::Type CommitInfo);
 	FString OnGetString() const;
 	FText OnGetText() const;
+	void OnSliderMinMaxEdited();
 
 private:
 	/** The property handle to the groups */
@@ -43,6 +44,9 @@ private:
 
 	/** A list of all group names to choose from */
 	TArray<TSharedPtr<FString>> GroupsSource;
+
+	TWeakObjectPtr<UObject> ScalarParameterObject;
+	TSharedPtr<IPropertyHandle> DefaultValueHandle;
 };
 
 /** 
@@ -87,4 +91,15 @@ private:
 
 	/** A list of all parameter names to choose from */
 	TArray<TSharedPtr<FString>> ParametersSource;
+};
+
+class FMaterialDetailCustomization : public IDetailCustomization
+{
+public:
+
+	/** Makes a new instance of this detail layout class for a specific detail view requesting it */
+	static TSharedRef<class IDetailCustomization> MakeInstance();
+
+	/** IDetailCustomization interface */
+	virtual void CustomizeDetails( IDetailLayoutBuilder& DetailLayout ) override;
 };

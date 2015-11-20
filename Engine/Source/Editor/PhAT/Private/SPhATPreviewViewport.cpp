@@ -59,6 +59,14 @@ TSharedPtr<SViewport> SPhATPreviewViewport::GetViewportWidget() const
 	return ViewportWidget;
 }
 
+void SPhATPreviewViewport::OnFocusViewportToSelection()
+{
+	if(FPhAT* Phat = PhATPtr.Pin().Get())
+	{
+		Phat->OnFocusSelection();
+	}
+}
+
 TSharedRef<FEditorViewportClient> SPhATPreviewViewport::MakeEditorViewportClient()
 {
 	EditorViewportClient = MakeShareable(new FPhATEdPreviewViewportClient(PhATPtr, PhATPtr.Pin()->GetSharedData(), SharedThis(this)));

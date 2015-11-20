@@ -192,12 +192,12 @@ from multiple threads, and should access only the arguments passed into it, sinc
 Developers writing custom constraints are encouraged to read the documentation in the user guide and the implementation code in PhysXExtensions.
 
 \param[out] constraints an array of solver constraint rows to be filled in
-\param[out] bodyAWorldOffset the origin point (offset from the position vector of bodyA) at which the constraint is resolved. This value does not affect how constraints are solved, only the constraint force reported. 
+\param[out] bodyAWorldOffset the origin point (offset from the position vector of bodyA's center of mass) at which the constraint is resolved. This value does not affect how constraints are solved, only the constraint force reported. 
 \param[in] maxConstraints the size of the constraint buffer. At most this many constraints rows may be written
 \param[out] invMassScale the inverse mass and inertia scales for the constraint
 \param[in] constantBlock the constant data block
-\param[in] bodyAToWorld The world transform of the first constrained body (the identity transform if the first actor is static, or if a NULL actor pointer was provided for it)
-\param[in] bodyBToWorld The world transform of the second constrained body (the identity transform if the second actor is static, or if a NULL actor pointer was provided for it)
+\param[in] bodyAToWorld The center of mass frame of the first constrained body (the identity transform if the first actor is static, or if a NULL actor pointer was provided for it)
+\param[in] bodyBToWorld The center of mass frame of the second constrained body (the identity transform if the second actor is static, or if a NULL actor pointer was provided for it)
 
 \return the number of constraint rows written.
 */
@@ -216,8 +216,8 @@ This function is called by the constraint post-solver framework. The function mu
 from multiple threads and should access only the arguments passed into it, since on PS3 this function may execute on SPU.
 
 \param[in] constantBlock the constant data block
-\param[out] bodyAToWorld The world transform of the first constrained body (the identity if the body is NULL)
-\param[out] bodyBToWorld The world transform of the second constrained body (the identity if the body is NULL)
+\param[out] bodyAToWorld The center of mass frame of the first constrained body (the identity if the actor is static or a NULL pointer was provided for it)
+\param[out] bodyBToWorld The center of mass frame of the second constrained body (the identity if the actor is static or a NULL pointer was provided for it)
 \param[in] true if the constraint should be projected by moving the second body towards the first, false if the converse
 */
 
@@ -251,8 +251,8 @@ This function is called by the constraint post-solver framework to visualize the
 
 \param[out] out the render buffer to render to
 \param[in] constantBlock the constant data block
-\param[in] body0Transform The world transform of the first constrained body (the identity if the body is NULL)
-\param[in] body1Transform The world transform of the second constrained body (the identity if the body is NULL)
+\param[in] body0Transform The center of mass frame of the first constrained body (the identity if the actor is static, or a NULL pointer was provided for it)
+\param[in] body1Transform The center of mass frame of the second constrained body (the identity if the actor is static, or a NULL pointer was provided for it)
 \param[in] frameScale the visualization scale for the constraint frames
 \param[in] limitScale the visualization scale for the constraint limits
 \param[in] flags the visualization flags

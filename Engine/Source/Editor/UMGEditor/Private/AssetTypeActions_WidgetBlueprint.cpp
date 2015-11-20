@@ -2,6 +2,7 @@
 
 #include "UMGEditorPrivatePCH.h"
 
+#include "Editor/UnrealEd/Classes/Settings/EditorExperimentalSettings.h"
 #include "PackageTools.h"
 #include "Kismet2/BlueprintEditorUtils.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -55,6 +56,51 @@ FText FAssetTypeActions_WidgetBlueprint::GetAssetDescription( const FAssetData& 
 	}
 
 	return FText::GetEmpty();
+}
+
+void FAssetTypeActions_WidgetBlueprint::PerformAssetDiff(UObject* Asset1, UObject* Asset2, const struct FRevisionInfo& OldRevision, const struct FRevisionInfo& NewRevision) const
+{
+	if (!GetDefault<UEditorExperimentalSettings>()->bEnableWidgetVisualDiff)
+	{
+		return FAssetTypeActions_Base::PerformAssetDiff(Asset1, Asset2, OldRevision, NewRevision);
+	}
+
+	UBlueprint* OldBlueprint = CastChecked<UBlueprint>(Asset1);
+	UBlueprint* NewBlueprint = CastChecked<UBlueprint>(Asset2);
+
+	// sometimes we're comparing different revisions of one single asset (other 
+	// times we're comparing two completely separate assets altogether)
+	bool bIsSingleAsset = (NewBlueprint->GetName() == OldBlueprint->GetName());
+
+	FText WindowTitle = LOCTEXT("NamelessWidgetBlueprintDiff", "Widget Blueprint Diff");
+	// if we're diff'ing one asset against itself 
+	if (bIsSingleAsset)
+	{
+		// identify the assumed single asset in the window's title
+		WindowTitle = FText::Format(LOCTEXT("WidgetBlueprintDiff", "{0} - Widget Blueprint Diff"), FText::FromString(NewBlueprint->GetName()));
+	}
+
+	const TSharedPtr<SWindow> Window = SNew(SWindow)
+		.Title(WindowTitle)
+		.ClientSize(FVector2D(1000, 800));
+
+	Window->SetContent(SNew(SBlueprintDiff)
+		.BlueprintOld(OldBlueprint)
+		.BlueprintNew(NewBlueprint)
+		.OldRevision(OldRevision)
+		.NewRevision(NewRevision)
+		.ShowAssetNames(!bIsSingleAsset));
+
+	// Make this window a child of the modal window if we've been spawned while one is active.
+	TSharedPtr<SWindow> ActiveModal = FSlateApplication::Get().GetActiveModalWindow();
+	if (ActiveModal.IsValid())
+	{
+		FSlateApplication::Get().AddWindowAsNativeChild(Window.ToSharedRef(), ActiveModal.ToSharedRef());
+	}
+	else
+	{
+		FSlateApplication::Get().AddWindow(Window.ToSharedRef());
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

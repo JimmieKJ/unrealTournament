@@ -211,7 +211,7 @@ void VPLPlacementCS(
 
 				float3 DiffuseColor = .5f;
 				float CellExtent = VPLPlacementCameraRadius * InvPlacementGridSize.x;
-				float CellRadius = sqrt(2) * CellExtent;
+				float CellRadius = sqrt(2.0) * CellExtent;
 
 				float3 Flux = DiffuseColor * LightColor.rgb * max(dot(IntersectionNormal, -LightDirection), 0) * PI * CellRadius * CellRadius;
 
@@ -271,10 +271,10 @@ void CullVPLsForViewCS(
 	{
 		uint SourceIndex = VPLIndex * VPL_DATA_STRIDE;
 		float4 BoundingSphere = VPLData[SourceIndex + 0];
-		float DistanceToViewSq = dot(View.ViewOrigin.xyz - BoundingSphere.xyz, View.ViewOrigin.xyz - BoundingSphere.xyz);
+		float DistanceToViewSq = dot(View.WorldCameraOrigin - BoundingSphere.xyz, View.WorldCameraOrigin - BoundingSphere.xyz);
 
 		if (DistanceToViewSq < Square(AOMaxViewDistance + BoundingSphere.w)
-			&& ViewFrustumIntersectSphere(BoundingSphere.xyz, BoundingSphere.w + AOMaxDistance))
+			&& ViewFrustumIntersectSphere(BoundingSphere.xyz, BoundingSphere.w + AOObjectMaxDistance))
 		{
 			uint DestStartVPLIndex;
 			InterlockedAdd(RWCulledVPLParameterBuffer[1], 1U, DestStartVPLIndex);
@@ -511,7 +511,7 @@ float3 ComputeVPLFlux(uint SurfelIndex, float4x4 InstanceToWorld)
 
 uint GetViewBasedSurfelLOD(float3 ObjectPosition)
 {
-	return length(ObjectPosition - View.ViewOrigin.xyz) > .4f * AOMaxViewDistance ? 1 : 0;
+	return length(ObjectPosition - View.WorldCameraOrigin) > .4f * AOMaxViewDistance ? 1 : 0;
 	//return 0;
 }
 
@@ -776,7 +776,7 @@ float3 ComputeVirtualPointLighting(uint VPLIndex, uint InstancedVPLIndex, uint R
 { 
 	float3 Irradiance = 0;
 
-	float VisibilityStepSize = NUM_VISIBILITY_STEPS / AOMaxDistance;
+	float VisibilityStepSize = NUM_VISIBILITY_STEPS / AOObjectMaxDistance;
 	float MaxGatherDistanceSq = VPLGatherRadius * VPLGatherRadius;
 	float4 VPLPositionAndRadius = LoadVPLPositionAndRadius(VPLIndex, InstanceToWorld);
 
@@ -846,7 +846,7 @@ float3 ComputeVirtualPointLighting(uint VPLIndex, uint InstancedVPLIndex, uint R
 
 					float ShadowDepthBias = 0;
 					float ShadowingDistance = Distance + ShadowDepthBias;
-					float NormalizedDistance = saturate(ShadowingDistance / AOMaxDistance);
+					float NormalizedDistance = saturate(ShadowingDistance / AOObjectMaxDistance);
 					uint LowerStepIndex = (uint)min(NormalizedDistance * NUM_VISIBILITY_STEPS, NUM_VISIBILITY_STEPS - 1);
 					float LerpAlpha = ShadowingDistance - LowerStepIndex * VisibilityStepSize;
 
@@ -899,33 +899,48 @@ float3 ComputeVirtualPointLighting(uint VPLIndex, uint InstancedVPLIndex, uint R
 	return Irradiance;
 }
 
-float3 GatherIrradianceFromVPLs(float3 WorldPosition, float3 WorldNormal, uint RelativeRecordIndex, uint RecordIndex, uint ThreadIndex)
+Buffer<float4> TileConeDepthRanges;
+
+float3 GatherIrradianceFromVPLs(float3 WorldPosition, float3 WorldNormal, uint RelativeRecordIndex, uint2 TileCoordinate, uint ThreadIndex)
 {
 	float3 Irradiance = 0;
 
 #if IRRADIANCE_FROM_SURFELS
 
-	uint2 TileCoordinate = IrradianceCacheTileCoordinate[RecordIndex];
 	uint4 TileHead = GetTileHead(TileCoordinate);
-	uint NumObjectsAffectingTile = TileHead.y + TileHead.z + TileHead.w;
+
+	#if USE_DEPTH_RANGE_LISTS
+		
+		uint TileIndex = TileCoordinate.y * TileListGroupSize.x + TileCoordinate.x;
+		float4 ConeAxisDepthRanges = TileConeDepthRanges.Load(TileIndex);
+		float SceneDepth = mul(float4(WorldPosition, 1), View.WorldToClip).w;
+		uint ListIndex = SceneDepth < ConeAxisDepthRanges.y ? 0 : 1;
+		uint NumObjectsAffectingTile = SceneDepth < ConeAxisDepthRanges.y ? TileHead.y : TileHead.z;
+	#else
+		uint NumObjectsAffectingTile = TileHead.y + TileHead.z + TileHead.w;
+	#endif
 
 	LOOP 
 	for (uint ListObjectIndex = 0; ListObjectIndex < NumObjectsAffectingTile; ListObjectIndex++)
 	{
-		uint ListIndex = 0;
-		uint ArrayIndex = ListObjectIndex;
+		#if USE_DEPTH_RANGE_LISTS
+			uint ArrayIndex = ListObjectIndex;
+		#else
+			uint ListIndex = 0;
+			uint ArrayIndex = ListObjectIndex;
 
-		FLATTEN
-		if (ListObjectIndex >= TileHead.y + TileHead.z)
-		{
-			ListIndex = 2;
-			ArrayIndex = ListObjectIndex - TileHead.y - TileHead.z;
-		}
-		else if (ListObjectIndex >= TileHead.y)
-		{
-			ListIndex = 1;
-			ArrayIndex = ListObjectIndex - TileHead.y;
-		}
+			FLATTEN
+			if (ListObjectIndex >= TileHead.y + TileHead.z)
+			{
+				ListIndex = 2;
+				ArrayIndex = ListObjectIndex - TileHead.y - TileHead.z;
+			}
+			else if (ListObjectIndex >= TileHead.y)
+			{
+				ListIndex = 1;
+				ArrayIndex = ListObjectIndex - TileHead.y;
+			}
+		#endif
 
 		uint ObjectIndex = TileArrayData.Load((ArrayIndex * TileListGroupSize.x * TileListGroupSize.y + TileHead.x) * NUM_CULLED_OBJECT_LISTS + ListIndex);
 		float4 ObjectPositionAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
@@ -995,7 +1010,8 @@ void ComputeIrradianceCS(
 	{
 		float3 RecordWorldNormal = IrradianceCacheNormal[RecordIndex].xyz;
 		float3 RecordWorldPosition = IrradianceCachePositionRadius[RecordIndex].xyz;
-		Irradiance = GatherIrradianceFromVPLs(RecordWorldPosition, RecordWorldNormal, RelativeRecordIndex, RecordIndex, ThreadIndex);
+		uint2 TileCoordinate = IrradianceCacheTileCoordinate[RecordIndex];
+		Irradiance = GatherIrradianceFromVPLs(RecordWorldPosition, RecordWorldNormal, RelativeRecordIndex, TileCoordinate, ThreadIndex);
 	}
 
 	SharedThreadIrradiance[ThreadIndex] = Irradiance;
@@ -1036,4 +1052,128 @@ void CombineIrradianceSamplesCS(
 	{
 		RWIrradianceCacheIrradiance[RecordIndex] = SurfelIrradiance[RelativeRecordIndex] + HeightfieldIrradiance[RelativeRecordIndex];
 	}
+}
+
+#ifndef SCREEN_GRID_IRRADIANCE_THREADGROUP_SIZE_X
+#define SCREEN_GRID_IRRADIANCE_THREADGROUP_SIZE_X 1
+#endif
+
+Buffer<float> ConeDepthVisibilityFunction;
+
+/**  */
+[numthreads(SCREEN_GRID_IRRADIANCE_THREADGROUP_SIZE_X, SCREEN_GRID_IRRADIANCE_THREADGROUP_SIZE_X, 1)]
+void ComputeStepBentNormalScreenGridCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint2 OutputCoordinate = DispatchThreadId.xy;
+	float2 BaseLevelScreenUV = GetBaseLevelScreenUVFromScreenGrid(OutputCoordinate);
+
+	float3 WorldNormal;
+	float SceneDepth;
+	bool bHasDistanceFieldRepresentation;
+	bool bHasHeightfieldRepresentation;
+	GetDownsampledGBuffer(BaseLevelScreenUV, WorldNormal, SceneDepth, bHasDistanceFieldRepresentation, bHasHeightfieldRepresentation);
+
+	float3 TangentX;
+	float3 TangentY;
+	FindBestAxisVectors2(WorldNormal, TangentX, TangentY);
+
+	uint OutputBaseIndex = OutputCoordinate.y * ScreenGridConeVisibilitySize.x + OutputCoordinate.x;
+	uint InputBaseIndex = OutputBaseIndex * NUM_CONE_DIRECTIONS;
+
+	//@todo - more threads
+	for (uint StepIndex = 0; StepIndex < NUM_VISIBILITY_STEPS; StepIndex++)
+	{
+		float3 UnoccludedDirection = 0;
+
+		for (uint ConeIndex = 0; ConeIndex < NUM_CONE_DIRECTIONS; ConeIndex++)
+		{
+			float ConeVisibility = ConeDepthVisibilityFunction[(InputBaseIndex + ConeIndex) * NUM_VISIBILITY_STEPS + StepIndex];
+			float3 ConeDirection = AOSamples2.SampleDirections[ConeIndex].xyz;
+			float3 RotatedConeDirection = ConeDirection.x * TangentX + ConeDirection.y * TangentY + ConeDirection.z * WorldNormal;
+			UnoccludedDirection += ConeVisibility * RotatedConeDirection;
+		}
+
+		float InvNumSamples = 1.0f / (float)NUM_CONE_DIRECTIONS;
+		UnoccludedDirection = UnoccludedDirection * (BentNormalNormalizeFactor * InvNumSamples);
+
+		RWStepBentNormal[OutputBaseIndex * NUM_VISIBILITY_STEPS + StepIndex] = float4(UnoccludedDirection, 0);
+	}
+}
+
+/**  */
+[numthreads(FINAL_GATHER_THREADGROUP_SIZE, 1, 1)]
+void ComputeIrradianceScreenGridCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint2 OutputCoordinate = GroupId.xy;
+	float2 BaseLevelScreenUV = GetBaseLevelScreenUVFromScreenGrid(OutputCoordinate);
+	uint ThreadIndex = GroupThreadId.x;
+
+	float3 Irradiance = 0;
+
+	if (all(OutputCoordinate < ScreenGridConeVisibilitySize))
+	{
+		float3 WorldNormal;
+		float SceneDepth;
+		bool bHasDistanceFieldRepresentation;
+		bool bHasHeightfieldRepresentation;
+		GetDownsampledGBuffer(BaseLevelScreenUV, WorldNormal, SceneDepth, bHasDistanceFieldRepresentation, bHasHeightfieldRepresentation);
+
+		float3 TangentX;
+		float3 TangentY;
+		FindBestAxisVectors2(WorldNormal, TangentX, TangentY);
+
+		uint StepBentNormalBaseIndex = OutputCoordinate.y * ScreenGridConeVisibilitySize.x + OutputCoordinate.x;
+
+		float2 ScreenUV = GetScreenUVFromScreenGrid(OutputCoordinate);
+		float2 ScreenPosition = (ScreenUV.xy - View.ScreenPositionScaleBias.wz) / View.ScreenPositionScaleBias.xy;
+		
+		float4 HomogeneousWorldPosition = mul(float4(ScreenPosition * SceneDepth, SceneDepth, 1), View.ScreenToWorld);
+		float3 OpaqueWorldPosition = HomogeneousWorldPosition.xyz / HomogeneousWorldPosition.w;
+		uint2 TileCoordinate = ComputeTileCoordinateFromScreenGrid(OutputCoordinate);
+
+		Irradiance = GatherIrradianceFromVPLs(OpaqueWorldPosition, WorldNormal, StepBentNormalBaseIndex, TileCoordinate, ThreadIndex);
+	}
+
+	SharedThreadIrradiance[ThreadIndex] = Irradiance;
+
+	GroupMemoryBarrierWithGroupSync();
+
+	if (ThreadIndex == 0)
+	{
+		float3 Irradiance = 0;
+
+		for (uint i = 0; i < FINAL_GATHER_THREADGROUP_SIZE; i++)
+		{
+			Irradiance += SharedThreadIrradiance[i];
+		}
+
+		//float3 Irradiance = SharedThreadIrradiance[0];
+
+		if (all(OutputCoordinate < ScreenGridConeVisibilitySize))
+		{
+			uint OutputIndex = OutputCoordinate.y * ScreenGridConeVisibilitySize.x + OutputCoordinate.x;
+			RWSurfelIrradiance[OutputIndex] = float4(Irradiance, 0);
+		}
+	}
+}
+
+RWTexture2D<float4> RWIrradianceTexture;
+
+/**  */
+[numthreads(SCREEN_GRID_IRRADIANCE_THREADGROUP_SIZE_X, SCREEN_GRID_IRRADIANCE_THREADGROUP_SIZE_X, 1)]
+void CombineIrradianceScreenGridCS(
+	uint3 GroupId : SV_GroupID,
+	uint3 DispatchThreadId : SV_DispatchThreadID,
+    uint3 GroupThreadId : SV_GroupThreadID) 
+{
+	uint2 OutputCoordinate = DispatchThreadId.xy;
+	uint InputBaseIndex = OutputCoordinate.y * ScreenGridConeVisibilitySize.x + OutputCoordinate.x;
+
+	RWIrradianceTexture[OutputCoordinate] = SurfelIrradiance[InputBaseIndex] + HeightfieldIrradiance[InputBaseIndex];
 }

@@ -38,7 +38,11 @@ public:
 #if ENABLE_NAN_DIAGNOSTIC
 	FORCEINLINE void DiagnosticCheckNaN() const
 	{
-		checkf(!ContainsNaN(), TEXT("FVector contains NaN: %s"), *ToString());
+		if (ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("FVector contains NaN: %s"), *ToString());
+			*const_cast<FVector*>(this) = ZeroVector;
+		}
 	}
 #else
 	FORCEINLINE void DiagnosticCheckNaN() const {}
@@ -479,7 +483,10 @@ public:
 	 * @see GetSafeNormal()
 	 */
 	FORCEINLINE FVector GetUnsafeNormal() const;
-	
+
+	DEPRECATED(4.7, "Deprecated due to unclear name, use GetUnsafeNormal instead.")
+	FORCEINLINE FVector UnsafeNormal() const;
+
 	/**
 	 * Gets a copy of this vector snapped to a grid.
 	 *
@@ -499,16 +506,28 @@ public:
 
 	/** Create a copy of this vector, with its magnitude clamped between Min and Max. */
 	FVector GetClampedToSize(float Min, float Max) const;
-	
+
+	DEPRECATED(4.7, "Deprecated due to unclear name, use GetClampedToSize instead.")
+	FVector ClampSize(float Min, float Max) const;
+
 	/** Create a copy of this vector, with the 2D magnitude clamped between Min and Max. Z is unchanged. */
 	FVector GetClampedToSize2D(float Min, float Max) const;
-	
+
+	DEPRECATED(4.7, "Deprecated due to unclear name, use GetClampedToSize2D instead.")
+	FVector ClampSize2D(float Min, float Max) const;
+
 	/** Create a copy of this vector, with its maximum magnitude clamped to MaxSize. */
 	FVector GetClampedToMaxSize(float MaxSize) const;
-	
+
+	DEPRECATED(4.7, "Deprecated due to unclear name, use GetClampedToMaxSize instead.")
+	FVector ClampMaxSize(float MaxSize) const;
+
 	/** Create a copy of this vector, with the maximum 2D magnitude clamped to MaxSize. Z is unchanged. */
 	FVector GetClampedToMaxSize2D(float MaxSize) const;
-	
+
+	DEPRECATED(4.7, "Deprecated due to unclear name, use GetClampedToMaxSize2D instead.")
+	FVector ClampMaxSize2D(float MaxSize) const;
+
 	/**
 	 * Add a vector to this and clamp the result in a cube.
 	 *
@@ -566,7 +585,10 @@ public:
 	 * @return A normalized copy if safe, (0,0,0) otherwise.
 	 */
 	FVector GetSafeNormal(float Tolerance=SMALL_NUMBER) const;
-	
+
+	DEPRECATED(4.7, "Deprecated due to unclear name, use GetSafeNormal instead.")
+	FVector SafeNormal(float Tolerance = SMALL_NUMBER) const;
+
 	/**
 	 * Gets a normalized copy of the 2D components of the vector, checking it is safe to do so. Z is set to zero. 
 	 * Returns zero vector if vector length is too small to normalize.
@@ -575,7 +597,10 @@ public:
 	 * @return Normalized copy if safe, otherwise returns zero vector.
 	 */
 	FVector GetSafeNormal2D(float Tolerance=SMALL_NUMBER) const;
-	
+
+	DEPRECATED(4.7, "Deprecated due to unclear name, use GetSafeNormal2D instead.")
+	FVector SafeNormal2D(float Tolerance = SMALL_NUMBER) const;
+
 	/**
 	 * Returns the cosine of the angle between this vector and another projected onto the XY plane (no Z).
 	 *
@@ -601,13 +626,34 @@ public:
 	FORCEINLINE FVector ProjectOnToNormal(const FVector& Normal ) const;
 
 	/**
-	 * Return the FRotator corresponding to the direction that the vector
-	 * is pointing in.  Sets Yaw and Pitch to the proper numbers, and sets
-	 * roll to zero because the roll can't be determined from a vector.
+	 * Return the FRotator orientation corresponding to the direction in which the vector points.
+	 * Sets Yaw and Pitch to the proper numbers, and sets Roll to zero because the roll can't be determined from a vector.
 	 *
-	 * @return The FRotator from the vector's direction.
+	 * @return FRotator from the Vector's direction, without any roll.
+	 * @see ToOrientationQuat()
 	 */
-	CORE_API FRotator Rotation() const;
+	CORE_API FRotator ToOrientationRotator() const;
+
+	/**
+	 * Return the Quaternion orientation corresponding to the direction in which the vector points.
+	 * Similar to the FRotator version, returns a result without roll such that it preserves the up vector.
+	 *
+	 * @note If you don't care about preserving the up vector and just want the most direct rotation, you can use the faster
+	 * 'FQuat::FindBetweenVectors(FVector::ForwardVector, YourVector)' or 'FQuat::FindBetweenNormals(...)' if you know the vector is of unit length.
+	 *
+	 * @return Quaternion from the Vector's direction, without any roll.
+	 * @see ToOrientationRotator(), FQuat::FindBetweenVectors()
+	 */
+	CORE_API FQuat ToOrientationQuat() const;
+
+	/**
+	 * Return the FRotator orientation corresponding to the direction in which the vector points.
+	 * Sets Yaw and Pitch to the proper numbers, and sets Roll to zero because the roll can't be determined from a vector.
+	 * @note Identical to 'ToOrientationRotator()' and preserved for legacy reasons.
+	 * @return FRotator from the Vector's direction.
+	 * @see ToOrientationRotator(), ToOrientationQuat()
+	 */
+	FRotator Rotation() const;
 
 	/**
 	 * Find good arbitrary axis vectors to represent U and V axes of a plane,
@@ -777,6 +823,15 @@ public:
 	static FORCEINLINE float DistSquared( const FVector &V1, const FVector &V2 );
 
 	/**
+	 * Squared distance between two points in the XY plane only.
+	 *	
+	 * @param V1 The first point.
+	 * @param V2 The second point.
+	 * @return The squared distance between two points in the XY plane
+	 */
+	static FORCEINLINE float DistSquaredXY( const FVector &V1, const FVector &V2 );
+	
+	/**
 	 * Compute pushout of a box from a plane.
 	 *
 	 * @param Normal The plane normal.
@@ -888,6 +943,12 @@ public:
 		return Ar << V.X << V.Y << V.Z;
 	}
 	
+	bool Serialize( FArchive& Ar )
+	{
+		Ar << *this;
+		return true;
+	}
+
 	/** 
 	 * Network serialization function.
 	 * FVectors NetSerialize without quantization (ie exact values are serialized).
@@ -1255,7 +1316,7 @@ FORCEINLINE bool FVector::Equals(const FVector& V, float Tolerance) const
 
 FORCEINLINE bool FVector::AllComponentsEqual(float Tolerance) const
 {
-	return FMath::Abs( X - Y ) < Tolerance && FMath::Abs( X - Z ) < Tolerance && FMath::Abs( Y - Z ) < Tolerance;
+	return FMath::Abs( X - Y ) <= Tolerance && FMath::Abs( X - Z ) <= Tolerance && FMath::Abs( Y - Z ) <= Tolerance;
 }
 
 
@@ -1408,9 +1469,9 @@ FORCEINLINE float FVector::SizeSquared2D() const
 FORCEINLINE bool FVector::IsNearlyZero(float Tolerance) const
 {
 	return
-		FMath::Abs(X)<Tolerance
-		&&	FMath::Abs(Y)<Tolerance
-		&&	FMath::Abs(Z)<Tolerance;
+		FMath::Abs(X)<=Tolerance
+		&&	FMath::Abs(Y)<=Tolerance
+		&&	FMath::Abs(Z)<=Tolerance;
 }
 
 FORCEINLINE bool FVector::IsZero() const
@@ -1472,6 +1533,11 @@ FORCEINLINE FVector FVector::GetUnsafeNormal() const
 	return FVector( X*Scale, Y*Scale, Z*Scale );
 }
 
+FORCEINLINE FVector FVector::UnsafeNormal() const
+{
+	return GetUnsafeNormal();
+}
+
 FORCEINLINE FVector FVector::GridSnap( const float& GridSz ) const
 {
 	return FVector( FMath::GridSnap(X, GridSz),FMath::GridSnap(Y, GridSz),FMath::GridSnap(Z, GridSz) );
@@ -1497,6 +1563,11 @@ FORCEINLINE FVector FVector::GetClampedToSize(float Min, float Max) const
 	return VecSize * VecDir;
 }
 
+FORCEINLINE FVector FVector::ClampSize(float Min, float Max) const
+{
+	return GetClampedToSize(Min, Max);
+}
+
 FORCEINLINE FVector FVector::GetClampedToSize2D(float Min, float Max) const
 {
 	float VecSize2D = Size2D();
@@ -1506,6 +1577,12 @@ FORCEINLINE FVector FVector::GetClampedToSize2D(float Min, float Max) const
 
 	return FVector(VecSize2D * VecDir.X, VecSize2D * VecDir.Y, Z);
 }
+
+FORCEINLINE FVector FVector::ClampSize2D(float Min, float Max) const
+{
+	return GetClampedToSize2D(Min, Max);
+}
+
 
 FORCEINLINE FVector FVector::GetClampedToMaxSize(float MaxSize) const
 {
@@ -1526,6 +1603,11 @@ FORCEINLINE FVector FVector::GetClampedToMaxSize(float MaxSize) const
 	}	
 }
 
+FORCEINLINE FVector FVector::ClampMaxSize(float MaxSize) const
+{
+	return GetClampedToMaxSize(MaxSize);
+}
+
 FORCEINLINE FVector FVector::GetClampedToMaxSize2D(float MaxSize) const
 {
 	if (MaxSize < KINDA_SMALL_NUMBER)
@@ -1544,6 +1626,12 @@ FORCEINLINE FVector FVector::GetClampedToMaxSize2D(float MaxSize) const
 		return *this;
 	}
 }
+
+FORCEINLINE FVector FVector::ClampMaxSize2D(float MaxSize) const
+{
+	return GetClampedToMaxSize2D(MaxSize);
+}
+
 
 FORCEINLINE void FVector::AddBounded( const FVector& V, float Radius )
 {
@@ -1593,7 +1681,7 @@ FORCEINLINE FVector FVector::Reciprocal() const
 
 FORCEINLINE bool FVector::IsUniform(float Tolerance) const
 {
-	return (FMath::Abs(X-Y) < Tolerance) && (FMath::Abs(Y-Z) < Tolerance);
+	return AllComponentsEqual(Tolerance);
 }
 
 FORCEINLINE FVector FVector::MirrorByVector( const FVector& MirrorNormal ) const
@@ -1616,6 +1704,11 @@ FORCEINLINE FVector FVector::GetSafeNormal(float Tolerance) const
 	}
 	const float Scale = FMath::InvSqrt(SquareSum);
 	return FVector(X*Scale, Y*Scale, Z*Scale);
+}
+
+FORCEINLINE FVector FVector::SafeNormal(float Tolerance) const
+{
+	return GetSafeNormal(Tolerance);
 }
 
 FORCEINLINE FVector FVector::GetSafeNormal2D(float Tolerance) const
@@ -1641,6 +1734,11 @@ FORCEINLINE FVector FVector::GetSafeNormal2D(float Tolerance) const
 
 	const float Scale = FMath::InvSqrt(SquareSum);
 	return FVector(X*Scale, Y*Scale, 0.f);
+}
+
+FORCEINLINE FVector FVector::SafeNormal2D(float Tolerance) const
+{
+	return GetSafeNormal2D(Tolerance);
 }
 
 FORCEINLINE float FVector::CosineAngle2D(FVector B) const
@@ -1824,6 +1922,11 @@ FORCEINLINE float FVector::Dist( const FVector &V1, const FVector &V2 )
 FORCEINLINE float FVector::DistSquared( const FVector &V1, const FVector &V2 )
 {
 	return FMath::Square(V2.X-V1.X) + FMath::Square(V2.Y-V1.Y) + FMath::Square(V2.Z-V1.Z);
+}
+
+FORCEINLINE float FVector::DistSquaredXY( const FVector &V1, const FVector &V2 )
+{
+	return FMath::Square(V2.X-V1.X) + FMath::Square(V2.Y-V1.Y);
 }
 
 FORCEINLINE float FVector::BoxPushOut( const FVector& Normal, const FVector& Size )

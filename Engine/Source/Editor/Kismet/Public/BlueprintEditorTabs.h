@@ -14,6 +14,7 @@ struct KISMET_API FBlueprintEditorTabs
 	static const FName ConstructionScriptEditorID;
 	static const FName SCSViewportID;
 	static const FName MyBlueprintID;
+	static const FName ReplaceNodeReferencesID;
 	static const FName UserDefinedStructureID;
 
 	// Document tab identifiers

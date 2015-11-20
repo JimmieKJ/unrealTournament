@@ -164,9 +164,9 @@ public:
 
 
 public:
-	// Begin FInterpEdInputInterface Interface
+	//~ Begin FInterpEdInputInterface Interface
 	virtual UObject* GetUObject() override {return this;}
-	// End FInterpEdInputInterface Interface
+	//~ End FInterpEdInputInterface Interface
 
 	/** @return  The total number of keyframes currently in this track. */
 	virtual int32 GetNumKeyframes() const { return 0; }

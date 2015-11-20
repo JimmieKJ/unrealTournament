@@ -63,12 +63,12 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	}
 
 	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse()
+	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
 	{
 #if !UE_BUILD_SHIPPING
 		if (!IsDebuggerPresent())
 		{
-			PromptForRemoteDebugging(false);
+			PromptForRemoteDebugging(bIsEnsure);
 		}
 
 		DebugBreak();
@@ -83,8 +83,8 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	}
 
 	static void PumpMessages(bool bFromMainLoop);
-	static uint32 GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings );
-	static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
+	static uint32 GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings );
+	static uint32 GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings);
 	static void RequestExit(bool Force);
 	static void RequestMinimize();
 	static const TCHAR* GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error);
@@ -100,6 +100,8 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	static void NormalizePath(FString& InPath);
 	static FString GetPrimaryGPUBrand();
 	static void GetOSVersions( FString& out_OSVersionLabel, FString& out_OSSubVersionLabel );
+	static bool HasPlatformFeature(const TCHAR* FeatureName);
+	static bool GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes);
 
 
 	/** 
@@ -197,6 +199,8 @@ struct CORE_API FMacPlatformMisc : public FGenericPlatformMisc
 	 * Gets a globally unique ID the represents a particular operating system install.
 	 */
 	static FString GetOperatingSystemId();
+
+	static FString GetXcodePath();
 
 	static bool bChachedMacMenuStateNeedsUpdate;
 

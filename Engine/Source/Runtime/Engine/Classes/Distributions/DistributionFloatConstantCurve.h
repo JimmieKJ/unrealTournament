@@ -15,11 +15,11 @@ class UDistributionFloatConstantCurve : public UDistributionFloat
 	FInterpCurveFloat ConstantCurve;
 
 
-	// Begin UDistributionFloat Interface
+	//~ Begin UDistributionFloat Interface
 	virtual float GetValue( float F = 0.f, UObject* Data = NULL, struct FRandomStream* InRandomStream = NULL ) const override;
-	// End UDistributionFloat Interface
+	//~ End UDistributionFloat Interface
 
-	// Begin FCurveEdInterface interface
+	//~ Begin FCurveEdInterface Interface
 	virtual int32		GetNumKeys() const override;
 	virtual int32		GetNumSubCurves() const override;
 	virtual float	GetKeyIn(int32 KeyIndex) override;
@@ -36,6 +36,6 @@ class UDistributionFloatConstantCurve : public UDistributionFloat
 	virtual void	SetKeyOut(int32 SubIndex, int32 KeyIndex, float NewOutVal) override;
 	virtual void	SetKeyInterpMode(int32 KeyIndex, EInterpCurveMode NewMode) override;
 	virtual void	SetTangents(int32 SubIndex, int32 KeyIndex, float ArriveTangent, float LeaveTangent) override;
-	// End FCurveEdInterface interface
+	//~ End FCurveEdInterface Interface
 };
 

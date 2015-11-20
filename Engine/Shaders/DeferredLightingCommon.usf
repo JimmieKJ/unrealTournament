@@ -12,6 +12,7 @@
 #include "BRDF.usf"
 #include "MonteCarlo.usf"
 #include "IESLightProfilesCommon.usf"
+#include "ShadingModels.usf"
 
 /** 
  * Data about a single light.
@@ -45,274 +46,6 @@ struct FSimpleDeferredLightData
 	/** Whether to use inverse squared falloff. */
 	bool bInverseSquared;
 };
-
-#if 0
-void StandardShadingShared( float3 DiffuseColor, float3 SpecularColor, float Roughness, float3 V, half3 N )
-{
-	//float NoV = saturate( dot(N, V) );
-	float NoV = abs( dot(N, V) ) + 1e-5;
-
-	// Diffuse_Lambert
-	Shared.DiffuseMul = DiffuseColor * (1.0 / PI);
-
-	// D_GGX, Vis_SmithJointApprox
-	float m = Roughness * Roughness;
-	Shared.m2 = m * m;
-	Shared.SpecularMul = (0.5 / PI) * Shared.m2;
-	Shared.VisMad = float2( 2 * NoV * ( 1 - m ) + m, NoV * m );
-	
-	// F_Schlick
-	Shared.SpecularMul *= saturate( 50.0 * SpecularColor.g );
-}
-
-void StandardShadingPerLight( Shared, float3 L, float3 V, half3 N )
-{
-	float3 H = normalize(V + L);			// 3 add, 2 mad, 4 mul, 1 rsqrt
-	float NoL = saturate( dot(N, L) );		// 2 mad, 1 mul
-	float NoH = saturate( dot(N, H) );		// 2 mad, 1 mul
-	float VoH = saturate( dot(V, H) );		// 2 mad, 1 mul
-
-	// D_GGX, Vis_SmithJointApprox
-	float d = ( NoH * Shared.m2 - NoH ) * NoH + 1;			// 2 mad
-	float v = NoL * Shared.VisMad.x + Shared.VisMad.y;		// 1 mad
-	float D_Vis = Shared.SpecularMul * rcp( d * d * v );	// 3 mul, 1 rcp
-
-	// F_Schlick
-	float Fc = pow( 1 - VoH, 5 );							// 1 sub, 3 mul
-	float3 F = Fc + (1 - Fc) * SpecularColor;				// 1 sub, 3 mad
-
-	return Shared.DiffuseMul + D_Vis * F;					// 3 mad
-}
-#endif
-
-// @param DiffSpecMask .r: diffuse, .g:specular e.g. float2(1,1) for both, float2(1,0) for diffuse only
-float3 StandardShading( FGBufferData GBuffer, float3 LobeRoughness, float3 LobeEnergy, float3 L, float3 V, half3 N, float2 DiffSpecMask )
-{
-	float3 H = normalize(V + L);
-	float NoL = saturate( dot(N, L) );
-	//float NoV = saturate( dot(N, V) );
-	float NoV = abs( dot(N, V) ) + 1e-5;
-	float NoH = saturate( dot(N, H) );
-	float VoH = saturate( dot(V, H) );
-	
-	// Generalized microfacet specular
-	float D = D_GGX( LobeRoughness[1], NoH ) * LobeEnergy[1];
-	float Vis = Vis_SmithJointApprox( LobeRoughness[1], NoV, NoL );
-	float3 F = F_Schlick( GBuffer.SpecularColor, VoH );
-
-	//float3 Diffuse = Diffuse_Lambert( GBuffer.DiffuseColor );
-	float3 Diffuse = Diffuse_Burley( GBuffer.DiffuseColor, LobeRoughness[1], NoV, NoL, VoH );
-	
-	return Diffuse * (LobeEnergy[2] * DiffSpecMask.r) + (D * Vis * DiffSpecMask.g) * F;
-}
-
-float3 SimpleShading( FGBufferData GBuffer, float Roughness, float3 L, float3 V, half3 N )
-{
-	float3 H = normalize(V + L);
-	float NoH = saturate( dot(N, H) );
-	
-	// Generalized microfacet specular
-	float D = D_GGX( Roughness, NoH );
-	float Vis = Vis_Implicit();
-	float3 F = F_None( GBuffer.SpecularColor );
-
-	return Diffuse_Lambert( GBuffer.DiffuseColor ) + (D * Vis) * F;
-}
-
-float3 ClearCoatShading( FGBufferData GBuffer, float3 LobeRoughness, float3 LobeEnergy, float3 L, float3 V, half3 N )
-{
-#if USE_CLEARCOAT
-	const float ClearCoat			= GBuffer.CustomData.x;
-	const float ClearCoatRoughness	= GBuffer.CustomData.y;
-	const float Film = 1 * ClearCoat;
-	const float MetalSpec = 0.9;
-
-#if 1
-	float3 H = normalize(V + L);
-	float NoL = saturate( dot(N, L) );
-	float NoV = saturate( dot(N, V) );
-	float NoH = saturate( dot(N, H) );
-	float VoH = saturate( dot(V, H) );
-	
-	// Generalized microfacet specular
-	float D = D_GGX( LobeRoughness[0], NoH ) * LobeEnergy[0];
-	float Vis = Vis_Kelemen( VoH );
-	
-	// F_Schlick
-	float F0 = 0.04;
-	float Fc = pow( 1 - VoH, 5 );
-	float F = Fc + (1 - Fc) * F0;
-	F *= ClearCoat;
-
-	float Fr1 = D * Vis * F;
-
-	float LayerAttenuation = (1 - F);
-
-	// Generalized microfacet specular
-	float D2 = D_GGX( LobeRoughness[1], NoH ) * LobeEnergy[1];
-	float Vis2 = Vis_Schlick( LobeRoughness[1], NoV, NoL );
-	//float3 F2 = F_Schlick( GBuffer.SpecularColor, VoH );
-	float3 F2 = saturate( 50.0 * GBuffer.SpecularColor.g ) * Fc + (1 - Fc) * GBuffer.SpecularColor;
-
-	float3 Fr2 = Diffuse_Burley( GBuffer.DiffuseColor, LobeRoughness[1], NoV, NoL, VoH ) * LobeEnergy[2] + (D2 * Vis2) * F2;
-	
-	return Fr1 + Fr2 * LayerAttenuation;
-#else
-	float3 H = normalize(V + L);
-	float NoL = saturate( dot(N, L) );
-	float NoV = saturate( dot(N, V) );
-	float NoH = saturate( dot(N, H) );
-	float VoH = saturate( dot(V, H) );
-	
-	// Hard coded IOR of 1.5
-
-	// Generalized microfacet specular
-	float D = D_GGX( ClearCoatRoughness, NoH ) * LobeEnergy[0];
-	float Vis = Vis_Kelemen( VoH );
-	
-	// F_Schlick
-	float F0 = 0.04;
-	float Fc = pow( 1 - VoH, 5 );
-	float F = Fc + (1 - Fc) * F0;
-
-	float Fr1 = D * Vis * F;
-
-	// Refract rays
-	//float3 L2 = refract( -L, -H, 1 / 1.5 );
-	//float3 V2 = refract( -V, -H, 1 / 1.5 );
-
-	// LoH == VoH
-	//float RefractBlend = sqrt( 4 * VoH*VoH + 5 ) / 3 + 2.0 / 3 * VoH;
-	//float3 L2 = RefractBlend * H - L / 1.5;
-	//float3 V2 = RefractBlend * H - V / 1.5;
-	//float NoL2 = saturate( dot(N, L2) );
-	//float NoV2 = saturate( dot(N, V2) );
-	
-	// Approximation
-	float RefractBlend = (0.22 * VoH + 0.7) * VoH + 0.745;	// 2 mad
-	// Dot products distribute. No need for L2 and V2.
-	float RefractNoH = RefractBlend * NoH;					// 1 mul
-	float NoL2 = saturate( RefractNoH - (1 / 1.5) * NoL );	// 1 mad
-	float NoV2 = saturate( RefractNoH - (1 / 1.5) * NoV );	// 1 mad
-	// Should refract H too but unimportant
-
-	NoL2 = max( 0.001, NoL2 );
-	NoV2 = max( 0.001, NoV2 );
-
-	float  AbsorptionDist = rcp(NoV2) + rcp(NoL2);
-	float3 Absorption = pow( AbsorptionColor, 0.5 * AbsorptionDist );
-
-	// Approximation
-	//float  AbsorptionDist = ( NoV2 + NoL2 ) / ( NoV2 * NoL2 );
-	//float3 Absorption = AbsorptionColor * ( AbsorptionColor * (AbsorptionDist * 0.5 - 1) + (2 - 0.5 * AbsorptionDist) );
-	//float3 Absorption = AbsorptionColor + AbsorptionColor * (AbsorptionColor - 1) * (AbsorptionDist * 0.5 - 1);	// use for shared version
-	
-	//float F21 = Fresnel( 1 / 1.5, saturate( dot(V2, H) ) );
-	//float TotalInternalReflection = 1 - F21 * G_Schlick( Roughness, NoV2, NoL2 );
-	//float3 LayerAttenuation = ( (1 - F12) * TotalInternalReflection ) * Absorption;
-
-	// Approximation
-	float3 LayerAttenuation = (1 - F) * Absorption;
-
-	// Approximation for IOR == 1.5
-	//SpecularColor = ChangeBaseMedium( SpecularColor, 1.5 );
-	//SpecularColor = saturate( ( 0.55 * SpecularColor + (0.45 * 1.08) ) * SpecularColor - (0.45 * 0.08) );
-	// Treat SpecularColor as relative to IOR. Artist compensates.
-	
-	// Generalized microfacet specular
-	float D2 = D_GGX( Roughness, NoH ) * LobeEnergy[2];
-	float Vis2 = Vis_Schlick( Roughness, NoV2, NoL2 );
-	float3 F2 = F_Schlick( GBuffer.SpecularColor, VoH );
-
-	float3 Fr2 = Diffuse_Lambert( GBuffer.DiffuseColor ) * LobeEnergy[2] + (D2 * Vis2) * F2;
-	
-	return Fr1 + Fr2 * LayerAttenuation;
-#endif
-#else //USE_CLEARCOAT
-	return float3(0.0f, 0.0f, 0.0f);
-#endif //USE_CLEARCOAT
-}
-
-float3 SubsurfaceShadingSubsurface( FGBufferData GBuffer, float3 L, float3 V, half3 N )
-{
-	float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
-
-	float3 H = normalize(V + L);
-
-	// to get an effect when you see through the material
-	// hard coded pow constant
-	float InScatter = pow(saturate(dot(L, -V)), 12) * lerp(3, .1f, GBuffer.Opacity);
-	// wrap around lighting, /(PI*2) to be energy consistent (hack do get some view dependnt and light dependent effect)
-	float OpacityFactor = GBuffer.Opacity;
-	// Opacity of 0 gives no normal dependent lighting, Opacity of 1 gives strong normal contribution
-	float NormalContribution = saturate(dot(N, H) * OpacityFactor + 1 - OpacityFactor);
-	float BackScatter = GBuffer.GBufferAO * NormalContribution / (PI * 2);
-
-	// lerp to never exceed 1 (energy conserving)
-	return SubsurfaceColor * lerp(BackScatter, 1, InScatter);
-}
-
-float3 SubsurfaceShadingTwoSided( float3 SubsurfaceColor, float3 L, float3 V, half3 N )
-{
-	float Wrap = 0.5;
-	float NoL = saturate( ( dot(-N, L) + Wrap ) / Square( 1 + Wrap ) );
-
-	float VoL = saturate( dot(V, -L) );
-	float a = 0.6;
-	float a2 = a * a;
-	float d = ( VoL * a2 - VoL ) * VoL + 1;	// 2 mad
-	float GGX = (a2 / PI) / (d * d);		// 2 mul, 1 rcp
-	return NoL * GGX * SubsurfaceColor;
-}
-
-Texture2D		PreIntegratedBRDF;
-SamplerState	PreIntegratedBRDFSampler;
-
-float3 SubsurfaceShadingPreintegratedSkin( FGBufferData GBuffer, float3 L, float3 V, half3 N )
-{
-	float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
-
-	float OpacityFactor = GBuffer.Opacity;
-	float3 PreintegratedBRDF = Texture2DSampleLevel(PreIntegratedBRDF, PreIntegratedBRDFSampler, float2(saturate(dot(N, L) * .5 + .5), 1 - OpacityFactor), 0).rgb;
-	return PreintegratedBRDF * SubsurfaceColor;
-}
-
-// @param DiffSpecMask .r: diffuse, .g:specular e.g. float2(1,1) for both, float2(1,0) for diffuse only
-float3 SurfaceShading( FGBufferData GBuffer, float3 LobeRoughness, float3 LobeEnergy, float3 L, float3 V, half3 N, float2 DiffSpecMask )
-{
-	switch( GBuffer.ShadingModelID )
-	{
-		case SHADINGMODELID_UNLIT:
-		case SHADINGMODELID_DEFAULT_LIT:
-		case SHADINGMODELID_SUBSURFACE:
-		case SHADINGMODELID_PREINTEGRATED_SKIN:
-		case SHADINGMODELID_SUBSURFACE_PROFILE:
-		case SHADINGMODELID_TWOSIDED_FOLIAGE:
-			return StandardShading( GBuffer, LobeRoughness, LobeEnergy, L, V, N, DiffSpecMask);
-		case SHADINGMODELID_CLEAR_COAT:
-			// this path does not support DiffSpecMask yet
-			return ClearCoatShading( GBuffer, LobeRoughness, LobeEnergy, L, V, N );
-		default:
-			return 0;
-	}
-}
-
-float3 SubsurfaceShading( FGBufferData GBuffer, float3 L, float3 V, half3 N )
-{
-	float3 SubsurfaceColor = ExtractSubsurfaceColor(GBuffer);
-
-	switch( GBuffer.ShadingModelID )
-	{
-		case SHADINGMODELID_SUBSURFACE:
-			return SubsurfaceShadingSubsurface( GBuffer, L, V, N );
-		case SHADINGMODELID_PREINTEGRATED_SKIN:
-			return SubsurfaceShadingPreintegratedSkin( GBuffer, L, V, N );
-		case SHADINGMODELID_TWOSIDED_FOLIAGE:
-			return SubsurfaceShadingTwoSided( SubsurfaceColor, L, V, N );
-		default:
-			return 0;
-	}
-}
 
 
 #undef LIGHT_SOURCE_SHAPE
@@ -386,8 +119,8 @@ float3 PointLightSpecularMIS( FScreenSpaceData ScreenSpaceData, FDeferredLightDa
 			
 			// Generalized microfacet specular
 			float D = D_GGX( Roughness, NoH );
-			float Vis = GeometricVisibility( Roughness, NoV, NoL, VoH );
-			float3 F = Fresnel( GBuffer.SpecularColor, VoH );
+			float Vis = Vis_SmithJointApprox( Roughness, NoV, NoL );
+			float3 F = F_Schlick( GBuffer.SpecularColor, VoH );
 
 			float ConePDF = 1.0 / ( 2 * PI * (1 - ConeCos) );
 			float GGXPDF = D * NoH / (4 * VoH);
@@ -508,7 +241,7 @@ void GetShadowTerms(FScreenSpaceData ScreenSpaceData, FDeferredLightData LightDa
 		// Also fix up the fade between dynamic and static shadows
 		// to work with plane splits rather than spheres.
 
-		float DynamicShadowFraction = DistanceFromCameraFade(ScreenSpaceData, LightData, WorldPosition, View.ViewOrigin.xyz);
+		float DynamicShadowFraction = DistanceFromCameraFade(ScreenSpaceData, LightData, WorldPosition, View.WorldCameraOrigin);
 		// For a directional light, fade between static shadowing and the whole scene dynamic shadowing based on distance + per object shadows
 		OpaqueShadowTerm = lerp(LightAttenuation.x, StaticShadowing, DynamicShadowFraction);
 		// Fade between SSS dynamic shadowing and static shadowing based on distance
@@ -620,9 +353,10 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, float2 InUV
 			{
 #if 1	// for testing if there is a perf impact
 				// correct screen space subsurface scattering
-				float3 SurfaceLightingDiff = SurfaceShading(ScreenSpaceData.GBuffer, LobeRoughness, LobeEnergy, L, V, N, float2(1, 0));
-				float3 SurfaceLightingSpec = SurfaceShading(ScreenSpaceData.GBuffer, LobeRoughness, LobeEnergy, L, V, N, float2(0, 1));
+				float3 SurfaceLightingDiff = SurfaceShading(ScreenSpaceData.GBuffer, LobeRoughness, LobeEnergy, L, V, N, float2(1, 0), Random);
+				float3 SurfaceLightingSpec = SurfaceShading(ScreenSpaceData.GBuffer, LobeRoughness, LobeEnergy, L, V, N, float2(0, 1), Random);
 				LightAccumulator_Add(LightAccumulator, SurfaceLightingDiff, SurfaceLightingSpec, LightColor * (NoL * SurfaceAttenuation));
+				//LightAccumulator_Add(LightAccumulator, SurfaceLightingDiff, SurfaceLightingSpec, LightColor * (SurfaceAttenuation));
 #else
 				// wrong screen space subsurface scattering but potentially faster
 				float3 SurfaceLighting = SurfaceShading(ScreenSpaceData.GBuffer, LobeRoughness, LobeEnergy, L, V, N, float2(1, 1));
@@ -632,7 +366,7 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, float2 InUV
 
 			// accumulate subsurface
 			{
-				float3 SubsurfaceLighting = SubsurfaceShading(ScreenSpaceData.GBuffer, L, V, N);
+				float3 SubsurfaceLighting = SubsurfaceShading(ScreenSpaceData.GBuffer, L, V, N, SubsurfaceShadow, Random);
 
 				LightAccumulator_Add(LightAccumulator, SubsurfaceLighting, 0, LightColor * SubsurfaceAttenuation);
 

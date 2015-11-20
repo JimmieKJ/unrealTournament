@@ -84,6 +84,7 @@
     <Compile Include="..\..\DotNETCommon\MetaData.cs">
       <Link>Properties\MetaData.cs</Link>
     </Compile>
+    <Compile Include="Controllers\CSVController.cs" />
     <Compile Include="Controllers\DashboardController.cs" />
     <Compile Include="Controllers\ErrorController.cs" />
     <Compile Include="Controllers\HomeController.cs" />
@@ -93,6 +94,7 @@
     <Compile Include="Models\CachedDataService.cs" />
     <Compile Include="Models\BuggRepository.cs" />
     <Compile Include="Models\BuggViewModel.cs" />
+    <Compile Include="Models\CSVViewModel.cs" />
     <Compile Include="Models\DashboardViewModel.cs" />
     <Compile Include="Models\CrashReport.cs">
       <DependentUpon>CrashReport.dbml</DependentUpon>
@@ -201,6 +203,8 @@
     <Content Include="Views\Buggs\Index.aspx" />
     <Content Include="Views\Buggs\Show.aspx" />
     <Content Include="Views\Buggs\ViewBuggs.ascx" />
+    <Content Include="Views\CSV\Index.aspx" />
+    <Content Include="Views\CSV\ViewCSV.ascx" />
     <Content Include="Views\Dashboard\Index.aspx" />
     <Content Include="Views\Crashes\Index.aspx" />
     <Content Include="Views\Crashes\Show.aspx" />

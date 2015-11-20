@@ -12,7 +12,7 @@
 ///////////////////////////////////////////////////////////
 // SMaterialEditorViewportPreviewShapeToolBar
 
-void SMaterialEditorViewportPreviewShapeToolBar::Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditorViewport> InViewport)
+void SMaterialEditorViewportPreviewShapeToolBar::Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditor3DPreviewViewport> InViewport)
 {
 	// Force this toolbar to have small icons, as the preview panel is only small so we have limited space
 	const bool bForceSmallIcons = true;
@@ -54,7 +54,7 @@ void SMaterialEditorViewportPreviewShapeToolBar::Construct(const FArguments& InA
 ///////////////////////////////////////////////////////////
 // SMaterialEditorViewportToolBar
 
-void SMaterialEditorViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditorViewport> InViewport)
+void SMaterialEditorViewportToolBar::Construct(const FArguments& InArgs, TSharedPtr<class SMaterialEditor3DPreviewViewport> InViewport)
 {
 	SCommonEditorViewportToolbarBase::Construct(SCommonEditorViewportToolbarBase::FArguments(), InViewport);
 }

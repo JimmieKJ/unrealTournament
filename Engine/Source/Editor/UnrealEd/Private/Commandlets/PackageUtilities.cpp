@@ -234,31 +234,31 @@ class FCollectionPolicy
 public:
 	static bool CreateAssetSet(FName InSetName, ECollectionShareType::Type InSetType)
 	{
-		FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
-		return CollectionManagerModule.Get().CreateCollection(InSetName, InSetType);
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
+		return CollectionManagerModule.Get().CreateCollection(InSetName, InSetType, ECollectionStorageMode::Static);
 	}
 
 	static bool DestroyAssetSet(FName InSetName, ECollectionShareType::Type InSetType )
 	{
-		FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 		return CollectionManagerModule.Get().DestroyCollection(InSetName, InSetType);
 	}
 
 	static bool RemoveAssetsFromSet(FName InSetName, ECollectionShareType::Type InSetType, const TArray<FName>& InAssetPathNames )
 	{
-		FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 		return CollectionManagerModule.Get().RemoveFromCollection(InSetName, InSetType, InAssetPathNames);
 	}
 
 	static bool AddAssetsToSet(FName InSetName, ECollectionShareType::Type InSetType, const TArray<FName>& InAssetPathNames )
 	{
-		FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 		return CollectionManagerModule.Get().AddToCollection(InSetName, InSetType, InAssetPathNames);
 	}
 
 	static bool QueryAssetsInSet(FName InSetName, ECollectionShareType::Type InSetType, TArray<FName>& OutAssetPathNames )
 	{
-		FCollectionManagerModule& CollectionManagerModule = FModuleManager::LoadModuleChecked<FCollectionManagerModule>(TEXT("CollectionManager"));
+		FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
 		return CollectionManagerModule.Get().GetAssetsInCollection(InSetName, InSetType, OutAssetPathNames);
 	}
 };
@@ -820,6 +820,20 @@ namespace
 	{ EXPORTSORT_ExportIndex, EXPORTSORT_ExportSize, EXPORTSORT_OuterPathname, EXPORTSORT_ObjectPathname };
 }
 
+/** Given a package filename, creates a linker and a temporary package. The filename does not need to point to a package under the current project content folder */
+FLinkerLoad* CreateLinkerForFilename(const FString& InFilename)
+{
+	FString TempPackageName;
+	TempPackageName = FPaths::Combine(TEXT("/Temp"), *FPaths::GetPath(InFilename.Mid(InFilename.Find(TEXT(":"), ESearchCase::CaseSensitive) + 1)), *FPaths::GetBaseFilename(InFilename));
+	UPackage* Package = FindObjectFast<UPackage>(nullptr, *TempPackageName);
+	if (!Package)
+	{
+		Package = CreatePackage(nullptr, *TempPackageName);
+	}
+	FLinkerLoad* Linker = FLinkerLoad::CreateLinker(Package, *InFilename, LOAD_NoVerify);
+	return Linker;
+}
+
 /**
  * Writes information about the linker to the log.
  *
@@ -1167,6 +1181,38 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 		}
 	}
 
+	if( (InfoFlags&PKGINFO_Text) != 0 )
+	{
+		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
+		GWarn->Log ( TEXT("Gatherable Text Data Map"));
+		GWarn->Log ( TEXT("=========="));
+
+		if (Linker->SerializeGatherableTextDataMap(true))
+		{
+			UE_LOG(LogPackageUtilities, Display, TEXT("Number of Text Data Entries: %d"), Linker->GatherableTextDataMap.Num());
+
+			for (int32 i = 0; i < Linker->GatherableTextDataMap.Num(); ++i)
+			{
+				const FGatherableTextData& GatherableTextData = Linker->GatherableTextDataMap[i];
+				UE_LOG(LogPackageUtilities, Display, TEXT("Entry %d:"), 1 + i);
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t   String: %s"), *GatherableTextData.SourceData.SourceString.ReplaceCharWithEscapedChar());
+				UE_LOG(LogPackageUtilities, Display, TEXT("\tNamespace: %s"), *GatherableTextData.NamespaceName);
+				UE_LOG(LogPackageUtilities, Display, TEXT("\t   Key(s): %d"), GatherableTextData.SourceSiteContexts.Num());
+				for (const FTextSourceSiteContext& TextSourceSiteContext : GatherableTextData.SourceSiteContexts)
+				{
+					UE_LOG(LogPackageUtilities, Display, TEXT("\t\t%s from %s"), *TextSourceSiteContext.KeyName, *TextSourceSiteContext.SiteDescription);
+				}
+			}
+		}
+		else
+		{
+			if ( Linker->Summary.GatherableTextDataOffset > 0 )
+			{
+				UE_LOG(LogPackageUtilities, Warning,TEXT("Failed to load gatherable text data for package %s!"), *LinkerName.ToString());
+			}
+		}
+	}
+
 
 	if( (InfoFlags&PKGINFO_Thumbs) != 0 )
 	{
@@ -1219,7 +1265,14 @@ void FPkgInfoReporter_Log::GeneratePackageReport( FLinkerLoad* InLinker/*=NULL*/
 
 	if( (InfoFlags&PKGINFO_AssetRegistry) != 0 )
 	{
-		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------") );
+		UE_LOG(LogPackageUtilities, Warning, TEXT("--------------------------------------------"));
+
+		{
+			const int32 NextOffset = Linker->Summary.WorldTileInfoDataOffset ? Linker->Summary.WorldTileInfoDataOffset : Linker->Summary.TotalHeaderSize;
+			const int32 AssetRegistrySize = NextOffset - Linker->Summary.AssetRegistryDataOffset;
+			UE_LOG(LogPackageUtilities, Display, TEXT("Asset Registry Size: %10i"), AssetRegistrySize);
+		}
+		
 		GWarn->Log ( TEXT("Asset Registry Data"));
 		GWarn->Log ( TEXT("=========="));
 
@@ -1374,6 +1427,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 				for ( int32 FileIndex = 0; FileIndex < PerTokenFilesInPath.Num(); FileIndex++ )
 				{
 					PerTokenFilesInPath[FileIndex] = FPaths::GetPath(WildcardPath) / PerTokenFilesInPath[FileIndex];
+					FPaths::NormalizeFilename(PerTokenFilesInPath[FileIndex]);
 				}
 			}
 
@@ -1389,7 +1443,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 
 	for( int32 FileIndex = 0; FileIndex < FilesInPath.Num(); FileIndex++ )
 	{
-		const FString &Filename = FilesInPath[FileIndex];
+		FString Filename = FPaths::ConvertRelativePathToFull(FilesInPath[FileIndex]);
 
 		{
 			// reset the loaders for the packages we want to load so that we don't find the wrong version of the file
@@ -1403,7 +1457,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 		}
 
 		BeginLoad();
-		auto Linker = GetPackageLinker( NULL, *Filename, LOAD_NoVerify, NULL, NULL );
+		FLinkerLoad* Linker = CreateLinkerForFilename(Filename);
 		EndLoad();
 
 		if( Linker )
@@ -2403,7 +2457,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 
 						FActorSpawnParameters SpawnInfo;
 						SpawnInfo.OverrideLevel = Level;
-						SpawnInfo.bNoCollisionFail = true;
+						SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 						// spawn the new actor
 						AActor* NewActor = World->SpawnActor<AActor>( ReplaceWithClass, OldLocation, OldRotator, SpawnInfo );
 

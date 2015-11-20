@@ -34,10 +34,11 @@
 
 // session browser
 #include "SessionBrowserOwnerFilter.h"
+#include "SessionBrowserTreeItems.h"
 
-#include "SSessionBrowserInstanceListRow.h"
-#include "SSessionBrowserInstanceList.h"
-#include "SSessionBrowserSessionListRow.h"
+#include "SSessionBrowserTreeGroupRow.h"
+#include "SSessionBrowserTreeInstanceRow.h"
+#include "SSessionBrowserTreeSessionRow.h"
 #include "SSessionBrowserCommandBar.h"
 #include "SSessionBrowser.h"
 

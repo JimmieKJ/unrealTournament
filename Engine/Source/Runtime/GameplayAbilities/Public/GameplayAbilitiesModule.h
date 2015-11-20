@@ -22,7 +22,9 @@ public:
 	 */
 	static inline IGameplayAbilitiesModule& Get()
 	{
-		return FModuleManager::LoadModuleChecked< IGameplayAbilitiesModule >("GameplayAbilities");
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_IGameplayAbilitiesModule_Get);
+		static IGameplayAbilitiesModule& Singleton = FModuleManager::LoadModuleChecked< IGameplayAbilitiesModule >("GameplayAbilities");
+		return Singleton;
 	}
 
 	/**
@@ -32,10 +34,13 @@ public:
 	 */
 	static inline bool IsAvailable()
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_IGameplayAbilitiesModule_IsAvailable);
 		return FModuleManager::Get().IsModuleLoaded( "GameplayAbilities" );
 	}
 
 	virtual UAbilitySystemGlobals* GetAbilitySystemGlobals() = 0;
+
+	virtual bool IsAbilitySystemGlobalsAvailable() = 0;
 
 	virtual void GetActiveAbilitiesDebugDataForActor(AActor* Actor, FString& AbilityString, bool& bIsUsingAbilities)=0;
 };

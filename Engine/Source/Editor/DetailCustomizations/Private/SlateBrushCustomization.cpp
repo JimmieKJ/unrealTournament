@@ -3,7 +3,8 @@
 #include "DetailCustomizationsPrivatePCH.h"
 #include "SlateBrushCustomization.h"
 #include "AssetData.h"
-
+#include "SHyperlink.h"
+#include "ScopedTransaction.h"
 /**
  * Slate Brush Preview widget
  */
@@ -777,9 +778,13 @@ private:
 		if( CachedDrawAsType != ESlateBrushDrawType::Box && CachedDrawAsType != ESlateBrushDrawType::Border )
 		{
 			TArray<void*> RawData;
-			MarginProperty->AccessRawData( RawData );
-			check( RawData[ 0 ] != NULL );
-			*static_cast<FMargin*>(RawData[ 0 ]) = FMargin();
+
+			if ( MarginProperty.IsValid() && MarginProperty->GetProperty() )
+			{
+				MarginProperty->AccessRawData( RawData );
+				check( RawData[ 0 ] != NULL );
+				*static_cast<FMargin*>(RawData[ 0 ]) = FMargin();
+			}
 		}
 		else
 		{
@@ -990,10 +995,14 @@ class SSlateBrushStaticPreview : public SCompoundWidget
 	void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 	{
 		TArray<void*> RawData;
+
+		if (ResourceObjectProperty.IsValid() && ResourceObjectProperty->GetProperty())
+		{
 		ResourceObjectProperty->AccessRawData(RawData);
 
 		check(RawData[0] != NULL);
-		TemporaryBrush = *static_cast<FSlateBrush*>( RawData[0] );
+			TemporaryBrush = *static_cast<FSlateBrush*>(RawData[0]);
+		}
 	}
 
 private:
@@ -1043,6 +1052,28 @@ private:
 
 float SSlateBrushStaticPreview::TargetHeight = 18.0f;
 
+class SBrushResourceError : public SBorder
+{
+public:
+	SLATE_BEGIN_ARGS( SBrushResourceError ) {}
+		SLATE_DEFAULT_SLOT( FArguments, Content )
+	SLATE_END_ARGS()
+
+	void Construct( const FArguments& InArgs )
+	{
+		SBorder::Construct( SBorder::FArguments()
+			.BorderBackgroundColor( FCoreStyle::Get().GetColor("ErrorReporting.BackgroundColor") )
+			.BorderImage( FCoreStyle::Get().GetBrush("ErrorReporting.Box") )
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Center)
+			.Padding( FMargin(3,0) )
+			[
+				InArgs._Content.Widget
+			]
+		);
+	}
+};
+
 // SBrushResourceObjectBox
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1069,13 +1100,28 @@ class SBrushResourceObjectBox : public SCompoundWidget
 				SNew(SObjectPropertyEntryBox)
 				.PropertyHandle(InResourceObjectProperty)
 				.ThumbnailPool(StructCustomizationUtils->GetThumbnailPool())
-				.OnObjectChanged(this, &SBrushResourceObjectBox::OnAssetPicked)
 			]
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			.Padding( 0.0f, 3.0f )
 			[
-				SAssignNew(ResourceErrorText, SErrorText)
+				SAssignNew(ResourceError, SBrushResourceError )
+				[
+					SNew( SVerticalBox )
+					+ SVerticalBox::Slot()
+					.HAlign( HAlign_Left )
+					[
+						SNew( STextBlock )
+						.Text( NSLOCTEXT("FSlateBrushStructCustomization", "ResourceErrorText", "This material does not use the UI material domain" ) )
+					]
+					+ SVerticalBox::Slot()
+					.HAlign( HAlign_Left )
+					[
+						SNew( SHyperlink )
+						.Text( NSLOCTEXT("FSlateBrushStructCustomization", "ChangeMaterialDomain_ErrorMessage", "Change the Material Domain?" ) )
+						.OnNavigate( this, &SBrushResourceObjectBox::OnErrorLinkClicked )
+					]
+				]
 			]
 		];
 	}
@@ -1088,23 +1134,22 @@ class SBrushResourceObjectBox : public SCompoundWidget
 		{
 			UMaterialInterface* MaterialInterface = Cast<UMaterialInterface>( Resource );
 			UMaterial* BaseMaterial = MaterialInterface->GetBaseMaterial();
-			if( BaseMaterial && !BaseMaterial->bUsedWithUI )
+			if( BaseMaterial && !BaseMaterial->IsUIMaterial() )
 			{
-				ResourceErrorText->SetError( NSLOCTEXT("FSlateBrushStructCustomization", "ResourceErrorText", "This material is not supported in UI.  Please check \"Used with UI\" in the material editor" ) );
+				ResourceError->SetVisibility( EVisibility::Visible );
 			}
 			else
 			{
-				ResourceErrorText->SetError( FText::GetEmpty() );
+				ResourceError->SetVisibility( EVisibility::Collapsed );
 			}
 		}
-		else if( ResourceErrorText->HasError() )
+		else if( ResourceError->GetVisibility() != EVisibility::Collapsed )
 		{
-			ResourceErrorText->SetError( FText::GetEmpty() );
+			ResourceError->SetVisibility( EVisibility::Collapsed );
 		}
 	}
 
 private:
-
 	void OnBrushResourceChanged()
 	{
 		UObject* ResourceObject;
@@ -1130,22 +1175,26 @@ private:
 		}
 	}
 
-	/**
-	 * When the asset is picked if it's a material being used in the UI we 
-	 * automatically set the bUsedWithUI flag if it isn't already set.
-	 */
-	void OnAssetPicked(const FAssetData& InAssetData) const
+	void OnErrorLinkClicked()
 	{
 		UObject* Resource = nullptr;
 
-		if ( ResourceObjectProperty->GetValue(Resource) == FPropertyAccess::Success && Resource && Resource->IsA<UMaterialInterface>() )
+		if( ResourceObjectProperty->GetValue(Resource) == FPropertyAccess::Success && Resource && Resource->IsA<UMaterialInterface>() )
 		{
-			UMaterialInterface* MaterialInterface = Cast<UMaterialInterface>(Resource);
+			UMaterialInterface* MaterialInterface = Cast<UMaterialInterface>( Resource );
 			UMaterial* BaseMaterial = MaterialInterface->GetBaseMaterial();
-			if ( BaseMaterial && !BaseMaterial->bUsedWithUI )
+			if ( BaseMaterial && !BaseMaterial->IsUIMaterial() )
 			{
-				bool bNeedsRecompile = true;
-				BaseMaterial->SetMaterialUsage(bNeedsRecompile, MATUSAGE_UI);
+				UProperty* MaterialDomainProp = FindField<UProperty>(UMaterial::StaticClass(), GET_MEMBER_NAME_CHECKED(UMaterial,MaterialDomain) );
+
+				FScopedTransaction Transaction( FText::Format( NSLOCTEXT("FSlateBrushStructCustomization", "ChangeMaterialDomainTransaction", "Changed {0} to use the UI material domain"), FText::FromString( BaseMaterial->GetName() ) ) );
+
+				BaseMaterial->PreEditChange( MaterialDomainProp );
+
+				BaseMaterial->MaterialDomain = MD_UI;
+
+				FPropertyChangedEvent ChangeEvent( MaterialDomainProp );
+				BaseMaterial->PostEditChangeProperty( ChangeEvent );
 			}
 		}
 	}
@@ -1153,7 +1202,7 @@ private:
 private:
 	TSharedPtr<IPropertyHandle> ResourceObjectProperty;
 	TSharedPtr<IPropertyHandle> ImageSizeProperty;
-	TSharedPtr<SErrorText> ResourceErrorText;
+	TSharedPtr<SBrushResourceError> ResourceError;
 };
 
 // FSlateBrushStructCustomization
@@ -1190,12 +1239,12 @@ void FSlateBrushStructCustomization::CustomizeHeader( TSharedRef<IPropertyHandle
 void FSlateBrushStructCustomization::CustomizeChildren( TSharedRef<IPropertyHandle> StructPropertyHandle, IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
 {
 	// Add the child properties
-	TSharedPtr<IPropertyHandle> ImageSizeProperty = StructPropertyHandle->GetChildHandle( TEXT("ImageSize") );
+	ImageSizeProperty = StructPropertyHandle->GetChildHandle( TEXT("ImageSize") );
 	DrawAsProperty = StructPropertyHandle->GetChildHandle( TEXT("DrawAs") );
 	TSharedPtr<IPropertyHandle> TilingProperty = StructPropertyHandle->GetChildHandle( TEXT("Tiling") );
 	TSharedPtr<IPropertyHandle> MarginProperty = StructPropertyHandle->GetChildHandle( TEXT("Margin") );
 	TSharedPtr<IPropertyHandle> TintProperty = StructPropertyHandle->GetChildHandle( TEXT("TintColor") );
-	TSharedPtr<IPropertyHandle> ResourceObjectProperty = StructPropertyHandle->GetChildHandle( TEXT("ResourceObject") );
+	ResourceObjectProperty = StructPropertyHandle->GetChildHandle( TEXT("ResourceObject") );
 	
 	StructBuilder.AddChildContent( NSLOCTEXT( "SlateBrushCustomization", "ResourceObjectFilterString", "Image" ) )
 	.NameContent()
@@ -1209,7 +1258,14 @@ void FSlateBrushStructCustomization::CustomizeChildren( TSharedRef<IPropertyHand
 		SNew( SBrushResourceObjectBox, &StructCustomizationUtils, ResourceObjectProperty, ImageSizeProperty )
 	];
 
-	StructBuilder.AddChildProperty( ImageSizeProperty.ToSharedRef() );
+	// Add the image size property with custom reset delegates that also affect the child properties (the components)
+	const bool bOverrideDefaultOnVectorChildren = true;
+	StructBuilder.AddChildProperty( ImageSizeProperty.ToSharedRef() )
+	.OverrideResetToDefault(FResetToDefaultOverride::Create(
+		FIsResetToDefaultVisible::CreateSP(this, &FSlateBrushStructCustomization::IsImageSizeResetToDefaultVisible),
+		FResetToDefaultHandler::CreateSP(this, &FSlateBrushStructCustomization::OnImageSizeResetToDefault),
+		bOverrideDefaultOnVectorChildren));
+
 	StructBuilder.AddChildProperty(TintProperty.ToSharedRef());
 	StructBuilder.AddChildProperty( DrawAsProperty.ToSharedRef() );
 	StructBuilder.AddChildProperty( TilingProperty.ToSharedRef() )
@@ -1278,4 +1334,91 @@ EVisibility FSlateBrushStructCustomization::GetMarginPropertyVisibility() const
 	FPropertyAccess::Result Result = DrawAsProperty->GetValue( DrawAsType );
 
 	return (Result == FPropertyAccess::MultipleValues || DrawAsType == ESlateBrushDrawType::Box || DrawAsType == ESlateBrushDrawType::Border) ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+bool FSlateBrushStructCustomization::IsImageSizeResetToDefaultVisible(TSharedRef<IPropertyHandle> PropertyHandle) const
+{
+	UObject* ResourceObject;
+	if (FPropertyAccess::Success == ResourceObjectProperty->GetValue(ResourceObject) && ResourceObject && ResourceObject->IsA<UTexture2D>())
+	{
+		// get texture size from ResourceObjectProperty and compare to image size prop value
+		const FVector2D SizeDefault = GetDefaultImageSize();
+
+		FVector2D Size;
+		ImageSizeProperty->GetValue(Size);
+
+		if (PropertyHandle->GetProperty() == ImageSizeProperty->GetProperty())
+		{
+			// reseting the whole vector
+			return SizeDefault != Size;
+		}
+		else if (PropertyHandle->GetProperty() == ImageSizeProperty->GetChildHandle(0)->GetProperty())	// X
+		{
+			// reseting the vector.X
+			return SizeDefault.X != Size.X;
+		}
+		else if (PropertyHandle->GetProperty() == ImageSizeProperty->GetChildHandle(1)->GetProperty())	// Y
+		{
+			// reseting the vector.Y
+			return SizeDefault.Y != Size.Y;
+		}
+
+		ensureMsgf(false, TEXT("Property handle mismatch in brush size FVector2D struct"));
+		return false;
+	}
+
+	// Fall back to default handler
+	return PropertyHandle->DiffersFromDefault();
+}
+
+void FSlateBrushStructCustomization::OnImageSizeResetToDefault(TSharedRef<IPropertyHandle> PropertyHandle) const
+{
+	UObject* ResourceObject;
+	if (FPropertyAccess::Success == ResourceObjectProperty->GetValue(ResourceObject) && ResourceObject && ResourceObject->IsA<UTexture2D>())
+	{
+		// Set image size prop value to the texture size in ResourceObjectProperty
+		const FVector2D SizeDefault = GetDefaultImageSize();
+
+		if (PropertyHandle->GetProperty() == ImageSizeProperty->GetProperty())
+		{
+			// reseting the whole vector
+			PropertyHandle->SetValue(SizeDefault);
+		}
+		else if (PropertyHandle->GetProperty() == ImageSizeProperty->GetChildHandle(0)->GetProperty())	// X
+		{
+			// reseting the vector.X
+			PropertyHandle->SetValue(SizeDefault.X);
+		}
+		else if (PropertyHandle->GetProperty() == ImageSizeProperty->GetChildHandle(1)->GetProperty())	// Y
+		{
+			// reseting the vector.Y
+			PropertyHandle->SetValue(SizeDefault.Y);
+		}
+		else
+		{
+			ensureMsgf(false, TEXT("Property handle mismatch in brush size FVector2D struct"));
+		}
+	}	
+	else
+	{
+		// Fall back to default handler. 
+		PropertyHandle->ResetToDefault();
+	}
+}
+
+FVector2D FSlateBrushStructCustomization::GetDefaultImageSize() const
+{
+	// Custom default behavior using the texture's size, if one is set as the resource object
+	UObject* ResourceObject;
+	if (FPropertyAccess::Success == ResourceObjectProperty->GetValue(ResourceObject))
+	{
+		UTexture2D* Texture = Cast<UTexture2D>(ResourceObject);
+		if (Texture != nullptr)
+		{
+			return FVector2D(Texture->GetSizeX(), Texture->GetSizeY());
+		}
+	}
+
+	// Fall back on the standard default size for brush images
+	return FVector2D(SlateBrushDefs::DefaultImageSize, SlateBrushDefs::DefaultImageSize);
 }

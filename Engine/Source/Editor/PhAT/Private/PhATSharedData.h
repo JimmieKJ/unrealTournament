@@ -112,6 +112,8 @@ public:
 	void CopyConstraint();
 	void PasteBodyProperties();
 	bool WeldSelectedBodies(bool bWeld = true);
+	void SetSelectedConstraintsFromBodies();
+	void SetSelectedBodiesFromConstraints();
 
 	void Mirror();
 

@@ -30,6 +30,9 @@ private:
 	/** The path on disk to the directory containing the feature packs. */
 	FString FeaturePackPath;
 
+	/** The path on disk to the directory containing the templates folder. */
+	FString TemplatePath;
+
 	/** The delegate which gets called when the feature pack directory changes. This reference
 		is kept so that it can be unregistered correctly. */
 	IDirectoryWatcher::FDirectoryChanged DirectoryChangedDelegate;

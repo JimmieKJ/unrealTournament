@@ -47,7 +47,9 @@ void ConvertToUniformMeshGS(triangle FConvertToUniformMeshVSToGS Inputs[3], inou
 	for (int i = 0; i < 3; i++)
 	{
 		FConvertToUniformMeshVSToGS Input = Inputs[i];
-		FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Input.FactoryInterpolants, float4(Input.PixelPosition, 1));
+
+		float4 DummySvPosition;
+		FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(Input.FactoryInterpolants, DummySvPosition);
 
 		FConvertToUniformMeshVertex Vertex = (FConvertToUniformMeshVertex)0;
 		Vertex.Position = float4(Input.PixelPosition, 40);

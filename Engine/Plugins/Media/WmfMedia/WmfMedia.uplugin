@@ -1,7 +1,7 @@
 {
 	"FileVersion" : 3,
 	
-	"FriendlyName" : "Windows Media Foundation Video",
+	"FriendlyName" : "WMF Media Player",
 	"Version" : 1,
 	"VersionName" : "1.0",
 	"CreatedBy" : "Epic Games, Inc.",

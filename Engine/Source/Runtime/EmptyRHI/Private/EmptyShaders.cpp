@@ -76,12 +76,12 @@ FEmptyBoundShaderState::FEmptyBoundShaderState(
 			FGeometryShaderRHIParamRef InGeometryShaderRHI)
 	:	CacheLink(InVertexDeclarationRHI,InVertexShaderRHI,InPixelShaderRHI,InHullShaderRHI,InDomainShaderRHI,InGeometryShaderRHI,this)
 {
-	FEmptyVertexDeclaration* InVertexDeclaration = ResourceCast(InVertexDeclarationRHI);
-	FEmptyVertexShader* InVertexShader = ResourceCast(InVertexShaderRHI);
-	FEmptyPixelShader* InPixelShader = ResourceCast(InPixelShaderRHI);
-	FEmptyHullShader* InHullShader = ResourceCast(InHullShaderRHI);
-	FEmptyDomainShader* InDomainShader = ResourceCast(InDomainShaderRHI);
-	FEmptyGeometryShader* InGeometryShader = ResourceCast(InGeometryShaderRHI);
+	FEmptyVertexDeclaration* InVertexDeclaration = FEmptyDynamicRHI::ResourceCast(InVertexDeclarationRHI);
+	FEmptyVertexShader* InVertexShader = FEmptyDynamicRHI::ResourceCast(InVertexShaderRHI);
+	FEmptyPixelShader* InPixelShader = FEmptyDynamicRHI::ResourceCast(InPixelShaderRHI);
+	FEmptyHullShader* InHullShader = FEmptyDynamicRHI::ResourceCast(InHullShaderRHI);
+	FEmptyDomainShader* InDomainShader = FEmptyDynamicRHI::ResourceCast(InDomainShaderRHI);
+	FEmptyGeometryShader* InGeometryShader = FEmptyDynamicRHI::ResourceCast(InGeometryShaderRHI);
 
 	// cache everything
 	VertexDeclaration = InVertexDeclaration;

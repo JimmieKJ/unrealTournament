@@ -3,25 +3,23 @@
 #include "SlatePrivatePCH.h"
 #include "SRotatorInputBox.h"
 #include "SNumericEntryBox.h"
+#include "SWidgetSwitcher.h"
 
+extern TAutoConsoleVariable<float> CVarCrushThem;
+extern TAutoConsoleVariable<float> CVarStopCrushWhenAbove;
+extern TAutoConsoleVariable<float> CVarStartCrushWhenBelow;
 
 #define LOCTEXT_NAMESPACE "SRotatorInputBox"
 
-
-/**
- * Construct this widget
- *
- * @param	InArgs	The declaration data for this widget
- */
 void SRotatorInputBox::Construct( const SRotatorInputBox::FArguments& InArgs )
 {
-	FLinearColor LabelColorX;
-	FLinearColor LabelColorY;
-	FLinearColor LabelColorZ;
-	LabelColorX = InArgs._bColorAxisLabels ? SNumericEntryBox<float>::RedLabelBackgroundColor : FLinearColor(0.0f,0.0f,0.0f,.5f);
-	LabelColorY = InArgs._bColorAxisLabels ? SNumericEntryBox<float>::GreenLabelBackgroundColor : FLinearColor(0.0f,0.0f,0.0f,.5f);
-	LabelColorZ = InArgs._bColorAxisLabels ? SNumericEntryBox<float>::BlueLabelBackgroundColor : FLinearColor(0.0f,0.0f,0.0f,.5f);
+	bCanBeCrushed = InArgs._AllowResponsiveLayout;
 
+	const FLinearColor LabelColorX = InArgs._bColorAxisLabels ? SNumericEntryBox<float>::RedLabelBackgroundColor : FLinearColor(0.0f, 0.0f, 0.0f, .5f);
+	const FLinearColor LabelColorY = InArgs._bColorAxisLabels ? SNumericEntryBox<float>::GreenLabelBackgroundColor : FLinearColor(0.0f, 0.0f, 0.0f, .5f);
+	const FLinearColor LabelColorZ = InArgs._bColorAxisLabels ? SNumericEntryBox<float>::BlueLabelBackgroundColor : FLinearColor(0.0f, 0.0f, 0.0f, .5f);
+
+	
 	this->ChildSlot
 	[
 		SNew(SHorizontalBox)
@@ -37,7 +35,7 @@ void SRotatorInputBox::Construct( const SRotatorInputBox::FArguments& InArgs )
 			.LabelPadding(0)
 			.Label()
 			[
-				SNumericEntryBox<float>::BuildLabel( LOCTEXT("Roll_Label", "X"), FLinearColor::White, SNumericEntryBox<float>::RedLabelBackgroundColor )
+				BuildDecoratorLabel(LabelColorX, FLinearColor::White, LOCTEXT("Roll_Label", "X"))
 			]
 			.Font( InArgs._Font )
 			.Value( InArgs._Roll )
@@ -61,7 +59,7 @@ void SRotatorInputBox::Construct( const SRotatorInputBox::FArguments& InArgs )
 			.LabelPadding(0)
 			.Label()
 			[
-				SNumericEntryBox<float>::BuildLabel( LOCTEXT("Pitch_Label", "Y"), FLinearColor::White, SNumericEntryBox<float>::GreenLabelBackgroundColor )
+				BuildDecoratorLabel(LabelColorY, FLinearColor::White, LOCTEXT("Pitch_Label", "Y"))
 			]
 			.Font( InArgs._Font )
 			.Value( InArgs._Pitch )
@@ -85,7 +83,7 @@ void SRotatorInputBox::Construct( const SRotatorInputBox::FArguments& InArgs )
 			.LabelPadding(0)
 			.Label()
 			[
-				SNumericEntryBox<float>::BuildLabel( LOCTEXT("Yaw_Label", "Z"), FLinearColor::White, SNumericEntryBox<float>::BlueLabelBackgroundColor )
+				BuildDecoratorLabel(LabelColorZ, FLinearColor::White, LOCTEXT("Yaw_Label", "Z"))
 			]
 			.Font( InArgs._Font )
 			.Value( InArgs._Yaw )
@@ -99,6 +97,74 @@ void SRotatorInputBox::Construct( const SRotatorInputBox::FArguments& InArgs )
 		]
 	];
 
+}
+
+TSharedRef<SWidget> SRotatorInputBox::BuildDecoratorLabel(FLinearColor BackgroundColor, FLinearColor ForegroundColor, FText Label)
+{
+	TSharedRef<SWidget> LabelWidget = SNumericEntryBox<float>::BuildLabel(Label, ForegroundColor, BackgroundColor);
+
+	TSharedRef<SWidget> ResultWidget = LabelWidget;
+
+	if (bCanBeCrushed)
+	{
+		ResultWidget =
+			SNew(SWidgetSwitcher)
+			.WidgetIndex(this, &SRotatorInputBox::GetLabelActiveSlot)
+			+SWidgetSwitcher::Slot()
+			[
+				LabelWidget
+			]
+			+SWidgetSwitcher::Slot()
+			[
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush("NumericEntrySpinBox.NarrowDecorator"))
+				.BorderBackgroundColor(BackgroundColor)
+				.ForegroundColor(ForegroundColor)
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Left)
+				.Padding(FMargin(5.0f, 0.0f, 0.0f, 0.0f))
+			];
+	}
+
+	return ResultWidget;
+}
+
+int32 SRotatorInputBox::GetLabelActiveSlot() const
+{
+	return bIsBeingCrushed ? 1 : 0;
+}
+
+FMargin SRotatorInputBox::GetTextMargin() const
+{
+	return bIsBeingCrushed ? FMargin(1.0f, 2.0f) : FMargin(4.0f, 2.0f);
+}
+
+void SRotatorInputBox::OnArrangeChildren(const FGeometry& AllottedGeometry, FArrangedChildren& ArrangedChildren) const
+{
+	bool bFoop = bCanBeCrushed && (CVarCrushThem.GetValueOnAnyThread() > 0.0f);
+
+	if (bFoop)
+	{
+		const float AlottedWidth = AllottedGeometry.Size.X;
+
+		const float CrushBelow = CVarStartCrushWhenBelow.GetValueOnAnyThread();
+		const float StopCrushing = CVarStopCrushWhenAbove.GetValueOnAnyThread();
+
+		if (bIsBeingCrushed)
+		{
+			bIsBeingCrushed = AlottedWidth < StopCrushing;
+		}
+		else
+		{
+			bIsBeingCrushed = AlottedWidth < CrushBelow;
+		}
+	}
+	else
+	{
+		bIsBeingCrushed = false;
+	}
+
+	SCompoundWidget::OnArrangeChildren(AllottedGeometry, ArrangedChildren);
 }
 
 #undef LOCTEXT_NAMESPACE

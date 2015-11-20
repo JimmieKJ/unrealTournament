@@ -2,7 +2,7 @@
 
 #pragma once
 #include "AnimGraphNode_BlendListBase.h"
-#include "Animation/AnimNode_LayeredBoneBlend.h"
+#include "AnimNodes/AnimNode_LayeredBoneBlend.h"
 #include "AnimGraphNode_LayeredBoneBlend.generated.h"
 
 UCLASS(MinimalAPI)

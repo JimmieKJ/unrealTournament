@@ -25,9 +25,9 @@ public:
 	// IMediaInfo interface
 
 	virtual FTimespan GetDuration() const override;
-	virtual TRange<float> GetSupportedRates( EMediaPlaybackDirections Direction, bool Unthinned ) const override;
+	virtual TRange<float> GetSupportedRates(EMediaPlaybackDirections Direction, bool Unthinned) const override;
 	virtual FString GetUrl() const override;
-	virtual bool SupportsRate( float Rate, bool Unthinned ) const override;
+	virtual bool SupportsRate(float Rate, bool Unthinned) const override;
 	virtual bool SupportsScrubbing() const override;
 	virtual bool SupportsSeeking() const override;
 
@@ -36,19 +36,21 @@ public:
 	// IMediaPlayer interface
 
 	virtual void Close() override;
+	virtual const TArray<IMediaAudioTrackRef>& GetAudioTracks() const override;
+	virtual const TArray<IMediaCaptionTrackRef>& GetCaptionTracks() const override;
 	virtual const IMediaInfo& GetMediaInfo() const override;
 	virtual float GetRate() const override;
 	virtual FTimespan GetTime() const override;
-	virtual const TArray<IMediaTrackRef>& GetTracks() const override;
+	virtual const TArray<IMediaVideoTrackRef>& GetVideoTracks() const override;
 	virtual bool IsLooping() const override;
 	virtual bool IsPaused() const override;
 	virtual bool IsPlaying() const override;
 	virtual bool IsReady() const override;
-	virtual bool Open( const FString& Url ) override;
-	virtual bool Open( const TSharedRef<TArray<uint8>>& Buffer, const FString& OriginalUrl ) override;
-	virtual bool Seek( const FTimespan& Time ) override;
-	virtual bool SetLooping( bool Looping ) override;
-	virtual bool SetRate( float Rate ) override;
+	virtual bool Open(const FString& Url) override;
+	virtual bool Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl) override;
+	virtual bool Seek(const FTimespan& Time) override;
+	virtual bool SetLooping(bool Looping) override;
+	virtual bool SetRate(float Rate) override;
 
 	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnMediaClosed, FOnMediaClosed);
 	virtual FOnMediaClosed& OnClosed() override
@@ -62,6 +64,18 @@ public:
 		return OpenedEvent;
 	}
 
+	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnMediaOpenFailed, FOnMediaOpenFailed);
+	virtual FOnMediaOpenFailed& OnOpenFailed() override
+	{
+		return OpenFailedEvent;
+	}
+
+	DECLARE_DERIVED_EVENT(FWmfMediaPlayer, IMediaPlayer::FOnTracksChanged, FOnTracksChanged);
+	virtual FOnTracksChanged& OnTracksChanged() override
+	{
+		return TracksChangedEvent;
+	}
+
 protected:
 
 	/**
@@ -70,10 +84,10 @@ protected:
 	 * @param StreamIndex The index number of the stream in the presentation descriptor.
 	 * @param Topology The topology to add the stream to.
 	 * @param PresentationDescriptor The presentation descriptor object.
-	 * @param MediaSource The media source object.
+	 * @param MediaSourceObject The media source object.
 	 * @return true on success, false otherwise.
 	 */
-	void AddStreamToTopology( uint32 StreamIndex, IMFTopology* Topology, IMFPresentationDescriptor* PresentationDescriptor, IMFMediaSource* MediaSource );
+	void AddStreamToTopology(uint32 StreamIndex, IMFTopology* Topology, IMFPresentationDescriptor* PresentationDescriptor, IMFMediaSource* MediaSourceObject);
 
 	/**
 	 * Initializes the media session for the given media source.
@@ -82,7 +96,7 @@ protected:
 	 * @param SourceUrl The original URL of the media source.
 	 * @return true on success, false otherwise.
 	 */
-	bool InitializeMediaSession( IUnknown* SourceObject, const FString& SourceUrl );
+	bool InitializeMediaSession(IUnknown* SourceObject, const FString& SourceUrl);
 
 private:
 
@@ -91,8 +105,11 @@ private:
 
 private:
 
-	/** The available media tracks. */
-	TArray<IMediaTrackRef> Tracks;
+	/** The available audio tracks. */
+	TArray<IMediaAudioTrackRef> AudioTracks;
+
+	/** The available caption tracks. */
+	TArray<IMediaCaptionTrackRef> CaptionTracks;
 
 	/** The duration of the currently loaded media. */
 	FTimespan Duration;
@@ -106,6 +123,12 @@ private:
 	/** The URL of the currently opened media. */
 	FString MediaUrl;
 
+	/** The media source resolver. */
+	TComPtr<FWmfMediaResolver> Resolver;
+
+	/** The available video tracks. */
+	TArray<IMediaVideoTrackRef> VideoTracks;
+
 private:
 
 	/** Holds an event delegate that is invoked when media has been closed. */
@@ -113,6 +136,12 @@ private:
 
 	/** Holds an event delegate that is invoked when media has been opened. */
 	FOnMediaOpened OpenedEvent;
+
+	/** Holds an event delegate that is invoked when media failed to open. */
+	FOnMediaOpenFailed OpenFailedEvent;
+
+	/** Holds an event delegate that is invoked when the media tracks have changed. */
+	FOnTracksChanged TracksChangedEvent;
 };
 
 

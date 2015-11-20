@@ -13,6 +13,7 @@
  */
 DECLARE_DELEGATE_TwoParams( FOnCropAnimSequence, bool, float )
 DECLARE_DELEGATE_TwoParams( FOnAddAnimSequence, bool, int32 )
+DECLARE_DELEGATE_TwoParams( FOnAppendAnimSequence, bool, int32 )
 DECLARE_DELEGATE_TwoParams( FOnScrubBarDrag, int32, float)
 
 class KISMETWIDGETS_API SScrubWidget : public SCompoundWidget
@@ -52,6 +53,8 @@ public:
 		SLATE_EVENT( FOnCropAnimSequence, OnCropAnimSequence )
 		/** Called when an frane is added before/after a selected frame */
 		SLATE_EVENT( FOnAddAnimSequence, OnAddAnimSequence )
+		/** Called when an frame is appended in the beginning or at the end */
+		SLATE_EVENT(FOnAppendAnimSequence, OnAppendAnimSequence)
 		/** Called to zero out selected frame's translation from origin */
 		SLATE_EVENT( FSimpleDelegate, OnReZeroAnimSequence )
 		/** Optional, additional values to draw on the timeline **/
@@ -91,16 +94,22 @@ protected:
 private:
 
 	/** Function to create context menu to display anim sequence editing options */
-	void CreateContextMenu( float CurrentFrameTime );
+	void CreateContextMenu( float CurrentFrameTime, const FPointerEvent& MouseEvent );
 
 	/** Function to crop animation sequence before/after selected frame */
-	void OnSequenceCropped( bool bFromStart, float CurrentFrameTime );
+	void OnSequenceCroppedCalled( bool bFromStart, float CurrentFrameTime );
 
 	/** Function to crop animation sequence before/after selected frame */
-	void OnSequenceAdded(bool bBefore, int32 CurrentFrameNumber);
+	void OnSequenceAddedCalled(bool bBefore, int32 CurrentFrameNumber);
+
+	/** Function to append frames in the beginning or at the end*/
+	void OnSequenceAppendedCalled(const FText & InNewGroupText, ETextCommit::Type CommitInfo, bool bBegin);
+
+	/** Function to ask how many frames to append */
+	void OnShowPopupOfAppendAnimation(bool bBegin);
 
 	/** Function to zero out translation of the selected frame */
-	void OnReZero();
+	void OnReZeroCalled();
 
 	TAttribute<float> ValueAttribute;
 	FOnFloatValueChanged OnValueChanged;
@@ -109,10 +118,11 @@ private:
 
 	TAttribute<float> ViewInputMin;
 	TAttribute<float> ViewInputMax;
-	FOnSetInputViewRange OnSetInputViewRange;
-	FOnCropAnimSequence OnCropAnimSequence;
-	FOnAddAnimSequence	OnAddAnimSequence;
-	FSimpleDelegate		OnReZeroAnimSequence;
+	FOnSetInputViewRange	OnSetInputViewRange;
+	FOnCropAnimSequence		OnCropAnimSequence;
+	FOnAddAnimSequence		OnAddAnimSequence;
+	FOnAppendAnimSequence	OnAppendAnimSequence;
+	FSimpleDelegate			OnReZeroAnimSequence;
 
 	/** Dragagble bars are generic lines drawn on the scrub widget that can be dragged with the mouse. This is very bare bones and just represents drawing/moving float values */
 	TAttribute<TArray<float>>	DraggableBars;

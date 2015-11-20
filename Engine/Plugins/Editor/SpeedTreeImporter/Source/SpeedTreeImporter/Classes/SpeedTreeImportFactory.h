@@ -12,7 +12,7 @@ class USpeedTreeImportFactory : public UFactory
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	virtual FText GetDisplayName() const override;
 #if WITH_SPEEDTREE
 	virtual bool DoesSupportClass(UClass * Class) override;

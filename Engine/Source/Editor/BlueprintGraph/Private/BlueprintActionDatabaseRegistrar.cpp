@@ -186,9 +186,170 @@ bool FBlueprintActionDatabaseRegistrar::IsOpenForRegistration(FAssetData const& 
 }
 
 //------------------------------------------------------------------------------
+int32 FBlueprintActionDatabaseRegistrar::RegisterStructActions(const FMakeStructSpawnerDelegate& MakeActionCallback)
+{
+	int32 RegisteredCount = 0;
+
+	// to keep from needlessly looping through UScriptStructs, first check to 
+	// see if the registrar is looking for only certain actions of this type
+	// (could be regenerating actions for a specific asset, and therefore the 
+	// registrar would only accept actions corresponding to that asset)
+	if (const UObject* RegistrarTarget = GetActionKeyFilter())
+	{
+		if (const UScriptStruct* StructAsset = Cast<UScriptStruct>(RegistrarTarget))
+		{
+			check(IsOpenForRegistration(StructAsset));
+			if (UBlueprintNodeSpawner* NewAction = MakeActionCallback.Execute(StructAsset))
+			{
+				RegisteredCount += (int32)AddBlueprintAction(StructAsset, NewAction);
+			}
+		}
+		// else, the target is a class or a different asset type... not something pertaining to a struct
+	}
+	else
+	{
+		for (TObjectIterator<UScriptStruct> StructIt; StructIt; ++StructIt)
+		{
+			UScriptStruct const* Struct = (*StructIt);
+			if (UBlueprintNodeSpawner* NewAction = MakeActionCallback.Execute(Struct))
+			{
+				RegisteredCount += (int32)AddBlueprintAction(Struct, NewAction);
+			}
+		}
+	}
+	return RegisteredCount;
+}
+
+//------------------------------------------------------------------------------
+int32 FBlueprintActionDatabaseRegistrar::RegisterEnumActions(const FMakeEnumSpawnerDelegate& MakeActionCallback)
+{
+	int32 RegisteredCount = 0;
+	if (const UObject* RegistrarTarget = GetActionKeyFilter())
+	{
+		if (const UClass* TargetClass = Cast<UClass>(RegistrarTarget))
+		{
+			for (TFieldIterator<UEnum> EnumIt(TargetClass, EFieldIteratorFlags::ExcludeSuper); EnumIt; ++EnumIt)
+			{
+				UEnum const* EnumToConsider = (*EnumIt);
+				if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(EnumToConsider))
+				{
+					continue;
+				}
+
+				if (UBlueprintNodeSpawner* NewAction = MakeActionCallback.Execute(EnumToConsider))
+				{
+					RegisteredCount += (int32)AddBlueprintAction(EnumToConsider, NewAction);
+				}
+			}
+		}
+		else if (const UEnum* TargetEnum = Cast<UEnum>(RegistrarTarget))
+		{
+			if (UEdGraphSchema_K2::IsAllowableBlueprintVariableType(TargetEnum))
+			{
+				if (UBlueprintNodeSpawner* NewAction = MakeActionCallback.Execute(TargetEnum))
+				{
+					RegisteredCount += (int32)AddBlueprintAction(TargetEnum, NewAction);
+				}
+			}
+		}
+	}
+	else
+	{
+		for (TObjectIterator<UEnum> EnumIt; EnumIt; ++EnumIt)
+		{
+			UEnum const* EnumToConsider = (*EnumIt);
+			if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(EnumToConsider))
+			{
+				continue;
+			}
+
+			if (UBlueprintNodeSpawner* NewAction = MakeActionCallback.Execute(EnumToConsider))
+			{
+				RegisteredCount += (int32)AddBlueprintAction(EnumToConsider, NewAction);
+			}
+		}
+	}
+
+	return RegisteredCount;
+}
+
+//------------------------------------------------------------------------------
+int32 FBlueprintActionDatabaseRegistrar::RegisterClassFactoryActions(const UClass* TargetType, const FMakeFuncSpawnerDelegate& MakeActionCallback)
+{
+	struct RegisterClassFactoryActions_Utils
+	{
+		static bool IsFactoryMethod(const UFunction* Function, const UClass* InTargetType)
+		{
+			if (!Function->HasAnyFunctionFlags(FUNC_Static))
+			{
+				return false;
+			}
+
+			UObjectProperty* ReturnProperty = Cast<UObjectProperty>(Function->GetReturnProperty());
+			// see if the function is a static factory method
+			bool const bIsFactoryMethod = (ReturnProperty != nullptr) && ReturnProperty->PropertyClass->IsChildOf(InTargetType);
+
+			return bIsFactoryMethod;
+		}
+	};
+
+	int32 RegisteredCount = 0;
+	if (const UObject* RegistrarTarget = GetActionKeyFilter())
+	{
+		if (const UClass* TargetClass = Cast<UClass>(RegistrarTarget))
+		{
+			if (!TargetClass->HasAnyClassFlags(CLASS_Abstract) && !TargetClass->IsChildOf(TargetType))
+			{
+				for (TFieldIterator<UFunction> FuncIt(TargetClass, EFieldIteratorFlags::ExcludeSuper); FuncIt; ++FuncIt)
+				{
+					UFunction* Function = *FuncIt;
+					if (!RegisterClassFactoryActions_Utils::IsFactoryMethod(Function, TargetType))
+					{
+						continue;
+					}
+					else if (UBlueprintNodeSpawner* NewAction = MakeActionCallback.Execute(Function))
+					{
+						RegisteredCount += (int32)AddBlueprintAction(Function, NewAction);
+					}
+				}
+			}
+		}
+	}
+	else
+	{
+		// these nested loops are combing over the same classes/functions the
+		// FBlueprintActionDatabase does; ideally we save on perf and fold this in
+		// with FBlueprintActionDatabase, but we want to give separate modules
+		// the opportunity to add their own actions per class func
+		for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+		{
+			UClass* Class = *ClassIt;
+			if (Class->HasAnyClassFlags(CLASS_Abstract) || !Class->IsChildOf(TargetType))
+			{
+				continue;
+			}
+			
+			for (TFieldIterator<UFunction> FuncIt(Class, EFieldIteratorFlags::ExcludeSuper); FuncIt; ++FuncIt)
+			{
+				UFunction* Function = *FuncIt;
+				if (!RegisterClassFactoryActions_Utils::IsFactoryMethod(Function, TargetType))
+				{
+					continue;
+				}
+				else if (UBlueprintNodeSpawner* NewAction = MakeActionCallback.Execute(Function))
+				{
+					RegisteredCount += (int32)AddBlueprintAction(Function, NewAction);
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+//------------------------------------------------------------------------------
 bool FBlueprintActionDatabaseRegistrar::AddActionToDatabase(UObject const* ActionKey, UBlueprintNodeSpawner* NodeSpawner)
 {
-	ensureMsg(NodeSpawner->NodeClass == GeneratingClass, TEXT("We expect a nodes to add only spawners for its own type... Maybe a sub-class is adding nodes it shouldn't?"));
+	ensureMsgf(NodeSpawner->NodeClass == GeneratingClass, TEXT("We expect a nodes to add only spawners for its own type... Maybe a sub-class is adding nodes it shouldn't?"));
 	if (IsOpenForRegistration(ActionKey))
 	{
 		ActionKey = BlueprintActionDatabaseRegistrarImpl::ResolveActionKey(ActionKey);

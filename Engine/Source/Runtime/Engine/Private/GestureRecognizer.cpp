@@ -70,7 +70,7 @@ void FGestureRecognizer::DetectGestures(const FVector (&Touches)[EKeys::NUM_TOUC
 		else if (PreviousTouchCount >= 1 && TouchCount == 0)
 		{
 			// must be a fast flick
-			if (FlickTime < 0.25f && (FlickCurrent - AnchorPoints[0]).Size() > 100.f)
+			if (FlickTime < 0.25f && (FlickCurrent - AnchorPoints[0]).SizeSquared() > 10000.f)
 			{
 				// this is the angle from +X in screen space, meaning right is 0, up is 90, left is 180, down is 270
 				float Angle = FMath::Atan2(-(FlickCurrent.Y - AnchorPoints[0].Y), FlickCurrent.X - AnchorPoints[0].X) * 180.f / PI;

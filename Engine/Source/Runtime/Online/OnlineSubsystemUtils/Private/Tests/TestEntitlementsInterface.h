@@ -27,7 +27,7 @@
 	bool bQueryEntitlements;
 
 	/** Account registered by the test that should be used for all tests */
-	TSharedPtr<FUniqueNetId> UserId;
+	TSharedPtr<const FUniqueNetId> UserId;
 	/** Local user to run tests for */
 	int32 LocalUserIdx;
 

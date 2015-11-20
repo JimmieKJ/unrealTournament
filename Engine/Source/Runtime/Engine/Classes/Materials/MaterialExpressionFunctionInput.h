@@ -69,7 +69,7 @@ class UMaterialExpressionFunctionInput : public UMaterialExpression
 	uint32 bCompilingFunctionPreview:1;
 
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void PostLoad() override;
 	virtual void PostDuplicate(bool bDuplicateForPIE) override;
 #if WITH_EDITOR
@@ -77,9 +77,9 @@ class UMaterialExpressionFunctionInput : public UMaterialExpression
 	virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin UMaterialExpression Interface
+	//~ Begin UMaterialExpression Interface
 #if WITH_EDITOR
 	virtual void GetExpressionToolTip(TArray<FString>& OutToolTip) override;
 #endif
@@ -93,7 +93,7 @@ class UMaterialExpressionFunctionInput : public UMaterialExpression
 	virtual uint32 GetInputType(int32 InputIndex) override;
 	virtual uint32 GetOutputType(int32 OutputIndex) override;
 #endif
-	// End UMaterialExpression Interface
+	//~ End UMaterialExpression Interface
 
 	/** Generate the Id for this input. */
 	ENGINE_API void ConditionallyGenerateId(bool bForce);

@@ -22,7 +22,7 @@ void UAbilityTask_Repeat::PerformAction()
 
 UAbilityTask_Repeat* UAbilityTask_Repeat::RepeatAction(UObject* WorldContextObject, float InTimeBetweenActions, int32 TotalActionCount)
 {
-	auto MyObj = NewTask<UAbilityTask_Repeat>(WorldContextObject);
+	auto MyObj = NewAbilityTask<UAbilityTask_Repeat>(WorldContextObject);
 
 	//TODO Validate/fix TimeBetweenActions and TotalActionCount values as needed
 	MyObj->ActionPerformancesDesired = TotalActionCount;

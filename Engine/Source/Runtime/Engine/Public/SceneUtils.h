@@ -51,11 +51,45 @@
 		void Stop();
 	};
 
-	// Macros to allow for scoping of draw events
+	struct ENGINE_API FDrawEventRHIExecute
+	{
+		/** Context to execute on*/
+		class IRHICommandContext* RHICommandContext;
+
+		/** Default constructor, initializing all member variables. */
+		FORCEINLINE FDrawEventRHIExecute()
+			: RHICommandContext(nullptr)
+		{}
+
+		/**
+		* Terminate the event based upon scope
+		*/
+		FORCEINLINE ~FDrawEventRHIExecute()
+		{
+			if (RHICommandContext)
+			{
+				Stop();
+			}
+		}
+
+		/**
+		* Function for logging a PIX event with var args
+		*/
+		void CDECL Start(IRHICommandContext& InRHICommandContext, const TCHAR* Fmt, ...);
+		void Stop();
+	};
+
+	// Macros to allow for scoping of draw events outside of RHI function implementations
 	#define SCOPED_DRAW_EVENT(RHICmdList, Name) FDrawEvent PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GEmitDrawEvents) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdList, TEXT(#Name));
 	#define SCOPED_DRAW_EVENTF(RHICmdList, Name, Format, ...) FDrawEvent PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GEmitDrawEvents) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdList, Format, ##__VA_ARGS__);
 	#define SCOPED_CONDITIONAL_DRAW_EVENT(RHICmdList, Name, Condition) FDrawEvent PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GEmitDrawEvents && (Condition)) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdList, TEXT(#Name));
 	#define SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, Name, Condition, Format, ...) FDrawEvent PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GEmitDrawEvents && (Condition)) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdList, Format, ##__VA_ARGS__);
+
+	// Macros to allow for scoping of draw events within RHI function implementations
+	#define SCOPED_RHI_DRAW_EVENT(RHICmdContext, Name) FDrawEventRHIExecute PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GEmitDrawEvents) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdContext, TEXT(#Name));
+	#define SCOPED_RHI_DRAW_EVENTF(RHICmdContext, Name, Format, ...) FDrawEventRHIExecute PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GEmitDrawEvents) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdContext, Format, ##__VA_ARGS__);
+	#define SCOPED_RHI_CONDITIONAL_DRAW_EVENT(RHICmdContext, Name, Condition) FDrawEventRHIExecute PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GEmitDrawEvents && (Condition)) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdContext, TEXT(#Name));
+	#define SCOPED_RHI_CONDITIONAL_DRAW_EVENTF(RHICmdContext, Name, Condition, Format, ...) FDrawEventRHIExecute PREPROCESSOR_JOIN(Event_##Name,__LINE__); if(GEmitDrawEvents && (Condition)) PREPROCESSOR_JOIN(Event_##Name,__LINE__).Start(RHICmdContext, Format, ##__VA_ARGS__);
 
 #else
 
@@ -63,5 +97,10 @@
 	#define SCOPED_DRAW_EVENTF(...)
 	#define SCOPED_CONDITIONAL_DRAW_EVENT(...)
 	#define SCOPED_CONDITIONAL_DRAW_EVENTF(...)
+
+	#define SCOPED_RHI_DRAW_EVENT(...)
+	#define SCOPED_RHI_DRAW_EVENTF(...)
+	#define SCOPED_RHI_CONDITIONAL_DRAW_EVENT(...)
+	#define SCOPED_RHI_CONDITIONAL_DRAW_EVENTF(...)
 
 #endif

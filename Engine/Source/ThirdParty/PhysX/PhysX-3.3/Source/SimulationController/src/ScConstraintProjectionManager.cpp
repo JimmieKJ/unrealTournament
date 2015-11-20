@@ -11,6 +11,7 @@
 // Copyright (c) 2001-2004 NovodeX AG. All rights reserved.  
 
 
+#include "PxcScratchAllocator.h"
 #include "ScConstraintProjectionManager.h"
 #include "ScBodySim.h"
 #include "ScConstraintSim.h"
@@ -18,9 +19,147 @@
 
 using namespace physx;
 
+
+namespace physx
+{
+namespace Sc
+{
+
+template<typename T, const PxU32 elementsPerBlock>
+class ScratchAllocatorList
+{
+private:
+	struct ElementBlock
+	{
+		PX_FORCE_INLINE ElementBlock() {}
+		PX_FORCE_INLINE void init(PxU32 countAtStart) { next = NULL; count = countAtStart; }
+
+		ElementBlock* next;
+		PxU32 count;
+		T elements[elementsPerBlock];
+	};
+
+	PX_FORCE_INLINE const ScratchAllocatorList& operator=(const ScratchAllocatorList&) {}
+
+
+public:
+	class Iterator
+	{
+		friend class ScratchAllocatorList;
+
+	public:
+		T const* getNext()
+		{
+			if (mCurrentBlock)
+			{
+				if (mIndex < mCurrentBlock->count)
+				{
+					return &mCurrentBlock->elements[mIndex++];
+				}
+				else
+				{
+					if (mCurrentBlock->next)
+					{
+						PX_ASSERT(mCurrentBlock->count == elementsPerBlock);
+						mCurrentBlock = mCurrentBlock->next;
+						PX_ASSERT(mCurrentBlock->count > 0);
+
+						mIndex = 1;
+						return &mCurrentBlock->elements[0];
+					}
+					else
+						return NULL;
+				}
+			}
+			else
+				return NULL;
+		}
+
+	private:
+		Iterator(const ElementBlock* startBlock) : mCurrentBlock(startBlock), mIndex(0) {}
+
+	private:
+		const ElementBlock* mCurrentBlock;
+		PxU32 mIndex;
+	};
+
+	PX_FORCE_INLINE ScratchAllocatorList(PxcScratchAllocator& scratchAllocator) : mScratchAllocator(scratchAllocator)
+	{
+		mFirstBlock = (ElementBlock*)scratchAllocator.alloc(sizeof(ElementBlock), true);
+		if (mFirstBlock)
+			mFirstBlock->init(0);
+
+		mCurrentBlock = mFirstBlock;
+	}
+
+	PX_FORCE_INLINE ~ScratchAllocatorList()
+	{
+		freeMemory();
+	}
+
+	PX_FORCE_INLINE bool add(const T& element)
+	{
+		if (mCurrentBlock)
+		{
+			if (mCurrentBlock->count < elementsPerBlock)
+			{
+				mCurrentBlock->elements[mCurrentBlock->count] = element;
+				mCurrentBlock->count++;
+				return true;
+			}
+			else
+			{
+				PX_ASSERT(mCurrentBlock->next == NULL);
+				PX_ASSERT(mCurrentBlock->count == elementsPerBlock);
+
+				ElementBlock* newBlock = (ElementBlock*)mScratchAllocator.alloc(sizeof(ElementBlock), true);
+				if (newBlock)
+				{
+					newBlock->init(1);
+					newBlock->elements[0] = element;
+					mCurrentBlock->next = newBlock;
+					mCurrentBlock = newBlock;
+					return true;
+				}
+				else
+					return false;
+			}
+		}
+		else
+			return false;
+	}
+
+	PX_FORCE_INLINE Iterator getIterator() const
+	{
+		return Iterator(mFirstBlock);
+	}
+
+	PX_FORCE_INLINE void freeMemory()
+	{
+		ElementBlock* block = mFirstBlock;
+
+		while(block)
+		{
+			ElementBlock* blockToFree = block;
+			block = block->next;
+
+			mScratchAllocator.free(blockToFree);
+		}
+	}
+
+
+private:
+	PxcScratchAllocator& mScratchAllocator;
+	ElementBlock* mFirstBlock;
+	ElementBlock* mCurrentBlock;
+};
+
+}
+}
+
+
 Sc::ConstraintProjectionManager::ConstraintProjectionManager() : 
-	mNodePool(PX_DEBUG_EXP("projectionNodePool")),
-	mPendingGroupUpdates(PX_DEBUG_EXP("pendingProjectionGroupUpdateArray"))
+	mNodePool(PX_DEBUG_EXP("projectionNodePool"))
 {
 }
 
@@ -28,7 +167,10 @@ Sc::ConstraintProjectionManager::ConstraintProjectionManager() :
 void Sc::ConstraintProjectionManager::addToPendingGroupUpdates(Sc::ConstraintSim& s)
 {
 	PX_ASSERT(!s.readFlag(ConstraintSim::ePENDING_GROUP_UPDATE));
-	mPendingGroupUpdates.pushBack(&s);
+	bool isNew = mPendingGroupUpdates.insert(&s);
+	PX_UNUSED(isNew);
+	PX_ASSERT(isNew);
+
 	s.setFlag(ConstraintSim::ePENDING_GROUP_UPDATE);
 }
 
@@ -36,8 +178,35 @@ void Sc::ConstraintProjectionManager::addToPendingGroupUpdates(Sc::ConstraintSim
 void Sc::ConstraintProjectionManager::removeFromPendingGroupUpdates(Sc::ConstraintSim& s)
 {
 	PX_ASSERT(s.readFlag(ConstraintSim::ePENDING_GROUP_UPDATE));
-	mPendingGroupUpdates.findAndReplaceWithLast(&s);  // not super fast but most likely not used often
+	bool didExist = mPendingGroupUpdates.erase(&s);
+	PX_UNUSED(didExist);
+	PX_ASSERT(didExist);
+
 	s.clearFlag(ConstraintSim::ePENDING_GROUP_UPDATE);
+}
+
+
+void Sc::ConstraintProjectionManager::addToPendingTreeUpdates(ConstraintGroupNode& n)
+{
+	PX_ASSERT(&n == &n.getRoot());
+	PX_ASSERT(!n.readFlag(ConstraintGroupNode::ePENDING_TREE_UPDATE));
+	bool isNew = mPendingTreeUpdates.insert(&n);
+	PX_UNUSED(isNew);
+	PX_ASSERT(isNew);
+
+	n.raiseFlag(ConstraintGroupNode::ePENDING_TREE_UPDATE);
+}
+
+
+void Sc::ConstraintProjectionManager::removeFromPendingTreeUpdates(ConstraintGroupNode& n)
+{
+	PX_ASSERT(&n == &n.getRoot());
+	PX_ASSERT(n.readFlag(ConstraintGroupNode::ePENDING_TREE_UPDATE));
+	bool didExist = mPendingTreeUpdates.erase(&n);
+	PX_UNUSED(didExist);
+	PX_ASSERT(didExist);
+
+	n.clearFlag(ConstraintGroupNode::ePENDING_TREE_UPDATE);
 }
 
 
@@ -120,7 +289,7 @@ void Sc::ConstraintProjectionManager::addToGroup(BodySim& b, BodySim* other, Con
 		{
 			otherRoot = &other->getConstraintGroup()->getRoot();
 			if (otherRoot->hasProjectionTreeRoot())
-				otherRoot->purgeProjectionTrees();  // If a new constraint gets added to a constraint group, articulations need to be recreated
+				otherRoot->purgeProjectionTrees();  // If a new constraint gets added to a constraint group, projection trees need to be recreated
 		}
 
 		//merge the two groups, if disjoint.
@@ -130,11 +299,10 @@ void Sc::ConstraintProjectionManager::addToGroup(BodySim& b, BodySim* other, Con
 
 
 //
-// Add all constraints connected to the specified body to the pending update list but
-// ignore the specified constraint. If specified, ignore non-projecting constraints 
-// too.
+// Add all projection constraints connected to the specified body to the pending update list but
+// ignore the specified constraint.
 //
-void Sc::ConstraintProjectionManager::dumpConnectedConstraints(BodySim& b, ConstraintSim* c, bool projConstrOnly)
+void Sc::ConstraintProjectionManager::markConnectedConstraintsForUpdate(BodySim& b, ConstraintSim* c)
 {
 	Cm::Range<Interaction*const> interactions = b.getActorInteractions();
 	for(; !interactions.empty(); interactions.popFront())
@@ -144,65 +312,134 @@ void Sc::ConstraintProjectionManager::dumpConnectedConstraints(BodySim& b, Const
 		{
 			ConstraintSim* ct = static_cast<ConstraintInteraction*>(interaction)->getConstraint();
 
-			if ((ct != c) && (!projConstrOnly || ct->needsProjection()))
+			if ((ct != c) && ct->needsProjection() && (!ct->readFlag(ConstraintSim::ePENDING_GROUP_UPDATE)))
 			{
-				//push constraint down the pending update list:
-				if (!ct->readFlag(ConstraintSim::ePENDING_GROUP_UPDATE))
-					addToPendingGroupUpdates(*ct);
+				//mark constraint for pending update:
+				addToPendingGroupUpdates(*ct);
 			}
 		}
 	}
 }
 
 
-void Sc::ConstraintProjectionManager::buildGroups()
+//
+// Add all constraints connected to the specified body to an array but
+// ignore the specified constraint.
+//
+PX_FORCE_INLINE static void dumpConnectedConstraints(Sc::BodySim& b, Sc::ConstraintSim* c, Sc::ScratchAllocatorList<Sc::ConstraintSim*>& constraintList)
 {
+	Cm::Range<Sc::Interaction*const> interactions = b.getActorInteractions();
+	for(; !interactions.empty(); interactions.popFront())
+	{
+		Sc::Interaction *const interaction = interactions.front();
+		if (interaction->getType() == Sc::PX_INTERACTION_TYPE_CONSTRAINTSHADER)
+		{
+			Sc::ConstraintSim* ct = static_cast<Sc::ConstraintInteraction*>(interaction)->getConstraint();
+
+			if ((ct != c) && (!ct->readFlag(Sc::ConstraintSim::ePENDING_GROUP_UPDATE)))
+			{
+				bool success = constraintList.add(ct);
+				PX_UNUSED(success);
+				PX_ASSERT(success);
+			}
+		}
+	}
+}
+
+
+PX_FORCE_INLINE void Sc::ConstraintProjectionManager::processConstraintForGroupBuilding(ConstraintSim* c, ScratchAllocatorList<ConstraintSim*>& constraintList)
+{
+	c->clearFlag(ConstraintSim::ePENDING_GROUP_UPDATE);
+
+	// Find all constraints connected to the two bodies of the dirty constraint.
+	// - Constraints to static anchors are ignored (note: kinematics can't be ignored because they might get switched to dynamics any time which
+	//   does trigger a projection tree rebuild but not a constraint tree rebuild
+	// - Already processed bodies are ignored as well
+	BodySim* b0 = c->getBody(0);
+	if (b0 && !b0->getConstraintGroup())
+	{
+		dumpConnectedConstraints(*b0, c, constraintList);
+	}
+	BodySim* b1 = c->getBody(1);
+	if (b1 && !b1->getConstraintGroup())
+	{
+		dumpConnectedConstraints(*b1, c, constraintList);
+	}
+
+	BodySim* b = c->getAnyBody();
+	PX_ASSERT(b);
+
+	addToGroup(*b, c->getOtherBody(b), *c);  //this will eventually merge some body's constraint groups.
+}
+
+
+void Sc::ConstraintProjectionManager::processPendingUpdates(PxcScratchAllocator& scratchAllocator)
+{
+	//
+	// if there are dirty projection trees, then rebuild them
+	//
+	const PxU32 nbProjectionTreesToUpdate = mPendingTreeUpdates.size();
+	if (nbProjectionTreesToUpdate)
+	{
+		ConstraintGroupNode* const* projectionTreesToUpdate = mPendingTreeUpdates.getEntries();
+		for(PxU32 i=0; i < nbProjectionTreesToUpdate; i++)
+		{
+			ConstraintGroupNode* n = projectionTreesToUpdate[i];
+
+			PX_ASSERT(n == &n->getRoot());  // only root nodes should be in that list
+			PX_ASSERT(n->readFlag(ConstraintGroupNode::ePENDING_TREE_UPDATE));
+
+			n->clearFlag(ConstraintGroupNode::ePENDING_TREE_UPDATE);
+
+			// note: it is valid to get here and not have a projection root. This is the case if all nodes of a constraint graph are kinematic
+			//       at some point (hence no projection root) and later some of those get switched to dynamic.
+			if (n->hasProjectionTreeRoot())
+				n->purgeProjectionTrees();
+			n->buildProjectionTrees();
+		}
+
+		mPendingTreeUpdates.clear();
+	}
+
 	//
 	// if there are new/dirty constraints, update groups
 	//
-	if(mPendingGroupUpdates.size())
+	const PxU32 nbProjectionConstraintsToUpdate = mPendingGroupUpdates.size();
+
+	if (nbProjectionConstraintsToUpdate)
 	{
+		ScratchAllocatorList<ConstraintSim*> nonProjectionConstraintList(scratchAllocator);
+
+		ConstraintSim* const* projectionConstraintsToUpdate = mPendingGroupUpdates.getEntries();
+
 #ifdef PX_DEBUG
 		// At the beginning the list should only contain constraints with projection.
 		// Further below other constraints, connected to the constraints with projection, will be added too.
-		for(PxU32 i=0; i < mPendingGroupUpdates.size(); i++)
+		for(PxU32 i=0; i < nbProjectionConstraintsToUpdate; i++)
 		{
-			PX_ASSERT(mPendingGroupUpdates[i]->needsProjection());
+			PX_ASSERT(projectionConstraintsToUpdate[i]->needsProjection());
 		}
 #endif
-		PxU32 nbConstrWithProjection = mPendingGroupUpdates.size();
-		for(PxU32 i=0; i < mPendingGroupUpdates.size(); i++)
+		for(PxU32 i=0; i < nbProjectionConstraintsToUpdate; i++)
 		{
-			ConstraintSim* c = mPendingGroupUpdates[i];
-			c->clearFlag(ConstraintSim::ePENDING_GROUP_UPDATE);
+			processConstraintForGroupBuilding(projectionConstraintsToUpdate[i], nonProjectionConstraintList);
+		}
 
-			// Find all constraints connected to the two bodies of the dirty constraint.
-			// - Constraints to static anchors are ignored (note: kinematics can't be ignored because they might get switched to dynamics any time which
-			//   does trigger a projection tree rebuild but not a constraint tree rebuild
-			// - Already processed bodies are ignored as well
-			BodySim* b0 = c->getBody(0);
-			if (b0 && !b0->getConstraintGroup())
-			{
-				dumpConnectedConstraints(*b0, c, false);
-			}
-			BodySim* b1 = c->getBody(1);
-			if (b1 && !b1->getConstraintGroup())
-			{
-				dumpConnectedConstraints(*b1, c, false);
-			}
+		ScratchAllocatorList<ConstraintSim*>::Iterator iter = nonProjectionConstraintList.getIterator();
+		ConstraintSim* const* nextConstraint = iter.getNext();
+		while(nextConstraint)
+		{
+			processConstraintForGroupBuilding(*nextConstraint, nonProjectionConstraintList);
 
-			BodySim* b = c->getAnyBody();
-			PX_ASSERT(b);
-
-			addToGroup(*b, c->getOtherBody(b), *c);  //this will eventually merge some body's constraint groups.
+			nextConstraint = iter.getNext();
 		}
 
 		// Now find all the newly made groups and build projection trees.
 		// Don't need to iterate over the additionally constraints since the roots are supposed to be
 		// fetchable from any node.
-		for (PxU32 i=0; i < nbConstrWithProjection; i++)
+		for (PxU32 i=0; i < nbProjectionConstraintsToUpdate; i++)
 		{
-			ConstraintSim* c = mPendingGroupUpdates[i];
+			ConstraintSim* c = projectionConstraintsToUpdate[i];
 			BodySim* b = c->getAnyBody();
 			PX_ASSERT(b);
 			PX_ASSERT(b->getConstraintGroup());
@@ -224,9 +461,15 @@ void Sc::ConstraintProjectionManager::buildGroups()
 void Sc::ConstraintProjectionManager::invalidateGroup(ConstraintGroupNode& node, ConstraintSim* deletedConstraint)
 {
 	ConstraintGroupNode* n = &node.getRoot();
+
+	if (n->readFlag(ConstraintGroupNode::ePENDING_TREE_UPDATE))
+	{
+		removeFromPendingTreeUpdates(*n);
+	}
+
 	while (n) //go through nodes in constraint group
 	{
-		dumpConnectedConstraints(*n->body, deletedConstraint, true);
+		markConnectedConstraintsForUpdate(*n->body, deletedConstraint);
 
 		//destroy the body's constraint group information
 

@@ -99,11 +99,17 @@ public:
 
 
 	/**  
-	 * Dereference the weak pointer
+	 * Dereference the weak pointer.
 	 * @param bEvenIfPendingKill, if this is true, pendingkill objects are considered valid
 	 * @return NULL if this object is gone or the weak pointer was NULL, otherwise a UObject pointer
-	**/
-	COREUOBJECT_API class UObject *Get(bool bEvenIfPendingKill = false) const;
+	 */
+	COREUOBJECT_API class UObject *Get(bool bEvenIfPendingKill) const;
+
+	/**  
+	 * Dereference the weak pointer. This is an optimized version implying bEvenIfPendingKill=false.
+	 * @return NULL if this object is gone or the weak pointer was NULL, otherwise a UObject pointer
+	 */
+	COREUOBJECT_API class UObject *Get(/*bool bEvenIfPendingKill = false*/) const;
 
 	/** Dereference the weak pointer even if it is RF_PendingKill or RF_Unreachable */
 	COREUOBJECT_API class UObject *GetEvenIfUnreachable() const;
@@ -141,7 +147,7 @@ public:
 
 protected:
 
-	int32 GetObjectIndex() const
+	FORCEINLINE int32 GetObjectIndex() const
 	{
 		return ObjectIndex;
 	}
@@ -154,6 +160,12 @@ private:
 	 * @return true if the serial number in this matches the central table
 	**/
 	bool SerialNumbersMatch() const;
+
+	/** Private (inlined) version for internal use only. */
+	bool Internal_IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest) const;
+
+	/** Private (inlined) version for internal use only. */
+	class UObject* Internal_Get(bool bEvenIfPendingKill) const;
 
 	int32		ObjectIndex;
 	int32		ObjectSerialNumber;

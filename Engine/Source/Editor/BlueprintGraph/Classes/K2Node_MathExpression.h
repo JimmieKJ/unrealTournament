@@ -24,29 +24,40 @@ public:
 	UPROPERTY(EditAnywhere, Category = Expression)
 	FString Expression;
 
-public:
-	// UObject interface
-	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
-	// End of UObject interface
+	UPROPERTY()
+	bool bMadeAfterRotChange;
 
-	// UEdGraphNode interface
+public:
+	//~ Begin UObject Interface
+	virtual void Serialize(FArchive& Ar) override;
+	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
+	//~ End UObject Interface
+
+	//~ Begin UEdGraphNode Interface
 	virtual TSharedPtr<class INameValidatorInterface> MakeNameValidator() const override;
 	virtual void OnRenameNode(const FString& NewName) override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual void PostPlacedNewNode() override;
 	virtual void ReconstructNode() override;
-	// End of UEdGraphNode interface
+	virtual void FindDiffs(class UEdGraphNode* OtherNode, struct FDiffResults& Results )  override;
+	virtual bool ShouldMergeChildGraphs() const override { return ShouldExpandInsteadCompile(); }
+	//~ End UEdGraphNode Interface
 
-	// UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
-	// End of UK2Node interface
+	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
+	virtual bool IsNodePure() const { return !ShouldExpandInsteadCompile(); }
+	//~ End UK2Node Interface
 
-	// Begin UK2Node_EditablePinBase interface
+	//~ Begin UK2Node_EditablePinBase Interface
 	virtual bool CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage) override { return false; }
-	// End UK2Node_EditablePinBase interface
+	//~ End UK2Node_EditablePinBase Interface
 
 private:
+	/* Returns true, when the node can/should not be optimized.*/
+	bool ShouldExpandInsteadCompile() const;
+
 	/**
 	* Clears this node's sub-graph, and then takes the supplied string and
 	* parses, and converts it into a series of new graph nodes.

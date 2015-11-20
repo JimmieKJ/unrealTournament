@@ -317,6 +317,39 @@ private:
 	FShaderParameter Gamma;
 };
 
+template <class TSimpleElementBase, uint32 EncodedBlendMode>
+class FEncodedSimpleElement : public TSimpleElementBase
+{
+	DECLARE_SHADER_TYPE(FEncodedSimpleElement, Global);
+public:
+	FEncodedSimpleElement(const ShaderMetaType::CompiledShaderInitializerType& Initializer) : TSimpleElementBase(Initializer) {}
+	FEncodedSimpleElement() {}
+
+	static void ModifyCompilationEnvironment(EShaderPlatform Platform, FShaderCompilerEnvironment& OutEnvironment)
+	{
+		TSimpleElementBase::ModifyCompilationEnvironment(Platform, OutEnvironment); 
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_OPAQUE"), (uint32)ESimpleElementBlendMode::SE_BLEND_Opaque);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_MASKED"), (uint32)ESimpleElementBlendMode::SE_BLEND_Masked);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_TRANSLUCENT"), (uint32)ESimpleElementBlendMode::SE_BLEND_Translucent);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_ADDITIVE"), (uint32)ESimpleElementBlendMode::SE_BLEND_Additive);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_MODULATE"), (uint32)ESimpleElementBlendMode::SE_BLEND_Modulate);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_MASKEDDISTANCEFIELD"), (uint32)ESimpleElementBlendMode::SE_BLEND_MaskedDistanceField);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_MASKEDDISTANCEFIELDSHADOWED"), (uint32)ESimpleElementBlendMode::SE_BLEND_MaskedDistanceFieldShadowed);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_ALPHACOMPOSITE"), (uint32)ESimpleElementBlendMode::SE_BLEND_AlphaComposite);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_ALPHABLEND"), (uint32)ESimpleElementBlendMode::SE_BLEND_AlphaBlend);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_TRANSLUCENTALPHAONLY"), (uint32)ESimpleElementBlendMode::SE_BLEND_TranslucentAlphaOnly);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_TRANSLUCENTDISTANCEFIELD"), (uint32)ESimpleElementBlendMode::SE_BLEND_TranslucentDistanceField);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_TRANSLUCENTDISTANCEFIELDSHADOWED"), (uint32)ESimpleElementBlendMode::SE_BLEND_TranslucentDistanceFieldShadowed);
+		OutEnvironment.SetDefine(TEXT("SE_BLEND_MODE"), EncodedBlendMode);
+		OutEnvironment.SetDefine(TEXT("USE_32BPP_HDR"), 1u);
+	}
+
+	static bool ShouldCache(EShaderPlatform Platform)
+	{
+		return ((IsES2Platform(Platform) && IsPCPlatform(Platform)) || Platform == SP_OPENGL_ES2_ANDROID) && TSimpleElementBase::ShouldCache(Platform);
+	}
+};
+
 typedef FSimpleElementGammaPS<true> FSimpleElementGammaPS_SRGB;
 typedef FSimpleElementGammaPS<false> FSimpleElementGammaPS_Linear;
 typedef FSimpleElementMaskedGammaPS<true> FSimpleElementMaskedGammaPS_SRGB;

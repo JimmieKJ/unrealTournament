@@ -1,12 +1,10 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
-struct FCustomResetToDefault
-{
-	TAttribute<bool> IsResetToDefaultVisible;
-	FSimpleDelegate OnResetToDefaultClicked;
-};
+// Forward decl
+class FResetToDefaultOverride;
 
+/** Widget showing the reset to default value button */
 class SResetToDefaultPropertyEditor : public SCompoundWidget
 {
 
@@ -16,7 +14,7 @@ public:
 		: _NonVisibleState( EVisibility::Hidden )
 		{}
 		SLATE_ARGUMENT( EVisibility, NonVisibleState )
-		SLATE_ARGUMENT( FCustomResetToDefault, CustomResetToDefault )
+		SLATE_ARGUMENT(TOptional<FResetToDefaultOverride>, CustomResetToDefault)
 	SLATE_END_ARGS()
 
 	void Construct( const FArguments& InArgs, const TSharedRef< class FPropertyEditor>& InPropertyEditor );
@@ -33,7 +31,7 @@ private:
 	FReply OnCustomResetClicked();
 
 private:
-	FCustomResetToDefault CustomResetToDefault;
+	TOptional<FResetToDefaultOverride> OptionalCustomResetToDefault;
 
 	TSharedPtr< class FPropertyEditor > PropertyEditor;
 

@@ -192,6 +192,8 @@ public:
 
 	virtual void SetKeyframeHandler( TSharedPtr<class IDetailKeyframeHandler> InKeyframeHandler ) = 0;
 
+	virtual TSharedPtr<IDetailKeyframeHandler> GetKeyframeHandler() = 0;
+
 	virtual void SetExtensionHandler(TSharedPtr<class IDetailPropertyExtensionHandler> InExtensionandler) = 0;
 
 	/**

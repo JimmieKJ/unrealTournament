@@ -11,6 +11,9 @@
 
 #if WITH_EDITOR
 #include "UnrealEd.h"
+#include "SNotificationList.h"
+#include "NotificationManager.h"
+#define LOCTEXT_NAMESPACE "GameplayCueManager"
 #endif
 
 int32 DisplayGameplayCues = 0;
@@ -22,6 +25,14 @@ static FAutoConsoleVariableRef CVarDisableGameplayCues(TEXT("AbilitySystem.Disab
 float DisplayGameplayCueDuration = 5.f;
 static FAutoConsoleVariableRef CVarDurationeGameplayCues(TEXT("AbilitySystem.GameplayCue.DisplayDuration"),	DisplayGameplayCueDuration, TEXT("Disables all GameplayCue events in the world."), ECVF_Default );
 
+int32 GameplayCueRunOnDedicatedServer = 0;
+static FAutoConsoleVariableRef CVarDedicatedServerGameplayCues(TEXT("AbilitySystem.GameplayCue.RunOnDedicatedServer"), GameplayCueRunOnDedicatedServer, TEXT("Run gameplay cue events on dedicated server"), ECVF_Default );
+
+#if WITH_EDITOR
+USceneComponent* UGameplayCueManager::PreviewComponent = nullptr;
+UWorld* UGameplayCueManager::PreviewWorld = nullptr;
+#endif
+
 UGameplayCueManager::UGameplayCueManager(const FObjectInitializer& PCIP)
 : Super(PCIP)
 {
@@ -31,28 +42,64 @@ UGameplayCueManager::UGameplayCueManager(const FObjectInitializer& PCIP)
 #endif
 
 	GlobalCueSet = NewObject<UGameplayCueSet>(this, TEXT("GlobalCueSet"));
+	CurrentWorld = nullptr;
+}
+
+bool IsDedicatedServerForGameplayCue()
+{
+#if WITH_EDITOR
+	// This will handle dedicated server PIE case properly
+	return GEngine->ShouldAbsorbCosmeticOnlyEvent();
+#else
+	// When in standalone non editor, this is the fastest way to check
+	return IsRunningDedicatedServer();
+#endif
 }
 
 
-void UGameplayCueManager::HandleGameplayCues(AActor* TargetActor, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
+void UGameplayCueManager::HandleGameplayCues(AActor* TargetActor, const FGameplayTagContainer& GameplayCueTags, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
 {
+	if (GameplayCueRunOnDedicatedServer == 0 && IsDedicatedServerForGameplayCue())
+	{
+		return;
+	}
+
 	for (auto It = GameplayCueTags.CreateConstIterator(); It; ++It)
 	{
 		HandleGameplayCue(TargetActor, *It, EventType, Parameters);
 	}
 }
 
-void UGameplayCueManager::HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters)
+void UGameplayCueManager::HandleGameplayCue(AActor* TargetActor, FGameplayTag GameplayCueTag, EGameplayCueEvent::Type EventType, const FGameplayCueParameters& Parameters)
 {
 	if (DisableGameplayCues)
 	{
 		return;
 	}
 
+	if (GameplayCueRunOnDedicatedServer == 0 && IsDedicatedServerForGameplayCue())
+	{
+		return;
+	}
+
+#if WITH_EDITOR
+	if (GIsEditor && TargetActor == nullptr && UGameplayCueManager::PreviewComponent)
+	{
+		TargetActor = Cast<AActor>(AActor::StaticClass()->GetDefaultObject());
+	}
+#endif
+
 	if (TargetActor == nullptr)
 	{
 		ABILITY_LOG(Warning, TEXT("UGameplayCueManager::HandleGameplayCue called on null TargetActor. GameplayCueTag: %s."), *GameplayCueTag.ToString());
 		return;
+	}
+
+	IGameplayCueInterface* GameplayCueInterface = Cast<IGameplayCueInterface>(TargetActor);
+	bool bAcceptsCue = true;
+	if (GameplayCueInterface)
+	{
+		bAcceptsCue = GameplayCueInterface->ShouldAcceptGameplayCue(TargetActor, GameplayCueTag, EventType, Parameters);
 	}
 
 	if (DisplayGameplayCues)
@@ -61,55 +108,83 @@ void UGameplayCueManager::HandleGameplayCue(AActor* TargetActor, FGameplayTag Ga
 		FColor DebugColor = FColor::Green;
 		DrawDebugString(TargetActor->GetWorld(), FVector(0.f, 0.f, 100.f), DebugStr, TargetActor, DebugColor, DisplayGameplayCueDuration);
 	}
+
+	CurrentWorld = TargetActor->GetWorld();
+
+	// Don't handle gameplay cues when world is tearing down
+	if (!GetWorld() || GetWorld()->bIsTearingDown)
+	{
+		return;
+	}
+
 	// Give the global set a chance
 	check(GlobalCueSet);
-	GlobalCueSet->HandleGameplayCue(TargetActor, GameplayCueTag, EventType, Parameters);
+	if (bAcceptsCue)
+	{
+		GlobalCueSet->HandleGameplayCue(TargetActor, GameplayCueTag, EventType, Parameters);
+	}
 
 	// Use the interface even if it's not in the map
-	IGameplayCueInterface* GameplayCueInterface = Cast<IGameplayCueInterface>(TargetActor);
-	if (GameplayCueInterface)
+	if (GameplayCueInterface && bAcceptsCue)
 	{
 		GameplayCueInterface->HandleGameplayCue(TargetActor, GameplayCueTag, EventType, Parameters);
 	}
+
+	CurrentWorld = nullptr;
 }
 
 void UGameplayCueManager::EndGameplayCuesFor(AActor* TargetActor)
 {
-	TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<AGameplayCueNotify_Actor>> FoundMapActor;
-	if (NotifyMapActor.RemoveAndCopyValue(TargetActor, FoundMapActor))
+	for (auto It = NotifyMapActor.CreateIterator(); It; ++It)
 	{
-		for (auto It = FoundMapActor.CreateConstIterator(); It; ++It)
+		FGCNotifyActorKey& Key = It.Key();
+		if (Key.TargetActor == TargetActor)
 		{
 			AGameplayCueNotify_Actor* InstancedCue = It.Value().Get();
 			if (InstancedCue)
 			{
 				InstancedCue->OnOwnerDestroyed();
 			}
+			It.RemoveCurrent();
 		}
 	}
 }
 
-AGameplayCueNotify_Actor* UGameplayCueManager::GetInstancedCueActor(AActor* TargetActor, UClass* CueClass)
+AGameplayCueNotify_Actor* UGameplayCueManager::GetInstancedCueActor(AActor* TargetActor, UClass* CueClass, const FGameplayCueParameters& Parameters)
 {
-	if (auto InnerMap = NotifyMapActor.Find(TargetActor))
-	{
-		if (auto WeakPtrPtr = InnerMap->Find(CueClass))
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_GameplayCueManager_GetInstancedCueActor);
+
+	AGameplayCueNotify_Actor* CDO = Cast<AGameplayCueNotify_Actor>(CueClass->ClassDefaultObject);
+	FGCNotifyActorKey	NotifyKey(TargetActor, CueClass, 
+							CDO->bUniqueInstancePerInstigator ? Parameters.GetInstigator() : nullptr, 
+							CDO->bUniqueInstancePerSourceObject ? Parameters.GetSourceObject() : nullptr);
+
+	AGameplayCueNotify_Actor* SpawnedCue = nullptr;
+	if (TWeakObjectPtr<AGameplayCueNotify_Actor>* WeakPtrPtr = NotifyMapActor.Find(NotifyKey))
+	{		
+		SpawnedCue = WeakPtrPtr->Get();
+		// If the cue is scheduled to be destroyed, don't reuse it, create a new one instead
+		if (SpawnedCue && SpawnedCue->GetLifeSpan() <= 0.0f)
 		{
-			return WeakPtrPtr->Get();
+			return SpawnedCue;
 		}
 	}
 
 	// We don't have an instance for this, and we need one, so make one
-	AGameplayCueNotify_Actor* SpawnedCue = nullptr;
 	if (ensure(TargetActor) && ensure(CueClass))
 	{
 		FActorSpawnParameters SpawnParams;
+#if WITH_EDITOR
+		// Don't set owner if we are using fake CDO actor to do anim previewing
+		SpawnParams.Owner = (TargetActor && TargetActor->HasAnyFlags(RF_ClassDefaultObject) == false ? TargetActor : nullptr);
+#else
 		SpawnParams.Owner = TargetActor;
-		SpawnedCue = TargetActor->GetWorld()->SpawnActor<AGameplayCueNotify_Actor>(CueClass, TargetActor->GetActorLocation(), TargetActor->GetActorRotation(), SpawnParams);
+#endif
+		
+		SpawnedCue = GetWorld()->SpawnActor<AGameplayCueNotify_Actor>(CueClass, TargetActor->GetActorLocation(), TargetActor->GetActorRotation(), SpawnParams);
 		if (ensure(SpawnedCue))
 		{
-			auto& InnerMap = NotifyMapActor.Add(TargetActor);
-			InnerMap.Add(CueClass) = SpawnedCue;
+			NotifyMapActor.Add(NotifyKey, SpawnedCue);
 		}
 	}
 
@@ -139,6 +214,7 @@ void UGameplayCueManager::LoadObjectLibraryFromPaths(const TArray<FString>& InPa
 		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 		AssetRegistryModule.Get().OnInMemoryAssetCreated().AddUObject(this, &UGameplayCueManager::HandleAssetAdded);
 		AssetRegistryModule.Get().OnInMemoryAssetDeleted().AddUObject(this, &UGameplayCueManager::HandleAssetDeleted);
+		AssetRegistryModule.Get().OnAssetRenamed().AddUObject(this, &UGameplayCueManager::HandleAssetRenamed);
 		FWorldDelegates::OnPreWorldInitialization.AddUObject(this, &UGameplayCueManager::ReloadObjectLibrary);
 		RegisteredEditorCallbacks = true;
 	}
@@ -177,7 +253,7 @@ void UGameplayCueManager::LoadObjectLibrary_Internal()
 	// ---------------------------------------------------------
 
 	const bool bSyncFullyLoad = IsRunningCommandlet();
-	const bool bAsyncLoadAtStartup = !bSyncFullyLoad;
+	const bool bAsyncLoadAtStartup = !bSyncFullyLoad && ShouldAsyncLoadAtStartup();
 	if (bSyncFullyLoad)
 	{
 #if STATS
@@ -232,13 +308,13 @@ void UGameplayCueManager::BuildCuesToAddToGlobalSet(const TArray<FAssetData>& As
 			{
 				// Add a new NotifyData entry to our flat list for this one
 				FStringAssetReference StringRef;
-				StringRef.AssetLongPathname = FPackageName::ExportTextPathToObjectPath(*GeneratedClassTag);
+				StringRef.SetPath(FPackageName::ExportTextPathToObjectPath(*GeneratedClassTag));
 
 				OutCuesToAdd.Add(FGameplayCueReferencePair(GameplayCueTag, StringRef));
 
 				if (bAsyncLoadAfterAdd)
 				{
-					StreamableManager.SimpleAsyncLoad(StringRef);
+					StreamableManager.SimpleAsyncLoad(StringRef, FStreamableManager::DefaultAsyncLoadPriority - 1);
 				}
 			}
 			else
@@ -288,7 +364,7 @@ void UGameplayCueManager::HandleAssetAdded(UObject *Object)
 			if (IsAssetInLoadedPaths(Object))
 			{
 				FStringAssetReference StringRef;
-				StringRef.AssetLongPathname = Blueprint->GeneratedClass->GetPathName();
+				StringRef.SetPath(Blueprint->GeneratedClass->GetPathName());
 
 				TArray<FGameplayCueReferencePair> CuesToAdd;
 				if (StaticCDO)
@@ -302,6 +378,14 @@ void UGameplayCueManager::HandleAssetAdded(UObject *Object)
 
 				check(GlobalCueSet);
 				GlobalCueSet->AddCues(CuesToAdd);
+
+				OnGameplayCueNotifyAddOrRemove.Broadcast();
+
+			
+			}
+			else
+			{
+				VerifyNotifyAssetIsInValidPath(Blueprint->GetOuter()->GetPathName());
 			}
 		}
 	}
@@ -319,7 +403,7 @@ void UGameplayCueManager::HandleAssetDeleted(UObject *Object)
 		
 		if (StaticCDO || ActorCDO)
 		{
-			StringRefToRemove.AssetLongPathname = Blueprint->GeneratedClass->GetPathName();
+			StringRefToRemove.SetPath(Blueprint->GeneratedClass->GetPathName());
 		}
 	}
 
@@ -329,10 +413,78 @@ void UGameplayCueManager::HandleAssetDeleted(UObject *Object)
 		StringRefs.Add(StringRefToRemove);
 		check(GlobalCueSet);
 		GlobalCueSet->RemoveCuesByStringRefs(StringRefs);
+
+		OnGameplayCueNotifyAddOrRemove.Broadcast();
+	}
+}
+
+/** Handles cleaning up an object library if it matches the passed in object */
+void UGameplayCueManager::HandleAssetRenamed(const FAssetData& Data, const FString& String)
+{
+	const FString* ParentClassNamePtr = Data.TagsAndValues.Find(TEXT("ParentClass"));
+	if (ParentClassNamePtr)
+	{
+		FString ParentClassName = *ParentClassNamePtr;
+		
+		UClass* DataClass = FindObject<UClass>(nullptr, *ParentClassName);
+		if (DataClass)
+		{
+			UGameplayCueNotify_Static* StaticCDO = Cast<UGameplayCueNotify_Static>(DataClass->ClassDefaultObject);
+			AGameplayCueNotify_Actor* ActorCDO = Cast<AGameplayCueNotify_Actor>(DataClass->ClassDefaultObject);
+			if (StaticCDO || ActorCDO)
+			{
+				VerifyNotifyAssetIsInValidPath(Data.PackagePath.ToString());
+				GlobalCueSet->UpdateCueByStringRefs(String + TEXT("_C"), Data.ObjectPath.ToString() + TEXT("_C"));
+				OnGameplayCueNotifyAddOrRemove.Broadcast();
+			}
+		}
+	}
+}
+
+void UGameplayCueManager::VerifyNotifyAssetIsInValidPath(FString Path)
+{
+	bool ValidPath = false;
+	for (FString& str: LoadedPaths)
+	{
+		if (Path.Contains(str))
+		{
+			ValidPath = true;
+		}
+	}
+
+	if (!ValidPath)
+	{
+		FString MessageTry = FString::Printf(TEXT("Warning: Invalid GameplayCue Path %s"));
+		MessageTry += TEXT("\n\nGameplayCue Notifies should only be saved in the following folders:");
+
+		ABILITY_LOG(Warning, TEXT("Warning: Invalid GameplayCuePath: %s"), *Path);
+		ABILITY_LOG(Warning, TEXT("Valid Paths: "));
+		for (FString& str: LoadedPaths)
+		{
+			ABILITY_LOG(Warning, TEXT("  %s"), *str);
+			MessageTry += FString::Printf(TEXT("\n  %s"), *str);
+		}
+
+		MessageTry += FString::Printf(TEXT("\n\nThis asset must be moved to a valid location to work in game."));
+
+		const FText MessageText = FText::FromString(MessageTry);
+		const FText TitleText = NSLOCTEXT("GameplayCuePathWarning", "GameplayCuePathWarningTitle", "Invalid GameplayCue Path");
+		FMessageDialog::Open(EAppMsgType::Ok, MessageText, &TitleText);
 	}
 }
 
 #endif
+
+
+UWorld* UGameplayCueManager::GetWorld() const
+{
+#if WITH_EDITOR
+	if (PreviewWorld)
+		return PreviewWorld;
+#endif
+
+	return CurrentWorld;
+}
 
 void UGameplayCueManager::PrintGameplayCueNotifyMap()
 {
@@ -383,10 +535,10 @@ void UGameplayCueManager::InvokeGameplayCueExecuted_FromSpec(UAbilitySystemCompo
 void UGameplayCueManager::InvokeGameplayCueExecuted(UAbilitySystemComponent* OwningComponent, const FGameplayTag GameplayCueTag, FPredictionKey PredictionKey, FGameplayEffectContextHandle EffectContext)
 {
 	FGameplayCuePendingExecute PendingCue;
-	PendingCue.PayloadType = EGameplayCuePayloadType::EffectContext;
+	PendingCue.PayloadType = EGameplayCuePayloadType::CueParameters;
 	PendingCue.GameplayCueTag = GameplayCueTag;
 	PendingCue.OwningComponent = OwningComponent;
-	PendingCue.CueParameters.EffectContext = EffectContext;
+	UAbilitySystemGlobals::Get().InitGameplayCueParameters(PendingCue.CueParameters, EffectContext);
 	PendingCue.PredictionKey = PredictionKey;
 
 	if (ProcessPendingCueExecute(PendingCue))
@@ -546,3 +698,6 @@ bool UGameplayCueManager::DoesPendingCueExecuteMatch(FGameplayCuePendingExecute&
 	return true;
 }
 
+#if WITH_EDITOR
+#undef LOCTEXT_NAMESPACE
+#endif

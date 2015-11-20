@@ -23,7 +23,7 @@ public:
 	 */
 	void Load();
 
-	// Begin ILauncherProfileManager interface
+	//~ Begin ILauncherProfileManager Interface
 
 	virtual void AddDeviceGroup( const ILauncherDeviceGroupRef& DeviceGroup ) override;
 
@@ -53,7 +53,9 @@ public:
 
 	virtual ILauncherProfilePtr LoadProfile( FArchive& Archive ) override;
 
-	virtual void LoadSettings( ) override;
+	virtual ILauncherProfilePtr LoadJSONProfile(FString ProfileFile) override;
+
+	virtual void LoadSettings() override;
 
 	virtual FOnLauncherProfileManagerDeviceGroupAdded& OnDeviceGroupAdded( ) override
 	{
@@ -83,7 +85,11 @@ public:
 
 	virtual void RemoveProfile( const ILauncherProfileRef& Profile ) override;
 
-	virtual void SaveProfile( const ILauncherProfileRef& Profile) override;
+	virtual bool SaveProfile( const ILauncherProfileRef& Profile) override;
+
+	virtual bool SaveJSONProfile(const ILauncherProfileRef& Profile) override;
+
+	virtual void ChangeProfileName( const ILauncherProfileRef& Profile, FString Name) override;
 
 	virtual void SaveSettings( ) override;
 
@@ -95,7 +101,7 @@ public:
 
 	virtual void SetProjectPath(const FString& InProjectPath) override;
 
-	// End ILauncherProfileManager interface
+	//~ End ILauncherProfileManager Interface
 
 protected:
 
@@ -131,11 +137,11 @@ protected:
 protected:
 
 	/**
-	 * Gets the folder in which profile files are stored.
-	 *
-	 * @return The folder path.
-	 */
-	static FString GetProfileFolder( )
+	* Gets the folder in which old profile files were stored.
+	*
+	* @return The folder path.
+	*/
+	static FString GetLegacyProfileFolder()
 	{
 		return FPaths::EngineSavedDir() / TEXT("Launcher");
 	}

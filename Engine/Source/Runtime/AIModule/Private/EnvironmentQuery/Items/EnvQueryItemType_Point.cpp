@@ -50,6 +50,11 @@ FNavLocation UEnvQueryItemType_Point::GetItemNavLocation(const uint8* RawData) c
 	return UEnvQueryItemType_Point::GetNavValue(RawData);
 }
 
+void UEnvQueryItemType_Point::SetItemNavLocation(uint8* RawData, const FNavLocation& Value) const
+{
+	UEnvQueryItemType_Point::SetNavValue(RawData, Value);
+}
+
 void UEnvQueryItemType_Point::SetContextHelper(FEnvQueryContextData& ContextData, const FVector& SinglePoint)
 {
 	ContextData.ValueType = UEnvQueryItemType_Point::StaticClass();

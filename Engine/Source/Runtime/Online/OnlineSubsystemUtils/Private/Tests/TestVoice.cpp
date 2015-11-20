@@ -7,6 +7,7 @@
 #include "Engine.h"
 #include "OnlineSubsystemUtils.h"
 #include "Voice.h"
+#include "Runtime/Engine/Classes/Sound/SoundWaveProcedural.h"
 
 FTestVoice::FTestVoice() :
 	VoiceComp(NULL),
@@ -114,7 +115,7 @@ bool FTestVoice::Tick(float DeltaTime)
 		if (VoiceComp)
 		{
 			static bool bLastHasData = true;
-			USoundWaveStreaming* SoundStreaming = CastChecked<USoundWaveStreaming>(VoiceComp->Sound);
+			USoundWaveProcedural* SoundStreaming = CastChecked<USoundWaveProcedural>(VoiceComp->Sound);
 			bool bHasData = SoundStreaming->GetAvailableAudioByteCount() != 0;
 
 			if (bHasData != bLastHasData)

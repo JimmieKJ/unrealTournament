@@ -16,9 +16,9 @@ void FPointLightComponentDetails::CustomizeDetails( IDetailLayoutBuilder& Detail
 	TSharedPtr<IPropertyHandle> LightIntensityProperty = DetailBuilder.GetProperty(GET_MEMBER_NAME_CHECKED(ULightComponentBase, Intensity), ULightComponentBase::StaticClass());
 
 	// Inverse squared falloff point lights (the default) are in units of lumens, instead of just being a brightness scale
-	LightIntensityProperty->GetProperty()->SetMetaData("UIMin",TEXT("0.0f"));
-	LightIntensityProperty->GetProperty()->SetMetaData("UIMax",TEXT("100000.0f"));
-	LightIntensityProperty->GetProperty()->SetMetaData("SliderExponent",TEXT("2.0f"));
+	LightIntensityProperty->SetInstanceMetaData("UIMin",TEXT("0.0f"));
+	LightIntensityProperty->SetInstanceMetaData("UIMax", TEXT("100000.0f"));
+	LightIntensityProperty->SetInstanceMetaData("SliderExponent", TEXT("2.0f"));
 }
 
 #undef LOCTEXT_NAMESPACE

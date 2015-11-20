@@ -125,6 +125,14 @@ static plcrash_async_image_list_t shared_image_list;
  */
 static plcrashreporter_handler_ctx_t signal_handler_context;
 
+/**
+ * @todo mark.satterthwaite@epicgames.com 7/6/15 Needed for plcrashreporter_backtrace to report crashed threads backtrace
+ * @internal
+ *
+ * Thread state for crashed thread
+ */
+static plcrash_async_thread_state_t signal_crashed_thread_state;
+
 
 /**
  * @internal
@@ -151,6 +159,8 @@ static plcrash_error_t plcrash_write_report (plcrashreporter_handler_ctx_t *sigc
     plcrash_async_file_t file;
     plcrash_error_t err;
 
+    signal_crashed_thread_state = *thread_state;
+    
     /* Open the output file */
     int fd = open(sigctx->path, O_RDWR|O_CREAT|O_TRUNC, 0644);
     if (fd < 0) {
@@ -1068,3 +1078,28 @@ cleanup:
 
 
 @end
+
+PLCR_EXPORT int plcrashreporter_backtrace(void** Backtrace, int Depth)
+{
+    plframe_cursor_t FrameCursor;
+    uint32 Frame = 0;
+    plframe_error_t Err = plframe_cursor_init(&FrameCursor, mach_task_self(), &signal_crashed_thread_state, &shared_image_list);
+    if (Err == PLFRAME_ESUCCESS)
+    {
+        while ((Err = plframe_cursor_next(&FrameCursor)) == PLFRAME_ESUCCESS && Frame < Depth)
+        {
+            plcrash_greg_t ProgramCounter = 0;
+            if ((Err = plframe_cursor_get_reg(&FrameCursor, PLCRASH_REG_IP, &ProgramCounter)) == PLFRAME_ESUCCESS)
+            {
+                Backtrace[Frame] = (void*)((uintptr_t)ProgramCounter);
+                Frame++;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+    
+    return Frame;
+}

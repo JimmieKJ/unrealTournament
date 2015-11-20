@@ -109,6 +109,9 @@
 #include "UnrealEngine.h"
 #include "EngineStats.h"
 #include "Engine/SimpleConstructionScript.h"
+#include "K2Node_AddComponent.h"
+
+#include "AutoReimport/AutoReimportUtilities.h"
 
 #include "Settings/EditorSettings.h"
 
@@ -406,6 +409,16 @@ void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFi
 
 	FileTypes = FString::Printf(TEXT("All Files (%s)|%s|%s"),*AllExtensions,*AllExtensions,*FileTypes);
 
+	FString DefaultFolder;
+	FString DefaultFile;
+	
+	TArray<FString> ExistingPaths = Utils::ExtractSourceFilePaths(Obj);
+	if (ExistingPaths.Num() > 0)
+	{
+		DefaultFolder = FPaths::GetPath(ExistingPaths[0]);
+		DefaultFile = FPaths::GetCleanFilename(ExistingPaths[0]);
+	}
+
 	// Prompt the user for the filenames
 	TArray<FString> OpenFilenames;
 	IDesktopPlatform* DesktopPlatform = FDesktopPlatformModule::Get();
@@ -425,8 +438,8 @@ void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFi
 		bOpened = DesktopPlatform->OpenFileDialog(
 			ParentWindowWindowHandle,
 			Title,
-			TEXT(""),
-			TEXT(""),
+			*DefaultFolder,
+			*DefaultFile,
 			FileTypes,
 			bAllowMultiSelect ? EFileDialogFlags::Multiple : EFileDialogFlags::None,
 			OpenFilenames
@@ -440,49 +453,6 @@ void FReimportManager::GetNewReimportPath(UObject* Obj, TArray<FString>& InOutFi
 			InOutFilenames.Add(OpenFilenames[FileIndex]);
 		}
 	}
-}
-
-FString FReimportManager::SanitizeImportFilename(const FString& InPath, const UObject* Obj)
-{
-	const UPackage* Package = Obj->GetOutermost();
-	if (Package)
-	{
-		const bool		bIncludeDot = true;
-		const FString	PackagePath	= Package->GetPathName();
-		const FName		MountPoint	= FPackageName::GetPackageMountPoint(PackagePath);
-		const FString	PackageFilename = FPackageName::LongPackageNameToFilename(PackagePath, FPaths::GetExtension(InPath, bIncludeDot));
-		const FString	AbsolutePath = FPaths::ConvertRelativePathToFull(InPath);
-
-		if ((MountPoint == FName("Engine") && AbsolutePath.StartsWith(FPaths::ConvertRelativePathToFull(FPaths::EngineContentDir()))) ||
-			(MountPoint == FName("Game") &&	AbsolutePath.StartsWith(FPaths::ConvertRelativePathToFull(FPaths::GameDir()))))
-		{
-			FString RelativePath = InPath;
-			FPaths::MakePathRelativeTo(RelativePath, *PackageFilename);
-			return RelativePath;
-		}
-	}
-
-	return IFileManager::Get().ConvertToRelativePath(*InPath);
-}
-
-
-FString FReimportManager::ResolveImportFilename(const FString& InRelativePath, const UObject* Obj)
-{
-	FString RelativePath = InRelativePath;
-
-	const UPackage* Package = Obj->GetOutermost();
-	if (Package)
-	{
-		// Relative to the package filename?
-		const FString PathRelativeToPackage = FPaths::GetPath(FPackageName::LongPackageNameToFilename(Package->GetPathName())) / InRelativePath;
-		if (FPaths::FileExists(PathRelativeToPackage))
-		{
-			RelativePath = PathRelativeToPackage;
-		}
-	}
-
-	// Convert relative paths
-	return FPaths::ConvertRelativePathToFull(RelativePath);
 }
 
 FReimportManager::FReimportManager()
@@ -767,18 +737,55 @@ namespace EditorUtilities
 							UInheritableComponentHandler* InheritableComponentHandler = Blueprint->GetInheritableComponentHandler(true);
 							if (InheritableComponentHandler)
 							{
-								BPGC = Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass());
-								USCS_Node* SCSNode = nullptr;
-								while (BPGC)
-								{
-									SCSNode = BPGC->SimpleConstructionScript->FindSCSNode(SourceComponent->GetFName());
-									BPGC = (SCSNode ? nullptr : Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass()));
-								}
-								check(SCSNode);
+								FComponentKey Key;
+								FName const SourceComponentName = SourceComponent->GetFName();
 
-								FComponentKey Key(SCSNode);
-								check(InheritableComponentHandler->GetOverridenComponentTemplate(Key) == nullptr);
-								TargetComponent = InheritableComponentHandler->CreateOverridenComponentTemplate(Key);
+								BPGC = Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass());
+								while (!Key.IsValid() && BPGC)
+								{
+									USCS_Node* SCSNode = BPGC->SimpleConstructionScript->FindSCSNode(SourceComponentName);
+									if (!SCSNode)
+									{
+										UBlueprint* SuperBlueprint = CastChecked<UBlueprint>(BPGC->ClassGeneratedBy);
+										for (UActorComponent* ComponentTemplate : BPGC->ComponentTemplates)
+										{
+											if (ComponentTemplate->GetFName() == SourceComponentName)
+											{
+												if (UEdGraph* UCSGraph = FBlueprintEditorUtils::FindUserConstructionScript(SuperBlueprint))
+												{
+													TArray<UK2Node_AddComponent*> ComponentNodes;
+													UCSGraph->GetNodesOfClass<UK2Node_AddComponent>(ComponentNodes);
+
+													for (UK2Node_AddComponent* UCSNode : ComponentNodes)
+													{
+														if (ComponentTemplate == UCSNode->GetTemplateFromNode())
+														{
+															Key = FComponentKey(SuperBlueprint, FUCSComponentId(UCSNode));
+															break;
+														}
+													}
+												}
+												break;
+											}
+										}
+									}
+									else
+									{
+										Key = FComponentKey(SCSNode);
+										break;
+									}
+									BPGC = Cast<UBlueprintGeneratedClass>(BPGC->GetSuperClass());
+								}
+
+								if (ensure(Key.IsValid()))
+								{
+									check(InheritableComponentHandler->GetOverridenComponentTemplate(Key) == nullptr);
+									TargetComponent = InheritableComponentHandler->CreateOverridenComponentTemplate(Key);
+								}
+								else
+								{
+									TargetComponent = nullptr;
+								}								
 							}
 						}
 					}
@@ -855,6 +862,9 @@ namespace EditorUtilities
 		}
 		else if (UStructProperty* const StructProperty = Cast<UStructProperty>(InProperty))
 		{
+			// Ensure that the target struct is initialized before copying fields from the source.
+			StructProperty->InitializeValue_InContainer(InTargetPtr);
+
 			const int32 PropertyArrayDim = InProperty->ArrayDim;
 			for (int32 ArrayIndex = 0; ArrayIndex < PropertyArrayDim; ArrayIndex++)
 			{
@@ -1018,6 +1028,10 @@ namespace EditorUtilities
 		for( auto SourceComponentIter( SourceComponents.CreateConstIterator() ); SourceComponentIter; ++SourceComponentIter )
 		{
 			UActorComponent* SourceComponent = *SourceComponentIter;
+			if (SourceComponent->CreationMethod == EComponentCreationMethod::UserConstructionScript)
+			{
+				continue;
+			}
 			UActorComponent* TargetComponent = FindMatchingComponentInstance( SourceComponent, TargetActor, TargetComponents, TargetComponentIndex );
 
 			if( SourceComponent != nullptr && TargetComponent != nullptr )

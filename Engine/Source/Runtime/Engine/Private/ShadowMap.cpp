@@ -516,7 +516,8 @@ void FShadowMap2D::Serialize(FArchive& Ar)
 		Ar << bChannelValid[Channel];
 	}
 
-	if (Ar.UE4Ver() >= VER_UE4_STATIC_SHADOWMAP_PENUMBRA_SIZE)
+	// PLK merge of shadow map penumbra in CL 2606048 did not properly order ObjectVersion.h and broke serialization
+	if (Ar.UE4Ver() >= 452) //VER_UE4_STATIC_SHADOWMAP_PENUMBRA_SIZE)
 	{
 		Ar << InvUniformPenumbraSize;
 	}

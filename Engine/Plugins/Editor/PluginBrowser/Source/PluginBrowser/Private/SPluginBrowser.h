@@ -42,6 +42,9 @@ private:
 	/** Called with notification that one of the plugin directories has changed */
 	void OnPluginDirectoryChanged(const TArray<struct FFileChangeData>& );
 
+	/** Called with notification that a new plugin has been created */
+	void OnNewPluginCreated();
+
 	/** Timer callback for when */
 	EActiveTimerReturnType UpdatePluginsTimerCallback(double InCurrentTime, float InDeltaTime);
 
@@ -63,6 +66,9 @@ private:
 	/** One-off active timer to trigger a refresh of the breadcrumb trail as needed */
 	EActiveTimerReturnType TriggerBreadcrumbRefresh(double InCurrentTime, float InDeltaTime);
 
+	/** Handle the "new plugin" button being clicked */
+	FReply HandleNewPluginButtonClicked() const;
+
 private:
 	/** Handles to the directory changed delegates */
 	TMap<FString, FDelegateHandle> WatchDirectories;
@@ -75,6 +81,9 @@ private:
 
 	/** The plugin list widget */
 	TSharedPtr< class SPluginTileList > PluginList;
+
+	/** The plugin search box widget */
+	TSharedPtr< class SSearchBox > SearchBoxPtr;
 
 	/** Text filter object for typing in filter text to the search box */
 	TSharedPtr< FPluginTextFilter > PluginTextFilter;

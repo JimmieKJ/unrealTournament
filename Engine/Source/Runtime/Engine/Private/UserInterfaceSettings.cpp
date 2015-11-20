@@ -22,10 +22,15 @@ void UUserInterfaceSettings::PostInitProperties()
 {
 	Super::PostInitProperties();
 
+	// Allow the assets to be replaced in the editor, but make sure they're part of the root set in cooked games
+#if WITH_EDITOR
 	if ( HasAnyFlags(RF_ClassDefaultObject) == false )
 	{
 		ForceLoadResources();
 	}
+#else
+	ForceLoadResources();
+#endif
 }
 
 float UUserInterfaceSettings::GetDPIScaleBasedOnSize(FIntPoint Size) const
@@ -41,7 +46,7 @@ float UUserInterfaceSettings::GetDPIScaleBasedOnSize(FIntPoint Size) const
 			if ( CustomScalingRuleClassInstance == nullptr )
 			{
 				FMessageLog("MapCheck").Error()
-					->AddToken(FTextToken::Create(FText::Format(LOCTEXT("CustomScalingRule_NotFound", "Project Settings - User Interface Custom Scaling Rule '{0}' could not be found."), FText::FromString(CustomScalingRuleClass.AssetLongPathname))));
+					->AddToken(FTextToken::Create(FText::Format(LOCTEXT("CustomScalingRule_NotFound", "Project Settings - User Interface Custom Scaling Rule '{0}' could not be found."), FText::FromString(CustomScalingRuleClass.ToString()))));
 				return 1;
 			}
 		}

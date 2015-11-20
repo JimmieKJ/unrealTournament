@@ -21,6 +21,12 @@
 #define CUBESIZE					40
 #define VISUALIZE_GV				0
 #define VISUALIZE_LPV				1
+#define VISUALIZE_AO				0 
+#define SHOW_EDGES					1
+
+#define EDGE_THICKNESS				0.995
+
+#define Brightness 2
 
 //-------------------------------------------------------------------------------------------------
 
@@ -82,7 +88,7 @@ void GShader( point VIn input[1], inout TriangleStream<VOut> TriStream )
 	int indices[6] = { 0,1,2, 2,3,0 };
 
 	[unroll]
-	for( int i = 0; i < 6; i++ )
+	for ( int i=0; i<6; i++ )
 	{
 		int index = indices[i];
 
@@ -113,26 +119,35 @@ float4 PShader(VOut IN) : SV_Target
 	float3 colour = 0;
 #if VISUALIZE_LPV
 	LPVCell cell = ReadLpvCell( index );
-#if LPV_AMBIENT_CUBE
-	colour += ( cell.ambientCube[0]+cell.ambientCube[1]+cell.ambientCube[2]+cell.ambientCube[3]+cell.ambientCube[4]+cell.ambientCube[5] ) / 6.0f;
-#else
 	colour += cell.coeffs[0];
-#endif 
 	colour *= 0.000025f;
+#endif 
 
+#if VISUALIZE_AO
+	float AO = ReadLpvCellAO( index );
+	colour += saturate(1-AO*0.575);
 #endif
-
-	float brightness = 5.5;
+	float brightness = Brightness;
 
 #if VISUALIZE_GV
 	GeometryVolumeEntry gvCell = ReadGvCell( index );
-	colour.r += SHLookupScalar( gvCell.SH, float3( 1, 0, 0 ) );
-	colour.g += SHLookupScalar( gvCell.SH, float3( 0, 1, 0 ) );
-	colour.b += SHLookupScalar( gvCell.SH, float3( 0, 0, 1 ) );
+	colour.r += SHLookupGeometryVolume( gvCell, float3( 1, 0, 0 ) );
+	colour.g += SHLookupGeometryVolume( gvCell, float3( 0, 1, 0 ) );
+	colour.b += SHLookupGeometryVolume( gvCell, float3( 0, 0, 1 ) );
 	colour *= 0.1f;
 #endif
 	colour *= brightness;
 
+#if SHOW_EDGES
+	int count = 0;
+	float3 m3 = abs( ( IN.texCoord.xyz - 0.5 ) * 2.0f );
+	if ( m3.x > EDGE_THICKNESS ) count++;
+	if ( m3.y > EDGE_THICKNESS ) count++;
+	if ( m3.z > EDGE_THICKNESS ) count++;
+	if ( count >= 2 )
+	{
+		colour = float3(0,0,50);
+	}
+#endif 
 	return float4( colour / 3, 1 );
 }
-

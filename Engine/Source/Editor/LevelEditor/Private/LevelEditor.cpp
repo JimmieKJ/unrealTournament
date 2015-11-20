@@ -20,6 +20,7 @@
 #include "ToolkitManager.h"
 #include "TargetPlatform.h"
 #include "IIntroTutorials.h"
+#include "IProjectManager.h"
 
 // @todo Editor: remove this circular dependency
 #include "Editor/MainFrame/Public/Interfaces/IMainFrameModule.h"
@@ -41,10 +42,10 @@ FLevelEditorModule::FLevelEditorModule()
 }
 
 
-class SLevelEditorWatermark : public SCompoundWidget
+class SProjectBadge : public SBox
 {
 public:
-	SLATE_BEGIN_ARGS(SLevelEditorWatermark) {}
+	SLATE_BEGIN_ARGS(SProjectBadge) {}
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs)
@@ -52,9 +53,18 @@ public:
 		FString OptionalBranchPrefix;
 		GConfig->GetString(TEXT("LevelEditor"), TEXT("ProjectNameWatermarkPrefix"), /*out*/ OptionalBranchPrefix, GEditorPerProjectIni);
 
+		FColor BadgeBackgroundColor = FColor::Black;
+		GConfig->GetColor(TEXT("LevelEditor"), TEXT("ProjectBadgeBackgroundColor"), /*out*/ BadgeBackgroundColor, GEditorPerProjectIni);
+
+		FColor BadgeTextColor = FColor(128,128,128,255);
+		GConfig->GetColor(TEXT("LevelEditor"), TEXT("ProjectBadgeTextColor"), /*out*/ BadgeTextColor, GEditorPerProjectIni);
+
+		const FString EngineVersionString = FEngineVersion::Current().ToString(FEngineVersion::Current().HasChangelist() ? EVersionComponent::Changelist : EVersionComponent::Patch);
+		
 		FFormatNamedArguments Args;
 		Args.Add(TEXT("Branch"), FText::FromString(OptionalBranchPrefix));
 		Args.Add(TEXT("GameName"), FText::FromString(FString(FApp::GetGameName())));
+		Args.Add(TEXT("EngineVersion"), (GetDefault<UEditorPerProjectUserSettings>()->bDisplayEngineVersionInBadge) ? FText::FromString("(" + EngineVersionString + ")") : FText());
 
 		FText RightContentText;
 		FText RightContentTooltip;
@@ -63,17 +73,16 @@ public:
 		if (BuildConfig != EBuildConfigurations::Shipping && BuildConfig != EBuildConfigurations::Development && BuildConfig != EBuildConfigurations::Unknown)
 		{
 			Args.Add(TEXT("Config"), EBuildConfigurations::ToText(BuildConfig));
-			RightContentText = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContentAndConfig", "{Branch}{GameName} [{Config}]"), Args);
+			RightContentText = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContentAndConfig", "{Branch}{GameName} [{Config}] {EngineVersion}"), Args);
 		}
 		else
 		{
-			RightContentText = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContent", "{Branch}{GameName}"), Args);
+			RightContentText = FText::Format(NSLOCTEXT("UnrealEditor", "TitleBarRightContent", "{Branch}{GameName} {EngineVersion}"), Args);
 		}
 
 		// Create the tooltip showing more detailed information
 		FFormatNamedArguments TooltipArgs;
-		const FString EngineVerisonString = GEngineVersion.ToString(GEngineVersion.IsPromotedBuild() ? EVersionComponent::Changelist : EVersionComponent::Patch);
-		TooltipArgs.Add(TEXT("Version"), FText::FromString(EngineVerisonString));
+		TooltipArgs.Add(TEXT("Version"), FText::FromString(EngineVersionString));
 		TooltipArgs.Add(TEXT("Branch"), FText::FromString(FApp::GetBranchName()));
 		TooltipArgs.Add(TEXT("BuildConfiguration"), EBuildConfigurations::ToText(BuildConfig));
 		TooltipArgs.Add(TEXT("BuildDate"), FText::FromString(FApp::GetBuildDate()));
@@ -81,23 +90,46 @@ public:
 
 		SetToolTipText(RightContentTooltip);
 
-		ChildSlot
-		[
-			SNew(STextBlock)
-			.Text(RightContentText)
-			.Visibility(EVisibility::HitTestInvisible)
-			.Font(FSlateFontInfo(FPaths::EngineContentDir() / TEXT("Slate/Fonts/Roboto-Bold.ttf"), 14))
-			.ColorAndOpacity(FLinearColor(1.0f, 1.0f, 1.0f, 0.4f))
-		];
+		SBox::Construct(SBox::FArguments()
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Top)
+			.Padding(FMargin(0.0f, 0.0f, 2.0f, 0.0f))
+			[
+				SNew(SBorder)
+				.BorderImage(FEditorStyle::GetBrush("SProjectBadge.BadgeShape"))
+				.Padding(FMargin(10.0f, 2.5f))
+				.BorderBackgroundColor(BadgeBackgroundColor)
+				.VAlign(VAlign_Top)
+				[
+					SNew(STextBlock)
+					.Text(RightContentText)
+					.Visibility(EVisibility::HitTestInvisible)
+					.TextStyle(FEditorStyle::Get(),"SProjectBadge.Text")
+					.ColorAndOpacity(BadgeTextColor)
+				]
+			]);
 	}
-	
+
+	FVector2D GetSizeLastFrame() const
+	{
+		return GetDesiredSize();
+	}
+
 	// SWidget interface
 	virtual EWindowZone::Type GetWindowZoneOverride() const override
 	{
 		return EWindowZone::TitleBar;
 	}
 	// End of SWidget interface
+
+private:
+	FGeometry CachedGeometry;
 };
+
+static FMargin GetRoomForBadge(TWeakPtr<SProjectBadge> ProjBadge)
+{
+	return FMargin(8.0f, 0.0f, ProjBadge.Pin()->GetSizeLastFrame().X + 8.0f, 0.0f);
+}
 
 TSharedRef<SDockTab> FLevelEditorModule::SpawnLevelEditor( const FSpawnTabArgs& InArgs )
 {
@@ -131,48 +163,48 @@ TSharedRef<SDockTab> FLevelEditorModule::SpawnLevelEditor( const FSpawnTabArgs& 
 	IIntroTutorials& IntroTutorials = FModuleManager::LoadModuleChecked<IIntroTutorials>(TEXT("IntroTutorials"));
 	TSharedRef<SWidget> TutorialWidget = IntroTutorials.CreateTutorialsWidget(TEXT("LevelEditor"), OwnerWindow);
 
-	TSharedPtr< SWidget > RightContent;
-	{
-		RightContent =
-				SNew( SHorizontalBox )
+	TSharedRef<SProjectBadge> ProjectBadge = SNew(SProjectBadge);
+	TAttribute<FMargin> BadgeSizeGetter = TAttribute<FMargin>::Create(TAttribute<FMargin>::FGetter::CreateStatic(&GetRoomForBadge, TWeakPtr<SProjectBadge>(ProjectBadge)));
+		
+	TSharedPtr< SWidget > RightContent=
+		SNew( SHorizontalBox )
 
-				+SHorizontalBox::Slot()
-				.Padding(0.0f, 0.0f, 14.0f, 0.0f)
-				.AutoWidth()
-				[
-					SNew(SLevelEditorWatermark)
-				]
 // Put the level editor stats/notification widgets on the main window title bar since we don't have a menu bar on OS X
 #if PLATFORM_MAC
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(8.0f, 0.0f, 0.0f, 0.0f)
-				.VAlign(VAlign_Center)
-				[
-					LevelEditorTab->GetRightContent()
-				]
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(8.0f, 0.0f, 0.0f, 0.0f)
+		.VAlign(VAlign_Center)
+		[
+			LevelEditorTab->GetRightContent()
+		]
 #endif
 		
-				+SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(8.0f, 0.0f, 0.0f, 0.0f)
-				.VAlign(VAlign_Center)
-				[
-					UserFeedbackWidget
-				]
-				+ SHorizontalBox::Slot()
-				.AutoWidth()
-				.Padding(8.0f, 0.0f, 8.0f, 0.0f)
-				.VAlign(VAlign_Center)
-				[
-					TutorialWidget
-				]
-		;
-	}
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(8.0f, 0.0f, 0.0f, 0.0f)
+		.VAlign(VAlign_Center)
+		[
+			UserFeedbackWidget
+		]
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		.Padding(BadgeSizeGetter)
+		.VAlign(VAlign_Center)
+		[
+			TutorialWidget
+		];
+
 	LevelEditorTab->SetRightContent( RightContent.ToSharedRef() );
+
+	LevelEditorTab->SetBackgroundContent(
+		ProjectBadge
+	);
+	
 	
 	return LevelEditorTab;
 }
+
 
 /**
  * Called right after the module's DLL has been loaded and the module object has been created
@@ -191,10 +223,10 @@ void FLevelEditorModule::StartupModule()
 	NotificationBarExtensibilityManager = MakeShareable(new FExtensibilityManager);
 
 	// Note this must come before any tab spawning because that can create the SLevelEditor and attempt to map commands
-	FLevelEditorCommands::Register();
-	FLevelEditorModesCommands::Register();
 	FEditorViewportCommands::Register();
 	FLevelViewportCommands::Register();
+	FLevelEditorCommands::Register();
+	FLevelEditorModesCommands::Register();
 
 	// Bind level editor commands shared across an instance
 	BindGlobalLevelEditorCommands();
@@ -256,22 +288,6 @@ void FLevelEditorModule::ShutdownModule()
 	FLevelViewportCommands::Unregister();
 }
 
-void FLevelEditorModule::PreUnloadCallback()
-{
-	// Disable the "tab closed" delegate that closes the editor if the level editor tab is closed
-	IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>( MainFrame );
-	MainFrameModule.DisableTabClosedDelegate();
-}
-
-void FLevelEditorModule::PostLoadCallback()
-{
-	// Re-open the level editor tab and re-enable the "tab closed" delegate
-	IMainFrameModule& MainFrameModule = FModuleManager::LoadModuleChecked<IMainFrameModule>( MainFrame );
-	TSharedRef<SDockTab> LevelEditorTab = FGlobalTabmanager::Get()->InvokeTab(FTabId("LevelEditor"));
-	MainFrameModule.SetMainTab(LevelEditorTab);
-	MainFrameModule.EnableTabClosedDelegate();
-}
-
 /**
  * Spawns a new property viewer
  * @todo This only works with the first level editor. Fix it.
@@ -313,33 +329,11 @@ void FLevelEditorModule::SummonWorldBrowserComposition()
 }
 
 // @todo remove when world-centric mode is added
-void FLevelEditorModule::AttachSequencer(TSharedPtr<SWidget> SequencerWidget, TSharedPtr<IAssetEditorInstance> SequencerAssetEditor )
+void FLevelEditorModule::AttachSequencer( TSharedPtr<SWidget> SequencerWidget, TSharedPtr<IAssetEditorInstance> SequencerAssetEditor )
 {
-	if( FParse::Param( FCommandLine::Get(), TEXT( "Sequencer" ) ) )
-	{
-		struct Local
-		{
-			static void OnSequencerClosed( TSharedRef<SDockTab> DockTab, TWeakPtr<IAssetEditorInstance> InSequencerAssetEditor )
-			{
-				InSequencerAssetEditor.Pin()->CloseWindow();
-			}
-		};
-		
-		TSharedPtr<SLevelEditor> LevelEditorInstance = LevelEditorInstancePtr.Pin();
+	TSharedPtr<SLevelEditor> LevelEditorInstance = LevelEditorInstancePtr.Pin();
 
-		if( SequencerWidget.IsValid() && SequencerAssetEditor.IsValid() )
-		{
-			LevelEditorInstance->InvokeTab("Sequencer");
-			LevelEditorInstance->SequencerTab->SetOnTabClosed( SDockTab::FOnTabClosedCallback::CreateStatic( &Local::OnSequencerClosed, TWeakPtr<IAssetEditorInstance>( SequencerAssetEditor ) ) );
-			LevelEditorInstance->SequencerTab->SetContent(SequencerWidget.ToSharedRef());
-		}
-		else
-		{
-			LevelEditorInstance->SequencerTab.Reset();
-		}
-
-	
-	}
+	LevelEditorInstance->AttachSequencer( SequencerWidget, SequencerAssetEditor );
 }
 
 TSharedPtr<ILevelViewport> FLevelEditorModule::GetFirstActiveViewport()
@@ -387,7 +381,7 @@ void FLevelEditorModule::BroadcastTakeHighResScreenShots( )
 	TakeHighResScreenShotsEvent.Broadcast();
 }
 
-void FLevelEditorModule::BroadcastMapChanged( UWorld* World, EMapChangeType::Type MapChangeType )
+void FLevelEditorModule::BroadcastMapChanged( UWorld* World, EMapChangeType MapChangeType )
 {
 	MapChangedEvent.Broadcast( World, MapChangeType );
 }
@@ -1053,6 +1047,11 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		);
 
 	ActionList.MapAction(
+		Commands.SelectOwningHierarchicalLODCluster,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::OnSelectOwningHLODCluster)
+		);
+
+	ActionList.MapAction(
 		Commands.SelectSkeletalMeshesOfSameClass,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExecuteExecCommand, FString( TEXT("ACTOR SELECT MATCHINGSKELETALMESH") ) )
 		);
@@ -1305,12 +1304,6 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		);
 
 	ActionList.MapAction(
-		Commands.SaveBrushAsCollision,
-		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::OnSaveBrushAsCollision )
-		);
-
-
-	ActionList.MapAction(
 		Commands.KeepSimulationChanges,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::OnKeepSimulationChanges ),
 		FCanExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::CanExecuteKeepSimulationChanges )
@@ -1381,7 +1374,7 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 
 	ActionList.MapAction(Commands.BuildLODsOnly,
 		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::BuildLODsOnly_Execute));
-
+	
 	ActionList.MapAction( 
 		Commands.LightingQuality_Production, 
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetLightingQuality, (ELightingBuildQuality)Quality_Production ),
@@ -1642,12 +1635,32 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetMaterialQualityLevel, (EMaterialQualityLevel::Type)EMaterialQualityLevel::Low ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsMaterialQualityLevelChecked, (EMaterialQualityLevel::Type)EMaterialQualityLevel::Low ) );
+	ActionList.MapAction(
+		Commands.MaterialQualityLevel_Medium,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SetMaterialQualityLevel, (EMaterialQualityLevel::Type)EMaterialQualityLevel::Medium),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsMaterialQualityLevelChecked, (EMaterialQualityLevel::Type)EMaterialQualityLevel::Medium));
 	ActionList.MapAction( 
 		Commands.MaterialQualityLevel_High, 
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::SetMaterialQualityLevel, (EMaterialQualityLevel::Type)EMaterialQualityLevel::High ),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateStatic( &FLevelEditorActionCallbacks::IsMaterialQualityLevelChecked, (EMaterialQualityLevel::Type)EMaterialQualityLevel::High ) );
 
+	ActionList.MapAction(
+		Commands.PreviewPlatformOverride_DefaultES2,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SetPreviewPlatform, FName()),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsPreviewPlatformChecked, FName()));
+	ActionList.MapAction(
+		Commands.PreviewPlatformOverride_AndroidES2,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SetPreviewPlatform, LegacyShaderPlatformToShaderFormat(SP_OPENGL_ES2_ANDROID)),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsPreviewPlatformChecked, LegacyShaderPlatformToShaderFormat(SP_OPENGL_ES2_ANDROID)));
+	ActionList.MapAction(
+		Commands.PreviewPlatformOverride_IOSES2,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::SetPreviewPlatform, LegacyShaderPlatformToShaderFormat(SP_OPENGL_ES2_IOS)),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateStatic(&FLevelEditorActionCallbacks::IsPreviewPlatformChecked,LegacyShaderPlatformToShaderFormat(SP_OPENGL_ES2_IOS)));
 
 	for (int32 i = 0; i < ERHIFeatureLevel::Num; ++i)
 	{

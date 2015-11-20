@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "MobilityCustomization.h"
+
 class FSceneComponentDetails : public IDetailCustomization
 {
 public:
@@ -14,13 +16,5 @@ public:
 private:
 	void MakeTransformDetails( IDetailLayoutBuilder& DetailBuilder );
 
-	FSlateColor GetMobilityTextColor(EComponentMobility::Type InMobility) const;
-
-	ECheckBoxState IsMobilityActive(EComponentMobility::Type InMobility) const;
-
-	void OnMobilityChanged(ECheckBoxState InCheckedState, EComponentMobility::Type InMobility);
-
-	FText GetMobilityToolTip() const;
-private:
-	TSharedPtr<IPropertyHandle> MobilityHandle;
+	TSharedPtr<FMobilityCustomization> MobilityCustomization;
 };

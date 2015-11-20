@@ -6,6 +6,10 @@
 #include "LockFreeList.h"
 #include "StatsData.h"
 
+DEFINE_STAT( STAT_EventWaitWithId );
+DEFINE_STAT( STAT_EventTriggerWithId );
+
+DECLARE_DWORD_COUNTER_STAT( TEXT( "ThreadPoolDummyCounter" ), STAT_ThreadPoolDummyCounter, STATGROUP_ThreadPoolAsyncTasks );
 
 /** The global thread pool */
 FQueuedThreadPool* GThreadPool = nullptr;
@@ -125,7 +129,7 @@ public:
 		FSingleThreadManager::Get().RemoveThread(this);
 	}
 
-	virtual bool CreateInternal(FRunnable* InRunnable, const TCHAR* ThreadName,
+	virtual bool CreateInternal(FRunnable* InRunnable, const TCHAR* InThreadName,
 		uint32 InStackSize,
 		EThreadPriority InThreadPri, uint64 InThreadAffinityMask) override
 
@@ -166,6 +170,57 @@ FSingleThreadManager& FSingleThreadManager::Get()
 {
 	static FSingleThreadManager Singleton;
 	return Singleton;
+}
+
+
+/*-----------------------------------------------------------------------------
+	FEvent, FScopedEvent
+-----------------------------------------------------------------------------*/
+
+uint32 FEvent::EventUniqueId = 0;
+
+void FEvent::AdvanceStats()
+{
+#if	STATS
+	EventId = FPlatformAtomics::InterlockedAdd( (int32*)&EventUniqueId, 1 );
+	EventStartCycles = 0;
+#endif // STATS
+}
+
+void FEvent::WaitForStats()
+{
+#if	STATS
+	// Only start counting on the first wait, trigger will "close" the history.
+	if( FThreadStats::IsCollectingData() && EventStartCycles == 0 )
+	{
+		const uint64 PacketEventIdAndCycles = ((uint64)EventId << 32) | 0;
+		STAT_ADD_CUSTOMMESSAGE_PTR( STAT_EventWaitWithId, PacketEventIdAndCycles );
+		EventStartCycles = FPlatformTime::Cycles();
+	}
+#endif // STATS
+}
+
+void FEvent::TriggerForStats()
+{
+#if	STATS
+	// Only add wait-trigger pairs.
+	if( EventStartCycles > 0 && FThreadStats::IsCollectingData() )
+	{
+		const uint32 EndCycles = FPlatformTime::Cycles();
+		const int32 DeltaCycles = int32( EndCycles - EventStartCycles );
+		const uint64 PacketEventIdAndCycles = ((uint64)EventId << 32) | DeltaCycles;
+		STAT_ADD_CUSTOMMESSAGE_PTR( STAT_EventTriggerWithId, PacketEventIdAndCycles );
+
+		AdvanceStats();
+	}
+#endif // STATS
+}
+
+void FEvent::ResetForStats()
+{
+#if	STATS
+	AdvanceStats();
+#endif // STATS
 }
 
 FScopedEvent::FScopedEvent()
@@ -263,7 +318,7 @@ FRunnableThread* FRunnableThread::Create(
 void FRunnableThread::SetTls()
 {
 	// Make sure it's called from the owning thread.
-	check( ThreadID == FPlatformTLS::GetCurrentThreadId() );
+	//check( ThreadID == FPlatformTLS::GetCurrentThreadId() );
 	check( RunnableTlsSlot );
 	FPlatformTLS::SetTlsValue( RunnableTlsSlot, this );
 }
@@ -322,8 +377,17 @@ protected:
 	{
 		while (!TimeToDie)
 		{
-			// Wait for some work to do
-			DoWorkEvent->Wait();
+			// This will force sending the stats packet from the previous frame.
+			SET_DWORD_STAT( STAT_ThreadPoolDummyCounter, 0 );
+			// We need to wait for shorter amount of time
+			bool bContinueWaiting = true;
+			while( bContinueWaiting )
+			{				
+				DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FQueuedThread::Run.WaitForWork" ), STAT_FQueuedThread_Run_WaitForWork, STATGROUP_ThreadPoolAsyncTasks );
+				// Wait for some work to do
+				bContinueWaiting = !DoWorkEvent->Wait( 10 );
+			}
+
 			IQueuedWork* LocalQueuedWork = QueuedWork;
 			QueuedWork = nullptr;
 			FPlatformMisc::MemoryBarrier();
@@ -406,6 +470,8 @@ public:
 	 */
 	void DoWork(IQueuedWork* InQueuedWork)
 	{
+		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FQueuedThread::DoWork" ), STAT_FQueuedThread_DoWork, STATGROUP_ThreadPoolAsyncTasks );
+
 		check(QueuedWork == nullptr && "Can't do more than one task at a time");
 		// Tell the thread the work to be done
 		QueuedWork = InQueuedWork;
@@ -555,8 +621,8 @@ public:
 		FScopeLock sl(SynchQueue);
 		if (QueuedThreads.Num() > 0)
 		{
-			// Figure out which thread is available
-			int32 Index = QueuedThreads.Num() - 1;
+			// Cycle through all available threads to make sure that stats are up to date.
+			int32 Index = 0;
 			// Grab that thread to use
 			Thread = QueuedThreads[Index];
 			// Remove it from the list so no one else grabs it
@@ -628,7 +694,7 @@ FQueuedThreadPool* FQueuedThreadPool::Allocate()
 	FThreadSingletonInitializer
 -----------------------------------------------------------------------------*/
 
-FTlsAutoCleanup* FThreadSingletonInitializer::Get( const TFunctionRef<FTlsAutoCleanup*()>& CreateInstance, uint32& TlsSlot )
+FTlsAutoCleanup* FThreadSingletonInitializer::Get( TFunctionRef<FTlsAutoCleanup*()> CreateInstance, uint32& TlsSlot )
 {
 	if( TlsSlot == 0 )
 	{
@@ -659,19 +725,17 @@ void FTlsAutoCleanup::Register()
 	}
 }
 
-
-
-FMultiReaderSingleWriterGT::FMultiReaderSingleWriterGT()
-{
-	CanRead = TFunction<bool()>([=]() { return FPlatformAtomics::InterlockedCompareExchange(&CriticalSection.Action, ReadingAction, NoAction) == ReadingAction; });
-	CanWrite = TFunction<bool()>([=]() { return FPlatformAtomics::InterlockedCompareExchange(&CriticalSection.Action, WritingAction, NoAction) == WritingAction; });
-}
-
 void FMultiReaderSingleWriterGT::LockRead()
 {
 	if (!IsInGameThread())
-	{
-		FPlatformProcess::ConditionalSleep(CanRead);
+	{		
+		SCOPE_CYCLE_COUNTER(STAT_Sleep);
+
+		FThreadIdleStats::FScopeIdle Scope;
+		while (!CanRead())
+		{
+			FPlatformProcess::SleepNoStats(0.0f);
+		}
 	}
 	CriticalSection.ReadCounter.Increment();
 }
@@ -692,7 +756,17 @@ void FMultiReaderSingleWriterGT::UnlockRead()
 void FMultiReaderSingleWriterGT::LockWrite()
 {
 	check(IsInGameThread());
-	FPlatformProcess::ConditionalSleep(CanWrite);
+
+	{
+		SCOPE_CYCLE_COUNTER(STAT_Sleep);
+
+		FThreadIdleStats::FScopeIdle Scope;
+		while (!CanWrite())
+		{
+			FPlatformProcess::SleepNoStats(0.0f);
+		}
+	}
+
 	CriticalSection.WriteCounter.Increment();
 }
 

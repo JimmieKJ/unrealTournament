@@ -118,14 +118,18 @@ struct FBXImportOptions
 	FRotator ImportRotation;
 	float ImportUniformScale;
 	EFBXNormalImportMethod NormalImportMethod;
+	EFBXNormalGenerationMethod::Type NormalGenerationMethod;
 	// Static Mesh options
 	bool bCombineToSingle;
 	EVertexColorImportOption::Type VertexColorImportOption;
 	FColor VertexOverrideColor;
 	bool bRemoveDegenerates;
+	bool bBuildAdjacencyBuffer;
+	bool bBuildReversedIndexBuffer;
 	bool bGenerateLightmapUVs;
 	bool bOneConvexHullPerUCX;
 	bool bAutoGenerateCollision;
+	
 	FName StaticMeshLODGroup;
 	// Skeletal Mesh options
 	bool bImportMorph;
@@ -138,6 +142,7 @@ struct FBXImportOptions
 	bool bKeepOverlappingVertices;
 	bool bImportMeshesInBoneHierarchy;
 	bool bCreatePhysicsAsset;
+	bool bUseExperimentalTangentGeneration;
 	UPhysicsAsset *PhysicsAsset;
 	// Animation option
 	USkeleton* SkeletonForAnimation;
@@ -195,8 +200,8 @@ struct FbxSceneInfo
 	
 	TArray<FbxMeshInfo> MeshInfo;
 	
-	// only one take supported currently
-	char* TakeName;
+	/* true if it has animation */
+	bool bHasAnimation;
 	double FrameRate;
 	double TotalTime;
 
@@ -383,14 +388,13 @@ public:
 	 * @param NodeArray	Fbx Nodes to import
 	 * @param Name	the Unreal Mesh name after import
 	 * @param Flags
-	 * @param Filename	Fbx file name
 	 * @param FbxShapeArray	Fbx Morph objects.
 	 * @param OutData - Optional import data to populate
 	 * @param bCreateRenderData - Whether or not skeletal mesh rendering data will be created.
 	 *
 	 * @return The USkeletalMesh object created
 	 */
-	USkeletalMesh* ImportSkeletalMesh(UObject* InParent, TArray<FbxNode*>& NodeArray, const FName& Name, EObjectFlags Flags, UFbxSkeletalMeshImportData* TemplateImportData, FString Filename, TArray<FbxShape*> *FbxShapeArray=NULL, FSkeletalMeshImportData* OutData=NULL, bool bCreateRenderData = true );
+	USkeletalMesh* ImportSkeletalMesh(UObject* InParent, TArray<FbxNode*>& NodeArray, const FName& Name, EObjectFlags Flags, UFbxSkeletalMeshImportData* TemplateImportData, bool* bCancelOperation = nullptr, TArray<FbxShape*> *FbxShapeArray = nullptr, FSkeletalMeshImportData* OutData = nullptr, bool bCreateRenderData = true );
 
 	/**
 	 * Add to the animation set, the animations contained within the FBX scene, for the given skeletal mesh
@@ -444,10 +448,9 @@ public:
 	 *
 	 * @param SkelMeshNodeArray - Fbx Nodes that the base Skeletal Mesh construct from
 	 * @param BaseSkelMesh - base Skeletal Mesh
-	 * @param Filename - Fbx file name
 	 * @param LODIndex - LOD index
 	 */
-	void ImportFbxMorphTarget(TArray<FbxNode*> &SkelMeshNodeArray, USkeletalMesh* BaseSkelMesh, UObject* Parent, const FString& Filename, int32 LODIndex);
+	void ImportFbxMorphTarget(TArray<FbxNode*> &SkelMeshNodeArray, USkeletalMesh* BaseSkelMesh, UObject* Parent, int32 LODIndex);
 
 	/**
 	 * Import LOD object for skeletal mesh
@@ -622,10 +625,9 @@ private:
 	 *
 	 * @param SkelMeshNodeArray - Fbx Nodes that the base Skeletal Mesh construct from
 	 * @param BaseSkelMesh - base Skeletal Mesh
-	 * @param Filename - Fbx file name
 	 * @param LODIndex - LOD index of the skeletal mesh
 	 */
-	void ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMeshNodeArray, USkeletalMesh* BaseSkelMesh, UObject* Parent, const FString& InFilename, int32 LODIndex );
+	void ImportMorphTargetsInternal( TArray<FbxNode*>& SkelMeshNodeArray, USkeletalMesh* BaseSkelMesh, UObject* Parent, int32 LODIndex );
 
 	/**
 	* sub-method called from ImportSkeletalMeshLOD method
@@ -680,6 +682,10 @@ protected:
 	// Initialized as true when start to import a FBX scene
 	bool bFirstMesh;
 	
+	// Set when importing skeletal meshes if the merge bones step fails. Used to track
+	// YesToAll and NoToAll for an entire scene
+	EAppReturnType::Type LastMergeBonesChoice;
+
 	/**
 	 * Collision model list. The key is fbx node name
 	 * If there is an collision model with old name format, the key is empty string("").
@@ -921,7 +927,7 @@ protected:
 	 * @param ImportData
 	 * @return int32 number of points that added when process unsmooth faces
 	*/
-	int32 DoUnSmoothVerts(FSkeletalMeshImportData &ImportData);
+	int32 DoUnSmoothVerts(FSkeletalMeshImportData &ImportData, bool bDuplicateUnSmoothWedges = true);
 	
 	/**
 	 * Merge all layers of one AnimStack to one layer.

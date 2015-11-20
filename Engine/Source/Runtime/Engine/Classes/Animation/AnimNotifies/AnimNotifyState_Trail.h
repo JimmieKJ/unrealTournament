@@ -6,8 +6,8 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAnimTrails, Log, All);
 
-UCLASS(editinlinenew, Blueprintable, const, hidecategories = Object, collapsecategories, MinimalAPI, meta = (ShowWorldContextPin, DisplayName = "Trail"))
-class UAnimNotifyState_Trail : public UAnimNotifyState
+UCLASS(editinlinenew, Blueprintable, const, hidecategories = Object, collapsecategories, meta = (ShowWorldContextPin, DisplayName = "Trail"))
+class ENGINE_API UAnimNotifyState_Trail : public UAnimNotifyState
 {
 	GENERATED_UCLASS_BODY()
 	
@@ -16,7 +16,9 @@ class UAnimNotifyState_Trail : public UAnimNotifyState
 	UParticleSystem* PSTemplate;
 
 	UFUNCTION(BlueprintImplementableEvent)
-	UParticleSystem* OverridePSTemplate(class USkeletalMeshComponent * MeshComp, class UAnimSequenceBase * Animation) const;
+	UParticleSystem* OverridePSTemplate(class USkeletalMeshComponent* MeshComp, class UAnimSequenceBase* Animation) const;
+
+	virtual UParticleSystem* GetOverridenPSTemplate(class USkeletalMeshComponent* MeshComp, class UAnimSequenceBase* Animation) const;
 
 	/** Name of the first socket defining this trail. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Trail)
@@ -38,6 +40,9 @@ class UAnimNotifyState_Trail : public UAnimNotifyState
 	/** Name of the curve to drive the width scale. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Trail)
 	FName WidthScaleCurve;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Trail)
+	uint32 bRecycleSpawnedSystems:1;
 
 #if WITH_EDITORONLY_DATA
 	/** If true, render the trail geometry (this should typically be on) */

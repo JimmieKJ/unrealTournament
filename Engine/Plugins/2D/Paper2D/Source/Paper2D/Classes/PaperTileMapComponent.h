@@ -153,7 +153,8 @@ public:
 	UFUNCTION(BlueprintPure, Category="Sprite", meta=(Layer="0"))
 	FPaperTileInfo GetTile(int32 X, int32 Y, int32 Layer) const;
 
-	// Modifies the contents of a specified tile cell (Note: This will only work on components that own their own tile map (OwnsTileMap returns true), you cannot modify standalone tile map assets) 
+	// Modifies the contents of a specified tile cell (Note: This will only work on components that own their own tile map (OwnsTileMap returns true), you cannot modify standalone tile map assets)
+	// Note: Does not update collision by default, call RebuildCollision after all edits have been done in a frame if necessary
 	UFUNCTION(BlueprintCallable, Category="Sprite", meta=(Layer="0"))
 	void SetTile(int32 X, int32 Y, int32 Layer, FPaperTileInfo NewValue);
 
@@ -202,6 +203,20 @@ public:
 	// Returns the polygon for the specified tile (will be 4 or 6 vertices as a rectangle, diamond, or hexagon)
 	UFUNCTION(BlueprintPure, Category="Sprite")
 	void GetTilePolygon(int32 TileX, int32 TileY, TArray<FVector>& Points, int32 LayerIndex = 0, bool bWorldSpace = false) const;
+
+	// Sets the default thickness for any layers that don't override the collision thickness
+	// Note: This will only work on components that own their own tile map (OwnsTileMap returns true), you cannot modify standalone tile map assets
+	UFUNCTION(BlueprintCallable, Category="Sprite")
+	void SetDefaultCollisionThickness(float Thickness, bool bRebuildCollision = true);
+
+	// Sets the collision thickness for a specific layer
+	// Note: This will only work on components that own their own tile map (OwnsTileMap returns true), you cannot modify standalone tile map assets
+	UFUNCTION(BlueprintCallable, Category="Sprite")
+	void SetLayerCollision(int32 Layer = 0, bool bHasCollision = true, bool bOverrideThickness = true, float CustomThickness = 50.0f, bool bOverrideOffset = false, float CustomOffset = 0.0f, bool bRebuildCollision = true);
+
+	// Rebuilds collision for the tile map
+	UFUNCTION(BlueprintCallable, Category = "Sprite")
+	void RebuildCollision();
 
 #if WITH_EDITOR
 	// Returns the rendering stats for this component

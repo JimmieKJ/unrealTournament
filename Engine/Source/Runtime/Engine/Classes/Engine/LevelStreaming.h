@@ -71,13 +71,16 @@ class ULevelStreaming : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	/** Deprecated name of the package containing the level to load. Use WorldAsset or GetWorldAssetPackageFName instead.		*/
+	/** Deprecated name of the package containing the level to load. Use GetWorldAsset() or GetWorldAssetPackageFName() instead.		*/
 	UPROPERTY()
 	FName PackageName_DEPRECATED;
 
+private:
 	/** The reference to the world containing the level to load																	*/
-	UPROPERTY(Category=LevelStreaming, VisibleAnywhere, BlueprintReadOnly, meta=(DisplayName = "Level"))
+	UPROPERTY(Category=LevelStreaming, VisibleAnywhere, BlueprintReadOnly, meta=(DisplayName = "Level", AllowPrivateAccess="true"))
 	TAssetPtr<UWorld> WorldAsset;
+
+public:
 
 	/** If this isn't Name_None, then we load from this package on disk to the new package named PackageName					*/
 	UPROPERTY()
@@ -161,21 +164,27 @@ class ULevelStreaming : public UObject
 	UPROPERTY()
 	TArray<FString> Keywords;
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostLoad() override;
-	virtual void Serialize( FArchive& Ar ) override;
 #if WITH_EDITOR
+	virtual void Serialize( FArchive& Ar ) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	
 	/** Remove duplicates in EditorStreamingVolumes list*/
 	void RemoveStreamingVolumeDuplicates();
 #endif
-	// End UObject Interface
+	//~ End UObject Interface
 
 	bool HasLoadedLevel() const
 	{
 		return (LoadedLevel || PendingUnloadLevel);
 	}
+
+	/** Returns a constant reference to the world asset this streaming level object references  */
+	ENGINE_API const TAssetPtr<UWorld>& GetWorldAsset() const { return WorldAsset; }
+
+	/** Setter for WorldAsset. Use this instead of setting WorldAsset directly to update the cached package name. */
+	ENGINE_API void SetWorldAsset(const TAssetPtr<UWorld>& NewWorldAsset);
 
 	/** Gets the package name for the world asset referred to by this level streaming */
 	ENGINE_API FString GetWorldAssetPackageName() const;
@@ -214,7 +223,7 @@ class ULevelStreaming : public UObject
 	FBox GetStreamingVolumeBounds();
 
 	/** Gets a pointer to the LoadedLevel value */
-	class ULevel* GetLoadedLevel() const {	return LoadedLevel; }
+	ENGINE_API class ULevel* GetLoadedLevel() const {	return LoadedLevel; }
 	
 	/** Sets the LoadedLevel value to NULL */
 	void ClearLoadedLevel() { SetLoadedLevel(nullptr); }
@@ -245,21 +254,25 @@ class ULevelStreaming : public UObject
 
 	/** Returns whether streaming level is visible */
 	UFUNCTION(BlueprintCallable, Category="Game")
-	bool IsLevelVisible() const;
+	ENGINE_API bool IsLevelVisible() const;
 
 	/** Returns whether streaming level is loaded */
 	UFUNCTION(BlueprintCallable, Category="Game")
-	bool IsLevelLoaded() const;
+	ENGINE_API bool IsLevelLoaded() const;
 
 	/** Returns whether level has streaming state change pending */
 	UFUNCTION(BlueprintCallable, Category="Game")
-	bool IsStreamingStatePending() const;
+	ENGINE_API bool IsStreamingStatePending() const;
 
 	/** Creates a new instance of this streaming level with a provided unique instance name */
 	UFUNCTION(BlueprintCallable, Category="Game")
 	ULevelStreaming* CreateInstance(FString UniqueInstanceName);
 
-	//==============================================================================================
+	/** Returns the Level Script Actor of the level if the level is loaded and valid */
+	UFUNCTION(BlueprintPure, meta = (BlueprintInternalUseOnly = "true"))
+	ALevelScriptActor* GetLevelScriptActor();
+
+	//~==============================================================================================
 	// Delegates
 	
 	/** Called when level is streamed in  */
@@ -333,6 +346,11 @@ private:
 	/** Pointer to a Level object that was previously active and was replaced with a new LoadedLevel (for LOD switching) */
 	UPROPERTY(transient)
 	class ULevel* PendingUnloadLevel;
+
+	/** The cached package name of the world asset that is loaded by the levelstreaming */
+	FName CachedWorldAssetPackageFName;
+
+	FName CachedLoadedLevelPackageName;
 	
 	/** Friend classes to allow access to SetLoadedLevel */
 	friend class UEngine;

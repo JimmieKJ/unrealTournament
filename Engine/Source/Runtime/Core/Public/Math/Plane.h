@@ -239,6 +239,16 @@ public:
 		return Ar << (FVector&)P << P.W;
 	}
 
+	bool Serialize( FArchive& Ar )
+	{
+		if (Ar.UE4Ver() >= VER_UE4_ADDED_NATIVE_SERIALIZATION_FOR_IMMUTABLE_STRUCTURES)
+		{
+			Ar << *this;
+			return true;
+		}
+		return false;
+	}
+
 	/**
 	 * Serializes the vector compressed for e.g. network transmission.
 	 * @param Ar Archive to serialize to/ from.

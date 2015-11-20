@@ -33,7 +33,7 @@ public:
 		, _AutoWrapText(false)
 	{ }
 
-		SLATE_TEXT_ARGUMENT(ErrorText)
+		SLATE_ARGUMENT(FText, ErrorText)
 		SLATE_ATTRIBUTE(FSlateColor, BackgroundColor)
 		SLATE_ATTRIBUTE(FSlateFontInfo, Font)
 		SLATE_ATTRIBUTE(bool, AutoWrapText)

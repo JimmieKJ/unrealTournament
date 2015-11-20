@@ -45,7 +45,7 @@ private:
 	TSharedPtr<SBorder> ChatEditBox;
 
 	/** Holds the chat widget view model */
-	TSharedPtr<IChatViewModel> ViewModel;
+	TSharedPtr<class FChatViewModel> ViewModel;
 
 	/** Player context */
 	FLocalPlayerContext Ctx;

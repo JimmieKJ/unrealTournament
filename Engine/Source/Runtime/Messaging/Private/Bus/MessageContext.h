@@ -43,7 +43,7 @@ public:
 	 * @param InExpiration The message's expiration time.
 	 * @param InSenderThread The name of the thread from which the message was sent.
 	 */
-	FMessageContext( void* InMessage, UScriptStruct* InTypeInfo, const IMessageAttachmentPtr& InAttachment, const FMessageAddress& InSender, const TArray<FMessageAddress>& InRecipients, EMessageScope InScope, const FDateTime& InTimeSent, const FDateTime& InExpiration, ENamedThreads::Type InSenderThread )
+	FMessageContext(void* InMessage, UScriptStruct* InTypeInfo, const IMessageAttachmentPtr& InAttachment, const FMessageAddress& InSender, const TArray<FMessageAddress>& InRecipients, EMessageScope InScope, const FDateTime& InTimeSent, const FDateTime& InExpiration, ENamedThreads::Type InSenderThread)
 		: Attachment(InAttachment)
 		, Expiration(InExpiration)
 		, Message(InMessage)
@@ -67,7 +67,7 @@ public:
 	 * @param InTimeForwarded The time at which the message was forwarded.
 	 * @param InForwarderThread The name of the thread from which the message was forwarded.
 	 */
-	FMessageContext( const IMessageContextRef& InContext, const FMessageAddress& InForwarder, const TArray<FMessageAddress>& NewRecipients, EMessageScope NewScope, const FDateTime& InTimeForwarded, ENamedThreads::Type InForwarderThread )
+	FMessageContext(const IMessageContextRef& InContext, const FMessageAddress& InForwarder, const TArray<FMessageAddress>& NewRecipients, EMessageScope NewScope, const FDateTime& InTimeForwarded, ENamedThreads::Type InForwarderThread)
 		: Message(nullptr)
 		, OriginalContext(InContext)
 		, Recipients(NewRecipients)

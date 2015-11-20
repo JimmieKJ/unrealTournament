@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include "GameplayTagsK2Node_MultiCompareBase.h"
 #include "GameplayTagsK2Node_MultiCompareGameplayTagAssetInterface.generated.h"
 
 UCLASS()

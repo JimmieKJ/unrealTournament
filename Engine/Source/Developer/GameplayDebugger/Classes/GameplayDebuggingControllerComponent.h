@@ -18,7 +18,7 @@ UCLASS(config = Engine)
 class GAMEPLAYDEBUGGER_API UGameplayDebuggingControllerComponent : public UActorComponent
 {
 	GENERATED_UCLASS_BODY()
-		
+
 #if WITH_HOT_RELOAD_CTORS
 	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
 	UGameplayDebuggingControllerComponent(FVTableHelper& Helper);
@@ -53,9 +53,6 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggingControllerComponent : public UActor
 
 	TWeakObjectPtr<ADebugCameraController> GetDebugCameraController() { return DebugCameraController; }
 
-	FOnChangeEQSQuery OnNextEQSQuery;
-	FOnChangeEQSQuery OnPreviousEQSQuery;
-
 protected:
 
 	UPROPERTY(Transient)
@@ -86,11 +83,13 @@ protected:
 	virtual void ToggleAIDebugView_SetView7();
 	virtual void ToggleAIDebugView_SetView8();
 	virtual void ToggleAIDebugView_SetView9();
-	virtual void NextEQSQuery();
+	virtual void CycleDetailsView();
 
 	virtual void BindAIDebugViewKeys(class UInputComponent*& InputComponent);
 	AGameplayDebuggingReplicator* GetDebuggingReplicator() const;
 	virtual void ToggleDebugCamera();
+	virtual void ToggleOnScreenDebugMessages();
+	virtual void ToggleGameHUD();
 
 	TWeakObjectPtr<APlayerController> PlayerOwner;
 	TWeakObjectPtr<ADebugCameraController> DebugCameraController;
@@ -113,9 +112,9 @@ class AGaneplayDebuggerProxyHUD : public AHUD
 
 	FFontRenderInfo TextRenderInfo;
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void PostRender() override;
-	// End AActor Interface
+	//~ End AActor Interface
 
 	TWeakObjectPtr<AHUD> RedirectedHUD;
 };

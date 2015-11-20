@@ -39,7 +39,7 @@ void UAbilityTask_WaitInputRelease::OnReleaseCallback()
 
 UAbilityTask_WaitInputRelease* UAbilityTask_WaitInputRelease::WaitInputRelease(class UObject* WorldContextObject, bool bTestAlreadyReleased)
 {
-	UAbilityTask_WaitInputRelease* Task = NewTask<UAbilityTask_WaitInputRelease>(WorldContextObject);
+	UAbilityTask_WaitInputRelease* Task = NewAbilityTask<UAbilityTask_WaitInputRelease>(WorldContextObject);
 	Task->bTestInitialState = bTestAlreadyReleased;
 	return Task;
 }

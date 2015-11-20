@@ -24,6 +24,12 @@ void FMemberReference::SetExternalMember(FName InMemberName, TSubclassOf<class U
 	bWasDeprecated = false;
 }
 
+void FMemberReference::SetExternalMember(FName InMemberName, TSubclassOf<class UObject> InMemberParentClass, FGuid& InMemberGuid)
+{
+	SetExternalMember(InMemberName, InMemberParentClass);
+	MemberGuid = InMemberGuid;
+}
+
 void FMemberReference::SetGlobalField(FName InFieldName, UPackage* InParentPackage)
 {
 	MemberName = InFieldName;
@@ -45,6 +51,12 @@ void FMemberReference::SetSelfMember(FName InMemberName)
 	MemberScope.Empty();
 	bSelfContext = true;
 	bWasDeprecated = false;
+}
+
+void FMemberReference::SetSelfMember(FName InMemberName, FGuid& InMemberGuid)
+{
+	SetSelfMember(InMemberName);
+	MemberGuid = InMemberGuid;
 }
 
 void FMemberReference::SetDirect(const FName InMemberName, const FGuid InMemberGuid, TSubclassOf<class UObject> InMemberParentClass, bool bIsConsideredSelfContext)
@@ -104,6 +116,43 @@ void FMemberReference::InvalidateScope()
 }
 
 #if WITH_EDITOR
+
+FString FMemberReference::GetReferenceSearchString(UClass* InFieldOwner) const
+{
+	if (!IsLocalScope())
+	{
+		if (InFieldOwner)
+		{
+			if (MemberGuid.IsValid())
+			{
+				return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s && MemberGuid(A=%i && B=%i && C=%i && D=%i) ))"), *MemberName.ToString(), MemberGuid.A, MemberGuid.B, MemberGuid.C, MemberGuid.D);
+			}
+			else
+			{
+				FString ExportMemberParentName;
+				ExportMemberParentName = InFieldOwner->GetClass()->GetName();
+				ExportMemberParentName.AppendChar('\'');
+				ExportMemberParentName += InFieldOwner->GetAuthoritativeClass()->GetPathName();
+				ExportMemberParentName.AppendChar('\'');
+
+				return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s && (MemberParent=\"%s\" || bSelfContext=true) ))"), *MemberName.ToString(), *ExportMemberParentName);
+			}
+		}
+		else if (MemberGuid.IsValid())
+		{
+			return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s && MemberGuid(A=%i && B=%i && C=%i && D=%i)))"), *MemberName.ToString(), MemberGuid.A, MemberGuid.B, MemberGuid.C, MemberGuid.D);
+		}
+		else
+		{
+			return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s))"), *MemberName.ToString());
+		}
+	}
+	else
+	{
+		return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s && MemberScope=+%s))"), *MemberName.ToString(), *GetMemberScopeName());
+	}
+}
+
 FName FMemberReference::RefreshLocalVariableName(UClass* InSelfScope) const
 {
 	TArray<UBlueprint*> Blueprints;

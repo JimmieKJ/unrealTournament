@@ -3,7 +3,7 @@
 #include "UdpMessagingPrivatePCH.h"
 
 
-UUdpMessagingSettings::UUdpMessagingSettings( const FObjectInitializer& ObjectInitializer )
+UUdpMessagingSettings::UUdpMessagingSettings(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 	, EnableTransport(true)
 	, MulticastTimeToLive(1)

@@ -5,7 +5,10 @@
 #include "ISettingsModule.h"
 #include "ModuleInterface.h"
 #include "ModuleManager.h"
-
+#include "MaterialShaderQualitySettings.h"
+#include "MaterialShaderQualitySettingsCustomization.h"
+#include "RenderingThread.h"
+#include "ComponentRecreateRenderStateContext.h"
 
 #define LOCTEXT_NAMESPACE "FIOSPlatformEditorModule"
 
@@ -27,6 +30,19 @@ class FIOSPlatformEditorModule
 			FOnGetDetailCustomizationInstance::CreateStatic(&FIOSTargetSettingsCustomization::MakeInstance)
 		);
 
+		FOnUpdateMaterialShaderQuality UpdateMaterials = FOnUpdateMaterialShaderQuality::CreateLambda([]()
+		{
+			FGlobalComponentRecreateRenderStateContext Recreate;
+			FlushRenderingCommands();
+			UMaterial::AllMaterialsCacheResourceShadersForRendering();
+			UMaterialInstance::AllMaterialsCacheResourceShadersForRendering();
+		});
+
+		PropertyModule.RegisterCustomClassLayout(
+			UShaderPlatformQualitySettings::StaticClass()->GetFName(),
+			FOnGetDetailCustomizationInstance::CreateStatic(&FMaterialShaderQualitySettingsCustomization::MakeInstance, UpdateMaterials)
+			);
+
 		PropertyModule.NotifyCustomizationModuleChanged();
 
 		// register settings
@@ -39,6 +55,14 @@ class FIOSPlatformEditorModule
 				LOCTEXT("RuntimeSettingsDescription", "Settings and resources for the iOS platform"),
 				GetMutableDefault<UIOSRuntimeSettings>()
 			);
+
+			static FName NAME_OPENGL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
+			const UShaderPlatformQualitySettings* IOSES2MaterialQualitySettings = UMaterialShaderQualitySettings::Get()->GetShaderPlatformQualitySettings(NAME_OPENGL_ES2_IOS);
+			SettingsModule->RegisterSettings("Project", "Platforms", "iOSES2Quality",
+				LOCTEXT("IOSES2QualitySettingsName", "iOS ES2 Quality"),
+				LOCTEXT("IOSES2QualitySettingsDescription", "Settings for iOS ES2 material quality"),
+				IOSES2MaterialQualitySettings
+				);
 		}
 	}
 
@@ -49,6 +73,7 @@ class FIOSPlatformEditorModule
 		if (SettingsModule != nullptr)
 		{
 			SettingsModule->UnregisterSettings("Project", "Platforms", "iOS");
+			SettingsModule->UnregisterSettings("Project", "Platforms", "iOSES2Quality");
 		}
 	}
 };

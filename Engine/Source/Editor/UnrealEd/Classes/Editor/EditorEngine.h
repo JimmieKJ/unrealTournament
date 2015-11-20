@@ -16,19 +16,21 @@ class FAssetData;
 class FPoly;
 class UAnimSequence;
 class USkeleton;
+class UFoliageType;
+
 //
 // Things to set in mapSetBrush.
 //
 UENUM()
 enum EMapSetBrushFlags				
 {
-	// Set brush color.
+	/** Set brush color. */
 	MSB_BrushColor	= 1,
-	// Set group.
+	/** Set group. */
 	MSB_Group		= 2,
-	// Set poly flags.
+	/** Set poly flags. */
 	MSB_PolyFlags	= 4,
-	// Set CSG operation.
+	/** Set CSG operation. */
 	MSB_BrushType	= 8,
 };
 
@@ -302,12 +304,6 @@ public:
 	UPROPERTY()
 	class UTexture2D* Bad;
 
-	UPROPERTY()
-	class UTexture2D* Bkgnd;
-
-	UPROPERTY()
-	class UTexture2D* BkgndHi;
-
 	// Font used by Canvas-based editors
 	UPROPERTY()
 	class UFont* EditorFont;
@@ -473,10 +469,6 @@ public:
 	UPROPERTY()
 	TArray<TWeakObjectPtr<class AActor> > ActorsThatWereSelected;
 
-	/** True to start movie capturing right away when launching the game from the editor on PC platform */
-	UPROPERTY()
-	uint32 bStartMovieCapture:1;
-
 	/** Where did the person want to play? Where to play the game - -1 means in editor, 0 or more is an index into the GConsoleSupportContainer	*/
 	UPROPERTY()
 	int32 PlayWorldDestination;
@@ -493,14 +485,6 @@ public:
 	UPROPERTY(config)
 	int32 BuildPlayDevice;
 
-	/** Enabled online PIE */
-	UPROPERTY(config)
-	bool bOnlinePIEEnabled;
-
-	/** Logins available for use when running PIE instances */
-	UPROPERTY(config)
-	TArray<FPIELoginInfo> PIELogins;
-
 	/** Maps world contexts to their slate data */
 	TMap<FName, FSlatePlayInEditorInfo>	SlatePlayInEditorMap;
 
@@ -510,14 +494,6 @@ public:
 	/** When set to anything other than -1, indicates a specific In-Editor viewport index that PIE should use */
 	UPROPERTY()
 	int32 PlayInEditorViewportIndex;
-
-	/** The width resolution that we want to use for the matinee capture */
-	UPROPERTY()
-	int32 MatineeCaptureResolutionX;
-
-	/** The height resolution that we want to use for the matinee capture */
-	UPROPERTY()
-	int32 MatineeCaptureResolutionY;
 
 	/** Play world url string edited by a user. */
 	UPROPERTY()
@@ -645,6 +621,14 @@ public:
 	DECLARE_EVENT_OneParam( UEditorEngine, FOnEndTransformObject, UObject& );
 	FOnEndTransformObject& OnEndObjectMovement() { return OnEndObjectTransformEvent; }
 
+	/** Editor-only event triggered before the camera viewed through the viewport is moved by an editor system */
+	DECLARE_EVENT_OneParam( UEditorEngine, FOnBeginTransformCamera, UObject& );
+	FOnBeginTransformCamera& OnBeginCameraMovement() { return OnBeginCameraTransformEvent; }
+
+	/** Editor-only event triggered after the camera viewed through the viewport has been moved by an editor system */
+	DECLARE_EVENT_OneParam( UEditorEngine, FOnEndTransformCamera, UObject& );
+	FOnEndTransformCamera& OnEndCameraMovement() { return OnEndCameraTransformEvent; }
+
 	/** Delegate broadcast by the engine every tick when PIE/SIE is active, to check to see whether we need to
 		be able to capture state for simulating actor (for Sequencer recording features).  The single bool parameter
 		should be set to true if recording features are needed. */
@@ -665,16 +649,30 @@ public:
 	*/
 	void BroadcastEndObjectMovement(UObject& Object) const { OnEndObjectTransformEvent.Broadcast(Object); }
 
+	/**
+	* Called before the camera viewed through the viewport is moved by the editor
+	*
+	* @param Object	The camera that will be moved
+	*/
+	void BroadcastBeginCameraMovement(UObject& Object) const { OnBeginCameraTransformEvent.Broadcast(Object); }
+
+	/**
+	* Called when the camera viewed through the viewport has been moved by the editor
+	*
+	* @param Object	The camera that moved
+	*/
+	void BroadcastEndCameraMovement(UObject& Object) const { OnEndCameraTransformEvent.Broadcast(Object); }
+
 	/**	Broadcasts that an object has been reimported. THIS SHOULD NOT BE PUBLIC */
 	void BroadcastObjectReimported(UObject* InObject);
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void FinishDestroy() override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	// End UObject interface.
+	//~ End UObject Interface.
 
-	// Begin UEngine interface.
+	//~ Begin UEngine Interface.
 public:
 	virtual void Init(IEngineLoop* InEngineLoop) override;
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing = true) const override;
@@ -689,6 +687,7 @@ public:
 	virtual UWorld* CreatePIEWorldByDuplication(FWorldContext &WorldContext, UWorld* InWorld, FString &PlayWorldMapName) override;
 	virtual bool GetMapBuildCancelled() const override { return false; }
 	virtual void SetMapBuildCancelled(bool InCancelled) override { /* Intentionally empty. */ }
+	virtual void HandleNetworkFailure(UWorld *World, UNetDriver *NetDriver, ENetworkFailure::Type FailureType, const FString& ErrorString) override;
 protected:
 	virtual void InitializeObjectReferences() override;
 	virtual void ProcessToggleFreezeCommand(UWorld* InWorld) override;
@@ -703,11 +702,11 @@ private:
 	virtual void CreateStartupAnalyticsAttributes(TArray<FAnalyticsEventAttribute>& StartSessionAttributes) const override;
 	virtual void VerifyLoadMapWorldCleanup() override;
 public:
-	// End UEngine interface.
+	//~ End UEngine Interface.
 	
-	// Begin FExec Interface
+	//~ Begin FExec Interface
 	virtual bool Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar=*GLog ) override;
-	// End FExec Interface
+	//~ End FExec Interface
 
 	bool	CommandIsDeprecated( const TCHAR* CommandStr, FOutputDevice& Ar );
 	
@@ -814,7 +813,7 @@ public:
 	 */
 	void ExecFile( UWorld* InWorld, const TCHAR* InFilename, FOutputDevice& Ar );
 
-	// Transaction interfaces.
+	//~ Begin Transaction Interfaces.
 	int32 BeginTransaction(const TCHAR* SessionContext, const FText& Description, UObject* PrimaryObject);
 	int32 BeginTransaction(const FText& Description);
 	int32 EndTransaction();
@@ -857,8 +856,9 @@ public:
 	 *
 	 * @param Model					The model to be rebuilt.
 	 * @param bSelectedBrushesOnly	Use all brushes in the current level or just the selected ones?.
+	 * @param bTreatMovableBrushesAsStatic	Treat moveable brushes as static?.
 	 */
-	void RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushesOnly);
+	void RebuildModelFromBrushes(UModel* Model, bool bSelectedBrushesOnly, bool bTreatMovableBrushesAsStatic = false);
 
 	/**
 	 * Rebuilds levels containing currently selected brushes and should be invoked after a brush has been modified
@@ -1262,7 +1262,7 @@ public:
 	 *
 	 * Doesn't do any transaction tracking.
 	 */
-	virtual void polyUpdateMaster( UModel* Model, int32 iSurf, int32 UpdateTexCoords );
+	virtual void polyUpdateMaster( UModel* Model, int32 iSurf, bool bUpdateTexCoords, bool bOnlyRefreshSurfaceMaterials );
 
 	/**
 	 * Populates a list with all polys that are linked to the specified poly.  The
@@ -1320,6 +1320,11 @@ public:
 	 * @param	bDeselectBSPSurfs			If true, also deselect all BSP surfaces.
 	 */
 	virtual void SelectNone(bool bNoteSelectionChange, bool bDeselectBSPSurfs, bool WarnAboutManyActors=true) {}
+
+	/**
+	 * Deselect all surfaces.
+	 */
+	virtual void DeselectAllSurfaces() {}
 
 	// Bsp Poly selection virtuals from EditorCsg.cpp.
 	virtual void polySelectAll ( UModel* Model );
@@ -1496,9 +1501,8 @@ public:
 	 * @param	DestinationConsole		Where to play the game - -1 means in editor, 0 or more is an index into the GConsoleSupportContainer
 	 * @param	InPlayInViewportIndex	Viewport index to play the game in, or -1 to spawn a standalone PIE window
 	 * @param	bUseMobilePreview		True to enable mobile preview mode (PC platform only)
-	 * @param	bMovieCapture			True to start with movie capture recording (PC platform only)
 	 */
-	virtual void PlayMap( const FVector* StartLocation = NULL, const FRotator* StartRotation = NULL, int32 DestinationConsole = -1, int32 InPlayInViewportIndex = -1, bool bUseMobilePreview = false, bool bMovieCapture = false );
+	virtual void PlayMap( const FVector* StartLocation = NULL, const FRotator* StartRotation = NULL, int32 DestinationConsole = -1, int32 InPlayInViewportIndex = -1, bool bUseMobilePreview = false );
 
 
 
@@ -1613,11 +1617,6 @@ public:
 	virtual void PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor );
 
 	virtual UGameInstance* CreatePIEGameInstance(int32 PIEInstance, bool bInSimulateInEditor, bool bAnyBlueprintErrors, bool bStartInSpectatorMode, bool bPlayNetDedicated, float PIEStartTime);
-
-	/**
-	 * Launches the game in movie capture mode
-	 */
-	virtual void PlayForMovieCapture();
 
 	/**
 	 * Kills the Play From Here session
@@ -1763,6 +1762,14 @@ public:
 	 * @param	InLevel		The target level.
 	 */
 	void MoveSelectedFoliageToLevel( ULevel* InTargetLevel );
+
+	/**
+	 *	Returns list of all foliage types used in the world
+	 * 
+	 * @param	InWorld	 The target world.
+	 * @return	List of all foliage types used in the world
+	 */
+	TArray<UFoliageType*> GetFoliageTypesInWorld(UWorld* InWorld);
 
 	/**
 	 * Checks to see whether it's possible to perform a copy operation on the selected actors.
@@ -2002,6 +2009,11 @@ public:
 	bool SavePackage( UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename, 
 		FOutputDevice* Error=GError, FLinkerLoad* Conform=NULL, bool bForceByteSwapping=false, bool bWarnOfLongFilename=true, 
 		uint32 SaveFlags=SAVE_None, const class ITargetPlatform* TargetPlatform = NULL, const FDateTime& FinalTimeStamp = FDateTime::MinValue(), bool bSlowTask = true );
+
+	/** The editor wrapper for UPackage::Save. Auto-adds files to source control when necessary */
+	ESavePackageResult Save(UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename,
+		FOutputDevice* Error = GError, FLinkerLoad* Conform = NULL, bool bForceByteSwapping = false, bool bWarnOfLongFilename = true,
+		uint32 SaveFlags = SAVE_None, const class ITargetPlatform* TargetPlatform = NULL, const FDateTime& FinalTimeStamp = FDateTime::MinValue(), bool bSlowTask = true);
 
 	/** Invoked before a UWorld is saved to update editor systems */
 	virtual void OnPreSaveWorld(uint32 SaveFlags, UWorld* World);
@@ -2274,6 +2286,11 @@ public:
 	 */
 	bool IsPlayingViaLauncher() const { return bPlayUsingLauncher && !bIsPlayWorldQueued; }
 
+	/** 
+	 * Cancel playing via the Launcher
+	 */
+	void CancelPlayingViaLauncher();
+
 	/** @return true if the editor is able to launch PIE with online platform support */
 	bool SupportsOnlinePIE() const;
 
@@ -2370,6 +2387,9 @@ private:
 	 */
 	virtual void OnLoginPIEComplete(int32 LocalUserNum, bool bWasSuccessful, const FUniqueNetId& UserId, const FString& ErrorString, FPieLoginStruct DataStruct);
 
+	/** Above function but called a frame later, to stop PIE login from happening from a network callback */
+	virtual void OnLoginPIEComplete_Deferred(int32 LocalUserNum, bool bWasSuccessful, FString ErrorString, FPieLoginStruct DataStruct);
+
 public:
 	/**
 	 * Continue the creation of a single PIE world after a login was successful
@@ -2377,8 +2397,9 @@ public:
 	 * @param PieWorldContext world context for this PIE instance
 	 * @param PlayNetMode mode to create this PIE world in (as server, client, etc)
 	 * @param DataStruct data required to continue PIE creation, set at login time
+	 * @return	true if world created successfully
 	 */
-	void CreatePIEWorldFromLogin(FWorldContext& PieWorldContext, EPlayNetMode PlayNetMode, FPieLoginStruct& DataStruct);
+	bool CreatePIEWorldFromLogin(FWorldContext& PieWorldContext, EPlayNetMode PlayNetMode, FPieLoginStruct& DataStruct);
 
 	/*
 	 * Handler for when viewport close request is made. 
@@ -2544,6 +2565,12 @@ private:
 	/** Delegate broadcast when an actor or component has been moved, rotated, or scaled */
 	FOnEndTransformObject OnEndObjectTransformEvent;
 
+	/** Delegate broadcast when the camera viewed through the viewport is about to be moved */
+	FOnBeginTransformCamera OnBeginCameraTransformEvent;
+
+	/** Delegate broadcast when the camera viewed through the viewport has been moved */
+	FOnEndTransformCamera OnEndCameraTransformEvent;
+
 	/** Delegate broadcast by the engine every tick when PIE/SIE is active, to check to see whether we need to
 		be able to capture state for simulating actor (for Sequencer recording features) */
 	FGetActorRecordingState GetActorRecordingStateEvent;
@@ -2568,6 +2595,9 @@ private:
 
 	/** The Timer manager for all timer delegates */
 	TSharedPtr<class FTimerManager> TimerManager;
+
+	/** The output log -> message log redirector for use during PIE */
+	TSharedPtr<class FOutputLogErrorsToMessageLogProxy> OutputLogErrorsToMessageLogProxyPtr;
 
 	struct FPlayOnPCInfo
 	{
@@ -2620,7 +2650,12 @@ protected:
 
 	void PlayUsingLauncher();
 
+public:
+
+	/** Save the currently loaded world ready for a play session */
 	void SaveWorldForPlay(TArray<FString>& SavedMapNames);
+
+protected:
 
 	/** Called when Matinee is opened */
 	virtual void OnOpenMatinee(){};
@@ -2630,8 +2665,8 @@ protected:
 	 */
 	void InvalidateAllViewportsAndHitProxies();
 
-	/** Invalidate all level editor viewport client hit proxies immediately */
-	void InvalidateAllLevelEditorViewportClientHitProxies();
+	/** Initialize Portal RPC. */
+	void InitializePortal();
 
 	/** Destroy any online subsystems generated by PIE */
 	void CleanupPIEOnlineSessions(TArray<FName> OnlineIdentifiers);
@@ -2696,6 +2731,8 @@ public:
 	void SetActorLabelUnique( AActor* Actor, const FString& NewActorLabel, const FCachedActorLabels* InExistingActorLabels = nullptr ) const;
 
 	virtual void HandleTravelFailure(UWorld* InWorld, ETravelFailure::Type FailureType, const FString& ErrorString);
+
+	void AutomationLoadMap(const FString& MapName);
 
 private:
 	FTimerHandle CleanupPIEOnlineSessionsTimerHandle;

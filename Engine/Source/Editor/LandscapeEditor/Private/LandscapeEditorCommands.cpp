@@ -55,6 +55,8 @@ void FLandscapeEditorCommands::RegisterCommands()
 	NameToCommandMap.Add("Tool_Mask", RegionSelectTool);
 	UI_COMMAND(RegionCopyPasteTool, "Tool - Copy/Paste", "", EUserInterfaceActionType::RadioButton, FInputChord());
 	NameToCommandMap.Add("Tool_CopyPaste", RegionCopyPasteTool);
+	UI_COMMAND(MirrorTool, "Tool - Mirror", "", EUserInterfaceActionType::RadioButton, FInputChord());
+	NameToCommandMap.Add("Tool_Mirror", MirrorTool);
 
 	UI_COMMAND(SplineTool, "Tool - Edit Splines", "", EUserInterfaceActionType::RadioButton, FInputChord());
 	NameToCommandMap.Add("Tool_Splines", SplineTool);

@@ -29,6 +29,7 @@ public:
 		pthread_mutexattr_init(&MutexAttributes);
 		pthread_mutexattr_settype(&MutexAttributes, PTHREAD_MUTEX_RECURSIVE);
 		pthread_mutex_init(&Mutex, &MutexAttributes);
+		pthread_mutexattr_destroy(&MutexAttributes);
 	}
 
 	/**

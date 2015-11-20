@@ -117,7 +117,7 @@ EBTNodeResult::Type UBTTask_RotateToFaceBBEntry::ExecuteTask(UBehaviorTreeCompon
 			}
 			else
 			{
-				const FVector FocalPoint = PawnLocation + DirectionVector * (MAX_FLT / 2);
+				const FVector FocalPoint = PawnLocation + DirectionVector * 10000.0f;
 				// set focal somewhere far in the indicated direction
 				AIController->SetFocalPoint(FocalPoint, EAIFocusPriority::Gameplay);
 				MyMemory->FocusLocationSet = FocalPoint;
@@ -142,7 +142,7 @@ void UBTTask_RotateToFaceBBEntry::TickTask(UBehaviorTreeComponent& OwnerComp, ui
 		const FVector PawnDirection = AIController->GetPawn()->GetActorForwardVector();				
 		const FVector FocalPoint = AIController->GetFocalPointForPriority(EAIFocusPriority::Gameplay);
 
-		if (CalculateAngleDifferenceDot(PawnDirection, (FocalPoint - AIController->GetPawn()->GetActorLocation()).GetSafeNormal2D()) >= PrecisionDot)
+		if (CalculateAngleDifferenceDot(PawnDirection, FocalPoint - AIController->GetPawn()->GetActorLocation()) >= PrecisionDot)
 		{
 			CleanUp(*AIController, NodeMemory);
 			FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
@@ -180,7 +180,7 @@ EBTNodeResult::Type UBTTask_RotateToFaceBBEntry::AbortTask(UBehaviorTreeComponen
 		CleanUp(*AIController, NodeMemory);
 	}
 
-	return EBTNodeResult::Succeeded;
+	return EBTNodeResult::Aborted;
 }
 
 void UBTTask_RotateToFaceBBEntry::DescribeRuntimeValues(const UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, EBTDescriptionVerbosity::Type Verbosity, TArray<FString>& Values) const

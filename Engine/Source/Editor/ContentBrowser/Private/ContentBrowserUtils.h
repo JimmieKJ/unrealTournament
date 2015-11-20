@@ -26,7 +26,7 @@ namespace ContentBrowserUtils
 	bool OpenEditorForAsset(const TArray<UObject*>& Assets);
 
 	/**
-	  * Makes sure the specified assets are loaded into memory.
+	  * Makes sure the specified assets are loaded into memory.6666
 	  * 
 	  * @param ObjectPaths The paths to the objects to load.
 	  * @param LoadedObjects The returned list of objects that were already loaded or loaded by this method.
@@ -35,13 +35,13 @@ namespace ContentBrowserUtils
 	bool LoadAssetsIfNeeded(const TArray<FString>& ObjectPaths, TArray<UObject*>& LoadedObjects, bool bAllowedToPromptToLoadAssets = true, bool bLoadRedirects = false);
 
 	/**
-	 * Determines if enough assets are unloaded that we should prompt the user to load them instead of loading them automatically
+	 * Determines the unloaded assets that need loading
 	 *
 	 * @param ObjectPaths		Paths to assets that may need to be loaded
 	 * @param OutUnloadedObjects	List of the unloaded object paths
 	 * @return true if the user should be prompted to load assets
 	 */
-	bool ShouldPromptToLoadAssets(const TArray<FString>& ObjectPaths, TArray<FString>& OutUnloadedObjects);
+	void GetUnloadedAssets(const TArray<FString>& ObjectPaths, TArray<FString>& OutUnloadedObjects);
 
 	/**
 	 * Prompts the user to load the list of unloaded objects
@@ -51,11 +51,14 @@ namespace ContentBrowserUtils
 	 */
 	bool PromptToLoadAssets(const TArray<FString>& UnloadedObjects);
 
+	/** Checks to see if the given folder can be renamed */
+	bool CanRenameFolder(const FString& InFolderPath);
+
+	/** Checks to see if the given asset can be renamed */
+	bool CanRenameAsset(const FAssetData& InAssetData);
+
 	/** Renames an asset */
 	void RenameAsset(UObject* Asset, const FString& NewName, FText& ErrorMessage);
-
-	/** Renames a folder */
-	void RenameFolder(const FString& FolderPath, const FString& NewName, FText& ErrorMessage);
 
 	/** 
 	 * Copies assets to a new path 
@@ -98,10 +101,10 @@ namespace ContentBrowserUtils
 	void DisplayConfirmationPopup(const FText& Message, const FText& YesString, const FText& NoString, const TSharedRef<SWidget>& ParentContent, const FOnClicked& OnYesClicked, const FOnClicked& OnNoClicked = FOnClicked());
 
 	/** Copies all assets in all source paths to the destination path, preserving path structure */
-	void CopyFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath);
+	bool CopyFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath);
 
 	/** Moves all assets in all source paths to the destination path, preserving path structure */
-	void MoveFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath);
+	bool MoveFolders(const TArray<FString>& InSourcePathNames, const FString& DestPath);
 
 	/**
 	  * A helper function for folder drag/drop which loads all assets in a path (including sub-paths) and returns the assets found
@@ -109,7 +112,7 @@ namespace ContentBrowserUtils
 	  * @param SourcePathNames				The paths to the folders to drag/drop
 	  * @param OutSourcePathToLoadedAssets	The map of source folder paths to assets found
 	  */
-	void PrepareFoldersForDragDrop(const TArray<FString>& SourcePathNames, TMap< FString, TArray<UObject*> >& OutSourcePathToLoadedAssets);
+	bool PrepareFoldersForDragDrop(const TArray<FString>& SourcePathNames, TMap< FString, TArray<UObject*> >& OutSourcePathToLoadedAssets);
 
 	/** Copies references to the specified assets to the clipboard */
 	void CopyAssetReferencesToClipboard(const TArray<FAssetData>& AssetsToCopy);
@@ -144,6 +147,9 @@ namespace ContentBrowserUtils
 	/** Returns true if the passed-in path is a plugin folder */
 	bool IsPluginFolder( const FString& InPath );
 
+	/** Returns true if the passed-in path is a localization folder */
+	bool IsLocalizationFolder( const FString& InPath );
+
 	/** Get all the objects in a list of asset data */
 	void GetObjectsInAssetData(const TArray<FAssetData>& AssetList, TArray<UObject*>& OutDroppedObjects);
 
@@ -167,6 +173,9 @@ namespace ContentBrowserUtils
 
 	/** Check to see whether the given path is rooted against a class directory */
 	bool IsClassPath(const FString& InPath);
+
+	/** Check to see whether the given path is rooted against a collection directory, optionally extracting the collection name and share type from the path */
+	bool IsCollectionPath(const FString& InPath, FName* OutCollectionName = nullptr, ECollectionShareType::Type* OutCollectionShareType = nullptr);
 
 	/** Given an array of paths, work out how many are rooted against class roots, and how many are rooted against asset roots */
 	void CountPathTypes(const TArray<FString>& InPaths, int32& OutNumAssetPaths, int32& OutNumClassPaths);

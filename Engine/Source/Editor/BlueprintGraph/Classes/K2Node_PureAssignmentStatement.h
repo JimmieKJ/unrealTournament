@@ -16,16 +16,16 @@ class UK2Node_PureAssignmentStatement : public UK2Node
 	// Name of the output pin for this node
 	static FString OutputPinName;
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual bool IsNodePure() const override { return true; }
 	virtual void NotifyPinConnectionListChanged(UEdGraphPin* Pin) override;
 	virtual class FNodeHandlingFunctor* CreateNodeHandler(class FKismetCompilerContext& CompilerContext) const override;
 	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
 	/** Get the Then output pin */
 	BLUEPRINTGRAPH_API UEdGraphPin* GetOutputPin() const;

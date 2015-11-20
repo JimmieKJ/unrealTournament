@@ -1,12 +1,12 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-//=============================================================================
+//~=============================================================================
 // Complete constraint definition used by rigid body physics.
 // 
 // Defaults here will give you a ball and socket joint.
 // Positions are in Physics scale.
 // When adding stuff here, make sure to update URB_ConstraintSetup::CopyConstraintParamsFrom
-//=============================================================================
+//~=============================================================================
 
 #pragma once 
 
@@ -94,9 +94,9 @@ class UPhysicsConstraintTemplate : public UObject
 	FConstraintInstance DefaultInstance;
 
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 private:
 	// Only needed for old content! Pre VER_UE4_ALL_PROPS_TO_CONSTRAINTINSTANCE

@@ -60,11 +60,14 @@ public:
 	/** Returns whether the current version is empty. */
 	bool IsEmpty() const;
 
-	/** Returns whether the engine version is for a promoted build. */
-	bool IsPromotedBuild() const; 
+	/** Returns whether the engine version has a changelist component. */
+	bool HasChangelist() const; 
 
 	/** Returns the newest of two versions, and the component at which they differ */
 	static EVersionComparison GetNewest(const FEngineVersionBase &First, const FEngineVersionBase &Second, EVersionComponent *OutComponent);
+
+	/** Encodes a licensee changelist number (by setting the top bit) */
+	static uint32 EncodeLicenseeChangelist(uint32 Changelist);
 
 protected:
 

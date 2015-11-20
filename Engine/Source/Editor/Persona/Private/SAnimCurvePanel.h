@@ -14,6 +14,25 @@ DECLARE_DELEGATE_OneParam( FOnSelectionChanged, const FGraphPanelSelectionSet& )
 DECLARE_DELEGATE( FOnUpdatePanel )
 DECLARE_DELEGATE_RetVal( float, FOnGetScrubValue )
 
+struct FSmartNameSortItem
+{
+	FName SmartName;
+	USkeleton::AnimCurveUID ID;
+
+	FSmartNameSortItem(const FName& InSmartName, const USkeleton::AnimCurveUID& InID)
+		: SmartName(InSmartName)
+		, ID(InID)
+	{}
+};
+
+struct FSmartNameSortItemSortOp
+{
+	bool operator()(const FSmartNameSortItem& A, const FSmartNameSortItem& B) const
+	{
+		return (A.SmartName.Compare(B.SmartName) < 0);
+	}
+};
+
 //////////////////////////////////////////////////////////////////////////
 // SAnimCurvePanel
 
@@ -90,6 +109,12 @@ public:
 	void DeleteTrack(USkeleton::AnimCurveUID Uid);
 
 	/**
+	 * Delete All Tracks
+	 *
+	 */
+	void DeleteAllTracks();
+
+	/**
 	 * Build and display curve track context menu for all tracks.
 	 *
 	 */
@@ -126,6 +151,11 @@ public:
 	* @todo this has to be more efficient. Right now it refreshes the entire panel
 	*/
 	void UpdatePanel();
+
+	/**
+	 * Get Sequence Length 
+	 */
+	float GetLength() const { return Sequence->SequenceLength; }
 
 private:
 	TWeakPtr<FPersona> WeakPersona;

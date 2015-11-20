@@ -14,5 +14,7 @@ class UNREALED_API UDEditorScalarParameterValue : public UDEditorParameterValue
 	UPROPERTY(EditAnywhere, Category=DEditorScalarParameterValue)
 	float ParameterValue;
 
+	float SliderMin;
+	float SliderMax;
 };
 

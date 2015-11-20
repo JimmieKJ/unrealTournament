@@ -182,18 +182,18 @@ class AAudioVolume : public AVolume
 
 
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void PostUnregisterAllComponents() override;
 protected:
 	virtual void PostRegisterAllComponents() override;
 public:
-	// End AActor Interface
+	//~ End AActor Interface
 };
 
 

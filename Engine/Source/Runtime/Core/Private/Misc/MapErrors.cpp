@@ -57,6 +57,7 @@ FName FMapErrors::RepairedPaintedVertexColors(TEXT("RepairedPaintedVertexColors"
 FName FMapErrors::LODActorMissingStaticMesh(TEXT("LODActorMissingStaticMesh"));
 FName FMapErrors::LODActorMissingActor(TEXT("LODActorMissingActor"));
 FName FMapErrors::LODActorNoActorFound(TEXT("LODActorNoActor"));
+FName FMapErrors::HLODSystemNotEnabled(TEXT("HLODSystemNotEnabled"));
 
 static const FString MapErrorsPath = TEXT("Shared/Editor/MapErrors");
 

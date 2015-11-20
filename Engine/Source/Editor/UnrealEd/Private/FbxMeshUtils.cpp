@@ -81,6 +81,7 @@ namespace FbxMeshUtils
 
 		// don't import materials
 		UnFbx::FBXImportOptions* ImportOptions = FFbxImporter->GetImportOptions();
+		UFbxStaticMeshImportData* ImportData = Cast<UFbxStaticMeshImportData>(BaseStaticMesh->AssetImportData);
 		ImportOptions->bImportMaterials = false;
 		ImportOptions->bImportTextures = false;
 
@@ -93,6 +94,7 @@ namespace FbxMeshUtils
 		else
 		{
 			FFbxImporter->FlushToTokenizedErrorMessage(EMessageSeverity::Warning);
+			FFbxImporter->ApplyTransformSettingsToFbxNode(FFbxImporter->Scene->GetRootNode(), ImportData);
 
 			bool bUseLODs = true;
 			int32 MaxLODLevel = 0;
@@ -131,7 +133,7 @@ namespace FbxMeshUtils
 			{
 				// Import mesh
 				UStaticMesh* TempStaticMesh = NULL;
-				TempStaticMesh = (UStaticMesh*)FFbxImporter->ImportStaticMeshAsSingle(GetTransientPackage(), *(LODNodeList[bUseLODs? LODLevel: 0]), NAME_None, RF_NoFlags, NULL, BaseStaticMesh, LODLevel);
+				TempStaticMesh = (UStaticMesh*)FFbxImporter->ImportStaticMeshAsSingle(GetTransientPackage(), *(LODNodeList[bUseLODs? LODLevel: 0]), NAME_None, RF_NoFlags, ImportData, BaseStaticMesh, LODLevel);
 
 				// Add imported mesh to existing model
 				if( TempStaticMesh )
@@ -281,7 +283,7 @@ namespace FbxMeshUtils
 					USkeletalMesh* TempSkelMesh = NULL;
 					// @todo AssetImportData does this temp skeletal mesh need import data?
 					UFbxSkeletalMeshImportData* TempAssetImportData = NULL;
-					TempSkelMesh = (USkeletalMesh*)FFbxImporter->ImportSkeletalMesh(GetTransientPackage(), bUseLODs? SkelMeshNodeArray: *MeshObject, NAME_None, (EObjectFlags)0, TempAssetImportData, FPaths::GetBaseFilename(Filename));
+					TempSkelMesh = (USkeletalMesh*)FFbxImporter->ImportSkeletalMesh(GetTransientPackage(), bUseLODs? SkelMeshNodeArray: *MeshObject, NAME_None, (EObjectFlags)0, TempAssetImportData);
 
 					// Add imported mesh to existing model
 					bool bImportSucceeded = false;
@@ -295,7 +297,7 @@ namespace FbxMeshUtils
 
 					if(ImportOptions->bImportMorph)
 					{
-						FFbxImporter->ImportFbxMorphTarget(SkelMeshNodeArray, SelectedSkelMesh, SelectedSkelMesh->GetOutermost(), Filename, SelectedLOD);
+						FFbxImporter->ImportFbxMorphTarget(SkelMeshNodeArray, SelectedSkelMesh, SelectedSkelMesh->GetOutermost(), SelectedLOD);
 					}
 
 					if (bImportSucceeded)

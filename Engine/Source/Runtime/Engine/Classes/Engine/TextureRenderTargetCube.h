@@ -56,16 +56,16 @@ class UTextureRenderTargetCube : public UTextureRenderTarget
 	* @param	Flags			Various control flags for operation (see EObjectFlags)
 	* @return					New UTextureCube object.
 	*/
-	ENGINE_API class UTextureCube* ConstructTextureCube(UObject* Outer, const FString& NewTexName, EObjectFlags InFlags);
+	ENGINE_API class UTextureCube* ConstructTextureCube(UObject* InOuter, const FString& NewTexName, EObjectFlags InFlags);
 
-	// Begin UTexture interface.
+	//~ Begin UTexture Interface.
 	virtual float GetSurfaceWidth() const  override { return SizeX; }
 	// PVS-Studio notices that the implementation of GetSurfaceWidth is identical to this one
 	// and warns us. In this case, it is intentional, so we disable the warning:
 	virtual float GetSurfaceHeight()const  override { return SizeX; }	 //-V524
 	virtual FTextureResource* CreateResource() override;
 	virtual EMaterialValueType GetMaterialType() override;
-	// End UTexture interface.
+	//~ End UTexture Interface.
 
 	EPixelFormat GetFormat() const
 	{
@@ -83,14 +83,14 @@ class UTextureRenderTargetCube : public UTextureRenderTarget
 	{
 		return 1;
 	}
-	// Begin UObject interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostLoad() override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	virtual FString GetDesc() override;
-	// Begin UObject interface
+	//~ Begin UObject Interface
 };
 
 

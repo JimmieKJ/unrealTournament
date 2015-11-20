@@ -86,6 +86,15 @@ FText FGameplayAbilitiesEditor::GetToolkitName() const
 	return FText::Format(LOCTEXT("GameplayAbilitiesEditorAppLabel", "{ObjectName}{DirtyState}"), Args);
 }
 
+FText FGameplayAbilitiesEditor::GetToolkitToolTipText() const
+{
+	const UObject* EditingObject = GetEditingObject();
+
+	check (EditingObject != NULL);
+
+	return FAssetEditorToolkit::GetToolTipTextForObject(EditingObject);
+}
+
 FString FGameplayAbilitiesEditor::GetWorldCentricTabPrefix() const
 {
 	return TEXT("GameplayAbilitiesEditor");

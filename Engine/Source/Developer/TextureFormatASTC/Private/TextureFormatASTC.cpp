@@ -335,7 +335,7 @@ class FTextureFormatASTC : public ITextureFormat
 	{
 		// Get Raw Image Data from passed in FImage
 		FImage Image;
-		InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.bSRGB);
+		InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.GetGammaSpace());
 
 		// Determine the compressed pixel format and compression parameters
 		EPixelFormat CompressedPixelFormat = PF_Unknown;

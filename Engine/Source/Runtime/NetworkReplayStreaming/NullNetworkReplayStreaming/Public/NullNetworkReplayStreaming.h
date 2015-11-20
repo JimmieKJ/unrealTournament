@@ -4,20 +4,24 @@
 
 #include "NetworkReplayStreaming.h"
 #include "Core.h"
+#include "Engine.h"
 #include "ModuleManager.h"
 #include "UniquePtr.h"
 #include "OnlineJsonSerializer.h"
+#include "Tickable.h"
 
 /* Class to hold metadata about an entire replay */
 class FNullReplayInfo : public FOnlineJsonSerializable
 {
 public:
-	FNullReplayInfo() : LengthInMS(0), NetworkVersion(0), Changelist(0) {}
+	FNullReplayInfo() : LengthInMS(0), NetworkVersion(0), Changelist(0), DemoFileLastOffset(0), bIsValid(false) {}
 
 	int32		LengthInMS;
 	uint32		NetworkVersion;
 	uint32		Changelist;
 	FString		FriendlyName;
+	int32		DemoFileLastOffset;
+	bool		bIsValid;
 
 	// FOnlineJsonSerializable
 	BEGIN_ONLINE_JSON_SERIALIZER
@@ -25,16 +29,18 @@ public:
 		ONLINE_JSON_SERIALIZE( "NetworkVersion",	NetworkVersion );
 		ONLINE_JSON_SERIALIZE( "Changelist",		Changelist );
 		ONLINE_JSON_SERIALIZE( "FriendlyName",		FriendlyName );
+		ONLINE_JSON_SERIALIZE( "DemoFileLastOffset",	DemoFileLastOffset );
 	END_ONLINE_JSON_SERIALIZER
 };
 
 /** Default streamer that goes straight to the HD */
-class NULLNETWORKREPLAYSTREAMING_API FNullNetworkReplayStreamer : public INetworkReplayStreamer
+class FNullNetworkReplayStreamer : public INetworkReplayStreamer, public FTickableGameObject
 {
 public:
 	FNullNetworkReplayStreamer() :
 		StreamerState( EStreamerState::Idle ),
-		CurrentCheckpointIndex( 0 )
+		CurrentCheckpointIndex( 0 ),
+		LastKnownFileSize( 0 )
 	{}
 	
 	/** INetworkReplayStreamer implementation */
@@ -49,26 +55,44 @@ public:
 	virtual FArchive* GetMetadataArchive() override;
 	virtual void UpdateTotalDemoTime( uint32 TimeInMS ) override;
 	virtual uint32 GetTotalDemoTime() const override { return ReplayInfo.LengthInMS; }
-	virtual bool IsDataAvailable() const override { return true; }
+	virtual bool IsDataAvailable() const override;
 	virtual void SetHighPriorityTimeRange( const uint32 StartTimeInMS, const uint32 EndTimeInMS ) override { }
 	virtual bool IsDataAvailableForTimeRange( const uint32 StartTimeInMS, const uint32 EndTimeInMS ) override { return true; }
 	virtual bool IsLoadingCheckpoint() const override { return false; }
 	virtual bool IsLive() const override;
 	virtual void DeleteFinishedStream( const FString& StreamName, const FOnDeleteFinishedStreamComplete& Delegate) const override;
 	virtual void EnumerateStreams( const FNetworkReplayVersion& ReplayVersion, const FString& UserString, const FString& MetaString, const FOnEnumerateStreamsComplete& Delegate ) override;
+	virtual void EnumerateStreams( const FNetworkReplayVersion& InReplayVersion, const FString& UserString, const FString& MetaString, const TArray< FString >& ExtraParms, const FOnEnumerateStreamsComplete& Delegate ) override;
 	virtual void EnumerateRecentStreams( const FNetworkReplayVersion& ReplayVersion, const FString& RecentViewer, const FOnEnumerateStreamsComplete& Delegate ) override {}
 	virtual ENetworkReplayError::Type GetLastError() const override { return ENetworkReplayError::None; }
 	virtual void AddUserToReplay(const FString& UserString) override;
 	virtual void AddEvent(const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data) override;
-	virtual void EnumerateEvents(const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate) override;
+	virtual void AddOrUpdateEvent( const FString& Name, const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) override {}
+	virtual void EnumerateEvents( const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate ) override;
+	virtual void EnumerateEvents( const FString& ReplayName, const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate ) override {}
 	virtual void RequestEventData(const FString& EventID, const FOnRequestEventDataComplete& RequestEventDataComplete) override;
 	virtual void SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) override;
+	virtual void KeepReplay( const FString& ReplayName, const bool bKeep ) override {}
+
+	/** FTickableObjectBase implementation */
+	virtual void Tick(float DeltaSeconds) override;
+	virtual bool IsTickable() const override { return true; }
+	virtual TStatId GetStatId() const override;
+
+	/** FTickableGameObject implementation */
+	virtual bool IsTickableWhenPaused() const override { return true; }
 
 private:
 	bool IsNamedStreamLive( const FString& StreamName ) const;
 
 	/** Handles the details of loading a checkpoint */
 	void GotoCheckpointIndexInternal(int32 CheckpointIndex, const FOnCheckpointReadyDelegate& Delegate, int32 TimeInMS);
+
+	/** Reopen the file to refresh it's size, since file-based FArchives do not appear to update their size if they're being written to. */
+	void ReopenStreamFileForReading();
+
+	/** Overwrites the cached ReplayInfo only if the read succeeded */
+	void UpdateReplayInfoIfValid();
 
 	/** Handle to the archive that will read/write the demo header */
 	TUniquePtr<FArchive> HeaderAr;
@@ -101,10 +125,13 @@ private:
 
 	/** Currently playing or recording replay metadata */
 	FNullReplayInfo ReplayInfo;
+
+	/** Last known size of the replay stream file. */
+	int64 LastKnownFileSize;
 };
 
 class FNullNetworkReplayStreamingFactory : public INetworkReplayStreamingFactory
 {
 public:
-	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer(const FURL& URL);
+	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer();
 };

@@ -59,6 +59,29 @@ namespace ESortedActiveWaveGetType
 	};
 }
 
+/** Simple class that wraps the math involved with interpolating a parameter over time based on audio device update time. */
+class FDynamicParameter
+{
+public:
+	FDynamicParameter(float Value);
+
+	void Set(float Value, float InDuration);
+	void Update(float DeltaTime);
+	float GetValue() const
+	{
+		return CurrValue;
+	}
+
+private:
+	float CurrValue;
+	float StartValue;
+	float DeltaValue;
+	float CurrTimeSec;
+	float DurationSec;
+	float LastTime;
+};
+
+
 /** 
  * Defines the properties of the listener
  */
@@ -212,6 +235,8 @@ public:
 	bool HandleEnableHRTFForAllCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleSoloCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleClearSoloCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandlePlayAllPIEAudioCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleAudio3dVisualizeCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 #endif
 
 	/**
@@ -226,7 +251,7 @@ public:
 	/**
 	 * Basic initialisation of the platform agnostic layer of the audio system
 	 */
-	bool Init( void );
+	bool Init(int32 InMaxChannels);
 
 	/**
 	 * Tears down the audio device
@@ -336,7 +361,7 @@ public:
 	/**
 	 * Creates an audio component to handle playing a sound cue
 	 */
-	static class UAudioComponent* CreateComponent( class USoundBase* Sound, class UWorld* World, AActor*  AActor  = NULL, bool Play = true, bool bStopWhenOwnerDestroyed = false, const FVector* Location = NULL, USoundAttenuation* AttenuationSettings = NULL );
+	static class UAudioComponent* CreateComponent(class USoundBase* Sound, class UWorld* World, AActor*  AActor = nullptr, bool Play = true, bool bStopWhenOwnerDestroyed = false, const FVector* Location = nullptr, USoundAttenuation* AttenuationSettings = nullptr, USoundConcurrency* ConcurrencySettings = nullptr);
 
 	/**
 	 * Adds an active sound to the audio device
@@ -347,6 +372,11 @@ public:
 	 * Removes the active sound for the specified audio component
 	 */
 	void StopActiveSound( class UAudioComponent* AudioComponent );
+
+	/**
+	* Stops the active sound
+	*/
+	void StopActiveSound(FActiveSound* ActiveSound);
 
 	/**
 	 * Finds the active sound for the specified audio component
@@ -515,15 +545,8 @@ public:
 		return bHRTFEnabledForAll && IsSpatializationPluginEnabled();
 	}
 
-	void SetHRTFEnabledForAll(bool InbHRTFEnabledForAll)
-	{
-		bHRTFEnabledForAll = InbHRTFEnabledForAll;
-	}
+	bool IsAudioDeviceMuted() const;
 
-	void SetSpatializationExtensionEnabled(bool InbSpatializationExtensionEnabled)
-	{
-		bSpatializationExtensionEnabled = InbSpatializationExtensionEnabled;
-	}
 protected:
 	friend class FSoundSource;
 
@@ -720,11 +743,27 @@ protected:
 	/** Low pass filter OneOverQ value */
 	float GetLowPassFilterResonance() const;
 
-	/** Whether or not the spatialization plugin is enabled. */
+	/** Wether or not the spatialization plugin is enabled. */
 	bool IsSpatializationPluginEnabled() const
 	{
 		return bSpatializationExtensionEnabled;
 	}
+
+	void AddSoundToStop(struct FActiveSound* SoundToStop);
+
+	/** Updates the listener transform. */
+	void UpdateListenerTransform();
+
+	/**   
+	* Gets the direction of the given position vector transformed relative to listener.   
+	* @param Position				Input position vector to transform relative to listener
+	* @param OutDistance			Optional output of distance from position to listener
+	* @return The input position relative to the listener.
+	*/
+	FVector GetListenerTransformedDirection(const FVector& Position, float* OutDistance);
+
+	/** Processes the set of pending sounds that need to be stopped */ 
+	void ProcessingPendingActiveSoundStops();
 
 public:
 
@@ -764,8 +803,11 @@ public:
 	/** transient master volume multiplier that can be modified at runtime without affecting user settings automatically reset to 1.0 on level change */
 	float TransientMasterVolume;
 
+	/** Global dynamic pitch scale parameter */
+	FDynamicParameter GlobalPitchScale;
+
 	/** Timestamp of the last update */
-	float LastUpdateTime;
+	double LastUpdateTime;
 
 	/** Next resource ID to assign out to a wave/buffer */
 	int32 NextResourceID;
@@ -792,6 +834,9 @@ public:
 
 	/** The volume the listener resides in */
 	const class AAudioVolume*						CurrentAudioVolume;
+
+	/** A volume headroom to apply to specific platforms to achieve beter platform consistency. */
+	float PlatformAudioHeadroom;
 
 	/** Reverb Effects activated without volumes */
 	TMap<FName, FActivatedReverb>					ActivatedReverbs;
@@ -823,9 +868,18 @@ public:
 private:
 
 	TArray<struct FActiveSound*> ActiveSounds;
+	TSet<struct FActiveSound*> PendingSoundsToStop;
+
+	TMap<UPTRINT, struct FActiveSound*> AudioComponentToActiveSoundMap;
 
 	/** List of passive SoundMixes active last frame */
 	TArray<class USoundMix*> PrevPassiveSoundMixModifiers;
+
+	friend class FSoundConcurrencyManager;
+	FSoundConcurrencyManager ConcurrencyManager;
+
+	/** Inverse listener transformation, used for spatialization */
+	FMatrix InverseListenerTransform;
 };
 
 

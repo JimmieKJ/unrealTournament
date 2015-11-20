@@ -29,7 +29,7 @@ void UK2Node_GetInputAxisValue::AllocateDefaultPins()
 void UK2Node_GetInputAxisValue::Initialize(const FName AxisName)
 {
 	InputAxisName = AxisName;
-	SetFromFunction(AActor::StaticClass()->FindFunctionByName(TEXT("GetInputAxisValue")));
+	SetFromFunction(AActor::StaticClass()->FindFunctionByName(GET_FUNCTION_NAME_CHECKED(AActor, GetInputAxisValue)));
 }
 
 FText UK2Node_GetInputAxisValue::GetNodeTitle(ENodeTitleType::Type TitleType) const

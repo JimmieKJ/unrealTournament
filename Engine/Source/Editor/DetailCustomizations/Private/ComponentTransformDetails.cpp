@@ -386,6 +386,7 @@ void FComponentTransformDetails::GenerateChildContent( IDetailChildrenBuilder& C
 				.Y( this, &FComponentTransformDetails::GetLocationY )
 				.Z( this, &FComponentTransformDetails::GetLocationZ )
 				.bColorAxisLabels( true )
+				.AllowResponsiveLayout( true )
 				.IsEnabled( this, &FComponentTransformDetails::GetIsEnabled )
 				.OnXCommitted( this, &FComponentTransformDetails::OnSetLocation, 0 )
 				.OnYCommitted( this, &FComponentTransformDetails::OnSetLocation, 1 )
@@ -451,6 +452,7 @@ void FComponentTransformDetails::GenerateChildContent( IDetailChildrenBuilder& C
 				.Roll( this, &FComponentTransformDetails::GetRotationX )
 				.Pitch( this, &FComponentTransformDetails::GetRotationY )
 				.Yaw( this, &FComponentTransformDetails::GetRotationZ )
+				.AllowResponsiveLayout( true )
 				.bColorAxisLabels( true )
 				.IsEnabled( this, &FComponentTransformDetails::GetIsEnabled )
 				.OnBeginSliderMovement( this, &FComponentTransformDetails::OnBeginRotatonSlider )
@@ -516,6 +518,7 @@ void FComponentTransformDetails::GenerateChildContent( IDetailChildrenBuilder& C
 				.Y( this, &FComponentTransformDetails::GetScaleY )
 				.Z( this, &FComponentTransformDetails::GetScaleZ )
 				.bColorAxisLabels( true )
+				.AllowResponsiveLayout( true )
 				.IsEnabled( this, &FComponentTransformDetails::GetIsEnabled )
 				.OnXCommitted( this, &FComponentTransformDetails::OnSetScale, 0 )
 				.OnYCommitted( this, &FComponentTransformDetails::OnSetScale, 1 )
@@ -1096,6 +1099,8 @@ void FComponentTransformDetails::OnSetLocation( float NewValue, ETextCommit::Typ
 
 	CacheTransform();
 
+	GUnrealEd->UpdatePivotLocationForSelection(true);
+	GUnrealEd->SetPivotMovedIndependently(false);
 	GUnrealEd->RedrawLevelEditingViewports();
 }
 
@@ -1119,7 +1124,8 @@ void FComponentTransformDetails::OnSetRotation( float NewValue, bool bCommitted,
 				{
 					const bool bIsEditingTemplateObject = Object->IsTemplate();
 
-					FRotator& RelativeRotation = (bEditingRotationInUI && !bIsEditingTemplateObject) ? ObjectToRelativeRotationMap.FindOrAdd(Object) : SceneComponent->RelativeRotation;
+					FRotator CurrentComponentRotation = SceneComponent->RelativeRotation; // Intentionally make a copy, we don't want the FRotator& below to directly edit the component's values!
+					FRotator& RelativeRotation = (bEditingRotationInUI && !bIsEditingTemplateObject) ? ObjectToRelativeRotationMap.FindOrAdd(Object) : CurrentComponentRotation;
 					FRotator OldRelativeRotation = RelativeRotation;
 
 					float& ValueToChange = Axis == 0 ? RelativeRotation.Roll : Axis == 1 ? RelativeRotation.Pitch : RelativeRotation.Yaw;
@@ -1169,19 +1175,14 @@ void FComponentTransformDetails::OnSetRotation( float NewValue, bool bCommitted,
 
 						ValueToChange = NewValue;
 
-						if(!bIsEditingTemplateObject)
+						if( !bIsEditingTemplateObject && SelectedActorInfo.NumSelected != 0 )
 						{
-							if( SelectedActorInfo.NumSelected == 0 )
-							{
-								// HACK: Set directly if no actors are selected since this causes Rot->Quat->Rot conversion issues
-								// (recalculates relative rotation from quat which can give an equivalent but different value than the user typed)
-								SceneComponent->RelativeRotation = RelativeRotation;
-							}
-							else
-							{
-								SceneComponent->SetRelativeRotation( RelativeRotation );
-							}
+							SceneComponent->SetRelativeRotation( RelativeRotation );
 						}
+
+						// HACK: Set directly since to avoid Rot->Quat->Rot conversion issues
+						// (functions recalculate relative rotation from quat which can give an equivalent but different value than the user typed)
+						SceneComponent->RelativeRotation = RelativeRotation;
 
 						AActor* EditedActor = Cast<AActor>( Object );
 						if( !EditedActor && SceneComponent )
@@ -1231,6 +1232,8 @@ void FComponentTransformDetails::OnSetRotation( float NewValue, bool bCommitted,
 			GEditor->EndTransaction();
 		}
 
+		GUnrealEd->UpdatePivotLocationForSelection();
+		GUnrealEd->SetPivotMovedIndependently(false);
 		// Redraw
 		GUnrealEd->RedrawLevelEditingViewports();
 	}

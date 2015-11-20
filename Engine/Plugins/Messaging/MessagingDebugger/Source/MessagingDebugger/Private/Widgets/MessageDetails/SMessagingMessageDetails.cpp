@@ -40,14 +40,13 @@ void SMessagingMessageDetails::Construct( const FArguments& InArgs, const FMessa
 
 				// Sender thread
 				+ SGridPanel::Slot(0, 2)
-					.Padding(0.0f, 4.0f)
+					.Padding(0.0f, 4.0f, 32.0f, 4.0f)
 					[
 						SNew(STextBlock)
-						.Text(LOCTEXT("SenderThreadLabel", "Sender Thread:"))
+							.Text(LOCTEXT("SenderThreadLabel", "Sender Thread:"))
 					]
 
 				+ SGridPanel::Slot(1, 2)
-					.HAlign(HAlign_Right)
 					.Padding(0.0f, 4.0f)
 					[
 						SNew(STextBlock)
@@ -56,14 +55,13 @@ void SMessagingMessageDetails::Construct( const FArguments& InArgs, const FMessa
 
 				// Timestamp
 				+ SGridPanel::Slot(0, 3)
-					.Padding(0.0f, 4.0f)
+					.Padding(0.0f, 4.0f, 32.0f, 4.0f)
 					[
 						SNew(STextBlock)
 							.Text(LOCTEXT("TimestampLabel", "Timestamp:"))
 					]
 
 				+ SGridPanel::Slot(1, 3)
-					.HAlign(HAlign_Right)
 					.Padding(0.0f, 4.0f)
 					[
 						SNew(STextBlock)
@@ -72,14 +70,13 @@ void SMessagingMessageDetails::Construct( const FArguments& InArgs, const FMessa
 
 				// Expiration
 				+ SGridPanel::Slot(0, 4)
-					.Padding(0.0f, 4.0f)
+					.Padding(0.0f, 4.0f, 32.0f, 4.0f)
 					[
 						SNew(STextBlock)
 							.Text(LOCTEXT("ExpirationLabel", "Expiration:"))
 					]
 
 				+ SGridPanel::Slot(1, 4)
-					.HAlign(HAlign_Right)
 					.Padding(0.0f, 4.0f)
 					[
 						SNew(STextBlock)

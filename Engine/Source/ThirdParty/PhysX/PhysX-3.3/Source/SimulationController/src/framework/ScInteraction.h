@@ -27,6 +27,16 @@ namespace physx
 
 namespace Sc
 {
+	PX_FORCE_INLINE bool testInteractionCounts(const Sc::Actor& actor0, const Sc::Actor& actor1)
+	{
+		if(		actor0.getActorInteractionCount()==PX_INVALID_INTERACTION_ACTOR_ID
+			||	actor1.getActorInteractionCount()==PX_INVALID_INTERACTION_ACTOR_ID)
+		{
+			Ps::getFoundation().error(PxErrorCode::eDEBUG_WARNING, __FILE__, __LINE__, "An actor has more than 64K interactions. New interaction is dropped.");
+			return false;
+		}
+		return true;
+	}
 
 	// Interactions are used for connecting actors into activation
 	// groups. An interaction always connects exactly two actors. 

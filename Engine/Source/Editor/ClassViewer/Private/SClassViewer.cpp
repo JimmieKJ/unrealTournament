@@ -1510,9 +1510,7 @@ static TSharedPtr< FClassViewerNode > CreateNodeForClass(UClass* Class, const TM
 	if ( BlueprintList.Num() )
 	{
 		// Grab the generated class name and check it before assigning. Objects that haven't been saved since this has started to be exported do not have the information.
-		FString* GeneratedClassnamePtr = BlueprintList[0].TagsAndValues.Find(FName("GeneratedClass"));
-
-		if ( GeneratedClassnamePtr )
+		if (auto GeneratedClassnamePtr = BlueprintList[0].TagsAndValues.Find(FName("GeneratedClass")))
 		{
 			NewNode->GeneratedClassname = FName(**GeneratedClassnamePtr);
 		}

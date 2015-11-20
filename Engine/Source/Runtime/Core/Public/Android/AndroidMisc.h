@@ -23,6 +23,7 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static void LocalPrint(const TCHAR *Message);
 	static void PlatformPreInit();
 	static void PlatformInit();
+	static void PlatformPostInit(bool ShowSplashScreen);
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
 	static void* GetHardwareWindow();
 	static void SetHardwareWindow(void* InWindow);
@@ -40,11 +41,14 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	// NOTE: THIS FUNCTION IS DEFINED IN ANDROIDOPENGL.CPP
 	static void GetValidTargetPlatforms(class TArray<class FString>& TargetPlatformNames);
 	static bool GetUseVirtualJoysticks();
-	static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
-	static uint32 GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings );
-	static const TCHAR* GetDefaultDeviceProfileName() { return TEXT("Android"); }
+	static uint32 GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings);
+	static uint32 GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings );
+	static const TCHAR* GetDefaultDeviceProfileName() { return TEXT("Android_Default"); }
 	static bool GetVolumeButtonsHandledBySystem();
 	static void SetVolumeButtonsHandledBySystem(bool enabled);
+	static void ResetGamepadAssignments();
+	static void ResetGamepadAssignmentToController(int32 ControllerId);
+	static bool IsControllerAssignedToGamepad(int32 ControllerId);
 
 	/** @return Memory representing a true type or open type font provided by the platform as a default font for unreal to consume; empty array if the default font failed to load. */
 	static TArray<uint8> GetSystemFontBytes();
@@ -59,6 +63,7 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	static FString GetGPUFamily();
 	static FString GetGLVersion();
 	static bool SupportsFloatingPointRenderTargets();
+	static bool SupportsShaderFramebufferFetch();
 	static int GetAndroidBuildVersion();
 
 #if !UE_BUILD_SHIPPING
@@ -83,12 +88,12 @@ struct CORE_API FAndroidMisc : public FGenericPlatformMisc
 	}
 
 	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse()
+	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
 	{
 #if !UE_BUILD_SHIPPING
 		if (!IsDebuggerPresent())
 		{
-			PromptForRemoteDebugging(false);
+			PromptForRemoteDebugging(bIsEnsure);
 		}
 
 		DebugBreak();

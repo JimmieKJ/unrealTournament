@@ -1,0 +1,27 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Flurry Analytics Provider",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"DocsURL" : "https://docs.unrealengine.com/latest/INT/Gameplay/Analytics/index.html",
+	"EngineVersion" : "4.8.0",
+	"Description" : "Flurry Analytics Provider",
+	"Category" : "Analytics",
+	
+	"Modules" :
+	[
+        {
+            "Name": "FlurryEditor",
+            "Type": "Editor"
+        },
+		{
+			"Name" : "IOSFlurry",
+			"Type" : "Runtime",
+			"LoadingPhase" : "PreDefault",
+			"WhitelistPlatforms" : [ "IOS" ]
+		}
+	]
+}

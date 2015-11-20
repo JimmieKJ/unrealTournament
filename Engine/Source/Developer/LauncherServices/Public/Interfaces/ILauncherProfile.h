@@ -222,6 +222,20 @@ public:
 	virtual ELauncherProfileCookModes::Type GetCookMode() const = 0;
 
 	/**
+	* Loads the simple profile from the specified file.
+	*
+	* @return true if the profile was loaded, false otherwise.
+	*/
+	virtual bool Load(const FJsonObject& Object) = 0;
+
+	/**
+	* Saves the simple profile to the specified file.
+	*
+	* @return true if the profile was saved, false otherwise.
+	*/
+	virtual void Save(TJsonWriter<>& Writer) = 0;
+
+	/**
 	 * Updates the device name.
 	 *
 	 * @param InDeviceName The new device name.
@@ -315,6 +329,20 @@ public:
 	virtual FGuid GetId( ) const = 0;
 
 	/**
+	* Gets the file name for serialization.
+	*
+	* @return The file name.
+	*/
+	virtual FString GetFileName( ) const = 0;
+
+	/**
+	* Gets the full file path for serialization.
+	*
+	* @return The file path.
+	*/
+	virtual FString GetFilePath() const = 0;
+
+	/**
 	 * Gets the human readable name of the profile.
 	 *
 	 * @return The profile name.
@@ -369,12 +397,22 @@ public:
 	virtual bool IsValidForLaunch( ) = 0;
 
 	/**
+	* Loads the profile from a JSON file
+	*/
+	virtual bool Load(const FJsonObject& Object) = 0;
+
+	/**
 	 * Serializes the profile from or into the specified archive.
 	 *
 	 * @param Archive The archive to serialize from or into.
 	 * @return true if the profile was serialized, false otherwise.
 	 */
 	virtual bool Serialize( FArchive& Archive ) = 0;
+
+	/**
+	 * Saves the profile into a JSON file
+	 */
+	virtual void Save(TJsonWriter<>& Writer) = 0;
 
 	/** Sets all profile settings to their defaults. */
 	virtual void SetDefaults( ) = 0;
@@ -392,6 +430,12 @@ public:
 	 * @param NewDescription The new description of the profile.
 	 */
 	virtual void SetDescription(const FString& NewDescription) = 0;
+
+	/**
+	* Changes the save location to an internal project path.
+	*	
+	*/
+	virtual void SetNotForLicensees() = 0;
 
 	/**
 	 * Returns the cook delegate which can be used to query if the cook is finished.
@@ -438,6 +482,34 @@ public:
 	 */
 	virtual const FString& GetCookOptions( ) const = 0;
 
+
+	/**
+	 * Get the number of cookers we want to spawn during cooking
+	 *
+	 * @return number of cookers we want to spawn in addition to the master cooker
+	 */
+	virtual const int32 GetNumCookersToSpawn() const = 0;
+
+	/**
+	 * Set the number of cookers we want to spawn during cooking
+	 * 
+	 * @param InNumCookersToSpawn number of cookers we want to spawn in addition to the master cooker
+	 */
+	virtual void SetNumCookersToSpawn(const int32 InNumCookersToSpawn) = 0; 
+
+
+
+	virtual const bool GetSkipCookingEditorContent() const = 0; 
+
+	/**
+	 * Skip editor content while cooking, 
+	 * This will strip editor content from final builds
+	 * 
+	 * @param InSkipCookingEditorContent
+	 */
+	virtual void SetSkipCookingEditorContent(const bool InSkipCookingEditorContent) = 0;
+
+
 	/**
 	 * Gets the list of cooked culture.
 	 *
@@ -477,7 +549,13 @@ public:
 	 * @return The device group, or NULL if none was configured.
 	 * @see SetDeployedDeviceGroup
 	 */
-	virtual ILauncherDeviceGroupPtr GetDeployedDeviceGroup( ) const = 0;
+	virtual ILauncherDeviceGroupPtr GetDeployedDeviceGroup( ) = 0;
+
+	/**
+	* Gets the default platforms to deploy if no specific devices were selected.
+	*	
+	*/
+	virtual const FName GetDefaultDeployPlatform() const = 0;
 
 	/**
 	 * Gets the deployment mode.
@@ -724,6 +802,15 @@ public:
 	 * @see ClearCookedPlatforms, GetCookedPlatforms, RemoveCookedPlatform
 	 */
 	virtual void AddCookedPlatform( const FString& PlatformName ) = 0;
+
+	/**
+	* Adds a platform to deploy (only used if a specific device is not specified).
+	* Will deploy to the default device of the given platform, or the first device if none are
+	* marked as 'default'.
+	*
+	* @param PlatformName The name of the platform to add.		
+	*/
+	virtual void SetDefaultDeployPlatform(const FName PlatformName) = 0;
 
 	/**
 	 * Removes all cooked cultures.

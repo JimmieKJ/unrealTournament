@@ -26,12 +26,12 @@ class UParticleModuleSize : public UParticleModuleSizeBase
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void CompileModule( struct FParticleEmitterBuildInfo& EmitterInfo ) override;
 	virtual void Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
 	/**
 	 *	Extended version of spawn, allows for using a random stream for distribution value retrieval

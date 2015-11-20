@@ -148,7 +148,7 @@ void FAnimBlueprintEditAppMode::PostActivateMode()
 		UDebugSkelMeshComponent* PreviewComponent = Persona->GetPreviewMeshComponent();
 		if ((AnimBlueprint->GetObjectBeingDebugged() == NULL) && (PreviewComponent->IsAnimBlueprintInstanced()))
 		{
-			AnimBlueprint->SetObjectBeingDebugged(PreviewComponent->AnimScriptInstance);
+			AnimBlueprint->SetObjectBeingDebugged(PreviewComponent->GetAnimInstance());
 		}
 
 		// If we are a derived anim blueprint always show the overrides tab

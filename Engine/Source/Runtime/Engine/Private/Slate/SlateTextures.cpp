@@ -55,10 +55,24 @@ void FSlateTexture2DRHIRef::InitDynamicRHI()
 			check(Height == TextureData->GetHeight());
 
 			uint32 Stride;
-			uint8* DestTextureData = (uint8*)RHILockTexture2D( ShaderResource, 0, RLM_WriteOnly, Stride, false );
-			FMemory::Memcpy( DestTextureData, TextureData->GetRawBytes().GetData(), Width*Height*GPixelFormats[PixelFormat].BlockBytes );
-			RHIUnlockTexture2D( ShaderResource, 0, false );
-
+			uint8* DestTextureData = (uint8*)RHILockTexture2D(ShaderResource, 0, RLM_WriteOnly, Stride, false);
+			const uint8* SourceTextureData = TextureData->GetRawBytes().GetData();
+			const uint32 DataStride = Width * GPixelFormats[PixelFormat].BlockBytes;
+			if (Stride == DataStride)
+			{
+				FMemory::Memcpy(DestTextureData, SourceTextureData, DataStride * Height);
+			}
+			else
+			{
+				checkf(GPixelFormats[PixelFormat].BlockSizeX == GPixelFormats[PixelFormat].BlockSizeY == GPixelFormats[PixelFormat].BlockSizeZ == 1, TEXT("Tried to use compressed format?"));
+				for (uint32 i = 0; i < Height; i++)
+				{
+					FMemory::Memcpy(DestTextureData, SourceTextureData, DataStride);
+					DestTextureData += Stride;
+					SourceTextureData += DataStride;
+				}
+			}
+			RHIUnlockTexture2D(ShaderResource, 0, false);
 			TextureData->Empty();
 		}
 	}
@@ -181,6 +195,28 @@ void FSlateTexture2DRHIRef::UpdateTextureThreadSafe(const TArray<uint8>& Bytes)
 	}
 }
 
+void FSlateTexture2DRHIRef::UpdateTextureThreadSafeRaw(uint32 InWidth, uint32 InHeight, const void* Buffer, const FIntRect& Dirty)
+{
+	if (IsInGameThread())
+	{
+		// No cheap way to avoid having to copy the Buffer, as we cannot guarantee it will not be touched before the rendering thread is done with it.
+		FSlateTextureData* BulkData = new FSlateTextureData( (uint8*)Buffer, InWidth, InHeight, 4 );
+
+		// Update the texture RHI
+		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
+			FSlateTexture2DRHIRef_UpdateTextureRaw,
+			FSlateTexture2DRHIRef*, ThisTexture, this,
+			FSlateTextureData*, BulkData, BulkData,
+			{
+				if (ThisTexture->GetWidth() != BulkData->GetWidth() || ThisTexture->GetHeight() != BulkData->GetHeight())
+				{
+					ThisTexture->Resize(BulkData->GetWidth(), BulkData->GetHeight());
+				}
+				ThisTexture->UpdateTexture(BulkData->GetRawBytes());
+				delete BulkData;
+			});
+	}
+}
 
 void FSlateRenderTargetRHI::SetRHIRef( FTexture2DRHIRef InRenderTargetTexture, uint32 InWidth, uint32 InHeight )
 {
@@ -224,8 +260,8 @@ void FSlateTextureRenderTarget2DResource::ClampSize(int32 MaxSizeX,int32 MaxSize
 	check(IsInRenderingThread());
 
 	// upsize to go back to original or downsize to clamp to max
- 	int32 NewSizeX = FMath::Min<int32>(TargetSizeX,MaxSizeX);
- 	int32 NewSizeY = FMath::Min<int32>(TargetSizeY,MaxSizeY);
+	int32 NewSizeX = FMath::Min<int32>(TargetSizeX,MaxSizeX);
+	int32 NewSizeY = FMath::Min<int32>(TargetSizeY,MaxSizeY);
 	if (NewSizeX != TargetSizeX || NewSizeY != TargetSizeY)
 	{
 		TargetSizeX = NewSizeX;
@@ -273,13 +309,13 @@ void FSlateTextureRenderTarget2DResource::ReleaseDynamicRHI()
 {
 	check(IsInRenderingThread());
 
-	// release the FTexture RHI resources here as well
+	// Release the FTexture RHI resources here as well
 	ReleaseRHI();
 
 	Texture2DRHI.SafeRelease();
 	RenderTargetTextureRHI.SafeRelease();	
 
-	// remove from global list of deferred clears
+	// Remove from global list of deferred clears
 	RemoveFromDeferredUpdateList();
 }
 
@@ -287,7 +323,7 @@ void FSlateTextureRenderTarget2DResource::UpdateDeferredResource(FRHICommandList
 {
 	check(IsInRenderingThread());
 
-	// clear the target surface to green
+	// Clear the target surface to green
 	if (bClearRenderTarget)
 	{
 		SetRenderTarget(RHICmdList, RenderTargetTextureRHI,FTextureRHIRef());
@@ -295,7 +331,7 @@ void FSlateTextureRenderTarget2DResource::UpdateDeferredResource(FRHICommandList
 		RHICmdList.Clear(true,ClearColor,false,0.f,false,0, FIntRect());
 	}
 
-	// copy surface to the texture for use
+	// Copy surface to the texture for use
 	RHICmdList.CopyToResolveTarget(RenderTargetTextureRHI, TextureRHI, true, FResolveParams());
 }
 

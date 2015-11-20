@@ -21,29 +21,30 @@ class UAbilitySystemComponent;
 class UGameplayModMagnitudeCalculation;
 class UGameplayEffectExecutionCalculation;
 
-DECLARE_DELEGATE_RetVal_OneParam(bool, FActiveGameplayEffectQueryCustomMatch, const FActiveGameplayEffect&);
-
-/** Enumeration outlining the possible gameplay effect magnitude calculation policies */
+/** Enumeration outlining the possible gameplay effect magnitude calculation policies. */
 UENUM()
 enum class EGameplayEffectMagnitudeCalculation : uint8
 {
-	/** Use a simple, scalable float for the calculation */
+	/** Use a simple, scalable float for the calculation. */
 	ScalableFloat,
-	/** Perform a calculation based upon an attribute */
+	/** Perform a calculation based upon an attribute. */
 	AttributeBased,
-	/** Perform a custom calculation, capable of capturing and acting on multiple attributes, in either BP or native */
+	/** Perform a custom calculation, capable of capturing and acting on multiple attributes, in either BP or native. */
 	CustomCalculationClass,	
 	/** This magnitude will be set explicity by that code/blueprint that creates the spec. */
 	SetByCaller,
 };
 
-/** Enumeration outlining the possible attribute based float calculation policies */
+/** Enumeration outlining the possible attribute based float calculation policies. */
 UENUM()
 enum class EAttributeBasedFloatCalculationType : uint8
 {
-	AttributeMagnitude,			// Use the final evaluated magnitude of the attribute
-	AttributeBaseValue,			// Use the base value of the attribute
-	AttributeBonusMagnitude		// Use the "bonus" evaluated magnitude of the attribute: Equivalent to (FinalMag - BaseValue)
+	/** Use the final evaluated magnitude of the attribute. */
+	AttributeMagnitude,
+	/** Use the base value of the attribute. */
+	AttributeBaseValue,
+	/** Use the "bonus" evaluated magnitude of the attribute: Equivalent to (FinalMag - BaseValue). */
+	AttributeBonusMagnitude
 };
 
 /** 
@@ -93,6 +94,10 @@ public:
 	/** Attribute backing the calculation */
 	UPROPERTY(EditDefaultsOnly, Category=AttributeFloat)
 	FGameplayEffectAttributeCaptureDefinition BackingAttribute;
+
+	/** If a curve table entry is specified, the attribute will be used as a lookup into the curve instead of using the attribute directly. */
+	UPROPERTY(EditDefaultsOnly, Category=AttributeFloat)
+	FCurveTableRowHandle AttributeCurve;
 
 	/** Calculation policy in regards to the attribute */
 	UPROPERTY(EditDefaultsOnly, Category=AttributeFloat)
@@ -219,7 +224,7 @@ public:
 	 * 
 	 * @return True if the calculation was successful, false if it was not
 	 */
-	bool AttemptCalculateMagnitude(const FGameplayEffectSpec& InRelevantSpec, OUT float& OutCalculatedMagnitude) const;
+	bool AttemptCalculateMagnitude(const FGameplayEffectSpec& InRelevantSpec, OUT float& OutCalculatedMagnitude, bool WarnIfSetByCallerFail=true, float DefaultSetbyCaller=0.f) const;
 
 	/** Attempts to recalculate the magnitude given a changed aggregator. This will only recalculate if we are a modifier that is linked (non snapshot) to the given aggregator. */
 	bool AttemptRecalculateMagnitudeFromDependentChange(const FGameplayEffectSpec& InRelevantSpec, OUT float& OutCalculatedMagnitude, const FAggregator* ChangedAggregator) const;
@@ -241,6 +246,7 @@ public:
 
 #if WITH_EDITOR
 	FText GetValueForEditorDisplay() const;
+	void ReportErrors(const FString& PathName) const;
 #endif
 
 protected:
@@ -317,7 +323,7 @@ struct FGameplayEffectExecutionScopedModifierInfo
  * Custom executions run special logic from an outside class each time the gameplay effect executes.
  */
 USTRUCT()
-struct FGameplayEffectExecutionDefinition
+struct GAMEPLAYABILITIES_API FGameplayEffectExecutionDefinition
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -445,7 +451,7 @@ struct FGameplayEffectCue
 	}
 };
 
-USTRUCT()
+USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FInheritedTagContainer
 {
 	GENERATED_USTRUCT_BODY()
@@ -504,12 +510,26 @@ enum class EGameplayEffectStackingPeriodPolicy : uint8
 	NeverReset,
 };
 
+/** Enumeration of policies for dealing gameplay effect stacks that expire (in duration based effects). */
+UENUM()
+enum class EGameplayEffectStackingExpirationPolicy : uint8
+{
+	/** The entire stack is cleared when the active gameplay effect expires  */
+	ClearEntireStack,
+
+	/** The current stack count will be decremented by 1 and the duration refreshed. The GE is not "reapplied", just continues to exist with one less stacks. */
+	RemoveSingleStackAndRefreshDuration,
+
+	/** The duration of the gameplay effect is refreshed. This essentially makes the effect infinite in duration. This can be used to manually handle stack decrements via XXX callback */
+	RefreshDuration,
+};
+
 /**
  * UGameplayEffect
  *	The GameplayEffect definition. This is the data asset defined in the editor that drives everything.
  *  This is only blueprintable to allow for templating gameplay effects. Gameplay effects should NOT contain blueprint graphs.
  */
-UCLASS(Blueprintable)
+UCLASS(Blueprintable, meta = (ShortTooltip="A GameplayEffect modifies attributes and tags."))
 class GAMEPLAYABILITIES_API UGameplayEffect : public UObject, public IGameplayTagAssetInterface
 {
 
@@ -598,7 +618,7 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category=Expiration)
 	TArray<TSubclassOf<UGameplayEffect>> RoutineExpirationEffectClasses;
 
-	void GetTargetEffects(TArray<const UGameplayEffect*>& OutEffects) const;
+	void GetTargetEffects(TArray<const UGameplayEffect*, TInlineAllocator<4> >& OutEffects) const;
 
 	// ------------------------------------------------
 	// Gameplay tag interface
@@ -685,6 +705,10 @@ public:
 	/** Policy for how the effect period should be reset (or not) while stacking */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Stacking)
 	EGameplayEffectStackingPeriodPolicy StackPeriodResetPolicy;
+
+	/** Policy for how to handle duration expiring on this gameplay effect */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Stacking)
+	EGameplayEffectStackingExpirationPolicy StackExpirationPolicy;
 
 	// ----------------------------------------------------------------------
 	//	Granted abilities
@@ -964,9 +988,6 @@ struct GAMEPLAYABILITIES_API FGameplayEffectSpec
 	/** Adds a new modified attribute struct, will always add so check to see if it exists first */
 	FGameplayEffectModifiedAttribute* AddModifiedAttribute(const FGameplayAttribute& Attribute);
 
-	/** Deletes any modified attributes that aren't needed. Call before replication */
-	void PruneModifiedAttributes();
-
 	/**
 	 * Helper function to attempt to calculate the duration of the spec from its GE definition
 	 * 
@@ -991,13 +1012,17 @@ struct GAMEPLAYABILITIES_API FGameplayEffectSpec
 		return EffectContext;
 	}
 
+	// Appends all tags granted by this gameplay effect spec
 	void GetAllGrantedTags(OUT FGameplayTagContainer& Container) const;
+
+	// Appends all tags that apply to this gameplay effect spec
+	void GetAllAssetTags(OUT FGameplayTagContainer& Container) const;
 
 	/** Sets the magnitude of a SetByCaller modifier */
 	void SetSetByCallerMagnitude(FName DataName, float Magnitude);
 
 	/** Returns the magnitude of a SetByCaller modifier. Will return 0.f and Warn if the magnitude has not been set. */
-	float GetSetByCallerMagnitude(FName DataName) const;
+	float GetSetByCallerMagnitude(FName DataName, bool WarnIfNotFound=true, float DefaultIfNotFound=0.f) const;
 
 	void SetLevel(float InLevel);
 
@@ -1081,6 +1106,10 @@ public:
 	/** Tags that are granted and that did not come from the UGameplayEffect def. These are replicated. */
 	UPROPERTY()
 	FGameplayTagContainer DynamicGrantedTags;
+
+	/** Tags that are on this effect spec and that did not come from the UGameplayEffect def. These are replicated. */
+	UPROPERTY()
+	FGameplayTagContainer DynamicAssetTags;
 	
 	UPROPERTY()
 	TArray<FModifierSpec> Modifiers;
@@ -1125,6 +1154,8 @@ struct GAMEPLAYABILITIES_API FGameplayEffectSpecForRPC
 	FGameplayEffectSpecForRPC();
 
 	FGameplayEffectSpecForRPC(const FGameplayEffectSpec& InSpec);
+
+	void InitFromSpec(const FGameplayEffectSpec& InSpec);
 
 	/** GameplayEfect definition. The static data that this spec points to. */
 	UPROPERTY()
@@ -1172,7 +1203,7 @@ struct GAMEPLAYABILITIES_API FGameplayEffectSpecForRPC
  *  -Replication callbacks
  *
  */
-USTRUCT()
+USTRUCT(BlueprintType)
 struct GAMEPLAYABILITIES_API FActiveGameplayEffect : public FFastArraySerializerItem
 {
 	GENERATED_USTRUCT_BODY()
@@ -1186,7 +1217,7 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffect : public FFastArraySerializer
 
 	FActiveGameplayEffect(const FActiveGameplayEffect& Other);
 
-	FActiveGameplayEffect(FActiveGameplayEffectHandle InHandle, const FGameplayEffectSpec &InSpec, float CurrentWorldTime, int32 InStartGameStateTime, FPredictionKey InPredictionKey);
+	FActiveGameplayEffect(FActiveGameplayEffectHandle InHandle, const FGameplayEffectSpec &InSpec, float CurrentWorldTime, float InStartServerWorldTime, FPredictionKey InPredictionKey);
 	
 	FActiveGameplayEffect(FActiveGameplayEffect&& Other);
 
@@ -1194,7 +1225,7 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffect : public FFastArraySerializer
 
 	FActiveGameplayEffect& operator=(const FActiveGameplayEffect& other);
 
-	float GetTimeRemaining(float WorldTime)
+	float GetTimeRemaining(float WorldTime) const
 	{
 		float Duration = GetDuration();		
 		return (Duration == UGameplayEffect::INFINITE_DURATION ? -1.f : Duration - (WorldTime - StartWorldTime));
@@ -1208,6 +1239,12 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffect : public FFastArraySerializer
 	float GetPeriod() const
 	{
 		return Spec.GetPeriod();
+	}
+
+	float GetEndTime() const
+	{
+		float Duration = GetDuration();		
+		return (Duration == UGameplayEffect::INFINITE_DURATION ? -1.f : Duration + StartWorldTime);
 	}
 
 	void CheckOngoingTagRequirements(const FGameplayTagContainer& OwnerTags, struct FActiveGameplayEffectsContainer& OwningContainer, bool bInvokeGameplayCueEvents = false);
@@ -1234,13 +1271,13 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffect : public FFastArraySerializer
 	UPROPERTY()
 	FPredictionKey	PredictionKey;
 
-	/** Game time this started */
+	/** Server time this started */
 	UPROPERTY()
-	int32 StartGameStateTime;
+	float StartServerWorldTime;
 
 	/** Used for handling duration modifications being replicated */
 	UPROPERTY(NotReplicated)
-	int32 CachedStartGameStateTime;
+	float CachedStartServerWorldTime;
 
 	UPROPERTY(NotReplicated)
 	float StartWorldTime;
@@ -1255,13 +1292,97 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffect : public FFastArraySerializer
 
 	bool IsPendingRemove;
 
-	FOnActiveGameplayEffectRemoved	OnRemovedDelegate;
+	FOnActiveGameplayEffectRemoved OnRemovedDelegate;
+
+	FOnActiveGameplayEffectStackChange OnStackChangeDelegate;
 
 	FTimerHandle PeriodHandle;
 
 	FTimerHandle DurationHandle;
 
 	FActiveGameplayEffect* PendingNext;
+};
+
+DECLARE_DELEGATE_RetVal_OneParam(bool, FActiveGameplayEffectQueryCustomMatch, const FActiveGameplayEffect&);
+DECLARE_DYNAMIC_DELEGATE_TwoParams(FActiveGameplayEffectQueryCustomMatch_Dynamic, FActiveGameplayEffect, Effect, bool&, bMatches);
+
+/** Every set condition within this query must match in order for the query to match. i.e. individual query elements are ANDed together. */
+USTRUCT(BlueprintType)
+struct GAMEPLAYABILITIES_API FGameplayEffectQuery
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	// ctors and operators
+	FGameplayEffectQuery();
+	FGameplayEffectQuery(const FGameplayEffectQuery& Other);
+	FGameplayEffectQuery(FActiveGameplayEffectQueryCustomMatch InCustomMatchDelegate);
+	FGameplayEffectQuery(FGameplayEffectQuery&& Other);
+	FGameplayEffectQuery& operator=(FGameplayEffectQuery&& Other);
+	FGameplayEffectQuery& operator=(const FGameplayEffectQuery& Other);
+
+	/** Native delegate for providing custom matching conditions. */
+	FActiveGameplayEffectQueryCustomMatch CustomMatchDelegate;
+
+	/** BP-exposed delegate for providing custom matching conditions. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Query)
+	FActiveGameplayEffectQueryCustomMatch_Dynamic CustomMatchDelegate_BP;
+
+	/** Query that is matched against tags this GE gives */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Query)
+	FGameplayTagQuery OwningTagQuery;
+
+	/** Query that is matched against tags this GE has */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Query)
+	FGameplayTagQuery EffectTagQuery;
+
+	/** Query that is matched against tags the source of this GE has */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Query)
+	FGameplayTagQuery SourceTagQuery;
+
+	/** Matches on GameplayEffects which modify given attribute. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Query)
+	FGameplayAttribute ModifyingAttribute;
+
+	/** Matches on GameplayEffects which come from this source */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Query)
+	const UObject* EffectSource;
+
+	/** Matches on GameplayEffects with this definition */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Query)
+	const UGameplayEffect* EffectDefinition;
+
+	/** Handles to ignore as matches, even if other criteria is met */
+	TArray<FActiveGameplayEffectHandle> IgnoreHandles;
+
+	/** Returns true if Effect matches all specified criteria of this query, including CustomMatch delegates if bound. Returns false otherwise. */
+	bool Matches(const FActiveGameplayEffect& Effect) const;
+
+	/** 
+	 * Shortcuts for easily creating common query types 
+	 * @todo: add more as dictated by use cases
+	 */
+
+	/** Creates an effect query that will match if there are any common tags between the given tags and an ActiveGameplayEffect's owning tags */
+	static FGameplayEffectQuery MakeQuery_MatchAnyOwningTags(const FGameplayTagContainer& InTags);
+	/** Creates an effect query that will match if all of the given tags are in the ActiveGameplayEffect's owning tags */
+	static FGameplayEffectQuery MakeQuery_MatchAllOwningTags(const FGameplayTagContainer& InTags);
+	/** Creates an effect query that will match if there are no common tags between the given tags and an ActiveGameplayEffect's owning tags */
+	static FGameplayEffectQuery MakeQuery_MatchNoOwningTags(const FGameplayTagContainer& InTags);
+	
+	/** Creates an effect query that will match if there are any common tags between the given tags and an ActiveGameplayEffect's tags */
+	static FGameplayEffectQuery MakeQuery_MatchAnyEffectTags(const FGameplayTagContainer& InTags);
+	/** Creates an effect query that will match if all of the given tags are in the ActiveGameplayEffect's tags */
+	static FGameplayEffectQuery MakeQuery_MatchAllEffectTags(const FGameplayTagContainer& InTags);
+	/** Creates an effect query that will match if there are no common tags between the given tags and an ActiveGameplayEffect's tags */
+	static FGameplayEffectQuery MakeQuery_MatchNoEffectTags(const FGameplayTagContainer& InTags);
+
+	/** Creates an effect query that will match if there are any common tags between the given tags and an ActiveGameplayEffect's source tags */
+	static FGameplayEffectQuery MakeQuery_MatchAnySourceTags(const FGameplayTagContainer& InTags);
+	/** Creates an effect query that will match if all of the given tags are in the ActiveGameplayEffect's source tags */
+	static FGameplayEffectQuery MakeQuery_MatchAllSourceTags(const FGameplayTagContainer& InTags);
+	/** Creates an effect query that will match if there are no common tags between the given tags and an ActiveGameplayEffect's source tags */
+	static FGameplayEffectQuery MakeQuery_MatchNoSourceTags(const FGameplayTagContainer& InTags);
 };
 
 /**
@@ -1368,7 +1489,7 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectsContainer : public FFastArray
 
 	UAbilitySystemComponent* Owner;
 
-	FOnActiveGameplayEffectRemoved	OnActiveGameplayEffectRemovedDelegate;
+	FOnGivenActiveGameplayEffectRemoved	OnActiveGameplayEffectRemovedDelegate;
 
 	struct DebugExecutedGameplayEffectData
 	{
@@ -1390,7 +1511,7 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectsContainer : public FFastArray
 
 	void RegisterWithOwner(UAbilitySystemComponent* Owner);	
 	
-	FActiveGameplayEffect* ApplyGameplayEffectSpec(const FGameplayEffectSpec& Spec, FPredictionKey InPredictionKey);
+	FActiveGameplayEffect* ApplyGameplayEffectSpec(const FGameplayEffectSpec& Spec, FPredictionKey& InPredictionKey);
 
 	FActiveGameplayEffect* GetActiveGameplayEffect(const FActiveGameplayEffectHandle Handle);
 
@@ -1405,6 +1526,8 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectsContainer : public FFastArray
 	float GetGameplayEffectDuration(FActiveGameplayEffectHandle Handle) const;
 
 	float GetGameplayEffectMagnitude(FActiveGameplayEffectHandle Handle, FGameplayAttribute Attribute) const;
+
+	void SetActiveGameplayEffectLevel(FActiveGameplayEffectHandle ActiveHandle, int32 NewLevel);
 
 	void SetAttributeBaseValue(FGameplayAttribute Attribute, float NewBaseValue);
 
@@ -1467,17 +1590,36 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectsContainer : public FFastArray
 
 	bool CanApplyAttributeModifiers(const UGameplayEffect *GameplayEffect, float Level, const FGameplayEffectContextHandle& EffectContext);
 	
+	DEPRECATED(4.9, "FActiveGameplayEffectQuery is deprecated, use FGameplayEffectQuery instead")
 	TArray<float> GetActiveEffectsTimeRemaining(const FActiveGameplayEffectQuery Query) const;
+	TArray<float> GetActiveEffectsTimeRemaining(const FGameplayEffectQuery& Query) const;
 
+	DEPRECATED(4.9, "FActiveGameplayEffectQuery is deprecated, use FGameplayEffectQuery instead")
 	TArray<float> GetActiveEffectsDuration(const FActiveGameplayEffectQuery Query) const;
+	TArray<float> GetActiveEffectsDuration(const FGameplayEffectQuery& Query) const;
 
+	DEPRECATED(4.9, "FActiveGameplayEffectQuery is deprecated, use FGameplayEffectQuery instead")
 	TArray<FActiveGameplayEffectHandle> GetActiveEffects(const FActiveGameplayEffectQuery Query) const;
+	TArray<FActiveGameplayEffectHandle> GetActiveEffects(const FGameplayEffectQuery& Query) const;
+
+	float GetActiveEffectsEndTime(const FGameplayEffectQuery& Query) const;
 
 	void ModifyActiveEffectStartTime(FActiveGameplayEffectHandle Handle, float StartTimeDiff);
 
+	DEPRECATED(4.9, "FActiveGameplayEffectQuery is deprecated, use FGameplayEffectQuery instead")
 	void RemoveActiveEffects(const FActiveGameplayEffectQuery Query, int32 StacksToRemove);
+	void RemoveActiveEffects(const FGameplayEffectQuery& Query, int32 StacksToRemove);
 
-	int32 GetGameStateTime() const;
+	/**
+	 * Get the count of the effects matching the specified query (including stack count)
+	 * 
+	 * @return Count of the effects matching the specified query
+	 */
+	DEPRECATED(4.9, "FActiveGameplayEffectQuery is deprecated, use FGameplayEffectQuery instead")
+	int32 GetActiveEffectCount(const FActiveGameplayEffectQuery Query) const;
+	int32 GetActiveEffectCount(const FGameplayEffectQuery& Query) const;
+
+	float GetServerWorldTime() const;
 
 	float GetWorldTime() const;
 
@@ -1488,6 +1630,8 @@ struct GAMEPLAYABILITIES_API FActiveGameplayEffectsContainer : public FFastArray
 	void SetBaseAttributeValueFromReplication(FGameplayAttribute Attribute, float BaseBalue);
 
 	void GetAllActiveGameplayEffectSpecs(TArray<FGameplayEffectSpec>& OutSpecCopies);
+
+	void DebugCyclicAggregatorBroadcasts(struct FAggregator* Aggregator);
 
 	// -------------------------------------------------------------------------------------------
 
@@ -1563,7 +1707,7 @@ private:
 	
 	/** Called both in server side creation and replication creation/deletion */
 	void InternalOnActiveGameplayEffectAdded(FActiveGameplayEffect& Effect);
-	void InternalOnActiveGameplayEffectRemoved(const FActiveGameplayEffect& Effect);
+	void InternalOnActiveGameplayEffectRemoved(const FActiveGameplayEffect& Effect, bool bInvokeGameplayCueEvents);
 
 	void RemoveActiveGameplayEffectGrantedTagsAndModifiers(const FActiveGameplayEffect& Effect, bool bInvokeGameplayCueEvents);
 	void AddActiveGameplayEffectGrantedTagsAndModifiers(FActiveGameplayEffect& Effect, bool bInvokeGameplayCueEvents);
@@ -1573,6 +1717,8 @@ private:
 
 	/** Internal helper function to apply expiration effects from a removed/expired gameplay effect spec */
 	void InternalApplyExpirationEffects(const FGameplayEffectSpec& ExpiringSpec, bool bPrematureRemoval);
+
+	void RestartActiveGameplayEffectDuration(FActiveGameplayEffect& ActiveGameplayEffect);
 
 	// -------------------------------------------------------------------------------------------
 
@@ -1593,7 +1739,7 @@ private:
 
 	void OnMagnitudeDependencyChange(FActiveGameplayEffectHandle Handle, const FAggregator* ChangedAgg);
 
-	void OnStackCountChange(FActiveGameplayEffect& ActiveEffect);
+	void OnStackCountChange(FActiveGameplayEffect& ActiveEffect, int32 OldStackCount);
 
 	void UpdateAllAggregatorModMagnitudes(FActiveGameplayEffect& ActiveEffect);
 
@@ -1609,7 +1755,7 @@ private:
 	bool HandleActiveGameplayEffectStackOverflow(const FActiveGameplayEffect& ActiveStackableGE, const FGameplayEffectSpec& OldSpec, const FGameplayEffectSpec& OverflowingSpec);
 
 	/** After application has gone through, give stacking rules a chance to do something as the source of the gameplay effect (E.g., remove an old version) */
-	void ApplyStackingLogicPostApplyAsSource(UAbilitySystemComponent* Target, const FGameplayEffectSpec& SpecApplied, FActiveGameplayEffectHandle ActiveHandle);
+	virtual void ApplyStackingLogicPostApplyAsSource(UAbilitySystemComponent* Target, const FGameplayEffectSpec& SpecApplied, FActiveGameplayEffectHandle ActiveHandle) { }
 
 	mutable int32 ScopedLockCount;
 	int32 PendingRemoves;

@@ -37,14 +37,14 @@ void FPhysSubstepTask::SwapBuffers()
 
 void FPhysSubstepTask::RemoveBodyInstance_AssumesLocked(FBodyInstance* BodyInstance)
 {
-	
 	PhysTargetBuffers[External].Remove(BodyInstance);
+	PhysTargetBuffers[!External].Remove(BodyInstance);
 }
 
 void FPhysSubstepTask::SetKinematicTarget_AssumesLocked(FBodyInstance* Body, const FTransform& TM)
 {
 #if WITH_PHYSX
-	TM.DiagnosticCheckNaN_All();
+	TM.DiagnosticCheck_IsValid();
 
 	//We only interpolate kinematic actors
 	if (!Body->IsNonKinematic())
@@ -168,6 +168,14 @@ void FPhysSubstepTask::ApplyCustomPhysics(const FPhysTarget& PhysTarget, FBodyIn
 #endif
 }
 
+#if WITH_PHYSX
+bool IsKinematicHelper(const PxRigidBody* PRigidBody)
+{
+	const bool bIsKinematic = PRigidBody->getRigidDynamicFlags() & PxRigidDynamicFlag::eKINEMATIC;
+	return bIsKinematic;
+}
+#endif
+
 /** Applies forces - Assumes caller has obtained writer lock */
 void FPhysSubstepTask::ApplyForces_AssumesLocked(const FPhysTarget& PhysTarget, FBodyInstance* BodyInstance)
 {
@@ -255,15 +263,17 @@ void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
 {
 #if WITH_PHYSX
 #if WITH_APEX
+	SCOPED_APEX_SCENE_WRITE_LOCK(PAScene);
 	PxScene * PScene = PAScene->getPhysXScene();
 #else
 	PxScene * PScene = PAScene;
-#endif
-
-	PhysTargetMap& Targets = PhysTargetBuffers[!External];
-
-	/** Note: We lock the entire scene before iterating. The assumption is that removing an FBodyInstance from the map will also be wrapped by this lock */
 	SCOPED_SCENE_WRITE_LOCK(PScene);
+#endif
+	
+	/** Note: We lock the entire scene before iterating. The assumption is that removing an FBodyInstance from the map will also be wrapped by this lock */
+	
+	
+	PhysTargetMap& Targets = PhysTargetBuffers[!External];
 
 	for (PhysTargetMap::TIterator Itr = Targets.CreateIterator(); Itr; ++Itr)
 	{
@@ -279,11 +289,16 @@ void FPhysSubstepTask::SubstepInterpolation(float InAlpha, float DeltaTime)
 		//We should only be iterating over actors that belong to this scene
 		check(PRigidBody->getScene() == PScene);
 
-		ApplyCustomPhysics(PhysTarget, BodyInstance, DeltaTime);
-		ApplyForces_AssumesLocked(PhysTarget, BodyInstance);
-		ApplyTorques_AssumesLocked(PhysTarget, BodyInstance);
-		ApplyRadialForces_AssumesLocked(PhysTarget, BodyInstance);
-		InterpolateKinematicActor_AssumesLocked(PhysTarget, BodyInstance, InAlpha);
+		if (!IsKinematicHelper(PRigidBody))
+		{
+			ApplyCustomPhysics(PhysTarget, BodyInstance, DeltaTime);
+			ApplyForces_AssumesLocked(PhysTarget, BodyInstance);
+			ApplyTorques_AssumesLocked(PhysTarget, BodyInstance);
+			ApplyRadialForces_AssumesLocked(PhysTarget, BodyInstance);
+		}else
+		{
+			InterpolateKinematicActor_AssumesLocked(PhysTarget, BodyInstance, InAlpha);
+		}
 	}
 
 	/** Final substep */
@@ -330,8 +345,8 @@ void FPhysSubstepTask::StepSimulation(PhysXCompletionTask * Task)
 }
 #endif
 
-DEFINE_STAT(STAT_SubstepSimulationStart);
-DEFINE_STAT(STAT_SubstepSimulationEnd);
+DECLARE_CYCLE_STAT(TEXT("Phys SubstepStart"), STAT_SubstepSimulationStart, STATGROUP_Physics);
+DECLARE_CYCLE_STAT(TEXT("Phys SubstepEnd"), STAT_SubstepSimulationEnd, STATGROUP_Physics);
 
 void FPhysSubstepTask::SubstepSimulationStart()
 {
@@ -343,8 +358,10 @@ void FPhysSubstepTask::SubstepSimulationStart()
 	
 	check(!CompletionEvent.GetReference());	//should be done
 	CompletionEvent = FGraphEvent::CreateGraphEvent();
-	PhysXCompletionTask* SubstepTask = new PhysXCompletionTask(CompletionEvent, PAScene->getTaskManager());
-	ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::AnyThread;
+	PhysXCompletionTask* SubstepTask = new PhysXCompletionTask(CompletionEvent,
+		 PST_MAX //we don't care about sub-step time. The full time is recorded by FullSimulationTask
+		,PAScene->getTaskManager());
+	ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::AnyThreadGame();
 
 	DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ProcessPhysSubstepSimulation"),
 		STAT_FDelegateGraphTask_ProcessPhysSubstepSimulation,

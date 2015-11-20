@@ -7,6 +7,7 @@
 #include "EnginePrivate.h"
 #include "ShaderParameterUtils.h"
 #include "SimpleElementShaders.h"
+#include "SceneTypes.h"
 
 /*------------------------------------------------------------------------------
 	Simple element vertex shader.
@@ -307,3 +308,34 @@ IMPLEMENT_SHADER_TYPE(,FSimpleElementDistanceFieldGammaPS,TEXT("SimpleElementPix
 IMPLEMENT_SHADER_TYPE(,FSimpleElementHitProxyPS,TEXT("SimpleElementHitProxyPixelShader"),TEXT("Main"),SF_Pixel);
 IMPLEMENT_SHADER_TYPE(,FSimpleElementColorChannelMaskPS,TEXT("SimpleElementColorChannelMaskPixelShader"),TEXT("Main"),SF_Pixel);
 
+// 32 Bpp HDR Encoded implementations of simple element shaders.
+#define BLEND_VARIATION(SHADERCLASS,VARIATION, SHADERFILENAME, SHADERENTRYFUNC)\
+	typedef FEncodedSimpleElement<SHADERCLASS, VARIATION> SHADERCLASS##Encoded##VARIATION; \
+	IMPLEMENT_SHADER_TYPE(template<>, SHADERCLASS##Encoded##VARIATION, SHADERFILENAME, SHADERENTRYFUNC, SF_Pixel);
+
+#define IMPLEMENT_ENCODEDSHADERS(SHADERCLASS, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_Opaque, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_Masked, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_Translucent, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_Additive, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_Modulate, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_MaskedDistanceField, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_MaskedDistanceFieldShadowed, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_TranslucentDistanceField, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_AlphaComposite, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_TranslucentDistanceFieldShadowed, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_AlphaBlend, SHADERFILENAME, SHADERENTRYFUNC) \
+	BLEND_VARIATION(SHADERCLASS, SE_BLEND_TranslucentAlphaOnly, SHADERFILENAME, SHADERENTRYFUNC)
+
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementPS, TEXT("SimpleElementPixelShader"), TEXT("Main"));
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementAlphaOnlyPS, TEXT("SimpleElementPixelShader"), TEXT("AlphaOnlyMain"));
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementGammaPS_SRGB, TEXT("SimpleElementPixelShader"), TEXT("GammaMain"));
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementGammaPS_Linear, TEXT("SimpleElementPixelShader"), TEXT("GammaMain"));
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementGammaAlphaOnlyPS, TEXT("SimpleElementPixelShader"), TEXT("GammaAlphaOnlyMain"));
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementMaskedGammaPS_SRGB, TEXT("SimpleElementPixelShader"), TEXT("GammaMaskedMain"));
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementMaskedGammaPS_Linear, TEXT("SimpleElementPixelShader"), TEXT("GammaMaskedMain"));
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementDistanceFieldGammaPS, TEXT("SimpleElementPixelShader"), TEXT("GammaDistanceFieldMain"));
+IMPLEMENT_ENCODEDSHADERS(FSimpleElementColorChannelMaskPS, TEXT("SimpleElementColorChannelMaskPixelShader"), TEXT("Main"));
+
+#undef IMPLEMENT_ENCODEDSHADERS
+#undef BLEND_VARIATION

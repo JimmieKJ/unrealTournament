@@ -210,8 +210,8 @@ int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVector3SOA& End, 
 
 	// If this triangle is not closer than the previous hit, reject it
 	VectorRegister IntersectionTime = VectorLoadFloat1( &InOutIntersectionTime );
-	TriangleMask = VectorBitwiseAND( TriangleMask, VectorMask_GE( Time, VectorZero() ) );
-	TriangleMask = VectorBitwiseAND( TriangleMask, VectorMask_LT( Time, IntersectionTime ) );
+	TriangleMask = VectorBitwiseAnd( TriangleMask, VectorMask_GE( Time, VectorZero() ) );
+	TriangleMask = VectorBitwiseAnd( TriangleMask, VectorMask_LT( Time, IntersectionTime ) );
 	if ( VectorMaskBits(TriangleMask) == 0 )
 	{
 		return -1;
@@ -239,7 +239,7 @@ int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVector3SOA& End, 
 		DotW = VectorMultiply( SideDirectionX, IntersectionX );
 		DotW = VectorMultiplyAdd( SideDirectionY, IntersectionY, DotW );
 		DotW = VectorMultiplyAdd( SideDirectionZ, IntersectionZ, DotW );
-		TriangleMask = VectorBitwiseAND( TriangleMask, VectorMask_LT( VectorSubtract(DotW, SideW), GSmallNumber ) );
+		TriangleMask = VectorBitwiseAnd( TriangleMask, VectorMask_LT( VectorSubtract(DotW, SideW), GSmallNumber ) );
 		if ( VectorMaskBits(TriangleMask) == 0 )
 		{
 			return -1;
@@ -685,8 +685,8 @@ struct TkDOPNode
 
 		// 4: Calculate hit time and determine whether there was a hit.		
 		VectorStoreAligned( MinTime, &HitTime );
-		const VectorRegister OutNodeHit		= VectorBitwiseAND( VectorCompareGE( MaxTime, VectorZero() ), VectorCompareGE( MaxTime, MinTime ) );
-		const VectorRegister CloserNodeHit	= VectorBitwiseAND( OutNodeHit, VectorCompareGT( CurrentHitTime, MinTime ) );
+		const VectorRegister OutNodeHit		= VectorBitwiseAnd( VectorCompareGE( MaxTime, VectorZero() ), VectorCompareGE( MaxTime, MinTime ) );
+		const VectorRegister CloserNodeHit	= VectorBitwiseAnd( OutNodeHit, VectorCompareGT( CurrentHitTime, MinTime ) );
 		VectorStoreAligned( CloserNodeHit, (float*) NodeHit );
 #endif
 	}

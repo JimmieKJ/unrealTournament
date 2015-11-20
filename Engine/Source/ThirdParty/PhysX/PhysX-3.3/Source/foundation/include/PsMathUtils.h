@@ -110,7 +110,7 @@ namespace shdfnd
 	/**
 	\brief Calculates e^n
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 exp(const PxF32 a)				{	return ::exp(a);	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 exp(const PxF32 a)				{	return ::expf(a);	}
 	/**
 
 	\brief Calculates e^n
@@ -120,7 +120,7 @@ namespace shdfnd
 	/**
 	\brief Calculates 2^n
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 exp2(const PxF32 a)				{	return ::exp(a * 0.693147180559945309417f);	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 exp2(const PxF32 a)				{	return ::expf(a * 0.693147180559945309417f);	}
 	/**
 
 	\brief Calculates 2^n
@@ -130,7 +130,7 @@ namespace shdfnd
 	/**
 	\brief Calculates logarithms.
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 logE(const PxF32 a)				{	return ::log(a);	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 logE(const PxF32 a)				{	return ::logf(a);	}
 
 	/**
 	\brief Calculates logarithms.
@@ -140,7 +140,7 @@ namespace shdfnd
 	/**
 	\brief Calculates logarithms.
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 log2(const PxF32 a)				{   return ::log(a) / 0.693147180559945309417f;	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 log2(const PxF32 a)				{   return ::logf(a) / 0.693147180559945309417f;	}
 
 	/**
 	\brief Calculates logarithms.
@@ -150,7 +150,7 @@ namespace shdfnd
 	/**
 	\brief Calculates logarithms.
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 log10(const PxF32 a)				{	return (PxF32)::log10(a);	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 log10(const PxF32 a)				{	return ::log10f(a);	}
 
 	/**
 	\brief Calculates logarithms.
@@ -160,7 +160,7 @@ namespace shdfnd
 	/**
 	\brief Converts degrees to radians.
 	*/
-	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 degToRad(const PxF32 a)			{	return (PxF32)0.01745329251994329547 * a;	}
+	PX_CUDA_CALLABLE PX_FORCE_INLINE PxF32 degToRad(const PxF32 a)			{	return 0.01745329251994329547f * a;	}
 
 	/**
 	\brief Converts degrees to radians.

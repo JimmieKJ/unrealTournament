@@ -37,7 +37,7 @@ public:
 	}
 
 	/**
-	 * Singleton-like access to IMovieSceneCore
+	 * Singleton-like access to IHeadMountedDisplayModule
 	 *
 	 * @return Returns IHeadMountedDisplayModule singleton instance, loading the module on demand if needed
 	 */

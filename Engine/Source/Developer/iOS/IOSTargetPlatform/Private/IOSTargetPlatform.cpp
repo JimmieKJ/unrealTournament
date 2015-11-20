@@ -361,13 +361,13 @@ bool FIOSTargetPlatform::SupportsFeature( ETargetPlatformFeatures Feature ) cons
 
 void FIOSTargetPlatform::GetAllPossibleShaderFormats( TArray<FName>& OutFormats ) const
 {
-	static FName NAME_OPENGL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
+	static FName NAME_GLSL_ES2_IOS(TEXT("GLSL_ES2_IOS"));
 	static FName NAME_SF_METAL(TEXT("SF_METAL"));
 	static FName NAME_SF_METAL_MRT(TEXT("SF_METAL_MRT"));
 
 	if (SupportsES2())
 	{
-		OutFormats.AddUnique(NAME_OPENGL_ES2_IOS);
+		OutFormats.AddUnique(NAME_GLSL_ES2_IOS);
 	}
 
 	if (SupportsMetal())
@@ -400,6 +400,8 @@ void FIOSTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FNam
 		FName(TEXT("BC5")),		FName(TEXT("PVRTCN")),		FName(TEXT("ASTC_NormalRG")),
 		FName(TEXT("AutoDXT")),	FName(TEXT("AutoPVRTC")),	FName(TEXT("ASTC_RGBAuto")),
 	};
+	static FName NameBGRA8(TEXT("BGRA8"));
+	static FName NamePOTERROR(TEXT("POTERROR"));
 
 	FName TextureFormatName = NAME_None;
 
@@ -432,7 +434,18 @@ void FIOSTargetPlatform::GetTextureFormats( const UTexture* Texture, TArray<FNam
 			}
 			if (bIncludePVRTC)
 			{
-				OutFormats.AddUnique(FormatRemap[RemapIndex + 1]);
+				// handle non-power of 2 textures
+				if (!Texture->Source.IsPowerOfTwo())
+				{
+					// option 1: Uncompress, but users will get very large textures unknowningly
+					// OutFormats.AddUnique(NameBGRA8);
+					// option 2: Use an "error message" texture so they see it in game
+					OutFormats.AddUnique(NamePOTERROR);
+				}
+				else
+				{
+					OutFormats.AddUnique(FormatRemap[RemapIndex + 1]);
+				}
 			}
 		}
 	}

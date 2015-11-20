@@ -25,6 +25,9 @@ public:
 	UFUNCTION(BlueprintPure, Category="AI|BehaviorTree", Meta=(HidePin="NodeOwner", DefaultToSelf="NodeOwner"))
 	static UBlackboardComponent* GetOwnersBlackboard(UBTNode* NodeOwner);
 
+	UFUNCTION(BlueprintPure, Category = "AI|BehaviorTree", Meta=(HidePin="NodeOwner", DefaultToSelf="NodeOwner"))
+	static UBehaviorTreeComponent* GetOwnerComponent(UBTNode* NodeOwner);
+
 	UFUNCTION(BlueprintPure, Category="AI|BehaviorTree", Meta=(HidePin="NodeOwner", DefaultToSelf="NodeOwner"))
 	static UObject* GetBlackboardValueAsObject(UBTNode* NodeOwner, const FBlackboardKeySelector& Key);
 

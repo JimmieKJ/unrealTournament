@@ -293,14 +293,21 @@ void UInterpToMovementComponent::HandleImpact(const FHitResult& Hit, float Time,
 		switch(BehaviourType )
 		{
 		case EInterpToBehaviourType::OneShot:
-		case EInterpToBehaviourType::OneShot_Reverse:
 			OnInterpToStop.Broadcast(Hit, Time);
-			// If one shot we are done. If One shot reverse and we are already in reverse we are done too.
-			if ((BehaviourType == EInterpToBehaviourType::OneShot) || (CurrentDirection == -1.0f))
+			bStopped = true;
+			StopSimulating(Hit);
+			return;
+		case EInterpToBehaviourType::OneShot_Reverse:
+			if( CurrentDirection == -1.0f)
 			{
+				OnInterpToStop.Broadcast(Hit, Time);
 				bStopped = true;
 				StopSimulating(Hit);
 				return;
+			}
+			else
+			{
+				ReverseDirection(Hit, Time, true);
 			}
 			break;
 		case EInterpToBehaviourType::Loop_Reset:
@@ -330,14 +337,19 @@ bool UInterpToMovementComponent::CheckStillInWorld()
 	{
 		return false;
 	}
+	const UWorld* MyWorld = GetWorld();
+	if (!MyWorld)
+	{
+		return false;
+	}
 	// check the variations of KillZ
-	AWorldSettings* WorldSettings = GetWorld()->GetWorldSettings(true);
+	AWorldSettings* WorldSettings = MyWorld->GetWorldSettings(true);
 	if (!WorldSettings->bEnableWorldBoundsChecks)
 	{
 		return true;
 	}
 	AActor* ActorOwner = UpdatedComponent->GetOwner();
-	if (!ActorOwner)
+	if (!IsValid(ActorOwner))
 	{
 		return false;
 	}
@@ -402,17 +414,7 @@ float UInterpToMovementComponent::GetSimulationTimeStep(float RemainingTime, int
 
 void UInterpToMovementComponent::BeginPlay()
 {
-	StartLocation = UpdatedComponent->GetComponentLocation();
-	TimeMultiplier = 1.0f / Duration;
-	if( ControlPoints.Num() != 0 )
-	{
-		UpdateControlPoints(true);
-		// Update the component location to match first control point
-		FVector MoveDelta = ComputeMoveDelta(0.0f);
-		FRotator CurrentRotation = UpdatedComponent->GetComponentRotation();
-		FHitResult Hit(1.f);
-		UpdatedComponent->MoveComponent(MoveDelta, CurrentRotation, false, &Hit);
-	}	
+	FinaliseControlPoints();
 }
 
 void UInterpToMovementComponent::UpdateControlPoints(bool InForceUpdate)
@@ -473,10 +475,33 @@ float UInterpToMovementComponent::ReverseDirection(const FHitResult& Hit, float 
 }
 
 
-void UInterpToMovementComponent::AddControlPointPosition(FVector Pos)
+void UInterpToMovementComponent::AddControlPointPosition(FVector Pos,bool bPositionIsRelative)
 {
 	UE_LOG(LogInterpToMovementComponent, Warning, TEXT("Pos:%s"),*Pos.ToString());
-	ControlPoints.Add( FInterpControlPoint(Pos));
+	ControlPoints.Add( FInterpControlPoint(Pos,bPositionIsRelative));
+}
+
+void UInterpToMovementComponent::FinaliseControlPoints()
+{
+	StartLocation = UpdatedComponent->GetComponentLocation();
+	TimeMultiplier = 1.0f / Duration;
+	if (ControlPoints.Num() != 0)
+	{
+		UpdateControlPoints(true);
+		// Update the component location to match first control point
+		FVector MoveDelta = ComputeMoveDelta(0.0f);
+		FRotator CurrentRotation = UpdatedComponent->GetComponentRotation();
+		FHitResult Hit(1.f);
+		UpdatedComponent->MoveComponent(MoveDelta, CurrentRotation, false, &Hit);
+	} 
+}
+
+void UInterpToMovementComponent::RestartMovement(float InitialDirection)
+{	
+	CurrentDirection = InitialDirection;
+	CurrentTime = 0.0f;
+	bIsWaiting = false;
+	bStopped = false;
 }
 
 #if WITH_EDITOR
@@ -489,4 +514,6 @@ void UInterpToMovementComponent::PostEditChangeProperty(FPropertyChangedEvent& P
 		UpdateControlPoints(true);
 	}
 }
+
+
 #endif // WITH_EDITOR

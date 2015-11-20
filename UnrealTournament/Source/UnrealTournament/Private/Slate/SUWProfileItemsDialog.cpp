@@ -20,11 +20,22 @@ void SUWProfileItemsDialog::Construct(const FArguments& InArgs)
 		.OnDialogResult(InArgs._OnDialogResult)
 		);
 
-	const TArray<FProfileItemEntry> ProfileItems = GetPlayerOwner()->GetProfileItems();
-	for (const FProfileItemEntry& Item : ProfileItems)
+#if WITH_PROFILE
+	UUtMcpProfile* Profile = GetPlayerOwner()->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+	if (Profile != NULL)
 	{
-		Items.Add(MakeShareable(new FProfileItemEntry(Item)));
+		TArray<TSharedRef<const FMcpItem>> ItemList;
+		Profile->GetItemsByTemplateType(ItemList, TEXT("Item"));
+		for (const TSharedRef<const FMcpItem>& Item : ItemList)
+		{
+			UUTProfileItem* ProfileItem = Cast<UUTProfileItem>(Item->Instance);
+			if (ProfileItem != NULL)
+			{
+				Items.Add(MakeShareable(new FProfileItemEntry(ProfileItem, Item->Quantity)));
+			}
+		}
 	}
+#endif
 
 	if (DialogContent.IsValid())
 	{
@@ -80,7 +91,7 @@ TSharedRef<ITableRow> SUWProfileItemsDialog::GenerateItemListRow(TSharedPtr<FPro
 			.HAlign(HAlign_Right)
 			[
 				SNew(STextBlock)
-				.Text(/*FText::AsNumber(TheItem->Count)*/FText())
+				.Text(FText::AsNumber(TheItem->Count))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 			]
 		];

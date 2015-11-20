@@ -316,9 +316,14 @@ void Sc::ArticulationSim::sleepCheck(PxReal dt, PxReal invDt, bool /*enableStabi
 
 	for(PxU32 i=0;i<mLinks.size();i++)
 	{
-		PxReal timer = mBodies[i]->updateWakeCounter(dt, sleepThreshold, freezeThreshold, invDt, false);//enableStabilization);
+		bool notReadyForSleeping = false;
+		PxReal timer = mBodies[i]->updateWakeCounter(dt, sleepThreshold, freezeThreshold, invDt, false, notReadyForSleeping);//enableStabilization);
 		maxTimer = PxMax(maxTimer, timer);
 		minTimer = PxMin(minTimer, timer);
+		if(notReadyForSleeping)
+		{
+			mBodies[i]->notifyNotReadyForSleeping();
+		}
 	}
 
 	mCore.setWakeCounterInternal(maxTimer);

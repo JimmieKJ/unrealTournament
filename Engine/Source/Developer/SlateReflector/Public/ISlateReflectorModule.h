@@ -20,34 +20,6 @@ class ISlateReflectorModule
 public:
 
 	/**
-	 * Creates a widget reflector widget.
-	 *
-	 * @return The widget.
-	 */
-	virtual TSharedRef<SWidget> GetWidgetReflector() = 0;
-
-	/**
-	 * Create an atlas visualizer widget using the given atlas provider.
-	 *
-	 * @return The widget.
-	 */
-	virtual TSharedRef<SWidget> GetAtlasVisualizer( ISlateAtlasProvider* InAtlasProvider ) = 0;
-
-	/**
-	 * Create an atlas visualizer widget for the texture atlas provider used by the current renderer.
-	 *
-	 * @return The widget.
-	 */
-	virtual TSharedRef<SWidget> GetTextureAtlasVisualizer() = 0;
-
-	/**
-	 * Create an atlas visualizer widget for the font atlas provider used by the current renderer.
-	 *
-	 * @return The widget.
-	 */
-	virtual TSharedRef<SWidget> GetFontAtlasVisualizer() = 0;
-
-	/**
 	 * Display the widget reflector, either spawned from a tab manager, or in a new window if the tab manager can't be used
 	 */
 	virtual void DisplayWidgetReflector() = 0;
@@ -67,7 +39,7 @@ public:
 	 *
 	 * @param WorkspaceGroup The workspace group to insert the tab into.
 	 */
-	virtual void RegisterTabSpawner( const TSharedRef<FWorkspaceItem>& WorkspaceGroup ) = 0;
+	virtual void RegisterTabSpawner( const TSharedPtr<FWorkspaceItem>& WorkspaceGroup ) = 0;
 
 	/** Unregisters the tab spawner for the widget reflector. */
 	virtual void UnregisterTabSpawner() = 0;

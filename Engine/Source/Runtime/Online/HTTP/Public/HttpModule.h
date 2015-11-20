@@ -5,6 +5,8 @@
 #include "ModuleManager.h"
 #include "HttpManager.h"
 
+class IHttpRequest;
+
 /**
  * Module for Http request implementations
  * Use FHttpFactory to create a new Http request

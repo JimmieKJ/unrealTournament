@@ -163,8 +163,8 @@ namespace Gu
 					v[i][1] = memFetchAsync<PxVec3>(verts+inds[i]->p1*12+0, i, buf1[i]);
 					v[i][2] = memFetchAsync<PxVec3>(verts+inds[i]->p2*12+0, i, buf2[i]);
 					outputInds[i][0] = inds[i]->p0;
-					outputInds[i][0] = inds[i]->p1;
-					outputInds[i][0] = inds[i]->p2;
+					outputInds[i][1] = inds[i]->p1;
+					outputInds[i][2] = inds[i]->p2;
 				}
 			} 
 			else 
@@ -180,8 +180,8 @@ namespace Gu
 					v[i][1] = memFetchAsync<PxVec3>(verts+inds[i]->p1*12+0, i, buf1[i]);
 					v[i][2] = memFetchAsync<PxVec3>(verts+inds[i]->p2*12+0, i, buf2[i]);
 					outputInds[i][0] = inds[i]->p0;
-					outputInds[i][0] = inds[i]->p1;
-					outputInds[i][0] = inds[i]->p2;
+					outputInds[i][1] = inds[i]->p1;
+					outputInds[i][2] = inds[i]->p2;
 				}
 			} 
 

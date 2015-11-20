@@ -174,7 +174,7 @@ class AIMODULE_API UCrowdManager : public UObject
 	void OnAgentFinishedCustomLink(const ICrowdAgentInterface* Agent) const;
 
 	/** sets move target for crowd agent (only for fully simulated) */
-	bool SetAgentMoveTarget(const UCrowdFollowingComponent* AgentComponent, const FVector& MoveTarget, TSharedPtr<const FNavigationQueryFilter> Filter) const;
+	bool SetAgentMoveTarget(const UCrowdFollowingComponent* AgentComponent, const FVector& MoveTarget, FSharedConstNavQueryFilter Filter) const;
 
 	/** sets move direction for crowd agent (only for fully simulated) */
 	bool SetAgentMoveDirection(const UCrowdFollowingComponent* AgentComponent, const FVector& MoveDirection) const;
@@ -269,6 +269,7 @@ protected:
 
 	uint32 bPruneStartedOffmeshConnections : 1;
 	uint32 bSingleAreaVisibilityOptimization : 1;
+	uint32 bEarlyReachTestOptimization : 1;
 	
 	/** should crowd simulation resolve collisions between agents? if not, this will be handled by their movement components */
 	UPROPERTY(config, EditAnywhere, Category = Config)
@@ -276,6 +277,9 @@ protected:
 
 	/** agents registered in crowd manager */
 	TMap<ICrowdAgentInterface*, FCrowdAgentData> ActiveAgents;
+
+	/** temporary flags for crowd agents */
+	TArray<uint8> AgentFlags;
 
 #if WITH_RECAST
 	/** crowd manager */
@@ -298,6 +302,9 @@ protected:
 
 	/** called from tick, just after updating agents proximity data */
 	virtual void PostProximityUpdate();
+
+	/** called from tick, after move points were updated, before any steering/avoidance */
+	virtual void PostMovePointUpdate();
 
 #if WITH_RECAST
 	void AddAgent(const ICrowdAgentInterface* Agent, FCrowdAgentData& AgentData) const;

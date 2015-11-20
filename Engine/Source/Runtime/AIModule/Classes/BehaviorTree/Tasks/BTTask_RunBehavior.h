@@ -13,9 +13,7 @@
  * which are injected into parent tree, and structure of running tree
  * cannot be modified in runtime (see: BTNode: ExecutionIndex, MemoryOffset)
  *
- * Dynamic subtrees can be implemented, but at the cost of some features:
- * - no root level decorators
- * - no or limited editor preview
+ * Use RunBehaviorDynamic task for subtrees that need to be changed in runtime.
  */
 
 UCLASS()

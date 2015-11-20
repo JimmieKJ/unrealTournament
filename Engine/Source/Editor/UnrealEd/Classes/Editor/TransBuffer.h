@@ -47,12 +47,12 @@ public:
 
 public:
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 
 	virtual void Serialize( FArchive& Ar ) override;
 	virtual void FinishDestroy() override;
 
-	// End UObject interface.
+	//~ End UObject Interface.
 
 protected:
 	
@@ -88,7 +88,7 @@ protected:
 
 public:
 
-	// Begin UTransactor interface.
+	//~ Begin UTransactor Interface.
 
 	virtual int32 Begin( const TCHAR* SessionContext, const FText& Description ) override;
 	virtual int32 End() override;
@@ -110,12 +110,13 @@ public:
 	virtual void SetPrimaryUndoObject( UObject* Object ) override;
 	virtual ITransaction* CreateInternalTransaction() override;
 	virtual bool IsObjectInTransationBuffer( const UObject* Object ) const override;
+	virtual bool ContainsPieObject() const override;
 	virtual bool IsActive() override
 	{
 		return ActiveCount > 0;
 	}
 
-	// End UTransactor interface.
+	//~ End UTransactor Interface.
 
 public:
 

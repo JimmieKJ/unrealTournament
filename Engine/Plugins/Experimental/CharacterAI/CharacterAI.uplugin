@@ -7,9 +7,10 @@
 	"CreatedBy" : "Epic Games, Inc.",
 	"CreatedByURL" : "http://epicgames.com",
 	"EngineVersion" : "4.5.0",
-	"Description" : "[EARLY ACCESS PREVIEW] CharacterAI adds code and assets related to implementing AI in a character-based project.",
+	"Description" : "Adds code and assets related to implementing AI in a character-based project.",
 	"Category" : "Gameplay",
-	"EnabledByDefault" : true,
+    "EnabledByDefault": true,
+    "IsBetaVersion": true,
 
 	"Modules" :
 	[
@@ -18,7 +19,5 @@
 			"Type" : "Runtime",
 			"LoadingPhase" : "PostEngineInit"
 		},
-	],
-
-	"CanContainContent" : true
+	]
 }

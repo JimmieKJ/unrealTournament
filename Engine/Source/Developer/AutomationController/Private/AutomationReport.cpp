@@ -14,7 +14,7 @@ FAutomationReport::FAutomationReport(FAutomationTestInfo& InTestInfo, bool InIsP
 	, NumRecordsToKeep(0)
 {
 	// Enable smoke tests
-	if ( TestInfo.GetTestType() == EAutomationTestType::ATT_SmokeTest )
+	if ( TestInfo.GetTestFlags() == EAutomationTestFlags::SmokeFilter )
 	{
 		bEnabled = true;
 	}
@@ -197,17 +197,17 @@ bool FAutomationReport::IsSupported(const int32 ClusterIndex) const
 }
 
 
-uint8 FAutomationReport::GetTestType( ) const
+uint32 FAutomationReport::GetTestFlags( ) const
 {
-	return TestInfo.GetTestType();
+	return TestInfo.GetTestFlags();
 }
 
 
-void FAutomationReport::SetTestType( const uint8 InTestType )
+void FAutomationReport::SetTestFlags( const uint32 InTestFlags)
 {
-	TestInfo.AddTestType( InTestType );
+	TestInfo.AddTestFlags( InTestFlags );
 
-	if ( InTestType == EAutomationTestType::ATT_SmokeTest )
+	if ( InTestFlags == EAutomationTestFlags::SmokeFilter )
 	{
 		bEnabled = true;
 	}
@@ -220,7 +220,7 @@ const bool FAutomationReport::IsParent()
 
 const bool FAutomationReport::IsSmokeTest( )
 {
-	return GetTestType( ) & EAutomationTestType::ATT_SmokeTest ? true : false;
+	return GetTestFlags( ) & EAutomationTestFlags::SmokeFilter ? true : false;
 }
 
 bool FAutomationReport::SetFilter( TSharedPtr< AutomationFilterCollection > InFilter, const bool ParentPassedFilter )
@@ -737,7 +737,7 @@ TSharedPtr<IAutomationReport> FAutomationReport::EnsureReportExists(FAutomationT
 		else
 		{
 			// Create a parent node
-			FAutomationTestInfo ParentTestInfo( NameToMatch, "", InTestInfo.GetTestType(), InTestInfo.GetNumParticipantsRequired() ) ;
+			FAutomationTestInfo ParentTestInfo( NameToMatch, "", InTestInfo.GetTestFlags(), InTestInfo.GetNumParticipantsRequired() ) ;
 			MatchTest = MakeShareable(new FAutomationReport(ParentTestInfo, true));
 		}
 		//make new test
@@ -747,7 +747,7 @@ TSharedPtr<IAutomationReport> FAutomationReport::EnsureReportExists(FAutomationT
 	//mark this test as supported on a particular platform
 	MatchTest->SetSupport(ClusterIndex);
 
-	MatchTest->SetTestType( InTestInfo.GetTestType() );
+	MatchTest->SetTestFlags( InTestInfo.GetTestFlags() );
 	MatchTest->SetNumParticipantsRequired( MatchTest->GetNumParticipantsRequired() > InTestInfo.GetNumParticipantsRequired() ? MatchTest->GetNumParticipantsRequired() : InTestInfo.GetNumParticipantsRequired() );
 
 	TSharedPtr<IAutomationReport> FoundTest;

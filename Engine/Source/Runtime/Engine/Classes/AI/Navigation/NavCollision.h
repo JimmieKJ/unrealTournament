@@ -73,17 +73,20 @@ class ENGINE_API UNavCollision : public UObject
 	/** convex collisions are ready to use */
 	uint32 bHasConvexGeometry : 1;
 
+	/** if set, convex geometry will be rebuild instead of using cooked data */
+	uint32 bForceGeometryRebuild : 1;
+
 	/** Guid of associated BodySetup */
 	FGuid BodySetupGuid;
 
 	/** Cooked data for each format */
 	FFormatContainer CookedFormatData;
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 	virtual void Serialize(FArchive& Ar) override;
 	virtual void PostLoad() override;
 	virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	FGuid GetGuid() const;
 
@@ -98,7 +101,7 @@ class ENGINE_API UNavCollision : public UObject
 	void GetNavigationModifier(FCompositeNavModifier& Modifier, const FTransform& LocalToWorld);
 
 	/** Read collisions data */
-	bool GatherCollision();
+	void GatherCollision();
 
 protected:
 	void ClearCollision();

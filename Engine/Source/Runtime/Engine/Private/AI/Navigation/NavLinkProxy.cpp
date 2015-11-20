@@ -10,6 +10,7 @@
 #include "AI/Navigation/NavLinkProxy.h"
 #include "AI/Navigation/NavLinkRenderingComponent.h"
 #include "NavigationSystemHelpers.h"
+#include "VisualLogger/VisualLogger.h"
 
 ANavLinkProxy::ANavLinkProxy(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -55,25 +56,43 @@ ANavLinkProxy::ANavLinkProxy(const FObjectInitializer& ObjectInitializer) : Supe
 #if WITH_EDITOR
 void ANavLinkProxy::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) 
 {
-	Super::PostEditChangeProperty(PropertyChangedEvent);
-
-	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ANavLinkProxy,bSmartLinkIsRelevant))
+	bool bUpdateInNavOctree = false;
+	if (PropertyChangedEvent.Property && PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(ANavLinkProxy, bSmartLinkIsRelevant))
 	{
 		SmartLinkComp->SetNavigationRelevancy(bSmartLinkIsRelevant);
+		bUpdateInNavOctree = true;
 	}
 
 	const FName CategoryName = FObjectEditorUtils::GetCategoryFName(PropertyChangedEvent.Property);
 	const FName MemberCategoryName = FObjectEditorUtils::GetCategoryFName(PropertyChangedEvent.MemberProperty);
 	if (CategoryName == TEXT("SimpleLink") || MemberCategoryName == TEXT("SimpleLink"))
 	{
+		bUpdateInNavOctree = true;
+	}
+
+	if (bUpdateInNavOctree)
+	{
 		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
 		if (NavSys)
 		{
-			NavSys->UpdateNavOctree(this);
+			NavSys->UpdateActorInNavOctree(*this);
 		}
 	}
+
+	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif // WITH_EDITOR
+
+#if ENABLE_VISUAL_LOG
+void ANavLinkProxy::BeginPlay()
+{
+	UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+	if (NavSys)
+	{
+		REDIRECT_OBJECT_TO_VLOG(this, NavSys);
+	}
+}
+#endif // ENABLE_VISUAL_LOG
 
 void ANavLinkProxy::GetNavigationData(FNavigationRelevantData& Data) const
 {

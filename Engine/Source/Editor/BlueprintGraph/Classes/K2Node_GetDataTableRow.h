@@ -12,7 +12,7 @@ class BLUEPRINTGRAPH_API UK2Node_GetDataTableRow : public UK2Node
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin UEdGraphNode interface.
+	//~ Begin UEdGraphNode Interface.
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
@@ -23,16 +23,16 @@ class BLUEPRINTGRAPH_API UK2Node_GetDataTableRow : public UK2Node
         OutColor = GetNodeTitleColor();
         return TEXT("Kismet.AllClasses.FunctionIcon");
     }
-	// End UEdGraphNode interface.
+	//~ End UEdGraphNode Interface.
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual bool IsNodeSafeToIgnore() const override { return true; }
 	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
 	virtual bool IsConnectionDisallowed(const UEdGraphPin* MyPin, const UEdGraphPin* OtherPin, FString& OutReason) const override;
 	virtual void EarlyValidation(class FCompilerResultsLog& MessageLog) const override;
-	// End UK2Node interface
+	//~ End UK2Node Interface
 
 
 	/** Set the return type of our struct */

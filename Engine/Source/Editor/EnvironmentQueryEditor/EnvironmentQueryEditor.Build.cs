@@ -35,6 +35,7 @@ public class EnvironmentQueryEditor : ModuleRules
 				"UnrealEd", 
 				"MessageLog", 
 				"GraphEditor",
+				"KismetWidgets",
                 "PropertyEditor",
 				"AnimGraph",
 				"BlueprintGraph",
@@ -48,7 +49,6 @@ public class EnvironmentQueryEditor : ModuleRules
         DynamicallyLoadedModuleNames.AddRange(
             new string[] { 
                 "WorkspaceMenuStructure",
-                "PropertyEditor"
             }
 		);
 	}

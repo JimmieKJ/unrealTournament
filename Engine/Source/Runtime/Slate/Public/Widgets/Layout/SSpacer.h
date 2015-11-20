@@ -16,6 +16,12 @@ public:
 		SLATE_ATTRIBUTE( FVector2D, Size )
 	SLATE_END_ARGS()
 
+	SSpacer()
+	{
+		bCanTick = false;
+		bCanSupportFocus = false;
+	}
+
 	/**
 	 * Construct this widget
 	 *

@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "OnlineSubsystemUtilsPrivatePCH.h"
+#include "InAppPurchaseQueryCallbackProxy.h"
 
 //////////////////////////////////////////////////////////////////////////
 // UInAppPurchaseQueryCallbackProxy
@@ -116,6 +117,7 @@ void UInAppPurchaseQueryCallbackProxy::BeginDestroy()
 UInAppPurchaseQueryCallbackProxy* UInAppPurchaseQueryCallbackProxy::CreateProxyObjectForInAppPurchaseQuery(class APlayerController* PlayerController, const TArray<FString>& ProductIdentifiers)
 {
 	UInAppPurchaseQueryCallbackProxy* Proxy = NewObject<UInAppPurchaseQueryCallbackProxy>();
+	Proxy->SetFlags(RF_StrongRefOnFrame);
 	Proxy->TriggerQuery(PlayerController, ProductIdentifiers);
 	return Proxy;
 }

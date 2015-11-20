@@ -3,6 +3,9 @@
 #pragma once
 
 #include "AI/AISystemBase.h"
+#if WITH_EDITOR
+#include "Developer/AssetTools/Public/AssetTypeCategories.h"
+#endif // WITH_EDITOR
 
 /**
  * The public interface to this module
@@ -32,5 +35,9 @@ public:
 	{
 		return FModuleManager::Get().IsModuleLoaded( "AIModule" );
 	}
+
+#if WITH_EDITOR
+	virtual EAssetTypeCategories::Type GetAIAssetCategoryBit() const = 0;
+#endif // WITH_EDITOR
 };
 

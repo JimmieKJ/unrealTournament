@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
-#include "Runtime/Online/OnlineSubsystemUtils/Classes/OnlineBeaconHost.h"
+#include "OnlineBeaconHostObject.h"
 #include "TestBeaconHost.generated.h"
 
 /**
@@ -12,10 +12,10 @@ class ONLINESUBSYSTEMUTILS_API ATestBeaconHost : public AOnlineBeaconHostObject
 {
 	GENERATED_UCLASS_BODY()
 
-	// Begin AOnlineBeaconHost Interface 
+	//~ Begin AOnlineBeaconHost Interface 
 	virtual AOnlineBeaconClient* SpawnBeaconActor(class UNetConnection* ClientConnection) override;
-	virtual void ClientConnected(class AOnlineBeaconClient* NewClientActor, class UNetConnection* ClientConnection) override;
-	// End AOnlineBeaconHost Interface 
+	virtual void OnClientConnected(class AOnlineBeaconClient* NewClientActor, class UNetConnection* ClientConnection) override;
+	//~ End AOnlineBeaconHost Interface 
 
 	virtual bool Init();
 };

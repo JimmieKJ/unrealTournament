@@ -107,7 +107,7 @@ int32 FTurnBasedMatchIOS::GetLocalPlayerIndex() const
 		return 0;
 	}
 
-	TSharedPtr<FUniqueNetId> NetID = IdentityInterface->GetUniquePlayerId(0);
+	TSharedPtr<const FUniqueNetId> NetID = IdentityInterface->GetUniquePlayerId(0);
 	NSString* playerID = [NSString stringWithFormat : @"%s", TCHAR_TO_UTF8(*(NetID->ToString()))];
 
 	int32 PlayerIndex = 0;

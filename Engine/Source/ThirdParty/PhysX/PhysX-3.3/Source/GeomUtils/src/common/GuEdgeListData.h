@@ -99,7 +99,7 @@ struct EdgeListData
 	Gu::EdgeDescData*		mEdgeToTriangles;	//!< An EdgeDesc structure for each edge
 	PxU32*					mFacesByEdges;		//!< A pool of face indices
 };
-#if defined(PX_X64) || defined(PX_ARM64)
+#if defined(PX_P64)
 PX_COMPILE_TIME_ASSERT(sizeof(Gu::EdgeListData) == 48);
 #else
 PX_COMPILE_TIME_ASSERT(sizeof(Gu::EdgeListData) == 24);

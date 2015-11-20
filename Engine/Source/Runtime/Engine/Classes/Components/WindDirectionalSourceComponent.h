@@ -2,10 +2,12 @@
 
 
 #pragma once
+#include "Components/SceneComponent.h"
 #include "WindDirectionalSourceComponent.generated.h"
 
+/** Component that provides a directional wind source. Only affects SpeedTree assets. */
 UCLASS(collapsecategories, hidecategories=(Object, Mobility), editinlinenew)
-class UWindDirectionalSourceComponent : public USceneComponent
+class ENGINE_API UWindDirectionalSourceComponent : public USceneComponent
 {
 	GENERATED_UCLASS_BODY()
 
@@ -21,15 +23,21 @@ class UWindDirectionalSourceComponent : public USceneComponent
 	UPROPERTY(interp, Category = WindDirectionalSourceComponent)
 	float MaxGustAmount;
 
+	UPROPERTY(interp, Category = WindDirectionalSourceComponent, meta = (editcondition = "bSimulatePhysics", ClampMin = "0.1", UIMin = "0.1"))
+	float Radius;
+
+	UPROPERTY(EditAnywhere, Category = WindDirectionalSourceComponent)
+	uint32 bPointWind : 1;
+
 public:
 	class FWindSourceSceneProxy* SceneProxy;
 
 protected:
-	// Begin UActorComponent interface.
+	//~ Begin UActorComponent Interface.
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void SendRenderTransform_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
-	// End UActorComponent interface.
+	//~ End UActorComponent Interface.
 
 public:
 	/**

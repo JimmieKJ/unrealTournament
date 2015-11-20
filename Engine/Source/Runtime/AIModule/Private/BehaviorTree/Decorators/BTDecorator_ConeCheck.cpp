@@ -33,9 +33,12 @@ void UBTDecorator_ConeCheck::InitializeFromAsset(UBehaviorTree& Asset)
 	ConeHalfAngleDot = FMath::Cos(FMath::DegreesToRadians(ConeHalfAngle));
 
 	UBlackboardData* BBAsset = GetBlackboardAsset();
-	ConeOrigin.CacheSelectedKey(BBAsset);
-	ConeDirection.CacheSelectedKey(BBAsset);
-	Observed.CacheSelectedKey(BBAsset);
+	if (ensure(BBAsset))
+	{
+		ConeOrigin.ResolveSelectedKey(*BBAsset);
+		ConeDirection.ResolveSelectedKey(*BBAsset);
+		Observed.ResolveSelectedKey(*BBAsset);
+	}
 }
 
 bool UBTDecorator_ConeCheck::CalculateDirection(const UBlackboardComponent* BlackboardComp, const FBlackboardKeySelector& Origin, const FBlackboardKeySelector& End, FVector& Direction) const

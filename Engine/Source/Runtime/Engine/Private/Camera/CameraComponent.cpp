@@ -135,8 +135,20 @@ void UCameraComponent::PostLoad()
 	SetDeprecatedControllerViewRotation(*this, bUsePawnControlRotation);
 }
 
-
 #if WITH_EDITORONLY_DATA
+
+ void UCameraComponent::SetCameraMesh(UStaticMesh* Mesh)
+ {
+	 if (Mesh != CameraMesh)
+	 {
+		 CameraMesh = Mesh;
+
+		 if (ProxyMeshComponent)
+		 {
+			 ProxyMeshComponent->SetStaticMesh(Mesh);
+		 }
+	 }
+ }
 void UCameraComponent::RefreshVisualRepresentation()
 {
 	if (DrawFrustum != NULL)
@@ -178,7 +190,7 @@ void UCameraComponent::RestoreFrustumColor()
 		//Cam->DrawFrustum->FrustumColor = DefCam->DrawFrustum->FrustumColor;
 	}
 }
-#endif
+#endif	// WITH_EDITORONLY_DATA
 
 #if WITH_EDITOR
 void UCameraComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -187,9 +199,19 @@ void UCameraComponent::PostEditChangeProperty(FPropertyChangedEvent& PropertyCha
 
 #if WITH_EDITORONLY_DATA
 	RefreshVisualRepresentation();
-#endif
+#endif	// WITH_EDITORONLY_DATA
 }
-#endif
+#endif	// WITH_EDITOR
+
+void UCameraComponent::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if(Ar.IsLoading())
+	{
+		PostProcessSettings.OnAfterLoad();
+	}
+}
 
 void UCameraComponent::GetCameraView(float DeltaTime, FMinimalViewInfo& DesiredView)
 {
@@ -238,7 +260,7 @@ void UCameraComponent::CheckForErrors()
 			->AddToken(FMapErrorToken::Create(FMapErrors::CameraAspectRatioIsZero));
 	}
 }
-#endif
+#endif	// WITH_EDITOR
 
 
 void SetDeprecatedControllerViewRotation(UCameraComponent& Component, bool bValue)

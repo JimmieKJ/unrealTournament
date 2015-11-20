@@ -5,6 +5,9 @@
 #include "ScopedTransaction.h"
 #include "Editor/Documentation/Public/IDocumentation.h"
 #include "Engine/CollisionProfile.h"
+#include "SNumericEntryBox.h"
+#include "PhysicsEngine/BodySetup.h"
+#include "ObjectEditorUtils.h"
 
 #define LOCTEXT_NAMESPACE "BodyInstanceCustomization"
 
@@ -34,8 +37,7 @@ void FBodyInstanceCustomization::RefreshCollisionProfiles()
 	}
 }
 
-BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
-void FBodyInstanceCustomization::CustomizeChildren( TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
+void FBodyInstanceCustomization::AddCollisionCategory(TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils)
 {
 	CollisionProfileNameHandle = StructPropertyHandle->GetChildHandle(TEXT("CollisionProfileName"));
 	CollisionEnabledHandle = StructPropertyHandle->GetChildHandle(TEXT("CollisionEnabled"));
@@ -46,18 +48,6 @@ void FBodyInstanceCustomization::CustomizeChildren( TSharedRef<class IPropertyHa
 	check (CollisionProfileNameHandle.IsValid());
 	check (CollisionEnabledHandle.IsValid());
 	check (ObjectTypeHandle.IsValid());
-
-	// copy all bodyinstances I'm accessing right now
-	TArray<void*> StructPtrs;
-	StructPropertyHandle->AccessRawData( StructPtrs );
-	check(StructPtrs.Num()!=0);
-
-	BodyInstances.AddUninitialized(StructPtrs.Num());
-	for (auto Iter = StructPtrs.CreateIterator(); Iter; ++Iter)
-	{
-		check (*Iter);
-		BodyInstances[Iter.GetIndex()] = (FBodyInstance*)(*Iter);
-	}
 
 	// need to find profile name
 	FName ProfileName;
@@ -127,6 +117,24 @@ void FBodyInstanceCustomization::CustomizeChildren( TSharedRef<class IPropertyHa
 	CollisionGroup.ToggleExpansion(bDisplayAdvancedCollisionSettings);
 	// now create custom set up
 	CreateCustomCollisionSetup( StructPropertyHandle, CollisionGroup );
+}
+
+BEGIN_SLATE_FUNCTION_BUILD_OPTIMIZATION
+void FBodyInstanceCustomization::CustomizeChildren( TSharedRef<class IPropertyHandle> StructPropertyHandle, class IDetailChildrenBuilder& StructBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils )
+{
+	// copy all bodyinstances I'm accessing right now
+	TArray<void*> StructPtrs;
+	StructPropertyHandle->AccessRawData(StructPtrs);
+	check(StructPtrs.Num() != 0);
+
+	BodyInstances.AddUninitialized(StructPtrs.Num());
+	for (auto Iter = StructPtrs.CreateIterator(); Iter; ++Iter)
+	{
+		check(*Iter);
+		BodyInstances[Iter.GetIndex()] = (FBodyInstance*)(*Iter);
+	}
+
+	AddCollisionCategory(StructPropertyHandle, StructBuilder, StructCustomizationUtils);
 }
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -950,6 +958,592 @@ void FBodyInstanceCustomization::SetCollisionResponseContainer(const FCollisionR
 	}
 
 	CollisionResponsesHandle->NotifyPostChange();
+}
+
+FBodyInstanceCustomizationHelper::FBodyInstanceCustomizationHelper(const TArray<TWeakObjectPtr<UObject>>& InObjectsCustomized)
+: ObjectsCustomized(InObjectsCustomized)
+{
+}
+
+void FBodyInstanceCustomizationHelper::UpdateFilters()
+{
+	bDisplayMass = true;
+	bDisplayConstraints = true;
+	bDisplayEnablePhysics = true;
+
+	for (int32 i = 0; i < ObjectsCustomized.Num(); ++i)
+	{
+		if (ObjectsCustomized[i].IsValid())
+		{
+			if(ObjectsCustomized[i]->IsA(UDestructibleComponent::StaticClass()))
+			{
+				bDisplayMass = false;
+				bDisplayConstraints = false;
+			}
+			else
+			{
+				if(ObjectsCustomized[i]->IsA(UBodySetup::StaticClass()))
+				{
+					bDisplayEnablePhysics = false;
+					bDisplayConstraints = false;
+				}
+			}
+		}
+	}
+}
+
+void FBodyInstanceCustomizationHelper::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder, TSharedRef<IPropertyHandle> BodyInstanceHandler)
+{
+	if( BodyInstanceHandler->IsValidHandle() )
+	{
+		UpdateFilters();
+
+		IDetailCategoryBuilder& PhysicsCategory = DetailBuilder.EditCategory("Physics");
+
+		TSharedRef<IPropertyHandle> PhysicsEnable = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bSimulatePhysics)).ToSharedRef();
+		if(bDisplayEnablePhysics)
+		{
+			PhysicsCategory.AddProperty(PhysicsEnable).EditCondition(TAttribute<bool>(this, &FBodyInstanceCustomizationHelper::IsSimulatePhysicsEditable), NULL);
+		}
+		else
+		{
+			PhysicsEnable->MarkHiddenByCustomization();
+		}
+
+		AddMassInKg(PhysicsCategory, BodyInstanceHandler);
+
+		PhysicsCategory.AddProperty(BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, LinearDamping)));
+		PhysicsCategory.AddProperty(BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, AngularDamping)));
+		PhysicsCategory.AddProperty(BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bEnableGravity)));
+
+		AddBodyConstraint(PhysicsCategory, BodyInstanceHandler);
+
+		//ADVANCED
+		PhysicsCategory.AddProperty(BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bAutoWeld)))
+			.Visibility(TAttribute<EVisibility>(this, &FBodyInstanceCustomizationHelper::IsAutoWeldVisible))
+			.EditCondition(TAttribute<bool>(this, &FBodyInstanceCustomizationHelper::IsAutoWeldEditable), NULL);
+
+		PhysicsCategory.AddProperty(BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bStartAwake)));
+
+		PhysicsCategory.AddProperty(BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, COMNudge)));
+		PhysicsCategory.AddProperty(BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, MassScale)));
+
+		AddMaxAngularVelocity(PhysicsCategory, BodyInstanceHandler);
+
+		TSharedRef<IPropertyHandle> AsyncEnabled = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bUseAsyncScene)).ToSharedRef();
+		PhysicsCategory.AddProperty(AsyncEnabled).EditCondition(TAttribute<bool>(this, &FBodyInstanceCustomizationHelper::IsUseAsyncEditable), NULL);
+
+		//Add the rest
+		uint32 NumChildren = 0;
+		BodyInstanceHandler->GetNumChildren(NumChildren);
+		for(uint32 ChildIdx = 0; ChildIdx < NumChildren; ++ChildIdx)
+		{
+			TSharedPtr<IPropertyHandle> ChildProp = BodyInstanceHandler->GetChildHandle(ChildIdx);
+
+			FString Category = FObjectEditorUtils::GetCategory(ChildProp->GetProperty());
+			if(ChildProp->IsCustomized() == false && Category == TEXT("Physics"))	//add the rest of the physics properties
+			{
+				PhysicsCategory.AddProperty(ChildProp);
+			}
+		}
+	}
+}
+
+bool FBodyInstanceCustomizationHelper::IsSimulatePhysicsEditable() const
+{
+	// Check whether to enable editing of bSimulatePhysics - this will happen if all objects are UPrimitiveComponents & have collision geometry.
+	bool bEnableSimulatePhysics = ObjectsCustomized.Num() > 0;
+	for (TWeakObjectPtr<UObject> CustomizedObject : ObjectsCustomized)
+	{
+		if (UPrimitiveComponent* PrimitiveComponent = Cast<UPrimitiveComponent>(CustomizedObject.Get()))
+		{
+			if (!PrimitiveComponent->CanEditSimulatePhysics())
+			{
+				bEnableSimulatePhysics = false;
+				break;
+			}
+		}
+	}
+
+	return bEnableSimulatePhysics;
+}
+
+bool FBodyInstanceCustomizationHelper::IsUseAsyncEditable() const
+{
+	// Check whether to enable editing of bUseAsyncScene - this will happen if all objects are movable and the project uses an AsyncScene
+	if (!UPhysicsSettings::Get()->bEnableAsyncScene)
+	{
+		return false;
+	}
+
+	bool bEnableUseAsyncScene = ObjectsCustomized.Num() > 0;
+	for (auto ObjectIt = ObjectsCustomized.CreateConstIterator(); ObjectIt; ++ObjectIt)
+	{
+		if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UPrimitiveComponent::StaticClass()))
+		{
+			TWeakObjectPtr<USceneComponent> SceneComponent = CastChecked<USceneComponent>(ObjectIt->Get());
+
+			if (SceneComponent.IsValid() && SceneComponent->Mobility != EComponentMobility::Movable)
+			{
+				bEnableUseAsyncScene = false;
+				break;
+			}
+
+			// Skeletal mesh uses a physics asset which will have multiple bodies - these bodies have their own bUseAsyncScene which is what we actually use - the flag on the skeletal mesh is not used
+			TWeakObjectPtr<USkeletalMeshComponent> SkeletalMeshComponent = Cast<USkeletalMeshComponent>(ObjectIt->Get());
+			if (SkeletalMeshComponent.IsValid())
+			{
+				bEnableUseAsyncScene = false;
+				break;
+			}
+		}
+		else if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UBodySetup::StaticClass()))
+		{
+			continue;
+		}
+		else
+		{
+			bEnableUseAsyncScene = false;
+			break;
+		}
+	}
+
+	return bEnableUseAsyncScene;
+}
+
+
+EVisibility FBodyInstanceCustomizationHelper::IsMassVisible(bool bOverrideMass) const
+{
+	bool bIsMassReadOnly = IsBodyMassReadOnly();
+	if (bOverrideMass)
+	{
+		return bIsMassReadOnly ? EVisibility::Collapsed : EVisibility::Visible;
+	}
+	else
+	{
+		return bIsMassReadOnly ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+}
+
+bool FBodyInstanceCustomizationHelper::IsBodyMassReadOnly() const
+{
+	for (auto ObjectIt = ObjectsCustomized.CreateConstIterator(); ObjectIt; ++ObjectIt)
+	{
+		if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UPrimitiveComponent::StaticClass()))
+		{
+			if (UPrimitiveComponent* Comp = Cast<UPrimitiveComponent>(ObjectIt->Get()))
+			{
+				if (Comp->BodyInstance.bOverrideMass == false) { return true; }
+			}
+		}else if(ObjectIt->IsValid() && (*ObjectIt)->IsA(UBodySetup::StaticClass()))
+		{
+			UBodySetup* BS = Cast<UBodySetup>(ObjectIt->Get());
+			if (BS->DefaultInstance.bOverrideMass == false)
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+TOptional<float> FBodyInstanceCustomizationHelper::OnGetBodyMaxAngularVelocity() const
+{
+	UPrimitiveComponent* Comp = nullptr;
+	const float MaxAngularVelocity = UPhysicsSettings::Get()->MaxAngularVelocity;
+
+	for (auto ObjectIt = ObjectsCustomized.CreateConstIterator(); ObjectIt; ++ObjectIt)
+	{
+		if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UPrimitiveComponent::StaticClass()))
+		{
+			Comp = Cast<UPrimitiveComponent>(ObjectIt->Get());
+			Comp->BodyInstance.MaxAngularVelocity = MaxAngularVelocity;	//update max angular velocity so that overriding gives the same value initially
+		}
+	}
+
+	return MaxAngularVelocity;
+}
+
+bool FBodyInstanceCustomizationHelper::IsMaxAngularVelocityReadOnly() const
+{
+	for (auto ObjectIt = ObjectsCustomized.CreateConstIterator(); ObjectIt; ++ObjectIt)
+	{
+		if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UPrimitiveComponent::StaticClass()))
+		{
+			if (UPrimitiveComponent* Comp = Cast<UPrimitiveComponent>(ObjectIt->Get()))
+			{
+				if (Comp->BodyInstance.bOverrideMaxAngularVelocity == false) { return true; }
+			}
+		}
+	}
+
+	return false;
+}
+
+EVisibility FBodyInstanceCustomizationHelper::IsMaxAngularVelocityVisible(bool bOverrideMaxAngularVelocity) const
+{
+	bool bIsMaxAngularVelocityReadOnly = IsMaxAngularVelocityReadOnly();
+	if (bOverrideMaxAngularVelocity)
+	{
+		return bIsMaxAngularVelocityReadOnly ? EVisibility::Collapsed : EVisibility::Visible;
+	}
+	else
+	{
+		return bIsMaxAngularVelocityReadOnly ? EVisibility::Visible : EVisibility::Collapsed;
+	}
+}
+
+bool FBodyInstanceCustomizationHelper::IsAutoWeldEditable() const
+{
+	for (int32 i = 0; i < ObjectsCustomized.Num(); ++i)
+	{
+		if (UPrimitiveComponent * SceneComponent = Cast<UPrimitiveComponent>(ObjectsCustomized[i].Get()))
+		{
+			if (FBodyInstance* BI = SceneComponent->GetBodyInstance())
+			{
+				if (BI->ShouldInstanceSimulatingPhysics())
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
+}
+
+EVisibility FBodyInstanceCustomizationHelper::IsAutoWeldVisible() const
+{
+	for (int32 i = 0; i < ObjectsCustomized.Num(); ++i)
+	{
+		if (ObjectsCustomized[i].IsValid() && !(ObjectsCustomized[i]->IsA(UStaticMeshComponent::StaticClass()) || ObjectsCustomized[i]->IsA(UShapeComponent::StaticClass())))
+		{
+			return EVisibility::Collapsed;
+		}
+	}
+
+	return EVisibility::Visible;
+}
+
+
+TOptional<float> FBodyInstanceCustomizationHelper::OnGetBodyMass() const
+{
+	UPrimitiveComponent* Comp = nullptr;
+	UBodySetup* BS = nullptr;
+
+	float Mass = 0.0f;
+	bool bMultipleValue = false;
+
+	for (auto ObjectIt = ObjectsCustomized.CreateConstIterator(); ObjectIt; ++ObjectIt)
+	{
+		if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UPrimitiveComponent::StaticClass()))
+		{
+			Comp = Cast<UPrimitiveComponent>(ObjectIt->Get());
+
+			float CompMass = Comp->CalculateMass();
+			Comp->BodyInstance.MassInKg = CompMass;	//update the component's override mass to be the calculated one
+			if (Mass == 0.0f || FMath::Abs(Mass - CompMass) < 0.1f)
+			{
+				Mass = CompMass;
+			}
+			else
+			{
+				bMultipleValue = true;
+				break;
+			}
+		}
+		else if (ObjectIt->IsValid() && (*ObjectIt)->IsA(UBodySetup::StaticClass()))
+		{
+			BS = Cast<UBodySetup>(ObjectIt->Get());
+
+			float BSMass = BS->CalculateMass();
+			if (Mass == 0.0f || FMath::Abs(Mass - BSMass) < 0.1f)
+			{
+				Mass = BSMass;
+			}
+			else
+			{
+				bMultipleValue = true;
+				break;
+			}
+		}
+	}
+
+	if (bMultipleValue)
+	{
+		return TOptional<float>();
+	}
+
+	return Mass;
+}
+
+EVisibility FBodyInstanceCustomizationHelper::IsDOFMode(EDOFMode::Type Mode) const
+{
+	bool bVisible = false;
+	if (DOFModeProperty.IsValid() && bDisplayConstraints)
+	{
+		uint8 CurrentMode;
+		if (DOFModeProperty->GetValue(CurrentMode) == FPropertyAccess::Success)
+		{
+			EDOFMode::Type PropertyDOF = FBodyInstance::ResolveDOFMode(static_cast<EDOFMode::Type>(CurrentMode));
+			bVisible = PropertyDOF == Mode;
+		}
+	}
+
+	return bVisible ? EVisibility::Visible : EVisibility::Collapsed;
+}
+
+
+void FBodyInstanceCustomizationHelper::AddMassInKg(IDetailCategoryBuilder& PhysicsCategory, TSharedRef<IPropertyHandle> BodyInstanceHandler)
+{
+	if (bDisplayMass)
+	{
+		TSharedRef<IPropertyHandle> MassInKGHandle = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, MassInKg)).ToSharedRef();
+
+		PhysicsCategory.AddProperty(MassInKGHandle).CustomWidget()
+		.NameContent()
+		[
+			MassInKGHandle->CreatePropertyNameWidget()
+		]
+		.ValueContent()
+		[
+			SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.Padding(0.f, 0.f, 10.f, 0.f)
+			[
+				SNew(SNumericEntryBox<float>)
+				.IsEnabled(false)
+				.Font(IDetailLayoutBuilder::GetDetailFont())
+				.Value(this, &FBodyInstanceCustomizationHelper::OnGetBodyMass)
+				.Visibility(this, &FBodyInstanceCustomizationHelper::IsMassVisible, false)
+			]
+
+			+ SVerticalBox::Slot()
+			.Padding(0.f, 0.f, 10.f, 0.f)
+			[
+				SNew(SVerticalBox)
+				.Visibility(this, &FBodyInstanceCustomizationHelper::IsMassVisible, true)
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					MassInKGHandle->CreatePropertyValueWidget()
+				]
+			]
+		];
+	}
+}
+
+void FBodyInstanceCustomizationHelper::AddMaxAngularVelocity(IDetailCategoryBuilder& PhysicsCategory, TSharedRef<IPropertyHandle> BodyInstanceHandler)
+{
+	TSharedRef<IPropertyHandle> MaxAngularVelocityHandle = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, MaxAngularVelocity)).ToSharedRef();
+	
+	PhysicsCategory.AddProperty(MaxAngularVelocityHandle).CustomWidget()
+	.NameContent()
+	[
+		MaxAngularVelocityHandle->CreatePropertyNameWidget()
+	]
+	.ValueContent()
+	[
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.Padding(0.f, 0.f, 10.f, 0.f)
+		[
+			SNew(SNumericEntryBox<float>)
+			.IsEnabled(false)
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+			.Value(this, &FBodyInstanceCustomizationHelper::OnGetBodyMaxAngularVelocity)
+			.Visibility(this, &FBodyInstanceCustomizationHelper::IsMaxAngularVelocityVisible, false)
+		]
+
+		+ SVerticalBox::Slot()
+		.Padding(0.f, 0.f, 10.f, 0.f)
+		[
+			SNew(SVerticalBox)
+			.Visibility(this, &FBodyInstanceCustomizationHelper::IsMaxAngularVelocityVisible, true)
+			+ SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				MaxAngularVelocityHandle->CreatePropertyValueWidget()
+			]
+		]
+	];
+}
+
+void FBodyInstanceCustomizationHelper::AddBodyConstraint(IDetailCategoryBuilder& PhysicsCategory, TSharedRef<IPropertyHandle> BodyInstanceHandler)
+{
+	const float XYZPadding = 5.f;
+	
+	TSharedPtr<IPropertyHandle> bLockXTranslation = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockXTranslation));
+	bLockXTranslation->MarkHiddenByCustomization();
+
+	TSharedPtr<IPropertyHandle> bLockYTranslation = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockYTranslation));
+	bLockYTranslation->MarkHiddenByCustomization();
+
+	TSharedPtr<IPropertyHandle> bLockZTranslation = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockZTranslation));
+	bLockZTranslation->MarkHiddenByCustomization();
+
+	TSharedPtr<IPropertyHandle> bLockXRotation = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockXRotation));
+	bLockXRotation->MarkHiddenByCustomization();
+
+	TSharedPtr<IPropertyHandle> bLockYRotation = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockYRotation));
+	bLockYRotation->MarkHiddenByCustomization();
+
+	TSharedPtr<IPropertyHandle> bLockZRotation = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockZRotation));
+	bLockZRotation->MarkHiddenByCustomization();
+
+	DOFModeProperty = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, DOFMode)).ToSharedRef();
+	DOFModeProperty->MarkHiddenByCustomization();
+
+	TSharedRef<IPropertyHandle> bLockRotation = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockRotation)).ToSharedRef();
+	bLockRotation->MarkHiddenByCustomization();
+
+	TSharedRef<IPropertyHandle> bLockTranslation = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, bLockTranslation)).ToSharedRef();
+	bLockTranslation->MarkHiddenByCustomization();
+
+	TSharedRef<IPropertyHandle> CustomDOFPlaneNormal = BodyInstanceHandler->GetChildHandle(GET_MEMBER_NAME_CHECKED(FBodyInstance, CustomDOFPlaneNormal)).ToSharedRef();
+	CustomDOFPlaneNormal->MarkHiddenByCustomization();
+
+	//the above are all marked hidden even if we don't display constraints because the user wants to hide it anyway
+
+	if (bDisplayConstraints)
+	{
+		IDetailGroup& ConstraintsGroup = PhysicsCategory.AddGroup(TEXT("ConstraintsGroup"), LOCTEXT("Constraints", "Constraints"));
+
+		ConstraintsGroup.AddWidgetRow()
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FBodyInstanceCustomizationHelper::IsDOFMode, EDOFMode::SixDOF)))
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("LockPositionLabel", "Lock Position"))
+			.ToolTipText(LOCTEXT("LockPositionTooltip", "Locks movement along the specified axis"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+		]
+		.ValueContent()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(0.f, 0.f, XYZPadding, 0.f)
+			.AutoWidth()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockXTranslation->CreatePropertyNameWidget()
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockXTranslation->CreatePropertyValueWidget()
+				]
+			]
+
+			+ SHorizontalBox::Slot()
+			.Padding(0.f, 0.f, XYZPadding, 0.f)
+			.AutoWidth()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockYTranslation->CreatePropertyNameWidget()
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockYTranslation->CreatePropertyValueWidget()
+				]
+			]
+
+			+ SHorizontalBox::Slot()
+			.Padding(0.f, 0.f, XYZPadding, 0.f)
+			.AutoWidth()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockZTranslation->CreatePropertyNameWidget()
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockZTranslation->CreatePropertyValueWidget()
+				]
+			]
+		];
+
+		ConstraintsGroup.AddWidgetRow()
+		.Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FBodyInstanceCustomizationHelper::IsDOFMode, EDOFMode::SixDOF)))
+		.NameContent()
+		[
+			SNew(STextBlock)
+			.Text(LOCTEXT("LockRotationLabel", "Lock Rotation"))
+			.ToolTipText(LOCTEXT("LockRotationTooltip", "Locks rotation about the specified axis"))
+			.Font(IDetailLayoutBuilder::GetDetailFont())
+		]
+		.ValueContent()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.Padding(0.f, 0.f, XYZPadding, 0.f)
+			.AutoWidth()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockXRotation->CreatePropertyNameWidget()
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockXRotation->CreatePropertyValueWidget()
+				]
+			]
+
+			+ SHorizontalBox::Slot()
+			.Padding(0.f, 0.f, XYZPadding, 0.f)
+			.AutoWidth()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockYRotation->CreatePropertyNameWidget()
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockYRotation->CreatePropertyValueWidget()
+				]
+			]
+
+			+ SHorizontalBox::Slot()
+			.Padding(0.f, 0.f, XYZPadding, 0.f)
+			.AutoWidth()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockZRotation->CreatePropertyNameWidget()
+				]
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					bLockZRotation->CreatePropertyValueWidget()
+				]
+			]
+		];
+
+		//we only show the custom plane normal if we've selected that mode
+		ConstraintsGroup.AddPropertyRow(CustomDOFPlaneNormal).Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FBodyInstanceCustomizationHelper::IsDOFMode, EDOFMode::CustomPlane)));
+		ConstraintsGroup.AddPropertyRow(bLockTranslation).Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FBodyInstanceCustomizationHelper::IsDOFMode, EDOFMode::CustomPlane)));
+		ConstraintsGroup.AddPropertyRow(bLockRotation).Visibility(TAttribute<EVisibility>::Create(TAttribute<EVisibility>::FGetter::CreateSP(this, &FBodyInstanceCustomizationHelper::IsDOFMode, EDOFMode::CustomPlane)));
+		ConstraintsGroup.AddPropertyRow(DOFModeProperty.ToSharedRef());
+	}
 }
 
 ////////////////////////////////////////////////////////////////

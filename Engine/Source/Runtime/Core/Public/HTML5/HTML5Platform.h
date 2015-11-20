@@ -15,6 +15,7 @@
 struct FHTML5Types : public FGenericPlatformTypes
 {
 	typedef unsigned long SIZE_T;
+	typedef long SSIZE_T;
 #if !PLATFORM_HTML5_WIN32
 	// Emscripten uses the musl libc implementation, where NULL is defined as '0L', which is of type long.
 	typedef long					TYPE_OF_NULL;
@@ -46,11 +47,11 @@ typedef FHTML5Types FPlatformTypes;
 #endif
 #define PLATFORM_USE_PTHREADS						0
 #define PLATFORM_SUPPORTS_TEXTURE_STREAMING			1
-#define PLATFORM_USES_DYNAMIC_RHI					1
 #define PLATFORM_REQUIRES_FILESERVER				1
 #define PLATFORM_SUPPORTS_TBB						0
 #define PLATFORM_ENABLE_VECTORINTRINSICS			0
 #define PLATFORM_USES_ES2							1
+#define PLATFORM_SUPPORTS_STACK_SYMBOLS				1
 
 // Function type macros.
 #if PLATFORM_HTML5_WIN32

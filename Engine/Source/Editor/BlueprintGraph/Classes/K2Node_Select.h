@@ -29,13 +29,13 @@ class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 
 	/** List of the current entries in the enum (Pin Friendly Names) */
 	UPROPERTY()
-	TArray<FName> EnumEntryFriendlyNames;
+	TArray<FText> EnumEntryFriendlyNames;
 
 	/** Whether we need to reconstruct the node after the pins have changed */
 	UPROPERTY(Transient)
 	bool bReconstructNode;
 
-	// Begin UEdGraphNode interface
+	//~ Begin UEdGraphNode Interface
 	virtual void AllocateDefaultPins() override;
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
@@ -44,9 +44,9 @@ class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 	virtual void AutowireNewNode(UEdGraphPin* FromPin) override;
 	virtual void PostPasteNode() override;
 	virtual FName GetPaletteIcon(FLinearColor& OutColor) const override{ return TEXT("GraphEditor.Select_16x"); }
-	// End UEdGraphNode interface
+	//~ End UEdGraphNode Interface
 
-	// Begin UK2Node interface
+	//~ Begin UK2Node Interface
 	virtual ERedirectType DoPinsMatchForReconstruction(const UEdGraphPin* NewPin, int32 NewPinIndex, const UEdGraphPin* OldPin, int32 OldPinIndex) const override;
 	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
 	virtual void PostReconstructNode() override;
@@ -58,7 +58,8 @@ class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override;
 	virtual FText GetMenuCategory() const override;
 	virtual int32 GetNodeRefreshPriority() const override { return EBaseNodeRefreshPriority::Low_UsesDependentWildcard; }
-	// End UK2Node interface
+	virtual void ExpandNode(class FKismetCompilerContext& CompilerContext, UEdGraph* SourceGraph) override;
+	//~ End UK2Node Interface
 
 	// INodeDependingOnEnumInterface
 	virtual class UEnum* GetEnum() const override { return Enum; }

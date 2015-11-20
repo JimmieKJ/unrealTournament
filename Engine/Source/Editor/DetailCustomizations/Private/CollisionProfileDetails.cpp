@@ -623,8 +623,9 @@ void SProfileEditDialog::FillCollisionEnabledString()
 {
 	CollisionEnabledComboBoxString.Empty();
 	CollisionEnabledComboBoxString.Add(MakeShareable(new FString(TEXT("No Collision"))));
-	CollisionEnabledComboBoxString.Add(MakeShareable(new FString(TEXT("No Physics Collision"))));
-	CollisionEnabledComboBoxString.Add(MakeShareable(new FString(TEXT("Collision Enabled"))));
+	CollisionEnabledComboBoxString.Add(MakeShareable(new FString(TEXT("Query Only (No Physics Collision)"))));
+	CollisionEnabledComboBoxString.Add(MakeShareable(new FString(TEXT("Physics Only (No Query Collision)"))));
+	CollisionEnabledComboBoxString.Add(MakeShareable(new FString(TEXT("Collision Enabled (Query and Physics)"))));
 }
 
 bool	SProfileEditDialog::IsAcceptAvailable() const
@@ -740,7 +741,7 @@ void SProfileEditDialog::HandleCollisionEnabledComboBoxSelectionChanged(TSharedP
 		if(*Iter == StringItem)
 		{
 			ECollisionEnabled::Type NewCollisionEnabled = (ECollisionEnabled::Type)Iter.GetIndex();
-			check(NewCollisionEnabled >= ECollisionEnabled::NoCollision&& NewCollisionEnabled <= ECollisionEnabled::QueryAndPhysics);
+			check(NewCollisionEnabled >= ECollisionEnabled::NoCollision && NewCollisionEnabled <= ECollisionEnabled::QueryAndPhysics);
 			ProfileTemplate.CollisionEnabled = NewCollisionEnabled;
 			return;
 		}
@@ -1229,9 +1230,11 @@ FText SProfileListItem::GetCollsionEnabled() const
 	case ECollisionEnabled::NoCollision:
 		return LOCTEXT("ECollisionEnabled_NoCollision", "No Collision");
 	case ECollisionEnabled::QueryOnly:
-		return LOCTEXT("ECollisionEnabled_QueryOnly", "No Physics Collision");
+		return LOCTEXT("ECollisionEnabled_QueryOnly", "Query Only (No Physics Collision)");
+	case ECollisionEnabled::PhysicsOnly:
+		return LOCTEXT("ECollisionEnabled_PhysicsOnly", "Physics Only (No Query Collision)");
 	case ECollisionEnabled::QueryAndPhysics:
-		return LOCTEXT("ECollisionEnabled_QueryAndPhysics", "Collision Enabled");
+		return LOCTEXT("ECollisionEnabled_QueryAndPhysics", "Collision Enabled (Query and Physics)");
 	}
 
 	return LOCTEXT("ECollisionEnabled_Error", "ERROR");

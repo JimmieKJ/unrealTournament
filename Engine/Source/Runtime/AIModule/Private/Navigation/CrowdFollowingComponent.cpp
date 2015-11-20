@@ -16,6 +16,7 @@ UCrowdFollowingComponent::UCrowdFollowingComponent(const FObjectInitializer& Obj
 	bRotateToVelocity = true;
 	bEnableCrowdSimulation = true;
 	bSuspendCrowdSimulation = false;
+	bEnableSimulationReplanOnResume = true;
 
 	bEnableAnticipateTurns = false;
 	bEnableObstacleAvoidance = true;
@@ -191,6 +192,29 @@ void UCrowdFollowingComponent::SetCrowdAvoidanceQuality(ECrowdAvoidanceQuality::
 	}
 }
 
+void UCrowdFollowingComponent::SetCrowdPathOffset(bool bEnable, bool bUpdateAgent)
+{
+	if (bEnablePathOffset != bEnable)
+	{
+		bEnablePathOffset = bEnable;
+
+		if (bUpdateAgent)
+		{
+			UpdateCrowdAgentParams();
+		}
+	}
+}
+
+void UCrowdFollowingComponent::SetCrowdAffectFallingVelocity(bool bEnable)
+{
+	bAffectFallingVelocity = bEnable;
+}
+
+void UCrowdFollowingComponent::SetCrowdRotateToVelocity(bool bEnable)
+{
+	bRotateToVelocity = bEnable;
+}
+
 void UCrowdFollowingComponent::SuspendCrowdSteering(bool bSuspend)
 {
 	if (bSuspendCrowdSimulation != bSuspend)
@@ -226,6 +250,20 @@ void UCrowdFollowingComponent::UpdateCachedDirections(const FVector& NewVelocity
 		CrowdAgentMoveDirection = bRotateToVelocity && (NewVelocity.SizeSquared() > KINDA_SMALL_NUMBER) ? NewVelocity.GetSafeNormal() : MoveSegmentDirection;
 	}
 }
+
+bool UCrowdFollowingComponent::UpdateCachedGoal(FVector& NewGoalPos)
+{
+	if (bFinalPathPart && !bUpdateDirectMoveVelocity &&
+		Path.IsValid() && !Path->IsPartial() && Path->GetGoalActor())
+	{
+		NewGoalPos = Path->GetGoalLocation();
+		CurrentDestination.Set(Path->GetBaseActor(), NewGoalPos);
+		return true;
+	}
+
+	return false;
+}
+
 
 void UCrowdFollowingComponent::ApplyCrowdAgentVelocity(const FVector& NewVelocity, const FVector& DestPathCorner, bool bTraversingLink)
 {
@@ -332,8 +370,8 @@ void UCrowdFollowingComponent::ResumeMove(FAIRequestID RequestID)
 		UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
 		if (CrowdManager)
 		{
-			const bool bHasMoved = HasMovedDuringPause();
-			CrowdManager->ResumeAgent(this, bHasMoved);
+			const bool bReplanPath = bEnableSimulationReplanOnResume && HasMovedDuringPause();
+			CrowdManager->ResumeAgent(this, bReplanPath);
 		}
 
 		// reset cached direction, will be set again after velocity update
@@ -472,41 +510,68 @@ void LogPathPartHelper(AActor* LogOwner, FNavMeshPath* NavMeshPath, int32 StartI
 {
 #if ENABLE_VISUAL_LOG && WITH_RECAST
 	ARecastNavMesh* NavMesh = Cast<ARecastNavMesh>(NavMeshPath->GetNavigationDataUsed());
+	FVisualLogger& VisualLogger = FVisualLogger::Get();
+
 	if (NavMesh == NULL ||
+		!VisualLogger.IsCategoryLogged(LogNavigation) ||
 		!NavMeshPath->PathCorridor.IsValidIndex(StartIdx) ||
 		!NavMeshPath->PathCorridor.IsValidIndex(EndIdx))
 	{
 		return;
 	}
 
+	FVisualLogShapeElement CorridorPoly(EVisualLoggerShapeElement::Polygon);
+	CorridorPoly.SetColor(FColorList::Cyan.WithAlpha(100));
+	CorridorPoly.Category = LogNavigation.GetCategoryName();
+	CorridorPoly.Points.Reserve((EndIdx - StartIdx) * 6);
+
+	const FVector CorridorOffset = NavigationDebugDrawing::PathOffset * 1.25f;
+	int32 NumAreaMark = 1;
+
 	NavMesh->BeginBatchQuery();
-	
-	FVector SegmentStart = NavMeshPath->GetPathPoints()[0].Location;
-	FVector SegmentEnd(FVector::ZeroVector);
+	FVisualLogEntry* Snapshot = VisualLogger.GetEntryToWrite(LogOwner, LogOwner->GetWorld()->GetTimeSeconds());
 
-	if (StartIdx > 0)
+	TArray<FVector> Verts;
+	for (int32 Idx = StartIdx; Idx <= EndIdx; Idx++)
 	{
-		NavMesh->GetPolyCenter(NavMeshPath->PathCorridor[StartIdx], SegmentStart);
+		const uint8 AreaID = NavMesh->GetPolyAreaID(NavMeshPath->PathCorridor[Idx]);
+		const UClass* AreaClass = NavMesh->GetAreaClass(AreaID);
+
+		Verts.Reset();
+		NavMesh->GetPolyVerts(NavMeshPath->PathCorridor[Idx], Verts);
+
+		FVector CenterPt = FVector::ZeroVector;
+		for (int32 VIdx = 0; VIdx < Verts.Num(); VIdx++)
+		{
+			Verts[VIdx].Z += 5.0f;
+			CenterPt += Verts[VIdx];
+		}
+		CenterPt /= Verts.Num();
+
+		const UNavArea* DefArea = AreaClass ? ((UClass*)AreaClass)->GetDefaultObject<UNavArea>() : NULL;
+		const FColor PolygonColor = AreaClass != UNavigationSystem::GetDefaultWalkableArea() ? (DefArea ? DefArea->DrawColor : NavMesh->GetConfig().Color) : FColorList::LightSteelBlue;
+
+		CorridorPoly.SetColor(PolygonColor.WithAlpha(100));
+		CorridorPoly.Points.Reset();
+		CorridorPoly.Points.Append(Verts);
+		Snapshot->ElementsToDraw.Add(CorridorPoly);
+
+		if (AreaClass && AreaClass != UNavigationSystem::GetDefaultWalkableArea())
+		{
+			FVisualLogShapeElement AreaMarkElem(EVisualLoggerShapeElement::Segment);
+			AreaMarkElem.SetColor(FColorList::Orange.WithAlpha(100));
+			AreaMarkElem.Category = LogNavigation.GetCategoryName();
+			AreaMarkElem.Thicknes = 2;
+			AreaMarkElem.Description = AreaClass->GetName();
+
+			AreaMarkElem.Points.Add(CenterPt + CorridorOffset);
+			AreaMarkElem.Points.Add(CenterPt + CorridorOffset + FVector(0, 0, 100.0f + NumAreaMark * 50.0f));
+			Snapshot->ElementsToDraw.Add(AreaMarkElem);
+
+			NumAreaMark = (NumAreaMark + 1) % 5;
+		}
 	}
 
-	for (int32 Idx = StartIdx + 1; Idx < EndIdx; Idx++)
-	{
-		NavMesh->GetPolyCenter(NavMeshPath->PathCorridor[Idx], SegmentEnd);
-		UE_VLOG_SEGMENT_THICK(LogOwner, LogCrowdFollowing, Log, SegmentStart, SegmentEnd, FColor::Yellow, 2, TEXT_EMPTY);
-
-		SegmentStart = SegmentEnd;
-	}
-
-	if (EndIdx == (NavMeshPath->PathCorridor.Num() - 1))
-	{
-		SegmentEnd = NavMeshPath->GetPathPoints()[1].Location;
-	}
-	else
-	{
-		NavMesh->GetPolyCenter(NavMeshPath->PathCorridor[EndIdx], SegmentEnd);
-	}
-
-	UE_VLOG_SEGMENT_THICK(LogOwner, LogCrowdFollowing, Log, SegmentStart, SegmentEnd, FColor::Yellow, 2, TEXT_EMPTY);
 	NavMesh->FinishBatchQuery();
 #endif // ENABLE_VISUAL_LOG && WITH_RECAST
 }

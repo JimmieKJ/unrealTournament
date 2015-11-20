@@ -3,20 +3,20 @@
 #pragma once
 
 #include "IDetailCustomization.h"
+#include "ILocalizationServiceProvider.h"
 
 class ULocalizationTarget;
 class IPropertyHandle;
 class ULocalizationTargetSet;
+class IDetailCategoryBuilder;
 
-//class ILocalizationServiceProvider;
+struct FLocalizationServiceProviderWrapper
+{
+	FLocalizationServiceProviderWrapper() : Provider(nullptr) {}
+	FLocalizationServiceProviderWrapper(ILocalizationServiceProvider* const InProvider) : Provider(InProvider) {}
 
-//struct FLocalizationServiceProviderWrapper
-//{
-//	FLocalizationServiceProviderWrapper() : Provider(nullptr) {}
-//	FLocalizationServiceProviderWrapper(ILocalizationServiceProvider* const InProvider) : Provider(InProvider) {}
-//
-//	ILocalizationServiceProvider* Provider;
-//};
+	ILocalizationServiceProvider* Provider;
+};
 
 class FLocalizationTargetSetDetailCustomization : public IDetailCustomization
 {
@@ -28,9 +28,9 @@ private:
 	void BuildTargetsList();
 	void RebuildTargetsList();
 
-	//FText GetCurrentServiceProviderDisplayName() const;
-	//TSharedRef<SWidget> ServiceProviderComboBox_OnGenerateWidget(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper) const;
-	//void ServiceProviderComboBox_OnSelectionChanged(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper, ESelectInfo::Type SelectInfo);
+	FText GetCurrentServiceProviderDisplayName() const;
+	TSharedRef<SWidget> ServiceProviderComboBox_OnGenerateWidget(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper) const;
+	void ServiceProviderComboBox_OnSelectionChanged(TSharedPtr<FLocalizationServiceProviderWrapper> LSPWrapper, ESelectInfo::Type SelectInfo);
 
 	bool CanGatherAllTargets() const;
 	void GatherAllTargets();
@@ -52,9 +52,8 @@ private:
 
 	TWeakObjectPtr<ULocalizationTargetSet> TargetSet;
 
-	//TSharedPtr<IPropertyHandle> ServiceProviderPropertyHandle;
-	//IDetailCategoryBuilder* ServiceProviderCategoryBuilder;
-	//TArray< TSharedPtr<FLocalizationServiceProviderWrapper> > Providers;
+	IDetailCategoryBuilder* ServiceProviderCategoryBuilder;
+	TArray< TSharedPtr<FLocalizationServiceProviderWrapper> > Providers;
 
 	TSharedPtr<IPropertyHandle> TargetObjectsPropertyHandle;
 	FSimpleDelegate TargetsArrayPropertyHandle_OnNumElementsChanged;

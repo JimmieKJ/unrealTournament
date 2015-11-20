@@ -301,7 +301,9 @@ FReply STutorialContent::OnMouseButtonUp( const FGeometry& MyGeometry, const FPo
 {
 	if (!bIsStandalone && MouseEvent.GetEffectingButton() == EKeys::RightMouseButton)
 	{
-		FSlateApplication::Get().PushMenu(AsShared(), HandleGetMenuContent(), MouseEvent.GetScreenSpacePosition(), FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
+		FWidgetPath WidgetPath = MouseEvent.GetEventPath() != nullptr ? *MouseEvent.GetEventPath() : FWidgetPath();
+
+		FSlateApplication::Get().PushMenu(AsShared(), WidgetPath, HandleGetMenuContent(), MouseEvent.GetScreenSpacePosition(), FPopupTransitionEffect(FPopupTransitionEffect::ContextMenu));
 		return FReply::Handled();
 	}
 	

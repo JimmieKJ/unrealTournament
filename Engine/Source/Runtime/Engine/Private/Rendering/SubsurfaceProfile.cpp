@@ -9,7 +9,7 @@
 DEFINE_LOG_CATEGORY_STATIC(LogSubsurfaceProfile, Log, All);
 
 // lives on the render thread
-ENGINE_API TGlobalResource<FSubsurfaceProfileTexture> GSubsufaceProfileTextureObject;
+ENGINE_API TGlobalResource<FSubsurfaceProfileTexture> GSubsurfaceProfileTextureObject;
 
 // Texture with one or more SubSurfaceProfiles or 0 if there is no user
 static TRefCountPtr<IPooledRenderTarget> GSSProfiles;
@@ -40,7 +40,9 @@ int32 FSubsurfaceProfileTexture::AddProfile(const FSubsurfaceProfileStruct Setti
 		{
 			if (SubsurfaceProfileEntries[i].Profile == 0)
 			{
-				RetAllocationId = i; break;
+				RetAllocationId = i;
+				SubsurfaceProfileEntries[RetAllocationId].Profile = InProfile;
+				break;
 			}
 		}
 
@@ -133,14 +135,14 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 	const uint32 Width = 32;
 
 	// at minimum 64 lines (less reallocations)
-	FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(Width, FMath::Max(Height, (uint32)64)), PF_B8G8R8A8, TexCreate_FastVRAM, TexCreate_None, false));
+	FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(Width, FMath::Max(Height, (uint32)64)), PF_B8G8R8A8, FClearValueBinding::None, TexCreate_FastVRAM, TexCreate_None, false));
 
 	if (b16Bit)
 	{
 		Desc.Format = PF_A16B16G16R16;
 	}
 
-	GetRendererModule().RenderTargetPoolFindFreeElement(Desc, GSSProfiles, TEXT("SSProfiles"));
+	GetRendererModule().RenderTargetPoolFindFreeElement(RHICmdList, Desc, GSSProfiles, TEXT("SSProfiles"));
 
 	// Write the contents of the texture.
 	uint32 DestStride;
@@ -151,7 +153,8 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 	const uint32 KernelSize1 = 9; 
 	const uint32 KernelSize2 = 6;
 
-	const uint32 KernelTotalSize = KernelSize0 + KernelSize1 + KernelSize2;
+	// index 0 is used for the SubsurfaceColor
+	const uint32 KernelTotalSize = 1 + KernelSize0 + KernelSize1 + KernelSize2;
 	check(KernelTotalSize < Width);
 
 	FLinearColor kernel[Width];
@@ -168,12 +171,17 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 		// 0.0001f turned out to be too small to fix the issue (for a small KernelSize)
 		const float Bias = 0.009f;
 
-		Data.SubsurfaceColor = Data.SubsurfaceColor.GetClamped(Bias);
+		Data.SubsurfaceColor = Data.SubsurfaceColor.GetClamped();
 		Data.FalloffColor = Data.FalloffColor.GetClamped(Bias);
 
-		ComputeMirroredSSSKernel(&kernel[0], KernelSize0, Data.SubsurfaceColor, Data.FalloffColor);
-		ComputeMirroredSSSKernel(&kernel[KernelSize0], KernelSize1, Data.SubsurfaceColor, Data.FalloffColor);
-		ComputeMirroredSSSKernel(&kernel[KernelSize0 + KernelSize1], KernelSize2, Data.SubsurfaceColor, Data.FalloffColor);
+		// to allow blending of the Subsurface with fullres in the shader
+		kernel[0] = Data.SubsurfaceColor;
+		// unused
+		kernel[0].A = 0;
+
+		ComputeMirroredSSSKernel(&kernel[1], KernelSize0, Data.SubsurfaceColor, Data.FalloffColor);
+		ComputeMirroredSSSKernel(&kernel[1 + KernelSize0], KernelSize1, Data.SubsurfaceColor, Data.FalloffColor);
+		ComputeMirroredSSSKernel(&kernel[1 + KernelSize0 + KernelSize1], KernelSize2, Data.SubsurfaceColor, Data.FalloffColor);
 
 		// could be lower than 1 (but higher than 0) to range compress for better quality (for 8 bit)
 		const float TableMaxRGB = 1.0f;
@@ -185,7 +193,7 @@ void FSubsurfaceProfileTexture::CreateTexture(FRHICommandListImmediate& RHICmdLi
 			FVector4 C = kernel[Pos] * FLinearColor(1.0f / TableMaxRGB, 1.0f / TableMaxRGB, 1.0f / TableMaxRGB, 1.0f / TableMaxA);
 
 			// requires 16bit (could be made with 8 bit e.g. using sample0.w as 8bit scale applied to all samples (more multiplications in the shader))
-			C.W *= Data.ScatterRadius / 1024.0f;
+			C.W *= Data.ScatterRadius / SUBSURFACE_RADIUS_SCALE;
 
 			if (b16Bit)
 			{
@@ -292,7 +300,7 @@ ENGINE_API const IPooledRenderTarget* GetSubsufaceProfileTexture_RT(FRHICommandL
 {
 	check(IsInRenderingThread());
 
-	return GSubsufaceProfileTextureObject.GetTexture(RHICmdList);
+	return GSubsurfaceProfileTextureObject.GetTexture(RHICmdList);
 }
 
 // ------------------------------------------------------
@@ -308,7 +316,7 @@ void USubsurfaceProfile::BeginDestroy()
 		RemoveSubsurfaceProfile,
 		USubsurfaceProfile*, Ref, this,
 		{
-			GSubsufaceProfileTextureObject.RemoveProfile(Ref);
+			GSubsurfaceProfileTextureObject.RemoveProfile(Ref);
 		});
 
 	Super::BeginDestroy();
@@ -322,6 +330,6 @@ void USubsurfaceProfile::PostEditChangeProperty(struct FPropertyChangedEvent& Pr
 		USubsurfaceProfile*, Profile, this,
 	{
 		// any changes to the setting require an update of the texture
-		GSubsufaceProfileTextureObject.UpdateProfile(Settings, Profile);
+		GSubsurfaceProfileTextureObject.UpdateProfile(Settings, Profile);
 	});
 }

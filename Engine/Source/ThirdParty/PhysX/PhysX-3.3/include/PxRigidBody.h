@@ -54,6 +54,8 @@ struct PxRigidBodyFlag
 		\li Setting this flag on a dynamic actor will put the actor to sleep and set the velocities to 0.
 		\li If this flag gets cleared, the current sleep state of the actor will be kept.
 
+		\note kinematic actors are incompatible with CCD so raising this flag will automatically clear eENABLE_CCD
+
 		@see PxRigidDynamic.setKinematicTarget()
 		*/
 		eKINEMATIC									= (1<<0),		//!< Enable kinematic mode for the body.
@@ -75,6 +77,9 @@ struct PxRigidBodyFlag
 		If this flag is raised and CCD is enabled on the scene, then this body will be simulated by the CCD system to ensure that collisions are not missed due to 
 		high-speed motion. Note individual shape pairs still need to enable PxPairFlag::eDETECT_CCD_CONTACT in the collision filtering to enable the CCD to respond to 
 		individual interactions. 
+
+		\note kinematic actors are incompatible with CCD so this flag will be cleared automatically when raised on a kinematic actor
+
 		*/
 		eENABLE_CCD					= (1<<2),		//!< Enable CCD for the body.
 
@@ -239,6 +244,8 @@ public:
 
 	This method retrieves a mass frame inverse inertia vector.
 
+	\note A value of 0 in an element is interpreted as infinite inertia along that axis.
+
 	\return The mass space inverse inertia tensor of this actor.
 
 	@see PxRigidBodyDesc.massSpaceInertia setMassSpaceInertiaTensor() setMass() setCMassLocalPose()
@@ -307,7 +314,8 @@ public:
 	\note It is invalid to use this method if PxActorFlag::eDISABLE_SIMULATION is set.
 
 	\param[in] angVel New angular velocity of actor. <b>Range:</b> angular velocity vector
-	\param[in] autowake Whether to wake the object up if it is asleep and the velocity is non-zero.  If true and the current wake counter value is smaller than #PxSceneDesc::wakeCounterResetValue it will get increased to the reset value.
+	\param[in] autowake Whether to wake the object up if it is asleep and the velocity is non-zero.  If true and the current wake 
+	counter value is smaller than #PxSceneDesc::wakeCounterResetValue it will get increased to the reset value.
 
 	@see getAngularVelocity() setLinearVelocity() 
 	*/
@@ -319,25 +327,30 @@ public:
 */
 
 	/**
-	\brief Applies a force (or impulse) defined in the global coordinate frame to the actor.
-
+	\brief Applies a force (or impulse) defined in the global coordinate frame to the actor at its center of mass.
+	
 	<b>This will not induce a torque</b>.
 
 	::PxForceMode determines if the force is to be conventional or impulsive.
+	
+	Each actor has an acceleration and a velocity change accumulator which are directly modified using the modes PxForceMode::eACCELERATION 
+	and PxForceMode::eVELOCITY_CHANGE respectively.  The modes PxForceMode::eFORCE and PxForceMode::eIMPULSE also modify these same 
+	accumulators and are just short hand for multiplying the vector parameter by inverse mass and then using PxForceMode::eACCELERATION and 
+	PxForceMode::eVELOCITY_CHANGE respectively.
 
-	\note The force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE can not be applied to articulation links
 
 	\note It is invalid to use this method if the actor has not been added to a scene already or if PxActorFlag::eDISABLE_SIMULATION is set.
 
-	\note if this call is used to apply a force or impulse to an articulation link, only the link is updated, not the entire
-	articulation.
+	\note The force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE can not be applied to articulation links.
 
-	\note see #PxRigidBodyExt::computeVelocityDeltaFromImpulse for detatils of how to compute the change in linear velocity that 
+	\note if this is called on an articulation link, only the link is updated, not the entire articulation.
+
+	\note see #PxRigidBodyExt::computeVelocityDeltaFromImpulse for details of how to compute the change in linear velocity that 
 	will arise from the application of an impulsive force, where an impulsive force is applied force multiplied by a timestep.
 
 	<b>Sleeping:</b> This call wakes the actor if it is sleeping and the autowake parameter is true (default) or the force is non-zero.
 
-	\param[in] force Force/Impulse to apply defined in the global frame. <b>Range:</b> force vector
+	\param[in] force Force/Impulse to apply defined in the global frame.
 	\param[in] mode The mode to use when applying the force/impulse(see #PxForceMode)
 	\param[in] autowake Specify if the call should wake up the actor if it is currently asleep. If true and the current wake counter value is smaller than #PxSceneDesc::wakeCounterResetValue it will get increased to the reset value.
 
@@ -349,13 +362,18 @@ public:
 	\brief Applies an impulsive torque defined in the global coordinate frame to the actor.
 
 	::PxForceMode determines if the torque is to be conventional or impulsive.
-
-	\note The force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE can not be applied to articulation links
+	
+	Each actor has an angular acceleration and an angular velocity change accumulator which are directly modified using the modes 
+	PxForceMode::eACCELERATION and PxForceMode::eVELOCITY_CHANGE respectively.  The modes PxForceMode::eFORCE and PxForceMode::eIMPULSE 
+	also modify these same accumulators and are just short hand for multiplying the vector parameter by inverse inertia and then 
+	using PxForceMode::eACCELERATION and PxForceMode::eVELOCITY_CHANGE respectively.
+	
 
 	\note It is invalid to use this method if the actor has not been added to a scene already or if PxActorFlag::eDISABLE_SIMULATION is set.
 
-	\note if this call is used to apply a force or impulse to an articulation link, only the link is updated, not the entire
-	articulation.
+	\note The force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE can not be applied to articulation links.
+	
+	\note if this called on an articulation link, only the link is updated, not the entire articulation.
 
 	\note see #PxRigidBodyExt::computeVelocityDeltaFromImpulse for detatils of how to compute the change in angular velocity that 
 	will arise from the application of an impulsive torque, where an impulsive torque is an applied torque multiplied by a timestep.
@@ -372,14 +390,18 @@ public:
 
 	/**
 	\brief Clears the accumulated forces (sets the accumulated force back to zero).
+	
+	Each actor has an acceleration and a velocity change accumulator which are directly modified using the modes PxForceMode::eACCELERATION 
+	and PxForceMode::eVELOCITY_CHANGE respectively.  The modes PxForceMode::eFORCE and PxForceMode::eIMPULSE also modify these same 
+	accumulators (see PxRigidBody::addForce() for details); therefore the effect of calling clearForce(PxForceMode::eFORCE) is equivalent to calling 
+	clearForce(PxForceMode::eACCELERATION), and the effect of calling clearForce(PxForceMode::eIMPULSE) is equivalent to calling 
+	clearForce(PxForceMode::eVELOCITY_CHANGE).
 
 	::PxForceMode determines if the cleared force is to be conventional or impulsive.
 
-	\note The force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE can not be applied to articulation links
+	\note The force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE can not be applied to articulation links.
 
 	\note It is invalid to use this method if the actor has not been added to a scene already or if PxActorFlag::eDISABLE_SIMULATION is set.
-
-	\note It is not possible to clear the force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE separately. The same holds for the force modes PxForceMode::eFORCE and PxForceMode::eACCELERATION.
 
 	\param[in] mode The mode to use when clearing the force/impulse(see #PxForceMode)
 
@@ -391,12 +413,16 @@ public:
 	\brief Clears the impulsive torque defined in the global coordinate frame to the actor.
 
 	::PxForceMode determines if the cleared torque is to be conventional or impulsive.
+	
+	Each actor has an angular acceleration and a velocity change accumulator which are directly modified using the modes PxForceMode::eACCELERATION 
+	and PxForceMode::eVELOCITY_CHANGE respectively.  The modes PxForceMode::eFORCE and PxForceMode::eIMPULSE also modify these same 
+	accumulators (see PxRigidBody::addTorque() for details); therefore the effect of calling clearTorque(PxForceMode::eFORCE) is equivalent to calling 
+	clearTorque(PxForceMode::eACCELERATION), and the effect of calling clearTorque(PxForceMode::eIMPULSE) is equivalent to calling 
+	clearTorque(PxForceMode::eVELOCITY_CHANGE).	
 
-	\note The force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE can not be applied to articulation links
+	\note The force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE can not be applied to articulation links.
 
 	\note It is invalid to use this method if the actor has not been added to a scene already or if PxActorFlag::eDISABLE_SIMULATION is set.
-
-	\note It is not possible to clear the force modes PxForceMode::eIMPULSE and PxForceMode::eVELOCITY_CHANGE separately. The same holds for the force modes PxForceMode::eFORCE and PxForceMode::eACCELERATION.
 
 	\param[in] mode The mode to use when clearing the force/impulse(see #PxForceMode).
 

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2483481
+﻿INTSourceChangelist:2573972
 Availability:NoPublish
 Title:UK2Node_AddComponent
 Crumbs:
@@ -404,3 +404,4 @@ TextRenderComponent (텍스트 렌더 컴포넌트)는 월드에 주어진 폰�
 
 'Relative Transform' 입력은 부모를 기준으로 한 컴포넌트의 상대 위치와 방향을 정의합니다. 붙지 않은 경우, 이 트랜스폼은 월드 기준입니다.
 [/EXCERPT:VectorFieldComponent]
+

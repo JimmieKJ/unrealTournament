@@ -11,7 +11,7 @@ public:
 	SLATE_BEGIN_ARGS( SErrorHint )
 		: _ErrorText()
 		{}
-		SLATE_TEXT_ARGUMENT(ErrorText)
+		SLATE_ARGUMENT(FText, ErrorText)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);

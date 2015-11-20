@@ -1920,7 +1920,7 @@ PX_INLINE void convert_USHORT4_from_UINT4(USHORT4_TYPE& dst, const UINT4_TYPE& s
 // BYTE_SNORM1_TYPE -> FLOAT1_TYPE
 PX_INLINE void convert_FLOAT1_from_BYTE_SNORM1(FLOAT1_TYPE& dst, const BYTE_SNORM1_TYPE& src)
 {
-	dst = ((physx::PxF32)src / 127.0f) - 1.0f;
+	dst = (physx::PxF32)src / 127.0f;
 }
 
 // BYTE_SNORM2_TYPE -> FLOAT2_TYPE
@@ -1959,7 +1959,7 @@ PX_INLINE void convert_FLOAT4_QUAT_from_BYTE_SNORM4_QUATXYZW(FLOAT4_QUAT_TYPE& d
 // SHORT_SNORM1_TYPE -> FLOAT1_TYPE
 PX_INLINE void convert_FLOAT1_from_SHORT_SNORM1(FLOAT1_TYPE& dst, const SHORT_SNORM1_TYPE& src)
 {
-	dst = ((physx::PxF32)src / 32767.0f) - 1.0f;
+	dst = (physx::PxF32)src / 32767.0f;
 }
 
 // SHORT_SNORM2_TYPE -> FLOAT2_TYPE
@@ -1998,7 +1998,7 @@ PX_INLINE void convert_FLOAT4_QUAT_from_SHORT_SNORM4_QUATXYZW(FLOAT4_QUAT_TYPE& 
 // FLOAT1_TYPE -> BYTE_SNORM1_TYPE
 PX_INLINE void convert_BYTE_SNORM1_from_FLOAT1(BYTE_SNORM1_TYPE& dst, const FLOAT1_TYPE& src)
 {
-	dst = (physx::PxI8)(src * 127.0f + 127.5f);
+	dst = (physx::PxI8)((physx::PxI16)(src * 127.0f + 127.5f) - 127);	// Doing it this way to avoid nonuniform mapping near zero
 }
 
 // FLOAT2_TYPE -> BYTE_SNORM2_TYPE
@@ -2037,7 +2037,7 @@ PX_INLINE void convert_BYTE_SNORM4_QUATXYZW_from_FLOAT4_QUAT(BYTE_SNORM4_QUATXYZ
 // FLOAT1_TYPE -> SHORT_SNORM1_TYPE
 PX_INLINE void convert_SHORT_SNORM1_from_FLOAT1(SHORT_SNORM1_TYPE& dst, const FLOAT1_TYPE& src)
 {
-	dst = (physx::PxI16)(src * 32767.0f + 32767.5f);
+	dst = (physx::PxI16)((physx::PxI32)(src * 32767.0f + 32767.5f) - 32767);	// Doing it this way to avoid nonuniform mapping near zero
 }
 
 // FLOAT2_TYPE -> SHORT_SNORM2_TYPE

@@ -63,6 +63,15 @@ bool FEdGraphPinType::Serialize(FArchive& Ar)
 		}
 	}
 
+	if (Ar.UE4Ver() >= VER_UE4_SERIALIZE_PINTYPE_CONST)
+	{
+		Ar << bIsConst;
+	}
+	else if (Ar.IsLoading())
+	{
+		bIsConst = false;
+	}
+
 	return true;
 }
 
@@ -72,11 +81,12 @@ namespace GraphPinHelpers
 {
 	void EnableAllConnectedNodes(UEdGraphNode* InNode)
 	{
-		if(InNode && !InNode->bIsNodeEnabled)
+		// Only enable when it has not been explicitly user-disabled
+		if(InNode && InNode->EnabledState == ENodeEnabledState::Disabled && !InNode->bUserSetEnabledState)
 		{
 			// Enable the node and clear the comment
 			InNode->Modify();
-			InNode->bIsNodeEnabled = true;
+			InNode->EnableNode();
 			InNode->NodeComment.Empty();
 
 			// Go through all pin connections and enable the nodes. Enabled nodes will prevent further iteration
@@ -118,8 +128,8 @@ void UEdGraphPin::MakeLinkTo(UEdGraphPin* ToPin)
 			UEdGraphNode* MyNode = GetOwningNode();
 
 			// Check that the other pin does not link to us
-			ensureMsg(!ToPin->LinkedTo.Contains(this), *GetLinkInfoString( LOCTEXT("MakeLinkTo", "MakeLinkTo").ToString(), LOCTEXT("IsLinked", "is linked with pin").ToString(), ToPin));			    
-			ensureMsg(MyNode->GetOuter() == ToPin->GetOwningNode()->GetOuter(), *GetLinkInfoString( LOCTEXT("MakeLinkTo", "MakeLinkTo").ToString(), LOCTEXT("OuterMismatch", "has a different outer than pin").ToString(), ToPin)); // Ensure both pins belong to the same graph
+			ensureMsgf(!ToPin->LinkedTo.Contains(this), *GetLinkInfoString( LOCTEXT("MakeLinkTo", "MakeLinkTo").ToString(), LOCTEXT("IsLinked", "is linked with pin").ToString(), ToPin));			    
+			ensureMsgf(MyNode->GetOuter() == ToPin->GetOwningNode()->GetOuter(), *GetLinkInfoString( LOCTEXT("MakeLinkTo", "MakeLinkTo").ToString(), LOCTEXT("OuterMismatch", "has a different outer than pin").ToString(), ToPin)); // Ensure both pins belong to the same graph
 
 			// Add to both lists
 			LinkedTo.Add(ToPin);
@@ -145,13 +155,13 @@ void UEdGraphPin::BreakLinkTo(UEdGraphPin* ToPin)
 			LinkedTo.Remove(ToPin);
 
 			// Check that the other pin links to us
-			ensureMsg(ToPin->LinkedTo.Contains(this), *GetLinkInfoString( LOCTEXT("BreakLinkTo", "BreakLinkTo").ToString(), LOCTEXT("NotLinked", "not reciprocally linked with pin").ToString(), ToPin) );
+			ensureMsgf(ToPin->LinkedTo.Contains(this), *GetLinkInfoString( LOCTEXT("BreakLinkTo", "BreakLinkTo").ToString(), LOCTEXT("NotLinked", "not reciprocally linked with pin").ToString(), ToPin) );
 			ToPin->LinkedTo.Remove(this);
 		}
 		else
 		{
 			// Check that the other pin does not link to us
-			ensureMsg(!ToPin->LinkedTo.Contains(this), *GetLinkInfoString( LOCTEXT("MakeLinkTo", "MakeLinkTo").ToString(), LOCTEXT("IsLinked", "is linked with pin").ToString(), ToPin));
+			ensureMsgf(!ToPin->LinkedTo.Contains(this), *GetLinkInfoString( LOCTEXT("MakeLinkTo", "MakeLinkTo").ToString(), LOCTEXT("IsLinked", "is linked with pin").ToString(), ToPin));
 		}
 	}
 }
@@ -251,6 +261,7 @@ FString UEdGraphPin::GetDefaultAsString() const
 	}
 }
 
+#if WITH_EDITORONLY_DATA
 FText UEdGraphPin::GetDisplayName() const
 {
 	FText DisplayName = FText::GetEmpty();
@@ -272,6 +283,7 @@ FText UEdGraphPin::GetDisplayName() const
 	}
 	return DisplayName;
 }
+#endif // WITH_EDITORONLY_DATA
 
 const FString UEdGraphPin::GetLinkInfoString( const FString& InFunctionName, const FString& InInfoData, const UEdGraphPin* InToPin ) const
 {
@@ -288,6 +300,25 @@ const FString UEdGraphPin::GetLinkInfoString( const FString& InFunctionName, con
 #else
 	return FString();
 #endif
+}
+
+void UEdGraphPin::Serialize(FArchive& Ar)
+{
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading() && Ar.IsPersistent())
+	{
+		// Pins of type FGameplayTag were storing "()" for empty arrays and then importing that into ArrayProperty and expecting an empty array.
+		// That it was working was a bug and has been fixed, so let's fixup pins. A pin that wants an array size of 1 will always fill the parenthesis
+		// so there is no worry about breaking those cases.
+		if (PinType.PinSubCategoryObject.IsValid() && PinType.PinSubCategoryObject->GetPathName() == TEXT("/Script/GameplayTags.GameplayTag"))
+		{
+			if (DefaultValue == TEXT("()"))
+			{
+				DefaultValue.Empty();
+			}
+		}
+	}
 }
 
 FString FGraphDisplayInfo::GetNotesAsString() const

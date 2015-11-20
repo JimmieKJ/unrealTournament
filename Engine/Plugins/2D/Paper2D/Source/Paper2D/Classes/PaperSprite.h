@@ -205,6 +205,8 @@ public:
 	void RescaleSpriteData(UTexture2D* Texture);
 	bool NeedRescaleSpriteData();
 
+	/** This is a generic "rebuild all" function that calls RebuildCollisionData() and then RebuildRenderData(). */
+	void RebuildData();
 	void RebuildCollisionData();
 	void RebuildRenderData();
 
@@ -221,11 +223,11 @@ public:
 	void CreatePolygonFromBoundingBox(FSpriteGeometryCollection& GeomOwner, bool bUseTightBounds);
 
 	// Reinitializes this sprite (NOTE: Does not register existing components in the world)
-	void InitializeSprite(const FSpriteAssetInitParameters& InitParams);
+	void InitializeSprite(const FSpriteAssetInitParameters& InitParams, bool bRebuildData = true);
 
-	void SetTrim(bool bTrimmed, const FVector2D& OriginInSourceImage, const FVector2D& SourceImageDimension);
-	void SetRotated(bool bRotated);
-	void SetPivotMode(ESpritePivotMode::Type PivotMode, FVector2D CustomTextureSpacePivot);
+	void SetTrim(bool bTrimmed, const FVector2D& OriginInSourceImage, const FVector2D& SourceImageDimension, bool bRebuildData = true);
+	void SetRotated(bool bRotated, bool bRebuildData = true);
+	void SetPivotMode(ESpritePivotMode::Type PivotMode, FVector2D CustomTextureSpacePivot, bool bRebuildData = true);
 	
 	// Returns the Origin within SourceImage, prior to atlasing
 	FVector2D GetOriginInSourceImageBeforeTrimming() const { return OriginInSourceImageBeforeTrimming; }

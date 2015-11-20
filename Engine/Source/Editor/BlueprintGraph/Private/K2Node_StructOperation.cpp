@@ -12,15 +12,16 @@ UK2Node_StructOperation::UK2Node_StructOperation(const FObjectInitializer& Objec
 	: Super(ObjectInitializer)
 {
 }
-
-bool UK2Node_StructOperation::HasExternalUserDefinedStructDependencies(TArray<class UStruct*>* OptionalOutput) const
+bool UK2Node_StructOperation::HasExternalDependencies(TArray<class UStruct*>* OptionalOutput) const
 {
-	const bool bResult = StructType && StructType->IsA<UUserDefinedStruct>();
+	const bool bResult = nullptr != StructType;
 	if (bResult && OptionalOutput)
 	{
-		OptionalOutput->Add(StructType);
+		OptionalOutput->AddUnique(StructType);
 	}
-	return bResult || Super::HasExternalUserDefinedStructDependencies(OptionalOutput);
+
+	const bool bSuperResult = Super::HasExternalDependencies(OptionalOutput);
+	return bSuperResult || bResult;
 }
 
 void UK2Node_StructOperation::FStructOperationOptionalPinManager::CustomizePinData(UEdGraphPin* Pin, FName SourcePropertyName, int32 ArrayIndex, UProperty* Property) const

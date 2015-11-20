@@ -59,22 +59,22 @@ namespace UnrealBuildTool
 		/// <returns>New plugin descriptor</returns>
 		public static ProjectDescriptor FromFile(string FileName)
 		{
-			JsonObject RawObject = JsonObject.FromFile(FileName);
+			JsonObject RawObject = JsonObject.Read(FileName);
 			try
 			{
 				ProjectDescriptor Descriptor = new ProjectDescriptor();
 
 				// Read the version
-				if(!RawObject.TryGetIntegerField("FileVersion", out Descriptor.FileVersion))
+				if (!RawObject.TryGetIntegerField("FileVersion", out Descriptor.FileVersion))
 				{
-					if(!RawObject.TryGetIntegerField("ProjectFileVersion", out Descriptor.FileVersion))
+					if (!RawObject.TryGetIntegerField("ProjectFileVersion", out Descriptor.FileVersion))
 					{
 						throw new BuildException("Project descriptor '{0}' does not contain a valid FileVersion entry", FileName);
 					}
 				}
 
 				// Check it's not newer than the latest version we can parse
-				if(Descriptor.FileVersion > (int)PluginDescriptorVersion.Latest)
+				if (Descriptor.FileVersion > (int)PluginDescriptorVersion.Latest)
 				{
 					throw new BuildException("Project descriptor '{0}' appears to be in a newer version ({1}) of the file format that we can load (max version: {2}).", FileName, Descriptor.FileVersion, (int)ProjectDescriptorVersion.Latest);
 				}
@@ -86,14 +86,14 @@ namespace UnrealBuildTool
 
 				// Read the modules
 				JsonObject[] ModulesArray;
-				if(RawObject.TryGetObjectArrayField("Modules", out ModulesArray))
+				if (RawObject.TryGetObjectArrayField("Modules", out ModulesArray))
 				{
 					Descriptor.Modules = Array.ConvertAll(ModulesArray, x => ModuleDescriptor.FromJsonObject(x));
 				}
 
 				// Read the plugins
 				JsonObject[] PluginsArray;
-				if(RawObject.TryGetObjectArrayField("Plugins", out PluginsArray))
+				if (RawObject.TryGetObjectArrayField("Plugins", out PluginsArray))
 				{
 					Descriptor.Plugins = Array.ConvertAll(PluginsArray, x => PluginReferenceDescriptor.FromJsonObject(x));
 				}
@@ -106,7 +106,7 @@ namespace UnrealBuildTool
 
 				return Descriptor;
 			}
-			catch(JsonParseException ParseException)
+			catch (JsonParseException ParseException)
 			{
 				throw new JsonParseException("{0} (in {1})", ParseException.Message, FileName);
 			}

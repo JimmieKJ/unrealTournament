@@ -15,6 +15,7 @@
 #include "Editor/ContentBrowser/Public/ContentBrowserModule.h"
 #include "EngineBuildSettings.h"
 #include "Matinee/MatineeActor.h"
+#include "LevelSequenceActor.h"
 #include "Engine/LevelScriptBlueprint.h"
 #include "ISettingsCategory.h"
 #include "ISettingsContainer.h"
@@ -36,6 +37,8 @@
 #include "EngineUtils.h"
 #include "GameMapsSettings.h"
 #include "ScopedTransaction.h"
+#include "Features/IModularFeatures.h"
+#include "Features/EditorFeatures.h"
 
 namespace LevelEditorActionHelpers
 {
@@ -1228,9 +1231,9 @@ TSharedRef< SWidget > FLevelEditorToolBar::MakeLevelEditorToolBar( const TShared
 
 		ToolbarBuilder.AddComboButton(
 			FUIAction(),
-			FOnGetContent::CreateStatic( &FLevelEditorToolBar::GenerateMatineeMenuContent, InCommandList, TWeakPtr<SLevelEditor>( InLevelEditor ) ),
-			LOCTEXT( "EditMatinee_Label", "Matinee" ),
-			LOCTEXT( "EditMatinee_Tooltip", "Displays a list of Matinee objects to open in the Matinee Editor"),
+			FOnGetContent::CreateStatic( &FLevelEditorToolBar::GenerateCinematicsMenuContent, InCommandList, TWeakPtr<SLevelEditor>( InLevelEditor ) ),
+			LOCTEXT( "EditCinematics_Label", "Cinematics" ),
+			LOCTEXT( "EditCinematics_Tooltip", "Displays a list of Matinee and Level Sequence objects to open in their respective editors"),
 			FSlateIcon(FEditorStyle::GetStyleSetName(), "LevelEditor.EditMatinee") 
 			);
 	}
@@ -1560,7 +1563,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateBuildMenuContent( TSharedRef<
 	}
 	MenuBuilder.EndSection();
 
-	MenuBuilder.BeginSection("LevelEditorLOD", LOCTEXT("LODHeading", "Hiearchical LOD"));
+	MenuBuilder.BeginSection("LevelEditorLOD", LOCTEXT("LODHeading", "Hierarchical LOD"));
 	{
 		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().BuildLODsOnly);
 	}
@@ -1590,12 +1593,24 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateBuildMenuContent( TSharedRef<
 	return MenuBuilder.MakeWidget();
 }
 
+static void MakeES2PreviewPlatformOverrideMenu(FMenuBuilder& MenuBuilder)
+{
+	MenuBuilder.BeginSection("LevelEditorShaderModelPreview", NSLOCTEXT("LevelToolBarViewMenu", "ES2PreviewPlatformOverrideHeading", "Preview Platform"));
+	{
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().PreviewPlatformOverride_DefaultES2);
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().PreviewPlatformOverride_AndroidES2);
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().PreviewPlatformOverride_IOSES2);
+	}
+	MenuBuilder.EndSection();
+}
+
 static void MakeMaterialQualityLevelMenu( FMenuBuilder& MenuBuilder )
 {
 	MenuBuilder.BeginSection("LevelEditorMaterialQualityLevel", NSLOCTEXT( "LevelToolBarViewMenu", "MaterialQualityLevelHeading", "Material Quality Level" ) );
 	{
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().MaterialQualityLevel_Low );
-		MenuBuilder.AddMenuEntry( FLevelEditorCommands::Get().MaterialQualityLevel_High );
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().MaterialQualityLevel_Low);
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().MaterialQualityLevel_Medium);
+		MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().MaterialQualityLevel_High);
 	}
 	MenuBuilder.EndSection();
 }
@@ -1606,7 +1621,14 @@ static void MakeShaderModelPreviewMenu(FMenuBuilder& MenuBuilder)
 	{
 		for (int32 i = GMaxRHIFeatureLevel; i >= 0; --i)
 		{
-			if (i != ERHIFeatureLevel::ES3_1 || GetDefault<UEditorExperimentalSettings>()->bFeatureLevelES31Preview)
+			if (i == ERHIFeatureLevel::ES2)
+			{
+				MenuBuilder.AddSubMenu(
+					FLevelEditorCommands::Get().FeatureLevelPreview[i]->GetLabel(),
+					FLevelEditorCommands::Get().FeatureLevelPreview[i]->GetDescription(),
+					FNewMenuDelegate::CreateStatic(&MakeES2PreviewPlatformOverrideMenu));
+			}
+			else if (i != ERHIFeatureLevel::ES3_1 || GetDefault<UEditorExperimentalSettings>()->bFeatureLevelES31Preview)
 			{
 				MenuBuilder.AddMenuEntry(FLevelEditorCommands::Get().FeatureLevelPreview[i]);
 			}
@@ -1675,9 +1697,14 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateQuickSettingsMenu( TSharedRef
 		MenuBuilder.AddMenuEntry(
 			LOCTEXT("ProjectSettingsMenuLabel", "Project Settings..."),
 			LOCTEXT("ProjectSettingsMenuToolTip", "Change the settings of the currently loaded project"),
-			FSlateIcon(),
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "ProjectSettings.TabIcon"),
 			FUIAction(FExecuteAction::CreateStatic(&Local::OpenSettings, FName("Project"), FName("Project"), FName("General")))
 			);
+
+		if (IModularFeatures::Get().IsModularFeatureAvailable(EditorFeatures::PluginsEditor))
+		{
+			FGlobalTabmanager::Get()->PopulateTabSpawnerMenu(MenuBuilder, "PluginsEditor");
+		}
 	}
 	MenuBuilder.EndSection();
 
@@ -1700,7 +1727,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateQuickSettingsMenu( TSharedRef
 
 		MenuBuilder.AddSubMenu(
 			LOCTEXT( "MaterialQualityLevelSubMenu", "Material Quality Level" ),
-			LOCTEXT( "MaterialQualityLevelSubMenu_ToolTip", "Sets the value of the CVar \"r.MaterialQualityLevel\" (low=0, high=1). This affects materials via the QualitySwitch material expression." ),
+			LOCTEXT( "MaterialQualityLevelSubMenu_ToolTip", "Sets the value of the CVar \"r.MaterialQualityLevel\" (low=0, high=1, medium=2). This affects materials via the QualitySwitch material expression." ),
 			FNewMenuDelegate::CreateStatic( &MakeMaterialQualityLevelMenu ) );
 
 		MenuBuilder.AddSubMenu(
@@ -1798,7 +1825,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateSourceControlMenu(TSharedRef<
 			NAME_None,
 			TAttribute<FText>(),
 			TAttribute<FText>(),
-			FSlateIcon(FEditorStyle::GetStyleSetName(), "SourceControl.StatusIcon.Unknown")
+			FSlateIcon(FEditorStyle::GetStyleSetName(), "SourceControl.Actions.ChangeSettings")
 			);
 	}
 	else
@@ -1994,14 +2021,17 @@ void FLevelEditorToolBar::OnOpenSubLevelBlueprint( ULevel* InLevel )
 	}
 }
 
-TSharedRef< SWidget > FLevelEditorToolBar::GenerateMatineeMenuContent( TSharedRef<FUICommandList> InCommandList, TWeakPtr<SLevelEditor> LevelEditorWeakPtr )
+TSharedRef< SWidget > FLevelEditorToolBar::GenerateCinematicsMenuContent( TSharedRef<FUICommandList> InCommandList, TWeakPtr<SLevelEditor> LevelEditorWeakPtr )
 {
-#define LOCTEXT_NAMESPACE "LevelToolBarMatineeMenu"
+#define LOCTEXT_NAMESPACE "LevelToolBarCinematicsMenu"
+
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	TSharedPtr<FExtender> Extender = FExtender::Combine(LevelEditorModule.GetAllLevelEditorToolbarCinematicsMenuExtenders());
 
 	const bool bShouldCloseWindowAfterMenuSelection = true;
-	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, InCommandList );
+	FMenuBuilder MenuBuilder( bShouldCloseWindowAfterMenuSelection, InCommandList, Extender );
 
-	// We can't build a list of Matinees while the current World is a PIE world.
+	// We can't build a list of Matinees and LevelSequenceActors while the current World is a PIE world.
 	SceneOutliner::FInitializationOptions InitOptions;
 	{
 		InitOptions.Mode = ESceneOutlinerMode::ActorPicker;
@@ -2009,20 +2039,17 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateMatineeMenuContent( TSharedRe
 		// We hide the header row to keep the UI compact.
 		// @todo: Might be useful to have this sometimes, actually.  Ideally the user could summon it.
 		InitOptions.bShowHeaderRow = false;
+		InitOptions.bShowSearchBox = false;
+		InitOptions.bShowCreateNewFolder = false;
 
-		struct Local
-		{
-			static bool IsMatineeActor( const AActor* const Actor )
-			{
-				return Actor->IsA( AMatineeActor::StaticClass() );
-			}
+		// Only display Matinee and MovieScene actors
+		auto ActorFilter = [](const AActor* Actor){
+			return Actor->IsA( AMatineeActor::StaticClass() ) || Actor->IsA( ALevelSequenceActor::StaticClass() );
 		};
-
-		// Only display Matinee actors
-		InitOptions.Filters->AddFilterPredicate( SceneOutliner::FActorFilterPredicate::CreateStatic( &Local::IsMatineeActor ) );
+		InitOptions.Filters->AddFilterPredicate( SceneOutliner::FActorFilterPredicate::CreateLambda( ActorFilter ) );
 	}
 
-	// actor selector to allow the user to choose a Matinee actor
+	// actor selector to allow the user to choose an actor
 	FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked<FSceneOutlinerModule>( "SceneOutliner" );
 	TSharedRef< SWidget > MiniSceneOutliner =
 		SNew( SVerticalBox )
@@ -2032,7 +2059,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateMatineeMenuContent( TSharedRe
 		[
 			SceneOutlinerModule.CreateSceneOutliner(
 				InitOptions,
-				FOnActorPicked::CreateStatic( &FLevelEditorToolBar::OnMatineeActorPicked ) )
+				FOnActorPicked::CreateStatic( &FLevelEditorToolBar::OnCinematicsActorPicked ) )
 		];
 
 	static const FName DefaultForegroundName("DefaultForeground");
@@ -2054,7 +2081,7 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateMatineeMenuContent( TSharedRe
 			.HAlign( HAlign_Center )
 			[
 				SNew( STextBlock )
-				.Text( LOCTEXT( "SelectMatineeActorToEdit", "Select a Matinee actor" ) )
+				.Text( LOCTEXT( "SelectCinematicsActorToEdit", "Select an actor" ) )
 			]
 
 			+SVerticalBox::Slot()
@@ -2072,17 +2099,15 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateMatineeMenuContent( TSharedRe
 	}
 	MenuBuilder.EndSection();
 
-	bool bHasAnyMatineeActors = false;
-	TActorIterator<AMatineeActor> MatineeIt( LevelEditorWeakPtr.Pin()->GetWorld() );
-
-	bHasAnyMatineeActors = MatineeIt;
+	UWorld* World = LevelEditorWeakPtr.Pin()->GetWorld();
+	const bool bHasAnyMatineeActors = !!TActorIterator<AMatineeActor>(World) || !!TActorIterator<ALevelSequenceActor>(World);
 
 	//Add a heading to separate the existing matinees from the 'Add New Matinee Actor' button
 	MenuBuilder.BeginSection("LevelEditorExistingMatinee", LOCTEXT( "MatineeMenuCombo_ExistingHeading", "Edit Existing Matinee" ) );
 	{
 		if( bHasAnyMatineeActors )
 		{
-			MenuBuilder.AddWidget(MiniSceneOutliner, FText::GetEmpty(), false);
+			MenuBuilder.AddWidget(MiniSceneOutliner, FText::GetEmpty(), true);
 		}
 	}
 	MenuBuilder.EndSection();
@@ -2091,17 +2116,25 @@ TSharedRef< SWidget > FLevelEditorToolBar::GenerateMatineeMenuContent( TSharedRe
 	return MenuBuilder.MakeWidget();
 }
 
-void FLevelEditorToolBar::OnMatineeActorPicked( AActor* Actor )
+void FLevelEditorToolBar::OnCinematicsActorPicked( AActor* Actor )
 {
 	//The matinee editor will not tick unless the editor viewport is in realtime mode.
 	//the scene outliner eats input, so we must close any popups manually.
 	FSlateApplication::Get().DismissAllMenus();
 
 	// Make sure we dismiss the menus before we open this
-	AMatineeActor* MatineeActor = Cast<AMatineeActor>( Actor );
-	if( MatineeActor != NULL )
+	if (AMatineeActor* MatineeActor = Cast<AMatineeActor>(Actor))
 	{
 		// Open Matinee for editing!
 		GEditor->OpenMatinee( MatineeActor );
+	}
+	else if (ALevelSequenceActor* LevelSequenceActor = Cast<ALevelSequenceActor>(Actor))
+	{
+		UObject* Asset = LevelSequenceActor->LevelSequence.TryLoad();
+
+		if (Asset != nullptr)
+		{
+			FAssetEditorManager::Get().OpenEditorForAsset(Asset);
+		}
 	}
 }

@@ -39,6 +39,8 @@ void USlider::SynchronizeProperties()
 	MySlider->SetSliderBarColor(SliderBarColor);
 	MySlider->SetSliderHandleColor(SliderHandleColor);
 	MySlider->SetValue(ValueBinding);
+	MySlider->SetLocked(Locked);
+	MySlider->SetIndentHandle(IndentHandle);
 }
 
 void USlider::HandleOnValueChanged(float InValue)
@@ -72,6 +74,24 @@ void USlider::SetValue(float InValue)
 	if ( MySlider.IsValid() )
 	{
 		MySlider->SetValue(InValue);
+	}
+}
+
+void USlider::SetIndentHandle(bool InIndentHandle)
+{
+	IndentHandle = InIndentHandle;
+	if ( MySlider.IsValid() )
+	{
+		MySlider->SetIndentHandle(InIndentHandle);
+	}
+}
+
+void USlider::SetLocked(bool InLocked)
+{
+	Locked = InLocked;
+	if ( MySlider.IsValid() )
+	{
+		MySlider->SetLocked(InLocked);
 	}
 }
 

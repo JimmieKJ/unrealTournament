@@ -5,7 +5,16 @@
 FOnlineIdentityIOS::FOnlineIdentityIOS() :
 	UniqueNetId( NULL )
 {
-	Login( 0, FOnlineAccountCredentials() );
+}
+
+TSharedPtr<FUniqueNetIdString> FOnlineIdentityIOS::GetLocalPlayerUniqueId() const
+{
+	return UniqueNetId;
+}
+
+void FOnlineIdentityIOS::SetLocalPlayerUniqueId(const TSharedPtr<FUniqueNetIdString>& UniqueId)
+{
+	UniqueNetId = UniqueId;
 }
 
 TSharedPtr<FUserOnlineAccount> FOnlineIdentityIOS::GetUserAccount(const FUniqueNetId& UserId) const
@@ -25,6 +34,10 @@ TArray<TSharedPtr<FUserOnlineAccount> > FOnlineIdentityIOS::GetAllUserAccounts()
 bool FOnlineIdentityIOS::Login(int32 LocalUserNum, const FOnlineAccountCredentials& AccountCredentials)
 {
 	bool bStartedLogin = false;
+
+	// Since the iOS login code may show a UI, ShowLoginUI is a better fit here. Also, note that the ConnectToService blueprint
+	// node that calls Login is deprecated (there's a new ShowExternalLoginUI node meant to replace it).
+	UE_LOG(LogOnline, Warning, TEXT("Using the IOnlineIdentity::Login function on iOS is not recommended. Please use IOnlineExternalUI::ShowLoginUI instead."));
 
 	// Was the login handled by Game Center
 	if( GetLocalGameCenterUser() && 
@@ -104,8 +117,8 @@ bool FOnlineIdentityIOS::Login(int32 LocalUserNum, const FOnlineAccountCredentia
 
 bool FOnlineIdentityIOS::Logout(int32 LocalUserNum)
 {
-	TriggerOnLogoutCompleteDelegates(LocalUserNum, true);
-	return false;
+	TriggerOnLogoutCompleteDelegates(LocalUserNum, false);
+	return true;
 }
 
 bool FOnlineIdentityIOS::AutoLogin(int32 LocalUserNum)
@@ -137,12 +150,12 @@ ELoginStatus::Type FOnlineIdentityIOS::GetLoginStatus(const FUniqueNetId& UserId
 	return LoginStatus;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityIOS::GetUniquePlayerId(int32 LocalUserNum) const
+TSharedPtr<const FUniqueNetId> FOnlineIdentityIOS::GetUniquePlayerId(int32 LocalUserNum) const
 {
 	return UniqueNetId;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(uint8* Bytes, int32 Size)
+TSharedPtr<const FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(uint8* Bytes, int32 Size)
 {
 	if( Bytes && Size == sizeof(uint64) )
 	{
@@ -157,7 +170,7 @@ TSharedPtr<FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(uint8* Bytes, 
 	return NULL;
 }
 
-TSharedPtr<FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(const FString& Str)
+TSharedPtr<const FUniqueNetId> FOnlineIdentityIOS::CreateUniquePlayerId(const FString& Str)
 {
 	return MakeShareable(new FUniqueNetIdString(Str));
 }
@@ -215,4 +228,9 @@ FPlatformUserId FOnlineIdentityIOS::GetPlatformUserIdFromUniqueNetId(const FUniq
 	}
 
 	return PLATFORMUSERID_NONE;
+}
+
+FString FOnlineIdentityIOS::GetAuthType() const
+{
+	return TEXT("");
 }

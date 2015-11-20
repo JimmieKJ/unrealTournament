@@ -29,8 +29,8 @@ public:
 		}
 		else
 		{
-			FilterWindow.Empty();
-			Coefficients.Empty();
+			FilterWindow.Reset();
+			Coefficients.Reset();
 			CurrentStack = 0;		
 		}
 	}

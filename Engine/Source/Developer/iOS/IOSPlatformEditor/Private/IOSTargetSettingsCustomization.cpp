@@ -76,6 +76,8 @@ FIOSTargetSettingsCustomization::FIOSTargetSettingsCustomization()
 
 	bShowAllProvisions = false;
 	bShowAllCertificates = false;
+	ProvisionList = MakeShareable(new TArray<ProvisionPtr>());
+	CertificateList = MakeShareable(new TArray<CertificatePtr>());
 }
 
 FIOSTargetSettingsCustomization::~FIOSTargetSettingsCustomization()
@@ -112,8 +114,8 @@ void FIOSTargetSettingsCustomization::UpdateStatus()
 {
 	if (OutputMessage.Len() > 0)
 	{
-		CertificateList.Reset();
-		ProvisionList.Reset();
+		CertificateList->Reset();
+		ProvisionList->Reset();
 
 		// Now split up the log into multiple lines
 		TArray<FString> LogLines;
@@ -149,17 +151,22 @@ void FIOSTargetSettingsCustomization::UpdateStatus()
 					}
 				}
 				CertificatePtr PrevCert = NULL;
-				for (int CIndex = 0; CIndex < CertificateList.Num() && !PrevCert.IsValid(); ++CIndex)
+				for (int CIndex = 0; CIndex < CertificateList->Num() && !PrevCert.IsValid(); ++CIndex)
 				{
-					if (CertificateList[CIndex]->Name == Cert->Name)
+					if ((*CertificateList)[CIndex]->Name == Cert->Name)
 					{
-						PrevCert = CertificateList[CIndex];
+						PrevCert = (*CertificateList)[CIndex];
 						break;
 					}
 				}
+
+				// check to see if this the one selected in the ini file
+				FString OutString;
+				SignCertificateProperty->GetValueAsFormattedString(OutString);
+				Cert->bManuallySelected = (OutString == Cert->Name);
 				if (!PrevCert.IsValid())
 				{
-					CertificateList.Add(Cert);
+					CertificateList->Add(Cert);
 				}
 				else
 				{
@@ -197,7 +204,12 @@ void FIOSTargetSettingsCustomization::UpdateStatus()
 						Prov->bDistribution = Value.Contains(TEXT("DISTRIBUTION"));
 					}
 				}
-				ProvisionList.Add(Prov);
+
+				// check to see if this the one selected in the ini file
+				FString OutString;
+				MobileProvisionProperty->GetValueAsFormattedString(OutString);
+				Prov->bManuallySelected = (OutString == Prov->FileName);
+				ProvisionList->Add(Prov);
 			}
 			else if (Line.Contains(TEXT("MATCHED-"), ESearchCase::CaseSensitive))
 			{
@@ -244,6 +256,12 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 	IDetailCategoryBuilder& DeviceCategory = DetailLayout.EditCategory(TEXT("Devices"));
 	IDetailCategoryBuilder& BuildCategory = DetailLayout.EditCategory(TEXT("Build"));
 	IDetailCategoryBuilder& ExtraCategory = DetailLayout.EditCategory(TEXT("Extra PList Data"));
+	MobileProvisionProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, MobileProvision));
+	BuildCategory.AddProperty(MobileProvisionProperty)
+		.Visibility(EVisibility::Hidden);
+	SignCertificateProperty = DetailLayout.GetProperty(GET_MEMBER_NAME_CHECKED(UIOSRuntimeSettings, SigningCertificate));
+	BuildCategory.AddProperty(SignCertificateProperty)
+		.Visibility(EVisibility::Hidden);
 
 /*	ProvisionCategory.AddCustomRow(TEXT("Certificate Request"), false)
 		.NameContent()
@@ -341,6 +359,9 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 						.HeaderRow
 						(
 						SNew(SHeaderRow)
+						+ SHeaderRow::Column("Selected")
+						.DefaultLabel(LOCTEXT("ProvisionListSelectColumnHeader", ""))
+						.FixedWidth(30.0f)
 						+ SHeaderRow::Column("Name")
 						.DefaultLabel(LOCTEXT("ProvisionListNameColumnHeader", "Provision"))
 						.FillWidth(1.0f)
@@ -421,7 +442,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 						.IsEnabled(this, &FIOSTargetSettingsCustomization::IsImportEnabled)
 						[
 							SNew(STextBlock)
-							.Text(FText::FromString("Import Provision"))
+							.Text(LOCTEXT("ImportProvision", "Import Provision"))
 						]
 					]
 			]
@@ -499,6 +520,9 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 								.HeaderRow
 								(
 									SNew(SHeaderRow)
+									+ SHeaderRow::Column("Selected")
+									.DefaultLabel(LOCTEXT("CertificateListSelectColumnHeader", ""))
+									.FixedWidth(30.0f)
 									+ SHeaderRow::Column("Name")
 									.DefaultLabel(LOCTEXT("CertificateListNameColumnHeader", "Certificate"))
 									+ SHeaderRow::Column("Status")
@@ -576,7 +600,7 @@ void FIOSTargetSettingsCustomization::BuildPListSection(IDetailLayoutBuilder& De
 					.IsEnabled(this, &FIOSTargetSettingsCustomization::IsImportEnabled)
 					[
 						SNew(STextBlock)
-						.Text(FText::FromString("Import Certificate"))
+						.Text(LOCTEXT("ImportCertificate", "Import Certificate"))
 					]
 				]
 			]
@@ -803,8 +827,11 @@ void FIOSTargetSettingsCustomization::BuildRemoteBuildingSection(IDetailLayoutBu
 	SSHPrivateKeyOverridePathPropertyRow
 		.ToolTip(LOCTEXT("SSHPrivateKeyOverridePathToolTip", "Override the existing SSH Private Key with one from a specified location."));
 
+	const FText GenerateSSHText = LOCTEXT("GenerateSSHKey", "Generate SSH Key");
+
 	// Add a generate key button
 	RemoteBuildingGroup.AddWidgetRow()
+		.FilterString(GenerateSSHText)
 		.WholeRowWidget
 		.MinDesiredWidth(0.f)
 		.MaxDesiredWidth(0.f)
@@ -826,7 +853,7 @@ void FIOSTargetSettingsCustomization::BuildRemoteBuildingSection(IDetailLayoutBu
 						.IsEnabled(this, &FIOSTargetSettingsCustomization::IsImportEnabled)
 						[
 							SNew(STextBlock)
-							.Text(FText::FromString("Generate SSH Key"))
+							.Text(GenerateSSHText)
 						]
 					]
 				]
@@ -1210,13 +1237,37 @@ bool FIOSTargetSettingsCustomization::UpdateStatusDelegate(float DeltaTime)
 TSharedRef<ITableRow> FIOSTargetSettingsCustomization::HandleProvisionListGenerateRow( ProvisionPtr InProvision, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	return SNew(SProvisionListRow, OwnerTable)
-		.Provision(InProvision);
+		.Provision(InProvision)
+		.ProvisionList(ProvisionList)
+		.OnProvisionChanged(this, &FIOSTargetSettingsCustomization::HandleProvisionChanged);
+}
+
+void FIOSTargetSettingsCustomization::HandleProvisionChanged(FString Provision)
+{
+	FText OutText;
+	MobileProvisionProperty->GetValueAsFormattedText(OutText);
+	if (OutText.ToString() != Provision)
+	{
+		MobileProvisionProperty->SetValueFromFormattedString(Provision);
+	}
+}
+
+void FIOSTargetSettingsCustomization::HandleCertificateChanged(FString Certificate)
+{
+	FText OutText;
+	SignCertificateProperty->GetValueAsFormattedText(OutText);
+	if (OutText.ToString() != Certificate)
+	{
+		SignCertificateProperty->SetValueFromFormattedString(Certificate);
+	}
 }
 
 TSharedRef<ITableRow> FIOSTargetSettingsCustomization::HandleCertificateListGenerateRow( CertificatePtr InCertificate, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	return SNew(SCertificateListRow, OwnerTable)
-		.Certificate(InCertificate);
+		.Certificate(InCertificate)
+		.CertificateList(CertificateList)
+		.OnCertificateChanged(this, &FIOSTargetSettingsCustomization::HandleCertificateChanged);
 }
 
 void FIOSTargetSettingsCustomization::HandleAllProvisionsHyperlinkNavigate( bool AllProvisions )
@@ -1236,23 +1287,23 @@ void FIOSTargetSettingsCustomization::FilterLists()
 	FilteredProvisionList.Reset();
 	FilteredCertificateList.Reset();
 
-	for (int Index = 0; Index < ProvisionList.Num(); ++Index)
+	for (int Index = 0; Index < ProvisionList->Num(); ++Index)
 	{
-		if (SelectedProvision.Contains(ProvisionList[Index]->Name) && SelectedFile.Contains(ProvisionList[Index]->FileName))
+		if (SelectedProvision.Contains((*ProvisionList)[Index]->Name) && SelectedFile.Contains((*ProvisionList)[Index]->FileName))
 		{
-			ProvisionList[Index]->bSelected = true;
+			(*ProvisionList)[Index]->bSelected = true;
 		}
 		else
 		{
-			ProvisionList[Index]->bSelected = false;
+			(*ProvisionList)[Index]->bSelected = false;
 		}
-		if (bShowAllProvisions || ProvisionList[Index]->Status.Contains("VALID"))
+		if (bShowAllProvisions || (*ProvisionList)[Index]->Status.Contains("VALID"))
 		{
-			FilteredProvisionList.Add(ProvisionList[Index]);
+			FilteredProvisionList.Add((*ProvisionList)[Index]);
 		}
 	}
 
-	if (ProvisionList.Num() > 0)
+	if (ProvisionList->Num() > 0)
 	{
 		if (ProvisionInfoSwitcher.IsValid())
 		{
@@ -1260,7 +1311,7 @@ void FIOSTargetSettingsCustomization::FilterLists()
 		}
 		if (FilteredProvisionList.Num() == 0 && !bShowAllProvisions)
 		{
-			FilteredProvisionList.Append(ProvisionList);
+			FilteredProvisionList.Append(*ProvisionList);
 		}
 	}
 	else
@@ -1271,23 +1322,23 @@ void FIOSTargetSettingsCustomization::FilterLists()
 		}
 	}
 
-	for (int Index = 0; Index < CertificateList.Num(); ++Index)
+	for (int Index = 0; Index < CertificateList->Num(); ++Index)
 	{
-		if (SelectedCert.Contains(CertificateList[Index]->Name))
+		if (SelectedCert.Contains((*CertificateList)[Index]->Name))
 		{
-			CertificateList[Index]->bSelected = true;
+			(*CertificateList)[Index]->bSelected = true;
 		}
 		else
 		{
-			CertificateList[Index]->bSelected = false;
+			(*CertificateList)[Index]->bSelected = false;
 		}
-		if (bShowAllCertificates || CertificateList[Index]->Status.Contains("VALID"))
+		if (bShowAllCertificates || (*CertificateList)[Index]->Status.Contains("VALID"))
 		{
-			FilteredCertificateList.Add(CertificateList[Index]);
+			FilteredCertificateList.Add((*CertificateList)[Index]);
 		}
 	}
 
-	if (CertificateList.Num() > 0)
+	if (CertificateList->Num() > 0)
 	{
 		if (CertificateInfoSwitcher.IsValid())
 		{
@@ -1295,7 +1346,7 @@ void FIOSTargetSettingsCustomization::FilterLists()
 		}
 		if (FilteredCertificateList.Num() == 0 && !bShowAllCertificates)
 		{
-			FilteredCertificateList.Append(CertificateList);
+			FilteredCertificateList.Append(*CertificateList);
 		}
 	}
 	else

@@ -93,6 +93,9 @@ public:
 	/** Moves/renames a file. */
 	virtual bool Move( const TCHAR* Dest, const TCHAR* Src, bool Replace=1, bool EvenIfReadOnly=0, bool Attributes=0, bool bDoNotRetryOrError=0 )=0;
 
+	/** Checks if a file exists */
+	virtual bool FileExists( const TCHAR* Filename )=0;
+
 	/** Checks if a directory exists. */
 	virtual bool DirectoryExists( const TCHAR* InDirectory )=0;
 
@@ -102,8 +105,23 @@ public:
 	/** Deletes a directory. */
 	virtual bool DeleteDirectory( const TCHAR* Path, bool RequireExists=0, bool Tree=0 )=0;
 
+	/** Return the stat data for the given file or directory. Check the FFileStatData::bIsValid member before using the returned data */
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) = 0;
+
 	/** Finds file or directories. */
 	virtual void FindFiles( TArray<FString>& FileNames, const TCHAR* Filename, bool Files, bool Directories)=0;
+
+	/**
+	 * Finds all the files within the given directory, with optional file extension filter.
+	 *
+	 * @param Directory, the absolute path to the directory to search. Ex: "C:\UE4\Pictures"
+	 *
+	 * @param FileExtension, If FileExtension is NULL, or an empty string "" then all files are found.
+	 * 			Otherwise FileExtension can be of the form .EXT or just EXT and only files with that extension will be returned.
+	 *
+	 * @return FoundFiles, All the files that matched the optional FileExtension filter, or all files if none was specified.
+	 */
+	virtual void FindFiles(TArray<FString>& FoundFiles, const TCHAR* Directory, const TCHAR* FileExtension = nullptr) = 0;
 
 	/** Finds file or directories recursively. */
 	virtual void FindFilesRecursive( TArray<FString>& FileNames, const TCHAR* StartDirectory, const TCHAR* Filename, bool Files, bool Directories, bool bClearFileNames=true) = 0; // utility
@@ -123,6 +141,22 @@ public:
 	 * @return				false if the directory did not exist or if the visitor returned false.
 	**/
 	virtual bool IterateDirectoryRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryVisitor& Visitor) = 0;
+
+	/** 
+	 * Call the Visit function of the visitor once for each file or directory in a single directory. This function does not explore subdirectories.
+	 * @param Directory		The directory to iterate the contents of.
+	 * @param Visitor		Visitor to call for each element of the directory
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	virtual bool IterateDirectoryStat(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) = 0;
+
+	/** 
+	 * Call the Visit function of the visitor once for each file or directory in a directory tree. This function explores subdirectories.
+	 * @param Directory		The directory to iterate the contents of, recursively.
+	 * @param Visitor		Visitor to call for each element of the directory and each element of all subdirectories.
+	 * @return				false if the directory did not exist or if the visitor returned false.
+	**/
+	virtual bool IterateDirectoryStatRecursively(const TCHAR* Directory, IPlatformFile::FDirectoryStatVisitor& Visitor) = 0;
 
 	/** Gets the age of a file measured in seconds. */
 	virtual double GetFileAgeSeconds( const TCHAR* Filename )=0;

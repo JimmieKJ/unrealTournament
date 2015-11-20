@@ -384,7 +384,7 @@ void FWindowsPlatformSurvey::TickSurveyHardware( FHardwareSurveyResults& OutResu
 	// Get CPU count from SystemInfo
 	OutResults.CPUCount = SystemInfo.dwNumberOfProcessors;
 
-	ISynthBenchmark::Get().Run(OutResults.SynthBenchmark);
+	ISynthBenchmark::Get().Run(OutResults.SynthBenchmark, true, 5.f);
 
 	// Get CPU speed
 	if (OutResults.CPUCount > 0)
@@ -669,7 +669,7 @@ bool FWindowsPlatformSurvey::GetSubComponentIndex( IProvideWinSATResultsInfo* Wi
 	return bSuccess;
 }
 
-void FWindowsPlatformSurvey::GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, FHardwareSurveyResults& Results)
+void FWindowsPlatformSurvey::GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, FHardwareSurveyResults& OutResults)
 {
 	FString OSVersionLabel;
 	FString OSSubVersionLabel;
@@ -677,9 +677,9 @@ void FWindowsPlatformSurvey::GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, F
 
 	if( ErrorCode & FWindowsOSVersionHelper::ERROR_GETPRODUCTINFO_FAILED )
 	{
-		Results.ErrorCount++;
-		WriteFStringToResults( Results.LastSurveyError, TEXT( "Failed to get GetProductInfo() function from GetProcAddress()." ) );
-		WriteFStringToResults( Results.LastSurveyErrorDetail, TEXT( "" ) );
+		OutResults.ErrorCount++;
+		WriteFStringToResults( OutResults.LastSurveyError, TEXT( "Failed to get GetProductInfo() function from GetProcAddress()." ) );
+		WriteFStringToResults( OutResults.LastSurveyErrorDetail, TEXT( "" ) );
 	}
 
 	if( ErrorCode & FWindowsOSVersionHelper::ERROR_UNKNOWNVERSION )
@@ -693,22 +693,22 @@ void FWindowsPlatformSurvey::GetOSVersionLabels(const SYSTEM_INFO& SystemInfo, F
 #pragma warning(pop)
 
 		UE_LOG( LogWindows, Warning, TEXT( "FWindowsPlatformSurvey::GetOSVersionLabel() unknown Windows version info from GetVersionEx()" ) );
-		Results.ErrorCount++;
-		WriteFStringToResults( Results.LastSurveyError, TEXT( "GetVersionEx() returned unknown version" ) );
-		WriteFStringToResults( Results.LastSurveyErrorDetail, FString::Printf( TEXT( "dwMajorVersion: %d  dwMinorVersion: %d" ), OsVersionInfo.dwMajorVersion, OsVersionInfo.dwMinorVersion ) );
+		OutResults.ErrorCount++;
+		WriteFStringToResults( OutResults.LastSurveyError, TEXT( "GetVersionEx() returned unknown version" ) );
+		WriteFStringToResults( OutResults.LastSurveyErrorDetail, FString::Printf( TEXT( "dwMajorVersion: %d  dwMinorVersion: %d" ), OsVersionInfo.dwMajorVersion, OsVersionInfo.dwMinorVersion ) );
 	}
 
 	if( ErrorCode & FWindowsOSVersionHelper::ERROR_GETVERSIONEX_FAILED )
 	{
 		const uint32 LastError = FPlatformMisc::GetLastError();
 		UE_LOG( LogWindows, Warning, TEXT( "FWindowsPlatformSurvey::GetOSVersionLabel() failed to get Windows version info from GetVersionEx()" ) );
-		Results.ErrorCount++;
-		WriteFStringToResults( Results.LastSurveyError, TEXT( "GetVersionEx() failed" ) );
-		WriteFStringToResults( Results.LastSurveyErrorDetail, FString::Printf( TEXT( "ErrorCode: 0x%0x" ), LastError ) );
+		OutResults.ErrorCount++;
+		WriteFStringToResults( OutResults.LastSurveyError, TEXT( "GetVersionEx() failed" ) );
+		WriteFStringToResults( OutResults.LastSurveyErrorDetail, FString::Printf( TEXT( "ErrorCode: 0x%0x" ), LastError ) );
 	}
 
-	WriteFStringToResults( Results.OSVersion, OSVersionLabel );
-	WriteFStringToResults( Results.OSSubVersion, OSSubVersionLabel );
+	WriteFStringToResults( OutResults.OSVersion, OSVersionLabel );
+	WriteFStringToResults( OutResults.OSSubVersion, OSSubVersionLabel );
 }
 
 bool FWindowsPlatformSurvey::GetLineFollowing(const FString& Token, const TArray<FString>& InLines, FString& OutString, int32 NthHit)

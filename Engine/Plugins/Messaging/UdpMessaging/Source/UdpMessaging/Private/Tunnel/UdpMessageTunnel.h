@@ -17,16 +17,16 @@ class FUdpMessageTunnel
 	: FRunnable
 	, public IUdpMessageTunnel
 {
-	// Structure for transport node information
+	/** Structure for transport node information. */
 	struct FNodeInfo
 	{
-		// Holds the connection that owns the node (only used for remote nodes).
+		/** Holds the connection that owns the node (only used for remote nodes). */
 		FUdpMessageTunnelConnectionPtr Connection;
 
-		// Holds the node's IP endpoint (only used for local nodes).
+		/** Holds the node's IP endpoint (only used for local nodes). */
 		FIPv4Endpoint Endpoint;
 
-		// Holds the time at which the last datagram was received.
+		/** Holds the time at which the last datagram was received. */
 		FDateTime LastDatagramReceivedTime;
 	};
 
@@ -38,10 +38,10 @@ public:
 	 * @param InLocalEndpoint The local IP endpoint to receive messages on.
 	 * @param InMulticastEndpoint The multicast group endpoint to transport messages to.
 	 */
-	FUdpMessageTunnel( const FIPv4Endpoint& InUnicastEndpoint, const FIPv4Endpoint& InMulticastEndpoint );
+	FUdpMessageTunnel(const FIPv4Endpoint& InUnicastEndpoint, const FIPv4Endpoint& InMulticastEndpoint);
 
-	/** Destructor. */
-	~FUdpMessageTunnel();
+	/** Virtual destructor. */
+	virtual ~FUdpMessageTunnel();
 
 public:
 
@@ -56,13 +56,13 @@ public:
 
 	// IUdpMessageTunnel interface
 
-	virtual bool Connect( const FIPv4Endpoint& RemoteEndpoint ) override;
-	virtual int32 GetConnections( TArray<IUdpMessageTunnelConnectionPtr>& OutConnections ) override;
+	virtual bool Connect(const FIPv4Endpoint& RemoteEndpoint) override;
+	virtual int32 GetConnections(TArray<IUdpMessageTunnelConnectionPtr>& OutConnections) override;
 	virtual uint64 GetTotalInboundBytes() const override;
 	virtual uint64 GetTotalOutboundBytes() const override;
 	virtual bool IsServerRunning() const override;
 	virtual FSimpleDelegate& OnConnectionsChanged() override;
-	virtual void StartServer( const FIPv4Endpoint& LocalEndpoint ) override;
+	virtual void StartServer(const FIPv4Endpoint& LocalEndpoint) override;
 	virtual void StopServer() override;
 
 protected:
@@ -72,17 +72,22 @@ protected:
 	 *
 	 * @param Nodes The collection of nodes to clean up.
 	 */
-	void RemoveExpiredNodes( TMap<FGuid, FNodeInfo>& Nodes );
+	void RemoveExpiredNodes(TMap<FGuid, FNodeInfo>& Nodes);
 
-	/** Receives all pending payloads from the tunnels and forwards them to the local message bus. */
+	/**
+	 * Receives all pending payloads from the tunnels and forwards them to the local message bus.
+	 *
+	 * @see UdpToTcp
+	 */
 	void TcpToUdp();
 
 	/**
 	 * Receives all buffered datagrams from the specified socket and forwards them to the tunnels.
 	 *
 	 * @param Socket The socket to receive from.
+	 * @see TcpToUdp
 	 */
-	void UdpToTcp( FSocket* Socket );
+	void UdpToTcp(FSocket* Socket);
 
 	/** Updates all active and pending connections. */
 	void UpdateConnections();
@@ -90,7 +95,7 @@ protected:
 private:
 
 	/** Callback for accepted connections to the local tunnel server. */
-	bool HandleListenerConnectionAccepted( FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint );
+	bool HandleListenerConnectionAccepted(FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint);
 
 private:
 

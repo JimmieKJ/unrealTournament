@@ -102,6 +102,32 @@ int32 FGeomObject::SetPivotFromSelectionArray( TArray<struct FGeomSelection>& Se
 	return HighestSelectionIndex;
 }
 
+void FGeomObject::UpdateFromSelectionArray(TArray<struct FGeomSelection>& SelectionArray)
+{
+	FEditorModeTools& Tools = GLevelEditorModeTools();
+
+	for (const auto& Selection : SelectionArray)
+	{
+		switch (Selection.Type)
+		{
+		case GS_Poly:
+			PolyPool[Selection.Index].ForceSelectionIndex(Selection.SelectionIndex);
+			break;
+
+		case GS_Edge:
+			EdgePool[Selection.Index].ForceSelectionIndex(Selection.SelectionIndex);
+			break;
+
+		case GS_Vertex:
+			VertexPool[Selection.Index].ForceSelectionIndex(Selection.SelectionIndex);
+			break;
+		}
+	}
+
+	DirtySelectionOrder();
+	CompileSelectionOrder();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //
 // FGeomVertex

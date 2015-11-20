@@ -19,7 +19,7 @@ namespace UnrealBuildTool
 		/// <summary>
 		/// Constructor
 		/// </summary>
-		public XcodeSourceFile(string InitFilePath, string InitRelativeBaseFolder)
+		public XcodeSourceFile(FileReference InitFilePath, DirectoryReference InitRelativeBaseFolder)
 			: base(InitFilePath, InitRelativeBaseFolder)
 		{
 			FileGUID = XcodeProjectFileGenerator.MakeXcodeGuid();
@@ -91,7 +91,7 @@ namespace UnrealBuildTool
 
 			foreach (XcodeSourceFile File in Files)
 			{
-				Contents.Append(string.Format("\t\t\t\t{0} /* {1} */,{2}", File.FileRefGUID, Path.GetFileName(File.FilePath), ProjectFileGenerator.NewLine));
+				Contents.Append(string.Format("\t\t\t\t{0} /* {1} */,{2}", File.FileRefGUID, File.Reference.GetFileName(), ProjectFileGenerator.NewLine));
 			}
 
 			if (!bFilesOnly)
@@ -126,49 +126,55 @@ namespace UnrealBuildTool
 		/// Constructs a new project file object
 		/// </summary>
 		/// <param name="InitFilePath">The path to the project file on disk</param>
-		public XcodeProjectFile(string InitFilePath)
-			: base( InitFilePath )
+		public XcodeProjectFile(FileReference InitFilePath)
+			: base(InitFilePath)
 		{
 		}
 
-		/** Gets Xcode file category based on its extension */
+		/// <summary>
+		/// Gets Xcode file category based on its extension
+		/// </summary>
 		private string GetFileCategory(string Extension)
 		{
 			// @todo Mac: Handle more categories
 			switch (Extension)
 			{
-			case ".framework":
-				return "Frameworks";
-			default:
-				return "Sources";
+				case ".framework":
+					return "Frameworks";
+				default:
+					return "Sources";
 			}
 		}
 
-		/** Gets Xcode file type based on its extension */
+		/// <summary>
+		/// Gets Xcode file type based on its extension
+		/// </summary>
 		private string GetFileType(string Extension)
 		{
 			// @todo Mac: Handle more file types
 			switch (Extension)
 			{
-			case ".c":
-			case ".m":
-				return "sourcecode.c.objc";
-			case ".cc":
-			case ".cpp":
-			case ".mm":
-				return "sourcecode.cpp.objcpp";
-			case ".h":
-			case ".inl":
-			case ".pch":
-				return "sourcecode.c.h";
-			case ".framework":
-				return "wrapper.framework";
-			default:
-				return "file.text";
+				case ".c":
+				case ".m":
+					return "sourcecode.c.objc";
+				case ".cc":
+				case ".cpp":
+				case ".mm":
+					return "sourcecode.cpp.objcpp";
+				case ".h":
+				case ".inl":
+				case ".pch":
+					return "sourcecode.c.h";
+				case ".framework":
+					return "wrapper.framework";
+				default:
+					return "file.text";
 			}
 		}
 
-		/** Returns true if Extension is a known extension for files containing source code */
+		/// <summary>
+		/// Returns true if Extension is a known extension for files containing source code
+		/// </summary>
 		private bool IsSourceCode(string Extension)
 		{
 			return Extension == ".c" || Extension == ".cc" || Extension == ".cpp" || Extension == ".m" || Extension == ".mm";
@@ -176,22 +182,23 @@ namespace UnrealBuildTool
 
 		private bool IsPartOfUE4XcodeHelperTarget(XcodeSourceFile SourceFile)
 		{
-			string FileExtension = Path.GetExtension(SourceFile.FilePath);
+			string FileExtension = SourceFile.Reference.GetExtension();
 
 			if (IsSourceCode(FileExtension))// || GetFileType(FileExtension) == "sourcecode.c.h") @todo: It seemed that headers need to be added to project for live issues detection to work in them
 			{
 				foreach (string PlatformName in Enum.GetNames(typeof(UnrealTargetPlatform)))
 				{
 					string AltName = PlatformName == "Win32" || PlatformName == "Win64" ? "windows" : PlatformName.ToLower();
-					if ((SourceFile.FilePath.ToLower().Contains("/" + PlatformName.ToLower() + "/") || SourceFile.FilePath.ToLower().Contains("/" + AltName + "/")) && PlatformName != "Mac")
+					if ((SourceFile.Reference.FullName.ToLower().Contains("/" + PlatformName.ToLower() + "/") || SourceFile.Reference.FullName.ToLower().Contains("/" + AltName + "/"))
+						&& PlatformName != "Mac" && !SourceFile.Reference.FullName.Contains("MetalRHI"))
 					{
 						// UE4XcodeHelper is Mac only target, so skip other platforms files
 						return false;
 					}
-					else if (SourceFile.FilePath.EndsWith("SimplygonMeshReduction.cpp") || SourceFile.FilePath.EndsWith("MeshBoneReduction.cpp") || SourceFile.FilePath.EndsWith("Android.cpp")
-						|| SourceFile.FilePath.EndsWith("Amazon.cpp") || SourceFile.FilePath.EndsWith("FacebookModule.cpp") || SourceFile.FilePath.EndsWith("SDL_angle.c")
-						|| SourceFile.FilePath.Contains("VisualStudioSourceCodeAccess") || SourceFile.FilePath.Contains("AndroidDevice") || SourceFile.FilePath.Contains("IOSDevice")
-						|| SourceFile.FilePath.Contains("WindowsDevice") || SourceFile.FilePath.Contains("WindowsMoviePlayer") || SourceFile.FilePath.EndsWith("IOSTapJoy.cpp"))
+					else if (SourceFile.Reference.FullName.EndsWith("SimplygonMeshReduction.cpp") || SourceFile.Reference.FullName.EndsWith("MeshBoneReduction.cpp") || SourceFile.Reference.FullName.EndsWith("Android.cpp")
+						|| SourceFile.Reference.FullName.EndsWith("Amazon.cpp") || SourceFile.Reference.FullName.EndsWith("FacebookModule.cpp") || SourceFile.Reference.FullName.EndsWith("SDL_angle.c")
+						|| SourceFile.Reference.FullName.Contains("VisualStudioSourceCodeAccess") || SourceFile.Reference.FullName.Contains("AndroidDevice") || SourceFile.Reference.FullName.Contains("IOSDevice")
+						|| SourceFile.Reference.FullName.Contains("WindowsDevice") || SourceFile.Reference.FullName.Contains("WindowsMoviePlayer") || SourceFile.Reference.FullName.EndsWith("IOSTapJoy.cpp"))
 					{
 						// @todo: We need a way to filter out files that use SDKs we don't have
 						return false;
@@ -204,17 +211,17 @@ namespace UnrealBuildTool
 			return false;
 		}
 
-		/**
-		 * Returns a project navigator group to which the file should belong based on its path.
-		 * Creates a group tree if it doesn't exist yet.
-		 */
-		public XcodeFileGroup FindGroupByFullPath(ref Dictionary<string, XcodeFileGroup> Groups, string FullPath)
+		/// <summary>
+		/// Returns a project navigator group to which the file should belong based on its path.
+		/// Creates a group tree if it doesn't exist yet.
+		/// </summary>
+		public XcodeFileGroup FindGroupByFullPath(ref Dictionary<string, XcodeFileGroup> Groups, DirectoryReference FullPath)
 		{
-			string RelativePath = (FullPath == XcodeProjectFileGenerator.MasterProjectRelativePath) ? "" : Utils.MakePathRelativeTo(FullPath, XcodeProjectFileGenerator.MasterProjectRelativePath);
+			string RelativePath = (FullPath == XcodeProjectFileGenerator.MasterProjectPath) ? "" : FullPath.MakeRelativeTo(XcodeProjectFileGenerator.MasterProjectPath);
 			if (RelativePath.StartsWith(".."))
 			{
-				string UE4Dir = Path.GetFullPath(Directory.GetCurrentDirectory() + "../../..");
-				RelativePath = Utils.MakePathRelativeTo(FullPath, UE4Dir);
+				DirectoryReference UE4Dir = new DirectoryReference(Directory.GetCurrentDirectory() + "../../..");
+				RelativePath = FullPath.MakeRelativeTo(UE4Dir);
 			}
 
 			string[] Parts = RelativePath.Split(Path.DirectorySeparatorChar);
@@ -259,18 +266,18 @@ namespace UnrealBuildTool
 		/// <param name="InitFilePath">Path to the source file on disk</param>
 		/// <param name="InitProjectSubFolder">Optional sub-folder to put the file in.  If empty, this will be determined automatically from the file's path relative to the project file</param>
 		/// <returns>The newly allocated source file object</returns>
-		public override SourceFile AllocSourceFile(string InitFilePath, string InitProjectSubFolder)
+		public override SourceFile AllocSourceFile(FileReference InitFilePath, DirectoryReference InitProjectSubFolder)
 		{
-			if (Path.GetFileName(InitFilePath) == ".DS_Store")
+			if (InitFilePath.GetFileName() == ".DS_Store")
 			{
 				return null;
 			}
 			return new XcodeSourceFile(InitFilePath, InitProjectSubFolder);
 		}
 
-		/**
-		 * Generates bodies of all sections that contain a list of source files plus a dictionary of project navigator groups.
-		 */
+		/// <summary>
+		/// Generates bodies of all sections that contain a list of source files plus a dictionary of project navigator groups.
+		/// </summary>
 		public void GenerateSectionsContents(ref string PBXBuildFileSection, ref string PBXFileReferenceSection,
 											 ref string PBXSourcesBuildPhaseSection, ref Dictionary<string, XcodeFileGroup> Groups)
 		{
@@ -281,9 +288,9 @@ namespace UnrealBuildTool
 			foreach (var CurSourceFile in SourceFiles)
 			{
 				XcodeSourceFile SourceFile = CurSourceFile as XcodeSourceFile;
-				string FileName = Path.GetFileName(SourceFile.FilePath);
+				string FileName = SourceFile.Reference.GetFileName();
 				string FileExtension = Path.GetExtension(FileName);
-				string FilePath = Utils.MakePathRelativeTo(SourceFile.FilePath, XcodeProjectFileGenerator.MasterProjectRelativePath);
+				string FilePath = SourceFile.Reference.MakeRelativeTo(XcodeProjectFileGenerator.MasterProjectPath);
 				string FilePathMac = Utils.CleanDirectorySeparators(FilePath, '/');
 
 				// Xcode doesn't parse the project file correctly if the build files don't use the same file reference ID,
@@ -318,7 +325,7 @@ namespace UnrealBuildTool
 					BuildPhaseSection.Append("\t\t\t\t" + SourceFile.FileGUID + " /* " + FileName + " in Sources */," + ProjectFileGenerator.NewLine);
 				}
 
-				string GroupPath = Path.GetFullPath(Path.GetDirectoryName(SourceFile.FilePath));
+				DirectoryReference GroupPath = SourceFile.Reference.Directory;
 				XcodeFileGroup Group = FindGroupByFullPath(ref Groups, GroupPath);
 				if (Group != null)
 				{

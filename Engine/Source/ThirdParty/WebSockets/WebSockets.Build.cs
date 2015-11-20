@@ -13,6 +13,7 @@ public class WebSockets : ModuleRules
                 PublicIncludePaths.Add(WebsocketPath + "include/");
 			    PublicLibraryPaths.Add(WebsocketPath + "lib/x64/" + WindowsPlatform.GetVisualStudioCompilerVersionName() + "/");
 			    PublicAdditionalLibraries.Add("websockets_static.lib");
+			    PublicAdditionalLibraries.Add("ZLIB.lib");
 		    }
             else if ( Target.Platform == UnrealTargetPlatform.Mac)
             {

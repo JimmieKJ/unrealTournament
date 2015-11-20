@@ -6,14 +6,24 @@
 	UAssetClassProperty.
 -----------------------------------------------------------------------------*/
 
-FString UAssetClassProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CPPExportFlags/*=0*/ ) const
+FString UAssetClassProperty::GetCPPType(FString* ExtendedTypeText, uint32 CPPExportFlags) const
 {
-	return FString::Printf(TEXT("TAssetSubclassOf<%s%s> "),MetaClass->GetPrefixCPP(),*MetaClass->GetName());
+	return GetCPPTypeCustom(ExtendedTypeText, CPPExportFlags, MetaClass);
+}
+FString UAssetClassProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass) const
+{
+	check(ActualClass);
+	return FString::Printf(TEXT("TAssetSubclassOf<%s%s> "), ActualClass->GetPrefixCPP(), *ActualClass->GetName());
 }
 FString UAssetClassProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 {
 	ExtendedTypeText = FString::Printf(TEXT("TAssetSubclassOf<%s%s> "),MetaClass->GetPrefixCPP(),*MetaClass->GetName());
 	return TEXT("ASSETOBJECT");
+}
+
+FString UAssetClassProperty::GetCPPTypeForwardDeclaration() const
+{
+	return FString::Printf(TEXT("class %s%s;"), MetaClass->GetPrefixCPP(), *MetaClass->GetName());
 }
 
 void UAssetClassProperty::Serialize( FArchive& Ar )

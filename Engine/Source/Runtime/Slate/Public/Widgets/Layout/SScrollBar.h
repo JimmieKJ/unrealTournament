@@ -101,6 +101,9 @@ public:
 	/** @return True if the user is scrolling by dragging the scroll bar thumb. */
 	bool IsScrolling() const;
 
+	/** See argument Style */
+	void SetStyle(const FScrollBarStyle* InStyle);
+
 	/** See UserVisibility attribute */
 	void SetUserVisibility(TAttribute<EVisibility> InUserVisibility) { UserVisibility = InUserVisibility; }
 
@@ -143,4 +146,10 @@ protected:
 	const FSlateBrush* HoveredThumbImage;
 	/** Image to use when the scrollbar thumb is in its dragged state */
 	const FSlateBrush* DraggedThumbImage;
+	/** Background brush */
+	const FSlateBrush* BackgroundBrush;
+	/** Top brush */
+	const FSlateBrush* TopBrush;
+	/** Bottom brush */
+	const FSlateBrush* BottomBrush;
 };

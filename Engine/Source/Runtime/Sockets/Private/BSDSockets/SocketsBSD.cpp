@@ -167,13 +167,16 @@ bool FSocketBSD::RecvFrom(uint8* Data, int32 BufferSize, int32& BytesRead, FInte
 	BytesRead = recvfrom(Socket, (char*)Data, BufferSize, TranslatedFlags, &Addr, &Size);
 //	NETWORK_PROFILER(FSocket::RecvFrom(Data,BufferSize,BytesRead,Source));
 
-	bool Result = BytesRead >= 0;
-	if (Result)
+	if (BytesRead < 0)
 	{
-		LastActivityTime = FDateTime::UtcNow();
+		BytesRead = 0;
+
+		return false;
 	}
 
-	return Result;
+	LastActivityTime = FDateTime::UtcNow();
+
+	return true;
 }
 
 

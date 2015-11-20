@@ -6,10 +6,11 @@
 #include "StaticMesh.generated.h"
 
 /** The maximum number of static mesh LODs allowed. */
-#define MAX_STATIC_MESH_LODS 4
+#define MAX_STATIC_MESH_LODS 8
 
 // Forward declarations
 class UFoliageType_InstancedStaticMesh;
+struct FStaticMeshLODResources;
 
 /*-----------------------------------------------------------------------------
 	Legacy mesh optimization settings.
@@ -277,6 +278,13 @@ struct FAssetEditorOrbitCameraPosition
 	FRotator CamOrbitRotation;
 };
 
+#if WITH_EDITOR
+/** delegate type for pre mesh build events */
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnPreMeshBuild, class UStaticMesh*);
+/** delegate type for pre mesh build events */
+DECLARE_MULTICAST_DELEGATE_OneParam(FOnPostMeshBuild, class UStaticMesh*);
+#endif
+
 /**
  * A StaticMesh is a piece of geometry that consists of a static set of polygons.
  * Static Meshes can be translated, rotated, and scaled, but they cannot have their vertices animated in any way. As such, they are more efficient
@@ -418,6 +426,16 @@ class UStaticMesh : public UObject, public IInterface_CollisionDataProvider, pub
 	/** Data that is only available if this static mesh is an imported SpeedTree */
 	TSharedPtr<class FSpeedTreeWind> SpeedTreeWind;
 
+	/** Bound extension values in the positive direction of XYZ, positive value increases bound size */
+	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category = StaticMesh)
+	FVector PositiveBoundsExtension;
+	/** Bound extension values in the negative direction of XYZ, positive value increases bound size */
+	UPROPERTY(EditDefaultsOnly, AdvancedDisplay, Category = StaticMesh)
+	FVector NegativeBoundsExtension;
+	/** Original mesh bounds extended with Positive/NegativeBoundsExtension */
+	UPROPERTY()
+	FBoxSphereBounds ExtendedBounds;
+
 protected:
 	/**
 	 * Index of an element to ignore while gathering streaming texture factors.
@@ -434,20 +452,20 @@ public:
 	/** Pre-build navigation collision */
 	UPROPERTY(VisibleAnywhere, transient, duplicatetransient, Instanced, Category = Navigation)
 	class UNavCollision* NavCollision;
-	
 public:
 	/**
 	 * Default constructor
 	 */
 	ENGINE_API UStaticMesh(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	// Begin UObject interface.
+	//~ Begin UObject Interface.
 #if WITH_EDITOR
 	ENGINE_API virtual void PreEditChange(UProperty* PropertyAboutToChange) override;
 	ENGINE_API virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	ENGINE_API virtual void GetAssetRegistryTagMetadata(TMap<FName, FAssetRegistryTagMetadata>& OutMetadata) const override;
 #endif // WITH_EDITOR
 	ENGINE_API virtual void Serialize(FArchive& Ar) override;
+	ENGINE_API virtual void PostInitProperties() override;
 	ENGINE_API virtual void PostLoad() override;
 	ENGINE_API virtual void BeginDestroy() override;
 	ENGINE_API virtual bool IsReadyForFinishDestroy() override;
@@ -455,7 +473,7 @@ public:
 	ENGINE_API virtual FString GetDesc() override;
 	ENGINE_API virtual SIZE_T GetResourceSize(EResourceSizeMode::Type Mode) override;
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
-	// End UObject interface.
+	//~ End UObject Interface.
 
 	/**
 	 * Rebuilds renderable data for this static mesh.
@@ -501,6 +519,10 @@ public:
 	 */
 	ENGINE_API FBoxSphereBounds GetBounds() const;
 
+	/** Returns the bounding box, in local space including bounds extension(s), of the StaticMesh asset */
+	UFUNCTION(BlueprintCallable, Category="StaticMesh")
+	ENGINE_API FBox GetBoundingBox() const;
+
 	/**
 	 * Gets a Material given a Material Index and an LOD number
 	 *
@@ -512,7 +534,7 @@ public:
 	 * Returns the render data to use for exporting the specified LOD. This method should always
 	 * be called when exporting a static mesh.
 	 */
-	ENGINE_API struct FStaticMeshLODResources& GetLODForExport( int32 LODIndex );
+	ENGINE_API const FStaticMeshLODResources& GetLODForExport(int32 LODIndex) const;
 
 	/**
 	 * Static: Processes the specified static mesh for light map UV problems
@@ -525,7 +547,7 @@ public:
 	 */
 	ENGINE_API static void CheckLightMapUVs( UStaticMesh* InStaticMesh, TArray< FString >& InOutAssetsWithMissingUVSets, TArray< FString >& InOutAssetsWithBadUVSets, TArray< FString >& InOutAssetsWithValidUVSets, bool bInVerbose = true );
 
-	// Begin Interface_CollisionDataProvider Interface
+	//~ Begin Interface_CollisionDataProvider Interface
 	ENGINE_API virtual bool GetPhysicsTriMeshData(struct FTriMeshCollisionData* CollisionData, bool InUseAllTriData) override;
 	ENGINE_API virtual bool ContainsPhysicsTriMeshData(bool InUseAllTriData) const override;
 	virtual bool WantsNegXTriMesh() override
@@ -533,14 +555,14 @@ public:
 		return true;
 	}
 	ENGINE_API virtual void GetMeshId(FString& OutMeshId) override;
-	// End Interface_CollisionDataProvider Interface
+	//~ End Interface_CollisionDataProvider Interface
 
-	// Begin IInterface_AssetUserData Interface
+	//~ Begin IInterface_AssetUserData Interface
 	virtual void AddAssetUserData(UAssetUserData* InUserData) override;
 	virtual void RemoveUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
 	virtual UAssetUserData* GetAssetUserDataOfClass(TSubclassOf<UAssetUserData> InUserDataClass) override;
 	virtual const TArray<UAssetUserData*>* GetAssetUserDataArray() const override;
-	// End IInterface_AssetUserData Interface
+	//~ End IInterface_AssetUserData Interface
 
 
 	/**
@@ -613,6 +635,12 @@ public:
 
 	ENGINE_API void GenerateLodsInPackage();
 
+	/** Get multicast delegate broadcast prior to mesh building */
+	FOnPreMeshBuild& OnPreMeshBuild() { return PreMeshBuild; }
+
+	/** Get multicast delegate broadcast after mesh building */
+	FOnPostMeshBuild& OnPostMeshBuild() { return PostMeshBuild; }
+
 private:
 	/**
 	 * Converts legacy LODDistance in the source models to Display Factor
@@ -628,5 +656,12 @@ private:
 	 * Caches derived renderable data.
 	 */
 	void CacheDerivedData();
+
+	/** Calculates the extended bounds */
+	void CalculateExtendedBounds();
+
+	FOnPreMeshBuild PreMeshBuild;
+	FOnPostMeshBuild PostMeshBuild;
+
 #endif // #if WITH_EDITOR
 };

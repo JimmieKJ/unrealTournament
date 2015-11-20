@@ -61,6 +61,7 @@ static bool GAndroidIsPortrait = false;
 static int GAndroidDepthBufferPreference = 0;
 extern "C" void Java_com_epicgames_ue4_GameActivity_nativeSetWindowInfo(JNIEnv* jenv, jobject thiz, jboolean bIsPortrait, jint DepthBufferPreference)
 {
+	WindowInit = false;
 	GAndroidIsPortrait = bIsPortrait == JNI_TRUE;
 	GAndroidDepthBufferPreference = DepthBufferPreference;
 	FPlatformMisc::LowLevelOutputDebugStringf(TEXT("App is running in %s\n"), GAndroidIsPortrait ? TEXT("Portrait") : TEXT("Landscape"));
@@ -69,6 +70,21 @@ extern "C" void Java_com_epicgames_ue4_GameActivity_nativeSetWindowInfo(JNIEnv* 
 int32 FAndroidWindow::GetDepthBufferPreference()
 {
 	return GAndroidDepthBufferPreference;
+}
+
+void FAndroidWindow::InvalidateCachedScreenRect()
+{
+	WindowInit = false;
+}
+
+void FAndroidWindow::AcquireWindowRef(ANativeWindow* InWindow)
+{
+	ANativeWindow_acquire(InWindow);
+}
+
+void FAndroidWindow::ReleaseWindowRef(ANativeWindow* InWindow)
+{
+	ANativeWindow_release(InWindow);
 }
 
 FPlatformRect FAndroidWindow::GetScreenRect()
@@ -82,7 +98,7 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 
 	if (RequestedContentScaleFactor != ContentScaleFactor)
 	{
-		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("***** RequestedContentScaleFactor different %d != %d, not using res cache"), RequestedContentScaleFactor, ContentScaleFactor);
+		FPlatformMisc::LowLevelOutputDebugStringf(TEXT("***** RequestedContentScaleFactor different %f != %f, not using res cache"), RequestedContentScaleFactor, ContentScaleFactor);
 	}
 
 	if (Window != LastWindow)
@@ -118,13 +134,16 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 	int32 MaxHeight = ScreenHeight;
 
 	static auto* MobileHDRCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR"));
-	static auto* MobileHDR32bppCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR32bpp"));
+	static auto* MobileHDR32bppModeCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MobileHDR32bppMode"));
 	const bool bMobileHDR32bpp = (MobileHDRCvar && MobileHDRCvar->GetValueOnAnyThread() == 1)
-		&& (FAndroidMisc::SupportsFloatingPointRenderTargets() == false || (MobileHDR32bppCvar && MobileHDR32bppCvar->GetValueOnAnyThread() == 1));
+		&& (FAndroidMisc::SupportsFloatingPointRenderTargets() == false || (MobileHDR32bppModeCvar && MobileHDR32bppModeCvar->GetValueOnAnyThread() != 0));
 
-	UE_LOG(LogAndroid, Log, TEXT("Requires Mosaic: %s"), bMobileHDR32bpp ? TEXT("YES") : TEXT("no"));
+	const bool bRequiresMosaic = bMobileHDR32bpp && (!FAndroidMisc::SupportsShaderFramebufferFetch() || (MobileHDR32bppModeCvar && MobileHDR32bppModeCvar->GetValueOnAnyThread() == 1));
+	
+	UE_LOG(LogAndroid, Log, TEXT("Requires 32BPP Encoding: %s"), bMobileHDR32bpp ? TEXT("YES") : TEXT("no"));
+	UE_LOG(LogAndroid, Log, TEXT("Requires Mosaic: %s"), bRequiresMosaic ? TEXT("YES") : TEXT("no"));
 
-	if (bMobileHDR32bpp)
+	if (bRequiresMosaic)
 	{
 		const int32 OldMaxWidth = MaxWidth;
 		const int32 OldMaxHeight = MaxHeight;
@@ -140,7 +159,8 @@ FPlatformRect FAndroidWindow::GetScreenRect()
 			MaxHeight = MaxWidth / AspectRatio;
 		}
 
-		UE_LOG(LogAndroid, Log, TEXT("Limiting MaxWidth=%d and MaxHeight=%d due to bMobileHDR32bpp (was %dx%d)"), MaxWidth, MaxHeight, OldMaxWidth, OldMaxHeight);
+		UE_LOG(LogAndroid, Log, TEXT("Using mosaic rendering due to lack of Framebuffer Fetch support."));
+		UE_LOG(LogAndroid, Log, TEXT("Limiting MaxWidth=%d and MaxHeight=%d due to mosaic rendering (was %dx%d)"), MaxWidth, MaxHeight, OldMaxWidth, OldMaxHeight);
 	}
 
 	// 0 means to use native size
@@ -198,7 +218,8 @@ void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth,
 	SurfaceHeight = ANativeWindow_getHeight(Window);
 
 	// some phones gave it the other way (so, if swap if the app is landscape, but width < height)
-	if (!GAndroidIsPortrait && SurfaceWidth < SurfaceHeight)
+	if ((GAndroidIsPortrait && SurfaceWidth > SurfaceHeight) || 
+		(!GAndroidIsPortrait && SurfaceWidth < SurfaceHeight))
 	{
 		Swap(SurfaceWidth, SurfaceHeight);
 	}
@@ -207,4 +228,15 @@ void FAndroidWindow::CalculateSurfaceSize(void* InWindow, int32_t& SurfaceWidth,
 	const int DividableBy = 8;
 	SurfaceWidth  = ((SurfaceWidth  + DividableBy - 1) / DividableBy) * DividableBy;
 	SurfaceHeight = ((SurfaceHeight + DividableBy - 1) / DividableBy) * DividableBy;
+}
+
+bool FAndroidWindow::OnWindowOrientationChanged(bool bIsPortrait)
+{
+	if (GAndroidIsPortrait != bIsPortrait)
+	{
+		UE_LOG(LogAndroid, Log, TEXT("Window orientation changed: %s"), bIsPortrait ? TEXT("Portrait") : TEXT("Landscape"));
+		GAndroidIsPortrait = bIsPortrait;
+		return true;
+	}
+	return false;
 }

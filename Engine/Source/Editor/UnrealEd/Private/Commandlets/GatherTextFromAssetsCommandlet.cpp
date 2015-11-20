@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealEd.h"
 #include "PackageTools.h"
@@ -27,657 +27,99 @@ const FString UGatherTextFromAssetsCommandlet::UsageText
 	TEXT("    <paths to exclude> Paths to exclude. Delimited with ';'. Accepts wildcards. eg \"*Content/Developers/*;*/TestMaps/*\" OPTIONAL: If not present, nothing will be excluded.\r\n")
 	);
 
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::DialogueNamespace						= TEXT("Dialogue");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_VoiceActorDirection		= TEXT("Voice Actor Direction");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_Speaker					= TEXT("Speaker");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_Speakers					= TEXT("Speakers");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_Targets					= TEXT("Targets");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_GrammaticalGender			= TEXT("Gender");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_GrammaticalPlurality		= TEXT("Plurality");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_TargetGrammaticalGender	= TEXT("TargetGender");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_TargetGrammaticalNumber	= TEXT("TargetPlurality");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_Optional					= TEXT("Optional");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_DialogueVariations			= TEXT("Variations");
-const FString UGatherTextFromAssetsCommandlet::FDialogueHelper::PropertyName_IsMature					= TEXT("*IsMature");
-
-bool UGatherTextFromAssetsCommandlet::FDialogueHelper::ProcessDialogueWave( const UDialogueWave* DialogueWave )
-{
-	if( !DialogueWave )
-	{
-		return false;
-	}
-
-	DialogueKey = DialogueWave->LocalizationGUID.ToString();
-	SourceLocation = DialogueWave->GetPathName();
-	SpokenSource = DialogueWave->SpokenText;
-#if WITH_EDITORONLY_DATA
-	VoiceActorDirection = DialogueWave->VoiceActorDirection;
-#endif
-	bIsMature = DialogueWave->bMature;
-	
-	// Stores the human readable info describing source and targets for each context of this DialogueWave
-	TArray< TSharedPtr< FLocMetadataValue > > VariationsDisplayInfoList;
-
-	for( const FDialogueContextMapping& ContextMapping : DialogueWave->ContextMappings )
-	{
-		const FDialogueContext& DialogueContext = ContextMapping.Context;
-		const UDialogueVoice* SpeakerDialogueVoice = DialogueContext.Speaker;
-
-		// Skip over entries with invalid speaker
-		if( !SpeakerDialogueVoice )
-		{
-			continue;
-		}
-
-		// Collect speaker info
-		FString SpeakerDisplayName = GetDialogueVoiceName( SpeakerDialogueVoice );
-		FString SpeakerGender = GetGrammaticalGenderString( SpeakerDialogueVoice->Gender );
-		FString SpeakerPlurality = GetGrammaticalNumberString( SpeakerDialogueVoice->Plurality );
-		FString SpeakerGuid = SpeakerDialogueVoice->LocalizationGUID.ToString();
-
-		EGrammaticalGender::Type AccumulatedTargetGender = (EGrammaticalGender::Type)-1;
-		EGrammaticalNumber::Type AccumulatedTargetPlurality = (EGrammaticalNumber::Type)-1;
-
-		TArray<FString> TargetGuidsList;
-		TArray<FString> TargetDisplayNameList;
-
-		// Collect info on all the targets
-		for( const UDialogueVoice* TargetDialogueVoice : DialogueContext.Targets )
-		{
-			if( TargetDialogueVoice )
-			{
-				FString TargetDisplayName = GetDialogueVoiceName( TargetDialogueVoice );
-				TargetDisplayNameList.AddUnique( TargetDisplayName );
-				FString TargetGender = GetGrammaticalGenderString( TargetDialogueVoice->Gender );
-				FString TargetPlurality = GetGrammaticalNumberString( TargetDialogueVoice->Plurality );
-				FString TargetGuid = TargetDialogueVoice->LocalizationGUID.ToString();
-
-				TargetGuidsList.AddUnique( TargetGuid );
-
-				if( AccumulatedTargetGender == -1)
-				{
-					AccumulatedTargetGender = TargetDialogueVoice->Gender;
-				}
-				else if( AccumulatedTargetGender != TargetDialogueVoice->Gender )
-				{
-					AccumulatedTargetGender = EGrammaticalGender::Mixed;
-				}
-
-				if( AccumulatedTargetPlurality == -1 )
-				{
-					AccumulatedTargetPlurality = TargetDialogueVoice->Plurality;
-				}
-				else if( AccumulatedTargetPlurality == EGrammaticalNumber::Singular )
-				{
-					AccumulatedTargetPlurality = EGrammaticalNumber::Plural;
-				}
-			}
-		}
-
-		FString FinalTargetGender = GetGrammaticalGenderString( AccumulatedTargetGender );
-		FString FinalTargetPlurality = GetGrammaticalNumberString( AccumulatedTargetPlurality );
-
-		// Add the context specific variation
-		{
-			TSharedPtr< FLocMetadataObject > KeyMetaDataObject = MakeShareable( new FLocMetadataObject() );
-
-			// Setup a loc metadata object with all the context specific keys.
-			{
-				KeyMetaDataObject->SetStringField( PropertyName_GrammaticalGender, SpeakerGender );
-				KeyMetaDataObject->SetStringField( PropertyName_GrammaticalPlurality, SpeakerPlurality );
-				KeyMetaDataObject->SetStringField( PropertyName_Speaker, SpeakerGuid );
-				KeyMetaDataObject->SetStringField( PropertyName_TargetGrammaticalGender, FinalTargetGender );
-				KeyMetaDataObject->SetStringField( PropertyName_TargetGrammaticalNumber, FinalTargetPlurality );
-
-				TArray< TSharedPtr< FLocMetadataValue > > TargetGuidsMetadata;
-				for( FString& TargetGuid : TargetGuidsList )
-				{
-					TargetGuidsMetadata.Add( MakeShareable( new FLocMetadataValueString( TargetGuid ) ) );
-				}
-
-				KeyMetaDataObject->SetArrayField( PropertyName_Targets, TargetGuidsMetadata );
-			}
-
-			// Create the human readable info that describes the source and target of this dialogue
-			TSharedPtr< FLocMetadataValue > SourceTargetInfo = GenSourceTargetMetadata( SpeakerDisplayName, TargetDisplayNameList );
-
-			TSharedPtr< FLocMetadataObject > InfoMetaDataObject = MakeShareable( new FLocMetadataObject() );
-
-			// Setup a loc metadata object with all the context specific info.  This usually includes human readable descriptions of the dialogue
-			{
-				if( SourceTargetInfo.IsValid() )
-				{
-					InfoMetaDataObject->SetField( PropertyName_DialogueVariations, SourceTargetInfo );
-				}
-
-				if( !VoiceActorDirection.IsEmpty() )
-				{
-					InfoMetaDataObject->SetStringField( PropertyName_VoiceActorDirection, VoiceActorDirection );
-				}
-			}
-
-
-			TSharedRef< FContext > Context = MakeShareable( new FContext );
-
-			// Setup the context
-			{
-				Context->Key = DialogueWave->GetContextLocalizationKey( DialogueContext );
-				Context->SourceLocation = SourceLocation;
-				Context->bIsOptional = true;
-				Context->KeyMetadataObj = KeyMetaDataObject->Values.Num() > 0 ? KeyMetaDataObject : NULL;
-				Context->InfoMetadataObj = InfoMetaDataObject->Values.Num() > 0 ? InfoMetaDataObject : NULL;
-			}
-
-			// Add this context specific variation to
-			ContextSpecificVariations.Add( Context );
-
-			{
-				// Add human readable info describing the source and targets of this dialogue to the non-optional manifest entry if it does not exist already
-				bool bAddContextDisplayInfoToBase = true;
-				for( TSharedPtr< FLocMetadataValue > VariationInfo : VariationsDisplayInfoList )
-				{
-					if( *SourceTargetInfo == *VariationInfo)
-					{
-						bAddContextDisplayInfoToBase = false;
-						break;
-					}
-				}
-				if( bAddContextDisplayInfoToBase )
-				{
-					VariationsDisplayInfoList.Add( SourceTargetInfo );
-				}
-			}
-		}
-	}
-
-	// Create the base, non-optional entry
-	{
-		TSharedPtr< FLocMetadataObject > InfoMetaDataObject = MakeShareable( new FLocMetadataObject() );
-
-		// Setup a loc metadata object with all the context specific info.  This usually includes human readable descriptions of the dialogue
-		{
-			if( VariationsDisplayInfoList.Num() > 0 )
-			{
-				InfoMetaDataObject->SetArrayField( PropertyName_DialogueVariations, VariationsDisplayInfoList );
-			}
-
-			if( !VoiceActorDirection.IsEmpty() )
-			{
-				InfoMetaDataObject->SetStringField( PropertyName_VoiceActorDirection, VoiceActorDirection );
-			}
-		}
-
-		TSharedRef< FContext > Context = MakeShareable( new FContext );
-
-		// Setup the context
-		{
-			Context->Key = DialogueKey;
-			Context->SourceLocation = SourceLocation;
-			Context->bIsOptional = false;
-			Context->InfoMetadataObj = InfoMetaDataObject->Values.Num() > 0 ? InfoMetaDataObject : NULL;
-		}
-
-		Base = Context;
-	}
-
-	return true;
-}
-
-FString UGatherTextFromAssetsCommandlet::FDialogueHelper::GetGrammaticalNumberString(TEnumAsByte<EGrammaticalNumber::Type> Plurality)
-{
-	const static UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGrammaticalNumber"), true);
-	check (Enum);
-	check (Enum->NumEnums() > Plurality);
-
-	const FString KeyName = TEXT("DisplayName");
-	const FString PluralityString = Enum->GetMetaData(*KeyName, Plurality);
-
-	return PluralityString;
-}
-
-
-
-FString UGatherTextFromAssetsCommandlet::FDialogueHelper::GetGrammaticalGenderString(TEnumAsByte<EGrammaticalGender::Type> Gender)
-{
-	const static UEnum* Enum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EGrammaticalGender"), true);
-	check (Enum);
-	check (Enum->NumEnums() > Gender);
-
-	const FString KeyName = TEXT("DisplayName");
-	const FString GenderString = Enum->GetMetaData(*KeyName, Gender);
-
-	return GenderString;
-}
-
-
-FString UGatherTextFromAssetsCommandlet::FDialogueHelper::GetDialogueVoiceName( const UDialogueVoice* DialogueVoice )
-{
-	FString Name = DialogueVoice->GetName();
-	return Name;
-}
-
-FString UGatherTextFromAssetsCommandlet::FDialogueHelper::ArrayMetaDataToString( const TArray< TSharedPtr< FLocMetadataValue > >& MetadataArray )
-{
-	FString FinalString;
-	if( MetadataArray.Num() > 0 )
-	{
-		TArray< FString > MetadataStrings;
-		for( TSharedPtr< FLocMetadataValue > DataEntry : MetadataArray )
-		{
-			if( DataEntry->Type == ELocMetadataType::String )
-			{
-				MetadataStrings.Add(DataEntry->AsString());
-			}
-		}
-		MetadataStrings.Sort();
-		for( const FString& StrEntry : MetadataStrings )
-		{
-			if(FinalString.Len())
-			{
-				FinalString += TEXT(",");
-			}
-			FinalString += StrEntry;
-		}
-	}
-	return FinalString;
-}
-
-TSharedPtr< FLocMetadataValue > UGatherTextFromAssetsCommandlet::FDialogueHelper::GenSourceTargetMetadata( const FString& SpeakerName, const TArray< FString >& TargetNames, bool bCompact )
-{
-	/*
-	This function can support two different formats.
-	
-	The first format is compact and results in string entries that will later be combined into something like this
-	"Variations": [
-		"Jenny -> Audience",
-		"Zak -> Audience"
-	]
-
-	The second format is verbose and results in object entries that will later be combined into something like this
-	"VariationsTest": [
-		{
-			"Speaker": "Jenny",
-			"Targets": [
-				"Audience"
-			]
-		},
-		{
-			"Speaker": "Zak",
-			"Targets": [
-				"Audience"
-			]
-		}
-	]
-	*/
-
-	TSharedPtr< FLocMetadataValue > Result;
-	if( bCompact )
-	{
-		TArray<FString> SortedTargetNames = TargetNames;
-		SortedTargetNames.Sort();
-		FString TargetNamesString;
-		for( const FString& StrEntry : SortedTargetNames )
-		{
-			if(TargetNamesString.Len())
-			{
-				TargetNamesString += TEXT(",");
-			}
-			TargetNamesString += StrEntry;
-		}
-		Result = MakeShareable( new FLocMetadataValueString( FString::Printf( TEXT("%s -> %s" ), *SpeakerName, *TargetNamesString ) ) );
-	}
-	else
-	{
-		TArray< TSharedPtr< FLocMetadataValue > > TargetNamesMetadataList;
-		for( const FString& StrEntry: TargetNames )
-		{
-			TargetNamesMetadataList.Add( MakeShareable( new FLocMetadataValueString( StrEntry ) ) );
-		}
-
-		TSharedPtr< FLocMetadataObject > MetadataObj = MakeShareable( new FLocMetadataObject() );
-		MetadataObj->SetStringField( PropertyName_Speaker, SpeakerName );
-		MetadataObj->SetArrayField( PropertyName_Targets, TargetNamesMetadataList );
-
-		Result = MakeShareable( new FLocMetadataValueObject( MetadataObj.ToSharedRef() ) );
-	}
-	return Result;
-}
-
-
 UGatherTextFromAssetsCommandlet::UGatherTextFromAssetsCommandlet(const FObjectInitializer& ObjectInitializer)
 	:Super(ObjectInitializer)
 {
 
 }
 
-namespace
+void UGatherTextFromAssetsCommandlet::ProcessGatherableTextDataArray(const FString& PackageFilePath, const TArray<FGatherableTextData>& GatherableTextDataArray)
 {
-	template<typename TConcreteChildClass>
-	class FGatherTextFromObject_Base
+	for (const FGatherableTextData& GatherableTextData : GatherableTextDataArray)
 	{
-	public:
-		static inline void Execute(UGatherTextFromAssetsCommandlet* const Commandlet, UObject* const Object, const UPackage* const ObjectPackage, const bool ShouldFixBroken)
+		for (const FTextSourceSiteContext& TextSourceSiteContext : GatherableTextData.SourceSiteContexts)
 		{
-			if( !Object->HasAnyFlags( RF_Transient | RF_PendingKill ) )
+			const FString KeyName = TextSourceSiteContext.KeyName;
+
+			// Find existing entry from manifest or manifest dependencies.
+			FContext Context;
+			Context.Key = TextSourceSiteContext.KeyName;
+			const FLocMetadataObject DefaultMetadataObject;
+			Context.KeyMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.KeyMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.KeyMetaData)) : nullptr;
+			Context.InfoMetadataObj = !(FLocMetadataObject::IsMetadataExactMatch(&TextSourceSiteContext.InfoMetaData, &DefaultMetadataObject)) ? MakeShareable(new FLocMetadataObject(TextSourceSiteContext.InfoMetaData)) : nullptr;
+			Context.bIsOptional = TextSourceSiteContext.IsOptional;
+			Context.SourceLocation = TextSourceSiteContext.SiteDescription;
+
+			TSharedPtr< FManifestEntry > ExistingEntry = ManifestInfo->GetManifest()->FindEntryByContext( GatherableTextData.NamespaceName, Context );
+
+			if (!ExistingEntry.IsValid())
 			{
-				TConcreteChildClass(Commandlet, Object, ObjectPackage, ShouldFixBroken).Execute_Internal();
+				FString FileInfo;
+				ExistingEntry = ManifestInfo->FindDependencyEntryByContext( GatherableTextData.NamespaceName, Context, FileInfo );
 			}
-		}
 
-	protected:
-		FGatherTextFromObject_Base(UGatherTextFromAssetsCommandlet* const InCommandlet, UObject* const InObject, const UPackage* const InObjectPackage, const bool InShouldFixBroken)
-			: Commandlet(InCommandlet)
-			, Object(InObject)
-			, ObjectPackage(InObjectPackage)
-			, ShouldFixBroken(InShouldFixBroken)
-		{
-		}
+			FConflictTracker::FEntry NewEntry;
+			NewEntry.PathToSourceString = TextSourceSiteContext.SiteDescription;
+			NewEntry.SourceString = MakeShareable(new FString(GatherableTextData.SourceData.SourceString));
+			NewEntry.Status = EAssetTextGatherStatus::None;
 
-		void ProcessProperty(UProperty* const Property, void* const ValueAddress)
-		{
-			UTextProperty* const TextProperty = Cast<UTextProperty>(Property);
-			UArrayProperty* const ArrayProperty = Cast<UArrayProperty>(Property);
-			UStructProperty* const StructProperty = Cast<UStructProperty>(Property);
-
-			// Handles both native, fixed-size arrays and plain old non-array properties.
-			for(int32 i = 0; i < Property->ArrayDim; ++i)
+			if (TextSourceSiteContext.KeyName.IsEmpty())
 			{
-				void* const ElementValueAddress = reinterpret_cast<uint8*>(ValueAddress) + Property->ElementSize * i;
-
-				// Property is a text property.
-				if (TextProperty)
-				{
-					FText* Text = reinterpret_cast<FText*>(ElementValueAddress);
-
-					if( FTextInspector::GetFlags(*Text) & ETextFlag::ConvertedProperty )
-					{
-						ObjectPackage->MarkPackageDirty();
-					}
-
-					bool Fixed = false;
-					Commandlet->ProcessTextProperty(TextProperty, Text, Object, /*OUT*/Fixed );
-					if( Fixed )
-					{
-						ObjectPackage->MarkPackageDirty();
-					}
-				}
-				// Property is a DYNAMIC array property.
-				else if (ArrayProperty)
-				{
-					// Iterate over all objects of the array.
-					FScriptArrayHelper ScriptArrayHelper(ArrayProperty, ElementValueAddress);
-					const int32 ElementCount = ScriptArrayHelper.Num();
-					for(int32 j = 0; j < ElementCount; ++j)
-					{
-						ProcessProperty( ArrayProperty->Inner, ScriptArrayHelper.GetRawPtr(j) );
-					}
-				}
-				// Property is a struct property.
-				else if (StructProperty)
-				{
-					// Iterate over all properties of the struct's class.
-					for (TFieldIterator<UProperty>PropIt(StructProperty->Struct, EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::ExcludeDeprecated, EFieldIteratorFlags::IncludeInterfaces); PropIt; ++PropIt)
-					{
-						ProcessProperty( *PropIt, PropIt->ContainerPtrToValuePtr<void>(ElementValueAddress) );
-					}
-				}
+				NewEntry.Status = EAssetTextGatherStatus::MissingKey;
 			}
-		}
 
-	protected:
-		UGatherTextFromAssetsCommandlet* const Commandlet;
-		UObject* const Object;
-		const UPackage* const ObjectPackage;
-		const bool ShouldFixBroken;
-	};
-
-	class FGatherTextFromObject : public FGatherTextFromObject_Base<FGatherTextFromObject>
-	{
-	public:
-		FGatherTextFromObject(UGatherTextFromAssetsCommandlet* const InCommandlet, UObject* const InObject, const UPackage* const InObjectPackage, const bool InShouldFixBroken)
-			: FGatherTextFromObject_Base(InCommandlet, InObject, InObjectPackage, InShouldFixBroken)
-		{
-		}
-
-		void Execute_Internal()
-		{
-			// Iterate over all fields of the object's class.
-			for (TFieldIterator<UProperty>PropIt(Object->GetClass(), EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::ExcludeDeprecated, EFieldIteratorFlags::IncludeInterfaces); PropIt; ++PropIt)
+			// Entry already exists, check for conflict.
+			if (ExistingEntry.IsValid() && ExistingEntry->Source.Text != ( NewEntry.SourceString.IsValid() ? **(NewEntry.SourceString) : TEXT("") ))
 			{
-				ProcessProperty( *PropIt, PropIt->ContainerPtrToValuePtr<void>(Object) );
+				NewEntry.Status = EAssetTextGatherStatus::IdentityConflict;
 			}
-		}
-	};
 
-	class FGatherTextFromDataTable : public FGatherTextFromObject_Base<FGatherTextFromDataTable>
-	{
-	public:
-		FGatherTextFromDataTable(UGatherTextFromAssetsCommandlet* const InCommandlet, UObject* const InDataTable, const UPackage* const InObjectPackage, const bool InShouldFixBroken)
-			: FGatherTextFromObject_Base(InCommandlet, InDataTable, InObjectPackage, InShouldFixBroken)
-		{
-		}
-
-		void Execute_Internal()
-		{
-			UDataTable* const DataTable = Cast<UDataTable>(Object);
-
-			// Iterate over all properties of the struct's class.
-			for (TFieldIterator<UProperty>PropIt(DataTable->RowStruct, EFieldIteratorFlags::IncludeSuper, EFieldIteratorFlags::ExcludeDeprecated, EFieldIteratorFlags::IncludeInterfaces); PropIt; ++PropIt)
+			// Gather if it requires gathering and isn't in a bad state.
+			if ((NewEntry.Status & EAssetTextGatherStatus::BadBitMask) == false)
 			{
-				for (const auto& Pair : DataTable->RowMap)
+				if (!TextSourceSiteContext.IsEditorOnly || ShouldGatherFromEditorOnlyData)
 				{
-					ProcessProperty( *PropIt, PropIt->ContainerPtrToValuePtr<void>(Pair.Value) );
-				}
+				ManifestInfo->AddEntry(TextSourceSiteContext.SiteDescription, GatherableTextData.NamespaceName, NewEntry.SourceString.Get() ? *(NewEntry.SourceString) : TEXT(""), Context );
 			}
+			}
+
+			// Add to conflict tracker.
+			FConflictTracker::FKeyTable& KeyTable = ConflictTracker.Namespaces.FindOrAdd(GatherableTextData.NamespaceName);
+			FConflictTracker::FEntryArray& EntryArray = KeyTable.FindOrAdd(TextSourceSiteContext.KeyName);
+			EntryArray.Add(NewEntry);
 		}
-	};
+	}
 }
 
 void UGatherTextFromAssetsCommandlet::ProcessPackages( const TArray< UPackage* >& PackagesToProcess )
 {
 	for(UPackage* const Package : PackagesToProcess)
 	{
-		TArray<UObject*> Objects;
-		GetObjectsWithOuter(Package, Objects);
-
-		for(UObject* const Object : Objects)
+		TArray<UObject*> ObjectsInPackage;
+		GetObjectsWithOuter(Package, ObjectsInPackage, true, RF_Transient | RF_PendingKill);
+		for (UObject* const Object : ObjectsInPackage)
 		{
-			if ( Object->IsA( UBlueprint::StaticClass() ) )
-			{
-				UBlueprint* Blueprint = Cast<UBlueprint>( Object );
+			TArray<FGatherableTextData> GatherableTextDataArray;
 
-				if( Blueprint->GeneratedClass != NULL )
+			FPropertyLocalizationDataGatherer PropertyLocalizationDataGatherer(GatherableTextDataArray);
+			PropertyLocalizationDataGatherer.GatherLocalizationDataFromPropertiesOfDataStructure(Object->GetClass(), Object);
+
+				for(UClass* Class = Object->GetClass(); Class != nullptr; Class = Class->GetSuperClass())
 				{
-					FGatherTextFromObject::Execute(this, Blueprint->GeneratedClass->GetDefaultObject(), Package, bFixBroken);
-				}
-				else
-				{
-					UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("%s - Invalid generated class!"), *Blueprint->GetFullName());
-				}
-			}
-			else if ( Object->IsA( UDataTable::StaticClass() ) )
-			{
-				UDataTable* DataTable = Cast<UDataTable>(Object);
-				FGatherTextFromDataTable::Execute(this, DataTable, Package, bFixBroken);
-			}
-			else if( Object->IsA( UDialogueWave::StaticClass() ) )
-			{
-				UDialogueWave* DialogueWave = Cast<UDialogueWave>(Object);
-				ProcessDialogueWave(DialogueWave);
-			}
-
-			FGatherTextFromObject::Execute(this, Object, Package, bFixBroken);
-		}
-	}
-}
-
-void UGatherTextFromAssetsCommandlet::ProcessDialogueWave( const UDialogueWave* DialogueWave )
-{
-	if( !DialogueWave || DialogueWave->HasAnyFlags( RF_Transient | RF_PendingKill ) )
-	{
-		return;
-	}
-
-	FString DialogueName = DialogueWave->GetName();
-	// Use a helper class to extract the dialogue info and prepare it for the manifest
-	FDialogueHelper DialogueHelper;
-	if( DialogueHelper.ProcessDialogueWave( DialogueWave ) )
-	{
-		const FString& SpokenSource = DialogueHelper.GetSpokenSource();
-
-		if( !SpokenSource.IsEmpty() )
-		{
-			{
-				TSharedPtr< const FContext > Base = DialogueHelper.GetBaseContext();
-
-				FString EntryDescription = FString::Printf( TEXT("In non-optional variation of %s"), *DialogueName);
-				ManifestInfo->AddEntry(EntryDescription, DialogueHelper.DialogueNamespace, SpokenSource, *Base);
-			}
-			
-			{
-				const TArray< TSharedPtr< FContext > > Variations = DialogueHelper.GetContextSpecificVariations();
-				for( TSharedPtr< FContext > Variation : Variations )
-				{
-					FString EntryDescription = FString::Printf( TEXT("In context specific variation of %s"), *DialogueName);
-					ManifestInfo->AddEntry(EntryDescription, DialogueHelper.DialogueNamespace, SpokenSource, *Variation);
-				}
-			}
-		}
-	}
-}
-
-void UGatherTextFromAssetsCommandlet::ProcessTextProperty(UTextProperty* InTextProp, FText* Data, UObject* Object, bool& OutFixed)
-{
-	OutFixed = false;
-
-	// Early out of gathering pin friendly names unless requested to gather them.
-	if (Object->IsA(UEdGraphPin::StaticClass()))
-	{
-		UProperty* const PinFriendlyNameProperty = Cast<UTextProperty>(UEdGraphPin::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UEdGraphPin, PinFriendlyName)));
-		const bool IsPinNameProperty = PinFriendlyNameProperty == InTextProp;
-		if (!ShouldGatherBlueprintPinNames && IsPinNameProperty)
-		{
-			return;
-		}
-	}
-
-	FConflictTracker::FEntry NewEntry;
-	NewEntry.ObjectPath = Object->GetPathName();
-	NewEntry.SourceString = Data->GetSourceString();
-	NewEntry.Status = EAssetTextGatherStatus::None;
-
-	FString Namespace;
-	FString Key;
-	bool FoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(Data->DisplayString, Namespace, Key);
-
-	// Check if text is localizable and check for missing key. Unlocalizable texts don't need a key.
-	if( ( !FoundNamespaceAndKey || Key.IsEmpty() ) && Data->ShouldGatherForLocalization() )
-	{
-		NewEntry.Status = EAssetTextGatherStatus::MissingKey;
-
-		// Fix missing key if allowed.
-		if (bFixBroken)
-		{
-			// Generate new GUID for key.
-			if (FoundNamespaceAndKey)
-			{
-				FTextLocalizationManager::Get().UpdateDisplayString(Data->DisplayString, *Data->DisplayString, Namespace, FGuid::NewGuid().ToString());
-			}
-			else
-			{
-				FTextLocalizationManager::Get().AddDisplayString(Data->DisplayString, TEXT(""), FGuid::NewGuid().ToString());
-			}
-
-			// Fixed.
-			FoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(Data->DisplayString, Namespace, Key);
-			NewEntry.Status = EAssetTextGatherStatus::MissingKey_Resolved;
-		}
-	}
-
-	// Must have valid key to test for identity conflicts. Even if a text doesn't require localization, if it conflicts, it should be warned about.
-	if( FoundNamespaceAndKey && !Key.IsEmpty() )
-	{
-		// Find existing entry from manifest or manifest dependencies.
-		FContext SearchContext;
-		SearchContext.Key = Key;
-		TSharedPtr< FManifestEntry > ExistingEntry = ManifestInfo->GetManifest()->FindEntryByContext( Namespace, SearchContext );
-
-		if( !ExistingEntry.IsValid() )
-		{
-			FString FileInfo;
-			ExistingEntry = ManifestInfo->FindDependencyEntrybyContext( Namespace, SearchContext, FileInfo );
-		}
-
-		// Entry already exists, check for conflict.
-		if( ExistingEntry.IsValid() && ExistingEntry->Source.Text != ( NewEntry.SourceString.IsValid() ? **(NewEntry.SourceString) : TEXT("") ))
-		{
-			NewEntry.Status = EAssetTextGatherStatus::IdentityConflict;
-
-			// Fix conflict if allowed.
-			if (bFixBroken)
-			{
-				// Generate new GUID for key.
-				FTextLocalizationManager::Get().UpdateDisplayString(Data->DisplayString, *Data->DisplayString, Namespace, FGuid::NewGuid().ToString());
-
-				// Fixed.
-				FoundNamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(Data->DisplayString, Namespace, Key);
-				NewEntry.Status = EAssetTextGatherStatus::IdentityConflict_Resolved;
-
-				// Conflict resolved, no existing entry.
-				ExistingEntry.Reset();
-			}
-		}
-	}
-
-	// Gather if it requires gathering and isn't in a bad state.
-	if( Data->ShouldGatherForLocalization() && (NewEntry.Status & EAssetTextGatherStatus::BadBitMask) == false)
-	{
-		FString SrcLocation = Object->GetPathName() + TEXT(".") + InTextProp->GetName();
-
-		// Adjust the source location if needed.
-		{
-			UClass* Class = Object->GetClass();
-			UObject* CDO = Class ? Class->GetDefaultObject() : NULL;
-
-			if( CDO && CDO != Object )
-			{
-				for( TFieldIterator<UTextProperty> PropIt(CDO->GetClass(), EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt )
-				{
-					UTextProperty* TextProp	=  Cast<UTextProperty>( *(PropIt) );
-					FText* DataCDO = TextProp->ContainerPtrToValuePtr<FText>( CDO );
-					FString NamespaceCDO;
-					FString KeyCDO;
-					const bool FoundCDONamespaceAndKey = FTextLocalizationManager::Get().FindNamespaceAndKeyFromDisplayString(DataCDO->DisplayString, NamespaceCDO, KeyCDO);
-
-					if( (!FoundCDONamespaceAndKey && !FoundNamespaceAndKey) || (FoundCDONamespaceAndKey && FoundNamespaceAndKey && ( KeyCDO == Key ) ) )
+					UPackage::FLocalizationDataGatheringCallback* const CustomCallback = UPackage::GetTypeSpecificLocalizationDataGatheringCallbacks().Find(Class);
+					if (CustomCallback)
 					{
-						SrcLocation = CDO->GetPathName() + TEXT(".") + TextProp->GetName();
-						break;
+						(*CustomCallback)(Object, GatherableTextDataArray);
 					}
 				}
+
+				ProcessGatherableTextDataArray(Package->FileName.ToString(), GatherableTextDataArray);
 			}
 		}
-
-		FContext Context;
-		Context.Key = Key;
-		Context.SourceLocation = SrcLocation;
-
-		FString EntryDescription = FString::Printf( TEXT("In %s"), *Object->GetFullName());
-		ManifestInfo->AddEntry(EntryDescription, Namespace, NewEntry.SourceString.Get() ? *(NewEntry.SourceString) : TEXT(""), Context );
-	}
-
-	// Add to conflict tracker.
-	FConflictTracker::FKeyTable& KeyTable = ConflictTracker.Namespaces.FindOrAdd(Namespace);
-	FConflictTracker::FEntryArray& EntryArray = KeyTable.FindOrAdd(Key);
-	EntryArray.Add(NewEntry);
-
-	OutFixed = (NewEntry.Status == EAssetTextGatherStatus::MissingKey_Resolved || NewEntry.Status == EAssetTextGatherStatus::IdentityConflict_Resolved);
 }
 
 int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 {
-	TGuardValue<bool> DisableCompileOnLoad(GForceDisableBlueprintCompileOnLoad, true);
-
 	// Parse command line.
 	TArray<FString> Tokens;
 	TArray<FString> Switches;
@@ -799,14 +241,14 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		}
 	}
 
-	TArray<FAssetData> AssetData;
-	AssetRegistryModule.Get().GetAssets(Filter, AssetData);
+	TArray<FAssetData> AssetDataArray;
+	AssetRegistryModule.Get().GetAssets(Filter, AssetDataArray);
 
 	FString UAssetPackageExtension = FPackageName::GetAssetPackageExtension();
 	TSet< FString > LongPackageNamesToExclude;
-	for (int Index = 0; Index < AssetData.Num(); Index++)
+	for (int Index = 0; Index < AssetDataArray.Num(); Index++)
 	{
-		LongPackageNamesToExclude.Add( FPackageName::LongPackageNameToFilename( AssetData[Index].PackageName.ToString(), UAssetPackageExtension ) );
+		LongPackageNamesToExclude.Add( FPackageName::LongPackageNameToFilename( AssetDataArray[Index].PackageName.ToString(), UAssetPackageExtension ) );
 	}
 
 	//Get whether we should fix broken properties that we find.
@@ -815,10 +257,10 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		bFixBroken = false;
 	}
 
-	// Get whether we should gather pin name properties that we find. Typically only useful for the localization of UE4 itself.
-	if (!GetBoolFromConfig(*SectionName, TEXT("ShouldGatherBlueprintPinNames"), ShouldGatherBlueprintPinNames, GatherTextConfigPath))
+	// Get whether we should gather editor-only data. Typically only useful for the localization of UE4 itself.
+	if (!GetBoolFromConfig(*SectionName, TEXT("ShouldGatherFromEditorOnlyData"), ShouldGatherFromEditorOnlyData, GatherTextConfigPath))
 	{
-		ShouldGatherBlueprintPinNames = false;
+		ShouldGatherFromEditorOnlyData = false;
 	}
 
 	// Add any manifest dependencies if they were provided
@@ -832,8 +274,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	}
 
 	//The main array of files to work from.
-	TArray< FString > PackageFileNamesToLoad;
-	TSet< FString > LongPackageNamesToProcess;
+	TArray< FString > PackageFileNamesToProcess;
 
 	TArray<FString> PackageFilesNotInIncludePath;
 	TArray<FString> PackageFilesInExcludePath;
@@ -900,26 +341,80 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			//If we haven't failed one of the above checks, add it to the array of packages to process.
 			if(!bExclude)
 			{
-				TScopedPointer< FArchive > FileReader( IFileManager::Get().CreateFileReader( *PackageFile ) );
-				if( FileReader )
-				{
-					// Read package file summary from the file
-					FPackageFileSummary PackageSummary;
-					(*FileReader) << PackageSummary;
-
-					// Early out check if the package has been flagged as needing localization gathering
-					if( PackageSummary.PackageFlags & PKG_RequiresLocalizationGather || PackageSummary.GetFileVersionUE4() < VER_UE4_PACKAGE_REQUIRES_LOCALIZATION_GATHER_FLAGGING )
-					{
-						PackageFileNamesToLoad.Add( PackageFile );
-					}
-				}
+				PackageFileNamesToProcess.Add(PackageFile);
 			}
 		}
 	}
 
-	if ( PackageFileNamesToLoad.Num() == 0 )
+	if ( PackageFileNamesToProcess.Num() == 0 )
 	{
-		UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("No files found. Or none passed the include/exclude criteria."));
+		UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("No files found or none passed the include/exclude criteria."));
+	}
+
+	TArray< FString > PackageFileNamesToLoad;
+	for (FString& PackageFile : PackageFileNamesToProcess)
+	{
+		TScopedPointer< FArchive > FileReader( IFileManager::Get().CreateFileReader( *PackageFile ) );
+		if( FileReader )
+		{
+			// Read package file summary from the file
+			FPackageFileSummary PackageFileSummary;
+			(*FileReader) << PackageFileSummary;
+
+			bool MustLoadForGather = false;
+
+			// Packages not resaved since localization gathering flagging was added to packages must be loaded.
+			if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_PACKAGE_REQUIRES_LOCALIZATION_GATHER_FLAGGING)
+			{
+				MustLoadForGather = true;
+			}
+			// Package not resaved since gatherable text data was added to package headers must be loaded, since their package header won't contain pregathered text data.
+			else if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_SERIALIZE_TEXT_IN_PACKAGES)
+			{
+				// Fallback on the old package flag check.
+				if (PackageFileSummary.PackageFlags & PKG_RequiresLocalizationGather)
+				{
+					MustLoadForGather = true;
+				}
+			}
+			else if (PackageFileSummary.GetFileVersionUE4() < VER_UE4_DIALOGUE_WAVE_NAMESPACE_AND_CONTEXT_CHANGES)
+			{
+				IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
+				TArray<FAssetData> AssetDataInPackage;
+				AssetRegistry.GetAssetsByPackageName(*FPackageName::FilenameToLongPackageName(PackageFile), AssetDataInPackage);
+				for (const FAssetData& AssetData : AssetDataInPackage)
+				{
+					if (AssetData.AssetClass == UDialogueWave::StaticClass()->GetFName())
+					{
+						MustLoadForGather = true;
+					}
+				}
+			}
+				 
+			// Add package to list of packages to load fully and process.
+			if (MustLoadForGather)
+			{
+				PackageFileNamesToLoad.Add(PackageFile);
+			}
+			// Process immediately packages that don't require loading to process.
+			else
+			{
+				TArray<FGatherableTextData> GatherableTextDataArray;
+
+				if (PackageFileSummary.GatherableTextDataOffset > 0)
+				{
+					FileReader->Seek(PackageFileSummary.GatherableTextDataOffset);
+
+					for(int32 i = 0; i < PackageFileSummary.GatherableTextDataCount; ++i)
+					{
+						FGatherableTextData* GatherableTextData = new(GatherableTextDataArray) FGatherableTextData;
+						(*FileReader) << *GatherableTextData;
+					}
+
+					ProcessGatherableTextDataArray(PackageFile, GatherableTextDataArray);
+				}
+			}
+		}
 	}
 
 	CollectGarbage( RF_Native );
@@ -929,7 +424,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 	TArray< UPackage* > LoadedPackages;
 	TArray< FString > LoadedPackageFileNames;
 	TArray< FString > FailedPackageFileNames;
-	TArray< UPackage* > PackagesToProcess;
+	TArray< UPackage* > LoadedPackagesToProcess;
 
 	const int32 PackageCount = PackageFileNamesToLoad.Num();
 	const int32 BatchCount = PackageCount / PackagesPerBatchCount + (PackageCount % PackagesPerBatchCount > 0 ? 1 : 0); // Add an extra batch for any remainder if necessary
@@ -958,7 +453,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 				// The loading process should have reflagged said packages so that only true positives will have this flag.
 				if( Package->RequiresLocalizationGather() )
 				{
-					PackagesToProcess.Add( Package );
+					LoadedPackagesToProcess.Add( Package );
 				}
 			}
 			else
@@ -973,8 +468,8 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 
 		UE_LOG(LogGatherTextFromAssetsCommandlet, Log, TEXT("Loaded %i packages in batch %i of %i. %i failed."), PackagesInThisBatch, BatchIndex + 1, BatchCount, FailuresInThisBatch);
 
-		ProcessPackages(PackagesToProcess);
-		PackagesToProcess.Empty(PackagesPerBatchCount);
+		ProcessPackages(LoadedPackagesToProcess);
+		LoadedPackagesToProcess.Empty(PackagesPerBatchCount);
 
 		if( bFixBroken )
 		{
@@ -1027,22 +522,22 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 				{
 				case EAssetTextGatherStatus::MissingKey:
 					{
-						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Detected missing key on asset \"%s\"."), *Entry.ObjectPath);
+						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Detected missing key on asset \"%s\"."), *Entry.PathToSourceString);
 					}
 					break;
 				case EAssetTextGatherStatus::MissingKey_Resolved:
 					{
-						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Fixed missing key on asset \"%s\"."), *Entry.ObjectPath);
+						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Fixed missing key on asset \"%s\"."), *Entry.PathToSourceString);
 					}
 					break;
 				case EAssetTextGatherStatus::IdentityConflict:
 					{
-						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Detected duplicate identity with differing source on asset \"%s\"."), *Entry.ObjectPath);
+						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Detected duplicate identity with differing source on asset \"%s\"."), *Entry.PathToSourceString);
 					}
 					break;
 				case EAssetTextGatherStatus::IdentityConflict_Resolved:
 					{
-						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Fixed duplicate identity with differing source on asset \"%s\"."), *Entry.ObjectPath);
+						UE_LOG(LogGatherTextFromAssetsCommandlet, Warning, TEXT("Fixed duplicate identity with differing source on asset \"%s\"."), *Entry.PathToSourceString);
 					}
 					break;
 				}

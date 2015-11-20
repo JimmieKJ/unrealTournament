@@ -77,17 +77,17 @@ class UParticleModuleTrailSource : public UParticleModuleTrailBase
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 #if WITH_EDITOR
 	virtual void	PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 	virtual void	PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void	AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp) override;
 	virtual void GetParticleSysParamsUtilized(TArray<FString>& ParticleSysParamList) override;
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
 
 	/**
 	 *	Retrieve the SourceOffset for the given trail index.

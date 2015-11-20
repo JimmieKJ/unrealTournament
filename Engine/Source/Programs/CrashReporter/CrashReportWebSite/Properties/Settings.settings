@@ -8,5 +8,8 @@
     <Setting Name="CrashReporterVideos" Type="System.String" Scope="Application">
       <Value Profile="(Default)">/CrashReporterVideos/</Value>
     </Setting>
+    <Setting Name="CrashReporterCSV" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">/CrashReporterCSV/</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

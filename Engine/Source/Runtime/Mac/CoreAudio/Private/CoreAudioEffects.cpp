@@ -13,8 +13,6 @@
 #include "CoreAudioEffects.h"
 #include "Engine.h"
 
-extern FCoreAudioSoundSource *GAudioChannels[MAX_AUDIOCHANNELS + 1];
-
 static CFBundleRef LoadRadioEffectComponent()
 {
 	bool bLoaded = false;
@@ -89,7 +87,7 @@ TConsoleVariableData<float>* FCoreAudioEffectsManager::Radio_ChebyshevMultiplier
 FCoreAudioEffectsManager::FCoreAudioEffectsManager( FAudioDevice* InDevice )
 	: FAudioEffectsManager( InDevice )
 {
-#if RADIO_ENABLED
+#if CORE_AUDIO_RADIO_ENABLED
 	RadioBundle = LoadRadioEffectComponent();
 	bRadioAvailable = (RadioBundle != NULL);
 #endif
@@ -97,7 +95,7 @@ FCoreAudioEffectsManager::FCoreAudioEffectsManager( FAudioDevice* InDevice )
 
 FCoreAudioEffectsManager::~FCoreAudioEffectsManager()
 {
-#if RADIO_ENABLED
+#if CORE_AUDIO_RADIO_ENABLED
 	if(RadioBundle)
 	{
 		CFRelease(RadioBundle);
@@ -111,6 +109,7 @@ FCoreAudioEffectsManager::~FCoreAudioEffectsManager()
  */
 void FCoreAudioEffectsManager::SetReverbEffectParameters( const FAudioReverbEffect& ReverbEffectParameters )
 {
+#if CORE_AUDIO_REVERB_ENABLED
 	float DryWetMix = FMath::Sin(ReverbEffectParameters.Volume*M_PI_2) * 100.0f;										// 0.0-100.0, 100.0
 	float SmallLargeMix = ReverbEffectParameters.GainHF * 100.0f;	// 0.0-100.0, 50.0
 	float PreDelay = ReverbEffectParameters.ReflectionsDelay;										// 0.001->0.03, 0.025
@@ -132,9 +131,9 @@ void FCoreAudioEffectsManager::SetReverbEffectParameters( const FAudioReverbEffe
 	float LargeDelayRange = 0.3f;														// 0->1, 0.3
 	float LargeBrightness = FMath::Max<float>(ReverbEffectParameters.Density*ReverbEffectParameters.Gain, 0.1f);	// 0.1->1, 0.49
 
-	for( uint32 Index = 1; Index < MAX_AUDIOCHANNELS + 1; Index++ )
+	for( uint32 Index = 1; Index < CORE_AUDIO_MAX_CHANNELS + 1; Index++ )
 	{
-		FCoreAudioSoundSource *Source = GAudioChannels[Index];
+		FCoreAudioSoundSource *Source = ((FCoreAudioDevice*)AudioDevice)->AudioChannels[Index];
 		if( Source && Source->ReverbUnit )
 		{
 			AudioUnitSetParameter(Source->ReverbUnit, kReverbParam_DryWetMix, kAudioUnitScope_Global, 0, DryWetMix, 0);
@@ -157,39 +156,51 @@ void FCoreAudioEffectsManager::SetReverbEffectParameters( const FAudioReverbEffe
 			AudioUnitSetParameter(Source->ReverbUnit, kReverbParam_LargeBrightness, kAudioUnitScope_Global, 0, LargeBrightness, 0);
 		}
 	}
+#endif
 }
 
 /** 
  * Calls the platform specific code to set the parameters that define EQ
  */
-void FCoreAudioEffectsManager::SetEQEffectParameters( const FAudioEQEffect& EQEffectParameters )
+void FCoreAudioEffectsManager::SetEQEffectParameters( const FAudioEQEffect& Params )
 {
-	float LowGain = VolumeToDeciBels(EQEffectParameters.LFGain);
-	float CenterGain = VolumeToDeciBels(EQEffectParameters.MFGain);
-	float HighGain = VolumeToDeciBels(EQEffectParameters.HFGain);
+	float LowGain = VolumeToDeciBels(Params.LFGain);
+	float CenterGain = VolumeToDeciBels(Params.MFGain);
+	float HighGain = VolumeToDeciBels(Params.HFGain);
 
-	for( uint32 Index = 1; Index < MAX_AUDIOCHANNELS + 1; Index++ )
+	for( uint32 Index = 1; Index < CORE_AUDIO_MAX_CHANNELS + 1; Index++ )
 	{
-		FCoreAudioSoundSource *Source = GAudioChannels[Index];
-		if( Source && Source->EQUnit )
+		FCoreAudioSoundSource *Source = ((FCoreAudioDevice*)AudioDevice)->AudioChannels[Index];
+		if (Source)
 		{
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_LowFrequency, kAudioUnitScope_Global, 0, EQEffectParameters.LFFrequency, 0 );
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_LowGain, kAudioUnitScope_Global, 0, LowGain, 0 );
+			if (Source->EQUnit)
+			{
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 0,	kAudioUnitScope_Global, 0, Params.LFFrequency,			0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 0,			kAudioUnitScope_Global, 0, LowGain,						0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 0,	kAudioUnitScope_Global, 0, 1.0f,						0);	// from FXEQ_DEFAULT_BANDWIDTH
 
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_CenterFreq1, kAudioUnitScope_Global, 0, (EQEffectParameters.MFCutoffFrequency - EQEffectParameters.LFFrequency) / 2.0f, 0 );
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_CenterGain1, kAudioUnitScope_Global, 0, CenterGain, 0 );
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_Bandwidth1, kAudioUnitScope_Global, 0, EQEffectParameters.MFBandwidth, 0 );
-			
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_CenterFreq2, kAudioUnitScope_Global, 0, EQEffectParameters.MFCutoffFrequency, 0 );
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_CenterGain2, kAudioUnitScope_Global, 0, CenterGain, 0 );
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_Bandwidth2, kAudioUnitScope_Global, 0, EQEffectParameters.MFBandwidth, 0 );
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 1,	kAudioUnitScope_Global, 0, Params.MFCutoffFrequency,	0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 1,			kAudioUnitScope_Global, 0, CenterGain,					0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 1,	kAudioUnitScope_Global, 0, Params.MFBandwidth,			0);
 
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_CenterFreq3, kAudioUnitScope_Global, 0, (EQEffectParameters.HFFrequency - EQEffectParameters.MFCutoffFrequency) / 2.0f, 0 );
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_CenterGain3, kAudioUnitScope_Global, 0, CenterGain, 0 );
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_Bandwidth3, kAudioUnitScope_Global, 0, EQEffectParameters.MFBandwidth, 0 );
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 2,	kAudioUnitScope_Global, 0, Params.HFFrequency,			0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 2,			kAudioUnitScope_Global, 0, HighGain,					0);
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 2,	kAudioUnitScope_Global, 0, 1.0f,						0); // from FXEQ_DEFAULT_BANDWIDTH
 
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_HighFrequency, kAudioUnitScope_Global, 0, EQEffectParameters.HFFrequency, 0 );
-			AudioUnitSetParameter( Source->EQUnit, kMultibandFilter_HighGain, kAudioUnitScope_Global, 0, HighGain, 0 );
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Frequency + 3,	kAudioUnitScope_Global, 0, 10000.0f,					0);	// from FXEQ_DEFAULT_CENTER_3
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Gain + 3,			kAudioUnitScope_Global, 0, 1.0,							0); // from FXEQ_DEFAULT_GAIN
+				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 3,	kAudioUnitScope_Global, 0, 1.0f,						0); // from FXEQ_DEFAULT_BANDWIDTH
+			}
+
+			if (Source->LowPassUnit && Source->HighFrequencyGain < 1.0f - KINDA_SMALL_NUMBER)
+			{
+				float RadianFrequency = 2.0f * FMath::Sin( PI * 6000.0f * Source->HighFrequencyGain / 48000.0f );
+				float CuttoffFrequency = RadianFrequency * ((FCoreAudioDevice*)AudioDevice)->SampleRate;
+				float OneOverQ = ((FCoreAudioDevice*)AudioDevice)->GetLowPassFilterResonance();
+
+				AudioUnitSetParameter(Source->LowPassUnit, kLowPassParam_CutoffFrequency, kAudioUnitScope_Global, 0, CuttoffFrequency, 0);
+				AudioUnitSetParameter(Source->LowPassUnit, kLowPassParam_Resonance, kAudioUnitScope_Global, 0, OneOverQ, 0);
+			}
 		}
 	}
 }
@@ -214,9 +225,9 @@ void FCoreAudioEffectsManager::SetRadioEffectParameters( const FAudioRadioEffect
 	const float ChebyshevMultiplier = Radio_ChebyshevMultiplier->GetValueOnGameThread();
 	const float ChebyshevCubedMultiplier = Radio_ChebyshevCubedMultiplier->GetValueOnGameThread();
 
-	for( uint32 Index = 1; Index < MAX_AUDIOCHANNELS + 1; Index++ )
+	for( uint32 Index = 1; Index < CORE_AUDIO_MAX_CHANNELS + 1; Index++ )
 	{
-		FCoreAudioSoundSource *Source = GAudioChannels[Index];
+		FCoreAudioSoundSource *Source = ((FCoreAudioDevice*)AudioDevice)->AudioChannels[Index];
 		if( Source && Source->RadioUnit )
 		{
 			AudioUnitSetParameter( Source->RadioUnit, RadioParam_ChebyshevPowerMultiplier, kAudioUnitScope_Global, 0, ChebyshevPowerMultiplier, 0 );

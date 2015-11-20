@@ -18,14 +18,20 @@ class UParticleModuleMeshRotationRate : public UParticleModuleRotationRateBase
 	struct FRawDistributionVector StartRotationRate;
 
 	//Begin UObject Interface
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+#endif // WITH_EDITOR
 	virtual void	PostInitProperties() override;
 	//End UObject Interface
 
-	// Begin UParticleModule Interface
+	//~ Begin UParticleModule Interface
 	virtual void	Spawn(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, FBaseParticle* ParticleBase) override;
 	virtual void SetToSensibleDefaults(UParticleEmitter* Owner) override;
 	virtual bool	TouchesMeshRotation() const override { return true; }
-	// End UParticleModule Interface
+	//~ End UParticleModule Interface
+
+	/** Initializes the default values for this property */
+	void InitializeDefaults();
 
 	/**
 	 *	Extended version of spawn, allows for using a random stream for distribution value retrieval

@@ -8,6 +8,7 @@
 #include "PhysicsPublic.h"
 #include "PhysicsSerializer.h"
 #include "PhysDerivedData.h"
+#include "PhysXSupport.h"
 
 UPhysicsSerializer::UPhysicsSerializer(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

@@ -673,25 +673,12 @@ FText SAnimViewportToolBar::GetLODMenuLabel() const
 	FText Label = LOCTEXT("LODMenu_AutoLabel", "LOD Auto");
 	if (Viewport.IsValid())
 	{
-		// LOD 0
-		if (Viewport.Pin()->IsLODModelSelected(SAnimationEditorViewportTabBody::LOD_0))
+		int32 LODSelectionType = Viewport.Pin()->GetLODSelection();
+
+		if (LODSelectionType > 0)
 		{
-			Label = LOCTEXT("LODMenu_LOD0Label", "LOD 0");
-		}
-		// LOD 1
-		else if (Viewport.Pin()->IsLODModelSelected(SAnimationEditorViewportTabBody::LOD_1))
-		{
-			Label = LOCTEXT("LODMenu_LOD1Label", "LOD 1");
-		}
-		// LOD 2
-		else if (Viewport.Pin()->IsLODModelSelected(SAnimationEditorViewportTabBody::LOD_2))
-		{
-			Label = LOCTEXT("LODMenu_LOD2Label", "LOD 2");
-		}
-		// LOD 3
-		else if (Viewport.Pin()->IsLODModelSelected(SAnimationEditorViewportTabBody::LOD_3))
-		{
-			Label = LOCTEXT("LODMenu_LOD3Label", "LOD 3");
+			FString TitleLabel = FString::Printf(TEXT("LOD %d"), LODSelectionType - 1);
+			Label = FText::FromString(TitleLabel);
 		}
 	}
 	return Label;
@@ -710,19 +697,16 @@ TSharedRef<SWidget> SAnimViewportToolBar::GenerateLODMenu() const
 			ShowMenuBuilder.AddMenuEntry( Actions.LODAuto );
 			ShowMenuBuilder.AddMenuEntry( Actions.LOD0 );
 
-			if( Viewport.Pin()->GetLODModelCount() > 1 )
+			int32 LODCount = Viewport.Pin()->GetLODModelCount();
+			for (int32 LODId = 1; LODId < LODCount; ++LODId)
 			{
-				ShowMenuBuilder.AddMenuEntry( Actions.LOD1 );
-			}
+				FString TitleLabel = FString::Printf(TEXT("LOD %d"), LODId);
 
-			if( Viewport.Pin()->GetLODModelCount() > 2 )
-			{
-				ShowMenuBuilder.AddMenuEntry( Actions.LOD2 );
-			}
+				FUIAction Action(FExecuteAction::CreateSP(Viewport.Pin().ToSharedRef(), &SAnimationEditorViewportTabBody::OnSetLODModel, LODId + 1),
+					FCanExecuteAction(),
+					FIsActionChecked::CreateSP(Viewport.Pin().ToSharedRef(), &SAnimationEditorViewportTabBody::IsLODModelSelected, LODId + 1));
 
-			if( Viewport.Pin()->GetLODModelCount() > 3 )
-			{
-				ShowMenuBuilder.AddMenuEntry( Actions.LOD3 );
+				ShowMenuBuilder.AddMenuEntry(FText::FromString(TitleLabel), FText::GetEmpty(), FSlateIcon(), Action, NAME_None, EUserInterfaceActionType::RadioButton);
 			}
 		}
 		ShowMenuBuilder.EndSection();

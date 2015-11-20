@@ -24,10 +24,10 @@ class ULandscapeLayerInfoObject : public UObject
 #endif // WITH_EDITORONLY_DATA
 
 #if WITH_EDITOR
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 #endif
 };
 

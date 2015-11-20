@@ -27,7 +27,7 @@ public:
 
 	void WriteObjectStart()
 	{
-		check(CanWriteValueWithoutIdentifier());
+		check(CanWriteObjectWithoutIdentifier());
 		if (PreviousTokenWritten != EJsonToken::None )
 		{
 			WriteCommaIfNeeded();
@@ -349,6 +349,11 @@ protected:
 	FORCEINLINE bool CanWriteValueWithoutIdentifier() const 
 	{ 
 		return Stack.Num() <= 0 || Stack.Top() == EJson::Array || PreviousTokenWritten == EJsonToken::Identifier;
+	}
+
+	FORCEINLINE bool CanWriteObjectWithoutIdentifier() const
+	{
+		return Stack.Num() <= 0 || Stack.Top() == EJson::Array || PreviousTokenWritten == EJsonToken::Identifier || PreviousTokenWritten == EJsonToken::Colon;
 	}
 
 	FORCEINLINE void WriteCommaIfNeeded()

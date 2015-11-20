@@ -1086,11 +1086,9 @@ Sc::ClothSim* Sc::ClothCore::getSim() const
 	return static_cast<ClothSim*>(Sc::ActorCore::getSim());
 }
 
-PxCloth* NpGetPxCloth(Sc::ClothCore&);
-
 PxCloth* Sc::ClothCore::getPxCloth()
 {		
-	return NpGetPxCloth(*this);
+	return gOffsetTable.convertScCloth2Px(this);
 }
 
 void Sc::ClothCore::onOriginShift(const PxVec3& shift)

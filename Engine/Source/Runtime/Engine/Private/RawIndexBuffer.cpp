@@ -40,10 +40,10 @@ void FRawIndexBuffer::InitRHI()
 	{
 		// Create the index buffer.
 		FRHIResourceCreateInfo CreateInfo;
-		IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint16),Size,BUF_Static,CreateInfo);
+		void* Buffer = nullptr;
+		IndexBufferRHI = RHICreateAndLockIndexBuffer(sizeof(uint16),Size,BUF_Static,CreateInfo, Buffer);
 
-		// Initialize the buffer.
-		void* Buffer = RHILockIndexBuffer(IndexBufferRHI, 0, Size, RLM_WriteOnly);
+		// Initialize the buffer.		
 		FMemory::Memcpy(Buffer,Indices.GetData(),Size);
 		RHIUnlockIndexBuffer(IndexBufferRHI);
 	}
@@ -72,18 +72,54 @@ void FRawIndexBuffer16or32::CacheOptimize()
 #endif
 }
 
+void FRawIndexBuffer16or32::ComputeIndexWidth()
+{
+	if (GetFeatureLevel() < ERHIFeatureLevel::SM4)
+	{
+		const int32 NumIndices = Indices.Num();
+		bool bShouldUse32Bit = false;
+		int32 i = 0;
+		while (!bShouldUse32Bit && i < NumIndices)
+		{
+			bShouldUse32Bit = Indices[i] > MAX_uint16;
+			i++;
+		}
+	
+		b32Bit = bShouldUse32Bit;
+	}
+	else
+	{
+		b32Bit = true;
+	}
+}
+
 void FRawIndexBuffer16or32::InitRHI()
 {
-	uint32 Size = Indices.Num() * sizeof(uint32);
-	if( Size > 0 )
+	const int32 IndexStride = b32Bit ? sizeof(uint32) : sizeof(uint16);
+	const int32 NumIndices = Indices.Num();
+	const uint32 Size = NumIndices * IndexStride;
+	
+	if (Size > 0)
 	{
 		// Create the index buffer.
 		FRHIResourceCreateInfo CreateInfo;
-		IndexBufferRHI = RHICreateIndexBuffer(sizeof(uint32),Size,BUF_Static,CreateInfo);
-
-		// Initialize the buffer.
-		void* Buffer = RHILockIndexBuffer(IndexBufferRHI, 0, Size, RLM_WriteOnly);
-		FMemory::Memcpy(Buffer,Indices.GetData(),Size);
+		void* Buffer = nullptr;
+		IndexBufferRHI = RHICreateAndLockIndexBuffer(IndexStride,Size,BUF_Static,CreateInfo, Buffer);
+		
+		// Initialize the buffer.		
+		if (b32Bit)
+		{
+			FMemory::Memcpy(Buffer, Indices.GetData(), Size);
+		}
+		else
+		{
+			uint16* DestIndices16Bit = (uint16*)Buffer;
+			for (int32 i = 0; i < NumIndices; ++i)
+			{
+				DestIndices16Bit[i] = Indices[i];
+			}
+		}
+		
 		RHIUnlockIndexBuffer(IndexBufferRHI);
 	}
 

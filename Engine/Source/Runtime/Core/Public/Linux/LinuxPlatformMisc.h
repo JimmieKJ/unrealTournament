@@ -25,12 +25,16 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	static class GenericApplication* CreateApplication();
 	static void GetEnvironmentVariable(const TCHAR* VariableName, TCHAR* Result, int32 ResultLength);
 	static void SetEnvironmentVar(const TCHAR* VariableName, const TCHAR* Value);
+	static TArray<uint8> GetMacAddress();
+	static bool IsRunningOnBattery();
+
 #if !UE_BUILD_SHIPPING
 	static bool IsDebuggerPresent();
 	FORCEINLINE static void DebugBreak()
 	{
 		if( IsDebuggerPresent() )
 		{
+			UngrabAllInput();
 			raise(SIGTRAP);
 		}
 	}
@@ -46,12 +50,12 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	}
 
 	/** Prompts for remote debugging if debugger is not attached. Regardless of result, breaks into debugger afterwards. Returns false for use in conditionals. */
-	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse()
+	static FORCEINLINE bool DebugBreakAndPromptForRemoteReturningFalse(bool bIsEnsure = false)
 	{
 #if !UE_BUILD_SHIPPING
 		if (!IsDebuggerPresent())
 		{
-			PromptForRemoteDebugging(false);
+			PromptForRemoteDebugging(bIsEnsure);
 		}
 
 		DebugBreak();
@@ -61,11 +65,12 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	}
 
 	static void PumpMessages(bool bFromMainLoop);
-	static uint32 GetKeyMap( uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings );
-	static uint32 GetCharKeyMap(uint16* KeyCodes, FString* KeyNames, uint32 MaxMappings);
+	static uint32 GetKeyMap( uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings );
+	static uint32 GetCharKeyMap(uint32* KeyCodes, FString* KeyNames, uint32 MaxMappings);
 	static void LowLevelOutputDebugString(const TCHAR *Message);
 	static bool ControlScreensaver(EScreenSaverAction Action);
 
+	static const TCHAR* GetSystemErrorMessage(TCHAR* OutBuffer, int32 BufferCount, int32 Error);
 	static void ClipboardCopy(const TCHAR* Str);
 	static void ClipboardPaste(class FString& Dest);
 
@@ -84,11 +89,30 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 		__sync_synchronize();
 	}
 
+	FORCEINLINE static void PrefetchBlock(const void* InPtr, int32 NumBytes = 1)
+	{
+		extern size_t GCacheLineSize;
+
+		const char* Ptr = static_cast<const char*>(InPtr);
+		const size_t CacheLineSize = GCacheLineSize;
+		for (size_t BytesPrefetched = 0; BytesPrefetched < NumBytes; BytesPrefetched += CacheLineSize)
+		{
+			__builtin_prefetch(Ptr);
+			Ptr += CacheLineSize;
+		}
+	}
+
+	FORCEINLINE static void Prefetch(void const* Ptr, int32 Offset = 0)
+	{
+		__builtin_prefetch(static_cast<char const*>(Ptr) + Offset);
+	}
+
 	static int32 NumberOfCores();
 	static int32 NumberOfCoresIncludingHyperthreads();
 	static void LoadPreInitModules();
 	static void LoadStartupModules();
 	static FString GetOperatingSystemId();
+	static bool GetDiskTotalAndFreeSpace(const FString& InPath, uint64& TotalNumberOfBytes, uint64& NumberOfFreeBytes);
 
 	/**
 	 * Determines the shader format for the platform
@@ -131,6 +155,13 @@ struct CORE_API FLinuxPlatformMisc : public FGenericPlatformMisc
 	 * Initializes video (and not only) subsystem.
 	 */
 	static bool PlatformInitMultimedia();
+
+#if !UE_BUILD_SHIPPING	// only in non-shipping because we break into the debugger in non-shipping builds only
+	/**
+	 * Ungrabs input (useful before breaking into debugging)
+	 */
+	static void UngrabAllInput();
+#endif // !UE_BUILD_SHIPPING
 
 	/**
 	 * Returns whether the program has been started remotely (e.g. over SSH)

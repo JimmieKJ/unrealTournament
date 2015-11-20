@@ -22,7 +22,8 @@ public class OnlineSubsystemSteam : ModuleRules
 				"Engine", 
 				"Sockets", 
 				"Voice",
-				"OnlineSubsystem", 
+				"OnlineSubsystem",
+				"Json"
 			}
 		);
 

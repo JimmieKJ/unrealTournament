@@ -698,7 +698,7 @@ PX_FORCE_INLINE FloatV FRsqrt(const FloatV a)
 
 PX_FORCE_INLINE FloatV FSqrt(const FloatV a)
 {
-	return vmul_f32(a, VRECIPSQRT(a));
+	return FSel(FIsEq(a, FZero()), a, vmul_f32(a, VRECIPSQRT(a)));
 }
 
 PX_FORCE_INLINE FloatV FRsqrtFast(const FloatV a)
@@ -1356,9 +1356,7 @@ PX_FORCE_INLINE FloatV V3Length(const Vec3V a)
 	const float32x2_t sumTmp = vpadd_f32(low, high); 		// = {0+z, x+y}
 	const float32x2_t sum0ZYX = vpadd_f32(sumTmp, sumTmp);	// = {x+y+z, x+y+z}
 
-	const float32x2_t len = vmul_f32(VRECIPSQRTE(sum0ZYX), sum0ZYX);
-
-	return len;
+	return FSqrt(sum0ZYX);
 }
 
 PX_FORCE_INLINE FloatV V3LengthSq(const Vec3V a)
@@ -2119,7 +2117,7 @@ PX_FORCE_INLINE Vec4V V4RsqrtFast(const Vec4V a)
 
 PX_FORCE_INLINE Vec4V V4Sqrt(const Vec4V a)
 {
-	return V4Mul(a, VRECIPSQRTQ(a));
+	return V4Sel(V4IsEq(a, V4Zero()), a, V4Mul(a, VRECIPSQRTQ(a)));
 }
 
 PX_FORCE_INLINE Vec4V V4ScaleAdd(const Vec4V a, const FloatV b, const Vec4V c)
@@ -2178,9 +2176,7 @@ PX_FORCE_INLINE FloatV V4Length(const Vec4V a)
 
 	const float32x2_t sumTmp = vpadd_f32(low, high); 		// = {0+z, x+y}
 	const float32x2_t sumWZYX = vpadd_f32(sumTmp, sumTmp);	// = {x+y+z, x+y+z}
-	const float32x2_t len = vmul_f32(VRECIPSQRTE(sumWZYX), sumWZYX);
-
-	return len;
+	return FSqrt(sumWZYX);
 }
 
 PX_FORCE_INLINE FloatV V4LengthSq(const Vec4V a)

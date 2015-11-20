@@ -108,10 +108,10 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 			UUTWeaponSkin* EligibleWeaponSkin = Cast<UUTWeaponSkin>(Asset.GetAsset());
 			if (EligibleWeaponSkin)
 			{
-				TArray<UUTWeaponSkin*>* WeaponSkinArray = WeaponToSkinListMap.Find(EligibleWeaponSkin->WeaponType.AssetLongPathname);
+				TArray<UUTWeaponSkin*>* WeaponSkinArray = WeaponToSkinListMap.Find(EligibleWeaponSkin->WeaponType.ToString());
 				if (WeaponSkinArray == nullptr)
 				{
-					WeaponSkinArray = &(WeaponToSkinListMap.Add(EligibleWeaponSkin->WeaponType.AssetLongPathname));
+					WeaponSkinArray = &(WeaponToSkinListMap.Add(EligibleWeaponSkin->WeaponType.ToString()));
 				}
 
 				if (WeaponSkinArray)
@@ -1129,7 +1129,7 @@ void SUWWeaponConfigDialog::UpdateAvailableWeaponSkins()
 			{
 				for (int32 j = 0; j < ProfileSettings->WeaponSkins.Num(); j++)
 				{
-					if (ProfileSettings->WeaponSkins[j] && ProfileSettings->WeaponSkins[j]->WeaponType.AssetLongPathname == SelectedWeaponPath)
+					if (ProfileSettings->WeaponSkins[j] && ProfileSettings->WeaponSkins[j]->WeaponType.ToString() == SelectedWeaponPath)
 					{
 						for (int i = 0; i < WeaponSkinList.Num(); i++)
 						{

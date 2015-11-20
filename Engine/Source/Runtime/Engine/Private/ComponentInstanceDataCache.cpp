@@ -3,36 +3,48 @@
 #include "EnginePrivate.h"
 #include "ComponentInstanceDataCache.h"
 
+FActorComponentInstanceData::FActorComponentInstanceData()
+	: SourceComponentTemplate(nullptr)
+	, SourceComponentTypeSerializedIndex(-1)
+	, SourceComponentCreationMethod(EComponentCreationMethod::Native)
+{
+}
+
 FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* SourceComponent)
 {
 	check(SourceComponent);
-	SourceComponentName = SourceComponent->GetFName();
-	SourceComponentClass = SourceComponent->GetClass();
+	SourceComponentTemplate = SourceComponent->GetArchetype();
+	SourceComponentCreationMethod = SourceComponent->CreationMethod;
 	SourceComponentTypeSerializedIndex = -1;
-	
-	AActor* ComponentOwner = SourceComponent->GetOwner();
-	if (ComponentOwner)
+
+	// UCS components can share the same template (e.g. an AddComponent node inside a loop), so we also cache their serialization index here (relative to the shared template) as a means for identification
+	if(SourceComponentCreationMethod == EComponentCreationMethod::UserConstructionScript)
 	{
-		bool bFound = false;
-		for (const UActorComponent* BlueprintCreatedComponent : ComponentOwner->BlueprintCreatedComponents)
+		AActor* ComponentOwner = SourceComponent->GetOwner();
+		if (ComponentOwner)
 		{
-			if (BlueprintCreatedComponent)
+			bool bFound = false;
+			for (const UActorComponent* BlueprintCreatedComponent : ComponentOwner->BlueprintCreatedComponents)
 			{
-				if (BlueprintCreatedComponent == SourceComponent)
+				if (BlueprintCreatedComponent)
 				{
-					++SourceComponentTypeSerializedIndex;
-					bFound = true;
-					break;
-				}
-				else if (BlueprintCreatedComponent->GetClass() == SourceComponentClass)
-				{
-					++SourceComponentTypeSerializedIndex;
+					if (BlueprintCreatedComponent == SourceComponent)
+					{
+						++SourceComponentTypeSerializedIndex;
+						bFound = true;
+						break;
+					}
+					else if (   BlueprintCreatedComponent->CreationMethod == SourceComponentCreationMethod
+						&& BlueprintCreatedComponent->GetArchetype() == SourceComponentTemplate)
+					{
+						++SourceComponentTypeSerializedIndex;
+					}
 				}
 			}
-		}
-		if (!bFound)
-		{
-			SourceComponentTypeSerializedIndex = -1;
+			if (!bFound)
+			{
+				SourceComponentTypeSerializedIndex = -1;
+			}
 		}
 	}
 
@@ -64,12 +76,14 @@ FActorComponentInstanceData::FActorComponentInstanceData(const UActorComponent* 
 	}
 }
 
-bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Component) const
+bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Component, const UObject* ComponentTemplate) const
 {
 	bool bMatches = false;
-	if (Component && Component->GetClass() == SourceComponentClass)
+	if (   Component
+		&& Component->CreationMethod == SourceComponentCreationMethod
+		&& (ComponentTemplate == SourceComponentTemplate || (GIsReinstancing && ComponentTemplate->GetFName() == SourceComponentTemplate->GetFName())))
 	{
-		if (Component->GetFName() == SourceComponentName)
+		if (SourceComponentCreationMethod != EComponentCreationMethod::UserConstructionScript)
 		{
 			bMatches = true;
 		}
@@ -81,12 +95,15 @@ bool FActorComponentInstanceData::MatchesComponent(const UActorComponent* Compon
 			{
 				for (const UActorComponent* BlueprintCreatedComponent : ComponentOwner->BlueprintCreatedComponents)
 				{
-					if (   BlueprintCreatedComponent
-						&& (BlueprintCreatedComponent->GetClass() == SourceComponentClass)
-						&& (++FoundSerializedComponentsOfType == SourceComponentTypeSerializedIndex))
+					if (BlueprintCreatedComponent != nullptr && BlueprintCreatedComponent->CreationMethod == SourceComponentCreationMethod)
 					{
-						bMatches = (BlueprintCreatedComponent == Component);
-						break;
+						const UObject* BlueprintComponentTemplate = BlueprintCreatedComponent->GetArchetype();
+						if (   (BlueprintComponentTemplate == SourceComponentTemplate || (GIsReinstancing && BlueprintComponentTemplate->GetFName() == SourceComponentTemplate->GetFName()))
+							&& (++FoundSerializedComponentsOfType == SourceComponentTypeSerializedIndex))
+						{
+							bMatches = (BlueprintCreatedComponent == Component);
+							break;
+						}
 					}
 				}
 			}
@@ -133,15 +150,16 @@ void FActorComponentInstanceData::ApplyToComponent(UActorComponent* Component, c
 
 void FActorComponentInstanceData::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	Collector.AddReferencedObject(SourceComponentClass);
+	Collector.AddReferencedObject(SourceComponentTemplate);
 }
 
 FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
 {
 	if(Actor != NULL)
 	{
-		TInlineComponentArray<UActorComponent*> Components;
-		Actor->GetComponents(Components);
+		TInlineComponentArray<UActorComponent*> Components(Actor);
+
+		ComponentsInstanceData.Reserve(Components.Num());
 
 		// Grab per-instance data we want to persist
 		for (UActorComponent* Component : Components)
@@ -151,8 +169,7 @@ FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
 				FActorComponentInstanceData* ComponentInstanceData = Component->GetComponentInstanceData();
 				if (ComponentInstanceData)
 				{
-					check(!Component->GetComponentInstanceDataType().IsNone());
-					TypeToDataMap.Add(Component->GetComponentInstanceDataType(), ComponentInstanceData);
+					ComponentsInstanceData.Add(ComponentInstanceData);
 				}
 			}
 			else if (Component->CreationMethod == EComponentCreationMethod::Instance)
@@ -172,9 +189,9 @@ FComponentInstanceDataCache::FComponentInstanceDataCache(const AActor* Actor)
 
 FComponentInstanceDataCache::~FComponentInstanceDataCache()
 {
-	for (auto InstanceDataPair : TypeToDataMap)
+	for (FActorComponentInstanceData* ComponentData : ComponentsInstanceData)
 	{
-		delete InstanceDataPair.Value;
+		delete ComponentData;
 	}
 }
 
@@ -186,22 +203,20 @@ void FComponentInstanceDataCache::ApplyToActor(AActor* Actor, const ECacheApplyP
 		Actor->GetComponents(Components);
 
 		// Apply per-instance data.
-		for (UActorComponent* Component : Components)
+		for (UActorComponent* ComponentInstance : Components)
 		{
-			if(Component->IsCreatedByConstructionScript()) // Only try and apply data to 'created by construction script' components
+			if(ComponentInstance && ComponentInstance->IsCreatedByConstructionScript()) // Only try and apply data to 'created by construction script' components
 			{
-				const FName ComponentInstanceDataType = Component->GetComponentInstanceDataType();
-
-				if (!ComponentInstanceDataType.IsNone())
+				// Cache template here to avoid redundant calls in the loop below
+				if (const UObject* ComponentTemplate = ComponentInstance->GetArchetype())
 				{
-					TArray< FActorComponentInstanceData* > CachedData;
-					TypeToDataMap.MultiFind(ComponentInstanceDataType, CachedData);
-
-					for (FActorComponentInstanceData* ComponentInstanceData : CachedData)
+					for (FActorComponentInstanceData* ComponentInstanceData : ComponentsInstanceData)
 					{
-						if (ComponentInstanceData && ComponentInstanceData->MatchesComponent(Component))
+						if (	ComponentInstanceData
+							&&	ComponentInstanceData->GetComponentClass() == ComponentTemplate->GetClass() // filter on class early to avoid unnecessary virtual and expensive tests
+							&&	ComponentInstanceData->MatchesComponent(ComponentInstance, ComponentTemplate))
 						{
-							ComponentInstanceData->ApplyToComponent(Component, CacheApplyPhase);
+							ComponentInstanceData->ApplyToComponent(ComponentInstance, CacheApplyPhase);
 							break;
 						}
 					}
@@ -226,11 +241,11 @@ void FComponentInstanceDataCache::ApplyToActor(AActor* Actor, const ECacheApplyP
 
 void FComponentInstanceDataCache::FindAndReplaceInstances(const TMap<UObject*, UObject*>& OldToNewInstanceMap)
 {
-	for (auto ComponentInstanceDataPair : TypeToDataMap)
+	for (FActorComponentInstanceData* ComponentInstanceData : ComponentsInstanceData)
 	{
-		if (ComponentInstanceDataPair.Value)
+		if (ComponentInstanceData)
 		{
-			ComponentInstanceDataPair.Value->FindAndReplaceInstances(OldToNewInstanceMap);
+			ComponentInstanceData->FindAndReplaceInstances(OldToNewInstanceMap);
 		}
 	}
 	TArray<USceneComponent*> SceneComponents;
@@ -259,11 +274,11 @@ void FComponentInstanceDataCache::AddReferencedObjects(FReferenceCollector& Coll
 
 	Collector.AddReferencedObjects(SceneComponents);
 
-	for (auto ComponentInstanceDataPair : TypeToDataMap)
+	for (FActorComponentInstanceData* ComponentInstanceData : ComponentsInstanceData)
 	{
-		if (ComponentInstanceDataPair.Value)
+		if (ComponentInstanceData)
 		{
-			ComponentInstanceDataPair.Value->AddReferencedObjects(Collector);
+			ComponentInstanceData->AddReferencedObjects(Collector);
 		}
 	}
 }

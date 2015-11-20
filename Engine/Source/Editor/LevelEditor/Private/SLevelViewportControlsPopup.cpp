@@ -7,9 +7,13 @@
 
 void SLevelViewportControlsPopup::Construct(const FArguments& InArgs)
 {
-#if PLATFORM_WINDOWS
 	PopupSize.Set(252, 558);
-	PopupPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::EngineDir(), TEXT("Documentation/Source/Shared/Editor/Overlays/ViewportControlsWindows.html")));
+#if PLATFORM_WINDOWS
+	PopupPath = FString(TEXT("file:///")) + FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::EngineDir(), TEXT("Documentation/Source/Shared/Editor/Overlays/ViewportControlsWindows.html")));
+#elif PLATFORM_LINUX
+	PopupPath = FString(TEXT("file://")) + FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::EngineDir(), TEXT("Documentation/Source/Shared/Editor/Overlays/ViewportControlsWindows.html")));
+#elif PLATFORM_MAC
+	PopupPath = FString(TEXT("file://")) + FPaths::ConvertRelativePathToFull(FPaths::Combine(*FPaths::EngineDir(), TEXT("Documentation/Source/Shared/Editor/Overlays/ViewportControlsMac.html")));
 #endif
 
 	if (!PopupPath.IsEmpty())

@@ -127,7 +127,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 				DrawingPolicy.SetSharedState(RHICmdList, &View, TLightMapDensityDrawingPolicy< TLightMapPolicy<HQ_LIGHTMAP> >::ContextDataType());
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,
+					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
 						TLightMapDensityDrawingPolicy< TLightMapPolicy<HQ_LIGHTMAP> >::ElementDataType(LightMapInteraction),
 						TLightMapDensityDrawingPolicy< TLightMapPolicy<HQ_LIGHTMAP> >::ContextDataType()
 						);
@@ -142,7 +142,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 				DrawingPolicy.SetSharedState(RHICmdList, &View, TLightMapDensityDrawingPolicy< TLightMapPolicy<LQ_LIGHTMAP> >::ContextDataType());
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
-					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,
+					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
 						TLightMapDensityDrawingPolicy< TLightMapPolicy<LQ_LIGHTMAP> >::ElementDataType(LightMapInteraction),
 						TLightMapDensityDrawingPolicy< TLightMapPolicy<LQ_LIGHTMAP> >::ContextDataType()
 						);
@@ -158,7 +158,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 			DrawingPolicy.SetSharedState(RHICmdList, &View, TLightMapDensityDrawingPolicy<FDummyLightMapPolicy>::ContextDataType());
 			for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 			{
-				DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,
+				DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
 					TLightMapDensityDrawingPolicy<FDummyLightMapPolicy>::ElementDataType(LightMapInteraction),
 					TLightMapDensityDrawingPolicy<FDummyLightMapPolicy>::ContextDataType()
 					);
@@ -174,7 +174,7 @@ bool FLightMapDensityDrawingPolicyFactory::DrawDynamicMesh(
 		DrawingPolicy.SetSharedState(RHICmdList, &View, TLightMapDensityDrawingPolicy<FNoLightMapPolicy>::ContextDataType());
 		for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 		{
-			DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,
+			DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,
 				TLightMapDensityDrawingPolicy<FNoLightMapPolicy>::ElementDataType(),
 				TLightMapDensityDrawingPolicy<FNoLightMapPolicy>::ContextDataType()
 				);

@@ -46,6 +46,29 @@
 // make an FTimeSpan object that represents the "epoch" for time_t (from a stat struct)
 const FDateTime HTML5Epoch(1970, 1, 1);
 
+namespace
+{
+	FFileStatData HTML5StatToUEFileData(struct stat& FileInfo)
+	{
+		const bool bIsDirectory = S_ISDIR(FileInfo.st_mode);
+
+		int64 FileSize = -1;
+		if (!bIsDirectory)
+		{
+			FileSize = FileInfo.st_size;
+		}
+
+		return FFileStatData(
+			HTML5Epoch + FTimespan(0, 0, FileInfo.st_ctime), 
+			HTML5Epoch + FTimespan(0, 0, FileInfo.st_atime), 
+			HTML5Epoch + FTimespan(0, 0, FileInfo.st_mtime), 
+			FileSize,
+			bIsDirectory,
+			!!(FileInfo.st_mode & S_IWUSR)
+			);
+	}
+}
+
 /** 
  * HTML5 file handle implementation
 **/
@@ -365,27 +388,80 @@ public:
 #endif
 	}
 
-	bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor)
+	virtual FFileStatData GetStatData(const TCHAR* FilenameOrDirectory) override
 	{
-#if !PLATFORM_HTML5_WIN32 
-		bool Result = false;
-		// If Directory is an empty string, assume that we want to iterate Binaries/Mac (current dir), but because we're an app bundle, iterate bundle's Contents/Frameworks instead
-		DIR* Handle = opendir(TCHAR_TO_UTF8(*NormalizeFilename(Directory)));
-		if (Handle)
+		struct stat FileInfo;
+		if (stat(TCHAR_TO_UTF8(*NormalizeFilename(FilenameOrDirectory)), &FileInfo) != -1)
 		{
-			Result = true;
-			struct dirent *Entry;
-			while ((Entry = readdir(Handle)) != NULL)
-			{
-				if (FCString::Strcmp(UTF8_TO_TCHAR(Entry->d_name), TEXT(".")) && FCString::Strcmp(UTF8_TO_TCHAR(Entry->d_name), TEXT("..")))
-				{
-					Result = Visitor.Visit(*(FString(Directory) / UTF8_TO_TCHAR(Entry->d_name)), Entry->d_type == DT_DIR);
-				}
-			}
-			closedir(Handle);
+			return HTML5StatToUEFileData(FileInfo);
 		}
-		return Result;
-#else 
+
+		return FFileStatData();
+	}
+
+	virtual bool IterateDirectory(const TCHAR* Directory, FDirectoryVisitor& Visitor) override
+	{
+#if PLATFORM_HTML5_WIN32
+		const FString DirectoryStr = Directory;
+		return IterateDirectoryCommon(Directory, [&](struct _finddata_t& InFindData) -> bool
+		{
+			const bool bIsDirectory = ((InFindData.attrib & _A_SUBDIR) != 0);
+			return Visitor.Visit(*(DirectoryStr / UTF8_TO_TCHAR(InFindData.name)), bIsDirectory);
+		});
+#else
+		const FString DirectoryStr = Directory;
+		return IterateDirectoryCommon(Directory, [&](struct dirent* InEntry) -> bool
+		{
+			const bool bIsDirectory = InEntry->d_type == DT_DIR;
+			return Visitor.Visit(*(DirectoryStr / UTF8_TO_TCHAR(InEntry->d_name)), bIsDirectory);
+		});
+#endif
+	}
+
+	virtual bool IterateDirectoryStat(const TCHAR* Directory, FDirectoryStatVisitor& Visitor) override
+	{
+#if PLATFORM_HTML5_WIN32
+		const FString DirectoryStr = Directory;
+		const FString NormalizedDirectoryStr = NormalizeFilename(Directory);
+		return IterateDirectoryCommon(Directory, [&](struct _finddata_t& InFindData) -> bool
+		{
+			const bool bIsDirectory = ((InFindData.attrib & _A_SUBDIR) != 0);
+			
+			int64 FileSize = -1;
+			if (!bIsDirectory)
+			{
+				FileSize = static_cast<int64>(InFindData.size);
+			}
+
+			const FFileStatData StatData(
+				HTML5Epoch + FTimespan(0, 0, InFindData.time_create), 
+				HTML5Epoch + FTimespan(0, 0, InFindData.time_access), 
+				HTML5Epoch + FTimespan(0, 0, InFindData.time_write), 
+				FileSize,
+				bIsDirectory,
+				((InFindData.attrib & _A_RDONLY) != 0)
+				);
+			
+			return Visitor.Visit(*(DirectoryStr / UTF8_TO_TCHAR(InFindData.name)), StatData);
+		});
+#else
+		const FString DirectoryStr = Directory;
+		const FString NormalizedDirectoryStr = NormalizeFilename(Directory);
+		return IterateDirectoryCommon(Directory, [&](struct dirent* InEntry) -> bool
+		{
+			struct stat FileInfo;
+			if (stat(TCHAR_TO_UTF8(*(NormalizedDirectoryStr / UTF8_TO_TCHAR(InEntry->d_name))), &FileInfo) != -1)
+			{
+				return Visitor.Visit(*(DirectoryStr / UTF8_TO_TCHAR(InEntry->d_name)), HTML5StatToUEFileData(FileInfo));
+			}
+			return true;
+		});
+#endif
+	}
+
+#if PLATFORM_HTML5_WIN32
+	bool IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct _finddata_t&)>& Visitor)
+	{
 		bool Result = false;
 		// If Directory is an empty string, assume that we want to iterate Binaries/Mac (current dir), but because we're an app bundle, iterate bundle's Contents/Frameworks instead
 		FString FilePath = FPaths::Combine(*NormalizeFilename(Directory), TEXT("*"));
@@ -399,14 +475,35 @@ public:
 			{
 				if (FCString::Strcmp(UTF8_TO_TCHAR(c_file.name), TEXT(".")) && FCString::Strcmp(UTF8_TO_TCHAR(c_file.name), TEXT("..")))
 				{
-					Result = Visitor.Visit(*(FString(Directory) / UTF8_TO_TCHAR(c_file.name)), ((c_file.attrib & _A_SUBDIR) != 0));
+					Result = Visitor(c_file);
 				}
 			}
 			_findclose(hFile);
 		}
 		return Result;
-#endif 
 	}
+#else
+	bool IterateDirectoryCommon(const TCHAR* Directory, const TFunctionRef<bool(struct dirent*)>& Visitor)
+	{
+		bool Result = false;
+		// If Directory is an empty string, assume that we want to iterate Binaries/Mac (current dir), but because we're an app bundle, iterate bundle's Contents/Frameworks instead
+		DIR* Handle = opendir(TCHAR_TO_UTF8(*NormalizeFilename(Directory)));
+		if (Handle)
+		{
+			Result = true;
+			struct dirent *Entry;
+			while ((Entry = readdir(Handle)) != NULL)
+			{
+				if (FCString::Strcmp(UTF8_TO_TCHAR(Entry->d_name), TEXT(".")) && FCString::Strcmp(UTF8_TO_TCHAR(Entry->d_name), TEXT("..")))
+				{
+					Result = Visitor(Entry);
+				}
+			}
+			closedir(Handle);
+		}
+		return Result;
+	}
+#endif
 }; 
 
 IPlatformFile& IPlatformFile::GetPlatformPhysical()

@@ -22,7 +22,6 @@ void SUTButton::Construct(const FArguments& InArgs)
 	PressedTextColor = InArgs._TextPressedColor.Get();
 	DisabledTextColor = InArgs._TextDisabledColor.Get();
 
-
 	if (InArgs._Text.IsSet())
 	{
 		SButton::Construct( SButton::FArguments()
@@ -126,11 +125,7 @@ FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 	
 	if ( IsEnabled() )
 	{
-		if (!bIsToggleButton)
-		{
-			bIsPressed = false;
-		}
-
+		// SButton now requires that bIsPressed be true
 		if( ClickMethod != EButtonClickMethod::MouseDown )
 		{
 			if( bIsUnderCusor )
@@ -143,8 +138,8 @@ FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 					return FReply::Handled().ReleaseMouseCapture();
 				}
 			}
-		}
 
+		}
 	}
 
 	return FReply::Unhandled().ReleaseMouseCapture();
@@ -192,7 +187,16 @@ FReply SUTButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEv
 {
 	const bool bIsUnderMouse = MyGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
 	Released(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1, bIsUnderMouse);
-	return SButton::OnMouseButtonUp(MyGeometry, MouseEvent);
+	FReply R = SButton::OnMouseButtonUp(MyGeometry, MouseEvent);
+
+
+	if (!bIsToggleButton)
+	{
+		bIsPressed = false;
+	}
+
+
+	return R;
 }
 
 void SUTButton::UnPressed()

@@ -16,7 +16,7 @@ public:
 	 *
 	 * @param InAttachment An optional message attachment.
 	 */
-	FUdpDeserializedMessage( const IMessageAttachmentPtr& InAttachment )
+	FUdpDeserializedMessage(const IMessageAttachmentPtr& InAttachment)
 		: Attachment(InAttachment)
 	{ }
 
@@ -28,7 +28,7 @@ public:
 	 * @param ReassembledMessage The reassembled message to deserialize.
 	 * @return true on success, false otherwise.
 	 */
-	bool Deserialize( const FUdpReassembledMessageRef& ReassembledMessage );
+	bool Deserialize(const FUdpReassembledMessageRef& ReassembledMessage);
 
 public:
 

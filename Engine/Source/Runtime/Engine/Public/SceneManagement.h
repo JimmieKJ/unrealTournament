@@ -20,6 +20,7 @@
 
 // Forward declarations.
 class FLightSceneInfo;
+class FSceneViewState;
 class ULightComponent;
 class UDecalComponent;
 class HHitProxy;
@@ -125,21 +126,24 @@ public:
 		return NumChildren > 0;
 	}
 	
+	/** @return	the derived view state object */
+	virtual FSceneViewState* GetConcreteViewState () = 0;
+
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) = 0;
 
 	virtual SIZE_T GetSizeBytes() const { return 0; }
 
 	/** called in InitViews() */
-	virtual void OnStartFrame(FSceneView& CurrentView) = 0;
+	virtual void OnStartFrame(FSceneView& View, FSceneViewFamily& ViewFamily) = 0;
 
 	/** Resets pool for GetReusableMID() */
 	virtual void OnStartPostProcessing(FSceneView& CurrentView) = 0;
 	/**
 	 * Allows MIDs being created and released during view rendering without the overhead of creating and releasing objects
 	 * As MID are not allowed to be parent of MID this gets fixed up by parenting it to the next Material or MIC
-	 * @param ParentMaterial can be Material, MIC or MID, must not be 0
+	 * @param InSource can be Material, MIC or MID, must not be 0
 	 */
-	virtual UMaterialInstanceDynamic* GetReusableMID(class UMaterialInterface* ParentMaterial) = 0;
+	virtual UMaterialInstanceDynamic* GetReusableMID(class UMaterialInterface* InSource) = 0;
 	/** Returns the temporal LOD struct from the viewstate */
 	virtual FTemporalLODState& GetTemporalLODState() = 0;
 	virtual const FTemporalLODState& GetTemporalLODState() const = 0;
@@ -151,6 +155,10 @@ public:
 	 * returns a unique key for the view state, non-zero
 	 */
 	virtual uint32 GetViewKey() const = 0;
+	/** 
+	 * returns the occlusion frame counter 
+	 */
+	virtual uint32 GetOcclusionFrameCounter() const = 0;
 protected:
 	// Don't allow direct deletion of the view state, Destroy should be called instead.
 	virtual ~FSceneViewStateInterface() {}
@@ -250,6 +258,7 @@ public:
 	static FLightMapInteraction Texture(
 		const class ULightMapTexture2D* const* InTextures,
 		const ULightMapTexture2D* InSkyOcclusionTexture,
+		const ULightMapTexture2D* InAOMaterialMaskTexture,
 		const FVector4* InCoefficientScales,
 		const FVector4* InCoefficientAdds,
 		const FVector2D& InCoordinateScale,
@@ -259,6 +268,7 @@ public:
 	/** Default constructor. */
 	FLightMapInteraction():
 		SkyOcclusionTexture(NULL),
+		AOMaterialMaskTexture(NULL),
 		Type(LMIT_None)
 	{}
 
@@ -282,6 +292,16 @@ public:
 		check(Type == LMIT_Texture);
 #if ALLOW_HQ_LIGHTMAPS
 		return SkyOcclusionTexture;
+#else
+		return NULL;
+#endif
+	}
+
+	const ULightMapTexture2D* GetAOMaterialMaskTexture() const
+	{
+		check(Type == LMIT_Texture);
+#if ALLOW_HQ_LIGHTMAPS
+		return AOMaterialMaskTexture;
 #else
 		return NULL;
 #endif
@@ -387,6 +407,7 @@ private:
 	FVector4 HighQualityCoefficientAdds[NUM_HQ_LIGHTMAP_COEF];
 	const class ULightMapTexture2D* HighQualityTexture;
 	const ULightMapTexture2D* SkyOcclusionTexture;
+	const ULightMapTexture2D* AOMaterialMaskTexture;
 #endif
 
 #if ALLOW_LQ_LIGHTMAPS
@@ -607,7 +628,7 @@ public:
 inline bool DoesPlatformSupportDistanceFieldShadowing(EShaderPlatform Platform)
 {
 	// Hasn't been tested elsewhere yet
-	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4;
+	return Platform == SP_PCD3D_SM5 || Platform == SP_PS4 || Platform == SP_METAL_SM5 || Platform == SP_XBOXONE;
 }
 
 /** Represents a USkyLightComponent to the rendering thread. */
@@ -618,8 +639,12 @@ public:
 	/** Initialization constructor. */
 	FSkyLightSceneProxy(const class USkyLightComponent* InLightComponent);
 
+	void Initialize(float InBlendFraction, const FSHVectorRGB3* InIrradianceEnvironmentMap, const FSHVectorRGB3* BlendDestinationIrradianceEnvironmentMap);
+
 	const USkyLightComponent* LightComponent;
 	FTexture* ProcessedTexture;
+	float BlendFraction;
+	FTexture* BlendDestinationProcessedTexture;
 	float SkyDistanceThreshold;
 	bool bCastShadows;
 	bool bWantsStaticShadowing;
@@ -673,6 +698,7 @@ public:
 	virtual float GetSourceRadius() const { return 0.0f; }
 	virtual bool IsInverseSquared() const { return false; }
 	virtual float GetLightSourceAngle() const { return 0.0f; }
+	virtual float GetTraceDistance() const { return 0.0f; }
 
 	virtual FVector2D GetLightShaftConeParams() const
 	{
@@ -793,12 +819,15 @@ public:
 	inline UTextureLightProfile* GetIESTexture() const { return IESTexture; }
 	inline FTexture* GetIESTextureResource() const { return IESTexture ? IESTexture->Resource : 0; }
 	inline const FMaterialRenderProxy* GetLightFunctionMaterial() const { return LightFunctionMaterial; }
+	inline bool IsMovable() const { return bMovable; }
 	inline bool HasStaticLighting() const { return bStaticLighting; }
 	inline bool HasStaticShadowing() const { return bStaticShadowing; }
 	inline bool CastsDynamicShadow() const { return bCastDynamicShadow; }
 	inline bool CastsStaticShadow() const { return bCastStaticShadow; }
 	inline bool CastsTranslucentShadows() const { return bCastTranslucentShadows; }
 	inline bool CastsShadowsFromCinematicObjectsOnly() const { return bCastShadowsFromCinematicObjectsOnly; }
+	inline bool CastsModulatedShadows() const { return bCastModulatedShadows; }
+	inline const FLinearColor& GetModulatedShadowColor() const { return ModulatedShadowColor; }
 	inline bool AffectsTranslucentLighting() const { return bAffectTranslucentLighting; }
 	inline bool UseRayTracedDistanceFieldShadows() const { return bUseRayTracedDistanceFieldShadows; }
 	inline float GetRayStartOffsetDepthScale() const { return RayStartOffsetDepthScale; }
@@ -884,6 +913,9 @@ protected:
 	 */
 	UTextureLightProfile* IESTexture;
 
+	/* True if the light's Mobility is set to Movable. */
+	const uint32 bMovable : 1;
+
 	/**
 	 * Return True if a light's parameters as well as its position is static during gameplay, and can thus use static lighting.
 	 * A light with HasStaticLighting() == true will always have HasStaticShadowing() == true as well.
@@ -941,6 +973,11 @@ protected:
 	/** Only for whole scene directional lights, 0: no FarShadowCascades, otherwise the count of cascades between WholeSceneDynamicShadowRadius and FarShadowDistance that are covered by distant shadow cascades. */
 	uint32 FarShadowCascadeCount;
 
+	/** Whether the light will cast modulated shadows when using the forward renderer (mobile). */
+	uint32 bCastModulatedShadows : 1;
+
+	/** Modulated shadow color. */
+	FLinearColor ModulatedShadowColor;
 	/**
 	 * Updates the light proxy's cached transforms.
 	 * @param InLightToWorld - The new light-to-world transform.
@@ -1197,8 +1234,7 @@ public:
 	virtual void SetHitProxy(HHitProxy* HitProxy) = 0;
 	virtual void DrawMesh(
 		const FMeshBatch& Mesh,
-		float ScreenSize,
-		bool bShadowOnly = false
+		float ScreenSize
 		) = 0;
 };
 
@@ -1254,7 +1290,7 @@ public:
 		if (!bTriggered)
 		{
 			bTriggered = true;
-			ensureMsg(false, TEXT("FSimpleElementCollector::DrawMesh called"));
+			ensureMsgf(false, TEXT("FSimpleElementCollector::DrawMesh called"));
 		}
 
 		return false; 
@@ -1268,13 +1304,13 @@ public:
 		if (!bTriggered)
 		{
 			bTriggered = true;
-			ensureMsg(false, TEXT("FSimpleElementCollector::DrawMesh called"));
+			ensureMsgf(false, TEXT("FSimpleElementCollector::DrawMesh called"));
 		}
 
 		return 0;
 	}
 
-	void DrawBatchedElements(FRHICommandList& RHICmdList, const FSceneView& View, FTexture2DRHIRef DepthTexture, EBlendModeFilter::Type Filter) const;
+	void DrawBatchedElements(FRHICommandList& RHICmdList, const FSceneView& InView, FTexture2DRHIRef DepthTexture, EBlendModeFilter::Type Filter) const;
 
 	/** The batched simple elements. */
 	FBatchedElements BatchedElements;
@@ -1341,7 +1377,8 @@ public:
 	 */
 	inline FMeshBatch& AllocateMesh()
 	{
-		return *(new (MeshBatchStorage) FMeshBatch());
+		const int32 Index = MeshBatchStorage.Add(1);
+		return MeshBatchStorage[Index];
 	}
 
 	/** 
@@ -1364,15 +1401,30 @@ public:
 		return *OneFrameResource;
 	}
 
+	FORCEINLINE bool ShouldUseTasks() const
+	{
+		return bUseAsyncTasks;
+	}
+
+	FORCEINLINE void AddTask(TFunction<void()>&& Task)
+	{
+		ParallelTasks.Add(new (FMemStack::Get()) TFunction<void()>(MoveTemp(Task)));
+	}
+
+	FORCEINLINE void AddTask(const TFunction<void()>& Task)
+	{
+		ParallelTasks.Add(new (FMemStack::Get()) TFunction<void()>(Task));
+	}
+
+	ENGINE_API void ProcessTasks();
+
 private:
 
-	FMeshElementCollector() :
-		PrimitiveSceneProxy(NULL),
-		FeatureLevel(ERHIFeatureLevel::Num)
-	{}
+	ENGINE_API FMeshElementCollector();
 
 	~FMeshElementCollector()
 	{
+		check(!ParallelTasks.Num()); // We should have blocked on this already
 		for (int32 ProxyIndex = 0; ProxyIndex < TemporaryProxies.Num(); ProxyIndex++)
 		{
 			delete TemporaryProxies[ProxyIndex];
@@ -1441,6 +1493,13 @@ private:
 
 	ERHIFeatureLevel::Type FeatureLevel;
 
+	/** This is related to some cvars and FApp stuff and if true means calling code should use async tasks. */
+	const bool bUseAsyncTasks;
+
+	/** Tasks to wait for at the end of gathering dynamic mesh elements. */
+	TArray<TFunction<void()>*, SceneRenderingAllocator> ParallelTasks;
+
+
 	friend class FSceneRenderer;
 	friend class FProjectedShadowInfo;
 	friend class FUniformMeshConverter;
@@ -1459,9 +1518,6 @@ struct FMotionBlurInfo
 
 	/**  */
 	void UpdateMotionBlurInfo();
-
-	/** Call if you want to keep the existing motionblur */
-	void RestoreForPausedMotionBlur();
 
 	void SetKeepAndUpdateThisFrame(bool bValue = true)
 	{
@@ -1497,7 +1553,12 @@ struct FMotionBlurInfo
 	void ApplyOffset(FVector InOffset)
 	{
 		PreviousLocalToWorld.SetOrigin(PreviousLocalToWorld.GetOrigin() + InOffset);
-		PausedLocalToWorld.SetOrigin(PausedLocalToWorld.GetOrigin() + InOffset);
+		CurrentLocalToWorld.SetOrigin(CurrentLocalToWorld.GetOrigin() + InOffset);
+	}
+
+	void OnStartFrame()
+	{
+		PreviousLocalToWorld = CurrentLocalToWorld;
 	}
 
 private:
@@ -1507,8 +1568,8 @@ private:
 	FPrimitiveSceneInfo* MBPrimitiveSceneInfo;
 	/** The previous LocalToWorld of the component.	*/
 	FMatrix	PreviousLocalToWorld;
-	/** Used in case when Pause is activate. */
-	FMatrix	PausedLocalToWorld;
+	/** todo */
+	FMatrix	CurrentLocalToWorld;
 	/** if true then the PreviousLocalToWorld has already been updated for the current frame */
 	bool bKeepAndUpdateThisFrame;
 };
@@ -1541,10 +1602,7 @@ public:
 	 */
 	void UpdateMotionBlurCache(class FScene* InScene);
 
-	/**
-	 * Call if you want to keep the existing motionblur
-	 */
-	void RestoreForPausedMotionBlur();
+	void StartFrame(bool bWorldIsPaused);
 
 	/** 
 	 *	Get the primitives motion blur info
@@ -1564,11 +1622,18 @@ public:
 	 */
 	void ApplyOffset(FVector InOffset);
 
+	/**
+	 * Get some debug string for VisualizeMotionBlur
+	 */
+	FString GetDebugString() const;
+
 private:
 	/** The motion blur info entries for the frame. Accessed on Renderthread only! */
 	TMap<FPrimitiveComponentId, FMotionBlurInfo> MotionBlurInfos;
 	/** */
 	bool bShouldClearMotionBlurInfo;
+	/** set in StartFrame() */
+	bool bWorldIsPaused;
 
 	/**
 	 * O(n) with the amount of motion blurred objects but that number should be low
@@ -2011,8 +2076,20 @@ float ENGINE_API ComputeBoundsScreenSize(const FVector4& Origin, const float Sph
  * @param Origin - Origin of the bounds of the mesh in world space
  * @param SphereRadius - Radius of the sphere to use to calculate screen coverage
  * @param View - The view to calculate the LOD level for
+ * @param FactorScale - multiplied by the computed screen size before computing LOD
  */
 int8 ENGINE_API ComputeStaticMeshLOD(const FStaticMeshRenderData* RenderData, const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale = 1.0f);
+
+/**
+ * Computes the LOD level for the given static meshes render data in the given view, for one of the two temporal LOD samples
+ * @param RenderData - Render data for the mesh
+ * @param Origin - Origin of the bounds of the mesh in world space
+ * @param SphereRadius - Radius of the sphere to use to calculate screen coverage
+ * @param View - The view to calculate the LOD level for
+ * @param FactorScale - multiplied by the computed screen size before computing LOD
+ * @param SampleIndex - index (0 or 1) of the temporal sample to use
+ */
+int8 ENGINE_API ComputeTemporalStaticMeshLOD( const FStaticMeshRenderData* RenderData, const FVector4& Origin, const float SphereRadius, const FSceneView& View, int32 MinLOD, float FactorScale, int32 SampleIndex );
 
 /**
  * Computes the LOD to render for the list of static meshes in the given view.
@@ -2021,7 +2098,36 @@ int8 ENGINE_API ComputeStaticMeshLOD(const FStaticMeshRenderData* RenderData, co
  * @param Origin - Origin of the bounds of the mesh in world space
  * @param SphereRadius - Radius of the sphere to use to calculate screen coverage
  */
-int8 ENGINE_API ComputeLODForMeshes(const TIndirectArray<class FStaticMesh>& StaticMeshes, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float ScreenSizeScale = 1.0f);
+struct FLODMask
+{
+	int8 DitheredLODIndices[2];
+
+	FLODMask()
+	{
+		DitheredLODIndices[0] = MAX_int8;
+		DitheredLODIndices[1] = MAX_int8;
+	}
+
+	void SetLOD(int32 LODIndex)
+	{
+		DitheredLODIndices[0] = LODIndex;
+		DitheredLODIndices[1] = LODIndex;
+	}
+	void SetLODSample(int32 LODIndex, int32 SampleIndex)
+	{
+		DitheredLODIndices[SampleIndex] = (int8)LODIndex;
+	}
+	bool ContainsLOD(int32 LODIndex) const
+	{
+		return DitheredLODIndices[0] == LODIndex || DitheredLODIndices[1] == LODIndex;
+	}
+
+	bool IsDithered() const
+	{
+		return DitheredLODIndices[0] != DitheredLODIndices[1];
+	}
+};
+FLODMask ENGINE_API ComputeLODForMeshes(const TIndirectArray<class FStaticMesh>& StaticMeshes, const FSceneView& View, const FVector4& Origin, float SphereRadius, int32 ForcedLODLevel, float ScreenSizeScale = 1.0f);
 
 class FSharedSamplerState : public FRenderResource
 {

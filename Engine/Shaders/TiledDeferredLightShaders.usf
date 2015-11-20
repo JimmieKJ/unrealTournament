@@ -239,7 +239,7 @@ void TiledDeferredLightingMain(
 	// Lookup GBuffer properties once per pixel 
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceDataUint(PixelPos);
 	FGBufferData InGBufferData = ScreenSpaceData.GBuffer; 
-	float3 CameraVector = normalize(WorldPosition - View.ViewOrigin.xyz);
+	float3 CameraVector = normalize(WorldPosition - View.WorldCameraOrigin);
 		
 	BRANCH
 	if (InGBufferData.ShadingModelID != SHADINGMODELID_UNLIT)

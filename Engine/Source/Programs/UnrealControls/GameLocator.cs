@@ -198,7 +198,7 @@ namespace UnrealControls
 			{
 				if( XmlStream != null )
 				{
-					// Done with the file so close it
+					// We're finished with the file so close it
 					XmlStream.Close();
 				}
 			}

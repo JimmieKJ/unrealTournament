@@ -95,39 +95,25 @@ void UK2Node_GetNumEnumEntries::ExpandNode(class FKismetCompilerContext& Compile
 
 void UK2Node_GetNumEnumEntries::GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const
 {
-	auto SetNodeEnumLambda = [](UEdGraphNode* NewNode, UField const* /*EnumField*/, TWeakObjectPtr<UEnum> NonConstEnumPtr)
+	struct GetMenuActions_Utils
 	{
-		UK2Node_GetNumEnumEntries* EnumNode = CastChecked<UK2Node_GetNumEnumEntries>(NewNode);
-		EnumNode->Enum = NonConstEnumPtr.Get();
+		static void SetNodeEnum(UEdGraphNode* NewNode, UField const* /*EnumField*/, TWeakObjectPtr<UEnum> NonConstEnumPtr)
+		{
+			UK2Node_GetNumEnumEntries* EnumNode = CastChecked<UK2Node_GetNumEnumEntries>(NewNode);
+			EnumNode->Enum = NonConstEnumPtr.Get();
+		}
 	};
 
-	for (TObjectIterator<UEnum> EnumIt; EnumIt; ++EnumIt)
+	UClass* NodeClass = GetClass();
+	ActionRegistrar.RegisterEnumActions( FBlueprintActionDatabaseRegistrar::FMakeEnumSpawnerDelegate::CreateLambda([NodeClass](const UEnum* InEnum)->UBlueprintNodeSpawner*
 	{
-		UEnum const* EnumToConsider = (*EnumIt);
-		if (!UEdGraphSchema_K2::IsAllowableBlueprintVariableType(EnumToConsider))
-		{
-			continue;
-		}
-
-		// to keep from needlessly instantiating a UBlueprintNodeSpawners, first   
-		// check to make sure that the registrar is looking for actions of this type
-		// (could be regenerating actions for a specific asset, and therefore the 
-		// registrar would only accept actions corresponding to that asset)
-		if (!ActionRegistrar.IsOpenForRegistration(EnumToConsider))
-		{
-			continue;
-		}
-
-		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(GetClass(), EnumToConsider);
+		UBlueprintFieldNodeSpawner* NodeSpawner = UBlueprintFieldNodeSpawner::Create(NodeClass, InEnum);
 		check(NodeSpawner != nullptr);
-		TWeakObjectPtr<UEnum> NonConstEnumPtr = EnumToConsider;
-		NodeSpawner->SetNodeFieldDelegate = UBlueprintFieldNodeSpawner::FSetNodeFieldDelegate::CreateStatic(SetNodeEnumLambda, NonConstEnumPtr);
+		TWeakObjectPtr<UEnum> NonConstEnumPtr = InEnum;
+		NodeSpawner->SetNodeFieldDelegate = UBlueprintFieldNodeSpawner::FSetNodeFieldDelegate::CreateStatic(GetMenuActions_Utils::SetNodeEnum, NonConstEnumPtr);
 
-		// this enum could belong to a class, or is a user defined enum (asset), 
-		// that's why we want to make sure to register it along with the action 
-		// (so the action can be refreshed when the class/asset is).
-		ActionRegistrar.AddBlueprintAction(EnumToConsider, NodeSpawner);
-	}
+		return NodeSpawner;
+	}) );
 }
 
 FText UK2Node_GetNumEnumEntries::GetMenuCategory() const

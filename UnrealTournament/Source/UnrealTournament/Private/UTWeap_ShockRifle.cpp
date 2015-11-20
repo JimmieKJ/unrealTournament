@@ -121,7 +121,7 @@ void AUTWeap_ShockRifle::HitScanTrace(const FVector& StartLocation, const FVecto
 
 bool AUTWeap_ShockRifle::WaitingForCombo()
 {
-	if (ComboTarget != NULL && !ComboTarget->bPendingKillPending && !ComboTarget->bExploded)
+	if (ComboTarget != NULL && !ComboTarget->IsPendingKillPending() && !ComboTarget->bExploded)
 	{
 		return true;
 	}

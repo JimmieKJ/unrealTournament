@@ -13,9 +13,9 @@ class ALogVisualizerHUD : public ADebugCameraHUD
 
 	virtual bool DisplayMaterials( float X, float& Y, float DY, UMeshComponent* MeshComp ) override;
 
-	// Begin AActor Interface
+	//~ Begin AActor Interface
 	virtual void PostRender() override;
-	// End AActor Interface
+	//~ End AActor Interface
 };
 
 

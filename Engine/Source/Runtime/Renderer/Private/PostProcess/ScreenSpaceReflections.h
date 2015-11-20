@@ -18,10 +18,11 @@ public:
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 };
 
-// ePId_Input0: half res scene color
-// ePId_Input1: half res scene depth
+// ePId_Input0: scene color
+// ePId_Input1: scene depth
+// ePId_Input2: hierarchical scene color (optional)
 // derives from TRenderingCompositePassBase<InputCount, OutputCount> 
-class FRCPassPostProcessScreenSpaceReflections : public TRenderingCompositePassBase<2, 1>
+class FRCPassPostProcessScreenSpaceReflections : public TRenderingCompositePassBase<3, 1>
 {
 public:
 	FRCPassPostProcessScreenSpaceReflections( bool InPrevFrame )

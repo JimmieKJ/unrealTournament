@@ -8,7 +8,7 @@
 </asp:Content>
 
 <asp:Content ID="TitleContent" ContentPlaceHolderID="TitleContent" runat="server">
-    Edit the groups the users belong to
+[CR] Edit the groups the users belong to
 </asp:Content>
 
 <asp:Content ID="ScriptContent" ContentPlaceHolderID="ScriptContent" runat="server">

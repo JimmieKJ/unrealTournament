@@ -219,10 +219,10 @@ dtNavMeshQuery::~dtNavMeshQuery()
 /// functions are used.
 ///
 /// This function can be used multiple times.
-dtStatus dtNavMeshQuery::init(const dtNavMesh* nav, const int maxNodes, const dtQuerySpecialLinkFilter* linkFilter)
+dtStatus dtNavMeshQuery::init(const dtNavMesh* nav, const int maxNodes, dtQuerySpecialLinkFilter* linkFilter)
 {
 	m_nav = nav;
-	m_linkFilter = linkFilter;
+	updateLinkFilter(linkFilter);
 
 	if (maxNodes > 0)
 	{
@@ -276,9 +276,13 @@ dtStatus dtNavMeshQuery::init(const dtNavMesh* nav, const int maxNodes, const dt
 	return DT_SUCCESS;
 }
 
-void dtNavMeshQuery::updateLinkFilter(const dtQuerySpecialLinkFilter* linkFilter)
+void dtNavMeshQuery::updateLinkFilter(dtQuerySpecialLinkFilter* linkFilter)
 {
 	m_linkFilter = linkFilter;
+	if (m_linkFilter)
+	{
+		m_linkFilter->initialize();
+	}
 }
 
 dtStatus dtNavMeshQuery::findRandomPoint(const dtQueryFilter* filter, float (*frand)(),
@@ -1314,7 +1318,10 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 	float lastBestNodeCost = startNode->total;
 	
 	dtStatus status = DT_SUCCESS;
-	
+
+	int loopCounter = 0;
+	const int loopLimit = m_nodePool->getMaxNodes() + 1;
+
 	while (!m_openList->empty())
 	{
 		// Remove node from open list and put it in closed list.
@@ -1329,6 +1336,13 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 			break;
 		}
 		
+		loopCounter++;
+		// failsafe for cycles in navigation graph resulting in infinite loop 
+		if (loopCounter >= loopLimit * 4)
+		{
+			break;
+		}
+
 		// Get current poly and tile.
 		// The API input has been cheked already, skip checking internal data.
 		const dtPolyRef bestRef = bestNode->id;
@@ -1474,10 +1488,14 @@ dtStatus dtNavMeshQuery::findPath(dtPolyRef startRef, dtPolyRef endRef,
 		node->pidx = m_nodePool->getNodeIdx(prev);
 		prev = node;
 		node = next;
-		n++;
 	}
-	while (node);
+	while (node && ++n < loopLimit);
 	
+	if (n >= loopLimit)
+	{
+		return DT_FAILURE | DT_INVALID_CYCLE_PATH;
+	}
+
 	result.reserve(n);
 
 	// Store path
@@ -2225,7 +2243,7 @@ dtStatus dtNavMeshQuery::findStraightPath(const float* startPos, const float* en
 				}
 
 				// If starting really close the portal, advance.
-				if (i == 0)
+				if (i == 0 && toType == DT_POLYTYPE_GROUND)
 				{
 					float t;
 					if (dtDistancePtSegSqr2D(portalApex, left, right, t) < dtSqr(0.001f))

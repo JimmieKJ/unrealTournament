@@ -26,10 +26,6 @@ namespace Sc
 	public:
 		PX_INLINE ElementInteractionMarker(ElementSim& element0, ElementSim& element1);
 		virtual ~ElementInteractionMarker() {}
-		virtual void initialize();
-		virtual void destroy();
-
-		virtual void updateState(bool removeFromDirtyList);
 
 		virtual bool onActivate(PxU32 infoFlag);
 		virtual bool onDeactivate(PxU32 infoFlag);

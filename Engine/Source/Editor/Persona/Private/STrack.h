@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "GraphEditor.h"
+
 //////////////////////////////////////////////////////////////////////////
 DECLARE_DELEGATE_RetVal( float, FOnGetScrubValue )
 DECLARE_DELEGATE_OneParam( FOnSelectionChanged, const FGraphPanelSelectionSet& )
@@ -37,7 +39,7 @@ public:
 
 	static TSharedRef<FTrackNodeDragDropOp> New(TSharedRef<STrackNode> TrackNode, const FVector2D &CursorPosition, const FVector2D &ScreenPositionOfNode);
 
-	/** Gets the widget that will serve as the decorator unless overriden. If you do not override, you will have no decorator */
+	/** Gets the widget that will serve as the decorator unless overridden. If you do not override, you will have no decorator */
 	virtual TSharedPtr<SWidget> GetDefaultDecorator() const override
 	{
 		return OriginalTrackNode.Pin();
@@ -63,7 +65,7 @@ protected:
 /** class STrackNode for STrack. 
  * This is Children for STrack
  */
-class STrackNode : public SLeafWidget
+class STrackNode : public SCompoundWidget 
 {
 public:
 	SLATE_BEGIN_ARGS( STrackNode )
@@ -101,6 +103,7 @@ public:
 	SLATE_EVENT( FOnNodeRightClickContextMenu, OnNodeRightClickContextMenu )
 	SLATE_EVENT( FOnTrackNodeClicked, OnTrackNodeClicked )
 	SLATE_ARGUMENT( bool, CenterOnPosition )
+	SLATE_NAMED_SLOT(FArguments, OverrideContent)
 
 	SLATE_END_ARGS()
 
@@ -117,8 +120,6 @@ public:
 	virtual FVector2D GetOffsetRelativeToParent(const FGeometry& ParentAllottedGeometry) const;
 	virtual FVector2D GetSizeRelativeToParent(const FGeometry& ParentAllottedGeometry) const;
 	
-	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
-
 	// drag drop relationship
 	virtual FReply OnDragDetected( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
 	virtual FReply OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) override;
@@ -147,8 +148,14 @@ public:
 
 	const FGeometry& GetTrackGeometry() const {return CachedTrackGeometry;}
 
+	bool IsBeingDragged() const {return bBeingDragged;}
+
 protected:
 	
+	FSlateColor GetNodeColor() const;
+
+	FText GetNodeText() const; // Temp, remove and replace with correct attribute
+
 	void	ToggleSelect();
 	void	Select();
 	void	Deselect();
@@ -183,6 +190,7 @@ protected:
 	bool				bBeingDragged;
 	bool				bCenterOnPosition;
 	bool				AllowDrag;
+	bool				bContentOverriden;
 
 	friend class STrack;
 };
@@ -255,8 +263,11 @@ public:
 	virtual FCursorReply OnCursorQuery( const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const override;
 
 	void				AddTrackNode( TSharedRef<STrackNode> Node );
+	void				ClearTrack();
 	FVector2D			ComputeDesiredSize(float) const override;
 	virtual FChildren*	GetChildren() override;
+
+	void GetSelectedNodeIndices(TArray<int32>& OutIndices);
 
 protected:
 	

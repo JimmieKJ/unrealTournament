@@ -32,10 +32,10 @@ class UDistributionVectorUniform : public UDistributionVector
 	uint32 bUseExtremes:1;
 
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
 	virtual void PostLoad() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
 	virtual FVector	GetValue( float F = 0.f, UObject* Data = NULL, int32 LastExtreme = 0, struct FRandomStream* InRandomStream = NULL ) const override;
 
@@ -57,7 +57,7 @@ class UDistributionVectorUniform : public UDistributionVector
 	// 2,3 = min/max y
 	// 4,5 = min/max z
 
-	// Begin FCurveEdInterface interface
+	//~ Begin FCurveEdInterface Interface
 	virtual int32		GetNumKeys() const override;
 	virtual int32		GetNumSubCurves() const override;
 	virtual FColor	GetSubCurveButtonColor(int32 SubCurveIndex, bool bIsSubCurveHidden) const override;
@@ -75,7 +75,7 @@ class UDistributionVectorUniform : public UDistributionVector
 	virtual void	SetKeyOut(int32 SubIndex, int32 KeyIndex, float NewOutVal) override;
 	virtual void	SetKeyInterpMode(int32 KeyIndex, EInterpCurveMode NewMode) override;
 	virtual void	SetTangents(int32 SubIndex, int32 KeyIndex, float ArriveTangent, float LeaveTangent) override;
-	// Begin FCurveEdInterface interface
+	//~ Begin FCurveEdInterface Interface
 
 };
 

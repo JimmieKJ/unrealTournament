@@ -5,7 +5,7 @@
 class FCustomChildrenBuilder : public IDetailChildrenBuilder
 {
 public:
-	FCustomChildrenBuilder( TSharedRef<FDetailCategoryImpl> InParentCategory )
+	FCustomChildrenBuilder(TSharedRef<FDetailCategoryImpl> InParentCategory)
 		: ParentCategory( InParentCategory )
 	{}
 	
@@ -16,7 +16,14 @@ public:
 	virtual TSharedRef<SWidget> GenerateStructValueWidget( TSharedRef<IPropertyHandle> StructPropertyHandle ) override;
 
 	const TArray< FDetailLayoutCustomization >& GetChildCustomizations() const { return ChildCustomizations; }
+
+	/** Set the user customized reset to default for the children of this builder */
+	FCustomChildrenBuilder& OverrideResetChildrenToDefault(const FResetToDefaultOverride& ResetToDefault);
+
 private:
 	TArray< FDetailLayoutCustomization > ChildCustomizations;
 	TWeakPtr<FDetailCategoryImpl> ParentCategory;
+
+	/** User customized reset to default on children */
+	TOptional<FResetToDefaultOverride> CustomResetChildToDefault;
 };

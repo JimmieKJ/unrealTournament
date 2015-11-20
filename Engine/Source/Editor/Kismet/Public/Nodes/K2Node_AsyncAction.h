@@ -4,6 +4,8 @@
 
 #include "K2Node_AsyncAction.generated.h"
 
+/** !!! The proxy object should have RF_StrongRefOnFrame flag. !!! */
+
 UCLASS()
 class KISMET_API UK2Node_AsyncAction : public UK2Node_BaseAsyncTask
 {

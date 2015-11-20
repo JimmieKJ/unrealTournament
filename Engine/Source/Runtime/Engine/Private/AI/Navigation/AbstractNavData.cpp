@@ -17,6 +17,14 @@ INavigationQueryFilterInterface* FAbstractQueryFilter::CreateCopy() const
 
 AAbstractNavData::AAbstractNavData(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
+#if WITH_EDITORONLY_DATA
+	bEditable = false;
+	bListedInSceneOutliner = false;
+#endif
+
+	bCanBeMainNavData = false;
+	bCanSpawnOnRebuild = false;
+
 	if (HasAnyFlags(RF_ClassDefaultObject) == false)
 	{
 		FindPathImplementation = FindPathAbstract;
@@ -56,7 +64,7 @@ bool AAbstractNavData::TestPathAbstract(const FNavAgentProperties& AgentProperti
 	return false;
 }
 
-bool AAbstractNavData::RaycastAbstract(const ANavigationData* NavDataInstance, const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation, TSharedPtr<const FNavigationQueryFilter> QueryFilter, const UObject* Querier)
+bool AAbstractNavData::RaycastAbstract(const ANavigationData* NavDataInstance, const FVector& RayStart, const FVector& RayEnd, FVector& HitLocation, FSharedConstNavQueryFilter QueryFilter, const UObject* Querier)
 {
 	return false;
 }

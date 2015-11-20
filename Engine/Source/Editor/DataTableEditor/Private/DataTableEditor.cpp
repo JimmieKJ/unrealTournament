@@ -340,7 +340,7 @@ TSharedRef<SWidget> FDataTableEditor::MakeCellWidget(FDataTableEditorRowListView
 	}
 
 	// Valid column ID?
-	if (AvailableColumns.IsValidIndex(ColumnIndex))
+	if (AvailableColumns.IsValidIndex(ColumnIndex) && InRowDataPtr->CellData.IsValidIndex(ColumnIndex))
 	{
 		return SNew(SBox)
 			.Padding(FMargin(4, 2, 4, 2))

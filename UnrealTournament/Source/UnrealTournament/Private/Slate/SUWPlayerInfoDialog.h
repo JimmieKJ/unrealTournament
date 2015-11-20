@@ -120,7 +120,7 @@ public:
 protected:
 
 	TWeakObjectPtr<class AUTPlayerState> TargetPlayerState;
-	TSharedPtr<FUniqueNetId> TargetUniqueId;
+	TSharedPtr<const FUniqueNetId> TargetUniqueId;
 
 	/** world for rendering the player preview */
 	class UWorld* PlayerPreviewWorld;

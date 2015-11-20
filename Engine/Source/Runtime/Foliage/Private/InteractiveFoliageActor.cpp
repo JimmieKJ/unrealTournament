@@ -25,6 +25,7 @@ AInteractiveFoliageActor::AInteractiveFoliageActor(const FObjectInitializer& Obj
 	PrimaryActorTick.bCanEverTick = true;
 	bCanBeDamaged = true;
 	bCollideWhenPlacing = true;
+	SpawnCollisionHandlingMethod = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
 	FoliageDamageImpulseScale = 20.0f;
 	FoliageTouchImpulseScale = 10.0f;
 	FoliageStiffness = 10.0f;

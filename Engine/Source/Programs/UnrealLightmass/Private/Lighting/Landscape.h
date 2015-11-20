@@ -23,6 +23,9 @@ namespace Lightmass
 		FORCEINLINE const FColor*	GetHeightData( int32 LocalX, int32 LocalY ) const;
 		FORCEINLINE void GetTriangleIndices(int32 QuadIndex,int32 TriNum,int32& OutI0,int32& OutI1,int32& OutI2) const;
 
+		// We always want to compute visibility for landscape meshes, regardless of material blend mode
+		virtual bool IsAlwaysOpaqueForVisibility() const override { return true; }
+
 	private:
 		TArray<FColor> HeightMap;
 		// Cache

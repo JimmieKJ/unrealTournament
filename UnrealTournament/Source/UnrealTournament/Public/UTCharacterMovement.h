@@ -131,10 +131,6 @@ public:
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float MaxRelativeSwimmingAccelDenominator;
 
-	/** Ground friction when braking. */
-	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
-	float BrakingFriction;
-
 	/** Braking when sliding. */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
 	float BrakingDecelerationSliding;

@@ -5,6 +5,7 @@
 #include "SlateBasics.h"
 #if !UE_SERVER
 	#include "ISlateRHIRendererModule.h"
+	#include "ISlateNullRendererModule.h"
 #endif
 
 FEngineFontServices* FEngineFontServices::Instance = nullptr;
@@ -16,7 +17,9 @@ FEngineFontServices::FEngineFontServices()
 #if !UE_SERVER
 	if (!IsRunningDedicatedServer())
 	{
-		RenderThreadFontAtlasFactory = FModuleManager::Get().GetModuleChecked<ISlateRHIRendererModule>("SlateRHIRenderer").CreateSlateFontAtlasFactory();
+		RenderThreadFontAtlasFactory = GUsingNullRHI ? 
+			FModuleManager::Get().GetModuleChecked<ISlateNullRendererModule>("SlateNullRenderer").CreateSlateFontAtlasFactory() :
+			FModuleManager::Get().GetModuleChecked<ISlateRHIRendererModule>("SlateRHIRenderer").CreateSlateFontAtlasFactory();
 	}
 #endif
 }

@@ -178,7 +178,7 @@ struct CORE_API FGenericPlatformStackWalk
 	 *
 	 * @return	The number of modules copied into ModuleSignatures
 	 */
-	FORCEINLINE int32 GetProcessModuleSignatures(FStackWalkModuleInfo *ModuleSignatures, const int32 ModuleSignaturesSize)
+	FORCEINLINE static int32 GetProcessModuleSignatures(FStackWalkModuleInfo *ModuleSignatures, const int32 ModuleSignaturesSize)
 	{
 		return 0;
 	}

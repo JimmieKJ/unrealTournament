@@ -36,6 +36,7 @@ struct SweepCapsuleCallback : MeshHitCallback<PxRaycastHit>
 	const Matrix34&		vertexToWorldSkew;
 	PxReal				trueSweepDistance;
 	PxReal				trueSweepShrunkDistance;
+	PxReal				distCoeff;		// dist coeff from unscaled to scaled distance
 	bool				bDoubleSide;		
 	const Capsule&		capsule;
 	const PxVec3&		unitDir;
@@ -46,11 +47,11 @@ struct SweepCapsuleCallback : MeshHitCallback<PxRaycastHit>
 	bool				flipNormal;
 
 	SweepCapsuleCallback(
-		PxSweepHit& sweepHit, const Matrix34& worldMatrix, bool flipNormal_, PxReal distance, bool doubleSide, 
+		PxSweepHit& sweepHit, const Matrix34& worldMatrix, bool flipNormal_, PxReal distance, PxReal distCoeff_, bool doubleSide, 
 		const Capsule& capsule_, const PxVec3& unitDir_, const PxHitFlags& hintFlags_)
 		:	MeshHitCallback<PxRaycastHit>(CallbackMode::eMULTIPLE),
 			hit(sweepHit), vertexToWorldSkew(worldMatrix), trueSweepDistance(distance), trueSweepShrunkDistance(distance),
-			bDoubleSide(doubleSide), capsule(capsule_), unitDir(unitDir_),
+			distCoeff(distCoeff_), bDoubleSide(doubleSide), capsule(capsule_), unitDir(unitDir_),
 			hintFlags(hintFlags_), mostOpposingHitDot(2.0f), bestDist(PX_MAX_REAL),
 			status(false), initialOverlapStatus(false), flipNormal(flipNormal_)
 	{
@@ -87,7 +88,7 @@ struct SweepCapsuleCallback : MeshHitCallback<PxRaycastHit>
 
 			// AP: need to shrink the sweep distance passed into sweepCapsuleTriangles for correctness so that next sweep is closer
 			trueSweepShrunkDistance = localDist;
-			shrunkMaxT = localDist;
+			shrunkMaxT = localDist * distCoeff; // shrunkMaxT is scaled
 
 			// PT: TODO: isn't 'bestDist' the same as 'hit.distance' and 'trueSweepShrunkDistance'?
 			bestDist = PxMin(bestDist, localDist); // exact lower bound
@@ -183,6 +184,7 @@ bool sweepCapsule_MeshGeom(GU_CAPSULE_SWEEP_FUNC_PARAMS)
 	PxVec3 sweepDir = pose.rotateInv(unitDir);
 	PxVec3 sweepExtents = PxVec3(inflatedCapsule.radius) + (localP0-localP1).abs()*0.5f;
 	PxReal distance1 = distance;
+	PxReal distCoeff = 1.0f;
 	Matrix34 poseWithScale;
 	bool flipNormal;
 	if(!triMeshGeom.scale.isIdentity())
@@ -195,6 +197,7 @@ bool sweepCapsule_MeshGeom(GU_CAPSULE_SWEEP_FUNC_PARAMS)
 		sweepExtents = originBounds.getExtents();
 		sweepDir = endBounds.getCenter() - sweepOrigin;
 		distance1 = sweepDir.normalizeSafe();
+		distCoeff = distance1 / distance;
 		flipNormal = triMeshGeom.scale.flipsNormal();
 	} else
 	{
@@ -202,7 +205,7 @@ bool sweepCapsule_MeshGeom(GU_CAPSULE_SWEEP_FUNC_PARAMS)
 		flipNormal = false;
 	}
 
-	SweepCapsuleCallback callback(sweepHit, poseWithScale, flipNormal, distance, isDoubleSided, inflatedCapsule, unitDir, hintFlags);
+	SweepCapsuleCallback callback(sweepHit, poseWithScale, flipNormal, distance, distCoeff, isDoubleSided, inflatedCapsule, unitDir, hintFlags);
 	MeshRayCollider::collide<1,1>(sweepOrigin, sweepDir, distance1, true, data, callback, &sweepExtents);
 
 	return callback.finalize(sweepHit, inflatedCapsule, triMeshGeom, pose, isDoubleSided, distance);
@@ -237,7 +240,7 @@ bool sweepCapsule_MeshGeom(GU_CAPSULE_SWEEP_FUNC_PARAMS)
 struct SweepBoxMeshHitCallback : MeshHitCallback<PxRaycastHit>
 {		
 	const Matrix34Padded&	meshToBox;
-	PxReal				dist, dist0;
+	PxReal				dist, dist0, distCoeff; // dist coeff from unscaled to scaled distance
 	FloatV				distV;
 	bool				bDoubleSide;		
 	const Box&			box;
@@ -259,10 +262,10 @@ struct SweepBoxMeshHitCallback : MeshHitCallback<PxRaycastHit>
 	bool				flipsNormal;
 
 	SweepBoxMeshHitCallback(
-		CallbackMode::Enum _mode, const Matrix34Padded& _meshToBox, bool _flipsNormal, PxReal distance, bool doubleSide, 
+		CallbackMode::Enum _mode, const Matrix34Padded& _meshToBox, bool _flipsNormal, PxReal distance, PxReal distCoeff_, bool doubleSide, 
 		const Box& _box, const PxVec3& _localMotion, const PxVec3& _localDir, const PxVec3& unitDir,
 		const PxHitFlags& _hintFlags, const PxReal _inflation) 
-		:	MeshHitCallback<PxRaycastHit>(_mode), meshToBox(_meshToBox), dist(distance),
+		:	MeshHitCallback<PxRaycastHit>(_mode), meshToBox(_meshToBox), dist(distance), distCoeff(distCoeff_),
 			bDoubleSide(doubleSide), box(_box), localMotion(_localMotion), localDir(_localDir),
 			worldUnitDir(unitDir), hintFlags(_hintFlags), status(false), initialOverlap(false), inflation(_inflation),
 			flipsNormal(_flipsNormal)
@@ -298,7 +301,7 @@ struct SweepBoxMeshHitCallback : MeshHitCallback<PxRaycastHit>
 				{
 					// PT: test if shapes initially overlap
 					dist				= t;
-					shrinkMaxT			= t;
+					shrinkMaxT			= t * distCoeff;   // shrinkMaxT is unscaled
 					minClosestA			= V3LoadU(currentTriangle.verts[0]); // PT: this is arbitrary
 					minNormal			= V3LoadU(-worldUnitDir);
 					status				= true;
@@ -371,8 +374,8 @@ struct SweepBoxMeshHitCallback : MeshHitCallback<PxRaycastHit>
 				localMotionV = V3Scale(localMotionV, lambda); // shrink localMotion
 				distV = FMul(distV,lambda); // shrink distV
 				minNormal = normal;
-				if (dist < shrinkMaxT) // shrink shrinkMaxT
-					shrinkMaxT = dist;
+				if (dist * distCoeff < shrinkMaxT) // shrink shrinkMaxT
+					shrinkMaxT = dist * distCoeff; // shrinkMaxT is scaled
 			}
 		}
 
@@ -438,6 +441,10 @@ bool sweepBox_MeshGeom(GU_BOX_SWEEP_FUNC_PARAMS)
 
 	PxReal dirLen = PxMax(meshSpaceDir.magnitude(), 1e-5f);
 
+	PxReal distCoeff = 1.0f; 
+	if(!triMeshGeom.scale.isIdentity())
+		distCoeff = dirLen / distance;
+
 	// Move to AABB space
 	Matrix34 worldToBox;
 	computeWorldToBoxMatrix(worldToBox, box);
@@ -455,7 +462,7 @@ bool sweepBox_MeshGeom(GU_BOX_SWEEP_FUNC_PARAMS)
 	const PxVec3 localDir = worldToBox.rotate(unitDir);
 	const PxVec3 localDirDist = localDir*distance;
 	SweepBoxMeshHitCallback callback( // using eMULTIPLE with shrinkMaxT
-		CallbackMode::eMULTIPLE, meshToBox, triMeshGeom.scale.flipsNormal(), distance, isDoubleSided, box, localDirDist, localDir, unitDir, hintFlags, inflation);
+		CallbackMode::eMULTIPLE, meshToBox, triMeshGeom.scale.flipsNormal(), distance, distCoeff, isDoubleSided, box, localDirDist, localDir, unitDir, hintFlags, inflation);
 
 	//pxPrintf("mesh collider begin\n");
 	MeshRayCollider::collide<1, 1>(meshSpaceOrigin, meshSpaceDir/dirLen, dirLen, isDoubleSided, hmd, callback, &sweptAABBMeshSpaceExtents);
@@ -539,7 +546,7 @@ struct ConvexVsMeshSweepCallback : MeshHitCallback<PxRaycastHit>
 		const bool anyHit)
 		:	MeshHitCallback<PxRaycastHit>(CallbackMode::eMULTIPLE),
 			mMeshScale		(meshScale),
-			mUnitDir		(unitDir),
+			mUnitDir		(unitDir),			
 			mInflation		(inflation),
 			mHintFlags		(hintFlags),
 			mAnyHit			(anyHit),
@@ -613,7 +620,7 @@ struct ConvexVsMeshSweepCallback : MeshHitCallback<PxRaycastHit>
 	Vec3V							mConvexSpaceDir; // convexPose.rotateInv(-unit*distance)
 	PxVec3							mUnitDir;
 	PxVec3							mMeshSpaceUnitDir;
-	PxReal							mInflation;
+	PxReal							mInflation;	
 	PxHitFlags						mHintFlags;
 	const bool						mAnyHit;
 	const bool						mIsDoubleSided;

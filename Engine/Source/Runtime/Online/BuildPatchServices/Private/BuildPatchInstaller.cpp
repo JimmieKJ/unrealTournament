@@ -19,6 +19,33 @@
 
 #define NUM_FILE_MOVE_RETRIES	5
 
+namespace
+{
+	// A simple scope timer class
+	class FScopeTimer
+	{
+	public:
+		FScopeTimer(float& InValueToSet, FCriticalSection* InSynchObject)
+			: Time(InValueToSet)
+			, SynchObject(InSynchObject)
+		{
+			StartSecs = FPlatformTime::Seconds();
+		}
+		~FScopeTimer()
+		{
+			StartSecs = FPlatformTime::Seconds() - StartSecs;
+			SynchObject->Lock();
+			Time = StartSecs;
+			SynchObject->Unlock();
+		}
+
+	private:
+		double StartSecs;
+		float& Time;
+		FCriticalSection* SynchObject;
+	};
+}
+
 /* FBuildPatchInstaller implementation
 *****************************************************************************/
 FBuildPatchInstaller::FBuildPatchInstaller(FBuildPatchBoolManifestDelegate InOnCompleteDelegate, FBuildPatchAppManifestPtr CurrentManifest, FBuildPatchAppManifestRef InstallManifest, const FString& InInstallDirectory, const FString& InStagingDirectory, FBuildPatchInstallationInfo& InstallationInfoRef, bool ShouldStageOnly)
@@ -30,6 +57,8 @@ FBuildPatchInstaller::FBuildPatchInstaller(FBuildPatchBoolManifestDelegate InOnC
 	, StagingDirectory( InStagingDirectory )
 	, DataStagingDir( InStagingDirectory / TEXT( "PatchData" ) )
 	, InstallStagingDir( InStagingDirectory / TEXT( "Install" ) )
+	, CloudDirectory( FBuildPatchServicesModule::GetCloudDirectory() )
+	, BackupDirectory( FBuildPatchServicesModule::GetBackupDirectory() )
 	, PreviousMoveMarker( InstallDirectory / TEXT( "$movedMarker" ) )
 	, ThreadLock()
 	, bIsFileData( InstallManifest->IsFileDataManifest() )
@@ -39,7 +68,7 @@ FBuildPatchInstaller::FBuildPatchInstaller(FBuildPatchBoolManifestDelegate InOnC
 	, bSuccess( true )
 	, bIsRunning( false )
 	, bIsInited( false )
-	, DownloadSpeedValue( 0.0 )
+	, DownloadSpeedValue( -1.0 )
 	, DownloadBytesLeft( 0 )
 	, BuildStats()
 	, BuildProgress()
@@ -142,7 +171,7 @@ uint32 FBuildPatchInstaller::Run()
 	TArray<FString> CorruptFiles;
 
 	// Init prereqs progress value
-	const bool bInstallPrereqs = !CurrentBuildManifest.IsValid() && !NewBuildManifest->GetPrereqPath().IsEmpty();
+	const bool bInstallPrereqs = !NewBuildManifest->GetPrereqPath().IsEmpty();
 
 	// Get the start time
 	double StartTime = FPlatformTime::Seconds();
@@ -154,6 +183,9 @@ uint32 FBuildPatchInstaller::Run()
 	int32 InstallRetries = 5;
 	while (!bProcessSuccess && bCanRetry)
 	{
+		// No longer queued
+		BuildProgress.SetStateProgress(EBuildPatchProgress::Queued, 1.0f);
+
 		// Run the install
 		bool bInstallSuccess = RunInstallation(CorruptFiles);
 		BuildProgress.SetStateProgress(EBuildPatchProgress::PrerequisitesInstall, bInstallPrereqs ? 0.0f : 1.0f);
@@ -227,6 +259,7 @@ uint32 FBuildPatchInstaller::Run()
 		BuildStats.FailureReason = FBuildPatchInstallError::GetErrorString();
 		BuildStats.FailureReasonText = FBuildPatchInstallError::GetErrorText();
 		BuildStats.CleanUpTime = CleanUpTime;
+		BuildStats.FailureType = FBuildPatchInstallError::GetErrorState();
 
 		// Log stats
 		GLog->Logf(TEXT("BuildPatchServices: Build Stat: AppName: %s"), *BuildStats.AppName);
@@ -250,6 +283,7 @@ uint32 FBuildPatchInstaller::Run()
 		GLog->Logf(TEXT("BuildPatchServices: Build Stat: TheoreticalDownloadTime: %s"), *FPlatformTime::PrettyTime(BuildStats.TheoreticalDownloadTime));
 		GLog->Logf(TEXT("BuildPatchServices: Build Stat: VerifyTime: %s"), *FPlatformTime::PrettyTime(BuildStats.VerifyTime));
 		GLog->Logf(TEXT("BuildPatchServices: Build Stat: CleanUpTime: %s"), *FPlatformTime::PrettyTime(BuildStats.CleanUpTime));
+		GLog->Logf(TEXT("BuildPatchServices: Build Stat: PrereqTime: %s"), *FPlatformTime::PrettyTime(BuildStats.PrereqTime));
 		GLog->Logf(TEXT("BuildPatchServices: Build Stat: ProcessExecuteTime: %s"), *FPlatformTime::PrettyTime(BuildStats.ProcessExecuteTime));
 		GLog->Logf(TEXT("BuildPatchServices: Build Stat: ProcessPausedTime: %.1f sec"), BuildStats.ProcessPausedTime);
 		GLog->Logf(TEXT("BuildPatchServices: Build Stat: ProcessSuccess: %s"), BuildStats.ProcessSuccess ? TEXT("TRUE") : TEXT("FALSE"));
@@ -305,6 +339,7 @@ bool FBuildPatchInstaller::RunInstallation(TArray<FString>& CorruptFiles)
 	FBuildPatchInstallError::Reset();
 	FBuildPatchAnalytics::ResetCounters();
 	BuildProgress.Reset();
+	BuildProgress.SetStateProgress(EBuildPatchProgress::Queued, 1.0f);
 	BuildProgress.SetStateProgress(EBuildPatchProgress::Initializing, 0.01f);
 	BuildProgress.SetStateProgress(EBuildPatchProgress::CleanUp, 0.0f);
 
@@ -320,7 +355,7 @@ bool FBuildPatchInstaller::RunInstallation(TArray<FString>& CorruptFiles)
 		BuildStats.AppName = NewBuildManifest->GetAppName();
 		BuildStats.AppPatchVersion = NewBuildManifest->GetVersionString();
 		BuildStats.AppInstalledVersion = CurrentBuildManifest.IsValid() ? CurrentBuildManifest->GetVersionString() : TEXT("NONE");
-		BuildStats.CloudDirectory = FBuildPatchServicesModule::GetCloudDirectory();
+		BuildStats.CloudDirectory = CloudDirectory;
 		BuildStats.NumFilesInBuild = NumFilesInBuild;
 	}
 
@@ -390,7 +425,7 @@ bool FBuildPatchInstaller::RunInstallation(TArray<FString>& CorruptFiles)
 	}
 
 	// Create the downloader
-	FBuildPatchDownloader::Create(DataStagingDir, NewBuildManifest, &BuildProgress);
+	FBuildPatchDownloader::Create(DataStagingDir, CloudDirectory, NewBuildManifest, &BuildProgress);
 
 	// Create chunk cache
 	if (bIsChunkData)
@@ -777,7 +812,6 @@ bool FBuildPatchInstaller::RunVerification(TArray< FString >& CorruptFiles)
 
 bool FBuildPatchInstaller::BackupFileIfNecessary(const FString& Filename, bool bDiscoveredByVerification /*= false */)
 {
-	const FString BackupDirectory = FBuildPatchServicesModule::GetBackupDirectory();
 	const FString InstalledFilename = InstallDirectory / Filename;
 	const FString BackupFilename = BackupDirectory / Filename;
 	const bool bBackupOriginals = !BackupDirectory.IsEmpty();
@@ -838,28 +872,34 @@ bool FBuildPatchInstaller::BackupFileIfNecessary(const FString& Filename, bool b
 
 bool FBuildPatchInstaller::RunPrereqInstaller()
 {
-	FString PrereqPath = InstallDirectory / NewBuildManifest->GetPrereqPath();
-	PrereqPath = FPaths::ConvertRelativePathToFull(PrereqPath);
+	FScopeTimer ScopeTimer(BuildStats.PrereqTime, &ThreadLock);
+
+	FString PrereqPath = FPaths::ConvertRelativePathToFull(InstallDirectory / NewBuildManifest->GetPrereqPath());
+	if (bShouldStageOnly)
+	{
+		FString StagedPrereqPath = FPaths::ConvertRelativePathToFull(InstallStagingDir / NewBuildManifest->GetPrereqPath());
+		if (IFileManager::Get().FileSize(*StagedPrereqPath) > 0)
+		{
+			PrereqPath = MoveTemp(StagedPrereqPath);
+		}
+	}
 	FString PrereqCommandline = NewBuildManifest->GetPrereqArgs();
+	int32 ReturnCode = INDEX_NONE;
 
 	GLog->Logf(TEXT("BuildPatchServices: Running prerequisites installer %s %s"), *PrereqPath, *PrereqCommandline);
 
 	BuildProgress.SetStateProgress(EBuildPatchProgress::PrerequisitesInstall, 0.0f);
 
-	// @TODO: Tell our installer to run with no UI since we will have BuildPatchProgress
-	// @TODO: Pass in params to the installer that tell it to fire up the portal/launcher after install if it has to perform a restart.
 	FProcHandle ProcessHandle = FPlatformProcess::CreateProc(*PrereqPath, *PrereqCommandline, true, false, false, NULL, 0, *FPaths::GetPath(PrereqPath), NULL);
 	bool bPrereqInstallSuccessful = true;
 
 	if (!ProcessHandle.IsValid())
 	{
 		GLog->Logf(TEXT("BuildPatchServices: ERROR: Failed to start the prerequisites install process."));
-		FBuildPatchAnalytics::RecordPrereqInstallnError(PrereqPath, PrereqCommandline, -1, TEXT("Failed to start installer"));
-		// @TODO: Do we need to do anything special to fail?
+		FBuildPatchAnalytics::RecordPrereqInstallationError(NewBuildManifest->GetAppName(), NewBuildManifest->GetVersionString(), PrereqPath, PrereqCommandline, ReturnCode, TEXT("Failed to start installer"));
 		bPrereqInstallSuccessful = false;
 	}
 
-	int32 ReturnCode;
 	if (bPrereqInstallSuccessful)
 	{
 		FPlatformProcess::WaitForProc(ProcessHandle);
@@ -869,17 +909,9 @@ bool FBuildPatchInstaller::RunPrereqInstaller()
 
 		if (ReturnCode != 0)
 		{
-			if (ReturnCode == 3010)
-			{
-				GLog->Logf(TEXT("BuildPatchServices: Prerequisites executable returned restart required code %d"), ReturnCode);
-				// @TODO: Inform app that system restart is required
-			}
-			else
-			{
-				GLog->Logf(TEXT("BuildPatchServices: ERROR: Prerequisites executable failed with code %d"), ReturnCode);
-				FBuildPatchAnalytics::RecordPrereqInstallnError(PrereqPath, PrereqCommandline, ReturnCode, TEXT("Failed to install"));
-				bPrereqInstallSuccessful = false;
-			}
+			GLog->Logf(TEXT("BuildPatchServices: ERROR: Prerequisites executable failed with code %d"), ReturnCode);
+			FBuildPatchAnalytics::RecordPrereqInstallationError(NewBuildManifest->GetAppName(), NewBuildManifest->GetVersionString(), PrereqPath, PrereqCommandline, ReturnCode, TEXT("Failed to install"));
+			bPrereqInstallSuccessful = false;
 		}
 	}
 
@@ -889,7 +921,8 @@ bool FBuildPatchInstaller::RunPrereqInstaller()
 	}
 	else
 	{
-		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::PrerequisiteError);
+		FString ExtraPrereqCode = ReturnCode != INDEX_NONE ? FString::Printf(TEXT("%u"), ReturnCode) : TEXT("");
+		FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::PrerequisiteError, *ExtraPrereqCode);
 	}
 
 	return bPrereqInstallSuccessful;
@@ -1047,7 +1080,7 @@ bool FBuildPatchInstaller::IsComplete()
 bool FBuildPatchInstaller::IsCanceled()
 {
 	FScopeLock Lock( &ThreadLock );
-	return FBuildPatchInstallError::GetErrorState() == EBuildPatchInstallError::UserCanceled;
+	return BuildStats.FailureType == EBuildPatchInstallError::UserCanceled;
 }
 
 bool FBuildPatchInstaller::IsPaused()
@@ -1058,7 +1091,7 @@ bool FBuildPatchInstaller::IsPaused()
 bool FBuildPatchInstaller::IsResumable()
 {
 	FScopeLock Lock( &ThreadLock );
-	if( FBuildPatchInstallError::GetErrorState() == EBuildPatchInstallError::PathLengthExceeded )
+	if (BuildStats.FailureType == EBuildPatchInstallError::PathLengthExceeded)
 	{
 		return false;
 	}
@@ -1068,11 +1101,17 @@ bool FBuildPatchInstaller::IsResumable()
 bool FBuildPatchInstaller::HasError()
 {
 	FScopeLock Lock( &ThreadLock );
-	if( FBuildPatchInstallError::GetErrorState() == EBuildPatchInstallError::UserCanceled )
+	if (BuildStats.FailureType == EBuildPatchInstallError::UserCanceled)
 	{
 		return false;
 	}
 	return !BuildStats.ProcessSuccess;
+}
+
+EBuildPatchInstallError FBuildPatchInstaller::GetErrorType()
+{
+	FScopeLock Lock(&ThreadLock);
+	return BuildStats.FailureType;
 }
 
 //@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
@@ -1161,7 +1200,7 @@ void FBuildPatchInstaller::ExecuteCompleteDelegate()
 	check( IsInGameThread() );
 	check( IsComplete() );
 	// Call the complete delegate
-	OnCompleteDelegate.Execute( bSuccess, NewBuildManifest );
+	OnCompleteDelegate.ExecuteIfBound(bSuccess, NewBuildManifest);
 }
 
 void FBuildPatchInstaller::WaitForThread() const

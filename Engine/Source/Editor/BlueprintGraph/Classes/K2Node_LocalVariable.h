@@ -17,7 +17,7 @@ class UDEPRECATED_K2Node_LocalVariable : public UK2Node_TemporaryVariable
 	UPROPERTY()
 	FText VariableTooltip;
 
-	// Begin UEdGraphNode interface.
+	//~ Begin UEdGraphNode Interface.
 	virtual FText GetTooltipText() const override;
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual void OnRenameNode(const FString& NewName) override;
@@ -26,13 +26,13 @@ class UDEPRECATED_K2Node_LocalVariable : public UK2Node_TemporaryVariable
 	virtual void PostPasteNode() override;
 	virtual bool IsCompatibleWithGraph(const UEdGraph* TargetGraph) const override;
 	virtual void ReconstructNode() override;
-	// End UEdGraphNode interface.
+	//~ End UEdGraphNode Interface.
 
-	// Begin UK2Node interface.
+	//~ Begin UK2Node Interface.
 	virtual bool NodeCausesStructuralBlueprintChange() const override { return true; }
 	virtual bool ShouldShowNodeProperties() const override { return true; }
 	virtual void GetMenuActions(FBlueprintActionDatabaseRegistrar& ActionRegistrar) const override {}
-	// End UK2Node interface.
+	//~ End UK2Node Interface.
 
 	/**
 	 * Assigns the local variable a type

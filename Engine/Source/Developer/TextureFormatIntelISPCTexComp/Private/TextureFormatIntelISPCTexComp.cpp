@@ -148,7 +148,7 @@ class FTextureFormatIntelISPCTexComp : public ITextureFormat
 		if ( BuildSettings.TextureFormatName == GTextureFormatNameBC6H )
 		{
 			FImage Image;
-			InImage.CopyTo(Image, ERawImageFormat::RGBA16F, false);
+			InImage.CopyTo(Image, ERawImageFormat::RGBA16F, EGammaSpace::Linear);
 
 			bc6h_enc_settings settings;
 			GetProfile_bc6h_basic(&settings);
@@ -213,7 +213,7 @@ class FTextureFormatIntelISPCTexComp : public ITextureFormat
 		else if ( BuildSettings.TextureFormatName == GTextureFormatNameBC7 )
 		{
 			FImage Image;
-			InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.bSRGB);
+			InImage.CopyTo(Image, ERawImageFormat::BGRA8, BuildSettings.GetGammaSpace());
 
 			bc7_enc_settings settings;
 			if ( bImageHasAlphaChannel )

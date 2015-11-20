@@ -322,9 +322,9 @@ public:
 			float FilmSlopeS = FilmMidYS / (FilmMidXS);
 			float FilmHiYS = 1.0f - FilmHiY;
 			float FilmLoYS = FilmLoY;
-			float FilmToeS = FilmLoX;
+			float FilmToeVal = FilmLoX;
 			float FilmHiG = (-FilmHiYS + (FilmSlopeS*FilmHeal)) / (FilmSlopeS*FilmHeal);
-			float FilmLoG = (-FilmLoYS + (FilmSlopeS*FilmToeS)) / (FilmSlopeS*FilmToeS);
+			float FilmLoG = (-FilmLoYS + (FilmSlopeS*FilmToeVal)) / (FilmSlopeS*FilmToeVal);
 
 			// Constants.
 			float OutColorCurveCh1 = FilmHiYS/FilmHiG;
@@ -645,7 +645,7 @@ uint32 FRCPassPostProcessCombineLUTs::GenerateFinalTable(const FFinalPostProcess
 
 void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Context)
 {
-	SCOPED_DRAW_EVENT(Context.RHICmdList, PostProcessCombineLUTs);
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, PostProcessCombineLUTs, TEXT("PostProcessCombineLUTs %dx%dx%d"), GLUTSize, GLUTSize, GLUTSize);
 
 	FTexture* LocalTextures[GMaxLUTBlendCount];
 	float LocalWeights[GMaxLUTBlendCount];
@@ -670,7 +670,7 @@ void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Cont
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	// Set the view family's render target/viewport.
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
+	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef(), ESimpleRenderTargetMode::EUninitializedColorAndDepth);
 	Context.SetViewportAndCallRHI(0, 0, 0.0f, DestSize.X, DestSize.Y, 1.0f );
 
 	// set the state
@@ -709,7 +709,7 @@ void FRCPassPostProcessCombineLUTs::Process(FRenderingCompositePassContext& Cont
 
 FPooledRenderTargetDesc FRCPassPostProcessCombineLUTs::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = FPooledRenderTargetDesc::Create2DDesc(FIntPoint(GLUTSize * GLUTSize, GLUTSize), PF_A2B10G10R10, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource, false);
+	FPooledRenderTargetDesc Ret = FPooledRenderTargetDesc::Create2DDesc(FIntPoint(GLUTSize * GLUTSize, GLUTSize), PF_A2B10G10R10, FClearValueBinding::None, TexCreate_None, TexCreate_RenderTargetable | TexCreate_ShaderResource, false);
 
 	if(UseVolumeTextureLUT(ShaderPlatform))
 	{

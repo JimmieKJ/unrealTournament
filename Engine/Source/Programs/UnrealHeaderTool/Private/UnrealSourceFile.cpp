@@ -6,9 +6,9 @@
 #include "HeaderParser.h"
 #include "GeneratedCodeVersion.h"
 
-void FUnrealSourceFile::AddDefinedClass(UClass* Class)
+void FUnrealSourceFile::AddDefinedClass(UClass* Class, FSimplifiedParsingClassInfo ParsingInfo)
 {
-	DefinedClasses.Add(Class);
+	DefinedClasses.Add(Class, MoveTemp(ParsingInfo));
 }
 
 FString FUnrealSourceFile::GetFileId() const

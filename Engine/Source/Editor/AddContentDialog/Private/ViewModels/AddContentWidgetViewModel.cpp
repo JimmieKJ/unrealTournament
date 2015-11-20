@@ -61,6 +61,11 @@ void FAddContentWidgetViewModel::SetSearchText(FText SearchTextIn)
 	UpdateFilteredContentSourcesAndSelection(true);
 }
 
+FText FAddContentWidgetViewModel::GetSearchErrorText() const
+{
+	return ContentSourceFilter->GetFilterErrorText();
+}
+
 const TArray<TSharedPtr<FContentSourceViewModel>>* FAddContentWidgetViewModel::GetContentSources()
 {
 	return &FilteredContentSourceViewModels;
@@ -104,16 +109,25 @@ void FAddContentWidgetViewModel::BuildContentSourceViewModels()
 	FilteredContentSourceViewModels.Empty();
 	CategoryToSelectedContentSourceMap.Empty();
 	
+	// List of categorys we dont want to see
+	TArray<EContentSourceCategory> FilteredCategories;
+	FilteredCategories.Add(EContentSourceCategory::SharedPack);
+	FilteredCategories.Add(EContentSourceCategory::Unknown);
+
 	for (auto ContentSourceProvider : ContentSourceProviders)
 	{
 		for (auto ContentSource : ContentSourceProvider->GetContentSources())
 		{
-			TSharedPtr<FContentSourceViewModel> ContentSourceViewModel = MakeShareable(new FContentSourceViewModel(ContentSource));
-			if (Categories.Contains(ContentSourceViewModel->GetCategory()) == false)
+			// Check if we want to see this category
+			if( FilteredCategories.Contains( ContentSource->GetCategory()) == false )
 			{
-				Categories.Add(ContentSourceViewModel->GetCategory());
+				TSharedPtr<FContentSourceViewModel> ContentSourceViewModel = MakeShareable(new FContentSourceViewModel(ContentSource));
+				if (Categories.Contains(ContentSourceViewModel->GetCategory()) == false)
+				{
+					Categories.Add(ContentSourceViewModel->GetCategory());
+				}
+				ContentSourceViewModels.Add(ContentSourceViewModel);
 			}
-			ContentSourceViewModels.Add(ContentSourceViewModel);
 		}
 	}
 

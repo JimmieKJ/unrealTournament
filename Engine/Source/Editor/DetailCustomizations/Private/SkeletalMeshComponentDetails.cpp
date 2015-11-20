@@ -135,7 +135,8 @@ void FSkeletalMeshComponentDetails::UpdateAnimationCategory( IDetailLayoutBuilde
 		[
 			AnimationBlueprintHandle->CreatePropertyNameWidget()
 		]
-	.ValueContent()
+		.ValueContent()
+		.MinDesiredWidth(250.f)
 		[
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
@@ -149,6 +150,7 @@ void FSkeletalMeshComponentDetails::UpdateAnimationCategory( IDetailLayoutBuilde
 					SNew(STextBlock)
 					.Font(IDetailLayoutBuilder::GetDetailFont())
 					.Text(this, &FSkeletalMeshComponentDetails::GetSelectedAnimBlueprintName)
+					.MinDesiredWidth(200.f)
 				]
 			]
 			+ SHorizontalBox::Slot()

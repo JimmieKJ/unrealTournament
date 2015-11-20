@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2485194
+﻿INTSourceChangelist:2574260
 Availability:NoPublish
 Title:回転の概要
 Description:回転のテンプレートの概要
@@ -160,9 +160,9 @@ bCanJump 	- 	ボールのジャンプを制御するために使用します。�
 これを行うには、3 つのパラメータを渡します。
 "MoveRight"
 これはバインドする軸の名前です。これはエディタで定義される入力のバインディングに関連しています。どのように行うかについては後で説明します。
-this、これは
+つまり、 
 &AMarbleBall::MoveRight オブジェクトをポイントする
-this ポインタです。
+ポインタです。
 MoveRight バインディングからの入力を処理するために呼び出されるようにしたい関数です。
 
 次の行はほとんど同じですが、"MoveForward" のバインディングを"MoveForward" 関数にバインドするという点だけが異なります。 
@@ -209,8 +209,8 @@ MoveRight バインディングからの入力を処理するために呼び出�
 
 [/EXCERPT:StageSetupImpact]
 
+	[EXCERPT:StageInputBindings]
 
-[EXCERPT:StageInputBindings]
 
 [VAR:StageTitle]
 回転ゲームのポーン - 入力バインディング

@@ -5,7 +5,6 @@
 
 #include "Editor/PropertyEditor/Public/PropertyEditing.h"
 
-#include "BlutilityClasses.h"
 #include "ScopedTransaction.h"
 
 /////////////////////////////////////////////////////

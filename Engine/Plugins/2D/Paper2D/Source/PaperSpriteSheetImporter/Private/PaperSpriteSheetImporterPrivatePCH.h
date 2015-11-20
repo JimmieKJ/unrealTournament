@@ -3,7 +3,6 @@
 #pragma once
 
 #include "UnrealEd.h"
-//#include "Paper2DClasses.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogPaperSpriteSheetImporter, Verbose, All);
 

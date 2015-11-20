@@ -24,7 +24,9 @@ public class AndroidPlatformEditor : ModuleRules
 				"SourceControl",
 				"AndroidRuntimeSettings",
                 "AndroidDeviceDetection",
-                "TargetPlatform"
+                "TargetPlatform",
+                "RenderCore",
+                "MaterialShaderQualitySettings",
 			}
 		);
 

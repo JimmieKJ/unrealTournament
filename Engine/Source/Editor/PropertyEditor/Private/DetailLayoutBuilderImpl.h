@@ -19,7 +19,7 @@ public:
 	virtual TSharedPtr<FAssetThumbnailPool> GetThumbnailPool() const override;
 	virtual bool IsPropertyVisible( TSharedRef<IPropertyHandle> PropertyHandle ) const override;
 	virtual bool IsPropertyVisible( const struct FPropertyAndParent& PropertyAndParent ) const override;
-
+	virtual void HideCategory( FName CategoryName ) override;
 	virtual const TSharedRef< IPropertyUtilities >& GetPropertyUtilities() const override; 
 
 	/**
@@ -165,6 +165,8 @@ private:
 	FCategoryMap DefaultCategoryMap;
 	/** A mapping of classes to top level properties in that class */
 	FClassToPropertyMap& PropertyMap;
+	/** Force hidden categories set by the user */
+	TSet<FName> ForceHiddenCategories;
 	/** Nodes that require ticking */
 	TSet<IDetailTreeNode*> TickableNodes;
 	/** Current filter applied to the view */

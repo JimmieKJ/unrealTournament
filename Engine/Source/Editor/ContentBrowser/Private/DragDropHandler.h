@@ -9,7 +9,7 @@ namespace DragDropHandler
 	DECLARE_DELEGATE_TwoParams(FExecuteCopyOrMoveFolders, TArray<FString> /*PathNames*/, FString /*TargetPath*/);
 
 	/** Used by OnDragEnter, OnDragOver, and OnDrop to check and update the validity of a drag-drop operation on an asset folder in the Content Browser */
-	bool ValidateDragDropOnAssetFolder(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, const FString& TargetPath);
+	bool ValidateDragDropOnAssetFolder(const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent, const FString& TargetPath, bool& OutIsKnownDragOperation);
 
 	/** Handle assets being dropped onto an asset folder in the Content Browser - this drop should have been externally validated by ValidateDragDropOnAssetFolder */
 	void HandleAssetsDroppedOnAssetFolder(const TSharedRef<SWidget>& ParentWidget, const TArray<FAssetData>& AssetList, const FString& TargetPath, const FText& TargetDisplayName, FExecuteCopyOrMoveAssets CopyActionHandler, FExecuteCopyOrMoveAssets MoveActionHandler);

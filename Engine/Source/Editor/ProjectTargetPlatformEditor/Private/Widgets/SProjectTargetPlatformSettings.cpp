@@ -14,7 +14,11 @@ void SProjectTargetPlatformSettings::Construct(const FArguments& InArgs)
 	{
 		if(PlatformInfo.IsVanilla() && PlatformInfo.PlatformType == PlatformInfo::EPlatformType::Game)
 		{
-			AvailablePlatforms.Add(&PlatformInfo);
+			// @todo AllDesktop: Re-enable here
+			if (PlatformInfo.PlatformInfoName != TEXT("AllDesktop"))
+			{
+				AvailablePlatforms.Add(&PlatformInfo);
+			}
 		}
 	}
 

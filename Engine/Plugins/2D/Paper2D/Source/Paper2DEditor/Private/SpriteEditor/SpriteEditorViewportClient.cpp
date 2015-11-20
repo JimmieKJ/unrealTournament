@@ -91,7 +91,7 @@ FSpriteEditorViewportClient::FSpriteEditorViewportClient(TWeakPtr<FSpriteEditor>
 	DrawHelper.bDrawGrid = GetDefault<USpriteEditorSettings>()->bShowGridByDefault;
 
 	EngineShowFlags.DisableAdvancedFeatures();
-	EngineShowFlags.CompositeEditorPrimitives = true;
+	EngineShowFlags.SetCompositeEditorPrimitives(true);
 
 	// Create a render component for the sprite being edited
 	{
@@ -671,7 +671,7 @@ void FSpriteEditorViewportClient::ToggleShowSpriteNames()
 
 void FSpriteEditorViewportClient::ToggleShowMeshEdges()
 {
-	EngineShowFlags.MeshEdges = !EngineShowFlags.MeshEdges;
+	EngineShowFlags.SetMeshEdges(!EngineShowFlags.MeshEdges);
 	Invalidate(); 
 }
 

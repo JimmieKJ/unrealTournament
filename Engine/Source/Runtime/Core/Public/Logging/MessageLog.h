@@ -80,6 +80,9 @@ public:
 	 */
 	CORE_API void NewPage( const FText& InLabel );
 
+	/** Should we mirror message log messages from this instance to the output log during flush? */
+	CORE_API FMessageLog& SuppressLoggingToOutputLog(bool bShouldSuppress = true);
+
 	/**
 	 * Delegate to retrieve a log interface.
 	 * This allows systems that implement IMessageLog to receive messages.
@@ -110,6 +113,9 @@ private:
 
 	/** The message log we use for output */
 	TSharedPtr<class IMessageLog> MessageLog;
+
+	/** Do we want to suppress logging to the output log in addition to the message log? */
+	bool bSuppressLoggingToOutputLog;
 
 	/** Delegate for retrieving the message log */
 	static FGetLog GetLog;

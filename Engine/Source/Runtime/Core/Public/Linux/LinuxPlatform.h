@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include <linux/version.h>	// for checking if SOCK_CLOEXEC is defined - including sys/socket.h at this stage pollutes the namespaces with macros which cause collisions (e.g. PF_MAX)
+
 /**
 * Linux specific types
 **/
@@ -42,8 +44,12 @@ typedef FLinuxPlatformTypes FPlatformTypes;
 #define PLATFORM_HAS_NO_EPROCLIM					1
 #define PLATFORM_HAS_BSD_SOCKET_FEATURE_IOCTL		1
 #define PLATFORM_HAS_BSD_IPV6_SOCKETS				1
+#define PLATFORM_SUPPORTS_STACK_SYMBOLS				1
 
-#define PLATFORM_USES_DYNAMIC_RHI					1
+// SOCK_CLOEXEC is available on Linux since 2.6.27
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+	#define PLATFORM_HAS_BSD_SOCKET_FEATURE_CLOSE_ON_EXEC	1
+#endif // LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 
 // only enable vectorintrinsics on x86(-64) for now
 #if defined(_M_IX86) || defined(__i386__) || defined(_M_X64) || defined(__x86_64__) || defined (__amd64__) 

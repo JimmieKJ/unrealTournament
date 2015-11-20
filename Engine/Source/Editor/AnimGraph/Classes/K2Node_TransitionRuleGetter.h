@@ -4,6 +4,9 @@
 #pragma once
 #include "K2Node_TransitionRuleGetter.generated.h"
 
+class UAnimGraphNode_Base;
+class FBlueprintActionFilter;
+
 UENUM()
 namespace ETransitionGetter
 {
@@ -31,7 +34,7 @@ class UK2Node_TransitionRuleGetter : public UK2Node
 	TEnumAsByte<ETransitionGetter::Type> GetterType;
 
 	UPROPERTY()
-	class UAnimGraphNode_Base* AssociatedAnimAssetPlayerNode;
+	UAnimGraphNode_Base* AssociatedAnimAssetPlayerNode;
 
 	UPROPERTY()
 	UAnimStateNode* AssociatedStateNode;
@@ -42,7 +45,7 @@ class UK2Node_TransitionRuleGetter : public UK2Node
 	virtual FText GetTooltipText() const override;
 	virtual bool ShowPaletteIconOnNode() const override { return false; }
 	virtual bool CanCreateUnderSpecifiedSchema(const UEdGraphSchema* Schema) const override;
-	virtual bool IsActionFilteredOut(class FBlueprintActionFilter const& Filter) override;
+	virtual bool IsActionFilteredOut(FBlueprintActionFilter const& Filter) override;
 	// End of UEdGraphNode interface
 
 	// UK2Node interface

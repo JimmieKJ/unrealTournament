@@ -39,6 +39,21 @@ static TAutoConsoleVariable<float> CVarTemporalAASharpness(
 	TEXT("Sharpness of temporal AA (0.0 = smoother, 1.0 = sharper)."),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarTemporalAAPauseCorrect(
+	TEXT("r.TemporalAAPauseCorrect"),
+	1,
+	TEXT("Correct temporal AA in pause. This holds onto render targets longer preventing reuse and consumes more memory."),
+	ECVF_RenderThreadSafe);
+
+static float CatmullRom( float x )
+{
+	float ax = FMath::Abs(x);
+	if( ax > 1.0f )
+		return ( ( -0.5f * ax + 2.5f ) * ax - 4.0f ) *ax + 2.0f;
+	else
+		return ( 1.5f * ax - 2.5f ) * ax*ax + 1.0f;
+}
+
 /** Encapsulates a TemporalAA pixel shader. */
 template< uint32 Type, uint32 Responsive >
 class FPostProcessTemporalAAPS : public FGlobalShader
@@ -65,7 +80,6 @@ public:
 	FShaderParameter SampleWeights;
 	FShaderParameter LowpassWeights;
 	FShaderParameter PlusWeights;
-	FCameraMotionParameters CameraMotionParams;
 	FShaderParameter RandomOffset;
 
 	/** Initialization constructor. */
@@ -77,7 +91,6 @@ public:
 		SampleWeights.Bind(Initializer.ParameterMap, TEXT("SampleWeights"));
 		LowpassWeights.Bind(Initializer.ParameterMap, TEXT("LowpassWeights"));
 		PlusWeights.Bind(Initializer.ParameterMap, TEXT("PlusWeights"));
-		CameraMotionParams.Bind(Initializer.ParameterMap);
 		RandomOffset.Bind(Initializer.ParameterMap, TEXT("RandomOffset"));
 	}
 
@@ -85,7 +98,7 @@ public:
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << SampleWeights << LowpassWeights << PlusWeights << CameraMotionParams << RandomOffset;
+		Ar << PostprocessParameter << DeferredParameters << SampleWeights << LowpassWeights << PlusWeights << RandomOffset;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -101,7 +114,7 @@ public:
 		FilterTable[2] = FilterTable[0];
 		FilterTable[3] = FilterTable[0];
 
-		PostprocessParameter.SetPS(ShaderRHI, Context, 0, false, FilterTable);
+		PostprocessParameter.SetPS(ShaderRHI, Context, 0, eFC_0000, FilterTable);
 
 		DeferredParameters.Set(Context.RHICmdList, ShaderRHI, Context.View);
 
@@ -112,9 +125,6 @@ public:
 
 		{
 			const FPooledRenderTargetDesc* InputDesc = Context.Pass->GetInputDesc(ePId_Input0);
-			const FIntPoint ViewportSize = Context.GetViewport().Size();
-			const float Width = ViewportSize.X;
-			const float Height = ViewportSize.Y;
 
 			static const float SampleOffsets[9][2] =
 			{
@@ -130,10 +140,6 @@ public:
 			};
 		
 			float Sharpness = CVarTemporalAASharpness.GetValueOnRenderThread();
-			// With the new temporal AA, need to hardcode a value here.
-			// Going to remove this once the new temporal AA is validated.
-			Sharpness = -0.25f;
-			Sharpness = 1.0f + Sharpness * 0.5f;
 
 			float Weights[9];
 			float WeightsLow[9];
@@ -143,21 +149,30 @@ public:
 			float TotalWeightPlus = 0.0f;
 			for( int32 i = 0; i < 9; i++ )
 			{
-				// Exponential fit to Blackman-Harris 3.3
 				float PixelOffsetX = SampleOffsets[i][0] - JitterX;
 				float PixelOffsetY = SampleOffsets[i][1] - JitterY;
-				PixelOffsetX *= Sharpness;
-				PixelOffsetY *= Sharpness;
-				Weights[i] = FMath::Exp( -2.29f * ( PixelOffsetX * PixelOffsetX + PixelOffsetY * PixelOffsetY ) );
-				TotalWeight += Weights[i];
+
+				if( Sharpness > 1.0f )
+				{
+					Weights[i] = CatmullRom( PixelOffsetX ) * CatmullRom( PixelOffsetY );
+					TotalWeight += Weights[i];
+				}
+				else
+				{
+					// Exponential fit to Blackman-Harris 3.3
+					PixelOffsetX *= 1.0f + Sharpness * 0.5f;
+					PixelOffsetY *= 1.0f + Sharpness * 0.5f;
+					Weights[i] = FMath::Exp( -2.29f * ( PixelOffsetX * PixelOffsetX + PixelOffsetY * PixelOffsetY ) );
+					TotalWeight += Weights[i];
+				}
 
 				// Lowpass.
 				PixelOffsetX = SampleOffsets[i][0] - JitterX;
 				PixelOffsetY = SampleOffsets[i][1] - JitterY;
 				PixelOffsetX *= 0.25f;
 				PixelOffsetY *= 0.25f;
-				PixelOffsetX *= Sharpness;
-				PixelOffsetY *= Sharpness;
+				PixelOffsetX *= 1.0f + Sharpness * 0.5f;
+				PixelOffsetY *= 1.0f + Sharpness * 0.5f;
 				WeightsLow[i] = FMath::Exp( -2.29f * ( PixelOffsetX * PixelOffsetX + PixelOffsetY * PixelOffsetY ) );
 				TotalWeightLow += WeightsLow[i];
 			}
@@ -186,7 +201,7 @@ public:
 
 		}
 
-		CameraMotionParams.Set(Context.RHICmdList, Context.View, ShaderRHI);
+		SetUniformBufferParameter(Context.RHICmdList, ShaderRHI, GetUniformBufferParameter<FCameraMotionParameters>(), CreateCameraMotionParametersUniformBuffer(Context.View));
 	}
 };
 
@@ -224,7 +239,7 @@ void FRCPassPostProcessSSRTemporalAA::Process(FRenderingCompositePassContext& Co
 	FIntPoint SrcSize = InputDesc->Extent;
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = GSceneRenderTargets.GetBufferSizeXY().X / SrcSize.X;
+	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
 
 	FIntRect SrcRect = View.ViewRect / ScaleFactor;
 
@@ -253,16 +268,17 @@ void FRCPassPostProcessSSRTemporalAA::Process(FRenderingCompositePassContext& Co
 	VertexShader->SetVS(Context);
 	PixelShader->SetParameters(Context);
 
-	// Draw a quad mapping scene color to the view's render target
-	DrawRectangle(
+	DrawPostProcessPass(
 		Context.RHICmdList,
 		0, 0,
 		SrcRect.Width(), SrcRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y, 
+		SrcRect.Min.X, SrcRect.Min.Y,
 		SrcRect.Width(), SrcRect.Height(),
 		SrcRect.Size(),
 		SrcSize,
 		*VertexShader,
+		View.StereoPass,
+		Context.HasHmdMesh(),
 		EDRF_UseTriangleOptimization);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
@@ -270,10 +286,10 @@ void FRCPassPostProcessSSRTemporalAA::Process(FRenderingCompositePassContext& Co
 
 FPooledRenderTargetDesc FRCPassPostProcessSSRTemporalAA::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.DebugName = TEXT("SSRTemporalAA");
-
+	Ret.AutoWritable = false;
 	return Ret;
 }
 
@@ -300,7 +316,7 @@ void FRCPassPostProcessDOFTemporalAA::Process(FRenderingCompositePassContext& Co
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = GSceneRenderTargets.GetBufferSizeXY().X / SrcSize.X;
+	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
 
 	FIntRect SrcRect = View.ViewRect / ScaleFactor;
 	FIntRect DestRect = SrcRect;
@@ -330,16 +346,17 @@ void FRCPassPostProcessDOFTemporalAA::Process(FRenderingCompositePassContext& Co
 	VertexShader->SetVS(Context);
 	PixelShader->SetParameters(Context);
 
-	// Draw a quad mapping scene color to the view's render target
-	DrawRectangle(
+	DrawPostProcessPass(
 		Context.RHICmdList,
 		0, 0,
 		SrcRect.Width(), SrcRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y, 
+		SrcRect.Min.X, SrcRect.Min.Y,
 		SrcRect.Width(), SrcRect.Height(),
 		SrcRect.Size(),
 		SrcSize,
 		*VertexShader,
+		View.StereoPass,
+		Context.HasHmdMesh(),
 		EDRF_UseTriangleOptimization);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
@@ -350,8 +367,8 @@ void FRCPassPostProcessDOFTemporalAA::Process(FRenderingCompositePassContext& Co
 
 FPooledRenderTargetDesc FRCPassPostProcessDOFTemporalAA::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
-
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
+	Ret.AutoWritable = false;
 	Ret.DebugName = TEXT("BokehDOFTemporalAA");
 
 	return Ret;
@@ -381,7 +398,7 @@ void FRCPassPostProcessDOFTemporalAANear::Process(FRenderingCompositePassContext
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = GSceneRenderTargets.GetBufferSizeXY().X / SrcSize.X;
+	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
 
 	FIntRect SrcRect = View.ViewRect / ScaleFactor;
 	FIntRect DestRect = SrcRect;
@@ -411,16 +428,17 @@ void FRCPassPostProcessDOFTemporalAANear::Process(FRenderingCompositePassContext
 	VertexShader->SetVS(Context);
 	PixelShader->SetParameters(Context);
 
-	// Draw a quad mapping scene color to the view's render target
-	DrawRectangle(
+	DrawPostProcessPass(
 		Context.RHICmdList,
 		0, 0,
 		SrcRect.Width(), SrcRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y, 
+		SrcRect.Min.X, SrcRect.Min.Y,
 		SrcRect.Width(), SrcRect.Height(),
 		SrcRect.Size(),
 		SrcSize,
 		*VertexShader,
+		View.StereoPass,
+		Context.HasHmdMesh(),
 		EDRF_UseTriangleOptimization);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
@@ -431,7 +449,7 @@ void FRCPassPostProcessDOFTemporalAANear::Process(FRenderingCompositePassContext
 
 FPooledRenderTargetDesc FRCPassPostProcessDOFTemporalAANear::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.DebugName = TEXT("BokehDOFTemporalAANear");
 
@@ -461,7 +479,7 @@ void FRCPassPostProcessLightShaftTemporalAA::Process(FRenderingCompositePassCont
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = GSceneRenderTargets.GetBufferSizeXY().X / SrcSize.X;
+	uint32 ScaleFactor = FSceneRenderTargets::Get(Context.RHICmdList).GetBufferSizeXY().X / SrcSize.X;
 
 	FIntRect SrcRect = View.ViewRect / ScaleFactor;
 	FIntRect DestRect = SrcRect;
@@ -491,16 +509,17 @@ void FRCPassPostProcessLightShaftTemporalAA::Process(FRenderingCompositePassCont
 	VertexShader->SetVS(Context);
 	PixelShader->SetParameters(Context);
 
-	// Draw a quad mapping scene color to the view's render target
-	DrawRectangle(
+	DrawPostProcessPass(
 		Context.RHICmdList,
 		0, 0,
 		SrcRect.Width(), SrcRect.Height(),
-		SrcRect.Min.X, SrcRect.Min.Y, 
+		SrcRect.Min.X, SrcRect.Min.Y,
 		SrcRect.Width(), SrcRect.Height(),
 		SrcRect.Size(),
 		SrcSize,
 		*VertexShader,
+		View.StereoPass,
+		Context.HasHmdMesh(),
 		EDRF_UseTriangleOptimization);
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
@@ -508,7 +527,7 @@ void FRCPassPostProcessLightShaftTemporalAA::Process(FRenderingCompositePassCont
 
 FPooledRenderTargetDesc FRCPassPostProcessLightShaftTemporalAA::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.DebugName = TEXT("LightShaftTemporalAA");
 
@@ -518,8 +537,6 @@ FPooledRenderTargetDesc FRCPassPostProcessLightShaftTemporalAA::ComputeOutputDes
 
 void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Context)
 {
-	SCOPED_DRAW_EVENT(Context.RHICmdList, TemporalAA);
-
 	const FPooledRenderTargetDesc* InputDesc = GetInputDesc(ePId_Input0);
 
 	if(!InputDesc)
@@ -527,6 +544,7 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 		// input is not hooked up correctly
 		return;
 	}
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(Context.RHICmdList);
 
 	FViewInfo& View = Context.View;
 	FSceneViewState* ViewState = Context.ViewState;
@@ -539,15 +557,17 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 	FIntPoint DestSize = PassOutputs[0].RenderTargetDesc.Extent;
 
 	// e.g. 4 means the input texture is 4x smaller than the buffer size
-	uint32 ScaleFactor = GSceneRenderTargets.GetBufferSizeXY().X / SrcSize.X;
+	uint32 ScaleFactor = SceneContext.GetBufferSizeXY().X / SrcSize.X;
 
 	FIntRect SrcRect = View.ViewRect / ScaleFactor;
 	FIntRect DestRect = SrcRect;
 
+	SCOPED_DRAW_EVENTF(Context.RHICmdList, TemporalAA, TEXT("TemporalAA %dx%d"), SrcRect.Width(), SrcRect.Height());
+
 	const FSceneRenderTargetItem& DestRenderTarget = PassOutputs[0].RequestSurface(Context);
 
 	//Context.SetRenderTarget(RHICmdList, DestRenderTarget.TargetableTexture, FTextureRHIRef());
-	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, GSceneRenderTargets.GetSceneDepthTexture(), ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
+	SetRenderTarget(Context.RHICmdList, DestRenderTarget.TargetableTexture, SceneContext.GetSceneDepthTexture(), ESimpleRenderTargetMode::EUninitializedColorExistingDepth, FExclusiveDepthStencil::DepthRead_StencilWrite);
 
 	// is optimized away if possible (RT size=view size, )
 	Context.RHICmdList.Clear(true, FLinearColor::Black, false, (float)ERHIZBuffer::FarPlane, false, 0, SrcRect);
@@ -595,16 +615,17 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 			PixelShader->SetParameters(Context);
 		}
 	
-		// Draw a quad mapping scene color to the view's render target
-		DrawRectangle(
+		DrawPostProcessPass(
 			Context.RHICmdList,
 			0, 0,
 			SrcRect.Width(), SrcRect.Height(),
-			SrcRect.Min.X, SrcRect.Min.Y, 
+			SrcRect.Min.X, SrcRect.Min.Y,
 			SrcRect.Width(), SrcRect.Height(),
 			SrcRect.Size(),
 			SrcSize,
 			*VertexShader,
+			View.StereoPass,
+			Context.HasHmdMesh(),
 			EDRF_UseTriangleOptimization);
 	}
 	else
@@ -640,16 +661,17 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 				PixelShader->SetParameters(Context);
 			}
 		
-			// Draw a quad mapping scene color to the view's render target
-			DrawRectangle(
+			DrawPostProcessPass(
 				Context.RHICmdList,
 				0, 0,
 				SrcRect.Width(), SrcRect.Height(),
-				SrcRect.Min.X, SrcRect.Min.Y, 
+				SrcRect.Min.X, SrcRect.Min.Y,
 				SrcRect.Width(), SrcRect.Height(),
 				SrcRect.Size(),
 				SrcSize,
 				*VertexShader,
+				View.StereoPass,
+				Context.HasHmdMesh(),
 				EDRF_UseTriangleOptimization);
 		}
 	
@@ -683,29 +705,34 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 				PixelShader->SetParameters(Context);
 			}
 	
-			// Draw a quad mapping scene color to the view's render target
-			DrawRectangle(
+			DrawPostProcessPass(
 				Context.RHICmdList,
 				0, 0,
 				SrcRect.Width(), SrcRect.Height(),
-				SrcRect.Min.X, SrcRect.Min.Y, 
+				SrcRect.Min.X, SrcRect.Min.Y,
 				SrcRect.Width(), SrcRect.Height(),
 				SrcRect.Size(),
 				SrcSize,
 				*VertexShader,
+				View.StereoPass,
+				Context.HasHmdMesh(),
 				EDRF_UseTriangleOptimization);
 		}
 	}
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 
-	if( !View.Family->bWorldIsPaused )
+	if( CVarTemporalAAPauseCorrect.GetValueOnRenderThread() )
+	{
+		ViewState->PendingTemporalAAHistoryRT = PassOutputs[0].PooledRenderTarget;
+	}
+	else
 	{
 		ViewState->TemporalAAHistoryRT = PassOutputs[0].PooledRenderTarget;
-		check( ViewState->TemporalAAHistoryRT );
 	}
 
-	// TODO draw separate translucency after jitter has been removed
+#if WITH_EDITOR
+	FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::WaitForOutstandingTasksOnly);
 
 	// Remove jitter
 	View.ViewMatrices.RemoveTemporalJitter();
@@ -716,18 +743,20 @@ void FRCPassPostProcessTemporalAA::Process(FRenderingCompositePassContext& Conte
 
 	// Compute a transform from view origin centered world-space to clip space.
 	View.ViewMatrices.TranslatedViewProjectionMatrix = View.ViewMatrices.TranslatedViewMatrix * View.ViewMatrices.ProjMatrix;
-	View.ViewMatrices.InvTranslatedViewProjectionMatrix = View.ViewMatrices.TranslatedViewProjectionMatrix.Inverse();
+	View.ViewMatrices.InvTranslatedViewProjectionMatrix = View.ViewMatrices.GetInvProjMatrix() * View.ViewMatrices.TranslatedViewMatrix.Inverse();
 
 	View.InitRHIResources(nullptr);
+#endif
 }
 
 FPooledRenderTargetDesc FRCPassPostProcessTemporalAA::ComputeOutputDesc(EPassOutputId InPassOutputId) const
 {
-	FPooledRenderTargetDesc Ret = PassInputs[0].GetOutput()->RenderTargetDesc;
+	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
-	Ret.Format = PF_FloatRGBA;
+	//Ret.Format = PF_FloatRGBA;
 	Ret.DebugName = TEXT("TemporalAA");
+	Ret.AutoWritable = false;
 
 	return Ret;
 }

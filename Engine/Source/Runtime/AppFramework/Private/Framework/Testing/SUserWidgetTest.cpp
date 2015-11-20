@@ -3,6 +3,7 @@
 #include "AppFrameworkPrivatePCH.h"
 #include "SUserWidgetTest.h"
 
+#if !UE_BUILD_SHIPPING
 
 class SUserWidgetExampleImpl
 	: public SUserWidgetExample
@@ -29,3 +30,5 @@ TSharedRef<SUserWidgetExample> SUserWidgetExample::New()
 {
 	return MakeShareable(new SUserWidgetExampleImpl()); 
 }
+
+#endif // #if !UE_BUILD_SHIPPING

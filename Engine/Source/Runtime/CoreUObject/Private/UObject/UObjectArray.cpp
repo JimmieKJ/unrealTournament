@@ -54,9 +54,9 @@ void FUObjectArray::AllocateUObjectIndex(UObjectBase* Object, bool bMergingThrea
 		int32* AvailableIndex = ObjAvailableList.Pop();
 		if (AvailableIndex)
 		{
-#if WITH_EDITOR
-			ObjAvailableCount.Decrement();
-			checkSlow(ObjAvailableCount.GetValue() >= 0);
+#if UE_GC_TRACK_OBJ_AVAILABLE
+			const int32 AvailableCount = ObjAvailableCount.Decrement();
+			checkSlow(AvailableCount >= 0);
 #endif
 			Index = (int32)(uintptr_t)AvailableIndex;
 			check(ObjObjects[Index]==nullptr);
@@ -112,7 +112,7 @@ void FUObjectArray::FreeUObjectIndex(UObjectBase* Object)
 	if (Index > ObjLastNonGCIndex && !GExitPurge)  
 	{
 		ObjAvailableList.Push((int32*)(uintptr_t)Index);
-#if WITH_EDITOR
+#if UE_GC_TRACK_OBJ_AVAILABLE
 		ObjAvailableCount.Increment();
 #endif
 	}
@@ -147,6 +147,9 @@ void FUObjectArray::RemoveUObjectCreateListener(FUObjectCreateListener* Listener
  */
 void FUObjectArray::AddUObjectDeleteListener(FUObjectDeleteListener* Listener)
 {
+#if THREADSAFE_UOBJECTS
+	FScopeLock UObjectDeleteListenersLock(&UObjectDeleteListenersCritical);
+#endif
 	check(!UObjectDeleteListeners.Contains(Listener));
 	UObjectDeleteListeners.Add(Listener);
 }
@@ -158,6 +161,9 @@ void FUObjectArray::AddUObjectDeleteListener(FUObjectDeleteListener* Listener)
  */
 void FUObjectArray::RemoveUObjectDeleteListener(FUObjectDeleteListener* Listener)
 {
+#if THREADSAFE_UOBJECTS
+	FScopeLock UObjectDeleteListenersLock(&UObjectDeleteListenersCritical);
+#endif
 	UObjectDeleteListeners.RemoveSingleSwap(Listener);
 }
 
@@ -205,5 +211,5 @@ void FUObjectArray::ShutdownUObjectArray()
 
 UObjectBase*** FUObjectArray::GetObjectArrayForDebugVisualizers()
 {
-	return GetUObjectArray().ObjObjects.GetRootBlockForDebuggerVisualizers();
+	return GUObjectArray.ObjObjects.GetRootBlockForDebuggerVisualizers();
 }

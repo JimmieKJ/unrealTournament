@@ -10,20 +10,24 @@
  *
  * @param	PotentialReferencer		the object to serialize which may contain references to our target objects
  * @param	InTargetObjects			array of objects to search for references to
+ * @param	bFindAlsoWeakReferences should we also look into weak references?
  */
-FFindReferencersArchive::FFindReferencersArchive( UObject* InPotentialReferencer, TArray<UObject*> InTargetObjects )
+FFindReferencersArchive::FFindReferencersArchive(UObject* InPotentialReferencer, TArray<UObject*> InTargetObjects, bool bFindAlsoWeakReferences)
 {
 	// use the optimized RefLink to skip over properties which don't contain object references
 	ArIsObjectReferenceCollector = true;
+
+	// look also for weak references if user asked for it (we won't modify them, but there is no archive option for that)
+	ArIsModifyingWeakAndStrongReferences = bFindAlsoWeakReferences;
 
 	// ALL objects reference their outers...it's just log spam here
 	ArIgnoreOuterRef = true;
 
 	// initialize the map
-	for ( int32 ObjIndex = 0; ObjIndex < InTargetObjects.Num(); ObjIndex++ )
+	for (int32 ObjIndex = 0; ObjIndex < InTargetObjects.Num(); ObjIndex++)
 	{
 		UObject* TargetObject = InTargetObjects[ObjIndex];
-		if ( TargetObject != nullptr )
+		if (TargetObject != nullptr)
 		{
 			TargetObjects.Add(TargetObject, 0);
 		}
@@ -32,7 +36,7 @@ FFindReferencersArchive::FFindReferencersArchive( UObject* InPotentialReferencer
 	PotentialReferencer = InPotentialReferencer;
 
 	// now start the search
-	if ( PotentialReferencer )
+	if (PotentialReferencer)
 	{
 		PotentialReferencer->Serialize(*this);
 	}

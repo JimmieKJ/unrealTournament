@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
+#include "UObject/LinkerManager.h"
+#include "UObject/UObjectThreadContext.h"
 
 /*-----------------------------------------------------------------------------
 	UPackage.
@@ -32,9 +34,14 @@ void UPackage::PostInitProperties()
 	MetaData = NULL;
 	LinkerPackageVersion = GPackageFileUE4Version;
 	LinkerLicenseeVersion = GPackageFileLicenseeUE4Version;
-
 #if WITH_EDITOR
 	PIEInstanceID = INDEX_NONE;
+#endif
+#if WITH_EDITORONLY_DATA
+	bIsCookedForEditor = false;
+	// Mark this package as editor-only by default. As soon as something in it is accessed through a non editor-only
+	// property the flag will be removed.
+	bLoadedByEditorPropertiesOnly = !HasAnyFlags(RF_ClassDefaultObject) && !(PackageFlags & PKG_CompiledIn);
 #endif
 }
 
@@ -82,6 +89,14 @@ void UPackage::Serialize( FArchive& Ar )
 	if ( Ar.IsTransacting() )
 	{
 		Ar << bDirty;
+	}
+	if (Ar.IsCountingMemory())
+	{		
+		if (LinkerLoad)
+		{
+			FLinker* Loader = LinkerLoad;
+			Loader->Serialize(Ar);
+		}
 	}
 }
 
@@ -173,7 +188,7 @@ bool UPackage::IsFullyLoaded()
 	// Newly created packages aren't loaded and therefore haven't been marked as being fully loaded. They are treated as fully
 	// loaded packages though in this case, which is why we are looking to see whether the package exists on disk and assume it
 	// has been fully loaded if it doesn't.
-	if( !bHasBeenFullyLoaded )
+	if( !bHasBeenFullyLoaded && !HasAnyFlags(RF_AsyncLoading) )
 	{
 		FString DummyFilename;
 		// Try to find matching package in package file cache.
@@ -193,12 +208,28 @@ void UPackage::BeginDestroy()
 	// Detach linker if still attached
 	if (LinkerLoad)
 	{
-		delete LinkerLoad;
+		LinkerLoad->Detach();
+		FLinkerManager::Get().RemoveLinker(LinkerLoad);
 		LinkerLoad = nullptr;
 	}
 
 	Super::BeginDestroy();
 }
+
+#if WITH_EDITORONLY_DATA
+void FixupPackageEditorOnlyFlag(FName PackageThatGotEditorOnlyFlagCleared, bool bRecursive);
+
+void UPackage::SetLoadedByEditorPropertiesOnly(bool bIsEditorOnly, bool bRecursive /*= false*/)
+{
+	const bool bWasEditorOnly = bLoadedByEditorPropertiesOnly;
+	bLoadedByEditorPropertiesOnly = bIsEditorOnly;
+	if (bWasEditorOnly && !bIsEditorOnly)
+	{
+		FixupPackageEditorOnlyFlag(GetFName(), bRecursive);
+	}
+}
+#endif
+
 
 IMPLEMENT_CORE_INTRINSIC_CLASS(UPackage, UObject,
 	{

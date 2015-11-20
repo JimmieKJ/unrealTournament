@@ -30,7 +30,7 @@ namespace CollisionAutomationTests
 	UWorld* GetAutomationWorld(const int32 TestFlags)
  	{
 		UWorld* World = nullptr;
-		if( TestFlags & EAutomationTestFlags::ATF_Game)
+		if( TestFlags & EAutomationTestFlags::ClientContext)
 		{
 			check(GEngine->GetWorldContexts().Num() == 1);
 			World = GEngine->GetWorldContexts()[0].World();
@@ -98,9 +98,8 @@ namespace CollisionAutomationTests
 
 	void CheckVector( FVector ResultVector, FVector ExpectedVector, FString TestName, FString ParameterName, int32 TestIndex, float Tolerance = KINDA_SMALL_NUMBER )
 	{
-		FVector Delta = ExpectedVector - ResultVector;
-		float Diff = Delta.Size();
-		if (Diff > Tolerance)
+		const FVector Delta = ExpectedVector - ResultVector;
+		if (Delta.SizeSquared() > FMath::Square(Tolerance))
 		{
 			//UE_LOG(CollisionAutomationTestLog, Log, TEXT("%d:HitResult=(%s)"), iTest+1, *OutHits[iHits].ToString());
 			TestBase->AddError(FString::Printf(TEXT("Test %d:%s %s mismatch. Should be %s but is actually %s."), TestIndex, *TestName, *ParameterName, *ExpectedVector.ToString(), *ResultVector.ToString()));
@@ -135,7 +134,7 @@ namespace CollisionAutomationTests
 /**
  * ComponentSweepMultiTest Verification
  */
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FComponentSweepMultiTest, "System.Physics.Collision.ComponentSweepMulti", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FComponentSweepMultiTest, "System.Physics.Collision.ComponentSweepMulti", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 /** 
  * Perform some collision sweep tests. Creates a given shape mesh and checks collision normal against a collision shape type.
@@ -223,7 +222,7 @@ bool FComponentSweepMultiTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST( FLineTraceSingleByChannel, "System.Physics.Collision.LineTraceSingleByChannel", EAutomationTestFlags::ATF_Editor )
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FLineTraceSingleByChannel, "System.Physics.Collision.LineTraceSingleByChannel", EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 
 /** 
@@ -238,6 +237,7 @@ bool FLineTraceSingleByChannel::RunTest(const FString& Parameters)
 	// Create map
 	UWorld* World = AutomationEditorCommonUtils::CreateNewMap();
 	TestNotNull(TEXT("Failed to create world for Physics.Collision.Ray Test. Tests aborted."), World);
+	CollisionAutomationTests::TestBase = this;
 
 	static FName TraceIdent = FName(TEXT("TestTrace"));
 

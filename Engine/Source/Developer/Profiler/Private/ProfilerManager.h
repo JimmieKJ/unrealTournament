@@ -163,19 +163,12 @@ namespace EProfilerViewMode
  ** */
 class FProfilerManager 
 	: public TSharedFromThis<FProfilerManager>
-	, public IProfilerManager
 {
 	friend class FProfilerActionManager;
 
-	/**
-	 *	Global processing lock, protects from destroying the profiler while task graph is still working on the stuff.
-	 *	Assumes that there is only one instance of the profiler.
-	 */
-	static FThreadSafeCounter ProcessingLock;
-
 public:
 	/**
-	 * Creates a profiler manager, only one distance can exists.
+	 * Creates a profiler manager, only one instance can exist.
 	 *
 	 * @param InSessionManager	- the session manager to use
 	 *
@@ -193,7 +186,7 @@ public:
 	 */
 	static TSharedPtr<FProfilerManager> Initialize( const ISessionManagerRef& SessionManager )
 	{
-		if ( FProfilerManager::Instance.IsValid() )
+		if (FProfilerManager::Instance.IsValid())
 		{
 			FProfilerManager::Instance.Reset();
 		}
@@ -211,18 +204,6 @@ public:
 	void Shutdown()
 	{
 		FProfilerManager::Instance.Reset();
-	}
-
-	/** Increases processing lock count. */
-	static void IncrementProcessingLock()
-	{
-		ProcessingLock.Increment();
-	}
-
-	/** Decreases processing lock count, once reaches zero the profiler can proceed. */
-	static void DecrementProcessingLock()
-	{
-		ProcessingLock.Decrement();
 	}
 
 protected:
@@ -549,7 +530,7 @@ protected:
 	void ProfilerClient_OnProfilerFileTransfer( const FString& Filename, int64 FileProgress, int64 FileSize );
 
 	void SessionManager_OnCanSelectSession( const ISessionInfoPtr& Session, bool& CanSelect );
-	void SessionManager_OnInstanceSelectionChanged();
+	void SessionManager_OnInstanceSelectionChanged( const TSharedPtr<ISessionInstanceInfo>& Instance, bool Selected );
 	void SessionManager_OnSelectedSessionChanged( const ISessionInfoPtr& Session );
 
 public:

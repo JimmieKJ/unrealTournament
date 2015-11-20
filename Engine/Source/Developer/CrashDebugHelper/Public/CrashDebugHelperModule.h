@@ -13,7 +13,7 @@ public:
 	virtual void ShutdownModule();
 
 	/** Gets the crash debug helper singleton or returns NULL */
-	CRASHDEBUGHELPER_API virtual ICrashDebugHelper* Get();
+	CRASHDEBUGHELPER_API ICrashDebugHelper* Get();
 
 private:
 	class ICrashDebugHelper* CrashDebugHelper;

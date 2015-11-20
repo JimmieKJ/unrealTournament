@@ -8,7 +8,8 @@
 class FAndroidAdvertisingProvider : public IAdvertisingProvider
 {
 public:
-	virtual void ShowAdBanner( bool bShowOnBottomOfScreen ) override;
+	virtual void ShowAdBanner(bool bShowOnBottomOfScreen, int32 adID) override;
 	virtual void HideAdBanner() override;
 	virtual void CloseAdBanner() override;
+	virtual int32 GetAdIDCount() override;
 };

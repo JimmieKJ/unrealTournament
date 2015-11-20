@@ -23,9 +23,9 @@ public:
 	 * @param InArgs The declaration data for this widget.
 	 * @param InSessionManager The session to use.
 	 */
-	void Construct( const FArguments& InArgs, const FString& InAssetName )
+	void Construct( const FArguments& InArgs, const TArray<FString>& InAssetNames )
 	{
-		Assetname = InAssetName;
+		AssetNames = InAssetNames;
 
 		ChildSlot
 		[
@@ -51,7 +51,7 @@ protected:
 
 		MenuBuilder.BeginSection("AutomationOptions", LOCTEXT("MenuHeadingText", "Automation Options"));
 		{
-			MenuBuilder.AddMenuEntry(LOCTEXT("AutomationMenuEntryLoadText", "Load the asset"), FText::GetEmpty(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(this, &SAutomationTestItemContextMenu::HandleContextItemTerminate)));
+			MenuBuilder.AddMenuEntry(LOCTEXT("AutomationMenuEntryLoadText", "Load the asset(s)"), FText::GetEmpty(), FSlateIcon(), FUIAction(FExecuteAction::CreateRaw(this, &SAutomationTestItemContextMenu::HandleContextItemTerminate)));
 		}
 		MenuBuilder.EndSection();
 
@@ -63,16 +63,16 @@ private:
 	/** Handle the context menu closing down. If an asset is selected, request that it gets loaded */
 	void HandleContextItemTerminate( )
 	{
-		if (Assetname.Len() > 0)
+		for (int32 AssetIndex = 0; AssetIndex < AssetNames.Num(); ++AssetIndex)
 		{
-			FModuleManager::GetModuleChecked<IAutomationControllerModule>("AutomationController").GetAutomationController()->RequestLoadAsset( Assetname );
+			FModuleManager::GetModuleChecked<IAutomationControllerModule>("AutomationController").GetAutomationController()->RequestLoadAsset(AssetNames[AssetIndex]);
 		}
 	}
 
 private:
 
 	/** Holds the selected asset name. */
-	FString Assetname;
+	TArray<FString> AssetNames;
 };
 
 

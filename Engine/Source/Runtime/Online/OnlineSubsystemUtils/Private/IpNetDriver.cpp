@@ -17,8 +17,6 @@ Notes:
 	Declarations.
 -----------------------------------------------------------------------------*/
 
-/** Size of the network recv buffer */
-#define NETWORK_MAX_PACKET (576)
 
 UIpNetDriver::UIpNetDriver(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -170,8 +168,10 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 
 	ISocketSubsystem* SocketSubsystem = GetSocketSubsystem();
 
+	const double StartReceiveTime = FPlatformTime::Seconds();
+
 	// Process all incoming packets.
-	uint8 Data[NETWORK_MAX_PACKET];
+	uint8 Data[MAX_PACKET_SIZE];
 	TSharedRef<FInternetAddr> FromAddr = SocketSubsystem->CreateInternetAddr();
 	for( ; Socket != NULL; )
 	{
@@ -192,6 +192,22 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 			}
 			else
 			{
+				// MalformedPacket: Client tried sending a packet that exceeded the maximum packet limit
+				// enforced by the server
+				if (Error == SE_EMSGSIZE)
+				{
+					UIpConnection* Connection = nullptr;
+					if (GetServerConnection() && (*GetServerConnection()->RemoteAddr == *FromAddr))
+					{
+						Connection = GetServerConnection();
+					}
+
+					if (Connection != nullptr)
+					{
+						UE_SECURITY_LOG(Connection, ESecurityEvent::Malformed_Packet, TEXT("Received Packet with bytes > max MTU"));
+					}
+				}
+
 				if( Error != SE_ECONNRESET && Error != SE_UDP_ERR_PORT_UNREACH )
 				{
 					UE_LOG(LogNet, Warning, TEXT("UDP recvfrom error: %i (%s) from %s"),
@@ -204,9 +220,19 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 		}
 		// Figure out which socket the received data came from.
 		UIpConnection* Connection = NULL;
-		if (GetServerConnection() && (*GetServerConnection()->RemoteAddr == *FromAddr))
+		UIpConnection* ServerConnection = GetServerConnection();
+		if (ServerConnection)
 		{
-			Connection = GetServerConnection();
+			if ((*ServerConnection->RemoteAddr == *FromAddr))
+			{
+				Connection = ServerConnection;
+			}
+			else
+			{
+				UE_LOG(LogNet, Warning, TEXT("Incoming ip address doesn't match expected server address: Actual: %s Expected: %s"),
+					*FromAddr->ToString(true),
+					ServerConnection->RemoteAddr.IsValid() ? *ServerConnection->RemoteAddr->ToString(true) : TEXT("Invalid"));
+			}
 		}
 		for( int32 i=0; i<ClientConnections.Num() && !Connection; i++ )
 		{
@@ -279,6 +305,15 @@ void UIpNetDriver::TickDispatch( float DeltaTime )
 			}
 		}
 	}
+
+	const double EndReceiveTime		= FPlatformTime::Seconds();
+	const float DeltaReceiveTime	= EndReceiveTime - StartReceiveTime;
+	const float Threshold			= 10.0f;
+
+	if ( DeltaReceiveTime > Threshold )
+	{
+		UE_LOG( LogNet, Warning, TEXT( "UIpNetDriver::TickDispatch: Took too long to receive packets. Time: %2.2f %s" ), DeltaReceiveTime, *GetName() );
+	}
 }
 
 void UIpNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack, class UObject* SubObject )
@@ -339,6 +374,10 @@ void UIpNetDriver::ProcessRemoteFunction(class AActor* Actor, UFunction* Functio
 	if (Connection)
 	{
 		InternalProcessRemoteFunction( Actor, SubObject, Connection, Function, Parameters, OutParms, Stack, bIsServer );
+	}
+	else
+	{
+		UE_LOG(LogNet, Warning, TEXT("UIpNetDriver::ProcesRemoteFunction: No owning connection for actor %s. Function %s will not be processed."), *Actor->GetName(), *Function->GetName());
 	}
 }
 

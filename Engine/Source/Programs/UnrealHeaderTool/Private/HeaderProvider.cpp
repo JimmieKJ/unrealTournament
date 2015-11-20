@@ -14,7 +14,7 @@ FHeaderProvider::FHeaderProvider(EHeaderProviderSourceType InType, const FString
 template <class Predicate>
 bool TryFindSourceFileWithPredicate(FUnrealSourceFile*& Out, Predicate Pred)
 {
-	for (auto MapPair : GUnrealSourceFilesMap)
+	for (const TPair<FString, TSharedRef<FUnrealSourceFile>>& MapPair : GUnrealSourceFilesMap)
 	{
 		if (Pred(MapPair.Value.Get()))
 		{
@@ -51,17 +51,17 @@ FUnrealSourceFile* FHeaderProvider::Resolve()
 			}
 			else
 			{
-				TryFindSourceFileWithPredicate(Cache,
-					[=](const FUnrealSourceFile& SourceFile)
-					{
-						return SourceFile.GetIncludePath() == Id;
-					})
-				|| TryFindSourceFileWithPredicate(Cache,
-					[=](const FUnrealSourceFile& SourceFile)
-					{
-						return SourceFile.GetFilename().EndsWith(TEXT("/") + Id) || SourceFile.GetFilename().EndsWith(TEXT("\\") + Id);
-					}
-				);
+				if (!TryFindSourceFileWithPredicate(Cache, [this](const FUnrealSourceFile& SourceFile) { return SourceFile.GetIncludePath() == Id; }))
+				{
+					FString SlashId     = TEXT("/") + Id;
+					FString BackslashId = TEXT("\\") + Id;
+					TryFindSourceFileWithPredicate(Cache,
+						[&SlashId, &BackslashId](const FUnrealSourceFile& SourceFile)
+						{
+							return SourceFile.GetFilename().EndsWith(SlashId) || SourceFile.GetFilename().EndsWith(BackslashId);
+						}
+					);
+				}
 			}
 		}
 

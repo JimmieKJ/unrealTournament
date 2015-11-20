@@ -468,7 +468,7 @@ public:
 	}
 
 template <EShaderFrequency ShaderFrequency>
-	D3D11_STATE_CACHE_INLINE void GetConstantBuffers(uint32 StartSlotIndex, uint32 NumBuffers, ID3D11Buffer* ConstantBuffers)
+	D3D11_STATE_CACHE_INLINE void GetConstantBuffers(uint32 StartSlotIndex, uint32 NumBuffers, ID3D11Buffer** ConstantBuffers)
 	{
 #if D3D11_ALLOW_STATE_CACHE
 		check(StartSlotIndex + NumBuffers <= D3D11_COMMONSHADER_CONSTANT_BUFFER_API_SLOT_COUNT);

@@ -109,6 +109,7 @@ void UParticleModuleTrailSource::PostEditChangeProperty(FPropertyChangedEvent& P
 
 void UParticleModuleTrailSource::AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp)
 {
+	check(IsInGameThread());
 	switch (SourceMethod)
 	{
 	case PET2SRCM_Actor:

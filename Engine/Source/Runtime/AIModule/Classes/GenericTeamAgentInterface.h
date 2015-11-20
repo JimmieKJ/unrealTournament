@@ -24,6 +24,7 @@ private:
 	enum EPredefinedId
 	{
 		// if you want to change NoTeam's ID update FGenericTeamId::NoTeam
+
 		NoTeamId = 255
 	};
 

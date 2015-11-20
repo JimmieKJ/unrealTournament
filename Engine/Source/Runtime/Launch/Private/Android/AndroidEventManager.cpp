@@ -7,6 +7,7 @@
 #include "CallbackDevice.h"
 #include <android/native_window.h> 
 #include <android/native_window_jni.h> 
+#include "IHeadMountedDisplay.h"
 
 
 DEFINE_LOG_CATEGORY(LogAndroidEvents);
@@ -27,6 +28,8 @@ FAppEventManager* FAppEventManager::GetInstance()
 
 void FAppEventManager::Tick()
 {
+	bool bWindowCreatedThisTick = false;
+	
 	while (!Queue.IsEmpty())
 	{
 		bool bDestroyWindow = false;
@@ -40,11 +43,15 @@ void FAppEventManager::Tick()
 			bCreateWindow = true;
 			PendingWindow = (ANativeWindow*)Event.Data;
 			break;
+		
 		case APP_EVENT_STATE_WINDOW_RESIZED:
-			bWindowChanged = true;
-			break;
 		case APP_EVENT_STATE_WINDOW_CHANGED:
-			bWindowChanged = true;
+			// React on device orientation/windowSize changes only when application has window
+			// In case window was created this tick it should already has correct size
+			if (bHaveWindow && !bWindowCreatedThisTick)
+			{
+				ExecWindowResized();
+			}
 			break;
 		case APP_EVENT_STATE_SAVE_STATE:
 			bSaveState = true; //todo android: handle save state.
@@ -86,7 +93,7 @@ void FAppEventManager::Tick()
 			bHaveGame = true;
 			break;
 
-		// window focus events that follow their own  heirarchy, and might or might not respect App main events heirarchy
+		// window focus events that follow their own hierarchy, and might or might not respect App main events hierarchy
 
 		case APP_EVENT_STATE_WINDOW_GAINED_FOCUS: 
 			bWindowInFocus = true;
@@ -107,20 +114,7 @@ void FAppEventManager::Tick()
 				ExecWindowCreated();
 				bCreateWindow = false;
 				bHaveWindow = true;
-			}
-		}
-
-		if (bWindowChanged)
-		{
-			// wait until window is valid and created. 
-			if(FPlatformMisc::GetHardwareWindow() != NULL)
-			{
-				if(GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
-				{
-					ExecWindowChanged();
-					bWindowChanged = false;
-					bHaveWindow = true;
-				}
+				bWindowCreatedThisTick = true;
 			}
 		}
 
@@ -185,7 +179,6 @@ void FAppEventManager::Tick()
 FAppEventManager::FAppEventManager():
 	FirstInitialized(false)
 	,bCreateWindow(false)
-	,bWindowChanged(false)
 	,bWindowInFocus(false)
 	,bSaveState(false)
 	,bAudioPaused(false)
@@ -206,6 +199,10 @@ void FAppEventManager::HandleWindowCreated(void* InWindow)
 	bool AlreadyInited = FirstInitialized;
 	rc = pthread_mutex_unlock(&MainMutex);
 	check(rc == 0);
+
+	// Make sure window will not be deleted until event is processed
+	// Window could be deleted by OS while event queue stuck at game start-up phase
+	FAndroidWindow::AcquireWindowRef((ANativeWindow*)InWindow);
 
 	if(AlreadyInited)
 	{
@@ -274,23 +271,32 @@ void FAppEventManager::ExecWindowCreated()
 	check(PendingWindow)
 
 	FPlatformMisc::SetHardwareWindow(PendingWindow);
-	PendingWindow = NULL;
+	
+	// When application launched while device is in sleep mode SystemResolution could be set to opposite orientation values
+	// Force to update SystemResolution to current values whenever we create a new window
+	FPlatformRect ScreenRect = FAndroidWindow::GetScreenRect();
+	FSystemResolution::RequestResolutionChange(ScreenRect.Right, ScreenRect.Bottom, EWindowMode::Fullscreen);
 	
 	FAndroidAppEntry::ReInitWindow();
+	
+	// We hold this reference to ensure that window will not be deleted while game starting up
+	// release it when window is finally initialized
+	FAndroidWindow::ReleaseWindowRef(PendingWindow);
+	PendingWindow = nullptr;
+
+	FAndroidApplication::OnWindowSizeChanged();
 }
 
-
-void FAppEventManager::ExecWindowChanged()
+void FAppEventManager::ExecWindowResized()
 {
-	FPlatformRect ScreenRect = FAndroidWindow::GetScreenRect();
-	UE_LOG(LogAndroidEvents, Display, TEXT("ExecWindowChanged : width: %u, height:  %u"), ScreenRect.Right, ScreenRect.Bottom);
-
-	if(GEngine && GEngine->GameViewport && GEngine->GameViewport->ViewportFrame)
+	if (bRunning)
 	{
-		GEngine->GameViewport->ViewportFrame->ResizeFrame(ScreenRect.Right, ScreenRect.Bottom, EWindowMode::Fullscreen);
+		FlushRenderingCommands();
 	}
+	FAndroidWindow::InvalidateCachedScreenRect();
+	FAndroidAppEntry::ReInitWindow();
+	FAndroidApplication::OnWindowSizeChanged();
 }
-
 
 void FAppEventManager::PauseAudio()
 {

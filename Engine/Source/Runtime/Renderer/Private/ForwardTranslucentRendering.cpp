@@ -48,16 +48,18 @@ FGlobalBoundShaderState ForwardCopySceneAlphaBoundShaderState;
 void FForwardShadingSceneRenderer::CopySceneAlpha(FRHICommandListImmediate& RHICmdList, const FViewInfo& View)
 {
 	SCOPED_DRAW_EVENTF(RHICmdList, EventCopy, TEXT("CopySceneAlpha"));
+	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
+
 	RHICmdList.SetRasterizerState(TStaticRasterizerState<FM_Solid, CM_None>::GetRHI());
 	RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false,CF_Always>::GetRHI());
 	RHICmdList.SetBlendState(TStaticBlendState<>::GetRHI());
 
-	GSceneRenderTargets.ResolveSceneColor(RHICmdList);
+	SceneContext.ResolveSceneColor(RHICmdList);
 
-	GSceneRenderTargets.BeginRenderingSceneAlphaCopy(RHICmdList);
+	SceneContext.BeginRenderingSceneAlphaCopy(RHICmdList);
 
-	int X = GSceneRenderTargets.GetBufferSizeXY().X;
-	int Y = GSceneRenderTargets.GetBufferSizeXY().Y;
+	int X = SceneContext.GetBufferSizeXY().X;
+	int Y = SceneContext.GetBufferSizeXY().Y;
 
 	RHICmdList.SetViewport(0, 0, 0.0f, X, Y, 1.0f);
 
@@ -74,11 +76,11 @@ void FForwardShadingSceneRenderer::CopySceneAlpha(FRHICommandListImmediate& RHIC
 		0, 0, 
 		X, Y,
 		FIntPoint(X, Y),
-		GSceneRenderTargets.GetBufferSizeXY(),
+		SceneContext.GetBufferSizeXY(),
 		*ScreenVertexShader,
 		EDRF_UseTriangleOptimization);
 
-	GSceneRenderTargets.FinishRenderingSceneAlphaCopy(RHICmdList);
+	SceneContext.FinishRenderingSceneAlphaCopy(RHICmdList);
 }
 
 
@@ -94,16 +96,19 @@ public:
 
 	const FViewInfo& View;
 	bool bBackFace;
+	float DitheredLODTransitionValue;
 	FHitProxyId HitProxyId;
 
 	/** Initialization constructor. */
 	FDrawTranslucentMeshForwardShadingAction(
 		const FViewInfo& InView,
 		bool bInBackFace,
+		float InDitheredLODTransitionValue,
 		FHitProxyId InHitProxyId
 		):
 		View(InView),
 		bBackFace(bInBackFace),
+		DitheredLODTransitionValue(InDitheredLODTransitionValue),
 		HitProxyId(InHitProxyId)
 	{}
 	
@@ -119,7 +124,7 @@ public:
 	}
 
 	/** Draws the translucent mesh with a specific light-map type, and fog volume type */
-	template<typename LightMapPolicyType>
+	template<typename LightMapPolicyType, int32 NumDynamicPointLights>
 	void Process(
 		FRHICommandList& RHICmdList, 
 		const FProcessBasePassMeshParameters& Parameters,
@@ -130,7 +135,7 @@ public:
 		const bool bIsLitMaterial = Parameters.ShadingModel != MSM_Unlit;
 		const FScene* Scene = Parameters.PrimitiveSceneProxy ? Parameters.PrimitiveSceneProxy->GetPrimitiveSceneInfo()->Scene : NULL;
 
-		TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType> DrawingPolicy(
+		TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights> DrawingPolicy(
 			Parameters.Mesh.VertexFactory,
 			Parameters.Mesh.MaterialRenderProxy,
 			*Parameters.Material,
@@ -143,7 +148,7 @@ public:
 			);
 
 		RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-		DrawingPolicy.SetSharedState(RHICmdList, &View, typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType>::ContextDataType());
+		DrawingPolicy.SetSharedState(RHICmdList, &View, typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights>::ContextDataType());
 
 		for (int32 BatchElementIndex = 0; BatchElementIndex<Parameters.Mesh.Elements.Num(); BatchElementIndex++)
 		{
@@ -154,8 +159,9 @@ public:
 				Parameters.Mesh,
 				BatchElementIndex,
 				bBackFace,
-				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType>::ElementDataType(LightMapElementData),
-				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType>::ContextDataType()
+				DitheredLODTransitionValue,
+				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights>::ElementDataType(LightMapElementData),
+				typename TBasePassForForwardShadingDrawingPolicy<LightMapPolicyType, NumDynamicPointLights>::ContextDataType()
 				);
 			DrawingPolicy.DrawMesh(RHICmdList, Parameters.Mesh, BatchElementIndex);
 		}
@@ -194,7 +200,7 @@ bool FTranslucencyForwardShadingDrawingPolicyFactory::DrawDynamicMesh(
 			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 		}
 
-		ProcessBasePassMeshForForwardShading(
+		ProcessBasePassMeshForForwardShading<FDrawTranslucentMeshForwardShadingAction, 0>(
 			RHICmdList,
 			FProcessBasePassMeshParameters(
 				Mesh,
@@ -208,6 +214,7 @@ bool FTranslucencyForwardShadingDrawingPolicyFactory::DrawDynamicMesh(
 			FDrawTranslucentMeshForwardShadingAction(
 				View,
 				bBackFace,
+				Mesh.DitheredLODTransitionAlpha,
 				HitProxyId
 				)
 			);
@@ -339,7 +346,7 @@ void FForwardShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate& 
 
 			if (!bGammaSpace)
 			{
-				GSceneRenderTargets.BeginRenderingTranslucency(RHICmdList, View);
+				FSceneRenderTargets::Get(RHICmdList).BeginRenderingTranslucency(RHICmdList, View);
 			}
 			else
 			{

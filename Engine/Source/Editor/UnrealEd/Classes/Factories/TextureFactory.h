@@ -92,14 +92,14 @@ class UNREALED_API UTextureFactory : public UFactory
 public:
 	UTextureFactory(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
 
-	// Begin UObject Interface
+	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
-	// End UObject Interface
+	//~ End UObject Interface
 
-	// Begin UFactory Interface
+	//~ Begin UFactory Interface
 	virtual bool DoesSupportClass(UClass* Class) override;
 	virtual UObject* FactoryCreateBinary( UClass* Class, UObject* InParent, FName Name, EObjectFlags Flags, UObject* Context, const TCHAR* Type, const uint8*& Buffer, const uint8* BufferEnd, FFeedbackContext* Warn ) override;
-	// End UFactory Interface
+	//~ End UFactory Interface
 	
 
 	/** Create a texture given the appropriate input parameters	*/

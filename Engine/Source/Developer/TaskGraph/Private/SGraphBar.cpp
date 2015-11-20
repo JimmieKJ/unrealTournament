@@ -63,8 +63,8 @@ int32 SGraphBar::OnPaint( const FPaintArgs& Args, const FGeometry& AllottedGeome
 	bool bEnabled = ShouldBeEnabled( bParentEnabled );
 	const ESlateDrawEffect::Type DrawEffects = bEnabled ? ESlateDrawEffect::None : ESlateDrawEffect::DisabledEffect;
 		
-	const FColor ColorAndOpacitySRGB = InWidgetStyle.GetColorAndOpacityTint();
-	const FColor SelectedBarColor( 255, 255, 255, 255 );
+	const FLinearColor ColorAndOpacitySRGB = InWidgetStyle.GetColorAndOpacityTint();
+	static const FLinearColor SelectedBarColor(FLinearColor::White);
 
 	// Paint inside the border only. 
 	const FVector2D BorderPadding = FTaskGraphStyle::Get()->GetVector("TaskGraph.ProgressBar.BorderPadding");

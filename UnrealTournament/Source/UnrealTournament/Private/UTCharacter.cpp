@@ -543,7 +543,7 @@ FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 			const float Step = 0.1f;
 			for (float TickTime = FMath::Min<float>(GetWorld()->TimeSeconds - GetMesh()->LastRenderTime, 1.0f); TickTime > 0.0f; TickTime -= Step)
 			{
-				GetMesh()->TickAnimation(FMath::Min<float>(TickTime, Step));
+				GetMesh()->TickAnimation(FMath::Min<float>(TickTime, Step), false);
 			}
 		}
 		GetMesh()->AnimUpdateRateParams->bSkipEvaluation = false;
@@ -1374,7 +1374,7 @@ void AUTCharacter::StartRagdoll()
 	
 	if (!GetMesh()->ShouldTickPose())
 	{
-		GetMesh()->TickAnimation(0.0f);
+		GetMesh()->TickAnimation(0.0f, false);
 		GetMesh()->RefreshBoneTransforms();
 		GetMesh()->UpdateComponentToWorld();
 	}
@@ -1382,7 +1382,7 @@ void AUTCharacter::StartRagdoll()
 	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 	GetMesh()->SetAllBodiesNotifyRigidBodyCollision(true); // note that both the component and the body instance need this set for it to apply
-	GetMesh()->UpdateKinematicBonesToAnim(GetMesh()->GetSpaceBases(), true, true, true);
+	GetMesh()->UpdateKinematicBonesToAnim(GetMesh()->GetSpaceBases(), ETeleportType::TeleportPhysics, true);
 	GetMesh()->SetSimulatePhysics(true);
 	GetMesh()->RefreshBoneTransforms();
 	GetMesh()->SetAllBodiesPhysicsBlendWeight(1.0f);
@@ -1488,7 +1488,7 @@ void AUTCharacter::StopRagdoll()
 			FTransform RelativeTransform(DefaultMesh->RelativeRotation, DefaultMesh->RelativeLocation, DefaultMesh->RelativeScale3D);
 			GetMesh()->SetWorldTransform(RelativeTransform * GetCapsuleComponent()->GetComponentTransform());
 
-			RootBody->SetBodyTransform(GetMesh()->GetComponentTransform(), true);
+			RootBody->SetBodyTransform(GetMesh()->GetComponentTransform(), ETeleportType::TeleportPhysics);
 			RootBody->PutInstanceToSleep();
 			RootBody->SetInstanceSimulatePhysics(false, true);
 			RootBody->PhysicsBlendWeight = 1.0f; // second parameter of SetInstanceSimulatePhysics() doesn't actually work at the moment...
@@ -1496,7 +1496,7 @@ void AUTCharacter::StopRagdoll()
 			{
 				if (GetMesh()->Bodies[i] != NULL && GetMesh()->Bodies[i] != RootBody)
 				{
-					GetMesh()->Bodies[i]->SetBodyTransform(BodyTransforms[i], true);
+					GetMesh()->Bodies[i]->SetBodyTransform(BodyTransforms[i], ETeleportType::TeleportPhysics);
 					GetMesh()->Bodies[i]->PutInstanceToSleep();
 					//GetMesh()->Bodies[i]->SetInstanceSimulatePhysics(false, true);
 					//GetMesh()->Bodies[i]->PhysicsBlendWeight = 1.0f;
@@ -1581,7 +1581,7 @@ void AUTCharacter::PlayDying()
 			}
 			// StartRagdoll() changes collision properties, which can potentially result in a new overlap -> more damage -> gib explosion -> Destroy()
 			// SetTimer() has a dumb assert if the target of the function is already destroyed, so we need to check it ourselves
-			if (!bPendingKillPending)
+			if (!IsPendingKillPending())
 			{
 				FTimerHandle TempHandle;
 				GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 15.0f, false);
@@ -1713,7 +1713,7 @@ void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageTy
 			SpawnPos.RemoveScaling();
 		}
 		FActorSpawnParameters Params;
-		Params.bNoCollisionFail = true;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		Params.Instigator = this;
 		Params.Owner = this;
 		AUTGib* Gib = GetWorld()->SpawnActor<AUTGib>(GibClass, SpawnPos.GetLocation(), SpawnPos.Rotator(), Params);
@@ -4734,7 +4734,7 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
-		Params.bNoCollisionFail = true;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		Params.bNoFail = true;
 		Hat = GetWorld()->SpawnActor<AUTHat>(HatClass, GetActorLocation(), GetActorRotation(), Params);
 		if (Hat != nullptr)
@@ -4782,7 +4782,7 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 		FActorSpawnParameters Params;
 		Params.Owner = this;
 		Params.Instigator = this;
-		Params.bNoCollisionFail = true;
+		Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 		Params.bNoFail = true;
 		Eyewear = GetWorld()->SpawnActor<AUTEyewear>(EyewearClass, GetActorLocation(), GetActorRotation(), Params);
 		if (Eyewear != NULL)
@@ -5015,7 +5015,8 @@ void AUTCharacter::PostNetReceiveLocationAndRotation()
 			INetworkPredictionInterface* PredictionInterface = Cast<INetworkPredictionInterface>(GetMovementComponent());
 			if (PredictionInterface)
 			{
-				PredictionInterface->SmoothCorrection(OldLocation, OldRotation);
+				// todo: SteveP look at me pls
+				PredictionInterface->SmoothCorrection(OldLocation, OldRotation, GetActorLocation(), GetActorQuat());
 			}
 		}
 		else if (UTCharacterMovement)
@@ -5252,7 +5253,7 @@ void AUTCharacter::TurnOff()
 
 	if (GetMesh())
 	{
-		GetMesh()->TickAnimation(1.0f);
+		GetMesh()->TickAnimation(1.0f, false);
 		GetMesh()->RefreshBoneTransforms();
 	}
 
@@ -5376,7 +5377,7 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 			FActorSpawnParameters Params;
 			Params.Owner = this;
 			Params.Instigator = this;
-			Params.bNoCollisionFail = true;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			Params.bNoFail = true;
 			LeaderHat = GetWorld()->SpawnActor<AUTHatLeader>(LeaderHatClass, GetActorLocation(), GetActorRotation(), Params);
 			if (LeaderHat != nullptr)

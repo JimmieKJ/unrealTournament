@@ -1,4 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+//
 
 #include "ShaderFormatOpenGL.h"
 #include "Core.h"
@@ -24,16 +25,16 @@ class FShaderFormatGLSL : public IShaderFormat
 	enum 
 	{
 		/** Version for shader format, this becomes part of the DDC key. */
-		UE_SHADER_GLSL_150_VER = 26,
-		UE_SHADER_GLSL_150_MAC_VER = 6,
-		UE_SHADER_GLSL_430_VER = 57,
-		UE_SHADER_GLSL_ES2_VER = 15,
-		UE_SHADER_GLSL_150ES2_VER = 18,
-		UE_SHADER_GLSL_150ES2NOUB_VER = 2,
-		UE_SHADER_GLSL_150ES3_1_VER = 1,
-		UE_SHADER_GLSL_ES2_VER_WEBGL  = 16,
-		UE_SHADER_GLSL_ES2_IOS_VER  = 5,
-		UE_SHADER_GLSL_310_ES_EXT_VER = 3,
+		UE_SHADER_GLSL_150_VER = 60,
+		UE_SHADER_GLSL_150_MAC_VER = 60,
+		UE_SHADER_GLSL_430_VER = 60,
+		UE_SHADER_GLSL_ES2_VER = 60,
+		UE_SHADER_GLSL_150ES2_VER = 60,
+		UE_SHADER_GLSL_150ES2NOUB_VER = 60,
+		UE_SHADER_GLSL_150ES3_1_VER = 60,
+		UE_SHADER_GLSL_ES2_VER_WEBGL  = 60,
+		UE_SHADER_GLSL_ES2_IOS_VER  = 60,
+		UE_SHADER_GLSL_310_ES_EXT_VER = 60,
 	}; 
 
 	void CheckFormat(FName Format) const

@@ -3,20 +3,20 @@
 #pragma once
 
 #define ENGINE_MAJOR_VERSION	4
-#define ENGINE_MINOR_VERSION	8
+#define ENGINE_MINOR_VERSION	11
 #define ENGINE_PATCH_VERSION	0
-
-#define ENGINE_VERSION 2564698
 
 #define ENGINE_IS_LICENSEE_VERSION 0
 
-#define BUILT_FROM_CHANGELIST 2564698
-#define BRANCH_NAME "++depot+UE4-UT"
+#define BUILT_FROM_CHANGELIST 2746626
+#define BRANCH_NAME "UE4-UT"
+
+#define ENGINE_IS_PROMOTED_BUILD (BUILT_FROM_CHANGELIST > 0)
 
 #define EPIC_COMPANY_NAME  "Epic Games, Inc."
 #define EPIC_COPYRIGHT_STRING "Copyright 1998-2015 Epic Games, Inc. All Rights Reserved."
-#define EPIC_PRODUCT_NAME "Unreal Tournament"
-#define EPIC_PRODUCT_IDENTIFIER "UnrealTournament"
+#define EPIC_PRODUCT_NAME "Unreal Engine"
+#define EPIC_PRODUCT_IDENTIFIER "UnrealEngine"
 
 #define ENGINE_VERSION_TEXT_2(x) L ## x
 #define ENGINE_VERSION_TEXT(x) ENGINE_VERSION_TEXT_2(x)

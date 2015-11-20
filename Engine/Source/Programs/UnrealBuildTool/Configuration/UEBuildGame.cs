@@ -3,30 +3,32 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
+using System.Runtime.Serialization;
 
 namespace UnrealBuildTool
 {
 	[Serializable]
 	public class UEBuildGame : UEBuildTarget
 	{
-		public UEBuildGame(TargetDescriptor InDesc, TargetRules InRulesObject, string InTargetCsFilename)
-			: base(InDesc, InRulesObject, "UE4", InTargetCsFilename)
+		public UEBuildGame(SerializationInfo Info, StreamingContext Context)
+			: base(Info, Context)
+		{
+		}
+
+		public UEBuildGame(TargetDescriptor InDesc, TargetRules InRulesObject, RulesAssembly InRulesAssembly, FileReference InTargetCsFilename)
+			: base(InDesc, InRulesObject, InRulesAssembly, "UE4", InTargetCsFilename)
 		{
 			if (ShouldCompileMonolithic())
 			{
-				if ((UnrealBuildTool.IsDesktopPlatform(Platform) == false) ||
-					(Platform == UnrealTargetPlatform.WinRT) ||
-					(Platform == UnrealTargetPlatform.WinRT_ARM))
+				if (!UnrealBuildTool.IsDesktopPlatform(Platform) || Platform == UnrealTargetPlatform.WinRT || Platform == UnrealTargetPlatform.WinRT_ARM)
 				{
 					// We are compiling for a console...
 					// We want the output to go into the <GAME>\Binaries folder
-					if (InRulesObject.bOutputToEngineBinaries == false)
+					if (!InRulesObject.bOutputToEngineBinaries)
 					{
-						for (int Index = 0; Index < OutputPaths.Length; Index++)
-						{
-							OutputPaths[Index] = OutputPaths[Index].Replace("Engine\\Binaries", InDesc.TargetName + "\\Binaries");
-						}
+						OutputPaths = OutputPaths.Select(Path => new FileReference(Path.FullName.Replace("Engine\\Binaries", InDesc.TargetName + "\\Binaries"))).ToList();
 					}
 				}
 			}
@@ -52,14 +54,14 @@ namespace UnrealBuildTool
 
 			{
 				// Make the game executable.
-				UEBuildBinaryConfiguration Config = new UEBuildBinaryConfiguration( InType: UEBuildBinaryType.Executable,
+				UEBuildBinaryConfiguration Config = new UEBuildBinaryConfiguration(InType: UEBuildBinaryType.Executable,
 																					InOutputFilePaths: OutputPaths,
 																					InIntermediateDirectory: EngineIntermediateDirectory,
 																					bInCreateImportLibrarySeparately: (ShouldCompileMonolithic() ? false : true),
-																					bInAllowExports:!ShouldCompileMonolithic(),
-																					InModuleNames: new List<string>() { "Launch" } );
+																					bInAllowExports: !ShouldCompileMonolithic(),
+																					InModuleNames: new List<string>() { "Launch" });
 
-				AppBinaries.Add( new UEBuildBinaryCPP( this, Config ) );
+				AppBinaries.Add(new UEBuildBinaryCPP(this, Config));
 			}
 
 			// Add the other modules that we want to compile along with the executable.  These aren't necessarily

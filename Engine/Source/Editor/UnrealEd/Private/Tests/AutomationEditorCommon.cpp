@@ -68,36 +68,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogAutomationEditorCommon, Log, All);
 
 namespace AutomationEditorCommonUtils
 {
-	/**
-	* Converts a package path to an asset path
-	*
-	* @param PackagePath - The package path to convert
-	*/
-	FString ConvertPackagePathToAssetPath(const FString& PackagePath)
-	{
-		const FString Filename = FPaths::ConvertRelativePathToFull(PackagePath);
-		FString EngineFileName = Filename;
-		FString GameFileName = Filename;
-		if (FPaths::MakePathRelativeTo(EngineFileName, *FPaths::EngineContentDir()) && !EngineFileName.Contains(TEXT("../")))
-		{
-			const FString ShortName = FPaths::GetBaseFilename(EngineFileName);
-			const FString PathName = FPaths::GetPath(EngineFileName);
-			const FString AssetName = FString::Printf(TEXT("/Engine/%s/%s.%s"), *PathName, *ShortName, *ShortName);
-			return AssetName;
-		}
-		else if (FPaths::MakePathRelativeTo(GameFileName, *FPaths::GameContentDir()) && !GameFileName.Contains(TEXT("../")))
-		{
-			const FString ShortName = FPaths::GetBaseFilename(GameFileName);
-			const FString PathName = FPaths::GetPath(GameFileName);
-			const FString AssetName = FString::Printf(TEXT("/Game/%s/%s.%s"), *PathName, *ShortName, *ShortName);
-			return AssetName;
-		}
-		else
-		{
-			UE_LOG(LogAutomationEditorCommon, Error, TEXT("PackagePath (%s) is invalid for the current project"), *PackagePath);
-			return TEXT("");
-		}
-	}
 
 	/**
 	* Imports an object using a given factory
@@ -502,6 +472,24 @@ namespace AutomationEditorCommonUtils
 			}
 		}
 	}
+
+	bool SetOrthoViewportView(const FVector& ViewLocation, const FRotator& ViewRotation)
+	{
+		for (int32 i = 0; i < GEditor->LevelViewportClients.Num(); i++)
+		{
+			FLevelEditorViewportClient* ViewportClient = GEditor->LevelViewportClients[i];
+			if (!ViewportClient->IsOrtho())
+			{
+				ViewportClient->SetViewLocation(ViewLocation);
+				ViewportClient->SetViewRotation(ViewRotation);
+				return true;
+			}
+		}
+
+		UE_LOG(LogEditorAutomationTests, Log, TEXT("An ortho viewport was not found.  May affect the test results."));
+		return false;
+	}
+
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -674,7 +662,7 @@ bool FAddStaticMeshCommand::Update()
 
 	UE_LOG(LogEditorAutomationTests, Log, TEXT("Static Mesh cube has been added to 0, 0, 0."))
 
-		return true;
+	return true;
 }
 
 /**
@@ -685,7 +673,7 @@ bool FBuildLightingCommand::Update()
 	//If we are running with -NullRHI then we have to skip this step.
 	if (GUsingNullRHI)
 	{
-		UE_LOG(LogEditorAutomationTests, Warning, TEXT("SKIPPED Build Lighting Step.  You're currently running with -NullRHI."));
+		UE_LOG(LogEditorAutomationTests, Log, TEXT("SKIPPED Build Lighting Step.  You're currently running with -NullRHI."));
 		return true;
 	}
 
@@ -785,6 +773,57 @@ bool FWaitToFinishBuildDeployCommand::Update()
 }
 
 //////////////////////////////////////////////////////////////////////
+//Asset Path Commands
+
+/**
+* Converts a package path to an asset path
+*
+* @param PackagePath - The package path to convert
+*/
+FString FEditorAutomationTestUtilities::ConvertPackagePathToAssetPath(const FString& PackagePath)
+{
+	const FString Filename = FPaths::ConvertRelativePathToFull(PackagePath);
+	FString EngineFileName = Filename;
+	FString GameFileName = Filename;
+	if (FPaths::MakePathRelativeTo(EngineFileName, *FPaths::EngineContentDir()) && !EngineFileName.Contains(TEXT("../")))
+	{
+		const FString ShortName = FPaths::GetBaseFilename(EngineFileName);
+		const FString PathName = FPaths::GetPath(EngineFileName);
+		const FString AssetName = FString::Printf(TEXT("/Engine/%s/%s.%s"), *PathName, *ShortName, *ShortName);
+		return AssetName;
+	}
+	else if (FPaths::MakePathRelativeTo(GameFileName, *FPaths::GameContentDir()) && !GameFileName.Contains(TEXT("../")))
+	{
+		const FString ShortName = FPaths::GetBaseFilename(GameFileName);
+		const FString PathName = FPaths::GetPath(GameFileName);
+		const FString AssetName = FString::Printf(TEXT("/Game/%s/%s.%s"), *PathName, *ShortName, *ShortName);
+		return AssetName;
+	}
+	else
+	{
+		UE_LOG(LogAutomationEditorCommon, Error, TEXT("PackagePath (%s) is invalid for the current project"), *PackagePath);
+		return TEXT("");
+	}
+}
+
+/**
+* Gets the asset data from a package path
+*
+* @param PackagePath - The package path used to look up the asset data
+*/
+FAssetData FEditorAutomationTestUtilities::GetAssetDataFromPackagePath(const FString& PackagePath)
+{
+	FString AssetPath = FEditorAutomationTestUtilities::ConvertPackagePathToAssetPath(PackagePath);
+	if (AssetPath.Len() > 0)
+	{
+		IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
+		return AssetRegistry.GetAssetByObjectPath(*AssetPath);
+	}
+
+	return FAssetData();
+}
+
+//////////////////////////////////////////////////////////////////////
 //Find Asset Commands
 
 /**
@@ -862,113 +901,10 @@ void FEditorAutomationTestUtilities::CollectGameContentTestsByClass(UClass * Cla
 }
 
 /**
-* Generates a list of misc. assets from the GAME.
+* Generates a list of assets from the GAME by a specific type.
 * This is to be used by the GetTest() function.
 */
-void FEditorAutomationTestUtilities::CollectMiscGameContentTestsByClass(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands)
-{
-	//Setting the Asset Registry
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	TArray<FAssetData> ObjectList;
-	FARFilter AssetFilter;
-
-	//This is a list of classes that we don't want to be in the misc category.
-	TArray<FName> ExcludeClassesList;
-	ExcludeClassesList.Add(UAimOffsetBlendSpace::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UAimOffsetBlendSpace1D::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UAnimBlueprint::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UAnimMontage::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UAnimSequence::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UBehaviorTree::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UBlendSpace::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UBlendSpace1D::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UBlueprint::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UDestructibleMesh::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UDialogueVoice::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UDialogueWave::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UFont::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UMaterial::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UMaterialFunction::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UMaterialInstanceConstant::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UMaterialParameterCollection::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UParticleSystem::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UPhysicalMaterial::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UPhysicsAsset::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UReverbEffect::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USkeletalMesh::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USkeleton::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USlateBrushAsset::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USlateWidgetStyleAsset::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USoundAttenuation::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USoundClass::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USoundCue::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USoundMix::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USoundWave::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UStaticMesh::StaticClass()->GetFName());
-	ExcludeClassesList.Add(USubsurfaceProfile::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UTexture::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UTexture2D::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UTextureCube::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UTextureRenderTarget::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UTextureRenderTarget2D::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UUserDefinedEnum::StaticClass()->GetFName());
-	ExcludeClassesList.Add(UWorld::StaticClass()->GetFName());
-
-	//Generating the list of assets.
-	//This list is being filtered by the game folder and class type.  The results are placed into the ObjectList variable.
-	AssetFilter.PackagePaths.Add("/Game");
-	AssetFilter.bRecursivePaths = true;
-	AssetRegistryModule.Get().GetAssets(AssetFilter, ObjectList);
-
-	//Loop through the list of assets, make their path full and a string, then add them to the test.
-	for (auto ObjIter = ObjectList.CreateConstIterator(); ObjIter; ++ObjIter)
-	{
-		const FAssetData& Asset = *ObjIter;
-		//First we check if the class is valid.  If not then we move onto the next object.
-		if (Asset.GetClass() != NULL)
-		{
-			//Variable that holds the class FName for the current asset iteration.
-			FName AssetClassFName = Asset.GetClass()->GetFName();
-
-			//Counter used to keep track for the following for loop.
-			float ExcludedClassesCounter = 1;
-
-			for (auto ExcludeIter = ExcludeClassesList.CreateConstIterator(); ExcludeIter; ++ExcludeIter)
-			{
-				FName ExludedName = *ExcludeIter;
-
-				//If the classes are the same then we don't want this asset. So we move onto the next one instead.
-				if (AssetClassFName == ExludedName)
-				{
-					break;
-				}
-
-				//We run out of class names in our Excluded list then we want the current ObjectList asset.
-				if ((ExcludedClassesCounter + 1) > ExcludeClassesList.Num())
-				{
-					FString Filename = Asset.ObjectPath.ToString();
-					//convert to full paths
-					Filename = FPackageName::LongPackageNameToFilename(Filename);
-
-					if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
-					{
-						FString BeautifiedFilename = Asset.AssetName.ToString();
-						OutBeautifiedNames.Add(BeautifiedFilename);
-						OutTestCommands.Add(Asset.ObjectPath.ToString());
-					}
-
-					break;
-				}
-				ExcludedClassesCounter++;
-			}
-		}
-	}
-}
-
-/**
-* Generates a list of assets from the GAME by a specific type.
-*/
-void FEditorAutomationTestUtilities::CollectGameContentByClass(const UClass * Class, bool bRecursiveClass, TArray<FString>& OutAssetList)
+void FEditorAutomationTestUtilities::CollectGameContentTests(TArray<FString>& OutBeautifiedNames, TArray <FString>& OutTestCommands)
 {
 	//Setting the Asset Registry
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -976,12 +912,10 @@ void FEditorAutomationTestUtilities::CollectGameContentByClass(const UClass * Cl
 	//Variable setups
 	TArray<FAssetData> ObjectList;
 	FARFilter AssetFilter;
-
-	//Generating the list of assets.
-	//This list is being filtered by the game folder and class type.  The results are placed into the ObjectList variable.
-	AssetFilter.ClassNames.Add(Class->GetFName());
+	
+	//removed path as a filter as it causes two large lists to be sorted.  Filtering on "game" directory on iteration
 	AssetFilter.PackagePaths.Add("/Game");
-	AssetFilter.bRecursiveClasses = bRecursiveClass;
+	AssetFilter.bRecursiveClasses = true;
 	AssetFilter.bRecursivePaths = true;
 	AssetRegistryModule.Get().GetAssets(AssetFilter, ObjectList);
 
@@ -990,11 +924,17 @@ void FEditorAutomationTestUtilities::CollectGameContentByClass(const UClass * Cl
 	{
 		const FAssetData& Asset = *ObjIter;
 		FString Filename = Asset.ObjectPath.ToString();
-		//convert to full paths
-		Filename = FPackageName::LongPackageNameToFilename(Filename);
-		if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+
+		if (Filename.StartsWith("/Game"))
 		{
-			OutAssetList.Add(Asset.ObjectPath.ToString());
+			//convert to full paths
+			Filename = FPackageName::LongPackageNameToFilename(Filename);
+			if (FAutomationTestFramework::GetInstance().ShouldTestContent(Filename))
+			{
+				FString BeautifiedFilename = FString::Printf(TEXT("%s.%s"), *Asset.GetClass()->GetFName().ToString(), *Asset.AssetName.ToString());
+				OutBeautifiedNames.Add(BeautifiedFilename);
+				OutTestCommands.Add(Asset.ObjectPath.ToString());
+			}
 		}
 	}
 }

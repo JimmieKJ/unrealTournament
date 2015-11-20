@@ -13,6 +13,7 @@ public:
 
 	SLATE_BEGIN_ARGS(SProjectLauncherProfileNameDescEditor) { }
 		SLATE_ATTRIBUTE(ILauncherProfilePtr, LaunchProfile)
+		SLATE_ATTRIBUTE(ILauncherProfileManagerPtr, InModel)
 	SLATE_END_ARGS()
 
 public:
@@ -23,7 +24,7 @@ public:
 	 * @param InArgs The Slate argument list.
 	 * @param InModel The data model.
 	 */
-	void Construct(const FArguments& InArgs, bool InShowAddDescriptionText);
+	void Construct(const FArguments& InArgs, const FProjectLauncherModelRef& InModel, bool InShowAddDescriptionText);
 
 	/**
 	 * Triggers a name edit for the profile.
@@ -57,7 +58,7 @@ private:
 		ILauncherProfilePtr LaunchProfile = LaunchProfileAttr.Get();
 		if (LaunchProfile.IsValid())
 		{
-			LaunchProfile->SetName(NewText.ToString());
+			Model->GetProfileManager()->ChangeProfileName(LaunchProfile.ToSharedRef(), NewText.ToString());
 		}
 	}
 
@@ -94,6 +95,9 @@ private:
 	}
 
 private:
+
+	/** Holds a pointer to the data model. */
+	FProjectLauncherModelPtr Model;
 
 	// Attribute for the launch profile this widget edits. 
 	TAttribute<ILauncherProfilePtr> LaunchProfileAttr;

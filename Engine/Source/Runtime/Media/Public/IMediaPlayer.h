@@ -3,10 +3,13 @@
 #pragma once
 
 #include "IMediaInfo.h"
-#include "IMediaTrack.h"
+#include "IMediaStream.h"
 
 
-class IMediaTrack;
+class IMediaStream;
+class IMediaAudioTrack;
+class IMediaCaptionTrack;
+class IMediaVideoTrack;
 
 
 /**
@@ -31,7 +34,7 @@ enum class EMediaSeekDirection
 /**
  * Interface for media players.
  *
- * @see IMediaTrack
+ * @see IMediaStream
  */
 class IMediaPlayer
 {
@@ -45,6 +48,22 @@ public:
 	 * @see IsReady, Open
 	 */
 	virtual void Close() = 0;
+
+	/**
+	 * Get the media's audio tracks.
+	 *
+	 * @return Collection of audio tracks.
+	 * @see GetCaptionTracks, GetVideoTracks
+	 */
+	virtual const TArray<TSharedRef<IMediaAudioTrack, ESPMode::ThreadSafe>>& GetAudioTracks() const = 0;
+
+	/**
+	 * Get the media's caption tracks.
+	 *
+	 * @return Collection of caption tracks.
+	 * @see GetAudioTracks, GetVideoTracks
+	 */
+	virtual const TArray<TSharedRef<IMediaCaptionTrack, ESPMode::ThreadSafe>>& GetCaptionTracks() const = 0;
 
 	/**
 	 * Gets the last error that occurred during media loading or playback.
@@ -77,12 +96,12 @@ public:
 	virtual FTimespan GetTime() const = 0;
 
 	/**
-	 * Gets access to the media's audio, video and other tracks.
+	 * Get the media's video tracks.
 	 *
-	 * @return Media tracks interface.
-	 * @see GetFirstTrack, GetTrack
+	 * @return Collection of video tracks.
+	 * @see GetAudioTracks, GetCaptionTracks
 	 */
-	virtual const TArray<TSharedRef<IMediaTrack, ESPMode::ThreadSafe>>& GetTracks() const = 0;
+	virtual const TArray<TSharedRef<IMediaVideoTrack, ESPMode::ThreadSafe>>& GetVideoTracks() const = 0;
 
 	/**
 	 * Checks whether playback is currently looping.
@@ -121,23 +140,33 @@ public:
 	virtual bool IsReady() const = 0;
 
 	/**
-	 * Opens a media from a file on disk.
+	 * Opens a media from a URL, possibly asynchronously.
+	 *
+	 * The media may not necessarily be opened after this function succeeds,
+	 * because opening may happen asynchronously. Subscribe to the OnOpened
+	 * OnOpenFailed events to detect when the media finished or failed to
+	 * open. These events are only triggered if Open returns true.
 	 *
 	 * @param Url The URL of the media to open (file name or web address).
-	 * @return true if the media was opened successfully, false otherwise.
-	 * @see Close, IsReady
+	 * @return true if the media is being opened, false otherwise.
+	 * @see Close, IsReady, OnOpen, OnOpenFailed
 	 */
-	virtual bool Open( const FString& Url ) = 0;
+	virtual bool Open(const FString& Url) = 0;
 
 	/**
-	 * Opens a media from a buffer.
+	 * Opens a media from a file or memory archive, possibly asynchronously.
 	 *
-	 * @param Buffer The buffer holding the media data.
+	 * The media may not necessarily be opened after this function succeeds,
+	 * because opening may happen asynchronously. Subscribe to the OnOpened
+	 * OnOpenFailed events to detect when the media finished or failed to
+	 * open. These events are only triggered if Open returns true.
+	 *
+	 * @param Archive The archive holding the media data.
 	 * @param OriginalUrl The original URL of the media that was loaded into the buffer.
-	 * @return true if the media was opened, false otherwise.
-	 * @see Close, IsReady
+	 * @return true if the media is being opened, false otherwise.
+	 * @see Close, IsReady, OnOpen, OnOpenFailed
 	 */
-	virtual bool Open( const TSharedRef<TArray<uint8>>& Buffer, const FString& OriginalUrl ) = 0;
+	virtual bool Open(const TSharedRef<FArchive, ESPMode::ThreadSafe>& Archive, const FString& OriginalUrl) = 0;
 
 	/**
 	 * Changes the media's playback time.
@@ -146,7 +175,7 @@ public:
 	 * @return true on success, false otherwise.
 	 * @see GetTime
 	 */
-	virtual bool Seek( const FTimespan& Time ) = 0;
+	virtual bool Seek(const FTimespan& Time) = 0;
 
 	/**
 	 * Sets whether playback should be looping.
@@ -154,7 +183,7 @@ public:
 	 * @param Looping Enables or disables looping.
 	 * @see IsLooping
 	 */
-	virtual bool SetLooping( bool Looping ) = 0;
+	virtual bool SetLooping(bool Looping) = 0;
 
 	/**
 	 * Sets the current playback rate.
@@ -180,50 +209,15 @@ public:
 	DECLARE_EVENT_OneParam(IMediaPlayer, FOnMediaOpened, FString /*OpenedUrl*/)
 	virtual FOnMediaOpened& OnOpened() = 0;
 
+	/** Gets an event delegate that is invoked when media failed to open. */
+	DECLARE_EVENT_OneParam(IMediaPlayer, FOnMediaOpenFailed, FString /*FailedUrl*/)
+	virtual FOnMediaOpenFailed& OnOpenFailed() = 0;
+
+	/** Gets an event delegate that is invoked when the media tracks have changed. */
+	DECLARE_EVENT(IMediaPlayer, FOnTracksChanged)
+	virtual FOnTracksChanged& OnTracksChanged() = 0;
+
 public:
-
-	/**
-	 * Gets the first media track matching the specified type.
-	 *
-	 * @param TrackType The expected type of the track, i.e. audio or video.
-	 * @return The first matching track, nullptr otherwise.
-	 * @see GetTrack, GetTracks
-	 */
-	TSharedPtr<IMediaTrack, ESPMode::ThreadSafe> GetFirstTrack( EMediaTrackTypes TrackType )
-	{
-		for (const TSharedRef<IMediaTrack, ESPMode::ThreadSafe>& Track : GetTracks())
-		{
-			if (Track->GetType() == TrackType)
-			{
-				return Track;
-			}
-		}
-
-		return nullptr;
-	}
-
-	/**
-	 * Gets the media track with the specified index and type.
-	 *
-	 * @param TrackIndex The index of the track to get.
-	 * @param TrackType The expected type of the track, i.e. audio or video.
-	 * @return The track if it exists, nullptr otherwise.
-	 * @see GetFirstTrack, GetTracks
-	 */
-	TSharedPtr<IMediaTrack, ESPMode::ThreadSafe> GetTrack( int32 TrackIndex, EMediaTrackTypes TrackType )
-	{
-		if (GetTracks().IsValidIndex(TrackIndex))
-		{
-			TSharedPtr<IMediaTrack, ESPMode::ThreadSafe> Track = GetTracks()[TrackIndex];
-
-			if (Track->GetType() == TrackType)
-			{
-				return Track;
-			}
-		}
-
-		return nullptr;
-	}
 
 	/**
 	 * Pauses media playback.
@@ -259,7 +253,7 @@ public:
 	 * @return true on success, false otherwise.
 	 * @see GetDuration, GetTime
 	 */
-	bool Seek( const FTimespan& TimeOffset, EMediaSeekDirection Direction )
+	bool Seek(const FTimespan& TimeOffset, EMediaSeekDirection Direction)
 	{
 		FTimespan SeekTime;
 

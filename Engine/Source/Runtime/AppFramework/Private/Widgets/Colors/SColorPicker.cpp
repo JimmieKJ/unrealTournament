@@ -63,6 +63,12 @@ void SColorPicker::Construct( const FArguments& InArgs )
 	DisplayGamma = InArgs._DisplayGamma;
 	bClosedViaOkOrCancel = false;
 
+	if ( InArgs._sRGBOverride.IsSet() )
+	{
+		OriginalSRGBOption = SColorThemesViewer::bSRGBEnabled;
+		SColorThemesViewer::bSRGBEnabled = InArgs._sRGBOverride.GetValue();
+	}
+
 	RegisterActiveTimer( 0.f, FWidgetActiveTimerDelegate::CreateSP( this, &SColorPicker::AnimatePostConstruct ) );
 
 	// We need a parent window to set the close callback
@@ -251,184 +257,184 @@ void SColorPicker::GenerateDefaultColorPickerContent( bool bAdvancedSectionExpan
 		SNew(SVerticalBox)
 
 		+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SGridPanel)
-					.FillColumn(0, 1.0f)
+		.AutoHeight()
+		[
+			SNew(SGridPanel)
+			.FillColumn(0, 1.0f)
 
-				+ SGridPanel::Slot(0, 0)
-					.Padding(0.0f, 1.0f, 20.0f, 1.0f)
+			+ SGridPanel::Slot(0, 0)
+			.Padding(0.0f, 1.0f, 20.0f, 1.0f)
+			[
+				SNew(SHorizontalBox)
+
+				+ SHorizontalBox::Slot()
+				.FillWidth(1.0f)
+				.Padding(0.0f, 1.0f)
+				[
+					SNew(SOverlay)
+
+					+ SOverlay::Slot()
+					[
+						// color theme bar
+						SAssignNew(CurrentThemeBar, SThemeColorBlocksBar)
+						.ColorTheme(this, &SColorPicker::HandleThemeBarColorTheme)
+						.EmptyText(LOCTEXT("EmptyBarHint", "Drag & drop colors here to save"))
+						.HideTrashCallback(this, &SColorPicker::HideSmallTrash)
+						.ShowTrashCallback(this, &SColorPicker::ShowSmallTrash)
+						.ToolTipText(LOCTEXT("CurrentThemeBarToolTip", "Current Color Theme"))
+						.UseAlpha(SharedThis(this), &SColorPicker::HandleThemeBarUseAlpha)
+						.UseSRGB(SharedThis(this), &SColorPicker::HandleColorPickerUseSRGB)
+						.OnSelectColor(this, &SColorPicker::HandleThemeBarColorSelected)
+					]
+
+					// hack: need to fix SThemeColorBlocksBar::EmptyText to render properly
+					+ SOverlay::Slot()
+					.HAlign(HAlign_Center)
+					.VAlign(VAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(LOCTEXT("EmptyBarHint", "Drag & drop colors here to save"))
+						.Visibility(this, &SColorPicker::HandleThemeBarHintVisibility)
+					]
+				]
+
+				+ SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					// color theme selector
+					SAssignNew(ColorThemeButtonOrSmallTrash, SBorder)
+					.BorderImage(FStyleDefaults::GetNoBrush())
+					.Padding(0.0f)
+				]
+			]
+
+			+ SGridPanel::Slot(1, 0)
+			.HAlign(HAlign_Right)
+			.VAlign(VAlign_Center)
+			[
+				// sRGB check box
+				SNew(SCheckBox)
+				.ToolTipText(LOCTEXT("SRGBCheckboxToolTip", "Toggle gamma corrected sRGB previewing"))
+				.IsChecked(this, &SColorPicker::HandleSRGBCheckBoxIsChecked)
+				.OnCheckStateChanged(this, &SColorPicker::HandleSRGBCheckBoxCheckStateChanged)
+				[
+					SNew(STextBlock)
+					.Text(LOCTEXT("SRGBCheckboxLabel", "sRGB Preview"))
+				]
+			]
+
+			+ SGridPanel::Slot(0, 1)
+			.Padding(0.0f, 8.0f, 20.0f, 0.0f)
+			[
+				SNew(SBorder)
+				.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
+				.Padding(0.0f)
+				.OnMouseButtonDown(this, &SColorPicker::HandleColorAreaMouseDown)
+				[
+					SNew(SOverlay)
+
+					// color wheel
+					+ SOverlay::Slot()
 					[
 						SNew(SHorizontalBox)
 
 						+ SHorizontalBox::Slot()
-							.FillWidth(1.0f)
-							.Padding(0.0f, 1.0f)
-							[
-								SNew(SOverlay)
-
-								+ SOverlay::Slot()
-									[
-										// color theme bar
-										SAssignNew(CurrentThemeBar, SThemeColorBlocksBar)
-											.ColorTheme(this, &SColorPicker::HandleThemeBarColorTheme)
-											.EmptyText(LOCTEXT("EmptyBarHint", "Drag & drop colors here to save"))
-											.HideTrashCallback(this, &SColorPicker::HideSmallTrash)
-											.ShowTrashCallback(this, &SColorPicker::ShowSmallTrash)
-											.ToolTipText(LOCTEXT("CurrentThemeBarToolTip", "Current Color Theme"))
-											.UseAlpha(SharedThis(this), &SColorPicker::HandleThemeBarUseAlpha)
-											.UseSRGB(SharedThis(this), &SColorPicker::HandleColorPickerUseSRGB)
-											.OnSelectColor(this, &SColorPicker::HandleThemeBarColorSelected)
-									]
-
-								// hack: need to fix SThemeColorBlocksBar::EmptyText to render properly
-								+ SOverlay::Slot()
-									.HAlign(HAlign_Center)
-									.VAlign(VAlign_Center)
-									[
-										SNew(STextBlock)
-											.Text(LOCTEXT("EmptyBarHint", "Drag & drop colors here to save"))
-											.Visibility(this, &SColorPicker::HandleThemeBarHintVisibility)
-									]
-							]
+						.FillWidth(1.0f)
+						.HAlign(HAlign_Center)
+						[
+							SNew(SColorWheel)
+							.SelectedColor(this, &SColorPicker::GetCurrentColor)
+							.Visibility(this, &SColorPicker::HandleColorPickerModeVisibility, EColorPickerModes::Wheel)
+							.OnValueChanged(this, &SColorPicker::HandleColorSpectrumValueChanged)
+							.OnMouseCaptureBegin(this, &SColorPicker::HandleInteractiveChangeBegin)
+							.OnMouseCaptureEnd(this, &SColorPicker::HandleInteractiveChangeEnd)
+						]
 
 						+ SHorizontalBox::Slot()
-							.AutoWidth()
-							[
-								// color theme selector
-								SAssignNew(ColorThemeButtonOrSmallTrash, SBorder)
-									.BorderImage(FStyleDefaults::GetNoBrush())
-									.Padding(0.0f)							
-							]
+						.AutoWidth()
+						.Padding(4.0f, 0.0f)
+						[
+							// saturation slider
+							MakeColorSlider(EColorPickerChannels::Saturation)
+						]
+
+						+ SHorizontalBox::Slot()
+						.AutoWidth()
+						[
+							// value slider
+							MakeColorSlider(EColorPickerChannels::Value)
+						]
 					]
 
-				+ SGridPanel::Slot(1, 0)
-					.HAlign(HAlign_Right)
-					.VAlign(VAlign_Center)
+					// color spectrum
+					+ SOverlay::Slot()
 					[
-						// sRGB check box
-						SNew(SCheckBox)
-							.ToolTipText(LOCTEXT("SRGBCheckboxToolTip", "Toggle gamma corrected sRGB previewing"))
-							.IsChecked(this, &SColorPicker::HandleSRGBCheckBoxIsChecked)
-							.OnCheckStateChanged(this, &SColorPicker::HandleSRGBCheckBoxCheckStateChanged)
-							[
-								SNew(STextBlock)
-									.Text(LOCTEXT("SRGBCheckboxLabel", "sRGB"))
-							]
+						SNew(SBox)
+						.HeightOverride(200.0f)
+						.WidthOverride(292.0f)
+						[
+							SNew(SColorSpectrum)
+							.SelectedColor(this, &SColorPicker::GetCurrentColor)
+							.Visibility(this, &SColorPicker::HandleColorPickerModeVisibility, EColorPickerModes::Spectrum)
+							.OnValueChanged(this, &SColorPicker::HandleColorSpectrumValueChanged)
+							.OnMouseCaptureBegin(this, &SColorPicker::HandleInteractiveChangeBegin)
+							.OnMouseCaptureEnd(this, &SColorPicker::HandleInteractiveChangeEnd)
+						]
 					]
-
-				+ SGridPanel::Slot(0, 1)
-					.Padding(0.0f, 8.0f, 20.0f, 0.0f)
-					[
-						SNew(SBorder)
-							.BorderImage(FCoreStyle::Get().GetBrush("NoBorder"))
-							.Padding(0.0f)
-							.OnMouseButtonDown(this, &SColorPicker::HandleColorAreaMouseDown)
-							[
-								SNew(SOverlay)
-
-								// color wheel
-								+ SOverlay::Slot()
-									[
-										SNew(SHorizontalBox)
-
-										+ SHorizontalBox::Slot()
-											.FillWidth(1.0f)
-											.HAlign(HAlign_Center)
-											[
-												SNew(SColorWheel)
-													.SelectedColor(this, &SColorPicker::GetCurrentColor)
-													.Visibility(this, &SColorPicker::HandleColorPickerModeVisibility, EColorPickerModes::Wheel)
-													.OnValueChanged(this, &SColorPicker::HandleColorSpectrumValueChanged)
-													.OnMouseCaptureBegin(this, &SColorPicker::HandleInteractiveChangeBegin)
-													.OnMouseCaptureEnd(this, &SColorPicker::HandleInteractiveChangeEnd)
-											]
-
-										+ SHorizontalBox::Slot()
-											.AutoWidth()
-											.Padding(4.0f, 0.0f)
-											[
-												// saturation slider
-												MakeColorSlider(EColorPickerChannels::Saturation)
-											]
-
-										+ SHorizontalBox::Slot()
-											.AutoWidth()
-											[
-												// value slider
-												MakeColorSlider(EColorPickerChannels::Value)
-											]
-									]
-
-								// color spectrum
-								+ SOverlay::Slot()
-									[
-										SNew(SBox)
-											.HeightOverride(200.0f)
-											.WidthOverride(292.0f)
-											[
-												SNew(SColorSpectrum)
-													.SelectedColor(this, &SColorPicker::GetCurrentColor)
-													.Visibility(this, &SColorPicker::HandleColorPickerModeVisibility, EColorPickerModes::Spectrum)
-													.OnValueChanged(this, &SColorPicker::HandleColorSpectrumValueChanged)
-													.OnMouseCaptureBegin(this, &SColorPicker::HandleInteractiveChangeBegin)
-													.OnMouseCaptureEnd(this, &SColorPicker::HandleInteractiveChangeEnd)
-											]
-									]
-							]
-					]
-
-				+ SGridPanel::Slot(1, 1)
-					.Padding(0.0f, 8.0f, 0.0f, 0.0f)
-					[
-						SNew(SVerticalBox)
-
-						+ SVerticalBox::Slot()
-							.AutoHeight()
-							[
-								SNew(SBox)
-									.HeightOverride(100.0f)
-									.WidthOverride(70.0f)
-									[
-										// color preview
-										MakeColorPreviewBox()
-									]
-							]
-
-						+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(0.0f, 16.0f, 0.0f, 0.0f)
-							.VAlign(VAlign_Top)
-							[
-								SNew(SHorizontalBox)
-
-								+ SHorizontalBox::Slot()
-									.HAlign(HAlign_Left)
-									[
-										// mode selector
-										SNew(SButton)
-											.OnClicked(this, &SColorPicker::HandleColorPickerModeButtonClicked)
-											.Content()
-											[
-												SNew(SImage)
-													.Image(FCoreStyle::Get().GetBrush("ColorPicker.Mode"))
-													.ToolTipText(LOCTEXT("ColorPickerModeEToolTip", "Toggle between color wheel and color spectrum."))
-											]									
-									]
-
-								+ SHorizontalBox::Slot()
-									.HAlign(HAlign_Right)
-									[
-										// eye dropper
-										SNew(SEyeDropperButton)
-											.OnValueChanged(this, &SColorPicker::HandleRGBColorChanged)
-											.OnBegin(this, &SColorPicker::HandleInteractiveChangeBegin)
-											.OnComplete(this, &SColorPicker::HandleEyeDropperButtonComplete)
-											.DisplayGamma(DisplayGamma)								
-									]
-							]
-					]
+				]
 			]
+
+			+ SGridPanel::Slot(1, 1)
+			.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+			[
+				SNew(SVerticalBox)
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SBox)
+					.HeightOverride(100.0f)
+					.WidthOverride(70.0f)
+					[
+						// color preview
+						MakeColorPreviewBox()
+					]
+				]
+
+				+ SVerticalBox::Slot()
+				.AutoHeight()
+				.Padding(0.0f, 16.0f, 0.0f, 0.0f)
+				.VAlign(VAlign_Top)
+				[
+					SNew(SHorizontalBox)
+
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					[
+						// mode selector
+						SNew(SButton)
+						.OnClicked(this, &SColorPicker::HandleColorPickerModeButtonClicked)
+						.Content()
+						[
+							SNew(SImage)
+							.Image(FCoreStyle::Get().GetBrush("ColorPicker.Mode"))
+							.ToolTipText(LOCTEXT("ColorPickerModeEToolTip", "Toggle between color wheel and color spectrum."))
+						]									
+					]
+
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Right)
+					[
+						// eye dropper
+						SNew(SEyeDropperButton)
+						.OnValueChanged(this, &SColorPicker::HandleRGBColorChanged)
+						.OnBegin(this, &SColorPicker::HandleInteractiveChangeBegin)
+						.OnComplete(this, &SColorPicker::HandleEyeDropperButtonComplete)
+						.DisplayGamma(DisplayGamma)
+					]
+				]
+			]
+		]
 
 		// advanced settings
 		+ SVerticalBox::Slot()
@@ -436,104 +442,132 @@ void SColorPicker::GenerateDefaultColorPickerContent( bool bAdvancedSectionExpan
 			.Padding(0.0f, 4.0f, 0.0f, 0.0f)
 			[
 				SNew(SExpandableArea)
-					.AreaTitle(LOCTEXT("AdvancedAreaTitle", "Advanced"))
-					.BorderBackgroundColor(FLinearColor::Transparent)
-					.InitiallyCollapsed(!bAdvancedSectionExpanded)
-					.OnAreaExpansionChanged(this, &SColorPicker::HandleAdvancedAreaExpansionChanged)
-					.Padding(FMargin(0.0f, 1.0f, 0.0f, 8.0f))
-					.BodyContent()
+				.AreaTitle(LOCTEXT("AdvancedAreaTitle", "Advanced"))
+				.BorderBackgroundColor(FLinearColor::Transparent)
+				.InitiallyCollapsed(!bAdvancedSectionExpanded)
+				.OnAreaExpansionChanged(this, &SColorPicker::HandleAdvancedAreaExpansionChanged)
+				.Padding(FMargin(0.0f, 1.0f, 0.0f, 8.0f))
+				.BodyContent()
+				[
+					SNew(SHorizontalBox)
+
+					// RGBA inputs
+					+ SHorizontalBox::Slot()
+						.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+						[
+							SNew(SVerticalBox)
+
+							// Red
+							+ SVerticalBox::Slot()
+								[
+									MakeColorSpinBox(EColorPickerChannels::Red)
+								]
+
+							// Green
+							+ SVerticalBox::Slot()
+								.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+								[
+									MakeColorSpinBox(EColorPickerChannels::Green)
+								]
+
+							// Blue
+							+ SVerticalBox::Slot()
+								.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+								[
+									MakeColorSpinBox(EColorPickerChannels::Blue)
+								]
+
+							// Alpha
+							+ SVerticalBox::Slot()
+								.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+								[
+									MakeColorSpinBox(EColorPickerChannels::Alpha)
+								]
+						]
+
+					// HSV & Hex inputs
+					+ SHorizontalBox::Slot()
+					.Padding(4.0f, 0.0f, 0.0f, 0.0f)
 					[
-						SNew(SHorizontalBox)
-
-						// RGBA inputs
-						+ SHorizontalBox::Slot()
-							.Padding(0.0f, 0.0f, 4.0f, 0.0f)
-							[
-								SNew(SVerticalBox)
-
-								// Red
-								+ SVerticalBox::Slot()
-									[
-										MakeColorSpinBox(EColorPickerChannels::Red)
-									]
-
-								// Green
-								+ SVerticalBox::Slot()
-									.Padding(0.0f, 8.0f, 0.0f, 0.0f)
-									[
-										MakeColorSpinBox(EColorPickerChannels::Green)
-									]
-
-								// Blue
-								+ SVerticalBox::Slot()
-									.Padding(0.0f, 8.0f, 0.0f, 0.0f)
-									[
-										MakeColorSpinBox(EColorPickerChannels::Blue)
-									]
-
-								// Alpha
-								+ SVerticalBox::Slot()
-									.Padding(0.0f, 8.0f, 0.0f, 0.0f)
-									[
-										MakeColorSpinBox(EColorPickerChannels::Alpha)
-									]
-							]
-
-						// HSV & Hex inputs
-						+ SHorizontalBox::Slot()
-							.Padding(4.0f, 0.0f, 0.0f, 0.0f)
-							[
-								SNew(SVerticalBox)
+						SNew(SVerticalBox)
 							
-								// Hue
-								+ SVerticalBox::Slot()
+						// Hue
+						+ SVerticalBox::Slot()
+						[
+							MakeColorSpinBox(EColorPickerChannels::Hue)
+						]
+
+						// Saturation
+						+ SVerticalBox::Slot()
+						.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+						[
+							MakeColorSpinBox(EColorPickerChannels::Saturation)
+						]
+
+						// Value
+						+ SVerticalBox::Slot()
+						.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+						[
+							MakeColorSpinBox(EColorPickerChannels::Value)
+						]
+
+						// Hex linear
+						+ SVerticalBox::Slot()
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Top)
+							.Padding(0.0f, 12.0f, 0.0f, 0.0f)
+							[
+								SNew(SHorizontalBox)
+								.ToolTipText(LOCTEXT("HexLinearSliderToolTip", "Hexadecimal Linear Value"))
+
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+								.VAlign(VAlign_Center)
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("HexLinearInputLabel", "Hex Linear"))
+								]
+
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
 									[
-										MakeColorSpinBox(EColorPickerChannels::Hue)
+										SNew(SEditableTextBox)
+										.MinDesiredWidth(72.0f)
+										.Text(this, &SColorPicker::HandleHexLinearBoxText)
+										.OnTextCommitted(this, &SColorPicker::HandleHexLinearInputTextCommitted)
 									]
+						]
 
-								// Saturation
-								+ SVerticalBox::Slot()
-									.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+						// Hex sRGB
+						+ SVerticalBox::Slot()
+							.HAlign(HAlign_Right)
+							.VAlign(VAlign_Top)
+							.Padding(0.0f, 8.0f, 0.0f, 0.0f)
+							[
+								SNew(SHorizontalBox)
+								.ToolTipText(LOCTEXT("HexSRGBSliderToolTip", "Hexadecimal sRGB Value"))
+
+								+ SHorizontalBox::Slot()
+								.AutoWidth()
+								.Padding(0.0f, 0.0f, 4.0f, 0.0f)
+								.VAlign(VAlign_Center)
+								[
+									SNew(STextBlock)
+									.Text(LOCTEXT("HexSRGBInputLabel", "Hex sRGB"))
+								]
+
+								+ SHorizontalBox::Slot()
+									.AutoWidth()
 									[
-										MakeColorSpinBox(EColorPickerChannels::Saturation)
+										SNew(SEditableTextBox)
+										.MinDesiredWidth(72.0f)
+										.Text(this, &SColorPicker::HandleHexSRGBBoxText)
+										.OnTextCommitted(this, &SColorPicker::HandleHexSRGBInputTextCommitted)
 									]
-
-								// Value
-								+ SVerticalBox::Slot()
-									.Padding(0.0f, 8.0f, 0.0f, 0.0f)
-									[
-										MakeColorSpinBox(EColorPickerChannels::Value)
-									]
-
-								// Hex
-								+ SVerticalBox::Slot()
-									.HAlign(HAlign_Right)
-									.VAlign(VAlign_Top)
-									.Padding(0.0f, 8.0f, 0.0f, 0.0f)
-									[
-										SNew(SHorizontalBox)
-											.ToolTipText(LOCTEXT("HexSliderToolTip", "Hexadecimal Value"))
-
-										+ SHorizontalBox::Slot()
-											.AutoWidth()
-											.Padding(0.0f, 0.0f, 4.0f, 0.0f)
-											.VAlign(VAlign_Center)
-											[
-												SNew(STextBlock)
-													.Text(LOCTEXT("HexInputLabel", "Hex"))
-											]
-
-										+ SHorizontalBox::Slot()
-											.AutoWidth()
-											[
-												SNew(SEditableTextBox)
-													.MinDesiredWidth(72.0f)
-													.Text(this, &SColorPicker::HandleHexBoxText)
-													.OnTextCommitted(this, &SColorPicker::HandleHexInputTextCommitted)
-											]
-									]
-							]
+						]
 					]
+				]
 			]
 
 		// dialog buttons
@@ -541,6 +575,7 @@ void SColorPicker::GenerateDefaultColorPickerContent( bool bAdvancedSectionExpan
 			.AutoHeight()
 			.HAlign(HAlign_Right)
 			.VAlign(VAlign_Center)
+			.Padding(0.0f, 12.0f, 0.0f, 0.0f)
 			[
 				SNew(SUniformGridPanel)
 					.MinDesiredSlotHeight(FCoreStyle::Get().GetFloat("StandardDialog.MinDesiredSlotHeight"))
@@ -1257,19 +1292,43 @@ void SColorPicker::HandleEyeDropperButtonComplete()
 }
 
 
-FText SColorPicker::HandleHexBoxText() const
+FText SColorPicker::HandleHexLinearBoxText() const
 {
 	return FText::FromString(CurrentColorRGB.ToFColor(false).ToHex());
 }
 
 
-void SColorPicker::HandleHexInputTextCommitted( const FText& Text, ETextCommit::Type CommitType )
+FText SColorPicker::HandleHexSRGBBoxText() const
+{
+	return FText::FromString(CurrentColorRGB.ToFColor(true).ToHex());
+}
+
+
+void SColorPicker::HandleHexLinearInputTextCommitted(const FText& Text, ETextCommit::Type CommitType)
 {
 	if (!Text.IsEmpty() && ((CommitType == ETextCommit::OnEnter) || (CommitType == ETextCommit::OnUserMovedFocus)))
 	{
 		FColor Color = FColor::FromHex(Text.ToString());
 		SetNewTargetColorRGB(FLinearColor(Color.R / 255.0f, Color.G / 255.0f, Color.B / 255.0f, Color.A / 255.0f), false);
 	}	
+}
+
+void SColorPicker::HandleHexSRGBInputTextCommitted(const FText& Text, ETextCommit::Type CommitType)
+{
+	if (!Text.IsEmpty() && ((CommitType == ETextCommit::OnEnter) || (CommitType == ETextCommit::OnUserMovedFocus)))
+	{
+		FColor Color = FColor::FromHex(Text.ToString());
+		float red = Color.R / 255.0f;
+		float green = Color.G / 255.0f;
+		float blue = Color.B / 255.0f;
+		float alpha = Color.A / 255.0f;
+
+		red = red <= 0.04045f ? red / 12.92f : FMath::Pow((red + 0.055f) / 1.055f, 2.4f);
+		green = green <= 0.04045f ? green / 12.92f : FMath::Pow((green + 0.055f) / 1.055f, 2.4f);
+		blue = blue <= 0.04045f ? blue / 12.92f : FMath::Pow((blue + 0.055f) / 1.055f, 2.4f);
+		
+		SetNewTargetColorRGB(FLinearColor(red, green, blue, alpha), false);
+	}
 }
 
 
@@ -1412,6 +1471,11 @@ void SColorPicker::HandleParentWindowClosed( const TSharedRef<SWindow>& Window )
 	if (!bClosedViaOkOrCancel && bOnlyRefreshOnOk)
 	{
 		DiscardColor();
+	}
+
+	if ( OriginalSRGBOption.IsSet() )
+	{
+		SColorThemesViewer::bSRGBEnabled = OriginalSRGBOption.GetValue();
 	}
 }
 
@@ -1567,18 +1631,19 @@ bool OpenColorPicker(const FColorPickerArgs& Args)
 		.OnInteractivePickEnd(Args.OnInteractivePickEnd)
 		.OnColorPickerWindowClosed(Args.OnColorPickerWindowClosed)
 		.ParentWindow(Window)
-		.DisplayGamma(Args.DisplayGamma);
+		.DisplayGamma(Args.DisplayGamma)
+		.sRGBOverride(Args.sRGBOverride);
 		
 	Window->SetContent(
 		SNew(SBox)
+		[
+			SNew(SBorder)
+			.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
+			.Padding(FMargin(8.0f, 8.0f))
 			[
-				SNew(SBorder)
-					.BorderImage(FCoreStyle::Get().GetBrush("ToolPanel.GroupBorder"))
-					.Padding(FMargin(8.0f, 8.0f))
-					[
-						ColorPicker
-					]
+				ColorPicker
 			]
+		]
 	);
 
 	if (Args.bIsModal)

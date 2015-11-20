@@ -26,6 +26,7 @@ namespace UnrealBuildTool.Rules
 					"MoviePlayer",
                     "AIModule",
 					"ProjectTargetPlatformEditor",
+                    "EditorStyle",
 				}
 			);
 

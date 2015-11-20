@@ -9,8 +9,8 @@ class UHorizontalBoxSlot;
 /**
  * Allows widgets to be laid out in a flow horizontally.
  *
- * ● Many Children
- * ● Flow Horizontal
+ * * Many Children
+ * * Flow Horizontal
  */
 UCLASS()
 class UMG_API UHorizontalBox : public UPanelWidget

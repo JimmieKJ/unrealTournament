@@ -69,10 +69,10 @@ bool		NpPhysics::mHeightFieldsRegistered = false;	//just for error checking
 
 static CmEventNameProvider gProfileNameProvider;
 
-NpPhysics::NpPhysics(const PxTolerancesScale& scale, bool trackOutstandingAllocations, PxProfileZoneManager* profileZoneManager) :
+NpPhysics::NpPhysics(const PxTolerancesScale& scale, const PxvOffsetTable& pxvOffsetTable, bool trackOutstandingAllocations, PxProfileZoneManager* profileZoneManager) :
 	mSceneArray(PX_DEBUG_EXP("physicsSceneArray"))
 	, mSceneRunning(NULL)
-	, mPhysics(scale)
+	, mPhysics(scale, pxvOffsetTable)
 	, mDeletionListenersExist(false)
 #if PX_SUPPORT_GPU_PHYSX
 	, mNbRegisteredGpuClients(0)
@@ -106,9 +106,7 @@ NpPhysics::NpPhysics(const PxTolerancesScale& scale, bool trackOutstandingAlloca
 		mPVDFactoryManager->setProfileZoneManager( *profileZoneManager );
 
 #endif
-
 }
-
 
 NpPhysics::~NpPhysics()
 {
@@ -142,13 +140,74 @@ NpPhysics::~NpPhysics()
 #endif
 	mProfileZoneManager = NULL;
 
-	for(PxU32 i=0; i < mDeletionListenerArray.size(); i++)
+	const DeletionListenerMap::Entry* delListenerEntries = mDeletionListenerMap.getEntries();
+	const PxU32 delListenerEntryCount = mDeletionListenerMap.size();
+	for(PxU32 i=0; i < delListenerEntryCount; i++)
 	{
-		PX_DELETE(mDeletionListenerArray[i]);
+		PX_DELETE(delListenerEntries[i].second);
 	}
-	mDeletionListenerArray.clear();
+	mDeletionListenerMap.clear();
 	
 	destroySceneLock();
+}
+
+void NpPhysics::initOffsetTables(PxvOffsetTable& pxvOffsetTable)
+{
+	// init offset tables for Pxs/Sc/Scb/Px conversions
+	{
+		Sc::OffsetTable& offsetTable =  Sc::gOffsetTable;
+		offsetTable.scRigidStatic2PxActor				= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpRigidStatic*>(0)->getScbRigidStaticFast())) - static_cast<ptrdiff_t>(Scb::RigidStatic::getScOffset());
+		offsetTable.scRigidDynamic2PxActor				= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpRigidDynamic*>(0)->getScbBodyFast()))		- static_cast<ptrdiff_t>(Scb::Body::getScOffset());
+		offsetTable.scArticulationLink2PxActor			= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpArticulationLink*>(0)->getScbBodyFast()))	- static_cast<ptrdiff_t>(Scb::Body::getScOffset());
+		offsetTable.scArticulation2Px					= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpArticulation*>(0)->getScbArticulation()))	- static_cast<ptrdiff_t>(Scb::Articulation::getScOffset());
+		offsetTable.scConstraint2Px						= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpConstraint*>(0)->getScbConstraint()))		- static_cast<ptrdiff_t>(Scb::Constraint::getScOffset());
+		offsetTable.scShape2Px							= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpShape*>(0)->getScbShape()))					- static_cast<ptrdiff_t>(Scb::Shape::getScOffset());
+#if PX_USE_PARTICLE_SYSTEM_API
+		offsetTable.scParticleSystem2PxParticleFluid	= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpParticleFluid*>(0)->getScbParticleSystem())) - static_cast<ptrdiff_t>(Scb::ParticleSystem::getScOffset());	
+		offsetTable.scParticleSystem2Px					= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpParticleSystem*>(0)->getScbParticleSystem())) - static_cast<ptrdiff_t>(Scb::ParticleSystem::getScOffset());	
+#endif
+#if PX_USE_CLOTH_API
+		offsetTable.scCloth2Px							= -reinterpret_cast<ptrdiff_t>(&(reinterpret_cast<NpCloth*>(0)->getScbCloth()))					- static_cast<ptrdiff_t>(Scb::Cloth::getScOffset());	
+#endif
+	}
+	{
+		Sq::OffsetTable& offsetTable =  Sq::gOffsetTable;
+		// init pxActorToScbActor
+		for(PxU32 i=0;i<PxConcreteType::ePHYSX_CORE_COUNT;i++)
+			offsetTable.pxActorToScbActor[i] = 0;
+		ptrdiff_t addr = 0x100;	// casting the null ptr takes a special-case code path, which we don't want
+		PxActor* n = reinterpret_cast<PxActor*>(addr);
+		offsetTable.pxActorToScbActor[PxConcreteType::eRIGID_STATIC]		= reinterpret_cast<ptrdiff_t>(&static_cast<NpRigidStatic*>(n)->getScbActorFast()) - addr;
+		offsetTable.pxActorToScbActor[PxConcreteType::eRIGID_DYNAMIC]		= reinterpret_cast<ptrdiff_t>(&static_cast<NpRigidDynamic*>(n)->getScbActorFast()) - addr;
+#if PX_USE_PARTICLE_SYSTEM_API
+		offsetTable.pxActorToScbActor[PxConcreteType::ePARTICLE_SYSTEM]		= reinterpret_cast<ptrdiff_t>(&static_cast<NpParticleSystem*>(n)->getScbActor()) - addr;
+		offsetTable.pxActorToScbActor[PxConcreteType::ePARTICLE_FLUID]		= reinterpret_cast<ptrdiff_t>(&static_cast<NpParticleFluid*>(n)->getScbActor()) - addr;
+#endif
+		offsetTable.pxActorToScbActor[PxConcreteType::eARTICULATION_LINK]	= reinterpret_cast<ptrdiff_t>(&static_cast<NpArticulationLink*>(n)->getScbActorFast()) - addr;
+#if PX_USE_CLOTH_API
+		offsetTable.pxActorToScbActor[PxConcreteType::eCLOTH]				= reinterpret_cast<ptrdiff_t>(&static_cast<NpCloth*>(n)->getScbCloth()) - addr;
+#endif
+		// init scb2sc
+		for(PxU32 i=0;i<ScbType::TYPE_COUNT;i++)
+			offsetTable.scbToSc[i] = 0;
+		ptrdiff_t staticOffset = static_cast<ptrdiff_t>(Scb::RigidStatic::getScOffset());
+		ptrdiff_t bodyOffset = static_cast<ptrdiff_t>(Scb::Body::getScOffset());
+		offsetTable.scbToSc[ScbType::RIGID_STATIC] = staticOffset;
+		offsetTable.scbToSc[ScbType::BODY] = bodyOffset;
+		offsetTable.scbToSc[ScbType::BODY_FROM_ARTICULATION_LINK] = bodyOffset;
+#if PX_USE_PARTICLE_SYSTEM_API
+		offsetTable.scbToSc[ScbType::PARTICLE_SYSTEM] = static_cast<ptrdiff_t>(Scb::ParticleSystem::getScOffset());
+#endif
+#if PX_USE_CLOTH_API
+		offsetTable.scbToSc[ScbType::CLOTH] = static_cast<ptrdiff_t>(Scb::Cloth::getScOffset());
+#endif
+	}
+	{
+		Sc::OffsetTable& scOffsetTable = Sc::gOffsetTable;
+		pxvOffsetTable.pxsShapeCore2PxShape			= scOffsetTable.scShape2Px				- reinterpret_cast<ptrdiff_t>(&static_cast<Sc::ShapeCore*>(0)->getCore());
+		pxvOffsetTable.pxsRigidCore2PxRigidBody		= scOffsetTable.scRigidDynamic2PxActor	- reinterpret_cast<ptrdiff_t>(&static_cast<Sc::BodyCore*>(0)->getCore());
+		pxvOffsetTable.pxsRigidCore2PxRigidStatic	= scOffsetTable.scRigidStatic2PxActor	- reinterpret_cast<ptrdiff_t>(&static_cast<Sc::StaticCore*>(0)->getCore());
+	}
 }
 
 NpPhysics* NpPhysics::createInstance(PxU32 version, PxFoundation& foundation, const PxTolerancesScale& scale, bool trackOutstandingAllocations, PxProfileZoneManager* profileZoneManager)
@@ -175,8 +234,12 @@ NpPhysics* NpPhysics::createInstance(PxU32 version, PxFoundation& foundation, co
 
 		Ps::Foundation::incRefCount();
 
+		// init offset tables for Pxs/Sc/Scb/Px conversions
+		PxvOffsetTable pxvOffsetTable;
+		initOffsetTables(pxvOffsetTable);
+
 		//SerialFactory::createInstance();
-		mInstance = PX_NEW (NpPhysics)(scale,trackOutstandingAllocations, profileZoneManager);
+		mInstance = PX_NEW (NpPhysics)(scale, pxvOffsetTable, trackOutstandingAllocations, profileZoneManager);
 		NpFactory::createInstance();
 		
 #if PX_SUPPORT_VISUAL_DEBUGGER
@@ -408,34 +471,32 @@ PxCloth* NpPhysics::createCloth(const PxTransform& globalPose, PxClothFabric& fa
 
 NpMaterial* NpPhysics::addMaterial(NpMaterial* m)
 {
-	if(m)
+	if(!m)
+		return NULL;
+
+	Ps::Mutex::ScopedLock lock(mSceneAndMaterialMutex);
+
+	//the handle is set inside the setMaterial method
+	if(mMasterMaterialManager.setMaterial(*m))
 	{
-		Ps::Mutex::ScopedLock lock(mSceneAndMaterialMutex);
-
-		//the handle is set inside the setMaterial method
-		if(mMasterMaterialManager.setMaterial(m))
+		// Let all scenes know of the new material
+		for(PxU32 i=0; i < mSceneArray.size(); i++)
 		{
-			// Let all scenes know of the new material
-			for(PxU32 i=0; i < mSceneArray.size(); i++)
-			{
-				NpScene* s = getScene(i);
-				s->addMaterial(*m);
-			}
-
-			return m;
+			NpScene* s = getScene(i);
+			s->addMaterial(*m);
 		}
-		else
-		{
+		return m;
+	}
+	else
+	{
 #ifdef PX_CHECKED
 #ifdef PX_PS3
-			Ps::getFoundation().error(PxErrorCode::eDEBUG_WARNING, __FILE__, __LINE__, "Cannot create material: There is a limit of 127 user created materials on PS3.");
+		Ps::getFoundation().error(PxErrorCode::eDEBUG_WARNING, __FILE__, __LINE__, "Cannot create material: There is a limit of 127 user created materials on PS3.");
 #endif
 #endif
-			m->release();
-			return NULL;
-		}
+		m->release();
+		return NULL;
 	}
-	return NULL;
 }
 
 PxMaterial* NpPhysics::createMaterial(PxReal staticFriction, PxReal dynamicFriction, PxReal restitution)
@@ -448,7 +509,7 @@ PxU32 NpPhysics::getNbMaterials() const
 {
 	Ps::Mutex::ScopedLock lock(const_cast<Ps::Mutex&>(mSceneAndMaterialMutex));
 	NpMaterialManagerIterator iter(mMasterMaterialManager);
-	return iter.getNumMaterial();
+	return iter.getNumMaterials();
 }
 
 PxU32 NpPhysics::getMaterials(PxMaterial** userBuffer, PxU32 bufferSize, PxU32 startIndex) const
@@ -457,13 +518,13 @@ PxU32 NpPhysics::getMaterials(PxMaterial** userBuffer, PxU32 bufferSize, PxU32 s
 	NpMaterialManagerIterator iter(mMasterMaterialManager);
 	PxU32 writeCount =0;
 	PxU32 index = 0;
-	while(iter.hasNextMaterial())
+	NpMaterial* mat;
+	while(iter.getNextMaterial(mat))
 	{
 		if(index++ < startIndex)
 			continue;
 		if(writeCount == bufferSize)
 			break;
-		NpMaterial* mat = iter.getNextMaterial();
 		userBuffer[writeCount++] = mat;
 	}
 	return writeCount;
@@ -480,7 +541,7 @@ void NpPhysics::removeMaterialFromTable(NpMaterial& m)
 		s->removeMaterial(m);
 	}
 
-	mMasterMaterialManager.removeMaterial(&m);
+	mMasterMaterialManager.removeMaterial(m);
 }
 
 void NpPhysics::updateMaterial(NpMaterial& m)
@@ -493,7 +554,7 @@ void NpPhysics::updateMaterial(NpMaterial& m)
 		NpScene* s = getScene(i);
 		s->updateMaterial(m);
 	}
-	mMasterMaterialManager.updateMaterial(&m);
+	mMasterMaterialManager.updateMaterial(m);
 }
 
 bool NpPhysics::sendMaterialTable(NpScene& scene)
@@ -501,13 +562,12 @@ bool NpPhysics::sendMaterialTable(NpScene& scene)
 	// note: no lock here because this method gets only called at scene creation and there we do lock
 
 	NpMaterialManagerIterator iter(mMasterMaterialManager);
-	while(iter.hasNextMaterial())
+	NpMaterial* mat;
+	while(iter.getNextMaterial(mat))
 	{
-		NpMaterial* mat = iter.getNextMaterial();
 		if(!scene.addMaterial(*mat))
 			return false;
 	}
-
 	return true;
 }
 
@@ -626,15 +686,19 @@ void NpPhysics::registerDeletionListener(PxDeletionListener& observer, const PxD
 {
 	Ps::Mutex::ScopedLock lock(mDeletionListenerMutex);
 
-	PxU32 idx = NpDelListenerEntry::find(mDeletionListenerArray, &observer);
-	if(idx == mDeletionListenerArray.size())
+	const DeletionListenerMap::Entry* entry = mDeletionListenerMap.find(&observer);
+	if(!entry)
 	{
-		NpDelListenerEntry* e = PX_NEW(NpDelListenerEntry)(&observer, deletionEvents);
+		NpDelListenerEntry* e = PX_NEW(NpDelListenerEntry)(deletionEvents, restrictedObjectSet);
 		if (e)
 		{
-			e->restrictedObjectSet = restrictedObjectSet;
-			mDeletionListenerArray.pushBack(e);
-			mDeletionListenersExist = true;
+			if (mDeletionListenerMap.insert(&observer, e))
+				mDeletionListenersExist = true;
+			else
+			{
+				PX_DELETE(e);
+				PX_ALWAYS_ASSERT();
+			}
 		}
 	}
 	else
@@ -645,13 +709,14 @@ void NpPhysics::unregisterDeletionListener(PxDeletionListener& observer)
 {
 	Ps::Mutex::ScopedLock lock(mDeletionListenerMutex);
 
-	PxU32 idx = NpDelListenerEntry::find(mDeletionListenerArray, &observer);
-	if(idx < mDeletionListenerArray.size())
+	const DeletionListenerMap::Entry* entry = mDeletionListenerMap.find(&observer);
+	if(entry)
 	{
-		PX_DELETE(mDeletionListenerArray[idx]);
-		mDeletionListenerArray.replaceWithLast(idx);
+		NpDelListenerEntry* e = entry->second;
+		mDeletionListenerMap.erase(&observer);
+		PX_DELETE(e);
 	}
-	mDeletionListenersExist = mDeletionListenerArray.size()>0;
+	mDeletionListenersExist = mDeletionListenerMap.size()>0;
 }
 
 
@@ -659,14 +724,15 @@ void NpPhysics::registerDeletionListenerObjects(PxDeletionListener& observer, co
 {
 	Ps::Mutex::ScopedLock lock(mDeletionListenerMutex);
 
-	PxU32 idx = NpDelListenerEntry::find(mDeletionListenerArray, &observer);
-	if(idx < mDeletionListenerArray.size())
+	const DeletionListenerMap::Entry* entry = mDeletionListenerMap.find(&observer);
+	if(entry)
 	{
-		NpDelListenerEntry& entry = *mDeletionListenerArray[idx];
-		PX_CHECK_AND_RETURN(entry.restrictedObjectSet, "PxPhysics::registerDeletionListenerObjects: deletion listener is not configured to receive events from specific objects.");
+		NpDelListenerEntry* e = entry->second;
+		PX_CHECK_AND_RETURN(e->restrictedObjectSet, "PxPhysics::registerDeletionListenerObjects: deletion listener is not configured to receive events from specific objects.");
 
+		e->registeredObjects.reserve(e->registeredObjects.size() + observableCount);
 		for(PxU32 i=0; i < observableCount; i++)
-			entry.registeredObjects.insert(observables[i]);
+			e->registeredObjects.insert(observables[i]);
 	}
 	else
 	{
@@ -679,14 +745,14 @@ void NpPhysics::unregisterDeletionListenerObjects(PxDeletionListener& observer, 
 {
 	Ps::Mutex::ScopedLock lock(mDeletionListenerMutex);
 
-	PxU32 idx = NpDelListenerEntry::find(mDeletionListenerArray, &observer);
-	if(idx < mDeletionListenerArray.size())
+	const DeletionListenerMap::Entry* entry = mDeletionListenerMap.find(&observer);
+	if(entry)
 	{
-		NpDelListenerEntry& entry = *mDeletionListenerArray[idx];
-		if (entry.restrictedObjectSet)
+		NpDelListenerEntry* e = entry->second;
+		if (e->restrictedObjectSet)
 		{
 			for(PxU32 i=0; i < observableCount; i++)
-				entry.registeredObjects.erase(observables[i]);
+				e->registeredObjects.erase(observables[i]);
 		}
 		else
 		{
@@ -709,19 +775,22 @@ void NpPhysics::notifyDeletionListeners(const PxBase* base, void* userData, PxDe
 	if(mDeletionListenersExist)
 	{
 		Ps::Mutex::ScopedLock lock(mDeletionListenerMutex);
-		for(PxU32 i=0;i<mDeletionListenerArray.size();i++)
+
+		const DeletionListenerMap::Entry* delListenerEntries = mDeletionListenerMap.getEntries();
+		const PxU32 delListenerEntryCount = mDeletionListenerMap.size();
+		for(PxU32 i=0; i < delListenerEntryCount; i++)
 		{
-			const NpDelListenerEntry& entry = *mDeletionListenerArray[i];
+			const NpDelListenerEntry* entry = delListenerEntries[i].second;
 			
-			if (entry.flags & deletionEvent)
+			if (entry->flags & deletionEvent)
 			{
-				if (entry.restrictedObjectSet)
+				if (entry->restrictedObjectSet)
 				{
-					if (entry.registeredObjects.contains(base))
-						entry.listener->onRelease(base, userData, deletionEvent);
+					if (entry->registeredObjects.contains(base))
+						delListenerEntries[i].first->onRelease(base, userData, deletionEvent);
 				}
 				else
-					entry.listener->onRelease(base, userData, deletionEvent);
+					delListenerEntries[i].first->onRelease(base, userData, deletionEvent);
 			}
 		}
 	}

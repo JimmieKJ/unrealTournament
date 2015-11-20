@@ -12,17 +12,17 @@ void Main(
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 	FVertexFactoryInterpolantsVSToPS FactoryInterpolants,
 	float4 PixelPosition : TEXCOORD6,
-	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position,
+	in INPUT_POSITION_QUALIFIERS float4 SvPosition : SV_Position
 	OPTIONAL_IsFrontFace
-	OPTIONAL_OutDepth
+	OPTIONAL_OutDepthConservative,
 #endif
-	,out float4 OutColor : SV_Target0
+	out float4 OutColor : SV_Target0
 	)
 {
 #if !MATERIALBLENDING_SOLID || OUTPUT_PIXEL_DEPTH_OFFSET
 
-	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(FactoryInterpolants, PixelPosition);
-	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace, PixelPosition);
+	FMaterialPixelParameters MaterialParameters = GetMaterialPixelParameters(FactoryInterpolants, SvPosition);
+	CalcMaterialParameters(MaterialParameters, SvPosition, bIsFrontFace);
 
 	#if OUTPUT_PIXEL_DEPTH_OFFSET
 		ApplyPixelDepthOffsetToMaterialParameters(MaterialParameters, OutDepth);

@@ -1,4 +1,4 @@
-﻿INTSourceChangelist:2438071
+﻿INTSourceChangelist:2591123
 Availability:NoPublish
 Title: 레벨 에디터 동작
 Crumbs:
@@ -98,7 +98,7 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 [/EXCERPT:ResetToBlueprintDefaults]
 
 [EXCERPT:ActorUsesExperimentalClass]
-###드래곤 있을지니!
+###Here be dragons!
 
 ![](HereBeDragons.png)
 
@@ -114,7 +114,7 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 [/EXCERPT:ActorUsesExperimentalClass]
 
 [EXCERPT:ActorUsesEarlyAccessClass]
-###초기 접근
+###Early Access
 
 이 액터는 하나 이상의 'early access' (초기 접근) 클래스를 사용합니다.
 
@@ -125,3 +125,32 @@ Engine/UI/LevelEditor/InEditorTesting/KeepSimulationChanges
 * 문서나 예제 콘텐츠가 없을 수 있습니다.
 * 제품으로서 준비가 완료되면 '초기 접근' 단계에서 승격될 수 있습니다.
 [/EXCERPT:ActorUsesEarlyAccessClass]
+
+[EXCERPT:ComponentUsesExperimentalClass]
+###Here be dragons!
+
+![](HereBeDragons.png)
+
+이 컴포넌트는 'experimental' (실험단계) 클래스를 하나 이상 사용합니다.
+
+완전 지원되지 않고 문서화되지 않은 프로토타입 입니다:
+* 앞으로의 빌드에 크게 변경 또는 폐기될 수 있습니다.
+* 데이터 또는 코드 호환성이 보장되지 않습니다.
+* 초기 단계 코드라 에디터가 불안정해 지거나 크래시가 생길 수 있습니다.
+* 앞으로 'Early Access' (초기 접근) 또는 'Fully Supported' (완벽 지원)으로 승격될 수 있습니다.
+
+위험을 감수하고 사용해 주시기 바랍니다!
+[/EXCERPT:ComponentUsesExperimentalClass]
+
+[EXCERPT:ComponentUsesEarlyAccessClass]
+###Early Access
+
+이 컴포넌트는 하나 이상의 'early access' (초기 접근) 클래스를 사용합니다.
+
+준비된 제품 단계까지는 아니지만, 'experimental' (실험단계)는 넘어선 것으로 앞으로 나오게 될 것에 대한 미리보기 역할을 합니다:
+* 제작할 콘텐츠에 대한 상위호환성을 유지하도록 노력할 것입니다.
+* 이 클래스는 앞으로 크게 변경될 수 있습니다.
+* 코드가 초기 단계라 기대하는 만큼의 세련미나 퀄리티 기준은 충족하지 못할 수 있습니다.
+* 문서나 예제 콘텐츠가 없을 수 있습니다.
+* 제품으로서 준비가 완료되면 '초기 접근' 단계에서 승격될 수 있습니다.
+[/EXCERPT:ComponentUsesEarlyAccessClass]

@@ -17,22 +17,22 @@
 
 // what level of checking to perform...normally checkSlow but could be ensure or check
 #define checkThreadGraph checkSlow
+//#define checkThreadGraph(x) ((x)||((*(char*)3) = 0))
 
 DECLARE_STATS_GROUP(TEXT("Task Graph Tasks"), STATGROUP_TaskGraphTasks, STATCAT_Advanced);
 
 DECLARE_CYCLE_STAT_EXTERN(TEXT("FReturnGraphTask"), STAT_FReturnGraphTask, STATGROUP_TaskGraphTasks, CORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("FTriggerEventGraphTask"), STAT_FTriggerEventGraphTask, STATGROUP_TaskGraphTasks, CORE_API);
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Unknown Graph Task"), STAT_UnknownGraphTask, STATGROUP_TaskGraphTasks, CORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("ParallelFor"), STAT_ParallelFor, STATGROUP_TaskGraphTasks, CORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("ParallelForTask"), STAT_ParallelForTask, STATGROUP_TaskGraphTasks, CORE_API);
+
+extern CORE_API int32 GAllAnyThreadTasksFromGameHiPri;
 
 namespace ENamedThreads
 {
 	enum Type
 	{
-		/** not actually a thread index. Means "Unknown Thread" or "Any Unnamed Thread" **/
-		AnyThread = -1, 
-
+		UnusedAnchor = -1,
 		/** The always-present, named threads are listed next **/
 #if STATS
 		StatsThread, 
@@ -43,8 +43,10 @@ namespace ENamedThreads
 		ActualRenderingThread = GameThread + 1,
 		// CAUTION ThreadedRenderingThread must be the last named thread, insert new named threads before it
 
+		/** not actually a thread index. Means "Unknown Thread" or "Any Unnamed Thread" **/
+		AnyThread = 0xff, 
 
-		/** High bits are used for a queue index **/
+		/** High bits are used for a queue index and priority**/
 
 		MainQueue =			0x000,
 		LocalQueue =		0x100,
@@ -53,6 +55,16 @@ namespace ENamedThreads
 		ThreadIndexMask =	0xff,
 		QueueIndexMask =	0x100,
 		QueueIndexShift =	8,
+
+		/** High bits are used for a queue index and priority**/
+
+		NormalPriority =	0x000,
+		HighPriority =		0x200,
+
+		NumPriorities =		2,
+		PriorityMask =		0x200,
+		PriorityShift =		9,
+
 
 		/** Combinations **/
 #if STATS
@@ -66,14 +78,30 @@ namespace ENamedThreads
 
 	FORCEINLINE Type GetThreadIndex(Type ThreadAndIndex)
 	{
-		return (ThreadAndIndex == AnyThread) ? AnyThread : Type(ThreadAndIndex & ThreadIndexMask);
+		return ((ThreadAndIndex & ThreadIndexMask) == AnyThread) ? AnyThread : Type(ThreadAndIndex & ThreadIndexMask);
 	}
 
 	FORCEINLINE int32 GetQueueIndex(Type ThreadAndIndex)
 	{
-		return (ThreadAndIndex & ~ThreadIndexMask) >> QueueIndexShift;
+		return (ThreadAndIndex & QueueIndexMask) >> QueueIndexShift;
+	}
+
+	FORCEINLINE int32 GetPriority(Type ThreadAndIndex)
+	{
+		return (ThreadAndIndex & PriorityMask) >> PriorityShift;
+	}
+
+	FORCEINLINE Type HiPri(Type ThreadAndIndex)
+	{
+		return Type(ThreadAndIndex | HighPriority);
+	}
+
+	FORCEINLINE Type AnyThreadGame()
+	{
+		return Type(AnyThread | (GAllAnyThreadTasksFromGameHiPri ? HighPriority : 0));
 	}
 }
+
 
 namespace ESubsequentsMode
 {
@@ -211,9 +239,19 @@ public:
  *	Base class for all tasks. 
  *	Tasks go through a very specific life stage progression, and this is verified.
  **/
+
+#define USE_VIRTUAL_BYPASS USE_NEW_LOCK_FREE_LISTS
+
 class FBaseGraphTask
 {
 public:
+#if USE_VIRTUAL_BYPASS
+	typedef void (*TExecuteTask)(FBaseGraphTask*, TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread);
+#endif
+
+#if USE_NEW_LOCK_FREE_LISTS
+	FBaseGraphTask* LockFreePointerQueueNext;
+#endif
 	// Allocator for small tasks.
 	enum
 	{
@@ -226,10 +264,18 @@ protected:
 	 *	Constructor
 	 *	@param InNumberOfPrerequistitesOutstanding; the number of prerequisites outstanding. We actually add one to this to prevent the task from firing while we are setting up the task
 	 **/
-	FBaseGraphTask(int32 InNumberOfPrerequistitesOutstanding)
+	FBaseGraphTask(
+#if USE_VIRTUAL_BYPASS
+		TExecuteTask InExecuteTaskPtr,
+#endif
+		int32 InNumberOfPrerequistitesOutstanding
+		)
 		: ThreadToExecuteOn(ENamedThreads::AnyThread)
 		, NumberOfPrerequistitesOutstanding(InNumberOfPrerequistitesOutstanding + 1) // + 1 is not a prerequisite, it is a lock to prevent it from executing while it is getting prerequisites, one it is safe to execute, call PrerequisitesComplete
 	{
+#if USE_VIRTUAL_BYPASS
+		ExecuteTaskPtr = InExecuteTaskPtr;
+#endif
 		checkThreadGraph(LifeStage.Increment() == int32(LS_Contructed));
 	}
 	/** 
@@ -257,7 +303,12 @@ protected:
 		}
 	}
 	/** destructor, just checks the life stage **/
-	virtual ~FBaseGraphTask()
+#if USE_VIRTUAL_BYPASS
+	FORCEINLINE
+#else
+	virtual 
+#endif
+		~FBaseGraphTask()
 	{
 		checkThreadGraph(LifeStage.Increment() == int32(LS_Deconstucted));
 	}
@@ -283,7 +334,9 @@ protected:
 	}
 
 private:
-	friend class FTaskThread;
+	friend class FNamedTaskThread;
+	friend class FTaskThreadBase;
+	friend class FTaskThreadAnyThread;
 	friend class FGraphEvent;
 	friend class FTaskGraphImplementation;
 
@@ -293,7 +346,9 @@ private:
 	 *	Virtual call to actually execute the task. This should also call the destructor and free any memory.
 	 *	@param CurrentThread; provides the index of the thread we are running on. This is handy for submitting new taks.
 	 **/
+#if !USE_VIRTUAL_BYPASS
 	virtual void ExecuteTask(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread)=0;
+#endif
 
 	// API called from other parts of the system
 
@@ -302,10 +357,14 @@ private:
 	 *	Just checks the life stage and passes off to the virtual ExecuteTask method.
 	 *	@param CurrentThread; provides the index of the thread we are running on. This is handy for submitting new taks.
 	 **/
-	void Execute(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread)
+	FORCEINLINE void Execute(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread)
 	{
 		checkThreadGraph(LifeStage.Increment() == int32(LS_Executing));
+#if USE_VIRTUAL_BYPASS
+		ExecuteTaskPtr(this, NewTasks, CurrentThread);
+#else
 		ExecuteTask(NewTasks, CurrentThread);
+#endif
 	}
 
 	// Internal Use
@@ -320,13 +379,16 @@ private:
 		FTaskGraphInterface::Get().QueueTask(this, ThreadToExecuteOn, CurrentThreadIfKnown);
 	}
 
+#if USE_VIRTUAL_BYPASS
+	TExecuteTask ExecuteTaskPtr;
+#endif
 	/**	Thread to execute on, can be ENamedThreads::AnyThread to execute on any unnamed thread **/
 	ENamedThreads::Type			ThreadToExecuteOn;
 	/**	Number of prerequisites outstanding. When this drops to zero, the thread is queued for execution.  **/
 	FThreadSafeCounter			NumberOfPrerequistitesOutstanding; 
 
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#if !UE_BUILD_SHIPPING
 	// Life stage verification
 	// Tasks go through 8 steps, in order. In non-final builds, we track them with a thread safe counter and verify that the progression is correct.
 	enum ELifeStage
@@ -359,12 +421,20 @@ public:
 	**/
 	static CORE_API FGraphEventRef CreateGraphEvent();
 
+	// the returned event will have ref count zero; be sure to add one!
+	static CORE_API FGraphEvent* CreateGraphEventWithInlineStorage();
 	/**
 	 *	Attempts to a new subsequent task. If this event has already fired, false is returned and action must be taken to ensure that the task will still fire even though this event cannot be a prerequisite (because it is already finished).
 	 *	@return true if the task was successfully set up as a subsequent. false if the event has already fired.
 	**/
 	bool AddSubsequent(class FBaseGraphTask* Task)
 	{
+#if USE_NEW_LOCK_FREE_LISTS
+		if (bComplete)
+		{
+			return false;
+		}
+#endif
 		return SubsequentList.PushIfNotClosed(Task);
 	}
 
@@ -391,7 +461,6 @@ public:
 	 *	"Complete" the event. This grabs the list of subsequents and atomically closes it. Then for each subsequent it reduces the number of prerequisites outstanding and if that drops to zero, the task is queued.
 	 *	@param CurrentThreadIfKnown if the current thread is known, provide it here. Otherwise it will be determined via TLS if any task ends up being queued.
 	**/
-	CORE_API void DispatchSubsequents(ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread);
 	CORE_API void DispatchSubsequents(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread);
 
 	/**
@@ -401,8 +470,19 @@ public:
 	**/
 	bool IsComplete() const
 	{
+#if USE_NEW_LOCK_FREE_LISTS
+		FPlatformMisc::MemoryBarrier();
+		return bComplete;
+#else
 		return SubsequentList.IsClosed();
+#endif
 	}
+
+#if USE_NEW_LOCK_FREE_LISTS
+	void* GetInlineStorage();
+	static CORE_API FGraphEvent* GetBundle(int32 NumBundle);
+#endif
+
 private:
 	friend class TRefCountPtr<FGraphEvent>;
 	friend class TLockFreeClassAllocator_TLSCache<FGraphEvent>;
@@ -416,7 +496,13 @@ private:
 	/**
 	 *	Hidden Constructor
 	**/
-	FGraphEvent()
+	friend struct FGraphEventAndSmallTaskStorage;
+	FGraphEvent(bool bInInline = false)
+#if USE_NEW_LOCK_FREE_LISTS
+		: bComplete(false)
+		, bInline(bInInline)
+		, LockFreePointerQueueNext(nullptr)
+#endif
 	{
 	}
 
@@ -434,7 +520,9 @@ public:
 	**/
 	uint32 AddRef()
 	{
-		return ReferenceCount.Increment();
+		int32 RefCount = ReferenceCount.Increment();
+		checkThreadGraph(RefCount > 0);
+		return RefCount;
 	}
 	/** 
 	 *	Decreases the reference count and destroys the graph event if it is zero.
@@ -451,25 +539,53 @@ public:
 		return RefCount;
 	}
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	/**
-	 * Checks if the pointers look 'ok'. Used for debugging (temporarily)
-	 */
-	bool CheckSubsequents() const
-	{
-		return SubsequentList.CheckPointers();
-	}
-#endif
 
 private:
 
-	/** Number of outstanding references to this graph event **/
-	FThreadSafeCounter									ReferenceCount;
 	/** Threadsafe list of subsequents for the event **/
-	TClosableLockFreePointerList<FBaseGraphTask>		SubsequentList;
+	TClosableLockFreePointerListUnorderedSingleConsumer<FBaseGraphTask>		SubsequentList;
 	/** List of events to wait for until firing. This is not thread safe as it is only legal to fill it in within the context of an executing task. **/
-	FGraphEventArray									EventsToWaitFor;
+	FGraphEventArray														EventsToWaitFor;
+	/** Number of outstanding references to this graph event **/
+	FThreadSafeCounter														ReferenceCount;
+#if USE_NEW_LOCK_FREE_LISTS
+	void Reset();
+	bool bComplete;
+	bool bInline;
+public:
+	void *LockFreePointerQueueNext;
+#endif
 };
+
+#if USE_NEW_LOCK_FREE_LISTS
+struct FGraphEventAndSmallTaskStorage : public FGraphEvent
+{
+	enum
+	{
+		StorageAlignment = 16,
+		StorageSize = 256 - StorageAlignment * ((sizeof(FGraphEvent) + StorageAlignment - 1) / StorageAlignment)
+	};
+	TAlignedBytes<StorageSize, 16> TaskStorage;
+
+	FGraphEventAndSmallTaskStorage()
+		: FGraphEvent(true)
+	{
+	}
+
+	static CORE_API FGraphEventAndSmallTaskStorage* GetBundle(int32 NumBundle);
+};
+
+FORCEINLINE void* FGraphEvent::GetInlineStorage()
+{
+	if (!bInline)
+	{
+		return nullptr;
+	}
+	return &(((FGraphEventAndSmallTaskStorage *)this)->TaskStorage);
+}
+
+#endif
+
 
 /** 
  The user defined task type can take arguments to a constructor. These arguments (unfortunately) must not be references.
@@ -591,6 +707,12 @@ public:
 			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9));
 			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
 		}		
+		template<typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7, typename T8, typename T9, typename T10>
+		FGraphEventRef ConstructAndDispatchWhenReady(T1&& Arg1, T2&& Arg2, T3&& Arg3, T4&& Arg4, T5&& Arg5, T6&& Arg6, T7&& Arg7, T8&& Arg8, T9&& Arg9, T10&& Arg10)
+		{
+			new ((void *)&Owner->TaskStorage) TTask(Forward<T1>(Arg1), Forward<T2>(Arg2), Forward<T3>(Arg3), Forward<T4>(Arg4), Forward<T5>(Arg5), Forward<T6>(Arg6), Forward<T7>(Arg7), Forward<T8>(Arg8), Forward<T9>(Arg9), Forward<T10>(Arg10));
+			return Owner->Setup(Prerequisites, CurrentThreadIfKnown);
+		}		
 	#endif
 
 	#if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
@@ -702,6 +824,16 @@ public:
 	static FConstructor CreateTask(const FGraphEventArray* Prerequisites = NULL, ENamedThreads::Type CurrentThreadIfKnown = ENamedThreads::AnyThread)
 	{
 		int32 NumPrereq = Prerequisites ? Prerequisites->Num() : 0;
+#if USE_NEW_LOCK_FREE_LISTS
+		if (sizeof(TGraphTask) <= FGraphEventAndSmallTaskStorage::StorageSize && ALIGNOF(TGraphTask) <= FGraphEventAndSmallTaskStorage::StorageAlignment && TTask::GetSubsequentsMode() != ESubsequentsMode::FireAndForget)
+		{
+			FGraphEventRef Event(FGraphEvent::CreateGraphEventWithInlineStorage());
+			void *Mem = Event->GetInlineStorage();
+			checkThreadGraph(Mem);
+			return FConstructor(new (Mem) TGraphTask(Event, NumPrereq), Prerequisites, CurrentThreadIfKnown);
+		}
+		else
+#endif
 		if (sizeof(TGraphTask) <= FBaseGraphTask::SMALL_TASK_SIZE)
 		{
 			void *Mem = FBaseGraphTask::GetSmallTaskAllocator().Allocate();
@@ -734,7 +866,15 @@ private:
 	 *	Dispatches the subsequents.
 	 *	Destroys myself.
 	 **/
-	virtual void ExecuteTask(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread)
+#if USE_VIRTUAL_BYPASS
+	static void ExecuteTask(FBaseGraphTask *This, TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread)
+	{
+		((TGraphTask*)This)->ExecuteTaskInner(NewTasks, CurrentThread);
+	}
+	FORCEINLINE void ExecuteTaskInner(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread)
+#else 
+	virtual void ExecuteTask(TArray<FBaseGraphTask*>& NewTasks, ENamedThreads::Type CurrentThread) final override
+#endif
 	{
 		checkThreadGraph(TaskConstructed);
 
@@ -751,23 +891,6 @@ private:
 		{
 			FScopeCycleCounter Scope(Task.GetStatId(), true); 
 			Task.DoTask(CurrentThread, Subsequents);
-#if (UE_BUILD_DEBUG || UE_BUILD_DEBUGGAME) && 0 // enable this to find nasty overwrite bugs
-			
-			if (TTask::GetSubsequentsMode() == ESubsequentsMode::TrackSubsequents)
-			{
-				if (!Subsequents->CheckSubsequents())
-				{
-					LogPossiblyInvalidSubsequentsTask(
-#if STATS
-						*Task.GetStatId().GetName().ToString()
-#else
-						TEXT("Unknown")
-#endif
-					);
-				}
-			}	
-#endif
-
 			Task.~TTask();
 			checkThreadGraph(ENamedThreads::GetThreadIndex(CurrentThread) <= ENamedThreads::RenderThread || FMemStack::Get().IsEmpty()); // you must mark and pop memstacks if you use them in tasks! Named threads are excepted.
 		}
@@ -780,9 +903,18 @@ private:
 			Subsequents->DispatchSubsequents(NewTasks, CurrentThread);
 		}
 
+#if USE_NEW_LOCK_FREE_LISTS
+		FGraphEventRef LocalSubsequents; // need to make sure this dies just a wee bit later, after the task is all destroyed
+		if (Subsequents.GetReference() && Subsequents->GetInlineStorage() == this)
+		{
+			LocalSubsequents.Swap(Subsequents);
+			this->TGraphTask::~TGraphTask(); // this will free the ref, if that is the last one it will recycle
+		}
+		else
+#endif
 		if (sizeof(TGraphTask) <= FBaseGraphTask::SMALL_TASK_SIZE)
 		{
-			this->~TGraphTask();
+			this->TGraphTask::~TGraphTask();
 			FBaseGraphTask::GetSmallTaskAllocator().Free(this);
 		}
 		else
@@ -795,20 +927,30 @@ private:
 
 	/** 
 	 *	Private constructor, constructs the base class with the number of prerequisites.
-	 *	@param InSubsequents subsequents to associate with this task
+	 *	@param InSubsequents subsequents to associate with this task. Thsi refernence is destroyed in the process!
 	 *	@param NumberOfPrerequistitesOutstanding the number of prerequisites this task will have when it is built.
 	**/
 	TGraphTask(FGraphEventRef InSubsequents, int32 NumberOfPrerequistitesOutstanding)
-		: FBaseGraphTask(NumberOfPrerequistitesOutstanding)
+		: FBaseGraphTask(
+#if USE_VIRTUAL_BYPASS
+		&ExecuteTask,
+#endif
+		NumberOfPrerequistitesOutstanding)
 		, TaskConstructed(false)
-		, Subsequents(InSubsequents)
 	{
+		Subsequents.Swap(InSubsequents);
 	}
 
 	/** 
 	 *	Private destructor, just checks that the task appears to be completed
 	**/
-	virtual ~TGraphTask()
+#if !USE_VIRTUAL_BYPASS
+	virtual 
+#endif
+		~TGraphTask() 
+#if !USE_VIRTUAL_BYPASS
+		final override
+#endif
 	{
 		checkThreadGraph(!TaskConstructed);
 	}
@@ -947,7 +1089,7 @@ public:
 	 **/
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
-		checkThreadGraph(ThreadToReturnFrom == CurrentThread); // we somehow are executing on the wrong thread.
+		checkThreadGraph(ENamedThreads::GetThreadIndex(ThreadToReturnFrom) == ENamedThreads::GetThreadIndex(CurrentThread)); // we somehow are executing on the wrong thread.
 		FTaskGraphInterface::Get().RequestReturn(ThreadToReturnFrom);
 	}
 
@@ -1004,7 +1146,7 @@ public:
 	 *	@param StatId The stat id for this task.
 	 *	@param InDesiredThread; Thread to run on, can be ENamedThreads::AnyThread
 	**/
-	FNullGraphTask(const TStatId& StatId, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyThread)
+	FNullGraphTask(const TStatId& StatId, ENamedThreads::Type InDesiredThread)
 		: FCustomStatIDGraphTaskBase(StatId)
 		, DesiredThread(InDesiredThread)
 	{
@@ -1058,7 +1200,7 @@ public:
 
 	ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::AnyThread;
+		return ENamedThreads::HiPri(ENamedThreads::AnyThread);
 	}
 
 	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
@@ -1227,9 +1369,9 @@ public:
      *	@param StatId The stat id for this task.
      * @param InDesiredThread - Thread to run on
      **/
-    FFunctionGraphTask(TFunction<void()>& InFunction, const TStatId StatId, ENamedThreads::Type InDesiredThread)
+    FFunctionGraphTask(TFunction<void()>&& InFunction, const TStatId StatId, ENamedThreads::Type InDesiredThread)
     : FCustomStatIDGraphTaskBase(StatId)
-    , Function(InFunction)
+    , Function(MoveTemp(InFunction))
     , DesiredThread(InDesiredThread)
     {
     }
@@ -1244,7 +1386,7 @@ public:
      **/
     static FGraphEventRef CreateAndDispatchWhenReady(TFunction<void()> InFunction, const TStatId InStatId, const FGraphEventArray* InPrerequisites = NULL, ENamedThreads::Type InDesiredThread = ENamedThreads::AnyThread)
     {
-        return TGraphTask<FFunctionGraphTask>::CreateTask(InPrerequisites).ConstructAndDispatchWhenReady(InFunction, InStatId, InDesiredThread);
+        return TGraphTask<FFunctionGraphTask>::CreateTask(InPrerequisites).ConstructAndDispatchWhenReady(MoveTemp(InFunction), InStatId, InDesiredThread);
     }
     /**
      * Create a task and dispatch it when the prerequisites are complete
@@ -1259,7 +1401,7 @@ public:
         FGraphEventArray Prerequisites;
         check(InPrerequisite.GetReference());
         Prerequisites.Add(InPrerequisite);
-        return CreateAndDispatchWhenReady(InFunction, InStatId, &Prerequisites, InDesiredThread);
+        return CreateAndDispatchWhenReady(MoveTemp(InFunction), InStatId, &Prerequisites, InDesiredThread);
     }
 };
 
@@ -1269,7 +1411,7 @@ public:
 **/
 class FCompletionList
 {
-	TLockFreePointerList<FGraphEvent>	Prerequisites;
+	TLockFreePointerListUnordered<FGraphEvent>	Prerequisites;
 public:
 	/**
 	 * Adds a task to the completion list, can be called from any thread

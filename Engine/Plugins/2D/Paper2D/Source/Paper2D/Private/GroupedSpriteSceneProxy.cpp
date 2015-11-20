@@ -3,6 +3,7 @@
 #include "Paper2DPrivatePCH.h"
 #include "GroupedSpriteSceneProxy.h"
 #include "PaperGroupedSpriteComponent.h"
+#include "PhysicsEngine/BodySetup.h"
 
 //////////////////////////////////////////////////////////////////////////
 // FGroupedSpriteSceneProxy

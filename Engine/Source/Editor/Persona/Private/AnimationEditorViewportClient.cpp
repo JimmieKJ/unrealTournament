@@ -84,7 +84,6 @@ FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene&
 	, PersonaPtr( InPersonaPtr )
 	, bManipulating(false)
 	, bInTransaction(false)
-	, AnimationPlaybackScale(1.0f)
 	, GravityScaleSliderValue(0.25f)
 	, PrevWindStrength(0.0f)
 	, SelectedWindActor(NULL)
@@ -126,15 +125,11 @@ FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene&
 	ViewFOV = FMath::Clamp<float>(ConfigOption->ViewFOV, FOVMin, FOVMax);
 
 	EngineShowFlags.DisableAdvancedFeatures();
-	EngineShowFlags.CompositeEditorPrimitives = true;
+	EngineShowFlags.SetSeparateTranslucency(true);
+	EngineShowFlags.SetCompositeEditorPrimitives(true);
 
 	// set camera mode
 	bCameraFollow = false;
-
-	//wind actor's initial position, rotation and strength
-	PrevWindLocation = FVector(100, 100, 100);
-	PrevWindRotation = FRotator(0,0,0); // roll, yaw, pitch
-	PrevWindStrength = 0.2f;
 
 	bDrawUVs = false;
 	UVChannelToDraw = 0;
@@ -146,6 +141,25 @@ FAnimationViewportClient::FAnimationViewportClient(FAnimationEditorPreviewScene&
 	if(World)
 	{
 		World->bAllowAudioPlayback = !ConfigOption->bMuteAudio;
+	}
+
+	// Grab a wind actor if it exists (could have been placed in the scene before a mode transition)
+	TActorIterator<AWindDirectionalSource> WindIter(World);
+	if(WindIter)
+	{
+		AWindDirectionalSource* WindActor = *WindIter;
+		WindSourceActor = WindActor;
+
+		PrevWindLocation = WindActor->GetActorLocation();
+		PrevWindRotation = WindActor->GetActorRotation();
+		PrevWindStrength = WindActor->GetComponent()->Strength;
+	}
+	else
+	{
+		//wind actor's initial position, rotation and strength
+		PrevWindLocation = FVector(100, 100, 100);
+		PrevWindRotation = FRotator(0, 0, 0); // roll, yaw, pitch
+		PrevWindStrength = 0.2f;
 	}
 }
 
@@ -449,7 +463,7 @@ void FAnimationViewportClient::Draw(const FSceneView* View, FPrimitiveDrawInterf
 
 	if ( PersonaPtr.IsValid() && PreviewSkelMeshComp.IsValid() )
 	{
-		// select all nodes, and if skeletalcontrol, allow them to draw 
+		// Allow selected nodes to draw debug rendering if they support it
 		const FGraphPanelSelectionSet SelectedNodes = PersonaPtr.Pin()->GetSelectedNodes();
 		for (FGraphPanelSelectionSet::TConstIterator NodeIt(SelectedNodes); NodeIt; ++NodeIt)
 		{
@@ -542,7 +556,7 @@ void FAnimationViewportClient::DrawCanvas( FViewport& InViewport, FSceneView& Vi
 
 void FAnimationViewportClient::DrawUVsForMesh(FViewport* InViewport, FCanvas* InCanvas, int32 InTextYPos)
 {
-	//use the overriden LOD level
+	//use the overridden LOD level
 	const uint32 LODLevel = FMath::Clamp(PreviewSkelMeshComp->ForcedLodModel - 1, 0, PreviewSkelMeshComp->SkeletalMesh->LODInfo.Num() - 1);
 
 	TArray<FVector2D> SelectedEdgeTexCoords; //No functionality in Persona for this (yet?)
@@ -588,6 +602,9 @@ void FAnimationViewportClient::FindSelectedAnimGraphNode()
 	// finding a selected node
 	if (PersonaPtr.IsValid() && PreviewSkelMeshComp.IsValid())
 	{
+		USkeletalMeshComponent* PreviewComponent = PreviewSkelMeshComp.Get();
+		check(PreviewComponent);
+
 		const FGraphPanelSelectionSet SelectedNodes = PersonaPtr.Pin()->GetSelectedNodes();
 
 		// don't support multi-selection
@@ -608,23 +625,18 @@ void FAnimationViewportClient::FindSelectedAnimGraphNode()
 					// when selected first after AnimGraph is opened, assign previous data to current node
 					if (SelectedSkelControlAnimGraph != AnimGraphNode)
 					{
+
 						if (SelectedSkelControlAnimGraph.IsValid())
 						{
-							SelectedSkelControlAnimGraph->DeselectActor(PreviewSkelMeshComp.Get());
+							SelectedSkelControlAnimGraph->DeselectActor(PreviewComponent);
 						}
 
 						// make same values to ensure data consistency
 						AnimGraphNode->CopyNodeDataTo(AnimNode);
 
-						WidgetMode = (FWidget::EWidgetMode)AnimGraphNode->GetWidgetMode(PreviewSkelMeshComp.Get());
-						if (WidgetMode == FWidget::WM_Scale)
-						{
-							SetWidgetCoordSystemSpace(COORD_Local);
-						}
-						else
-						{
-							SetWidgetCoordSystemSpace(COORD_World);
-						}
+						WidgetMode = (FWidget::EWidgetMode)AnimGraphNode->GetWidgetMode(PreviewComponent);
+						ECoordSystem DesiredCoordSystem = (ECoordSystem)AnimGraphNode->GetWidgetCoordinateSystem(PreviewComponent);
+						SetWidgetCoordSystemSpace(DesiredCoordSystem);
 					}
 					else
 					{
@@ -636,20 +648,20 @@ void FAnimationViewportClient::FindSelectedAnimGraphNode()
 						}
 					}
 
-					AnimGraphNode->MoveSelectActorLocation(PreviewSkelMeshComp.Get(), AnimNode);
+					AnimGraphNode->MoveSelectActorLocation(PreviewComponent, AnimNode);
 					SelectedSkelControlAnimGraph = AnimGraphNode;
 				}
 			}
 		}
-	}
 
-	if (!bSelected)
-	{
-		if (SelectedSkelControlAnimGraph.IsValid())
+		if (!bSelected)
 		{
-			SelectedSkelControlAnimGraph->DeselectActor(PreviewSkelMeshComp.Get());
+			if (SelectedSkelControlAnimGraph.IsValid())
+			{
+				SelectedSkelControlAnimGraph->DeselectActor(PreviewComponent);
+			}
+			SelectedSkelControlAnimGraph.Reset();
 		}
-		SelectedSkelControlAnimGraph.Reset();
 	}
 }
 
@@ -734,7 +746,7 @@ void FAnimationViewportClient::Tick(float DeltaSeconds)
 
 	if (!GIntraFrameDebuggingGameThread)
 	{
-		PreviewScene->GetWorld()->Tick(LEVELTICK_All, DeltaSeconds*AnimationPlaybackScale);
+		PreviewScene->GetWorld()->Tick(LEVELTICK_All, DeltaSeconds);
 	}
 
 	UDebugSkelMeshComponent* PreviewComp = PreviewSkelMeshComp.Get();
@@ -823,6 +835,8 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 
 	// it is weird, but unless it's completely black, it's too bright, so just making it white if only black
 	const FLinearColor TextColor = (SelectedHSVColor.B < 0.3f) ? FLinearColor::White : FLinearColor::Black;
+	const FColor HeadlineColour(255, 83, 0);
+	const FColor SubHeadlineColour(202, 66, 0);
 
 	// if not valid skeletalmesh
 	if (!PreviewSkelMeshComp.IsValid() || !PreviewSkelMeshComp->SkeletalMesh)
@@ -832,9 +846,6 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 
 	if (PreviewSkelMeshComp->SkeletalMesh->MorphTargets.Num() > 0)
 	{
-		FColor HeadlineColour(255,83,0);
-		FColor SubHeadlineColour(202,66,0);
-
 		int32 SubHeadingIndent = CurXOffset + 10;
 
 		TArray<UMaterial*> ProcessedMaterials;
@@ -903,7 +914,6 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 		UAnimSequence* Sequence = Cast<UAnimSequence>(PreviewInstance->CurrentAsset);
 		if ( Sequence && Sequence->DoesNeedRebake() )
 		{
-			FColor SubHeadlineColour(202, 66, 0);
 			InfoString = TEXT("Animation is being edited. To apply to raw animation data, click \"Apply\"");
 			Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), SubHeadlineColour);
 			CurYOffset += YL + 2;
@@ -1017,7 +1027,6 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 			if (PreviewSkelMeshComp->BonesOfInterest.Num() > 0)
 			{
 				int32 BoneIndex = PreviewSkelMeshComp->BonesOfInterest[0];
-				const FName BoneName = PreviewSkelMeshComp->SkeletalMesh->RefSkeleton.GetBoneName(BoneIndex);
 				FTransform ReferenceTransform = PreviewSkelMeshComp->SkeletalMesh->RefSkeleton.GetRefBonePose()[BoneIndex];
 				FTransform LocalTransform = PreviewSkelMeshComp->LocalAtoms[BoneIndex];
 				FTransform ComponentTransform = PreviewSkelMeshComp->GetSpaceBases()[BoneIndex];
@@ -1109,6 +1118,15 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 				FMath::RoundToInt(PreviewSkelMeshComp->Bounds.BoxExtent.Z * 2.0f));
 			Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), TextColor);
 		}
+	}
+
+	if (PreviewSkelMeshComp->SectionIndexPreview != INDEX_NONE)
+	{
+		// Notify the user if they are isolating a mesh section.
+		CurYOffset += YL + 2;
+		InfoString = FString::Printf(*LOCTEXT("MeshSectionsHiddenWarning", "Mesh Sections Hidden").ToString());
+		Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), SubHeadlineColour);
+		
 	}
 }
 
@@ -1529,9 +1547,9 @@ FMatrix FAnimationViewportClient::GetWidgetCoordSystem() const
 			int32 BoneIndex = PreviewSkelMeshComp->GetBoneIndex(BoneName);
 			if (BoneIndex != INDEX_NONE)
 			{
-			FTransform BoneMatrix = PreviewSkelMeshComp->GetBoneTransform(BoneIndex);
-			return BoneMatrix.ToMatrixNoScale().RemoveTranslation();
-		}
+				FTransform BoneMatrix = PreviewSkelMeshComp->GetBoneTransform(BoneIndex);
+				return BoneMatrix.ToMatrixNoScale().RemoveTranslation();
+			}
 		}
 		else if ( PreviewSkelMeshComp->BonesOfInterest.Num() > 0 )
 		{
@@ -2148,7 +2166,7 @@ void FAnimationViewportClient::EnableWindActor(bool bEnableWind)
 			WindSourceActor = CreateWindActor(World);
 		}
 	}
-	else
+	else if(WindSourceActor.IsValid())
 	{
 		PrevWindLocation = WindSourceActor->GetActorLocation();
 		PrevWindRotation = WindSourceActor->GetActorRotation();

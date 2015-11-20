@@ -38,22 +38,6 @@ void SkyLightDiffusePS(
 		float3 SkyLightingNormal = GBuffer.WorldNormal;
 		float3 DiffuseIrradiance = 0;
 
-		// screen position in [-1, 1] screen space
-		float2 ScreenSpacePos = UVAndScreenPos.zw;
-		float3 ScreenVector = normalize(mul(float4(ScreenSpacePos, 1, 0), View.ScreenToWorld).xyz);
-
-		float3 N = GBuffer.WorldNormal;
-		float3 V = -ScreenVector;
-		float NoV = abs( dot(N, V) ) + 1e-5;
-
-		float a = Square( GBuffer.Roughness );
-		float3 DominantDiffuseDir = lerp( N, V, saturate( ( NoV * (1.02341 * a - 1.51174) + -0.511705 * a + 0.755868 ) * a ) );
-		DominantDiffuseDir = normalize( DominantDiffuseDir );
-		SkyLightingNormal = DominantDiffuseDir;
-
-		float3 ABC = PreIntegratedGF.SampleLevel( PreIntegratedGFSampler, float2( NoV, GBuffer.Roughness ), 0 ).rgb;
-		GBuffer.DiffuseColor *= ABC.z;
-
 #if APPLY_SHADOWING
 		float3 BentNormal = Texture2DSampleLevel(BentNormalAOTexture, BentNormalAOSampler, UV, 0).xyz;
 
@@ -67,8 +51,8 @@ void SkyLightDiffusePS(
 			// Use more bent normal in corners
 			float BentNormalWeightFactor = SkyVisibility;
 
-			SkyLightingNormal = lerp(NormalizedBentNormal, DominantDiffuseDir, BentNormalWeightFactor);
-			DotProductFactor = lerp(dot(NormalizedBentNormal, DominantDiffuseDir), 1, BentNormalWeightFactor);
+			SkyLightingNormal = lerp(NormalizedBentNormal, GBuffer.WorldNormal, BentNormalWeightFactor);
+			DotProductFactor = lerp(dot(NormalizedBentNormal, GBuffer.WorldNormal), 1, BentNormalWeightFactor);
 		}
 		#else
 		{
@@ -104,7 +88,11 @@ void SkyLightDiffusePS(
 
 		// Compute the preconvolved incoming lighting with the bent normal direction
 		float3 DiffuseLookup = GetSkySHDiffuse(SkyLightingNormal) * View.SkyLightColor.rgb;
-		
+
+		// darken by DirectionalOcclusion feature from LightPropagationVolume (could be optimized if the feature is not used)
+		float DirectionalOcclusion = ScreenSpaceData.DirectionalOcclusion.r;
+		DiffuseLookup *= DirectionalOcclusion;
+
 		// Apply AO to the sky diffuse and account for darkening due to the geometry term
 		Lighting += (ScalarFactors * DotProductFactor) * DiffuseLookup * GBuffer.DiffuseColor + (1 - SkyVisibility) * OcclusionTintAndMinOcclusion.xyz;
 

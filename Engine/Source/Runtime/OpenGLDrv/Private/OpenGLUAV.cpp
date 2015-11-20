@@ -56,7 +56,7 @@ FUnorderedAccessViewRHIRef FOpenGLDynamicRHI::RHICreateUnorderedAccessView(FStru
 	return new FOpenGLUnorderedAccessView();
 }
 
-FUnorderedAccessViewRHIRef FOpenGLDynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI)
+FUnorderedAccessViewRHIRef FOpenGLDynamicRHI::RHICreateUnorderedAccessView(FTextureRHIParamRef TextureRHI, uint32 MipLevel)
 {
 	FOpenGLTexture* Texture = ResourceCast(TextureRHI);
 	check(Texture->GetFlags() & TexCreate_UAV);
@@ -125,13 +125,10 @@ FShaderResourceViewRHIRef FOpenGLDynamicRHI::RHICreateShaderResourceView(FStruct
 	return new FOpenGLShaderResourceView(this,0,GL_TEXTURE_BUFFER);
 }
 
-// Ignore functions from RHIMethods.h when parsing documentation; Doxygen's preprocessor can't parse the declaration, so spews warnings for the definitions.
-#if !UE_BUILD_DOCS
-
 void FOpenGLDynamicRHI::RHIClearUAV(FUnorderedAccessViewRHIParamRef UnorderedAccessViewRHI, const uint32* Values)
 {
 	UE_LOG(LogRHI, Fatal,TEXT("OpenGL RHI doesn't support RHIClearUAV."));
 	GPUProfilingData.RegisterGPUWork(1);
 }
 
-#endif
+

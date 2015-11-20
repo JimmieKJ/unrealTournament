@@ -77,18 +77,10 @@ void FUTReplayStreamer::ProcessRequestInternal( TSharedPtr< class IHttpRequest >
 
 IMPLEMENT_MODULE( FUTReplayStreamingFactory, UTReplayStreamer )
 
-TSharedPtr< INetworkReplayStreamer > FUTReplayStreamingFactory::CreateReplayStreamer(const FURL& URL)
+TSharedPtr< INetworkReplayStreamer > FUTReplayStreamingFactory::CreateReplayStreamer()
 {
-	if (URL.HasOption(TEXT("Remote")))
-	{
-		// use FUTReplayStreamer for remote streams
-		TSharedPtr< FHttpNetworkReplayStreamer > Streamer(new FUTReplayStreamer);
-		HttpStreamers.Add(Streamer);
-		return Streamer;
-	}
-	else
-	{
-		// use FNullStreamer for local streams
-		return TSharedPtr<INetworkReplayStreamer>(new FNullNetworkReplayStreamer);
-	}
+	// use FUTReplayStreamer for remote streams
+	TSharedPtr< FHttpNetworkReplayStreamer > Streamer(new FUTReplayStreamer);
+	HttpStreamers.Add(Streamer);
+	return Streamer;
 }

@@ -21,16 +21,37 @@ struct AIMODULE_API FAINoiseEvent
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sense")
 	FVector NoiseLocation;
 
+	/**
+	 * Loudness modifier of the sound.
+	 * If MaxRange is non-zero, this modifies the range (by multiplication).
+	 * If there is no MaxRange, then if Square(DistanceToSound) <= Square(HearingRange) * Loudness, the sound is heard, false otherwise.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sense", meta = (UIMin = 0, ClampMin = 0))
 	float Loudness;
+
+	/**
+	 * Max range at which the sound can be heard. Multiplied by Loudness.
+	 * A value of 0 indicates that there is no range limit, though listeners are still limited by their own hearing range.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sense", meta = (UIMin = 0, ClampMin = 0))
+	float MaxRange;
 	
+	/**
+	 * Actor triggering the sound.
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sense")
 	AActor* Instigator;
+
+	/**
+	 * Named identifier for the noise.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Sense")
+	FName Tag;
 
 	FGenericTeamId TeamIdentifier;
 		
 	FAINoiseEvent();
-	FAINoiseEvent(AActor* InInstigator, const FVector& InNoiseLocation, float InLoudness = 1.f);
+	FAINoiseEvent(AActor* InInstigator, const FVector& InNoiseLocation, float InLoudness = 1.f, float InMaxRange = 0.f, FName Tag = NAME_None);
 
 	/** Verifies and calculates derived data */
 	void Compile();
@@ -67,8 +88,17 @@ public:
 	// part of BP interface. Translates PerceptionEvent to FAINoiseEvent and call RegisterEvent(const FAINoiseEvent& Event)
 	virtual void RegisterWrappedEvent(UAISenseEvent& PerceptionEvent) override;
 
-	UFUNCTION(BlueprintCallable, Category = "AI|Perception", meta = (HidePin = "WorldContext", DefaultToSelf = "WorldContext"))
-	static void ReportNoiseEvent(UObject* WorldContext, FVector NoiseLocation, float Loudness = 1.f, AActor* Instigator = nullptr);
+	/**
+	 * Report a noise event.
+	 * 
+	 * @param NoiseLocation Location of the noise.
+	 * @param Loudness Loudness of the noise. If MaxRange is non-zero, modifies MaxRange, otherwise modifies the squared distance of the sensor's range.
+	 * @param Instigator Actor that triggered the noise.
+	 * @param MaxRange Max range at which the sound can be heard, multiplied by Loudness. Values <= 0 mean no limit (still limited by listener's range however).
+	 * @param Tag Identifier for the event.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "AI|Perception", meta = (WorldContext="WorldContext"))
+	static void ReportNoiseEvent(UObject* WorldContext, FVector NoiseLocation, float Loudness = 1.f, AActor* Instigator = nullptr, float MaxRange = 0.f, FName Tag = NAME_None);
 
 protected:
 	virtual float Update() override;

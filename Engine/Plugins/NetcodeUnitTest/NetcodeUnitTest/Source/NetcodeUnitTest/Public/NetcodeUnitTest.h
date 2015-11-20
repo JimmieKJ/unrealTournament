@@ -6,33 +6,44 @@
  * Compatibility defines
  */
 
-// @todo JohnB: Perhaps move compatibility defines to its own header
+// @todo #JohnBRefactor: Perhaps move compatibility defines to its own header
 
-// @todo JohnB: Every time you update NetcodeUnitTest code, to toggle based on a changelist, add a define for it with the CL number here
-
-// @todo JohnB: I need accurate mainline CL numbers for UT integrations (they aren't included in the merge changelist descriptions)
+// @todo #JohnB: I need accurate mainline CL numbers for UT integrations (they aren't included in the merge changelist descriptions)
 
 
 /** List of mainline UE4 changelists, representing UE4 version changes (as judged by changes to Version.h) */
-#define CL_4_8 2388573
-#define CL_4_7 2347015
-#define CL_4_6 2308471
+#define CL_4_10	2626674
+#define CL_4_9	2526821
+#define CL_4_8	2388573
+#define CL_4_7	2347015
+#define CL_4_6	2308471
 
 /** List of UnrealTournament mainline merges (number represents merged mainline CL) NOTE: Estimated. No integrated CL number in merge */
+#define CL_UT_4_8 CL_4_9	// Integrated with final 4.8 release, which is approximately same time as main branch started 4.9
 #define CL_UT_4_7 CL_4_7
 #define CL_UT_4_6 CL_4_6
 
 /** List of Fortnite mainline merges (number represents merged mainline CL) */
+#define CL_FORT_4_8_APRIL 2509925
 #define CL_FORT_4_8 2415178
 #define CL_FORT_4_7 2349525
 
 
-/** List of mainline UE4 engine changelists, that required a NetcodeUnitTest compatibility adjustment (newest first) */
+/**
+ * List of mainline UE4 engine changelists, that required a NetcodeUnitTest compatibility adjustment (newest first)
+ * Every time you update NetcodeUnitTest code, to toggle based on a changelist, add a define for it with the CL number here
+ */
+#define CL_FENGINEVERSION	2655102
+#define CL_INITCONNPARAM	2567692
+#define CL_CONSTUNIQUEID	2540329
+#define CL_CONSTNETCONN		2501704
 #define CL_INPUTCHORD		2481648
 #define CL_CLOSEPROC		2476050
 #define CL_STRINGPARSEARRAY	2466824
+#define CL_BEACONHOST		2456855
 #define CL_GETSELECTIONMODE	2425976
 #define CL_DEPRECATENEW		2425600
+#define CL_DEPRECATEDEL		2400883
 #define CL_FNETWORKVERSION	2384479
 #define CL_CHECKBOXSTATE	2384008
 
@@ -45,7 +56,7 @@
  *
  * If in doubt, set to the top CL from list above ('List of mainline UE4 engine changelists'), and work your way down until it compiles.
  */
-#define TARGET_UE4_CL 2480893	// IMPORTANT: If you're hovering over this because compiling failed, you need to adjust this value.
+#define TARGET_UE4_CL 2664876	// IMPORTANT: If you're hovering over this because compiling failed, you need to adjust this value.
 
 
 /**
@@ -56,18 +67,14 @@ class UUnitTestManager;
 class UUnitTestBase;
 
 
-// @todo JohnB: Status window logs (such as unit test success/failure), don't appear to add the same colouring to main game log window;
+// @todo #JohnBLowPri: Status window logs (such as unit test success/failure), don't appear to add the same colouring to main game log window;
 //				add this sometime (probably based on how FUnitTestProcess does it)
 
 /**
  * Enums
  */
 
-// @todo JohnB: Also consider trying to refactor log-colouring, to consider these flags (or even do-away with all log colouring code,
-//				that is NOT based on these flags)
-
-
-// @todo JohnB: Trim values from the below enum - not all are necessary
+// @todo #JohnBRefactor: Trim values from the below enum - not all are necessary
 
 /**
  * Used to help identify what type of log is being processed
@@ -117,6 +124,10 @@ enum class ELogType : uint32
 	StyleMonospace		= 0x01000000,					// Output monospaced text (e.g. for list tab formatting); can't use bold/italic
 
 	All					= 0xFFFFFFFF,
+
+
+	/** Log lines that should request focus when logged (i.e. if not displayed in the current tab, switch to a tab that does display) */
+	FocusMask			= OriginConsole,
 };
 
 ENUM_CLASS_FLAGS(ELogType);
@@ -135,7 +146,7 @@ extern UUnitTestManager* GUnitTestManager;
 /** Used by to aid in hooking log messages triggered by unit tests */
 extern NETCODEUNITTEST_API UUnitTestBase* GActiveLogUnitTest;
 extern UUnitTestBase* GActiveLogEngineEvent;
-extern UWorld* GActiveLogWorld;				// @todo JohnB: Does this make other log hooks redundant?
+extern UWorld* GActiveLogWorld;				// @todo #JohnBReview: Does this make other log hooks redundant?
 
 /** Keeps track of the UUnitTestNetConnection, currently processing received data (to aid with selective log hooking) */
 extern UNetConnection* GActiveReceiveUnitConnection;
@@ -184,7 +195,7 @@ inline ELogType OptionalFlags(ELogType InFlags=ELogType::None)
 }
 
 // Actual asserts (not optimized out, like almost all other engine assert macros)
-// @todo JohnB: Try to get this to show up a message box, or some other notification, rather than just exiting immediately
+// @todo #JohnBLowPri: Try to get this to show up a message box, or some other notification, rather than just exiting immediately
 #define UNIT_ASSERT(Condition) \
 	if (!(Condition)) \
 	{ \
@@ -256,7 +267,7 @@ inline ELogType OptionalFlags(ELogType InFlags=ELogType::None)
 	UNIT_LOG_OBJ(this, UnitLogTypeFlags, Format, __VA_ARGS__)
 
 
-// @todo JohnB: Document these macros
+// @todo #JohnBDoc: Document these macros
 
 #define UNIT_EVENT_BEGIN(UnitTestObj) \
 	UUnitTestBase* OldEventLogVal = GActiveLogEngineEvent; \

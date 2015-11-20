@@ -10,10 +10,24 @@ IMPLEMENT_APPLICATION( MinidumpDiagnostics, "MinidumpDiagnostics" )
 
 	
 /** 
- * A null crash handler to suppress error report generation
+ * A simple crash handler that prints the callstack to the log
  */
-int32 EmptyCrashHandler( LPEXCEPTION_POINTERS ExceptionInfo )
+int32 SimpleCrashHandler( LPEXCEPTION_POINTERS ExceptionInfo )
 {
+	const SIZE_T StackTraceSize = 65535;
+	ANSICHAR* StackTrace = (ANSICHAR*)GMalloc->Malloc( StackTraceSize );
+	StackTrace[0] = 0;
+	FPlatformStackWalk::StackWalkAndDump( StackTrace, StackTraceSize, 0, ExceptionInfo->ContextRecord );
+
+	FCString::Strncat( GErrorHist, TEXT( "\r\n\r\n" ), ARRAY_COUNT( GErrorHist ) );
+	FCString::Strncat( GErrorHist, ANSI_TO_TCHAR( StackTrace ), ARRAY_COUNT( GErrorHist ) );
+
+	GMalloc->Free( StackTrace );
+
+	GError->HandleError();
+
+	FPlatformMisc::RequestExit( true );
+
 	return EXCEPTION_EXECUTE_HANDLER;
 }
 
@@ -35,13 +49,10 @@ int32 GuardedMainWrapper(int32 ArgC, TCHAR* ArgV[])
 {
 	int32 ReturnCode = 0;
 
-#if !PLATFORM_MAC
 	if (FPlatformMisc::IsDebuggerPresent())
-#endif
 	{
 		ReturnCode = GuardedMain( ArgC, ArgV );
 	}
-#if !PLATFORM_MAC
 	else
 	{
 		__try
@@ -50,11 +61,10 @@ int32 GuardedMainWrapper(int32 ArgC, TCHAR* ArgV[])
 			ReturnCode = GuardedMain( ArgC, ArgV );
 			GIsGuarded = 0;
 		}
-		__except( EmptyCrashHandler( GetExceptionInformation() ) )
+		__except( SimpleCrashHandler( GetExceptionInformation() ) )
 		{
 		}
 	}
-#endif
 
 	FEngineLoop::AppPreExit();
 	FEngineLoop::AppExit();

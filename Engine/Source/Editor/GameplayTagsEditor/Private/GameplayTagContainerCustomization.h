@@ -23,10 +23,10 @@ public:
 	/** Overridden to do nothing */
 	virtual void CustomizeChildren(TSharedRef<IPropertyHandle> InStructPropertyHandle, class IDetailChildrenBuilder& ChildBuilder, IPropertyTypeCustomizationUtils& StructCustomizationUtils) override {}
 
-	// Begin FEditorUndoClient Interface
+	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo( bool bSuccess ) override;
 	virtual void PostRedo( bool bSuccess ) override;	
-	// End FEditorUndoClient Interface
+	//~ End FEditorUndoClient Interface
 
 private:
 	/** Called when the edit button is clicked; Launches the gameplay tag editor */
@@ -70,5 +70,8 @@ private:
 
 	/** The Window for the GameplayTagWidget */
 	TSharedPtr<SWindow> GameplayTagWidgetWindow;
+
+	/** The widget */
+	TSharedPtr<SGameplayTagWidget> GameplayTagWidget;
 };
 

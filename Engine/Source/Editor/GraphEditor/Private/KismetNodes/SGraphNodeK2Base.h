@@ -6,10 +6,10 @@ class GRAPHEDITOR_API SGraphNodeK2Base : public SGraphNode
 {
 public:
 
-	// SGraphNode interface
+	//~ Begin SGraphNode Interface
 	virtual void UpdateGraphNode() override;
 
-	// SNodePanel::SNode interface
+	//~ Begin SNodePanel::SNode Interface
 	virtual bool RequiresSecondPassLayout() const override;
 	virtual void GetOverlayBrushes(bool bSelected, const FVector2D WidgetSize, TArray<FOverlayBrushInfo>& Brushes) const override;
 	virtual void GetNodeInfoPopups(FNodeInfoContext* Context, TArray<FGraphInformationPopupInfo>& Popups) const override;
@@ -17,9 +17,9 @@ public:
 	void PerformSecondPassLayout(const TMap< UObject*, TSharedRef<SNode> >& NodeToWidgetLookup) const override;
 
 protected :
-	// Begin SGraphNode interface
+	//~ Begin SGraphNode Interface
 	virtual TSharedPtr<SToolTip> GetComplexTooltip() override;
-	// End SGraphNode interface
+	//~ End SGraphNode Interface
 
 	/** Set up node in 'standard' mode */
 	void UpdateStandardNode();

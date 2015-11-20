@@ -25,13 +25,11 @@ namespace UnrealBuildTool
 				"ENGINE\\SHADERS\\SHADERVERSION.USF",
 			};
 
-		/**
-		 * See if the given file is whitelisted
-		 * 
-		 * @param	InFilename		The name of the file to check
-		 * 
-		 * @return	bool			true if it is whitelisted, false if not
-		 */
+		/// <summary>
+		/// See if the given file is whitelisted
+		/// </summary>
+		/// <param name="InFilename"> The name of the file to check</param>
+		/// <returns>bool   true if it is whitelisted, false if not</returns>
 		static bool IsWhitelistedFile(string InFilename)
 		{
 			string FilenameUpper = InFilename.ToUpperInvariant();
@@ -48,14 +46,13 @@ namespace UnrealBuildTool
 
 		static List<string> BadFiles = new List<string>();
 
-		/**
-		 * Process the given list of files, checking each one has the proper copyright.
-		 * This REQUIRES that the first line in any file is the copyright line!!!
-		 * 
-		 * @param	InFiles			The list of files to process
-		 * @param	OutBadFiles		OUTPUT - List of files that failed the copyright check (and why)
-		 */
-		static void ProcessFileList(List<FileInfo> InFiles, ref Dictionary<string,string> OutBadFiles)
+		/// <summary>
+		/// Process the given list of files, checking each one has the proper copyright.
+		/// This REQUIRES that the first line in any file is the copyright line!!!
+		/// </summary>
+		/// <param name="InFiles">  The list of files to process</param>
+		/// <param name="OutBadFiles"> OUTPUT - List of files that failed the copyright check (and why)</param>
+		static void ProcessFileList(List<FileInfo> InFiles, ref Dictionary<string, string> OutBadFiles)
 		{
 			foreach (FileInfo CheckFile in InFiles)
 			{

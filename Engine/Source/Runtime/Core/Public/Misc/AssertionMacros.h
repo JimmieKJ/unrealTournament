@@ -115,7 +115,7 @@
 
 	namespace UE4Asserts_Private
 	{
-		// This is used by ensureOnce to generate a bool per instance
+		// This is used by ensure to generate a bool per instance
 		// by passing a lambda which will uniquely instantiate the template.
 		template <typename Type>
 		bool TrueOnFirstCallOnly(const Type&)
@@ -126,31 +126,40 @@
 			return Result;
 		}
 
-		FORCEINLINE bool OptionallyDebugBreakAndPromptForRemoteReturningFalse(bool bBreak)
+		FORCEINLINE bool OptionallyDebugBreakAndPromptForRemoteReturningFalse(bool bBreak, bool bIsEnsure = false)
 		{
 			if (bBreak)
 			{
-				FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse();
+				FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse(bIsEnsure);
 			}
 			return false;
 		}
 	}
 
-	#define ensure(         InExpression                ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, TEXT("")               ) || FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse())
-	#define ensureMsg(      InExpression, InMsg         ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, InMsg                  ) || FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse())
-	#define ensureMsgf(     InExpression, InFormat, ... ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__) || FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse())
-	#define ensureOnce(     InExpression                ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), #InExpression, __FILE__, __LINE__, TEXT("")               ) || UE4Asserts_Private::OptionallyDebugBreakAndPromptForRemoteReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{})))
-	#define ensureOnceMsgf( InExpression, InFormat, ... ) ((InExpression) != 0 || FDebug::EnsureNotFalse_OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__) || UE4Asserts_Private::OptionallyDebugBreakAndPromptForRemoteReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{})))
+	#define ensure(           InExpression                ) ((InExpression) != 0 || FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), #InExpression, __FILE__, __LINE__, TEXT("")               ) || UE4Asserts_Private::OptionallyDebugBreakAndPromptForRemoteReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), true))
+	#define ensureMsgf(       InExpression, InFormat, ... ) ((InExpression) != 0 || FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__) || UE4Asserts_Private::OptionallyDebugBreakAndPromptForRemoteReturningFalse(UE4Asserts_Private::TrueOnFirstCallOnly([]{}), true))
+	#define ensureAlways(     InExpression                ) ((InExpression) != 0 || FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, TEXT("")               ) || FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse(true))
+	#define ensureAlwaysMsgf( InExpression, InFormat, ... ) ((InExpression) != 0 || FDebug::OptionallyLogFormattedEnsureMessageReturningFalse(true,                                          #InExpression, __FILE__, __LINE__, InFormat, ##__VA_ARGS__) || FPlatformMisc::DebugBreakAndPromptForRemoteReturningFalse(true))
 
 #else	// DO_CHECK
 
-	#define ensure(         InExpression                ) ((InExpression) != 0)
-	#define ensureMsg(      InExpression, InMsg         ) ((InExpression) != 0)
-	#define ensureMsgf(     InExpression, InFormat, ... ) ((InExpression) != 0)
-	#define ensureOnce(     InExpression                ) ((InExpression) != 0)
-	#define ensureOnceMsgf( InExpression, InFormat, ... ) ((InExpression) != 0)
+	#define ensure(           InExpression                ) ((InExpression) != 0)
+	#define ensureMsgf(       InExpression, InFormat, ... ) ((InExpression) != 0)
+	#define ensureAlways(     InExpression                ) ((InExpression) != 0)
+	#define ensureAlwaysMsgf( InExpression, InFormat, ... ) ((InExpression) != 0)
 
 #endif	// DO_CHECK
+
+namespace UE4Asserts_Private
+{
+	DEPRECATED(4.9, "ensureMsg is deprecated, please use ensureMsgf instead.")
+	FORCEINLINE bool DeprecatedEnsure(bool bValue)
+	{
+		return bValue;
+	}
+}
+
+#define ensureMsg(InExpression, InMsg) UE4Asserts_Private::DeprecatedEnsure(ensureMsgf(InExpression, InMsg))
 
 // These are only for use as part of the GET_MEMBER_NAME_CHECKED macro
 template <typename T>
@@ -263,6 +272,7 @@ struct FTCharArrayTester
 	#define DECLARE_LOG_CATEGORY_CLASS(...)
 	#define DEFINE_LOG_CATEGORY_CLASS(...)
 	#define LOG_SCOPE_VERBOSITY_OVERRIDE(...)
+	#define UE_SECURITY_LOG(...)
 
 #else
 
@@ -317,6 +327,26 @@ struct FTCharArrayTester
 			} \
 		}
 
+		/**
+		* A  macro that outputs a formatted message to the log specifically used for security events
+		* @param NetConnection, a valid UNetConnection
+		* @param SecurityEventType, a security event type (ESecurityEvent::Type)
+		* @param Format, format text
+		***/
+		#define UE_SECURITY_LOG(NetConnection, SecurityEventType, Format, ...) \
+		{ \
+			static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
+			check(NetConnection != nullptr); \
+			if (UE_LOG_CHECK_COMPILEDIN_VERBOSITY(LogSecurity, Warning)) \
+			{ \
+				if (!LogSecurity.IsSuppressed(ELogVerbosity::Warning)) \
+				{ \
+				FString Test = FString::Printf(TEXT("%s: %s: %s"), *(NetConnection->RemoteAddressToString()), ToString(SecurityEventType), Format); \
+					FMsg::Logf_Internal(__FILE__, __LINE__, LogSecurity.GetCategoryName(), ELogVerbosity::Warning, *Test, ##__VA_ARGS__); \
+				} \
+			} \
+		 }
+
 		// Conditional logging. Will only log if Condition is met.
 		#define UE_CLOG(Condition, CategoryName, Verbosity, Format, ...) \
 		{ \
@@ -339,7 +369,6 @@ struct FTCharArrayTester
 			} \
 		}
 	#endif
-
 	/** 
 	 * A macro that executes some code within a scope if a given logging category is active at a given verbosity level
 	 * Also, withing the scope of the execution, the default category and verbosity is set up for the low level logging 
@@ -418,3 +447,52 @@ struct FTCharArrayTester
 #if PLATFORM_HTML5
 #include "HTML5/HTML5AssertionMacros.h"
 #endif 
+
+#if UE_BUILD_SHIPPING
+#define NOTIFY_CLIENT_OF_SECURITY_EVENT_IF_NOT_SHIPPING(NetConnection, SecurityPrint) ;
+#else
+#define NOTIFY_CLIENT_OF_SECURITY_EVENT_IF_NOT_SHIPPING(NetConnection, SecurityPrint) \
+	FNetControlMessage<NMT_SecurityViolation>::Send(NetConnection, SecurityPrint); \
+	NetConnection->FlushNet(true)
+#endif
+
+/**
+	* A  macro that closes the connection and logs the security event on the server and the client
+	* @param NetConnection, a valid UNetConnection
+	* @param SecurityEventType, a security event type (ESecurityEvent::Type)
+	* @param Format, format text
+***/
+#define CLOSE_CONNECTION_DUE_TO_SECURITY_VIOLATION(NetConnection, SecurityEventType, Format, ...) \
+{ \
+	static_assert(IS_TCHAR_ARRAY(Format), "Formatting string must be a TCHAR array."); \
+	check(NetConnection != nullptr); \
+	FString SecurityPrint = FString::Printf(Format, ##__VA_ARGS__); \
+	UE_SECURITY_LOG(NetConnection, SecurityEventType, Format, ##__VA_ARGS__); \
+	UE_SECURITY_LOG(NetConnection, ESecurityEvent::Closed, TEXT("Connection closed")); \
+	NetConnection->Close(); \
+	PerfCountersIncrement(TEXT("ClosedConnectionsDueToSecurityViolations")); \
+}
+
+extern CORE_API int32 GEnsureOnNANDiagnostic;
+
+// Macro to either log an error or ensure on a NaN error.
+#if DO_CHECK
+namespace UE4Asserts_Private
+{
+	CORE_API void VARARGS InternalLogNANDiagnosticMessage(const TCHAR* FormattedMsg, ...); // UE_LOG(LogCore, Error, _FormatString_, ##__VA_ARGS__);
+}
+#define logOrEnsureNanError(_FormatString_, ...) \
+	if (!GEnsureOnNANDiagnostic)\
+	{\
+		if (UE4Asserts_Private::TrueOnFirstCallOnly([]{}))\
+		{\
+			UE4Asserts_Private::InternalLogNANDiagnosticMessage(_FormatString_, ##__VA_ARGS__); \
+		}\
+	}\
+	else\
+	{\
+		ensureMsgf(!GEnsureOnNANDiagnostic, _FormatString_, ##__VA_ARGS__); \
+	}
+#else
+#define logOrEnsureNanError(_FormatString_, ...)
+#endif // DO_CHECK

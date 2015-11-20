@@ -37,7 +37,7 @@ struct FHitResult
 	/** Time until hit.													*/
 	float		Time;
 	/** Primitive data item which was hit, INDEX_NONE=none				*/
-	int32			Item;		
+	int32		Item;		
 
 	FHitResult()
 	: Normal	(0,0,0,0)
@@ -90,6 +90,7 @@ struct FTriangleSOA
 	VectorRegister	StaticAndOpaqueMask;
 	VectorRegister	MeshIndices;
 	VectorRegister	LODIndices;
+	VectorRegister	HLODRange;
 	/** A 32-bit payload value for each of the 4 triangles. */
 	uint32		Payload[4];
 };
@@ -211,6 +212,7 @@ static const VectorRegister GSmallNumber = { 0.0001f, 0.0001f, 0.0001f, 0.0001f 
 
 static const VectorRegister GZeroVectorRegister = { 0, 0, 0, 0 };
 
+static const VectorRegister IndexNoneVectorRegister = MakeVectorRegister((uint32)INDEX_NONE, (uint32)INDEX_NONE, (uint32)INDEX_NONE, (uint32)INDEX_NONE);
 static const VectorRegister VectorNegativeOne = MakeVectorRegister( -1.0f, -1.0f, -1.0f, -1.0f );
 
 /**
@@ -223,11 +225,11 @@ static const VectorRegister VectorNegativeOne = MakeVectorRegister( -1.0f, -1.0f
  * @param IntersectionTime	[in/out] Best intersection time so far (0..1), as in: IntersectionPoint = Start + IntersectionTime * Dir.
  * @return			Index (0-3) to specify which of the 4 triangles the line intersected, or -1 if none was found.
  */
-FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVector3SOA& End, const FVector3SOA& Dir, VectorRegister MeshIndex, VectorRegister LODIndex, const FTriangleSOA& Triangle4, bool bStaticAndOpaqueOnly, bool bTwoSidedCollision, bool bFlipSidedness, float& InOutIntersectionTime)
+FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVector3SOA& End, const FVector3SOA& Dir, VectorRegister MeshIndex, VectorRegister LODIndices, VectorRegister HLODRange, const FTriangleSOA& Triangle4, bool bStaticAndOpaqueOnly, bool bTwoSidedCollision, bool bFlipSidedness, float& InOutIntersectionTime)
 {
 	VectorRegister TriangleMask;
 
- 	VectorRegister StartDist;
+	VectorRegister StartDist;
 	StartDist = VectorMultiplyAdd( Triangle4.Normals.X, Start.X, Triangle4.Normals.W );
 	StartDist = VectorMultiplyAdd( Triangle4.Normals.Y, Start.Y, StartDist );
 	StartDist = VectorMultiplyAdd( Triangle4.Normals.Z, Start.Z, StartDist );
@@ -309,12 +311,57 @@ FORCEINLINE int32 appLineCheckTriangleSOA(const FVector3SOA& Start, const FVecto
 			return -1;
 		}
 	}
-	
+
+	// HLOD masks
+	static const VectorRegister HLODTreeIndexMask = MakeVectorRegister((uint32)0xFFFF0000,(uint32)0xFFFF0000,(uint32)0xFFFF0000,(uint32)0xFFFF0000);
+	static const VectorRegister HLODRangeStartIndexMask = MakeVectorRegister((uint32)0xFFFF,(uint32)0xFFFF,(uint32)0xFFFF,(uint32)0xFFFF);
+	static const VectorRegister HLODRangeEndIndexMask = MakeVectorRegister((uint32)0xFFFF0000,(uint32)0xFFFF0000,(uint32)0xFFFF0000,(uint32)0xFFFF0000);
+
+	static const VectorRegister TreeIndexNoneRegister = VectorShiftRight(VectorBitwiseAND(HLODTreeIndexMask, IndexNoneVectorRegister), 16);
+
+	// Unpack HLOD Data
+	VectorRegister HLODTreeIndexRay = VectorShiftRight(VectorBitwiseAND(HLODTreeIndexMask, LODIndices), 16);
+	VectorRegister HLODTreeIndexTri = VectorShiftRight(VectorBitwiseAND(HLODTreeIndexMask, Triangle4.LODIndices), 16);
+	VectorRegister HLODRangeStartRay = VectorBitwiseAND(HLODRangeStartIndexMask, HLODRange);
+	VectorRegister HLODRangeStartTri = VectorBitwiseAND(HLODRangeStartIndexMask, Triangle4.HLODRange);
+	VectorRegister HLODRangeEndRay = VectorShiftRight(VectorBitwiseAND(HLODRangeEndIndexMask, HLODRange), 16);
+	VectorRegister HLODRangeEndTri = VectorShiftRight(VectorBitwiseAND(HLODRangeEndIndexMask, Triangle4.HLODRange), 16);
+
+	VectorRegister IsDifferentHLOD = VectorMask_NE(HLODTreeIndexRay, HLODTreeIndexTri);
+	VectorRegister IsTriNotAHLOD = VectorBitwiseOR(VectorMask_EQ(HLODTreeIndexTri, TreeIndexNoneRegister), VectorMask_EQ(HLODTreeIndexTri, GZeroVectorRegister));
+
+	// Ignore children of this HLOD node
+	VectorRegister IsRayOutsideRange = VectorBitwiseOR(VectorMask_LT(HLODRangeStartRay, HLODRangeStartTri), VectorMask_GT(HLODRangeStartRay, HLODRangeEndTri));
+	VectorRegister IsTriOutsideRange = VectorBitwiseOR(VectorMask_LT(HLODRangeStartTri, HLODRangeStartRay), VectorMask_GT(HLODRangeStartTri, HLODRangeEndRay));
+	VectorRegister IsRayLeafNode = VectorMask_EQ(HLODRangeStartRay, HLODRangeEndRay);
+	VectorRegister IsTriLeafNode = VectorMask_EQ(HLODRangeStartTri, HLODRangeEndTri);
+
+	VectorRegister HLODMask = VectorBitwiseAND(IsRayOutsideRange, IsTriOutsideRange);
+	HLODMask = VectorBitwiseOR(HLODMask, VectorBitwiseAND(IsRayLeafNode, IsTriLeafNode));
+
+	// Ignore interactions between unrelated HLODs
+	HLODMask = VectorBitwiseOR(HLODMask, IsDifferentHLOD);
+	HLODMask = VectorBitwiseOR(HLODMask, IsTriNotAHLOD);
+
+	// Allow if exact same mesh
+	VectorRegister SameHLODMesh = VectorMask_EQ(HLODRange, Triangle4.HLODRange);
+	HLODMask = VectorBitwiseOR(HLODMask, SameHLODMesh);
+
+	TriangleMask = VectorBitwiseAND(TriangleMask, HLODMask);
+	if (VectorMaskBits(TriangleMask) == 0)
+	{
+		return -1;
+	}
+
 	// Only allow intersections with the base LOD of other meshes and the LOD that is initiating the trace of the current mesh
+	static const VectorRegister LODIndexMask = MakeVectorRegister((uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF, (uint32)0xFFFF);
+	VectorRegister LODIndexRay = VectorBitwiseAND(LODIndices, LODIndexMask);
+	VectorRegister LODIndexTri = VectorBitwiseAND(Triangle4.LODIndices, LODIndexMask);
+
 	// LOD0OfOtherMeshMask = MeshIndex != TriangleMesh && IndexTriangleLODIndex == 0
-	const VectorRegister LOD0OfOtherMeshMask = VectorBitwiseAND(VectorMask_NE(MeshIndex, Triangle4.MeshIndices), VectorMask_EQ(Triangle4.LODIndices, GZeroVectorRegister));
+	const VectorRegister LOD0OfOtherMeshMask = VectorBitwiseAND(VectorMask_NE(MeshIndex, Triangle4.MeshIndices), VectorMask_EQ(LODIndexTri, GZeroVectorRegister));
 	// MatchingLODfCurrentMeshMask = MeshIndex == TriangleMeshIndex && LODIndex == TriangleLODIndex
-	const VectorRegister MatchingLODfCurrentMeshMask = VectorBitwiseAND(VectorMask_EQ(MeshIndex, Triangle4.MeshIndices), VectorMask_EQ(LODIndex, Triangle4.LODIndices));
+	const VectorRegister MatchingLODfCurrentMeshMask = VectorBitwiseAND(VectorMask_EQ(MeshIndex, Triangle4.MeshIndices), VectorMask_EQ(LODIndexRay, LODIndexTri));
 	// TriangleMask = TriangleMask && (LOD0OfOtherMeshMask || MatchingLODOfCurrentMeshMask)
 	TriangleMask = VectorBitwiseAND(TriangleMask, VectorBitwiseOR(LOD0OfOtherMeshMask, MatchingLODfCurrentMeshMask));
 	if ( VectorMaskBits(TriangleMask) == 0 )
@@ -375,8 +422,11 @@ public:
 	int32 MeshIndex;
 
 	/** Index of the LOD this triangle belongs to. */
-	int32 LODIndex;
+	uint32 LODIndices;
 
+	/** Range of IDs for HLOD nodes children. */
+	uint32 HLODRange;
+	
 	/** True if the triangle is two sided. */
 	uint32 bTwoSided : 1;
 
@@ -416,12 +466,14 @@ public:
 		KDOP_IDX_TYPE InMaterialIndex,
 		const FVector4& vert0,const FVector4& vert1,const FVector4& vert2,
 		int32 InMeshIndex, 
-		int32 InLODIndex,
+		uint32 InLODIndices,
+		uint32 InHLODRange,
 		bool bInTwoSided,
 		bool bInStaticAndOpaque) :
 		V0(vert0), V1(vert1), V2(vert2),
 		MeshIndex(InMeshIndex),
-		LODIndex(InLODIndex),
+		LODIndices(InLODIndices),
+		HLODRange(InHLODRange),
 		bTwoSided(bInTwoSided),
 		bStaticAndOpaque(bInStaticAndOpaque),
 		MaterialIndex(InMaterialIndex)
@@ -811,7 +863,7 @@ struct TkDOPNode
 			const FTriangleSOA& TriangleSOA = Check.SOATriangles[SOAIndex];
 			SLOW_KDOP_STATS(FPlatformAtomics::InterlockedAdd((SSIZE_T*)&GKDOPTrianglesTraversed, 4));
 			SLOW_KDOP_STATS(FPlatformAtomics::InterlockedAdd((SSIZE_T*)&GKDOPTrianglesTraversedReal, Occupancy));
-			int32 SubIndex = appLineCheckTriangleSOA( Check.StartSOA, Check.EndSOA, Check.DirSOA, Check.MeshIndexRegister, Check.LODIndexRegister, TriangleSOA, Check.bStaticAndOpaqueOnly, Check.bTwoSidedCollision, Check.bFlipSidedness, Check.Result->Time );
+			int32 SubIndex = appLineCheckTriangleSOA( Check.StartSOA, Check.EndSOA, Check.DirSOA, Check.MeshIndexRegister, Check.LODIndicesRegister, Check.HLODRangeRegister, TriangleSOA, Check.bStaticAndOpaqueOnly, Check.bTwoSidedCollision, Check.bFlipSidedness, Check.Result->Time );
 			if ( SubIndex >= 0 )
 			{
 				bHit = true;
@@ -1014,7 +1066,7 @@ struct TkDOPTree
 
 			// "NULL triangle", used when a leaf can't fill all 4 triangles in a FTriangleSOA.
 			// No line should ever hit these triangles, set the values so that it can never happen.
-			FkDOPBuildCollisionTriangle<KDOP_IDX_TYPE> EmptyTriangle(0,FVector4(0,0,0,0),FVector4(0,0,0,0),FVector4(0,0,0,0),INDEX_NONE,INDEX_NONE, false, true);
+			FkDOPBuildCollisionTriangle<KDOP_IDX_TYPE> EmptyTriangle(0,FVector4(0,0,0,0),FVector4(0,0,0,0),FVector4(0,0,0,0),INDEX_NONE,INDEX_NONE,INDEX_NONE, false, true);
 			
 			Node->t.StartIndex = SOATriangles.Num();
 			Node->t.NumTriangles = Align<int32>(NumTris, 4) / 4;
@@ -1066,7 +1118,8 @@ struct TkDOPTree
 					(uint32)(Tris[2]->bStaticAndOpaque ? 0xFFFFFFFF : 0),
 					(uint32)(Tris[3]->bStaticAndOpaque ? 0xFFFFFFFF : 0));
 				SOA.MeshIndices = VectorSet(*(float*)&Tris[0]->MeshIndex, *(float*)&Tris[1]->MeshIndex, *(float*)&Tris[2]->MeshIndex, *(float*)&Tris[3]->MeshIndex);
-				SOA.LODIndices = VectorSet(*(float*)&Tris[0]->LODIndex, *(float*)&Tris[1]->LODIndex, *(float*)&Tris[2]->LODIndex, *(float*)&Tris[3]->LODIndex);
+				SOA.LODIndices = VectorSet(*(float*)&Tris[0]->LODIndices, *(float*)&Tris[1]->LODIndices, *(float*)&Tris[2]->LODIndices, *(float*)&Tris[3]->LODIndices);
+				SOA.HLODRange = VectorSet(*(float*)&Tris[0]->HLODRange, *(float*)&Tris[1]->HLODRange, *(float*)&Tris[2]->HLODRange, *(float*)&Tris[3]->HLODRange);
 			}
 
 			// No need to subdivide further so make this a leaf node
@@ -1218,8 +1271,10 @@ template <typename COLL_DATA_PROVIDER, typename KDOP_IDX_TYPE> struct TkDOPLineC
 	FVector3SOA	DirSOA;
 	/** Mesh index of the instigating mesh in every channel. */
 	VectorRegister MeshIndexRegister;
-	/** LOD index of the instigating mesh in every channel. */
-	VectorRegister LODIndexRegister;
+	/** LOD indices of the instigating mesh in every channel. */
+	VectorRegister LODIndicesRegister;
+	/** HLOD tree ranges of the instigating mesh in every channel. */
+	VectorRegister HLODRangeRegister;
 
 	/**
 	 * Sets up the FkDOPLineCollisionCheck structure for performing line checks
@@ -1240,7 +1295,8 @@ template <typename COLL_DATA_PROVIDER, typename KDOP_IDX_TYPE> struct TkDOPLineC
 		bool bInFlipSidedness,
 		const COLL_DATA_PROVIDER& InCollDataProvider,
 		int32 MeshIndex,
-		int32 LODIndex,
+		uint32 LODIndices,
+		uint32 HLODRange,
 		FHitResult* InResult) 
 		:
 		TkDOPCollisionCheck<COLL_DATA_PROVIDER,KDOP_IDX_TYPE>(InCollDataProvider),
@@ -1275,7 +1331,8 @@ template <typename COLL_DATA_PROVIDER, typename KDOP_IDX_TYPE> struct TkDOPLineC
 		DirSOA.Y = VectorLoadFloat1( &LocalDir.Y );
 		DirSOA.Z = VectorLoadFloat1( &LocalDir.Z );
 		MeshIndexRegister = VectorLoadFloat1(&MeshIndex);
-		LODIndexRegister = VectorLoadFloat1(&LODIndex);
+		LODIndicesRegister = MakeVectorRegister((uint32)LODIndices, (uint32)LODIndices, (uint32)LODIndices, (uint32)LODIndices);
+		HLODRangeRegister = MakeVectorRegister((uint32)HLODRange, (uint32)HLODRange, (uint32)HLODRange, (uint32)HLODRange);
 	}
 
 	/**

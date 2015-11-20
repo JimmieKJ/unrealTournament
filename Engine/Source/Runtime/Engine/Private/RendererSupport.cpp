@@ -16,11 +16,12 @@
 #include "ComponentReregisterContext.h"
 
 /** Clears and optionally backs up all references to renderer module classes in other modules, particularly engine. */
-void ClearReferencesToRendererModuleClasses(
+static void ClearReferencesToRendererModuleClasses(
 	TMap<UWorld*, bool>& WorldsToUpdate, 
 	TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData,
 	FGlobalShaderBackupData& GlobalShaderBackup,
 	TMap<FShaderType*, FString>& ShaderTypeNames,
+	TMap<const FShaderPipelineType*, FString>& ShaderPipelineTypeNames,
 	TMap<FVertexFactoryType*, FString>& VertexFactoryTypeNames)
 {
 	// Destroy all renderer scenes
@@ -59,6 +60,12 @@ void ClearReferencesToRendererModuleClasses(
 		FShaderType* ShaderType = *It;
 		check(ShaderType->GetNumShaders() == 0);
 		ShaderTypeNames.Add(ShaderType, ShaderType->GetName());
+	}
+
+	for (TLinkedList<FShaderPipelineType*>::TIterator It(FShaderPipelineType::GetTypeList()); It; It.Next())
+	{
+		const FShaderPipelineType* ShaderPipelineType = *It;
+		ShaderPipelineTypeNames.Add(ShaderPipelineType, ShaderPipelineType->GetName());
 	}
 
 	for(TLinkedList<FVertexFactoryType*>::TIterator It(FVertexFactoryType::GetTypeList()); It; It.Next())
@@ -120,6 +127,7 @@ void RestoreReferencesToRendererModuleClasses(
 	const TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > >& ShaderMapToSerializedShaderData,
 	const FGlobalShaderBackupData& GlobalShaderBackup,
 	const TMap<FShaderType*, FString>& ShaderTypeNames,
+	const TMap<const FShaderPipelineType*, FString>& ShaderPipelineTypeNames,
 	const TMap<FVertexFactoryType*, FString>& VertexFactoryTypeNames)
 {
 	FlushShaderFileCache();
@@ -156,12 +164,13 @@ void RestoreReferencesToRendererModuleClasses(
 		{
 			EShaderPlatform ShaderPlatform = GetFeatureLevelShaderPlatform((ERHIFeatureLevel::Type)i);
 			check(ShaderPlatform < EShaderPlatform::SP_NumPlatforms);
-			FMaterialShaderMap::FixupShaderTypes(ShaderPlatform, ShaderTypeNames, VertexFactoryTypeNames);
+			FMaterialShaderMap::FixupShaderTypes(ShaderPlatform, ShaderTypeNames, ShaderPipelineTypeNames, VertexFactoryTypeNames);
 		}
 	}
 
 	TArray<FShaderType*> OutdatedShaderTypes;
 	TArray<const FVertexFactoryType*> OutdatedFactoryTypes;
+	TArray<const FShaderPipelineType*> OutdatedShaderPipelineTypes;
 	FShaderType::GetOutdatedTypes(OutdatedShaderTypes, OutdatedFactoryTypes);
 
 	// Recompile any missing shaders
@@ -169,8 +178,8 @@ void RestoreReferencesToRendererModuleClasses(
 	{
 		auto ShaderPlatform = GetFeatureLevelShaderPlatform(FeatureLevel);
 		check(ShaderPlatform < EShaderPlatform::SP_NumPlatforms);
-		BeginRecompileGlobalShaders(OutdatedShaderTypes, ShaderPlatform);
-		UMaterial::UpdateMaterialShaders(OutdatedShaderTypes, OutdatedFactoryTypes, ShaderPlatform);
+		BeginRecompileGlobalShaders(OutdatedShaderTypes, OutdatedShaderPipelineTypes, ShaderPlatform);
+		UMaterial::UpdateMaterialShaders(OutdatedShaderTypes, OutdatedShaderPipelineTypes, OutdatedFactoryTypes, ShaderPlatform);
 	});
 
 	// Block on global shader jobs
@@ -201,9 +210,10 @@ void RecompileRenderer(const TArray<FString>& Args)
 		TMap<FMaterialShaderMap*, TScopedPointer<TArray<uint8> > > ShaderMapToSerializedShaderData;
 		FGlobalShaderBackupData GlobalShaderBackup;
 		TMap<FShaderType*, FString> ShaderTypeNames;
+		TMap<const FShaderPipelineType*, FString> ShaderPipelineTypeNames;
 		TMap<FVertexFactoryType*, FString> VertexFactoryTypeNames;
 
-		ClearReferencesToRendererModuleClasses(WorldsToUpdate, ShaderMapToSerializedShaderData, GlobalShaderBackup, ShaderTypeNames, VertexFactoryTypeNames);
+		ClearReferencesToRendererModuleClasses(WorldsToUpdate, ShaderMapToSerializedShaderData, GlobalShaderBackup, ShaderTypeNames, ShaderPipelineTypeNames, VertexFactoryTypeNames);
 
 		EndShutdownTime = FPlatformTime::Seconds();
 		UE_LOG(LogShaders, Warning, TEXT("Shutdown complete %.1fs"),(float)(EndShutdownTime - StartTime));
@@ -213,7 +223,7 @@ void RecompileRenderer(const TArray<FString>& Args)
 		EndRecompileTime = FPlatformTime::Seconds();
 		UE_LOG(LogShaders, Warning, TEXT("Recompile complete %.1fs"),(float)(EndRecompileTime - EndShutdownTime));
 
-		RestoreReferencesToRendererModuleClasses(WorldsToUpdate, ShaderMapToSerializedShaderData, GlobalShaderBackup, ShaderTypeNames, VertexFactoryTypeNames);
+		RestoreReferencesToRendererModuleClasses(WorldsToUpdate, ShaderMapToSerializedShaderData, GlobalShaderBackup, ShaderTypeNames, ShaderPipelineTypeNames, VertexFactoryTypeNames);
 	}
 
 #if WITH_EDITOR

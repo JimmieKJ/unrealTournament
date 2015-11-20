@@ -43,7 +43,7 @@ namespace BuildPatchServices
 		, NumFilesFound(0)
 	{
 		TFunction<void()> Task = [this]() { EnumerateCloud(); };
-		Future = Async(EAsyncExecution::Thread, Task);
+		Future = Async(EAsyncExecution::Thread, MoveTemp(Task));
 	}
 
 	FCloudEnumerationImpl::~FCloudEnumerationImpl()

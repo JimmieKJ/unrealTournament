@@ -364,7 +364,7 @@ public:
 	{
 		ShadowOffset = InOffset;
 		ShadowColor = InColor;
-		FontRenderInfo.bEnableShadow = ShadowOffset.Size() != 0.0f;
+		FontRenderInfo.bEnableShadow = ShadowOffset.SizeSquared() != 0.0f;
 	}
 	
 	/** 

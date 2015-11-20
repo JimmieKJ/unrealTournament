@@ -19,6 +19,31 @@ FHttpManager::~FHttpManager()
 	
 }
 
+void FHttpManager::Flush(bool bShutdown)
+{
+	FScopeLock ScopeLock(&RequestLock);
+
+	if (bShutdown)
+	{
+		// Clear delegates since they may point to deleted instances
+		for (TArray<TSharedRef<IHttpRequest>>::TIterator It(Requests); It; ++It)
+		{
+			TSharedRef<IHttpRequest> Request = *It;
+			Request->OnProcessRequestComplete().Unbind();
+		}
+	}
+
+	// block until all active requests have completed
+	double LastTime = FPlatformTime::Seconds();
+	while (Requests.Num() > 0)
+	{
+		const double AppTime = FPlatformTime::Seconds();
+		Tick(AppTime - LastTime);
+		LastTime = AppTime;
+		FPlatformProcess::Sleep(0.5f);
+	}
+}
+
 bool FHttpManager::Tick(float DeltaSeconds)
 {
 	FScopeLock ScopeLock(&RequestLock);
