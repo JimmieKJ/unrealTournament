@@ -27,6 +27,11 @@ public:
 	virtual void ScoreExpiredRoundTime() override;
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
+	virtual void UpdateSkillRating()
+	{
+		// use TDM rating
+		AUTTeamDMGameMode::UpdateSkillRating();
+	}
 
 	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount) override;
 	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps) override;

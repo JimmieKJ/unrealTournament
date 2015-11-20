@@ -41,7 +41,6 @@ void AUTShowdownGame::InitGame(const FString& MapName, const FString& Options, F
 
 	bXRayBreaker = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("XRayBreaker")), bXRayBreaker);
 	bPowerupBreaker = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("PowerupBreaker")), bPowerupBreaker);
-	bBroadcastPlayerHealth = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("BroadcastPlayerHealth")), bBroadcastPlayerHealth);
 
 	// this game mode requires a goal score
 	if (GoalScore <= 0)
@@ -53,8 +52,6 @@ void AUTShowdownGame::InitGame(const FString& MapName, const FString& Options, F
 void AUTShowdownGame::InitGameState()
 {
 	Super::InitGameState();
-
-	Cast<AUTShowdownGameState>(GameState)->bBroadcastPlayerHealth = bBroadcastPlayerHealth;
 
 	if (bPowerupBreaker)
 	{
@@ -619,7 +616,6 @@ void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bPowerupBreaker, TEXT("PowerupBreaker"))));
-	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBroadcastPlayerHealth, TEXT("BroadcastPlayerHealth"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bXRayBreaker, TEXT("XRayBreaker"))));
 }
 
@@ -631,7 +627,6 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("TimeLimit")));
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("GoalScore")));
 	TSharedPtr< TAttributePropertyBool > PowerupBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("PowerupBreaker")));
-	TSharedPtr< TAttributePropertyBool > BroadcastHealthAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("BroadcastPlayerHealth")));
 	TSharedPtr< TAttributePropertyBool > XRayBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("XRayBreaker")));
 
 	if (GoalScoreAttr.IsValid())
@@ -778,50 +773,6 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 				SNew(SCheckBox)
 				.IsChecked(PowerupBreakerAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
 				.OnCheckStateChanged(PowerupBreakerAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				)
-			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "BroadcastPlayerHealth", "Show All Players' Status"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 10.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(BroadcastHealthAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(BroadcastHealthAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.OnCheckStateChanged(BroadcastHealthAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
 				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 				.ForegroundColor(FLinearColor::White)
 				.Type(ESlateCheckBoxType::CheckBox)

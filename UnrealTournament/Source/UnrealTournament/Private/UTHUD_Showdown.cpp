@@ -228,8 +228,7 @@ void AUTHUD_Showdown::DrawHUD()
 		bLockedLookInput = false;
 	}
 
-	if ( GS != NULL && !bShowScores && PlayerOwner->PlayerState != NULL && !PlayerOwner->PlayerState->bOnlySpectator &&
-		((GS->bBroadcastPlayerHealth && GS->IsMatchInProgress()) || (GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection)) )
+	if (GS != NULL && !bShowScores && PlayerOwner->PlayerState != NULL && !PlayerOwner->PlayerState->bOnlySpectator && GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection)
 	{
 		// don't bother displaying if there are no live characters (e.g. match start)
 		bool bAnyPawns = false;

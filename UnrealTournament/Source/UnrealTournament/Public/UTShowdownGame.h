@@ -26,8 +26,6 @@ protected:
 	bool bXRayBreaker; // both players see others through walls after 60 seconds
 	UPROPERTY(config)
 	bool bPowerupBreaker; // spawn super powerup at 60 seconds
-	UPROPERTY(config)
-	bool bBroadcastPlayerHealth; // show both players' health on HUD at all times
 
 	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTPickupInventory"))
 	FStringClassReference PowerupBreakerPickupClass;

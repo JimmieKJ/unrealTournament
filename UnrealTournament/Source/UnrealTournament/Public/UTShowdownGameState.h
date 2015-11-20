@@ -10,10 +10,6 @@ class UNREALTOURNAMENT_API AUTShowdownGameState : public AUTGameState
 {
 	GENERATED_UCLASS_BODY()
 
-	/** if set, HUD shows both players' health */
-	UPROPERTY(BlueprintReadOnly, Replicated)
-	bool bBroadcastPlayerHealth;
-
 	/** if in round intermission, player selecting spawn point */
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	AUTPlayerState* SpawnSelector;
