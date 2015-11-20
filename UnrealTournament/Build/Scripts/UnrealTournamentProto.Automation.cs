@@ -319,7 +319,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
         ProjectParams Params = new ProjectParams
 		(
 			// Shared
-            RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
+            RawProjectPath: new FileReference(CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject")),
 
 			// Build
 			EditorTargets: new ParamList<string>("BuildPatchTool"),
@@ -510,7 +510,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             return StaticGetFullName(GameProj);
         }
-        public override string GameNameIfAnyForTempStorage()
+        public override string GameNameIfAnyForFullGameAggregateNode()
         {
             return GameProj.GameName;
         }
@@ -545,7 +545,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		{
 			return StaticGetFullName(GameProj, HostPlatform);
 		}
-		public override string GameNameIfAnyForTempStorage()
+        public override string GameNameIfAnyForFullGameAggregateNode()
 		{
 			return GameProj.GameName;
 		}
@@ -762,7 +762,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 		{
 			return StaticGetFullName(GameProj, HostPlatform);
 		}
-		public override string GameNameIfAnyForTempStorage()
+        public override string GameNameIfAnyForFullGameAggregateNode()
 		{
 			return GameProj.GameName;
 		}
@@ -782,7 +782,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			// Generate the DDC
 			string OutputFileName = CommandUtils.CombinePaths(StageDirectory, "Engine", "DerivedDataCache", "Compressed.ddp");
 			CommandUtils.DeleteFile(OutputFileName);
-            CommandUtils.DDCCommandlet(CommandUtils.MakeRerootedFilePath(GameProj.FilePath, CommandUtils.CmdEnv.LocalRoot, StageDirectory), CommandUtils.GetEditorCommandletExe(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateInstalledEnginePak -Map=Example_Map");
+            CommandUtils.DDCCommandlet(new FileReference(CommandUtils.MakeRerootedFilePath(GameProj.FilePath.ToString(), CommandUtils.CmdEnv.LocalRoot, StageDirectory)), CommandUtils.GetEditorCommandletExe(StageDirectory, HostPlatform), null, TargetPlatforms, "-fill -DDC=CreateInstalledEnginePak -Map=Example_Map");
 			RequiredFiles.Add(OutputFileName);
 
 			// Clean up the directory from everything else
@@ -852,7 +852,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             return StaticGetFullName(GameProj, HostPlatform);
         }
-        public override string GameNameIfAnyForTempStorage()
+        public override string GameNameIfAnyForFullGameAggregateNode()
         {
             return GameProj.GameName;
         }
@@ -897,7 +897,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             return StaticGetFullName(GameProj, HostPlatform);
         }
-        public override string GameNameIfAnyForTempStorage()
+        public override string GameNameIfAnyForFullGameAggregateNode()
         {
             return GameProj.GameName;
         }
@@ -908,7 +908,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         public override void DoBuild(GUBP bp)
         {
             BuildProducts = new List<string>();
-            if (BranchConfig.bPreflightBuild)
+            if (BranchConfig.JobInfo.IsPreflight)
             {
                 CommandUtils.Log("Things like a real UT build is likely to cause confusion if done in a preflight build, so we are skipping it.");
             }
@@ -989,7 +989,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             return StaticGetFullName(GameProj, HostPlatform);
         }
-        public override string GameNameIfAnyForTempStorage()
+        public override string GameNameIfAnyForFullGameAggregateNode()
         {
             return GameProj.GameName;
         }
@@ -1002,7 +1002,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             BuildProducts = new List<string>();
             string LogFile = "Just a record of success.";
-            if (BranchConfig.bPreflightBuild)
+            if (BranchConfig.JobInfo.IsPreflight)
             {
                 CommandUtils.Log("Things like a real UT build is likely to cause confusion if done in a preflight build, so we are skipping it.");
             }
@@ -1047,7 +1047,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             return StaticGetFullName(GameProj);
         }
-        public override string GameNameIfAnyForTempStorage()
+        public override string GameNameIfAnyForFullGameAggregateNode()
         {
             return GameProj.GameName;
         }
@@ -1060,7 +1060,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
         {
             BuildProducts = new List<string>();
             string LogFile = "Just a record of success.";
-            if (BranchConfig.bPreflightBuild)
+            if (BranchConfig.JobInfo.IsPreflight)
             {
                 CommandUtils.Log("Things like a real UT build is likely to cause confusion if done in a preflight build, so we are skipping it.");
             }
@@ -1940,7 +1940,7 @@ public class MakeUTDLC : BuildCommand
             Stage: true,
             Pak: true,
             BasedOnReleaseVersion: AssetRegistry,
-            RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
+            RawProjectPath: new FileReference(CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject")),
             StageDirectoryParam: CommandUtils.CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "StagedBuilds", DLCName)
         );
 
@@ -1958,7 +1958,7 @@ public class MakeUTDLC : BuildCommand
         }
 
         string CookDir = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Plugins", DLCName, "Content");
-        RunCommandlet("UnrealTournament", "UE4Editor-Cmd.exe", "Cook", String.Format("-CookDir={0} -TargetPlatform={1} {2} -DLCName={3} -SKIPEDITORCONTENT", CookDir, SC.CookPlatform, Parameters, DLCName));
+        RunCommandlet(Params.RawProjectPath, "UE4Editor-Cmd.exe", "Cook", String.Format("-CookDir={0} -TargetPlatform={1} {2} -DLCName={3} -SKIPEDITORCONTENT", CookDir, SC.CookPlatform, Parameters, DLCName));
     }
 
     public void Stage(DeploymentContext SC, ProjectParams Params)
@@ -2042,7 +2042,7 @@ public class MakeUTDLC : BuildCommand
                 }
             }
 
-            List<BuildReceipt> TargetsToStage = new List<BuildReceipt>();
+            List<StageTarget> TargetsToStage = new List<StageTarget>();
 
             //@todo should pull StageExecutables from somewhere else if not cooked
             DeploymentContext SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
