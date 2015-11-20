@@ -26,11 +26,11 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	HUDClass = AUTHUD_Showdown::StaticClass();
 	GameStateClass = AUTShowdownGameState::StaticClass();
 
-	PowerupBreakerPickupClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/SuperchargeBase.SuperchargeBase_C");
-	PowerupBreakerItemClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Supercharge.BP_Supercharge_C");
+	PowerupBreakerPickupClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/SuperchargeBase.SuperchargeBase_C"));
+	PowerupBreakerItemClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Supercharge.BP_Supercharge_C"));
 
-	SuperweaponReplacementPickupClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/PowerupBase.PowerupBase_C");
-	SuperweaponReplacementItemClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Invis.BP_Invis_C");
+	SuperweaponReplacementPickupClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/PowerupBase.PowerupBase_C"));
+	SuperweaponReplacementItemClass.SetPath(TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Invis.BP_Invis_C"));
 
 	bPowerupBreaker = true;
 }
