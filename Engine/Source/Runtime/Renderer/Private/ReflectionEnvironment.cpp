@@ -41,7 +41,7 @@ static TAutoConsoleVariable<int32> CVarReflectionEnvironment(
 	TEXT(" 0: off\n")
 	TEXT(" 1: on and blend with scene (default)")
 	TEXT(" 2: on and overwrite scene (only in non-shipping builds)"),
-	ECVF_RenderThreadSafe | ECVF_Scalability);
+	ECVF_Cheat | ECVF_RenderThreadSafe | ECVF_Scalability);
 
 
 static TAutoConsoleVariable<int32> CVarDoTiledReflections(
