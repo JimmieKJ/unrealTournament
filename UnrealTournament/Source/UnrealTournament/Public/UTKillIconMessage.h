@@ -26,7 +26,7 @@ class UNREALTOURNAMENT_API UUTKillIconMessage : public UUTLocalMessage
 	}
 	virtual float GetScaleInSize_Implementation(int32 MessageIndex) const override
 	{
-		return 3.f;
+		return 2.5f;
 	}
 	virtual float GetScaleInTime_Implementation(int32 MessageIndex) const override
 	{

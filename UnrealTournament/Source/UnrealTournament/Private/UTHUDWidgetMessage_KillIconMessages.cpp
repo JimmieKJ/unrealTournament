@@ -79,11 +79,7 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 	}
 
 	//Only scale in the messages that involve the local character
-	float CurrentScale = 1.0f;
-	if (LocalPS == KillerPS || LocalPS == VictimPS)
-	{
-		CurrentScale = GetTextScale(QueueIndex);
-	}
+	float CurrentScale = (LocalPS == KillerPS || LocalPS == VictimPS) ? GetTextScale(QueueIndex) : 1.0f;
 
 	// Fade the message
 	float Alpha = 1.f;
@@ -97,7 +93,6 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 		Alpha = MessageQueue[QueueIndex].LifeLeft / FadeTime;
 	}
 	ShadowDirection = (MessageQueue[QueueIndex].DisplayFont == MessageFont) ? LargeShadowDirection : SmallShadowDirection;
-
 
 	//figure out the sizing of all the elements
 	float CurrentMessageHeight = MessageHeight * CurrentScale;
@@ -119,7 +114,7 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 	{
 		XL = DmgType->HUDIcon.UL;
 		YL = DmgType->HUDIcon.VL;
-
+ 
 		//Scale the icon to match the height of the message
 		float IconScale = IconHeight * CurrentScale / FMath::Abs(DmgType->HUDIcon.VL);
 		XL = FMath::Abs(DmgType->HUDIcon.UL) * IconScale;
@@ -137,7 +132,6 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 		VictimSize = FVector4(X, Y - TextYOffset, XL, YL);
 		X += XL + (ColumnPadding * CurrentScale);
 	}
-
 
 	//Draw the background
 	BGSize.Z = X;
