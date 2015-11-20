@@ -1186,13 +1186,51 @@ void UUTCharacterMovement::ClearRestrictedJump()
 
 void UUTCharacterMovement::OnTeleported()
 {
+	bool bWasFalling = (MovementMode == MOVE_Falling);
+	bJustTeleported = true;
 	if (!HasValidData())
 	{
 		return;
 	}
 
-	bool bWasFalling = (MovementMode == MOVE_Falling);
-	Super::OnTeleported();
+	// Find floor at current location
+	UpdateFloorFromAdjustment();
+	SaveBaseLocation();
+
+	// Validate it. We don't want to pop down to walking mode from very high off the ground, but we'd like to keep walking if possible.
+	UPrimitiveComponent* OldBase = CharacterOwner->GetMovementBase();
+	UPrimitiveComponent* NewBase = NULL;
+
+	if (OldBase && CurrentFloor.IsWalkableFloor() && CurrentFloor.FloorDist <= MAX_FLOOR_DIST && Velocity.Z <= 0.f)
+	{
+		// Close enough to land or just keep walking.
+		NewBase = CurrentFloor.HitResult.Component.Get();
+	}
+	else
+	{
+		CurrentFloor.Clear();
+	}
+
+	float SavedVelocityZ = Velocity.Z;
+
+	// If we were walking but no longer have a valid base or floor, start falling.
+	if (!CurrentFloor.IsWalkableFloor() || (OldBase && !NewBase))
+	{
+		if (DefaultLandMovementMode == MOVE_Walking)
+		{
+			SetMovementMode(MOVE_Falling);
+		}
+		else
+		{
+			SetDefaultMovementMode();
+		}
+	}
+
+	if (MovementMode != MOVE_Walking)
+	{
+		Velocity.Z = SavedVelocityZ;
+	}
+
 	if (bWasFalling && (MovementMode == MOVE_Walking))
 	{
 		ProcessLanded(CurrentFloor.HitResult, 0.f, 0);
