@@ -5587,7 +5587,7 @@ void AUTCharacter::UpdateWeaponSkin()
 
 	for (int32 i = 0; i < WeaponSkins.Num(); i++)
 	{
-		if (WeaponSkins[i] && WeaponSkins[i]->WeaponType.AssetLongPathname == WeaponPathName)
+		if (WeaponSkins[i] && WeaponSkins[i]->WeaponType.ToString() == WeaponPathName)
 		{
 			WeaponSkin = WeaponSkins[i];
 			break;
