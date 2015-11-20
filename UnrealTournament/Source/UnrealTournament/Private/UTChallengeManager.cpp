@@ -120,7 +120,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	Challenges.Add(NAME_ChallengeDuel,
 		FUTChallengeInfo(NAME_ChallengeDuel,TEXT("Duel in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
 		TEXT("?Game=Duel"),
-		TEXT("1v1 Duel in Lea. Be sure to visit the UT Marketplace to gain access to this map."),
+		TEXT("1v1 Duel in Lea. Be sure to visit the UT Marketplace in the Launcher to gain access to this map (it's free!)."),
 		0, 1, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_DM_Lea, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDM,
@@ -144,7 +144,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	Challenges.Add(NAME_ChallengeCTFFour,
 		FUTChallengeInfo(NAME_ChallengeCTFFour,TEXT("Capture the Flag in Pistola"), TEXT("/Game/EpicInternal/Pistola/CTF-Pistola"),
 		TEXT("?Game=CTF"),
-		TEXT("CTF in the challenging Pistola arena.  Be sure to visit the UT Marketplace to gain access to this map."),
+		TEXT("CTF in the challenging Pistola arena.  Be sure to visit the UT Marketplace in the Launcher to gain access to this map (it's free!)."),
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF_Pistola, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDMTwo,
@@ -174,7 +174,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	Challenges.Add(NAME_ChallengeTDMFour,
 		FUTChallengeInfo(NAME_ChallengeTDMFour,TEXT("2v2 Team Deathmatch in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
 		TEXT("?Game=TDM"),
-		TEXT("2v2 Team Deathmatch in Lea.  Be sure to visit the UT Marketplace to gain access to this map."),
+		TEXT("2v2 Team Deathmatch in Lea.  Be sure to visit the UT Marketplace in the Launcher to gain access to this map (it's free!)."),
 		1, 2, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_DM_Lea, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeCTFFive,
