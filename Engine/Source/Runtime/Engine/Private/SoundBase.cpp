@@ -9,6 +9,7 @@ USoundBase::USoundBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	MaxConcurrentPlayCount_DEPRECATED = 16;
+	MaxConcurrentResolutionRule = EMaxConcurrentResolutionRule::StopFarthestThenOldest;
 }
 
 void USoundBase::PostInitProperties()
