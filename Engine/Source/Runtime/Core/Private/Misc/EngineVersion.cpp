@@ -125,6 +125,11 @@ void FEngineVersion::Empty()
 
 bool FEngineVersion::IsCompatibleWith(const FEngineVersionBase &Other) const
 {
+	if (FEngineBuildSettings::IsPerforceBuild())
+	{
+		return true;
+	}
+
 	// If this or the other is not a promoted build, always assume compatibility. 
 	if(!HasChangelist() || !Other.HasChangelist())
 	{
