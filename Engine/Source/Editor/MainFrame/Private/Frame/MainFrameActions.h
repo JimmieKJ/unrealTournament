@@ -56,6 +56,10 @@ public:
 	TSharedPtr< FUICommandInfo > AboutUnrealEd;
 	TSharedPtr< FUICommandInfo > CreditsUnrealEd;
 
+	TSharedPtr< FUICommandInfo > VisitUTWiki;
+	TSharedPtr< FUICommandInfo > VisitUTForums;
+	TSharedPtr< FUICommandInfo > VisitUTDotCom;
+
 	TSharedPtr< FUICommandInfo > ResetLayout;
 	TSharedPtr< FUICommandInfo > SaveLayout;
 	TSharedPtr< FUICommandInfo > ToggleFullscreen;
@@ -136,6 +140,10 @@ public:
 
 	/** Visits the UDN support web site */
 	static void VisitSupportWebSite();
+
+	static void VisitUTDotCom();
+	static void VisitUTWiki();
+	static void VisitUTForums();
 
 	/** Visits EpicGames.com */
 	static void VisitEpicGamesDotCom();
