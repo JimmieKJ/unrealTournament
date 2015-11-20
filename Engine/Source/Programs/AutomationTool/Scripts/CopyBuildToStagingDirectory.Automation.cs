@@ -928,7 +928,9 @@ public partial class Project : CommandUtils
 			RunUnrealPak(UnrealPakResponseFile, OutputLocation, Params.SignPak, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(), Params.Compressed, PatchSourceContentPath );
 		}
 
-
+        
+        // PLK - if we ever need to go to pak file patching, we need this uncommented, right now skipping it saves us several 6+ gig copies that are never read from
+        /*
         if (Params.HasCreateReleaseVersion)
         {
             // copy the created pak to the release version directory we might need this later if we want to generate patches
@@ -938,6 +940,7 @@ public partial class Project : CommandUtils
 			InternalUtils.SafeCreateDirectory(Path.GetDirectoryName(ReleaseVersionPath));
 			InternalUtils.SafeCopyFile(OutputLocation, ReleaseVersionPath);
         }
+        */
 
 		if (Params.CreateChunkInstall)
 		{
