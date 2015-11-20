@@ -53,9 +53,9 @@ public:
 		, _OnMouseButtonDoubleClick()
 		, _OnSelectionChanged()
 		, _SelectionMode(ESelectionMode::Multi)
-		, _ClearSelectionOnClick(true)
+		, _ClearSelectionOnClick(false)
 		, _ExternalScrollbar()
-		, _AllowOverscroll(EAllowOverscroll::Yes)
+		, _AllowOverscroll(EAllowOverscroll::No)
 		, _ConsumeMouseWheel( EConsumeMouseWheel::WhenScrollingPossible )
 		{ }
 
