@@ -67,10 +67,12 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 			FPlatformMisc::RequestExit(1);
 			DynamicRHIModule = NULL;
 		}
+#if 0
 		else if (FPlatformProcess::IsApplicationRunning(TEXT("fraps.exe")))
 		{
 			FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoder", "Fraps has been known to crash D3D11. Please use Microsoft Expression Encoder instead for capturing."));
 		}
+#endif
 	}
 
 	if (DynamicRHIModule)
