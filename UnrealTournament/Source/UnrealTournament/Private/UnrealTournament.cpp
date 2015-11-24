@@ -409,6 +409,7 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 	RootPaths.Add(TEXT("/Game/EpicInternal/PK/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Teams/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Cosmetic_Items/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/WeaponSkins/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
