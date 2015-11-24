@@ -134,7 +134,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 					.HeightOverride(48)
 					[
 						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Home"))
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.Back"))
 					]
 				]
 			]
@@ -159,7 +159,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 						.HeightOverride(48)
 						[
 							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Browser"))
+							.Image(SUTStyle::Get().GetBrush("UT.Icon.Browser"))
 						]
 					]
 				]
@@ -224,30 +224,62 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 		.Padding(0.0f,0.0f,5.0f,0.0f)
 		.AutoWidth()
 		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.AutoWidth()
+			SNew(SUTButton)
+			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+			.OnClicked(this, &SUTMenuBase::MinimizeClicked)
 			[
-				SNew(SVerticalBox)
-				+ SVerticalBox::Slot()
-				.AutoHeight()
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
 				[
 					SNew(SBox)
 					.WidthOverride(48)
 					.HeightOverride(48)
 					[
-						SAssignNew(ExitButton, SUTComboButton)
-						.HasDownArrow(false)
-						.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-						.ButtonContent()
-						[
-							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Exit"))
-						]
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.Minimize"))
 					]
 				]
 			]
 		];
+
+		RightMenuBar->AddSlot()
+		.Padding(0.0f,0.0f,5.0f,0.0f)
+		.AutoWidth()
+		[
+			SNew(SUTButton)
+			.OnClicked(this, &SUTMenuBase::ToggleFullscreenClicked)
+			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+			[
+				SNew(SBox)
+				.WidthOverride(48)
+				.HeightOverride(48)
+				[
+					SNew(SImage)
+					.Image(this, &SUTMenuBase::GetFullvsWindowButtonImage)
+				]
+			]
+		];
+
+		RightMenuBar->AddSlot()
+		.Padding(0.0f,0.0f,5.0f,0.0f)
+		.AutoWidth()
+		[
+			SAssignNew(ExitButton, SUTComboButton)
+			.HasDownArrow(false)
+			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+			.ButtonContent()
+			[
+				SNew(SBox)
+				.WidthOverride(48)
+				.HeightOverride(48)
+				[
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.Icon.Exit"))
+				]
+			]
+		];
+
 
 		if (ExitButton.IsValid())
 		{
@@ -303,7 +335,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 				.ButtonContent()
 				[
 					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Settings"))
+					.Image(SUTStyle::Get().GetBrush("UT.Icon.Settings"))
 				]
 			]
 		]
@@ -344,7 +376,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 				.ButtonContent()
 				[
 					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.About"))
+					.Image(SUTStyle::Get().GetBrush("UT.Icon.About"))
 				]
 			]
 		]
@@ -358,18 +390,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 #if UE_BUILD_DEBUG
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_WR", "Widget Reflector"), FOnClicked::CreateSP(this, &SUTMenuBase::ShowWidgetReflector));
 #endif
-
-/*
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("SUWindowsDesktop", "MenuBar_NetVersion", "Network Version: {Ver}"), FText::FromString(FString::Printf(TEXT("%i"), FNetworkVersion::GetLocalNetworkVersion()))))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Version.TextStyle")
-			]
-		]
-	);
-*/
 	DropDownButton->RebuildMenuContent();
 	return DropDownButton.ToSharedRef();
 }
@@ -516,20 +536,26 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				SNew(SUTButton)
 				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-				.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-				.OnClicked(this, &SUTMenuBase::OnOnlineClick)		
-			]
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SUTButton)
-				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
 				.ToolTipText(NSLOCTEXT("ToolTips","TPMyPlayerCard","Show this player's player card."))
+				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.FillHeight(1.0)
+						.VAlign(VAlign_Center)
+						[
+							SNew(STextBlock)
+							.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
+							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+						]
+
+					]
+					+SHorizontalBox::Slot()
+					.AutoWidth()
 					.VAlign(VAlign_Center)
 					[
 						SNew(SBox)
@@ -560,7 +586,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 						.HeightOverride(48)
 						[
 							SNew(SImage)
-							.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Stats"))
+							.Image(SUTStyle::Get().GetBrush("UT.Icon.Stats"))
 						]
 					]
 				]
@@ -614,7 +640,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 								.HeightOverride(48)
 								[
 									SNew(SImage)
-									.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Online"))
+									.Image(SUTStyle::Get().GetBrush("UT.Icon.Online"))
 								]
 							]
 							+ SOverlay::Slot()
@@ -623,7 +649,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 							[
 								SNew(SImage)
 								.Visibility(this, &SUTMenuBase::GetSocialBangVisibility)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.SocialBang"))
+								.Image(SUTStyle::Get().GetBrush("UT.Icon.SocialBang"))
 							]
 						]
 					]
@@ -648,7 +674,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				.HeightOverride(48)
 				[
 					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.SignIn"))
+					.Image(SUTStyle::Get().GetBrush("UT.Icon.SignIn"))
 				]
 
 			]
@@ -823,6 +849,37 @@ FReply SUTMenuBase::OnShowPlayerCard()
 			PlayerOwner->ShowPlayerInfo(PlayerState);
 		}
 	}
+	return FReply::Handled();
+}
+
+const FSlateBrush* SUTMenuBase::GetFullvsWindowButtonImage() const
+{
+	if (PlayerOwner->ViewportClient->IsFullScreenViewport())
+	{
+		return SUTStyle::Get().GetBrush("UT.Icon.Windowed");
+	}
+	else
+	{
+		return SUTStyle::Get().GetBrush("UT.Icon.Fullscreen");
+	}
+}
+
+FReply SUTMenuBase::ToggleFullscreenClicked()
+{
+	if (PlayerOwner->ViewportClient->IsFullScreenViewport())
+	{
+		PlayerOwner->ConsoleCommand("fullscreen 0");
+	}
+	else
+	{
+		PlayerOwner->ConsoleCommand("fullscreen 1");
+	}
+	return FReply::Handled();
+}
+
+FReply SUTMenuBase::MinimizeClicked()
+{
+	FPlatformMisc::RequestMinimize();
 	return FReply::Handled();
 }
 

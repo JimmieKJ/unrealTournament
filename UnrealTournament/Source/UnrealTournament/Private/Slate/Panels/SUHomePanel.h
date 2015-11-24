@@ -8,6 +8,7 @@
 #if !UE_SERVER
 
 class SUWindowsMainMenu;
+class SUTBorder;
 
 class UNREALTOURNAMENT_API SUHomePanel : public SUWPanel
 {
@@ -42,6 +43,8 @@ protected:
 	EVisibility ShowNewChallengeImage() const;
 
 	FSlateColor GetFragCenterWatchNowColorAndOpacity() const;
+
+	TSharedPtr<SUTBorder> TrainingWidget;
 
 };
 

@@ -300,18 +300,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	}
 
 	{  // Icons
-		
 		Style.Set("UT.Icon.Home", new IMAGE_BRUSH("Icons/UT.Icon.Home", Icon48x48));
-		Style.Set("UT.Icon.Online", new IMAGE_BRUSH("Icons/UT.Icon.Online", Icon48x48));
-		Style.Set("UT.Icon.SocialBang", new IMAGE_BRUSH("Icons/UT.Icon.SocialBang", Icon12x12));
-		Style.Set("UT.Icon.Settings", new IMAGE_BRUSH("Icons/UT.Icon.Settings", Icon48x48));
-		Style.Set("UT.Icon.Exit", new IMAGE_BRUSH("Icons/UT.Icon.Exit", Icon48x48));
-		Style.Set("UT.Icon.Stats", new IMAGE_BRUSH("Icons/UT.Icon.Stats", Icon48x48));
-		Style.Set("UT.Icon.About", new IMAGE_BRUSH("Icons/UT.Icon.About", Icon48x48));
-		Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("Icons/UT.Icon.SignOut", Icon48x48));
-		Style.Set("UT.Icon.SignIn", new IMAGE_BRUSH("Icons/UT.Icon.SignIn", Icon48x48));
-		Style.Set("UT.Icon.Chat36", new IMAGE_BRUSH("Icons/UT.Icon.Chat36", Icon36x36));
-		Style.Set("UT.Icon.Browser", new IMAGE_BRUSH("Icons/UT.Icon.Browser", Icon48x48));
 
 		Style.Set("UT.Icon.UpArrow", new IMAGE_BRUSH("Icons/UT.Icon.UpArrow", Icon48x48));
 		Style.Set("UT.Icon.DownArrow", new IMAGE_BRUSH("Icons/UT.Icon.DownArrow", Icon48x48));

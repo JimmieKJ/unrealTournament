@@ -94,6 +94,8 @@ protected:
 
 	virtual FReply OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent ) override;
 
-
+	const FSlateBrush* GetFullvsWindowButtonImage() const;
+	FReply ToggleFullscreenClicked();
+	FReply MinimizeClicked();
 };
 #endif

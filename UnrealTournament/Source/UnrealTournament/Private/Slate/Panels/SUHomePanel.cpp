@@ -6,6 +6,7 @@
 #include "SlateBasics.h"
 #include "../SUTStyle.h"
 #include "../SUWScaleBox.h"
+#include "../Widgets/SUTBorder.h"
 #include "Slate/SlateGameResources.h"
 #include "SUHomePanel.h"
 #include "../SUWindowsMainMenu.h"
@@ -61,6 +62,9 @@ void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 			BuildHomePanel()
 		]
 	];
+
+	TrainingWidget->Animate(FVector2D(100.0f, 0.0f), FVector2D(0.0f,0.0f),0.0f, 1.0f, 0.3f);
+
 
 	AnnouncmentTimer = 3.0;
 
@@ -243,57 +247,56 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 				[
 					SNew(SBox).WidthOverride(800).HeightOverride(170)
 					[
-						SNew(SOverlay)
-						+SOverlay::Slot()
+						SAssignNew(TrainingWidget, SUTBorder)
+						.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 						[
-							SNew(SImage)
-							.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-						]
-						+SOverlay::Slot()
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.Padding(10.0,30.0)
-							.AutoWidth()
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.Padding(10.0,30.0)
+								.AutoWidth()
+								[
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot()
+									.AutoHeight()
+									[
+										SNew(SBox).WidthOverride(100).HeightOverride(100)
+										[
+											SNew(SImage)
+											.Image(SUTStyle::Get().GetBrush("UT.HomePanel.TutorialLogo"))
+										]
+									]
+								]
+							]
+							+SOverlay::Slot()
+							.Padding(125.0f,20.0f,0.0,0.0)
 							[
 								SNew(SVerticalBox)
 								+SVerticalBox::Slot()
 								.AutoHeight()
 								[
-									SNew(SBox).WidthOverride(100).HeightOverride(100)
-									[
-										SNew(SImage)
-										.Image(SUTStyle::Get().GetBrush("UT.HomePanel.TutorialLogo"))
-									]
+									SNew(STextBlock)
+									.Text(FText::FromString(TEXT("BASIC TRAINING")))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Huge")
+									.ColorAndOpacity(FLinearColor(1.0f, 0.412f, 0.027f, 1.0f))
+								]
+								+ SVerticalBox::Slot()
+								.AutoHeight()
+								.Padding(5.0)
+								[
+									SNew(STextBlock)
+									.Text(FText::FromString(TEXT("Train to become the ultimate Unreal Tournament warrior!")))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 								]
 							]
-						]
-						+SOverlay::Slot()
-						.Padding(125.0f,20.0f,0.0,0.0)
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.AutoHeight()
+							+ SOverlay::Slot()
 							[
-								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("BASIC TRAINING")))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Huge")
-								.ColorAndOpacity(FLinearColor(1.0f, 0.412f, 0.027f, 1.0f))
+								SNew(SButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.HomePanel.Button")
+								.OnClicked(this, &SUHomePanel::BasicTraining_Click)
 							]
-							+ SVerticalBox::Slot()
-							.AutoHeight()
-							.Padding(5.0)
-							[
-								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("Train to become the ultimate Unreal Tournament warrior!")))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-							]
-						]
-						+ SOverlay::Slot()
-						[
-							SNew(SButton)
-							.ButtonStyle(SUTStyle::Get(),"UT.HomePanel.Button")
-							.OnClicked(this, &SUHomePanel::BasicTraining_Click)
 						]
 					]
 				]
