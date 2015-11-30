@@ -29,5 +29,12 @@ protected:
 	virtual FReply OpenHUDSettings();
 	virtual FText GetMapVoteTitle() const;
 	virtual void WriteQuitMidGameAnalytics();
+
+	virtual void ShowExitDestinationMenu();
+	virtual void QuitConfirmation();
+	void OnDestinationResult(int32 PickedIndex);
+	void ShowHomePanel();
+	void BackResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed);
+
 };
 #endif

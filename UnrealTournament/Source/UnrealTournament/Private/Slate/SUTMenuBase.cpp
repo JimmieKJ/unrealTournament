@@ -25,6 +25,7 @@
 #include "Panels/SUWCreditsPanel.h"
 #include "UnrealNetwork.h"
 #include "SUWProfileItemsDialog.h"
+#include "SUTQuickPickDialog.h"
 
 #if !UE_SERVER
 
@@ -124,6 +125,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 			SNew(SUTButton)
 			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 			.OnClicked(this, &SUTMenuBase::OnShowHomePanel)
+			.Visibility(this, &SUTMenuBase::GetBackVis)
 			[
 				SNew(SHorizontalBox)
 				+SHorizontalBox::Slot()
@@ -218,8 +220,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 			BuildAboutSubMenu()
 		];
 
-		TSharedPtr<SUTComboButton> ExitButton = NULL;
-
 		RightMenuBar->AddSlot()
 		.Padding(0.0f,0.0f,5.0f,0.0f)
 		.AutoWidth()
@@ -265,10 +265,9 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 		.Padding(0.0f,0.0f,5.0f,0.0f)
 		.AutoWidth()
 		[
-			SAssignNew(ExitButton, SUTComboButton)
-			.HasDownArrow(false)
+			SNew(SUTButton)
 			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-			.ButtonContent()
+			.OnClicked(this, &SUTMenuBase::ExitClicked)
 			[
 				SNew(SBox)
 				.WidthOverride(48)
@@ -279,20 +278,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 				]
 			]
 		];
-
-
-		if (ExitButton.IsValid())
-		{
-			// Allow children to place menu options here....
-			BuildExitMenu(ExitButton);
-
-			if (ExitButton->GetSubMenuItemCount() > 0)
-			{
-				ExitButton->AddSpacer();
-			}
-
-			ExitButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_QuitGame", "Quit the Game"), FOnClicked::CreateSP(this, &SUTMenuBase::OnMenuConsoleCommand, FString(TEXT("quit"))), true);
-		}
 	}
 
 
@@ -537,23 +522,11 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 				.ToolTipText(NSLOCTEXT("ToolTips","TPMyPlayerCard","Show this player's player card."))
+				.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
+				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
 				[
 					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot()
-						.FillHeight(1.0)
-						.VAlign(VAlign_Center)
-						[
-							SNew(STextBlock)
-							.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
-							.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-						]
-
-					]
 					+SHorizontalBox::Slot()
 					.AutoWidth()
 					.VAlign(VAlign_Center)
@@ -661,6 +634,8 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 	{
 		return 	SNew(SUTButton)
 		.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+		.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_SignIn","Sign In"))
+		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 		.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 		.OnClicked(this, &SUTMenuBase::OnOnlineClick)		
 		[
@@ -677,14 +652,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 					.Image(SUTStyle::Get().GetBrush("UT.Icon.SignIn"))
 				]
 
-			]
-			+SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_SignIn","Sign In"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 			]
 		];
 	}
@@ -882,5 +849,35 @@ FReply SUTMenuBase::MinimizeClicked()
 	FPlatformMisc::RequestMinimize();
 	return FReply::Handled();
 }
+
+EVisibility SUTMenuBase::GetBackVis() const
+{
+	if (ActivePanel.IsValid() && ActivePanel->ShouldShowBackButton())
+	{
+		return EVisibility::Visible;
+	}
+
+	return EVisibility::Collapsed;
+}
+
+FReply SUTMenuBase::ExitClicked()
+{
+	QuitConfirmation();
+	return FReply::Handled();
+}
+
+void SUTMenuBase::QuitConfirmation()
+{
+	PlayerOwner->ShowMessage(NSLOCTEXT("SUTMenuBase", "QuitGameSureTitle", "Quit Game"), NSLOCTEXT("SUTMenuBase", "QuitGameSureMessage", "You are about to quit the game.  Are you sure?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTMenuBase::QuitConfirmationResult));
+}
+
+void SUTMenuBase::QuitConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		PlayerOwner->ConsoleCommand(TEXT("quit"));
+	}
+}
+
 
 #endif

@@ -38,6 +38,12 @@ public:
 	// Used by generic lists to generate string widgets for each item
 	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
 
+	// Return true to show the back button in the conatining desktop
+	virtual bool ShouldShowBackButton()
+	{
+		return true;
+	}
+
 protected:
 
 	// A TAG that can quickly describe this panel

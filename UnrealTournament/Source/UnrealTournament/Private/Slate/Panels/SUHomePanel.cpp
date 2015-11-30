@@ -64,8 +64,6 @@ void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 	];
 
 	TrainingWidget->Animate(FVector2D(100.0f, 0.0f), FVector2D(0.0f,0.0f),0.0f, 1.0f, 0.3f);
-
-
 	AnnouncmentTimer = 3.0;
 
 }

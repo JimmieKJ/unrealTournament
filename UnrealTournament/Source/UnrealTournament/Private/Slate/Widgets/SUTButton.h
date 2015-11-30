@@ -33,6 +33,7 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		, _IsFocusable( true )
 		, _IsToggleButton(false)
 		, _WidgetTag(0)
+		, _CaptionHAlign( HAlign_Left )
 
 		{}
 
@@ -102,6 +103,9 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		SLATE_EVENT( FUTMouseOver, UTOnMouseOver)
 
 		SLATE_EVENT( FOnClicked, OnClicked )
+
+		/** Horizontal alignment */
+		SLATE_ARGUMENT( EHorizontalAlignment, CaptionHAlign )
 
 	SLATE_END_ARGS()
 

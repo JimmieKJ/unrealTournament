@@ -455,4 +455,5 @@ void SUInGameHomePanel::FocusChat()
 	FSlateApplication::Get().SetKeyboardFocus(ChatText, EKeyboardFocusCause::SetDirectly);
 }
 
+
 #endif

@@ -17,6 +17,11 @@ class UNREALTOURNAMENT_API SUHomePanel : public SUWPanel
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
+	virtual bool ShouldShowBackButton()
+	{
+		return false;
+	}
+
 protected:
 	FReply BasicTraining_Click();
 	FReply QuickMatch_DM_Click();

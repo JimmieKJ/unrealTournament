@@ -30,12 +30,20 @@ void SUTButton::Construct(const FArguments& InArgs)
 				SNew(SHorizontalBox)
 				+ SHorizontalBox::Slot()
 				.VAlign(VAlign_Center)
-				.HAlign(HAlign_Center)
+				.HAlign(InArgs._CaptionHAlign)
+				.AutoWidth()
 				[
 					SAssignNew(TextLabel, STextBlock)
 					.TextStyle(InArgs._TextStyle)
 					.Text(InArgs._Text)
 					.ColorAndOpacity(this, &SUTButton::GetLabelColor)
+				]
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.HAlign(InArgs._CaptionHAlign)
+				.AutoWidth()
+				[
+					InArgs._Content.Widget
 				]
 			]
 			.ButtonStyle(InArgs._ButtonStyle)

@@ -97,5 +97,12 @@ protected:
 	const FSlateBrush* GetFullvsWindowButtonImage() const;
 	FReply ToggleFullscreenClicked();
 	FReply MinimizeClicked();
+
+	EVisibility GetBackVis() const;
+
+	FReply ExitClicked();
+	virtual void QuitConfirmation();
+	virtual void QuitConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
 };
 #endif

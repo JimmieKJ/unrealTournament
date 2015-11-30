@@ -181,8 +181,8 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.Windowed", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Windowed", FVector2D(48, 48)));
 
 
-	Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("Icons/UT.Icon.SignOut", FVector2D(48, 48)));
-	Style.Set("UT.Icon.SignIn", new IMAGE_BRUSH("Icons/UT.Icon.SignIn", FVector2D(48, 48)));
+	Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SignOut", FVector2D(48, 48)));
+	Style.Set("UT.Icon.SignIn",  new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SignIn", FVector2D(48, 48)));
 
 }
 

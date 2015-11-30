@@ -5,6 +5,7 @@
 #include "SUWLoginDialog.h"
 #include "SUWMessageBox.h"
 #include "SUWindowsStyle.h"
+#include "SUTStyle.h"
 #include "Engine/UserInterfaceSettings.h"
 
 #if !UE_SERVER
@@ -120,7 +121,7 @@ void SUWLoginDialog::Construct(const FArguments& InArgs)
 							.HeightOverride(32)
 							[
 								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Exit"))
+								.Image(SUTStyle::Get().GetBrush("UT.Icon.Exit"))
 							]
 						]
 					]

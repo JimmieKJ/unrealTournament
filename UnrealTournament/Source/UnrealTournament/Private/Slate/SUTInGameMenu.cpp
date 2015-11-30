@@ -22,6 +22,7 @@
 #include "Panels/SUInGameHomePanel.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
+#include "SUTQuickPickDialog.h"
 
 #if !UE_SERVER
 
@@ -271,5 +272,142 @@ FText SUTInGameMenu::GetMapVoteTitle() const
 
 	return NSLOCTEXT("SUWindowsDesktop","MenuBar_MapVote","MAP VOTE");
 }
+
+
+void SUTInGameMenu::ShowExitDestinationMenu()
+{
+	TSharedPtr<SUTQuickPickDialog> QP;
+
+	SAssignNew(QP, SUTQuickPickDialog)
+		.PlayerOwner(PlayerOwner)
+		.OnPickResult(this, &SUTInGameMenu::OnDestinationResult)
+		.DialogTitle(NSLOCTEXT("SUTMenuBase","Test","Choose your Destination..."));
+
+	QP->AddOption(
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("ExitMenu", "ExitGameTitle", "EXIT GAME"))
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+		]
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("ExitMenu", "ExitGameMessage", "Exit the game and return to the opperating system."))
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+			.AutoWrapText(true)
+		]
+	);		
+
+	QP->AddOption(
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("ExitMenu", "MainMenuTitle", "MAIN MENU"))
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+		]
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.HAlign(HAlign_Center)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("ExitMenu", "MainMenuMessage", "Leave the current online game and return to the main menu."))
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+			.AutoWrapText(true)
+		]
+	, true
+	);		
+
+	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+	if (GameState && GameState->bIsInstanceServer)
+	{
+		QP->AddOption(
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("ExitMenu", "HubTitle", "RETURN TO HUB"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("ExitMenu", "HubMessage", "Exit the current online game and return to the main hub."))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.AutoWrapText(true)
+			]
+		);		
+	}
+
+	PlayerOwner->OpenDialog(QP.ToSharedRef(), 200);
+
+}
+
+void SUTInGameMenu::QuitConfirmation()
+{
+	ShowExitDestinationMenu();
+}
+
+void SUTInGameMenu::OnDestinationResult(int32 PickedIndex)
+{
+	switch(PickedIndex)
+	{
+		case 0 : PlayerOwner->ConsoleCommand(TEXT("quit")); break;
+		case 1 : OnReturnToMainMenu(); break;
+		case 2 : OnReturnToLobby(); break;
+	}
+}
+
+void SUTInGameMenu::ShowHomePanel()
+{
+	// If we are on the home panel, look to see if it's time to go backwards.
+	if (ActivePanel == HomePanel)
+	{
+		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+		bool bInstanceServer = (GameState && GameState->bIsInstanceServer);
+
+		PlayerOwner->OpenDialog(
+								SNew(SUWMessageBox)
+								.PlayerOwner(PlayerOwner)
+								.DialogTitle(NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackTitle", "Confirmation"))
+								.OnDialogResult(this, &SUTInGameMenu::BackResult)
+								.MessageText( (bInstanceServer ? NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackLobby", "Are you sure you want to leave the game and return to the hub?") : NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBack", "Are you sure you want to leave the hub and return to the main menu?")) )
+								.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO)
+								);
+	}
+	else
+	{
+		SUTMenuBase::ShowHomePanel();
+	}
+}
+
+void SUTInGameMenu::BackResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed)
+{
+	if (ButtonPressed == UTDIALOG_BUTTON_YES)
+	{
+		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
+		if (GameState && GameState->bIsInstanceServer)
+		{
+			OnReturnToLobby();
+		}
+		else
+		{
+			OnReturnToMainMenu();
+		}
+	}
+}
+
 
 #endif

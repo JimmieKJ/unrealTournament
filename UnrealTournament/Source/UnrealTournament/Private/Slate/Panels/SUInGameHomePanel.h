@@ -57,7 +57,6 @@ protected:
 
 	virtual bool GetGameMousePosition(FVector2D& MousePosition);
 
-
 };
 
 #endif
