@@ -182,7 +182,7 @@ int32 UUTResetPostProcessVolumesCommandlet::Main(const FString& Params)
 
 		// get rid of the loaded world
 		UE_LOG(LogResetPostProcessVolumesCommandlet, Warning, TEXT("GCing..."));
-		CollectGarbage(RF_Native);
+		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
 	}
 
 	// UEditorEngine::FinishDestroy() expects GWorld to exist

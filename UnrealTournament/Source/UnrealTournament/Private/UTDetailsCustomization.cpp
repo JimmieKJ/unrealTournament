@@ -195,7 +195,7 @@ void FUTDetailsCustomization::CustomizeDetails(IDetailLayoutBuilder& DetailLayou
 			TArray<UObject*> Children;
 			for (UClass* TestClass = Objects[0].Get()->GetClass(); TestClass != NULL; TestClass = TestClass->GetSuperClass())
 			{
-				GetObjectsWithOuter(TestClass, Children, true, RF_PendingKill);
+				GetObjectsWithOuter(TestClass, Children, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
 			}
 			for (int32 i = 0; i < Children.Num(); i++)
 			{
