@@ -510,7 +510,15 @@ void AUTHUD::DrawHUD()
 				{
 					DrawDamageIndicators();
 				}
-				UTPlayerOwner->SetViewedScorePS(NULL, 0);
+				if (SpectatorSlideOutWidget && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator && SpectatorSlideOutWidget->bShowingStats && !UTPlayerOwner->CurrentlyViewedScorePS)
+				{
+					UTPlayerOwner->CurrentlyViewedStatsTab = 1;
+					UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
+				}
+				else
+				{
+					UTPlayerOwner->SetViewedScorePS(NULL, 0);
+				}
 				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
 				{
 					const float MapSize = float(Canvas->SizeY) * 0.75f;

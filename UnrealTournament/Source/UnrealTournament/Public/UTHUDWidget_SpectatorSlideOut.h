@@ -160,6 +160,9 @@ public:
 	UPROPERTY()
 		AUTPlayerState* SelectedPlayer;
 
+	UPROPERTY()
+		bool bShowingStats;
+
 	/**Called from Slate to set the mouse position*/
 	virtual void TrackMouseMovement(FVector2D InMousePosition) { MousePosition = InMousePosition; }
 	/**Called from Slate when the mouse has clicked*/
@@ -185,9 +188,6 @@ protected:
 
 	virtual void InitPowerupList();
 	virtual float GetDrawScaleOverride();
-
-	UPROPERTY()
-		bool bShowingStats;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float KillsColumn;
