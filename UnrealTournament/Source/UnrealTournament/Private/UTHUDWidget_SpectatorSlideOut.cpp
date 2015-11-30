@@ -22,7 +22,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	ArrowSize = 36.f / Size.X;
 
 	FlagX = 0.02f;
-	ColumnHeaderPlayerX = 0.12f;
+	ColumnHeaderPlayerX = 0.13f;
 	ColumnHeaderScoreX = 0.78f;
 	ColumnHeaderArmor = 0.93f;
 	ColumnY = 0.11f * Size.Y;
@@ -748,7 +748,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawWeaponStats(AUTPlayerState* PS, float D
 	/** List of weapons to display stats for. */
 	if (StatsWeapons.Num() == 0)
 	{
-		// add default weapons - needs to be automated
+		// add default weapons - needs to be automated @TODO FIXMESTEVE
 		StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
 		StatsWeapons.AddUnique(AUTWeap_Enforcer::StaticClass()->GetDefaultObject<AUTWeapon>());
 
