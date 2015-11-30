@@ -1217,7 +1217,6 @@ void AUTPlayerController::ServerViewProjectile_Implementation()
 			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(GetViewTarget());
 			ViewedCharacter = Flag ? Flag->HoldingPawn : NULL;
 		}
-		UE_LOG(UT, Warning, TEXT("ServerViewProjectile %f"), ViewProjectileTime);
 		if (!ViewedCharacter)
 		{
 			ViewProjectileTime = 0.f;

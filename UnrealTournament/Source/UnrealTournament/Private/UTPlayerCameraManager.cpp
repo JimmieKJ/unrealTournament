@@ -341,6 +341,7 @@ void AUTPlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutV
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
 	if (UTPC && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && (UTPC->MouseButtonPressCount == 0) && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
 	{
+		LimitViewPitch(OutViewRotation, ViewPitchMin, ViewPitchMax);
 		return;
 	}
 	Super::ProcessViewRotation(DeltaTime, OutViewRotation, OutDeltaRot);
