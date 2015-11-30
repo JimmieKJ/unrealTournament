@@ -4618,7 +4618,8 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	const bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
 	const bool bOnSameTeam = GS != NULL && GS->OnSameTeam(PC->GetPawn(), this);
 	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
-	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && (bRecentlyRendered || bOnSameTeam) &&
+	const bool bIsViewTarget = (PC->GetViewTarget() == this);
+	if (UTPS != NULL && UTPC != NULL && (bSpectating || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
@@ -4630,7 +4631,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			float MinTextScale = 0.75f;
 			BeaconTextScale = (1.f - ScaleTime) * BeaconTextScale + ScaleTime * ((bRecentlyRendered && !bFarAway) ? 1.f : 0.75f);
 			float Scale = BeaconTextScale * Canvas->ClipX / 1920.f;
-			if (bTacCom && !bFarAway && PC->PlayerCameraManager && (PC->GetViewTarget() != this) && (PC->GetViewTarget()->AttachmentReplication.AttachParent != this))
+			if (bTacCom && !bFarAway && PC->PlayerCameraManager && !bIsViewTarget && (PC->GetViewTarget()->AttachmentReplication.AttachParent != this))
 			{
 				// need to do trace, since taccom guys always rendered
 				AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PC->PlayerCameraManager);
