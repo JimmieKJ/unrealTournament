@@ -1875,7 +1875,12 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::PatchFunctionNameAndCopyR
 					{
 						UStructProperty* SourceStructProperty = CastChecked<UStructProperty>(SimpleCopyPropertySource);
 						UProperty* SourceSubProperty = SourceStructProperty->Struct->FindPropertyByName(AnimNodeSinglePropertyHandler.SubStructPropertyName);
-						check(SourceSubProperty);
+						
+						if (!SourceSubProperty)
+						{
+							continue;
+						}
+
 						check(SourceSubProperty->GetSize() == SimpleCopyPropertyDest->GetSize());
 
 						// Local sub-struct variable get
