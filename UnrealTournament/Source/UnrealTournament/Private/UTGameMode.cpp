@@ -2369,7 +2369,7 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 
 float AUTGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 {
-	float Score = 30.0f;
+	float Score = 29.0f + FMath::FRand();
 
 	AActor* LastSpot = (Player != NULL && Player->StartSpot.IsValid()) ? Player->StartSpot.Get() : NULL;
 	AUTPlayerState *UTPS = Player ? Cast<AUTPlayerState>(Player->PlayerState) : NULL;
