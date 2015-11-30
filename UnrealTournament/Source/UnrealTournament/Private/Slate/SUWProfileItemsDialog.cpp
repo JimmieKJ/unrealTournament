@@ -24,9 +24,9 @@ void SUWProfileItemsDialog::Construct(const FArguments& InArgs)
 	UUtMcpProfile* Profile = GetPlayerOwner()->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
 	if (Profile != NULL)
 	{
-		TArray<TSharedRef<const FMcpItem>> ItemList;
-		Profile->GetItemsByTemplateType(ItemList, TEXT("Item"));
-		for (const TSharedRef<const FMcpItem>& Item : ItemList)
+		TArray<TSharedRef<const FMcpItem>> NewItemList;
+		Profile->GetItemsByTemplateType(NewItemList, TEXT("Item"));
+		for (const TSharedRef<const FMcpItem>& Item : NewItemList)
 		{
 			UUTProfileItem* ProfileItem = Cast<UUTProfileItem>(Item->Instance);
 			if (ProfileItem != NULL)
