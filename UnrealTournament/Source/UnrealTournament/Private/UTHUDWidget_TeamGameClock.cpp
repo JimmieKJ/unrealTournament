@@ -44,7 +44,7 @@ void UUTHUDWidget_TeamGameClock::Draw_Implementation(float DeltaTime)
 	}
 
 	TSharedPtr<GenericApplication> GenericApplication = FSlateApplication::Get().GetPlatformApplication();
-	if (GenericApplication.IsValid() && !GenericApplication->IsUsingHighPrecisionMouseMode())
+	if (GenericApplication.IsValid() && !GenericApplication->IsUsingHighPrecisionMouseMode() && UTHUDOwner->PlayerOwner && UTHUDOwner->PlayerOwner->PlayerState && !UTHUDOwner->PlayerOwner->PlayerState->bOnlySpectator)
 	{
 		Canvas->SetDrawColor(FColor::Red);
 		Canvas->DrawTile(Canvas->DefaultTexture, Canvas->ClipX - 5, Canvas->ClipY - 5, 5, 5, 0.0f, 0.0f, 1.0f, 1.0f);
