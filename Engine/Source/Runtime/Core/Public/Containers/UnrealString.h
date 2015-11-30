@@ -1812,7 +1812,7 @@ namespace LexicalConversion
 	inline void FromString(float& OutValue,		const TCHAR* Buffer)	{	OutValue = FCString::Atof(Buffer);		}
 	inline void FromString(double& OutValue, 	const TCHAR* Buffer)	{	OutValue = FCString::Atod(Buffer);		}
 	inline void FromString(bool& OutValue, 		const TCHAR* Buffer)	{	OutValue = FCString::ToBool(Buffer);	}
-	inline void FromString(FString& OutValue, const TCHAR* Buffer)		{	OutValue = FString(Buffer);				}
+	inline void FromString(FString& OutValue,	const TCHAR* Buffer)	{	OutValue = FString(Buffer);				}
 
 	/** Convert numeric types to a string */
 	template<typename T>

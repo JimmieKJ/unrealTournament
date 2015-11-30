@@ -81,11 +81,6 @@ namespace LexicalConversion
 	{
 		FEngineVersion::Parse( Buffer, OutValue );
 	}
-
-	inline void FromString( FString& OutValue, const TCHAR* Buffer )
-	{
-		OutValue = Buffer;
-	}
 }
 
 /** Simple crash property. Only for string values. */
