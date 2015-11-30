@@ -187,7 +187,10 @@ void FFbxExporter::WriteToFile(const TCHAR* Filename)
 
 	// We export using FBX 2013 format because many users are still on that version and FBX 2014 files has compatibility issues with
 	// normals when importing to an earlier version of the plugin
-	Exporter->SetFileExportVersion(FBX_FILE_VERSION_7300, FbxSceneRenamer::eNone );
+	if (!Exporter->SetFileExportVersion(FBX_2013_00_COMPATIBLE, FbxSceneRenamer::eNone))
+	{
+		UE_LOG(LogFbx, Warning, TEXT("Call to KFbxExporter::SetFileExportVersion(FBX_2013_00_COMPATIBLE) to export 2013 fbx file format failed.\n"));
+	}
 
 	// Initialize the exporter by providing a filename.
 	if( !Exporter->Initialize(TCHAR_TO_UTF8(Filename), FileFormat, SdkManager->GetIOSettings()) )
