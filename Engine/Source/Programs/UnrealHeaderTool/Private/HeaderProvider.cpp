@@ -26,6 +26,7 @@ bool TryFindSourceFileWithPredicate(FUnrealSourceFile*& Out, Predicate Pred)
 	return false;
 }
 
+
 FUnrealSourceFile* FHeaderProvider::Resolve()
 {
 	if (Type != EHeaderProviderSourceType::Resolved)
@@ -55,14 +56,14 @@ FUnrealSourceFile* FHeaderProvider::Resolve()
 				{
 					FString SlashId     = TEXT("/") + Id;
 					FString BackslashId = TEXT("\\") + Id;
-					TryFindSourceFileWithPredicate(Cache,
+				TryFindSourceFileWithPredicate(Cache,
 						[&SlashId, &BackslashId](const FUnrealSourceFile& SourceFile)
-						{
+					{
 							return SourceFile.GetFilename().EndsWith(SlashId) || SourceFile.GetFilename().EndsWith(BackslashId);
-						}
-					);
-				}
+					}
+				);
 			}
+		}
 		}
 
 		Type = EHeaderProviderSourceType::Resolved;
@@ -87,6 +88,12 @@ EHeaderProviderSourceType FHeaderProvider::GetType() const
 }
 
 const FUnrealSourceFile* FHeaderProvider::GetResolved() const
+{
+	check(Type == EHeaderProviderSourceType::Resolved);
+	return Cache;
+}
+
+FUnrealSourceFile* FHeaderProvider::GetResolved()
 {
 	check(Type == EHeaderProviderSourceType::Resolved);
 	return Cache;

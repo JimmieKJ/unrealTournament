@@ -21,6 +21,9 @@ IMPLEMENT_APPLICATION(UnrealFrontend, "UnrealFrontend");
  */
 int32 UnrealFrontendMain( const TCHAR* CommandLine )
 {
+	// Override the stack size for the thread pool.
+	FQueuedThreadPool::OverrideStackSize = 256 * 1024;
+
 	FCommandLine::Set(CommandLine);
 
 	FString Command;

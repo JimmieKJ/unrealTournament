@@ -83,7 +83,7 @@ struct FTestDeviceContext
 	{
 		Device.Cleanup();
 		FVisualLogger::Get().SetIsRecording(false);
-		FVisualLogger::Get().Cleanup();
+		FVisualLogger::Get().Cleanup(nullptr);
 		FVisualLogger::Get().AddDevice(&Device);
 
 		EngineDisableAILoggingFlag = GEngine->bDisableAILogging;
@@ -95,7 +95,7 @@ struct FTestDeviceContext
 	{
 		FVisualLogger::Get().SetIsRecording(false);
 		FVisualLogger::Get().RemoveDevice(&Device);
-		FVisualLogger::Get().Cleanup();
+		FVisualLogger::Get().Cleanup(nullptr);
 		Device.Cleanup();
 
 		GEngine->bDisableAILogging = EngineDisableAILoggingFlag;

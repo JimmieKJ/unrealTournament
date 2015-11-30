@@ -128,9 +128,6 @@ half3 FrameBufferBlendOp(half4 Source)
 #endif
 }
 
-half4 IndirectLightingSHCoefficients[3]; 
-half DirectionalLightShadowing;
-
 void Main( 
 	FVertexFactoryInterpolantsVSToPS Interpolants,
 	FForwardShadingBasePassInterpolantsVSToPS BasePassInterpolants,
@@ -206,9 +203,9 @@ void Main(
 
 			// Take the normal into account for opaque
 			FTwoBandSHVectorRGB PointIndirectLighting;
-			PointIndirectLighting.R.V = IndirectLightingSHCoefficients[0];
-			PointIndirectLighting.G.V = IndirectLightingSHCoefficients[1];
-			PointIndirectLighting.B.V = IndirectLightingSHCoefficients[2];
+			PointIndirectLighting.R.V = PrecomputedLightingBuffer.IndirectLightingSHCoefficients[0];
+			PointIndirectLighting.G.V = PrecomputedLightingBuffer.IndirectLightingSHCoefficients[1];
+			PointIndirectLighting.B.V = PrecomputedLightingBuffer.IndirectLightingSHCoefficients[2];
 
 			FTwoBandSHVector DiffuseTransferSH = CalcDiffuseTransferSH(MaterialParameters.WorldNormal, 1);
 
@@ -223,7 +220,7 @@ void Main(
 			// Non-directional for translucency
 			// Ambient terms packed in xyz
 			// Already divided by PI and SH ambient on CPU
-			half3 PointIndirectLighting = IndirectLightingSHCoefficients[0];
+			half3 PointIndirectLighting = PrecomputedLightingBuffer.IndirectLightingSHSingleCoefficient;
 			half3 DiffuseGI = PointIndirectLighting;
 
 			IndirectIrradiance = Luminance(DiffuseGI);
@@ -236,7 +233,7 @@ void Main(
 		half Shadow = GetPrimaryPrecomputedShadowMask(Interpolants).r;
 
 		#if SIMPLE_DYNAMIC_LIGHTING
-			Shadow = DirectionalLightShadowing;
+			Shadow = PrecomputedLightingBuffer.DirectionalLightShadowing;
 		#endif
 			
 		#if MOVABLE_DIRECTIONAL_LIGHT_CSM

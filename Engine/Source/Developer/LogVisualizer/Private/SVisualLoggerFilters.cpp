@@ -37,7 +37,6 @@ void SVisualLoggerFilters::Construct(const FArguments& InArgs, const TSharedRef<
 			.Text(LOCTEXT("GraphFilters", "Graph Filters"))
 		];
 
-	GraphsFilterCombo->SetVisibility(CachedDatasPerGraph.Num() ? EVisibility::Visible : EVisibility::Collapsed);
 
 	FilterBox->AddSlot()
 		.Padding(3, 3)
@@ -59,6 +58,13 @@ void SVisualLoggerFilters::Construct(const FArguments& InArgs, const TSharedRef<
 				GraphsFilterCombo.ToSharedRef()
 			]
 		];
+
+	for (auto& CurrentCategory : FVisualLoggerFilters::Get().Categories)
+	{
+		AddFilterCategory(CurrentCategory.CategoryName, (ELogVerbosity::Type)CurrentCategory.LogVerbosity, false);
+	}
+
+	GraphsFilterCombo->SetVisibility(CachedDatasPerGraph.Num() ? EVisibility::Visible : EVisibility::Collapsed);
 
 	FVisualLoggerFilters::Get().OnFilterCategoryAdded.AddRaw(this, &SVisualLoggerFilters::OnFilterCategoryAdded);
 	FVisualLoggerFilters::Get().OnFilterCategoryRemoved.AddRaw(this, &SVisualLoggerFilters::OnFilterCategoryRemoved);
@@ -198,17 +204,10 @@ void SVisualLoggerFilters::GraphFilterCategoryClicked(FName GraphName)
 {
 	const bool bNewSet = !IsGraphFilterCategoryInUse(GraphName);
 
-	for (auto Iter(FVisualLoggerGraphsDatabase::Get().GetConstOwnersIterator()); Iter; ++Iter)
+	for (auto Iter(CachedDatasPerGraph[GraphName].CreateConstIterator()); Iter; ++Iter)
 	{
-		const FName OwnerName = Iter.Key();
-		if (FVisualLoggerGraphsDatabase::Get().ContainsGraphByName(OwnerName, GraphName))
-		{
-			FVisualLoggerGraph& Graph = FVisualLoggerGraphsDatabase::Get().GetGraphByName(OwnerName, GraphName);
-			for (auto DataIt(Graph.GetConstDataIterator()); DataIt; ++DataIt)
-			{
-				FVisualLoggerFilters::Get().DisableGraphData(GraphName, DataIt->DataName, !bNewSet);
-			}
-		}
+		const FName& DataName = *Iter;
+		FVisualLoggerFilters::Get().DisableGraphData(GraphName, DataName, !bNewSet);
 	}
 
 	FLogVisualizer::Get().GetEvents().OnFiltersChanged.Broadcast();
@@ -218,17 +217,11 @@ void SVisualLoggerFilters::GraphFilterCategoryClicked(FName GraphName)
 bool SVisualLoggerFilters::IsGraphFilterCategoryInUse(FName GraphName) const
 {
 	bool bInUse = false;
-	for (auto Iter(FVisualLoggerGraphsDatabase::Get().GetConstOwnersIterator()); Iter; ++Iter)
+
+	for (auto Iter(CachedDatasPerGraph[GraphName].CreateConstIterator()); Iter; ++Iter)
 	{
-		const FName OwnerName = Iter.Key();
-		if (FVisualLoggerGraphsDatabase::Get().ContainsGraphByName(OwnerName, GraphName))
-		{
-			FVisualLoggerGraph& Graph = FVisualLoggerGraphsDatabase::Get().GetGraphByName(OwnerName, GraphName);
-			for (auto DataIt(Graph.GetConstDataIterator()); DataIt; ++DataIt)
-			{
-				bInUse |= FVisualLoggerFilters::Get().IsGraphDataDisabled(GraphName, DataIt->DataName) == false;
-			}
-		}
+		const FName& DataName = *Iter;
+		bInUse |= FVisualLoggerFilters::Get().IsGraphDataDisabled(GraphName, DataName) == false;
 	}
 
 	return bInUse;
@@ -308,7 +301,7 @@ uint32 SVisualLoggerFilters::GetCategoryIndex(const FString& InFilterName) const
 	return INDEX_NONE;
 }
 
-void SVisualLoggerFilters::OnFilterCategoryAdded(FString InName, ELogVerbosity::Type InVerbosity)
+void SVisualLoggerFilters::AddFilterCategory(FString InName, ELogVerbosity::Type InVerbosity, bool bMarkAsInUse)
 {
 	int32 CharIndex = INDEX_NONE;
 	if (InName.FindChar('$', CharIndex) == true)
@@ -318,6 +311,7 @@ void SVisualLoggerFilters::OnFilterCategoryAdded(FString InName, ELogVerbosity::
 		if (ensure(GroupAndName.Num() == 2))
 		{
 			CachedGraphFilters.FindOrAdd(*GroupAndName[0]).AddUnique(GroupAndName[1]);
+			CachedDatasPerGraph.FindOrAdd(*GroupAndName[0]).AddUnique(*GroupAndName[1]);
 		}
 	}
 	else
@@ -345,6 +339,23 @@ void SVisualLoggerFilters::OnFilterCategoryAdded(FString InName, ELogVerbosity::
 			];
 	}
 
+	if (bMarkAsInUse)
+	{
+		FVisualLoggerFilters& PresistentFilters = FVisualLoggerFilters::Get();
+		for (int32 Index = PresistentFilters.Categories.Num() - 1; Index >= 0; --Index)
+		{
+			FCategoryFilter& Category = PresistentFilters.Categories[Index];
+			if (Category.CategoryName == InName)
+			{
+				Category.bIsInUse = true;
+			}
+		}
+	}
+}
+
+void SVisualLoggerFilters::OnFilterCategoryAdded(FString InName, ELogVerbosity::Type InVerbosity)
+{
+	AddFilterCategory(InName, InVerbosity, false);
 	GraphsFilterCombo->SetVisibility(CachedGraphFilters.Num() > 0 ? EVisibility::Visible : EVisibility::Collapsed);
 }
 

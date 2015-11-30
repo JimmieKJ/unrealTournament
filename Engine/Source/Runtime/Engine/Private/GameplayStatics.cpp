@@ -690,20 +690,25 @@ UParticleSystemComponent* UGameplayStatics::SpawnEmitterAttached(UParticleSystem
 		{
 			UE_LOG(LogScript, Warning, TEXT("UGameplayStatics::SpawnEmitterAttached: NULL AttachComponent specified!"));
 		}
-		else if (AttachToComponent->GetWorld() && AttachToComponent->GetWorld()->GetNetMode() != NM_DedicatedServer)
+		else
 		{
-			PSC = CreateParticleSystem(EmitterTemplate, AttachToComponent->GetWorld(), AttachToComponent->GetOwner(), bAutoDestroy);
-			PSC->AttachTo(AttachToComponent, AttachPointName);
-			if (LocationType == EAttachLocation::KeepWorldPosition)
+			UWorld* const World = AttachToComponent->GetWorld();
+			if (World && World->GetNetMode() != NM_DedicatedServer)
 			{
-				PSC->SetWorldLocationAndRotation(Location, Rotation);
+				PSC = CreateParticleSystem(EmitterTemplate, World, AttachToComponent->GetOwner(), bAutoDestroy);
+				PSC->AttachTo(AttachToComponent, AttachPointName);
+				if (LocationType == EAttachLocation::KeepWorldPosition)
+				{
+					PSC->SetWorldLocationAndRotation(Location, Rotation);
+				}
+				else
+				{
+					PSC->SetRelativeLocationAndRotation(Location, Rotation);
+				}
+				PSC->SetRelativeScale3D(FVector(1.f));
+				PSC->RegisterComponentWithWorld(World);
+				PSC->ActivateSystem(true);
 			}
-			else
-			{
-				PSC->SetRelativeLocationAndRotation(Location, Rotation);
-			}
-			PSC->SetRelativeScale3D(FVector(1.f));
-			PSC->ActivateSystem(true);
 		}
 	}
 	return PSC;
@@ -801,6 +806,7 @@ void UGameplayStatics::PlaySound2D(UObject* WorldContextObject, class USoundBase
 
 		NewActiveSound.bIsUISound = true;
 		NewActiveSound.ConcurrencySettings = ConcurrencySettings;
+		NewActiveSound.Priority = Sound->Priority;
 
 		AudioDevice->AddNewActiveSound(NewActiveSound);
 	}
@@ -885,9 +891,15 @@ void UGameplayStatics::PlaySoundAtLocation(UObject* WorldContextObject, class US
 			if (NewActiveSound.bHasAttenuationSettings)
 			{
 				NewActiveSound.AttenuationSettings = *AttenuationSettingsToApply;
+				NewActiveSound.MaxDistance = NewActiveSound.AttenuationSettings.GetMaxDimension();
+			}
+			else
+			{
+				NewActiveSound.MaxDistance = Sound->GetMaxAudibleDistance();
 			}
 
 			NewActiveSound.ConcurrencySettings = ConcurrencySettings;
+			NewActiveSound.Priority = Sound->Priority;
 
 			// TODO - Audio Threading. This call would be a task call to dispatch to the audio thread
 			AudioDevice->AddNewActiveSound(NewActiveSound);
@@ -1137,12 +1149,10 @@ void UGameplayStatics::DeactivateReverbEffect(UObject* WorldContextObject, FName
 
 UDecalComponent* CreateDecalComponent(class UMaterialInterface* DecalMaterial, FVector DecalSize, UWorld* World, AActor* Actor, float LifeSpan)
 {
-	const FMatrix DecalInternalTransform = FRotationMatrix(FRotator(0.f, 90.0f, -90.0f));
-
 	UDecalComponent* DecalComp = NewObject<UDecalComponent>((Actor ? Actor : (UObject*)World));
 	DecalComp->bAllowAnyoneToDestroyMe = true;
 	DecalComp->DecalMaterial = DecalMaterial;
-	DecalComp->RelativeScale3D = DecalInternalTransform.TransformVector(DecalSize);
+	DecalComp->DecalSize = DecalSize;
 	DecalComp->bAbsoluteScale = true;
 	DecalComp->RegisterComponentWithWorld(World);
 

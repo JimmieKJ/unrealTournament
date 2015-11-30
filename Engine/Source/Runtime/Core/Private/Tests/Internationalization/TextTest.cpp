@@ -200,25 +200,25 @@ bool FTextTest::RunTest (const FString& Parameters)
 		TArray<FFormatArgumentData> ArgumentList;
 		{
 			FFormatArgumentData Argument;
-			Argument.ArgumentName = FText::FromString( TEXT("Age") );
+			Argument.ArgumentName = TEXT("Age");
 			Argument.ArgumentValue = FText::FromString( TEXT("23") );
 			ArgumentList.Add(Argument);
 		}
 		{
 			FFormatArgumentData Argument;
-			Argument.ArgumentName = FText::FromString( TEXT("Height") );
+			Argument.ArgumentName = TEXT("Height");
 			Argument.ArgumentValue = FText::FromString( TEXT("68") );
 			ArgumentList.Add(Argument);
 		}
 		{
 			FFormatArgumentData Argument;
-			Argument.ArgumentName = FText::FromString( TEXT("Gender") );
+			Argument.ArgumentName = TEXT("Gender");
 			Argument.ArgumentValue = FText::FromString( TEXT("male") );
 			ArgumentList.Add(Argument);
 		}
 		{
 			FFormatArgumentData Argument;
-			Argument.ArgumentName = FText::FromString( TEXT("Name") );
+			Argument.ArgumentName = TEXT("Name");
 			Argument.ArgumentValue = FText::FromString( TEXT("Saul") );
 			ArgumentList.Add(Argument);
 		}
@@ -784,12 +784,21 @@ bool FTextPaddingTest::RunTest (const FString& Parameters)
 	// Test to make sure that the decimal formatter is padding integral numbers correctly
 	FNumberFormattingOptions FormattingOptions;
 
-	auto DoSingleTest = [&](const int32 InNumber, const FString& InExpectedString, const FString& InDescription)
+	auto DoSingleIntTest = [&](const int32 InNumber, const FString& InExpectedString, const FString& InDescription)
 	{
 		const FText ResultText = FText::AsNumber(InNumber, &FormattingOptions);
 		if(ResultText.ToString() != InExpectedString)
 		{
 			AddError(FString::Printf(TEXT("Text padding failure: source '%d' - expected '%s' - result '%s'. %s."), InNumber, *InExpectedString, *ResultText.ToString(), *InDescription));
+		}
+	};
+
+	auto DoSingleDoubleTest = [&](const double InNumber, const FString& InExpectedString, const FString& InDescription)
+	{
+		const FText ResultText = FText::AsNumber(InNumber, &FormattingOptions);
+		if(ResultText.ToString() != InExpectedString)
+		{
+			AddError(FString::Printf(TEXT("Text padding failure: source '%f' - expected '%s' - result '%s'. %s."), InNumber, *InExpectedString, *ResultText.ToString(), *InDescription));
 		}
 	};
 
@@ -799,8 +808,8 @@ bool FTextPaddingTest::RunTest (const FString& Parameters)
 			.SetUseGrouping(false)
 			.SetMaximumIntegralDigits(3);
 
-		DoSingleTest(123456,  TEXT("456"),  TEXT("Truncating '123456' to a max of 3 integral digits"));
-		DoSingleTest(-123456, TEXT("-456"), TEXT("Truncating '-123456' to a max of 3 integral digits"));
+		DoSingleIntTest(123456,  TEXT("456"),  TEXT("Truncating '123456' to a max of 3 integral digits"));
+		DoSingleIntTest(-123456, TEXT("-456"), TEXT("Truncating '-123456' to a max of 3 integral digits"));
 	}
 
 	// Test with a min limit of 6
@@ -809,8 +818,8 @@ bool FTextPaddingTest::RunTest (const FString& Parameters)
 			.SetUseGrouping(false)
 			.SetMinimumIntegralDigits(6);
 
-		DoSingleTest(123,  TEXT("000123"),  TEXT("Padding '123' to a min of 6 integral digits"));
-		DoSingleTest(-123, TEXT("-000123"), TEXT("Padding '-123' to a min of 6 integral digits"));
+		DoSingleIntTest(123,  TEXT("000123"),  TEXT("Padding '123' to a min of 6 integral digits"));
+		DoSingleIntTest(-123, TEXT("-000123"), TEXT("Padding '-123' to a min of 6 integral digits"));
 	}
 
 	// Test with forced fractional digits
@@ -819,8 +828,39 @@ bool FTextPaddingTest::RunTest (const FString& Parameters)
 			.SetUseGrouping(false)
 			.SetMinimumFractionalDigits(3);
 
-		DoSingleTest(123,  TEXT("123.000"),  TEXT("Padding '123' to a min of 3 fractional digits"));
-		DoSingleTest(-123, TEXT("-123.000"), TEXT("Padding '-123' to a min of 3 fractional digits"));
+		DoSingleIntTest(123,  TEXT("123.000"),  TEXT("Padding '123' to a min of 3 fractional digits"));
+		DoSingleIntTest(-123, TEXT("-123.000"), TEXT("Padding '-123' to a min of 3 fractional digits"));
+	}
+
+	// Testing with leading zeros on a real number
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMaximumFractionalDigits(4);
+
+		DoSingleDoubleTest(0.00123,  TEXT("0.0012"),  TEXT("Padding '0.00123' to a max of 4 fractional digits"));
+		DoSingleDoubleTest(-0.00123, TEXT("-0.0012"), TEXT("Padding '-0.00123' to a max of 4 fractional digits"));
+	}
+
+	// Testing with leading zeros on a real number
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMaximumFractionalDigits(8);
+
+		DoSingleDoubleTest(0.00123,  TEXT("0.00123"),  TEXT("Padding '0.00123' to a max of 8 fractional digits"));
+		DoSingleDoubleTest(-0.00123, TEXT("-0.00123"), TEXT("Padding '-0.00123' to a max of 8 fractional digits"));
+	}
+
+	// Test with forced fractional digits on a real number
+	{
+		FormattingOptions = FNumberFormattingOptions()
+			.SetUseGrouping(false)
+			.SetMinimumFractionalDigits(8)
+			.SetMaximumFractionalDigits(8);
+
+		DoSingleDoubleTest(0.00123,  TEXT("0.00123000"),  TEXT("Padding '0.00123' to a min of 8 fractional digits"));
+		DoSingleDoubleTest(-0.00123, TEXT("-0.00123000"), TEXT("Padding '-0.00123' to a min of 8 fractional digits"));
 	}
 
 	// Restore original culture

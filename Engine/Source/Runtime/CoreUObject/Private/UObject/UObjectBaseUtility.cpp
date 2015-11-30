@@ -254,7 +254,7 @@ bool UObjectBaseUtility::IsInA( const UClass* SomeBaseClass ) const
 */
 bool UObjectBaseUtility::RootPackageHasAnyFlags( uint32 CheckFlagMask ) const
 {
-	return (GetOutermost()->PackageFlags&CheckFlagMask) != 0;
+	return GetOutermost()->HasAnyPackageFlags(CheckFlagMask);
 }
 
 /***********************/

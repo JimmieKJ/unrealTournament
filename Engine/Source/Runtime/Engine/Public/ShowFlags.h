@@ -288,6 +288,8 @@ private:
 		SetNavigation(false);
 		SetLightComplexity(false);
 		SetShaderComplexity(false);
+		SetQuadComplexity(false);
+		SetQuadOverhead(false);
 		SetStationaryLightOverlap(false);
 		SetLightMapDensity(false);
 		SetVertexDensities(false);

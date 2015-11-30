@@ -21,6 +21,7 @@ UBlueprintGeneratedClass::UBlueprintGeneratedClass(const FObjectInitializer& Obj
 	: Super(ObjectInitializer)
 {
 	NumReplicatedProperties = 0;
+	bHasInstrumentation = false;
 }
 
 void UBlueprintGeneratedClass::PostInitProperties()
@@ -76,7 +77,7 @@ void UBlueprintGeneratedClass::PostLoad()
 
 	if (const UPackage* Package = GetOutermost())
 	{
-		if (Package->PackageFlags & PKG_ForDiffing)
+		if (Package->HasAnyPackageFlags(PKG_ForDiffing))
 		{
 			ClassFlags |= CLASS_Deprecated;
 		}
@@ -601,7 +602,7 @@ uint8* UBlueprintGeneratedClass::GetPersistentUberGraphFrame(UObject* Obj, UFunc
 
 void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool bCreateOnlyIfEmpty, bool bSkipSuperClass) const
 {
-	checkSlow(!UberGraphFramePointerProperty == !UberGraphFunction);
+	ensure(!UberGraphFramePointerProperty == !UberGraphFunction);
 	if (Obj && UsePersistentUberGraphFrame() && UberGraphFramePointerProperty && UberGraphFunction)
 	{
 		auto PointerToUberGraphFrame = UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrame>(Obj);
@@ -642,7 +643,7 @@ void UBlueprintGeneratedClass::CreatePersistentUberGraphFrame(UObject* Obj, bool
 
 void UBlueprintGeneratedClass::DestroyPersistentUberGraphFrame(UObject* Obj, bool bSkipSuperClass) const
 {
-	checkSlow(!UberGraphFramePointerProperty == !UberGraphFunction);
+	ensure(!UberGraphFramePointerProperty == !UberGraphFunction);
 	if (Obj && UsePersistentUberGraphFrame() && UberGraphFramePointerProperty && UberGraphFunction)
 	{
 		auto PointerToUberGraphFrame = UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrame>(Obj);
@@ -749,6 +750,18 @@ public:
 protected:
 	virtual FArchive& operator<<(UObject*& Object) override
 	{
+#if !(UE_BUILD_TEST || UE_BUILD_SHIPPING)
+		if (Object && !Object->IsValidLowLevelFast())
+		{
+			UProperty* SerializingProperty = GetSerializedProperty();
+
+			UE_LOG(LogBlueprint, Fatal, TEXT("Invalid object in PersistentFrame: 0x%016llx, Blueprint object: %s, ReferencingProperty: %s"),
+				(int64)(PTRINT)Object,
+				SerializingObject   ? *SerializingObject->GetFullName()   : TEXT("NULL"),
+				SerializingProperty ? *SerializingProperty->GetFullName() : TEXT("NULL"));
+		}
+#endif
+
 		const bool bWeakRef = Object ? !Object->HasAnyFlags(RF_StrongRefOnFrame) : false;
 		Collector.SetShouldHandleAsWeakRef(bWeakRef); 
 		return FSimpleObjectReferenceCollectorArchive::operator<<(Object);
@@ -764,11 +777,11 @@ void UBlueprintGeneratedClass::AddReferencedObjectsInUbergraphFrame(UObject* InT
 		{
 			if (BPGC->UberGraphFramePointerProperty)
 			{
-				checkSlow(BPGC->UberGraphFunction);
 				auto PointerToUberGraphFrame = BPGC->UberGraphFramePointerProperty->ContainerPtrToValuePtr<FPointerToUberGraphFrame>(InThis);
 				checkSlow(PointerToUberGraphFrame)
 				if (PointerToUberGraphFrame->RawPointer)
 				{
+					checkSlow(BPGC->UberGraphFunction);
 					FPersistentFrameCollectorArchive ObjectReferenceCollector(InThis, Collector);
 					BPGC->UberGraphFunction->SerializeBin(ObjectReferenceCollector, PointerToUberGraphFrame->RawPointer);
 

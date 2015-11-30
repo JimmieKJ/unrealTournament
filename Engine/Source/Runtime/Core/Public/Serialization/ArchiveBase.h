@@ -660,6 +660,11 @@ public:
 		return ArIgnoreOuterRef;
 	}
 
+	FORCEINLINE bool IsIgnoringClassGeneratedByRef() const
+	{
+		return ArIgnoreClassGeneratedByRef;
+	}
+
 	FORCEINLINE bool IsIgnoringClassRef() const
 	{
 		return ArIgnoreClassRef;
@@ -1032,7 +1037,10 @@ public:
 
 	/** If true, we will not serialize the Outer reference in UObject. */
 	bool ArIgnoreOuterRef;
-	
+
+	/** If true, we will not serialize ClassGeneratedBy reference in UClass. */
+	bool ArIgnoreClassGeneratedByRef;
+
 	/** If true, UObject::Serialize will skip serialization of the Class property. */
 	bool ArIgnoreClassRef;
 	

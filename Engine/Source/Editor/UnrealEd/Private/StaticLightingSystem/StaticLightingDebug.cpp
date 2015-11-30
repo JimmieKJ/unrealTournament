@@ -19,7 +19,7 @@ FDebugLightingOutput GDebugStaticLightingInfo;
 #if WITH_EDITOR
 
 /** Helper function that writes a texel into the given texture. */
-static void WriteTexel(UTexture2D* Texture, int32 X, int32 Y, FColor NewColor, FColor& OriginalColor)
+static void WriteTexel(UTexture2D* Texture, int32 X, int32 Y, FColor NewColor)
 {
 	if (X >= 0 && X < Texture->GetSizeX() && Y >= 0 && Y < Texture->GetSizeY())
 	{
@@ -39,8 +39,6 @@ static void WriteTexel(UTexture2D* Texture, int32 X, int32 Y, FColor NewColor, F
 				FTexture2DMipMap& BaseMip = Texture->PlatformData->Mips[0];
 				FColor* Data = (FColor*)BaseMip.BulkData.Lock( LOCK_READ_WRITE );
 				FColor& SelectedTexel = Data[Y * Texture->GetSizeX() + X];
-				// Save the original color
-				OriginalColor = SelectedTexel;
 				// Write the new color
 				SelectedTexel = NewColor;
 				BaseMip.BulkData.Unlock();
@@ -51,23 +49,6 @@ static void WriteTexel(UTexture2D* Texture, int32 X, int32 Y, FColor NewColor, F
 		else
 		{
 			UE_LOG(LogStaticLightingSystem, Log, TEXT("Texel selection coloring failed because the lightmap is not PF_B8G8R8A8!"));
-		}
-	}
-}
-
-static void RestoreSelectedLightmapSample()
-{
-	// Restore the last selected sample if it is still valid
-	if (IsValidRef(GCurrentSelectedLightmapSample.Lightmap))
-	{
-		FColor DummyColor;
-		FLightMap2D* OldLightmap2D = GCurrentSelectedLightmapSample.Lightmap->GetLightMap2D();
-
-		if (OldLightmap2D)
-		{
-			int32 LightmapIndex = OldLightmap2D->AllowsHighQualityLightmaps() ? 0 : 1;
-			UTexture2D* OldTexture = OldLightmap2D->GetTexture( LightmapIndex );
-			WriteTexel(OldTexture, GCurrentSelectedLightmapSample.LightmapX, GCurrentSelectedLightmapSample.LightmapY, GCurrentSelectedLightmapSample.OriginalColor, DummyColor);
 		}
 	}
 }
@@ -104,11 +85,21 @@ static bool UpdateSelectedTexel(
 
 			int32 LightmapIndex = Lightmap2D->AllowsHighQualityLightmaps() ? 0 : 1;
 			UTexture2D* CurrentLightmap = Lightmap2D->GetTexture( LightmapIndex );
-			// UV's in the lightmap atlas
-			NewSelectedTexel.LightmapX = FMath::TruncToInt(LightmapUV.X * CurrentLightmap->GetSizeX());
-			NewSelectedTexel.LightmapY = FMath::TruncToInt(LightmapUV.Y * CurrentLightmap->GetSizeY());
-			// Write the selection color to the selected lightmap texel
-			WriteTexel(CurrentLightmap, NewSelectedTexel.LightmapX, NewSelectedTexel.LightmapY, GTexelSelectionColor, NewSelectedTexel.OriginalColor);
+			{
+				// UV's in the lightmap atlas
+				int32 LightmapX = FMath::TruncToInt(LightmapUV.X * CurrentLightmap->GetSizeX());
+				int32 LightmapY = FMath::TruncToInt(LightmapUV.Y * .5f * CurrentLightmap->GetSizeY());
+				// Write the selection color to the selected lightmap texel
+				WriteTexel(CurrentLightmap, LightmapX, LightmapY, GTexelSelectionColor);
+			}
+
+			{
+				// UV's in the lightmap atlas
+				int32 LightmapX = FMath::TruncToInt(LightmapUV.X * CurrentLightmap->GetSizeX());
+				int32 LightmapY = FMath::TruncToInt((LightmapUV.Y * .5f + .5f) * CurrentLightmap->GetSizeY());
+				// Write the selection color to the selected lightmap texel
+				WriteTexel(CurrentLightmap, LightmapX, LightmapY, GTexelSelectionColor);
+			}
 
 			GCurrentSelectedLightmapSample = NewSelectedTexel;
 			return true;
@@ -127,6 +118,7 @@ static bool GetBarycentricWeights(
 	const FVector& Position2,
 	FVector InterpolatePosition,
 	float Tolerance,
+	float& PlaneDistance,
 	FVector& BarycentricWeights
 	)
 {
@@ -134,112 +126,129 @@ static bool GetBarycentricWeights(
 	FVector TriangleNormal = (Position0 - Position1) ^ (Position2 - Position0);
 	float ParallelogramArea = TriangleNormal.Size();
 	FVector UnitTriangleNormal = TriangleNormal / ParallelogramArea;
-	float PlaneDistance = UnitTriangleNormal | (InterpolatePosition - Position0);
+	PlaneDistance = UnitTriangleNormal | (InterpolatePosition - Position0);
 
-	// Only continue if the position to interpolate to is in the plane of the triangle (within some error)
-	if (FMath::Abs(PlaneDistance) < Tolerance)
+	// Move the position to interpolate to into the plane of the triangle along the normal, 
+	// Otherwise there will be error in our barycentric coordinates
+	InterpolatePosition -= UnitTriangleNormal * PlaneDistance;
+
+	FVector NormalU = (InterpolatePosition - Position1) ^ (Position2 - InterpolatePosition);
+	// Signed area, if negative then InterpolatePosition is not in the triangle
+	float ParallelogramAreaU = NormalU.Size() * FMath::FloatSelect(NormalU | TriangleNormal, 1.0f, -1.0f);
+	float BaryCentricU = ParallelogramAreaU / ParallelogramArea;
+
+	FVector NormalV = (InterpolatePosition - Position2) ^ (Position0 - InterpolatePosition);
+	float ParallelogramAreaV = NormalV.Size() * FMath::FloatSelect(NormalV | TriangleNormal, 1.0f, -1.0f);
+	float BaryCentricV = ParallelogramAreaV / ParallelogramArea;
+
+	float BaryCentricW = 1.0f - BaryCentricU - BaryCentricV;
+	if (BaryCentricU > -Tolerance && BaryCentricV > -Tolerance && BaryCentricW > -Tolerance)
 	{
-		// Move the position to interpolate to into the plane of the triangle along the normal, 
-		// Otherwise there will be error in our barycentric coordinates
-		InterpolatePosition -= UnitTriangleNormal * PlaneDistance;
-
-		FVector NormalU = (InterpolatePosition - Position1) ^ (Position2 - InterpolatePosition);
-		// Signed area, if negative then InterpolatePosition is not in the triangle
-		float ParallelogramAreaU = NormalU.Size() * FMath::FloatSelect(NormalU | TriangleNormal, 1.0f, -1.0f);
-		float BaryCentricU = ParallelogramAreaU / ParallelogramArea;
-
-		FVector NormalV = (InterpolatePosition - Position2) ^ (Position0 - InterpolatePosition);
-		float ParallelogramAreaV = NormalV.Size() * FMath::FloatSelect(NormalV | TriangleNormal, 1.0f, -1.0f);
-		float BaryCentricV = ParallelogramAreaV / ParallelogramArea;
-
-		float BaryCentricW = 1.0f - BaryCentricU - BaryCentricV;
-		if (BaryCentricU > -Tolerance && BaryCentricV > -Tolerance && BaryCentricW > -Tolerance)
-		{
-			BarycentricWeights = FVector(BaryCentricU, BaryCentricV, BaryCentricW);
-			return true;
-		}
+		BarycentricWeights = FVector(BaryCentricU, BaryCentricV, BaryCentricW);
+		return true;
 	}
+
 	return false;
 }
 
-float TriangleTolerance = 1;
+float TriangleTolerance = .1f;
 
 /** Updates GCurrentSelectedLightmapSample given a selected actor's components and the location of the click. */
 void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model, int32 iSurf, FVector ClickLocation)
 {
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-	UStaticMeshComponent* SMComponent = NULL;
-	if (Components)
+	if (IsTexelDebuggingEnabled())
 	{
-		// Find the first supported component
-		for (int32 ComponentIndex = 0; ComponentIndex < Components->Num() && !SMComponent; ComponentIndex++)
+		UStaticMeshComponent* SMComponent = NULL;
+		if (Components)
 		{
-			SMComponent = Cast<UStaticMeshComponent>((*Components)[ComponentIndex]);
-			if (SMComponent && (!SMComponent->StaticMesh || SMComponent->LODData.Num() == 0))
+			// Find the first supported component
+			for (int32 ComponentIndex = 0; ComponentIndex < Components->Num() && !SMComponent; ComponentIndex++)
 			{
-				SMComponent = NULL;
+				SMComponent = Cast<UStaticMeshComponent>((*Components)[ComponentIndex]);
+				if (SMComponent && (!SMComponent->StaticMesh || SMComponent->LODData.Num() == 0))
+				{
+					SMComponent = NULL;
+				}
 			}
 		}
-	}
 	 
-	bool bFoundLightmapSample = false;
-	// Only static mesh components and BSP handled for now
-	if (SMComponent)
-	{
-		UStaticMesh* StaticMesh = SMComponent->StaticMesh;
-		check(StaticMesh);
-		check(StaticMesh->RenderData);
-		check(StaticMesh->RenderData->LODResources.Num());
-		// Only supporting LOD0
-		const int32 LODIndex = 0;
-		FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[LODIndex];
-		FIndexArrayView Indices = LODModel.IndexBuffer.GetArrayView();
-		const bool bHasStaticLighting = SMComponent->HasStaticLighting();
-		if (bHasStaticLighting)
+		bool bFoundLightmapSample = false;
+		// Only static mesh components and BSP handled for now
+		if (SMComponent)
 		{
-			bool bUseTextureMap = false;
-			int32 LightmapSizeX = 0;
-			int32 LightmapSizeY = 0;
-			SMComponent->GetLightMapResolution(LightmapSizeX, LightmapSizeY);
+			UStaticMesh* StaticMesh = SMComponent->StaticMesh;
+			check(StaticMesh);
+			check(StaticMesh->RenderData);
+			check(StaticMesh->RenderData->LODResources.Num());
+			// Only supporting LOD0
+			const int32 LODIndex = 0;
+			FStaticMeshLODResources& LODModel = StaticMesh->RenderData->LODResources[LODIndex];
+			FIndexArrayView Indices = LODModel.IndexBuffer.GetArrayView();
+			const bool bHasStaticLighting = SMComponent->HasStaticLighting();
 
-			if (LightmapSizeX > 0 && LightmapSizeY > 0 
-				&& StaticMesh->LightMapCoordinateIndex >= 0 
-				&& (uint32)StaticMesh->LightMapCoordinateIndex < LODModel.VertexBuffer.GetNumTexCoords()
-				)
+			if (bHasStaticLighting)
 			{
-				bUseTextureMap = true;
-			}
-			else
-			{
-				bUseTextureMap = false;
-			}
+				bool bUseTextureMap = false;
+				int32 LightmapSizeX = 0;
+				int32 LightmapSizeY = 0;
+				SMComponent->GetLightMapResolution(LightmapSizeX, LightmapSizeY);
 
-			// Search through the static mesh's triangles for the one that was hit (since we can't get triangle index from a line check)
-			for(int32 TriangleIndex = 0; TriangleIndex < Indices.Num(); TriangleIndex += 3)
-			{
-				uint32 Index0 = Indices[TriangleIndex];
-				uint32 Index1 = Indices[TriangleIndex + 1];
-				uint32 Index2 = Indices[TriangleIndex + 2];
-
-				// Transform positions to world space
-				FVector Position0 = SMComponent->ComponentToWorld.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index0));
-				FVector Position1 = SMComponent->ComponentToWorld.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index1));
-				FVector Position2 = SMComponent->ComponentToWorld.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index2));
-
-				FVector BaryCentricWeights;
-				// Continue if click location is in the triangle and get its barycentric weights
-				if (GetBarycentricWeights(Position0, Position1, Position2, ClickLocation, TriangleTolerance, BaryCentricWeights))
+				if (LightmapSizeX > 0 && LightmapSizeY > 0 
+					&& StaticMesh->LightMapCoordinateIndex >= 0 
+					&& (uint32)StaticMesh->LightMapCoordinateIndex < LODModel.VertexBuffer.GetNumTexCoords()
+					)
 				{
-					RestoreSelectedLightmapSample();
+					bUseTextureMap = true;
+				}
+				else
+				{
+					bUseTextureMap = false;
+				}
 
-					if (bUseTextureMap)
+				if (bUseTextureMap)
+				{
+					float ClosestPlaneDistance = FLT_MAX;
+					FVector ClosestPlaneBaryCentricWeights;
+					int32 ClosestPlaneTriangleIndex = -1;
+
+					// Search through the static mesh's triangles for the one that was hit (since we can't get triangle index from a line check)
+					for(int32 TriangleIndex = 0; TriangleIndex < Indices.Num(); TriangleIndex += 3)
 					{
+						uint32 Index0 = Indices[TriangleIndex];
+						uint32 Index1 = Indices[TriangleIndex + 1];
+						uint32 Index2 = Indices[TriangleIndex + 2];
+
+						// Transform positions to world space
+						FVector Position0 = SMComponent->ComponentToWorld.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index0));
+						FVector Position1 = SMComponent->ComponentToWorld.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index1));
+						FVector Position2 = SMComponent->ComponentToWorld.TransformPosition(LODModel.PositionVertexBuffer.VertexPosition(Index2));
+
+						float PlaneDistance;
+						FVector BaryCentricWeights;
+						// Continue if click location is in the triangle and get its barycentric weights
+						if (GetBarycentricWeights(Position0, Position1, Position2, ClickLocation, TriangleTolerance, PlaneDistance, BaryCentricWeights))
+						{
+							if (FMath::Abs(PlaneDistance) < ClosestPlaneDistance)
+							{
+								ClosestPlaneBaryCentricWeights = BaryCentricWeights;
+								ClosestPlaneDistance = FMath::Abs(PlaneDistance);
+								ClosestPlaneTriangleIndex = TriangleIndex;
+							}
+						}
+					}
+
+					if (ClosestPlaneTriangleIndex != -1)
+					{
+						uint32 Index0 = Indices[ClosestPlaneTriangleIndex];
+						uint32 Index1 = Indices[ClosestPlaneTriangleIndex + 1];
+						uint32 Index2 = Indices[ClosestPlaneTriangleIndex + 2];
+
 						// Fetch lightmap UV's
 						FVector2D LightmapUV0 = LODModel.VertexBuffer.GetVertexUV(Index0, StaticMesh->LightMapCoordinateIndex);
 						FVector2D LightmapUV1 = LODModel.VertexBuffer.GetVertexUV(Index1, StaticMesh->LightMapCoordinateIndex);
 						FVector2D LightmapUV2 = LODModel.VertexBuffer.GetVertexUV(Index2, StaticMesh->LightMapCoordinateIndex);
 						// Interpolate lightmap UV's to the click location
-						FVector2D InterpolatedUV = LightmapUV0 * BaryCentricWeights.X + LightmapUV1 * BaryCentricWeights.Y + LightmapUV2 * BaryCentricWeights.Z;
+						FVector2D InterpolatedUV = LightmapUV0 * ClosestPlaneBaryCentricWeights.X + LightmapUV1 * ClosestPlaneBaryCentricWeights.Y + LightmapUV2 * ClosestPlaneBaryCentricWeights.Z;
 
 						int32 PaddedSizeX = LightmapSizeX;
 						int32 PaddedSizeY = LightmapSizeY;
@@ -261,38 +270,176 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 							bFoundLightmapSample = UpdateSelectedTexel(SMComponent, -1, SMComponent->LODData[LODIndex].LightMap, ClickLocation, InterpolatedUV, LocalX, LocalY, LightmapSizeX, LightmapSizeY);
 						}
 					}
+				}
 
-					break;
+				if (!bFoundLightmapSample && Indices.Num() > 0)
+				{
+					const int32 SelectedTriangle = FMath::RandRange(0, Indices.Num() / 3 - 1);
+
+					uint32 Index0 = Indices[SelectedTriangle];
+					uint32 Index1 = Indices[SelectedTriangle + 1];
+					uint32 Index2 = Indices[SelectedTriangle + 2];
+
+					FVector2D LightmapUV0 = LODModel.VertexBuffer.GetVertexUV(Index0, StaticMesh->LightMapCoordinateIndex);
+					FVector2D LightmapUV1 = LODModel.VertexBuffer.GetVertexUV(Index1, StaticMesh->LightMapCoordinateIndex);
+					FVector2D LightmapUV2 = LODModel.VertexBuffer.GetVertexUV(Index2, StaticMesh->LightMapCoordinateIndex);
+
+					FVector BaryCentricWeights;
+					BaryCentricWeights.X = FMath::FRandRange(0, 1);
+					BaryCentricWeights.Y = FMath::FRandRange(0, 1);
+
+					if (BaryCentricWeights.X + BaryCentricWeights.Y >= 1)
+					{
+						BaryCentricWeights.X = 1 - BaryCentricWeights.X;
+						BaryCentricWeights.Y = 1 - BaryCentricWeights.Y;
+					}
+
+					BaryCentricWeights.Z = 1 - BaryCentricWeights.X - BaryCentricWeights.Y;
+
+					FVector2D InterpolatedUV = LightmapUV0 * BaryCentricWeights.X + LightmapUV1 * BaryCentricWeights.Y + LightmapUV2 * BaryCentricWeights.Z;
+
+					UE_LOG(LogStaticLightingSystem, Log, TEXT("Failed to intersect any triangles, picking random texel"));
+
+					int32 PaddedSizeX = LightmapSizeX;
+					int32 PaddedSizeY = LightmapSizeY;
+					if (GLightmassDebugOptions.bPadMappings && GAllowLightmapPadding && LightmapSizeX - 2 > 0 && LightmapSizeY - 2 > 0)
+					{
+						PaddedSizeX -= 2;
+						PaddedSizeY -= 2;
+					}
+
+					const int32 LocalX = FMath::TruncToInt(InterpolatedUV.X * PaddedSizeX);
+					const int32 LocalY = FMath::TruncToInt(InterpolatedUV.Y * PaddedSizeY);
+					if (LocalX < 0 || LocalX >= PaddedSizeX
+						|| LocalY < 0 || LocalY >= PaddedSizeY)
+					{
+						UE_LOG(LogStaticLightingSystem, Log, TEXT("Texel selection failed because the lightmap UV's wrap!"));
+					}
+					else
+					{
+						bFoundLightmapSample = UpdateSelectedTexel(SMComponent, -1, SMComponent->LODData[LODIndex].LightMap, ClickLocation, InterpolatedUV, LocalX, LocalY, LightmapSizeX, LightmapSizeY);
+					}		
+				}
+			}
+		}
+		else if (Model)
+		{
+			UWorld* World = Model->LightingLevel->OwningWorld;
+			check( World);
+
+			UModelComponent* ClosestComponent = NULL;
+			int32 ClosestElementIndex = -1;
+			uint32 ClosestTriangleIndex = 0;
+			FVector ClosestPlaneBaryCentricWeights = FVector(0);
+			float ClosestPlaneDistance = FLT_MAX;
+
+			for (int32 ModelIndex = 0; ModelIndex < World->GetCurrentLevel()->ModelComponents.Num(); ModelIndex++)
+			{
+				UModelComponent* CurrentComponent = World->GetCurrentLevel()->ModelComponents[ModelIndex];
+				int32 LightmapSizeX = 0;
+				int32 LightmapSizeY = 0;
+				CurrentComponent->GetLightMapResolution(LightmapSizeX, LightmapSizeY);
+				if (LightmapSizeX > 0 && LightmapSizeY > 0)
+				{
+					for (int32 ElementIndex = 0; ElementIndex < CurrentComponent->GetElements().Num(); ElementIndex++)
+					{
+						FModelElement& Element = CurrentComponent->GetElements()[ElementIndex];
+						TScopedPointer<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
+						check(IndexBufferRef);
+						for(uint32 TriangleIndex = Element.FirstIndex; TriangleIndex < Element.FirstIndex + Element.NumTriangles * 3; TriangleIndex += 3)
+						{
+							uint32 Index0 = (*IndexBufferRef)->Indices[TriangleIndex];
+							uint32 Index1 = (*IndexBufferRef)->Indices[TriangleIndex + 1];
+							uint32 Index2 = (*IndexBufferRef)->Indices[TriangleIndex + 2];
+
+							FModelVertex* ModelVertices = (FModelVertex*)Model->VertexBuffer.Vertices.GetData();
+							FVector Position0 = ModelVertices[Index0].Position;
+							FVector Position1 = ModelVertices[Index1].Position;
+							FVector Position2 = ModelVertices[Index2].Position;
+
+							float PlaneDistance;
+							FVector BaryCentricWeights;
+							// Continue if click location is in the triangle and get its barycentric weights
+							if (GetBarycentricWeights(Position0, Position1, Position2, ClickLocation, .001f, PlaneDistance, BaryCentricWeights))
+							{
+								if (FMath::Abs(PlaneDistance) < ClosestPlaneDistance)
+								{
+									ClosestPlaneBaryCentricWeights = BaryCentricWeights;
+									ClosestPlaneDistance = FMath::Abs(PlaneDistance);
+									ClosestTriangleIndex = TriangleIndex;
+									ClosestComponent = CurrentComponent;
+									ClosestElementIndex = ElementIndex;
+								}
+							}
+						}
+					}
 				}
 			}
 
-			if (!bFoundLightmapSample && Indices.Num() > 0)
+			if (ClosestComponent != NULL)
 			{
-				const int32 SelectedTriangle = FMath::RandRange(0, Indices.Num() / 3 - 1);
+				int32 LightmapSizeX = 0;
+				int32 LightmapSizeY = 0;
+				ClosestComponent->GetLightMapResolution(LightmapSizeX, LightmapSizeY);
 
-				uint32 Index0 = Indices[SelectedTriangle];
-				uint32 Index1 = Indices[SelectedTriangle + 1];
-				uint32 Index2 = Indices[SelectedTriangle + 2];
+				FModelVertex* ModelVertices = (FModelVertex*)Model->VertexBuffer.Vertices.GetData();
 
-				FVector2D LightmapUV0 = LODModel.VertexBuffer.GetVertexUV(Index0, StaticMesh->LightMapCoordinateIndex);
-				FVector2D LightmapUV1 = LODModel.VertexBuffer.GetVertexUV(Index1, StaticMesh->LightMapCoordinateIndex);
-				FVector2D LightmapUV2 = LODModel.VertexBuffer.GetVertexUV(Index2, StaticMesh->LightMapCoordinateIndex);
+				FModelElement& Element = ClosestComponent->GetElements()[ClosestElementIndex];
+				TScopedPointer<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
 
-				FVector BaryCentricWeights;
-				BaryCentricWeights.X = FMath::FRandRange(0, 1);
-				BaryCentricWeights.Y = FMath::FRandRange(0, 1);
+				uint32 Index0 = (*IndexBufferRef)->Indices[ClosestTriangleIndex];
+				uint32 Index1 = (*IndexBufferRef)->Indices[ClosestTriangleIndex + 1];
+				uint32 Index2 = (*IndexBufferRef)->Indices[ClosestTriangleIndex + 2];
 
-				if (BaryCentricWeights.X + BaryCentricWeights.Y >= 1)
+				// Fetch lightmap UV's
+				FVector2D LightmapUV0 = ModelVertices[Index0].ShadowTexCoord;
+				FVector2D LightmapUV1 = ModelVertices[Index1].ShadowTexCoord;
+				FVector2D LightmapUV2 = ModelVertices[Index2].ShadowTexCoord;
+				// Interpolate lightmap UV's to the click location
+				FVector2D InterpolatedUV = LightmapUV0 * ClosestPlaneBaryCentricWeights.X + LightmapUV1 * ClosestPlaneBaryCentricWeights.Y + LightmapUV2 * ClosestPlaneBaryCentricWeights.Z;
+
+				// Find the node index belonging to the selected triangle
+				const UModel* CurrentModel = ClosestComponent->GetModel();
+				int32 SelectedNodeIndex = INDEX_NONE;
+				for (int32 ElementNodeIndex = 0; ElementNodeIndex < Element.Nodes.Num(); ElementNodeIndex++)
 				{
-					BaryCentricWeights.X = 1 - BaryCentricWeights.X;
-					BaryCentricWeights.Y = 1 - BaryCentricWeights.Y;
+					const FBspNode& CurrentNode = CurrentModel->Nodes[Element.Nodes[ElementNodeIndex]];
+					if ((int32)Index0 >= CurrentNode.iVertexIndex && (int32)Index0 < CurrentNode.iVertexIndex + CurrentNode.NumVertices)
+					{
+						SelectedNodeIndex = Element.Nodes[ElementNodeIndex];
+					}
 				}
+				check(SelectedNodeIndex >= 0);
 
-				BaryCentricWeights.Z = 1 - BaryCentricWeights.X - BaryCentricWeights.Y;
+				TArray<ULightComponentBase*> DummyLights;
 
-				FVector2D InterpolatedUV = LightmapUV0 * BaryCentricWeights.X + LightmapUV1 * BaryCentricWeights.Y + LightmapUV2 * BaryCentricWeights.Z;
+				// fill out the model's NodeGroups (not the mapping part of it, but the nodes part)
+				Model->GroupAllNodes(World->GetCurrentLevel(), DummyLights);
 
-				UE_LOG(LogStaticLightingSystem, Log, TEXT("Failed to intersect any triangles, picking random texel"));
+				// Find the FGatheredSurface that the selected node got put into during the last lighting rebuild
+				TArray<int32> GatheredNodes;
+
+				// find the NodeGroup that this node went into, and get all of its node
+				for (TMap<int32, FNodeGroup*>::TIterator It(Model->NodeGroups); It && GatheredNodes.Num() == 0; ++It)
+				{
+					FNodeGroup* NodeGroup = It.Value();
+					for (int32 NodeIndex = 0; NodeIndex < NodeGroup->Nodes.Num(); NodeIndex++)
+					{
+						if (NodeGroup->Nodes[NodeIndex] == SelectedNodeIndex)
+						{
+							GatheredNodes = NodeGroup->Nodes;
+							break;
+						}
+					}
+				}
+				check(GatheredNodes.Num() > 0);
+
+				// use the surface of the selected node, it will have to suffice for the GetSurfaceLightMapResolution() call
+				int32 SelectedGatheredSurfIndex = Model->Nodes[SelectedNodeIndex].iSurf;
+
+				// Get the lightmap resolution used by the FGatheredSurface containing the selected node
+				FMatrix WorldToMap;
+				ClosestComponent->GetSurfaceLightMapResolution(SelectedGatheredSurfIndex, 1, LightmapSizeX, LightmapSizeY, WorldToMap, &GatheredNodes);
 
 				int32 PaddedSizeX = LightmapSizeX;
 				int32 PaddedSizeY = LightmapSizeY;
@@ -301,155 +448,41 @@ void SetDebugLightmapSample(TArray<UActorComponent*>* Components, UModel* Model,
 					PaddedSizeX -= 2;
 					PaddedSizeY -= 2;
 				}
+				check(LightmapSizeX > 0 && LightmapSizeY > 0);
 
-				const int32 LocalX = FMath::TruncToInt(InterpolatedUV.X * PaddedSizeX);
-				const int32 LocalY = FMath::TruncToInt(InterpolatedUV.Y * PaddedSizeY);
-				if (LocalX < 0 || LocalX >= PaddedSizeX
-					|| LocalY < 0 || LocalY >= PaddedSizeY)
+				// Apply the transform to the intersection position to find the local texel coordinates
+				const FVector4 StaticLightingTextureCoordinate = WorldToMap.TransformPosition(ClickLocation);
+				const int32 LocalX = FMath::TruncToInt(StaticLightingTextureCoordinate.X * PaddedSizeX);
+				const int32 LocalY = FMath::TruncToInt(StaticLightingTextureCoordinate.Y * PaddedSizeY);
+				check(LocalX >= 0 && LocalX < PaddedSizeX && LocalY >= 0 && LocalY < PaddedSizeY);
+
+				bFoundLightmapSample = UpdateSelectedTexel(
+					ClosestComponent, 
+					SelectedNodeIndex, 
+					Element.LightMap, 
+					ClickLocation, 
+					InterpolatedUV, 
+					LocalX, LocalY,
+					LightmapSizeX, LightmapSizeY);
+
+				if (!bFoundLightmapSample)
 				{
-					UE_LOG(LogStaticLightingSystem, Log, TEXT("Texel selection failed because the lightmap UV's wrap!"));
+					GCurrentSelectedLightmapSample = FSelectedLightmapSample();
 				}
-				else
-				{
-					bFoundLightmapSample = UpdateSelectedTexel(SMComponent, -1, SMComponent->LODData[LODIndex].LightMap, ClickLocation, InterpolatedUV, LocalX, LocalY, LightmapSizeX, LightmapSizeY);
-				}		
 			}
 		}
-	}
-	else if (Model)
-	{
-		UWorld* World = Model->LightingLevel->OwningWorld;
-		check( World);
-		for (int32 ModelIndex = 0; ModelIndex < World->GetCurrentLevel()->ModelComponents.Num(); ModelIndex++)
+
+		if (!bFoundLightmapSample)
 		{
-			UModelComponent* CurrentComponent = World->GetCurrentLevel()->ModelComponents[ModelIndex];
-			int32 LightmapSizeX = 0;
-			int32 LightmapSizeY = 0;
-			CurrentComponent->GetLightMapResolution(LightmapSizeX, LightmapSizeY);
-			if (LightmapSizeX > 0 && LightmapSizeY > 0)
-			{
-				for (int32 ElementIndex = 0; ElementIndex < CurrentComponent->GetElements().Num(); ElementIndex++)
-				{
-					FModelElement& Element = CurrentComponent->GetElements()[ElementIndex];
-					TScopedPointer<FRawIndexBuffer16or32>* IndexBufferRef = Model->MaterialIndexBuffers.Find(Element.Material);
-					check(IndexBufferRef);
-					for(uint32 TriangleIndex = Element.FirstIndex; TriangleIndex < Element.FirstIndex + Element.NumTriangles * 3; TriangleIndex += 3)
-					{
-						uint32 Index0 = (*IndexBufferRef)->Indices[TriangleIndex];
-						uint32 Index1 = (*IndexBufferRef)->Indices[TriangleIndex + 1];
-						uint32 Index2 = (*IndexBufferRef)->Indices[TriangleIndex + 2];
-
-						FModelVertex* ModelVertices = (FModelVertex*)Model->VertexBuffer.Vertices.GetData();
-						FVector Position0 = ModelVertices[Index0].Position;
-						FVector Position1 = ModelVertices[Index1].Position;
-						FVector Position2 = ModelVertices[Index2].Position;
-
-						FVector BaryCentricWeights;
-						// Continue if click location is in the triangle and get its barycentric weights
-						if (GetBarycentricWeights(Position0, Position1, Position2, ClickLocation, .001f, BaryCentricWeights))
-						{
-							RestoreSelectedLightmapSample();
-
-							// Fetch lightmap UV's
-							FVector2D LightmapUV0 = ModelVertices[Index0].ShadowTexCoord;
-							FVector2D LightmapUV1 = ModelVertices[Index1].ShadowTexCoord;
-							FVector2D LightmapUV2 = ModelVertices[Index2].ShadowTexCoord;
-							// Interpolate lightmap UV's to the click location
-							FVector2D InterpolatedUV = LightmapUV0 * BaryCentricWeights.X + LightmapUV1 * BaryCentricWeights.Y + LightmapUV2 * BaryCentricWeights.Z;
-
-							// Find the node index belonging to the selected triangle
-							const UModel* CurrentModel = CurrentComponent->GetModel();
-							int32 SelectedNodeIndex = INDEX_NONE;
-							for (int32 ElementNodeIndex = 0; ElementNodeIndex < Element.Nodes.Num(); ElementNodeIndex++)
-							{
-								const FBspNode& CurrentNode = CurrentModel->Nodes[Element.Nodes[ElementNodeIndex]];
-								if ((int32)Index0 >= CurrentNode.iVertexIndex && (int32)Index0 < CurrentNode.iVertexIndex + CurrentNode.NumVertices)
-								{
-									SelectedNodeIndex = Element.Nodes[ElementNodeIndex];
-								}
-							}
-							check(SelectedNodeIndex >= 0);
-
-							TArray<ULightComponentBase*> DummyLights;
-
-							// fill out the model's NodeGroups (not the mapping part of it, but the nodes part)
-							Model->GroupAllNodes(World->GetCurrentLevel(), DummyLights);
-
-							// Find the FGatheredSurface that the selected node got put into during the last lighting rebuild
-							TArray<int32> GatheredNodes;
-
-							// find the NodeGroup that this node went into, and get all of its node
-							for (TMap<int32, FNodeGroup*>::TIterator It(Model->NodeGroups); It && GatheredNodes.Num() == 0; ++It)
-							{
-								FNodeGroup* NodeGroup = It.Value();
-								for (int32 NodeIndex = 0; NodeIndex < NodeGroup->Nodes.Num(); NodeIndex++)
-								{
-									if (NodeGroup->Nodes[NodeIndex] == SelectedNodeIndex)
-									{
-										GatheredNodes = NodeGroup->Nodes;
-										break;
-									}
-								}
-							}
-							check(GatheredNodes.Num() > 0);
-
-							// use the surface of the selected node, it will have to suffice for the GetSurfaceLightMapResolution() call
-							int32 SelectedGatheredSurfIndex = Model->Nodes[SelectedNodeIndex].iSurf;
-
-							// Get the lightmap resolution used by the FGatheredSurface containing the selected node
-							FMatrix WorldToMap;
-							CurrentComponent->GetSurfaceLightMapResolution(SelectedGatheredSurfIndex, 1, LightmapSizeX, LightmapSizeY, WorldToMap, &GatheredNodes);
-
-							int32 PaddedSizeX = LightmapSizeX;
-							int32 PaddedSizeY = LightmapSizeY;
-							if (GLightmassDebugOptions.bPadMappings && GAllowLightmapPadding && LightmapSizeX - 2 > 0 && LightmapSizeY - 2 > 0)
-							{
-								PaddedSizeX -= 2;
-								PaddedSizeY -= 2;
-							}
-							check(LightmapSizeX > 0 && LightmapSizeY > 0);
-
-							// Apply the transform to the intersection position to find the local texel coordinates
-							const FVector4 StaticLightingTextureCoordinate = WorldToMap.TransformPosition(ClickLocation);
-							const int32 LocalX = FMath::TruncToInt(StaticLightingTextureCoordinate.X * PaddedSizeX);
-							const int32 LocalY = FMath::TruncToInt(StaticLightingTextureCoordinate.Y * PaddedSizeY);
-							check(LocalX >= 0 && LocalX < PaddedSizeX && LocalY >= 0 && LocalY < PaddedSizeY);
-
-							bFoundLightmapSample = UpdateSelectedTexel(
-								CurrentComponent, 
-								SelectedNodeIndex, 
-								Element.LightMap, 
-								ClickLocation, 
-								InterpolatedUV, 
-								LocalX, LocalY,
-								LightmapSizeX, LightmapSizeY);
-
-							if (!bFoundLightmapSample)
-							{
-								RestoreSelectedLightmapSample();
-								GCurrentSelectedLightmapSample = FSelectedLightmapSample();
-							}
-							return;
-						}
-					}
-				}
-			}
+			GCurrentSelectedLightmapSample = FSelectedLightmapSample();
 		}
 	}
-
-	if (!bFoundLightmapSample)
-	{
-		RestoreSelectedLightmapSample();
-		GCurrentSelectedLightmapSample = FSelectedLightmapSample();
-	}
-#endif
 }
 
 /** Renders debug elements for visualizing static lighting info */
 void DrawStaticLightingDebugInfo(const FSceneView* View,FPrimitiveDrawInterface* PDI)
 {
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-	if (GDebugStaticLightingInfo.bValid)
+	if (IsTexelDebuggingEnabled() && GDebugStaticLightingInfo.bValid)
 	{
 		for (int32 VertexIndex = 0; VertexIndex < GDebugStaticLightingInfo.Vertices.Num(); VertexIndex++)
 		{
@@ -576,14 +609,12 @@ void DrawStaticLightingDebugInfo(const FSceneView* View,FPrimitiveDrawInterface*
 			PDI->DrawLine(CurrentRay.Start, CurrentRay.End, RayColor, SDPG_World);
 		}
 	}
-#endif
 }
 
 /** Renders debug elements for visualizing static lighting info */
 void DrawStaticLightingDebugInfo(const FSceneView* View, FCanvas* Canvas)
 {
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-	if (GDebugStaticLightingInfo.bValid)
+	if (IsTexelDebuggingEnabled() && GDebugStaticLightingInfo.bValid)
 	{
 		for (int32 RecordIndex = 0; RecordIndex < GDebugStaticLightingInfo.CacheRecords.Num(); RecordIndex++)
 		{
@@ -624,7 +655,6 @@ void DrawStaticLightingDebugInfo(const FSceneView* View, FCanvas* Canvas)
 			}
 		}
 	}
-#endif
 }
 
 #endif	//#if WITH_EDITOR

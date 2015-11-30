@@ -1076,7 +1076,7 @@ public:
 		return FPlatformString::Stricmp(Lhs, *Rhs) != 0;
 	}
 
-	/** Get the length of the sting, excluding terminating character */
+	/** Get the length of the string, excluding terminating character */
 	FORCEINLINE int32 Len() const
 	{
 		return Data.Num() ? Data.Num() - 1 : 0;

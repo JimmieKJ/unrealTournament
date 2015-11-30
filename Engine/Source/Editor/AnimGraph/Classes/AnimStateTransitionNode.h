@@ -44,7 +44,7 @@ class UAnimStateTransitionNode : public UAnimStateNodeBase
 	UPROPERTY(EditAnywhere, Category=Transition)
 	UBlendProfile* BlendProfile;
 
-	// Try setting the rule automatically based on the player node remaining time and the CrossfadeDuration, ignoring the internal time
+	// Try setting the rule automatically based on most relevant player node's remaining time and the CrossfadeDuration of the transition, ignoring the internal time
 	UPROPERTY(EditAnywhere, Category=Transition)
 	bool bAutomaticRuleBasedOnSequencePlayerInState;
 

@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "MovieSceneTracksPrivatePCH.h"
-#include "MovieSceneMaterialParameterSection.h"
+#include "MovieSceneParameterSection.h"
 #include "MovieSceneMaterialTrack.h"
 #include "IMovieScenePlayer.h"
 #include "MovieSceneMaterialTrackInstance.h"
@@ -13,7 +13,7 @@ UMovieSceneMaterialTrack::UMovieSceneMaterialTrack( const FObjectInitializer& Ob
 
 UMovieSceneSection* UMovieSceneMaterialTrack::CreateNewSection()
 {
-	return NewObject<UMovieSceneMaterialParameterSection>( this, UMovieSceneMaterialParameterSection::StaticClass(), NAME_None, RF_Transactional );
+	return NewObject<UMovieSceneParameterSection>( this, UMovieSceneParameterSection::StaticClass(), NAME_None, RF_Transactional );
 }
 
 void UMovieSceneMaterialTrack::RemoveAllAnimationData()
@@ -60,50 +60,43 @@ const TArray<UMovieSceneSection*>& UMovieSceneMaterialTrack::GetAllSections() co
 
 void UMovieSceneMaterialTrack::AddScalarParameterKey( FName ParameterName, float Time, float Value )
 {
-	UMovieSceneMaterialParameterSection* NearestSection = Cast<UMovieSceneMaterialParameterSection>(MovieSceneHelpers::FindNearestSectionAtTime(Sections, Time));
+	UMovieSceneParameterSection* NearestSection = Cast<UMovieSceneParameterSection>(MovieSceneHelpers::FindNearestSectionAtTime(Sections, Time));
 	if ( NearestSection == nullptr )
 	{
-		NearestSection = Cast<UMovieSceneMaterialParameterSection>(CreateNewSection());
+		NearestSection = Cast<UMovieSceneParameterSection>(CreateNewSection());
 		NearestSection->SetStartTime( Time );
 		NearestSection->SetEndTime( Time );
 		Sections.Add( NearestSection );
 	}
-	NearestSection->AddScalarParameterKey(ParameterName, Time, Value);
+	if (NearestSection->TryModify())
+	{
+		NearestSection->AddScalarParameterKey(ParameterName, Time, Value);	
+	}
 }
 
-void UMovieSceneMaterialTrack::AddVectorParameterKey( FName ParameterName, float Time, FLinearColor Value )
+void UMovieSceneMaterialTrack::AddColorParameterKey( FName ParameterName, float Time, FLinearColor Value )
 {
-	UMovieSceneMaterialParameterSection* NearestSection = Cast<UMovieSceneMaterialParameterSection>( MovieSceneHelpers::FindNearestSectionAtTime( Sections, Time ) );
+	UMovieSceneParameterSection* NearestSection = Cast<UMovieSceneParameterSection>( MovieSceneHelpers::FindNearestSectionAtTime( Sections, Time ) );
 	if ( NearestSection == nullptr )
 	{
-		NearestSection = Cast<UMovieSceneMaterialParameterSection>( CreateNewSection() );
+		NearestSection = Cast<UMovieSceneParameterSection>( CreateNewSection() );
 		NearestSection->SetStartTime( Time );
 		NearestSection->SetEndTime( Time );
 		Sections.Add( NearestSection );
 	}
-	NearestSection->AddVectorParameterKey( ParameterName, Time, Value );
+	if (NearestSection->TryModify())
+	{
+		NearestSection->AddColorParameterKey( ParameterName, Time, Value );
+	}
 }
 
-void UMovieSceneMaterialTrack::Eval( float Position, TArray<FScalarParameterNameAndValue>& OutScalarValues, TArray<FVectorParameterNameAndValue>& OutVectorValues ) const
+void UMovieSceneMaterialTrack::Eval( float Position, TArray<FScalarParameterNameAndValue>& OutScalarValues, TArray<FColorParameterNameAndValue>& OutColorValues ) const
 {
+	TArray<FVectorParameterNameAndValue> OutVectorValues;
 	for ( UMovieSceneSection* Section : Sections )
 	{
-		UMovieSceneMaterialParameterSection* MaterialParameterSection = Cast<UMovieSceneMaterialParameterSection>( Section );
-		if ( MaterialParameterSection != nullptr )
-		{
-			for ( const FScalarParameterNameAndCurve& ScalarParameterNameAndCurve : *MaterialParameterSection->GetScalarParameterNamesAndCurves() )
-			{
-				OutScalarValues.Add( FScalarParameterNameAndValue( ScalarParameterNameAndCurve.ParameterName, ScalarParameterNameAndCurve.ParameterCurve.Eval( Position ) ) );
-			}
-			for ( const FVectorParameterNameAndCurves& VectorParameterNameAndCurves : *MaterialParameterSection->GetVectorParameterNamesAndCurves() )
-			{
-				OutVectorValues.Add( FVectorParameterNameAndValue( VectorParameterNameAndCurves.ParameterName, FLinearColor(
-					VectorParameterNameAndCurves.RedCurve.Eval( Position ),
-					VectorParameterNameAndCurves.GreenCurve.Eval( Position ),
-					VectorParameterNameAndCurves.BlueCurve.Eval( Position ),
-					VectorParameterNameAndCurves.AlphaCurve.Eval( Position ) ) ) );
-			}
-		}
+		UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>( Section );
+		ParameterSection->Eval(Position, OutScalarValues, OutVectorValues, OutColorValues);
 	}
 }
 

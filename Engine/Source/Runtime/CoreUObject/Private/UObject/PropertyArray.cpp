@@ -79,7 +79,7 @@ void UArrayProperty::Serialize( FArchive& Ar )
 {
 	Super::Serialize( Ar );
 	Ar << Inner;
-	checkSlow(Inner || HasAnyFlags(RF_ClassDefaultObject | RF_PendingKill));
+	checkSlow(Inner || HasAnyFlags(RF_ClassDefaultObject) || IsPendingKill());
 }
 void UArrayProperty::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {
@@ -209,7 +209,7 @@ const TCHAR* UArrayProperty::ImportText_Internal( const TCHAR* Buffer, void* Dat
 
 	// If we export an empty array we export an empty string, so ensure that if we're passed an empty string
 	// we interpret it as an empty array.
-	if ( *Buffer == TCHAR('\0') )
+	if (*Buffer == TCHAR('\0') || *Buffer == TCHAR(')') || *Buffer == TCHAR(','))
 	{
 		ArrayHelper.EmptyValues();
 		return NULL;

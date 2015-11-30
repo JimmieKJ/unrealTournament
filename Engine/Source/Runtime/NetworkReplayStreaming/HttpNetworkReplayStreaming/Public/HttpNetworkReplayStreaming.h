@@ -98,6 +98,8 @@ namespace EQueuedHttpRequestType
 	}
 };
 
+class FHttpNetworkReplayStreamer;
+
 class FQueuedHttpRequest
 {
 public:
@@ -112,7 +114,7 @@ public:
 	EQueuedHttpRequestType::Type		Type;
 	TSharedPtr< class IHttpRequest >	Request;
 
-	virtual bool PreProcess( const FString& ServerURL, const FString& SessionName )
+	virtual bool PreProcess( FHttpNetworkReplayStreamer* Streamer, const FString& ServerURL, const FString& SessionName )
 	{
 		return true;
 	}
@@ -131,12 +133,27 @@ public:
 	{
 	}
 
-	virtual bool PreProcess( const FString& ServerURL, const FString& SessionName ) override;
+	virtual bool PreProcess( FHttpNetworkReplayStreamer* Streamer, const FString& ServerURL, const FString& SessionName ) override;
 
 	FString		Name;
 	uint32		TimeInMS;
 	FString		Group;
 	FString		Meta;
+};
+
+/**
+* FQueuedGotoFakeCheckpoint
+*/
+class FQueuedGotoFakeCheckpoint : public FQueuedHttpRequest
+{
+public:
+	FQueuedGotoFakeCheckpoint();
+
+	virtual ~FQueuedGotoFakeCheckpoint()
+	{
+	}
+
+	virtual bool PreProcess( FHttpNetworkReplayStreamer* Streamer, const FString& ServerURL, const FString& SessionName ) override;
 };
 
 /**
@@ -182,6 +199,8 @@ public:
 	void ConditionallyFlushStream();
 	void StopUploading();
 	void DownloadHeader();
+	bool IsTaskPendingOrInFlight( const EQueuedHttpRequestType::Type Type ) const;
+	void CancelInFlightOrPendingTask( const EQueuedHttpRequestType::Type Type );
 	void ConditionallyDownloadNextChunk();
 	void RefreshViewer( const bool bFinal );
 	void ConditionallyRefreshViewer();
@@ -210,7 +229,7 @@ public:
 
 	void HttpStartDownloadingFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpDownloadHeaderFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
-	void HttpDownloadFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
+	void HttpDownloadFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded, int32 RequestedStreamChunkIndex );
 	void HttpDownloadCheckpointFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpRefreshViewerFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
 	void HttpStartUploadingFinished( FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded );
@@ -262,7 +281,7 @@ public:
 
 	FReplayEventList					CheckpointList;
 
-	TQueue< TSharedPtr< FQueuedHttpRequest > >	QueuedHttpRequests;
+	TArray< TSharedPtr< FQueuedHttpRequest > >	QueuedHttpRequests;
 	TSharedPtr< FQueuedHttpRequest >			InFlightHttpRequest;
 };
 

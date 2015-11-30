@@ -27,6 +27,18 @@ FSequencerObjectChangeListener::~FSequencerObjectChangeListener()
 void FSequencerObjectChangeListener::OnPropertyChanged(const TArray<UObject*>& ChangedObjects, const IPropertyHandle& PropertyHandle) const
 {
 	BroadcastPropertyChanged(FKeyPropertyParams(ChangedObjects, PropertyHandle));
+
+	for (UObject* Object : ChangedObjects)
+	{
+		if (Object)
+		{
+			const FOnObjectPropertyChanged* Event = ObjectToPropertyChangedEvent.Find(Object);
+			if (Event)
+			{
+				Event->Broadcast(*Object);
+			}
+		}
+	}
 }
 
 void FSequencerObjectChangeListener::BroadcastPropertyChanged( FKeyPropertyParams KeyPropertyParams ) const
@@ -106,6 +118,16 @@ FOnAnimatablePropertyChanged& FSequencerObjectChangeListener::GetOnAnimatablePro
 FOnPropagateObjectChanges& FSequencerObjectChangeListener::GetOnPropagateObjectChanges()
 {
 	return OnPropagateObjectChanges;
+}
+
+FOnObjectPropertyChanged& FSequencerObjectChangeListener::GetOnAnyPropertyChanged(UObject& Object)
+{
+	return ObjectToPropertyChangedEvent.FindOrAdd(&Object);
+}
+
+void FSequencerObjectChangeListener::ReportObjectDestroyed(UObject& Object)
+{
+	ObjectToPropertyChangedEvent.Remove(&Object);
 }
 
 bool FSequencerObjectChangeListener::FindPropertySetter( const UClass& ObjectClass, const FName PropertyTypeName, const FString& InPropertyVarName, const UStructProperty* StructProperty ) const

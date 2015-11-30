@@ -4,42 +4,10 @@
 #include "UnrealHeaderTool.h"
 #include "ParserHelper.h"
 #include "DefaultValueHelper.h"
+#include "UHTMakefile/UHTMakefile.h"
 
 /////////////////////////////////////////////////////
 // FClassMetaData
-
-/**
- * Finds the metadata for the struct specified
- * 
- * @param	Struct	the struct to search for
- *
- * @return	pointer to the metadata for the struct specified, or NULL
- *			if the struct doesn't exist in the list (for example, if it
- *			is declared in a package that is already compiled and has had its
- *			source stripped)
- */
-FStructData* FClassMetaData::FindStructData( UScriptStruct* Struct )
-{
-	FStructData* Result = NULL;
-	
-	TScopedPointer<FStructData>* pStructData = StructData.Find(Struct);
-	if ( pStructData != NULL )
-	{
-		Result = pStructData->GetOwnedPointer();
-	}
-
-	if ( Result == NULL )
-	{
-		UClass* OwnerClass = Struct->GetOwnerClass();
-		FClassMetaData* OwnerClassData = GScriptHelper.FindClassData(OwnerClass);
-		if ( OwnerClassData && OwnerClassData != this )
-		{
-			Result = OwnerClassData->FindStructData(Struct);
-		}
-	}
-
-	return Result;
-}
 
 /**
  * Finds the metadata for the property specified
@@ -98,20 +66,7 @@ FTokenData* FClassMetaData::FindTokenData( UProperty* Prop )
 			// struct property
 			UScriptStruct* OuterStruct = Cast<UScriptStruct>(Outer);
 			check(OuterStruct != NULL);
-
-			TScopedPointer<FStructData>* pStructInfo = StructData.Find(OuterStruct);
-			if ( pStructInfo != NULL )
-			{
-				FStructData* StructInfo = pStructInfo->GetOwnedPointer();
-				check(StructInfo);
-
-				FPropertyData& StructProperties = StructInfo->GetStructPropertyData();
-				Result = StructProperties.Find(Prop);
-			}
-			else
-			{
-				OuterClass = OuterStruct->GetOwnerClass();
-			}
+			OuterClass = OuterStruct->GetOwnerClass();
 		}
 	}
 
@@ -125,6 +80,18 @@ FTokenData* FClassMetaData::FindTokenData( UProperty* Prop )
 	}
 
 	return Result;
+}
+
+void FClassMetaData::AddInheritanceParent(const FString& InParent, FUHTMakefile& UHTMakefile, FUnrealSourceFile* UnrealSourceFile)
+{
+	MultipleInheritanceParents.Add(new FMultipleInheritanceBaseClass(InParent));
+	UHTMakefile.AddMultipleInheritanceBaseClass(UnrealSourceFile, MultipleInheritanceParents.Last());
+}
+
+void FClassMetaData::AddInheritanceParent(UClass* ImplementedInterfaceClass, FUHTMakefile& UHTMakefile, FUnrealSourceFile* UnrealSourceFile)
+{
+	MultipleInheritanceParents.Add(new FMultipleInheritanceBaseClass(ImplementedInterfaceClass));
+	UHTMakefile.AddMultipleInheritanceBaseClass(UnrealSourceFile, MultipleInheritanceParents.Last());
 }
 
 /////////////////////////////////////////////////////
@@ -286,4 +253,69 @@ bool FFunctionData::TryFindForFunction(UFunction* Function, FFunctionData*& OutD
 
 	OutData = &(*Output).Get();
 	return true;
+}
+
+FClassMetaData* FCompilerMetadataManager::AddClassData(UStruct* Struct, FUHTMakefile& UHTMakefile, FUnrealSourceFile* UnrealSourceFile)
+{
+	TScopedPointer<FClassMetaData>* pClassData = Find(Struct);
+	if (pClassData == NULL)
+	{
+		pClassData = &Emplace(Struct, new FClassMetaData());
+		if (UnrealSourceFile)
+		{
+			UHTMakefile.AddClassMetaData(UnrealSourceFile, *pClassData);
+		}
+	}
+
+	return *pClassData;
+}
+
+FTokenData* FPropertyData::Set(UProperty* InKey, const FTokenData& InValue, FUHTMakefile& UHTMakefile, FUnrealSourceFile* UnrealSourceFile)
+{
+	FTokenData* Result = NULL;
+
+	TSharedPtr<FTokenData>* pResult = Super::Find(InKey);
+	if (pResult != NULL)
+	{
+		Result = pResult->Get();
+		*Result = FTokenData(InValue);
+	}
+	else
+	{
+		pResult = &Super::Emplace(InKey, new FTokenData(InValue));
+		Result = pResult->Get();
+		UHTMakefile.AddPropertyDataEntry(UnrealSourceFile, *pResult, InKey);
+	}
+
+	return Result;
+}
+
+const TCHAR* FNameLookupCPP::GetNameCPP(UStruct* Struct, bool bForceInterface /*= false */)
+{
+	TCHAR* NameCPP = StructNameMap.FindRef(Struct);
+	if (NameCPP && !bForceInterface)
+	{
+		return NameCPP;
+	}
+
+	FString DesiredStructName = Struct->GetName();
+	FString	TempName = FString(bForceInterface ? TEXT("I") : Struct->GetPrefixCPP()) + DesiredStructName;
+	int32 StringLength = TempName.Len();
+
+	NameCPP = new TCHAR[StringLength + 1];
+	FCString::Strcpy(NameCPP, StringLength + 1, *TempName);
+	NameCPP[StringLength] = 0;
+
+	if (bForceInterface)
+	{
+		InterfaceAllocations.Add(NameCPP);
+		UHTMakefile->AddInterfaceAllocation(UnrealSourceFile, NameCPP);
+	}
+	else
+	{
+		StructNameMap.Add(Struct, NameCPP);
+		UHTMakefile->AddStructNameMapEntry(UnrealSourceFile, Struct, NameCPP);
+	}
+
+	return NameCPP;
 }

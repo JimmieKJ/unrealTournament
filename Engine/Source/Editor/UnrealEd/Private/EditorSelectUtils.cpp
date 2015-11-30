@@ -469,13 +469,13 @@ bool UUnrealEdEngine::CanSelectActor(AActor* Actor, bool bInSelected, bool bSele
 		}
 
 		// Ensure that neither the level nor the actor is being destroyed or is unreachable
-		EObjectFlags InvalidSelectableFlags = RF_PendingKill|RF_BeginDestroyed|RF_Unreachable;
-		if( Actor->GetLevel()->HasAnyFlags(InvalidSelectableFlags) )
+		const EObjectFlags InvalidSelectableFlags = RF_BeginDestroyed;
+		if (Actor->GetLevel()->HasAnyFlags(InvalidSelectableFlags) || Actor->GetLevel()->IsPendingKillOrUnreachable())
 		{
 			UE_LOG(LogEditorSelectUtils, Warning, TEXT("SelectActor: %s (%s)"), TEXT("The requested operation could not be completed because the level has invalid flags."),*Actor->GetActorLabel());
 			return false;
 		}
-		if( Actor->HasAnyFlags(InvalidSelectableFlags) )
+		if (Actor->HasAnyFlags(InvalidSelectableFlags) || Actor->IsPendingKillOrUnreachable())
 		{
 			UE_LOG(LogEditorSelectUtils, Warning, TEXT("SelectActor: %s (%s)"), TEXT("The requested operation could not be completed because the actor has invalid flags."),*Actor->GetActorLabel());
 			return false;

@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "BehaviorTreeEditorPrivatePCH.h"
+#include "BehaviorTreeEditorModule.h"
 #include "DetailCustomizations/BehaviorDecoratorDetails.h"
 #include "DetailCustomizations/BlackboardDecoratorDetails.h"
 #include "DetailCustomizations/BlackboardSelectorDetails.h"

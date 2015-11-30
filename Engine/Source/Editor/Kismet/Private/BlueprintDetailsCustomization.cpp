@@ -193,9 +193,6 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 		return;
 	}
 
-	// Help in tracking UE-20390
-	UE_LOG(LogBlueprintUserMessages, Log, TEXT("CustomizeDetails for Blueprint '%s', cached variable property's owner is '%s'"), *GetBlueprintObj()->GetName(), *CachedVariableProperty->GetOwnerClass()->GetPathName());
-
 	CachedVariableName = GetVariableName();
 
 	TWeakPtr<FBlueprintEditor> BlueprintEditor = MyBlueprint.Pin()->GetBlueprintEditor();
@@ -264,7 +261,7 @@ void FBlueprintVarActionDetails::CustomizeDetails( IDetailLayoutBuilder& DetailL
 		.ToolTip(VarTypeTooltip)
 	];
 
-	TSharedPtr<SToolTip> EditableTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("VarEditableTooltip", "Whether this variable is publically editable on instances of this Blueprint."), NULL, DocLink, TEXT("Editable"));
+	TSharedPtr<SToolTip> EditableTooltip = IDocumentation::Get()->CreateToolTip(LOCTEXT("VarEditableTooltip", "Whether this variable is publicly editable on instances of this Blueprint."), NULL, DocLink, TEXT("Editable"));
 
 	Category.AddCustomRow( LOCTEXT("IsVariableEditableLabel", "Editable") )
 	.Visibility(TAttribute<EVisibility>(this, &FBlueprintVarActionDetails::ShowEditableCheckboxVisibilty))
@@ -1835,12 +1832,6 @@ void FBlueprintVarActionDetails::OnPostEditorRefresh()
 {
 	CachedVariableProperty = SelectionAsProperty();
 	CachedVariableName = GetVariableName();
-
-	// Help in tracking UE-20390
-	if (CachedVariableProperty.IsValid())
-	{
-		UE_LOG(LogBlueprintUserMessages, Log, TEXT("PostEditorRefresh for Blueprint '%s', cached variable property's owner is '%s'"), *GetBlueprintObj()->GetName(), *CachedVariableProperty->GetOwnerClass()->GetPathName());
-	}
 }
 
 EVisibility FBlueprintVarActionDetails::GetTransientVisibility() const
@@ -2898,7 +2889,7 @@ void FBlueprintGraphActionDetails::SetNetFlags( TWeakObjectPtr<UK2Node_EditableP
 
 			if (UK2Node_FunctionEntry* TypedEntryNode = Cast<UK2Node_FunctionEntry>(FunctionEntryNode.Get()))
 			{
-				int32 ExtraFlags = TypedEntryNode->GetFunctionFlags();
+				int32 ExtraFlags = TypedEntryNode->GetExtraFlags();
 				ExtraFlags &= ~FlagsToClear;
 				ExtraFlags |= FlagsToSet;
 				TypedEntryNode->SetExtraFlags(ExtraFlags);
@@ -3837,7 +3828,7 @@ void FBlueprintGraphActionDetails::OnAccessSpecifierSelected( TSharedPtr<FAccess
 		const uint32 ClearAccessSpecifierMask = ~FUNC_AccessSpecifiers;
 		if(UK2Node_FunctionEntry* EntryNode = Cast<UK2Node_FunctionEntry>(FunctionEntryNode))
 		{
-			int32 ExtraFlags = EntryNode->GetFunctionFlags();
+			int32 ExtraFlags = EntryNode->GetExtraFlags();
 			ExtraFlags &= ClearAccessSpecifierMask;
 			ExtraFlags |= SpecifierName->SpecifierFlag;
 			EntryNode->SetExtraFlags(ExtraFlags);
@@ -3931,7 +3922,7 @@ void FBlueprintGraphActionDetails::OnIsReliableReplicationFunctionModified(const
 		{
 			if (UK2Node_FunctionEntry* TypedEntryNode = Cast<UK2Node_FunctionEntry>(FunctionEntryNode))
 			{
-				TypedEntryNode->SetExtraFlags(TypedEntryNode->GetFunctionFlags() | FUNC_NetReliable);
+				TypedEntryNode->AddExtraFlags(FUNC_NetReliable);
 			}
 			if (UK2Node_CustomEvent * CustomEventNode = Cast<UK2Node_CustomEvent>(FunctionEntryNode))
 			{
@@ -3942,7 +3933,7 @@ void FBlueprintGraphActionDetails::OnIsReliableReplicationFunctionModified(const
 		{
 			if (UK2Node_FunctionEntry* TypedEntryNode = Cast<UK2Node_FunctionEntry>(FunctionEntryNode))
 			{
-				TypedEntryNode->SetExtraFlags(TypedEntryNode->GetFunctionFlags() & ~FUNC_NetReliable);
+				TypedEntryNode->ClearExtraFlags(FUNC_NetReliable);
 			}
 			if (UK2Node_CustomEvent * CustomEventNode = Cast<UK2Node_CustomEvent>(FunctionEntryNode))
 			{
@@ -4001,7 +3992,7 @@ void FBlueprintGraphActionDetails::OnIsPureFunctionModified( const ECheckBoxStat
 
 		//set flags on function entry node also
 		Function->FunctionFlags ^= FUNC_BlueprintPure;
-		EntryNode->SetExtraFlags(Function->FunctionFlags);
+		EntryNode->SetExtraFlags(EntryNode->GetExtraFlags() ^ FUNC_BlueprintPure);
 		OnParamsChanged(FunctionEntryNode);
 	}
 }
@@ -4045,7 +4036,7 @@ void FBlueprintGraphActionDetails::OnIsConstFunctionModified( const ECheckBoxSta
 
 		//set flags on function entry node also
 		Function->FunctionFlags ^= FUNC_Const;
-		EntryNode->SetExtraFlags(Function->FunctionFlags);
+		EntryNode->SetExtraFlags(EntryNode->GetExtraFlags() ^ FUNC_Const);
 		OnParamsChanged(FunctionEntryNode);
 	}
 }
@@ -4491,9 +4482,9 @@ void FBlueprintGlobalOptionsDetails::CustomizeDetails(IDetailLayoutBuilder& Deta
 		for (TFieldIterator<UProperty> PropertyIt(Blueprint->GetClass(), EFieldIteratorFlags::IncludeSuper); PropertyIt; ++PropertyIt)
 		{
 			UProperty* Property = *PropertyIt;
-			FText Category = FObjectEditorUtils::GetCategoryText(Property);
+			FString Category = Property->GetMetaData(TEXT("Category"));
 
-			if ( Category.ToString() != TEXT("BlueprintOptions") && Category.ToString() != TEXT("ClassOptions") )
+			if (Category != TEXT("BlueprintOptions") && Category != TEXT("ClassOptions") )
 			{
 				DetailLayout.HideProperty(DetailLayout.GetProperty(Property->GetFName()));
 			}

@@ -41,6 +41,11 @@ public:
 		// do nothing
 	}
 
+	virtual bool ShouldDrawKeyAreaBackground() const override
+	{
+		return false;
+	}
+
 	virtual FText GetDisplayName() const override
 	{
 		return GetSectionTitle();

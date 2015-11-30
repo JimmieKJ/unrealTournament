@@ -30,3 +30,22 @@ void Main(
 	// Convert view space Z into post projection Z and output post projection Z / W as the depth buffer expects.
 	OutDepth = (Depth * ProjectionScaleBias.x + ProjectionScaleBias.y) / Depth;
 }
+
+Texture2D<uint2> SceneStencilTexture;
+
+#ifndef STENCIL_LIGHTING_CHANNELS_SHIFT 
+#define STENCIL_LIGHTING_CHANNELS_SHIFT 0
+#endif
+
+void CopyStencilToLightingChannelsPS(
+	noperspective float2 InUV : TEXCOORD0,
+	out uint4 OutValue : SV_Target0
+	)
+{
+	uint2 IntUV = (uint2)(InUV * (float2)View.BufferSizeAndInvSize.xy);
+	uint Stencil = SceneStencilTexture.Load(uint3(IntUV, 0)).g;
+	uint ShiftedStencil = Stencil >> STENCIL_LIGHTING_CHANNELS_SHIFT;
+	// Flip the lowest channel bit, it was stored inverted so we can clear stencil to 0 as a default
+	uint LightingChannels = (ShiftedStencil & 0x6) | (~ShiftedStencil & 0x1);
+	OutValue = LightingChannels;
+}

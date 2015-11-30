@@ -72,7 +72,7 @@ void UMovieSceneParticleTrack::AddNewSection( float SectionTime )
 {
 	if ( MovieSceneHelpers::FindSectionAtTime( ParticleSections, SectionTime ) == nullptr )
 	{
-		UMovieSceneParticleSection* NewSection = NewObject<UMovieSceneParticleSection>( this );
+		UMovieSceneParticleSection* NewSection = Cast<UMovieSceneParticleSection>( CreateNewSection() );
 		NewSection->SetStartTime( SectionTime );
 		NewSection->SetEndTime( SectionTime );
 		NewSection->SetStartTime( SectionTime );
@@ -81,5 +81,16 @@ void UMovieSceneParticleTrack::AddNewSection( float SectionTime )
 	}
 }
 
+UMovieSceneSection* UMovieSceneParticleTrack::CreateNewSection()
+{
+	return NewObject<UMovieSceneParticleSection>( this );
+}
+
+#if WITH_EDITORONLY_DATA
+FText UMovieSceneParticleTrack::GetDisplayName() const
+{
+	return LOCTEXT("DisplayName", "Particle System");
+}
+#endif
 
 #undef LOCTEXT_NAMESPACE

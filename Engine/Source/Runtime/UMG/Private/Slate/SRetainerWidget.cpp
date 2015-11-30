@@ -6,7 +6,10 @@
 #include "SRetainerWidget.h"
 #include "Runtime/SlateRHIRenderer/Public/Interfaces/ISlateRHIRendererModule.h"
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+DECLARE_CYCLE_STAT(TEXT("Retainer Widget Tick"), STAT_SlateRetainerWidgetTick, STATGROUP_Slate);
+DECLARE_CYCLE_STAT(TEXT("Retainer Widget Paint"), STAT_SlateRetainerWidgetPaint, STATGROUP_Slate);
+
+#if !UE_BUILD_SHIPPING
 
 /** True if we should allow widgets to be cached in the UI at all. */
 TAutoConsoleVariable<int32> EnableRetainedRendering(
@@ -19,6 +22,7 @@ static bool IsRetainedRenderingEnabled()
 	return EnableRetainedRendering.GetValueOnGameThread() == 1;
 }
 
+FOnRetainedModeChanged SRetainerWidget::OnRetainerModeChangedDelegate;
 #else
 
 static bool IsRetainedRenderingEnabled()
@@ -77,10 +81,38 @@ SRetainerWidget::~SRetainerWidget()
 		{
 			delete InRenderTargetRHI;
 		});
+
+	if( FSlateApplication::IsInitialized() )
+	{
+		FSlateApplication::Get().OnUpdateRetainerWidgets().RemoveAll( this );
+
+
+#if !UE_BUILD_SHIPPING
+		OnRetainerModeChangedDelegate.RemoveAll( this );
+#endif
+	}
+	
 }
 
 void SRetainerWidget::Construct(const FArguments& InArgs)
 {
+	if( FSlateApplication::IsInitialized() )
+	{
+		FSlateApplication::Get().OnUpdateRetainerWidgets().AddRaw( this, &SRetainerWidget::OnTickRetainers );
+
+#if !UE_BUILD_SHIPPING
+		OnRetainerModeChangedDelegate.AddRaw( this, &SRetainerWidget::OnRetainerModeChanged );
+
+		static bool bStaticInit = false;
+
+		if( !bStaticInit )
+		{
+			bStaticInit = true;
+			EnableRetainedRendering.AsVariable()->SetOnChangedCallback( FConsoleVariableDelegate::CreateStatic( &SRetainerWidget::OnRetainerModeCVarChanged ) );
+		}
+#endif
+	}
+
 	RenderTarget = NewObject<UTextureRenderTarget2D>();
 	RenderTarget->SRGB = true;
 	RenderTarget->TargetGamma = 1;
@@ -141,6 +173,21 @@ bool SRetainerWidget::ShouldBeRenderingOffscreen() const
 {
 	return bRenderingOffscreenDesire && IsRetainedRenderingEnabled();
 }
+
+void SRetainerWidget::OnRetainerModeChanged()
+{
+	RefreshRenderingMode();
+	Invalidate(EInvalidateWidget::Layout);
+}
+
+#if !UE_BUILD_SHIPPING
+
+void SRetainerWidget::OnRetainerModeCVarChanged( IConsoleVariable* CVar )
+{
+	OnRetainerModeChangedDelegate.Broadcast();
+}
+
+#endif
 
 void SRetainerWidget::SetRetainedRendering(bool bRetainRendering)
 {
@@ -207,13 +254,14 @@ FChildren* SRetainerWidget::GetChildren()
 
 bool SRetainerWidget::ComputeVolatility() const
 {
-	return true;
+	return true;// return SCompoundWidget::ComputeVolatility();
 }
 
-void SRetainerWidget::Tick(float DeltaTime)
+void SRetainerWidget::OnTickRetainers(float DeltaTime)
 {
-	if ( bRenderingOffscreen )
+	if ( bRenderingOffscreen && GetVisibility().IsVisible() && ChildSlot.GetWidget()->GetVisibility().IsVisible() )
 	{
+		SCOPE_CYCLE_COUNTER( STAT_SlateRetainerWidgetTick );
 		if ( LastTickedFrame != GFrameCounter && ( GFrameCounter % PhaseCount ) == Phase )
 		{
 			LastTickedFrame = GFrameCounter;
@@ -276,8 +324,9 @@ int32 SRetainerWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allotted
 
 	MutableThis->RefreshRenderingMode();
 
-	if ( bRenderingOffscreen )
+	if ( bRenderingOffscreen && GetVisibility().IsVisible() && ChildSlot.GetWidget()->GetVisibility().IsVisible() )
 	{
+		SCOPE_CYCLE_COUNTER( STAT_SlateRetainerWidgetPaint );
 		CachedAllottedGeometry = AllottedGeometry;
 		CachedClippingRect = MyClippingRect;
 

@@ -104,22 +104,21 @@ BEGIN_UNIFORM_BUFFER_STRUCT(FGBufferResourceStruct, )
 END_UNIFORM_BUFFER_STRUCT( FGBufferResourceStruct )
 
 /*
-* Stencil layout:
+* Stencil layout during basepass / deferred decals:
 *		BIT ID    | USE
-*		[0]       | sandbox bit
+*		[0]       | sandbox bit (this is not actually output in the base pass, but in the decal passes)
 *		[1]       | unallocated
 *		[2]       | unallocated
 *		[3]       | unallocated
-*		[4]       | unallocated
-*		[5]       | unallocated
-*		[6]       | unallocated
+*		[4]       | Lighting channels
+*		[5]       | Lighting channels
+*		[6]       | Lighting channels
 *		[7]       | primitive receive decal bit
 *
-* The sandbox bit is dedicated to be used by any render passes which would
-* need to generate non persistent stencil and use it locally, but this is
-* the render pass' responsibility to set it back to ZERO.
+* After deferred decals, stencil is cleared to 0 and no longer packed in this way, to ensure use of fast hardware clears and HiStencil.
 */
 #define STENCIL_SANDBOX_BIT_ID				0
+#define STENCIL_LIGHTING_CHANNELS_BIT_ID	4
 #define STENCIL_RECEIVE_DECAL_BIT_ID		7
 
 // Outputs a compile-time constant stencil's bit mask ready to be used
@@ -129,6 +128,8 @@ END_UNIFORM_BUFFER_STRUCT( FGBufferResourceStruct )
 #define GET_STENCIL_BIT_MASK(BIT_NAME,Value) uint8((uint8(Value) & uint8(0x01)) << (STENCIL_##BIT_NAME##_BIT_ID))
 
 #define STENCIL_SANDBOX_MASK GET_STENCIL_BIT_MASK(SANDBOX,1)
+
+#define STENCIL_LIGHTING_CHANNELS_MASK(Value) uint8((Value & 0x7) << STENCIL_LIGHTING_CHANNELS_BIT_ID)
 
 /**
  * Encapsulates the render targets used for scene rendering.
@@ -142,6 +143,8 @@ public:
 	/** Singletons. At the moment parallel tasks get their snapshot from the rhicmdlist */
 	static FSceneRenderTargets& Get(FRHICommandList& RHICmdList);
 	static FSceneRenderTargets& Get(FRHICommandListImmediate& RHICmdList);
+	static FSceneRenderTargets& Get(FRHIAsyncComputeCommandListImmediate& RHICmdList);
+
 	// this is a placeholder, the context should come from somewhere. This is very unsafe, please don't use it!
 	static FSceneRenderTargets& Get_Todo_PassContext();
 	// As above but relaxed checks and always gives the global FSceneRenderTargets. The intention here is that it is only used for constants that don't change during a frame. This is very unsafe, please don't use it!
@@ -183,7 +186,8 @@ protected:
 		CurrentFeatureLevel(ERHIFeatureLevel::Num),
 		CurrentShadingPath(EShadingPath::Num),
 		bAllocateVelocityGBuffer(false),
-		bSnapshot(false)
+		bSnapshot(false),
+		QuadOverdrawIndex(INDEX_NONE)
 		{
 		}
 	/** Constructor that creates snapshot */
@@ -214,7 +218,7 @@ public:
 	 */
 	void SetBufferSize(int32 InBufferSizeX, int32 InBufferSizeY);
 
-	void BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERenderTargetLoadAction ColorLoadAction, ERenderTargetLoadAction DepthLoadAction, const FLinearColor& ClearColor = FLinearColor(0, 0, 0, 1));
+	void BeginRenderingGBuffer(FRHICommandList& RHICmdList, ERenderTargetLoadAction ColorLoadAction, ERenderTargetLoadAction DepthLoadAction, bool bBindQuadOverdrawBuffers, const FLinearColor& ClearColor = FLinearColor(0, 0, 0, 1));
 	void FinishRenderingGBuffer(FRHICommandListImmediate& RHICmdList);
 
 	/**
@@ -263,7 +267,11 @@ public:
 
 	bool BeginRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View, bool bFirstTimeThisFrame);
 	void FinishRenderingSeparateTranslucency(FRHICommandList& RHICmdList, const FViewInfo& View);
-	void FreeSeparateTranslucency();
+	void FreeSeparateTranslucency()
+	{
+		SeparateTranslucencyRT.SafeRelease();
+		check(!SeparateTranslucencyRT);
+	}
 
 	void ResolveSceneDepthTexture(FRHICommandList& RHICmdList);
 	void ResolveSceneDepthToAuxiliaryTexture(FRHICommandList& RHICmdList);
@@ -276,6 +284,42 @@ public:
 
 	void BeginRenderingLightAttenuation(FRHICommandList& RHICmdList, bool bClearToWhite = false);
 	void FinishRenderingLightAttenuation(FRHICommandList& RHICmdList);
+
+
+
+	TRefCountPtr<IPooledRenderTarget>& GetSeparateTranslucency(FRHICommandList& RHICmdList, FIntPoint Size)
+	{
+		if (!SeparateTranslucencyRT || SeparateTranslucencyRT->GetDesc().Extent != Size)
+		{
+			// Create the SeparateTranslucency render target (alpha is needed to lerping)
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(Size, PF_FloatRGBA, FClearValueBinding::Black, TexCreate_None, TexCreate_RenderTargetable, false));
+			Desc.AutoWritable = false;
+			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SeparateTranslucencyRT, TEXT("SeparateTranslucency"));
+		}
+		return SeparateTranslucencyRT;
+	}
+
+	bool IsSeparateTranslucencyDepthValid()
+	{
+		return SeparateTranslucencyDepthRT != nullptr;
+	}
+
+	TRefCountPtr<IPooledRenderTarget>& GetSeparateTranslucencyDepth(FRHICommandList& RHICmdList, FIntPoint Size)
+	{
+		if (!SeparateTranslucencyDepthRT || SeparateTranslucencyDepthRT->GetDesc().Extent != Size)
+		{
+			// Create the SeparateTranslucency depth render target 
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(Size, PF_DepthStencil, FClearValueBinding::None, TexCreate_None, TexCreate_DepthStencilTargetable, true));
+			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SeparateTranslucencyDepthRT, TEXT("SeparateTranslucencyDepth"));
+		}
+		return SeparateTranslucencyDepthRT;
+	}
+	const FTexture2DRHIRef& GetSeparateTranslucencyDepthSurface()
+	{
+		return (const FTexture2DRHIRef&)SeparateTranslucencyDepthRT->GetRenderTargetItem().TargetableTexture;
+	}
+
+
 
 	/**
 	 * Cleans up editor primitive targets that we no longer need
@@ -395,6 +439,8 @@ public:
 
 	IPooledRenderTarget* GetGBufferVelocityRT();
 
+	int32 GetQuadOverdrawIndex() const { return QuadOverdrawIndex; }
+
 	// @return can be 0 if the feature is disabled
 	IPooledRenderTarget* RequestCustomDepth(FRHICommandListImmediate& RHICmdList, bool bPrimitives);
 
@@ -478,6 +524,10 @@ public:
 
 	void AllocateReflectionTargets(FRHICommandList& RHICmdList);
 
+	void AllocateLightingChannelTexture(FRHICommandList& RHICmdList);
+
+	void AllocateDebugViewModeTargets(FRHICommandList& RHICmdList);
+
 	TRefCountPtr<IPooledRenderTarget>& GetReflectionBrightnessTarget();
 
 	/**
@@ -488,15 +538,6 @@ public:
 	static void QuantizeBufferSize(int32& InOutBufferSizeX, int32& InOutBufferSizeY);
 
 	bool IsSeparateTranslucencyActive(const FViewInfo& View) const;
-
-	bool IsVelocityPass() const
-	{
-		return bVelocityPass;
-	}
-	void SetVelocityPass(bool bInVelocityPass)
-	{
-		bVelocityPass = bInVelocityPass;
-	}
 
 	bool IsSeparateTranslucencyPass()
 	{
@@ -522,6 +563,8 @@ public:
 	TRefCountPtr<IPooledRenderTarget> DirectionalOcclusion;
 	//
 	TRefCountPtr<IPooledRenderTarget> SceneDepthZ;
+	TRefCountPtr<FRHIShaderResourceView> SceneStencilSRV;
+	TRefCountPtr<IPooledRenderTarget> LightingChannels;
 	// Mobile without frame buffer fetch (to get depth from alpha).
 	TRefCountPtr<IPooledRenderTarget> SceneAlphaCopy;
 	// Auxiliary scene depth target. The scene depth is resolved to this surface when targeting SM4. 
@@ -545,6 +588,8 @@ public:
 
 	// for AmbientOcclusion, only valid for a short time during the frame to allow reuse
 	TRefCountPtr<IPooledRenderTarget> ScreenSpaceAO;
+	// for shader/quad complexity, the temporary quad descriptors and complexity.
+	TRefCountPtr<IPooledRenderTarget> QuadOverdrawBuffer;
 	// used by the CustomDepth material feature, is allocated on demand or if r.CustomDepth is 2
 	TRefCountPtr<IPooledRenderTarget> CustomDepth;
 	// used by the CustomDepth material feature for stencil
@@ -710,9 +755,13 @@ private:
 
 	/** Helpers to track scenedepth state on platforms that need to propagate clear information across parallel rendering boundaries. */
 	bool bSceneDepthCleared;
-	
+
 	/** true is this is a snapshot on the scene allocator */
 	bool bSnapshot;
+
+	/** Helpers to track the bound index of the quad overdraw UAV. Needed because UAVs overlap RTs in DX11 */
+	int32 QuadOverdrawIndex;
+
 	/** All outstanding snapshots */
 	TArray<FSceneRenderTargets*> Snapshots;
 

@@ -302,20 +302,34 @@ const FString UEdGraphPin::GetLinkInfoString( const FString& InFunctionName, con
 #endif
 }
 
-void UEdGraphPin::Serialize(FArchive& Ar)
+void UEdGraphPin::PostLoad()
 {
-	Super::Serialize(Ar);
+	Super::PostLoad();
 
-	if (Ar.IsLoading() && Ar.IsPersistent())
+	static FName GameplayTagName = TEXT("GameplayTag");
+	static FName GameplayTagContainerName = TEXT("GameplayTagContainer");
+	static FName GameplayTagsPathName = TEXT("/Script/GameplayTags");
+
+	if (PinType.PinSubCategoryObject.IsValid())
 	{
-		// Pins of type FGameplayTag were storing "()" for empty arrays and then importing that into ArrayProperty and expecting an empty array.
-		// That it was working was a bug and has been fixed, so let's fixup pins. A pin that wants an array size of 1 will always fill the parenthesis
-		// so there is no worry about breaking those cases.
-		if (PinType.PinSubCategoryObject.IsValid() && PinType.PinSubCategoryObject->GetPathName() == TEXT("/Script/GameplayTags.GameplayTag"))
+		UObject* PinSubCategoryObject = PinType.PinSubCategoryObject.Get();
+		if (PinSubCategoryObject->GetOuter()->GetFName() == GameplayTagsPathName)
 		{
-			if (DefaultValue == TEXT("()"))
+			if (PinSubCategoryObject->GetFName() == GameplayTagName)
 			{
-				DefaultValue.Empty();
+				// Pins of type FGameplayTag were storing "()" for empty arrays and then importing that into ArrayProperty and expecting an empty array.
+				// That it was working was a bug and has been fixed, so let's fixup pins. A pin that wants an array size of 1 will always fill the parenthesis
+				// so there is no worry about breaking those cases.
+				if (DefaultValue == TEXT("()"))
+				{
+					DefaultValue.Empty();
+				}
+			}
+			else if (PinSubCategoryObject->GetFName() == GameplayTagContainerName)
+			{
+				// Pins of type FGameplayTagContainer were storing "GameplayTags=()" for empty arrays, which equates to having a single item, default generated as detailed above for FGameplayTag.
+				// The solution is to replace occurances with an empty string, due to the item being a struct, we can't just empty the value and must replace only the section we need.
+				DefaultValue.ReplaceInline(TEXT("GameplayTags=()"), TEXT("GameplayTags="));
 			}
 		}
 	}

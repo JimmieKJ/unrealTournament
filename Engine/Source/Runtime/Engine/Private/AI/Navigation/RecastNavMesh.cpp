@@ -1274,20 +1274,60 @@ uint32 ARecastNavMesh::GetPolyAreaID(NavNodeRef PolyID) const
 	return AreaID;
 }
 
-void ARecastNavMesh::SetPolyAreaID(NavNodeRef PolyID, uint8 AreaID)
+void ARecastNavMesh::SetPolyArea(NavNodeRef PolyID, TSubclassOf<UNavArea> AreaClass)
 {
-	if (RecastNavMeshImpl)
+	if (AreaClass && RecastNavMeshImpl)
 	{
-		RecastNavMeshImpl->SetPolyAreaID(PolyID, AreaID);
+		dtNavMesh* NavMesh = RecastNavMeshImpl->GetRecastMesh();
+		const int32 AreaId = GetAreaID(AreaClass);
+		const uint16 AreaFlags = AreaClass->GetDefaultObject<UNavArea>()->GetAreaFlags();
+		
+		if (AreaId != INDEX_NONE && NavMesh)
+		{
+			NavMesh->setPolyArea(PolyID, AreaId);
+			NavMesh->setPolyFlags(PolyID, AreaId);
+		}
 	}
 }
 
+void ARecastNavMesh::SetPolyArrayArea(const TArray<FNavPoly>& Polys, TSubclassOf<UNavArea> AreaClass)
+{
+	if (AreaClass && RecastNavMeshImpl)
+	{
+		dtNavMesh* NavMesh = RecastNavMeshImpl->GetRecastMesh();
+		const int32 AreaId = GetAreaID(AreaClass);
+		const uint16 AreaFlags = AreaClass->GetDefaultObject<UNavArea>()->GetAreaFlags();
+
+		if (AreaId != INDEX_NONE && NavMesh)
+		{
+			for (int32 Idx = 0; Idx < Polys.Num(); Idx++)
+			{
+				NavMesh->setPolyArea(Polys[Idx].Ref, AreaId);
+				NavMesh->setPolyFlags(Polys[Idx].Ref, AreaFlags);
+			}
+		}
+	}
+}
+
+// deprecated
+void ARecastNavMesh::SetPolyAreaID(NavNodeRef PolyID, uint8 AreaID)
+{
+	const UClass* NavAreaClass = GetAreaClass(AreaID);
+	if (NavAreaClass)
+	{
+		TSubclassOf<UNavArea> UseAreaClass((UClass*)NavAreaClass);
+		SetPolyArea(PolyID, UseAreaClass);
+	}
+}
+
+// deprecated
 void ARecastNavMesh::SetPolyArrayAreaID(const TArray<FNavPoly>& Polys, uint8 AreaID)
 {
-	dtNavMesh* NavMesh = RecastNavMeshImpl->GetRecastMesh();
-	for(const auto& Poly : Polys)
+	const UClass* NavAreaClass = GetAreaClass(AreaID);
+	if (NavAreaClass)
 	{
-		NavMesh->setPolyArea(Poly.Ref, AreaID);
+		TSubclassOf<UNavArea> UseAreaClass((UClass*)NavAreaClass);
+		SetPolyArrayArea(Polys, UseAreaClass);
 	}
 }
 
@@ -1904,7 +1944,7 @@ void ARecastNavMesh::BatchRaycast(TArray<FNavigationRaycastWork>& Workload, FSha
 		const FVector RecastEnd = Unreal2RecastPoint(WorkItem.RayEnd);
 
 		NavNodeRef StartNode = INVALID_NAVNODEREF;
-		NavQuery.findNearestPoly(&RecastStart.X, Extent, QueryFilter, &StartNode, NULL);
+		NavQuery.findNearestContainingPoly(&RecastStart.X, Extent, QueryFilter, &StartNode, NULL);
 
 		if (StartNode != INVALID_NAVNODEREF)
 		{

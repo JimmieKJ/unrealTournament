@@ -189,6 +189,8 @@ public:
 	 */
 	virtual TSharedPtr< SWidget > GetKeyboardFocusedWidget( ) const = 0;
 
+	virtual EUINavigation GetNavigationDirectionFromKey( const FKeyEvent& InKeyEvent ) const = 0;
+
 	/**
 	* Gets the Widget that currently captures the mouse.
 	*

@@ -286,7 +286,7 @@ bool LoadPhysicalMeshFromClothingAsset(NxClothingAsset& ApexClothingAsset,
 	for(uint32 i=StartSimulIndex; i < EndTotalIndex; i++)
 	{
 		FApexClothPhysToRenderVertData& Mapping = RenderToPhysicalMapping[RenderToPhysicalMapping.AddZeroed()];
-		if(i < NumRealSimulVertices)
+		if (i < MapSize) 
 		{
 			Mapping.PositionBaryCoordsAndDist = P2U4BaryCoord(SkinningMap[i].positionBary);
 			Mapping.NormalBaryCoordsAndDist = P2U4BaryCoord(SkinningMap[i].normalBary);

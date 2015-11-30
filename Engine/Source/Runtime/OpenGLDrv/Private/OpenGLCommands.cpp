@@ -263,17 +263,6 @@ static FORCEINLINE GLint ModifyFilterByMips(GLint Filter, bool bHasMips)
 	return Filter;
 }
 
-void FOpenGLDynamicRHI::RHIGpuTimeBegin(uint32 Hash, bool bCompute)
-{
-	return;
-}
-
-void FOpenGLDynamicRHI::RHIGpuTimeEnd(uint32 Hash, bool bCompute)
-{
-	return;
-}
-
-
 // Vertex state.
 void FOpenGLDynamicRHI::RHISetStreamSource(uint32 StreamIndex,FVertexBufferRHIParamRef VertexBufferRHI,uint32 Stride,uint32 Offset)
 {
@@ -3431,24 +3420,6 @@ void FOpenGLDynamicRHI::RHIClearMRT(bool bClearColor,int32 NumClearColors,const 
 		// Change it back
 		RHISetScissorRect(bPrevScissorEnabled,PrevScissor.Min.X, PrevScissor.Min.Y, PrevScissor.Max.X, PrevScissor.Max.Y);
 	}
-}
-
-// Functions to yield and regain rendering control from OpenGL
-
-void FOpenGLDynamicRHI::RHISuspendRendering()
-{
-	// Not supported
-}
-
-void FOpenGLDynamicRHI::RHIResumeRendering()
-{
-	// Not supported
-}
-
-bool FOpenGLDynamicRHI::RHIIsRenderingSuspended()
-{
-	// Not supported
-	return false;
 }
 
 // Blocks the CPU until the GPU catches up and goes idle.

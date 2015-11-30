@@ -20,7 +20,7 @@ public:
 	static FString ConvertToLongScriptPackageName(const TCHAR* InShortName);
 
 	/**
-	 * Registeres all short package names found in ini files.
+	 * Registers all short package names found in ini files.
 	 */
 	static void RegisterShortPackageNamesForUObjectModules();
 
@@ -119,7 +119,7 @@ public:
 	 * @param Package Package which name to convert.
 	 * @return Short package name.
 	 */
-	static FString GetShortName(UPackage* Package);
+	static FString GetShortName(const UPackage* Package);
 	/**
 	 * Converts package name to short name.
 	 *
@@ -187,7 +187,7 @@ public:
 	static FName GetPackageMountPoint(const FString& InPackagePath);
 
 	/**
-	 * Checks if the package exisits on disk.
+	 * Checks if the package exists on disk.
 	 * 
 	 * @param LongPackageName Package name.
 	 * @param OutFilename Package filename on disk.
@@ -215,7 +215,7 @@ public:
 	static bool TryConvertShortPackagePathToLongInObjectPath(const FString& ObjectPath, FString& ConvertedObjectPath);
 
 	/**
-	 * Gets normlized object path i.e. with long package format.
+	 * Gets normalized object path i.e. with long package format.
 	 *
 	 * @param ObjectPath Path to the object.
 	 *

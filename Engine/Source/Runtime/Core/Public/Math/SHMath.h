@@ -47,6 +47,16 @@ public:
 		V[3] = V3;
 	}
 
+	explicit TSHVector(const FVector4& Vector)
+	{
+		FMemory::Memzero(V,sizeof(V));
+
+		V[0] = Vector.X;
+		V[1] = Vector.Y;
+		V[2] = Vector.Z;
+		V[3] = Vector.W;
+	}
+
 	/** Scalar multiplication operator. */
 	/** Changed to float& from float to avoid LHS **/
 	friend FORCEINLINE TSHVector operator*(const TSHVector& A,const float& B)

@@ -119,6 +119,14 @@ FString FindGitBinaryPath()
 		GitBinaryPath = TEXT("C:/Program Files (x86)/Git/bin/git.exe");
 		bFound = CheckGitAvailability(GitBinaryPath);
 	}
+	if(!bFound)
+	{
+		// else the install dir for the current user: C:\Users\UserName\AppData\Local\Programs\Git\cmd
+		TCHAR AppDataLocalPath[4096];
+		FPlatformMisc::GetEnvironmentVariable(TEXT("LOCALAPPDATA"), AppDataLocalPath, ARRAY_COUNT(AppDataLocalPath));
+		GitBinaryPath = FString::Printf(TEXT("%s/Programs/Git/cmd/git.exe"), AppDataLocalPath);
+		bFound = CheckGitAvailability(GitBinaryPath);
+	}
 
 	// 2) Else, look for the version of Git bundled with SmartGit "Installer with JRE"
 	if(!bFound)

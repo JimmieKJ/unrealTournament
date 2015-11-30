@@ -78,6 +78,11 @@ void FWidgetRenderer::DrawWindow(
 #if !UE_SERVER
 	FGeometry WindowGeometry = FGeometry::MakeRoot(DrawSize * (1 / Scale), FSlateLayoutTransform(Scale));
 
+	if ( GUsingNullRHI )
+	{
+		return;
+	}
+	
 	if ( !bFoldTick )
 	{
 		Window->TickWidgetsRecursively(WindowGeometry, FApp::GetCurrentTime(), DeltaTime);

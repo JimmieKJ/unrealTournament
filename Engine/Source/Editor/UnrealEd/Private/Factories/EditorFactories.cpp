@@ -5695,13 +5695,13 @@ EReimportResult::Type UReimportFbxStaticMeshFactory::Reimport( UObject* Obj )
 			{
 				for (int32 Idx = 0; Idx < UserData->Num(); Idx++)
 				{
-					UserDataCopy.Add((UAssetUserData*)StaticDuplicateObject((*UserData)[Idx], GetTransientPackage(), nullptr));
+					UserDataCopy.Add((UAssetUserData*)StaticDuplicateObject((*UserData)[Idx], GetTransientPackage()));
 				}
 			}
 
 			// preserve settings in navcollision subobject
 			UNavCollision* NavCollision = Mesh->NavCollision ? 
-				(UNavCollision*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage(), nullptr) :
+				(UNavCollision*)StaticDuplicateObject(Mesh->NavCollision, GetTransientPackage()) :
 				nullptr;
 
 			// preserve extended bound settings

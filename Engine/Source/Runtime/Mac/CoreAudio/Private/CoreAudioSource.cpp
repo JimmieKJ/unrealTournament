@@ -331,7 +331,7 @@ void FCoreAudioSoundSource::Update( void )
 		const float Pitch = FMath::Clamp<float>( WaveInstance->Pitch, MIN_PITCH, MAX_PITCH );
 		
 		// Set the HighFrequencyGain value
-		SetHighFrequencyGain();
+		SetFilterFrequency();
 		
 		if( WaveInstance->bApplyRadioFilter )
 		{

@@ -35,6 +35,7 @@ public:
 protected:
 	//void OnNewItemHandler(const FVisualLoggerDBRow& BDRow, int32 ItemIndex);
 
+	void AddFilterCategory(FString, ELogVerbosity::Type, bool bMarkAsInUse);
 	void OnFilterCategoryAdded(FString, ELogVerbosity::Type);
 	void OnFilterCategoryRemoved(FString);
 	void OnItemsSelectionChanged(const FVisualLoggerDBRow& ChangedRow, int32 SelectedItemIndex);

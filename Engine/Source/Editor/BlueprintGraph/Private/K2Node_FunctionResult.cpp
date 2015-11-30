@@ -93,10 +93,10 @@ public:
 		{
 			GenerateAssigments(Context, Node);
 
-			if (Context.bCreateDebugData && Node)
+			if (Context.IsDebuggingOrInstrumentationRequired() && Node)
 			{
 				FBlueprintCompiledStatement& TraceStatement = Context.AppendStatementForNode(Node);
-				TraceStatement.Type = KCST_WireTraceSite;
+				TraceStatement.Type = Context.GetWireTraceType();
 				TraceStatement.Comment = Node->NodeComment.IsEmpty() ? Node->GetName() : Node->NodeComment;
 			}
 

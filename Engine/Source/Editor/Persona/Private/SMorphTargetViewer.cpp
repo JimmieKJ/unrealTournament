@@ -273,7 +273,7 @@ float SMorphTargetListRow::GetWeight() const
 		if ( SkelComp && SkelComp->GetAnimInstance() )
 		{
 			// make sure if they have value that's not same as saved value
-			float* CurrentValue = SkelComp->GetAnimInstance()->MorphTargetCurves.Find(Item->Name);
+			float* CurrentValue = SkelComp->GetAnimInstance()->GetMorphTargetCurves().Find(Item->Name);
 			if (CurrentValue && *CurrentValue != 0.f)
 			{
 				return *CurrentValue;

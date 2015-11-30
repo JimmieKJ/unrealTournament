@@ -26,7 +26,7 @@ void USelection::Select(UObject* InObject)
 	check( InObject );
 
 	// Warn if we attempt to select a PIE object.
-	if ( InObject->GetOutermost()->PackageFlags & PKG_PlayInEditor )
+	if ( InObject->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor) )
 	{
 		UE_LOG(LogSelection, Warning, TEXT("PIE object was selected: \"%s\""), *InObject->GetFullName() );
 	}
@@ -170,7 +170,7 @@ bool USelection::Modify(bool bAlwaysMarkDirty/* =true */)
 	for (auto ObjectPtr : SelectedObjects)
 	{
 		UObject* Object = ObjectPtr.Get();
-		if (Object && (Object->GetOutermost()->PackageFlags & (PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn)) != 0)
+		if (Object && Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn))
 		{
 			return false;
 		}

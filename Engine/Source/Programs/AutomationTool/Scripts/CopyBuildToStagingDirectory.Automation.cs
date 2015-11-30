@@ -925,7 +925,18 @@ public partial class Project : CommandUtils
 
 		if (!bCopiedExistingPak)
 		{
-			RunUnrealPak(UnrealPakResponseFile, OutputLocation, Params.SignPak, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(), Params.Compressed, PatchSourceContentPath );
+			if (File.Exists(OutputLocation))
+			{
+				string UnrealPakResponseFileName = CombinePaths(CmdEnv.LogFolder, "PakList_" + PakName + ".txt");
+				if (File.GetLastWriteTimeUtc(OutputLocation) > File.GetLastWriteTimeUtc(UnrealPakResponseFileName))
+				{
+					bCopiedExistingPak = true;
+				}
+			}
+			if (!bCopiedExistingPak)
+			{
+				RunUnrealPak(UnrealPakResponseFile, OutputLocation, Params.SignPak, PakOrderFileLocation, SC.StageTargetPlatform.GetPlatformPakCommandLine(), Params.Compressed, PatchSourceContentPath);
+			}
 		}
 
         
@@ -1176,21 +1187,21 @@ public partial class Project : CommandUtils
 		StagedFilesDir.GetFiles("*.pak", SearchOption.AllDirectories).ToList().ForEach(File => File.Delete());
 	}
 
-	public static void ApplyStagingManifest(ProjectParams Params, DeploymentContext SC)
+	public static void CleanStagingDirectory(ProjectParams Params, DeploymentContext SC)
 	{
 		MaybeConvertToLowerCase(Params, SC);
 		Log("Cleaning Stage Directory: {0}", SC.StageDirectory);
 		if (SC.Stage && !Params.NoCleanStage && !Params.SkipStage && !Params.IterativeDeploy)
 		{
-            try
-            {
-                DeleteDirectory(SC.StageDirectory);
-            }
-            catch (Exception Ex)
-            {
-                // Delete cooked data (if any) as it may be incomplete / corrupted.
-                throw new AutomationException(ExitCode.Error_FailedToDeleteStagingDirectory, Ex, "Stage Failed. Failed to delete staging directory " + SC.StageDirectory);
-            }
+			try
+			{
+				DeleteDirectory(SC.StageDirectory);
+			}
+			catch (Exception Ex)
+			{
+				// Delete cooked data (if any) as it may be incomplete / corrupted.
+				throw new AutomationException(ExitCode.Error_FailedToDeleteStagingDirectory, Ex, "Stage Failed. Failed to delete staging directory " + SC.StageDirectory);
+			}
 		}
 		else
 		{
@@ -1199,12 +1210,16 @@ public partial class Project : CommandUtils
 				// delete old pak files
 				DeletePakFiles(SC.StageDirectory);
 			}
-            catch (Exception Ex)
-            {
-                // Delete cooked data (if any) as it may be incomplete / corrupted.
-                throw new AutomationException(ExitCode.Error_FailedToDeleteStagingDirectory, Ex, "Stage Failed. Failed to delete pak files in " + SC.StageDirectory);
-            }
+			catch (Exception Ex)
+			{
+				// Delete cooked data (if any) as it may be incomplete / corrupted.
+				throw new AutomationException(ExitCode.Error_FailedToDeleteStagingDirectory, Ex, "Stage Failed. Failed to delete pak files in " + SC.StageDirectory);
+			}
 		}
+	}
+
+	public static void ApplyStagingManifest(ProjectParams Params, DeploymentContext SC)
+	{
 		if (ShouldCreatePak(Params, SC))
 		{
 			if (Params.Manifests && DoesChunkPakManifestExist(Params, SC))
@@ -1598,14 +1613,8 @@ public partial class Project : CommandUtils
 			PlatformsToStage = Params.ServerTargetPlatforms;
         }
 
-        bool prefixArchiveDir = false;
-        if (PlatformsToStage.Contains(UnrealTargetPlatform.Win32) && PlatformsToStage.Contains(UnrealTargetPlatform.Win64))
-        {
-            prefixArchiveDir = true;
-        }
-
-		List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
-		foreach (var StagePlatform in PlatformsToStage)
+ 		List<DeploymentContext> DeploymentContexts = new List<DeploymentContext>();
+			foreach (var StagePlatform in PlatformsToStage)
 		{
 			// Get the platform to get cooked data from, may differ from the stage platform
 			UnrealTargetPlatform CookedDataPlatform = Params.GetCookedDataPlatformForClientTarget(StagePlatform);
@@ -1634,18 +1643,6 @@ public partial class Project : CommandUtils
 
 			string StageDirectory = ((ShouldCreatePak(Params) || (Params.Stage)) || !String.IsNullOrEmpty(Params.StageDirectoryParam)) ? Params.BaseStageDirectory : "";
             string ArchiveDirectory = (Params.Archive || !String.IsNullOrEmpty(Params.ArchiveDirectoryParam)) ? Params.BaseArchiveDirectory : "";
-            if (prefixArchiveDir && (StagePlatform == UnrealTargetPlatform.Win32 || StagePlatform == UnrealTargetPlatform.Win64))
-            {
-                if (Params.Stage)
-                {
-                    StageDirectory = CombinePaths(Params.BaseStageDirectory, StagePlatform.ToString());
-                }
-                if (Params.Archive)
-                {
-                    ArchiveDirectory = CombinePaths(Params.BaseArchiveDirectory, StagePlatform.ToString());
-                }
-            }
-
 			string EngineDir = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine");
 
 			List<StageTarget> TargetsToStage = new List<StageTarget>();
@@ -1751,11 +1748,17 @@ public partial class Project : CommandUtils
 			if (!Params.NoClient)
 			{
 				var DeployContextList = CreateDeploymentContext(Params, false, true);
+
+				// clean the staging directories first
 				foreach (var SC in DeployContextList)
 				{
 					// write out the commandline file now so it can go into the manifest
 					WriteStageCommandline(Params, SC);
 					CreateStagingManifest(Params, SC);
+					CleanStagingDirectory(Params, SC);
+				}
+				foreach (var SC in DeployContextList)
+				{
 					ApplyStagingManifest(Params, SC);
 
 					if (Params.Deploy)

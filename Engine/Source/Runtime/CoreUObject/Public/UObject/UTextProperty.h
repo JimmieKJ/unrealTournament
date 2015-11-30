@@ -8,7 +8,7 @@ typedef TProperty<FText, UProperty> UTextProperty_Super;
 
 class COREUOBJECT_API UTextProperty : public UTextProperty_Super
 {
-	DECLARE_CASTED_CLASS_INTRINSIC(UTextProperty, UTextProperty_Super, 0, CoreUObject, CASTCLASS_UTextProperty)
+	DECLARE_CASTED_CLASS_INTRINSIC(UTextProperty, UTextProperty_Super, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UTextProperty)
 
 public:
 

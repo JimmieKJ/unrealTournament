@@ -8,6 +8,21 @@ using System.Linq;
 using AutomationTool;
 using UnrealBuildTool;
 
+[Flags]
+public enum ProjectBuildTargets
+{
+	None = 0,
+	Editor = 1 << 0,
+	ClientCooked = 1 << 1,
+	ServerCooked = 1 << 2,
+	Bootstrap = 1 << 3,
+	CrashReporter = 1 << 4,
+	Programs = 1 << 5,
+
+	// All targets
+	All = Editor | ClientCooked | ServerCooked | Bootstrap | CrashReporter | Programs,
+}
+
 /// <summary>
 /// Helper command used for compiling.
 /// </summary>
@@ -22,9 +37,8 @@ public partial class Project : CommandUtils
 {
 	#region Build Command
 
-	public static void Build(BuildCommand Command, ProjectParams Params, int WorkingCL = -1)
+    public static void Build(BuildCommand Command, ProjectParams Params, int WorkingCL = -1, ProjectBuildTargets TargetMask = ProjectBuildTargets.All)
 	{
-
 		Params.ValidateAndLog();
 
 		if (!Params.Build)
@@ -38,23 +52,15 @@ public partial class Project : CommandUtils
 		var Agenda = new UE4Build.BuildAgenda();
 		var CrashReportPlatforms = new HashSet<UnrealTargetPlatform>();
 
-        string ScriptPluginArgs = "";
-        // if we're utilizing an auto-generated code plugin/module (a product of 
-        // the BuildCookeRun process), make sure to compile it along with the targets here
-        if (Params.UseNativizedScriptPlugin())
-        {
-            ScriptPluginArgs = "-PLUGIN \"" + Params.NativizedScriptPlugin + "\"";
-        }
-
 		// Setup editor targets
-		if (Params.HasEditorTargets && !Params.Rocket)
+		if (Params.HasEditorTargets && !Params.Rocket && (TargetMask & ProjectBuildTargets.Editor) == ProjectBuildTargets.Editor)
 		{
 			// @todo Mac: proper platform detection
 			UnrealTargetPlatform EditorPlatform = HostPlatform.Current.HostEditorPlatform;
 			const UnrealTargetConfiguration EditorConfiguration = UnrealTargetConfiguration.Development;
 
 			CrashReportPlatforms.Add(EditorPlatform);
-            Agenda.AddTargets(Params.EditorTargets.ToArray(), EditorPlatform, EditorConfiguration, Params.CodeBasedUprojectPath, ScriptPluginArgs);
+            Agenda.AddTargets(Params.EditorTargets.ToArray(), EditorPlatform, EditorConfiguration, Params.CodeBasedUprojectPath);
 			if (Params.EditorTargets.Contains("UnrealHeaderTool") == false)
 			{
 				Agenda.AddTargets(new string[] { "UnrealHeaderTool" }, EditorPlatform, EditorConfiguration);
@@ -73,8 +79,16 @@ public partial class Project : CommandUtils
 			}
 		}
 
+        string ScriptPluginArgs = "";
+        // if we're utilizing an auto-generated code plugin/module (a product of 
+        // the cook process), make sure to compile it along with the targets here
+        if (Params.UseNativizedScriptPlugin())
+        {
+            ScriptPluginArgs = "-PLUGIN \"" + Params.NativizedScriptPlugin + "\"";
+        }
+
 		// Setup cooked targets
-		if (Params.HasClientCookedTargets)
+		if (Params.HasClientCookedTargets && (TargetMask & ProjectBuildTargets.ClientCooked) == ProjectBuildTargets.ClientCooked)
 		{
 			foreach (var BuildConfig in Params.ClientConfigsToBuild)
 			{
@@ -85,7 +99,7 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-		if (Params.HasServerCookedTargets)
+		if (Params.HasServerCookedTargets && (TargetMask & ProjectBuildTargets.ServerCooked) == ProjectBuildTargets.ServerCooked)
 		{
 			foreach (var BuildConfig in Params.ServerConfigsToBuild)
 			{
@@ -96,7 +110,7 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-		if (!Params.NoBootstrapExe && !Params.Rocket)
+		if (!Params.NoBootstrapExe && !Params.Rocket && (TargetMask & ProjectBuildTargets.Bootstrap) == ProjectBuildTargets.Bootstrap)
 		{
 			UnrealBuildTool.UnrealTargetPlatform[] BootstrapPackagedGamePlatforms = { UnrealBuildTool.UnrealTargetPlatform.Win32, UnrealBuildTool.UnrealTargetPlatform.Win64 };
 			foreach(UnrealBuildTool.UnrealTargetPlatform BootstrapPackagedGamePlatform in BootstrapPackagedGamePlatforms)
@@ -107,7 +121,7 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-		if (Params.CrashReporter && !Params.Rocket)
+		if (Params.CrashReporter && !Params.Rocket && (TargetMask & ProjectBuildTargets.CrashReporter) == ProjectBuildTargets.CrashReporter)
 		{
 			foreach (var CrashReportPlatform in CrashReportPlatforms)
 			{
@@ -117,7 +131,7 @@ public partial class Project : CommandUtils
 				}
 			}
 		}
-		if (Params.HasProgramTargets && !Params.Rocket)
+		if (Params.HasProgramTargets && !Params.Rocket && (TargetMask & ProjectBuildTargets.Programs) == ProjectBuildTargets.Programs)
 		{
 			foreach (var BuildConfig in Params.ClientConfigsToBuild)
 			{

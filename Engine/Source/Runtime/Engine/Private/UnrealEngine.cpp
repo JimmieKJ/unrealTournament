@@ -54,6 +54,7 @@
 #include "Engine/WorldComposition.h"
 #include "Engine/LevelScriptActor.h"
 #include "Vehicles/TireType.h"
+#include "RHICommandList.h"
 
 #include "Particles/Spawn/ParticleModuleSpawn.h"
 #include "Particles/TypeData/ParticleModuleTypeDataMesh.h"
@@ -211,17 +212,6 @@ enum EGametypeContentReferencerTypes
 	GametypeContent_LocalizedReferencerIndex,
 	MAX_ReferencerIndex
 };
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	/** 
-	 *	A global to allow turning off the 'NOT RUNNING IN HD' warning.
-	 *	Is enabled by default - and is *not* stored in an ini file 
-	 *	so it will always show up when you launch in non-HD mode.
-	 *
-	 *	Disable via the console command "TOGGLEHDWARNING"
-	 */
-	bool GbWarn_NotRunningInHD = true;
-#endif
 
 /** Whether texture memory has been corrupted because we ran out of memory in the pool. */
 bool GIsTextureMemoryCorrupted = false;
@@ -488,7 +478,7 @@ namespace
 		UPackage* NewPackage = CreatePackage(NULL, *PIEPackageName);
 		if (NewPackage != nullptr && WorldContext.WorldType == EWorldType::PIE)
 		{
-			NewPackage->PackageFlags |= PKG_PlayInEditor;
+			NewPackage->SetPackageFlags(PKG_PlayInEditor);
 			LoadFlags |= LOAD_PackageForPIE;
 		}
 		OutPackage = LoadPackage(NewPackage, *SourceWorldPackage, LoadFlags);
@@ -2481,6 +2471,10 @@ bool UEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	{
 		return HandleToggleRHIThreadCommand( Cmd, Ar );
 	}
+	else if (FParse::Command(&Cmd, TEXT("ToggleAsyncCompute")))
+	{
+		return HandleToggleAsyncComputeCommand(Cmd, Ar);
+	}
 	else if( FParse::Command(&Cmd,TEXT("RecompileShaders")) )				    
 	{
 		return HandleRecompileShadersCommand( Cmd, Ar );
@@ -3242,6 +3236,38 @@ bool UEngine::HandleToggleRHIThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar 
 	}
 	return true;
 }
+
+bool UEngine::HandleToggleAsyncComputeCommand(const TCHAR* Cmd, FOutputDevice& Ar)
+{
+	if (GDynamicRHI)
+	{
+		bool bWasAsyncCompute = GEnableAsyncCompute;
+		bool bWasThreadedRendering = GIsThreadedRendering;
+		if (bWasThreadedRendering)
+		{
+			StopRenderingThread();
+		}
+		
+		GEnableAsyncCompute = !bWasAsyncCompute;
+
+		if (GEnableAsyncCompute)
+		{
+			FRHICommandListExecutor::GetImmediateAsyncComputeCommandList().SetComputeContext(RHIGetDefaultAsyncComputeContext());
+		}
+		else
+		{
+			FRHICommandListExecutor::GetImmediateAsyncComputeCommandList().SetContext(RHIGetDefaultContext());
+		}		
+
+		if (bWasThreadedRendering)
+		{
+			StartRenderingThread();
+		}
+		Ar.Logf(TEXT("AsyncCompute is now %s."), GEnableAsyncCompute ? TEXT("active") : TEXT("inactive"));
+	}	
+	return true;
+}
+
 
 bool UEngine::HandleRecompileShadersCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
@@ -7558,8 +7584,8 @@ void DrawStatsHUD( UWorld* World, FViewport* Viewport, FCanvas* Canvas, UCanvas*
 		GEngine->RenderEngineStats(World, Viewport, Canvas, StatsXOffset, MessageY, X, Y, &ViewLocation, &ViewRotation);
 
 #if STATS
-		extern void RenderStats(FViewport* Viewport, class FCanvas* Canvas, int32 X, int32 Y);
-		RenderStats(Viewport, Canvas, StatsXOffset, Y);
+		extern void RenderStats(FViewport* Viewport, class FCanvas* Canvas, int32 X, int32 Y, int32 SizeX);
+		RenderStats( Viewport, Canvas, StatsXOffset, Y, CanvasObject != nullptr ? CanvasObject->CachedDisplayWidth - CanvasObject->SafeZonePadX * 2 : Viewport->GetSizeXY().X );
 #endif
 	}
 
@@ -7683,7 +7709,6 @@ DEFINE_STAT(STAT_RedrawViewports);
 DEFINE_STAT(STAT_UpdateLevelStreaming);
 DEFINE_STAT(STAT_RHITickTime);
 DEFINE_STAT(STAT_IntentionalHitch);
-DEFINE_STAT(STAT_PlatformMessageTime);
 DEFINE_STAT(STAT_FrameSyncTime);
 DEFINE_STAT(STAT_DeferredTickTime);
 
@@ -9435,30 +9460,8 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 		}
 	}
 
-	UPackage* MapOuter = NULL;
-
-	// in the seekfree case (which hasn't already loaded anything), get linkers for any downloaded packages here,
-	// so that any dependent packages will correctly find them as they will not search the cache by default
-	if (Pending && Pending->NetDriver && Pending->NetDriver->ServerConnection)
-	{
-		// make the package, and use this for the new linker (and to load the map from)
-		MapOuter = CreatePackage(NULL, *Pending->URL.Map);
-#if WITH_EDITOR
-		if (WorldContext.WorldType == EWorldType::PIE)
-		{
-			MapOuter->PackageFlags |= PKG_PlayInEditor;
-		}
-		MapOuter->PIEInstanceID = WorldContext.PIEInstance;
-#endif
-		// create the linker with the map name, and use the Guid so we find the downloaded version
-		BeginLoad();
-		GetPackageLinker(MapOuter, NULL, LOAD_NoWarn | LOAD_NoVerify | LOAD_Quiet, NULL, NULL);
-		EndLoad();
-	}
-
 	UPackage* WorldPackage = NULL;
 	UWorld*	NewWorld = NULL;
-
 	
 	// Is this a PIE networking thing?
 	if (!WorldContext.PIERemapPrefix.IsEmpty())
@@ -9502,12 +9505,12 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 		UWorld::WorldTypePreLoadMap.FindOrAdd( URLMapFName ) = WorldContext.WorldType;
 
 		// See if the level is already in memory
-		WorldPackage = FindPackage(MapOuter, *URL.Map);
+		WorldPackage = FindPackage(nullptr, *URL.Map);
 
 		// If the level isn't already in memory, load level from disk
 		if (WorldPackage == NULL)
 		{
-			WorldPackage = LoadPackage(MapOuter, *URL.Map, (WorldContext.WorldType == EWorldType::PIE ? LOAD_PackageForPIE : LOAD_None));
+			WorldPackage = LoadPackage(nullptr, *URL.Map, (WorldContext.WorldType == EWorldType::PIE ? LOAD_PackageForPIE : LOAD_None));
 		}
 
 		// Clean up the world type list now that PostLoad has occurred
@@ -9536,7 +9539,7 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 
 		FScopeCycleCounterUObject MapScope(WorldPackage);
 
-		if (FPlatformProperties::RequiresCookedData() && GUseSeekFreeLoading && !(WorldPackage->PackageFlags & PKG_DisallowLazyLoading))
+		if (FPlatformProperties::RequiresCookedData() && GUseSeekFreeLoading && !WorldPackage->HasAnyPackageFlags(PKG_DisallowLazyLoading))
 		{
 			UE_LOG(LogLoad, Fatal, TEXT("Map '%s' has not been cooked correctly! Most likely stale version on the XDK."), *WorldPackage->GetName());
 		}
@@ -9583,10 +9586,10 @@ bool UEngine::LoadMap( FWorldContext& WorldContext, FURL URL, class UPendingNetG
 	WorldContext.World()->WorldType = WorldContext.WorldType;
 	
 	// Fixme: hacky but we need to set PackageFlags here if we are in a PIE Context.
-	// Also, dont add to root when in PIE, since PIE doesn't remove world from root
+	// Also, don't add to root when in PIE, since PIE doesn't remove world from root
 	if (WorldContext.WorldType == EWorldType::PIE)
 	{
-		check((CastChecked<UPackage>(WorldContext.World()->GetOutermost())->PackageFlags & PKG_PlayInEditor) == PKG_PlayInEditor);
+		check(WorldContext.World()->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor));
 		WorldContext.World()->ClearFlags(RF_Standalone);
 	}
 	else
@@ -10814,7 +10817,33 @@ void UEngine::CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* New
 	const uint32 AdditinalPortFlags = Params.bCopyDeprecatedProperties ? PPF_UseDeprecatedProperties : PPF_None;
 	// Save the modified properties of the old CDO
 	{
-		FObjectWriter Writer(OldObject, SavedProperties, true, true, Params.bDoDelta, AdditinalPortFlags);
+		class FCopyPropertiesArchiveObjectWriter : public FObjectWriter
+		{
+		public:
+			FCopyPropertiesArchiveObjectWriter(UObject* Obj, TArray<uint8>& InBytes, bool bIgnoreClassRef, bool bIgnoreArchetypeRef, bool bDoDelta , uint32 AdditionalPortFlags, bool bInSkipCompilerGeneratedDefaults)
+				: FObjectWriter(InBytes)
+			{	
+				bSkipCompilerGeneratedDefaults = bInSkipCompilerGeneratedDefaults;
+				ArIgnoreClassRef = bIgnoreClassRef;
+				ArIgnoreArchetypeRef = bIgnoreArchetypeRef;
+				ArNoDelta = !bDoDelta;
+				ArPortFlags |= AdditionalPortFlags;
+
+				Obj->Serialize(*this);
+			}
+
+#if WITH_EDITOR
+			virtual bool ShouldSkipProperty(const class UProperty* InProperty) const override
+			{
+				static FName BlueprintCompilerGeneratedDefaultsName(TEXT("BlueprintCompilerGeneratedDefaults"));
+				return bSkipCompilerGeneratedDefaults && InProperty->HasMetaData(BlueprintCompilerGeneratedDefaultsName);
+			}
+#endif
+
+			bool bSkipCompilerGeneratedDefaults;
+		};
+
+		FCopyPropertiesArchiveObjectWriter Writer(OldObject, SavedProperties, true, true, Params.bDoDelta, AdditinalPortFlags, Params.bSkipCompilerGeneratedDefaults);
 	}
 
 	{

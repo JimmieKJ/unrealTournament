@@ -273,6 +273,8 @@ UGameplayCueManager* UAbilitySystemGlobals::GetGameplayCueManager()
 			// Fallback to CDO
 			GlobalGameplayCueManager = UGameplayCueManager::StaticClass()->GetDefaultObject<UGameplayCueManager>();
 		}
+
+		GlobalGameplayCueManager->OnCreated();
 		
 		if (GlobalGameplayCueManager->ShouldAsyncLoadObjectLibrariesAtStart() && GameplayCueNotifyPaths.Num() > 0)
 		{

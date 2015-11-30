@@ -111,5 +111,12 @@ public:
 	virtual FBoxSphereBounds CalcBounds(const FTransform& LocalToWorld) const override;
 	//~ End USceneComponent Interface
 
+	FTransform GetTransformIncludingDecalSize() const
+	{
+		FTransform Ret = GetComponentToWorld();
+		Ret.SetScale3D(Ret.GetScale3D() * DecalSize);
+
+		return Ret;
+	}
 };
 

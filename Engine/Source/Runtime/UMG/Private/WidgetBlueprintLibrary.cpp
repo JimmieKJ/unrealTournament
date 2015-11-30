@@ -542,7 +542,7 @@ FInputEvent UWidgetBlueprintLibrary::GetInputEventFromKeyEvent(const FKeyEvent& 
 	return Event;
 }
 
-FInputEvent UWidgetBlueprintLibrary::GetInputEventFromAnalogInputEvent(const FAnalogInputEvent& Event)
+FKeyEvent UWidgetBlueprintLibrary::GetKeyEventFromAnalogInputEvent(const FAnalogInputEvent& Event)
 {
 	return Event;
 }

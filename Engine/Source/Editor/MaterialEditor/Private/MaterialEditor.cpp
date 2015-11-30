@@ -247,7 +247,7 @@ void FMaterialEditor::InitEditorForMaterial(UMaterial* InMaterial)
 	// Create a copy of the material for preview usage (duplicating to a different class than original!)
 	// Propagate all object flags except for RF_Standalone, otherwise the preview material won't GC once
 	// the material editor releases the reference.
-	Material = (UMaterial*)StaticDuplicateObject(OriginalMaterial, GetTransientPackage(), NULL, ~RF_Standalone, UPreviewMaterial::StaticClass()); 
+	Material = (UMaterial*)StaticDuplicateObject(OriginalMaterial, GetTransientPackage(), NAME_None, ~RF_Standalone, UPreviewMaterial::StaticClass()); 
 	
 	Material->CancelOutstandingCompilation();	//The material is compiled later on anyway so no need to do it in Duplication/PostLoad. 
 												//I'm hackily canceling the jobs here but we should really not add the jobs in the first place. <<--- TODO
@@ -286,7 +286,7 @@ void FMaterialEditor::InitEditorForMaterialFunction(UMaterialFunction* InMateria
 
 	// Propagate all object flags except for RF_Standalone, otherwise the preview material function won't GC once
 	// the material editor releases the reference.
-	MaterialFunction = (UMaterialFunction*)StaticDuplicateObject(InMaterialFunction, GetTransientPackage(), NULL, ~RF_Standalone, UMaterialFunction::StaticClass()); 
+	MaterialFunction = (UMaterialFunction*)StaticDuplicateObject(InMaterialFunction, GetTransientPackage(), NAME_None, ~RF_Standalone, UMaterialFunction::StaticClass()); 
 	MaterialFunction->ParentFunction = InMaterialFunction;
 
 	OriginalMaterial = Material;
@@ -470,8 +470,11 @@ void FMaterialEditor::InitMaterialEditor( const EToolkitMode::Type Mode, const T
 			// If this is an empty functions, create an output by default and start previewing it
 			if (GraphEditor.IsValid())
 			{
+				check(!bMaterialDirty);
 				UMaterialExpression* Expression = CreateNewMaterialExpression(UMaterialExpressionFunctionOutput::StaticClass(), FVector2D(200, 300), false, true);
 				SetPreviewExpression(Expression);
+				// This shouldn't count as having dirtied the material, so reset the flag
+				bMaterialDirty = false;
 			}
 		}
 		else
@@ -1375,7 +1378,7 @@ void FMaterialEditor::UpdateOriginalMaterial()
 		MaterialFunction->ParentFunction = (UMaterialFunction*)StaticDuplicateObject(
 			MaterialFunction, 
 			MaterialFunction->ParentFunction->GetOuter(), 
-			*MaterialFunction->ParentFunction->GetName(), 
+			MaterialFunction->ParentFunction->GetFName(), 
 			RF_AllFlags, 
 			MaterialFunction->ParentFunction->GetClass());
 
@@ -1492,7 +1495,7 @@ void FMaterialEditor::UpdateOriginalMaterial()
 			UMaterial::ForceNoCompilationInPostLoad(true);
 
 			// overwrite the original material in place by constructing a new one with the same name
-			OriginalMaterial = (UMaterial*)StaticDuplicateObject( Material, OriginalMaterial->GetOuter(), *OriginalMaterial->GetName(), 
+			OriginalMaterial = (UMaterial*)StaticDuplicateObject( Material, OriginalMaterial->GetOuter(), OriginalMaterial->GetFName(), 
 				RF_AllFlags, 
 				OriginalMaterial->GetClass());
 

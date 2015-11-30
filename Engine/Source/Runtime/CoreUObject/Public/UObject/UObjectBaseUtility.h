@@ -6,6 +6,8 @@
 
 #pragma once
 
+#include "UObjectArray.h"
+
 #if _MSC_VER == 1900
 	#ifdef PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
 		PRAGMA_DISABLE_SHADOW_VARIABLE_WARNINGS
@@ -30,10 +32,12 @@ public:
 
 	FORCEINLINE void SetFlags( EObjectFlags NewFlags )
 	{
+		checkSlow(!(NewFlags & (RF_MarkAsNative | RF_MarkAsRootSet))); // These flags can't be used outside of constructors / internal code
 		SetFlagsTo(GetFlags() | NewFlags);
 	}
 	FORCEINLINE void ClearFlags( EObjectFlags NewFlags )
 	{
+		checkSlow(!(NewFlags & (RF_MarkAsNative | RF_MarkAsRootSet)) || NewFlags == RF_AllFlags); // These flags can't be used outside of constructors / internal code
 		SetFlagsTo(GetFlags() & ~NewFlags);
 	}
 	/**
@@ -44,6 +48,7 @@ public:
 	 */
 	FORCEINLINE bool HasAnyFlags( EObjectFlags FlagsToCheck ) const
 	{
+		checkSlow(!(FlagsToCheck & (RF_MarkAsNative | RF_MarkAsRootSet)) || FlagsToCheck == RF_AllFlags); // These flags can't be used outside of constructors / internal code
 		return (GetFlags() & FlagsToCheck) != 0;
 	}
 	/**
@@ -54,6 +59,7 @@ public:
 	 */
 	FORCEINLINE bool HasAllFlags( EObjectFlags FlagsToCheck ) const
 	{
+		checkSlow(!(FlagsToCheck & (RF_MarkAsNative | RF_MarkAsRootSet)) || FlagsToCheck == RF_AllFlags); // These flags can't be used outside of constructors / internal code
 		return ((GetFlags() & FlagsToCheck) == FlagsToCheck);
 	}
 	/**
@@ -65,50 +71,6 @@ public:
 	FORCEINLINE EObjectFlags GetMaskedFlags( EObjectFlags Mask = RF_AllFlags ) const
 	{
 		return EObjectFlags(GetFlags() & Mask);
-	}
-
-	/**
-	 * Checks the RF_PendingKill flag to see if it is dead but memory still valid
-	 */
-	FORCEINLINE bool IsPendingKill() const
-	{
-		return HasAnyFlags(RF_PendingKill);
-	}
-
-	/**
-	 * Marks this object as RF_PendingKill.
-	 */
-	FORCEINLINE void MarkPendingKill()
-	{
-		check(!IsRooted());
-		SetFlags( RF_PendingKill );
-	}
-
-	//
-	// Add an object to the root set. This prevents the object and all
-	// its descendants from being deleted during garbage collection.
-	//
-	FORCEINLINE void AddToRoot()
-	{
-		SetFlags( RF_RootSet );
-	}
-
-	//
-	// Remove an object from the root set.
-	//
-	FORCEINLINE void RemoveFromRoot()
-	{
-		ClearFlags( RF_RootSet );
-	}
-
-	/**
-	 * Returns true if this object is explicitly rooted
-	 *
-	 * @return true if the object was explicitly added as part of the root set.
-	 */
-	FORCEINLINE bool IsRooted()
-	{
-		return HasAnyFlags( RF_RootSet );
 	}
 
 	/***********************/
@@ -155,6 +117,147 @@ public:
 	FORCEINLINE bool HasAllMarks(EObjectMark Marks) const
 	{
 		return ObjectHasAllMarks(this,Marks);
+	}
+
+	/**
+	 * Checks the PendingKill flag to see if it is dead but memory still valid
+	 */
+	FORCEINLINE bool IsPendingKill() const
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->IsPendingKill();
+	}
+
+	/**
+	 * Marks this object as RF_PendingKill.
+	 */
+	FORCEINLINE void MarkPendingKill()
+	{
+		check(!IsRooted());
+		GUObjectArray.IndexToObject(InternalIndex)->SetPendingKill();
+	}
+
+	/**
+	* Unmarks this object as PendingKill.
+	*/
+	FORCEINLINE void ClearPendingKill()
+	{
+		GUObjectArray.IndexToObject(InternalIndex)->ClearPendingKill();
+	}
+
+	//
+	// Add an object to the root set. This prevents the object and all
+	// its descendants from being deleted during garbage collection.
+	//
+	FORCEINLINE void AddToRoot()
+	{
+		GUObjectArray.IndexToObject(InternalIndex)->SetRootSet();
+	}
+
+	//
+	// Remove an object from the root set.
+	//
+	FORCEINLINE void RemoveFromRoot()
+	{
+		GUObjectArray.IndexToObject(InternalIndex)->ClearRootSet();
+	}
+
+	/**
+	 * Returns true if this object is explicitly rooted
+	 *
+	 * @return true if the object was explicitly added as part of the root set.
+	 */
+	FORCEINLINE bool IsRooted()
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->IsRootSet();
+	}
+
+	/**
+	* Atomically clear the unreachable flag
+	*
+	* @return true if we are the thread that cleared RF_Unreachable
+	**/
+	FORCEINLINE bool ThisThreadAtomicallyClearedRFUnreachable()
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->ThisThreadAtomicallyClearedRFUnreachable();
+	}
+
+	/**
+	* Checks if the object is unreachable.
+	**/
+	FORCEINLINE bool IsUnreachable() const
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->IsUnreachable();
+	}
+
+	/**
+	* Checks if the object is pending kill or unreachable.
+	**/
+	FORCEINLINE bool IsPendingKillOrUnreachable() const
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->HasAnyFlags(EInternalObjectFlags::PendingKill | EInternalObjectFlags::Unreachable);
+	}
+
+	/**
+	* Checks if the object is native.
+	**/
+	FORCEINLINE bool IsNative() const
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->HasAnyFlags(EInternalObjectFlags::Native);
+	}
+
+	/**
+	* Clears passed in internal flags .
+	 *
+	* @param FlagsToClear	Object flags to clear.
+	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 */
+	FORCEINLINE void SetInternalFlags(EInternalObjectFlags FlagsToSet) const
+	{
+		GUObjectArray.IndexToObject(InternalIndex)->SetFlags(FlagsToSet);
+	}
+
+	/**
+	* Gets internal flags.
+	 *
+	* @param FlagsToClear	Object flags to clear.
+	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 */
+	FORCEINLINE EInternalObjectFlags GetInternalFlags() const
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->GetFlags();
+	}
+
+	/**
+	* Used to safely check whether any of the passed in internal flags are set.
+	 *
+	* @param FlagsToCheck	Object flags to check for.
+	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 */
+	FORCEINLINE bool HasAnyInternalFlags(EInternalObjectFlags FlagsToCheck) const
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->HasAnyFlags(FlagsToCheck);
+	}
+
+	/**
+	* Clears passed in internal flags .
+	 *
+	* @param FlagsToClear	Object flags to clear.
+	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	 */
+	FORCEINLINE void ClearInternalFlags(EInternalObjectFlags FlagsToClear) const
+	{
+		GUObjectArray.IndexToObject(InternalIndex)->ClearFlags(FlagsToClear);
+	}
+
+	/**
+	* Atomically clears passed in internal flags .
+	*
+	* @param FlagsToClear	Object flags to clear.
+	* @return				true if any of the passed in flags are set, false otherwise  (including no flags passed in).
+	*/
+	FORCEINLINE bool AtomicallyClearInternalFlags(EInternalObjectFlags FlagsToClear) const
+	{
+		return GUObjectArray.IndexToObject(InternalIndex)->ThisThreadAtomicallyClearedFlag(FlagsToClear);
 	}
 
 	/***********************/

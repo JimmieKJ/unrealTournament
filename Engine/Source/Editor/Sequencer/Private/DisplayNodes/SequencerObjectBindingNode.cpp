@@ -94,14 +94,25 @@ void FSequencerObjectBindingNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 			if (ObjectClass->IsChildOf(AActor::StaticClass()))
 			{
 				FFormatNamedArguments Args;
-				MenuBuilder.AddMenuEntry(
+
+				MenuBuilder.AddSubMenu(
 					FText::Format( LOCTEXT("Assign Actor ", "Assign Actor"), Args),
-					FText::Format( LOCTEXT("AssignActorTooltip", "Assign the selected actor to this track"), Args ),
-					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateSP(&GetSequencer(), &FSequencer::AssignActor, ObjectBinding, this),
-								FCanExecuteAction::CreateSP(&GetSequencer(), &FSequencer::CanAssignActor, ObjectBinding)) );
+					FText::Format( LOCTEXT("AssignActorTooltip", "Assign an actor to this track"), Args ),
+					FNewMenuDelegate::CreateRaw(&GetSequencer(), &FSequencer::AssignActor, ObjectBinding));
 			}
 		}
+
+#if 0
+		MenuBuilder.BeginSection("Organize", LOCTEXT("OrganizeContextMenuSectionName", "Organize"));
+		{
+			MenuBuilder.AddSubMenu(
+				LOCTEXT("LabelsSubMenuText", "Labels"),
+				LOCTEXT("LabelsSubMenuTip", "Add or remove labels on this track"),
+				FNewMenuDelegate::CreateSP(this, &FSequencerObjectBindingNode::HandleLabelsSubMenuCreate)
+			);
+		}
+		MenuBuilder.EndSection();
+#endif
 	}
 
 	FSequencerDisplayNode::BuildContextMenu(MenuBuilder);
@@ -190,13 +201,13 @@ ESequencerNode::Type FSequencerObjectBindingNode::GetType() const
 }
 
 
-void FSequencerObjectBindingNode::SetDisplayName(const FText& DisplayName)
+void FSequencerObjectBindingNode::SetDisplayName(const FText& NewDisplayName)
 {
 	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
 
 	if (MovieScene != nullptr)
 	{
-		MovieScene->SetObjectDisplayName(ObjectBinding, DisplayName);
+		MovieScene->SetObjectDisplayName(ObjectBinding, NewDisplayName);
 	}
 }
 
@@ -279,7 +290,7 @@ TSharedRef<SWidget> FSequencerObjectBindingNode::HandleAddTrackComboButtonGetMen
 	//@todo need to resolve this between UMG and the level editor sequencer
 	const bool bUseSubMenus = Sequencer.IsLevelEditorSequencer();
 
-	UObject* BoundObject = Sequencer.GetFocusedMovieSceneSequence()->FindObject(ObjectBinding);
+	UObject* BoundObject = Sequencer.GetFocusedMovieSceneSequenceInstance()->FindObject(ObjectBinding, Sequencer);
 
 	ISequencerModule& SequencerModule = FModuleManager::GetModuleChecked<ISequencerModule>( "Sequencer" );
 	TSharedRef<FUICommandList> CommandList(new FUICommandList);
@@ -438,10 +449,17 @@ void FSequencerObjectBindingNode::HandleAddTrackSubMenuNew(FMenuBuilder& AddTrac
 }
 
 
+void FSequencerObjectBindingNode::HandleLabelsSubMenuCreate(FMenuBuilder& MenuBuilder)
+{
+	UMovieScene* MovieScene = GetSequencer().GetFocusedMovieSceneSequence()->GetMovieScene();
+	MenuBuilder.AddWidget(SNew(SSequencerLabelEditor, MovieScene, ObjectBinding), FText::GetEmpty(), true);
+}
+
+
 void FSequencerObjectBindingNode::HandlePropertyMenuItemExecute(TArray<UProperty*> PropertyPath)
 {
 	FSequencer& Sequencer = GetSequencer();
-	UObject* BoundObject = Sequencer.GetFocusedMovieSceneSequence()->FindObject(ObjectBinding);
+	UObject* BoundObject = Sequencer.GetFocusedMovieSceneSequenceInstance()->FindObject(ObjectBinding, Sequencer);
 
 	TArray<UObject*> KeyableBoundObjects;
 	if (BoundObject != nullptr)

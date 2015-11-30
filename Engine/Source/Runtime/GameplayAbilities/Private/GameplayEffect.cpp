@@ -2334,6 +2334,8 @@ FActiveGameplayEffect* FActiveGameplayEffectsContainer::ApplyGameplayEffectSpec(
 /** This is called anytime a new ActiveGameplayEffect is added, on both client and server in all cases */
 void FActiveGameplayEffectsContainer::InternalOnActiveGameplayEffectAdded(FActiveGameplayEffect& Effect)
 {
+	SCOPE_CYCLE_COUNTER(STAT_OnActiveGameplayEffectAdded);
+
 	if (Effect.Spec.Def == nullptr)
 	{
 		ABILITY_LOG(Error, TEXT("FActiveGameplayEffectsContainer serialized new GameplayEffect with NULL Def!"));
@@ -2560,6 +2562,8 @@ bool FActiveGameplayEffectsContainer::InternalRemoveActiveGameplayEffect(int32 I
 /** Called by client and server: This does cleanup that has to happen whether the effect is being removed locally or due to replication */
 void FActiveGameplayEffectsContainer::InternalOnActiveGameplayEffectRemoved(const FActiveGameplayEffect& Effect, bool bInvokeGameplayCueEvents)
 {
+	SCOPE_CYCLE_COUNTER(STAT_OnActiveGameplayEffectRemoved);
+
 	if (Effect.Spec.Def)
 	{
 		// Remove our tag requirements from the dependency map

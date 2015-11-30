@@ -4,7 +4,7 @@
 
 #include "AIPerceptionTypes.h"
 #if !UE_BUILD_SHIPPING
-#	include "Debug/DebugDrawService.h"
+#	include "Debug/GameplayDebuggerBaseObject.h"
 #endif
 #include "AISenseConfig.generated.h"
 
@@ -40,6 +40,6 @@ public:
 	//----------------------------------------------------------------------//
 	// DEBUG	
 	//----------------------------------------------------------------------//
-	virtual void GetDebugData(TArray<FString>& OnScreenStrings, TArray<FDrawDebugShapeElement>& DebugShapes, const UAIPerceptionComponent& PerceptionComponent) const {}
+	virtual void GetDebugData(TArray<FString>& OnScreenStrings, TArray<FGameplayDebuggerShapeElement>& DebugShapes, const UAIPerceptionComponent& PerceptionComponent) const {}
 #endif // !UE_BUILD_SHIPPING
 };

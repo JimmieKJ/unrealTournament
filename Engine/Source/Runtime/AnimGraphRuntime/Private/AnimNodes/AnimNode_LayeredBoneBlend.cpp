@@ -4,6 +4,7 @@
 #include "AnimNodes/AnimNode_LayeredBoneBlend.h"
 #include "AnimationRuntime.h"
 #include "Animation/AnimStats.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_LayeredBoneBlend
@@ -26,8 +27,8 @@ void FAnimNode_LayeredBoneBlend::Initialize(const FAnimationInitializeContext& C
 		}
 
 		// initialize mask weight now
-		check (Context.AnimInstance->CurrentSkeleton);
-		ReinitializeBoneBlendWeights(Context.AnimInstance->RequiredBones, Context.AnimInstance->CurrentSkeleton);
+		check (Context.AnimInstanceProxy->GetSkeleton());
+		ReinitializeBoneBlendWeights(Context.AnimInstanceProxy->GetRequiredBones(), Context.AnimInstanceProxy->GetSkeleton());
 	}
 }
 
@@ -47,9 +48,9 @@ void FAnimNode_LayeredBoneBlend::CacheBones(const FAnimationCacheBonesContext& C
 		BlendPoses[ChildIndex].CacheBones(Context);
 	}
 
-	if (Context.AnimInstance->RequiredBones.GetBoneIndicesArray().Num() != DesiredBoneBlendWeights.Num())
+	if (Context.AnimInstanceProxy->GetRequiredBones().GetBoneIndicesArray().Num() != DesiredBoneBlendWeights.Num())
 	{
-		ReinitializeBoneBlendWeights(Context.AnimInstance->RequiredBones, Context.AnimInstance->CurrentSkeleton);
+		ReinitializeBoneBlendWeights(Context.AnimInstanceProxy->GetRequiredBones(), Context.AnimInstanceProxy->GetSkeleton());
 	}
 }
 
@@ -60,6 +61,7 @@ void FAnimNode_LayeredBoneBlend::Update(const FAnimationUpdateContext& Context)
 	// initialize children
 	BasePose.Update(Context);
 
+	bHasRelevantPoses = false;
 	const int NumPoses = BlendPoses.Num();
 	if ( NumPoses > 0 )
 	{
@@ -67,6 +69,7 @@ void FAnimNode_LayeredBoneBlend::Update(const FAnimationUpdateContext& Context)
 		{
 			if (BlendWeights[ChildIndex] > ZERO_ANIMWEIGHT_THRESH)
 			{
+				bHasRelevantPoses = true;
 				BlendPoses[ChildIndex].Update(Context);
 			}
 		}
@@ -75,10 +78,10 @@ void FAnimNode_LayeredBoneBlend::Update(const FAnimationUpdateContext& Context)
 
 void FAnimNode_LayeredBoneBlend::Evaluate(FPoseContext& Output)
 {
-	ANIM_MT_SCOPE_CYCLE_COUNTER(BlendPosesInGraph, Output.AnimInstance->IsRunningParallelEvaluation());
+	ANIM_MT_SCOPE_CYCLE_COUNTER(BlendPosesInGraph, !IsInGameThread());
 
 	const int NumPoses = BlendPoses.Num();
-	if (NumPoses == 0)
+	if ((NumPoses == 0) || !bHasRelevantPoses)
 	{
 		BasePose.Evaluate(Output);
 	}

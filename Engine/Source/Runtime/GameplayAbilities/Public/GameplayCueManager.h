@@ -7,6 +7,7 @@ class UGameplayCueSet;
 #include "GameplayTags.h"
 #include "GameplayEffect.h"
 #include "GameplayCueNotify_Actor.h"
+#include "GameplayCue_Types.h"
 #include "GameplayCueManager.generated.h"
 
 /**
@@ -46,64 +47,6 @@ class UGameplayCueSet;
  *	
  */
 
-/** Type of payload to pass along with this cue. */
-UENUM()
-enum class EGameplayCuePayloadType : uint8
-{
-	EffectContext,
-	CueParameters,
-	FromSpec,
-};
-
-/** Structure to keep track of pending gameplay cues that haven't been applied yet. */
-USTRUCT()
-struct FGameplayCuePendingExecute
-{
-	GENERATED_USTRUCT_BODY()
-
-	FGameplayCuePendingExecute()
-	: PayloadType(EGameplayCuePayloadType::EffectContext)
-	, OwningComponent(NULL)
-	{
-	}
-
-	UPROPERTY()
-	FGameplayTag GameplayCueTag;
-	
-	/** Prediction key that spawned this cue */
-	UPROPERTY()
-	FPredictionKey PredictionKey;
-
-	/** What type of payload is attached to this cue */
-	UPROPERTY()
-	EGameplayCuePayloadType PayloadType;
-
-	/** What component to send the cue on */
-	UPROPERTY()
-	UAbilitySystemComponent* OwningComponent;
-
-	/** If this cue is from a spec, here's the copy of that spec */
-	UPROPERTY()
-	FGameplayEffectSpecForRPC FromSpec;
-
-	/** Store the full cue parameters or just the effect context depending on type */
-	UPROPERTY()
-	FGameplayCueParameters CueParameters;
-};
-
-/**
- *	FScopedGameplayCueSendContext
- *	Add this around code that sends multiple gameplay cues to allow grouping them into a smalkler number of cues for more efficient networking
- */
-struct GAMEPLAYABILITIES_API FScopedGameplayCueSendContext
-{
-	FScopedGameplayCueSendContext();
-	~FScopedGameplayCueSendContext();
-};
-
-/** Delegate for when GC notifies are added or removed from manager */
-DECLARE_MULTICAST_DELEGATE(FOnGameplayCueNotifyChange);
-
 /**
  *	A self contained handler of a GameplayCue. These are similar to AnimNotifies in implementation.
  */
@@ -128,6 +71,8 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 	/** Send out any pending cues */
 	virtual void FlushPendingCues();
 
+	virtual void OnCreated();
+
 	/** Process a pending cue, return false if the cue should be rejected. */
 	virtual bool ProcessPendingCueExecute(FGameplayCuePendingExecute& PendingCue);
 
@@ -147,6 +92,24 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 
 	/** Returns the cached instance cue. Creates it if it doesn't exist */
 	virtual AGameplayCueNotify_Actor* GetInstancedCueActor(AActor* TargetActor, UClass* CueClass, const FGameplayCueParameters& Parameters);
+
+	/** Notify that this actor is finished and should be destroyed or recycled */
+	virtual void NotifyGameplayCueActorFinished(AGameplayCueNotify_Actor* Actor);
+
+	/** Resets preallocation for a given world */
+	void ResetPreallocation(UWorld* World);
+
+	/** Prespawns a single actor for gameplaycue notify actor classes that need prespawning (should be called by outside gamecode, such as gamestate) */
+	void UpdatePreallocation(UWorld* World);
+
+	void OnWorldCreated(UWorld* NewWorld);
+
+	void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources);
+
+	void OnPreReplayScrub(UWorld* World);
+
+	/** Prints what classess exceeded their preallocation sizes during runtime */
+	void DumpPreallocationStats(UWorld* World);
 
 	// -------------------------------------------------------------
 	//  Loading GameplayCueNotifies from ObjectLibraries
@@ -174,38 +137,8 @@ class GAMEPLAYABILITIES_API UGameplayCueManager : public UDataAsset
 
 	UPROPERTY(transient)
 	FStreamableManager	StreamableManager;
-
-	struct FGCNotifyActorKey
-	{
-		FGCNotifyActorKey(AActor* InTargetActor, UClass* InCueClass, AActor* InInstigatorActor=nullptr, const UObject* InSourceObj=nullptr)
-		{
-			TargetActor = InTargetActor;
-			OptionalInstigatorActor = InInstigatorActor;
-			OptionalSourceObject = InSourceObj;
-			CueClass = InCueClass;
-		}
-
-		TWeakObjectPtr<AActor>	TargetActor;
-		TWeakObjectPtr<AActor>	OptionalInstigatorActor;
-		TWeakObjectPtr<UObject>	OptionalSourceObject;
-		TWeakObjectPtr<UClass>	CueClass;
-
-		FORCEINLINE bool operator==(const FGCNotifyActorKey& Other) const
-		{
-			return TargetActor == Other.TargetActor && CueClass == Other.CueClass &&
-					OptionalInstigatorActor == Other.OptionalInstigatorActor && OptionalSourceObject == Other.OptionalSourceObject;
-		}
-	};
-
-	FORCEINLINE friend uint32 GetTypeHash(const FGCNotifyActorKey& Key)
-	{
-		return GetTypeHash(Key.TargetActor)	^
-				GetTypeHash(Key.OptionalInstigatorActor) ^
-				GetTypeHash(Key.OptionalSourceObject) ^
-				GetTypeHash(Key.CueClass);
-	}
 	
-	TMap<FGCNotifyActorKey, TWeakObjectPtr<AGameplayCueNotify_Actor> >		NotifyMapActor;
+	TMap<FGCNotifyActorKey, TWeakObjectPtr<AGameplayCueNotify_Actor> > NotifyMapActor;
 
 	void PrintGameplayCueNotifyMap();
 
@@ -251,6 +184,18 @@ protected:
 
 	void BuildCuesToAddToGlobalSet(const TArray<FAssetData>& AssetDataList, FName TagPropertyName, bool bAsyncLoadAfterAdd, TArray<struct FGameplayCueReferencePair>& OutCuesToAdd);
 
+	void OnGameplayCueNotifyAsyncLoadComplete(FStringAssetReference StringRef);
+
+	void CheckForPreallocation(UClass* GCClass);
+
+	/** Hardref to the gameplaycue notify classes we have async loaded*/
+	UPROPERTY()
+	TArray<UClass*> LoadedGameplayCueNotifyClasses;
+
+	/** Classes that we need to preallocate instances for */
+	UPROPERTY()
+	TArray<AGameplayCueNotify_Actor*> GameplayCueClassesForPreallocation;
+
 	TArray<FString>	LoadedPaths;
 
 	/** List of gameplay cue executes that haven't been processed yet */
@@ -263,4 +208,12 @@ protected:
 
 	/** Cached world we are currently handling cues for. Used for non instanced GC Notifies that need world. */
 	UWorld* CurrentWorld;
+
+	FPreallocationInfo& GetPreallocationInfo(UWorld* World);
+
+	UPROPERTY(transient)
+	TArray<FPreallocationInfo>	PreallocationInfoList_Internal;
+
+	UPROPERTY(transient)
+	FPreallocationInfo	PreallocationInfo_Internal;
 };

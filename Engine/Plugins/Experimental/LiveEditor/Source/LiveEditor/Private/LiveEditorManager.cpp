@@ -524,7 +524,8 @@ bool FLiveEditorManager::Activate( const FString &Name )
 		FActiveBlueprintRecord Record;
 		Record.Name = Name;
 
-		auto Instance = NewObject<ULiveEditorBlueprint>(GetTransientPackage(), Blueprint->GeneratedClass, NAME_None, RF_Transient | RF_Public | RF_RootSet | RF_Standalone);
+		auto Instance = NewObject<ULiveEditorBlueprint>(GetTransientPackage(), Blueprint->GeneratedClass, NAME_None, RF_Transient | RF_Public | RF_Standalone);
+		Instance->AddToRoot();
 		Instance->DoInit();
 		Record.Blueprint = Instance;
 

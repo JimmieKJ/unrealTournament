@@ -47,12 +47,12 @@ private:
 	 */
 	void AddScalarParameter( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack, FName ParameterName );
 
-	/** Adds a vector parameter and initial key to a material track.
+	/** Adds a color parameter and initial key to a material track.
 	* @param ObjectBinding The object binding which owns the material track.
 	* @param MaterialTrack The track to Add the section to.
 	* @param ParameterName The name of the parameter to add an initial key for.
 	*/
-	void AddVectorParameter( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack, FName ParameterName );
+	void AddColorParameter( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack, FName ParameterName );
 };
 
 

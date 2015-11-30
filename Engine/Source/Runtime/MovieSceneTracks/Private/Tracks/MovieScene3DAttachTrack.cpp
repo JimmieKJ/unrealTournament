@@ -25,6 +25,7 @@ void UMovieScene3DAttachTrack::AddConstraint(float KeyTime, float ConstraintEndT
 {
 	// add the section
 	UMovieScene3DAttachSection* NewSection = NewObject<UMovieScene3DAttachSection>(this);
+	NewSection->SetFlags(RF_Transactional);
 	NewSection->AddAttach(KeyTime, ConstraintEndTime, ConstraintId);
 	NewSection->InitialPlacement( ConstraintSections, KeyTime, ConstraintEndTime, SupportsMultipleRows() );
 	NewSection->AttachSocketName = SocketName;

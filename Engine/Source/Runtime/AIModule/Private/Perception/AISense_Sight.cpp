@@ -102,6 +102,7 @@ UAISense_Sight::UAISense_Sight(const FObjectInitializer& ObjectInitializer)
 	NotifyType = EAISenseNotifyType::OnPerceptionChange;
 	
 	bAutoRegisterAllPawnsAsSources = true;
+	bNeedsForgettingNotification = true;
 }
 
 FORCEINLINE_DEBUGGABLE float UAISense_Sight::CalcQueryImportance(const FPerceptionListener& Listener, const FVector& TargetLocation, const float SightRadiusSq) const
@@ -193,7 +194,8 @@ float UAISense_Sight::Update()
 				const float SightRadiusSq = SightQuery->bLastResult ? PropDigest.LoseSightRadiusSq : PropDigest.SightRadiusSq;
 				
 				float StimulusStrength = 1.f;
-
+				
+				// @Note that automagical "seeing" does not care about sight range nor vision cone
 				if (ShouldAutomaticallySeeTarget(PropDigest, SightQuery, Listener, TargetActor, StimulusStrength))
 				{
 					// Pretend like we've seen this target where we last saw them
@@ -573,6 +575,34 @@ void UAISense_Sight::RemoveAllQueriesToTarget(const FAISightTarget::FTargetId& T
 	if (PostProcess == Sort && bQueriesRemoved)
 	{
 		SortQueries();
+	}
+}
+
+void UAISense_Sight::OnListenerForgetsActor(const FPerceptionListener& Listener, AActor& ActorToForget)
+{
+	const uint32 ListenerId = Listener.GetListenerID();
+	
+	for (FAISightQuery& SightQuery : SightQueryQueue)
+	{
+		if (SightQuery.ObserverId == ListenerId)
+		{
+			// assuming one query per observer-target pair
+			SightQuery.ForgetPreviousResult();
+			break;
+		}
+	}
+}
+
+void UAISense_Sight::OnListenerForgetsAll(const FPerceptionListener& Listener)
+{
+	const uint32 ListenerId = Listener.GetListenerID();
+
+	for (FAISightQuery& SightQuery : SightQueryQueue)
+	{
+		if (SightQuery.ObserverId == ListenerId)
+		{
+			SightQuery.ForgetPreviousResult();
+		}
 	}
 }
 

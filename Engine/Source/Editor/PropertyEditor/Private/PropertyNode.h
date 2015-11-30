@@ -45,6 +45,8 @@ namespace EPropertyNodeFlags
 
 	const Type	SkipChildValidation				= 1 << 21; /** true if this node should skip child validation */
 
+	const Type	PersistentInstance				= 1 << 22; /** true if this node supports creating 'editinlinenew' sub-objects */
+
 	const Type 	NoFlags							= 0;
 
 };

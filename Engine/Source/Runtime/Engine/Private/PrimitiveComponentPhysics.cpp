@@ -800,7 +800,7 @@ void UPrimitiveComponent::UnWeldFromParent()
 	{
 		if (FBodyInstance* RootBI = RootComponent->GetBodyInstance(SocketName, false))
 		{
-			bool bRootIsBeingDeleted = RootComponent->HasAnyFlags(RF_PendingKill) || RootComponent->HasAnyFlags(RF_Unreachable);
+			bool bRootIsBeingDeleted = RootComponent->IsPendingKillOrUnreachable();
 			if (!bRootIsBeingDeleted)
 			{
 				//create new root

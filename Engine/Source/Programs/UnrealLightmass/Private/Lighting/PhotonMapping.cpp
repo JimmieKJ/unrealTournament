@@ -23,7 +23,7 @@ static const int32 NumPhotonWorkRanges = 256;
 /** Sets up photon mapping settings. */
 void FStaticLightingSystem::InitializePhotonSettings()
 {
-	const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh.GetBounds());
+	const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh->GetBounds());
 	const FBoxSphereBounds ImportanceBounds = GetImportanceBounds();
 
 	// Get direct photon counts from each light
@@ -54,12 +54,12 @@ void FStaticLightingSystem::InitializePhotonSettings()
 	DirectIrradiancePhotonFraction = FMath::Clamp(Scene.PhotonMappingSettings.DirectIrradiancePhotonDensity / Scene.PhotonMappingSettings.DirectPhotonDensity, 0.0f, 1.0f);
 
 	// Calculate numbers of photons to gather based on the scene using the given photon densities, the scene's surface area and the importance volume's surface area
-	float SceneSurfaceAreaMillionUnits = FMath::Max(AggregateMesh.GetSurfaceArea() / 1000000.0f, DELTA);
+	float SceneSurfaceAreaMillionUnits = FMath::Max(AggregateMesh->GetSurfaceArea() / 1000000.0f, DELTA);
 	float SceneSurfaceAreaMillionUnitsEstimate = FMath::Max(4.0f * (float)PI * SceneBounds.SphereRadius * SceneBounds.SphereRadius / 1000000.0f, DELTA);
 	float SceneSurfaceAreaMillionUnitsEstimateDiff = SceneSurfaceAreaMillionUnitsEstimate > DELTA ? ( SceneSurfaceAreaMillionUnits / SceneSurfaceAreaMillionUnitsEstimate * 100.0f ) : 0.0f;
 	LogSolverMessage(FString::Printf(TEXT("Scene surface area calculated at %.3f million units (%.3f%% of the estimated %.3f million units)"), SceneSurfaceAreaMillionUnits, SceneSurfaceAreaMillionUnitsEstimateDiff, SceneSurfaceAreaMillionUnitsEstimate));
 
-	float ImportanceSurfaceAreaMillionUnits = FMath::Max(AggregateMesh.GetSurfaceAreaWithinImportanceVolume() / 1000000.0f, DELTA);
+	float ImportanceSurfaceAreaMillionUnits = FMath::Max(AggregateMesh->GetSurfaceAreaWithinImportanceVolume() / 1000000.0f, DELTA);
 	float ImportanceSurfaceAreaMillionUnitsEstimate = FMath::Max(4.0f * (float)PI * ImportanceBounds.SphereRadius * ImportanceBounds.SphereRadius / 1000000.0f, DELTA);
 	float ImportanceSurfaceAreaMillionUnitsEstimateDiff = ImportanceSurfaceAreaMillionUnitsEstimate > DELTA ? ( ImportanceSurfaceAreaMillionUnits / ImportanceSurfaceAreaMillionUnitsEstimate * 100.0f ) : 0.0f;
 	LogSolverMessage(FString::Printf(TEXT("Importance volume surface area calculated at %.3f million units (%.3f%% of the estimated %.3f million units)"), ImportanceSurfaceAreaMillionUnits, ImportanceSurfaceAreaMillionUnitsEstimateDiff, ImportanceSurfaceAreaMillionUnitsEstimate));
@@ -122,7 +122,7 @@ void FStaticLightingSystem::InitializePhotonSettings()
 /** Emits photons, builds data structures to accelerate photon map lookups, and does any other photon preprocessing required. */
 void FStaticLightingSystem::EmitPhotons()
 {
-	const FBoxSphereBounds SceneSphereBounds = FBoxSphereBounds(AggregateMesh.GetBounds());
+	const FBoxSphereBounds SceneSphereBounds = FBoxSphereBounds(AggregateMesh->GetBounds());
 	FBoxSphereBounds ImportanceVolumeBounds = GetImportanceBounds();
 	if (ImportanceVolumeBounds.SphereRadius < DELTA)
 	{
@@ -534,7 +534,7 @@ void FStaticLightingSystem::EmitDirectPhotonsWorkRange(
 		// Find the first vertex of the photon path
 		FLightRayIntersection PathIntersection;
 		SampleRay.TraceFlags |= LIGHTRAY_FLIP_SIDEDNESS;
-		AggregateMesh.IntersectLightRay(SampleRay, true, true, true, CoherentRayCache, PathIntersection);
+		AggregateMesh->IntersectLightRay(SampleRay, true, true, true, CoherentRayCache, PathIntersection);
 		Output.DirectPhotonsTracingThreadTime += CoherentRayCache.FirstHitRayTraceTime - BeforeDirectTraceTime;
 
 		const FVector4 WorldPathDirection = SampleRay.Direction.GetUnsafeNormal3();
@@ -621,7 +621,7 @@ void FStaticLightingSystem::EmitDirectPhotonsWorkRange(
 				const float BeforeIndirectTraceTime = CoherentRayCache.FirstHitRayTraceTime;
 				FLightRayIntersection NewPathIntersection;
 				IndirectSampleRay.TraceFlags |= LIGHTRAY_FLIP_SIDEDNESS;
-				AggregateMesh.IntersectLightRay(IndirectSampleRay, true, false, false, CoherentRayCache, NewPathIntersection);
+				AggregateMesh->IntersectLightRay(IndirectSampleRay, true, false, false, CoherentRayCache, NewPathIntersection);
 				Output.DirectPhotonsTracingThreadTime += CoherentRayCache.FirstHitRayTraceTime - BeforeIndirectTraceTime;
 
 				if (NewPathIntersection.bIntersects && Dot3(NewWorldPathDirection, NewPathIntersection.IntersectionVertex.WorldTangentZ) < 0.0f)
@@ -933,7 +933,7 @@ void FStaticLightingSystem::EmitIndirectPhotonsWorkRange(
 		FLightRayIntersection PathIntersection;
 		const float BeforeLightRayTime = CoherentRayCache.FirstHitRayTraceTime;
 		SampleRay.TraceFlags |= LIGHTRAY_FLIP_SIDEDNESS;
-		AggregateMesh.IntersectLightRay(SampleRay, true, true, true, CoherentRayCache, PathIntersection);
+		AggregateMesh->IntersectLightRay(SampleRay, true, true, true, CoherentRayCache, PathIntersection);
 		Output.IntersectLightRayThreadTime += CoherentRayCache.FirstHitRayTraceTime - BeforeLightRayTime;
 
 		LIGHTINGSTAT(FScopedRDTSCTimer PhotonTracingTimer(Output.PhotonBounceTracingThreadTime));
@@ -1104,7 +1104,7 @@ void FStaticLightingSystem::EmitIndirectPhotonsWorkRange(
 
 			// Trace a ray to determine the next vertex of the photon's path.
 			SampleRay.TraceFlags |= LIGHTRAY_FLIP_SIDEDNESS;
-			AggregateMesh.IntersectLightRay(SampleRay, true, true, false, CoherentRayCache, PathIntersection);
+			AggregateMesh->IntersectLightRay(SampleRay, true, true, false, CoherentRayCache, PathIntersection);
 			WorldPathDirection = NewWorldPathDirection;
 		}
 	}
@@ -2085,7 +2085,7 @@ FIrradiancePhoton* FStaticLightingSystem::FindNearestIrradiancePhoton(
 			const float PreviousShadowTraceTime = MappingContext.RayCache.BooleanRayTraceTime;
 			// Check the line segment for intersection with the static lighting meshes.
 			FLightRayIntersection Intersection;
-			AggregateMesh.IntersectLightRay(VertexToPhotonRay, false, false, false, MappingContext.RayCache, Intersection);
+			AggregateMesh->IntersectLightRay(VertexToPhotonRay, false, false, false, MappingContext.RayCache, Intersection);
 			MappingContext.Stats.IrradiancePhotonSearchRayTime += MappingContext.RayCache.BooleanRayTraceTime - PreviousShadowTraceTime;
 #if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
 			if (bDebugThisLookup && PhotonMappingSettings.bVisualizePhotonGathers)
@@ -2178,7 +2178,7 @@ FLinearColor FStaticLightingSystem::CalculatePhotonIrradiance(
 						);
 
 					FLightRayIntersection RayIntersection;
-					AggregateMesh.IntersectLightRay(Ray, false, false, false, UnusedRayCache, RayIntersection);
+					AggregateMesh->IntersectLightRay(Ray, false, false, false, UnusedRayCache, RayIntersection);
 
 					bPhotonVisible = !RayIntersection.bIntersects;
 				}

@@ -870,7 +870,7 @@
 		 FString CommandLine = FString::Printf(TEXT("x %s -o%s * -y"), *FPaths::ConvertRelativePathToFull(ZipFileName), *FPaths::ConvertRelativePathToFull(OutputFolderPath));
 
 		 FString CmdExe = TEXT("cmd.exe");
-		 FString ZipToolPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Extras/7-Zip/7z.exe"));
+		 FString ZipToolPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/ThirdParty/NotForLicensees/7-Zip/7z.exe"));
 
 		 if (!FPaths::FileExists(ZipToolPath))
 		 {
@@ -898,7 +898,7 @@
 		 FString CommandLine = FString::Printf(TEXT("a %s %s/*"), *FPaths::ConvertRelativePathToFull(OutputFileName), *FPaths::ConvertRelativePathToFull(InputDirectoryPath));
 
 		 FString CmdExe = TEXT("cmd.exe");
-		 FString ZipToolPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Extras/7-Zip/7z.exe"));
+		 FString ZipToolPath = FPaths::ConvertRelativePathToFull(FPaths::EngineDir() / TEXT("Binaries/ThirdParty/NotForLicensees/7-Zip/7z.exe"));
 
 		 if (!FPaths::FileExists(ZipToolPath))
 		 {

@@ -52,12 +52,6 @@ DECLARE_ISBOUNDSHADER(ComputeShader)
 #define VALIDATE_BOUND_SHADER(s)
 #endif
 
-#define WITH_GPA (!PLATFORM_XBOXONE)
-#if WITH_GPA
-#define GPA_WINDOWS 1
-#include <GPUPerfAPI/Gpa.h>
-#endif
-
 void FD3D12DynamicRHI::SetupRecursiveResources()
 {
 	extern ENGINE_API FShaderCompilingManager* GShaderCompilingManager;
@@ -124,25 +118,6 @@ void FD3D12DynamicRHI::SetupRecursiveResources()
 
 	//SetGlobalBoundShaderState(RHICmdList, GMaxRHIFeatureLevel, ResolveBoundShaderState, GScreenVertexDeclaration.VertexDeclarationRHI, *ResolveVertexShader, *ResolvePixelShader);
 }
-
-void FD3D12DynamicRHI::RHIGpuTimeBegin(uint32 Hash, bool bCompute)
-{
-#if WITH_GPA
-	char Str[256];
-	if (GpaBegin(Str, Hash, bCompute, (void*)GetRHIDevice()->GetDevice()))
-	{
-		OutputDebugStringA(Str);
-	}
-#endif
-}
-
-void FD3D12DynamicRHI::RHIGpuTimeEnd(uint32 Hash, bool bCompute)
-{
-#if WITH_GPA
-	GpaEnd(Hash, bCompute);
-#endif
-}
-
 
 // Vertex state.
 void FD3D12CommandContext::RHISetStreamSource(uint32 StreamIndex, FVertexBufferRHIParamRef VertexBufferRHI, uint32 Stride, uint32 Offset)
@@ -234,7 +209,7 @@ void FD3D12CommandContext::RHIDispatchIndirectComputeShader(FVertexBufferRHIPara
 		GetParentDevice()->GetDispatchIndirectCommandSignature(),
 		1,
 		ArgumentBuffer->ResourceLocation->GetResource()->GetResource(),
-		ArgumentBuffer->ResourceLocation->GetOffset() + ArgumentOffset * 20,
+		ArgumentBuffer->ResourceLocation->GetOffset() + ArgumentOffset,
 		NULL,
 		0
 		);
@@ -1490,7 +1465,7 @@ void FD3D12CommandContext::RHIDrawPrimitiveIndirect(uint32 PrimitiveType, FVerte
 		GetParentDevice()->GetDrawIndirectCommandSignature(),
 		1,
 		ArgumentBuffer->ResourceLocation->GetResource()->GetResource(),
-		ArgumentBuffer->ResourceLocation->GetOffset() + ArgumentOffset * 20,
+		ArgumentBuffer->ResourceLocation->GetOffset() + ArgumentOffset,
 		NULL,
 		0
 		);
@@ -1605,7 +1580,7 @@ void FD3D12CommandContext::RHIDrawIndexedPrimitiveIndirect(uint32 PrimitiveType,
 		GetParentDevice()->GetDrawIndexedIndirectCommandSignature(),
 		1,
 		ArgumentBuffer->ResourceLocation->GetResource()->GetResource(),
-		ArgumentBuffer->ResourceLocation->GetOffset() + ArgumentOffset * 20,
+		ArgumentBuffer->ResourceLocation->GetOffset() + ArgumentOffset,
 		NULL,
 		0
 		);
@@ -2207,24 +2182,6 @@ void FD3D12CommandContext::RHIGraphicsWaitOnAsyncComputeJob(uint32 FenceIndex)
 #if USE_ASYNC_COMPUTE_CONTEXT
 #error Implement me!
 #endif
-}
-
-// Functions to yield and regain rendering control from D3D
-
-void FD3D12DynamicRHI::RHISuspendRendering()
-{
-	// Not supported
-}
-
-void FD3D12DynamicRHI::RHIResumeRendering()
-{
-	// Not supported
-}
-
-bool FD3D12DynamicRHI::RHIIsRenderingSuspended()
-{
-	// Not supported
-	return false;
 }
 
 // Blocks the CPU until the GPU catches up and goes idle.

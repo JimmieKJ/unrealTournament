@@ -1760,7 +1760,10 @@ void FClassHierarchy::FindClass(TSharedPtr< FClassViewerNode > InOutClassNode)
 			if (Object->IsA(UBlueprint::StaticClass()))
 			{
 				InOutClassNode->Blueprint = Cast<UBlueprint>(Object);
-				InOutClassNode->Class = Cast<UClass>(InOutClassNode->Blueprint->GeneratedClass);
+				if (InOutClassNode->Blueprint.IsValid())
+				{
+					InOutClassNode->Class = Cast<UClass>(InOutClassNode->Blueprint->GeneratedClass);
+				}
 			}
 			else if (UClass* Class = Cast<UClass>(Object))
 			{

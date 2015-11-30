@@ -20,6 +20,9 @@
 #define LOCTEXT_NAMESPACE "SequencerDisplayNode"
 
 
+/** When 0, regeneration of dynamic key groups is enabled, when non-zero, such behaviour is disabled */
+FThreadSafeCounter KeyGroupRegenerationLock;
+
 namespace SequencerNodeConstants
 {
 	extern const float CommonPadding;
@@ -413,22 +416,52 @@ void FSequencerDisplayNode::BuildContextMenu(FMenuBuilder& MenuBuilder)
 {
 	TSharedRef<FSequencerDisplayNode> ThisNode = SharedThis(this);
 
-	MenuBuilder.AddMenuEntry(
-		LOCTEXT("DeleteNode", "Delete"),
-		LOCTEXT("DeleteNodeTooltip", "Delete this or selected nodes"),
-		FSlateIcon(),
-		FUIAction(FExecuteAction::CreateSP(&GetSequencer(), &FSequencer::DeleteNode, ThisNode))
-	);
+	MenuBuilder.BeginSection("Edit", LOCTEXT("EditContextMenuSectionName", "Edit"));
+	{
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ToggleNodeActive", "Active"),
+			LOCTEXT("ToggleNodeActiveTooltip", "Set this node or selected nodes active/inactive"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(&GetSequencer(), &FSequencer::ToggleNodeActive),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateSP(&GetSequencer(), &FSequencer::IsNodeActive)
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+		);
 
-	MenuBuilder.AddMenuEntry(
-		LOCTEXT("RenameNode", "Rename"),
-		LOCTEXT("RenameNodeTooltip", "Rename this node"),
-		FSlateIcon(),
-		FUIAction(
-			FExecuteAction::CreateSP(this, &FSequencerDisplayNode::HandleContextMenuRenameNodeExecute, ThisNode),
-			FCanExecuteAction::CreateSP(this, &FSequencerDisplayNode::HandleContextMenuRenameNodeCanExecute, ThisNode)
-		)
-	);
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("ToggleNodeLock", "Locked"),
+			LOCTEXT("ToggleNodeLockTooltip", "Lock or unlock this node or selected nodes"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(&GetSequencer(), &FSequencer::ToggleNodeLocked),
+				FCanExecuteAction(),
+				FIsActionChecked::CreateSP(&GetSequencer(), &FSequencer::IsNodeLocked)
+			),
+			NAME_None,
+			EUserInterfaceActionType::ToggleButton
+		);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("DeleteNode", "Delete"),
+			LOCTEXT("DeleteNodeTooltip", "Delete this or selected nodes"),
+			FSlateIcon(),
+			FUIAction(FExecuteAction::CreateSP(&GetSequencer(), &FSequencer::DeleteNode, ThisNode))
+		);
+
+		MenuBuilder.AddMenuEntry(
+			LOCTEXT("RenameNode", "Rename"),
+			LOCTEXT("RenameNodeTooltip", "Rename this node"),
+			FSlateIcon(),
+			FUIAction(
+				FExecuteAction::CreateSP(this, &FSequencerDisplayNode::HandleContextMenuRenameNodeExecute, ThisNode),
+				FCanExecuteAction::CreateSP(this, &FSequencerDisplayNode::HandleContextMenuRenameNodeCanExecute, ThisNode)
+			)
+		);
+	}
+	MenuBuilder.EndSection();
 }
 
 
@@ -498,7 +531,7 @@ TSharedRef<FGroupedKeyArea> FSequencerDisplayNode::UpdateKeyGrouping(int32 InSec
 	{
 		KeyGroup = MakeShareable(new FGroupedKeyArea(*this, InSectionIndex));
 	}
-	else
+	else if (KeyGroupRegenerationLock.GetValue() == 0)
 	{
 		*KeyGroup = FGroupedKeyArea(*this, InSectionIndex);
 	}
@@ -523,5 +556,16 @@ bool FSequencerDisplayNode::HandleContextMenuRenameNodeCanExecute(TSharedRef<FSe
 	return NodeToBeRenamed->CanRenameNode();
 }
 
+
+void FSequencerDisplayNode::DisableKeyGoupingRegeneration()
+{
+	KeyGroupRegenerationLock.Increment();
+}
+
+
+void FSequencerDisplayNode::EnableKeyGoupingRegeneration()
+{
+	KeyGroupRegenerationLock.Decrement();
+}
 
 #undef LOCTEXT_NAMESPACE

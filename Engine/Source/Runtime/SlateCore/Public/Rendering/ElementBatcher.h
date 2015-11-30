@@ -53,6 +53,11 @@ private:
 	void AddTextElement( const FSlateDrawElement& DrawElement );
 
 	/** 
+	 * Creates vertices necessary to draw a shaped glyph sequence (one quad per glyph)
+	 */
+	void AddShapedTextElement( const FSlateDrawElement& DrawElement );
+
+	/** 
 	 * Creates vertices necessary to draw a gradient box (horizontal or vertical)
 	 */
 	void AddGradientElement( const FSlateDrawElement& DrawElement );
@@ -121,11 +126,8 @@ private:
 	/** The draw layer currently being accumulated */
 	FSlateDrawLayer* DrawLayer;
 
-	/** Resource manager for accessing shader resources */
-	FSlateShaderResourceManager& ResourceManager;
-
-	/** Font cache used to layout text */
-	FSlateFontCache& FontCache;
+	/** Rendering policy we were created from */
+	FSlateRenderingPolicy* RenderingPolicy;
 
 	/** Track the number of drawn batches from the previous frame to report to stats. */
 	int32 NumDrawnBatchesStat;

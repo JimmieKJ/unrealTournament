@@ -1586,11 +1586,15 @@ void UGameplayDebuggingComponent::CollectPerceptionData()
 		if (BTAI)
 		{
 			const UAIPerceptionComponent* PerceptionComponent = BTAI->GetAIPerceptionComponent();
+			if (PerceptionComponent == nullptr)
+			{
+				PerceptionComponent = MyPawn->FindComponentByClass<UAIPerceptionComponent>();
+			}
 			if (PerceptionComponent)
 			{
 				TArray<FString> PerceptionTexts;
 				PerceptionShapeElements.Reset();
-				PerceptionComponent->GetDebugData(PerceptionTexts, PerceptionShapeElements);
+				PerceptionComponent->GrabGameplayDebuggerData(PerceptionTexts, PerceptionShapeElements);
 
 				DistanceFromPlayer = DistanceFromSensor = -1;
 

@@ -1015,7 +1015,7 @@ void UMaterialInstanceDynamic::CopyScalarAndVectorParameters(const UMaterialInte
 			{
 				const FMaterialUniformExpression* UniformExpression = Array[i];
 
-				// the array can have non scalar parameters in it, those we don't want to inetrpolate
+				// the array can have non scalar parameters in it, those we don't want to interpolate
 				if (UniformExpression->GetType() == &FMaterialUniformExpressionScalarParameter::StaticType)
 				{
 					const FMaterialUniformExpressionScalarParameter* ScalarExpression = static_cast<const FMaterialUniformExpressionScalarParameter*>(UniformExpression);

@@ -241,6 +241,7 @@ enum EExprToken
 	EX_AssetConst			= 0x67,
 	EX_CallMath				= 0x68, // static pure function from on local call space
 	EX_SwitchValue			= 0x69,
+	EX_InstrumentationEvent	= 0x6A, // Instrumentation event
 	EX_Max					= 0x100,
 };
 
@@ -265,6 +266,24 @@ namespace EBlueprintExceptionType
 		InfiniteLoop,
 		NonFatalError,
 		FatalError,
+	};
+}
+
+// Script instrumentation event types
+namespace EScriptInstrumentation
+{
+	enum Type
+	{
+		Class = 0,
+		Instance,
+		Event,
+		Function,
+		Branch,
+		Macro,
+		NodeEntry,
+		NodeExit,
+		NodePin,
+		Stop
 	};
 }
 
@@ -297,19 +316,60 @@ protected:
 	FString Description;
 };
 
+// Information about a blueprint instrumentation event
+struct EScriptInstrumentationEvent
+{
+public:
+
+	EScriptInstrumentationEvent(EScriptInstrumentation::Type InEventType, const UObject* InContextObject, const struct FFrame& InStackFrame)
+		: EventType(InEventType)
+		, ContextObject(InContextObject)
+		, StackFramePtr(&InStackFrame)
+	{
+	}
+
+	EScriptInstrumentationEvent(EScriptInstrumentation::Type InEventType, const UObject* InContextObject)
+		: EventType(InEventType)
+		, ContextObject(InContextObject)
+		, StackFramePtr(nullptr)
+	{
+	}
+
+	EScriptInstrumentation::Type GetType() const { return EventType; }
+	void SetType(EScriptInstrumentation::Type InType) { EventType = InType;	}
+	const UObject* GetContextObject() const { return ContextObject; }
+	bool IsStackFrameValid() const { return StackFramePtr != nullptr; }
+	const FFrame& GetStackFrame() const { return *StackFramePtr; }
+
+protected:
+
+	EScriptInstrumentation::Type EventType;
+	const UObject* ContextObject;
+	const struct FFrame* StackFramePtr;
+};
+
 // Blueprint core runtime delegates
 class COREUOBJECT_API FBlueprintCoreDelegates
 {
 public:
 	// Callback for debugging events such as a breakpoint (Object that triggered event, active stack frame, Info)
 	DECLARE_MULTICAST_DELEGATE_ThreeParams(FOnScriptDebuggingEvent, const UObject*, const struct FFrame&, const FBlueprintExceptionInfo&);
+	// Callback for blueprint profiling events
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnScriptInstrumentEvent, const EScriptInstrumentationEvent& );
+	// Callback for blueprint instrumentation enable/disable events
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnToggleScriptProfiler, bool );
 
 public:
 	// Called when a script exception occurs
 	static FOnScriptDebuggingEvent OnScriptException;
+	// Called when a script profiling event is fired
+	static FOnScriptInstrumentEvent OnScriptProfilingEvent;
+	// Called when a script profiler is enabled/disabled
+	static FOnToggleScriptProfiler OnToggleScriptProfiler;
 
 public:
 	static void ThrowScriptException(const UObject* ActiveObject, const struct FFrame& StackFrame, const FBlueprintExceptionInfo& Info);
+	static void InstrumentScriptEvent(const EScriptInstrumentationEvent& Info);
 	static void SetScriptMaximumLoopIterations( const int32 MaximumLoopIterations );
 };
 

@@ -40,7 +40,12 @@ void FAIModule::StartupModule()
 { 
 	// This code will execute after your module is loaded into memory and after global variables initialization. We needs some place to load GameplayDebugger module so it's best place for it now.
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	FModuleManager::LoadModulePtr< IModuleInterface >("GameplayDebugger");
+	bool bEnableGameplayDebuggerPlugin = false;
+	GConfig->GetBool(TEXT("/Script/GameplayDebuggerModule.GameplayDebuggerModuleSettings"), TEXT("EnableGameplayDebuggerPlugin"), bEnableGameplayDebuggerPlugin, GEngineIni);
+	if (!bEnableGameplayDebuggerPlugin)
+	{
+		FModuleManager::LoadModulePtr< IModuleInterface >("GameplayDebugger");
+	}
 #endif
 
 #if WITH_EDITOR 

@@ -18,7 +18,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogHUD, Log, All);
 
 #define LOCTEXT_NAMESPACE "HUD"
 
-bool AHUD::bShowDebugForReticleTarget = false;
 FOnShowDebugInfo AHUD::OnShowDebugInfo;
 
 

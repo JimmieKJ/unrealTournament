@@ -187,16 +187,22 @@ public class APEX : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.XboxOne)
 		{
-			Definitions.Add("APEX_STATICALLY_LINKED=1");
-			Definitions.Add("WITH_APEX_LEGACY=0");
+			// Use reflection to allow type not to exist if console code is not present
+			System.Type XboxOnePlatformType = System.Type.GetType("UnrealBuildTool.XboxOnePlatform,UnrealBuildTool");
+			if (XboxOnePlatformType != null)
+			{
+				Definitions.Add("APEX_STATICALLY_LINKED=1");
+				Definitions.Add("WITH_APEX_LEGACY=0");
 
-			// This MUST be defined for XboxOne!
-			Definitions.Add("PX_HAS_SECURE_STRCPY=1");
+				// This MUST be defined for XboxOne!
+				Definitions.Add("PX_HAS_SECURE_STRCPY=1");
 
-			APEXLibDir += "/XboxOne";
-			PublicLibraryPaths.Add(APEXLibDir);
+				System.Object VersionName = XboxOnePlatformType.GetMethod("GetVisualStudioCompilerVersionName").Invoke(null, null);
+				APEXLibDir += "/XboxOne/VS" + VersionName.ToString();
+				PublicLibraryPaths.Add(APEXLibDir);
 
-			LibraryFormatString = "{0}.lib";
+				LibraryFormatString = "{0}.lib";
+			}
 		}
 
 		// Add the libraries needed (used for all platforms except Windows)

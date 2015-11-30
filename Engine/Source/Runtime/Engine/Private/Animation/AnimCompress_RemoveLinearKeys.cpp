@@ -1056,7 +1056,7 @@ void UAnimCompress_RemoveLinearKeys::DoReduction(UAnimSequence* AnimSeq, const T
 	{
 		GWarn->EndSlowTask();
 	}
-	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( this, AnimSeq, TEXT("None")) );
+	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( this, AnimSeq ) );
 
 #endif // WITH_EDITORONLY_DATA
 }

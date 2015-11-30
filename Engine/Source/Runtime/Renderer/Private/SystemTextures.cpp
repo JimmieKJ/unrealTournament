@@ -249,12 +249,12 @@ void FSystemTextures::InitializeTextures(FRHICommandListImmediate& RHICmdList, E
 			float s = FMath::Sin(ww) * lenm;
 			float c = FMath::Cos(ww) * lenm;
 
-			// .zw is redundant and could be constructed in the shader but it adds 2 more instructions (likely to be unnoticed)
-			Bases[Pos] = FColor(FMath::Quantize8SignedByte(c), FMath::Quantize8SignedByte(s), FMath::Quantize8SignedByte(-s), FMath::Quantize8SignedByte(c));
+			Bases[Pos] = FColor(FMath::Quantize8SignedByte(c), FMath::Quantize8SignedByte(s), 0, 0);
 		}
 
 		{
-			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(64, 64), PF_B8G8R8A8, FClearValueBinding::None, TexCreate_HideInVisualizeTexture, TexCreate_None | TexCreate_NoFastClear, false));
+			// could be PF_V8U8 to save shader instructions but that doesn't work on all hardware
+			FPooledRenderTargetDesc Desc(FPooledRenderTargetDesc::Create2DDesc(FIntPoint(64, 64), PF_R8G8, FClearValueBinding::None, TexCreate_HideInVisualizeTexture, TexCreate_None | TexCreate_NoFastClear, false));
 			Desc.AutoWritable = false;
 			GRenderTargetPool.FindFreeElement(RHICmdList, Desc, SSAORandomization, TEXT("SSAORandomization"));
 			// Write the contents of the texture.
@@ -265,11 +265,12 @@ void FSystemTextures::InitializeTextures(FRHICommandListImmediate& RHICmdList, E
 			{
 				for(int32 x = 0; x < Desc.Extent.X; ++x)
 				{
-					FColor* Dest = (FColor*)(DestBuffer + x * sizeof(uint32) + y * DestStride);
+					uint8* Dest = (uint8*)(DestBuffer + x * sizeof(uint16) + y * DestStride);
 
 					uint32 Index = (x % 4) + (y % 4) * 4; 
 
-					*Dest = Bases[Index];
+					Dest[0] = Bases[Index].R;
+					Dest[1] = Bases[Index].G;
 				}
 			}
 		}
@@ -413,6 +414,7 @@ void FSystemTextures::ReleaseDynamicRHI()
 {
 	WhiteDummy.SafeRelease();
 	BlackDummy.SafeRelease();
+	BlackAlphaOneDummy.SafeRelease();
 	PerlinNoiseGradient.SafeRelease();
 	PerlinNoise3D.SafeRelease();
 	SSAORandomization.SafeRelease();

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "ByteKeyArea.h"
+
 
 /**
  * An implementation of byte property sections
@@ -10,6 +12,7 @@ class FBytePropertySection
 	: public FPropertySection
 {
 public:
+
 	FBytePropertySection(UMovieSceneSection& InSectionObject, const FText& InSectionName, UEnum* InEnum)
 		: FPropertySection(InSectionObject, InSectionName)
 		, Enum( InEnum )

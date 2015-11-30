@@ -20,7 +20,7 @@ protected:
 		UWorld* World = NULL;
 
 		check(InComponent);
-		checkf(!InComponent->HasAnyFlags(RF_Unreachable), TEXT("%s"), *InComponent->GetFullName());
+		checkf(!InComponent->IsUnreachable(), TEXT("%s"), *InComponent->GetFullName());
 
 		if(InComponent->IsRegistered() && InComponent->GetWorld())
 		{

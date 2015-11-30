@@ -40,5 +40,19 @@ public:
 	 * @return a new instance of a qos evaluator
 	 */
 	UQosEvaluator* CreateQosEvaluator();
+
+	/**
+	 * Get the default region for this instance, checking ini and commandline overrides
+	 *
+	 * @return the default region identifier
+	 */
+	static const FString& GetDefaultRegionString();
+
+	/**
+	 * Get the datacenter id for this instance, checking ini and commandline overrides
+	 *
+	 * @return the default datacenter identifier
+	 */
+	static const FString& GetDatacenterId();
 };
 

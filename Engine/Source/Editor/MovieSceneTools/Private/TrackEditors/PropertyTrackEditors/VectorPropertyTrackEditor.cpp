@@ -58,22 +58,16 @@ void FVectorPropertyTrackEditor::GenerateKeysFromPropertyChanged( const FPropert
 	}
 
 	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
-
-	if ( ChannelName == NAME_None || ChannelName == XName )
+		
+	GeneratedKeys.Add( FVectorKey( EKeyVectorChannel::X, VectorValues.X, ChannelName == NAME_None || ChannelName == XName ? EKeyVectorValueType::Key : EKeyVectorValueType::Default ) );
+	GeneratedKeys.Add( FVectorKey( EKeyVectorChannel::Y, VectorValues.Y, ChannelName == NAME_None || ChannelName == YName ? EKeyVectorValueType::Key : EKeyVectorValueType::Default ) );
+	if (Channels >= 3 )
 	{
-		GeneratedKeys.Add( FVectorKey( EKeyVectorChannel::X, VectorValues.X ) );
+		GeneratedKeys.Add( FVectorKey( EKeyVectorChannel::Z, VectorValues.Z, ChannelName == NAME_None || ChannelName == ZName ? EKeyVectorValueType::Key : EKeyVectorValueType::Default ) );
 	}
-	if ( ChannelName == NAME_None || ChannelName == YName )
+	if (Channels >= 4 )
 	{
-		GeneratedKeys.Add( FVectorKey( EKeyVectorChannel::Y, VectorValues.Y ) );
-	}
-	if ( (ChannelName == NAME_None || ChannelName == ZName) && Channels >= 3 )
-	{
-		GeneratedKeys.Add( FVectorKey( EKeyVectorChannel::Z, VectorValues.Z ) );
-	}
-	if ( (ChannelName == NAME_None || ChannelName == WName) && Channels >= 4 )
-	{
-		GeneratedKeys.Add( FVectorKey( EKeyVectorChannel::W, VectorValues.W ) );
+		GeneratedKeys.Add( FVectorKey( EKeyVectorChannel::W, VectorValues.W, ChannelName == NAME_None || ChannelName == WName ? EKeyVectorValueType::Key : EKeyVectorValueType::Default ) );
 	}
 }
 
@@ -95,4 +89,9 @@ void FVectorPropertyTrackEditor::InitializeNewTrack( UMovieSceneVectorTrack* New
 	{
 		NewTrack->SetNumChannelsUsed( 4 );
 	}
+}
+
+bool FVectorPropertyTrackEditor::ShouldAddKey(UMovieSceneVectorTrack* InTrack, FVectorKey InKey, FKeyParams InKeyParams) const
+{
+	return FPropertyTrackEditor::ShouldAddKey(InTrack, InKey, InKeyParams) && InKey.ValueType == EKeyVectorValueType::Key;
 }

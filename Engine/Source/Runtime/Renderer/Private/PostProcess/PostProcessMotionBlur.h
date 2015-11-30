@@ -125,7 +125,13 @@ class FRCPassPostProcessMotionBlurNew : public TRenderingCompositePassBase<4, 1>
 {
 public:
 	// @param InQuality 0xffffffff to visualize, 0:off(no shader is used), 1:low, 2:medium, 3:high, 4:very high
-	FRCPassPostProcessMotionBlurNew(uint32 InQuality);
+	FRCPassPostProcessMotionBlurNew( uint32 InQuality, int32 InPass )
+		: Quality(InQuality)
+		, Pass(InPass)
+	{
+		// internal error
+		check(Quality >= 1 && Quality <= 4);
+	}
 
 	// interface FRenderingCompositePass ---------
 	virtual void Process(FRenderingCompositePassContext& Context) override;
@@ -133,5 +139,6 @@ public:
 	virtual FPooledRenderTargetDesc ComputeOutputDesc(EPassOutputId InPassOutputId) const override;
 
 	// 1:low, 2:medium, 3:high, 4: very high
-	uint32 Quality;
+	uint32	Quality;
+	int32	Pass;
 };

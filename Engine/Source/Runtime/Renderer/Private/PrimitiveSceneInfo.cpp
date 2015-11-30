@@ -7,7 +7,7 @@
 #include "RendererPrivate.h"
 #include "ScenePrivate.h"
 #include "../../Engine/Classes/Components/SkeletalMeshComponent.h"
-
+#include "LightMapRendering.h"
 #include "ParticleDefinitions.h"
 
 /** An implementation of FStaticPrimitiveDrawInterface that stores the drawn elements for the rendering thread to use. */
@@ -95,7 +95,8 @@ FPrimitiveSceneInfo::FPrimitiveSceneInfo(UPrimitiveComponent* InComponent,FScene
 	PackedIndex(INDEX_NONE),
 	ComponentForDebuggingOnly(InComponent),
 	bNeedsStaticMeshUpdate(false),
-	bNeedsUniformBufferUpdate(false)
+	bNeedsUniformBufferUpdate(false),
+	bPrecomputedLightingBufferDirty(false)
 {
 	check(ComponentForDebuggingOnly);
 	check(PrimitiveComponentId.IsValid());
@@ -179,6 +180,7 @@ void FPrimitiveSceneInfo::AddToScene(FRHICommandListImmediate& RHICmdList, bool 
 			IndirectLightingCacheAllocation = PrimitiveAllocation;
 		}
 	}
+	MarkPrecomputedLightingBufferDirty();
 
 	if (bUpdateStaticDrawLists)
 	{
@@ -294,6 +296,7 @@ void FPrimitiveSceneInfo::RemoveFromScene(bool bUpdateStaticDrawLists)
 	OctreeId = FOctreeElementId();
 
 	IndirectLightingCacheAllocation = NULL;
+	ClearPrecomputedLightingBuffer(false);
 
 	DEC_MEMORY_STAT_BY(STAT_PrimitiveInfoMemory, sizeof(*this) + StaticMeshes.GetAllocatedSize() + Proxy->GetMemoryFootprint());
 
@@ -461,6 +464,27 @@ void FPrimitiveSceneInfo::GatherLightingAttachmentGroupPrimitives(TArray<FPrimit
 	}
 }
 
+void FPrimitiveSceneInfo::GatherLightingAttachmentGroupPrimitives(TArray<const FPrimitiveSceneInfo*, SceneRenderingAllocator>& OutChildSceneInfos) const
+{
+	OutChildSceneInfos.Add(this);
+
+	if (!LightingAttachmentRoot.IsValid() && Proxy->LightAttachmentsAsGroup())
+	{
+		const FAttachmentGroupSceneInfo* AttachmentGroup = Scene->AttachmentGroups.Find(PrimitiveComponentId);
+
+		if (AttachmentGroup)
+		{
+			for (int32 ChildIndex = 0, ChildIndexMax = AttachmentGroup->Primitives.Num(); ChildIndex < ChildIndexMax; ChildIndex++)
+			{
+				const FPrimitiveSceneInfo* ShadowChild = AttachmentGroup->Primitives[ChildIndex];
+
+				checkSlow(!OutChildSceneInfos.Contains(ShadowChild))
+			    OutChildSceneInfos.Add(ShadowChild);
+			}
+		}
+	}
+}
+
 FBoxSphereBounds FPrimitiveSceneInfo::GetAttachmentGroupBounds() const
 {
 	FBoxSphereBounds Bounds = Proxy->GetBounds();
@@ -545,3 +569,63 @@ void FPrimitiveSceneInfo::ApplyWorldOffset(FVector InOffset)
 {
 	Proxy->ApplyWorldOffset(InOffset);
 }
+
+void FPrimitiveSceneInfo::UpdatePrecomputedLightingBuffer()
+{
+	// The update is invalid if the lighting cache allocation was not in a functional state.
+	if (bPrecomputedLightingBufferDirty && (!IndirectLightingCacheAllocation || (Scene->IndirectLightingCache.IsInitialized() && IndirectLightingCacheAllocation->bHasEverUpdatedSingleSample)))
+	{
+		EUniformBufferUsage BufferUsage = /*Proxy->IsOftenMoving() ? UniformBuffer_SingleFrame : */ UniformBuffer_MultiFrame;
+
+		// If the PrimitiveInfo has no precomputed lighting buffer, it will fallback to the global Empty buffer.
+		if (IndirectLightingCacheAllocation)
+		{
+			IndirectLightingCacheUniformBuffer = CreatePrecomputedLightingUniformBuffer(BufferUsage, Scene->GetFeatureLevel(), &Scene->IndirectLightingCache, IndirectLightingCacheAllocation);
+		}
+		else
+		{
+			IndirectLightingCacheUniformBuffer.SafeRelease();
+		}
+
+		FPrimitiveSceneProxy::FLCIArray LCIs;
+		Proxy->GetLCIs(LCIs);
+		for (int32 i = 0; i < LCIs.Num(); ++i)
+		{
+			FLightCacheInterface* LCI = LCIs[i];
+			if (!LCI) continue;
+
+			// If the LCI has no precomputed lighting buffer, it will fallback to the PrimitiveInfo buffer.
+			if (LCI->GetShadowMapInteraction().GetType() == SMIT_Texture || LCI->GetLightMapInteraction(Scene->GetFeatureLevel()).GetType() == LMIT_Texture)
+			{
+				LCI->SetPrecomputedLightingBuffer(CreatePrecomputedLightingUniformBuffer(BufferUsage, Scene->GetFeatureLevel(), &Scene->IndirectLightingCache, IndirectLightingCacheAllocation, LCI));
+			}
+			else
+			{
+				LCI->SetPrecomputedLightingBuffer(FUniformBufferRHIRef());
+			}
+		}
+
+		bPrecomputedLightingBufferDirty = false;
+	}
+}
+
+void FPrimitiveSceneInfo::ClearPrecomputedLightingBuffer(bool bSingleFrameOnly)
+{
+	if (!bSingleFrameOnly /* || Proxy->IsOftenMoving()*/)
+	{
+		IndirectLightingCacheUniformBuffer.SafeRelease();
+
+		FPrimitiveSceneProxy::FLCIArray LCIs;
+		Proxy->GetLCIs(LCIs);
+		for (int32 i = 0; i < LCIs.Num(); ++i)
+		{
+			FLightCacheInterface* LCI = LCIs[i];
+			if (LCI)
+			{
+				LCI->SetPrecomputedLightingBuffer(FUniformBufferRHIRef());
+			}
+		}
+		MarkPrecomputedLightingBufferDirty();
+	}
+}
+

@@ -112,14 +112,14 @@ void UBoolProperty::Serialize( FArchive& Ar )
 	if( Ar.IsLoading())
 	{
 		Ar << NativeBool;
-		if (!HasAnyFlags(RF_PendingKill))
+		if (!IsPendingKill())
 		{
 			SetBoolSize( BoolSize, !!NativeBool );
 		}
 	}
 	else
 	{
-		NativeBool = (!HasAnyFlags(RF_ClassDefaultObject|RF_PendingKill) && Ar.IsSaving()) ? (IsNativeBool() ? 1 : 0) : 0;
+		NativeBool = (!HasAnyFlags(RF_ClassDefaultObject) && !IsPendingKill() && Ar.IsSaving()) ? (IsNativeBool() ? 1 : 0) : 0;
 		Ar << NativeBool;
 	}
 }

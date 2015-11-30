@@ -209,6 +209,13 @@
 						<td>
 							<input name="BuiltFromCL" type="text" value="<%=Model.BuiltFromCL %>" title="" />
 						</td>
+
+						<td>
+							<p class="SearchTextTitle">Filter by Platform</p>
+						</td>
+						<td>
+							<%=Html.DropDownListFor( m=>m.PlatformName, Model.PlatformNames )%>
+						</td>
 					</tr>
 
 					<tr>

@@ -157,7 +157,7 @@ private:
 #endif
 
 /** Get a pointer to the PxScene from an SceneIndex (will be NULL if scene already shut down) */
-PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex);
+ENGINE_API PxScene* GetPhysXSceneFromIndex(int32 InSceneIndex);
 
 template <bool NeedsLock>
 struct FPhysXSupport

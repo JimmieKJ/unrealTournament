@@ -149,8 +149,9 @@ public:
 	UFUNCTION()
 	virtual void OnRep_PlayerState();
 
-	/** @fixme, shouldn't be necessary once general cast support is in. */
-	UFUNCTION(BlueprintCallable, Category="Pawn")
+	/** DEPRECATED! Use the standard "Cast To" node instead. Casts this Controller to a Player Controller, if possible. */
+	DEPRECATED(4.11, "CastToPlayerController has been replaced by the standard Cast To node.")
+	UFUNCTION(BlueprintCallable, Category = "Pawn", meta = (DeprecatedFunction, DeprecationMessage = "Use standard Cast To node instead."))
 	class APlayerController* CastToPlayerController();
 
 	/** Replicated function to set the pawn location and rotation, allowing server to force (ex. teleports). */

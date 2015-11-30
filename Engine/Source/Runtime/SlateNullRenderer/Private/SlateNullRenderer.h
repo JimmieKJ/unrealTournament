@@ -6,7 +6,7 @@
 class FSlateNullRenderer : public FSlateRenderer
 {
 public:
-	FSlateNullRenderer(const TSharedPtr<FSlateFontCache>& InFontCache, const TSharedPtr<FSlateFontMeasure>& InFontMeasure);
+	explicit FSlateNullRenderer(const TSharedRef<FSlateFontServices>& InSlateFontServices);
 
 	/** FSlateRenderer interface */
 	virtual void Initialize() override;

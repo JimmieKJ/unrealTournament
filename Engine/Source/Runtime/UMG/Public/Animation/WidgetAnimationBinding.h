@@ -2,8 +2,8 @@
 
 #pragma once
 
+#include "WidgetTree.h"
 #include "WidgetAnimationBinding.generated.h"
-
 
 /**
  * A single object bound to a UMG sequence.

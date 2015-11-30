@@ -81,7 +81,7 @@ bool UPartyBeaconState::ReconfigureTeamAndPlayerCount(int32 InNumTeams, int32 In
 	bool bSuccess = false;
 
 	//Check total existing reservations against new total maximum
-	if (NumConsumedReservations < InNumReservations)
+	if (NumConsumedReservations <= InNumReservations)
 	{
 		bool bTeamError = false;
 		// Check teams with reservations against new team count

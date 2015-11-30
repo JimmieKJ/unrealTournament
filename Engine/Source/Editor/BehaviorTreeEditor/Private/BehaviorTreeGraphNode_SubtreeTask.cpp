@@ -72,7 +72,7 @@ bool UBehaviorTreeGraphNode_SubtreeTask::UpdateInjectedNodes()
 				{
 					SubNode->PrepareForCopying();
 
-					UBehaviorTreeGraphNode* InjectedNode = Cast<UBehaviorTreeGraphNode>(StaticDuplicateObject(SubNode, GetOuter(), TEXT("")));
+					UBehaviorTreeGraphNode* InjectedNode = Cast<UBehaviorTreeGraphNode>(StaticDuplicateObject(SubNode, GetOuter()));
 
 					SubNode->PostCopyNode();
 					InjectedNode->PostCopyNode();

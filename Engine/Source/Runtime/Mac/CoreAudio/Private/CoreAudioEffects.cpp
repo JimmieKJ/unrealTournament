@@ -192,13 +192,11 @@ void FCoreAudioEffectsManager::SetEQEffectParameters( const FAudioEQEffect& Para
 				AudioUnitSetParameter(Source->EQUnit, kAUNBandEQParam_Bandwidth + 3,	kAudioUnitScope_Global, 0, 1.0f,						0); // from FXEQ_DEFAULT_BANDWIDTH
 			}
 
-			if (Source->LowPassUnit && Source->HighFrequencyGain < 1.0f - KINDA_SMALL_NUMBER)
+			if (Source->LowPassUnit && Source->LPFFrequency < MAX_FILTER_FREQUENCY)
 			{
-				float RadianFrequency = 2.0f * FMath::Sin( PI * 6000.0f * Source->HighFrequencyGain / 48000.0f );
-				float CuttoffFrequency = RadianFrequency * ((FCoreAudioDevice*)AudioDevice)->SampleRate;
 				float OneOverQ = ((FCoreAudioDevice*)AudioDevice)->GetLowPassFilterResonance();
 
-				AudioUnitSetParameter(Source->LowPassUnit, kLowPassParam_CutoffFrequency, kAudioUnitScope_Global, 0, CuttoffFrequency, 0);
+				AudioUnitSetParameter(Source->LowPassUnit, kLowPassParam_CutoffFrequency, kAudioUnitScope_Global, 0, Source->LPFFrequency, 0);
 				AudioUnitSetParameter(Source->LowPassUnit, kLowPassParam_Resonance, kAudioUnitScope_Global, 0, OneOverQ, 0);
 			}
 		}

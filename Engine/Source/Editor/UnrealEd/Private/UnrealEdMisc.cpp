@@ -1097,22 +1097,22 @@ void FUnrealEdMisc::OnMessageTokenActivated(const TSharedRef<IMessageToken>& Tok
 	}
 }
 
-FText FUnrealEdMisc::OnGetDisplayName(UObject* InObject, bool bFullPath)
+FText FUnrealEdMisc::OnGetDisplayName(const UObject* InObject, const bool bFullPath)
 {
 	FText Name = LOCTEXT("DisplayNone", "<None>");
 
-	if(InObject != NULL)
+	if (InObject != nullptr)
 	{
 		// Is this an object held by an actor?
-		AActor* Actor = NULL;
-		UActorComponent* Component = Cast<UActorComponent>(InObject);
+		const AActor* Actor = nullptr;
+		const UActorComponent* Component = Cast<UActorComponent>(InObject);
  
-		if (Component != NULL)
+		if (Component != nullptr)
 		{
 			Actor = Cast<AActor>(Component->GetOuter());
 		}
  
-		if (Actor != NULL)
+		if (Actor != nullptr)
 		{
 			Name = FText::FromString( bFullPath ? Actor->GetPathName() : Actor->GetName() );
 		}

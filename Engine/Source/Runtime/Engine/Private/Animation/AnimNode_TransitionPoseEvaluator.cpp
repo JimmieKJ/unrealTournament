@@ -2,6 +2,7 @@
 
 #include "EnginePrivate.h"
 #include "Animation/AnimNode_TransitionPoseEvaluator.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_TransitionPoseEvaluator
@@ -32,8 +33,8 @@ void FAnimNode_TransitionPoseEvaluator::Initialize(const FAnimationInitializeCon
 
 void FAnimNode_TransitionPoseEvaluator::CacheBones(const FAnimationCacheBonesContext& Context) 
 {
-	CachedPose.SetBoneContainer(&Context.AnimInstance->RequiredBones);
-	CachedCurve.InitFrom(Context.AnimInstance);
+	CachedPose.SetBoneContainer(&Context.AnimInstanceProxy->GetRequiredBones());
+	CachedCurve.InitFrom(Context.AnimInstanceProxy->GetSkeleton());
 }
 
 void FAnimNode_TransitionPoseEvaluator::Update(const FAnimationUpdateContext& Context)

@@ -41,6 +41,8 @@ public:
 		, _Margin()
 		, _ErrorReporting()
 		, _ModiferKeyForNewLine(EModifierKey::None)
+		, _TextShapingMethod()
+		, _TextFlowDirection()
 		{}
 
 		/** The styling of the textbox */
@@ -159,6 +161,12 @@ public:
 
 		/** The optional modifier key necessary to create a newline when typing into the editor. */
 		SLATE_ARGUMENT( EModifierKey::Type, ModiferKeyForNewLine)
+
+		/** Which text shaping method should we use? (unset to use the default returned by GetDefaultTextShapingMethod) */
+		SLATE_ARGUMENT( TOptional<ETextShapingMethod>, TextShapingMethod )
+		
+		/** Which text flow direction should we use? (unset to use the default returned by GetDefaultTextFlowDirection) */
+		SLATE_ARGUMENT( TOptional<ETextFlowDirection>, TextFlowDirection )
 
 	SLATE_END_ARGS()
 	

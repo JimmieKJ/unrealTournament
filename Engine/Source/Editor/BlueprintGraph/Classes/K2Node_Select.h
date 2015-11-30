@@ -27,9 +27,12 @@ class UK2Node_Select : public UK2Node, public INodeDependingOnEnumInterface
 	UPROPERTY()
 	TArray<FName> EnumEntries;
 
+	//~ Using WITH_EDITORONLY_DATA within an Editor module to exclude this FText property from the gather for games
+#if WITH_EDITORONLY_DATA
 	/** List of the current entries in the enum (Pin Friendly Names) */
 	UPROPERTY()
 	TArray<FText> EnumEntryFriendlyNames;
+#endif //~ WITH_EDITORONLY_DATA
 
 	/** Whether we need to reconstruct the node after the pins have changed */
 	UPROPERTY(Transient)

@@ -539,6 +539,7 @@ FPrimitiveViewRelevance FTextRenderSceneProxy::GetViewRelevance(const FSceneView
 	Result.bShadowRelevance = IsShadowCast(View);
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
+	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 
 	if( IsRichView(*View->Family) 
 		|| View->Family->EngineShowFlags.Bounds 

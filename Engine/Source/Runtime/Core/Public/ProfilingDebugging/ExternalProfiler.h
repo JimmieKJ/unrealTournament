@@ -33,6 +33,9 @@ public:
 	 * Profiler interface.
 	 */
 
+	/** Mark where the profiler should consider the frame boundary to be. */
+	virtual void FrameSync() = 0;
+
 	/** Pauses profiling. */
 	virtual void ProfilerPauseFunction() = 0;
 
@@ -58,12 +61,25 @@ private:
 	friend class FScopedExternalProfilerBase;
 };
 
+class FActiveExternalProfilerBase
+{
+public:	
 
+	CORE_API static FExternalProfiler* GetActiveProfiler();
+
+
+private:
+	/** Static: True if we've tried to initialize a profiler already */
+	static bool bDidInitialize;
+
+	/** Static: Active profiler instance that we're using */
+	static FExternalProfiler* ActiveProfiler;
+};
 
 /**
  * Base class for FScoped*Timer and FScoped*Excluder
  */
-class FScopedExternalProfilerBase
+class FScopedExternalProfilerBase : public FActiveExternalProfilerBase
 {
 protected:
 	/**
@@ -80,12 +96,6 @@ protected:
 private:
 	/** Stores the previous 'Paused' state of VTune before this scope started */
 	bool bWasPaused;
-
-	/** Static: True if we've tried to initialize a profiler already */
-	static bool bDidInitialize;
-
-	/** Static: Active profiler instance that we're using */
-	static FExternalProfiler* ActiveProfiler;
 };
 
 
@@ -95,11 +105,11 @@ private:
  * Use this to include a body of code in profiler's captured session using 'Resume' and 'Pause' cues.  It
  * can safely be embedded within another 'timer' or 'excluder' scope.
  */
-class ExternalProfilerIncluder : public FScopedExternalProfilerBase
+class FExternalProfilerIncluder : public FScopedExternalProfilerBase
 {
 public:
 	/** Constructor */
-	ExternalProfilerIncluder()
+	FExternalProfilerIncluder()
 	{
 		// 'Timer' scopes will always 'resume' VTune
 		const bool bWantPause = false;
@@ -107,7 +117,7 @@ public:
 	}
 
 	/** Destructor */
-	~ExternalProfilerIncluder()
+	~FExternalProfilerIncluder()
 	{
 		StopScopedTimer();
 	}
@@ -139,5 +149,5 @@ public:
 
 };
 
-#define SCOPE_PROFILER_INCLUDER(X) ExternalProfilerIncluder ExternalProfilerIncluder_##X;
+#define SCOPE_PROFILER_INCLUDER(X) FExternalProfilerIncluder ExternalProfilerIncluder_##X;
 #define SCOPE_PROFILER_EXCLUDER(X) FExternalProfilerExcluder ExternalProfilerExcluder_##X;

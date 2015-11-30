@@ -66,12 +66,17 @@ bool FOnlineExternalUIIOS::ShowLeaderboardUI( const FString& LeaderboardName )
 	return true;
 }
 
-bool FOnlineExternalUIIOS::ShowWebURL(const FString& WebURL) 
+bool FOnlineExternalUIIOS::ShowWebURL(const FString& Url, const FShowWebUrlParams& ShowParams, const FOnShowWebUrlClosedDelegate& Delegate)
 {
 	return false;
 }
 
-bool FOnlineExternalUIIOS::ShowProfileUI( const FUniqueNetId& Requestor, const FUniqueNetId& Requestee, const FOnProfileUIClosedDelegate& Delegate )
+bool FOnlineExternalUIIOS::CloseWebURL()
+{
+	return false;
+}
+
+bool FOnlineExternalUIIOS::ShowProfileUI(const FUniqueNetId& Requestor, const FUniqueNetId& Requestee, const FOnProfileUIClosedDelegate& Delegate)
 {
 	return false;
 }

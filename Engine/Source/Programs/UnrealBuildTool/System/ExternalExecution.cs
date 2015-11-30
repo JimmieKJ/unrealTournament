@@ -648,7 +648,8 @@ namespace UnrealBuildTool
 			}
 		}
 
-
+		// Set to true if makefiles need invalidating
+		static public bool bInvalidateUHTMakefile = false;
 
 		/// <summary>
 		/// Builds and runs the header tool and touches the header directories.
@@ -773,6 +774,11 @@ namespace UnrealBuildTool
 					{
 						CmdLine += " -FailIfGeneratedCodeChanges";
 					}
+
+                    if (!bInvalidateUHTMakefile && BuildConfiguration.bUseUHTMakefiles)
+                    {
+                        CmdLine += " -UseMakefiles";
+                    }
 
 					Log.TraceInformation("  Running UnrealHeaderTool {0}", CmdLine);
 

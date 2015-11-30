@@ -3,14 +3,13 @@
 #include "UnrealHeaderTool.h"
 #include "ParserHelper.h"
 #include "Scope.h"
+#include "UHTMakefile/UHTMakefile.h"
 
 extern FCompilerMetadataManager GScriptHelper;
 
 FScope::FScope(FScope* InParent)
 	: Parent(InParent)
-{
-	check(Parent);
-}
+{ }
 
 FScope::FScope()
 	: Parent(nullptr)
@@ -85,11 +84,13 @@ TSharedRef<FScope> FScope::GetTypeScope(UStruct* Type)
 	return *ScopeRefPtr;
 }
 
-TSharedRef<FScope> FScope::AddTypeScope(UStruct* Type, FScope* ParentScope)
+TSharedRef<FScope> FScope::AddTypeScope(UStruct* Type, FScope* ParentScope, FUnrealSourceFile* UnrealSourceFile, FUHTMakefile& UHTMakefile)
 {
-	TSharedRef<FScope> Scope = MakeShareable(new FStructScope(Type, ParentScope));
+	FStructScope* ScopePtr = new FStructScope(Type, ParentScope);
+	TSharedRef<FScope> Scope = MakeShareable(ScopePtr);
 
 	ScopeMap.Add(Type, Scope);
+	UHTMakefile.AddStructScope(UnrealSourceFile, ScopePtr);
 
 	return Scope;
 }
@@ -141,13 +142,22 @@ bool FScope::ContainsTypes() const
 	return TypeMap.Num() > 0;
 }
 
+FFileScope* FScope::GetFileScope()
+{
+	FScope* CurrentScope = this;
+	while (!CurrentScope->IsFileScope())
+	{
+		CurrentScope = const_cast<FScope*>(CurrentScope->GetParent());
+	}
+
+	return CurrentScope->AsFileScope();
+}
+
 TMap<UStruct*, TSharedRef<FScope> > FScope::ScopeMap;
 
 FFileScope::FFileScope(FName InName, FUnrealSourceFile* InSourceFile)
 	: SourceFile(InSourceFile), Name(InName)
-{
-
-}
+{ }
 
 void FFileScope::IncludeScope(FFileScope* IncludedScope)
 {
@@ -178,9 +188,4 @@ FStructScope::FStructScope(UStruct* InStruct, FScope* InParent)
 	: FScope(InParent), Struct(InStruct)
 {
 
-}
-
-FClassMetaData* FStructScope::GetClassMetaData() const
-{
-	return GScriptHelper.FindClassData(Struct);
 }

@@ -245,6 +245,8 @@ float RandFast( uint2 PixelPos, float Magic = 3571.0 )
 }
 
 void SSRTemporalAAPS( noperspective float2 UV : TEXCOORD0, float3 InExposureScaleVignette : TEXCOORD1, 
+	float4 Unused2 : TEXCOORD2,
+	float4 Unused3 : TEXCOORD3,
 	float4 SvPosition : SV_POSITION,		// after all interpolators
 	out float4 OutColor : SV_Target0 )
 {

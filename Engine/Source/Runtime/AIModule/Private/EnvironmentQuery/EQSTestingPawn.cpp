@@ -154,7 +154,7 @@ void AEQSTestingPawn::PostLoad()
 	}
 
 	UWorld* World = GetWorld();
-	if (World && World->IsGameWorld() && bTickDuringGame == bTickDuringGame)
+	if (World && World->IsGameWorld() && bTickDuringGame)
 	{
 		PrimaryActorTick.bCanEverTick = false;
 	}

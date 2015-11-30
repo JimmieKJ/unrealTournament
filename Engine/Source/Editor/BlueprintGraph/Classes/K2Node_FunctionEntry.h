@@ -64,7 +64,7 @@ class UK2Node_FunctionEntry : public UK2Node_FunctionTerminator
 	BLUEPRINTGRAPH_API int32 GetFunctionFlags() const;
 
 	/** Retrieves the extra flags set on this node. */
-	BLUEPRINTGRAPH_API int32 GetExtraFlags(struct FKismetFunctionContext& CompilerContext) const
+	BLUEPRINTGRAPH_API int32 GetExtraFlags() const
 	{
 		return ExtraFlags;
 	}
@@ -72,7 +72,17 @@ class UK2Node_FunctionEntry : public UK2Node_FunctionTerminator
 	/** Set the extra flags on this node */
 	BLUEPRINTGRAPH_API void SetExtraFlags(int32 InFlags)
 	{
-		ExtraFlags = InFlags;
+		ExtraFlags = (InFlags & ~FUNC_Native);
+	}
+
+	BLUEPRINTGRAPH_API void AddExtraFlags(int32 InFlags)
+	{
+		ExtraFlags |= InFlags;
+	}
+
+	BLUEPRINTGRAPH_API void ClearExtraFlags(int32 InFlags)
+	{
+		ExtraFlags &= ~InFlags;
 	}
 
 protected:

@@ -22,7 +22,7 @@ FArchiveGenerateReferenceGraph::FArchiveGenerateReferenceGraph( FReferenceGraph&
 		UObject* Object	= *It;
 
 		// Skip transient and those about to be deleted
-		if( !Object->HasAnyFlags( RF_Transient | RF_PendingKill ) )
+		if( !Object->HasAnyFlags( RF_Transient ) && !Object->IsPendingKill() )
 		{
 			// only serialize non actors objects which have not been visited.
 			// actors are skipped because we have don't need them to show the reference tree
@@ -44,7 +44,8 @@ FArchive& FArchiveGenerateReferenceGraph::operator<<( UObject*& Object )
 	// Only look at objects which are valid
 	const bool bValidObject = 
 		Object &&	// Object should not be NULL
-		!Object->HasAnyFlags( RF_Transient | RF_PendingKill ) && // Should not be transient or pending kill
+		!Object->HasAnyFlags( RF_Transient ) && // Should not be transient 
+		!Object->IsPendingKill() && // nor pending kill
 		(Cast<UClass>(Object) == NULL); // skip UClasses
 
 	if( bValidObject )

@@ -73,7 +73,12 @@ bool FOnlineExternalUIGooglePlay::ShowLeaderboardUI(const FString& LeaderboardNa
 	return false;
 }
 
-bool FOnlineExternalUIGooglePlay::ShowWebURL(const FString& WebURL) 
+bool FOnlineExternalUIGooglePlay::ShowWebURL(const FString& Url, const FShowWebUrlParams& ShowParams, const FOnShowWebUrlClosedDelegate& Delegate)
+{
+	return false;
+}
+
+bool FOnlineExternalUIGooglePlay::CloseWebURL()
 {
 	return false;
 }

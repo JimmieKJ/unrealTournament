@@ -237,37 +237,43 @@ void XInputInterface::SetMessageHandler( const TSharedRef< FGenericApplicationMe
 
 void XInputInterface::SetChannelValue( const int32 ControllerId, const FForceFeedbackChannelType ChannelType, const float Value )
 {
-	FControllerState& ControllerState = ControllerStates[ ControllerId ];
-
-	if( ControllerState.bIsConnected )
+	if (ControllerId >= 0 && ControllerId < MAX_NUM_XINPUT_CONTROLLERS)
 	{
-		switch( ChannelType )
+		FControllerState& ControllerState = ControllerStates[ ControllerId ];
+
+		if( ControllerState.bIsConnected )
 		{
-			case FForceFeedbackChannelType::LEFT_LARGE:
-				ControllerState.ForceFeedback.LeftLarge = Value;
-				break;
+			switch( ChannelType )
+			{
+				case FForceFeedbackChannelType::LEFT_LARGE:
+					ControllerState.ForceFeedback.LeftLarge = Value;
+					break;
 
-			case FForceFeedbackChannelType::LEFT_SMALL:
-				ControllerState.ForceFeedback.LeftSmall = Value;
-				break;
+				case FForceFeedbackChannelType::LEFT_SMALL:
+					ControllerState.ForceFeedback.LeftSmall = Value;
+					break;
 
-			case FForceFeedbackChannelType::RIGHT_LARGE:
-				ControllerState.ForceFeedback.RightLarge = Value;
-				break;
+				case FForceFeedbackChannelType::RIGHT_LARGE:
+					ControllerState.ForceFeedback.RightLarge = Value;
+					break;
 
-			case FForceFeedbackChannelType::RIGHT_SMALL:
-				ControllerState.ForceFeedback.RightSmall = Value;
-				break;
+				case FForceFeedbackChannelType::RIGHT_SMALL:
+					ControllerState.ForceFeedback.RightSmall = Value;
+					break;
+			}
 		}
 	}
 }
 
 void XInputInterface::SetChannelValues( const int32 ControllerId, const FForceFeedbackValues &Values )
 {
-	FControllerState& ControllerState = ControllerStates[ ControllerId ];
-
-	if( ControllerState.bIsConnected )
+	if (ControllerId >= 0 && ControllerId < MAX_NUM_XINPUT_CONTROLLERS)
 	{
-		ControllerState.ForceFeedback = Values;
+		FControllerState& ControllerState = ControllerStates[ ControllerId ];
+
+		if( ControllerState.bIsConnected )
+		{
+			ControllerState.ForceFeedback = Values;
+		}
 	}
 }

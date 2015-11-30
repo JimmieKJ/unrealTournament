@@ -19,7 +19,11 @@ struct FSearchEntry
 	static FSearchEntry* MakeCategoryEntry(const FString & InTitle);
 };
 
-
+enum class ESearchEngine
+{
+	Google,
+	Bing
+};
 
 class FSuperSearchModule : public IModuleInterface
 {
@@ -36,6 +40,12 @@ public:
 	 */	
 	DECLARE_MULTICAST_DELEGATE_OneParam(FActOnSuperSearchEntry, TSharedPtr<FSearchEntry> );
 
+	///* 
+	// * Delegate for search engine changing.
+	// * @param Search entry clicked.
+	// */
+	//DECLARE_MULTICAST_DELEGATE_OneParam(FOnSearchEngineChanged, ESearchEngine);
+
 	virtual void StartupModule();
 	virtual void ShutdownModule();
 
@@ -44,16 +54,24 @@ public:
 	{
 		return OnSearchTextChanged;
 	}
+
 	// Get the search hit clicked changed delegate
 	FActOnSuperSearchEntry& GetActOnSearchTextClicked()
 	{
 		return OnActOnSearchEntry;
 	}
+
+	//// Get the search engine changed delegate
+	//FOnSearchEngineChanged& GetSearchEngineChanged()
+	//{
+	//	return OnSearchEngineChanged;
+	//}
 	
 	/** Generates a SuperSearch box widget.  Remember, this widget will become invalid if the SuperSearch DLL is unloaded on the fly. */
-	virtual TSharedRef< SWidget > MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const TOptional<const FSearchBoxStyle*> InStyle = TOptional<const FSearchBoxStyle*>()) const;
+	virtual TSharedRef< SWidget > MakeSearchBox(TSharedPtr< SEditableTextBox >& OutExposedEditableTextBox, const FString& ConfigFilename, const TOptional<const FSearchBoxStyle*> InStyle = TOptional<const FSearchBoxStyle*>(), const TOptional<const FComboBoxStyle*> InSearchEngineStyle = TOptional<const FComboBoxStyle*>()) const;
 private:
 	
 	FSuperSearchTextChanged	OnSearchTextChanged;	
 	FActOnSuperSearchEntry OnActOnSearchEntry;
+	//FOnSearchEngineChanged OnSearchEngineChanged;
 };

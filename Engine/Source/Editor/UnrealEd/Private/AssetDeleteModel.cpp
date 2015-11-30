@@ -655,11 +655,11 @@ void FPendingDelete::CheckForReferences()
 
 	// Check and see whether we are referenced by any objects that won't be garbage collected (*including* the undo buffer)
 	FReferencerInformationList ReferencesIncludingUndo;
-	bool bReferencedInMemoryOrUndoStack = IsReferenced(Object, GARBAGE_COLLECTION_KEEPFLAGS, true, &ReferencesIncludingUndo);
+	bool bReferencedInMemoryOrUndoStack = IsReferenced(Object, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &ReferencesIncludingUndo);
 
 	// Determine the in-memory references, *excluding* the undo buffer
 	GEditor->Trans->DisableObjectSerialization();
-	bIsReferencedInMemoryByNonUndo = IsReferenced(Object, GARBAGE_COLLECTION_KEEPFLAGS, true, &MemoryReferences);
+	bIsReferencedInMemoryByNonUndo = IsReferenced(Object, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &MemoryReferences);
 	GEditor->Trans->EnableObjectSerialization();
 
 	// see if this object is the transaction buffer - set a flag so we know we need to clear the undo stack
@@ -681,12 +681,12 @@ void FPendingDelete::CheckForReferences()
 				FReferencerInformation& RefInfo = *RefIt;
 				if ( RefInfo.Referencer->IsA( Blueprint->GeneratedClass ) )
 				{
-					if ( IsReferenced( RefInfo.Referencer, GARBAGE_COLLECTION_KEEPFLAGS, true, &ReferencesIncludingUndo ) )
+					if (IsReferenced(RefInfo.Referencer, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &ReferencesIncludingUndo))
 					{
 						GEditor->Trans->DisableObjectSerialization();
 
 						FReferencerInformationList ReferencesExcludingUndo;
-						if ( IsReferenced( RefInfo.Referencer, GARBAGE_COLLECTION_KEEPFLAGS, true, &ReferencesExcludingUndo ) )
+						if (IsReferenced(RefInfo.Referencer, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &ReferencesExcludingUndo))
 						{
 							bIsReferencedInMemoryByUndo = ( ReferencesIncludingUndo.InternalReferences.Num() + ReferencesIncludingUndo.ExternalReferences.Num() ) > ( ReferencesExcludingUndo.InternalReferences.Num() + ReferencesExcludingUndo.ExternalReferences.Num() );
 						}

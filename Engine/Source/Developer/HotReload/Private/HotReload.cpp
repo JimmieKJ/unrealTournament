@@ -160,13 +160,6 @@ private:
 	 */
 	void ReplaceReferencesToReconstructedCDOs();
 
-#if WITH_ENGINE
-	/**
-	 * Recompiles blueprints that were touched during this hot-reload.
-	 */
-	void RecompileTouchedBlueprints();
-#endif // WITH_ENGINE
-
 	/**
 	* Callback for async ompilation
 	*/
@@ -372,6 +365,9 @@ private:
 
 	/** Reconstructed CDOs map during hot-reload. */
 	TMap<UObject*, UObject*> ReconstructedCDOsMap;
+
+	/** Keeps record of hot-reload session starting time. */
+	double HotReloadStartTime;
 };
 
 namespace HotReloadDefs
@@ -820,7 +816,7 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 			TArray<UScriptStruct*> ScriptStructs;
 			for (FRawObjectIterator It; It; ++It)
 			{
-				if (UFunction* Function = Cast<UFunction>(*It))
+				if (UFunction* Function = Cast<UFunction>(static_cast<UObject*>(It->Object)))
 				{
 					if (Native NewFunction = HotReloadFunctionRemap.FindRef(Function->GetNativeFunc()))
 					{
@@ -829,7 +825,7 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 					}
 				}
 
-				if (UScriptStruct* ScriptStruct = Cast<UScriptStruct>(*It))
+				if (UScriptStruct* ScriptStruct = Cast<UScriptStruct>(static_cast<UObject*>(It->Object)))
 				{
 					if (Packages.ContainsByPredicate([=](UPackage* Package) { return ScriptStruct->IsIn(Package); }) && ScriptStruct->GetCppStructOps())
 					{
@@ -849,10 +845,6 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 			}
 			HotReloadAr.Logf(ELogVerbosity::Warning, TEXT("HotReload successful (%d functions remapped  %d scriptstructs remapped)"), Count, ScriptStructs.Num());
 
-#if WITH_ENGINE
-			RecompileTouchedBlueprints();
-#endif // WITH_ENGINE
-
 			HotReloadFunctionRemap.Empty();
 
 			ReplaceReferencesToReconstructedCDOs();
@@ -863,6 +855,8 @@ ECompilationResult::Type FHotReloadModule::DoHotReloadInternal(bool bRecompileFi
 
 		const bool bWasTriggeredAutomatically = !bIsHotReloadingFromEditor;
 		BroadcastHotReload( bWasTriggeredAutomatically );
+
+		HotReloadAr.Logf(ELogVerbosity::Warning, TEXT("HotReload took %4.1fs."), FPlatformTime::Seconds() - HotReloadStartTime);
 	}
 	else if (ECompilationResult::Failed(CompilationResult) && bRecompileFinished)
 	{
@@ -886,81 +880,154 @@ void FHotReloadModule::ReplaceReferencesToReconstructedCDOs()
 		return;
 	}
 
+	// Thread pool manager. We need new thread pool with increased
+	// amount of stack size. Standard GThreadPool was encountering
+	// stack overflow error during serialization.
+	static struct FReplaceReferencesThreadPool
+	{
+		FReplaceReferencesThreadPool()
+		{
+			Pool = FQueuedThreadPool::Allocate();
+			int32 NumThreadsInThreadPool = FPlatformMisc::NumberOfWorkerThreadsToSpawn();
+			verify(Pool->Create(NumThreadsInThreadPool, 256 * 1024));
+		}
+
+		~FReplaceReferencesThreadPool()
+		{
+			Pool->Destroy();
+		}
+
+		FQueuedThreadPool* GetPool() { return Pool; }
+
+	private:
+		FQueuedThreadPool* Pool;
+	} ThreadPoolManager;
+
 	TArray<UObject*> OldCDOs;
 	ReconstructedCDOsMap.GetKeys(OldCDOs);
 
+	// Structure to store CDOs reference info.
+	struct FReferenceInfo
+	{
+		UObject* Referencer;
+		UObject* Referencee;
+		UProperty* ReferencingProperty;
+
+		FReferenceInfo(UObject* InReferencer, UObject* InReferencee, UProperty* InReferencingProperty)
+			: Referencer(InReferencer), Referencee(InReferencee), ReferencingProperty(InReferencingProperty)
+		{}
+	};
+
+	// Async task to enable multithreaded CDOs reference search.
+	class FFindRefTask : public FNonAbandonableTask
+	{
+	public:
+		FFindRefTask(const TArray<UObject*>* InReferencees, int32 ReserveElements = 0)
+			: Referencees(*InReferencees)
+		{
+			ObjectsArray.Reserve(ReserveElements);
+		}
+
+		void DoWork()
+		{
+			for (UObject* Object : ObjectsArray)
+			{
+				FFindReferencersArchive FindRefsArchive(Object, Referencees);
+
+				TMap<UObject*, int32> ReferenceCounts;
+				TMultiMap<UObject*, UProperty*> ReferencingProperties;
+
+				FindRefsArchive.GetReferenceCounts(ReferenceCounts, ReferencingProperties);
+
+				for (auto& ReferencingProperty : ReferencingProperties)
+				{
+					static const UProperty* PropertyToSkip =
+#if WITH_ENGINE
+						UBlueprintGeneratedClass::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UBlueprintGeneratedClass, OverridenArchetypeForCDO));
+#else
+						nullptr;
+#endif
+					if (!ReferencingProperty.Value->IsA<UObjectProperty>() || ReferencingProperty.Value == PropertyToSkip)
+					{
+						continue;
+					}
+
+					References.Emplace(Object, ReferencingProperty.Key, ReferencingProperty.Value);
+				}
+			}
+		}
+
+		TArray<UObject*>& GetObjectsArray()
+		{
+			return ObjectsArray;
+		}
+
+		FORCEINLINE TStatId GetStatId() const
+		{
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FFindRefTask, STATGROUP_ThreadPoolAsyncTasks);
+		}
+
+		const TArray<FReferenceInfo>& GetReferences() const { return References; }
+
+	private:
+		const TArray<UObject*>& Referencees;
+		TArray<UObject*> ObjectsArray;
+		TArray<FReferenceInfo> References;
+	};
+
+	const int32 NumberOfThreads = FPlatformMisc::NumberOfWorkerThreadsToSpawn();
+	const int32 NumObjects = GUObjectArray.GetObjectArrayNum();
+	const int32 ObjectsPerTask = FMath::CeilToInt((float)NumObjects / NumberOfThreads);
+
+	// Create tasks.
+	TArray<FAsyncTask<FFindRefTask>> Tasks;
+	Tasks.Reserve(NumberOfThreads);
+
+	for (int32 TaskId = 0; TaskId < NumberOfThreads; ++TaskId)
+	{
+		Tasks.Emplace(&OldCDOs, ObjectsPerTask);
+	}
+
+	// Distribute objects uniformly between tasks.
+	int32 CurrentTaskId = 0;
 	for (FObjectIterator ObjIter; ObjIter; ++ObjIter)
 	{
 		UObject* CurObject = *ObjIter;
 
-		FFindReferencersArchive FindRefsArchive(CurObject, OldCDOs);
-
-		TMap<UObject*, int32> ReferenceCounts;
-		TMultiMap<UObject*, UProperty*> ReferencingProperties;
-
-		FindRefsArchive.GetReferenceCounts(ReferenceCounts, ReferencingProperties);
-
-		for (auto& ReferencingProperty : ReferencingProperties)
+		if (CurObject->IsPendingKill())
 		{
-			static const UProperty* PropertyToSkip =
-#if WITH_ENGINE
-				UBlueprintGeneratedClass::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(UBlueprintGeneratedClass, OverridenArchetypeForCDO));
-#else
-				nullptr;
-#endif
-			if (!ReferencingProperty.Value->IsA<UObjectProperty>() || ReferencingProperty.Value == PropertyToSkip)
-			{
-				continue;
-			}
+			continue;
+		}
 
-			UObject* OldCDO = ReferencingProperty.Key;
-			UObjectProperty* Prop = (UObjectProperty*)ReferencingProperty.Value;
+		Tasks[CurrentTaskId].GetTask().GetObjectsArray().Add(CurObject);
+		CurrentTaskId = (CurrentTaskId + 1) % NumberOfThreads;
+	}
 
-			Prop->SetObjectPropertyValue((uint8*)CurObject + Prop->GetOffset_ForInternal(), ReconstructedCDOsMap[OldCDO]);
+	// Run async tasks in worker threads.
+	for (int32 TaskId = 0; TaskId < NumberOfThreads; ++TaskId)
+	{
+		Tasks[TaskId].StartBackgroundTask(ThreadPoolManager.GetPool());
+	}
+
+	// Wait until tasks are finished and replace found references
+	// in main thread.
+	for (int32 TaskId = 0; TaskId < NumberOfThreads; ++TaskId)
+	{
+		Tasks[TaskId].EnsureCompletion();
+
+		const TArray<FReferenceInfo>& References = Tasks[TaskId].GetTask().GetReferences();
+
+		for (const FReferenceInfo& Reference : References)
+		{
+			UObject* OldCDO = Reference.Referencee;
+			UObjectProperty* Prop = (UObjectProperty*)Reference.ReferencingProperty;
+
+			Prop->SetObjectPropertyValue((uint8*)Reference.Referencer + Prop->GetOffset_ForInternal(), ReconstructedCDOsMap[OldCDO]);
 		}
 	}
 
 	ReconstructedCDOsMap.Empty();
 }
-
-#if WITH_ENGINE
-void FHotReloadModule::RecompileTouchedBlueprints()
-{
-	bool bCollectGarbage = HotReloadBPSetToRecompile.Num() > 0;
-
-	while (HotReloadBPSetToRecompile.Num())
-	{
-		auto Iter = HotReloadBPSetToRecompile.CreateIterator();
-		TWeakObjectPtr<UBlueprint> BPPtr = *Iter;
-		Iter.RemoveCurrent();
-		if (auto BP = BPPtr.Get())
-		{
-			FKismetEditorUtilities::CompileBlueprint(BP, false, true);
-		}
-	}
-
-	if (bCollectGarbage)
-	{
-		// Garbage collect to make sure the old class and actors are disposed of
-		CollectGarbage(GARBAGE_COLLECTION_KEEPFLAGS);
-	}
-
-	HotReloadBPSetToRecompile.Empty();
-
-	while (HotReloadBPSetToRecompileBytecodeOnly.Num())
-	{
-		auto Iter = HotReloadBPSetToRecompileBytecodeOnly.CreateIterator();
-		TWeakObjectPtr<UBlueprint> BPPtr = *Iter;
-		Iter.RemoveCurrent();
-		if (auto BP = BPPtr.Get())
-		{
-			FKismetEditorUtilities::RecompileBlueprintBytecode(BP);
-		}
-	}
-
-	HotReloadBPSetToRecompileBytecodeOnly.Empty();
-}
-#endif // WITH_ENGINE
 
 ECompilationResult::Type FHotReloadModule::RebindPackages(TArray<UPackage*> InPackages, TArray<FName> DependentModules, const bool bWaitForCompletion, FOutputDevice &Ar)
 {
@@ -1010,7 +1077,7 @@ ECompilationResult::Type FHotReloadModule::RebindPackagesInternal(TArray<UPackag
 
 		bIsHotReloadingFromEditor = true;
 
-		const double StartTime = FPlatformTime::Seconds();
+		HotReloadStartTime = FPlatformTime::Seconds();
 
 		TArray< FName > ModuleNames;
 		for (UPackage* Package : InPackages)
@@ -1034,12 +1101,12 @@ ECompilationResult::Type FHotReloadModule::RebindPackagesInternal(TArray<UPackag
 		{
 			if (bWaitForCompletion)
 			{
-				Ar.Logf(ELogVerbosity::Warning, TEXT("HotReload operation took %4.1fs."), float(FPlatformTime::Seconds() - StartTime));
+				Ar.Logf(ELogVerbosity::Warning, TEXT("HotReload operation took %4.1fs."), float(FPlatformTime::Seconds() - HotReloadStartTime));
 				bIsHotReloadingFromEditor = false;
 			}
 			else
 			{
-				Ar.Logf(ELogVerbosity::Warning, TEXT("Starting HotReload took %4.1fs."), float(FPlatformTime::Seconds() - StartTime));
+				Ar.Logf(ELogVerbosity::Warning, TEXT("Starting HotReload took %4.1fs."), float(FPlatformTime::Seconds() - HotReloadStartTime));
 			}
 			Result = ECompilationResult::Succeeded;
 		}

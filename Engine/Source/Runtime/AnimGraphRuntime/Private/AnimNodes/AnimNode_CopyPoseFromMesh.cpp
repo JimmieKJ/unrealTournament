@@ -2,6 +2,7 @@
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNodes/AnimNode_CopyPoseFromMesh.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_CopyPoseFromMesh
@@ -12,7 +13,8 @@ FAnimNode_CopyPoseFromMesh::FAnimNode_CopyPoseFromMesh()
 
 void FAnimNode_CopyPoseFromMesh::Initialize(const FAnimationInitializeContext& Context)
 {
-	ReinitializeMeshComponent(Context.AnimInstance);
+	FAnimNode_Base::Initialize(Context);
+	ReinitializeMeshComponent(Context.AnimInstanceProxy);
 }
 
 void FAnimNode_CopyPoseFromMesh::CacheBones(const FAnimationCacheBonesContext& Context)
@@ -25,11 +27,11 @@ void FAnimNode_CopyPoseFromMesh::Update(const FAnimationUpdateContext& Context)
 
 	if (CurrentlyUsedSourceMeshComponent.IsValid() && CurrentlyUsedSourceMeshComponent.Get() != SourceMeshComponent)
 	{
-		ReinitializeMeshComponent(Context.AnimInstance);
+		ReinitializeMeshComponent(Context.AnimInstanceProxy);
 	}
 	else if (!CurrentlyUsedSourceMeshComponent.IsValid() && SourceMeshComponent)
 	{
-		ReinitializeMeshComponent(Context.AnimInstance);
+		ReinitializeMeshComponent(Context.AnimInstanceProxy);
 	}
 }
 
@@ -44,7 +46,8 @@ void FAnimNode_CopyPoseFromMesh::Evaluate(FPoseContext& Output)
 		for(FCompactPoseBoneIndex PoseBoneIndex : OutPose.ForEachBoneIndex())
 		{
 			const int32& SkeletonBoneIndex = RequiredBones.GetSkeletonIndex(PoseBoneIndex);
-			const int32* Value = BoneMapToSource.Find(SkeletonBoneIndex);
+			const int32& MeshBoneIndex = RequiredBones.GetSkeletonToPoseBoneIndexArray()[SkeletonBoneIndex];
+			const int32* Value = BoneMapToSource.Find(MeshBoneIndex);
 			if(Value && *Value!=INDEX_NONE)
 			{
 				const int32 SourceBoneIndex = *Value;
@@ -70,13 +73,13 @@ void FAnimNode_CopyPoseFromMesh::GatherDebugData(FNodeDebugData& DebugData)
 {
 }
 
-void FAnimNode_CopyPoseFromMesh::ReinitializeMeshComponent(UAnimInstance* AnimInstance)
+void FAnimNode_CopyPoseFromMesh::ReinitializeMeshComponent(FAnimInstanceProxy* AnimInstanceProxy)
 {
 	CurrentlyUsedSourceMeshComponent = SourceMeshComponent;
 	BoneMapToSource.Reset();
 	if (SourceMeshComponent && SourceMeshComponent->SkeletalMesh && !SourceMeshComponent->IsPendingKill())
 	{
-		USkeletalMeshComponent* TargetMeshComponent = AnimInstance->GetSkelMeshComponent();
+		USkeletalMeshComponent* TargetMeshComponent = AnimInstanceProxy->GetSkelMeshComponent();
 		if (TargetMeshComponent)
 		{
 			USkeletalMesh* SourceSkelMesh = SourceMeshComponent->SkeletalMesh;

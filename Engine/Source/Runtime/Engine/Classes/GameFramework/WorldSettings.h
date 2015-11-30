@@ -200,6 +200,8 @@ struct ENGINE_API FNetViewer
 	FNetViewer(UNetConnection* InConnection, float DeltaSeconds);
 };
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
 USTRUCT()
 struct ENGINE_API FHierarchicalSimplification
 {
@@ -252,25 +254,20 @@ struct ENGINE_API FHierarchicalSimplification
 		MergeSetting.bGenerateLightMapUV = true;
 	}
 
+private:
 
-
-	FHierarchicalSimplification& operator=(const FHierarchicalSimplification& Other)
+	// This function exists to force the compiler generated operators to be instantiated while the deprecation warning
+	// pragmas are disabled so no warnings are thrown when used elsewhere and the compiler is forced to generate them
+	void DummyFunction() const
 	{
-		PRAGMA_DISABLE_DEPRECATION_WARNINGS
-		
-		TransitionScreenSize = Other.TransitionScreenSize;
-		DrawDistance = Other.DrawDistance;
-		bSimplifyMesh = Other.bSimplifyMesh;
-		ProxySetting = Other.ProxySetting;
-		MergeSetting = Other.MergeSetting;
-		DesiredBoundRadius = Other.DesiredBoundRadius;
-		DesiredFillingPercentage = Other.DesiredFillingPercentage;
-		MinNumberOfActorsToBuild = Other.MinNumberOfActorsToBuild;
-		return *this;
+		FHierarchicalSimplification ASP1, ASP2;
+		ASP1 = ASP2;
 
-		PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	};	
+		FHierarchicalSimplification ASP3(ASP2);
+	}
 };
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 /**
  * Actor containing all script accessible world properties.
@@ -466,19 +463,20 @@ class ENGINE_API AWorldSettings : public AInfo, public IInterface_AssetUserData
 	 * Normally 1 - scales real time passage.
 	 * Warning - most use cases should use GetEffectiveTimeDilation() instead of reading from this directly
 	 */
-	UPROPERTY(replicated)
+	UPROPERTY(transient, replicated)
 	float TimeDilation;
 
-	// additional TimeDilation used by Matinee slomo track
-	UPROPERTY(replicated)
+	// Additional time dilation used by Matinee (or Sequencer) slomo track.  Transient because this is often 
+	// temporarily modified by the editor when previewing slow motion effects, yet we don't want it saved or loaded from level packages.
+	UPROPERTY(transient, replicated)
 	float MatineeTimeDilation;
 
 	// Additional TimeDilation used to control demo playback speed
-	UPROPERTY()
+	UPROPERTY(transient)
 	float DemoPlayTimeDilation;
 
 	// If paused, FName of person pausing the game.
-	UPROPERTY(replicated)
+	UPROPERTY(transient, replicated)
 	class APlayerState* Pauser;
 
 	/** when this flag is set, more time is allocated to background loading (replicated) */

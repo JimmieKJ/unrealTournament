@@ -428,7 +428,7 @@ namespace UnrealBuildTool
 		/// <returns>New deployment handler, or null if not required</returns>
 		public override UEBuildDeploy CreateDeploymentHandler()
 		{
-			return null;
+			return new BaseWindowsDeploy();
 		}
 	}
 

@@ -10,6 +10,7 @@ FAnimNode_CopyBone::FAnimNode_CopyBone()
 	: bCopyTranslation(false)
 	, bCopyRotation(false)
 	, bCopyScale(false)
+	, ControlSpace(BCS_ComponentSpace)
 {
 }
 
@@ -37,11 +38,19 @@ void FAnimNode_CopyBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp
 
 	// Get component space transform for source and current bone.
 	const FBoneContainer& BoneContainer = MeshBases.GetPose().GetBoneContainer();
+	FCompactPoseBoneIndex SourceBoneIndex = SourceBone.GetCompactPoseIndex(BoneContainer);
 	FCompactPoseBoneIndex TargetBoneIndex = TargetBone.GetCompactPoseIndex(BoneContainer);
 
-	const FTransform& SourceBoneTM = MeshBases.GetComponentSpaceTransform(SourceBone.GetCompactPoseIndex(BoneContainer));
+	FTransform SourceBoneTM = MeshBases.GetComponentSpaceTransform(SourceBoneIndex);
 	FTransform CurrentBoneTM = MeshBases.GetComponentSpaceTransform(TargetBoneIndex);
 
+	if(ControlSpace != BCS_ComponentSpace)
+	{
+		// Convert out to selected space
+		FAnimationRuntime::ConvertCSTransformToBoneSpace(SkelComp, MeshBases, SourceBoneTM, SourceBoneIndex, ControlSpace);
+		FAnimationRuntime::ConvertCSTransformToBoneSpace(SkelComp, MeshBases, CurrentBoneTM, TargetBoneIndex, ControlSpace);
+	}
+	
 	// Copy individual components
 	if (bCopyTranslation)
 	{
@@ -56,6 +65,12 @@ void FAnimNode_CopyBone::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp
 	if (bCopyScale)
 	{
 		CurrentBoneTM.SetScale3D( SourceBoneTM.GetScale3D() );
+	}
+
+	if(ControlSpace != BCS_ComponentSpace)
+	{
+		// Convert back out if we aren't operating in component space
+		FAnimationRuntime::ConvertBoneSpaceTransformToCS(SkelComp, MeshBases, CurrentBoneTM, TargetBoneIndex, ControlSpace);
 	}
 
 	// Output new transform for current bone.

@@ -215,8 +215,6 @@ void FHitProxyDrawingPolicy::SetMeshRenderState(
 	const ContextDataType PolicyContext
 	) const
 {
-	EmitMeshDrawEvents(RHICmdList, PrimitiveSceneProxy, Mesh);
-
 	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
 
 	VertexShader->SetMesh(RHICmdList, VertexFactory, View, PrimitiveSceneProxy, BatchElement,DitheredLODTransitionValue);
@@ -555,6 +553,7 @@ void FDeferredShadingSceneRenderer::RenderHitProxies(FRHICommandListImmediate& R
 		// Find the visible primitives.
 		InitViews(RHICmdList);
 		::RenderHitProxies(RHICmdList, this, HitProxyRT);
+		ClearPrimitiveSingleFramePrecomputedLightingBuffers();
 	}
 #endif
 }

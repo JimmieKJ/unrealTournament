@@ -170,17 +170,9 @@ public:
 	uint32 GetLastFrameWritten() const
 	{
 		return LastFrameWritten;
-	}
+	}	
 
-	void SetDirty(bool bInDirty, uint32 CurrentFrame)
-	{
-		bDirty = bInDirty;
-		if (bDirty)
-		{
-			LastFrameWritten = CurrentFrame;
-		}
-		ensureMsgf(!(CurrentGPUAccess == EResourceTransitionAccess::EReadable && bDirty), TEXT("UAV is dirty, but set to Readable."));
-	}
+	void SetDirty(bool bInDirty, uint32 CurrentFrame);
 
 	bool IsDirty() const
 	{

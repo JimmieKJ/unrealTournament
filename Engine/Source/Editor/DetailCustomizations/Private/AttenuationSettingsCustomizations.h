@@ -23,4 +23,12 @@ protected:
 	TSharedPtr< IPropertyHandle > AttenuationShapeHandle;
 	TSharedPtr< IPropertyHandle > DistanceAlgorithmHandle;
 	TSharedPtr< IPropertyHandle > SpatializationAlgorithmHandle;
+
+	TSharedPtr< IPropertyHandle > bIsSpatializedHandle;
+	TSharedPtr< IPropertyHandle > bIsFocusedHandle;
+
+	bool IsFocusedEnabled() const;
+	TAttribute<bool> GetIsFocusEnabledAttribute() const;
+
+	TAttribute<bool> IsFocusEnabledAttribute;
 };

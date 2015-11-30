@@ -52,6 +52,9 @@ public:
 	FShaderCompilerInput Input;
 	FShaderCompilerOutput Output;
 
+	// List of pipelines that are sharing this job.
+	TMap<const FVertexFactoryType*, TArray<const FShaderPipelineType*>> SharingPipelines;
+
 	FShaderCompileJob(uint32 InId, FVertexFactoryType* InVFType, FShaderType* InShaderType) :
 		FShaderCommonCompileJob(InId),
 		VFType(InVFType),
@@ -290,6 +293,9 @@ struct FShaderMapFinalizeResults : public FShaderMapCompileResults
 	/** Tracks finalization progress on this shader map. */
 	int32 FinalizeJobIndex;
 
+	// List of pipelines with shared shaders; nullptr for non mesh pipelines
+	TMap<const FVertexFactoryType*, TArray<const FShaderPipelineType*> > SharedPipelines;
+
 	FShaderMapFinalizeResults(const FShaderMapCompileResults& InCompileResults) :
 		FShaderMapCompileResults(InCompileResults),
 		FinalizeJobIndex(0)
@@ -483,6 +489,7 @@ extern void GlobalBeginCompileShader(
 	const FString& DebugGroupName,
 	class FVertexFactoryType* VFType,
 	class FShaderType* ShaderType,
+	const class FShaderPipelineType* ShaderPipelineType,
 	const TCHAR* SourceFilename,
 	const TCHAR* FunctionName,
 	FShaderTarget Target,

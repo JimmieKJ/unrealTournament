@@ -160,6 +160,11 @@ void FVisualLoggerDatabase::AddItem(const FVisualLogDevice::FVisualLogEntryItem&
 	FVisualLoggerGraphsDatabase::Get().AddItem(NewItem);
 }
 
+bool FVisualLoggerDatabase::ContainsRowByName(FName InName)
+{
+	return RowNameToIndex.Contains(InName);
+}
+
 FVisualLoggerDBRow& FVisualLoggerDatabase::GetRowByName(FName InName)
 {
 	const bool bContainsRow = RowNameToIndex.Contains(InName);

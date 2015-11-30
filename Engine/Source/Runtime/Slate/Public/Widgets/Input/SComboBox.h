@@ -281,6 +281,11 @@ protected:
 		return true;
 	}
 
+	virtual bool IsInteractable() const
+	{
+		return IsEnabled() && SupportsKeyboardFocus();
+	}
+
 private:
 
 	/** Generate a row for the InItem in the combo box's list (passed in as OwnerTable). Do this by calling the user-specified OnGenerateWidget */

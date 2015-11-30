@@ -131,9 +131,22 @@ void FAnimBlueprintCompiler::CreateEvaluationHandler(UAnimGraphNode_Base* Visual
 	check(Record.ServicedProperties.Num() > 0);
 	check(Record.NodeVariableProperty != NULL);
 
-	//@TODO: Want to name these better
-	const FString FunctionName = FString::Printf(TEXT("%s_%s_%s"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetName());
+	// Use the node GUID for a stable name across compiles
+	FString FunctionName = FString::Printf(TEXT("%s_%s_%s_%s"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString());
 	Record.HandlerFunctionName = FName(*FunctionName);
+
+	// check function name isnt already used (data exists that can contain duplicate GUIDs) and apply a numeric extension until it is unique
+	int32 ExtensionIndex = 0;
+	FName* ExistingName = HandlerFunctionNames.Find(Record.HandlerFunctionName);
+	while(ExistingName != nullptr)
+	{
+		FunctionName = FString::Printf(TEXT("%s_%s_%s_%s_%d"), *Record.EvaluationHandlerProperty->GetName(), *VisualAnimNode->GetOuter()->GetName(), *VisualAnimNode->GetClass()->GetName(), *VisualAnimNode->NodeGuid.ToString(), ExtensionIndex);
+		Record.HandlerFunctionName = FName(*FunctionName);
+		ExistingName = HandlerFunctionNames.Find(Record.HandlerFunctionName);
+		ExtensionIndex++;
+	}
+
+	HandlerFunctionNames.Add(Record.HandlerFunctionName);
 	
 	// Add a custom event in the graph
 	UK2Node_CustomEvent* EntryNode = SpawnIntermediateNode<UK2Node_CustomEvent>(VisualAnimNode, ConsolidatedEventGraph);
@@ -989,26 +1002,7 @@ void FAnimBlueprintCompiler::ProcessStateMachine(UAnimGraphNode_StateMachineBase
 			}
 
 			// Handle automatic time remaining rules
-			Rule.StateSequencePlayerToQueryIndex = INDEX_NONE;
-			if (TransitionNode->bAutomaticRuleBasedOnSequencePlayerInState)
-			{
-				if (UObject* SourceSequencePlayer = SimplePlayerStatesMap.FindRef(BakedState.StateRootNodeIndex))
-				{
-					//@TODO: This should be easier than it is... (the nodes are cloned so the pointers don't natrually match)
-					for (const auto& Pair : AllocatedAnimNodeIndices)
-					{
-						if (MessageLog.FindSourceObject(Pair.Key) == SourceSequencePlayer)
-						{
-							Rule.StateSequencePlayerToQueryIndex = Pair.Value;
-						}
-					}
-				}
-
-				if (Rule.StateSequencePlayerToQueryIndex == INDEX_NONE)
-				{
-					MessageLog.Error(*LOCTEXT("CantAutomaticallyDefineTransitionRule", "@@ must contain a single sequence player in order to use bAutomaticRuleBasedOnSequencePlayerInState on @@").ToString(), StateNode, TransitionNode);
-				}
-			}
+			Rule.bAutomaticRemainingTimeRule = TransitionNode->bAutomaticRuleBasedOnSequencePlayerInState;
 
 			// Handle custom transition graphs
 			Rule.CustomResultNodeIndex = INDEX_NONE;
@@ -1852,8 +1846,6 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::PatchFunctionNameAndCopyR
 		const FAnimNodeSinglePropertyHandler& AnimNodeSinglePropertyHandler = PropertyIt.Value();
 		if(AnimNodeSinglePropertyHandler.SimpleCopyPropertyName != NAME_None)
 		{
-			// Local variable get, no need to thunk to BP to grab this value
-
 			UProperty* SimpleCopyPropertySource = TargetObject->GetClass()->FindPropertyByName(AnimNodeSinglePropertyHandler.SimpleCopyPropertyName);
 			if (SimpleCopyPropertySource)
 			{
@@ -1867,25 +1859,51 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::PatchFunctionNameAndCopyR
 						FExposedValueCopyRecord CopyRecord;
 						CopyRecord.DestProperty = SimpleCopyPropertyDest;
 						CopyRecord.DestArrayIndex = ArrayIt.Key();
-						CopyRecord.SourceProperty = SimpleCopyPropertySource;
+						CopyRecord.SourcePropertyName = AnimNodeSinglePropertyHandler.SimpleCopyPropertyName;
+						CopyRecord.SourceSubPropertyName = NAME_None;
 						CopyRecord.SourceArrayIndex = 0;
 						CopyRecord.Size = SimpleCopyPropertyDest->Inner->GetSize();
+						CopyRecord.PostCopyOperation = AnimNodeSinglePropertyHandler.Operation;
 						HandlerPtr->CopyRecords.Add(CopyRecord);
 					}
 				}
 				else
 				{
 					UProperty* SimpleCopyPropertyDest = NodeVariableProperty->Struct->FindPropertyByName(PropertyIt.Key());
-					check(SimpleCopyPropertySource->GetSize() == SimpleCopyPropertyDest->GetSize());
+					check(SimpleCopyPropertyDest);
+					if(AnimNodeSinglePropertyHandler.SubStructPropertyName != NAME_None)
+					{
+						UStructProperty* SourceStructProperty = CastChecked<UStructProperty>(SimpleCopyPropertySource);
+						UProperty* SourceSubProperty = SourceStructProperty->Struct->FindPropertyByName(AnimNodeSinglePropertyHandler.SubStructPropertyName);
+						check(SourceSubProperty);
+						check(SourceSubProperty->GetSize() == SimpleCopyPropertyDest->GetSize());
 
-					// Local variable get, no need to thunk to BP to grab this value
-					FExposedValueCopyRecord CopyRecord;
-					CopyRecord.DestProperty = SimpleCopyPropertyDest;
-					CopyRecord.DestArrayIndex = 0;
-					CopyRecord.SourceProperty = SimpleCopyPropertySource;
-					CopyRecord.SourceArrayIndex = 0;
-					CopyRecord.Size = SimpleCopyPropertyDest->GetSize();
-					HandlerPtr->CopyRecords.Add(CopyRecord);
+						// Local sub-struct variable get
+						FExposedValueCopyRecord CopyRecord;
+						CopyRecord.DestProperty = SimpleCopyPropertyDest;
+						CopyRecord.DestArrayIndex = 0;
+						CopyRecord.SourcePropertyName = AnimNodeSinglePropertyHandler.SimpleCopyPropertyName;
+						CopyRecord.SourceSubPropertyName = AnimNodeSinglePropertyHandler.SubStructPropertyName;
+						CopyRecord.SourceArrayIndex = 0;
+						CopyRecord.Size = SimpleCopyPropertyDest->GetSize();
+						CopyRecord.PostCopyOperation = AnimNodeSinglePropertyHandler.Operation;
+						HandlerPtr->CopyRecords.Add(CopyRecord);
+					}
+					else
+					{
+						check(SimpleCopyPropertySource->GetSize() == SimpleCopyPropertyDest->GetSize());
+
+						// Local variable get
+						FExposedValueCopyRecord CopyRecord;
+						CopyRecord.DestProperty = SimpleCopyPropertyDest;
+						CopyRecord.DestArrayIndex = 0;
+						CopyRecord.SourcePropertyName = AnimNodeSinglePropertyHandler.SimpleCopyPropertyName;
+						CopyRecord.SourceSubPropertyName = NAME_None;
+						CopyRecord.SourceArrayIndex = 0;
+						CopyRecord.Size = SimpleCopyPropertyDest->GetSize();
+						CopyRecord.PostCopyOperation = AnimNodeSinglePropertyHandler.Operation;
+						HandlerPtr->CopyRecords.Add(CopyRecord);
+					}
 				}
 			}
 			else
@@ -1907,6 +1925,47 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::PatchFunctionNameAndCopyR
 	}
 }
 
+static UEdGraphPin* FindFirstInputPin(UEdGraphNode* InNode)
+{
+	const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
+
+	for(UEdGraphPin* Pin : InNode->Pins)
+	{
+		if(Pin && Pin->Direction == EGPD_Input && !Schema->IsExecPin(*Pin) && !Schema->IsSelfPin(*Pin))
+		{
+			return Pin;
+		}
+	}
+
+	return nullptr;
+}
+
+static UEdGraphNode* FollowKnots(UEdGraphPin* FromPin, UEdGraphPin*& DestPin)
+{
+	UEdGraphPin* LinkedPin = FromPin->LinkedTo[0];
+	DestPin = LinkedPin;
+	if(LinkedPin)
+	{
+		UEdGraphNode* LinkedNode = LinkedPin->GetOwningNode();
+		UK2Node_Knot* KnotNode = Cast<UK2Node_Knot>(LinkedNode);
+		while(KnotNode)
+		{
+			if(UEdGraphPin* InputPin = FindFirstInputPin(KnotNode))
+			{
+				if(InputPin->LinkedTo[0])
+				{
+					DestPin = InputPin->LinkedTo[0];
+					LinkedNode = InputPin->LinkedTo[0]->GetOwningNode();
+					KnotNode = Cast<UK2Node_Knot>(LinkedNode);
+				}
+			}
+		}
+		return LinkedNode;
+	}
+
+	return nullptr;
+}
+
 void FAnimBlueprintCompiler::FEvaluationHandlerRecord::RegisterPin(UEdGraphPin* SourcePin, UProperty* AssociatedProperty, int32 AssociatedPropertyArrayIndex)
 {
 	const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
@@ -1925,64 +1984,189 @@ void FAnimBlueprintCompiler::FEvaluationHandlerRecord::RegisterPin(UEdGraphPin* 
 
 	if(GetDefault<UEngine>()->bOptimizeAnimBlueprintMemberVariableAccess)
 	{
-		UK2Node_VariableGet* VariableGetNode = Cast<UK2Node_VariableGet>(SourcePin->LinkedTo[0]->GetOwningNode());
-		if(VariableGetNode && VariableGetNode->IsNodePure() && VariableGetNode->VariableReference.IsSelfContext())
-		{
-			Handler.SimpleCopyPropertyName = VariableGetNode->VariableReference.GetMemberName();
-		}
-		else
-		{
-			Handler.bHasOnlyMemberAccess = true;
+		typedef bool (FAnimBlueprintCompiler::FEvaluationHandlerRecord::*GraphCheckerFunc)(FAnimNodeSinglePropertyHandler&, UEdGraphPin*);
 
-			// traverse pins to leaf nodes and check for member access/pure only
-			TArray<UEdGraphPin*> PinStack;
-			PinStack.Add(SourcePin);
-			while(PinStack.Num() > 0)
+		GraphCheckerFunc GraphCheckerFuncs[] =
+		{
+			&FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForVariableGet,
+			&FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForLogicalNot,
+			&FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForStructMemberAccess,
+		};
+
+		for(GraphCheckerFunc& CheckFunc : GraphCheckerFuncs)
+		{
+			if((this->*CheckFunc)(Handler, SourcePin))
 			{
-				UEdGraphPin* CurrentPin = PinStack.Pop(false);
-				for(auto& LinkedPin : CurrentPin->LinkedTo)
-				{
-					UEdGraphNode* LinkedNode = LinkedPin->GetOwningNode();
-					if(LinkedNode)
-					{
-						bool bLeafNode = true;
-						for(auto& Pin : LinkedNode->Pins)
-						{
-							if(Pin != LinkedPin && Pin->Direction == EGPD_Input && !Schema->IsPosePin(Pin->PinType))
-							{
-								bLeafNode = false;
-								PinStack.Add(Pin);
-							}
-						}
+				break;
+			}
+		}
 
-						if(bLeafNode)
+		CheckForMemberOnlyAccess(Handler, SourcePin);
+	}
+}
+
+static FName RecoverSplitStructPinName(UEdGraphPin* OutputPin)
+{
+	check(OutputPin->ParentPin);
+	
+	const FString& PinName = OutputPin->PinName;
+	const FString& ParentPinName = OutputPin->ParentPin->PinName;
+
+	return FName(*PinName.Replace(*(ParentPinName + TEXT("_")), TEXT("")));
+}
+
+bool FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForVariableGet(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin)
+{
+	if(SourcePin)
+	{
+		UEdGraphPin* DestPin = nullptr;
+		if(UK2Node_VariableGet* VariableGetNode = Cast<UK2Node_VariableGet>(FollowKnots(SourcePin, DestPin)))
+		{
+			if(VariableGetNode && VariableGetNode->IsNodePure() && VariableGetNode->VariableReference.IsSelfContext())
+			{
+				if(DestPin)
+				{
+					// variable get could be a 'split' struct
+					if(DestPin->ParentPin != nullptr)
+					{
+						Handler.SimpleCopyPropertyName = VariableGetNode->VariableReference.GetMemberName();
+						Handler.SubStructPropertyName = RecoverSplitStructPinName(DestPin);
+					}
+					else
+					{
+						Handler.SimpleCopyPropertyName = VariableGetNode->VariableReference.GetMemberName();
+					}
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+bool FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForLogicalNot(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin)
+{
+	if(SourcePin)
+	{
+		UEdGraphPin* DestPin = nullptr;
+		UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(FollowKnots(SourcePin, DestPin));
+		if(CallFunctionNode && CallFunctionNode->FunctionReference.GetMemberName() == FName(TEXT("Not_PreBool")))
+		{
+			// find and follow input pin
+			if(UEdGraphPin* InputPin = FindFirstInputPin(CallFunctionNode))
+			{
+				check(InputPin->PinType.PinCategory == UEdGraphSchema_K2::PC_Boolean);
+				if(CheckForVariableGet(Handler, InputPin) || CheckForStructMemberAccess(Handler, InputPin))
+				{
+					check(Handler.SimpleCopyPropertyName != NAME_None);	// this should have been filled in by CheckForVariableGet() or CheckForStructMemberAccess() above
+					Handler.Operation = EPostCopyOperation::LogicalNegateBool;
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+bool FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForStructMemberAccess(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin)
+{
+	if(SourcePin)
+	{
+		UEdGraphPin* DestPin = nullptr;
+		if(UK2Node_BreakStruct* BreakStructNode = Cast<UK2Node_BreakStruct>(FollowKnots(SourcePin, DestPin)))
+		{
+			if(UEdGraphPin* InputPin = FindFirstInputPin(BreakStructNode))
+			{
+				if(CheckForVariableGet(Handler, InputPin))
+				{
+					check(Handler.SimpleCopyPropertyName != NAME_None);	// this should have been filled in by CheckForVariableGet() above
+					Handler.SubStructPropertyName = *DestPin->PinName;
+					return true;
+				}
+			}
+		}
+		// could be a native break
+		else if(UK2Node_CallFunction* NativeBreakNode = Cast<UK2Node_CallFunction>(FollowKnots(SourcePin, DestPin)))
+		{
+			UFunction* Function = NativeBreakNode->FunctionReference.ResolveMember<UFunction>(UKismetMathLibrary::StaticClass());
+			if(Function && Function->HasMetaData(TEXT("NativeBreakFunc")))
+			{
+				if(UEdGraphPin* InputPin = FindFirstInputPin(NativeBreakNode))
+				{
+					if(CheckForVariableGet(Handler, InputPin))
+					{
+						check(Handler.SimpleCopyPropertyName != NAME_None);	// this should have been filled in by CheckForVariableGet() above
+						Handler.SubStructPropertyName = *DestPin->PinName;
+						return true;
+					}
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
+bool FAnimBlueprintCompiler::FEvaluationHandlerRecord::CheckForMemberOnlyAccess(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin)
+{
+	const UAnimationGraphSchema* Schema = GetDefault<UAnimationGraphSchema>();
+
+	Handler.bHasOnlyMemberAccess = true;
+
+	if(SourcePin)
+	{
+		// traverse pins to leaf nodes and check for member access/pure only
+		TArray<UEdGraphPin*> PinStack;
+		PinStack.Add(SourcePin);
+		while(PinStack.Num() > 0)
+		{
+			UEdGraphPin* CurrentPin = PinStack.Pop(false);
+			for(auto& LinkedPin : CurrentPin->LinkedTo)
+			{
+				UEdGraphNode* LinkedNode = LinkedPin->GetOwningNode();
+				if(LinkedNode)
+				{
+					bool bLeafNode = true;
+					for(auto& Pin : LinkedNode->Pins)
+					{
+						if(Pin != LinkedPin && Pin->Direction == EGPD_Input && !Schema->IsPosePin(Pin->PinType))
 						{
-							if(UK2Node_VariableGet* LinkedVariableGetNode = Cast<UK2Node_VariableGet>(LinkedNode))
+							bLeafNode = false;
+							PinStack.Add(Pin);
+						}
+					}
+
+					if(bLeafNode)
+					{
+						if(UK2Node_VariableGet* LinkedVariableGetNode = Cast<UK2Node_VariableGet>(LinkedNode))
+						{
+							if(!LinkedVariableGetNode->IsNodePure() || !LinkedVariableGetNode->VariableReference.IsSelfContext())
 							{
-								if(!LinkedVariableGetNode->IsNodePure() || !LinkedVariableGetNode->VariableReference.IsSelfContext())
-								{
-									// only local variable access is allowed for leaf nodes, so 
-									Handler.bHasOnlyMemberAccess = false;
-								}
-							}
-							else if(UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(LinkedNode))
-							{
-								if(!CallFunctionNode->IsNodePure())
-								{
-									// only allow pure function calls
-									Handler.bHasOnlyMemberAccess = false;
-								}
-							}
-							else if(!LinkedNode->IsA<UK2Node_TransitionRuleGetter>())
-							{
+								// only local variable access is allowed for leaf nodes 
 								Handler.bHasOnlyMemberAccess = false;
 							}
+						}
+						else if(UK2Node_CallFunction* CallFunctionNode = Cast<UK2Node_CallFunction>(LinkedNode))
+						{
+							if(!CallFunctionNode->IsNodePure())
+							{
+								// only allow pure function calls
+								Handler.bHasOnlyMemberAccess = false;
+							}
+						}
+						else if(!LinkedNode->IsA<UK2Node_TransitionRuleGetter>())
+						{
+							Handler.bHasOnlyMemberAccess = false;
 						}
 					}
 				}
 			}
 		}
 	}
+
+	return Handler.bHasOnlyMemberAccess;
 }
 
 //////////////////////////////////////////////////////////////////////////

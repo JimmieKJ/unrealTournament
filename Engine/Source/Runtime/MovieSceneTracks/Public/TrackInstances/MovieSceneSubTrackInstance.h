@@ -37,5 +37,5 @@ protected:
 	TWeakObjectPtr<UMovieSceneSubTrack> SubTrack;
 
 	/** Mapping of section lookups to instances.  Each section has a movie scene which must be instanced */
-	TMap<TWeakObjectPtr<UMovieSceneSubSection>, TSharedPtr<FMovieSceneSequenceInstance>> SequenceInstancesBySection; 
+	TMap<TWeakObjectPtr<UMovieSceneSubSection>, TSharedPtr<FMovieSceneSequenceInstance>> SequenceInstancesBySection;
 };

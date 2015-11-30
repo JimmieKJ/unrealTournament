@@ -122,7 +122,7 @@ void FLazyObjectPtr::PossiblySerializeObjectGuid(UObject *Object, FArchive& Ar)
 
 			// Don't try and resolve GUIDs when loading a package for diff'ing
 			const UPackage* Package = Object->GetOutermost();
-			bool bLoadedForDiff = (Package && (Package->PackageFlags & PKG_ForDiffing));
+			const bool bLoadedForDiff = (Package && Package->HasAnyPackageFlags(PKG_ForDiffing));
 			if (!bLoadedForDiff && (!(Ar.GetPortFlags() & PPF_Duplicate) || (Ar.GetPortFlags() & PPF_DuplicateForPIE)))
 			{
 				check(!Guid.IsDefault());

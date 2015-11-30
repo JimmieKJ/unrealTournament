@@ -57,6 +57,7 @@ namespace CrowdDebugDrawing
 	const FColor CollisionRange(192, 0, 128);
 	const FColor CollisionSeg0(192, 0, 128);
 	const FColor CollisionSeg1(96, 0, 64);
+	const FColor CollisionSegIgnored(128, 128, 128);
 	const FColor Path(255, 255, 255);
 	const FColor PathSpecial(255, 192, 203);
 	const FColor PathOpt(0, 128, 0);
@@ -426,7 +427,8 @@ bool UCrowdManager::SetAgentMoveDirection(const UCrowdFollowingComponent* AgentC
 	return bSuccess;
 }
 
-bool UCrowdManager::SetAgentMovePath(const UCrowdFollowingComponent* AgentComponent, const FNavMeshPath* Path, int32 PathSectionStart, int32 PathSectionEnd) const
+bool UCrowdManager::SetAgentMovePath(const UCrowdFollowingComponent* AgentComponent, const FNavMeshPath* Path,
+	int32 PathSectionStart, int32 PathSectionEnd, const FVector& PathSectionEndLocation) const
 {
 	SCOPE_CYCLE_COUNTER(STAT_AI_Crowd_AgentUpdateTime);
 
@@ -440,7 +442,7 @@ bool UCrowdManager::SetAgentMovePath(const UCrowdFollowingComponent* AgentCompon
 		Path && (Path->GetPathPoints().Num() > 1) &&
 		Path->PathCorridor.IsValidIndex(PathSectionStart) && Path->PathCorridor.IsValidIndex(PathSectionEnd))
 	{
-		FVector TargetPos = Path->GetPathPoints().Last().Location;
+		FVector TargetPos = PathSectionEndLocation;
 		if (PathSectionEnd < (Path->PathCorridor.Num() - 1))
 		{
 			RecastNavData->GetPolyCenter(Path->PathCorridor[PathSectionEnd], TargetPos);
@@ -457,7 +459,7 @@ bool UCrowdManager::SetAgentMovePath(const UCrowdFollowingComponent* AgentCompon
 		DetourCrowd->updateAgentFilter(AgentData->AgentIndex, DetourFilter);
 		DetourCrowd->updateAgentState(AgentData->AgentIndex, false);
 
-		const FVector RcTargetPos = Unreal2RecastPoint(TargetPos);		
+		const FVector RcTargetPos = Unreal2RecastPoint(TargetPos);
 		bSuccess = DetourCrowd->requestMoveTarget(AgentData->AgentIndex, PathRefs.Last(), &RcTargetPos.X);
 		if (bSuccess)
 		{
@@ -926,7 +928,11 @@ void UCrowdManager::DrawDebugCollisionSegments(const dtCrowdAgent* CrowdAgent) c
 	for (int32 Idx = 0; Idx < CrowdAgent->boundary.getSegmentCount(); Idx++)
 	{
 		const float* s = CrowdAgent->boundary.getSegment(Idx);
-		FColor Color = (dtTriArea2D(CrowdAgent->npos, s, s + 3) < 0.0f) ? CrowdDebugDrawing::CollisionSeg1 : CrowdDebugDrawing::CollisionSeg0;
+		const int32 SegFlags = CrowdAgent->boundary.getSegmentFlags(Idx);
+		const FColor Color = (SegFlags & DT_CROWD_BOUNDARY_IGNORE) ? CrowdDebugDrawing::CollisionSegIgnored :
+			(dtTriArea2D(CrowdAgent->npos, s, s + 3) < 0.0f) ? CrowdDebugDrawing::CollisionSeg1 :
+			CrowdDebugDrawing::CollisionSeg0;
+
 		FVector Pt0 = Recast2UnrealPoint(s);
 		FVector Pt1 = Recast2UnrealPoint(s + 3);
 
@@ -1142,7 +1148,7 @@ void UCrowdManager::DebugTick() const
 					{
 						FVector P1 = Recast2UnrealPoint(&CrowdAgent->cornerVerts[Idx * 3]);
 						UE_VLOG_SEGMENT(LogOwner, LogCrowdFollowing, Log, P0 + CrowdDebugDrawing::Offset, P1 + CrowdDebugDrawing::Offset, CrowdDebugDrawing::Corner, TEXT(""));
-						UE_VLOG_BOX(LogOwner, LogCrowdFollowing, Log, FBox::BuildAABB(P1 + CrowdDebugDrawing::Offset, FVector(2, 2, 2)), CrowdDebugDrawing::Corner, TEXT(""));
+						UE_VLOG_BOX(LogOwner, LogCrowdFollowing, Log, FBox::BuildAABB(P1 + CrowdDebugDrawing::Offset, FVector(2, 2, 2)), CrowdDebugDrawing::Corner, TEXT("%d"), CrowdAgent->cornerFlags[Idx]);
 						P0 = P1;
 					}
 				}
@@ -1181,11 +1187,15 @@ void UCrowdManager::DebugTick() const
 				for (int32 Idx = 0; Idx < CrowdAgent->boundary.getSegmentCount(); Idx++)
 				{
 					const float* s = CrowdAgent->boundary.getSegment(Idx);
-					FColor Color = (dtTriArea2D(CrowdAgent->npos, s, s + 3) < 0.0f) ? CrowdDebugDrawing::CollisionSeg1 : CrowdDebugDrawing::CollisionSeg0;
+					const int32 SegFlags = CrowdAgent->boundary.getSegmentFlags(Idx);
+					const FColor Color = (SegFlags & DT_CROWD_BOUNDARY_IGNORE) ? CrowdDebugDrawing::CollisionSegIgnored :
+						(dtTriArea2D(CrowdAgent->npos, s, s + 3) < 0.0f) ? CrowdDebugDrawing::CollisionSeg1 :
+						CrowdDebugDrawing::CollisionSeg0;
+
 					FVector Pt0 = Recast2UnrealPoint(s);
 					FVector Pt1 = Recast2UnrealPoint(s + 3);
 
-					UE_VLOG_SEGMENT(LogOwner, LogCrowdFollowing, Log, Pt0 + CrowdDebugDrawing::Offset, Pt1 + CrowdDebugDrawing::Offset, Color, TEXT(""));
+					UE_VLOG_SEGMENT_THICK(LogOwner, LogCrowdFollowing, Log, Pt0 + CrowdDebugDrawing::Offset, Pt1 + CrowdDebugDrawing::Offset, Color, 3.0f, TEXT(""));
 				}
 			}
 		}

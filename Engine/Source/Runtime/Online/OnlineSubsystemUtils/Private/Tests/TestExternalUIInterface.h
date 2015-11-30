@@ -76,6 +76,9 @@ namespace ETestExternalUIInterfaceState
 	/** Delegate executed when the user profile UI has been closed. */
 	void OnProfileUIClosed();
 
+	/** Delegate executed when the show web UI has been closed. */
+	void OnShowWebUrlClosed(const FString& FinalUrl);
+
  public:
 
 	/**

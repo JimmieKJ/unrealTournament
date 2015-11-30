@@ -2,6 +2,7 @@
 
 #include "EnginePrivate.h"
 #include "AnimNode_AssetPlayerBase.h"
+#include "Animation/AnimInstanceProxy.h"
 
 FAnimNode_AssetPlayerBase::FAnimNode_AssetPlayerBase()
 	: bIgnoreForRelevancyTest(false)
@@ -37,9 +38,9 @@ void FAnimNode_AssetPlayerBase::CreateTickRecordForNode(const FAnimationUpdateCo
 	FAnimGroupInstance* SyncGroup;
 	const int32 GroupIndexToUse = ((GroupRole != EAnimGroupRole::TransitionLeader) || bHasBeenFullWeight) ? GroupIndex : INDEX_NONE;
 
-	FAnimTickRecord& TickRecord = Context.AnimInstance->CreateUninitializedTickRecord(GroupIndexToUse, /*out*/ SyncGroup);
+	FAnimTickRecord& TickRecord = Context.AnimInstanceProxy->CreateUninitializedTickRecord(GroupIndexToUse, /*out*/ SyncGroup);
 
-	Context.AnimInstance->MakeSequenceTickRecord(TickRecord, Sequence, bLooping, PlayRate, FinalBlendWeight, /*inout*/ InternalTimeAccumulator, MarkerTickRecord);
+	Context.AnimInstanceProxy->MakeSequenceTickRecord(TickRecord, Sequence, bLooping, PlayRate, FinalBlendWeight, /*inout*/ InternalTimeAccumulator, MarkerTickRecord);
 
 	// Update the sync group if it exists
 	if (SyncGroup != NULL)

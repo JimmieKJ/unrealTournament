@@ -6,6 +6,7 @@
 #include "MenuStack.h"
 #include "SlateDelegates.h"
 #include "SlateApplicationBase.h"
+#include "NavigationConfig.h"
 
 
 class SToolTip;
@@ -81,7 +82,6 @@ class SLATE_API FPopupSupport
 	TArray<FClickSubscriber> ClickZoneNotifications;
 
 };
-
 
 class SLATE_API FSlateApplication
 	: public FSlateApplicationBase
@@ -221,6 +221,8 @@ public:
 
 	/** Returns true if this slate application is ready to display windows. */
 	bool CanDisplayWindows() const;
+
+	virtual EUINavigation GetNavigationDirectionFromKey( const FKeyEvent& InKeyEvent ) const override;
 	
 	/**
 	 * Adds a modal window to the application.  
@@ -390,6 +392,10 @@ public:
 	 * will only be re-enabled when all tracked external modal windows have been dismissed.
 	 */
 	void ExternalModalStop();
+
+	/** Delegate for retainer widgets to know when they should update */
+	DECLARE_EVENT_OneParam(FSlateApplication, FOnUpdateRetainerWidgets, float);
+	FOnUpdateRetainerWidgets& OnUpdateRetainerWidgets()  { return UpdateRetainerWidgetsEvent; }
 
 	/** 
 	 * Removes references to FViewportRHI's.  
@@ -940,6 +946,8 @@ public:
 	void ProcessApplicationActivationEvent( bool InAppActivated );
 
 public:
+
+	void SetNavigationConfig( FNavigationConfig&& Config );
 
 	/** Called when the slate application is being shut down. */
 	void OnShutdown();
@@ -1647,6 +1655,13 @@ private:
 		TArray< TSharedPtr< FSlateWindowElementList > > InactiveCachedElementListPool;
 	};
 
-	TMap< const ILayoutCache*, FCacheElementPools* > CachedElementLists;
-	TArray< FCacheElementPools* > ReleasedCachedElementLists;
+	TMap< const ILayoutCache*, TSharedPtr<FCacheElementPools> > CachedElementLists;
+	TArray< TSharedPtr<FCacheElementPools> > ReleasedCachedElementLists;
+
+	/** Configured fkeys to control navigation */
+	FNavigationConfig NavigationConfig;
+
+	/** Delegate for retainer widgets to know when they should update */
+	FOnUpdateRetainerWidgets UpdateRetainerWidgetsEvent;
+
 };

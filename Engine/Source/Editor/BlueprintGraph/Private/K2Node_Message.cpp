@@ -73,7 +73,7 @@ UEdGraphPin* UK2Node_Message::CreateSelfPin(const UFunction* Function)
 	return SelfPin;
 }
 
-void UK2Node_Message::EnsureFunctionIsInBlueprint()
+void UK2Node_Message::FixupSelfMemberContext()
 {
 	// Do nothing; the function either exists and works, or doesn't and doesn't
 }

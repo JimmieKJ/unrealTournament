@@ -8,6 +8,18 @@
 	#define INTERNAL_DECORATOR(Method) CmdList.GetContext().RHI##Method
 #endif
 
+//for functions where the signatures do not match between gfx and compute commandlists
+#if !defined(INTERNAL_DECORATOR_COMPUTE)
+#define INTERNAL_DECORATOR_COMPUTE(Method) CmdList.GetComputeContext().RHI##Method
+#endif
+
+//for functions where the signatures match between gfx and compute commandlists
+#if !defined(INTERNAL_DECORATOR_CONTEXT_PARAM1)
+#define INTERNAL_DECORATOR_CONTEXT(Method) IRHIComputeContext& Context = (CmdListType == ECmdList::EGfx) ? CmdList.GetContext() : CmdList.GetComputeContext(); Context.RHI##Method
+#endif
+
+
+
 void FRHICommandSetRasterizerState::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetRasterizerState);
@@ -20,86 +32,113 @@ void FRHICommandSetDepthStencilState::Execute(FRHICommandListBase& CmdList)
 	INTERNAL_DECORATOR(SetDepthStencilState)(State, StencilRef);
 }
 
-template <typename TShaderRHIParamRef>
-void FRHICommandSetShaderParameter<TShaderRHIParamRef>::Execute(FRHICommandListBase& CmdList)
+template <typename TShaderRHIParamRef, ECmdList CmdListType>
+void FRHICommandSetShaderParameter<TShaderRHIParamRef, CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetShaderParameter);
 	INTERNAL_DECORATOR(SetShaderParameter)(Shader, BufferIndex, BaseIndex, NumBytes, NewValue); 
 }
-template struct FRHICommandSetShaderParameter<FVertexShaderRHIParamRef>;
-template struct FRHICommandSetShaderParameter<FHullShaderRHIParamRef>;
-template struct FRHICommandSetShaderParameter<FDomainShaderRHIParamRef>;
-template struct FRHICommandSetShaderParameter<FGeometryShaderRHIParamRef>;
-template struct FRHICommandSetShaderParameter<FPixelShaderRHIParamRef>;
-template struct FRHICommandSetShaderParameter<FComputeShaderRHIParamRef>;
+template struct FRHICommandSetShaderParameter<FVertexShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderParameter<FHullShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderParameter<FDomainShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderParameter<FGeometryShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderParameter<FPixelShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderParameter<FComputeShaderRHIParamRef, ECmdList::EGfx>;
+template<> void FRHICommandSetShaderParameter<FComputeShaderRHIParamRef, ECmdList::ECompute>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetShaderParameter);
+	INTERNAL_DECORATOR_COMPUTE(SetShaderParameter)(Shader, BufferIndex, BaseIndex, NumBytes, NewValue);
+}
 
-template <typename TShaderRHIParamRef>
-void FRHICommandSetShaderUniformBuffer<TShaderRHIParamRef>::Execute(FRHICommandListBase& CmdList)
+template <typename TShaderRHIParamRef, ECmdList CmdListType>
+void FRHICommandSetShaderUniformBuffer<TShaderRHIParamRef, CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetShaderUniformBuffer);
 	INTERNAL_DECORATOR(SetShaderUniformBuffer)(Shader, BaseIndex, UniformBuffer);
 }
-template struct FRHICommandSetShaderUniformBuffer<FVertexShaderRHIParamRef>;
-template struct FRHICommandSetShaderUniformBuffer<FHullShaderRHIParamRef>;
-template struct FRHICommandSetShaderUniformBuffer<FDomainShaderRHIParamRef>;
-template struct FRHICommandSetShaderUniformBuffer<FGeometryShaderRHIParamRef>;
-template struct FRHICommandSetShaderUniformBuffer<FPixelShaderRHIParamRef>;
-template struct FRHICommandSetShaderUniformBuffer<FComputeShaderRHIParamRef>;
+template struct FRHICommandSetShaderUniformBuffer<FVertexShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderUniformBuffer<FHullShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderUniformBuffer<FDomainShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderUniformBuffer<FGeometryShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderUniformBuffer<FPixelShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderUniformBuffer<FComputeShaderRHIParamRef, ECmdList::EGfx>;
+template<> void FRHICommandSetShaderUniformBuffer<FComputeShaderRHIParamRef, ECmdList::ECompute>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetShaderUniformBuffer);
+	INTERNAL_DECORATOR_COMPUTE(SetShaderUniformBuffer)(Shader, BaseIndex, UniformBuffer);
+}
 
-template <typename TShaderRHIParamRef>
-void FRHICommandSetShaderTexture<TShaderRHIParamRef>::Execute(FRHICommandListBase& CmdList)
+template <typename TShaderRHIParamRef, ECmdList CmdListType>
+void FRHICommandSetShaderTexture<TShaderRHIParamRef, CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetShaderTexture);
 	INTERNAL_DECORATOR(SetShaderTexture)(Shader, TextureIndex, Texture);
 }
-template struct FRHICommandSetShaderTexture<FVertexShaderRHIParamRef>;
-template struct FRHICommandSetShaderTexture<FHullShaderRHIParamRef>;
-template struct FRHICommandSetShaderTexture<FDomainShaderRHIParamRef>;
-template struct FRHICommandSetShaderTexture<FGeometryShaderRHIParamRef>;
-template struct FRHICommandSetShaderTexture<FPixelShaderRHIParamRef>;
-template struct FRHICommandSetShaderTexture<FComputeShaderRHIParamRef>;
+template struct FRHICommandSetShaderTexture<FVertexShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderTexture<FHullShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderTexture<FDomainShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderTexture<FGeometryShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderTexture<FPixelShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderTexture<FComputeShaderRHIParamRef, ECmdList::EGfx>;
+template<> void FRHICommandSetShaderTexture<FComputeShaderRHIParamRef, ECmdList::ECompute>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetShaderTexture);
+	INTERNAL_DECORATOR_COMPUTE(SetShaderTexture)(Shader, TextureIndex, Texture);
+}
 
-template <typename TShaderRHIParamRef>
-void FRHICommandSetShaderResourceViewParameter<TShaderRHIParamRef>::Execute(FRHICommandListBase& CmdList)
+template <typename TShaderRHIParamRef, ECmdList CmdListType>
+void FRHICommandSetShaderResourceViewParameter<TShaderRHIParamRef, CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetShaderResourceViewParameter);
 	INTERNAL_DECORATOR(SetShaderResourceViewParameter)(Shader, SamplerIndex, SRV);
 }
-template struct FRHICommandSetShaderResourceViewParameter<FVertexShaderRHIParamRef>;
-template struct FRHICommandSetShaderResourceViewParameter<FHullShaderRHIParamRef>;
-template struct FRHICommandSetShaderResourceViewParameter<FDomainShaderRHIParamRef>;
-template struct FRHICommandSetShaderResourceViewParameter<FGeometryShaderRHIParamRef>;
-template struct FRHICommandSetShaderResourceViewParameter<FPixelShaderRHIParamRef>;
-template struct FRHICommandSetShaderResourceViewParameter<FComputeShaderRHIParamRef>;
+template struct FRHICommandSetShaderResourceViewParameter<FVertexShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderResourceViewParameter<FHullShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderResourceViewParameter<FDomainShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderResourceViewParameter<FGeometryShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderResourceViewParameter<FPixelShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderResourceViewParameter<FComputeShaderRHIParamRef, ECmdList::EGfx>;
+template<> void FRHICommandSetShaderResourceViewParameter<FComputeShaderRHIParamRef, ECmdList::ECompute>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetShaderResourceViewParameter);
+	INTERNAL_DECORATOR_COMPUTE(SetShaderResourceViewParameter)(Shader, SamplerIndex, SRV);
+}
 
-template <typename TShaderRHIParamRef>
-void FRHICommandSetUAVParameter<TShaderRHIParamRef>::Execute(FRHICommandListBase& CmdList)
+template <typename TShaderRHIParamRef, ECmdList CmdListType>
+void FRHICommandSetUAVParameter<TShaderRHIParamRef, CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetUAVParameter);
-	INTERNAL_DECORATOR(SetUAVParameter)(Shader, UAVIndex, UAV);
+	INTERNAL_DECORATOR_CONTEXT(SetUAVParameter)(Shader, UAVIndex, UAV);
 }
-template struct FRHICommandSetUAVParameter<FComputeShaderRHIParamRef>;
+template struct FRHICommandSetUAVParameter<FComputeShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetUAVParameter<FComputeShaderRHIParamRef, ECmdList::ECompute>;
 
-template <typename TShaderRHIParamRef>
-void FRHICommandSetUAVParameter_IntialCount<TShaderRHIParamRef>::Execute(FRHICommandListBase& CmdList)
+template <typename TShaderRHIParamRef, ECmdList CmdListType>
+void FRHICommandSetUAVParameter_IntialCount<TShaderRHIParamRef, CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetUAVParameter);
-	INTERNAL_DECORATOR(SetUAVParameter)(Shader, UAVIndex, UAV, InitialCount);
+	INTERNAL_DECORATOR_CONTEXT(SetUAVParameter)(Shader, UAVIndex, UAV, InitialCount);
 }
-template struct FRHICommandSetUAVParameter_IntialCount<FComputeShaderRHIParamRef>;
+template struct FRHICommandSetUAVParameter_IntialCount<FComputeShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetUAVParameter_IntialCount<FComputeShaderRHIParamRef, ECmdList::ECompute>;
 
-template <typename TShaderRHIParamRef>
-void FRHICommandSetShaderSampler<TShaderRHIParamRef>::Execute(FRHICommandListBase& CmdList)
+template <typename TShaderRHIParamRef, ECmdList CmdListType>
+void FRHICommandSetShaderSampler<TShaderRHIParamRef, CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetShaderSampler);
 	INTERNAL_DECORATOR(SetShaderSampler)(Shader, SamplerIndex, Sampler);
 }
-template struct FRHICommandSetShaderSampler<FVertexShaderRHIParamRef>;
-template struct FRHICommandSetShaderSampler<FHullShaderRHIParamRef>;
-template struct FRHICommandSetShaderSampler<FDomainShaderRHIParamRef>;
-template struct FRHICommandSetShaderSampler<FGeometryShaderRHIParamRef>;
-template struct FRHICommandSetShaderSampler<FPixelShaderRHIParamRef>;
-template struct FRHICommandSetShaderSampler<FComputeShaderRHIParamRef>;
+template struct FRHICommandSetShaderSampler<FVertexShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderSampler<FHullShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderSampler<FDomainShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderSampler<FGeometryShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderSampler<FPixelShaderRHIParamRef, ECmdList::EGfx>;
+template struct FRHICommandSetShaderSampler<FComputeShaderRHIParamRef, ECmdList::EGfx>;
+template<> void FRHICommandSetShaderSampler<FComputeShaderRHIParamRef, ECmdList::ECompute>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(SetShaderSampler);
+	INTERNAL_DECORATOR_COMPUTE(SetShaderSampler)(Shader, SamplerIndex, Sampler);
+}
 
 void FRHICommandDrawPrimitive::Execute(FRHICommandListBase& CmdList)
 {
@@ -199,23 +238,32 @@ void FRHICommandEndDrawIndexedPrimitiveUP::Execute(FRHICommandListBase& CmdList)
 	INTERNAL_DECORATOR(EndDrawIndexedPrimitiveUP)();
 }
 
-void FRHICommandSetComputeShader::Execute(FRHICommandListBase& CmdList)
+template<ECmdList CmdListType>
+void FRHICommandSetComputeShader<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SetComputeShader);
-	INTERNAL_DECORATOR(SetComputeShader)(ComputeShader);
+	INTERNAL_DECORATOR_CONTEXT(SetComputeShader)(ComputeShader);
 }
+template struct FRHICommandSetComputeShader<ECmdList::EGfx>;
+template struct FRHICommandSetComputeShader<ECmdList::ECompute>;
 
-void FRHICommandDispatchComputeShader::Execute(FRHICommandListBase& CmdList)
+template<ECmdList CmdListType>
+void FRHICommandDispatchComputeShader<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(DispatchComputeShader);
-	INTERNAL_DECORATOR(DispatchComputeShader)(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
+	INTERNAL_DECORATOR_CONTEXT(DispatchComputeShader)(ThreadGroupCountX, ThreadGroupCountY, ThreadGroupCountZ);
 }
+template struct FRHICommandDispatchComputeShader<ECmdList::EGfx>;
+template struct FRHICommandDispatchComputeShader<ECmdList::ECompute>;
 
-void FRHICommandDispatchIndirectComputeShader::Execute(FRHICommandListBase& CmdList)
+template<ECmdList CmdListType>
+void FRHICommandDispatchIndirectComputeShader<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(DispatchIndirectComputeShader);
-	INTERNAL_DECORATOR(DispatchIndirectComputeShader)(ArgumentBuffer, ArgumentOffset);
+	INTERNAL_DECORATOR_CONTEXT(DispatchIndirectComputeShader)(ArgumentBuffer, ArgumentOffset);
 }
+template struct FRHICommandDispatchIndirectComputeShader<ECmdList::EGfx>;
+template struct FRHICommandDispatchIndirectComputeShader<ECmdList::ECompute>;
 
 void FRHICommandAutomaticCacheFlushAfterComputeShader::Execute(FRHICommandListBase& CmdList)
 {
@@ -277,11 +325,23 @@ void FRHICommandTransitionTexturesArray::Execute(FRHICommandListBase& CmdList)
 	INTERNAL_DECORATOR(TransitionResources)(TransitionType, &Textures[0], Textures.Num());
 }
 
-void FRHICommandTransitionUAVs::Execute(FRHICommandListBase& CmdList)
+template<ECmdList CmdListType>
+void FRHICommandTransitionUAVs<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(TransitionUAVs);
-	INTERNAL_DECORATOR(TransitionResources)(TransitionType, TransitionPipeline, UAVs, NumUAVs);
+	INTERNAL_DECORATOR_CONTEXT(TransitionResources)(TransitionType, TransitionPipeline, UAVs, NumUAVs, WriteFence);
 }
+template struct FRHICommandTransitionUAVs<ECmdList::EGfx>;
+template struct FRHICommandTransitionUAVs<ECmdList::ECompute>;
+
+template<ECmdList CmdListType>
+void FRHICommandWaitComputeFence<CmdListType>::Execute(FRHICommandListBase& CmdList)
+{
+	RHISTAT(WaitComputeFence);
+	INTERNAL_DECORATOR_CONTEXT(WaitComputeFence)(WaitFence);
+}
+template struct FRHICommandWaitComputeFence<ECmdList::EGfx>;
+template struct FRHICommandWaitComputeFence<ECmdList::ECompute>;
 
 void FRHICommandClear::Execute(FRHICommandListBase& CmdList)
 {
@@ -393,11 +453,14 @@ void FRHICommandEndOcclusionQueryBatch::Execute(FRHICommandListBase& CmdList)
 	INTERNAL_DECORATOR(EndOcclusionQueryBatch)();
 }
 
-void FRHICommandSubmitCommandsHint::Execute(FRHICommandListBase& CmdList)
+template<ECmdList CmdListType>
+void FRHICommandSubmitCommandsHint<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(SubmitCommandsHint);
-	INTERNAL_DECORATOR(SubmitCommandsHint)();
+	INTERNAL_DECORATOR_CONTEXT(SubmitCommandsHint)();
 }
+template struct FRHICommandSubmitCommandsHint<ECmdList::EGfx>;
+template struct FRHICommandSubmitCommandsHint<ECmdList::ECompute>;
 
 void FRHICommandUpdateTextureReference::Execute(FRHICommandListBase& CmdList)
 {
@@ -441,16 +504,22 @@ void FRHICommandEndDrawingViewport::Execute(FRHICommandListBase& CmdList)
 	INTERNAL_DECORATOR(EndDrawingViewport)(Viewport, bPresent, bLockToVsync);
 }
 
-void FRHICommandPushEvent::Execute(FRHICommandListBase& CmdList)
+template<ECmdList CmdListType>
+void FRHICommandPushEvent<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(PushEvent);
-	INTERNAL_DECORATOR(PushEvent)(Name);
+	INTERNAL_DECORATOR_CONTEXT(PushEvent)(Name);
 }
+template struct FRHICommandPushEvent<ECmdList::EGfx>;
+template struct FRHICommandPushEvent<ECmdList::ECompute>;
 
-void FRHICommandPopEvent::Execute(FRHICommandListBase& CmdList)
+template<ECmdList CmdListType>
+void FRHICommandPopEvent<CmdListType>::Execute(FRHICommandListBase& CmdList)
 {
 	RHISTAT(PopEvent);
-	INTERNAL_DECORATOR(PopEvent)();
+	INTERNAL_DECORATOR_CONTEXT(PopEvent)();
 }
+template struct FRHICommandPopEvent<ECmdList::EGfx>;
+template struct FRHICommandPopEvent<ECmdList::ECompute>;
 
 

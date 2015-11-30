@@ -159,17 +159,17 @@ int32 FSlateImageRun::OnPaint( const FPaintArgs& Args, const FTextLayout::FLineV
 	return LayerId;
 }
 
-TSharedRef< ILayoutBlock > FSlateImageRun::CreateBlock( int32 BeginIndex, int32 EndIndex, FVector2D Size, const TSharedPtr< IRunRenderer >& Renderer )
+TSharedRef< ILayoutBlock > FSlateImageRun::CreateBlock( int32 BeginIndex, int32 EndIndex, FVector2D Size, const FLayoutBlockTextContext& TextContext, const TSharedPtr< IRunRenderer >& Renderer )
 {
-	return FDefaultLayoutBlock::Create( SharedThis( this ), FTextRange( BeginIndex, EndIndex ), Size, Renderer );
+	return FDefaultLayoutBlock::Create( SharedThis( this ), FTextRange( BeginIndex, EndIndex ), Size, TextContext, Renderer );
 }
 
-int8 FSlateImageRun::GetKerning( int32 CurrentIndex, float Scale ) const 
+int8 FSlateImageRun::GetKerning( int32 CurrentIndex, float Scale, const FRunTextContext& TextContext ) const 
 {
 	return 0;
 }
 
-FVector2D FSlateImageRun::Measure( int32 BeginIndex, int32 EndIndex, float Scale ) const 
+FVector2D FSlateImageRun::Measure( int32 BeginIndex, int32 EndIndex, float Scale, const FRunTextContext& TextContext ) const 
 {
 	if ( EndIndex - BeginIndex == 0 )
 	{

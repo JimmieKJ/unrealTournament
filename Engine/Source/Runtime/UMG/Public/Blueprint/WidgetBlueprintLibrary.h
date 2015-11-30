@@ -278,7 +278,7 @@ public:
 	static FInputEvent GetInputEventFromKeyEvent(const FKeyEvent& Event);
 
 	UFUNCTION(BlueprintPure, Category="Widget", meta = (CompactNodeTitle = "->", BlueprintAutocast))
-	static FInputEvent GetInputEventFromAnalogInputEvent(const FAnalogInputEvent& Event);
+	static FKeyEvent GetKeyEventFromAnalogInputEvent(const FAnalogInputEvent& Event);
 
 	UFUNCTION(BlueprintPure, Category="Widget", meta = ( CompactNodeTitle = "->", BlueprintAutocast ))
 	static FInputEvent GetInputEventFromCharacterEvent(const FCharacterEvent& Event);

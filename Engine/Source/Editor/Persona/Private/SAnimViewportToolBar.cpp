@@ -664,6 +664,7 @@ void SAnimViewportToolBar::FillShowDisplayInfoMenu(FMenuBuilder& MenuBuilder) co
 	{
 		MenuBuilder.AddMenuEntry(Actions.ShowDisplayInfoBasic);
 		MenuBuilder.AddMenuEntry(Actions.ShowDisplayInfoDetailed);
+		MenuBuilder.AddMenuEntry(Actions.ShowDisplayInfoSkelControls);
 		MenuBuilder.AddMenuEntry(Actions.HideDisplayInfo);
 	}
 }

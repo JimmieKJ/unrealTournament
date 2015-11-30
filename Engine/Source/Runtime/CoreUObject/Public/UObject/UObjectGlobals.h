@@ -78,11 +78,23 @@ struct FObjectDuplicationParameters
 	EObjectFlags	FlagMask;
 
 	/**
+	* a bitmask of EInternalObjectFlags to propagate to the duplicate of SourceObject (and its subobjects).
+	*/
+	EInternalObjectFlags InternalFlagMask;
+
+	/**
 	 * a bitmask of EObjectFlags to set on each duplicate object created.  Different from FlagMask in that only the bits
 	 * from FlagMask which are also set on the source object will be set on the duplicate, while the flags in this value
 	 * will always be set.
 	 */
 	EObjectFlags	ApplyFlags;
+
+	/**
+	* a bitmask of EInternalObjectFlags to set on each duplicate object created.  Different from FlagMask in that only the bits
+	* from FlagMask which are also set on the source object will be set on the duplicate, while the flags in this value
+	* will always be set.
+	*/
+	EInternalObjectFlags	ApplyInternalFlags;
 
 	/**
 	 * Any PortFlags to be applied when serializing.
@@ -153,9 +165,10 @@ COREUOBJECT_API void SafeLoadError( UObject* Outer, uint32 LoadFlags, const TCHA
  * @param	ExactClass		Whether to require an exact match with the passed in class
  * @param	AnyPackage		Whether to look in any package
  * @param	ExclusiveFlags	Ignores objects that contain any of the specified exclusive flags
+ * @param ExclusiveInternalFlags  Ignores objects that contain any of the specified internal exclusive flags
  * @return	Returns a pointer to the found object or NULL if none could be found
  */
-COREUOBJECT_API UObject* StaticFindObjectFast( UClass* Class, UObject* InOuter, FName InName, bool ExactClass=false, bool AnyPackage=false, EObjectFlags ExclusiveFlags=RF_NoFlags );
+COREUOBJECT_API UObject* StaticFindObjectFast(UClass* Class, UObject* InOuter, FName InName, bool ExactClass = false, bool AnyPackage = false, EObjectFlags ExclusiveFlags = RF_NoFlags, EInternalObjectFlags ExclusiveInternalFlags = EInternalObjectFlags::None);
 COREUOBJECT_API UObject* StaticFindObject( UClass* Class, UObject* InOuter, const TCHAR* Name, bool ExactClass=false );
 COREUOBJECT_API UObject* StaticFindObjectChecked( UClass* Class, UObject* InOuter, const TCHAR* Name, bool ExactClass=false );
 COREUOBJECT_API UObject* StaticFindObjectSafe( UClass* Class, UObject* InOuter, const TCHAR* Name, bool ExactClass=false );
@@ -200,6 +213,7 @@ COREUOBJECT_API UClass* StaticLoadClass(UClass* BaseClass, UObject* InOuter, con
 * @param	InOuter		the object to create this object within (the Outer property for the new object will be set to the value specified here).
 * @param	Name		the name to give the new object. If no value (NAME_None) is specified, the object will be given a unique name in the form of ClassName_#.
 * @param	SetFlags	the ObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
+* @param	InternalSetFlags	the InternalObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
 * @param	Template	if specified, the property values from this object will be copied to the new object, and the new object's ObjectArchetype value will be set to this object.
 *						If NULL, the class default object is used instead.
 * @param	bInCopyTransientsFromClassDefaults - if true, copy transient from the class defaults instead of the pass in archetype ptr (often these are the same)
@@ -208,7 +222,7 @@ COREUOBJECT_API UClass* StaticLoadClass(UClass* BaseClass, UObject* InOuter, con
 *
 * @return	a pointer to a fully initialized object of the specified class.
 */
-COREUOBJECT_API UObject* StaticConstructObject_Internal(UClass* Class, UObject* InOuter = (UObject*)GetTransientPackage(), FName Name = NAME_None, EObjectFlags SetFlags = RF_NoFlags, UObject* Template = NULL, bool bCopyTransientsFromClassDefaults = false, struct FObjectInstancingGraph* InstanceGraph = NULL);
+COREUOBJECT_API UObject* StaticConstructObject_Internal(UClass* Class, UObject* InOuter = (UObject*)GetTransientPackage(), FName Name = NAME_None, EObjectFlags SetFlags = RF_NoFlags, EInternalObjectFlags InternalSetFlags = EInternalObjectFlags::None, UObject* Template = NULL, bool bCopyTransientsFromClassDefaults = false, struct FObjectInstancingGraph* InstanceGraph = NULL);
 
 /**
  * Create a new instance of an object.  The returned object will be fully initialized.  If InFlags contains RF_NeedsLoad (indicating that the object still needs to load its object data from disk), components
@@ -242,7 +256,7 @@ COREUOBJECT_API UObject* StaticConstructObject( UClass* Class, UObject* InOuter=
  * @param	FlagMask		a bitmask of EObjectFlags that should be propagated to the object copies.  The resulting object copies will only have the object flags
  *							specified copied from their source object.
  * @param	DestClass		optional class to specify for the destination object. MUST BE SERIALIZATION COMPATIBLE WITH SOURCE OBJECT!!!
- * @param	bMigrateArchetypes unused
+ * @param	InternalFlagsMask  bitmask of EInternalObjectFlags that should be propagated to the object copies.
  *
  * @return	the duplicate of SourceObject.
  *
@@ -253,11 +267,11 @@ enum EDuplicateForPie
 	SDO_No_DuplicateForPie,
 	SDO_DuplicateForPie,
 };
-COREUOBJECT_API UObject* StaticDuplicateObject(UObject const* SourceObject,UObject* DestOuter,const TCHAR* DestName,EObjectFlags FlagMask = RF_AllFlags,UClass* DestClass=NULL, EDuplicateForPie DuplicateForPIE = SDO_No_DuplicateForPie);
+COREUOBJECT_API UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, const FName DestName = NAME_None, EObjectFlags FlagMask = RF_AllFlags, UClass* DestClass = nullptr, EDuplicateForPie DuplicateForPIE = SDO_No_DuplicateForPie, EInternalObjectFlags InternalFlagsMask = EInternalObjectFlags::AllFlags);
 COREUOBJECT_API UObject* StaticDuplicateObjectEx( struct FObjectDuplicationParameters& Parameters );
 
 /**
- * Performs UObject system pre-initialization. Depracated, do not use.
+ * Performs UObject system pre-initialization. Deprecated, do not use.
  */
 COREUOBJECT_API void PreInitUObject();
 /** 
@@ -408,16 +422,18 @@ COREUOBJECT_API void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimi
 COREUOBJECT_API FName MakeUniqueObjectName( UObject* Outer, UClass* Class, FName BaseName=NAME_None );
 
 /**
- * Given an actor label string, generates an FName that can be used as an object name for that label.
- * The generated name isn't guaranteed to be unique.  If the object's current name is already satisfactory, then
- * that name will be returned.
+ * Given a display label string, generates an FName slug that is a valid FName for that label.
+ * If the object's current name is already satisfactory, then that name will be returned.
+ * For example, "[MyObject]: Object Label" becomes "MyObjectObjectLabel" FName slug.
+ * 
+ * Note: The generated name isn't guaranteed to be unique.
  *
- * @param	ActorLabel	The label string to convert to an FName
- * @param	CurrentObjectName	The object's current name, or NAME_None if it has no name yet
+ * @param DisplayLabel The label string to convert to an FName
+ * @param CurrentObjectName The object's current name, or NAME_None if it has no name yet
  *
- * @return	The generated actor object name
+ * @return	The generated object name
  */
-COREUOBJECT_API FName MakeObjectNameFromActorLabel( const FString& InActorLabel, const FName CurrentObjectName );
+COREUOBJECT_API FName MakeObjectNameFromDisplayLabel(const FString& DisplayLabel, const FName CurrentObjectName);
 
 /**
  * Returns whether an object is referenced, not counting the one
@@ -425,11 +441,12 @@ COREUOBJECT_API FName MakeObjectNameFromActorLabel( const FString& InActorLabel,
  *
  * @param	Obj			Object to check
  * @param	KeepFlags	Objects with these flags will be considered as being referenced
+* @param	InternalKeepFlags	Objects with these internal flags will be considered as being referenced
  * @param	bCheckSubObjects	Treat subobjects as if they are the same as passed in object
  * @param	FoundReferences		If non-NULL fill in with list of objects that hold references
  * @return true if object is referenced, false otherwise
  */
-COREUOBJECT_API bool IsReferenced( UObject*& Res, EObjectFlags KeepFlags, bool bCheckSubObjects = false, FReferencerInformationList* FoundReferences = NULL );
+COREUOBJECT_API bool IsReferenced( UObject*& Res, EObjectFlags KeepFlags, EInternalObjectFlags InternalKeepFlags, bool bCheckSubObjects = false, FReferencerInformationList* FoundReferences = NULL );
 
 /**
  * Blocks till all pending package/ linker requests are fulfilled.
@@ -547,11 +564,12 @@ bool StaticAllocateObjectErrorTests( UClass* Class, UObject* InOuter, FName Name
  * @param	InOuter		the object to create this object within (the Outer property for the new object will be set to the value specified here).
  * @param	Name		the name to give the new object. If no value (NAME_None) is specified, the object will be given a unique name in the form of ClassName_#.
  * @param	SetFlags	the ObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
+ * @param InternalSetFlags	the InternalObjectFlags to assign to the new object. some flags can affect the behavior of constructing the object.
  * @param bCanReuseSubobjects	if set to true, SAO will not attempt to destroy a subobject if it already exists in memory.
  * @param bOutReusedSubobject	flag indicating if the object is a subobject that has already been created (in which case further initialization is not necessary).
  * @return	a pointer to a fully initialized object of the specified class.
  */
-COREUOBJECT_API UObject* StaticAllocateObject( UClass* Class, UObject* InOuter, FName Name, EObjectFlags SetFlags, bool bCanReuseSubobjects = false, bool* bOutReusedSubobject = NULL);
+COREUOBJECT_API UObject* StaticAllocateObject(UClass* Class, UObject* InOuter, FName Name, EObjectFlags SetFlags, EInternalObjectFlags InternalSetFlags = EInternalObjectFlags::None, bool bCanReuseSubobjects = false, bool* bOutReusedSubobject = NULL);
 
 /** Base class for TSubobjectPtr template. Holds the actual pointer and utility methods. */
 class COREUOBJECT_API FSubobjectPtr
@@ -1155,7 +1173,7 @@ T* NewObject(UObject* Outer = (UObject*)GetTransientPackage(), UClass* Class = T
 	}
 	checkf(Class, TEXT("NewObject called with a nullptr class object"));
 	checkSlow(DebugIsClassChildOf_Internal(T::StaticClass(), Class));
-	return static_cast<T*>(StaticConstructObject_Internal(Class, Outer, Name, Flags, Template, bCopyTransientsFromClassDefaults, InInstanceGraph));
+	return static_cast<T*>(StaticConstructObject_Internal(Class, Outer, Name, Flags, EInternalObjectFlags::None, Template, bCopyTransientsFromClassDefaults, InInstanceGraph));
 }
 
 template< class T >
@@ -1189,7 +1207,7 @@ TClass* NewNamedObject(UObject* Outer, FName Name, EObjectFlags Flags = RF_NoFla
  * @return the copied object or null if it failed for some reason
  */
 template< class T >
-T* DuplicateObject(T const* SourceObject,UObject* Outer,const TCHAR* Name = TEXT("None"))
+T* DuplicateObject(T const* SourceObject,UObject* Outer, const FName Name = NAME_None)
 {
 	if (SourceObject != NULL)
 	{
@@ -1338,11 +1356,24 @@ bool ContainsObjectOfClass( const TArray<T*>& ObjectArray, UClass* ClassToCheck,
  */
 class FScopedObjectFlagMarker
 {
+	struct FStoredObjectFlags
+	{
+		FStoredObjectFlags()
+		: Flags(RF_NoFlags)
+		, InternalFlags(EInternalObjectFlags::None)
+		{}
+		FStoredObjectFlags(EObjectFlags InFlags, EInternalObjectFlags InInternalFlags)
+			: Flags(InFlags)
+			, InternalFlags(InInternalFlags)
+		{}
+		EObjectFlags Flags;
+		EInternalObjectFlags InternalFlags;
+	};
 	/**
 	 * Map that tracks the ObjectFlags set on all objects; we use a map rather than iterating over all objects twice because FObjectIterator
 	 * won't return objects that have RF_Unreachable set, and we may want to actually unset that flag.
 	 */
-	TMap<UObject*,EObjectFlags> StoredObjectFlags;
+	TMap<UObject*, FStoredObjectFlags> StoredObjectFlags;
 	
 	/**
 	 * Stores the object flags for all objects in the tracking array.
@@ -1818,5 +1849,17 @@ extern COREUOBJECT_API bool GShouldVerifyGCAssumptions;
 
 /** A struct used as stub for deleted ones. */
 COREUOBJECT_API UScriptStruct* GetFallbackStruct();
+
+/** Constructs dynamic type of a given class. */
+COREUOBJECT_API UObject* ConstructDynamicType(FName TypePathName);
+
+/** Given a dynamic type path name, returns that type's class name (can be either DynamicClass, ScriptStruct or Enum). */
+COREUOBJECT_API FName GetDynamicTypeClassName(FName TypePathName);
+
+/** Finds or constructs a package for dynamic type. */
+COREUOBJECT_API UPackage* FindOrConstructDynamicTypePackage(const TCHAR* PackageName);
+
+/** Get names of "virtual" packages, that contain Dynamic types  */
+COREUOBJECT_API TMap<FName, FName>& GetConvertedDynamicPackageNameToTypeName();
 
 #endif	// __UNOBJGLOBALS_H__

@@ -247,7 +247,7 @@ void SAnimEditorBase::RecalculateSequenceLength()
 			if (PreviewInstance)
 			{
 				// Re-set the position, so instance is clamped properly
-				PreviewInstance->SetPosition(PreviewInstance->CurrentTime, false); 
+				PreviewInstance->SetPosition(PreviewInstance->GetCurrentTime(), false); 
 			}
 		}
 	}
@@ -292,7 +292,7 @@ float SAnimEditorBase::GetScrubValue() const
 	UAnimSingleNodeInstance * PreviewInstance = GetPreviewInstance();
 	if (PreviewInstance)
 	{
-		float CurTime = PreviewInstance->CurrentTime;
+		float CurTime = PreviewInstance->GetCurrentTime();
 		return (CurTime); 
 	}
 	else
@@ -315,7 +315,7 @@ FText SAnimEditorBase::GetCurrentSequenceTime() const
 
 	if (PreviewInstance)
 	{
-		CurTime = PreviewInstance->CurrentTime;
+		CurTime = PreviewInstance->GetCurrentTime();
 	}
 
 	static const FNumberFormattingOptions FractionNumberFormat = FNumberFormattingOptions()
@@ -330,7 +330,7 @@ FText SAnimEditorBase::GetCurrentPercentage() const
 	float Percentage = 0.f;
 	if (PreviewInstance)
 	{
-		Percentage = PreviewInstance->CurrentTime / GetEditorObject()->SequenceLength;
+		Percentage = PreviewInstance->GetCurrentTime() / GetEditorObject()->SequenceLength;
 	}
 
 	static const FNumberFormattingOptions PercentNumberFormat = FNumberFormattingOptions()
@@ -347,7 +347,7 @@ FText SAnimEditorBase::GetCurrentFrame() const
 
 	if (PreviewInstance)
 	{
-		Percentage = PreviewInstance->CurrentTime/GetEditorObject()->SequenceLength;
+		Percentage = PreviewInstance->GetCurrentTime()/GetEditorObject()->SequenceLength;
 	}
 
 	static const FNumberFormattingOptions FractionNumberFormat = FNumberFormattingOptions()

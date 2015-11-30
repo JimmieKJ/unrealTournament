@@ -16,17 +16,105 @@ typedef FRHITexture2D* FTexture2DRHIParamRef;
 
 
 /**
+ * Provides access to the game and render thread font caches that Slate should use
+ */
+class SLATECORE_API FSlateFontServices
+{
+public:
+	/**
+	 * Construct the font services from the font caches (we'll create corresponding measure services ourselves)
+	 * These pointers may be the same if your renderer doesn't need a separate render thread font cache
+	 */
+	FSlateFontServices(TSharedRef<class FSlateFontCache> InGameThreadFontCache, TSharedRef<class FSlateFontCache> InRenderThreadFontCache);
+
+	/**
+	 * Get the font cache to use for the current thread
+	 */
+	TSharedRef<class FSlateFontCache> GetFontCache() const;
+
+	/**
+	 * Get the font cache to use for the game thread
+	 */
+	TSharedRef<class FSlateFontCache> GetGameThreadFontCache() const
+	{
+		return GameThreadFontCache;
+	}
+
+	/**
+	 * Get the font cache to use for the render thread
+	 */
+	TSharedRef<class FSlateFontCache> GetRenderThreadFontCache() const
+	{
+		return RenderThreadFontCache;
+	}
+
+	/**
+	 * Get access to the font measure service for the current thread
+	 */
+	TSharedRef<class FSlateFontMeasure> GetFontMeasureService() const;
+
+	/**
+	 * Get access to the font measure service for the current thread
+	 */
+	TSharedRef<class FSlateFontMeasure> GetGameThreadFontMeasureService() const 
+	{
+		return GameThreadFontMeasure;
+	}
+
+	/**
+	 * Get access to the font measure service for the current thread
+	 */
+	TSharedRef<class FSlateFontMeasure> GetRenderThreadFontMeasureService() const 
+	{
+		return RenderThreadFontMeasure;
+	}
+
+	/**
+	 * Flushes all cached data from the font cache for the current thread
+	 */
+	void FlushFontCache();
+
+	/**
+	 * Flushes all cached data from the font cache for the game thread
+	 */
+	void FlushGameThreadFontCache();
+
+	/**
+	 * Flushes all cached data from the font cache for the render thread
+	 */
+	void FlushRenderThreadFontCache();
+
+	/**
+	 * Release any rendering resources owned by this font service
+	 */
+	void ReleaseResources();
+
+private:
+	TSharedRef<class FSlateFontCache> GameThreadFontCache;
+	TSharedRef<class FSlateFontCache> RenderThreadFontCache;
+
+	TSharedRef<class FSlateFontMeasure> GameThreadFontMeasure;
+	TSharedRef<class FSlateFontMeasure> RenderThreadFontMeasure;
+};
+
+
+/**
  * Abstract base class for Slate renderers.
  */
 class SLATECORE_API FSlateRenderer
 {
 public:
 
-	/** Default constructor. */
-	FSlateRenderer() { }
+	/** Constructor. */
+	explicit FSlateRenderer(const TSharedRef<FSlateFontServices>& InSlateFontServices)
+		: SlateFontServices(InSlateFontServices)
+	{
+	}
 
 	/** Virtual destructor. */
-	virtual ~FSlateRenderer( ) { }
+	virtual ~FSlateRenderer()
+	{
+	}
 
 public:
 
@@ -145,20 +233,37 @@ public:
 	 */
 	virtual void* GetViewportResource( const SWindow& Window ) { return nullptr; }
 	
-	TSharedRef< class FSlateFontMeasure > GetFontMeasureService() const 
+	/**
+	 * Get access to the font services used by this renderer
+	 */
+	TSharedRef<FSlateFontServices> GetFontServices() const 
 	{
-		return FontMeasure.ToSharedRef();
-	}
-
-	TSharedRef< class FSlateFontCache > GetFontCache() const 
-	{
-		return FontCache.ToSharedRef();
+		return SlateFontServices.ToSharedRef();
 	}
 
 	/**
-	 * Flushes all cached data from the font cache
+	 * Get access to the font measure service (game thread only!)
 	 */
-	void FlushFontCache();
+	TSharedRef<class FSlateFontMeasure> GetFontMeasureService() const 
+	{
+		return SlateFontServices->GetFontMeasureService();
+	}
+
+	/**
+	 * Get the font cache to use for the current thread
+	 */
+	TSharedRef<class FSlateFontCache> GetFontCache() const
+	{
+		return SlateFontServices->GetFontCache();
+	}
+
+	/**
+	 * Flushes all cached data from the font cache for the current thread
+	 */
+	void FlushFontCache()
+	{
+		SlateFontServices->FlushFontCache();
+	}
 
 	/**
 	 * Gives the renderer a chance to wait for any render commands to be completed before returning/
@@ -204,7 +309,7 @@ public:
 	 * usage.  During some operations like ending a game.  It becomes important to immediately release game related
 	 * resources.  This should flush any buffer holding onto those referenced objects.
 	 */
-	virtual void ReleaseAccessedResources() {}
+	virtual void ReleaseAccessedResources(bool bImmediatelyFlush) {}
 
 	/** 
 	 * Prepares the renderer to take a screenshot of the UI.  The Rect is portion of the rendered output
@@ -288,8 +393,8 @@ private:
 
 protected:
 
-	TSharedPtr<class FSlateFontCache> FontCache;
-	TSharedPtr<class FSlateFontMeasure> FontMeasure;
+	/** The font services used by this renderer when drawing text */
+	TSharedPtr<FSlateFontServices> SlateFontServices;
 
 	/** Callback that fires after Slate has rendered each window, each frame */
 	FOnSlateWindowRendered SlateWindowRendered;
@@ -303,4 +408,10 @@ protected:
  * If the slate loading thread exists, then yes, it is always safe
  * Otherwise, we have to be on the game thread
  */
-bool SLATECORE_API IsThreadSafeForSlateRendering( );
+bool SLATECORE_API IsThreadSafeForSlateRendering();
+
+/**
+ * If it's the game thread, and there's no loading thread, then it owns slate rendering.
+ * However if there's a loading thread, it is the exlusive owner of slate rendering.
+ */
+bool SLATECORE_API DoesThreadOwnSlateRendering();

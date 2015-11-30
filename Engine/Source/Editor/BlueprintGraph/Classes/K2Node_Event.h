@@ -45,6 +45,7 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 	//~ Begin UObject Interface
 	BLUEPRINTGRAPH_API virtual void Serialize(FArchive& Ar) override;
 	BLUEPRINTGRAPH_API virtual void PostLoad() override;
+	BLUEPRINTGRAPH_API virtual void PostDuplicate(bool bDuplicateForPIE) override;
 	//~ End UObject Interface
 
 	//~ Begin UEdGraphNode Interface
@@ -95,6 +96,10 @@ class UK2Node_Event : public UK2Node_EditablePinBase
 
 	/** Helper function to identify if two Event nodes are the same */
 	static BLUEPRINTGRAPH_API bool AreEventNodesIdentical(const UK2Node_Event* InNodeA, const UK2Node_Event* InNodeB);
+
+protected:
+	void FixupEventReference();
+
 private:
 	/** Constructing FText strings can be costly, so we cache the node's tooltip */
 	FNodeTextCache CachedTooltip;

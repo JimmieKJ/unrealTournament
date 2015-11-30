@@ -274,16 +274,17 @@ AActor* UWorld::SpawnActor( UClass* Class, FTransform const* UserTransformPtr, c
 	check( CurrentLevel ); 	
 	check(GIsEditor || (CurrentLevel == PersistentLevel));
 
-#if ENABLE_SPAWNACTORTIMER
-	FScopedSpawnActorTimer SpawnTimer(Class->GetFName(), SpawnParameters.bDeferConstruction ? ESpawnActorTimingType::SpawnActorDeferred : ESpawnActorTimingType::SpawnActorNonDeferred);
-#endif
-
 	// Make sure this class is spawnable.
 	if( !Class )
 	{
 		UE_LOG(LogSpawn, Warning, TEXT("SpawnActor failed because no class was specified") );
 		return NULL;
 	}
+
+#if ENABLE_SPAWNACTORTIMER
+	FScopedSpawnActorTimer SpawnTimer(Class->GetFName(), SpawnParameters.bDeferConstruction ? ESpawnActorTimingType::SpawnActorDeferred : ESpawnActorTimingType::SpawnActorNonDeferred);
+#endif
+
 	if( Class->HasAnyClassFlags(CLASS_Deprecated) )
 	{
 		UE_LOG(LogSpawn, Warning, TEXT("SpawnActor failed because class %s is deprecated"), *Class->GetName() );
@@ -540,7 +541,7 @@ bool UWorld::DestroyActor( AActor* ThisActor, bool bNetForce, bool bShouldModify
 	}
 
 	// Prevent recursion
-	//FMarkActorIsBeingDestroyed MarkActorIsBeingDestroyed(ThisActor);
+	FMarkActorIsBeingDestroyed MarkActorIsBeingDestroyed(ThisActor);
 
 	// Notify the texture streaming manager about the destruction of this actor.
 	IStreamingManager::Get().NotifyActorDestroyed( ThisActor );

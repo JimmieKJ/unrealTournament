@@ -8,10 +8,10 @@
 	UObjectProperty.
 -----------------------------------------------------------------------------*/
 
-FString UObjectProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass)  const
+FString UObjectProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, const FString& InnerNativeTypeName)  const
 {
-	check(ActualClass);
-	return FString::Printf(TEXT("%s%s*"), ActualClass->GetPrefixCPP(), *ActualClass->GetName());
+	ensure(!InnerNativeTypeName.IsEmpty());
+	return FString::Printf(TEXT("%s*"), *InnerNativeTypeName);
 }
 
 FString UObjectProperty::GetCPPTypeForwardDeclaration() const

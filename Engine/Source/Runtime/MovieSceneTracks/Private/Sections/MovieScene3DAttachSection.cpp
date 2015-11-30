@@ -66,7 +66,9 @@ void UMovieScene3DAttachSection::Eval( USceneComponent* SceneComponent, float Po
 
 void UMovieScene3DAttachSection::AddAttach( float Time, float SequenceEndTime, const FGuid& InAttachId )
 {
-	Modify();
-	ConstraintId = InAttachId;
+	if (TryModify())
+	{
+		ConstraintId = InAttachId;
+	}
 }
 

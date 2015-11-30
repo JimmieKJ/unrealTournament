@@ -472,16 +472,16 @@ struct ENGINE_API FNavAgentProperties : public FMovementProperties
 	FORCEINLINE bool IsValid() const { return AgentRadius >= 0.f && AgentHeight >= 0.f; }
 	FORCEINLINE bool HasStepHeightOverride() const { return AgentStepHeight >= 0.0f; }
 
-	FORCEINLINE bool IsEquivalent(const FNavAgentProperties& Other, float Precision = 5.f) const
-	{
-		return FGenericPlatformMath::Abs(AgentRadius - Other.AgentRadius) < Precision &&
-			FGenericPlatformMath::Abs(AgentHeight - Other.AgentHeight) < Precision &&
-			FGenericPlatformMath::Abs(AgentStepHeight - Other.AgentStepHeight) < Precision &&
-			IsNavDataMatching(Other);
-	}
-
 	bool IsNavDataMatching(const FNavAgentProperties& Other) const;
 
+	FORCEINLINE bool IsEquivalent(const FNavAgentProperties& Other, float Precision = 5.f) const
+	{
+		return FGenericPlatformMath::Abs(AgentRadius - Other.AgentRadius) < Precision
+			&& FGenericPlatformMath::Abs(AgentHeight - Other.AgentHeight) < Precision
+			&& (HasStepHeightOverride() == false || FGenericPlatformMath::Abs(AgentStepHeight - Other.AgentStepHeight) < Precision)
+			&& IsNavDataMatching(Other);
+	}
+	
 	bool operator==(const FNavAgentProperties& Other) const
 	{
 		return IsEquivalent(Other);

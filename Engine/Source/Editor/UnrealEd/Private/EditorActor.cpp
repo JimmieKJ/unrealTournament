@@ -58,7 +58,7 @@ public:
 		: FExportObjectInnerContext(false)
 	{
 		// For each object . . .
-		for (UObject* InnerObj : TObjectRange<UObject>(RF_ClassDefaultObject | RF_PendingKill))
+		for (UObject* InnerObj : TObjectRange<UObject>(RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** IternalExcludeFlags */ EInternalObjectFlags::PendingKill))
 		{
 			UObject* OuterObj = InnerObj->GetOuter();
 

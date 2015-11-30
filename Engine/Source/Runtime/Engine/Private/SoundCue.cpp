@@ -98,7 +98,7 @@ void USoundCue::PostLoad()
 		else
 		{
 			// we should have a soundcuegraph unless we are contained in a package which is missing editor only data
-			check( GetOutermost()->PackageFlags & PKG_FilterEditorOnly );
+			check( GetOutermost()->HasAnyPackageFlags(PKG_FilterEditorOnly) );
 		}
 
 		// Always load all sound waves in the editor

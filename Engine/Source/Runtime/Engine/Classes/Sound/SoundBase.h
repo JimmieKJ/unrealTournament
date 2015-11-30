@@ -38,6 +38,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
 	uint32 bOverrideConcurrency:1;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Attenuation)
+	uint32 bIgnoreFocus:1;
+
 	/** If bOverridePlayback is false, the sound concurrency settings to use for this sound. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency, meta = (EditCondition = "!bOverrideConcurrency"))
 	class USoundConcurrency* SoundConcurrencySettings;
@@ -61,9 +64,16 @@ public:
 	UPROPERTY(EditAnywhere, Category=Attenuation)
 	USoundAttenuation* AttenuationSettings;
 
+	/** Sound priority (higher value is higher priority) used for concurrency resolution. This priority value is weighted against the final volume of the sound. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Concurrency)
+	float Priority;
+
 public:	
 	/** Number of times this cue is currently being played. */
 	int32 CurrentPlayCount;
+
+	/** Amount to scale distance checks for this sound based on listener-focus */
+	float FocusDistanceScale;
 
 	//~ Begin UObject Interface.
 	virtual void PostInitProperties() override;
@@ -115,7 +125,17 @@ public:
 	/** Returns the FSoundConcurrencySettings struct to use */
 	const FSoundConcurrencySettings* GetSoundConcurrencySettingsToApply();
 
+	/** Returns the priority to use when evaluating concurrency */
+	float GetPriority() const;
+
 	/** Returns the sound concurrency object ID if it exists. If it doesn't exist, returns 0. */
 	uint32 GetSoundConcurrencyObjectID() const;
+
+	/** Set the amount of distance scale this sound is using based on listener-focus */
+	void SetFocusDistanceScale(const float InFocusDistanceScale) { FocusDistanceScale = InFocusDistanceScale; }
+
+	/** Get the amount of distance scale this sound is using based on listener-focus */
+	float GetFocusDistanceScale() const { return FocusDistanceScale; }
+
 };
 

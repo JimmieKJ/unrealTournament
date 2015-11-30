@@ -712,18 +712,25 @@ int32 FGameplayTagContainer::Num() const
 
 FString FGameplayTagContainer::ToString() const
 {
-	FString RetString = TEXT("(GameplayTags=(");
-	for (int i = 0; i < GameplayTags.Num(); ++i)
+	FString RetString = TEXT("(GameplayTags=");
+	if (GameplayTags.Num() > 0)
 	{
-		RetString += TEXT("(TagName=\"");
-		RetString += GameplayTags[i].ToString();
-		RetString += TEXT("\")");
-		if (i < GameplayTags.Num() - 1)
+		RetString += TEXT("(");
+
+		for (int i = 0; i < GameplayTags.Num(); ++i)
 		{
-			RetString += TEXT(",");
+			RetString += TEXT("(TagName=\"");
+			RetString += GameplayTags[i].ToString();
+			RetString += TEXT("\")");
+			if (i < GameplayTags.Num() - 1)
+			{
+				RetString += TEXT(",");
+			}
 		}
+		RetString += TEXT(")");
 	}
-	RetString += TEXT("))");
+	RetString += TEXT(")");
+
 	return RetString;
 }
 

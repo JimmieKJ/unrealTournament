@@ -30,7 +30,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogContentCommandlet, Log, All);
 // for UResavePackagesCommandlet::PerformAdditionalOperations building lighting code
 #include "Engine/WorldComposition.h"
 #include "LightingBuildOptions.h"
-
+// For preloading FFindInBlueprintSearchManager
+#include "Editor/Kismet/Public/FindInBlueprintManager.h"
 
 /**-----------------------------------------------------------------------------
  *	UResavePackages commandlet.
@@ -63,6 +64,8 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 	{
 		FString Package;
 		FString PackageFolder;
+		FString Maps;
+		FString File;
 		const FString& CurrentSwitch = Switches[ SwitchIdx ];
 		if( FParse::Value( *CurrentSwitch, TEXT( "PACKAGE="), Package ) )
 		{
@@ -82,7 +85,62 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 				PackageNames.Add( *PackageFile );
             }
 			bExplicitPackages = true;
-        }
+		}
+		else if (FParse::Value(*CurrentSwitch, TEXT("MAP="), Maps))
+		{
+			// Allow support for -MAP=Value1+Value2+Value3
+			for (int32 PlusIdx = Maps.Find(TEXT("+")); PlusIdx != INDEX_NONE; PlusIdx = Maps.Find(TEXT("+")))
+			{
+				const FString NextMap = Maps.Left(PlusIdx);
+				if (NextMap.Len() > 0)
+				{
+					FString MapFile;
+					FPackageName::SearchForPackageOnDisk(NextMap, NULL, &MapFile, false);
+					PackageNames.Add(*MapFile);
+					bExplicitPackages = true;
+				}
+
+				Maps = Maps.Right(Maps.Len() - (PlusIdx + 1));
+			}
+			FString MapFile;
+			FPackageName::SearchForPackageOnDisk(Maps, NULL, &MapFile, false);
+			PackageNames.Add(*MapFile);
+			bExplicitPackages = true;
+		}
+		else if (FParse::Value(*CurrentSwitch, TEXT("FILE="), File))
+		{
+			FString Text;
+			if (FFileHelper::LoadFileToString(Text, *File))
+			{
+				TArray<FString> Lines;
+
+				// Remove all carriage return characters.
+				Text.ReplaceInline(TEXT("\r"), TEXT(""));
+				// Read all lines
+				Text.ParseIntoArray(Lines, TEXT("\n"), true);
+
+				for (auto Line : Lines)
+				{
+					FString PackageFile;
+					if (FPackageName::SearchForPackageOnDisk(Line, NULL, &PackageFile, false))
+					{
+						PackageNames.Add(*PackageFile);
+					}
+					else
+					{
+						UE_LOG(LogContentCommandlet, Error, TEXT("Failed to find package %s"), *Line);
+					}
+				}
+
+				bExplicitPackages = true;
+				UE_LOG(LogContentCommandlet, Display, TEXT("Loaded %d Packages from %s"), PackageNames.Num(), *File);
+			}
+			else
+			{
+				UE_LOG(LogContentCommandlet, Error, TEXT("Failed to load file %s"), *File);
+			}
+		}
+
 	}
 
 	// ... if not, load in all packages
@@ -96,6 +154,11 @@ int32 UResavePackagesCommandlet::InitializeResaveParameters( const TArray<FStrin
 		else if ( Switches.Contains(TEXT("MAPSONLY")) )
 		{
 			PackageFilter |= NORMALIZE_ExcludeContentPackages;
+		}
+
+		if (Switches.Contains(TEXT("PROJECTONLY")))
+		{
+			PackageFilter |= NORMALIZE_ExcludeEnginePackages;
 		}
 
 		if ( Switches.Contains(TEXT("SkipDeveloperFolders")) || Switches.Contains(TEXT("NODEV")) )
@@ -248,7 +311,7 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 		if( !Linker )
 		{
 			VerboseMessage(TEXT("Aborting...package could not be loaded"));
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 			return;
 		}
 
@@ -328,7 +391,7 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 			if (bStripEditorOnlyContent)
 			{
 				UE_LOG(LogContentCommandlet, Log, TEXT("Removing editor only data"));
-				Package->PackageFlags |= PKG_FilterEditorOnly;
+				Package->SetPackageFlags(PKG_FilterEditorOnly);
 			}
 
 			if (bSavePackage == true)
@@ -443,7 +506,7 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 
 									VerboseMessage(TEXT("Post CheckOut"));
 
-									FString PackageName(FPaths::GetBaseFilename(Filename));
+									FString PackageName(FPackageName::FilenameToLongPackageName(Filename));
 									FilesToSubmit.Add(*PackageName);
 								}
 							}
@@ -486,7 +549,7 @@ void UResavePackagesCommandlet::LoadAndSaveOnePackage(const FString& Filename)
 			}
 			VerboseMessage(TEXT("Pre CollectGarbage"));
 
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 
 			VerboseMessage(TEXT("Post CollectGarbage"));
 		}
@@ -514,6 +577,8 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	bAutoCheckOut = Switches.Contains(TEXT("AutoCheckOutPackages"));
 	/** if we should auto checkin packages that were checked out**/
 	bAutoCheckIn = bAutoCheckOut && Switches.Contains(TEXT("AutoCheckIn"));
+	/** determine if we are building lighting for the map packages on the pass. **/
+	bShouldBuildLighting = Switches.Contains(TEXT("buildlighting"));
 
 	TArray<FString> PackageNames;
 	int32 ResultCode = InitializeResaveParameters(Tokens, PackageNames);
@@ -543,6 +608,9 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	{
 		UE_LOG(LogContentCommandlet, Display, TEXT( "Restricted to packages containing %s" ), *PackageSubstring );
 	}
+
+	// Avoid crash saving blueprint
+	FFindInBlueprintSearchManager::Get();
 
 	// Iterate over all packages.
 	for( int32 PackageIndex = 0; PackageIndex < PackageNames.Num(); PackageIndex++ )
@@ -597,12 +665,25 @@ int32 UResavePackagesCommandlet::Main( const FString& Params )
 	}
 
 	UE_LOG(LogContentCommandlet, Display, TEXT( "[REPORT] %d/%d packages required resaving" ), PackagesRequiringResave, PackageNames.Num() );
+
+
 	return 0;
 }
 
 FText UResavePackagesCommandlet::GetChangelistDescription() const
 {
-	return NSLOCTEXT("ContentCmdlets", "ChangelistDescription", "Resave Deprecated Packages");
+	FText ChangelistDescription;
+
+	if (bShouldBuildLighting)
+	{
+		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescriptionBuildLighting", "Rebuild lightmaps.");
+	}
+	else
+	{
+		ChangelistDescription = NSLOCTEXT("ContentCmdlets", "ChangelistDescription", "Resave Deprecated Packages");
+	}
+
+	return ChangelistDescription;
 }
 
 
@@ -627,6 +708,17 @@ bool UResavePackagesCommandlet::PerformPreloadOperations( FLinkerLoad* PackageLi
 						 (MaxResaveUE4Version != IGNORE_PACKAGE_VERSION && UE4PackageVersion <= MaxResaveUE4Version) ||
 						 (MaxResaveLicenseeUE4Version != IGNORE_PACKAGE_VERSION && LicenseeUE4PackageVersion <= MaxResaveLicenseeUE4Version);
 
+	// If the package was saved with a higher engine version do not try to resave it. This also addresses problem with people 
+	// building editor locally and resaving content with a 0 CL version (e.g. BUILD_FROM_CL == 0)
+	if (PackageLinker->Summary.SavedByEngineVersion.GetChangelist() > FEngineVersion::Current().GetChangelist())
+	{
+		UE_LOG(LogContentCommandlet, Warning, TEXT("Skipping resave of %s due to engine version mismatch (Package:%d, Editor:%d "), 
+			*PackageLinker->GetArchiveName(),
+			PackageLinker->Summary.SavedByEngineVersion.GetChangelist(), 
+			FEngineVersion::Current().GetChangelist());
+		bSavePackage = false;
+		bResult = true;	
+	}
 
 	// If not, don't resave it.
 	if ( !bAllowResave )
@@ -656,101 +748,67 @@ bool UResavePackagesCommandlet::PerformPreloadOperations( FLinkerLoad* PackageLi
 void UResavePackagesCommandlet::PerformAdditionalOperations(class UWorld* World, bool& bSavePackage)
 {
 	check(World);
-	static bool bBuildLighting = FParse::Param(FCommandLine::Get(), TEXT("buildlighting")) == true;
 
-	if (bBuildLighting)
+	if (bShouldBuildLighting)
 	{
-		TArray<FString> CmdLineMapEntries;
-		for (const FString& Switch : Switches)
+		static bool bHasLoadedStartupPackages = false;
+		if (bHasLoadedStartupPackages == false)
 		{
-			auto GetSwitchValueElements = [&Switch](const FString SwitchKey) -> TArray < FString >
-			{
-				TArray<FString> ValueElements;
-				if (Switch.StartsWith(SwitchKey + TEXT("=")) == true)
-				{
-					FString ValuesList = Switch.Right(Switch.Len() - (SwitchKey + TEXT("=")).Len());
-
-					// Allow support for -KEY=Value1+Value2+Value3 as well as -KEY=Value1 -KEY=Value2
-					for (int32 PlusIdx = ValuesList.Find(TEXT("+")); PlusIdx != INDEX_NONE; PlusIdx = ValuesList.Find(TEXT("+")))
-					{
-						const FString ValueElement = ValuesList.Left(PlusIdx);
-						ValueElements.Add(ValueElement);
-
-						ValuesList = ValuesList.Right(ValuesList.Len() - (PlusIdx + 1));
-					}
-					ValueElements.Add(ValuesList);
-				}
-				return ValueElements;
-			};
-
-			CmdLineMapEntries += GetSwitchValueElements(TEXT("MAP"));
+			// make sure all possible script/startup packages are loaded
+			bHasLoadedStartupPackages = FStartupPackages::LoadAll();
 		}
 
-		// If specific maps were specified, then only continue if we are processing one that was required.
-		bool bShouldBuildLightmapsForWorld = CmdLineMapEntries.Num() == 0 || CmdLineMapEntries.Contains(World->GetMapName());
-		if (bShouldBuildLightmapsForWorld)
+		// Setup the world.
+		World->WorldType = EWorldType::Editor;
+		World->AddToRoot();
+		if (!World->bIsWorldInitialized)
 		{
-			World->AddToRoot();
-			if (!World->bIsWorldInitialized)
-			{
-				UWorld::InitializationValues IVS;
-				IVS.RequiresHitProxies(false);
-				IVS.ShouldSimulatePhysics(false);
-				IVS.EnableTraceCollision(false);
-				IVS.CreateNavigation(false);
-				IVS.CreateAISystem(false);
-				IVS.AllowAudioPlayback(false);
-				IVS.CreatePhysicsScene(false);
+			UWorld::InitializationValues IVS;
+			IVS.RequiresHitProxies(false);
+			IVS.ShouldSimulatePhysics(false);
+			IVS.EnableTraceCollision(false);
+			IVS.CreateNavigation(false);
+			IVS.CreateAISystem(false);
+			IVS.AllowAudioPlayback(false);
+			IVS.CreatePhysicsScene(false);
 
-				World->InitWorld(IVS);
-				World->PersistentLevel->UpdateModelComponents();
-				World->UpdateWorldComponents(true, false);
+			World->InitWorld(IVS);
+			World->PersistentLevel->UpdateModelComponents();
+			World->UpdateWorldComponents(true, false);
+		}
+		FWorldContext &WorldContext = GEditor->GetEditorWorldContext(true);
+		WorldContext.SetCurrentWorld(World);
+		GWorld = World;
+
+		if (World->StreamingLevels.Num())
+		{
+			World->LoadSecondaryLevels(true, NULL);
+
+			for (ULevelStreaming* NextStreamingLevel : World->StreamingLevels)
+			{
+				NextStreamingLevel->bShouldBeVisible = true;
+				NextStreamingLevel->bShouldBeLoaded = true;
 			}
 
-			// load all the sublevels
+			World->FlushLevelStreaming(EFlushLevelStreamingType::Full);
+		}
+		// We need any deferred commands added when loading to be executed before we start building lighting.
+		GEngine->TickDeferredCommands();
 
-			if (World->StreamingLevels.Num())
-			{
-				//World->LoadSecondaryLevels(true, &PreviouslyCookedPackages);
-				World->LoadSecondaryLevels(true, NULL);
-			}
-
-			GWorld = World;
-
-			TArray<FString> SubPackages;
-
-			// force load all of the map to be loaded so we can get good rebuilt lighting 
-			if (World->WorldComposition)
-			{
-				World->WorldComposition->CollectTilesToCook(SubPackages);
-			}
-
-			for (const auto& SubPackage : SubPackages)
-			{
-				UPackage* Package = LoadPackage(nullptr, *SubPackage, 0);
-				check(Package->IsFullyLoaded());
-			}
-
-			GRedirectCollector.ResolveStringAssetReference();
+		GRedirectCollector.ResolveStringAssetReference();
 
 
-			FLightingBuildOptions LightingOptions;
+		FLightingBuildOptions LightingOptions;
+		// Always build on production
+		LightingOptions.QualityLevel = Quality_Production;
 
-			int32 QualityLevel = Quality_Production;
-			GConfig->GetInt(TEXT("LightingBuildOptions"), TEXT("QualityLevel"), QualityLevel, GEditorPerProjectIni);
-			QualityLevel = FMath::Clamp<int32>(QualityLevel, Quality_Preview, Quality_Production);
-			
-			LightingOptions.QualityLevel = (ELightingBuildQuality)QualityLevel;
-
-			GEditor->BuildLighting(LightingOptions);
-			while (GEditor->IsLightingBuildCurrentlyRunning())
-			{
-				GEditor->UpdateBuildLighting();
-			}
-
-			World->RemoveFromRoot();
+		GEditor->BuildLighting(LightingOptions);
+		while (GEditor->IsLightingBuildCurrentlyRunning())
+		{
+			GEditor->UpdateBuildLighting();
 		}
 
+		World->RemoveFromRoot();
 	}
 }
 
@@ -943,7 +1001,7 @@ void ReferenceObject(UObject* Object, TMap<FString, FPackageObjects>& ObjectRefs
 	bool bIsValid = true;
 	// can't be in a script packge or be a field/template in a native package, or a top level pacakge, or in the transient package
 	if (!bValidWritableOuterName ||
-		(Object->GetOutermost()->PackageFlags & PKG_ContainsScript) ||
+		Object->GetOutermost()->HasAnyPackageFlags(PKG_ContainsScript) ||
 		Object->IsA(UField::StaticClass()) ||
 		Object->IsTemplate(RF_ClassDefaultObject) ||
 		Object->GetOuter() == NULL ||
@@ -1256,7 +1314,7 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 					}
 
 					// close this package
-					CollectGarbage(RF_Native);
+					CollectGarbage(RF_NoFlags);
 				}
 			}
 		}
@@ -1410,7 +1468,7 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 			// collect garbage every 20 packages (we aren't fully loading, so it doesn't need to be often)
 			if ((PackageIndex % 20) == 0)
 			{
-				CollectGarbage(RF_Native);
+				CollectGarbage(RF_NoFlags);
 			}
 		}
 	}
@@ -1503,7 +1561,7 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 				SavePackageHelper(Package, *CutdownPackageName, RF_AllFlags, GWarn, NULL, SAVE_CutdownPackage);
 
 				// close up this package
-				CollectGarbage(RF_Native);
+				CollectGarbage(RF_NoFlags);
 			}
 		}
 	}
@@ -1624,7 +1682,7 @@ int32 UWrangleContentCommandlet::Main( const FString& Params )
 			// finally save it out
 			SavePackageHelper(MovedPackage, *MovedFilename);
 
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 		}
 	}
 
@@ -1763,7 +1821,7 @@ int32 UListMaterialsUsedWithMeshEmittersCommandlet::Main( const FString& Params 
 		// Collect garbage every 10 packages instead of every package makes the commandlet run much faster
 		if( (++GCIndex % 10) == 0 )
 		{
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 		}
 	}
 
@@ -1852,7 +1910,7 @@ int32 UListStaticMeshesImportedFromSpeedTreesCommandlet::Main(const FString& Par
 		// Collect garbage every 10 packages instead of every package makes the commandlet run much faster
 		if ((++GCIndex % 10) == 0)
 		{
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 		}
 	}
 

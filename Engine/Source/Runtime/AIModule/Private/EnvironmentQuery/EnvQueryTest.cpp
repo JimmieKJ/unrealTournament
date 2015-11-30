@@ -196,6 +196,9 @@ void UEnvQueryTest::PostLoad()
 {
 	Super::PostLoad();
 	UpdateNodeVersion();
+#if WITH_EDITOR
+	UpdatePreviewData();
+#endif // WITH_EDITOR
 }
 
 void UEnvQueryTest::UpdateNodeVersion()
@@ -331,14 +334,16 @@ void UEnvQueryTest::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 {
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
-	if (PropertyChangedEvent.Property)
+	if (PropertyChangedEvent.MemberProperty)
 	{
-		if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, TestPurpose) ||
-			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, FilterType) ||
-			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ClampMaxType) ||
-			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ClampMinType) ||
-			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ScoringEquation) ||
-			PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ScoringFactor))
+		const FName MemberPropName = PropertyChangedEvent.MemberProperty->GetFName();
+
+		if (MemberPropName == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, TestPurpose) 
+			|| MemberPropName == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, FilterType)
+			|| MemberPropName == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ClampMaxType)
+			|| MemberPropName == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ClampMinType) 
+			|| MemberPropName == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ScoringEquation) 
+			|| MemberPropName == GET_MEMBER_NAME_CHECKED(UEnvQueryTest, ScoringFactor))
 		{
 			UpdatePreviewData();
 		}
@@ -349,47 +354,64 @@ void UEnvQueryTest::PostEditChangeProperty(FPropertyChangedEvent& PropertyChange
 void UEnvQueryTest::UpdatePreviewData()
 {
 #if WITH_EDITORONLY_DATA && WITH_EDITOR
-	const int32 MaxSamples = 11;
-	static float SamplesLinear[MaxSamples] = { 0.0f };
-	static float SamplesSquare[MaxSamples] = { 0.0f };
-	static float SamplesSquareRoot[MaxSamples] = { 0.0f };
-	static float SamplesConstant[MaxSamples] = { 0.0f };
-	static bool bSamplesInitialized = false;
+	PreviewData.Samples.Reset(FEnvQueryTestScoringPreview::DefaultSamplesCount);
 
-	if (!bSamplesInitialized)
+	switch (ScoringEquation)
 	{
-		bSamplesInitialized = true;
-
-		for (int32 Idx = 0; Idx < MaxSamples; Idx++)
+	case EEnvTestScoreEquation::Linear:
+	{
+		for (int32 SampleIndex = 0; SampleIndex < FEnvQueryTestScoringPreview::DefaultSamplesCount; ++SampleIndex)
 		{
-			const float XValue = 1.0f * Idx / (MaxSamples - 1);
-			SamplesLinear[Idx] = XValue;
-			SamplesSquare[Idx] = XValue * XValue;
-			SamplesSquareRoot[Idx] = FMath::Sqrt(XValue);
-			SamplesConstant[Idx] = 0.5f;				// just for looks on preview, not the actual value
+			PreviewData.Samples.Add(static_cast<float>(SampleIndex) / (FEnvQueryTestScoringPreview::DefaultSamplesCount - 1));
+		}
+	}
+		break;
+	case EEnvTestScoreEquation::Square:
+	{
+		for (int32 SampleIndex = 0; SampleIndex < FEnvQueryTestScoringPreview::DefaultSamplesCount; ++SampleIndex)
+		{
+			PreviewData.Samples.Add(FMath::Square(static_cast<float>(SampleIndex) / (FEnvQueryTestScoringPreview::DefaultSamplesCount - 1)));
+		}
+	}
+		break;
+	case EEnvTestScoreEquation::InverseLinear:
+	{
+		for (int32 SampleIndex = 0; SampleIndex < FEnvQueryTestScoringPreview::DefaultSamplesCount; ++SampleIndex)
+		{
+			PreviewData.Samples.Add(1.f - static_cast<float>(SampleIndex) / (FEnvQueryTestScoringPreview::DefaultSamplesCount - 1));
+		}
+	}
+		break;
+	case EEnvTestScoreEquation::SquareRoot:
+	{
+		for (int32 SampleIndex = 0; SampleIndex < FEnvQueryTestScoringPreview::DefaultSamplesCount; ++SampleIndex)
+		{
+			PreviewData.Samples.Add(FMath::Sqrt(static_cast<float>(SampleIndex) / (FEnvQueryTestScoringPreview::DefaultSamplesCount - 1)));
+		}
+	}
+		break;
+	case EEnvTestScoreEquation::Constant:
+	{
+		for (int32 SampleIndex = 0; SampleIndex < FEnvQueryTestScoringPreview::DefaultSamplesCount; ++SampleIndex)
+		{
+			PreviewData.Samples.Add(0.5f);
+		}
+	}
+		break;
+	default:
+		checkNoEntry();
+		break;
+	}
+
+	const bool bInversed = ScoringFactor.GetValue() < 0.0f;
+	if (bInversed)
+	{
+		for (float& Sample : PreviewData.Samples)
+		{
+			Sample = 1.f - Sample;
 		}
 	}
 
-	const float* AllSamples[] = { SamplesLinear, SamplesSquare, SamplesLinear, SamplesSquareRoot, SamplesConstant };
-
-	int32 EquationType = (ScoringEquation >= ARRAY_COUNT(AllSamples)) ? EEnvTestScoreEquation::Constant : (EEnvTestScoreEquation::Type)ScoringEquation;
-	if (TestPurpose == EEnvTestPurpose::Filter)
-	{
-		// pure filtering won't apply any scoring, draw flat line
-		EquationType = EEnvTestScoreEquation::Constant;
-	}
-
-	const float* SamplesArray = AllSamples[EquationType];
-	bool bInversed = ScoringFactor.GetValue() < 0.0f;
-	if (EquationType == EEnvTestScoreEquation::InverseLinear)
-	{
-		bInversed = !bInversed;
-	}
-
-	for (int32 Idx = 0; Idx < MaxSamples; Idx++)
-	{
-		PreviewData.Samples[Idx] = bInversed ? (1.0f - SamplesArray[Idx]) : SamplesArray[Idx];
-	}
 
 	PreviewData.bShowClampMin = (ClampMinType != EEnvQueryTestClamping::None);
 	PreviewData.bShowClampMax = (ClampMaxType != EEnvQueryTestClamping::None);
@@ -404,7 +426,7 @@ void UEnvQueryTest::UpdatePreviewData()
 
 	if (PreviewData.bShowClampMin)
 	{
-		const int32 FixedIdx = FMath::TruncToInt(PreviewData.ClampMin * 10.0f);
+		const int32 FixedIdx = FMath::FloorToInt(PreviewData.ClampMin * PreviewData.Samples.Num());
 		for (int32 Idx = 0; Idx < FixedIdx; Idx++)
 		{
 			PreviewData.Samples[Idx] = PreviewData.Samples[FixedIdx];
@@ -413,8 +435,8 @@ void UEnvQueryTest::UpdatePreviewData()
 
 	if (PreviewData.bShowClampMax)
 	{
-		const int32 FixedIdx = FMath::TruncToInt(PreviewData.ClampMax * 10.0f) + 1;
-		for (int32 Idx = FixedIdx + 1; Idx < MaxSamples; Idx++)
+		const int32 FixedIdx = FMath::CeilToInt(PreviewData.ClampMax * PreviewData.Samples.Num());
+		for (int32 Idx = FixedIdx + 1; Idx < PreviewData.Samples.Num(); Idx++)
 		{
 			PreviewData.Samples[Idx] = PreviewData.Samples[FixedIdx];
 		}

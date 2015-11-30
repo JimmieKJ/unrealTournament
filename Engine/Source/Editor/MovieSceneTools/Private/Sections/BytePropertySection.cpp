@@ -4,6 +4,8 @@
 #include "MovieSceneByteTrack.h"
 #include "MovieSceneByteSection.h"
 #include "BytePropertySection.h"
+#include "EnumKeyArea.h"
+
 
 void FBytePropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
 {
@@ -20,10 +22,12 @@ void FBytePropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& L
 	}
 }
 
+
 void FBytePropertySection::SetIntermediateValue( FPropertyChangedParams PropertyChangedParams )
 {
 	KeyArea->SetIntermediateValue( PropertyChangedParams.GetPropertyValue<uint8>() );
 }
+
 
 void FBytePropertySection::ClearIntermediateValue()
 {

@@ -1359,3 +1359,22 @@ public:
 	 */
 	static void HandleDisableEditableWhenInherited(UObject* ModifiedObject, TArray<UObject*>& ArchetypeInstances);
 };
+
+struct UNREALED_API FBlueprintDuplicationScopeFlags
+{
+	enum EFlags : uint32
+	{
+		NoFlags = 0,
+		NoExtraCompilation = 1 << 0,
+		TheSameTimelineGuid = 1 << 1,
+	};
+
+	static uint32 bStaticFlags;
+	static bool HasAnyFlag(uint32 InFlags)
+	{
+		return 0 != (bStaticFlags & InFlags);
+	}
+
+	TGuardValue<uint32> Guard;
+	FBlueprintDuplicationScopeFlags(uint32 InFlags) : Guard(bStaticFlags, InFlags) {}
+};

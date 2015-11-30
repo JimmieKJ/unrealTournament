@@ -238,12 +238,16 @@ bool FRenderTargetPool::FindFreeElement(FRHICommandList& RHICmdList, const FPool
 
 			if(Current->IsFree())
 			{
+				AllocationLevelInKB -= ComputeSizeInKB(*Current);
+
 				int32 Index = FindIndex(Current);
 
 				check(Index >= 0);
 
 				// we don't use Remove() to not shuffle around the elements for better transparency on RenderTargetPoolEvents
 				PooledRenderTargets[Index] = 0;
+
+				VerifyAllocationLevel();
 			}
 		}
 	}
@@ -529,7 +533,8 @@ void FRenderTargetPool::GetStats(uint32& OutWholeCount, uint32& OutWholePoolInKB
 		}
 	}
 
-	check(AllocationLevelInKB == OutWholePoolInKB);
+	// if this triggers uncomment the code in VerifyAllocationLevel() and debug the issue, we might leak memory or not release when we could
+	ensure(AllocationLevelInKB == OutWholePoolInKB);
 }
 
 void FRenderTargetPool::AddPhaseEvent(const TCHAR *InPhaseName)
@@ -1370,7 +1375,7 @@ FPooledRenderTarget* FRenderTargetPool::GetElementById(uint32 Id) const
 void FRenderTargetPool::VerifyAllocationLevel() const
 {
 /*
-	// to verify internal consistency
+	// uncomment to verify internal consistency
 	uint32 OutWholeCount;
 	uint32 OutWholePoolInKB;
 	uint32 OutUsedInKB;

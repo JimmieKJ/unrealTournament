@@ -23,6 +23,7 @@ class UK2Node_StructOperation : public UK2Node_Variable
 	virtual bool ShouldShowNodeProperties() const override { return true; }
 	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override {}
 	virtual bool HasExternalDependencies(TArray<class UStruct*>* OptionalOutput = NULL) const override;
+	virtual FString GetFindReferenceSearchString() const override;
 	//~ End UK2Node Interface
 
 protected:

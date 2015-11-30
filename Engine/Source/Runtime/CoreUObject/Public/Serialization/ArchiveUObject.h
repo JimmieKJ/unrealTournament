@@ -409,7 +409,7 @@ public:
 	 * @param	InTargetObjects			array of objects to search for references to
 	 * @param	bFindAlsoWeakReferences should we also look into weak references?
 	 */
-	COREUOBJECT_API FFindReferencersArchive(class UObject* PotentialReferencer, TArray<class UObject*> InTargetObjects, bool bFindAlsoWeakReferences = false);
+	COREUOBJECT_API FFindReferencersArchive(class UObject* PotentialReferencer, const TArray<class UObject*>& InTargetObjects, bool bFindAlsoWeakReferences = false);
 
 	/**
 	 * Retrieves the number of references from PotentialReferencer to the object specified.
@@ -927,6 +927,8 @@ private:
 	int64										Offset;
 	EObjectFlags							FlagMask;
 	EObjectFlags							ApplyFlags;
+	EInternalObjectFlags InternalFlagMask;
+	EInternalObjectFlags ApplyInternalFlags;
 
 	/**
 	 * This is used to prevent object & component instancing resulting from the calls to StaticConstructObject(); instancing subobjects and components is pointless,
@@ -1018,6 +1020,8 @@ public:
 		UObject* DestObject,
 		EObjectFlags InFlagMask,
 		EObjectFlags InApplyMask,
+		EInternalObjectFlags InInternalFlagMask,
+		EInternalObjectFlags InApplyInternalFlags,
 		FObjectInstancingGraph* InInstanceGraph,
 		uint32 InPortFlags);
 };
@@ -1055,7 +1059,8 @@ public:
 		bool bNullPrivateRefs,
 		bool bIgnoreOuterRef,
 		bool bIgnoreArchetypeRef,
-		bool bDelayStart=false
+		bool bDelayStart = false,
+		bool bIgnoreClassGeneratedByRef = true
 	)
 	: SearchObject(InSearchObject), ReplacementMap(inReplacementMap)
 	, Count(0), bNullPrivateReferences(bNullPrivateRefs)
@@ -1064,6 +1069,7 @@ public:
 		ArIsModifyingWeakAndStrongReferences = true;		// Also replace weak references too!
 		ArIgnoreArchetypeRef = bIgnoreArchetypeRef;
 		ArIgnoreOuterRef = bIgnoreOuterRef;
+		ArIgnoreClassGeneratedByRef = bIgnoreClassGeneratedByRef;
 
 		if ( !bDelayStart )
 		{
@@ -1076,6 +1082,8 @@ public:
 	 */
 	void SerializeSearchObject()
 	{
+		ReplacedReferences.Empty();
+
 		if (SearchObject != NULL && !SerializedObjects.Find(SearchObject)
 		&&	(ReplacementMap.Num() > 0 || bNullPrivateReferences))
 		{
@@ -1110,7 +1118,7 @@ public:
 	/**
 	 * Returns the number of times the object was referenced
 	 */
-	int64 GetCount()
+	int64 GetCount() const
 	{
 		return Count;
 	}
@@ -1119,6 +1127,11 @@ public:
 	 * Returns a reference to the object this archive is operating on
 	 */
 	const UObject* GetSearchObject() const { return SearchObject; }
+
+	/**
+	 * Returns a reference to the replaced references map
+	 */
+	const TMap<UObject*, TArray<UProperty*>>& GetReplacedReferences() const { return ReplacedReferences; }
 
 	/**
 	 * Serializes the reference to the object
@@ -1132,8 +1145,9 @@ public:
 			if ( ReplaceWith != NULL )
 			{
 				Obj = *ReplaceWith;
+				ReplacedReferences.FindOrAdd(Obj).AddUnique(GetSerializedProperty());
 				Count++;
-			} 
+			}
 			// A->IsIn(A) returns false, but we don't want to NULL that reference out, so extra check here.
 			else if ( Obj == SearchObject || Obj->IsIn(SearchObject) )
 			{
@@ -1200,6 +1214,9 @@ protected:
 
 	/** List of objects that have already been serialized */
 	TSet<UObject*> SerializedObjects;
+
+	/** Map of referencing objects to referencing properties */
+	TMap<UObject*, TArray<UProperty*>> ReplacedReferences;
 
 	/**
 	 * Whether references to non-public objects not contained within the SearchObject
@@ -1380,7 +1397,7 @@ public:
 	*/
 	FArchive& operator<<( UObject*& Object )
 	{
-		if ( Object != NULL && !(Object->HasAnyMarks(OBJECTMARK_TagExp) || Object->HasAnyFlags(RF_PendingKill|RF_Unreachable)) )
+		if (Object != NULL && !(Object->HasAnyMarks(OBJECTMARK_TagExp) || Object->IsPendingKillOrUnreachable()) )
 		{
 			Object->Mark(OBJECTMARK_TagExp);
 

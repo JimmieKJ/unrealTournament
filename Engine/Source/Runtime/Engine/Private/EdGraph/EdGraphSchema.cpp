@@ -493,11 +493,38 @@ void UEdGraphSchema::TrySetDefaultText(UEdGraphPin& InPin, const FText& InNewDef
 void UEdGraphSchema::BreakNodeLinks(UEdGraphNode& TargetNode) const
 {
 #if WITH_EDITOR
+	TSet<UEdGraphNode*> NodeList;
+	NodeList.Add(&TargetNode);
+	
+	// Iterate over each pin and break all links
 	for (TArray<UEdGraphPin*>::TIterator PinIt(TargetNode.Pins); PinIt; ++PinIt)
 	{
-		BreakPinLinks(*(*PinIt), false);
+		UEdGraphPin* TargetPin = *PinIt;
+		if (TargetPin)
+		{
+			// Keep track of which node(s) the pin's connected to
+			for (auto OtherPin : TargetPin->LinkedTo)
+			{
+				if (OtherPin)
+				{
+					UEdGraphNode* OtherNode = OtherPin->GetOwningNode();
+					if (OtherNode)
+					{
+						NodeList.Add(OtherNode);
+					}
+				}
+			}
+
+			BreakPinLinks(*TargetPin, false);
+		}
 	}
-	TargetNode.NodeConnectionListChanged();
+	
+	// Send all nodes that lost connections a notification
+	for (auto It = NodeList.CreateConstIterator(); It; ++It)
+	{
+		UEdGraphNode* Node = (*It);
+		Node->NodeConnectionListChanged();
+	}
 #endif	//#if WITH_EDITOR
 }
 

@@ -448,6 +448,13 @@ namespace UnrealBuildTool
 		[XmlConfig]
 		public static bool bUseUBTMakefiles;
 
+        /// <summary>
+        /// Enables support for fast UHT parsing by caching results of previous UHT runs. If a module or UnrealHeaderTool.manifest
+        /// gets changed, all modules up to first changed one get loaded from makefile and the rest is parsed regularly.
+        /// </summary>
+        [XmlConfig]
+        public static bool bUseUHTMakefiles;
+
 		/// <summary>
 		/// Whether DMUCS/Distcc may be used.
 		/// </summary>
@@ -646,6 +653,10 @@ namespace UnrealBuildTool
 			// assembling builds in subsequent runs using data in those cached makefiles
 			// NOTE: This feature is new and has a number of known issues (search the code for '@todo ubtmake')
 			bUseUBTMakefiles = true;
+
+            // Enables support for caching results of previous UHT runs to speed up iterative development.
+            // This feature is new and can have issues that weren't discovered in isolated testing so disabling by default.
+            bUseUHTMakefiles = false;
 
 			// Distcc requires some setup - so by default disable it so we don't break local or remote building
 			bAllowDistcc = false;

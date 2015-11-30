@@ -8,6 +8,7 @@
 #include "VisualLogger.h"
 
 #include "ComponentReregisterContext.h"
+#include "PropertyTag.h"
 
 FGameplayAttribute::FGameplayAttribute(UProperty *NewProperty)
 {
@@ -224,6 +225,21 @@ void FScalableFloat::OnCurveTablePostReimport(UObject* InObject, bool)
 	}
 }
 #endif // WITH_EDITOR
+
+bool FScalableFloat::SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar)
+{
+	if (Tag.Type == NAME_FloatProperty)
+	{
+		float OldValue;
+		Ar << OldValue;
+		*this = FScalableFloat(OldValue);
+
+		return true;
+	}
+
+	return false;
+}
+
 
 bool FGameplayAttribute::operator==(const FGameplayAttribute& Other) const
 {
@@ -500,6 +516,7 @@ struct FBadScalableFloat
 
 static FBadScalableFloat GCurrentBadScalableFloat;
 static TArray<FBadScalableFloat> GCurrentBadScalableFloatList;
+static TArray<FBadScalableFloat> GCurrentNaughtyScalableFloatList;
 
 
 static bool CheckForBadScalableFloats_r(void* Data, UStruct* Struct, UClass* Class);
@@ -522,12 +539,28 @@ static bool CheckForBadScalableFloats_Prop_r(void* Data, UProperty* Prop, UClass
 					ThisScalableFloat->Curve.CurveTable = nullptr;
 					GCurrentBadScalableFloat.Asset->MarkPackageDirty();
 				}
+				else if (ThisScalableFloat->Curve.CurveTable == nullptr)
+				{
+					// Just fix this case up here
+					ThisScalableFloat->Curve.RowName = NAME_None;
+					GCurrentBadScalableFloat.Asset->MarkPackageDirty();
+				}
 				else
 				{
 					GCurrentBadScalableFloat.Property = Prop;
 					GCurrentBadScalableFloat.String = ThisScalableFloat->ToSimpleString();
 
 					GCurrentBadScalableFloatList.Add(GCurrentBadScalableFloat);
+				}
+			}
+			else 
+			{
+				if (ThisScalableFloat->Curve.CurveTable != nullptr && ThisScalableFloat->Value != 1.f)
+				{
+					GCurrentBadScalableFloat.Property = Prop;
+					GCurrentBadScalableFloat.String = ThisScalableFloat->ToSimpleString();
+
+					GCurrentNaughtyScalableFloatList.Add(GCurrentBadScalableFloat);
 				}
 			}
 		}
@@ -607,7 +640,7 @@ static bool	FindClassesWithScalableFloat_r(const TArray<FString>& Args, UStruct*
 	return false;
 }
 
-static void	FindInvalidScalableFloats(const TArray<FString>& Args)
+static void	FindInvalidScalableFloats(const TArray<FString>& Args, bool ShowCoeffecients)
 {
 	GCurrentBadScalableFloatList.Empty();
 
@@ -664,20 +697,40 @@ static void	FindInvalidScalableFloats(const TArray<FString>& Args)
 	ABILITY_LOG( Error, TEXT(""));
 	ABILITY_LOG( Error, TEXT(""));
 
-	for ( FBadScalableFloat& BadFoo : GCurrentBadScalableFloatList)
+	if (ShowCoeffecients == false)
 	{
-		ABILITY_LOG( Error, TEXT("%s. %s. %s"), *BadFoo.Asset->GetFullName(), *BadFoo.Property->GetFullName(), *BadFoo.String );
 
+		for ( FBadScalableFloat& BadFoo : GCurrentBadScalableFloatList)
+		{
+			ABILITY_LOG( Error, TEXT(", %s, %s, %s,"), *BadFoo.Asset->GetFullName(), *BadFoo.Property->GetFullName(), *BadFoo.String );
+
+		}
+
+		ABILITY_LOG( Error, TEXT(""));
+		ABILITY_LOG( Error, TEXT("%d Errors total"), GCurrentBadScalableFloatList.Num() );
 	}
+	else
+	{
+		ABILITY_LOG( Error, TEXT("Non 1 coefficients: "));
 
-	ABILITY_LOG( Error, TEXT(""));
-	ABILITY_LOG( Error, TEXT("%d Errors total"), GCurrentBadScalableFloatList.Num() );
+		for ( FBadScalableFloat& BadFoo : GCurrentNaughtyScalableFloatList)
+		{
+			ABILITY_LOG( Error, TEXT(", %s, %s, %s"), *BadFoo.Asset->GetFullName(), *BadFoo.Property->GetFullName(), *BadFoo.String );
+
+		}
+	}
 }
 
 FAutoConsoleCommand FindInvalidScalableFloatsCommand(
 	TEXT("FindInvalidScalableFloats"), 
 	TEXT( "Searches for invalid scalable floats in all assets. Warning this is slow!" ), 
-	FConsoleCommandWithArgsDelegate::CreateStatic(FindInvalidScalableFloats)
+	FConsoleCommandWithArgsDelegate::CreateStatic(FindInvalidScalableFloats, false)
+);
+
+FAutoConsoleCommand FindCoefficientScalableFloatsCommand(
+	TEXT("FindCoefficientScalableFloats"), 
+	TEXT( "Searches for scalable floats with a non 1 coeffecient. Warning this is slow!" ), 
+	FConsoleCommandWithArgsDelegate::CreateStatic(FindInvalidScalableFloats, true)
 );
 
 #endif

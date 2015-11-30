@@ -692,7 +692,7 @@ struct FVisibilityQuerySample
  * The TArrays are passed in to avoid allocations between cells, the same arrays are reused.
  */
 bool ComputeBoxVisibility(
-	FStaticLightingAggregateMesh& AggregateMesh,
+	FStaticLightingAggregateMeshType& AggregateMesh,
 	FPrecomputedVisibilitySettings& PrecomputedVisibilitySettings,
 	FPrecomputedVisibilityCell& CurrentCell, 
 	FAxisAlignedCellFace* CellFaces,
@@ -1094,7 +1094,7 @@ void FStaticLightingSystem::CalculatePrecomputedVisibility(int32 BucketIndex)
 			bool bDebugThisMesh = false;
 
 			bool bVisible = ComputeBoxVisibility(
-				AggregateMesh, 
+				*AggregateMesh, 
 				PrecomputedVisibilitySettings, 
 				CurrentCell, 
 				CellFaces, 
@@ -1177,7 +1177,7 @@ void FStaticLightingSystem::CalculatePrecomputedVisibility(int32 BucketIndex)
 				if (bGroupVisible)
 				{
 					bVisible = ComputeBoxVisibility(
-						AggregateMesh, 
+						*AggregateMesh, 
 						PrecomputedVisibilitySettings, 
 						CurrentCell, 
 						CellFaces, 

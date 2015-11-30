@@ -166,17 +166,23 @@ void FFileHelper::BufferToString( FString& Result, const uint8* Buffer, int32 Si
  */
 bool FFileHelper::LoadFileToString( FString& Result, const TCHAR* Filename, uint32 VerifyFlags )
 {
-	FArchive* Reader = IFileManager::Get().CreateFileReader( Filename );
+	TUniquePtr<FArchive> Reader( IFileManager::Get().CreateFileReader( Filename ) );
 	if( !Reader )
 	{
 		return 0;
 	}
 	
 	int32 Size = Reader->TotalSize();
+	if( !Size )
+	{
+		Result.Empty();
+		return true;
+	}
+
 	uint8* Ch = (uint8*)FMemory::Malloc(Size);
 	Reader->Serialize( Ch, Size );
 	bool Success = Reader->Close();
-	delete Reader;
+	Reader = nullptr;
 	BufferToString( Result, Ch, Size );
 
 	// handle SHA verify of the file

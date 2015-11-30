@@ -24,6 +24,9 @@ struct CORE_API FStatConstants
 	static const char* ThreadGroupName;
 	static const FName NAME_ThreadGroup;
 
+	/** Stat short name for seconds per cycle. */
+	static const FName NAME_SecondsPerCycle;
+
 	/** Special case category, when we want to Stat to appear at the root of the menu (leaving the category blank omits it from the menu entirely) */
 	static const FName NAME_NoCategory;
 
@@ -37,13 +40,16 @@ struct CORE_API FStatConstants
 	static const FString ThreadNameMarker;
 
 	/** A raw name for the event wait with id. */
-	static const FName NAME_EventWaitWithId;
+	static const FName RAW_EventWaitWithId;
 
 	/** A raw name for the event trigger with id. */
-	static const FName NAME_EventTriggerWithId;
+	static const FName RAW_EventTriggerWithId;
 
 	/** A raw name for the stat marker. */
-	static const FName NAME_NamedMarker;
+	static const FName RAW_NamedMarker;
+
+	/** A special meta data used to advance the frame. */
+	static const FStatNameAndInfo AdvanceFrame;
 };
 
 namespace LexicalConversion
@@ -634,7 +640,7 @@ public:
 	}
 
 	/** Gets the old-skool flat grouped inclusive stats. These ignore recursion, merge threads, etc and so generally the condensed callstack is less confusing. **/
-	void GetInclusiveAggregateStackStats(int64 TargetFrame, TArray<FStatMessage>& OutStats, IItemFiler* Filter = nullptr, bool bAddNonStackStats = true) const;
+	void GetInclusiveAggregateStackStats(int64 TargetFrame, TArray<FStatMessage>& OutStats, IItemFiler* Filter = nullptr, bool bAddNonStackStats = true, TMap<FName, TArray<FStatMessage>>* OptionalOutThreadBreakdownMap = nullptr) const;
 
 	/** Gets the old-skool flat grouped exclusive stats. These merge threads, etc and so generally the condensed callstack is less confusing. **/
 	void GetExclusiveAggregateStackStats(int64 TargetFrame, TArray<FStatMessage>& OutStats, IItemFiler* Filter = nullptr, bool bAddNonStackStats = true) const;
@@ -862,6 +868,9 @@ struct FHudGroup
 {
 	/** Array of all flat aggregates for the last n frames. */
 	TArray<FComplexStatMessage> FlatAggregate;
+
+	/** Array of all flat aggregates for the last n frames broken down by thread. */
+	TMap<FName, TArray<FComplexStatMessage>> FlatAggregateThreadBreakdown;
 	
 	/** Array of all aggregates for the last n frames. */
 	TArray<FComplexStatMessage> HierAggregate;
@@ -879,7 +888,7 @@ struct FHudGroup
 	TSet<FName> BudgetIgnoreStats;
 
 	/** Expected group budget */
-	float TotalGroupBudget;
+	TMap<FName, float> ThreadBudgetMap;
 };
 
 /**

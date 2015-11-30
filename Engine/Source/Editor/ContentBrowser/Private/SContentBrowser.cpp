@@ -1120,7 +1120,7 @@ void SContentBrowser::FolderEntered(const FString& FolderPath)
 		SelectedPaths.Add(FolderPath);
 		PathViewPtr->SetSelectedPaths(SelectedPaths);
 
-		PathSelected(FolderPath);
+		PathSelected(SelectedPaths[0]);
 	}
 }
 
@@ -1196,7 +1196,7 @@ void SContentBrowser::PathPickerCollectionSelected(const FCollectionNameType& Se
 	CollectionSelected(SelectedCollection);
 }
 
-void SContentBrowser::OnApplyHistoryData ( const FHistoryData& History )
+void SContentBrowser::OnApplyHistoryData( const FHistoryData& History )
 {
 	PathViewPtr->ApplyHistoryData(History);
 	CollectionViewPtr->ApplyHistoryData(History);
@@ -1204,6 +1204,17 @@ void SContentBrowser::OnApplyHistoryData ( const FHistoryData& History )
 
 	// Update the breadcrumb trail path
 	UpdatePath();
+
+	if (History.SourcesData.HasPackagePaths())
+	{
+		// Notify 'asset path changed' delegate
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>(TEXT("ContentBrowser"));
+		FContentBrowserModule::FOnAssetPathChanged& PathChangedDelegate = ContentBrowserModule.GetOnAssetPathChanged();
+		if (PathChangedDelegate.IsBound())
+		{
+			PathChangedDelegate.Broadcast(History.SourcesData.PackagePaths[0].ToString());
+		}
+	}
 }
 
 void SContentBrowser::OnUpdateHistoryData(FHistoryData& HistoryData) const
@@ -1389,7 +1400,7 @@ void SContentBrowser::OnPathClicked( const FString& CrumbData )
 		SelectedPaths.Add(CrumbData);
 		PathViewPtr->SetSelectedPaths(SelectedPaths);
 
-		PathSelected(CrumbData);
+		PathSelected(SelectedPaths[0]);
 	}
 }
 

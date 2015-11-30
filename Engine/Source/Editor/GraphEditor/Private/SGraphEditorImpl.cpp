@@ -730,7 +730,7 @@ EVisibility SGraphEditorImpl::InstructionTextVisibility() const
 {
 	if (!GetInstructionText().IsEmpty() && (GetInstructionTextFade() > 0.0f))
 	{
-		return EVisibility::Visible;
+		return EVisibility::HitTestInvisible;
 	}
 	return EVisibility::Hidden;
 }

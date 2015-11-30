@@ -10,16 +10,17 @@ using UnrealBuildTool;
 using OneSky;
 using EpicGames.OneSkyLocalization.Config;
 
+[Help("Updates the OneSky localization data using the arguments provided.")]
+[Help("UEProjectDirectory", "Sub-path to the project we're gathering for (relative to CmdEnv.LocalRoot).")]
+[Help("UEProjectName", "Optional name of the project we're gathering for (should match its .uproject file, eg QAGame).")]
+[Help("OneSkyConfigName", "Name of the config data to use (see OneSkyConfigHelper).")]
+[Help("OneSkyProjectGroupName", "Name of the project group in OneSky.")]
+[Help("OneSkyProjectNames", "Comma separated list of the projects in OneSky.")]
+[Help("OneSkyBranchSuffix", "Optional suffix to use when uploading the new data to OneSky.")]
 class Localise : BuildCommand
 {
-	struct ProjectInfo
+	struct ProjectImportExportInfo
 	{
-		/** The name of this project */
-		public string ProjectName;
-
-		/** Path to this projects localization config file (relative to the root working directory for the commandlet) */
-		public string LocalizationConfigFile;
-
 		/** The destination path for the files containing the gathered data for this project (extracted from its config file - relative to the root working directory for the commandlet) */
 		public string DestinationPath;
 
@@ -37,6 +38,24 @@ class Localise : BuildCommand
 
 		/** The cultures to generate for this project (extracted from its config file) */
 		public List<string> CulturesToGenerate;
+
+		/** True if we should use a per-culture directly when importing/exporting */
+		public bool bUseCultureDirectory;
+	};
+
+	struct ProjectInfo
+	{
+		/** The name of this project */
+		public string ProjectName;
+
+		/** Path to this projects localization config files (relative to the root working directory for the commandlet) - ordered so that iterating them runs in the correct order */
+		public List<string> LocalizationConfigFiles;
+
+		/** Config data used by the PO file import process */
+		public ProjectImportExportInfo ImportInfo;
+
+		/** Config data used by the PO file export process */
+		public ProjectImportExportInfo ExportInfo;
 	};
 
     private int OneSkyDownloadedPOChangeList = 0;
@@ -45,21 +64,55 @@ class Localise : BuildCommand
 	{
 		var EditorExe = CombinePaths(CmdEnv.LocalRoot, @"Engine/Binaries/Win64/UE4Editor-Cmd.exe");
 
-		// todo: All of this should be passed in via the command line to allow this script to be generic
-		var UEProjectDirectory = "Engine";
-		var OneSkyConfigName = "OneSkyConfig_EpicGames";
-		var OneSkyProjectGroupName = "Unreal Engine";
-		var OneSkyProjectNames = new string[] {
-			"Engine",
-			"Editor",
-			"EditorTutorials",
-			"PropertyNames",
-			"ToolTips",
-			"Category",
-			"Keywords",
-		};
+		// Parse out the required command line arguments
+		var UEProjectDirectory = ParseParamValue("UEProjectDirectory");
+		if (UEProjectDirectory == null)
+		{
+			throw new AutomationException("Missing required command line argument: 'UEProjectDirectory'");
+		}
+
+		var UEProjectName = ParseParamValue("UEProjectName");
+		if (UEProjectName == null)
+		{
+			UEProjectName = "";
+		}
+
+		var OneSkyConfigName = ParseParamValue("OneSkyConfigName");
+		if (OneSkyConfigName == null)
+		{
+			throw new AutomationException("Missing required command line argument: 'OneSkyConfigName'");
+		}
+
+		var OneSkyProjectGroupName = ParseParamValue("OneSkyProjectGroupName");
+		if (OneSkyProjectGroupName == null)
+		{
+			throw new AutomationException("Missing required command line argument: 'OneSkyProjectGroupName'");
+		}
+
+		var OneSkyProjectNames = new List<string>();
+		{
+			var OneSkyProjectNamesStr = ParseParamValue("OneSkyProjectNames");
+			if (OneSkyProjectNamesStr == null)
+			{
+				throw new AutomationException("Missing required command line argument: 'OneSkyProjectNames'");
+			}
+			foreach (var ProjectName in OneSkyProjectNamesStr.Split(','))
+			{
+				OneSkyProjectNames.Add(ProjectName.Trim());
+			}
+		}
+
+		var OneSkyBranchSuffix = ParseParamValue("OneSkyBranchSuffix");
 
 		var RootWorkingDirectory = CombinePaths(CmdEnv.LocalRoot, UEProjectDirectory);
+
+		// Make sure the Localization configs and content is up-to-date to ensure we don't get errors later on
+		if (P4Enabled)
+		{
+			Log("Sync necessary content to head revision");
+			P4.Sync(P4Env.BuildRootP4 + "/" + UEProjectDirectory + "/Config/Localization/...");
+			P4.Sync(P4Env.BuildRootP4 + "/" + UEProjectDirectory + "/Content/Localization/...");
+		}
 
 		// Generate the info we need to gather for each project
 		var ProjectInfos = new List<ProjectInfo>();
@@ -69,27 +122,27 @@ class Localise : BuildCommand
 		}
 
 		OneSkyConfigData OneSkyConfig = OneSkyConfigHelper.Find(OneSkyConfigName);
-        var OneSkyService = new OneSkyService(OneSkyConfig.ApiKey, OneSkyConfig.ApiSecret);
+		var OneSkyService = new OneSkyService(OneSkyConfig.ApiKey, OneSkyConfig.ApiSecret);
 		var OneSkyProjectGroup = GetOneSkyProjectGroup(OneSkyService, OneSkyProjectGroupName);
 
-        // Create changelist for backed up POs from OneSky.
-        if (P4Enabled)
-        {
-            OneSkyDownloadedPOChangeList = P4.CreateChange(P4Env.Client, "OneSky downloaded PO backup.");
-        }
-
-        // Export all text from OneSky
-		foreach (var ProjectInfo in ProjectInfos)
+		// Create changelist for backed up POs from OneSky.
+		if (P4Enabled)
 		{
-			ExportOneSkyProjectToDirectory(RootWorkingDirectory, OneSkyService, OneSkyProjectGroup, ProjectInfo);
+			OneSkyDownloadedPOChangeList = P4.CreateChange(P4Env.Client, "OneSky downloaded PO backup.");
 		}
 
-        // Submit changelist for backed up POs from OneSky.
-        if (P4Enabled)
-        {
-            int SubmittedChangeList;
-            P4.Submit(OneSkyDownloadedPOChangeList, out SubmittedChangeList);
-        }
+		// Export all text from OneSky
+		foreach (var ProjectInfo in ProjectInfos)
+		{
+			ExportOneSkyProjectToDirectory(RootWorkingDirectory, OneSkyService, OneSkyProjectGroup, OneSkyBranchSuffix, ProjectInfo);
+		}
+
+		// Submit changelist for backed up POs from OneSky.
+		if (P4Enabled)
+		{
+			int SubmittedChangeList;
+			P4.Submit(OneSkyDownloadedPOChangeList, out SubmittedChangeList);
+		}
 
 		// Setup editor arguments for SCC.
 		string EditorArguments = String.Empty;
@@ -107,28 +160,31 @@ class Localise : BuildCommand
 		if (P4Enabled) { CommandletSCCArguments += (String.IsNullOrEmpty(CommandletSCCArguments) ? "" : " ") + "-EnableSCC"; }
 		if (!AllowSubmit) { CommandletSCCArguments += (String.IsNullOrEmpty(CommandletSCCArguments) ? "" : " ") + "-DisableSCCSubmit"; }
 
-		// Execute commandlet for each project.
+		// Execute commandlet for each config in each project.
 		foreach (var ProjectInfo in ProjectInfos)
 		{
-			var CommandletArguments = String.Format("-config={0}", ProjectInfo.LocalizationConfigFile) + (String.IsNullOrEmpty(CommandletSCCArguments) ? "" : " " + CommandletSCCArguments);
-
-			Log("Localization for {0} {1}", EditorArguments, CommandletArguments);
-
-			Log("Running UE4Editor to generate localization data");
-
-			string Arguments = String.Format("-run=GatherText {0} {1}", EditorArguments, CommandletArguments);
-			var RunResult = Run(EditorExe, Arguments);
-
-			if (RunResult.ExitCode != 0)
+			foreach (var LocalizationConfigFile in ProjectInfo.LocalizationConfigFiles)
 			{
-				throw new AutomationException("Error while executing localization commandlet '{0}'", Arguments);
+				var CommandletArguments = String.Format("-config={0}", LocalizationConfigFile) + (String.IsNullOrEmpty(CommandletSCCArguments) ? "" : " " + CommandletSCCArguments);
+
+				Log("Localization for {0} {1}", EditorArguments, CommandletArguments);
+
+				Log("Running UE4Editor to generate localization data");
+
+				string Arguments = String.Format("{0} -run=GatherText {1} {2}", UEProjectName, EditorArguments, CommandletArguments);
+				var RunResult = Run(EditorExe, Arguments);
+
+				if (RunResult.ExitCode != 0)
+				{
+					Console.WriteLine("[ERROR] Error while executing localization commandlet '{0}'", Arguments);
+				}
 			}
 		}
 
-        // Upload all text to OneSky
+		// Upload all text to OneSky
 		foreach (var ProjectInfo in ProjectInfos)
 		{
-			UploadProjectToOneSky(RootWorkingDirectory, OneSkyService, OneSkyProjectGroup, ProjectInfo);
+			UploadProjectToOneSky(RootWorkingDirectory, OneSkyService, OneSkyProjectGroup, OneSkyBranchSuffix, ProjectInfo);
 		}
 	}
 
@@ -137,41 +193,100 @@ class Localise : BuildCommand
 		var ProjectInfo = new ProjectInfo();
 
 		ProjectInfo.ProjectName = ProjectName;
-		ProjectInfo.LocalizationConfigFile = String.Format(@"Config/Localization/{0}.ini", ProjectName);
+		ProjectInfo.LocalizationConfigFiles = new List<string>();
 
-		var LocalizationConfig = new ConfigCacheIni(new FileReference(CombinePaths(RootWorkingDirectory, ProjectInfo.LocalizationConfigFile)));
-
-		if (!LocalizationConfig.GetString("CommonSettings", "DestinationPath", out ProjectInfo.DestinationPath))
+		// Projects generated by the localization dashboard will use multiple config files that must be run in a specific order
+		// Older projects (such as the Engine) would use a single config file containing all the steps
+		// Work out which kind of project we're dealing with...
+		var MonolithicConfigFile = String.Format(@"Config/Localization/{0}.ini", ProjectName);
+		var IsMonolithicConfig = File.Exists(CombinePaths(RootWorkingDirectory, MonolithicConfigFile));
+		if (IsMonolithicConfig)
 		{
-			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'DestinationPath', File: '{0}'", ProjectInfo.LocalizationConfigFile);
+			ProjectInfo.LocalizationConfigFiles.Add(MonolithicConfigFile);
+
+			ProjectInfo.ImportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, MonolithicConfigFile);
+			ProjectInfo.ExportInfo = ProjectInfo.ImportInfo;
 		}
-
-		if (!LocalizationConfig.GetString("CommonSettings", "ManifestName", out ProjectInfo.ManifestName))
+		else
 		{
-			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'ManifestName', File: '{0}'", ProjectInfo.LocalizationConfigFile);
-		}
+			var FileSuffixes = new[] { 
+				new { Suffix = "Gather", Required = true }, 
+				new { Suffix = "Import", Required = true }, 
+				new { Suffix = "Export", Required = true }, 
+				new { Suffix = "Compile", Required = true }, 
+				new { Suffix = "GenerateReports", Required = false } 
+			};
 
-		if (!LocalizationConfig.GetString("CommonSettings", "ArchiveName", out ProjectInfo.ArchiveName))
-		{
-			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'ArchiveName', File: '{0}'", ProjectInfo.LocalizationConfigFile);
-		}
+			foreach (var FileSuffix in FileSuffixes)
+			{
+				var ModularConfigFile = String.Format(@"Config/Localization/{0}_{1}.ini", ProjectName, FileSuffix.Suffix);
 
-		if (!LocalizationConfig.GetString("CommonSettings", "PortableObjectName", out ProjectInfo.PortableObjectName))
-		{
-			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'PortableObjectName', File: '{0}'", ProjectInfo.LocalizationConfigFile);
-		}
+				if (File.Exists(CombinePaths(RootWorkingDirectory, ModularConfigFile)))
+				{
+					ProjectInfo.LocalizationConfigFiles.Add(ModularConfigFile);
 
-		if (!LocalizationConfig.GetString("CommonSettings", "NativeCulture", out ProjectInfo.NativeCulture))
-		{
-			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'NativeCulture', File: '{0}'", ProjectInfo.LocalizationConfigFile);
-		}
-
-		if (!LocalizationConfig.GetArray("CommonSettings", "CulturesToGenerate", out ProjectInfo.CulturesToGenerate))
-		{
-			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'CulturesToGenerate', File: '{0}'", ProjectInfo.LocalizationConfigFile);
+					if (FileSuffix.Suffix == "Import")
+					{
+						ProjectInfo.ImportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, ModularConfigFile);
+					}
+					else if (FileSuffix.Suffix == "Export")
+					{
+						ProjectInfo.ExportInfo = GenerateProjectImportExportInfo(RootWorkingDirectory, ModularConfigFile);
+					}
+				}
+				else if (FileSuffix.Required)
+				{
+					throw new AutomationException("Failed to find a required config file! '{0}'", ModularConfigFile);
+				}
+			}
 		}
 
 		return ProjectInfo;
+	}
+
+	private ProjectImportExportInfo GenerateProjectImportExportInfo(string RootWorkingDirectory, string LocalizationConfigFile)
+	{
+		var ProjectImportExportInfo = new ProjectImportExportInfo();
+
+		var LocalizationConfig = new ConfigCacheIni(new FileReference(CombinePaths(RootWorkingDirectory, LocalizationConfigFile)));
+
+		if (!LocalizationConfig.GetString("CommonSettings", "DestinationPath", out ProjectImportExportInfo.DestinationPath))
+		{
+			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'DestinationPath', File: '{0}'", LocalizationConfigFile);
+		}
+
+		if (!LocalizationConfig.GetString("CommonSettings", "ManifestName", out ProjectImportExportInfo.ManifestName))
+		{
+			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'ManifestName', File: '{0}'", LocalizationConfigFile);
+		}
+
+		if (!LocalizationConfig.GetString("CommonSettings", "ArchiveName", out ProjectImportExportInfo.ArchiveName))
+		{
+			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'ArchiveName', File: '{0}'", LocalizationConfigFile);
+		}
+
+		if (!LocalizationConfig.GetString("CommonSettings", "PortableObjectName", out ProjectImportExportInfo.PortableObjectName))
+		{
+			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'PortableObjectName', File: '{0}'", LocalizationConfigFile);
+		}
+
+		if (!LocalizationConfig.GetString("CommonSettings", "NativeCulture", out ProjectImportExportInfo.NativeCulture))
+		{
+			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'NativeCulture', File: '{0}'", LocalizationConfigFile);
+		}
+
+		if (!LocalizationConfig.GetArray("CommonSettings", "CulturesToGenerate", out ProjectImportExportInfo.CulturesToGenerate))
+		{
+			throw new AutomationException("Failed to find a required config key! Section: 'CommonSettings', Key: 'CulturesToGenerate', File: '{0}'", LocalizationConfigFile);
+		}
+
+		if (!LocalizationConfig.GetBool("CommonSettings", "bUseCultureDirectory", out ProjectImportExportInfo.bUseCultureDirectory))
+		{
+			// bUseCultureDirectory is optional, default is true
+			ProjectImportExportInfo.bUseCultureDirectory = true;
+		}
+
+		return ProjectImportExportInfo;
 	}
 
 	private static ProjectGroup GetOneSkyProjectGroup(OneSkyService OneSkyService, string ProjectGroupName)
@@ -204,10 +319,11 @@ class Localise : BuildCommand
 		return OneSkyProject;
     }
 
-	private void ExportOneSkyProjectToDirectory(string RootWorkingDirectory, OneSkyService OneSkyService, ProjectGroup OneSkyProjectGroup, ProjectInfo ProjectInfo)
+	private void ExportOneSkyProjectToDirectory(string RootWorkingDirectory, OneSkyService OneSkyService, ProjectGroup OneSkyProjectGroup, string OneSkyBranchSuffix, ProjectInfo ProjectInfo)
 	{
+		var OneSkyFileName = GetOneSkyFilename(ProjectInfo.ImportInfo.PortableObjectName, OneSkyBranchSuffix);
 		var OneSkyProject = GetOneSkyProject(OneSkyService, OneSkyProjectGroup.Name, ProjectInfo.ProjectName);
-		var OneSkyFile = OneSkyProject.UploadedFiles.FirstOrDefault(f => f.Filename == ProjectInfo.PortableObjectName);
+		var OneSkyFile = OneSkyProject.UploadedFiles.FirstOrDefault(f => f.Filename == OneSkyFileName);
 
 		//Export
 		if (OneSkyFile != null)
@@ -216,21 +332,21 @@ class Localise : BuildCommand
 			foreach (var OneSkyCulture in OneSkyProject.EnabledCultures)
 			{
 				// Only export the OneSky cultures that we care about for this project
-				if (ProjectInfo.CulturesToGenerate.Contains(OneSkyCulture))
+				if (ProjectInfo.ImportInfo.CulturesToGenerate.Contains(OneSkyCulture))
 				{
 					CulturesToExport.Add(OneSkyCulture);
 				}
 			}
 
-			ExportOneSkyFileToDirectory(OneSkyFile, new DirectoryInfo(CombinePaths(RootWorkingDirectory, ProjectInfo.DestinationPath)), CulturesToExport);
+			ExportOneSkyFileToDirectory(OneSkyFile, new DirectoryInfo(CombinePaths(RootWorkingDirectory, ProjectInfo.ImportInfo.DestinationPath)), ProjectInfo.ImportInfo.PortableObjectName, CulturesToExport, ProjectInfo.ImportInfo.bUseCultureDirectory);
 		}
 	}
 
-	private void ExportOneSkyFileToDirectory(UploadedFile OneSkyFile, DirectoryInfo DestinationDirectory, IEnumerable<string> Cultures)
+	private void ExportOneSkyFileToDirectory(UploadedFile OneSkyFile, DirectoryInfo DestinationDirectory, string DestinationFilename, IEnumerable<string> Cultures, bool bUseCultureDirectory)
     {
 		foreach (var Culture in Cultures)
         {
-			var CultureDirectory = new DirectoryInfo(Path.Combine(DestinationDirectory.FullName, Culture));
+			var CultureDirectory = (bUseCultureDirectory) ? new DirectoryInfo(Path.Combine(DestinationDirectory.FullName, Culture)) : DestinationDirectory;
 			if (!CultureDirectory.Exists)
             {
 				CultureDirectory.Create();
@@ -238,61 +354,105 @@ class Localise : BuildCommand
 
             using (var MemoryStream = new MemoryStream())
             {
-				var ExportFile = new FileInfo(Path.Combine(CultureDirectory.FullName, OneSkyFile.Filename));
-
 				var ExportTranslationState = OneSkyFile.ExportTranslation(Culture, MemoryStream).Result;
 				if (ExportTranslationState == UploadedFile.ExportTranslationState.Success)
-                {
-					MemoryStream.Position = 0;
-					using (Stream FileStream = File.OpenWrite(ExportFile.FullName))
-                    {
-						MemoryStream.CopyTo(FileStream);
-						Console.WriteLine("[SUCCESS] Exporting: '{0}' ({1})", ExportFile.FullName, Culture);
-                    }
+				{
+					var ExportFile = new FileInfo(Path.Combine(CultureDirectory.FullName, DestinationFilename));
 
-					FileInfo ExportFileCopy = new FileInfo(Path.Combine(ExportFile.DirectoryName, String.Format("{0}_FromOneSky{1}", Path.GetFileNameWithoutExtension(ExportFile.Name), ExportFile.Extension)));
-					File.Copy(ExportFile.FullName, ExportFileCopy.FullName, true);
-
-					// Add/check out backed up POs from OneSky.
-					if (P4Enabled)
+					// Write out the updated PO file so that the gather commandlet will import the new data from it
 					{
-						UE4Build.AddBuildProductsToChangelist(OneSkyDownloadedPOChangeList, new List<string>() { ExportFileCopy.FullName });
+						var ExportFileWasReadOnly = false;
+						if (ExportFile.Exists)
+						{
+							// We're going to clobber the existing PO file, so make sure it's writable (it may be read-only if in Perforce)
+							ExportFileWasReadOnly = ExportFile.IsReadOnly;
+							ExportFile.IsReadOnly = false;
+						}
+
+						MemoryStream.Position = 0;
+						using (Stream FileStream = ExportFile.OpenWrite())
+						{
+							MemoryStream.CopyTo(FileStream);
+							Console.WriteLine("[SUCCESS] Exporting: '{0}' as '{1}' ({2})", OneSkyFile.Filename, ExportFile.FullName, Culture);
+						}
+
+						if (ExportFileWasReadOnly)
+						{
+							ExportFile.IsReadOnly = true;
+						}
 					}
-                }
+
+					// Also update the back-up copy so we can diff against what we got from OneSky, and what the gather commandlet produced
+					{
+						var ExportFileCopy = new FileInfo(Path.Combine(ExportFile.DirectoryName, String.Format("{0}_FromOneSky{1}", Path.GetFileNameWithoutExtension(ExportFile.Name), ExportFile.Extension)));
+
+						var ExportFileCopyWasReadOnly = false;
+						if (ExportFileCopy.Exists)
+						{
+							// We're going to clobber the existing PO file, so make sure it's writable (it may be read-only if in Perforce)
+							ExportFileCopyWasReadOnly = ExportFileCopy.IsReadOnly;
+							ExportFileCopy.IsReadOnly = false;
+						}
+
+						ExportFile.CopyTo(ExportFileCopy.FullName, true);
+
+						if (ExportFileCopyWasReadOnly)
+						{
+							ExportFileCopy.IsReadOnly = true;
+						}
+
+						// Add/check out backed up POs from OneSky.
+						if (P4Enabled)
+						{
+							UE4Build.AddBuildProductsToChangelist(OneSkyDownloadedPOChangeList, new List<string>() { ExportFileCopy.FullName });
+						}
+					}
+				}
 				else if (ExportTranslationState == UploadedFile.ExportTranslationState.NoContent)
                 {
-					Console.WriteLine("[WARNING] Exporting: '{0}' ({1}) has no translations!", ExportFile.FullName, Culture);
+					Console.WriteLine("[WARNING] Exporting: '{0}' ({1}) has no translations!", OneSkyFile.Filename, Culture);
                 }
                 else
                 {
-					Console.WriteLine("[FAILED] Exporting: '{0}' ({1})", ExportFile.FullName, Culture);
+					Console.WriteLine("[FAILED] Exporting: '{0}' ({1})", OneSkyFile.Filename, Culture);
                 }
             }
         }
     }
 
-	private void UploadProjectToOneSky(string RootWorkingDirectory, OneSkyService OneSkyService, ProjectGroup OneSkyProjectGroup, ProjectInfo ProjectInfo)
+	private void UploadProjectToOneSky(string RootWorkingDirectory, OneSkyService OneSkyService, ProjectGroup OneSkyProjectGroup, string OneSkyBranchSuffix, ProjectInfo ProjectInfo)
 	{
 		var OneSkyProject = GetOneSkyProject(OneSkyService, OneSkyProjectGroup.Name, ProjectInfo.ProjectName);
 
+		Func<string, FileInfo> GetPathForCulture = (string Culture) =>
+		{
+			if (ProjectInfo.ExportInfo.bUseCultureDirectory)
+			{
+				return new FileInfo(Path.Combine(RootWorkingDirectory, ProjectInfo.ExportInfo.DestinationPath, Culture, ProjectInfo.ExportInfo.PortableObjectName));
+			}
+			else
+			{
+				return new FileInfo(Path.Combine(RootWorkingDirectory, ProjectInfo.ExportInfo.DestinationPath, ProjectInfo.ExportInfo.PortableObjectName));
+			}
+		};
+
 		// Upload the .po file for the native culture first
-		UploadFileToOneSky(OneSkyProject, new FileInfo(Path.Combine(RootWorkingDirectory, ProjectInfo.DestinationPath, ProjectInfo.NativeCulture, ProjectInfo.PortableObjectName)), ProjectInfo.NativeCulture);
+		UploadFileToOneSky(OneSkyProject, OneSkyBranchSuffix, GetPathForCulture(ProjectInfo.ExportInfo.NativeCulture), ProjectInfo.ExportInfo.NativeCulture);
 
 		// Upload the remaining .po files for the other cultures
-		foreach (var Culture in ProjectInfo.CulturesToGenerate)
+		foreach (var Culture in ProjectInfo.ExportInfo.CulturesToGenerate)
 		{
 			// Skip native culture as we uploaded it above
-			if (Culture != ProjectInfo.NativeCulture)
+			if (Culture != ProjectInfo.ExportInfo.NativeCulture)
 			{
-				UploadFileToOneSky(OneSkyProject, new FileInfo(Path.Combine(RootWorkingDirectory, ProjectInfo.DestinationPath, Culture, ProjectInfo.PortableObjectName)), Culture);	
+				UploadFileToOneSky(OneSkyProject, OneSkyBranchSuffix, GetPathForCulture(Culture), Culture);	
 			}
 		}
 	}
 
-	private void UploadFileToOneSky(OneSky.Project OneSkyProject, FileInfo FileToUpload, string Culture)
+	private void UploadFileToOneSky(OneSky.Project OneSkyProject, string OneSkyBranchSuffix, FileInfo FileToUpload, string Culture)
 	{
-		var FileNameToUpload = FileToUpload.FullName;
-		using (var FileStream = File.OpenRead(FileNameToUpload))
+		using (var FileStream = FileToUpload.OpenRead())
 		{
 			// Read the BOM
 			var UTF8BOM = new byte[3];
@@ -304,19 +464,32 @@ class Localise : BuildCommand
 				FileStream.Position = 0;
 			}
 
-			Console.WriteLine("Uploading: '{0}' ({1})", FileNameToUpload, Culture);
+			var OneSkyFileName = GetOneSkyFilename(Path.GetFileName(FileToUpload.FullName), OneSkyBranchSuffix);
 
-			// todo: need to use the branch suffix here so that OneSky will merge them together
-			var UploadedFile = OneSkyProject.Upload(Path.GetFileName(FileNameToUpload), FileStream, Culture).Result;
+			Console.WriteLine("Uploading: '{0}' as '{1}' ({2})", FileToUpload.FullName, OneSkyFileName, Culture);
+
+			var UploadedFile = OneSkyProject.Upload(OneSkyFileName, FileStream, Culture).Result;
 
 			if (UploadedFile == null)
 			{
-				Console.WriteLine("[FAILED] Uploading: '{0}' ({1})", FileNameToUpload, Culture);
+				Console.WriteLine("[FAILED] Uploading: '{0}' ({1})", FileToUpload.FullName, Culture);
 			}
 			else
 			{
-				Console.WriteLine("[SUCCESS] Uploading: '{0}' ({1})", FileNameToUpload, Culture);
+				Console.WriteLine("[SUCCESS] Uploading: '{0}' ({1})", FileToUpload.FullName, Culture);
 			}
 		}
+	}
+
+	private static string GetOneSkyFilename(string BaseFilename, string OneSkyBranchSuffix)
+	{
+		var OneSkyFileName = BaseFilename;
+		if (!String.IsNullOrEmpty(OneSkyBranchSuffix))
+		{
+			// Apply the branch suffix. OneSky will take care of merging the files from different branches together.
+			var OneSkyFileNameWithSuffix = Path.GetFileNameWithoutExtension(OneSkyFileName) + "_" + OneSkyBranchSuffix + Path.GetExtension(OneSkyFileName);
+			OneSkyFileName = OneSkyFileNameWithSuffix;
+		}
+		return OneSkyFileName;
 	}
 }

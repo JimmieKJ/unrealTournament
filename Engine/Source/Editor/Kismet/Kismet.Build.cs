@@ -58,6 +58,7 @@ public class Kismet : ModuleRules
 				"EditorWidgets",
 				"GameProjectGeneration",
                 "BlueprintCompilerCppBackend",
+                "BlueprintProfiler"
 			}
             );
 

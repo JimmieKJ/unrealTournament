@@ -662,7 +662,7 @@ void FD3D12ResourceLocation::InternalReleaseResource()
 	{
 		Resource = nullptr;
 
-		FD3D12ResourceAllocator *Allocator = BlockInfo->Allocator;
+		FD3D12ResourceAllocator* Allocator = BlockInfo->Allocator;
 		check(!!Allocator);
 
 		Allocator->ExpireBlock(BlockInfo);
@@ -670,7 +670,7 @@ void FD3D12ResourceLocation::InternalReleaseResource()
 	}
 	else
 	{
-		FD3D12Resource *pResource = Resource.GetReference();
+		FD3D12Resource* pResource = Resource.GetReference();
 		if (pResource)
 		{
 			GetParentDevice()->GetDeferredDeletionQueue().EnqueueResource(pResource);
@@ -680,7 +680,7 @@ void FD3D12ResourceLocation::InternalReleaseResource()
 	}
 }
 
-void FD3D12ResourceLocation::SetFromD3DResource(FD3D12Resource *InResource, uint64 InOffset, uint32 InEffectiveBufferSize)
+void FD3D12ResourceLocation::SetFromD3DResource(FD3D12Resource* InResource, uint64 InOffset, uint32 InEffectiveBufferSize)
 {
 	InternalReleaseResource();
 
@@ -727,7 +727,7 @@ void FD3D12ResourceLocation::UpdateDefaultStateCache()
     UpdateStateCache(GetParentDevice()->GetDefaultCommandContext().StateCache);
 }
 
-void FD3D12DeferredDeletionQueue::EnqueueResource(FD3D12Resource *pResource)
+void FD3D12DeferredDeletionQueue::EnqueueResource(FD3D12Resource* pResource)
 {
 	const uint64 CurrentFrameFence = GetParentDevice()->GetCommandListManager().GetFence(EFenceType::FT_Frame).GetCurrentFence();
 

@@ -110,7 +110,7 @@ void UUnitTestManager::Initialize()
 	}
 
 	// Add this object to the root set, to disable garbage collection until desired (it is not referenced by any UProperties)
-	SetFlags(RF_RootSet);
+	AddToRoot();
 
 	// Add a log hook
 	if (!GLog->IsRedirectingTo(this))

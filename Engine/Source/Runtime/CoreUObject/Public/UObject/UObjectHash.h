@@ -9,12 +9,6 @@
 
 DECLARE_STATS_GROUP(TEXT("UObject Hash"), STATGROUP_UObjectHash, STATCAT_Advanced);
 
-/**
- * Controls whether the number of available elements is being tracked in the ObjObjects array.
- * By default it is only tracked in WITH_EDITOR builds as it adds a small amount of tracking overhead
- */
-#define UE_GC_TRACK_OBJ_AVAILABLE (WITH_EDITOR)
-
 #if UE_GC_TRACK_OBJ_AVAILABLE
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("NumObjects"), STAT_Hash_NumObjects, STATGROUP_UObjectHash, COREUOBJECT_API);
 #endif
@@ -28,9 +22,10 @@ DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("NumObjects"), STAT_Hash_NumObjects, STAT
  * @param	ExactClass		Whether to require an exact match with the passed in class
  * @param	AnyPackage		Whether to look in any package
  * @param	ExclusiveFlags	Ignores objects that contain any of the specified exclusive flags
+ * @param	ExclusiveInternalFlags	Ignores objects that contain any of the specified internal exclusive flags
  * @return	Returns a pointer to the found object or NULL if none could be found
  */
-UObject* StaticFindObjectFastInternal( UClass* Class, UObject* InOuter, FName InName, bool ExactClass=0, bool AnyPackage=0, EObjectFlags ExclusiveFlags=RF_NoFlags );
+UObject* StaticFindObjectFastInternal(UClass* Class, UObject* InOuter, FName InName, bool ExactClass = false, bool AnyPackage = false, EObjectFlags ExclusiveFlags = RF_NoFlags, EInternalObjectFlags ExclusiveInternalFlags = EInternalObjectFlags::None);
 
 /**
  * Variation of StaticFindObjectFast that uses explicit path.
@@ -42,7 +37,7 @@ UObject* StaticFindObjectFastInternal( UClass* Class, UObject* InOuter, FName In
  * @param	ExclusiveFlags	Ignores objects that contain any of the specified exclusive flags
  * @return	Returns a pointer to the found object or NULL if none could be found
  */
-UObject* StaticFindObjectFastExplicit( UClass* ObjectClass, FName ObjectName, const FString& ObjectPathName, bool bExactClass, EObjectFlags ExcludeFlags=RF_NoFlags );
+UObject* StaticFindObjectFastExplicit(UClass* ObjectClass, FName ObjectName, const FString& ObjectPathName, bool bExactClass, EObjectFlags ExcludeFlags = RF_NoFlags);
 
 /**
  * Return all objects with a given outer
@@ -51,8 +46,9 @@ UObject* StaticFindObjectFastExplicit( UClass* ObjectClass, FName ObjectName, co
  * @param	Results						Returned results
  * @param	bIncludeNestedObjects		If true, then things whose outers directly or indirectly have Outer as an outer are included, these are the nested objects.
  * @param	ExclusionFlags				Specifies flags to use as a filter for which objects to return
+ * @param	ExclusiveInternalFlags	Specifies internal flags to use as a filter for which objects to return
  */
-COREUOBJECT_API void GetObjectsWithOuter(const class UObjectBase* Outer, TArray<UObject *>& Results, bool bIncludeNestedObjects = true, EObjectFlags ExclusionFlags = RF_NoFlags);
+COREUOBJECT_API void GetObjectsWithOuter(const class UObjectBase* Outer, TArray<UObject *>& Results, bool bIncludeNestedObjects = true, EObjectFlags ExclusionFlags = RF_NoFlags, EInternalObjectFlags ExclusionInternalFlags = EInternalObjectFlags::None);
 
 /**
  * Performs an operation on all objects with a given outer
@@ -61,8 +57,9 @@ COREUOBJECT_API void GetObjectsWithOuter(const class UObjectBase* Outer, TArray<
  * @param	Operation					Function to be called for each object
  * @param	bIncludeNestedObjects		If true, then things whose outers directly or indirectly have Outer as an outer are included, these are the nested objects.
  * @param	ExclusionFlags				Specifies flags to use as a filter for which objects to return
+ * @param	ExclusiveInternalFlags	Specifies internal flags to use as a filter for which objects to return
  */
-COREUOBJECT_API void ForEachObjectWithOuter(const class UObjectBase* Outer, TFunctionRef<void (UObject*)> Operation, bool bIncludeNestedObjects = true, EObjectFlags ExclusionFlags = RF_NoFlags);
+COREUOBJECT_API void ForEachObjectWithOuter(const class UObjectBase* Outer, TFunctionRef<void(UObject*)> Operation, bool bIncludeNestedObjects = true, EObjectFlags ExclusionFlags = RF_NoFlags, EInternalObjectFlags ExclusionInternalFlags = EInternalObjectFlags::None);
 
 /**
  * Find an objects with a given name and or class within an outer
@@ -80,8 +77,9 @@ COREUOBJECT_API class UObjectBase* FindObjectWithOuter(class UObjectBase* Outer,
  * @param	Results						An output list of objects of the specified class.
  * @param	bIncludeDerivedClasses		If true, the results will include objects of child classes as well.
  * @param	AdditionalExcludeFlags		Objects with any of these flags will be excluded from the results.
+ * @param	ExclusiveInternalFlags	Specifies internal flags to use as a filter for which objects to return
  */
-COREUOBJECT_API void GetObjectsOfClass(UClass* ClassToLookFor, TArray<UObject *>& Results, bool bIncludeDerivedClasses = true, EObjectFlags AdditionalExcludeFlags=RF_ClassDefaultObject);
+COREUOBJECT_API void GetObjectsOfClass(UClass* ClassToLookFor, TArray<UObject *>& Results, bool bIncludeDerivedClasses = true, EObjectFlags ExcludeFlags = RF_ClassDefaultObject, EInternalObjectFlags ExclusionInternalFlags = EInternalObjectFlags::None);
 
 /**
  * Performs an operation on all objects with a given outer
@@ -91,7 +89,7 @@ COREUOBJECT_API void GetObjectsOfClass(UClass* ClassToLookFor, TArray<UObject *>
  * @param	bIncludeDerivedClasses		If true, the results will include objects of child classes as well.
  * @param	AdditionalExcludeFlags		Objects with any of these flags will be excluded from the results.
  */
-COREUOBJECT_API void ForEachObjectOfClass(UClass* ClassToLookFor, TFunctionRef<void (UObject*)> Operation, bool bIncludeDerivedClasses = true, EObjectFlags AdditionalExcludeFlags=RF_ClassDefaultObject);
+COREUOBJECT_API void ForEachObjectOfClass(UClass* ClassToLookFor, TFunctionRef<void(UObject*)> Operation, bool bIncludeDerivedClasses = true, EObjectFlags ExcludeFlags = RF_ClassDefaultObject, EInternalObjectFlags ExclusionInternalFlags = EInternalObjectFlags::None);
 
 /**
  * Returns an array of classes that were derived from the specified class.

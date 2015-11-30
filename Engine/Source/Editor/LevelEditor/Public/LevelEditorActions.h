@@ -51,6 +51,9 @@ public:
 
 	/** Import */
 	TSharedPtr< FUICommandInfo > Import;
+	
+	/** Import Scene */
+	TSharedPtr< FUICommandInfo > ImportScene;
 
 	/** Export All */
 	TSharedPtr< FUICommandInfo > ExportAll;
@@ -667,6 +670,11 @@ public:
 	 * Called when import is selected
 	 */
 	static void Import_Clicked();
+
+	/**
+	* Called when import scene is selected
+	*/
+	static void ImportScene_Clicked();
 
 
 	/**

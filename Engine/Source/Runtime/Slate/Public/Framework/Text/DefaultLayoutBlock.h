@@ -5,9 +5,9 @@ class SLATE_API FDefaultLayoutBlock : public ILayoutBlock
 {
 public:
 
-	static TSharedRef< FDefaultLayoutBlock > Create( const TSharedRef< IRun >& InRun, const FTextRange& InRange, FVector2D InSize, const TSharedPtr< IRunRenderer >& InRenderer )
+	static TSharedRef< FDefaultLayoutBlock > Create( const TSharedRef< IRun >& InRun, const FTextRange& InRange, FVector2D InSize, const FLayoutBlockTextContext& InTextContext, const TSharedPtr< IRunRenderer >& InRenderer )
 	{
-		return MakeShareable( new FDefaultLayoutBlock( InRun, InRange, InSize, InRenderer ) );
+		return MakeShareable( new FDefaultLayoutBlock( InRun, InRange, InSize, InTextContext, InRenderer ) );
 	}
 
 	virtual ~FDefaultLayoutBlock() {}
@@ -15,6 +15,7 @@ public:
 	virtual TSharedRef< IRun > GetRun() const override { return Run; }
 	virtual FTextRange GetTextRange() const override { return Range; }
 	virtual FVector2D GetSize() const override { return Size; }
+	virtual FLayoutBlockTextContext GetTextContext() const override { return TextContext; }
 	virtual TSharedPtr< IRunRenderer > GetRenderer() const override { return Renderer; }
 
 	virtual void SetLocationOffset( const FVector2D& InLocationOffset ) override { LocationOffset = InLocationOffset; }
@@ -27,11 +28,12 @@ private:
 		return MakeShareable( new FDefaultLayoutBlock( Block ) );
 	}
 
-	FDefaultLayoutBlock( const TSharedRef< IRun >& InRun, const FTextRange& InRange, FVector2D InSize, const TSharedPtr< IRunRenderer >& InRenderer )
+	FDefaultLayoutBlock( const TSharedRef< IRun >& InRun, const FTextRange& InRange, FVector2D InSize, const FLayoutBlockTextContext& InTextContext, const TSharedPtr< IRunRenderer >& InRenderer )
 		: Run( InRun )
 		, Range( InRange )
 		, Size( InSize )
 		, LocationOffset( ForceInitToZero )
+		, TextContext( InTextContext )
 		, Renderer( InRenderer )
 	{
 
@@ -42,6 +44,7 @@ private:
 		, Range( Block.Range )
 		, Size( Block.Size )
 		, LocationOffset( ForceInitToZero )
+		, TextContext( Block.TextContext )
 		, Renderer( Block.Renderer )
 	{
 
@@ -54,5 +57,6 @@ private:
 	FTextRange Range;
 	FVector2D Size;
 	FVector2D LocationOffset;
+	FLayoutBlockTextContext TextContext;
 	TSharedPtr< IRunRenderer > Renderer;
 };

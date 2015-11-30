@@ -48,6 +48,9 @@ public:
 private:
 	/** Resizes the buffer to the passed in size.  Preserves internal data */
 	void ResizeBuffer( int32 NewSizeBytes );
+
+	/** Sets the buffer size variable and updates stats. */
+	void SetBufferSize(int32 NewBufferSize);
 private:
 	/** The current size of the buffer in bytes. */
 	int32 BufferSize;

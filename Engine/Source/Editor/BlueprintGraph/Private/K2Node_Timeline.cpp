@@ -161,7 +161,7 @@ void UK2Node_Timeline::PostPasteNode()
 		check(NULL != Blueprint->GeneratedClass);
 		Blueprint->Modify();
 		const FName TimelineTemplateName = *UTimelineTemplate::TimelineVariableNameToTemplateName(TimelineName);
-		UTimelineTemplate* Template = DuplicateObject<UTimelineTemplate>(OldTimeline, Blueprint->GeneratedClass, *TimelineTemplateName.ToString());
+		UTimelineTemplate* Template = DuplicateObject<UTimelineTemplate>(OldTimeline, Blueprint->GeneratedClass, TimelineTemplateName);
 		bAutoPlay = Template->bAutoPlay;
 		bLoop = Template->bLoop;
 		Template->SetFlags(RF_Transactional);

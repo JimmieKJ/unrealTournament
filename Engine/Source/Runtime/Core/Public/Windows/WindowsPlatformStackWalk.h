@@ -20,6 +20,21 @@ struct CORE_API FWindowsPlatformStackWalk
 	static int32 GetProcessModuleSignatures(FStackWalkModuleInfo *ModuleSignatures, const int32 ModuleSignaturesSize);
 
 	static void RegisterOnModulesChanged();
+
+	/**
+	 * Upload localy built symbols to network symbol storage.
+	 *
+	 * Use case:
+	 *   Game designers use game from source (without prebuild game .dll-files).
+	 *   In this case all game .dll-files are compiled locally.
+	 *   For post-mortem debug programmers need .dll and .pdb files from designers.
+	 */
+	static bool UploadLocalSymbols();
+
+	/**
+	 * Get downstream storage with downloaded from remote symbol storage files.
+	 */
+	static FString GetDownstreamStorage();
 };
 
 

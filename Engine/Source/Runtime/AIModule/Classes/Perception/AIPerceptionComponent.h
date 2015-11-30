@@ -5,7 +5,10 @@
 #include "AISystem.h"
 #include "Perception/AISense.h"
 #include "AIPerceptionSystem.h"
-#include "Debug/DebugDrawService.h"
+#if !UE_BUILD_SHIPPING
+#	include "Debug/DebugDrawService.h"
+#	include "Debug/GameplayDebuggerBaseObject.h"
+#endif
 #include "AIPerceptionComponent.generated.h"
 
 class AAIController;
@@ -233,7 +236,7 @@ public:
 	bool HasActiveStimulus(const AActor& Source, FAISenseID Sense) const;
 
 #if !UE_BUILD_SHIPPING
-	void GetDebugData(TArray<FString>& OnScreenStrings, TArray<FDrawDebugShapeElement>& DebugShapes) const;
+	void GrabGameplayDebuggerData(TArray<FString>& OnScreenStrings, TArray<FGameplayDebuggerShapeElement>& DebugShapes) const;
 #endif // !UE_BUILD_SHIPPING
 
 #if ENABLE_VISUAL_LOG

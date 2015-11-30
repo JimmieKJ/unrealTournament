@@ -693,7 +693,7 @@ MaterialFloat4 CalcFullSceneColor(MaterialFloat2 ScreenUV)
 #if SCENE_TEXTURES_DISABLED
 	return MaterialFloat4(0.0f, 0.0f, 0.0f, 0.0f);
 #else
-	return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenUV);
+	  return Texture2DSample(SceneColorTexture, SceneColorTextureSampler,ScreenUV);
 #endif
 }
 
@@ -923,15 +923,20 @@ float3 DecodeSceneColorForMaterialNode(float2 ScreenUV)
 #endif
 }
 
-// Converts depth buffer Z / W into W
+// also see ConvertToDeviceZ()
+// @param DeviceZ value that is stored in the depth buffer (Z/W)
+// @return SceneDepth (linear in world units, W)
 float ConvertFromDeviceZ(float DeviceZ)
 {
 	return 1.f / (DeviceZ * View.InvDeviceZToWorldZTransform[2] - View.InvDeviceZToWorldZTransform[3]);	
 }
 
-// inverse opteration of ConvertFromDeviceZ
+// inverse operation of ConvertFromDeviceZ()
+// @param SceneDepth (linear in world units, W)
+// @return DeviceZ (Z/W)
 float ConvertToDeviceZ(float SceneDepth)
 {
+	// todo: can change the ADD+MUL into a MAD for precision and performance
 	return 1.0f / ((SceneDepth + View.InvDeviceZToWorldZTransform[3]) * View.InvDeviceZToWorldZTransform[2]);
 }
 
@@ -1300,6 +1305,21 @@ float ComputeDistanceFromBoxToPointInside(float3 BoxCenter, float3 BoxExtent, fl
 	float3 DistancesToMax = max(BoxCenter + BoxExtent - InPoint, 0);
 	float3 ClosestDistances = min(DistancesToMin, DistancesToMax);
 	return min(ClosestDistances.x, min(ClosestDistances.y, ClosestDistances.z));
+}
+
+bool RayHitSphere(float3 RayOrigin, float3 UnitRayDirection, float3 SphereCenter, float SphereRadius)
+{
+	float3 ClosestPointOnRay = max(0, dot(SphereCenter - RayOrigin, UnitRayDirection)) * UnitRayDirection;
+	float3 CenterToRay = RayOrigin + ClosestPointOnRay - SphereCenter;
+	return dot(CenterToRay, CenterToRay) <= Square(SphereRadius);
+}
+
+bool RaySegmentHitSphere(float3 RayOrigin, float3 UnitRayDirection, float RayLength, float3 SphereCenter, float SphereRadius)
+{
+	float DistanceAlongRay = dot(SphereCenter - RayOrigin, UnitRayDirection);
+	float3 ClosestPointOnRay = DistanceAlongRay * UnitRayDirection;
+	float3 CenterToRay = RayOrigin + ClosestPointOnRay - SphereCenter;
+	return dot(CenterToRay, CenterToRay) <= Square(SphereRadius) && DistanceAlongRay > -SphereRadius && DistanceAlongRay - SphereRadius < RayLength;
 }
 
 /** Transforms a vector from tangent space to world space */

@@ -82,6 +82,10 @@ public:
 	UPROPERTY(config, EditAnywhere, Category=Project)
 	bool IncludeDebugFiles;
 
+	/** If enabled, then the project's Blueprint assets (including structs and enums) will be intermediately converted into C++ and used in the packaged project (in place of the .uasset files).*/
+	UPROPERTY(config, EditAnywhere, Category=Experimental)
+	bool bNativizeBlueprintAssets;
+
 	/** If enabled, all content will be put into a single .pak file instead of many individual files (default = enabled). */
 	UPROPERTY(config, EditAnywhere, Category=Packaging)
 	bool UsePakFile;

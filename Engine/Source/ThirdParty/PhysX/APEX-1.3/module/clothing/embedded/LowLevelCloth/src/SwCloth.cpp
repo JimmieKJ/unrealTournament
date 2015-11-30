@@ -33,6 +33,7 @@ cloth::SwCloth::SwCloth( SwFactory& factory, SwFabric& fabric, Range<const PxVec
 : mFactory(factory),
   mFabric(fabric),
   mNumVirtualParticles(0),
+  mSimulationTask(nullptr),
   mUserData(0)
 {
 	PX_ASSERT(!particles.empty());
@@ -93,7 +94,8 @@ cloth::SwCloth::SwCloth( SwFactory& factory, const SwCloth& cloth )
 	mVirtualParticleWeights(cloth.mVirtualParticleWeights),
 	mNumVirtualParticles(cloth.mNumVirtualParticles),
 	mSelfCollisionIndices(cloth.mSelfCollisionIndices),
-	mRestPositions(cloth.mRestPositions)
+	mRestPositions(cloth.mRestPositions),
+	mSimulationTask(nullptr)
 {
 	copy(*this, cloth);
 
@@ -291,6 +293,12 @@ void ClothImpl<SwCloth>::setVirtualParticles(Range<const uint32_t[4]> indices, R
 	}
 
 	mCloth.notifyChanged();
+}
+
+template <>
+void ClothImpl<SwCloth>::simulate(float dt)
+{
+	(*SwCloth::sSimulationFunction)(mCloth.mSimulationTask, dt);
 }
 
 } // namespace cloth

@@ -627,7 +627,7 @@ TRefCountPtr<FD3D12Resource> FD3D12DynamicRHI::GetStagingTexture(FTextureRHIPara
 
     // Ensure we're dealing with a Texture2D, which the rest of this function already assumes
     check(TextureRHI->GetTexture2D());
-    FD3D12Texture2D *InTexture2D = static_cast<FD3D12Texture2D*>(Texture);
+    FD3D12Texture2D* InTexture2D = static_cast<FD3D12Texture2D*>(Texture);
 
     bool bRequiresTempStagingTexture = Texture->GetResource()->GetHeapType() != D3D12_HEAP_TYPE_READBACK;
 	if (bRequiresTempStagingTexture == false)
@@ -961,7 +961,7 @@ static void ConvertRAWSurfaceDataToFColor(DXGI_FORMAT Format, uint32 Width, uint
 		// Depth stencil
 		for (uint32 Y = 0; Y < Height; Y++)
 		{
-			uint32* SrcPtr = (uint32 *)In;
+			uint32* SrcPtr = (uint32*)In;
 			FColor* DestPtr = Out + Y * Width;
 
 			for (uint32 X = 0; X < Width; X++)
@@ -991,7 +991,7 @@ static void ConvertRAWSurfaceDataToFColor(DXGI_FORMAT Format, uint32 Width, uint
 		// Depth stencil
 		for(uint32 Y = 0; Y < Height; Y++)
 		{
-			float* SrcPtr = (float *)(In + Y * SrcPitch);
+			float* SrcPtr = (float*)(In + Y * SrcPitch);
 			FColor* DestPtr = Out + Y * Width;
 
 			for(uint32 X = 0; X < Width; X++)
@@ -1139,7 +1139,7 @@ void FD3D12DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 	NonMSAADesc.SampleDesc.Quality = 0;
 	NonMSAADesc.Flags = D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
 	TRefCountPtr<FD3D12Resource> NonMSAATexture2D;
-    VERIFYD3D11RESULT(GetRHIDevice()->GetResourceHelper().CreateCommittedResource(NonMSAADesc, CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), NonMSAATexture2D.GetInitReference()));
+    VERIFYD3D11RESULT(GetRHIDevice()->GetResourceHelper().CreateCommittedResource(NonMSAADesc, CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE_DEFAULT), nullptr, NonMSAATexture2D.GetInitReference()));
 
 	TRefCountPtr<FD3D12RenderTargetView> NonMSAARTV;
 	D3D12_RENDER_TARGET_VIEW_DESC RTVDesc;
@@ -1161,7 +1161,7 @@ void FD3D12DynamicRHI::ReadSurfaceDataMSAARaw(FRHICommandList_RecursiveHazardous
 
     // Ensure we're dealing with a Texture2D, which the rest of this function already assumes
     check(TextureRHI->GetTexture2D());
-    FD3D12Texture2D *InTexture2D = static_cast<FD3D12Texture2D*>(Texture);
+    FD3D12Texture2D* InTexture2D = static_cast<FD3D12Texture2D*>(Texture);
 
 	// Determine the subresource index for cubemaps.
 	uint32 Subresource = 0;
@@ -1340,9 +1340,9 @@ void FD3D12DynamicRHI::RHIReadSurfaceFloatData(FTextureRHIParamRef TextureRHI, F
     // Ensure we're dealing with a Texture2D, which the rest of this function already assumes
 	bool bIsTextureCube = false;
     check(TextureRHI->GetTexture2D() || TextureRHI->GetTexture2DArray() || TextureRHI->GetTextureCube());
-    FD3D12Texture2D *InTexture2D = static_cast<FD3D12Texture2D*>(Texture);
-	FD3D12Texture2DArray *InTexture2DArray = static_cast<FD3D12Texture2DArray*>(Texture);
-	FD3D12TextureCube *InTextureCube = static_cast<FD3D12TextureCube*>(Texture);
+    FD3D12Texture2D* InTexture2D = static_cast<FD3D12Texture2D*>(Texture);
+	FD3D12Texture2DArray* InTexture2DArray = static_cast<FD3D12Texture2DArray*>(Texture);
+	FD3D12TextureCube* InTextureCube = static_cast<FD3D12TextureCube*>(Texture);
 	if (InTexture2D)
 	{
 		bIsTextureCube = InTexture2D->IsCubemap();

@@ -1105,19 +1105,35 @@ void SAssetView::ProcessQueriedItems( const double TickStartTime )
 
 void SAssetView::OnDragLeave( const FDragDropEvent& DragDropEvent )
 {
-	TSharedPtr< FAssetDragDropOp > DragAssetOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
-	if( DragAssetOp.IsValid() )
+	TSharedPtr< FAssetDragDropOp > AssetDragDropOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
+	if( AssetDragDropOp.IsValid() )
 	{
-		DragAssetOp->ResetToDefaultToolTip();
+		AssetDragDropOp->ResetToDefaultToolTip();
+		return;
+	}
+
+	TSharedPtr<FDragDropOperation> DragDropOp = DragDropEvent.GetOperation();
+	if (DragDropOp.IsValid())
+	{
+		// Do we have a custom handler for this drag event?
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>("ContentBrowser");
+		const TArray<FAssetViewDragAndDropExtender>& AssetViewDragAndDropExtenders = ContentBrowserModule.GetAssetViewDragAndDropExtenders();
+		for (const auto& AssetViewDragAndDropExtender : AssetViewDragAndDropExtenders)
+		{
+			if (AssetViewDragAndDropExtender.OnDragLeaveDelegate.IsBound() && AssetViewDragAndDropExtender.OnDragLeaveDelegate.Execute(FAssetViewDragAndDropExtender::FPayload(DragDropOp, SourcesData.PackagePaths, SourcesData.Collections)))
+			{
+				return;
+			}
+		}
 	}
 }
 
 FReply SAssetView::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent& DragDropEvent )
 {
-	TSharedPtr< FExternalDragOperation > DragDropOp = DragDropEvent.GetOperationAs< FExternalDragOperation >();
-	if ( DragDropOp.IsValid() )
+	TSharedPtr< FExternalDragOperation > ExternalDragDropOp = DragDropEvent.GetOperationAs< FExternalDragOperation >();
+	if ( ExternalDragDropOp.IsValid() )
 	{
-		if ( DragDropOp->HasFiles() )
+		if ( ExternalDragDropOp->HasFiles() )
 		{
 			return FReply::Handled();
 		}
@@ -1128,8 +1144,8 @@ FReply SAssetView::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent
 
 		if ( AssetDatas.Num() > 0 )
 		{
-			TSharedPtr< FAssetDragDropOp > DragAssetOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
-			if( DragAssetOp.IsValid() )
+			TSharedPtr< FAssetDragDropOp > AssetDragDropOp = DragDropEvent.GetOperationAs< FAssetDragDropOp >();
+			if( AssetDragDropOp.IsValid() )
 			{
 				TArray< FName > ObjectPaths;
 				FCollectionManagerModule& CollectionManagerModule = FCollectionManagerModule::GetModule();
@@ -1153,11 +1169,26 @@ FReply SAssetView::OnDragOver( const FGeometry& MyGeometry, const FDragDropEvent
 
 				if ( IsValidDrop )
 				{
-					DragAssetOp->SetToolTip( NSLOCTEXT( "AssetView", "OnDragOverCollection", "Add to Collection" ), FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.OK"))) ;
+					AssetDragDropOp->SetToolTip( NSLOCTEXT( "AssetView", "OnDragOverCollection", "Add to Collection" ), FEditorStyle::GetBrush(TEXT("Graph.ConnectorFeedback.OK"))) ;
 				}
 			}
 
 			return FReply::Handled();
+		}
+	}
+
+	TSharedPtr<FDragDropOperation> DragDropOp = DragDropEvent.GetOperation();
+	if (DragDropOp.IsValid())
+	{
+		// Do we have a custom handler for this drag event?
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>("ContentBrowser");
+		const TArray<FAssetViewDragAndDropExtender>& AssetViewDragAndDropExtenders = ContentBrowserModule.GetAssetViewDragAndDropExtenders();
+		for (const auto& AssetViewDragAndDropExtender : AssetViewDragAndDropExtenders)
+		{
+			if (AssetViewDragAndDropExtender.OnDragOverDelegate.IsBound() && AssetViewDragAndDropExtender.OnDragOverDelegate.Execute(FAssetViewDragAndDropExtender::FPayload(DragDropOp, SourcesData.PackagePaths, SourcesData.Collections)))
+			{
+				return FReply::Handled();
+			}
 		}
 	}
 
@@ -1169,13 +1200,13 @@ FReply SAssetView::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 	// Handle drag drop for import
 	if ( IsAssetPathSelected() )
 	{
-		TSharedPtr<FExternalDragOperation> DragDropOp = DragDropEvent.GetOperationAs<FExternalDragOperation>();
-		if (DragDropOp.IsValid())
+		TSharedPtr<FExternalDragOperation> ExternalDragDropOp = DragDropEvent.GetOperationAs<FExternalDragOperation>();
+		if (ExternalDragDropOp.IsValid())
 		{
-			if ( DragDropOp->HasFiles() )
+			if ( ExternalDragDropOp->HasFiles() )
 			{
 				FAssetToolsModule& AssetToolsModule = FModuleManager::Get().LoadModuleChecked<FAssetToolsModule>("AssetTools");
-				AssetToolsModule.Get().ImportAssets( DragDropOp->GetFiles(), SourcesData.PackagePaths[0].ToString() );
+				AssetToolsModule.Get().ImportAssets( ExternalDragDropOp->GetFiles(), SourcesData.PackagePaths[0].ToString() );
 			}
 
 			return FReply::Handled();
@@ -1204,6 +1235,21 @@ FReply SAssetView::OnDrop( const FGeometry& MyGeometry, const FDragDropEvent& Dr
 			}
 
 			return FReply::Handled();
+		}
+	}
+
+	TSharedPtr<FDragDropOperation> DragDropOp = DragDropEvent.GetOperation();
+	if (DragDropOp.IsValid())
+	{
+		// Do we have a custom handler for this drag event?
+		FContentBrowserModule& ContentBrowserModule = FModuleManager::GetModuleChecked<FContentBrowserModule>("ContentBrowser");
+		const TArray<FAssetViewDragAndDropExtender>& AssetViewDragAndDropExtenders = ContentBrowserModule.GetAssetViewDragAndDropExtenders();
+		for (const auto& AssetViewDragAndDropExtender : AssetViewDragAndDropExtenders)
+		{
+			if (AssetViewDragAndDropExtender.OnDropDelegate.IsBound() && AssetViewDragAndDropExtender.OnDropDelegate.Execute(FAssetViewDragAndDropExtender::FPayload(DragDropOp, SourcesData.PackagePaths, SourcesData.Collections)))
+			{
+				return FReply::Handled();
+			}
 		}
 	}
 

@@ -34,6 +34,10 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_CopyBone : public FAnimNode_SkeletalContro
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Copy, meta=(PinShownByDefault))
 	bool bCopyScale;
 
+	/** Space to convert transforms into prior to copying components */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Copy)
+	TEnumAsByte<EBoneControlSpace> ControlSpace;
+
 	FAnimNode_CopyBone();
 
 	// FAnimNode_Base interface

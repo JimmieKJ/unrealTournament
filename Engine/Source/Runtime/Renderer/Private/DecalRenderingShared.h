@@ -47,16 +47,18 @@ struct FDecalRendering
 	enum ERenderTargetMode
 	{
 		RTM_Unknown = -1,
-		RTM_SceneColorAndGBuffer,
-		RTM_SceneColorAndGBufferDepthWrite,
-		RTM_DBuffer,
+		RTM_SceneColorAndGBufferWithNormal,
+		RTM_SceneColorAndGBufferNoNormal,
+		RTM_SceneColorAndGBufferDepthWriteWithNormal,
+		RTM_SceneColorAndGBufferDepthWriteNoNormal,
+		RTM_DBuffer, 
 		RTM_GBufferNormal,
 		RTM_SceneColor,
 	};
 	
 	static void BuildVisibleDecalList(const FScene& Scene, const FViewInfo& View, EDecalRenderStage DecalRenderStage, FTransientDecalRenderDataList& OutVisibleDecals);
 	static FMatrix ComputeComponentToClipMatrix(const FViewInfo& View, const FMatrix& DecalComponentToWorld);
-	static ERenderTargetMode ComputeRenderTargetMode(EShaderPlatform Platfrom, EDecalBlendMode DecalBlendMode);
+	static ERenderTargetMode ComputeRenderTargetMode(EShaderPlatform Platfrom, EDecalBlendMode DecalBlendMode, bool bHasNormal);
 	static EDecalRenderStage ComputeRenderStage(EShaderPlatform Platfrom, EDecalBlendMode DecalBlendMode);
 	static uint32 ComputeRenderTargetCount(EShaderPlatform Platfrom, ERenderTargetMode RenderTargetMode);
 	static void SetShader(FRHICommandList& RHICmdList, const FViewInfo& View, bool bShaderComplexity, const FTransientDecalRenderData& DecalData, const FMatrix& FrustumComponentToClip);

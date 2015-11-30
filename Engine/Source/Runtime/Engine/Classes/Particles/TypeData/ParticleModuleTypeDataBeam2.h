@@ -196,7 +196,7 @@ class UParticleModuleTypeDataBeam2 : public UParticleModuleTypeDataBase
 	virtual	bool	AddModuleCurvesToEditor(UInterpCurveEdSetup* EdSetup, TArray<const FCurveEdEntry*>& OutCurveEntries) override;
 	virtual bool CanTickInAnyThread() override
 	{
-		return false;
+		return true;
 	}
 	//~ End UParticleModule Interface
 

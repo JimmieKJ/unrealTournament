@@ -285,12 +285,9 @@ void UPrimitiveComponent::GetUsedTextures(TArray<UTexture*>& OutTextures, EMater
 **/
 void FPrimitiveComponentPostPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
-	if ( (TickType == LEVELTICK_All) && Target && !Target->HasAnyFlags(RF_PendingKill | RF_Unreachable))
-	{
-		FScopeCycleCounterUObject ComponentScope(Target);
-		FScopeCycleCounterUObject AdditionalScope(Target->AdditionalStatObject());
-		Target->PostPhysicsTick(*this);	
-	}
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	FActorComponentTickFunction::ExecuteTickHelper(Target, DeltaTime, TickType, [this](float DilatedTime){ Target->PostPhysicsTick(*this); });
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 /** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
@@ -428,6 +425,11 @@ FPrimitiveComponentInstanceData::FPrimitiveComponentInstanceData(const UPrimitiv
 void FPrimitiveComponentInstanceData::ApplyToComponent(UActorComponent* Component, const ECacheApplyPhase CacheApplyPhase)
 {
 	FSceneComponentInstanceData::ApplyToComponent(Component, CacheApplyPhase);
+
+#if WITH_EDITOR
+	// This is needed to restore transient collision profile data.
+	CastChecked<UPrimitiveComponent>(Component)->UpdateCollisionProfile();
+#endif // #if WITH_EDITOR
 
 	if (ContainsSavedProperties() && Component->IsRegistered())
 	{
@@ -668,6 +670,12 @@ bool UPrimitiveComponent::CanEditChange(const UProperty* InProperty) const
 		if (PropertyName == TEXT("LightmassSettings"))
 		{
 			return Mobility != EComponentMobility::Movable || bLightAsIfStatic;
+		}
+
+		if (PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UPrimitiveComponent, LightingChannels)
+			|| PropertyName == GET_MEMBER_NAME_STRING_CHECKED(UPrimitiveComponent, bSingleSampleShadowFromStationaryLights))
+		{
+			return Mobility != EComponentMobility::Static;
 		}
 
 		if (PropertyName == GET_MEMBER_NAME_CHECKED(UPrimitiveComponent, IndirectLightingCacheQuality)
@@ -1098,6 +1106,13 @@ ECollisionChannel UPrimitiveComponent::GetCollisionObjectType() const
 	return ECollisionChannel(BodyInstance.GetObjectType());
 }
 
+void UPrimitiveComponent::SetBoundsScale(float NewBoundsScale)
+{
+	BoundsScale = NewBoundsScale;
+	UpdateBounds();
+	MarkRenderTransformDirty();
+}
+
 UMaterialInterface* UPrimitiveComponent::GetMaterial(int32 Index) const
 {
 	return NULL;
@@ -1409,7 +1424,7 @@ FCollisionShape UPrimitiveComponent::GetCollisionShape(float Inflation) const
 		Extent = Extent.ComponentMax(FVector::ZeroVector);
 	}
 
-	return FCollisionShape::MakeBox(Bounds.BoxExtent + Inflation);
+	return FCollisionShape::MakeBox(Extent);
 }
 
 
@@ -1729,8 +1744,8 @@ bool UPrimitiveComponent::MoveComponentImpl( const FVector& Delta, const FQuat& 
 	{
 		if (bFilledHitResult)
 		{
-			*OutHit = BlockingHit;
-		}
+		*OutHit = BlockingHit;
+	}
 		else
 		{
 			OutHit->Init(TraceStart, TraceEnd);

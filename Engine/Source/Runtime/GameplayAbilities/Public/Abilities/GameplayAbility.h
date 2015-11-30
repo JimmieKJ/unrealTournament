@@ -364,7 +364,7 @@ public:
 
 	/** Attempts to commit the ability's cooldown only. If BroadcastCommitEvent is true, it will broadcast the commit event that tasks like WaitAbilityCommit are listening for. */
 	UFUNCTION(BlueprintCallable, Category = Ability, DisplayName = "CommitAbilityCooldown")
-	virtual bool K2_CommitAbilityCooldown(bool BroadcastCommitEvent=false);
+	virtual bool K2_CommitAbilityCooldown(bool BroadcastCommitEvent=false, bool ForceCooldown=false);
 
 	/** Attempts to commit the ability's cost only. If BroadcastCommitEvent is true, it will broadcast the commit event that tasks like WaitAbilityCommit are listening for. */
 	UFUNCTION(BlueprintCallable, Category = Ability, DisplayName = "CommitAbilityCost")
@@ -379,7 +379,7 @@ public:
 	virtual bool K2_CheckAbilityCost();
 
 	virtual bool CommitAbility(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo);
-	virtual bool CommitAbilityCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo);
+	virtual bool CommitAbilityCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const bool ForceCooldown);
 	virtual bool CommitAbilityCost(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo);
 
 	/**
@@ -622,6 +622,14 @@ public:
 
 	/** Movement Sync */
 	virtual void SetMovementSyncPoint(FName SyncName);
+
+	/** Set when the remote instance of this ability has ended (but the local instance may still be running or finishing up */
+	bool RemoteInstanceEnded;
+
+	/** Called by ability system component to inform this ability instance the remote instance was ended */
+	void SetRemoteInstanceHasEnded();
+
+	void NotifyAbilityTaskWaitingOnPlayerData(class UAbilityTask* AbilityTask);
 
 protected:
 

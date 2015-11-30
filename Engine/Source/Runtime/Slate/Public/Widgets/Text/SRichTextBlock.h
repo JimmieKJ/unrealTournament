@@ -21,6 +21,8 @@ public:
 		, _Margin( FMargin() )
 		, _LineHeightPercentage( 1.0f )
 		, _Justification( ETextJustify::Left )
+		, _TextShapingMethod()
+		, _TextFlowDirection()
 		, _Decorators()
 		, _Parser()
 	{}
@@ -52,6 +54,12 @@ public:
 
 		/** How the text should be aligned with the margin. */
 		SLATE_ATTRIBUTE( ETextJustify::Type, Justification )
+
+		/** Which text shaping method should we use? (unset to use the default returned by GetDefaultTextShapingMethod) */
+		SLATE_ARGUMENT( TOptional<ETextShapingMethod>, TextShapingMethod )
+		
+		/** Which text flow direction should we use? (unset to use the default returned by GetDefaultTextFlowDirection) */
+		SLATE_ARGUMENT( TOptional<ETextFlowDirection>, TextFlowDirection )
 
 		/** Any decorators that should be used while parsing the text. */
 		SLATE_ARGUMENT( TArray< TSharedRef< class ITextDecorator > >, Decorators )

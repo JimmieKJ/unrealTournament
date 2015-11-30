@@ -44,6 +44,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														DateTo = Model.DateTo,
 														BranchName = Model.BranchName,
 														VersionName = Model.VersionName,
+														PlatformName = Model.PlatformName,
 														GameName = Model.GameName
 													} );
 
@@ -100,6 +101,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														DateTo = Model.DateTo,
 														BranchName = Model.BranchName,
 														VersionName = Model.VersionName,
+														PlatformName = Model.PlatformName,
 														GameName = Model.GameName
 													} );
 
@@ -139,6 +141,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Views.Helpers
 														DateTo = Model.DateTo,
 														BranchName = Model.BranchName,
 														VersionName = Model.VersionName,
+														PlatformName = Model.PlatformName,
 														GameName = Model.GameName
 													} );
 

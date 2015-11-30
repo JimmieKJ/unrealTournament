@@ -36,7 +36,7 @@ FReply SInputCatcherOverlay::OnMouseButtonDown(const FGeometry& MyGeometry, cons
 {
 	if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 	{
-		return TimeSliderController->OnMouseButtonDown(SharedThis(this), MyGeometry, MouseEvent);
+		return TimeSliderController->OnMouseButtonDown(*this, MyGeometry, MouseEvent);
 	}
 	return FReply::Unhandled();
 }
@@ -45,21 +45,21 @@ FReply SInputCatcherOverlay::OnMouseButtonUp(const FGeometry& MyGeometry, const 
 {
 	if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 	{
-		return TimeSliderController->OnMouseButtonUp(SharedThis(this), MyGeometry, MouseEvent);
+		return TimeSliderController->OnMouseButtonUp(*this, MyGeometry, MouseEvent);
 	}
 	return FReply::Unhandled();
 }
 
 FReply SInputCatcherOverlay::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	return TimeSliderController->OnMouseMove(SharedThis(this), MyGeometry, MouseEvent);
+	return TimeSliderController->OnMouseMove(*this, MyGeometry, MouseEvent);
 }
 
 FReply SInputCatcherOverlay::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	if (MouseEvent.IsLeftShiftDown() || MouseEvent.IsLeftControlDown())
 	{
-		return TimeSliderController->OnMouseWheel(SharedThis(this), MyGeometry, MouseEvent);
+		return TimeSliderController->OnMouseWheel(*this, MyGeometry, MouseEvent);
 	}
 	return FReply::Unhandled();
 }

@@ -47,8 +47,10 @@ void FPrimitiveComponentDetails::AddCollisionCategory(IDetailLayoutBuilder& Deta
 		for (uint32 ChildIndex = 0; ChildIndex < NumChildren; ++ChildIndex)
 		{
 			TSharedPtr<IPropertyHandle> ChildProperty = BodyInstanceHandler->GetChildHandle(ChildIndex);
-			FString Category = FObjectEditorUtils::GetCategory(ChildProperty->GetProperty());
-			if (Category == TEXT("Collision"))
+			static const FName CollisionCategoryName(TEXT("Collision"));
+
+			FName CategoryName = FObjectEditorUtils::GetCategoryFName(ChildProperty->GetProperty());
+			if (CategoryName == CollisionCategoryName)
 			{
 				CollisionCategory.AddProperty(ChildProperty);
 			}

@@ -2128,7 +2128,10 @@ void SimulationPhysX3::setInterCollisionChannels(PxU32 channels)
 	}
 }
 
-
+void SimulationPhysX3::simulate(float dt)
+{
+	return mCloth->simulate(dt);
+}
 
 void SimulationPhysX3::releaseFabric(NxParameterized::Interface* _cookedData)
 {

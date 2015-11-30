@@ -233,7 +233,20 @@ struct FGenericPlatformMath
 	*			So for example Fmod(2.8f, 2) gives .8f as you would expect, however, Fmod(-2.8f, 2) gives -.8f, NOT 1.2f 
 	* Use Floor instead when snapping positions that can be negative to a grid
 	*/
-	static FORCEINLINE float Fmod( float X, float Y ) { return fmodf(X, Y); }
+	static FORCEINLINE_DEBUGGABLE float Fmod(float X, float Y)
+	{
+#ifdef PLATFORM_WINDOWS
+		// There's a compiler bug on Windows, where fmodf will start returning NaNs randomly with valid inputs.
+		// Until this is resolved, we implement our own version.
+		float IntPortion = TruncToFloat(X / Y);
+		float Result = X - Y * IntPortion;
+
+		return Result;
+#else
+		return fmodf(X, Y);
+#endif		
+	}
+
 	static FORCEINLINE float Sin( float Value ) { return sinf(Value); }
 	static FORCEINLINE float Asin( float Value ) { return asinf( (Value<-1.f) ? -1.f : ((Value<1.f) ? Value : 1.f) ); }
 	static FORCEINLINE float Cos( float Value ) { return cosf(Value); }

@@ -85,7 +85,8 @@ void FNiagaraEffectEditor::InitNiagaraEffectEditor(const EToolkitMode::Type Mode
 
 	if (!Sequencer.IsValid())
 	{
-		MovieScene = NewObject<UMovieScene>(InEffect, FName("Niagara Effect MovieScene"), RF_RootSet);
+		MovieScene = NewObject<UMovieScene>(InEffect, FName("Niagara Effect MovieScene"));
+		MovieScene->AddToRoot();
 		auto NewAnimation = NewObject<UNiagaraSequence>(MovieScene);
 		MovieScene->SetPlaybackRange(InTime, OutTime);
 		NewAnimation->MovieScene = MovieScene;
@@ -410,7 +411,7 @@ FReply FNiagaraEffectEditor::OnDuplicateEmitterClicked(TSharedPtr<FNiagaraSimula
 
 	if (UNiagaraEmitterProperties* ToDupe = Emitter->GetProperties().Get())
 	{
-		UNiagaraEmitterProperties *Props = CastChecked<UNiagaraEmitterProperties>(StaticDuplicateObject(ToDupe,Effect,NULL));
+		UNiagaraEmitterProperties *Props = CastChecked<UNiagaraEmitterProperties>(StaticDuplicateObject(ToDupe,Effect));
 		Effect->AddEmitterProperties(Props);
 		TSharedPtr<FNiagaraSimulation> NewEmitter = EffectInstance->AddEmitter(Props);
 		Effect->CreateEffectRendererProps(NewEmitter);

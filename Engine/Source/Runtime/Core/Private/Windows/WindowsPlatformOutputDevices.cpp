@@ -218,6 +218,16 @@ void FOutputDeviceConsoleWindows::Show( bool ShowWindow )
 
 				SetConsoleScreenBufferSize( ConsoleHandle, Size );
 
+				CONSOLE_SCREEN_BUFFER_INFO ConsoleInfo;
+
+				// Try to set the window width to match the screen buffer width, so that no manual horizontal scrolling or resizing is necessary
+				if (::GetConsoleScreenBufferInfo( ConsoleHandle, &ConsoleInfo ) != 0)
+				{
+					SMALL_RECT NewConsoleWindowRect = ConsoleInfo.srWindow;
+					NewConsoleWindowRect.Right = ConsoleInfo.dwSize.X - 1;
+					::SetConsoleWindowInfo( ConsoleHandle, true, &NewConsoleWindowRect );
+				}
+
 				RECT WindowRect;
 				::GetWindowRect( GetConsoleWindow(), &WindowRect );
 

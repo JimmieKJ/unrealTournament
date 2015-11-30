@@ -36,6 +36,14 @@ FDeferredLightData SetupLightDataForStandardDeferred()
 	return LightData;
 }
 
+Texture2D<uint> LightingChannelsTexture;
+
+uint GetLightingChannelMask(float2 UV)
+{
+	uint2 IntegerUV = UV * View.BufferSizeAndInvSize.xy;
+	return LightingChannelsTexture.Load(uint3(IntegerUV, 0)).x;
+}
+
 /** 
  * Pixel shader for rendering a directional light using a full screen quad. 
  */
@@ -52,7 +60,11 @@ void DirectionalPixelMain(
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(InUV);
 
 	// Only light pixels marked as using deferred shading
-	BRANCH if( ScreenSpaceData.GBuffer.ShadingModelID > 0 )
+	BRANCH if( ScreenSpaceData.GBuffer.ShadingModelID > 0 
+#if USE_LIGHTING_CHANNELS
+		&& (GetLightingChannelMask(InUV) & DeferredLightUniforms.LightingChannelMask) 
+#endif
+		)
 	{
 		float SceneDepth = CalcSceneDepth(InUV);
 		float3 WorldPosition = ScreenVector * SceneDepth + View.WorldCameraOrigin;
@@ -82,7 +94,11 @@ void RadialPixelMain(
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(ScreenUV);
 
 	// Only light pixels marked as using deferred shading
-	BRANCH if( ScreenSpaceData.GBuffer.ShadingModelID > 0 )
+	BRANCH if( ScreenSpaceData.GBuffer.ShadingModelID > 0 
+#if USE_LIGHTING_CHANNELS
+		&& (GetLightingChannelMask(ScreenUV) & DeferredLightUniforms.LightingChannelMask)
+#endif
+		)
 	{
 		float SceneDepth = CalcSceneDepth(ScreenUV);
 		float4 HomogeneousWorldPosition = mul(float4(InScreenPosition.xy / InScreenPosition.w * SceneDepth, SceneDepth, 1), View.ScreenToWorld);

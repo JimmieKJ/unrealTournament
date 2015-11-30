@@ -221,7 +221,7 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 ,	NumPhotonsEmittedSecondBounce(0)
 ,	SecondBouncePhotonMap(FVector4(0,0,0), HALF_WORLD_MAX)
 ,	IrradiancePhotonMap(FVector4(0,0,0), HALF_WORLD_MAX)
-,	AggregateMesh(InScene)
+,	AggregateMesh(NULL)
 ,	Scene(InScene)
 ,	NumTexelsCompleted(0)
 ,	NumOutstandingVolumeDataLayers(0)
@@ -401,28 +401,45 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 		}
 	}
 
+#if USE_EMBREE	
+	if (Scene.EmbreeDevice)
+	{
+		if (Scene.bVerifyEmbree)
+		{
+			AggregateMesh = new FEmbreeVerifyAggregateMesh(Scene);
+		}
+		else
+		{
+			AggregateMesh = new FEmbreeAggregateMesh(Scene);
+		}
+	}
+	else
+#endif
+	{
+		AggregateMesh = new FDefaultAggregateMesh(Scene);
+	}
 	// Add all meshes to the kDOP.
-	AggregateMesh.ReserveMemory(NumMeshes, NumVertices, NumTriangles);
+	AggregateMesh->ReserveMemory(NumMeshes, NumVertices, NumTriangles);
 
 	for (int32 MappingIndex = 0; MappingIndex < InScene.FluidMappings.Num(); MappingIndex++)
 	{
 		FFluidSurfaceStaticLightingTextureMapping* Mapping = &InScene.FluidMappings[MappingIndex];
-		AggregateMesh.AddMesh(Mapping->Mesh, Mapping);
+		AggregateMesh->AddMesh(Mapping->Mesh, Mapping);
 	}
 	for (int32 MappingIndex = 0; MappingIndex < InScene.LandscapeMappings.Num(); MappingIndex++)
 	{
 		FLandscapeStaticLightingTextureMapping* Mapping = &InScene.LandscapeMappings[MappingIndex];
-		AggregateMesh.AddMesh(Mapping->Mesh, Mapping);
+		AggregateMesh->AddMesh(Mapping->Mesh, Mapping);
 	}
 	for( int32 MeshIdx=0; MeshIdx < InScene.BspMappings.Num(); ++MeshIdx )
 	{
 		FBSPSurfaceStaticLighting* BSPMapping = &InScene.BspMappings[MeshIdx];
-		AggregateMesh.AddMesh(BSPMapping, &BSPMapping->Mapping);
+		AggregateMesh->AddMesh(BSPMapping, &BSPMapping->Mapping);
 	}
 	for (int32 MeshIndex = 0; MeshIndex < InScene.StaticMeshInstances.Num(); MeshIndex++)
 	{
 		FStaticMeshStaticLightingMesh* MeshInstance = &InScene.StaticMeshInstances[MeshIndex];
-		AggregateMesh.AddMesh(MeshInstance, MeshInstance->Mapping);
+		AggregateMesh->AddMesh(MeshInstance, MeshInstance->Mapping);
 	}
 
 	// Comparing mappings based on cost, descending.
@@ -439,7 +456,7 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 
 	GStatistics.NumTotalMappings = Mappings.Num();
 
-	const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh.GetBounds());
+	const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh->GetBounds());
 	const FBoxSphereBounds ImportanceBounds = GetImportanceBounds();
 	// Never trace further than the importance or scene diameter
 	MaxRayDistance = ImportanceBounds.SphereRadius > 0.0f ? ImportanceBounds.SphereRadius * 2.0f : SceneBounds.SphereRadius * 2.0f;
@@ -507,8 +524,8 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 	InitializePhotonSettings();
 
 	// Prepare the aggregate mesh for raytracing.
-	AggregateMesh.PrepareForRaytracing();
-	AggregateMesh.DumpStats();
+	AggregateMesh->PrepareForRaytracing();
+	AggregateMesh->DumpStats();
 
 
 	Stats.SceneSetupTime = FPlatformTime::Seconds() - SceneSetupStart;
@@ -516,6 +533,12 @@ FStaticLightingSystem::FStaticLightingSystem(const FLightingBuildOptions& InOpti
 
 	// spread out the work over multiple parallel threads
 	MultithreadProcess();
+}
+
+FStaticLightingSystem::~FStaticLightingSystem()
+{
+	delete AggregateMesh;
+	AggregateMesh = NULL;
 }
 
 /**
@@ -641,6 +664,7 @@ void FStaticLightingSystem::MultithreadProcess()
 	GStatistics.ThreadStatistics.TotalTime += MaxThreadTime;
 	const float FinishAndExportTime = FPlatformTime::Seconds() - GStatistics.WorkTimeEnd;
 	DumpStats(Stats.SceneSetupTime + Stats.MainThreadLightingTime + FinishAndExportTime);
+	AggregateMesh->DumpCheckStats();
 }
 
 /** Exports tasks that are not mappings, if they are ready. */
@@ -764,7 +788,7 @@ FBoxSphereBounds FStaticLightingSystem::GetImportanceBounds(bool bClampToScene) 
 	
 	if (bClampToScene)
 	{
-		const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh.GetBounds());
+		const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh->GetBounds());
 		const float SceneToImportanceOriginSquared = (ImportanceBounds.Origin - SceneBounds.Origin).SizeSquared();
 		if (SceneToImportanceOriginSquared > FMath::Square(SceneBounds.SphereRadius))
 		{
@@ -806,7 +830,7 @@ void FStaticLightingSystem::ValidateSettings(FScene& InScene)
 
 	InScene.GeneralSettings.NumIndirectLightingBounces = FMath::Max(InScene.GeneralSettings.NumIndirectLightingBounces, 0);
 	InScene.GeneralSettings.IndirectLightingSmoothness = FMath::Clamp(InScene.GeneralSettings.IndirectLightingSmoothness, .25f, 10.0f);
-	InScene.GeneralSettings.IndirectLightingQuality = FMath::Clamp(InScene.GeneralSettings.IndirectLightingQuality, .1f, 10.0f);
+	InScene.GeneralSettings.IndirectLightingQuality = FMath::Clamp(InScene.GeneralSettings.IndirectLightingQuality, .1f, 100.0f);
 	InScene.GeneralSettings.ViewSingleBounceNumber = FMath::Min(InScene.GeneralSettings.ViewSingleBounceNumber, InScene.GeneralSettings.NumIndirectLightingBounces);
 
 	if (FMath::IsNearlyEqual(InScene.PhotonMappingSettings.IndirectPhotonDensity, 0.0f))
@@ -866,14 +890,17 @@ void FStaticLightingSystem::ValidateSettings(FScene& InScene)
 	InScene.IrradianceCachingSettings.AngleSmoothFactor = FMath::Max(InScene.IrradianceCachingSettings.AngleSmoothFactor, 1.0f);
 	InScene.IrradianceCachingSettings.SkyOcclusionSmoothnessReduction = FMath::Clamp(InScene.IrradianceCachingSettings.SkyOcclusionSmoothnessReduction, 0.1f, 1.0f);
 
-	if (InScene.GeneralSettings.IndirectLightingQuality >= 6)
+	if (InScene.GeneralSettings.IndirectLightingQuality > 50)
 	{
 		InScene.ImportanceTracingSettings.NumAdaptiveRefinementLevels += 2;
 	}
-	else if (InScene.GeneralSettings.IndirectLightingQuality >= 2)
+	else if (InScene.GeneralSettings.IndirectLightingQuality > 10)
 	{
 		InScene.ImportanceTracingSettings.NumAdaptiveRefinementLevels += 1;
 	}
+
+	InScene.ShadowSettings.NumShadowRays = FMath::TruncToInt(InScene.ShadowSettings.NumShadowRays * FMath::Sqrt(InScene.GeneralSettings.IndirectLightingQuality));
+	InScene.ShadowSettings.NumPenumbraShadowRays = FMath::TruncToInt(InScene.ShadowSettings.NumPenumbraShadowRays * FMath::Sqrt(InScene.GeneralSettings.IndirectLightingQuality));
 
 	InScene.ImportanceTracingSettings.NumAdaptiveRefinementLevels = FMath::Min(InScene.ImportanceTracingSettings.NumAdaptiveRefinementLevels, MaxNumRefiningDepths);
 
@@ -1053,7 +1080,7 @@ void FStaticLightingSystem::DumpStats(float TotalStaticLightingTime) const
 	SolverStats += FString::Printf( TEXT("\n") );
 	SolverStats += FString::Printf( TEXT("Traced %.3f million first hit visibility rays for a total of %.1f thread seconds (%.3f million per thread second)\n"), Stats.NumFirstHitRaysTraced / 1000000.0f, Stats.FirstHitRayTraceThreadTime, Stats.NumFirstHitRaysTraced / 1000000.0f / Stats.FirstHitRayTraceThreadTime);
 	SolverStats += FString::Printf( TEXT("Traced %.3f million boolean visibility rays for a total of %.1f thread seconds (%.3f million per thread second)\n"), Stats.NumBooleanRaysTraced / 1000000.0f, Stats.BooleanRayTraceThreadTime, Stats.NumBooleanRaysTraced / 1000000.0f / Stats.BooleanRayTraceThreadTime);
-	const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh.GetBounds());
+	const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh->GetBounds());
 	const FBoxSphereBounds ImportanceBounds = GetImportanceBounds();
 	SolverStats += FString::Printf( TEXT("Scene radius %.1f, Importance bounds radius %.1f\n"), SceneBounds.SphereRadius, ImportanceBounds.SphereRadius);
 	SolverStats += FString::Printf( TEXT("%u Mappings, %.3f million Texels, %.3f million mapped texels\n"), Stats.NumMappings, Stats.NumTexelsProcessed / 1000000.0f, Stats.NumMappedTexels / 1000000.0f);
@@ -1137,7 +1164,7 @@ void FStaticLightingSystem::DumpStats(float TotalStaticLightingTime) const
 		
 		if (TotalNumRefiningSamples > 0)
 		{
-			SolverStats += FString::Printf( TEXT("   %.1f%% due to brightness differences, %.1f%% due to importance photons, Samples at depth: "), 100.0f * Stats.NumRefiningSamplesDueToBrightness / TotalNumRefiningSamples, 100.0f * Stats.NumRefiningSamplesDueToImportancePhotons / TotalNumRefiningSamples);
+			SolverStats += FString::Printf( TEXT("   %.1f%% due to brightness differences, %.1f%% due to importance photons / portals, Samples at depth: "), 100.0f * Stats.NumRefiningSamplesDueToBrightness / TotalNumRefiningSamples, 100.0f * Stats.NumRefiningSamplesDueToImportancePhotons / TotalNumRefiningSamples);
 
 			for (int i = 0; i < ImportanceTracingSettings.NumAdaptiveRefinementLevels; i++)
 			{
@@ -1194,7 +1221,7 @@ void FStaticLightingSystem::DumpStats(float TotalStaticLightingTime) const
 				TaskInfo.virtual_size / 1048576.0f);	// can't get peak virtual memory on Mac
 		}
 #endif
-		AggregateMesh.DumpStats();
+		AggregateMesh->DumpStats();
 		UE_LOG(LogLightmass, Log, TEXT("DirectPhotonMap"));
 		DirectPhotonMap.DumpStats(false);
 		UE_LOG(LogLightmass, Log, TEXT("FirstBouncePhotonMap"));
@@ -1300,16 +1327,15 @@ void FStaticLightingSystem::CacheSamples()
 	CachedSamplesMaxUnoccludedLength = (CombinedVector / CachedHemisphereSamples.Num()).Size3();
 
 	{
-		int32 TargetNumApproximateSkyLightingSamples = FMath::Max(FMath::TruncToInt(ImportanceTracingSettings.NumHemisphereSamples / 5 * GeneralSettings.IndirectLightingQuality), 12);
+		int32 TargetNumApproximateSkyLightingSamples = FMath::Max(FMath::TruncToInt(ImportanceTracingSettings.NumHemisphereSamples / 2 * GeneralSettings.IndirectLightingQuality), 12);
 		CachedHemisphereSamplesForApproximateSkyLighting.Empty(TargetNumApproximateSkyLightingSamples);
-		TArray<FVector2D> Unused;
-		Unused.Empty(TargetNumApproximateSkyLightingSamples);
+		CachedHemisphereSamplesForApproximateSkyLightingUniforms.Empty(TargetNumApproximateSkyLightingSamples);
 
 		const float NumThetaStepsFloat = FMath::Sqrt(TargetNumApproximateSkyLightingSamples / (float)PI);
 		const int32 NumThetaSteps = FMath::TruncToInt(NumThetaStepsFloat);
 		const int32 NumPhiSteps = FMath::TruncToInt(NumThetaStepsFloat * (float)PI);
 
-		GenerateStratifiedUniformHemisphereSamples(NumThetaSteps, NumPhiSteps, RandomStream, CachedHemisphereSamplesForApproximateSkyLighting, Unused);
+		GenerateStratifiedUniformHemisphereSamples(NumThetaSteps, NumPhiSteps, RandomStream, CachedHemisphereSamplesForApproximateSkyLighting, CachedHemisphereSamplesForApproximateSkyLightingUniforms);
 	}
 
 	// Cache samples on the surface of each light for area shadows
@@ -1552,6 +1578,13 @@ void FStaticLightingSystem::ThreadLoop(bool bIsMainThread, int32 ThreadIndex, FT
 		else if (bDynamicObjectTask)
 		{
 			BeginCalculateVolumeSamples();
+
+			// If we didn't generate any samples then we can end the task
+			if (!IsDebugMode() && NumVolumeSampleTasksOutstanding <= 0)
+			{
+				FLightmassSwarm* Swarm = GetExporter().GetSwarm();
+				Swarm->TaskCompleted(PrecomputedVolumeLightingGuid);
+			}
 		}
 		else if (PrecomputedVisibilityTaskIndex >= 0)
 		{
@@ -1931,7 +1964,7 @@ void FStaticLightingSystem::CalculateApproximateDirectLighting(
 					// Check the line segment for intersection with the static lighting meshes.
 					FLightRayIntersection Intersection;
 					//@todo - change this back to request boolean visibility once transmission is supported with boolean visibility ray intersections
-					AggregateMesh.IntersectLightRay(LightRay, true, true, true, MappingContext.RayCache, Intersection);
+					AggregateMesh->IntersectLightRay(LightRay, true, true, true, MappingContext.RayCache, Intersection);
 
 #if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
 					if (bDebugThisSample)
@@ -2004,68 +2037,6 @@ void FStaticLightingSystem::CalculateApproximateDirectLighting(
 	}
 }
 
-FGatheredLightSample FStaticLightingSystem::CalculateApproximateSkyLighting(
-	const FFullStaticLightingVertex& Vertex,
-	float SampleRadius,
-	const TArray<FVector4>& UniformHemisphereSamples,
-	FStaticLightingMappingContext& MappingContext) const
-{
-	FGatheredLightSample IncomingRadiance;
-
-	if (SkyLights.Num() > 0)
-	{
-		const float UniformPDF = 1.0f / (2.0f * (float)PI);
-		const float SampleWeight = 1.0f / (UniformPDF * UniformHemisphereSamples.Num());
-
-		for (int32 SampleIndex = 0; SampleIndex < UniformHemisphereSamples.Num(); SampleIndex++)
-		{
-			const FVector4 TriangleTangentPathDirection = UniformHemisphereSamples[SampleIndex];
-			checkSlow(TriangleTangentPathDirection.Z >= 0.0f);
-			checkSlow(TriangleTangentPathDirection.IsUnit3());
-
-			// Generate the uniform hemisphere samples from a hemisphere based around the triangle normal, not the smoothed vertex normal
-			// This is important for cases where the smoothed vertex normal is very different from the triangle normal, in which case
-			// Using the smoothed vertex normal would cause self-intersection even on a plane
-			const FVector4 WorldPathDirection = Vertex.TransformTriangleTangentVectorToWorld(TriangleTangentPathDirection);
-			checkSlow(WorldPathDirection.IsUnit3());
-
-			const FVector4 TangentPathDirection = Vertex.TransformWorldVectorToTangent(WorldPathDirection);
-			checkSlow(TangentPathDirection.IsUnit3());
-
-			const FLightRay PathRay(
-				// Apply various offsets to the start of the ray.
-				// The offset along the ray direction is to avoid incorrect self-intersection due to floating point precision.
-				// The offset along the normal is to push self-intersection patterns (like triangle shape) on highly curved surfaces onto the backfaces.
-				Vertex.WorldPosition 
-				+ WorldPathDirection * SceneConstants.VisibilityRayOffsetDistance 
-				+ Vertex.WorldTangentZ * SampleRadius * SceneConstants.VisibilityNormalOffsetSampleRadiusScale,
-				Vertex.WorldPosition + WorldPathDirection * MaxRayDistance,
-				NULL,
-				NULL
-				);
-
-			FLightRayIntersection RayIntersection;
-			AggregateMesh.IntersectLightRay(PathRay, false, false, false, MappingContext.RayCache, RayIntersection);
-
-			FLinearColor StaticSkyLighting = FLinearColor::Black;
-			FLinearColor StationarySkyLighting = FLinearColor::Black;
-			EvaluateSkyLighting(WorldPathDirection, RayIntersection.bIntersects, false, StaticSkyLighting, StationarySkyLighting);
-
-			if (StaticSkyLighting != FLinearColor::Black)
-			{
-				IncomingRadiance.AddWeighted(FGatheredLightSample::PointLightWorldSpace(StaticSkyLighting, TangentPathDirection, WorldPathDirection), SampleWeight);
-			}
-
-			if (StationarySkyLighting != FLinearColor::Black)
-			{
-				IncomingRadiance.AddWeighted(FGatheredLightSample::PointLightWorldSpace(StationarySkyLighting, TangentPathDirection, WorldPathDirection), SampleWeight);
-			}
-		}
-	}
-
-	return IncomingRadiance;
-}
-
 void FStaticLightingSystem::CalculateStaticShadowDepthMap(FGuid LightGuid)
 {
 	const FLight* Light = Scene.FindLightByGuid(LightGuid);
@@ -2087,7 +2058,7 @@ void FStaticLightingSystem::CalculateStaticShadowDepthMap(FGuid LightGuid)
 		// Create a coordinate system for the dominant directional light, with the z axis corresponding to the light's direction
 		ShadowDepthMap->WorldToLight = FBasisVectorMatrix(XAxis, YAxis, DirectionalLight->Direction, FVector4(0,0,0));
 
-		FBoxSphereBounds ImportanceVolume = GetImportanceBounds().SphereRadius > 0.0f ? GetImportanceBounds() : FBoxSphereBounds(AggregateMesh.GetBounds());
+		FBoxSphereBounds ImportanceVolume = GetImportanceBounds().SphereRadius > 0.0f ? GetImportanceBounds() : FBoxSphereBounds(AggregateMesh->GetBounds());
 		const FBox LightSpaceImportanceBounds = ImportanceVolume.GetBox().TransformBy(ShadowDepthMap->WorldToLight);
 
 		ShadowDepthMap->ShadowMapSizeX = FMath::TruncToInt(FMath::Max(LightSpaceImportanceBounds.GetExtent().X * 2.0f / ShadowSettings.StaticShadowDepthMapTransitionSampleDistanceX, 4.0f));
@@ -2143,7 +2114,7 @@ void FStaticLightingSystem::CalculateStaticShadowDepthMap(FGuid LightGuid)
 								);
 
 							FLightRayIntersection Intersection;
-							AggregateMesh.IntersectLightRay(LightRay, true, false, true, Context.RayCache, Intersection);
+							AggregateMesh->IntersectLightRay(LightRay, true, false, true, Context.RayCache, Intersection);
 
 							if (Intersection.bIntersects)
 							{
@@ -2201,7 +2172,7 @@ void FStaticLightingSystem::CalculateStaticShadowDepthMap(FGuid LightGuid)
 		// Calculate the maximum possible distance for quantization
 		const float MaxPossibleDistance = LightSpaceImportanceBoundMax.Z - LightSpaceImportanceBoundMin.Z;
 		const FMatrix LightToWorld = ShadowDepthMap->WorldToLight.InverseFast();
-		const FBoxSphereBounds ImportanceVolume = GetImportanceBounds().SphereRadius > 0.0f ? GetImportanceBounds() : FBoxSphereBounds(AggregateMesh.GetBounds());
+		const FBoxSphereBounds ImportanceVolume = GetImportanceBounds().SphereRadius > 0.0f ? GetImportanceBounds() : FBoxSphereBounds(AggregateMesh->GetBounds());
 
 		for (int32 Y = 0; Y < ShadowDepthMap->ShadowMapSizeY; Y++)
 		{
@@ -2235,7 +2206,7 @@ void FStaticLightingSystem::CalculateStaticShadowDepthMap(FGuid LightGuid)
 							);
 
 						FLightRayIntersection Intersection;
-						AggregateMesh.IntersectLightRay(LightRay, true, false, true, Context.RayCache, Intersection);
+						AggregateMesh->IntersectLightRay(LightRay, true, false, true, Context.RayCache, Intersection);
 
 						if (Intersection.bIntersects)
 						{
@@ -2319,7 +2290,7 @@ void FStaticLightingSystem::CalculateStaticShadowDepthMap(FGuid LightGuid)
 							);
 
 						FLightRayIntersection Intersection;
-						AggregateMesh.IntersectLightRay(LightRay, true, false, true, Context.RayCache, Intersection);
+						AggregateMesh->IntersectLightRay(LightRay, true, false, true, Context.RayCache, Intersection);
 
 						if (Intersection.bIntersects)
 						{
@@ -2392,7 +2363,7 @@ bool FStaticLightingSystem::CalculatePointShadowing(
 
 			// Check the line segment for intersection with the static lighting meshes.
 			FLightRayIntersection Intersection;
-			AggregateMesh.IntersectLightRay(LightRay, false, false, true, MappingContext.RayCache, Intersection);
+			AggregateMesh->IntersectLightRay(LightRay, false, false, true, MappingContext.RayCache, Intersection);
 			bIsShadowed = Intersection.bIntersects;
 
 #if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
@@ -2490,7 +2461,7 @@ int32 FStaticLightingSystem::CalculatePointAreaShadowing(
 			// Check the line segment for intersection with the static lighting meshes.
 			FLightRayIntersection Intersection;
 			//@todo - change this back to request boolean visibility once transmission is supported with boolean visibility ray intersections
-			AggregateMesh.IntersectLightRay(LightRay, true, true, true, MappingContext.RayCache, Intersection);
+			AggregateMesh->IntersectLightRay(LightRay, true, true, true, MappingContext.RayCache, Intersection);
 
 			if (!Intersection.bIntersects)
 			{

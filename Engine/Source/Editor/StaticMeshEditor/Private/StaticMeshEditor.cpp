@@ -1430,6 +1430,7 @@ void FStaticMeshEditor::OnConvertBoxToConvexCollision()
 					AddSelectedPrim(FPrimData(KPT_Convex, (AggGeom->ConvexElems.Num() - (i+1))), false);
 				}
 
+				RefreshCollisionChange(StaticMesh);
 				// Mark static mesh as dirty, to help make sure it gets saved.
 				StaticMesh->MarkPackageDirty();
 
@@ -1472,6 +1473,7 @@ void FStaticMeshEditor::OnCopyCollisionFromSelectedStaticMesh()
 
 	GEditor->EndTransaction();
 
+	RefreshCollisionChange(StaticMesh);
 	// Mark static mesh as dirty, to help make sure it gets saved.
 	StaticMesh->MarkPackageDirty();
 

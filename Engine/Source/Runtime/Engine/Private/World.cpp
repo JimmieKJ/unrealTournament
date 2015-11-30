@@ -111,25 +111,6 @@ FActorSpawnParameters::FActorSpawnParameters()
 
 PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
-FActorSpawnParameters& FActorSpawnParameters::operator=(const FActorSpawnParameters& Other)
-{
-	Name = Other.Name;
-	Template = Other.Template;
-	Owner = Other.Owner;
-	Instigator = Other.Instigator;
-	OverrideLevel = Other.OverrideLevel;
-	SpawnCollisionHandlingOverride = Other.SpawnCollisionHandlingOverride;
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-	bNoCollisionFail = Other.bNoCollisionFail;
-PRAGMA_ENABLE_DEPRECATION_WARNINGS
-	bRemoteOwned = Other.bRemoteOwned;
-	bNoFail = Other.bNoFail;
-	bDeferConstruction = Other.bDeferConstruction;
-	bAllowDuringConstructionScript = Other.bAllowDuringConstructionScript;
-	ObjectFlags = Other.ObjectFlags;
-	return *this;
-}
-
 /*-----------------------------------------------------------------------------
 	UWorld implementation.
 -----------------------------------------------------------------------------*/
@@ -272,7 +253,7 @@ void UWorld::Serialize( FArchive& Ar )
 	}
 	
 	// UWorlds loaded/duplicated for PIE must lose RF_Public and RF_Standalone since they should not be referenced by objects in other packages and they should be GCed normally
-	if (GetOutermost()->PackageFlags & PKG_PlayInEditor)
+	if (GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 	{
 		ClearFlags(RF_Public|RF_Standalone);
 	}
@@ -396,7 +377,7 @@ bool UWorld::Rename(const TCHAR* InName, UObject* NewOuter, ERenameFlags Flags)
 		// If this is the last world removed from a package, clear the PKG_ContainsMap flag
 		if ( UWorld::FindWorldInPackage(OldPackage) == NULL )
 		{
-			OldPackage->PackageFlags &= ~PKG_ContainsMap;
+			OldPackage->ClearPackageFlags(PKG_ContainsMap);
 		}
 
 		// Set the PKG_ContainsMap flag in the new package
@@ -450,7 +431,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 		{
 			if (Tex && Tex->GetOutermost() != MyPackage)
 			{
-				UObject* NewTex = StaticDuplicateObject(Tex, MyPackage, *Tex->GetName());
+				UObject* NewTex = StaticDuplicateObject(Tex, MyPackage, Tex->GetFName());
 				ReplacementMap.Add(Tex, NewTex);
 			}
 		}
@@ -463,7 +444,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 			UObject* OldGeneratedClass = LevelScriptBlueprint->GeneratedClass;
 			if (OldGeneratedClass)
 			{
-				UObject* NewGeneratedClass = StaticDuplicateObject(OldGeneratedClass, MyPackage, *OldGeneratedClass->GetName());
+				UObject* NewGeneratedClass = StaticDuplicateObject(OldGeneratedClass, MyPackage, OldGeneratedClass->GetFName());
 				ReplacementMap.Add(OldGeneratedClass, NewGeneratedClass);
 
 				// The class may have referenced a lightmap or landscape resource that is also being duplicated. Add it to the list of objects that need references fixed up.
@@ -473,7 +454,7 @@ void UWorld::PostDuplicate(bool bDuplicateForPIE)
 			UObject* OldSkeletonClass = LevelScriptBlueprint->SkeletonGeneratedClass;
 			if (OldSkeletonClass)
 			{
-				UObject* NewSkeletonClass = StaticDuplicateObject(OldSkeletonClass, MyPackage, *OldSkeletonClass->GetName());
+				UObject* NewSkeletonClass = StaticDuplicateObject(OldSkeletonClass, MyPackage, OldSkeletonClass->GetFName());
 				ReplacementMap.Add(OldSkeletonClass, NewSkeletonClass);
 
 				// The class may have referenced a lightmap or landscape resource that is also being duplicated. Add it to the list of objects that need references fixed up.
@@ -586,7 +567,7 @@ void UWorld::FinishDestroy()
 
 		if ( !bContainsAnotherWorld )
 		{
-			WorldPackage->PackageFlags &= ~PKG_ContainsMap;
+			WorldPackage->ClearPackageFlags(PKG_ContainsMap);
 		}
 	}
 
@@ -643,7 +624,7 @@ void UWorld::PostLoad()
 #if WITH_EDITOR
 	if (GIsEditor)
 	{
-		if (!(GetOutermost()->PackageFlags & PKG_PlayInEditor))
+		if (!GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			// Needed for VER_UE4_WORLD_NAMED_AFTER_PACKAGE. If this file was manually renamed outside of the editor, this is needed anyway
 			const FString ShortPackageName = FPackageName::GetLongPackageAssetName(GetOutermost()->GetName());
@@ -818,14 +799,13 @@ void UWorld::UpdateParameterCollectionInstances(bool bUpdateInstanceUniformBuffe
 
 UAISystemBase* UWorld::CreateAISystem()
 {
-#if WITH_SERVER_CODE || WITH_EDITOR
 	// create navigation system for editor and server targets, but remove it from game clients
-	if (AISystem == NULL && GetNetMode() != NM_Client)
+	if (AISystem == NULL && UAISystemBase::ShouldInstantiateInNetMode(GetNetMode()))
 	{
 		FName AIModuleName = UAISystemBase::GetAISystemModuleName();
 		if (AIModuleName.IsNone() == false)
 		{
-			auto AISystemModule = FModuleManager::LoadModulePtr<IAISystemModule>(UAISystemBase::GetAISystemModuleName());
+			IAISystemModule* AISystemModule = FModuleManager::LoadModulePtr<IAISystemModule>(UAISystemBase::GetAISystemModuleName());
 			if (AISystemModule)
 			{
 				AISystem = AISystemModule->CreateAISystemInstance(this);
@@ -836,7 +816,7 @@ UAISystemBase* UWorld::CreateAISystem()
 			}
 		}
 	}
-#endif
+
 	return AISystem; 
 }
 
@@ -1153,7 +1133,7 @@ void UWorld::MarkObjectsPendingKill()
 	{
 		Object->MarkPendingKill();
 	};
-	ForEachObjectWithOuter(this, MarkObjectPendingKill, true, RF_PendingKill);
+	ForEachObjectWithOuter(this, MarkObjectPendingKill, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
 }
 
 UWorld* UWorld::CreateWorld(const EWorldType::Type InWorldType, bool bInformEngineOfWorld, FName WorldName, UPackage* InWorldPackage, bool bAddToRoot, ERHIFeatureLevel::Type InFeatureLevel)
@@ -1172,7 +1152,7 @@ UWorld* UWorld::CreateWorld(const EWorldType::Type InWorldType, bool bInformEngi
 
 	if (InWorldType == EWorldType::PIE)
 	{
-		WorldPackage->PackageFlags |= PKG_PlayInEditor;
+		WorldPackage->SetPackageFlags(PKG_PlayInEditor);
 	}
 
 	// Mark the package as containing a world.  This has to happen here rather than at serialization time,
@@ -1725,7 +1705,7 @@ void UWorld::AddToWorld( ULevel* Level, const FTransform& LevelTransform )
 	
 	check(Level);
 	check(!Level->IsPendingKill());
-	check(!Level->HasAnyFlags(RF_Unreachable));
+	check(!Level->IsUnreachable());
 
 	FScopeCycleCounterUObject ContextScope(Level);
 
@@ -2000,7 +1980,7 @@ void UWorld::RemoveFromWorld( ULevel* Level )
 	FScopeCycleCounterUObject Context(Level);
 	check(Level);
 	check(!Level->IsPendingKill());
-	check(!Level->HasAnyFlags(RF_Unreachable));
+	check(!Level->IsUnreachable());
 
 	if (CurrentLevelPendingVisibility == NULL && Level->bIsVisible)
 	{
@@ -2144,7 +2124,7 @@ void FLevelStreamingGCHelper::PrepareStreamedOutLevelsForGC()
 	{
 		ULevel*	Level = LevelsPendingUnload[LevelIndex].Get();
 
-		if( Level && (!GIsEditor || (Level->GetOutermost()->PackageFlags & PKG_PlayInEditor) ))
+		if( Level && (!GIsEditor || Level->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor) ))
 		{
 			UPackage* LevelPackage = Cast<UPackage>(Level->GetOutermost());
 			UE_LOG(LogStreaming, Log, TEXT("PrepareStreamedOutLevelsForGC called on '%s'"), *LevelPackage->GetName() );
@@ -2321,7 +2301,7 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 	const FName PrefixedLevelFName = FName(*PrefixedLevelName);
 	UWorld::WorldTypePreLoadMap.FindOrAdd(PrefixedLevelFName) = EWorldType::PIE;
 	UPackage* PIELevelPackage = CastChecked<UPackage>(CreatePackage(NULL,*PrefixedLevelName));
-	PIELevelPackage->PackageFlags |= PKG_PlayInEditor;
+	PIELevelPackage->SetPackageFlags(PKG_PlayInEditor);
 #if WITH_EDITOR
 	PIELevelPackage->PIEInstanceID = WorldContext.PIEInstance;
 #endif
@@ -2349,7 +2329,7 @@ UWorld* UWorld::DuplicateWorldForPIE(const FString& PackageName, UWorld* OwningW
 	FStringAssetReference::SetPackageNamesBeingDuplicatedForPIE(PackageNamesBeingDuplicatedForPIE);
 
 	ULevel::StreamedLevelsOwningWorld.Add(PIELevelPackage->GetFName(), OwningWorld);
-	UWorld* PIELevelWorld = CastChecked<UWorld>(StaticDuplicateObject(EditorLevelWorld, PIELevelPackage, *EditorLevelWorld->GetName(), RF_AllFlags, nullptr, SDO_DuplicateForPie));
+	UWorld* PIELevelWorld = CastChecked<UWorld>(StaticDuplicateObject(EditorLevelWorld, PIELevelPackage, EditorLevelWorld->GetFName(), RF_AllFlags, nullptr, SDO_DuplicateForPie));
 	
 	// Clean up string asset reference fixups
 	FStringAssetReference::ClearPackageNamesBeingDuplicatedForPIE();
@@ -3233,7 +3213,7 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 #endif //WITH_EDITOR
 
 #if ENABLE_VISUAL_LOG
-	FVisualLogger::Get().Cleanup();
+	FVisualLogger::Get().Cleanup(this);
 #endif // ENABLE_VISUAL_LOG	
 
 	// Tell actors to remove their components from the scene.
@@ -3242,6 +3222,12 @@ void UWorld::CleanupWorld(bool bSessionEnded, bool bCleanupResources, UWorld* Ne
 	if (bCleanupResources && PersistentLevel)
 	{
 		PersistentLevel->ReleaseRenderingResources();
+
+		// Flush any render commands and released accessed UTextures and materials to give them a chance to be collected.
+		if ( FSlateApplication::IsInitialized() )
+		{
+			FSlateApplication::Get().FlushRenderState();
+		}
 	}
 
 	// Clear standalone flag when switching maps in the Editor. This causes resources placed in the map
@@ -4669,7 +4655,7 @@ void FSeamlessTravelHandler::StartLoadingDestination()
 			{
 				PackageFlags |= PKG_PlayInEditor;
 			}
-			UPackage* EditorLevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), NULL, URLMapFName, 0, 0, RF_PendingKill);
+			UPackage* EditorLevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), NULL, URLMapFName, 0, 0, RF_NoFlags, EInternalObjectFlags::PendingKill);
 			if (EditorLevelPackage)
 			{
 				PIEInstanceID = WorldContext.PIEInstance;
@@ -4904,7 +4890,7 @@ UWorld* FSeamlessTravelHandler::Tick()
 			{
 				UPackage * WorldPackage = LoadedWorld->GetOutermost();
 				check(WorldPackage);
-				WorldPackage->PackageFlags |= PKG_PlayInEditor;
+				WorldPackage->SetPackageFlags(PKG_PlayInEditor);
 			}
 
 			// Clear any world specific state from NetDriver before switching World

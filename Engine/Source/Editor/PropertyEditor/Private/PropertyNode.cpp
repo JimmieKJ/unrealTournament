@@ -133,6 +133,9 @@ void FPropertyNode::InitNode( const FPropertyNodeInitParams& InitParams )
 		const bool bEditInline = bIsObjectOrInterface && GotReadAddresses && MyProperty->HasMetaData(TEXT("EditInline"));
 		SetNodeFlags(EPropertyNodeFlags::EditInline, bEditInline);
 
+		const bool bPersistentInstance = MyProperty->HasAllPropertyFlags(CPF_PersistentInstance);
+		SetNodeFlags(EPropertyNodeFlags::PersistentInstance, bPersistentInstance);
+
 		//Get the property max child depth
 		if (Property->HasMetaData(TEXT("MaxPropertyDepth")))
 		{

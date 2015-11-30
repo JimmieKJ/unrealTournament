@@ -2,7 +2,9 @@
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNode_AnimDynamics.h"
+#include "Animation/AnimInstanceProxy.h"
 
+DEFINE_STAT(STAT_AnimDynamicsOverall);
 DEFINE_STAT(STAT_AnimDynamicsWindData);
 DEFINE_STAT(STAT_AnimDynamicsBoneEval);
 DEFINE_STAT(STAT_AnimDynamicsSubSteps);
@@ -42,8 +44,9 @@ void FAnimNode_AnimDynamics::Initialize(const FAnimationInitializeContext& Conte
 {
 	FAnimNode_SkeletalControlBase::Initialize(Context);
 
-	USkeletalMeshComponent* SkelMeshComponent = Context.AnimInstance->GetSkelMeshComponent();
-	FBoneContainer& RequiredBones = Context.AnimInstance->RequiredBones;
+	Context.AnimInstanceProxy->AddGameThreadPreUpdateEvent(FGameThreadPreUpdateEvent::CreateRaw(this, &FAnimNode_AnimDynamics::HandleGameThreadPreUpdateEvent));
+
+	FBoneContainer& RequiredBones = Context.AnimInstanceProxy->GetRequiredBones();
 
 	BoundBone.Initialize(RequiredBones);
 
@@ -75,6 +78,8 @@ void FAnimNode_AnimDynamics::UpdateInternal(const FAnimationUpdateContext& Conte
 
 void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms)
 {
+	SCOPE_CYCLE_COUNTER(STAT_AnimDynamicsOverall);
+
 	int32 RestrictToLOD = CVarRestrictLod.GetValueOnAnyThread();
 	bool bEnabledForLod = RestrictToLOD >= 0 ? SkelComp->PredictedLODLevel == RestrictToLOD : true;
 
@@ -129,12 +134,6 @@ void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* Skel
 				{
 					Body->bWindEnabled = false;
 				}
-			}
-			
-			float CurrentTimeDilation = 1.0f;
-			if(UAnimInstance* AnimationInstance = SkelComp->GetAnimInstance())
-			{
-				CurrentTimeDilation = AnimationInstance->CurrentTimeDilation;
 			}
 
 			if (CVarEnableAdaptiveSubstep.GetValueOnAnyThread() == 1)
@@ -195,7 +194,7 @@ void FAnimNode_AnimDynamics::EvaluateBoneTransforms(USkeletalMeshComponent* Skel
 
 				FCompactPoseBoneIndex BoneIndex = CurrentChainBone.GetCompactPoseIndex(BoneContainer);
 
-				FTransform NewBoneTransform(CurrentBody.Pose.Orientation, CurrentBody.Pose.Position + CurrentBody.Pose.Orientation.RotateVector(LocalJointOffset));
+				FTransform NewBoneTransform(CurrentBody.Pose.Orientation, CurrentBody.Pose.Position + CurrentBody.Pose.Orientation.RotateVector(JointOffsets[Idx]));
 				OutBoneTransforms.Add(FBoneTransform(BoneIndex, NewBoneTransform));
 			}
 		}
@@ -249,6 +248,32 @@ const FAnimPhysRigidBody& FAnimNode_AnimDynamics::GetPhysBody(int32 BodyIndex) c
 {
 	return Bodies[BodyIndex].RigidBody.PhysBody;
 }
+
+#if WITH_EDITOR
+FVector FAnimNode_AnimDynamics::GetBodyLocalJointOffset(int32 BodyIndex) const
+{
+	if (JointOffsets.IsValidIndex(BodyIndex))
+	{
+		return JointOffsets[BodyIndex];
+	}
+	return FVector::ZeroVector;
+}
+
+int32 FAnimNode_AnimDynamics::GetNumBoundBones() const
+{
+	return BoundBoneReferences.Num();
+}
+
+const FBoneReference* FAnimNode_AnimDynamics::GetBoundBoneReference(int32 Index) const
+{
+	if(BoundBoneReferences.IsValidIndex(Index))
+	{
+		return &BoundBoneReferences[Index];
+	}
+	return nullptr;
+}
+
+#endif
 
 void FAnimNode_AnimDynamics::InitPhysics(USkeletalMeshComponent* Component, FCSPose<FCompactPose>& MeshBases)
 {
@@ -319,7 +344,7 @@ void FAnimNode_AnimDynamics::InitPhysics(USkeletalMeshComponent* Component, FCSP
 			FTransform PreviousBoneTransform = MeshBases.GetComponentSpaceTransform(BoundBoneReferences.Last().GetCompactPoseIndex(BoneContainer));
 
 			FVector PreviousAnchor = PreviousBoneTransform.TransformPosition(-LocalJointOffset);
-			float DistanceToAnchor = (PreviousAnchor - CurrentBoneTransform.GetTranslation()).Size();
+			float DistanceToAnchor = (PreviousBoneTransform.GetTranslation() - CurrentBoneTransform.GetTranslation()).Size() * 0.5f;
 
 			if(LocalJointOffset.SizeSquared() < SMALL_NUMBER)
 			{
@@ -472,10 +497,10 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 
 		if (PrevBody)
 		{
-			// Modify the shape transform to be correct in Body0 frame
-			ShapeTransform = FTransform(FQuat::Identity, -LocalJointOffset);
 			// Get the correct offset
 			Body1JointOffset = JointOffsets[Idx];
+			// Modify the shape transform to be correct in Body0 frame
+			ShapeTransform = FTransform(FQuat::Identity, -Body1JointOffset);
 		}
 		
 		if (ConstraintSetup.bLinearFullyLocked)
@@ -550,4 +575,12 @@ void FAnimNode_AnimDynamics::UpdateLimits(USkeletalMeshComponent* SkelComp, FCSP
 			NewSpring.bApplyLinear = bLinearSpring;
 		}
 	}
+}
+
+void FAnimNode_AnimDynamics::HandleGameThreadPreUpdateEvent(const UAnimInstance* InAnimInstance)
+{
+	const USkeletalMeshComponent* SkelComp = InAnimInstance->GetSkelMeshComponent();
+	const UWorld* World = SkelComp->GetWorld();
+	check(World->GetWorldSettings());
+	CurrentTimeDilation = World->GetWorldSettings()->GetEffectiveTimeDilation();
 }

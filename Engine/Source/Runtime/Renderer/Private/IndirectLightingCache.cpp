@@ -459,42 +459,72 @@ void FIndirectLightingCache::UpdateCachePrimitivesInternal(FScene* Scene, FScene
 			for (uint32 PrimitiveIndex = 0; PrimitiveIndex < PrimitiveCount; ++PrimitiveIndex)
 			{
 				FPrimitiveSceneInfo* PrimitiveSceneInfo = Scene->Primitives[PrimitiveIndex];
+				const bool bPrecomputedLightingBufferWasDirty = PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate();
+
 				UpdateCachePrimitive(AttachmentGroups, PrimitiveSceneInfo, false, true, OutBlocksToUpdate, OutTransitionsOverTimeToUpdate);
+
+				// If it was already dirty, then the primitive is already in one of the view dirty primitive list at this point.
+				// This also ensures that a primitive does not get added twice to the list, which could create an array reallocation.
+				if (!bPrecomputedLightingBufferWasDirty && PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate())
+				{
+					// Check if it is visible otherwise, it will be updated next time it is visible.
+					for (int32 ViewIndex = 0; ViewIndex < Renderer.Views.Num(); ViewIndex++)
+					{
+						FViewInfo& View = Renderer.Views[ViewIndex];
+
+						if (View.PrimitiveVisibilityMap[PrimitiveIndex])
+						{
+							// Since the update can be executed on a threaded job (see GILCUpdatePrimTaskEnabled), no reallocation must happen here.
+							checkSlow(View.DirtyPrecomputedLightingBufferPrimitives.Num() < View.DirtyPrecomputedLightingBufferPrimitives.Max());
+							View.DirtyPrecomputedLightingBufferPrimitives.Push(PrimitiveSceneInfo);
+							break; // We only need to add it in one of the view list.
+						}
+					}
+				}
 			}
 		}
-
-		TArray<uint32> SetBitIndices[4];
+		else
 		{
-			QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateCachePreWalk);
-			
-			for (int32 ViewIndex = 0; ViewIndex < Renderer.Views.Num(); ViewIndex++)
+			TArray<uint32> SetBitIndices[4];
 			{
-				FViewInfo& View = Renderer.Views[ViewIndex];
-				SetBitIndices[ViewIndex].Reserve(View.PrimitiveVisibilityMap.Num());
-
-				for (FSceneSetBitIterator BitIt(View.PrimitiveVisibilityMap); BitIt; ++BitIt)
+				QUICK_SCOPE_CYCLE_COUNTER(STAT_UpdateCachePreWalk);
+			
+				for (int32 ViewIndex = 0; ViewIndex < Renderer.Views.Num(); ViewIndex++)
 				{
-					uint32 PrimitiveIndex = BitIt.GetIndex();
-					SetBitIndices[ViewIndex].Add(PrimitiveIndex);					
-				}
-			}			
-		}
+					FViewInfo& View = Renderer.Views[ViewIndex];
+					SetBitIndices[ViewIndex].Reserve(View.PrimitiveVisibilityMap.Num());
 
-		{			
+					for (FSceneSetBitIterator BitIt(View.PrimitiveVisibilityMap); BitIt; ++BitIt)
+					{
+						uint32 PrimitiveIndex = BitIt.GetIndex();
+						SetBitIndices[ViewIndex].Add(PrimitiveIndex);					
+					}
+				}			
+			}
+
 			// Go over the views and operate on any relevant visible primitives
 			for (int32 ViewIndex = 0; ViewIndex < Renderer.Views.Num(); ViewIndex++)
 			{
 				FViewInfo& View = Renderer.Views[ViewIndex];
 
-				if (!bUpdateAllCacheEntries)
-				{					
-					const TArray<uint32>& SetBits = SetBitIndices[ViewIndex];
-					for (int32 i = 0; i < SetBits.Num(); ++i)
+				const TArray<uint32>& SetBits = SetBitIndices[ViewIndex];
+				for (int32 i = 0; i < SetBits.Num(); ++i)
+				{
+					uint32 PrimitiveIndex = SetBits[i];
+
+					FPrimitiveSceneInfo* PrimitiveSceneInfo = Scene->Primitives[PrimitiveIndex];
+					const bool bPrecomputedLightingBufferWasDirty = PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate();
+
+					const FPrimitiveViewRelevance& PrimitiveRelevance = View.PrimitiveViewRelevanceMap[PrimitiveIndex];
+					UpdateCachePrimitive(AttachmentGroups, PrimitiveSceneInfo, bAllowUnbuiltPreview, PrimitiveRelevance.bOpaqueRelevance, OutBlocksToUpdate, OutTransitionsOverTimeToUpdate);
+
+					// If it was already dirty, then the primitive is already in one of the view dirty primitive list at this point.
+					// This also ensures that a primitive does not get added twice to the list, which could create an array reallocation.
+					if (!bPrecomputedLightingBufferWasDirty && PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate())
 					{
-						uint32 PrimitiveIndex = SetBits[i];
-						FPrimitiveSceneInfo* PrimitiveSceneInfo = Scene->Primitives[PrimitiveIndex];
-						const FPrimitiveViewRelevance& PrimitiveRelevance = View.PrimitiveViewRelevanceMap[PrimitiveIndex];
-						UpdateCachePrimitive(AttachmentGroups, PrimitiveSceneInfo, bAllowUnbuiltPreview, PrimitiveRelevance.bOpaqueRelevance, OutBlocksToUpdate, OutTransitionsOverTimeToUpdate);
+						// Since the update can be executed on a threaded job (see GILCUpdatePrimTaskEnabled), no reallocation must happen here.
+						checkSlow(View.DirtyPrecomputedLightingBufferPrimitives.Num() < View.DirtyPrecomputedLightingBufferPrimitives.Max());
+						View.DirtyPrecomputedLightingBufferPrimitives.Push(PrimitiveSceneInfo);
 					}
 				}
 			}
@@ -617,6 +647,8 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 			}
 		}
 
+		const FIndirectLightingCacheAllocation* OriginalPrimitiveAllocation = PrimitiveSceneInfo->IndirectLightingCacheAllocation;
+
 		if (AttachmentParentAllocation)
 		{
 			// Reuse the attachment parent's lighting allocation if part of an attachment group
@@ -645,6 +677,11 @@ void FIndirectLightingCache::UpdateCachePrimitive(
 				// Allocate space in the atlas for this primitive and add it to a map, whose key is the component, so the allocation will persist through a re-register
 				PrimitiveAllocations.Add(PrimitiveSceneInfo->PrimitiveComponentId, PrimitiveAllocation);
 			}
+		}
+
+		if (OriginalPrimitiveAllocation != PrimitiveSceneInfo->IndirectLightingCacheAllocation)
+		{
+			PrimitiveSceneInfo->MarkPrecomputedLightingBufferDirty();
 		}
 	}
 }
@@ -727,12 +764,8 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 		AccumulatedIncidentRadiance.Reset(NumSamplesPerBlock);
 		AccumulatedIncidentRadiance.AddZeroed(NumSamplesPerBlock);
 
-		static TArray<FVector> AccumulatedSkyBentNormal;
-		AccumulatedSkyBentNormal.Reset(NumSamplesPerBlock);
-		AccumulatedSkyBentNormal.AddZeroed(NumSamplesPerBlock);
-
 		// Interpolate SH samples from precomputed lighting samples and accumulate lighting data for an entire block
-		InterpolateBlock(Scene, BlockInfo.Block, AccumulatedWeight, AccumulatedIncidentRadiance, AccumulatedSkyBentNormal);
+		InterpolateBlock(Scene, BlockInfo.Block, AccumulatedWeight, AccumulatedIncidentRadiance, SkyBentNormal, DirectionalShadowing);
 
 		static TArray<FFloat16Color> Texture0Data;
 		static TArray<FFloat16Color> Texture1Data;
@@ -749,7 +782,7 @@ void FIndirectLightingCache::UpdateBlock(FScene* Scene, FViewInfo* DebugDrawingV
 
 		// Encode the SH samples into a texture format
 		// Note the single sample is updated even if this is a volume allocation, because translucent materials only use the single sample
-		EncodeBlock(DebugDrawingView, BlockInfo.Block, AccumulatedWeight, AccumulatedIncidentRadiance, AccumulatedSkyBentNormal, Texture0Data, Texture1Data, Texture2Data, SingleSample, SkyBentNormal);
+		EncodeBlock(DebugDrawingView, BlockInfo.Block, AccumulatedWeight, AccumulatedIncidentRadiance, Texture0Data, Texture1Data, Texture2Data, SingleSample);
 
 		// Setup an update region
 		const FUpdateTextureRegion3D UpdateRegion(
@@ -879,10 +912,14 @@ void FIndirectLightingCache::InterpolateBlock(
 	const FIndirectLightingCacheBlock& Block, 
 	TArray<float>& AccumulatedWeight, 
 	TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance,
-	TArray<FVector>& AccumulatedSkyBentNormal)
+	FVector& OutCenterSkyBentNormal,
+	float& OutCenterDirectionalLightShadowing)
 {
 	const FBoxCenterAndExtent BlockBoundingBox(Block.Min + Block.Size / 2, Block.Size / 2);
 	const FVector HalfTexelWorldOffset = BlockBoundingBox.Extent / FVector(Block.TexelSize);
+	FVector AccumulatedCenterSkyBentNormal = FVector::ZeroVector;
+	float AccumulatedCenterDirectionalLightShadowing = 0;
+	float AccumulatedCenterWeight = 0;
 
 	if (GCacheLimitQuerySize && Block.TexelSize > 2)
 	{
@@ -980,7 +1017,9 @@ void FIndirectLightingCache::InterpolateBlock(
 								CellIndex,
 								AccumulatedWeight,
 								AccumulatedIncidentRadiance,
-								AccumulatedSkyBentNormal);
+								AccumulatedCenterSkyBentNormal,
+								AccumulatedCenterDirectionalLightShadowing,
+								AccumulatedCenterWeight);
 						}
 					}
 				}
@@ -1004,8 +1043,22 @@ void FIndirectLightingCache::InterpolateBlock(
 				FIntVector(0), 
 				AccumulatedWeight, 
 				AccumulatedIncidentRadiance,
-				AccumulatedSkyBentNormal);
+				AccumulatedCenterSkyBentNormal,
+				AccumulatedCenterDirectionalLightShadowing,
+				AccumulatedCenterWeight);
 		}
+	}
+
+	if (AccumulatedCenterWeight > 0)
+	{
+		OutCenterDirectionalLightShadowing = AccumulatedCenterDirectionalLightShadowing / AccumulatedCenterWeight;
+		OutCenterSkyBentNormal = AccumulatedCenterSkyBentNormal / AccumulatedCenterWeight;
+	}
+	else
+	{
+		OutCenterDirectionalLightShadowing = 1;
+		// Use an unoccluded vector if no valid samples were found for interpolation
+		OutCenterSkyBentNormal = FVector(0, 0, 1);
 	}
 }
 
@@ -1014,12 +1067,10 @@ void FIndirectLightingCache::EncodeBlock(
 	const FIndirectLightingCacheBlock& Block, 
 	const TArray<float>& AccumulatedWeight, 
 	const TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance,
-	const TArray<FVector>& AccumulatedSkyBentNormal,
 	TArray<FFloat16Color>& Texture0Data,
 	TArray<FFloat16Color>& Texture1Data,
 	TArray<FFloat16Color>& Texture2Data,
-	FSHVectorRGB2& SingleSample,
-	FVector& SkyBentNormal)
+	FSHVectorRGB2& SingleSample)
 {
 	FViewElementPDI DebugPDI(DebugDrawingView, NULL);
 
@@ -1048,7 +1099,6 @@ void FIndirectLightingCache::EncodeBlock(
 				if (X == Block.TexelSize / 2 && Y == Block.TexelSize / 2 && Z == Block.TexelSize / 2)
 				{
 					SingleSample = IncidentRadiance;
-					SkyBentNormal = AccumulatedSkyBentNormal[LinearIndex] / (Weight > 0 ? Weight : 1);
 				}
 
 				if (GCacheDrawInterpolationPoints != 0 && DebugDrawingView)

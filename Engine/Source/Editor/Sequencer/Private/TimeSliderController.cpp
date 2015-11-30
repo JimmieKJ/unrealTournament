@@ -291,7 +291,7 @@ int32 FSequencerTimeSliderController::OnPaintTimeSlider( bool bMirrorLabels, con
 		FLinearColor ScrubColor = InWidgetStyle.GetColorAndOpacityTint();
 
 		// @todo Sequencer this color should be specified in the style
-		ScrubColor.A = ScrubColor.A*0.5f;
+		ScrubColor.A = ScrubColor.A*0.75f;
 		ScrubColor.B *= 0.1f;
 		ScrubColor.G *= 0.2f;
 		FSlateDrawElement::MakeBox( 
@@ -437,7 +437,7 @@ int32 FSequencerTimeSliderController::DrawPlaybackRange(const FGeometry& Allotte
 	return LayerId + 1;
 }
 
-FReply FSequencerTimeSliderController::OnMouseButtonDown( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FSequencerTimeSliderController::OnMouseButtonDown( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	bool bHandleLeftMouseButton = MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton;
 	bool bHandleRightMouseButton = MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && TimeSliderArgs.AllowZoom;
@@ -450,21 +450,21 @@ FReply FSequencerTimeSliderController::OnMouseButtonDown( TSharedRef<SWidget> Wi
 
 	if ( bHandleLeftMouseButton )
 	{
-		return FReply::Handled().CaptureMouse( WidgetOwner ).PreventThrottling();
+		return FReply::Handled().CaptureMouse( WidgetOwner.AsShared() ).PreventThrottling();
 	}
 	else if ( bHandleRightMouseButton )
 	{
 		// Always capture mouse if we left or right click on the widget
-		return FReply::Handled().CaptureMouse( WidgetOwner );
+		return FReply::Handled().CaptureMouse( WidgetOwner.AsShared() );
 	}
 
 	return FReply::Unhandled();
 }
 
-FReply FSequencerTimeSliderController::OnMouseButtonUp( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FSequencerTimeSliderController::OnMouseButtonUp( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	bool bHandleLeftMouseButton = MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && WidgetOwner->HasMouseCapture();
-	bool bHandleRightMouseButton = MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && WidgetOwner->HasMouseCapture() && TimeSliderArgs.AllowZoom ;
+	bool bHandleLeftMouseButton = MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton && WidgetOwner.HasMouseCapture();
+	bool bHandleRightMouseButton = MouseEvent.GetEffectingButton() == EKeys::RightMouseButton && WidgetOwner.HasMouseCapture() && TimeSliderArgs.AllowZoom ;
 	
 	if ( bHandleRightMouseButton )
 	{
@@ -480,54 +480,60 @@ FReply FSequencerTimeSliderController::OnMouseButtonUp( TSharedRef<SWidget> Widg
 	}
 	else if ( bHandleLeftMouseButton )
 	{
-		if( MouseDragType != DRAG_NONE )
+		if (MouseDragType == DRAG_START_RANGE)
 		{
-			TimeSliderArgs.OnEndScrubberMovement.ExecuteIfBound();
+			TimeSliderArgs.OnEndPlaybackRangeDrag.ExecuteIfBound();
+		}
+		// Set the end range time?
+		else if (MouseDragType == DRAG_END_RANGE)
+		{
+			TimeSliderArgs.OnEndPlaybackRangeDrag.ExecuteIfBound();
+		}
+		else if (MouseDragType == DRAG_SETTING_RANGE)
+		{
+			FScrubRangeToScreen RangeToScreen( TimeSliderArgs.ViewRange.Get(), MyGeometry.Size );
+			FVector2D CursorPos = MyGeometry.AbsoluteToLocal(MouseEvent.GetLastScreenSpacePosition());
+			float NewValue = RangeToScreen.LocalXToInput(CursorPos.X);
 
-			if (MouseDragType == DRAG_SETTING_RANGE)
+			if ( TimeSliderArgs.Settings->GetIsSnapEnabled() )
 			{
-				FScrubRangeToScreen RangeToScreen( TimeSliderArgs.ViewRange.Get(), MyGeometry.Size );
-				FVector2D CursorPos = MyGeometry.AbsoluteToLocal(MouseEvent.GetLastScreenSpacePosition());
-				float NewValue = RangeToScreen.LocalXToInput(CursorPos.X);
+				NewValue = TimeSliderArgs.Settings->SnapTimeToInterval(NewValue);
+			}
 
-				if ( TimeSliderArgs.Settings->GetIsSnapEnabled() )
-				{
-					NewValue = TimeSliderArgs.Settings->SnapTimeToInterval(NewValue);
-				}
+			float DownValue = MouseDownRange[0];
+				
+			if ( TimeSliderArgs.Settings->GetIsSnapEnabled() )
+			{
+				DownValue = TimeSliderArgs.Settings->SnapTimeToInterval(DownValue);
+			}
 
-				float DownValue = MouseDownRange[0];
+			// Zoom in
+			if (NewValue > DownValue)
+			{
+				// push the current value onto the stack
+				RangeStack.Add(FVector2D(TimeSliderArgs.ViewRange.Get().GetLowerBoundValue(), TimeSliderArgs.ViewRange.Get().GetUpperBoundValue()));
+			}
+			// Zoom out
+			else if (RangeStack.Num())
+			{
+				// pop the stack
+				FVector2D LastRange = RangeStack.Pop();
+				DownValue = LastRange[0];
+				NewValue = LastRange[1];
+			}
+
+			TimeSliderArgs.OnViewRangeChanged.ExecuteIfBound(TRange<float>(DownValue, NewValue), EViewRangeInterpolation::Immediate);
 					
-				if ( TimeSliderArgs.Settings->GetIsSnapEnabled() )
-				{
-					DownValue = TimeSliderArgs.Settings->SnapTimeToInterval(DownValue);
-				}
-
-				// Zoom in
-				if (NewValue > DownValue)
-				{
-					// push the current value onto the stack
-					RangeStack.Add(FVector2D(TimeSliderArgs.ViewRange.Get().GetLowerBoundValue(), TimeSliderArgs.ViewRange.Get().GetUpperBoundValue()));
-				}
-				// Zoom out
-				else if (RangeStack.Num())
-				{
-					// pop the stack
-					FVector2D LastRange = RangeStack.Pop();
-					DownValue = LastRange[0];
-					NewValue = LastRange[1];
-				}
-
-				TimeSliderArgs.OnViewRangeChanged.ExecuteIfBound(TRange<float>(DownValue, NewValue), EViewRangeInterpolation::Immediate);
-						
-				if( !TimeSliderArgs.ViewRange.IsBound() )
-				{	
-					// The output is not bound to a delegate so we'll manage the value ourselves
-					TimeSliderArgs.ViewRange.Set( TRange<float>( DownValue, NewValue ) );
-				}
+			if( !TimeSliderArgs.ViewRange.IsBound() )
+			{	
+				// The output is not bound to a delegate so we'll manage the value ourselves
+				TimeSliderArgs.ViewRange.Set( TRange<float>( DownValue, NewValue ) );
 			}
 		}
 		else
 		{
+			TimeSliderArgs.OnEndScrubberMovement.ExecuteIfBound();
+
 			FScrubRangeToScreen RangeToScreen( TimeSliderArgs.ViewRange.Get(), MyGeometry.Size );
 			FVector2D CursorPos = MyGeometry.AbsoluteToLocal(MouseEvent.GetLastScreenSpacePosition());
 			float NewValue = RangeToScreen.LocalXToInput(CursorPos.X);
@@ -548,9 +554,9 @@ FReply FSequencerTimeSliderController::OnMouseButtonUp( TSharedRef<SWidget> Widg
 	return FReply::Unhandled();
 }
 
-FReply FSequencerTimeSliderController::OnMouseMove( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FSequencerTimeSliderController::OnMouseMove( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if ( WidgetOwner->HasMouseCapture() )
+	if ( WidgetOwner.HasMouseCapture() )
 	{
 		if (MouseEvent.IsMouseButtonDown( EKeys::RightMouseButton ))
 		{
@@ -583,7 +589,6 @@ FReply FSequencerTimeSliderController::OnMouseMove( TSharedRef<SWidget> WidgetOw
 		else if (MouseEvent.IsMouseButtonDown( EKeys::LeftMouseButton ))
 		{
 			TRange<float> LocalViewRange = TimeSliderArgs.ViewRange.Get();
-
 			DistanceDragged += FMath::Abs( MouseEvent.GetCursorDelta().X );
 
 			if ( MouseDragType == DRAG_NONE )
@@ -600,10 +605,12 @@ FReply FSequencerTimeSliderController::OnMouseMove( TSharedRef<SWidget> WidgetOw
 					if (HitTestPlaybackEnd(RangeToScreen, PlaybackRange, LocalMouseDownPos, ScrubPosition))
 					{
 						MouseDragType = DRAG_END_RANGE;
+						TimeSliderArgs.OnBeginPlaybackRangeDrag.ExecuteIfBound();
 					}
 					else if (HitTestPlaybackStart(RangeToScreen, PlaybackRange, LocalMouseDownPos, ScrubPosition))
 					{
 						MouseDragType = DRAG_START_RANGE;
+						TimeSliderArgs.OnBeginPlaybackRangeDrag.ExecuteIfBound();
 					}
 					else if (FSlateApplication::Get().GetModifierKeys().AreModifersDown(EModifierKey::Control))
 					{
@@ -612,8 +619,8 @@ FReply FSequencerTimeSliderController::OnMouseMove( TSharedRef<SWidget> WidgetOw
 					else
 					{
 						MouseDragType = DRAG_SCRUBBING_TIME;
+						TimeSliderArgs.OnBeginScrubberMovement.ExecuteIfBound();
 					}
-					TimeSliderArgs.OnBeginScrubberMovement.ExecuteIfBound();
 				}
 			}
 			else
@@ -676,7 +683,7 @@ void FSequencerTimeSliderController::CommitScrubPosition( float NewValue, bool b
 	TimeSliderArgs.OnScrubPositionChanged.ExecuteIfBound( NewValue, bIsScrubbing );
 }
 
-FReply FSequencerTimeSliderController::OnMouseWheel( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+FReply FSequencerTimeSliderController::OnMouseWheel( SWidget& WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	TOptional<TRange<float>> NewTargetRange;
 

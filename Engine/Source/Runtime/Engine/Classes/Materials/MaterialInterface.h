@@ -569,8 +569,8 @@ public:
 	/** Get bitfield indicating which feature levels should be compiled by default */
 	ENGINE_API static uint32 GetFeatureLevelsToCompileForAllMaterials() { return FeatureLevelsForAllMaterials | (1 << GMaxRHIFeatureLevel); }
 
-	/** Return number of used texture coordinates and whether or not the Vertex Color material node is used in the shader graph */
-	ENGINE_API void AnalyzeMaterialProperty(EMaterialProperty InProperty, int32& OutNumTextureCoordinates, bool& OutUseVertexColor);
+	/** Return number of used texture coordinates and whether or not the Vertex data is used in the shader graph */
+	ENGINE_API void AnalyzeMaterialProperty(EMaterialProperty InProperty, int32& OutNumTextureCoordinates, bool& bOutRequiresVertexData);
 
 	/** Iterate over all feature levels currently marked as active */
 	template <typename FunctionType>

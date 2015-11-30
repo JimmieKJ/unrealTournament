@@ -64,6 +64,9 @@ class UNREALED_API UResavePackagesCommandlet : public UCommandlet
 	/** if we should auto checkin packages that were checked out**/
 	bool bAutoCheckIn;
 
+	/** Should we build lighting for the packages we are saving? **/
+	bool bShouldBuildLighting;
+
 	// Running count of packages that got modified and will need to be resaved
 	int32 PackagesRequiringResave;
 

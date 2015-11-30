@@ -200,7 +200,7 @@ void FHotReloadClassReinstancer::ReconstructClassDefaultObject(UClass* InClass, 
 	}
 
 	// Re-create
-	InClass->ClassDefaultObject = StaticAllocateObject(InClass, InOuter, InName, InFlags, false);
+	InClass->ClassDefaultObject = StaticAllocateObject(InClass, InOuter, InName, InFlags, EInternalObjectFlags::None, false);
 	check(InClass->ClassDefaultObject);
 	const bool bShouldInitilizeProperties = false;
 	const bool bCopyTransientsFromClassDefaults = false;

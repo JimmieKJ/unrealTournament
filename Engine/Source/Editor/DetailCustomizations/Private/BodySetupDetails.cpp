@@ -37,14 +37,14 @@ void FBodySetupDetails::CustomizeDetails( IDetailLayoutBuilder& DetailBuilder )
 			uint32 NumChildren = 0;
 			BodyInstanceHandler->GetNumChildren(NumChildren);
 
+			static const FName CollisionCategoryName(TEXT("Collision"));
+
 			// add all properties of this now - after adding 
 			for (uint32 ChildIndex=0; ChildIndex < NumChildren; ++ChildIndex)
 			{
 				TSharedPtr<IPropertyHandle> ChildProperty = BodyInstanceHandler->GetChildHandle(ChildIndex);
-				FString Category = FObjectEditorUtils::GetCategory(ChildProperty->GetProperty());
-
-				
-				if (Category == TEXT("Collision"))
+				FName CategoryName = FObjectEditorUtils::GetCategoryFName(ChildProperty->GetProperty());
+				if (CategoryName == CollisionCategoryName)
 				{
 					CollisionCategory.AddProperty(ChildProperty);
 				}

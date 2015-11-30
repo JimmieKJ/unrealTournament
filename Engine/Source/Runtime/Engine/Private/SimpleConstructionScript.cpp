@@ -730,7 +730,7 @@ void USimpleConstructionScript::RemoveNodeAndPromoteChildren(USCS_Node* Node)
 		if(PromoteIndex != INDEX_NONE)
 		{
 			ChildToPromote = Node->GetChildNodes()[PromoteIndex];
-			Node->RemoveChildNodeAt(PromoteIndex);
+			Node->RemoveChildNodeAt(PromoteIndex, false);
 		}
 
 		Modify();
@@ -981,7 +981,7 @@ void USimpleConstructionScript::ValidateSceneRootNodes()
 				if(RootNode != nullptr)
 				{
 					// We have an existing root node within the current BP class.
-					RootNode->AddChildNode(ChildNode);
+					RootNode->AddChildNode(ChildNode, false);
 				}
 				else
 				{

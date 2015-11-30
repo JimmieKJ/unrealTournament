@@ -2,9 +2,48 @@
 
 #pragma once
 
+#include "ModuleManager.h"
 #include "SignificanceManager.generated.h"
 
+class USignificanceManager;
+
 DECLARE_STATS_GROUP(TEXT("Significance Manager"), STATGROUP_SignificanceManager, STATCAT_Advanced);
+
+/* Module definition for significance manager. Owns the references to created significance managers*/
+class SIGNIFICANCEMANAGER_API FSignificanceManagerModule : public FDefaultGameModuleImpl, public FGCObject
+{
+public:
+	// Begin IModuleInterface overrides
+	virtual void StartupModule() override;
+	// End IModuleInterface overrides
+
+	// Begin FGCObject overrides
+	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
+	// End FGCObject overrides
+
+	// Returns the significance manager for the specified World
+	FORCEINLINE static USignificanceManager* Get(const UWorld* World)
+	{
+		return WorldSignificanceManagers.FindRef(World);
+	}
+
+private:
+
+	// Callback function registered with global world delegates to instantiate significance manager when a game world is created
+	static void OnWorldInit(UWorld* World, const UWorld::InitializationValues IVS);
+
+	// Callback function registered with global world delegates to cleanup significance manager when a game world is destroyed
+	static void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources);
+
+	// Callback function registered with HUD to supply debug info when ShowDebug SignificanceManager has been entered on the console
+	static void OnShowDebugInfo(AHUD* HUD, UCanvas* Canvas, const FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos);
+
+	// Map of worlds to their significance manager
+	static TMap<const UWorld*, USignificanceManager*> WorldSignificanceManagers;
+
+	// Cached class for instantiating significance manager
+	static TSubclassOf<USignificanceManager>  SignificanceManagerClass;
+};
 
 /* The significance manager provides a framework for registering objects by tag to each have a significance
  * value calculated from which a game specific subclass and game logic can make decisions about what level
@@ -85,20 +124,24 @@ public:
 	bool QuerySignificance(const UObject* Object, float& OutSignificance) const;
 
 	// Returns the significance manager for the specified World
-	static USignificanceManager* Get(const UWorld* World);
+	FORCEINLINE static USignificanceManager* Get(const UWorld* World)
+	{
+		return FSignificanceManagerModule::Get(World);
+	}
 
 	// Templated convenience function to return a significance manager cast to a known type
 	template<class T>
-	static T* Get(const UWorld* World)
+	FORCEINLINE static T* Get(const UWorld* World)
 	{
 		return CastChecked<T>(Get(World), ECastCheckedType::NullAllowed);
 	}
 
 protected:
 
+	// Returns the list of viewpoints currently being represented by the significance manager
 	const TArray<FTransform>& GetViewpoints() const { return Viewpoints; }
 
-	// Whether the significance manager should be created on a client
+	// Whether the significance manager should be created on a client. Only used from CDO and 
 	uint32 bCreateOnClient:1;
 
 	// Whether the significance manager should be created on the server
@@ -122,20 +165,9 @@ private:
 	UPROPERTY(globalconfig, noclear, EditAnywhere, Category=DefaultClasses, meta=(MetaClass="SignificanceManager", DisplayName="Significance Manager Class"))
 	FStringClassReference SignificanceManagerClassName;
 
-	// Cached class for instantiating significance manager, only populated on CDO
-	UPROPERTY()
-	TSubclassOf<USignificanceManager>  SignificanceManagerClass;
-
-	// Map of worlds to their significance manager, only populated on CDO
-	UPROPERTY()
-	TMap<const UWorld*, USignificanceManager*> WorldSignificanceManagers;
-
-	// Callback function registered with global world delegates to instantiate significance manager when a game world is created
-	void OnWorldInit(UWorld* World, const UWorld::InitializationValues IVS);
-
-	// Callback function registered with global world delegates to cleanup significance manager when a game world is destroyed
-	void OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources);
-
 	// Callback function registered with HUD to supply debug info when ShowDebug SignificanceManager has been entered on the console
 	void OnShowDebugInfo(AHUD* HUD, UCanvas* Canvas, const FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos);
+
+	// Friend FSignificanceManagerModule so it can call OnShowDebugInfo and check 
+	friend FSignificanceManagerModule;
 };

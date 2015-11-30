@@ -13,4 +13,10 @@ public:
 	// ISequencerEditTool interface
 
 	virtual FReply OnMouseButtonUp(SWidget& OwnerWidget, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	
+protected:
+
+	void PerformHotspotSelection(const FPointerEvent& MouseEvent);
+	
+	TSharedPtr<SWidget> OnSummonContextMenu( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent );
 };

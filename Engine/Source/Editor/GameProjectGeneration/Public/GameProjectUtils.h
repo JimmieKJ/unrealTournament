@@ -220,6 +220,12 @@ public:
 	/** Generates a Build.cs file for a game module */
 	static bool GenerateGameModuleBuildFile(const FString& NewBuildFileName, const FString& ModuleName, const TArray<FString>& PublicDependencyModuleNames, const TArray<FString>& PrivateDependencyModuleNames, FText& OutFailReason);
 
+	/** Generates a module .cpp file, intended for plugin use */
+	static bool GeneratePluginModuleCPPFile(const FString& CPPFileName, const FString& ModuleName, const FString& StartupSourceCode, FText& OutFailReason);
+
+	/** Generates a module .h file, intended for plugin use */
+	static bool GeneratePluginModuleHeaderFile(const FString& HeaderFileName, const TArray<FString>& PublicHeaderIncludes, FText& OutFailReason);
+
 	/** Returns true if the currently loaded project has code files */
 	static bool ProjectHasCodeFiles();
 

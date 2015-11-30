@@ -3577,7 +3577,26 @@ namespace UnrealBuildTool
 						// not a plugin, see if it is a game module 
 						if (!ModuleFileName.IsUnderDirectory(UnrealBuildTool.EngineSourceDirectory))
 						{
-							ModuleType = UEBuildModuleType.Game;
+							if (ProjectDescriptor != null && ProjectDescriptor.Modules != null)
+							{
+								foreach (ModuleDescriptor ProjectModule in ProjectDescriptor.Modules)
+								{
+									if (ProjectModule.Name == ModuleName)
+									{
+										ModuleType = UEBuildModuleTypeExtensions.FromHostType(ProjectModule.Type);
+										if (ModuleType == UEBuildModuleType.Runtime)
+										{
+											// We expect game runtime modules to be marked as Game module type.
+											ModuleType = UEBuildModuleType.Game;
+										}
+									}
+								}
+							}
+							if (ModuleType == UEBuildModuleType.Unknown)
+							{
+								// No descriptor file or module was not on the list
+								ModuleType = UEBuildModuleType.Game;
+							}						
 						}
 						else
 						{

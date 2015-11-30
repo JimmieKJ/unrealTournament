@@ -26,13 +26,77 @@ UMovieSceneTrack* FSpawnTrackEditor::AddTrack(UMovieScene* FocusedMovieScene, co
 
 	if (auto* SpawnTrack = Cast<UMovieSceneSpawnTrack>(NewTrack))
 	{
-		SpawnTrack->SetObject(ObjectHandle);
+		SpawnTrack->SetObjectId(ObjectHandle);
 		SpawnTrack->AddSection(*SpawnTrack->CreateNewSection());
 	}
 
 	return NewTrack;
 }
 
+void FSpawnTrackEditor::BuildTrackContextMenu(FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track)
+{
+	UMovieSceneSpawnTrack* SpawnTrack = Cast<UMovieSceneSpawnTrack>(Track);
+	if (!SpawnTrack)
+	{
+		return;
+	}
+
+	FMovieSceneSpawnable* Spawnable = GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene()->FindSpawnable(SpawnTrack->GetObjectId());
+	if (!Spawnable)
+	{
+		return;
+	}
+
+	MenuBuilder.AddSubMenu(
+		LOCTEXT("OwnerLabel", "Spawned Object Owner"),
+		LOCTEXT("OwnerTooltip", "Specifies how the object spawned in this track is to be owned"),
+		FNewMenuDelegate::CreateSP(this, &FSpawnTrackEditor::AddSpawnOwnershipMenu, SpawnTrack)
+	);
+}
+
+void FSpawnTrackEditor::AddSpawnOwnershipMenu(FMenuBuilder& MenuBuilder, UMovieSceneSpawnTrack* Track)
+{
+	FMovieSceneSpawnable* Spawnable = GetSequencer()->GetFocusedMovieSceneSequence()->GetMovieScene()->FindSpawnable(Track->GetObjectId());
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("ThisSequence_Label", "This Sequence"),
+		LOCTEXT("ThisSequence_Tooltip", "Indicates that this sequence will own the spawned object. The object will be destroyed at the end of the sequence."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]{ Spawnable->SetSpawnOwnership(ESpawnOwnership::InnerSequence); }),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]{ return Spawnable->GetSpawnOwnership() == ESpawnOwnership::InnerSequence; })
+		),
+		NAME_None,
+		EUserInterfaceActionType::ToggleButton
+	);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("MasterSequence_Label", "Master Sequence"),
+		LOCTEXT("MasterSequence_Tooltip", "Indicates that the outermost sequence will own the spawned object. The object will be destroyed when the outermost sequence stops playing."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]{ Spawnable->SetSpawnOwnership(ESpawnOwnership::MasterSequence); }),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]{ return Spawnable->GetSpawnOwnership() == ESpawnOwnership::MasterSequence; })
+		),
+		NAME_None,
+		EUserInterfaceActionType::ToggleButton
+	);
+
+	MenuBuilder.AddMenuEntry(
+		LOCTEXT("External_Label", "External"),
+		LOCTEXT("External_Tooltip", "Indicates this object's lifetime is managed externally once spawned. It will not be destroyed by sequencer."),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateLambda([=]{ Spawnable->SetSpawnOwnership(ESpawnOwnership::External); }),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateLambda([=]{ return Spawnable->GetSpawnOwnership() == ESpawnOwnership::External; })
+		),
+		NAME_None,
+		EUserInterfaceActionType::ToggleButton
+	);
+}
 
 void FSpawnTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding, const UClass* ObjectClass)
 {

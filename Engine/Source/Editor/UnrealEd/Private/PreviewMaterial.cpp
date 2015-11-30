@@ -73,12 +73,11 @@ public:
 
 			if (bEditorStatsMaterial)
 			{
-				TArray<FString> ShaderTypeNames;
-				TArray<FString> ShaderTypeDescriptions;
-				GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNames, ShaderTypeDescriptions);
+				TMap<FName, FString> ShaderTypeNamesAndDescriptions;
+				GetRepresentativeShaderTypesAndDescriptions(ShaderTypeNamesAndDescriptions);
 
 				//Only allow shaders that are used in the stats.
-				return ShaderTypeNames.Find(ShaderType->GetName()) != INDEX_NONE;
+				return ShaderTypeNamesAndDescriptions.Contains(ShaderType->GetFName());
 			}
 
 			// look for any of the needed type

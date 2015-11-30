@@ -17,6 +17,7 @@
 #include "PropertyTrackEditor.h"
 #include "CommonMovieSceneTools.h"
 #include "MovieSceneToolHelpers.h"
+#include "MovieSceneCommonHelpers.h"
 
 
 #include "ShotSequencerSection.h"

@@ -200,7 +200,7 @@ void UGameplayTask::OnDestroy(bool bOwnerFinished)
 
 FString UGameplayTask::GetDebugString() const
 {
-	return FString::Printf(TEXT("Generic %s"), *GetName());
+	return FString::Printf(TEXT("%s (%s)"), *GetName(), *InstanceName.ToString());
 }
 
 void UGameplayTask::AddRequiredResource(TSubclassOf<UGameplayTaskResource> RequiredResource)

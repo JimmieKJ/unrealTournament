@@ -378,6 +378,10 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 	// Set current result as possible background.
 	float3 Background = OutColor0.rgb * (1.0/Weight);
 
+	// former method
+//	 #define FadeOutOutsideCoC(INDEX, COC) C##INDEX.rgb = lerp(C##INDEX.rgb, Background.rgb, saturate(abs(C##INDEX.a) - COC));
+	// new method avoids having the center leaking with large CoC
+#define FadeOutOutsideCoC(INDEX, COC) W##INDEX = lerp(W##INDEX, 0, saturate(abs(C##INDEX.a) - COC));
 
 	// Uncomment to see intermediate debug output
 //	OutColor0.rgb *= (1.0/Weight);return; 
@@ -418,10 +422,10 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 	C4 = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV4, 0);
 
 	// Lerp to background if outside possibly smaller CoC.
-	C1.rgb = lerp(C1.rgb, Background.rgb, saturate(abs(C1.a) - Coc2));
-	C2.rgb = lerp(C2.rgb, Background.rgb, saturate(abs(C2.a) - Coc2));
-	C3.rgb = lerp(C3.rgb, Background.rgb, saturate(abs(C3.a) - Coc2));
-	C4.rgb = lerp(C4.rgb, Background.rgb, saturate(abs(C4.a) - Coc2));
+	FadeOutOutsideCoC(1, Coc2)
+	FadeOutOutsideCoC(2, Coc2)
+	FadeOutOutsideCoC(3, Coc2)
+	FadeOutOutsideCoC(4, Coc2)
 
 	W1 = R1;
 	W2 = R2;
@@ -490,10 +494,10 @@ void Circle4Samples(float4 UVAndScreenPos : TEXCOORD0, out float4 OutColor0 : SV
 	C3 = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV3, 0);
 	C4 = PostprocessInput0.SampleLevel(PostprocessInput0Sampler, UV4, 0);
 
-	C1.rgb = lerp(C1.rgb, Background.rgb, saturate(abs(C1.a) - Coc3));
-	C2.rgb = lerp(C2.rgb, Background.rgb, saturate(abs(C2.a) - Coc3));
-	C3.rgb = lerp(C3.rgb, Background.rgb, saturate(abs(C3.a) - Coc3));
-	C4.rgb = lerp(C4.rgb, Background.rgb, saturate(abs(C4.a) - Coc3));
+	FadeOutOutsideCoC(1, Coc3)
+	FadeOutOutsideCoC(2, Coc3)
+	FadeOutOutsideCoC(3, Coc3)
+	FadeOutOutsideCoC(4, Coc3)
 
 	W1 = R1;
 	W2 = R2;

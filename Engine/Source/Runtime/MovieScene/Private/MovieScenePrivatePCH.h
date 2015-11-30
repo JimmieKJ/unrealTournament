@@ -14,5 +14,6 @@
 #include "MovieSceneSequenceInstance.h"
 #include "IMovieSceneTrackInstance.h"
 #include "MovieSceneSequence.h"
+#include "MovieSceneCommonHelpers.h"
 
 #endif

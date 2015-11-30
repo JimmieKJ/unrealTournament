@@ -275,6 +275,11 @@ struct FObjectExport : public FObjectResource
 	*/
 	bool			bExportLoadFailed;
 
+	/**
+	* Export is a dynamic class.
+	*/
+	bool			bDynamicClass;
+
 	/** If this object is a top level package (which must have been forced into the export table via OBJECTMARK_ForceTagExp)
 	 * this is the GUID for the original package file
 	 * Serialized
@@ -343,6 +348,7 @@ struct FObjectImport : public FObjectResource
 	 */
 	COREUOBJECT_API FObjectImport();
 	FObjectImport( UObject* InObject );
+	FObjectImport( UObject* InObject, UClass* InClass );
 	
 	/** I/O function */
 	friend COREUOBJECT_API FArchive& operator<<( FArchive& Ar, FObjectImport& I );
@@ -872,46 +878,6 @@ public:
 		}
 		return NULL;
 	}
-
-	/** Gets the class name for the specified index in the export map. */
-	COREUOBJECT_API FName GetExportClassName( int32 ExportIdx );
-	/** Gets the class name for the specified index in the import map. */
-	FName GetExportClassName(FPackageIndex PackageIndex)
-	{
-		if (PackageIndex.IsExport())
-		{
-			return GetExportClassName(PackageIndex.ToExport());
-		}
-		return NAME_None;
-	}
-	/** Gets the class name for the specified index in the import map. */
-	FName GetImportClassName( int32 ImportIdx )
-	{
-		return ImportMap[ImportIdx].ClassName;
-	}
-	/** Gets the class name for the specified index in the import map. */
-	FName GetImportClassName(FPackageIndex PackageIndex)
-	{
-		if (PackageIndex.IsImport())
-		{
-			return GetImportClassName(PackageIndex.ToImport());
-		}
-		return NAME_None;
-	}
-	/** Gets the class name for the specified package index. */
-	FName GetClassName(FPackageIndex PackageIndex)
-	{
-		if (PackageIndex.IsImport())
-		{
-			return GetImportClassName(PackageIndex);
-		}
-		else if (PackageIndex.IsExport())
-		{
-			return GetExportClassName(PackageIndex);
-		}
-		return NAME_None;
-	}
-
 };
 
 
@@ -1001,6 +967,46 @@ public:
 	FLinker(ELinkerType::Type InType, UPackage* InRoot, const TCHAR* InFilename);
 
 	virtual ~FLinker();
+
+	/** Gets the class name for the specified index in the export map. */
+	COREUOBJECT_API FName GetExportClassName(int32 ExportIdx);
+	/** Gets the class name for the specified index in the import map. */
+	FName GetExportClassName(FPackageIndex PackageIndex)
+	{
+		if (PackageIndex.IsExport())
+		{
+			return GetExportClassName(PackageIndex.ToExport());
+		}
+		return NAME_None;
+	}
+	/** Gets the class name for the specified index in the import map. */
+	FName GetImportClassName(int32 ImportIdx)
+	{
+		return ImportMap[ImportIdx].ClassName;
+	}
+	/** Gets the class name for the specified index in the import map. */
+	FName GetImportClassName(FPackageIndex PackageIndex)
+	{
+		if (PackageIndex.IsImport())
+		{
+			return GetImportClassName(PackageIndex.ToImport());
+		}
+		return NAME_None;
+	}
+	/** Gets the class name for the specified package index. */
+	FName GetClassName(FPackageIndex PackageIndex)
+	{
+		if (PackageIndex.IsImport())
+		{
+			return GetImportClassName(PackageIndex);
+		}
+		else if (PackageIndex.IsExport())
+		{
+			return GetExportClassName(PackageIndex);
+		}
+		return NAME_None;
+	}
+
 
 	FORCEINLINE ELinkerType::Type GetType() const
 	{
@@ -1298,6 +1304,8 @@ public:
 	uint32					LoadFlags;
 	/** Indicates whether the imports for this loader have been verified													*/
 	bool					bHaveImportsBeenVerified;
+	/** Indicates that this linker was created for a dynamic class package and will not use Loader */
+	bool					bDynamicClassLinker;
 	/** Hash table for exports.																								*/
 	int32						ExportHash[256];
 #if WITH_EDITOR
@@ -2096,6 +2104,14 @@ private:
 	void ResetDeferredLoadingState();
 
 	bool HasPerformedFullExportResolvePass();
+
+	/** Finds import, tries to fall back to dynamic class if the object could not be found */
+	UObject* FindImport(UClass* ImportClass, UObject* ImportOuter, const TCHAR* Name);
+	/** Finds import, tries to fall back to dynamic class if the object could not be found */
+	UObject* FindImportFast(UClass* ImportClass, UObject* ImportOuter, FName Name);
+
+	/** Fills all necessary information for constructing dynamic type package linker */
+	void CreateDynamicTypeLoader();
 
 #if	USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 	/** 

@@ -6,10 +6,10 @@
 	UAssetObjectProperty.
 -----------------------------------------------------------------------------*/
 
-FString UAssetObjectProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass) const
+FString UAssetObjectProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, const FString& InnerNativeTypeName) const
 {
-	check(ActualClass);
-	return FString::Printf(TEXT("TAssetPtr<%s%s>"), ActualClass->GetPrefixCPP(), *ActualClass->GetName());
+	ensure(!InnerNativeTypeName.IsEmpty());
+	return FString::Printf(TEXT("TAssetPtr<%s>"), *InnerNativeTypeName);
 }
 FString UAssetObjectProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 {

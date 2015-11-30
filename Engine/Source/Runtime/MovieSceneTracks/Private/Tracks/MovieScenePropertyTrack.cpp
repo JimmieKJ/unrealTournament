@@ -125,6 +125,7 @@ UMovieSceneSection* UMovieScenePropertyTrack::FindOrAddSection( float Time )
 
 	// Add a new section that starts and ends at the same time
 	UMovieSceneSection* NewSection = CreateNewSection();
+	NewSection->SetFlags(RF_Transactional);
 	NewSection->SetStartTime( Time );
 	NewSection->SetEndTime( Time );
 

@@ -11,25 +11,41 @@
 #include "Engine/LightMapTexture2D.h"
 
 /** Emits draw events for a given FMeshBatch and the FPrimitiveSceneProxy corresponding to that mesh element. */
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-void EmitMeshDrawEvents_Inner(FRHICommandList& RHICmdList, const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMeshBatch& Mesh)
+#if WANTS_DRAW_MESH_EVENTS
+
+void BeginMeshDrawEvent_Inner(FRHICommandList& RHICmdList, const FPrimitiveSceneProxy* PrimitiveSceneProxy, const FMeshBatch& Mesh, TDrawEvent<FRHICommandList>& MeshEvent)
 {
-	// Only show material name at the top level
-	// Note: this is the parent's material name, not the material instance
-	SCOPED_DRAW_EVENTF(RHICmdList, MaterialEvent, *Mesh.MaterialRenderProxy->GetMaterial(PrimitiveSceneProxy ? PrimitiveSceneProxy->GetScene().GetFeatureLevel() : GMaxRHIFeatureLevel)->GetFriendlyName());
+	// Only show material and resource name at the top level
 	if (PrimitiveSceneProxy)
 	{
-		// Show Actor, level and resource name inside the material name
-		// These are separate draw events since some platforms only allow 32 character event names (xenon)
-		{
-			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, LevelEvent, PrimitiveSceneProxy->GetLevelName() != NAME_None, PrimitiveSceneProxy->GetLevelName().IsValid() ? *PrimitiveSceneProxy->GetLevelName().ToString() : TEXT(""));
-		}
-		{
-			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, OwnerEvent,PrimitiveSceneProxy->GetOwnerName() != NAME_None, *PrimitiveSceneProxy->GetOwnerName().ToString());
-		}
-		SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, ResourceEvent,PrimitiveSceneProxy->GetResourceName() != NAME_None, PrimitiveSceneProxy->GetResourceName().IsValid() ? *PrimitiveSceneProxy->GetResourceName().ToString() : TEXT(""));
+		BEGIN_DRAW_EVENTF(
+			RHICmdList, 
+			MaterialEvent, 
+			MeshEvent, 
+			TEXT("%s %s"), 
+			// Note: this is the parent's material name, not the material instance
+			*Mesh.MaterialRenderProxy->GetMaterial(PrimitiveSceneProxy ? PrimitiveSceneProxy->GetScene().GetFeatureLevel() : GMaxRHIFeatureLevel)->GetFriendlyName(),
+			PrimitiveSceneProxy->GetResourceName().IsValid() ? *PrimitiveSceneProxy->GetResourceName().ToString() : TEXT(""));
+
+			// Show Actor, level and resource name inside the material name
+			// These are separate draw events since some platforms have a limit on draw event length
+			// Note: empty leaf events are culled from profilegpu by default so these won't show up
+			{
+				//SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, LevelEvent, PrimitiveSceneProxy->GetLevelName() != NAME_None, PrimitiveSceneProxy->GetLevelName().IsValid() ? *PrimitiveSceneProxy->GetLevelName().ToString() : TEXT(""));
+			}
+			//SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, OwnerEvent,PrimitiveSceneProxy->GetOwnerName() != NAME_None, *PrimitiveSceneProxy->GetOwnerName().ToString());
+	}
+	else
+	{
+		BEGIN_DRAW_EVENTF(
+			RHICmdList, 
+			MaterialEvent, 
+			MeshEvent, 
+			// Note: this is the parent's material name, not the material instance
+			*Mesh.MaterialRenderProxy->GetMaterial(GMaxRHIFeatureLevel)->GetFriendlyName());
 	}
 }
+
 #endif
 
 void DrawPlane10x10(class FPrimitiveDrawInterface* PDI,const FMatrix& ObjectToWorld, float Radii, FVector2D UVMin, FVector2D UVMax, const FMaterialRenderProxy* MaterialRenderProxy, uint8 DepthPriorityGroup)

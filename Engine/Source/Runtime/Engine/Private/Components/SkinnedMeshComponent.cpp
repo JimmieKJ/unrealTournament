@@ -40,10 +40,29 @@ static TAutoConsoleVariable<int32> CVarEnableMorphTargets(TEXT("r.EnableMorphTar
 
 namespace FAnimUpdateRateManager
 {
-	// Global counter to spread SkinnedMeshComponent tick updates.
-	static uint8 UpdateRateGroupCount = 0;
-
 	static float TargetFrameTimeForUpdateRate = 1.f / 30.f; //Target frame rate for lookahead URO
+
+	// Bucketed group counters to stagged update an eval, used to initialise AnimUpdateRateShiftTag
+	// for mesh params in the same shift group.
+	struct FShiftBucketParameters
+	{
+		void SetFriendlyName(const EUpdateRateShiftBucket& InShiftBucket, const FName& InFriendlyName)
+		{
+			ShiftTagFriendlyNames[(uint8)InShiftBucket] = InFriendlyName;
+		}
+
+		const FName& GetFriendlyName(const EUpdateRateShiftBucket& InShiftBucket)
+		{
+			return ShiftTagFriendlyNames[(uint8)InShiftBucket];
+		}
+
+		static uint8 ShiftTagBuckets[(uint8)EUpdateRateShiftBucket::ShiftBucketMax];
+
+	private:
+		static FName ShiftTagFriendlyNames[(uint8)EUpdateRateShiftBucket::ShiftBucketMax];
+	};
+	uint8 FShiftBucketParameters::ShiftTagBuckets[] = {};
+	FName FShiftBucketParameters::ShiftTagFriendlyNames[] = {};
 
 	struct FAnimUpdateRateParametersTracker
 	{
@@ -60,12 +79,12 @@ namespace FAnimUpdateRateManager
 
 		FAnimUpdateRateParametersTracker() : AnimUpdateRateFrameCount(0), AnimUpdateRateShiftTag(0) {}
 
-		uint8 GetAnimUpdateRateShiftTag()
+		uint8 GetAnimUpdateRateShiftTag(const EUpdateRateShiftBucket& ShiftBucket)
 		{
 			// If hasn't been initialized yet, pick a unique ID, to spread population over frames.
 			if (AnimUpdateRateShiftTag == 0)
 			{
-				AnimUpdateRateShiftTag = ++UpdateRateGroupCount;
+				AnimUpdateRateShiftTag = ++FShiftBucketParameters::ShiftTagBuckets[(uint8)ShiftBucket];
 			}
 
 			return AnimUpdateRateShiftTag;
@@ -78,7 +97,6 @@ namespace FAnimUpdateRateManager
 			return Cast<APlayerController>(Controller) != NULL;
 		}
 	};
-
 
 	TMap<UObject*, FAnimUpdateRateParametersTracker*> ActorToUpdateRateParams;
 
@@ -142,7 +160,7 @@ namespace FAnimUpdateRateManager
 		0,
 		TEXT("Set to 1 to force interpolation"));
 
-	void AnimUpdateRateSetParams(FAnimUpdateRateParametersTracker* Tracker, float DeltaTime, bool bRecentlyRendered, float MaxDistanceFactor, bool bNeedsValidRootMotion, bool bUsingRootMotionFromEverything)
+	void AnimUpdateRateSetParams(FAnimUpdateRateParametersTracker* Tracker, float DeltaTime, bool bRecentlyRendered, float MaxDistanceFactor, int32 MinLod, bool bNeedsValidRootMotion, bool bUsingRootMotionFromEverything)
 	{
 		// default rules for setting update rates
 
@@ -156,23 +174,38 @@ namespace FAnimUpdateRateManager
 		{
 			const int32 NewUpdateRate = ((bHumanControlled || bNeedsEveryFrame) ? 1 : Tracker->UpdateRateParameters.BaseNonRenderedUpdateRate);
 			const int32 NewEvaluationRate = Tracker->UpdateRateParameters.BaseNonRenderedUpdateRate;
-			Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(), NewUpdateRate, NewEvaluationRate, false);
+			Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(Tracker->UpdateRateParameters.ShiftBucket), NewUpdateRate, NewEvaluationRate, false);
 		}
 		// Visible controlled characters or playing root motion. Need evaluation and ticking done every frame.
 		else  if (bHumanControlled || bNeedsEveryFrame)
 		{
-			Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(), 1, 1, false);
+			Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(Tracker->UpdateRateParameters.ShiftBucket), 1, 1, false);
 		}
 		else
 		{
-			int32 DesiredEvaluationRate = Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds.Num() + 1;
-			for (int32 Index = 0; Index < Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds.Num(); Index++)
+			int32 DesiredEvaluationRate = 1;
+
+			if(!Tracker->UpdateRateParameters.bShouldUseLodMap)
 			{
-				const float& DistanceFactorThreadhold = Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds[Index];
-				if (MaxDistanceFactor > DistanceFactorThreadhold)
+				DesiredEvaluationRate = Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds.Num() + 1;
+				for(int32 Index = 0; Index < Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds.Num(); Index++)
 				{
-					DesiredEvaluationRate = Index + 1;
-					break;
+					const float& DistanceFactorThreadhold = Tracker->UpdateRateParameters.BaseVisibleDistanceFactorThesholds[Index];
+					if(MaxDistanceFactor > DistanceFactorThreadhold)
+					{
+						DesiredEvaluationRate = Index + 1;
+						break;
+					}
+				}
+			}
+			else
+			{
+				// Using LOD map which should have been set along with flag in custom delegate on creation.
+				// if the map is empty don't throttle
+				if(int32* FrameSkip = Tracker->UpdateRateParameters.LODToFrameSkipMap.Find(MinLod))
+				{
+					// Add 1 as an eval rate of 1 is 0 frameskip
+					DesiredEvaluationRate = (*FrameSkip) + 1;
 				}
 			}
 
@@ -185,11 +218,11 @@ namespace FAnimUpdateRateManager
 			if (bUsingRootMotionFromEverything && DesiredEvaluationRate > 1)
 			{
 				//Use look ahead mode that allows us to rate limit updates even when using root motion
-				Tracker->UpdateRateParameters.SetLookAheadMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(), TargetFrameTimeForUpdateRate*DesiredEvaluationRate);
+				Tracker->UpdateRateParameters.SetLookAheadMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(Tracker->UpdateRateParameters.ShiftBucket), TargetFrameTimeForUpdateRate*DesiredEvaluationRate);
 			}
 			else
 			{
-				Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(), DesiredEvaluationRate, DesiredEvaluationRate, true);
+				Tracker->UpdateRateParameters.SetTrailMode(DeltaTime, Tracker->GetAnimUpdateRateShiftTag(Tracker->UpdateRateParameters.ShiftBucket), DesiredEvaluationRate, DesiredEvaluationRate, true);
 			}
 		}
 	}
@@ -201,6 +234,7 @@ namespace FAnimUpdateRateManager
 		bool bPlayingRootMotion = false;
 		bool bUsingRootMotionFromEverything = true;
 		float MaxDistanceFactor = 0.f;
+		int32 MinLod = MAX_int32;
 
 		const TArray<USkinnedMeshComponent*>& SkinnedComponents = Tracker->RegisteredComponents;
 
@@ -210,12 +244,13 @@ namespace FAnimUpdateRateManager
 			MaxDistanceFactor = FMath::Max(MaxDistanceFactor, Component->MaxDistanceFactor);
 			bPlayingRootMotion |= Component->IsPlayingRootMotion();
 			bUsingRootMotionFromEverything &= Component->IsPlayingRootMotionFromEverything();
+			MinLod = FMath::Min(MinLod, Component->PredictedLODLevel);
 		}
 
 		bNeedsValidRootMotion &= bPlayingRootMotion;
 
 		// Figure out which update rate should be used.
-		AnimUpdateRateSetParams(Tracker, DeltaTime, bRecentlyRendered, MaxDistanceFactor, bNeedsValidRootMotion, bUsingRootMotionFromEverything);
+		AnimUpdateRateSetParams(Tracker, DeltaTime, bRecentlyRendered, MaxDistanceFactor, MinLod, bNeedsValidRootMotion, bUsingRootMotionFromEverything);
 	}
 
 	const TCHAR* B(bool b)
@@ -1885,73 +1920,6 @@ bool USkinnedMeshComponent::UpdateLODStatus()
 	}
 
 	return bLODChanged;
-}
-
-/** See if an array of ActiveVertexAnims already contains the supplied anim */
-int32 FindVertexAnim(const TArray<FActiveVertexAnim>& ActiveAnims, UVertexAnimBase* Anim)
-{
-	for(int32 i=0; i<ActiveAnims.Num(); i++)
-	{
-		if(ActiveAnims[i].VertAnim == Anim)
-		{
-			return i;
-		}
-	}
-
-	return INDEX_NONE;
-}
-
-TArray<FActiveVertexAnim> USkinnedMeshComponent::UpdateActiveVertexAnims(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& MorphCurveAnims, const TArray<FActiveVertexAnim>& ActiveAnims)
-{
-	TArray<struct FActiveVertexAnim> OutVertexAnims;
-
-	// First copy ActiveAnims
-	for(int32 AnimIdx=0; AnimIdx < ActiveAnims.Num(); AnimIdx++)
-	{
-		const FActiveVertexAnim& ActiveAnim = ActiveAnims[AnimIdx];
-		const float ActiveAnimAbsWeight = FMath::Abs(ActiveAnim.Weight);
-
-		// Check it has valid weight, and works on this SkeletalMesh
-		if (	ActiveAnimAbsWeight > MinVertexAnimBlendWeight &&
-			ActiveAnim.VertAnim != NULL &&
-			ActiveAnim.VertAnim->BaseSkelMesh == InSkeletalMesh)
-		{
-			OutVertexAnims.Add(ActiveAnim);
-		}
-		// @TODO Need to check for duplicates here?
-	}
-
-	// Then go over the CurveKeys finding morph targets by name
-	for(auto CurveIter=MorphCurveAnims.CreateConstIterator(); CurveIter; ++CurveIter)
-	{
-		const FName& CurveName	= (CurveIter).Key();
-		const float& Weight	= (CurveIter).Value();
-
-		// If it has a valid weight
-		if(FMath::Abs(Weight) > MinVertexAnimBlendWeight)
-		{
-			// Find morph reference
-			UMorphTarget* Target = InSkeletalMesh ? InSkeletalMesh->FindMorphTarget(CurveName) : NULL;
-			if(Target != NULL)				
-			{
-				// See if this morph target already has an entry
-				int32 AnimIndex = FindVertexAnim(OutVertexAnims, Target);
-				// If not, add it
-				if(AnimIndex == INDEX_NONE)
-				{
-					OutVertexAnims.Add(FActiveVertexAnim(Target, Weight));
-				}
-				// If it does, use the max weight
-				else
-				{
-					const float CurrentWeight = OutVertexAnims[AnimIndex].Weight;
-					OutVertexAnims[AnimIndex].Weight = FMath::Max<float>(CurrentWeight, Weight);
-				}
-			}
-		}
-	}
-
-	return OutVertexAnims;
 }
 
 void USkinnedMeshComponent::FinalizeBoneTransform()

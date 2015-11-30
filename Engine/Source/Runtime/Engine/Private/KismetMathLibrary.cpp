@@ -1260,6 +1260,13 @@ bool UKismetMathLibrary::ClassIsChildOf(TSubclassOf<class UObject> TestClass, TS
  *****************************************************************************/
 FDateTime UKismetMathLibrary::MakeDateTime(int32 Year, int32 Month, int32 Day, int32 Hour, int32 Minute, int32 Second, int32 Millisecond)
 {
+	if (!FDateTime::Validate(Year, Month, Day, Hour, Minute, Second, Millisecond))
+	{
+		FFrame::KismetExecutionMessage(*FString::Printf(TEXT("DateTime in bad format (year %d, month %d, day %d, hour %d, minute %d, second %d, millisecond %d). E.g. year, month and day can't be zero."), Year, Month, Day, Hour, Minute, Second, Millisecond), ELogVerbosity::Warning);
+
+		return FDateTime(1, 1, 1, 0, 0, 0, 0);
+	}
+
 	return FDateTime(Year, Month, Day, Hour, Minute, Second, Millisecond);
 }
 

@@ -26,8 +26,6 @@ DECLARE_CYCLE_STAT_EXTERN(TEXT("FTriggerEventGraphTask"), STAT_FTriggerEventGrap
 DECLARE_CYCLE_STAT_EXTERN(TEXT("ParallelFor"), STAT_ParallelFor, STATGROUP_TaskGraphTasks, CORE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("ParallelForTask"), STAT_ParallelForTask, STATGROUP_TaskGraphTasks, CORE_API);
 
-extern CORE_API int32 GAllAnyThreadTasksFromGameHiPri;
-
 namespace ENamedThreads
 {
 	enum Type
@@ -94,11 +92,6 @@ namespace ENamedThreads
 	FORCEINLINE Type HiPri(Type ThreadAndIndex)
 	{
 		return Type(ThreadAndIndex | HighPriority);
-	}
-
-	FORCEINLINE Type AnyThreadGame()
-	{
-		return Type(AnyThread | (GAllAnyThreadTasksFromGameHiPri ? HighPriority : 0));
 	}
 }
 

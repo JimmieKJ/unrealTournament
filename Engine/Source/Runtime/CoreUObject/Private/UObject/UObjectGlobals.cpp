@@ -166,7 +166,7 @@ namespace
  * @param	ExclusiveFlags	Ignores objects that contain any of the specified exclusive flags
  * @return	Returns a pointer to the found object or NULL if none could be found
  */
-UObject* StaticFindObjectFast( UClass* ObjectClass, UObject* ObjectPackage, FName ObjectName, bool ExactClass, bool AnyPackage, EObjectFlags ExclusiveFlags )
+UObject* StaticFindObjectFast(UClass* ObjectClass, UObject* ObjectPackage, FName ObjectName, bool ExactClass, bool AnyPackage, EObjectFlags ExclusiveFlags, EInternalObjectFlags ExclusiveInternalFlags)
 {
 	if (GIsSavingPackage || IsGarbageCollectingOnGameThread())
 	{
@@ -174,9 +174,8 @@ UObject* StaticFindObjectFast( UClass* ObjectClass, UObject* ObjectPackage, FNam
 	}
 
 	// We don't want to return any objects that are currently being background loaded unless we're using FindObject during async loading.
-	ExclusiveFlags |= IsInAsyncLoadingThread() ? RF_NoFlags : RF_AsyncLoading;
-	
-	UObject* FoundObject = StaticFindObjectFastInternal( ObjectClass, ObjectPackage, ObjectName, ExactClass, AnyPackage, ExclusiveFlags );
+	ExclusiveInternalFlags |= IsInAsyncLoadingThread() ? EInternalObjectFlags::None : EInternalObjectFlags::AsyncLoading;	
+	UObject* FoundObject = StaticFindObjectFastInternal(ObjectClass, ObjectPackage, ObjectName, ExactClass, AnyPackage, ExclusiveFlags, ExclusiveInternalFlags);
 
 	if (!FoundObject)
 	{
@@ -267,6 +266,7 @@ UObject* StaticFindObjectSafe( UClass* ObjectClass, UObject* ObjectParent, const
 {
 	if (!GIsSavingPackage && !IsGarbageCollectingOnGameThread())
 	{
+		FGCScopeGuard GCAndSavepackageGuard;
 		return StaticFindObject( ObjectClass, ObjectParent, InName, ExactClass );
 	}
 	else
@@ -290,7 +290,7 @@ void GlobalSetProperty( const TCHAR* Value, UClass* Class, UProperty* Property, 
 			if( Object->IsA(Class) && !Object->IsPendingKill() )
 			{
 				// If we're in a PIE session then only allow set commands to affect PlayInEditor objects.
-				if( !GIsPlayInEditorWorld || ( Object->GetOutermost()->PackageFlags & PKG_PlayInEditor ) != 0 )
+				if( !GIsPlayInEditorWorld || Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor)  )
 				{
 #if WITH_EDITOR
 					if( !Object->HasAnyFlags(RF_ClassDefaultObject) && bNotifyObjectOfChange )
@@ -927,6 +927,10 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 		}
 	}
 
+	FName PackageName(InLongPackageName);
+	check(!InDependencyTracker.Contains(InLongPackageName));
+	InDependencyTracker.Add(PackageName);
+
 #if WITH_EDITOR
 	TGuardValue<bool> IsEditorLoadingPackage(GIsEditorLoadingPackage, GIsEditor || GIsEditorLoadingPackage);
 #endif
@@ -936,9 +940,11 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 	
 	SlowTask.EnterProgressFrame(10);
 
+	// Try to load.
+	BeginLoad();
+
 	if (InAssetRegistry)
 	{
-		FName PackageName(InLongPackageName);
 		TArray<FName> PackageDependencies;
 		InAssetRegistry->GetDependencies(PackageName, PackageDependencies, EAssetRegistryDependencyType::Hard);
 
@@ -946,23 +952,10 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 		{
 			if (!InDependencyTracker.Contains(Dependency) && FindObjectFast<UPackage>(nullptr, Dependency, false, false) == nullptr)
 			{
-				InDependencyTracker.Add(Dependency);
 				LoadPackageInternal(InOuter, *Dependency.ToString(), LoadFlags, nullptr, InDependencyTracker, InAssetRegistry);
 			}
 		}
-
-		// Check that the package we are going to load hasn't somehow been loaded behind our backs
-		// while loading a dependency. In some cases, circular dependencies can mean this happens
-		// and so there is no need to carry on any further.
-		Result = FindObjectFast<UPackage>(nullptr, InLongPackageName, false, false);
-		if (Result != nullptr)
-		{
-			return Result;
-		}
 	}
-
-	// Try to load.
-	BeginLoad();
 
 	bool bFullyLoadSkipped = false;
 
@@ -1015,7 +1008,7 @@ UPackage* LoadPackageInternal(UPackage* InOuter, const TCHAR* InLongPackageName,
 		// If we are loading a package for diff'ing, set the package flag
 		if(LoadFlags & LOAD_ForDiff)
 		{
-			Result->PackageFlags |= PKG_ForDiffing;
+			Result->SetPackageFlags(PKG_ForDiffing);
 		}
 
 		// Save the filename we load from
@@ -1505,20 +1498,22 @@ FName MakeUniqueObjectName( UObject* Parent, UClass* Class, FName BaseName/*=NAM
 }
 
 /**
- * Given an actor label string, generates an FName that can be used as an object name for that label.
- * The generated name isn't guaranteed to be unique.  If the object's current name is already satisfactory, then
- * that name will be returned.
+ * Given a display label string, generates an FName slug that is a valid FName for that label.
+ * If the object's current name is already satisfactory, then that name will be returned.
+ * For example, "[MyObject]: Object Label" becomes "MyObjectObjectLabel" FName slug.
+ * 
+ * Note: The generated name isn't guaranteed to be unique.
  *
- * @param	ActorLabel	The label string to convert to an FName
- * @param	CurrentObjectName	The object's current name, or NAME_None if it has no name yet
+ * @param DisplayLabel The label string to convert to an FName
+ * @param CurrentObjectName The object's current name, or NAME_None if it has no name yet
  *
- * @return	The generated actor object name
+ * @return	The generated object name
  */
-FName MakeObjectNameFromActorLabel( const FString& InActorLabel, const FName CurrentObjectName )
+FName MakeObjectNameFromDisplayLabel(const FString& DisplayLabel, const FName CurrentObjectName)
 {
-	FString GeneratedName = InActorLabel;
+	FString GeneratedName = DisplayLabel;
 
-	// Convert the actor label, which may consist of just about any possible character, into a
+	// Convert the display label, which may consist of just about any possible character, into a
 	// suitable name for a UObject (remove whitespace, certain symbols, etc.)
 	{
 		for( int32 BadCharacterIndex = 0; BadCharacterIndex < ARRAY_COUNT( INVALID_OBJECTNAME_CHARACTERS ) - 1; ++BadCharacterIndex )
@@ -1556,8 +1551,16 @@ FName MakeObjectNameFromActorLabel( const FString& InActorLabel, const FName Cur
  * Constructor - zero initializes all members
  */
 FObjectDuplicationParameters::FObjectDuplicationParameters( UObject* InSourceObject, UObject* InDestOuter )
-: SourceObject(InSourceObject), DestOuter(InDestOuter), DestName(NAME_None)
-, FlagMask(RF_AllFlags), ApplyFlags(RF_NoFlags), PortFlags(PPF_None), DestClass(NULL), CreatedObjects(NULL)
+: SourceObject(InSourceObject)
+, DestOuter(InDestOuter)
+, DestName(NAME_None)
+, FlagMask(RF_AllFlags & ~(RF_MarkAsRootSet|RF_MarkAsNative))
+, InternalFlagMask(EInternalObjectFlags::AllFlags)
+, ApplyFlags(RF_NoFlags)
+, ApplyInternalFlags(EInternalObjectFlags::None)
+, PortFlags(PPF_None)
+, DestClass(NULL)
+, CreatedObjects(NULL)
 {
 	checkSlow(SourceObject);
 	checkSlow(DestOuter);
@@ -1567,7 +1570,7 @@ FObjectDuplicationParameters::FObjectDuplicationParameters( UObject* InSourceObj
 }
 
 
-UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, const TCHAR* DestName, EObjectFlags FlagMask, UClass* DestClass, EDuplicateForPie DuplicateForPIE)
+UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, const FName DestName, EObjectFlags FlagMask, UClass* DestClass, EDuplicateForPie DuplicateForPIE, EInternalObjectFlags InternalFlagsMask)
 {
 	if (!IsAsyncLoading() && !IsLoading() && SourceObject->HasAnyFlags(RF_ClassDefaultObject))
 	{
@@ -1577,9 +1580,9 @@ UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, 
 
 	// @todo: handle const down the callstack.  for now, let higher level code use it and just cast it off
 	FObjectDuplicationParameters Parameters(const_cast<UObject*>(SourceObject), DestOuter);
-	if ( DestName && FCString::Strcmp(DestName,TEXT("")) )
+	if ( !DestName.IsNone() )
 	{
-		Parameters.DestName = FName(DestName, FNAME_Add, true);
+		Parameters.DestName = DestName;
 	}
 	else if (SourceObject->GetOuter() != DestOuter)
 	{
@@ -1599,6 +1602,7 @@ UObject* StaticDuplicateObject(UObject const* SourceObject, UObject* DestOuter, 
 		Parameters.DestClass = DestClass;
 	}
 	Parameters.FlagMask = FlagMask;
+	Parameters.InternalFlagMask = InternalFlagsMask;
 	if( DuplicateForPIE == SDO_DuplicateForPie)
 	{
 		Parameters.PortFlags = PPF_DuplicateForPIE;
@@ -1622,7 +1626,8 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 	{
 	// make sure we are not duplicating RF_RootSet as this flag is special
 	// also make sure we are not duplicating the RF_ClassDefaultObject flag as this can only be set on the real CDO
-	Parameters.FlagMask &= ~(RF_RootSet|RF_ClassDefaultObject);
+		Parameters.FlagMask &= ~RF_ClassDefaultObject;
+		Parameters.InternalFlagMask &= ~EInternalObjectFlags::RootSet;
 	}
 
 	// disable object and component instancing while we're duplicating objects, as we're going to instance components manually a little further below
@@ -1639,7 +1644,8 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 		DupRootObject = StaticConstructObject_Internal(	Parameters.DestClass,
 														Parameters.DestOuter,
 														Parameters.DestName,
-														Parameters.ApplyFlags|Parameters.SourceObject->GetMaskedFlags(Parameters.FlagMask),
+														Parameters.ApplyFlags | Parameters.SourceObject->GetMaskedFlags(Parameters.FlagMask),
+														Parameters.ApplyInternalFlags | (Parameters.SourceObject->GetInternalFlags() & Parameters.InternalFlagMask),
 														Parameters.SourceObject->GetArchetype()->GetClass() == Parameters.DestClass
 																? Parameters.SourceObject->GetArchetype()
 																: NULL,
@@ -1675,6 +1681,8 @@ UObject* StaticDuplicateObjectEx( FObjectDuplicationParameters& Parameters )
 		DupRootObject,				// Destination object to copy into
 		Parameters.FlagMask,		// Flags to be copied for duplicated objects
 		Parameters.ApplyFlags,		// Flags to always set on duplicated objects
+		Parameters.InternalFlagMask,		// Internal Flags to be copied for duplicated objects
+		Parameters.ApplyInternalFlags,		// Internal Flags to always set on duplicated objects
 		&InstanceGraph,				// Instancing graph
 		Parameters.PortFlags );		// PortFlags
 
@@ -1796,7 +1804,7 @@ bool SaveToTransactionBuffer(UObject* Object, bool bMarkDirty)
 	// Neither PIE world objects nor script packages should end up in the transaction buffer. Additionally, in order
 	// to save a copy of the object, we must have a transactor and the object must be transactional.
 	const bool IsTransactional = Object->HasAnyFlags(RF_Transactional);
-	const bool IsNotPIEOrContainsScriptObject = ( ( Object->GetOutermost()->PackageFlags & ( PKG_PlayInEditor | PKG_ContainsScript ) ) == 0 );
+	const bool IsNotPIEOrContainsScriptObject = (Object->GetOutermost()->HasAnyPackageFlags( PKG_PlayInEditor | PKG_ContainsScript) == false);
 
 	if ( GUndo && IsTransactional && IsNotPIEOrContainsScriptObject )
 	{
@@ -1895,6 +1903,7 @@ UObject* StaticAllocateObject
 	UObject*		InOuter,
 	FName			InName,
 	EObjectFlags	InFlags,
+	EInternalObjectFlags InternalSetFlags,
 	bool bCanRecycleSubobjects,
 	bool* bOutRecycledSubobject
 )
@@ -1979,7 +1988,7 @@ UObject* StaticAllocateObject
 	else
 	{
 		// Replace an existing object without affecting the original's address or index.
-		check(!Obj->HasAnyFlags(RF_Unreachable));
+		check(!Obj->IsUnreachable());
 
 		check(!ObjectRestoreAfterInitProps); // otherwise recursive construction
 		ObjectRestoreAfterInitProps = Obj->GetRestoreForUObjectOverwrite();
@@ -1987,12 +1996,13 @@ UObject* StaticAllocateObject
 		// Remember linker, flags, index, and native class info.
 		Linker		= Obj->GetLinker();
 		LinkerIndex = Obj->GetLinkerIndex();
-		InFlags		|= Obj->GetMaskedFlags(RF_Native | RF_RootSet);
+		InternalSetFlags |= (Obj->GetInternalFlags() & (EInternalObjectFlags::Native | EInternalObjectFlags::RootSet));
 
 		if ( bCreatingCDO )
 		{
 			check(Obj->HasAllFlags(RF_ClassDefaultObject));
 			Obj->SetFlags(InFlags);
+			Obj->SetInternalFlags(InternalSetFlags);
 			// never call PostLoad on class default objects
 			Obj->ClearFlags(RF_NeedPostLoad|RF_NeedPostLoadSubobjects);
 		}
@@ -2000,7 +2010,11 @@ UObject* StaticAllocateObject
 		{
 			// Should only get in here if we're NOT creating a subobject of a CDO.  CDO subobjects may still need to be serialized off of disk after being created by the constructor
 			// if really necessary there was code to allow replacement of object just needing postload, but lets not go there unless we have to
-			checkf(!Obj->HasAnyFlags(RF_NeedLoad|RF_NeedPostLoad|RF_ClassDefaultObject), *FText::Format( NSLOCTEXT( "Core", "ReplaceNotFullyLoaded_f", "Attempting to replace an object that hasn't been fully loaded: {0}" ), FText::FromString( Obj->GetFullName() ) ).ToString() );
+			checkf(!Obj->HasAnyFlags(RF_NeedLoad|RF_NeedPostLoad|RF_ClassDefaultObject),
+				*FText::Format(NSLOCTEXT("Core", "ReplaceNotFullyLoaded_f", "Attempting to replace an object that hasn't been fully loaded: {0} (Outer={1}, Flags={2})"),
+					FText::FromString(Obj->GetFullName()),
+					InOuter ? FText::FromString(InOuter->GetFullName()) : FText::FromString(TEXT("NULL")),
+					FText::FromString(FString::Printf(TEXT("0x%08x"), (int32)Obj->GetFlags()))).ToString());
 		}
 		// Subobjects are always created in the constructor, no need to re-create them here unless their archetype != CDO or they're blueprint generated.	
 		if (!bCreatingCDO && (!bCanRecycleSubobjects || !Obj->IsDefaultSubobject()))
@@ -2048,12 +2062,13 @@ UObject* StaticAllocateObject
 	if (!bSubObject)
 	{
 		FMemory::Memzero((void *)Obj, TotalSize);
-		new ((void *)Obj) UObjectBase(InClass,InFlags,InOuter,InName);
+		new ((void *)Obj) UObjectBase(InClass, InFlags, InternalSetFlags, InOuter, InName);
 	}
 	else
 	{
 		// Propagate flags to subobjects created in the native constructor.
 		Obj->SetFlags(InFlags);
+		Obj->SetInternalFlags(InternalSetFlags);
 	}
 
 	if (bWasConstructedOnOldObject)
@@ -2076,13 +2091,10 @@ UObject* StaticAllocateObject
 		// Sanity checks for async flags.
 		// It's possible to duplicate an object on the game thread that is still being referenced 
 		// by async loading code or has been created on a different thread than the main thread.
-		if (Obj->HasAnyFlags(RF_AsyncLoading))
+		Obj->ClearInternalFlags(EInternalObjectFlags::AsyncLoading);
+		if (Obj->HasAnyInternalFlags(EInternalObjectFlags::Async) && IsInGameThread())
 		{
-			Obj->ClearFlags(RF_AsyncLoading);
-		}
-		if (Obj->HasAnyFlags(RF_Async) && IsInGameThread())
-		{
-			Obj->ClearFlags(RF_Async);
+			Obj->ClearInternalFlags(EInternalObjectFlags::Async);
 		}
 	}
 
@@ -2240,7 +2252,7 @@ FObjectInitializer::~FObjectInitializer()
 
 		// if this is a blueprint CDO that derives from another blueprint, and 
 		// that parent (archetype) CDO isn't fully serialized
-		if (!Class->HasAnyFlags(RF_Native) && !ArchetypeClass->HasAnyFlags(RF_Native) && bSuperCDONeedsLoad)
+		if (!Class->IsNative() && !ArchetypeClass->IsNative() && bSuperCDONeedsLoad)
 		{
 			FLinkerLoad* ClassLinker = Class->GetLinker();
 			if ((ClassLinker != nullptr) && (ClassLinker->LoadFlags & LOAD_DeferDependencyLoads) != 0x00)
@@ -2591,15 +2603,19 @@ void FObjectInitializer::InitProperties(UObject* Obj, UClass* DefaultsClass, UOb
 				bNeedInitialize = InitNonNativeProperty(P, Obj);
 			}
 
-			if (bCopyTransientsFromClassDefaults && P->HasAnyPropertyFlags(CPF_Transient|CPF_DuplicateTransient|CPF_NonPIEDuplicateTransient))
+			bool IsTransient = P->HasAnyPropertyFlags(CPF_Transient | CPF_DuplicateTransient | CPF_NonPIEDuplicateTransient);
+			if (!IsTransient || !P->ContainsInstancedObjectProperty())
 			{
-				// This is a duplicate. The value for all transient or non-duplicatable properties should be copied
-				// from the source class's defaults.
-				P->CopyCompleteValue_InContainer(Obj, ClassDefaults);
-			}
-			else if (P->IsInContainer(DefaultsClass))
-			{
-				P->CopyCompleteValue_InContainer(Obj, DefaultData);
+				if (bCopyTransientsFromClassDefaults && IsTransient)
+				{
+					// This is a duplicate. The value for all transient or non-duplicatable properties should be copied
+					// from the source class's defaults.
+					P->CopyCompleteValue_InContainer(Obj, ClassDefaults);
+				}
+				else if (P->IsInContainer(DefaultsClass))
+				{
+					P->CopyCompleteValue_InContainer(Obj, DefaultData);
+				}
 			}
 		}
 	}
@@ -2633,8 +2649,9 @@ UObject* StaticConstructObject_Internal
 	UObject*		InOuter								/*=GetTransientPackage()*/,
 	FName			InName								/*=NAME_None*/,
 	EObjectFlags	InFlags								/*=0*/,
+	EInternalObjectFlags InternalSetFlags /*=0*/,
 	UObject*		InTemplate							/*=NULL*/,
-	bool			bCopyTransientsFromClassDefaults	/*=false*/, 
+	bool bCopyTransientsFromClassDefaults	/*=false*/,
 	FObjectInstancingGraph* InInstanceGraph				/*=NULL*/
 )
 {
@@ -2657,7 +2674,7 @@ UObject* StaticConstructObject_Internal
 	const bool bCanRecycleSubobjects = bIsNativeFromCDO;
 #endif
 	bool bRecycledSubobject = false;	
-	Result = StaticAllocateObject(InClass, InOuter, InName, InFlags, bCanRecycleSubobjects, &bRecycledSubobject);
+	Result = StaticAllocateObject(InClass, InOuter, InName, InFlags, InternalSetFlags, bCanRecycleSubobjects, &bRecycledSubobject);
 	check(Result != NULL);
 	// Don't call the constructor on recycled subobjects, they haven't been destroyed.
 	if (!bRecycledSubobject)
@@ -2669,9 +2686,9 @@ UObject* StaticConstructObject_Internal
 	if( GIsEditor && GUndo && (InFlags & RF_Transactional) && !(InFlags & RF_NeedLoad) && !InClass->IsChildOf(UField::StaticClass()) )
 	{
 		// Set RF_PendingKill and update the undo buffer so an undo operation will set RF_PendingKill on the newly constructed object.
-		Result->SetFlags(RF_PendingKill);
+		Result->MarkPendingKill();
 		SaveToTransactionBuffer(Result, false);
-		Result->ClearFlags(RF_PendingKill);
+		Result->ClearPendingKill();
 	}
 	return Result;
 }
@@ -2687,7 +2704,7 @@ UObject* StaticConstructObject
 	FObjectInstancingGraph* InInstanceGraph				/*=NULL*/
 )
 {
-	return StaticConstructObject_Internal(InClass, InOuter, InName, InFlags, InTemplate, bCopyTransientsFromClassDefaults, InInstanceGraph);
+	return StaticConstructObject_Internal(InClass, InOuter, InName, InFlags, EInternalObjectFlags::None, InTemplate, bCopyTransientsFromClassDefaults, InInstanceGraph);
 }
 
 void FObjectInitializer::AssertIfInConstructor(UObject* Outer, const TCHAR* ErrorMessage)
@@ -2710,9 +2727,10 @@ void FScopedObjectFlagMarker::SaveObjectFlags()
 {
 	StoredObjectFlags.Empty();
 
-	for ( FObjectIterator It; It; ++It )
+	for (FObjectIterator It; It; ++It)
 	{
-		StoredObjectFlags.Add(*It, It->GetFlags());
+		UObject* Obj = *It;
+		StoredObjectFlags.Add(*It, FStoredObjectFlags(Obj->GetFlags(), Obj->GetInternalFlags()));
 	}
 }
 
@@ -2721,16 +2739,18 @@ void FScopedObjectFlagMarker::SaveObjectFlags()
  */
 void FScopedObjectFlagMarker::RestoreObjectFlags()
 {
-	for ( TMap<UObject*,EObjectFlags>::TIterator It(StoredObjectFlags); It; ++It )
+	for (TMap<UObject*, FStoredObjectFlags>::TIterator It(StoredObjectFlags); It; ++It)
 	{
 		UObject* Object = It.Key();
-		EObjectFlags PreviousObjectFlags = It.Value();
+		FStoredObjectFlags& PreviousObjectFlags = It.Value();
 
 		// clear all flags
 		Object->ClearFlags(RF_AllFlags);
+		Object->ClearInternalFlags(EInternalObjectFlags::AllFlags);
 
 		// then reset the ones that were originally set
-		Object->SetFlags(PreviousObjectFlags);
+		Object->SetFlags(PreviousObjectFlags.Flags);
+		Object->SetInternalFlags(PreviousObjectFlags.InternalFlags);
 	}
 }
 
@@ -2824,7 +2844,7 @@ public:
 	 * @param FoundReferences	If non-NULL, fill in with all objects that point to an object with SearchFlags set
 	 * @param 
 	 */
-	void PerformReachabilityAnalysis( EObjectFlags KeepFlags, EObjectFlags SearchFlags = RF_NoFlags, FReferencerInformationList* FoundReferences = NULL)
+	void PerformReachabilityAnalysis( EObjectFlags KeepFlags, EInternalObjectFlags InternalKeepFlags, EObjectFlags SearchFlags = RF_NoFlags, FReferencerInformationList* FoundReferences = NULL)
 	{
 		// Reset object count.
 		extern int32 GObjectCountDuringLastMarkPhase;
@@ -2840,11 +2860,11 @@ public:
 			GObjectCountDuringLastMarkPhase++;
 
 			// Special case handling for objects that are part of the root set.
-			if( Object->HasAnyFlags( RF_RootSet ) )
+			if( Object->IsRooted() )
 			{
 				checkSlow( Object->IsValidLowLevel() );
 				// We cannot use RF_PendingKill on objects that are part of the root set.
-				checkCode( if( Object->HasAnyFlags( RF_PendingKill ) ) { UE_LOG(LogUObjectGlobals, Fatal, TEXT("Object %s is part of root set though has been marked RF_PendingKill!"), *Object->GetFullName() ); } );
+				checkCode( if( Object->IsPendingKill() ) { UE_LOG(LogUObjectGlobals, Fatal, TEXT("Object %s is part of root set though has been marked RF_PendingKill!"), *Object->GetFullName() ); } );
 				// Add to list of objects to serialize.
 				ObjectsToSerialize.Add( Object );
 			}
@@ -2852,13 +2872,15 @@ public:
 			else
 			{
 				// Mark objects as unreachable unless they have any of the passed in KeepFlags set and none of the passed in Search.
-				if( (Object->HasAnyFlags(KeepFlags) || KeepFlags == RF_NoFlags) && !Object->HasAnyFlags( SearchFlags ) )
+				if (!Object->HasAnyFlags(SearchFlags) &&
+					((KeepFlags == RF_NoFlags && InternalKeepFlags == EInternalObjectFlags::None) || Object->HasAnyFlags(KeepFlags) || Object->HasAnyInternalFlags(InternalKeepFlags))
+					)
 				{
-					ObjectsToSerialize.Add( Object );
+					ObjectsToSerialize.Add(Object);
 				}
 				else
 				{
-					Object->SetFlags( RF_Unreachable );
+					Object->SetInternalFlags(EInternalObjectFlags::Unreachable);
 				}
 			}
 		}
@@ -2909,7 +2931,7 @@ private:
 #endif
 
 		// Mark it as reachable.
-		Object->ClearFlags( RF_Unreachable );
+		Object->ThisThreadAtomicallyClearedRFUnreachable();
 
 		// Add it to the list of objects to serialize.
 		ObjectsToSerialize.Add( Object );
@@ -2936,9 +2958,9 @@ private:
 					CurrentReferenceInfo->TotalReferences++;
 				}
 				// Mark it as reachable.
-				InObject->ClearFlags(RF_Unreachable);
+				InObject->ThisThreadAtomicallyClearedRFUnreachable();
 			}
-			else if (InObject->HasAnyFlags(RF_Unreachable))
+			else if (InObject->IsUnreachable())
 			{
 				// Add encountered object reference to list of to be serialized objects if it hasn't already been added.
 				AddToObjectList(InReferencingObject, InReferencingProperty, InObject);
@@ -2968,9 +2990,9 @@ private:
  * @param	FoundReferences		If non-NULL fill in with list of objects that hold references
  * @return true if object is referenced, false otherwise
  */
-bool IsReferenced( UObject*& Obj, EObjectFlags KeepFlags, bool bCheckSubObjects, FReferencerInformationList* FoundReferences )
+bool IsReferenced(UObject*& Obj, EObjectFlags KeepFlags, EInternalObjectFlags InternalKeepFlags, bool bCheckSubObjects, FReferencerInformationList* FoundReferences)
 {
-	check(!Obj->HasAnyFlags(RF_Unreachable));
+	check(!Obj->IsUnreachable());
 
 	FScopedObjectFlagMarker ObjectFlagMarker;
 	bool bTempReferenceList = false;
@@ -3004,12 +3026,12 @@ bool IsReferenced( UObject*& Obj, EObjectFlags KeepFlags, bool bCheckSubObjects,
 
 	FCollectorTagUsedNonRecursive ObjectReferenceTagger;
 	// Exclude passed in object when peforming reachability analysis.
-	ObjectReferenceTagger.PerformReachabilityAnalysis( KeepFlags, RF_TagGarbageTemp, FoundReferences );
+	ObjectReferenceTagger.PerformReachabilityAnalysis(KeepFlags, InternalKeepFlags, RF_TagGarbageTemp, FoundReferences);
 
 	bool bIsReferenced = false;
 	if (FoundReferences)
 	{
-		bIsReferenced = FoundReferences->ExternalReferences.Num() > 0 || !Obj->HasAnyFlags( RF_Unreachable );
+		bIsReferenced = FoundReferences->ExternalReferences.Num() > 0 || !Obj->IsUnreachable();
 		// Move some from external to internal before returning
 		for (int32 i = 0; i < FoundReferences->ExternalReferences.Num(); i++)
 		{
@@ -3030,7 +3052,7 @@ bool IsReferenced( UObject*& Obj, EObjectFlags KeepFlags, bool bCheckSubObjects,
 	else
 	{
 		// Return whether the object was referenced and restore original state.
-		bIsReferenced = !Obj->HasAnyFlags( RF_Unreachable );
+		bIsReferenced = !Obj->IsUnreachable();
 	}
 	
 	if (bTempReferenceList)

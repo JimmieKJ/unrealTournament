@@ -46,7 +46,7 @@ DECLARE_DELEGATE_TwoParams(FOnWorldChanged, UWorld*, UWorld*);
 *****************************************************************************/
 namespace
 {
-	static UWorld* GetWorldForGivenObject(const class UObject* Object)
+	static UWorld* GetWorldForGivenObject(const UObject* Object)
 	{
 		UWorld* World = Object ? GEngine->GetWorldFromContextObject(Object, false) : nullptr;
 #if WITH_EDITOR
@@ -79,10 +79,14 @@ SVisualLogger::SVisualLogger()
 		FVisualLoggerDevice(SVisualLogger* InVisualLogger, FOnWorldChanged OnWorldChangedDelegate) : VisualLoggerWidget(InVisualLogger), LastUsedWorld(nullptr), OnWorldChanged(OnWorldChangedDelegate) {}
 
 		virtual ~FVisualLoggerDevice(){}
-		virtual void Serialize(const class UObject* LogOwner, FName OwnerName, FName OwnerClassName, const FVisualLogEntry& LogEntry) override
+		virtual void Serialize(const UObject* LogOwner, FName OwnerName, FName OwnerClassName, const FVisualLogEntry& LogEntry) override
 		{
 			VisualLoggerWidget->OnNewLogEntry(FVisualLogDevice::FVisualLogEntryItem(OwnerName, OwnerClassName, LogEntry));
-			UWorld* CurrentWorld = GetWorldForGivenObject(LogOwner);
+			UWorld* CurrentWorld = nullptr;
+			if (FVisualLogger::Get().GetObjectToWorldMap().Contains(LogOwner))
+			{
+				CurrentWorld = const_cast<UWorld*>(FVisualLogger::Get().GetObjectToWorldMap()[LogOwner].Get());
+			}
 			if (LastUsedWorld != CurrentWorld)
 			{
 				OnWorldChanged.ExecuteIfBound(LastUsedWorld, CurrentWorld);
@@ -678,6 +682,7 @@ void SVisualLogger::ResetData()
 
 	FLogVisualizer::Get().Reset();
 	FVisualLoggerDatabase::Get().Reset();
+
 	FVisualLoggerFilters::Get().Reset();
 
 	if (MainView.IsValid())
@@ -685,7 +690,7 @@ void SVisualLogger::ResetData()
 		MainView->ResetData();
 	}
 
-	if (VisualLoggerFilters.IsValid())
+	if (VisualLoggerFilters.IsValid() && ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bResetDataWithNewSession)
 	{
 		VisualLoggerFilters->ResetData();
 	}

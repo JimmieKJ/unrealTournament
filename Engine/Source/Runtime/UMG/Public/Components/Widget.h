@@ -424,6 +424,15 @@ public:
 		return ( DesignerFlags&FlagToCheck ) != 0;
 	}
 
+	/** @return The friendly name of the widget to display in the editor */
+	const FString& GetDisplayLabel() const
+	{
+		return DisplayLabel;
+	}
+
+	/** Sets the friendly name of the widget to display in the editor */
+	void SetDisplayLabel(const FString& DisplayLabel);
+
 #else
 	FORCEINLINE bool IsDesignTime() const { return false; }
 #endif
@@ -450,10 +459,10 @@ public:
 #if WITH_EDITOR
 	FORCEINLINE bool CanSafelyRouteEvent()
 	{
-		return !(IsDesignTime() || GIntraFrameDebuggingGameThread || HasAnyFlags(RF_Unreachable) || FUObjectThreadContext::Get().IsRoutingPostLoad);
+		return !(IsDesignTime() || GIntraFrameDebuggingGameThread || IsUnreachable() || FUObjectThreadContext::Get().IsRoutingPostLoad);
 	}
 #else
-	FORCEINLINE bool CanSafelyRouteEvent() { return !(HasAnyFlags(RF_Unreachable) || FUObjectThreadContext::Get().IsRoutingPostLoad); }
+	FORCEINLINE bool CanSafelyRouteEvent() { return !(IsUnreachable() || FUObjectThreadContext::Get().IsRoutingPostLoad); }
 #endif
 
 #if WITH_EDITOR
@@ -573,6 +582,10 @@ private:
 	/** Any flags used by the designer at edit time. */
 	UPROPERTY(Transient)
 	TEnumAsByte<EWidgetDesignFlags::Type> DesignerFlags;
+
+	/** The friendly name for this widget displayed in the designer and BP graph. */
+	UPROPERTY()
+	FString DisplayLabel;
 #endif
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)

@@ -151,6 +151,7 @@ public:
 	// All render commands run on the render thread
 	static ENamedThreads::Type GetDesiredThread()
 	{
+		check(!GIsThreadedRendering || ENamedThreads::RenderThread != ENamedThreads::GameThread);
 		return ENamedThreads::RenderThread;
 	}
 

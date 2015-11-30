@@ -218,7 +218,7 @@ public:
 	{
 		// Error checking: checks if we have a curve table specified but no valid curve entry
 		GetValueAtLevel(1.f);
-		bool bInvalid = (Curve.CurveTable != nullptr && FinalCurve == nullptr);
+		bool bInvalid = (Curve.CurveTable != nullptr || Curve.RowName != NAME_None ) && (FinalCurve == nullptr);
 		return !bInvalid;
 	}
 
@@ -228,6 +228,9 @@ public:
 
 	//copy operator to prevent duplicate handles
 	void operator=(const FScalableFloat& Src);
+
+	/* Used to upgrade a float property into an FScalableFloat */
+	bool SerializeFromMismatchedTag(const FPropertyTag& Tag, FArchive& Ar);
 
 private:
 
@@ -248,6 +251,17 @@ private:
 	// Cached direct pointer to RichCurve we should evaluate
 	mutable FRichCurve* FinalCurve;
 };
+
+template<>
+struct TStructOpsTypeTraits<FScalableFloat>
+	: public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithSerializeFromMismatchedTag = true,
+	};
+};
+
 
 /**
  *	DataTable that allows us to define meta data about attributes. Still a work in progress.

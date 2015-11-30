@@ -77,13 +77,14 @@ void FAttenuationSettingsCustomization::CustomizeChildren( TSharedRef<IPropertyH
 
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bAttenuate)).ToSharedRef());
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bSpatialize)).ToSharedRef());
-	ChildBuilder.AddChildProperty(DistanceAlgorithmHandle.ToSharedRef() );
 
 	// Check to see if a spatialization plugin is enabled
 	if (IsAudioPluginEnabled(EAudioPlugin::SPATIALIZATION))
 	{
 		ChildBuilder.AddChildProperty(SpatializationAlgorithmHandle.ToSharedRef());
 	}
+
+	ChildBuilder.AddChildProperty(DistanceAlgorithmHandle.ToSharedRef() );
 
 	IDetailPropertyRow& CustomCurveRow = ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, CustomAttenuationCurve)).ToSharedRef());
 	CustomCurveRow.Visibility(TAttribute<EVisibility>(this, &FAttenuationSettingsCustomization::IsCustomCurveSelected));
@@ -191,8 +192,34 @@ void FAttenuationSettingsCustomization::CustomizeChildren( TSharedRef<IPropertyH
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bAttenuateWithLPF)).ToSharedRef());
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, LPFRadiusMin)).ToSharedRef());
 	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, LPFRadiusMax)).ToSharedRef());
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, LPFFrequencyAtMin)).ToSharedRef());
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, LPFFrequencyAtMax)).ToSharedRef());
 
-	if (PropertyHandles.Num() != 15)
+
+	bIsSpatializedHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bSpatialize)).ToSharedRef();
+	bIsFocusedHandle = PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bEnableListenerFocus)).ToSharedRef();
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, bEnableListenerFocus)).ToSharedRef());
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, FocusAzimuth)).ToSharedRef())
+		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, NonFocusAzimuth)).ToSharedRef())
+		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, FocusDistanceScale)).ToSharedRef())
+		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, FocusPriorityScale)).ToSharedRef())
+		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, NonFocusPriorityScale)).ToSharedRef())
+		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
+
+	ChildBuilder.AddChildProperty(PropertyHandles.FindChecked(GET_MEMBER_NAME_CHECKED(FAttenuationSettings, NonFocusVolumeAttenuation)).ToSharedRef())
+		.EditCondition(GetIsFocusEnabledAttribute(), nullptr);
+
+	if (PropertyHandles.Num() != 25)
 	{
 		FString PropertyList;
 		for (auto It(PropertyHandles.CreateConstIterator()); It; ++It)
@@ -202,6 +229,27 @@ void FAttenuationSettingsCustomization::CustomizeChildren( TSharedRef<IPropertyH
 		ensureMsgf(false, TEXT("Unexpected property handle(s) customizing FAttenuationSettings: %s"), *PropertyList);
 	}
 }
+
+bool FAttenuationSettingsCustomization::IsFocusedEnabled() const
+{
+	bool bIsFocusEnabled;
+	bIsFocusedHandle->GetValue(bIsFocusEnabled);
+	if (!bIsFocusEnabled)
+	{
+		return false;
+	}
+
+	bool bIsSpatialized;
+	bIsSpatializedHandle->GetValue(bIsSpatialized);
+
+	return bIsSpatialized;
+}
+
+TAttribute<bool> FAttenuationSettingsCustomization::GetIsFocusEnabledAttribute() const
+{
+	return TAttribute<bool>(this, &FAttenuationSettingsCustomization::IsFocusedEnabled);
+}
+
 
 EVisibility FAttenuationSettingsCustomization::IsConeSelected() const
 {

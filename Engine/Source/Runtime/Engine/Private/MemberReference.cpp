@@ -125,7 +125,7 @@ FString FMemberReference::GetReferenceSearchString(UClass* InFieldOwner) const
 		{
 			if (MemberGuid.IsValid())
 			{
-				return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s && MemberGuid(A=%i && B=%i && C=%i && D=%i) ))"), *MemberName.ToString(), MemberGuid.A, MemberGuid.B, MemberGuid.C, MemberGuid.D);
+				return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+\"%s\" && MemberGuid(A=%i && B=%i && C=%i && D=%i) ))"), *MemberName.ToString(), MemberGuid.A, MemberGuid.B, MemberGuid.C, MemberGuid.D);
 			}
 			else
 			{
@@ -135,21 +135,21 @@ FString FMemberReference::GetReferenceSearchString(UClass* InFieldOwner) const
 				ExportMemberParentName += InFieldOwner->GetAuthoritativeClass()->GetPathName();
 				ExportMemberParentName.AppendChar('\'');
 
-				return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s && (MemberParent=\"%s\" || bSelfContext=true) ))"), *MemberName.ToString(), *ExportMemberParentName);
+				return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+\"%s\" && (MemberParent=\"%s\" || bSelfContext=true) ))"), *MemberName.ToString(), *ExportMemberParentName);
 			}
 		}
 		else if (MemberGuid.IsValid())
 		{
-			return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s && MemberGuid(A=%i && B=%i && C=%i && D=%i)))"), *MemberName.ToString(), MemberGuid.A, MemberGuid.B, MemberGuid.C, MemberGuid.D);
+			return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+\"%s\" && MemberGuid(A=%i && B=%i && C=%i && D=%i)))"), *MemberName.ToString(), MemberGuid.A, MemberGuid.B, MemberGuid.C, MemberGuid.D);
 		}
 		else
 		{
-			return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s))"), *MemberName.ToString());
+			return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+\"%s\"))"), *MemberName.ToString());
 		}
 	}
 	else
 	{
-		return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+%s && MemberScope=+%s))"), *MemberName.ToString(), *GetMemberScopeName());
+		return FString::Printf(TEXT("Nodes(VariableReference(MemberName=+\"%s\" && MemberScope=+\"%s\"))"), *MemberName.ToString(), *GetMemberScopeName());
 	}
 }
 

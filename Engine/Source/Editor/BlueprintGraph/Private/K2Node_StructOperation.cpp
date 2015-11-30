@@ -85,3 +85,8 @@ FString UK2Node_StructOperation::GetPinMetaData(FString InPinName, FName InKey)
 	}
 	return ReturnValue;
 }
+
+FString UK2Node_StructOperation::GetFindReferenceSearchString() const
+{
+	return UEdGraphNode::GetFindReferenceSearchString();
+}

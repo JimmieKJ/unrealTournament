@@ -442,7 +442,7 @@ void FRawStatsMemoryProfiler::UpdateGenerateMemoryMapProgress( const int32 Alloc
 void FRawStatsMemoryProfiler::ProcessSpecialMessageMarkerOperation( const FStatMessage& Message, const FStackState& StackState )
 {
 	const FName RawName = Message.NameAndInfo.GetRawName();
-	if (RawName == FStatConstants::NAME_NamedMarker)
+	if (RawName == FStatConstants::RAW_NamedMarker)
 	{
 		const FName NamedMarker = Message.GetValue_FName();
 		Snapshots.Add( TPairInitializer<uint32, FName>( LastSequenceTagForNamedMarker, NamedMarker ) );

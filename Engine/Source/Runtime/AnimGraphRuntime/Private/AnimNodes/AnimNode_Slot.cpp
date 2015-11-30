@@ -3,6 +3,7 @@
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "AnimNodes/AnimNode_Slot.h"
 #include "Animation/AnimMontage.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_Slot
@@ -15,10 +16,10 @@ void FAnimNode_Slot::Initialize(const FAnimationInitializeContext& Context)
 	WeightData.Reset();
 
 	// If this node has not already been registered with the AnimInstance, do it.
-	if (!SlotNodeInitializationCounter.IsSynchronizedWith(Context.AnimInstance->SlotNodeInitializationCounter))
+	if (!SlotNodeInitializationCounter.IsSynchronizedWith(Context.AnimInstanceProxy->GetSlotNodeInitializationCounter()))
 	{
-		SlotNodeInitializationCounter.SynchronizeWith(Context.AnimInstance->SlotNodeInitializationCounter);
-		Context.AnimInstance->RegisterSlotNodeWithAnimInstance(SlotName);
+		SlotNodeInitializationCounter.SynchronizeWith(Context.AnimInstanceProxy->GetSlotNodeInitializationCounter());
+		Context.AnimInstanceProxy->RegisterSlotNodeWithAnimInstance(SlotName);
 	}
 }
 
@@ -30,11 +31,11 @@ void FAnimNode_Slot::CacheBones(const FAnimationCacheBonesContext& Context)
 void FAnimNode_Slot::Update(const FAnimationUpdateContext& Context)
 {
 	// Update weights.
-	Context.AnimInstance->GetSlotWeight(SlotName, WeightData.SlotNodeWeight, WeightData.SourceWeight, WeightData.TotalNodeWeight);
+	Context.AnimInstanceProxy->GetSlotWeight(SlotName, WeightData.SlotNodeWeight, WeightData.SourceWeight, WeightData.TotalNodeWeight);
 
 	// Update cache in AnimInstance.
-	Context.AnimInstance->UpdateSlotNodeWeight(SlotName, WeightData.SlotNodeWeight);
-	Context.AnimInstance->UpdateSlotRootMotionWeight(SlotName, Context.GetFinalBlendWeight());
+	Context.AnimInstanceProxy->UpdateSlotNodeWeight(SlotName, WeightData.SlotNodeWeight);
+	Context.AnimInstanceProxy->UpdateSlotRootMotionWeight(SlotName, Context.GetFinalBlendWeight());
 
 	if (WeightData.SourceWeight > ZERO_ANIMWEIGHT_THRESH)
 	{
@@ -57,7 +58,7 @@ void FAnimNode_Slot::Evaluate(FPoseContext & Output)
 			Source.Evaluate(SourceContext);
 		}
 
-		Output.AnimInstance->SlotEvaluatePose(SlotName, SourceContext.Pose, SourceContext.Curve, WeightData.SourceWeight, Output.Pose, Output.Curve, WeightData.SlotNodeWeight, WeightData.TotalNodeWeight);
+		Output.AnimInstanceProxy->SlotEvaluatePose(SlotName, SourceContext.Pose, SourceContext.Curve, WeightData.SourceWeight, Output.Pose, Output.Curve, WeightData.SlotNodeWeight, WeightData.TotalNodeWeight);
 
 		checkSlow(!Output.ContainsNaN());
 		checkSlow(Output.IsNormalized());

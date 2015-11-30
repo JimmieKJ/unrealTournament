@@ -33,5 +33,5 @@ private:
 	TMap<int32, int32> BoneMapToSource;
 
 	// reinitialize mesh component 
-	void ReinitializeMeshComponent(UAnimInstance* AnimInstance);
+	void ReinitializeMeshComponent(FAnimInstanceProxy* AnimInstanceProxy);
 };

@@ -9,6 +9,11 @@ class FCodeLiteSourceCodeAccessor : public ISourceCodeAccessor
 public:
 
 	/**
+	 * Call if we've likely modified the availability of the source code accessor. 
+	 */
+	virtual void RefreshAvailability() override {}
+
+	/**
 	 * Can we access source code.
 	 */
 	virtual bool CanAccessSourceCode() const override;

@@ -57,7 +57,7 @@ UActorComponent* UInheritableComponentHandler::CreateOverridenComponentTemplate(
 	//       kill so we can identify that situation here (see UE-13987/UE-13990)
 	if (NewComponentTemplate->IsPendingKill())
 	{
-		NewComponentTemplate->ClearFlags(RF_PendingKill);
+		NewComponentTemplate->ClearPendingKill();
 		UEngine::FCopyPropertiesForUnrelatedObjectsParams CopyParams;
 		CopyParams.bDoDelta = false;
 		UEngine::CopyPropertiesForUnrelatedObjects(BestArchetype, NewComponentTemplate, CopyParams);
@@ -92,7 +92,7 @@ void UInheritableComponentHandler::UpdateOwnerClass(UBlueprintGeneratedClass* Ow
 		auto OldComponentTemplate = Record.ComponentTemplate;
 		if (OldComponentTemplate && (OwnerClass != OldComponentTemplate->GetOuter()))
 		{
-			Record.ComponentTemplate = DuplicateObject(OldComponentTemplate, OwnerClass, *OldComponentTemplate->GetName());
+			Record.ComponentTemplate = DuplicateObject(OldComponentTemplate, OwnerClass, OldComponentTemplate->GetFName());
 		}
 	}
 }

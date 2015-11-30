@@ -111,6 +111,8 @@ namespace NetworkProfiler
 
 			var AllFrames = new PartialNetworkStream( NetworkStream.NameIndexUnreal, 1.0f / 30.0f );
 
+			int EarlyOutMinutes = InMainWindow.GetMaxProfileMinutes();
+
 			// Parse stream till we reach the end, marked by special token.
 			bool bHasReachedEndOfStream = false;
 			while( bHasReachedEndOfStream == false )
@@ -210,6 +212,11 @@ namespace NetworkProfiler
 					{
 						CurrentFrameTokens.Add(Token);
 					}
+				}
+
+				if ( EarlyOutMinutes > 0 && ( ( AllFrames.EndTime - AllFrames.StartTime  ) > 60 * EarlyOutMinutes ) )
+				{
+					break;
 				}
 			}
 

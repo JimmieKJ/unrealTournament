@@ -77,12 +77,13 @@ void UDataTable::LoadStructData(FArchive& Ar)
 
 void UDataTable::SaveStructData(FArchive& Ar)
 {
-	// Don't even try to save rows if no RowStruct
-	if (RowStruct != NULL)
-	{
-		int32 NumRows = RowMap.Num();
-		Ar << NumRows;
+	// Always save number number of rows, so the DT could be safely loaded.
+	int32 NumRowsToSave = (nullptr != RowStruct) ? RowMap.Num() : 0;
+	Ar << NumRowsToSave;
 
+	// Don't even try to save rows if no RowStruct
+	if (nullptr != RowStruct)
+	{
 		// Now iterate over rows in the map
 		for (auto RowIt = RowMap.CreateIterator(); RowIt; ++RowIt)
 		{

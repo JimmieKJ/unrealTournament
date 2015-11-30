@@ -148,12 +148,12 @@ void FReferenceChainSearch::PrintReferencers( FReferenceChain& Referencer )
 		}
 		
 		CA_SUPPRESS(6011)
-		if( RefInfo.ReferencedBy->HasAnyFlags(RF_Native) )
+		if( RefInfo.ReferencedBy->IsNative() )
 		{
 			ObjectReachability += TEXT("(native) ");
 		}
 		
-		if( RefInfo.ReferencedBy->HasAnyFlags(RF_PendingKill) )
+		if( RefInfo.ReferencedBy->IsPendingKill() )
 		{
 			ObjectReachability += TEXT("(PendingKill) ");
 		}
@@ -163,12 +163,12 @@ void FReferenceChainSearch::PrintReferencers( FReferenceChain& Referencer )
 			ObjectReachability += TEXT("(standalone) ");
 		}
 
-		if( RefInfo.ReferencedBy->HasAnyFlags(RF_Async) )
+		if (RefInfo.ReferencedBy->HasAnyInternalFlags(EInternalObjectFlags::Async))
 		{
 			ObjectReachability += TEXT("(async) ");
 		}
 
-		if( RefInfo.ReferencedBy->HasAnyFlags(RF_AsyncLoading) )
+		if (RefInfo.ReferencedBy->HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading))
 		{
 			ObjectReachability += TEXT("(asyncloading) ");
 		}
@@ -252,7 +252,7 @@ void CreateReferenceChain(FRefGraphItem* Node, FReferenceChainSearch::FReference
 		ChainArray.Push(ThisChain);
 		return;
 	}
-	if (Node->Link.ReferencedObj->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS | RF_RootSet))
+	if (Node->Link.ReferencedObj->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) || Node->Link.ReferencedObj->IsRooted())
 	{
 		return;
 	}
@@ -288,9 +288,11 @@ void FReferenceChainSearch::BuildRefGraph()
 	// Create the first graph-nodes referencing the target object
 	for (FRawObjectIterator It;It;++It)
 	{
-		UObject* Obj = *It;
+		FUObjectItem* ObjItem = *It;
+		checkSlow(ObjItem);
+		UObject* Object = static_cast<UObject*>(ObjItem->Object);
 
-		TArray<FReferenceChainLink>& RefList = ReferenceMap.FindChecked(Obj);
+		TArray<FReferenceChainLink>& RefList = ReferenceMap.FindChecked(Object);
 
 		for (int32 i=0; i < RefList.Num(); ++i)
 		{
@@ -317,14 +319,15 @@ void FReferenceChainSearch::BuildRefGraph()
 
 		for (FRawObjectIterator It;It;++It)
 		{
-			UObject* Obj = *It;
-
-			TArray<FReferenceChainLink>& RefList = ReferenceMap.FindChecked(Obj);
+			FUObjectItem* ObjItem = *It;
+			checkSlow(ObjItem->Object);
+			UObject* Object = (UObject*)ObjItem->Object;
+			TArray<FReferenceChainLink>& RefList = ReferenceMap.FindChecked(Object);
 
 			for (int32 i=0; i < RefList.Num(); ++i)
 			{
 				if (RefList[i].ReferenceType == EReferenceType::Invalid ||
-					RefList[i].ReferencedObj->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS | RF_RootSet)) // references to rooted objects are not important
+					RefList[i].ReferencedObj->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) || RefList[i].ReferencedObj->IsRooted()) // references to rooted objects are not important
 				{ 
 					continue; 
 				}
@@ -375,7 +378,7 @@ void FReferenceChainSearch::BuildRefGraph()
 	{
 		FRefGraphItem* Node = It.Value();
 
-		if (Node->Link.ReferencedBy->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS | RF_RootSet))
+		if (Node->Link.ReferencedBy->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) || Node->Link.ReferencedBy->IsRooted())
 		{
 			FReferenceChain CurChain;
 			CreateReferenceChain(Node, CurChain, Chains, ObjectToFind, Level);
@@ -394,9 +397,9 @@ void FReferenceChainSearch::PerformSearch()
 	
 	for (FRawObjectIterator It;It;++It)
 	{
-		UObject* CurrentObject = *It;
-
-		ProcessObject(CurrentObject);
+		FUObjectItem* CurrentObject = *It;
+		UObject* Object = static_cast<UObject*>(CurrentObject->Object);
+		ProcessObject(Object);
 	}
 
 	BuildRefGraph();
@@ -830,12 +833,12 @@ FString FReferenceChainSearch::FReferenceChainLink::ToString() const
 		ObjectReachability += TEXT("(root) ");
 	}
 		
-	if( ReferencedBy->HasAnyFlags(RF_Native) )
+	if( ReferencedBy->IsNative() )
 	{
 		ObjectReachability += TEXT("(native) ");
 	}
 
-	if( ReferencedBy->HasAnyFlags(RF_PendingKill) )
+	if( ReferencedBy->IsPendingKill() )
 	{
 		ObjectReachability += TEXT("(PendingKill) ");
 	}

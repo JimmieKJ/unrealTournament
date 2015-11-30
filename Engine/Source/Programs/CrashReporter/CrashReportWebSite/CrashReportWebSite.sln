@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30324.0
+VisualStudioVersion = 12.0.40121.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CrashReportWebSite", "CrashReportWebSite.csproj", "{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}"
 EndProject
@@ -12,26 +12,19 @@ EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
-		Development|Any CPU = Development|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}.Development|Any CPU.ActiveCfg = Development|Any CPU
-		{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}.Development|Any CPU.Build.0 = Development|Any CPU
 		{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{7A6D44E8-D8F2-4540-8A4A-0EF1A87D65AB}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B83DE8C9-9429-4765-86BD-8EEEA89B138F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B83DE8C9-9429-4765-86BD-8EEEA89B138F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B83DE8C9-9429-4765-86BD-8EEEA89B138F}.Development|Any CPU.ActiveCfg = Development|Any CPU
-		{B83DE8C9-9429-4765-86BD-8EEEA89B138F}.Development|Any CPU.Build.0 = Development|Any CPU
 		{B83DE8C9-9429-4765-86BD-8EEEA89B138F}.Release|Any CPU.ActiveCfg = Development|Any CPU
 		{B83DE8C9-9429-4765-86BD-8EEEA89B138F}.Release|Any CPU.Build.0 = Development|Any CPU
 		{5D7D66E8-8C76-4AF9-B3EC-2EF03421D730}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{5D7D66E8-8C76-4AF9-B3EC-2EF03421D730}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5D7D66E8-8C76-4AF9-B3EC-2EF03421D730}.Development|Any CPU.ActiveCfg = Development|Any CPU
-		{5D7D66E8-8C76-4AF9-B3EC-2EF03421D730}.Development|Any CPU.Build.0 = Development|Any CPU
 		{5D7D66E8-8C76-4AF9-B3EC-2EF03421D730}.Release|Any CPU.ActiveCfg = Development|Any CPU
 		{5D7D66E8-8C76-4AF9-B3EC-2EF03421D730}.Release|Any CPU.Build.0 = Development|Any CPU
 	EndGlobalSection

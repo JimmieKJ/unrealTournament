@@ -210,6 +210,7 @@ public:
 			<< B.PoseToSkeletonBoneIndexArray
 			<< B.bDisableRetargeting
 			<< B.bUseRAWData
+			<< B.bUseSourceData
 			;
 		return Ar;
 	}

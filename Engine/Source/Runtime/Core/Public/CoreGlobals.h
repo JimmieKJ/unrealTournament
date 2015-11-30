@@ -238,7 +238,7 @@ extern CORE_API uint64 GLastGCFrame;
 /** Incremented once per frame before the scene is being rendered. In split screen mode this is incremented once for all views (not for each view). */
 extern CORE_API uint32 GFrameNumber;
 
-/** Render Thread copy of the frame number. */
+/** NEED TO RENAME, for RT version of GFrameTime use View.ViewFamily->FrameNumber or pass down from RT from GFrameTime). */
 extern CORE_API uint32 GFrameNumberRenderThread;
 
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)

@@ -12,6 +12,7 @@
 #include "EngineVersion.h"
 
 IMPLEMENT_MODULE( FAnalyticsET, AnalyticsET );
+DEFINE_LOG_CATEGORY(LogAnalytics);
 
 class FAnalyticsProviderET : 
 	public IAnalyticsProvider,

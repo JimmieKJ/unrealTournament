@@ -1284,7 +1284,7 @@ bool UAbilitySystemComponent::ReplicateSubobjects(class UActorChannel *Channel, 
 
 	for (UGameplayAbility* Ability : AllReplicatedInstancedAbilities)
 	{
-		if (Ability && !Ability->HasAnyFlags(RF_PendingKill))
+		if (Ability && !Ability->IsPendingKill())
 		{
 			WroteSomething |= Channel->ReplicateSubobject(Ability, *Bunch, *RepFlags);
 		}
@@ -1389,66 +1389,152 @@ void UAbilitySystemComponent::DebugCyclicAggregatorBroadcasts(FAggregator* Aggre
 
 // ------------------------------------------------------------------------
 
-FString ASC_CleanupName(FString Str)
+bool UAbilitySystemComponent::ServerPrintDebug_Request_Validate()
+{
+	return true;
+}
+
+void UAbilitySystemComponent::ServerPrintDebug_Request_Implementation()
+{
+	FAbilitySystemComponentDebugInfo DebugInfo;
+	DebugInfo.bShowAbilities = true;
+	DebugInfo.bShowAttributes = true;
+	DebugInfo.bShowGameplayEffects = true;
+	DebugInfo.Accumulate = true;
+
+	Debug_Internal(DebugInfo);
+
+	ClientPrintDebug_Response(DebugInfo.Strings);
+}
+
+void UAbilitySystemComponent::ClientPrintDebug_Response_Implementation(const TArray<FString>& Strings)
+{
+	ABILITY_LOG(Warning, TEXT(" "));
+	ABILITY_LOG(Warning, TEXT("Server State: "));
+
+	for (FString Str : Strings)
+	{
+		ABILITY_LOG(Warning, TEXT("%s"), *Str);
+	}
+}
+
+FString UAbilitySystemComponent::CleanupName(FString Str)
 {
 	Str.RemoveFromStart(TEXT("Default__"));
 	Str.RemoveFromEnd(TEXT("_c"));
 	return Str;
 }
 
-void AccumulateScreenPos(float& XPos, float& YPos, float AdditionalY, float OriginalY, float MaxY, const float NewColumnYPadding, UCanvas* Canvas)
+void UAbilitySystemComponent::AccumulateScreenPos(FAbilitySystemComponentDebugInfo& Info)
 {
-	const float ColumnWidth = Canvas->ClipX * 0.4f;
+	const float ColumnWidth = Info.Canvas ? Info.Canvas->ClipX * 0.4f : 0.f;
 
-	float NewY = YPos + AdditionalY;
-	if (NewY > MaxY)
+	float NewY = Info.YPos + Info.YL;
+	if (NewY > Info.MaxY)
 	{
 		// Need new column, reset Y to original height
-		NewY = NewColumnYPadding;
-		XPos += ColumnWidth;
+		NewY = Info.NewColumnYPadding;
+		Info.XPos += ColumnWidth;
 	}
-	YPos = NewY;
+	Info.YPos = NewY;
+}
+
+void UAbilitySystemComponent::DebugLine(FAbilitySystemComponentDebugInfo& Info, FString Str, float XOffset, float YOffset)
+{
+	if (Info.Canvas)
+	{
+		Info.YL = Info.Canvas->DrawText(GEngine->GetTinyFont(), Str, Info.XPos + XOffset, Info.YPos );
+		AccumulateScreenPos(Info);
+	}
+
+	if (Info.bPrintToLog)
+	{
+		FString LogStr;
+		for (int32 i=0; i < (int32)XOffset; ++i)
+		{
+			LogStr += TEXT(" ");
+		}
+		LogStr += Str;
+		ABILITY_LOG(Warning, TEXT("%s"), *LogStr);
+	}
+
+	if (Info.Accumulate)
+	{
+		FString LogStr;
+		for (int32 i=0; i < (int32)XOffset; ++i)
+		{
+			LogStr += TEXT(" ");
+		}
+		LogStr += Str;
+		Info.Strings.Add(Str);
+	}
 }
 
 void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos)
 {
-	bool bShowAttributes = true;
-	bool bShowGameplayEffects = true;
-	bool bShowAbilities = true;
+	FAbilitySystemComponentDebugInfo DebugInfo;
 
 	if (DebugDisplay.IsDisplayOn(FName(TEXT("Attributes"))))
 	{
-		bShowAbilities = false;
-		bShowAttributes = true;
-		bShowGameplayEffects = false;
+		DebugInfo.bShowAbilities = false;
+		DebugInfo.bShowAttributes = true;
+		DebugInfo.bShowGameplayEffects = false;
 	}
 	if (DebugDisplay.IsDisplayOn(FName(TEXT("Ability"))))
 	{
-		bShowAbilities = true;
-		bShowAttributes = false;
-		bShowGameplayEffects = false;
+		DebugInfo.bShowAbilities = true;
+		DebugInfo.bShowAttributes = false;
+		DebugInfo.bShowGameplayEffects = false;
 	}
 	else if (DebugDisplay.IsDisplayOn(FName(TEXT("GameplayEffects"))))
 	{
-		bShowAbilities = false;
-		bShowAttributes = false;
-		bShowGameplayEffects = true;
+		DebugInfo.bShowAbilities = false;
+		DebugInfo.bShowAttributes = false;
+		DebugInfo.bShowGameplayEffects = true;
 	}
 
-	float XPos = 0.f;
-	const float OriginalX = XPos;
-	const float OriginalY = YPos;
-	const float MaxY = Canvas->ClipY - 150.f; // Give some padding for any non-columnizing debug output following this output
-	float NewColumnYPadding = 30.f;
+	DebugInfo.bPrintToLog = false;
+	DebugInfo.Canvas = Canvas;
+	DebugInfo.XPos = 0.f;
+	DebugInfo.YPos = YPos;
+	DebugInfo.OriginalX = 0.f;
+	DebugInfo.OriginalY = YPos;
+	DebugInfo.MaxY = Canvas->ClipY - 150.f; // Give some padding for any non-columnizing debug output following this output
+	DebugInfo.NewColumnYPadding = 30.f;
 
+	Debug_Internal(DebugInfo);
+
+	YPos = DebugInfo.YPos;
+	YL = DebugInfo.YL;
+}
+
+void UAbilitySystemComponent::PrintDebug()
+{
+	FAbilitySystemComponentDebugInfo DebugInfo;
+	DebugInfo.bShowAbilities = true;
+	DebugInfo.bShowAttributes = true;
+	DebugInfo.bShowGameplayEffects = true;
+	DebugInfo.bPrintToLog = true;
+
+	Debug_Internal(DebugInfo);
+
+	if (IsOwnerActorAuthoritative() == false)
+	{
+		// See what the server thinks
+		ServerPrintDebug_Request();
+	}
+}
+
+void UAbilitySystemComponent::Debug_Internal(FAbilitySystemComponentDebugInfo& Info)
+{
 	// Draw title at top of screen (default HUD debug text starts at 50 ypos, we can position this on top)*
 	//   *until someone changes it unknowingly
 	{
 		FString DebugTitle("");
 		// Category
-		if (bShowAbilities) DebugTitle += TEXT("ABILITIES ");
-		if (bShowAttributes) DebugTitle += TEXT("ATTRIBUTES ");
-		if (bShowGameplayEffects) DebugTitle += TEXT("GAMEPLAYEFFECTS ");
+		if (Info.bShowAbilities) DebugTitle += TEXT("ABILITIES ");
+		if (Info.bShowAttributes) DebugTitle += TEXT("ATTRIBUTES ");
+		if (Info.bShowGameplayEffects) DebugTitle += TEXT("GAMEPLAYEFFECTS ");
 		// Avatar info
 		if (AvatarActor)
 		{
@@ -1466,31 +1552,41 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 			else if (OwnerActor->Role == ROLE_Authority) DebugTitle += TEXT("(authority) ");
 		}
 
-		Canvas->SetDrawColor(FColor::White);
-		Canvas->DrawText(GEngine->GetLargeFont(), DebugTitle, XPos + 4.f, 10.f, 1.5f, 1.5f);
+		if (Info.Canvas)
+		{
+			Info.Canvas->SetDrawColor(FColor::White);
+			Info.Canvas->DrawText(GEngine->GetLargeFont(), DebugTitle, Info.XPos + 4.f, 10.f, 1.5f, 1.5f);
+		}
+		else
+		{
+			DebugLine(Info, DebugTitle, 0.f, 0.f);
+		}
 	}
 
 	FGameplayTagContainer OwnerTags;
 	GetOwnedGameplayTags(OwnerTags);
 
-	Canvas->SetDrawColor(FColor::White);
-	YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("Owned Tags: %s"), *OwnerTags.ToStringSimple()), XPos + 4.f, YPos);
-	AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+	if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
+
+	DebugLine(Info, FString::Printf(TEXT("Owned Tags: %s"), *OwnerTags.ToStringSimple()), 4.f, 0.f);
 
 	if (BlockedAbilityTags.GetExplicitGameplayTags().Num() > 0)
 	{
-		YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("BlockedAbilityTags: %s"), *BlockedAbilityTags.GetExplicitGameplayTags().ToStringSimple()), XPos + 4.f, YPos);
-		AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+		DebugLine(Info, FString::Printf(TEXT("BlockedAbilityTags: %s"), *BlockedAbilityTags.GetExplicitGameplayTags().ToStringSimple()), 4.f, 0.f);
+		
 	}
 
 	TSet<FGameplayAttribute> DrawAttributes;
 
-	const float MaxCharHeight = GEngine->GetTinyFont()->GetMaxCharHeight();
+	float MaxCharHeight = 10;
+	if (GetOwner()->GetNetMode() != NM_DedicatedServer)
+	{
+		MaxCharHeight = GEngine->GetTinyFont()->GetMaxCharHeight();
+	}
 
 	// -------------------------------------------------------------
 
-
-	if (bShowAttributes)
+	if (Info.bShowAttributes)
 	{
 		// Draw the attribute aggregator map.
 		for (auto It = ActiveGameplayEffects.AttributeAggregatorMap.CreateConstIterator(); It; ++It)
@@ -1521,9 +1617,10 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 					AttributeString += FString::Printf(TEXT(" (Base: %.2f)"), BaseValue);
 				}
 
-				Canvas->SetDrawColor(FColor::White);
-				YL = Canvas->DrawText(GEngine->GetTinyFont(), AttributeString, XPos + 4.f, YPos);
-				AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+				if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
+				
+
+				DebugLine(Info, AttributeString, 4.f, 0.f);
 
 				DrawAttributes.Add(Attribute);
 
@@ -1533,7 +1630,7 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 					{
 						FAggregatorEvaluateParameters EmptyParams;
 						bool IsActivelyModifyingAttribute = Mod.Qualifies(EmptyParams);
-						Canvas->SetDrawColor(IsActivelyModifyingAttribute ? FColor::Yellow : FColor(128, 128, 128));
+						if (Info.Canvas) Info.Canvas->SetDrawColor(IsActivelyModifyingAttribute ? FColor::Yellow : FColor(128, 128, 128));
 
 						FActiveGameplayEffect* ActiveGE = ActiveGameplayEffects.GetActiveGameplayEffect(Mod.ActiveHandle);
 						FString SrcName = ActiveGE ? ActiveGE->Spec.Def->GetName() : FString(TEXT(""));
@@ -1544,24 +1641,23 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 							if (Mod.TargetTagReqs) SrcName += FString::Printf(TEXT("TargetTags: [%s]"), *Mod.TargetTagReqs->ToString());
 						}
 
-						YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("   %s\t %.2f - %s"), *EGameplayModOpToString(ModOpIdx), Mod.EvaluatedMagnitude, *SrcName), XPos + 7.f, YPos);
-						AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
-						NewColumnYPadding = FMath::Max<float>(NewColumnYPadding, YPos + YL);
+						DebugLine(Info, FString::Printf(TEXT("   %s\t %.2f - %s"), *EGameplayModOpToString(ModOpIdx), Mod.EvaluatedMagnitude, *SrcName), 7.f, 0.f);
+						Info.NewColumnYPadding = FMath::Max<float>(Info.NewColumnYPadding, Info.YPos + Info.YL);
 					}
 				}
-				AccumulateScreenPos(XPos, YPos, MaxCharHeight, OriginalY, MaxY, NewColumnYPadding, Canvas);
+				AccumulateScreenPos(Info);
 			}
 		}
 	}
 
 	// -------------------------------------------------------------
 
-	if (bShowGameplayEffects)
+	if (Info.bShowGameplayEffects)
 	{
 		for (FActiveGameplayEffect& ActiveGE : &ActiveGameplayEffects)
 		{
 
-			Canvas->SetDrawColor(FColor::White);
+			if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
 
 			FString DurationStr = TEXT("Infinite Duration ");
 			if (ActiveGE.GetDuration() > 0.f)
@@ -1606,17 +1702,15 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 				}
 			}
 
-			Canvas->SetDrawColor(ActiveGE.bIsInhibited ? FColor(128, 128, 128) : FColor::White);
+			if (Info.Canvas) Info.Canvas->SetDrawColor(ActiveGE.bIsInhibited ? FColor(128, 128, 128) : FColor::White);
 
-			YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("%s %s %s %s %s"), *ASC_CleanupName(GetNameSafe(ActiveGE.Spec.Def)), *DurationStr, *StackString, *LevelString, *PredictionString), XPos + 4.f, YPos);
-			AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+			DebugLine(Info, FString::Printf(TEXT("%s %s %s %s %s"), *CleanupName(GetNameSafe(ActiveGE.Spec.Def)), *DurationStr, *StackString, *LevelString, *PredictionString), 4.f, 0.f);
 
 			FGameplayTagContainer GrantedTags;
 			ActiveGE.Spec.GetAllGrantedTags(GrantedTags);
 			if (GrantedTags.Num() > 0)
 			{
-				YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("Granted Tags: %s"), *GrantedTags.ToStringSimple()), XPos + 7.f, YPos);
-				AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+				DebugLine(Info, FString::Printf(TEXT("Granted Tags: %s"), *GrantedTags.ToStringSimple()), 7.f, 0.f);
 			}
 
 			for (int32 ModIdx = 0; ModIdx < ActiveGE.Spec.Modifiers.Num(); ++ModIdx)
@@ -1635,24 +1729,23 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 
 				if (IsActivelyModifyingAttribute == false)
 				{
-					Canvas->SetDrawColor(FColor(128, 128, 128));
+					if (Info.Canvas) Info.Canvas->SetDrawColor(FColor(128, 128, 128));
 				}
 
-				YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("Mod: %s. %s. %.2f"), *ModInfo.Attribute.GetName(), *EGameplayModOpToString(ModInfo.ModifierOp), ModSpec.GetEvaluatedMagnitude()), XPos + 7.f, YPos);
-				AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+				DebugLine(Info, FString::Printf(TEXT("Mod: %s. %s. %.2f"), *ModInfo.Attribute.GetName(), *EGameplayModOpToString(ModInfo.ModifierOp), ModSpec.GetEvaluatedMagnitude()), 7.f, 0.f);
 
-				Canvas->SetDrawColor(ActiveGE.bIsInhibited ? FColor(128, 128, 128) : FColor::White);
+				if (Info.Canvas) Info.Canvas->SetDrawColor(ActiveGE.bIsInhibited ? FColor(128, 128, 128) : FColor::White);
 			}
 
-			AccumulateScreenPos(XPos, YPos, MaxCharHeight, OriginalY, MaxY, NewColumnYPadding, Canvas);
+			AccumulateScreenPos(Info);
 		}
 	}
 
 	// -------------------------------------------------------------
 
-	if (bShowAttributes)
+	if (Info.bShowAttributes)
 	{
-		Canvas->SetDrawColor(FColor::White);
+		if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
 		for (UAttributeSet* Set : SpawnedAttributes)
 		{
 			for (TFieldIterator<UProperty> It(Set->GetClass()); It; ++It)
@@ -1665,17 +1758,17 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 				if (Attribute.IsValid())
 				{
 					float Value = GetNumericAttribute(Attribute);
-					YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("%s %.2f"), *Attribute.GetName(), Value), XPos + 4.f, YPos);
-					AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+
+					DebugLine(Info, FString::Printf(TEXT("%s %.2f"), *Attribute.GetName(), Value), 4.f, 0.f);
 				}
 			}
 		}
-		AccumulateScreenPos(XPos, YPos, MaxCharHeight, OriginalY, MaxY, NewColumnYPadding, Canvas);
+		AccumulateScreenPos(Info);
 	}
 
 	// -------------------------------------------------------------
 
-	if (bShowAbilities)
+	if (Info.bShowAbilities)
 	{
 		for (const FGameplayAbilitySpec& AbilitySpec : GetActivatableAbilities())
 		{
@@ -1707,9 +1800,9 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 
 			FString InputPressedStr = AbilitySpec.InputPressed ? TEXT("(InputPressed)") : TEXT("");
 
-			Canvas->SetDrawColor(AbilityTextColor);
-			YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("%s %s %s"), *ASC_CleanupName(GetNameSafe(AbilitySpec.Ability)), *StatusText, *InputPressedStr), XPos + 4.f, YPos);
-			AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+			if (Info.Canvas) Info.Canvas->SetDrawColor(AbilityTextColor);
+
+			DebugLine(Info, FString::Printf(TEXT("%s %s %s"), *CleanupName(GetNameSafe(AbilitySpec.Ability)), *StatusText, *InputPressedStr), 4.f, 0.f);
 
 			if (AbilitySpec.IsActive())
 			{
@@ -1720,35 +1813,33 @@ void UAbilitySystemComponent::DisplayDebug(class UCanvas* Canvas, const class FD
 					if (!Instance)
 						continue;
 
-					Canvas->SetDrawColor(FColor::White);
+					if (Info.Canvas) Info.Canvas->SetDrawColor(FColor::White);
 					for (auto TaskPtr : Instance->ActiveTasks)
 					{
 						UGameplayTask* Task = TaskPtr;
 						if (Task)
 						{
-							YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("%s"), *Task->GetDebugString()), XPos + 7.f, YPos);
-							AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+							DebugLine(Info, FString::Printf(TEXT("%s"), *Task->GetDebugString()), 7.f, 0.f);
 						}
 					}
 
 					if (InstanceIdx < Instances.Num() - 2)
 					{
-						Canvas->SetDrawColor(FColor(128, 128, 128));
-						YL = Canvas->DrawText(GEngine->GetTinyFont(), FString::Printf(TEXT("--------")), XPos + 7.f, YPos);
-						AccumulateScreenPos(XPos, YPos, YL, OriginalY, MaxY, NewColumnYPadding, Canvas);
+						if (Info.Canvas) Info.Canvas->SetDrawColor(FColor(128, 128, 128));
+						DebugLine(Info, FString::Printf(TEXT("--------")), 7.f, 0.f);
 					}
 				}
 			}
 		}
-		AccumulateScreenPos(XPos, YPos, MaxCharHeight, OriginalY, MaxY, NewColumnYPadding, Canvas);
+		AccumulateScreenPos(Info);
 	}
 
-	if (XPos > OriginalX)
+	if (Info.XPos > Info.OriginalX)
 	{
 		// We flooded to new columns, returned YPos should be max Y (and some padding)
-		YPos = MaxY + MaxCharHeight*2.f;
+		Info.YPos = Info.MaxY + MaxCharHeight*2.f;
 	}
-	YL = MaxCharHeight;
+	Info.YL = MaxCharHeight;
 }
 
 

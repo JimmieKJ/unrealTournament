@@ -157,6 +157,9 @@ enum EMenuPlacement
 	/** Place the menu immediately centered below the anchor */
 	MenuPlacement_CenteredBelowAnchor UMETA(DisplayName = "Centered Below"),
 
+	/** Place the menu immediately below the anchor aligned to the right of the content */
+	MenuPlacement_BelowRightAnchor UMETA(DisplayName = "Below Right"),
+
 	/** Place the menu immediately below the anchor and match is width to the anchor's content */
 	MenuPlacement_ComboBox UMETA(DisplayName="Combo Box"),
 
@@ -171,6 +174,9 @@ enum EMenuPlacement
 
 	/** Place the menu immediately centered above the anchor, no transition effect */
 	MenuPlacement_CenteredAboveAnchor UMETA(DisplayName="Centered Above"),
+
+	/** Place the menu immediately above the anchor aligned to the right of the content */
+	MenuPlacement_AboveRightAnchor UMETA(DisplayName = "Above Right"),
 
 	/** Place the menu to the left of the anchor */
 	MenuPlacement_MenuLeft UMETA(DisplayName="Left"),

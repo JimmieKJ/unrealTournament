@@ -338,6 +338,13 @@ void SNewPluginWizard::ValidateFullPluginPath()
 		bIsNewNameValid = false;
 	}
 
+	// Fail if name doesn't begin with alphabetic character.
+	if (bIsNewNameValid && !FChar::IsAlpha(GetCurrentPluginName().ToString()[0]))
+	{
+		PluginNameError = LOCTEXT("PluginNameMustBeginWithACharacter", "Plugin names must begin with an alphabetic character.");
+		bIsNewNameValid = false;
+	}
+
 	if (bIsNewNameValid)
 	{
 		const FString& TestPluginName = GetCurrentPluginName().ToString();

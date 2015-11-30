@@ -203,15 +203,18 @@ void UGameEngine::ConditionallyOverrideSettings(int32& ResolutionX, int32& Resol
 	FParse::Value(FCommandLine::Get(), TEXT("ResX="), ResolutionX);
 	FParse::Value(FCommandLine::Get(), TEXT("ResY="), ResolutionY);
 
-		// consume available desktop area
-		FDisplayMetrics DisplayMetrics;
+	// consume available desktop area
+	FDisplayMetrics DisplayMetrics;
 	FDisplayMetrics::GetDisplayMetrics(DisplayMetrics);
 		
 	int32 DesktopResolutionX = DisplayMetrics.PrimaryDisplayWidth;
 	int32 DesktopResolutionY = DisplayMetrics.PrimaryDisplayHeight;
 
+	// Optionally force the resolution by passing -ForceRes
+	const bool bForceRes = FParse::Param(FCommandLine::Get(), TEXT("ForceRes"));
+
 	//Dont allow a resolution bigger then the desktop found a convenient one
-	if (!IsRunningDedicatedServer() && ((ResolutionX <= 0 || ResolutionX >= DesktopResolutionX) || (ResolutionY <= 0 || ResolutionY >= DesktopResolutionY)))
+	if (!bForceRes && !IsRunningDedicatedServer() && ((ResolutionX <= 0 || ResolutionX >= DesktopResolutionX) || (ResolutionY <= 0 || ResolutionY >= DesktopResolutionY)))
 	{
 		ResolutionX = DesktopResolutionX;
 		ResolutionY = DesktopResolutionY;
@@ -282,13 +285,15 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 	const FText PlatformBits = FText::FromString( TEXT( "32" ) );
 #endif	//PLATFORM_64BITS
 
+	// Note: If these parameters are updated or renamed, please update the tooltip on the ProjectDisplayedTitle property
 	FFormatNamedArguments Args;
 	Args.Add( TEXT("GameName"), FText::FromString( FApp::GetGameName() ) );
 	Args.Add( TEXT("PlatformArchitecture"), PlatformBits );
 	Args.Add( TEXT("RHIName"), FText::FromName( LegacyShaderPlatformToShaderFormat( GMaxRHIShaderPlatform ) ) );
 
-	const FText AppName = FText::Format( NSLOCTEXT("UnrealEd", "GameWindowTitle", "{GameName} ({PlatformArchitecture}-bit, {RHIName})"), Args );
+	const FText DefaultWindowTitle = NSLOCTEXT("UnrealEd", "GameWindowTitle", "{GameName} ({PlatformArchitecture}-bit, {RHIName})");
 	const FText WindowTitleOverride = GetDefault<UGeneralProjectSettings>()->ProjectDisplayedTitle;
+	const FText WindowTitle = FText::Format(WindowTitleOverride.IsEmpty() ? DefaultWindowTitle : WindowTitleOverride, Args);
 
 	// Allow optional winX/winY parameters to set initial window position
 	EAutoCenter::Type AutoCenterType = EAutoCenter::PrimaryWorkArea;
@@ -301,7 +306,7 @@ TSharedRef<SWindow> UGameEngine::CreateGameWindow()
 
 	TSharedRef<SWindow> Window = SNew(SWindow)
 	.ClientSize(FVector2D( ResX, ResY ))
-	.Title(WindowTitleOverride.IsEmpty() ? AppName : WindowTitleOverride)
+	.Title(WindowTitle)
 	.AutoCenter(AutoCenterType)
 	.ScreenPosition(FVector2D(WinX, WinY))
 	.FocusWhenFirstShown(true)

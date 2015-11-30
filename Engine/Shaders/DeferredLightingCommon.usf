@@ -51,13 +51,6 @@ struct FSimpleDeferredLightData
 #undef LIGHT_SOURCE_SHAPE
 #define LIGHT_SOURCE_SHAPE 1
 
-bool RayHitSphere( float3 R, float3 SphereCenter, float SphereRadius )
-{
-	float3 ClosestPointOnRay = max( 0, dot( SphereCenter, R ) ) * R;
-	float3 CenterToRay = ClosestPointOnRay - SphereCenter;
-	return dot( CenterToRay, CenterToRay ) <= Square( SphereRadius );
-}
-
 bool RayHitRect( float3 R, float3 RectCenter, float3 RectX, float3 RectY, float3 RectZ, float RectExtentX, float RectExtentY )
 {
 	// Intersect ray with plane
@@ -112,7 +105,7 @@ float3 PointLightSpecularMIS( FScreenSpaceData ScreenSpaceData, FDeferredLightDa
 		
 		if( NoL > 0 )
 		{
-			if( bSampleBRDF && !RayHitSphere( L, LightCenter, SourceRadius ) )
+			if( bSampleBRDF && !RayHitSphere( 0, L, LightCenter, SourceRadius ) )
 			{
 				continue;
 			}
@@ -329,7 +322,8 @@ float4 GetDynamicLighting(float3 WorldPosition, float3 CameraVector, float2 InUV
 			GetShadowTerms(ScreenSpaceData, LightData, WorldPosition, LightAttenuation, SurfaceShadow, SubsurfaceShadow);
 
 			// greatly reduces shadow mapping artifacts
-			SurfaceShadow *= saturate(dot(N, L) * 6 - 0.2);
+			// Commented out because it reduces character shading quality.
+			//SurfaceShadow *= saturate(dot(N, L) * 6 - 0.2);
 		}
 		else
 		{

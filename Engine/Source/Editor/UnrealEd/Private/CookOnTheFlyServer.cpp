@@ -21,6 +21,7 @@
 
 #include "AssetRegistryModule.h"
 #include "AssetData.h"
+#include "BlueprintNativeCodeGenModule.h"
 
 #include "UnrealEdMessages.h"
 #include "GameDelegates.h"
@@ -709,6 +710,12 @@ const FString GetStatsFilename(const FString& ResponseFilename)
 FString GetChildCookerResultFilename(const FString& ResponseFilename)
 {
 	FString Result = ResponseFilename + TEXT("Result.txt");
+	return Result;
+}
+
+FString GetChildCookerManifestFilename(const FString ResponseFilename)
+{
+	FString Result = ResponseFilename + TEXT("Manifest.txt");
 	return Result;
 }
 
@@ -2048,6 +2055,10 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 					continue;
 				}
 
+				// This package is valid, so make sure it wasn't previously marked as being an uncooked editor only package or it would get removed from the
+				// asset registry at the end of the cook
+				UncookedEditorOnlyPackages.Remove(Package->GetFName());
+
 				const FName StandardPackageFilename = GetCachedStandardPackageFileFName(Package);
 				check(IsInGameThread());
 				if (NeverCookPackageList.Contains(StandardPackageFilename))
@@ -2215,7 +2226,7 @@ uint32 UCookOnTheFlyServer::TickCookOnTheSide( const float TimeSlice, uint32 &Co
 				}
 
 				//@todo ResetLoaders outside of this (ie when Package is NULL) causes problems w/ default materials
-				if (Package->HasAnyFlags(RF_RootSet) == false && ((CurrentCookMode==ECookMode::CookOnTheFly)) )
+				if (Package->IsRooted() == false && ((CurrentCookMode==ECookMode::CookOnTheFly)) )
 				{
 					SCOPE_TIMER(ResetLoaders);
 					ResetLoaders(Package);
@@ -2536,7 +2547,7 @@ ESavePackageResult UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uin
 
 	if (Filename.Len())
 	{
-		if (Package->PackageFlags & PKG_ReloadingForCooker)
+		if (Package->HasAnyPackageFlags(PKG_ReloadingForCooker))
 		{
 			UE_LOG(LogCook, Warning, TEXT("Package %s marked as reloading for cook by was requested to save"), *Package->GetPathName());
 			UE_LOG(LogCook, Fatal, TEXT("Package %s marked as reloading for cook by was requested to save"), *Package->GetPathName());
@@ -2547,7 +2558,7 @@ ESavePackageResult UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uin
 		// Use SandboxFile to do path conversion to properly handle sandbox paths (outside of standard paths in particular).
 		Filename = ConvertToFullSandboxPath(*Filename, true);
 
-		uint32 OriginalPackageFlags = Package->PackageFlags;
+		uint32 OriginalPackageFlags = Package->GetPackageFlags();
 		UWorld* World = NULL;
 		EObjectFlags Flags = RF_NoFlags;
 		bool bPackageFullyLoaded = false;
@@ -2600,7 +2611,7 @@ ESavePackageResult UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uin
 
 		if (bShouldCompressPackage)
 		{
-			Package->PackageFlags |= PKG_StoreCompressed;
+			Package->SetPackageFlags(PKG_StoreCompressed);
 		}
 
 		for (ITargetPlatform* Target : Platforms)
@@ -2662,11 +2673,11 @@ ESavePackageResult UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uin
 
 				if (!Target->HasEditorOnlyData())
 				{
-					Package->PackageFlags |= PKG_FilterEditorOnly;
+					Package->SetPackageFlags(PKG_FilterEditorOnly);
 				}
 				else
 				{
-					Package->PackageFlags &= ~PKG_FilterEditorOnly;
+					Package->ClearPackageFlags(PKG_FilterEditorOnly);
 				}
 
 				// need to subtract 32 because the SavePackage code creates temporary files with longer file names then the one we provide
@@ -2684,6 +2695,10 @@ ESavePackageResult UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uin
 				{
 					SCOPE_TIMER(GEditorSavePackage);
 					Result = GEditor->Save(Package, World, Flags, *PlatFilename, GError, NULL, bSwap, false, SaveFlags, Target, FDateTime::MinValue(), false);
+					if (Result == ESavePackageResult::ReplaceCompletely || Result == ESavePackageResult::GenerateStub)
+					{
+						IBlueprintNativeCodeGenModule::Get().Convert(Package, Result == ESavePackageResult::ReplaceCompletely ? EReplacementResult::ReplaceCompletely : EReplacementResult::GenerateStub);
+					}
 					INC_INT_STAT(SavedPackage, 1);
 				}
 
@@ -2699,7 +2714,7 @@ ESavePackageResult UCookOnTheFlyServer::SaveCookedPackage(UPackage* Package, uin
 			}
 		}
 
-		Package->PackageFlags = OriginalPackageFlags;
+		Package->SetPackageFlagsTo(OriginalPackageFlags);
 	}
 
 	check( bIsSavingPackage == true );
@@ -3881,13 +3896,20 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 			UncookedPackageList.Append(UncookedPackage.ToString() + TEXT("\n\r"));
 		}
 		FFileHelper::SaveStringToFile(UncookedPackageList, *GetChildCookerResultFilename(CookByTheBookOptions->ChildCookFilename));
-
-		
-		
+		IBlueprintNativeCodeGenModule::Get().SaveManifest(*GetChildCookerManifestFilename(CookByTheBookOptions->ChildManifestFilename));
 	}
 	else
 	{
 		CleanUpChildCookers();
+
+		IBlueprintNativeCodeGenModule& CodeGenModule = IBlueprintNativeCodeGenModule::Get();
+		// merge the manifest for the bluepritn code generator:
+		for (auto& Cooker : CookByTheBookOptions->ChildCookers)
+		{
+			CodeGenModule.MergeManifest(*GetChildCookerManifestFilename(Cooker.ManifestFilename));
+		}
+		
+		CodeGenModule.FinalizeManifest();
 
 		check(CookByTheBookOptions->ChildUnsolicitedPackages.Num() == 0);
 		SCOPE_COOKING_STAT(SavingAssetRegistry);
@@ -3937,8 +3959,14 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 				IgnorePackageNames.Add(FName(*LongPackageName));
 			}
 
+			// Ignore packages that weren't cooked because they were only referenced by editor-only properties
+			TSet<FName> UncookedEditorOnlyPackageNames;
+			UncookedEditorOnlyPackages.GetNames(UncookedEditorOnlyPackageNames);
+			for (FName UncookedEditorOnlyPackage : UncookedEditorOnlyPackageNames)
+			{
+				IgnorePackageNames.Add(UncookedEditorOnlyPackage);
+			}
 			
-
 
 			Manifest.Value->SaveAssetRegistry(SandboxRegistryFilename, &IgnorePackageNames);
 
@@ -4189,6 +4217,7 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 	CookByTheBookOptions->bForceDisableCompressedPackages = !!(CookOptions & ECookByTheBookOptions::ForceDisableCompressed);
 	CookByTheBookOptions->bIsChildCooker = CookByTheBookStartupOptions.ChildCookFileName.Len() > 0 ? true : false;
 	CookByTheBookOptions->ChildCookFilename = CookByTheBookStartupOptions.ChildCookFileName;
+	CookByTheBookOptions->ChildManifestFilename = CookByTheBookStartupOptions.ChildManifestFilename;
 	
 	NeverCookPackageList.Empty();
 	{
@@ -4365,8 +4394,14 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		SaveGlobalShaderMapFiles(TargetPlatforms);
 	}
 	
-	
-	CollectFilesToCook(FilesInPath, CookMaps, CookDirectories, CookCultures, IniMapSections, bCookAll, bMapsOnly, bNoDev );
+	if (CookByTheBookStartupOptions.CookSingleAssetName.IsEmpty())
+	{
+		CollectFilesToCook(FilesInPath, CookMaps, CookDirectories, CookCultures, IniMapSections, bCookAll, bMapsOnly, bNoDev);
+	}
+	else
+	{
+		AddFileToCook(FilesInPath, CookByTheBookStartupOptions.CookSingleAssetName);
+	}
 	if (FilesInPath.Num() == 0)
 	{
 		LogCookerMessage( FString::Printf(TEXT("No files found to cook.")), EMessageSeverity::Warning );
@@ -4437,10 +4472,11 @@ void UCookOnTheFlyServer::StartCookByTheBook( const FCookByTheBookStartupOptions
 		CookRequests.EnqueueUnique( MoveTemp( PreviousRequest ) );
 	}
 	CookByTheBookOptions->PreviousCookRequests.Empty();
-
+	
 	if (CookByTheBookStartupOptions.NumProcesses)
 	{
-		StartChildCookers(CookByTheBookStartupOptions.NumProcesses, TargetPlatformNames);
+		FString ExtraCommandLine;
+		StartChildCookers(CookByTheBookStartupOptions.NumProcesses, TargetPlatformNames, ExtraCommandLine);
 	}
 }
 
@@ -4540,7 +4576,7 @@ public:
 };
 
 // sue chefs away!!
-void UCookOnTheFlyServer::StartChildCookers(int32 NumCookersToSpawn, const TArray<FName>& TargetPlatformNames)
+void UCookOnTheFlyServer::StartChildCookers(int32 NumCookersToSpawn, const TArray<FName>& TargetPlatformNames, const FString& ExtraCmdParams)
 {
 	SCOPE_TIMER(StartingChildCookers);
 	// create a comprehensive list of all the files we need to cook
@@ -4651,10 +4687,9 @@ void UCookOnTheFlyServer::StartChildCookers(int32 NumCookersToSpawn, const TArra
 
 		ChildCooker.ResponseFileName = FPaths::CreateTempFilename(*(FPaths::GameSavedDir() / TEXT("CookingTemp")));
 		ChildCooker.BaseResponseFileName = FPaths::GetBaseFilename(ChildCooker.ResponseFileName);
+		ChildCooker.ManifestFilename = FString(*(FPaths::GameSavedDir() / TEXT("CookingTemp") / *FString::Printf(TEXT("BPCodeManifest_%d.json"), CookerCounter)));
 		// FArchive* ResponseFile = IFileManager::CreateFileWriter(ChildCooker.UniqueTempName);
 		FString ResponseFileText;
-
-
 
 		for (int32 I = 0; I < NumFilesForCooker; ++I)
 		{
@@ -4688,7 +4723,8 @@ void UCookOnTheFlyServer::StartChildCookers(int32 NumCookersToSpawn, const TArra
 
 		// default commands
 		// multiprocess tells unreal in general we shouldn't do things like save ddc, clean shader working directory, and other various multiprocess unsafe things
-		FString CommandLine = FString::Printf(TEXT("\"%s\" -run=cook -multiprocess -targetplatform=%s -cookchild=\"%s\" -abslog=\"%sLog.txt\""), *FPaths::GetProjectFilePath(), *TargetPlatformString, *ChildCooker.ResponseFileName, *ChildCooker.ResponseFileName);
+		FString CommandLine = FString::Printf(TEXT("\"%s\" -run=cook -multiprocess -targetplatform=%s -cookchild=\"%s\" -abslog=\"%sLog.txt\" -childmanifest=\"%s\" %s"), 
+			*FPaths::GetProjectFilePath(), *TargetPlatformString, *ChildCooker.ResponseFileName, *ChildCooker.ResponseFileName, *ChildCooker.ManifestFilename, *ExtraCmdParams);
 
 		auto KeepCommandlineValue = [&](const TCHAR* CommandlineToKeep)
 		{
@@ -4799,7 +4835,7 @@ void UCookOnTheFlyServer::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 	{
 		if (Package->IsFullyLoaded() == false)
 		{
-			Package->PackageFlags |= PKG_ReloadingForCooker;
+			Package->SetPackageFlags(PKG_ReloadingForCooker);
 		}
 	}
 
@@ -4809,7 +4845,7 @@ void UCookOnTheFlyServer::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 	if (PackagesToNotReload.Contains(Name))
 	{
 		UE_LOG(LogCookCommandlet, Verbose, TEXT("Marking %s already loaded."), *Name);
-		Package->PackageFlags |= PKG_ReloadingForCooker;
+		Package->SetPackageFlags(PKG_ReloadingForCooker);
 	}*/
 }
 

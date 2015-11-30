@@ -119,10 +119,10 @@ bool ObjectHasAllMarks(const class UObjectBase* Object, EObjectMark Marks)
 void GetObjectsWithAllMarks(TArray<UObject *>& Results, EObjectMark Marks)
 {
 	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
-	EObjectFlags ExclusionFlags = RF_Unreachable;
+	EInternalObjectFlags ExclusionFlags = EInternalObjectFlags::Unreachable;
 	if (!IsInAsyncLoadingThread())
 	{
-		ExclusionFlags = EObjectFlags(ExclusionFlags | RF_AsyncLoading);
+		ExclusionFlags |= EInternalObjectFlags::AsyncLoading;
 	}
 	const TMap<const UObjectBase *, FObjectMark>& Map = MarkAnnotation.GetAnnotationMap();
 	Results.Empty(Map.Num());
@@ -131,7 +131,7 @@ void GetObjectsWithAllMarks(TArray<UObject *>& Results, EObjectMark Marks)
 		if ((It.Value().Marks & Marks) == Marks)
 		{
 			UObject* Item = (UObject*)It.Key();
-			if (!Item->HasAnyFlags(ExclusionFlags))
+			if (!Item->HasAnyInternalFlags(ExclusionFlags))
 			{
 				Results.Add(Item);
 			}
@@ -142,10 +142,10 @@ void GetObjectsWithAllMarks(TArray<UObject *>& Results, EObjectMark Marks)
 void GetObjectsWithAnyMarks(TArray<UObject *>& Results, EObjectMark Marks)
 {
 	// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
-	EObjectFlags ExclusionFlags = RF_Unreachable;
+	EInternalObjectFlags ExclusionFlags = EInternalObjectFlags::Unreachable;
 	if (!IsInAsyncLoadingThread())
 	{
-		ExclusionFlags = EObjectFlags(ExclusionFlags | RF_AsyncLoading);
+		ExclusionFlags |= EInternalObjectFlags::AsyncLoading;
 	}
 	const TMap<const UObjectBase *, FObjectMark>& Map = MarkAnnotation.GetAnnotationMap();
 	Results.Empty(Map.Num());
@@ -154,7 +154,7 @@ void GetObjectsWithAnyMarks(TArray<UObject *>& Results, EObjectMark Marks)
 		if (It.Value().Marks & Marks)
 		{
 			UObject* Item = (UObject*)It.Key();
-			if (!Item->HasAnyFlags(ExclusionFlags))
+			if (!Item->HasAnyInternalFlags(ExclusionFlags))
 			{
 				Results.Add(Item);
 			}

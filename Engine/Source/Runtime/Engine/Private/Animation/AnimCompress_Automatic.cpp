@@ -36,6 +36,6 @@ void UAnimCompress_Automatic::DoReduction(UAnimSequence* AnimSeq, const TArray<F
 		bTryPerTrackBitwiseCompression,
 		bTryLinearKeyRemovalCompression,
 		bTryIntervalKeyRemoval);
-	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( AnimSeq->CompressionScheme, AnimSeq, TEXT("None")) );
+	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( AnimSeq->CompressionScheme, AnimSeq) );
 #endif // WITH_EDITORONLY_DATA
 }

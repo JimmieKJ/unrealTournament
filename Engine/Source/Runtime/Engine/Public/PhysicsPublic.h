@@ -225,8 +225,6 @@ namespace SleepEvent
 
 }
 
-class FClothManager;
-
 /** Container object for a physics engine 'scene'. */
 
 class FPhysScene
@@ -306,8 +304,6 @@ public:
 	void AddPendingSleepingEvent(PxActor* Actor, SleepEvent::Type SleepEventType, int32 SceneType);
 #endif
 
-	FClothManager* GetClothManager() const { return ClothManager; }
-
 private:
 	/** DeltaSeconds from UWorld. */
 	float										DeltaSeconds;
@@ -324,8 +320,6 @@ private:
 	FGraphEventRef FrameLaggedPhysicsSubsceneCompletion[PST_MAX];
 	/** Completion events (task) for the physics scenes	(both apex and non-apex). This is a "join" of the above. */
 	FGraphEventRef PhysicsSceneCompletion;
-
-	FClothManager* ClothManager;
 
 #if WITH_PHYSX
 
@@ -403,9 +397,6 @@ public:
 	ENGINE_API void EndFrame(ULineBatchComponent* InLineBatcher);
 
 	/** Starts cloth Simulation*/
-	ENGINE_API void StartCloth();
-
-	/** Starts cloth Simulation*/
 	ENGINE_API void StartAsync();
 
 	/** returns the completion event for a frame */
@@ -422,9 +413,6 @@ public:
 
 	/** Kill the visual debugger */
 	ENGINE_API void KillVisualDebugger();
-
-	/** Waits for cloth scene to complete */
-	ENGINE_API void WaitClothScene();
 
 	/** Fetches results, fires events, and adds debug lines */
 	void ProcessPhysScene(uint32 SceneType);

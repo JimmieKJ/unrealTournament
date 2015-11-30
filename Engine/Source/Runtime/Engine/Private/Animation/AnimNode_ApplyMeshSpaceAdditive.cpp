@@ -24,7 +24,7 @@ void FAnimNode_ApplyMeshSpaceAdditive::Update(const FAnimationUpdateContext& Con
 {
 	Base.Update(Context);
 
-	if (IsLODEnabled(Context.AnimInstance, LODThreshold))
+	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
 	{
 		// @note: If you derive this class, and if you have input that you rely on for base
 		// this is not going to work	
@@ -39,7 +39,7 @@ void FAnimNode_ApplyMeshSpaceAdditive::Update(const FAnimationUpdateContext& Con
 
 void FAnimNode_ApplyMeshSpaceAdditive::Evaluate(FPoseContext& Output)
 {
-	if (IsLODEnabled(Output.AnimInstance, LODThreshold))
+	if (IsLODEnabled(Output.AnimInstanceProxy, LODThreshold))
 	{
 		//@TODO: Could evaluate Base into Output and save a copy
 		const float ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);

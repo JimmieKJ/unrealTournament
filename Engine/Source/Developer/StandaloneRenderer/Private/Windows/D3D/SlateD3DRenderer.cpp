@@ -34,21 +34,6 @@ static FMatrix CreateProjectionMatrixD3D( uint32 Width, uint32 Height )
 
 }
 
-
-FSlateD3DRenderer::FSlateD3DRenderer( const ISlateStyle& InStyle )
-{
-
-	ViewMatrix = FMatrix(	FPlane(1,	0,	0,	0),
-							FPlane(0,	1,	0,	0),
-							FPlane(0,	0,	1,  0),
-							FPlane(0,	0,	0,	1));
-
-}
-
-FSlateD3DRenderer::~FSlateD3DRenderer()
-{
-}
-
 class FSlateD3DFontAtlasFactory : public ISlateFontAtlasFactory
 {
 public:
@@ -73,6 +58,29 @@ private:
 	static const uint32 TextureSize = 1024;
 };
 
+TSharedRef<FSlateFontServices> CreateD3DFontServices()
+{
+	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateD3DFontAtlasFactory)));
+
+	return MakeShareable(new FSlateFontServices(FontCache, FontCache));
+}
+
+
+FSlateD3DRenderer::FSlateD3DRenderer( const ISlateStyle& InStyle )
+	: FSlateRenderer( CreateD3DFontServices() )
+{
+
+	ViewMatrix = FMatrix(	FPlane(1,	0,	0,	0),
+							FPlane(0,	1,	0,	0),
+							FPlane(0,	0,	1,  0),
+							FPlane(0,	0,	0,	1));
+
+}
+
+FSlateD3DRenderer::~FSlateD3DRenderer()
+{
+}
+
 void FSlateD3DRenderer::Initialize()
 {
 	CreateDevice();
@@ -82,10 +90,7 @@ void FSlateD3DRenderer::Initialize()
 
 	TextureManager->LoadUsedTextures();
 
-	FontCache = MakeShareable( new FSlateFontCache( MakeShareable( new FSlateD3DFontAtlasFactory ) ) );
-	FontMeasure = FSlateFontMeasure::Create( FontCache.ToSharedRef() );
-
-	RenderingPolicy = MakeShareable( new FSlateD3D11RenderingPolicy( FontCache, TextureManager.ToSharedRef() ) );
+	RenderingPolicy = MakeShareable( new FSlateD3D11RenderingPolicy( SlateFontServices.ToSharedRef(), TextureManager.ToSharedRef() ) );
 
 	ElementBatcher = MakeShareable( new FSlateElementBatcher( RenderingPolicy.ToSharedRef() ) );
 }
@@ -345,6 +350,8 @@ void FSlateD3DRenderer::CreateDepthStencilBuffer( FSlateD3DViewport& Viewport )
 
 void FSlateD3DRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 {
+	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
+
 	// Update the font cache with new text before elements are batched
 	FontCache->UpdateCache();
 

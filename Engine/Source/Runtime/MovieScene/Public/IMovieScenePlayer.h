@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "IMovieSceneSpawnRegister.h"
+
 namespace EMovieScenePlayerStatus
 {
 	enum Type
@@ -103,4 +105,18 @@ public:
 
 	/** @return whether the player is currently playing, scrubbing, etc. */
 	virtual EMovieScenePlayerStatus::Type GetPlaybackStatus() const = 0;
+
+	/**
+	 * Obtain an object responsible for managing movie scene spawnables
+	 */
+	virtual IMovieSceneSpawnRegister& GetSpawnRegister() { return NullRegister; }
+
+	/**
+	 * Access the playback context for this movie scene player
+	 */
+	virtual UObject* GetPlaybackContext() const { return nullptr; }
+
+private:
+	/** Null register that asserts on use */
+	FNullMovieSceneSpawnRegister NullRegister;
 };

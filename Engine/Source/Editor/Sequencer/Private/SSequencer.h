@@ -18,6 +18,7 @@ class FUnloadedClassDragDropOp;
 class IDetailsView;
 class UMovieSceneSection;
 class SSequencerCurveEditor;
+class SSequencerLabelBrowser;
 class SSequencerTrackArea;
 class SSequencerTrackOutliner;
 class SSequencerTreeView;
@@ -96,6 +97,12 @@ public:
 		
 		/** Called when the user changes the playback range */
 		SLATE_EVENT( FOnRangeChanged, OnPlaybackRangeChanged )
+
+		/** Called when the user has begun dragging the playback range */
+		SLATE_EVENT( FSimpleDelegate, OnBeginPlaybackRangeDrag )
+
+		/** Called when the user has finished dragging the playback range */
+		SLATE_EVENT( FSimpleDelegate, OnEndPlaybackRangeDrag )
 
 		/** The current scrub position in (seconds) */
 		SLATE_ATTRIBUTE( float, ScrubPosition )
@@ -223,6 +230,12 @@ private:
 
 	/** Handles key selection changes. */
 	void HandleKeySelectionChanged();
+
+	/** Handles selection changes in the label browser. */
+	void HandleLabelBrowserSelectionChanged(FString NewLabel, ESelectInfo::Type SelectInfo);
+
+	/** Handles determining the visibility of the label browser. */
+	EVisibility HandleLabelBrowserVisibility() const;
 
 	/** Handles section selection changes. */
 	void HandleSectionSelectionChanged();
@@ -361,6 +374,18 @@ private:
 	/** Gets paint options for painting the playback range on sequencer */
 	FPaintPlaybackRangeArgs GetSectionPlaybackRangeArgs() const;
 
+public:
+
+	/** Open the paste menu */
+	void Paste();
+	
+	/** Open the paste from history menu */
+	void PasteFromHistory();
+
+	/** Generate a paste menu args structure */
+	struct FPasteContextMenuArgs GeneratePasteArgs(float PasteAtTime, TSharedPtr<FMovieSceneClipboard> Clipboard = nullptr);
+
+
 private:
 
 	/** Holds the details view. */
@@ -380,6 +405,12 @@ private:
 
 	/** The breadcrumb trail widget for this sequencer */
 	TSharedPtr<SBreadcrumbTrail<FSequencerBreadcrumb>> BreadcrumbTrail;
+
+	/** The label browser for filtering tracks. */
+	TSharedPtr<SSequencerLabelBrowser> LabelBrowser;
+
+	/** The search box for filtering tracks. */
+	TSharedPtr<SSearchBox> SearchBox;
 
 	/** The sequencer tree view responsible for the outliner and track areas */
 	TSharedPtr<SSequencerTreeView> TreeView;
@@ -409,4 +440,9 @@ private:
 	TSharedPtr<INumericTypeInterface<float>> NumericTypeInterface;
 
 	FOnGetAddMenuContent OnGetAddMenuContent;
+	/** Called when the user has begun dragging the playback range */
+	FSimpleDelegate OnBeginPlaybackRangeDrag;
+
+	/** Called when the user has finished dragging the playback range */
+	FSimpleDelegate OnEndPlaybackRangeDrag;
 };

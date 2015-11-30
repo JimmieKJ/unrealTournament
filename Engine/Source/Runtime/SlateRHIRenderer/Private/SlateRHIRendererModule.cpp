@@ -57,14 +57,14 @@ public:
 	{
 		ConditionalCreateResources();
 
-		return MakeShareable( new FSlateRHIRenderer( ResourceManager, FontCache, FontMeasure ) );
+		return MakeShareable( new FSlateRHIRenderer( SlateFontServices.ToSharedRef(), ResourceManager.ToSharedRef() ) );
 	}
 
 	virtual TSharedRef<ISlate3DRenderer> CreateSlate3DRenderer(bool bUseGammaCorrection) override
 	{
 		ConditionalCreateResources();
 
-		return MakeShareable( new FSlate3DRenderer( ResourceManager, FontCache, bUseGammaCorrection ) );
+		return MakeShareable( new FSlate3DRenderer( SlateFontServices.ToSharedRef(),  ResourceManager.ToSharedRef(), bUseGammaCorrection ) );
 	}
 
 	virtual TSharedRef<ISlateFontAtlasFactory> CreateSlateFontAtlasFactory() override
@@ -90,26 +90,20 @@ private:
 			FSlateDataPayload::ResourceManager = ResourceManager.Get();
 		}
 
-		if( !FontCache.IsValid() )
+		if( !SlateFontServices.IsValid() )
 		{
-			FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateRHIFontAtlasFactory)));
-		}
+			const TSharedRef<FSlateFontCache> GameThreadFontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateRHIFontAtlasFactory)));
+			const TSharedRef<FSlateFontCache> RenderThreadFontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateRHIFontAtlasFactory)));
 
-		if( !FontMeasure.IsValid() )
-		{
-			FontMeasure = FSlateFontMeasure::Create(FontCache.ToSharedRef());
+			SlateFontServices = MakeShareable(new FSlateFontServices(GameThreadFontCache, RenderThreadFontCache));
 		}
-
 	}
 private:
 	/** Resource manager used for all renderers */
 	TSharedPtr<FSlateRHIResourceManager> ResourceManager;
 
-	/** Font cache used for all renderers */
-	TSharedPtr<FSlateFontCache> FontCache;
-
-	/** Font measure interface used for all renderers */
-	TSharedPtr<FSlateFontMeasure> FontMeasure;
+	/** Font services used for all renderers */
+	TSharedPtr<FSlateFontServices> SlateFontServices;
 };
 
 

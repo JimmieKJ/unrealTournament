@@ -39,13 +39,31 @@ enum EAccessSpecifier
 	ACCESS_Num,
 };
 
+inline FArchive& operator<<(FArchive& Ar, EAccessSpecifier& ObjectType)
+{
+	if (Ar.IsLoading())
+	{
+		int32 Value;
+		Ar << Value;
+		ObjectType = EAccessSpecifier(Value);
+	}
+	else if (Ar.IsSaving())
+	{
+		int32 Value = (int32)ObjectType;
+		Ar << Value;
+	}
+
+	return Ar;
+}
+
 /**
  * Add type definition info to global map.
  *
+ * @param UHTMakefile Makefile to which data is saved.
  * @param SourceFile SourceFile in which type was defined.
  * @param Field Defined type.
  * @param Line Line on which the type was defined.
  *
  * @returns Type definition info.
  */
-TSharedRef<FUnrealTypeDefinitionInfo> AddTypeDefinition(FUnrealSourceFile& SourceFile, UField* Field, int32 Line);
+TSharedRef<FUnrealTypeDefinitionInfo> AddTypeDefinition(FUHTMakefile& UHTMakefile, FUnrealSourceFile* SourceFile, UField* Field, int32 Line);

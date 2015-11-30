@@ -16,7 +16,7 @@ struct ENGINE_API FNavigationFilterArea
 	TSubclassOf<UNavArea> AreaClass;
 
 	/** override for travel cost */
-	UPROPERTY(EditAnywhere, Category=Area, meta=(EditCondition="bOverrideTravelCost",ClampMin=1))
+	UPROPERTY(EditAnywhere, Category=Area, meta=(EditCondition="bOverrideTravelCost",ClampMin=0.001))
 	float TravelCostOverride;
 
 	/** override for entering cost */

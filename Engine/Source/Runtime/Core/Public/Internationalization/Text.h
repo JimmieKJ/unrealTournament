@@ -357,7 +357,7 @@ private:
 
 	explicit FText( FString InSourceString );
 
-	FText( FString InSourceString, FString InNamespace, FString InKey, uint32 InFlags=0 );
+	FText( FString InSourceString, const FString& InNamespace, const FString& InKey, uint32 InFlags=0 );
 
 	friend CORE_API FArchive& operator<<( FArchive& Ar, FText& Value );
 
@@ -418,10 +418,10 @@ public:
 	static const FText UnEscapedCloseBraceOutsideOfArgumentBlock;
 	static const FText SerializationFailureError;
 
+	friend class FTextCache;
 	friend class FTextFormatHelper;
 	friend class FTextSnapshot;
 	friend class FTextInspector;
-	friend class FInternationalization;
 	friend class UStruct;
 	friend class UGatherTextFromAssetsCommandlet;
 	friend class UEdGraphSchema;
@@ -532,9 +532,13 @@ private:
 	TOptional<FText> TextValue;
 };
 
+/**
+ * Used to pass argument/value pairs into FText::Format.
+ * The UHT struct is located here: Engine\Source\Runtime\Engine\Classes\Kismet\KismetTextLibrary.h
+ */
 struct FFormatArgumentData
 {
-	FText ArgumentName;
+	FString ArgumentName;
 	FText ArgumentValue;
 
 	friend inline FArchive& operator<<( FArchive& Ar, FFormatArgumentData& Value )

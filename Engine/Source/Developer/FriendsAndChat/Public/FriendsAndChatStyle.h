@@ -48,10 +48,6 @@ struct FRIENDSANDCHAT_API FFriendsAndChatStyle
 
 	// Common Style
 
-	UPROPERTY(EditAnywhere, Category = Appearance) //TODO Antony.Carter Do we not need more of these per widget?
-	FMargin BorderPadding;
-	FFriendsAndChatStyle& SetBorderPadding(const FMargin& InBorderPadding);
-
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FScrollBarStyle ScrollBarStyle;
 	FFriendsAndChatStyle& SetScrollbarStyle(const FScrollBarStyle& InScrollBarStyle);

@@ -411,7 +411,21 @@ public:
 
 			if (MaterialCompilationOutput.bNeedsSceneTextures)
 			{
-				if (Domain != MD_PostProcess)
+				if (Domain == MD_DeferredDecal)
+				{
+#if 0
+					uint32 DecalBlendMode = Material->GetDecalBlendMode();
+					if (DecalBlendMode != DBM_Translucent && DecalBlendMode != DBM_Stain && DecalBlendMode != DBM_Emissive && DecalBlendMode != DBM_Normal)
+					{
+						Errorf(TEXT("SceneTexture expressions can only be used for translucent, stain, emissive and normal decal blend mode"));
+					} 
+					else if (MaterialCompilationOutput.bNeedsGBuffer && Material->HasNormalConnected()) // GBuffer can only relate to WorldNormal here.
+					{
+						Errorf(TEXT("Can't access SceneTexture and output to normal at the same time"));
+					}
+#endif
+				}
+				else if (Domain != MD_PostProcess)
 				{
 					if (Material->GetBlendMode() == BLEND_Opaque || Material->GetBlendMode() == BLEND_Masked)
 					{
@@ -2688,6 +2702,21 @@ protected:
 	void UseSceneTextureId(ESceneTextureId SceneTextureId, bool bTextureLookup)
 	{
 		MaterialCompilationOutput.bNeedsSceneTextures = true;
+
+		//todo: available textures change depending on whether this is a dbuffer decal or not.  Need to pass that information in to warn properly.
+#if 0
+		if(Material->GetMaterialDomain() == MD_DeferredDecal)
+		{
+			if (SceneTextureId == PPI_WorldNormal || SceneTextureId == PPI_CustomDepth || SceneTextureId == PPI_CustomStencil || SceneTextureId == PPI_AmbientOcclusion)
+			{
+				ErrorUnlessFeatureLevelSupported(ERHIFeatureLevel::SM4);
+			}
+			else
+			{
+				Errorf(TEXT("Only some SceneTextureId's available when MaterialDomain = Deferred Decal."));
+			}
+		}
+#endif
 
 		if(SceneTextureId == PPI_SceneColor && Material->GetMaterialDomain() != MD_Surface)
 		{

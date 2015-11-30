@@ -506,7 +506,7 @@ void UAnimStateTransitionNode::ValidateNodeDuringCompilation(class FCompilerResu
 				}
 			}
 
-			if(!bHasNative)
+			if (!bHasNative && !bAutomaticRuleBasedOnSequencePlayerInState)
 			{
 				MessageLog.Warning(TEXT("@@ will never be taken, please connect something to @@"), this, BoolResultPin);
 			}

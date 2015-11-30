@@ -47,18 +47,18 @@ UDestructibleComponent::UDestructibleComponent(const FObjectInitializer& ObjectI
 	SetSpaceBaseDoubleBuffering(false);
 }
 
+#if WITH_EDITORONLY_DATA
 void UDestructibleComponent::Serialize(FArchive& Ar)
 {
 	Super::Serialize(Ar);
 
-#if WITH_EDITORONLY_DATA
 	if(Ar.IsLoading())
 	{
 		// Copy our skeletal mesh value to our transient variable, so it appears in slate correctly.
 		this->DestructibleMesh = GetDestructibleMesh();
 	}
-#endif // WITH_EDITORONLY_DATA
 }
+#endif // WITH_EDITORONLY_DATA
 
 #if WITH_EDITOR
 void UDestructibleComponent::PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent )

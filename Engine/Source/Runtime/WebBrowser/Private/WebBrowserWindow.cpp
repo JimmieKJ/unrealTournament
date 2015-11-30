@@ -137,7 +137,13 @@ TSharedRef<SWidget> FWebBrowserWindow::CreateWidget(TAttribute<FVector2D> InView
 
 FSlateShaderResource* FWebBrowserWindow::GetTexture(bool bIsPopup)
 {
-	if (UpdatableTextures[bIsPopup?1:0] != nullptr && IsInitialized())
+	if (!bIsPopup && UpdatableTextures[0] == nullptr && FSlateApplication::IsInitialized())
+	{
+		// SViewport renders a black quad over the entire view if we return nullptr. Return an empty texture instead.
+		UpdatableTextures[0] = FSlateApplication::Get().GetRenderer()->CreateUpdatableTexture(1, 1);
+	}
+
+	if (UpdatableTextures[bIsPopup ? 1 : 0] != nullptr)
 	{
 		return UpdatableTextures[bIsPopup?1:0]->GetSlateResource();
 	}

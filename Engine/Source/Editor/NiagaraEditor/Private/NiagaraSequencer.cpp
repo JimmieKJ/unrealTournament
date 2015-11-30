@@ -34,12 +34,4 @@ void INiagaraTrackInstance::RefreshInstance(const TArray<UObject*>& RuntimeObjec
 }
 
 
-#if WITH_EDITORONLY_DATA
-FText UEmitterMovieSceneTrack::GetDisplayName() const
-{
-	return LOCTEXT("TrackName", "Emitter");
-}
-#endif
-
-
 #undef LOCTEXT_NAMESPACE

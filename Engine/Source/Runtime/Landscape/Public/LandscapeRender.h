@@ -463,16 +463,26 @@ class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy, public FLands
 		}
 
 		// FLightCacheInterface
-		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const;
+		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const override;
 
-		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const
+		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const override
 		{
 			return LightMap ? LightMap->GetInteraction(InFeatureLevel) : FLightMapInteraction();
 		}
 
-		virtual FShadowMapInteraction GetShadowMapInteraction() const
+		virtual FShadowMapInteraction GetShadowMapInteraction() const override
 		{
 			return ShadowMap ? ShadowMap->GetInteraction() : FShadowMapInteraction();
+		}
+
+		virtual void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer) override
+		{
+			PrecomputedLightingUniformBuffer = InPrecomputedLightingUniformBuffer;
+		}
+
+		virtual FUniformBufferRHIRef GetPrecomputedLightingBuffer() const override
+		{
+			return PrecomputedLightingUniformBuffer;
 		}
 
 	private:
@@ -483,6 +493,9 @@ class FLandscapeComponentSceneProxy : public FPrimitiveSceneProxy, public FLands
 		const FShadowMap* ShadowMap;
 
 		TArray<FGuid> IrrelevantLights;
+
+		/** The uniform buffer holding mapping the lightmap policy resources. */
+		FUniformBufferRHIRef PrecomputedLightingUniformBuffer;
 	};
 
 protected:
@@ -599,6 +612,8 @@ public:
 	void ChangeLODDistanceFactor_RenderThread(float InLODDistanceFactor);
 
 	virtual void GetHeightfieldRepresentation(UTexture2D*& OutHeightmapTexture, UTexture2D*& OutDiffuseColorTexture, FHeightfieldComponentDescription& OutDescription) override;
+
+	virtual void GetLCIs(FLCIArray& LCIs) override;
 };
 
 class FLandscapeDebugMaterialRenderProxy : public FMaterialRenderProxy

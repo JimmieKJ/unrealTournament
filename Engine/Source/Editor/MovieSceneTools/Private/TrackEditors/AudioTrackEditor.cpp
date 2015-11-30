@@ -12,7 +12,6 @@
 #include "ISequencerObjectChangeListener.h"
 #include "ISectionLayoutBuilder.h"
 #include "IKeyArea.h"
-#include "MovieSceneToolHelpers.h"
 #include "MovieSceneTrackEditor.h"
 #include "AudioTrackEditor.h"
 #include "MovieSceneAudioSection.h"
@@ -345,6 +344,10 @@ UMovieSceneSection* FAudioSection::GetSectionObject()
 	return &Section;
 }
 
+bool FAudioSection::ShouldDrawKeyAreaBackground() const
+{
+	return false;
+}
 
 FText FAudioSection::GetDisplayName() const
 {

@@ -9,8 +9,9 @@
 
 void UMovieSceneShotSection::SetShotNameAndNumber(const FText& InDisplayName, int32 InShotNumber)
 {
-	Modify();
-
-	DisplayName = InDisplayName;
-	ShotNumber = InShotNumber;
+	if (TryModify())
+	{
+		DisplayName = InDisplayName;
+		ShotNumber = InShotNumber;
+	}
 }

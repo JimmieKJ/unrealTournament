@@ -7,7 +7,7 @@
 
 class ISequencer;
 class UMovieSceneTrack;
-
+class UMovieSceneSpawnTrack;
 
 /**
  * A property track editor for controlling the lifetime of a sapwnable object
@@ -43,10 +43,14 @@ public:
 	virtual TSharedPtr<SWidget> BuildOutlinerEditWidget(const FGuid& ObjectBinding, UMovieSceneTrack* Track) override  { return TSharedPtr<SWidget>(); }
 	virtual bool HandleAssetAdded(UObject* Asset, const FGuid& TargetObjectGuid) override { return false; }
 	virtual bool SupportsType(TSubclassOf<UMovieSceneTrack> Type) const override;
+	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 
 private:
 
 	/** Callback for executing the "Add Spawn Track" menu entry. */
 	void HandleAddSpawnTrackMenuEntryExecute(FGuid ObjectBinding);
 	bool CanAddSpawnTrack(FGuid ObjectBinding) const;
+
+	/** Populate the sub menu for setting the ownership of the spawned object */
+	void AddSpawnOwnershipMenu(FMenuBuilder& MenuBuilder, UMovieSceneSpawnTrack* Track);
 };

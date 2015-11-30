@@ -45,6 +45,12 @@ struct FKeyGrouping
 		FKeyHandle KeyHandle;
 	};
 
+	/** Construct an empty key group */
+	FKeyGrouping(float InRepresentativeTime)
+		: RepresentativeTime(InRepresentativeTime)
+	{
+	}
+
 	/** Construct this group with a single key handle */
 	FKeyGrouping(float InRepresentativeTime, int32 AreaIndex, FKeyHandle KeyHandle)
 		: RepresentativeTime(InRepresentativeTime)
@@ -82,10 +88,16 @@ public:
 	virtual void                    SetExtrapolationMode(ERichCurveExtrapolation ExtrapMode, bool bPreInfinity) override;
 	virtual ERichCurveExtrapolation GetExtrapolationMode(bool bPreInfinity) const override;
 	virtual TArray<FKeyHandle>		AddKeyUnique(float Time, EMovieSceneKeyInterpolation InKeyInterpolation, float TimeToCopyFrom = FLT_MAX) override;
+	virtual TOptional<FKeyHandle>				DuplicateKey(FKeyHandle KeyToDuplicate) override;
 	virtual FRichCurve*				GetRichCurve() override;
 	virtual UMovieSceneSection*		GetOwningSection() override;
 	virtual bool					CanCreateKeyEditor() override;
 	virtual TSharedRef<SWidget>		CreateKeyEditor(ISequencer* Sequencer) override;
+	virtual void					SetName(FName Name) override {}
+	virtual FName					GetName() const override { return NAME_None; }
+	virtual void					CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, const TFunctionRef<bool(FKeyHandle, const IKeyArea&)>& KeyMask) const override;
+	virtual void					PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment) override;
+	virtual FLinearColor GetColor() override;
 	/* End IKeyArea interface */
 
 	/** Get the desired tint for the specified key handle */

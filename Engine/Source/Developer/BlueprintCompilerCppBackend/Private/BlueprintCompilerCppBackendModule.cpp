@@ -14,12 +14,16 @@ public:
 	//~ End IBlueprintCompilerCppBackendModuleInterface interface
 
 	//~ Begin IBlueprintCompilerCppBackendModule interface
-	FString ConstructBaseFilename(const UObject* AssetObj) override;
+	virtual FString ConstructBaseFilename(const UObject* AssetObj) override;
 	virtual FPCHFilenameQuery& OnPCHFilenameQuery() override;
+	virtual FIsTargetedForConversionQuery& OnIsTargetedForConversionQuery() override;
+	virtual TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> >& GetOriginalClassMap() override;
 	//~ End IBlueprintCompilerCppBackendModule interface
 
 private: 
 	FPCHFilenameQuery PCHFilenameQuery;
+	FIsTargetedForConversionQuery IsTargetedForConversionQuery;
+	TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> > OriginalClassMap;
 };
 
 IBlueprintCompilerCppBackend* FBlueprintCompilerCppBackendModule::Create()
@@ -36,6 +40,16 @@ FString FBlueprintCompilerCppBackendModule::ConstructBaseFilename(const UObject*
 IBlueprintCompilerCppBackendModule::FPCHFilenameQuery& FBlueprintCompilerCppBackendModule::OnPCHFilenameQuery()
 {
 	return PCHFilenameQuery;
+}
+
+IBlueprintCompilerCppBackendModule::FIsTargetedForConversionQuery& FBlueprintCompilerCppBackendModule::OnIsTargetedForConversionQuery()
+{
+	return IsTargetedForConversionQuery;
+}
+
+TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> >& FBlueprintCompilerCppBackendModule::GetOriginalClassMap()
+{
+	return OriginalClassMap;
 }
 
 IMPLEMENT_MODULE(FBlueprintCompilerCppBackendModule, BlueprintCompilerCppBackend)

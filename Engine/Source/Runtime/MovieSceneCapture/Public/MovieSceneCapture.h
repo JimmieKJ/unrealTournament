@@ -15,6 +15,7 @@ struct ICaptureStrategy
 {
 	virtual ~ICaptureStrategy(){}
 	
+	virtual void OnWarmup() = 0;
 	virtual void OnStart() = 0;
 	virtual void OnStop() = 0;
 	virtual void OnPresent(double CurrentTimeSeconds, uint32 FrameIndex) = 0;
@@ -51,6 +52,9 @@ public:
 
 	// Begin IMovieSceneCaptureInterface
 	virtual void Initialize(TWeakPtr<FSceneViewport> InSceneViewport) override;
+	virtual void SetupFrameRange() override
+	{
+	}
 	virtual void Close() override;
 	virtual FMovieSceneCaptureHandle GetHandle() const override { return Handle; }
 	const FMovieSceneCaptureSettings& GetSettings() const override { return Settings; }
@@ -78,6 +82,10 @@ public:
 
 	/** Access this object's cached metrics */
 	const FCachedMetrics& GetMetrics() const { return CachedMetrics; }
+
+	/** Starts warming up.  May be optionally called before StartCapture().  This can be used to start rendering frames early, before
+	    any files are written out */
+	void StartWarmup();
 
 	/** Initialize the capture */
 	void StartCapture();
@@ -151,6 +159,8 @@ protected:
 	TSharedPtr<ICaptureStrategy> CaptureStrategy;
 	/** Scratch space for per-frame screenshots */
 	TArray<FColor> ScratchBuffer;
+	/** The number of frames to capture.  If this is zero, we'll capture the entire sequence. */
+	int32 FrameCount;
 	/** Running count of how many frames we're waiting to capture from slate */
 	int32 OutstandingFrameCount;
 	/** The delta of the last frame */
@@ -159,6 +169,10 @@ protected:
 	bool bCapturing;
 	/** Class responsible for ticking this instance */
 	TUniquePtr<FTicker> Ticker;
+	/** Frame number index offset when saving out frames.  This is used to allow the frame numbers on disk to match
+	    what they would be in the authoring application, rather than a simple 0-based sequential index */
+	int32 FrameNumberOffset;
+
 };
 
 /** A strategy that employs a fixed frame time-step, and as such never drops a frame. Potentially accelerated.  */
@@ -166,6 +180,7 @@ struct MOVIESCENECAPTURE_API FFixedTimeStepCaptureStrategy : ICaptureStrategy
 {
 	FFixedTimeStepCaptureStrategy(uint32 InTargetFPS);
 
+	virtual void OnWarmup() override;
 	virtual void OnStart() override;
 	virtual void OnStop() override;
 	virtual void OnPresent(double CurrentTimeSeconds, uint32 FrameIndex) override;	
@@ -181,6 +196,7 @@ struct MOVIESCENECAPTURE_API FRealTimeCaptureStrategy : ICaptureStrategy
 {
 	FRealTimeCaptureStrategy(uint32 InTargetFPS);
 
+	virtual void OnWarmup() override;
 	virtual void OnStart() override;
 	virtual void OnStop() override;
 	virtual void OnPresent(double CurrentTimeSeconds, uint32 FrameIndex) override;

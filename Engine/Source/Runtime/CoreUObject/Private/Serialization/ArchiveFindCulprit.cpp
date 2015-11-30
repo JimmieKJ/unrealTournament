@@ -32,7 +32,7 @@ FArchiveFindCulprit::FArchiveFindCulprit( UObject* InFind, UObject* Src, bool In
 
 FArchive& FArchiveFindCulprit::operator<<( UObject*& Obj )
 {
-	if( Obj==Find )
+	if (Obj == Find)
 	{
 		if (GetSerializedProperty() != nullptr)
 		{
@@ -41,11 +41,11 @@ FArchive& FArchiveFindCulprit::operator<<( UObject*& Obj )
 		Count++;
 	}
 
-	if( PretendSaving && Obj && !Obj->IsPendingKill() )
+	if (PretendSaving && Obj && !Obj->IsPendingKill())
 	{
-		if( (!Obj->HasAnyFlags(RF_Transient) || Obj->HasAnyFlags(RF_Public)) && !Obj->HasAnyMarks(OBJECTMARK_TagExp) )
+		if ((!Obj->HasAnyFlags(RF_Transient) || Obj->HasAnyFlags(RF_Public)) && !Obj->HasAnyMarks(OBJECTMARK_TagExp))
 		{
-			if ( Obj->HasAnyFlags(RF_Native|RF_Standalone|RF_RootSet) )
+			if (Obj->HasAnyFlags(RF_Standalone) || Obj->HasAnyInternalFlags(EInternalObjectFlags::Native | EInternalObjectFlags::RootSet))
 			{
 				// serialize the object's Outer if this object could potentially be rooting the object we're attempting to find references to
 				// otherwise, it's just spam

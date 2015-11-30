@@ -393,7 +393,7 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugObjectNames(bool bR
 				continue;
 			}
 
-			if (!TestObject->HasAnyFlags(RF_PendingKill | RF_ClassDefaultObject))
+			if (!TestObject->HasAnyFlags(RF_ClassDefaultObject) && !TestObject->IsPendingKill())
 			{
 				UObject *ObjOuter = TestObject;
 				UWorld *ObjWorld = nullptr;
@@ -434,57 +434,57 @@ void SBlueprintEditorSelectedDebugObjectWidget::GenerateDebugObjectNames(bool bR
 	}
 	else
 	{
-		for (TObjectIterator<UObject> It; It; ++It)
+	for (TObjectIterator<UObject> It; It; ++It)
+	{
+		UObject* TestObject = *It;
+
+		// Skip Blueprint preview objects (don't allow them to be selected for debugging)
+		if (PreviewWorld != nullptr && TestObject->IsIn(PreviewWorld))
 		{
-			UObject* TestObject = *It;
+			continue;
+		}
 
-			// Skip Blueprint preview objects (don't allow them to be selected for debugging)
-			if (PreviewWorld != nullptr && TestObject->IsIn(PreviewWorld))
+		const bool bPassesFlags = !TestObject->HasAnyFlags(RF_ClassDefaultObject) && !TestObject->IsPendingKill();
+		const bool bGeneratedByAnyBlueprint = TestObject->GetClass()->ClassGeneratedBy != nullptr;
+		const bool bGeneratedByThisBlueprint = bGeneratedByAnyBlueprint && TestObject->IsA(GetBlueprintObj()->GeneratedClass);
+
+		if (bPassesFlags && bGeneratedByThisBlueprint)
+		{
+			UObject *ObjOuter = TestObject;
+			UWorld *ObjWorld = nullptr;
+			do		// Run through at least once in case the TestObject is a UGameInstance
 			{
-				continue;
-			}
+				UGameInstance *ObjGameInstance = Cast<UGameInstance>(ObjOuter);
 
-			const bool bPassesFlags = !TestObject->HasAnyFlags(RF_PendingKill | RF_ClassDefaultObject);
-			const bool bGeneratedByAnyBlueprint = TestObject->GetClass()->ClassGeneratedBy != nullptr;
-			const bool bGeneratedByThisBlueprint = bGeneratedByAnyBlueprint && TestObject->IsA(GetBlueprintObj()->GeneratedClass);
+				ObjOuter = ObjOuter->GetOuter();
+				ObjWorld = ObjGameInstance ? ObjGameInstance->GetWorld() : Cast<UWorld>(ObjOuter);
+			} while (ObjWorld == nullptr && ObjOuter != nullptr);
 
-			if (bPassesFlags && bGeneratedByThisBlueprint)
+			if (ObjWorld)
 			{
-				UObject *ObjOuter = TestObject;
-				UWorld *ObjWorld = nullptr;
-				do		// Run through at least once in case the TestObject is a UGameInstance
+				// Make check on owning level (not streaming level)
+				if (ObjWorld->PersistentLevel && ObjWorld->PersistentLevel->OwningWorld)
 				{
-					UGameInstance *ObjGameInstance = Cast<UGameInstance>(ObjOuter);
+					ObjWorld = ObjWorld->PersistentLevel->OwningWorld;
+				}
 
-					ObjOuter = ObjOuter->GetOuter();
-					ObjWorld = ObjGameInstance ? ObjGameInstance->GetWorld() : Cast<UWorld>(ObjOuter);
-				} while (ObjWorld == nullptr && ObjOuter != nullptr);
-
-				if (ObjWorld)
+				// We have a specific debug world and the object isn't in it
+				if (DebugWorld && ObjWorld != DebugWorld)
 				{
-					// Make check on owning level (not streaming level)
-					if (ObjWorld->PersistentLevel && ObjWorld->PersistentLevel->OwningWorld)
-					{
-						ObjWorld = ObjWorld->PersistentLevel->OwningWorld;
-					}
+					continue;
+				}
 
-					// We have a specific debug world and the object isn't in it
-					if (DebugWorld && ObjWorld != DebugWorld)
-					{
-						continue;
-					}
-
-					if ((ObjWorld->WorldType == EWorldType::Editor) && (GUnrealEd->GetPIEViewport() == nullptr))
-					{
-						AddDebugObject(TestObject);
-					}
-					else if (ObjWorld->WorldType == EWorldType::PIE)
-					{
-						AddDebugObject(TestObject);
-					}
+				if ((ObjWorld->WorldType == EWorldType::Editor) && (GUnrealEd->GetPIEViewport() == nullptr))
+				{
+					AddDebugObject(TestObject);
+				}
+				else if (ObjWorld->WorldType == EWorldType::PIE)
+				{
+					AddDebugObject(TestObject);
 				}
 			}
 		}
+	}
 	}
 
 	// Attempt to restore the old selection

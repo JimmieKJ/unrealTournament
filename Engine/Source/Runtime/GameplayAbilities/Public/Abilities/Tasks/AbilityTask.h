@@ -59,6 +59,20 @@
  *	
  */
 
+/**
+ *	Latent tasks are waiting on something. This is to differeniate waiting on the user to do something vs waiting on the game to do something.
+ *	Tasks start WaitingOnGame, and are set to WaitingOnUser when appropriate (see WaitTargetData, WaitIiputPress, etc)
+ */
+UENUM()
+enum class EAbilityTaskWaitState : uint8
+{
+	/** Task is waiting for the game to do something */
+	WaitingOnGame,
+
+	/** Waiting for the user to do something */
+	WaitingOnUser,
+};
+
 UCLASS(Abstract)
 class GAMEPLAYABILITIES_API UAbilityTask : public UGameplayTask
 {
@@ -113,6 +127,15 @@ class GAMEPLAYABILITIES_API UAbilityTask : public UGameplayTask
 	{
 		static_assert(DelayedFalse<T>(), "UAbilityTask::NewTask should never be used. Use NewAbilityTask instead");
 	}
+
+	/** Called when the ability task is waiting on remote player data. IF the remote player ends the ability prematurely, and a task with this set is still running, the ability is killed. */
+	void SetWaitingOnRemotePlayerData();
+	void ClearWaitingOnRemotePlayerData();
+
+	virtual bool IsWaitingOnRemotePlayerdata() const override;
+
+	/** What we are waiting on */
+	EAbilityTaskWaitState WaitState;
 
 protected:
 	/** Helper method for registering client replicated callbacks */

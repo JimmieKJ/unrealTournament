@@ -127,7 +127,8 @@ public:
 
 private:
 	/** if true show debug info for 'ShowDebugTargetActor', otherwise for Camera Viewtarget */
-	static bool bShowDebugForReticleTarget;
+	UPROPERTY(Transient)
+	bool bShowDebugForReticleTarget;
 
 	/** Class filter for selecting 'ShowDebugTargetActor' when 'bShowDebugForReticleTarget' is true. */
 	UPROPERTY(Transient)

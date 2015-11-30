@@ -191,10 +191,8 @@ struct ENGINE_API FWaveInstance
 	float				Volume;
 	/** Current volume multiplier - used to zero the volume without stopping the source */
 	float				VolumeMultiplier;
-	/** Current priority (deprecated) */
-	float				PlayPriority;
-	/** A priority value that scales with volume (post all gain stages) and is used to determin voice playback priority. */
-	float				VolumeWeightedPriorityScale;
+	/** An audio component priority value that scales with volume (post all gain stages) and is used to determine voice playback priority. */
+	float				Priority;
 	/** Voice center channel volume */
 	float				VoiceCenterChannelVolume;
 	/** Volume of the radio filter effect */
@@ -222,8 +220,10 @@ struct ENGINE_API FWaveInstance
 	uint32				bAlreadyNotifiedHook:1;
 	/** Whether to use spatialization */
 	uint32				bUseSpatialization:1;
-	/** Which algorithm to use to spatialize 3d sounds. */
-	ESoundSpatializationAlgorithm SpatializationAlgorithm;
+	/** Whether or not to enable the low pass filter */
+	uint32				bEnableLowPassFilter:1;
+	/** Whether or not the sound is occluded. */
+	uint32				bIsOccluded:1;
 	/** Whether to apply audio effects */
 	uint32				bEQFilterApplied:1;
 	/** Whether or not this sound plays when the game is paused in the UI */
@@ -236,10 +236,17 @@ struct ENGINE_API FWaveInstance
 	uint32				bCenterChannelOnly:1;
 	/** Prevent spamming of spatialization of surround sounds by tracking if the warning has already been emitted */
 	uint32				bReportedSpatializationWarning:1;
+	/** Which algorithm to use to spatialize 3d sounds. */
+	ESoundSpatializationAlgorithm SpatializationAlgorithm;
 	/** Which output target the sound should play to */
 	EAudioOutputTarget::Type OutputTarget;
-	/** Low pass filter setting */
-	float				HighFrequencyGain;
+	float				LowPassFilterFrequency;
+	/** The low pass filter frequency to use if the sound is occluded */
+	float				OcclusionFilterFrequency;
+	/** The low pass filter frequency to use due to ambient zones */
+	float				AmbientZoneFilterFrequency;
+	/** The low pass filter frequency to use due to distance attenuation */
+	float				AttenuationFilterFrequency;
 	/** Current pitch */
 	float				Pitch;
 	/** Current velocity */
@@ -390,7 +397,8 @@ public:
 		, bReverbApplied(false)
 		, StereoBleed(0.0f)
 		, LFEBleed(0.5f)
-		, HighFrequencyGain(1.0f)
+		, LPFFrequency(MAX_FILTER_FREQUENCY)
+		, LastLPFFrequency(MAX_FILTER_FREQUENCY)
 		, LastUpdate(0)
 		, LeftChannelSourceLocation(0)
 		, RightChannelSourceLocation(0)
@@ -492,9 +500,9 @@ public:
 	ENGINE_API float SetLFEBleed( void );
 
 	/**
-	 * Set the HighFrequencyGain value
-	 */
-	ENGINE_API void SetHighFrequencyGain( void );
+	* Set the FilterFrequency value
+	*/
+	ENGINE_API void SetFilterFrequency(void);
 
 	/** Updates the stereo emitter positions of this voice */
 	ENGINE_API void UpdateStereoEmitterPositions();
@@ -537,8 +545,12 @@ protected:
 	float				StereoBleed;
 	/** The amount of a sound to bleed to the LFE speaker */
 	float				LFEBleed;
-	/** Low pass filter setting */
-	float				HighFrequencyGain;
+
+	/** What frequency to set the LPF filter to. Note this could be caused by occlusion, manual LPF application, or LPF distance attenuation. */
+	float				LPFFrequency;
+
+	/** The last LPF frequency set. Used to avoid making API calls when parameter doesn't changing. */
+	float				LastLPFFrequency;
 
 	/** Last tick when this source was active */
 	int32					LastUpdate;
@@ -604,6 +616,28 @@ public:
 	ENGINE_API bool ReadWaveHeader(uint8* RawWaveData, int32 Size, int32 Offset );
 
 	ENGINE_API void ReportImportFailure() const;
+};
+
+/** Simple class that wraps the math involved with interpolating a parameter over time based on audio device update time. */
+class ENGINE_API FDynamicParameter
+{
+public:
+	FDynamicParameter(float Value);
+
+	void Set(float Value, float InDuration);
+	void Update(float DeltaTime);
+	float GetValue() const
+	{
+		return CurrValue;
+	}
+
+private:
+	float CurrValue;
+	float StartValue;
+	float DeltaValue;
+	float CurrTimeSec;
+	float DurationSec;
+	float LastTime;
 };
 
 /**

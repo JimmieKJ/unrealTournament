@@ -405,7 +405,7 @@ void FMatinee::NewGroupPopupTextCommitted(
 		// Duplicate each selected group.
 		for( TMap<UInterpGroup*,FName>::TIterator GroupIt(DuplicateGroupToNameMap); GroupIt; ++GroupIt )
 		{
-			UInterpGroup* DupGroup = (UInterpGroup*)StaticDuplicateObject( GroupIt.Key(), IData, TEXT("None"), RF_Transactional );
+			UInterpGroup* DupGroup = (UInterpGroup*)StaticDuplicateObject( GroupIt.Key(), IData, NAME_None, RF_Transactional );
 			DupGroup->GroupName = GroupIt.Value();
 			// we need to insert these into correct spot if we'd keep the folder, and if not this will add to the last group or folder or whatever
 			// which will crash again, so I'm disabling duplicating parenting. 

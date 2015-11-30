@@ -7,8 +7,8 @@
 class FSlate3DRenderer : public ISlate3DRenderer
 {
 public:
-	FSlate3DRenderer( TSharedPtr<FSlateRHIResourceManager> InResourceManager, TSharedPtr<FSlateFontCache> InFontCache, bool bUseGammaCorrection = false );
-	virtual ~FSlate3DRenderer();
+	FSlate3DRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager, bool bUseGammaCorrection = false );
+	~FSlate3DRenderer();
 
 	virtual FSlateDrawBuffer& GetDrawBuffer() override;
 	virtual void DrawWindow_GameThread(FSlateDrawBuffer& DrawBuffer) override;
@@ -16,13 +16,14 @@ public:
 private:
 
 	/** Double buffered draw buffers so that the rendering thread can be rendering windows while the game thread is setting up for next frame */
-	FSlateDrawBuffer DrawBuffers[2];
+	static const int32 NUM_DRAW_BUFFERS = 3;
+	FSlateDrawBuffer DrawBuffers[NUM_DRAW_BUFFERS];
+
+	/** The font services to use for rendering text */
+	TSharedRef<FSlateFontServices> SlateFontServices;
 
 	/** Texture manager for accessing textures on the game thread */
 	TSharedRef<FSlateRHIResourceManager> ResourceManager;
-
-	/** The font cache for rendering text */
-	TSharedRef<FSlateFontCache> FontCache;
 
 	/** The rendering policy to use for drawing to the render target */
 	TSharedPtr<class FSlateRHIRenderingPolicy> RenderTargetPolicy;

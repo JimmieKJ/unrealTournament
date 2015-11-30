@@ -55,7 +55,7 @@ FVertexBufferRHIRef FD3D12DynamicRHI::RHICreateVertexBuffer(uint32 Size, uint32 
 	TRefCountPtr<FD3D12ResourceLocation> ResourceLocation;
     if (bIsDynamic)
 	{
-		void *pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, ResourceLocation.GetInitReference());
+		void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, ResourceLocation.GetInitReference());
 
 		if (pInitData)
 		{
@@ -87,7 +87,7 @@ FD3D12VertexBuffer::~FD3D12VertexBuffer()
 	ResourceViewHandleDesc ViewHandleDesc;
 	while (SRVPool.TryAllocate(ViewHandleDesc))
 	{
-		  FD3D12ResourceAllocator *Allocator = ViewHandleDesc.BlockInfo->Allocator;
+		  FD3D12ResourceAllocator* Allocator = ViewHandleDesc.BlockInfo->Allocator;
 		  check(!!Allocator);
 
 		  Allocator->ExpireBlock(ViewHandleDesc.BlockInfo);
@@ -106,15 +106,15 @@ FD3D12VertexBuffer::~FD3D12VertexBuffer()
 	}
 }
 
-void *FD3D12VertexBuffer::DynamicLock()
+void* FD3D12VertexBuffer::DynamicLock()
 {
-	void *pData = nullptr;
+	void* pData = nullptr;
 	check((GetUsage() & BUF_AnyDynamic) ? true : false);
 
 	if (DynamicSRV != nullptr)
 	{
 		// Place current resource location and SRV handle into the pool
-		FD3D12ResourceBlockInfo *pBlockInfo = ResourceLocation->GetBlockInfo();
+		FD3D12ResourceBlockInfo* pBlockInfo = ResourceLocation->GetBlockInfo();
 		if (pBlockInfo)
 		{
 			ResourceViewHandleDesc ViewHandleDesc(pBlockInfo, DynamicSRV->GetView(), DynamicSRV->GetDescriptorHeapIndex());
@@ -125,7 +125,7 @@ void *FD3D12VertexBuffer::DynamicLock()
 		ResourceViewHandleDesc PruneViewHandleDesc;
 		while (SRVPool.TryAllocate(PruneViewHandleDesc, PruneFenceCount))
 		{
-			FD3D12ResourceAllocator *Allocator = PruneViewHandleDesc.BlockInfo->Allocator;
+			FD3D12ResourceAllocator* Allocator = PruneViewHandleDesc.BlockInfo->Allocator;
 			check(!!Allocator);
 
 			Allocator->ExpireBlock(PruneViewHandleDesc.BlockInfo);
@@ -182,18 +182,18 @@ void* FD3D12DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBuffe
 	{
 		check(LockMode == RLM_WriteOnly);
 
-		void *pData = VertexBuffer->DynamicLock();
+		void* pData = VertexBuffer->DynamicLock();
 
 		// Add the lock to the lock map.
 		LockedData.SetData(pData);
 		LockedData.Pitch = Size;
 		OutstandingLocks.Add(LockedKey, LockedData);
 
-		return (void *)((uint8*)pData + Offset);
+		return (void* )((uint8*)pData + Offset);
 	}
 	else
 	{
-		FD3D12Resource *pResource = VertexBuffer->ResourceLocation->GetResource();
+		FD3D12Resource* pResource = VertexBuffer->ResourceLocation->GetResource();
 		uint32 ResourceSize = VertexBuffer->ResourceLocation->GetEffectiveBufferSize();
 
 		if (LockMode == RLM_ReadOnly)
@@ -232,7 +232,7 @@ void* FD3D12DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBuffe
 
 			// Use an upload heap for dynamic resources and map its memory for writing.
 			TRefCountPtr<FD3D12ResourceLocation> pUploadBufferLocation = new FD3D12ResourceLocation();
-            void *pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().FastAlloc(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, pUploadBufferLocation);
+            void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().FastAlloc(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, pUploadBufferLocation);
 
 			if (nullptr == pData)
 			{
@@ -249,7 +249,7 @@ void* FD3D12DynamicRHI::RHILockVertexBuffer(FVertexBufferRHIParamRef VertexBuffe
 			LockedData.UploadHeapLocation = pUploadBufferLocation;
 			OutstandingLocks.Add(LockedKey, LockedData);
 
-			return (void *)((uint8*)pData + Offset);
+			return (void* )((uint8*)pData + Offset);
 		}
 	}
 
@@ -287,7 +287,7 @@ void FD3D12DynamicRHI::RHIUnlockVertexBuffer(FVertexBufferRHIParamRef VertexBuff
 		}
 		else
 		{
-			FD3D12Resource *pResource = VertexBuffer->ResourceLocation->GetResource();
+			FD3D12Resource* pResource = VertexBuffer->ResourceLocation->GetResource();
 
 			// Copy the contents of the temporary memory buffer allocated for writing into the IB.
 			FD3D12ResourceLocation* pUploadHeapLocation = LockedData->UploadHeapLocation.GetReference();
@@ -322,10 +322,10 @@ void FD3D12DynamicRHI::RHICopyVertexBuffer(FVertexBufferRHIParamRef SourceBuffer
 	FD3D12VertexBuffer*  SourceBuffer = FD3D12DynamicRHI::ResourceCast(SourceBufferRHI);
 	FD3D12VertexBuffer*  DestBuffer = FD3D12DynamicRHI::ResourceCast(DestBufferRHI);
 
-	FD3D12Resource *pSourceResource = SourceBuffer->ResourceLocation->GetResource();
+	FD3D12Resource* pSourceResource = SourceBuffer->ResourceLocation->GetResource();
 	D3D12_RESOURCE_DESC const& SourceBufferDesc = pSourceResource->GetDesc();
 
-	FD3D12Resource *pDestResource = DestBuffer->ResourceLocation->GetResource();
+	FD3D12Resource* pDestResource = DestBuffer->ResourceLocation->GetResource();
 	D3D12_RESOURCE_DESC const& DestBufferDesc = pDestResource->GetDesc();
 
 	check(SourceBufferDesc.Width == DestBufferDesc.Width);

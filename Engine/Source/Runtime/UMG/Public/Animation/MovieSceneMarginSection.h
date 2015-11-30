@@ -15,16 +15,24 @@ enum class EKeyMarginChannel
 	Bottom
 };
 
+enum class EKeyMarginValueType
+{
+	Key,
+	Default
+};
+
 
 struct FMarginKey
 {
-	FMarginKey( EKeyMarginChannel InChannel, float InValue )
+	FMarginKey( EKeyMarginChannel InChannel, float InValue, EKeyMarginValueType InValueType )
 	{
 		Channel = InChannel;
 		Value = InValue;
+		ValueType = InValueType;
 	}
 	EKeyMarginChannel Channel;
 	float Value;
+	EKeyMarginValueType ValueType;
 };
 
 

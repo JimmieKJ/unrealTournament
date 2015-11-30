@@ -46,7 +46,7 @@ static UPackage*			GObjTransientPkg								= NULL;
 #endif
 
 UObject::UObject( EStaticConstructor, EObjectFlags InFlags )
-: UObjectBaseUtility(InFlags | RF_Native | RF_RootSet)
+: UObjectBaseUtility(InFlags | (!(InFlags & RF_Dynamic) ? (RF_MarkAsNative | RF_MarkAsRootSet) : RF_NoFlags))
 {
 #if WITH_HOT_RELOAD_CTORS
 	EnsureNotRetrievingVTablePtr();
@@ -507,7 +507,10 @@ void UObject::GetArchetypeInstances( TArray<UObject*>& Instances )
 	{
 		// we need to evaluate CDOs as well, but nothing pending kill
 		TArray<UObject*> IterObjects;
-		GetObjectsOfClass(GetClass(), IterObjects, true, RF_PendingKill);
+		{
+			const bool bIncludeNestedObjects = true;
+			GetObjectsOfClass(GetClass(), IterObjects, bIncludeNestedObjects, RF_NoFlags, EInternalObjectFlags::PendingKill);
+		}
 
 		// if this object is the class default object, any object of the same class (or derived classes) could potentially be affected
 		if ( !HasAnyFlags(RF_ArchetypeObject) )
@@ -832,7 +835,7 @@ bool UObject::Modify( bool bAlwaysMarkDirty/*=true*/ )
 	{
 		// Do not consider PIE world objects or script packages, as they should never end up in the
 		// transaction buffer and we don't want to mark them dirty here either.
-		if ((GetOutermost()->PackageFlags & (PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn)) == 0)
+		if (GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor | PKG_ContainsScript | PKG_CompiledIn) == false)
 		{
 			// Attempt to mark the package dirty and save a copy of the object to the transaction
 			// buffer. The save will fail if there isn't a valid transactor, the object isn't
@@ -936,11 +939,11 @@ void UObject::Serialize( FArchive& Ar )
 			Ar << WasKill;
 			if (WasKill)
 			{
-				SetFlags( RF_PendingKill );
+				MarkPendingKill();
 			}
 			else
 			{
-				ClearFlags( RF_PendingKill );
+				ClearPendingKill();
 			}
 		}
 		else if( Ar.IsSaving() )
@@ -1108,7 +1111,7 @@ bool UObject::CanCheckDefaultSubObjects(bool bForceCheck, bool& bResult)
 		bResult = false; // these aren't in a suitable spot in their lifetime for testing
 		bCanCheck = false;
 	}
-	if (bCanCheck && (HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_Unreachable | RF_PendingKill) || GIsDuplicatingClassForReinstancing))
+	if (bCanCheck && (HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects) || IsPendingKillOrUnreachable() || GIsDuplicatingClassForReinstancing))
 	{
 		bResult = true; // these aren't in a suitable spot in their lifetime for testing
 		bCanCheck = false;
@@ -1319,7 +1322,7 @@ bool UObject::IsSafeForRootSet() const
 	}
 
 	// Exclude linkers from root set if we're using seekfree loading		
-	if (!HasAnyFlags(RF_PendingKill))
+	if (!IsPendingKill())
 	{
 		return true;
 	}
@@ -1336,7 +1339,7 @@ void UObject::TagSubobjects(EObjectFlags NewFlags)
 	for( TArray<UObject*>::TIterator it(MemberReferences); it; ++it )
 	{
 		UObject* CurrentObject = *it;
-		if( CurrentObject && !CurrentObject->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS | RF_RootSet))
+		if( CurrentObject && !CurrentObject->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) && !CurrentObject->IsRooted())
 		{
 			CurrentObject->SetFlags(NewFlags);
 			CurrentObject->TagSubobjects(NewFlags);
@@ -1997,7 +2000,7 @@ void UObject::ReinitializeProperties( UObject* SourceObject/*=NULL*/, FObjectIns
 	// the properties for this object ensures that any cleanup required when an object is reinitialized from defaults occurs properly
 	// for example, when re-initializing UPrimitiveComponents, the component must notify the rendering thread that its data structures are
 	// going to be re-initialized
-	StaticConstructObject_Internal( GetClass(), GetOuter(), GetFName(), GetFlags(), SourceObject, !HasAnyFlags(RF_ClassDefaultObject), InstanceGraph );
+	StaticConstructObject_Internal( GetClass(), GetOuter(), GetFName(), GetFlags(), GetInternalFlags(), SourceObject, !HasAnyFlags(RF_ClassDefaultObject), InstanceGraph );
 }
 
 
@@ -2024,7 +2027,8 @@ static void StaticShutdownAfterError()
 
 		for( FRawObjectIterator It; It; ++It )
 		{
-			It->ShutdownAfterError();
+			UObject* Object = static_cast<UObject*>(It->Object);
+			Object->ShutdownAfterError();
 		}
 	}
 }
@@ -2111,7 +2115,7 @@ void UObject::OutputReferencers( FOutputDevice& Ar, FReferencerInformationList* 
 					ObjectReachability += TEXT(" (root)");
 				}
 		
-				if( RefInfo.Referencer->HasAnyFlags(RF_Native) )
+				if( RefInfo.Referencer->IsNative() )
 				{
 					ObjectReachability += TEXT(" (native)");
 				}
@@ -2273,19 +2277,14 @@ static TArray<FObjectFlag> PrivateInitObjectFlagList()
 	DECLARE_OBJECT_FLAG( ClassDefaultObject )
 	DECLARE_OBJECT_FLAG( ArchetypeObject )
 	DECLARE_OBJECT_FLAG( Transactional )
-	DECLARE_OBJECT_FLAG( Unreachable )
 	DECLARE_OBJECT_FLAG( Public	)
 	DECLARE_OBJECT_FLAG( TagGarbageTemp )
 	DECLARE_OBJECT_FLAG( NeedLoad )
-	DECLARE_OBJECT_FLAG( AsyncLoading )
 	DECLARE_OBJECT_FLAG( Transient )
 	DECLARE_OBJECT_FLAG( Standalone )
-	DECLARE_OBJECT_FLAG( RootSet )
 	DECLARE_OBJECT_FLAG( BeginDestroyed )
 	DECLARE_OBJECT_FLAG( FinishDestroyed )
 	DECLARE_OBJECT_FLAG( NeedPostLoad )
-	DECLARE_OBJECT_FLAG( Native )
-	DECLARE_OBJECT_FLAG( PendingKill	)
 #undef DECLARE_OBJECT_FLAG
 #endif
 	return ObjectFlagList;
@@ -3044,7 +3043,7 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 				// Skip objects that are trashed
 				if ((Target->GetOutermost() == GetTransientPackage())
 					|| Target->GetClass()->HasAnyClassFlags(CLASS_NewerVersionExists)
-					|| Target->HasAnyFlags(RF_PendingKill))
+					|| Target->IsPendingKill())
 				{
 					continue;
 				}
@@ -3431,7 +3430,7 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 								// Recurse if we're in the same package.
 								if( RootObject->GetOutermost() == Object->GetOutermost() 
 								// Or if package doesn't contain script.
-								||	!(Object->GetOutermost()->PackageFlags & PKG_ContainsScript) )
+								||	!Object->GetOutermost()->HasAnyPackageFlags(PKG_ContainsScript) )
 								{
 									// Serialize object. We don't want to use the << operator here as it would call 
 									// this function again instead of serializing members.
@@ -3478,7 +3477,7 @@ bool StaticExec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 					// Only list certain class if specified.
 					if( (!ListClass || ObjectReference->GetClass() == ListClass)
 					// Only list non-script objects if specified.
-					&&	(!bShouldOnlyListContent || !(ObjectReference->GetOutermost()->PackageFlags & PKG_ContainsScript))
+					&&	(!bShouldOnlyListContent || !ObjectReference->GetOutermost()->HasAnyPackageFlags(PKG_ContainsScript))
 					// Exclude the transient package.
 					&&	ObjectReference->GetOutermost() != GetTransientPackage() )
 					{
@@ -3704,11 +3703,13 @@ void StaticExit()
 		// Valid object.
 		GObjectCountDuringLastMarkPhase++;
 
-		UObject* Obj = *It;
+		FUObjectItem* ObjItem = *It;
+		checkSlow(ObjItem);
+		UObject* Obj = static_cast<UObject*>(ObjItem->Object);
 		if (Obj && !Obj->IsA<UField>()) // Skip Structures, properties, etc.. They could be still necessary while GC.
 		{
 			// Mark as unreachable so purge phase will kill it.
-			It->SetFlags(RF_Unreachable);
+			ObjItem->SetUnreachable();
 		}
 	}
 
@@ -3721,11 +3722,13 @@ void StaticExit()
 	//
 	for ( FRawObjectIterator It; It; ++It )
 	{
-		UObject* Object = *It;
-		if( Object->HasAnyFlags( RF_Unreachable ) )
+		FUObjectItem* ObjItem = *It;
+		checkSlow(ObjItem);
+		if (ObjItem->IsUnreachable())
 		{
 			// Begin the object's asynchronous destruction.
-			Object->ConditionalBeginDestroy();
+			UObject* Obj = static_cast<UObject*>(ObjItem->Object);
+			Obj->ConditionalBeginDestroy();
 		}
 	}
 
@@ -3736,16 +3739,18 @@ void StaticExit()
 		for (FRawObjectIterator It; It; ++It)
 		{
 			// Mark as unreachable so purge phase will kill it.
-			It->SetFlags(RF_Unreachable);
+			It->SetUnreachable();
 		}
 
 		for (FRawObjectIterator It; It; ++It)
 		{
-			UObject* Object = *It;
-			if (Object->HasAnyFlags(RF_Unreachable))
+			FUObjectItem* ObjItem = *It;
+			checkSlow(ObjItem);
+			if (ObjItem->IsUnreachable())
 			{
 				// Begin the object's asynchronous destruction.
-				Object->ConditionalBeginDestroy();
+				UObject* Obj = static_cast<UObject*>(ObjItem->Object);
+				Obj->ConditionalBeginDestroy();
 			}
 		}
 
@@ -3790,7 +3795,7 @@ void MarkObjectsToDisregardForGC()
 			NumRootObjects++;
 			Object->AddToRoot();
 		}
-		else if (Object->HasAnyFlags(RF_RootSet))
+		else if (Object->IsRooted())
 		{
 			Object->RemoveFromRoot();
 		}
@@ -3850,7 +3855,7 @@ void UObject::PreDestroyFromReplication()
 /** IsNameStableForNetworking means an object can be referred to its path name (relative to outer) over the network */
 bool UObject::IsNameStableForNetworking() const
 {
-	return HasAnyFlags(RF_WasLoaded | RF_DefaultSubObject | RF_Native) || IsDefaultSubobject();
+	return HasAnyFlags(RF_WasLoaded | RF_DefaultSubObject) || IsNative() || IsDefaultSubobject();
 }
 
 /** IsFullNameStableForNetworking means an object can be referred to its full path name over the network */

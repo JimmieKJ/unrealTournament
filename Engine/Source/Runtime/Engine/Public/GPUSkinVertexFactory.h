@@ -287,10 +287,9 @@ public:
 	struct ShaderDataType
 	{
 		ShaderDataType()
+			: CurrentBuffer(0)
+			, PreviousFrameNumber(0)
 		{
-			OldBoneDataStartIndex[0] = 0xffffffff;
-			OldBoneDataStartIndex[1] = 0xffffffff;
-
 			// BoneDataOffset and BoneTextureSize are not set as they are only valid if IsValidRef(BoneTexture)
 			if(!MaxBonesVar)
 			{
@@ -298,9 +297,6 @@ public:
 				MaxGPUSkinBones = MaxBonesVar->GetValueOnGameThread();
 				check(MaxGPUSkinBones <= 256);
 			}
-
-			HackReferenceToLocalMatrices = nullptr;
-			HackBoneMap = nullptr;
 		}
 
 		/** Mesh origin and Mesh Extension for Mesh compressions **/
@@ -308,124 +304,96 @@ public:
 		FVector MeshOrigin;
 		FVector MeshExtension;
 
-		/** @return 0xffffffff means not valid */
-		uint32 GetOldBoneData(uint32 InFrameNumber) const
-		{
-			// will also work in the wrap around case
-			uint32 LastFrameNumber = InFrameNumber - 1;
-
-			// pick the data with the right frame number
-			if(OldBoneFrameNumber[0] == LastFrameNumber)
-			{
-				// [0] has the right data
-				return OldBoneDataStartIndex[0];
-			}
-			else if(OldBoneFrameNumber[1] == LastFrameNumber)
-			{
-				// [1] has the right data
-				return OldBoneDataStartIndex[1];
-			}
-			else
-			{
-				// all data stored is too old
-				return 0xffffffff;
-			}
-		}
-
-		/** Set the data with the given frame number, keeps data for the last frame. */
-		void SetOldBoneData(uint32 FrameNumber, uint32 Index) const
-		{
-			// keep the one from last from, someone might read want to read that
-			if (OldBoneFrameNumber[0] + 1 == FrameNumber)
-			{
-				// [1] has the right data
-				OldBoneFrameNumber[1] = FrameNumber;
-				OldBoneDataStartIndex[1] = Index;
-			}
-			else 
-			{
-				// [0] has the right data
-				OldBoneFrameNumber[0] = FrameNumber;
-				OldBoneDataStartIndex[0] = Index;
-			}
-		}
-
-		void MaintainBoneDataStartIndex() const
-		{
-			OldBoneFrameNumber[0]++;
-			OldBoneFrameNumber[1]++;
-		}
-
-		/** Checks if we need to update the data for this frame */
-		bool IsOldBoneDataUpdateNeeded(uint32 InFrameNumber) const
-		{
-			if(OldBoneFrameNumber[0] == InFrameNumber
-			|| OldBoneFrameNumber[1] == InFrameNumber)
-			{
-				return false;
-			}
-
-			return true;
-		}
-
-		bool UpdateBoneData(FRHICommandListImmediate& RHICmdList, const TArray<FMatrix>& ReferenceToLocalMatrices, const TArray<FBoneIndexType>& BoneMap, ERHIFeatureLevel::Type FeatureLevel, bool bUseSkinCache);
+		// @param FrameTime from GFrameTime
+		bool UpdateBoneData(FRHICommandListImmediate& RHICmdList, const TArray<FMatrix>& ReferenceToLocalMatrices,
+			const TArray<FBoneIndexType>& BoneMap, uint32 FrameNumber, ERHIFeatureLevel::Type FeatureLevel, bool bUseSkinCache);
 
 		void ReleaseBoneData()
 		{
 			UniformBuffer.SafeRelease();
-            if(IsValidRef(BoneBuffer))
-            {
-                BoneBufferPool.ReleasePooledResource(BoneBuffer);
-            }
-            BoneBuffer.SafeRelease();
+
+			for(uint32 i = 0; i < 2; ++i)
+			{
+				if (IsValidRef(BoneBuffer[i]))
+				{
+					BoneBufferPool.ReleasePooledResource(BoneBuffer[i]);
+				}
+				BoneBuffer[i].SafeRelease();
+			}
 		}
 		
+		// if FeatureLevel < ERHIFeatureLevel::ES3_1
 		FUniformBufferRHIParamRef GetUniformBuffer() const
 		{
 			return UniformBuffer;
 		}
 		
-		FBoneBufferTypeRef GetBoneBuffer() const
+		// @param bPrevious true:previous, false:current
+		// @param FrameNumber usually from View.Family->FrameNumber
+		const FBoneBufferTypeRef& GetBoneBufferForReading(bool bPrevious, uint32 FrameNumber) const
 		{
-			return BoneBuffer;
+			const FBoneBufferTypeRef* RetPtr = &GetBoneBufferInternal(bPrevious, FrameNumber);
+
+			if(!RetPtr->VertexBufferRHI.IsValid())
+			{
+				// this only should happen if we request the old data
+				check(bPrevious);
+
+				// if we don't have any old data we use the current one
+				RetPtr = &GetBoneBufferInternal(false, FrameNumber);
+
+				// at least the current one needs to be valid when reading
+				check(RetPtr->VertexBufferRHI.IsValid());
+			}
+
+			return *RetPtr;
 		}
 
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		FString GetDebugString(const FVertexFactory* VertexFactory, uint32 OldBoneDataIndex) const
+		// @param bPrevious true:previous, false:current
+		// @param FrameNumber usually from View.Family->FrameNumber
+		// @return IsValid() can fail, then you have to create the buffers first (or if the size changes)
+		FBoneBufferTypeRef& GetBoneBufferForWriting(bool bPrevious, uint32 FrameNumber)
 		{
-			return FString::Printf(TEXT("r.MotionBlurDebug: OldBoneDataIndex[%p] (%d:%d %d:%d), => %d"),
-				VertexFactory,
-				OldBoneFrameNumber[0], OldBoneDataStartIndex[0],
-				OldBoneFrameNumber[1], OldBoneDataStartIndex[1],
-				OldBoneDataIndex);
-		}
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			const ShaderDataType* This = (const ShaderDataType*)this;
 
-		mutable FCriticalSection OldBoneDataLock;
-
-		// awful code to recall where the bone info comes from for motion blur
-		const TArray<FMatrix>* HackReferenceToLocalMatrices;
-		const TArray<FBoneIndexType>* HackBoneMap;
-		void ClearBoneData()
-		{
-			HackReferenceToLocalMatrices = nullptr;
-			HackBoneMap = nullptr;
+			// non const version maps to const version
+			return (FBoneBufferTypeRef&)This->GetBoneBufferInternal(bPrevious, FrameNumber);
 		}
 
-private:
+	private:
 
-		// the following members can be stored in less bytes (after some adjustments)
-
-		/** Start bone index in BoneTexture valid means != 0xffffffff */
-		mutable uint32 OldBoneDataStartIndex[2];
-		/** FrameNumber from the view when the data was set, only valid if OldBoneDataStartIndex != 0xffffffff */
-		mutable uint32 OldBoneFrameNumber[2];
-
-		FBoneBufferTypeRef BoneBuffer;
+		FBoneBufferTypeRef BoneBuffer[2];
+		// 0 / 1 to index into BoneBuffer
+		uint32 CurrentBuffer;
+		// from GFrameNumber, to detect pause and old data when an object was not rendered for some time
+		uint32 PreviousFrameNumber;
+		// if FeatureLevel < ERHIFeatureLevel::ES3_1
 		FUniformBufferRHIRef UniformBuffer;
 		
 		static TConsoleVariableData<int32>* MaxBonesVar;
 		static uint32 MaxGPUSkinBones;
+
+		void GoToNextFrame(uint32 FrameNumber);
+
+		// to support GetBoneBufferForWriting() and GetBoneBufferForReading()
+		// @param bPrevious true:previous, false:current
+		// @param FrameNumber usually from View.Family->FrameNumber
+		// @return might not pass the IsValid() 
+		const FBoneBufferTypeRef& GetBoneBufferInternal(bool bPrevious, uint32 FrameNumber) const
+		{
+			check(IsInParallelRenderingThread());
+
+			// this test prevents the skeletal meshes to keep velocity when we pause (e.g. simulate pause)
+			if(FrameNumber != PreviousFrameNumber + 1)
+			{
+				bPrevious = false;
+			}
+
+			uint32 BufferIndex = CurrentBuffer ^ (uint32)bPrevious;
+
+			const FBoneBufferTypeRef& Ret = BoneBuffer[BufferIndex];
+			return Ret;
+		}
 	};
 
 	/**
@@ -450,27 +418,7 @@ private:
 
 	virtual bool UsesExtraBoneInfluences() const { return false; }
 
-	/**
-	 * Set the data with the given frame number, keeps data for the last frame.
-	 * @param Index 0xffffffff to disable motion blur skinning
-	 */
-	void SetOldBoneDataStartIndex(uint32 FrameNumber, uint32 Index) const
-	{
-		ShaderData.SetOldBoneData(FrameNumber, Index);
-	}
-
-	void MaintainBoneDataStartIndex() const
-	{
-		ShaderData.MaintainBoneDataStartIndex();
-	}
-
 	static bool SupportsTessellationShaders() { return true; }
-
-	/** Checks if we need to update the data for this frame */
-	bool IsOldBoneDataUpdateNeeded(uint32 InFrameNumber) const
-	{
-		return ShaderData.IsOldBoneDataUpdateNeeded(InFrameNumber);
-	}
 
 	const FVertexBuffer* GetSkinVertexBuffer() const
 	{

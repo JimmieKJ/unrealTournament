@@ -6,7 +6,7 @@
 FOnlineAsyncTaskGooglePlayShowLoginUI::FOnlineAsyncTaskGooglePlayShowLoginUI(
 	FOnlineSubsystemGooglePlay* InSubsystem,
 	int InPlayerId,
-	const IOnlineExternalUI::FOnLoginUIClosedDelegate& InDelegate)
+	const FOnLoginUIClosedDelegate& InDelegate)
 	: FOnlineAsyncTaskGooglePlayAuthAction(InSubsystem)
 	, PlayerId(InPlayerId)
 	, Delegate(InDelegate)

@@ -57,7 +57,7 @@ void UAnimGraphNode_AnimDynamics::Draw(FPrimitiveDrawInterface* PDI, USkeletalMe
 				FTransform ShapeOriginalTransform = BodyJointTransform;
 
 				// Draw pin location
-				FVector LocalPinOffset = BodyTransform.Rotator().RotateVector(Node.LocalJointOffset);
+				FVector LocalPinOffset = BodyTransform.Rotator().RotateVector(Node.GetBodyLocalJointOffset(BodyIndex));
 				PDI->DrawLine(Body.Pose.Position, Body.Pose.Position + LocalPinOffset, FLinearColor::Green, SDPG_Foreground, AnimDynamicsNodeConstants::ShapeLineWidth);
 
 				// Draw basis at body location
@@ -161,6 +161,30 @@ void UAnimGraphNode_AnimDynamics::Draw(FPrimitiveDrawInterface* PDI, USkeletalMe
 			if (bShowAngularLimits)
 			{
 				DrawAngularLimits(PDI, ShapeTransform, Node);
+			}
+		}
+	}
+}
+
+void UAnimGraphNode_AnimDynamics::GetOnScreenDebugInfo(TArray<FText>& DebugInfo, USkeletalMeshComponent* PreviewSkelMeshComp) const
+{
+
+	FAnimNode_AnimDynamics* ActivePreviewNode = GetPreviewDynamicsNode();
+	if(ActivePreviewNode)
+	{
+		int32 NumBones = ActivePreviewNode->GetNumBoundBones();
+		for(int32 ChainBoneIndex = 0; ChainBoneIndex < NumBones; ++ChainBoneIndex)
+		{
+			if(const FBoneReference* BoneRef = ActivePreviewNode->GetBoundBoneReference(ChainBoneIndex))
+			{
+				const int32 SkelBoneIndex = PreviewSkelMeshComp->GetBoneIndex(BoneRef->BoneName);
+				if(SkelBoneIndex != INDEX_NONE)
+				{
+					FTransform BoneTransform = PreviewSkelMeshComp->GetBoneTransform(SkelBoneIndex);
+					DebugInfo.Add(FText::Format(LOCTEXT("DebugOnScreenName", "Anim Dynamics (Bone:{0})"), FText::FromName(BoneRef->BoneName)));
+					DebugInfo.Add(FText::Format(LOCTEXT("DebugOnScreenTranslation", "    Translation: {0}"), FText::FromString(BoneTransform.GetTranslation().ToString())));
+					DebugInfo.Add(FText::Format(LOCTEXT("DebugOnScreenRotation", "    Rotation: {0}"), FText::FromString(BoneTransform.Rotator().ToString())));
+				}
 			}
 		}
 	}

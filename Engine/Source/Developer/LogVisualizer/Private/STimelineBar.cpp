@@ -16,7 +16,7 @@
 FReply STimelineBar::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	TimelineOwner.Pin()->OnMouseButtonDown(MyGeometry, MouseEvent);
-	FReply Replay = TimeSliderController->OnMouseButtonDown(SharedThis(this), MyGeometry, MouseEvent);
+	FReply Replay = TimeSliderController->OnMouseButtonDown(*this, MyGeometry, MouseEvent);
 	if (Replay.IsEventHandled())
 	{
 		FName RowName = TimelineOwner.Pin()->GetName();
@@ -36,7 +36,7 @@ FReply STimelineBar::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointer
 {
 	TimelineOwner.Pin()->OnMouseButtonUp(MyGeometry, MouseEvent);
 
-	FReply  Replay = TimeSliderController->OnMouseButtonUp(SharedThis(this), MyGeometry, MouseEvent);
+	FReply  Replay = TimeSliderController->OnMouseButtonUp(*this, MyGeometry, MouseEvent);
 	if (Replay.IsEventHandled())
 	{
 		FName RowName = TimelineOwner.Pin()->GetName();
@@ -54,7 +54,7 @@ FReply STimelineBar::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointer
 
 FReply STimelineBar::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	return TimeSliderController->OnMouseMove(SharedThis(this), MyGeometry, MouseEvent);
+	return TimeSliderController->OnMouseMove(*this, MyGeometry, MouseEvent);
 }
 
 FReply STimelineBar::OnMouseButtonDoubleClick(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)

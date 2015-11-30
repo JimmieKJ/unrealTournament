@@ -1197,7 +1197,7 @@ void DestructibleStructure::crumbleChunk(const FractureEvent& fractureEvent, Chu
 
 	dscene->getChunkReportData(chunk, NxApexChunkFlag::DESTROYED_CRUMBLED);
 
-	PX_ASSERT(chunk.reportID < dscene->mDamageEventReportData.size() || chunk.reportID == DestructibleScene::InvalidReportID);
+	PX_ASSERT(chunk.reportID < dscene->mChunkReportHandles.size() || chunk.reportID == DestructibleScene::InvalidReportID);
 	if (chunk.reportID < dscene->mChunkReportHandles.size())
 	{
 		IntPair& handle = dscene->mChunkReportHandles[chunk.reportID];

@@ -3,6 +3,7 @@
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneSequenceInstance.h"
 
+#include "MovieSceneSequence.h"
 #include "MovieSceneSpawnTrack.h"
 #include "MovieSceneSpawnTrackInstance.h"
 
@@ -14,9 +15,15 @@ FMovieSceneSpawnTrackInstance::FMovieSceneSpawnTrackInstance(UMovieSceneSpawnTra
 
 void FMovieSceneSpawnTrackInstance::Update(float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass)
 {
-	if (!SequenceInstance.GetTimeRange().Contains(Position))
+	IMovieSceneSpawnRegister& SpawnRegister = Player.GetSpawnRegister();
+	FMovieSceneSpawnable* Spawnable = SequenceInstance.GetSequence()->GetMovieScene()->FindSpawnable(Track->GetObjectId());
+
+	TRange<float> Range = SequenceInstance.GetTimeRange();
+
+	// If we're evaluating outside of the instance's time range, and the sequence owns the spawnable, there's no reason to evaluate - it should already be destroyed
+	if (Spawnable && Spawnable->GetSpawnOwnership() == ESpawnOwnership::InnerSequence && !Range.Contains(Position) && !Range.Contains(LastPosition))
 	{
-		SequenceInstance.DestroySpawnedObject(Track->GetObject(), Player);
+		SpawnRegister.DestroySpawnedObject(Track->GetObjectId(), SequenceInstance, Player);
 		return;
 	}
 
@@ -26,26 +33,13 @@ void FMovieSceneSpawnTrackInstance::Update(float Position, float LastPosition, c
 		// Spawn the object if needed
 		if (bIsSpawned && RuntimeObjects.Num() == 0)
 		{
-			SequenceInstance.SpawnObject(Track->GetObject(), Player);
+			SpawnRegister.SpawnObject(Track->GetObjectId(), SequenceInstance, Player);
 		}
 
 		// Destroy the object if needed
 		if (!bIsSpawned && RuntimeObjects.Num() != 0)
 		{
-			SequenceInstance.DestroySpawnedObject(Track->GetObject(), Player);
+			SpawnRegister.DestroySpawnedObject(Track->GetObjectId(), SequenceInstance, Player);
 		}
 	}
-}
-
-void FMovieSceneSpawnTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
-{
-	if (RuntimeObjects.Num())
-	{
-		SequenceInstance.DestroySpawnedObject(Track->GetObject(), Player);
-	}
-}
-
-void FMovieSceneSpawnTrackInstance::ClearInstance(IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
-{
-	SequenceInstance.DestroySpawnedObject(Track->GetObject(), Player);
 }

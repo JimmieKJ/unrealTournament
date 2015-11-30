@@ -215,6 +215,45 @@ void UCrowdFollowingComponent::SetCrowdRotateToVelocity(bool bEnable)
 	bRotateToVelocity = bEnable;
 }
 
+void UCrowdFollowingComponent::SetAvoidanceGroup(int32 GroupFlags, bool bUpdateAgent)
+{
+	if (AvoidanceGroup.Packed != GroupFlags)
+	{
+		AvoidanceGroup.SetFlagsDirectly(GroupFlags);
+
+		if (bUpdateAgent)
+		{
+			UpdateCrowdAgentParams();
+		}
+	}
+}
+
+void UCrowdFollowingComponent::SetGroupsToAvoid(int32 GroupFlags, bool bUpdateAgent)
+{
+	if (GroupsToAvoid.Packed != GroupFlags)
+	{
+		GroupsToAvoid.SetFlagsDirectly(GroupFlags);
+
+		if (bUpdateAgent)
+		{
+			UpdateCrowdAgentParams();
+		}
+	}
+}
+
+void UCrowdFollowingComponent::SetGroupsToIgnore(int32 GroupFlags, bool bUpdateAgent)
+{
+	if (GroupsToIgnore.Packed != GroupFlags)
+	{
+		GroupsToIgnore.SetFlagsDirectly(GroupFlags);
+
+		if (bUpdateAgent)
+		{
+			UpdateCrowdAgentParams();
+		}
+	}
+}
+
 void UCrowdFollowingComponent::SuspendCrowdSteering(bool bSuspend)
 {
 	if (bSuspendCrowdSimulation != bSuspend)
@@ -309,17 +348,20 @@ void UCrowdFollowingComponent::SetCrowdSimulation(bool bEnable)
 
 void UCrowdFollowingComponent::Initialize()
 {
+	const bool bPrevEnabled = bEnableCrowdSimulation;
+
 	Super::Initialize();
 
-	UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
-	if (CrowdManager)
+	const bool bWasRegistered = RegisterCrowdAgent();
+	if (!bWasRegistered)
 	{
-		ICrowdAgentInterface* IAgent = Cast<ICrowdAgentInterface>(this);
-		CrowdManager->RegisterAgent(IAgent);
-	}
-	else
-	{
-		bEnableCrowdSimulation = false;
+		// crowd manager might not be created yet if this component was spawned during level's begin play (possessing a pawn placed in level)
+		UNavigationSystem* NavSys = UNavigationSystem::GetCurrent(GetWorld());
+		if (NavSys && !NavSys->IsInitialized())
+		{
+			NavSys->OnNavigationInitDone.AddUObject(this, &UCrowdFollowingComponent::OnPendingNavigationInit);
+			bEnableCrowdSimulation = bPrevEnabled;
+		}
 	}
 }
 
@@ -655,7 +697,7 @@ void UCrowdFollowingComponent::SetMoveSegment(int32 SegmentStartIndex)
 		UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
 		if (CrowdManager)
 		{
-			CrowdManager->SetAgentMovePath(this, NavMeshPath, PathStartIndex, PathPartEndIdx);
+			CrowdManager->SetAgentMovePath(this, NavMeshPath, PathStartIndex, PathPartEndIdx, CurrentTargetPt);
 		}
 #endif
 	}
@@ -852,6 +894,33 @@ void UCrowdFollowingComponent::SwitchToNextPathPart()
 {
 	const int32 NewPartStart = DetermineStartingPathPoint(NULL);
 	SetMoveSegment(NewPartStart);
+}
+
+bool UCrowdFollowingComponent::RegisterCrowdAgent()
+{
+	bool bSuccess = false;
+
+	UCrowdManager* CrowdManager = UCrowdManager::GetCurrent(GetWorld());
+	if (CrowdManager)
+	{
+		ICrowdAgentInterface* IAgent = Cast<ICrowdAgentInterface>(this);
+		CrowdManager->RegisterAgent(IAgent);
+		bSuccess = true;
+	}
+	else
+	{
+		bEnableCrowdSimulation = false;
+	}
+
+	return bSuccess;
+}
+
+void UCrowdFollowingComponent::OnPendingNavigationInit()
+{
+	RegisterCrowdAgent();
+
+	// set movement component, it will cache MyNavData from its NavAgentProperties
+	SetMovementComponent(MovementComp);
 }
 
 void UCrowdFollowingComponent::GetDebugStringTokens(TArray<FString>& Tokens, TArray<EPathFollowingDebugTokens::Type>& Flags) const

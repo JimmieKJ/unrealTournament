@@ -95,7 +95,7 @@ public:
 			TagsAndValues = MakeSharedMapView(MoveTemp(TagsAndValuesMap));
 
 			ChunkIDs = Outermost->GetChunkIDs();
-			PackageFlags = Outermost->PackageFlags;
+			PackageFlags = Outermost->GetPackageFlags();
 		}
 	}
 
@@ -271,7 +271,7 @@ public:
 			UE_LOG(LogAssetData, Log, TEXT("                 %d"), Chunk);
 		}
 
-		UE_LOG(LogAssetData, Log, TEXT("        PackageFlahs: %d"), PackageFlags);
+		UE_LOG(LogAssetData, Log, TEXT("        PackageFlags: %d"), PackageFlags);
 	}
 
 	/** Get the first FAssetData of a particular class from an Array of FAssetData */

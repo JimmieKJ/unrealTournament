@@ -400,7 +400,7 @@ TNiagaraExprPtr FNiagaraCompiler::GetExternalConstant(const FNiagaraVariableInfo
 }
 TNiagaraExprPtr FNiagaraCompiler::GetExternalConstant(const FNiagaraVariableInfo& Constant, const UNiagaraDataObject* Default)
 {
-	UNiagaraDataObject* DefaultDupe = Default ? CastChecked<UNiagaraDataObject>(StaticDuplicateObject(Default, Script, NULL, ~RF_Transient)) : nullptr;
+	UNiagaraDataObject* DefaultDupe = Default ? CastChecked<UNiagaraDataObject>(StaticDuplicateObject(Default, Script, NAME_None, ~RF_Transient)) : nullptr;
 	SetOrAddConstant(false, Constant, DefaultDupe);
 	return Expression_GetExternalConstant(Constant);
 }
@@ -421,7 +421,7 @@ TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo
 }
 TNiagaraExprPtr FNiagaraCompiler::GetInternalConstant(const FNiagaraVariableInfo& Constant, const UNiagaraDataObject* Default)
 {
-	UNiagaraDataObject* DefaultDupe = Default ? CastChecked<UNiagaraDataObject>(StaticDuplicateObject(Default, Script, NULL, ~RF_Transient)) : nullptr;
+	UNiagaraDataObject* DefaultDupe = Default ? CastChecked<UNiagaraDataObject>(StaticDuplicateObject(Default, Script, NAME_None, ~RF_Transient)) : nullptr;
 	SetOrAddConstant(true, Constant, DefaultDupe);
 	return Expression_GetInternalConstant(Constant);
 }

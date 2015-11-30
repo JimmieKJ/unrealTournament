@@ -6,7 +6,6 @@
 namespace Lightmass
 {
 
-const float TRIANGLE_AREA_THRESHOLD =0.00001f;
 // The default number of triangles to store in each leaf
 #define DEFAULT_MAX_TRIS_PER_LEAF 4
 
@@ -26,15 +25,23 @@ volatile uint64 GKDOPLeafNodesTraversed = 0;
 volatile uint64 GKDOPTrianglesTraversed = 0;
 volatile uint64 GKDOPTrianglesTraversedReal = 0;
 
-
 FStaticLightingAggregateMesh::FStaticLightingAggregateMesh(const FScene& InScene):
 	Scene(InScene),
+	bHasShadowCastingPrimitives(false),
 	SceneBounds(0),
 	SceneSurfaceArea(0),
 	SceneSurfaceAreaWithinImportanceVolume(0)
-{}
+{
+}
 
-FStaticLightingAggregateMesh::~FStaticLightingAggregateMesh()
+FBox FStaticLightingAggregateMesh::GetBounds() const
+{
+	// Expand the bounds slightly to avoid having to handle geometry that is exactly on the bounding box,
+	// Which happens if you create a new level in Unreal with BSP from the default builder brush.
+	return bHasShadowCastingPrimitives ? SceneBounds.ExpandBy(5.0f * Scene.SceneConstants.StaticLightingLevelScale) : FBox(FVector4(0,0,0), FVector4(0,0,0));
+}
+
+FDefaultAggregateMesh::~FDefaultAggregateMesh()
 {
 	for (int32 i = 0; i < MeshInfos.Num(); i++)
 	{
@@ -46,7 +53,7 @@ FStaticLightingAggregateMesh::~FStaticLightingAggregateMesh()
 * Merges a mesh into the shadow mesh.
 * @param Mesh - The mesh the triangle comes from.
 */
-void FStaticLightingAggregateMesh::AddMesh(const FStaticLightingMesh* Mesh, const FStaticLightingMapping* Mapping)
+void FDefaultAggregateMesh::AddMesh(const FStaticLightingMesh* Mesh, const FStaticLightingMapping* Mapping)
 {
 	// Only use shadow casting meshes.
 	if( Mesh->LightingFlags&GI_INSTANCE_CASTSHADOW )
@@ -108,6 +115,8 @@ void FStaticLightingAggregateMesh::AddMesh(const FStaticLightingMesh* Mesh, cons
 				const int32 PayloadIndex = TrianglePayloads.Add(
 					FTriangleSOAPayload(MeshInfos.Last(), Mapping, ElementIndex, BaseVertexIndex + I0, BaseVertexIndex + I1, BaseVertexIndex + I2));
 
+				bHasShadowCastingPrimitives = true;
+
 				new(kDOPTriangles) FkDOPBuildCollisionTriangle<uint32>(
 					PayloadIndex, // Use the triangle's material index as an index into TrianglePayloads.
 					V0.WorldPosition,V1.WorldPosition,V2.WorldPosition,
@@ -142,7 +151,7 @@ void FStaticLightingAggregateMesh::AddMesh(const FStaticLightingMesh* Mesh, cons
  * @param NumVertices	- Expected number of vertices which will be added
  * @param NumTriangles	- Expected number of triangles which will be added
  */
-void FStaticLightingAggregateMesh::ReserveMemory( int32 NumMeshes, int32 NumVertices, int32 NumTriangles )
+void FDefaultAggregateMesh::ReserveMemory( int32 NumMeshes, int32 NumVertices, int32 NumTriangles )
 {
 	UE_LOG(LogLightmass, Log, TEXT("Reserving memory for %d meshes, %d vertices, %d triangles"), NumMeshes, NumVertices, NumTriangles);
 	MeshInfos.Reserve( NumMeshes );
@@ -153,7 +162,7 @@ void FStaticLightingAggregateMesh::ReserveMemory( int32 NumMeshes, int32 NumVert
 	kDOPTriangles.Reserve( NumTriangles );
 }
 
-void FStaticLightingAggregateMesh::PrepareForRaytracing()
+void FDefaultAggregateMesh::PrepareForRaytracing()
 {
 	// Build the kDOP for simple meshes.
 	kDopTree.Build(kDOPTriangles);
@@ -166,7 +175,7 @@ void FStaticLightingAggregateMesh::PrepareForRaytracing()
 	TrianglePayloads.Shrink();
 }
 
-void FStaticLightingAggregateMesh::DumpStats() const
+void FDefaultAggregateMesh::DumpStats() const
 {
 	const uint64 kDOPTreeBytes = kDopTree.Nodes.GetAllocatedSize() 
 		+ kDopTree.SOATriangles.GetAllocatedSize()
@@ -188,29 +197,12 @@ void FStaticLightingAggregateMesh::DumpStats() const
 	UE_LOG(LogLightmass, Log, TEXT("Static lighting kDOP: %u nodes, %u leaves, %u triangles, %u vertices, %.1f Mb"), GKDOPNodes, GKDOPNumLeaves, GKDOPTriangles, Vertices.Num(), kDOPTreeBytes / 1048576.0f);
 }
 
-FBox FStaticLightingAggregateMesh::GetBounds() const
-{
-	// Expand the bounds slightly to avoid having to handle geometry that is exactly on the bounding box,
-	// Which happens if you create a new level in Unreal with BSP from the default builder brush.
-	return TrianglePayloads.Num() > 0 ? SceneBounds.ExpandBy(5.0f * Scene.SceneConstants.StaticLightingLevelScale) : FBox(FVector4(0,0,0), FVector4(0,0,0));
-}
-
-float FStaticLightingAggregateMesh::GetSurfaceArea() const
-{
-	return SceneSurfaceArea;
-}
-
-float FStaticLightingAggregateMesh::GetSurfaceAreaWithinImportanceVolume() const
-{
-	return SceneSurfaceAreaWithinImportanceVolume;
-}
-
 class FStaticLightingAggregateMeshDataProvider
 {
 public:
 
 	/** Initialization constructor. */
-	FStaticLightingAggregateMeshDataProvider(const FStaticLightingAggregateMesh* InMesh,const FLightRay& InLightRay):
+	FStaticLightingAggregateMeshDataProvider(const FDefaultAggregateMesh* InMesh,const FLightRay& InLightRay):
 		Mesh(InMesh),
 		LightRay(InLightRay)
 	{}
@@ -269,10 +261,9 @@ public:
 
 private:
 
-	const FStaticLightingAggregateMesh* Mesh;
+	const FDefaultAggregateMesh* Mesh;
 	const FLightRay& LightRay;
 };
-
 
 /**
  * Checks a light ray for intersection with the shadow mesh.
@@ -287,7 +278,7 @@ private:
  * @param [out] Intersection - The intersection of between the light ray and the mesh.
  * @return true if there is an intersection, false otherwise
  */
-bool FStaticLightingAggregateMesh::IntersectLightRay(
+bool FDefaultAggregateMesh::IntersectLightRay(
 	const FLightRay& LightRay,
 	bool bFindClosestIntersection,
 	bool bCalculateTransmission,

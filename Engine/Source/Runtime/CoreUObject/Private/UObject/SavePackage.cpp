@@ -7,6 +7,7 @@
 #include "UObject/UObjectThreadContext.h"
 #include "BlueprintSupport.h"
 #include "DebugSerializationFlags.h"
+#include "UObject/GCScopeLock.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogSavePackage, Log, All);
 
@@ -313,13 +314,11 @@ public:
 	 */
 	void AddReplacementsNames(UObject* Obj)
 	{
-		if (Obj && FReplaceCookedBPGC::Get().IsEnabled())
+		if (FScriptCookReplacementCoordinator* Coordinator = FScriptCookReplacementCoordinator::Get())
 		{
-			if (UObject* ReplObj = FReplaceCookedBPGC::Get().FindReplacementStub(Obj))
+			if (const UClass* ReplObjClass = Coordinator->FindReplacedClass(Obj))
 			{
-				MarkNameAsReferenced(ReplObj->GetFName());
-				MarkNameAsReferenced(ReplObj->GetClass()->GetFName());
-				MarkNameAsReferenced(ReplObj->GetOuter()->GetFName());
+				MarkNameAsReferenced(ReplObjClass->GetFName());
 			}
 		}
 	}
@@ -372,7 +371,7 @@ static bool IsEditorOnlyStruct(UStruct* InStruct)
 	{
 		UPackage* StructPackage = Struct->GetOutermost();
 		check(StructPackage);
-		if (StructPackage->PackageFlags & PKG_EditorOnly)
+		if (StructPackage->HasAnyPackageFlags(PKG_EditorOnly))
 		{
 			return true;
 		}
@@ -424,7 +423,7 @@ static bool IsEditorOnlyObject(UObject* InObject)
 	{
 		Package = InObject->GetOutermost();
 	}
-	if (Package && (Package->PackageFlags & PKG_EditorOnly))
+	if (Package && Package->HasAnyPackageFlags(PKG_EditorOnly))
 	{
 		bResult = true;
 	}
@@ -812,11 +811,11 @@ FArchive& FArchiveSaveTagImports::operator<<( UObject*& Obj )
 	// Skip PendingKill objects and objects that are both not for client and not for server when cooking.
 	if (Obj && !Obj->IsPendingKill() && (!IsCooking() || !Obj->HasAllMarks(ObjectMarks)) && !Obj->HasAnyMarks(OBJECTMARK_EditorOnly))
 	{
-		if( !Obj->HasAnyFlags(RF_Transient) || Obj->HasAllFlags(RF_Native) )
+		if( !Obj->HasAnyFlags(RF_Transient) || Obj->IsNative() )
 		{
 			// remember it as a dependency, unless it's a top level package or native
 			const bool bIsTopLevelPackage = Obj->GetOuter() == NULL && dynamic_cast<UPackage*>(Obj);
-			bool bIsNative = Obj->HasAnyFlags(RF_Native);
+			bool bIsNative = Obj->IsNative();
 			UObject* Outer = Obj->GetOuter();
 
 			const bool bIsEditorOnly = IsCookingForNoEditorDataPlatform(*this) && IsEditorOnlyObject(Obj);
@@ -829,7 +828,7 @@ FArchive& FArchiveSaveTagImports::operator<<( UObject*& Obj )
 			// go up looking for native classes
 			while (!bIsNative && Outer)
 			{
-				if (dynamic_cast<UClass*>(Outer) && Outer->HasAnyFlags(RF_Native))
+				if (dynamic_cast<UClass*>(Outer) && Outer->IsNative())
 				{
 					bIsNative = true;
 				}
@@ -862,10 +861,14 @@ FArchive& FArchiveSaveTagImports::operator<<( UObject*& Obj )
 					Obj->UnMark(OBJECTMARK_NotForServer);
 				}
 
-				UObject* Parent = Obj->GetOuter();
-				if( Parent )
+				// If the object has been excluded, don't add its outer
+				if (!IsCooking() || !Obj->HasAllMarks(ObjectMarks))
 				{
-					*this << Parent;
+					UObject* Parent = Obj->GetOuter();
+					if( Parent )
+					{
+						*this << Parent;
+					}
 				}
 			}
 		}
@@ -1404,27 +1407,27 @@ static void FindMostLikelyCulprit( TArray<UObject*> BadObjects, UObject*& MostLi
 		
 		FReferencerInformationList Refs;
 
-		if ( IsReferenced( Obj,RF_Native | RF_Public, true, &Refs) )
-		{	
+		if (IsReferenced(Obj, RF_Public, EInternalObjectFlags::Native, true, &Refs))
+		{
 			for (int32 i = 0; i < Refs.ExternalReferences.Num(); i++)
 			{
 				UObject* RefObj = Refs.ExternalReferences[i].Referencer;
-				if( RefObj->HasAnyMarks(EObjectMark(OBJECTMARK_TagExp|OBJECTMARK_TagImp)) )
+				if (RefObj->HasAnyMarks(EObjectMark(OBJECTMARK_TagExp | OBJECTMARK_TagImp)))
 				{
-					if ( RefObj->GetFName() == NAME_PersistentLevel || RefObj->GetClass()->GetFName() == WorldClassName )
+					if (RefObj->GetFName() == NAME_PersistentLevel || RefObj->GetClass()->GetFName() == WorldClassName)
 					{
 						// these types of references should be ignored
 						continue;
 					}
 
-					UE_LOG(LogSavePackage, Warning, TEXT("\t%s (%i refs)"), *RefObj->GetFullName(), Refs.ExternalReferences[i].TotalReferences );
-					for ( int32 j = 0; j < Refs.ExternalReferences[i].ReferencingProperties.Num(); j++ )
+					UE_LOG(LogSavePackage, Warning, TEXT("\t%s (%i refs)"), *RefObj->GetFullName(), Refs.ExternalReferences[i].TotalReferences);
+					for (int32 j = 0; j < Refs.ExternalReferences[i].ReferencingProperties.Num(); j++)
 					{
 						const UProperty* Prop = Refs.ExternalReferences[i].ReferencingProperties[j];
 						UE_LOG(LogSavePackage, Warning, TEXT("\t\t%i) %s"), j, *Prop->GetFullName());
 						PropertyRef = Prop;
 					}
-			
+
 					MostLikelyCulprit = Obj;
 				}
 			}
@@ -1577,7 +1580,7 @@ public:
 				else
 				{
 					// this import no longer exists in the new package
-					new(Imports)FObjectImport( NULL );
+					new(Imports)FObjectImport( nullptr );
 				}
 			}
 
@@ -2901,7 +2904,7 @@ static bool ValidateConformCompatibility(UPackage* NewPackage, FLinkerLoad* OldL
 	{
 		UClass* NewClass = (UClass*)StaticFindObjectFast(UClass::StaticClass(), NewPackage, OldLinker->ExportMap[i].ObjectName, true, false);
 		UClass* OldClass = static_cast<UClass*>(OldLinker->Create(UClass::StaticClass(), OldLinker->ExportMap[i].ObjectName, OldLinker->LinkerRoot, LOAD_None, false));
-		if (OldClass != NULL && NewClass != NULL && OldClass->HasAnyFlags(RF_Native) && NewClass->HasAnyFlags(RF_Native))
+		if (OldClass != NULL && NewClass != NULL && OldClass->IsNative() && NewClass->IsNative())
 		{
 			OldClass->ClassConstructor = NewClass->ClassConstructor;
 #if WITH_HOT_RELOAD_CTORS
@@ -3113,55 +3116,6 @@ TMap<UObject*, UObject*> UnmarkExportTagFromDuplicates()
 
 COREUOBJECT_API extern bool GOutputCookingWarnings;
 
-/**
- * Find imports to converted BPGC, that should replaced by a generated native class. 
- * For each converted class a stub is generated. The import object is replaced with the stub.
- */
-struct FImportReplacementsHelper
-{
-	TSet<UObject*> UniqueTagImpObjects;
-
-	FImportReplacementsHelper(const TArray<UObject*>& InTagImpObjects)
-	{
-		if (FReplaceCookedBPGC::Get().IsEnabled())
-		{
-			UniqueTagImpObjects = TSet<UObject*>(InTagImpObjects);
-		}
-	}
-
-	UObject* Handle(UObject* Obj, TArray<FObjectImport>& ImportMap)
-	{
-		if (FReplaceCookedBPGC::Get().IsEnabled())
-		{
-			UObject* ReplacedObjectToImport = FReplaceCookedBPGC::Get().FindReplacementStub(Obj);
-			Obj = ReplacedObjectToImport ? ReplacedObjectToImport : Obj;
-			if (ReplacedObjectToImport)
-			{
-				{
-					ensure(ReplacedObjectToImport->GetOuter() == ReplacedObjectToImport->GetOutermost());
-					bool bAlreadyAdded = false;
-					UniqueTagImpObjects.Add(ReplacedObjectToImport->GetOuter(), &bAlreadyAdded);
-					if (!bAlreadyAdded)
-					{
-						new(ImportMap)FObjectImport(ReplacedObjectToImport->GetOuter());
-					}
-				}
-
-									{
-										bool bAlreadyAdded = false;
-										UniqueTagImpObjects.Add(ReplacedObjectToImport->GetClass(), &bAlreadyAdded);
-										if (!bAlreadyAdded)
-										{
-											new(ImportMap)FObjectImport(ReplacedObjectToImport->GetClass());
-										}
-									}
-			}
-		}
-		return Obj;
-	}
-
-};
-
 class FDiffSerializeArchive : public FBufferArchive
 {
 private:
@@ -3231,13 +3185,14 @@ public:
 
 #endif
 
+extern FGCCSyncObject GGarbageCollectionGuardCritical;
 
 ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags TopLevelFlags, const TCHAR* Filename,
 	FOutputDevice* Error, FLinkerLoad* Conform, bool bForceByteSwapping, bool bWarnOfLongFilename, uint32 SaveFlags, 
 	const class ITargetPlatform* TargetPlatform, const FDateTime&  FinalTimeStamp, bool bSlowTask)
 {
 	UE_START_LOG_COOK_TIME( Filename );
-	
+
 	if (FPlatformProperties::HasEditorOnlyData())
 	{
 		if (GIsSavingPackage)
@@ -3260,19 +3215,11 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				UE_CLOG(!(SaveFlags & SAVE_NoError), LogSavePackage, Display, TEXT("Package loaded by editor-only properties: %s. Package will not be saved."), *InOuter->GetName());
 				return ESavePackageResult::ReferencedOnlyByEditorOnlyData;
 			}
-			else if (InOuter->PackageFlags & PKG_EditorOnly)
+			else if (InOuter->HasAnyPackageFlags(PKG_EditorOnly))
 			{
 				UE_CLOG(!(SaveFlags & SAVE_NoError), LogSavePackage, Display, TEXT("Package marked as editor-only: %s. Package will not be saved."), *InOuter->GetName());
 				return ESavePackageResult::ReferencedOnlyByEditorOnlyData;
 			}
-#if WITH_EDITOR
-			else if (FReplaceCookedBPGC::Get().PackageShouldNotBeSaved(InOuter))
-			{
-				UE_LOG(LogSavePackage, Display, TEXT("Package %s contains assets, that were converted into native code. Package will not be saved."), *InOuter->GetName());
-				// Or replace with the NativeScriptPackage ?
-				return ESavePackageResult::ContainsConvertedAssets;
-			}
-#endif	// #if WITH_EDITOR
 		}
 #endif
 		// if we are cooking we should be doing it in the editor
@@ -3302,7 +3249,6 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 		// The latter implies flushing all file handles which is a pre-requisite of saving a package. The code basically needs 
 		// to be sure that we are not reading from a file that is about to be overwritten and that there is no way we might 
 		// start reading from the file till we are done overwriting it.
-
 		FlushAsyncLoading();
 
 		UE_LOG_COOK_TIME(TEXT("FlushAsyncLoading"));
@@ -3388,7 +3334,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 			return ESavePackageResult::Error;
 		}
 
-		bool FilterEditorOnly = (InOuter->PackageFlags & PKG_FilterEditorOnly) != 0;
+		const bool FilterEditorOnly = InOuter->HasAnyPackageFlags(PKG_FilterEditorOnly);
 		// store a list of additional packages to cook when this is cooked (ie streaming levels)
 		TArray<FString> AdditionalPackagesToCook;
 
@@ -3421,6 +3367,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 		SlowTask.EnterProgressFrame();
 
 		bool Success = true;
+		bool bRequestStub = false;
 
 		ResetLoadersForSave(InOuter,Filename);
 
@@ -3456,11 +3403,21 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 			UE_LOG_COOK_TIME(TEXT("TagPackageExports"));
 		
 			{
-				// set GIsSavingPackage here as it is now illegal to create any new object references; they potentially wouldn't be saved correctly
+				check(!IsGarbageCollecting());
+				// set GIsSavingPackage here as it is now illegal to create any new object references; they potentially wouldn't be saved correctly								
 				struct FScopedSavingFlag
 				{
-					FScopedSavingFlag() { GIsSavingPackage = true; }
-					~FScopedSavingFlag() { GIsSavingPackage = false; }
+					FScopedSavingFlag() 
+					{ 
+						// We need the same lock as GC so that no StaticFindObject can happen in parallel to saveing a package
+						GGarbageCollectionGuardCritical.GCLock();
+						GIsSavingPackage = true; 
+					}
+					~FScopedSavingFlag() 
+					{ 
+						GIsSavingPackage = false; 
+						GGarbageCollectionGuardCritical.GCUnlock();
+					}
 				} IsSavingFlag;
 
 			
@@ -3513,7 +3470,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				TSet<UObject*> DependenciesReferencedByNonRedirectors;
 		
 				/** If true, we are going to compress the package to memory to save a little time */
-				bool bCompressFromMemory = !!(InOuter->PackageFlags & PKG_StoreCompressed);
+				const bool bCompressFromMemory = InOuter->HasAnyPackageFlags(PKG_StoreCompressed);
 
 				/** If true, we are going to save to disk async to save time. */
 				bool bSaveAsync = !!(SaveFlags & SAVE_Async);
@@ -3610,6 +3567,23 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 						UE_CLOG(!(SaveFlags & SAVE_NoError), LogSavePackage, Display, TEXT("No exports found (or all exports are editor-only) for %s. Package will not be saved."), *BaseFilename);
 						return ESavePackageResult::ContainsEditorOnlyData;
 					}
+
+#if WITH_EDITOR
+					if (FScriptCookReplacementCoordinator::Get())
+					{
+						EReplacementResult ReplacmentResult = FScriptCookReplacementCoordinator::Get()->IsTargetedForReplacement(InOuter);
+						if (ReplacmentResult == EReplacementResult::ReplaceCompletely)
+						{
+							return ESavePackageResult::ReplaceCompletely;
+						}
+						else if (ReplacmentResult == EReplacementResult::GenerateStub)
+						{
+							bRequestStub = true;
+						}
+						UE_LOG(LogSavePackage, Display, TEXT("Package %s contains assets, that were converted into native code. Package will not be saved."), *InOuter->GetName());
+						// Or replace with the NativeScriptPackage ?
+					}
+#endif
 				}
 
 				// Import objects & names.
@@ -3650,18 +3624,6 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 						{
 							UE_LOG(LogSavePackage, Fatal, TEXT("%s"), *FString::Printf( TEXT("Transient object imported: %s"), *Obj->GetFullName() ) );
 						}
-#if WITH_EDITOR
-						if (FReplaceCookedBPGC::Get().IsEnabled())
-						{
-							for (UObject*& Dependency : ImportTagger.Dependencies)
-							{
-								if (UObject* NewDependency = FReplaceCookedBPGC::Get().FindReplacementStub(Dependency))
-								{
-									Dependency = NewDependency;
-								}
-							}
-						}
-#endif //WITH_EDITOR
 
 						if (Linker->IsCooking())
 						{
@@ -3710,7 +3672,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				if ( !(Linker->Summary.PackageFlags & PKG_FilterEditorOnly) )
 				{
 					TArray<UObject*> ObjectsInPackage;
-					GetObjectsWithOuter(InOuter, ObjectsInPackage, true, RF_Transient | RF_PendingKill);
+					GetObjectsWithOuter(InOuter, ObjectsInPackage, true, RF_Transient, EInternalObjectFlags::PendingKill);
 					for (UObject* const Object : ObjectsInPackage)
 					{
 						FPropertyLocalizationDataGatherer PropertyLocalizationDataGatherer(Linker->GatherableTextDataMap);
@@ -3970,6 +3932,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 					InOuter->Guid = Linker->Summary.Guid;
 				}
 				new(Linker->Summary.Generations)FGenerationInfo(0, 0);
+
 				*Linker << Linker->Summary;
 				int32 OffsetAfterPackageFileSummary = Linker->Tell();
 		
@@ -4064,9 +4027,6 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				{
 					TArray<UObject*> TagImpObjects;
 					GetObjectsWithAnyMarks(TagImpObjects, OBJECTMARK_TagImp);
-#if WITH_EDITOR
-					FImportReplacementsHelper ImportReplacementsHelper(TagImpObjects);
-#endif //WITH_EDITOR
 
 					if (Linker->IsCooking())
 					{
@@ -4084,13 +4044,25 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 					{
 						UObject* Obj = TagImpObjects[Index];
 						check(Obj->HasAnyMarks(OBJECTMARK_TagImp) || Linker->IsCooking());
-						
+						UClass* ObjClass = nullptr;
 #if WITH_EDITOR
-						Obj = ImportReplacementsHelper.Handle(Obj, Linker->ImportMap);
+						bool bReplaced = false;
+						if (FScriptCookReplacementCoordinator* Coordinator = FScriptCookReplacementCoordinator::Get())
+						{
+							if (UClass* ReplacedClass = Coordinator->FindReplacedClass(Obj))
+							{
+								ObjClass = ReplacedClass;
+								bReplaced = true;
+							}
+						}
+						if (!bReplaced)
 #endif //WITH_EDITOR
+						{
+							ObjClass = Obj->GetClass();
+						}
 						if (Obj->HasAnyMarks(OBJECTMARK_TagImp))
 						{
-							new( Linker->ImportMap )FObjectImport( Obj );
+							new(Linker->ImportMap)FObjectImport(Obj, ObjClass);
 						}
 					}
 				}
@@ -4278,8 +4250,8 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 						UPackage* Package = dynamic_cast<UPackage*>(Object);
 						if (Package != NULL)
 						{
-							Linker->ExportMap[i].PackageFlags = Package->PackageFlags;
-							if (!(Package->PackageFlags & PKG_ServerSideOnly))
+							Linker->ExportMap[i].PackageFlags = Package->GetPackageFlags();
+							if (!Package->HasAnyPackageFlags(PKG_ServerSideOnly))
 							{
 								Linker->ExportMap[i].PackageGuid = Package->GetGuid();
 							}
@@ -4337,7 +4309,9 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 					UObject* Object = Linker->ImportMap[i].XObject;
 					if( Object != NULL )
 					{
-						Linker->ObjectIndicesMap.Add(Object, FPackageIndex::FromImport(i));
+						const FPackageIndex PackageIndex = FPackageIndex::FromImport(i);
+						//ensure(!Linker->ObjectIndicesMap.Contains(Object)); // this ensure will fail
+						Linker->ObjectIndicesMap.Add(Object, PackageIndex);
 					}
 					else
 					{
@@ -4474,16 +4448,6 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 							// Set class index.
 							// If this is *exactly* a UClass, store null instead; for anything else, including UClass-derived classes, map it
 							UClass* ObjClass = Export.Object->GetClass();
-#if WITH_EDITOR
-							if (FReplaceCookedBPGC::Get().IsEnabled())
-							{
-								if (UObject* NewObjClass = FReplaceCookedBPGC::Get().FindReplacementStub(ObjClass))
-								{
-									ObjClass = CastChecked<UClass>(NewObjClass);
-								}
-							}
-#endif	// #if WITH_EDITOR
-
 							if (ObjClass != UClass::StaticClass())
 							{
 								Export.ClassIndex = Linker->MapObject(ObjClass);
@@ -4638,20 +4602,20 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 						{
 							if ( Import.XObject->GetOuter()->IsIn(InOuter) )
 							{
-								if ( !Import.XObject->HasAllFlags(RF_Native|RF_Transient) )
+								if (!Import.XObject->HasAllFlags(RF_Transient) || !Import.XObject->IsNative())
 								{
 									UE_LOG(LogSavePackage, Warning, TEXT("Bad Object=%s"),*Import.XObject->GetFullName());
 								}
 								else
 								{
-									// if an object is marked RF_Transient|RF_Native, it is either an intrinsic class or
+									// if an object is marked RF_Transient and native, it is either an intrinsic class or
 									// a property of an intrinsic class.  Only properties of intrinsic classes will have
 									// an Outer that passes the check for "GetOuter()->IsIn(InOuter)" (thus ending up in this
-									// block of code).  Just verify that the Outer for this property is also marked RF_Transient|RF_Native
-									check(Import.XObject->GetOuter()->HasAllFlags(RF_Native|RF_Transient));
+									// block of code).  Just verify that the Outer for this property is also marked RF_Transient and Native
+									check(Import.XObject->GetOuter()->HasAllFlags(RF_Transient) && Import.XObject->GetOuter()->IsNative());
 								}
 							}
-							check(!Import.XObject->GetOuter()->IsIn(InOuter)||Import.XObject->HasAllFlags(EObjectFlags(RF_Native|RF_Transient)));
+							check(!Import.XObject->GetOuter()->IsIn(InOuter) || Import.XObject->HasAllFlags(RF_Transient) || Import.XObject->IsNative());
 							Import.OuterIndex = Linker->MapObject(Import.XObject->GetOuter());
 						}
 					}
@@ -4704,7 +4668,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 				Linker->LinkerRoot->ThisRequiresLocalizationGather(Linker->RequiresLocalizationGather());
 				
 				// Update package flags from package, in case serialization has modified package flags.
-				Linker->Summary.PackageFlags  = Linker->LinkerRoot->PackageFlags & ~PKG_NewlyCreated;
+				Linker->Summary.PackageFlags = Linker->LinkerRoot->GetPackageFlags() & ~PKG_NewlyCreated;
 
 				Linker->Seek(0);
 				*Linker << Linker->Summary;
@@ -4763,7 +4727,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 						UE_LOG_COOK_TIME(TEXT("CompressFromMemory"));
 					}
 					// Compress the temporarily file to destination.
-					else if( InOuter->PackageFlags & PKG_StoreCompressed )
+					else if( InOuter->HasAnyPackageFlags(PKG_StoreCompressed) )
 					{
 						UE_LOG(LogSavePackage, Log,  TEXT("Compressing '%s' to '%s'"), *TempFilename, *NewPath );
 						FFileCompressionHelper CompressionHelper;
@@ -4772,7 +4736,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 						UE_LOG_COOK_TIME(TEXT("CompressFromTempFile"));
 					}
 					// Fully compress package in one "block".
-					else if( InOuter->PackageFlags & PKG_StoreFullyCompressed )
+					else if( InOuter->HasAnyPackageFlags(PKG_StoreFullyCompressed) )
 					{
 						UE_LOG(LogSavePackage, Log,  TEXT("Full-package compressing '%s' to '%s'"), *TempFilename, *NewPath );
 						FFileCompressionHelper CompressionHelper;
@@ -4806,7 +4770,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 					}
 
 					// Make sure to clean up any stale .uncompressed_size files.
-					if( !(InOuter->PackageFlags & PKG_StoreFullyCompressed) )
+					if( !InOuter->HasAnyPackageFlags(PKG_StoreFullyCompressed) )
 					{
 						IFileManager::Get().Delete( *(NewPath + TEXT(".uncompressed_size")) );
 					}
@@ -4907,7 +4871,7 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 		if( Success == true )
 		{
 			// Package has been save, so unmark NewlyCreated flag.
-			InOuter->PackageFlags &= ~PKG_NewlyCreated;
+			InOuter->ClearPackageFlags(PKG_NewlyCreated);
 
 			// send a message that the package was saved
 			UPackage::PackageSavedEvent.Broadcast(Filename, InOuter);
@@ -4920,7 +4884,25 @@ ESavePackageResult UPackage::Save(UPackage* InOuter, UObject* Base, EObjectFlags
 
 		UE_LOG(LogSavePackage, Display, TEXT("Finished SavePackage %s"), Filename);
 
-		return Success ? ESavePackageResult::Success : ESavePackageResult::Error;
+		if (Success)
+		{
+			if (bRequestStub)
+			{
+				return ESavePackageResult::GenerateStub;
+			}
+			else
+			{
+				return ESavePackageResult::Success;
+			}
+		}
+		else
+		{
+			if (bRequestStub)
+			{
+				UE_LOG(LogSavePackage, Warning, TEXT("C++ stub requested, but package failed to save, may cause compile errors: %s"), Filename);
+			}
+			return ESavePackageResult::Error;
+		}
 	}
 	else
 	{

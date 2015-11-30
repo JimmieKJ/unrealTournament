@@ -246,16 +246,16 @@ FText SAnimationEditorViewportTabBody::GetDisplayString() const
 		{
 			return FText::Format(LOCTEXT("Previewing", "Previewing {0}"), FText::FromString(Component->GetPreviewText()));
 		}
-		else if (Component->AnimBlueprintGeneratedClass != NULL)
+		else if (Component->AnimClass != NULL)
 		{
 			const bool bWarnAboutBoneManip = !PersonaPtr.Pin()->IsModeCurrent(FPersonaModes::AnimBlueprintEditMode);
 			if (bWarnAboutBoneManip)
 			{
-				return FText::Format(LOCTEXT("PreviewingAnimBP_WarnDisabled", "Previewing {0}. \nBone manipulation is disabled in this mode. "), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName()));
+				return FText::Format(LOCTEXT("PreviewingAnimBP_WarnDisabled", "Previewing {0}. \nBone manipulation is disabled in this mode. "), FText::FromString(Component->AnimClass->GetName()));
 			}
 			else
 			{
-				return FText::Format(LOCTEXT("PreviewingAnimBP", "Previewing {0}"), FText::FromString(Component->AnimBlueprintGeneratedClass->GetName()));
+				return FText::Format(LOCTEXT("PreviewingAnimBP", "Previewing {0}"), FText::FromString(Component->AnimClass->GetName()));
 			}
 		}
 		else if (Component->SkeletalMesh == NULL)
@@ -544,6 +544,12 @@ void SAnimationEditorViewportTabBody::BindCommands()
 		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnShowDisplayInfo, (int32)EDisplayInfoMode::Detailed),
 		FCanExecuteAction(),
 		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowingMeshInfo, (int32)EDisplayInfoMode::Detailed));
+
+	CommandList.MapAction(
+		ViewportShowMenuCommands.ShowDisplayInfoSkelControls,
+		FExecuteAction::CreateSP(this, &SAnimationEditorViewportTabBody::OnShowDisplayInfo, (int32)EDisplayInfoMode::SkeletalControls),
+		FCanExecuteAction(),
+		FIsActionChecked::CreateSP(this, &SAnimationEditorViewportTabBody::IsShowingMeshInfo, (int32)EDisplayInfoMode::SkeletalControls));
 
 	CommandList.MapAction(
 		ViewportShowMenuCommands.HideDisplayInfo,
@@ -1111,7 +1117,7 @@ void SAnimationEditorViewportTabBody::ShowRetargetBasePose()
 	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
 	if(PreviewComponent && PreviewComponent->PreviewInstance)
 	{
-		PreviewComponent->PreviewInstance->bForceRetargetBasePose = !PreviewComponent->PreviewInstance->bForceRetargetBasePose;
+		PreviewComponent->PreviewInstance->SetForceRetargetBasePose(!PreviewComponent->PreviewInstance->GetForceRetargetBasePose());
 	}
 }
 
@@ -1126,7 +1132,7 @@ bool SAnimationEditorViewportTabBody::IsShowRetargetBasePoseEnabled() const
 	UDebugSkelMeshComponent* PreviewComponent = PersonaPtr.Pin()->PreviewComponent;
 	if(PreviewComponent && PreviewComponent->PreviewInstance)
 	{
-		return PreviewComponent->PreviewInstance->bForceRetargetBasePose;
+		return PreviewComponent->PreviewInstance->GetForceRetargetBasePose();
 	}
 	return false;
 }

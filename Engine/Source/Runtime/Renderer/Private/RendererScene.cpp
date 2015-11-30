@@ -384,6 +384,7 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 ,	bStaticDrawListsMobileHDR(false)
 ,	bStaticDrawListsMobileHDR32bpp(false)
 ,	StaticDrawListsEarlyZPassMode(0)
+,	StaticDrawShaderPipelines(0)
 ,	bScenesPrimitivesNeedStaticMeshElementUpdate(false)
 ,	SkyLight(NULL)
 ,	SimpleDirectionalLight(NULL)
@@ -418,6 +419,9 @@ FScene::FScene(UWorld* InWorld, bool bInRequiresHitProxies, bool bInIsEditorScen
 
 	static auto* EarlyZPassCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.EarlyZPass"));
 	StaticDrawListsEarlyZPassMode = EarlyZPassCvar->GetValueOnAnyThread();
+
+	static auto* ShaderPipelinesCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
+	StaticDrawShaderPipelines = ShaderPipelinesCvar->GetValueOnAnyThread();
 
 	if (World->FXSystem)
 	{
@@ -472,7 +476,7 @@ void FScene::AddPrimitive(UPrimitiveComponent* Primitive)
 {
 	SCOPE_CYCLE_COUNTER(STAT_AddScenePrimitiveGT);
 
-	checkf(!Primitive->HasAnyFlags(RF_Unreachable), TEXT("%s"), *Primitive->GetFullName());
+	checkf(!Primitive->IsUnreachable(), TEXT("%s"), *Primitive->GetFullName());
 
 
 	// Save the world transform for next time the primitive is added to the scene
@@ -1052,10 +1056,10 @@ void FScene::UpdateDecalTransform(UDecalComponent* Decal)
 		ENQUEUE_UNIQUE_RENDER_COMMAND_TWOPARAMETER(
 			UpdateTransformCommand,
 			FDeferredDecalProxy*,DecalSceneProxy,Decal->SceneProxy,
-			FTransform,ComponentToWorld,Decal->GetComponentToWorld(),
+			FTransform,ComponentToWorldIncludingDecalSize,Decal->GetTransformIncludingDecalSize(),
 		{
 			// Update the primitive's transform.
-			DecalSceneProxy->SetTransform(ComponentToWorld);
+			DecalSceneProxy->SetTransformIncludingDecalSize(ComponentToWorldIncludingDecalSize);
 		});
 	}
 }
@@ -1568,6 +1572,7 @@ void FScene::AddSpeedTreeWind(FVertexFactory* VertexFactory, const UStaticMesh* 
 				{
 					FSpeedTreeWindComputation* WindComputation = new FSpeedTreeWindComputation;
 					WindComputation->Wind = *(StaticMesh->SpeedTreeWind.Get( ));
+					WindComputation->UniformBuffer.SetContentsToZero();
 					WindComputation->UniformBuffer.InitResource();
 					Scene->SpeedTreeWindComputationMap.Add(StaticMesh, WindComputation);
 				}
@@ -1848,31 +1853,17 @@ void FScene::UpdateStaticDrawListsForMaterials_RenderThread(FRHICommandListImmed
 	{
 		for (int32 DrawType = 0; DrawType < EBasePass_MAX; DrawType++)
 		{
-			BasePassNoLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassSimpleDynamicLightingDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassCachedVolumeIndirectLightingDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassCachedPointIndirectLightingDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassHighQualityLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassDistanceFieldShadowMapLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassLowQualityLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 			BasePassSelfShadowedTranslucencyDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 			BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
+
+			BasePassUniformLightMapPolicyDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 		}
 	}
 	else
 	{
 		for (int32 DrawType = 0; DrawType < EBasePass_MAX; DrawType++)
 		{
-			BasePassForForwardShadingNoLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingLowQualityLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingDistanceFieldShadowMapLightMapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingMovableDirectionalLightDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingMovableDirectionalLightCSMDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingMovableDirectionalLightLightmapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
-			BasePassForForwardShadingMovableDirectionalLightCSMLightmapDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
+			BasePassForForwardShadingUniformLightMapPolicyDrawList[DrawType].GetUsedPrimitivesBasedOnMaterials(SceneFeatureLevel, Materials, PrimitivesToUpdate);
 		}
 	}
 
@@ -1950,14 +1941,17 @@ void FScene::Release()
 void FScene::ConditionalMarkStaticMeshElementsForUpdate()
 {
 	static auto* EarlyZPassCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.EarlyZPass"));
+	static auto* ShaderPipelinesCvar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.ShaderPipelines"));
 
 	bool bMobileHDR = IsMobileHDR();
 	bool bMobileHDR32bpp = IsMobileHDR32bpp();
 	int32 DesiredStaticDrawListsEarlyZPassMode = EarlyZPassCvar->GetValueOnRenderThread();
+	int32 DesiredStaticDrawShaderPipelines = ShaderPipelinesCvar->GetValueOnRenderThread();
 
 	if (bScenesPrimitivesNeedStaticMeshElementUpdate
 		|| bStaticDrawListsMobileHDR != bMobileHDR
 		|| bStaticDrawListsMobileHDR32bpp != bMobileHDR32bpp
+		|| StaticDrawShaderPipelines != DesiredStaticDrawShaderPipelines
 		|| StaticDrawListsEarlyZPassMode != DesiredStaticDrawListsEarlyZPassMode)
 	{
 		// Mark all primitives as needing an update
@@ -1971,6 +1965,7 @@ void FScene::ConditionalMarkStaticMeshElementsForUpdate()
 		bStaticDrawListsMobileHDR = bMobileHDR;
 		bStaticDrawListsMobileHDR32bpp = bMobileHDR32bpp;
 		StaticDrawListsEarlyZPassMode = DesiredStaticDrawListsEarlyZPassMode;
+		StaticDrawShaderPipelines = DesiredStaticDrawShaderPipelines;
 	}
 }
 
@@ -2058,41 +2053,14 @@ void FScene::DumpStaticMeshDrawListStats() const
 	DUMP_DRAW_LIST(PositionOnlyDepthDrawList);
 	DUMP_DRAW_LIST(DepthDrawList);
 	DUMP_DRAW_LIST(MaskedDepthDrawList);
-	DUMP_DRAW_LIST(BasePassNoLightMapDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassNoLightMapDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassSimpleDynamicLightingDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassSimpleDynamicLightingDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassCachedVolumeIndirectLightingDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassCachedVolumeIndirectLightingDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassCachedPointIndirectLightingDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassCachedPointIndirectLightingDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassHighQualityLightMapDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassHighQualityLightMapDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassDistanceFieldShadowMapLightMapDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassDistanceFieldShadowMapLightMapDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassLowQualityLightMapDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassLowQualityLightMapDrawList[EBasePass_Masked]);
 	DUMP_DRAW_LIST(BasePassSelfShadowedTranslucencyDrawList[EBasePass_Default]);
 	DUMP_DRAW_LIST(BasePassSelfShadowedTranslucencyDrawList[EBasePass_Masked]);
 	DUMP_DRAW_LIST(BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[EBasePass_Default]);
 	DUMP_DRAW_LIST(BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList[EBasePass_Masked]);
-
-	DUMP_DRAW_LIST(BasePassForForwardShadingNoLightMapDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingNoLightMapDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingLowQualityLightMapDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingLowQualityLightMapDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingDistanceFieldShadowMapLightMapDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingDistanceFieldShadowMapLightMapDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingMovableDirectionalLightDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingMovableDirectionalLightDrawList[EBasePass_Masked]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingMovableDirectionalLightCSMDrawList[EBasePass_Default]);
-	DUMP_DRAW_LIST(BasePassForForwardShadingMovableDirectionalLightCSMDrawList[EBasePass_Masked]);
+	DUMP_DRAW_LIST(BasePassUniformLightMapPolicyDrawList[EBasePass_Default]);
+	DUMP_DRAW_LIST(BasePassUniformLightMapPolicyDrawList[EBasePass_Masked]);
+	DUMP_DRAW_LIST(BasePassForForwardShadingUniformLightMapPolicyDrawList[EBasePass_Default]);
+	DUMP_DRAW_LIST(BasePassForForwardShadingUniformLightMapPolicyDrawList[EBasePass_Masked]);
 	DUMP_DRAW_LIST(HitProxyDrawList);
 	DUMP_DRAW_LIST(HitProxyDrawList_OpaqueOnly);
 	DUMP_DRAW_LIST(VelocityDrawList);
@@ -2242,29 +2210,14 @@ void FScene::ApplyWorldOffset_RenderThread(FVector InOffset)
 	StaticMeshDrawListApplyWorldOffset(PositionOnlyDepthDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(DepthDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(MaskedDepthDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassNoLightMapDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassCachedVolumeIndirectLightingDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassCachedPointIndirectLightingDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassSimpleDynamicLightingDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassHighQualityLightMapDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassDistanceFieldShadowMapLightMapDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassLowQualityLightMapDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(BasePassSelfShadowedTranslucencyDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(BasePassSelfShadowedCachedPointIndirectTranslucencyDrawList, InOffset);
+	StaticMeshDrawListApplyWorldOffset(BasePassUniformLightMapPolicyDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(HitProxyDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(HitProxyDrawList_OpaqueOnly, InOffset);
 	StaticMeshDrawListApplyWorldOffset(VelocityDrawList, InOffset);
 	StaticMeshDrawListApplyWorldOffset(WholeSceneShadowDepthDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingNoLightMapDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingLowQualityLightMapDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingDistanceFieldShadowMapLightMapDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingMovableDirectionalLightDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingMovableDirectionalLightCSMDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingMovableDirectionalLightLightmapDrawList, InOffset);
-	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingMovableDirectionalLightCSMLightmapDrawList, InOffset);
+	StaticMeshDrawListApplyWorldOffset(BasePassForForwardShadingUniformLightMapPolicyDrawList, InOffset);
 
 	// Motion blur 
 	MotionBlurInfoData.ApplyOffset(InOffset);
@@ -2455,34 +2408,6 @@ FSceneViewStateInterface* FRendererModule::AllocateViewState()
 	return new FSceneViewState();
 }
 
-/** Maps the no light-map case to the appropriate base pass draw list. */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy<FNoLightMapPolicy> >& FScene::GetBasePassDrawList<FNoLightMapPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassNoLightMapDrawList[DrawType];
-}
-
-/** Maps the directional light-map texture case to the appropriate base pass draw list. */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy< TLightMapPolicy<HQ_LIGHTMAP> > >& FScene::GetBasePassDrawList< TLightMapPolicy<HQ_LIGHTMAP> >(EBasePassDrawListType DrawType)
-{
-	return BasePassHighQualityLightMapDrawList[DrawType];
-}
-
-/**  */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy< TDistanceFieldShadowsAndLightMapPolicy<HQ_LIGHTMAP> > >& FScene::GetBasePassDrawList< TDistanceFieldShadowsAndLightMapPolicy<HQ_LIGHTMAP> >(EBasePassDrawListType DrawType)
-{
-	return BasePassDistanceFieldShadowMapLightMapDrawList[DrawType];
-}
-
-/** Maps the simple light-map texture case to the appropriate base pass draw list. */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy< TLightMapPolicy<LQ_LIGHTMAP> > >& FScene::GetBasePassDrawList< TLightMapPolicy<LQ_LIGHTMAP> >(EBasePassDrawListType DrawType)
-{
-	return BasePassLowQualityLightMapDrawList[DrawType];
-}
-
 /**  */
 template<>
 TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedTranslucencyPolicy> >& FScene::GetBasePassDrawList<FSelfShadowedTranslucencyPolicy>(EBasePassDrawListType DrawType)
@@ -2499,86 +2424,15 @@ TStaticMeshDrawList<TBasePassDrawingPolicy<FSelfShadowedCachedPointIndirectLight
 
 /**  */
 template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy<FCachedVolumeIndirectLightingPolicy> >& FScene::GetBasePassDrawList<FCachedVolumeIndirectLightingPolicy>(EBasePassDrawListType DrawType)
+TStaticMeshDrawList<TBasePassDrawingPolicy<FUniformLightMapPolicy> >& FScene::GetBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
 {
-	return BasePassCachedVolumeIndirectLightingDrawList[DrawType];
-}
-
-/**  */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy<FCachedPointIndirectLightingPolicy> >& FScene::GetBasePassDrawList<FCachedPointIndirectLightingPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassCachedPointIndirectLightingDrawList[DrawType];
-}
-
-/**  */
-template<>
-TStaticMeshDrawList<TBasePassDrawingPolicy<FSimpleDynamicLightingPolicy> >& FScene::GetBasePassDrawList<FSimpleDynamicLightingPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassSimpleDynamicLightingDrawList[DrawType];
-}
-
-
-/** Maps the no light-map case to the appropriate base pass draw list. */
-template<>
-TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FNoLightMapPolicy,0> >& FScene::GetForwardShadingBasePassDrawList<FNoLightMapPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingNoLightMapDrawList[DrawType];
-}
-
-/** Maps the simple light-map texture case to the appropriate base pass draw list. */
-template<>
-TStaticMeshDrawList< TBasePassForForwardShadingDrawingPolicy< TLightMapPolicy<LQ_LIGHTMAP>,0 > >& FScene::GetForwardShadingBasePassDrawList< TLightMapPolicy<LQ_LIGHTMAP> >(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingLowQualityLightMapDrawList[DrawType];
+	return BasePassUniformLightMapPolicyDrawList[DrawType];
 }
 
 template<>
-TStaticMeshDrawList< TBasePassForForwardShadingDrawingPolicy< TDistanceFieldShadowsAndLightMapPolicy<LQ_LIGHTMAP>,0 > >& FScene::GetForwardShadingBasePassDrawList< TDistanceFieldShadowsAndLightMapPolicy<LQ_LIGHTMAP> >(EBasePassDrawListType DrawType)
+TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FUniformLightMapPolicy, 0> >& FScene::GetForwardShadingBasePassDrawList<FUniformLightMapPolicy>(EBasePassDrawListType DrawType)
 {
-	return BasePassForForwardShadingDistanceFieldShadowMapLightMapDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FSimpleDirectionalLightAndSHIndirectPolicy, 0> >& FScene::GetForwardShadingBasePassDrawList<FSimpleDirectionalLightAndSHIndirectPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingDirectionalLightAndSHIndirectDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FSimpleDirectionalLightAndSHDirectionalIndirectPolicy, 0> >& FScene::GetForwardShadingBasePassDrawList<FSimpleDirectionalLightAndSHDirectionalIndirectPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingDirectionalLightAndSHDirectionalIndirectDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy, 0> >& FScene::GetForwardShadingBasePassDrawList<FSimpleDirectionalLightAndSHDirectionalCSMIndirectPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingDirectionalLightAndSHDirectionalCSMIndirectDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FMovableDirectionalLightLightingPolicy, 0> >& FScene::GetForwardShadingBasePassDrawList<FMovableDirectionalLightLightingPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingMovableDirectionalLightDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FMovableDirectionalLightCSMLightingPolicy, 0> >& FScene::GetForwardShadingBasePassDrawList<FMovableDirectionalLightCSMLightingPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingMovableDirectionalLightCSMDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FMovableDirectionalLightWithLightmapLightingPolicy, 0> >& FScene::GetForwardShadingBasePassDrawList<FMovableDirectionalLightWithLightmapLightingPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingMovableDirectionalLightLightmapDrawList[DrawType];
-}
-
-template<>
-TStaticMeshDrawList<TBasePassForForwardShadingDrawingPolicy<FMovableDirectionalLightCSMWithLightmapLightingPolicy, 0> >& FScene::GetForwardShadingBasePassDrawList<FMovableDirectionalLightCSMWithLightmapLightingPolicy>(EBasePassDrawListType DrawType)
-{
-	return BasePassForForwardShadingMovableDirectionalLightCSMLightmapDrawList[DrawType];
+	return BasePassForForwardShadingUniformLightMapPolicyDrawList[DrawType];
 }
 
 /*-----------------------------------------------------------------------------

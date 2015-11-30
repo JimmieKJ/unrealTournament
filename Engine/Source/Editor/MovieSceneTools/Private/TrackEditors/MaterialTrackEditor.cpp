@@ -3,8 +3,8 @@
 #include "MovieSceneToolsPrivatePCH.h"
 #include "MaterialTrackEditor.h"
 #include "MovieSceneMaterialTrack.h"
-#include "MaterialParameterSection.h"
-#include "MovieSceneMaterialParameterSection.h"
+#include "ParameterSection.h"
+#include "MovieSceneParameterSection.h"
 
 
 #define LOCTEXT_NAMESPACE "MaterialTrackEditor"
@@ -18,10 +18,10 @@ FMaterialTrackEditor::FMaterialTrackEditor( TSharedRef<ISequencer> InSequencer )
 
 TSharedRef<ISequencerSection> FMaterialTrackEditor::MakeSectionInterface( UMovieSceneSection& SectionObject, UMovieSceneTrack& Track )
 {
-	UMovieSceneMaterialParameterSection* ParameterSection = Cast<UMovieSceneMaterialParameterSection>(&SectionObject);
+	UMovieSceneParameterSection* ParameterSection = Cast<UMovieSceneParameterSection>(&SectionObject);
 	checkf( ParameterSection != nullptr, TEXT("Unsupported section type.") );
 
-	return MakeShareable(new FMaterialParameterSection( *ParameterSection, FText::FromName(ParameterSection->GetFName())));
+	return MakeShareable(new FParameterSection( *ParameterSection, FText::FromName(ParameterSection->GetFName())));
 }
 
 
@@ -96,14 +96,14 @@ TSharedRef<SWidget> FMaterialTrackEditor::OnGetAddParameterMenuContent( FGuid Ob
 			ParameterNamesAndActions.Add(NameAndAction);
 		}
 
-		// Collect vector parameters.
-		TArray<FName> VectorParameterNames;
-		TArray<FGuid> VectorParmeterGuids;
-		Material->GetAllVectorParameterNames( VectorParameterNames, VectorParmeterGuids );
-		for ( const FName& VectorParameterName : VectorParameterNames )
+		// Collect color parameters.
+		TArray<FName> ColorParameterNames;
+		TArray<FGuid> ColorParmeterGuids;
+		Material->GetAllVectorParameterNames( ColorParameterNames, ColorParmeterGuids );
+		for ( const FName& ColorParameterName : ColorParameterNames )
 		{
-			FUIAction AddParameterMenuAction( FExecuteAction::CreateSP( this, &FMaterialTrackEditor::AddVectorParameter, ObjectBinding, MaterialTrack, VectorParameterName ) );
-			FParameterNameAndAction NameAndAction( VectorParameterName, AddParameterMenuAction );
+			FUIAction AddParameterMenuAction( FExecuteAction::CreateSP( this, &FMaterialTrackEditor::AddColorParameter, ObjectBinding, MaterialTrack, ColorParameterName ) );
+			FParameterNameAndAction NameAndAction( ColorParameterName, AddParameterMenuAction );
 			ParameterNamesAndActions.Add( NameAndAction );
 		}
 
@@ -154,17 +154,13 @@ void FMaterialTrackEditor::AddScalarParameter( FGuid ObjectBinding, UMovieSceneM
 		float ParameterValue;
 		Material->GetScalarParameterValue(ParameterName, ParameterValue);
 		MaterialTrack->Modify();
-		for ( UMovieSceneSection* Section : MaterialTrack->GetAllSections() )
-		{
-			Section->Modify();
-		}
 		MaterialTrack->AddScalarParameterKey(ParameterName, KeyTime, ParameterValue);
 	}
 	NotifyMovieSceneDataChanged();
 }
 
 
-void FMaterialTrackEditor::AddVectorParameter( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack, FName ParameterName )
+void FMaterialTrackEditor::AddColorParameter( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack, FName ParameterName )
 {
 	UMovieSceneSequence* MovieSceneSequence = GetMovieSceneSequence();
 	float KeyTime = GetTimeForKey( MovieSceneSequence );
@@ -176,11 +172,7 @@ void FMaterialTrackEditor::AddVectorParameter( FGuid ObjectBinding, UMovieSceneM
 		FLinearColor ParameterValue;
 		Material->GetVectorParameterValue( ParameterName, ParameterValue );
 		MaterialTrack->Modify();
-		for ( UMovieSceneSection* Section : MaterialTrack->GetAllSections() )
-		{
-			Section->Modify();
-		}
-		MaterialTrack->AddVectorParameterKey( ParameterName, KeyTime, ParameterValue );
+		MaterialTrack->AddColorParameterKey( ParameterName, KeyTime, ParameterValue );
 	}
 	NotifyMovieSceneDataChanged();
 }
@@ -206,7 +198,7 @@ bool FComponentMaterialTrackEditor::SupportsType( TSubclassOf<UMovieSceneTrack> 
 
 UMaterialInterface* FComponentMaterialTrackEditor::GetMaterialInterfaceForTrack( FGuid ObjectBinding, UMovieSceneMaterialTrack* MaterialTrack )
 {
-	UObject* ComponentObject = GetSequencer()->GetFocusedMovieSceneSequence()->FindObject( ObjectBinding );
+	UObject* ComponentObject = GetSequencer()->GetFocusedMovieSceneSequenceInstance()->FindObject( ObjectBinding, *GetSequencer() );
 	UPrimitiveComponent* Component = Cast<UPrimitiveComponent>( ComponentObject );
 	UMovieSceneComponentMaterialTrack* ComponentMaterialTrack = Cast<UMovieSceneComponentMaterialTrack>( MaterialTrack );
 	if ( Component != nullptr && ComponentMaterialTrack != nullptr )

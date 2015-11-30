@@ -5,6 +5,7 @@
 #include "SKismetInspector.h"
 #include "WidgetBlueprintEditor.h"
 #include "MovieScene.h"
+#include "MovieSceneSequenceInstance.h"
 #include "Editor/Sequencer/Public/ISequencerModule.h"
 #include "ObjectEditorUtils.h"
 
@@ -803,7 +804,7 @@ void FWidgetBlueprintEditor::OnGetAnimationAddMenuContent(FMenuBuilder& MenuBuil
 	{
 		for (FObjectAndDisplayName& BindableObject : BindableObjects)
 		{
-			FGuid BoundObjectGuid = CurrentAnimation->FindObjectId(*BindableObject.Object);
+			FGuid BoundObjectGuid = Sequencer->GetFocusedMovieSceneSequenceInstance()->FindObjectId(*BindableObject.Object);
 			if (BoundObjectGuid.IsValid() == false)
 			{
 				FUIAction AddMenuAction(FExecuteAction::CreateSP(this, &FWidgetBlueprintEditor::AddObjectToAnimation, BindableObject.Object));

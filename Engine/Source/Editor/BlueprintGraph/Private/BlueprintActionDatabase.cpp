@@ -946,7 +946,7 @@ static bool BlueprintActionDatabaseImpl::IsObjectValidForDatabase(UObject const*
 	{
 		bReturn = false;
 	}
-	else if(Object->GetOutermost()->PackageFlags & PKG_PlayInEditor)
+	else if(Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 	{
 		// Do not keep track of any PIE objects as we may prevent them from being cleaned up when ending PIE
 		bReturn = false;

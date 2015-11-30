@@ -5,6 +5,7 @@
 #include "ClassMaps.h"
 #include "UnrealSourceFile.h"
 #include "UnrealTypeDefinitionInfo.h"
+#include "UHTMakefile/UHTMakefile.h"
 
 TMap<FString, TSharedRef<FUnrealSourceFile> > GUnrealSourceFilesMap;
 TMap<UField*, TSharedRef<FUnrealTypeDefinitionInfo> > GTypeDefinitionInfoMap;
@@ -19,10 +20,13 @@ TMap<UField*, uint32> GGeneratedCodeCRCs;
 TMap<UEnum*,  EPropertyType> GEnumUnderlyingTypes;
 TMap<FName, TSharedRef<FClassDeclarationMetaData> > GClassDeclarations;
 
-TSharedRef<FUnrealTypeDefinitionInfo> AddTypeDefinition(FUnrealSourceFile& SourceFile, UField* Field, int32 Line)
+TSharedRef<FUnrealTypeDefinitionInfo> AddTypeDefinition(FUHTMakefile& UHTMakefile, FUnrealSourceFile* SourceFile, UField* Field, int32 Line)
 {
-	TSharedRef<FUnrealTypeDefinitionInfo> DefinitionInfo = MakeShareable(new FUnrealTypeDefinitionInfo(SourceFile, Line));
+	FUnrealTypeDefinitionInfo* UnrealTypeDefinitionInfo = new FUnrealTypeDefinitionInfo(*SourceFile, Line);
+	UHTMakefile.AddUnrealTypeDefinitionInfo(SourceFile, UnrealTypeDefinitionInfo);
 
+	TSharedRef<FUnrealTypeDefinitionInfo> DefinitionInfo = MakeShareable(UnrealTypeDefinitionInfo);
+	UHTMakefile.AddTypeDefinitionInfoMapEntry(SourceFile, Field, UnrealTypeDefinitionInfo);
 	GTypeDefinitionInfoMap.Add(Field, DefinitionInfo);
 
 	return DefinitionInfo;

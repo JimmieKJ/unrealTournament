@@ -23,7 +23,13 @@ namespace EnvQueryTestVersion
 #if WITH_EDITORONLY_DATA
 struct FEnvQueryTestScoringPreview
 {
-	float Samples[11];
+	enum 
+	{
+		// used for built-in functions (@see EEnvTestScoreEquation)
+		DefaultSamplesCount = 21
+	};
+
+	TArray<float> Samples;
 	float FilterLow;
 	float FilterHigh;
 	float ClampMin;

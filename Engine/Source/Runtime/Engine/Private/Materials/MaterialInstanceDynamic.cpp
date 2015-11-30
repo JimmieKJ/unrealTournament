@@ -187,7 +187,7 @@ void UMaterialInstanceDynamic::K2_InterpolateMaterialInstanceParams(UMaterialIns
 
 				if(ParamValueA || ParamValueB)
 				{
-					auto Default = FLinearColor();
+					auto Default = FLinearColor(EForceInit::ForceInit);
 
 					if(!ParamValueA || !ParamValueB)
 					{

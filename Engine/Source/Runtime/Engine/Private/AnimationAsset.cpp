@@ -3,6 +3,7 @@
 #include "EnginePrivate.h"
 #include "Animation/AnimSequence.h"
 #include "AnimationUtils.h"
+#include "Animation/AnimInstanceProxy.h"
 
 #define LEADERSCORE_ALWAYSLEADER  	2.f
 #define LEADERSCORE_MONTAGE			3.f
@@ -103,7 +104,7 @@ void FAnimGroupInstance::Prepare(const FAnimGroupInstance* PreviousGroup)
 						// Found previous record for "us"
 						if (PrevRecord.SourceAsset != Candidate.SourceAsset)
 						{
-							Candidate.MarkerTickRecord->Reset(); // Changed animation, clPear our cached data
+							Candidate.MarkerTickRecord->Reset(); // Changed animation, clear our cached data
 						}
 						bCandidateFound = true;
 						break;
@@ -204,6 +205,13 @@ void UAnimationAsset::SetSkeleton(USkeleton* NewSkeleton)
 	}
 }
 
+void UAnimationAsset::TickAssetPlayerInstance(FAnimTickRecord& Instance, class UAnimInstance* AnimInstance, FAnimAssetTickContext& Context) const
+{ 
+	// @todo: remove after deprecation
+	// Forward to non-deprecated function
+	TickAssetPlayer(Instance, AnimInstance->NotifyQueue, Context); 
+}
+
 #if WITH_EDITOR
 bool UAnimationAsset::ReplaceSkeleton(USkeleton* NewSkeleton, bool bConvertSpaces/*=false*/)
 {
@@ -296,6 +304,7 @@ FBoneContainer::FBoneContainer()
 , RefSkeleton(NULL)
 , bDisableRetargeting(false)
 , bUseRAWData(false)
+, bUseSourceData(false)
 {
 	BoneIndicesArray.Empty();
 	BoneSwitchArray.Empty();
@@ -311,6 +320,7 @@ FBoneContainer::FBoneContainer(const TArray<FBoneIndexType>& InRequiredBoneIndex
 , RefSkeleton(NULL)
 , bDisableRetargeting(false)
 , bUseRAWData(false)
+, bUseSourceData(false)
 {
 	Initialize();
 }
@@ -326,29 +336,36 @@ void FBoneContainer::InitializeTo(const TArray<FBoneIndexType>& InRequiredBoneIn
 void FBoneContainer::Initialize()
 {
 	RefSkeleton = NULL;
-	AssetSkeletalMesh = Cast<USkeletalMesh>(Asset.Get());
-	if( AssetSkeletalMesh.IsValid() )
+	UObject* AssetObj = Asset.Get();
+	USkeletalMesh* AssetSkeletalMeshObj = Cast<USkeletalMesh>(AssetObj);
+	USkeleton* AssetSkeletonObj = nullptr;
+
+	if (AssetSkeletalMeshObj)
 	{
-		RefSkeleton = &AssetSkeletalMesh->RefSkeleton;
-		AssetSkeleton = AssetSkeletalMesh->Skeleton;
+		RefSkeleton = &AssetSkeletalMeshObj->RefSkeleton;
+		AssetSkeletonObj = AssetSkeletalMeshObj->Skeleton;
 	}
 	else
 	{
-		AssetSkeleton = Cast<USkeleton>(Asset.Get());
-		if( AssetSkeleton.IsValid() )
+		AssetSkeletonObj = Cast<USkeleton>(AssetObj);
+		if (AssetSkeletonObj)
 		{
-			RefSkeleton = &AssetSkeleton->GetReferenceSkeleton();
+			RefSkeleton = &AssetSkeletonObj->GetReferenceSkeleton();
 		}
 	}
+
 	// Only supports SkeletalMeshes or Skeletons.
-	check( AssetSkeletalMesh.Get() || AssetSkeleton.Get() );
+	check( AssetSkeletalMeshObj || AssetSkeletonObj );
 	// Skeleton should always be there.
-	checkf( AssetSkeleton.Get(), TEXT("%s missing skeleton"), *GetNameSafe(AssetSkeletalMesh.Get()));
+	checkf( AssetSkeletonObj, TEXT("%s missing skeleton"), *GetNameSafe(AssetSkeletalMeshObj));
 	check( RefSkeleton );
+
+	AssetSkeleton = AssetSkeletonObj;
+	AssetSkeletalMesh = AssetSkeletalMeshObj;
 
 	// Take biggest amount of bones between SkeletalMesh and Skeleton for BoneSwitchArray.
 	// SkeletalMesh can have less, but AnimSequences tracks will map to Skeleton which can have more.
-	const int32 MaxBones = AssetSkeleton.IsValid() ? FMath::Max<int32>(RefSkeleton->GetNum(), AssetSkeleton->GetReferenceSkeleton().GetNum()) : RefSkeleton->GetNum();
+	const int32 MaxBones = AssetSkeletonObj ? FMath::Max<int32>(RefSkeleton->GetNum(), AssetSkeletonObj->GetReferenceSkeleton().GetNum()) : RefSkeleton->GetNum();
 
 	// Initialize BoneSwitchArray.
 	BoneSwitchArray.Init(false, MaxBones);
@@ -366,15 +383,15 @@ void FBoneContainer::Initialize()
 	// Cache our mapping tables
 	// Here we create look up tables between our target asset and its USkeleton's refpose.
 	// Most times our Target is a SkeletalMesh
-	if( AssetSkeletalMesh.IsValid() )
+	if (AssetSkeletalMeshObj)
 	{
-		RemapFromSkelMesh(*AssetSkeletalMesh.Get(), *AssetSkeleton.Get());
+		RemapFromSkelMesh(*AssetSkeletalMeshObj, *AssetSkeletonObj);
 	}
 	// But we also support a Skeleton's RefPose.
 	else
 	{
 		// Right now we only support a single Skeleton. Skeleton hierarchy coming soon!
-		RemapFromSkeleton(*AssetSkeleton.Get());
+		RemapFromSkeleton(*AssetSkeletonObj);
 	}
 
 	//Set up compact pose data

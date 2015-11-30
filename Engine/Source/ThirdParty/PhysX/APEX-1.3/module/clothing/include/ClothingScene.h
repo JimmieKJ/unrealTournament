@@ -23,6 +23,8 @@
 #include "PsTime.h"
 
 
+#define CLOTHING_BEFORE_TICK_START_TASK_NAME "ClothingScene::ClothingBeforeTickStartTask"
+
 namespace physx
 {
 

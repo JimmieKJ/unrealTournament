@@ -8,8 +8,25 @@
 #include "PostProcessCommon.usf"
 #include "MiniFontCommon.usf"		// for PrintFloat()
 
+#include "QuadOverdraw.usf"
+ 
+#if READ_QUAD_OVERDRAW
+
+Texture2D<uint> QuadOverdrawTexture;
+
+uint2 QuadOverdrawOffset()
+{
+	uint QuadBufferWidth, QuadBufferHeight, QuadBufferNumLevels;
+	QuadOverdrawTexture.GetDimensions(0, QuadBufferWidth, QuadBufferHeight, QuadBufferNumLevels);
+	return uint2(QuadBufferWidth / 2, 0);
+}
+
+#endif // READ_QUAD_OVERDRAW
+
+
 float3 ShaderComplexityColors[NUM_COMPLEXITY_COLORS];
-// float4(bLegend,0,0,0), can be optimzied as define if needed
+
+// float4(bLegend,bUseQuadOverdraw, bShowQuadComplexity,0), can be optimzied as define if needed
 float4 ShaderComplexityParams;
 
 // @param In  0..1
@@ -78,6 +95,23 @@ half3 ColorizeComplexity(float In)
 	return lerp(LowerColor, HigherColor, frac(Value));
 }
 
+// @param In  0..1
+// @return color in 0..1 range
+half3 ColorizeComplexityLinear(float In)
+{
+	float Value = clamp(In, 0.0f, .999f) * (NUM_COMPLEXITY_COLORS - 1);
+	int ColorIndex = floor(Value);
+	return lerp(ShaderComplexityColors[ColorIndex], ShaderComplexityColors[ColorIndex + 1], frac(Value));
+}
+
+// @param In  0..1
+// @return color in 0..1 range
+half3 ColorizeComplexityStep(float In)
+{
+	int ColorIndex = round(saturate(In) * (NUM_COMPLEXITY_COLORS - 1));
+	return ShaderComplexityColors[ColorIndex];
+}
+
 
 void Main(
 	noperspective float4 UVAndScreenPos : TEXCOORD0,
@@ -94,13 +128,40 @@ void Main(
 	// float3(PS/ShaderBudget, VS/ShaderBudget, overdraw)
 	float3 SceneColor = Texture2DSampleLevel(PostprocessInput0, PostprocessInput0Sampler, UV, 0).rgb;
 
+
+	bool bLegend = ShaderComplexityParams.x > 0;
+
+#if READ_QUAD_OVERDRAW
+	bool bUseQuadOverdraw = ShaderComplexityParams.y > 0;
+	bool bShowQuadComplexity = ShaderComplexityParams.z > 0;
+
+	[branch]
+	if (bUseQuadOverdraw)
+	{
+		uint2 QuadID = SvPosition.xy / 2 + QuadOverdrawOffset();
+		SceneColor.r += ComplexityToFloat(QuadOverdrawTexture.Load(int3(QuadID,0)));
+	}
+
+#else
+
+	bool bUseQuadOverdraw = false;
+	bool bShowQuadComplexity = false;
+
+#endif // READ_QUAD_OVERDRAW
+
 	// show overdraw
 	float Overdraw = SceneColor.b;
 
 	// PS cost
-	OutColor = float4(ColorizeComplexity(SceneColor.r), 0);
-
-	bool bLegend = ShaderComplexityParams.x != 0.0f;
+	[branch]
+	if (bShowQuadComplexity)
+	{
+		OutColor = float4(ColorizeComplexityStep(SceneColor.r), 0);
+	}
+	else
+	{
+		OutColor = float4(ColorizeComplexity(SceneColor.r), 0);
+	}
 	
 	if(!bLegend)
 	{
@@ -120,6 +181,16 @@ void Main(
 	
 	// value under crosshair
 	float3 CenterViewportHDRColor = Texture2DSample(PostprocessInput0, PostprocessInput0Sampler, ViewportCenter * PostprocessInput0Size.zw).rgb;
+
+#if READ_QUAD_OVERDRAW
+	[branch]
+	if (bUseQuadOverdraw)
+	{
+		uint2 QuadID = ViewportCenter / 2 + QuadOverdrawOffset();
+		CenterViewportHDRColor.r += ComplexityToFloat(QuadOverdrawTexture.Load(int3(QuadID,0)));
+	}
+#endif
+
 	if(0)
 	{
 		float PSValue = CenterViewportHDRColor.r;
@@ -152,8 +223,17 @@ void Main(
 		float2 InsetPx = PixelPos - LeftTop;
 		float2 InsetUV = InsetPx / Size;
 	
-		const float3 LegendColor = ColorizeComplexity(InsetUV.x);
-	
+		float3 LegendColor = 0;
+		[branch]
+		if (bShowQuadComplexity)
+		{
+			LegendColor = ColorizeComplexityStep(InsetUV.x);
+		}
+		else
+		{
+			LegendColor = ColorizeComplexity(InsetUV.x);
+		}
+
 		float BorderDistance = ComputeDistanceToRect(PixelPos, LeftTop, Size);
 		
 		// thin black border around the Legend
@@ -161,21 +241,33 @@ void Main(
 		// Legend
 		OutColor.xyz = lerp(LegendColor, OutColor.xyz, saturate(BorderDistance - (OuterBorder + 1)));
 
-		// PS
+		[branch]
+		if (bShowQuadComplexity)
 		{
-			int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.r) * (Size.x - 2 * 8), 0);
-
-			PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _P_);
-			PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _S_);
+			// OverDraw
+			int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.r) * (Size.x - 2 * 8), 5);
+			PrintCharacter(PixelPos, OutColor.xyz, .2, Cursor, _O_);
+			PrintCharacter(PixelPos, OutColor.xyz, .2, Cursor, _D_);
 		}
-
-		// VS
+		else
 		{
-			int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.g) * (Size.x - 2 * 8), 11);
+			// PS
+			{
+				int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.r) * (Size.x - 2 * 8), 0);
+
+				PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _P_);
+				PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _S_);
+			}
+
+			// VS
+			{
+				int2 Cursor = LeftTop + int2(saturate(CenterViewportHDRColor.g) * (Size.x - 2 * 8), 11);
 			
-			PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _V_);
-			PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _S_);
+				PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _V_);
+				PrintCharacter(PixelPos, OutColor.xyz, 0, Cursor, _S_);
+			}
 		}
+
 	}
 
 	// Overdraw

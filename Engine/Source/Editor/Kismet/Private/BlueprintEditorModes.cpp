@@ -73,6 +73,7 @@ TSharedPtr<FTabManager::FLayout> GetDefaltEditorLayout(TSharedPtr<class FBluepri
 					->SetSizeCoefficient( 0.20f )
 					->AddTab( FBlueprintEditorTabs::CompilerResultsID, ETabState::ClosedTab )
 					->AddTab( FBlueprintEditorTabs::FindResultsID, ETabState::ClosedTab )
+					->AddTab( FBlueprintEditorTabs::BlueprintProfilerID, ETabState::ClosedTab )
 				)
 			)
 			->Split
@@ -111,6 +112,10 @@ FBlueprintEditorApplicationMode::FBlueprintEditorApplicationMode(TSharedPtr<clas
 	}
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FCompilerResultsSummoner(InBlueprintEditor)));
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+	{
+		BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FBlueprintProfilerSummoner(InBlueprintEditor)));
+	}
 	
 	if( bRegisterViewport )
 	{
@@ -131,6 +136,10 @@ FBlueprintEditorApplicationMode::FBlueprintEditorApplicationMode(TSharedPtr<clas
 	InBlueprintEditor->GetToolbarBuilder()->AddScriptingToolbar(ToolbarExtender);
 	InBlueprintEditor->GetToolbarBuilder()->AddBlueprintGlobalOptionsToolbar(ToolbarExtender);
 	InBlueprintEditor->GetToolbarBuilder()->AddDebuggingToolbar(ToolbarExtender);
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+	{
+		InBlueprintEditor->GetToolbarBuilder()->AddProfilerToolbar(ToolbarExtender);
+	}
 }
 
 void FBlueprintEditorApplicationMode::RegisterTabFactories(TSharedPtr<FTabManager> InTabManager)
@@ -572,6 +581,10 @@ FBlueprintEditorUnifiedMode::FBlueprintEditorUnifiedMode(TSharedPtr<class FBluep
 	}
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FCompilerResultsSummoner(InBlueprintEditor)));
 	BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FFindResultsSummoner(InBlueprintEditor)));
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+	{
+		BlueprintEditorTabFactories.RegisterFactory(MakeShareable(new FBlueprintProfilerSummoner(InBlueprintEditor)));
+	}
 	
 	if( bRegisterViewport )
 	{
@@ -631,6 +644,7 @@ FBlueprintEditorUnifiedMode::FBlueprintEditorUnifiedMode(TSharedPtr<class FBluep
 						->SetSizeCoefficient( 0.20f )
 						->AddTab( FBlueprintEditorTabs::CompilerResultsID, ETabState::ClosedTab )
 						->AddTab( FBlueprintEditorTabs::FindResultsID, ETabState::ClosedTab )
+						->AddTab( FBlueprintEditorTabs::BlueprintProfilerID, ETabState::ClosedTab )
 					)
 				)
 				->Split
@@ -691,6 +705,7 @@ FBlueprintEditorUnifiedMode::FBlueprintEditorUnifiedMode(TSharedPtr<class FBluep
 						->SetSizeCoefficient( 0.20f )
 						->AddTab( FBlueprintEditorTabs::CompilerResultsID, ETabState::ClosedTab )
 						->AddTab( FBlueprintEditorTabs::FindResultsID, ETabState::ClosedTab )
+						->AddTab( FBlueprintEditorTabs::BlueprintProfilerID, ETabState::ClosedTab )
 					)
 				)
 				->Split
@@ -715,6 +730,10 @@ FBlueprintEditorUnifiedMode::FBlueprintEditorUnifiedMode(TSharedPtr<class FBluep
 	InBlueprintEditor->GetToolbarBuilder()->AddCompileToolbar(ToolbarExtender);
 	InBlueprintEditor->GetToolbarBuilder()->AddScriptingToolbar(ToolbarExtender);
 	InBlueprintEditor->GetToolbarBuilder()->AddBlueprintGlobalOptionsToolbar(ToolbarExtender);
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+	{
+		InBlueprintEditor->GetToolbarBuilder()->AddProfilerToolbar(ToolbarExtender);
+	}
 	
 	if ( bRegisterViewport )
 	{

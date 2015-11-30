@@ -15,11 +15,9 @@ FEngineFontServices::FEngineFontServices()
 	check(IsInGameThread());
 
 #if !UE_SERVER
-	if (!IsRunningDedicatedServer())
+	if (!IsRunningDedicatedServer() && !IsRunningCommandlet())
 	{
-		RenderThreadFontAtlasFactory = GUsingNullRHI ? 
-			FModuleManager::Get().GetModuleChecked<ISlateNullRendererModule>("SlateNullRenderer").CreateSlateFontAtlasFactory() :
-			FModuleManager::Get().GetModuleChecked<ISlateRHIRendererModule>("SlateRHIRenderer").CreateSlateFontAtlasFactory();
+		SlateFontServices = FSlateApplication::Get().GetRenderer()->GetFontServices();
 	}
 #endif
 }
@@ -28,13 +26,7 @@ FEngineFontServices::~FEngineFontServices()
 {
 	check(IsInGameThread());
 
-	if(RenderThreadFontCache.IsValid())
-	{
-		RenderThreadFontCache->ReleaseResources();
-		FlushRenderingCommands();
-
-		RenderThreadFontCache.Reset();
-	}
+	SlateFontServices.Reset();
 }
 
 void FEngineFontServices::Create()
@@ -63,82 +55,29 @@ FEngineFontServices& FEngineFontServices::Get()
 
 TSharedPtr<FSlateFontCache> FEngineFontServices::GetFontCache()
 {
-	check(IsInGameThread() || IsInRenderingThread());
-
-#if !UE_SERVER
-	if(IsInGameThread())
+	if (SlateFontServices.IsValid())
 	{
-		if(FSlateApplication::IsInitialized())
-		{
-			return FSlateApplication::Get().GetRenderer()->GetFontCache();
-		}
+		return SlateFontServices->GetFontCache();
 	}
-	else
-	{
-		ConditionalCreateRenderThreadFontCache();
-		return RenderThreadFontCache;
-	}
-#endif
 
 	return nullptr;
 }
 
 TSharedPtr<FSlateFontMeasure> FEngineFontServices::GetFontMeasure()
 {
-	check(IsInGameThread() || IsInRenderingThread());
-
-#if !UE_SERVER
-	if(IsInGameThread())
+	if (SlateFontServices.IsValid())
 	{
-		if(FSlateApplication::IsInitialized())
-		{
-			FSlateApplication::Get().GetRenderer()->GetFontMeasureService();
-		}
+		return SlateFontServices->GetFontMeasureService();
 	}
-	else
-	{
-		ConditionalCreatRenderThreadFontMeasure();
-		return RenderThreadFontMeasure;
-	}
-#endif
 
 	return nullptr;
 }
 
 void FEngineFontServices::UpdateCache()
 {
-	check(IsInGameThread() || IsInRenderingThread());
-
-	if(IsInGameThread())
+	if (SlateFontServices.IsValid())
 	{
-		if(FSlateApplication::IsInitialized())
-		{
-			FSlateApplication::Get().GetRenderer()->GetFontCache()->UpdateCache();
-		}
-	}
-	else
-	{
-		if(RenderThreadFontCache.IsValid())
-		{
-			RenderThreadFontCache->UpdateCache();
-		}
-	}
-}
-
-void FEngineFontServices::ConditionalCreateRenderThreadFontCache()
-{
-	if(!RenderThreadFontCache.IsValid())
-	{
-		RenderThreadFontCache = MakeShareable(new FSlateFontCache(RenderThreadFontAtlasFactory.ToSharedRef()));
-	}
-}
-
-void FEngineFontServices::ConditionalCreatRenderThreadFontMeasure()
-{
-	ConditionalCreateRenderThreadFontCache();
-
-	if(!RenderThreadFontMeasure.IsValid())
-	{
-		RenderThreadFontMeasure = FSlateFontMeasure::Create(RenderThreadFontCache.ToSharedRef());
+		TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
+		FontCache->UpdateCache();
 	}
 }

@@ -8,7 +8,6 @@
 #include "Engine.h"
 #include "ScenePrivate.h"
 #include "FXSystem.h"
-#include "../../Engine/Private/SkeletalRenderGPUSkin.h"		// GPrevPerBoneMotionBlur
 #include "SceneUtils.h"
 #include "PostProcessing.h"
 
@@ -1376,10 +1375,12 @@ struct FRelevancePacket
 	FRelevancePrimSet<FTranslucentPrimSet::FSortedPrim> SortedTranslucencyPrims;
 	FRelevancePrimSet<FPrimitiveSceneProxy*> DistortionPrimSet;
 	FRelevancePrimSet<FPrimitiveSceneProxy*> CustomDepthSet;
-	FRelevancePrimSet<FPrimitiveSceneInfo*> LazyUpdates;
+	FRelevancePrimSet<FPrimitiveSceneInfo*> LazyUpdatePrimitives;
+	FRelevancePrimSet<FPrimitiveSceneInfo*> DirtyPrecomputedLightingBufferPrimitives;
 	FRelevancePrimSet<FPrimitiveSceneInfo*> VisibleEditorPrimitives;
 	uint16 CombinedShadingModelMask;
 	bool bUsesGlobalDistanceField;
+	bool bUsesLightingChannels;
 
 	FRelevancePacket(
 		FRHICommandListImmediate& InRHICmdList,
@@ -1403,6 +1404,7 @@ struct FRelevancePacket
 		, MarkMasks(InMarkMasks)
 		, CombinedShadingModelMask(0)
 		, bUsesGlobalDistanceField(false)
+		, bUsesLightingChannels(false)
 	{
 	}
 
@@ -1416,6 +1418,7 @@ struct FRelevancePacket
 	{
 		CombinedShadingModelMask = 0;
 		bUsesGlobalDistanceField = false;
+		bUsesLightingChannels = false;
 
 		SCOPE_CYCLE_COUNTER(STAT_ComputeViewRelevance);
 		for (int32 Index = 0; Index < Input.NumPrims; Index++)
@@ -1478,6 +1481,7 @@ struct FRelevancePacket
 
 			CombinedShadingModelMask |= ViewRelevance.ShadingModelMaskRelevance;			
 			bUsesGlobalDistanceField |= ViewRelevance.bUsesGlobalDistanceField;
+			bUsesLightingChannels |= ViewRelevance.bUsesLightingChannels;
 
 			if (ViewRelevance.bRenderCustomDepth)
 			{
@@ -1517,7 +1521,11 @@ struct FRelevancePacket
 			}
 			if (PrimitiveSceneInfo->NeedsLazyUpdateForRendering())
 			{
-				LazyUpdates.AddPrim(PrimitiveSceneInfo);
+				LazyUpdatePrimitives.AddPrim(PrimitiveSceneInfo);
+			}
+			if (PrimitiveSceneInfo->NeedsPrecomputedLightingBufferUpdate())
+			{
+				DirtyPrecomputedLightingBufferPrimitives.AddPrim(PrimitiveSceneInfo);
 			}
 		}
 	}
@@ -1618,15 +1626,16 @@ struct FRelevancePacket
 		}
 		WriteView.ShadingModelMaskInView |= CombinedShadingModelMask;
 		WriteView.bUsesGlobalDistanceField |= bUsesGlobalDistanceField;
+		WriteView.bUsesLightingChannels |= bUsesLightingChannels;
 		VisibleEditorPrimitives.AppendTo(WriteView.VisibleEditorPrimitives);
 		VisibleDynamicPrimitives.AppendTo(WriteView.VisibleDynamicPrimitives);
 		WriteView.TranslucentPrimSet.AppendScenePrimitives(SortedTranslucencyPrims.Prims, SortedTranslucencyPrims.NumPrims, SortedSeparateTranslucencyPrims.Prims, SortedSeparateTranslucencyPrims.NumPrims);
 		DistortionPrimSet.AppendTo(WriteView.DistortionPrimSet);
 		CustomDepthSet.AppendTo(WriteView.CustomDepthSet);
-
-		for (int32 Index = 0; Index < LazyUpdates.NumPrims; Index++)
+		DirtyPrecomputedLightingBufferPrimitives.AppendTo(WriteView.DirtyPrecomputedLightingBufferPrimitives);
+		for (int32 Index = 0; Index < LazyUpdatePrimitives.NumPrims; Index++)
 		{
-			LazyUpdates.Prims[Index]->ConditionalLazyUpdateForRendering(RHICmdList);
+			LazyUpdatePrimitives.Prims[Index]->ConditionalLazyUpdateForRendering(RHICmdList);
 		}
 	}
 };
@@ -2249,6 +2258,10 @@ void FSceneRenderer::ComputeViewVisibility(FRHICommandListImmediate& RHICmdList)
 
 		View.VisibleLightInfos.Empty(Scene->Lights.GetMaxIndex());
 
+		// The dirty list allocation must take into account the max possible size because when GILCUpdatePrimTaskEnabled is true,
+		// the indirect lighting cache will be update on by threaded job, which can not do reallocs on the buffer (since it uses the SceneRenderingAllocator).
+		View.DirtyPrecomputedLightingBufferPrimitives.Reserve(Scene->Primitives.Num());
+
 		for(int32 LightIndex = 0;LightIndex < Scene->Lights.GetMaxIndex();LightIndex++)
 		{
 			if( LightIndex+2 < Scene->Lights.GetMaxIndex() )
@@ -2716,6 +2729,9 @@ void FDeferredShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLi
 	{
 		Scene->IndirectLightingCache.FinalizeCacheUpdates(Scene, *this, ILCTaskData);
 	}
+
+	// Now that the indirect lighting cache is updated, we can update the primitive precomputed lighting buffers.
+	UpdatePrimitivePrecomputedLightingBuffers();
 
 	// initialize per-view uniform buffer.
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)

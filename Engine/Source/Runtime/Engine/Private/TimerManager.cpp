@@ -6,6 +6,9 @@
 
 #include "EnginePrivate.h"
 
+DECLARE_CYCLE_STAT(TEXT("SetTimer"), STAT_SetTimer, STATGROUP_Engine);
+DECLARE_CYCLE_STAT(TEXT("ClearTimer"), STAT_ClearTimer, STATGROUP_Engine);
+
 void FTimerHandle::MakeValid()
 {
 	static int LastAssignedHandle = -1;
@@ -19,6 +22,36 @@ void FTimerHandle::MakeValid()
 	check(IsValid());
 }
 
+
+
+FString FTimerUnifiedDelegate::ToString() const
+{
+	const UObject* Object = nullptr;
+	FName FunctionName = NAME_None;
+	bool bDynDelegate = false;
+
+	if (FuncDelegate.IsBound())
+	{
+		Object = FuncDelegate.GetUObject();
+		if (IDelegateInstance* Ptr = FuncDelegate.GetDelegateInstance())
+		{
+			FunctionName = Ptr->GetFunctionName();
+		}
+	}
+	else if (FuncDynDelegate.IsBound())
+	{
+		Object = FuncDynDelegate.GetUObject();
+		FunctionName = FuncDynDelegate.GetFunctionName();
+		bDynDelegate = true;
+	}
+	else
+	{
+		static FName NotBoundName(TEXT("NotBound!"));
+		FunctionName = NotBoundName;
+	}
+
+	return FString::Printf(TEXT("%s,%s,%s"), bDynDelegate ? TEXT("DELEGATE") : TEXT("DYN DELEGATE"), Object == nullptr ? TEXT("NO OBJ") : *Object->GetPathName(), *FunctionName.ToString());
+}
 
 // ---------------------------------
 // Private members
@@ -120,6 +153,8 @@ FTimerHandle FTimerManager::K2_FindDynamicTimerHandle(FTimerDynamicDelegate InDy
 
 void FTimerManager::InternalSetTimer(FTimerHandle& InOutHandle, FTimerUnifiedDelegate const& InDelegate, float InRate, bool InbLoop, float InFirstDelay)
 {
+	SCOPE_CYCLE_COUNTER(STAT_SetTimer);
+
 	// not currently threadsafe
 	check(IsInGameThread());
 
@@ -186,6 +221,8 @@ void FTimerManager::InternalSetTimerForNextTick(FTimerUnifiedDelegate const& InD
 
 void FTimerManager::InternalClearTimer(FTimerHandle const& InHandle)
 {
+	SCOPE_CYCLE_COUNTER(STAT_ClearTimer);
+
 	// not currently threadsafe
 	check(IsInGameThread());
 
@@ -495,3 +532,45 @@ TStatId FTimerManager::GetStatId() const
 {
 	RETURN_QUICK_DECLARE_CYCLE_STAT(FTimerManager, STATGROUP_Tickables);
 }
+
+void FTimerManager::ListTimers() const
+{
+	UE_LOG(LogEngine, Log, TEXT("------- %d Active Timers -------"), ActiveTimerHeap.Num());
+	for(const FTimerData& Data : ActiveTimerHeap)
+	{
+		FString TimerString = Data.TimerDelegate.ToString();
+		UE_LOG(LogEngine, Log, TEXT("%s"), *TimerString);
+	}
+
+	UE_LOG(LogEngine, Log, TEXT("------- %d Paused Timers -------"), PausedTimerList.Num());
+	for (const FTimerData& Data : PausedTimerList)
+	{
+		FString TimerString = Data.TimerDelegate.ToString();
+		UE_LOG(LogEngine, Log, TEXT("%s"), *TimerString);
+	}
+
+	UE_LOG(LogEngine, Log, TEXT("------- %d Pending Timers -------"), PendingTimerList.Num());
+	for (const FTimerData& Data : PendingTimerList)
+	{
+		FString TimerString = Data.TimerDelegate.ToString();
+		UE_LOG(LogEngine, Log, TEXT("%s"), *TimerString);
+	}
+
+	UE_LOG(LogEngine, Log, TEXT("------- %d Total Timers -------"), PendingTimerList.Num() + PausedTimerList.Num() + ActiveTimerHeap.Num());
+}
+
+// Handler for ListTimers console command
+static void OnListTimers(UWorld* World)
+{
+	if(World != nullptr)
+	{
+		World->GetTimerManager().ListTimers();
+	}
+}
+
+// Register ListTimers console command, needs a World context
+FAutoConsoleCommandWithWorld ListTimersConsoleCommand(
+	TEXT("ListTimers"),
+	TEXT(""),
+	FConsoleCommandWithWorldDelegate::CreateStatic(OnListTimers)
+	);

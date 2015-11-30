@@ -716,7 +716,7 @@ namespace CollisionResponseConsoleCommands
 		FCollisionResponseTemplate Template;
 		if (UCollisionProfile::Get()->GetProfileTemplate(ProfileToCheck, Template))
 		{
-			for (TObjectIterator<UPrimitiveComponent> Iter(RF_PendingKill); Iter; ++Iter)
+			for (TObjectIterator<UPrimitiveComponent> Iter(RF_NoFlags, /*bIncludeDerivedClasses*/ true, EInternalObjectFlags::PendingKill); Iter; ++Iter)
 			{
 				UPrimitiveComponent* Comp = *Iter;
 				

@@ -125,7 +125,7 @@ void FAnimNode_BlendListBase::Update(const FAnimationUpdateContext& Context)
 			// when this flag is true, we'll reinitialize the children
 			if (bResetChildOnActivation)
 			{
-				FAnimationInitializeContext ReinitializeContext(Context.AnimInstance);
+				FAnimationInitializeContext ReinitializeContext(Context.AnimInstanceProxy);
 
 				// reinitialize
 				BlendPose[ChildIndex].Initialize(ReinitializeContext);
@@ -200,7 +200,7 @@ void FAnimNode_BlendListBase::Update(const FAnimationUpdateContext& Context)
 
 void FAnimNode_BlendListBase::Evaluate(FPoseContext& Output)
 {
-	ANIM_MT_SCOPE_CYCLE_COUNTER(BlendPosesInGraph, Output.AnimInstance->IsRunningParallelEvaluation());
+	ANIM_MT_SCOPE_CYCLE_COUNTER(BlendPosesInGraph, !IsInGameThread());
 
 	const int32 NumPoses = PosesToEvaluate.Num();
 

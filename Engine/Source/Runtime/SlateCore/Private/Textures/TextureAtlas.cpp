@@ -7,6 +7,23 @@ DEFINE_STAT(STAT_SlateTextureGPUMemory);
 DEFINE_STAT(STAT_SlateTextureDataMemory);
 DECLARE_MEMORY_STAT(TEXT("Texture Atlas CPU Memory"), STAT_SlateTextureAtlasMemory, STATGROUP_SlateMemory);
 
+ESlateTextureAtlasThreadId GetCurrentSlateTextureAtlasThreadId()
+{
+	// Note: For Game thread ownership, there is a point at which multiple worker threads operate on text simultaneously while the game thread is blocked
+	// Access to the font cache is controlled through mutexes so we simply need to check that we are not accessing it from the render thread
+	// Game thread access is also allowed when the game thread and render thread are the same
+	if (!IsInActualRenderingThread())
+	{
+		return ESlateTextureAtlasThreadId::Game;
+	}
+	else if (IsInRenderingThread())
+	{
+		return ESlateTextureAtlasThreadId::Render;
+	}
+
+	return ESlateTextureAtlasThreadId::Unknown;
+}
+
 /* FSlateTextureAtlas helper class
  *****************************************************************************/
 
@@ -76,14 +93,14 @@ const FAtlasedTextureSlot* FSlateTextureAtlas::AddTexture( uint32 TextureWidth, 
 
 void FSlateTextureAtlas::MarkTextureDirty()
 {
-	check( 
-		(GSlateLoadingThreadId != 0) || 
-		// Note: For Game thread ownership, there is a point at which multiple worker threads operate on text simulatenously while the game thread is blocked
-		// Access to the font cache is controlled through mutexes so we simply need to check that we are not accessing it from the render thread
-		// Game thread access is also allowed when the game thread and render thread are the same
-		(AtlasOwnerThread == ESlateTextureAtlasOwnerThread::Game && !IsInActualRenderingThread()) || 
-		(AtlasOwnerThread == ESlateTextureAtlasOwnerThread::Render && IsInRenderingThread()) 
-		);
+	{
+		check(IsInGameThread() || IsInRenderingThread());
+
+		const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
+		check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
+
+		check((GSlateLoadingThreadId != 0) || (AtlasOwnerThread == AtlasThreadId));
+	}
 
 	bNeedsUpdate = true;
 }
@@ -96,12 +113,13 @@ void FSlateTextureAtlas::InitAtlasData()
 
 	RootSlot->LinkHead(AtlasEmptySlots);
 
-
 	AtlasData.Reserve(AtlasWidth * AtlasHeight * BytesPerPixel);
 	AtlasData.AddZeroed(AtlasWidth * AtlasHeight * BytesPerPixel);
 
 	check(IsInGameThread() || IsInRenderingThread());
-	AtlasOwnerThread = (IsInGameThread()) ? ESlateTextureAtlasOwnerThread::Game : ESlateTextureAtlasOwnerThread::Render;
+
+	AtlasOwnerThread = GetCurrentSlateTextureAtlasThreadId();
+	check(AtlasOwnerThread != ESlateTextureAtlasThreadId::Unknown);
 
 	INC_MEMORY_STAT_BY(STAT_SlateTextureAtlasMemory, AtlasData.GetAllocatedSize());
 }

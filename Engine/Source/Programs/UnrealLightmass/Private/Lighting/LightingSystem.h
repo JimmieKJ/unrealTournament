@@ -1944,6 +1944,8 @@ public:
 	 */
 	FStaticLightingSystem( const FLightingBuildOptions& InOptions, class FScene& InScene, class FLightmassSolverExporter& InExporter, int32 InNumThreads );
 
+	~FStaticLightingSystem();
+
 	/**
 	 * Returns the Lightmass exporter (back to Unreal)
 	 * @return	Lightmass exporter
@@ -1967,10 +1969,18 @@ public:
 
 	bool HasSkyShadowing() const
 	{
-		// Indicating sky shadowing is needed even if the sky lights do not have shadow casting enabled,
-		// So that shadow casting can be toggled without rebuilding lighting
-		// This does mean that skylights with shadow casting disabled will generate unused sky occlusion textures
-		return SkyLights.Num() > 0;
+		for (int32 SkylightIndex = 0; SkylightIndex < SkyLights.Num(); SkylightIndex++)
+		{
+			// Indicating sky shadowing is needed even if the sky lights do not have shadow casting enabled,
+			// So that shadow casting can be toggled without rebuilding lighting
+			// This does mean that skylights with shadow casting disabled will generate unused sky occlusion textures
+			if (!(SkyLights[SkylightIndex]->LightFlags & GI_LIGHT_HASSTATICLIGHTING))
+			{
+				return true;
+			}
+		}
+
+		return false;
 	}
 
 	/** Rasterizes Mesh into TexelToCornersMap */
@@ -1988,9 +1998,9 @@ public:
 		FVector2D UVBias, 
 		FVector2D UVScale) const;
 
-	FStaticLightingAggregateMesh& GetAggregateMesh()
+	FStaticLightingAggregateMeshType& GetAggregateMesh()
 	{
-		return AggregateMesh;
+		return *AggregateMesh;
 	}
 
 private:
@@ -2323,6 +2333,7 @@ private:
 		const FVector4& TriangleTangentPathDirection,
 		float SampleRadius,
 		int32 BounceNumber,
+		bool bSkyLightingOnly,
 		bool bDebugThisTexel,
 		FStaticLightingMappingContext& MappingContext,
 		FLMRandomStream& RandomStream,
@@ -2343,6 +2354,7 @@ private:
 		bool bIntersectingSurface,
 		int32 ElementIndex,
 		int32 BounceNumber,
+		int32 NumAdaptiveRefinementLevels,
 		const TArray<FVector4>& UniformHemisphereSamples,
 		const TArray<FVector2D>& UniformHemisphereSampleUniforms,
 		float MaxUnoccludedLength,
@@ -2350,6 +2362,7 @@ private:
 		FStaticLightingMappingContext& MappingContext,
 		FLMRandomStream& RandomStream,
 		FLightingCacheGatherInfo& GatherInfo,
+		bool bSkyLightingOnly,
 		bool bDebugThisTexel) const;
 
 	/** Final gather using uniform sampling to estimate the incident radiance function. */
@@ -2675,8 +2688,10 @@ private:
 
 	TArray<FVector4> CachedHemisphereSamplesForApproximateSkyLighting;
 
+	TArray<FVector2D> CachedHemisphereSamplesForApproximateSkyLightingUniforms;
+
 	/** The aggregate mesh used for raytracing. */
-	FStaticLightingAggregateMesh AggregateMesh;
+	FStaticLightingAggregateMeshType* AggregateMesh;
 	
 	/** The input scene describing geometry, materials and lights. */
 	const FScene& Scene; 

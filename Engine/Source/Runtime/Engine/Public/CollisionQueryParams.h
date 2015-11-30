@@ -73,7 +73,17 @@ public:
 	void SetNumIgnoredComponents(int32 NewNum);
 
 	// Constructors
-	FCollisionQueryParams(bool bInTraceComplex=false)
+
+	/** 
+	 *  DEPRECATED!  
+	 *  Please instead provide a FName parameter when constructing a FCollisionQueryParams object which will use the other constructor.
+	 *  Providing a single string literal argument, such as TEXT("foo"), instead of an explicit FNAME
+	 *  can cause this constructor to be invoked instead the the other which was likely the programmers intention. 
+	 *  This constructor will eventually be deprecated to avoid this potentially ambiguous case.
+	 */ 
+	//  temporarily un-deprecate to reduce spam warning for everyone until we find and update all the projects/places that had intentionally or inadvertently been calling the old constructor
+	//	DEPRECATED(4.11, "FCollisionQueryParams, to avoid ambiguity, please use other constructor and explicitly provide an FName parameter (not just a string literal) as the first parameter")
+	FCollisionQueryParams(bool bInTraceComplex)
 	{
 		bTraceComplex = bInTraceComplex;
 		TraceTag = NAME_None;
@@ -85,6 +95,21 @@ public:
 		IgnoreMask = 0;
 		bIgnoreBlocks = false;
 	}
+
+	FCollisionQueryParams()
+	{
+		bTraceComplex = false;
+		TraceTag = NAME_None;
+		bTraceAsyncScene = false;
+		bFindInitialOverlaps = true;
+		bReturnFaceIndex = false;
+		bReturnPhysicalMaterial = false;
+		bComponentListUnique = true;
+		IgnoreMask = 0;
+		bIgnoreBlocks = false;
+	}
+
+
 
 	FCollisionQueryParams(FName InTraceTag, bool bInTraceComplex=false, const AActor* InIgnoreActor=NULL);
 
@@ -127,7 +152,7 @@ public:
 struct ENGINE_API FComponentQueryParams : public FCollisionQueryParams
 {
 	FComponentQueryParams() 
-	: FCollisionQueryParams(false)
+	: FCollisionQueryParams(NAME_None,false)
 	{
 	}
 

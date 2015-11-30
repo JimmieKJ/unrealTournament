@@ -49,6 +49,12 @@ public:
 	/** Sets whether the playback is reversed */
 	void SetReverse(bool bInReverse) { bReverse = bInReverse; }
 
+	/** Gets the anim BP slot name. */
+	FName GetSlotName() const { return SlotName; }
+
+	/** Sets the anim BP slot name. */
+	void SetSlotName( FName InSlotName ) { SlotName = InSlotName; }
+
 	/** MovieSceneSection interface */
 	virtual void MoveSection( float DeltaPosition, TSet<FKeyHandle>& KeyHandles ) override;
 	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles  ) override;
@@ -57,6 +63,8 @@ public:
 	virtual void GetSnapTimes(TArray<float>& OutSnapTimes, bool bGetSectionBorders) const override;
 
 private:
+
+	static FName DefaultSlotName;
 
 	// UObject interface
 #if WITH_EDITOR
@@ -84,4 +92,8 @@ private:
 	/** Reverse the playback of the animation clip */
 	UPROPERTY(EditAnywhere, Category="Animation")
 	uint32 bReverse:1;
+
+	/** The slot name to use for the animation */
+	UPROPERTY( EditAnywhere, Category = "Animation" )
+	FName SlotName;
 };

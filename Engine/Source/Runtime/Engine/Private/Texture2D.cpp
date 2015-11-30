@@ -43,6 +43,12 @@ static TAutoConsoleVariable<int32> CVarVirtualTextureEnabled(
 	TEXT("If set to 1, textures will use virtual memory so they can be partially resident."),
 	ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarFlushRHIThreadOnSTreamingTextureLocks(
+	TEXT("r.FlushRHIThreadOnSTreamingTextureLocks"),
+	0,
+	TEXT("If set to 0, we won't do any flushes for streaming textures. This is safe because the texture streamer deals with these hazards explicitly."),
+	ECVF_RenderThreadSafe);
+
 static bool CanCreateAsVirtualTexture(const UTexture2D* Texture, uint32 TexCreateFlags)
 {
 #if PLATFORM_SUPPORTS_VIRTUAL_TEXTURES
@@ -187,7 +193,7 @@ void UTexture2D::Serialize(FArchive& Ar)
 	}
 
 #if WITH_EDITOR	
-	if (Ar.IsLoading() && !Ar.IsTransacting() && !bCooked && !(GetOutermost()->PackageFlags & PKG_ReloadingForCooker))
+	if (Ar.IsLoading() && !Ar.IsTransacting() && !bCooked && !GetOutermost()->HasAnyPackageFlags(PKG_ReloadingForCooker))
 	{
 		// The composite texture may not have been loaded yet. We have to defer caching platform
 		// data until post load.
@@ -408,7 +414,7 @@ void UTexture2D::UpdateResource()
 void UTexture2D::PostLinkerChange()
 {
 	// Changing the linker requires re-creating the resource to make sure streaming behavior is right.
-	if( !HasAnyFlags( RF_Unreachable | RF_BeginDestroyed | RF_NeedLoad | RF_NeedPostLoad ) )
+	if( !HasAnyFlags( RF_BeginDestroyed | RF_NeedLoad | RF_NeedPostLoad ) && !IsUnreachable() )
 	{
 		// Update the resource.
 		UpdateResource();
@@ -570,7 +576,7 @@ bool UTexture2D::UpdateStreamingStatus( bool bWaitForMipFading /*= false*/ )
 				// We can't load the source art from a bulk data object if the texture itself is pending kill because the linker will have been detached.
 				// In this case we don't rebuild the data and instead let the streaming request be cancelled. This will let the garbage collector finish
 				// destroying the object.
-				if (!HasAnyFlags(RF_PendingKill | RF_Unreachable))
+				if (!IsPendingKillOrUnreachable())
 				{
 					ForceRebuildPlatformData();
 				}
@@ -1461,7 +1467,7 @@ void FTexture2DResource::GetData( uint32 MipIndex, void* Dest, uint32 DestPitch 
 #if WITH_EDITORONLY_DATA
 	bMipIsInDerivedDataCache = MipMap.DerivedDataKey.IsEmpty() == false;
 #endif
-	if (bMipIsInDerivedDataCache || MipMap.BulkData.ShouldFreeOnEmpty())
+	if (bMipIsInDerivedDataCache)
 	{
 		FMemory::Free(MipData[MipIndex]);
 	}
@@ -1864,7 +1870,7 @@ void FTexture2DResource::LoadMipData()
 			{
 				// Lock the new texture.
 				uint32 DestPitch;
-				MipData[ActualMipIndex] = RHILockTexture2D( IntermediateTextureRHI, MipIndex, RLM_WriteOnly, DestPitch, false );
+				MipData[ActualMipIndex] = RHILockTexture2D( IntermediateTextureRHI, MipIndex, RLM_WriteOnly, DestPitch, false, CVarFlushRHIThreadOnSTreamingTextureLocks.GetValueOnAnyThread() > 0 );
 			}
 
 			// Pass the request on to the async io manager after increasing the request count. The request count 
@@ -2026,7 +2032,7 @@ void FTexture2DResource::UploadMipData()
 			{
 				// Intermediate texture has RequestedMips miplevels, all of which have been locked.
 				// DEXTEX: Do not unload as we didn't locked the textures in the first place
-				RHIUnlockTexture2D( IntermediateTextureRHI, MipIndex, false );
+				RHIUnlockTexture2D( IntermediateTextureRHI, MipIndex, false, CVarFlushRHIThreadOnSTreamingTextureLocks.GetValueOnAnyThread() > 0 );
 				MipData[MipIndex + PendingFirstMip] = NULL;
 			}
 		}

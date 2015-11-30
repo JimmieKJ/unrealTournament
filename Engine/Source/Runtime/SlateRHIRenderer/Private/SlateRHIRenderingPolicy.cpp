@@ -21,18 +21,14 @@ DECLARE_DWORD_COUNTER_STAT(TEXT("Num Layers"), STAT_SlateNumLayers, STATGROUP_Sl
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Batches"), STAT_SlateNumBatches, STATGROUP_Slate);
 DECLARE_DWORD_COUNTER_STAT(TEXT("Num Vertices"), STAT_SlateVertexCount, STATGROUP_Slate);
 
-DECLARE_MEMORY_STAT(TEXT("Vertex Buffer Memory"), STAT_SlateVertexBufferMemory, STATGROUP_SlateMemory);
-DECLARE_MEMORY_STAT(TEXT("Index Buffer Memory"), STAT_SlateIndexBufferMemory, STATGROUP_SlateMemory);
-
-FSlateRHIRenderingPolicy::FSlateRHIRenderingPolicy( TSharedPtr<FSlateFontCache> InFontCache, TSharedRef<FSlateRHIResourceManager> InResourceManager )
-	: FSlateRenderingPolicy(0)
-	, ResourceManager( InResourceManager )
-	, FontCache( InFontCache )
-	, bGammaCorrect(true)
+FSlateRHIRenderingPolicy::FSlateRHIRenderingPolicy(TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager)
+	: FSlateRenderingPolicy(InSlateFontServices, 0)
+	, ResourceManager(InResourceManager)
 	, CurrentBufferIndex(0)
+	, bGammaCorrect(true)
 {
 	InitResources();
-};
+}
 
 FSlateRHIRenderingPolicy::~FSlateRHIRenderingPolicy()
 {
@@ -87,53 +83,6 @@ void FSlateRHIRenderingPolicy::BeginDrawingWindows()
 void FSlateRHIRenderingPolicy::EndDrawingWindows()
 {
 	check( IsInParallelRenderingThread() );
-
-#if STATS
-	uint32 TotalVertexBufferMemory = 0;
-	uint32 TotalIndexBufferMemory = 0;
-
-	uint32 TotalVertexBufferUsage = 0;
-	uint32 TotalIndexBufferUsage = 0;
-
-	uint32 MinVertexBufferSize = VertexBuffers[0].GetMinBufferSize();
-	uint32 MinIndexBufferSize = IndexBuffers[0].GetMinBufferSize();
-
-	for( int32 BufferIndex = 0; BufferIndex < SlateRHIConstants::NumBuffers; ++BufferIndex )
-	{
-		TotalVertexBufferMemory += VertexBuffers[BufferIndex].GetBufferSize();
-		TotalVertexBufferUsage += VertexBuffers[BufferIndex].GetBufferUsageSize();
-		
-		TotalIndexBufferMemory += IndexBuffers[BufferIndex].GetBufferSize();
-		TotalIndexBufferUsage += IndexBuffers[BufferIndex].GetBufferUsageSize();
-	}
-
-	//for ( TCachedBufferMap::TIterator BufferIt(CachedBuffers); BufferIt; ++BufferIt )
-	//{
-	//	FCachedRenderBuffers* PooledBuffer = BufferIt.Value();
-
-	//	TotalVertexBufferMemory += PooledBuffer->VertexBuffer.GetBufferSize();
-	//	TotalVertexBufferUsage += PooledBuffer->VertexBuffer.GetBufferUsageSize();
-
-	//	TotalIndexBufferMemory += PooledBuffer->IndexBuffer.GetBufferSize();
-	//	TotalIndexBufferUsage += PooledBuffer->IndexBuffer.GetBufferUsageSize();
-	//}
-
-	//for ( TCachedBufferPoolMap::TIterator BufferIt(CachedBufferPool); BufferIt; ++BufferIt )
-	//{
-	//	TArray< FCachedRenderBuffers* >& Pool = BufferIt.Value();
-	//	for ( FCachedRenderBuffers* PooledBuffer : Pool )
-	//	{
-	//		TotalVertexBufferMemory += PooledBuffer->VertexBuffer.GetBufferSize();
-	//		TotalVertexBufferUsage += PooledBuffer->VertexBuffer.GetBufferUsageSize();
-
-	//		TotalIndexBufferMemory += PooledBuffer->IndexBuffer.GetBufferSize();
-	//		TotalIndexBufferUsage += PooledBuffer->IndexBuffer.GetBufferUsageSize();
-	//	}
-	//}
-
-	SET_MEMORY_STAT( STAT_SlateVertexBufferMemory, TotalVertexBufferMemory );
-	SET_MEMORY_STAT( STAT_SlateIndexBufferMemory, TotalIndexBufferMemory );
-#endif
 }
 
 struct FSlateUpdateVertexAndIndexBuffers : public FRHICommand<FSlateUpdateVertexAndIndexBuffers>

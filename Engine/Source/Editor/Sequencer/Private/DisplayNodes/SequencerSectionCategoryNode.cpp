@@ -43,7 +43,7 @@ ESequencerNode::Type FSequencerSectionCategoryNode::GetType() const
 }
 
 
-void FSequencerSectionCategoryNode::SetDisplayName(const FText& InDisplayName)
+void FSequencerSectionCategoryNode::SetDisplayName(const FText& NewDisplayName)
 {
 	check(false);
 }

@@ -1037,7 +1037,7 @@ UObject* FPersona::GetPreviewAnimationAsset() const
 			// if same, do not overwrite. It will reset time and everything
 			if (PreviewComponent->PreviewInstance != NULL)
 			{
-				return PreviewComponent->PreviewInstance->CurrentAsset;
+				return PreviewComponent->PreviewInstance->GetCurrentAsset();
 			}
 		}
 	}
@@ -1094,7 +1094,7 @@ void FPersona::SetPreviewVertexAnim(UVertexAnimation* VertexAnim)
 			// if same, do not overwrite. It will reset time and everything
 			if( VertexAnim && 
 				PreviewComponent->PreviewInstance && 
-				VertexAnim == PreviewComponent->PreviewInstance->CurrentVertexAnim )
+				VertexAnim == PreviewComponent->PreviewInstance->GetCurrentVertexAnimation() )
 			{
 				return;
 			}
@@ -1884,9 +1884,9 @@ void FPersona::SetPreviewMeshInternal(USkeletalMesh* NewPreviewMesh)
 		bool bNeedsToCopyAnimationData = PreviewComponent->GetAnimInstance() && PreviewComponent->GetAnimInstance() == PreviewComponent->PreviewInstance;
 		if(bNeedsToCopyAnimationData)
 		{
-			AnimAssetToPlay = PreviewComponent->PreviewInstance->CurrentAsset;
-			PlayPosition = PreviewComponent->PreviewInstance->CurrentTime;
-			bPlaying = PreviewComponent->PreviewInstance->bPlaying;
+			AnimAssetToPlay = PreviewComponent->PreviewInstance->GetCurrentAsset();
+			PlayPosition = PreviewComponent->PreviewInstance->GetCurrentTime();
+			bPlaying = PreviewComponent->PreviewInstance->IsPlaying();
 		}
 
 		PreviewComponent->SetSkeletalMesh(NewPreviewMesh);
@@ -1895,7 +1895,7 @@ void FPersona::SetPreviewMeshInternal(USkeletalMesh* NewPreviewMesh)
 		{
 			SetPreviewAnimationAsset(AnimAssetToPlay);
 			PreviewComponent->PreviewInstance->SetPosition(PlayPosition);
-			PreviewComponent->PreviewInstance->bPlaying = bPlaying;
+			PreviewComponent->PreviewInstance->SetPlaying(bPlaying);
 		}
 	}
 	else
@@ -1981,9 +1981,13 @@ void FPersona::RefreshPreviewInstanceTrackCurves()
 
 void FPersona::PostUndo(bool bSuccess)
 {
+	DocumentManager->CleanInvalidTabs();
 	DocumentManager->RefreshAllTabs();
 
 	FBlueprintEditor::PostUndo(bSuccess);
+
+	// If we undid a node creation that caused us to clean up a tab/graph we need to refresh the UI state
+	RefreshEditors();
 
 	// PostUndo broadcast
 	OnPostUndo.Broadcast();	
@@ -3254,9 +3258,9 @@ void FPersona::ShowReferencePose(bool bReferencePose)
 		}
 		else
 		{
-			if (PreviewComponent->PreviewInstance && PreviewComponent->PreviewInstance->CurrentAsset)
+			if (PreviewComponent->PreviewInstance && PreviewComponent->PreviewInstance->GetCurrentAsset())
 			{
-				CachedPreviewAsset = PreviewComponent->PreviewInstance->CurrentAsset;
+				CachedPreviewAsset = PreviewComponent->PreviewInstance->GetCurrentAsset();
 			}
 			
 			PreviewComponent->EnablePreview(true, NULL, NULL);
@@ -3273,7 +3277,7 @@ bool FPersona::IsShowReferencePoseEnabled() const
 {
 	if(PreviewComponent)
 	{
-		return PreviewComponent->IsPreviewOn() && PreviewComponent->PreviewInstance->CurrentAsset == NULL;
+		return PreviewComponent->IsPreviewOn() && PreviewComponent->PreviewInstance->GetCurrentAsset() == NULL;
 	}
 	return false;
 }

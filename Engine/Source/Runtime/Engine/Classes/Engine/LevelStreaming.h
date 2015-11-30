@@ -97,6 +97,13 @@ public:
 	UPROPERTY(EditAnywhere, Category=LevelStreaming, BlueprintReadWrite)
 	FTransform LevelTransform;
 
+private:
+
+	/* Whether CachedWorldAssetPackageFName is valid */
+	uint32 bHasCachedWorldAssetPackageFName:1;
+
+public:
+
 	/** Whether we currently have a load request pending.																		*/
 	uint32 bHasLoadRequestPending:1;
 

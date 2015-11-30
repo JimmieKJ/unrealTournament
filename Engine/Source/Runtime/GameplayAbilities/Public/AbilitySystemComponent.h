@@ -153,8 +153,6 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 	float GetNumericAttribute(const FGameplayAttribute &Attribute) const;
 	float GetNumericAttributeChecked(const FGameplayAttribute &Attribute) const;
 
-	virtual void DisplayDebug(class UCanvas* Canvas, const class FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos);
-
 	// -- Replication -------------------------------------------------------------------------------------------------
 
 	virtual bool ReplicateSubobjects(class UActorChannel *Channel, class FOutBunch *Bunch, FReplicationFlags *RepFlags) override;
@@ -730,6 +728,55 @@ class GAMEPLAYABILITIES_API UAbilitySystemComponent : public UGameplayTasksCompo
 
 	void IncrementAbilityListLock();
 	void DecrementAbilityListLock();
+
+	// --------------------------------------------
+	// Debugging
+	// --------------------------------------------
+
+	struct FAbilitySystemComponentDebugInfo
+	{
+		FAbilitySystemComponentDebugInfo()
+		{
+			FMemory::Memzero(*this);
+		}
+
+		class UCanvas* Canvas;
+
+		bool bPrintToLog;
+
+		bool bShowAttributes;
+		bool bShowGameplayEffects;;
+		bool bShowAbilities;
+
+		float XPos;
+		float YPos;
+		float OriginalX;
+		float OriginalY;
+		float MaxY;
+		float NewColumnYPadding;
+		float YL;
+
+		bool Accumulate;
+		TArray<FString>	Strings;
+	};
+
+	virtual void DisplayDebug(class UCanvas* Canvas, const class FDebugDisplayInfo& DebugDisplay, float& YL, float& YPos);
+	virtual void PrintDebug();
+
+	void AccumulateScreenPos(FAbilitySystemComponentDebugInfo& Info);
+	virtual void Debug_Internal(struct FAbilitySystemComponentDebugInfo& Info);
+	void DebugLine(struct FAbilitySystemComponentDebugInfo& Info, FString Str, float XOffset, float YOffset);
+	FString CleanupName(FString Str);
+
+	UFUNCTION(Server, reliable, WithValidation)
+	void ServerPrintDebug_Request();
+
+	UFUNCTION(Client, reliable)
+	void ClientPrintDebug_Response(const TArray<FString>& Strings);
+
+	/** Called when the ability is forced cancelled due to replication */
+	void	ForceCancelAbilityDueToReplication(UGameplayAbility* Instance);
+
 protected:
 
 	/**

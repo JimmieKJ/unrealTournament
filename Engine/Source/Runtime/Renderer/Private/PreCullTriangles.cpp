@@ -43,6 +43,7 @@ public:
 	{
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("UPDATEOBJECTS_THREADGROUP_SIZE"), UpdateObjectsGroupSize);
+		OutEnvironment.CompilerFlags.Add(CFLAG_StandardOptimization);
 	}
 
 	FCullObjectsForBoundsCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -193,6 +194,7 @@ public:
 		FGlobalShader::ModifyCompilationEnvironment(Platform,OutEnvironment);
 		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEX"), GDistanceFieldAOTileSizeX);
 		OutEnvironment.SetDefine(TEXT("THREADGROUP_SIZEY"), GDistanceFieldAOTileSizeY);
+		OutEnvironment.CompilerFlags.Add(CFLAG_StandardOptimization);
 	}
 
 	FPreCullTrianglesCS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)

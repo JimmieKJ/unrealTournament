@@ -39,9 +39,10 @@ struct FMeshBatchElement
 	float MaxScreenSize;
 
 	uint16 DynamicIndexStride;
-	uint8 InstancedLODIndex;
-	uint8 InstancedLODRange;
-	
+	uint8 InstancedLODIndex : 4;
+	uint8 InstancedLODRange : 4;
+	uint8 bUserDataIsColorVertexBuffer : 1;
+
 	FMeshBatchElement()
 	:	PrimitiveUniformBufferResource(nullptr)
 	,	IndexBuffer(nullptr)
@@ -54,6 +55,7 @@ struct FMeshBatchElement
 	,	MaxScreenSize(1.0f)
 	,	InstancedLODIndex(0)
 	,	InstancedLODRange(0)
+	,	bUserDataIsColorVertexBuffer(false)
 	{
 	}
 };

@@ -80,7 +80,7 @@ public:
 	virtual float GetNodeHeight() const override;
 	virtual FNodePadding GetNodePadding() const override;
 	virtual ESequencerNode::Type GetType() const override;
-	virtual void SetDisplayName(const FText& DisplayName) override;
+	virtual void SetDisplayName(const FText& NewDisplayName) override;
 
 private:
 

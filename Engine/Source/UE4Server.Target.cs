@@ -50,7 +50,6 @@ public class UE4ServerTarget : TargetRules
 		ModuleNames.Add("Launch");
 		ModuleNames.Add("GameplayAbilities");
 		ModuleNames.Add("XmlParser");
-		ModuleNames.Add("GameplayDebugger");
 		ModuleNames.Add("RuntimeAssetCache");
 		ModuleNames.Add("UnrealCodeAnalyzerTests");
 

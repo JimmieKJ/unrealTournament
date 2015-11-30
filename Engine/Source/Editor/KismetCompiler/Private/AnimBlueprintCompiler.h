@@ -53,8 +53,14 @@ protected:
 
 		UEdGraphPin* SinglePin;
 
-		// If this is valid we are a simple property copy, avoiding BP thunk
+		// If this is valid we are a 'simple property copy', avoiding BP thunk
 		FName SimpleCopyPropertyName;
+
+		// If this is a sub-struct property, this will be something other than NAME_None
+		FName SubStructPropertyName;
+
+		// Any operation we want to perform post-copy on the destination data
+		EPostCopyOperation Operation;
 
 		// Whether this node chain only ever accesses members
 		bool bHasOnlyMemberAccess;
@@ -62,6 +68,8 @@ protected:
 		FAnimNodeSinglePropertyHandler()
 			: SinglePin(NULL)
 			, SimpleCopyPropertyName(NAME_None)
+			, SubStructPropertyName(NAME_None)
+			, Operation(EPostCopyOperation::None)
 			, bHasOnlyMemberAccess(false)
 		{
 		}
@@ -147,6 +155,15 @@ protected:
 		void PatchFunctionNameAndCopyRecordsInto(UObject* TargetObject) const;
 
 		void RegisterPin(UEdGraphPin* SourcePin, UProperty* AssociatedProperty, int32 AssociatedPropertyArrayIndex);
+
+	private:
+		bool CheckForVariableGet(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
+
+		bool CheckForLogicalNot(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
+
+		bool CheckForStructMemberAccess(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
+
+		bool CheckForMemberOnlyAccess(FAnimNodeSinglePropertyHandler& Handler, UEdGraphPin* SourcePin);
 	};
 
 	// State machines may get processed before their inner graphs, so their node index needs to be patched up later
@@ -197,6 +214,9 @@ protected:
 
 	// Map of cache name to encountered save cached pose nodes
 	TMap<FString, UAnimGraphNode_SaveCachedPose*> SaveCachedPoseNodes;
+
+	// Set of used handler function names
+	TSet<FName> HandlerFunctionNames;
 
 	// True if any parent class is also generated from an animation blueprint
 	bool bIsDerivedAnimBlueprint;

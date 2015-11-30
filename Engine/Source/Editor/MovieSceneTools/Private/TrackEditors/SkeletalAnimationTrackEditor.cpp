@@ -12,7 +12,6 @@
 #include "ISequencerObjectChangeListener.h"
 #include "ISectionLayoutBuilder.h"
 #include "IKeyArea.h"
-#include "MovieSceneToolHelpers.h"
 #include "MovieSceneTrackEditor.h"
 #include "SkeletalAnimationTrackEditor.h"
 #include "MovieSceneSkeletalAnimationSection.h"
@@ -20,6 +19,8 @@
 #include "AssetRegistryModule.h"
 #include "Animation/SkeletalMeshActor.h"
 #include "ContentBrowserModule.h"
+#include "MatineeImportTools.h"
+#include "Matinee/InterpTrackAnimControl.h"
 
 
 namespace SkeletalAnimationEditorConstants
@@ -42,6 +43,11 @@ UMovieSceneSection* FSkeletalAnimationSection::GetSectionObject()
 	return &Section;
 }
 
+
+bool FSkeletalAnimationSection::ShouldDrawKeyAreaBackground() const
+{
+	return false;
+}
 
 FText FSkeletalAnimationSection::GetDisplayName() const
 {
@@ -304,6 +310,28 @@ USkeleton* FSkeletalAnimationTrackEditor::AcquireSkeletonFromObjectGuid(const FG
 	}
 
 	return Skeleton;
+}
+
+
+void FSkeletalAnimationTrackEditor::BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track )
+{
+	UInterpTrackAnimControl* MatineeAnimControlTrack = nullptr;
+	for ( UObject* CopyPasteObject : GUnrealEd->MatineeCopyPasteBuffer )
+	{
+		MatineeAnimControlTrack = Cast<UInterpTrackAnimControl>( CopyPasteObject );
+		if ( MatineeAnimControlTrack != nullptr )
+		{
+			break;
+		}
+	}
+	UMovieSceneSkeletalAnimationTrack* SkeletalAnimationTrack = Cast<UMovieSceneSkeletalAnimationTrack>( Track );
+	MenuBuilder.AddMenuEntry(
+		NSLOCTEXT( "Sequencer", "PasteMatineeAnimControlTrack", "Paste Matinee SkeletalAnimation Track" ),
+		NSLOCTEXT( "Sequencer", "PasteMatineeAnimControlTrackTooltip", "Pastes keys from a Matinee float track into this track." ),
+		FSlateIcon(),
+		FUIAction(
+			FExecuteAction::CreateStatic( &FMatineeImportTools::CopyInterpAnimControlTrack, GetSequencer().ToSharedRef(), MatineeAnimControlTrack, SkeletalAnimationTrack ),
+			FCanExecuteAction::CreateLambda( [=]()->bool { return MatineeAnimControlTrack != nullptr && MatineeAnimControlTrack->AnimSeqs.Num() > 0 && SkeletalAnimationTrack != nullptr; } ) ) );
 }
 
 

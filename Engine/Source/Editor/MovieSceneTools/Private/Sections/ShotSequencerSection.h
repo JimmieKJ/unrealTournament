@@ -52,8 +52,9 @@ public:
 
 	// ISequencerSection interface
 
+	virtual bool ShouldDrawKeyAreaBackground() const override;
 	virtual bool AreSectionsConnected() const override;
-	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder) override;
+	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding) override;
 	virtual void GenerateSectionLayout(ISectionLayoutBuilder& LayoutBuilder) const override { }
 	virtual TSharedRef<SWidget> GenerateSectionWidget() override;
 	virtual FText GetDisplayName() const override;

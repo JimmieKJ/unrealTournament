@@ -1,6 +1,7 @@
 ﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
+#include "TextCache.h"
 
 #if UE_ENABLE_ICU
 #include "ICUInternationalization.h"
@@ -30,7 +31,13 @@ void FInternationalization::TearDown()
 	if (Instance && Instance->IsInitialized())
 	{
 		Instance->Terminate();
+		FTextCache::Get().Flush();
 	}
+}
+
+FText FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(const TCHAR* InTextLiteral, const TCHAR* InNamespace, const TCHAR* InKey)
+{
+	return FTextCache::Get().FindOrCache(InTextLiteral, InNamespace, InKey);
 }
 
 bool FInternationalization::SetCurrentCulture(const FString& Name)

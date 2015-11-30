@@ -741,7 +741,7 @@ void FPImplRecastNavMesh::Raycast2D(const FVector& StartLoc, const FVector& EndL
 	const FVector RecastEnd = Unreal2RecastPoint(EndLoc);
 
 	NavNodeRef StartNode = INVALID_NAVNODEREF;
-	NavQuery.findNearestPoly(&RecastStart.X, Extent, QueryFilter, &StartNode, NULL);
+	NavQuery.findNearestContainingPoly(&RecastStart.X, Extent, QueryFilter, &StartNode, NULL);
 
 	if (StartNode != INVALID_NAVNODEREF)
 	{

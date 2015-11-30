@@ -70,7 +70,7 @@ FUniformBufferRHIRef FD3D12DynamicRHI::RHICreateUniformBuffer(const void* Conten
 
 		// Use an upload heap
 		TRefCountPtr<FD3D12ResourceLocation> ResourceLocation = new FD3D12ResourceLocation();
-        void *pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(NumBytes, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, ResourceLocation);
+        void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(NumBytes, D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT, ResourceLocation);
 
 		check(pData != nullptr);
 

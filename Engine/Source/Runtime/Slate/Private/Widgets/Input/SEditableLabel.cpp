@@ -12,6 +12,7 @@ void SEditableLabel::Construct(const FArguments& InArgs)
 	CanEditAttribute = InArgs._CanEdit;
 	OnTextChanged = InArgs._OnTextChanged;
 	TextAttribute = InArgs._Text;
+	WasFocused = false;
 
 	ChildSlot
 	[
@@ -97,19 +98,6 @@ bool SEditableLabel::HasKeyboardFocus() const
 }
 
 
-FReply SEditableLabel::OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent)
-{
-	if ((InFocusEvent.GetCause() == EFocusCause::Navigation) ||
-		(InFocusEvent.GetCause() == EFocusCause::SetDirectly))
-	{
-		EnterTextMode();
-		return FReply::Handled().SetUserFocus(EditableText.ToSharedRef(), InFocusEvent.GetCause());
-	}
-
-	return FReply::Unhandled();
-}
-
-
 FReply SEditableLabel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent)
 {
 	const FKey Key = InKeyEvent.GetKey();
@@ -120,7 +108,7 @@ FReply SEditableLabel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& I
 		return FReply::Handled().SetUserFocus(AsShared(), EFocusCause::Navigation);
 	}
 
-	if (Key == EKeys::Enter)
+	if (WasFocused && (Key == EKeys::Enter))
 	{
 		EnterTextMode();
 		return FReply::Handled().SetUserFocus(EditableText.ToSharedRef(), EFocusCause::Navigation);
@@ -134,20 +122,24 @@ FReply SEditableLabel::OnMouseButtonDown(const FGeometry& MyGeometry, const FPoi
 {
 	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
 	{
-		// @todo Slate: implement some mechanism to not enter edit mode right away on mouse up
+		WasFocused = HasKeyboardFocus();
 	}
 
+	if (WasFocused)
+	{
+		return FReply::Handled();
+	}
+	
 	return FReply::Unhandled();
 }
 
 
 FReply SEditableLabel::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	if (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton)
+	if (WasFocused && (MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton))
 	{
 		EnterTextMode();
-
-		return FReply::Handled();			
+		return FReply::Handled().SetUserFocus(EditableText.ToSharedRef(), EFocusCause::Mouse);;
 	}
 
 	return FReply::Unhandled();

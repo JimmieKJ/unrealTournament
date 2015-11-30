@@ -86,7 +86,7 @@ namespace ObjectTools
 			if( ObjectPackage != NULL )
 			{
 				if( ObjectPackage != GetTransientPackage()
-					&& (ObjectPackage->PackageFlags & PKG_PlayInEditor) == 0
+					&& (ObjectPackage->HasAnyPackageFlags(PKG_PlayInEditor) == false)
 					&& !Obj->IsPendingKill() )
 				{
 					bIsSupported = true;
@@ -494,6 +494,30 @@ namespace ObjectTools
 		TArray<UObject*> ReplaceableObjects;
 		// Objects whose references could not be successfully replaced
 		TArray<UObject*> UnreplaceableObjects;
+
+		void AppendUnique(const FForceReplaceInfo& ForceReplaceInfo)
+		{
+			const TArray<UPackage*>& ForceReplaceInfoDirtiedPackages = ForceReplaceInfo.DirtiedPackages;
+			DirtiedPackages.Reserve(DirtiedPackages.Num() + ForceReplaceInfoDirtiedPackages.Num());
+			for (UPackage* Package : ForceReplaceInfoDirtiedPackages)
+			{
+				DirtiedPackages.AddUnique(Package);
+			}
+
+			const TArray<UObject*>& ForceReplaceInfoReplaceableObjects = ForceReplaceInfo.ReplaceableObjects;
+			ReplaceableObjects.Reserve(ReplaceableObjects.Num() + ForceReplaceInfoReplaceableObjects.Num());
+			for (UObject* Object : ForceReplaceInfoReplaceableObjects)
+			{
+				ReplaceableObjects.Add(Object);
+			}
+
+			const TArray<UObject*>& ForceReplaceInfoUnreplaceableObjects = ForceReplaceInfo.UnreplaceableObjects;
+			UnreplaceableObjects.Reserve(UnreplaceableObjects.Num() + ForceReplaceInfoUnreplaceableObjects.Num());
+			for (UObject* Object : ForceReplaceInfoUnreplaceableObjects)
+			{
+				UnreplaceableObjects.Add(Object);
+			}
+		}
 	};
 
 	/**
@@ -630,7 +654,7 @@ namespace ObjectTools
 				// If an object is "unreplaceable" store it separately to warn the user about later
 				else
 				{
-					OutInfo.UnreplaceableObjects.Add( CurObjToReplace );
+					OutInfo.UnreplaceableObjects.AddUnique(CurObjToReplace);
 				}
 			}
 		}
@@ -789,12 +813,39 @@ namespace ObjectTools
 			}
 
 			FForceReplaceInfo ReplaceInfo;
+			FForceReplaceInfo GeneratedClassReplaceInfo;
+
 			// Scope the reregister context below to complete after object deletion and before garbage collection
 			{
 				// Replacing references inside already loaded objects could cause rendering issues, so globally detach all components from their scenes for now
 				FGlobalComponentReregisterContext ReregisterContext;
 				
-				ForceReplaceReferences( ObjectToConsolidateTo, ObjectsToConsolidate, ReplaceInfo );
+				ForceReplaceReferences(ObjectToConsolidateTo, ObjectsToConsolidate, ReplaceInfo);
+
+				if (UBlueprint* ObjectToConsolidateTo_BP = Cast<UBlueprint>(ObjectToConsolidateTo))
+				{
+					// Replace all UClass/TSubClassOf properties of generated class.
+					TArray<UObject*> ObjectsToConsolidate_BP;
+					TArray<UClass*> OldGeneratedClasses;
+					ObjectsToConsolidate_BP.Reserve(ObjectsToConsolidate.Num());
+					OldGeneratedClasses.Reserve(ObjectsToConsolidate.Num());
+					for (UObject* ObjectToConsolidate : ObjectsToConsolidate)
+					{
+						UClass* OldGeneratedClass = Cast<UBlueprint>(ObjectToConsolidate)->GeneratedClass;
+						ObjectsToConsolidate_BP.Add(OldGeneratedClass);
+						OldGeneratedClasses.Add(OldGeneratedClass);
+					}
+
+					ForceReplaceReferences(ObjectToConsolidateTo_BP->GeneratedClass, ObjectsToConsolidate_BP, GeneratedClassReplaceInfo);
+
+					// Repair the references of GeneratedClass on the object being consolidated so they can be properly disposed of upon deletion.
+					for (int32 Index = 0, MaxIndex = ObjectsToConsolidate.Num(); Index < MaxIndex; ++Index)
+					{
+						Cast<UBlueprint>(ObjectsToConsolidate[Index])->GeneratedClass = OldGeneratedClasses[Index];
+					}
+
+					ReplaceInfo.AppendUnique(GeneratedClassReplaceInfo);
+				}
 				DirtiedPackages.Append( ReplaceInfo.DirtiedPackages );
 				UnconsolidatableObjects.Append( ReplaceInfo.UnreplaceableObjects );
 			}
@@ -859,7 +910,10 @@ namespace ObjectTools
 					Redirector->DestinationObject = ObjectToConsolidateTo;
 
 					// Keep track of the object name so we can rename the redirector later
-					RedirectorToObjectNameMap.Add(Redirector, CurObjName);
+					if (!RedirectorToObjectNameMap.FindKey(CurObjName))
+					{
+						RedirectorToObjectNameMap.Add(Redirector, CurObjName);
+					}
 
 					// If consolidating blueprints, make sure redirectors are created for the consolidated blueprint class and CDO
 					if ( BlueprintToConsolidateTo != NULL && BlueprintToConsolidate != NULL )
@@ -1007,19 +1061,19 @@ namespace ObjectTools
 
 				FReferencerInformationList Refs;
 
-				if ( IsReferenced( Object,RF_Native | RF_Public, true, &Refs) )
+				if (IsReferenced(Object, RF_Public, EInternalObjectFlags::Native, true, &Refs))
 				{
 					FStringOutputDevice Ar;
-					Object->OutputReferencers( Ar, &Refs );
-					UE_LOG(LogObjectTools, Warning, TEXT("%s"), *Ar );  // also print the objects to the log so you can actually utilize the data
-					
+					Object->OutputReferencers(Ar, &Refs);
+					UE_LOG(LogObjectTools, Warning, TEXT("%s"), *Ar);  // also print the objects to the log so you can actually utilize the data
+
 					// Display a dialog containing all referencers; the dialog is designed to destroy itself upon being closed, so this
 					// allocation is ok and not a memory leak
-					SGenericDialogWidget::OpenDialog(NSLOCTEXT("ObjectTools", "ShowReferencers", "Show Referencers"), SNew(STextBlock).Text( FText::FromString(Ar) ));
+					SGenericDialogWidget::OpenDialog(NSLOCTEXT("ObjectTools", "ShowReferencers", "Show Referencers"), SNew(STextBlock).Text(FText::FromString(Ar)));
 				}
 				else
 				{
-					FMessageDialog::Open( EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "ObjectNotReferenced", "Object '{0}' Is Not Referenced"), FText::FromString(Object->GetName())) );
+					FMessageDialog::Open(EAppMsgType::Ok, FText::Format(NSLOCTEXT("UnrealEd", "ObjectNotReferenced", "Object '{0}' Is Not Referenced"), FText::FromString(Object->GetName())));
 				}
 
 				GEditor->GetSelectedObjects()->Select( Object );
@@ -1193,7 +1247,7 @@ namespace ObjectTools
 	void SelectActorsInLevelDirectlyReferencingObject( UObject* RefObj )
 	{
 		UPackage* Package = Cast<UPackage>(RefObj->GetOutermost());
-		if (Package && ((Package->PackageFlags & PKG_ContainsMap) != 0))
+		if (Package && Package->ContainsMap())
 		{
 			// Walk the chain of outers to find the object that is 'in' the level...
 			UObject* ObjToSelect = NULL;
@@ -1239,7 +1293,7 @@ namespace ObjectTools
 	{
 		if(Object)
 		{
-			if(IsReferenced(Object,RF_Native | RF_Public))
+			if(IsReferenced(Object, RF_Public, EInternalObjectFlags::Native))
 			{
 				TArray<UObject*> ObjectsToSelect;
 
@@ -1392,13 +1446,13 @@ namespace ObjectTools
 			if ( bPerformReferenceCheck )
 			{
 				FReferencerInformationList FoundReferences;
-				bIsReferenced = IsReferenced(Package, GARBAGE_COLLECTION_KEEPFLAGS, true, &FoundReferences);
+				bIsReferenced = IsReferenced(Package, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags,  true, &FoundReferences);
 				if ( bIsReferenced )
 				{
 					// determine whether the transaction buffer is the only thing holding a reference to the object
 					// and if so, offer the user the option to reset the transaction buffer.
 					GEditor->Trans->DisableObjectSerialization();
-					bIsReferenced = IsReferenced(Package, GARBAGE_COLLECTION_KEEPFLAGS, true, &FoundReferences);
+					bIsReferenced = IsReferenced(Package, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &FoundReferences);
 					GEditor->Trans->EnableObjectSerialization();
 
 					// only ref to this object is the transaction buffer, clear the transaction buffer
@@ -1783,13 +1837,13 @@ namespace ObjectTools
 			FReferencerInformationList Refs;
 
 			// Check and see whether we are referenced by any objects that won't be garbage collected. 
-			bool bIsReferenced = IsReferenced( ObjectToDelete, GARBAGE_COLLECTION_KEEPFLAGS, true, &Refs );
+			bool bIsReferenced = IsReferenced(ObjectToDelete, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &Refs);
 			if ( bIsReferenced )
 			{
 				// determine whether the transaction buffer is the only thing holding a reference to the object
 				// and if so, offer the user the option to reset the transaction buffer.
 				GEditor->Trans->DisableObjectSerialization();
-				bIsReferenced = IsReferenced( ObjectToDelete, GARBAGE_COLLECTION_KEEPFLAGS, true, &Refs );
+				bIsReferenced = IsReferenced(ObjectToDelete, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, true, &Refs);
 				GEditor->Trans->EnableObjectSerialization();
 
 				// only ref to this object is the transaction buffer, clear the transaction buffer
@@ -2597,7 +2651,10 @@ namespace ObjectTools
 					NewPackage->GetOutermost()->FullyLoad();
 
 					// Make sure we copy all the cooked package flags if the asset was already cooked.
-					NewPackage->PackageFlags |= (Object->GetOutermost()->PackageFlags & PKG_FilterEditorOnly);
+					if (Object->GetOutermost()->HasAnyPackageFlags(PKG_FilterEditorOnly))
+					{
+						NewPackage->SetPackageFlags(PKG_FilterEditorOnly);
+					}
 					NewPackage->bIsCookedForEditor = Object->GetOutermost()->bIsCookedForEditor;
 
 					UObjectRedirector* Redirector = Cast<UObjectRedirector>( StaticFindObject(UObjectRedirector::StaticClass(), NewPackage, *NewObjectName) );
@@ -3450,7 +3507,7 @@ namespace ObjectTools
 
 		
 			// If the object is not flagged for GC and it is in one of the level packages do an indepth search to see what references it.
-			if( !Obj->HasAnyFlags( RF_PendingKill | RF_Unreachable ) && LevelPackages.Find( Obj->GetOutermost() ) != NULL )
+			if( !Obj->IsPendingKillOrUnreachable() && LevelPackages.Find( Obj->GetOutermost() ) != NULL )
 			{
 				// Determine if the current object is in one of the search levels.  This is the same as UObject::IsIn except that we can
 				// search through many levels at once.

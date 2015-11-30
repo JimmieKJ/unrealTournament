@@ -40,6 +40,7 @@ protected:
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToRefresh;
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToRecompile;
 	static TSet<TWeakObjectPtr<UBlueprint>> DependentBlueprintsToByteRecompile;
+	static TSet<UBlueprint*> CompiledBlueprintsToSave;
 
 	static UClass* HotReloadedOldClass;
 	static UClass* HotReloadedNewClass;
@@ -77,6 +78,9 @@ protected:
 	/** Objects that should keep reference to old class */
 	TSet<UObject*> ObjectsThatShouldUseOldStuff;
 
+	/** TRUE if this is the source reinstancer that all other active reinstancing is spawned from */
+	bool bIsSourceReinstancer;
+
 public:
 	// FSerializableObject interface
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
@@ -109,6 +113,9 @@ public:
 
 	/** Worker function to replace all instances of OldClass with a new instance of NewClass */
 	static void ReplaceInstancesOfClass(UClass* OldClass, UClass* NewClass, UObject* OriginalCDO = NULL, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
+
+	/** Batch replaces a mapping of one or more classes to their new class by leveraging ReplaceInstancesOfClass */
+	static void BatchReplaceInstancesOfClass(TMap<UClass*, UClass*>& InOldToNewClassMap, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
 
 	/**
 	 * When re-instancing a component, we have to make sure all instance owners' 
@@ -162,6 +169,9 @@ private:
 	 * @param Name The name that CDO has to be renamed with (or created with).
 	 */
 	static UObject* GetClassCDODuplicate(UObject* CDO, FName Name);
+
+	/** Handles the work of ReplaceInstancesOfClass, handling both normal replacement of instances and batch */
+	static void ReplaceInstancesOfClass_Inner(TMap<UClass*, UClass*>& InOldToNewClassMap, UObject* InOriginalCDO, TSet<UObject*>* ObjectsThatShouldUseOldStuff = NULL, bool bClassObjectReplaced = false, bool bPreserveRootComponent = true);
 };
 
 

@@ -18,6 +18,7 @@ struct FKeyHotspot
 
 	virtual ESequencerHotspot GetType() const override { return ESequencerHotspot::Key; }
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer&) override { return nullptr; }
+	virtual void PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime) override;
 
 	/** The key itself */
 	FSequencerSelectedKey Key;
@@ -34,6 +35,11 @@ struct FSectionHandle
 		: SectionIndex(InSectionIndex), TrackNode(MoveTemp(InTrackNode))
 	{ }
 
+	friend bool operator==(const FSectionHandle& A, const FSectionHandle& B)
+	{
+		return A.SectionIndex == B.SectionIndex && A.TrackNode == B.TrackNode;
+	}
+	
 	UMovieSceneSection* GetSectionObject() const { return TrackNode->GetSections()[SectionIndex]->GetSectionObject(); }
 
 	int32 SectionIndex;
@@ -51,6 +57,7 @@ struct FSectionHotspot
 
 	virtual ESequencerHotspot GetType() const override { return ESequencerHotspot::Section; }
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer&) override { return nullptr; }
+	virtual void PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime) override;
 
 	/** Handle to the section */
 	FSectionHandle Section;
@@ -71,6 +78,7 @@ struct FSectionResizeHotspot
 
 	virtual ESequencerHotspot GetType() const override { return HandleType == Left ? ESequencerHotspot::SectionResize_L : ESequencerHotspot::SectionResize_R; }
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer& Sequencer) override;
+	virtual FCursorReply GetCursor() const { return FCursorReply::Cursor( EMouseCursor::ResizeLeftRight ); }
 
 	/** Handle to the section */
 	FSectionHandle Section;

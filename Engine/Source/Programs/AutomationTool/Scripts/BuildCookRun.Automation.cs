@@ -199,15 +199,20 @@ public class BuildCookRun : BuildCommand
 
 	protected void DoBuildCookRun(ProjectParams Params)
 	{
+		const ProjectBuildTargets ClientTargets = ProjectBuildTargets.ClientCooked | ProjectBuildTargets.ServerCooked;
+        bool bGenerateNativeScripts = Params.RunAssetNativization;
 		int WorkingCL = -1;
 		if (P4Enabled && AllowSubmit)
 		{
 			WorkingCL = P4.CreateChange(P4Env.Client, String.Format("{0} build from changelist {1}", Params.ShortProjectName, P4Env.Changelist));
 		}
 
-        Project.NativizeScriptAssets(this, Params);
-        Project.Build(this, Params, WorkingCL);
+        Project.Build(this, Params, WorkingCL, bGenerateNativeScripts ? (ProjectBuildTargets.All & ~ClientTargets) : ProjectBuildTargets.All);
 		Project.Cook(Params);
+		if (bGenerateNativeScripts)
+		{
+            Project.Build(this, Params, WorkingCL, ClientTargets);
+		}
 		Project.CopyBuildToStagingDirectory(Params);
 		Project.Package(Params, WorkingCL);
 		Project.Archive(Params);

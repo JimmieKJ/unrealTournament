@@ -599,6 +599,9 @@ public:
 	/** Whether this shadow should support casting shadows from translucent surfaces. */
 	uint32 bTranslucentShadow : 1;
 
+	/** Whether this is a per-object shadow that should use capsule shapes to shadow instead of the mesh's triangles. */
+	uint32 bCapsuleShadow : 1;
+
 	/** Whether the shadow is a preshadow or not.  A preshadow is a per object shadow that handles the static environment casting on a dynamic receiver. */
 	uint32 bPreShadow : 1;
 

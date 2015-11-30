@@ -12,6 +12,8 @@
 #include "StringUtils.h"
 #include "IPluginManager.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
+#include "UHTMakefile/UHTMakefile.h"
+#include "ScopeExit.h"
 
 /////////////////////////////////////////////////////
 // Globals
@@ -27,13 +29,20 @@ static bool bVerifyContents = false;
 static const bool bMultiLineUFUNCTION = true;
 static const bool bMultiLineUPROPERTY = true;
 
-static TSharedRef<FUnrealSourceFile> PerformInitialParseOnHeader(UPackage* InParent, const FString& FileName, EObjectFlags Flags, const TCHAR* Buffer);
+static TSharedRef<FUnrealSourceFile> PerformInitialParseOnHeader(UPackage* InParent, const FString& FileName, EObjectFlags Flags, const TCHAR* Buffer, FUHTMakefile& UHTMakefile);
 
 FCompilerMetadataManager GScriptHelper;
 
 /** C++ name lookup helper */
 FNameLookupCPP NameLookupCPP;
 
+namespace
+{
+	static FString AsTEXT(FString InStr)
+	{
+		return FString::Printf(TEXT("TEXT(\"%s\")"), *InStr);
+	}
+}
 /**
  * Finds exact match of Identifier in string. Returns nullptr if none is found.
  *
@@ -52,38 +61,37 @@ const TCHAR* FindIdentifierExactMatch(const TCHAR* StringBegin, const TCHAR* Str
 		return StringBegin;
 	}
 
-	auto FindLen = Identifier.Len();
-	auto StringToSearch = StringBegin;
+	int32        FindLen        = Identifier.Len();
+	const TCHAR* StringToSearch = StringBegin;
 
 	for (;;)
 	{
-		auto IdentifierStart = FCString::Strstr(StringToSearch, *Identifier);
+		const TCHAR* IdentifierStart = FCString::Strstr(StringToSearch, *Identifier);
 		if (IdentifierStart == nullptr)
 		{
 			// Not found.
 			return nullptr;
 		}
 
-		if ((IdentifierStart > StringEnd) || (IdentifierStart + FindLen + 1 > StringEnd))
+		if (IdentifierStart > StringEnd || IdentifierStart + FindLen + 1 > StringEnd)
 		{
 			// Found match is out of string range.
 			return nullptr;
 		}
 
-		if ((IdentifierStart == StringBegin) && (!FChar::IsIdentifier(*(IdentifierStart + FindLen + 1))))
+		if (IdentifierStart == StringBegin && !FChar::IsIdentifier(*(IdentifierStart + FindLen + 1)))
 		{
 			// Found match is at the beginning of string.
 			return IdentifierStart;
 		}
 
-		if ((IdentifierStart + FindLen == StringEnd) && (!FChar::IsIdentifier(*(IdentifierStart - 1))))
+		if (IdentifierStart + FindLen == StringEnd && !FChar::IsIdentifier(*(IdentifierStart - 1)))
 		{
 			// Found match ends with end of string.
 			return IdentifierStart;
 		}
 
-		if ((!FChar::IsIdentifier(*(IdentifierStart + FindLen)))
-			&& (!FChar::IsIdentifier(*(IdentifierStart - 1))))
+		if (!FChar::IsIdentifier(*(IdentifierStart + FindLen)) && !FChar::IsIdentifier(*(IdentifierStart - 1)))
 		{
 			// Found match is in the middle of string
 			return IdentifierStart;
@@ -107,7 +115,7 @@ const TCHAR* FindIdentifierExactMatch(const TCHAR* StringBegin, const TCHAR* Str
  */
 int32 FindIdentifierExactMatch(const FString& String, const FString& Identifier)
 {
-	auto IdentifierPtr = FindIdentifierExactMatch(*String, *String + String.Len(), Identifier);
+	const TCHAR* IdentifierPtr = FindIdentifierExactMatch(*String, *String + String.Len(), Identifier);
 	if (IdentifierPtr == nullptr)
 	{
 		return INDEX_NONE;
@@ -152,7 +160,7 @@ static struct FFlagAudit
 	{
 		FString Name;
 		uint64 Flags;
-		Pair(UObject* Source, const TCHAR* FlagType, uint64 InFlags)
+		Pair(const UObject* Source, const TCHAR* FlagType, uint64 InFlags)
 		{
 			Name = Source->GetFullName() + TEXT("[") + FlagType + TEXT("]");
 			Flags = InFlags;
@@ -161,7 +169,7 @@ static struct FFlagAudit
 
 	TArray<Pair> Items;
 
-	void Add(UObject* Source, const TCHAR* FlagType, uint64 Flags)
+	void Add(const UObject* Source, const TCHAR* FlagType, uint64 Flags)
 	{
 		new (Items) Pair(Source, FlagType, Flags);
 	}
@@ -230,7 +238,7 @@ static struct FFlagAudit
 	}
 } TheFlagAudit;
 
-void ConvertToBuildIncludePath(UPackage* Package, FString& LocalPath)
+void ConvertToBuildIncludePath(const UPackage* Package, FString& LocalPath)
 {
 	FPaths::MakePathRelativeTo(LocalPath, *GPackageToManifestModuleMap.FindChecked(Package)->IncludeBase);
 }
@@ -253,11 +261,11 @@ bool FindPackageLocation(const TCHAR* InPackage, FString& OutLocation, FString& 
 
 	FString CheckPackage(InPackage);
 
-	auto* ModuleInfoPtr = CheckedPackageList.FindRef(CheckPackage);
+	FManifestModule* ModuleInfoPtr = CheckedPackageList.FindRef(CheckPackage);
 
 	if (!ModuleInfoPtr)
 	{
-		auto* ModuleInfoPtr2 = GManifest.Modules.FindByPredicate([&](FManifestModule& Module) { return Module.Name == CheckPackage; });
+		FManifestModule* ModuleInfoPtr2 = GManifest.Modules.FindByPredicate([&](FManifestModule& Module) { return Module.Name == CheckPackage; });
 		if (ModuleInfoPtr2 && IFileManager::Get().DirectoryExists(*ModuleInfoPtr2->BaseDirectory))
 		{
 			ModuleInfoPtr = ModuleInfoPtr2;
@@ -266,7 +274,9 @@ bool FindPackageLocation(const TCHAR* InPackage, FString& OutLocation, FString& 
 	}
 
 	if (!ModuleInfoPtr)
+	{
 		return false;
+	}
 
 	OutLocation       = ModuleInfoPtr->BaseDirectory;
 	OutHeaderLocation = ModuleInfoPtr->GeneratedIncludeDirectory;
@@ -305,7 +315,7 @@ FString Macroize(const TCHAR* MacroName, const TCHAR* StringToMacroize)
 static FString GetGeneratedCodeCRCTag(UField* Field)
 {
 	FString Tag;
-	auto FieldCrc = GGeneratedCodeCRCs.Find(Field);	
+	const uint32* FieldCrc = GGeneratedCodeCRCs.Find(Field);	
 	if (FieldCrc)
 	{
 		Tag = FString::Printf(TEXT(" // %u"), *FieldCrc);
@@ -441,7 +451,7 @@ FString CreateLiteralString(const FString& Str)
 	return Result;
 }
 
-static FString GetMetaDataCodeForObject(UObject* Object, const TCHAR* SymbolName, const TCHAR* Spaces)
+static FString GetMetaDataCodeForObject(const UObject* Object, const TCHAR* SymbolName, const TCHAR* Spaces)
 {
 	TMap<FName, FString>* MetaData = UMetaData::GetMapForObject(Object);
 
@@ -450,7 +460,7 @@ static FString GetMetaDataCodeForObject(UObject* Object, const TCHAR* SymbolName
 	{
 		typedef TKeyValuePair<FName, FString> KVPType;
 		TArray<KVPType> KVPs;
-		for (auto& KVP : *MetaData)
+		for (TPair<FName, FString>& KVP : *MetaData)
 		{
 			KVPs.Add(KVPType(KVP.Key, KVP.Value));
 		}
@@ -459,7 +469,7 @@ static FString GetMetaDataCodeForObject(UObject* Object, const TCHAR* SymbolName
 		// even when metadata is added in a different order
 		KVPs.Sort([](const KVPType& Lhs, const KVPType& Rhs) { return Lhs.Key < Rhs.Key; });
 
-		for (const auto& KVP : KVPs)
+		for (const KVPType& KVP : KVPs)
 		{
 			Result += FString::Printf(TEXT("%sMetaData->SetValue(%s, TEXT(\"%s\"), %s);\r\n"), Spaces, SymbolName, *KVP.Key.ToString(), *CreateLiteralString(KVP.Value));
 		}
@@ -805,7 +815,7 @@ private:
 				return FString::Printf(TEXT("%s::StaticClass()"), NameLookupCPP.GetNameCPP(ItemClass));
 			}
 
-			if (!bRequiresValidObject && ItemClass->HasAllClassFlags(CLASS_Native))
+			if (!bRequiresValidObject)
 			{
 				Suffix = TEXT("_NoRegister");
 			}
@@ -888,6 +898,21 @@ FString FNativeClassHeaderGenerator::GetOverriddenName(const UField* Item)
 	return Item->GetName();
 }
 
+FName FNativeClassHeaderGenerator::GetOverriddenFName(const UField* Item)
+{
+	FString OverriddenName = Item->GetMetaData(TEXT("OverrideNativeName"));
+	if (!OverriddenName.IsEmpty())
+	{
+		return FName(*OverriddenName);
+	}
+	return Item->GetFName();
+}
+
+FString FNativeClassHeaderGenerator::GetOverriddenPathName(const UField* Item)
+{
+	return FString::Printf(TEXT("%s.%s"), *FClass::GetTypePackageName(Item), *GetOverriddenName(Item));
+}
+
 FString FNativeClassHeaderGenerator::GetOverriddenNameForLiteral(const UField* Item)
 {
 	FString OverriddenName = Item->GetMetaData(TEXT("OverrideNativeName"));
@@ -921,6 +946,10 @@ FString FNativeClassHeaderGenerator::PropertyNew(FString& Meta, UProperty* Prop,
 			TargetClass = SubclassOfProperty->MetaClass;
 		}
 		ExtraArgs = FString::Printf(TEXT(", %s"), *GetSingletonName(TargetClass, false)); 
+		if (UClassProperty* ClassProperty = Cast<UClassProperty>(Prop))
+		{
+			ExtraArgs += FString::Printf(TEXT(", %s"), *GetSingletonName(ClassProperty->PropertyClass, false));
+		}
 	}
 	else if (UInterfaceProperty* InterfaceProperty = Cast<UInterfaceProperty>(Prop))
 	{
@@ -964,9 +993,11 @@ FString FNativeClassHeaderGenerator::PropertyNew(FString& Meta, UProperty* Prop,
 		ExtraArgs = FString::Printf(TEXT(", %s"), *GetSingletonName(TargetFunction));
 	}
 
-	FString Constructor = FString::Printf(TEXT("new(EC_InternalUseOnlyConstructor, %s, TEXT(\"%s\"), RF_Public|RF_Transient|RF_Native) U%s(%s, 0x%016llx%s);"),
+	const TCHAR* UPropertyObjectFlags = FClass::IsOwnedByDynamicType(Prop) ? TEXT("RF_Public|RF_Transient") : TEXT("RF_Public|RF_Transient|RF_MarkAsNative");
+	FString Constructor = FString::Printf(TEXT("new(EC_InternalUseOnlyConstructor, %s, TEXT(\"%s\"), %s) U%s(%s, 0x%016llx%s);"),
 		*OuterString,
 		*FNativeClassHeaderGenerator::GetOverriddenName(Prop),
+		UPropertyObjectFlags,
 		*Prop->GetClass()->GetName(), 
 		*PropMacro,
 		Prop->PropertyFlags & ~CPF_ComputedFlags, 
@@ -1177,13 +1208,13 @@ static void FindNoExportStructs(TArray<UScriptStruct*>& Structs, UStruct* Start)
 	}
 }
 
-FString GetPackageSingletonName(UPackage* Package)
+FString GetPackageSingletonName(const UPackage* Package)
 {
 	static FString ClassString = NameLookupCPP.GetNameCPP(UPackage::StaticClass());
-	return FString(TEXT("Z_Construct_")) + ClassString + TEXT("_") + FPackageName::GetShortName(Package) + TEXT("()");
+	return FString(TEXT("Z_Construct_")) + ClassString + TEXT("_") + Package->GetName().Replace(TEXT("/"), TEXT("_")) + TEXT("()");
 }
 
-void FNativeClassHeaderGenerator::ExportGeneratedPackageInitCode(UPackage* InPackage)
+void FNativeClassHeaderGenerator::ExportGeneratedPackageInitCode(const UPackage* InPackage)
 {
 	FString ApiString = GetAPIString();
 	FString SingletonName(GetPackageSingletonName(InPackage));
@@ -1208,13 +1239,13 @@ void FNativeClassHeaderGenerator::ExportGeneratedPackageInitCode(UPackage* InPac
 		GeneratedFunctionText.Logf(TEXT("#endif\r\n"));
 	}
 
-	GeneratedFunctionText.Logf(TEXT("\t\t\tReturnPackage->PackageFlags |= PKG_CompiledIn | 0x%08X;\r\n"), InPackage->PackageFlags & (PKG_ClientOptional | PKG_ServerSideOnly | PKG_EditorOnly));
-	TheFlagAudit.Add(InPackage, TEXT("PackageFlags"), InPackage->PackageFlags);
+	GeneratedFunctionText.Logf(TEXT("\t\t\tReturnPackage->SetPackageFlags(PKG_CompiledIn | 0x%08X);\r\n"), InPackage->GetPackageFlags() & (PKG_ClientOptional | PKG_ServerSideOnly | PKG_EditorOnly | PKG_Developer));
+	TheFlagAudit.Add(InPackage, TEXT("PackageFlags"), InPackage->GetPackageFlags());
 	{
 		FGuid Guid;
 
 		uint32 CombinedCRC = 0;
-		for (auto& Split : GeneratedFunctionBodyTextSplit)
+		for (TUniqueObj<FUHTStringBuilderLineCounter>& Split : GeneratedFunctionBodyTextSplit)
 		{
 			uint32 SplitCRC = GenerateTextCRC(*Split->ToUpper());
 			if (CombinedCRC == 0)
@@ -1328,8 +1359,9 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FClass* Class, F
 		}
 		else
 		{
-			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\tUClass* OuterClass = Cast<UClass>(StaticFindObjectFast(UClass::StaticClass(), %s, TEXT(\"%s\")));\r\n"),
-				*GetPackageSingletonName(CastChecked<UPackage>(Class->GetOutermost())), *Class->GetName());
+			const FString DynamicClassPackageName = FClass::GetTypePackageName(Class);
+			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\tUPackage* OuterPackage = FindOrConstructDynamicTypePackage(TEXT(\"%s\"));\r\n"), *DynamicClassPackageName);
+			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\tUClass* OuterClass = Cast<UClass>(StaticFindObjectFast(UClass::StaticClass(), OuterPackage, TEXT(\"%s\")));\r\n"), *Class->GetName());
 			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\tif (!OuterClass || !(OuterClass->ClassFlags & CLASS_Constructed))\r\n"));
 		}
 		
@@ -1338,7 +1370,10 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FClass* Class, F
 		{
 			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t%s;\r\n"), *GetSingletonName(Class->GetSuperClass()));
 		}
-		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t%s;\r\n"), *GetPackageSingletonName(CastChecked<UPackage>(Class->GetOutermost())));
+		if (!bIsDynamic)
+		{
+			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t%s;\r\n"), *GetPackageSingletonName(CastChecked<UPackage>(Class->GetOutermost())));
+		}
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\tOuterClass = %s::StaticClass();\r\n"), NameLookupCPP.GetNameCPP(Class));
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\tif (!(OuterClass->ClassFlags & CLASS_Constructed))\r\n"), NameLookupCPP.GetNameCPP(Class));
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t{\r\n"), NameLookupCPP.GetNameCPP(Class));
@@ -1351,6 +1386,19 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FClass* Class, F
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\r\n"));
 
 		FString OuterString = FString(TEXT("OuterClass"));
+
+		{
+			TMap<FName, FString>* MetaDataMap = UMetaData::GetMapForObject(Class);
+			FClassMetaData* ClassMetaData = GScriptHelper.FindClassData(Class);
+			if (MetaDataMap && ClassMetaData && Class)
+			{
+				if (!ClassMetaData->bObjectInitializerConstructorDeclared && ClassMetaData->bDefaultConstructorDeclared)
+				{
+					MetaDataMap->Add(FName(TEXT("OnlyDefaultConstructorDeclared")), FString());
+				}
+			}
+		}
+
 		FString Meta = GetMetaDataCodeForObject(Class, *OuterString, TEXT("\t\t\t\t"));
 		// properties
 		{
@@ -1422,7 +1470,13 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FClass* Class, F
 			GeneratedClassRegisterFunctionText.Logf(TEXT("#endif\r\n"));
 		}
 
+		if (bIsDynamic)
+		{
+			GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t\tOuterClass->GetDefaultObject();\r\n"));
+		}
+
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t\t}\r\n"));
+		
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\t}\r\n"));
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\tcheck(OuterClass->GetClass());\r\n"));
 		GeneratedClassRegisterFunctionText.Logf(TEXT("\t\treturn OuterClass;\r\n"));
@@ -1445,9 +1499,11 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FClass* Class, F
 		FString OverriddenClassName = *FNativeClassHeaderGenerator::GetOverriddenName(Class);
 		const TCHAR* ClassNameCPP = NameLookupCPP.GetNameCPP(Class);
 
-		GeneratedFunctionText.Logf(TEXT("\tstatic FCompiledInDefer Z_CompiledInDefer_UClass_%s(%s, &%s::StaticClass, TEXT(\"%s\"), %s);\r\n"),
+		GeneratedFunctionText.Logf(TEXT("\tstatic FCompiledInDefer Z_CompiledInDefer_UClass_%s(%s, &%s::StaticClass, TEXT(\"%s\"), %s, %s, %s);\r\n"),
 			ClassNameCPP, *SingletonName, ClassNameCPP, bIsDynamic ? *OverriddenClassName : ClassNameCPP,
-			bIsDynamic ? TEXT("true") : TEXT("false"));
+			bIsDynamic ? TEXT("true") : TEXT("false"),
+			bIsDynamic ? *AsTEXT(FClass::GetTypePackageName(Class)) : TEXT("nullptr"),
+			bIsDynamic ? *AsTEXT(FNativeClassHeaderGenerator::GetOverriddenPathName(Class)) : TEXT("nullptr"));
 		
 		// Append base class' CRC at the end of the generated code, this will force update derived classes
 		// when base class changes during hot-reload.
@@ -1461,6 +1517,7 @@ void FNativeClassHeaderGenerator::ExportNativeGeneratedInitCode(FClass* Class, F
 		// Calculate generated class initialization code CRC so that we know when it changes after hot-reload
 		uint32 ClassCrc = GenerateTextCRC(*GeneratedClassRegisterFunctionText);
 		GGeneratedCodeCRCs.Add(Class, ClassCrc);
+		UHTMakefile.AddGeneratedCodeCRC(CurrentSourceFile.Top(), Class, ClassCrc);
 		// Emit the IMPLEMENT_CLASS macro to go in the generated cpp file.
 		if (!bIsDynamic)
 		{
@@ -1514,7 +1571,19 @@ void FNativeClassHeaderGenerator::ExportFunction(UFunction* Function, FScope* Sc
 		CurrentFunctionText.Logf(TEXT("\t\tUObject* Outer=nullptr;\r\n"));
 	}
 
-	CurrentFunctionText.Logf(TEXT("\t\tstatic UFunction* ReturnFunction = NULL;\r\n"));
+	UField* FieldOuter = Cast<UField>(Function->GetOuter());
+	const bool bIsDynamic = (FieldOuter && FClass::IsDynamic(FieldOuter));
+
+	if (!bIsDynamic)
+	{
+		CurrentFunctionText.Logf(TEXT("\t\tstatic UFunction* ReturnFunction = NULL;\r\n"));
+	}
+	else
+	{
+		CurrentFunctionText.Logf(TEXT("\t\tUFunction* ReturnFunction = static_cast<UFunction*>(StaticFindObjectFast( UFunction::StaticClass(), Outer, %s ));\r\n")
+			, *FNativeClassHeaderGenerator::GetOverriddenNameForLiteral(Function));
+	}
+
 	CurrentFunctionText.Logf(TEXT("\t\tif (!ReturnFunction)\r\n"));
 	CurrentFunctionText.Logf(TEXT("\t\t{\r\n"));
 	FString SuperFunctionString(TEXT("NULL"));
@@ -1544,11 +1613,12 @@ void FNativeClassHeaderGenerator::ExportFunction(UFunction* Function, FScope* Sc
 		StructureSize = FString::Printf(TEXT(", sizeof(%s)"), *GetEventStructParamsName(TempFunction->GetOuter(), *FunctionName));
 	}
 
-	FString UFunctionType = bIsDelegate ? TEXT("UDelegateFunction") : TEXT("UFunction");
-
-	CurrentFunctionText.Logf(TEXT("\t\t\tReturnFunction = new(EC_InternalUseOnlyConstructor, Outer, TEXT(\"%s\"), RF_Public|RF_Transient|RF_Native) %s(FObjectInitializer(), %s, 0x%08X, %d%s);\r\n"),
+	const TCHAR* UFunctionType = bIsDelegate ? TEXT("UDelegateFunction") : TEXT("UFunction");
+	const TCHAR* UFunctionObjectFlags = FClass::IsOwnedByDynamicType(Function) ? TEXT("RF_Public|RF_Transient") : TEXT("RF_Public|RF_Transient|RF_MarkAsNative");
+	CurrentFunctionText.Logf(TEXT("\t\t\tReturnFunction = new(EC_InternalUseOnlyConstructor, Outer, TEXT(\"%s\"), %s) %s(FObjectInitializer(), %s, 0x%08X, %d%s);\r\n"),
 		*FNativeClassHeaderGenerator::GetOverriddenName(Function),
-		*UFunctionType,
+		UFunctionObjectFlags,
+		UFunctionType,
 		*SuperFunctionString,
 		Function->FunctionFlags,
 		(uint32)Function->RepOffset,
@@ -1588,7 +1658,7 @@ void FNativeClassHeaderGenerator::ExportFunction(UFunction* Function, FScope* Sc
 
 	uint32 FunctionCrc = GenerateTextCRC(*CurrentFunctionText);
 	GGeneratedCodeCRCs.Add(Function, FunctionCrc);
-
+	UHTMakefile.AddGeneratedCodeCRC(CurrentSourceFile.Top(), Function, FunctionCrc);
 	GetGeneratedFunctionTextDevice() += CurrentFunctionText;
 }
 
@@ -1637,7 +1707,7 @@ void FNativeClassHeaderGenerator::ExportNatives(FClass* Class)
 	GeneratedPackageCPP.Logf(TEXT("\t}\r\n"));
 }
 
-void FNativeClassHeaderGenerator::ExportInterfaceCallFunctions(const TArray<UFunction*>& InCallbackFunctions, UClass* Class, FClassMetaData* ClassData, FUHTStringBuilder& HeaderOutput)
+void FNativeClassHeaderGenerator::ExportInterfaceCallFunctions(const TArray<UFunction*>& InCallbackFunctions, UClass* Class, FUHTStringBuilder& HeaderOutput)
 {
 	TArray<UFunction*> CallbackFunctions = InCallbackFunctions;
 	CallbackFunctions.Sort();
@@ -1863,6 +1933,14 @@ void ExportAutoIncludes(FStringOutputDevice& Out, const FUnrealSourceFile& Sourc
 
 void FNativeClassHeaderGenerator::ExportClassesFromSourceFileInner(FUnrealSourceFile& SourceFile)
 {
+	CurrentSourceFile.Push(&SourceFile);
+	ON_SCOPE_EXIT
+	{
+		CurrentSourceFile.Pop();
+	};
+
+	NameLookupCPP.SetCurrentSourceFile(&SourceFile);
+	UHTMakefile.AddToHeaderOrder(&SourceFile);
 	TArray<UEnum*>				Enums;
 	TArray<UScriptStruct*>		Structs;
 	TArray<UDelegateFunction*>	DelegateFunctions;
@@ -1890,7 +1968,7 @@ void FNativeClassHeaderGenerator::ExportClassesFromSourceFileInner(FUnrealSource
 	ExportGeneratedEnumsInitCode(Enums);
 
 	// export boilerplate macros for structs
-	ExportGeneratedStructBodyMacros(SourceFile, Structs);
+	ExportGeneratedStructBodyMacros(Structs);
 
 	// export delegate wrapper function implementations
 	ExportDelegateDefinitions(SourceFile, DelegateFunctions, true);
@@ -1950,12 +2028,12 @@ void FNativeClassHeaderGenerator::ExportClassesFromSourceFileInner(FUnrealSource
 				}
 
 				const bool bCastedClass = Class->HasAnyCastFlag(CASTCLASS_AllFlags) && SuperClass && Class->ClassCastFlags != SuperClass->ClassCastFlags;
-				UInterfaceBoilerplate.Logf(TEXT("\tDECLARE_CLASS(%s, %s, COMPILED_IN_FLAGS(CLASS_Abstract%s), %s, %s, %s_API)\r\n"),
+				UInterfaceBoilerplate.Logf(TEXT("\tDECLARE_CLASS(%s, %s, COMPILED_IN_FLAGS(CLASS_Abstract%s), %s, TEXT(\"%s\"), %s_API)\r\n"),
 					ClassCPPName,
 					SuperClassCPPName,
 					*GetClassFlagExportText(Class),
 					bCastedClass ? *FString::Printf(TEXT("CASTCLASS_%s"), ClassCPPName) : TEXT("0"),
-					*FPackageName::GetShortName(Class->GetOuter()->GetName()),
+					*FClass::GetTypePackageName(Class),
 					*APIArg);
 
 				UInterfaceBoilerplate.Logf(TEXT("\tDECLARE_SERIALIZER(%s)\r\n"), ClassCPPName);
@@ -1988,7 +2066,7 @@ void FNativeClassHeaderGenerator::ExportClassesFromSourceFileInner(FUnrealSource
 			InterfaceBoilerplate.Logf(TEXT("protected:\r\n\tvirtual ~%s() {}\r\npublic:\r\n"), *InterfaceCPPName);
 			InterfaceBoilerplate.Logf(TEXT("\ttypedef %s UClassType;\r\n"), ClassCPPName);
 
-			ExportInterfaceCallFunctions(CallbackFunctions, Class, ClassData, InterfaceBoilerplate);
+			ExportInterfaceCallFunctions(CallbackFunctions, Class, InterfaceBoilerplate);
 
 			// we'll need a way to get to the UObject portion of a native interface, so that we can safely pass native interfaces
 			// to script VM functions
@@ -2059,13 +2137,13 @@ void FNativeClassHeaderGenerator::ExportClassesFromSourceFileInner(FUnrealSource
 				APIArg = TEXT("NO");
 			}
 			const bool bCastedClass = Class->HasAnyCastFlag(CASTCLASS_AllFlags) && SuperClass && Class->ClassCastFlags != SuperClass->ClassCastFlags;
-			ClassBoilerplate.Logf(TEXT("\tDECLARE_CLASS(%s, %s, COMPILED_IN_FLAGS(%s%s), %s, %s, %s_API)\r\n"),
+			ClassBoilerplate.Logf(TEXT("\tDECLARE_CLASS(%s, %s, COMPILED_IN_FLAGS(%s%s), %s, TEXT(\"%s\"), %s_API)\r\n"),
 				ClassCPPName,
 				SuperClassCPPName ? SuperClassCPPName : TEXT("None"),
 				Class->HasAnyClassFlags(CLASS_Abstract) ? TEXT("CLASS_Abstract") : TEXT("0"),
 				*GetClassFlagExportText(Class),
 				bCastedClass ? *FString::Printf(TEXT("CASTCLASS_%s"), ClassCPPName) : TEXT("0"),
-				*FPackageName::GetShortName(*Class->GetOuter()->GetName()),
+				*FClass::GetTypePackageName(Class),
 				*APIArg);
 
 			ClassBoilerplate.Logf(TEXT("\tDECLARE_SERIALIZER(%s)\r\n"), ClassCPPName);
@@ -2408,7 +2486,7 @@ FString GetBuildPath(FUnrealSourceFile& SourceFile)
 	return Out;
 }
 
-FString FNativeClassHeaderGenerator::GetListOfPublicHeaderGroupIncludesString(UPackage* InPackage)
+FString FNativeClassHeaderGenerator::GetListOfPublicHeaderGroupIncludesString(const UPackage* InPackage)
 {
 	FUHTStringBuilder Out;
 
@@ -2466,6 +2544,11 @@ void FNativeClassHeaderGenerator::ExportConstructorsMacros(const FString& Constr
 
 void FNativeClassHeaderGenerator::ExportClassesFromSourceFileWrapper(FUnrealSourceFile& SourceFile)
 {
+	CurrentSourceFile.Push(&SourceFile);
+	ON_SCOPE_EXIT
+	{
+		CurrentSourceFile.Pop();
+	};
 	check(!GeneratedHeaderText.Len());
 	ExportClassesFromSourceFileInner(SourceFile);
 
@@ -2557,6 +2640,12 @@ void FNativeClassHeaderGenerator::ExportClassesFromSourceFileWrapper(FUnrealSour
 
 void FNativeClassHeaderGenerator::ExportSourceFileHeaderRecursive(FClasses& AllClasses, FUnrealSourceFile* SourceFile, TSet<const FUnrealSourceFile*>& VisitedSet, bool bCheckDependenciesOnly)
 {
+	CurrentSourceFile.Push(SourceFile);
+	ON_SCOPE_EXIT
+	{
+		CurrentSourceFile.Pop();
+	};
+
 	bool bIsCorrectHeader = SourceFile->GetPackage() == Package;
 
 	// Check for circular header dependencies between export classes.
@@ -2677,7 +2766,7 @@ void FNativeClassHeaderGenerator::ExportEnums( const TArray<UEnum*>& Enums )
 }
 
 // Exports the header text for the list of structs specified (GENERATED_BODY impls)
-void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FUnrealSourceFile& SourceFile, const TArray<UScriptStruct*>& NativeStructs)
+void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(const TArray<UScriptStruct*>& NativeStructs)
 {
 	// reverse the order.
 	for (int32 i = NativeStructs.Num() - 1; i >= 0; --i)
@@ -2703,7 +2792,7 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FUnrealSourceF
 			const FString StaticClassLine = FString::Printf(TEXT("\t%sstatic class UScriptStruct* StaticStruct();\r\n"), *RequiredAPI);
 
 			const FString CombinedLine = FriendLine + StaticClassLine;
-			const FString MacroName = SourceFile.GetGeneratedBodyMacroName(Struct->StructMacroDeclaredLineNumber);
+			const FString MacroName = CurrentSourceFile.Top()->GetGeneratedBodyMacroName(Struct->StructMacroDeclaredLineNumber);
 
 			const FString Macroized = Macroize(*MacroName, *CombinedLine);
 			GeneratedHeaderText.Log(*Macroized);
@@ -2722,10 +2811,15 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FUnrealSourceF
 				OuterName = NameLookupCPP.GetNameCPP(CastChecked<UStruct>(Struct->GetOuter()));
 				OuterName += TEXT("::StaticClass()");
 			}
-			else
+			else if (!bIsDynamic)
 			{
 				OuterName = GetPackageSingletonName(CastChecked<UPackage>(Struct->GetOuter()));
 				GeneratedPackageCPP.Logf(TEXT("\textern %sclass UPackage* %s;\r\n"), *FriendApiString, *OuterName);
+			}
+			else
+			{
+				OuterName = TEXT("StructPackage");
+				GeneratedPackageCPP.Logf(TEXT("\tclass UPackage* %s = FindOrConstructDynamicTypePackage(TEXT(\"%s\"));\r\n"), *OuterName, *FClass::GetTypePackageName(Struct));
 			}
 
 			if (!bIsDynamic)
@@ -2734,7 +2828,6 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FUnrealSourceF
 			}
 			else
 			{
-				FString PackageSingletonName = GetPackageSingletonName(CastChecked<UPackage>(Struct->GetOuter()));
 				GeneratedPackageCPP.Logf(TEXT("\tclass UScriptStruct* Singleton = Cast<UScriptStruct>(StaticFindObjectFast(UScriptStruct::StaticClass(), %s, TEXT(\"%s\")));\r\n"),
 					*OuterName, *Struct->GetName());
 			}
@@ -2750,9 +2843,11 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FUnrealSourceF
 			GeneratedPackageCPP.Logf(TEXT("\treturn Singleton;\r\n"));
 			GeneratedPackageCPP.Logf(TEXT("}\r\n"));
 
-			GeneratedPackageCPP.Logf(TEXT("static FCompiledInDeferStruct Z_CompiledInDeferStruct_UScriptStruct_%s(%s::StaticStruct, TEXT(\"%s\"), TEXT(\"%s\"), %s);\r\n"),
+			GeneratedPackageCPP.Logf(TEXT("static FCompiledInDeferStruct Z_CompiledInDeferStruct_UScriptStruct_%s(%s::StaticStruct, TEXT(\"%s\"), TEXT(\"%s\"), %s, %s, %s);\r\n"),
 				StructNameCPP, StructNameCPP, *Struct->GetOutermost()->GetName(), *Struct->GetName(),
-				bIsDynamic ? TEXT("true") : TEXT("false"));
+				bIsDynamic ? TEXT("true") : TEXT("false"),
+				bIsDynamic ? *AsTEXT(FClass::GetTypePackageName(Struct)) : TEXT("nullptr"),
+				bIsDynamic ? *AsTEXT(FNativeClassHeaderGenerator::GetOverriddenPathName(Struct)) : TEXT("nullptr"));
 
 			// Generate StaticRegisterNatives equivalent for structs without classes.
 			if (!Struct->GetOuter()->IsA(UStruct::StaticClass()))
@@ -2796,14 +2891,26 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FUnrealSourceF
 			// Structs can either have a UClass or UPackage as outer (if delcared in non-UClass header).
 			if (ScriptStruct->GetOuter()->IsA(UStruct::StaticClass()))
 			{
-				GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUStruct* Outer=%s;\r\n"), *GetSingletonName(CastChecked<UStruct>(ScriptStruct->GetOuter())));
+				GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUStruct* Outer = %s;\r\n"), *GetSingletonName(CastChecked<UStruct>(ScriptStruct->GetOuter())));
+			}
+			else if (!bIsDynamic)
+			{
+				GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer = %s;\r\n"), *GetPackageSingletonName(CastChecked<UPackage>(ScriptStruct->GetOuter())));
 			}
 			else
 			{
-				GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer=%s;\r\n"), *GetPackageSingletonName(CastChecked<UPackage>(ScriptStruct->GetOuter())));
+				GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer = FindOrConstructDynamicTypePackage(TEXT(\"%s\"));\r\n"), *FClass::GetTypePackageName(ScriptStruct));
 			}
+
 			GeneratedStructRegisterFunctionText.Logf(TEXT("\t\textern uint32 %s();\r\n"), *CRCFuncName);
-			GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tstatic UScriptStruct* ReturnStruct = FindExistingStructIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), sizeof(%s), %s(), %s);\r\n"), *ScriptStruct->GetName(), NameLookupCPP.GetNameCPP(Struct), *CRCFuncName, bIsDynamic ? TEXT("true") : TEXT("false"));
+			if (!bIsDynamic)
+			{
+				GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tstatic UScriptStruct* ReturnStruct = FindExistingStructIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), sizeof(%s), %s(), false);\r\n"), *ScriptStruct->GetName(), NameLookupCPP.GetNameCPP(Struct), *CRCFuncName);
+			}
+			else
+			{
+				GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tUScriptStruct* ReturnStruct = FindExistingStructIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), sizeof(%s), %s(), true);\r\n"), *ScriptStruct->GetName(), NameLookupCPP.GetNameCPP(Struct), *CRCFuncName);
+			}
 			GeneratedStructRegisterFunctionText.Logf(TEXT("\t\tif (!ReturnStruct)\r\n"));
 			GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t{\r\n"));
 			FString BaseStructString(TEXT("NULL"));
@@ -2825,8 +2932,10 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FUnrealSourceF
 				ExplicitSizeString = FString::Printf(TEXT(", sizeof(%s), ALIGNOF(%s)"), NameLookupCPP.GetNameCPP(ScriptStruct), NameLookupCPP.GetNameCPP(ScriptStruct));
 			}
 
-			GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\tReturnStruct = new(EC_InternalUseOnlyConstructor, Outer, TEXT(\"%s\"), RF_Public|RF_Transient|RF_Native) UScriptStruct(FObjectInitializer(), %s, %s, EStructFlags(0x%08X)%s);\r\n"),
+			const TCHAR* UStructObjectFlags = bIsDynamic ? TEXT("RF_Public|RF_Transient") : TEXT("RF_Public|RF_Transient|RF_MarkAsNative");
+			GeneratedStructRegisterFunctionText.Logf(TEXT("\t\t\tReturnStruct = new(EC_InternalUseOnlyConstructor, Outer, TEXT(\"%s\"), %s) UScriptStruct(FObjectInitializer(), %s, %s, EStructFlags(0x%08X)%s);\r\n"),
 				*ScriptStruct->GetName(),
+				UStructObjectFlags,
 				*BaseStructString,
 				*CppStructOpsString,
 				(uint32)(ScriptStruct->StructFlags & ~STRUCT_ComputedFlags),
@@ -2858,6 +2967,7 @@ void FNativeClassHeaderGenerator::ExportGeneratedStructBodyMacros(FUnrealSourceF
 
 			uint32 StructCrc = GenerateTextCRC(*GeneratedStructRegisterFunctionText);
 			GGeneratedCodeCRCs.Add(ScriptStruct, StructCrc);
+			UHTMakefile.AddGeneratedCodeCRC(CurrentSourceFile.Top(), ScriptStruct, StructCrc);
 
 			auto& GeneratedFunctionText = GetGeneratedFunctionTextDevice();
 			GeneratedFunctionText += GeneratedStructRegisterFunctionText;
@@ -2887,33 +2997,49 @@ void FNativeClassHeaderGenerator::ExportGeneratedEnumsInitCode(const TArray<UEnu
 
 		FString SingletonName = StaticConstructionString.Replace(TEXT("()"), TEXT(""), ESearchCase::CaseSensitive); // function address
 		FString PackageSingletonName = GetPackageSingletonName(CastChecked<UPackage>(Enum->GetOuter()));
+		if (!bIsDynamic)
+		{
+			PackageSingletonName = GetPackageSingletonName(CastChecked<UPackage>(Enum->GetOuter()));
+		}
+		else
+		{
+			PackageSingletonName = FClass::GetTypePackageName(Enum);
+		}
 
 		GeneratedPackageCPP.Logf(TEXT("static class UEnum* %s_StaticEnum()\r\n"), *Enum->GetName());
 		GeneratedPackageCPP.Logf(TEXT("{\r\n"));
-		GeneratedPackageCPP.Logf(TEXT("\textern %sclass UPackage* %s;\r\n"), *FriendApiString, *PackageSingletonName);
-
+		
 		if (!bIsDynamic)
 		{
+			GeneratedPackageCPP.Logf(TEXT("\textern %sclass UPackage* %s;\r\n"), *FriendApiString, *PackageSingletonName);
 			GeneratedPackageCPP.Logf(TEXT("\tstatic class UEnum* Singleton = NULL;\r\n"));
 		}
 		else
 		{
-			GeneratedPackageCPP.Logf(TEXT("\tclass UEnum* Singleton = Cast<UEnum>(StaticFindObjectFast(UEnum::StaticClass(), %s, TEXT(\"%s\")));\r\n"),
-				*PackageSingletonName, *Enum->GetName());
+			GeneratedPackageCPP.Logf(TEXT("\tclass UPackage* EnumPackage = FindOrConstructDynamicTypePackage(TEXT(\"%s\"));\r\n"), *PackageSingletonName);
+			GeneratedPackageCPP.Logf(TEXT("\tclass UEnum* Singleton = Cast<UEnum>(StaticFindObjectFast(UEnum::StaticClass(), EnumPackage, TEXT(\"%s\")));\r\n"), *Enum->GetName());
 		}
 		GeneratedPackageCPP.Logf(TEXT("\tif (!Singleton)\r\n"));
 		GeneratedPackageCPP.Logf(TEXT("\t{\r\n"));
-		GeneratedPackageCPP.Logf(TEXT("\t\textern %sclass UEnum* %s;\r\n"), *FriendApiString, *StaticConstructionString);		
-		GeneratedPackageCPP.Logf(TEXT("\t\tSingleton = GetStaticEnum(%s, %s, TEXT(\"%s\"));\r\n"), *SingletonName, *PackageSingletonName, *Enum->GetName());
+		GeneratedPackageCPP.Logf(TEXT("\t\textern %sclass UEnum* %s;\r\n"), *FriendApiString, *StaticConstructionString);
+		if (!bIsDynamic)
+		{
+			GeneratedPackageCPP.Logf(TEXT("\t\tSingleton = GetStaticEnum(%s, %s, TEXT(\"%s\"));\r\n"), *SingletonName, *PackageSingletonName, *Enum->GetName());
+		}
+		else
+		{
+			GeneratedPackageCPP.Logf(TEXT("\t\tSingleton = GetStaticEnum(%s, EnumPackage, TEXT(\"%s\"));\r\n"), *SingletonName, *Enum->GetName());
+		}
 			
 		GeneratedPackageCPP.Logf(TEXT("\t}\r\n"));
 		GeneratedPackageCPP.Logf(TEXT("\treturn Singleton;\r\n"));
 		GeneratedPackageCPP.Logf(TEXT("}\r\n"));
 
-		GeneratedPackageCPP.Logf(TEXT("static FCompiledInDeferEnum Z_CompiledInDeferEnum_UEnum_%s(%s_StaticEnum, TEXT(\"%s\"), TEXT(\"%s\"), %s);\r\n"), 
+		GeneratedPackageCPP.Logf(TEXT("static FCompiledInDeferEnum Z_CompiledInDeferEnum_UEnum_%s(%s_StaticEnum, TEXT(\"%s\"), TEXT(\"%s\"), %s, %s, %s);\r\n"), 
 			*Enum->GetName(), *Enum->GetName(), *Enum->GetOutermost()->GetName(), *Enum->GetName(),
-			bIsDynamic ? TEXT("true") : TEXT("false"));
-
+			bIsDynamic ? TEXT("true") : TEXT("false"),
+			bIsDynamic ? *AsTEXT(FClass::GetTypePackageName(Enum)) : TEXT("nullptr"),
+			bIsDynamic ? *AsTEXT(FNativeClassHeaderGenerator::GetOverriddenPathName(Enum)) : TEXT("nullptr"));
 		{
 			const FString EnumSingletonName = GetSingletonName(Enum);
 			GeneratedFunctionDeclarations.Log(FTypeSingletonCache::Get(Enum).GetExternDecl());
@@ -2929,16 +3055,28 @@ void FNativeClassHeaderGenerator::ExportGeneratedEnumsInitCode(const TArray<UEnu
 			{
 				GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\tUClass* Outer=%s;\r\n"), *GetSingletonName(CastChecked<UStruct>(Enum->GetOuter())));
 			}
-			else
+			else if (!bIsDynamic)
 			{
 				GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer=%s;\r\n"), *GetPackageSingletonName(CastChecked<UPackage>(Enum->GetOuter())));
 			}
+			else
+			{
+				GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\tUPackage* Outer = FindOrConstructDynamicTypePackage(TEXT(\"%s\"));\r\n"), *PackageSingletonName);
+			}
 			GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\textern uint32 %s();\r\n"), *CRCFuncName);
-			GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\tstatic UEnum* ReturnEnum = FindExistingEnumIfHotReload(Outer, TEXT(\"%s\"), 0, %s());\r\n"), *Enum->GetName(), *CRCFuncName);
+			if (!bIsDynamic)
+			{
+				GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\tstatic UEnum* ReturnEnum = FindExistingEnumIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), 0, %s(), false);\r\n"), *Enum->GetName(), *CRCFuncName);
+			}
+			else
+			{
+				GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\tUEnum* ReturnEnum = FindExistingEnumIfHotReloadOrDynamic(Outer, TEXT(\"%s\"), 0, %s(), true);\r\n"), *Enum->GetName(), *CRCFuncName);
+			}
 			GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\tif (!ReturnEnum)\r\n"));
 			GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\t{\r\n"));
 
-			GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\t\tReturnEnum = new(EC_InternalUseOnlyConstructor, Outer, TEXT(\"%s\"), RF_Public|RF_Transient|RF_Native) UEnum(FObjectInitializer());\r\n"), *Enum->GetName());
+			const TCHAR* UEnumObjectFlags = bIsDynamic ? TEXT("RF_Public|RF_Transient") : TEXT("RF_Public|RF_Transient|RF_MarkAsNative");
+			GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\t\tReturnEnum = new(EC_InternalUseOnlyConstructor, Outer, TEXT(\"%s\"), %s) UEnum(FObjectInitializer());\r\n"), *Enum->GetName(), UEnumObjectFlags);
 			GeneratedEnumRegisterFunctionText.Logf(TEXT("\t\t\tTArray<TPair<FName, uint8>> EnumNames;\r\n"));
 			for (int32 Index = 0; Index < Enum->NumEnums(); Index++)
 			{
@@ -2973,6 +3111,7 @@ void FNativeClassHeaderGenerator::ExportGeneratedEnumsInitCode(const TArray<UEnu
 
 			uint32 EnumCrc = GenerateTextCRC(*GeneratedEnumRegisterFunctionText);
 			GGeneratedCodeCRCs.Add(Enum, EnumCrc);
+			UHTMakefile.AddGeneratedCodeCRC(CurrentSourceFile.Top(), Enum, EnumCrc);
 			GeneratedFunctionText.Logf(TEXT("\tuint32 %s() { return %uU; }\r\n"), *CRCFuncName, EnumCrc);
 			// CallSingletons.Logf(TEXT("\t\t\t\tOuterClass->LinkChild(%s); // %u\r\n"), *EnumSingletonName, EnumCrc);
 		}
@@ -3126,7 +3265,7 @@ void FNativeClassHeaderGenerator::ExportDelegateDefinitions(FUnrealSourceFile& S
 			// Only exporting function prototype
 			DelegateOutput.Logf(TEXT(";\r\n"));
 
-			ExportFunction(Function, &SourceFile.GetScope().Get(), false);
+			ExportFunction(Function, &CurrentSourceFile.Top()->GetScope().Get(), false);
 		}
 		else
 		{
@@ -3273,7 +3412,7 @@ void ExportProtoDeclaration(FOutputDevice& Out, const FString& MessageName, TFie
  * @param Indent starting indentation level
  * @param Output optional output redirect
  */
-void FNativeClassHeaderGenerator::ExportProtoMessage(const TArray<UFunction*>& InCallbackFunctions, FClassMetaData* ClassData, int32 Indent, FUHTStringBuilder* Output)
+void FNativeClassHeaderGenerator::ExportProtoMessage(const TArray<UFunction*>& InCallbackFunctions, int32 Indent, FUHTStringBuilder* Output)
 {
 	// Parms struct definitions.
 	FUHTStringBuilder HeaderOutput;
@@ -4443,7 +4582,7 @@ TArray<UFunction*> FNativeClassHeaderGenerator::ExportCallbackFunctions(FUnrealS
 	PrologMacroCalls.Logf(TEXT("\t%s\r\n"), *MacroName);
 
 	// export .proto files for any net service functions
-	ExportProtoMessage(CallbackFunctions, ClassData);
+	ExportProtoMessage(CallbackFunctions);
 
 	// export .java files for any net service functions
 	ExportMCPMessage(CallbackFunctions, ClassData);
@@ -4692,13 +4831,14 @@ FUHTStringBuilder& FNativeClassHeaderGenerator::GetGeneratedFunctionTextDevice()
 
 // Constructor.
 FNativeClassHeaderGenerator::FNativeClassHeaderGenerator(
-	UPackage* InPackage,
+	const UPackage* InPackage,
 	const TArray<FUnrealSourceFile*>& SourceFiles,
 	FClasses& AllClasses,
 	bool InAllowSaveExportedHeaders
 #if WITH_HOT_RELOAD_CTORS
 	, bool bInExportVTableConstructors
 #endif // WITH_HOT_RELOAD_CTORS
+	, FUHTMakefile& InUHTMakefile
 )
 	: API                                   (FPackageName::GetShortName(InPackage).ToUpper())
 	, Package                               (InPackage)
@@ -4708,6 +4848,7 @@ FNativeClassHeaderGenerator::FNativeClassHeaderGenerator(
 #if WITH_HOT_RELOAD_CTORS
 	, bExportVTableConstructors				(bInExportVTableConstructors)
 #endif // WITH_HOT_RELOAD_CTORS
+	, UHTMakefile(InUHTMakefile)
 {
 	const FString PackageName = FPackageName::GetShortName(Package);
 
@@ -5265,12 +5406,12 @@ void GetScriptPlugins(TArray<IScriptGeneratorPluginInterface*>& ScriptPlugins)
 		bool bSupportedPlugin = ScriptGenerator->SupportsTarget(GManifest.TargetName);
 		if (bSupportedPlugin)
 		{
-			// Find the right output direcotry for this plugin base on its target (Engine-side) plugin name.
+			// Find the right output directory for this plugin base on its target (Engine-side) plugin name.
 			FString GeneratedCodeModuleName = ScriptGenerator->GetGeneratedCodeModuleName();
 			const FManifestModule* GeneratedCodeModule = NULL;
 			FString OutputDirectory;
 			FString IncludeBase;
-			for (const auto& Module : GManifest.Modules)
+			for (const FManifestModule& Module : GManifest.Modules)
 			{
 				if (Module.Name == GeneratedCodeModuleName)
 				{
@@ -5349,36 +5490,8 @@ void ResolveSuperClasses(UPackage* Package)
 	}
 }
 
-ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename)
-{
-	check(GIsUCCMakeStandaloneHeaderGenerator);
-	ECompilationResult::Type Result = ECompilationResult::Succeeded;
-	
-	if ( !FParse::Param( FCommandLine::Get(), TEXT("IgnoreWarnings")) )
+ECompilationResult::Type PreparseModules(FUHTMakefile& UHTMakefile, const FString& ModuleInfoPath, int32& NumFailures)
 	{
-		GWarn->TreatWarningsAsErrors = true;
-	}
-
-	FString ModuleInfoPath = FPaths::GetPath(ModuleInfoFilename);
-
-	// Load the manifest file, giving a list of all modules to be processed, pre-sorted by dependency ordering
-#if !PLATFORM_EXCEPTIONS_DISABLED
-	try
-#endif
-	{
-		GManifest = FManifest::LoadFromFile(ModuleInfoFilename);
-	}
-#if !PLATFORM_EXCEPTIONS_DISABLED
-	catch (const TCHAR* Ex)
-	{
-		UE_LOG(LogCompile, Error, TEXT("Failed to load manifest file '%s': %s"), *ModuleInfoFilename, Ex);
-		return GCompilationResult;
-	}
-#endif
-
-	// Load classes for editing.
-	int32 NumFailures = 0;
-
 	// Three passes.  1) Public 'Classes' headers (legacy)  2) Public headers   3) Private headers
 	enum EHeaderFolderTypes
 	{
@@ -5389,20 +5502,30 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 		FolderType_Count
 	};
 
-	double TotalModulePreparseTime = 0.0;
-	double TotalParseAndCodegenTime = 0.0;
-
-	for (const auto& Module : GManifest.Modules)
+	ECompilationResult::Type Result = ECompilationResult::Succeeded;
+	for (FManifestModule& Module : GManifest.Modules)
 	{
 		if (Result != ECompilationResult::Succeeded)
 		{
 			break;
 		}
 
-		double ThisModulePreparseTime = 0.0;
-		int32 NumHeadersPreparsed = 0;
-		FDurationTimer ThisModuleTimer(ThisModulePreparseTime);
-		ThisModuleTimer.Start();
+		FName ModuleName = FName(*Module.Name);
+		UHTMakefile.SetCurrentModuleName(ModuleName);
+		bool bLoadFromMakefile = UHTMakefile.CanLoadModule(Module);
+		if (bLoadFromMakefile)
+		{
+			// Load module data from makefile.
+			UHTMakefile.LoadModuleData(ModuleName, Module);
+			continue;
+		}
+		UHTMakefile.AddModule(ModuleName);
+
+		// Mark that we'll need to append newly constructed objects to ones loaded from makefile.
+		UHTMakefile.SetShouldMoveNewObjects();
+
+		// Force regeneration of all subsequent modules, otherwise data will get corrupted.
+		Module.ForceRegeneration();
 
 		UPackage* Package = Cast<UPackage>(StaticFindObjectFast(UPackage::StaticClass(), NULL, FName(*Module.LongPackageName), false, false));
 		if (Package == NULL)
@@ -5412,15 +5535,26 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 		// Set some package flags for indicating that this package contains script
 		// NOTE: We do this even if we didn't have to create the package, because CoreUObject is compiled into UnrealHeaderTool and we still
 		//       want to make sure our flags get set
-		Package->PackageFlags |= PKG_ContainsScript;
-		Package->PackageFlags &= ~(PKG_ClientOptional | PKG_ServerSideOnly);
-		Package->PackageFlags |= PKG_Compiling;
+		Package->SetPackageFlags(PKG_ContainsScript | PKG_Compiling);
+		Package->ClearPackageFlags(PKG_ClientOptional | PKG_ServerSideOnly);
 		if (Module.ModuleType == EBuildModuleType::Editor)
 		{
-			Package->PackageFlags |= PKG_EditorOnly;
+			Package->SetPackageFlags(PKG_EditorOnly);
 		}
 
+		if (Module.ModuleType == EBuildModuleType::Developer)
+		{
+			Package->SetPackageFlags(Package->GetPackageFlags() | PKG_Developer);
+		}
+
+		// Add new module or overwrite whatever we had loaded, that data is obsolete.
+		UHTMakefile.AddPackage(Package);
 		GPackageToManifestModuleMap.Add(Package, &Module);
+
+		double ThisModulePreparseTime = 0.0;
+		int32 NumHeadersPreparsed = 0;
+		FDurationTimer ThisModuleTimer(ThisModulePreparseTime);
+		ThisModuleTimer.Start();
 
 		// Pre-parse the headers
 		for (int32 PassIndex = 0; PassIndex < FolderType_Count && Result == ECompilationResult::Succeeded; ++PassIndex)
@@ -5455,18 +5589,25 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 						FError::Throwf(TEXT("UnrealHeaderTool was unable to load source file '%s'"), *FullFilename);
 					}
 
-					TSharedRef<FUnrealSourceFile> UnrealSourceFile = PerformInitialParseOnHeader(Package, RawFilename, RF_Public | RF_Standalone, *HeaderFile);
-
+					TSharedRef<FUnrealSourceFile> UnrealSourceFile = PerformInitialParseOnHeader(Package, RawFilename, RF_Public | RF_Standalone, *HeaderFile, UHTMakefile);
+					FUnrealSourceFile* UnrealSourceFilePtr = &UnrealSourceFile.Get();
+					TArray<UClass*> DefinedClasses = UnrealSourceFile->GetDefinedClasses();
+					for (UClass* DefinedClass : DefinedClasses)
+					{
+						UHTMakefile.AddClass(UnrealSourceFilePtr, DefinedClass);
+					}
 					GUnrealSourceFilesMap.Add(RawFilename, UnrealSourceFile);
+					UHTMakefile.AddUnrealSourceFilesMapEntry(UnrealSourceFilePtr, RawFilename);
 
 					if (CurrentlyProcessing == PublicClassesHeaders)
 					{
 						for (auto* Class : UnrealSourceFile->GetDefinedClasses())
 						{
 							GPublicClassSet.Add(Class);
+							UHTMakefile.AddPublicClassSetEntry(UnrealSourceFilePtr, Class);
 						}
 
-						GPublicSourceFileSet.Add(&UnrealSourceFile.Get());
+						GPublicSourceFileSet.Add(UnrealSourceFilePtr);
 					}
 
 					// Save metadata for the class path, both for it's include path and relative to the module base directory
@@ -5533,6 +5674,10 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 			}
 		}
 
+		// Don't resolve superclasses for module when loading from makefile.
+		// Data is only partially loaded at this point.
+		if (!bLoadFromMakefile)
+		{
 	#if !PLATFORM_EXCEPTIONS_DISABLED
 		try
 	#endif
@@ -5556,10 +5701,69 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 	#endif
 
 		ThisModuleTimer.Stop();
-		TotalModulePreparseTime += ThisModulePreparseTime;
 		UE_LOG(LogCompile, Log, TEXT("Preparsed module %s containing %i files(s) in %.2f secs."), *Module.LongPackageName, NumHeadersPreparsed, ThisModulePreparseTime);
 	}
+	}
 
+	return Result;
+}
+
+ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename)
+{
+	check(GIsUCCMakeStandaloneHeaderGenerator);
+	ECompilationResult::Type Result = ECompilationResult::Succeeded;
+	
+	if ( !FParse::Param( FCommandLine::Get(), TEXT("IgnoreWarnings")) )
+	{
+		GWarn->TreatWarningsAsErrors = true;
+	}
+
+	FString ModuleInfoPath = FPaths::GetPath(ModuleInfoFilename);
+
+	// Load the manifest file, giving a list of all modules to be processed, pre-sorted by dependency ordering
+#if !PLATFORM_EXCEPTIONS_DISABLED
+	try
+#endif
+	{
+		GManifest = FManifest::LoadFromFile(ModuleInfoFilename);
+	}
+#if !PLATFORM_EXCEPTIONS_DISABLED
+	catch (const TCHAR* Ex)
+	{
+		UE_LOG(LogCompile, Error, TEXT("Failed to load manifest file '%s': %s"), *ModuleInfoFilename, Ex);
+		return GCompilationResult;
+	}
+#endif
+
+	// Counters.
+	int32 NumFailures = 0;
+	double TotalModulePreparseTime = 0.0;
+	double TotalParseAndCodegenTime = 0.0;
+
+	// Check if makefiles should be used. If not, only makefile serialization is skipped.
+	// as the rest of code doesn't impact performance and we don't want to add ifs around
+	// every makefile related piece of code.
+	bool bUseMakefile = FParse::Param(FCommandLine::Get(), TEXT("UseMakefiles"));
+
+	FUHTMakefile UHTMakefile;
+	UHTMakefile.SetNameLookupCPP(&NameLookupCPP);
+	UHTMakefile.SetManifest(&GManifest);
+
+	// Declaring outside of bUseMakefile scope as the same value is used when saving makefile.
+	FString MakefilePath;
+	if (bUseMakefile)
+	{
+		MakefilePath = FPaths::Combine(*ModuleInfoPath, TEXT("UHT.makefile"));
+		UHTMakefile.LoadFromFile(*MakefilePath, &GManifest);
+	}
+	UHTMakefile.StartPreloading();
+	{
+		FDurationTimer TotalModulePreparseTimer(TotalModulePreparseTime);
+		TotalModulePreparseTimer.Start();
+		PreparseModules(UHTMakefile, ModuleInfoPath, NumFailures);
+		TotalModulePreparseTimer.Stop();
+	}
+	UHTMakefile.StopPreloading();
 	// Do the actual parse of the headers and generate for them
 	if (Result == ECompilationResult::Succeeded)
 	{
@@ -5611,7 +5815,12 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 				GetScriptPlugins(ScriptPlugins);
 			}
 
-			for (const auto& Module : GManifest.Modules)
+			if (UHTMakefile.ShouldMoveNewObjects())
+			{
+				UHTMakefile.MoveNewObjects();
+			}
+
+			for (const FManifestModule& Module : GManifest.Modules)
 			{
 				if (UPackage* Package = Cast<UPackage>(StaticFindObjectFast(UPackage::StaticClass(), NULL, FName(*Module.LongPackageName), false, false)))
 				{
@@ -5632,9 +5841,9 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 					} UseVTableConstructorsCache;
 
 					Result = FHeaderParser::ParseAllHeadersInside(AllClasses, GWarn, Package, Module, ScriptPlugins,
-						Module.ModuleType != EBuildModuleType::Game || UseVTableConstructorsCache.bUseVTableConstructors);
+						Module.ModuleType != EBuildModuleType::Game || UseVTableConstructorsCache.bUseVTableConstructors, UHTMakefile);
 #else // WITH_HOT_RELOAD_CTORS
-					Result = FHeaderParser::ParseAllHeadersInside(AllClasses, GWarn, Package, Module, ScriptPlugins);
+					Result = FHeaderParser::ParseAllHeadersInside(AllClasses, GWarn, Package, Module, ScriptPlugins, UHTMakefile);
 #endif // WITH_HOT_RELOAD_CTORS
 					if (Result != ECompilationResult::Succeeded)
 					{
@@ -5646,7 +5855,7 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 
 			{
 				FScopedDurationTimer PluginTimeTracker(GPluginOverheadTime);
-				for (auto ScriptGenerator : ScriptPlugins)
+				for (IScriptGeneratorPluginInterface* ScriptGenerator : ScriptPlugins)
 				{
 					ScriptGenerator->FinishExport();
 				}
@@ -5683,15 +5892,23 @@ ECompilationResult::Type UnrealHeaderTool_Main(const FString& ModuleInfoFilename
 			UE_LOG(LogCompile, Error, TEXT("Number of generated files mismatch ref=%d, ver=%d"), RefFileNames.Num(), VerFileNames.Num());
 		}
 	}
+
 	TheFlagAudit.WriteResults();
 
 	GIsRequestingExit = true;
 
-	if ((Result == ECompilationResult::Succeeded) && (NumFailures > 0))
+	if ((Result != ECompilationResult::Succeeded) || (NumFailures > 0))
 	{
+		// Makefile might be corrupted, it's safer to delete it now.
+		IFileManager::Get().Delete(*MakefilePath);
 		return ECompilationResult::OtherCompilationError;
 	}
 	
+	if (bUseMakefile)
+	{
+		UHTMakefile.SaveToFile(*MakefilePath);
+	}
+
 	return Result;
 }
 
@@ -5744,7 +5961,7 @@ UClass* ProcessParsedClass(bool bClassIsAnInterface, TArray<FHeaderProvider> &De
 
 	const static bool bVerboseOutput = FParse::Param(FCommandLine::Get(), TEXT("VERBOSE"));
 
-	if (ResultClass == nullptr || !ResultClass->HasAnyFlags(RF_Native))
+	if (ResultClass == nullptr || !ResultClass->IsNative())
 	{
 		// detect if the same class name is used in multiple packages
 		if (ResultClass == nullptr)
@@ -5786,7 +6003,7 @@ UClass* ProcessParsedClass(bool bClassIsAnInterface, TArray<FHeaderProvider> &De
 }
 
 
-TSharedRef<FUnrealSourceFile> PerformInitialParseOnHeader(UPackage* InParent, const FString& FileName, EObjectFlags Flags, const TCHAR* Buffer)
+TSharedRef<FUnrealSourceFile> PerformInitialParseOnHeader(UPackage* InParent, const FString& FileName, EObjectFlags Flags, const TCHAR* Buffer, FUHTMakefile& UHTMakefile)
 {
 	const TCHAR* InBuffer = Buffer;
 
@@ -5800,19 +6017,21 @@ TSharedRef<FUnrealSourceFile> PerformInitialParseOnHeader(UPackage* InParent, co
 	TArray<FSimplifiedParsingClassInfo> ParsedClassArray;
 	FHeaderParser::SimplifiedClassParse(Buffer, /*out*/ ParsedClassArray, /*out*/ DependsOn, ClassHeaderTextStrippedOfCppText);
 
-	TSharedRef<FUnrealSourceFile> UnrealSourceFile = MakeShareable(new FUnrealSourceFile(InParent, FileName, ClassHeaderTextStrippedOfCppText));
-
+	FUnrealSourceFile* UnrealSourceFilePtr = new FUnrealSourceFile(InParent, FileName, ClassHeaderTextStrippedOfCppText);
+	TSharedRef<FUnrealSourceFile> UnrealSourceFile = MakeShareable(UnrealSourceFilePtr);
+	UHTMakefile.AddUnrealSourceFile(UnrealSourceFilePtr);
+	UHTMakefile.AddToHeaderOrder(UnrealSourceFilePtr);
 	for (auto& ParsedClassInfo : ParsedClassArray)
 	{
 		UClass* ResultClass = ProcessParsedClass(ParsedClassInfo.IsInterface(), DependsOn, ParsedClassInfo.GetClassName(), ParsedClassInfo.GetBaseClassName(), InParent, Flags);
 
-		FScope::AddTypeScope(ResultClass, &UnrealSourceFile->GetScope().Get());
+		FScope::AddTypeScope(ResultClass, &UnrealSourceFile->GetScope().Get(), UnrealSourceFilePtr, UHTMakefile);
 
-		AddTypeDefinition(*UnrealSourceFile, ResultClass, ParsedClassInfo.GetClassDefLine());
+		AddTypeDefinition(UHTMakefile, UnrealSourceFilePtr, ResultClass, ParsedClassInfo.GetClassDefLine());
 		UnrealSourceFile->AddDefinedClass(ResultClass, MoveTemp(ParsedClassInfo));
 	}
 
-	for (const auto& DependsOnElement : DependsOn)
+	for (auto& DependsOnElement : DependsOn)
 	{
 		UnrealSourceFile->GetIncludes().Add(DependsOnElement);
 	}

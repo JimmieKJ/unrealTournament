@@ -7,6 +7,7 @@
 // Forward declarations
 struct FNativeCodeGenCommandlineParams;
 class  FAssetData;
+struct FBlueprintNativeCodeGenPaths;
 
 /*******************************************************************************
  * FCodeGenAssetRecord
@@ -19,27 +20,97 @@ struct FConvertedAssetRecord
 
 public:
 	FConvertedAssetRecord() {}
-	FConvertedAssetRecord(const FAssetData& AssetInfo, const FString& TargetDir, const FString& ModuleName);
+	FConvertedAssetRecord(const FAssetData& AssetInfo, const FBlueprintNativeCodeGenPaths& TargetPaths);
 
 	/**
 	 * @return True if this record demonstates a successful conversion; false if it is incomplete 
 	 */
 	bool IsValid();
 
-public:
-	TWeakObjectPtr<UObject> AssetPtr;
+	/**
+	 * @return 
+	 */
+	FStringAssetReference ToAssetRef() const;
 
+public:
 	UPROPERTY()
 	UClass* AssetType;
 
+	// cannot use a FStringAssetReference, as the json serializer has problems 
+	// with some asset paths (for example, I had a folder named 'Folder()')
 	UPROPERTY()
-	FString AssetPath;
+	FString TargetObjPath; 
 
 	UPROPERTY()
 	FString GeneratedHeaderPath;
 
 	UPROPERTY()
 	FString GeneratedCppPath;
+};
+
+/*******************************************************************************
+ * FUnconvertedDependencyRecord
+ ******************************************************************************/
+
+USTRUCT()
+struct FUnconvertedDependencyRecord
+{
+	GENERATED_USTRUCT_BODY()
+
+public:
+	FUnconvertedDependencyRecord() {}
+	FUnconvertedDependencyRecord(const FAssetData& AssetInfo, const FBlueprintNativeCodeGenPaths& TargetPaths);
+
+	/**  */
+	bool IsValid();
+
+public:
+	UPROPERTY()
+	FString GeneratedWrapperPath;
+
+	UPROPERTY()
+	TArray<FName> ReferencedBy;
+};
+
+/*******************************************************************************
+ * FBlueprintNativeCodeGenPaths
+ ******************************************************************************/
+
+struct FBlueprintNativeCodeGenPaths
+{
+public:
+	enum ESourceFileType
+	{
+		HFile, CppFile,
+	};
+
+	static FString GetDefaultManifestPath();
+
+private:
+	friend struct FBlueprintNativeCodeGenManifest;
+	FBlueprintNativeCodeGenPaths(const FString& PluginName, const FString& TargetDir, const FString& ManifestPath);
+
+public:
+	/**  */
+	FString ManifestFilePath() const;
+
+	/**  */
+	FString PluginRootDir() const;
+	FString PluginFilePath() const;
+	FString PluginSourceDir() const;
+
+	/**  */
+	FString RuntimeModuleDir() const;
+	FString RuntimeModuleName() const;
+	FString RuntimeBuildFile() const;
+	FString RuntimeSourceDir(ESourceFileType SourceType) const;
+	FString RuntimeModuleFile(ESourceFileType SourceType) const;
+	FString RuntimePCHFilename() const;
+
+private:
+	FString TargetDir;
+	FString PluginName;
+	FString ManifestPath;
 };
 
 /*******************************************************************************
@@ -51,36 +122,19 @@ struct FBlueprintNativeCodeGenManifest
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** @return The default filename for manifest files. */
-	static FString GetDefaultFilename();
+	typedef FName FAssetId;
+	typedef TMap<FAssetId, FConvertedAssetRecord> FConversionRecord;
+	typedef TMap<FAssetId, FUnconvertedDependencyRecord> FUnconvertedRecord;
 
 public: 
-	FBlueprintNativeCodeGenManifest(const FString TargetPath = TEXT(""));
+	FBlueprintNativeCodeGenManifest(); // default ctor for USTRUCT() system
 	FBlueprintNativeCodeGenManifest(const FNativeCodeGenCommandlineParams& CommandlineParams);
+	FBlueprintNativeCodeGenManifest(const FString& ManifestFilePath);
 
 	/**
-	 * A query that retrieves a list of file/directory paths. Conceptually, 
-	 * these files/directories are fully owned by the the conversion process.
-	 * 
-	 * @return An array of file/directory paths that will be generated the conversion process.
+	 * @return A utility object that you can query for various file/directory paths used/targeted by the conversion process.
 	 */
-	TArray<FString> GetDestinationPaths() const;
-
-	/**
-	 * Constructs a .uplugin path, specifying the destination for the plugin's
-	 * descriptor file.
-	 * 
-	 * @return The destination filepath for the .uplugin file.
-	 */
-	FString GetPluginFilePath() const;
-
-	/**
-	 * Constructs a .Build.cs path, detailing the destination for the module's 
-	 * build file.
-	 * 
-	 * @return The destination filepath for the .Build.cs file.
-	 */
-	FString GetModuleFilePath() const;
+	FBlueprintNativeCodeGenPaths GetTargetPaths() const;
 
 	/**
 	 * Logs an entry detailing the specified asset's conversion (the asset's 
@@ -90,7 +144,17 @@ public:
 	 * @param  AssetInfo    Defines the asset that you plan on converting (and want to make an entry for).
 	 * @return A record detailing the asset's expected conversion.
 	 */
-	FConvertedAssetRecord& CreateConversionRecord(const FAssetData& AssetInfo);
+	FConvertedAssetRecord& CreateConversionRecord(const FAssetId Key, const FAssetData& AssetInfo);
+
+	/**
+	 * 
+	 * 
+	 * @param  UnconvertedAssetKey    
+	 * @param  AssetObj    
+	 * @param  ReferencingAsset    
+	 * @return 
+	 */
+	FUnconvertedDependencyRecord& CreateUnconvertedDependencyRecord(const FAssetId UnconvertedAssetKey, const FAssetData& AssetInfo, const FAssetId ReferencingAsset);
 
 	/**
 	 * Searches the manifest's conversion records for an entry pertaining to the
@@ -99,29 +163,44 @@ public:
 	 * @param  AssetPath    Serves as a lookup key for the asset in question.
 	 * @return A pointer to the found conversion record, null if one doesn't exist.
 	 */
-	FConvertedAssetRecord* FindConversionRecord(const FString& AssetPath, bool bSlowSearch = false);
+	const FConvertedAssetRecord* FindConversionRecord(const FAssetId AssetId) const;
 
 	/**
 	 * Records module dependencies for the specified asset.
 	 * 
-	 * @param  AssetInfo    The asset you want to collect dependencies for.
-	 * @return True if we were able to successfully collect dependencies from the asset; false if the process failed.
+	 * @param  Package    The asset you want to collect dependencies for.
 	 */
-	bool LogDependencies(const FAssetData& AssetInfo);
+	void GatherModuleDependencies(UPackage* Package);
 
 	/** 
 	 * @return A list of all known modules that this plugin will depend on. 
 	 */
 	const TArray<UPackage*>& GetModuleDependencies() const { return ModuleDependencies; }
 
+	/** 
+	 * @return A list of all asset conversion that have been recorded. 
+	 */
+	const FConversionRecord& GetConversionRecord() const { return ConvertedAssets; }
+
 	/**
 	 * Saves this manifest as json, to its target destination (which it was 
 	 * setup with).
 	 * 
-	 * @param  bSort    Defines if you want the manifest's conversion log sorted before the files is saved (making it easier to read).
 	 * @return True if the save was a success, otherwise false.
 	 */
-	bool Save(bool bSort = true) const;
+	bool Save() const;
+
+	/**
+	* Saves this manifest as json, to the provided destination 
+	*
+	* @return True if the save was a success, otherwise false.
+	*/
+	bool SaveAs(const TCHAR* Filename) const;
+
+	/**
+	* Merges the manifest saved in Filename into the current manifest
+	*/
+	void Merge(const TCHAR* Filename);
 
 private:
 	/**
@@ -130,21 +209,10 @@ private:
 	FString GetTargetDir() const;
 
 	/**
-	 * @return The target name for the plugin's primary module.
-	 */
-	const FString& GetTargetModuleName() const { return PluginName; }
-
-	/**
 	 * Empties the manifest, leaving only the destination directory and file
 	 * names intact.
 	 */
 	void Clear();
-
-	/**
-	 * Maps the asset log so that we can easily query for specific conversion
-	 * records.
-	 */
-	void ConstructRecordLookupTable();
 	
 private:
 	/** Defines the destination filepath for this manifest */
@@ -160,10 +228,10 @@ private:
 	UPROPERTY()
 	TArray<UPackage*> ModuleDependencies;
 
-	/** Mutable so Save() can sort the array when requested */
+	/**  */
 	UPROPERTY()
-	mutable TArray<FConvertedAssetRecord> ConvertedAssets;
+	TMap<FName, FConvertedAssetRecord> ConvertedAssets;
 
-	/** Serves as a quick way to look up records in the ConvertedAssets array */
-	mutable TMap<FString, int32> RecordLookupTable;
+	UPROPERTY()
+	TMap<FName, FUnconvertedDependencyRecord> UnconvertedDependencies;
 };

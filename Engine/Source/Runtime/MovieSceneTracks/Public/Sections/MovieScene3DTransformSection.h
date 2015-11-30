@@ -16,8 +16,13 @@ namespace EKey3DTransformChannel
 		Scale = 0x00000004,
 		All = Translation | Rotation | Scale
 	};
-}
 
+	enum ValueType
+	{
+		Key,
+		Default
+	};
+}
 
 /**
 * Stores information about a transform for the purpose of adding keys to a transform section
@@ -56,14 +61,16 @@ struct FTransformData
 
 struct FTransformKey
 {
-	FTransformKey( EKey3DTransformChannel::Type InChannel, EAxis::Type InAxis, float InValue, bool InbUnwindRotation )
+	FTransformKey( EKey3DTransformChannel::Type InChannel, EKey3DTransformChannel::ValueType InChannelValueType, EAxis::Type InAxis, float InValue, bool InbUnwindRotation )
 	{
 		Channel = InChannel;
+		ChannelValueType = InChannelValueType;
 		Axis = InAxis;
 		Value = InValue;
 		bUnwindRotation = InbUnwindRotation;
 	}
 	EKey3DTransformChannel::Type Channel;
+	EKey3DTransformChannel::ValueType ChannelValueType;
 	EAxis::Type Axis;
 	float Value;
 	bool bUnwindRotation;

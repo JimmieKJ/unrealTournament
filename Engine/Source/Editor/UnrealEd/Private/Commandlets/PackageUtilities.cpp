@@ -715,7 +715,7 @@ int32 ULoadPackageCommandlet::Main( const FString& Params )
 		}
 		if (!bFast || FileIndex % 100 == 99)
 		{
-			CollectGarbage( RF_Native );
+			CollectGarbage(RF_NoFlags);
 		}
 	}
 	GIsEditor = GIsServer = GIsClient = true;
@@ -1465,7 +1465,7 @@ int32 UPkgInfoCommandlet::Main( const FString& Params )
 			Reporter->GeneratePackageReport(Linker);
 		}
 
-		CollectGarbage(RF_Native);
+		CollectGarbage(RF_NoFlags);
 	}
 
 	// turn off as it makes diffing hard
@@ -2532,7 +2532,7 @@ int32 UReplaceActorCommandlet::Main(const FString& Params)
 
 		// get rid of the loaded world
 		UE_LOG(LogPackageUtilities, Warning, TEXT("GCing..."));
-		CollectGarbage(RF_Native);
+		CollectGarbage(RF_NoFlags);
 	}
 
 	// UEditorEngine::FinishDestroy() expects GWorld to exist

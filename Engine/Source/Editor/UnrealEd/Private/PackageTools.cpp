@@ -41,7 +41,7 @@ namespace PackageTools
 		GetObjectsWithOuter(PackageBeingUnloaded, ObjectsInPackage);
 		for ( UObject* Object : ObjectsInPackage )
 		{
-			if ( !Object->HasAnyFlags(RF_Unreachable) )
+			if ( !Object->IsUnreachable() )
 			{
 				if ( ObjectsThatHadFlagsCleared.Find(Object) )
 				{
@@ -225,7 +225,7 @@ namespace PackageTools
 		// actor browser in case a script package was loaded
 		if ( Package != NULL )
 		{
-			if ( (Package->PackageFlags & PKG_ContainsScript) != 0 )
+			if (Package->HasAnyPackageFlags(PKG_ContainsScript))
 			{
 				GEditor->BroadcastClassPackageLoadedOrUnloaded();
 			}
@@ -330,7 +330,7 @@ namespace PackageTools
 
 				PackageBeingUnloaded->bHasBeenFullyLoaded = false;
 				PackageBeingUnloaded->ClearFlags(RF_WasLoaded);
-				if ( PackageBeingUnloaded->PackageFlags & PKG_ContainsScript )
+				if ( PackageBeingUnloaded->HasAnyPackageFlags(PKG_ContainsScript) )
 				{
 					bScriptPackageWasUnloaded = true;
 				}

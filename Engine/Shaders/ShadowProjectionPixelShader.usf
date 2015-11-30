@@ -107,9 +107,14 @@ void Main(
 		BRANCH
 		if (IsSubsurfaceModel(InGBufferData.ShadingModelID))
 		{
-			float Opacity = InGBufferData.ShadingModelID == SHADINGMODELID_HAIR ? 1 : InGBufferData.CustomData.a;
+			float Opacity = InGBufferData.CustomData.a;
 			// Derive density from a heuristic using opacity, tweaked for useful falloff ranges and to give a linear depth falloff with opacity
 			float Density = -.05f * log(1 - min(Opacity, .999f));
+			if( InGBufferData.ShadingModelID == SHADINGMODELID_HAIR || InGBufferData.ShadingModelID == SHADINGMODELID_EYE )
+			{
+				Opacity = 1;
+				Density = 1;
+			}
 			//@todo - Use a larger kernel filter based on material opacity
 			// This is not being done currently because a varying opacity causes discontinuities in the shadow result
 			// Note: Snapping based on the largest size kernel is done in FProjectedShadowInfo::FProjectedShadowInfo, MaxDownsampleFactor is set to 4

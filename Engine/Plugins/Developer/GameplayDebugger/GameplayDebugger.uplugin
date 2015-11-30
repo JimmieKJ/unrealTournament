@@ -1,0 +1,24 @@
+{
+	"FileVersion" : 3,
+	"FriendlyName" : "GameplayDebugger Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EngineVersion" : "4.10.0",
+	"Description" : "GameplayDebugger Plugin replaces GameplayDebugger module known from earlier versions of UE4.",
+	"Category" : "Misc",
+	"EnabledByDefault": false,
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "GameplayDebuggerModule",
+			"Type" : "Runtime",
+            "LoadingPhase": "PostEngineInit"
+		}
+	]
+}

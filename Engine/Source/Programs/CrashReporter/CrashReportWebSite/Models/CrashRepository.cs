@@ -89,7 +89,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 				{
 					var BranchList = Context.Crashes
 					.Where( n => n.TimeOfCrash > DateTime.Now.AddMonths( -3 ) )
-					.Where( n => n.Branch.StartsWith( "UE4" ) )
+					// Depot || Stream
+					.Where( n => n.Branch.StartsWith( "UE4" ) || n.Branch.StartsWith( "//UE4" ) )
 					.Select( n => n.Branch )
 					.Distinct()
 					.ToList();
@@ -105,6 +106,25 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			}
 		}
 
+		private static List<SelectListItem> PlatformsAsListItems = null;
+		/// <summary>
+		/// Static list of platforms for filtering
+		/// </summary>
+		public static List<SelectListItem> GetPlatformsAsListItems()
+		{
+			if( PlatformsAsListItems == null )
+			{
+				string[] PlatformNames = { "Win64", "Win32", "Mac", "Linux", "PS4", "XboxOne" };
+				List<string> Platforms = new List<string>( PlatformNames );
+
+				PlatformsAsListItems = Platforms
+						.Select( listitem => new SelectListItem { Selected = false, Text = listitem, Value = listitem } )
+						.ToList();
+				PlatformsAsListItems.Insert( 0, new SelectListItem { Selected = true, Text = "", Value = "" } );
+			}
+			return PlatformsAsListItems;
+		
+		}
 
 		private static DateTime LastVersionDate = DateTime.UtcNow.AddDays( -1 );
 		private static List<SelectListItem> VersionsAsSelectList = null;
@@ -397,6 +417,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					DateTo = (long)( FormData.DateTo - CrashesViewModel.Epoch ).TotalMilliseconds,
 					BranchName = FormData.BranchName,
 					VersionName = FormData.VersionName,
+					PlatformName = FormData.PlatformName,
 					GameName = FormData.GameName,
 					GroupCounts = GroupCounts,
 					RealUserName = UniqueUser != null ? UniqueUser.ToString() : null,
@@ -811,6 +832,17 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					(
 						from CrashDetail in Results
 						where CrashDetail.BuildVersion.Equals( FormData.VersionName )
+						select CrashDetail
+					);
+			}
+
+			// Filter by PlatformName
+			if (!string.IsNullOrEmpty( FormData.PlatformName ))
+			{
+				Results =
+					(
+						from CrashDetail in Results
+						where CrashDetail.PlatformName.Contains( FormData.PlatformName )
 						select CrashDetail
 					);
 			}

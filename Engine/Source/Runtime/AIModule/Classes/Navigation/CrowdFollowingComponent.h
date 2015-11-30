@@ -84,6 +84,9 @@ class AIMODULE_API UCrowdFollowingComponent : public UPathFollowingComponent, pu
 	void SetCrowdAvoidanceRangeMultiplier(float Multipler, bool bUpdateAgent = true);
 	void SetCrowdAffectFallingVelocity(bool bEnable);
 	void SetCrowdRotateToVelocity(bool bEnable);
+	void SetAvoidanceGroup(int32 GroupFlags, bool bUpdateAgent = true);
+	void SetGroupsToAvoid(int32 GroupFlags, bool bUpdateAgent = true);
+	void SetGroupsToIgnore(int32 GroupFlags, bool bUpdateAgent = true);
 
 	FORCEINLINE bool IsCrowdSimulationEnabled() const { return bEnableCrowdSimulation; }
 	FORCEINLINE bool IsCrowdSimulatioSuspended() const { return bSuspendCrowdSimulation; }
@@ -200,6 +203,9 @@ protected:
 	bool HasMovedDuringPause() const;
 	void UpdateCachedDirections(const FVector& NewVelocity, const FVector& NextPathCorner, bool bTraversingLink);
 	virtual bool UpdateCachedGoal(FVector& NewGoalPos);
+	
+	void OnPendingNavigationInit();
+	bool RegisterCrowdAgent();
 
 	friend UCrowdManager;
 };

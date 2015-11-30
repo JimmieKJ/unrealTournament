@@ -129,6 +129,9 @@ private:
 	/** Removes the asset data from the lookup maps */
 	bool RemoveAssetData(FAssetData* AssetData);
 
+	/** Find the first non-redirector dependency node starting from InDependency. */
+	FDependsNode* ResolveRedirector(FDependsNode* InDependency, TMap<FName, FAssetData*>& InAllowedAssets, TMap<FDependsNode*, FDependsNode*>& InCache);
+
 	/**
 	 * Adds a root path to be discover files in, when asynchronously scanning the disk for asset files
 	 *

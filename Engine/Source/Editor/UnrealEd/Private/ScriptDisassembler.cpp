@@ -810,6 +810,20 @@ void FKismetBytecodeDisassembler::ProcessCommon(int32& ScriptIndex, EExprToken O
 			Ar.Logf(TEXT("%s $%X: .. wire debug site .."), *Indents, (int32)Opcode);
 			break;
 		}
+	case EX_InstrumentationEvent:
+		{
+			const int32 EventType = ReadINT(ScriptIndex);
+			switch (EventType)
+			{
+				case EScriptInstrumentation::NodeEntry:
+					Ar.Logf(TEXT("%s $%X: .. instrumented wire entry site .."), *Indents, (int32)Opcode);
+					break;
+				case EScriptInstrumentation::NodeExit:
+					Ar.Logf(TEXT("%s $%X: .. instrumented wire exit site .."), *Indents, (int32)Opcode);
+					break;
+			}
+			break;
+		}
 	case EX_Tracepoint:
 		{
 			Ar.Logf(TEXT("%s $%X: .. debug site .."), *Indents, (int32)Opcode);

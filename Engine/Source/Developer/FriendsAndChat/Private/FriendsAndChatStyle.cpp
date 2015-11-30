@@ -58,13 +58,6 @@ FFriendsAndChatStyle& FFriendsAndChatStyle::SetFriendsMarkupStyle(const FFriends
 	return *this;
 }
 
-FFriendsAndChatStyle& FFriendsAndChatStyle::SetBorderPadding(const FMargin& Padding)
-{
-	BorderPadding = Padding;
-	return *this;
-}
-
-
 FFriendsAndChatStyle& FFriendsAndChatStyle::SetScrollbarStyle(const FScrollBarStyle& InScrollBarStyle)
 {
 	ScrollBarStyle = InScrollBarStyle;

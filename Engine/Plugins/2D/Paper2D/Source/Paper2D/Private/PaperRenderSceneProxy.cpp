@@ -576,7 +576,7 @@ FPrimitiveViewRelevance FPaperRenderSceneProxy::GetViewRelevance(const FSceneVie
 	Result.bDrawRelevance = IsShown(View) && EngineShowFlags.Paper2DSprites;
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
-
+	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 	Result.bShadowRelevance = IsShadowCast(View);
 
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);

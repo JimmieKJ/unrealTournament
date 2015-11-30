@@ -40,7 +40,7 @@ struct FUserDefinedStructureCompilerInner
 				const FName UniqueName = MakeUniqueObjectName(GetTransientPackage(), UUserDefinedStruct::StaticClass(), FName(*ReinstancedName));
 
 				TGuardValue<bool> IsDuplicatingClassForReinstancing(GIsDuplicatingClassForReinstancing, true);
-				DuplicatedStruct = (UUserDefinedStruct*)StaticDuplicateObject(StructureToReinstance, GetTransientPackage(), *UniqueName.ToString(), ~RF_Transactional); 
+				DuplicatedStruct = (UUserDefinedStruct*)StaticDuplicateObject(StructureToReinstance, GetTransientPackage(), UniqueName, ~RF_Transactional); 
 			}
 
 			DuplicatedStruct->Guid = StructureToReinstance->Guid;
@@ -52,7 +52,7 @@ struct FUserDefinedStructureCompilerInner
 			DuplicatedStruct->AddToRoot();
 			CastChecked<UUserDefinedStructEditorData>(DuplicatedStruct->EditorData)->RecreateDefaultInstance();
 
-			for (auto StructProperty : TObjectRange<UStructProperty>(RF_ClassDefaultObject | RF_PendingKill))
+			for (auto StructProperty : TObjectRange<UStructProperty>(RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill))
 			{
 				if (StructProperty && (StructureToReinstance == StructProperty->Struct))
 				{
@@ -68,7 +68,7 @@ struct FUserDefinedStructureCompilerInner
 					{
 						check(OwnerStruct != DuplicatedStruct);
 						const bool bValidStruct = (OwnerStruct->GetOutermost() != GetTransientPackage())
-							&& !OwnerStruct->HasAnyFlags(RF_PendingKill)
+							&& !OwnerStruct->IsPendingKill()
 							&& (EUserDefinedStructureStatus::UDSS_Duplicate != OwnerStruct->Status.GetValue());
 
 						if (bValidStruct)
@@ -86,7 +86,7 @@ struct FUserDefinedStructureCompilerInner
 
 			DuplicatedStruct->RemoveFromRoot();
 
-			for (auto Blueprint : TObjectRange<UBlueprint>(RF_ClassDefaultObject | RF_PendingKill))
+			for (auto Blueprint : TObjectRange<UBlueprint>(RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill))
 			{
 				if (Blueprint && !BlueprintsToRecompile.Contains(Blueprint))
 				{
@@ -341,13 +341,13 @@ void FUserDefinedStructureCompilerUtils::CompileStruct(class UUserDefinedStruct*
 
 		// UPDATE ALL THINGS DEPENDENT ON COMPILED STRUCTURES
 		TSet<UBlueprint*> BlueprintsThatHaveBeenRecompiled;
-		for (TObjectIterator<UK2Node> It(RF_Transient | RF_PendingKill | RF_ClassDefaultObject, true); It && ChangedStructs.Num(); ++It)
+		for (TObjectIterator<UK2Node> It(RF_Transient | RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill); It && ChangedStructs.Num(); ++It)
 		{
 			bool bReconstruct = false;
 
 			UK2Node* Node = *It;
 
-			if (Node && !Node->HasAnyFlags(RF_Transient | RF_PendingKill))
+			if (Node && !Node->HasAnyFlags(RF_Transient) && !Node->IsPendingKill())
 			{
 				// If this is a struct operation node operation on the changed struct we must reconstruct
 				if (UK2Node_StructOperation* StructOpNode = Cast<UK2Node_StructOperation>(Node))

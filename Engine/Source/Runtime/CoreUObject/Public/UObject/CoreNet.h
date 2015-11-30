@@ -120,7 +120,7 @@ private:
 //
 class COREUOBJECT_API UPackageMap : public UObject
 {
-	DECLARE_CLASS_INTRINSIC( UPackageMap, UObject, CLASS_Transient | CLASS_Abstract | 0, CoreUObject );
+	DECLARE_CLASS_INTRINSIC(UPackageMap, UObject, CLASS_Transient | CLASS_Abstract | 0, TEXT("/Script/CoreUObject"));
 
 	virtual bool		WriteObject( FArchive & Ar, UObject* InOuter, FNetworkGUID NetGUID, FString ObjName ) { return false; }
 

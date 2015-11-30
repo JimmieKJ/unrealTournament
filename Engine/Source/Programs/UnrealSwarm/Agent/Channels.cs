@@ -1071,7 +1071,7 @@ namespace Agent
 						{
 							if( LocalChannelHashValue[Index] != RemoteChannelHashValue[Index] )
 							{
-								Log( EVerbosityLevel.Informative, ELogColour.Orange, String.Format( "[ValidateChannel] Hash value mismatch for {0}", ChannelName ) );
+								//Log( EVerbosityLevel.Informative, ELogColour.Orange, String.Format( "[ValidateChannel] Hash value mismatch for {0}", ChannelName ) );
 								return false;
 							}
 						}

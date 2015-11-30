@@ -11,7 +11,7 @@ class FObjectInitializer;
 class ULinkerPlaceholderFunction : public UFunction, public TLinkerImportPlaceholder<UFunction>
 {
 public:
-	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(ULinkerPlaceholderFunction, UFunction, /*TStaticFlags =*/0, CoreUObject, /*TStaticCastFlags =*/0, NO_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(ULinkerPlaceholderFunction, UFunction, /*TStaticFlags =*/0, TEXT("/Script/CoreUObject"), /*TStaticCastFlags =*/0, NO_API)
 
 	ULinkerPlaceholderFunction(const FObjectInitializer& ObjectInitializer);
 

@@ -16,6 +16,7 @@ struct KISMET_API FBlueprintEditorTabs
 	static const FName MyBlueprintID;
 	static const FName ReplaceNodeReferencesID;
 	static const FName UserDefinedStructureID;
+	static const FName BlueprintProfilerID;
 
 	// Document tab identifiers
 	static const FName GraphEditorID;

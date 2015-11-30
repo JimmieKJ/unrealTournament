@@ -33,12 +33,7 @@ extern ENGINE_API FLightmassDebugOptions GLightmassDebugOptions;
 
 extern ENGINE_API FColor GTexelSelectionColor;
 
-/** 
- * Set to 1 to allow selecting lightmap texels by holding down T and left clicking in the editor,
- * And having debug information about that texel tracked during subsequent lighting rebuilds.
- * Be sure to set the define with the same name in Lightmass!
- */
-#define ALLOW_LIGHTMAP_SAMPLE_DEBUGGING 0
+extern ENGINE_API bool IsTexelDebuggingEnabled();
 
 /**
  * The abstract base class of 1D and 2D light-maps.
@@ -407,10 +402,6 @@ struct FSelectedLightmapSample
 	int32 LocalY;
 	int32 MappingSizeX;
 	int32 MappingSizeY;
-	/** Position in the lightmap atlas */
-	int32 LightmapX;
-	int32 LightmapY;
-	FColor OriginalColor;
 	
 	/** Default ctor */
 	FSelectedLightmapSample() :
@@ -421,10 +412,7 @@ struct FSelectedLightmapSample
 		LocalX(-1),
 		LocalY(-1),
 		MappingSizeX(-1),
-		MappingSizeY(-1),
-		LightmapX(-1),
-		LightmapY(-1),
-		OriginalColor(FColor(0,0,0))
+		MappingSizeY(-1)
 	{}
 
 	/** Constructor used for a texture lightmap sample */
@@ -445,10 +433,7 @@ struct FSelectedLightmapSample
 		LocalX(InLocalX),
 		LocalY(InLocalY),
 		MappingSizeX(InMappingSizeX),
-		MappingSizeY(InMappingSizeY),
-		LightmapX(-1),
-		LightmapY(-1),
-		OriginalColor(FColor(0,0,0))
+		MappingSizeY(InMappingSizeY)
 	{}
 };
 

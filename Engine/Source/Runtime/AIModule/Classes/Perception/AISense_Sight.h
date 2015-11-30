@@ -87,6 +87,12 @@ struct FAISightQuery
 		Score = Age + Importance;
 	}
 
+	void ForgetPreviousResult()
+	{
+		LastSeenLocation = FAISystem::InvalidLocation;
+		bLastResult = false;
+	}
+
 	class FSortPredicate
 	{
 	public:
@@ -156,6 +162,9 @@ public:
 	virtual void UnregisterSource(AActor& SourceActor) override;
 	virtual void CleanseInvalidSources() override;
 	
+	virtual void OnListenerForgetsActor(const FPerceptionListener& Listener, AActor& ActorToForget) override;
+	virtual void OnListenerForgetsAll(const FPerceptionListener& Listener) override;
+
 protected:
 	virtual float Update() override;
 
@@ -164,7 +173,7 @@ protected:
 	void OnNewListenerImpl(const FPerceptionListener& NewListener);
 	void OnListenerUpdateImpl(const FPerceptionListener& UpdatedListener);
 	void OnListenerRemovedImpl(const FPerceptionListener& UpdatedListener);	
-
+	
 	void GenerateQueriesForListener(const FPerceptionListener& Listener, const FDigestedSightProperties& PropertyDigest);
 
 	enum FQueriesOperationPostProcess

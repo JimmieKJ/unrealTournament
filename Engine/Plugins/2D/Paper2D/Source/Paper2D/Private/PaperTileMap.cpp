@@ -694,7 +694,7 @@ void UPaperTileMap::InitializeNewEmptyTileMap(UPaperTileSet* InitialTileSet)
 
 UPaperTileMap* UPaperTileMap::CloneTileMap(UObject* OuterForClone)
 {
-	return CastChecked<UPaperTileMap>(StaticDuplicateObject(this, OuterForClone, nullptr));
+	return CastChecked<UPaperTileMap>(StaticDuplicateObject(this, OuterForClone));
 }
 
 bool UPaperTileMap::UsesTileSet(UPaperTileSet* TileSet) const

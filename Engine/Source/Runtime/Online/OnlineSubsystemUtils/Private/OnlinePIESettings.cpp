@@ -94,22 +94,6 @@ void UOnlinePIESettings::PostInitProperties()
 {
 	Super::PostInitProperties();
 
-	// MIGRATION : Encrypt the plain text passwords if they are there
-	bool bNeedSave = false;
-	for (FPIELoginSettingsInternal& Login : Logins)
-	{
-		if (Login.Token.Len() > 0 && Login.TokenBytes.Num() == 0)
-		{
-			bNeedSave = true;
-			Login.Encrypt();
-		}
-	}
-	if (bNeedSave)
-	{
-		SaveConfig();
-	}
-    // MIGRATION END
-
 	for (FPIELoginSettingsInternal& Login : Logins)
 	{
 		Login.Decrypt();

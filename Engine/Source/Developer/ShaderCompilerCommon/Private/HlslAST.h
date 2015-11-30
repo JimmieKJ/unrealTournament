@@ -19,6 +19,7 @@ namespace CrossCompiler
 		struct FParameterDeclarator;
 		struct FUnaryExpression;
 		struct FAttribute;
+		struct FJumpStatement;
 
 		struct FASTWriter
 		{
@@ -107,6 +108,7 @@ namespace CrossCompiler
 			virtual FFunctionDefinition* AsFunctionDefinition() { return nullptr; }
 			virtual FParameterDeclarator* AsParameterDeclarator() { return nullptr; }
 			virtual FUnaryExpression* AsUnaryExpression() { return nullptr; }
+			virtual FJumpStatement* AsJumpStatement() { return nullptr; }
 
 			// Returns true if the expression can be evaluated to a constant int
 			virtual bool GetConstantIntValue(int32& OutValue) const { return false; }
@@ -150,7 +152,7 @@ namespace CrossCompiler
 		{
 			Assign,
 			Plus,        /**< Unary + operator. */
-			Neg,
+			Minus,
 			Add,
 			Sub,
 			Mul,
@@ -167,11 +169,11 @@ namespace CrossCompiler
 			BitAnd,
 			BitXor,
 			BitOr,
-			BitNot,
+			BitNeg,		// ~
 			LogicAnd,
 			LogicXor,
 			LogicOr,
-			LogicNot,
+			LogicNot,	// !
 
 			MulAssign,
 			DivAssign,
@@ -687,6 +689,7 @@ namespace CrossCompiler
 			FExpression* OptionalExpression;
 
 			virtual void Write(FASTWriter& Writer) const override;
+			virtual FJumpStatement* AsJumpStatement() override { return this; }
 		};
 
 		struct FFunctionDefinition : public FNode

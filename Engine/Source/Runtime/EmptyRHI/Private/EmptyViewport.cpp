@@ -55,11 +55,6 @@ void FEmptyDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 	FEmptyViewport* Viewport = ResourceCast(ViewportRHI);
 }
 
-bool FEmptyDynamicRHI::RHIIsDrawingViewport()
-{
-	return true;
-}
-
 FTexture2DRHIRef FEmptyDynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)
 {
 	FEmptyViewport* Viewport = ResourceCast(ViewportRHI);

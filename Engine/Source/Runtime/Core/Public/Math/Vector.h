@@ -44,8 +44,18 @@ public:
 			*const_cast<FVector*>(this) = ZeroVector;
 		}
 	}
+
+	FORCEINLINE void DiagnosticCheckNaN(const TCHAR* Message) const
+	{
+		if (ContainsNaN())
+		{
+			logOrEnsureNanError(TEXT("%s: FVector contains NaN: %s"), Message, *ToString());
+			*const_cast<FVector*>(this) = ZeroVector;
+		}
+	}
 #else
 	FORCEINLINE void DiagnosticCheckNaN() const {}
+	FORCEINLINE void DiagnosticCheckNaN(const TCHAR* Message) const {}
 #endif
 
 	/** Default constructor (no initialization). */

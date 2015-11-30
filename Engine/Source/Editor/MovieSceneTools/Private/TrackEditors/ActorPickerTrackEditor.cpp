@@ -24,7 +24,7 @@ void FActorPickerTrackEditor::PickActorInteractive(FGuid ObjectBinding, UMovieSc
 
 		ActorPickerMode.BeginActorPickingMode(
 			FOnGetAllowedClasses(), 
-			FOnShouldFilterActor::CreateSP(this, &FActorPickerTrackEditor::IsActorPickable), 
+			FOnShouldFilterActor::CreateSP(this, &FActorPickerTrackEditor::IsActorPickable, ObjectBinding, Section), 
 			FOnActorSelected::CreateSP(this, &FActorPickerTrackEditor::ActorPicked, ObjectBinding, Section)
 			);
 	}
@@ -34,10 +34,10 @@ void FActorPickerTrackEditor::ShowActorSubMenu(FMenuBuilder& MenuBuilder, FGuid 
 {
 	struct Local
 	{
-		static FReply OnInteractiveActorPickerClicked(FActorPickerTrackEditor* ActorPickerTrackEditor, FGuid InObjectBinding, UMovieSceneSection* InSection)
+		static FReply OnInteractiveActorPickerClicked(FActorPickerTrackEditor* ActorPickerTrackEditor, FGuid TheObjectBinding, UMovieSceneSection* TheSection)
 		{
 			FSlateApplication::Get().DismissAllMenus();
-			ActorPickerTrackEditor->PickActorInteractive(InObjectBinding, InSection);
+			ActorPickerTrackEditor->PickActorInteractive(TheObjectBinding, TheSection);
 			return FReply::Handled();
 		}
 	};
@@ -55,7 +55,7 @@ void FActorPickerTrackEditor::ShowActorSubMenu(FMenuBuilder& MenuBuilder, FGuid 
 		InitOptions.ColumnMap.Add(FBuiltInColumnTypes::Label(), FColumnInfo(EColumnVisibility::Visible, 0));
 
 		// Only display Actors that we can attach too
-		InitOptions.Filters->AddFilterPredicate( SceneOutliner::FActorFilterPredicate::CreateSP(this, &FActorPickerTrackEditor::IsActorPickable) );
+		InitOptions.Filters->AddFilterPredicate( SceneOutliner::FActorFilterPredicate::CreateSP(this, &FActorPickerTrackEditor::IsActorPickable, ObjectBinding, Section) );
 	}		
 
 	// Actor selector to allow the user to choose a parent actor

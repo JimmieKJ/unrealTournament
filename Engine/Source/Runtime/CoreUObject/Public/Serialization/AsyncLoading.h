@@ -252,7 +252,7 @@ private:
 	/**
 	 * Begin async loading process. Simulates parts of BeginLoad.
 	 *
-	 * Objects created during BeginAsyncLoad and EndAsyncLoad will have RF_AsyncLoading set
+	 * Objects created during BeginAsyncLoad and EndAsyncLoad will have EInternalObjectFlags::AsyncLoading set
 	 */
 	void BeginAsyncLoad();
 	/**
@@ -309,7 +309,7 @@ private:
 	 */
 	EAsyncPackageState::Type PostLoadObjects();
 	/**
-	 * Finish up objects and state, which means clearing the RF_AsyncLoading flag on newly created ones
+	 * Finish up objects and state, which means clearing the EInternalObjectFlags::AsyncLoading flag on newly created ones
 	 *
 	 * @return true
 	 */

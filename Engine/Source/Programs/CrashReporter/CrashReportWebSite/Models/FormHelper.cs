@@ -68,6 +68,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>The version name to filter by.</summary>
 		public string VersionName = "";
 
+		/// <summary>The platform name to filter by.</summary>
+		public string PlatformName = "";
+
 		/// <summary>The game to filter by.</summary>
 		public string GameName = "";
 
@@ -184,6 +187,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			GetFormParameter( Request, Form, "UserGroup", UserGroup, out UserGroup );
 			GetFormParameter( Request, Form, "BranchName", BranchName, out BranchName );
 			GetFormParameter( Request, Form, "VersionName", VersionName, out VersionName );
+			GetFormParameter( Request, Form, "PlatformName", PlatformName, out PlatformName );
 			GetFormParameter( Request, Form, "GameName", GameName, out GameName );
 
 

@@ -2,6 +2,7 @@
 
 #include "UnrealEd.h"
 #include "ISourceControlModule.h"
+#include "CrashReporterSettings.h"
 #include "Components/BillboardComponent.h"
 #include "AI/Navigation/NavigationSystem.h"
 #include "Components/ArrowComponent.h"
@@ -65,7 +66,8 @@ UEditorExperimentalSettings::UEditorExperimentalSettings( const FObjectInitializ
 	: Super(ObjectInitializer)
 	, bUnifiedBlueprintEditor(true)
 	, bBlueprintableComponents(true)
-
+	, bBlueprintPerformanceAnalysisTools(false)
+	, BlueprintProfilerAverageSampleCount(20)
 {
 }
 
@@ -565,6 +567,13 @@ bool UProjectPackagingSettings::CanEditChange( const UProperty* InProperty ) con
 	}
 
 	return Super::CanEditChange(InProperty);
+}
+
+/* UCrashReporterSettings interface
+*****************************************************************************/
+UCrashReporterSettings::UCrashReporterSettings(const FObjectInitializer& ObjectInitializer)
+	: Super(ObjectInitializer)
+{
 }
 
 #undef LOCTEXT_NAMESPACE

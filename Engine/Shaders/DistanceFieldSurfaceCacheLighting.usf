@@ -355,13 +355,6 @@ void IrradianceCacheSplatPS(
 
 RWTexture2D<float4> RWVisualizeMeshDistanceFields;
 
-bool RayHitSphere( float3 RayOrigin, float3 UnitRayDirection, float3 SphereCenter, float SphereRadius )
-{
-	float3 ClosestPointOnRay = max( 0, dot( SphereCenter - RayOrigin, UnitRayDirection ) ) * UnitRayDirection;
-	float3 CenterToRay = RayOrigin + ClosestPointOnRay - SphereCenter;
-	return dot( CenterToRay, CenterToRay ) <= Square( SphereRadius );
-}
-
 #define MAX_INTERSECTING_OBJECTS 512
 groupshared uint IntersectingObjectIndices[MAX_INTERSECTING_OBJECTS];
 

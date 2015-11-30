@@ -44,7 +44,7 @@ public:
 	}
 	static ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::AnyThreadGame();
+		return ENamedThreads::AnyThread;
 	}
 	static ESubsequentsMode::Type GetSubsequentsMode()
 	{

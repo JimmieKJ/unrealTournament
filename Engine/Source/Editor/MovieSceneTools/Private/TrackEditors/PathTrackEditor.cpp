@@ -8,14 +8,13 @@
 #include "MovieScene3DPathSection.h"
 #include "ISequencerSection.h"
 #include "ISectionLayoutBuilder.h"
-#include "IKeyArea.h"
 #include "MovieSceneCommonHelpers.h"
-#include "MovieSceneToolHelpers.h"
 #include "MovieSceneTrackEditor.h"
 #include "PathTrackEditor.h"
 #include "ActorEditorUtils.h"
 #include "Components/SplineComponent.h"
 #include "ActorPickerTrackEditor.h"
+#include "FloatCurveKeyArea.h"
 
 
 #define LOCTEXT_NAMESPACE "FPathTrackEditor"
@@ -66,13 +65,11 @@ public:
 		return LayerId;
 	}
 	
-	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder) override
+	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding) override
 	{
-		FGuid DummyObjectBinding;
-
 		MenuBuilder.AddSubMenu(
 			LOCTEXT("SetPath", "Path"), LOCTEXT("SetPathTooltip", "Set path"),
-			FNewMenuDelegate::CreateRaw(PathTrackEditor, &FActorPickerTrackEditor::ShowActorSubMenu, DummyObjectBinding, &Section));
+			FNewMenuDelegate::CreateRaw(PathTrackEditor, &FActorPickerTrackEditor::ShowActorSubMenu, ObjectBinding, &Section));
 	}
 
 private:
@@ -135,8 +132,33 @@ void F3DPathTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder, 
 	}
 }
 
-bool F3DPathTrackEditor::IsActorPickable(const AActor* const ParentActor)
+bool F3DPathTrackEditor::IsActorPickable(const AActor* const ParentActor, FGuid ObjectBinding, UMovieSceneSection* InSection)
 {
+	// Can't pick the object that this track binds
+	TArray<UObject*> OutObjects;
+	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectBinding, OutObjects);
+	if (OutObjects.Contains(ParentActor))
+	{
+		return false;
+	}
+
+	// Can't pick the object that this track attaches to
+	UMovieScene3DPathSection* PathSection = Cast<UMovieScene3DPathSection>(InSection);
+	if (PathSection != nullptr)
+	{
+		FGuid ConstraintId = PathSection->GetConstraintId();
+
+		if (ConstraintId.IsValid())
+		{
+			TArray<UObject*> ConstraintObjects;
+			GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ConstraintId, ConstraintObjects);
+			if (ConstraintObjects.Contains(ParentActor))
+			{
+				return false;
+			}
+		}
+	}
+
 	if (ParentActor->IsListedInSceneOutliner() &&
 		!FActorEditorUtils::IsABuilderBrush(ParentActor) &&
 		!ParentActor->IsA( AWorldSettings::StaticClass() ) &&

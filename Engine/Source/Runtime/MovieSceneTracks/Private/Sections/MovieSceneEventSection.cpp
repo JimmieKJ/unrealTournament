@@ -18,8 +18,10 @@ UMovieSceneEventSection::UMovieSceneEventSection()
 
 void UMovieSceneEventSection::AddKey(float Time, const FName& EventName, FKeyParams KeyParams)
 {
-	Modify();
-	Events.UpdateOrAddKey(Time, EventName);
+	if (TryModify())
+	{
+		Events.UpdateOrAddKey(Time, EventName);
+	}
 }
 
 
@@ -31,7 +33,7 @@ void UMovieSceneEventSection::TriggerEvents(ALevelScriptActor* LevelScriptActor,
 	{
 		for (const auto& Key : Keys)
 		{
-			if ((Key.Time > LastPosition) && (Key.Time <= Position))
+			if ((Key.Time >= LastPosition) && (Key.Time <= Position))
 			{
 				TriggerEvent(Key.Value, LevelScriptActor);
 			}
@@ -43,7 +45,7 @@ void UMovieSceneEventSection::TriggerEvents(ALevelScriptActor* LevelScriptActor,
 		{
 			const auto& Key = Keys[KeyIndex];
 
-			if ((Key.Time >= Position) && (Key.Time < LastPosition))
+			if ((Key.Time >= Position) && (Key.Time <= LastPosition))
 			{
 				TriggerEvent(Key.Value, LevelScriptActor);
 			}

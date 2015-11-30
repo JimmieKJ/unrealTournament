@@ -37,6 +37,14 @@ void ULogVisualizerSettings::SavePresistentData()
 	if (bPresistentFilters)
 	{
 		PresistentFilters = FVisualLoggerFilters::Get();
+		for (int32 Index = PresistentFilters.Categories.Num() - 1; Index >= 0; --Index)
+		{
+			FCategoryFilter& Category = PresistentFilters.Categories[Index];
+			if (Category.bIsInUse == false)
+			{
+				PresistentFilters.Categories.RemoveAt(Index);
+			}
+		}
 	}
 	else
 	{
@@ -57,11 +65,16 @@ void ULogVisualizerSettings::LoadPresistentData()
 {
 	if (bPresistentFilters)
 	{
-		static_cast<FVisualLoggerFiltersData&>(FVisualLoggerFilters::Get()) = PresistentFilters;
+		for (int32 Index = PresistentFilters.Categories.Num() - 1; Index >= 0; --Index)
+		{
+			FCategoryFilter& Category = PresistentFilters.Categories[Index];
+			Category.bIsInUse = false;
+		}
+		FVisualLoggerFilters::Get().InitWith(PresistentFilters);
 	}
 	else
 	{
-		FVisualLoggerFilters::Get() = FVisualLoggerFilters();
+		FVisualLoggerFilters::Get().Reset();
 	}
 }
 
@@ -129,9 +142,10 @@ void FVisualLoggerFilters::AddCategory(FString InName, ELogVerbosity::Type InVer
 	const int32 Num = Categories.Num();
 	for (int32 Index = 0; Index < Num; ++Index)
 	{
-		const FCategoryFilter& Filter = Categories[Index];
+		FCategoryFilter& Filter = Categories[Index];
 		if (Filter.CategoryName == InName)
 		{
+			Filter.bIsInUse = true;
 			return;
 		}
 	}
@@ -140,6 +154,7 @@ void FVisualLoggerFilters::AddCategory(FString InName, ELogVerbosity::Type InVer
 	Filter.CategoryName = InName;
 	Filter.LogVerbosity = InVerbosity;
 	Filter.Enabled = true;
+	Filter.bIsInUse = true;
 	Categories.Add(Filter);
 
 	FastCategoryFilterMap.Reset(); // we need to recreate cache - pointers can be broken
@@ -250,12 +265,38 @@ void FVisualLoggerFilters::EnableAllCategories()
 
 void FVisualLoggerFilters::Reset()
 {
-	FastCategoryFilterMap.Reset();
+	if (ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->bResetDataWithNewSession == false)
+	{
+		for (int32 Index = Categories.Num() - 1; Index >= 0; --Index)
+		{
+			Categories[Index].bIsInUse = false;
+		}
+	}
+	else
+	{
+		FastCategoryFilterMap.Reset();
+		Categories.Reset();
+	}
+
 	SearchBoxFilter = FString();
 	ObjectNameFilter = FString();
 
-	Categories.Reset();
 	SelectedClasses.Reset();
+}
+
+void FVisualLoggerFilters::InitWith(const FVisualLoggerFiltersData& NewFiltersData)
+{
+	SearchBoxFilter = NewFiltersData.SearchBoxFilter;
+	ObjectNameFilter = NewFiltersData.ObjectNameFilter;
+	Categories = NewFiltersData.Categories;
+	SelectedClasses = NewFiltersData.SelectedClasses;
+
+	FastCategoryFilterMap.Reset(); // we need to recreate cache - pointers can be broken
+	FastCategoryFilterMap.Reserve(Categories.Num());
+	for (int32 Index = 0; Index < Categories.Num(); Index++)
+	{
+		FastCategoryFilterMap.Add(*Categories[Index].CategoryName, &Categories[Index]);
+	}
 }
 
 void FVisualLoggerFilters::DisableGraphData(FName GraphName, FName DataName, bool SetAsDisabled)

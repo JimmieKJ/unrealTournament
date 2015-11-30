@@ -105,7 +105,8 @@ FCriticalSection FileCacheCriticalSection;
 /** The shader file cache, used to minimize shader file reads */
 TMap<FString, FString> GShaderFileCache;
 
-/** The shader file hash cache, used to minimize loading and hashing shader files */
+/** The shader file hash cache, used to minimize loading and hashing shader files; it includes also hashes for multiple filenames
+	by making the key the concatenated list of filenames. */
 TMap<FString, FSHAHash> GShaderHashCache;
 
 static TAutoConsoleVariable<int32> CVarForceDebugViewModes(
@@ -467,6 +468,26 @@ void GetShaderIncludes(const TCHAR* Filename, TArray<FString>& IncludeFilenames,
 	}
 }
 
+static void UpdateSingleShaderFilehash(FSHA1& InOutHashState, const TCHAR* Filename)
+{
+	// Get the list of includes this file contains
+	TArray<FString> IncludeFilenames;
+	GetShaderIncludes(Filename, IncludeFilenames);
+
+	for (int32 IncludeIndex = 0; IncludeIndex < IncludeFilenames.Num(); IncludeIndex++)
+	{
+		// Load the include file and hash it
+		FString IncludeFileContents;
+		LoadShaderSourceFileChecked(*IncludeFilenames[IncludeIndex], IncludeFileContents);
+		InOutHashState.UpdateWithString(*IncludeFileContents, IncludeFileContents.Len());
+	}
+
+	// Load the source file and hash it
+	FString FileContents;
+	LoadShaderSourceFileChecked(Filename, FileContents);
+	InOutHashState.UpdateWithString(*FileContents, FileContents.Len());
+}
+
 /**
  * Calculates a Hash for the given filename and its includes if it does not already exist in the Hash cache.
  * @param Filename - shader file to Hash
@@ -487,28 +508,55 @@ const FSHAHash& GetShaderFileHash(const TCHAR* Filename)
 			return *CachedHash;
 		}
 
-		// Get the list of includes this file contains
-		TArray<FString> IncludeFilenames;
-		GetShaderIncludes(Filename, IncludeFilenames);
-
 		FSHA1 HashState;
-		for (int32 IncludeIndex = 0; IncludeIndex < IncludeFilenames.Num(); IncludeIndex++)
-		{
-			// Load the include file and hash it
-			FString IncludeFileContents;
-			LoadShaderSourceFileChecked(*IncludeFilenames[IncludeIndex], IncludeFileContents);
-			HashState.UpdateWithString(*IncludeFileContents, IncludeFileContents.Len());
-		}
-
-		// Load the source file and hash it
-		FString FileContents;
-		LoadShaderSourceFileChecked(Filename, FileContents);
-		HashState.UpdateWithString(*FileContents, FileContents.Len());
+		UpdateSingleShaderFilehash(HashState, Filename);
 		HashState.Final();
 
 		// Update the hash cache
 		FSHAHash& NewHash = GShaderHashCache.Add(*FString(Filename), FSHAHash());
 		HashState.GetHash(&NewHash.Hash[0]);
+		INC_FLOAT_STAT_BY(STAT_ShaderCompiling_HashingShaderFiles, (float)HashTime);
+		return NewHash;
+	}
+}
+
+/**
+ * Calculates a Hash for the given filename and its includes if it does not already exist in the Hash cache.
+ * @param Filename - shader file to Hash
+ */
+const FSHAHash& GetShaderFilesHash(const TArray<FString>& Filenames)
+{
+	// Make sure we are only accessing GShaderHashCache from one thread
+	//check(IsInGameThread() || IsAsyncLoading());
+	STAT(double HashTime = 0);
+	{
+		SCOPE_SECONDS_COUNTER(HashTime);
+
+		FString Key;
+		for (const FString& Filename : Filenames)
+		{
+			Key += Filename;
+		}
+
+		FSHAHash* CachedHash = GShaderHashCache.Find(Key);
+
+		// If a hash for this filename has been cached, use that
+		if (CachedHash)
+		{
+			return *CachedHash;
+		}
+
+		FSHA1 HashState;
+		for (const FString& Filename : Filenames)
+		{
+			UpdateSingleShaderFilehash(HashState, *Filename);
+		}
+		HashState.Final();
+
+		// Update the hash cache
+		FSHAHash& NewHash = GShaderHashCache.Add(Key, FSHAHash());
+		HashState.GetHash(&NewHash.Hash[0]);
+
 		INC_FLOAT_STAT_BY(STAT_ShaderCompiling_HashingShaderFiles, (float)HashTime);
 		return NewHash;
 	}

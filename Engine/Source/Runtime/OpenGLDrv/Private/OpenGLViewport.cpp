@@ -195,17 +195,6 @@ void FOpenGLDynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,b
 	}
 }
 
-/**
- * Determine if currently drawing the viewport
- *
- * @return true if currently within a BeginDrawingViewport/EndDrawingViewport block
- */
-bool FOpenGLDynamicRHI::RHIIsDrawingViewport()
-{
-	return DrawingViewport != NULL;
-}
-
-
 
 FTexture2DRHIRef FOpenGLDynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)
 {

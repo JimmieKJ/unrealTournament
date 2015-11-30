@@ -48,7 +48,7 @@ FReply SSequencerCurveEditor::OnMouseButtonDown( const FGeometry& MyGeometry, co
 		return Reply;
 	}
 
-	return TimeSliderController->OnMouseButtonDown( AsShared(), MyGeometry, MouseEvent );
+	return TimeSliderController->OnMouseButtonDown( *this, MyGeometry, MouseEvent );
 }
 
 
@@ -61,7 +61,7 @@ FReply SSequencerCurveEditor::OnMouseButtonUp( const FGeometry& MyGeometry, cons
 		return Reply;
 	}
 
-	return TimeSliderController->OnMouseButtonUp( AsShared(), MyGeometry, MouseEvent );
+	return TimeSliderController->OnMouseButtonUp( *this, MyGeometry, MouseEvent );
 }
 
 
@@ -73,12 +73,12 @@ FReply SSequencerCurveEditor::OnMouseMove( const FGeometry& MyGeometry, const FP
 		return Reply;
 	}
 
-	return TimeSliderController->OnMouseMove( AsShared(), MyGeometry, MouseEvent );
+	return TimeSliderController->OnMouseMove( *this, MyGeometry, MouseEvent );
 }
 
 FReply SSequencerCurveEditor::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	FReply Reply = TimeSliderController->OnMouseWheel( AsShared(), MyGeometry, MouseEvent );
+	FReply Reply = TimeSliderController->OnMouseWheel( *this, MyGeometry, MouseEvent );
 	if ( Reply.IsEventHandled() )
 	{
 		return Reply;

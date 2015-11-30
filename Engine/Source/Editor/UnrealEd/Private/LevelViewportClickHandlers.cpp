@@ -19,6 +19,7 @@
 #include "Engine/TargetPoint.h"
 #include "EngineUtils.h"
 #include "StaticLightingSystem/StaticLightingPrivate.h"
+#include "LightMap.h"
 
 #define LOCTEXT_NAMESPACE "ClickHandlers"
 
@@ -810,12 +811,11 @@ namespace ClickHandlers
 				PrivateAddActor( APointLight::StaticClass() );
 			}
 		}
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) )
+		else if( IsTexelDebuggingEnabled() && Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) )
 		{
 			SetDebugLightmapSample(NULL, Model, iSurf, GEditor->ClickLocation);
 		}
-#endif
+
 		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::S) )
 		{
 			// Create a static mesh.
@@ -1003,12 +1003,11 @@ namespace ClickHandlers
 				PrivateAddActor( SelectedClass );
 			}
 		}
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) )
+		else if( IsTexelDebuggingEnabled() && Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::T) )
 		{
 			SetDebugLightmapSample(NULL, NULL, 0, GEditor->ClickLocation);
 		}
-#endif
+
 		else if( Click.GetKey() == EKeys::LeftMouseButton && ViewportClient->Viewport->KeyState(EKeys::L) )
 		{
 			// If shift is down, we pick a color from under the mouse in the viewport and create a light with that color.

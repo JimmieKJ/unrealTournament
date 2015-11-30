@@ -6,7 +6,7 @@
 #include "LevelSequence.h"
 #include "LevelSequencePlayer.generated.h"
 
-
+class FLevelSequenceSpawnRegister;
 class FMovieSceneSequenceInstance;
 class ULevel;
 class UMovieSceneBindings;
@@ -121,6 +121,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
 	void SetPlayRate(float PlayRate);
 
+	/**
+	 * Sets the range in time to be played back by this player, overriding the default range stored in the asset
+	 *
+	 * @param	NewStartTime	The new starting time for playback
+	 * @param	NewEndTime		The new ending time for playback.  Must be larger than the start time.
+	 */
+	UFUNCTION(BlueprintCallable, Category="Game|Cinematic")
+	void SetPlaybackRange( const float NewStartTime, const float NewEndTime );
+
 protected:
 
 	// IMovieScenePlayer interface
@@ -132,6 +141,8 @@ protected:
 	virtual void AddOrUpdateMovieSceneInstance(UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToAdd) override;
 	virtual void RemoveMovieSceneInstance(UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToRemove) override;
 	virtual TSharedRef<FMovieSceneSequenceInstance> GetRootMovieSceneSequenceInstance() const override;
+	virtual IMovieSceneSpawnRegister& GetSpawnRegister() override;
+	virtual UObject* GetPlaybackContext() const override;
 
 public:
 
@@ -169,16 +180,19 @@ private:
 	/** The number of times we have looped in the current playback */
 	int32 CurrentNumLoops;
 
-private:
+	/** Whether this player has cleaned up the level sequence after it has stopped playing or not */
+	bool bHasCleanedUpSequence;
 
-	/** The offset from 0 that the sequence we're playing starts */
-	float SequenceStartOffset;
+private:
 
 	/** The root movie scene instance to update when playing. */
 	TSharedPtr<FMovieSceneSequenceInstance> RootMovieSceneInstance;
 
 	/** The world this player will spawn actors in, if needed */
 	TWeakObjectPtr<UWorld> World;
+
+	/** Register responsible for managing spawned objects */
+	TSharedPtr<FLevelSequenceSpawnRegister> SpawnRegister;
 
 #if WITH_EDITOR
 public:

@@ -31,7 +31,7 @@ public:
 
 private:
 
-	TSharedPtr<ISequencerEditToolDragOperation> CreateDrag();
+	TSharedPtr<ISequencerEditToolDragOperation> CreateDrag(const FPointerEvent& MouseEvent);
 
 	/** The sequencer itself */
 	TWeakPtr<FSequencer> Sequencer;

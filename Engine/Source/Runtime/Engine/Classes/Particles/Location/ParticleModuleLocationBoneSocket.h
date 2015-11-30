@@ -109,7 +109,7 @@ class UParticleModuleLocationBoneSocket : public UParticleModuleLocationBase
 	virtual void	AutoPopulateInstanceProperties(UParticleSystemComponent* PSysComp) override;
 	virtual bool CanTickInAnyThread() override
 	{
-		return false;
+		return true;
 	}
 #if WITH_EDITOR
 	virtual int32 GetNumberOfCustomMenuOptions() const override;

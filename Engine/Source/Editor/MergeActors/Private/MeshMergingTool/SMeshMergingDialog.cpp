@@ -513,6 +513,7 @@ void SMeshMergingDialog::SetExportSpecularMap(ECheckBoxState NewValue)
 void SMeshMergingDialog::SetMergedMaterialAtlasResolution(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
 	TTypeFromString<int32>::FromString(Tool->MergingSettings.MaterialSettings.TextureSize.X, **NewSelection);
+	TTypeFromString<int32>::FromString(Tool->MergingSettings.MaterialSettings.TextureSize.Y, **NewSelection);
 }
 
 

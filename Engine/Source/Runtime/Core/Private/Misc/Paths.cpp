@@ -16,6 +16,35 @@ namespace UE4Paths_Private
 {
 	auto IsSlashOrBackslash    = [](TCHAR C) { return C == TEXT('/') || C == TEXT('\\'); };
 	auto IsNotSlashOrBackslash = [](TCHAR C) { return C != TEXT('/') && C != TEXT('\\'); };
+
+	FString GameSavedDir()
+	{
+		FString Result = FPaths::GameUserDir();
+
+		FString NonDefaultSavedDirSuffix;
+		if (FParse::Value(FCommandLine::Get(), TEXT("-saveddirsuffix="), NonDefaultSavedDirSuffix))
+		{
+			for (int32 CharIdx = 0; CharIdx < NonDefaultSavedDirSuffix.Len(); ++CharIdx)
+			{
+				if (!FCString::Strchr(VALID_SAVEDDIRSUFFIX_CHARACTERS, NonDefaultSavedDirSuffix[CharIdx]))
+				{
+					NonDefaultSavedDirSuffix.RemoveAt(CharIdx, 1, false);
+					--CharIdx;
+				}
+			}
+
+			if (!NonDefaultSavedDirSuffix.IsEmpty())
+			{
+				Result += TEXT("Saved_") + NonDefaultSavedDirSuffix + TEXT("/");
+			}
+		}
+		else
+		{
+			Result += TEXT("Saved/");
+		}
+
+		return Result;
+	}
 }
 
 bool FPaths::ShouldSaveToUserDir()
@@ -123,7 +152,8 @@ FString FPaths::GameConfigDir()
 
 FString FPaths::GameSavedDir()
 {
-	return GameUserDir() + TEXT("Saved/");
+	static FString Result = UE4Paths_Private::GameSavedDir();
+	return Result;
 }
 
 FString FPaths::GameIntermediateDir()

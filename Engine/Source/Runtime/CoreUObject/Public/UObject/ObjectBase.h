@@ -92,7 +92,7 @@ enum EPackageFlags
 	PKG_CompiledIn					= 0x00000010,   // This package is from "compiled in" classes.
 	PKG_ForDiffing					= 0x00000020,	// This package was loaded just for the purposes of diff'ing
 	PKG_EditorOnly					= 0x00000040, // This is editor-only package (for example: editor module script package)
-//  PKG_Unused						= 0x00000080,
+	PKG_Developer					= 0x00000080,	// Developer module
 //	PKG_Unused						= 0x00000100,
 //	PKG_Unused						= 0x00000200,
 //	PKG_Unused						= 0x00000400,
@@ -169,7 +169,7 @@ enum EClassFlags
 	//CLASS_                  = 0x00000020,
 	/** All the properties on the class are shown in the advanced section (which is hidden by default) unless SimpleDisplay is specified on the property */
 	CLASS_AdvancedDisplay	  = 0x00000040,
-	/** Class is a native class - native interfaces will have CLASS_Native set, but not RF_Native */
+	/** Class is a native class - native interfaces will have CLASS_Native set, but not RF_MarkAsNative */
 	CLASS_Native			  = 0x00000080,
 	/** Don't export to C++ header. */
 	CLASS_NoExport            = 0x00000100,
@@ -439,23 +439,23 @@ enum EObjectFlags
 	// The garbage collector also tends to look at these.
 	RF_Public					=0x00000001,	///< Object is visible outside its package.
 	RF_Standalone				=0x00000002,	///< Keep object around for editing even if unreferenced.
-	RF_Native					=0x00000004,	///< Native (UClass only).
+	RF_MarkAsNative					=0x00000004,	///< Object (UField) will be marked as native on construction (DO NOT USE THIS FLAG in HasAnyFlags() etc)
 	RF_Transactional			=0x00000008,	///< Object is transactional.
 	RF_ClassDefaultObject		=0x00000010,	///< This object is its class's default object
 	RF_ArchetypeObject			=0x00000020,	///< This object is a template for another object - treat like a class default object
 	RF_Transient				=0x00000040,	///< Don't save object.
 
 	// This group of flags is primarily concerned with garbage collection.
-	RF_RootSet					=0x00000080,	///< Object will not be garbage collected, even if unreferenced.
-	RF_Unreachable				=0x00000100,	///< Object is not reachable on the object graph.
+	RF_MarkAsRootSet					=0x00000080,	///< Object will be marked as root set on construction and not be garbage collected, even if unreferenced (DO NOT USE THIS FLAG in HasAnyFlags() etc)
+	//RF_Unused				=0x00000100,	///
 	RF_TagGarbageTemp			=0x00000200,	///< This is a temp user flag for various utilities that need to use the garbage collector. The garbage collector itself does not interpret it.
 
 	// The group of flags tracks the stages of the lifetime of a uobject
 	RF_NeedLoad					=0x00000400,	///< During load, indicates object needs loading.
-	RF_AsyncLoading				=0x00000800,	///< Object is being asynchronously loaded.
+	//RF_Unused				=0x00000800,	///
 	RF_NeedPostLoad				=0x00001000,	///< Object needs to be postloaded.
 	RF_NeedPostLoadSubobjects	=0x00002000,	///< During load, indicates that the object still needs to instance subobjects and fixup serialized component references
-	RF_PendingKill				=0x00004000,	///< Objects that are pending destruction (invalid for gameplay but valid objects)
+	//RF_Unused				=0x00004000,	///
 	RF_BeginDestroyed			=0x00008000,	///< BeginDestroy has been called on the object.
 	RF_FinishDestroyed			=0x00010000,	///< FinishDestroy has been called on the object.
 
@@ -466,9 +466,9 @@ enum EObjectFlags
 	RF_TextExportTransient		=0x00100000,	///< Do not export object to text form (e.g. copy/paste). Generally used for sub-objects that can be regenerated from data in their parent object.
 	RF_LoadCompleted			=0x00200000,	///< Object has been completely serialized by linkerload at least once. DO NOT USE THIS FLAG, It should be replaced with RF_WasLoaded.
 	RF_InheritableComponentTemplate = 0x00400000, ///< Archetype of the object can be in its super class
-	RF_Async = 0x00800000, ///< Object exists only on a different thread than the game thread.
+	//RF_Unused = 0x00800000, ///
 	RF_StrongRefOnFrame			= 0x01000000,	///< References to this object from persistent function frame are handled as strong ones.
-	RF_NoStrongReference		= 0x02000000,  ///< The object is not referenced by any strong reference. The flag is used by GC.
+	//RF_Unused		= 0x02000000,  ///
 	RF_Dynamic = 0x04000000, // Field Only. Dynamic field - doesn't get constructed during static initialization, can be constructed multiple times
 };
 
@@ -476,7 +476,7 @@ enum EObjectFlags
 #define RF_AllFlags				(EObjectFlags)0x03ffffff	///< All flags, used mainly for error checking
 
 	// Predefined groups of the above
-#define RF_Load						((EObjectFlags)(RF_Public | RF_Standalone | RF_Native | RF_Transactional | RF_ClassDefaultObject | RF_ArchetypeObject | RF_DefaultSubObject | RF_TextExportTransient | RF_InheritableComponentTemplate)) // Flags to load from Unrealfiles.
+#define RF_Load						((EObjectFlags)(RF_Public | RF_Standalone | RF_Transactional | RF_ClassDefaultObject | RF_ArchetypeObject | RF_DefaultSubObject | RF_TextExportTransient | RF_InheritableComponentTemplate)) // Flags to load from Unrealfiles.
 #define RF_PropagateToSubObjects	((EObjectFlags)(RF_Public | RF_ArchetypeObject | RF_Transactional | RF_Transient))		// Sub-objects will inherit these flags from their SuperObject.
 
 FORCEINLINE EObjectFlags operator|(EObjectFlags Arg1,EObjectFlags Arg2)
@@ -503,9 +503,26 @@ FORCEINLINE void operator|=(EObjectFlags& Dest,EObjectFlags Arg)
 	Dest = EObjectFlags(Dest | Arg);
 }
 
-
 //@}
 
+/** Objects flags for internal use (GC, low level UObject code) */
+enum class EInternalObjectFlags : int32
+{
+	None = 0,
+	// All the other bits are reserved, DO NOT ADD NEW FLAGS HERE!
+	Native = 1 << 25, ///< Native (UClass only).
+	Async = 1 << 26, ///< Object exists only on a different thread than the game thread.
+	AsyncLoading = 1 << 27, ///< Object is being asynchronously loaded.
+	Unreachable = 1 << 28, ///< Object is not reachable on the object graph.
+	PendingKill = 1 << 29, ///< Objects that are pending destruction (invalid for gameplay but valid objects)
+	RootSet = 1 << 30, ///< Object will not be garbage collected, even if unreferenced.
+	NoStrongReference = 1 << 31, ///< The object is not referenced by any strong reference. The flag is used by GC.
+
+	GarbageCollectionKeepFlags = Native | Async | AsyncLoading,
+	// Make sure this is up to date!
+	AllFlags = Native | Async | AsyncLoading | Unreachable | PendingKill | RootSet | NoStrongReference
+};
+ENUM_CLASS_FLAGS(EInternalObjectFlags);
 
 /*----------------------------------------------------------------------------
 	Core types.
@@ -1105,6 +1122,9 @@ namespace UM
 
 		/// [PropertyMetadata] Property is serialized to config and we should be able to set it anywhere along the config hierarchy.
 		ConfigHierarchyEditable,
+
+		/// [PropertyMetadata] Property defaults are generated by the Blueprint compiler and will not be copied when CopyPropertiesForUnrelatedObjects is called post-compile.
+		BlueprintCompilerGeneratedDefaults,
 	};
 
 	// Metadata usable in UPROPERTY for customizing the behavior of Persona and UMG
@@ -1264,7 +1284,7 @@ public: \
 	/** Returns a UClass object representing this class at runtime */ \
 	inline static UClass* StaticClass() \
 	{ \
-		return GetPrivateStaticClass(TEXT("/Script/") TEXT(#TPackage)); \
+		return GetPrivateStaticClass(TPackage); \
 	} \
 	/** Returns the StaticClassFlags for this class */ \
 	inline static EClassCastFlags StaticClassCastFlags() \
@@ -1499,7 +1519,7 @@ public: \
 #define IMPLEMENT_DYNAMIC_CLASS(TClass, ClassName, TClassCrc) \
 	UClass* TClass::GetPrivateStaticClass(const TCHAR* Package) \
 	{ \
-		UPackage* PrivateStaticClassOuter = CastChecked<UPackage>(StaticFindObjectFast(UPackage::StaticClass(), nullptr, Package)); \
+		UPackage* PrivateStaticClassOuter = FindOrConstructDynamicTypePackage(Package); \
 		UClass* PrivateStaticClass = Cast<UClass>(StaticFindObjectFast(UClass::StaticClass(), PrivateStaticClassOuter, (TCHAR*)ClassName)); \
 		if (!PrivateStaticClass) \
 		{ \
@@ -1602,12 +1622,12 @@ public:
 
 
 #include "UObjectAllocator.h"
-#include "UObjectHash.h"
 #include "UObjectGlobals.h"
 #include "UObjectMarks.h"
 #include "UObjectBase.h"
 #include "UObjectBaseUtility.h"
 #include "UObjectArray.h"
+#include "UObjectHash.h"
 #include "WeakObjectPtr.h"
 #include "UObject.h"
 #include "UObjectIterator.h"

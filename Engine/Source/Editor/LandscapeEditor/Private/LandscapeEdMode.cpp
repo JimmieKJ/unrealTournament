@@ -1709,7 +1709,7 @@ int32 FEdModeLandscape::UpdateLandscapeList()
 	{
 		if (LandscapeList.Num() > 0)
 		{
-			if (CurrentTool != NULL)
+			if (CurrentTool != nullptr)
 			{
 				CurrentBrush->LeaveBrush();
 				CurrentTool->ExitTool();
@@ -1717,7 +1717,7 @@ int32 FEdModeLandscape::UpdateLandscapeList()
 			CurrentToolTarget.LandscapeInfo = LandscapeList[0].Info;
 			CurrentIndex = 0;
 			UpdateTargetList();
-			if (CurrentTool != NULL)
+			if (CurrentTool != nullptr)
 			{
 				CurrentTool->EnterTool();
 				CurrentBrush->EnterBrush();
@@ -1725,7 +1725,11 @@ int32 FEdModeLandscape::UpdateLandscapeList()
 		}
 		else
 		{
-			CurrentToolTarget.LandscapeInfo = NULL;
+			// no landscape, switch to "new landscape" tool
+			CurrentToolTarget.LandscapeInfo = nullptr;
+			UpdateTargetList();
+			SetCurrentToolMode("ToolMode_Manage", false);
+			SetCurrentTool("NewLandscape");
 		}
 	}
 
@@ -2586,7 +2590,7 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 				}
 
 				// offset landscape to component boundary
-				LandscapeOffset = FVector(NewMinX - OldMinX, NewMinY - OldMinY, 0) * OldLandscapeProxy->GetActorScale();
+				LandscapeOffset = FVector(NewMinX, NewMinY, 0) * OldLandscapeProxy->GetActorScale();
 				NewMinX = 0;
 				NewMinY = 0;
 				NewMaxX = NewVertsX - 1;
@@ -2594,7 +2598,9 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			}
 
 			const FVector Location = OldLandscapeProxy->GetActorLocation() + LandscapeOffset;
-			Landscape = OldLandscapeProxy->GetWorld()->SpawnActor<ALandscape>(Location, OldLandscapeProxy->GetActorRotation());
+			FActorSpawnParameters SpawnParams;
+			SpawnParams.OverrideLevel = OldLandscapeProxy->GetLevel();
+			Landscape = OldLandscapeProxy->GetWorld()->SpawnActor<ALandscape>(Location, OldLandscapeProxy->GetActorRotation(), SpawnParams);
 
 			const FVector OldScale = OldLandscapeProxy->GetActorScale();
 			Landscape->SetActorRelativeScale3D(FVector(OldScale.X * LandscapeScaleFactor, OldScale.Y * LandscapeScaleFactor, OldScale.Z));
@@ -2631,7 +2637,7 @@ ALandscape* FEdModeLandscape::ChangeComponentSetting(int32 NumComponentsX, int32
 			if (OldLandscapeActor.IsValid() && OldLandscapeActor->SplineComponent != NULL)
 			{
 				ULandscapeSplinesComponent* OldSplines = OldLandscapeActor->SplineComponent;
-				ULandscapeSplinesComponent* NewSplines = DuplicateObject<ULandscapeSplinesComponent>(OldSplines, Landscape, *OldSplines->GetName());
+				ULandscapeSplinesComponent* NewSplines = DuplicateObject<ULandscapeSplinesComponent>(OldSplines, Landscape, OldSplines->GetFName());
 				NewSplines->AttachTo(Landscape->GetRootComponent(), NAME_None, EAttachLocation::KeepWorldPosition);
 
 				const FVector OldSplineScale = OldSplines->GetRelativeTransform().GetScale3D();

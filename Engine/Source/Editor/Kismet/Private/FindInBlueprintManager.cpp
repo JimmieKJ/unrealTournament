@@ -671,7 +671,7 @@ namespace BlueprintSearchMetaDataHelpers
 			if(BlueprintSearchMetaDataHelpers::CheckIfJsonValueIsSearchable(JsonValue))
 			{
 				TSharedRef< FJsonValue > JsonValueAsSharedRef = JsonValue.ToSharedRef();
-				FJsonSerializer::Serialize(JsonValue, FFindInBlueprintSearchTags::FiB_DefaultValue.ToString(), StaticCastSharedRef<SearchMetaDataWriterParentClass>(InWriter) );
+				FJsonSerializer::Serialize(JsonValue, FFindInBlueprintSearchTags::FiB_DefaultValue.ToString(), StaticCastSharedRef<SearchMetaDataWriterParentClass>(InWriter), false );
 			}
 		}
 
@@ -720,9 +720,7 @@ namespace BlueprintSearchMetaDataHelpers
 		{
 			if (!InProperty->HasMetaData(*FFiBMD::FiBSearchableMD) || InProperty->GetBoolMetaData(*FFiBMD::FiBSearchableMD))
 			{
-				InWriter->WriteObjectStart(FText::FromString(InProperty->GetName()));
 				GatherSearchableProperties(InWriter, InValue, StructProperty->Struct, SEARCHABLE_FULL);
-				InWriter->WriteObjectEnd();
 			}
 		}
 		else if (UObjectProperty* ObjectProperty = Cast<UObjectProperty>(InProperty))
@@ -740,23 +738,21 @@ namespace BlueprintSearchMetaDataHelpers
 					bool bSearchable = InProperty->GetBoolMetaData(*FFiBMD::FiBSearchableMD);
 					if (bSearchable)
 					{
-						InWriter->WriteObjectStart(FText::FromString(InProperty->GetName()));
 						GatherSearchableProperties(InWriter, SubObject, SubObject->GetClass(), SEARCHABLE_FULL);
-						InWriter->WriteObjectEnd();
 					}
 				}
 				else
 				{
 					// Shallow conversion of property to string
 					auto JsonValue = FJsonObjectConverter::UPropertyToJsonValue(InProperty, InValue, 0, 0);
-					FJsonSerializer::Serialize(JsonValue, InProperty->GetName(), StaticCastSharedRef<SearchMetaDataWriterParentClass>(InWriter));
+					FJsonSerializer::Serialize(JsonValue, InProperty->GetName(), StaticCastSharedRef<SearchMetaDataWriterParentClass>(InWriter), false);
 				}
 			}
 		}
 		else
 		{
 			auto JsonValue = FJsonObjectConverter::UPropertyToJsonValue(InProperty, InValue, 0, 0);
-			FJsonSerializer::Serialize(JsonValue, InProperty->GetName(), StaticCastSharedRef<SearchMetaDataWriterParentClass>(InWriter));
+			FJsonSerializer::Serialize(JsonValue, InProperty->GetName(), StaticCastSharedRef<SearchMetaDataWriterParentClass>(InWriter), false);
 		}
 	}
 
@@ -778,31 +774,35 @@ namespace BlueprintSearchMetaDataHelpers
 					const void* Value = Property->ContainerPtrToValuePtr<uint8>(InValue);
 
 					// Need to store the metadata on the property in a sub-object
-					InWriter->WriteObjectStart(FFindInBlueprintSearchTags::FiBMetaDataTag);
+					InWriter->WriteObjectStart(FText::FromString(Property->GetName()));
 					{
-						if (Property->GetBoolMetaData(*FFiBMD::FiBSearchableHiddenExplicitMD))
+						InWriter->WriteObjectStart(FFindInBlueprintSearchTags::FiBMetaDataTag);
 						{
-							InWriter->WriteValue(FText::FromString(FFiBMD::FiBSearchableHiddenExplicitMD), true);
+							if (Property->GetBoolMetaData(*FFiBMD::FiBSearchableHiddenExplicitMD))
+							{
+								InWriter->WriteValue(FText::FromString(FFiBMD::FiBSearchableHiddenExplicitMD), true);
+							}
+							else if (Property->GetBoolMetaData(*FFiBMD::FiBSearchableExplicitMD))
+							{
+								InWriter->WriteValue(FText::FromString(FFiBMD::FiBSearchableExplicitMD), true);
+							}
 						}
-						else if (Property->GetBoolMetaData(*FFiBMD::FiBSearchableExplicitMD))
+						InWriter->WriteObjectEnd();
+
+						if (Property->ArrayDim == 1)
 						{
-							InWriter->WriteValue(FText::FromString(FFiBMD::FiBSearchableExplicitMD), true);
+							GatherSearchablesFromProperty(InWriter, Property, Value, InStruct);
+						}
+						else
+						{
+							TArray< TSharedPtr<FJsonValue> > Array;
+							for (int Index = 0; Index != Property->ArrayDim; ++Index)
+							{
+								GatherSearchablesFromProperty(InWriter, Property, (char*)Value + Index * Property->ElementSize, InStruct);
+							}
 						}
 					}
 					InWriter->WriteObjectEnd();
-
-					if (Property->ArrayDim == 1)
-					{
-						GatherSearchablesFromProperty(InWriter, Property, Value, InStruct);
-					}
-					else
-					{
-						TArray< TSharedPtr<FJsonValue> > Array;
-						for (int Index = 0; Index != Property->ArrayDim; ++Index)
-						{
-							GatherSearchablesFromProperty(InWriter, Property, (char*)Value + Index * Property->ElementSize, InStruct);
-						}
-					}
 				}
 			}
 		}
@@ -941,9 +941,9 @@ class FCacheAllBlueprintsTickableObject
 
 public:
 
-	FCacheAllBlueprintsTickableObject(TArray<FName> InUncachedBlueprints, bool bInCheckOutAndSave, FSimpleDelegate InOnFinished = FSimpleDelegate())
+	FCacheAllBlueprintsTickableObject(TSet<FName> InUncachedBlueprints, bool bInCheckOutAndSave, FSimpleDelegate InOnFinished = FSimpleDelegate())
 		: TickCacheIndex(0)
-		, UncachedBlueprints(InUncachedBlueprints)
+		, UncachedBlueprints(InUncachedBlueprints.Array())
 		, bIsStarted(false)
 		, bIsCancelled(false)
 		, bRecursionGuard(false)
@@ -989,6 +989,24 @@ public:
 	float GetCacheProgress() const
 	{
 		return (float)TickCacheIndex / (float)UncachedBlueprints.Num();
+	}
+
+	/** Returns the number of uncached Blueprints */
+	int32 GetUncachedBlueprintCount()
+	{
+		return UncachedBlueprints.Num();
+	}
+
+	/** Returns the entire list of uncached Blueprints that this object will attempt to cache */
+	const TArray<FName>& GetUncachedBlueprintList() const
+	{
+		return UncachedBlueprints;
+	}
+
+	/** True if there is a callback when done caching, this will prevent a re-query from occuring */
+	bool HasPostCacheWork() const
+	{
+		return OnFinished.IsBound();
 	}
 
 	/** Cancels caching and destroys this object */
@@ -1064,34 +1082,47 @@ public:
 				UObject* Asset = AssetData.GetAsset();
 				if(Asset && bCheckOutAndSave)
 				{
-					// Assume the package was correctly checked out from SCC
-					bool bOutPackageLocallyWritable = true;
-
-					UPackage* Package = AssetData.GetPackage();
-
-					ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
-					// Trusting the SCC status in the package file cache to minimize network activity during save.
-					const FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package, EStateCacheUsage::Use);
-					// If the package is in the depot, and not recognized as editable by source control, and not read-only, then we know the user has made the package locally writable!
-					const bool bSCCCanEdit = !SourceControlState.IsValid() || SourceControlState->CanCheckIn() || SourceControlState->IsIgnored() || SourceControlState->IsUnknown();
-					const bool bSCCIsCheckedOut = SourceControlState.IsValid() && SourceControlState->IsCheckedOut();
-					const bool bInDepot = SourceControlState.IsValid() && SourceControlState->IsSourceControlled();
-					if ( !bSCCCanEdit && bInDepot && !bIsAssetReadOnlyOnDisk && SourceControlProvider.UsesLocalReadOnlyState() && !bSCCIsCheckedOut )
+					if (UBlueprint* BlueprintAsset = Cast<UBlueprint>(Asset))
 					{
-						bOutPackageLocallyWritable = false;
+						if (BlueprintAsset->SkeletonGeneratedClass == nullptr)
+						{
+							// There is no skeleton class, something was wrong with the Blueprint during compile on load. This asset will be marked as failing to cache.
+							bFailedToCache = false;
+						}
 					}
 
-					// Save the package if the file is writable
-					if(bOutPackageLocallyWritable)
+					// Still good to attempt to save
+					if (bFailedToCache)
 					{
-						UWorld* WorldAsset = Cast<UWorld>(Asset);
+						// Assume the package was correctly checked out from SCC
+						bool bOutPackageLocallyWritable = true;
 
-						// Save the package
-						EObjectFlags ObjectFlags = (WorldAsset == nullptr)? RF_Standalone : RF_NoFlags;
-						
-						if (GEditor->SavePackage(Package, WorldAsset, ObjectFlags, *FinalPackageFilename))
+						UPackage* Package = AssetData.GetPackage();
+
+						ISourceControlProvider& SourceControlProvider = ISourceControlModule::Get().GetProvider();
+						// Trusting the SCC status in the package file cache to minimize network activity during save.
+						const FSourceControlStatePtr SourceControlState = SourceControlProvider.GetState(Package, EStateCacheUsage::Use);
+						// If the package is in the depot, and not recognized as editable by source control, and not read-only, then we know the user has made the package locally writable!
+						const bool bSCCCanEdit = !SourceControlState.IsValid() || SourceControlState->CanCheckIn() || SourceControlState->IsIgnored() || SourceControlState->IsUnknown();
+						const bool bSCCIsCheckedOut = SourceControlState.IsValid() && SourceControlState->IsCheckedOut();
+						const bool bInDepot = SourceControlState.IsValid() && SourceControlState->IsSourceControlled();
+						if (!bSCCCanEdit && bInDepot && !bIsAssetReadOnlyOnDisk && SourceControlProvider.UsesLocalReadOnlyState() && !bSCCIsCheckedOut)
 						{
-							bFailedToCache = false;
+							bOutPackageLocallyWritable = false;
+						}
+
+						// Save the package if the file is writable
+						if (bOutPackageLocallyWritable)
+						{
+							UWorld* WorldAsset = Cast<UWorld>(Asset);
+
+							// Save the package
+							EObjectFlags ObjectFlags = (WorldAsset == nullptr) ? RF_Standalone : RF_NoFlags;
+
+							if (GEditor->SavePackage(Package, WorldAsset, ObjectFlags, *FinalPackageFilename, GError, nullptr, false, true, SAVE_NoError))
+							{
+								bFailedToCache = false;
+							}
 						}
 					}
 				}
@@ -1112,10 +1143,10 @@ public:
 
 				ProgressNotification.Pin()->SetText(LOCTEXT("BlueprintIndexComplete", "Finished indexing Blueprints!"));
 
-				FFindInBlueprintSearchManager::Get().FinishedCachingBlueprints(TickCacheIndex, FailedToCacheList);
-
 				// We have actually finished, use the OnFinished callback.
 				OnFinished.ExecuteIfBound();
+
+				FFindInBlueprintSearchManager::Get().FinishedCachingBlueprints(TickCacheIndex, FailedToCacheList);
 
 				return EActiveTimerReturnType::Stop;
 			}
@@ -1140,8 +1171,8 @@ private:
 	/** Notification that appears and details progress */
 	TWeakPtr<SNotificationItem> ProgressNotification;
 
-	/** List of Blueprints that failed to be saved */
-	TArray<FName> FailedToCacheList;
+	/** Set of Blueprints that failed to be saved */
+	TSet<FName> FailedToCacheList;
 
 	/** TRUE if the caching process is started */
 	bool bIsStarted;
@@ -1171,16 +1202,21 @@ FFindInBlueprintSearchManager& FFindInBlueprintSearchManager::Get()
 }
 
 FFindInBlueprintSearchManager::FFindInBlueprintSearchManager()
-	: bIsPausing(false)
+	: bEnableGatheringData(true)
+	, bIsPausing(false)
+	, AssetRegistryModule(nullptr)
 	, CachingObject(nullptr)
 {
 }
 
 FFindInBlueprintSearchManager::~FFindInBlueprintSearchManager()
 {
-	AssetRegistryModule->Get().OnAssetAdded().RemoveAll(this);
-	AssetRegistryModule->Get().OnAssetRemoved().RemoveAll(this);
-	AssetRegistryModule->Get().OnAssetRenamed().RemoveAll(this);
+	if (AssetRegistryModule)
+	{
+		AssetRegistryModule->Get().OnAssetAdded().RemoveAll(this);
+		AssetRegistryModule->Get().OnAssetRemoved().RemoveAll(this);
+		AssetRegistryModule->Get().OnAssetRenamed().RemoveAll(this);
+	}
 	FCoreUObjectDelegates::PreGarbageCollect.RemoveAll(this);
 	FCoreUObjectDelegates::PostGarbageCollect.RemoveAll(this);
 	FCoreUObjectDelegates::OnAssetLoaded.RemoveAll(this);
@@ -1194,10 +1230,25 @@ FFindInBlueprintSearchManager::~FFindInBlueprintSearchManager()
 
 void FFindInBlueprintSearchManager::Initialize()
 {
-	AssetRegistryModule = &FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	AssetRegistryModule->Get().OnAssetAdded().AddRaw(this, &FFindInBlueprintSearchManager::OnAssetAdded);
-	AssetRegistryModule->Get().OnAssetRemoved().AddRaw(this, &FFindInBlueprintSearchManager::OnAssetRemoved);
-	AssetRegistryModule->Get().OnAssetRenamed().AddRaw(this, &FFindInBlueprintSearchManager::OnAssetRenamed);
+	// Must ensure we do not attempt to load the AssetRegistry Module while saving a package, however, if it is loaded already we can safely obtain it
+	if (!GIsSavingPackage || (GIsSavingPackage && FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry"))))
+	{
+		AssetRegistryModule = &FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+		AssetRegistryModule->Get().OnAssetAdded().AddRaw(this, &FFindInBlueprintSearchManager::OnAssetAdded);
+		AssetRegistryModule->Get().OnAssetRemoved().AddRaw(this, &FFindInBlueprintSearchManager::OnAssetRemoved);
+		AssetRegistryModule->Get().OnAssetRenamed().AddRaw(this, &FFindInBlueprintSearchManager::OnAssetRenamed);
+	}
+	else
+	{
+		// Log a warning to inform the Asset Registry could not be initialized when FiB initialized due to saving package
+		// The Asset Registry should be initialized before Find-in-Blueprints, or FiB should be explicitly initialized during a safe time
+		// This message will not appear in commandlets because most commandlets do not care. If a search query is made, further warnings will be produced even in commandlets.
+		if (!IsRunningCommandlet())
+		{
+			UE_LOG(LogBlueprint, Warning, TEXT("Find-in-Blueprints could not pre-cache all unloaded Blueprints due to the Asset Registry module being unable to initialize because a package is currently being saved. Pre-cache will not be reattempted!"));
+		}
+	}
+
 	FCoreUObjectDelegates::PreGarbageCollect.AddRaw(this, &FFindInBlueprintSearchManager::PauseFindInBlueprintSearch);
 	FCoreUObjectDelegates::PostGarbageCollect.AddRaw(this, &FFindInBlueprintSearchManager::UnpauseFindInBlueprintSearch);
 	FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FFindInBlueprintSearchManager::OnAssetLoaded);
@@ -1206,7 +1257,7 @@ void FFindInBlueprintSearchManager::Initialize()
 	IHotReloadInterface& HotReloadSupport = FModuleManager::LoadModuleChecked<IHotReloadInterface>("HotReload");
 	HotReloadSupport.OnHotReload().AddRaw(this, &FFindInBlueprintSearchManager::OnHotReload);
 
-	if(!GIsSavingPackage)
+	if(!GIsSavingPackage && AssetRegistryModule)
 	{
 		// Do an immediate load of the cache to catch any Blueprints that were discovered by the asset registry before we initialized.
 		BuildCache();
@@ -1271,7 +1322,16 @@ void FFindInBlueprintSearchManager::OnAssetAdded(const FAssetData& InAssetData)
 			}
 			else if(const FString* FiBVersionedSearchData = InAssetData.TagsAndValues.Find("FiBData"))
 			{
-				ExtractUnloadedFiBData(InAssetData, *FiBVersionedSearchData, true);
+				if (FiBVersionedSearchData->Len() == 0)
+				{
+					// agrant TODO: Can we patch this up? Is it dangerous not to?
+					UE_LOG(LogBlueprint, Warning, TEXT("Blueprint %s had empty search data!"), *InAssetData.ObjectPath.ToString());
+					UncachedBlueprints.Add(InAssetData.ObjectPath);
+				}
+				else
+				{
+					ExtractUnloadedFiBData(InAssetData, *FiBVersionedSearchData, true);
+				}
 			}
 			else
 			{
@@ -1319,6 +1379,7 @@ void FFindInBlueprintSearchManager::ExtractUnloadedFiBData(const FAssetData& InA
 	// Deserialize the version if available
 	if (bIsVersioned)
 	{
+		checkf(NewSearchData.Value.Len(), TEXT("Versioned search data was zero length!"));
 		FBufferReader ReaderStream((void*)*NewSearchData.Value, NewSearchData.Value.Len() * sizeof(TCHAR), false);
 		NewSearchData.Version = FiBSerializationHelpers::Deserialize<int32>(ReaderStream);
 	}
@@ -1401,6 +1462,7 @@ void FFindInBlueprintSearchManager::OnAssetLoaded(UObject* InAsset)
 			ensureMsgf(!SearchArray[*IndexPtr].Blueprint.IsValid() || SearchArray[*IndexPtr].BlueprintPath == BlueprintPath, TEXT("Blueprint in database has path %s and is being stomped by %s"), *(SearchArray[*IndexPtr].BlueprintPath.ToString()), *BlueprintPath.ToString());
 			SearchArray[*IndexPtr].Blueprint = BlueprintAsset;
 		}
+		UncachedBlueprints.Remove(BlueprintPath);
 	}
 }
 
@@ -1483,6 +1545,11 @@ FString FFindInBlueprintSearchManager::GatherBlueprintSearchMetadata(const UBlue
 
 void FFindInBlueprintSearchManager::AddOrUpdateBlueprintSearchMetadata(UBlueprint* InBlueprint, bool bInForceReCache/* = false*/)
 {
+	if (!bEnableGatheringData)
+	{
+		return;
+	}
+
 	check(InBlueprint);
 
 	// Allow only one thread modify the search data at a time
@@ -1531,6 +1598,11 @@ void FFindInBlueprintSearchManager::AddOrUpdateBlueprintSearchMetadata(UBlueprin
 
 void FFindInBlueprintSearchManager::BeginSearchQuery(const FStreamSearch* InSearchOriginator)
 {
+	if (AssetRegistryModule == nullptr)
+	{
+		UE_LOG(LogBlueprint, Warning, TEXT("Find-in-Blueprints was not fully initialized, possibly due to problems being initialized while saving a package. Please explicitly initialize earlier!"));
+	}
+
 	// Cannot begin a search thread while saving
 	FScopeLock ScopeLock(&PauseThreadsCriticalSection);
 	FScopeLock ScopeLock2(&SafeQueryModifyCriticalSection);
@@ -1564,7 +1636,7 @@ bool FFindInBlueprintSearchManager::ContinueSearchQuery(const FStreamSearch* InS
 		while(SearchIdx < SearchArray.Num())
 		{
 			// If the Blueprint is not marked for deletion, and the asset is valid, we will check to see if we want to refresh the searchable data.
-			if( SearchArray[SearchIdx].bMarkedForDeletion || (SearchArray[SearchIdx].Blueprint.IsValid() && SearchArray[SearchIdx].Blueprint->HasAllFlags(RF_PendingKill)) )
+			if( SearchArray[SearchIdx].bMarkedForDeletion || (SearchArray[SearchIdx].Blueprint.IsValid() && SearchArray[SearchIdx].Blueprint->IsPendingKill()) )
 			{
 				// Mark it for deletion, it will be removed on next save
 				SearchArray[SearchIdx].bMarkedForDeletion = true;
@@ -1574,7 +1646,7 @@ bool FFindInBlueprintSearchManager::ContinueSearchQuery(const FStreamSearch* InS
 				// If there is FiB data, parse it into an ImaginaryBlueprint
 				if (SearchArray[SearchIdx].Value.Len() > 0)
 				{
-					SearchArray[SearchIdx].ImaginaryBlueprint = MakeShareable(new FImaginaryBlueprint(FPaths::GetBaseFilename(SearchArray[SearchIdx].BlueprintPath.ToString()), SearchArray[SearchIdx].BlueprintPath.ToString(), SearchArray[SearchIdx].ParentClass, SearchArray[SearchIdx].Interfaces, SearchArray[SearchIdx].Value));
+					SearchArray[SearchIdx].ImaginaryBlueprint = MakeShareable(new FImaginaryBlueprint(FPaths::GetBaseFilename(SearchArray[SearchIdx].BlueprintPath.ToString()), SearchArray[SearchIdx].BlueprintPath.ToString(), SearchArray[SearchIdx].ParentClass, SearchArray[SearchIdx].Interfaces, SearchArray[SearchIdx].Value, SearchArray[SearchIdx].Version != 0));
 					SearchArray[SearchIdx].Value.Empty();
 				}
 
@@ -1704,7 +1776,7 @@ void FFindInBlueprintSearchManager::CleanCache()
 		// Here it builds the new map/array, clean of deleted content.
 
 		// If the database item is not marked for deletion and not pending kill (if loaded), keep it in the database
-		if( !SearchArray[SearchValuePair.Value].bMarkedForDeletion && !(SearchArray[SearchValuePair.Value].Blueprint.IsValid() && SearchArray[SearchValuePair.Value].Blueprint->HasAllFlags(RF_PendingKill)) )
+		if( !SearchArray[SearchValuePair.Value].bMarkedForDeletion && !(SearchArray[SearchValuePair.Value].Blueprint.IsValid() && SearchArray[SearchValuePair.Value].Blueprint->IsPendingKill()) )
 		{
 			// Build the new map/array
 			NewSearchMap.Add(SearchValuePair.Key, NewSearchArray.Add(MoveTemp(SearchArray[SearchValuePair.Value])) );
@@ -1712,7 +1784,7 @@ void FFindInBlueprintSearchManager::CleanCache()
 		else
 		{
 			// Level Blueprints are destroyed when you open a new level, we need to re-add it as an unloaded asset so long as they were not marked for deletion
-			if(!SearchArray[SearchValuePair.Value].bMarkedForDeletion)
+			if(!SearchArray[SearchValuePair.Value].bMarkedForDeletion && FModuleManager::Get().IsModuleLoaded(TEXT("AssetRegistry")))
 			{
 				SearchArray[SearchValuePair.Value].Blueprint = nullptr;
 
@@ -1811,8 +1883,10 @@ void FFindInBlueprintSearchManager::OnCacheAllUncachedBlueprints(bool bInSourceC
 	if(bInSourceControlActive && bInCheckoutAndSave)
 	{
 		TArray<FString> UncachedBlueprintStrings;
-		UncachedBlueprintStrings.Reserve(UncachedBlueprints.Num());
-		for (const FName& UncachedBlueprint : UncachedBlueprints)
+		const TArray<FName>& TotalUncachedBlueprints = CachingObject->GetUncachedBlueprintList();
+		
+		UncachedBlueprintStrings.Reserve(TotalUncachedBlueprints.Num());
+		for (const FName& UncachedBlueprint : TotalUncachedBlueprints)
 		{
 			UncachedBlueprintStrings.Add(UncachedBlueprint.ToString());
 		}
@@ -1868,11 +1942,9 @@ void FFindInBlueprintSearchManager::CacheAllUncachedBlueprints(TWeakPtr< SFindIn
 		// If Yes is chosen, checkout and save all Blueprints, if No is chosen, only load all Blueprints
 		if (ReturnValue != EAppReturnType::Cancel)
 		{
-			// Add all failed to cache Blueprints to the UncachedBlueprints list and resubmit for caching
-			UncachedBlueprints.Append(FailedToCachePaths);
 			FailedToCachePaths.Empty();
 			
-			TArray<FName> TempUncachedBlueprints;
+			TSet<FName> TempUncachedBlueprints;
 			TempUncachedBlueprints.Append(UncachedBlueprints);
 			TempUncachedBlueprints.Append(BlueprintsToUpdate);
 
@@ -1927,7 +1999,7 @@ FName FFindInBlueprintSearchManager::GetCurrentCacheBlueprintName() const
 	return CachingBPName;
 }
 
-float  FFindInBlueprintSearchManager::GetCacheProgress() const
+float FFindInBlueprintSearchManager::GetCacheProgress() const
 {
 	float ReturnCacheValue = 1.0f;
 
@@ -1939,18 +2011,26 @@ float  FFindInBlueprintSearchManager::GetCacheProgress() const
 	return ReturnCacheValue;
 }
 
-void FFindInBlueprintSearchManager::FinishedCachingBlueprints(int32 InNumberCached, TArray<FName>& InFailedToCacheList)
+int32 FFindInBlueprintSearchManager::GetNumberUncachedBlueprints() const
+{
+	int32 ReturnCount = UncachedBlueprints.Num();
+	if (CachingObject)
+	{
+		ReturnCount = CachingObject->GetUncachedBlueprintCount();
+	}
+	return ReturnCount;
+}
+
+void FFindInBlueprintSearchManager::FinishedCachingBlueprints(int32 InNumberCached, TSet<FName>& InFailedToCacheList)
 {
 	// Multiple threads could be adding to this at the same time
 	FScopeLock ScopeLock(&SafeModifyCacheCriticalSection);
 
+	// Update the list of cache failures
 	FailedToCachePaths = InFailedToCacheList;
 
-	// Clean out the list by the count that were successfully cached, this allows us to continue the caching later.
-	UncachedBlueprints.RemoveAt(0, InNumberCached);
-
 	// Signal the callback, so the source FindInBlueprint can resubmit their search queries
-	if(SourceCachingWidget.IsValid())
+	if(SourceCachingWidget.IsValid() && !CachingObject->HasPostCacheWork())
 	{
 		SourceCachingWidget.Pin()->OnCacheComplete();
 	}
@@ -1966,7 +2046,7 @@ bool FFindInBlueprintSearchManager::IsCacheInProgress() const
 	return CachingObject != nullptr;
 }
 
-TSharedPtr< FJsonObject > FFindInBlueprintSearchManager::ConvertJsonStringToObject(FString InJsonString, TMap<int32, FText>& OutFTextLookupTable)
+TSharedPtr< FJsonObject > FFindInBlueprintSearchManager::ConvertJsonStringToObject(bool bInIsVersioned, FString InJsonString, TMap<int32, FText>& OutFTextLookupTable)
 {
 	/** The searchable data is more complicated than a Json string, the Json being the main searchable body that is parsed. Below is a diagram of the full data:
 	 *  | int32 "Version" | int32 "Size" | TMap "Lookup Table" | Json String |
@@ -1983,7 +2063,11 @@ TSharedPtr< FJsonObject > FFindInBlueprintSearchManager::ConvertJsonStringToObje
 	int32 SizeOfData;
 	FBufferReader ReaderStream((void*)*InJsonString, InJsonString.Len() * sizeof(TCHAR), false);
 
-	int32 Version = FiBSerializationHelpers::Deserialize<int32>(ReaderStream);
+	int32 Version = 0;
+	if (bInIsVersioned)
+	{
+		FiBSerializationHelpers::Deserialize<int32>(ReaderStream);
+	}
 
  	// Read, as a byte string, the number of characters composing the Lookup Table for the Json.
 	SizeOfData = FiBSerializationHelpers::Deserialize<int32>(ReaderStream);

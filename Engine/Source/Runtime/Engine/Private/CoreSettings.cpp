@@ -108,6 +108,8 @@ UGarbageCollectionSettings::UGarbageCollectionSettings()
 	NumRetriesBeforeForcingGC = 0;
 	MaxObjectsNotConsideredByGC = 0;
 	SizeOfPermanentObjectPool = 0;
+	MaxObjectsInEditor = 12 * 1024 * 1024;
+	MaxObjectsInGame = 2 * 1024 * 1024;
 }
 
 void UGarbageCollectionSettings::PostInitProperties()

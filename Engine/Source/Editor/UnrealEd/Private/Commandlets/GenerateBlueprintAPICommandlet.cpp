@@ -442,7 +442,7 @@ static UBlueprint* GenerateBlueprintAPIUtils::MakeTempBlueprint(UClass* ParentCl
 		}
 
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(MadeBlueprint);
-		MadeBlueprint->SetFlags(RF_RootSet); // to keep the BP from being garbage collected
+		MadeBlueprint->AddToRoot(); // to keep the BP from being garbage collected
 		FKismetEditorUtilities::CompileBlueprint(MadeBlueprint);
 		ClassBlueprints.Add(ParentClass, MadeBlueprint);
 	}

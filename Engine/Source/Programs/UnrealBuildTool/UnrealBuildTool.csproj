@@ -134,6 +134,8 @@
     <Compile Include="UWP\UWPDeploy.cs" />
     <Compile Include="UWP\UWPProjectGenerator.cs" />
     <Compile Include="UWP\UWPToolChain.cs" />
+    <Compile Include="Windows\WindowsDeploy.cs" />
+    <Compile Include="Windows\WinResources.cs" />
     <Compile Include="WinRT\UEBuildWinRT.cs" />
     <Compile Include="WinRT\WinRTToolChain.cs" />
     <Compile Include="WinRT\WinRTDeploy.cs" />

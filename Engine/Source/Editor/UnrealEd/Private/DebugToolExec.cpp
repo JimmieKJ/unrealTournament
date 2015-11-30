@@ -150,7 +150,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if (foundObj != NULL)
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || (!foundObj->IsTemplate() && (foundObj->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
+			if (!GIsEditor || (!foundObj->IsTemplate() && foundObj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor)))
 			{
 				EditObject(foundObj, true);
 			}
@@ -175,7 +175,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if (foundObj != NULL)
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || (!foundObj->IsTemplate() && (foundObj->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
+			if (!GIsEditor || (!foundObj->IsTemplate() && foundObj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor)))
 			{
 				EditObject(foundObj, false);
 			}
@@ -256,7 +256,7 @@ bool FDebugToolExec::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar 
 		if( Found )
 		{
 			// not allowed in the editor unless it is a PIE object as this command can have far reaching effects such as impacting serialization
-			if (!GIsEditor || (!Found->IsTemplate() && (Found->GetOutermost()->PackageFlags & PKG_PlayInEditor)))
+			if (!GIsEditor || (!Found->IsTemplate() && Found->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor)))
 			{
 				EditObject(Found, true);
 			}

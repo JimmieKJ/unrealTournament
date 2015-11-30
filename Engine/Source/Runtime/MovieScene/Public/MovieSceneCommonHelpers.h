@@ -2,11 +2,19 @@
 
 #pragma once
 
+#include "KeyParams.h"
+
 class MOVIESCENE_API MovieSceneHelpers
 {
 public:
+
 	/**
-	 * Gets the sections that were traversed over between the current time and the previous time
+	 * Gets the sections that were traversed over between the current time and the previous time, including overlapping sections
+	 */
+	static TArray<UMovieSceneSection*> GetAllTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime );
+
+	/**
+	 * Gets the sections that were traversed over between the current time and the previous time, excluding overlapping sections (highest wins)
 	 */
 	static TArray<UMovieSceneSection*> GetTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime );
 
@@ -41,6 +49,15 @@ public:
 	 * @param Mobility The mobility of the runtime object
 	 */
 	static void SetRuntimeObjectMobility(UObject* Object, EComponentMobility::Type ComponentMobility = EComponentMobility::Movable);
+
+	/*
+	 * Set the key interpolation
+	 *
+	 * @param InCurve The curve that contains the key handle to set
+	 * @param InKeyHandle The key handle to set
+	 * @param InInterpolation The interpolation to set
+	 */
+	static void SetKeyInterpolation(FRichCurve& InCurve, FKeyHandle InKeyHandle, EMovieSceneKeyInterpolation InKeyInterpolation);
 };
 
 /**
@@ -119,7 +136,7 @@ public:
 	 * @param InValue   The value to set
 	 */
 	template <typename ValueType>
-	void SetCurrentValue(const UObject* Object, ValueType InValue)
+	void SetCurrentValue(const UObject* Object, const ValueType& InValue)
 	{
 		FPropertyAndFunction PropAndFunction = RuntimeObjectToFunctionMap.FindRef(Object);
 

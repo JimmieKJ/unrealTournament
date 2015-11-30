@@ -233,7 +233,7 @@ void UBehaviorTreeGraph::UpdateDeprecatedNodes()
 			// UBTTask_RunBehavior is now handled by dedicated graph node
 			if (Node->NodeInstance && Node->NodeInstance->IsA(UBTTask_RunBehavior::StaticClass()))
 			{
-				UBehaviorTreeGraphNode* NewNode = Cast<UBehaviorTreeGraphNode>(StaticDuplicateObject(Node, this, TEXT(""), RF_AllFlags, UBehaviorTreeGraphNode_SubtreeTask::StaticClass()));
+				UBehaviorTreeGraphNode* NewNode = Cast<UBehaviorTreeGraphNode>(StaticDuplicateObject(Node, this, NAME_None, RF_AllFlags, UBehaviorTreeGraphNode_SubtreeTask::StaticClass()));
 				check(NewNode);
 
 				ReplaceNodeConnections(Node, NewNode);
@@ -1059,6 +1059,21 @@ void UBehaviorTreeGraph::RebuildExecutionOrder()
 				ExecutionIndex++;
 
 				BTGraphHelpers::RebuildExecutionOrder(Node, BTNode, &ExecutionIndex, TreeDepth);
+			}
+		}
+	}
+}
+
+void UBehaviorTreeGraph::RebuildChildOrder(UEdGraphNode* ParentNode)
+{
+	if (ParentNode)
+	{
+		for (int32 PinIdx = 0; PinIdx < ParentNode->Pins.Num(); PinIdx++)
+		{
+			UEdGraphPin* Pin = ParentNode->Pins[PinIdx];
+			if (Pin->Direction == EGPD_Output)
+			{
+				Pin->LinkedTo.Sort(FCompareNodeXLocation());
 			}
 		}
 	}

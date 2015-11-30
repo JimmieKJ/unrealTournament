@@ -413,7 +413,7 @@ bool FSteamVRHMD::GetTrackedObjectOrientationAndPosition(uint32 DeviceId, FQuat&
 {
 	bool bHasValidPose = false;
 
-	if (DeviceId >= 0 && DeviceId < vr::k_unMaxTrackedDeviceCount)
+	if (DeviceId < vr::k_unMaxTrackedDeviceCount)
 	{
 		CurrentOrientation = TrackingFrame.DeviceOrientation[DeviceId];
 		CurrentPosition = TrackingFrame.DevicePosition[DeviceId];

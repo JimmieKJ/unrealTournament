@@ -15,8 +15,6 @@
 #include "LevelEditor.h"
 #endif // WITH_EDITOR
 
-DEFINE_LOG_CATEGORY(LogGameplayDebugger);
-
 #define LOCTEXT_NAMESPACE "FGameplayDebugger"
 FGameplayDebuggerSettings GameplayDebuggerSettings(class AGameplayDebuggingReplicator* Replicator)
 {
@@ -69,6 +67,9 @@ IMPLEMENT_MODULE(FGameplayDebugger, GameplayDebugger)
 // This code will execute after your module is loaded into memory (but after global variables are initialized, of course.)
 void FGameplayDebugger::StartupModule()
 { 
+	//EMIT_CUSTOM_WARNING("/Engine/Source/Developer/GameplayDebugger module is deprecated and it's going to be removed with next UE4 version. Please use GameplayDebuggerPlugin instead.");
+	//UE_LOG(LogGameplayDebugger, Warning, TEXT("/Engine/Source/Developer/GameplayDebugger module is deprecated and it's going to be removed with next UE4 version. Please use GameplayDebuggerPlugin instead."));
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	if (GEngine)
 	{
@@ -616,9 +617,12 @@ bool FGameplayDebugger::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& A
 				bHandled = true;
 			}
 		}
-		else if (!Replicator->IsToolCreated())
+		else
 		{
-			Replicator->CreateTool();
+			if (Replicator->IsToolCreated() == false)
+			{
+				Replicator->CreateTool();
+			}
 			Replicator->EnableTool();
 			bHandled = true;
 		}

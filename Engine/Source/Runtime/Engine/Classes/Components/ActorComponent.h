@@ -127,7 +127,7 @@ public:
 	UPROPERTY()
 	uint32 bInstanceComponent_DEPRECATED:1;
 
-	/** Whether to the component is activated at creation or must be explicitly activated. */
+	/** Whether the component is activated at creation or must be explicitly activated. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Activation)
 	uint32 bAutoActivate:1;
 
@@ -473,16 +473,9 @@ public:
 	 * @param InWorld - The world to register the component with.
 	 */
 	void RegisterComponentWithWorld(UWorld* InWorld);
-	
-private:
-	/**
-	 * Conditionally calls Tick if bRegistered == true and a bunch of other criteria are met
-	 * @param DeltaTime - The time since the last tick.
-	 * @param TickType - Type of tick that we are running
-	 * @param ThisTickFunction - the tick function that we are running
-	 */
-	void ConditionalTickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction &ThisTickFunction);
 
+private:
+	
 	/** Friend for access to ConditionalTickComponent(). */
 	friend struct FActorComponentTickFunction;
 

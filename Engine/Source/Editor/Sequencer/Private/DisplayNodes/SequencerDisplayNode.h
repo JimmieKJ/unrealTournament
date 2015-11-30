@@ -138,9 +138,9 @@ public:
 	/**
 	 * Set the node's display name.
 	 *
-	 * @param DisplayName the display name to set.
+	 * @param NewDisplayName the display name to set.
 	 */
-	virtual void SetDisplayName(const FText& DisplayName) = 0;
+	virtual void SetDisplayName(const FText& NewDisplayName) = 0;
 
 	/**
 	 * Generates a container widget for tree display in the animation outliner portion of the track area
@@ -313,6 +313,14 @@ public:
 
 	/** Get the key grouping for the specified section index */
 	TSharedRef<FGroupedKeyArea> GetKeyGrouping(int32 InSectionIndex);
+
+public:
+
+	/** Temporarily disable dynamic regeneration of key groupings. This prevents overlapping key groups from being amalgamated during drags. Key times will continue to update correctly. */
+	static void DisableKeyGoupingRegeneration();
+
+	/** Re-enable dynamic regeneration of key groupings */
+	static void EnableKeyGoupingRegeneration();
 
 private:
 

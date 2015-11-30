@@ -400,6 +400,42 @@ void UAIPerceptionSystem::OnListenerRemoved(const FPerceptionListener& NewListen
 	}
 }
 
+void UAIPerceptionSystem::OnListenerForgetsActor(const UAIPerceptionComponent& Listener, AActor& ActorToForget)
+{
+	const FPerceptionListenerID ListenerId = Listener.GetListenerId();
+
+	if (ListenerId != FPerceptionListenerID::InvalidID())
+	{
+		FPerceptionListener& ListenerEntry = ListenerContainer[ListenerId];
+		
+		for (UAISense* Sense : Senses)
+		{
+			if (Sense != nullptr && Sense->NeedsNotificationOnForgetting() && ListenerEntry.HasSense(Sense->GetSenseID()))
+			{
+				Sense->OnListenerForgetsActor(ListenerEntry, ActorToForget);
+			}
+		}
+	}
+}
+
+void UAIPerceptionSystem::OnListenerForgetsAll(const UAIPerceptionComponent& Listener)
+{
+	const FPerceptionListenerID ListenerId = Listener.GetListenerId();
+
+	if (ListenerId != FPerceptionListenerID::InvalidID())
+	{
+		FPerceptionListener& ListenerEntry = ListenerContainer[ListenerId];
+
+		for (UAISense* Sense : Senses)
+		{
+			if (Sense != nullptr && Sense->NeedsNotificationOnForgetting() && ListenerEntry.HasSense(Sense->GetSenseID()))
+			{
+				Sense->OnListenerForgetsAll(ListenerEntry);
+			}
+		}
+	}
+}
+
 void UAIPerceptionSystem::RegisterDelayedStimulus(FPerceptionListenerID ListenerId, float Delay, AActor* Instigator, const FAIStimulus& Stimulus)
 {
 	FDelayedStimulus DelayedStimulus;

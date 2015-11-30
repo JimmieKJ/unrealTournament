@@ -880,10 +880,10 @@ public:
 	uint32 GetPolyAreaID(NavNodeRef PolyID) const;
 
 	/** Sets area ID for the specified polygon. */
-	void SetPolyAreaID(NavNodeRef PolyID, uint8 AreaID);
+	void SetPolyArea(NavNodeRef PolyID, TSubclassOf<UNavArea> AreaClass);
 
 	/** Sets area ID for the specified polygons */
-	void SetPolyArrayAreaID(const TArray<FNavPoly>& Polys, uint8 AreaID);
+	void SetPolyArrayArea(const TArray<FNavPoly>& Polys, TSubclassOf<UNavArea> AreaClass);
 
 	/** Retrieves poly and area flags for specified polygon */
 	bool GetPolyFlags(NavNodeRef PolyID, uint16& PolyFlags, uint16& AreaFlags) const;
@@ -1024,6 +1024,13 @@ private:
 
 private:
 	static const FRecastQueryFilter* NamedFilters[ERecastNamedFilter::NamedFiltersCount];
+
+	// DEPRECATED FUNCTIONS
+public:
+	DEPRECATED(4.11, "Function was changed to SetPolyArea, using AreaClass pointer instead of Id")
+	void SetPolyAreaID(NavNodeRef PolyID, uint8 AreaID);
+	DEPRECATED(4.11, "Function was changed to SetPolyArrayArea, using AreaClass pointer instead of Id")
+	void SetPolyArrayAreaID(const TArray<FNavPoly>& Polys, uint8 AreaID);
 
 #endif // WITH_RECAST
 };

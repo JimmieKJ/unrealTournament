@@ -26,6 +26,12 @@ enum class EAsyncExecution
  * Template for setting a promise's value from a function.
  */
 template<typename ResultType>
+inline void SetPromise(TPromise<ResultType>& Promise, TFunction<ResultType()> Function)
+{
+	Promise.SetValue(Function());
+}
+
+template<typename ResultType>
 inline void SetPromise(TPromise<ResultType>& Promise, TFunctionRef<ResultType()> Function)
 {
 	Promise.SetValue(Function());
@@ -35,6 +41,13 @@ inline void SetPromise(TPromise<ResultType>& Promise, TFunctionRef<ResultType()>
 /**
  * Template for setting a promise's value from a function (specialization for void results).
  */
+template<>
+inline void SetPromise(TPromise<void>& Promise, TFunction<void()> Function)
+{
+	Function();
+	Promise.SetValue();
+}
+
 template<>
 inline void SetPromise(TPromise<void>& Promise, TFunctionRef<void()> Function)
 {

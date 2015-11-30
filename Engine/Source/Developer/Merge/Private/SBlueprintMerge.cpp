@@ -329,7 +329,7 @@ void SBlueprintMerge::OnStartMerge()
 
 			UPackage* TransientPackage = GetTransientPackage();
 			Data.BlueprintLocal = Cast<const UBlueprint>(StaticDuplicateObject(LocalBlueprint, TransientPackage,
-				*MakeUniqueObjectName(TransientPackage, LocalBlueprint->GetClass(), LocalBlueprint->GetFName()).ToString()));
+				MakeUniqueObjectName(TransientPackage, LocalBlueprint->GetClass(), LocalBlueprint->GetFName())));
 		}
 		else
 		{

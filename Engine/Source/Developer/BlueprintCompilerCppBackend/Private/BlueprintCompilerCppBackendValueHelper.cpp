@@ -35,7 +35,7 @@ void FEmitDefaultValueHelper::OuterGenerate(FEmitterLocalContext& Context
 
 	if (Property->HasAnyPropertyFlags(CPF_EditorOnly | CPF_Transient))
 	{
-		UE_LOG(LogK2Compiler, Log, TEXT("FEmitDefaultValueHelper Skip EditorOnly or Transient property: %s"), *Property->GetPathName());
+		UE_LOG(LogK2Compiler, Verbose, TEXT("FEmitDefaultValueHelper Skip EditorOnly or Transient property: %s"), *Property->GetPathName());
 		return;
 	}
 
@@ -58,27 +58,12 @@ void FEmitDefaultValueHelper::OuterGenerate(FEmitterLocalContext& Context
 			else if (Property->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPrivate) || (!bAllowProtected && Property->HasAnyPropertyFlags(CPF_NativeAccessSpecifierProtected)))
 			{
 				ensure(EPropertyAccessOperator::None != AccessOperator);
-				
-				auto GenerateGetProperty = [](const UProperty* InProperty) -> FString
-				{
-					check(InProperty);
-					const UStruct* OwnerStruct = InProperty->GetOwnerStruct();
-					const FString OwnerName = FEmitHelper::GetCppName(OwnerStruct);
-					const FString OwnerPath = OwnerName + (OwnerStruct->IsA<UClass>() ? TEXT("::StaticClass()") : TEXT("::StaticStruct()"));
-					return FString::Printf(TEXT("%s->FindPropertyByName(FName(TEXT(\"%s\")))"), *OwnerPath, *FEmitHelper::GetCppName(InProperty));
-				};
-				const FString PropertyObject = GenerateGetProperty(Property); //X::StaticClass()->FindPropertyByName(GET_MEMBER_NAME_CHECKED(X, X))
-
-				const uint32 CppTemplateTypeFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName
-					| EPropertyExportCPPFlags::CPPF_NoConst | EPropertyExportCPPFlags::CPPF_NoRef | EPropertyExportCPPFlags::CPPF_NoStaticArray
-					| EPropertyExportCPPFlags::CPPF_BlueprintCppBackend;
-				const FString TypeDeclaration = Context.ExportCppDeclaration(Property, EExportedDeclaration::Parameter, CppTemplateTypeFlags, true);
-
 				const FString OperatorStr = (EPropertyAccessOperator::Dot == AccessOperator) ? TEXT("&") : TEXT("");
-				const FString ContainerStr = (EPropertyAccessOperator::None == AccessOperator) ? TEXT("this") : FString::Printf(TEXT("%s(%s)"), *OperatorStr, *OuterPath);
+				const FString ContainerStr = (EPropertyAccessOperator::None == AccessOperator) ? TEXT("this") : OuterPath;
+				const FString StaticArrayIndexArg = FString::Printf(TEXT(", %d"), ArrayIndex);
+				const FString GetPtrStr = FEmitHelper::AccessInaccessibleProperty(Context, Property, ContainerStr, OperatorStr, StaticArrayIndexArg);
 				PathToMember = Context.GenerateUniqueLocalName();
-				Context.AddLine(FString::Printf(TEXT("auto& %s = *(%s->ContainerPtrToValuePtr<%s>(%s, %d));")
-					, *PathToMember, *PropertyObject, *TypeDeclaration, *ContainerStr, ArrayIndex));
+				Context.AddLine(FString::Printf(TEXT("auto& %s = %s;"), *PathToMember, *GetPtrStr));
 			}
 			else
 			{
@@ -190,6 +175,8 @@ void FEmitDefaultValueHelper::InnerGenerate(FEmitterLocalContext& Context, const
 			if (!bComplete)
 			{
 				const FString LocalPathToMember = FString::Printf(TEXT("%s[%d]"), *PathToMember, Index);
+
+				// There is no point in doing diff with a "clean" struct, since we don't know what is really set by the native constructor.
 				InnerGenerate(Context, ArrayProperty->Inner, LocalPathToMember, LocalValuePtr, nullptr, true);
 			}
 		}
@@ -388,16 +375,71 @@ FString FEmitDefaultValueHelper::HandleNonNativeComponent(FEmitterLocalContext& 
 
 struct FDependenciesHelper
 {
+private:
+	// Keep sync with FTypeSingletonCache::GenerateSingletonName
+	static FString GenerateZConstructor(UField* Item)
+	{
+		FString Result;
+		if (!ensure(Item))
+		{
+			return Result;
+		}
+		
+		for (UObject* Outer = Item; Outer; Outer = Outer->GetOuter())
+		{
+			if (!Result.IsEmpty())
+			{
+				Result = TEXT("_") + Result;
+			}
+
+			if (Cast<UClass>(Outer) || Cast<UScriptStruct>(Outer))
+			{
+				FString OuterName = FEmitHelper::GetCppName(CastChecked<UField>(Outer), true);
+				Result = OuterName + Result;
+
+				// Structs can also have UPackage outer.
+				if (Cast<UClass>(Outer) || Cast<UPackage>(Outer->GetOuter()))
+				{
+					break;
+				}
+			}
+			else
+			{
+				Result = Outer->GetName() + Result;
+			}
+		}
+
+		// Can't use long package names in function names.
+		if (Result.StartsWith(TEXT("/Script/"), ESearchCase::CaseSensitive))
+		{
+			Result = FPackageName::GetShortName(Result);
+		}
+
+		const FString ClassString = Item->IsA<UClass>() ? TEXT("UClass") : TEXT("UScriptStruct");
+		const FString PostFix = Item->IsA<UClass>() ? TEXT("_NoRegister") : TEXT("");
+		return FString(TEXT("Z_Construct_")) + ClassString + TEXT("_") + Result + PostFix + TEXT("()");
+	}
+public:
 	static void AddDependenciesInConstructor(FEmitterLocalContext& Context)
 	{
+		const bool bUseZConstructorInGeneratedCode = true;
 		if (Context.Dependencies.ConvertedClasses.Num())
 		{
 			Context.AddLine(TEXT("// List of all referenced converted classes"));
 		}
 		for (auto LocStruct : Context.Dependencies.ConvertedClasses)
 		{
-			Context.AddLine(FString::Printf(TEXT("CastChecked<UDynamicClass>(GetClass())->ReferencedConvertedFields.Add(%s::StaticClass());")
-				, *FEmitHelper::GetCppName(LocStruct, true)));
+			FString ClassConstructor;
+			if (bUseZConstructorInGeneratedCode)
+			{
+				ClassConstructor = GenerateZConstructor(Context.Dependencies.FindOriginalClass(LocStruct));
+				Context.AddLine(FString::Printf(TEXT("extern UClass* %s;"), *ClassConstructor));
+			}
+			else
+			{
+				ClassConstructor = FEmitHelper::GetCppName(LocStruct, true) + TEXT("::StaticClass()");
+			}
+			Context.AddLine(FString::Printf(TEXT("CastChecked<UDynamicClass>(GetClass())->ReferencedConvertedFields.Add(%s);"), *ClassConstructor));
 		}
 
 		if (Context.Dependencies.ConvertedStructs.Num())
@@ -406,8 +448,17 @@ struct FDependenciesHelper
 		}
 		for (auto LocStruct : Context.Dependencies.ConvertedStructs)
 		{
-			Context.AddLine(FString::Printf(TEXT("CastChecked<UDynamicClass>(GetClass())->ReferencedConvertedFields.Add(%s::StaticStruct());")
-				, *FEmitHelper::GetCppName(LocStruct)));
+			FString StructConstructor;
+			if (bUseZConstructorInGeneratedCode)
+			{
+				StructConstructor = GenerateZConstructor(LocStruct);
+				Context.AddLine(FString::Printf(TEXT("extern UScriptStruct* %s;"), *StructConstructor));
+			}
+			else
+			{
+				StructConstructor = FEmitHelper::GetCppName(LocStruct, true) + TEXT("::StaticStruct()");
+			}
+			Context.AddLine(FString::Printf(TEXT("CastChecked<UDynamicClass>(GetClass())->ReferencedConvertedFields.Add(%s);"), *StructConstructor));
 		}
 
 		if (Context.Dependencies.Assets.Num())
@@ -416,25 +467,48 @@ struct FDependenciesHelper
 		}
 		for (auto LocAsset : Context.Dependencies.Assets)
 		{
-			const FString AssetStr = Context.FindGloballyMappedObject(LocAsset, nullptr, true, false);
+			const FString AssetStr = Context.FindGloballyMappedObject(LocAsset, UObject::StaticClass(), true, false);
 			Context.AddLine(FString::Printf(TEXT("CastChecked<UDynamicClass>(GetClass())->UsedAssets.Add(%s);"), *AssetStr));
 		}
 	}
 
 	static void AddStaticFunctionsForDependencies(FEmitterLocalContext& Context)
 	{
-		auto OriginalClass = Context.GetCurrentlyGeneratedClass();
+		auto SourceClass = Context.GetCurrentlyGeneratedClass();
+		auto OriginalClass = Context.Dependencies.FindOriginalClass(SourceClass);
 		const FString CppClassName = FEmitHelper::GetCppName(OriginalClass);
+		
 
 		// __StaticDependenciesAssets
-		Context.AddLine(FString::Printf(TEXT("void %s::__StaticDependenciesAssets(TArray<FName>& OutPackagePaths)"), *CppClassName));
+		Context.AddLine(FString::Printf(TEXT("void %s::__StaticDependenciesAssets(TArray<FBlueprintDependencyData>& AssetsToLoad)"), *CppClassName));
 		Context.AddLine(TEXT("{"));
 		Context.IncreaseIndent();
 
 		for (UObject* LocAsset : Context.Dependencies.Assets)
 		{
-			const FString PakagePath = LocAsset->GetOutermost()->GetPathName();
-			Context.AddLine(FString::Printf(TEXT("OutPackagePaths.Add(TEXT(\"%s\"));"), *PakagePath));
+			auto GetConvertedClass = [&](const UClass* AssetType) -> const UClass*
+			{
+				const UBlueprintGeneratedClass* BPGC = Cast<const UBlueprintGeneratedClass>(AssetType);
+				if (AssetType->IsChildOf<UUserDefinedEnum>())
+				{
+					return UEnum::StaticClass();
+				}
+				else if (AssetType->IsChildOf<UUserDefinedStruct>())
+				{
+					return UScriptStruct::StaticClass();
+				}
+				else if (BPGC && Context.Dependencies.WillClassBeConverted(BPGC))
+				{
+					return UDynamicClass::StaticClass();
+				}
+				return AssetType;
+			};
+			const UClass* ClassToUse = GetConvertedClass(LocAsset->GetClass());
+			Context.AddLine(FString::Printf(TEXT("AssetsToLoad.Add({FName(TEXT(\"%s\")), FName(TEXT(\"%s\")), FName(TEXT(\"%s\")), FName(TEXT(\"%s\"))});")
+				, *LocAsset->GetOutermost()->GetPathName()
+				, *LocAsset->GetName()
+				, *ClassToUse->GetOutermost()->GetPathName()
+				, *ClassToUse->GetName()));
 		}
 
 		Context.DecreaseIndent();
@@ -446,43 +520,14 @@ struct FDependenciesHelper
 		Context.AddLine(TEXT("{"));
 		Context.IncreaseIndent();
 
-		{
-			// __StaticDependenciesAssets
-			Context.DecreaseIndent();
-			Context.AddLine(TEXT("#if WITH_EDITOR"));
-			Context.IncreaseIndent();
-			Context.AddLine(TEXT("static UField* __StaticCreateClass()"));
-			Context.AddLine(TEXT("{"));
-			Context.IncreaseIndent();
-			Context.AddLine(FString::Printf(TEXT("return CastChecked<UDynamicClass>(%s::StaticClass());"), *FEmitHelper::GetCppName(OriginalClass, true)));
-			Context.DecreaseIndent();
-			Context.AddLine(TEXT("}"));
-			Context.DecreaseIndent();
-			Context.AddLine(TEXT("#endif //WITH_EDITOR"));
-			Context.IncreaseIndent();
-		}
-
 		Context.AddLine(FString::Printf(TEXT("%s()"), *RegisterHelperName));
 		Context.AddLine(TEXT("{"));
 		Context.IncreaseIndent();
 
 		Context.AddLine(FString::Printf(
 			TEXT("FConvertedBlueprintsDependencies::Get().RegisterClass(TEXT(\"%s\"), &%s::__StaticDependenciesAssets);")
-			, *OriginalClass->GetName()
-			, *CppClassName
+			, *OriginalClass->GetOutermost()->GetPathName()
 			, *CppClassName));
-
-		{
-			Context.DecreaseIndent();
-			Context.AddLine(TEXT("#if WITH_EDITOR"));
-			Context.IncreaseIndent();
-
-			Context.AddLine(TEXT("FConvertedBlueprintsDependencies::Get().RegisterClass(&__StaticCreateClass);"));
-
-			Context.DecreaseIndent();
-			Context.AddLine(TEXT("#endif //WITH_EDITOR"));
-			Context.IncreaseIndent();
-		}
 
 		Context.DecreaseIndent();
 		Context.AddLine(TEXT("}"));
@@ -501,7 +546,12 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 	auto BPGC = CastChecked<UBlueprintGeneratedClass>(Context.GetCurrentlyGeneratedClass());
 	const FString CppClassName = FEmitHelper::GetCppName(BPGC);
 
-	Context.AddLine(FString::Printf(TEXT("%s::%s(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)"), *CppClassName, *CppClassName));
+	UClass* SuperClass = BPGC->GetSuperClass();
+	const bool bSuperHasOnlyDefaultConstructor = SuperClass && SuperClass->HasMetaData(TEXT("OnlyDefaultConstructorDeclared"));
+	Context.AddLine(FString::Printf(TEXT("%s::%s(const FObjectInitializer& ObjectInitializer) : Super(%s)")
+		, *CppClassName
+		, *CppClassName
+		, bSuperHasOnlyDefaultConstructor ? TEXT("") : TEXT("ObjectInitializer")));
 	Context.AddLine(TEXT("{"));
 	Context.IncreaseIndent();
 
@@ -535,7 +585,10 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 		Context.AddLine(TEXT("ensure(0 == CastChecked<UDynamicClass>(GetClass())->DynamicBindingObjects.Num());"));
 		Context.AddLine(TEXT("ensure(0 == CastChecked<UDynamicClass>(GetClass())->ComponentTemplates.Num());"));
 		Context.AddLine(TEXT("ensure(0 == CastChecked<UDynamicClass>(GetClass())->Timelines.Num());"));
+		Context.AddLine(TEXT("ensure(nullptr == CastChecked<UDynamicClass>(GetClass())->AnimClassImplementation);"));
 		Context.CurrentCodeType = FEmitterLocalContext::EGeneratedCodeType::SubobjectsOfClass;
+
+		FDependenciesHelper::AddDependenciesInConstructor(Context);
 
 		auto CreateAndInitializeClassSubobjects = [&](bool bCreate, bool bInitilize)
 		{
@@ -566,7 +619,8 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 		};
 		CreateAndInitializeClassSubobjects(true, false);
 		CreateAndInitializeClassSubobjects(false, true);
-		FDependenciesHelper::AddDependenciesInConstructor(Context);
+
+		FBackendHelperAnim::CreateAnimClassData(Context);
 
 		Context.DecreaseIndent();
 		Context.AddLine(TEXT("}"));
@@ -662,12 +716,17 @@ void FEmitDefaultValueHelper::GenerateConstructor(FEmitterLocalContext& Context)
 						{
 							const FString NativeVariablePropertyName = HandleNonNativeComponent(Context, Node, HandledProperties, NativeCreatedComponentProperties, nullptr, ComponentsToInit);
 
-							if (i == 0 && bNeedsRootComponentAssignment && Node->ComponentTemplate && Node->ComponentTemplate->IsA<USceneComponent>() && !NativeVariablePropertyName.IsEmpty())
+							if (bNeedsRootComponentAssignment && Node->ComponentTemplate && Node->ComponentTemplate->IsA<USceneComponent>() && !NativeVariablePropertyName.IsEmpty())
 							{
-								Context.AddLine(FString::Printf(TEXT("RootComponent = %s;"), *NativeVariablePropertyName));
+								// Only emit the explicit root component assignment statement if we're looking at the child BPGC that we're generating ctor code
+								// for. In all other cases, the root component will already be set up by a chained parent ctor call, so we avoid stomping it here.
+								if (i == 0)
+								{
+									Context.AddLine(FString::Printf(TEXT("RootComponent = %s;"), *NativeVariablePropertyName));
+									HandledProperties.Add(RootComponentProperty);
+								}
 
 								bNeedsRootComponentAssignment = false;
-								HandledProperties.Add(RootComponentProperty);
 							}
 						}
 					}
@@ -729,11 +788,19 @@ FString FEmitDefaultValueHelper::HandleClassSubobject(FEmitterLocalContext& Cont
 	FString LocalNativeName;
 	if (bCreate)
 	{
-		const FString OuterStr = Context.FindGloballyMappedObject(Object->GetOuter());
+		FString OuterStr = Context.FindGloballyMappedObject(Object->GetOuter());
 		if (OuterStr.IsEmpty())
 		{
-			ensure(false);
-			return FString();
+			OuterStr = HandleClassSubobject(Context, Object->GetOuter(), ListOfSubobjectsType, bCreate, bInitilize);
+			if (OuterStr.IsEmpty())
+			{
+				return FString();
+			}
+			const FString AlreadyCreatedObject = Context.FindGloballyMappedObject(Object);
+			if (!AlreadyCreatedObject.IsEmpty())
+			{
+				return AlreadyCreatedObject;
+			}
 		}
 
 		const bool AddAsSubobjectOfClass = Object->GetOuter() == Context.GetCurrentlyGeneratedClass();

@@ -1039,7 +1039,7 @@ void FBodyInstance::UpdatePhysicsFilterData()
 template <bool bCompileStatic>
 struct FInitBodiesHelper
 {
-	FInitBodiesHelper( TArray<FBodyInstance*> InBodies, TArray<FTransform> InTransforms, class UBodySetup* InBodySetup, class UPrimitiveComponent* InPrimitiveComp, class FPhysScene* InInRBScene, FBodyInstance::PhysXAggregateType InInAggregate = NULL, UPhysicsSerializer* InPhysicsSerializer = nullptr)
+	FInitBodiesHelper( TArray<FBodyInstance*>& InBodies, TArray<FTransform>& InTransforms, class UBodySetup* InBodySetup, class UPrimitiveComponent* InPrimitiveComp, class FPhysScene* InInRBScene, FBodyInstance::PhysXAggregateType InInAggregate = NULL, UPhysicsSerializer* InPhysicsSerializer = nullptr)
 	: Bodies(InBodies)
 	, Transforms(InTransforms)
 	, BodySetup(InBodySetup)
@@ -1083,8 +1083,8 @@ struct FInitBodiesHelper
 	}
 
 	//The arguments passed into InitBodies
-	TArray<FBodyInstance*> Bodies;   
-	TArray<FTransform> Transforms;
+	TArray<FBodyInstance*>& Bodies;   
+	TArray<FTransform>& Transforms;
 	class UBodySetup* BodySetup;
 	class UPrimitiveComponent* PrimitiveComp;
 	class FPhysScene* PhysScene;
@@ -1472,9 +1472,9 @@ struct FInitBodiesHelper
 			PhysScene->FlushDeferredActors();	//For now we do not actually defer over multiple frames. This needs better profiling to determine how useful it actually is.
 		}
 
-		PSyncActors.Empty();
-		PAsyncActors.Empty();
-		PDynamicActors.Empty();
+		PSyncActors.Reset();
+		PAsyncActors.Reset();
+		PDynamicActors.Reset();
 	}
 #endif
 
@@ -1658,13 +1658,20 @@ void FBodyInstance::InitBody(class UBodySetup* Setup, const FTransform& Transfor
 	check(Setup);
 	check(InRBScene);
 	
-	TArray<FBodyInstance*> Bodies;
-	TArray<FTransform> Transforms;
+	static TArray<FBodyInstance*> Bodies;
+	static TArray<FTransform> Transforms;
+
+	check(Bodies.Num() == 0);
+	check(Transforms.Num() == 0);
+
 	Bodies.Add(this);
 	Transforms.Add(Transform);
 
 	FInitBodiesHelper<false> InitBodiesHelper(Bodies, Transforms, Setup, PrimComp, InRBScene, InAggregate);
 	InitBodiesHelper.InitBodies();
+
+	Bodies.Reset();
+	Transforms.Reset();
 }
 
 TSharedPtr<TArray<ANSICHAR>> GetDebugDebugName(const UPrimitiveComponent* PrimitiveComp, const UBodySetup* BodySetup, FString& DebugName)
@@ -4759,7 +4766,7 @@ void FBodyInstance::GetFilterData_AssumesLocked(FShapeData& ShapeData, bool bFor
 	}
 }
 
-void FBodyInstance::InitStaticBodies(TArray<FBodyInstance*>& Bodies, TArray<FTransform>& Transforms, class UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, UPhysicsSerializer* PhysicsSerializer)
+void FBodyInstance::InitStaticBodies(const TArray<FBodyInstance*>& Bodies, const TArray<FTransform>& Transforms, class UBodySetup* BodySetup, class UPrimitiveComponent* PrimitiveComp, class FPhysScene* InRBScene, UPhysicsSerializer* PhysicsSerializer)
 {
 	SCOPE_CYCLE_COUNTER(STAT_StaticInitBodies);
 
@@ -4767,8 +4774,20 @@ void FBodyInstance::InitStaticBodies(TArray<FBodyInstance*>& Bodies, TArray<FTra
 	check(InRBScene);
 	check(Bodies.Num() > 0);
 
-	FInitBodiesHelper<true> InitBodiesHelper(Bodies, Transforms, BodySetup, PrimitiveComp, InRBScene, nullptr, PhysicsSerializer);
+	static TArray<FBodyInstance*> BodiesStatic;
+	static TArray<FTransform> TransformsStatic;
+
+	check(BodiesStatic.Num() == 0);
+	check(TransformsStatic.Num() == 0);
+
+	BodiesStatic = Bodies;
+	TransformsStatic = Transforms;
+
+	FInitBodiesHelper<true> InitBodiesHelper(BodiesStatic, TransformsStatic, BodySetup, PrimitiveComp, InRBScene, nullptr, PhysicsSerializer);
 	InitBodiesHelper.InitBodies();
+
+	BodiesStatic.Reset();
+	TransformsStatic.Reset();
 }
 
 void FBodyInstance::SetShapeFlags_AssumesLocked(TEnumAsByte<ECollisionEnabled::Type> UseCollisionEnabled, PxShape* PInShape, EPhysicsSceneType SceneType, const bool bUseComplexAsSimple)

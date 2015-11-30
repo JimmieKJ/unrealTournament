@@ -2,6 +2,8 @@
 
 #include "SequencerPrivatePCH.h"
 #include "SequencerCommonHelpers.h"
+#include "MovieSceneSection.h"
+#include "MovieSceneTrack.h"
 
 void SequencerHelpers::GetAllKeyAreas(TSharedPtr<FSequencerDisplayNode> DisplayNode, TSet<TSharedPtr<IKeyArea>>& KeyAreas)
 {
@@ -50,6 +52,41 @@ void SequencerHelpers::GetDescendantNodes(TSharedRef<FSequencerDisplayNode> Disp
 		Nodes.Add(ChildNode);
 
 		GetDescendantNodes(ChildNode, Nodes);
+	}
+}
+
+void SequencerHelpers::GetAllSections(TSharedRef<FSequencerDisplayNode> DisplayNode, TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections)
+{
+	TSet<TSharedRef<FSequencerDisplayNode> > AllNodes;
+	AllNodes.Add(DisplayNode);
+	GetDescendantNodes(DisplayNode, AllNodes);
+
+	for (auto NodeToCheck : AllNodes)
+	{
+		TSet<TSharedPtr<IKeyArea> > KeyAreas;
+		GetAllKeyAreas(NodeToCheck, KeyAreas);
+		
+		for (auto KeyArea : KeyAreas)
+		{
+			UMovieSceneSection* OwningSection = KeyArea->GetOwningSection();
+			if (OwningSection != nullptr)
+			{
+				Sections.Add(OwningSection);	
+			}
+		}
+
+		if (NodeToCheck->GetType() == ESequencerNode::Track)
+		{
+			TSharedRef<const FSequencerTrackNode> TrackNode = StaticCastSharedRef<const FSequencerTrackNode>( NodeToCheck );
+			UMovieSceneTrack* Track = TrackNode->GetTrack();
+			if (Track != nullptr)
+			{
+				for (auto Section : Track->GetAllSections())
+				{
+					Sections.Add(Section);
+				}
+			}
+		}
 	}
 }
 

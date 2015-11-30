@@ -100,7 +100,7 @@ public:
 	 * The accessed textures is used to determine which textures need be updated on the render thread
 	 * so they can be used by slate
 	 */
-	void ReleaseAccessedResources();
+	void BeginReleasingAccessedResources(bool bImmediatelyFlush);
 
 	/**
 	 * Updates texture atlases if needed
@@ -160,7 +160,6 @@ public:
 	FCachedRenderBuffers* FindOrCreateCachedBuffersForHandle(const TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe>& RenderHandle);
 	void ReleaseCachedRenderData(FSlateRenderDataHandle* InRenderHandle);
 	void ReleaseCachingResourcesFor(const ILayoutCache* Cacher);
-
 	/**
 	 * Releases rendering resources
 	 */
@@ -174,6 +173,11 @@ public:
 	void ReloadTextures();
 
 private:
+	/**
+	 * Gets the current accessed UObject tracking set.
+	 */
+	TSet<UObject*>& GetAccessedUObjects();
+
 	/**
 	 * Deletes resources created by the manager
 	 */
@@ -221,14 +225,30 @@ private:
 private:
 	/** Map of all active dynamic resources being used by brushes */
 	FDynamicResourceMap DynamicResourceMap;
-	/** Set of dynamic textures that are currently being accessed */
-	TSet<UTexture*> AccessedUTextures;
-	/** Set of dynamic materials that are current being accessed */
-	TSet<UMaterialInterface*> AccessedMaterials;
+	/**
+	 * All sets of accessed UObjects.  We have to track multiple sets, because a single set
+	 * needs to follow the set of objects through the renderer safely.  So we round robin
+	 * the buffers.
+	 */
+	TArray< TSet<UObject*>* > AllAccessedUObject;
+	/**
+	 * Tracks a pointer to the current accessed UObject set we're builing this frame, 
+	 * don't use this directly, use GetAccessedUObjects().
+	 */
+	TSet<UObject*>* CurrentAccessedUObject;
+	/**
+	 * Used accessed UObject sets are added to this queue from the Game Thread.
+	 * The RenderThread moves them onto the CleanAccessedObjectSets queue.
+	 */
+	TQueue< TSet<UObject*>* > DirtyAccessedObjectSets;
+	/**
+	 * The RenderThread moves previously dirty UObject sets onto this queue.
+	 */
+	TQueue< TSet<UObject*>* > CleanAccessedObjectSets;
 	/** List of old utexture resources that are free to use as new resources */
 	TArray< TSharedPtr<FSlateUTextureResource> > UTextureFreeList;
 	/** List of old dynamic resources that are free to use as new resources */
-	TArray< TSharedPtr<FSlateDynamicTextureResource> > DynamicTextureFreeList;\
+	TArray< TSharedPtr<FSlateDynamicTextureResource> > DynamicTextureFreeList;
 	/** List of old material resources that are free to use as new resources */
 	TArray< TSharedPtr<FSlateMaterialResource> > MaterialResourceFreeList;
 	/** Static Texture atlases which have been created */

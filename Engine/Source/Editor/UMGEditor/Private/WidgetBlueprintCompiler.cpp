@@ -223,9 +223,13 @@ void FWidgetBlueprintCompiler::CreateClassVariablesFromBlueprint()
 		}
 
 		FEdGraphPinType WidgetPinType(Schema->PC_Object, TEXT(""), Widget->GetClass(), false, false);
+		
+		// Always name the variable according to the underlying FName of the widget object
 		UProperty* WidgetProperty = CreateVariable(Widget->GetFName(), WidgetPinType);
 		if ( WidgetProperty != nullptr )
 		{
+			const FString VariableName = Widget->IsGeneratedName() ? Widget->GetName() : Widget->GetLabelText().ToString();
+			WidgetProperty->SetMetaData(TEXT("DisplayName"), *VariableName);
 			WidgetProperty->SetMetaData(TEXT("Category"), *Blueprint->GetName());
 			
 			WidgetProperty->SetPropertyFlags(CPF_BlueprintVisible);

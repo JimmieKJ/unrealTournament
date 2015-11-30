@@ -98,6 +98,10 @@ struct FVertexFactoryIntermediates
 
 	/** The texture coordinate at this vertex. */
 	float4 TexCoord;
+#if NUM_MATERIAL_TEXCOORDS >= 3 //Unflipped UVs are placed in UVs 2-3
+	/** A second UV set. Always non-UV flipped. Allows use of UV flipping with Normal maps etc. */
+	float4 TexCoord_Unflipped;
+#endif
 	/** The sprite tangent in world space (+V). */
 	float3 TangentUp;
 	/** The sprite tangent in world space (+U). */
@@ -263,6 +267,12 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 		Result.TexCoords[0] = Intermediates.TexCoord.xy;
 	#if NUM_MATERIAL_TEXCOORDS_VERTEX >= 2
 		Result.TexCoords[1] = Intermediates.TexCoord.zw;
+	#if NUM_MATERIAL_TEXCOORDS_VERTEX >= 3
+		Result.TexCoords[2] = Intermediates.TexCoord_Unflipped.xy;
+	#if NUM_MATERIAL_TEXCOORDS_VERTEX >= 4
+		Result.TexCoords[3] = Intermediates.TexCoord_Unflipped.zw;
+	#endif	// >= 4
+	#endif	// >= 3
 	#endif	// >= 2
 	#endif	// >= 1
 #endif	//NUM_MATERIAL_TEXCOORDS_VERTEX
@@ -419,7 +429,11 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates(FVertexFactoryInput In
 	float SubImageAV = floor( SubImageA * SpriteVF.SubImageSize.z );
 	float SubImageBV = floor( SubImageB * SpriteVF.SubImageSize.z );
 	Intermediates.TexCoord.xy = (float2( SubImageAH, SubImageAV ) + FlippedUV) * SpriteVF.SubImageSize.zw ;
-	Intermediates.TexCoord.zw = (float2( SubImageBH, SubImageBV ) + FlippedUV) * SpriteVF.SubImageSize.zw ;
+	Intermediates.TexCoord.zw = (float2(SubImageBH, SubImageBV) + FlippedUV) * SpriteVF.SubImageSize.zw;
+#if NUM_MATERIAL_TEXCOORDS >= 3
+	Intermediates.TexCoord_Unflipped.xy = (float2(SubImageAH, SubImageAV) + Input.TexCoord.xy) * SpriteVF.SubImageSize.zw;
+	Intermediates.TexCoord_Unflipped.zw = (float2(SubImageBH, SubImageBV) + Input.TexCoord.xy) * SpriteVF.SubImageSize.zw;
+#endif
 	Intermediates.SubImageLerp = SubImageLerp;
 
 	Intermediates.Color = Input.Color;

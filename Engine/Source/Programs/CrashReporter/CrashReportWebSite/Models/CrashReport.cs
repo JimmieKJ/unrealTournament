@@ -181,7 +181,8 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 					{
 						this.AffectedVersions.Add( Crash.BuildVersion );
 					}
-					if( !string.IsNullOrEmpty( Crash.Branch ) && Crash.Branch.StartsWith( "UE4" ) )
+					// Depot || Stream
+					if (!string.IsNullOrEmpty( Crash.Branch ) && ( Crash.Branch.StartsWith( "UE4" ) || Crash.Branch.StartsWith( "//UE4" ) ))
 					{
 						this.BranchesFoundIn.Add( Crash.Branch );
 					}
@@ -273,7 +274,16 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			{
 				if( !string.IsNullOrEmpty(BranchName) )
 				{
-					this.ToJiraBranches.Add( CrashReporterConstants.P4_DEPOT_PREFIX + BranchName );
+					// Stream
+					if (BranchName.StartsWith( "//UE4" ))
+					{
+						this.ToJiraBranches.Add( BranchName );
+					}
+					// Depot
+					else
+					{
+						this.ToJiraBranches.Add( CrashReporterConstants.P4_DEPOT_PREFIX + BranchName );
+					}
 				}
 			}
 

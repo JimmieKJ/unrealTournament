@@ -3,19 +3,11 @@
 #include "AIModulePrivate.h"
 #include "Actions/PawnAction_BlueprintBase.h"
 
-namespace
-{
-	FORCEINLINE bool HasBlueprintFunction(FName FuncName, const UObject* Ob, const UClass* StopAtClass)
-	{
-		return (Ob->GetClass()->FindFunctionByName(FuncName)->GetOuter() != StopAtClass);
-	}
-}
-
 UPawnAction_BlueprintBase::UPawnAction_BlueprintBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
 	UClass* StopAtClass = UPawnAction_BlueprintBase::StaticClass();
-	bWantsTick = HasBlueprintFunction(TEXT("ActionTick"), this, StopAtClass);
+	bWantsTick = BlueprintNodeHelpers::HasBlueprintFunction(TEXT("ActionTick"), *this, *StopAtClass);
 }
 
 void UPawnAction_BlueprintBase::Tick(float DeltaTime)

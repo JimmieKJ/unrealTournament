@@ -14,14 +14,6 @@ public:
 	virtual void Init();
 	virtual void Shutdown();
 
-	virtual void RHIGpuTimeBegin(uint32 Hash,bool bCompute) final override
-	{
-
-	}
-	virtual void RHIGpuTimeEnd(uint32 Hash,bool bCompute) final override
-	{
-
-	}
 	virtual FSamplerStateRHIRef RHICreateSamplerState(const FSamplerStateInitializerRHI& Initializer) final override
 	{ 
 		return new FRHISamplerState(); 
@@ -482,10 +474,6 @@ public:
 	{
 
 	}
-	virtual bool RHIIsDrawingViewport() final override
-	{ 
-		return false; 
-	}
 	virtual void RHIAcquireThreadOwnership() final override
 	{
 
@@ -788,18 +776,6 @@ public:
 	virtual void RHIBlockUntilGPUIdle() final override
 	{
 
-	}
-	virtual void RHISuspendRendering() final override
-	{
-
-	}
-	virtual void RHIResumeRendering() final override
-	{
-
-	}
-	virtual bool RHIIsRenderingSuspended() final override
-	{ 
-		return false; 
 	}
 	virtual bool RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate) final override
 	{ 

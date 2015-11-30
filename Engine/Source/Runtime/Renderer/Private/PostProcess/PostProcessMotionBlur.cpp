@@ -25,12 +25,10 @@ static TAutoConsoleVariable<int32> CVarMotionBlurFiltering(
 	ECVF_Cheat | ECVF_RenderThreadSafe);
 #endif
 
-static TAutoConsoleVariable<int32> CVarMotionBlurSmoothMax(
-	TEXT("r.MotionBlurSmoothMax"),
-	0,
-	TEXT("Useful developer variable\n")
-	TEXT("0: off (default, expected by the shader for better quality)\n")
-	TEXT("1: on"),
+static TAutoConsoleVariable<float> CVarMotionBlur2ndScale(
+	TEXT("r.MotionBlur2ndScale"),
+	1.0f,
+	TEXT(""),
 	ECVF_Cheat | ECVF_RenderThreadSafe);
 
 
@@ -296,8 +294,6 @@ public:
 	FShaderParameter PrevViewProjMatrix;
 	FShaderParameter TextureViewMad;
 	FShaderParameter MotionBlurParameters;
-	FShaderResourceParameter BoneMatrices0;
-	FShaderResourceParameter BoneMatrices1;
 
 	/** Initialization constructor. */
 	FPostProcessMotionBlurPS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -308,15 +304,13 @@ public:
 		PrevViewProjMatrix.Bind(Initializer.ParameterMap, TEXT("PrevViewProjMatrix"));
 		TextureViewMad.Bind(Initializer.ParameterMap, TEXT("TextureViewMad"));
 		MotionBlurParameters.Bind(Initializer.ParameterMap, TEXT("MotionBlurParameters"));
-		BoneMatrices0.Bind(Initializer.ParameterMap,TEXT("BoneMatrices0"));
-		BoneMatrices1.Bind(Initializer.ParameterMap,TEXT("BoneMatrices1"));
 	}
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DeferredParameters << PrevViewProjMatrix << TextureViewMad << MotionBlurParameters << BoneMatrices0 << BoneMatrices1;
+		Ar << PostprocessParameter << DeferredParameters << PrevViewProjMatrix << TextureViewMad << MotionBlurParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -408,9 +402,6 @@ public:
 				- MaxVelocity * 2 * AspectRatio);
 			SetShaderValue(Context.RHICmdList, ShaderRHI, MotionBlurParameters, MotionBlurParametersValue);
 		}
-
-		SetSRVParameter(Context.RHICmdList, ShaderRHI, BoneMatrices0, GPrevPerBoneMotionBlur.GetBoneDataVertexBuffer(0)->BoneBuffer.VertexBufferSRV);
-		SetSRVParameter(Context.RHICmdList, ShaderRHI, BoneMatrices1, GPrevPerBoneMotionBlur.GetBoneDataVertexBuffer(1)->BoneBuffer.VertexBufferSRV);
 	}
 
 	static const TCHAR* GetSourceFilename()
@@ -678,6 +669,7 @@ FPooledRenderTargetDesc FRCPassPostProcessMotionBlurRecombine::ComputeOutputDesc
 	Ret.Reset();
 	// we don't need the alpha channel and 32bit is faster and costs less memory
 	Ret.Format = PF_FloatRGB;
+	Ret.AutoWritable = false;
 	Ret.DebugName = TEXT("MotionBlurRecombine");
 
 	return Ret;
@@ -689,6 +681,34 @@ FIntPoint GetNumTiles16x16( FIntPoint PixelExtent )
 	uint32 TilesX = (PixelExtent.X + 15) / 16;
 	uint32 TilesY = (PixelExtent.Y + 15) / 16;
 	return FIntPoint( TilesX, TilesY );
+}
+
+FVector4 GetMotionBlurParameters( const FViewInfo& View, float Scale = 1.0f )
+{
+	const float TileSize = 16.0f;
+
+	const float SizeX = View.ViewRect.Width();
+	const float SizeY = View.ViewRect.Height();
+	const float AspectRatio = SizeY / SizeX;
+
+	const FSceneViewState* ViewState = (FSceneViewState*) View.State;
+	float MotionBlurTimeScale = ViewState ? ViewState->MotionBlurTimeScale : 1.0f;
+	float MotionBlurScale = 0.5f * MotionBlurTimeScale * View.FinalPostProcessSettings.MotionBlurAmount;
+
+	// 0:no 1:full screen width, percent conversion
+	float MaxVelocity = View.FinalPostProcessSettings.MotionBlurMax / 100.0f;
+
+	// Scale by 0.5 due to blur samples going both ways
+	float PixelScale = Scale * SizeX * 0.5f;
+
+	FVector4 MotionBlurParameters(
+		AspectRatio,
+		PixelScale * MotionBlurScale,			// Scale for pixels
+		PixelScale * MotionBlurScale / TileSize,// Scale for tiles
+		FMath::Abs( PixelScale ) * MaxVelocity	// Max velocity pixels
+	);
+
+	return MotionBlurParameters;
 }
 
 class FPostProcessVelocityFlattenCS : public FGlobalShader
@@ -715,6 +735,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
+		MotionBlurParameters.Bind(Initializer.ParameterMap, TEXT("MotionBlurParameters"));
 		OutVelocityFlat.Bind(Initializer.ParameterMap, TEXT("OutVelocityFlat"));
 		OutMaxTileVelocity.Bind(Initializer.ParameterMap, TEXT("OutMaxTileVelocity"));
 	}
@@ -727,12 +748,15 @@ public:
 		PostprocessParameter.SetCS(ShaderRHI, Context, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 
 		SetUniformBufferParameter(RHICmdList, ShaderRHI, GetUniformBufferParameter<FCameraMotionParameters>(), CreateCameraMotionParametersUniformBuffer(Context.View));
+
+		SetShaderValue(Context.RHICmdList, ShaderRHI, MotionBlurParameters, GetMotionBlurParameters( Context.View ) );
 	}
 	
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter;
+		Ar << MotionBlurParameters;
 		Ar << OutVelocityFlat;
 		Ar << OutMaxTileVelocity;
 		return bShaderHasOutdatedParameters;
@@ -740,6 +764,7 @@ public:
 
 private:
 	FPostProcessPassParameters	PostprocessParameter;
+	FShaderParameter			MotionBlurParameters;
 };
 
 IMPLEMENT_SHADER_TYPE(,FPostProcessVelocityFlattenCS,TEXT("PostProcessVelocityFlatten"),TEXT("VelocityFlattenMain"),SF_Compute);
@@ -914,7 +939,7 @@ class FPostProcessVelocityScatterVS : public FGlobalShader
 public:
 	FPostProcessPassParameters PostprocessParameter;
 	FShaderParameter DrawMax;
-	FShaderParameter VelocityScale;
+	FShaderParameter MotionBlurParameters;
 
 	/** Initialization constructor. */
 	FPostProcessVelocityScatterVS(const ShaderMetaType::CompiledShaderInitializerType& Initializer)
@@ -922,14 +947,14 @@ public:
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
 		DrawMax.Bind(Initializer.ParameterMap, TEXT("bDrawMax"));
-		VelocityScale.Bind( Initializer.ParameterMap, TEXT("VelocityScale") );
+		MotionBlurParameters.Bind( Initializer.ParameterMap, TEXT("MotionBlurParameters") );
 	}
 
 	// FShader interface.
 	virtual bool Serialize(FArchive& Ar) override
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
-		Ar << PostprocessParameter << DrawMax << VelocityScale;
+		Ar << PostprocessParameter << DrawMax << MotionBlurParameters;
 		return bShaderHasOutdatedParameters;
 	}
 
@@ -942,14 +967,7 @@ public:
 		PostprocessParameter.SetVS(ShaderRHI, Context, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 
 		SetShaderValue(Context.RHICmdList, ShaderRHI, DrawMax, bDrawMax);
-
-		{
-			const FSceneViewState* ViewState = (FSceneViewState*) Context.View.State;
-			const float MotionBlurTimeScale = ViewState ? ViewState->MotionBlurTimeScale : 1.0f;
-
-			const float ViewMotionBlurScale = 0.5f * MotionBlurTimeScale * Context.View.FinalPostProcessSettings.MotionBlurAmount;
-			SetShaderValue(Context.RHICmdList, ShaderRHI, VelocityScale, FVector4(ViewMotionBlurScale, ViewMotionBlurScale, 0, 0));
-		}
+		SetShaderValue(Context.RHICmdList, ShaderRHI, MotionBlurParameters, GetMotionBlurParameters( Context.View ) );
 	}
 
 	static const TCHAR* GetSourceFilename()
@@ -1101,6 +1119,7 @@ public:
 		: FGlobalShader(Initializer)
 	{
 		PostprocessParameter.Bind(Initializer.ParameterMap);
+		MotionBlurParameters.Bind(Initializer.ParameterMap, TEXT("MotionBlurParameters"));
 		OutScatteredMaxVelocity.Bind(Initializer.ParameterMap, TEXT("OutScatteredMaxVelocity"));
 	}
 
@@ -1109,6 +1128,7 @@ public:
 	{
 		bool bShaderHasOutdatedParameters = FGlobalShader::Serialize(Ar);
 		Ar << PostprocessParameter;
+		Ar << MotionBlurParameters;
 		Ar << OutScatteredMaxVelocity;
 		return bShaderHasOutdatedParameters;
 	}
@@ -1120,10 +1140,13 @@ public:
 		FGlobalShader::SetParameters(Context.RHICmdList, ShaderRHI, Context.View);
 
 		PostprocessParameter.SetCS(ShaderRHI, Context, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
+
+		SetShaderValue(Context.RHICmdList, ShaderRHI, MotionBlurParameters, GetMotionBlurParameters( Context.View ) );
 	}
 	
 private:
-	FPostProcessPassParameters PostprocessParameter;
+	FPostProcessPassParameters	PostprocessParameter;
+	FShaderParameter			MotionBlurParameters;
 };
 
 IMPLEMENT_SHADER_TYPE(,FPostProcessVelocityGatherCS,TEXT("PostProcessVelocityFlatten"),TEXT("VelocityGatherCS"),SF_Compute);
@@ -1157,7 +1180,8 @@ void FRCPassPostProcessVelocityGather::Process(FRenderingCompositePassContext& C
 
 	ComputeShader->SetParameters( Context );
 
-	DispatchComputeShader(Context.RHICmdList, *ComputeShader, TileCount.X, TileCount.Y, 1);
+	FIntPoint GroupCount = GetNumTiles16x16( TileCount );
+	DispatchComputeShader(Context.RHICmdList, *ComputeShader, GroupCount.X, GroupCount.Y, 1);
 
 	// un-set destination
 	Context.RHICmdList.SetUAVParameter( ComputeShader->GetComputeShader(), ComputeShader->OutScatteredMaxVelocity.GetBaseIndex(), NULL );
@@ -1222,7 +1246,7 @@ public:
 		return bShaderHasOutdatedParameters;
 	}
 
-	void SetParameters(const FRenderingCompositePassContext& Context)
+	void SetParameters(const FRenderingCompositePassContext& Context, float Scale)
 	{
 		const FPixelShaderRHIParamRef ShaderRHI = GetPixelShader();
 
@@ -1251,51 +1275,13 @@ public:
 
 				PostprocessParameter.SetPS( ShaderRHI, Context, 0, eFC_0000, Filters );
 			}
-			else if( CVarMotionBlurSmoothMax.GetValueOnRenderThread() )
-			{
-				FSamplerStateRHIParamRef Filters[] =
-				{
-					TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-					TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-					TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-					TStaticSamplerState<SF_Bilinear,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI(),
-				};
-
-				PostprocessParameter.SetPS( ShaderRHI, Context, 0, eFC_0000, Filters );
-			}
 			else
 			{
 				PostprocessParameter.SetPS(ShaderRHI, Context, TStaticSamplerState<SF_Point,AM_Clamp,AM_Clamp,AM_Clamp>::GetRHI());
 			}
 		}
 
-		TRefCountPtr<IPooledRenderTarget> InputPooledElement = Context.Pass->GetInput(ePId_Input0)->GetOutput()->RequestInput();
-
-		{
-			const float SizeX = Context.View.ViewRect.Width();
-			const float SizeY = Context.View.ViewRect.Height();
-		
-			const float AspectRatio = SizeX / SizeY;
-			const float InvAspectRatio = SizeY / SizeX;
-
-			const FSceneViewState* ViewState = (FSceneViewState*) Context.View.State;
-			const float MotionBlurTimeScale = ViewState ? ViewState->MotionBlurTimeScale : 1.0f;
-
-			const float ViewMotionBlurScale = 0.5f * MotionBlurTimeScale * Context.View.FinalPostProcessSettings.MotionBlurAmount;
-
-			// 0:no 1:full screen width
-			float MaxVelocity = Context.View.FinalPostProcessSettings.MotionBlurMax / 100.0f;
-			float InvMaxVelocity = 1.0f / MaxVelocity;
-
-			// *2 to convert to -1..1 -1..1 screen space
-			// / MaxFraction to map screenpos to -1..1 normalized MaxFraction
-			FVector4 MotionBlurParametersValue(
-				ViewMotionBlurScale,
-				AspectRatio,
-				MaxVelocity,
-				InvMaxVelocity);
-			SetShaderValue(Context.RHICmdList, ShaderRHI, MotionBlurParameters, MotionBlurParametersValue);
-		}
+		SetShaderValue(Context.RHICmdList, ShaderRHI, MotionBlurParameters, GetMotionBlurParameters( Context.View, Scale ) );
 	}
 
 	static const TCHAR* GetSourceFilename()
@@ -1313,14 +1299,14 @@ public:
 #define VARIATION1(A) typedef FPostProcessMotionBlurNewPS<A> FPostProcessMotionBlurNewPS##A; \
 	IMPLEMENT_SHADER_TYPE2(FPostProcessMotionBlurNewPS##A, SF_Pixel);
 
-VARIATION1(0)			VARIATION1(1)			VARIATION1(2)			VARIATION1(3)			VARIATION1(4)
+VARIATION1(1)			VARIATION1(2)			VARIATION1(3)			VARIATION1(4)
 #undef VARIATION1
 
 
 
 // @param Quality 0: visualize, 1:low, 2:medium, 3:high, 4:very high
 template< uint32 Quality >
-static void SetMotionBlurShaderNewTempl(const FRenderingCompositePassContext& Context)
+static void SetMotionBlurShaderNewTempl( const FRenderingCompositePassContext& Context, float Scale )
 {
 	TShaderMapRef< FPostProcessVS > VertexShader( Context.GetShaderMap() );
 	TShaderMapRef< FPostProcessMotionBlurNewPS< Quality > >	PixelShader( Context.GetShaderMap() );
@@ -1329,14 +1315,7 @@ static void SetMotionBlurShaderNewTempl(const FRenderingCompositePassContext& Co
 	SetGlobalBoundShaderState(Context.RHICmdList, Context.GetFeatureLevel(), BoundShaderState, GFilterVertexDeclaration.VertexDeclarationRHI, *VertexShader, *PixelShader);
 
 	VertexShader->SetParameters(Context);
-	PixelShader->SetParameters(Context);
-}
-
-FRCPassPostProcessMotionBlurNew::FRCPassPostProcessMotionBlurNew(uint32 InQuality) 
-	: Quality(InQuality)
-{
-	// internal error
-	check(Quality >= 1 && Quality <= 4);
+	PixelShader->SetParameters(Context, Scale);
 }
 
 void FRCPassPostProcessMotionBlurNew::Process(FRenderingCompositePassContext& Context)
@@ -1378,22 +1357,35 @@ void FRCPassPostProcessMotionBlurNew::Process(FRenderingCompositePassContext& Co
 	Context.RHICmdList.SetRasterizerState(TStaticRasterizerState<>::GetRHI());
 	Context.RHICmdList.SetDepthStencilState(TStaticDepthStencilState<false, CF_Always>::GetRHI());
 
+	float BlurScaleLUT[] =
+	{
+		1.0f - 0.5f / 4.0f,
+		1.0f - 0.5f / 6.0f,
+		1.0f - 0.5f / 8.0f,
+		1.0f - 0.5f / 16.0f,
+		1.0f /  4.0f * CVarMotionBlur2ndScale.GetValueOnRenderThread(),
+		1.0f /  6.0f * CVarMotionBlur2ndScale.GetValueOnRenderThread(),
+		1.0f /  8.0f * CVarMotionBlur2ndScale.GetValueOnRenderThread(),
+		1.0f / 16.0f * CVarMotionBlur2ndScale.GetValueOnRenderThread(),
+	};
+	float Scale = Pass >= 0 ? BlurScaleLUT[ (Pass * 4) + (Quality - 1) ] : 1.0f;
+	
 	if(Quality == 1)
 	{
-		SetMotionBlurShaderNewTempl<1>(Context);
+		SetMotionBlurShaderNewTempl<1>( Context, Scale );
 	}
 	else if(Quality == 2)
 	{
-		SetMotionBlurShaderNewTempl<2>(Context);
+		SetMotionBlurShaderNewTempl<2>( Context, Scale );
 	}
-	else if(Quality == 3)
+	else if(Quality == 3 || Pass > 0 )
 	{
-		SetMotionBlurShaderNewTempl<3>(Context);
+		SetMotionBlurShaderNewTempl<3>( Context, Scale );
 	}
 	else
 	{
 		check(Quality == 4);
-		SetMotionBlurShaderNewTempl<4>(Context);
+		SetMotionBlurShaderNewTempl<4>( Context, Scale );
 	}
 
 	TShaderMapRef<FPostProcessVS> VertexShader(Context.GetShaderMap());
@@ -1420,7 +1412,6 @@ FPooledRenderTargetDesc FRCPassPostProcessMotionBlurNew::ComputeOutputDesc(EPass
 	FPooledRenderTargetDesc Ret = GetInput(ePId_Input0)->GetOutput()->RenderTargetDesc;
 
 	Ret.Reset();
-	// we don't need the alpha channel and 32bit is faster and costs less memory
 	Ret.Format = PF_FloatRGB;
 	Ret.DebugName = TEXT("MotionBlur");
 	Ret.AutoWritable = false;
@@ -1551,26 +1542,7 @@ void FRCPassPostProcessVisualizeMotionBlur::Process(FRenderingCompositePassConte
 	Canvas.DrawShadowedString(X, Y += YStep, TEXT("ViewMatrix:"), GetStatsFont(), FLinearColor(1, 1, 0));
 	Canvas.DrawShadowedString(X + ColumnWidth, Y, *Line, GetStatsFont(), FLinearColor(1, 1, 0));
 
-	for(uint32 BufferId = 0; BufferId < 2; ++BufferId)
-	{
-		const TCHAR* Usage = TEXT("unused");
-
-		if(BufferId == GPrevPerBoneMotionBlur.GetReadBufferIndex())
-		{
-			Usage = TEXT("read"); 
-		}
-		else if(BufferId == GPrevPerBoneMotionBlur.GetWriteBufferIndex())
-		{
-			Usage = TEXT("write"); 
-		}
-
-		Line = FString::Printf(TEXT("BoneBuffer %d: %s"), BufferId, Usage);
-		// LeftTop.y + (LinesPerBuffer + GapBetweenBuffers) * Scale
-		Canvas.DrawShadowedString(4, 98 + BufferId * (48 + 8) * 3, *Line, GetStatsFont(), FLinearColor(1, 1, 0));
-	}
-
 	Canvas.Flush_RenderThread(Context.RHICmdList);
-
 
 	Context.RHICmdList.CopyToResolveTarget(DestRenderTarget.TargetableTexture, DestRenderTarget.ShaderResourceTexture, false, FResolveParams());
 }

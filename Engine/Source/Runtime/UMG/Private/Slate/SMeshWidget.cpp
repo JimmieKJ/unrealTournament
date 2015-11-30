@@ -5,12 +5,13 @@
 #include "SMeshWidget.h"
 #include "SlateMaterialBrush.h"
 #include "Runtime/SlateRHIRenderer/Public/Interfaces/ISlateRHIRendererModule.h"
-#include "SlateMeshData.h"
+#include "SlateVectorArtData.h"
+#include "SlateVectorArtInstanceData.h"
 
 
 
 /** Populate OutSlateVerts and OutIndexes with data from this static mesh such that Slate can render it. */
-static void SlateMeshToSlateRenderData(const USlateMeshData& DataSource, TArray<FSlateVertex>& OutSlateVerts, TArray<SlateIndex>& OutIndexes)
+static void SlateMeshToSlateRenderData(const USlateVectorArtData& DataSource, TArray<FSlateVertex>& OutSlateVerts, TArray<SlateIndex>& OutIndexes)
 {
 	// Populate Index data
 	{
@@ -82,8 +83,10 @@ void SMeshWidget::Construct(const FArguments& Args)
 }
 
 static const FVector2D DontCare(FVector2D(64, 64));
-uint32 SMeshWidget::AddMesh(const USlateMeshData& InMeshData)
+uint32 SMeshWidget::AddMesh(USlateVectorArtData& InMeshData)
 {	
+	InMeshData.EnsureValidData();
+
 	FRenderData& NewRenderData = RenderData[RenderData.Add(FRenderData())];
 	UMaterialInterface* MaterialFromMesh = InMeshData.GetMaterial();
 	if (MaterialFromMesh != nullptr)
@@ -102,13 +105,22 @@ void SMeshWidget::ClearRuns(int32 NumRuns)
 }
 
 static const FName SlateRHIModuleName("SlateRHIRenderer");
-TSharedPtr<FSlateInstanceBufferUpdate> SMeshWidget::BeginPerInstanceBufferUpdate(uint32 MeshId, int32 InitialSize)
+void SMeshWidget::EnableInstancing(uint32 MeshId, int32 InitialSize)
 {
 	if (!RenderData[MeshId].PerInstanceBuffer.IsValid())
 	{
 		RenderData[MeshId].PerInstanceBuffer = FModuleManager::Get().GetModuleChecked<ISlateRHIRendererModule>(SlateRHIModuleName).CreateInstanceBuffer(InitialSize);
 	}
+}
 
+TSharedPtr<FSlateInstanceBufferUpdate> SMeshWidget::BeginPerInstanceBufferUpdate(uint32 MeshId, int32 InitialSize)
+{
+	EnableInstancing(MeshId, InitialSize);
+	return BeginPerInstanceBufferUpdateConst( MeshId );
+}
+
+TSharedPtr<FSlateInstanceBufferUpdate> SMeshWidget::BeginPerInstanceBufferUpdateConst(uint32 MeshId) const
+{
 	return RenderData[MeshId].PerInstanceBuffer->BeginUpdate();
 }
 
@@ -188,3 +200,33 @@ FVector2D SMeshWidget::ComputeDesiredSize(float) const
 }
 
 
+
+
+void SMeshWidget::AddReferencedObjects(FReferenceCollector& Collector)
+{
+	for (const FRenderData& SomeRenderData : RenderData)
+	{
+		if (SomeRenderData.Brush.IsValid())
+		{
+			UObject* ResourceObject = SomeRenderData.Brush->GetResourceObject();
+			Collector.AddReferencedObject(ResourceObject);
+		}
+	}
+}
+
+
+void SMeshWidget::PushUpdate(uint32 VectorArtId, const SMeshWidget& Widget, const FVector2D& Position, float Scale, uint32 BaseAddress)
+
+{
+	FSlateVectorArtInstanceData Data;
+	Data.SetPosition(Position);
+	Data.SetScale(Scale);
+	Data.SetBaseAddress(BaseAddress);
+
+	{
+		TSharedPtr<FSlateInstanceBufferUpdate> PerInstaceUpdate = Widget.BeginPerInstanceBufferUpdateConst(VectorArtId);
+		PerInstaceUpdate->GetData().Empty();
+		PerInstaceUpdate->GetData().Add(Data.GetData());
+		FSlateInstanceBufferUpdate::CommitUpdate(PerInstaceUpdate);
+	}
+}

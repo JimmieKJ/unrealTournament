@@ -327,6 +327,7 @@ void USceneCaptureComponent2D::UpdateDeferredCaptures( FSceneInterface* Scene )
 	UWorld* World = Scene->GetWorld();
 	if( World && SceneCapturesToUpdateMap.Num() > 0 )
 	{
+		World->SendAllEndOfFrameUpdates();
 		// Only update the scene captures assoicated with the current scene.
 		// Updating others not associated with the scene would cause invalid data to be rendered into the target
 		TArray< TWeakObjectPtr<USceneCaptureComponent2D> > SceneCapturesToUpdate;
@@ -421,6 +422,7 @@ void USceneCaptureComponentCube::UpdateDeferredCaptures( FSceneInterface* Scene 
 	
 	if( World && CubedSceneCapturesToUpdateMap.Num() > 0 )
 	{
+		World->SendAllEndOfFrameUpdates();
 		// Only update the scene captures associated with the current scene.
 		// Updating others not associated with the scene would cause invalid data to be rendered into the target
 		TArray< TWeakObjectPtr<USceneCaptureComponentCube> > SceneCapturesToUpdate;

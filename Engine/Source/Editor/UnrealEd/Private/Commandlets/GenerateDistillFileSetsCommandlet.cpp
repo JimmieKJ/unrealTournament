@@ -217,7 +217,7 @@ int32 UGenerateDistillFileSetsCommandlet::Main( const FString& InParams )
 					}
 				}
 				UE_LOG(LogGenerateDistillFileSetsCommandlet, Display, TEXT( "Collecting garbage..." ) );
-				CollectGarbage(RF_Native);
+				CollectGarbage(RF_NoFlags);
 			}
 		}
 	}

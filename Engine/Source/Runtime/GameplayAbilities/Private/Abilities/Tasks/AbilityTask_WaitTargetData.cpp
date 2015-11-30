@@ -198,6 +198,8 @@ void UAbilityTask_WaitTargetData::RegisterTargetDataCallbacks()
 			AbilitySystemComponent->AbilityTargetDataCancelledDelegate(SpecHandle, ActivationPredictionKey ).AddUObject(this, &UAbilityTask_WaitTargetData::OnTargetDataReplicatedCancelledCallback);
 
 			AbilitySystemComponent->CallReplicatedTargetDataDelegatesIfSet(SpecHandle, ActivationPredictionKey );
+
+			SetWaitingOnRemotePlayerData();
 		}
 	}
 }

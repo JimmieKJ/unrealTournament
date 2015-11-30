@@ -36,6 +36,12 @@ FCrashReportClientConfig::FCrashReportClientConfig()
 			bSendLogFile = true;
 		}
 	}
+
+	if (!GConfig->GetBool(TEXT("CrashReportClient"), TEXT("bHideLogFilesOption"), bHideLogFilesOption, GEngineIni))
+	{
+		// Default to false (show the option) when config is missing.
+		bHideLogFilesOption = false;
+	}
 	
 	ReadFullCrashDumpConfigurations();
 

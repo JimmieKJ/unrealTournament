@@ -121,13 +121,14 @@ void UTexture::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEven
 	if( PropertyThatChanged )
 	{
 		static const FName CompressionSettingsName("CompressionSettings");
+		static const FName LODGroupName("LODGroup");
 		static const FName DeferCompressionName("DeferCompression");
 #if WITH_EDITORONLY_DATA
 		static const FName MaxTextureSizeName("MaxTextureSize");
 #endif // #if WITH_EDITORONLY_DATA
 
 		const FName PropertyName = PropertyThatChanged->GetFName();
-		if (PropertyName == CompressionSettingsName)
+		if (PropertyName == CompressionSettingsName || PropertyName == LODGroupName)
 		{
 			RequiresNotifyMaterials = true;
 		}

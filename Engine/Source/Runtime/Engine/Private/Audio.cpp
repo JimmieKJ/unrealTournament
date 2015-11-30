@@ -205,20 +205,11 @@ void FSoundSource::Stop( void )
 	}
 }
 
-/**
- * Returns whether associated audio component is an ingame only component, aka one that will
- * not play unless we're in game mode (not paused in the UI)
- *
- * @return false if associated component has bIsUISound set, true otherwise
- */
 bool FSoundSource::IsGameOnly( void )
 {
 	return (WaveInstance && !WaveInstance->bIsUISound);
 }
 
-/**
- * Set the bReverbApplied variable
- */
 bool FSoundSource::SetReverbApplied( bool bHardwareAvailable )
 {
 	// Do not apply reverb if it is explicitly disallowed
@@ -239,9 +230,6 @@ bool FSoundSource::SetReverbApplied( bool bHardwareAvailable )
 	return( bReverbApplied );
 }
 
-/**
- * Set the SetStereoBleed variable
- */
 float FSoundSource::SetStereoBleed( void )
 {
 	StereoBleed = 0.0f;
@@ -260,9 +248,6 @@ float FSoundSource::SetStereoBleed( void )
 	return( StereoBleed );
 }
 
-/**
- * Set the SetLFEBleed variable
- */
 float FSoundSource::SetLFEBleed( void )
 {
 	LFEBleed = WaveInstance->LFEBleed;
@@ -275,20 +260,36 @@ float FSoundSource::SetLFEBleed( void )
 	return( LFEBleed );
 }
 
-/**
- * Set the HighFrequencyGain value
- */
-void FSoundSource::SetHighFrequencyGain( void )
+void FSoundSource::SetFilterFrequency(void)
 {
-	HighFrequencyGain = FMath::Clamp<float>( WaveInstance->HighFrequencyGain, MIN_FILTER_GAIN, 1.0f );
+	LPFFrequency = MAX_FILTER_FREQUENCY;
 
-	if( AudioDevice->GetMixDebugState() == DEBUGSTATE_DisableLPF )
+	if (AudioDevice->GetMixDebugState() == DEBUGSTATE_TestLPF)
 	{
-		HighFrequencyGain = 1.0f;
+		// If in debug mode, lets set all sounds to a LPF of MIN_FILTER_FREQUENCY
+		LPFFrequency = MIN_FILTER_FREQUENCY;
 	}
-	else if( AudioDevice->GetMixDebugState() == DEBUGSTATE_TestLPF )
+	else if (AudioDevice->GetMixDebugState() != DEBUGSTATE_DisableLPF)
 	{
-		HighFrequencyGain = MIN_FILTER_GAIN;
+		// If so, override the frequency with the occluded filter frequency
+		LPFFrequency = WaveInstance->OcclusionFilterFrequency;
+
+		// Set the LPFFrequency to the manual LowPassFilterFrequency if it's lower
+		if (WaveInstance->bEnableLowPassFilter && WaveInstance->LowPassFilterFrequency < LPFFrequency)
+		{
+			LPFFrequency = WaveInstance->LowPassFilterFrequency;
+		}
+
+		// Set the LPFFrequency to the ambient filter frequency if it's lower
+		if (WaveInstance->AmbientZoneFilterFrequency < LPFFrequency)
+		{
+			LPFFrequency = WaveInstance->AmbientZoneFilterFrequency;
+		}
+
+		if (WaveInstance->AttenuationFilterFrequency < LPFFrequency)
+		{
+			LPFFrequency = WaveInstance->AttenuationFilterFrequency;
+		}
 	}
 }
 
@@ -301,9 +302,8 @@ void FSoundSource::UpdateStereoEmitterPositions()
 	if (WaveInstance->StereoSpread > 0.0f)
 	{
 		// We need to compute the stereo left/right channel positions using the audio component position and the spread 
-		const FVector& ListenerPosition = AudioDevice->Listeners[0].Transform.GetLocation();
-		FVector ListenerToSourceDir = WaveInstance->Location - ListenerPosition;
-		ListenerToSourceDir.Normalize();
+		FVector ListenerPosition = AudioDevice->Listeners[0].Transform.GetLocation();
+		FVector ListenerToSourceDir = (WaveInstance->Location - ListenerPosition).GetSafeNormal();
 
 		float HalfSpread = 0.5f * WaveInstance->StereoSpread;
 
@@ -364,7 +364,22 @@ FSpatializationParams FSoundSource::GetSpatializationParams()
 	if (WaveInstance->bUseSpatialization)
 	{
 		FVector EmitterPosition = AudioDevice->GetListenerTransformedDirection(WaveInstance->Location, &Params.Distance);
-		Params.NormalizedOmniRadius = (Params.Distance > 0) ? (WaveInstance->OmniRadius / Params.Distance) : FLT_MAX;
+		
+		// If we are using the OmniRadius feature
+		if (WaveInstance->OmniRadius > 0.0f)
+		{
+			static const float MaxNormalizedRadius = 1000000.0f;
+			Params.NormalizedOmniRadius = MaxNormalizedRadius;
+
+			if (Params.Distance > 0)
+			{
+				Params.NormalizedOmniRadius = FMath::Clamp(WaveInstance->OmniRadius / Params.Distance, 0.0f, MaxNormalizedRadius);
+			}
+		}
+		else
+		{
+			Params.NormalizedOmniRadius = 0.0f;
+		}
 
 		if (Buffer->NumChannels == 2)
 		{
@@ -466,7 +481,7 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 ,	ActiveSound( InActiveSound )
 ,	Volume( 0.0f )
 ,	VolumeMultiplier( 1.0f )
-,	PlayPriority( 0.0f )
+,	Priority( 1.0f )
 ,	VoiceCenterChannelVolume( 0.0f )
 ,	RadioFilterVolume( 0.0f )
 ,	RadioFilterVolumeThreshold( 0.0f )
@@ -479,16 +494,20 @@ FWaveInstance::FWaveInstance( FActiveSound* InActiveSound )
 ,	bIsFinished( false )
 ,	bAlreadyNotifiedHook( false )
 ,	bUseSpatialization( false )
-,	SpatializationAlgorithm(SPATIALIZATION_Default)
+,	bEnableLowPassFilter(false)
+,	bIsOccluded(false)
 ,	bEQFilterApplied(false)
 ,	bIsUISound( false )
 ,	bIsMusic( false )
 ,	bReverb( true )
 ,	bCenterChannelOnly( false )
 ,	bReportedSpatializationWarning( false )
+,	SpatializationAlgorithm(SPATIALIZATION_Default)
 ,	OutputTarget(EAudioOutputTarget::Speaker)
-,	HighFrequencyGain( 1.0f )
-,	Pitch( 0.0f )
+,	LowPassFilterFrequency(MAX_FILTER_FREQUENCY)
+,	OcclusionFilterFrequency(MAX_FILTER_FREQUENCY)
+, AmbientZoneFilterFrequency(MAX_FILTER_FREQUENCY)
+,	AttenuationFilterFrequency(MAX_FILTER_FREQUENCY), Pitch(0.0f)
 ,	Velocity( FVector::ZeroVector )
 ,	Location( FVector::ZeroVector )
 ,	OmniRadius(0.0f)
@@ -568,7 +587,7 @@ float FWaveInstance::GetVolumeWeightedPriority() const
 	check(ActiveSound);
 	// If this wave instance's active sound should stop due to max concurrency, return a large negative weighted priority so 
 	// that it will always be sorted to the bottom of the WaveInstance list and stopped.
-	return ActiveSound->bShouldStopDueToMaxConcurrency ? -100.0f : GetActualVolume() * VolumeWeightedPriorityScale;
+	return ActiveSound->bShouldStopDueToMaxConcurrency ? -100.0f : GetActualVolume() * Priority;
 }
 
 bool FWaveInstance::IsStreaming() const

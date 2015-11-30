@@ -942,7 +942,7 @@ void UEdGraphSchema_K2::AddExtraFunctionFlags(const UEdGraph* CurrentGraph, int3
 	{
 		if (UK2Node_FunctionEntry* Node = Cast<UK2Node_FunctionEntry>(*It))
 		{
-			Node->SetExtraFlags(Node->GetFunctionFlags() | ExtraFlags);
+			Node->AddExtraFlags(ExtraFlags);
 		}
 	}
 }
@@ -1642,7 +1642,7 @@ void UEdGraphSchema_K2::OnCreateNonExistentLocalVariable( UK2Node_Variable* Vari
 				{
 					if (VariableNode->VariableReference.IsSameReference(OldReference))
 					{
-						VariableNode->VariableReference.SetLocalMember(VarName, Variable->GetGraph()->GetName(), LocalVarGuid);
+						VariableNode->VariableReference.SetLocalMember(VarName, FBlueprintEditorUtils::GetTopLevelGraph(Variable->GetGraph())->GetName(), LocalVarGuid);
 						VariableNode->ReconstructNode();
 					}
 				}
@@ -3152,7 +3152,7 @@ void UEdGraphSchema_K2::CreateFunctionGraphTerminators(UEdGraph& Graph, UClass* 
 	if (InterfaceToImplement)
 	{
 		// Add modifier flags from the declaration
-		EntryNode->SetExtraFlags(EntryNode->GetFunctionFlags() | (InterfaceToImplement->FunctionFlags & (FUNC_Const | FUNC_Static | FUNC_BlueprintPure)));
+		EntryNode->AddExtraFlags(InterfaceToImplement->FunctionFlags & (FUNC_Const | FUNC_Static | FUNC_BlueprintPure));
 
 		UK2Node* NextNode = EntryNode;
 		UEdGraphPin* NextExec = FindExecutionPin(*EntryNode, EGPD_Output);
@@ -3917,7 +3917,7 @@ void UEdGraphSchema_K2::ReconstructNode(UEdGraphNode& TargetNode, bool bIsBatchR
 		{
 			UEdGraphPin* Pin = Cast<UEdGraphPin>(NodeChildren[Iter]);
 			const bool bIsValidPin = !Pin 
-				|| (Pin->HasAllFlags(RF_PendingKill) && !Pin->LinkedTo.Num()) 
+				|| (Pin->IsPendingKill() && !Pin->LinkedTo.Num()) 
 				|| TargetNode.Pins.Contains(Pin);
 			if (!bIsValidPin)
 			{

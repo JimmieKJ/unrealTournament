@@ -7,6 +7,7 @@
 #include "EnginePrivate.h"
 #include "SkeletalRender.h"
 #include "SkeletalRenderPublic.h"
+#include "PhysicsEngine/PhysicsAsset.h"
 
 /*-----------------------------------------------------------------------------
 Globals
@@ -177,6 +178,63 @@ void FSkeletalMeshObject::InitLODInfos(const USkinnedMeshComponent* SkelComponen
 
 			MeshLODInfo.HiddenMaterials = Info.HiddenMaterials;
 		}		
+	}
+}
+
+const FQuat SphylBasis(FVector(1.0f / FMath::Sqrt(2.0f), 0.0f, 1.0f / FMath::Sqrt(2.0f)), PI);
+
+void FSkeletalMeshObject::UpdateShadowShapes(USkinnedMeshComponent* InMeshComponent)
+{
+	UPhysicsAsset* ShadowPhysicsAsset = InMeshComponent->SkeletalMesh->ShadowPhysicsAsset;
+
+	if (ShadowPhysicsAsset 
+		&& InMeshComponent->CastShadow
+		&& (InMeshComponent->bCastCapsuleDirectShadow || InMeshComponent->bCastCapsuleIndirectShadow))
+	{
+		//@todo - double buffer or temporary allocator
+		TArray<FSphere>* NewShadowSphereShapes = new TArray<FSphere>();
+		TArray<FCapsuleShape>* NewShadowCapsuleShapes = new TArray<FCapsuleShape>();
+
+		for (int32 BodyIndex = 0; BodyIndex < ShadowPhysicsAsset->BodySetup.Num(); BodyIndex++)
+		{
+			UBodySetup* BodySetup = ShadowPhysicsAsset->BodySetup[BodyIndex];
+			int32 BoneIndex = InMeshComponent->GetBoneIndex(BodySetup->BoneName);
+
+			if (BoneIndex != INDEX_NONE)
+			{
+				FTransform WorldBoneTransform = InMeshComponent->GetBoneTransform(BoneIndex, InMeshComponent->GetComponentTransform());
+				const float MaxScale = WorldBoneTransform.GetScale3D().GetMax();
+
+				for (int32 ShapeIndex = 0; ShapeIndex < BodySetup->AggGeom.SphereElems.Num(); ShapeIndex++)
+				{
+					const FKSphereElem& SphereShape = BodySetup->AggGeom.SphereElems[ShapeIndex];
+					NewShadowSphereShapes->Add(FSphere(WorldBoneTransform.TransformPosition(SphereShape.Center), SphereShape.Radius * MaxScale));
+				}
+
+				for (int32 ShapeIndex = 0; ShapeIndex < BodySetup->AggGeom.SphylElems.Num(); ShapeIndex++)
+				{
+					const FKSphylElem& SphylShape = BodySetup->AggGeom.SphylElems[ShapeIndex];
+					NewShadowCapsuleShapes->Add(FCapsuleShape(
+						WorldBoneTransform.TransformPosition(SphylShape.Center), 
+						SphylShape.Radius * MaxScale,
+						WorldBoneTransform.TransformVector((SphylShape.Orientation * SphylBasis).Vector()),
+						SphylShape.Length * MaxScale));
+				}
+			}
+		}
+
+		ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+			ShadowShapesUpdateCommand,
+			FSkeletalMeshObject*, MeshObject, this,
+			TArray<FSphere>*, NewShadowSphereShapes, NewShadowSphereShapes,
+			TArray<FCapsuleShape>*, NewShadowCapsuleShapes, NewShadowCapsuleShapes,
+			{
+				MeshObject->ShadowSphereShapes = *NewShadowSphereShapes;
+				MeshObject->ShadowCapsuleShapes = *NewShadowCapsuleShapes;
+				delete NewShadowSphereShapes;
+				delete NewShadowCapsuleShapes;
+			}
+		);
 	}
 }
 

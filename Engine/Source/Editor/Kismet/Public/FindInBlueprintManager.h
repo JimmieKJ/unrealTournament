@@ -374,7 +374,7 @@ public:
 	static FString ConvertFTextToHexString(FText InValue);
 
 	/** Returns the number of uncached Blueprints */
-	int32 GetNumberUncachedBlueprints() const { return UncachedBlueprints.Num(); };
+	int32 GetNumberUncachedBlueprints() const;
 
 	/**
 	 * Starts caching all uncached Blueprints at a rate of 1 per tick
@@ -407,7 +407,7 @@ public:
 	float GetCacheProgress() const;
 
 	/** Returns the list of Blueprint paths that failed to cache */
-	TArray<FName> GetFailedToCachePathList() const { return FailedToCachePaths; }
+	TSet<FName> GetFailedToCachePathList() const { return FailedToCachePaths; }
 
 	/** Returns the number of Blueprints that failed to cache */
 	int32 GetFailedToCacheCount() const { return FailedToCachePaths.Num(); }
@@ -419,7 +419,7 @@ public:
 	 *
 	 * @param InNumberCached		The number of Blueprints cached, to be chopped off the existing array so the rest (if any) can be finished later
 	 */
-	void FinishedCachingBlueprints(int32 InNumberCached, TArray<FName>& InFailedToCacheList);
+	void FinishedCachingBlueprints(int32 InNumberCached, TSet<FName>& InFailedToCacheList);
 
 	/** Returns TRUE if Blueprints are being cached. */
 	bool IsCacheInProgress() const;
@@ -428,7 +428,11 @@ public:
 	static FString ConvertFStringToHexString(FString InValue);
 
 	/** Given a fully constructed Find-in-Blueprint FString of searchable data, will parse and construct a JsonObject */
-	static TSharedPtr< class FJsonObject > ConvertJsonStringToObject(FString InJsonString, TMap<int32, FText>& OutFTextLookupTable);
+	static TSharedPtr< class FJsonObject > ConvertJsonStringToObject(bool bInIsVersioned, FString InJsonString, TMap<int32, FText>& OutFTextLookupTable);
+
+	void EnableGatheringData(bool bInEnableGatheringData) { bEnableGatheringData = bInEnableGatheringData; }
+
+	bool IsGatheringDataEnabled() const { return bEnableGatheringData; }
 
 private:
 	/** Initializes the FiB manager */
@@ -479,6 +483,9 @@ private:
 	void ExtractUnloadedFiBData(const FAssetData& InAssetData, const FString& InFiBData, bool bIsVersioned);
 
 protected:
+	/** Tells if gathering data is currently allowed */
+	bool bEnableGatheringData;
+
 	/** Maps the Blueprint paths to their index in the SearchArray */
 	TMap<FName, int32> SearchMap;
 
@@ -510,14 +517,27 @@ protected:
 	TWeakPtr<SFindInBlueprints> SourceCachingWidget;
 
 	/** Blueprint paths that have not been cached for searching due to lack of data, this means that they are either older Blueprints, or the DDC cannot find the data */
-	TArray<FName> UncachedBlueprints;
+	TSet<FName> UncachedBlueprints;
 
 	/** List of paths for Blueprints that failed to cache */
-	TArray<FName> FailedToCachePaths;
+	TSet<FName> FailedToCachePaths;
 
 	/** Tickable object that does the caching of uncached Blueprints at a rate of once per tick */
 	class FCacheAllBlueprintsTickableObject* CachingObject;
 
 	/** Mapping between a class name and its UClass instance - used for faster look up in FFindInBlueprintSearchManager::OnAssetAdded */
 	TMap<FName, const UClass*> CachedAssetClasses;
+};
+
+struct KISMET_API FDisableGatheringDataOnScope
+{
+	bool bOriginallyEnabled;
+	FDisableGatheringDataOnScope() : bOriginallyEnabled(FFindInBlueprintSearchManager::Get().IsGatheringDataEnabled())
+	{
+		FFindInBlueprintSearchManager::Get().EnableGatheringData(false);
+	}
+	~FDisableGatheringDataOnScope()
+	{
+		FFindInBlueprintSearchManager::Get().EnableGatheringData(bOriginallyEnabled);
+	}
 };

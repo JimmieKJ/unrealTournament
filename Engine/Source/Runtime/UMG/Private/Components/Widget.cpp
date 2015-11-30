@@ -601,8 +601,18 @@ void UWidget::SetDesignerFlags(EWidgetDesignFlags::Type NewFlags)
 	DesignerFlags = ( EWidgetDesignFlags::Type )( DesignerFlags | NewFlags );
 }
 
+void UWidget::SetDisplayLabel(const FString& InDisplayLabel)
+{
+	DisplayLabel = InDisplayLabel;
+}
+
 bool UWidget::IsGeneratedName() const
 {
+	if (!DisplayLabel.IsEmpty())
+	{
+		return false;
+	}
+
 	FString Name = GetName();
 
 	if (Name == GetClass()->GetName() || Name.StartsWith(GetClass()->GetName() + TEXT("_")))
@@ -650,7 +660,15 @@ FText UWidget::GetLabelText() const
 
 FText UWidget::GetDisplayNameBase() const
 {
-	return IsGeneratedName() ? GetClass()->GetDisplayNameText() : FText::FromString(GetName());
+	const bool bHasDisplayLabel = !DisplayLabel.IsEmpty();
+	if (IsGeneratedName())
+	{
+		return GetClass()->GetDisplayNameText();
+	}
+	else
+	{
+		return FText::FromString(bHasDisplayLabel ? DisplayLabel : GetName());
+	}
 }
 
 const FText UWidget::GetPaletteCategory()

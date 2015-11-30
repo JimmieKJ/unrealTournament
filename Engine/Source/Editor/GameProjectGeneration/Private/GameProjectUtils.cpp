@@ -2793,6 +2793,35 @@ bool GameProjectUtils::GenerateGameModuleHeaderFile(const FString& NewBuildFileN
 	return WriteOutputFile(NewBuildFileName, FinalOutput, OutFailReason);
 }
 
+bool GameProjectUtils::GeneratePluginModuleCPPFile(const FString& CPPFileName, const FString& ModuleName, const FString& StartupSourceCode, FText& OutFailReason)
+{
+	FString Template;
+	if (!ReadTemplateFile(TEXT("PluginModule.cpp.template"), Template, OutFailReason))
+	{
+		return false;
+	}
+
+	FString FinalOutput = Template.Replace(TEXT("%COPYRIGHT_LINE%"), *MakeCopyrightLine(), ESearchCase::CaseSensitive);
+	FinalOutput = FinalOutput.Replace(TEXT("%MODULE_NAME%"), *ModuleName, ESearchCase::CaseSensitive);
+	FinalOutput = FinalOutput.Replace(TEXT("%MODULE_STARTUP_CODE%"), *StartupSourceCode, ESearchCase::CaseSensitive);
+
+	return WriteOutputFile(CPPFileName, FinalOutput, OutFailReason);
+}
+
+bool GameProjectUtils::GeneratePluginModuleHeaderFile(const FString& HeaderFileName, const TArray<FString>& PublicHeaderIncludes, FText& OutFailReason)
+{
+	FString Template;
+	if (!ReadTemplateFile(TEXT("PluginModule.h.template"), Template, OutFailReason))
+	{
+		return false;
+	}
+
+	FString FinalOutput = Template.Replace(TEXT("%COPYRIGHT_LINE%"), *MakeCopyrightLine(), ESearchCase::CaseSensitive);
+	FinalOutput = FinalOutput.Replace(TEXT("%PUBLIC_HEADER_INCLUDES%"), *MakeIncludeList(PublicHeaderIncludes), ESearchCase::CaseSensitive);
+
+	return WriteOutputFile(HeaderFileName, FinalOutput, OutFailReason);
+}
+
 void GameProjectUtils::OnUpdateProjectConfirm()
 {
 	UpdateProject();

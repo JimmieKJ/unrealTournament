@@ -107,23 +107,23 @@ public:
 	 * @see SetActorHiddenInGame()
 	 */
 	UPROPERTY(Interp, EditAnywhere, Category=Rendering, BlueprintReadOnly, replicated, meta=(DisplayName = "Actor Hidden In Game", SequencerTrackClass = "MovieSceneVisibilityTrack"))
-	uint32 bHidden:1;
+	uint8 bHidden:1;
 
 	/** If true, when the actor is spawned it will be sent to the client but receive no further replication updates from the server afterwards. */
 	UPROPERTY()
-	uint32 bNetTemporary:1;
+	uint8 bNetTemporary:1;
 
 	/** If true, this actor was loaded directly from the map, and for networking purposes can be addressed by its full path name */
 	UPROPERTY()
-	uint32 bNetStartup:1;
+	uint8 bNetStartup:1;
 
 	/** If true, this actor is only relevant to its owner. If this flag is changed during play, all non-owner channels would need to be explicitly closed. */
 	UPROPERTY(Category=Replication, EditDefaultsOnly, BlueprintReadOnly)
-	uint32 bOnlyRelevantToOwner:1;
+	uint8 bOnlyRelevantToOwner:1;
 
 	/** Always relevant for network (overrides bOnlyRelevantToOwner). */
 	UPROPERTY(Category=Replication, EditDefaultsOnly, BlueprintReadWrite)
-	uint32 bAlwaysRelevant:1;    
+	uint8 bAlwaysRelevant:1;    
 
 	/**
 	 * If true, replicate movement/location related properties.
@@ -132,7 +132,7 @@ public:
 	 * @see https://docs.unrealengine.com/latest/INT/Gameplay/Networking/Replication/
 	 */
 	UPROPERTY(ReplicatedUsing=OnRep_ReplicateMovement, Category=Replication, EditDefaultsOnly)
-	uint32 bReplicateMovement:1;    
+	uint8 bReplicateMovement:1;    
 
 	/** Called on client when updated bReplicateMovement value is received for this actor. */
 	UFUNCTION()
@@ -143,7 +143,7 @@ public:
 	 * @see TornOff()
 	 */
 	UPROPERTY(replicated)
-	uint32 bTearOff:1;    
+	uint8 bTearOff:1;    
 
 	/** Networking - Server - TearOff this actor to stop replication to clients. Will set bTearOff to true. */
 	UFUNCTION(BlueprintCallable, Category = Replication)
@@ -154,26 +154,26 @@ public:
 	 * Causes all initialization to be performed again even though the actor may not have actually been reloaded.
 	 */
 	UPROPERTY(transient)
-	uint32 bExchangedRoles:1;
+	uint8 bExchangedRoles:1;
 
 	/** Is this actor still pending a full net update due to clients that weren't able to replicate the actor at the time of LastNetUpdateTime */
 	UPROPERTY(transient)
-	uint32 bPendingNetUpdate:1;
+	uint8 bPendingNetUpdate:1;
 
 	/** This actor will be loaded on network clients during map load */
 	UPROPERTY(Category=Replication, EditDefaultsOnly)
-	uint32 bNetLoadOnClient:1;
+	uint8 bNetLoadOnClient:1;
 
 	/** If actor has valid Owner, call Owner's IsNetRelevantFor and GetNetPriority */
 	UPROPERTY(Category=Replication, EditDefaultsOnly, BlueprintReadWrite)
-	uint32 bNetUseOwnerRelevancy:1;
+	uint8 bNetUseOwnerRelevancy:1;
 
 	/** If true, all input on the stack below this actor will not be considered */
 	UPROPERTY(EditDefaultsOnly, Category=Input)
-	uint32 bBlockInput:1;
+	uint8 bBlockInput:1;
 
 	/** True if this actor is currently running user construction script (used to defer component registration) */
-	uint32 bRunningUserConstructionScript:1;
+	uint8 bRunningUserConstructionScript:1;
 
 	/**
 	 * Whether we allow this Actor to tick before it receives the BeginPlay event.
@@ -181,24 +181,24 @@ public:
 	 * This Actor must be able to tick for this setting to be relevant.
 	 */
 	UPROPERTY(EditDefaultsOnly, Category="Tick")
-	uint32 bAllowTickBeforeBeginPlay:1;
+	uint8 bAllowTickBeforeBeginPlay:1;
 
 private:
 	/** Whether FinishSpawning has been called for this Actor.  If it has not, the Actor is in a mal-formed state */
-	uint32 bHasFinishedSpawning:1;
+	uint8 bHasFinishedSpawning:1;
 
 	/** Whether we've tried to register tick functions. Reset when they are unregistered. */
-	uint32 bTickFunctionsRegistered : 1;
+	uint8 bTickFunctionsRegistered : 1;
 
 	/**
 	 * Enables any collision on this actor.
 	 * @see SetActorEnableCollision(), GetActorEnableCollision()
 	 */
 	UPROPERTY()
-	uint32 bActorEnableCollision:1;
+	uint8 bActorEnableCollision:1;
 
 	/** Flag indicating we have checked initial simulating physics state to sync networked proxies to the server. */
-	uint32 bNetCheckedInitialPhysicsState:1;
+	uint8 bNetCheckedInitialPhysicsState:1;
 
 protected:
 	/**
@@ -206,7 +206,7 @@ protected:
 	 * @see SetReplicates()
 	 */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Replication")
-	uint32 bReplicates:1;
+	uint8 bReplicates:1;
 
 	/** This function should only be used in the constructor of classes that need to set the RemoteRole for backwards compatibility purposes */
 	void SetRemoteRoleForBackwardsCompat(const ENetRole InRemoteRole) { RemoteRole = InRemoteRole; }
@@ -348,7 +348,7 @@ public:
 
 	/** If true then destroy self when "finished", meaning all relevant components report that they are done and no timelines or timers are in flight. */
 	UPROPERTY(BlueprintReadWrite, Category=Actor)
-	uint32 bAutoDestroyWhenFinished:1;
+	uint8 bAutoDestroyWhenFinished:1;
 
 	/**
 	 * Whether this actor can take damage. Must be true for damage events (e.g. ReceiveDamage()) to be called.
@@ -356,28 +356,28 @@ public:
 	 * @see TakeDamage(), ReceiveDamage()
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, SaveGame, Replicated, Category=Actor)
-	uint32 bCanBeDamaged:1;
+	uint8 bCanBeDamaged:1;
 
 private:
 	/**
 	 * Set when actor is about to be deleted.
 	 */
 	UPROPERTY(Transient, DuplicateTransient)
-	uint32 bActorIsBeingDestroyed:1;    
+	uint8 bActorIsBeingDestroyed:1;    
 
 public:
 
 	/** This actor collides with the world when placing in the editor, even if RootComponent collision is disabled. Does not affect spawning, @see SpawnCollisionHandlingMethod */
 	UPROPERTY()
-	uint32 bCollideWhenPlacing:1;
+	uint8 bCollideWhenPlacing:1;
 
 	/** If true, this actor should search for an owned camera component to view through when used as a view target. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Actor, AdvancedDisplay)
-	uint32 bFindCameraComponentWhenViewTarget:1;
+	uint8 bFindCameraComponentWhenViewTarget:1;
 	
 	/** If true, this actor will be replicated to network replays (default is true) */
 	UPROPERTY()
-	uint32 bRelevantForNetworkReplays:1;
+	uint8 bRelevantForNetworkReplays:1;
 
 	/** Controls how to handle spawning this actor in a situation where it's colliding with something else. "Default" means AlwaysSpawn here. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Actor)
@@ -424,15 +424,6 @@ protected:
 	/** Handle for efficient management of LifeSpanExpired timer */
 	FTimerHandle TimerHandle_LifeSpanExpired;
 
-protected:
-
-	/**
-	 * If false, the Blueprint ReceiveTick() event will be disabled on dedicated servers.
-	 * @see AllowReceiveTickEventOnDedicatedServer()
-	 */
-	UPROPERTY()
-	uint32 bAllowReceiveTickEventOnDedicatedServer:1;
-
 public:
 
 	/** Return the value of bAllowReceiveTickEventOnDedicatedServer, indicating whether the Blueprint ReceiveTick() event will occur on dedicated servers. */
@@ -442,11 +433,19 @@ public:
 	UPROPERTY()
 	TArray< FName > Layers;
 
-#if WITH_EDITORONLY_DATA
-protected:
-
+	/** The Actor that owns the UChildActorComponent that owns this Actor. */
 	UPROPERTY()
-	uint32 bActorLabelEditable:1;    // Is the actor label editable by the user?
+	TWeakObjectPtr<AActor> ParentComponentActor;	
+
+#if WITH_EDITORONLY_DATA
+
+	/** The group this actor is a part of. */
+	UPROPERTY(transient)
+	AActor* GroupActor;
+
+	/** The scale to apply to any billboard components in editor builds (happens in any WITH_EDITOR build, including non-cooked games). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Rendering, meta=(DisplayName="Editor Billboard Scale"))
+	float SpriteScale;
 
 private:
 	/**
@@ -460,55 +459,57 @@ private:
 	UPROPERTY()
 	FName FolderPath;
 
+protected:
+
+	UPROPERTY()
+	uint8 bActorLabelEditable:1;    // Is the actor label editable by the user?
+
 public:
 	/** Whether this actor is hidden within the editor viewport. */
 	UPROPERTY()
-	uint32 bHiddenEd:1;
+	uint8 bHiddenEd:1;
 
 protected:
 	/** Whether the actor can be manipulated by editor operations. */
 	UPROPERTY()
-	uint32 bEditable:1;
+	uint8 bEditable:1;
 
 	/** Whether this actor should be listed in the scene outliner. */
 	UPROPERTY()
-	uint32 bListedInSceneOutliner:1;
+	uint8 bListedInSceneOutliner:1;
 
 public:
 	/** Whether this actor is hidden by the layer browser. */
 	UPROPERTY()
-	uint32 bHiddenEdLayer:1;
+	uint8 bHiddenEdLayer:1;
 
 private:
 	/** Whether this actor is temporarily hidden within the editor; used for show/hide/etc functionality w/o dirtying the actor. */
 	UPROPERTY(transient)
-	uint32 bHiddenEdTemporary:1;
+	uint8 bHiddenEdTemporary:1;
 
 public:
 
 	/** Whether this actor is hidden by the level browser. */
 	UPROPERTY(transient)
-	uint32 bHiddenEdLevel:1;
+	uint8 bHiddenEdLevel:1;
 
 	/** If true, prevents the actor from being moved in the editor viewport. */
 	UPROPERTY()
-	uint32 bLockLocation:1;
-
-	/** The group this actor is a part of. */
-	UPROPERTY(transient)
-	AActor* GroupActor;
-
-	/** The scale to apply to any billboard components in editor builds (happens in any WITH_EDITOR build, including non-cooked games). */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Rendering, meta=(DisplayName="Editor Billboard Scale"))
-	float SpriteScale;
+	uint8 bLockLocation:1;
 
 	/** Returns how many lights are uncached for this actor. */
 	int32 GetNumUncachedLights();
 #endif // WITH_EDITORONLY_DATA
 
-	/** The Actor that owns the UChildActorComponent that owns this Actor. */
+protected:
+
+	/**
+	 * If false, the Blueprint ReceiveTick() event will be disabled on dedicated servers.
+	 * @see AllowReceiveTickEventOnDedicatedServer()
+	 */
 	UPROPERTY()
-	TWeakObjectPtr<AActor> ParentComponentActor;	
+	uint8 bAllowReceiveTickEventOnDedicatedServer:1;
 
 private:
 
@@ -516,26 +517,33 @@ private:
 	 *	Indicates that PreInitializeComponents/PostInitializeComponents have been called on this Actor 
 	 *	Prevents re-initializing of actors spawned during level startup
 	 */
-	uint32 bActorInitialized:1;
+	uint8 bActorInitialized:1;
 	
+	enum class EActorBeginPlayState : uint8
+	{
+		HasNotBegunPlay,
+		BeginningPlay,
+		HasBegunPlay,
+	};
+
 	/** 
 	 *	Indicates that BeginPlay has been called for this Actor.
 	 *  Set back to false once EndPlay has been called.
 	 */
-	uint32 bActorHasBegunPlay:1;
+	EActorBeginPlayState ActorHasBegunPlay:2;
 
 public:
 	/** Indicates the actor was pulled through a seamless travel.  */
 	UPROPERTY()
-	uint32 bActorSeamlessTraveled:1;
+	uint8 bActorSeamlessTraveled:1;
 
 	/** Whether this actor should no be affected by world origin shifting. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Actor)
-	uint32 bIgnoresOriginShifting:1;
+	uint8 bIgnoresOriginShifting:1;
 	
 	/** If true, and if World setting has bEnableHigerarhicalLOD is true, then it will generate LODActor from groups of clustered Actor */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, Category=Actor)
-	uint32 bEnableAutoLODGeneration:1;
+	uint8 bEnableAutoLODGeneration:1;
 
 	/** Array of tags that can be used for grouping and categorizing. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, AdvancedDisplay, Category=Actor)
@@ -1163,8 +1171,11 @@ public:
 	/** Returns whether an actor has been initialized */
 	bool IsActorInitialized() const { return bActorInitialized; }
 
+	/** Returns whether an actor is in the process of beginning play */
+	bool IsActorBeginningPlay() const { return ActorHasBegunPlay == EActorBeginPlayState::BeginningPlay; }
+
 	/** Returns whether an actor has had BeginPlay called on it (and not subsequently had EndPlay called) */
-	bool HasActorBegunPlay() const { return bActorHasBegunPlay; }
+	bool HasActorBegunPlay() const { return ActorHasBegunPlay == EActorBeginPlayState::HasBegunPlay; }
 
 	UFUNCTION(BlueprintCallable, Category="Game")
 	bool IsActorBeingDestroyed() const 
@@ -2172,7 +2183,10 @@ public:
 	void FinishAndRegisterComponent(UActorComponent* Component);
 
 	/**  Util to create a component based on a template	 */
-	UActorComponent* CreateComponentFromTemplate(UActorComponent* Template, const FString& InName = FString() );
+	UActorComponent* CreateComponentFromTemplate(UActorComponent* Template, const FName InName = NAME_None );
+
+	DEPRECATED(4.11, "Use CreateComponentFromTemplate that takes a FName instead of a FString")
+	UActorComponent* CreateComponentFromTemplate(UActorComponent* Template, const FString& InName);
 
 	/** Destroys the constructed components. */
 	void DestroyConstructedComponents();
@@ -2656,6 +2670,32 @@ public:
 		}
 	};
 };
+
+/** Helper function for executing tick functions based on the normal conditions previous found in UActorComponent::ConditionalTick */
+
+template <typename ExecuteTickLambda>
+void FActorComponentTickFunction::ExecuteTickHelper(UActorComponent* Target, float DeltaTime, ELevelTick TickType, const ExecuteTickLambda& ExecuteTickFunc)
+{
+	if (Target && !Target->IsPendingKillOrUnreachable())
+	{
+		FScopeCycleCounterUObject ComponentScope(Target);
+		FScopeCycleCounterUObject AdditionalScope(Target->AdditionalStatObject());
+
+		if (Target->bRegistered)
+		{
+			AActor* MyOwner = Target->GetOwner();
+			//@optimization, I imagine this is all unnecessary in a shipping game with no editor
+			if (TickType != LEVELTICK_ViewportsOnly ||
+				(Target->bTickInEditor && TickType == LEVELTICK_ViewportsOnly) ||
+				(MyOwner && MyOwner->ShouldTickIfViewportsOnly())
+				)
+			{
+				const float TimeDilation = (MyOwner ? MyOwner->CustomTimeDilation : 1.f);
+				ExecuteTickFunc(DeltaTime * TimeDilation);
+			}
+		}
+	}
+}
 
 
 //////////////////////////////////////////////////////////////////////////

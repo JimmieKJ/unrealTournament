@@ -2,95 +2,72 @@
 
 #include "BlueprintCompilerCppBackendModulePrivatePCH.h"
 
-// Helper functions used for verifying that objects are identical, objects are expected to have a different class
-// but identical properties (transient data skipped, treated as an implementation detail):
-bool Identical(const UObject* A, const UObject* B)
+class FArchiveSkipTransientObjectCRC32 : public FArchiveObjectCrc32
 {
-	if (!A && !B)
+	// Begin FArchive Interface
+	virtual bool ShouldSkipProperty(const UProperty* InProperty) const override
 	{
-		return true;
+		return FArchiveObjectCrc32::ShouldSkipProperty(InProperty)
+			|| InProperty->HasAllPropertyFlags(CPF_Transient)
+			|| InProperty->HasAllPropertyFlags(CPF_EditorOnly)
+			|| InProperty->GetName() == TEXT("BlueprintCreatedComponents")
+			|| InProperty->GetName() == TEXT("CreationMethod")
+			|| InProperty->GetName() == TEXT("InstanceComponents")
+			|| InProperty->GetName() == TEXT("bNetAddressable")
+			|| InProperty->GetName() == TEXT("OwnedComponents");
 	}
-	
-	if (!A || !B)
+	// End FArchive Interface
+};
+
+void ClearNativeRecursive(UObject* OnObject)
+{
+	OnObject->ClearInternalFlags(EInternalObjectFlags::Native);
+	TArray<UObject*> Children;
+	GetObjectsWithOuter(OnObject, Children, false);
+	for (auto Entry : Children)
 	{
-		return false;
+		ClearNativeRecursive(Entry);
 	}
-
-	bool bResult = true;
-	TFieldIterator<UProperty> ItA(A->GetClass());
-	TFieldIterator<UProperty> ItB(B->GetClass());
-	while( (ItA || ItB) && bResult )
-	{
-		const UProperty* PropA = ItA ? *ItA : nullptr;
-		const UProperty* PropB = ItB ? *ItB : nullptr;
-
-		// skip transient structs (ie ubergraph frame):
-		bool bDone = false;
-
-		// property is transient or is owned by a structure that is always transient:
-		if (PropA && PropA->HasAllPropertyFlags(CPF_Transient))
-		{
-			++ItA;
-			bDone = true;
-		}
-		if (PropB && PropB->HasAllPropertyFlags(CPF_Transient))
-		{
-			++ItB;
-			bDone = true;
-		}
-
-		// for now, assume properties occur in the same order:
-		if (!bDone)
-		{
-			if (PropA == nullptr || PropB == nullptr)
-			{
-				bResult = false;
-			}
-			else if (PropA->GetName() == PropB->GetName())
-			{
-				const void* AValue = PropA->ContainerPtrToValuePtr<void>(A);
-				const void* BValue = PropB->ContainerPtrToValuePtr<void>(B);
-
-				const UClassProperty* ClassPropA = Cast<UClassProperty>(PropA);
-				const UClassProperty* ClassPropB = Cast<UClassProperty>(PropB);
-				if (ClassPropA && ClassPropB)
-				{
-					// make sure we treat generated and native instances as equivalent:
-					UObject* ObjectA = ClassPropA->GetObjectPropertyValue(AValue);
-					UObject* ObjectB = ClassPropB->GetObjectPropertyValue(BValue);
-
-					bResult = ObjectA && ObjectB && ObjectA->GetName() == ObjectB->GetName();
-				}
-				else
-				{
-					bResult = PropA->Identical(AValue, BValue, PPF_DeepComparison);
-				}
-			}
-			else
-			{
-				bResult = false;
-			}
-
-			if (ItA)
-			{
-				++ItA;
-			}
-
-			if (ItB)
-			{
-				++ItB;
-			}
-		}
-	}
-
-	return bResult && !ItA && !ItB;
 }
 
+// We mess with the rootset flag instead of using FGCObject because it's an error for any test data to remain in the rootset after the test runs
+struct FOwnedObjectsHelper
+{
+	~FOwnedObjectsHelper()
+	{
+		for (auto Entry : OwnedObjects)
+		{
+			Entry->RemoveFromRoot();
+			Entry->ClearFlags(RF_Standalone);
+			if (Entry->IsNative())
+			{
+				ClearNativeRecursive(Entry);
+			}
+
+			// Actors need to be explicitly destroyed, probably just to remove them from their owning
+			// level:
+			if (AActor* AsActor = Cast<AActor>(Entry))
+			{
+				AsActor->Destroy();
+			}
+		}
+		CollectGarbage(RF_NoFlags);
+	}
+
+	void Push(UObject* Obj)
+	{
+		Obj->AddToRoot();
+		OwnedObjects.Push(Obj);
+	}
+private:
+	TArray<UObject*> OwnedObjects;
+};
+
 // Helper functions introduced to load classes (generated or native:
-static UClass* GetGeneratedClass(const TCHAR* TestFolder, const TCHAR* ClassName, FAutomationTestBase* Context)
+static UClass* GetGeneratedClass(const TCHAR* TestFolder, const TCHAR* ClassName, FAutomationTestBase* Context, FOwnedObjectsHelper &OwnedObjects)
 {
 	FString FullName = FString::Printf(TEXT("/Engine/NotForLicensees/Automation/CompilerTests/%s/%s.%s"), TestFolder, ClassName, ClassName);
-	UBlueprint* Blueprint = Cast<UBlueprint>(StaticLoadObject(UBlueprint::StaticClass(), nullptr, *FullName));
+	UBlueprint* Blueprint = LoadObject<UBlueprint>(NULL, *FullName);
 
 	if (!Blueprint)
 	{
@@ -98,40 +75,96 @@ static UClass* GetGeneratedClass(const TCHAR* TestFolder, const TCHAR* ClassName
 		return nullptr;
 	}
 
+	TArray<UObject*> Objects;
+	GetObjectsWithOuter(Blueprint->GetOuter(), Objects, false);
+	for (auto Entry : Objects)
+	{
+		OwnedObjects.Push(Entry);
+	}
+
+	CollectGarbage(RF_NoFlags);
+
 	return Blueprint->GeneratedClass;
 }
 
-static UClass* GetNativeClass(const TCHAR* ClassName, FAutomationTestBase* Context)
+static UClass* GetNativeClass(const TCHAR* TestFolder, const TCHAR* ClassName, FAutomationTestBase* Context, FOwnedObjectsHelper &OwnedObjects)
 {
-	UPackage* NativePackage = FindObjectFast<UPackage>(nullptr, TEXT("/Script/Engine"));
+	FString FullName = FString::Printf(TEXT("/Game/Blueprints/CompilerTests/%s/%s"), TestFolder, ClassName);
+	UPackage* NativePackage = CreatePackage(NULL, *FullName);
 	check(NativePackage);
-	UClass* Ret = FindObjectFast<UClass>(NativePackage, ClassName);
+
+	CollectGarbage(RF_NoFlags);
+	const FString FStringFullPathName = FString::Printf(TEXT("%s.%s_C"), *FullName, ClassName);
+	UClass* Ret = (UClass*)ConstructDynamicType(*FStringFullPathName); //FindObjectFast<UClass>(NativePackage, *(FString(ClassName) + TEXT("_C")));
+
 	if (!Ret)
 	{
 		Context->AddWarning(FString::Printf(TEXT("Missing native type for test: '%s'"), ClassName));
 		return nullptr;
 	}
+
+	TArray<UObject*> Objects;
+	GetObjectsWithOuter(NativePackage, Objects, false);
+	for (auto Entry : Objects)
+	{
+		OwnedObjects.Push(Entry);
+	}
+
+	CollectGarbage(RF_NoFlags);
+
 	return Ret;
 }
 
+typedef UClass* (*ClassAccessor)(const TCHAR*, const TCHAR*, FAutomationTestBase*, FOwnedObjectsHelper&);
+
+typedef uint32(*TestImpl)(ClassAccessor F, FAutomationTestBase* Context);
+
+// This pattern is repeated in each test, so I'm just writing a helper function rather than copy/pasting it:
+static bool RunTestHelper(TestImpl T, FAutomationTestBase* Context)
+{
+	uint32 ResultsGenerated = T(&GetGeneratedClass, Context);
+	uint32 ResultsNative = T(&GetNativeClass, Context);
+
+	if (ResultsGenerated == 0)
+	{
+		Context->AddError(TEXT("Test failed to run!"));
+	}
+	else if (ResultsGenerated != ResultsNative)
+	{
+		Context->AddError(TEXT("Native differs from generated!"));
+	}
+
+	return true;
+}
+
 // Helper functions introduced to avoid crashing if classes are missing:
-static UObject* NewTestObject(UClass* Class)
+static UObject* NewTestObject(UClass* Class, FOwnedObjectsHelper &OwnedObjects)
 {
 	if (Class)
 	{
-		return NewObject<UObject>(GetTransientPackage(), Class);
+		UObject* Result = NewObject<UObject>(GetTransientPackage(), Class, NAME_None);
+		if (Result)
+		{
+			OwnedObjects.Push(Result);
+		}
+		return Result;
 	}
 	return nullptr;
 }
 
-static UObject* NewTestActor(UClass* ActorClass)
+static UObject* NewTestActor(UClass* ActorClass, FOwnedObjectsHelper &OwnedObjects)
 {
 	if (ActorClass)
 	{
 		AActor* Actor = GWorld->SpawnActor(ActorClass);
 #if WITH_EDITORONLY_DATA
-		Actor->GetRootComponent()->bVisualizeComponent = true;
+		if (Actor)
+		{
+			OwnedObjects.Push(Actor);
+			Actor->GetRootComponent()->bVisualizeComponent = true;
+		}
 #endif
+		return Actor;
 	}
 	return nullptr;
 }
@@ -156,172 +189,156 @@ static const uint32 CompilerTestFlags = EAutomationTestFlags::EditorContext | EA
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerArrayTest, "Project.Blueprints.NativeBackend.ArrayTest", CompilerTestFlags)
 bool FBPCompilerArrayTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	TArray<FString> InputA;
-	TArray<FString> InputB;
-	TArray<FString> Input;
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
+		FOwnedObjectsHelper OwnedObjects;
+
+		TArray<FString> Input;
 		Input.Push(TEXT("addedString"));
-		InputA = Input;
-		InputB = Input;
-	}
-	UObject* GeneratedTestInstance = NewTestObject( GetGeneratedClass(TEXT("Array"), TEXT("BP_Array_Basic"), this));
-	UObject* NativeTestInstance = NewTestObject( GetNativeClass(TEXT("BP_Array_Basic_C"), this));
 
-	// execute test on generated object and native object:
-	Call(GeneratedTestInstance, TEXT("RunArrayTest"), &InputA);
-	Call(NativeTestInstance, TEXT("RunArrayTest"), &InputB);
+		UObject* TestInstance = NewTestObject(F(TEXT("Array"), TEXT("BP_Array_Basic"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
 
-	// evaluate results:
-	if (InputA != Input)
-	{
-		AddError(FString::Printf(TEXT("%S: Bytecode altered input"), *GeneratedTestInstance->GetName()));
-	}
-	if (InputB != Input)
-	{
-		AddError(FString::Printf(TEXT("%S: Native code altered input"), *NativeTestInstance->GetName()));
-	}
-	if (!Identical(GeneratedTestInstance, NativeTestInstance))
-	{
-		AddError(FString::Printf(TEXT("%S: Generated instance differs from native instance"), *GeneratedTestInstance->GetName()));
-	}
+		Call(TestInstance, TEXT("RunArrayTest"), &Input);
 
-	return true;
-} 
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
+}
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerCDOTest, "Project.Blueprints.NativeBackend.CDOTest", CompilerTestFlags)
 bool FBPCompilerCDOTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	const UObject* CDOGenerated = nullptr;
-	const UObject* CDONative = nullptr;
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		UObject* GeneratedTestInstance = NewTestObject(GetGeneratedClass(TEXT("CDO"), TEXT("BP_CDO_Basic"), this));
-		UObject* NativeTestInstance = NewTestObject(GetNativeClass(TEXT("BP_CDO_Basic_C"), this));
+		FOwnedObjectsHelper OwnedObjects;
 
-		if (!GeneratedTestInstance || !NativeTestInstance)
+		UObject* TestInstance = NewTestObject(F(TEXT("CDO"), TEXT("BP_CDO_Basic"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
 		{
-			return true;
+			return 0u;
 		}
 
-		CDOGenerated = GeneratedTestInstance->GetClass()->ClassDefaultObject;
-		CDONative = NativeTestInstance->GetClass()->ClassDefaultObject;
-	}
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance->GetClass()->ClassDefaultObject);
+	};
 
-	// evaluate results:
-	if (!Identical(CDOGenerated, CDONative))
-	{
-		AddError(FString::Printf(TEXT("%S: Generated CDO differs from native CDO"), *CDOGenerated->GetName()));
-	}
-	return true;
+	return RunTestHelper(TestBody, this);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerCommunicationTest, "Project.Blueprints.NativeBackend.CommunicationTest", CompilerTestFlags)
 bool FBPCompilerCommunicationTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	UObject* GeneratedTestInstanceA = NewTestObject(GetGeneratedClass(TEXT("Communication"), TEXT("BP_Comm_Test_A"), this));
-	UObject* GeneratedTestInstanceB = NewTestObject(GetGeneratedClass(TEXT("Communication"), TEXT("BP_Comm_Test_B"), this));
-	if (!GeneratedTestInstanceA || !GeneratedTestInstanceB)
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		return true;
-	}
+		FOwnedObjectsHelper OwnedObjects;
 
-	UObject* NativeTestInstanceA = NewTestObject(GetNativeClass(TEXT("BP_Comm_Test_A_C"), this));
-	UObject* NativeTestInstanceB = NewTestObject(GetNativeClass(TEXT("BP_Comm_Test_B_C"), this));
+		UObject* A = NewTestObject(F(TEXT("Communication"), TEXT("BP_Comm_Test_A"), Context, OwnedObjects), OwnedObjects);
+		UObject* B = NewTestObject(F(TEXT("Communication"), TEXT("BP_Comm_Test_B"), Context, OwnedObjects), OwnedObjects);
+		if (!A || !B)
+		{
+			return 0u;
+		}
 
-	// execute test on generated object and native object:
-	auto Test = [](UObject* A, UObject* B)
-	{
 		Call(A, TEXT("Flop"));
 		Call(B, TEXT("Flip"));
-	};
-	Test(GeneratedTestInstanceA, GeneratedTestInstanceB);
-	Test(NativeTestInstanceA, NativeTestInstanceB);
 
-	// evaluate results:
-	if (!Identical(GeneratedTestInstanceA, NativeTestInstanceA))
-	{
-		AddError(TEXT("Different results for communication test object A"));
-	}
-	if (!Identical(GeneratedTestInstanceB, NativeTestInstanceB))
-	{
-		AddError(TEXT("Different results for communication test object B"));
-	}
-	
-	return true;
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(B, Results.Crc32(A));
+	};
+
+	return RunTestHelper(TestBody, this);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerConstructionScriptTest, "Project.Blueprints.NativeBackend.ConstructionScriptTest", CompilerTestFlags)
 bool FBPCompilerConstructionScriptTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	UObject* GeneratedTestInstance = NewTestActor(GetGeneratedClass(TEXT("ConstructionScript"), TEXT("BP_ConstructionScript_Test"), this));
-	UObject* NativeTestInstance = NewTestActor(GetNativeClass(TEXT("BP_ConstructionScript_Test_C"), this));
-
-	// evaluate results:
-	if (!Identical(GeneratedTestInstance, NativeTestInstance))
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		AddError(FString::Printf(TEXT("%S: Generated instance differs from native instance"), *GeneratedTestInstance->GetName()));
-	}
-	return true;
+		FOwnedObjectsHelper OwnedObjects;
+
+		UObject* TestInstance = NewTestActor(F(TEXT("ConstructionScript"), TEXT("BP_ConstructionScript_Test"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
+
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerControlFlowTest, "Project.Blueprints.NativeBackend.ControlFlow", CompilerTestFlags)
 bool FBPCompilerControlFlowTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	UObject* GeneratedTestInstance = NewTestObject(GetGeneratedClass(TEXT("ControlFlow"), TEXT("BP_ControlFlow_Basic"), this));
-	UObject* NativeTestInstance = NewTestObject(GetNativeClass(TEXT("BP_ControlFlow_Basic_C"), this));
-
-	// execute test on generated object and native object:
-	Call(GeneratedTestInstance, TEXT("RunControlFlowTest"));
-	Call(NativeTestInstance, TEXT("RunControlFlowTest"));
-
-	// evaluate results:
-	if (!Identical(GeneratedTestInstance, NativeTestInstance))
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		AddError(FString::Printf(TEXT("%S: Generated instance differs from native instance"), *GeneratedTestInstance->GetName()));
-	}
-	return true;
+		FOwnedObjectsHelper OwnedObjects;
+
+		UObject* TestInstance = NewTestObject(F(TEXT("ControlFlow"), TEXT("BP_ControlFlow_Basic"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
+
+		Call(TestInstance, TEXT("RunControlFlowTest"));
+
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerEnumTest, "Project.Blueprints.NativeBackend.EnumTest", CompilerTestFlags)
 bool FBPCompilerEnumTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	UObject* GeneratedTestInstance = NewTestObject(GetGeneratedClass(TEXT("Enum"), TEXT("BP_Enum_Reader_Writer"), this));
-	UObject* NativeTestInstance = NewTestObject(GetNativeClass(TEXT("BP_Enum_Reader_Writer_C"), this));
-
-	// execute test on generated object and native object:
-	Call(GeneratedTestInstance, TEXT("UpdateEnum"));
-	Call(NativeTestInstance, TEXT("UpdateEnum"));
-
-	// evaluate results:
-	if (!Identical(GeneratedTestInstance, NativeTestInstance))
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		AddError(FString::Printf(TEXT("%S: Generated instance differs from native instance"), *GeneratedTestInstance->GetName()));
-	}
-	return true;
+		FOwnedObjectsHelper OwnedObjects;
+
+		UObject* TestInstance = NewTestObject(F(TEXT("Enum"), TEXT("BP_Enum_Reader_Writer"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
+
+		Call(TestInstance, TEXT("UpdateEnum"));
+
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerEventTest, "Project.Blueprints.NativeBackend.Event", CompilerTestFlags)
 bool FBPCompilerEventTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	UObject* GeneratedTestInstance = NewTestObject(GetGeneratedClass(TEXT("Event"), TEXT("BP_Event_Basic"), this));
-	UObject* NativeTestInstance = NewTestObject(GetNativeClass(TEXT("BP_Event_Basic_C"), this));
-
-	// execute test on generated object and native object:
-	Call(GeneratedTestInstance, TEXT("BeginEventChain"));
-	Call(NativeTestInstance, TEXT("BeginEventChain"));
-
-	// evaluate results:
-	if (!Identical(GeneratedTestInstance, NativeTestInstance))
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		AddError(FString::Printf(TEXT("%S: Generated instance differs from native instance"), *GeneratedTestInstance->GetName()));
-	}
-	return true;
+		FOwnedObjectsHelper OwnedObjects;
+
+		UObject* TestInstance = NewTestObject(F(TEXT("Event"), TEXT("BP_Event_Basic"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
+
+		Call(TestInstance, TEXT("BeginEventChain"));
+
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
 }
 
 struct FInheritenceTestParams
@@ -333,7 +350,7 @@ struct FInheritenceTestParams
 
 inline bool operator==(const FInheritenceTestParams& LHS, const FInheritenceTestParams& RHS)
 {
-	return 
+	return
 		LHS.bFlag == RHS.bFlag &&
 		LHS.Strings == RHS.Strings &&
 		LHS.Result == RHS.Result;
@@ -347,63 +364,91 @@ inline bool operator!=(const FInheritenceTestParams& LHS, const FInheritenceTest
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerInheritenceTest, "Project.Blueprints.NativeBackend.Inheritence", CompilerTestFlags)
 bool FBPCompilerInheritenceTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	UObject* GeneratedTestInstance = NewTestObject(GetGeneratedClass(TEXT("Inheritence"), TEXT("BP_Child_Basic"), this));
-	UObject* NativeTestInstance = NewTestObject(GetNativeClass(TEXT("BP_Child_Basic_C"), this));
-
-	// execute test on generated object and native object:
-	FInheritenceTestParams ParamsGenerated;
-	ParamsGenerated.bFlag = true;
-	FInheritenceTestParams ParamsNative = ParamsGenerated;
-	Call(GeneratedTestInstance, TEXT("VirtualFunction"), &ParamsGenerated);
-	Call(NativeTestInstance, TEXT("VirtualFunction"), &ParamsNative);
-
-	// evaluate results:
-	if (ParamsGenerated != ParamsNative)
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		AddError(FString::Printf(TEXT("%S: Outputs differ for native and generated instance"), *GeneratedTestInstance->GetName()));
-	}
-	if (!Identical(GeneratedTestInstance, NativeTestInstance))
-	{
-		AddError(FString::Printf(TEXT("%S: Generated instance differs from native instance"), *GeneratedTestInstance->GetName()));
-	}
-	return true;
+		FOwnedObjectsHelper OwnedObjects;
+
+		UObject* TestInstance = NewTestObject(F(TEXT("Inheritence"), TEXT("BP_Child_Basic"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
+
+		FInheritenceTestParams Params;
+		Params.bFlag = true;
+		Call(TestInstance, TEXT("VirtualFunction"), &Params);
+
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerStructureTest, "Project.Blueprints.NativeBackend.Structure", CompilerTestFlags)
 bool FBPCompilerStructureTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	UObject* GeneratedTestInstance = NewTestObject(GetGeneratedClass(TEXT("Structure"), TEXT("BP_Structure_Driver"), this));
-	UObject* NativeTestInstance = NewTestObject(GetNativeClass(TEXT("BP_Structure_Driver_C"), this));
-
-	// execute test on generated object and native object:
-	Call(GeneratedTestInstance, TEXT("RunStructTest"));
-	Call(NativeTestInstance, TEXT("RunStructTest"));
-
-	// evaluate results:
-	if (!Identical(GeneratedTestInstance, NativeTestInstance))
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		AddError(FString::Printf(TEXT("%S: Generated instance differs from native instance"), *GeneratedTestInstance->GetName()));
-	}
-	return true;
+		FOwnedObjectsHelper OwnedObjects;
+
+		UObject* TestInstance = NewTestObject(F(TEXT("Structure"), TEXT("BP_Structure_Driver"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
+
+		Call(TestInstance, TEXT("RunStructTest"));
+
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerNodeTest, "Project.Blueprints.NativeBackend.Node", CompilerTestFlags)
 bool FBPCompilerNodeTest::RunTest(const FString& Parameters)
 {
-	// setup input data:
-	UObject* GeneratedTestInstance = NewTestObject(GetGeneratedClass(TEXT("Node"), TEXT("BP_Node_Basic"), this));
-	UObject* NativeTestInstance = NewTestObject(GetNativeClass(TEXT("BP_Node_Basic_C"), this));
-
-	// execute test on generated object and native object:
-	Call(GeneratedTestInstance, TEXT("RunNodes"));
-	Call(NativeTestInstance, TEXT("RunNodes"));
-
-	// evaluate results:
-	if (!Identical(GeneratedTestInstance, NativeTestInstance))
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
 	{
-		AddError(FString::Printf(TEXT("%S: Generated instance differs from native instance"), *GeneratedTestInstance->GetName()));
-	}
-	return true;
+		FOwnedObjectsHelper OwnedObjects;
+
+		UObject* TestInstance = NewTestObject(F(TEXT("Node"), TEXT("BP_Node_Basic"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
+
+		Call(TestInstance, TEXT("RunNodes"));
+
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FBPCompilerLatentTest, "Project.Blueprints.NativeBackend.Latent", CompilerTestFlags)
+bool FBPCompilerLatentTest::RunTest(const FString& Parameters)
+{
+	auto TestBody = [](ClassAccessor F, FAutomationTestBase* Context)
+	{
+		FOwnedObjectsHelper OwnedObjects;
+		TGuardValue<bool> AutoRestore(GAllowActorScriptExecutionInEditor, true);
+
+		UObject* TestInstance = NewTestActor(F(TEXT("Node"), TEXT("BP_Latent_Basic"), Context, OwnedObjects), OwnedObjects);
+		if (!TestInstance)
+		{
+			return 0u;
+		}
+
+		Call(TestInstance, TEXT("RunDelayTest"));
+		Call(TestInstance, TEXT("RunDownloadTest"));
+
+		FArchiveSkipTransientObjectCRC32 Results;
+		return Results.Crc32(TestInstance);
+	};
+
+	return RunTestHelper(TestBody, this);
 }

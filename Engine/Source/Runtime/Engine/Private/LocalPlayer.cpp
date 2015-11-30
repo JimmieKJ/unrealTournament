@@ -1444,6 +1444,21 @@ void ULocalPlayer::SetControllerId( int32 NewControllerId )
 
 FString ULocalPlayer::GetNickname() const
 {
+	// Try to get platform identity first
+	IOnlineSubsystem* PlatformSubsystem = IOnlineSubsystem::GetByPlatform(false);
+	if (PlatformSubsystem)
+	{
+		IOnlineIdentityPtr OnlineIdentityInt = PlatformSubsystem->GetIdentityInterface();
+		if (OnlineIdentityInt.IsValid())
+		{
+			FString PlayerNickname = OnlineIdentityInt->GetPlayerNickname(ControllerId);
+			if (!PlayerNickname.IsEmpty())
+			{
+				return PlayerNickname;
+			}
+		}
+	}
+
 	UWorld* World = GetWorld();
 	if (World != NULL)
 	{

@@ -274,7 +274,7 @@ namespace D3D12RHI
 	}
 }
 
-FD3D12BoundRenderTargets::FD3D12BoundRenderTargets(FD3D12RenderTargetView **RTArray, uint32 NumActiveRTs, FD3D12DepthStencilView* DSView)
+FD3D12BoundRenderTargets::FD3D12BoundRenderTargets(FD3D12RenderTargetView** RTArray, uint32 NumActiveRTs, FD3D12DepthStencilView* DSView)
 {
 	FMemory::Memcpy(RenderTargetViews, RTArray, sizeof(RenderTargetViews));
 	DepthStencilView = DSView;
@@ -308,7 +308,7 @@ void FD3D12DynamicBuffer::ReleaseRHI()
 
 void* FD3D12DynamicBuffer::Lock(uint32 Size)
 {
-	FD3D12ResourceLocation *NewResourceLocation = new FD3D12ResourceLocation();
+	FD3D12ResourceLocation* NewResourceLocation = new FD3D12ResourceLocation();
 	ResourceLocation = NewResourceLocation;
     return UploadHeapAllocator.FastAlloc(Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, NewResourceLocation);
 }
@@ -319,11 +319,11 @@ FD3D12ResourceLocation* FD3D12DynamicBuffer::Unlock()
 }
 
 
-void LogExecuteCommandLists(uint32 NumCommandLists, ID3D12CommandList *const *ppCommandLists)
+void LogExecuteCommandLists(uint32 NumCommandLists, ID3D12CommandList* const* ppCommandLists)
 {
 	for (uint32 i = 0; i < NumCommandLists; i++)
 	{
-		ID3D12CommandList *const pCurrentCommandList = ppCommandLists[i];
+		ID3D12CommandList* const pCurrentCommandList = ppCommandLists[i];
 		UE_LOG(LogD3D12RHI, Log, TEXT("*** EXECUTE (CmdList: %016llX) %u/%u ***"), pCurrentCommandList, i + 1, NumCommandLists);
 	}
 }
@@ -335,7 +335,7 @@ FString ConvertToResourceStateString(uint32 ResourceState)
 		return FString(TEXT("D3D12_RESOURCE_STATE_COMMON"));
 	}
 
-	TCHAR *ResourceStateNames[] =
+	TCHAR* ResourceStateNames[] =
 	{
 		TEXT("D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER"	  ), 
 		TEXT("D3D12_RESOURCE_STATE_INDEX_BUFFER"				  ), 
@@ -372,7 +372,7 @@ FString ConvertToResourceStateString(uint32 ResourceState)
 	return ResourceStateString;
 }
 
-void LogResourceBarriers(uint32 NumBarriers, D3D12_RESOURCE_BARRIER *pBarriers, ID3D12CommandList *const pCommandList)
+void LogResourceBarriers(uint32 NumBarriers, D3D12_RESOURCE_BARRIER* pBarriers, ID3D12CommandList* const pCommandList)
 {
 	for (uint32 i = 0; i < NumBarriers; i++)
 	{

@@ -23,7 +23,8 @@ class FGameplayAbilitiesModule : public IGameplayAbilitiesModule
 
 			checkf(SingletonClass != NULL, TEXT("Ability config value AbilitySystemGlobalsClassName is not a valid class name."));
 
-			AbilitySystemGlobals = NewObject<UAbilitySystemGlobals>(GetTransientPackage(), SingletonClass, NAME_None, RF_RootSet);
+			AbilitySystemGlobals = NewObject<UAbilitySystemGlobals>(GetTransientPackage(), SingletonClass, NAME_None);
+			AbilitySystemGlobals->AddToRoot();
 		}
 
 		check(AbilitySystemGlobals);

@@ -22,4 +22,6 @@ struct ISequencerHotspot
 	virtual ~ISequencerHotspot() { }
 	virtual ESequencerHotspot GetType() const = 0;
 	virtual TSharedPtr<ISequencerEditToolDragOperation> InitiateDrag(ISequencer&) = 0;
+	virtual void PopulateContextMenu(FMenuBuilder& MenuBuilder, ISequencer& Sequencer, float MouseDownTime){}
+	virtual FCursorReply GetCursor() const { return FCursorReply::Unhandled(); }
 };

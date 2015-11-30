@@ -60,6 +60,9 @@ typedef int32 NAME_INDEX;
 /** These characters cannot be used in long package names */
 #define INVALID_LONGPACKAGE_CHARACTERS	TEXT("\\:*?\"<>|' ,.&!\n\r\t@#")
 
+/** These characters can be used in relative directory names (lowercase versions as well) */
+#define VALID_SAVEDDIRSUFFIX_CHARACTERS	TEXT("_0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+
 enum class ENameCase : uint8
 {
 	CaseSensitive,
@@ -562,11 +565,16 @@ public:
 
 	FORCEINLINE bool operator==(const FName& Other) const
 	{
-		return IsEqual(Other, ENameCase::IgnoreCase);
+		#if WITH_CASE_PRESERVING_NAME
+			return GetComparisonIndexFast() == Other.GetComparisonIndexFast() && GetNumber() == Other.GetNumber();
+		#else
+			static_assert(sizeof(CompositeComparisonValue) == sizeof(*this), "ComparisonValue does not cover the entire FName state");
+			return CompositeComparisonValue == Other.CompositeComparisonValue;
+		#endif
 	}
 	FORCEINLINE bool operator!=(const FName& Other) const
 	{
-		return !IsEqual(Other, ENameCase::IgnoreCase);
+		return !(*this == Other);
 	}
 
 	/**
@@ -938,14 +946,25 @@ public:
 
 private:
 
-	/** Index into the Names array (used to find String portion of the string/number pair used for comparison) */
-	NAME_INDEX		ComparisonIndex;
-#if WITH_CASE_PRESERVING_NAME
-	/** Index into the Names array (used to find String portion of the string/number pair used for display) */
-	NAME_INDEX		DisplayIndex;
-#endif
-	/** Number portion of the string/number pair (stored internally as 1 more than actual, so zero'd memory will be the default, no-instance case) */
-	uint32			Number;
+	union
+	{
+		struct
+		{
+			/** Index into the Names array (used to find String portion of the string/number pair used for comparison) */
+			NAME_INDEX		ComparisonIndex;
+		#if WITH_CASE_PRESERVING_NAME
+			/** Index into the Names array (used to find String portion of the string/number pair used for display) */
+			NAME_INDEX		DisplayIndex;
+		#endif
+			/** Number portion of the string/number pair (stored internally as 1 more than actual, so zero'd memory will be the default, no-instance case) */
+			uint32			Number;
+		};
+
+		// Used to perform a single comparison in FName::operator==
+		#if !WITH_CASE_PRESERVING_NAME
+			uint64 CompositeComparisonValue;
+		#endif
+	};
 
 	/** Name hash.												*/
 	static FNameEntry*						NameHash[ FNameDefs::NameHashBucketCount ];

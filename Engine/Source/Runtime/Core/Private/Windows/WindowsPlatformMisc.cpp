@@ -29,7 +29,7 @@
 #include "VarargsHelper.h"
 
 #if !FORCE_ANSI_ALLOCATOR
-	#include "MallocBinned.h"
+	#include "MallocBinned2.h"
 	#include "AllowWindowsPlatformTypes.h"
 		#include <psapi.h>
 	#include "HideWindowsPlatformTypes.h"
@@ -2065,6 +2065,9 @@ void FWindowsPlatformMisc::PromptForRemoteDebugging(bool bIsEnsure)
 			// Do not ask if there is no one to show a message
 			return;
 		}
+
+		// Upload locally compiled files for remote debugging
+		FPlatformStackWalk::UploadLocalSymbols();
 
 		FCString::Sprintf(GErrorRemoteDebugPromptMessage, 
 			TEXT("Have a programmer remote debug this crash?\n")

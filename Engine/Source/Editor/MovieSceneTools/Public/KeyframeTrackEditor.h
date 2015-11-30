@@ -27,10 +27,8 @@ public:
 		: FMovieSceneTrackEditor( InSequencer )
 	{ }
 
-
-	~FKeyframeTrackEditor()
-	{
-	}
+	/** Virtual destructor. */
+	~FKeyframeTrackEditor() { }
 
 public:
 
@@ -41,12 +39,14 @@ public:
 		return Type == TrackType::StaticClass();
 	}
 
+	// Only add a key if the track already has keys, or if creating keys has been forced.  Otherwise just update the track default.
+	virtual bool ShouldAddKey(TrackType* InTrack, KeyDataType InNewKey, FKeyParams InKeyParams) const
+	{
+		return HasKeys( InTrack, InNewKey ) || InKeyParams.bCreateKeyIfEmpty;
+	}
 
 protected:
 
-	DECLARE_DELEGATE_OneParam( FOnInitializeNewTrack, TrackType* );
-	DECLARE_DELEGATE_OneParam( FOnSetIntermediateValue, UMovieSceneTrack* );
-	
 	/*
 	 * Adds keys to the specified object.  This may also add tracks and sections depending on the options specified. 
 	 *
@@ -61,8 +61,11 @@ protected:
 	 * @param OnSetIntermediateValue A delegate which is called when the key params specify that keying should only happen when
 	 * 		  auto-keying is on, but auto-keying is off.  This allows handling the changed but not keyed intermediate value.
 	 */
-	bool AddKeysToObjects(TArray<UObject*> ObjectsToKey, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams,
-		TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName, FOnInitializeNewTrack OnIntializeNewTrack, FOnSetIntermediateValue OnSetIntermediateValue )
+	bool AddKeysToObjects(
+		TArray<UObject*> ObjectsToKey, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams,
+		TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
+		TFunction<void(TrackType*)> OnIntializeNewTrack,
+		TFunction<void(TrackType*)> OnSetIntermediateValue)
 	{
 		bool bHandleCreated = false;
 		bool bTrackCreatedOrModified = false;
@@ -84,7 +87,11 @@ protected:
 
 private:
 
-	bool AddKeysToHandle( FGuid ObjectHandle, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams, TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName, FOnInitializeNewTrack OnIntializeNewTrack, FOnSetIntermediateValue OnSetIntermediateValue )
+	bool AddKeysToHandle(
+		FGuid ObjectHandle, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams,
+		TSubclassOf<UMovieSceneTrack> TrackClass, FName PropertyName,
+		TFunction<void(TrackType*)> OnIntializeNewTrack,
+		TFunction<void(TrackType*)> OnSetIntermediateValue)
 	{
 		bool bTrackCreated = false;
 		bool bTrackModified = false;
@@ -96,7 +103,10 @@ private:
 
 		if ( bTrackCreated )
 		{
-			OnIntializeNewTrack.ExecuteIfBound( Track );
+			if (OnIntializeNewTrack)
+			{
+				OnIntializeNewTrack(Track);
+			}
 		}
 
 		if ( Track )
@@ -107,15 +117,17 @@ private:
 		return bTrackCreated || bTrackModified;
 	}
 
-	bool AddKeysToTrack( TrackType* Track, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams, FOnSetIntermediateValue OnSetIntermediateValue )
+	bool AddKeysToTrack(
+		TrackType* Track, float KeyTime, const TArray<KeyDataType> NewKeys, FKeyParams KeyParams,
+		TFunction<void(TrackType*)> OnSetIntermediateValue)
 	{
 		bool bTrackModified = false;
 
 		bool bSettingIntermediateValue = KeyParams.bCreateKeyOnlyWhenAutoKeying && GetSequencer()->GetAutoKeyEnabled() == false;
 		if ( bSettingIntermediateValue )
 		{
-			checkf( OnSetIntermediateValue.IsBound(), TEXT( "A valid OnSetIntermediateValue delegate must be provided for consistent keyframing behavior." ) );
-			OnSetIntermediateValue.Execute(Track);
+			checkf(OnSetIntermediateValue, TEXT("A valid OnSetIntermediateValue delegate must be provided for consistent keyframing behavior."));
+			OnSetIntermediateValue(Track);
 		}
 		else
 		{
@@ -125,8 +137,7 @@ private:
 				// Only modify the track if the new key will create new data, or if creating keys has been forced.
 				if ( NewKeyIsNewData( Track, KeyTime, NewKey ) || KeyParams.bCreateKeyIfUnchanged )
 				{
-					// Only add a key if the track already has keys, or if creating keys has been forced.  Otherwise just update the track default.
-					if ( HasKeys( Track, NewKey ) || KeyParams.bCreateKeyIfEmpty )
+					if ( ShouldAddKey(Track, NewKey, KeyParams) )
 					{
 						AddKey( Track, KeyTime, NewKey, InterpolationMode );
 					}

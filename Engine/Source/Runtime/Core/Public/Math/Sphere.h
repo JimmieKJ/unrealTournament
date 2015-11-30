@@ -173,3 +173,18 @@ public:
 		return Ar;
 	}
 };
+
+struct FCapsuleShape
+{
+	FVector Center;
+	float Radius;
+	FVector Orientation;
+	float Length;
+
+	FCapsuleShape(FVector InCenter, float InRadius, FVector InOrientation, float InLength) :
+		Center(InCenter),
+		Radius(InRadius),
+		Orientation(InOrientation),
+		Length(InLength)
+	{}
+};

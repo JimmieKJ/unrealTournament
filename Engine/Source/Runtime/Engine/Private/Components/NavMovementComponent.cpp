@@ -18,7 +18,7 @@ void FNavAgentProperties::UpdateWithCollisionComponent(UShapeComponent* Collisio
 
 bool FNavAgentProperties::IsNavDataMatching(const FNavAgentProperties& Other) const
 {
-	return (PreferredNavData == nullptr || Other.PreferredNavData == nullptr || PreferredNavData == Other.PreferredNavData);
+	return (PreferredNavData == Other.PreferredNavData || PreferredNavData == nullptr || Other.PreferredNavData == nullptr);
 }
 
 //----------------------------------------------------------------------//

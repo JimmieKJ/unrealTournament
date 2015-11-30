@@ -258,7 +258,7 @@ private:
 	void OnMessageTokenActivated(const TSharedRef<class IMessageToken>& Token);
 
 	/** Delegate for (default) display name of UObject tokens. Can display the name of the actor if an object is/is part of one */
-	FText OnGetDisplayName(UObject* InObject, bool bFullPath);
+	FText OnGetDisplayName(const UObject* InObject, const bool bFullPath);
 
 	/** Delegate for (default) message log message selection - selects the objects that the tokens refer to (if any) */
 	void OnMessageSelectionChanged(TArray< TSharedRef<class FTokenizedMessage> >& Selection);

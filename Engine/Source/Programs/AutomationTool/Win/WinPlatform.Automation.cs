@@ -61,27 +61,6 @@ public abstract class BaseWinPlatform : Platform
 							BootstrapArguments = String.Format("..\\..\\..\\{0}\\{0}.uproject", SC.ShortProjectName);
 						}
 
-
-                        foreach (string StageExePath in GetExecutableNames(SC))
-                        {
-                            // set the icon on the original exe this will be used in the task bar when the bootstrap exe runs
-                            if (InternalUtils.SafeFileExists(CombinePaths(SC.ProjectRoot, "Build/Windows/Application.ico")))
-                            {
-                                GroupIconResource GroupIcon = null;
-                                GroupIcon = GroupIconResource.FromIco(CombinePaths(SC.ProjectRoot, "Build/Windows/Application.ico"));
-
-                                // Update the icon on the original exe because this will be used when the game is running in the task bar
-                                using (ModuleResourceUpdate Update = new ModuleResourceUpdate(StageExePath, false))
-                                {
-                                    const int IconResourceId = 101;
-                                    if (GroupIcon != null)
-                                    {
-                                        Update.SetIcons(IconResourceId, GroupIcon);
-                                    }
-                                }
-                            }
-                        }
-
 						string BootstrapExeName;
 						if(SC.StageTargetConfigurations.Count > 1)
 						{

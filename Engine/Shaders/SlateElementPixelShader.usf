@@ -24,7 +24,7 @@ float3 GammaCorrect(float3 InColor)
 {
 	float3 CorrectedColor = InColor;
 
-#if !(ES2_PROFILE || ES3_1_PROFILE)
+#if (!(ES2_PROFILE || ES3_1_PROFILE)) || USE_MATERIALS
 	FLATTEN if( GammaValues.y != 1.0f )
 	{
 		CorrectedColor = ApplyGammaCorrection(CorrectedColor, GammaValues.x);
@@ -310,7 +310,7 @@ float4 Main( VertexToPixelInterpolants VIn ) : SV_Target0
 #endif
 
 
-#if !PRE_MULTIPLIED_ALPHA
+#if !PRE_MULTIPLIED_ALPHA && !USE_MATERIALS
 	OutColor.rgb = OutColor.rgb * OutColor.a;
 #endif
 

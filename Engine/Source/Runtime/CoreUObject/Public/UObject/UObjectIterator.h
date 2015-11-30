@@ -26,18 +26,18 @@ public:
 	 * Iterator dereference
 	 * @return	the object pointer pointed at by the iterator
 	 */
-	FORCEINLINE UObject* operator*() const
+	FORCEINLINE FUObjectItem* operator*() const
 	{
 		// casting UObjectBase to UObject for clients
-		return (UObject *)GetObject();
+		return GetObject();
 	}
 	/**
 	 * Iterator dereference
 	 * @return	the object pointer pointed at by the iterator
 	 */
-	FORCEINLINE UObject* operator->() const
+	FORCEINLINE FUObjectItem* operator->() const
 	{
-		return (UObject *)GetObject();
+		return GetObject();
 	}
 };
 
@@ -58,23 +58,24 @@ public:
 	 * @param	bOnlyGCedObjects			if true, skip all of the permanent objects
 	 * @param	AdditionalExclusionFlags	RF_* flags that should not be included in results
 	 */
-	FObjectIterator( UClass* InClass=UObject::StaticClass(), bool bOnlyGCedObjects = false, EObjectFlags AdditionalExclusionFlags = RF_NoFlags ) :
-		FUObjectArray::TIterator( GUObjectArray, bOnlyGCedObjects ),
-		Class( InClass ),
-		ExclusionFlags(AdditionalExclusionFlags)
+	FObjectIterator(UClass* InClass = UObject::StaticClass(), bool bOnlyGCedObjects = false, EObjectFlags AdditionalExclusionFlags = RF_NoFlags, EInternalObjectFlags InInternalExclusionFlags = EInternalObjectFlags::None) 
+		: FUObjectArray::TIterator(GUObjectArray, bOnlyGCedObjects)
+		, Class(InClass)
+		, ExclusionFlags(AdditionalExclusionFlags)
+		, InternalExclusionFlags(InInternalExclusionFlags)
 	{
 		// We don't want to return any objects that are currently being background loaded unless we're using the object iterator during async loading.
-		ExclusionFlags = EObjectFlags(ExclusionFlags | RF_Unreachable);
+		InternalExclusionFlags |= EInternalObjectFlags::Unreachable;
 		if (!IsInAsyncLoadingThread())
 		{
-			ExclusionFlags = EObjectFlags(ExclusionFlags | RF_AsyncLoading);
+			InternalExclusionFlags |= EInternalObjectFlags::AsyncLoading;
 		}
 		check(Class);
 
 		do
 		{
 			UObject *Object = **this;
-			if (!(Object->HasAnyFlags(ExclusionFlags) || (Class != UObject::StaticClass() && !Object->IsA(Class))))
+			if (!(Object->HasAnyFlags(ExclusionFlags) || Object->HasAnyInternalFlags(InternalExclusionFlags) || (Class != UObject::StaticClass() && !Object->IsA(Class))))
 			{
 				break;
 			}
@@ -86,10 +87,11 @@ public:
 	 *
 	 * @param	Begin	The iterator to get the end iterator of.
 	 */
-	FObjectIterator( FUObjectArray::TIterator::EEndTagType, const FObjectIterator& Begin ) :
-		FUObjectArray::TIterator( FUObjectArray::TIterator::EndTag, Begin ),
-		Class( Begin.Class ),
-		ExclusionFlags(Begin.ExclusionFlags)
+	FObjectIterator( FUObjectArray::TIterator::EEndTagType, const FObjectIterator& Begin )
+		: FUObjectArray::TIterator( FUObjectArray::TIterator::EndTag, Begin )
+		, Class( Begin.Class )
+		, ExclusionFlags(Begin.ExclusionFlags)
+		, InternalExclusionFlags(Begin.InternalExclusionFlags)
 	{
 	}
 
@@ -100,12 +102,12 @@ public:
 	{
 		//@warning: behavior is partially mirrored in UnObjGC.cpp. Make sure to adapt code there as well if you make changes below.
 		// verify that the async loading exclusion flag still matches (i.e. we didn't start/stop async loading within the scope of the iterator)
-		checkSlow(IsInAsyncLoadingThread() || (ExclusionFlags & RF_AsyncLoading));
+		checkSlow(IsInAsyncLoadingThread() || int32(InternalExclusionFlags & EInternalObjectFlags::AsyncLoading));
 
 		while(Advance())
 		{
 			UObject *Object = **this;
-			if (!(Object->HasAnyFlags(ExclusionFlags) || (Class != UObject::StaticClass() && !Object->IsA(Class))))
+			if (!(Object->HasAnyFlags(ExclusionFlags) || (Class != UObject::StaticClass() && !Object->IsA(Class)) || Object->HasAnyInternalFlags(InternalExclusionFlags)))
 			{
 				break;
 			}
@@ -118,7 +120,8 @@ public:
 	FORCEINLINE UObject* operator*() const
 	{
 		// casting UObjectBase to UObject for clients
-		return (UObject *)GetObject();
+		FUObjectItem* ObjectItem = GetObject();
+		return (UObject*)(ObjectItem ? ObjectItem->Object : nullptr);
 	}
 	/**
 	 * Iterator dereference
@@ -126,7 +129,8 @@ public:
 	 */
 	FORCEINLINE UObject* operator->() const
 	{
-		return (UObject *)GetObject();
+		FUObjectItem* ObjectItem = GetObject();
+		return (UObject*)(ObjectItem ? ObjectItem->Object : nullptr);
 	}
 private:
 	/** Class to restrict results to */
@@ -134,6 +138,8 @@ private:
 protected:
 	/** Flags that returned objects must not have */
 	EObjectFlags ExclusionFlags;
+	/** Internal Flags that returned objects must not have */
+	EInternalObjectFlags InternalExclusionFlags;
 };
 
 /**
@@ -153,10 +159,10 @@ public:
 	/**
 	 * Constructor
 	 */
-	explicit TObjectIterator(EObjectFlags AdditionalExclusionFlags = RF_ClassDefaultObject, bool bIncludeDerivedClasses = true)
+	explicit TObjectIterator(EObjectFlags AdditionalExclusionFlags = RF_ClassDefaultObject, bool bIncludeDerivedClasses = true, EInternalObjectFlags InternalExclusionFlags = EInternalObjectFlags::None)
 		: Index(-1)
 	{
-		GetObjectsOfClass(T::StaticClass(), ObjectArray, bIncludeDerivedClasses, AdditionalExclusionFlags);
+		GetObjectsOfClass(T::StaticClass(), ObjectArray, bIncludeDerivedClasses, AdditionalExclusionFlags, InternalExclusionFlags);
 		Advance();
 	}
 
@@ -246,8 +252,8 @@ protected:
 template<> class TObjectIterator<UObject> : public FObjectIterator
 {
 public:
-	explicit TObjectIterator(EObjectFlags AdditionalExclusionFlags = RF_ClassDefaultObject) :
-		FObjectIterator(UObject::StaticClass(), false, AdditionalExclusionFlags)
+	explicit TObjectIterator(EObjectFlags AdditionalExclusionFlags = RF_ClassDefaultObject, bool bIncludeDerivedClasses = true, EInternalObjectFlags InternalExclusionFlags = EInternalObjectFlags::None) 
+		: FObjectIterator(UObject::StaticClass(), false, AdditionalExclusionFlags, InternalExclusionFlags)
 	{
 	}
 
@@ -277,10 +283,10 @@ public:
 	void operator++()
 	{
 		// verify that the async loading exclusion flag still matches (i.e. we didn't start/stop async loading within the scope of the iterator)
-		checkSlow(IsInAsyncLoadingThread() || (ExclusionFlags & RF_AsyncLoading));
+		checkSlow(IsInAsyncLoadingThread() || int32(InternalExclusionFlags & EInternalObjectFlags::AsyncLoading));
 		while(Advance())
 		{
-			if (!(*this)->HasAnyFlags(ExclusionFlags))
+			if (!(*this)->HasAnyFlags(ExclusionFlags) && !(*this)->HasAnyInternalFlags(InternalExclusionFlags))
 			{
 				break;
 			}
@@ -291,8 +297,8 @@ public:
 template <typename T>
 struct TObjectRange
 {
-	TObjectRange(EObjectFlags AdditionalExclusionFlags = RF_ClassDefaultObject, bool bIncludeDerivedClasses = true)
-		: Begin(AdditionalExclusionFlags, bIncludeDerivedClasses)
+	TObjectRange(EObjectFlags AdditionalExclusionFlags = RF_ClassDefaultObject, bool bIncludeDerivedClasses = true, EInternalObjectFlags InInternalExclusionFlags = EInternalObjectFlags::None)
+	: Begin(AdditionalExclusionFlags, bIncludeDerivedClasses, InInternalExclusionFlags)
 	{
 	}
 
@@ -305,8 +311,8 @@ struct TObjectRange
 template <>
 struct TObjectRange<UObject>
 {
-	explicit TObjectRange(EObjectFlags AdditionalExclusionFlags = RF_ClassDefaultObject)
-		: Begin(AdditionalExclusionFlags)
+	explicit TObjectRange(EObjectFlags AdditionalExclusionFlags = RF_ClassDefaultObject, bool bIncludeDerivedClasses = true, EInternalObjectFlags InInternalExclusionFlags = EInternalObjectFlags::None)
+	: Begin(AdditionalExclusionFlags, bIncludeDerivedClasses, InInternalExclusionFlags)
 	{
 	}
 

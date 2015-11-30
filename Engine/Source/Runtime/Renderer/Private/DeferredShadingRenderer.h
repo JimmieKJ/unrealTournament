@@ -155,6 +155,8 @@ private:
 	/** Determines which primitives are visible for each view. */
 	void InitViews(FRHICommandListImmediate& RHICmdList);
 
+	void CreateIndirectCapsuleShadows();
+
 	/**
 	 * Renders the scene's prepass and occlusion queries.
 	 * @return true if anything was rendered
@@ -266,6 +268,8 @@ private:
 	/** Downsample the scene depth with a specified scale factor to a specified render target*/
 	void DownsampleDepthSurface(FRHICommandList& RHICmdList, const FTexture2DRHIRef& RenderTarget, const FViewInfo &View, float ScaleFactor, float MinMaxFilterBlend = 0.0f);
 
+	void CopyStencilToLightingChannelTexture(FRHICommandList& RHICmdList);
+
 	/** Renders one pass point light shadows. */
 	bool RenderOnePassPointLightShadows(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo, bool bRenderedTranslucentObjectShadows, bool& bInjectedTranslucentVolume);
 
@@ -274,6 +278,15 @@ private:
 
 	/** Renders reflective shadowmaps for LPVs */
 	bool RenderReflectiveShadowMaps(FRHICommandListImmediate& RHICmdList, const FLightSceneInfo* LightSceneInfo);
+
+	/** Renders capsule shadows for all per-object shadows using it for the given light. */
+	bool RenderCapsuleDirectShadows(
+		const FLightSceneInfo& LightSceneInfo,
+		FRHICommandListImmediate& RHICmdList, 
+		const TArray<FProjectedShadowInfo*, SceneRenderingAllocator>& CapsuleShadows) const;
+
+	/** Renders indirect shadows from capsules modulated onto scene color. */
+	void RenderIndirectCapsuleShadows(FRHICommandListImmediate& RHICmdList) const;
 
 	/**
 	  * Used by RenderLights to render projected shadows to the attenuation buffer.

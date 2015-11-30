@@ -68,10 +68,10 @@ void FMainFrameCommands::RegisterCommands()
 	ActionList->MapAction( AddCodeToProject, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::AddCodeToProject ));
 
 	UI_COMMAND( RefreshCodeProject, "Refresh code project", "Refreshes your C++ code project.", EUserInterfaceActionType::Button, FInputChord() );
-	ActionList->MapAction( RefreshCodeProject, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::RefreshCodeProject ), DefaultExecuteAction );
+	ActionList->MapAction( RefreshCodeProject, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::RefreshCodeProject ), FCanExecuteAction::CreateStatic( &FMainFrameActionCallbacks::IsCodeProject ) );
 
 	UI_COMMAND( OpenIDE, "Open IDE", "Opens your C++ code in an integrated development environment.", EUserInterfaceActionType::Button, FInputChord() );
-	ActionList->MapAction( OpenIDE, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::OpenIDE ), DefaultExecuteAction );
+	ActionList->MapAction( OpenIDE, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::OpenIDE ), FCanExecuteAction::CreateStatic( &FMainFrameActionCallbacks::IsCodeProject ) );
 
 	UI_COMMAND( ZipUpProject, "Zip Up Project", "Zips up the project into a zip file.", EUserInterfaceActionType::Button, FInputChord() );
 	ActionList->MapAction(ZipUpProject, FExecuteAction::CreateStatic( &FMainFrameActionCallbacks::ZipUpProject ), DefaultExecuteAction);
@@ -562,6 +562,11 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 		OptionalParams += TEXT(" -nodebuginfo");
 	}
 
+	if (PackagingSettings->bNativizeBlueprintAssets)
+	{
+		OptionalParams += TEXT(" -nativizeAssets");
+	}
+
 
 	bool bTargetPlatformCanUseCrashReporter = true;
 	if (PlatformInfo->TargetPlatformName == FName("WindowsNoEditor") && PlatformInfo->PlatformFlavor == TEXT("Win32"))
@@ -588,15 +593,15 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	}
 
 	// only build if the project has code that might need to be built
-	if (bProjectHasCode || (!FApp::GetEngineIsPromotedBuild() && !FApp::IsEngineInstalled()))
+	if (bProjectHasCode || (!FApp::GetEngineIsPromotedBuild() && !FApp::IsEngineInstalled()) || PackagingSettings->bNativizeBlueprintAssets)
 	{
 		OptionalParams += TEXT(" -build");
 	}
 
-	// we can include the crash reporter for any non-code projects or internal builds (we don't have the symbols to interpret external builds of code-based projects)
-	if (PackagingSettings->IncludeCrashReporter && (!bProjectHasCode || FEngineBuildSettings::IsInternalBuild()) && bTargetPlatformCanUseCrashReporter)
+	// Whether to include the crash reporter.
+	if (PackagingSettings->IncludeCrashReporter && bTargetPlatformCanUseCrashReporter)
 	{
-		OptionalParams += TEXT(" -CrashReporter");
+		OptionalParams += TEXT( " -CrashReporter" );
 	}
 
 	if (PackagingSettings->bBuildHttpChunkInstallData)
@@ -607,7 +612,7 @@ void FMainFrameActionCallbacks::PackageProject( const FName InPlatformInfoName )
 	int32 NumCookers = GetDefault<UEditorExperimentalSettings>()->MultiProcessCooking;
 	if (NumCookers > 0 )
 	{
-		OptionalParams += FString::Printf(TEXT(" -NumCookersToSpawn=%d"), NumCookers);
+		OptionalParams += FString::Printf(TEXT(" -NumCookersToSpawn=%d"), NumCookers); 
 	}
 
 	const bool bRunningDebug = FParse::Param(FCommandLine::Get(), TEXT("debug"));
@@ -654,6 +659,13 @@ void FMainFrameActionCallbacks::RefreshCodeProject()
 	{
 		SOutputLogDialog::Open(LOCTEXT("RefreshProject", "Refresh Project"), FailReason, FailLog, FText::GetEmpty());
 	}
+}
+
+bool FMainFrameActionCallbacks::IsCodeProject()
+{
+	// Not particularly rigorous, but assume it's a code project if it can find a Source directory
+	const bool bIsCodeProject = IFileManager::Get().DirectoryExists(*FPaths::GameSourceDir());
+	return bIsCodeProject;
 }
 
 void FMainFrameActionCallbacks::OpenIDE()

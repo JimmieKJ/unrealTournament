@@ -515,6 +515,11 @@ public:
 	 */
 	static float GetUnfocusedVolumeMultiplier();
 
+	/**
+	* Sets the Unfocused Volume Multiplier
+	*/
+	static void SetUnfocusedVolumeMultiplier(float InVolumeMultiplier);
+
 private:
 
 	/** Holds the instance identifier. */

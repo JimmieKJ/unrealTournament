@@ -21,6 +21,11 @@ public:
 	static void GetDescendantNodes(TSharedRef<FSequencerDisplayNode> DisplayNode, TSet<TSharedRef<FSequencerDisplayNode> >& Nodes);
 
 	/**
+	* Gets all sections from the requested node
+	*/
+	static void GetAllSections(TSharedRef<FSequencerDisplayNode> DisplayNode, TSet<TWeakObjectPtr<UMovieSceneSection>>& Sections);
+
+	/**
 	* Convert time to frame
 	*/
 	static int32 TimeToFrame(float Time, float FrameRate);

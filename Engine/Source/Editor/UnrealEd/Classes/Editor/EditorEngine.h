@@ -1015,6 +1015,9 @@ public:
 	/** Plays an editor sound, loading the sound on demand if necessary (if the user has sounds enabled.)  The reference to the sound asset is not retained. */
 	void PlayEditorSound( const FString& SoundAssetName );
 
+	/** Plays an editor sound (if the user has sounds enabled.) */
+	void PlayEditorSound( USoundBase* InSound );
+
 	/**
 	 * Returns the preview audio component
 	 */

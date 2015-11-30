@@ -9,7 +9,7 @@ class UNavArea;
 struct FCompositeNavModifier;
 
 UCLASS(ClassGroup = (Navigation), meta = (BlueprintSpawnableComponent), hidecategories = (Activation))
-class UNavModifierComponent : public UNavRelevantComponent
+class ENGINE_API UNavModifierComponent : public UNavRelevantComponent
 {
 	GENERATED_UCLASS_BODY()
 

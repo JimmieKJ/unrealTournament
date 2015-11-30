@@ -27,7 +27,7 @@ void USoundClassGraph::RebuildGraph()
 {
 	check(RootSoundClass);
 
-	Modify();
+	Modify(false);
 
 	RemoveAllNodes();
 

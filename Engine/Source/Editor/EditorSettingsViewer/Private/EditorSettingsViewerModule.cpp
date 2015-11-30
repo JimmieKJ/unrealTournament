@@ -13,6 +13,7 @@
 
 #include "Tests/AutomationTestSettings.h"
 #include "BlueprintEditorSettings.h"
+#include "CrashReporterSettings.h"
 
 
 #define LOCTEXT_NAMESPACE "FEditorSettingsViewerModule"
@@ -137,6 +138,13 @@ protected:
 			GetMutableDefault<UEditorPerProjectUserSettings>()
 		);
 
+		// Crash Reporter settings
+		SettingsModule.RegisterSettings("Editor", "General", "CrashReporter",
+			LOCTEXT("CrashReporterSettingsName", "Crash Reporter"),
+			LOCTEXT("CrashReporterSettingsDescription", "Various Crash Reporter related settings."),
+			GetMutableDefault<UCrashReporterSettings>()
+			);
+
 		// experimental features
 		SettingsModule.RegisterSettings("Editor", "General", "Experimental",
 			LOCTEXT("ExperimentalettingsName", "Experimental"),
@@ -227,6 +235,7 @@ protected:
 			SettingsModule->UnregisterSettings("Editor", "General", "AutomationTest");
 			SettingsModule->UnregisterSettings("Editor", "General", "Internationalization");
 			SettingsModule->UnregisterSettings("Editor", "General", "Experimental");
+			SettingsModule->UnregisterSettings("Editor", "General", "CrashReporter");			
 
 			// level editor settings
 			SettingsModule->UnregisterSettings("Editor", "LevelEditor", "PlayIn");

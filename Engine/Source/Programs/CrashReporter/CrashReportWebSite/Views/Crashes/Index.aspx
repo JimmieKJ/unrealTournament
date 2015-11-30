@@ -217,6 +217,13 @@
 						<td>
 							<input name="BuiltFromCL" type="text" value="<%=Model.BuiltFromCL %>" title="" />
 						</td>
+
+						<td>
+							<p class="SearchTextTitle">Filter by Platform</p>
+						</td>
+						<td>
+							<%=Html.DropDownListFor( m=>m.PlatformName, Model.PlatformNames )%>
+						</td>
 					</tr>
 
 					<tr>
@@ -272,6 +279,7 @@
 						DateTo = Model.DateTo,
 						BranchName = Model.BranchName,
 						VersionName = Model.VersionName,
+						PlatformName = Model.PlatformName,
 						GameName = Model.GameName,
 						RealUserName = Model.RealUserName
 					}
@@ -297,6 +305,7 @@
 						DateTo = Model.DateTo,
 						BranchName = Model.BranchName,
 						VersionName = Model.VersionName,
+						PlatformName = Model.PlatformName,
 						GameName = Model.GameName,
 						RealUserName = Model.RealUserName
 					}
@@ -328,6 +337,7 @@
 			DateTo = Model.DateTo,
 			BranchName = Model.BranchName,
 			VersionName = Model.VersionName,
+			PlatformName = Model.PlatformName,
 			GameName = Model.GameName,
 			RealUserName = Model.RealUserName
 		} 

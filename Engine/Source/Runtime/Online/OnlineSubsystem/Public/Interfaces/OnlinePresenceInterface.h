@@ -19,6 +19,9 @@ const FString CustomPresenceDataKey = "CustomData";
 /** Name of the client that sent the presence update */
 const FString DefaultAppIdKey = "AppId";
 
+/** Name of the platform the the presence update */
+const FString DefaultPlatformKey = "Platform";
+
 /** Override Id of the client to set the presence state to */
 const FString OverrideClientIdKey = "OverrideClientId";
 

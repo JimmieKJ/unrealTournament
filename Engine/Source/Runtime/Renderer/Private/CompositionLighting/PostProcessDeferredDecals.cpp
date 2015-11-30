@@ -266,8 +266,6 @@ bool RenderPreStencil(FRenderingCompositePassContext& Context, const FMatrix& Co
 		}
 	}
 	
-	SCOPED_DRAW_EVENT(Context.RHICmdList, RenderPreStencil);
-
 	FDecalRendering::SetVertexShaderOnly(Context.RHICmdList, View, FrustumComponentToClip);
 
 	// Set states, the state cache helps us avoiding redundant sets
@@ -461,6 +459,11 @@ static inline bool IsStencilOptimizationAvailable(EDecalRenderStage RenderStage)
 	return RenderStage == DRS_BeforeLighting || RenderStage == DRS_BeforeBasePass;
 }
 
+static inline bool IsWrittingToGBufferA(FDecalRendering::ERenderTargetMode RenderTargetMode)
+{
+	return RenderTargetMode == FDecalRendering::RTM_SceneColorAndGBufferWithNormal ||  RenderTargetMode == FDecalRendering::RTM_SceneColorAndGBufferDepthWriteWithNormal || RenderTargetMode == FDecalRendering::RTM_GBufferNormal;
+}
+
 void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& Context)
 {
 	FRHICommandListImmediate& RHICmdList = Context.RHICmdList;
@@ -570,6 +573,8 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 			FDecalDepthState LastDecalDepthState;
 			int32 LastDecalBlendMode = -1;
 			int32 LastDecalHasNormal = -1; // Decal state can change based on its normal property.(SM5)
+			bool bGufferADirty = CurrentStage == DRS_AfterBasePass; // Normal buffer is already dirty at this point and needs resolve before being read from (irrelevant for DBuffer).
+
 			FDecalRendering::ERenderTargetMode LastRenderTargetMode = FDecalRendering::RTM_Unknown;
 			const ERHIFeatureLevel::Type SMFeatureLevel = Context.GetFeatureLevel();
 
@@ -587,7 +592,7 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 				EDecalRenderStage LocalDecalStage = FDecalRendering::ComputeRenderStage(View.GetShaderPlatform(), DecalBlendMode);
 				bool bStencilThisDecal = IsStencilOptimizationAvailable(LocalDecalStage);
 
-				FDecalRendering::ERenderTargetMode CurrentRenderTargetMode = FDecalRendering::ComputeRenderTargetMode(View.GetShaderPlatform(), DecalBlendMode);
+				FDecalRendering::ERenderTargetMode CurrentRenderTargetMode = FDecalRendering::ComputeRenderTargetMode(View.GetShaderPlatform(), DecalBlendMode, DecalData.bHasNormal);
 
 				if (bShaderComplexity)
 				{
@@ -596,24 +601,43 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 					DecalBlendMode = DBM_Emissive;
 				}
 
+				// Here we assume that GBuffer can only be WorldNormal since it is the only GBufferTarget handled correctly.
+				if (bGufferADirty && DecalData.MaterialResource->NeedsGBuffer())
+				{ 
+					RHICmdList.CopyToResolveTarget(SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture, true, FResolveParams());
+					TargetsToResolve[GBufferAIndex] =  nullptr;
+					bGufferADirty = false;
+				}
+
 				// fewer rendertarget switches if possible
 				if (CurrentRenderTargetMode != LastRenderTargetMode)
 				{
 					LastRenderTargetMode = CurrentRenderTargetMode;
 
+					// If GBuffrA was resolved for read, and we want to write to it again.
+					if (!bGufferADirty && IsWrittingToGBufferA(CurrentRenderTargetMode)) 
+					{
+						// This is required to be compliant with RHISetRenderTargets resource transition code : const bool bAccessValid = !bReadable || LastFrameWritten != CurrentFrame;
+						// If the normal buffer was resolved as a texture before, then bReadable && LastFrameWritten == CurrentFrame, and an error msg will be triggered. 
+						// Which is not needed here since no more read will be done at this point (at least not before any other CopyToResolvedTarget).
+						RHICmdList.TransitionResource(EResourceTransitionAccess::EWritable, SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture);
+					}
+
 					switch (CurrentRenderTargetMode)
 					{
-						case FDecalRendering::RTM_SceneColorAndGBuffer:
+						case FDecalRendering::RTM_SceneColorAndGBufferWithNormal:
+						case FDecalRendering::RTM_SceneColorAndGBufferNoNormal:
 							TargetsToResolve[SceneColorIndex] = SceneContext.GetSceneColor()->GetRenderTargetItem().TargetableTexture;
-							TargetsToResolve[GBufferAIndex] = SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture;
+							TargetsToResolve[GBufferAIndex] = DecalData.bHasNormal ? SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture : nullptr;
 							TargetsToResolve[GBufferBIndex] = SceneContext.GBufferB->GetRenderTargetItem().TargetableTexture;
 							TargetsToResolve[GBufferCIndex] = SceneContext.GBufferC->GetRenderTargetItem().TargetableTexture;
 							SetRenderTargets(RHICmdList, 4, TargetsToResolve, SceneContext.GetSceneDepthSurface(), ESimpleRenderTargetMode::EExistingColorAndDepth, FExclusiveDepthStencil::DepthRead_StencilWrite, TargetsToTransitionWritable[CurrentRenderTargetMode]);							
 							break;
 
-						case FDecalRendering::RTM_SceneColorAndGBufferDepthWrite:
+						case FDecalRendering::RTM_SceneColorAndGBufferDepthWriteWithNormal:
+						case FDecalRendering::RTM_SceneColorAndGBufferDepthWriteNoNormal:
 							TargetsToResolve[SceneColorIndex] = SceneContext.GetSceneColor()->GetRenderTargetItem().TargetableTexture;
-							TargetsToResolve[GBufferAIndex] = SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture;
+							TargetsToResolve[GBufferAIndex] = DecalData.bHasNormal ? SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture : nullptr;
 							TargetsToResolve[GBufferBIndex] = SceneContext.GBufferB->GetRenderTargetItem().TargetableTexture;
 							TargetsToResolve[GBufferCIndex] = SceneContext.GBufferC->GetRenderTargetItem().TargetableTexture;
 							TargetsToResolve[GBufferEIndex] = SceneContext.GBufferE->GetRenderTargetItem().TargetableTexture;
@@ -706,6 +730,14 @@ void FRCPassPostProcessDeferredDecals::Process(FRenderingCompositePassContext& C
 				FDecalRendering::SetShader(RHICmdList, View, bShaderComplexity, DecalData, FrustumComponentToClip);
 
 				RHICmdList.DrawIndexedPrimitive(GetUnitCubeIndexBuffer(), PT_TriangleList, 0, 0, 8, 0, ARRAY_COUNT(GCubeIndices) / 3, 1);
+
+				bGufferADirty |= (TargetsToResolve[GBufferAIndex] != nullptr);
+			}
+
+			// If GBuffer A is dirty, mark it as needing resolve since the content of TargetsToResolve[GBufferAIndex] could have been nullified by modes like RTM_SceneColorAndGBufferNoNormal
+			if (bGufferADirty)
+			{
+				TargetsToResolve[GBufferAIndex] = SceneContext.GBufferA->GetRenderTargetItem().TargetableTexture;
 			}
 
 			// we don't modify stencil but if out input was having stencil for us (after base pass - we need to clear)

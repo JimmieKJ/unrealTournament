@@ -26,9 +26,10 @@ public:
 	 * 
 	 * @param ObjectId The guid used to map to the possessable object.  Note the guid can be bound to multiple objects at once
 	 * @param PossessedObject The runtime object which was possessed.
+	 * @param Context Optional context required to bind the specified object (for instance, a parent spawnable object)
 	 * @see UnbindPossessableObjects
 	 */
-	virtual void BindPossessableObject(const FGuid& ObjectId, UObject& PossessedObject) PURE_VIRTUAL(UMovieSceneSequence::BindPossessableObject,);
+	virtual void BindPossessableObject(const FGuid& ObjectId, UObject& PossessedObject, UObject* Context) PURE_VIRTUAL(UMovieSceneSequence::BindPossessableObject,);
 	
 	/**
 	 * Check whether the given object can be possessed by this animation.
@@ -39,20 +40,13 @@ public:
 	virtual bool CanPossessObject(UObject& Object) const PURE_VIRTUAL(UMovieSceneSequence::CanPossessObject, return false;);
 
 	/**
-	 * Gets the possessed or spawned object for the specified identifier.
+	 * Finds the possessed for the specified identifier.
 	 *
 	 * @param ObjectId The unique identifier of the object.
+	 * @param Context Optional context to use to find the required object (for instance, a parent spawnable object)
 	 * @return The object, or nullptr if not found.
 	 */
-	virtual UObject* FindObject(const FGuid& ObjectId) const PURE_VIRTUAL(UMovieSceneSequence::FindObject, return nullptr;);
-
-	/**
-	 * Find the identifier for a possessed or spawned object.
-	 *
-	 * @param The object to get the identifier for.
-	 * @return The object identifier, or an invalid GUID if not found.
-	 */
-	virtual FGuid FindObjectId( UObject& Object) const PURE_VIRTUAL(UMovieSceneSequence::FindGuidForObject, return FGuid(););
+	virtual UObject* FindPossessableObject(const FGuid& ObjectId, UObject* Context) const PURE_VIRTUAL(UMovieSceneSequence::FindPossessedObject, return nullptr;);
 
 	/**
 	 * Get the movie scene that controls this animation.
@@ -78,28 +72,6 @@ public:
 	 * @return true if objects can be spawned by sequencer, false if only existing objects can be possessed.
 	 */
 	virtual bool AllowsSpawnableObjects() const { return false; }
-	
-	/**
-	 * Spawn an object relating to the specified object ID
-	 * 
-	 * @param ObjectId The ID of the object to spawn
-	 * @return The newly spawned or previously-spawned object, or nullptr
-	 */
-	virtual UObject* SpawnObject(const FGuid& ObjectId) { return nullptr; }
-
-	/**
-	 * Destroy a previously spawned object relating to the specified object ID
-	 * 
-	 * @param ObjectId The ID of the object to destroy
-	 */
-	virtual void DestroySpawnedObject(const FGuid& ObjectId) { }
-
-	/**
-	 * Destroy a previously spawned object relating to the specified GUID
-	 *
-	 * @return true if the object was destroyed, false otherwise
-	 */
-	virtual void DestroyAllSpawnedObjects() {}
 
 	/**
 	 * Unbinds all possessable objects from the provided GUID.
@@ -112,15 +84,6 @@ public:
 public:
 
 #if WITH_EDITOR
-	/**
-	 * 
-	 * Tries to get a display name for the binding represented by the guid.
-	 *
-	 * @param ObjectGuid The guid for the object binding.
-	 * @param DisplayName The display name for the object binding.
-	 * @returns true if DisplayName has been set to a valid display name, otherwise false.
-	 */
-	virtual bool TryGetObjectDisplayName(const FGuid& ObjectId, FText& OutDisplayName) const PURE_VIRTUAL(UMovieSceneSequence::TryGetObjectDisplayName, return false;);
 
 	/**
 	 * Get the display name for this movie sequence

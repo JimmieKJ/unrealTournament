@@ -397,7 +397,13 @@ void UnFbx::FFbxImporter::CreateUnrealMaterial(FbxSurfaceMaterial& FbxMaterial, 
 	}
 
 	FString MaterialFullName = GetMaterialFullName(FbxMaterial);
-	FString BasePackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName()) / MaterialFullName;
+	FString BasePackageName = FPackageName::GetLongPackagePath(Parent->GetOutermost()->GetName());
+	if (ImportOptions->MaterialPrefixName != NAME_None)
+	{
+		BasePackageName += ImportOptions->MaterialPrefixName.ToString();
+	}
+	BasePackageName += MaterialFullName;
+	
 	BasePackageName = PackageTools::SanitizePackageName(BasePackageName);
 
 	// The material could already exist in the project

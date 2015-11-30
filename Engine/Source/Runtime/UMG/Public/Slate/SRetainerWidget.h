@@ -5,10 +5,13 @@
 #include "Input/HittestGrid.h"
 #include "WidgetRenderer.h"
 
+
+DECLARE_MULTICAST_DELEGATE( FOnRetainedModeChanged );
+
 /**
  * 
  */
-class UMG_API SRetainerWidget : public ISlateViewport, public SCompoundWidget, public FGCObject, public FTickableGameObject, public ICustomHitTestPath
+class UMG_API SRetainerWidget : public ISlateViewport, public SCompoundWidget, public FGCObject, public ICustomHitTestPath
 {
 public:
 	SLATE_BEGIN_ARGS(SRetainerWidget)
@@ -49,13 +52,7 @@ public:
 	virtual bool ComputeVolatility() const override;
 	// SWidget
 
-	// FTickableGameObject
-	virtual void Tick(float DeltaTime) override;
-	virtual bool IsTickable() const override { return true; }
-	virtual bool IsTickableWhenPaused() const override { return true; }
-	virtual bool IsTickableInEditor() const override { return true; }
-	virtual TStatId GetStatId() const override { RETURN_QUICK_DECLARE_CYCLE_STAT(FRetainerWidget, STATGROUP_Tickables); }
-	// FTickableGameObject
+	virtual void OnTickRetainers(float DeltaTime);
 
 	// ICustomHitTestPath
 	virtual TArray<FWidgetAndPointer> GetBubblePathAndVirtualCursors(const FGeometry& InGeometry, FVector2D DesktopSpaceCoordinate, bool bIgnoreEnabledStatus) const override;
@@ -71,8 +68,13 @@ protected:
 
 	void RefreshRenderingMode();
 	bool ShouldBeRenderingOffscreen() const;
-
+	void OnRetainerModeChanged();
 private:
+#if !UE_BUILD_SHIPPING
+	static void OnRetainerModeCVarChanged( IConsoleVariable* CVar );
+	static FOnRetainedModeChanged OnRetainerModeChangedDelegate;
+#endif
+
 	mutable FGeometry CachedAllottedGeometry;
 	mutable FSlateRect CachedClippingRect;
 

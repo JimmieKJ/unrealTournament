@@ -34,6 +34,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Config)
 	TEnumAsByte<enum ECurveBlendOption::Type>	CurveBlendOption;
 
+	UPROPERTY(Transient)
+	bool bHasRelevantPoses;
+
 protected:
 	TArray<FPerBoneBlendWeight> DesiredBoneBlendWeights;
 	TArray<FPerBoneBlendWeight> CurrentBoneBlendWeights;

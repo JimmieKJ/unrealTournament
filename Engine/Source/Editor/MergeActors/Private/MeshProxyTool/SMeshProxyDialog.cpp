@@ -22,7 +22,6 @@ void SMeshProxyDialog::Construct(const FArguments& InArgs, FMeshProxyTool* InToo
 	CuttingPlaneOptions.Add(MakeShareable(new FString(TEXT("-Y"))));
 	CuttingPlaneOptions.Add(MakeShareable(new FString(TEXT("-Z"))));
 
-	TextureResolutionOptions.Add(MakeShareable(new FString(TEXT("32"))));
 	TextureResolutionOptions.Add(MakeShareable(new FString(TEXT("64"))));
 	TextureResolutionOptions.Add(MakeShareable(new FString(TEXT("128"))));
 	TextureResolutionOptions.Add(MakeShareable(new FString(TEXT("256"))));

@@ -30,12 +30,15 @@ namespace FObjectEditorUtils
 
 	FName GetCategoryFName( const UProperty* InProperty )
 	{
-		FName CategoryName(NAME_None);
-		if( InProperty )
+		FName OutCategoryName( NAME_None );
+
+		static const FName CategoryKey( TEXT("Category") );
+		if( InProperty && InProperty->HasMetaData( CategoryKey ) )
 		{
-			CategoryName = *GetCategoryText( InProperty ).ToString();
+			OutCategoryName = FName( *InProperty->GetMetaData( CategoryKey ) );
 		}
-		return CategoryName;
+
+		return OutCategoryName;
 	}
 
 	bool IsFunctionHiddenFromClass( const UFunction* InFunction,const UClass* Class )

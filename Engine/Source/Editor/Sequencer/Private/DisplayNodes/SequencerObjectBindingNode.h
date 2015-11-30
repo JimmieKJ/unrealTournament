@@ -47,7 +47,7 @@ public:
 	virtual float GetNodeHeight() const override;
 	virtual FNodePadding GetNodePadding() const override;
 	virtual ESequencerNode::Type GetType() const override;
-	virtual void SetDisplayName(const FText& DisplayName) override;
+	virtual void SetDisplayName(const FText& NewDisplayName) override;
 
 protected:
 
@@ -59,7 +59,11 @@ protected:
 private:
 
 	TSharedRef<SWidget> HandleAddTrackComboButtonGetMenuContent();
+	
 	void HandleAddTrackSubMenuNew(FMenuBuilder& AddTrackMenuBuilder, TArray<TArray<UProperty*>> KeyablePropertyPath);
+
+	void HandleLabelsSubMenuCreate(FMenuBuilder& MenuBuilder);
+	
 	void HandlePropertyMenuItemExecute(TArray<UProperty*> PropertyPath);
 
 private:

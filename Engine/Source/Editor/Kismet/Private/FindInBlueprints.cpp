@@ -618,7 +618,7 @@ void SFindInBlueprints::ConditionallyAddCacheBar()
 		{
 			// Create a single string of all the Blueprint paths that failed to cache, on separate lines
 			FString PackageList;
-			TArray<FName> FailedToCacheList = FFindInBlueprintSearchManager::Get().GetFailedToCachePathList();
+			TSet<FName> FailedToCacheList = FFindInBlueprintSearchManager::Get().GetFailedToCachePathList();
 			for (FName Package : FailedToCacheList)
 			{
 				PackageList += Package.ToString() + TEXT("\n");
@@ -1238,7 +1238,7 @@ FText SFindInBlueprints::GetUncachedBlueprintWarningText() const
 
 	// The number of unindexed Blueprints is the total of those that failed to cache and those that haven't been attempted yet.
 	FFormatNamedArguments Args;
-	Args.Add(TEXT("Count"), FindInBlueprintManager.GetNumberUncachedBlueprints() + FailedToCacheCount + OutOfDateWithLastSearchBPCount);
+	Args.Add(TEXT("Count"), FindInBlueprintManager.GetNumberUncachedBlueprints() + OutOfDateWithLastSearchBPCount);
 
 	FText ReturnDisplayText;
 	if(IsCacheInProgress())

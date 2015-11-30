@@ -43,7 +43,7 @@ struct FRepRecord
 //
 class COREUOBJECT_API UField : public UObject
 {
-	DECLARE_CASTED_CLASS_INTRINSIC(UField,UObject,CLASS_Abstract,CoreUObject,CASTCLASS_UField)
+	DECLARE_CASTED_CLASS_INTRINSIC(UField, UObject, CLASS_Abstract, TEXT("/Script/CoreUObject"), CASTCLASS_UField)
 
 	// Variables.
 	UField*			Next;
@@ -236,7 +236,7 @@ class COREUOBJECT_API UField : public UObject
  */
 class COREUOBJECT_API UStruct : public UField
 {
-	DECLARE_CASTED_CLASS_INTRINSIC(UStruct,UField,0,CoreUObject,CASTCLASS_UStruct)
+	DECLARE_CASTED_CLASS_INTRINSIC(UStruct, UField, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UStruct)
 
 	// Variables.
 protected:
@@ -421,6 +421,11 @@ public:
 	/** Try and find string metadata with the given key. If not found on this class, work up hierarchy looking for it. */
 	bool GetStringMetaDataHierarchical(const FName& Key, FString* OutValue = nullptr) const;
 #endif
+
+#if HACK_HEADER_GENERATOR
+	// Required by UHT makefiles for internal data serialization.
+	friend struct FStructArchiveProxy;
+#endif // HACK_HEADER_GENERATOR
 };
 
 enum EStructFlags
@@ -987,7 +992,7 @@ public:
 	#define IMPLEMENT_STRUCT(BaseName) \
 		static UScriptStruct::TAutoCppStructOps<F##BaseName> BaseName##_Ops(TEXT(#BaseName)); 
 
-	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UScriptStruct,UStruct,0,CoreUObject,CASTCLASS_UScriptStruct,COREUOBJECT_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UScriptStruct, UStruct, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UScriptStruct, COREUOBJECT_API)
 
 	COREUOBJECT_API UScriptStruct( EStaticConstructor, int32 InSize, EObjectFlags InFlags );
 	COREUOBJECT_API explicit UScriptStruct(const FObjectInitializer& ObjectInitializer, UScriptStruct* InSuperStruct, ICppStructOps* InCppStructOps = NULL, EStructFlags InStructFlags = STRUCT_NoFlags, SIZE_T ExplicitSize = 0, SIZE_T ExplicitAlignment = 0);
@@ -999,6 +1004,9 @@ public:
 
 #if HACK_HEADER_GENERATOR
 	int32 StructMacroDeclaredLineNumber;
+
+	// Required by UHT makefiles for internal data serialization.
+	friend struct FScriptStructArchiveProxy;
 #endif
 
 private:
@@ -1238,7 +1246,7 @@ private:
 //
 class COREUOBJECT_API UFunction : public UStruct
 {
-	DECLARE_CASTED_CLASS_INTRINSIC(UFunction, UStruct, 0, CoreUObject, CASTCLASS_UFunction)
+	DECLARE_CASTED_CLASS_INTRINSIC(UFunction, UStruct, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UFunction)
 	DECLARE_WITHIN(UClass)
 public:
 	// Persistent variables.
@@ -1386,7 +1394,7 @@ public:
 
 class COREUOBJECT_API UDelegateFunction : public UFunction
 {
-	DECLARE_CASTED_CLASS_INTRINSIC(UDelegateFunction, UFunction, 0, CoreUObject, CASTCLASS_UDelegateFunction)
+	DECLARE_CASTED_CLASS_INTRINSIC(UDelegateFunction, UFunction, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UDelegateFunction)
 	DECLARE_WITHIN(UObject)
 public:
 	explicit UDelegateFunction(const FObjectInitializer& ObjectInitializer, UFunction* InSuperFunction, uint32 InFunctionFlags = 0, uint16 InRepOffset = 0, SIZE_T ParamsSize = 0);
@@ -1402,7 +1410,7 @@ public:
 //
 class COREUOBJECT_API UEnum : public UField
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UEnum,UField,0,CoreUObject,CASTCLASS_UEnum,NO_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UEnum, UField, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UEnum, NO_API)
 
 public:
 	enum class ECppForm
@@ -1880,7 +1888,7 @@ class COREUOBJECT_API UClass : public UStruct
 	, private FFastIndexingClassTreeRegistrar
 #endif
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UClass,UStruct,0,CoreUObject,CASTCLASS_UClass,NO_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UClass, UStruct, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UClass, NO_API)
 	DECLARE_WITHIN(UPackage)
 
 public:
@@ -2406,6 +2414,10 @@ public:
 	virtual void GetRequiredPreloadDependencies(TArray<UObject*>& DependenciesOut) {}
 
 	virtual UObject* GetArchetypeForCDO() const;
+
+	/** Returns true if this class implements script instrumentation. */
+	virtual bool HasInstrumentation() const { return false; }
+
 private:
 	#if UCLASS_FAST_ISA_IMPL & 2
 		// For UObjectBaseUtility
@@ -2440,6 +2452,11 @@ protected:
 	 * @return		the CDO for this class
 	 **/
 	virtual UObject* CreateDefaultObject();
+
+#if HACK_HEADER_GENERATOR
+	// Required by UHT makefiles for internal data serialization.
+	friend struct FClassArchiveProxy;
+#endif // HACK_HEADER_GENERATOR
 };
 
 /**
@@ -2447,7 +2464,7 @@ protected:
 */
 class COREUOBJECT_API UDynamicClass : public UClass
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UDynamicClass, UClass, 0, CoreUObject, CASTCLASS_None, NO_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UDynamicClass, UClass, 0, TEXT("/Script/CoreUObject"), CASTCLASS_None, NO_API)
 	DECLARE_WITHIN(UPackage)
 
 public:
@@ -2480,6 +2497,9 @@ public:
 	TArray<UObject*> DynamicBindingObjects;
 	TArray<UObject*> ComponentTemplates;
 	TArray<UObject*> Timelines;
+
+	// IAnimClassInterface (UAnimClassData) or null
+	UObject* AnimClassImplementation;
 };
 
 /**
@@ -2796,7 +2816,7 @@ T* ConstructObject(UClass* Class, UObject* Outer, FName Name, EObjectFlags SetFl
 {
 	checkf(Class, TEXT("ConstructObject called with a NULL class object"));
 	checkSlow(Class->IsChildOf(T::StaticClass()));
-	return (T*)StaticConstructObject_Internal(Class, Outer, Name, SetFlags, Template, bCopyTransientsFromClassDefaults, InstanceGraph);
+	return (T*)StaticConstructObject_Internal(Class, Outer, Name, SetFlags, EInternalObjectFlags::None, Template, bCopyTransientsFromClassDefaults, InstanceGraph);
 }
 
 /**

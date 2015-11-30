@@ -53,18 +53,3 @@ private:
 	/** The number of pixels in the view range */
 	float PixelsPerInput;
 };
-
-
-class MatineeImportTools
-{
-public:
-
-	/** Converts a matinee interpolation mode to its equivalent rich curve interpolation mode. */
-	static ERichCurveInterpMode MatineeInterpolationToRichCurveInterpolation( EInterpCurveMode CurveMode );
-
-	/** Converts a matinee interpolation mode to its equivalent rich curve tangent mode. */
-	static ERichCurveTangentMode MatineeInterpolationToRichCurveTangent( EInterpCurveMode CurveMode );
-
-	/** Adds a key to a rich curve based on matinee curve key data. */
-	static void SetOrAddKey( FRichCurve& Curve, float Time, float Value, float ArriveTangent, float LeaveTangent, EInterpCurveMode MatineeInterpMode );
-};

@@ -31,6 +31,7 @@
 
 //////////////////////////////////////////////////////////////////////////
 
+#include "Debug/GameplayDebuggerBaseObject.h"
 #include "GameplayDebuggingTypes.h"
 #include "GameplayDebugger.h"
 #include "GameplayDebuggingReplicator.h"

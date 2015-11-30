@@ -22,7 +22,7 @@ UAISense_Blueprint::UAISense_Blueprint(const FObjectInitializer& ObjectInitializ
 		OnNewListenerDelegate.BindUObject(this, &UAISense_Blueprint::OnNewListenerImpl);
 		OnListenerRemovedDelegate.BindUObject(this, &UAISense_Blueprint::OnListenerRemovedImpl);
 		// update is optional
-		if (BlueprintNodeHelpers::HasBlueprintFunction(TEXT("OnListenerUpdated"), this, StopAtClass))
+		if (BlueprintNodeHelpers::HasBlueprintFunction(TEXT("OnListenerUpdated"), *this, *StopAtClass))
 		{
 			OnListenerUpdateDelegate.BindUObject(this, &UAISense_Blueprint::OnListenerUpdateImpl);
 		}

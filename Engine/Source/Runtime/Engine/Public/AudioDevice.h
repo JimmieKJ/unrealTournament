@@ -59,29 +59,6 @@ namespace ESortedActiveWaveGetType
 	};
 }
 
-/** Simple class that wraps the math involved with interpolating a parameter over time based on audio device update time. */
-class FDynamicParameter
-{
-public:
-	FDynamicParameter(float Value);
-
-	void Set(float Value, float InDuration);
-	void Update(float DeltaTime);
-	float GetValue() const
-	{
-		return CurrValue;
-	}
-
-private:
-	float CurrValue;
-	float StartValue;
-	float DeltaValue;
-	float CurrTimeSec;
-	float DurationSec;
-	float LastTime;
-};
-
-
 /** 
  * Defines the properties of the listener
  */
@@ -431,9 +408,14 @@ public:
 	FSoundClassProperties* GetSoundClassCurrentProperties(class USoundClass* InSoundClass);
 
 	/**
-	 * Checks to see if a coordinate is within a distance of any listener
-	 */
-	bool LocationIsAudible( FVector Location, float MaxDistance );
+	* Checks to see if a coordinate is within a distance of any listener
+	*/
+	bool LocationIsAudible(const FVector& Location, const float MaxDistance);
+
+	/**
+	* Checks to see if a coordinate is within a distance of the given listener
+	*/
+	bool LocationIsAudible(const FVector& Location, const FListener& Listener, const float MaxDistance);
 
 	/**
 	 * Sets the Sound Mix that should be active by default

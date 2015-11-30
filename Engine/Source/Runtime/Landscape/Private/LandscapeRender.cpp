@@ -744,6 +744,10 @@ void FLandscapeComponentSceneProxy::CreateRenderThreadResources()
 		FLandscapeBatchElementParams* BatchElementParams = &GrassBatchParams;
 		BatchElementParams->LocalToWorldNoScalingPtr = &LocalToWorldNoScaling;
 		BatchElement->UserData = BatchElementParams;
+		if (NeedsUniformBufferUpdate())
+		{
+			UpdateUniformBuffer();
+		}
 		BatchElement->PrimitiveUniformBufferResource = &GetUniformBuffer();
 		BatchElementParams->LandscapeUniformShaderParametersResource = &LandscapeUniformShaderParameters;
 		BatchElementParams->SceneProxy = this;
@@ -2631,6 +2635,15 @@ void FLandscapeComponentSceneProxy::GetHeightfieldRepresentation(UTexture2D*& Ou
 	OutDescription.NumSubsections = NumSubsections;
 
 	OutDescription.SubsectionScaleAndBias = FVector4(SubsectionSizeQuads, SubsectionSizeQuads, HeightmapSubsectionOffsetU, HeightmapSubsectionOffsetV);
+}
+
+void FLandscapeComponentSceneProxy::GetLCIs(FLCIArray& LCIs)
+{
+	FLightCacheInterface* LCI = ComponentLightInfo.Get();
+	if (LCI)
+	{
+		LCIs.Push(LCI);
+	}
 }
 
 //

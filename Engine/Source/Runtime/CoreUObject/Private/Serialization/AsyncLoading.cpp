@@ -132,21 +132,20 @@ public:
 #if THREADSAFE_UOBJECTS
 		FScopeLock ReferencedObjectsLock(&ReferencedObjectsCritical);
 #endif
-		const EObjectFlags AsyncFlags = RF_Async | RF_AsyncLoading;
+		const EInternalObjectFlags AsyncFlags = EInternalObjectFlags::Async | EInternalObjectFlags::AsyncLoading;
 		for (UObject* Obj : ReferencedObjects)
 		{
 			check(Obj);
-			Obj->AtomicallyClearFlags(AsyncFlags);
-			check(!Obj->HasAnyFlags(AsyncFlags))
+			Obj->AtomicallyClearInternalFlags(AsyncFlags);
+			check(!Obj->HasAnyInternalFlags(AsyncFlags))
 		}
 		ReferencedObjects.Reset();
 	}
 	/** Removes all referenced objects and markes them for GC */
 	void EmptyReferencedObjectsAndCancelLoading()
 	{
-		check(IsInGameThread());
 		const EObjectFlags LoadFlags = RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects;
-		const EObjectFlags AsyncFlags = RF_Async | RF_AsyncLoading;
+		const EInternalObjectFlags AsyncFlags = EInternalObjectFlags::Async | EInternalObjectFlags::AsyncLoading;
 
 #if THREADSAFE_UOBJECTS
 		FScopeLock ReferencedObjectsLock(&ReferencedObjectsCritical);
@@ -155,29 +154,32 @@ public:
 		// All of the referenced objects have been created by async loading code and may be in an invalid state so mark them for GC
 		for (auto Object : ReferencedObjects)
 		{
-			Object->ClearFlags(AsyncFlags);
+			Object->ClearInternalFlags(AsyncFlags);
 			if (Object->HasAnyFlags(LoadFlags))
 			{
 				Object->AtomicallyClearFlags(LoadFlags);
-				Object->AtomicallySetFlags(RF_PendingKill);
+				Object->MarkPendingKill();
 			}
-			check(!Object->HasAnyFlags(AsyncFlags | LoadFlags));
+			check(!Object->HasAnyInternalFlags(AsyncFlags) && !Object->HasAnyFlags(LoadFlags));
 		}
 		ReferencedObjects.Reset();
 	}
 
 #if !UE_BUILD_SHIPPING
-	/** Verifies that no object exists that has either RF_AsyncLoading|RF_Async set and is NOT being referenced by FAsyncObjectsReferencer */
+	/** Verifies that no object exists that has either EInternalObjectFlags::AsyncLoading and EInternalObjectFlags::Async set and is NOT being referenced by FAsyncObjectsReferencer */
 	FORCENOINLINE void VerifyAssumptions()
 	{
+		const EInternalObjectFlags AsyncFlags = EInternalObjectFlags::Async | EInternalObjectFlags::AsyncLoading;
 		for (FRawObjectIterator It; It; ++It)
 		{
-			UObject* Obj = *It;
-			if (Obj->HasAnyFlags(RF_AsyncLoading|RF_Async))
+			FUObjectItem* ObjItem = *It;
+			checkSlow(ObjItem);
+			UObject* Object = static_cast<UObject*>(ObjItem->Object);
+			if (Object->HasAnyInternalFlags(AsyncFlags))
 			{
-				if (!Contains(Obj))
+				if (!Contains(Object))
 				{
-					UE_LOG(LogStreaming, Error, TEXT("%s has RF_AsyncLoading|RF_Async set but is not referenced by FAsyncObjectsReferencer"), *Obj->GetPathName());
+					UE_LOG(LogStreaming, Error, TEXT("%s has AsyncLoading|Async set but is not referenced by FAsyncObjectsReferencer"), *Object->GetPathName());
 				}
 			}
 		}
@@ -379,7 +381,10 @@ void FAsyncLoadingThread::CancelAsyncLoadingInternal()
 	QueuedPackagesCounter.Reset();
 
 	FUObjectThreadContext::Get().ObjLoaded.Empty();
-	FAsyncObjectsReferencer::Get().EmptyReferencedObjectsAndCancelLoading();
+	{
+		FGCScopeGuard GCGuard;
+		FAsyncObjectsReferencer::Get().EmptyReferencedObjectsAndCancelLoading();
+	}
 
 	// Notify everyone streaming is canceled.
 	CancelLoadingEvent->Trigger();
@@ -994,7 +999,7 @@ void NotifyConstructedDuringAsyncLoading(UObject* Object, bool bSubObject)
 	// finished routing PostLoad to all objects.
 	if (!bSubObject)
 	{
-		Object->SetFlags(RF_AsyncLoading);
+		Object->SetInternalFlags(EInternalObjectFlags::AsyncLoading);
 	}
 	FAsyncObjectsReferencer::Get().AddObject(Object);
 }
@@ -1138,7 +1143,7 @@ bool FAsyncPackage::GiveUpTimeSlice()
 /**
  * Begin async loading process. Simulates parts of BeginLoad.
  *
- * Objects created during BeginAsyncLoad and EndAsyncLoad will have RF_AsyncLoading set
+ * Objects created during BeginAsyncLoad and EndAsyncLoad will have EInternalObjectFlags::AsyncLoading set
  */
 void FAsyncPackage::BeginAsyncLoad()
 {
@@ -1286,7 +1291,7 @@ EAsyncPackageState::Type FAsyncPackage::Tick(bool InbUseTimeLimit, bool InbUseFu
 		// End async loading, simulates EndLoad
 		EndAsyncLoad();
 
-		// Finish objects (removing RF_AsyncLoading, dissociate imports and forced exports, 
+		// Finish objects (removing EInternalObjectFlags::AsyncLoading, dissociate imports and forced exports, 
 		// call completion callback, ...
 		// If the load has failed, perform completion callbacks and then quit
 		if (LoadingState == EAsyncPackageState::Complete || bLoadHasFailed)
@@ -1335,7 +1340,7 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 		FScopeCycleCounterUObject ConstructorScope(Package, GET_STATID(STAT_FAsyncPackage_CreateLinker));
 
 		// Set package specific data 
-		Package->PackageFlags |= Desc.PackageFlags;
+		Package->SetPackageFlags(Desc.PackageFlags);
 #if WITH_EDITOR
 		Package->PIEInstanceID = Desc.PIEInstanceID;
 #endif
@@ -1354,7 +1359,9 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 		if (!Linker)
 		{
 			FString PackageFileName;
-			if (Desc.NameToLoad == NAME_None || !FPackageName::DoesPackageExist(Desc.NameToLoad.ToString(), Desc.Guid.IsValid() ? &Desc.Guid : nullptr, &PackageFileName))
+			if (Desc.NameToLoad == NAME_None || 
+				(!GetConvertedDynamicPackageNameToTypeName().Contains(Desc.Name) &&
+				 !FPackageName::DoesPackageExist(Desc.NameToLoad.ToString(), Desc.Guid.IsValid() ? &Desc.Guid : nullptr, &PackageFileName)))
 			{
 				UE_LOG(LogStreaming, Error, TEXT("Couldn't find file for package %s requested by async loading code."), *Desc.Name.ToString());
 				bLoadHasFailed = true;
@@ -1373,7 +1380,7 @@ EAsyncPackageState::Type FAsyncPackage::CreateLinker()
 				LinkerFlags |= LOAD_PackageForPIE;
 			}
 #endif
-			Linker = FLinkerLoad::CreateLinkerAsync( Package, *PackageFileName, LinkerFlags );
+			Linker = FLinkerLoad::CreateLinkerAsync(Package, *PackageFileName, LinkerFlags);
 		}
 
 		// Associate this async package with the linker
@@ -1545,22 +1552,12 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports()
 	// GC can't run in here
 	FGCScopeGuard GCGuard;
 
-	// Array that will hold dependency packages for the import
-	TArray<FName> ImportDependencyPackages;
-
 	// Create imports.
 	while (LoadImportIndex < Linker->ImportMap.Num() && !IsTimeLimitExceeded())
 	{
 		// Get the package for this import
 		const FObjectImport* Import = &Linker->ImportMap[LoadImportIndex++];
-		ImportDependencyPackages.Reset();
-		if (FPlatformProperties::RequiresCookedData())
-		{
-			// Try to get dependencies for native blueprint classes
-			FConvertedBlueprintsDependencies::Get().GetAssets(Import->ObjectName, ImportDependencyPackages);
-		}
-		if (ImportDependencyPackages.Num() == 0)
-		{
+
 		while (Import->OuterIndex.IsImport())
 		{
 			Import = &Linker->Imp(Import->OuterIndex);
@@ -1572,7 +1569,7 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports()
 		{
 			continue;
 		}
-
+			
 
 		// Don't try to import a package that is in an import table that we know is an invalid entry
 		if (FLinkerLoad::KnownMissingPackages.Contains(Import->ObjectName))
@@ -1581,14 +1578,11 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports()
 		}
 
 		// Our import package name is the import name
-			ImportDependencyPackages.Add(Import->ObjectName);
-		}
+		const FName ImportPackageFName(Import->ObjectName);
 
-		for (const FName& ImportPackageFName : ImportDependencyPackages)
-		{
 		// Handle circular dependencies - try to find existing packages.
 		UPackage* ExistingPackage = dynamic_cast<UPackage*>(StaticFindObjectFast(UPackage::StaticClass(), nullptr, ImportPackageFName, true));
-		if (ExistingPackage && !(ExistingPackage->PackageFlags & PKG_CompiledIn) && !ExistingPackage->bHasBeenFullyLoaded)//!ExistingPackage->HasAnyFlags(RF_WasLoaded))
+		if (ExistingPackage && !ExistingPackage->HasAnyPackageFlags(PKG_CompiledIn) && !ExistingPackage->bHasBeenFullyLoaded)//!ExistingPackage->HasAnyFlags(RF_WasLoaded))
 		{
 			// The import package already exists. Check if it's currently being streamed as well. If so, make sure
 			// we add all dependencies that don't yet have linkers created otherwise we risk that if the current package
@@ -1618,7 +1612,7 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports()
 		}
 
 		if (!ExistingPackage && ContainsDependencyPackage(PendingImportedPackages, ImportPackageFName) == INDEX_NONE)
-			{
+		{
 			const FString ImportPackageName(Import->ObjectName.ToString());
 			// The package doesn't exist and this import is not in the dependency list so add it now.
 			if (!FPackageName::IsShortPackageName(ImportPackageName))
@@ -1635,8 +1629,8 @@ EAsyncPackageState::Type FAsyncPackage::LoadImports()
 
 		UpdateLoadPercentage();
 	}
-	}
-
+			
+	
 	if (PendingImportedPackages.Num())
 	{
 		GiveUpTimeSlice();
@@ -1875,6 +1869,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 	LastTypeOfWorkPerformed = TEXT("postloading_gamethread");
 
 	TArray<UObject*>& ObjLoadedInPostLoad = FUObjectThreadContext::Get().ObjLoaded;
+	TArray<UObject*> ObjLoadedInPostLoadLocal;
 
 	while (DeferredPostLoadIndex < DeferredPostLoadObjects.Num() && 
 		!AsyncLoadingThread.IsAsyncLoadingSuspended() &&
@@ -1893,18 +1888,29 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 			// There's no going back to the async tick loop from here.
 			UE_LOG(LogStreaming, Warning, TEXT("Detected %d objects loaded in PostLoad while streaming, this may cause hitches as we're blocking async loading to pre-load them."), ObjLoadedInPostLoad.Num());
 			
-			// Make sure all objects loaded in PostLoad get post-loaded too
-			DeferredPostLoadObjects.Append(ObjLoadedInPostLoad);
+			// Copy to local array because ObjLoadedInPostLoad can change while we're iterating over it
+			ObjLoadedInPostLoadLocal.Append(ObjLoadedInPostLoad);
+			ObjLoadedInPostLoad.Reset();
 
-			// Preload (aka serialize) the objects loaded in PostLoad.
-			for (UObject* PreLoadObject : ObjLoadedInPostLoad)
+			while (ObjLoadedInPostLoadLocal.Num())
 			{
-				if (PreLoadObject && PreLoadObject->GetLinker())
+				// Make sure all objects loaded in PostLoad get post-loaded too
+				DeferredPostLoadObjects.Append(ObjLoadedInPostLoadLocal);
+
+				// Preload (aka serialize) the objects loaded in PostLoad.
+				for (UObject* PreLoadObject : ObjLoadedInPostLoadLocal)
 				{
-					PreLoadObject->GetLinker()->Preload(PreLoadObject);
+					if (PreLoadObject && PreLoadObject->GetLinker())
+					{
+						PreLoadObject->GetLinker()->Preload(PreLoadObject);
+					}
 				}
-			}
-			ObjLoadedInPostLoad.Empty();
+
+				// Other objects could've been loaded while we were preloading, continue until we've processed all of them.
+				ObjLoadedInPostLoadLocal.Reset();
+				ObjLoadedInPostLoadLocal.Append(ObjLoadedInPostLoad);
+				ObjLoadedInPostLoad.Reset();
+			}			
 		}
 
 		LastObjectWorkWasPerformedOn = Object;		
@@ -1916,16 +1922,16 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 	Result = (DeferredPostLoadIndex == DeferredPostLoadObjects.Num()) ? EAsyncPackageState::Complete : EAsyncPackageState::TimeOut;
 	if (Result == EAsyncPackageState::Complete)
 	{
-		// Clear async loading flags (we still want RF_Async, but RF_AsyncLoading can be cleared)
+		// Clear async loading flags (we still want RF_Async, but EInternalObjectFlags::AsyncLoading can be cleared)
 		for (UObject* Object : DeferredFinalizeObjects)
 		{
-			Object->AtomicallyClearFlags(RF_AsyncLoading);
+			Object->AtomicallyClearInternalFlags(EInternalObjectFlags::AsyncLoading);
 		}
 
 		// Mark package as having been fully loaded and update load time.
 		if (LinkerRoot && !bLoadHasFailed)
 		{
-			LinkerRoot->AtomicallyClearFlags(RF_AsyncLoading);
+			LinkerRoot->AtomicallyClearInternalFlags(EInternalObjectFlags::AsyncLoading);
 			LinkerRoot->MarkAsFullyLoaded();
 			LinkerRoot->SetLoadTime(FPlatformTime::Seconds() - LoadStartTime);
 
@@ -1941,7 +1947,7 @@ EAsyncPackageState::Type FAsyncPackage::PostLoadDeferredObjects(double InTickSta
 }
 
 /**
- * Finish up objects and state, which means clearing the RF_AsyncLoading flag on newly created ones
+ * Finish up objects and state, which means clearing the EInternalObjectFlags::AsyncLoading flag on newly created ones
  *
  * @return true
  */

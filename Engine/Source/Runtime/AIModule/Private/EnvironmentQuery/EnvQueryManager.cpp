@@ -516,7 +516,7 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 		SCOPE_CYCLE_COUNTER(STAT_AI_EQS_LoadTime);
 		
 		// duplicate template in manager's world for BP based nodes
-		UEnvQuery* LocalTemplate = (UEnvQuery*)StaticDuplicateObject(Template, this, *Template->GetName());
+		UEnvQuery* LocalTemplate = (UEnvQuery*)StaticDuplicateObject(Template, this, Template->GetFName());
 
 		{
 			// memory stat tracking: temporary variable will exist only inside this section
@@ -549,8 +549,8 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 				continue;
 			}
 
-			UEnvQueryOption* LocalOption = (UEnvQueryOption*)StaticDuplicateObject(MyOption, this, TEXT("None"));
-			UEnvQueryGenerator* LocalGenerator = (UEnvQueryGenerator*)StaticDuplicateObject(MyOption->Generator, this, TEXT("None"));
+			UEnvQueryOption* LocalOption = (UEnvQueryOption*)StaticDuplicateObject(MyOption, this);
+			UEnvQueryGenerator* LocalGenerator = (UEnvQueryGenerator*)StaticDuplicateObject(MyOption->Generator, this);
 			LocalTemplate->Options[OptionIndex] = LocalOption;
 			LocalOption->Generator = LocalGenerator;
 
@@ -586,7 +586,7 @@ TSharedPtr<FEnvQueryInstance> UEnvQueryManager::CreateQueryInstance(const UEnvQu
 			LocalOption->Tests.Reset(SortedTests.Num());
 			for (int32 TestIdx = 0; TestIdx < SortedTests.Num(); TestIdx++)
 			{
-				UEnvQueryTest* LocalTest = (UEnvQueryTest*)StaticDuplicateObject(SortedTests[TestIdx], this, TEXT("None"));
+				UEnvQueryTest* LocalTest = (UEnvQueryTest*)StaticDuplicateObject(SortedTests[TestIdx], this);
 				LocalOption->Tests.Add(LocalTest);
 			}
 
@@ -655,7 +655,7 @@ UEnvQueryContext* UEnvQueryManager::PrepareLocalContext(TSubclassOf<UEnvQueryCon
 	UEnvQueryContext* LocalContext = LocalContextMap.FindRef(ContextClass->GetFName());
 	if (LocalContext == NULL)
 	{
-		LocalContext = (UEnvQueryContext*)StaticDuplicateObject(ContextClass.GetDefaultObject(), this, TEXT("None"));
+		LocalContext = (UEnvQueryContext*)StaticDuplicateObject(ContextClass.GetDefaultObject(), this);
 		LocalContexts.Add(LocalContext);
 		LocalContextMap.Add(ContextClass->GetFName(), LocalContext);
 	}

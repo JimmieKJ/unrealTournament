@@ -42,7 +42,6 @@ public:
 	virtual FText GetNodeTitle(ENodeTitleType::Type TitleType) const override;
 	virtual bool CanUserDeleteNode() const override { return true; }
 	void GetContextMenuActions(const FGraphNodeContextMenuBuilder& Context) const override;
-	virtual void ReallocatePinsDuringReconstruction(TArray<UEdGraphPin*>& OldPins) override;
 	virtual void NodeConnectionListChanged() override;
 	virtual FString GetDocumentationLink() const override;
 	virtual FString GetDocumentationExcerptName() const override;
@@ -69,6 +68,10 @@ public:
 	//~ Begin UK2Node_EditablePinBase Interface
 	virtual bool CanCreateUserDefinedPin(const FEdGraphPinType& InPinType, EEdGraphPinDirection InDesiredDirection, FText& OutErrorMessage) override { return false; }
 	//~ End UK2Node_EditablePinBase Interface
+
+	// Begin UK2Node_Tunnel interface
+	virtual void PostFixupAllWildcardPins(bool bInAllWildcardPinsUnlinked) override;
+	// End UK2Node_Tunnel interface
 
 	void SetMacroGraph(UEdGraph* Graph) { MacroGraphReference.SetGraph(Graph); }
 	UEdGraph* GetMacroGraph() const { return MacroGraphReference.GetGraph(); }

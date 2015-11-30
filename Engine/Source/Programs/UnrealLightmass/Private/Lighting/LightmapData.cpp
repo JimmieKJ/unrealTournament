@@ -121,7 +121,7 @@ namespace Lightmass
 			{
 				// Color
 				MinCoefficient[ CoefficientIndex ][ ColorIndex ] = 10000.0f;
-				MaxCoefficient[ CoefficientIndex ][ ColorIndex ] = 0.0f;
+				MaxCoefficient[ CoefficientIndex ][ ColorIndex ] = -10000.0f;
 
 				// Direction
 				MinCoefficient[ CoefficientIndex + 1 ][ ColorIndex ] = 10000.0f;

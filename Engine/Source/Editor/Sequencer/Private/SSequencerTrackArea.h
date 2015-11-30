@@ -8,6 +8,7 @@ class SSequencerTrackLane;
 class FSequencerTimeSliderController;
 class FSequencer;
 
+#include "SequencerInputHandlerStack.h"
 
 /**
  * Structure representing a slot in the track area.
@@ -106,4 +107,9 @@ private:
 
 	/** Keep a hold of the size of the area so we can maintain zoom levels. */
 	TOptional<FVector2D> SizeLastFrame;
+
+private:
+
+	/** Input handler stack responsible for routing input to the different handlers */
+	FSequencerInputHandlerStack InputStack;
 };

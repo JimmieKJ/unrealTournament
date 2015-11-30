@@ -160,10 +160,6 @@ void AGameplayDebuggingHUDComponent::DrawMenu(const float X, const float Y, clas
 
 		const FString KeyDesc = ActivationKeyName != ActivationKeyDisplayName ? FString::Printf(TEXT("(%s key)"), *ActivationKeyName) : TEXT("");
 		FString HeaderDesc = FString::Printf(TEXT("Tap %s %s to close, use Numpad numbers to toggle categories"), *ActivationKeyDisplayName, *KeyDesc);
-		if (UGameplayDebuggerSettings::StaticClass()->GetDefaultObject<UGameplayDebuggerSettings>()->UseAlternateKeys())
-		{
-			HeaderDesc = FString::Printf(TEXT("Tap %s %s to close, use Alt + number to toggle categories"), *ActivationKeyDisplayName, *KeyDesc);
-		}
 
 		float HeaderWidth = 0.0f;
 		CalulateStringSize(DefaultContext, DefaultContext.Font, HeaderDesc, HeaderWidth, MaxHeight);
@@ -179,28 +175,31 @@ void AGameplayDebuggingHUDComponent::DrawMenu(const float X, const float Y, clas
 		}
 
 		{
+			static FString KeyShortcut = GDC->DebugCameraBind.GetInputText().ToString();
 			const int32 DebugCameraIndex = Categories.Add(FDebugCategoryView());
 			CategoriesWidth.AddZeroed(1);
-			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[Tab]: %s  "), GDC && GDC->GetDebugCameraController().IsValid() ? TEXT("{Green}") : TEXT("{White}"), TEXT("Debug Camera"));
+			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[%s]: %s  "), GDC && GDC->GetDebugCameraController().IsValid() ? TEXT("{Green}") : TEXT("{White}"), *KeyShortcut, TEXT("Debug Camera"));
 			float StrHeight = 0.0f;
 			CalulateStringSize(DefaultContext, DefaultContext.Font, Categories[DebugCameraIndex].Desc, CategoriesWidth[DebugCameraIndex], StrHeight);
 			TotalWidth += CategoriesWidth[DebugCameraIndex];
 			MaxHeight = FMath::Max(MaxHeight, StrHeight);
 		}
 		{
+			static FString KeyShortcut = GDC->OnScreenDebugMessagesBind.GetInputText().ToString();
 			const int32 DebugCameraIndex = Categories.Add(FDebugCategoryView());
 			CategoriesWidth.AddZeroed(1);
-			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[Ctrl+Tab]: %s  "), GEngine && GEngine->bEnableOnScreenDebugMessages ? TEXT("{Green}") : TEXT("{White}"), TEXT("DebugMessages"));
+			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[%s]: %s  "), GEngine && GEngine->bEnableOnScreenDebugMessages ? TEXT("{Green}") : TEXT("{White}"), *KeyShortcut, TEXT("DebugMessages"));
 			float StrHeight = 0.0f;
 			CalulateStringSize(DefaultContext, DefaultContext.Font, Categories[DebugCameraIndex].Desc, CategoriesWidth[DebugCameraIndex], StrHeight);
 			TotalWidth += CategoriesWidth[DebugCameraIndex];
 			MaxHeight = FMath::Max(MaxHeight, StrHeight);
 		}
 		{
+			static FString KeyShortcut = GDC->GameHUDBind.GetInputText().ToString();
 			const AHUD* GameHUD = MyPC ? MyPC->GetHUD() : NULL;
 			const int32 DebugCameraIndex = Categories.Add(FDebugCategoryView());
 			CategoriesWidth.AddZeroed(1);
-			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[Ctrl+Tilde]: %s  "), GameHUD && GameHUD->bShowHUD ? TEXT("{Green}") : TEXT("{White}"), TEXT("GameHUD"));
+			Categories[DebugCameraIndex].Desc = FString::Printf(TEXT(" %s[%s]: %s  "), GameHUD && GameHUD->bShowHUD ? TEXT("{Green}") : TEXT("{White}"), *KeyShortcut, TEXT("GameHUD"));
 			float StrHeight = 0.0f;
 			CalulateStringSize(DefaultContext, DefaultContext.Font, Categories[DebugCameraIndex].Desc, CategoriesWidth[DebugCameraIndex], StrHeight);
 			TotalWidth += CategoriesWidth[DebugCameraIndex];
@@ -713,9 +712,9 @@ void AGameplayDebuggingHUDComponent::DrawPerception(APlayerController* PC, class
 	PrintString(DefaultContext, FString::Printf(TEXT("Distance Pawn-PlayerPawn: %.1f\n"), DebugComponent->DistanceFromPlayer));
 
 	float VerticalLabelOffset = 0.f;
-	for (const FDrawDebugShapeElement& Shape : DebugComponent->PerceptionShapeElements)
+	for (const FGameplayDebuggerShapeElement& Shape : DebugComponent->PerceptionShapeElements)
 	{
-		if (Shape.GetType() == EDrawDebugShapeElement::String)
+		if (Shape.GetType() == EGameplayDebuggerShapeElement::String)
 		{
 			const FVector& Loc = Shape.Points[0];
 			const FVector ScreenLoc = DefaultContext.Canvas->Project(Loc);
@@ -723,15 +722,15 @@ void AGameplayDebuggingHUDComponent::DrawPerception(APlayerController* PC, class
 			PrintString(DefaultContext, Shape.GetFColor(), Shape.Description, ScreenLoc.X, ScreenLoc.Y + VerticalLabelOffset);
 			VerticalLabelOffset += 17;
 		}
-		else if (Shape.GetType() == EDrawDebugShapeElement::Segment)
+		else if (Shape.GetType() == EGameplayDebuggerShapeElement::Segment)
 		{
 			DrawDebugLine(World, Shape.Points[0], Shape.Points[1], Shape.GetFColor());
 		}
-		else if (Shape.GetType() == EDrawDebugShapeElement::SinglePoint)
+		else if (Shape.GetType() == EGameplayDebuggerShapeElement::SinglePoint)
 		{
 			DrawDebugSphere(World, Shape.Points[0], Shape.ThicknesOrRadius, 16, Shape.GetFColor());
 		}
-		else if (Shape.GetType() == EDrawDebugShapeElement::Cylinder)
+		else if (Shape.GetType() == EGameplayDebuggerShapeElement::Cylinder)
 		{
 			DrawDebugCylinder(World, Shape.Points[0], Shape.Points[1], Shape.ThicknesOrRadius, 16, Shape.GetFColor());
 		}

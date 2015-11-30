@@ -13,6 +13,7 @@ UFbxStaticMeshImportData::UFbxStaticMeshImportData(const FObjectInitializer& Obj
 	bGenerateLightmapUVs = true;
 	bOneConvexHullPerUCX = true;
 	bAutoGenerateCollision = true;
+	bTransformVertexToAbsolute = true;
 	VertexOverrideColor = FColor(255, 255, 255, 255);
 }
 

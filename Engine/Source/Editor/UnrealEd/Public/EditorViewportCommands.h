@@ -65,6 +65,9 @@ public:
 	/** Changes the viewport to shader complexity mode */
 	TSharedPtr< FUICommandInfo > ShaderComplexityMode;
 
+	/** Changes the viewport to quad complexity mode */
+	TSharedPtr< FUICommandInfo > QuadComplexityMode;
+
 	/** Changes the viewport to stationary light overlap mode */
 	TSharedPtr< FUICommandInfo > StationaryLightOverlapMode;
 

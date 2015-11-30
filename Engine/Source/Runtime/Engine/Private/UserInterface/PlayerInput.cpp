@@ -386,7 +386,7 @@ void UPlayerInput::SetAxisProperties(const FKey AxisKey, const FInputAxisPropert
 		}
 	}
 
-	AxisProperties.Empty(AxisProperties.Num());
+	AxisProperties.Reset();
 }
 
 float UPlayerInput::GetMouseSensitivity()
@@ -487,14 +487,13 @@ void UPlayerInput::InvertAxis(const FName AxisName)
 
 bool UPlayerInput::GetInvertAxisKey(const FKey AxisKey)
 {
-	ConditionalInitAxisProperties();
-
 	bool bAxisInverted = false;
-	FInputAxisProperties* const AxisProps = AxisProperties.Find(AxisKey);
-	if (AxisProps)
+	FInputAxisProperties AxisKeyProperties;
+	if (GetAxisProperties(AxisKey, AxisKeyProperties))
 	{
-		bAxisInverted = AxisProps->bInvert;
+		bAxisInverted = AxisKeyProperties.bInvert;
 	}
+
 	return bAxisInverted;
 }
 
@@ -502,11 +501,11 @@ void UPlayerInput::InvertAxisKey(const FKey AxisKey)
 {
 	ConditionalInitAxisProperties();
 
-	FInputAxisProperties* AxisProps = AxisProperties.Find(AxisKey);
-	if (AxisProps)
+	FInputAxisProperties AxisKeyProperties;
+	if (GetAxisProperties(AxisKey, AxisKeyProperties))
 	{
-		AxisProps->bInvert = !AxisProps->bInvert;
-		SaveConfig();
+		AxisKeyProperties.bInvert = !AxisKeyProperties.bInvert;
+		SetAxisProperties(AxisKey, AxisKeyProperties);
 	}
 }
 
@@ -534,7 +533,7 @@ struct FAxisDelegate
 void UPlayerInput::AddActionMapping(const FInputActionKeyMapping& KeyMapping)
 {
 	ActionMappings.AddUnique(KeyMapping);
-	ActionKeyMap.Empty(ActionKeyMap.Num());
+	ActionKeyMap.Reset();
 }
 
 void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
@@ -544,7 +543,7 @@ void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
 		if (ActionMappings[ActionIndex] == KeyMapping)
 		{
 			ActionMappings.RemoveAtSwap(ActionIndex);
-			ActionKeyMap.Empty(ActionKeyMap.Num());
+			ActionKeyMap.Reset();
 			// we don't break because the mapping may have been in the array twice
 		}
 	}
@@ -553,7 +552,7 @@ void UPlayerInput::RemoveActionMapping(const FInputActionKeyMapping& KeyMapping)
 void UPlayerInput::AddAxisMapping(const FInputAxisKeyMapping& KeyMapping)
 {
 	AxisMappings.AddUnique(KeyMapping);
-	AxisKeyMap.Empty(AxisKeyMap.Num());
+	AxisKeyMap.Reset();
 }
 
 void UPlayerInput::RemoveAxisMapping(const FInputAxisKeyMapping& InKeyMapping)
@@ -565,7 +564,7 @@ void UPlayerInput::RemoveAxisMapping(const FInputAxisKeyMapping& InKeyMapping)
 			&& KeyMapping.Key == InKeyMapping.Key)
 		{
 			AxisMappings.RemoveAtSwap(AxisIndex);
-			AxisKeyMap.Empty(AxisKeyMap.Num());
+			AxisKeyMap.Reset();
 			// we don't break because the mapping may have been in the array twice
 		}
 	}
@@ -576,7 +575,7 @@ void UPlayerInput::AddEngineDefinedActionMapping(const FInputActionKeyMapping& A
 	EngineDefinedActionMappings.AddUnique(ActionMapping);
 	for (TObjectIterator<UPlayerInput> It; It; ++It)
 	{
-		It->ActionKeyMap.Empty(It->ActionKeyMap.Num());
+		It->ActionKeyMap.Reset();
 	}
 }
 
@@ -585,7 +584,7 @@ void UPlayerInput::AddEngineDefinedAxisMapping(const FInputAxisKeyMapping& AxisM
 	EngineDefinedAxisMappings.AddUnique(AxisMapping);
 	for (TObjectIterator<UPlayerInput> It; It; ++It)
 	{
-		It->AxisKeyMap.Empty(It->AxisKeyMap.Num());
+		It->AxisKeyMap.Reset();
 	}
 }
 
@@ -598,9 +597,9 @@ void UPlayerInput::ForceRebuildingKeyMaps(const bool bRestoreDefaults)
 		ActionMappings = GetDefault<UInputSettings>()->ActionMappings;
 	}
 
-	ActionKeyMap.Empty(ActionKeyMap.Num());
-	AxisKeyMap.Empty(AxisKeyMap.Num());
-	AxisProperties.Empty(AxisProperties.Num());
+	ActionKeyMap.Reset();
+	AxisKeyMap.Reset();
+	AxisProperties.Reset();
 }
 
 void UPlayerInput::ConditionalBuildKeyMappings()

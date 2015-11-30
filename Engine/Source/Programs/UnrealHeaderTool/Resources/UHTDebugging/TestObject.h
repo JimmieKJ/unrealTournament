@@ -5,6 +5,8 @@
 #include "EnumOnlyHeader.h"
 #include "TestObject.generated.h"
 
+PRAGMA_DISABLE_DEPRECATION_WARNINGS
+
 UCLASS()
 class UTestObject : public UObject
 {
@@ -118,3 +120,5 @@ public:
 	UFUNCTION() int x;
 #endif
 };
+
+PRAGMA_ENABLE_DEPRECATION_WARNINGS

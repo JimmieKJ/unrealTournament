@@ -152,14 +152,6 @@ void CullObjectsForShadowCS(
 #endif
 }
 
-bool RayHitSphere(float3 RayOrigin, float3 UnitRayDirection, float RayLength, float3 SphereCenter, float SphereRadius)
-{
-	float DistanceAlongRay = dot(SphereCenter - RayOrigin, UnitRayDirection);
-	float3 ClosestPointOnRay = DistanceAlongRay * UnitRayDirection;
-	float3 CenterToRay = RayOrigin + ClosestPointOnRay - SphereCenter;
-	return dot(CenterToRay, CenterToRay) <= Square(SphereRadius) && DistanceAlongRay > -SphereRadius && DistanceAlongRay - SphereRadius < RayLength;
-}
-
 RWBuffer<uint> RWShadowTileHeadDataUnpacked;
 RWBuffer<uint> RWShadowTileArrayData;
 
@@ -464,7 +456,7 @@ void CullObjectsToTileWithGather(
 			float4 SphereCenterAndRadius = LoadObjectPositionAndRadius(ObjectIndex);
 
 			BRANCH
-			if (RayHitSphere(WorldGroup0Center, LightDirection0, RayLength0, SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + Group0BoundingRadius))
+			if (RaySegmentHitSphere(WorldGroup0Center, LightDirection0, RayLength0, SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + Group0BoundingRadius))
 			{
 				uint ListIndex;
 				InterlockedAdd(TileNumObjects0, 1U, ListIndex);
@@ -474,7 +466,7 @@ void CullObjectsToTileWithGather(
 			}
 
 			BRANCH
-			if (RayHitSphere(WorldGroup1Center, LightDirection1, RayLength1, SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + Group1BoundingRadius))
+			if (RaySegmentHitSphere(WorldGroup1Center, LightDirection1, RayLength1, SphereCenterAndRadius.xyz, SphereCenterAndRadius.w + Group1BoundingRadius))
 			{
 				uint ListIndex;
 				InterlockedAdd(TileNumObjects1, 1U, ListIndex);

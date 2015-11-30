@@ -3156,6 +3156,8 @@ void SCurveEditor::MoveTangents(FTrackScaleInfo& ScaleInfo, FVector2D Delta)
 				RichKey.LeaveTangent = NewLeaveTangent;
 			}
 		}	
+
+		RichKey.InterpMode = RCIM_Cubic;
 	}
 }
 

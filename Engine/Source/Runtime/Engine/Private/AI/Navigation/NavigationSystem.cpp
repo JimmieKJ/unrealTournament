@@ -276,6 +276,7 @@ UNavigationSystem::UNavigationSystem(const FObjectInitializer& ObjectInitializer
 	, InitialNavBuildingLockFlags(0)
 	, bInitialSetupHasBeenPerformed(false)
 	, bInitialLevelsAdded(false)
+	, bWorldInitDone(false)
 	, CurrentlyDrawnNavDataIndex(0)
 	, DirtyAreasUpdateTime(0)
 {
@@ -724,6 +725,7 @@ void UNavigationSystem::OnWorldInitDone(FNavigationSystemRunMode Mode)
 		}
 	}
 
+	bWorldInitDone = true;
 	OnNavigationInitDone.Broadcast();
 }
 
@@ -2139,7 +2141,6 @@ UNavigationSystem* UNavigationSystem::CreateNavigationSystem(UWorld* WorldOwner)
 {
 	UNavigationSystem* NavSys = NULL;
 
-#if WITH_SERVER_CODE || WITH_EDITOR
 	// create navigation system for editor and server targets, but remove it from game clients
 	if (WorldOwner && (*GEngine->NavigationSystemClass != nullptr) 
 		&& (GEngine->NavigationSystemClass->GetDefaultObject<UNavigationSystem>()->bAllowClientSideNavigation || WorldOwner->GetNetMode() != NM_Client))
@@ -2151,7 +2152,6 @@ UNavigationSystem* UNavigationSystem::CreateNavigationSystem(UWorld* WorldOwner)
 			WorldOwner->SetNavigationSystem(NavSys);
 		}
 	}
-#endif
 
 	return NavSys;
 }
@@ -3187,8 +3187,11 @@ ANavigationData* UNavigationSystem::CreateNavigationDataInstance(const FNavDataC
 			// Set descriptive name
 			Instance->Rename(*StrName, NULL, REN_DoNotDirty);
 #if WITH_EDITOR
-			const bool bMarkDirty = false;
-			Instance->SetActorLabel(StrName, bMarkDirty );
+			if (World->WorldType == EWorldType::Editor)
+			{
+				const bool bMarkDirty = false;
+				Instance->SetActorLabel(StrName, bMarkDirty);
+			}
 #endif // WITH_EDITOR
 		}
 	}

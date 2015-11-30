@@ -432,23 +432,29 @@ public class PhysX : ModuleRules
 		}
 		else if (Target.Platform == UnrealTargetPlatform.XboxOne)
 		{
-			PublicSystemIncludePaths.Add("include/foundation/xboxone");
-			PublicLibraryPaths.Add(PhysXDir + "Lib/XboxOne");
-
-			string[] StaticLibrariesXB1 = new string[] {
-				"PhysX3{0}.lib",
-				"PhysX3Extensions{0}.lib",
-				"PhysX3Cooking{0}.lib",
-				"PhysX3Common{0}.lib",
-				"PhysX3Vehicle{0}.lib",
-				"PxTask{0}.lib",
-				"PhysXVisualDebuggerSDK{0}.lib",
-				"PhysXProfileSDK{0}.lib"
-			};
-
-			foreach (string Lib in StaticLibrariesXB1)
+			// Use reflection to allow type not to exist if console code is not present
+			System.Type XboxOnePlatformType = System.Type.GetType("UnrealBuildTool.XboxOnePlatform,UnrealBuildTool");
+			if (XboxOnePlatformType != null)
 			{
-				PublicAdditionalLibraries.Add(String.Format(Lib, LibrarySuffix));
+				System.Object VersionName = XboxOnePlatformType.GetMethod("GetVisualStudioCompilerVersionName").Invoke(null, null);
+				PublicSystemIncludePaths.Add("include/foundation/xboxone");
+				PublicLibraryPaths.Add(PhysXDir + "Lib/XboxOne/VS" + VersionName.ToString());
+
+				string[] StaticLibrariesXB1 = new string[] {
+					"PhysX3{0}.lib",
+					"PhysX3Extensions{0}.lib",
+					"PhysX3Cooking{0}.lib",
+					"PhysX3Common{0}.lib",
+					"PhysX3Vehicle{0}.lib",
+					"PxTask{0}.lib",
+					"PhysXVisualDebuggerSDK{0}.lib",
+					"PhysXProfileSDK{0}.lib"
+				};
+
+				foreach (string Lib in StaticLibrariesXB1)
+				{
+					PublicAdditionalLibraries.Add(String.Format(Lib, LibrarySuffix));
+				}
 			}
 		}
     }

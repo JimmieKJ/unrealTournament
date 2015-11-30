@@ -204,18 +204,10 @@ void FQoSReporter::AddServerHeartbeatAttributes(TArray<FAnalyticsEventAttribute>
 	{
 		const TMap<FString, IPerfCounters::FJsonVariant>& PerfCounterMap = PerfCounters->GetAllCounters();
 		int NumAddedCounters = 0;
-		// we want to skip reporting average FPS if there are no human players
-		bool bShouldSkipAverageFPS = (PerfCounters->Get("NumClients", 0) == 0);
 
 		// only add string and number values
 		for (const auto& It : PerfCounterMap)
 		{
-			// do not report average FPS unless there are actual people playing
-			if (bShouldSkipAverageFPS && It.Key == TEXT("AverageFPS"))
-			{
-				continue;
-			}
-
 			const IPerfCounters::FJsonVariant& JsonValue = It.Value;
 			switch (JsonValue.Format)
 			{
@@ -260,6 +252,7 @@ void FQoSReporter::AddServerHeartbeatAttributes(TArray<FAnalyticsEventAttribute>
 	else if (UE_SERVER)
 	{
 		UE_LOG(LogQoSReporter, Warning, TEXT("PerfCounters module is not available, could not send proper server heartbeat."));
+		OutArray.Add(FAnalyticsEventAttribute(TEXT("MisconfiguredPerfCounters"), 1));
 	}
 #else
 	#if UE_SERVER

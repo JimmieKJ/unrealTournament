@@ -4,7 +4,6 @@
 #include "PhysicsPublic.h"
 #include "ParticleDefinitions.h"
 #include "PrecomputedLightVolume.h"
-#include "PhysicsEngine/ClothManager.h"
 
 #if WITH_PHYSX
 	#include "PhysXSupport.h"
@@ -117,8 +116,9 @@ void UWorld::SetupPhysicsTickFunctions(float DeltaSeconds)
 		//async scene
 		if (bShouldSimulatePhysics && !StartAsyncTickFunction.IsTickFunctionRegistered() && UPhysicsSettings::Get()->bEnableAsyncScene)
 		{
-			StartAsyncTickFunction.TickGroup = TG_StartCloth;
+			StartAsyncTickFunction.TickGroup = TG_EndPhysics;
 			StartAsyncTickFunction.RegisterTickFunction(PersistentLevel);
+			StartAsyncTickFunction.AddPrerequisite(this, EndPhysicsTickFunction);
 		}
 		else if (!bShouldSimulatePhysics && StartAsyncTickFunction.IsTickFunctionRegistered())
 		{
@@ -130,11 +130,6 @@ void UWorld::SetupPhysicsTickFunctions(float DeltaSeconds)
 	if (PhysicsScene == NULL)
 	{
 		return;
-	}
-
-	if (FClothManager* ClothManager = PhysicsScene->GetClothManager())
-	{
-		ClothManager->SetupClothTickFunction(bShouldSimulatePhysics);
 	}
 
 #if WITH_PHYSX
@@ -252,26 +247,6 @@ FString FStartAsyncSimulationFunction::DiagnosticMessage()
 {
 	return TEXT("FStartAsyncSimulationFunction");
 }
-
-void FEndClothSimulationFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(FEndClothSimulationFunction_ExecuteTick);
-
-	//We currently have nothing to do in this tick group, but we still want to wait on cloth simulation so that PostPhysics is ensured this is done
-	check(Target);
-	FPhysScene* PhysScene = Target->GetPhysicsScene();
-	if (PhysScene == NULL)
-	{
-		return;
-	}
-	PhysScene->WaitClothScene();
-}
-
-FString FEndClothSimulationFunction::DiagnosticMessage()
-{
-	return TEXT("FStartClothSimulationFunction");
-}
-
 
 void PvdConnect(FString Host, bool bVisualization);
 

@@ -83,10 +83,11 @@ bool FWidgetBlueprintEditorUtils::VerifyWidgetRename(TSharedRef<class FWidgetBlu
 		return false;
 	}
 
-	const FName NewFName(*NewNameString);
-	
+	// Slug the new name down to a valid object name
+	const FName NewNameSlug = MakeObjectNameFromDisplayLabel(NewNameString, Widget.GetTemplate()->GetFName());
+
 	UWidgetBlueprint* Blueprint = BlueprintEditor->GetWidgetBlueprintObj();
-	UWidget* ExistingTemplate = Blueprint->WidgetTree->FindWidget(NewFName);
+	UWidget* ExistingTemplate = Blueprint->WidgetTree->FindWidget(NewNameSlug);
 
 	bool bIsSameWidget = false;
 	if (ExistingTemplate != nullptr)
@@ -103,17 +104,12 @@ bool FWidgetBlueprintEditorUtils::VerifyWidgetRename(TSharedRef<class FWidgetBlu
 	}
 	else
 	{
-		if (!FName(*NewNameString).IsValidObjectName(OutErrorMessage))
-		{
-			return false;
-		}
-
 		// Not an existing widget in the tree BUT it still mustn't create a UObject name clash
 		UWidget* WidgetPreview = Widget.GetPreview();
 		if (WidgetPreview)
 		{
 			// Dummy rename with flag REN_Test returns if rename is possible
-			if (!WidgetPreview->Rename(*NewNameString, nullptr, REN_Test))
+			if (!WidgetPreview->Rename(*NewNameSlug.ToString(), nullptr, REN_Test))
 			{
 				OutErrorMessage = LOCTEXT("ExistingObjectName", "Existing Object Name");
 				return false;
@@ -123,7 +119,7 @@ bool FWidgetBlueprintEditorUtils::VerifyWidgetRename(TSharedRef<class FWidgetBlu
 		if (WidgetTemplate)
 		{
 			// Dummy rename with flag REN_Test returns if rename is possible
-			if (!WidgetTemplate->Rename(*NewNameString, nullptr, REN_Test))
+			if (!WidgetTemplate->Rename(*NewNameSlug.ToString(), nullptr, REN_Test))
 			{
 				OutErrorMessage = LOCTEXT("ExistingObjectName", "Existing Object Name");
 				return false;
@@ -133,7 +129,8 @@ bool FWidgetBlueprintEditorUtils::VerifyWidgetRename(TSharedRef<class FWidgetBlu
 
 	FKismetNameValidator Validator(Blueprint);
 
-	const bool bUniqueNameForVariable = (EValidatorResult::Ok == Validator.IsValid(NewFName));
+	// For variable comparison, use the display label, not the slug
+	const bool bUniqueNameForVariable = (EValidatorResult::Ok == Validator.IsValid(NewNameString));
 
 	if (!bUniqueNameForVariable && !bIsSameWidget)
 	{
@@ -144,47 +141,50 @@ bool FWidgetBlueprintEditorUtils::VerifyWidgetRename(TSharedRef<class FWidgetBlu
 	return true;
 }
 
-bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, const FName& OldName, const FName& NewName)
+bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor> BlueprintEditor, const FName& OldObjectName, const FString& NewDisplayName)
 {
 	UWidgetBlueprint* Blueprint = BlueprintEditor->GetWidgetBlueprintObj();
 	check(Blueprint);
+
+	UWidget* Widget = Blueprint->WidgetTree->FindWidget(OldObjectName);
+	check(Widget);
 
 	bool bRenamed = false;
 
 	TSharedPtr<INameValidatorInterface> NameValidator = MakeShareable(new FKismetNameValidator(Blueprint));
 
 	// NewName should be already validated. But one must make sure that NewTemplateName is also unique.
-	const bool bUniqueNameForTemplate = ( EValidatorResult::Ok == NameValidator->IsValid(NewName) );
-
-	const FString NewNameStr = NewName.ToString();
-	const FString OldNameStr = OldName.ToString();
-
-	UWidget* Widget = Blueprint->WidgetTree->FindWidget(OldName);
-	check(Widget);
-
+	const bool bUniqueNameForTemplate = ( EValidatorResult::Ok == NameValidator->IsValid(NewDisplayName) );
 	if ( Widget )
 	{
+		// Get the new FName slug from the given display name
+		const FName NewFName = MakeObjectNameFromDisplayLabel(NewDisplayName, Widget->GetFName());
+
+		// Stringify the FNames
+		const FString NewNameStr = NewFName.ToString();
+		const FString OldNameStr = OldObjectName.ToString();
+
 		const FScopedTransaction Transaction(LOCTEXT("RenameWidget", "Rename Widget"));
 
 		// Rename Template
 		Blueprint->Modify();
 		Widget->Modify();
 
-
 		// Rename Preview before renaming the template widget so the preview widget can be found
 		UWidget* WidgetPreview = BlueprintEditor->GetReferenceFromTemplate(Widget).GetPreview();
 		if(WidgetPreview)
 		{
+			WidgetPreview->SetDisplayLabel(NewDisplayName);
 			WidgetPreview->Rename(*NewNameStr);
 		}
 
 		// Find and update all variable references in the graph
-
+		Widget->SetDisplayLabel(NewDisplayName);
 		Widget->Rename(*NewNameStr);
 
 		// Update Variable References and
 		// Update Event References to member variables
-		FBlueprintEditorUtils::ReplaceVariableReferences(Blueprint, OldName, NewName);
+		FBlueprintEditorUtils::ReplaceVariableReferences(Blueprint, OldObjectName, NewFName);
 		
 		// Find and update all binding references in the widget blueprint
 		for ( FDelegateEditorBinding& Binding : Blueprint->Bindings )
@@ -200,9 +200,9 @@ bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor
 		{
 			for( FWidgetAnimationBinding& AnimBinding : WidgetAnimation->AnimationBindings )
 			{
-				if( AnimBinding.WidgetName == OldName )
+				if( AnimBinding.WidgetName == OldObjectName )
 				{
-					AnimBinding.WidgetName = NewName;
+					AnimBinding.WidgetName = NewFName;
 				}
 			}
 		}
@@ -211,7 +211,7 @@ bool FWidgetBlueprintEditorUtils::RenameWidget(TSharedRef<FWidgetBlueprintEditor
 		// TODO...
 
 		// Validate child blueprints and adjust variable names to avoid a potential name collision
-		FBlueprintEditorUtils::ValidateBlueprintChildVariables(Blueprint, NewName);
+		FBlueprintEditorUtils::ValidateBlueprintChildVariables(Blueprint, NewFName);
 
 		// Refresh references and flush editors
 		FBlueprintEditorUtils::MarkBlueprintAsStructurallyModified(Blueprint);

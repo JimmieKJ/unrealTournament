@@ -117,57 +117,25 @@ void FStatsConvertCommand::ReadAndConvertStatMessages( FArchive& Reader, FArchiv
 	const bool bIsFinalized = Stream.Header.IsFinalized();
 	float DataLoadingProgress = 0.0f;
 
-	if( bHasCompressedData )
+	// Sanity checks.
+	check( bHasCompressedData );
+
+	while( Reader.Tell() < Reader.TotalSize() )
 	{
-		while( Reader.Tell() < Reader.TotalSize() )
+		// Read the compressed data.
+		FCompressedStatsData UncompressedData( SrcData, DestData );
+		Reader << UncompressedData;
+		if( UncompressedData.HasReachedEndOfCompressedData() )
 		{
-			// Read the compressed data.
-			FCompressedStatsData UncompressedData( SrcData, DestData );
-			Reader << UncompressedData;
-			if( UncompressedData.HasReachedEndOfCompressedData() )
-			{
-				return;
-			}
-
-			FMemoryReader MemoryReader( DestData, true );
-
-			while( MemoryReader.Tell() < MemoryReader.TotalSize() )
-			{
-				// read the message
-				FStatMessage Message( Stream.ReadMessage( MemoryReader, bIsFinalized ) );
-				ReadMessages++;
-				if( ReadMessages % 32768 == 0 )
-				{
-					UE_LOG( LogStats, Log, TEXT( "StatsConvertCommand progress: %.1f%%" ), DataLoadingProgress );
-				}
-
-				if( Message.NameAndInfo.GetShortName() != TEXT( "Unknown FName" ) )
-				{
-					if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread && ReadMessages > 2 )
-					{
-						new (Messages) FStatMessage( Message );
-						ThreadState.AddMessages( Messages );
-						Messages.Reset();
-
-						CollectAndWriteStatsValues( Writer );
-						DataLoadingProgress = (double)Reader.Tell() / (double)Reader.TotalSize() * 100.0f;
-					}
-
-					new (Messages) FStatMessage( Message );
-				}
-				else
-				{
-					break;
-				}
-			}
+			return;
 		}
-	}
-	else
-	{
-		while( Reader.Tell() < Reader.TotalSize() )
+
+		FMemoryReader MemoryReader( DestData, true );
+
+		while( MemoryReader.Tell() < MemoryReader.TotalSize() )
 		{
 			// read the message
-			FStatMessage Message( Stream.ReadMessage( Reader, bIsFinalized ) );
+			FStatMessage Message( Stream.ReadMessage( MemoryReader, bIsFinalized ) );
 			ReadMessages++;
 			if( ReadMessages % 32768 == 0 )
 			{
@@ -176,13 +144,7 @@ void FStatsConvertCommand::ReadAndConvertStatMessages( FArchive& Reader, FArchiv
 
 			if( Message.NameAndInfo.GetShortName() != TEXT( "Unknown FName" ) )
 			{
-				if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::SpecialMessageMarker )
-				{
-					// Simply break the loop.
-					// The profiler supports more advanced handling of this message.
-					return;
-				}
-				else if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread && ReadMessages > 2 )
+				if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread && ReadMessages > 2 )
 				{
 					new (Messages) FStatMessage( Message );
 					ThreadState.AddMessages( Messages );
@@ -218,7 +180,7 @@ void FStatsConvertCommand::CollectAndWriteStatsValues( FArchive& Writer )
 		FStatMessage const& Meta = Stats[Index];
 		//UE_LOG(LogTemp, Display, TEXT("Stat: %s"), *Meta.NameAndInfo.GetShortName().ToString());
 
-		if (Meta.NameAndInfo.GetShortName() == TEXT("STAT_SecondsPerCycle"))
+		if (Meta.NameAndInfo.GetShortName() == FStatConstants::NAME_SecondsPerCycle)
 		{
 			// SecondsPerCycle may vary over time, so we update it here
 			MillisecondsPerCycle = Meta.GetValue_double() * 1000.0f;

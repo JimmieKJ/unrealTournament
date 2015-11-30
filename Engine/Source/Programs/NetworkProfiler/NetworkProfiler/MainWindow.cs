@@ -81,6 +81,9 @@ namespace NetworkProfiler
 
 		PartialNetworkStream CurrentStreamSelection = null;
 
+		/** If non 0, we will early out of loading in this many minutes worth of profile time */
+		int MaxProfileMinutes		= 0;
+
 		public MainWindow()
 		{
 			InitializeComponent();
@@ -765,6 +768,28 @@ namespace NetworkProfiler
 		private void ConnectionListBox_SelectedValueChanged( object sender, EventArgs e )
 		{
 			UpdateConnectionFilter();
+		}
+
+		public int GetMaxProfileMinutes()
+		{
+			return MaxProfileMinutes;
+		}
+
+		private void MaxProfileMinutesTextBox_TextChanged( object sender, EventArgs e )
+		{
+			if ( MaxProfileMinutesTextBox.Text == "" )
+			{
+				MaxProfileMinutes = 0;
+			}
+			else try
+			{
+				MaxProfileMinutes = Int32.Parse( MaxProfileMinutesTextBox.Text );
+			}
+			catch
+			{
+				MaxProfileMinutes = 0;
+				MaxProfileMinutesTextBox.Text = "";
+			}
 		}
 	}
 

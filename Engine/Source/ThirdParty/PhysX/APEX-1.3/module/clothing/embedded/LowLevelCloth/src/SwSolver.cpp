@@ -51,7 +51,7 @@ using namespace physx;
 cloth::SwSolver::SwSolver(physx::PxProfileZone* profiler, physx::PxTaskManager* taskMgr) 
 : mProfiler(profiler), 
   mSimulateEventId(mProfiler ? mProfiler->getEventIdForName("cloth::SwSolver::simulate") : uint16_t(-1)),
-  mInterCollisionDistance(0.0f), mInterCollisionStiffness(1.0f), mInterCollisionIterations(1),
+  mDt(0.0f), mInterCollisionDistance(0.0f), mInterCollisionStiffness(1.0f), mInterCollisionIterations(1),
   mInterCollisionScratchMem(NULL), mInterCollisionScratchMemSize(0)
 #if defined(PX_PS3)
   , mSpuClothWorkerTask(mEndSimulationTask)
@@ -77,7 +77,7 @@ namespace
 	template <typename T>
 	bool clothSizeGreater(const T& t0, const T& t1)
 	{
-		return t0.mCloth->mCurParticles.size() > t1.mCloth->mCurParticles.size();
+		return t0->mCloth->mCurParticles.size() > t1->mCloth->mCurParticles.size();
 	}
 
 	template <typename T>
@@ -116,8 +116,7 @@ void cloth::SwSolver::addCloth( Cloth* cloth )
 
 #else
 
-	mCpuClothSimulationTasks.pushBack(
-		CpuClothSimulationTask(swCloth, mEndSimulationTask));
+	mCpuClothSimulationTasks.pushBack(new CpuClothSimulationTask(swCloth, *this));
 
 	sortTasks(mCpuClothSimulationTasks);
 
@@ -147,12 +146,12 @@ void cloth::SwSolver::removeCloth( Cloth* cloth )
 
 	CpuClothSimulationTaskVector::Iterator tIt = mCpuClothSimulationTasks.begin();
 	CpuClothSimulationTaskVector::Iterator tEnd = mCpuClothSimulationTasks.end();
-	while(tIt != tEnd && tIt->mCloth != &swCloth)
+	while(tIt != tEnd && (*tIt)->mCloth != &swCloth)
 		++tIt;
 
 	if(tIt != tEnd)
 	{
-		deallocate(tIt->mScratchMemory);		
+		delete *tIt;
 		mCpuClothSimulationTasks.replaceWithLast(tIt);
 		sortTasks(mCpuClothSimulationTasks);
 	}
@@ -168,14 +167,14 @@ physx::PxBaseTask& cloth::SwSolver::simulate(
 #if defined(PX_PS3)
 	&& mSpuClothSimulationTasks.empty()
 #endif
-	)
+	|| dt == 0.0f)
 	{
 		continuation.addReference();
 		return continuation;
 	}
 
 	mEndSimulationTask.setContinuation(&continuation);
-	mEndSimulationTask.mDt = dt;
+	mDt = dt;
 
 	mStartSimulationTask.setContinuation(&mEndSimulationTask);
 
@@ -195,8 +194,8 @@ void cloth::SwSolver::interCollision()
 	mInterCollisionInstances.resize(0);
 	for (uint32_t i=0; i < mCpuClothSimulationTasks.size(); ++i)
 	{
-		SwCloth* c = mCpuClothSimulationTasks[i].mCloth;
-		float invNumIterations = mCpuClothSimulationTasks[i].mInvNumIterations;
+		SwCloth* c = mCpuClothSimulationTasks[i]->mCloth;
+		float invNumIterations = mCpuClothSimulationTasks[i]->mInvNumIterations;
 
 		mInterCollisionInstances.pushBack(
 			SwInterCollisionData(c->mCurParticles.begin(), c->mPrevParticles.begin(),
@@ -265,6 +264,11 @@ void cloth::SwSolver::endFrame() const
 		mProfiler->stopEvent(mSimulateEventId, uint64_t(intptr_t(this)), uint32_t(intptr_t(this)));
 }
 
+void cloth::SwSolver::simulate(void* task, float dt)
+{
+	if (task)
+		static_cast<cloth::SwSolver::CpuClothSimulationTask*>(task)->simulate(dt);
+}
 
 namespace 
 {
@@ -318,9 +322,6 @@ void cloth::SwSolver::StartSimulationTask::runInternal()
 
 #if defined(PX_PS3)
 	
-	if (mSolver->mEndSimulationTask.mDt == 0.0f)
-		return;
-
 	uint32_t maxRequiredScratchMemory = 0;
 
 	// prepare spu data for each cloth instance
@@ -373,10 +374,10 @@ void cloth::SwSolver::StartSimulationTask::runInternal()
 
 	for(; tIt != tEnd; ++tIt)
 	{
-		if (!tIt->mCloth->isSleeping())
+		if (!(*tIt)->mCloth->isSleeping())
 		{
-			tIt->setContinuation(mCont);
-			tIt->removeReference();
+			(*tIt)->setContinuation(mCont);
+			(*tIt)->removeReference();
 		}
 	}
 
@@ -401,20 +402,32 @@ const char* cloth::SwSolver::EndSimulationTask::getName() const
 }
 
 cloth::SwSolver::CpuClothSimulationTask::CpuClothSimulationTask(
-	SwCloth& cloth, EndSimulationTask& continuation)
-	: mCloth(&cloth), mContinuation(&continuation)
+	SwCloth& cloth, SwSolver& solver)
+	: mCloth(&cloth), mSolver(&solver)
 	, mScratchMemorySize(0), mScratchMemory(0)
 	, mInvNumIterations(0.0f)
 {
+	mCloth->mSimulationTask = this;
+}
+
+cloth::SwSolver::CpuClothSimulationTask::~CpuClothSimulationTask()
+{
+	deallocate(mScratchMemory);
+	mCloth->mSimulationTask = nullptr;
 }
 
 void cloth::SwSolver::CpuClothSimulationTask::runInternal()
 {	
+	simulate(mSolver->mDt);
+}
+
+void cloth::SwSolver::CpuClothSimulationTask::simulate(float dt)
+{
 	// check if we need to reallocate the temp memory buffer 
 	// (number of shapes may have changed)
 	uint32_t requiredTempMemorySize = uint32_t(
 		SwSolverKernel<Simd4fType>::estimateTemporaryMemory(*mCloth));
-	
+
 	if (mScratchMemorySize < requiredTempMemorySize)
 	{
 		deallocate(mScratchMemory);
@@ -423,26 +436,18 @@ void cloth::SwSolver::CpuClothSimulationTask::runInternal()
 		mScratchMemorySize = requiredTempMemorySize;
 	}
 
-	if (mContinuation->mDt == 0.0f)
-		return;
-	
-	IterationStateFactory factory(*mCloth, mContinuation->mDt);
+	IterationStateFactory factory(*mCloth, dt);
 	mInvNumIterations = factory.mInvNumIterations;
 
-	simulateCpu(*mCloth, factory, mContinuation->mSolver->mProfiler, 
-		mScratchMemory, uint32_t(mScratchMemorySize));	
+	simulateCpu(*mCloth, factory, mSolver->mProfiler,
+		mScratchMemory, uint32_t(mScratchMemorySize));
+
+	::release(*mCloth);
 }
 
 const char* cloth::SwSolver::CpuClothSimulationTask::getName() const
 {
 	return "cloth.SwSolver.cpuClothSimulation";
-}
-
-void cloth::SwSolver::CpuClothSimulationTask::release()
-{
-	::release(*mCloth);
-
-	mContinuation->removeReference();
 }
 
 #if defined(PX_PS3)
@@ -509,3 +514,5 @@ void cloth::SwSolver::SpuClothSimulationWorkerTask::release()
 }
 
 #endif	// PX_PS3
+
+void(*const cloth::SwCloth::sSimulationFunction)(void*, float) = &cloth::SwSolver::simulate;

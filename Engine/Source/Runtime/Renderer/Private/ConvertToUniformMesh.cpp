@@ -272,8 +272,6 @@ void FConvertToUniformMeshDrawingPolicy::SetMeshRenderState(
 {
 	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
 
-	EmitMeshDrawEvents(RHICmdList, PrimitiveSceneProxy, Mesh);
-
 	// Set transforms
 	VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement, DitheredLODTransitionValue);
 	GeometryShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement, DitheredLODTransitionValue);

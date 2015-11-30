@@ -586,6 +586,12 @@ private:
 
 		while (true)
 		{
+			if (Stream->AtEnd())
+			{
+				SetErrorMessage( TEXT("Number Token Abruptly Ended.") );
+				return false;
+			}
+
 			CharType Char;
 			if (UseFirstChar)
 			{

@@ -10,12 +10,10 @@
 #include "HitProxies.h"
 #include "InputCoreTypes.h"
 #include "Engine/EngineBaseTypes.h"
-#include "Runtime/MovieSceneCapture/Public/MovieSceneCaptureHandle.h"
 #include "PopupMethodReply.h"
 	
 class FCanvas;
 class FViewportClient;
-class IMovieSceneCaptureInterface;
 
 class SWidget;
 class FCursorReply;
@@ -623,23 +621,6 @@ protected:
 	ENGINE_API virtual void ReleaseDynamicRHI() override;
 	ENGINE_API virtual void InitRHI() override;
 	ENGINE_API virtual void ReleaseRHI() override;
-
-public:
-
-	/** Check if this viewport has a movie scene capture implementation or not */
-	bool HasMovieSceneCapture() const { return MovieSceneCaptureHandle.IsValid(); }
-
-	/** Access the current movie scene capture interface, if set. */
-	ENGINE_API IMovieSceneCaptureInterface* GetMovieSceneCapture() const;
-
-	/** Set this viewport's capture implementation */
-	void SetMovieSceneCapture(FMovieSceneCaptureHandle Handle) { MovieSceneCaptureHandle = Handle; }
-
-protected:
-
-	/** Movie scene capture implementation handle. */
-	FMovieSceneCaptureHandle MovieSceneCaptureHandle;
-
 };
 
 // Shortcuts for checking the state of both left&right variations of control keys.

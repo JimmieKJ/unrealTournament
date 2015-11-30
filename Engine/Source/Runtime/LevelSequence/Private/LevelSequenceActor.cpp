@@ -82,11 +82,8 @@ void ALevelSequenceActor::InitializePlayer()
 	ULevelSequence* LevelSequenceAsset = Cast<ULevelSequence>(LevelSequence.TryLoad());
 	if (GetWorld()->IsGameWorld() && LevelSequenceAsset)
 	{
-		// Create a duplicate of the asset so we can bind it to the game world context
-		auto* SequenceInstance = DuplicateObject<ULevelSequence>(LevelSequenceAsset, this, TEXT("AnimationInstance"));
-
 		SequencePlayer = NewObject<ULevelSequencePlayer>(this, "AnimationPlayer");
-		SequencePlayer->Initialize(SequenceInstance, GetWorld(), PlaybackSettings);
+		SequencePlayer->Initialize(LevelSequenceAsset, GetWorld(), PlaybackSettings);
 
 		if (bAutoPlay)
 		{

@@ -43,7 +43,6 @@ public class BehaviorTreeEditor : ModuleRules
 				"BlueprintGraph",
                 "AIGraph",
                 "AIModule",
-                "GameplayDebugger",
 				"ClassViewer"
 			}
 		);

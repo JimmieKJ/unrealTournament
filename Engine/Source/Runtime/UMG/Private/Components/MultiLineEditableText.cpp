@@ -57,8 +57,10 @@ void UMultiLineEditableText::SynchronizeProperties()
 {
 	Super::SynchronizeProperties();
 
+	TAttribute<FText> HintTextBinding = OPTIONAL_BINDING(FText, HintText);
+
 	MyMultiLineEditableText->SetText(Text);
-//	MyMultiLineEditableText->SetHintText(HintText);
+	MyMultiLineEditableText->SetHintText(HintTextBinding);
 //	MyMultiLineEditableText->SetIsReadOnly(IsReadOnly);
 //	MyMultiLineEditableText->SetIsPassword(IsPassword);
 //	MyMultiLineEditableText->SetColorAndOpacity(ColorAndOpacity);

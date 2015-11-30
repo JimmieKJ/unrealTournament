@@ -83,7 +83,6 @@ public:
 	// SWidget interface
 
 	virtual bool HasKeyboardFocus() const override;
-	virtual FReply OnFocusReceived(const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent) override;
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
@@ -99,6 +98,7 @@ private:
 	TAttribute<bool> CanEditAttribute;
 	FOnTextChanged OnTextChanged;
 	TAttribute<FText> TextAttribute;
+	bool WasFocused;
 
 	TSharedPtr<STextBlock> TextBlock;
 	TSharedPtr<SEditableText> EditableText;

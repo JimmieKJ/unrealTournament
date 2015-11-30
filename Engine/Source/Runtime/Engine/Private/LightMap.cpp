@@ -37,7 +37,7 @@ int32 GLightmapEncodeQualityLevel = 2; // nvtt::Quality_Production
 /** The quality level of the current lighting build */
 ELightingBuildQuality GLightingBuildQuality = Quality_Preview;
 
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING && WITH_EDITOR
+#if WITH_EDITOR
 	/** Information about the lightmap sample that is selected */
 	UNREALED_API extern FSelectedLightmapSample GCurrentSelectedLightmapSample;
 #endif
@@ -64,6 +64,17 @@ ENGINE_API FColor GTexelSelectionColor(255, 50, 0);
 	/** Total memory size for streaming lightmaps (in bytes). */
 	ENGINE_API uint64 GLightmapTotalStreamingSize = 0;
 #endif
+
+static TAutoConsoleVariable<int32> CVarTexelDebugging(
+	TEXT("r.TexelDebugging"),
+	0,	
+	TEXT("Whether T + Left mouse click in the editor selects lightmap texels for debugging Lightmass.  Lightmass must be recompiled with ALLOW_LIGHTMAP_SAMPLE_DEBUGGING enabled for this to work."),
+	ECVF_Default);
+
+bool IsTexelDebuggingEnabled()
+{
+	return CVarTexelDebugging.GetValueOnGameThread() != 0;
+}
 
 #include "TextureLayout.h"
 
@@ -1315,25 +1326,27 @@ void FLightMapPendingTexture::StartEncoding()
 							GNumLightmapUnmappedTexels++;
 						}
 
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING && WITH_EDITOR
-						int32 PaddedX = X;
-						int32 PaddedY = Y;
-						if (GLightmassDebugOptions.bPadMappings && (Allocation->PaddingType == LMPT_NormalPadding))
+#if WITH_EDITOR
+						if (IsTexelDebuggingEnabled())
 						{
-							if (Allocation->TotalSizeX - 2 > 0 && Allocation->TotalSizeY - 2 > 0)
+							int32 PaddedX = X;
+							int32 PaddedY = Y;
+							if (GLightmassDebugOptions.bPadMappings && (Allocation->PaddingType == LMPT_NormalPadding))
 							{
-								PaddedX -= 1;
-								PaddedY -= 1;
+								if (Allocation->TotalSizeX - 2 > 0 && Allocation->TotalSizeY - 2 > 0)
+								{
+									PaddedX -= 1;
+									PaddedY -= 1;
+								}
 							}
-						}
 
-						if (Allocation->bDebug
-							&& PaddedX == GCurrentSelectedLightmapSample.LocalX
-							&& PaddedY == GCurrentSelectedLightmapSample.LocalY)
-						{
-							GCurrentSelectedLightmapSample.OriginalColor = DestColor;
-							extern FColor GTexelSelectionColor;
-							DestColor = GTexelSelectionColor;
+							if (Allocation->bDebug
+								&& PaddedX == GCurrentSelectedLightmapSample.LocalX
+								&& PaddedY == GCurrentSelectedLightmapSample.LocalY)
+							{
+								extern FColor GTexelSelectionColor;
+								DestColor = GTexelSelectionColor;
+							}
 						}
 #endif
 #endif
@@ -1489,18 +1502,21 @@ FLightMap2D* FLightMap2D::AllocateLightMap(UObject* LightMapOuter, FQuantizedLig
 		Allocation->LightMap = LightMap;
 		Allocation->Primitive = LightMapOuter;
 
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING && WITH_EDITOR
-		// Detect if this allocation belongs to the texture mapping that was being debugged
-		//@todo - this only works for mappings that can be uniquely identified by a single component, BSP for example does not work.
-		if (GCurrentSelectedLightmapSample.Component && GCurrentSelectedLightmapSample.Component == LightMapOuter)
+#if WITH_EDITOR
+		if (IsTexelDebuggingEnabled())
 		{
-			GCurrentSelectedLightmapSample.Lightmap = LightMap;
-			Allocation->bDebug = true;
+			// Detect if this allocation belongs to the texture mapping that was being debugged
+			//@todo - this only works for mappings that can be uniquely identified by a single component, BSP for example does not work.
+			if (GCurrentSelectedLightmapSample.Component && GCurrentSelectedLightmapSample.Component == LightMapOuter)
+			{
+				GCurrentSelectedLightmapSample.Lightmap = LightMap;
+				Allocation->bDebug = true;
+			}
+			else
+			{
+				Allocation->bDebug = false;
+			}
 		}
-		else
-		{
-			Allocation->bDebug = false;
-	}
 #endif
 
 		// SourceQuantizedData is no longer needed now that FLightMapAllocation has what it needs

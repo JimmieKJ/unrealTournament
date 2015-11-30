@@ -93,7 +93,7 @@ void FGenericCrashContext::Initialize()
 	const FGuid Guid = FGuid::NewGuid();
 	NCachedCrashContextProperties::CrashGUID = FString::Printf(TEXT("UE4CC-%s-%s"), *NCachedCrashContextProperties::PlatformNameIni, *Guid.ToString(EGuidFormats::Digits));
 
-	// Initialize delegate for updating SecondsSinceStart, beacuse FPlatformTime::Seconds() is not POSIX safe.
+	// Initialize delegate for updating SecondsSinceStart, because FPlatformTime::Seconds() is not POSIX safe.
 	const float PollingInterval = 1.0f;
 	FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateLambda( []( float DeltaTime )
 	{

@@ -699,8 +699,13 @@ bool UGameplayTagsManager::AddLeafTagToContainer(FGameplayTagContainer& TagConta
 	return true;
 }
 
+DECLARE_CYCLE_STAT(TEXT("AddParentTags"), STAT_AddParentTags, STATGROUP_GameplayTags);
+
+
 void UGameplayTagsManager::AddParentTags(FGameplayTagContainer& TagContainer, const FGameplayTag& GameplayTag) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_AddParentTags);
+
 	const TSharedPtr<FGameplayTagNode>* GameplayTagNode = GameplayTagNodeMap.Find(GameplayTag);
 	if (GameplayTagNode)
 	{

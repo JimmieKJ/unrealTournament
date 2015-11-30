@@ -181,7 +181,7 @@ void AActor::PostEditMove(bool bFinished)
 
 bool AActor::ReregisterComponentsWhenModified() const
 {
-	return !IsTemplate() && ( GetOutermost()->PackageFlags & PKG_PlayInEditor ) == 0 && GetWorld() != nullptr;
+	return !IsTemplate() && !GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor) && GetWorld() != nullptr;
 }
 
 void AActor::DebugShowComponentHierarchy(  const TCHAR* Info, bool bShowPosition )
@@ -336,6 +336,15 @@ TSharedPtr<ITransactionObjectAnnotation> AActor::GetTransactionAnnotation() cons
 
 void AActor::PreEditUndo()
 {
+	// Check if this Actor needs to be re-instanced
+	UClass* OldClass = GetClass();
+	UClass* NewClass = OldClass->GetAuthoritativeClass();
+	if (NewClass != OldClass)
+	{
+		// Empty the OwnedComponents array, it's filled with invalid information
+		OwnedComponents.Empty();
+	}
+
 	// Since child actor components will rebuild themselves get rid of the Actor before we make changes
 	TInlineComponentArray<UChildActorComponent*> ChildActorComponents;
 	GetComponents(ChildActorComponents);
@@ -356,6 +365,20 @@ void AActor::PreEditUndo()
 
 void AActor::PostEditUndo()
 {
+	// Check if this Actor needs to be re-instanced
+	UClass* OldClass = GetClass();
+	if (OldClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+	{
+		UClass* NewClass = OldClass->GetAuthoritativeClass();
+		if (!ensure(NewClass != OldClass))
+		{
+			UE_LOG(LogActor, Warning, TEXT("WARNING: %s is out of date and is the same as its AuthoritativeClass during PostEditUndo!"), *OldClass->GetName());
+		};
+
+		// Early exit, letting anything more occur would be invalid due to the REINST_ class
+		return;
+	}
+
 	// Notify LevelBounds actor that level bounding box might be changed
 	if (!IsTemplate())
 	{
@@ -380,6 +403,21 @@ void AActor::PostEditUndo()
 void AActor::PostEditUndo(TSharedPtr<ITransactionObjectAnnotation> TransactionAnnotation)
 {
 	CurrentTransactionAnnotation = StaticCastSharedPtr<FActorTransactionAnnotation>(TransactionAnnotation);
+
+	// Check if this Actor needs to be re-instanced
+	UClass* OldClass = GetClass();
+	if (OldClass->HasAnyClassFlags(CLASS_NewerVersionExists))
+	{
+		UClass* NewClass = OldClass->GetAuthoritativeClass();
+		if (!ensure(NewClass != OldClass))
+		{
+			UE_LOG(LogActor, Warning, TEXT("WARNING: %s is out of date and is the same as its AuthoritativeClass during PostEditUndo!"), *OldClass->GetName());
+		};
+
+		// Early exit, letting anything more occur would be invalid due to the REINST_ class
+		return;
+	}
+
 
 	// Notify LevelBounds actor that level bounding box might be changed
 	if (!IsTemplate())
@@ -635,7 +673,7 @@ void AActor::SetActorLabelInternal( const FString& NewActorLabelDirty, bool bMak
 	{
 		// Generate an object name for the actor's label
 		const FName OldActorName = GetFName();
-		FName NewActorName = MakeObjectNameFromActorLabel( GetActorLabel(), OldActorName );
+		FName NewActorName = MakeObjectNameFromDisplayLabel( GetActorLabel(), OldActorName );
 
 		// Has anything changed?
 		if( OldActorName != NewActorName )

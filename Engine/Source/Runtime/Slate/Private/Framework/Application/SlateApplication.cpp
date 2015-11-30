@@ -1313,10 +1313,19 @@ void FSlateApplication::Tick()
 	SLATE_CYCLE_COUNTER_SCOPE(GSlateTotalTickTime);
 
 	FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::Tick");
-	
-	{
-		const float DeltaTime = GetDeltaTime();
 
+	if (Renderer.IsValid())
+	{
+		// Release any temporary material or texture resources we may have cached and are reporting to prevent
+		// GC on those resources.  We don't need to force it, we just need to let the ones used last frame to
+		// be queued up to be released.
+		Renderer->ReleaseAccessedResources(/* Flush State */ false);
+	}
+	
+
+	const float DeltaTime = GetDeltaTime();
+
+	{
 		SCOPE_CYCLE_COUNTER( STAT_SlateMessageTick );
 
 		//FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::Platform");
@@ -1339,6 +1348,9 @@ void FSlateApplication::Tick()
 
 		//FPlatformMisc::EndNamedEvent();
 	}
+
+	UpdateRetainerWidgetsEvent.Broadcast( DeltaTime );
+
 
 	//FPlatformMisc::BeginNamedEvent(FColor::Magenta, "Slate::UpdateCursorLockRegion");
 	// The widget locking the cursor to its bounds may have been reshaped.
@@ -1431,7 +1443,8 @@ void FSlateApplication::Tick()
 		{
 			if ( ReleasedCachedElementLists[CacheIndex]->IsInUse() == false )
 			{
-				delete ReleasedCachedElementLists[CacheIndex];
+				ensure( ReleasedCachedElementLists[CacheIndex].IsUnique() );
+				ReleasedCachedElementLists[CacheIndex].Reset();
 				ReleasedCachedElementLists.RemoveAtSwap(CacheIndex, 1, false);
 				CacheIndex--;
 			}
@@ -1701,6 +1714,29 @@ bool FSlateApplication::CanDisplayWindows() const
 	return Renderer.IsValid() && Renderer->AreShadersInitialized();
 }
 
+
+EUINavigation FSlateApplication::GetNavigationDirectionFromKey( const FKeyEvent& InKeyEvent ) const
+{
+	
+	if ( NavigationConfig.Right.Contains( InKeyEvent.GetKey() ) )
+	{
+		return EUINavigation::Right;
+	}
+	else if ( NavigationConfig.Left.Contains( InKeyEvent.GetKey() ) )
+	{
+		return EUINavigation::Left;
+	}
+	else if ( NavigationConfig.Up.Contains( InKeyEvent.GetKey() ) )
+	{
+		return EUINavigation::Up;
+	}
+	else if ( NavigationConfig.Down.Contains( InKeyEvent.GetKey() ) )
+	{
+		return EUINavigation::Down;
+	}
+	
+	return EUINavigation::Invalid;
+}
 
 void FSlateApplication::AddModalWindow( TSharedRef<SWindow> InSlateWindow, const TSharedPtr<const SWidget> InParentWidget, bool bSlowTaskWindow )
 {
@@ -2098,13 +2134,13 @@ void FSlateApplication::UnregisterGameViewport()
 
 void FSlateApplication::FlushRenderState()
 {
-	// Flush any render commands because we're about to release shader accesses and not keep them alive.
-	Renderer->FlushCommands();
-
-	// Release any temporary material or texture resources we may have cached and are reporting to prevent
-	// GC on those resources.  If the game viewport is being unregistered, we need to flush these resources
-	// to allow for them to be GC'ed.
-	Renderer->ReleaseAccessedResources();
+	if ( Renderer.IsValid() )
+	{
+		// Release any temporary material or texture resources we may have cached and are reporting to prevent
+		// GC on those resources.  If the game viewport is being unregistered, we need to flush these resources
+		// to allow for them to be GC'ed.
+		Renderer->ReleaseAccessedResources(/* Flush State */ true);
+	}
 }
 
 TSharedPtr<SViewport> FSlateApplication::GetGameViewport() const
@@ -3651,10 +3687,10 @@ bool FSlateApplication::TakeScreenshot(const TSharedRef<SWidget>& Widget, const 
 
 TSharedPtr< FSlateWindowElementList > FSlateApplication::GetCachableElementList(const TSharedPtr<SWindow>& CurrentWindow, const ILayoutCache* LayoutCache)
 {
-	FCacheElementPools* Pools = CachedElementLists.FindRef(LayoutCache);
-	if ( Pools == nullptr )
+	TSharedPtr<FCacheElementPools> Pools = CachedElementLists.FindRef(LayoutCache);
+	if ( !Pools.IsValid() )
 	{
-		Pools = new FCacheElementPools();
+		Pools = MakeShareable( new FCacheElementPools() );
 		CachedElementLists.Add(LayoutCache, Pools);
 	}
 
@@ -3722,8 +3758,8 @@ bool FSlateApplication::FCacheElementPools::IsInUse() const
 
 void FSlateApplication::ReleaseResourcesForLayoutCache(const ILayoutCache* LayoutCache)
 {
-	FCacheElementPools* Pools = CachedElementLists.FindRef(LayoutCache);
-	if ( Pools != nullptr )
+	TSharedPtr<FCacheElementPools> Pools = CachedElementLists.FindRef(LayoutCache);
+	if ( Pools.IsValid() )
 	{
 		ReleasedCachedElementLists.Add(Pools);
 	}
@@ -5453,6 +5489,11 @@ void FSlateApplication::ProcessApplicationActivationEvent( bool InAppActivated )
 	}
 }
 
+
+void FSlateApplication::SetNavigationConfig( FNavigationConfig&& Config )
+{
+	NavigationConfig = MoveTemp( Config );
+}
 
 bool FSlateApplication::OnConvertibleLaptopModeChanged()
 {

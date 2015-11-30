@@ -34,7 +34,7 @@ void SIntegralCurveKeyEditor::OnBeginSliderMovement()
 {
 	GEditor->BeginTransaction(LOCTEXT("SetIntegralKey", "Set Integral Key Value"));
 	OwningSection->SetFlags(RF_Transactional);
-	OwningSection->Modify();
+	OwningSection->TryModify();
 }
 
 void SIntegralCurveKeyEditor::OnEndSliderMovement(int32 Value)
@@ -58,32 +58,33 @@ int32 SIntegralCurveKeyEditor::OnGetKeyValue() const
 
 void SIntegralCurveKeyEditor::OnValueChanged(int32 Value)
 {
-	OwningSection->Modify();
-
-	float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
-
-	bool bKeyWillBeAdded = Curve->IsKeyHandleValid(Curve->FindKey(CurrentTime)) == false;
-	if (bKeyWillBeAdded)
+	if (OwningSection->TryModify())
 	{
-		if (OwningSection->GetStartTime() > CurrentTime)
+		float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
+
+		bool bKeyWillBeAdded = Curve->IsKeyHandleValid(Curve->FindKey(CurrentTime)) == false;
+		if (bKeyWillBeAdded)
 		{
-			OwningSection->SetStartTime(CurrentTime);
+			if (OwningSection->GetStartTime() > CurrentTime)
+			{
+				OwningSection->SetStartTime(CurrentTime);
+			}
+			if (OwningSection->GetEndTime() < CurrentTime)
+			{
+				OwningSection->SetEndTime(CurrentTime);
+			}
 		}
-		if (OwningSection->GetEndTime() < CurrentTime)
-		{
-			OwningSection->SetEndTime(CurrentTime);
-		}
-	}
 
-	if (Curve->GetNumKeys() == 0)
-	{
-		Curve->SetDefaultValue(Value);
+		if (Curve->GetNumKeys() == 0)
+		{
+			Curve->SetDefaultValue(Value);
+		}
+		else
+		{
+			Curve->UpdateOrAddKey(CurrentTime, Value);
+		}
+		Sequencer->UpdateRuntimeInstances();
 	}
-	else
-	{
-		Curve->UpdateOrAddKey(CurrentTime, Value);
-	}
-	Sequencer->UpdateRuntimeInstances();
 }
 
 void SIntegralCurveKeyEditor::OnValueCommitted(int32 Value, ETextCommit::Type CommitInfo)

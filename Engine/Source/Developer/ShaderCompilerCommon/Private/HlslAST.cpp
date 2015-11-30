@@ -23,7 +23,10 @@ namespace CrossCompiler
 				for (const auto* Dimension : ArraySize)
 				{
 					Writer << (TCHAR)'[';
-					Dimension->Write(Writer);
+					if (Dimension)
+					{
+						Dimension->Write(Writer);
+					}
 					Writer << (TCHAR)']';
 				}
 			}
@@ -87,7 +90,7 @@ namespace CrossCompiler
 				Writer << TEXT("+");
 				break;
 
-			case EOperators::Neg:
+			case EOperators::Minus:
 				Writer << TEXT("-");
 				break;
 
@@ -161,6 +164,10 @@ namespace CrossCompiler
 
 			case EOperators::BitAnd:
 				Writer << TEXT("&");
+				break;
+
+			case EOperators::BitNeg:
+				Writer << TEXT("~");
 				break;
 
 			case EOperators::Equal:
@@ -256,7 +263,7 @@ namespace CrossCompiler
 				Writer << TEXT("*MISSING_");
 				Writer << (uint32)Operator;
 				Writer << (TCHAR)'*';
-				check(0);
+				checkf(0, TEXT("Unhandled AST Operator %d!"), Operator);
 				break;
 			}
 		}
@@ -279,7 +286,7 @@ namespace CrossCompiler
 				Writer << TEXT("*MISSING_");
 				Writer << (uint32)Operator;
 				Writer << (TCHAR)'*';
-				check(0);
+				checkf(0, TEXT("Unhandled AST Operator %d!"), Operator);
 				break;
 			}
 		}
@@ -604,7 +611,7 @@ namespace CrossCompiler
 				Writer << TEXT("*MISSING_");
 				Writer << (uint32)Type;
 				Writer << (TCHAR)'*';
-				check(0);
+				checkf(0, TEXT("Unhandled AST jump type %d!"), Type);
 				break;
 			}
 
@@ -950,6 +957,8 @@ namespace CrossCompiler
 		FParameterDeclarator::FParameterDeclarator(FLinearAllocator* InAllocator, const FSourceInfo& InInfo) :
 			FNode(InAllocator, InInfo),
 			Type(nullptr),
+			Identifier(nullptr),
+			Semantic(nullptr),
 			bIsArray(false),
 			ArraySize(InAllocator),
 			DefaultValue(nullptr)
@@ -1094,7 +1103,7 @@ namespace CrossCompiler
 				break;
 
 			default:
-				check(0);
+				checkf(0, TEXT("Unhandled AST iteration type %d!"), Type);
 				break;
 			}
 		}

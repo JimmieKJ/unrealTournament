@@ -3,6 +3,7 @@
 #pragma once
 
 //#include "ISequencerObjectChangeListener.h"
+#include "ObjectKey.h"
 
 class IPropertyHandle;
 
@@ -18,6 +19,8 @@ public:
 	/** ISequencerObjectChangeListener interface */
 	virtual FOnAnimatablePropertyChanged& GetOnAnimatablePropertyChanged( FName PropertyTypeName ) override;
 	virtual FOnPropagateObjectChanges& GetOnPropagateObjectChanges() override;
+	virtual FOnObjectPropertyChanged& GetOnAnyPropertyChanged(UObject& Object) override;
+	virtual void ReportObjectDestroyed(UObject& Object) override;
 	virtual bool CanKeyProperty(FCanKeyPropertyParams KeyPropertyParams) const override;
 	virtual void KeyProperty(FKeyPropertyParams KeyPropertyParams) const override;
 	virtual void TriggerAllPropertiesChanged(UObject* Object) override;
@@ -68,6 +71,9 @@ private:
 
 	/** A mapping of property classes to multi-cast delegate that is broadcast when properties of that type change */
 	TMap< FName, FOnAnimatablePropertyChanged > ClassToPropertyChangedMap;
+
+	/** A mapping of object instance to property change event */
+	TMap< FObjectKey, FOnObjectPropertyChanged > ObjectToPropertyChangedEvent;
 
 	/** Delegate to call when object changes should be propagated */
 	FOnPropagateObjectChanges OnPropagateObjectChanges;

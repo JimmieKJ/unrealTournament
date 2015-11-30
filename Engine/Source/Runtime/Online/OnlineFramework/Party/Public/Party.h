@@ -244,7 +244,6 @@ public:
 	 * @param JoinCompleteDelegate delegate to call once the pending invite has been joined or in all failure cases
 	 */
 	void AddPendingPartyJoin(const FUniqueNetId& LocalUserId, const FPartyDetails& PartyDetails, const UPartyDelegates::FOnJoinUPartyComplete& JoinCompleteDelegate);
-	//void AddPendingPartyJoin(const FUniqueNetId& LocalUserId, const FPartyDetails& PartyDetails, const FOnJoinPartyComplete& JoinCompleteDelegate);
 
 	/**
 	 * Is any local player in the given party
@@ -439,16 +438,12 @@ private:
 	void OnLeavePartyComplete(const FUniqueNetId& LocalUserId, const ELeavePartyCompletionResult Result, const FOnlinePartyTypeId InPartyTypeId, UPartyDelegates::FOnLeaveUPartyComplete CompletionDelegate);
 	void HandleJoinPersistentPartyFailure();
 
+	/**
+	 * Delegates for managing regular parties
+	 */
 	void OnCreatePartyInternalComplete(const FUniqueNetId& LocalUserId, const TSharedPtr<const FOnlinePartyId>& InPartyId, const ECreatePartyCompletionResult Result, const FOnlinePartyTypeId InPartyTypeId, UPartyDelegates::FOnCreateUPartyComplete CompletionDelegate);
 	void OnJoinPartyInternalComplete(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId, const EJoinPartyCompletionResult Result, int32 DeniedResultCode, const FOnlinePartyTypeId InPartyTypeId, UPartyDelegates::FOnJoinUPartyComplete CompletionDelegate);
 	void OnLeavePartyInternalComplete(const FUniqueNetId& LocalUserId, const FOnlinePartyId& InPartyId, const ELeavePartyCompletionResult Result, const FOnlinePartyTypeId InPartyTypeId, UPartyDelegates::FOnLeaveUPartyComplete CompletionDelegate);
-
-	/**
-	 * Internal helpers for delegates
-	 */
-	enum class EOnCreatePartyCompleteInternalResult OnCreatePartyCompleteInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyTypeId InPartyTypeId);
-	enum class EOnJoinPartyCompleteInternalResult   OnJoinPartyCompleteInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyTypeId InPartyTypeId);
-	enum class EOnLeavePartyCompleteInternalResult  OnLeavePartyCompleteInternal(const FUniqueNetId& LocalUserId, const FOnlinePartyTypeId InPartyTypeId);
 
 	/**
 	 * Delegates for managing persistent parties
@@ -514,100 +509,3 @@ protected:
 
 };
 
-enum class EOnCreatePartyCompleteInternalResult
-{
-	UnknownFailure,
-	InvalidSystemInterface,
-	InvalidPartyId,
-	InvalidParty,
-	InvalidPartyType,
-	Success
-};
-
-enum class EOnJoinPartyCompleteInternalResult
-{
-	UnknownFailure,
-	InvalidSystemInterface,
-	InvalidParty,
-	InvalidPartyType,
-	Success
-};
-
-enum class EOnLeavePartyCompleteInternalResult
-{
-	UnknownFailure,
-	InvalidPartyState,
-	Success
-};
-
-inline const TCHAR* ToString(EOnCreatePartyCompleteInternalResult Value)
-{
-	switch (Value)
-	{
-	case EOnCreatePartyCompleteInternalResult::UnknownFailure:
-	{
-		return TEXT("UnknownFailure");
-	}
-	case EOnCreatePartyCompleteInternalResult::InvalidSystemInterface:
-	{
-		return TEXT("InvalidSystemInterface");
-	}
-	case EOnCreatePartyCompleteInternalResult::InvalidPartyId:
-	{
-		return TEXT("InvalidPartyId");
-	}
-	case EOnCreatePartyCompleteInternalResult::InvalidParty:
-	{
-		return TEXT("InvalidParty");
-	}
-	case EOnCreatePartyCompleteInternalResult::Success:
-	{
-		return TEXT("Success");
-	}
-	}
-	return TEXT("");
-}
-
-inline const TCHAR* ToString(EOnJoinPartyCompleteInternalResult Value)
-{
-	switch (Value)
-	{
-	case EOnJoinPartyCompleteInternalResult::UnknownFailure:
-	{
-		return TEXT("UnknownFailure");
-	}
-	case EOnJoinPartyCompleteInternalResult::InvalidSystemInterface:
-	{
-		return TEXT("InvalidSystemInterface");
-	}
-	case EOnJoinPartyCompleteInternalResult::InvalidParty:
-	{
-		return TEXT("InvalidParty");
-	}
-	case EOnJoinPartyCompleteInternalResult::Success:
-	{
-		return TEXT("Success");
-	}
-	}
-	return TEXT("");
-}
-
-inline const TCHAR* ToString(EOnLeavePartyCompleteInternalResult Value)
-{
-	switch (Value)
-	{
-	case EOnLeavePartyCompleteInternalResult::UnknownFailure:
-	{
-		return TEXT("UnknownFailure");
-	}
-	case EOnLeavePartyCompleteInternalResult::InvalidPartyState:
-	{
-		return TEXT("InvalidPartyState");
-	}
-	case EOnLeavePartyCompleteInternalResult::Success:
-	{
-		return TEXT("Success");
-	}
-	}
-	return TEXT("");
-}

@@ -383,6 +383,9 @@ public:
 	\return	NxClothingRenderProxy object with static render data. Can be acquired only once per frame, otherwise NULL is returned.
 	*/
 	virtual NxClothingRenderProxy* acquireRenderProxy() = 0;
+
+	/** simulates just this actor, not supported for GPU simulation. */
+	virtual void simulate(PxF32 dt) = 0;
 };
 
 PX_POP_PACK

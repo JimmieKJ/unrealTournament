@@ -39,7 +39,7 @@ extern FString GOodleSaveDir;
  */
 enum EOodleHandlerMode
 {
-	Training,	// Stores packet captures for the server
+	Capturing,	// Stores packet captures for the server
 	Release		// Compresses packet data, based on the dictionary file
 };
 
@@ -164,7 +164,7 @@ protected:
 	* Modes of the component
 	* Specify this in .ini by
 	* [OodleHandlerComponent]
-	* Mode=Training
+	* Mode=Capturing
 	*/
 	EOodleHandlerMode Mode;
 

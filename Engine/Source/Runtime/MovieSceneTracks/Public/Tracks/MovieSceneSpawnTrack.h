@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "MovieSceneTrack.h"
+#include "MovieSceneNameableTrack.h"
 #include "MovieSceneSpawnTrack.generated.h"
 
 
@@ -14,7 +14,7 @@ class UMovieSceneSection;
  */
 UCLASS( MinimalAPI )
 class UMovieSceneSpawnTrack
-	: public UMovieSceneTrack
+	: public UMovieSceneNameableTrack
 {
 public:
 
@@ -27,13 +27,13 @@ public:
 	bool Eval(float Position, float LastPostion, bool& bOutSpawned) const;
 
 	/** Get the object identifier that this spawn track controls */
-	const FGuid& GetObject() const
+	const FGuid& GetObjectId() const
 	{
 		return ObjectGuid;
 	}
 
 	/** Set the object identifier that this spawn track controls */
-	void SetObject(const FGuid& InGuid)
+	void SetObjectId(const FGuid& InGuid)
 	{
 		ObjectGuid = InGuid;
 	}

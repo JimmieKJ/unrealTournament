@@ -31,7 +31,7 @@ public:
 
 	/** Render the scene to the texture */
 	UFUNCTION(BlueprintCallable,Category = "Rendering|SceneCapture")
-	void UpdateContent();
+	ENGINE_API void UpdateContent();
 
 	ENGINE_API static void UpdateDeferredCaptures(FSceneInterface* Scene);
 };

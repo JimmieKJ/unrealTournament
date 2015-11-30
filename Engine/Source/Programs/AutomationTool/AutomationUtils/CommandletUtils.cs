@@ -106,7 +106,7 @@ namespace AutomationTool
 				MapsToRebuildLighting.Trim();
 			}
 
-			RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-buildlighting -AllowCommandletRendering {0} {1}", MapsToRebuildLighting, Parameters));
+			RunCommandlet(ProjectName, UE4Exe, "ResavePackages", String.Format("-buildlighting -MapsOnly -ProjectOnly -AllowCommandletRendering {0} {1}", MapsToRebuildLighting, Parameters));
 		}
 
         /// <summary>
@@ -177,20 +177,6 @@ namespace AutomationTool
         public static void UpdateGameProjectCommandlet(FileReference ProjectName, string UE4Exe = "UE4Editor-Cmd.exe", string Parameters = "")
         {
             RunCommandlet(ProjectName, UE4Exe, "UpdateGameProject", Parameters);
-        }
-
-        /// <summary>
-        /// Runs the GenerateNativePluginFromBlueprint commandlet.
-        /// </summary>
-        /// <param name="ManifestPath"></param>
-        /// <param name="UE4Exe"></param>
-        /// <param name="Parameters"></param>
-        public static void GenerateNativePluginFromBlueprintCommandlet(FileReference ProjectName, string ManifestPath, string UE4Exe = "UE4Editor-Cmd.exe", string Parameters = "")
-        {
-            Parameters = String.Format("{0} -manifest=\"{1}\"", Parameters, ManifestPath);
-            Parameters.Trim();
-
-            RunCommandlet(ProjectName, UE4Exe, "GenerateNativePluginFromBlueprint", Parameters);
         }
 
 		/// <summary>

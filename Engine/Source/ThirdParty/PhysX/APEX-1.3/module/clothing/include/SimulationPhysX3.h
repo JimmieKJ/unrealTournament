@@ -167,6 +167,8 @@ public:
 	virtual void applyClothingDesc(tClothingDescTemplate& clothingTemplate);
 	virtual void setInterCollisionChannels(PxU32 channels);
 
+	virtual void simulate(float dt);
+
 	// cleanup code
 	static void releaseFabric(NxParameterized::Interface* cookedData);
 

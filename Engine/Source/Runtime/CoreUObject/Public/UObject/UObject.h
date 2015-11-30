@@ -33,7 +33,7 @@ namespace EResourceSizeMode
 class COREUOBJECT_API UObject : public UObjectBaseUtility
 {
 	// Declarations.
-	DECLARE_CLASS(UObject,UObject,CLASS_Abstract|CLASS_NoExport,CASTCLASS_None,CoreUObject,NO_API)
+	DECLARE_CLASS(UObject,UObject,CLASS_Abstract|CLASS_NoExport,CASTCLASS_None,TEXT("/Script/CoreUObject"),NO_API)
 	DEFINE_DEFAULT_OBJECT_INITIALIZER_CONSTRUCTOR_CALL(UObject)
 #if WITH_HOT_RELOAD_CTORS
 	static UObject* __VTableCtorCaller(FVTableHelper& Helper)
@@ -1011,6 +1011,9 @@ public:
 	/** Tracepoint; only observed in the editor; executing it at any other time is a NOP */
 	DECLARE_FUNCTION(execTracepoint);
 	DECLARE_FUNCTION(execWireTracepoint);
+
+	/** Instrumentation event for profiling; only observed in the builds with blueprint instrumentation */
+	DECLARE_FUNCTION(execInstrumentation);
 
 	DECLARE_FUNCTION(execEndOfScript);
 

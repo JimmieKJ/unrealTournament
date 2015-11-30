@@ -1,0 +1,1484 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#include "EnginePrivate.h"
+#include "AnimInstanceProxy.h"
+#include "Animation/AnimStats.h"
+#include "Animation/AnimMontage.h"
+#include "Animation/BlendSpaceBase.h"
+#include "AnimationUtils.h"
+#include "MessageLog.h"
+#include "Animation/AnimNode_AssetPlayerBase.h"
+#include "Animation/AnimNode_StateMachine.h"
+#include "Animation/AnimNode_TransitionResult.h"
+
+#define DO_ANIMSTAT_PROCESSING(StatName) DEFINE_STAT(STAT_ ## StatName)
+#include "AnimMTStats.h"
+#undef DO_ANIMSTAT_PROCESSING
+
+#define DO_ANIMSTAT_PROCESSING(StatName) DEFINE_STAT(STAT_ ## StatName ## _WorkerThread)
+#include "AnimMTStats.h"
+#undef DO_ANIMSTAT_PROCESSING
+
+#define LOCTEXT_NAMESPACE "AnimInstance"
+
+void FAnimInstanceProxy::UpdateAnimationNode(float DeltaSeconds)
+{
+#if WITH_EDITORONLY_DATA
+	UpdatedNodesThisFrame.Reset();
+#endif
+
+	if(RootNode != nullptr)
+	{
+		UpdateCounter.Increment();
+		RootNode->Update(FAnimationUpdateContext(this, DeltaSeconds));
+	}
+}
+
+void FAnimInstanceProxy::Initialize(UAnimInstance* InAnimInstance)
+{
+	// copy anim instance object if it has not already been set up
+	AnimInstanceObject = InAnimInstance;
+
+	AnimClassInterface = IAnimClassInterface::GetFromClass(InAnimInstance->GetClass());
+
+	USkeletalMeshComponent* OwnerComponent = InAnimInstance->GetSkelMeshComponent();
+	if (OwnerComponent->SkeletalMesh != NULL)
+	{
+		Skeleton = OwnerComponent->SkeletalMesh->Skeleton;
+	}
+	else
+	{
+		Skeleton = nullptr;
+	}
+
+	if (AnimClassInterface)
+	{
+		// Grab a pointer to the root node
+		if (UStructProperty* RootAnimNodeProperty = AnimClassInterface->GetRootAnimNodeProperty())
+		{
+			RootNode = RootAnimNodeProperty->ContainerPtrToValuePtr<FAnimNode_Base>(InAnimInstance);
+		}
+		else
+		{
+			RootNode = nullptr;
+		}
+
+		// if no mesh, use Blueprint Skeleton
+		if (Skeleton == nullptr)
+		{
+			Skeleton = AnimClassInterface->GetTargetSkeleton();
+		}
+
+#if WITH_EDITORONLY_DATA
+		if (UAnimBlueprint* Blueprint = Cast<UAnimBlueprint>(InAnimInstance->GetClass()->ClassGeneratedBy))
+		{
+			if (Blueprint->Status == BS_Error)
+			{
+				RootNode = nullptr;
+			}
+		}
+#endif
+	}
+
+	SkeletalMeshComponent = InAnimInstance->GetSkelMeshComponent();
+
+#if !NO_LOGGING
+	ActorName = GetNameSafe(InAnimInstance->GetOwningActor());
+#endif
+
+#if DO_CHECK
+	AnimInstanceName = *InAnimInstance->GetFullName();
+#endif
+
+	ReinitializeSlotNodes();
+}
+
+void FAnimInstanceProxy::InitializeRootNode()
+{
+	if (RootNode != nullptr)
+	{
+		// cache any state machine descriptions we have
+		for(UStructProperty* Property : AnimClassInterface->GetAnimNodeProperties())
+		{
+			if(Property->Struct->IsChildOf(FAnimNode_StateMachine::StaticStruct()))
+			{
+				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
+				StateMachine->CacheMachineDescription(AnimClassInterface);
+			}
+		}
+
+		GameThreadPreUpdateEvents.Reset();
+
+		InitializationCounter.Increment();
+		FAnimationInitializeContext InitContext(this);
+		RootNode->Initialize(InitContext);
+	}
+}
+
+void FAnimInstanceProxy::Uninitialize(UAnimInstance* InAnimInstance)
+{
+	MorphTargetCurves.Reset();
+	MaterialParameterCurves.Reset();
+}
+
+void FAnimInstanceProxy::PreUpdate(const UAnimInstance* InAnimInstance, float DeltaSeconds)
+{
+	CurrentDeltaSeconds = DeltaSeconds;
+	RootMotionMode = InAnimInstance->RootMotionMode;
+	bShouldExtractRootMotion = InAnimInstance->ShouldExtractRootMotion();
+
+	NotifyQueue.Reset(InAnimInstance->GetSkelMeshComponent());
+
+	ClearSlotNodeWeights();
+
+	// Reset the player tick list (but keep it presized)
+	TArray<FAnimTickRecord>& UngroupedActivePlayers = UngroupedActivePlayerArrays[GetSyncGroupWriteIndex()];
+	UngroupedActivePlayers.Reset();
+
+	TArray<FAnimGroupInstance>& SyncGroups = SyncGroupArrays[GetSyncGroupWriteIndex()];
+	for (int32 GroupIndex = 0; GroupIndex < SyncGroups.Num(); ++GroupIndex)
+	{
+		SyncGroups[GroupIndex].Reset();
+	}
+
+#if WITH_EDITORONLY_DATA
+	bIsBeingDebugged = false;
+	if (UAnimBlueprint* AnimBlueprint = GetAnimBlueprint())
+	{
+		bIsBeingDebugged = (InAnimInstance && (AnimBlueprint->GetObjectBeingDebugged() == InAnimInstance));
+	}
+#endif
+
+	// run preupdate events
+	for(const auto& Event : GameThreadPreUpdateEvents)
+	{
+		Event.ExecuteIfBound(InAnimInstance);
+	}
+}
+
+void FAnimInstanceProxy::PostUpdate(UAnimInstance* InAnimInstance) const
+{
+#if WITH_EDITORONLY_DATA
+	UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass = Cast<UAnimBlueprintGeneratedClass>(InAnimInstance->GetClass());
+	AnimBlueprintGeneratedClass->GetAnimBlueprintDebugData().RecordNodeVisitArray(UpdatedNodesThisFrame);
+#endif
+
+	InAnimInstance->NotifyQueue.Append(NotifyQueue);
+}
+
+FAnimTickRecord& FAnimInstanceProxy::CreateUninitializedTickRecord(int32 GroupIndex, FAnimGroupInstance*& OutSyncGroupPtr)
+{
+	// Find or create the sync group if there is one
+	OutSyncGroupPtr = NULL;
+	if (GroupIndex >= 0)
+	{
+		TArray<FAnimGroupInstance>& SyncGroups = SyncGroupArrays[GetSyncGroupWriteIndex()];
+		while (SyncGroups.Num() <= GroupIndex)
+		{
+			new (SyncGroups) FAnimGroupInstance();
+		}
+		OutSyncGroupPtr = &(SyncGroups[GroupIndex]);
+	}
+
+	// Create the record
+	FAnimTickRecord* TickRecord = new ((OutSyncGroupPtr != NULL) ? OutSyncGroupPtr->ActivePlayers : UngroupedActivePlayerArrays[GetSyncGroupWriteIndex()]) FAnimTickRecord();
+	return *TickRecord;
+}
+
+void FAnimInstanceProxy::MakeSequenceTickRecord(FAnimTickRecord& TickRecord, class UAnimSequenceBase* Sequence, bool bLooping, float PlayRate, float FinalBlendWeight, float& CurrentTime, FMarkerTickRecord& MarkerTickRecord) const
+{
+	TickRecord.SourceAsset = Sequence;
+	TickRecord.TimeAccumulator = &CurrentTime;
+	TickRecord.MarkerTickRecord = &MarkerTickRecord;
+	TickRecord.PlayRateMultiplier = PlayRate;
+	TickRecord.EffectiveBlendWeight = FinalBlendWeight;
+	TickRecord.bLooping = bLooping;
+}
+
+void FAnimInstanceProxy::MakeBlendSpaceTickRecord(FAnimTickRecord& TickRecord, class UBlendSpaceBase* BlendSpace, const FVector& BlendInput, TArray<FBlendSampleData>& BlendSampleDataCache, FBlendFilter& BlendFilter, bool bLooping, float PlayRate, float FinalBlendWeight, float& CurrentTime, FMarkerTickRecord& MarkerTickRecord) const
+{
+	TickRecord.SourceAsset = BlendSpace;
+	TickRecord.BlendSpace.BlendSpacePositionX = BlendInput.X;
+	TickRecord.BlendSpace.BlendSpacePositionY = BlendInput.Y;
+	TickRecord.BlendSpace.BlendSampleDataCache = &BlendSampleDataCache;
+	TickRecord.BlendSpace.BlendFilter = &BlendFilter;
+	TickRecord.TimeAccumulator = &CurrentTime;
+	TickRecord.MarkerTickRecord = &MarkerTickRecord;
+	TickRecord.PlayRateMultiplier = PlayRate;
+	TickRecord.EffectiveBlendWeight = FinalBlendWeight;
+	TickRecord.bLooping = bLooping;
+}
+
+void FAnimInstanceProxy::SequenceAdvanceImmediate(UAnimSequenceBase* Sequence, bool bLooping, float PlayRate, float DeltaSeconds, float& CurrentTime, FMarkerTickRecord& MarkerTickRecord)
+{
+	FAnimTickRecord TickRecord;
+	MakeSequenceTickRecord(TickRecord, Sequence, bLooping, PlayRate, /*FinalBlendWeight=*/ 1.0f, CurrentTime, MarkerTickRecord);
+
+	FAnimAssetTickContext TickContext(DeltaSeconds, RootMotionMode, true);
+	TickRecord.SourceAsset->TickAssetPlayer(TickRecord, NotifyQueue, TickContext);
+}
+
+void FAnimInstanceProxy::BlendSpaceAdvanceImmediate(class UBlendSpaceBase* BlendSpace, const FVector& BlendInput, TArray<FBlendSampleData>& BlendSampleDataCache, FBlendFilter& BlendFilter, bool bLooping, float PlayRate, float DeltaSeconds, float& CurrentTime, FMarkerTickRecord& MarkerTickRecord)
+{
+	FAnimTickRecord TickRecord;
+	MakeBlendSpaceTickRecord(TickRecord, BlendSpace, BlendInput, BlendSampleDataCache, BlendFilter, bLooping, PlayRate, /*FinalBlendWeight=*/ 1.0f, CurrentTime, MarkerTickRecord);
+	
+	FAnimAssetTickContext TickContext(DeltaSeconds, RootMotionMode, true);
+	TickRecord.SourceAsset->TickAssetPlayer(TickRecord, NotifyQueue, TickContext);
+}
+
+void FAnimInstanceProxy::TickAssetPlayerInstances(float DeltaSeconds)
+{
+	SCOPE_CYCLE_COUNTER(STAT_TickAssetPlayerInstances);
+
+	// Handle all players inside sync groups
+	TArray<FAnimGroupInstance>& SyncGroups = SyncGroupArrays[GetSyncGroupWriteIndex()];
+	const TArray<FAnimGroupInstance>& PreviousSyncGroups = SyncGroupArrays[GetSyncGroupReadIndex()];
+	TArray<FAnimTickRecord>& UngroupedActivePlayers = UngroupedActivePlayerArrays[GetSyncGroupWriteIndex()];
+
+	for (int32 GroupIndex = 0; GroupIndex < SyncGroups.Num(); ++GroupIndex)
+	{
+		FAnimGroupInstance& SyncGroup = SyncGroups[GroupIndex];
+    
+		if (SyncGroup.ActivePlayers.Num() > 0)
+		{
+			const FAnimGroupInstance* PreviousGroup = PreviousSyncGroups.IsValidIndex(GroupIndex) ? &PreviousSyncGroups[GroupIndex] : nullptr;
+			SyncGroup.Prepare(PreviousGroup);
+
+			UE_LOG(LogAnimMarkerSync, Log, TEXT("Ticking Group [%d] GroupLeader [%d]"), GroupIndex, SyncGroup.GroupLeaderIndex);
+
+			const bool bOnlyOneAnimationInGroup = SyncGroup.ActivePlayers.Num() == 1;
+
+			// Tick the group leader
+			FAnimAssetTickContext TickContext(DeltaSeconds, RootMotionMode, bOnlyOneAnimationInGroup, SyncGroup.ValidMarkers);
+			// initialize to invalidate first
+			check(SyncGroup.GroupLeaderIndex == INDEX_NONE);
+			int32 GroupLeaderIndex = 0;
+			for (; GroupLeaderIndex < SyncGroup.ActivePlayers.Num(); ++GroupLeaderIndex)
+			{
+				FAnimTickRecord& GroupLeader = SyncGroup.ActivePlayers[GroupLeaderIndex];
+				// if it has leader score
+				SCOPE_CYCLE_COUNTER(STAT_TickAssetPlayerInstance);
+				FScopeCycleCounterUObject Scope(GroupLeader.SourceAsset);
+				GroupLeader.SourceAsset->TickAssetPlayer(GroupLeader, NotifyQueue, TickContext);
+
+				if (RootMotionMode == ERootMotionMode::RootMotionFromEverything && TickContext.RootMotionMovementParams.bHasRootMotion)
+				{
+					ExtractedRootMotion.AccumulateWithBlend(TickContext.RootMotionMovementParams.RootMotionTransform, GroupLeader.EffectiveBlendWeight);
+				}
+
+				// if we're not using marker based sync, we don't care, get out
+				if (TickContext.CanUseMarkerPosition() == false)
+				{
+					SyncGroup.GroupLeaderIndex = GroupLeaderIndex;
+					break;
+				}
+				// otherwise, the new position should contain the valid position for end, otherwise, we don't know where to sync to
+				else if (TickContext.MarkerTickContext.IsMarkerSyncEndValid())
+				{
+					// if this leader contains correct position, break
+					SyncGroup.MarkerTickContext = TickContext.MarkerTickContext;
+					SyncGroup.GroupLeaderIndex = GroupLeaderIndex;
+					UE_LOG(LogAnimMarkerSync, Log, TEXT("Previous Sync Group Makrer Tick Context :\n%s"), *SyncGroup.MarkerTickContext.ToString());
+					UE_LOG(LogAnimMarkerSync, Log, TEXT("New Sync Group Makrer Tick Context :\n%s"), *TickContext.MarkerTickContext.ToString());
+					break;
+				}
+				else
+				{
+					SyncGroup.GroupLeaderIndex = GroupLeaderIndex;
+					UE_LOG(LogAnimMarkerSync, Log, TEXT("Invalid position from Leader %d. Trying next leader"), GroupLeaderIndex);
+				}
+			} 
+
+			check(SyncGroup.GroupLeaderIndex != INDEX_NONE);
+			// we found leader
+			SyncGroup.Finalize(PreviousGroup);
+
+			if (TickContext.CanUseMarkerPosition())
+			{
+				const FMarkerSyncAnimPosition& MarkerStart = TickContext.MarkerTickContext.GetMarkerSyncStartPosition();
+				FName SyncGroupName = GetAnimClassInterface()->GetSyncGroupNames()[GroupIndex];
+				FAnimTickRecord& GroupLeader = SyncGroup.ActivePlayers[SyncGroup.GroupLeaderIndex];
+				FString LeaderAnimName = GroupLeader.SourceAsset->GetName();
+
+				checkf(MarkerStart.PreviousMarkerName == NAME_None || SyncGroup.ValidMarkers.Contains(MarkerStart.PreviousMarkerName), TEXT("Prev Marker name not valid for sync group. Marker %s : SyncGroupName %s : Leader %s"), *MarkerStart.PreviousMarkerName.ToString(), *SyncGroupName.ToString(), *LeaderAnimName);
+				checkf(MarkerStart.NextMarkerName == NAME_None || SyncGroup.ValidMarkers.Contains(MarkerStart.NextMarkerName), TEXT("Next Marker name not valid for sync group. Marker %s : SyncGroupName %s : Leader %s"), *MarkerStart.PreviousMarkerName.ToString(), *SyncGroupName.ToString(), *LeaderAnimName);
+			}
+
+			// Update everything else to follow the leader, if there is more followers
+			if (SyncGroup.ActivePlayers.Num() > GroupLeaderIndex + 1)
+			{
+				// if we don't have a good leader, no reason to convert to follower
+				// tick as leader
+				TickContext.ConvertToFollower();
+    
+				for (int32 TickIndex = GroupLeaderIndex + 1; TickIndex < SyncGroup.ActivePlayers.Num(); ++TickIndex)
+				{
+					FAnimTickRecord& AssetPlayer = SyncGroup.ActivePlayers[TickIndex];
+					{
+						SCOPE_CYCLE_COUNTER(STAT_TickAssetPlayerInstance);
+						FScopeCycleCounterUObject Scope(AssetPlayer.SourceAsset);
+						TickContext.RootMotionMovementParams.Clear();
+						AssetPlayer.SourceAsset->TickAssetPlayer(AssetPlayer, NotifyQueue, TickContext);
+					}
+					if (RootMotionMode == ERootMotionMode::RootMotionFromEverything && TickContext.RootMotionMovementParams.bHasRootMotion)
+					{
+						ExtractedRootMotion.AccumulateWithBlend(TickContext.RootMotionMovementParams.RootMotionTransform, AssetPlayer.EffectiveBlendWeight);
+					}
+				}
+			}
+		}
+	}
+
+	// Handle the remaining ungrouped animation players
+	for (int32 TickIndex = 0; TickIndex < UngroupedActivePlayers.Num(); ++TickIndex)
+	{
+		FAnimTickRecord& AssetPlayerToTick = UngroupedActivePlayers[TickIndex];
+		static TArray<FName> TempNames;
+		const TArray<FName>* UniqueNames = AssetPlayerToTick.SourceAsset->GetUniqueMarkerNames();
+		const TArray<FName>& ValidMarkers = UniqueNames ? *UniqueNames : TempNames;
+
+		const bool bOnlyOneAnimationInGroup = true;
+		FAnimAssetTickContext TickContext(DeltaSeconds, RootMotionMode, bOnlyOneAnimationInGroup, ValidMarkers);
+		{
+			SCOPE_CYCLE_COUNTER(STAT_TickAssetPlayerInstance);
+			FScopeCycleCounterUObject Scope(AssetPlayerToTick.SourceAsset);
+			AssetPlayerToTick.SourceAsset->TickAssetPlayer(AssetPlayerToTick, NotifyQueue, TickContext);
+		}
+		if (RootMotionMode == ERootMotionMode::RootMotionFromEverything && TickContext.RootMotionMovementParams.bHasRootMotion)
+		{
+			ExtractedRootMotion.AccumulateWithBlend(TickContext.RootMotionMovementParams.RootMotionTransform, AssetPlayerToTick.EffectiveBlendWeight);
+		}
+	}
+}
+
+void FAnimInstanceProxy::AddAnimNotifies(const TArray<const FAnimNotifyEvent*>& NewNotifies, const float InstanceWeight)
+{
+	NotifyQueue.AddAnimNotifies(NewNotifies, InstanceWeight);
+}
+
+int32 FAnimInstanceProxy::GetSyncGroupIndexFromName(FName SyncGroupName) const
+{
+	if (AnimClassInterface)
+	{
+		return AnimClassInterface->GetSyncGroupIndex(SyncGroupName);
+	}
+	return INDEX_NONE;
+}
+
+bool FAnimInstanceProxy::GetTimeToClosestMarker(FName SyncGroup, FName MarkerName, float& OutMarkerTime) const
+{
+	const int32 SyncGroupIndex = GetSyncGroupIndexFromName(SyncGroup);
+	const TArray<FAnimGroupInstance>& SyncGroups = SyncGroupArrays[GetSyncGroupReadIndex()];
+
+	if (SyncGroups.IsValidIndex(SyncGroupIndex))
+	{
+		const FAnimGroupInstance& SyncGroupInstance = SyncGroups[SyncGroupIndex];
+		if (SyncGroupInstance.bCanUseMarkerSync && SyncGroupInstance.ActivePlayers.IsValidIndex(SyncGroupInstance.GroupLeaderIndex))
+		{
+			const FMarkerSyncAnimPosition& EndPosition = SyncGroupInstance.MarkerTickContext.GetMarkerSyncEndPosition();
+			const FAnimTickRecord& Leader = SyncGroupInstance.ActivePlayers[SyncGroupInstance.GroupLeaderIndex];
+			if (EndPosition.PreviousMarkerName == MarkerName)
+			{
+				OutMarkerTime = Leader.MarkerTickRecord->PreviousMarker.TimeToMarker;
+				return true;
+			}
+			else if (EndPosition.NextMarkerName == MarkerName)
+			{
+				OutMarkerTime = Leader.MarkerTickRecord->NextMarker.TimeToMarker;
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+void FAnimInstanceProxy::AddAnimNotifyFromGeneratedClass(int32 NotifyIndex)
+{
+	if(NotifyIndex==INDEX_NONE)
+	{
+		return;
+	}
+
+	if (AnimClassInterface)
+	{
+		check(AnimClassInterface->GetAnimNotifies().IsValidIndex(NotifyIndex));
+		const FAnimNotifyEvent* Notify = &AnimClassInterface->GetAnimNotifies()[NotifyIndex];
+		NotifyQueue.AnimNotifies.Add(Notify);
+	}
+}
+
+bool FAnimInstanceProxy::HasMarkerBeenHitThisFrame(FName SyncGroup, FName MarkerName) const
+{
+	const int32 SyncGroupIndex = GetSyncGroupIndexFromName(SyncGroup);
+	const TArray<FAnimGroupInstance>& SyncGroups = SyncGroupArrays[GetSyncGroupReadIndex()];
+
+	if (SyncGroups.IsValidIndex(SyncGroupIndex))
+	{
+		const FAnimGroupInstance& SyncGroupInstance = SyncGroups[SyncGroupIndex];
+		if (SyncGroupInstance.bCanUseMarkerSync)
+		{
+			return SyncGroupInstance.MarkerTickContext.MarkersPassedThisTick.ContainsByPredicate([&MarkerName](const FPassedMarker& PassedMarker) -> bool
+			{
+				return PassedMarker.PassedMarkerName == MarkerName;
+			});
+		}
+	}
+	return false;
+}
+
+bool FAnimInstanceProxy::IsSyncGroupBetweenMarkers(FName InSyncGroupName, FName PreviousMarker, FName NextMarker, bool bRespectMarkerOrder) const
+{
+	const FMarkerSyncAnimPosition& SyncGroupPosition = GetSyncGroupPosition(InSyncGroupName);
+	if ((SyncGroupPosition.PreviousMarkerName == PreviousMarker) && (SyncGroupPosition.NextMarkerName == NextMarker))
+	{
+		return true;
+	}
+
+	if (!bRespectMarkerOrder)
+	{
+		return ((SyncGroupPosition.PreviousMarkerName == NextMarker) && (SyncGroupPosition.NextMarkerName == PreviousMarker));
+	}
+
+	return false;
+}
+
+FMarkerSyncAnimPosition FAnimInstanceProxy::GetSyncGroupPosition(FName InSyncGroupName) const
+{
+	const int32 SyncGroupIndex = GetSyncGroupIndexFromName(InSyncGroupName);
+	const TArray<FAnimGroupInstance>& SyncGroups = SyncGroupArrays[GetSyncGroupReadIndex()];
+
+	if (SyncGroups.IsValidIndex(SyncGroupIndex))
+	{
+		const FAnimGroupInstance& SyncGroupInstance = SyncGroups[SyncGroupIndex];
+		if (SyncGroupInstance.bCanUseMarkerSync)
+		{
+			return SyncGroupInstance.MarkerTickContext.GetMarkerSyncEndPosition();
+		}
+	}
+
+	return FMarkerSyncAnimPosition();
+}
+
+void FAnimInstanceProxy::ReinitializeSlotNodes()
+{
+	SlotWeightTracker.Reset();
+	
+	// Increment counter
+	SlotNodeInitializationCounter.Increment();
+}
+
+void FAnimInstanceProxy::RegisterSlotNodeWithAnimInstance(FName SlotNodeName)
+{
+	// message log access means we need to run this in the game thread
+	check(IsInGameThread());
+
+	// verify if same slot node name exists
+	// then warn users, this is invalid
+	if (SlotWeightTracker.Contains(SlotNodeName))
+	{
+		UClass* ActualAnimClass = IAnimClassInterface::GetActualAnimClass(GetAnimClassInterface());
+		FString ClassNameString = ActualAnimClass ? ActualAnimClass->GetName() : FString("Unavailable");
+
+		FMessageLog("AnimBlueprint").Warning(FText::Format(LOCTEXT("AnimInstance_SlotNode", "SLOTNODE: '{0}' in animation instance class {1} already exists. Remove duplicates from the animation graph for this class."), FText::FromString(SlotNodeName.ToString()), FText::FromString(ClassNameString)));
+		return;
+	}
+
+	SlotWeightTracker.Add(SlotNodeName, FMontageActiveSlotTracker());
+}
+
+void FAnimInstanceProxy::AddGameThreadPreUpdateEvent(const FGameThreadPreUpdateEvent& InEvent)
+{
+	for(const auto& Event : GameThreadPreUpdateEvents)
+	{
+		if( Event.GetDelegateInstance()->GetRawMethodPtr() == InEvent.GetDelegateInstance()->GetRawMethodPtr() &&
+			Event.GetDelegateInstance()->GetRawUserObject() == InEvent.GetDelegateInstance()->GetRawUserObject())
+		{
+			// already added
+			return;
+		}
+	}
+
+	GameThreadPreUpdateEvents.Add(InEvent);
+}
+
+void FAnimInstanceProxy::UpdateSlotNodeWeight(FName SlotNodeName, float Weight)
+{
+	FMontageActiveSlotTracker* Tracker = SlotWeightTracker.Find(SlotNodeName);
+	if (Tracker)
+	{
+		// Count as relevant if we are weighted in
+		Tracker->bIsRelevantThisTick = Tracker->bIsRelevantThisTick || Weight > ZERO_ANIMWEIGHT_THRESH;
+	}
+}
+
+void FAnimInstanceProxy::ClearSlotNodeWeights()
+{
+	for (auto Iter = SlotWeightTracker.CreateIterator(); Iter; ++Iter)
+	{
+		FMontageActiveSlotTracker& Tracker = Iter.Value();
+		Tracker.bWasRelevantOnPreviousTick = Tracker.bIsRelevantThisTick;
+		Tracker.bIsRelevantThisTick = false;
+		Tracker.RootMotionWeight = 0.f;
+	}
+}
+
+bool FAnimInstanceProxy::IsSlotNodeRelevantForNotifies(FName SlotNodeName) const
+{
+	const FMontageActiveSlotTracker* Tracker = SlotWeightTracker.Find(SlotNodeName);
+	return ( Tracker && (Tracker->bIsRelevantThisTick || Tracker->bWasRelevantOnPreviousTick) );
+}
+
+void FAnimInstanceProxy::UpdateSlotRootMotionWeight(FName SlotNodeName, float Weight)
+{
+	FMontageActiveSlotTracker* Tracker = SlotWeightTracker.Find(SlotNodeName);
+	if (Tracker)
+	{
+		Tracker->RootMotionWeight += Weight;
+	}
+}
+
+float FAnimInstanceProxy::GetSlotRootMotionWeight(FName SlotNodeName) const
+{
+	const FMontageActiveSlotTracker* Tracker = SlotWeightTracker.Find(SlotNodeName);
+	return Tracker ? Tracker->RootMotionWeight : 0.f;
+}
+
+FAnimNode_Base* FAnimInstanceProxy::GetCheckedNodeFromIndexUntyped(int32 NodeIdx, UScriptStruct* RequiredStructType)
+{
+	FAnimNode_Base* NodePtr = nullptr;
+	if (AnimClassInterface)
+	{
+		const TArray<UStructProperty*>& AnimNodeProperties = AnimClassInterface->GetAnimNodeProperties();
+		const int32 InstanceIdx = AnimNodeProperties.Num() - 1 - NodeIdx;
+
+		if (AnimNodeProperties.IsValidIndex(InstanceIdx))
+		{
+			UStructProperty* NodeProperty = AnimNodeProperties[InstanceIdx];
+
+			if (NodeProperty->Struct->IsChildOf(RequiredStructType))
+			{
+				NodePtr = NodeProperty->ContainerPtrToValuePtr<FAnimNode_Base>(AnimInstanceObject);
+			}
+			else
+			{
+				checkfSlow(false, TEXT("Requested a node of type %s but found node of type %s"), *RequiredStructType->GetName(), *NodeProperty->Struct->GetName());
+			}
+		}
+		else
+		{
+			checkfSlow(false, TEXT("Requested node of type %s at index %d/%d, index out of bounds."), *RequiredStructType->GetName(), NodeIdx, InstanceIdx);
+		}
+	}
+
+	checkfSlow(NodePtr, TEXT("Requested node at index %d not found!"), NodeIdx);
+
+	return NodePtr;
+}
+
+FAnimNode_Base* FAnimInstanceProxy::GetNodeFromIndexUntyped(int32 NodeIdx, UScriptStruct* RequiredStructType)
+{
+	FAnimNode_Base* NodePtr = nullptr;
+	if (AnimClassInterface)
+	{
+		const TArray<UStructProperty*>& AnimNodeProperties = AnimClassInterface->GetAnimNodeProperties();
+		const int32 InstanceIdx = AnimNodeProperties.Num() - 1 - NodeIdx;
+
+		if (AnimNodeProperties.IsValidIndex(InstanceIdx))
+		{
+			UStructProperty* NodeProperty = AnimNodeProperties[InstanceIdx];
+
+			if (NodeProperty->Struct->IsChildOf(RequiredStructType))
+			{
+				NodePtr = NodeProperty->ContainerPtrToValuePtr<FAnimNode_Base>(AnimInstanceObject);
+			}
+		}
+	}
+
+	return NodePtr;
+}
+
+void FAnimInstanceProxy::RecalcRequiredBones(USkeletalMeshComponent* Component, UObject* Asset)
+{
+	RequiredBones.InitializeTo(Component->RequiredBones, *Asset);
+
+	// When RequiredBones mapping has changed, AnimNodes need to update their bones caches. 
+	bBoneCachesInvalidated = true;
+}
+
+void FAnimInstanceProxy::UpdateAnimation()
+{
+	ANIM_MT_SCOPE_CYCLE_COUNTER(ProxyUpdateAnimation, !IsInGameThread());
+	FScopeCycleCounterUObject AnimScope(GetAnimInstanceObject());
+
+	// update native update
+	{
+		SCOPE_CYCLE_COUNTER(STAT_NativeUpdateAnimation);
+		Update(CurrentDeltaSeconds);
+	}
+
+	// update all nodes
+	UpdateAnimationNode(CurrentDeltaSeconds);
+
+	// tick all our active asset players
+	TickAssetPlayerInstances(CurrentDeltaSeconds);
+}
+
+void FAnimInstanceProxy::EvaluateAnimation(FPoseContext& Output)
+{
+	ANIM_MT_SCOPE_CYCLE_COUNTER(EvaluateAnimInstance, !IsInGameThread());
+
+	// If bone caches have been invalidated, have AnimNodes refresh those.
+	if( bBoneCachesInvalidated && RootNode )
+	{
+		bBoneCachesInvalidated = false;
+
+		CachedBonesCounter.Increment();
+		FAnimationCacheBonesContext Proxy(this);
+		RootNode->CacheBones(Proxy);
+	}
+
+	// Evaluate native code if implemented, otherwise evaluate the node graph
+	if (!Evaluate(Output))
+	{
+		if (RootNode != NULL)
+		{
+			ANIM_MT_SCOPE_CYCLE_COUNTER(EvaluateAnimGraph, !IsInGameThread());
+			EvaluationCounter.Increment();
+			RootNode->Evaluate(Output);
+		}
+		else
+		{
+			Output.ResetToRefPose();
+		}
+	}
+}
+
+void FAnimInstanceProxy::UpdateMorphTargetCurves(const TMap<FName, float>& InMorphTargetCurves)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(STAT_AnimInstanceProxy_UpdateMorphTargetCurves);
+
+	// now all tick/trigger/kismet is done
+	// add MorphTarget Curves from Kismet driven or any other source
+	// and overwrite if it exists
+	// Tick always should maintain this list, not Evaluate
+	for( auto Iter = InMorphTargetCurves.CreateConstIterator(); Iter; ++Iter )
+	{
+		float *CurveValPtr = MorphTargetCurves.Find(Iter.Key());
+		if ( CurveValPtr )
+		{
+			// override the value if Kismet request was made
+			*CurveValPtr = Iter.Value();
+		}
+		else
+		{
+			MorphTargetCurves.Add(Iter.Key(), Iter.Value());
+		}
+	}
+}
+
+void FAnimInstanceProxy::UpdateComponentsMaterialParameters(UPrimitiveComponent* Component)
+{
+	if(MaterialParameterCurves.Num() > 0)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FAnimInstanceProxy_UpdateComponentsMaterialParameters);
+
+		for(auto Iter = MaterialParameterCurves.CreateConstIterator(); Iter; ++Iter)
+		{
+			FName ParameterName = Iter.Key();
+			float ParameterValue = Iter.Value();
+
+			UE_LOG(LogAnimation, Verbose, TEXT("Material Parameter change by Animation (%s : %0.2f)"), *ParameterName.ToString(), ParameterValue);
+			for(int32 MaterialIndex = 0; MaterialIndex < Component->GetNumMaterials(); ++MaterialIndex)
+			{
+				UMaterialInterface* MaterialInterface = Component->GetMaterial(MaterialIndex);
+				if(MaterialInterface)
+				{
+					float TestValue; //not used but needed for GetScalarParameterValue call
+					if(MaterialInterface->GetScalarParameterValue(ParameterName, TestValue))
+					{
+						UMaterialInstanceDynamic* DynamicMaterial = Cast<UMaterialInstanceDynamic>(MaterialInterface);
+						if(!DynamicMaterial) //Is it already a UMaterialInstanceDynamic (ie we used it last tick)
+						{
+							DynamicMaterial = Component->CreateAndSetMaterialInstanceDynamic(MaterialIndex);
+						}
+						DynamicMaterial->SetScalarParameterValue(ParameterName, ParameterValue);
+
+						// we don't break here because we can have multiple materials wanted to be driven by same parameter
+					}
+				}
+			}
+		}
+	}
+}
+
+// for now disable becauase it will not work with single node instance
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
+#define DEBUG_MONTAGEINSTANCE_WEIGHT 0
+#else
+#define DEBUG_MONTAGEINSTANCE_WEIGHT 1
+#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+
+void FAnimInstanceProxy::SlotEvaluatePose(FName SlotNodeName, const FCompactPose& SourcePose, const FBlendedCurve& SourceCurve, float InSourceWeight, FCompactPose& BlendedPose, FBlendedCurve& BlendedCurve, float InBlendWeight, float InTotalNodeWeight)
+{
+	//Accessing MontageInstances from this function is not safe (as this can be called during Parallel Anim Evaluation!
+	//Any montage data you need to add should be part of MontageEvaluationData
+	// nothing to blend, just get it out
+	if (InBlendWeight <= ZERO_ANIMWEIGHT_THRESH)
+	{
+		BlendedPose = SourcePose;
+		BlendedCurve = SourceCurve;
+		return;
+	}
+
+	// Split our data into additive and non additive.
+	TArray<FSlotEvaluationPose> AdditivePoses;
+	TArray<FSlotEvaluationPose> NonAdditivePoses;
+
+	// first pass we go through collect weights and valid montages. 
+#if DEBUG_MONTAGEINSTANCE_WEIGHT
+	float TotalWeight = 0.f;
+#endif // DEBUG_MONTAGEINSTANCE_WEIGHT
+	for (const FMontageEvaluationState& EvalState : MontageEvaluationData)
+	{
+		if (EvalState.Montage->IsValidSlot(SlotNodeName))
+		{
+			FAnimTrack const* const AnimTrack = EvalState.Montage->GetAnimationData(SlotNodeName);
+
+			// Find out additive type for pose.
+			EAdditiveAnimationType const AdditiveAnimType = AnimTrack->IsAdditive() 
+				? (AnimTrack->IsRotationOffsetAdditive() ? AAT_RotationOffsetMeshSpace : AAT_LocalSpaceBase)
+				: AAT_None;
+
+			FSlotEvaluationPose NewPose(EvalState.MontageWeight, AdditiveAnimType);
+			
+			// Bone array has to be allocated prior to calling GetPoseFromAnimTrack
+			NewPose.Pose.SetBoneContainer(&RequiredBones);
+			NewPose.Curve.InitFrom(GetSkeleton());
+
+			// Extract pose from Track
+			FAnimExtractContext ExtractionContext(EvalState.MontagePosition, EvalState.Montage->HasRootMotion() && RootMotionMode != ERootMotionMode::NoRootMotionExtraction);
+			AnimTrack->GetAnimationPose(NewPose.Pose, NewPose.Curve, ExtractionContext);
+
+			// add montage curves 
+			FBlendedCurve MontageCurve;
+			MontageCurve.InitFrom(GetSkeleton());
+			EvalState.Montage->EvaluateCurveData(MontageCurve, EvalState.MontagePosition);
+			NewPose.Curve.Combine(MontageCurve);
+
+#if DEBUG_MONTAGEINSTANCE_WEIGHT
+			TotalWeight += EvalState.MontageWeight;
+#endif // DEBUG_MONTAGEINSTANCE_WEIGHT
+			if (AdditiveAnimType == AAT_None)
+			{
+				NonAdditivePoses.Add(NewPose);
+			}
+			else
+			{
+				AdditivePoses.Add(NewPose);
+			}
+		}
+	}
+
+	// allocate for blending
+	// If source has any weight, add it to the blend array.
+	float const SourceWeight = FMath::Clamp<float>(InSourceWeight, 0.f, 1.f);
+
+#if DEBUG_MONTAGEINSTANCE_WEIGHT
+	ensure (FMath::IsNearlyEqual(InTotalNodeWeight, TotalWeight, KINDA_SMALL_NUMBER));
+#endif // DEBUG_MONTAGEINSTANCE_WEIGHT
+	ensure (InTotalNodeWeight > ZERO_ANIMWEIGHT_THRESH);
+
+	if (InTotalNodeWeight > (1.f + ZERO_ANIMWEIGHT_THRESH))
+	{
+		// Re-normalize additive poses
+		for (int32 Index = 0; Index < AdditivePoses.Num(); Index++)
+		{
+			AdditivePoses[Index].Weight /= InTotalNodeWeight;
+		}
+		// Re-normalize non-additive poses
+		for (int32 Index = 0; Index < NonAdditivePoses.Num(); Index++)
+		{
+			NonAdditivePoses[Index].Weight /= InTotalNodeWeight;
+		}
+	}
+
+	// Make sure we have at least one montage here.
+	check((AdditivePoses.Num() > 0) || (NonAdditivePoses.Num() > 0));
+
+	// Second pass, blend non additive poses together
+	{
+		// If we're only playing additive animations, just copy source for base pose.
+		if (NonAdditivePoses.Num() == 0)
+		{
+			BlendedPose = SourcePose;
+			BlendedCurve = SourceCurve;
+		}
+		// Otherwise we need to blend non additive poses together
+		else
+		{
+			int32 const NumPoses = NonAdditivePoses.Num() + ((SourceWeight > ZERO_ANIMWEIGHT_THRESH) ? 1 : 0);
+
+			TArray<const FCompactPose*, TInlineAllocator<8>> BlendingPoses;
+			BlendingPoses.AddUninitialized(NumPoses);
+
+			TArray<float, TInlineAllocator<8>> BlendWeights;
+			BlendWeights.AddUninitialized(NumPoses);
+
+			TArray<const FBlendedCurve*, TInlineAllocator<8>> BlendingCurves;
+			BlendingCurves.AddUninitialized(NumPoses);
+
+			for (int32 Index = 0; Index < NonAdditivePoses.Num(); Index++)
+			{
+				BlendingPoses[Index] = &NonAdditivePoses[Index].Pose;
+				BlendingCurves[Index] = &NonAdditivePoses[Index].Curve;
+				BlendWeights[Index] = NonAdditivePoses[Index].Weight;
+			}
+
+			if (SourceWeight > ZERO_ANIMWEIGHT_THRESH)
+			{
+				int32 const SourceIndex = BlendWeights.Num() - 1;
+				BlendingPoses[SourceIndex] = &SourcePose;
+				BlendingCurves[SourceIndex] = &SourceCurve;
+				BlendWeights[SourceIndex] = SourceWeight;
+			}
+
+			// now time to blend all montages
+			FAnimationRuntime::BlendPosesTogetherIndirect(BlendingPoses, BlendingCurves, BlendWeights, BlendedPose, BlendedCurve);
+		}
+	}
+
+	// Third pass, layer on weighted additive poses.
+	if (AdditivePoses.Num() > 0)
+	{
+		for (int32 Index = 0; Index < AdditivePoses.Num(); Index++)
+		{
+			FSlotEvaluationPose const& AdditivePose = AdditivePoses[Index];
+			FAnimationRuntime::AccumulateAdditivePose(BlendedPose, AdditivePose.Pose, BlendedCurve, AdditivePose.Curve, AdditivePose.Weight, AdditivePose.AdditiveType);
+		}
+	}
+
+	// Normalize rotations after blending/accumulation
+	BlendedPose.NormalizeRotations();
+}
+
+//to debug montage weight
+#define DEBUGMONTAGEWEIGHT 0
+
+void FAnimInstanceProxy::GetSlotWeight(FName const& SlotNodeName, float& out_SlotNodeWeight, float& out_SourceWeight, float& out_TotalNodeWeight) const
+{
+	// node total weight 
+	float NewSlotNodeWeight = 0.f;
+	// this is required to track, because it will be 1-SourceWeight
+	// if additive, it can be applied more
+	float NonAdditiveTotalWeight = 0.f;
+
+#if DEBUGMONTAGEWEIGHT
+	float TotalDesiredWeight = 0.f;
+#endif
+	// first get all the montage instance weight this slot node has
+	for (const FMontageEvaluationState& EvalState : MontageEvaluationData)
+	{
+		if (EvalState.Montage->IsValidSlot(SlotNodeName))
+		{
+			NewSlotNodeWeight += EvalState.MontageWeight;
+
+			if( !EvalState.Montage->IsValidAdditiveSlot(SlotNodeName) )
+			{
+				NonAdditiveTotalWeight += EvalState.MontageWeight;
+			}
+
+#if DEBUGMONTAGEWEIGHT			
+			TotalDesiredWeight += EvalState->DesiredWeight;
+#endif
+#if !NO_LOGGING
+			UE_LOG(LogAnimation, Verbose, TEXT("GetSlotWeight : Owner: %s, AnimMontage: %s,  (DesiredWeight:%0.2f, Weight:%0.2f)"),
+						*GetActorName(), *EvalState.Montage->GetName(), EvalState.DesiredWeight, EvalState.MontageWeight);
+#endif
+		}
+	}
+
+	// save the total node weight, it can be more than 1
+	// we need this so that when we eval, we normalized by this weight
+	// calculating there can cause inconsistency if some data changes
+	out_TotalNodeWeight = NewSlotNodeWeight;
+
+	// this can happen when it's blending in OR when newer animation comes in with shorter blendtime
+	// say #1 animation was blending out time with current blendtime 1.0 #2 animation was blending in with 1.0 (old) but got blend out with new blendtime 0.2f
+	// #3 animation was blending in with the new blendtime 0.2f, you'll have sum of #1, 2, 3 exceeds 1.f
+	if (NewSlotNodeWeight > (1.f + ZERO_ANIMWEIGHT_THRESH))
+	{
+		// you don't want to change weight of montage instance since it can play multiple slots
+		// if you change one, it will apply to all slots in that montage
+		// instead we should renormalize when we eval
+		// this should happen in the eval phase
+		NonAdditiveTotalWeight /= NewSlotNodeWeight;
+		// since we normalized, we reset
+		NewSlotNodeWeight = 1.f;
+	}
+#if DEBUGMONTAGEWEIGHT
+	else if (TotalDesiredWeight == 1.f && TotalSum < 1.f - ZERO_ANIMWEIGHT_THRESH)
+	{
+		// this can happen when it's blending in OR when newer animation comes in with longer blendtime
+		// say #1 animation was blending out time with current blendtime 0.2 #2 animation was blending in with 0.2 (old) but got blend out with new blendtime 1.f
+		// #3 animation was blending in with the new blendtime 1.f, you'll have sum of #1, 2, 3 doesn't meet 1.f
+		UE_LOG(LogAnimation, Warning, TEXT("[%s] Montage has less weight. Blending in?(%f)"), *SlotNodeName.ToString(), TotalSum);
+	}
+#endif
+
+	out_SlotNodeWeight = NewSlotNodeWeight;
+	out_SourceWeight = 1.f - NonAdditiveTotalWeight;
+}
+
+const FMontageEvaluationState* FAnimInstanceProxy::GetActiveMontageEvaluationState() const
+{
+	// Start from end, as most recent instances are added at the end of the queue.
+	int32 const NumInstances = MontageEvaluationData.Num();
+	for (int32 InstanceIndex = NumInstances - 1; InstanceIndex >= 0; InstanceIndex--)
+	{
+		const FMontageEvaluationState& EvaluationData = MontageEvaluationData[InstanceIndex];
+		if (EvaluationData.bIsActive)
+		{
+			return &EvaluationData;
+		}
+	}
+
+	return nullptr;
+}
+
+void FAnimInstanceProxy::AddVertexAnim(const FActiveVertexAnim& VertexAnim)
+{
+	VertexAnims.Add(VertexAnim);
+}
+
+void FAnimInstanceProxy::GatherDebugData(FNodeDebugData& DebugData)
+{
+	if(RootNode != nullptr)
+	{
+		 RootNode->GatherDebugData(DebugData); 
+	}
+}
+
+float FAnimInstanceProxy::GetInstanceAssetPlayerLength(int32 AssetPlayerIndex)
+{
+	if(FAnimNode_AssetPlayerBase* PlayerNode = GetNodeFromIndex<FAnimNode_AssetPlayerBase>(AssetPlayerIndex))
+	{
+		return PlayerNode->GetAnimAsset()->GetMaxCurrentTime();
+	}
+
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetInstanceAssetPlayerTime(int32 AssetPlayerIndex)
+{
+	if(FAnimNode_AssetPlayerBase* PlayerNode = GetNodeFromIndex<FAnimNode_AssetPlayerBase>(AssetPlayerIndex))
+	{
+		return PlayerNode->GetAccumulatedTime();
+	}
+
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetInstanceAssetPlayerTimeFraction(int32 AssetPlayerIndex)
+{
+	if(FAnimNode_AssetPlayerBase* PlayerNode = GetNodeFromIndex<FAnimNode_AssetPlayerBase>(AssetPlayerIndex))
+	{
+		UAnimationAsset* Asset = PlayerNode->GetAnimAsset();
+
+		float Length = Asset ? Asset->GetMaxCurrentTime() : 0.0f;
+
+		if(Length > 0.0f)
+		{
+			return PlayerNode->GetAccumulatedTime() / Length;
+		}
+	}
+
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetInstanceAssetPlayerTimeFromEndFraction(int32 AssetPlayerIndex)
+{
+	if(FAnimNode_AssetPlayerBase* PlayerNode = GetNodeFromIndex<FAnimNode_AssetPlayerBase>(AssetPlayerIndex))
+	{
+		UAnimationAsset* Asset = PlayerNode->GetAnimAsset();
+		
+		float Length = Asset ? Asset->GetMaxCurrentTime() : 0.f;
+
+		if(Length > 0.f)
+		{
+			return (Length - PlayerNode->GetAccumulatedTime()) / Length;
+		}
+	}
+
+	return 1.0f;
+}
+
+float FAnimInstanceProxy::GetInstanceAssetPlayerTimeFromEnd(int32 AssetPlayerIndex)
+{
+	if(FAnimNode_AssetPlayerBase* PlayerNode = GetNodeFromIndex<FAnimNode_AssetPlayerBase>(AssetPlayerIndex))
+	{
+		UAnimationAsset* Asset = PlayerNode->GetAnimAsset();
+		if(Asset)
+		{
+			return PlayerNode->GetAnimAsset()->GetMaxCurrentTime() - PlayerNode->GetAccumulatedTime();
+		}
+	}
+
+	return MAX_flt;
+}
+
+float FAnimInstanceProxy::GetInstanceStateWeight(int32 MachineIndex, int32 StateIndex)
+{
+	if(FAnimNode_StateMachine* MachineInstance = GetStateMachineInstance(MachineIndex))
+	{
+		return MachineInstance->GetStateWeight(StateIndex);
+	}
+	
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetInstanceCurrentStateElapsedTime(int32 MachineIndex)
+{
+	if(FAnimNode_StateMachine* MachineInstance = GetStateMachineInstance(MachineIndex))
+	{
+		return MachineInstance->GetCurrentStateElapsedTime();
+	}
+
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetInstanceTransitionCrossfadeDuration(int32 MachineIndex, int32 TransitionIndex)
+{
+	if(FAnimNode_StateMachine* MachineInstance = GetStateMachineInstance(MachineIndex))
+	{
+		if(MachineInstance->IsValidTransitionIndex(TransitionIndex))
+		{
+			return MachineInstance->GetTransitionInfo(TransitionIndex).CrossfadeDuration;
+		}
+	}
+
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetInstanceTransitionTimeElapsed(int32 MachineIndex, int32 TransitionIndex)
+{
+	// Just an alias for readability in the anim graph
+	return GetInstanceCurrentStateElapsedTime(MachineIndex);
+}
+
+float FAnimInstanceProxy::GetInstanceTransitionTimeElapsedFraction(int32 MachineIndex, int32 TransitionIndex)
+{
+	if(FAnimNode_StateMachine* MachineInstance = GetStateMachineInstance(MachineIndex))
+	{
+		if(MachineInstance->IsValidTransitionIndex(TransitionIndex))
+		{
+			return MachineInstance->GetCurrentStateElapsedTime() / MachineInstance->GetTransitionInfo(TransitionIndex).CrossfadeDuration;
+		}
+	}
+
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetRelevantAnimTimeRemaining(int32 MachineIndex, int32 StateIndex)
+{
+	if(FAnimNode_AssetPlayerBase* AssetPlayer = GetRelevantAssetPlayerFromState(MachineIndex, StateIndex))
+	{
+		if(AssetPlayer->GetAnimAsset())
+		{
+			return AssetPlayer->GetAnimAsset()->GetMaxCurrentTime() - AssetPlayer->GetAccumulatedTime();
+		}
+	}
+
+	return MAX_flt;
+}
+
+float FAnimInstanceProxy::GetRelevantAnimTimeRemainingFraction(int32 MachineIndex, int32 StateIndex)
+{
+	if(FAnimNode_AssetPlayerBase* AssetPlayer = GetRelevantAssetPlayerFromState(MachineIndex, StateIndex))
+	{
+		if(AssetPlayer->GetAnimAsset())
+		{
+			float Length = AssetPlayer->GetAnimAsset()->GetMaxCurrentTime();
+			if(Length > 0.0f)
+			{
+				return (Length - AssetPlayer->GetAccumulatedTime()) / Length;
+			}
+		}
+	}
+
+	return 1.0f;
+}
+
+float FAnimInstanceProxy::GetRelevantAnimLength(int32 MachineIndex, int32 StateIndex)
+{
+	if(FAnimNode_AssetPlayerBase* AssetPlayer = GetRelevantAssetPlayerFromState(MachineIndex, StateIndex))
+	{
+		if(AssetPlayer->GetAnimAsset())
+		{
+			return AssetPlayer->GetAnimAsset()->GetMaxCurrentTime();
+		}
+	}
+
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetRelevantAnimTime(int32 MachineIndex, int32 StateIndex)
+{
+	if(FAnimNode_AssetPlayerBase* AssetPlayer = GetRelevantAssetPlayerFromState(MachineIndex, StateIndex))
+	{
+		return AssetPlayer->GetAccumulatedTime();
+	}
+
+	return 0.0f;
+}
+
+float FAnimInstanceProxy::GetRelevantAnimTimeFraction(int32 MachineIndex, int32 StateIndex)
+{
+	if(FAnimNode_AssetPlayerBase* AssetPlayer = GetRelevantAssetPlayerFromState(MachineIndex, StateIndex))
+	{
+		float Length = AssetPlayer->GetAnimAsset()->GetMaxCurrentTime();
+		if(Length > 0.0f)
+		{
+			return AssetPlayer->GetAccumulatedTime() / Length;
+		}
+	}
+
+	return 0.0f;
+}
+
+FAnimNode_AssetPlayerBase* FAnimInstanceProxy::GetRelevantAssetPlayerFromState(int32 MachineIndex, int32 StateIndex)
+{
+	FAnimNode_AssetPlayerBase* ResultPlayer = nullptr;
+	if(FAnimNode_StateMachine* MachineInstance = GetStateMachineInstance(MachineIndex))
+	{
+		float MaxWeight = 0.0f;
+		const FBakedAnimationState& State = MachineInstance->GetStateInfo(StateIndex);
+		for(const int32& PlayerIdx : State.PlayerNodeIndices)
+		{
+			if(FAnimNode_AssetPlayerBase* Player = GetNodeFromIndex<FAnimNode_AssetPlayerBase>(PlayerIdx))
+			{
+				if(!Player->bIgnoreForRelevancyTest && Player->GetCachedBlendWeight() > MaxWeight)
+				{
+					MaxWeight = Player->GetCachedBlendWeight();
+					ResultPlayer = Player;
+				}
+			}
+		}
+	}
+	return ResultPlayer;
+}
+
+FAnimNode_StateMachine* FAnimInstanceProxy::GetStateMachineInstance(int32 MachineIndex)
+{
+	if (AnimClassInterface)
+	{
+		const TArray<UStructProperty*>& AnimNodeProperties = AnimClassInterface->GetAnimNodeProperties();
+		if ((MachineIndex >= 0) && (MachineIndex < AnimNodeProperties.Num()))
+		{
+			const int32 InstancePropertyIndex = AnimNodeProperties.Num() - 1 - MachineIndex;
+
+			UStructProperty* MachineInstanceProperty = AnimNodeProperties[InstancePropertyIndex];
+			checkSlow(MachineInstanceProperty->Struct->IsChildOf(FAnimNode_StateMachine::StaticStruct()));
+
+			return MachineInstanceProperty->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
+		}
+	}
+
+	return nullptr;
+}
+
+void FAnimInstanceProxy::AddNativeTransitionBinding(const FName& MachineName, const FName& PrevStateName, const FName& NextStateName, const FCanTakeTransition& NativeTransitionDelegate, const FName& TransitionName)
+{
+	NativeTransitionBindings.Add(FNativeTransitionBinding(MachineName, PrevStateName, NextStateName, NativeTransitionDelegate, TransitionName));
+}
+
+bool FAnimInstanceProxy::HasNativeTransitionBinding(const FName& MachineName, const FName& PrevStateName, const FName& NextStateName, FName& OutBindingName)
+{
+	for(const auto& Binding : NativeTransitionBindings)
+	{
+		if(Binding.MachineName == MachineName && Binding.PreviousStateName == PrevStateName && Binding.NextStateName == NextStateName)
+		{
+			IDelegateInstance* DelegateInstance = Binding.NativeTransitionDelegate.GetDelegateInstance();
+			if(DelegateInstance)
+			{
+				OutBindingName = DelegateInstance->GetFunctionName();
+			}
+#if WITH_EDITORONLY_DATA
+			// if the function wasnt forthcoming with a name, use the explicit name supplied in the binding
+			if(OutBindingName == NAME_None)
+			{
+				OutBindingName = Binding.TransitionName;
+			}
+#endif
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void FAnimInstanceProxy::AddNativeStateEntryBinding(const FName& MachineName, const FName& StateName, const FOnGraphStateChanged& NativeEnteredDelegate)
+{
+	NativeStateEntryBindings.Add(FNativeStateBinding(MachineName, StateName, NativeEnteredDelegate));
+}
+	
+bool FAnimInstanceProxy::HasNativeStateEntryBinding(const FName& MachineName, const FName& StateName, FName& OutBindingName)
+{
+	for(const auto& Binding : NativeStateEntryBindings)
+	{
+		if(Binding.MachineName == MachineName && Binding.StateName == StateName)
+		{
+			IDelegateInstance* DelegateInstance = Binding.NativeStateDelegate.GetDelegateInstance();
+			if(DelegateInstance)
+			{
+				OutBindingName = DelegateInstance->GetFunctionName();
+			}
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void FAnimInstanceProxy::AddNativeStateExitBinding(const FName& MachineName, const FName& StateName, const FOnGraphStateChanged& NativeExitedDelegate)
+{
+	NativeStateExitBindings.Add(FNativeStateBinding(MachineName, StateName, NativeExitedDelegate));
+}
+
+bool FAnimInstanceProxy::HasNativeStateExitBinding(const FName& MachineName, const FName& StateName, FName& OutBindingName)
+{
+	for(const auto& Binding : NativeStateExitBindings)
+	{
+		if(Binding.MachineName == MachineName && Binding.StateName == StateName)
+		{
+			IDelegateInstance* DelegateInstance = Binding.NativeStateDelegate.GetDelegateInstance();
+			if(DelegateInstance)
+			{
+				OutBindingName = DelegateInstance->GetFunctionName();
+			}
+			return true;
+		}
+	}
+
+	return false;
+}
+
+void FAnimInstanceProxy::BindNativeDelegates()
+{
+	// if we have no root node, we are usually in error so early out
+	if(RootNode == nullptr)
+	{
+		return;
+	}
+
+	auto ForEachStateLambda = [&](IAnimClassInterface* InAnimClassInterface, const FName& MachineName, const FName& StateName, TFunctionRef<void(FAnimNode_StateMachine*, const FBakedAnimationState&, int32)> Predicate)
+	{
+		for (UStructProperty* Property : InAnimClassInterface->GetAnimNodeProperties())
+		{
+			if(Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			{
+				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
+				if(StateMachine)
+				{
+					const FBakedAnimationStateMachine* MachineDescription = GetMachineDescription(InAnimClassInterface, StateMachine);
+					if(MachineDescription && MachineName == MachineDescription->MachineName)
+					{
+						// check each state transition for a match
+						int32 StateIndex = 0;
+						for(const FBakedAnimationState& State : MachineDescription->States)
+						{
+							if(State.StateName == StateName)
+							{
+								Predicate(StateMachine, State, StateIndex);
+							}
+							StateIndex++;
+						}
+					}
+				}
+			}
+		}
+	};
+
+	if (AnimClassInterface)
+	{
+		// transition delegates
+		for(const auto& Binding : NativeTransitionBindings)
+		{
+			ForEachStateLambda(AnimClassInterface, Binding.MachineName, Binding.PreviousStateName,
+				[&](FAnimNode_StateMachine* StateMachine, const FBakedAnimationState& State, int32 StateIndex)
+				{
+					for(const FBakedStateExitTransition& TransitionExit : State.Transitions)
+					{
+						if(TransitionExit.CanTakeDelegateIndex != INDEX_NONE)
+						{
+							// In case the state machine hasn't been initilized, we need to re-get the desc
+							const FBakedAnimationStateMachine* MachineDesc = GetMachineDescription(AnimClassInterface, StateMachine);
+							const FAnimationTransitionBetweenStates& Transition = MachineDesc->Transitions[TransitionExit.TransitionIndex];
+							const FBakedAnimationState& BakedState = MachineDesc->States[Transition.NextState];
+
+							if (BakedState.StateName == Binding.NextStateName)
+							{
+								FAnimNode_TransitionResult* ResultNode = GetNodeFromPropertyIndex<FAnimNode_TransitionResult>(AnimInstanceObject, AnimClassInterface, TransitionExit.CanTakeDelegateIndex);
+								if(ResultNode)
+								{
+									ResultNode->NativeTransitionDelegate = Binding.NativeTransitionDelegate;
+								}
+							}
+						}
+					}
+				});
+		}
+
+		// state entry delegates
+		for(const auto& Binding : NativeStateEntryBindings)
+		{
+			ForEachStateLambda(AnimClassInterface, Binding.MachineName, Binding.StateName,
+				[&](FAnimNode_StateMachine* StateMachine, const FBakedAnimationState& State, int32 StateIndex)
+				{
+					// allocate enough space for all our states we need so far
+					StateMachine->OnGraphStatesEntered.SetNum(FMath::Max(StateIndex + 1, StateMachine->OnGraphStatesEntered.Num()));
+					StateMachine->OnGraphStatesEntered[StateIndex] = Binding.NativeStateDelegate;
+				});
+		}
+
+		// state exit delegates
+		for(const auto& Binding : NativeStateExitBindings)
+		{
+			ForEachStateLambda(AnimClassInterface, Binding.MachineName, Binding.StateName,
+				[&](FAnimNode_StateMachine* StateMachine, const FBakedAnimationState& State, int32 StateIndex)
+				{
+					// allocate enough space for all our states we need so far
+					StateMachine->OnGraphStatesExited.SetNum(FMath::Max(StateIndex + 1, StateMachine->OnGraphStatesExited.Num()));
+					StateMachine->OnGraphStatesExited[StateIndex] = Binding.NativeStateDelegate;
+				});
+		}
+	}
+}
+
+const FBakedAnimationStateMachine* FAnimInstanceProxy::GetMachineDescription(IAnimClassInterface* AnimBlueprintClass, FAnimNode_StateMachine* MachineInstance)
+{
+	const TArray<FBakedAnimationStateMachine>& BakedStateMachines = AnimBlueprintClass->GetBakedStateMachines();
+	return BakedStateMachines.IsValidIndex(MachineInstance->StateMachineIndexInClass) ? &(BakedStateMachines[MachineInstance->StateMachineIndexInClass]) : nullptr;
+}
+
+FAnimNode_StateMachine* FAnimInstanceProxy::GetStateMachineInstanceFromName(FName MachineName)
+{
+	if (AnimClassInterface)
+	{
+		const TArray<UStructProperty*>& AnimNodeProperties = AnimClassInterface->GetAnimNodeProperties();
+		for (int32 MachineIndex = 0; MachineIndex < AnimNodeProperties.Num(); MachineIndex++)
+		{
+			UStructProperty* Property = AnimNodeProperties[AnimNodeProperties.Num() - 1 - MachineIndex];
+			if (Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			{
+				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
+				if (StateMachine)
+				{
+					if (const FBakedAnimationStateMachine* MachineDescription = GetMachineDescription(AnimClassInterface, StateMachine))
+					{
+						if (MachineDescription->MachineName == MachineName)
+						{
+							return StateMachine;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+const FBakedAnimationStateMachine* FAnimInstanceProxy::GetStateMachineInstanceDesc(FName MachineName)
+{
+	if (AnimClassInterface)
+	{
+		const TArray<UStructProperty*>& AnimNodeProperties = AnimClassInterface->GetAnimNodeProperties();
+		for (int32 MachineIndex = 0; MachineIndex < AnimNodeProperties.Num(); MachineIndex++)
+		{
+			UStructProperty* Property = AnimNodeProperties[AnimNodeProperties.Num() - 1 - MachineIndex];
+			if(Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			{
+				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
+				if(StateMachine)
+				{
+					if (const FBakedAnimationStateMachine* MachineDescription = GetMachineDescription(AnimClassInterface, StateMachine))
+					{
+						if(MachineDescription->MachineName == MachineName)
+						{
+							return MachineDescription;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return nullptr;
+}
+
+int32 FAnimInstanceProxy::GetStateMachineIndex(FName MachineName)
+{
+	if (AnimClassInterface)
+	{
+		const TArray<UStructProperty*>& AnimNodeProperties = AnimClassInterface->GetAnimNodeProperties();
+		for (int32 MachineIndex = 0; MachineIndex < AnimNodeProperties.Num(); MachineIndex++)
+		{
+			UStructProperty* Property = AnimNodeProperties[AnimNodeProperties.Num() - 1 - MachineIndex];
+			if(Property && Property->Struct == FAnimNode_StateMachine::StaticStruct())
+			{
+				FAnimNode_StateMachine* StateMachine = Property->ContainerPtrToValuePtr<FAnimNode_StateMachine>(AnimInstanceObject);
+				if(StateMachine)
+				{
+					if (const FBakedAnimationStateMachine* MachineDescription = GetMachineDescription(AnimClassInterface, StateMachine))
+					{
+						if(MachineDescription->MachineName == MachineName)
+						{
+							return MachineIndex;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+int32 FAnimInstanceProxy::GetInstanceAssetPlayerIndex(FName MachineName, FName StateName, FName AssetName)
+{
+	if (AnimClassInterface)
+	{
+		if(const FBakedAnimationStateMachine* MachineDescription = GetStateMachineInstanceDesc(MachineName))
+		{
+			const TArray<UStructProperty*>& AnimNodeProperties = AnimClassInterface->GetAnimNodeProperties();
+			for(int32 StateIndex = 0; StateIndex < MachineDescription->States.Num(); StateIndex++)
+			{
+				const FBakedAnimationState& State = MachineDescription->States[StateIndex];
+				if(State.StateName == StateName)
+				{
+					for(int32 PlayerIndex = 0; PlayerIndex < State.PlayerNodeIndices.Num(); PlayerIndex++)
+					{
+						checkSlow(State.PlayerNodeIndices[PlayerIndex] < AnimNodeProperties.Num());
+						UStructProperty* AssetPlayerProperty = AnimNodeProperties[AnimNodeProperties.Num() - 1 - State.PlayerNodeIndices[PlayerIndex]];
+						if(AssetPlayerProperty && AssetPlayerProperty->Struct->IsChildOf(FAnimNode_AssetPlayerBase::StaticStruct()))
+						{
+							FAnimNode_AssetPlayerBase* AssetPlayer = AssetPlayerProperty->ContainerPtrToValuePtr<FAnimNode_AssetPlayerBase>(AnimInstanceObject);
+							if(AssetPlayer)
+							{
+								if(AssetName == NAME_None || AssetPlayer->GetAnimAsset()->GetFName() == AssetName)
+								{
+									return State.PlayerNodeIndices[PlayerIndex];
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+#undef LOCTEXT_NAMESPACE

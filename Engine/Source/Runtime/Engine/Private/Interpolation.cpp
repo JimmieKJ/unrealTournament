@@ -8040,6 +8040,7 @@ void UInterpTrackSound::PreviewUpdateTrack(float NewPosition, UInterpTrackInst* 
 	if ( NewPosition >= IData->InterpLength && !bContinueSoundOnMatineeEnd && SoundInst->PlayAudioComp && SoundInst->PlayAudioComp->IsPlaying() )
 	{
 		SoundInst->PlayAudioComp->Stop();
+		bPlaying = false;
 	}
 
 	// If the new position for the track is before the last interp position, then the playback must have looped,
@@ -9704,6 +9705,29 @@ UInterpTrackFloatAnimBPParam::UInterpTrackFloatAnimBPParam(const FObjectInitiali
 	TrackTitle = TEXT("Float AnimBP Param");
 }
 
+void UInterpTrackFloatAnimBPParam::Serialize(FArchive& Ar)
+{
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS	
+	if (Ar.IsSaving() && Ar.UE4Ver() < VER_UE4_NO_ANIM_BP_CLASS_IN_GAMEPLAY_CODE)
+	{
+		if ((nullptr != AnimBlueprintClass) && (nullptr == AnimClass))
+		{
+			AnimClass = AnimBlueprintClass;
+		}
+	}
+
+	Super::Serialize(Ar);
+
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_NO_ANIM_BP_CLASS_IN_GAMEPLAY_CODE)
+	{
+		if ((nullptr != AnimBlueprintClass) && (nullptr == AnimClass))
+		{
+			AnimClass = AnimBlueprintClass;
+		}
+	}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
+
 #if WITH_EDITOR
 
 void UInterpTrackFloatAnimBPParam::PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent)
@@ -9714,7 +9738,7 @@ void UInterpTrackFloatAnimBPParam::PostEditChangeProperty(FPropertyChangedEvent&
 	FName PropertyName = PropertyThatChanged != NULL ? PropertyThatChanged->GetFName() : NAME_None;
 
 	if (PropertyName == GET_MEMBER_NAME_CHECKED(UInterpTrackFloatAnimBPParam, ParamName) ||
-		PropertyName == GET_MEMBER_NAME_CHECKED(UInterpTrackFloatAnimBPParam, AnimBlueprintClass))
+		PropertyName == GET_MEMBER_NAME_CHECKED(UInterpTrackFloatAnimBPParam, AnimClass))
 	{
 		bRefreshParamter = true;
 	}
@@ -9818,7 +9842,7 @@ void UInterpTrackInstFloatAnimBPParam::RefreshParameter(UInterpTrack* Track)
 			{
 				UAnimInstance* NewAnimInstance = SkeletalMeshComponents[0]->GetAnimInstance();
 
-				if(NewAnimInstance && NewAnimInstance->GetClass() == ParamTrack->AnimBlueprintClass)
+				if (NewAnimInstance && NewAnimInstance->GetClass() == ParamTrack->AnimClass)
 				{
 					AnimScriptInstance = NewAnimInstance;
 					// make sure the class has the parameter

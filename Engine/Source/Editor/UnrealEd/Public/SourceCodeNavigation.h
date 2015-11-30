@@ -163,6 +163,9 @@ public:
 	/** Downloads and installs the suggested IDE (currently only works for Windows) */
 	UNREALED_API static void DownloadAndInstallSuggestedIDE(FOnIDEInstallerDownloadComplete OnDownloadComplete);
 
+	/** Refresh the state of compiler availability.  Don't call unless you know you might be doing something to cause that. */
+	UNREALED_API static void RefreshCompilerAvailability();
+
 	/** Returns true if the compiler for the current platform is available for use */
 	UNREALED_API static bool IsCompilerAvailable();
 

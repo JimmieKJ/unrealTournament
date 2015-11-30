@@ -270,7 +270,10 @@ class FRHIVertexBuffer : public FRHIResource
 {
 public:
 
-	/** Initialization constructor. */
+	/**
+	 * Initialization constructor.
+	 * @apram InUsage e.g. BUF_UnorderedAccess
+	 */
 	FRHIVertexBuffer(uint32 InSize,uint32 InUsage)
 	: Size(InSize)
 	, Usage(InUsage)
@@ -279,13 +282,15 @@ public:
 	/** @return The number of bytes in the vertex buffer. */
 	uint32 GetSize() const { return Size; }
 
-	/** @return The usage flags used to create the vertex buffer. */
+	/** @return The usage flags used to create the vertex buffer. e.g. BUF_UnorderedAccess */
 	uint32 GetUsage() const { return Usage; }
 
 private:
 	uint32 Size;
+	// e.g. BUF_UnorderedAccess
 	uint32 Usage;
 };
+
 class FRHIStructuredBuffer : public FRHIResource
 {
 public:
@@ -612,6 +617,45 @@ public:
 
 class FRHIRenderQuery : public FRHIResource {};
 
+class FRHIComputeFence : public FRHIResource
+{
+public:
+
+	FRHIComputeFence(FName InName)
+		: Name(InName)
+		, bWriteEnqueued(false)
+	{}
+
+	FORCEINLINE FName GetName() const
+	{
+		return Name;
+	}
+
+	FORCEINLINE bool GetWriteEnqueued() const
+	{
+		return bWriteEnqueued;
+	}
+
+	virtual void Reset()
+	{
+		bWriteEnqueued = false;
+	}
+
+	virtual void WriteFence()
+	{
+		ensureMsgf(!bWriteEnqueued, TEXT("ComputeFence: %s already written this frame. You should use a new label"), *Name.ToString());
+		bWriteEnqueued = true;
+	}
+
+private:
+	//debug name of the label.
+	FName Name;
+
+	//has the label been written to since being created.
+	//check this when queuing waits to catch GPU hangs on the CPU at command creation time.
+	bool bWriteEnqueued;
+};
+
 class FRHIViewport : public FRHIResource 
 {
 public:
@@ -702,6 +746,10 @@ typedef TRefCountPtr<FRHIGeometryShader> FGeometryShaderRHIRef;
 
 typedef FRHIComputeShader*              FComputeShaderRHIParamRef;
 typedef TRefCountPtr<FRHIComputeShader> FComputeShaderRHIRef;
+
+typedef FRHIComputeFence*				FComputeFenceRHIParamRef;
+typedef TRefCountPtr<FRHIComputeFence>	FComputeFenceRHIRef;
+
 
 typedef FRHIBoundShaderState*              FBoundShaderStateRHIParamRef;
 typedef TRefCountPtr<FRHIBoundShaderState> FBoundShaderStateRHIRef;
@@ -1072,11 +1120,16 @@ public:
 	bool bClearDepth;
 	bool bClearStencil;
 
+	// UAVs info.
+	FUnorderedAccessViewRHIRef UnorderedAccessView[MaxSimultaneousUAVs];
+	int32 NumUAVs;
+
 	FRHISetRenderTargetsInfo() :
 		NumColorRenderTargets(0),
 		bClearColor(false),		
 		bClearDepth(false),
-		bClearStencil(false)
+		bClearStencil(false),
+		NumUAVs(0)
 	{}
 
 	FRHISetRenderTargetsInfo(int32 InNumColorRenderTargets, const FRHIRenderTargetView* InColorRenderTargets, const FRHIDepthRenderTargetView& InDepthStencilRenderTarget) :
@@ -1084,7 +1137,8 @@ public:
 		bClearColor(InNumColorRenderTargets > 0 && InColorRenderTargets[0].LoadAction == ERenderTargetLoadAction::EClear),
 		DepthStencilRenderTarget(InDepthStencilRenderTarget),		
 		bClearDepth(InDepthStencilRenderTarget.Texture && InDepthStencilRenderTarget.DepthLoadAction == ERenderTargetLoadAction::EClear),
-		bClearStencil(InDepthStencilRenderTarget.Texture && InDepthStencilRenderTarget.StencilLoadAction == ERenderTargetLoadAction::EClear)
+		bClearStencil(InDepthStencilRenderTarget.Texture && InDepthStencilRenderTarget.StencilLoadAction == ERenderTargetLoadAction::EClear),
+		NumUAVs(0)
 	{
 		check(InNumColorRenderTargets <= 0 || InColorRenderTargets);
 		for (int32 Index = 0; Index < InNumColorRenderTargets; ++Index)

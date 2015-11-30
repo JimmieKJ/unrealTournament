@@ -106,15 +106,14 @@ void FSlateRHIRenderer::FViewportInfo::RecreateDepthBuffer_RenderThread()
 
 
 
-FSlateRHIRenderer::FSlateRHIRenderer( TSharedPtr<FSlateRHIResourceManager> InResourceManager, TSharedPtr<FSlateFontCache> InFontCache, TSharedPtr<FSlateFontMeasure> InFontMeasure )
+FSlateRHIRenderer::FSlateRHIRenderer( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager )
+	: FSlateRenderer(InSlateFontServices)
 #if USE_MAX_DRAWBUFFERS
-	: EnqueuedWindowDrawBuffer(NULL)
+	, EnqueuedWindowDrawBuffer(NULL)
 	, FreeBufferIndex(1)
 #endif
 {
 	ResourceManager = InResourceManager;
-	FontCache = InFontCache;
-	FontMeasure = InFontMeasure;
 
 	CrashTrackerResource = NULL;
 	ViewMatrix = FMatrix(	FPlane(1,	0,	0,	0),
@@ -153,7 +152,7 @@ void FSlateRHIRenderer::Initialize()
 {
 	LoadUsedTextures();
 
-	RenderingPolicy = MakeShareable( new FSlateRHIRenderingPolicy( FontCache, ResourceManager.ToSharedRef() ) );
+	RenderingPolicy = MakeShareable( new FSlateRHIRenderingPolicy( SlateFontServices.ToSharedRef(), ResourceManager.ToSharedRef() ) );
 
 	ElementBatcher = MakeShareable( new FSlateElementBatcher( RenderingPolicy.ToSharedRef() ) );
 }
@@ -162,7 +161,7 @@ void FSlateRHIRenderer::Destroy()
 {
 	RenderingPolicy->ReleaseResources();
 	ResourceManager->ReleaseResources();
-	FontCache->ReleaseResources();
+	SlateFontServices->ReleaseResources();
 
 	for( TMap< const SWindow*, FViewportInfo*>::TIterator It(WindowToViewportInfo); It; ++It )
 	{
@@ -180,9 +179,9 @@ void FSlateRHIRenderer::Destroy()
 	
 	check( ElementBatcher.IsUnique() );
 	ElementBatcher.Reset();
-	FontCache.Reset();
 	RenderingPolicy.Reset();
 	ResourceManager.Reset();
+	SlateFontServices.Reset();
 
 	for( TMap< const SWindow*, FViewportInfo*>::TIterator It(WindowToViewportInfo); It; ++It )
 	{
@@ -585,10 +584,10 @@ void FSlateRHIRenderer::DrawWindows_Private( FSlateDrawBuffer& WindowDrawBuffer 
 		Policy.BeginDrawingWindows();
 	});
 
-	ReleaseAccessedResources();
-
 	// Update texture atlases if needed
 	ResourceManager->UpdateTextureAtlases();
+
+	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
 
 	// Iterate through each element list and set up an RHI window for it if needed
 	TArray<TSharedPtr<FSlateWindowElementList>>& WindowElementLists = WindowDrawBuffer.GetWindowElementLists();
@@ -1236,10 +1235,15 @@ void FSlateRHIRenderer::InvalidateAllViewports()
 	}
 }
 
-void FSlateRHIRenderer::ReleaseAccessedResources()
+void FSlateRHIRenderer::ReleaseAccessedResources(bool bImmediatelyFlush)
 {
 	// Clear accessed UTexture and Material objects from the previous frame
-	ResourceManager->ReleaseAccessedResources();
+	ResourceManager->BeginReleasingAccessedResources(bImmediatelyFlush);
+
+	if ( bImmediatelyFlush )
+	{
+		FlushCommands();
+	}
 }
 
 void FSlateRHIRenderer::RequestResize( const TSharedPtr<SWindow>& Window, uint32 NewWidth, uint32 NewHeight )

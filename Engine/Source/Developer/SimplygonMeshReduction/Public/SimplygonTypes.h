@@ -5,10 +5,13 @@
 #include "Core.h"
 #include "CoreUObject.h"
 #include "Engine.h"
-#include "Containers/EnumAsByte.h"
+#include "Containers/EnumAsByte.h" 
 #include "SimplygonSDK.h"
 
 #include "SimplygonTypes.generated.h"
+
+// User defined material channel used for baking out sub surface colours
+static const char* USER_MATERIAL_CHANNEL_SUBSURFACE_COLOR = "UserSubSurfaceColor";
 
 UENUM()
 namespace ESimplygonMaterialChannel
@@ -24,7 +27,8 @@ namespace ESimplygonMaterialChannel
 		SG_MATERIAL_CHANNEL_DISPLACEMENT UMETA(DisplayName = "Displacement", DisplayValue = "Displacement"),
 		SG_MATERIAL_CHANNEL_BASECOLOR UMETA(DisplayName = "Basecolor", DisplayValue = "Basecolor"),
 		SG_MATERIAL_CHANNEL_ROUGHNESS UMETA(DisplayName = "Roughness", DisplayValue = "Roughness"),
-		SG_MATERIAL_CHANNEL_METALLIC UMETA(DisplayName = "Metallic", DisplayValue = "Metallic")
+		SG_MATERIAL_CHANNEL_METALLIC UMETA(DisplayName = "Metallic", DisplayValue = "Metallic"),
+		SG_MATERIAL_CHANNEL_SUBSURFACE UMETA(DisplayName = "SubsurfaceColor", DisplayValue = "SubsurfaceColor")
 	};
 
 }
@@ -49,8 +53,13 @@ static const char* GetSimplygonMaterialChannel(ESimplygonMaterialChannel::Type c
 #endif
 	else if (channel == ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_EMISSIVE)
 		return SimplygonSDK::SG_MATERIAL_CHANNEL_EMISSIVE;
+	else if (channel == ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_SUBSURFACE)
+		return USER_MATERIAL_CHANNEL_SUBSURFACE_COLOR;
 	else
-		return SimplygonSDK::SG_MATERIAL_CHANNEL_BASECOLOR;
+	{
+		check(0);
+		return 0;
+	}
 
 }
 
@@ -392,7 +401,7 @@ struct FSimplygonMaterialLODSettings
 	FSimplygonMaterialLODSettings(const FMaterialProxySettings& Settings)
 		: bActive(true)
 		, MaterialLODType(EMaterialLODType::BakeTexture)
-		, bUseAutomaticSizes( Settings.bAutomaticTextureSizes )
+		, bUseAutomaticSizes( Settings.TextureSizingType == TextureSizingType_UseSimplygonAutomaticSizing )
 		, TextureWidth(GetResolutionEnum(Settings.TextureSize.X))
 		, TextureHeight(GetResolutionEnum(Settings.TextureSize.Y))
 		, SamplingQuality(ESimplygonTextureSamplingQuality::High)
@@ -401,18 +410,23 @@ struct FSimplygonMaterialLODSettings
 		, bReuseExistingCharts(false)
 	{
 		ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_BASECOLOR, ESimplygonCasterType::Color, ESimplygonColorChannels::RGB));
+		ChannelsToCast.Last().bUseSRGB = false;
 		ChannelsToCast.Last().bActive = true;
 
 		ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_SPECULAR, ESimplygonCasterType::Color, ESimplygonColorChannels::RGB));
+		ChannelsToCast.Last().bUseSRGB = false;
 		ChannelsToCast.Last().bActive = Settings.bSpecularMap;
 
 		ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_ROUGHNESS, ESimplygonCasterType::Color, ESimplygonColorChannels::RGB));
+		ChannelsToCast.Last().bUseSRGB = false;
 		ChannelsToCast.Last().bActive = Settings.bRoughnessMap;
 
 		ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_METALLIC, ESimplygonCasterType::Color, ESimplygonColorChannels::RGB));
+		ChannelsToCast.Last().bUseSRGB = false;
 		ChannelsToCast.Last().bActive = Settings.bMetallicMap;
 
 		ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_NORMALS, ESimplygonCasterType::Normals, ESimplygonColorChannels::RGB));
+		ChannelsToCast.Last().bUseSRGB = false;
 		ChannelsToCast.Last().bActive = Settings.bNormalMap;
 
 		ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_EMISSIVE, ESimplygonCasterType::Color, ESimplygonColorChannels::RGB));
@@ -420,7 +434,13 @@ struct FSimplygonMaterialLODSettings
 		ChannelsToCast.Last().bActive = Settings.bEmissiveMap;
 
 		ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_OPACITY, ESimplygonCasterType::Color, ESimplygonColorChannels::RGB));
+		ChannelsToCast.Last().bUseSRGB = false;
 		ChannelsToCast.Last().bActive = Settings.bOpacityMap;
+
+		// TODO, properly render out sub surface data/values
+		//ChannelsToCast.Add(FSimplygonChannelCastingSettings(ESimplygonMaterialChannel::SG_MATERIAL_CHANNEL_SUBSURFACE, ESimplygonCasterType::Color, ESimplygonColorChannels::RGB));
+		//ChannelsToCast.Last().bUseSRGB = false;
+		//ChannelsToCast.Last().bActive = true;
 	}
 
 	static int32 GetTextureResolutionFromEnum(ESimplygonTextureResolution::Type InResolution)

@@ -559,6 +559,7 @@ void FLightmassExporter::WriteToChannel( FLightmassStatistics& Stats, FGuid& Deb
 
 			Scene.NumImportanceVolumes = ImportanceVolumes.Num();
 			Scene.NumCharacterIndirectDetailVolumes = CharacterIndirectDetailVolumes.Num();
+			Scene.NumPortals = Portals.Num();
 			Scene.NumDirectionalLights = DirectionalLights.Num();
 			Scene.NumPointLights = PointLights.Num();
 			Scene.NumSpotLights = SpotLights.Num();
@@ -593,6 +594,12 @@ void FLightmassExporter::WriteToChannel( FLightmassStatistics& Stats, FGuid& Deb
 			{
 				FBox LMBox = CharacterIndirectDetailVolumes[VolumeIndex];
 				Swarm.WriteChannel(Channel, &LMBox, sizeof(LMBox));
+			}
+
+			for (int32 PortalIndex = 0; PortalIndex < Portals.Num(); PortalIndex++)
+			{
+				FMatrix Matrix = Portals[PortalIndex];
+				Swarm.WriteChannel(Channel, &Matrix, sizeof(Matrix));
 			}
 
 			{
@@ -1809,6 +1816,10 @@ void FLightmassExporter::WriteSceneSettings( Lightmass::FSceneFileHeader& Scene 
 		Scene.GeneralSettings.bUseMaxWeight = bConfigBool;
 		verify(GConfig->GetInt(TEXT("DevOptions.StaticLighting"), TEXT("MaxTriangleLightingSamples"), Scene.GeneralSettings.MaxTriangleLightingSamples, GLightmassIni));
 		verify(GConfig->GetInt(TEXT("DevOptions.StaticLighting"), TEXT("MaxTriangleIrradiancePhotonCacheSamples"), Scene.GeneralSettings.MaxTriangleIrradiancePhotonCacheSamples, GLightmassIni));
+		verify(GConfig->GetBool(TEXT("DevOptions.StaticLighting"), TEXT("bUseEmbree"), bConfigBool, GLightmassIni));
+		Scene.GeneralSettings.bUseEmbree = bConfigBool;
+		verify(GConfig->GetBool(TEXT("DevOptions.StaticLighting"), TEXT("bVerifyEmbree"), bConfigBool, GLightmassIni));
+		Scene.GeneralSettings.bVerifyEmbree = Scene.GeneralSettings.bUseEmbree && bConfigBool;
 
 		int32 CheckQualityLevel;
 		GConfig->GetInt( TEXT("LightingBuildOptions"), TEXT("QualityLevel"), CheckQualityLevel, GEditorPerProjectIni);
@@ -2157,9 +2168,12 @@ void FLightmassExporter::WriteSceneSettings( Lightmass::FSceneFileHeader& Scene 
 void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& InputData, FGuid& DebugMappingGuid )
 {
 	InputData.bRelaySolverStats = UE_LOG_ACTIVE(LogLightmassSolver, Log);
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-	FindDebugMapping(DebugMappingGuid);
-#endif
+
+	if (IsTexelDebuggingEnabled())
+	{
+		FindDebugMapping(DebugMappingGuid);
+	}
+	
 	InputData.MappingGuid = DebugMappingGuid;
 	InputData.NodeIndex = GCurrentSelectedLightmapSample.NodeIndex;
 	InputData.Position = FVector4(GCurrentSelectedLightmapSample.Position, 0);
@@ -2167,9 +2181,6 @@ void FLightmassExporter::WriteDebugInput( Lightmass::FDebugLightingInputData& In
 	InputData.LocalY = GCurrentSelectedLightmapSample.LocalY;
 	InputData.MappingSizeX = GCurrentSelectedLightmapSample.MappingSizeX;
 	InputData.MappingSizeY = GCurrentSelectedLightmapSample.MappingSizeY;
-	InputData.LightmapX = GCurrentSelectedLightmapSample.LightmapX;
-	InputData.LightmapY = GCurrentSelectedLightmapSample.LightmapY;
-	InputData.OriginalColor = GCurrentSelectedLightmapSample.OriginalColor;
 	FVector4 ViewPosition(0, 0, 0, 0);
 	for (int32 ViewIndex = 0; ViewIndex < GEditor->LevelViewportClients.Num(); ViewIndex++)
 	{
@@ -2513,7 +2524,10 @@ bool FLightmassProcessor::BeginRun()
 		TEXT("../Win64/UnrealLightmass-Core.dll"),
 		TEXT("../Win64/UnrealLightmass-CoreUObject.dll"),
 		TEXT("../Win64/UnrealLightmass-Projects.dll"),
-		TEXT("../Win64/UnrealLightmass-Json.dll")
+		TEXT("../Win64/UnrealLightmass-Json.dll"),
+		TEXT("../Win64/embree.dll"),
+		TEXT("../Win64/tbb.dll"),
+		TEXT("../Win64/tbbmalloc.dll")
 	};
 #elif PLATFORM_MAC
 	const TCHAR* LightmassExecutable64 = TEXT("../Mac/UnrealLightmass");
@@ -2525,6 +2539,9 @@ bool FLightmassProcessor::BeginRun()
 		TEXT("../Mac/UnrealLightmass-Json.dylib"),
 		TEXT("../Mac/UnrealLightmass-Projects.dylib"),
 		TEXT("../Mac/UnrealLightmass-SwarmInterface.dylib")
+		TEXT("../Mac/libembree.2.dylib"),
+		TEXT("../Mac/libtbb.dylib"),
+		TEXT("../Mac/libtbbmalloc.dylib")
 	};
 #elif PLATFORM_LINUX
 	const TCHAR* LightmassExecutable64 = TEXT("../Linux/UnrealLightmass");
@@ -3020,6 +3037,7 @@ void FLightmassProcessor::ImportVolumeSamples()
 							NewHighQualitySample.Position = CurrentSample.PositionAndRadius;
 							NewHighQualitySample.Radius = CurrentSample.PositionAndRadius.W;
 							NewHighQualitySample.SetPackedSkyBentNormal(CurrentSample.SkyBentNormal); 
+							NewHighQualitySample.DirectionalLightShadowing = CurrentSample.DirectionalLightShadowing;
 
 							for (int32 CoefficientIndex = 0; CoefficientIndex < 4; CoefficientIndex++)
 							{

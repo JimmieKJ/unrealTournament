@@ -116,6 +116,13 @@ class ENGINE_API ULightComponent : public ULightComponentBase
 	uint32 bAffectDynamicIndirectLighting : 1;
 
 	/** 
+	 * Channels that this light should affect.  
+	 * These channels only apply to opaque materials, direct lighting, and dynamic lighting and shadowing.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Light)
+	FLightingChannels LightingChannels;
+
+	/** 
 	 * The light function material to be applied to this light.
 	 * Note that only non-lightmapped lights (UseDirectLightMap=False) can have a light function. 
 	 */

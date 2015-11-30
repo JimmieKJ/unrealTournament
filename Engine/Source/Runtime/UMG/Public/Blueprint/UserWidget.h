@@ -13,11 +13,6 @@
 
 #include "UserWidget.generated.h"
 
-static FGeometry NullGeometry;
-static FSlateRect NullRect;
-static FSlateWindowElementList NullElementList;
-static FWidgetStyle NullStyle;
-
 class UWidget;
 class UWidgetAnimation;
 struct FLocalPlayerContext;
@@ -34,15 +29,7 @@ struct UMG_API FPaintContext
 public:
 
 	/** Don't ever use this constructor.  Needed for code generation. */
-	FPaintContext()
-		: AllottedGeometry(NullGeometry)
-		, MyClippingRect(NullRect)
-		, OutDrawElements(NullElementList)
-		, LayerId(0)
-		, WidgetStyle(NullStyle)
-		, bParentEnabled(true)
-		, MaxLayer(0)
-	{ }
+	FPaintContext();
 
 	FPaintContext(const FGeometry& InAllottedGeometry, const FSlateRect& InMyClippingRect, FSlateWindowElementList& InOutDrawElements, const int32 InLayerId, const FWidgetStyle& InWidgetStyle, const bool bInParentEnabled)
 		: AllottedGeometry(InAllottedGeometry)
@@ -758,9 +745,6 @@ public:
 
 	/** @returns The UObject wrapper for a given SWidget */
 	UWidget* GetWidgetHandle(TSharedRef<SWidget> InWidget);
-
-	/** Creates a fullscreen host widget, that wraps this widget. */
-	TSharedRef<SWidget> MakeViewportWidget(TSharedPtr<SWidget>& UserSlateWidget);
 
 	/** @returns The root UObject widget wrapper */
 	UWidget* GetRootWidget() const;

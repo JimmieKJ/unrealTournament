@@ -4,7 +4,7 @@
 #include "Engine/DebugCameraHUD.h"
 #include "VisualLoggerHUD.generated.h"
 
-UCLASS()
+UCLASS(hidedropdown)
 class AVisualLoggerHUD : public ADebugCameraHUD
 {
 	GENERATED_UCLASS_BODY()

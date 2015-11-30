@@ -3879,7 +3879,7 @@ void FParticleAnimTrailEmitterInstance::DetermineVertexAndTriangleCount()
 
 			// @todo: We're going and modifying the original ParticleData here!  This is kind of sketchy
 			//    since it's not supposed to be changed at this phase
-			check(TRAIL_EMITTER_IS_HEAD(CurrTrailData->Flags));
+			//check(TRAIL_EMITTER_IS_HEAD(CurrTrailData->Flags));
 			CurrTrailData->TriangleCount = LocalIndexCount - 2;
 
 			// The last particle in the chain will always have 1 here!

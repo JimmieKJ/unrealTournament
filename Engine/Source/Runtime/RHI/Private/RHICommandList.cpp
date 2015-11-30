@@ -100,6 +100,7 @@ static TAutoConsoleVariable<int32> CVarRHICmdMinCmdlistSizeForParallelTranslate(
 	TEXT("In kilobytes. Cmdlists are merged into one parallel translate until we have at least this much memory to process. For a given pass, we won't do more translates than we have task threads. Only relevant if r.RHICmdBalanceTranslatesAfterTasks is on."));
 
 
+RHI_API bool GEnableAsyncCompute = true;
 RHI_API FRHICommandListExecutor GRHICommandList;
 
 static FGraphEventArray AllOutstandingTasks;
@@ -162,12 +163,40 @@ bool FRHICommandListImmediate::AnyRenderThreadTasksOutstanding()
 }
 
 
+void FRHIAsyncComputeCommandListImmediate::ImmediateDispatch(FRHIAsyncComputeCommandListImmediate& RHIComputeCmdList)
+{
+	check(IsInRenderingThread());
+
+	//queue a final command to submit all the async compute commands up to this point to the GPU.
+	RHIComputeCmdList.SubmitCommandsHint();
+
+	FRHIAsyncComputeCommandListImmediate* SwapCmdList;
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandListExecutor_SwapCmdLists);
+		SwapCmdList = new FRHIAsyncComputeCommandListImmediate();
+
+		//hack stolen from Gfx commandlist.  transfer
+		static_assert(sizeof(FRHICommandList) == sizeof(FRHIAsyncComputeCommandListImmediate), "We are memswapping FRHICommandList and FRHICommandListImmediate; they need to be swappable.");
+		check(RHIComputeCmdList.IsImmediateAsyncCompute());
+		SwapCmdList->ExchangeCmdList(RHIComputeCmdList);
+
+		//queue the execution of this async commandlist amongst other commands in the immediate gfx list.
+		//this guarantees resource update commands made on the gfx commandlist will be executed before the async compute.
+		FRHICommandListImmediate& RHIImmCmdList = FRHICommandListExecutor::GetImmediateCommandList();		
+		RHIImmCmdList.QueueAsyncCompute(*SwapCmdList);
+
+		//dispatch immediately to RHI Thread so we can get the async compute on the GPU ASAP.
+		RHIImmCmdList.ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);
+	}
+}
+
+
 FRHICommandBase* GCurrentCommand = nullptr;
 
 void FRHICommandListExecutor::ExecuteInner_DoExecute(FRHICommandListBase& CmdList)
 {
 	CmdList.bExecuting = true;
-	check(CmdList.Context);
+	check(CmdList.Context || CmdList.ComputeContext);
 
 	FRHICommandListIterator Iter(CmdList);
 #if STATS
@@ -237,13 +266,13 @@ public:
 class FDispatchRHIThreadTask
 {
 	FRHICommandListBase* RHICmdList;
-	bool bAnyThread;
+	bool bRHIThread;
 
 public:
 
-	FDispatchRHIThreadTask(FRHICommandListBase* InRHICmdList, bool bInAnyThread)
+	FDispatchRHIThreadTask(FRHICommandListBase* InRHICmdList, bool bInRHIThread)
 		: RHICmdList(InRHICmdList)
-		, bAnyThread(bInAnyThread)
+		, bRHIThread(bInRHIThread)
 	{		
 	}
 
@@ -254,15 +283,17 @@ public:
 
 	ENamedThreads::Type GetDesiredThread()
 	{
+		// If we are using async dispatch, this task is somewhat redundant, but it does allow things to wait for dispatch without waiting for execution. 
+		// since in that case we will be queuing an rhithread task from an rhithread task, the overhead is minor.
 		check(GRHIThread); // this should never be used on a platform that doesn't support the RHI thread
-		return bAnyThread ? ENamedThreads::HiPri(ENamedThreads::AnyThread) : ENamedThreads::RenderThread_Local;
+		return bRHIThread ? ENamedThreads::RHIThread : ENamedThreads::RenderThread_Local;
 	}
 
 	static ESubsequentsMode::Type GetSubsequentsMode() { return ESubsequentsMode::TrackSubsequents; }
 
 	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 	{
-		check(bAnyThread || IsInRenderingThread());
+		check(bRHIThread || IsInRenderingThread());
 		FGraphEventArray Prereq;
 		if (RHIThreadTask.GetReference())
 		{
@@ -308,14 +339,14 @@ void FRHICommandListExecutor::ExecuteInner(FRHICommandListBase& CmdList)
 		if (CVarRHICmdUseThread.GetValueOnRenderThread() > 0 && bIsInRenderingThread && !bIsInGameThread)
 		{
 			FRHICommandList* SwapCmdList;
-		{
+			{
 				QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandListExecutor_SwapCmdLists);
 				SwapCmdList = new FRHICommandList;
 
-			// Super scary stuff here, but we just want the swap command list to inherit everything and leave the immediate command list wiped.
-			// we should make command lists virtual and transfer ownership rather than this devious approach
-			static_assert(sizeof(FRHICommandList) == sizeof(FRHICommandListImmediate), "We are memswapping FRHICommandList and FRHICommandListImmediate; they need to be swappable.");
-			SwapCmdList->ExchangeCmdList(CmdList);
+				// Super scary stuff here, but we just want the swap command list to inherit everything and leave the immediate command list wiped.
+				// we should make command lists virtual and transfer ownership rather than this devious approach
+				static_assert(sizeof(FRHICommandList) == sizeof(FRHICommandListImmediate), "We are memswapping FRHICommandList and FRHICommandListImmediate; they need to be swappable.");
+				SwapCmdList->ExchangeCmdList(CmdList);
 			}
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_FRHICommandListExecutor_SubmitTasks);
 
@@ -454,7 +485,7 @@ void FRHICommandListExecutor::LatchBypass()
 	{
 		if (bLatchedBypass)
 		{
-			check((GRHICommandList.OutstandingCmdListCount.GetValue() == 1 && !GRHICommandList.GetImmediateCommandList().HasCommands()));
+			check((GRHICommandList.OutstandingCmdListCount.GetValue() == 2 && !GRHICommandList.GetImmediateCommandList().HasCommands()) && !GRHICommandList.GetImmediateAsyncComputeCommandList().HasCommands());
 			bLatchedBypass = false;
 		}
 	}
@@ -478,7 +509,7 @@ void FRHICommandListExecutor::LatchBypass()
 			}
 		}
 
-		check((GRHICommandList.OutstandingCmdListCount.GetValue() == 1 && !GRHICommandList.GetImmediateCommandList().HasCommands()));
+		check((GRHICommandList.OutstandingCmdListCount.GetValue() == 2 && !GRHICommandList.GetImmediateCommandList().HasCommands() && !GRHICommandList.GetImmediateAsyncComputeCommandList().HasCommands()));
 		bool NewBypass = (CVarRHICmdBypass.GetValueOnAnyThread() >= 1);
 
 		if (NewBypass && !bLatchedBypass)
@@ -504,7 +535,7 @@ void FRHICommandListExecutor::LatchBypass()
 
 void FRHICommandListExecutor::CheckNoOutstandingCmdLists()
 {
-	check(GRHICommandList.OutstandingCmdListCount.GetValue() == 1); // else we are attempting to delete resources while there is still a live cmdlist (other than the immediate cmd list) somewhere.
+	check(GRHICommandList.OutstandingCmdListCount.GetValue() == 2); // else we are attempting to delete resources while there is still a live cmdlist (other than the immediate cmd list) somewhere.
 }
 
 bool FRHICommandListExecutor::IsRHIThreadActive()
@@ -571,6 +602,26 @@ FGraphEventRef FRHICommandListImmediate::RHIThreadFence(bool bSetLockFence)
 	}
 	return Cmd->Fence;
 }		
+
+DECLARE_CYCLE_STAT(TEXT("Async Compute CmdList Execute"), STAT_AsyncComputeExecute, STATGROUP_RHICMDLIST);
+struct FRHIAsyncComputeSubmitList : public FRHICommand<FRHIAsyncComputeSubmitList>
+{
+	FRHIAsyncComputeCommandList* RHICmdList;
+	FORCEINLINE_DEBUGGABLE FRHIAsyncComputeSubmitList(FRHIAsyncComputeCommandList* InRHICmdList)
+		: RHICmdList(InRHICmdList)
+	{
+	}
+	void Execute(FRHICommandListBase& CmdList)
+	{		
+		SCOPE_CYCLE_COUNTER(STAT_AsyncComputeExecute);
+		delete RHICmdList;
+	}
+};
+
+void FRHICommandListImmediate::QueueAsyncCompute(FRHIAsyncComputeCommandList& RHIComputeCmdList)
+{
+	new (AllocCommand<FRHIAsyncComputeSubmitList>()) FRHIAsyncComputeSubmitList(&RHIComputeCmdList);
+}
 	
 void FRHICommandListExecutor::WaitOnRHIThreadFence(FGraphEventRef& Fence)
 {
@@ -622,6 +673,16 @@ void FRHICommandListBase::Reset()
 	Root = nullptr;
 	CommandLink = &Root;
 	Context = GDynamicRHI ? RHIGetDefaultContext() : nullptr;
+
+	if (GEnableAsyncCompute)
+	{
+		ComputeContext = GDynamicRHI ? RHIGetDefaultAsyncComputeContext() : nullptr;
+	}
+	else
+	{
+		ComputeContext = Context;
+	}
+	
 	UID = GRHICommandList.UIDCounter.Increment();
 	for (int32 Index = 0; ERenderThreadContext(Index) < ERenderThreadContext::Num; Index++)
 	{
@@ -1518,6 +1579,7 @@ void FRHICommandListBase::HandleRTThreadTaskCompletion(const FGraphEventRef& MyC
 }
 
 static TLockFreeFixedSizeAllocator<sizeof(FRHICommandList), FThreadSafeCounter> RHICommandListAllocator;
+static TLockFreeFixedSizeAllocator<sizeof(FRHIAsyncComputeCommandList), FThreadSafeCounter> RHIAsyncComputeCommandListAllocator;
 
 void* FRHICommandList::operator new(size_t Size)
 {
@@ -1532,7 +1594,22 @@ void FRHICommandList::operator delete(void *RawMemory)
 	check(RawMemory != (void*) &GRHICommandList.GetImmediateCommandList());
 	RHICommandListAllocator.Free(RawMemory);
 	//FMemory::Free(RawMemory);
-}	
+}
+
+void* FRHIAsyncComputeCommandList::operator new(size_t Size)
+{
+	// doesn't support derived classes with a different size
+	check(Size == sizeof(FRHICommandList));
+	return RHIAsyncComputeCommandListAllocator.Allocate();
+	//return FMemory::Malloc(Size);
+}
+
+void FRHIAsyncComputeCommandList::operator delete(void *RawMemory)
+{
+	check(RawMemory != (void*)&GRHICommandList.GetImmediateAsyncComputeCommandList());
+	RHIAsyncComputeCommandListAllocator.Free(RawMemory);
+	//FMemory::Free(RawMemory);
+}
 
 void* FRHICommandListBase::operator new(size_t Size)
 {
@@ -1812,6 +1889,26 @@ void FDynamicRHI::UpdateTexture2D_RenderThread(class FRHICommandListImmediate& R
 {
 	FScopedRHIThreadStaller StallRHIThread(RHICmdList);
 	return GDynamicRHI->RHIUpdateTexture2D(Texture, MipIndex, UpdateRegion, SourcePitch, SourceData);
+}
+
+void* FDynamicRHI::LockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, EResourceLockMode LockMode, uint32& DestStride, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush)
+{
+	if (bNeedsDefaultRHIFlush)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_LockTexture2D_Flush);
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+	}
+	return GDynamicRHI->RHILockTexture2D(Texture, MipIndex, LockMode, DestStride, bLockWithinMiptail);
+}
+
+void FDynamicRHI::UnlockTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, FTexture2DRHIParamRef Texture, uint32 MipIndex, bool bLockWithinMiptail, bool bNeedsDefaultRHIFlush)
+{
+	if (bNeedsDefaultRHIFlush)
+	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_RHIMETHOD_UnlockTexture2D_Flush);
+		RHICmdList.ImmediateFlush(EImmediateFlushType::FlushRHIThread);
+	}
+	GDynamicRHI->RHIUnlockTexture2D(Texture, MipIndex, bLockWithinMiptail);
 }
 
 FTexture2DRHIRef FDynamicRHI::RHICreateTexture2D_RenderThread(class FRHICommandListImmediate& RHICmdList, uint32 SizeX, uint32 SizeY, uint8 Format, uint32 NumMips, uint32 NumSamples, uint32 Flags, FRHIResourceCreateInfo& CreateInfo)

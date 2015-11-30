@@ -40,32 +40,33 @@ void SBoolCurveKeyEditor::OnCheckStateChanged(ECheckBoxState NewCheckboxState)
 {
 	FScopedTransaction Transaction(LOCTEXT("SetBoolKey", "Set Bool Key Value"));
 	OwningSection->SetFlags(RF_Transactional);
-	OwningSection->Modify();
-
-	float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
-
-	bool bKeyWillBeAdded = Curve->IsKeyHandleValid(Curve->FindKey(CurrentTime)) == false;
-	if (bKeyWillBeAdded)
+	if (OwningSection->TryModify())
 	{
-		if (OwningSection->GetStartTime() > CurrentTime)
+		float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
+
+		bool bKeyWillBeAdded = Curve->IsKeyHandleValid(Curve->FindKey(CurrentTime)) == false;
+		if (bKeyWillBeAdded)
 		{
-			OwningSection->SetStartTime(CurrentTime);
+			if (OwningSection->GetStartTime() > CurrentTime)
+			{
+				OwningSection->SetStartTime(CurrentTime);
+			}
+			if (OwningSection->GetEndTime() < CurrentTime)
+			{
+				OwningSection->SetEndTime(CurrentTime);
+			}
 		}
-		if (OwningSection->GetEndTime() < CurrentTime)
-		{
-			OwningSection->SetEndTime(CurrentTime);
-		}
-	}
 
-	if (Curve->GetNumKeys() == 0)
-	{
-		Curve->SetDefaultValue(NewCheckboxState == ECheckBoxState::Checked ? 1 : 0);
+		if (Curve->GetNumKeys() == 0)
+		{
+			Curve->SetDefaultValue(NewCheckboxState == ECheckBoxState::Checked ? 1 : 0);
+		}
+		else
+		{
+			Curve->UpdateOrAddKey(CurrentTime, NewCheckboxState == ECheckBoxState::Checked ? 1 : 0);
+		}
+		Sequencer->UpdateRuntimeInstances();
 	}
-	else
-	{
-		Curve->UpdateOrAddKey(CurrentTime, NewCheckboxState == ECheckBoxState::Checked ? 1 : 0);
-	}
-	Sequencer->UpdateRuntimeInstances();
 }
 
 #undef LOCTEXT_NAMESPACE

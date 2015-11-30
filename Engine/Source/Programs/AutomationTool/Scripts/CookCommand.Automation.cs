@@ -216,11 +216,20 @@ public partial class Project : CommandUtils
                     CommandletParams += " -compressed";
                 }
                 // we provide the option for users to run a conversion on certain (script) assets, translating them 
-                // into native source code... to use those classes over the assets, we need to incorporate the 
-                // generated plugin into the cooker
-                if (Params.UseNativizedScriptPlugin())
+                // into native source code... the cooker needs to 
+                if (Params.RunAssetNativization)
                 {
-                    CommandletParams += " -PLUGIN=\"" + Params.NativizedScriptPlugin + "\"";
+                    string GeneratedPluginName = "NativizedScript";
+                    string ProjectDir = Params.RawProjectPath.Directory.ToString();
+                    string GeneratedPluginDirectory = Path.GetFullPath(CommandUtils.CombinePaths(ProjectDir, "Intermediate", "Plugins", GeneratedPluginName));
+                    string PluginDescFilename  = GeneratedPluginName + ".uplugin";
+                    string GeneratedPluginPath = Path.GetFullPath(CommandUtils.CombinePaths(GeneratedPluginDirectory, PluginDescFilename));
+
+                    CommandletParams += " -NativizeAssets -NativizedAssetPlugin=\"" + GeneratedPluginPath + "\"";
+
+                    // fill out this, so as to coordinate with build automation
+                    // (the builder now needs to compile in the generated assets)
+                    Params.NativizedScriptPlugin = new FileReference(GeneratedPluginPath);
                 }
                 if (Params.HasAdditionalCookerOptions)
                 {
@@ -298,12 +307,20 @@ public partial class Project : CommandUtils
             try
             {
                 Directory.Delete(TemporaryPakPath, true);
+            }
+            catch(Exception Ex)
+            {
+                Log("Failed deleting temporary directories "+TemporaryPakPath+" continuing. "+ Ex.GetType().ToString());
+            }
+            try
+            {
                 Directory.Delete(TemporaryFilesPath, true);
             }
-            catch(Exception )
+            catch (Exception Ex)
             {
-                Log("Failed deleting temporary directories "+TemporaryPakPath+" "+TemporaryFilesPath+" continuing.");
+                Log("Failed deleting temporary directories " + TemporaryFilesPath + " continuing. " + Ex.GetType().ToString());
             }
+
             try
             {
 
@@ -316,28 +333,36 @@ public partial class Project : CommandUtils
 
                 List<string> PakFiles = new List<string>();
 
+                string CookPlatformString = CurrentPlatform.GetCookPlatform(false, Params.HasDedicatedServerAndClient, Params.CookFlavor);
+
                 if (Path.HasExtension(SourceCookedContentPath) && (!SourceCookedContentPath.EndsWith(".pak")))
                 {
                     // must be a per platform pkg file try this
                     CurrentPlatform.ExtractPackage(Params, Params.DiffCookedContentPath, TemporaryPakPath);
 
                     // find the pak file
-                    PakFiles = Directory.EnumerateFiles(TemporaryPakPath, "*.pak", SearchOption.AllDirectories).ToList();
+                    PakFiles.AddRange( Directory.EnumerateFiles(TemporaryPakPath, Params.ShortProjectName+"*.pak", SearchOption.AllDirectories));
+                    PakFiles.AddRange( Directory.EnumerateFiles(TemporaryPakPath, "pakchunk*.pak", SearchOption.AllDirectories));
                 }
-
-                string CookPlatformString = CurrentPlatform.GetCookPlatform(false, Params.HasDedicatedServerAndClient, Params.CookFlavor);
-
-                if (!Path.HasExtension(SourceCookedContentPath))
+                else if (!Path.HasExtension(SourceCookedContentPath))
                 {
                     // try find the pak or pkg file
                     string SourceCookedContentPlatformPath = CombinePaths(SourceCookedContentPath, CookPlatformString);
 
-                    foreach (var PakName in Directory.EnumerateFiles(SourceCookedContentPlatformPath, "*.pak", SearchOption.AllDirectories))
+                    foreach (var PakName in Directory.EnumerateFiles(SourceCookedContentPlatformPath, Params.ShortProjectName + "*.pak", SearchOption.AllDirectories))
                     {
                         string TemporaryPakFilename = CombinePaths(TemporaryPakPath, Path.GetFileName(PakName));
                         File.Copy(PakName, TemporaryPakFilename);
                         PakFiles.Add(TemporaryPakFilename);
                     }
+
+                    foreach (var PakName in Directory.EnumerateFiles(SourceCookedContentPlatformPath, "pakchunk*.pak", SearchOption.AllDirectories))
+                    {
+                        string TemporaryPakFilename = CombinePaths(TemporaryPakPath, Path.GetFileName(PakName));
+                        File.Copy(PakName, TemporaryPakFilename);
+                        PakFiles.Add(TemporaryPakFilename);
+                    }
+
                     if ( PakFiles.Count <= 0 )
                     {
                         Log("No Pak files found in " + SourceCookedContentPlatformPath +" :(");
@@ -361,8 +386,14 @@ public partial class Project : CommandUtils
                     Log("Extracting pak " + Name + " for comparision to location " + TemporaryFilesPath);
 
                     string UnrealPakParams = Name + " -Extract " + " " + TemporaryFilesPath;
-
-                    RunAndLog(CmdEnv, UnrealPakExe, UnrealPakParams, Options: ERunOptions.Default | ERunOptions.UTF8Output | ERunOptions.LoggingOfRunDuration);
+                    try
+                    {
+                        RunAndLog(CmdEnv, UnrealPakExe, UnrealPakParams, Options: ERunOptions.Default | ERunOptions.UTF8Output | ERunOptions.LoggingOfRunDuration);
+                    }
+                    catch(Exception Ex)
+                    {
+                        Log("Pak failed to extract because of " + Ex.GetType().ToString());
+                    }
                 }
 
                 const string RootFailedContentDirectory = "\\\\epicgames.net\\root\\Developers\\Daniel.Lamb";

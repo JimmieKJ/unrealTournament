@@ -14,9 +14,10 @@ class SSequencerTreeViewBox
 {
 public:
 
-	void Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSequencer)
+	void Construct(const FArguments& InArgs, TSharedRef<FSequencer> InSequencer, TSharedPtr<SSequencer> InSequencerWidget)
 	{
 		Sequencer = InSequencer;
+		SequencerWidget = InSequencerWidget;
 		SBox::Construct(InArgs);
 	}
 	
@@ -28,7 +29,17 @@ public:
 
 			if (Selection.GetSelectedOutlinerNodes().Num())
 			{
+				if (SequencerWidget.Pin().IsValid())
+				{
+					SequencerWidget.Pin()->SetUserIsSelecting(true);
+				}
+
 				Selection.EmptySelectedOutlinerNodes();
+
+				if (SequencerWidget.Pin().IsValid())
+				{
+					SequencerWidget.Pin()->SetUserIsSelecting(false);
+				}
 				return FReply::Handled();
 			}
 		}
@@ -40,4 +51,7 @@ private:
 
 	/** Weak pointer to the sequencer */
 	TWeakPtr<FSequencer> Sequencer;
+
+	/** Weak pointer to the sequencer widget */
+	TWeakPtr<SSequencer> SequencerWidget;
 };

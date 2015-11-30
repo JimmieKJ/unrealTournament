@@ -245,6 +245,9 @@ void FPhysXVehicleManager::RemoveVehicle( TWeakObjectPtr<UWheeledVehicleMovement
 	case PxVehicleTypes::eDRIVETANK:
 		((PxVehicleDriveTank*)PVehicle)->free();
 		break;
+	case PxVehicleTypes::eDRIVENW:
+		((PxVehicleDriveNW*)PVehicle)->free();
+		break;
 	case PxVehicleTypes::eNODRIVE:
 		((PxVehicleNoDrive*)PVehicle)->free();
 		break;

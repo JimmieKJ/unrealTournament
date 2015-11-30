@@ -171,8 +171,8 @@ int32 STestFunctionWidget::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 	// Draw line graph
 	TArray<FVector2D> LinePoints;
 
-	const float DeltaX = ((float)AllottedGeometry.Size.X / (ARRAY_COUNT(PreviewData.Samples) - 1));
-	for (int32 Idx = 0; Idx < ARRAY_COUNT(PreviewData.Samples); Idx++)
+	const float DeltaX = (AllottedGeometry.Size.X / (PreviewData.Samples.Num() - 1));
+	for (int32 Idx = 0; Idx < PreviewData.Samples.Num(); Idx++)
 	{
 		const float XPos = Idx * DeltaX;
 		const float YPos = (AllottedGeometry.Size.Y - 1) - (PreviewData.Samples[Idx] * AllottedGeometry.Size.Y);

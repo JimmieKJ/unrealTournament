@@ -56,7 +56,10 @@ void FSlateDrawBuffer::ClearBuffer()
 	// Move all the window elements back into the pool.
 	for ( TSharedPtr<FSlateWindowElementList> ExistingList : WindowElementLists )
 	{
-		WindowElementListsPool.Add(ExistingList);
+		if( ExistingList->GetWindow().IsValid() )
+		{
+			WindowElementListsPool.Add(ExistingList);
+		}
 	}
 
 	WindowElementLists.Reset();

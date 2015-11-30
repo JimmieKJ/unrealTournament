@@ -17,8 +17,7 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Logins", meta = (DisplayName = "User Id", Tooltip = "Id of the user logging in (email, display name, facebook id, etc)"))
 	FString Id;
 	/** Credentials of the user logging in (password or auth token) */
-	// MIGRATION: need to add Transient here after a bit now that we can encrypt passwords
-	UPROPERTY(EditAnywhere, Category = "Logins", meta = (DisplayName = "Password", Tooltip = "Credentials of the user logging in (password or auth token)", PasswordField = true))
+	UPROPERTY(EditAnywhere, Transient, Category = "Logins", meta = (DisplayName = "Password", Tooltip = "Credentials of the user logging in (password or auth token)", PasswordField = true))
 	FString Token;
 	/** Type of account. Needed to identity the auth method to use (epic, internal, facebook, etc) */
 	UPROPERTY(EditAnywhere, Category = "Logins", meta = (DisplayName = "Type", Tooltip = "Type of account. Needed to identity the auth method to use (epic, internal, facebook, etc)"))

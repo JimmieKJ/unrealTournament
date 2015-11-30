@@ -269,7 +269,7 @@ public:
 	virtual FVector GetFocalPointOnActor(const AActor *Actor) const;
 
 	/** Set the position that controller should be looking at. */
-	UFUNCTION(BlueprintCallable, Category="AI", meta=(DisplayName="SetFocalPoint"))
+	UFUNCTION(BlueprintCallable, Category="AI", meta=(DisplayName="SetFocalPoint", Keywords="focus"))
 	void K2_SetFocalPoint(FVector FP);
 
 	/** Set Focus for actor, will set FocalPoint as a result. */

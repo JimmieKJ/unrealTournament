@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "FloatCurveKeyArea.h"
+
 
 /**
  * An implementation of float property sections

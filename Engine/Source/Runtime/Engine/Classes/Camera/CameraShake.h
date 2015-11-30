@@ -249,6 +249,9 @@ public:
 	virtual void PlayShake(class APlayerCameraManager* Camera, float Scale, ECameraAnimPlaySpace::Type InPlaySpace, FRotator UserPlaySpaceRot = FRotator::ZeroRotator);
 	virtual bool IsFinished() const;
 	virtual void StopShake();
+
+	// Returns true if this camera shake will loop forever
+	bool IsLooping() const;
 };
 
 

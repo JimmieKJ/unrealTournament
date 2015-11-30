@@ -60,21 +60,29 @@ void STimeline::UpdateVisibility()
 {
 	ULogVisualizerSettings* Settings = ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>();
 
-	FVisualLoggerDBRow& DataRow = FVisualLoggerDatabase::Get().GetRowByName(GetName());
-	const TArray<FVisualLogDevice::FVisualLogEntryItem>& Entries = DataRow.GetItems();
+	if (FVisualLoggerDatabase::Get().ContainsRowByName(GetName()))
+	{
+		FVisualLoggerDBRow& DataRow = FVisualLoggerDatabase::Get().GetRowByName(GetName());
+		const TArray<FVisualLogDevice::FVisualLogEntryItem>& Entries = DataRow.GetItems();
 
-	const bool bJustIgnore = Settings->bIgnoreTrivialLogs && Entries.Num() <= Settings->TrivialLogsThreshold;
-	const bool bVisibleByOwnerClasses = FVisualLoggerFilters::Get().MatchObjectName(OwnerClassName.ToString());
-	const bool bIsCollapsed = bJustIgnore || DataRow.GetNumberOfHiddenItems() == Entries.Num() || (SearchFilter.Len() > 0 && OwnerName.ToString().Find(SearchFilter) == INDEX_NONE);
+		const bool bJustIgnore = Settings->bIgnoreTrivialLogs && Entries.Num() <= Settings->TrivialLogsThreshold;
+		const bool bVisibleByOwnerClasses = FVisualLoggerFilters::Get().MatchObjectName(OwnerClassName.ToString());
+		const bool bIsCollapsed = bJustIgnore || DataRow.GetNumberOfHiddenItems() == Entries.Num() || (SearchFilter.Len() > 0 && OwnerName.ToString().Find(SearchFilter) == INDEX_NONE);
 
-	const bool bIsHidden = bIsCollapsed || !bVisibleByOwnerClasses;
-	SetVisibility(bIsHidden ? EVisibility::Collapsed : EVisibility::Visible);
-	if (bIsCollapsed)
+		const bool bIsHidden = bIsCollapsed || !bVisibleByOwnerClasses;
+		SetVisibility(bIsHidden ? EVisibility::Collapsed : EVisibility::Visible);
+		if (bIsCollapsed)
+		{
+			Owner->SetSelectionState(SharedThis(this), false, false);
+		}
+
+		FVisualLoggerDatabase::Get().SetRowVisibility(GetName(), !bIsHidden);
+	}
+	else
 	{
 		Owner->SetSelectionState(SharedThis(this), false, false);
+		FVisualLoggerDatabase::Get().SetRowVisibility(GetName(), false);
 	}
-
-	FVisualLoggerDatabase::Get().SetRowVisibility(GetName(), !bIsHidden);
 }
 
 void STimeline::OnFiltersSearchChanged(const FText& Filter)
@@ -192,10 +200,7 @@ void STimeline::Construct(const FArguments& InArgs, TSharedPtr<FVisualLoggerTime
 
 STimeline::~STimeline()
 {
-	if (ULogVisualizerSettings::StaticClass() && ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>())
-	{
-		ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->OnSettingChanged().RemoveAll(this);
-	}
+	ULogVisualizerSettings::StaticClass()->GetDefaultObject<ULogVisualizerSettings>()->OnSettingChanged().RemoveAll(this);
 	FVisualLoggerDatabase::Get().GetEvents().OnNewItem.RemoveAll(this);
 	FVisualLoggerDatabase::Get().GetEvents().OnRowSelectionChanged.RemoveAll(this);
 }

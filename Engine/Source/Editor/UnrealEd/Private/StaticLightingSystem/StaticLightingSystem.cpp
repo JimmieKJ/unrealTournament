@@ -41,6 +41,7 @@ DEFINE_LOG_CATEGORY(LogStaticLightingSystem);
 #include "Engine/LevelStreaming.h"
 #include "Engine/Selection.h"
 #include "Components/SkyLightComponent.h"
+#include "Components/LightmassPortalComponent.h"
 
 #define LOCTEXT_NAMESPACE "StaticLightingSystem"
 
@@ -364,6 +365,13 @@ bool FStaticLightingSystem::BeginLightmassProcess()
 		GLightmapTotalSize = 0;
 		GLightmapTotalStreamingSize = 0;
 
+		GNumShadowmapTotalTexels = 0;
+		GNumShadowmapTextures = 0;
+		GNumShadowmapMappedTexels = 0;
+		GNumShadowmapUnmappedTexels = 0;
+		GShadowmapTotalSize = 0;
+		GShadowmapTotalStreamingSize = 0;
+
 		for( TObjectIterator<UPrimitiveComponent> It ; It ; ++It )
 		{
 			UPrimitiveComponent* Component = *It;
@@ -407,7 +415,7 @@ bool FStaticLightingSystem::BeginLightmassProcess()
 			}
 		}
 
-		if (SkippedLevels.Len() > 0)
+		if (SkippedLevels.Len() > 0 && !IsRunningCommandlet())
 		{
 			// Warn when some levels are not visible and therefore will not be built, because that indicates that only a partial build will be done,
 			// Lighting will still be unbuilt for some areas when playing through the level.
@@ -479,7 +487,7 @@ bool FStaticLightingSystem::BeginLightmassProcess()
 					(*LightIt)->GetWorld()->DestroyActor(*LightIt);
 				}
 
-				for(TObjectIterator<ULightComponentBase> LightIt(RF_ClassDefaultObject|RF_PendingKill);LightIt;++LightIt)
+				for (TObjectIterator<ULightComponentBase> LightIt(RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill); LightIt; ++LightIt)
 				{
 					ULightComponentBase* const Light = *LightIt;
 					const bool bLightIsInWorld = Light->GetOwner() 
@@ -503,11 +511,12 @@ bool FStaticLightingSystem::BeginLightmassProcess()
 		{
 			FLightmassStatistics::FScopedGather GatherStatScope(LightmassStatistics.GatherLightingInfoTime);
 
-#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
-			// Clear reference to the selected lightmap
-			GCurrentSelectedLightmapSample.Lightmap = NULL;
-			GDebugStaticLightingInfo = FDebugLightingOutput();
-#endif
+			if (IsTexelDebuggingEnabled())
+			{
+				// Clear reference to the selected lightmap
+				GCurrentSelectedLightmapSample.Lightmap = NULL;
+				GDebugStaticLightingInfo = FDebugLightingOutput();
+			}
 			
 			GatherStaticLightingInfo(bRebuildDirtyGeometryForLighting, bForceNoPrecomputedLighting);
 		}
@@ -827,7 +836,7 @@ void FStaticLightingSystem::GatherStaticLightingInfo(bool bRebuildDirtyGeometryF
 			if (bRebuildDirtyGeometryForLighting)
 			{
 				// This will go ahead and clean up lighting on all dirty levels (not just this one)
-				UE_LOG(LogStaticLightingSystem, Warning, TEXT("WARNING: Lighting build automatically rebuilding geometry."));
+				UE_LOG(LogStaticLightingSystem, Warning, TEXT("WARNING: Lighting build automatically rebuilding geometry.") );
 				GEditor->Exec(World, TEXT("MAP REBUILD ALLDIRTYFORLIGHTING"));
 			}
 		}
@@ -1888,6 +1897,15 @@ void FStaticLightingSystem::GatherScene()
 		}
 	}
 
+	for( TObjectIterator<ULightmassPortalComponent> It ; It ; ++It )
+	{
+		ULightmassPortalComponent* LMPortal = *It;
+		if (LMPortal->GetOwner() && World->ContainsActor(LMPortal->GetOwner()) && !LMPortal->IsPendingKill())
+		{
+			LightmassExporter->AddPortal(LMPortal);
+		}
+	}
+
 	float MinimumImportanceVolumeExtentWithoutWarning = 0.0f;
 	verify(GConfig->GetFloat(TEXT("DevOptions.StaticLightingSceneConstants"), TEXT("MinimumImportanceVolumeExtentWithoutWarning"), MinimumImportanceVolumeExtentWithoutWarning, GLightmassIni));
 
@@ -2181,7 +2199,7 @@ void FStaticLightingSystem::UpdateLightingBuild()
 	}
 	else if ( CurrentBuildStage == FStaticLightingSystem::AutoApplyingImport )
 	{
-		if ( CanAutoApplyLighting() )
+		if ( CanAutoApplyLighting() || IsRunningCommandlet() )
 		{
 			bool bAutpApplyFailed = false;
 			FStaticLightingManager::Get()->SendBuildDoneNotification( bAutpApplyFailed );

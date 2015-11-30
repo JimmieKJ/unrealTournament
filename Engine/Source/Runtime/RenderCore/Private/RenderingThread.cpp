@@ -333,9 +333,7 @@ static void AdvanceRenderingThreadStats(int64 StatsFrame, int32 MasterDisableCha
 	{
 		Frame = -StatsFrame; // mark this as a bad frame
 	}
-	// @TODO yrx 2014-10-17 Add AddAdvanceFrame message
-	static FStatNameAndInfo Adv(NAME_AdvanceFrame, "", "", TEXT(""), EStatDataType::ST_int64, true, false);
-	FThreadStats::AddMessage(Adv.GetEncodedName(), EStatOperation::AdvanceFrameEventRenderThread, Frame);
+	FThreadStats::AddMessage(FStatConstants::AdvanceFrame.GetEncodedName(), EStatOperation::AdvanceFrameEventRenderThread, Frame);
 	if( IsInActualRenderingThread() )
 	{
 		FThreadStats::ExplicitFlush();
@@ -546,6 +544,7 @@ void StartRenderingThread()
 	check(!GRHIThread)
 	if (GUseRHIThread)
 	{
+		FRHICommandListExecutor::GetImmediateCommandList().ImmediateFlush(EImmediateFlushType::DispatchToRHIThread);		
 		if (!FTaskGraphInterface::Get().IsThreadProcessingTasks(ENamedThreads::RHIThread))
 		{
 			FRHIThread::Get().Start();

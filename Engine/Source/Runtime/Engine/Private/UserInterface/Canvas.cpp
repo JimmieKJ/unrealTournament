@@ -1281,7 +1281,7 @@ void UCanvas::UpdateSafeZoneData()
 		CachedDisplayHeight = UnsafeSizeY;
 
 		SafeZonePadX = (CachedDisplayWidth - (CachedDisplayWidth * SafeRegionPercentage.X))/2.f;
-		SafeZonePadY = CachedDisplayHeight - (CachedDisplayHeight * SafeRegionPercentage.Y)/2.f;
+		SafeZonePadY = (CachedDisplayHeight - (CachedDisplayHeight * SafeRegionPercentage.Y))/2.f;
 	}
 	else if(FSlateApplication::IsInitialized())
 	{

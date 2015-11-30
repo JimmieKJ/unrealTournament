@@ -1427,16 +1427,16 @@ bool FSourceCodeNavigation::NavigateToProperty( UProperty* InProperty )
 {
 	bool bResult = false;
 
-	if( InProperty && InProperty->HasAllFlags( RF_Native ))
+	if (InProperty && InProperty->IsNative())
 	{
 		FString SourceFilePath;
-		const bool bFileLocated =	FindClassHeaderPath( InProperty, SourceFilePath ) && 
-									IFileManager::Get().FileSize( *SourceFilePath ) != INDEX_NONE;
+		const bool bFileLocated = FindClassHeaderPath(InProperty, SourceFilePath) &&
+			IFileManager::Get().FileSize(*SourceFilePath) != INDEX_NONE;
 
-		if( bFileLocated )
+		if (bFileLocated)
 		{
-			const FString AbsoluteSourcePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead( *SourceFilePath );
-			bResult = OpenSourceFile( AbsoluteSourcePath );
+			const FString AbsoluteSourcePath = IFileManager::Get().ConvertToAbsolutePathForExternalAppForRead(*SourceFilePath);
+			bResult = OpenSourceFile(AbsoluteSourcePath);
 		}
 	}
 	return bResult;
@@ -1553,6 +1553,12 @@ void FSourceCodeNavigation::DownloadAndInstallSuggestedIDE(FOnIDEInstallerDownlo
 		SourceCodeNavImpl.LaunchIDEInstaller(InstallerFullPath);
 		OnDownloadComplete.ExecuteIfBound(true);
 	}
+}
+
+void FSourceCodeNavigation::RefreshCompilerAvailability()
+{
+	ISourceCodeAccessModule& SourceCodeAccessModule = FModuleManager::LoadModuleChecked<ISourceCodeAccessModule>("SourceCodeAccess");
+	return SourceCodeAccessModule.GetAccessor().RefreshAvailability();
 }
 
 bool FSourceCodeNavigation::IsCompilerAvailable()

@@ -13,6 +13,7 @@ groupshared float4 Shared[ THREADGROUP_TOTALSIZE ];
 RWTexture2D<float4>	OutVelocityFlat;
 RWTexture2D<float4>	OutMaxTileVelocity;
 
+float4 MotionBlurParameters;
 
 float4 MinMaxLength( float4 v0, float4 v1 )
 {
@@ -50,14 +51,6 @@ void VelocityFlattenMain(
 	uint3 GroupThreadId : SV_GroupThreadID,
 	uint GroupIndex : SV_GroupIndex ) 
 {
-	if(0)
-	{
-		// Swizzle threads
-		uint TileIndex = (DispatchThreadId.x & 3) + (DispatchThreadId.y & 3) * 4;
-		DispatchThreadId.x = (DispatchThreadId.x & ~3) | ((0xebfa5014 >> (TileIndex*2) ) & 3);
-		DispatchThreadId.y = (DispatchThreadId.y & ~3) | ((0xfa4141af >> (TileIndex*2) ) & 3);
-	}
-
 	uint2 PixelPos = DispatchThreadId.xy + ViewportRect.xy;
 
 	float2 Velocity = PostprocessInput0[ PixelPos ].xy;
@@ -75,19 +68,19 @@ void VelocityFlattenMain(
 		Velocity.x = -2.0 * ((PosN.x * ((CameraMotion.Value[1].x * PosN.y) + (CameraMotion.Value[1].y * PosN.z) + CameraMotion.Value[1].z)) + (CameraMotion.Value[1].w * PosN.y) + (CameraMotion.Value[2].x * PosN.x * PosN.x) + (CameraMotion.Value[2].y * PosN.z) + CameraMotion.Value[2].z) * ScaleM;
 		Velocity.y =  2.0 * ((PosN.y * ((CameraMotion.Value[3].x * PosN.x) + (CameraMotion.Value[3].y * PosN.z) + CameraMotion.Value[3].z)) + (CameraMotion.Value[3].w * PosN.x) + (CameraMotion.Value[4].x * PosN.y * PosN.y) + (CameraMotion.Value[4].y * PosN.z) + CameraMotion.Value[4].z) * ScaleM;
 
-		//Velocity[i].x += 0.3;
-		//Velocity[i].y += 0.1;
+		//Velocity.x += 0.3;
+		//Velocity.y += 0.1;
 	}
 
-	const float AspectRatio = ScreenPosToPixel.y / ScreenPosToPixel.x;
-	Velocity.y *= AspectRatio;
+	const float AspectRatio = MotionBlurParameters.x;
+	Velocity.y *= -AspectRatio;
 
 	float2 VelocityPolar = CartesianToPolar( Velocity );
 	
 	bool bInsideViewport = all( PixelPos.xy < ViewportRect.zw );
 	
 #if 1
-	// 10:10:10:2  (VelocityLength, VelocityAngle, Depth)
+	// 11:11:10  (VelocityLength, VelocityAngle, Depth)
 	float2 EncodedVelocity;
 	EncodedVelocity.x = VelocityPolar.x;
 	EncodedVelocity.y = VelocityPolar.y * (0.5 / PI) + 0.5;
@@ -109,7 +102,7 @@ void VelocityFlattenMain(
 
 #if 1
 	// Limit velocity
-	VelocityPolar.x = min( VelocityPolar.x, 100 / ScreenPosToPixel.x );	// TODO input limit
+	VelocityPolar.x = min( VelocityPolar.x, MotionBlurParameters.w / MotionBlurParameters.y );
 #endif
 
 	float4 VelocityMinMax = VelocityPolar.xyxy;
@@ -185,13 +178,9 @@ void VelocityGatherCS(
 				continue;
 
 			float4 ScatterMinMax = PostprocessInput0[ SampleIndex ];
-			//float4 ScatterMinMax = PostprocessInput0.SampleLevel( PostprocessInput0Sampler, UV, 0, Offset );
 			float2 MaxVelocity = ScatterMinMax.zw;
 
-			// TODO move to velocity flatten shader
-			//float2 VelocityPixels = MaxVelocity * ScreenPosToPixel.x;// * VelocityScale.xy;
-			float2 VelocityPixels = MaxVelocity * 0.5 * 1920.0 / 16.0;
-			VelocityPixels *= 0.5;
+			float2 VelocityPixels = MaxVelocity * MotionBlurParameters.z;
 
 			float  VelocityLengthPixelsSqr = dot( VelocityPixels, VelocityPixels );
 			float  VelocityLengthPixelsInv = rsqrtFast( VelocityLengthPixelsSqr + 1e-8 );

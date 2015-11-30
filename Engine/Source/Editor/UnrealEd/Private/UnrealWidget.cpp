@@ -425,7 +425,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
 	const bool bDisabled = IsWidgetDisabled();
 
 	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
 
 	if ( bIsOrthoXY )
 	{
@@ -541,7 +541,7 @@ void FWidget::Render_Translate( const FSceneView* View, FPrimitiveDrawInterface*
  */
 void FWidget::Render_Rotate( const FSceneView* View,FPrimitiveDrawInterface* PDI, FEditorViewportClient* ViewportClient, const FVector& InLocation, bool bDrawWidget )
 {
-	float Scale = View->WorldToScreen( InLocation ).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+	float Scale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
 
 	//get the axes 
 	FVector XAxis = CustomCoordSystem.TransformVector(FVector(1, 0, 0));
@@ -606,7 +606,7 @@ void FWidget::Render_Scale( const FSceneView* View,FPrimitiveDrawInterface* PDI,
 	const bool bIsOrthoYZ = !bIsPerspective && FMath::Abs(View->ViewMatrices.ViewMatrix.M[0][2]) > 0.0f;
 
 	FVector Scale;
-	const float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+	const float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
 
 	if ( bIsOrthoXY )
 	{
@@ -724,7 +724,7 @@ void FWidget::Render_TranslateRotateZ( const FSceneView* View, FPrimitiveDrawInt
 	EAxisList::Type DrawAxis = GetAxisToDraw( ViewportClient->GetWidgetMode() );
 
 	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
+	float UniformScale = View->WorldToScreen(InLocation).W * ( 4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0] );
 
 	if ( bIsOrthoXY )
 	{
@@ -875,7 +875,7 @@ void FWidget::Render_2D(const FSceneView* View, FPrimitiveDrawInterface* PDI, FE
 	const bool bDisabled = IsWidgetDisabled();
 
 	FVector Scale;
-	float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->ViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
+	float UniformScale = View->WorldToScreen(InLocation).W * (4.0f / View->UnscaledViewRect.Width() / View->ViewMatrices.ProjMatrix.M[0][0]);
 
 	if (bIsOrthoXY)
 	{

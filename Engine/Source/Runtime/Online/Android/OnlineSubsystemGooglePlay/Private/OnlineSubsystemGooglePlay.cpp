@@ -210,7 +210,7 @@ bool FOnlineSubsystemGooglePlay::IsInAppPurchasingEnabled()
 	return bEnabledIAP;
 }
 
-void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const IOnlineExternalUI::FOnLoginUIClosedDelegate& Delegate)
+void FOnlineSubsystemGooglePlay::StartShowLoginUITask(int PlayerId, const FOnLoginUIClosedDelegate& Delegate)
 {
 	if (AreAnyAsyncLoginTasksRunning())
 	{
@@ -254,7 +254,7 @@ void FOnlineSubsystemGooglePlay::StartLogoutTask(int32 LocalUserNum)
 	QueueAsyncTask(CurrentLogoutTask);
 }
 
-void FOnlineSubsystemGooglePlay::StartShowLoginUITask_Internal(int PlayerId, const IOnlineExternalUI::FOnLoginUIClosedDelegate& Delegate)
+void FOnlineSubsystemGooglePlay::StartShowLoginUITask_Internal(int PlayerId, const FOnLoginUIClosedDelegate& Delegate)
 {
 	check(!AreAnyAsyncLoginTasksRunning());
 

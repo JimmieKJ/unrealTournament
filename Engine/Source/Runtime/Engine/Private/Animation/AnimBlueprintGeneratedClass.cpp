@@ -130,6 +130,11 @@ void FAnimBlueprintDebugData::RecordNodeVisit(int32 TargetNodeIndex, int32 Sourc
 	new (UpdatedNodesThisFrame) FNodeVisit(SourceNodeIndex, TargetNodeIndex, BlendWeight);
 }
 
+void FAnimBlueprintDebugData::RecordNodeVisitArray(const TArray<FNodeVisit>& Nodes)
+{
+	UpdatedNodesThisFrame.Append(Nodes);
+}
+
 /////////////////////////////////////////////////////
 // FBinaryObjectWriter
 

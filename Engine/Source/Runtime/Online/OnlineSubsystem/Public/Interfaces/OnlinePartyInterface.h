@@ -143,6 +143,11 @@ public:
 	virtual bool IsAcceptingMembers() const = 0;
 
 	/**
+	 * @return true if this is a party of one
+	 */
+	virtual bool IsPartyOfOne() const = 0;
+
+	/**
 	 * @return why the party is not accepting members
 	 */
 	virtual int32 GetNotAcceptingReason() const = 0;

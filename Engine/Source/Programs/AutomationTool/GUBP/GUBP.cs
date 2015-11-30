@@ -1164,7 +1164,6 @@ public partial class GUBP : BuildCommand
 			if(ParseParam("ResetCounter"))
 			{
 				NewIndex = 0;
-				NowMinutes = 0;
 			}
 			{
 				string Line = String.Format("{0} {1}", NewIndex, NowMinutes);

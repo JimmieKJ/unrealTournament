@@ -36,6 +36,6 @@ public:
 	//----------------------------------------------------------------------//
 	// DEBUG
 	//----------------------------------------------------------------------//
-	virtual void GetDebugData(TArray<FString>& OnScreenStrings, TArray<FDrawDebugShapeElement>& DebugShapes, const UAIPerceptionComponent& PerceptionComponent) const override;
+	virtual void GetDebugData(TArray<FString>& OnScreenStrings, TArray<FGameplayDebuggerShapeElement>& DebugShapes, const UAIPerceptionComponent& PerceptionComponent) const override;
 #endif // !UE_BUILD_SHIPPING
 };

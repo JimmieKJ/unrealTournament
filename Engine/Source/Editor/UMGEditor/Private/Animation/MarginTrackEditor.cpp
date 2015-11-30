@@ -6,7 +6,7 @@
 #include "MovieSceneMarginSection.h"
 #include "PropertySection.h"
 #include "ISectionLayoutBuilder.h"
-#include "MovieSceneToolHelpers.h"
+#include "FloatCurveKeyArea.h"
 
 
 FName FMarginTrackEditor::LeftName( "Left" );
@@ -84,20 +84,13 @@ void FMarginTrackEditor::GenerateKeysFromPropertyChanged( const FPropertyChanged
 	FName ChannelName = PropertyChangedParams.StructPropertyNameToKey;
 	FMargin Margin = PropertyChangedParams.GetPropertyValue<FMargin>();
 
-	if ( ChannelName == NAME_None || ChannelName == LeftName )
-	{
-		GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Left, Margin.Left ) );
-	}
-	if ( ChannelName == NAME_None || ChannelName == TopName )
-	{
-		GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Top, Margin.Top ) );
-	}
-	if ( ChannelName == NAME_None || ChannelName == RightName )
-	{
-		GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Right, Margin.Right ) );
-	}
-	if ( ChannelName == NAME_None || ChannelName == BottomName )
-	{
-		GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Bottom, Margin.Bottom ) );
-	}
+	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Left, Margin.Left, ChannelName == NAME_None || ChannelName == LeftName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
+	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Top, Margin.Top, ChannelName == NAME_None || ChannelName == TopName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
+	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Right, Margin.Right, ChannelName == NAME_None || ChannelName == RightName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
+	GeneratedKeys.Add( FMarginKey( EKeyMarginChannel::Bottom, Margin.Bottom, ChannelName == NAME_None || ChannelName == BottomName ? EKeyMarginValueType::Key : EKeyMarginValueType::Default ) );
+}
+
+bool FMarginTrackEditor::ShouldAddKey(UMovieSceneMarginTrack* InTrack, FMarginKey InKey, FKeyParams InKeyParams) const
+{
+	return FPropertyTrackEditor::ShouldAddKey(InTrack, InKey, InKeyParams) && InKey.ValueType == EKeyMarginValueType::Key;
 }

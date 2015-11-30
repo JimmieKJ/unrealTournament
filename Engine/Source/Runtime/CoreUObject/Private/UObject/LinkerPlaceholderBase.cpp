@@ -305,11 +305,21 @@ int32 TLinkerImportPlaceholder<UClass>::ResolvePropertyReferences(UClass* Replac
 				++ReplacementCount;
 			}
 
-			UClassProperty* ClassProperty = Cast<UClassProperty>(BaseObjProperty);
-			if ((ClassProperty != nullptr) && (ClassProperty->MetaClass == PlaceholderClass))
+			if (UClassProperty* ClassProperty = Cast<UClassProperty>(BaseObjProperty))
 			{
-				ClassProperty->MetaClass = ReplacementClass;
-				++ReplacementCount;
+				if (ClassProperty->MetaClass == PlaceholderClass)
+				{
+					ClassProperty->MetaClass = ReplacementClass;
+					++ReplacementCount;
+				}
+			}
+			else if (UAssetClassProperty* AssetClassProperty = Cast<UAssetClassProperty>(BaseObjProperty))
+			{
+				if (AssetClassProperty->MetaClass == PlaceholderClass)
+				{
+					AssetClassProperty->MetaClass = ReplacementClass;
+					++ReplacementCount;
+				}	
 			}
 		}	
 		else if (UInterfaceProperty* InterfaceProp = Cast<UInterfaceProperty>(Property))

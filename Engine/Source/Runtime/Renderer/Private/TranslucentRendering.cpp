@@ -11,6 +11,8 @@
 #include "LightPropagationVolume.h"
 #include "SceneUtils.h"
 
+static float GScreenTextureUVScale;
+
 static void SetTranslucentRenderTargetAndState(FRHICommandList& RHICmdList, const FViewInfo& View, ETranslucencyPassType TranslucenyPassType, bool bFirstTimeThisFrame = false)
 {
 	FSceneRenderTargets& SceneContext = FSceneRenderTargets::Get(RHICmdList);
@@ -227,6 +229,7 @@ public:
 	bool bBackFace;
 	float DitheredLODTransitionValue;
 	bool bUseTranslucentSelfShadowing;
+	float SeparateTranslucencyScreenTextureScaleFactor;
 
 	/** Initialization constructor. */
 	FDrawTranslucentMeshAction(
@@ -235,14 +238,16 @@ public:
 		float InDitheredLODTransitionValue,
 		FHitProxyId InHitProxyId,
 		const FProjectedShadowInfo* InTranslucentSelfShadow,
-		bool bInUseTranslucentSelfShadowing
-		):
+		bool bInUseTranslucentSelfShadowing,
+		float ScreenTextureUVScaleFactor
+		) :
 		View(InView),
 		TranslucentSelfShadow(InTranslucentSelfShadow),
 		HitProxyId(InHitProxyId),
 		bBackFace(bInBackFace),
 		DitheredLODTransitionValue(InDitheredLODTransitionValue),
-		bUseTranslucentSelfShadowing(bInUseTranslucentSelfShadowing)
+		bUseTranslucentSelfShadowing(bInUseTranslucentSelfShadowing),
+		SeparateTranslucencyScreenTextureScaleFactor(ScreenTextureUVScaleFactor)
 	{}
 
 	bool UseTranslucentSelfShadowing() const 
@@ -292,10 +297,13 @@ public:
 			bIsLitMaterial && Scene && Scene->SkyLight && !Scene->SkyLight->bHasStaticLighting,
 			Scene && Scene->HasAtmosphericFog() && View.Family->EngineShowFlags.AtmosphericFog && View.Family->EngineShowFlags.Fog,
 			View.Family->EngineShowFlags.ShaderComplexity,
-			Parameters.bAllowFog
+			Parameters.bAllowFog,
+			false,
+			false,
+			View.Family->GetQuadOverdrawMode()
 			);
 		RHICmdList.BuildAndSetLocalBoundShaderState(DrawingPolicy.GetBoundShaderStateInput(View.GetFeatureLevel()));
-		DrawingPolicy.SetSharedState(RHICmdList, &View, typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType());
+		DrawingPolicy.SetSharedState(RHICmdList, &View, typename TBasePassDrawingPolicy<LightMapPolicyType>::ContextDataType(), SeparateTranslucencyScreenTextureScaleFactor);
 
 		int32 BatchElementIndex = 0;
 		uint64 BatchElementMask = Parameters.BatchElementMask;
@@ -303,6 +311,9 @@ public:
 		{
 			if(BatchElementMask & 1)
 			{
+				TDrawEvent<FRHICommandList> MeshEvent;
+				BeginMeshDrawEvent(RHICmdList, Parameters.PrimitiveSceneProxy, Parameters.Mesh, MeshEvent);
+
 				DrawingPolicy.SetMeshRenderState(
 					RHICmdList, 
 					View,
@@ -392,9 +403,9 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 	// Only render translucent materials
 	if(IsTranslucentBlendMode(BlendMode))
 	{
+		bool bCurrentlyRenderingSeparateTranslucency = Material->IsSeparateTranslucencyEnabled() == (DrawingContext.TranslucenyPassType == TPT_SeparateTransluceny);
 		// if we are in relevant pass
-		if(Material->IsSeparateTranslucencyEnabled() == (DrawingContext.TranslucenyPassType == TPT_SeparateTransluceny)
-			|| bSeparateTranslucencyEnabled == false)
+		if (bCurrentlyRenderingSeparateTranslucency || bSeparateTranslucencyEnabled == false)
 		{
 			if (Material->RequiresSceneColorCopy_RenderThread())
 			{
@@ -457,7 +468,8 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 					DitheredLODTransitionValue,
 					HitProxyId,
 					DrawingContext.TranslucentSelfShadow,
-					PrimitiveSceneProxy && PrimitiveSceneProxy->CastsVolumetricTranslucentShadow()
+					PrimitiveSceneProxy && PrimitiveSceneProxy->CastsVolumetricTranslucentShadow(),
+					bCurrentlyRenderingSeparateTranslucency ? GScreenTextureUVScale : 1.0f
 				)
 			);
 
@@ -955,17 +967,16 @@ void FDeferredShadingSceneRenderer::RenderTranslucencyParallel(FRHICommandListIm
 		{
 			if (SceneContext.IsSeparateTranslucencyActive(View))
 			{
-				FSceneViewState* ViewState = (FSceneViewState*)View.State;
 				// we need to allocate this now so it ends up in the snapshot
 				static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.SeparateTranslucencyScreenPercentage"));
 				float Scale = CVar->GetValueOnRenderThread() / 100.0f;
 				FIntPoint ScaledSize(SceneContext.GetBufferSizeXY().X * Scale, SceneContext.GetBufferSizeXY().Y * (Scale / 100.0f) );
-				ViewState->GetSeparateTranslucency(RHICmdList, ScaledSize);
+				SceneContext.GetSeparateTranslucency(RHICmdList, ScaledSize);
 
 				if (Scale<1.0f)
 				{
-					ViewState->GetSeparateTranslucencyDepth(RHICmdList, SceneContext.GetBufferSizeXY());
-					DownsampleDepthSurface(RHICmdList, ViewState->GetSeparateTranslucencyDepthSurface(), View, Scale, 1.0f);
+					SceneContext.GetSeparateTranslucencyDepth(RHICmdList, SceneContext.GetBufferSizeXY());
+					DownsampleDepthSurface(RHICmdList, SceneContext.GetSeparateTranslucencyDepthSurface(), View, Scale, 1.0f);
 				}
 			}
 			FTranslucencyPassParallelCommandListSet ParallelCommandListSet(View, RHICmdList, 
@@ -1090,6 +1101,8 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 {
 	if (ShouldRenderTranslucency())
 	{
+		static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.SeparateTranslucencyScreenPercentage"));
+		GScreenTextureUVScale = 100.0f / CVar->GetValueOnRenderThread();
 
 		SCOPED_DRAW_EVENT(RHICmdList, Translucency);
 
@@ -1132,16 +1145,12 @@ void FDeferredShadingSceneRenderer::RenderTranslucency(FRHICommandListImmediate&
 				if (SceneContext.IsSeparateTranslucencyActive(View))
 				{
 					// always call BeginRenderingSeparateTranslucency() even if there are no primitives to we keep the RT allocated
-					FSceneViewState* ViewState = (FSceneViewState*)View.State;
-					if (ViewState)
+					static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.SeparateTranslucencyScreenPercentage"));
+					float Scale = CVar->GetValueOnRenderThread() / 100.0f;
+					if (Scale < 1.0f)
 					{
-						static const auto CVar = IConsoleManager::Get().FindTConsoleVariableDataFloat(TEXT("r.SeparateTranslucencyScreenPercentage"));
-						float Scale = CVar->GetValueOnRenderThread() / 100.0f;
-						if (Scale < 1.0f)
-						{
-							ViewState->GetSeparateTranslucencyDepth(RHICmdList, SceneContext.GetBufferSizeXY());
-							DownsampleDepthSurface(RHICmdList, ViewState->GetSeparateTranslucencyDepthSurface(), View, Scale, 1.0f);
-						}
+						SceneContext.GetSeparateTranslucencyDepth(RHICmdList, SceneContext.GetBufferSizeXY());
+						DownsampleDepthSurface(RHICmdList, SceneContext.GetSeparateTranslucencyDepthSurface(), View, Scale, 1.0f);
 					}
 					bool bSetupTranslucency = SceneContext.BeginRenderingSeparateTranslucency(RHICmdList, View, true);
 

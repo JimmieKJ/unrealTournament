@@ -134,6 +134,9 @@ public:
 	 */
 	void UnregisterSource(AActor& SourceActor, TSubclassOf<UAISense> Sense = nullptr);
 
+	void OnListenerForgetsActor(const UAIPerceptionComponent& Listener, AActor& ActorToForget);
+	void OnListenerForgetsAll(const UAIPerceptionComponent& Listener);
+
 	void RegisterDelayedStimulus(FPerceptionListenerID ListenerId, float Delay, AActor* Instigator, const FAIStimulus& Stimulus);
 
 	static UAIPerceptionSystem* GetCurrent(UObject* WorldContextObject);

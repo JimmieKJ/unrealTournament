@@ -22,7 +22,9 @@ void SButton::Construct( const FArguments& InArgs )
 			{
 				return SNew(STextBlock)
 					.Text( InOpArgs._Text )
-					.TextStyle( InOpArgs._TextStyle );
+					.TextStyle( InOpArgs._TextStyle )
+					.TextShapingMethod( InOpArgs._TextShapingMethod )
+					.TextFlowDirection( InOpArgs._TextFlowDirection );
 			}
 			else
 			{

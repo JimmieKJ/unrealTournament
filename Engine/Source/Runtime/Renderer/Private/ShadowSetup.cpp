@@ -73,6 +73,14 @@ bool ShouldUseCachePreshadows()
 	return CVarCachePreshadows.GetValueOnRenderThread() != 0;
 }
 
+int32 GPreshadowsForceLowestLOD = 0;
+FAutoConsoleVariableRef CVarPreshadowsForceLowestLOD(
+	TEXT("r.Shadow.PreshadowsForceLowestDetailLevel"),
+	GPreshadowsForceLowestLOD,
+	TEXT("When enabled, static meshes render their lowest detail level into preshadow depth maps.  Disabled by default as it causes artifacts with poor quality LODs (tree billboard)."),
+	ECVF_Scalability | ECVF_RenderThreadSafe
+	);
+
 /**
  * This value specifies how much bounds will be expanded when rendering a cached preshadow (0.15 = 15% larger).
  * Larger values result in more cache hits, but lower resolution and pull more objects into the depth pass.
@@ -379,6 +387,7 @@ FProjectedShadowInfo::FProjectedShadowInfo()
 	, bWholeSceneShadow(false)
 	, bReflectiveShadowmap(false)
 	, bTranslucentShadow(false)
+	, bCapsuleShadow(false)
 	, bPreShadow(false)
 	, bSelfShadowOnly(false)
 	, LightSceneInfo(0)
@@ -407,6 +416,7 @@ bool FProjectedShadowInfo::SetupPerObjectProjection(
 	ResolutionX = InResolutionX;
 	MaxScreenPercent = InMaxScreenPercent;
 	bDirectionalLight = InLightSceneInfo->Proxy->GetLightType() == LightType_Directional;
+	bCapsuleShadow = InParentSceneInfo->Proxy->CastsCapsuleDirectShadow() && !bInPreShadow;
 	bTranslucentShadow = bInTranslucentShadow;
 	bPreShadow = bInPreShadow;
 	bSelfShadowOnly = InParentSceneInfo->Proxy->CastsSelfShadowOnly();
@@ -757,7 +767,11 @@ void FProjectedShadowInfo::AddSubjectPrimitive(FPrimitiveSceneInfo* PrimitiveSce
 					{
 						bool bUseExistingVisibility = false;
 
-						if(!bReflectiveShadowmap) // Don't use existing visibility for RSMs 
+						// Preshadows use the lowest LOD because there is no self shadowing
+						const bool bForceLowestDetailLevel = bReflectiveShadowmap || (bPreShadow && GPreshadowsForceLowestLOD);
+
+						// Don't use existing visibility if we need to use a different LOD in the shadow depth pass
+						if (!bForceLowestDetailLevel)
 						{
 							for (int32 MeshIndex = 0; MeshIndex < PrimitiveSceneInfo->StaticMeshes.Num(); MeshIndex++)
 							{
@@ -786,7 +800,7 @@ void FProjectedShadowInfo::AddSubjectPrimitive(FPrimitiveSceneInfo* PrimitiveSce
 							int32 ForcedLODLevel = (CurrentView.Family->EngineShowFlags.LOD) ? GetCVarForceLOD() : 0;
 
 							// Add the primitive's static mesh elements to the draw lists.
-							if ( bReflectiveShadowmap) 
+							if (bForceLowestDetailLevel) 
 							{
 								int8 LODToRenderScan = -CHAR_MAX;
 								// Force the lowest detail LOD Level in reflective shadow maps.
@@ -971,6 +985,11 @@ void FProjectedShadowInfo::GatherDynamicMeshElements(FSceneRenderer& Renderer, F
 		    int32 Disable = 0; //CVarDisableCullShadows.GetValueOnRenderThread();
 		    FConvexVolume NoCull;
     
+			if (bPreShadow && GPreshadowsForceLowestLOD)
+			{
+				FoundView->DrawDynamicFlags = EDrawDynamicFlags::ForceLowestLOD;
+			}
+
 		    if (IsWholeSceneDirectionalShadow())
 		    {
 			    FoundView->ViewMatrices.PreShadowTranslation = FVector(0,0,0);
@@ -984,6 +1003,8 @@ void FProjectedShadowInfo::GatherDynamicMeshElements(FSceneRenderer& Renderer, F
 			    FoundView->ViewMatrices.GetDynamicMeshElementsShadowCullFrustum = (Disable & 1) ? &NoCull : &CasterFrustum;
 			    GatherDynamicMeshElementsArray(FoundView, Renderer, DynamicSubjectPrimitives, DynamicSubjectMeshElements, ReusedViewsArray);
 		    }
+
+			FoundView->DrawDynamicFlags = EDrawDynamicFlags::None;
     
 		    FoundView->ViewMatrices.GetDynamicMeshElementsShadowCullFrustum = (Disable & 2) ? &NoCull : &ReceiverFrustum;
 		    GatherDynamicMeshElementsArray(FoundView, Renderer, ReceiverPrimitives, DynamicReceiverMeshElements, ReusedViewsArray);
@@ -1425,7 +1446,9 @@ void FSceneRenderer::CreatePerObjectProjectedShadow(
 		&& bSubjectIsVisible 
 		// Only objects with dynamic lighting should create a preshadow
 		// Unless we're in the editor and need to preview an object without built lighting
-		&& (!PrimitiveSceneInfo->Proxy->HasStaticLighting() || !Interaction->IsShadowMapped());
+		&& (!PrimitiveSceneInfo->Proxy->HasStaticLighting() || !Interaction->IsShadowMapped())
+		// Disable preshadows from directional lights for primitives that use single sample shadowing, the shadow factor will be written into the precomputed shadow mask in the GBuffer instead
+		&& !(PrimitiveSceneInfo->Proxy->UseSingleSampleShadowFromStationaryLights() && LightSceneInfo->Proxy->GetLightType() == LightType_Directional);
 
 	if (bRenderPreShadow && ShouldUseCachePreshadows())
 	{
@@ -2559,4 +2582,6 @@ void FDeferredShadingSceneRenderer::InitDynamicShadows(FRHICommandListImmediate&
 
 	// Generate mesh element arrays from shadow primitive arrays
 	GatherShadowDynamicMeshElements();
+
+	CreateIndirectCapsuleShadows();
 }

@@ -11,11 +11,6 @@
 #include "GPUSkinVertexFactory.h"
 #include "ClothSimData.h"
 
-// 1 for a single buffer, this creates and releases textures every frame (the driver has to keep the reference and need to defer the release, low memory as it only occupies rendered buffers (up to 3 copies), best Xbox360 method?)
-// 2 for double buffering (works well for PC, caused Xbox360 to stall)
-// 3 for triple buffering (works well for PC and Xbox360, wastes a bit of memory)
-#define PER_BONE_BUFFER_COUNT 2
-
 /** 
 * Stores the updated matrices needed to skin the verts.
 * Created by the game thread and sent to the rendering thread as an update 
@@ -185,106 +180,6 @@ private:
 	FSkeletalMeshResource* SkelMeshResource;
 };
 
-// only used on the render thread
-class FPreviousPerBoneMotionBlur
-{
-public:
-	/** constructor */
-	FPreviousPerBoneMotionBlur();
-
-	void InitResources();
-
-	/** 
-	* call from render thread
-	*/
-	void ReleaseResources();
-
-	void InitIfNeeded();
-
-	/** Returns the width of the texture in pixels. */
-	uint32 GetSizeX() const;
-
-	/** so we update only during velocity rendering pass */
-	bool IsAppendStarted() const;
-
-	/** needed before AppendData() ccan be called */
-	ENGINE_API void StartAppend(FRHICommandListImmediate& RHICmdList, bool bWorldIsPaused);
-
-	ENGINE_API void SetVelocityPassCallback(TFunction<bool(FRHICommandList& RHICmdList)> InIsVelocityFunc);
-
-	/**
-	 * use between LockData() and UnlockData()
-	 * @param	OutChunkMatrices, filled in with a pointer to bones that should be filled in
-	 * @param	BoneCount number of FBoneSkinning elements, must not be 0
-	 * @return	StartIndex where the data can be referenced in the texture, 0xffffffff if this failed (not enough space in the buffer, will be fixed next frame)
-	 */
-	uint32 AppendData(FBoneSkinning*& OutChunkMatrices, uint32 BoneCount);
-
-	/** only call if StartAppend(), if the append wasn't started it silently ignores the call */
-	ENGINE_API void EndAppendFence(FRHICommandListImmediate& RHICmdList);
-
-	/** only call if StartAppend(), if the append wasn't started it silently ignores the call */
-	ENGINE_API void EndAppend(FRHICommandListImmediate& RHICmdList);
-
-	/**
-	 * @param Index 0 .. PER_BONE_BUFFER_COUNT - 1, usually from GetReadBufferIndex()
-	 * @return 0 if there should be no bone based motion blur (no previous data available or it's not active)
-	 */
-	FBoneDataVertexBuffer* GetBoneDataVertexBuffer(uint32 Index)
-	{
-		checkSlow(Index < PER_BONE_BUFFER_COUNT);
-
-		return &PerChunkBoneMatricesTexture[Index];
-	}
-
-	FString GetDebugString() const;
-
-	/** @return 0 .. PER_BONE_BUFFER_COUNT-1 */
-	uint32 GetReadBufferIndex() const
-	{
-		// we move the buffers for easier internal so it's a fixed position
-		return 0;
-	}
-
-	/** @return 0 .. PER_BONE_BUFFER_COUNT-1 */
-	uint32 GetWriteBufferIndex() const
-	{
-		// we move the buffers for easier internal so it's a fixed position
-		return 1;
-	}
-
-	bool IsVelocityPass(FRHICommandList& RHICmdList)
-	{
-		return IsVelocityFunc(RHICmdList);
-	}
-
-
-private:
-
-	/** Stores the bone information with one frame delay, required for per bone motion blur. Buffered to avoid stalls on texture Lock() */
-	FBoneDataVertexBuffer PerChunkBoneMatricesTexture[PER_BONE_BUFFER_COUNT];
-	/* !=0 if data is locked, does not change during the lock */
-	float* LockedData;
-	/** only valid if LockedData != 0, advances with every Append() */
-	FThreadSafeCounter LockedTexelPosition;
-	/** only valid if LockedData != 0 */
-	uint32 LockedTexelCount;
-
-	/** Fence for render thread tasks that use this. */
-	FGraphEventRef EndAppendRenderThreadTaskFence;
-
-	/** Callback if we should save bone data or not. */
-	TFunction<bool(FRHICommandList& RHICmdList)> IsVelocityFunc;
-
-	bool bWarningBufferSizeExceeded;
-
-
-	/** to cycle the internal buffer counter */
-	void AdvanceBufferLocation();
-};
-
-
-
 /**
  * Render data for a GPU skinned mesh
  */
@@ -299,8 +194,8 @@ public:
 	virtual void InitResources() override;
 	virtual void ReleaseResources() override;
 	virtual void Update(int32 LODIndex,USkinnedMeshComponent* InMeshComponent,const TArray<FActiveVertexAnim>& ActiveVertexAnims) override;
-	void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataGPUSkin* InDynamicData);
-	virtual void PreGDMECallback() override;
+	void UpdateDynamicData_RenderThread(FRHICommandListImmediate& RHICmdList, FDynamicSkelMeshObjectDataGPUSkin* InDynamicData, uint32 FrameNumber);
+	virtual void PreGDMECallback(uint32 FrameNumber) override;
 	virtual const FVertexFactory* GetVertexFactory(int32 LODIndex,int32 ChunkIdx) const override;
 	virtual void CacheVertices(int32 LODIndex, bool bForce) const override {}
 	virtual bool IsCPUSkinned() const override { return false; }
@@ -534,7 +429,8 @@ private:
 	*/
 	void ReleaseMorphResources();
 
-	void ProcessUpdatedDynamicData(FRHICommandListImmediate& RHICmdList, bool bMorphNeedsUpdate);
+	// @param FrameNumber from GFrameNumber
+	void ProcessUpdatedDynamicData(FRHICommandListImmediate& RHICmdList, uint32 FrameNumber, bool bMorphNeedsUpdate);
 
 	void WaitForRHIThreadFenceForDynamicData();
 
@@ -557,6 +453,3 @@ private:
 	bool bMorphResourcesInitialized;
 
 };
-
-// accessed on the rendering thread[s]
-extern ENGINE_API FPreviousPerBoneMotionBlur GPrevPerBoneMotionBlur;

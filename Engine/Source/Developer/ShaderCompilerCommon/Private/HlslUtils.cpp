@@ -276,11 +276,12 @@ struct FRemoveUnusedOutputs
 		return ReturnType;
 	};
 
+	// Case-insensitive when working with Semantics
 	bool IsStringInArray(const TArray<FString>& Array, const TCHAR* Semantic)
 	{
 		for (const FString& String : Array)
 		{
-			if (FCString::Strcmp(*String, Semantic) == 0)
+			if (FCString::Stricmp(*String, Semantic) == 0)
 			{
 				return true;
 			}
@@ -341,14 +342,26 @@ struct FRemoveUnusedOutputs
 	void WriteGeneratedCode(CrossCompiler::AST::FFunctionDefinition* NewEntryFunction, TArray<CrossCompiler::AST::FStructSpecifier*>& NewStructs, FString& OutGeneratedCode)
 	{
 		CrossCompiler::AST::FASTWriter Writer(OutGeneratedCode);
-		GeneratedCode = TEXT("#line 1 \"RemoveUnusedOutputs.usf\"\n// Generated Entry Point: \n");
+		GeneratedCode = TEXT("#line 1 \"RemoveUnusedOutputs.usf\"\n// Generated Entry Point: ");
+		GeneratedCode += NewEntryFunction->Prototype->Identifier;
+		GeneratedCode += TEXT("\n");
+		if (UsedOutputs.Num() > 0)
+		{
+			GeneratedCode += TEXT("// Requested UsedOutputs:");
+			for (int32 Index = 0; Index < UsedOutputs.Num(); ++Index)
+			{
+				GeneratedCode += (Index == 0) ? TEXT(" ") : TEXT(", ");
+				GeneratedCode += UsedOutputs[Index];
+			}
+			GeneratedCode += TEXT("\n");
+		}
 		if (RemovedSemantics.Num() > 0)
 		{
-			GeneratedCode = TEXT("// Removed Outputs: ");
+			GeneratedCode += TEXT("// Removed Outputs:");
 			for (int32 Index = 0; Index < RemovedSemantics.Num(); ++Index)
 			{
+				GeneratedCode += (Index == 0) ? TEXT(" ") : TEXT(", ");
 				GeneratedCode += RemovedSemantics[Index];
-				GeneratedCode += TEXT(" ");
 			}
 			GeneratedCode += TEXT("\n");
 		}

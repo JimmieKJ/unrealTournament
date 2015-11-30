@@ -34,7 +34,6 @@
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 #include "PhysicsEngine/PhysicsAsset.h"
 #include "PhysicsEngine/PhysicsSettings.h"
-#include "PhysicsEngine/ClothManager.h"
 
 #define LOCTEXT_NAMESPACE "SkeletalMeshComponentPhysics"
 
@@ -43,21 +42,37 @@ DECLARE_CYCLE_STAT(TEXT("CreateClothing"), STAT_CreateClothing, STATGROUP_Physic
 
 extern TAutoConsoleVariable<int32> CVarEnableClothPhysics;
 
-void FSkeletalMeshComponentPreClothTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-{
-	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentPreClothTickFunction_ExecuteTick);
+//This is the total cloth time split up among multiple computation (updating gpu, updating sim, etc...)
+DECLARE_CYCLE_STAT(TEXT("Cloth Total"), STAT_ClothTotalTime, STATGROUP_Physics);
 
-	if ((TickType == LEVELTICK_All) && Target && !Target->HasAnyFlags(RF_PendingKill | RF_Unreachable))
+
+void FSkeletalMeshComponentClothTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentClothTickFunction_ExecuteTick);
+	FActorComponentTickFunction::ExecuteTickHelper(Target, DeltaTime, TickType, [this](float DilatedTime)
 	{
-		Target->PreClothTick(DeltaTime, *this);
-	}
+		Target->TickClothing(DilatedTime, *this);
+	});
 }
 
-FString FSkeletalMeshComponentPreClothTickFunction::DiagnosticMessage()
+FString FSkeletalMeshComponentClothTickFunction::DiagnosticMessage()
 {
-	return TEXT("FSkeletalMeshComponentPreClothTickFunction");
+	return TEXT("FSkeletalMeshComponentClothTickFunction");
 }
 
+void FSkeletalMeshComponentPostPhysicsTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+{
+	QUICK_SCOPE_CYCLE_COUNTER(FSkeletalMeshComponentPostPhysicsTickFunction_ExecuteTick);
+	FActorComponentTickFunction::ExecuteTickHelper(Target, DeltaTime, TickType, [this](float DilatedTime)
+	{
+		Target->PostPhysicsTickComponent(*this);
+	});
+}
+
+FString FSkeletalMeshComponentPostPhysicsTickFunction::DiagnosticMessage()
+{
+	return TEXT("FSkeletalMeshComponentPostPhysicsTickFunction");
+}
 
 #if WITH_APEX_CLOTHING
 //
@@ -73,6 +88,7 @@ void FClothingActor::Clear(bool bReleaseResource)
 	ParentClothingAsset = NULL;
 	ApexClothingActor = NULL;
 	ParentClothingAssetIndex = INDEX_NONE;
+	bSimulateForCurrentLOD = false;
 }
 
 //
@@ -463,7 +479,13 @@ void USkeletalMeshComponent::SetSimulatePhysics(bool bSimulate)
 		}
 	}
 
-	UpdatePreClothTickRegisteredState();
+	if(IsSimulatingPhysics())
+	{
+		SetRootBodyIndex(RootBodyData.BodyIndex);	//Update the root body data cache in case animation has moved root body relative to root joint
+	}
+
+	UpdatePostPhysicsTickRegisteredState();
+	UpdateClothTickRegisteredState();
 }
 
 void USkeletalMeshComponent::OnComponentCollisionSettingsChanged()
@@ -566,7 +588,7 @@ void USkeletalMeshComponent::SetAllPhysicsLinearVelocity(FVector NewVel, bool bA
 
 void USkeletalMeshComponent::SetAllPhysicsAngularVelocity(FVector const& NewAngVel, bool bAddToCurrent)
 {
-	if(RootBodyData.BodyIndex < Bodies.Num())
+	if(RootBodyData.BodyIndex != INDEX_NONE && RootBodyData.BodyIndex < Bodies.Num())
 	{
 		// Find the root actor. We use its location as the center of the rotation.
 		FBodyInstance* RootBodyInst = Bodies[ RootBodyData.BodyIndex ];
@@ -588,7 +610,7 @@ void USkeletalMeshComponent::SetAllPhysicsAngularVelocity(FVector const& NewAngV
 
 void USkeletalMeshComponent::SetAllPhysicsPosition(FVector NewPos)
 {
-	if(RootBodyData.BodyIndex < Bodies.Num())
+	if(RootBodyData.BodyIndex != INDEX_NONE && RootBodyData.BodyIndex < Bodies.Num())
 	{
 		// calculate the deltas to get the root body to NewPos
 		FBodyInstance* RootBI = Bodies[RootBodyData.BodyIndex];
@@ -634,7 +656,7 @@ void USkeletalMeshComponent::SetAllPhysicsRotation(FRotator NewRot)
 		logOrEnsureNanError(TEXT("USkeletalMeshComponent::SetAllPhysicsRotation found NaN in parameter NewRot: %s"), *NewRot.ToString());
 	}
 #endif
-	if(RootBodyData.BodyIndex < Bodies.Num())
+	if(RootBodyData.BodyIndex != INDEX_NONE && RootBodyData.BodyIndex < Bodies.Num())
 	{
 		// calculate the deltas to get the root body to NewRot
 		FBodyInstance* RootBI = Bodies[RootBodyData.BodyIndex];
@@ -670,7 +692,7 @@ void USkeletalMeshComponent::SetAllPhysicsRotation(FRotator NewRot)
 
 void USkeletalMeshComponent::ApplyDeltaToAllPhysicsTransforms(const FVector& DeltaLocation, const FQuat& DeltaRotation)
 {
-	if(RootBodyData.BodyIndex < Bodies.Num())
+	if(RootBodyData.BodyIndex != INDEX_NONE && RootBodyData.BodyIndex < Bodies.Num())
 	{
 		// calculate the deltas to get the root body to NewRot
 		FBodyInstance* RootBI = Bodies[RootBodyData.BodyIndex];
@@ -870,7 +892,7 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 				Body->CreateDOFLock();
 
 				// Set to sleep if necessary
-				if (bShouldSleep)
+				if (bShouldSleep  && Body->GetPxRigidDynamic_AssumesLocked())
 				{
 					Body->GetPxRigidDynamic_AssumesLocked()->putToSleep();
 				}
@@ -907,10 +929,10 @@ void USkeletalMeshComponent::InitArticulated(FPhysScene* PhysScene)
 	// Update Flag
 	ResetAllBodiesSimulatePhysics();
 #if WITH_APEX_CLOTHING
-	InternalClothSimulationContext.PrevRootBoneMatrix = GetBoneMatrix(0); // save the root bone transform
+	PrevRootBoneMatrix = GetBoneMatrix(0); // save the root bone transform
 	// pre-compute cloth teleport thresholds for performance
-	EditableClothSimulationContext.ClothTeleportCosineThresholdInRad = FMath::Cos(FMath::DegreesToRadians(TeleportRotationThreshold));
-	EditableClothSimulationContext.ClothTeleportDistThresholdSquared = TeleportDistanceThreshold * TeleportDistanceThreshold;	
+	ClothTeleportCosineThresholdInRad = FMath::Cos(FMath::DegreesToRadians(TeleportRotationThreshold));
+	ClothTeleportDistThresholdSquared = TeleportDistanceThreshold * TeleportDistanceThreshold;	
 #endif // #if WITH_APEX_CLOTHING
 }
 
@@ -1051,7 +1073,10 @@ void USkeletalMeshComponent::SetAllBodiesSimulatePhysics(bool bNewSimulate)
 		Bodies[i]->SetInstanceSimulatePhysics(bNewSimulate);
 	}
 
-	UpdatePreClothTickRegisteredState();
+	SetRootBodyIndex(RootBodyData.BodyIndex);	//Update the root body data cache in case animation has moved root body relative to root joint
+
+	UpdatePostPhysicsTickRegisteredState();
+	UpdateClothTickRegisteredState();
 }
 
 
@@ -1096,7 +1121,13 @@ void USkeletalMeshComponent::SetAllBodiesBelowSimulatePhysics( const FName& InBo
 		Bodies[BodyIndices[i]]->SetInstanceSimulatePhysics(bNewSimulate);
 	}
 
-	UpdatePreClothTickRegisteredState();
+	if (IsSimulatingPhysics())
+	{
+		SetRootBodyIndex(RootBodyData.BodyIndex);	//Update the root body data cache in case animation has moved root body relative to root joint
+	}
+
+	UpdatePostPhysicsTickRegisteredState();
+	UpdateClothTickRegisteredState();
 }
 
 
@@ -1372,6 +1403,11 @@ void USkeletalMeshComponent::OnUpdateTransform(bool bSkipPhysicsMove, ETeleportT
 #else
 		UpdateKinematicBonesToAnim(GetSpaceBases(), ETeleportType::TeleportPhysics, false);
 #endif
+	}
+
+	if (MeshObject)
+	{
+		MeshObject->UpdateShadowShapes(this);
 	}
 
 #if WITH_APEX_CLOTHING
@@ -2177,6 +2213,8 @@ bool USkeletalMeshComponent::CreateClothingActor(int32 AssetIndex, physx::apex::
 	ApexClothingActor->forcePhysicalLod(1); // 1 will be changed to "GetActivePhysicalLod()" later
 	ApexClothingActor->setFrozen(false);
 
+	ClothingActor.bSimulateForCurrentLOD = true;
+
 #if WITH_CLOTH_COLLISION_DETECTION
 	// process clothing collisions once for the case that this component doesn't move
 	if(bCollideWithEnvironment)
@@ -2190,8 +2228,6 @@ bool USkeletalMeshComponent::CreateClothingActor(int32 AssetIndex, physx::apex::
 
 void USkeletalMeshComponent::SetClothingLOD(int32 LODIndex)
 {
-	//TODO: are we sure this can't be called during parallel animation?
-
 	bool bFrozen = false;
 
 	for (FClothingActor& ClothingActor : ClothingActors)
@@ -2217,21 +2253,18 @@ void USkeletalMeshComponent::SetClothingLOD(int32 LODIndex)
 
 			int32 NumClothLODs = ClothingActor.ParentClothingAsset->getNumGraphicalLodLevels();
 
-			// NOTE: forcePhysicalLod() is an deferred operation.   getActivePhysicalLod() may return previous state.
 			// decide whether should enable or disable
 			if (!IsMappedClothLOD || (LODIndex >= NumClothLODs))
 			{
 				//disable clothing simulation
-				ClothingActor.ApexClothingActor->forcePhysicalLod(0);
+				ClothingActor.bSimulateForCurrentLOD = false;
 			}
 			else
 			{	
-				int32 CurPhysLOD = ClothingActor.ApexClothingActor->getActivePhysicalLod();
-				// if disabled, enables clothing simulation
-				ClothingActor.ApexClothingActor->forcePhysicalLod(1);
-				}
+				ClothingActor.bSimulateForCurrentLOD = true;
 			}
 		}
+	}
 
 	if(bFrozen)
 	{
@@ -2244,20 +2277,8 @@ void USkeletalMeshComponent::SetClothingLOD(int32 LODIndex)
 
 }
 
-bool USkeletalMeshComponent::IsExecutingParallelCloth() const
-{
-	return false;
-	/*
-	UWorld* World = GetWorld();
-	FPhysScene* PhysScene = World ? World->GetPhysicsScene() : nullptr;
-	return PhysScene && PhysScene->GetClothManager()->IsPreparingClothAsync();
-	*/
-}
-
 void USkeletalMeshComponent::RemoveAllClothingActors()
 {
-	check(!IsExecutingParallelCloth());
-
 	for(FClothingActor& ClothingActor : ClothingActors)
 	{
 		ClothingActor.Clear(IsValidClothingActor(ClothingActor));
@@ -2280,18 +2301,23 @@ void USkeletalMeshComponent::ReleaseAllClothingResources()
 #endif// #if WITH_APEX_CLOTHING
 }
 
-void USkeletalMeshComponent::ApplyWindForCloth(const FClothingActor& ClothingActor) const
+void USkeletalMeshComponent::ApplyWindForCloth_Concurrent(NxClothingActor& ApexClothingActor, const FVector& WindVector, float WindAdaption)
 {
+	//Note that although this is safe to call from any thread, you must ensure that the apex cloth simulation of this actor is not currently running.
+	const PxVec3 PWindVelocity = U2PVector(WindVector);
+	ApexClothingActor.setWind(WindAdaption, PWindVelocity);
+}
+
+void USkeletalMeshComponent::GetWindForCloth_GameThread(FVector& WindDirection, float& WindAdaption) const
+{
+	check(IsInGameThread());
+
+	WindDirection = FVector::ZeroVector;
+	WindAdaption = 2.f;	//not sure where this const comes from, but that's what the old code did
+	
 	//to convert from normalized value( usually 0.0 to 1.0 ) to Apex clothing wind value
 	const float WindUnitAmout = 2500.0f;
-
-	NxClothingActor* ApexClothingActor = ClothingActor.ApexClothingActor;
-
-	if(!ApexClothingActor)
-	{
-		return;
-	}
-
+	
 	if(World && World->Scene)
 	{
 		// set wind
@@ -2299,35 +2325,13 @@ void USkeletalMeshComponent::ApplyWindForCloth(const FClothingActor& ClothingAct
 		{
 			FVector Position = ComponentToWorld.GetTranslation();
 
-			FVector WindDirection;
 			float WindSpeed;
 			float WindMinGust;
 			float WindMaxGust;
 			World->Scene->GetWindParameters(Position, WindDirection, WindSpeed, WindMinGust, WindMaxGust);
 
-			physx::PxVec3 WindVelocity(WindDirection.X, WindDirection.Y, WindDirection.Z);
-
-			WindVelocity *= WindUnitAmout * WindSpeed;
-			float WindAdaption = rand()%20 * 0.1f; // make range from 0 to 2
-
-			NxParameterized::Interface* ActorDesc = ApexClothingActor->getActorDesc();
-
-			if(ActorDesc)
-			{
-				verify(NxParameterized::setParamVec3(*ActorDesc, "windParams.Velocity", WindVelocity));
-				verify(NxParameterized::setParamF32(*ActorDesc, "windParams.Adaption", WindAdaption));
-			}
-		}
-		else
-		{
-			physx::PxVec3 WindVelocity(0.0f);
-			NxParameterized::Interface* ActorDesc = ApexClothingActor->getActorDesc();
-			if(ActorDesc)
-			{
-				verify(NxParameterized::setParamVec3(*ActorDesc, "windParams.Velocity", WindVelocity));
-				// if turned off the wind, will do fast adaption
-				verify(NxParameterized::setParamF32(*ActorDesc, "windParams.Adaption", 2.0f));
-			}
+			WindDirection *= WindUnitAmout * WindSpeed;
+			WindAdaption = FMath::Rand() % 20 * 0.1f; // make range from 0 to 2
 		}
 	}
 }
@@ -2713,7 +2717,6 @@ void USkeletalMeshComponent::FindClothCollisions(TArray<FApexClothCollisionVolum
 
 void USkeletalMeshComponent::CreateInternalClothCollisions(TArray<FApexClothCollisionVolumeData>& InCollisions, TArray<physx::apex::NxClothingCollision*>& OutCollisions)
 {
-	check(!IsExecutingParallelCloth());
 	int32 NumCollisions = InCollisions.Num();
 
 	const int32 MaxNumCapsules = 16;
@@ -2785,7 +2788,6 @@ void USkeletalMeshComponent::CreateInternalClothCollisions(TArray<FApexClothColl
 
 void USkeletalMeshComponent::CopyClothCollisionsToChildren()
 {
-	check(!IsExecutingParallelCloth());
 	// 3 steps
 	// 1. release all previous parent collisions
 	// 2. find new collisions from parent(this class)
@@ -2828,7 +2830,6 @@ void USkeletalMeshComponent::CopyClothCollisionsToChildren()
 
 void USkeletalMeshComponent::ReleaseAllChildrenCollisions()
 {
-	check(!IsExecutingParallelCloth());
 	for(int32 i=0; i<ChildrenCollisions.Num(); i++)
 	{
 		ReleaseClothingCollision(ChildrenCollisions[i]);
@@ -2840,7 +2841,6 @@ void USkeletalMeshComponent::ReleaseAllChildrenCollisions()
 // children's collisions can affect to parent's cloth reversely
 void USkeletalMeshComponent::CopyChildrenClothCollisionsToParent()
 {
-	check(!IsExecutingParallelCloth());
 	// 3 steps
 	// 1. release all previous children collisions
 	// 2. find new collisions from children
@@ -2897,7 +2897,6 @@ void USkeletalMeshComponent::ReleaseClothingCollision(NxClothingCollision* Colli
 
 FApexClothCollisionInfo* USkeletalMeshComponent::CreateNewClothingCollsions(UPrimitiveComponent* PrimitiveComponent)
 {
-	check(!IsExecutingParallelCloth());
 	FApexClothCollisionInfo NewInfo;
 
 	TArray<FClothCollisionPrimitive> CollisionPrims;
@@ -3019,7 +3018,6 @@ FApexClothCollisionInfo* USkeletalMeshComponent::CreateNewClothingCollsions(UPri
 
 void USkeletalMeshComponent::RemoveAllOverlappedComponentMap()
 {
-	check(!IsExecutingParallelCloth());
 	for( auto It = ClothOverlappedComponentsMap.CreateConstIterator(); It; ++It )
 	{
 		const FApexClothCollisionInfo& Info = It.Value();
@@ -3037,7 +3035,6 @@ void USkeletalMeshComponent::RemoveAllOverlappedComponentMap()
 
 void USkeletalMeshComponent::ReleaseAllParentCollisions()
 {
-	check(!IsExecutingParallelCloth());
 	for(int32 i=0; i<ParentCollisions.Num(); i++)
 	{
 		ReleaseClothingCollision(ParentCollisions[i]);
@@ -3080,7 +3077,6 @@ void USkeletalMeshComponent::ProcessClothCollisionWithEnvironment()
 		return;
 	}
 
-	check(!IsExecutingParallelCloth());
 
 	// Increment the revision number
 	ClothingCollisionRevision++;
@@ -3141,13 +3137,13 @@ void USkeletalMeshComponent::ProcessClothCollisionWithEnvironment()
 
 #endif// #if WITH_CLOTH_COLLISION_DETECTION
 
-void USkeletalMeshComponent::PreClothTick(float DeltaTime, FTickFunction& ThisTickFunction)
+void USkeletalMeshComponent::PostPhysicsTickComponent(FSkeletalMeshComponentPostPhysicsTickFunction& ThisTickFunction)
 {
 	//IMPORTANT!
 	//
-	// The decision on whether to use PreClothTick or not is made by ShouldRunPreClothTick()
-	// Any changes that are made to PreClothTick that effect whether it should be run or not
-	// have to be reflected in ShouldRunPreClothTick() as well
+	// The decision on whether to use PostPhysicsTickComponent or not is made by ShouldRunPostPhysicsTick()
+	// Any changes that are made to PostPhysicsTickComponent that affect whether it should be run or not
+	// have to be reflected in ShouldRunPostPhysicsTick() as well
 	
 	// if physics is disabled on dedicated server, no reason to be here. 
 	if (!bEnablePhysicsOnDedicatedServer && IsRunningDedicatedServer())
@@ -3226,44 +3222,43 @@ void USkeletalMeshComponent::UpdateClothTransform()
 	}
 }
 
-void USkeletalMeshComponent::CheckClothTeleport(float DeltaTime, FClothSimulationContext& ClothSimulationContext) const
+void USkeletalMeshComponent::CheckClothTeleport()
 {
 	// Get the root bone transform
 	FMatrix CurRootBoneMat = GetBoneMatrix(0);
 	
 	// distance check 
 	// TeleportDistanceThreshold is greater than Zero and not teleported yet
-	if(TeleportDistanceThreshold > 0 && ClothSimulationContext.ClothTeleportMode == FClothingActor::Continuous)
+	if(TeleportDistanceThreshold > 0 && ClothTeleportMode == FClothingActor::Continuous)
 	{
-		float DistSquared = FVector::DistSquared(ClothSimulationContext.PrevRootBoneMatrix.GetOrigin(), CurRootBoneMat.GetOrigin());
-		if ( DistSquared > ClothSimulationContext.ClothTeleportDistThresholdSquared ) // if it has traveled too far
+		float DistSquared = FVector::DistSquared(PrevRootBoneMatrix.GetOrigin(), CurRootBoneMat.GetOrigin());
+		if ( DistSquared > ClothTeleportDistThresholdSquared ) // if it has traveled too far
 		{
-			ClothSimulationContext.ClothTeleportMode = bResetAfterTeleport ? FClothingActor::TeleportAndReset : FClothingActor::Teleport;
+			ClothTeleportMode = bResetAfterTeleport ? FClothingActor::TeleportAndReset : FClothingActor::Teleport;
 		}
 	}
 
 	// rotation check
 	// if TeleportRotationThreshold is greater than Zero and the user didn't do force teleport
-	if(TeleportRotationThreshold > 0 && ClothSimulationContext.ClothTeleportMode == FClothingActor::Continuous)
+	if(TeleportRotationThreshold > 0 && ClothTeleportMode == FClothingActor::Continuous)
 	{
 		// Detect whether teleportation is needed or not
 		// Rotation matrix's transpose means an inverse but can't use a transpose because this matrix includes scales
-		FMatrix AInvB = CurRootBoneMat * ClothSimulationContext.PrevRootBoneMatrix.InverseFast();
+		FMatrix AInvB = CurRootBoneMat * PrevRootBoneMatrix.InverseFast();
 		float Trace = AInvB.M[0][0] + AInvB.M[1][1] + AInvB.M[2][2];
 		float CosineTheta = (Trace - 1.0f) / 2.0f; // trace = 1+2cos(theta) for a 3x3 matrix
 
-		if ( CosineTheta < ClothSimulationContext.ClothTeleportCosineThresholdInRad ) // has the root bone rotated too much
+		if ( CosineTheta < ClothTeleportCosineThresholdInRad ) // has the root bone rotated too much
 		{
-			ClothSimulationContext.ClothTeleportMode = bResetAfterTeleport ? FClothingActor::TeleportAndReset : FClothingActor::Teleport;
+			ClothTeleportMode = bResetAfterTeleport ? FClothingActor::TeleportAndReset : FClothingActor::Teleport;
 		}
 	}
 
-	ClothSimulationContext.PrevRootBoneMatrix = CurRootBoneMat;
+	PrevRootBoneMatrix = CurRootBoneMat;
 }
 
 void USkeletalMeshComponent::ChangeClothMorphTargetMapping(FClothMorphTargetData& MorphData, FName CurrentActivatedMorphName)
 {
-	check(!IsExecutingParallelCloth());
 	int32 AssetIndex = MorphData.ClothAssetIndex;
 
 	if(SkeletalMesh && SkeletalMesh->ClothingAssets.IsValidIndex(AssetIndex))
@@ -3306,15 +3301,13 @@ void USkeletalMeshComponent::ChangeClothMorphTargetMapping(FClothMorphTargetData
 
 void USkeletalMeshComponent::PrepareClothMorphTargets()
 {	
-	check(!IsExecutingParallelCloth());
 	// if didn't turn on the cloth morph target option or already precomputed
 	if (!bClothMorphTarget || bPreparedClothMorphTargets)
 	{ 
 		return;
 	}
 
-	check(!IsExecutingParallelCloth());
-
+	
 	ClothMorphTargets.Empty();
 
 	for (UMorphTarget* MorphTarget : SkeletalMesh->MorphTargets)
@@ -3437,14 +3430,10 @@ void USkeletalMeshComponent::PrepareClothMorphTargets()
 
 void USkeletalMeshComponent::UpdateClothMorphTarget()
 {
-	check(!IsExecutingParallelCloth());
-
 	if (!bClothMorphTarget)
 	{
 		return;
 	}
-
-	check(!IsExecutingParallelCloth());
 
 	for (int32 MorphIdx = 0; MorphIdx < ActiveVertexAnims.Num(); MorphIdx++)
 	{
@@ -3515,16 +3504,52 @@ void USkeletalMeshComponent::UpdateClothMorphTarget()
 		}
 	}
 }
-void USkeletalMeshComponent::UpdateClothState(float DeltaTime)
+
+class FParallelClothTask
+{
+	const USkeletalMeshComponent& SkeletalMeshComponent;
+	const FClothingActor& ClothingActor;
+	float DeltaTime;
+
+public:
+	FParallelClothTask(const USkeletalMeshComponent& InSkeletalMeshComponent, const FClothingActor& InClothingActor, float InDeltaTime)
+		: SkeletalMeshComponent(InSkeletalMeshComponent)
+		, ClothingActor(InClothingActor)
+		, DeltaTime(InDeltaTime)
+	{
+	}
+
+	FORCEINLINE TStatId GetStatId() const
+	{
+		RETURN_QUICK_DECLARE_CYCLE_STAT(FParallelClothTask, STATGROUP_TaskGraphTasks);
+	}
+	static ENamedThreads::Type GetDesiredThread()
+	{
+		return ENamedThreads::AnyThread;
+	}
+	static ESubsequentsMode::Type GetSubsequentsMode()
+	{
+		return ESubsequentsMode::TrackSubsequents;
+	}
+
+	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
+	{
+		FScopeCycleCounterUObject ContextScope(&SkeletalMeshComponent);
+		SCOPE_CYCLE_COUNTER(STAT_ClothTotalTime);
+
+		USkeletalMeshComponent::ParallelEvaluateCloth(DeltaTime, ClothingActor, SkeletalMeshComponent.InternalClothSimulationContext);
+	}
+};
+
+void USkeletalMeshComponent::UpdateClothStateAndSimulate(float DeltaTime, FTickFunction& ThisTickFunction)
 {
 	if (CVarEnableClothPhysics.GetValueOnGameThread() == 0)
 	{
 		return;
 	}
 
-	check(!IsExecutingParallelCloth());
 	check(IsInGameThread());
-	
+
 	// if turned on bClothMorphTarget option
 	if (bClothMorphTarget)
 	{
@@ -3545,75 +3570,84 @@ void USkeletalMeshComponent::UpdateClothState(float DeltaTime)
 	}
 #endif // WITH_CLOTH_COLLISION_DETECTION
 
-	ParallelUpdateClothState(DeltaTime, InternalClothSimulationContext);
+	UpdateClothSimulationContext();
+
+	for(const FClothingActor& ClothingActor : InternalClothSimulationContext.ClothingActors)
+	{
+		// for each clothing actor run parallel evaluation and simulation
+		if(ClothingActor.bSimulateForCurrentLOD)
+		{
+			FGraphEventRef TickCompletionEvent = TGraphTask<FParallelClothTask>::CreateTask(nullptr, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(*this, ClothingActor, DeltaTime);
+			ThisTickFunction.GetCompletionHandle()->DontCompleteUntil(TickCompletionEvent);
+		}
+	}
 }
 
-void USkeletalMeshComponent::ParallelUpdateClothState(float DeltaTime, FClothSimulationContext& ClothSimulationContext) const
-{
-	if (CVarEnableClothPhysics.GetValueOnAnyThread() == 0)
-	{
-		return;
-	}
+//This is the total cloth time split up among multiple computation (updating gpu, updating sim, etc...)
+DECLARE_CYCLE_STAT(TEXT("Cloth Sim"), STAT_ClothSimTime, STATGROUP_Physics);
 
-	const TArray<FTransform>& BoneTransforms = ClothSimulationContext.InMasterPoseComponent ? ClothSimulationContext.InMasterPoseComponent->GetSpaceBases() : GetSpaceBases();
+void USkeletalMeshComponent::ParallelEvaluateCloth(float DeltaTime, const FClothingActor& ClothingActor, const FClothSimulationContext& ClothSimulationContext)
+{
+	/** Please read:
+	  * This function is executed in parallel in that each cloth actor runs it at the same time. Data like the APEX actor can be written to since we protect it by deferring deletion etc... in game thread code.
+	  * This function is static on purpose so that you don't accidentally access data from USkeletalMeshComponent which would be unsafe!
+	  * This code expects that submission of context and its execution is done in the same frame to avoid GC issues of cloth assets and actors.
+	  */
+
+	const TArray<FTransform>& BoneTransforms = ClothSimulationContext.BoneTransforms;
 
 	if (BoneTransforms.Num() == 0)
 	{
 		return;
 	}
 
-	physx::PxMat44 PxGlobalPose = U2PMatrix(ComponentToWorld.ToMatrixWithScale());
-
-	CheckClothTeleport(DeltaTime, ClothSimulationContext);
+	physx::PxMat44 PxGlobalPose = U2PMatrix(ClothSimulationContext.ComponentToWorld.ToMatrixWithScale());
 
 	// convert teleport mode to apex clothing teleport enum
 	physx::apex::ClothingTeleportMode::Enum CurTeleportMode = (physx::apex::ClothingTeleportMode::Enum)ClothSimulationContext.ClothTeleportMode;
 
+	const FClothingAssetData& ClothingAsset = ClothSimulationContext.ClothingAssets[ClothingActor.ParentClothingAssetIndex];
+
+	const NxClothingAsset* ApexClothingAsset = ClothingActor.ParentClothingAsset;
+	NxClothingActor* ApexClothingActor = ClothingActor.ApexClothingActor;
+
+	if(!ApexClothingActor || !ApexClothingAsset)
+	{
+		UE_LOG(LogSkeletalMesh, Warning, TEXT("ParallelUpdateClothState: Trying to simulate cloth on null data."));
+		return;
+	}
+
+	ApplyWindForCloth_Concurrent(*ApexClothingActor, ClothSimulationContext.WindDirection, ClothSimulationContext.WindAdaption);
+
+	uint32 NumUsedBones = ApexClothingAsset->getNumUsedBones();
+
 	TArray<physx::PxMat44> BoneMatrices;
+	BoneMatrices.AddUninitialized(NumUsedBones);
 
-	for (const FClothingActor& ClothingActor : ClothingActors)
-		{
-		const FClothingAssetData& ClothingAsset = SkeletalMesh->ClothingAssets[ClothingActor.ParentClothingAssetIndex];
-
-		ApplyWindForCloth(ClothingActor);
-
-		const NxClothingAsset* ApexClothingAsset = ClothingActor.ParentClothingAsset;
-
-		uint32 NumUsedBones = ApexClothingAsset->getNumUsedBones();
-
-		check(!BoneMatrices.Num());
-		BoneMatrices.AddUninitialized(NumUsedBones);
-
-		for (uint32 Index = 0; Index < NumUsedBones; Index++)
-		{
-			int32 BoneIndex = ClothingAsset.ApexToUnrealBoneMapping[Index];
+	for (uint32 Index = 0; Index < NumUsedBones; Index++)
+	{
+		int32 BoneIndex = ClothingAsset.ApexToUnrealBoneMapping[Index];
 			
-			if (ClothSimulationContext.InMasterPoseComponent)
+		if (ClothSimulationContext.bUseMasterPose)
+		{
+			int32 TempBoneIndex = BoneIndex;
+			BoneIndex = INDEX_NONE;
+			if (TempBoneIndex < ClothSimulationContext.InMasterBoneMap.Num())
 			{
-				int32 TempBoneIndex = BoneIndex;
-				BoneIndex = INDEX_NONE;
-				if (TempBoneIndex < MasterBoneMap.Num())
-				{
-					int32 MasterBoneIndex = ClothSimulationContext.InMasterBoneMap[TempBoneIndex];
+				int32 MasterBoneIndex = ClothSimulationContext.InMasterBoneMap[TempBoneIndex];
 
-					// If ParentBoneIndex is valid, grab matrix from MasterPoseComponent.
-					if (MasterBoneIndex != INDEX_NONE &&
-						MasterBoneIndex < ClothSimulationContext.InMasterPoseComponent->GetNumSpaceBases())
-					{
-						BoneIndex = MasterBoneIndex;
-					}
+				// If ParentBoneIndex is valid, grab matrix from MasterPoseComponent.
+				if (MasterBoneIndex != INDEX_NONE &&
+					MasterBoneIndex < ClothSimulationContext.BoneTransforms.Num())
+				{
+					BoneIndex = MasterBoneIndex;
 				}
 			}
+		}
 
-			if (BoneIndex != INDEX_NONE)
-			{
-				BoneMatrices[Index] = U2PMatrix(BoneTransforms[BoneIndex].ToMatrixWithScale());
-			}
-			else
-			{
-				BoneMatrices[Index] = PxMat44::createIdentity();
-			}
-
+		if (BoneIndex != INDEX_NONE)
+		{
+			BoneMatrices[Index] = U2PMatrix(BoneTransforms[BoneIndex].ToMatrixWithScale());
 			if (BoneTransforms[BoneIndex].GetScale3D().IsNearlyZero())
 			{
 				BoneMatrices[Index].column0 = PxMat44::createIdentity().column0;
@@ -3621,25 +3655,25 @@ void USkeletalMeshComponent::ParallelUpdateClothState(float DeltaTime, FClothSim
 				BoneMatrices[Index].column2 = PxMat44::createIdentity().column2;
 			}
 		}
-
-		NxClothingActor* ApexClothingActor = ClothingActor.ApexClothingActor;
-
-		check(ApexClothingActor);
-
-		// if bUseInternalboneOrder is set, "NumUsedBones" works, otherwise have to use "getNumBones" 
-		ApexClothingActor->updateState(
-			PxGlobalPose,
-			BoneMatrices.GetData(),
-			sizeof(physx::PxMat44),
-			NumUsedBones,
-			CurTeleportMode);
-
-		BoneMatrices.Reset();
+		else
+		{
+			BoneMatrices[Index] = PxMat44::createIdentity();
+		}
 	}
+		
+	// if bUseInternalboneOrder is set, "NumUsedBones" works, otherwise have to use "getNumBones" 
+	ApexClothingActor->updateState(
+		PxGlobalPose,
+		BoneMatrices.GetData(),
+		sizeof(physx::PxMat44),
+		NumUsedBones,
+		CurTeleportMode);
 
-	//move to post cloth tick
-	// reset to Continuous
-	ClothSimulationContext.ClothTeleportMode = FClothingActor::Continuous;
+	{
+		SCOPE_CYCLE_COUNTER(STAT_ClothSimTime)
+		ApexClothingActor->simulate(DeltaTime);
+		ApexClothingActor->getSimulationPositions();	//This is a hack that we use to internally call waitForFetchResults.
+	}
 }
 
 void USkeletalMeshComponent::GetClothRootBoneMatrix(int32 AssetIndex, FMatrix& OutRootBoneMatrix) const
@@ -3711,42 +3745,7 @@ bool USkeletalMeshComponent::GetClothSimulatedPosition(int32 AssetIndex, int32 V
 
 #endif// #if WITH_APEX_CLOTHING
 
-class FTickClothingTask
-{
-	TWeakObjectPtr<USkeletalMeshComponent> SkeletalMeshComponent;
-	float DeltaTime;
-
-public:
-	FTickClothingTask(TWeakObjectPtr<USkeletalMeshComponent> InSkeletalMeshComponent, float InDeltaTime)
-		: SkeletalMeshComponent(InSkeletalMeshComponent)
-		, DeltaTime(InDeltaTime)
-	{
-	}
-
-	FORCEINLINE TStatId GetStatId() const
-	{
-		RETURN_QUICK_DECLARE_CYCLE_STAT(FTickClothingTask, STATGROUP_TaskGraphTasks);
-	}
-	static ENamedThreads::Type GetDesiredThread()
-	{
-		return ENamedThreads::GameThread;
-	}
-	static ESubsequentsMode::Type GetSubsequentsMode()
-	{
-		return ESubsequentsMode::TrackSubsequents;
-	}
-
-	void DoTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
-	{
-		//SCOPE_CYCLE_COUNTER(STAT_AnimGameThreadTime);
-		if (USkeletalMeshComponent* Comp = SkeletalMeshComponent.Get())
-		{
-			Comp->PerformTickClothing(DeltaTime);
-		}
-	}
-};
-
-void USkeletalMeshComponent::PerformTickClothing(float DeltaTime)
+void USkeletalMeshComponent::TickClothing(float DeltaTime, FTickFunction& ThisTickFunction)
 {
 	if (CVarEnableClothPhysics.GetValueOnGameThread() == 0)
 	{
@@ -3755,48 +3754,18 @@ void USkeletalMeshComponent::PerformTickClothing(float DeltaTime)
 
 #if WITH_APEX_CLOTHING
 	// animated but bone transforms were not updated because it was not rendered
-	if(PoseTickedThisFrame() && !bRecentlyRendered)
+	if (PoseTickedThisFrame() && !bRecentlyRendered)
 	{
 		ForceClothNextUpdateTeleportAndReset();
 	}
 	else
 	{
-		UpdateClothState(DeltaTime);
+		UpdateClothStateAndSimulate(DeltaTime, ThisTickFunction);
 	}
 #if 0 //if turn on this flag, you can check which primitive objects are activated for collision detection
 	DrawDebugClothCollisions();
 #endif 
 #endif// #if WITH_APEX_CLOTHING
-}
-
-void USkeletalMeshComponent::ParallelTickClothing(float DeltaTime, FClothSimulationContext& ClothSimulationContext) const
-{
-#if WITH_APEX_CLOTHING
-	// animated but bone transforms were not updated because it was not rendered
-	if (PoseTickedThisFrame() && !bRecentlyRendered)
-	{
-		ClothSimulationContext.ClothTeleportMode = FClothingActor::TeleportAndReset;
-	}
-	else
-	{
-		ParallelUpdateClothState(DeltaTime, ClothSimulationContext);
-	}
-#endif 
-}
-
-void USkeletalMeshComponent::TickClothing(float DeltaTime, FTickFunction& ThisTickFunction)
-{
-
-	if(IsValidRef(ParallelBlendPhysicsCompletionTask))
-	{
-		FGraphEventArray Prerequistes;
-		Prerequistes.Add(ParallelBlendPhysicsCompletionTask);
-		FGraphEventRef TickClothingCompletionEvent = TGraphTask<FTickClothingTask>::CreateTask(&Prerequistes).ConstructAndDispatchWhenReady(this, DeltaTime);
-		ThisTickFunction.GetCompletionHandle()->DontCompleteUntil(TickClothingCompletionEvent);
-	}else
-	{
-		PerformTickClothing(DeltaTime);
-	}
 }
 
 void USkeletalMeshComponent::GetUpdateClothSimulationData(TArray<FClothSimulData>& OutClothSimData, USkeletalMeshComponent* OverrideLocalRootComponent)
@@ -3808,7 +3777,7 @@ void USkeletalMeshComponent::GetUpdateClothSimulationData(TArray<FClothSimulData
 		return;
 	}
 
-	QUICK_SCOPE_CYCLE_COUNTER(STAT_GetUpdateClothSimulationData);
+	SCOPE_CYCLE_COUNTER(STAT_ClothTotalTime);
 
 	int32 NumClothingActors = ClothingActors.Num();
 
@@ -3892,7 +3861,6 @@ void USkeletalMeshComponent::FreezeClothSection(bool bFreeze)
 {
 #if WITH_APEX_CLOTHING
 
-	check(!IsExecutingParallelCloth());
 	int32 NumActors = ClothingActors.Num();
 
 	for(FClothingActor& ClothingActor : ClothingActors)
@@ -4225,6 +4193,37 @@ void USkeletalMeshComponent::DrawClothingTangents(FPrimitiveDrawInterface* PDI)
 #endif // #if WITH_APEX_CLOTHING
 }
 
+
+void DrawWireTaperedCapsuleSleeve(const FSphere& S0, const FSphere& S1, TFunction<void(const FVector&, const FVector&)> DrawLine, bool TrueHull = true)
+{
+	// Draws just the sides of a tapered capsule specified by provided Spheres that can have different radii.  Does not draw the spheres, just the sleeve.
+	// If Using TrueHull (above console var) Extent geometry endpoints not necessarily coplanar with sphere origins (uses hull horizon)
+	// Otherwise uses the great-circle cap assumption.
+	const float AngleIncrement = 30.0f;   // if parameter added for number of sides, then set this to be:  = 360.0f / NumSides; 
+	FVector Separation = S1.Center - S0.Center;
+	float Distance = Separation.Size();
+	if (Separation.IsNearlyZero() || Distance <= FMath::Abs(S0.W - S1.W))
+	{
+		return;
+	}
+	FQuat CapsuleOrientation = FQuat::FindBetween(FVector(0, 0, 1), Separation.GetSafeNormal());
+	float OffsetZ = TrueHull ? -(S1.W - S0.W) / Distance : 0.0f;
+	float ScaleXY = FMath::Sqrt(1.0f - FMath::Square(OffsetZ));
+	FVector VertexPrevious = CapsuleOrientation.RotateVector(FVector(ScaleXY, 0, OffsetZ));
+	for (float Angle = AngleIncrement; Angle <= 360.0f; Angle += AngleIncrement)  // iterate over unit circle about capsule's major axis (which is orientation.AxisZ)
+	{
+		FVector VertexCurrent = CapsuleOrientation.RotateVector(FVector(FMath::Cos(FMath::DegreesToRadians(Angle))*ScaleXY, FMath::Sin(FMath::DegreesToRadians(Angle))*ScaleXY, OffsetZ));
+		DrawLine(S0.Center + VertexCurrent  * S0.W, S1.Center + VertexCurrent * S1.W);  // capsule side segment between spheres
+		DrawLine(S0.Center + VertexPrevious * S0.W, S0.Center + VertexCurrent * S0.W);  // cap-circle segment on sphere S0
+		DrawLine(S1.Center + VertexPrevious * S1.W, S1.Center + VertexCurrent * S1.W);  // cap-circle segment on sphere S1
+		VertexPrevious = VertexCurrent;
+	}
+}
+
+TAutoConsoleVariable<int32> CVarEnableTaperedCapsulesTrueHull(TEXT("p.TaperedCapsulesTrueHull"), 1, TEXT("If 1, debug rendering of tapered capsules will use correct horizon to generate shaft geometry rather than using great-arc assumption where cap is coplanar with sphere origins. "));
+
+
+
 void USkeletalMeshComponent::DrawClothingCollisionVolumes(FPrimitiveDrawInterface* PDI)
 {
 #if WITH_APEX_CLOTHING
@@ -4383,10 +4382,10 @@ void USkeletalMeshComponent::DrawClothingCollisionVolumes(FPrimitiveDrawInterfac
 
 		for(int32 i=0; i<NumConnections; i+=2)
 		{
-			uint16 Index1 = Connections[i];
-			uint16 Index2 = Connections[i+1];
-
-			DrawDebugLine(GetWorld(), SpherePositions[Index1], SpherePositions[Index2], FColor::Magenta, false, -1.0f, SDPG_Foreground);
+			DrawWireTaperedCapsuleSleeve(FSphere(SpherePositions[Connections[i + 0]], Spheres[Connections[i + 0]].Radius),
+			                             FSphere(SpherePositions[Connections[i + 1]], Spheres[Connections[i + 1]].Radius),
+			                             [&](const FVector& V0, const FVector& V1)->void{PDI->DrawLine(V0, V1, Colors[AssetIdx % 3], SDPG_World); },
+			                             (CVarEnableTaperedCapsulesTrueHull.GetValueOnAnyThread()) != 0);
 		}
 	}
 #endif // #if WITH_APEX_CLOTHING
@@ -5042,21 +5041,21 @@ void USkeletalMeshComponent::SetClothMaxDistanceScale(float Scale)
 void USkeletalMeshComponent::ResetClothTeleportMode()
 {
 #if WITH_APEX_CLOTHING
-	EditableClothSimulationContext.ClothTeleportMode = FClothingActor::Continuous;
+	ClothTeleportMode = FClothingActor::Continuous;
 #endif// #if WITH_APEX_CLOTHING
 }
 
 void USkeletalMeshComponent::ForceClothNextUpdateTeleport()
 {
 #if WITH_APEX_CLOTHING
-	EditableClothSimulationContext.ClothTeleportMode = FClothingActor::Teleport;
+	ClothTeleportMode = FClothingActor::Teleport;
 #endif// #if WITH_APEX_CLOTHING
 }
 
 void USkeletalMeshComponent::ForceClothNextUpdateTeleportAndReset()
 {
 #if WITH_APEX_CLOTHING
-	EditableClothSimulationContext.ClothTeleportMode = FClothingActor::TeleportAndReset;
+	ClothTeleportMode = FClothingActor::TeleportAndReset;
 #endif// #if WITH_APEX_CLOTHING
 }
 

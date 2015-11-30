@@ -119,7 +119,7 @@ static bool ShouldShowProperty(const FPropertyAndParent& PropertyAndParent, bool
 	{
 		const UClass* PropertyOwnerClass = Cast<const UClass>(Property.GetOuter());
 		const bool bDisableEditOnTemplate = PropertyOwnerClass 
-			&& PropertyOwnerClass->HasAllFlags(RF_Native) 
+			&& PropertyOwnerClass->IsNative()
 			&& Property.HasAnyPropertyFlags(CPF_DisableEditOnTemplate);
 		if(bDisableEditOnTemplate)
 		{
@@ -241,6 +241,8 @@ TSharedRef<IDetailsView> FPropertyEditorModule::CreateDetailView( const FDetails
 		.DetailsViewArgs( DetailsViewArgs );
 
 	AllDetailViews.Add( DetailView );
+
+	PropertyEditorOpened.Broadcast();
 	return DetailView;
 }
 

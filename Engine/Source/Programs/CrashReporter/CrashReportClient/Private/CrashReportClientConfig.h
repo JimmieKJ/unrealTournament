@@ -68,6 +68,11 @@ struct FCrashReportClientConfig
 		return bSendLogFile;
 	}
 
+	const bool& GetHideLogFilesOption() const
+	{
+		return bHideLogFilesOption;
+	}
+
 	void SetAllowToBeContacted( bool bNewValue );
 	void SetSendLogFile( bool bNewValue );
 
@@ -104,4 +109,7 @@ protected:
 
 	/** Whether the user allowed us to send the log file. */
 	bool bSendLogFile;
+
+	/** Whether the user is shown the option to enable/disable sending the log file. */
+	bool bHideLogFilesOption;
 };

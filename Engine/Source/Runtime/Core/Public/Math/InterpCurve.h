@@ -495,6 +495,8 @@ float FInterpCurve<T>::InaccurateFindNearestOnSegment(const T& PointInSpace, int
 	const int32 NextPtIdx = (bIsLooped && PtIdx == LastPoint) ? 0 : (PtIdx + 1);
 	check(PtIdx >= 0 && ((bIsLooped && PtIdx < NumPoints) || (!bIsLooped && PtIdx < LastPoint)));
 
+	const float NextInVal = (bIsLooped && PtIdx == LastPoint) ? (Points[LastPoint].InVal + LoopKeyOffset) : Points[NextPtIdx].InVal;
+
 	if (CIM_Constant == Points[PtIdx].InterpMode)
 	{
 		const float Distance1 = (Points[PtIdx].OutVal - PointInSpace).SizeSquared();
@@ -505,10 +507,10 @@ float FInterpCurve<T>::InaccurateFindNearestOnSegment(const T& PointInSpace, int
 			return Points[PtIdx].InVal;
 		}
 		OutSquaredDistance = Distance2;
-		return Points[NextPtIdx].InVal;
+		return NextInVal;
 	}
 
-	const float Diff = Points[NextPtIdx].InVal - Points[PtIdx].InVal;
+	const float Diff = NextInVal - Points[PtIdx].InVal;
 	if (CIM_Linear == Points[PtIdx].InterpMode)
 	{
 		// like in function: FMath::ClosestPointOnLine

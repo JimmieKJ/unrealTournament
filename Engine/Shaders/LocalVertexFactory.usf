@@ -8,9 +8,8 @@
 #include "LocalVertexFactoryCommon.usf"
 
 float4x4 PreviousLocalToWorld;
-float4 LightMapCoordinateScaleBias;
-float4 ShadowMapCoordinateScaleBias;
 
+#include "UniformBuffers/PrecomputedLightingBuffer.usf"
 
 #if USE_INSTANCING
 	#ifndef USE_DITHERED_LOD_TRANSITION_FOR_INSTANCED
@@ -580,15 +579,15 @@ FVertexFactoryInterpolantsVSToPS VertexFactoryGetInterpolantsVSToPS(FVertexFacto
 	float2 ShadowMapCoordinate = 0;
 
 	#if USE_INSTANCING
-		LightMapCoordinate = Input.LightMapCoordinate * LightMapCoordinateScaleBias.xy + GetInstanceLightMapBias(Input);
+		LightMapCoordinate = Input.LightMapCoordinate * PrecomputedLightingBuffer.LightMapCoordinateScaleBias.xy + GetInstanceLightMapBias(Input);
 	#else
-		LightMapCoordinate = Input.LightMapCoordinate * LightMapCoordinateScaleBias.xy + LightMapCoordinateScaleBias.zw;
+		LightMapCoordinate = Input.LightMapCoordinate * PrecomputedLightingBuffer.LightMapCoordinateScaleBias.xy + PrecomputedLightingBuffer.LightMapCoordinateScaleBias.zw;
 	#endif
 	#if STATICLIGHTING_TEXTUREMASK
 		#if USE_INSTANCING
-			ShadowMapCoordinate = Input.LightMapCoordinate * ShadowMapCoordinateScaleBias.xy + GetInstanceShadowMapBias(Input);
+			ShadowMapCoordinate = Input.LightMapCoordinate * PrecomputedLightingBuffer.ShadowMapCoordinateScaleBias.xy + GetInstanceShadowMapBias(Input);
 		#else
-			ShadowMapCoordinate = Input.LightMapCoordinate * ShadowMapCoordinateScaleBias.xy + ShadowMapCoordinateScaleBias.zw;
+			ShadowMapCoordinate = Input.LightMapCoordinate * PrecomputedLightingBuffer.ShadowMapCoordinateScaleBias.xy + PrecomputedLightingBuffer.ShadowMapCoordinateScaleBias.zw;
 		#endif
 	#endif	// STATICLIGHTING_TEXTUREMASK
 

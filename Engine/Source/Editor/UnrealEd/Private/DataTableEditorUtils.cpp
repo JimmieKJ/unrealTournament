@@ -175,7 +175,7 @@ void FDataTableEditorUtils::BroadcastPostChange(UDataTable* DataTable, EDataTabl
 {
 	if (DataTable && (EDataTableChangeInfo::RowList == Info))
 	{
-		for (TObjectIterator<UK2Node_GetDataTableRow> It(RF_Transient | RF_PendingKill | RF_ClassDefaultObject); It; ++It)
+		for (TObjectIterator<UK2Node_GetDataTableRow> It(RF_Transient | RF_ClassDefaultObject, /** bIncludeDerivedClasses */ true, /** InternalExcludeFlags */ EInternalObjectFlags::PendingKill); It; ++It)
 		{
 			It->OnDataTableRowListChanged(DataTable);
 		}

@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "GCObject.h"
+
 /** 
  * This set of functions contains blueprint related UObject functionality.
  */
@@ -64,108 +66,90 @@ private:
 	FScopedClassDependencyGather();
 };
 
-/**
- * Stores info about BPCG, UDS, UDE, etc.. converted into native code.
- *
- * Native entities (generated from BP items) have "ReplaceConverted" with original object path.
- * This path is used to fix linker while loading.
- * 
- * This struct is used only when the code converted from BP is compiled in an editor build. 
- * It's usually only for a test/development purpose.
- */
-struct COREUOBJECT_API FReplaceConvertedAssetManager : public FGCObject
+enum class EReplacementResult
 {
-private:
-	TMap<FString, UObject*> ReplaceMap;
-	bool bIsEnabled;
+	/** Don't replace the provided package at all */
+	DontReplace,
 
-	FReplaceConvertedAssetManager();
+	/** Generate a stub file, but don't replace the package */
+	GenerateStub,
 
-	void GatherOriginalPathsOfConvertedAssets();
-
-public:
-
-	static FReplaceConvertedAssetManager& Get();
-
-	void SetEnabled(bool InEnabled)
-	{
-		bIsEnabled = InEnabled;
-		if (bIsEnabled)
-		{
-			GatherOriginalPathsOfConvertedAssets();
-		}
-	}
-
-	bool IsEnabled()
-	{
-		return bIsEnabled;
-	}
-
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
-
-	UPackage* FindPackageReplacement(const FString& OriginalPathName) const;
-
-	UObject* FindReplacement(const FString& OriginalPathName) const;
-
-	static void OnModulesChanged(FName ModuleThatChanged, EModuleChangeReason ReasonForChange);
+	/** Completely replace the file with generated code */
+	ReplaceCompletely
 };
 
 /**
- * The struct is used while saving cooked package to find replacements of converted BP assets.
+ * The struct is used while saving cooked package to find replacements for 
+ * converted Blueprint assets.
  */
-struct COREUOBJECT_API FReplaceCookedBPGC : public FGCObject
+struct COREUOBJECT_API FScriptCookReplacementCoordinator
 {
-private:
-	UPackage* NativeScriptPackage;
-	TMap<FString, UObject*> ReplaceMap;
-	TSet<FName> ConvertedPackagesNames;
-	bool bEnabled;
-
-	FReplaceCookedBPGC();
-
-	void AdditionalStubFieldInitialization(UField* Stub);
+	static FScriptCookReplacementCoordinator* Get();
+	static void Create(bool bEnabled, const TArray<FString>& ExcludedAssetTypes, const TArray<FString>& ExcludedBlueprintTypes, const TMap<UObject*, UClass*>& ReplacementMap);
 
 public:
-	static FReplaceCookedBPGC& Get();
-	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	/**
+	 * Enables this for handling (script) asset replacements (works only when  
+	 * running a commandlet - presumably the cooker).
+	 * 
+	 * @return True if this was successfully enabled, otherwise false.
+	 */
+	bool Initialize();
 
-	// INITIALIZATION
-	void Initialize(const FString& NativePackageName);
-	void AddConvertedPackageName(FName PackageName);
-	template<typename FieldType>
-	void AddConvertedFieldStub(const FString& OriginalPathName, const FName Name)
-	{
-		UObject*& NativeObj = ReplaceMap.FindOrAdd(OriginalPathName);
-		if (!NativeObj)
-		{
-			check(NativeScriptPackage);
-			FieldType* NewField = NewObject<FieldType>(NativeScriptPackage, Name);
-			AdditionalStubFieldInitialization(NewField);
-			NewField->Bind();
-			NativeObj = NewField;
-		}
-	}
-	void AddConvertedFieldStub(UObject* Object);
-
-	// USAGE
+	/** 
+	 * Checks to see if we're running with this on, aiming to swap out assets 
+	 * with native counterparts.
+	 */
 	bool IsEnabled() const
 	{
 		return bEnabled;
 	}
-	UObject* FindReplacementStub(UObject* Object);
 
-	// The object is of a convertible type, and the object is not listed in excluded assets.
-	bool CouldBeConverted(const UObject* Object) const;
-	bool PackageShouldNotBeSaved(const UPackage* InOuter) const;
+	/**
+	 * Determines whether the provided package needs to be replaced (in part or completely)
+	 * 
+	 * @param Package	The package in question
+	 * @return Whether the package should be converted
+	 */
+	EReplacementResult IsTargetedForReplacement(const UPackage* Package) const;
+	
+	/**
+	* Determines whether the provided object needs to be replaced (in part or completely).
+	* Some objects in a package may require conversion and some may not. If any object 
+	* in a package wants to be converted then it is implied that all other objects will 
+	* be converted with it (no support for partial package conversion, beyond stubs)
+	*
+	* @param Object	The package in question
+	* @return Whether the object should be converted
+	*/
+	EReplacementResult IsTargetedForReplacement(const UObject* Object) const;
 
-	DECLARE_DELEGATE_RetVal_OneParam(bool, FIsTargetedForConversionQuery, const UObject*);
-	FIsTargetedForConversionQuery& OnQueryIfAssetIsTargetedForConversion() { return IsTargetedForConversionDelegate; }
+	// Get class of converted asset. One that was specified in AddConvertedObject
+	UClass* FindReplacedClass(const UObject* Obj) const;
 
 private: 
-	FIsTargetedForConversionQuery IsTargetedForConversionDelegate;
+	/** Private so we can keep this as a singleton */
+	FScriptCookReplacementCoordinator(bool bEnabled, const TArray<FString>& ExcludedAssetTypes, const TArray<FString>& ExcludedBlueprintTypes, const TMap<UObject*, UClass*>& ReplacementMap);
+
+	/** 
+	 * Used to tell if replacements should be used (substituting native objects 
+	 * for assets). 
+	 */
+	bool bEnabled;
+
+	const TArray<FString> ExcludedAssetTypes;
+	const TArray<FString> ExcludedBlueprintTypes;
+
+	/** Tracks which assets has a replaced class */
+	TMap<UObject*, UClass*> ReplacementMap;
+
+	TSet<FString> ReplacedPackages;
+
+	/** singleton instance: */
+	static FScriptCookReplacementCoordinator* CoordinatorInstance;
 };
 
-#endif //WITH_EDITOR
+#endif // WITH_EDITOR
 
 /** 
  * A helper struct for storing FObjectInitializers that were not run on 
@@ -217,41 +201,30 @@ private:
 };
 
 
+struct COREUOBJECT_API FBlueprintDependencyData
+{
+	FName PackageName;
+	FName ObjectName;
+	FName ClassPackageName;
+	FName ClassName;
+};
+
 /**
  *	Stores info about dependencies of native classes converted from BPs
  */
 struct COREUOBJECT_API FConvertedBlueprintsDependencies
 {
-	typedef void(*GetDependenciesNamesFunc)(TArray<FName>&);
+	typedef void(*GetDependenciesNamesFunc)(TArray<FBlueprintDependencyData>&);
 
 private:
 
-	TMap<FName, GetDependenciesNamesFunc> ClassNameToGetter;
+	TMap<FName, GetDependenciesNamesFunc> PackageNameToGetter;
 
 public:
-
-#if WITH_EDITOR
-
-	typedef UField*(*StaticCreateClassFunc)();
-
-	TArray<StaticCreateClassFunc> CreateClassFunctions;
-
-	void RegisterClass(StaticCreateClassFunc CreateClass)
-	{
-		CreateClassFunctions.Add(CreateClass);
-	}
-
-#endif //WITH_EDITOR
-
 	static FConvertedBlueprintsDependencies& Get();
 
-	bool AnyClassRegistered() const
-	{
-		return ClassNameToGetter.Num() > 0;
-	}
-
-	void RegisterClass(FName ClassName, GetDependenciesNamesFunc GetAssets);
+	void RegisterClass(FName PackageName, GetDependenciesNamesFunc GetAssets);
 
 	/** Get all assets paths necessary for the class with the given class name and all converted classes that dependencies. */
-	void GetAssets(FName ClassName, TArray<FName>& OutPackagePaths) const;
+	void GetAssets(FName PackageName, TArray<FBlueprintDependencyData>& OutDependencies) const;
 };

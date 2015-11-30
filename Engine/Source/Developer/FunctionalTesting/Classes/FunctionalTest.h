@@ -92,16 +92,26 @@ struct FUNCTIONALTESTING_API FPerfStatsRecord
 	FStatsData Record;
 	/** Stats data for the baseline. */
 	FStatsData Baseline;
+	
+	float GPUBudget;
+	float RenderThreadBudget;
+	float GameThreadBudget;
 
+	void SetBudgets(float InGPUBudget, float InRenderThreadBudget, float InGameThreadBudget);
 	void Sample(UWorld* Owner, float DeltaSeconds, bool bBaseline);
 
 	FString GetReportString()const;
 	FString GetBaselineString()const;
 	FString GetRecordString()const;
+	FString GetOverBudgetString()const;
 
 	void GetGPUTimes(double& OutMin, double& OutMax, double& OutAvg)const;
 	void GetGameThreadTimes(double& OutMin, double& OutMax, double& OutAvg)const;
 	void GetRenderThreadTimes(double& OutMin, double& OutMax, double& OutAvg)const;
+
+	bool IsWithinGPUBudget()const;
+	bool IsWithinGameThreadBudget()const;
+	bool IsWithinRenderThreadBudget()const;
 };
 
 
@@ -141,7 +151,7 @@ public:
 	void EndRecordingBaseline();
 	/** Begins recording a new named performance stats record. We start by recording the baseline. */
 	UFUNCTION(BlueprintCallable, Category = Perf)
-	void BeginRecording(FString RecordName);
+	void BeginRecording(FString RecordName,	float InGPUBudget, float InRenderThreadBudget, float InGameThreadBudget);
 	/** Stops recording performance stats. */
 	UFUNCTION(BlueprintCallable, Category = Perf)
 	void EndRecording();
@@ -160,13 +170,14 @@ public:
 	void OnAllTestsComplete();
 
 	const FPerfStatsRecord* GetCurrentRecord()const;
+	FPerfStatsRecord* GetCurrentRecord();
 
 	UFUNCTION(BlueprintCallable, Category = Perf)
-	bool IsCurrentRecordWithinGPUBudget(float InMaxTimeBudget, float InAvgTimeBudget = -1.0f)const;
+	bool IsCurrentRecordWithinGPUBudget()const;
 	UFUNCTION(BlueprintCallable, Category = Perf)
-	bool IsCurrentRecordWithinGameThreadBudget(float InMaxTimeBudget, float InAvgTimeBudget = -1.0f)const;
+	bool IsCurrentRecordWithinGameThreadBudget()const;
 	UFUNCTION(BlueprintCallable, Category = Perf)
-	bool IsCurrentRecordWithinRenderThreadBudget(float InMaxTimeBudget, float InAvgTimeBudget = -1.0f)const;
+	bool IsCurrentRecordWithinRenderThreadBudget()const;
 	//End basic stats recording.
 
 	// Automatic traces capturing 

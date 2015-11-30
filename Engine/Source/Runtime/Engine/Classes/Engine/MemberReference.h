@@ -392,7 +392,7 @@ public:
 				FString const StringName = MemberName.ToString();
 				for (TObjectIterator<UPackage> PackageIt; PackageIt && (ReturnField == nullptr); ++PackageIt)
 				{
-					if ((PackageIt->PackageFlags & PKG_CompiledIn) == 0x00)
+					if (PackageIt->HasAnyPackageFlags(PKG_CompiledIn) == false)
 					{
 						continue;
 					}

@@ -94,7 +94,7 @@ public:
 						const bool bNotHandledYet = !ReferenceReplacementMap.Contains(Obj);
 						if (bKeptByOld && bNotHandledYet)
 						{
-							UObject* NewEditInlineSubobject = StaticDuplicateObject(Obj, NewObject, NULL);
+							UObject* NewEditInlineSubobject = StaticDuplicateObject(Obj, NewObject);
 							ReferenceReplacementMap.Add(Obj, NewEditInlineSubobject);
 
 							TArray<UObject*> OutDefaultOuters;

@@ -943,6 +943,10 @@ public:
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> ShaderComplexityColors;
 
+	/** The colors used to render quad complexity. */
+	UPROPERTY(globalconfig)
+	TArray<FLinearColor> QuadComplexityColors;
+
 	/** The colors used to render stationary light overlap. */
 	UPROPERTY(globalconfig)
 	TArray<FLinearColor> StationaryLightOverlapColors;
@@ -1685,6 +1689,7 @@ public:
 	bool HandleFlushIOManagerCommand( const TCHAR* Cmd, FOutputDevice& Ar );						// Smedis
 	bool HandleToggleRenderingThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleToggleRHIThreadCommand( const TCHAR* Cmd, FOutputDevice& Ar );
+	bool HandleToggleAsyncComputeCommand(const TCHAR* Cmd, FOutputDevice& Ar);
 	bool HandleRecompileShadersCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleRecompileGlobalShadersCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleDumpShaderStatsCommand( const TCHAR* Cmd, FOutputDevice& Ar );
@@ -2241,12 +2246,16 @@ public:
 		bool bCopyDeprecatedProperties;
 		bool bPreserveRootComponent;
 
+		/** Skips copying properties with BlueprintCompilerGeneratedDefaults metadata */
+		bool bSkipCompilerGeneratedDefaults;
+
 		FCopyPropertiesForUnrelatedObjectsParams()
 			: bAggressiveDefaultSubobjectReplacement(false)
 			, bDoDelta(true)
 			, bReplaceObjectClassReferences(true)
 			, bCopyDeprecatedProperties(false)
 			, bPreserveRootComponent(true)
+			, bSkipCompilerGeneratedDefaults(false)
 		{}
 	};
 	static void CopyPropertiesForUnrelatedObjects(UObject* OldObject, UObject* NewObject, FCopyPropertiesForUnrelatedObjectsParams Params = FCopyPropertiesForUnrelatedObjectsParams());//bool bAggressiveDefaultSubobjectReplacement = false, bool bDoDelta = true);

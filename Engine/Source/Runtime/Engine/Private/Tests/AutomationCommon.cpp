@@ -12,6 +12,8 @@
 #include "Matinee/MatineeActor.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogEngineAutomationLatentCommand, Log, All);
+DEFINE_LOG_CATEGORY(LogEditorAutomationTests);
+DEFINE_LOG_CATEGORY(LogEngineAutomationTests);
 
 //declare static variable
 FOnEditorAutomationMapLoad AutomationCommon::OnEditorAutomationMapLoad;

@@ -16,6 +16,13 @@ class UMovieSceneSection
 	GENERATED_UCLASS_BODY()
 public:
 
+	/*
+	 * Calls Modify if this section can be modified. ie. can't be modified if it's locked
+	 *
+	 * @return The return value of Modify()
+	 */
+	virtual MOVIESCENE_API bool TryModify( bool bAlwaysMarkDirty=true );
+
 	/**
 	 * @return The start time of the section
 	 */
@@ -47,9 +54,10 @@ public:
 	 */
 	void SetStartTime( float NewStartTime )
 	{ 
-		Modify();
-
-		StartTime = NewStartTime;
+		if (TryModify())
+		{
+			StartTime = NewStartTime;
+		}
 	}
 
 	/**
@@ -59,9 +67,10 @@ public:
 	 */
 	void SetEndTime( float NewEndTime )
 	{ 
-		Modify();
-
-		EndTime = NewEndTime;
+		if (TryModify())
+		{
+			EndTime = NewEndTime;
+		}
 	}
 	
 	/**
@@ -86,10 +95,11 @@ public:
 	{
 		check(NewRange.HasLowerBound() && NewRange.HasUpperBound());
 
-		Modify();
-
-		StartTime = NewRange.GetLowerBoundValue();
-		EndTime = NewRange.GetUpperBoundValue();
+		if (TryModify())
+		{
+			StartTime = NewRange.GetLowerBoundValue();
+			EndTime = NewRange.GetUpperBoundValue();
+		}
 	}
 
 	/**
@@ -111,10 +121,11 @@ public:
 	 */
 	virtual void MoveSection( float DeltaTime, TSet<FKeyHandle>& KeyHandles )
 	{
-		Modify();
-
-		StartTime += DeltaTime;
-		EndTime += DeltaTime;
+		if (TryModify())
+		{
+			StartTime += DeltaTime;
+			EndTime += DeltaTime;
+		}
 	}
 	
 	/**
@@ -126,10 +137,11 @@ public:
 	 */
 	virtual void DilateSection( float DilationFactor, float Origin, TSet<FKeyHandle>& KeyHandles )
 	{
-		Modify();
-
-		StartTime = (StartTime - Origin) * DilationFactor + Origin;
-		EndTime = (EndTime - Origin) * DilationFactor + Origin;
+		if (TryModify())
+		{
+			StartTime = (StartTime - Origin) * DilationFactor + Origin;
+			EndTime = (EndTime - Origin) * DilationFactor + Origin;
+		}
 	}
 	
 	/**
@@ -178,6 +190,18 @@ public:
 	/** Gets the row index for this section */
 	int32 GetRowIndex() const {return RowIndex;}
 	
+	/** Sets this section's priority over overlapping sections (higher wins) */
+	void SetOverlapPriority(int32 NewPriority)
+	{
+		OverlapPriority = NewPriority;
+	}
+
+	/** Gets this section's priority over overlapping sections (higher wins) */
+	int32 GetOverlapPriority() const
+	{
+		return OverlapPriority;
+	}
+
 	/**
 	 * Adds a key to a rich curve, finding an existing key to modify or adding a new one
 	 *
@@ -222,6 +246,10 @@ public:
 	void SetIsActive(bool bInIsActive) { bIsActive = bInIsActive; }
 	bool IsActive() const { return bIsActive; }
 
+	/** Whether or not this section is locked. */
+	void SetIsLocked(bool bInIsLocked) { bIsLocked = bInIsLocked; }
+	bool IsLocked() const { return bIsLocked; }
+
 	/** Whether or not this section is infinite. An infinite section will draw the entire width of the track. StartTime and EndTime will be ignored but not discarded. */
 	void SetIsInfinite(bool bInIsInfinite) { bIsInfinite = bInIsInfinite; }
 	bool IsInfinite() const { return bIsInfinite; }
@@ -240,9 +268,17 @@ private:
 	UPROPERTY()
 	int32 RowIndex;
 
+	/** This section's priority over overlapping sections */
+	UPROPERTY()
+	int32 OverlapPriority;
+
 	/** Toggle whether this section is active/inactive */
 	UPROPERTY(EditAnywhere, Category="Section")
 	uint32 bIsActive : 1;
+
+	/** Toggle whether this section is locked/unlocked */
+	UPROPERTY(EditAnywhere, Category="Section")
+	uint32 bIsLocked : 1;
 
 	/** Toggle to set this section to be infinite */
 	UPROPERTY(EditAnywhere, Category="Section")

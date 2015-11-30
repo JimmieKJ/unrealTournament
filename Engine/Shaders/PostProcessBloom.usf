@@ -16,7 +16,7 @@ float4 ColorScale1;
 void MainPostprocessCommonVS(
 	in float4 InPosition : ATTRIBUTE0,
 	in float2 InTexCoord : ATTRIBUTE1,
-	out float4 OutTexCoord : TEXCOORD0,
+	out noperspective float4 OutTexCoord : TEXCOORD0,
 	out float4 OutPosition : SV_POSITION
 	)
 {
@@ -139,7 +139,7 @@ void VisualizeBloomOverlayPS(
 void MainVS(
 	float4 InPosition : ATTRIBUTE0,
 	float2 InTexCoord : ATTRIBUTE1,
-	out float4 OutTexCoord : TEXCOORD0,
+	out noperspective float4 OutTexCoord : TEXCOORD0,
 	out nointerpolation float OutExposureScale : TEXCOORD1,
 	out float4 OutPosition : SV_POSITION
 	)

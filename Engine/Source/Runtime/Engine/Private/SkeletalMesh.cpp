@@ -1830,7 +1830,10 @@ void FreeSkeletalMeshBuffersSinkCallback()
 		FlushRenderingCommands();
 		for (TObjectIterator<USkeletalMesh> It;It;++It)
 		{
-			It->ReleaseCPUResources();
+			if (!It->GetImportedResource()->RequiresCPUSkinning(GMaxRHIFeatureLevel))
+			{
+				It->ReleaseCPUResources();
+			}
 		}
 	}
 }
@@ -4245,6 +4248,12 @@ FSkeletalMeshSceneProxy::FSkeletalMeshSceneProxy(const USkinnedMeshComponent* Co
 
 	bIsCPUSkinned = MeshObject->IsCPUSkinned();
 
+	bCastCapsuleDirectShadow = Component->bCastDynamicShadow && Component->CastShadow && Component->bCastCapsuleDirectShadow;
+	bCastCapsuleIndirectShadow = Component->bCastDynamicShadow && Component->CastShadow && Component->bCastCapsuleIndirectShadow;
+
+	// Force inset shadows if capsule shadows are requested, as they can't be supported with full scene shadows
+	bCastInsetShadow = bCastInsetShadow || bCastCapsuleDirectShadow;
+
 	const USkeletalMeshComponent* SkeletalMeshComponent = Cast<const USkeletalMeshComponent>(Component);
 	if(SkeletalMeshComponent && SkeletalMeshComponent->bPerBoneMotionBlur)
 	{
@@ -4493,7 +4502,7 @@ void FSkeletalMeshSceneProxy::GetMeshElementsConditionallySelectable(const TArra
 	{
 		return;
 	}	
-	MeshObject->PreGDMECallback();
+	MeshObject->PreGDMECallback(ViewFamily.FrameNumber);
 
 	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
 	{
@@ -4708,6 +4717,17 @@ void FSkeletalMeshSceneProxy::GetDynamicElementsSection(const TArray<const FScen
 	}
 }
 
+bool FSkeletalMeshSceneProxy::HasDistanceFieldRepresentation() const
+{
+	return CastsDynamicShadow() && CastsCapsuleIndirectShadow();
+}
+
+void FSkeletalMeshSceneProxy::GetShadowShapes(TArray<FSphere>& SphereShapes, TArray<FCapsuleShape>& CapsuleShapes) const 
+{
+	SphereShapes.Append(MeshObject->ShadowSphereShapes);
+	CapsuleShapes.Append(MeshObject->ShadowCapsuleShapes);
+}
+
 /**
  * Returns the world transform to use for drawing.
  * @param OutLocalToWorld - Will contain the local-to-world transform when the function returns.
@@ -4737,6 +4757,7 @@ FPrimitiveViewRelevance FSkeletalMeshSceneProxy::GetViewRelevance(const FSceneVi
 	Result.bDynamicRelevance = true;
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
+	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 	MaterialRelevance.SetPrimitiveViewRelevance(Result);
 	return Result;
 }
@@ -4875,6 +4896,8 @@ USkinnedMeshComponent::USkinnedMeshComponent(const FObjectInitializer& ObjectIni
 	SectionIndexPreview = -1;
 #endif // WITH_EDITORONLY_DATA
 	bPerBoneMotionBlur = true;
+	bCastCapsuleDirectShadow = false;
+	bCastCapsuleIndirectShadow = false;
 
 	bDoubleBufferedBlendSpaces = true;
 	bReInitAnimationOnSetSkeletalMeshCalls = true;
@@ -4914,6 +4937,7 @@ void USkinnedMeshComponent::Serialize(FArchive& Ar)
 
 void USkeletalMeshComponent::Serialize(FArchive& Ar)
 {
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
 #if WITH_EDITORONLY_DATA
 	if (Ar.IsSaving())
 	{
@@ -4923,6 +4947,14 @@ void USkeletalMeshComponent::Serialize(FArchive& Ar)
 		}
 	}
 #endif
+
+	if (Ar.IsSaving() && Ar.UE4Ver() < VER_UE4_NO_ANIM_BP_CLASS_IN_GAMEPLAY_CODE)
+	{
+		if ((nullptr != AnimBlueprintGeneratedClass) && (nullptr == AnimClass))
+		{
+			AnimClass = AnimBlueprintGeneratedClass;
+		}
+	}
 
 	Super::Serialize(Ar);
 			
@@ -4948,6 +4980,7 @@ void USkeletalMeshComponent::Serialize(FArchive& Ar)
 	{
 		bBlendPhysics = true;
 	}
+
 #if WITH_EDITORONLY_DATA
 	if (Ar.IsLoading() && (Ar.UE4Ver() < VER_UE4_EDITORONLY_BLUEPRINTS))
 	{
@@ -4960,10 +4993,19 @@ void USkeletalMeshComponent::Serialize(FArchive& Ar)
 	}
 #endif
 
+	if (Ar.IsLoading() && Ar.UE4Ver() < VER_UE4_NO_ANIM_BP_CLASS_IN_GAMEPLAY_CODE)
+	{
+		if ((nullptr != AnimBlueprintGeneratedClass) && (nullptr == AnimClass))
+		{
+			AnimClass = AnimBlueprintGeneratedClass;
+		}
+	}
+
 	if (Ar.IsLoading() && (Ar.UE4Ver() < VER_UE4_AUTO_WELDING))
 	{
 		BodyInstance.bAutoWeld = false;
 	}
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
 }
 
 

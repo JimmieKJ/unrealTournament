@@ -1010,22 +1010,6 @@ void FMetalRHICommandContext::RHIClearMRT(bool bClearColor,int32 NumClearColors,
 	RHIPopEvent();
 }
 
-void FMetalDynamicRHI::RHISuspendRendering()
-{
-	// Not supported
-}
-
-void FMetalDynamicRHI::RHIResumeRendering()
-{
-	// Not supported
-}
-
-bool FMetalDynamicRHI::RHIIsRenderingSuspended()
-{
-	// Not supported
-	return false;
-}
-
 void FMetalDynamicRHI::RHIBlockUntilGPUIdle()
 {
 	NOT_SUPPORTED("RHIBlockUntilGPUIdle");

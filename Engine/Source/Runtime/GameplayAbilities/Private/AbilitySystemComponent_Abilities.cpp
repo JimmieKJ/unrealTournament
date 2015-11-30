@@ -27,7 +27,7 @@ void UAbilitySystemComponent::InitializeComponent()
 	InitAbilityActorInfo(Owner, Owner);	// Default init to our outer owner
 
 	TArray<UObject*> ChildObjects;
-	GetObjectsWithOuter(Owner, ChildObjects, false, RF_PendingKill);
+	GetObjectsWithOuter(Owner, ChildObjects, false, RF_NoFlags, EInternalObjectFlags::PendingKill);
 	for (UObject* Obj : ChildObjects)
 	{
 		UAttributeSet* Set = Cast<UAttributeSet>(Obj);
@@ -1390,7 +1390,7 @@ void UAbilitySystemComponent::ReplicateEndOrCancelAbility(FGameplayAbilitySpecHa
 	}
 }
 
-//This is only called when ending or canceling an ability in response to a remote instruction.
+// This is only called when ending or canceling an ability in response to a remote instruction.
 void UAbilitySystemComponent::RemoteEndOrCancelAbility(FGameplayAbilitySpecHandle AbilityToEnd, FGameplayAbilityActivationInfo ActivationInfo, bool bWasCanceled)
 {
 	FGameplayAbilitySpec* AbilitySpec = FindAbilitySpecFromHandle(AbilityToEnd);
@@ -1416,23 +1416,37 @@ void UAbilitySystemComponent::RemoteEndOrCancelAbility(FGameplayAbilitySpecHandl
 			for (auto Instance : Instances)
 			{
 				// Check if the ability is the same prediction key (can both by 0) and has been confirmed. If so cancel it.
-				if (Instance->GetCurrentActivationInfoRef().GetActivationPredictionKey() == ActivationInfo.GetActivationPredictionKey() && Instance->GetCurrentActivationInfoRef().bCanBeEndedByOtherInstance)
+				if (Instance->GetCurrentActivationInfoRef().GetActivationPredictionKey() == ActivationInfo.GetActivationPredictionKey())
 				{
-					// End/Cancel the ability but don't replicate it back to whoever called us
-					if (bWasCanceled)
+					// Let the ability know that the remote instance has ended, even if we aren't about to end it here.
+					Instance->SetRemoteInstanceHasEnded();
+
+					if (Instance->GetCurrentActivationInfoRef().bCanBeEndedByOtherInstance)
 					{
-						// Since this was a remote cancel, we should force it through. We do not support 'server says ability was cancelled but client disagrees that it can be'.
-						Instance->SetCanBeCanceled(true);
-						Instance->CancelAbility(Instance->CurrentSpecHandle, Instance->CurrentActorInfo, Instance->CurrentActivationInfo, false);
-					}
-					else
-					{
-						Instance->EndAbility(Instance->CurrentSpecHandle, Instance->CurrentActorInfo, Instance->CurrentActivationInfo, false);
+						// End/Cancel the ability but don't replicate it back to whoever called us
+						if (bWasCanceled)
+						{
+							ForceCancelAbilityDueToReplication(Instance);
+						}
+						else
+						{
+							Instance->EndAbility(Instance->CurrentSpecHandle, Instance->CurrentActorInfo, Instance->CurrentActivationInfo, false);
+						}
 					}
 				}
 			}
 		}
 	}
+}
+
+/** Force cancels the ability and does not replicate this to the other side. This should be called when the ability is cancelled by the other side. */
+void UAbilitySystemComponent::ForceCancelAbilityDueToReplication(UGameplayAbility* Instance)
+{
+	check(Instance);
+
+	// Since this was a remote cancel, we should force it through. We do not support 'server says ability was cancelled but client disagrees that it can be'.
+	Instance->SetCanBeCanceled(true);
+	Instance->CancelAbility(Instance->CurrentSpecHandle, Instance->CurrentActorInfo, Instance->CurrentActivationInfo, false);
 }
 
 void UAbilitySystemComponent::ServerEndAbility_Implementation(FGameplayAbilitySpecHandle AbilityToEnd, FGameplayAbilityActivationInfo ActivationInfo, FPredictionKey PredictionKey)
@@ -2688,6 +2702,15 @@ void UAbilitySystemComponent::ServerSetReplicatedTargetData_Implementation(FGame
 
 	// Always adds to cache to store the new data
 	FAbilityReplicatedDataCache& ReplicatedData = AbilityTargetDataMap.FindOrAdd(FGameplayAbilitySpecHandleAndPredictionKey(AbilityHandle, AbilityOriginalPredictionKey));
+
+	if (ReplicatedData.TargetData.Num() > 0)
+	{
+		FGameplayAbilitySpec* Spec = FindAbilitySpecFromHandle(AbilityHandle);
+		if (Spec && Spec->Ability)
+		{
+			ABILITY_LOG(Warning, TEXT("Ability %s is overriding pending replicated target data."), *Spec->Ability->GetName());
+		}
+	}
 
 	ReplicatedData.TargetData = ReplicatedTargetDataHandle;
 	ReplicatedData.ApplicationTag = ApplicationTag;

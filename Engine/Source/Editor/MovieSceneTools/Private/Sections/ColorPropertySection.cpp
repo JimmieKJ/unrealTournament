@@ -5,6 +5,7 @@
 #include "MovieSceneColorSection.h"
 #include "ColorPropertySection.h"
 #include "MovieSceneSequence.h"
+#include "FloatCurveKeyArea.h"
 
 
 void FColorPropertySection::GenerateSectionLayout( class ISectionLayoutBuilder& LayoutBuilder ) const
@@ -162,7 +163,7 @@ FLinearColor FColorPropertySection::FindSlateColor(const FName& ColorName) const
 				continue;
 			}
 
-			UObject* RuntimeObject = FocusedSequence->FindObject(Binding.GetObjectGuid());
+			UObject* RuntimeObject = Sequencer->GetFocusedMovieSceneSequenceInstance()->FindObject(Binding.GetObjectGuid(), *Sequencer);
 
 			if (RuntimeObject == nullptr)
 			{

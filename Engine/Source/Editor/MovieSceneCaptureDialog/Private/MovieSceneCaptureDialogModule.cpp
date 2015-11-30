@@ -13,6 +13,7 @@
 #include "EditorStyle.h"
 #include "Editor.h"
 #include "PropertyEditing.h"
+#include "FileHelpers.h"
 
 #include "ISessionServicesModule.h"
 #include "ISessionInstanceInfo.h"
@@ -301,7 +302,7 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 				.HasCloseButton(true)
 				.SupportsMaximize(false)
 				.SupportsMinimize(false)
-				.ClientSize(FVector2D(350, 650));
+				.ClientSize(FVector2D(500, 700));
 
 			TSharedPtr<SDockTab> OwnerTab = TabManager->GetOwnerTab();
 			TSharedPtr<SWindow> RootWindow = OwnerTab.IsValid() ? OwnerTab->GetParentWindow() : TSharedPtr<SWindow>();
@@ -342,12 +343,39 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 
 	FText OnStartCapture(UMovieSceneCapture* CaptureObject)
 	{
-		TArray<FString> SavedMapNames;
-		GEditor->SaveWorldForPlay(SavedMapNames);
-
-		if (SavedMapNames.Num() == 0)
+		FString MapNameToLoad;
+		if( CaptureObject->Settings.bCreateTemporaryCopiesOfLevels )
 		{
-			return LOCTEXT("CouldNotSaveMap", "Could not save map for movie capture.");
+			TArray<FString> SavedMapNames;
+			GEditor->SaveWorldForPlay(SavedMapNames);
+
+			if (SavedMapNames.Num() == 0)
+			{
+				return LOCTEXT("CouldNotSaveMap", "Could not save map for movie capture.");
+			}
+
+			MapNameToLoad = SavedMapNames[ 0 ];
+		}
+		else
+		{
+			// Prompt the user to save their changes so that they'll be in the movie, since we're not saving temporary copies of the level.
+			bool bPromptUserToSave = true;
+			bool bSaveMapPackages = true;
+			bool bSaveContentPackages = true;
+			if( !FEditorFileUtils::SaveDirtyPackages( bPromptUserToSave, bSaveMapPackages, bSaveContentPackages ) )
+			{
+				return LOCTEXT( "UserCancelled", "Capturing was cancelled from the save dialog." );
+			}
+
+			const FString WorldPackageName = GWorld->GetOutermost()->GetName();
+			MapNameToLoad = WorldPackageName;
+		}
+
+		// Allow the game mode to be overridden
+		if( CaptureObject->Settings.GameModeOverride != nullptr )
+		{
+			const FString GameModeName = CaptureObject->Settings.GameModeOverride->GetPathName();
+			MapNameToLoad += FString::Printf( TEXT( "?game=%s" ), *GameModeName );
 		}
 
 		if (InProgressCaptureNotification.IsValid())
@@ -384,7 +412,16 @@ class FMovieSceneCaptureDialogModule : public IMovieSceneCaptureDialogModule
 			return LOCTEXT("UnableToSaveCaptureManifest", "Unable to save capture manifest");
 		}
 
-		FString EditorCommandLine = FString::Printf(TEXT("%s -MovieSceneCaptureManifest=\"%s\" -game"), *SavedMapNames[0], *Filename);
+		FString EditorCommandLine = FString::Printf(TEXT("%s -MovieSceneCaptureManifest=\"%s\" -game"), *MapNameToLoad, *Filename);
+
+		if( CaptureObject->Settings.bCreateTemporaryCopiesOfLevels )
+		{
+			// the PIEVIACONSOLE parameter tells UGameEngine to add the auto-save dir to the paths array and repopulate the package file cache
+			// this is needed in order to support streaming levels as the streaming level packages will be loaded only when needed (thus
+			// their package names need to be findable by the package file caching system)
+			// (we add to EditorCommandLine because the URL is ignored by WindowsTools)
+			EditorCommandLine.Append( TEXT( " -PIEVIACONSOLE" ) );
+		}
 
 		// Spit out any additional, user-supplied command line args
 		if (!CaptureObject->AdditionalCommandLineArguments.IsEmpty())

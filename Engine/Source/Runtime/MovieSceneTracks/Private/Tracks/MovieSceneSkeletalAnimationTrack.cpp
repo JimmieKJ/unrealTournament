@@ -23,7 +23,7 @@ UMovieSceneSkeletalAnimationTrack::UMovieSceneSkeletalAnimationTrack( const FObj
 
 void UMovieSceneSkeletalAnimationTrack::AddNewAnimation(float KeyTime, UAnimSequence* AnimSequence)
 {
-	UMovieSceneSkeletalAnimationSection* NewSection = NewObject<UMovieSceneSkeletalAnimationSection>(this);
+	UMovieSceneSkeletalAnimationSection* NewSection = Cast<UMovieSceneSkeletalAnimationSection>(CreateNewSection());
 	{
 		NewSection->InitialPlacement(AnimationSections, KeyTime, KeyTime + AnimSequence->SequenceLength, SupportsMultipleRows());
 		NewSection->SetAnimSequence(AnimSequence);
@@ -43,8 +43,7 @@ UMovieSceneSection* UMovieSceneSkeletalAnimationTrack::GetAnimSectionAtTime(floa
 		}
 	}
 
-	UMovieSceneSection* NearestSection = MovieSceneHelpers::FindNearestSectionAtTime( AnimationSections, Time );
-	return NearestSection;
+	return nullptr;
 }
 
 
@@ -63,9 +62,15 @@ const TArray<UMovieSceneSection*>& UMovieSceneSkeletalAnimationTrack::GetAllSect
 }
 
 
+UMovieSceneSection* UMovieSceneSkeletalAnimationTrack::CreateNewSection()
+{
+	return NewObject<UMovieSceneSkeletalAnimationSection>( this );
+}
+
+
 void UMovieSceneSkeletalAnimationTrack::RemoveAllAnimationData()
 {
-	// do nothing
+	AnimationSections.Empty();
 }
 
 

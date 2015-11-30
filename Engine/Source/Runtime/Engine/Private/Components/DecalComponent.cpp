@@ -24,18 +24,15 @@ FDeferredDecalProxy::FDeferredDecalProxy(const UDecalComponent* InComponent)
 
 	Component = InComponent;
 	DecalMaterial = EffectiveMaterial;
-
-	ComponentTrans = InComponent->GetComponentToWorld();
-	ComponentTrans.SetScale3D(ComponentTrans.GetScale3D() * InComponent->DecalSize);
-
+	SetTransformIncludingDecalSize(InComponent->GetTransformIncludingDecalSize());
 	DrawInGame = InComponent->ShouldRender();
 	bOwnerSelected = InComponent->IsOwnerSelected();
 	SortOrder = InComponent->SortOrder;
 }
 
-void FDeferredDecalProxy::SetTransform(const FTransform& InComponentToWorld)
+void FDeferredDecalProxy::SetTransformIncludingDecalSize(const FTransform& InComponentToWorldIncludingDecalSize)
 {
-	ComponentTrans = InComponentToWorld;
+	ComponentTrans = InComponentToWorldIncludingDecalSize;
 }
 
 UDecalComponent::UDecalComponent(const FObjectInitializer& ObjectInitializer)
@@ -119,7 +116,7 @@ FDeferredDecalProxy* UDecalComponent::CreateSceneProxy()
 
 FBoxSphereBounds UDecalComponent::CalcBounds(const FTransform& LocalToWorld) const
 {
-	return FBoxSphereBounds(FVector(0, 0, 0), DecalSize, DecalSize.Size());
+	return FBoxSphereBounds(FVector(0, 0, 0), DecalSize, DecalSize.Size()).TransformBy(LocalToWorld);
 }
 
 void UDecalComponent::CreateRenderState_Concurrent()

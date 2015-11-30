@@ -10,7 +10,6 @@
 #include "ScopedTransaction.h"
 #include "ISequencerObjectChangeListener.h"
 #include "IKeyArea.h"
-#include "MovieSceneToolHelpers.h"
 #include "MovieSceneTrackEditor.h"
 #include "ShotTrackEditor.h"
 #include "CommonMovieSceneTools.h"
@@ -18,6 +17,10 @@
 #include "AssetToolsModule.h"
 #include "ShotSequencerSection.h"
 
+#include "ActorEditorUtils.h"
+#include "Editor/SceneOutliner/Public/SceneOutliner.h"
+#include "Editor/LevelEditor/Public/LevelEditor.h"
+#include "SceneOutlinerPublicTypes.h"
 
 #define LOCTEXT_NAMESPACE "FShotTrackEditor"
 
@@ -120,6 +123,7 @@ TSharedPtr<SWidget> FShotTrackEditor::BuildOutlinerEditWidget(const FGuid& Objec
 		.Padding(4, 0, 0, 0)
 		[
 			SNew(SCheckBox)
+				.IsFocusable(false)
 				.IsChecked(this, &FShotTrackEditor::IsCameraLocked)
 				.OnCheckStateChanged(this, &FShotTrackEditor::OnLockCameraClicked)
 				.ToolTipText(this, &FShotTrackEditor::GetLockCameraToolTip)
@@ -303,83 +307,60 @@ void FShotTrackEditor::HandleAddShotTrackMenuEntryExecute()
 	GetSequencer()->NotifyMovieSceneDataChanged();
 }
 
+bool FShotTrackEditor::IsCameraPickable(const AActor* const PickableActor)
+{
+	if (PickableActor->IsListedInSceneOutliner() &&
+		!FActorEditorUtils::IsABuilderBrush(PickableActor) &&
+		!PickableActor->IsA( AWorldSettings::StaticClass() ) &&
+		!PickableActor->IsPendingKill() &&
+		PickableActor->IsA( ACameraActor::StaticClass()) )
+	{			
+		return true;
+	}
+	return false;
+}
 
 TSharedRef<SWidget> FShotTrackEditor::HandleAddShotComboButtonGetMenuContent()
 {
 	FMenuBuilder MenuBuilder(true, nullptr);
 
-	// get camera actors
-	TArray<AActor*> AllCameras;
-	TArray<AActor*> SelectedCameras;
+	using namespace SceneOutliner;
 
-	UWorld* World = GEditor->GetEditorWorldContext().World();
-
-	if (World != nullptr)
+	SceneOutliner::FInitializationOptions InitOptions;
 	{
-		USelection* SelectedActors = GEditor->GetSelectedActors();
+		InitOptions.Mode = ESceneOutlinerMode::ActorPicker;			
+		InitOptions.bShowHeaderRow = false;
+		InitOptions.bFocusSearchBoxWhenOpened = true;
+		InitOptions.bShowTransient = true;
+		InitOptions.bShowCreateNewFolder = false;
+		// Only want the actor label column
+		InitOptions.ColumnMap.Add(FBuiltInColumnTypes::Label(), FColumnInfo(EColumnVisibility::Visible, 0));
 
-		if (SelectedActors != nullptr)
-		{
-			for (FActorIterator ActorIt(World); ActorIt; ++ActorIt)
-			{
-				AActor* Actor = *ActorIt;
+		// Only display Actors that we can attach too
+		InitOptions.Filters->AddFilterPredicate( SceneOutliner::FActorFilterPredicate::CreateSP(this, &FShotTrackEditor::IsCameraPickable) );
+	}		
 
-				if (!Actor->IsListedInSceneOutliner() || !Actor->IsA<ACameraActor>())
-				{
-					continue;
-				}
+	// Actor selector to allow the user to choose a parent actor
+	FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked<FSceneOutlinerModule>( "SceneOutliner" );
 
-				AllCameras.Add(Actor);
+	TSharedRef< SWidget > MenuWidget = 
+		SNew(SHorizontalBox)
 
-				if (SelectedActors->IsSelected(Actor))
-				{
-					SelectedCameras.Add(Actor);
-				}
-			}
-		}
-	}
+		+SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.MaxHeight(400.0f)
+			[
+				SceneOutlinerModule.CreateSceneOutliner(
+					InitOptions,
+					FOnActorPicked::CreateSP(this, &FShotTrackEditor::HandleAddShotComboButtonMenuEntryExecute )
+					)
+			]
+		];
 
-	if (SelectedCameras.Num() == 1)
-	{
-		AActor*& SelectedCamera = SelectedCameras[0];
-		FText ActorLabel = FText::FromString(SelectedCamera->GetActorLabel());
-
-		MenuBuilder.BeginSection(NAME_None, FText::FromString("Selected Camera"));
-		{
-			MenuBuilder.AddMenuEntry(
-				FText::Format(LOCTEXT("AddShotEntryTextFormat", "{0}"), ActorLabel),
-				FText::Format(LOCTEXT("AddShotEntryTooltipFormat", "Create a shot track for camera {0}"), ActorLabel),
-				FSlateIcon(),
-				FUIAction(FExecuteAction::CreateRaw(this, &FShotTrackEditor::HandleAddShotComboButtonMenuEntryExecute, SelectedCamera))
-			);
-		}
-		MenuBuilder.EndSection();
-	}
-
-	if (AllCameras.Num() > 0)
-	{
-		AllCameras.Sort([](const AActor& A, const AActor& B)
-		{
-			return A.GetActorLabel() < B.GetActorLabel();
-		});
-
-		MenuBuilder.BeginSection(NAME_None, FText::FromString("All Cameras"));
-		{
-			for (auto Camera : AllCameras)
-			{
-				FText ActorLabel = FText::FromString(Camera->GetActorLabel());
-
-				MenuBuilder.AddMenuEntry(
-					FText::Format(LOCTEXT("AddShotEntryTextFormat", "{0}"), ActorLabel),
-					FText::Format(LOCTEXT("AddShotEntryTooltipFormat", "Create a shot track for camera {0}"), ActorLabel),
-					FSlateIcon(),
-					FUIAction(FExecuteAction::CreateRaw(this, &FShotTrackEditor::HandleAddShotComboButtonMenuEntryExecute, Camera))
-				);
-			}
-		}
-		MenuBuilder.EndSection();
-	}
-
+	MenuBuilder.AddWidget(MenuWidget, FText::GetEmpty(), false);
 	return MenuBuilder.MakeWidget();
 }
 
@@ -426,7 +407,6 @@ void FShotTrackEditor::OnLockCameraClicked(ECheckBoxState CheckBoxState)
 	}
 	else
 	{
-		// TODO: MaxC, is this right?
 		GetSequencer()->UpdateCameraCut(nullptr, nullptr);
 		GetSequencer()->SetPerspectiveViewportCameraCutEnabled(false);
 	}

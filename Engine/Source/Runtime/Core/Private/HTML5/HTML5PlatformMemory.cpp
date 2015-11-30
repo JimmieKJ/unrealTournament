@@ -5,11 +5,13 @@
 =============================================================================*/
 
 #include "CorePrivatePCH.h"
-#include "MallocBinned.h"
+#include "MallocBinned2.h"
 #include "MallocAnsi.h"
 
 void FHTML5PlatformMemory::Init()
 {
+	FGenericPlatformMemory::Init();
+
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	UE_LOG(LogInit, Log, TEXT("Memory total: Physical=%.1fGB (%dGB approx) "), 
 		(double)MemoryConstants.TotalPhysical / 1024.0f / 1024.0f / 1024.0f,
@@ -49,7 +51,7 @@ FMalloc* FHTML5PlatformMemory::BaseAllocator()
 #if !PLATFORM_HTML5_WIN32 
 	return new FMallocAnsi();
 #else 
-	return new FMallocBinned(32 * 1024, 1 << 30 );
+	return new FMallocBinned2(32 * 1024, 1 << 30 );
 #endif 
 }
 

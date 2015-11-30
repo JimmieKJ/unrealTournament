@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CorePrivatePCH.h"
+#include "Ticker.h"
+#include "Async.h"
 #include "MallocAnsi.h"
 #include "GenericPlatformMemoryPoolStats.h"
 #include "MemoryMisc.h"
@@ -21,6 +23,41 @@ DEFINE_STAT(STAT_UsedPhysical);
 DEFINE_STAT(STAT_PeakUsedPhysical);
 DEFINE_STAT(STAT_UsedVirtual);
 DEFINE_STAT(STAT_PeakUsedVirtual);
+
+/** Helper class used to update platform memory stats. */
+struct FGenericStatsUpdater
+{
+	/** Called once per second, enqueues stats update. */
+	static bool EnqueueUpdateStats( float /*InDeltaTime*/ )
+	{
+		AsyncTask( ENamedThreads::AnyThread, []()
+		{
+			DoUpdateStats();
+		} );
+		return true; // Tick again
+	}
+
+	/** Gathers and sets all platform memory statistics into the corresponding stats. */
+	static void DoUpdateStats()
+	{
+		// This is slow, so do it on the task graph.
+		FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
+		SET_MEMORY_STAT( STAT_TotalPhysical, MemoryStats.TotalPhysical );
+		SET_MEMORY_STAT( STAT_TotalVirtual, MemoryStats.TotalVirtual );
+		SET_MEMORY_STAT( STAT_PageSize, MemoryStats.PageSize );
+		SET_MEMORY_STAT( STAT_TotalPhysicalGB, MemoryStats.TotalPhysicalGB );
+
+		SET_MEMORY_STAT( STAT_AvailablePhysical, MemoryStats.AvailablePhysical );
+		SET_MEMORY_STAT( STAT_AvailableVirtual, MemoryStats.AvailableVirtual );
+		SET_MEMORY_STAT( STAT_UsedPhysical, MemoryStats.UsedPhysical );
+		SET_MEMORY_STAT( STAT_PeakUsedPhysical, MemoryStats.PeakUsedPhysical );
+		SET_MEMORY_STAT( STAT_UsedVirtual, MemoryStats.UsedVirtual );
+		SET_MEMORY_STAT( STAT_PeakUsedVirtual, MemoryStats.PeakUsedVirtual );
+
+		// Platform specific stats.
+		FPlatformMemory::InternalUpdateStats( MemoryStats );
+	}
+};
 
 FGenericPlatformMemoryStats::FGenericPlatformMemoryStats()
 	: FGenericPlatformMemoryConstants( FPlatformMemory::GetConstants() )
@@ -57,8 +94,19 @@ void FGenericPlatformMemory::SetupMemoryPools()
 
 void FGenericPlatformMemory::Init()
 {
-	SetupMemoryPools();
-	UE_LOG(LogMemory, Warning, TEXT("FGenericPlatformMemory::Init not implemented on this platform"));
+	if (FPlatformMemory::SupportBackupMemoryPool())
+	{
+		SetupMemoryPools();
+	}
+
+#if	STATS
+	// Stats are updated only once per second.
+	const float PollingInterval = 1.0f;
+	FTicker::GetCoreTicker().AddTicker( FTickerDelegate::CreateStatic( &FGenericStatsUpdater::EnqueueUpdateStats ), PollingInterval );
+
+	// Update for the first time.
+	FGenericStatsUpdater::DoUpdateStats();
+#endif // STATS
 }
 
 void FGenericPlatformMemory::OnOutOfMemory(uint64 Size, uint32 Alignment)
@@ -108,16 +156,16 @@ void FGenericPlatformMemory::GetStatsForMallocProfiler( FGenericMemoryStats& out
 	FPlatformMemoryStats Stats = FPlatformMemory::GetStats();
 
 	// Base common stats for all platforms.
-	out_Stats.Add(TEXT("Total Physical"), Stats.TotalPhysical );
-	out_Stats.Add(TEXT("Total Virtual"), Stats.TotalVirtual );
-	out_Stats.Add(TEXT("Page Size"), Stats.PageSize );
-	out_Stats.Add(TEXT("Total Physical GB"), (SIZE_T)Stats.TotalPhysicalGB );
-	out_Stats.Add(TEXT("Available Physical"), Stats.AvailablePhysical );
-	out_Stats.Add(TEXT("Available Virtual"), Stats.AvailableVirtual );
-	out_Stats.Add(TEXT("Used Physical"), Stats.UsedPhysical );
-	out_Stats.Add(TEXT("Peak Used Physical"), Stats.PeakUsedPhysical );
-	out_Stats.Add(TEXT("Used Virtual"), Stats.UsedVirtual );
-	out_Stats.Add(TEXT("Peak Used Virtual"), Stats.PeakUsedVirtual );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_TotalPhysical ), Stats.TotalPhysical );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_TotalVirtual ), Stats.TotalVirtual );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_PageSize ), Stats.PageSize );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_TotalPhysicalGB ), (SIZE_T)Stats.TotalPhysicalGB );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_AvailablePhysical ), Stats.AvailablePhysical );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_AvailableVirtual ), Stats.AvailableVirtual );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_UsedPhysical ), Stats.UsedPhysical );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_PeakUsedPhysical ), Stats.PeakUsedPhysical );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_UsedVirtual ), Stats.UsedVirtual );
+	out_Stats.Add( GET_STATDESCRIPTION( STAT_PeakUsedVirtual ), Stats.PeakUsedVirtual );
 #endif // STATS
 }
 
@@ -131,29 +179,6 @@ const FPlatformMemoryConstants& FGenericPlatformMemory::GetConstants()
 uint32 FGenericPlatformMemory::GetPhysicalGBRam()
 {
 	return FPlatformMemory::GetConstants().TotalPhysicalGB;
-}
-
-void FGenericPlatformMemory::UpdateStats()
-{
-	// avoid getting OS data (costly on Linux, Windows - see CL 2460429) if we aren't collecting stats
-#if STATS
-	if (FThreadStats::IsCollectingData(GET_STATID(STAT_TotalPhysical)))
-	{
-		FPlatformMemoryStats MemoryStats = FPlatformMemory::GetStats();
-
-		SET_MEMORY_STAT(STAT_TotalPhysical,MemoryStats.TotalPhysical);
-		SET_MEMORY_STAT(STAT_TotalVirtual,MemoryStats.TotalVirtual);
-		SET_MEMORY_STAT(STAT_PageSize,MemoryStats.PageSize);
-		SET_MEMORY_STAT(STAT_TotalPhysicalGB,MemoryStats.TotalPhysicalGB);
-
-		SET_MEMORY_STAT(STAT_AvailablePhysical,MemoryStats.AvailablePhysical);
-		SET_MEMORY_STAT(STAT_AvailableVirtual,MemoryStats.AvailableVirtual);
-		SET_MEMORY_STAT(STAT_UsedPhysical,MemoryStats.UsedPhysical);
-		SET_MEMORY_STAT(STAT_PeakUsedPhysical,MemoryStats.PeakUsedPhysical);
-		SET_MEMORY_STAT(STAT_UsedVirtual,MemoryStats.UsedVirtual);
-		SET_MEMORY_STAT(STAT_PeakUsedVirtual,MemoryStats.PeakUsedVirtual);
-	}
-#endif	// STATS
 }
 
 void* FGenericPlatformMemory::BinnedAllocFromOS( SIZE_T Size )
@@ -286,4 +311,10 @@ bool FGenericPlatformMemory::UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * 
 {
 	UE_LOG(LogHAL, Error, TEXT("FGenericPlatformMemory::UnmapNamedSharedMemoryRegion not implemented on this platform"));
 	return false;
+}
+
+
+void FGenericPlatformMemory::InternalUpdateStats( const FPlatformMemoryStats& MemoryStats )
+{
+	// Generic method is empty. Implement at platform level.
 }

@@ -5,7 +5,7 @@
 #include "MovieSceneCommonHelpers.h"
 
 
-TArray<UMovieSceneSection*> MovieSceneHelpers::GetTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime )
+TArray<UMovieSceneSection*> MovieSceneHelpers::GetAllTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime )
 {
 	TArray<UMovieSceneSection*> TraversedSections;
 
@@ -27,6 +27,37 @@ TArray<UMovieSceneSection*> MovieSceneHelpers::GetTraversedSections( const TArra
 	return TraversedSections;
 }
 
+TArray<UMovieSceneSection*> MovieSceneHelpers::GetTraversedSections( const TArray<UMovieSceneSection*>& Sections, float CurrentTime, float PreviousTime )
+{
+	TArray<UMovieSceneSection*> TraversedSections = GetAllTraversedSections(Sections, CurrentTime, PreviousTime);
+
+	// Remove any overlaps that are underneath another
+	for (int32 RemoveAt = 0; RemoveAt < TraversedSections.Num(); )
+	{
+		UMovieSceneSection* Section = TraversedSections[RemoveAt];
+		
+		const bool bShouldRemove = TraversedSections.ContainsByPredicate([=](UMovieSceneSection* OtherSection){
+			if (Section->GetRowIndex() == OtherSection->GetRowIndex() &&
+				Section->GetRange().Overlaps(OtherSection->GetRange()) &&
+				Section->GetOverlapPriority() < OtherSection->GetOverlapPriority())
+			{
+				return true;
+			}
+			return false;
+		});
+		
+		if (bShouldRemove)
+		{
+			TraversedSections.RemoveAt(RemoveAt, 1, false);
+		}
+		else
+		{
+			++RemoveAt;
+		}
+	}
+
+	return TraversedSections;
+}
 
 UMovieSceneSection* MovieSceneHelpers::FindSectionAtTime( const TArray<UMovieSceneSection*>& Sections, float Time )
 {
@@ -123,6 +154,42 @@ void MovieSceneHelpers::SetRuntimeObjectMobility(UObject* Object, EComponentMobi
 
 			SceneComponent->SetMobility(ComponentMobility);
 		}
+	}
+}
+
+void MovieSceneHelpers::SetKeyInterpolation(FRichCurve& InCurve, FKeyHandle InKeyHandle, EMovieSceneKeyInterpolation InKeyInterpolation)
+{
+	switch (InKeyInterpolation)
+	{
+		case EMovieSceneKeyInterpolation::Auto:
+			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Cubic);
+			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Auto);
+			break;
+
+		case EMovieSceneKeyInterpolation::User:
+			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Cubic);
+			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_User);
+			break;
+
+		case EMovieSceneKeyInterpolation::Break:
+			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Cubic);
+			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Break);
+			break;
+
+		case EMovieSceneKeyInterpolation::Linear:
+			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Linear);
+			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Auto);
+			break;
+
+		case EMovieSceneKeyInterpolation::Constant:
+			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Constant);
+			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Auto);
+			break;
+
+		default:
+			InCurve.SetKeyInterpMode(InKeyHandle, RCIM_Cubic);
+			InCurve.SetKeyTangentMode(InKeyHandle, RCTM_Auto);
+			break;
 	}
 }
 

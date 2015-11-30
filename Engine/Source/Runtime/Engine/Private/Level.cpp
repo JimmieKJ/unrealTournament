@@ -602,7 +602,7 @@ void ULevel::PostLoad()
 	}
 
 #if WITH_EDITOR
-	if (!(GetOutermost()->PackageFlags & PKG_PlayInEditor))
+	if (!GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 	{
 		// Rename the LevelScriptBlueprint after the outer world.
 		UWorld* OuterWorld = Cast<UWorld>(GetOuter());
@@ -822,9 +822,10 @@ void ULevel::IncrementalUpdateComponents(int32 NumComponentsToUpdate, bool bReru
 			// Don't rerun construction scripts until after all actors' components have been registered.  This
 			// is necessary because child attachment lists are populated during registration, and running construction
 			// scripts requires that the attachments are correctly initialized.
-			for (AActor* Actor : Actors)
+			// Don't use ranged for as construction scripts can manipulate the actor array
+			for (int32 ActorIndex = 0; ActorIndex < Actors.Num(); ++ActorIndex)
 			{
-				if (Actor)
+				if (AActor* Actor = Actors[ActorIndex])
 				{
 #if PERF_TRACK_DETAILED_ASYNC_STATS
 					FScopeCycleCounterUObject ContextScope(Actor);
@@ -1230,7 +1231,7 @@ void ULevel::PostEditUndo()
 	//Actors.Remove(nullptr); // removed because TTransArray exploded (undo followed by redo ends up with a different ArrayNum to originally)
 	TSet<AActor*> ActorsSet(Actors);
 	TArray<UObject *> InnerObjects;
-	GetObjectsWithOuter(this, InnerObjects, /*bIncludeNestedObjects*/ false, /*ExclusionFlags*/ RF_PendingKill);
+	GetObjectsWithOuter(this, InnerObjects, /*bIncludeNestedObjects*/ false, /*ExclusionFlags*/ RF_NoFlags, /* InternalExclusionFlags */ EInternalObjectFlags::PendingKill);
 	for (UObject* InnerObject : InnerObjects)
 	{
 		AActor* InnerActor = Cast<AActor>(InnerObject);
@@ -1745,6 +1746,7 @@ void ULevel::RouteActorInitialize()
 	for (int32 ActorIndex = 0; ActorIndex < ActorsToBeginPlay.Num(); ActorIndex++)
 	{
 		AActor* Actor = ActorsToBeginPlay[ActorIndex];
+		SCOPE_CYCLE_COUNTER(STAT_ActorBeginPlay);
 		Actor->BeginPlay();			
 	}
 }
@@ -1773,7 +1775,7 @@ TArray<UBlueprint*> ULevel::GetLevelBlueprints() const
 {
 	TArray<UBlueprint*> LevelBlueprints;
 	TArray<UObject*> LevelChildren;
-	GetObjectsWithOuter(this, LevelChildren, false, RF_PendingKill);
+	GetObjectsWithOuter(this, LevelChildren, false, RF_NoFlags, EInternalObjectFlags::PendingKill);
 
 	for (UObject* LevelChild : LevelChildren)
 	{

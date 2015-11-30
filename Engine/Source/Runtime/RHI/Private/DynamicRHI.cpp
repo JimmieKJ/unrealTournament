@@ -28,6 +28,7 @@ void InitNullRHI()
 	GDynamicRHI = DynamicRHIModule->CreateRHI();
 	GDynamicRHI->Init();
 	GRHICommandList.GetImmediateCommandList().SetContext(GDynamicRHI->RHIGetDefaultContext());
+	GRHICommandList.GetImmediateAsyncComputeCommandList().SetComputeContext(GDynamicRHI->RHIGetDefaultAsyncComputeContext());
 	GUsingNullRHI = true;
 	GRHISupportsTextureStreaming = false;
 }
@@ -49,6 +50,7 @@ void RHIInit(bool bHasEditorToken)
 			{
 				GDynamicRHI->Init();
 				GRHICommandList.GetImmediateCommandList().SetContext(GDynamicRHI->RHIGetDefaultContext());
+				GRHICommandList.GetImmediateAsyncComputeCommandList().SetComputeContext(GDynamicRHI->RHIGetDefaultAsyncComputeContext());
 			}
 #if PLATFORM_ALLOW_NULL_RHI
 			else

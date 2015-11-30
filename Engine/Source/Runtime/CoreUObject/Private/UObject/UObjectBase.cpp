@@ -68,7 +68,7 @@ UObjectBase::UObjectBase( EObjectFlags InFlags )
  * @param	InName				name of the new object
  * @param	InObjectArchetype	archetype to assign
  */
-UObjectBase::UObjectBase( UClass* InClass, EObjectFlags InFlags, UObject *InOuter, FName InName )
+UObjectBase::UObjectBase(UClass* InClass, EObjectFlags InFlags, EInternalObjectFlags InInternalFlags, UObject *InOuter, FName InName)
 :	ObjectFlags			(InFlags)
 ,	InternalIndex		(INDEX_NONE)
 ,	Class				(InClass)
@@ -76,7 +76,7 @@ UObjectBase::UObjectBase( UClass* InClass, EObjectFlags InFlags, UObject *InOute
 {
 	check(Class);
 	// Add to global table.
-	AddObject(InName);
+	AddObject(InName, InInternalFlags);
 }
 
 
@@ -94,13 +94,6 @@ UObjectBase::~UObjectBase()
 		GUObjectArray.FreeUObjectIndex(this);
 	}
 }
-
-
-const FName UObjectBase::GetFName() const
-{
-	return Name;
-}
-
 
 #if STATS
 
@@ -140,10 +133,10 @@ void UObjectBase::DeferredRegister(UClass *UClassStaticClass,const TCHAR* Packag
 	Class = UClassStaticClass;
 
 	// Add to the global object table.
-	AddObject(FName(InName));
+	AddObject(FName(InName), EInternalObjectFlags::None);
 
 	// Make sure that objects disregarded for GC are part of root set.
-	check(!GUObjectArray.IsDisregardForGC(this) || (GetFlags() & RF_RootSet) );
+	check(!GUObjectArray.IsDisregardForGC(this) || GUObjectArray.IndexToObject(InternalIndex)->IsRootSet());
 }
 
 /**
@@ -151,15 +144,31 @@ void UObjectBase::DeferredRegister(UClass *UClassStaticClass,const TCHAR* Packag
  *
  * @param Name name to assign to this uobject
  */
-void UObjectBase::AddObject(FName InName)
+void UObjectBase::AddObject(FName InName, EInternalObjectFlags InSetInternalFlags)
 {
 	Name = InName;
+	EInternalObjectFlags InternalFlagsToSet = InSetInternalFlags;
 	if (!IsInGameThread())
 	{
-		ObjectFlags |= RF_Async;
+		InternalFlagsToSet |= EInternalObjectFlags::Async;
+	}
+	if (ObjectFlags & RF_MarkAsRootSet)
+	{		
+		InternalFlagsToSet |= EInternalObjectFlags::RootSet;
+		ObjectFlags &= ~RF_MarkAsRootSet;
+	}
+	if (ObjectFlags & RF_MarkAsNative)
+	{
+		InternalFlagsToSet |= EInternalObjectFlags::Native;
+		ObjectFlags &= ~RF_MarkAsNative;
 	}
 	AllocateUObjectIndexForCurrentThread(this);
 	check(InName != NAME_None && InternalIndex >= 0);
+	if (InternalFlagsToSet != EInternalObjectFlags::None)
+	{
+		GUObjectArray.IndexToObject(InternalIndex)->SetFlags(InternalFlagsToSet);
+	
+	}	
 	HashObject(this);
 	check(IsValidLowLevel());
 }
@@ -381,7 +390,7 @@ TMap<FName, UScriptStruct *(*)()>& GetDynamicStructMap()
 	return DynamicStructMap;
 }
 
-void UObjectCompiledInDeferStruct(class UScriptStruct *(*InRegister)(), const TCHAR* PackageName, const TCHAR* Name, bool bDynamic)
+void UObjectCompiledInDeferStruct(class UScriptStruct *(*InRegister)(), const TCHAR* PackageName, const FName PathName, bool bDynamic)
 {
 	if (!bDynamic)
 	{
@@ -392,7 +401,7 @@ void UObjectCompiledInDeferStruct(class UScriptStruct *(*InRegister)(), const TC
 	}
 	else
 	{
-		GetDynamicStructMap().Add(FName(Name), InRegister);
+		GetDynamicStructMap().Add(PathName, InRegister);
 	}
 }
 
@@ -434,7 +443,7 @@ TMap<FName, UEnum *(*)()>& GetDynamicEnumMap()
 	return DynamicEnumMap;
 }
 
-void UObjectCompiledInDeferEnum(class UEnum *(*InRegister)(), const TCHAR* PackageName, const TCHAR* Name, bool bDynamic)
+void UObjectCompiledInDeferEnum(class UEnum *(*InRegister)(), const TCHAR* PackageName, const FName PathName, bool bDynamic)
 {
 	if (!bDynamic)
 	{
@@ -445,7 +454,7 @@ void UObjectCompiledInDeferEnum(class UEnum *(*InRegister)(), const TCHAR* Packa
 	}
 	else
 	{
-		GetDynamicEnumMap().Add(FName(Name), InRegister);
+		GetDynamicEnumMap().Add(PathName, InRegister);
 	}
 }
 
@@ -555,8 +564,10 @@ void UClassCompiledInDefer(FFieldCompiledInInfo* ClassInfo, const TCHAR* Name, S
 		if (ClassInfo->bHasChanged)
 		{
 			// Rename the old class and move it to transient package
-			ExistingClass->ClearFlags(RF_RootSet | RF_Standalone | RF_Public);
-			ExistingClass->GetDefaultObject()->ClearFlags(RF_RootSet | RF_Standalone | RF_Public);
+			ExistingClass->RemoveFromRoot();
+			ExistingClass->ClearFlags(RF_Standalone | RF_Public);
+			ExistingClass->GetDefaultObject()->RemoveFromRoot();
+			ExistingClass->GetDefaultObject()->ClearFlags(RF_Standalone | RF_Public);
 			const FName OldClassRename = MakeUniqueObjectName(GetTransientPackage(), ExistingClass->GetClass(), *FString::Printf(TEXT("HOTRELOADED_%s"), *NameWithoutPrefix));
 			ExistingClass->Rename(*OldClassRename.ToString(), GetTransientPackage());
 			ExistingClass->SetFlags(RF_Transient);
@@ -601,7 +612,7 @@ TMap<FName, FClassConstructFunctions>& GetDynamicClassMap()
 	return DynamicClassMap;
 }
 
-void UObjectCompiledInDefer(UClass *(*InRegister)(), UClass *(*InStaticClass)(), const TCHAR* Name, bool bDynamic)
+void UObjectCompiledInDefer(UClass *(*InRegister)(), UClass *(*InStaticClass)(), const TCHAR* Name, bool bDynamic, const TCHAR* DynamicPathName)
 {
 	if (!bDynamic)
 	{
@@ -619,7 +630,7 @@ void UObjectCompiledInDefer(UClass *(*InRegister)(), UClass *(*InStaticClass)(),
 		FClassConstructFunctions ClassFunctions;
 		ClassFunctions.ZConstructFn = InRegister;
 		ClassFunctions.StaticClassFn = InStaticClass;
-		GetDynamicClassMap().Add(FName(Name), ClassFunctions);
+		GetDynamicClassMap().Add(FName(DynamicPathName), ClassFunctions);
 	}
 }
 
@@ -679,7 +690,7 @@ static void UClassGenerateCDODuplicatesForHotReload()
 				GIsDuplicatingClassForReinstancing = true;
 				UObject* DupCDO = (UObject*)StaticDuplicateObject(
 					Class->GetDefaultObject(), GetTransientPackage(),
-					*MakeUniqueObjectName(GetTransientPackage(), Class, TEXT("HOTRELOAD_CDO_DUPLICATE")).ToString()
+					MakeUniqueObjectName(GetTransientPackage(), Class, TEXT("HOTRELOAD_CDO_DUPLICATE"))
 					);
 				GIsDuplicatingClassForReinstancing = false;
 				GetDuplicatedCDOMap().Add(Class->GetDefaultObject(), DupCDO);
@@ -805,10 +816,10 @@ void ProcessNewlyLoadedUObjects()
 #endif
 }
 
-static int32 GVarWarnIfTimeLimitExceeded;
-static FAutoConsoleVariableRef CVarWarnIfTimeLimitExceeded(
+static int32 GVarMaxObjectsNotConsideredByGC;
+static FAutoConsoleVariableRef CMaxObjectsNotConsideredByGC(
 	TEXT("gc.MaxObjectsNotConsideredByGC"),
-	GVarWarnIfTimeLimitExceeded,
+	GVarMaxObjectsNotConsideredByGC,
 	TEXT("Placeholder console variable, currently not used in runtime."),
 	ECVF_Default
 	);
@@ -821,6 +832,22 @@ static FAutoConsoleVariableRef CSizeOfPermanentObjectPool(
 	ECVF_Default
 	);
 
+static int32 GMaxObjectsInEditor;
+static FAutoConsoleVariableRef CMaxObjectsInEditor(
+	TEXT("gc.MaxObjectsInEditor"),
+	GMaxObjectsInEditor,
+	TEXT("Placeholder console variable, currently not used in runtime."),
+	ECVF_Default
+	);
+
+static int32 GMaxObjectsInGame;
+static FAutoConsoleVariableRef CMaxObjectsInGame(
+	TEXT("gc.MaxObjectsInGame"),
+	GMaxObjectsInGame,
+	TEXT("Placeholder console variable, currently not used in runtime."),
+	ECVF_Default
+	);
+
 /**
  * Final phase of UObject initialization. all auto register objects are added to the main data structures.
  */
@@ -829,6 +856,7 @@ void UObjectBaseInit()
 	// Zero initialize and later on get value from .ini so it is overridable per game/ platform...
 	int32 MaxObjectsNotConsideredByGC	= 0;  
 	int32 SizeOfPermanentObjectPool	= 0;
+	int32 MaxUObjects = 2 * 1024 * 1024; // Default to ~2M UObjects
 
 	// To properly set MaxObjectsNotConsideredByGC look for "Log: XXX objects as part of root set at end of initial load."
 	// in your log file. This is being logged from LaunchEnglineLoop after objects have been added to the root set. 
@@ -841,13 +869,21 @@ void UObjectBaseInit()
 
 		// Not used on PC as in-place creation inside bigger pool interacts with the exit purge and deleting UObject directly.
 		GConfig->GetInt( TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.SizeOfPermanentObjectPool"), SizeOfPermanentObjectPool, GEngineIni );
+
+		// Maximum number of UObjects in cooked game
+		GConfig->GetInt(TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.MaxObjectsInGame"), MaxUObjects, GEngineIni);
+	}
+	else
+	{
+		// Maximum number of UObjects in the editor
+		GConfig->GetInt(TEXT("/Script/Engine.GarbageCollectionSettings"), TEXT("gc.MaxObjectsInEditor"), MaxUObjects, GEngineIni);
 	}
 
 	// Log what we're doing to track down what really happens as log in LaunchEngineLoop doesn't report those settings in pristine form.
-	UE_LOG(LogInit, Log, TEXT("Presizing for %i objects not considered by GC, pre-allocating %i bytes."), MaxObjectsNotConsideredByGC, SizeOfPermanentObjectPool );
+	UE_LOG(LogInit, Log, TEXT("Presizing for max %d objects, including %i objects not considered by GC, pre-allocating %i bytes for permanent pool."), MaxUObjects, MaxObjectsNotConsideredByGC, SizeOfPermanentObjectPool);
 
 	GUObjectAllocator.AllocatePermanentObjectPool(SizeOfPermanentObjectPool);
-	GUObjectArray.AllocatePermanentObjectPool(MaxObjectsNotConsideredByGC);
+	GUObjectArray.AllocateObjectPool(MaxUObjects, MaxObjectsNotConsideredByGC);
 
 	void InitAsyncThread();
 	InitAsyncThread();
@@ -965,7 +1001,6 @@ const TCHAR* DebugFullName(UObject* Object)
 		return TEXT("None");
 	}
 }
-
 namespace
 {
 #if WITH_HOT_RELOAD
@@ -1058,7 +1093,8 @@ namespace
 			if (Existing)
 			{
 				// Make sure the old struct is not used by anything
-				Existing->ClearFlags(RF_RootSet | RF_Standalone | RF_Public);
+				Existing->ClearFlags(RF_Standalone | RF_Public);
+				Existing->RemoveFromRoot();
 				const FName OldRename = MakeUniqueObjectName(GetTransientPackage(), Existing->GetClass(), *FString::Printf(TEXT("HOTRELOADED_%s"), Name));
 				Existing->Rename(*OldRename.ToString(), GetTransientPackage());
 			}
@@ -1071,40 +1107,28 @@ namespace
 
 UScriptStruct* FindExistingStructIfHotReloadOrDynamic(UObject* Outer, const TCHAR* StructName, SIZE_T Size, uint32 Crc, bool bIsDynamic)
 {
-	if (UScriptStruct* Output = FindExistingStructOrEnumIfHotReload<UScriptStruct>(Outer, StructName, Size, Crc))
+	UScriptStruct* Result = FindExistingStructOrEnumIfHotReload<UScriptStruct>(Outer, StructName, Size, Crc);
+	if (!Result && bIsDynamic)
 	{
-		return Output;
-	}
-
-	if (bIsDynamic)
-	{
-		return Cast<UScriptStruct>(StaticFindObjectFast(UScriptStruct::StaticClass(), Outer, StructName));
-	}
-
-	return nullptr;
-}
-
-UEnum* FindExistingEnumIfHotReload(UObject* Outer, const TCHAR* EnumName, SIZE_T Size, uint32 Crc)
-{
-	return FindExistingStructOrEnumIfHotReload<UEnum>(Outer, EnumName, Size, Crc);
-}
-
-UClass* ConstructDynamicClass(FName ClassName)
-{
-	UClass* Result = nullptr;
-	FClassConstructFunctions* ClassConstructFn = GetDynamicClassMap().Find(ClassName);
-	if (ClassConstructFn)
-	{
-		// This calls the class' StaticClass() function which calls GetPrivateStaticClassBody() which calls Z_Construct* function.
-		Result = ClassConstructFn->StaticClassFn();
+		Result = Cast<UScriptStruct>(StaticFindObjectFast(UScriptStruct::StaticClass(), Outer, StructName));
 	}
 	return Result;
 }
 
-UClass::StaticClassFunctionType GetDynamicClassConstructFn(FName ClassName)
+UEnum* FindExistingEnumIfHotReloadOrDynamic(UObject* Outer, const TCHAR* EnumName, SIZE_T Size, uint32 Crc, bool bIsDynamic)
 {
-	FClassConstructFunctions* ClassConstructFn = GetDynamicClassMap().Find(ClassName);
-	UE_CLOG(!ClassConstructFn, LogUObjectBase, Fatal, TEXT("Unable to find construct function pointer for dynamic class %s. Make sure dynamic class exists."), *ClassName.ToString());
+	UEnum* Result = FindExistingStructOrEnumIfHotReload<UEnum>(Outer, EnumName, Size, Crc);
+	if (!Result && bIsDynamic)
+	{
+		Result = Cast<UEnum>(StaticFindObjectFast(UEnum::StaticClass(), Outer, EnumName));
+	}
+	return Result;
+}
+
+UClass::StaticClassFunctionType GetDynamicClassConstructFn(FName ClassPathName)
+{
+	FClassConstructFunctions* ClassConstructFn = GetDynamicClassMap().Find(ClassPathName);
+	UE_CLOG(!ClassConstructFn, LogUObjectBase, Fatal, TEXT("Unable to find construct function pointer for dynamic class %s. Make sure dynamic class exists."), *ClassPathName.ToString());
 	if (ClassConstructFn)
 	{
 		return ClassConstructFn->ZConstructFn;
@@ -1113,43 +1137,56 @@ UClass::StaticClassFunctionType GetDynamicClassConstructFn(FName ClassName)
 	return nullptr;
 }
 
-UScriptStruct* ConstructDynamicStruct(FName StructName)
+UObject* ConstructDynamicType(FName TypePathName)
 {
-	UScriptStruct* Result = nullptr;
-	UScriptStruct *(**StaticStructFNPtr)() = GetDynamicStructMap().Find(StructName);
-	if (StaticStructFNPtr)
+	UObject* Result = nullptr;
+	if (FClassConstructFunctions* ClassConstructFn = GetDynamicClassMap().Find(TypePathName))
+	{
+		Result = ClassConstructFn->StaticClassFn();
+	}
+	else if (UScriptStruct *(**StaticStructFNPtr)() = GetDynamicStructMap().Find(TypePathName))
 	{
 		Result = (*StaticStructFNPtr)();
 	}
-	return Result;
-}
-
-UEnum* ConstructDynamicEnum(FName EnumName)
-{
-	UEnum* Result = nullptr;
-	UEnum *(**StaticEnumFNPtr)() = GetDynamicEnumMap().Find(EnumName);
-	if (StaticEnumFNPtr)
+	else if (UEnum *(**StaticEnumFNPtr)() = GetDynamicEnumMap().Find(TypePathName))
 	{
 		Result = (*StaticEnumFNPtr)();
 	}
 	return Result;
 }
 
-/** Constructs a dynamic class/enum/struct given its name */
-UObject* ConstructDynamicType(FName TypeName, FName TypeClass)
+FName GetDynamicTypeClassName(FName TypePathName)
 {
-	UObject* Result = nullptr;
-	if ((TypeClass == UClass::StaticClass()->GetFName()) || (TypeClass == UDynamicClass::StaticClass()->GetFName()))
+	FName Result = NAME_None;
+	if (GetDynamicClassMap().Find(TypePathName))
 	{
-		Result = ConstructDynamicClass(TypeName);
+		Result = UDynamicClass::StaticClass()->GetFName();
 	}
-	else if (TypeClass == UScriptStruct::StaticClass()->GetFName())
+	else if (GetDynamicStructMap().Find(TypePathName))
 	{
-		Result = ConstructDynamicStruct(TypeName);
+		Result = UScriptStruct::StaticClass()->GetFName();
 	}
-	else if (TypeClass == UEnum::StaticClass()->GetFName())
+	else if (GetDynamicEnumMap().Find(TypePathName))
 	{
-		Result = ConstructDynamicEnum(TypeName);
+		Result = UEnum::StaticClass()->GetFName();
 	}
 	return Result;
+}
+
+UPackage* FindOrConstructDynamicTypePackage(const TCHAR* PackageName)
+{
+	UPackage* Package = Cast<UPackage>(StaticFindObjectFast(UPackage::StaticClass(), nullptr, PackageName));
+	if (!Package)
+	{
+		Package = CreatePackage(nullptr, PackageName);
+		Package->SetPackageFlags(PKG_CompiledIn);
+	}
+	check(Package);
+	return Package;
+}
+
+TMap<FName, FName>& GetConvertedDynamicPackageNameToTypeName()
+{
+	static TMap<FName, FName> ConvertedDynamicPackageNameToTypeName;
+	return ConvertedDynamicPackageNameToTypeName;
 }

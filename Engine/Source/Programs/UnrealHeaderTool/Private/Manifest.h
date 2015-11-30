@@ -2,7 +2,7 @@
 
 #pragma once
 #include "UnrealSourceFile.h"
-
+#include "IScriptGeneratorPluginInterface.h"
 
 struct FManifestModule
 {
@@ -44,6 +44,44 @@ struct FManifestModule
 
 	/** Version of generated code. */
 	EGeneratedCodeVersion GeneratedCodeVersion;
+
+	/** Returns true if module headers were modified since last code generation. */
+	bool NeedsRegeneration() const;
+
+	/** Returns true if modules are compatible. Used to determine if module data can be loaded from makefile. */
+	bool IsCompatibleWith(const FManifestModule& ManifestModule);
+
+	friend FArchive& operator<<(FArchive& Ar, FManifestModule& ManifestModule)
+	{
+		Ar << ManifestModule.Name;
+		Ar << ManifestModule.ModuleType;
+		Ar << ManifestModule.LongPackageName;
+		Ar << ManifestModule.BaseDirectory;
+		Ar << ManifestModule.IncludeBase;
+		Ar << ManifestModule.GeneratedIncludeDirectory;
+		Ar << ManifestModule.PublicUObjectClassesHeaders;
+		Ar << ManifestModule.PublicUObjectHeaders;
+		Ar << ManifestModule.PrivateUObjectHeaders;
+		Ar << ManifestModule.PCH;
+		Ar << ManifestModule.GeneratedCPPFilenameBase;
+		Ar << ManifestModule.SaveExportedHeaders;
+		Ar << ManifestModule.GeneratedCodeVersion;
+
+		return Ar;
+	}
+
+	bool ShouldForceRegeneration() const
+	{
+		return bForceRegeneration;
+	}
+
+	void ForceRegeneration()
+	{
+		bForceRegeneration = true;
+	}
+
+private:
+	bool bForceRegeneration;
 };
 
 
@@ -65,4 +103,15 @@ struct FManifest
 	 * @return The loaded module info.
 	 */
 	static FManifest LoadFromFile(const FString& Filename);
+
+	friend FArchive& operator<<(FArchive& Ar, FManifest& Manifest)
+	{
+		Ar << Manifest.IsGameTarget;
+		Ar << Manifest.RootLocalPath;
+		Ar << Manifest.RootBuildPath;
+		Ar << Manifest.TargetName;
+		Ar << Manifest.Modules;
+
+		return Ar;
+	}
 };

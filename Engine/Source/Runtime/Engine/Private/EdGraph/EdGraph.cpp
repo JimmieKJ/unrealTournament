@@ -132,7 +132,9 @@ void UEdGraph::PostLoad()
 		if (Nodes[i] == nullptr)
 		{
 			Nodes.RemoveAt(i);
-			UE_LOG(LogBlueprint, Warning, TEXT("Found NULL Node in EdGraph Nodes array. A node type may have been deleted without creating an ActiveClassRedictor to K2Node_DeadClass."));
+			UE_LOG(LogBlueprint, Display, 
+				TEXT("Missing node found in the EdGraph. We've fixed up the issue, but couldn't determine the cause. If you are able to figure out the cause, please notify the engine team; otherwise consider resaving the asset: '%s'"),
+				*GetOutermost()->GetName());
 		}
 	}
 }

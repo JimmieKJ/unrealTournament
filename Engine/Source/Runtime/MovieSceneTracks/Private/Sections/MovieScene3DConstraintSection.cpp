@@ -11,9 +11,10 @@ UMovieScene3DConstraintSection::UMovieScene3DConstraintSection( const FObjectIni
 
 void UMovieScene3DConstraintSection::SetConstraintId(const FGuid& InConstraintId)
 {
-	Modify();
-
-	ConstraintId = InConstraintId;
+	if (TryModify())
+	{
+		ConstraintId = InConstraintId;
+	}
 }
 
 

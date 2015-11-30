@@ -52,15 +52,19 @@ void UMovieSceneBoolSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
 
 void UMovieSceneBoolSection::AddKey( float Time, const bool& Value, EMovieSceneKeyInterpolation KeyInterpolation )
 {
-	Modify();
-	BoolCurve.UpdateOrAddKey(Time, Value ? 1 : 0);
+	if (TryModify())
+	{
+		BoolCurve.UpdateOrAddKey(Time, Value ? 1 : 0);
+	}
 }
 
 
 void UMovieSceneBoolSection::SetDefault( const bool& Value )
 {
-	Modify();
-	BoolCurve.SetDefaultValue(Value ? 1 : 0);
+	if (TryModify())
+	{
+		BoolCurve.SetDefaultValue(Value ? 1 : 0);
+	}
 }
 
 

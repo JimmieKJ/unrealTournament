@@ -23,6 +23,13 @@ public:
 	UPROPERTY(EditAnywhere, Category=Content, meta=(MultiLine="true"))
 	FText Text;
 
+	/** Hint text that appears when there is no text in the text box */
+	UPROPERTY(EditAnywhere, Category=Content, meta=(MultiLine="true"))
+	FText HintText;
+
+	/** A bindable delegate to allow logic to drive the hint text of the widget */
+	UPROPERTY()
+	FGetText HintTextDelegate;
 public:
 
 	/** The style */

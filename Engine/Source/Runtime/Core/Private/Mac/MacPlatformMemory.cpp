@@ -7,13 +7,15 @@
 #include "CorePrivatePCH.h"
 #include "MallocTBB.h"
 #include "MallocAnsi.h"
-#include "MallocBinned.h"
+#include "MallocBinned2.h"
 
 #include <sys/param.h>
 #include <sys/mount.h>
 
 void FMacPlatformMemory::Init()
 {
+	FGenericPlatformMemory::Init();
+
 	const FPlatformMemoryConstants& MemoryConstants = FPlatformMemory::GetConstants();
 	UE_LOG(LogInit, Log, TEXT("Memory total: Physical=%.1fGB (%dGB approx) Pagefile=%.1fGB Virtual=%.1fGB"), 
 		float(MemoryConstants.TotalPhysical/1024.0/1024.0/1024.0),
@@ -48,7 +50,7 @@ FMalloc* FMacPlatformMemory::BaseAllocator()
 #elif (WITH_EDITORONLY_DATA || IS_PROGRAM) && TBB_ALLOCATOR_ALLOWED
 		return new FMallocTBB();
 #else
-		return new FMallocBinned((uint32)(GetConstants().PageSize&MAX_uint32), 0x100000000);
+		return new FMallocBinned2((uint32)(GetConstants().PageSize&MAX_uint32), 0x100000000);
 #endif
 	}
 }

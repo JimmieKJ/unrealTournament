@@ -10,7 +10,7 @@ namespace SequencerSectionConstants
 	const float SectionDragStartDistance = 5.0f;
 
 	/** The size of each key */
-	const FVector2D KeySize(11.0f, 11.0f);
+	const FVector2D KeySize(12.0f, 12.0f);
 
 	const float DefaultSectionGripSize = 7.0f;
 
@@ -63,6 +63,11 @@ public:
 	 * @return A const pointer to a slate brush if the brush should be overridden, otherwise null.
 	 */
 	virtual const FSlateBrush* GetKeyBrush(FKeyHandle KeyHandle) const { return nullptr; }
+
+	/*
+	 * @return Whether to draw a background for the key area
+	 */
+	virtual bool ShouldDrawKeyAreaBackground() const { return true; }
 
 	/**
 	 * Called when the section is double clicked
@@ -123,8 +128,9 @@ public:
 	 * Builds up the section context menu for the outliner
 	 *
 	 * @param MenuBuilder	The menu builder to change
+	 * @param ObjectBinding The object guid bound to this section
 	 */
-	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder) {}
+	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding) {}
 
 	/**
 	 * Called when the user requests that a category from this section be deleted. 

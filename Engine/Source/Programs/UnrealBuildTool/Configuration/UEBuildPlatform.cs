@@ -105,6 +105,15 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Get name for architecture-specific directories (can be shorter than architecture name itself)
+		/// </summary>
+		public virtual string GetActiveArchitectureFolderName()
+		{
+			// by default, use the architecture name
+			return GetActiveArchitecture();
+		}
+
+		/// <summary>
 		/// Setup the configuration environment for building
 		/// </summary>
 		/// <param name="InBuildTarget"> The target being built</param>

@@ -13,7 +13,7 @@ DECLARE_STATS_GROUP(TEXT("Party"), STATGROUP_Party, STATCAT_Advanced);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("PartyStat1"), STAT_PartyStat1, STATGROUP_Party, PARTY_API);
 
 /**
- * Module for Voice capture/compression/decompression implementations
+ * Module for the party framework that builds on top of IOnlineParty
  */
 class FPartyModule : 
 	public IModuleInterface, public FSelfRegisteringExec
@@ -50,13 +50,13 @@ private:
 	// IModuleInterface
 
 	/**
-	 * Called when voice module is loaded
+	 * Called when party module is loaded
 	 * Initialize platform specific parts of voice handling
 	 */
 	virtual void StartupModule() override;
 	
 	/**
-	 * Called when voice module is unloaded
+	 * Called when party module is unloaded
 	 * Shutdown platform specific parts of voice handling
 	 */
 	virtual void ShutdownModule() override;

@@ -989,6 +989,84 @@ bool SProjectBrowser::OpenProject( const FString& InProjectFile )
 			return false;
 		}
 
+		// If it's a code project, verify the user has the needed compiler installed before we continue.
+		if ( ProjectStatus.bCodeBasedProject )
+		{
+			if ( !FSourceCodeNavigation::IsCompilerAvailable() )
+			{
+				const FText TitleText = LOCTEXT("CompilerNeeded", "Missing Compiler");
+				const FText CompilerStillNotInstalled = FText::Format(LOCTEXT("CompilerStillNotInstalledFormatted", "Press OK when you've finished installing {0}."), FSourceCodeNavigation::GetSuggestedSourceCodeIDE());
+
+				if ( FSourceCodeNavigation::GetCanDirectlyInstallSourceCodeIDE() )
+				{
+					const FText ErrorText = FText::Format(LOCTEXT("WouldYouLikeToDownloadAndInstallCompiler", "To open this project you must first install {0}.\n\nWould you like to download and install it now?"), FSourceCodeNavigation::GetSuggestedSourceCodeIDE());
+
+					EAppReturnType::Type InstallCompilerResult = FMessageDialog::Open(EAppMsgType::YesNo, ErrorText, &TitleText);
+					if ( InstallCompilerResult == EAppReturnType::No )
+					{
+						return false;
+					}
+
+					GWarn->BeginSlowTask(LOCTEXT("DownloadingInstalling", "Waiting for Installer to complete."), true, true);
+
+					TOptional<bool> bWasDownloadASuccess;
+
+					FSourceCodeNavigation::DownloadAndInstallSuggestedIDE(FOnIDEInstallerDownloadComplete::CreateLambda([&bWasDownloadASuccess] (bool bSuccessful) {
+						bWasDownloadASuccess = bSuccessful;
+					}));
+
+					while ( !bWasDownloadASuccess.IsSet() )
+					{
+						// User canceled the install.
+						if ( GWarn->ReceivedUserCancel() )
+						{
+							GWarn->EndSlowTask();
+							return false;
+						}
+
+						GWarn->StatusUpdate(1, 1, LOCTEXT("WaitingForDownload", "Waiting for download to complete..."));
+						FPlatformProcess::Sleep(0.1f);
+					}
+
+					GWarn->EndSlowTask();
+
+					if ( !bWasDownloadASuccess.GetValue() )
+					{
+						const FText DownloadFailed = LOCTEXT("DownloadFailed", "Failed to download. Please check your internet connection.");
+						if ( FMessageDialog::Open(EAppMsgType::OkCancel, DownloadFailed) == EAppReturnType::Cancel )
+						{
+							// User canceled, fail.
+							return false;
+						}
+					}
+				}
+				else
+				{
+					const FText ErrorText = FText::Format(LOCTEXT("WouldYouLikeToInstallCompiler", "To open this project you must first install {0}.\n\nWould you like to install it now?"), FSourceCodeNavigation::GetSuggestedSourceCodeIDE());
+					EAppReturnType::Type InstallCompilerResult = FMessageDialog::Open(EAppMsgType::YesNo, ErrorText, &TitleText);
+					if ( InstallCompilerResult == EAppReturnType::No )
+					{
+						return false;
+					}
+
+					FString DownloadURL = FSourceCodeNavigation::GetSuggestedSourceCodeIDEDownloadURL();
+					FPlatformProcess::LaunchURL(*DownloadURL, nullptr, nullptr);
+				}
+
+				// Loop until the users cancels or they complete installation.
+				while ( !FSourceCodeNavigation::IsCompilerAvailable() )
+				{
+					EAppReturnType::Type UserInstalledResult = FMessageDialog::Open(EAppMsgType::OkCancel, CompilerStillNotInstalled);
+					if ( UserInstalledResult == EAppReturnType::Cancel )
+					{
+						return false;
+					}
+
+					FSourceCodeNavigation::RefreshCompilerAvailability();
+				}
+			}
+		}
+
 		// Hyperlinks for the upgrade dialog
 		TArray<FText> Hyperlinks;
 		int32 MoreOptionsHyperlink = Hyperlinks.Add(LOCTEXT("ProjectConvert_MoreOptions", "More Options..."));

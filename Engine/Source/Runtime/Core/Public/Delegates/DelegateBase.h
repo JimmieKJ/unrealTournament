@@ -4,7 +4,7 @@
 
 #include "ContainerAllocationPolicies.h"
 
-#ifndef WIN32
+#if !defined(_WIN32) || defined(_WIN64)
 	// Let delegates store up to 32 bytes which are 16-byte aligned before we heap allocate
 	typedef TAlignedBytes<16, 16> AlignedInlineDelegateType;
 	typedef TInlineAllocator<2> DelegateAllocatorType;

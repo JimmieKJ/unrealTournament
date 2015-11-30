@@ -658,6 +658,7 @@ struct FXAudioDeviceProperties
 		if (VoicePoolEntry && VoicePoolEntry->FreeVoices.Num() > 0)
 		{
 			*Voice = VoicePoolEntry->FreeVoices.Pop(false);
+			(*Voice)->SetEffectChain(EffectChain);
 		}
 		else
 		{
@@ -674,6 +675,9 @@ struct FXAudioDeviceProperties
 
 		// And make sure there's no audio remaining the voice so when it's re-used it's fresh.
 		Voice->FlushSourceBuffers();
+
+		// Release the effect chain
+		Voice->SetEffectChain(nullptr);
 
 		// See if there is an existing pool for this source voice
 		FSourceVoicePoolEntry* VoicePoolEntry = nullptr;

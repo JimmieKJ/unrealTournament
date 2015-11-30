@@ -140,7 +140,7 @@ void UKismetArrayLibrary::GenericArray_Shuffle(void* TargetArray, const UArrayPr
 	{
 		FScriptArrayHelper ArrayHelper(ArrayProp, TargetArray);
 		int32 LastIndex = ArrayHelper.Num() - 1;
-		for (int32 i = 0; i < LastIndex; ++i)
+		for (int32 i = 0; i <= LastIndex; ++i)
 		{
 			int32 Index = FMath::RandRange(0, LastIndex);
 			if (i != Index)

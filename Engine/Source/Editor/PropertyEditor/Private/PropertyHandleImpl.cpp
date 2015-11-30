@@ -334,7 +334,7 @@ FPropertyAccess::Result FPropertyValueImpl::ImportText( const TArray<FObjectBase
 		// GWorld.  Assumes all objects managed by this property window belong to the same world.
 		if (UPackage* ObjectPackage = (InObjects[0].Object ? InObjects[0].Object->GetOutermost() : nullptr))
 		{
-			bool bIsPIEPackage = !!(ObjectPackage->PackageFlags & PKG_PlayInEditor);
+			const bool bIsPIEPackage = ObjectPackage->HasAnyPackageFlags(PKG_PlayInEditor);
 			if (GUnrealEd && GUnrealEd->PlayWorld && bIsPIEPackage && !GIsPlayInEditorWorld)
 			{
 				OldGWorld = SetPlayInEditorWorld(GUnrealEd->PlayWorld);

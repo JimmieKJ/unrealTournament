@@ -287,7 +287,9 @@ void FPrecomputedLightVolume::InterpolateIncidentRadianceBlock(
 	const FIntVector& DestCellPosition,
 	TArray<float>& AccumulatedWeights,
 	TArray<FSHVectorRGB2>& AccumulatedIncidentRadiance,
-	TArray<FVector>& AccumulatedSkyBentNormal) const
+	FVector& AccumulatedCenterSkyBentNormal,
+	float& AccumulatedCenterDirectionalLightShadowing,
+	float& AccumulatedCenterWeight) const
 {
 	// This could be called on a NULL volume for a newly created level. This is now checked at the callsite, but this check provides extra safety
 	checkf(this, TEXT("FPrecomputedLightVolume::InterpolateIncidentRadianceBlock() is called on a null volume. Fix the call site."));
@@ -306,12 +308,15 @@ void FPrecomputedLightVolume::InterpolateIncidentRadianceBlock(
 			PotentiallyIntersectingSamples.Add(&OctreeIt.GetCurrentElement());
 		}
 		
+		const int32 LinearIndexBase = DestCellPosition.Z * DestCellDimensions.Y * DestCellDimensions.X
+			+ DestCellPosition.Y * DestCellDimensions.X
+			+ DestCellPosition.X;
+
+		const int32 CenterIndex = LinearIndexBase + (QueryCellDimensions.Z / 2 * DestCellDimensions.Y + QueryCellDimensions.Y / 2) * DestCellDimensions.X + QueryCellDimensions.X / 2;
+
 		for (int32 SampleIndex = 0; SampleIndex < PotentiallyIntersectingSamples.Num(); SampleIndex++)
 		{
 			const FVolumeLightingSample& VolumeSample = *PotentiallyIntersectingSamples[SampleIndex];
-			const int32 LinearIndexBase = DestCellPosition.Z * DestCellDimensions.Y * DestCellDimensions.X
-				+ DestCellPosition.Y * DestCellDimensions.X
-				+ DestCellPosition.X;
 				
 			const float RadiusSquared = FMath::Square(VolumeSample.Radius);
 			const float WeightBase  = 1.0f / RadiusSquared;
@@ -338,8 +343,14 @@ void FPrecomputedLightVolume::InterpolateIncidentRadianceBlock(
 							const float SampleWeight = DistanceSquared * WeightMultiplier + WeightBase;
 							// Accumulate weighted results and the total weight for normalization later
 							AccumulatedIncidentRadiance[LinearIndex] += VolumeSample.Lighting * SampleWeight;
-							AccumulatedSkyBentNormal[LinearIndex] += VolumeSample.GetSkyBentNormalUnpacked() * SampleWeight;
 							AccumulatedWeights[LinearIndex] += SampleWeight;
+
+							if (LinearIndex == CenterIndex)
+							{
+								AccumulatedCenterSkyBentNormal += VolumeSample.GetSkyBentNormalUnpacked() * SampleWeight;
+								AccumulatedCenterDirectionalLightShadowing += VolumeSample.DirectionalLightShadowing * SampleWeight;
+								AccumulatedCenterWeight += SampleWeight;
+							}
 						}
 
 						TranslationFromSample.X += QuerySteps.X;

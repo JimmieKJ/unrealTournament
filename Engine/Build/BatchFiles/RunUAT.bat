@@ -80,7 +80,7 @@ goto DoRunUAT
 :ReadyToCompile
 msbuild /nologo /verbosity:quiet Source\Programs\AutomationToolLauncher\AutomationToolLauncher.csproj /property:Configuration=Development /property:Platform=AnyCPU
 if not %ERRORLEVEL% == 0 goto Error_UATCompileFailed
-msbuild /nologo /verbosity:quiet Source\Programs\AutomationTool\AutomationTool.csproj /property:Configuration=Development /property:Platform=AnyCPU
+msbuild /nologo /verbosity:quiet Source\Programs\AutomationTool\AutomationTool.csproj /property:Configuration=Development /property:Platform=AnyCPU /property:AutomationToolProjectOnly=true
 if not %ERRORLEVEL% == 0 goto Error_UATCompileFailed
 
 

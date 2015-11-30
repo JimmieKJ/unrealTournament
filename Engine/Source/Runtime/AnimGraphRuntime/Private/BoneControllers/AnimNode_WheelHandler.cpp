@@ -6,6 +6,8 @@
 #include "GameFramework/WheeledVehicle.h"
 #include "Vehicles/WheeledVehicleMovementComponent.h"
 #include "Vehicles/VehicleWheel.h"
+#include "Animation/AnimInstanceProxy.h"
+
 
 /////////////////////////////////////////////////////
 // FAnimNode_WheelHandler
@@ -132,7 +134,7 @@ void FAnimNode_WheelHandler::Initialize(const FAnimationInitializeContext& Conte
 {
 	// TODO: only check vehicle anim instance
 	// UVehicleAnimInstance
-	AWheeledVehicle * Vehicle = Cast<AWheeledVehicle> ((CastChecked<USkeletalMeshComponent> (Context.AnimInstance->GetOuter()))->GetOwner());
+	AWheeledVehicle * Vehicle = Cast<AWheeledVehicle> (Context.AnimInstanceProxy->GetSkelMeshComponent()->GetOwner());
 	;
 	// we only support vehicle for this class
 	if(Vehicle != nullptr)

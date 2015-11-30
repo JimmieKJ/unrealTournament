@@ -102,6 +102,7 @@ DEFINE_STAT(STAT_OcclusionQueries);
 DEFINE_STAT(STAT_VisibleStaticMeshElements);
 DEFINE_STAT(STAT_VisibleDynamicPrimitives);
 DEFINE_STAT(STAT_IndirectLightingCacheUpdates);
+DEFINE_STAT(STAT_PrecomputedLightingBufferUpdates);
 
 
 // The ShadowRendering stats group shows what kind of shadows are taking a lot of rendering thread time to render

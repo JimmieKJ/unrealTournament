@@ -9,7 +9,7 @@ UPhysicsSpringComponent::UPhysicsSpringComponent(const FObjectInitializer& Objec
 	: Super(ObjectInitializer)
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.TickGroup = TG_PreCloth;
+	PrimaryComponentTick.TickGroup = TG_PostPhysics;
 	bAutoActivate = true;
 
 	SpringStiffness = 25.f;

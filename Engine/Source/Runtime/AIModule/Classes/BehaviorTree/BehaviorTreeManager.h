@@ -41,7 +41,7 @@ class AIMODULE_API UBehaviorTreeManager : public UObject
 	static int32 GetAlignedDataSize(int32 Size);
 
 	/** helper function for sorting and aligning node memory */
-	static void InitializeMemoryHelper(const TArray<UBTDecorator*>& Nodes, TArray<uint16>& MemoryOffsets, int32& MemorySize);
+	static void InitializeMemoryHelper(const TArray<UBTDecorator*>& Nodes, TArray<uint16>& MemoryOffsets, int32& MemorySize, bool bForceInstancing = false);
 
 	/** cleanup hooks for map loading */
 	virtual void FinishDestroy() override;

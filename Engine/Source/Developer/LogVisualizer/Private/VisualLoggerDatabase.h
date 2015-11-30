@@ -80,6 +80,7 @@ struct FVisualLoggerDatabase
 	FConstRowIterator GetConstRowIterator() const { return Rows.CreateConstIterator(); }
 	FRowIterator GetRowIterator() { return Rows.CreateIterator(); }
 	
+	bool ContainsRowByName(FName InName);
 	FVisualLoggerDBRow& GetRowByName(FName InName);
 
 	void SelectRow(FName InName, bool bDeselectOtherNodes = false);

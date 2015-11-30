@@ -443,47 +443,50 @@ TSharedPtr<class IXmppChat> FXmppConnectionJingle::PrivateChat()
 
 bool FXmppConnectionJingle::Tick(float DeltaTime)
 {
+	ELoginProgress::Type LocalLastLoginState, LocalLoginState;
 	{
 		FScopeLock Lock(&LoginStateLock);
+		LocalLastLoginState = LastLoginState;
+		LocalLoginState = LoginState;
+		LastLoginState = LoginState;
+	}
 
-		if (LastLoginState != LoginState)
+	if (LocalLastLoginState != LocalLoginState)
+	{
+		if (LocalLoginState == ELoginProgress::LoggedIn)
 		{
-			if (LoginState == ELoginProgress::LoggedIn)
+			UE_LOG(LogXmpp, Log, TEXT("Logged IN JID=%s"), *GetUserJid().GetFullPath());
+			if (LocalLastLoginState == ELoginProgress::ProcessingLogin)
 			{
-				UE_LOG(LogXmpp, Log, TEXT("Logged IN JID=%s"), *GetUserJid().GetFullPath());
-				if (LastLoginState == ELoginProgress::ProcessingLogin)
-				{
-					OnLoginComplete().Broadcast(GetUserJid(), true, FString());
+				OnLoginComplete().Broadcast(GetUserJid(), true, FString());
 
-					// send/obtain initial presence
-					if (Presence().IsValid())
-					{
-						FXmppUserPresence InitialPresence = Presence()->GetPresence();
-						InitialPresence.bIsAvailable = true;
-						InitialPresence.Status = EXmppPresenceStatus::Offline;
-						Presence()->UpdatePresence(InitialPresence);
-					}
+				// send/obtain initial presence
+				if (Presence().IsValid())
+				{
+					FXmppUserPresence InitialPresence = Presence()->GetPresence();
+					InitialPresence.bIsAvailable = true;
+					InitialPresence.Status = EXmppPresenceStatus::Offline;
+					Presence()->UpdatePresence(InitialPresence);
 				}
-				OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedIn);
 			}
-			else if (LoginState == ELoginProgress::LoggedOut)
+			OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedIn);
+		}
+		else if (LocalLoginState == ELoginProgress::LoggedOut)
+		{
+			UE_LOG(LogXmpp, Log, TEXT("Logged OUT JID=%s"), *GetUserJid().GetFullPath());
+			if (LocalLastLoginState == ELoginProgress::ProcessingLogin)
 			{
-				UE_LOG(LogXmpp, Log, TEXT("Logged OUT JID=%s"), *GetUserJid().GetFullPath());
-				if (LastLoginState == ELoginProgress::ProcessingLogin)
-				{
-					OnLoginComplete().Broadcast(GetUserJid(), false, FString());
-				}
-				else if (LastLoginState == ELoginProgress::ProcessingLogout)
-				{
-					OnLogoutComplete().Broadcast(GetUserJid(), true, FString());
-				}
-				if (LastLoginState == ELoginProgress::LoggedIn ||
-					LastLoginState == ELoginProgress::ProcessingLogout)
-				{
-					OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedOut);
-				}
+				OnLoginComplete().Broadcast(GetUserJid(), false, FString());
 			}
-			LastLoginState = LoginState;
+			else if (LocalLastLoginState == ELoginProgress::ProcessingLogout)
+			{
+				OnLogoutComplete().Broadcast(GetUserJid(), true, FString());
+			}
+			if (LocalLastLoginState == ELoginProgress::LoggedIn ||
+				LocalLastLoginState == ELoginProgress::ProcessingLogout)
+			{
+				OnLoginChanged().Broadcast(GetUserJid(), EXmppLoginStatus::LoggedOut);
+			}
 		}
 	}
 
@@ -743,12 +746,7 @@ void FXmppConnectionJingle::Login(const FString& UserId, const FString& Password
 
 void FXmppConnectionJingle::Logout()
 {	
-	FString ErrorStr;
-
-	if (GetLoginStatus() != EXmppLoginStatus::LoggedIn)
-	{
-		ErrorStr = TEXT("not logged in");
-	}
+	FString ErrorStr;	
 	if (PumpThread != NULL)
 	{
 		//@todo sz1 - should be able to reuse existing connection pump for login/logout
@@ -756,8 +754,12 @@ void FXmppConnectionJingle::Logout()
 		PumpThread->Logout();
 #else
 		Shutdown();
-		OnLogoutComplete().Broadcast(GetUserJid(), true, ErrorStr);
 #endif
+		if (GetLoginStatus() != EXmppLoginStatus::LoggedIn)
+		{
+			// we want this to trigger OnLogoutComplete because Shutdown() will not (in the case of not logged in)
+			ErrorStr = TEXT("not logged in");
+		}
 	}
 	else
 	{

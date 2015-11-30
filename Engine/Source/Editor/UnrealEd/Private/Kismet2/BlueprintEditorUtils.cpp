@@ -342,6 +342,13 @@ void FBasePinChangeHelper::Broadcast(UBlueprint* InBlueprint, UK2Node_EditablePi
 			if (NodeIsNotTransient(CallSite))
 			{
 				UBlueprint* CallSiteBlueprint = FBlueprintEditorUtils::FindBlueprintForNode(CallSite);
+				if (CallSiteBlueprint == nullptr)
+				{
+					// the node doesn't have a Blueprint in its outer chain, 
+					// probably signifying that it is part of a graph that has 
+					// been removed by the user (and moved off the Blueprint)
+					continue;
+				}
 
 				const bool bNameMatches = (CallSite->FunctionReference.GetMemberName() == FuncName);
 				const UClass* MemberParentClass = CallSite->FunctionReference.GetMemberParentClass(CallSite->GetBlueprintClassFromNode());
@@ -1672,6 +1679,7 @@ UClass* FBlueprintEditorUtils::RegenerateBlueprintClass(UBlueprint* Blueprint, U
 						CopyDetails.bAggressiveDefaultSubobjectReplacement = true;
 						CopyDetails.bDoDelta = false;
 						CopyDetails.bCopyDeprecatedProperties = true;
+						CopyDetails.bSkipCompilerGeneratedDefaults = true;
 						UEditorEngine::CopyPropertiesForUnrelatedObjects(PreviousCDO, NewCDO, CopyDetails);
 					}
 
@@ -1885,6 +1893,8 @@ void FBlueprintEditorUtils::PropagateParentBlueprintDefaults(UClass* ClassToProp
 
 UNREALED_API FSecondsCounterData BlueprintCompileAndLoadTimerData;
 
+uint32 FBlueprintDuplicationScopeFlags::bStaticFlags = FBlueprintDuplicationScopeFlags::NoFlags;
+
 void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool bDuplicateForPIE)
 {
 	FSecondsCounterScope Timer(BlueprintCompileAndLoadTimerData); 
@@ -1941,7 +1951,7 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 			UBlueprintGeneratedClass* NewBPGC = (UBlueprintGeneratedClass*)(NewBPGCAsClass);
 			if( SCSRootNode )
 			{
-				NewBPGC->SimpleConstructionScript = Cast<USimpleConstructionScript>(StaticDuplicateObject(SCSRootNode, NewBPGC, *SCSRootNode->GetName()));
+				NewBPGC->SimpleConstructionScript = Cast<USimpleConstructionScript>(StaticDuplicateObject(SCSRootNode, NewBPGC, SCSRootNode->GetFName()));
 				const TArray<USCS_Node*>& AllNodes = NewBPGC->SimpleConstructionScript->GetAllNodes();
 
 				// Duplicate all component templates
@@ -1949,7 +1959,7 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 				{
 					if (CurrentNode && CurrentNode->ComponentTemplate)
 					{
-						UActorComponent* DuplicatedComponent = CastChecked<UActorComponent>(StaticDuplicateObject(CurrentNode->ComponentTemplate, NewBPGC, *CurrentNode->ComponentTemplate->GetName()));
+						UActorComponent* DuplicatedComponent = CastChecked<UActorComponent>(StaticDuplicateObject(CurrentNode->ComponentTemplate, NewBPGC, CurrentNode->ComponentTemplate->GetFName()));
 						OldToNewMap.Add(CurrentNode->ComponentTemplate, DuplicatedComponent);
 						CurrentNode->ComponentTemplate = DuplicatedComponent;
 					}
@@ -1962,7 +1972,7 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 						UActorComponent* DuplicatedComponent =  Cast<UActorComponent>(OldToNewMap.FindRef(DefaultSceneRootNode->ComponentTemplate));
 						if (!DuplicatedComponent)
 						{
-							DuplicatedComponent = CastChecked<UActorComponent>(StaticDuplicateObject(DefaultSceneRootNode->ComponentTemplate, NewBPGC, *DefaultSceneRootNode->ComponentTemplate->GetName()));
+							DuplicatedComponent = CastChecked<UActorComponent>(StaticDuplicateObject(DefaultSceneRootNode->ComponentTemplate, NewBPGC, DefaultSceneRootNode->ComponentTemplate->GetFName()));
 							OldToNewMap.Add(DefaultSceneRootNode->ComponentTemplate, DuplicatedComponent);
 						}
 						DefaultSceneRootNode->ComponentTemplate = DuplicatedComponent;
@@ -1973,7 +1983,7 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 			for(auto CompIt = Templates.CreateIterator(); CompIt; ++CompIt)
 			{
 				UActorComponent* OldComponent = *CompIt;
-				UActorComponent* NewComponent = CastChecked<UActorComponent>(StaticDuplicateObject(OldComponent, NewBPGC, *OldComponent->GetName()));
+				UActorComponent* NewComponent = CastChecked<UActorComponent>(StaticDuplicateObject(OldComponent, NewBPGC, OldComponent->GetFName()));
 
 				NewBPGC->ComponentTemplates.Add(NewComponent);
 				OldToNewMap.Add(OldComponent, NewComponent);
@@ -1982,7 +1992,12 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 			for(auto TimelineIt = Timelines.CreateIterator(); TimelineIt; ++TimelineIt)
 			{
 				UTimelineTemplate* OldTimeline = *TimelineIt;
-				UTimelineTemplate* NewTimeline = CastChecked<UTimelineTemplate>(StaticDuplicateObject(OldTimeline, NewBPGC, *OldTimeline->GetName()));
+				UTimelineTemplate* NewTimeline = CastChecked<UTimelineTemplate>(StaticDuplicateObject(OldTimeline, NewBPGC, OldTimeline->GetFName()));
+
+				if (FBlueprintDuplicationScopeFlags::HasAnyFlag(FBlueprintDuplicationScopeFlags::TheSameTimelineGuid))
+				{
+					NewTimeline->TimelineGuid = OldTimeline->TimelineGuid;
+				}
 
 				NewBPGC->Timelines.Add(NewTimeline);
 				OldToNewMap.Add(OldTimeline, NewTimeline);
@@ -1990,7 +2005,7 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 
 			if (InheritableComponentHandler)
 			{
-				NewBPGC->InheritableComponentHandler = Cast<UInheritableComponentHandler>(StaticDuplicateObject(InheritableComponentHandler, NewBPGC, *InheritableComponentHandler->GetName()));
+				NewBPGC->InheritableComponentHandler = Cast<UInheritableComponentHandler>(StaticDuplicateObject(InheritableComponentHandler, NewBPGC, InheritableComponentHandler->GetFName()));
 				if (NewBPGC->InheritableComponentHandler)
 				{
 					NewBPGC->InheritableComponentHandler->UpdateOwnerClass(NewBPGC);
@@ -2055,8 +2070,11 @@ void FBlueprintEditorUtils::PostDuplicateBlueprint(UBlueprint* Blueprint, bool b
 			UEditorEngine::CopyPropertiesForUnrelatedObjects(OldCDO, NewCDO);
 		}
 
-		// And compile again to make sure they go into the generated class, get cleaned up, etc...
-		FKismetEditorUtilities::CompileBlueprint(Blueprint, false, true);
+		if (!FBlueprintDuplicationScopeFlags::HasAnyFlag(FBlueprintDuplicationScopeFlags::NoExtraCompilation))
+		{
+			// And compile again to make sure they go into the generated class, get cleaned up, etc...
+			FKismetEditorUtilities::CompileBlueprint(Blueprint, false, true);
+		}
 
 		// it can still keeps references to some external objects
 		Blueprint->LastEditedDocuments.Empty();
@@ -2591,7 +2609,8 @@ void FBlueprintEditorUtils::RemoveGraph(UBlueprint* Blueprint, class UEdGraph* G
 	GraphToRemove->GetSchema()->HandleGraphBeingDeleted(*GraphToRemove);
 
 	GraphToRemove->Rename(NULL, Blueprint->GetOuter(), REN_DoNotDirty | REN_DontCreateRedirectors);
-	GraphToRemove->ClearFlags(RF_Standalone | RF_RootSet | RF_Public);
+	GraphToRemove->ClearFlags(RF_Standalone | RF_Public);
+	GraphToRemove->RemoveFromRoot();
 
 	if (Flags & EGraphRemoveFlags::MarkTransient)
 	{
@@ -2821,6 +2840,13 @@ void FBlueprintEditorUtils::GatherDependencies(const UBlueprint* InBlueprint, TS
 	Dependencies.Empty();
 	OutUDSDependencies.Empty();
 
+	// If the Blueprint's GeneratedClass was not generated by the Blueprint, it's either corrupt or a PIE version of the BP
+	if (InBlueprint->GeneratedClass && InBlueprint->GeneratedClass->ClassGeneratedBy != InBlueprint)
+	{
+		// Dependencies do not matter for PIE duplicated Blueprints
+		return;
+	}
+
 	InBlueprint->GatherDependencies(Dependencies);
 
 	FGatherDependenciesHelper::ProcessHierarchy(InBlueprint->ParentClass, Dependencies);
@@ -2887,7 +2913,7 @@ void FBlueprintEditorUtils::GetDependentBlueprints(UBlueprint* Blueprint, TArray
 	{
 		// we know the class is correct so a fast cast is ok here
 		UBlueprint* TestBP = (UBlueprint*) *ObjIt;
-		if (TestBP && !TestBP->HasAnyFlags(RF_PendingKill))
+		if (TestBP && !TestBP->IsPendingKill())
 		{
 			EnsureCachedDependenciesUpToDate(TestBP);
 
@@ -4677,11 +4703,14 @@ bool FBlueprintEditorUtils::AddLocalVariable(UBlueprint* Blueprint, UEdGraph* In
 {
 	if(InTargetGraph != NULL && InTargetGraph->GetSchema()->GetGraphType(InTargetGraph) == GT_Function)
 	{
+		// Ensure we have the top level graph for the function, in-case we are in a child graph
+		UEdGraph* TargetGraph = FBlueprintEditorUtils::GetTopLevelGraph(InTargetGraph);
+
 		const FScopedTransaction Transaction( LOCTEXT("AddLocalVariable", "Add Local Variable") );
 		Blueprint->Modify();
 
 		TArray<UK2Node_FunctionEntry*> FunctionEntryNodes;
-		InTargetGraph->GetNodesOfClass(FunctionEntryNodes);
+		TargetGraph->GetNodesOfClass(FunctionEntryNodes);
 		check(FunctionEntryNodes.Num());
 
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
@@ -4707,7 +4736,7 @@ bool FBlueprintEditorUtils::AddLocalVariable(UBlueprint* Blueprint, UEdGraph* In
 		{
 			// Pull the description of the new variable, we will update it's default value with the default value from the user defined struct.
 			FBPVariableDescription* VariableDescription = &FunctionEntryNodes[0]->LocalVariables[FunctionEntryNodes[0]->LocalVariables.Num() - 1];
-			SetDefaultValueOnUserDefinedStructProperty(Blueprint, InTargetGraph->GetName(), VariableDescription);
+			SetDefaultValueOnUserDefinedStructProperty(Blueprint, TargetGraph->GetName(), VariableDescription);
 		}
 
 		return true;
@@ -5966,10 +5995,21 @@ void FBlueprintEditorUtils::ConformImplementedInterfaces(UBlueprint* Blueprint)
 	Blueprint->GetAllGraphs(AllGraphs);
 	// collect all existing event nodes, so we can find interface events that 
 	// need to be converted to function graphs
-	TArray<UK2Node_Event*> ImplementedEvents;
+	TArray<UK2Node_Event*> PotentialInterfaceEvents;
 	for (UEdGraph const* Graph : AllGraphs)
 	{
-		Graph->GetNodesOfClass<UK2Node_Event>(ImplementedEvents);
+		UClass* InterfaceEventClass = UK2Node_Event::StaticClass();
+		for (UEdGraphNode* GraphNode : Graph->Nodes)
+		{
+			// interface event nodes are only ever going to be implemented as 
+			// explicit UK2Node_Events... using == instead of IsChildOf<> 
+			// guarantees that we won't be catching any special node types that
+			// users might have made (that maybe reference interface functions too)
+			if (GraphNode && (GraphNode->GetClass() == InterfaceEventClass))
+			{
+				PotentialInterfaceEvents.Add(CastChecked<UK2Node_Event>(GraphNode));
+			}
+		}
 	}
 
 	for (int32 InterfaceIndex = 0; InterfaceIndex < Blueprint->ImplementedInterfaces.Num(); )
@@ -5989,7 +6029,7 @@ void FBlueprintEditorUtils::ConformImplementedInterfaces(UBlueprint* Blueprint)
 		}
 
 		// now try to conform by name/signature
-		ConformInterfaceByName(Blueprint, CurrentInterface, InterfaceIndex, ImplementedEvents, VariableNamesUsedInBlueprint);
+		ConformInterfaceByName(Blueprint, CurrentInterface, InterfaceIndex, PotentialInterfaceEvents, VariableNamesUsedInBlueprint);
 
 		// not going to remove this interface, so let's continue forward
 		++InterfaceIndex;
@@ -6916,7 +6956,7 @@ bool FBlueprintEditorUtils::KismetDiagnosticExec(const TCHAR* InStream, FOutputD
 		for( FObjectIterator it; it; ++it )
 		{
 			UObject* CurrObj = *it;
-			if( CurrObj->HasAnyFlags(RF_RootSet) )
+			if( CurrObj->IsRooted() )
 			{
 				UE_LOG(LogBlueprintDebug, Log, TEXT(" - %s"), *CurrObj->GetFullName());
 			}
@@ -7225,7 +7265,7 @@ void FBlueprintEditorUtils::UpdateOldPureFunctions( UBlueprint* Blueprint )
 						{
 							UK2Node_FunctionEntry* Entry = EntryNodes[0];
 							Entry->Modify();
-							Entry->SetExtraFlags(Entry->GetFunctionFlags() | FUNC_BlueprintPure);
+							Entry->AddExtraFlags(FUNC_BlueprintPure);
 						}
 					}
 				}
@@ -7245,7 +7285,7 @@ void FBlueprintEditorUtils::PostEditChangeBlueprintActors(UBlueprint* Blueprint,
 		const bool bIncludeDerivedClasses = false;
 
 		TArray<UObject*> MatchingBlueprintObjects;
-		GetObjectsOfClass(Blueprint->GeneratedClass, MatchingBlueprintObjects, bIncludeDerivedClasses, (RF_ClassDefaultObject | RF_PendingKill));
+		GetObjectsOfClass(Blueprint->GeneratedClass, MatchingBlueprintObjects, bIncludeDerivedClasses, RF_ClassDefaultObject, EInternalObjectFlags::PendingKill);
 
 		for (auto ObjIt : MatchingBlueprintObjects)
 		{
@@ -7427,7 +7467,7 @@ void FBlueprintEditorUtils::AnalyticsTrackNewNode( UEdGraphNode *NewNode )
 
 bool FBlueprintEditorUtils::IsObjectADebugCandidate( AActor* InActorObject, UBlueprint* InBlueprint, bool bInDisallowDerivedBlueprints )
 {
-	const bool bPassesFlags = !InActorObject->HasAnyFlags(RF_PendingKill | RF_ClassDefaultObject);
+	const bool bPassesFlags = !InActorObject->HasAnyFlags(RF_ClassDefaultObject) && !InActorObject->IsPendingKill();
 	bool bCanDebugThisObject;
 	if( bInDisallowDerivedBlueprints == true )
 	{

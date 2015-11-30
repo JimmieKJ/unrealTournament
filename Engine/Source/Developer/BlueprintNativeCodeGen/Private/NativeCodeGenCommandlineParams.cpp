@@ -23,33 +23,42 @@ const FString FNativeCodeGenCommandlineParams::HelpMessage = TEXT("\n\
 :: Parameters                                                                  \n\
 ::                                                                             \n\
 \n\
-    -whitelist=<Assets> Identifies assets that you wish to convert. <Assets>   \n\
+   -whitelist=<Assets>  Identifies assets that you wish to convert. <Assets>   \n\
                         can be a comma seperated list, specifying multiple     \n\
                         packages (either directories, or explicit assets) in   \n\
                         the form: /Game/MyContentDir,/Engine/EngineAssetName.  \n\
 \n\
-    -blacklist=<Assets> Explicitly specifies assets that you don't want        \n\
+   -blacklist=<Assets>  Explicitly specifies assets that you don't want        \n\
                         converted (listed in the same manner as the -whitelist \n\
                         param). This takes priority over the whitelist (even if\n\
                         it results in uncompilable code).                      \n\
 \n\
-    -output=<TargetDir> Specifies the path where you want converted assets     \n\
+   -output=<TargetDir>  Specifies the path where you want converted assets     \n\
                         saved to. If left unset, this will default to the      \n\
                         project's intermeadiate folder (within a sub-folder of \n\
                         its own). If specified as a relative path, it will be  \n\
                         interpreted as relative to the project directory.      \n\
 \n\
-    -pluginName=<Name>  Defines the generated plugin's name. If the output     \n\
+   -pluginName=<Name>   Defines the generated plugin's name. If the output     \n\
                         directory doesn't match this in name, then a sub-folder\n\
                         will be created there to house the plugin.             \n\
 \n\
-    -noWipe             By default, we'll clear out the target directory from  \n\
+   -noWipe              By default, we'll clear out the target directory from  \n\
                         previous conversions. However, with this, if the       \n\
 						target directory contains source from a previous run,  \n\
-                        we'll build atop the existing module and appends to its\n\
+                        we'll build atop the existing module and append to its \n\
 						existing manifest.                                     \n\
 \n\
-    -manifest=<Path>    Specifies where to save the resultant manifest file. If\n\
+   -dependencies=<Rule> By default, we convert all required Blueprint          \n\
+                        dependencies (that are not blacklisted), even if they  \n\
+                        weren't found in the whitelist. You can also specify:  \n\
+                        'None' or 'All' (default is 'RequiredOnly'), which will\n\
+                        only convert whitelisted assets, or every dependency   \n\
+                        respectively. This param has no use if when a whitelist\n\
+                        is not provided (either through the commandline, or an \n\
+                        ini config file).                                      \n\
+\n\
+   -manifest=<Path>     Specifies where to save the resultant manifest file. If\n\
                         <Path> is not an existing directory or file, then it is\n\
                         assumed that this is a file path. If a manifest already\n\
                         exists here, then it'll be used to define the target   \n\
@@ -57,12 +66,12 @@ const FString FNativeCodeGenCommandlineParams::HelpMessage = TEXT("\n\
                         manifest file). If left unset then the manifest will   \n\
                         default to the plugin's directory.                     \n\
 \n\
-    -preview            When specified, the process will NOT wipe any existing \n\
+   -preview             When specified, the process will NOT wipe any existing \n\
                         files, and the target assets will NOT be compiled and  \n\
 						converted. Instead, just a manifest file will be       \n\
 						generated, detailing the command's predicted output.   \n\
 \n\
-    -help, -h, -?       Display this message and then exit.                    \n\
+   -help, -h, -?        Display this message and then exit.                    \n\
 \n");
 
 /*******************************************************************************
@@ -101,6 +110,7 @@ FNativeCodeGenCommandlineParams::FNativeCodeGenCommandlineParams(const TArray<FS
 	: bHelpRequested(false)
 	, bWipeRequested(true)
 	, bPreviewRequested(false)
+	, DependencyConversionRule(EDependencyConversionRule::RequiredOnly)
 {
 	using namespace NativeCodeGenCommandlineParamsImpl;
 
@@ -152,6 +162,21 @@ FNativeCodeGenCommandlineParams::FNativeCodeGenCommandlineParams(const TArray<FS
 		{
 			bWipeRequested = false;
 		}
+		else if (!Switch.Compare(TEXT("dependencies"), ESearchCase::IgnoreCase))
+		{
+			if (UEnum* const DependencyRuleEnum = FindObject<UEnum>(ANY_PACKAGE, TEXT("EDependencyConversionRule")))
+			{
+				FString EnumValueName = UEnum::GenerateFullEnumName(DependencyRuleEnum, *Value);
+				if (DependencyRuleEnum->IsValidEnumName(*EnumValueName))
+				{
+					DependencyConversionRule = (EDependencyConversionRule)DependencyRuleEnum->GetValueByName(*EnumValueName);
+				}
+				else
+				{
+					UE_LOG(LogNativeCodeGenCommandline, Warning, TEXT("Invalid dependency rule: '%s' (defaulting to 'RequiredOnly')."), *Value);
+				}
+			}
+		}
 		else if (!Switch.Compare(TEXT("preview"), ESearchCase::IgnoreCase))
 		{
 			bPreviewRequested = true;
@@ -166,7 +191,7 @@ FNativeCodeGenCommandlineParams::FNativeCodeGenCommandlineParams(const TArray<FS
 			}
 			else if (FileManager.DirectoryExists(*Value))
 			{
-				ManifestFilePath = FPaths::Combine(*Value, *FBlueprintNativeCodeGenManifest::GetDefaultFilename());
+				ManifestFilePath = FPaths::Combine(*Value, *FBlueprintNativeCodeGenPaths::GetDefaultManifestPath());
 			}
 			else
 			{
@@ -184,7 +209,7 @@ FNativeCodeGenCommandlineParams::FNativeCodeGenCommandlineParams(const TArray<FS
 						Value = FPaths::ConvertRelativePathToFull(Value);
 					}
 					UE_LOG( LogNativeCodeGenCommandline, Warning, TEXT("'%s' doesn't appear to be a valid manifest file name/path, defaulting to: '%s'."), 
-						*Value,	*FBlueprintNativeCodeGenManifest::GetDefaultFilename() );
+						*Value,	*FBlueprintNativeCodeGenPaths::GetDefaultManifestPath() );
 				}
 			}
 		}
@@ -212,6 +237,5 @@ FNativeCodeGenCommandlineParams::FNativeCodeGenCommandlineParams(const TArray<FS
 		{
 			OutputDir = FPaths::Combine(*OutputDir, *PluginName);
 		}
-	}	
+	}
 }
-

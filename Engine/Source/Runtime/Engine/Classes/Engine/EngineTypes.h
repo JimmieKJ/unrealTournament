@@ -188,6 +188,38 @@ namespace ETranslucentSortPolicy
 	};
 }
 
+USTRUCT()
+struct FLightingChannels
+{
+	GENERATED_USTRUCT_BODY()
+
+	FLightingChannels() :
+		bChannel0(true),
+		bChannel1(false),
+		bChannel2(false)
+	{}
+
+	/** Default channel for all primitives and lights. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Channels)
+	bool bChannel0;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Channels)
+	bool bChannel1;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Channels)
+	bool bChannel2;
+};
+
+inline uint8 GetLightingChannelMaskForStruct(FLightingChannels Value)
+{
+	// Note: this is packed into 3 bits of a stencil channel
+	return (uint8)((Value.bChannel0 ? 1 : 0) | (Value.bChannel1 << 1) | (Value.bChannel2 << 2));
+}
+
+inline uint8 GetDefaultLightingChannelMask()
+{
+	return 1;
+}
 
 /** Controls the way that the width scale property affects animation trails. */
 UENUM()
@@ -1734,7 +1766,7 @@ struct ENGINE_API FHitResult
 
 	/** Ctor for easily creating "fake" hits from limited data. */
 	FHitResult(class AActor* InActor, class UPrimitiveComponent* InComponent, FVector const& HitLoc, FVector const& HitNorm);
-
+ 
 	/** Reset hit result while optionally saving TraceStart and TraceEnd. */
 	FORCEINLINE void Reset(float InTime = 1.f, bool bPreserveTraceData = true)
 	{
@@ -1917,6 +1949,20 @@ struct FAnimSlotDesc
 
 };
 
+/** Enum for controlling buckets for update rate optimizations if we need to stagger
+ *  Multiple actor populations separately.
+ */
+UENUM()
+enum class EUpdateRateShiftBucket : uint8
+{
+	ShiftBucket0 = 0,
+	ShiftBucket1,
+	ShiftBucket2,
+	ShiftBucket3,
+	ShiftBucket4,
+	ShiftBucket5,
+	ShiftBucketMax
+};
 
 /** Container for Animation Update Rate parameters.
  * They are shared for all components of an Actor, so they can be updated in sync. */
@@ -1947,6 +1993,10 @@ public:
 	/** When skipping a frame, should it be interpolated or frozen? */
 	UPROPERTY()
 	bool bInterpolateSkippedFrames;
+
+	/** Whether or not to use the defined LOD/Frameskip map instead of separate distance factor thresholds */
+	UPROPERTY()
+	bool bShouldUseLodMap;
 
 	/** (This frame) animation update should be skipped. */
 	UPROPERTY()
@@ -1985,9 +2035,20 @@ public:
 	UPROPERTY()
 	TArray<float> BaseVisibleDistanceFactorThesholds;
 
+	/** Map of LOD levels to frame skip amounts. if bShouldUseLodMap is set these values will be used for
+	 * the frameskip amounts and the distance factor thresholds will be ignored. The flag and these values
+	 * should be configured using the customization callback when parameters are created for a component.
+	 */
+	UPROPERTY()
+	TMap<int32, int32> LODToFrameSkipMap;
+
 	/** Max Evaluation Rate allowed for interpolation to be enabled. Beyond, interpolation will be turned off. */
 	UPROPERTY()
 	int32 MaxEvalRateForInterpolation;
+
+	/** The bucket to use when deciding which counter to use to calculate shift values */
+	UPROPERTY()
+	EUpdateRateShiftBucket ShiftBucket;
 
 public:
 
@@ -1997,6 +2058,7 @@ public:
 		, UpdateRate(1)
 		, EvaluationRate(1)
 		, bInterpolateSkippedFrames(false)
+		, bShouldUseLodMap(false)
 		, bSkipUpdate(false)
 		, bSkipEvaluation(false)
 		, TickedPoseOffestTime(0.f)
@@ -2004,6 +2066,7 @@ public:
 		, ThisTickDelta(0.f)
 		, BaseNonRenderedUpdateRate(4)
 		, MaxEvalRateForInterpolation(4)
+		, ShiftBucket(EUpdateRateShiftBucket::ShiftBucket0)
 	{ 
 		BaseVisibleDistanceFactorThesholds.Add(0.4f);
 		BaseVisibleDistanceFactorThesholds.Add(0.2f);
@@ -2463,7 +2526,15 @@ struct FMaterialSimplificationSettings
 	}
 };
 
-
+UENUM()
+enum ETextureSizingType
+{
+	TextureSizingType_UseSingleTextureSize UMETA(DisplayName = "Use TextureSize for all material properties"),
+	TextureSizingType_UseAutomaticBiasedSizes UMETA(DisplayName = "Use automatically biased texture sizes based on TextureSize"),
+	TextureSizingType_UseManualOverrideTextureSize UMETA(DisplayName = "Use per property manually overriden texture sizes"),
+	TextureSizingType_UseSimplygonAutomaticSizing UMETA(DisplayName = "Use Simplygon's automatic texture sizing"),
+	TextureSizingType_MAX,
+};
 
 USTRUCT()
 struct FMaterialProxySettings
@@ -2474,9 +2545,8 @@ struct FMaterialProxySettings
 	UPROPERTY(Category = Material, EditAnywhere)
 	FIntPoint TextureSize;
 
-	// Use automatic texure sizes
 	UPROPERTY(Category = Material, EditAnywhere)
-	bool bAutomaticTextureSizes;
+	TEnumAsByte<ETextureSizingType> TextureSizingType;
 
 	UPROPERTY(Category = Material, EditAnywhere)
 	float GutterSpace;
@@ -2517,25 +2587,60 @@ struct FMaterialProxySettings
 	UPROPERTY(Category = Material, EditAnywhere)
 	bool bOpacityMap;
 
+	// Override diffuse map size
+	UPROPERTY(Category = Material, AdvancedDisplay, EditAnywhere)
+	FIntPoint DiffuseTextureSize;
 
+	// Override normal map size
+	UPROPERTY(Category = Material, AdvancedDisplay, EditAnywhere)
+	FIntPoint NormalTextureSize;
+
+	// Override metallic map size
+	UPROPERTY(Category = Material, AdvancedDisplay, EditAnywhere)
+	FIntPoint MetallicTextureSize;
+
+	// Override roughness map size
+	UPROPERTY(Category = Material, AdvancedDisplay, EditAnywhere)
+	FIntPoint RoughnessTextureSize;
+
+	// Override specular map size
+	UPROPERTY(Category = Material, AdvancedDisplay, EditAnywhere)
+	FIntPoint SpecularTextureSize;				    
+						
+	// Override emissive map size
+	UPROPERTY(Category = Material, AdvancedDisplay, EditAnywhere)
+	FIntPoint EmissiveTextureSize;				    
+						
+	// Override opacity map size
+	UPROPERTY(Category = Material, AdvancedDisplay, EditAnywhere)
+	FIntPoint OpacityTextureSize;
+	
 	FMaterialProxySettings()
 		: TextureSize(1024, 1024)
-		, bAutomaticTextureSizes(false)
+		, TextureSizingType(TextureSizingType_UseSingleTextureSize)
 		, GutterSpace(4.0f)
 		, bNormalMap(true)
 		, bMetallicMap(false)
 		, MetallicConstant(0.0f)
 		, bRoughnessMap(false)
 		, RoughnessConstant(0.5f)				
-		, bSpecularMap(false)
+		, bSpecularMap(false)		
 		, SpecularConstant(0.5f)
+		, bEmissiveMap(false)
+		, bOpacityMap(false)
+		, DiffuseTextureSize(1024, 1024)
+		, NormalTextureSize(1024, 1024)
+		, MetallicTextureSize(1024, 1024)
+		, RoughnessTextureSize(1024, 1024)
+		, EmissiveTextureSize(1024, 1024)
+		, OpacityTextureSize(1024, 1024)
 	{
 	}
 
 	bool operator == (const FMaterialProxySettings& Other) const
 	{
 		return TextureSize == Other.TextureSize
-			&& bAutomaticTextureSizes == Other.bAutomaticTextureSizes
+			&& TextureSizingType == Other.TextureSizingType
 			&& GutterSpace == Other.GutterSpace
 			&& bNormalMap == Other.bNormalMap
 			&& MetallicConstant == Other.MetallicConstant
@@ -2543,7 +2648,15 @@ struct FMaterialProxySettings
 			&& RoughnessConstant == Other.RoughnessConstant
 			&& bRoughnessMap == Other.bRoughnessMap
 			&& SpecularConstant == Other.SpecularConstant
-			&& bSpecularMap == Other.bSpecularMap;
+			&& bSpecularMap == Other.bSpecularMap
+			&& bEmissiveMap == Other.bEmissiveMap
+			&& bOpacityMap == Other.bOpacityMap
+			&& DiffuseTextureSize == Other.DiffuseTextureSize
+			&& NormalTextureSize == Other.NormalTextureSize
+			&& MetallicTextureSize == Other.MetallicTextureSize
+			&& RoughnessTextureSize == Other.RoughnessTextureSize
+			&& EmissiveTextureSize == Other.EmissiveTextureSize
+			&& OpacityTextureSize == Other.OpacityTextureSize;
 	}
 };
 
@@ -2587,7 +2700,7 @@ struct FMeshProxySettings
 	/** Angle at which a hard edge is introduced between faces */
 	UPROPERTY(EditAnywhere, Category = ProxySettings, meta = (DisplayName = "Hard Edge Angle"))
 	float HardAngleThreshold;
-
+	
 	/** Lightmap resolution */
 	UPROPERTY(EditAnywhere, Category=ProxySettings)
 	int32 LightMapResolution;

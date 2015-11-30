@@ -156,7 +156,7 @@ void UParticleModuleCollision::Update(FParticleEmitterInstance* Owner, int32 Off
 	check(Owner);
 	check(Owner->Component);
 	UWorld* World = Owner->Component->GetWorld();
-	if (bDropDetail && World && World->bDropDetail)
+	if (Owner->ActiveParticles == 0 || (bDropDetail && World && World->bDropDetail))
 	{
 		return;
 	}

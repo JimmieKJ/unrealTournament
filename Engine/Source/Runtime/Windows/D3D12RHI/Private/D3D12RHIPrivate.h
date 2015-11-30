@@ -243,7 +243,7 @@ private:
     TRefCountPtr<FD3D12Resource> ResultBuffer;  // The buffer where all query results are stored
 	FD3D12CommandContext* OwningContext;		// The context containing the queries
 	FD3D12CLSyncPoint SyncPoint;				// The actual command list to which the queries were written
-    void *pResultData;
+    void* pResultData;
 };
 
 // This class has multiple inheritance but really FGPUTiming is a static class
@@ -774,6 +774,7 @@ private:
     TRefCountPtr<ID3D12Device>  Direct3DDevice;
     FD3D12DynamicRHI*           OwningRHI;
 	D3D12_RESOURCE_HEAP_TIER    ResourceHeapTier;
+	D3D12_RESOURCE_BINDING_TIER ResourceBindingTier;
 
     /** True if the device being used has been removed. */
     bool bDeviceRemoved;
@@ -859,6 +860,7 @@ public:
 	inline FD3D12DynamicHeapAllocator& GetDefaultUploadHeapAllocator() { return GetDefaultCommandContext().GetUploadHeapAllocator();	}
 
 	inline D3D12_RESOURCE_HEAP_TIER   GetResourceHeapTier() { return ResourceHeapTier; }
+	inline D3D12_RESOURCE_BINDING_TIER GetResourceBindingTier() { return ResourceBindingTier; }
 
 	TArray<FD3D12CommandListHandle> PendingCommandLists;
     uint32 PendingCommandListsTotalWorkCommands;
@@ -937,11 +939,11 @@ class FD3D12DynamicRHI : public FDynamicRHI
 {
 	friend class FD3D12CommandContext;
 
-	static FD3D12DynamicRHI *SingleD3DRHI;
+	static FD3D12DynamicRHI* SingleD3DRHI;
 
 public:
 
-	static FD3D12DynamicRHI *GetD3DRHI() { return SingleD3DRHI; }
+	static FD3D12DynamicRHI* GetD3DRHI() { return SingleD3DRHI; }
 
 	/** Global D3D12 lock list */
 	TMap<FD3D12LockedKey, FD3D12LockedData> OutstandingLocks;
@@ -963,8 +965,6 @@ public:
         return static_cast<typename TD3D12ResourceTraits<TRHIType>::TConcreteType*>(Resource);
     }
 
-	virtual void RHIGpuTimeBegin(uint32 Hash,bool bCompute) final override;
-	virtual void RHIGpuTimeEnd(uint32 Hash,bool bCompute) final override;
 	virtual FSamplerStateRHIRef RHICreateSamplerState(const FSamplerStateInitializerRHI& Initializer) final override;
 	virtual FRasterizerStateRHIRef RHICreateRasterizerState(const FRasterizerStateInitializerRHI& Initializer) final override;
 	virtual FDepthStencilStateRHIRef RHICreateDepthStencilState(const FDepthStencilStateInitializerRHI& Initializer) final override;
@@ -1036,7 +1036,6 @@ public:
 	virtual bool RHIGetRenderQueryResult(FRenderQueryRHIParamRef RenderQuery, uint64& OutResult, bool bWait) final override;
 	virtual FTexture2DRHIRef RHIGetViewportBackBuffer(FViewportRHIParamRef Viewport) final override;
 	virtual void RHIAdvanceFrameForGetViewportBackBuffer() final override;
-	virtual bool RHIIsDrawingViewport() final override;
 	virtual void RHIAcquireThreadOwnership() final override;
 	virtual void RHIReleaseThreadOwnership() final override;
 	virtual void RHIFlushResources() final override;
@@ -1047,9 +1046,6 @@ public:
 	virtual void RHISetStreamOutTargets(uint32 NumTargets,const FVertexBufferRHIParamRef* VertexBuffers,const uint32* Offsets) final override;
 	virtual void RHIDiscardRenderTargets(bool Depth,bool Stencil,uint32 ColorBitMask) final override;
 	virtual void RHIBlockUntilGPUIdle() final override;
-	virtual void RHISuspendRendering() final override;
-	virtual void RHIResumeRendering() final override;
-	virtual bool RHIIsRenderingSuspended() final override;
 	virtual bool RHIGetAvailableResolutions(FScreenResolutionArray& Resolutions, bool bIgnoreRefreshRate) final override;
 	virtual void RHIGetSupportedResolution(uint32& Width, uint32& Height) final override;
 	virtual void RHIVirtualTextureSetFirstMipInMemory(FTexture2DRHIParamRef Texture, uint32 FirstMip) final override;
@@ -1511,7 +1507,7 @@ public:
 
 	void GetLocalVideoMemoryInfo(DXGI_QUERY_VIDEO_MEMORY_INFO* LocalVideoMemoryInfo);
 
-	static HRESULT CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_HEAP_PROPERTIES& HeapProps, const D3D12_RESOURCE_STATES& InitialUsage, FD3D12Resource** ppResource)
+	static HRESULT CreateCommittedResource(const D3D12_RESOURCE_DESC& Desc, const D3D12_HEAP_PROPERTIES& HeapProps, const D3D12_RESOURCE_STATES& InitialUsage, const D3D12_CLEAR_VALUE* ClearValue, FD3D12Resource** ppResource)
 	{
 		HRESULT hresult = S_OK;
 		D3D12_RESOURCE_HEAP_TIER ResourceHeapTier = SingleD3DRHI->GetRHIDevice()->GetResourceHeapTier();
@@ -1567,7 +1563,7 @@ public:
 		// Set the output pointer
 		*ppResource = new FD3D12Resource(pResource, Desc, pHeap, HeapProps.Type);
 #else
-		hresult = pD3DDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &Desc, InitialUsage, nullptr, IID_PPV_ARGS(pResource.GetInitReference()));
+		hresult = pD3DDevice->CreateCommittedResource(&HeapProps, D3D12_HEAP_FLAG_NONE, &Desc, InitialUsage, ClearValue, IID_PPV_ARGS(pResource.GetInitReference()));
 #if SUPPORTS_MEMORY_RESIDENCY
 		if (hresult == E_OUTOFMEMORY)
 		{
@@ -2212,13 +2208,13 @@ class FScopeResourceBarrier
 {
 private:
 	FD3D12CommandListHandle &hCommandList;
-	FD3D12Resource *pResource;
+	FD3D12Resource* pResource;
 	D3D12_RESOURCE_STATES Current;
 	D3D12_RESOURCE_STATES Desired;
 	uint32 Subresource;
 
 public:
-	explicit FScopeResourceBarrier(FD3D12CommandListHandle &hInCommandList, FD3D12Resource *pInResource, D3D12_RESOURCE_STATES InCurrent, D3D12_RESOURCE_STATES InDesired, const uint32 InSubresource)
+	explicit FScopeResourceBarrier(FD3D12CommandListHandle &hInCommandList, FD3D12Resource* pInResource, D3D12_RESOURCE_STATES InCurrent, D3D12_RESOURCE_STATES InDesired, const uint32 InSubresource)
 		: hCommandList(hInCommandList)
 		, pResource(pInResource)
 		, Current(InCurrent)
@@ -2244,14 +2240,14 @@ class FConditionalScopeResourceBarrier
 {
 private:
 	FD3D12CommandListHandle &hCommandList;
-	FD3D12Resource *pResource;
+	FD3D12Resource* pResource;
 	D3D12_RESOURCE_STATES Current;
 	D3D12_RESOURCE_STATES Desired;
 	uint32 Subresource;
 	bool bUseTracking;
 
 public:
-	explicit FConditionalScopeResourceBarrier(FD3D12CommandListHandle &hInCommandList, FD3D12Resource *pInResource, D3D12_RESOURCE_STATES InDesired, const uint32 InSubresource)
+	explicit FConditionalScopeResourceBarrier(FD3D12CommandListHandle &hInCommandList, FD3D12Resource* pInResource, D3D12_RESOURCE_STATES InDesired, const uint32 InSubresource)
 		: hCommandList(hInCommandList)
 		, pResource(pInResource)
 		, Current(D3D12_RESOURCE_STATE_TBD)

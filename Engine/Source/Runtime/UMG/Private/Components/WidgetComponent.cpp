@@ -1050,7 +1050,7 @@ void UWidgetComponent::GetLocalHitLocation(FVector WorldHitLocation, FVector2D& 
 	}
 	else
 	{
-		OutLocalWidgetHitLocation = FVector2D(ComponentHitLocation.Y, ComponentHitLocation.Z);
+		OutLocalWidgetHitLocation = FVector2D(-ComponentHitLocation.Y, -ComponentHitLocation.Z);
 	}
 
 	// Offset the position by the pivot to get the position in widget space.

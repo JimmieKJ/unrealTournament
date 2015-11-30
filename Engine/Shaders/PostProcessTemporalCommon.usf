@@ -484,7 +484,7 @@ which can be configured via defines for various temporal AA passes.
 		float HistoryFactor = DistToClamp * HistoryAmount * (1.0 + HistoryBlur * HistoryAmount * 8.0);
 	#endif
 	float BlendFinal = saturate(HistoryFactor / (DistToClamp + LumaMax - LumaMin));
-	BlendFinal = 0.08;
+	BlendFinal = 0.04;
 	#if RESPONSIVE
 		// Responsive forces 1/4 of new frame.
 		BlendFinal = 1.0/4.0;

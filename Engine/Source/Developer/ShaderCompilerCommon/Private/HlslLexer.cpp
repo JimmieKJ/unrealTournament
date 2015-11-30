@@ -376,15 +376,15 @@ namespace CrossCompiler
 				InsertToken(TEXT("RWStructuredBuffer"), EHlslToken::RWStructuredBuffer);
 				InsertToken(TEXT("RW_RegularBuffer"), EHlslToken::RWStructuredBuffer);	// PSSL
 				InsertToken(TEXT("RWTexture1D"), EHlslToken::RWTexture1D);
-				InsertToken(TEXT("RWTexture_1D"), EHlslToken::RWTexture1D);	// PSSL
+				InsertToken(TEXT("RW_Texture1D"), EHlslToken::RWTexture1D);	// PSSL
 				InsertToken(TEXT("RWTexture1DArray"), EHlslToken::RWTexture1DArray);
-				InsertToken(TEXT("RWTexture_1D_Array"), EHlslToken::RWTexture1DArray);	// PSSL
+				InsertToken(TEXT("RW_Texture1D_Array"), EHlslToken::RWTexture1DArray);	// PSSL
 				InsertToken(TEXT("RWTexture2D"), EHlslToken::RWTexture2D);
-				InsertToken(TEXT("RWTexture_2D"), EHlslToken::RWTexture2D);	// PSSL
+				InsertToken(TEXT("RW_Texture2D"), EHlslToken::RWTexture2D);	// PSSL
 				InsertToken(TEXT("RWTexture2DArray"), EHlslToken::RWTexture2DArray);
-				InsertToken(TEXT("RWTexture_2D_Array"), EHlslToken::RWTexture2DArray);	// PSSL
+				InsertToken(TEXT("RW_Texture2D_Array"), EHlslToken::RWTexture2DArray);	// PSSL
 				InsertToken(TEXT("RWTexture3D"), EHlslToken::RWTexture3D);
-				InsertToken(TEXT("RWTexture_3D"), EHlslToken::RWTexture3D);	// PSSL
+				InsertToken(TEXT("RW_Texture3D"), EHlslToken::RWTexture3D);	// PSSL
 				InsertToken(TEXT("StructuredBuffer"), EHlslToken::StructuredBuffer);
 				InsertToken(TEXT("RegularBuffer"), EHlslToken::StructuredBuffer);	// PSSL
 

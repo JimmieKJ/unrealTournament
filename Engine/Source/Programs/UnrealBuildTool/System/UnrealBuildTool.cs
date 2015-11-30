@@ -766,6 +766,10 @@ namespace UnrealBuildTool
 				{
 					BuildConfiguration.bUseUBTMakefiles = false;
 				}
+				else if (LowercaseArg == "-uhtmakefiles")
+				{
+					BuildConfiguration.bUseUHTMakefiles = true;
+				}
 				else if (LowercaseArg == "-nosimplygon")
 				{
 					UEBuildConfiguration.bCompileSimplygon = false;
@@ -1300,7 +1304,7 @@ namespace UnrealBuildTool
 								{
 									// Setup environment wasn't called, so set the flag
 									BuildConfiguration.bDeployAfterCompile = BuildPlatform.RequiresDeployPrepAfterCompile();
-									BuildConfiguration.PlatformIntermediateFolder = Path.Combine(BuildConfiguration.BaseIntermediateFolder, CheckPlatform.ToString(), BuildPlatform.CreateContext(ProjectFile).GetActiveArchitecture());
+									BuildConfiguration.PlatformIntermediateFolder = Path.Combine(BuildConfiguration.BaseIntermediateFolder, CheckPlatform.ToString(), BuildPlatform.CreateContext(ProjectFile).GetActiveArchitectureFolderName());
 								}
 							}
 
@@ -1544,7 +1548,7 @@ namespace UnrealBuildTool
 			BuildPlatformContext.ResetBuildConfiguration(ResetConfiguration);
 
 			// now that we have the platform, we can set the intermediate path to include the platform/architecture name
-			BuildConfiguration.PlatformIntermediateFolder = Path.Combine(BuildConfiguration.BaseIntermediateFolder, ResetPlatform.ToString(), BuildPlatformContext.GetActiveArchitecture());
+			BuildConfiguration.PlatformIntermediateFolder = Path.Combine(BuildConfiguration.BaseIntermediateFolder, ResetPlatform.ToString(), BuildPlatformContext.GetActiveArchitectureFolderName());
 
 			string ExecutorName = "Unknown";
 			ECompilationResult BuildResult = ECompilationResult.Succeeded;
@@ -1725,6 +1729,9 @@ namespace UnrealBuildTool
 								TargetDescs[0].TargetName,
 								TargetDescs.Count > 1 ? (" (and " + (TargetDescs.Count - 1).ToString() + " more)") : "",
 								ReasonNotLoaded);
+
+							// Invalidate UHT makefiles too
+							ExternalExecution.bInvalidateUHTMakefile = true;
 						}
 					}
 
@@ -2132,17 +2139,14 @@ namespace UnrealBuildTool
 				}
 
 				var Processes = BuildHostPlatform.Current.GetProcesses();
-                var RootDir = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Modules.First().FullyQualifiedName), "..", "..", "..");
-                var EditorRunsDir = Path.Combine(RootDir, "Engine", "Intermediate", "EditorRuns");
+				var EditorRunsDir = Path.Combine(UnrealBuildTool.EngineDirectory.FullName, "Intermediate", "EditorRuns");
 
-                if (!Directory.Exists(EditorRunsDir))
-                {
-                    return false;
-                }
+				if (!Directory.Exists(EditorRunsDir))
+				{
+					return false;
+				}
 
-                var EditorRunsFiles = new DirectoryInfo(EditorRunsDir).GetFiles();
-
-                var NormalizedProcFileName = Path.GetFullPath(EditorProcessFilenames[0].ToString()).TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar).ToLowerInvariant();
+				var EditorRunsFiles = new DirectoryInfo(EditorRunsDir).GetFiles();
 
 				foreach(var File in EditorRunsFiles)
 				{
@@ -2155,13 +2159,12 @@ namespace UnrealBuildTool
 						continue;
 					}
 
-                    // Don't break here to allow clean-up of other stale files.
-                    if (!bIsRunning)
-                    {
-                        // Otherwise check if the path matches.
-                        var FileProcName = Path.GetFullPath(Proc.Filename).TrimEnd(Path.DirectorySeparatorChar).TrimEnd(Path.AltDirectorySeparatorChar).ToLowerInvariant();
-                        bIsRunning = NormalizedProcFileName == FileProcName;
-                    }
+					// Don't break here to allow clean-up of other stale files.
+					if (!bIsRunning)
+					{
+						// Otherwise check if the path matches.
+						bIsRunning = new FileReference(Proc.Filename).CanonicalName == EditorProcessFilenames[0].CanonicalName;
+					}
 				}
 			}
 			return bIsRunning;
@@ -2437,6 +2440,14 @@ namespace UnrealBuildTool
 				// UnrealBuildTool.exe was compiled more recently than the UBTMakefile
 				Log.TraceVerbose("Makefile is older than UnrealBuildTool.exe, ignoring it");
 				ReasonNotLoaded = "UnrealBuildTool.exe is newer";
+				return null;
+			}
+
+			// Check to see if any BuildConfiguration files have changed since the last build
+			if (XmlConfigLoader.NewestXmlTimestamp > UBTMakefileInfo.LastWriteTime)
+			{
+				Log.TraceVerbose("Makefile is older than BuildConfiguration.xml, ignoring it" );
+				ReasonNotLoaded = "BuildConfiguration.xml is newer";
 				return null;
 			}
 

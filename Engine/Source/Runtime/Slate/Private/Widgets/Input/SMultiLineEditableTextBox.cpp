@@ -123,6 +123,8 @@ void SMultiLineEditableTextBox::Construct( const FArguments& InArgs )
 					.OnVScrollBarUserScrolled(InArgs._OnVScrollBarUserScrolled)
 					.OnKeyDownHandler( InArgs._OnKeyDownHandler)
 					.ModiferKeyForNewLine(InArgs._ModiferKeyForNewLine)
+					.TextShapingMethod(InArgs._TextShapingMethod)
+					.TextFlowDirection(InArgs._TextFlowDirection)
 				]
 
 				+SVerticalBox::Slot()

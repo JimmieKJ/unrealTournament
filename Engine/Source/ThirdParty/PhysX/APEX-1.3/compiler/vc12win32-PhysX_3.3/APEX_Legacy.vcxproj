@@ -1,28 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 	<ItemGroup Label="ProjectConfigurations">
-	<ProjectConfiguration Include="debug|Win32">
+		<ProjectConfiguration Include="debug|Win32">
 			<Configuration>debug</Configuration>
 			<Platform>Win32</Platform>
-	</ProjectConfiguration>
-	<ProjectConfiguration Include="checked|Win32">
+		</ProjectConfiguration>
+		<ProjectConfiguration Include="checked|Win32">
 			<Configuration>checked</Configuration>
 			<Platform>Win32</Platform>
-	</ProjectConfiguration>
-	<ProjectConfiguration Include="release|Win32">
+		</ProjectConfiguration>
+		<ProjectConfiguration Include="release|Win32">
 			<Configuration>release</Configuration>
 			<Platform>Win32</Platform>
-	</ProjectConfiguration>
-	<ProjectConfiguration Include="profile|Win32">
+		</ProjectConfiguration>
+		<ProjectConfiguration Include="profile|Win32">
 			<Configuration>profile</Configuration>
 			<Platform>Win32</Platform>
-	</ProjectConfiguration>
+		</ProjectConfiguration>
 	</ItemGroup>
 	<PropertyGroup Label="Globals">
-		<ApplicationEnvironment>title</ApplicationEnvironment>
-		<!-- - - - -->
-		<PlatformToolset>v110</PlatformToolset>
-		<MinimumVisualStudioVersion>11.0</MinimumVisualStudioVersion>
+		<ProjectGuid>{E234DAF8-81E8-8FFC-FCE6-2CA09C768D36}</ProjectGuid>
+		<RootNamespace>APEX_Legacy</RootNamespace>
 	</PropertyGroup>
 	<Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='debug|Win32'" Label="Configuration">

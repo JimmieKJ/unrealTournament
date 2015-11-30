@@ -8,7 +8,9 @@ class IPropertyHandle;
 
 DECLARE_MULTICAST_DELEGATE_OneParam( FOnAnimatablePropertyChanged, const FPropertyChangedParams& );
 
-DECLARE_MULTICAST_DELEGATE_OneParam ( FOnPropagateObjectChanges, UObject* );
+DECLARE_MULTICAST_DELEGATE_OneParam( FOnObjectPropertyChanged, UObject& );
+
+DECLARE_MULTICAST_DELEGATE_OneParam( FOnPropagateObjectChanges, UObject* );
 
 /**
  * Listens for changes objects and calls delegates when those objects change
@@ -25,7 +27,17 @@ public:
 	 * A delegate for when object changes should be propagated to/from puppet actors
 	 */
 	virtual FOnPropagateObjectChanges& GetOnPropagateObjectChanges() = 0;
+
+	/**
+	 * A delegate for when any property of a specific object is changed.
+	 */
+	virtual FOnObjectPropertyChanged& GetOnAnyPropertyChanged(UObject& Object) = 0;
 	
+	/**
+	 * Report that an object is about to be destroyed (removes any object change delegates bound to the object)
+	 */
+	virtual void ReportObjectDestroyed(UObject& Object) = 0;
+
 	/**
 	 * Triggers all properties as changed for the passed in object.
 	 */

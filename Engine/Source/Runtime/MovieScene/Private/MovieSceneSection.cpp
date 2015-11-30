@@ -9,9 +9,22 @@ UMovieSceneSection::UMovieSceneSection( const FObjectInitializer& ObjectInitiali
 	, StartTime(0.0f)
 	, EndTime(0.0f)
 	, RowIndex(0)
+	, OverlapPriority(0)
 	, bIsActive(true)
+	, bIsLocked(false)
 	, bIsInfinite(false)
 { }
+
+bool
+UMovieSceneSection::TryModify(bool bAlwaysMarkDirty)
+{
+	if (IsLocked())
+	{
+		return false;
+	}
+
+	return Modify(bAlwaysMarkDirty);
+}
 
 
 const UMovieSceneSection* UMovieSceneSection::OverlapsWithSections(const TArray<UMovieSceneSection*>& Sections, int32 TrackDelta, float TimeDelta) const
@@ -75,25 +88,29 @@ UMovieSceneSection* UMovieSceneSection::SplitSection(float SplitTime)
 	}
 
 	SetFlags(RF_Transactional);
-	Modify();
 
-	float SectionEndTime = GetEndTime();
+	if (TryModify())
+	{
+		float SectionEndTime = GetEndTime();
 				
-	// Trim off the right
-	SetEndTime(SplitTime);
+		// Trim off the right
+		SetEndTime(SplitTime);
 
-	// Create a new section
-	UMovieSceneTrack* Track = CastChecked<UMovieSceneTrack>(GetOuter());
-	Track->Modify();
+		// Create a new section
+		UMovieSceneTrack* Track = CastChecked<UMovieSceneTrack>(GetOuter());
+		Track->Modify();
 
-	UMovieSceneSection* NewSection = DuplicateObject<UMovieSceneSection>(this, Track);
-	ensure(NewSection);
+		UMovieSceneSection* NewSection = DuplicateObject<UMovieSceneSection>(this, Track);
+		ensure(NewSection);
 
-	NewSection->SetStartTime(SplitTime);
-	NewSection->SetEndTime(SectionEndTime);
-	Track->AddSection(*NewSection);
+		NewSection->SetStartTime(SplitTime);
+		NewSection->SetEndTime(SectionEndTime);
+		Track->AddSection(*NewSection);
 
-	return NewSection;
+		return NewSection;
+	}
+
+	return nullptr;
 }
 
 
@@ -102,15 +119,16 @@ void UMovieSceneSection::TrimSection(float TrimTime, bool bTrimLeft)
 	if (IsTimeWithinSection(TrimTime))
 	{
 		SetFlags(RF_Transactional);
-		Modify();
-
-		if (bTrimLeft)
+		if (TryModify())
 		{
-			SetStartTime(TrimTime);
-		}
-		else
-		{
-			SetEndTime(TrimTime);
+			if (bTrimLeft)
+			{
+				SetStartTime(TrimTime);
+			}
+			else
+			{
+				SetEndTime(TrimTime);
+			}
 		}
 	}
 }
@@ -119,40 +137,15 @@ void UMovieSceneSection::AddKeyToCurve(FRichCurve& InCurve, float Time, float Va
 {
 	if (IsTimeWithinSection(Time))
 	{
-		Modify();
-		FKeyHandle ExistingKeyHandle = InCurve.FindKey(Time);
-			
-		FKeyHandle NewKeyHandle = InCurve.UpdateOrAddKey(Time, Value, bUnwindRotation);
-
-		if (!InCurve.IsKeyHandleValid(ExistingKeyHandle) && InCurve.IsKeyHandleValid(NewKeyHandle))
+		if (TryModify())
 		{
-			// Set the default key interpolation only if a new key was created
-			switch (Interpolation)
+			FKeyHandle ExistingKeyHandle = InCurve.FindKey(Time);
+				
+			FKeyHandle NewKeyHandle = InCurve.UpdateOrAddKey(Time, Value, bUnwindRotation);
+
+			if (!InCurve.IsKeyHandleValid(ExistingKeyHandle) && InCurve.IsKeyHandleValid(NewKeyHandle))
 			{
-				case EMovieSceneKeyInterpolation::Auto:
-					InCurve.SetKeyInterpMode(NewKeyHandle, RCIM_Cubic);
-					InCurve.SetKeyTangentMode(NewKeyHandle, RCTM_Auto);
-					break;
-				case EMovieSceneKeyInterpolation::User:
-					InCurve.SetKeyInterpMode(NewKeyHandle, RCIM_Cubic);
-					InCurve.SetKeyTangentMode(NewKeyHandle, RCTM_User);
-					break;
-				case EMovieSceneKeyInterpolation::Break:
-					InCurve.SetKeyInterpMode(NewKeyHandle, RCIM_Cubic);
-					InCurve.SetKeyTangentMode(NewKeyHandle, RCTM_Break);
-					break;
-				case EMovieSceneKeyInterpolation::Linear:
-					InCurve.SetKeyInterpMode(NewKeyHandle, RCIM_Linear);
-					InCurve.SetKeyTangentMode(NewKeyHandle, RCTM_Auto);
-					break;
-				case EMovieSceneKeyInterpolation::Constant:
-					InCurve.SetKeyInterpMode(NewKeyHandle, RCIM_Constant);
-					InCurve.SetKeyTangentMode(NewKeyHandle, RCTM_Auto);
-					break;
-				default:
-					InCurve.SetKeyInterpMode(NewKeyHandle, RCIM_Cubic);
-					InCurve.SetKeyTangentMode(NewKeyHandle, RCTM_Auto);
-					break;
+				MovieSceneHelpers::SetKeyInterpolation(InCurve, NewKeyHandle, Interpolation);
 			}
 		}
 	}
@@ -160,7 +153,9 @@ void UMovieSceneSection::AddKeyToCurve(FRichCurve& InCurve, float Time, float Va
 
 void UMovieSceneSection::SetCurveDefault(FRichCurve& InCurve, float Value)
 {
-	Modify();
-	InCurve.SetDefaultValue(Value);
+	if (TryModify())
+	{
+		InCurve.SetDefaultValue(Value);
+	}
 }
 

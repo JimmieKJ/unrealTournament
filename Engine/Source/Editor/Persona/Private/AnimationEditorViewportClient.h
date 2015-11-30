@@ -31,6 +31,7 @@ namespace EDisplayInfoMode
 		None,
 		Basic,	
 		Detailed,
+		SkeletalControls,
 		NumInfoModes
 	};
 };
@@ -48,8 +49,11 @@ protected:
 	/** Function to display bone names*/
 	void ShowBoneNames( FCanvas* Canvas, FSceneView* View );
 
-	/** Function to display warning and info text on the viewport */
+	/** Function to display warning and info text on the viewport when outside of animBP mode */
 	void DisplayInfo( FCanvas* Canvas, FSceneView* View, bool bDisplayAllInfo );
+
+	/** Function to display debug lines generated from skeletal controls in animBP mode */
+	void DrawNodeDebugLines(TArray<FText>& Lines, FCanvas* Canvas, FSceneView* View);
 
 public:
 	FAnimationViewportClient(FAnimationEditorPreviewScene& InPreviewScene, TWeakPtr<FPersona> InPersonaPtr, const TSharedRef<SAnimationEditorViewport>& InAnimationEditorViewport);
@@ -220,6 +224,8 @@ public:
 	void OnSetShowMeshStats(int32 ShowMode);
 	/** Whether or not mesh stats are being displayed */
 	bool IsShowingMeshStats() const;
+	/** Whether or not selected node stats are being displayed */
+	bool IsShowingSelectedNodeStats() const;
 	/** Whether detailed mesh stats are being displayed or basic mesh stats */
 	bool IsDetailedMeshStats() const;
 

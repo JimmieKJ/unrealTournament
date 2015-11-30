@@ -1735,6 +1735,22 @@ void UNetDriver::AddReferencedObjects(UObject* InThis, FReferenceCollector& Coll
 
 #if DO_ENABLE_NET_TEST
 
+void UNetDriver::SetPacketSimulationSettings(FPacketSimulationSettings NewSettings)
+{
+	PacketSimulationSettings = NewSettings;
+	if (ServerConnection)
+	{
+		ServerConnection->UpdatePacketSimulationSettings();
+	}
+	for (UNetConnection* ClientConnection : ClientConnections)
+	{
+		if (ClientConnection)
+		{
+			ClientConnection->UpdatePacketSimulationSettings();
+		}
+	}
+}
+
 class FPacketSimulationConsoleCommandVisitor 
 {
 public:

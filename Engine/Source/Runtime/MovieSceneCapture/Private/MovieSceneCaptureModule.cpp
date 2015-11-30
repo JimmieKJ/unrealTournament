@@ -19,7 +19,7 @@ private:
 	virtual void StartupModule() override
 	{
 		FCoreDelegates::OnPreExit.AddRaw(this, &FMovieSceneCaptureModule::PreExit);
-		FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMovieSceneCaptureModule::OnPostWorldInitialization);
+		FCoreUObjectDelegates::PostLoadMap.AddRaw(this, &FMovieSceneCaptureModule::OnPostLoadMap );
 	}
 
 	void PreExit()
@@ -27,22 +27,18 @@ private:
 		FActiveMovieSceneCaptures::Get().Shutdown();
 	}
 
-	void OnPostWorldInitialization(UWorld* World, const UWorld::InitializationValues IVS)
+	void OnPostLoadMap()
 	{
-		if (!World)
-		{
-			return;
-		}
-
 		UGameEngine* GameEngine = Cast<UGameEngine>(GEngine);
 		if (GameEngine && StartupMovieCaptureHandle.IsValid())
 		{
 			IMovieSceneCaptureInterface* StartupCaptureInterface = RetrieveMovieSceneInterface(StartupMovieCaptureHandle);
 			StartupCaptureInterface->Initialize(GameEngine->SceneViewport.ToSharedRef());
+			StartupCaptureInterface->SetupFrameRange();
 		}
 
 		StartupMovieCaptureHandle = FMovieSceneCaptureHandle();
-		FWorldDelegates::OnPostWorldInitialization.RemoveAll(this);
+		FCoreUObjectDelegates::PostLoadMap.RemoveAll(this);
 	}
 
 	virtual void PreUnloadCallback() override
@@ -58,56 +54,83 @@ private:
 			return nullptr;
 		}
 
+		FString TypeName;
+		if( FParse::Value( FCommandLine::Get(), TEXT( "-MovieSceneCaptureType=" ), TypeName ) )
+		{
+			// OK, they specified the type of capture they want on the command-line.  Manifests are now optional!
+		}
+
 		FString ManifestPath;
 		if (!FParse::Value(FCommandLine::Get(), TEXT("-MovieSceneCaptureManifest="), ManifestPath) || ManifestPath.IsEmpty())
 		{
-			return nullptr;
-		}
-
-		UMovieSceneCapture* Capture = nullptr;
-		FString Json;
-		if (FFileHelper::LoadFileToString(Json, *ManifestPath))
-		{
-			TSharedPtr<FJsonObject> RootObject;
-			TSharedRef<TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(Json);
-			if (FJsonSerializer::Deserialize(JsonReader, RootObject) && RootObject.IsValid())
+			// Allow capturing without a manifest.  Command-line parameters for individual options will be necessary.
+			if( TypeName.IsEmpty() )
 			{
-				auto TypeField = RootObject->TryGetField(TEXT("Type"));
-				if (!TypeField.IsValid())
-				{
-					return nullptr;
-				}
-
-				UClass* Class = FindObject<UClass>(nullptr, *TypeField->AsString());
-				if (!Class)
-				{
-					return nullptr;
-				}
-
-				Capture = NewObject<UMovieSceneCapture>(GetTransientPackage(), Class);
-				if (!Capture)
-				{
-					return nullptr;
-				}
-
-				auto DataField = RootObject->TryGetField(TEXT("Data"));
-				if (!DataField.IsValid())
-				{
-					return nullptr;
-				}
-
-				if (!FJsonObjectConverter::JsonAttributesToUStruct(DataField->AsObject()->Values, Class, Capture, 0, 0))
-				{
-					return nullptr;
-				}
-				
-				FActiveMovieSceneCaptures::Get().Add(Capture);
-				StartupMovieCaptureHandle = Capture->GetHandle();
-				return Capture;
+				return nullptr;
 			}
 		}
 
-		return nullptr;
+		UMovieSceneCapture* Capture = nullptr;
+		if( !ManifestPath.IsEmpty() )
+		{
+			FString Json;
+			if (FFileHelper::LoadFileToString(Json, *ManifestPath))
+			{
+				TSharedPtr<FJsonObject> RootObject;
+				TSharedRef<TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(Json);
+				if (FJsonSerializer::Deserialize(JsonReader, RootObject) && RootObject.IsValid())
+				{
+					auto TypeField = RootObject->TryGetField(TEXT("Type"));
+					if (!TypeField.IsValid())
+					{
+						return nullptr;
+					}
+
+					TypeName = TypeField->AsString();
+					UClass* Class = FindObject<UClass>(nullptr, *TypeName);
+					if (!Class)
+					{
+						return nullptr;
+					}
+
+					Capture = NewObject<UMovieSceneCapture>(GetTransientPackage(), Class);
+					if (!Capture)
+					{
+						return nullptr;
+					}
+
+					auto DataField = RootObject->TryGetField(TEXT("Data"));
+					if (!DataField.IsValid())
+					{
+						return nullptr;
+					}
+
+					if (!FJsonObjectConverter::JsonAttributesToUStruct(DataField->AsObject()->Values, Class, Capture, 0, 0))
+					{
+						return nullptr;
+					}
+				}
+			}
+		}
+		else if( !TypeName.IsEmpty() )
+		{
+			UClass* Class = FindObject<UClass>( nullptr, *TypeName );
+			if( !Class )
+			{
+				return nullptr;
+			}
+
+			Capture = NewObject<UMovieSceneCapture>( GetTransientPackage(), Class );
+			if( !Capture )
+			{
+				return nullptr;
+			}
+		}
+
+		check( Capture != nullptr );
+		FActiveMovieSceneCaptures::Get().Add( Capture );
+		StartupMovieCaptureHandle = Capture->GetHandle();
+		return Capture;
 	}
 
 	virtual IMovieSceneCaptureInterface* CreateMovieSceneCapture(TWeakPtr<FSceneViewport> InSceneViewport) override
@@ -115,6 +138,7 @@ private:
 		UMovieSceneCapture* Capture = NewObject<UMovieSceneCapture>(GetTransientPackage());
 		FActiveMovieSceneCaptures::Get().Add(Capture);
 		Capture->Initialize(InSceneViewport);
+		Capture->SetupFrameRange();
 		Capture->StartCapture();
 		return Capture;
 	}

@@ -63,15 +63,22 @@ struct CORE_API FWindowsPlatformMemory
 
 	//~ Begin FGenericPlatformMemory Interface
 	static void Init();
+	static bool SupportBackupMemoryPool()
+	{
+		return true;
+	}
 	static class FMalloc* BaseAllocator();
 	static FPlatformMemoryStats GetStats();
 	static void GetStatsForMallocProfiler( FGenericMemoryStats& out_Stats );
 	static const FPlatformMemoryConstants& GetConstants();
-	static void UpdateStats();
 	static void* BinnedAllocFromOS( SIZE_T Size );
 	static void BinnedFreeToOS( void* Ptr );
 	static FSharedMemoryRegion* MapNamedSharedMemoryRegion(const FString& InName, bool bCreate, uint32 AccessMode, SIZE_T Size);
 	static bool UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * MemoryRegion);
+protected:
+	friend struct FGenericStatsUpdater;
+
+	static void InternalUpdateStats( const FPlatformMemoryStats& MemoryStats );
 	//~ End FGenericPlatformMemory Interface
 };
 

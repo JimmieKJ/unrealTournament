@@ -2,6 +2,21 @@
 
 #include "SlateNullRendererPrivatePCH.h"
 
+class FSlateNullShaderResourceManager : public ISlateAtlasProvider, public FSlateShaderResourceManager
+{
+public:
+	// ISlateAtlasProvider interface
+	virtual int32 GetNumAtlasPages() const override { return 0; }
+	virtual FIntPoint GetAtlasPageSize() const override { return FIntPoint(0, 0); }
+	virtual class FSlateShaderResource* GetAtlasPageResource(const int32 InIndex) const override { return nullptr; }
+	virtual bool IsAtlasPageResourceAlphaOnly() const override { return false; }
+
+	// FSlateShaderResourceManager interface
+	virtual FSlateShaderResourceProxy* GetShaderResource( const FSlateBrush& InBrush ) override { return nullptr; }
+	virtual FSlateResourceHandle GetResourceHandle( const FSlateBrush& InBrush ) override { return FSlateResourceHandle(); }
+	virtual ISlateAtlasProvider* GetTextureAtlasProvider() { return this; }
+};
+
 /** A null font texture resource to represent fonts */
 class FSlateFontTextureNull : public FSlateShaderResource
 #if WITH_ENGINE
@@ -89,7 +104,7 @@ public:
 	{
 		ConditionalCreateResources();
 
-		return MakeShareable( new FSlateNullRenderer(FontCache, FontMeasure) );
+		return MakeShareable( new FSlateNullRenderer(SlateFontServices.ToSharedRef()) );
 	}
 
 	virtual TSharedRef<ISlateFontAtlasFactory> CreateSlateFontAtlasFactory() override
@@ -103,20 +118,23 @@ public:
 private:
 	void ConditionalCreateResources()
 	{
-		if (!FontCache.IsValid())
+		if (!SlateFontServices.IsValid())
 		{
-			FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateNullFontAtlasFactory)));
+			const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateNullFontAtlasFactory)));
+
+			SlateFontServices = MakeShareable(new FSlateFontServices(FontCache, FontCache));
 		}
 
-		if (!FontMeasure.IsValid())
+		if (!ResourceManager.IsValid())
 		{
-			FontMeasure = FSlateFontMeasure::Create(FontCache.ToSharedRef());
+			ResourceManager = MakeShareable(new FSlateNullShaderResourceManager);
+			FSlateDataPayload::ResourceManager = ResourceManager.Get();
 		}
 	}
 
 private:
-	TSharedPtr<FSlateFontCache> FontCache;
-	TSharedPtr<FSlateFontMeasure> FontMeasure;
+	TSharedPtr<FSlateFontServices> SlateFontServices;
+	TSharedPtr<FSlateShaderResourceManager> ResourceManager;
 };
 
 

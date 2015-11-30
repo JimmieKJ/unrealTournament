@@ -129,7 +129,7 @@ FReply STimelinesContainer::OnMouseButtonDown(const FGeometry& MyGeometry, const
 {
 	if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 	{
-		return TimeSliderController->OnMouseButtonDown(SharedThis(this), MyGeometry, MouseEvent);
+		return TimeSliderController->OnMouseButtonDown(*this, MyGeometry, MouseEvent);
 	}
 	return FReply::Unhandled();
 }
@@ -138,7 +138,7 @@ FReply STimelinesContainer::OnMouseButtonUp(const FGeometry& MyGeometry, const F
 {
 	if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 	{
-		return TimeSliderController->OnMouseButtonUp(SharedThis(this), MyGeometry, MouseEvent);
+		return TimeSliderController->OnMouseButtonUp(*this, MyGeometry, MouseEvent);
 	}
 	return FReply::Unhandled();
 }
@@ -147,7 +147,7 @@ FReply STimelinesContainer::OnMouseMove(const FGeometry& MyGeometry, const FPoin
 {
 	if (MouseEvent.GetEffectingButton() != EKeys::LeftMouseButton)
 	{
-		return TimeSliderController->OnMouseMove(SharedThis(this), MyGeometry, MouseEvent);
+		return TimeSliderController->OnMouseMove(*this, MyGeometry, MouseEvent);
 	}
 	return FReply::Unhandled();
 }
@@ -156,7 +156,7 @@ FReply STimelinesContainer::OnMouseWheel(const FGeometry& MyGeometry, const FPoi
 {
 	if (MouseEvent.IsLeftControlDown() || MouseEvent.IsLeftShiftDown())
 	{
-		return TimeSliderController->OnMouseWheel(SharedThis(this), MyGeometry, MouseEvent);
+		return TimeSliderController->OnMouseWheel(*this, MyGeometry, MouseEvent);
 	}
 	return FReply::Unhandled();
 }

@@ -32,7 +32,7 @@ public:
 protected:
 
 	/** begin a new scoped transaction for this drag */
-	void BeginTransaction( const TArray< FSectionHandle >& Sections, const FText& TransactionDesc );
+	void BeginTransaction( TArray< FSectionHandle >& Sections, const FText& TransactionDesc );
 
 	/** End an existing scoped transaction if one exists */
 	void EndTransaction();
@@ -145,7 +145,7 @@ public:
 	virtual void OnDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
 	virtual void OnEndDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
 
-private:	
+protected:
 
 	/** The selected keys being moved. */
 	const TSet<FSequencerSelectedKey>& SelectedKeys;
@@ -155,4 +155,24 @@ private:
 
 	/** Snap field used to assist in snapping calculations */
 	TOptional<FSequencerSnapField> SnapField;
+
+	/** The set of sections being modified */
+	TSet<UMovieSceneSection*> ModifiedSections;
+};
+
+/**
+ * Operation to drag-duplicate the currently selected keys
+ */
+class FDuplicateKeys : public FMoveKeys
+{
+public:
+
+	FDuplicateKeys( FSequencer& InSequencer, const TSet<FSequencerSelectedKey>& InSelectedKeys )
+		: FMoveKeys(InSequencer, InSelectedKeys)
+	{}
+
+public:
+
+	virtual void OnBeginDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
+	virtual void OnEndDrag(const FPointerEvent& MouseEvent, FVector2D LocalMousePos, const FVirtualTrackArea& VirtualTrackArea) override;
 };

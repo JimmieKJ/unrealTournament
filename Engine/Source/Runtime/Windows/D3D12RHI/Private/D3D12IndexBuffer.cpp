@@ -46,7 +46,7 @@ FIndexBufferRHIRef FD3D12DynamicRHI::RHICreateIndexBuffer(uint32 Stride, uint32 
 		if (pInitData)
 		{
 			// Handle initial data
-			void *pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, ResourceLocation);
+			void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, ResourceLocation);
 			FMemory::Memcpy(pData, InitData.pData, Size);
 		}
 	}
@@ -100,7 +100,7 @@ void* FD3D12DynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRH
 		check(LockMode == RLM_WriteOnly);
 
 		// Use an upload heap for dynamic resources and map its memory for writing.
-        void *pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, IndexBuffer->ResourceLocation.GetReference());
+        void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().Alloc(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, IndexBuffer->ResourceLocation.GetReference());
 		check(pData);
 
 		// Add the lock to the lock map.
@@ -110,13 +110,13 @@ void* FD3D12DynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRH
 		LockedData.Pitch = Offset + Size;
 		OutstandingLocks.Add(LockedKey, LockedData);
 
-		return (void *) ((uint8 *) pData + Offset);
+		return (void*) ((uint8*) pData + Offset);
 	}
 	else
 	{
 		if(LockMode == RLM_ReadOnly)
 		{
-			FD3D12Resource *Resource = IndexBuffer->ResourceLocation->GetResource();
+			FD3D12Resource* Resource = IndexBuffer->ResourceLocation->GetResource();
 
 			// If the static buffer is being locked for reading, create a staging buffer.
 			TRefCountPtr<FD3D12Resource> StagingIndexBuffer;
@@ -142,7 +142,7 @@ void* FD3D12DynamicRHI::RHILockIndexBuffer(FIndexBufferRHIParamRef IndexBufferRH
 
 			// Use an upload heap to copy data to a default resource.
 			TRefCountPtr<FD3D12ResourceLocation> UploadBuffer = new FD3D12ResourceLocation();
-            void *pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().FastAlloc(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, UploadBuffer);
+            void* pData = GetRHIDevice()->GetDefaultUploadHeapAllocator().FastAlloc(Offset + Size, D3D12_TEXTURE_DATA_PLACEMENT_ALIGNMENT, UploadBuffer);
 
 			// Add the lock to the lock map.
 			LockedData.SetData(pData);
@@ -172,7 +172,7 @@ void FD3D12DynamicRHI::RHIUnlockIndexBuffer(FIndexBufferRHIParamRef IndexBufferR
 	FD3D12LockedData* LockedData = OutstandingLocks.Find(LockedKey);
 	check(LockedData);
 
-	FD3D12Resource *Resource = IndexBuffer->ResourceLocation->GetResource();
+	FD3D12Resource* Resource = IndexBuffer->ResourceLocation->GetResource();
 
 	if(bIsDynamic)
 	{

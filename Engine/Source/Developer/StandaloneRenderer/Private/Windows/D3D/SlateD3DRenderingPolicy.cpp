@@ -31,14 +31,11 @@ static D3D11_PRIMITIVE_TOPOLOGY GetD3D11PrimitiveType( ESlateDrawPrimitive::Type
 
 };
 
-FSlateD3D11RenderingPolicy::FSlateD3D11RenderingPolicy( TSharedPtr<FSlateFontCache> InFontCache, TSharedRef<FSlateD3DTextureManager> InTexureManager )
-	: FSlateRenderingPolicy( PixelCenterOffsetD3D11 ) 
-	, FontCache( InFontCache )
+FSlateD3D11RenderingPolicy::FSlateD3D11RenderingPolicy( TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateD3DTextureManager> InTexureManager )
+	: FSlateRenderingPolicy( InSlateFontServices, PixelCenterOffsetD3D11 ) 
 	, TextureManager( InTexureManager )
 {
 	InitResources();
-
-
 }
 
 FSlateD3D11RenderingPolicy::~FSlateD3D11RenderingPolicy()
@@ -321,7 +318,7 @@ void FSlateD3D11RenderingPolicy::DrawElements( const FMatrix& ViewProjectionMatr
 	}
 }
 
-TSharedRef<FSlateShaderResourceManager> FSlateD3D11RenderingPolicy::GetResourceManager()
+TSharedRef<FSlateShaderResourceManager> FSlateD3D11RenderingPolicy::GetResourceManager() const
 {
 	return TextureManager;
 }

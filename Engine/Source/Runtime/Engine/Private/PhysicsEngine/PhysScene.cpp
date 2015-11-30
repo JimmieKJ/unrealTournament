@@ -3,7 +3,6 @@
 
 #include "EnginePrivate.h"
 #include "PhysicsPublic.h"
-#include "PhysicsEngine/ClothManager.h"
 #include "Components/SkeletalMeshComponent.h"
 
 #if WITH_PHYSX
@@ -156,7 +155,7 @@ public:
 	}
 	static ENamedThreads::Type GetDesiredThread()
 	{
-		return ENamedThreads::AnyThreadGame();
+		return ENamedThreads::HiPri(ENamedThreads::AnyThread);
 	}
 	static ESubsequentsMode::Type GetSubsequentsMode()
 	{
@@ -236,24 +235,12 @@ FPhysScene::FPhysScene()
 	VehicleManager = NULL;
 #endif
 	PhysxUserData = FPhysxUserData(this);
-
-	ClothManager = nullptr;
 	
 #endif	//#if WITH_PHYSX
 
-	// initialize console variable - this console variable change requires it to restart scene. 
-	static bool bInitializeConsoleVariable = true;
-	static float InitialAverageFrameRate = 0.016f;
-
-
 	UPhysicsSettings * PhysSetting = UPhysicsSettings::Get();
-	if (bInitializeConsoleVariable)
-	{
-		InitialAverageFrameRate = PhysSetting->InitialAverageFrameRate;
-		FrameTimeSmoothingFactor[PST_Sync] = PhysSetting->SyncSceneSmoothingFactor;
-		FrameTimeSmoothingFactor[PST_Async] = PhysSetting->AsyncSceneSmoothingFactor;
-		bInitializeConsoleVariable = false;
-	}
+	FrameTimeSmoothingFactor[PST_Sync] = PhysSetting->SyncSceneSmoothingFactor;
+	FrameTimeSmoothingFactor[PST_Async] = PhysSetting->AsyncSceneSmoothingFactor;
 
 #if WITH_SUBSTEPPING
 	bSubstepping = PhysSetting->bSubstepping;
@@ -273,7 +260,7 @@ FPhysScene::FPhysScene()
 		bPhysXSceneExecuting[SceneType] = false;
 
 		// Initialize to a value which would be acceptable if FrameTimeSmoothingFactor[i] = 1.0f, i.e. constant simulation substeps
-		AveragedFrameTime[SceneType] = InitialAverageFrameRate;
+		AveragedFrameTime[SceneType] = PhysSetting->InitialAverageFrameRate;
 
 		// gets from console variable, and clamp to [0, 1] - 1 should be fixed time as 30 fps
 		FrameTimeSmoothingFactor[SceneType] = FMath::Clamp<float>(FrameTimeSmoothingFactor[SceneType], 0.f, 1.f);
@@ -298,18 +285,7 @@ FPhysScene::FPhysScene()
 
 void FPhysScene::SetOwningWorld(UWorld* InOwningWorld)
 {
-	if(OwningWorld != nullptr)
-	{
-		delete ClothManager;
-		ClothManager = nullptr;
-	}
-
 	OwningWorld = InOwningWorld;
-
-	if (OwningWorld)
-	{
-		ClothManager = new FClothManager(OwningWorld);
-	}
 }
 
 /** Exposes destruction of physics-engine scene outside Engine. */
@@ -563,7 +539,7 @@ bool FPhysScene::SubstepSimulation(uint32 SceneType, FGraphEventRef &InOutComple
 	{
 		//we have valid scene and subtime so enqueue task
 		PhysXCompletionTask* Task = new PhysXCompletionTask(InOutCompletionEvent, SceneType, PScene->getTaskManager());
-		ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::AnyThreadGame();
+		ENamedThreads::Type NamedThread = PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::HiPri(ENamedThreads::AnyThread);
 
 		DECLARE_CYCLE_STAT(TEXT("FSimpleDelegateGraphTask.SubstepSimulationImp"),
 			STAT_FSimpleDelegateGraphTask_SubstepSimulationImp,
@@ -992,24 +968,6 @@ void FPhysScene::WaitPhysScenes()
 	}
 }
 
-void FPhysScene::WaitClothScene()
-{
-	FGraphEventArray ThingsToComplete;
-	if (PhysicsSubsceneCompletion[PST_Cloth].GetReference())
-	{
-		ThingsToComplete.Add(PhysicsSubsceneCompletion[PST_Cloth]);
-	}
-
-	if (ThingsToComplete.Num())
-	{
-		QUICK_SCOPE_CYCLE_COUNTER(STAT_FPhysScene_WaitClothScene);
-		FTaskGraphInterface::Get().WaitUntilTasksComplete(ThingsToComplete, ENamedThreads::GameThread);
-	}
-	
-	PhysicsSubsceneCompletion[PST_Cloth] = nullptr;
-	bPhysXSceneExecuting[PST_Cloth] = false;
-}
-
 void FPhysScene::SceneCompletionTask(ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent, EPhysicsSceneType SceneType)
 {
 	ProcessPhysScene(SceneType);
@@ -1071,12 +1029,8 @@ void FPhysScene::ProcessPhysScene(uint32 SceneType)
 	}
 #endif // WITH_PHYSX
 
-    if(SceneType != PST_Cloth)	//Cloth potentially runs this code off the game thread where setting to null is not thread safe. For cloth we do it in a later game thread sync point
-	{
 	PhysicsSubsceneCompletion[SceneType] = NULL;
 	bPhysXSceneExecuting[SceneType] = false;
-	}
-	
 }
 #if WITH_PHYSX
 void FPhysScene::UpdateActiveTransforms(uint32 SceneType)
@@ -1248,6 +1202,14 @@ void FPhysScene::SetUpForFrame(const FVector* NewGrav, float InDeltaSeconds, flo
 
 				PScene->setGravity(U2PVector(*NewGrav));
 
+#if WITH_APEX_CLOTHING
+				NxApexScene* ApexScene = GetApexScene(SceneType);
+				if(SceneType == PST_Cloth && ApexScene)
+				{
+					ApexScene->updateGravity();
+				}
+#endif
+
 				// Unlock scene lock, in case it is required
 				SCENE_UNLOCK_WRITE(PScene);
 			}
@@ -1326,7 +1288,7 @@ void FPhysScene::StartFrame()
 				STATGROUP_TaskGraphTasks);
 
 			PhysicsSceneCompletion = TGraphTask<FNullGraphTask>::CreateTask(&FinishPrerequisites, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(
-				GET_STATID(STAT_FNullGraphTask_ProcessPhysScene_Join), PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::AnyThreadGame());
+				GET_STATID(STAT_FNullGraphTask_ProcessPhysScene_Join), PhysSingleThreadedMode() ? ENamedThreads::GameThread : ENamedThreads::HiPri(ENamedThreads::AnyThread));
 		}
 		else
 		{
@@ -1339,35 +1301,6 @@ void FPhysScene::StartFrame()
 }
 
 TAutoConsoleVariable<int32> CVarEnableClothPhysics(TEXT("p.ClothPhysics"), 1, TEXT("If 1, physics cloth will be used for simulation."));
-extern TAutoConsoleVariable<int32> CVarParallelCloth;
-void FPhysScene::StartCloth()
-{
-	FGraphEventArray FinishPrerequisites;
-
-
-	if(CVarEnableClothPhysics.GetValueOnAnyThread())
-	{
-		TickPhysScene(PST_Cloth, PhysicsSubsceneCompletion[PST_Cloth]);
-		{
-			if (PhysicsSubsceneCompletion[PST_Cloth].GetReference())
-			{
-				ENamedThreads::Type CurrentThread = (CVarParallelCloth.GetValueOnAnyThread() && !PhysSingleThreadedMode()) ? ENamedThreads::AnyThreadGame() : ENamedThreads::GameThread;
-				DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.ProcessPhysScene_Cloth"),
-				STAT_FDelegateGraphTask_ProcessPhysScene_Cloth,
-					STATGROUP_TaskGraphTasks);
-
-				new (FinishPrerequisites)FGraphEventRef(
-					FDelegateGraphTask::CreateAndDispatchWhenReady(
-					FDelegateGraphTask::FDelegate::CreateRaw(this, &FPhysScene::SceneCompletionTask, PST_Cloth),
-					GET_STATID(STAT_FDelegateGraphTask_ProcessPhysScene_Cloth), PhysicsSubsceneCompletion[PST_Cloth],
-					CurrentThread, CurrentThread
-					)
-					);
-			}
-		}
-	}
-}
-
 
 void FPhysScene::StartAsync()
 {
@@ -1815,12 +1748,6 @@ void FPhysScene::TermPhysScene(uint32 SceneType)
 		GPhysXSceneMap.Remove(PhysXSceneIndex[SceneType]);
 	}
 #endif
-
-	if (SceneType == PST_Cloth)
-	{
-		delete ClothManager;
-		ClothManager = nullptr;
-	}
 }
 
 #if WITH_PHYSX

@@ -30,7 +30,7 @@
 
 #pragma once
 
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Anim Dynamics Update"), STAT_AnimDynamicsUpdate, STATGROUP_Physics, ENGINE_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Anim Dynamics Physics Update"), STAT_AnimDynamicsUpdate, STATGROUP_Physics, ENGINE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Linear Limit Pre-Update"), STAT_AnimDynamicsLinearPre, STATGROUP_Physics, ENGINE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Linear Limit Post-Update"), STAT_AnimDynamicsLinearPost, STATGROUP_Physics, ENGINE_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Angular Limit Pre-Update"), STAT_AnimDynamicsAngularPre, STATGROUP_Physics, ENGINE_API);
@@ -289,6 +289,9 @@ public:
 	// Maximum torque this limit can apply
 	float  MaximumTorque;
 
+	// Cached spin to torque value that is independant of iterations
+	float CachedSpinToTorque;
+
 	FAnimPhysAngularLimit();
 	FAnimPhysAngularLimit(FAnimPhysRigidBody* InFirstBody, FAnimPhysRigidBody* InSecondBody, const FVector& InWorldSpaceAxis, float InTargetSpin = 0, float InMinimumTorque = -MAX_flt, float InMaximumTorque = MAX_flt);	
 
@@ -299,6 +302,8 @@ public:
 	/** Solve the limit
 	 */
 	void Iter(float DeltaTime);
+
+	void UpdateCachedData();
 };
 
 class ENGINE_API FAnimPhysLinearLimit : public FAnimPhysLimit
@@ -329,6 +334,15 @@ class ENGINE_API FAnimPhysLinearLimit : public FAnimPhysLimit
 	// Sum of impulses applied
 	float  SumImpulses;
 
+	// Cached denominator of the impulse calculation, doesn't change across iterations
+	float InverseInertiaImpulse;
+
+	// Cached world space position on body 0
+	FVector WorldSpacePosition0;
+
+	// Cached world space position on body 1
+	FVector WorldSpacePosition1;
+
 	FAnimPhysLinearLimit();
 	FAnimPhysLinearLimit(FAnimPhysRigidBody* InFirstBody, FAnimPhysRigidBody* InSecondBody, const FVector& InFirstPosition, const FVector& InSecondPosition,
 		const FVector& InNormal = FVector(0.0f, 0.0f, 1.0f), float InTargetSpeed = 0.0f, float InTargetSpeedWithoutBias = 0.0f, const FVector2D& InForceRange = FVector2D(-MAX_flt, MAX_flt));
@@ -340,6 +354,8 @@ class ENGINE_API FAnimPhysLinearLimit : public FAnimPhysLimit
 	/** Solve the limit
 	*/
 	void Iter(float DetlaTime);
+
+	void UpdateCachedData();
 };
 
 struct ENGINE_API FAnimPhysSpring

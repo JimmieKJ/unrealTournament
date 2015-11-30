@@ -53,7 +53,7 @@ void UShowLoginUICallbackProxy::Activate()
 	}
 		
 	const bool bWaitForDelegate = OnlineExternalUI->ShowLoginUI(LocalPlayer->GetControllerId(), false,
-		IOnlineExternalUI::FOnLoginUIClosedDelegate::CreateUObject(this, &UShowLoginUICallbackProxy::OnShowLoginUICompleted));
+		FOnLoginUIClosedDelegate::CreateUObject(this, &UShowLoginUICallbackProxy::OnShowLoginUICompleted));
 
 	if (!bWaitForDelegate)
 	{

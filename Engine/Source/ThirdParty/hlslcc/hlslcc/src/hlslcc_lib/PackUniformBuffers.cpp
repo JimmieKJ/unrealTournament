@@ -1852,13 +1852,26 @@ struct FFixAtomicVariables : public ir_rvalue_visitor
 				if (DeRefVar)
 				{
 					check(ir == base_ir);
-					auto* DummyVar = new(State) ir_variable(RHSVar->type, nullptr, ir_var_temporary);
-					auto* ResultVar = new(State)ir_variable(RHSVar->type, nullptr, ir_var_temporary);
-					auto* NewAtomic = new(State) ir_atomic(ir_atomic_swap, new(State) ir_dereference_variable(DummyVar), DeRefVar, new(State) ir_dereference_variable(ResultVar), nullptr);
-					base_ir->insert_before(ResultVar);
-					base_ir->insert_before(DummyVar);
-					base_ir->insert_before(NewAtomic);
-					ir->rhs = new(State) ir_dereference_variable(ResultVar);
+					if (State->LanguageSpec->NeedsAtomicLoadStore())
+					{
+						auto* ResultVar = new(State)ir_variable(RHSVar->type, nullptr, ir_var_temporary);
+						auto* NewAtomic = new(State) ir_atomic(ir_atomic_load, new(State) ir_dereference_variable(ResultVar), new(State) ir_dereference_variable(RHSVar), nullptr, nullptr);
+						base_ir->insert_before(ResultVar);
+						base_ir->insert_before(NewAtomic);
+						ir->rhs = new(State) ir_dereference_variable(ResultVar);
+					}
+					else
+					{
+						//#todo-rco: This code path is probably broken!
+						auto* DummyVar = new(State) ir_variable(RHSVar->type, nullptr, ir_var_temporary);
+						auto* ResultVar = new(State)ir_variable(RHSVar->type, nullptr, ir_var_temporary);
+						auto* NewAtomic = new(State) ir_atomic(ir_atomic_swap, new(State) ir_dereference_variable(DummyVar), DeRefVar, new(State) ir_dereference_variable(ResultVar), nullptr);
+						base_ir->insert_before(ResultVar);
+						base_ir->insert_before(DummyVar);
+						base_ir->insert_before(NewAtomic);
+						ir->rhs = new(State) ir_dereference_variable(ResultVar);
+					}
+					//#todo-rco: Won't handle the case of two atomic rvalues!
 					return visit_continue_with_parent;
 				}
 			}
@@ -1866,6 +1879,11 @@ struct FFixAtomicVariables : public ir_rvalue_visitor
 
 		ir->rhs->accept(this);
 
+		return visit_continue_with_parent;
+	}
+
+	virtual ir_visitor_status visit_enter(ir_atomic* ir) override
+	{
 		return visit_continue_with_parent;
 	}
 };

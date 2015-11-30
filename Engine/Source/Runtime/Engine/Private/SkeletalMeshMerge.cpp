@@ -810,7 +810,7 @@ bool FSkeletalMeshMerge::AddSocket(const USkeletalMeshSocket* Socket)
 		}
 	}
 
-	USkeletalMeshSocket* NewSocket = CastChecked<USkeletalMeshSocket>(StaticDuplicateObject(Socket, MergeMesh, TEXT("None")));
+	USkeletalMeshSocket* NewSocket = CastChecked<USkeletalMeshSocket>(StaticDuplicateObject(Socket, MergeMesh));
 	SocketList.Add(NewSocket);
 
 	return true;

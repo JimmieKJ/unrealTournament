@@ -25,20 +25,21 @@ enum ERoundingMode
 	/** Rounds to the value which is more positive: 0.1 becomes 1, -0.1 becomes 0 */
 	ToPositiveInfinity,
 };
-#endif
 
-/** Used for formatting text in Blueprints; a helper struct that helps funnel the data to FText::Format */
-USTRUCT()
-struct FFormatTextArgument
+/**
+ * Used to pass argument/value pairs into FText::Format.
+ * The full C++ struct is located here: Engine\Source\Runtime\Core\Public\Internationalization\Text.h
+ */
+USTRUCT(noexport)
+struct FFormatArgumentData
 {
-	GENERATED_USTRUCT_BODY()
+	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
+	FString ArgumentName;
 
 	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
-	FText ArgumentName;
-
-	UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category=ArgumentValue)
-	FText TextValue;
+	FText ArgumentValue;
 };
+#endif
 
 UCLASS()
 class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
@@ -156,5 +157,5 @@ class ENGINE_API UKismetTextLibrary : public UBlueprintFunctionLibrary
 
 	/* Used for formatting text using the FText::Format function and utilized by the UK2Node_FormatText */
 	UFUNCTION(BlueprintPure, meta=(BlueprintInternalUseOnly = "true"))
-	static FText Format(FText InPattern, TArray<FFormatTextArgument> InArgs);
+	static FText Format(FText InPattern, TArray<FFormatArgumentData> InArgs);
 };

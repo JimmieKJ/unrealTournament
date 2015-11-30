@@ -29,5 +29,21 @@ public:
 	 * @return A delegate that will be used to fill out the shared include statement in generated source.
 	 */
 	virtual FPCHFilenameQuery& OnPCHFilenameQuery() = 0;
+
+
+	DECLARE_DELEGATE_RetVal_OneParam(bool, FIsTargetedForConversionQuery, const UObject*);
+	/**
+	 * Provides a hook so that external modules can specify which assets will 
+	 * and won't be converted (so the backend knows how to handle cross asset 
+	 * references).
+	 * 
+	 * @return A delegate that will used to determine how to generate cross asset references (in generated source).
+	 */
+	virtual FIsTargetedForConversionQuery& OnIsTargetedForConversionQuery() = 0;
+
+	/**
+	 *	Cpp is generated from a duplicate of the original Blueprint. This map stores info about the original BPGC.
+	 */
+	virtual TMap<TWeakObjectPtr<UClass>, TWeakObjectPtr<UClass> >& GetOriginalClassMap() = 0;
 };
 

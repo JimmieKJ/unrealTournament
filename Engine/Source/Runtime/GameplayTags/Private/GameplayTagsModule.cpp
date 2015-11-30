@@ -16,7 +16,8 @@ DEFINE_LOG_CATEGORY(LogGameplayTags);
 void FGameplayTagsModule::StartupModule()
 {
 	// This code will execute after your module is loaded into memory (but after global variables are initialized, of course.)
-	GGameplayTagsManager = NewObject<UGameplayTagsManager>(GetTransientPackage(), NAME_None, RF_RootSet);
+	GGameplayTagsManager = NewObject<UGameplayTagsManager>(GetTransientPackage(), NAME_None);
+	GGameplayTagsManager->AddToRoot();
 
 	TArray<FString> GameplayTagTables;
 	GConfig->GetArray(TEXT("GameplayTags"), TEXT("GameplayTagTableList"), GameplayTagTables, GEngineIni);

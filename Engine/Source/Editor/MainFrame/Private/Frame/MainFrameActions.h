@@ -188,6 +188,9 @@ public:
 	/** Refresh the project in the current IDE */
 	static void RefreshCodeProject();
 
+	/** Determines whether the project is a code project */
+	static bool IsCodeProject();
+
 	/** Opens an IDE to edit c++ code */
 	static void OpenIDE();
 

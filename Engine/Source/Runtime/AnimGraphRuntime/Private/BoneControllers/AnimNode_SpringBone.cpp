@@ -2,6 +2,7 @@
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_SpringBone.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_SpringBone
@@ -30,6 +31,8 @@ void FAnimNode_SpringBone::Initialize(const FAnimationInitializeContext& Context
 {
 	FAnimNode_SkeletalControlBase::Initialize(Context);
 
+	Context.AnimInstanceProxy->AddGameThreadPreUpdateEvent(FGameThreadPreUpdateEvent::CreateRaw(this, &FAnimNode_SpringBone::HandleGameThreadPreUpdateEvent));
+
 	RemainingTime = 0.0f;
 }
 
@@ -45,7 +48,7 @@ void FAnimNode_SpringBone::UpdateInternal(const FAnimationUpdateContext& Context
 	RemainingTime += Context.GetDeltaTime();
 
 	// Fixed step simulation at 120hz
-	FixedTimeStep = (1.f / 120.f) * Context.AnimInstance->CurrentTimeDilation;
+	FixedTimeStep = (1.f / 120.f) * TimeDilation;
 }
 
 void FAnimNode_SpringBone::GatherDebugData(FNodeDebugData& DebugData)
@@ -214,4 +217,12 @@ bool FAnimNode_SpringBone::IsValidToEvaluate(const USkeleton* Skeleton, const FB
 void FAnimNode_SpringBone::InitializeBoneReferences(const FBoneContainer& RequiredBones) 
 {
 	SpringBone.Initialize(RequiredBones);
+}
+
+void FAnimNode_SpringBone::HandleGameThreadPreUpdateEvent(const UAnimInstance* InAnimInstance)
+{
+	const USkeletalMeshComponent* SkelComp = InAnimInstance->GetSkelMeshComponent();
+	const UWorld* World = SkelComp->GetWorld();
+	check(World->GetWorldSettings());
+	TimeDilation = World->GetWorldSettings()->GetEffectiveTimeDilation();
 }

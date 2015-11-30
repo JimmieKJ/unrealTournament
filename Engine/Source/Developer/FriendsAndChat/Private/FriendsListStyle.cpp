@@ -74,20 +74,6 @@ FFriendsListStyle& FFriendsListStyle::SetFriendListActionButtonStyle(const FButt
 	return *this;
 }
 
-/** Friends List Close button style */
-FFriendsListStyle& FFriendsListStyle::SetFriendsListClosedButtonStyle(const FButtonStyle& ButtonStyle)
-{
-	FriendListCloseButtonStyle = ButtonStyle;
-	return *this;
-}
-
-/** Add Friend Close button style */
-FFriendsListStyle& FFriendsListStyle::SetAddFriendCloseButtonStyle(const FButtonStyle& ButtonStyle)
-{
-	AddFriendCloseButtonStyle = ButtonStyle;
-	return *this;
-}
-
 /** Optional content for the Add Friend button */
 FFriendsListStyle& FFriendsListStyle::SetAddFriendButtonContentBrush(const FSlateBrush& BrushStyle)
 {
@@ -187,18 +173,6 @@ FFriendsListStyle& FFriendsListStyle::SetUserPresenceImageSize(const FVector2D& 
 	return *this;
 }
 
-FFriendsListStyle& FFriendsListStyle::SetAddFriendButtonSize(const FVector2D& Value)
-{
-	AddFriendButtonSize = Value;
-	return *this;
-}
-
-FFriendsListStyle& FFriendsListStyle::SetUserHeaderPadding(const FMargin& Margin)
-{
-	UserHeaderPadding = Margin;
-	return *this;
-}
-
 FFriendsListStyle& FFriendsListStyle::SetBackBrush(const FSlateBrush& Brush)
 {
 	BackBrush = Brush;
@@ -211,15 +185,27 @@ FFriendsListStyle& FFriendsListStyle::SetSelectedOptionBrush(const FSlateBrush& 
 	return *this;
 }
 
-FFriendsListStyle& FFriendsListStyle::SetFilterBrush(const FSlateBrush& Brush)
-{
-	FilterBrush = Brush;
-	return *this;
-}
-
 FFriendsListStyle& FFriendsListStyle::SetSettingsBrush(const FSlateBrush& Brush)
 {
 	SettingsBrush = Brush;
+	return *this;
+}
+
+FFriendsListStyle& FFriendsListStyle::SetSeperatorBrush(const FSlateBrush& Brush)
+{
+	SeperatorBrush = Brush;
+	return *this;
+}
+
+FFriendsListStyle& FFriendsListStyle::SetFontSizeBrush(const FSlateBrush& Brush)
+{
+	FontSizeBrush = Brush;
+	return *this;
+}
+
+FFriendsListStyle& FFriendsListStyle::SetSearchBrush(const FSlateBrush& Brush)
+{
+	SearchBrush = Brush;
 	return *this;
 }
 

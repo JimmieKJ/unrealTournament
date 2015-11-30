@@ -52,9 +52,6 @@ public:
 		 * This can be used to reset it from a bad state or by a teleport where the old state is not important anymore.
 		 */
 		TeleportAndReset,
-
-		/** The client hasn't specified an override. This is needed for double buffering to determine intent of game code (Do not actually pass into APEX) */
-		Default,
 	};
 
 	void Clear(bool bReleaseResource = false);
@@ -69,26 +66,29 @@ public:
 
 	/** The corresponding clothing asset index */
 	int32 ParentClothingAssetIndex;
+
+	/** Whether this cloth actor is simulating for the current LOD */
+	bool bSimulateForCurrentLOD;
 };
 
 //The data that cloth needs for simulation prep in parallel. These properties are accessible via double buffer
 struct FClothSimulationContext
 {
 	FClothSimulationContext();
-
-	/** used for pre-computation using TeleportRotationThreshold property */
-	float ClothTeleportCosineThresholdInRad;
-	/** used for pre-computation using tTeleportDistanceThreshold property */
-	float ClothTeleportDistThresholdSquared;
 private:
 	/** whether we need to teleport cloth. There are functions which allow you to modify this accordingly. Do not access directly as double buffer strategy relies on internal logic being consistent */
 	FClothingActor::TeleportMode ClothTeleportMode;
-	/** previous root bone matrix to compare the difference and decide to do clothing teleport  */
-	FMatrix	PrevRootBoneMatrix;
 
-	USkinnedMeshComponent* InMasterPoseComponent;
+	TArray<FTransform> BoneTransforms;
+	TArray<FClothingActor> ClothingActors;
+	TArray<FClothingAssetData> ClothingAssets;	//This is only here because we don't have proper cloth assets and instead embed the data into an array in SkeletalMesh. For now we must copy the data
 	TArray<int32> InMasterBoneMap;
 	int32 InMasterBoneMapCacheCount;
+	bool bUseMasterPose;
+	FTransform ComponentToWorld;
+
+	FVector WindDirection;
+	float WindAdaption;
 
 	friend class USkeletalMeshComponent;
 };
@@ -250,16 +250,17 @@ enum class EAllowKinematicDeferral
 	DisallowDeferral
 };
 
+class USkeletalMeshComponent;
+
 /**
-* Tick function that prepares for cloth tick
+* Tick function that does post physics work on skeletal mesh component
 **/
 USTRUCT()
-struct FSkeletalMeshComponentPreClothTickFunction : public FTickFunction
+struct FSkeletalMeshComponentPostPhysicsTickFunction : public FTickFunction
 {
 	GENERATED_USTRUCT_BODY()
 
-	/** World this tick function belongs to. */
-	class USkeletalMeshComponent*	Target;
+	 USkeletalMeshComponent*	Target;
 
 	/**
 	* Abstract function to execute the tick.
@@ -273,6 +274,27 @@ struct FSkeletalMeshComponentPreClothTickFunction : public FTickFunction
 	virtual FString DiagnosticMessage() override;
 };
 
+/**
+* Tick function that prepares and simulates cloth
+**/
+USTRUCT()
+struct FSkeletalMeshComponentClothTickFunction : public FTickFunction
+{
+	GENERATED_USTRUCT_BODY()
+
+	USkeletalMeshComponent*	Target;
+
+	/**
+	* Abstract function to execute the tick.
+	* @param DeltaTime - frame time to advance, in seconds.
+	* @param TickType - kind of tick for this frame.
+	* @param CurrentThread - thread we are executing on, useful to pass along as new tasks are created.
+	* @param MyCompletionGraphEvent - completion event for this task. Useful for holding the completetion of this task until certain child tasks are complete.
+	*/
+	virtual void ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
+	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph. */
+	virtual FString DiagnosticMessage() override;
+};
 
 /**
  * SkeletalMeshComponent is used to create an instance of an animated SkeletalMesh asset.
@@ -305,9 +327,13 @@ public:
 	class UAnimBlueprint* AnimationBlueprint_DEPRECATED;
 #endif
 
-	/* The AnimBlueprint class to use. Use 'SetAnimInstanceClass' to change at runtime. */
+	DEPRECATED(4.11, "This property is deprecated. Please use AnimClass instead")
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Animation)
 	class UAnimBlueprintGeneratedClass* AnimBlueprintGeneratedClass;
+
+	/* The AnimBlueprint class to use. Use 'SetAnimInstanceClass' to change at runtime. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Animation)
+	class TSubclassOf<UAnimInstance> AnimClass;
 
 	/** The active animation graph program instance. */
 	UPROPERTY(transient)
@@ -700,16 +726,23 @@ public:
 
 #endif	//WITH_PHYSX
 
-	FSkeletalMeshComponentPreClothTickFunction PreClothTickFunction;
+	FSkeletalMeshComponentClothTickFunction ClothTickFunction;
 
 #if WITH_APEX_CLOTHING
 
-	/* The public facing editable cloth simulation context. Game code should only modify this from the game thread!*/
-	FClothSimulationContext EditableClothSimulationContext;
+	/** used for pre-computation using TeleportRotationThreshold property */
+	float ClothTeleportCosineThresholdInRad;
+	/** used for pre-computation using tTeleportDistanceThreshold property */
+	float ClothTeleportDistThresholdSquared;
+
+	/** whether we need to teleport cloth. */
+	FClothingActor::TeleportMode ClothTeleportMode;
 
 	bool IsClothBoundToMasterComponent() const { return bBindClothToMasterComponent; }
 
 private:
+
+	friend FSkeletalMeshComponentClothTickFunction;
 
    /** Double buffer for the current cloth simulation context */
 	FClothSimulationContext InternalClothSimulationContext;
@@ -720,13 +753,16 @@ private:
 	bool bPrevMasterSimulateLocalSpace;
 
 	/** Copies the data from the external cloth simulation context. We copy instead of flipping because the API has to return the full struct to make backwards compat easy*/
-	void SubmitClothSimulationContext();
+	void UpdateClothSimulationContext();
 
    /** 
 	* clothing actors will be created from clothing assets for cloth simulation 
 	* 1 actor should correspond to 1 asset
 	*/
 	TArray<FClothingActor> ClothingActors;
+
+	/** previous root bone matrix to compare the difference and decide to do clothing teleport  */
+	FMatrix	PrevRootBoneMatrix;
 
 public:
 
@@ -770,10 +806,8 @@ public:
 
 	/** Store cloth simulation data into OutClothSimData */
 	void GetUpdateClothSimulationData(TArray<FClothSimulData>& OutClothSimData, USkeletalMeshComponent* OverrideLocalRootComponent = nullptr);
-	void ApplyWindForCloth(const FClothingActor& ClothingActor) const;
 	void RemoveAllClothingActors();
 	void ReleaseAllClothingResources();
-	bool IsExecutingParallelCloth() const;
 
 	bool IsValidClothingActor(const FClothingActor& ClothingActor) const;
 	/** Draws APEX Clothing simulated normals on cloth meshes **/
@@ -845,7 +879,8 @@ public:
 	virtual void RegisterComponentTickFunctions(bool bRegister) override;
 
 	//Handle registering our pre cloth tick function
-	void RegisterPreClothTick(bool bRegister);
+	void RegisterPostPhysicsTick(bool bRegister);
+	void RegisterClothTick(bool bRegister);
 
 	//~ End UActorComponent Interface.
 
@@ -1138,9 +1173,6 @@ public:
 	 * @return location of closest colliding rigidbody, or TestLocation if there were no bodies to test
 	 */
 	FVector GetClosestCollidingRigidBodyLocation(const FVector& TestLocation) const;
-
-	/** Calls needed cloth updates */
-	void PreClothTick(float DeltaTime, FTickFunction& ThisTickFunction);
 	
 	/** Set physics transforms for all bodies */
 	void ApplyDeltaToAllPhysicsTransforms(const FVector& DeltaLocation, const FQuat& DeltaRotation);
@@ -1159,7 +1191,7 @@ public:
 	/** changes clothing LODs, if clothing LOD is disabled or LODIndex is greater than apex clothing LODs, simulation will be disabled */
 	void SetClothingLOD(int32 LODIndex);
 	/** check whether clothing teleport is needed or not to avoid a weird simulation result */
-	virtual void CheckClothTeleport(float DeltaTime, FClothSimulationContext& ClothSimulationContext) const;
+	virtual void CheckClothTeleport();
 	/** 
 	* methods for cloth morph targets 
 	*/
@@ -1171,9 +1203,9 @@ public:
 	void UpdateClothMorphTarget();
 
 	/** 
-	 * Updates all clothing animation states including ComponentToWorld-related states.
+	 * Updates all clothing animation states including ComponentToWorld-related states. Triggers the simulation tasks
 	 */
-	void UpdateClothState(float DeltaTime);
+	void UpdateClothStateAndSimulate(float DeltaTime, FTickFunction& ThisTickFunction);
 	/** 
 	 * Updates clothing actor's global pose.
 	 * So should be called when ComponentToWorld is changed.
@@ -1235,6 +1267,13 @@ protected:
 	bool NeedToSpawnAnimScriptInstance(bool bForceInit) const;
 	
 private:
+
+	FSkeletalMeshComponentPostPhysicsTickFunction PostPhysicsTickFunction;
+	friend struct FSkeletalMeshComponentPostPhysicsTickFunction;
+
+	/** Update systems after physics sim is done */
+	void PostPhysicsTickComponent(FSkeletalMeshComponentPostPhysicsTickFunction& ThisTickFunction);
+
 	/** Evaluate Anim System **/
 	void EvaluateAnimation(const USkeletalMesh* InSkeletalMesh, UAnimInstance* InAnimInstance, TArray<FTransform>& OutLocalAtoms, TArray<struct FActiveVertexAnim>& OutVertexAnims, FVector& OutRootBoneTranslation, FBlendedCurve& OutCurve) const;
 
@@ -1253,6 +1292,11 @@ private:
 	void ClearAnimScriptInstance();
 	virtual void RefreshActiveVertexAnims() override;
 
+#if WITH_APEX_CLOTHING
+	void GetWindForCloth_GameThread(FVector& WindVector, float& WindAdaption) const;
+	static void ApplyWindForCloth_Concurrent(physx::apex::NxClothingActor& ClothingActor, const FVector& WindVector, float WindAdaption);
+#endif
+	
 	//Data for parallel evaluation of animation
 	FAnimationEvaluationContext AnimEvaluationContext;
 
@@ -1281,10 +1325,16 @@ public:
 
 private:
 	// Returns whether we need to run the Pre Cloth Tick or not
-	bool ShouldRunPreClothTick() const;
+	bool ShouldRunPostPhysicsTick() const;
+
+	// Returns whether we need to run the Cloth Tick or not
+	bool ShouldRunClothTick() const;
 
 	// Handles registering/unregistering the pre cloth tick as it is needed
-	void UpdatePreClothTickRegisteredState();
+	void UpdatePostPhysicsTickRegisteredState();
+
+	// Handles registering/unregistering the cloth tick as it is needed
+	void UpdateClothTickRegisteredState();
 
 	// Handles registering/unregistering the 'during animation' tick as it is needed
 	void UpdateDuringAnimationTickRegisteredState();
@@ -1296,18 +1346,15 @@ private:
 
 	void PerformBlendPhysicsBones(const TArray<FBoneIndexType>& InRequiredBones, TArray<FTransform>& InLocalAtoms);
 
-	void ParallelTickClothing(float DeltaTime, FClothSimulationContext& ClothSimulationContext) const;
-	void ParallelUpdateClothState(float DeltaTime, FClothSimulationContext& ClothSimulationContext) const;
-	void PrepareCloth();
+	friend class FParallelClothTask;
+	// This is the parallel function that updates the cloth data and runs the simulation. This is safe to call from worker threads.
+	static void ParallelEvaluateCloth(float DeltaTime, const FClothingActor& ClothingActor, const FClothSimulationContext& ClothSimulationContext);
 
 	friend class FParallelBlendPhysicsCompletionTask;
 	void CompleteParallelBlendPhysics();
 	void PostBlendPhysics();
 
 	friend class FTickClothingTask;
-	friend class FClothManager;
-	friend class FClothManagerData;
-	void PerformTickClothing(float DeltaTime);
 
 	// these are deprecated variables from removing SingleAnimSkeletalComponent
 	// remove if this version goes away : VER_UE4_REMOVE_SINGLENODEINSTANCE

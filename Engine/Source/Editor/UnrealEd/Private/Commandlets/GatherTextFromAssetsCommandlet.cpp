@@ -96,7 +96,7 @@ void UGatherTextFromAssetsCommandlet::ProcessPackages( const TArray< UPackage* >
 	for(UPackage* const Package : PackagesToProcess)
 	{
 		TArray<UObject*> ObjectsInPackage;
-		GetObjectsWithOuter(Package, ObjectsInPackage, true, RF_Transient | RF_PendingKill);
+		GetObjectsWithOuter(Package, ObjectsInPackage, true, RF_Transient, EInternalObjectFlags::PendingKill);
 		for (UObject* const Object : ObjectsInPackage)
 		{
 			TArray<FGatherableTextData> GatherableTextDataArray;
@@ -417,7 +417,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 		}
 	}
 
-	CollectGarbage( RF_Native );
+	CollectGarbage(RF_NoFlags);
 
 	//Now go through the remaining packages in the main array and process them in batches.
 	int32 PackagesPerBatchCount = 100;
@@ -501,7 +501,7 @@ int32 UGatherTextFromAssetsCommandlet::Main(const FString& Params)
 			}
 		}
 
-		CollectGarbage( RF_Native );
+		CollectGarbage(RF_NoFlags);
 		LoadedPackages.Empty(PackagesPerBatchCount);	
 		LoadedPackageFileNames.Empty(PackagesPerBatchCount);
 	}

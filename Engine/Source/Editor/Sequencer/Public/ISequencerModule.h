@@ -66,6 +66,9 @@ struct FSequencerInitParams
 
 	/** Whether or not sequencer should be edited within the level editor */
 	bool bEditWithinLevelEditor;
+
+	/** Domain-specific spawn register for the movie scene */
+	TSharedPtr<IMovieSceneSpawnRegister> SpawnRegister;
 };
 
 

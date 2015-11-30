@@ -28,6 +28,7 @@ struct FMovieSceneExpansionState
 	bool bExpanded;
 };
 
+
 /**
  * Editor only data that needs to be saved between sessions for editing but has no runtime purpose
  */
@@ -47,6 +48,29 @@ struct FMovieSceneEditorData
 	/** The last view-range that the user was observing */
 	UPROPERTY()
 	FFloatRange ViewRange;
+};
+
+
+/**
+ * Structure for labels that can be assigned to movie scene tracks.
+ */
+USTRUCT()
+struct FMovieSceneTrackLabels
+{
+	GENERATED_BODY()
+
+	UPROPERTY()
+	TArray<FString> Strings;
+
+	void FromString(const FString& LabelString)
+	{
+		LabelString.ParseIntoArray(Strings, TEXT(" "));
+	}
+
+	FString ToString() const
+	{
+		return FString::Join(Strings, TEXT(" "));
+	}
 };
 
 
@@ -342,6 +366,7 @@ public:
 	*/
 	void ReplaceBinding(const FGuid& OldGuid, const FGuid& NewGuid, const FString& Name);
 
+#if WITH_EDITORONLY_DATA
 	/**
 	 * Get the display name of the object with the specified identifier.
 	 *
@@ -350,10 +375,9 @@ public:
 	 */
 	void SetObjectDisplayName(const FGuid& ObjectId, const FText& DisplayName)
 	{
-#if WITH_EDITORONLY_DATA
 		ObjectsToDisplayNames.Add(ObjectId.ToString(), DisplayName);
-#endif
 	}
+#endif
 
 	/**
 	 * Set the start and end playback positions (playback range) for this movie scene
@@ -373,6 +397,33 @@ public:
 	{
 		return EditorData;
 	}
+
+	/**
+	 * Get all known track labels.
+	 *
+	 * @param OutLabels Will contain the collection of known labels.
+	 * @return The number labels returned.
+	 */
+	int32 GetAllLabels(TArray<FString>& OutLabels) const;
+
+	/**
+	 * Get an object's track label.
+	 *
+	 * @param ObjectId The object to get the label for.
+	 * @return The label string.
+	 */
+	FMovieSceneTrackLabels& GetObjectLabels(const FGuid& ObjectId) 
+	{
+		return ObjectsToLabels.FindOrAdd(ObjectId.ToString());
+	}
+
+	/**
+	 * Check whether the specified track label exists.
+	 *
+	 * @param Label The label to check.
+	 * @return true if the label exists, false otherwise.
+	 */
+	bool LabelExists(const FString& Label) const;
 #endif
 
 protected:
@@ -386,14 +437,13 @@ protected:
 
 protected:
 
-	/**
-	 * Called after this object has been deserialized
-	 */
+	/** Called after this object has been deserialized */
 	virtual void PostLoad() override;
 
-	/**
-	 * Perform legacy upgrade of time ranges
-	 */
+	/** Called before this object is being deserialized. */
+	virtual void PreSave() override;
+
+	/** Perform legacy upgrade of time ranges */
 	void UpgradeTimeRanges();
 
 private:
@@ -426,6 +476,10 @@ private:
 	/** Maps object GUIDs to user defined display names. */
 	UPROPERTY()
 	TMap<FString, FText> ObjectsToDisplayNames;
+
+	/** Maps object GUIDs to user defined labels. */
+	UPROPERTY()
+	TMap<FString, FMovieSceneTrackLabels> ObjectsToLabels;
 
 	/** Editor only data that needs to be saved between sessions for editing but has no runtime purpose */
 	UPROPERTY()

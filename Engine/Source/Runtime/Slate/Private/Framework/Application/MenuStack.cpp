@@ -74,21 +74,33 @@ namespace
 		SLATE_BEGIN_ARGS(SMenuContentWrapper) 
 				: _MenuContent()
 				, _OnKeyDown()
+				, _OptionalMinMenuWidth()
+				, _OptionalMinMenuHeight()
 			{}
 
 			SLATE_DEFAULT_SLOT(FArguments, MenuContent)
 			SLATE_EVENT(FOnKeyDown, OnKeyDown)
 			SLATE_EVENT(FOnMenuLostFocus, OnMenuLostFocus)
+			SLATE_ARGUMENT(FOptionalSize, OptionalMinMenuWidth)
+			SLATE_ARGUMENT(FOptionalSize, OptionalMinMenuHeight)
 		SLATE_END_ARGS()
 
 		/** Construct this widget */
 		void Construct(const FArguments& InArgs)
 		{
+			// The visibility of the content wrapper should match that of the provided content
+			Visibility = AccessWidgetVisibilityAttribute(InArgs._MenuContent.Widget);
+
 			OnKeyDownDelegate = InArgs._OnKeyDown;
 			OnMenuLostFocus = InArgs._OnMenuLostFocus;
 			ChildSlot
 			[
-				InArgs._MenuContent.Widget
+				SNew(SBox)
+				.MinDesiredWidth(InArgs._OptionalMinMenuWidth)
+				.MaxDesiredHeight(InArgs._OptionalMinMenuHeight)
+				[
+					InArgs._MenuContent.Widget
+				]
 			];
 		}
 
@@ -658,14 +670,11 @@ TSharedRef<SWidget> FMenuStack::WrapContent(TSharedRef<SWidget> InContent, FOpti
 	return SNew(SMenuContentWrapper)
 		.OnKeyDown_Static(&OnMenuKeyDown)
 		.OnMenuLostFocus_Raw(this, &FMenuStack::OnMenuContentLostFocus)
+		.OptionalMinMenuWidth(OptionalMinWidth)
+		.OptionalMinMenuHeight(OptionalMinHeight)
 		.MenuContent()
 		[
-			SNew(SBox)
-			.MinDesiredWidth(OptionalMinWidth)
-			.MaxDesiredHeight(OptionalMinHeight)
-			[
-				InContent
-			]
+			InContent
 		];
 }
 

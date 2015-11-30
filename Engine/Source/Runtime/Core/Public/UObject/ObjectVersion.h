@@ -578,6 +578,10 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_USERWIDGET_DEFAULT_FOCUSABLE_FALSE,
 	// Custom event nodes implicitly set 'const' on array and non-array pass-by-reference input params
 	VER_UE4_BLUEPRINT_CUSTOM_EVENT_CONST_INPUT,
+	// Renamed HighFrequencyGain to LowPassFilterFrequency
+	VER_UE4_USE_LOW_PASS_FILTER_FREQ,
+	// UAnimBlueprintGeneratedClass can be replaced by a dynamic class. Use TSubclassOf<UAnimInstance> instead.
+	VER_UE4_NO_ANIM_BP_CLASS_IN_GAMEPLAY_CODE,
 	// -----<new versions can be added before this line>-------------------------------------------------
 	// - this needs to be the last line (see note below)
 	VER_UE4_AUTOMATIC_VERSION_PLUS_ONE,

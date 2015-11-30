@@ -4,6 +4,7 @@
 
 #include "GameplayTags.h"
 #include "GameplayEffect.h"
+#include "GameplayCue_Types.h"
 #include "GameplayCueNotify_Actor.generated.h"
 
 
@@ -37,6 +38,13 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 	virtual void Serialize(FArchive& Ar) override;
 
 	virtual void HandleGameplayCue(AActor* MyTarget, EGameplayCueEvent::Type EventType, FGameplayCueParameters Parameters);
+
+	virtual void GameplayCueFinishedCallback();
+
+	virtual bool GameplayCuePendingRemove();
+
+	/** Reset all state so that it can be reused. Return false if this class connot be recycled */
+	virtual bool Recycle();
 
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
@@ -91,6 +99,18 @@ class GAMEPLAYABILITIES_API AGameplayCueNotify_Actor : public AActor
 	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
 	bool bUniqueInstancePerSourceObject;
 
+	/** How many instances of the gameplay cue to preallocate */
+	UPROPERTY(EditDefaultsOnly, Category = GameplayCue)
+	int32 NumPreallocatedInstances;
+
+	FGCNotifyActorKey NotifyKey;
+	
+	int32 StackCount;
+
+protected:
+	FTimerHandle FinishTimerHandle;
+
 private:
 	virtual void DeriveGameplayCueTagFromAssetName();
+
 };

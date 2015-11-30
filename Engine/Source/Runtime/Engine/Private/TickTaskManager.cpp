@@ -46,20 +46,21 @@ static TAutoConsoleVariable<int32> CVarAllowConcurrentQueue(
 	1,
 	TEXT("If true, queue ticks concurrently."));
 
-static bool GCanDemoteInto[TG_MAX] =
+static TAutoConsoleVariable<int32> CVarAllowAsyncTickDispatch(
+	TEXT("tick.AllowAsyncTickDispatch"),
+	0,
+	TEXT("If true, ticks are dispatched in a task thread."));
+
+FORCEINLINE bool CanDemoteIntoTickGroup(ETickingGroup TickGroup)
 {
-	true,		// 	TG_PrePhysics,
-	false,		// 	TG_DuringAnimation,
-	true,		// 	TG_StartPhysics,
-	false,		// 	TG_DuringPhysics,
-	true,		// 	TG_EndPhysics,
-	true,		// 	TG_PreCloth,
-	true,		// 	TG_StartCloth,
-	true,		// 	TG_EndCloth,
-	true,		// 	TG_PostPhysics,
-	true,		// 	TG_PostUpdateWork,
-	true,		// 	TG_NewlySpawned,
-};
+	switch (TickGroup)
+	{
+	    case TG_StartPhysics:
+	    case TG_EndPhysics:
+		    return false;
+	}
+	return true;
+}
 
 template<typename InElementType, typename InAllocator = FDefaultAllocator>
 class TArrayWithThreadsafeAdd : public TArray<InElementType, InAllocator>
@@ -213,7 +214,7 @@ public:
 	{
 		if (bLogTick)
 		{
-		UE_LOG(LogTick, Log, TEXT("tick %s %6d %2d %s"), Target->bHighPriority ? TEXT("*") : TEXT(" "),GFrameCounter, (int32)CurrentThread, *Target->DiagnosticMessage());
+				UE_LOG(LogTick, Log, TEXT("tick %s [%1d, %1d] %6d %2d %s"), Target->bHighPriority ? TEXT("*") : TEXT(" "), (int32)Target->GetActualTickGroup(), (int32)Target->GetActualEndTickGroup(), GFrameCounter, (int32)CurrentThread, *Target->DiagnosticMessage());
 			if (bLogTicksShowPrerequistes)
 			{
 				Target->ShowPrerequistes();
@@ -287,7 +288,7 @@ class FTickTaskSequencer
 		}
 		FORCEINLINE TStatId GetStatId() const
 		{
-			RETURN_QUICK_DECLARE_CYCLE_STAT(FDipatchTickGroupTask, STATGROUP_TaskGraphTasks);
+			RETURN_QUICK_DECLARE_CYCLE_STAT(FResetTickGroupTask, STATGROUP_TaskGraphTasks);
 		}
 		FORCEINLINE ENamedThreads::Type GetDesiredThread()
 		{
@@ -307,10 +308,10 @@ class FTickTaskSequencer
 	TArrayWithThreadsafeAdd<FGraphEventRef, TInlineAllocator<4> > TickCompletionEvents[TG_MAX];
 
 	/** HiPri Held tasks for each tick group. */
-	TArrayWithThreadsafeAdd<TGraphTask<FTickFunctionTask>*> HiPriTickTasks[TG_MAX];
+	TArrayWithThreadsafeAdd<TGraphTask<FTickFunctionTask>*> HiPriTickTasks[TG_MAX][TG_MAX];
 
 	/** LowPri Held tasks for each tick group. */
-	TArrayWithThreadsafeAdd<TGraphTask<FTickFunctionTask>*> TickTasks[TG_MAX];
+	TArrayWithThreadsafeAdd<TGraphTask<FTickFunctionTask>*> TickTasks[TG_MAX][TG_MAX];
 
 	/** These are waited for at the end of the frame; they are not on the critical path, but they have to be done before we leave the frame. */
 	FGraphEventArray CleanupTasks;
@@ -357,56 +358,59 @@ public:
 	 */
 	FORCEINLINE void StartTickTask(const FGraphEventArray* Prerequisites, FTickFunction* TickFunction, const FTickContext& TickContext)
 	{
-		checkSlow(TickFunction->ActualTickGroup >=0 && TickFunction->ActualTickGroup < TG_MAX);
+		checkSlow(TickFunction->ActualStartTickGroup >=0 && TickFunction->ActualStartTickGroup < TG_MAX);
 
 		FTickContext UseContext = TickContext;
 	   
-		bool bIsOriginalTickGroup = (TickFunction->ActualTickGroup == TickFunction->TickGroup);
+		bool bIsOriginalTickGroup = (TickFunction->ActualStartTickGroup == TickFunction->TickGroup);
 
 		UseContext.Thread = ENamedThreads::GameThread;
 		if (TickFunction->bRunOnAnyThread && bAllowConcurrentTicks && bIsOriginalTickGroup)
 		{
-			UseContext.Thread = ENamedThreads::AnyThreadGame();
+			UseContext.Thread = ENamedThreads::HiPri(ENamedThreads::AnyThread);
 		}
 
 		TickFunction->TaskPointer = TGraphTask<FTickFunctionTask>::CreateTask(Prerequisites, TickContext.Thread).ConstructAndHold(TickFunction, &UseContext, bLogTicks, bLogTicksShowPrerequistes);
 	}
 
 	/** Add a completion handle to a tick group **/
-	FORCEINLINE void AddTickTaskCompletion(ETickingGroup TickGroup, TGraphTask<FTickFunctionTask>* Task, bool bHiPri)
+	FORCEINLINE void AddTickTaskCompletion(ETickingGroup StartTickGroup, ETickingGroup EndTickGroup, TGraphTask<FTickFunctionTask>* Task, bool bHiPri)
 	{
-		checkSlow(TickGroup >=0 && TickGroup < TG_MAX);
+		checkSlow(StartTickGroup >=0 && StartTickGroup < TG_MAX && EndTickGroup >=0 && EndTickGroup < TG_MAX && StartTickGroup <= EndTickGroup);
 		if (bHiPri)
 		{
-			HiPriTickTasks[TickGroup].Add(Task);
+			HiPriTickTasks[StartTickGroup][EndTickGroup].Add(Task);
 		}
 		else
 		{
-			TickTasks[TickGroup].Add(Task);
+			TickTasks[StartTickGroup][EndTickGroup].Add(Task);
 		}
-		new (TickCompletionEvents[TickGroup]) FGraphEventRef(Task->GetCompletionEvent());
+		new (TickCompletionEvents[EndTickGroup]) FGraphEventRef(Task->GetCompletionEvent());
 	}
 	/** Add a completion handle to a tick group, parallel version **/
-	FORCEINLINE void AddTickTaskCompletionParallel(ETickingGroup TickGroup, TGraphTask<FTickFunctionTask>* Task, bool bHiPri)
+	FORCEINLINE void AddTickTaskCompletionParallel(ETickingGroup StartTickGroup, ETickingGroup EndTickGroup, TGraphTask<FTickFunctionTask>* Task, bool bHiPri)
 	{
-		checkSlow(TickGroup >=0 && TickGroup < TG_MAX);
+		checkSlow(StartTickGroup >=0 && StartTickGroup < TG_MAX && EndTickGroup >=0 && EndTickGroup < TG_MAX && StartTickGroup <= EndTickGroup);
 		if (bHiPri)
 		{
-			HiPriTickTasks[TickGroup].AddThreadsafe(Task);
+			HiPriTickTasks[StartTickGroup][EndTickGroup].AddThreadsafe(Task);
 		}
 		else
 		{
-			TickTasks[TickGroup].AddThreadsafe(Task);
+			TickTasks[StartTickGroup][EndTickGroup].AddThreadsafe(Task);
 		}
-		TickCompletionEvents[TickGroup].AddThreadsafe(Task->GetCompletionEvent());
+		TickCompletionEvents[EndTickGroup].AddThreadsafe(Task->GetCompletionEvent());
 	}
 	/** Set up the lists for AddTickTaskCompletionParallel, since we are using AddThreadsafe, we need to presize the arrays **/
 	void SetupAddTickTaskCompletionParallel(int32 NumTicks)
 	{
 		for (int32 TickGroup = 0; TickGroup < TG_MAX; TickGroup++)
 		{
-			HiPriTickTasks[TickGroup].Reserve(NumTicks);
-			TickTasks[TickGroup].Reserve(NumTicks);
+			for (int32 EndTickGroup = 0; EndTickGroup < TG_MAX; EndTickGroup++)
+			{
+				HiPriTickTasks[TickGroup][EndTickGroup].Reserve(NumTicks);
+				TickTasks[TickGroup][EndTickGroup].Reserve(NumTicks);
+			}
 			TickCompletionEvents[TickGroup].Reserve(NumTicks);
 		}
 	}
@@ -422,7 +426,7 @@ public:
 		checkSlow(TickContext.Thread == ENamedThreads::GameThread);
 		StartTickTask(Prerequisites, TickFunction, TickContext);
 		TGraphTask<FTickFunctionTask>* Task = (TGraphTask<FTickFunctionTask>*)TickFunction->TaskPointer;
-		AddTickTaskCompletion(TickFunction->ActualTickGroup, Task, TickFunction->bHighPriority);
+		AddTickTaskCompletion(TickFunction->ActualStartTickGroup, TickFunction->ActualEndTickGroup, Task, TickFunction->bHighPriority);
 	}
 
 	/**
@@ -437,7 +441,7 @@ public:
 		checkSlow(TickContext.Thread == ENamedThreads::GameThread);
 		StartTickTask(Prerequisites, TickFunction, TickContext);
 		TGraphTask<FTickFunctionTask>* Task = (TGraphTask<FTickFunctionTask>*)TickFunction->TaskPointer;
-		AddTickTaskCompletionParallel(TickFunction->ActualTickGroup, Task, TickFunction->bHighPriority);
+		AddTickTaskCompletionParallel(TickFunction->ActualStartTickGroup, TickFunction->ActualEndTickGroup, Task, TickFunction->bHighPriority);
 	}
 
 	/** 
@@ -451,20 +455,20 @@ public:
 		{
 			UE_LOG(LogTick, Log, TEXT("tick %6d ---------------------------------------- Release tick group %d"),GFrameCounter, (int32)WorldTickGroup);
 		}
-		checkSlow(WorldTickGroup >=0 && WorldTickGroup < TG_MAX);
+		checkSlow(WorldTickGroup >= 0 && WorldTickGroup < TG_MAX);
 
-		if (SingleThreadedMode())
 		{
-			DispatchTickGroup(ENamedThreads::GameThread, WorldTickGroup);
-		}
-		else
-		{
-			DECLARE_CYCLE_STAT(TEXT("FDelegateGraphTask.DispatchTickGroup"), STAT_FDelegateGraphTask_DispatchTickGroup, STATGROUP_TaskGraphTasks);
-
-			// dispatch the tick group on another thread, that way, the game thread can be processing ticks while ticks are being queued by another thread
 			QUICK_SCOPE_CYCLE_COUNTER(STAT_ReleaseTickGroup);
-			FTaskGraphInterface::Get().WaitUntilTaskCompletes(
-				TGraphTask<FDipatchTickGroupTask>::CreateTask(nullptr, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(*this, WorldTickGroup));
+			if (SingleThreadedMode() || CVarAllowAsyncTickDispatch.GetValueOnGameThread() == 0)
+			{
+				DispatchTickGroup(ENamedThreads::GameThread, WorldTickGroup);
+			}
+			else
+			{
+				// dispatch the tick group on another thread, that way, the game thread can be processing ticks while ticks are being queued by another thread
+				FTaskGraphInterface::Get().WaitUntilTaskCompletes(
+					TGraphTask<FDipatchTickGroupTask>::CreateTask(nullptr, ENamedThreads::GameThread).ConstructAndDispatchWhenReady(*this, WorldTickGroup));
+			}
 		}
 
 		if (bBlockTillComplete || SingleThreadedMode())
@@ -521,9 +525,12 @@ public:
 		{
 			check(!TickCompletionEvents[Index].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
 			TickCompletionEvents[Index].Reset();
-			check(!TickTasks[Index].Num() && !HiPriTickTasks[Index].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
-			TickTasks[Index].Reset();
-			HiPriTickTasks[Index].Reset();
+			for (int32 IndexInner = 0; IndexInner < TG_MAX; IndexInner++)
+			{
+				check(!TickTasks[Index][IndexInner].Num() && !HiPriTickTasks[Index][IndexInner].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
+				TickTasks[Index][IndexInner].Reset();
+				HiPriTickTasks[Index][IndexInner].Reset();
+			}
 		}
 		WaitForTickGroup = (ETickingGroup)0;
 	}
@@ -541,7 +548,10 @@ public:
 		for (int32 Index = 0; Index < TG_MAX; Index++)
 		{
 			check(!TickCompletionEvents[Index].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
-			check(!TickTasks[Index].Num() && !HiPriTickTasks[Index].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
+			for (int32 IndexInner = 0; IndexInner < TG_MAX; IndexInner++)
+			{
+				check(!TickTasks[Index][IndexInner].Num() && !HiPriTickTasks[Index][IndexInner].Num());  // we should not be adding to these outside of a ticking proper and they were already cleared after they were ticked
+			}
 		}
 	}
 private:
@@ -560,19 +570,36 @@ private:
 
 	void DispatchTickGroup(ENamedThreads::Type CurrentThread, ETickingGroup WorldTickGroup)
 	{
+		QUICK_SCOPE_CYCLE_COUNTER(STAT_DispatchTickGroup);
+		for (int32 IndexInner = 0; IndexInner < TG_MAX; IndexInner++)
 		{
-			TArray<TGraphTask<FTickFunctionTask>*>& TickArray = HiPriTickTasks[WorldTickGroup];
-			for (int32 Index = 0; Index < TickArray.Num(); Index++)
+			TArray<TGraphTask<FTickFunctionTask>*>& TickArray = HiPriTickTasks[WorldTickGroup][IndexInner];
+			if (IndexInner < WorldTickGroup)
 			{
-				TickArray[Index]->Unlock(CurrentThread);
+				check(TickArray.Num() == 0); // makes no sense to have and end TG before the start TG
+			}
+			else
+			{
+				for (int32 Index = 0; Index < TickArray.Num(); Index++)
+				{
+					TickArray[Index]->Unlock(CurrentThread);
+				}
 			}
 			TickArray.Reset();
 		}
+		for (int32 IndexInner = 0; IndexInner < TG_MAX; IndexInner++)
 		{
-			TArray<TGraphTask<FTickFunctionTask>*>& TickArray = TickTasks[WorldTickGroup];
-			for (int32 Index = 0; Index < TickArray.Num(); Index++)
+			TArray<TGraphTask<FTickFunctionTask>*>& TickArray = TickTasks[WorldTickGroup][IndexInner];
+			if (IndexInner < WorldTickGroup)
 			{
-				TickArray[Index]->Unlock(CurrentThread);
+				check(TickArray.Num() == 0); // makes no sense to have and end TG before the start TG
+			}
+			else
+			{
+				for (int32 Index = 0; Index < TickArray.Num(); Index++)
+				{
+					TickArray[Index]->Unlock(CurrentThread);
+				}
 			}
 			TickArray.Reset();
 		}
@@ -992,10 +1019,10 @@ public:
 	FORCEINLINE void DumpTickFunction(FOutputDevice& Ar, FTickFunction* Function, UEnum* TickGroupEnum, const float RemainingCooldown = 0.f)
 	{
 		// Info about the function.
-		Ar.Logf(TEXT("%s, %s, ActualTickGroup: %s, Prerequesities: %d"),
+		Ar.Logf(TEXT("%s, %s, ActualStartTickGroup: %s, Prerequesities: %d"),
 			*Function->DiagnosticMessage(),
 			Function->IsTickFunctionEnabled() ? (RemainingCooldown > 0.f ? *FString::Printf(TEXT("Cooling Down for %.4g seconds"),RemainingCooldown) : TEXT("Enabled")) : TEXT("Disabled"),
-			*TickGroupEnum->GetEnumName(Function->ActualTickGroup),			
+			*TickGroupEnum->GetEnumName(Function->ActualStartTickGroup),			
 			Function->Prerequisites.Num());
 
 		// List all prerequisities
@@ -1191,7 +1218,7 @@ struct FTickGroupCompletionItem
 	/** Task created **/
 	TGraphTask<FTickFunctionTask>* Task;
 	/** Tick group to complete with **/
-	TEnumAsByte<ETickingGroup>	ActualTickGroup;
+	TEnumAsByte<ETickingGroup>	ActualStartTickGroup;
 	/** True if this was a misplaced interval tick that we need to deal with **/
 	bool bNeedsToBeRemovedFromTickListsAndRescheduled;
 	/** True if this is hi pri **/
@@ -1491,7 +1518,9 @@ private:
 /** Default constructor, intitalizes to reasonable defaults **/
 FTickFunction::FTickFunction()
 	: TickGroup(TG_PrePhysics)
-	, ActualTickGroup(TG_PrePhysics)
+	, EndTickGroup(TG_PrePhysics)
+	, ActualStartTickGroup(TG_PrePhysics)
+	, ActualEndTickGroup(TG_PrePhysics)
 	, bTickEvenWhenPaused(false)
 	, bCanEverTick(false)
 	, bAllowTickOnDedicatedServer(true)
@@ -1648,7 +1677,7 @@ void FTickFunction::QueueTickFunction(FTickTaskSequencer& TTS, const struct FTic
 					}
 					else
 					{
-						MaxPrerequisiteTickGroup =  FMath::Max<ETickingGroup>(MaxPrerequisiteTickGroup, Prereq->ActualTickGroup);
+						MaxPrerequisiteTickGroup =  FMath::Max<ETickingGroup>(MaxPrerequisiteTickGroup, Prereq->ActualStartTickGroup);
 						TaskPrerequisites.Add(Prereq->GetCompletionHandle());
 					}
 				}
@@ -1656,11 +1685,29 @@ void FTickFunction::QueueTickFunction(FTickTaskSequencer& TTS, const struct FTic
 
 			// tick group is the max of the prerequisites, the current tick group, and the desired tick group
 			ETickingGroup MyActualTickGroup =  FMath::Max<ETickingGroup>(MaxPrerequisiteTickGroup, FMath::Max<ETickingGroup>(TickGroup,TickContext.TickGroup));
-			if (TickGroup != MyActualTickGroup && !GCanDemoteInto[MyActualTickGroup])
+			if (MyActualTickGroup != TickGroup)
 			{
-				MyActualTickGroup = ETickingGroup(MyActualTickGroup + 1); // if the tick was "promoted" to during another tick group, but it was not designed for that, then it needs to go later
+				// if the tick was "demoted", make sure it ends up in an ordinary tick group.
+				while (!CanDemoteIntoTickGroup(MyActualTickGroup))
+				{
+					MyActualTickGroup = ETickingGroup(MyActualTickGroup + 1); 
+				}
 			}
-			ActualTickGroup = MyActualTickGroup;
+			ActualStartTickGroup = MyActualTickGroup;
+			ActualEndTickGroup = MyActualTickGroup;
+			if (EndTickGroup > ActualStartTickGroup)
+			{
+				check(EndTickGroup <= TG_NewlySpawned);
+				ETickingGroup TestTickGroup = ETickingGroup(ActualEndTickGroup + 1); 
+				while (TestTickGroup <= EndTickGroup)
+			{
+					if (CanDemoteIntoTickGroup(TestTickGroup))
+					{
+						ActualEndTickGroup = TestTickGroup;
+					}
+					TestTickGroup = ETickingGroup(TestTickGroup + 1); 
+				}
+			}
 
 			if (TickState == FTickFunction::ETickState::Enabled)
 			{
@@ -1712,7 +1759,7 @@ void FTickFunction::QueueTickFunctionParallel(const struct FTickContext& TickCon
 						}
 						else
 						{
-							MaxPrerequisiteTickGroup = FMath::Max<ETickingGroup>(MaxPrerequisiteTickGroup, Prereq->ActualTickGroup);
+							MaxPrerequisiteTickGroup = FMath::Max<ETickingGroup>(MaxPrerequisiteTickGroup, Prereq->ActualStartTickGroup);
 							TaskPrerequisites.Add(Prereq->GetCompletionHandle());
 						}
 					}
@@ -1722,11 +1769,29 @@ void FTickFunction::QueueTickFunctionParallel(const struct FTickContext& TickCon
 
 			// tick group is the max of the prerequisites, the current tick group, and the desired tick group
 			ETickingGroup MyActualTickGroup =  FMath::Max<ETickingGroup>(MaxPrerequisiteTickGroup, FMath::Max<ETickingGroup>(TickGroup,TickContext.TickGroup));
-			if (TickGroup != MyActualTickGroup && !GCanDemoteInto[MyActualTickGroup])
+			if (MyActualTickGroup != TickGroup)
 			{
-				MyActualTickGroup = ETickingGroup(MyActualTickGroup + 1); // if the tick was "promoted" to during another tick group, but it was not designed for that, then it needs to go later
+				// if the tick was "demoted", make sure it ends up in an ordinary tick group.
+				while (!CanDemoteIntoTickGroup(MyActualTickGroup))
+				{
+					MyActualTickGroup = ETickingGroup(MyActualTickGroup + 1); 
+				}
 			}
-			ActualTickGroup = MyActualTickGroup;
+			ActualStartTickGroup = MyActualTickGroup;
+			ActualEndTickGroup = MyActualTickGroup;
+			if (EndTickGroup > ActualStartTickGroup)
+			{
+				check(EndTickGroup <= TG_NewlySpawned);
+				ETickingGroup TestTickGroup = ETickingGroup(ActualEndTickGroup + 1); 
+				while (TestTickGroup <= EndTickGroup)
+				{
+					if (CanDemoteIntoTickGroup(TestTickGroup))
+					{
+						ActualEndTickGroup = TestTickGroup;
+					}
+					TestTickGroup = ETickingGroup(TestTickGroup + 1); 
+				}
+			}
 
 			if (TickState == FTickFunction::ETickState::Enabled)
 			{

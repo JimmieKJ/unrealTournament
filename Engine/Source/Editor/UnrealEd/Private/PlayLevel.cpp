@@ -223,7 +223,7 @@ void UEditorEngine::EndPlayMap()
 	{
 		UObject* Object = *It;
 
-		if ((Object->GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0)
+		if (Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			if (Object->HasAnyFlags(RF_Standalone))
 			{
@@ -364,7 +364,7 @@ void UEditorEngine::EndPlayMap()
 	for( FObjectIterator ObjectIt; ObjectIt; ++ObjectIt )
 	{
 		UObject* Object = *ObjectIt;
-		if( Object->GetOutermost()->PackageFlags & PKG_PlayInEditor )
+		if( Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			UWorld* TheWorld = UWorld::FindWorldInPackage(Object->GetOutermost());
 			if ( TheWorld )
@@ -2317,6 +2317,7 @@ void UEditorEngine::PlayInEditor( UWorld* InWorld, bool bInSimulateInEditor )
 	PlayInSettings->SetPlayNetMode(OrigPlayNetMode);
 
 	// Monitoring when PIE corrupts references between the World and the PIE generated World for UE-20486
+	if (EditorWorld)
 	{
 		TArray<ULevel*> Levels = EditorWorld->GetLevels();
 
@@ -3444,7 +3445,7 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, 
 	UE_LOG( LogPlayLevel, Log, TEXT("Creating play world package: %s"),  *PlayWorldMapName );	
 
 	UPackage* PlayWorldPackage = CastChecked<UPackage>(CreatePackage(NULL,*PlayWorldMapName));
-	PlayWorldPackage->PackageFlags |= PKG_PlayInEditor;
+	PlayWorldPackage->SetPackageFlags(PKG_PlayInEditor);
 	PlayWorldPackage->PIEInstanceID = WorldContext.PIEInstance;
 	PlayWorldPackage->FileName = InPackage->FileName;
 	PlayWorldPackage->SetGuid( InPackage->GetGuid() );
@@ -3481,7 +3482,7 @@ UWorld* UEditorEngine::CreatePIEWorldByDuplication(FWorldContext &WorldContext, 
 		NewPIEWorld = CastChecked<UWorld>( StaticDuplicateObject(
 			EditorWorld,			// Source root
 			PlayWorldPackage,		// Destination root
-			*EditorWorld->GetName(),// Name for new object
+			EditorWorld->GetFName(),// Name for new object
 			RF_AllFlags,			// FlagMask
 			NULL,					// DestClass
 			SDO_DuplicateForPie		// bDuplicateForPIE

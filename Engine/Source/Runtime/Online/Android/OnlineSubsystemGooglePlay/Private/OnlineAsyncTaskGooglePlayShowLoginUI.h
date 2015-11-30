@@ -20,7 +20,7 @@ public:
 	 * @param InSubsystem a pointer to the owning subsystem
 	 * @param InPlayerId index of the player who's logging in
 	 */
-	FOnlineAsyncTaskGooglePlayShowLoginUI(FOnlineSubsystemGooglePlay* InSubsystem, int InPlayerId, const IOnlineExternalUI::FOnLoginUIClosedDelegate& InDelegate);
+	FOnlineAsyncTaskGooglePlayShowLoginUI(FOnlineSubsystemGooglePlay* InSubsystem, int InPlayerId, const FOnLoginUIClosedDelegate& InDelegate);
 
 	// FOnlineAsyncItem
 	virtual FString ToString() const override { return TEXT("ShowLoginUI"); }
@@ -36,5 +36,5 @@ private:
 	virtual void Start_OnTaskThread() override;
 
 	int PlayerId;
-	IOnlineExternalUI::FOnLoginUIClosedDelegate Delegate;
+	FOnLoginUIClosedDelegate Delegate;
 };

@@ -57,8 +57,8 @@ UOnlineHotfixManager* UOnlineHotfixManager::Get(UWorld* World)
 			// Create it and store it
 			HotfixManager = NewObject<UOnlineHotfixManager>(GetTransientPackage(), HotfixManagerClass);
 			OnlineSub->SetNamedInterface(NAME_HotfixManager, HotfixManager);
-			return HotfixManager;
 		}
+		return HotfixManager;
 	}
 	return nullptr;
 }

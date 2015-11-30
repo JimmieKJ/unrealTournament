@@ -10,6 +10,7 @@
 #include "EnvironmentQuery/EQSQueryResultSourceInterface.h"
 #include "EnvironmentQuery/EnvQueryDebugHelpers.h"
 #include "Debug/DebugDrawService.h"
+#include "Debug/GameplayDebuggerBaseObject.h"
 #include "GameplayDebuggingComponent.generated.h"
 
 #define WITH_EQS 1
@@ -167,7 +168,7 @@ class GAMEPLAYDEBUGGER_API UGameplayDebuggingComponent : public UPrimitiveCompon
 	FVector SensingComponentLocation;
 
 	UPROPERTY(Replicated)
-	TArray<FDrawDebugShapeElement> PerceptionShapeElements;
+	TArray<FGameplayDebuggerShapeElement> PerceptionShapeElements;
 	/** End - Perception System */
 
 	UFUNCTION()
@@ -254,16 +255,13 @@ public:
 	virtual FBoxSphereBounds CalcBounds(const FTransform &LocalToWorld) const override;
 	virtual void CreateRenderState_Concurrent() override;
 	virtual void DestroyRenderState_Concurrent() override;
-
-protected:
 	void SelectTargetToDebug();
 
-	//APlayerController* PlayerOwner;
+protected:
 #if WITH_RECAST
 	ARecastNavMesh* GetNavData();
 #endif
 
-protected:
 	virtual void CollectPathData();
 	virtual void CollectBasicData();
 	virtual void CollectBehaviorTreeData();

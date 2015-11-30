@@ -968,8 +968,6 @@ void FShadowDepthDrawingPolicy<bRenderingReflectiveShadowMaps>::SetMeshRenderSta
 {
 	const FMeshBatchElement& BatchElement = Mesh.Elements[BatchElementIndex];
 
-	EmitMeshDrawEvents(RHICmdList, PrimitiveSceneProxy, Mesh);
-
 	VertexShader->SetMesh(RHICmdList, VertexFactory,View,PrimitiveSceneProxy,BatchElement,DitheredLODTransitionValue);
 
 	if( HullShader && DomainShader )
@@ -1126,6 +1124,9 @@ bool FShadowDepthDrawingPolicyFactory::DrawDynamicMesh(
 				DrawingPolicy.SetSharedState(RHICmdList, &View, PolicyContext);
 				for (int32 BatchElementIndex = 0, Num = Mesh.Elements.Num(); BatchElementIndex < Num; BatchElementIndex++)
 				{
+					TDrawEvent<FRHICommandList> MeshEvent;
+					BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
+
 					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,FMeshDrawingPolicy::ElementDataType(),PolicyContext);
 					DrawingPolicy.DrawMesh(RHICmdList, Mesh,BatchElementIndex);
 				}
@@ -1148,6 +1149,9 @@ bool FShadowDepthDrawingPolicyFactory::DrawDynamicMesh(
 				DrawingPolicy.SetSharedState(RHICmdList, &View, PolicyContext);
 				for (int32 BatchElementIndex = 0; BatchElementIndex < Mesh.Elements.Num(); BatchElementIndex++)
 				{
+					TDrawEvent<FRHICommandList> MeshEvent;
+					BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
+
 					DrawingPolicy.SetMeshRenderState(RHICmdList, View,PrimitiveSceneProxy,Mesh,BatchElementIndex,bBackFace,Mesh.DitheredLODTransitionAlpha,FMeshDrawingPolicy::ElementDataType(),PolicyContext);
 					DrawingPolicy.DrawMesh(RHICmdList, Mesh,BatchElementIndex);
 				}
@@ -1310,6 +1314,9 @@ void DrawMeshElements(FRHICommandList& RHICmdList, FShadowDepthDrawingPolicy<bRe
 	{
 		if(BatchElementMask & 1)
 		{
+			TDrawEvent<FRHICommandList> MeshEvent;
+			BeginMeshDrawEvent(RHICmdList, Mesh->PrimitiveSceneInfo->Proxy, *Mesh, MeshEvent);
+
 			SharedDrawingPolicy.SetMeshRenderState(RHICmdList, View, Mesh->PrimitiveSceneInfo->Proxy, *Mesh, BatchElementIndex, false, DitherValue, FMeshDrawingPolicy::ElementDataType(),PolicyContext);
 			SharedDrawingPolicy.DrawMesh(RHICmdList, *Mesh, BatchElementIndex);
 			INC_DWORD_STAT(STAT_ShadowDynamicPathDrawCalls);
@@ -1749,6 +1756,13 @@ void FProjectedShadowInfo::ModifyViewForShadow(FRHICommandList& RHICmdList, FVie
 
 	// we are going to set this back now because we only want the correct view rect for the uniform buffer. For LOD calculations, we want the rendering viewrect and proj matrix.
 	FoundView->ViewRect = OriginalViewRect;
+
+	extern int32 GPreshadowsForceLowestLOD;
+
+	if (bPreShadow && GPreshadowsForceLowestLOD)
+	{
+		FoundView->DrawDynamicFlags = EDrawDynamicFlags::ForceLowestLOD;
+	}
 }
 
 FViewInfo* FProjectedShadowInfo::FindViewForShadow(FSceneRenderer* SceneRenderer)
@@ -1873,6 +1887,12 @@ void FProjectedShadowInfo::RenderDepth(FRHICommandList& RHICmdList, FSceneRender
 		    FoundView->ViewMatrices.TranslatedViewProjectionMatrix = TranslatedViewMatrix * FoundView->ViewMatrices.ProjMatrix;
 		    FoundView->ViewMatrices.InvTranslatedViewProjectionMatrix = FoundView->ViewMatrices.TranslatedViewProjectionMatrix.Inverse();
 	    }
+
+		if (bPreShadow)
+		{
+			// Restore
+			FoundView->DrawDynamicFlags = EDrawDynamicFlags::None;
+		}
     }
 }
 
@@ -2188,7 +2208,7 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 		}
 		else
 		{
-		// Increment stencil on front-facing zfail, decrement on back-facing zfail.
+			// Increment stencil on front-facing zfail, decrement on back-facing zfail.
 			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<
 			false,CF_DepthNearOrEqual,
 			true,CF_Always,SO_Keep,SO_Increment,SO_Keep,
@@ -2246,7 +2266,7 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 		{
 			// Use zfail stenciling when the camera is inside the frustum or the near plane is potentially clipping, 
 			// Because zfail handles these cases while zpass does not.
-			// zfail stenciling is somewhat slower than zpass because on xbox 360 HiZ will be disabled when setting up stencil.
+			// zfail stenciling is somewhat slower than zpass because on modern GPUs HiZ will be disabled when setting up stencil.
 			// Increment stencil on front-facing zfail, decrement on back-facing zfail.
 			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<
 				false,CF_DepthNearOrEqual,
@@ -2258,7 +2278,7 @@ void FProjectedShadowInfo::RenderProjection(FRHICommandListImmediate& RHICmdList
 		else
 		{
 			// Increment stencil on front-facing zpass, decrement on back-facing zpass.
-			// HiZ will be enabled on xbox 360 which will save a little GPU time.
+			// HiZ will be enabled on modern GPUs which will save a little GPU time.
 			RHICmdList.SetDepthStencilState(TStaticDepthStencilState<
 				false,CF_DepthNearOrEqual,
 				true,CF_Always,SO_Keep,SO_Keep,SO_Increment,
@@ -3365,6 +3385,8 @@ bool FDeferredShadingSceneRenderer::RenderReflectiveShadowMaps(FRHICommandListIm
 	return true;
 }
 
+extern int32 GCapsuleShadows;
+
 /**
  * Used by RenderLights to render shadows to the attenuation buffer.
  *
@@ -3380,6 +3402,8 @@ bool FDeferredShadingSceneRenderer::RenderProjectedShadows(FRHICommandListImmedi
 	// Find the projected shadows cast by this light.
 	FVisibleLightInfo& VisibleLightInfo = VisibleLightInfos[LightSceneInfo->Id];
 	TArray<FProjectedShadowInfo*, SceneRenderingAllocator> Shadows;
+	TArray<FProjectedShadowInfo*, SceneRenderingAllocator> CapsuleShadows;
+
 	for (int32 ShadowIndex = 0; ShadowIndex < VisibleLightInfo.AllProjectedShadows.Num(); ShadowIndex++)
 	{
 		FProjectedShadowInfo* ProjectedShadowInfo = VisibleLightInfo.AllProjectedShadows[ShadowIndex];
@@ -3427,7 +3451,15 @@ bool FDeferredShadingSceneRenderer::RenderProjectedShadows(FRHICommandListImmedi
 			{
 				INC_DWORD_STAT(STAT_PerObjectShadows);
 			}
-			Shadows.Add(ProjectedShadowInfo);
+
+			if (GCapsuleShadows && ProjectedShadowInfo->bCapsuleShadow)
+			{
+				CapsuleShadows.Add(ProjectedShadowInfo);
+			}
+			else
+			{
+				Shadows.Add(ProjectedShadowInfo);
+			}
 		}
 	}
 
@@ -3493,7 +3525,9 @@ bool FDeferredShadingSceneRenderer::RenderProjectedShadows(FRHICommandListImmedi
 			for (int32 ShadowIndex = 0; ShadowIndex < Shadows.Num(); ShadowIndex++)
 			{
 				FProjectedShadowInfo* ProjectedShadowInfo = Shadows[ShadowIndex];
-				if (ProjectedShadowInfo->bAllocated && !ProjectedShadowInfo->bTranslucentShadow && !ProjectedShadowInfo->CascadeSettings.bRayTracedDistanceField)
+				if (ProjectedShadowInfo->bAllocated 
+					&& !ProjectedShadowInfo->bTranslucentShadow 
+					&& !ProjectedShadowInfo->CascadeSettings.bRayTracedDistanceField)
 				{
 					ProjectedShadowInfo->RenderDepth(RHICmdList, this, SetShadowRenderTargets);
 				}
@@ -3568,6 +3602,8 @@ bool FDeferredShadingSceneRenderer::RenderProjectedShadows(FRHICommandListImmedi
 	if (Scene->GetFeatureLevel() >= ERHIFeatureLevel::SM4)
 	{
 		bAttenuationBufferDirty |= RenderOnePassPointLightShadows(RHICmdList, LightSceneInfo, bRenderedTranslucentObjectShadows, bInjectedTranslucentVolume);
+
+		bAttenuationBufferDirty |= RenderCapsuleDirectShadows(*LightSceneInfo, RHICmdList, CapsuleShadows);
 	}
 
 	return bAttenuationBufferDirty;

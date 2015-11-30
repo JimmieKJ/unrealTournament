@@ -408,7 +408,8 @@ void FD3D12QueryHeap::CreateResultBuffer()
     VERIFYD3D11RESULT(GetParentDevice()->GetResourceHelper().CreateCommittedResource(
         ResultBufferDesc, 
         ResultBufferHeapProperties, 
-        D3D12_RESOURCE_STATE_COPY_DEST, 
+        D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
         ResultBuffer.GetInitReference()));
 
     // Map the result buffer (and keep it mapped)

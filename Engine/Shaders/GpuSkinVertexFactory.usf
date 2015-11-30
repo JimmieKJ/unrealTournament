@@ -22,6 +22,7 @@
 
 =============================================================================*/
 
+
 #include "VertexFactoryCommon.usf"
 #include "GpuSkinCommon.usf"
 
@@ -159,13 +160,11 @@ half2 GetShadowMapCoordinate(FVertexFactoryInterpolantsVSToPS Interpolants)
 
 #if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
 
-// The bone matrix buffer stored as 4x3 (3 float4 texels behind each other), all chunks of a skeletal mesh in one
+// The bone matrix buffer stored as 4x3 (3 float4 behind each other), all chunks of a skeletal mesh in one, each skeletal mesh has it's own buffer
 Buffer<float4> BoneMatrices;
-// buffer with all old bone matrices stored as 4x3 (3 float4 texels behind each other), all chunks of a skeletal mesh in one
+// The previous bone matrix buffer stored as 4x3 (3 float4 behind each other), all chunks of a skeletal mesh in one, each skeletal mesh has it's own buffer
 Buffer<float4> PreviousBoneMatrices;
 
-// .xyz to offset the lookup in the buffer .w unused
-uint4 BoneIndexOffset;
 
 	#if GPUSKIN_PASS_THROUGH
 uint GPUSkinCacheStreamFloatOffset;
@@ -305,9 +304,9 @@ FBoneMatrix CalcBoneMatrix( FVertexFactoryInput Input )
 FBoneMatrix GetPreviousBoneMatrix(int Index)
 {
 #if FEATURE_LEVEL >= FEATURE_LEVEL_ES3_1
-	float4 A = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.x];
-	float4 B = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.y];
-	float4 C = PreviousBoneMatrices[Index * 3 + BoneIndexOffset.z];
+	float4 A = PreviousBoneMatrices[Index * 3 + 0];
+	float4 B = PreviousBoneMatrices[Index * 3 + 1];
+	float4 C = PreviousBoneMatrices[Index * 3 + 2];
 	return FBoneMatrix(A,B,C);
 #else
 	return Bones.BoneMatrices[Index];

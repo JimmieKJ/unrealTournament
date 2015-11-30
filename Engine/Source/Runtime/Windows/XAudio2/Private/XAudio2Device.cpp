@@ -74,7 +74,7 @@ bool FXAudio2Device::InitializeHardware()
 	// Load ogg and vorbis dlls if they haven't been loaded yet
 	LoadVorbisLibraries();
 
-	SampleRate = 0;
+	SampleRate = UE4_XAUDIO2_SAMPLERATE;
 
 #if PLATFORM_WINDOWS
 	bComInitialized = FWindowsPlatformMisc::CoInitialize();

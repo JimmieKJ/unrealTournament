@@ -88,6 +88,9 @@ public:
 	/** Whether or not this compile is for a duplicated blueprint */
 	bool bIsDuplicationInstigated;
 
+	/** Whether or not this compile should emit instrumentation events */
+	bool bAddInstrumentation;
+
 	TSharedPtr<FString> OutHeaderSourceCode;
 	TSharedPtr<FString> OutCppSourceCode;
 
@@ -103,6 +106,11 @@ public:
 			|| (CompileType == EKismetCompileType::Cpp);
 	}
 
+	bool IsInstrumentationActive() const
+	{
+		return bAddInstrumentation && DoesRequireBytecodeGeneration();
+	}
+
 	/** Whether or not this compile type should operate on the generated class of the blueprint, as opposed to just the skeleton */
 	bool IsGeneratedClassCompileType() const
 	{
@@ -114,6 +122,7 @@ public:
 		, bSaveIntermediateProducts(false)
 		, bRegenerateSkelton(true)
 		, bIsDuplicationInstigated(false)
+		, bAddInstrumentation(false)
 	{
 	};
 };

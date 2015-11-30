@@ -967,7 +967,7 @@ namespace AutomationTool
         {
             try
             {
-				if (bAllowNoVersion && versionString.StartsWith("++depot"))
+				if (bAllowNoVersion && versionString.StartsWith("++"))
 				{
 					// This form of version is used when a product has no major.minor.patch version
 					// E.g. ++depot+UE4-ProdName-CL-12345678

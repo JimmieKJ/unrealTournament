@@ -255,6 +255,7 @@ void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowF
 			bPostProcessing = false;
 			break;
 		case VMI_ShaderComplexity:
+		case VMI_QuadComplexity:
 			bPostProcessing = false;
 			break;
 		case VMI_StationaryLightOverlap:
@@ -298,7 +299,8 @@ void ApplyViewMode(EViewModeIndex ViewModeIndex, bool bPerspective, FEngineShowF
 	EngineShowFlags.SetReflectionOverride(ViewModeIndex == VMI_ReflectionOverride);
 	EngineShowFlags.SetVisualizeBuffer(ViewModeIndex == VMI_VisualizeBuffer);
 	EngineShowFlags.SetVisualizeLightCulling(ViewModeIndex == VMI_LightComplexity);
-	EngineShowFlags.SetShaderComplexity(ViewModeIndex == VMI_ShaderComplexity);
+	EngineShowFlags.SetShaderComplexity(ViewModeIndex == VMI_ShaderComplexity || ViewModeIndex == VMI_QuadComplexity);
+	EngineShowFlags.SetQuadComplexity(ViewModeIndex == VMI_QuadComplexity);
 	EngineShowFlags.SetStationaryLightOverlap(ViewModeIndex == VMI_StationaryLightOverlap);
 	EngineShowFlags.SetLightMapDensity(ViewModeIndex == VMI_LightmapDensity || ViewModeIndex == VMI_LitLightmapDensity);
 	EngineShowFlags.SetPostProcessing(bPostProcessing);
@@ -385,6 +387,7 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 			ViewModeIndex == VMI_Wireframe ||
 			ViewModeIndex == VMI_Unlit ||
 			ViewModeIndex == VMI_ShaderComplexity ||
+			ViewModeIndex == VMI_QuadComplexity ||
 			ViewModeIndex == VMI_LightmapDensity ||
 			ViewModeIndex == VMI_VertexDensities ||
 			ViewModeIndex == VMI_LitLightmapDensity)
@@ -402,6 +405,7 @@ void EngineShowFlagOverride(EShowFlagInitMode ShowFlagInitMode, EViewModeIndex V
 			ViewModeIndex == VMI_Unlit ||
 			ViewModeIndex == VMI_StationaryLightOverlap ||
 			ViewModeIndex == VMI_ShaderComplexity ||
+			ViewModeIndex == VMI_QuadComplexity ||
 			ViewModeIndex == VMI_VertexDensities ||
 			ViewModeIndex == VMI_LightmapDensity)
 		{
@@ -523,6 +527,15 @@ EViewModeIndex FindViewMode(const FEngineShowFlags& EngineShowFlags)
 	{
 		return VMI_ShaderComplexity;
 	}
+	// Test QuadComplexity before ShaderComplexity because QuadComplexity also use ShaderComplexity
+	else if(EngineShowFlags.QuadComplexity)
+	{
+		return VMI_QuadComplexity;
+	}
+	else if(EngineShowFlags.ShaderComplexity)
+	{
+		return VMI_ShaderComplexity;
+	}
 	else if(EngineShowFlags.VisualizeLightCulling)
 	{
 		return VMI_LightComplexity;
@@ -594,6 +607,7 @@ const TCHAR* GetViewModeName(EViewModeIndex ViewModeIndex)
 		case VMI_LightingOnly:				return TEXT("LightingOnly");
 		case VMI_LightComplexity:			return TEXT("LightComplexity");
 		case VMI_ShaderComplexity:			return TEXT("ShaderComplexity");
+		case VMI_QuadComplexity:			return TEXT("QuadComplexity");
 		case VMI_StationaryLightOverlap:	return TEXT("StationaryLightOverlap");
 		case VMI_LightmapDensity:			return TEXT("LightmapDensity");
 		case VMI_LitLightmapDensity:		return TEXT("LitLightmapDensity");

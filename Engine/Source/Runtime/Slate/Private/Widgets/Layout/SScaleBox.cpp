@@ -14,6 +14,7 @@ void SScaleBox::Construct( const SScaleBox::FArguments& InArgs )
 	Stretch = InArgs._Stretch;
 	StretchDirection = InArgs._StretchDirection;
 	UserSpecifiedScale = InArgs._UserSpecifiedScale;
+	IgnoreInheritedScale = InArgs._IgnoreInheritedScale;
 
 	ChildSlot
 	.HAlign(InArgs._HAlign)
@@ -76,6 +77,11 @@ void SScaleBox::OnArrangeChildren( const FGeometry& AllottedGeometry, FArrangedC
 			case EStretchDirection::Both:
 				break;
 			}
+		}
+
+		if (IgnoreInheritedScale.Get(false) && AllottedGeometry.Scale != 0)
+		{
+			FinalScale /= AllottedGeometry.Scale;
 		}
 
 		FVector2D FinalOffset(0, 0);
@@ -156,6 +162,11 @@ void SScaleBox::SetStretch(EStretch::Type InStretch)
 void SScaleBox::SetUserSpecifiedScale(float InUserSpecifiedScale)
 {
 	UserSpecifiedScale = InUserSpecifiedScale;
+}
+
+void SScaleBox::SetIgnoreInheritedScale(bool InIgnoreInheritedScale)
+{
+	IgnoreInheritedScale = InIgnoreInheritedScale;
 }
 
 float SScaleBox::GetRelativeLayoutScale(const FSlotBase& Child) const

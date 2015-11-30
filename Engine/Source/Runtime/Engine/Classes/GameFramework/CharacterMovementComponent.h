@@ -79,10 +79,10 @@ public:
 };
 
 /** 
- * Tick function that calls UCharacterMovementComponent::PreClothTick
+ * Tick function that calls UCharacterMovementComponent::PostPhysicsTickComponent
  **/
 USTRUCT()
-struct FCharacterMovementComponentPreClothTickFunction : public FTickFunction
+struct FCharacterMovementComponentPostPhysicsTickFunction : public FTickFunction
 {
 	GENERATED_USTRUCT_BODY()
 
@@ -409,6 +409,14 @@ public:
 	/** If true, Character can walk off a ledge when crouching. */
 	UPROPERTY(Category="Character Movement: Walking", EditAnywhere, BlueprintReadWrite)
 	uint32 bCanWalkOffLedgesWhenCrouching:1;
+
+	/**
+	 * Signals that smoothed position/rotation has reached target, and no more smoothing is necessary until a future update.
+	 * This is used as an optimization to skip calls to SmoothClientPosition() when true. SmoothCorrection() sets it false when a new network update is received.
+	 * SmoothClientPosition_Interpolate() sets this to true when the interpolation reaches the target, before one last call to SmoothClientPosition_UpdateVisuals().
+	 * If this is not desired, override SmoothClientPosition() to always set this to false to avoid this feature.
+	 */
+	uint32 bNetworkSmoothingComplete:1;
 
 public:
 
@@ -1430,10 +1438,10 @@ public:
 
 	/** Post-physics tick function for this character */
 	UPROPERTY()
-	struct FCharacterMovementComponentPreClothTickFunction PreClothComponentTick;
+	struct FCharacterMovementComponentPostPhysicsTickFunction PostPhysicsTickFunction;
 
 	/** Tick function called after physics (sync scene) has finished simulation, before cloth */
-	virtual void PreClothTick(float DeltaTime, FCharacterMovementComponentPreClothTickFunction& ThisTickFunction);
+	virtual void PostPhysicsTickComponent(float DeltaTime, FCharacterMovementComponentPostPhysicsTickFunction& ThisTickFunction);
 
 protected:
 	/** @note Movement update functions should only be called through StartNewPhysics()*/
@@ -1732,7 +1740,7 @@ public:
 	//--------------------------------
 
 	/**
-	 * React to new transform from network update.
+	 * React to new transform from network update. Sets bNetworkSmoothingComplete to false to ensure future smoothing updates.
 	 * IMPORTANT: It is expected that this function triggers any movement/transform updates to match the network update if desired.
 	 */
 	virtual void SmoothCorrection(const FVector& OldLocation, const FQuat& OldRotation, const FVector& NewLocation, const FQuat& NewRotation) override;
@@ -1758,11 +1766,15 @@ protected:
 	/**
 	 * Smooth mesh location for network interpolation, based on values set up by SmoothCorrection.
 	 * Internally this simply calls SmoothClientPosition_Interpolate() then SmoothClientPosition_UpdateVisuals().
+	 * This function is not called when bNetworkSmoothingComplete is true.
 	 * @param DeltaSeconds Time since last update.
 	 */
 	virtual void SmoothClientPosition(float DeltaSeconds);
 
-	/** Update interpolation values for client smoothing. Does not change actual mesh location. */
+	/**
+	 * Update interpolation values for client smoothing. Does not change actual mesh location.
+	 * Sets bNetworkSmoothingComplete to true when the interpolation reaches the target.
+	 */
 	void SmoothClientPosition_Interpolate(float DeltaSeconds);
 
 	/** Update mesh location based on interpolated values. */
@@ -2228,7 +2240,7 @@ public:
 	/** World space offset of the mesh. Target value is zero offset. Used for position smoothing in net games. */
 	FVector MeshTranslationOffset;
 
-	/** Used for rotation smoothing in net games */
+	/** Used for rotation smoothing in net games (only used by linear smoothing). */
 	FQuat OriginalMeshRotationOffset;
 
 	/** Component space offset of the mesh. Used for rotation smoothing in net games. */
@@ -2240,7 +2252,11 @@ public:
 	/** Used for remembering how much time has passed between server corrections */
 	float LastCorrectionDelta;
 
-	/** Used to track how much time has elapsed since last correction */
+	/** Used to track time of last correction */
+	float LastCorrectionTime;
+
+	/** Used to track how much time has elapsed since last correction. It can be computed as World->TimeSince(LastCorrectionTime). */
+	DEPRECATED(4.11, "bUseLinearSmoothing will be removed, use LastCorrectionTime instead.")
 	float CurrentSmoothTime;
 
 	/** Used to signify that linear smoothing is desired */

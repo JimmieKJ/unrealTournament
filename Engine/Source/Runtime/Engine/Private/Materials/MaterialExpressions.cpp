@@ -354,7 +354,7 @@ void UMaterialExpression::CopyMaterialExpressions(const TArray<UMaterialExpressi
 
 		if (bIsValidFunctionExpression && IsAllowedExpressionType(SrcExpression->GetClass(), EditFunction != NULL))
 		{
-			UMaterialExpression* NewExpression = Cast<UMaterialExpression>(StaticDuplicateObject( SrcExpression, ExpressionOuter, NULL, RF_Transactional ));
+			UMaterialExpression* NewExpression = Cast<UMaterialExpression>(StaticDuplicateObject( SrcExpression, ExpressionOuter, NAME_None, RF_Transactional ));
 			NewExpression->Material = Material;
 			// Make sure we remove any references to functions the nodes came from
 			NewExpression->Function = NULL;
@@ -423,7 +423,7 @@ void UMaterialExpression::CopyMaterialExpressions(const TArray<UMaterialExpressi
 	for( int32 CommentIndex=0; CommentIndex<SrcExpressionComments.Num(); CommentIndex++)
 	{
 		UMaterialExpressionComment* ExpressionComment = SrcExpressionComments[CommentIndex];
-		UMaterialExpressionComment* NewComment = Cast<UMaterialExpressionComment>(StaticDuplicateObject(ExpressionComment, ExpressionOuter, NULL));
+		UMaterialExpressionComment* NewComment = Cast<UMaterialExpressionComment>(StaticDuplicateObject(ExpressionComment, ExpressionOuter));
 		NewComment->Material = Material;
 
 		// Add reference to the material

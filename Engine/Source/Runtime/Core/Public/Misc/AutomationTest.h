@@ -106,7 +106,7 @@ public:
 	 * @param	InTestFlag - Test flags
 	 * @param	InParameterName - optional parameter. e.g. asset name
 	 */
-	FAutomationTestInfo( const FString& InDisplayName, const FString& InTestName, const uint8 InTestFlags, const int32 InNumParticipantsRequired, const FString& InParameterName = FString() )
+	FAutomationTestInfo( const FString& InDisplayName, const FString& InTestName, const uint32 InTestFlags, const int32 InNumParticipantsRequired, const FString& InParameterName = FString() )
 		: DisplayName( InDisplayName )
 		, TestName( InTestName )
 		, TestParameter( InParameterName )
@@ -177,7 +177,7 @@ public:
 	 *
 	 * @return the test type.
 	 */
-	const uint8 GetTestFlags() const
+	const uint32 GetTestFlags() const
 	{
 		return TestFlags;
 	}
@@ -280,7 +280,7 @@ private:
 	FString TestParameter;
 
 	/** The test flags. */
-	uint8 TestFlags;
+	uint32 TestFlags;
 
 	/** The number of participants this test requires */
 	uint32 NumParticipantsRequired;

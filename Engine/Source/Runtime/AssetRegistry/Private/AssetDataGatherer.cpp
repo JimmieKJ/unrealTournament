@@ -63,7 +63,7 @@ FAssetDataDiscovery::FAssetDataDiscovery(const TArray<FString>& InPaths, bool bI
 	for (const FString& Path : InPaths)
 	{
 		// Convert the package path to a filename with no extension (directory)
-		DirectoriesToSearch.Add(FPackageName::LongPackageNameToFilename(Path));
+		DirectoriesToSearch.Add(FPackageName::LongPackageNameToFilename(Path / TEXT("")));
 	}
 
 	if (bIsSynchronous)
@@ -321,13 +321,13 @@ void FAssetDataDiscovery::AddPathToSearch(const FString& Path)
 	FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
 
 	// Convert the package path to a filename with no extension (directory)
-	DirectoriesToSearch.Add(FPackageName::LongPackageNameToFilename(Path));
+	DirectoriesToSearch.Add(FPackageName::LongPackageNameToFilename(Path / TEXT("")));
 }
 
 void FAssetDataDiscovery::PrioritizeSearchPath(const FString& PathToPrioritize)
 {
 	FString LocalFilenamePathToPrioritize;
-	if (FPackageName::TryConvertLongPackageNameToFilename(PathToPrioritize, LocalFilenamePathToPrioritize))
+	if (FPackageName::TryConvertLongPackageNameToFilename(PathToPrioritize / TEXT(""), LocalFilenamePathToPrioritize))
 	{
 		FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
 
@@ -735,7 +735,7 @@ void FAssetDataGatherer::PrioritizeSearchPath(const FString& PathToPrioritize)
 	}
 
 	FString LocalFilenamePathToPrioritize;
-	if (FPackageName::TryConvertLongPackageNameToFilename(PathToPrioritize, LocalFilenamePathToPrioritize))
+	if (FPackageName::TryConvertLongPackageNameToFilename(PathToPrioritize / TEXT(""), LocalFilenamePathToPrioritize))
 	{
 		FScopeLock CritSectionLock(&WorkerThreadCriticalSection);
 

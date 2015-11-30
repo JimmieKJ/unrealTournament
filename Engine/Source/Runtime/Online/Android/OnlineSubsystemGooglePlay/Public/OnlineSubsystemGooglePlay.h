@@ -109,7 +109,7 @@ PACKAGE_SCOPE:
 	bool AreAnyAsyncLoginTasksRunning() const { return CurrentLoginTask != nullptr || CurrentShowLoginUITask != nullptr; }
 
 	/** Start a ShowLoginUI async task. Creates the GameServices object first if necessary. */
-	void StartShowLoginUITask(int PlayerId, const IOnlineExternalUI::FOnLoginUIClosedDelegate& Delegate);
+	void StartShowLoginUITask(int PlayerId, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate());
 
 	/** Start a logout task if one isn't already in progress. */
 	void StartLogoutTask(int32 LocalUserNum);
@@ -123,7 +123,7 @@ private:
 	void OnActivityResult(JNIEnv *env, jobject thiz, jobject activity, jint requestCode, jint resultCode, jobject data);
 
 	/** Start a ShowLoginUI async task. */
-	void StartShowLoginUITask_Internal(int PlayerId, const IOnlineExternalUI::FOnLoginUIClosedDelegate& Delegate);
+	void StartShowLoginUITask_Internal(int PlayerId, const FOnLoginUIClosedDelegate& Delegate = FOnLoginUIClosedDelegate());
 
 	/** Online async task runnable */
 	TUniquePtr<class FOnlineAsyncTaskManagerGooglePlay> OnlineAsyncTaskThreadRunnable;

@@ -175,8 +175,11 @@ void FVertexFactory::Set(FRHICommandList& RHICmdList) const
 	for(int32 StreamIndex = 0;StreamIndex < Streams.Num();StreamIndex++)
 	{
 		const FVertexStream& Stream = Streams[StreamIndex];
-		checkf(Stream.VertexBuffer->IsInitialized(), TEXT("Vertex buffer was not initialized! Stream %u, Stride %u, Name %s"), StreamIndex, Stream.Stride, *Stream.VertexBuffer->GetFriendlyName());
-		RHICmdList.SetStreamSource( StreamIndex, Stream.VertexBuffer->VertexBufferRHI, Stream.Stride, Stream.Offset);
+		if (!Stream.bSetByVertexFactoryInSetMesh)
+		{
+			checkf(Stream.VertexBuffer->IsInitialized(), TEXT("Vertex buffer was not initialized! Stream %u, Stride %u, Name %s"), StreamIndex, Stream.Stride, *Stream.VertexBuffer->GetFriendlyName());
+			RHICmdList.SetStreamSource(StreamIndex, Stream.VertexBuffer->VertexBufferRHI, Stream.Stride, Stream.Offset);
+		}
 	}
 }
 
@@ -271,6 +274,7 @@ FVertexElement FVertexFactory::AccessStreamComponent(const FVertexStreamComponen
 	VertexStream.Stride = Component.Stride;
 	VertexStream.Offset = 0;
 	VertexStream.bUseInstanceIndex = Component.bUseInstanceIndex;
+	VertexStream.bSetByVertexFactoryInSetMesh = Component.bSetByVertexFactoryInSetMesh;
 
 	return FVertexElement(Streams.AddUnique(VertexStream),Component.Offset,Component.Type,AttributeIndex,VertexStream.Stride,Component.bUseInstanceIndex);
 }
@@ -282,6 +286,7 @@ FVertexElement FVertexFactory::AccessPositionStreamComponent(const FVertexStream
 	VertexStream.Stride = Component.Stride;
 	VertexStream.Offset = 0;
 	VertexStream.bUseInstanceIndex = Component.bUseInstanceIndex;
+	VertexStream.bSetByVertexFactoryInSetMesh = Component.bSetByVertexFactoryInSetMesh;
 
 	return FVertexElement(PositionStream.AddUnique(VertexStream),Component.Offset,Component.Type,AttributeIndex,VertexStream.Stride,Component.bUseInstanceIndex);
 }

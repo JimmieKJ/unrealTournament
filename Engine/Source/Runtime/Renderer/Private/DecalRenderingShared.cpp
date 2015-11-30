@@ -128,8 +128,17 @@ public:
 		check(Material);
 		
 		EDecalBlendMode DecalBlendMode = ComputeFinalDecalBlendMode(Platform, (EDecalBlendMode)Material->GetDecalBlendMode(), Material->HasNormalConnected());
-		FDecalRendering::ERenderTargetMode RenderTargetMode = FDecalRendering::ComputeRenderTargetMode(Platform, DecalBlendMode);
+		FDecalRendering::ERenderTargetMode RenderTargetMode = FDecalRendering::ComputeRenderTargetMode(Platform, DecalBlendMode, Material->HasNormalConnected());
 		uint32 RenderTargetCount = FDecalRendering::ComputeRenderTargetCount(Platform, RenderTargetMode);
+
+		uint32 BindTarget1 = (RenderTargetMode == FDecalRendering::RTM_SceneColorAndGBufferNoNormal || RenderTargetMode == FDecalRendering::RTM_SceneColorAndGBufferDepthWriteNoNormal) ? 0 : 1;
+		OutEnvironment.SetDefine(TEXT("BIND_RENDERTARGET1"), BindTarget1);
+
+		// Scene texture read are not handled correctly on mobile platforms yet.
+		if (IsMobilePlatform(Platform))
+		{
+			OutEnvironment.SetDefine(TEXT("SCENE_TEXTURES_DISABLED"),TEXT("1")); 
+		}
 
 		// avoid using the index directly, better use DECALBLENDMODEID_VOLUMETRIC, DECALBLENDMODEID_STAIN, ...
 		OutEnvironment.SetDefine(TEXT("DECAL_BLEND_MODE"), (uint32)DecalBlendMode);
@@ -307,13 +316,14 @@ void FDecalRendering::BuildVisibleDecalList(const FScene& Scene, const FViewInfo
 				{ 
 					return A.DecalProxy->SortOrder < B.DecalProxy->SortOrder;
 				}
+				// bHasNormal here is more important then blend mode because we want to render every decals that output normals before those that read normal.
+				if (B.bHasNormal != A.bHasNormal)
+				{
+					return B.bHasNormal < A.bHasNormal; // < so that those outputting normal are first.
+				}
 				if (B.DecalBlendMode != A.DecalBlendMode)
 				{
 					return (int32)B.DecalBlendMode < (int32)A.DecalBlendMode;
-				}
-				if (B.bHasNormal != A.bHasNormal)
-				{
-					return B.bHasNormal < A.bHasNormal;
 				}
 				// Batch decals with the same material together
 				if (B.MaterialProxy != A.MaterialProxy)
@@ -335,7 +345,7 @@ FMatrix FDecalRendering::ComputeComponentToClipMatrix(const FViewInfo& View, con
 	return ComponentToWorldMatrixTrans * View.ViewMatrices.TranslatedViewProjectionMatrix;
 }
 
-FDecalRendering::ERenderTargetMode FDecalRendering::ComputeRenderTargetMode(EShaderPlatform Platform, EDecalBlendMode DecalBlendMode)
+FDecalRendering::ERenderTargetMode FDecalRendering::ComputeRenderTargetMode(EShaderPlatform Platform, EDecalBlendMode DecalBlendMode, bool bHasNormal)
 {
 	if (IsMobilePlatform(Platform))
 	{
@@ -346,7 +356,7 @@ FDecalRendering::ERenderTargetMode FDecalRendering::ComputeRenderTargetMode(ESha
 	{
 		case DBM_Translucent:
 		case DBM_Stain:
-			return RTM_SceneColorAndGBuffer;
+			return bHasNormal ? RTM_SceneColorAndGBufferWithNormal : RTM_SceneColorAndGBufferNoNormal;
 
 		case DBM_Normal:
 			return RTM_GBufferNormal;
@@ -365,7 +375,7 @@ FDecalRendering::ERenderTargetMode FDecalRendering::ComputeRenderTargetMode(ESha
 			return RTM_DBuffer;
 
 		case DBM_Volumetric_DistanceFunction:
-			return RTM_SceneColorAndGBufferDepthWrite;
+			return bHasNormal ? RTM_SceneColorAndGBufferDepthWriteWithNormal : RTM_SceneColorAndGBufferDepthWriteNoNormal;
 	}
 
 	// add the missing decal blend mode to the switch
@@ -416,11 +426,13 @@ uint32 FDecalRendering::ComputeRenderTargetCount(EShaderPlatform Platform, ERend
 
 	switch(RenderTargetMode)
 	{
-		case RTM_SceneColorAndGBuffer:				return 4;
-		case RTM_SceneColorAndGBufferDepthWrite:	return 5;
-		case RTM_DBuffer:							return 3;
-		case RTM_GBufferNormal:						return 1;
-		case RTM_SceneColor:						return 1;
+		case RTM_SceneColorAndGBufferWithNormal:				return 4;
+		case RTM_SceneColorAndGBufferNoNormal:					return 4;
+		case RTM_SceneColorAndGBufferDepthWriteWithNormal:		return 5;
+		case RTM_SceneColorAndGBufferDepthWriteNoNormal:		return 5;
+		case RTM_DBuffer:										return 3;
+		case RTM_GBufferNormal:									return 1;
+		case RTM_SceneColor:									return 1;
 	}
 
 	return 0;
@@ -431,6 +443,34 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, const FViewInfo& Vi
 	const FMaterialShaderMap* MaterialShaderMap = DecalData.MaterialResource->GetRenderingThreadShaderMap();
 	auto PixelShader = MaterialShaderMap->GetShader<FDeferredDecalPS>();
 	TShaderMapRef<FDeferredDecalVS> VertexShader(View.ShaderMap);
+
+	if(bShaderComplexity)
+	{
+		// Luckily, deferred decals PS have only SV_Position as interpolant and are consequently compatible with QuadComplexity and ShaderComplexity PS
+		const EQuadOverdrawMode QuadOverdrawMode = View.Family->GetQuadOverdrawMode();
+		FShader* VisualizePixelShader = FShaderComplexityAccumulatePS::GetPixelShader(View.ShaderMap, QuadOverdrawMode); 
+
+		const uint32 NumPixelShaderInstructions = PixelShader->GetNumInstructions();
+		const uint32 NumVertexShaderInstructions = VertexShader->GetNumInstructions();
+
+		static FGlobalBoundShaderState BoundShaderState[2];
+
+		// QOM_QuadComplexity and QOM_ShaderComplexityBleeding use the QuadComplexity shader, while QOM_None and QOM_ShaderComplexityContained use the ShaderComplexity shader.
+		const uint32 BoundShaderStateIndex = (QuadOverdrawMode == QOM_QuadComplexity || QuadOverdrawMode == QOM_ShaderComplexityBleeding) ? 1 : 0;
+
+		SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState[BoundShaderStateIndex], GetVertexDeclarationFVector4(), *VertexShader, VisualizePixelShader);
+
+		FShaderComplexityAccumulatePS::SetParameters(View.ShaderMap, RHICmdList, NumVertexShaderInstructions, NumPixelShaderInstructions, QuadOverdrawMode, View.GetFeatureLevel());
+	}
+	else
+	{
+		// first Bind, then SetParameters()
+		RHICmdList.SetLocalBoundShaderState(RHICmdList.BuildLocalBoundShaderState(GetVertexDeclarationFVector4(), VertexShader->GetVertexShader(), FHullShaderRHIRef(), FDomainShaderRHIRef(), PixelShader->GetPixelShader(), FGeometryShaderRHIRef()));
+		
+		PixelShader->SetParameters(RHICmdList, View, DecalData.MaterialProxy, *DecalData.DecalProxy, DecalData.FadeAlpha);
+	}
+
+	// SetUniformBufferParameter() need to happen after the shader has been set otherwise a DebugBreak could occur.
 
 	// we don't have the Primitive uniform buffer setup for decals (later we want to batch)
 	{
@@ -444,25 +484,6 @@ void FDecalRendering::SetShader(FRHICommandList& RHICmdList, const FViewInfo& Vi
 		// to prevent potential shader error (UE-18852 ElementalDemo crashes due to nil constant buffer)
 		SetUniformBufferParameter(RHICmdList, VertexShader->GetVertexShader(), PrimitiveVS, GIdentityPrimitiveUniformBuffer);
 		SetUniformBufferParameter(RHICmdList, PixelShader->GetPixelShader(), PrimitivePS, GIdentityPrimitiveUniformBuffer);
-	}
-
-	if(bShaderComplexity)
-	{
-		TShaderMapRef<FShaderComplexityAccumulatePS> VisualizePixelShader(View.ShaderMap);
-		const uint32 NumPixelShaderInstructions = PixelShader->GetNumInstructions();
-		const uint32 NumVertexShaderInstructions = VertexShader->GetNumInstructions();
-
-		static FGlobalBoundShaderState BoundShaderState;
-		SetGlobalBoundShaderState(RHICmdList, View.GetFeatureLevel(), BoundShaderState, GetVertexDeclarationFVector4(), *VertexShader, *VisualizePixelShader);
-
-		VisualizePixelShader->SetParameters(RHICmdList, NumVertexShaderInstructions, NumPixelShaderInstructions, View.GetFeatureLevel());
-	}
-	else
-	{
-		// first Bind, then SetParameters()
-		RHICmdList.SetLocalBoundShaderState(RHICmdList.BuildLocalBoundShaderState(GetVertexDeclarationFVector4(), VertexShader->GetVertexShader(), FHullShaderRHIRef(), FDomainShaderRHIRef(), PixelShader->GetPixelShader(), FGeometryShaderRHIRef()));
-		
-		PixelShader->SetParameters(RHICmdList, View, DecalData.MaterialProxy, *DecalData.DecalProxy, DecalData.FadeAlpha);
 	}
 
 	VertexShader->SetParameters(RHICmdList, View, FrustumComponentToClip);

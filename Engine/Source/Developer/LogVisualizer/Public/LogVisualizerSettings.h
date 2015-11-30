@@ -24,7 +24,9 @@ struct FCategoryFilter
 	int32 LogVerbosity;
 
 	UPROPERTY(config)
-	bool Enabled;
+	uint32 Enabled : 1;
+
+	uint32 bIsInUse : 1;
 };
 
 USTRUCT()
@@ -58,6 +60,7 @@ struct FVisualLoggerFilters : public FVisualLoggerFiltersData
 	static void Shutdown();
 
 	void Reset();
+	void InitWith(const FVisualLoggerFiltersData& NewFiltersData);
 
 	bool MatchCategoryFilters(FString String, ELogVerbosity::Type Verbosity = ELogVerbosity::All);
 

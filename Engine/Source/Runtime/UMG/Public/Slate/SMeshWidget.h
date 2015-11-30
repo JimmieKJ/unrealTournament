@@ -2,7 +2,7 @@
 
 #pragma once
 
-class USlateMeshData;
+class USlateVectorArtData;
 
 
 /**
@@ -10,14 +10,14 @@ class USlateMeshData;
  * The Mesh's material is used.
  * Hardware instancing is supported.
  */
-class UMG_API SMeshWidget : public SLeafWidget
+class UMG_API SMeshWidget : public SLeafWidget, public FGCObject
 {
 public:
 	SLATE_BEGIN_ARGS(SMeshWidget)
 		: _MeshData(nullptr)
 	{}
 		/** The StaticMesh asset that should be drawn. */
-		SLATE_ARGUMENT(USlateMeshData*, MeshData)
+		SLATE_ARGUMENT(USlateVectorArtData*, MeshData)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& Args);
@@ -27,7 +27,7 @@ public:
 	 *
 	 * @return the Index of the mesh data that was added; cache this value for use with @see FRenderRun.
 	 */
-	uint32 AddMesh(const USlateMeshData& InMeshData);
+	uint32 AddMesh(USlateVectorArtData& InMeshData);
 
 	/** Discard any previous runs and reserve space for new render runs if needed. */
 	void ClearRuns(int32 NumRuns);
@@ -45,14 +45,25 @@ public:
 		RenderRuns.Add(FRenderRun(InMeshIndex, InInstanceOffset, InNumInstances));
 	}
 
-	/** Begin an update to the per instance buffer. Enables hardware instancing. */
+	/** Enable hardware instancing */
+	void EnableInstancing(uint32 MeshId, int32 InitialSize);
+	/** Begin an update to the per instance buffer. Automatically enables hardware instancing. */
 	TSharedPtr<FSlateInstanceBufferUpdate> BeginPerInstanceBufferUpdate(uint32 MeshId, int32 InitialSize);
+	/** Begin an update to the per instance buffer. Use */
+	TSharedPtr<FSlateInstanceBufferUpdate> BeginPerInstanceBufferUpdateConst(uint32 MeshId) const;
 
 protected:
 	// BEGIN SLeafWidget interface
 	virtual int32 OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled) const override;
 	virtual FVector2D ComputeDesiredSize(float) const override;
 	// END SLeafWidget interface
+
+	// ~ FGCObject
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+	// ~ FGCObject
+
+protected:
+	static void PushUpdate(uint32 VectorArtId, const SMeshWidget& Widget, const FVector2D& Position, float Scale, uint32 BaseAddress);
 
 private:
 

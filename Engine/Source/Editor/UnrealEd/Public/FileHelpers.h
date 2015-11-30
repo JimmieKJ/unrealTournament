@@ -15,6 +15,7 @@ enum EFileInteraction
 	FI_Load,
 	FI_Save,
 	FI_Import,
+	FI_ImportScene,
 	FI_Export
 };
 
@@ -251,8 +252,8 @@ public:
 	 * Presents the user with a file dialog for importing.
 	 * If the import is not a merge (bMerging is false), AskSaveChanges() is called first.
 	 */
-	UNREALED_API static void Import();
-	UNREALED_API static void Import(const FString& InFilename);
+	UNREALED_API static void Import(bool bImportScene);
+	UNREALED_API static void Import(const FString& InFilename, bool bImportScene);
 	UNREALED_API static void Export(bool bExportSelectedActorsOnly);			// prompts user for file etc.
 
 	////////////////////////////////////////////////////////////////////////////

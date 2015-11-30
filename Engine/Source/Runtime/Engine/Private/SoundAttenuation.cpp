@@ -77,7 +77,7 @@ float FAttenuationSettings::GetMaxDimension() const
  *
  * @return Attenuation value (between 0.0 and 1.0)
  */
-float FAttenuationSettings::AttenuationEval(const float Distance, const float Falloff) const
+float FAttenuationSettings::AttenuationEval(const float Distance, const float Falloff, const float DistanceScale) const
 {
 	// Clamp the input distance between 0.0f and Falloff. If the Distance
 	// is actually less than the min value, it will use the min-value of the algorithm/curve
@@ -86,6 +86,7 @@ float FAttenuationSettings::AttenuationEval(const float Distance, const float Fa
 	// which could be 1.0 (and not 0.0f).
 
 	float DistanceCopy = FMath::Clamp(Distance, 0.0f, Falloff);
+	DistanceCopy *= DistanceScale;
 
 	float Result = 0.0f;
 	switch(DistanceAlgorithm)
@@ -132,18 +133,18 @@ float FAttenuationSettings::AttenuationEval(const float Distance, const float Fa
 	return FMath::Clamp(Result, 0.0f, 1.0f);
 }
 
-float FAttenuationSettings::AttenuationEvalBox(const FTransform& SoundTransform, const FVector ListenerLocation) const
+float FAttenuationSettings::AttenuationEvalBox(const FTransform& SoundTransform, const FVector ListenerLocation, const float DistanceScale) const
 {
 	const float DistanceSq = ComputeSquaredDistanceFromBoxToPoint(-AttenuationShapeExtents, AttenuationShapeExtents,SoundTransform.InverseTransformPositionNoScale(ListenerLocation));
 	if (DistanceSq < FalloffDistance * FalloffDistance)
 	{ 
-		return AttenuationEval(FMath::Sqrt(DistanceSq), FalloffDistance);
+		return AttenuationEval(FMath::Sqrt(DistanceSq), FalloffDistance, DistanceScale);
 	}
 
 	return 0.f;
 }
 
-float FAttenuationSettings::AttenuationEvalCapsule(const FTransform& SoundTransform, const FVector ListenerLocation) const
+float FAttenuationSettings::AttenuationEvalCapsule(const FTransform& SoundTransform, const FVector ListenerLocation, const float DistanceScale) const
 {
 	float Distance = 0.f;
 	const float CapsuleHalfHeight = AttenuationShapeExtents.X;
@@ -163,10 +164,10 @@ float FAttenuationSettings::AttenuationEvalCapsule(const FTransform& SoundTransf
 		Distance = FMath::PointDistToSegment(ListenerLocation, StartPoint, EndPoint) - CapsuleRadius;
 	}
 
-	return AttenuationEval(Distance, FalloffDistance);
+	return AttenuationEval(Distance, FalloffDistance, DistanceScale);
 }
 
-float FAttenuationSettings::AttenuationEvalCone(const FTransform& SoundTransform, const FVector ListenerLocation) const
+float FAttenuationSettings::AttenuationEvalCone(const FTransform& SoundTransform, const FVector ListenerLocation, const float DistanceScale) const
 {
 	const FVector SoundForward = SoundTransform.GetUnitAxis( EAxis::X );
 
@@ -175,12 +176,12 @@ float FAttenuationSettings::AttenuationEvalCone(const FTransform& SoundTransform
 	const FVector Origin = SoundTransform.GetTranslation() - (SoundForward * ConeOffset);
 
 	const float Distance = FMath::Max(FVector::Dist( Origin, ListenerLocation ) - AttenuationShapeExtents.X, 0.f);
-	VolumeMultiplier *= AttenuationEval(Distance, FalloffDistance);
+	VolumeMultiplier *= AttenuationEval(Distance, FalloffDistance, DistanceScale);
 
 	if (VolumeMultiplier > 0.f)
 	{
 		const float theta = FMath::RadiansToDegrees(fabsf(FMath::Acos( FVector::DotProduct(SoundForward, (ListenerLocation - Origin).GetSafeNormal()))));
-		VolumeMultiplier *= AttenuationEval(theta - AttenuationShapeExtents.Y, AttenuationShapeExtents.Z);
+		VolumeMultiplier *= AttenuationEval(theta - AttenuationShapeExtents.Y, AttenuationShapeExtents.Z, 1.0f);
 	}
 
 	return VolumeMultiplier;
@@ -200,60 +201,16 @@ bool FAttenuationSettings::operator==(const FAttenuationSettings& Other) const
 			&& LPFRadiusMax			    == Other.LPFRadiusMax
 			&& FalloffDistance		    == Other.FalloffDistance
 			&& AttenuationShapeExtents	== Other.AttenuationShapeExtents
-			&& SpatializationAlgorithm  == Other.SpatializationAlgorithm);
-}
-
-void FAttenuationSettings::ApplyAttenuation( const FTransform& SoundTransform, const FVector ListenerLocation, float& Volume, float& HighFrequencyGain ) const
-{
-	// Attenuate the volume based on the model
-	if( bAttenuate )
-	{
-		switch(AttenuationShape)
-		{
-		case EAttenuationShape::Sphere:
-			{
-				const float Distance = FMath::Max(FVector::Dist( SoundTransform.GetTranslation(), ListenerLocation ) - AttenuationShapeExtents.X, 0.f);
-				Volume *= AttenuationEval(Distance, FalloffDistance);
-				break;
-			}
-
-		case EAttenuationShape::Box:
-			Volume *= AttenuationEvalBox(SoundTransform, ListenerLocation);
-			break;
-
-		case EAttenuationShape::Capsule:
-			Volume *= AttenuationEvalCapsule(SoundTransform, ListenerLocation);
-			break;
-
-		case EAttenuationShape::Cone:
-			Volume *= AttenuationEvalCone(SoundTransform, ListenerLocation);
-			break;
-
-		default:
-			check(false);
-		}
-
-	}
-
-	// Attenuate with the low pass filter if necessary
-	if( bAttenuateWithLPF )
-	{
-		const float Distance = FMath::Max(FVector::Dist( SoundTransform.GetTranslation(), ListenerLocation ) - AttenuationShapeExtents.X, 0.f);
-
-		if( Distance >= LPFRadiusMax )
-		{
-			HighFrequencyGain = 0.0f;
-		}
-		// UsedLPFMinRadius is the point at which to start applying the low pass filter
-		else if( Distance > LPFRadiusMin )
-		{
-			HighFrequencyGain = 1.0f - ( ( Distance - LPFRadiusMin ) / ( LPFRadiusMax - LPFRadiusMin ) );
-		}
-		else
-		{
-			HighFrequencyGain = 1.0f;
-		}
-	}
+			&& SpatializationAlgorithm  == Other.SpatializationAlgorithm
+			&& LPFFrequencyAtMin == Other.LPFFrequencyAtMin
+			&& LPFFrequencyAtMax == Other.LPFFrequencyAtMax
+			&& bEnableListenerFocus == Other.bEnableListenerFocus
+			&& FocusAzimuth				== Other.FocusAzimuth
+			&& NonFocusAzimuth			== Other.NonFocusAzimuth
+			&& FocusDistanceScale		== Other.FocusDistanceScale
+			&& FocusPriorityScale		== Other.FocusPriorityScale
+			&& NonFocusPriorityScale	== Other.NonFocusPriorityScale
+			&& NonFocusVolumeAttenuation == Other.NonFocusVolumeAttenuation);
 }
 
 void FAttenuationSettings::CollectAttenuationShapesForVisualization(TMultiMap<EAttenuationShape::Type, AttenuationShapeDetails>& ShapeDetailsMap) const

@@ -31,6 +31,26 @@ namespace UnrealBuildTool
 		{
 			return ModuleType != UEBuildModuleType.Game;
 		}
+		public static UEBuildModuleType FromHostType(ModuleHostType ModuleType)
+		{
+			switch (ModuleType)
+			{
+				case ModuleHostType.Runtime:
+				case ModuleHostType.RuntimeNoCommandlet:
+                case ModuleHostType.ServerOnly:
+					return UEBuildModuleType.Runtime;
+				case ModuleHostType.Developer:
+					return UEBuildModuleType.Developer;
+				case ModuleHostType.Editor:
+				case ModuleHostType.EditorNoCommandlet:
+					return UEBuildModuleType.Editor;
+				case ModuleHostType.Program:
+					return UEBuildModuleType.Program;
+				default:
+					return UEBuildModuleType.Unknown;
+			}
+		}
+
 	}
 	/// <summary>
 	/// Distribution level of module.

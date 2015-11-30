@@ -502,7 +502,7 @@ namespace CrossCompiler
 			case EHlslToken::Minus:
 				Scanner.Advance();
 				bFoundAny = true;
-				Operator = AST::EOperators::Neg;
+				Operator = AST::EOperators::Minus;
 				break;
 
 			case EHlslToken::Not:
@@ -514,7 +514,7 @@ namespace CrossCompiler
 			case EHlslToken::Neg:
 				Scanner.Advance();
 				bFoundAny = true;
-				Operator = AST::EOperators::BitNot;
+				Operator = AST::EOperators::BitNeg;
 				break;
 
 			case EHlslToken::LeftParenthesis:

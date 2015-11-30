@@ -3,6 +3,7 @@
 #include "MovieSceneTracksPrivatePCH.h"
 #include "MovieSceneSkeletalAnimationSection.h"
 
+FName UMovieSceneSkeletalAnimationSection::DefaultSlotName( "DefaultSlot" );
 
 UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const FObjectInitializer& ObjectInitializer )
 	: Super( ObjectInitializer )
@@ -15,6 +16,7 @@ UMovieSceneSkeletalAnimationSection::UMovieSceneSkeletalAnimationSection( const 
 	PreviousPlayRate = PlayRate;
 #endif
 	bReverse = false;
+	SlotName = DefaultSlotName;
 }
 
 
@@ -61,15 +63,18 @@ void UMovieSceneSkeletalAnimationSection::GetSnapTimes(TArray<float>& OutSnapTim
 	Super::GetSnapTimes(OutSnapTimes, bGetSectionBorders);
 
 	float CurrentTime = GetStartTime();
+	float AnimPlayRate = FMath::IsNearlyZero(GetPlayRate()) ? 1.0f : GetPlayRate();
+	float SeqLength = (GetSequenceLength() - (GetStartOffset() + GetEndOffset())) / AnimPlayRate;
 
-	while (CurrentTime <= GetEndTime() && !FMath::IsNearlyZero(GetDuration()))
+	// Snap to the repeat times
+	while (CurrentTime <= GetEndTime() && !FMath::IsNearlyZero(GetDuration()) && SeqLength > 0)
 	{
 		if (CurrentTime >= GetStartTime())
 		{
 			OutSnapTimes.Add(CurrentTime);
 		}
 
-		CurrentTime += GetDuration() - (StartOffset + EndOffset);
+		CurrentTime += SeqLength;
 	}
 }
 

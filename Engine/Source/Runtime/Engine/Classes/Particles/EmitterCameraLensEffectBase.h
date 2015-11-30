@@ -2,76 +2,82 @@
 
 /**
  * Base class for Camera Lens Effects.  Needed so we can have AnimNotifies be able to show camera effects
- * in a nice drop down
- *
+ * in a nice drop down.
  */
 
 #pragma once
 #include "Particles/Emitter.h"
 #include "EmitterCameraLensEffectBase.generated.h"
 
-UCLASS(abstract, Blueprintable, MinimalAPI)
-class AEmitterCameraLensEffectBase : public AEmitter
+UCLASS(abstract, Blueprintable)
+class ENGINE_API AEmitterCameraLensEffectBase : public AEmitter
 {
 	GENERATED_UCLASS_BODY()
 
 protected:
 	/** Particle System to use */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category = EmitterCameraLensEffectBase)
 	class UParticleSystem* PS_CameraEffect;
 
 	/** The effect to use for non extreme content */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category = EmitterCameraLensEffectBase)
 	class UParticleSystem* PS_CameraEffectNonExtremeContent;
 
-public:
-	/** In order to get the particle effect looking correct we need to have a base FOV which we just to move the particle closer/further from the camera **/
-	UPROPERTY()
-	float BaseFOV;
+	/** Camera this emitter is attached to, will be notified when emitter is destroyed */
+	UPROPERTY(transient)
+	class APlayerCameraManager* BaseCamera;
 
 	/** 
-	 *  How far in front of the camera this emitter should live, assuming an FOV of 80 degrees. 
-	 *  Note that the actual distance will be automatically adjusted to account for the actual FOV.
+	 * Effect-to-camera transform to allow arbitrary placement of the particle system .
+	 * Note the X component of the location will be scaled with camera fov to keep the lens effect the same apparent size.
 	 */
-	UPROPERTY(EditAnywhere, Category=EmitterCameraLensEffectBase)
-	float DistFromCamera;
+	UPROPERTY(EditDefaultsOnly, Category = EmitterCameraLensEffectBase)
+	FTransform RelativeTransform;
+
+public:
+	/** This is the assumed FOV for which the effect was authored. The code will make automatic adjustments to make it look the same at different FOVs */
+	UPROPERTY(EditDefaultsOnly, Category = EmitterCameraLensEffectBase)
+	float BaseFOV;
 
 	/** true if multiple instances of this emitter can exist simultaneously, false otherwise.  */
-	UPROPERTY(EditAnywhere, Category=EmitterCameraLensEffectBase)
-	uint32 bAllowMultipleInstances:1;
+	UPROPERTY(EditAnywhere, Category = EmitterCameraLensEffectBase)
+	uint8 bAllowMultipleInstances:1;
 
 	/** 
 	 *  If an emitter class in this array is currently playing, do not play this effect.
 	 *  Useful for preventing multiple similar or expensive camera effects from playing simultaneously.
 	 */
-	UPROPERTY()
+	UPROPERTY(EditDefaultsOnly, Category = EmitterCameraLensEffectBase)
 	TArray<TSubclassOf<class AEmitterCameraLensEffectBase> > EmittersToTreatAsSame;
 
-protected:
-	/** Camera this emitter is attached to, will be notified when emitter is destroyed */
-	UPROPERTY(transient)
-	class APlayerCameraManager* BaseCamera;
-
 public:
-
-
 	//~ Begin AActor Interface
-	ENGINE_API virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
-	ENGINE_API virtual void PostInitializeComponents() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void PostInitializeComponents() override;
+	virtual void PostLoad() override;
 	//~ End AActor Interface
 
 	/** Tell the emitter what camera it is attached to. */
-	ENGINE_API virtual void RegisterCamera(APlayerCameraManager* C);
+	virtual void RegisterCamera(APlayerCameraManager* C);
 	
 	/** Called when this emitter is re-triggered, for bAllowMultipleInstances=false emitters. */
-	ENGINE_API virtual void NotifyRetriggered();
+	virtual void NotifyRetriggered();
 
 	/** This will actually activate the lens Effect.  We want this separated from PostInitializeComponents so we can cache these emitters **/
-	ENGINE_API virtual void ActivateLensEffect();
+	virtual void ActivateLensEffect();
+	
+	/** Deactivtes the particle system. If bDestroyOnSystemFinish is true, actor will die after particles are all dead. */
+	virtual void DeactivateLensEffect();
 	
 	/** Given updated camera information, adjust this effect to display appropriately. */
-	ENGINE_API virtual void UpdateLocation(const FVector& CamLoc, const FRotator& CamRot, float CamFOVDeg);
-};
+	virtual void UpdateLocation(const FVector& CamLoc, const FRotator& CamRot, float CamFOVDeg);
 
+	/** Returns true if either particle system would loop forever when played */
+	bool IsLooping() const;
+private:
+	/** DEPRECATED(4.11) */
+	UPROPERTY()
+	float DistFromCamera_DEPRECATED;
+};
 
 

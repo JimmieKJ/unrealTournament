@@ -7,6 +7,9 @@
 
 USoundBase::USoundBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
+	, bIgnoreFocus(false)
+	, Priority(1.0f)
+	, FocusDistanceScale(1.0f)
 {
 	MaxConcurrentPlayCount_DEPRECATED = 16;
 	MaxConcurrentResolutionRule_DEPRECATED = EMaxConcurrentResolutionRule::StopFarthestThenOldest;
@@ -58,6 +61,13 @@ bool USoundBase::IsAudibleSimple(class FAudioDevice* AudioDevice, const FVector 
 
 	// Is this SourceActor within the MaxAudibleDistance of any of the listeners?
 	float MaxAudibleDistance = InAttenuationSettings != nullptr ? InAttenuationSettings->Attenuation.GetMaxDimension() : GetMaxAudibleDistance();
+
+	// Scale the max audible distance by the distance scale 
+	if (!bIgnoreFocus)
+	{
+		MaxAudibleDistance *= FocusDistanceScale;
+	}
+
 	return AudioDevice->LocationIsAudible(Location, MaxAudibleDistance);
 }
 
@@ -69,7 +79,13 @@ bool USoundBase::IsAudible( const FVector &SourceLocation, const FVector &Listen
 	// Account for any portals
 	const FVector ModifiedSourceLocation = SourceLocation;
 
-	const float MaxDist = GetMaxAudibleDistance();
+	float MaxDist = GetMaxAudibleDistance();
+
+	if (!bIgnoreFocus)
+	{
+		MaxDist *= FocusDistanceScale;
+	}
+
 	if( MaxDist * MaxDist >= ( ListenerLocation - ModifiedSourceLocation ).SizeSquared() )
 	{
 		// Can't line check through portals
@@ -119,6 +135,11 @@ const FSoundConcurrencySettings* USoundBase::GetSoundConcurrencySettingsToApply(
 		return &SoundConcurrencySettings->Concurrency;
 	}
 	return nullptr;
+}
+
+float USoundBase::GetPriority() const
+{
+	return Priority;
 }
 
 uint32 USoundBase::GetSoundConcurrencyObjectID() const

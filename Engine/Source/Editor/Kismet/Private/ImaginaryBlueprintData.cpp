@@ -120,7 +120,7 @@ void FImaginaryFiBData::ParseAllChildData_Internal(ESearchableValueStatus InSear
 
 	if (UnparsedJsonObject.IsValid())
 	{
-		if (InSearchabilityOverride == ESearchableValueStatus::Searchable)
+		if (InSearchabilityOverride & ESearchableValueStatus::Searchable)
 		{
 			const TSharedPtr< FJsonObject >* MetaDataField;
 			if (UnparsedJsonObject->TryGetObjectField(FFindInBlueprintSearchTags::FiBMetaDataTag.ToString(), MetaDataField))
@@ -286,6 +286,8 @@ UObject* FImaginaryFiBData::GetObject(UBlueprint* InBlueprint) const
 
 FFiBMetaData::FFiBMetaData(TWeakPtr<FImaginaryFiBData> InOuter, TSharedPtr< FJsonObject > InUnparsedJsonObject, TMap<int32, FText>* InLookupTablePtr)
 	: FImaginaryFiBData(InOuter, InUnparsedJsonObject, InLookupTablePtr)
+	, bIsHidden(false)
+	, bIsExplicit(false)
 {
 }
 
@@ -352,6 +354,26 @@ void FCategorySectionHelper::ParseAllChildData_Internal(ESearchableValueStatus I
 	}
 	else
 	{
+		bool bHasMetaData = false;
+		bool bHasOneOtherItem = false;
+		if (UnparsedJsonObject.IsValid() && UnparsedJsonObject->Values.Num() == 2)
+		{
+			for( auto MapValues : UnparsedJsonObject->Values )
+			{
+				if (MapValues.Key == FFindInBlueprintSearchTags::FiBMetaDataTag.ToString())
+				{
+					bHasMetaData = true;
+				}
+				else
+				{
+					bHasOneOtherItem = true;
+				}
+			}
+
+			// If we have metadata and only one other item, we should be treated like a tag and value category
+			bIsTagAndValue |= (bHasOneOtherItem && bHasMetaData);
+		}
+
 		FImaginaryFiBData::ParseAllChildData_Internal(InSearchabilityOverride);
 	}
 }
@@ -359,12 +381,12 @@ void FCategorySectionHelper::ParseAllChildData_Internal(ESearchableValueStatus I
 //////////////////////////////////////////
 // FImaginaryBlueprint
 
-FImaginaryBlueprint::FImaginaryBlueprint(FString InBlueprintName, FString InBlueprintPath, FString InBlueprintParentClass, TArray<FString>& InInterfaces, FString InUnparsedStringData)
+FImaginaryBlueprint::FImaginaryBlueprint(FString InBlueprintName, FString InBlueprintPath, FString InBlueprintParentClass, TArray<FString>& InInterfaces, FString InUnparsedStringData, bool bInIsVersioned/*=true*/)
 	: FImaginaryFiBData(nullptr)
 	, BlueprintPath(InBlueprintPath)
 	, UnparsedStringData(InUnparsedStringData)
 {
-	ParseToJson();
+	ParseToJson(bInIsVersioned);
 	ParsedTagsAndValues.Add(FFindInBlueprintSearchTags::FiB_Name.ToString(), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_Name, FText::FromString(InBlueprintName), ESearchableValueStatus::ExplicitySearchable));
 	ParsedTagsAndValues.Add(FFindInBlueprintSearchTags::FiB_Path.ToString(), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_Path, FText::FromString(InBlueprintPath), ESearchableValueStatus::ExplicitySearchable));
 	ParsedTagsAndValues.Add(FFindInBlueprintSearchTags::FiB_ParentClass.ToString(), FSearchableValueInfo(FFindInBlueprintSearchTags::FiB_ParentClass, FText::FromString(InBlueprintParentClass), ESearchableValueStatus::ExplicitySearchable));
@@ -409,9 +431,9 @@ bool FImaginaryBlueprint::CanCallFilter(ESearchQueryFilter InSearchQueryFilter) 
 		FImaginaryFiBData::CanCallFilter(InSearchQueryFilter);
 }
 
-void FImaginaryBlueprint::ParseToJson()
+void FImaginaryBlueprint::ParseToJson(bool bInIsVersioned)
 {
-	UnparsedJsonObject = FFindInBlueprintSearchManager::ConvertJsonStringToObject(UnparsedStringData, LookupTable);
+	UnparsedJsonObject = FFindInBlueprintSearchManager::ConvertJsonStringToObject(bInIsVersioned, UnparsedStringData, LookupTable);
 }
 
 bool FImaginaryBlueprint::TrySpecialHandleJsonValue(FString InKey, TSharedPtr< FJsonValue > InJsonValue)

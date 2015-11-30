@@ -1,0 +1,46 @@
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+
+#pragma once
+
+class FFreeTypeFace;
+class FFreeTypeGlyphCache;
+
+#ifndef WITH_HARFBUZZ
+	#define WITH_HARFBUZZ	0
+#endif // WITH_HARFBUZZ
+
+#if WITH_HARFBUZZ
+	#include "hb.h"
+	#include "hb-ft.h"
+#endif // #if WITH_HARFBUZZ
+
+namespace HarfBuzzUtils
+{
+
+#if WITH_HARFBUZZ
+
+/** Utility function to append an FString into a hb_buffer_t in the most efficient way based on the string encoding method of the current platform */
+void AppendStringToBuffer(const FString& InString, hb_buffer_t* InHarfBuzzTextBuffer);
+
+/** Utility function to append an FString into a hb_buffer_t in the most efficient way based on the string encoding method of the current platform */
+void AppendStringToBuffer(const FString& InString, const int32 InStartIndex, const int32 InLength, hb_buffer_t* InHarfBuzzTextBuffer);
+
+#endif // #if WITH_HARFBUZZ
+
+} // namespace HarfBuzzUtils
+
+class FHarfBuzzFontFactory
+{
+public:
+	FHarfBuzzFontFactory(FFreeTypeGlyphCache* InFTGlyphCache, FFreeTypeAdvanceCache* InFTAdvanceCache, FFreeTypeKerningPairCache* InFTKerningPairCache);
+
+#if WITH_HARFBUZZ
+	/** Create a HarfBuzz font from the given face - must be destroyed with hb_font_destroy when done */
+	hb_font_t* CreateFont(const FFreeTypeFace& InFace, const uint32 InGlyphFlags, const int32 InFontSize, const float InFontScale) const;
+#endif // WITH_HARFBUZZ
+
+private:
+	FFreeTypeGlyphCache* FTGlyphCache;
+	FFreeTypeAdvanceCache* FTAdvanceCache;
+	FFreeTypeKerningPairCache* FTKerningPairCache;
+};

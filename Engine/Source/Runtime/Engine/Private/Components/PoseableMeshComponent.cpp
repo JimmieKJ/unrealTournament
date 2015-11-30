@@ -223,7 +223,7 @@ FTransform UPoseableMeshComponent::GetBoneTransformByName(FName BoneName, EBoneS
 		{
 			if (UAnimInstance* AnimInstance = SMC->GetAnimInstance())
 			{
-				return GetBoneTransformByNameHelper(BoneName, BoneSpace, AnimInstance->RequiredBones, SMC);
+				return GetBoneTransformByNameHelper(BoneName, BoneSpace, AnimInstance->GetRequiredBones(), SMC);
 			}
 			FString Message = FString::Printf(TEXT("Cannot return valid bone transform. Master Pose Component has no anim instance"));
 			FFrame::KismetExecutionMessage(*Message, ELogVerbosity::Warning);

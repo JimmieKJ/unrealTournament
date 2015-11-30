@@ -41,6 +41,7 @@
 #include "Engine/SimpleConstructionScript.h"
 #include "Engine/SCS_Node.h"
 #include "GeneralProjectSettings.h"
+#include "Developer/BlueprintProfiler/Public/BlueprintProfilerModule.h"
 
 DECLARE_CYCLE_STAT(TEXT("Compile Blueprint"), EKismetCompilerStats_CompileBlueprint, STATGROUP_KismetCompiler);
 DECLARE_CYCLE_STAT(TEXT("Broadcast Precompile"), EKismetCompilerStats_BroadcastPrecompile, STATGROUP_KismetCompiler);
@@ -245,7 +246,7 @@ void FBlueprintUnloader::UnloadBlueprint(const bool bResetPackage)
 
 		// make sure the blueprint is properly trashed (remove it from the package)
 		UnloadingBp->SetFlags(RF_Transient);
-		UnloadingBp->ClearFlags(RF_Standalone | RF_RootSet | RF_Transactional);
+		UnloadingBp->ClearFlags(RF_Standalone | RF_Transactional);
 		UnloadingBp->RemoveFromRoot();
 		UnloadingBp->MarkPendingKill();
 		// if it's in the undo buffer, then we have to clear that...
@@ -645,12 +646,11 @@ UBlueprint* FKismetEditorUtilities::ReplaceBlueprint(UBlueprint* Target, UBluepr
 
 	UPackage* BlueprintPackage = Target->GetOutermost();
 	check(BlueprintPackage != GetTransientPackage());
-	const FString BlueprintName = Target->GetName();
 
 	FBlueprintUnloader Unloader(Target);
 	Unloader.UnloadBlueprint(/*bResetPackage =*/false);
 
-	UBlueprint* Replacement = Cast<UBlueprint>(StaticDuplicateObject(ReplacementArchetype, BlueprintPackage, *BlueprintName));
+	UBlueprint* Replacement = Cast<UBlueprint>(StaticDuplicateObject(ReplacementArchetype, BlueprintPackage, Target->GetFName()));
 	
 	Unloader.ReplaceStaleRefs(Replacement);
 	return Replacement;
@@ -660,12 +660,12 @@ bool FKismetEditorUtilities::IsReferencedByUndoBuffer(UBlueprint* Blueprint)
 {
 	UObject* BlueprintObj = Blueprint;
 	FReferencerInformationList ReferencesIncludingUndo;
-	IsReferenced(BlueprintObj, GARBAGE_COLLECTION_KEEPFLAGS, /*bCheckSubObjects =*/true, &ReferencesIncludingUndo);
+	IsReferenced(BlueprintObj, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, /*bCheckSubObjects =*/true, &ReferencesIncludingUndo);
 
 	FReferencerInformationList ReferencesExcludingUndo;
 	// Determine the in-memory references, *excluding* the undo buffer
 	GEditor->Trans->DisableObjectSerialization();
-	IsReferenced(BlueprintObj, GARBAGE_COLLECTION_KEEPFLAGS, /*bCheckSubObjects =*/true, &ReferencesExcludingUndo);
+	IsReferenced(BlueprintObj, GARBAGE_COLLECTION_KEEPFLAGS, EInternalObjectFlags::GarbageCollectionKeepFlags, /*bCheckSubObjects =*/true, &ReferencesExcludingUndo);
 	GEditor->Trans->EnableObjectSerialization();
 
 	// see if this object is the transaction buffer - set a flag so we know we need to clear the undo stack
@@ -738,12 +738,18 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 	}
 	auto ReinstanceHelper = FBlueprintCompileReinstancer::Create(OldClass);
 
-	// Suppress errors/warnings in the log if we're recompiling on load on a build machine
-	Results.bLogInfoOnly = BlueprintObj->bIsRegeneratingOnLoad && GIsBuildMachine;
+	// If enabled, suppress errors/warnings in the log if we're recompiling on load on a build machine
+	static const FBoolConfigValueHelper IgnoreCompileOnLoadErrorsOnBuildMachine(TEXT("Kismet"), TEXT("bIgnoreCompileOnLoadErrorsOnBuildMachine"), GEngineIni);
+	Results.bLogInfoOnly = BlueprintObj->bIsRegeneratingOnLoad && GIsBuildMachine && IgnoreCompileOnLoadErrorsOnBuildMachine;
+
+	// Determine if we want profiling data
+	IBlueprintProfilerInterface* ProfilerInterface = FModuleManager::GetModulePtr<IBlueprintProfilerInterface>("BlueprintProfiler");
+	const bool bProfilerActive = ProfilerInterface && ProfilerInterface->IsProfilerEnabled() && GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools;
 
 	FKismetCompilerOptions CompileOptions;
 	CompileOptions.bSaveIntermediateProducts = bSaveIntermediateProducts;
 	CompileOptions.bRegenerateSkelton = !bSkeletonUpToDate;
+	CompileOptions.bAddInstrumentation = bProfilerActive;
 	Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results, ReinstanceHelper);
 
 	FBlueprintEditorUtils::UpdateDelegatesInBlueprint(BlueprintObj);
@@ -858,26 +864,6 @@ void FKismetEditorUtilities::CompileBlueprint(UBlueprint* BlueprintObj, bool bIs
 	if (BlueprintPackage != NULL)
 	{
 		BlueprintPackage->SetDirtyFlag(bStartedWithUnsavedChanges);
-
-		UBlueprintEditorSettings* Settings = GetMutableDefault<UBlueprintEditorSettings>();
-		const bool bShouldSaveOnCompile = !bIsRegeneratingOnLoad && (( Settings->SaveOnCompile == SoC_Always ) || ( ( Settings->SaveOnCompile == SoC_SuccessOnly ) && ( BlueprintObj->Status == BS_UpToDate ) ));
-
-		// Only try to save on compile if we aren't running a commandlet (i.e. cooking a blueprint shouldn't try to save it)
-		if ( !IsRunningCommandlet() && bShouldSaveOnCompile && !GIsAutomationTesting )
-		{
-			bool const bIsLevelPackage = (UWorld::FindWorldInPackage(BlueprintPackage) != nullptr);
-			// we don't want to save the entire level (especially if this 
-			// compile was already kicked off as a result of a level save, as it
-			// could cause a recursive save)... let the "SaveOnCompile" setting 
-			// only save blueprint assets
-			if (!bIsLevelPackage)
-			{
-				TArray<UPackage*> PackagesToSave;
-				PackagesToSave.Add(BlueprintPackage);
-
-				FEditorFileUtils::PromptForCheckoutAndSave(PackagesToSave, /*bCheckDirty =*/true, /*bPromptToSave =*/false);
-			}			
-		}
 	}	
 }
 
@@ -978,9 +964,9 @@ static void ConformComponentsUtils::ConformRemovedNativeComponents(UObject* BpCd
 	const AActor* NativeCDO = GetDefault<AActor>(NativeSuperClass);
 
 	TInlineComponentArray<UActorComponent*> OldNativeComponents;
-	ActorCDO->GetComponents(OldNativeComponents);
 	TInlineComponentArray<UActorComponent*> NewNativeComponents;
-	NativeCDO->GetComponents(NewNativeComponents);
+	ActorCDO->GetComponents(OldNativeComponents);
+	USceneComponent* OldNativeRootComponent = ActorCDO->GetRootComponent();
 
 	TSet<UObject*> DestroyedComponents;
 	for (UActorComponent* Component : OldNativeComponents)
@@ -988,12 +974,22 @@ static void ConformComponentsUtils::ConformRemovedNativeComponents(UObject* BpCd
 		UObject* NativeArchetype = FindNativeArchetype(Component);
 		if ((NativeArchetype == nullptr) || !NativeArchetype->HasAnyFlags(RF_ClassDefaultObject))
 		{
+			// Keep track of components inherited from the native super class that are still valid.
+			NewNativeComponents.Add(Component);
+
 			continue;
 		}
 		// else, the component has been removed from our native super class
 
 		Component->DestroyComponent(/*bPromoteChildren =*/false);
 		DestroyedComponents.Add(Component);
+
+		// The DestroyComponent() call above will clear the RootComponent value in this case.
+		if(Component == OldNativeRootComponent)
+		{
+			// Restore it here so that it will be reassigned to match the native CDO's value below.
+			ActorCDO->SetRootComponent(OldNativeRootComponent);
+		}
 
 		UClass* ComponentClass = Component->GetClass();
 		for (TFieldIterator<UArrayProperty> ArrayPropIt(NativeSuperClass); ArrayPropIt; ++ArrayPropIt)
@@ -1027,6 +1023,14 @@ static void ConformComponentsUtils::ConformRemovedNativeComponents(UObject* BpCd
 		// @TODO: have to also remove from map properties now that they're available
 	}
 
+	auto FindComponentTemplateByNameInActorCDO = [&NewNativeComponents](FName ToFind) -> UActorComponent**
+	{
+		return NewNativeComponents.FindByPredicate([ToFind](const UActorComponent* ActorComponent) -> bool
+		{
+			return ActorComponent && ActorComponent->GetFName() == ToFind;
+		});
+	};
+
 	// 
 	for (TFieldIterator<UObjectProperty> ObjPropIt(NativeSuperClass); ObjPropIt; ++ObjPropIt)
 	{
@@ -1035,8 +1039,45 @@ static void ConformComponentsUtils::ConformRemovedNativeComponents(UObject* BpCd
 
 		if (DestroyedComponents.Contains(PropObjValue))
 		{
+			// Get the "new" value that's currently set on the native parent CDO. We need the Blueprint CDO to reflect this update in property value.
 			UObject* SuperObjValue = ObjectProp->GetObjectPropertyValue_InContainer(NativeCDO);
+			if (SuperObjValue && SuperObjValue->IsA<UActorComponent>())
+			{
+				// For components, make sure we use the instance that's owned by the Blueprint CDO and not the native parent CDO's instance.
+				if (UActorComponent** ComponentTemplatePtr = FindComponentTemplateByNameInActorCDO(SuperObjValue->GetFName()))
+				{
+					SuperObjValue = Cast<UObject>(*ComponentTemplatePtr);
+				}
+			}
+			
+			// Update the Blueprint CDO to match the native parent CDO.
 			ObjectProp->SetObjectPropertyValue_InContainer(ActorCDO, SuperObjValue);
+		}
+	}
+
+	// Fix up the attachment hierarchy for inherited scene components that are still valid.
+	for (UActorComponent* Component : NewNativeComponents)
+	{
+		if (USceneComponent* SceneComponent = Cast<USceneComponent>(Component))
+		{
+			// If the component in the Blueprint CDO was attached to a component that's been removed, update the Blueprint's component instance to match the archetype in the native parent CDO.
+			if (DestroyedComponents.Contains(SceneComponent->AttachParent))
+			{
+				if (USceneComponent* NativeArchetype = Cast<USceneComponent>(FindNativeArchetype(SceneComponent)))
+				{
+					USceneComponent* NewAttachParent = NativeArchetype->AttachParent;
+					if (NewAttachParent)
+					{
+						// Make sure we use the instance that's owned by the Blueprint CDO and not the native parent CDO's instance.
+						if (UActorComponent** ComponentTemplatePtr = FindComponentTemplateByNameInActorCDO(NewAttachParent->GetFName()))
+						{
+							NewAttachParent = CastChecked<USceneComponent>(*ComponentTemplatePtr);
+						}
+					}
+
+					SceneComponent->AttachParent = NewAttachParent;
+				}
+			}
 		}
 	}
 }
@@ -1150,6 +1191,39 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 	TMap<USceneComponent*, USCS_Node*> SceneComponentsToAdd;
 	TMap<USceneComponent*, USCS_Node*> InstanceComponentToNodeMap;
 
+	struct FAddComponentsToBlueprintImpl
+	{
+		/** 
+		 * Creates a new USCS_Node in the TargetSCS, duplicating the specified 
+		 * component (leaving the new node unattached). If a copy was already 
+		 * made (found  in NewSceneComponents) then that will be returned instead.
+		 */
+		static USCS_Node* MakeComponentCopy(UActorComponent* ActorComponent, USimpleConstructionScript* TargetSCS, TMap<USceneComponent*, USCS_Node*>& NewSceneComponents)
+		{
+			USceneComponent* AsSceneComponent = Cast<USceneComponent>(ActorComponent);
+			if (AsSceneComponent != nullptr)
+			{
+				USCS_Node** ExistingCopy = NewSceneComponents.Find(AsSceneComponent);
+				if (ExistingCopy != nullptr)
+				{
+					return *ExistingCopy;
+				}
+			}
+
+			USCS_Node* NewSCSNode = TargetSCS->CreateNode(ActorComponent->GetClass(), ActorComponent->GetFName());
+			UEditorEngine::CopyPropertiesForUnrelatedObjects(ActorComponent, NewSCSNode->ComponentTemplate);
+
+			// Clear the instance component flag
+			NewSCSNode->ComponentTemplate->CreationMethod = EComponentCreationMethod::Native;
+
+			if (AsSceneComponent != nullptr)
+			{
+				NewSceneComponents.Add(AsSceneComponent, NewSCSNode);
+			}
+			return NewSCSNode;
+		}
+	};
+
 	AActor* Actor = nullptr;
 
 	for (UActorComponent* ActorComponent : Components)
@@ -1166,14 +1240,9 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 				check(Actor);
 			}
 
-			USCS_Node* SCSNode = SCS->CreateNode(ActorComponent->GetClass(), ActorComponent->GetFName());
-			UEditorEngine::CopyPropertiesForUnrelatedObjects(ActorComponent, SCSNode->ComponentTemplate);
-
-			// Clear the instance component flag
-			SCSNode->ComponentTemplate->CreationMethod = EComponentCreationMethod::Native;
+			USCS_Node* SCSNode = FAddComponentsToBlueprintImpl::MakeComponentCopy(ActorComponent, SCS, InstanceComponentToNodeMap);
 
 			USceneComponent* SceneComponent = Cast<USceneComponent>(ActorComponent);
-
 			// The easy part is non-scene component or the Root simply add it
 			if (SceneComponent == nullptr)
 			{
@@ -1181,8 +1250,6 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 			}
 			else
 			{
-				InstanceComponentToNodeMap.Add(SceneComponent,SCSNode);
-
 				if (ActorComponent == Actor->GetRootComponent())
 				{
 					if (OptionalNewRootNode != nullptr)
@@ -1198,13 +1265,26 @@ void FKismetEditorUtilities::AddComponentsToBlueprint(UBlueprint* Blueprint, con
 				else if (SceneComponent->AttachParent->IsCreatedByConstructionScript())
 				{
 					USCS_Node* ParentSCSNode = nullptr;
-					for (UBlueprint* ParentBlueprint : ParentBPStack)
+					if (USCS_Node** ParentSCSNodePtr = InstanceComponentToNodeMap.Find(SceneComponent->AttachParent))
 					{
-						USCS_Node** ParentSCSNodePtr = InstanceComponentToNodeMap.Find(SceneComponent->AttachParent);
-						if (ParentSCSNodePtr)
+						ParentSCSNode = *ParentSCSNodePtr;
+					}
+					else if (Components.Contains(SceneComponent->AttachParent))
+					{
+						// since you cannot rely on the order of the supplied  
+						// Components array, we might be looking for a parent 
+						// that hasn't been added yet
+						ParentSCSNode = FAddComponentsToBlueprintImpl::MakeComponentCopy(SceneComponent->AttachParent, SCS, InstanceComponentToNodeMap);
+					}
+					else
+					{
+						for (UBlueprint* ParentBlueprint : ParentBPStack)
 						{
-							ParentSCSNode = *ParentSCSNodePtr;
-							break;
+							ParentSCSNode = ParentBlueprint->SimpleConstructionScript->FindSCSNode(SceneComponent->AttachParent->GetFName());
+							if (ParentSCSNode)
+							{
+								break;
+							}
 						}
 					}
 					check(ParentSCSNode);

@@ -648,6 +648,13 @@ public:
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable, BlueprintReadOnly, Category=Physics)
 	class UPhysicsAsset* PhysicsAsset;
 
+	/**
+	 * Physics asset whose shapes will be used for shadowing when components have bCastCharacterCapsuleDirectShadow or bCastCharacterCapsuleIndirectShadow enabled.
+	 * Only spheres and sphyl shapes in the physics asset can be supported.  The more shapes used, the higher the cost of the capsule shadows will be.
+	 */
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable, BlueprintReadOnly, Category=Lighting)
+	class UPhysicsAsset* ShadowPhysicsAsset;
+
 #if WITH_EDITORONLY_DATA
 
 	/** Importing data and options used for this mesh */

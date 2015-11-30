@@ -4,6 +4,7 @@
 
 #include "AllowWindowsPlatformTypes.h"
 	#include <DbgHelp.h>				
+	#include <Shlwapi.h>
 	#include <TlHelp32.h>		
 	#include <psapi.h>
 #include "HideWindowsPlatformTypes.h"
@@ -20,14 +21,16 @@
 static bool GStackWalkingInitialized = false;
 static bool GNeedToRefreshSymbols = false;
 
+static const TCHAR* CrashReporterSettings = TEXT("/Script/UnrealEd.CrashReporterSettings");
+
 // NOTE: Make sure to enable Stack Frame pointers: bOmitFramePointers = false, or /Oy-
 // If GStackWalkingInitialized is true, traces will work anyway but will be much slower.
 #define USE_FAST_STACKTRACE 1
 
 typedef bool  (WINAPI *TFEnumProcesses)( uint32* lpidProcess, uint32 cb, uint32* cbNeeded);
 typedef bool  (WINAPI *TFEnumProcessModules)(HANDLE hProcess, HMODULE *lphModule, uint32 cb, LPDWORD lpcbNeeded);
-typedef uint32 (WINAPI *TFGetModuleBaseName)(HANDLE hProcess, HMODULE hModule, LPSTR lpBaseName, uint32 nSize);
-typedef uint32 (WINAPI *TFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPSTR lpFilename, uint32 nSize);
+typedef uint32 (WINAPI *TFGetModuleBaseName)(HANDLE hProcess, HMODULE hModule, LPWSTR lpBaseName, uint32 nSize);
+typedef uint32 (WINAPI *TFGetModuleFileNameEx)(HANDLE hProcess, HMODULE hModule, LPWSTR lpFilename, uint32 nSize);
 typedef bool  (WINAPI *TFGetModuleInformation)(HANDLE hProcess, HMODULE hModule, LPMODULEINFO lpmodinfo, uint32 cb);
 
 static TFEnumProcesses			FEnumProcesses;
@@ -336,77 +339,182 @@ void FWindowsPlatformStackWalk::ProgramCounterToSymbolInfo( uint64 ProgramCounte
 }
 
 /**
+ * Get process module handle NULL-terminated list.
+ * On error this method returns NULL.
+ *
+ * IMPORTANT: Returned value must be deallocated by FMemory::Free().
+ */
+static HMODULE* GetProcessModules(HANDLE ProcessHandle)
+{
+	const int32 NumModules = FWindowsPlatformStackWalk::GetProcessModuleCount();
+	// Allocate start size (last element reserved for NULL value)
+	uint32   ResultBytes = NumModules * sizeof( HMODULE );
+	HMODULE* ResultData = (HMODULE*)FMemory::Malloc( ResultBytes + sizeof( HMODULE ) );
+	
+	uint32 BytesRequired = 0;
+	if (!FEnumProcessModules( ProcessHandle, ResultData, ResultBytes, (::DWORD *)&BytesRequired ))
+	{
+		FMemory::Free( ResultData );
+		// Can't get process module list
+		return nullptr;
+	}
+	if (BytesRequired <= ResultBytes)
+	{
+		// Add end module list marker
+		ResultData[BytesRequired / sizeof( HMODULE )] = nullptr;
+		return ResultData;
+	}
+
+	// No enough memory?
+	return nullptr;
+}
+
+/** 
+ * Upload locally built symbols to network symbol storage.
+ *
+ * Use case:
+ *   Game designers use game from source (without prebuild game .dll-files).
+ *   In this case all game .dll-files are compiled locally.
+ *   For post-mortem debug programmers need .dll and .pdb files from designers.
+ */
+bool FWindowsPlatformStackWalk::UploadLocalSymbols()
+{
+	InitStackWalking();
+
+	// Upload locally compiled files to symbol storage.
+	FString SymbolStorage;
+	if (!GConfig->GetString( CrashReporterSettings, TEXT( "UploadSymbolsPath" ), SymbolStorage, GEditorPerProjectIni ) || SymbolStorage.IsEmpty())
+	{
+		// Nothing to do.
+		return true;
+	}
+	// Prepare string
+	SymbolStorage.ReplaceInline( TEXT( "/" ), TEXT( "\\" ), ESearchCase::CaseSensitive );
+	SymbolStorage = TEXT( "SRV*" ) + SymbolStorage;
+
+	int32 ErrorCode = 0;
+	HANDLE ProcessHandle = GetCurrentProcess();
+
+	// Enumerate process modules.
+	HMODULE* ModuleHandlePointer = GetProcessModules( ProcessHandle );
+	if (!ModuleHandlePointer)
+	{
+		ErrorCode = GetLastError();
+		return false;
+	}
+
+#if WITH_EDITOR
+	// Get Unreal Engine Editor directory for detecting non-game editor binaries.
+	FString EnginePath = FPaths::ConvertRelativePathToFull( FPaths::EngineDir() );
+	FPaths::MakePlatformFilename( EnginePath );
+#endif
+
+	// Upload all locally built modules.
+	for (int32 ModuleIndex = 0; ModuleHandlePointer[ModuleIndex]; ModuleIndex++)
+	{
+		WCHAR ImageName[MAX_PATH] = {0};
+		FGetModuleFileNameEx( ProcessHandle, ModuleHandlePointer[ModuleIndex], ImageName, MAX_PATH );
+
+#if WITH_EDITOR
+		WCHAR RelativePath[MAX_PATH];
+		// Skip binaries inside Unreal Engine Editor directory (non-game editor binaries)
+		if (PathRelativePathTo( RelativePath, *EnginePath, FILE_ATTRIBUTE_DIRECTORY, ImageName, 0 ) && FCString::Strncmp( RelativePath, TEXT( "..\\" ), 3 ))
+		{
+			continue;
+		}
+#endif
+
+		WCHAR DebugName[MAX_PATH];
+		FCString::Strcpy( DebugName, ImageName );
+
+		if (PathRenameExtensionW( DebugName, L".pdb" ))
+		{
+			// Upload only if found .pdb file
+			if (PathFileExistsW( DebugName ))
+			{
+				// Upload original file
+				UE_LOG( LogWindows, Log, TEXT( "Uploading to symbol storage: %s" ), ImageName );
+				if (!SymSrvStoreFileW( ProcessHandle, *SymbolStorage, ImageName, SYMSTOREOPT_PASS_IF_EXISTS ))
+				{
+					UE_LOG( LogWindows, Warning, TEXT( "Uploading to symbol storage failed: %s. Error: %d" ), ImageName, GetLastError() );
+				}
+
+				// Upload debug symbols
+				UE_LOG( LogWindows, Log, TEXT( "Uploading to symbol storage: %s" ), DebugName );
+				if (!SymSrvStoreFileW( ProcessHandle, *SymbolStorage, DebugName, SYMSTOREOPT_PASS_IF_EXISTS ))
+				{
+					UE_LOG( LogWindows, Warning, TEXT( "Uploading to symbol storage failed: %s. Error: %d" ), DebugName, GetLastError() );
+				}
+			}
+		}
+	}
+	return true;
+}
+
+/**
  * Loads modules for current process.
  */ 
-static void LoadProcessModules()
+static void LoadProcessModules(const FString &RemoteStorage)
 {
 	int32 ErrorCode = 0;
 	HANDLE ProcessHandle = GetCurrentProcess();
-	const int32	MAX_MOD_HANDLES = 1024;
-	HMODULE ModuleHandleArray[MAX_MOD_HANDLES] = {0};
-	HMODULE* ModuleHandlePointer = ModuleHandleArray;
-	uint32 BytesRequired = 0;
 
 	// Enumerate process modules.
-	bool bEnumProcessModulesSucceeded = FEnumProcessModules( ProcessHandle, ModuleHandleArray, sizeof(ModuleHandleArray), (::DWORD *)&BytesRequired );
-	if( !bEnumProcessModulesSucceeded )
+	HMODULE* ModuleHandlePointer = GetProcessModules(ProcessHandle);
+	if (!ModuleHandlePointer)
 	{
 		ErrorCode = GetLastError();
 		return;
 	}
 
-	// Static array isn't sufficient so we dynamically allocate one.
-	bool bNeedToFreeModuleHandlePointer = false;
-	if( BytesRequired > sizeof( ModuleHandleArray ) )
-	{
-		// Keep track of the fact that we need to free it again.
-		bNeedToFreeModuleHandlePointer = true;
-		ModuleHandlePointer = (HMODULE*) GMalloc->Malloc( BytesRequired );
-		FEnumProcessModules( ProcessHandle, ModuleHandlePointer, sizeof(ModuleHandleArray), (::DWORD *)&BytesRequired );
-	}
-
-	// Find out how many modules we need to load modules for.
-	const int32	ModuleCount = BytesRequired / sizeof( HMODULE );
-
 	// Load the modules.
-	for( int32 ModuleIndex = 0; ModuleIndex < ModuleCount; ModuleIndex++ )
+	for( int32 ModuleIndex = 0; ModuleHandlePointer[ModuleIndex]; ModuleIndex++ )
 	{
 		MODULEINFO ModuleInfo = {0};
-		ANSICHAR ModuleName[FProgramCounterSymbolInfo::MAX_NAME_LENGHT] = {0};
-		ANSICHAR ImageName[FProgramCounterSymbolInfo::MAX_NAME_LENGHT] = {0};
+		WCHAR ModuleName[FProgramCounterSymbolInfo::MAX_NAME_LENGHT] = {0};
+		WCHAR ImageName[FProgramCounterSymbolInfo::MAX_NAME_LENGHT] = {0};
 #if PLATFORM_64BITS
 		static_assert(sizeof( MODULEINFO ) == 24, "Broken alignment for 64bit Windows include.");
 #else
 		static_assert(sizeof( MODULEINFO ) == 12, "Broken alignment for 32bit Windows include.");
 #endif
-		FGetModuleInformation( ProcessHandle, ModuleHandleArray[ModuleIndex], &ModuleInfo, sizeof( ModuleInfo ) );
-		FGetModuleFileNameEx( ProcessHandle, ModuleHandleArray[ModuleIndex], ImageName, FProgramCounterSymbolInfo::MAX_NAME_LENGHT );
-		FGetModuleBaseName( ProcessHandle, ModuleHandleArray[ModuleIndex], ModuleName, FProgramCounterSymbolInfo::MAX_NAME_LENGHT );
+		FGetModuleInformation( ProcessHandle, ModuleHandlePointer[ModuleIndex], &ModuleInfo, sizeof( ModuleInfo ) );
+		FGetModuleFileNameEx( ProcessHandle, ModuleHandlePointer[ModuleIndex], ImageName, FProgramCounterSymbolInfo::MAX_NAME_LENGHT );
+		FGetModuleBaseName( ProcessHandle, ModuleHandlePointer[ModuleIndex], ModuleName, FProgramCounterSymbolInfo::MAX_NAME_LENGHT );
 
 		// Set the search path to find PDBs in the same folder as the DLL.
-		ANSICHAR SearchPath[MAX_PATH] = {0};
-		ANSICHAR* FileName = NULL;
-		const auto Result = GetFullPathNameA( ImageName, MAX_PATH, SearchPath, &FileName );
+		WCHAR SearchPath[MAX_PATH] = {0};
+		WCHAR* FileName = NULL;
+		const auto Result = GetFullPathNameW( ImageName, MAX_PATH, SearchPath, &FileName );
 
-		if( Result != 0 && Result < MAX_PATH )
+		FString SearchPathList;
+		if (Result != 0 && Result < MAX_PATH)
 		{
 			*FileName = 0;
-			SymSetSearchPath(GetCurrentProcess(), SearchPath);
+			SearchPathList = SearchPath;
+		}
+		if (!RemoteStorage.IsEmpty())
+		{
+			if (!SearchPathList.IsEmpty())
+			{
+				SearchPathList.AppendChar(';');
+			}
+			SearchPathList.Append(RemoteStorage);
 		}
 
+		SymSetSearchPathW(ProcessHandle, *SearchPathList);
+
 		// Load module.
-		const DWORD64 BaseAddress = SymLoadModule64( ProcessHandle, ModuleHandleArray[ModuleIndex], ImageName, ModuleName, (DWORD64) ModuleInfo.lpBaseOfDll, (uint32) ModuleInfo.SizeOfImage );
+		const DWORD64 BaseAddress = SymLoadModuleExW( ProcessHandle, ModuleHandlePointer[ModuleIndex], ImageName, ModuleName, (DWORD64) ModuleInfo.lpBaseOfDll, (uint32) ModuleInfo.SizeOfImage, NULL, 0 );
 		if( !BaseAddress )
 		{
 			ErrorCode = GetLastError();
+			UE_LOG(LogWindows, Warning, TEXT("SymLoadModuleExW. Error: %d"), GetLastError());
 		}
 	} 
 
 	// Free the module handle pointer allocated in case the static array was insufficient.
-	if( bNeedToFreeModuleHandlePointer )
-	{
-		GMalloc->Free( ModuleHandlePointer );
-	}
+	FMemory::Free(ModuleHandlePointer);
 }
 
 int32 FWindowsPlatformStackWalk::GetProcessModuleCount()
@@ -414,13 +522,10 @@ int32 FWindowsPlatformStackWalk::GetProcessModuleCount()
 	FPlatformStackWalk::InitStackWalking();
 
 	HANDLE ProcessHandle = GetCurrentProcess(); 
-	const int32	MAX_MOD_HANDLES = 1024;
-	HMODULE	ModuleHandleArray[MAX_MOD_HANDLES] = {0};
-	HMODULE* ModuleHandlePointer = ModuleHandleArray;
 	uint32 BytesRequired = 0;
 
 	// Enumerate process modules.
-	bool bEnumProcessModulesSucceeded = FEnumProcessModules( ProcessHandle, ModuleHandleArray, sizeof(ModuleHandleArray), (::DWORD *)&BytesRequired );
+	bool bEnumProcessModulesSucceeded = FEnumProcessModules( ProcessHandle, NULL, 0, (::DWORD *)&BytesRequired );
 	if( !bEnumProcessModulesSucceeded )
 	{
 		return 0;
@@ -436,49 +541,34 @@ int32 FWindowsPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo
 	FPlatformStackWalk::InitStackWalking();
 
 	HANDLE		ProcessHandle = GetCurrentProcess(); 
-	const int32	MAX_MOD_HANDLES = 1024;
-	HMODULE		ModuleHandleArray[MAX_MOD_HANDLES] = {0};
-	HMODULE*	ModuleHandlePointer = ModuleHandleArray;
-	uint32		BytesRequired;
 
 	// Enumerate process modules.
-	bool bEnumProcessModulesSucceeded = FEnumProcessModules( ProcessHandle, ModuleHandleArray, sizeof(ModuleHandleArray), (::DWORD *)&BytesRequired );
-	if( !bEnumProcessModulesSucceeded )
+	HMODULE* ModuleHandlePointer = GetProcessModules(ProcessHandle);
+	if (!ModuleHandlePointer)
 	{
 		return 0;
 	}
 
-	// Static array isn't sufficient so we dynamically allocate one.
-	bool bNeedToFreeModuleHandlePointer = false;
-	if( BytesRequired > sizeof( ModuleHandleArray ) )
-	{
-		// Keep track of the fact that we need to free it again.
-		bNeedToFreeModuleHandlePointer = true;
-		ModuleHandlePointer = (HMODULE*) FMemory::Malloc( BytesRequired );
-		FEnumProcessModules( ProcessHandle, ModuleHandlePointer, sizeof(ModuleHandleArray), (::DWORD *)&BytesRequired );
-	}
-
 	// Find out how many modules we need to load modules for.
-	const int32 ModuleCount = BytesRequired / sizeof( HMODULE );
 	IMAGEHLP_MODULEW64 Img = {0};
 	Img.SizeOfStruct = sizeof(Img);
 
 	int32 SignatureIndex = 0;
 
 	// Load the modules.
-	for( int32 ModuleIndex = 0; ModuleIndex < ModuleCount && SignatureIndex < ModuleSignaturesSize; ModuleIndex++ )
+	for( int32 ModuleIndex = 0; ModuleHandlePointer[ModuleIndex] && SignatureIndex < ModuleSignaturesSize; ModuleIndex++ )
 	{
 		MODULEINFO ModuleInfo = {0};
-		ANSICHAR ModuleName[MAX_PATH] = {0};
-		ANSICHAR ImageName[MAX_PATH] = {0};
+		WCHAR ModuleName[MAX_PATH] = {0};
+		WCHAR ImageName[MAX_PATH] = {0};
 #if PLATFORM_64BITS
 		static_assert(sizeof( MODULEINFO ) == 24, "Broken alignment for 64bit Windows include.");
 #else
 		static_assert(sizeof( MODULEINFO ) == 12, "Broken alignment for 32bit Windows include.");
 #endif
-		FGetModuleInformation( ProcessHandle, ModuleHandleArray[ModuleIndex], &ModuleInfo,sizeof( ModuleInfo ) );
-		FGetModuleFileNameEx( ProcessHandle, ModuleHandleArray[ModuleIndex], ImageName, MAX_PATH );
-		FGetModuleBaseName( ProcessHandle, ModuleHandleArray[ModuleIndex], ModuleName, MAX_PATH );
+		FGetModuleInformation( ProcessHandle, ModuleHandlePointer[ModuleIndex], &ModuleInfo, sizeof( ModuleInfo ) );
+		FGetModuleFileNameEx( ProcessHandle, ModuleHandlePointer[ModuleIndex], ImageName, MAX_PATH );
+		FGetModuleBaseName( ProcessHandle, ModuleHandlePointer[ModuleIndex], ModuleName, MAX_PATH );
 
 		// Load module.
 		if(SymGetModuleInfoW64(ProcessHandle, (DWORD64)ModuleInfo.lpBaseOfDll, &Img))
@@ -500,10 +590,7 @@ int32 FWindowsPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo
 	}
 
 	// Free the module handle pointer allocated in case the static array was insufficient.
-	if( bNeedToFreeModuleHandlePointer )
-	{
-		FMemory::Free( ModuleHandlePointer );
-	}
+	FMemory::Free(ModuleHandlePointer);
 
 	return SignatureIndex;
 }
@@ -514,6 +601,51 @@ int32 FWindowsPlatformStackWalk::GetProcessModuleSignatures(FStackWalkModuleInfo
 static void OnModulesChanged( FName ModuleThatChanged, EModuleChangeReason ReasonForChange )
 {
 	GNeedToRefreshSymbols = true;
+}
+
+FString FWindowsPlatformStackWalk::GetDownstreamStorage()
+{
+	FString DownstreamStorage;
+	if (GConfig->GetString(CrashReporterSettings, TEXT("DownstreamStorage"), DownstreamStorage, GEditorPerProjectIni) && !DownstreamStorage.IsEmpty())
+	{
+		DownstreamStorage = FPaths::ConvertRelativePathToFull(FPaths::RootDir(), DownstreamStorage);
+	}
+	else 
+	{
+		DownstreamStorage = FPaths::ConvertRelativePathToFull(FPaths::EngineIntermediateDir(), TEXT("Symbols"));
+	}
+	FPaths::MakePlatformFilename(DownstreamStorage);
+	return DownstreamStorage;
+}
+
+/**
+ * Create path symbol path.
+ * Reference: https://msdn.microsoft.com/en-us/library/ms681416%28v=vs.85%29.aspx?f=255&MSPPError=-2147217396
+ */
+static FString GetRemoteStorage(const FString& DownstreamStorage)
+{
+	TArray<FString> RemoteStorage;
+	GConfig->GetArray(CrashReporterSettings, TEXT("RemoteStorage"), RemoteStorage, GEditorPerProjectIni);
+	if (RemoteStorage.Num() > 0)
+	{
+		FString SymbolStorage;
+		for (int StorageIndex = 0; StorageIndex < RemoteStorage.Num(); ++StorageIndex)
+		{
+			if (StorageIndex > 0) 
+			{
+				SymbolStorage.AppendChar(';');
+			}
+			SymbolStorage.Append(TEXT("SRV*"));
+			SymbolStorage.Append(DownstreamStorage);
+			SymbolStorage.AppendChar('*');
+			SymbolStorage.Append(RemoteStorage[StorageIndex]);
+		}
+		return SymbolStorage;
+	}
+	else
+	{
+		return FString();
+	}
 }
 
 /**
@@ -538,8 +670,8 @@ bool FWindowsPlatformStackWalk::InitStackWalking()
 		// Load dynamically linked PSAPI routines.
 		FEnumProcesses			= (TFEnumProcesses)			FPlatformProcess::GetDllExport( DllHandle,TEXT("EnumProcesses"));
 		FEnumProcessModules		= (TFEnumProcessModules)	FPlatformProcess::GetDllExport( DllHandle,TEXT("EnumProcessModules"));
-		FGetModuleFileNameEx	= (TFGetModuleFileNameEx)	FPlatformProcess::GetDllExport( DllHandle,TEXT("GetModuleFileNameExA"));
-		FGetModuleBaseName		= (TFGetModuleBaseName)		FPlatformProcess::GetDllExport( DllHandle,TEXT("GetModuleBaseNameA"));
+		FGetModuleFileNameEx	= (TFGetModuleFileNameEx)	FPlatformProcess::GetDllExport( DllHandle,TEXT("GetModuleFileNameExW"));
+		FGetModuleBaseName		= (TFGetModuleBaseName)		FPlatformProcess::GetDllExport( DllHandle,TEXT("GetModuleBaseNameW"));
 		FGetModuleInformation	= (TFGetModuleInformation)	FPlatformProcess::GetDllExport( DllHandle,TEXT("GetModuleInformation"));
 
 		// Abort if we can't look up the functions.
@@ -569,8 +701,8 @@ bool FWindowsPlatformStackWalk::InitStackWalking()
 		SymSetOptions( SymOpts );
 
 		// Initialize the symbol engine.
-		SymInitialize( GetCurrentProcess(), NULL, true );
-		//LoadProcessModules();
+		const FString RemoteStorage = GetRemoteStorage(GetDownstreamStorage());
+		SymInitializeW( GetCurrentProcess(), RemoteStorage.IsEmpty() ? nullptr : *RemoteStorage, true );
 	
 		GNeedToRefreshSymbols = false;
 		GStackWalkingInitialized = true;
@@ -580,7 +712,6 @@ bool FWindowsPlatformStackWalk::InitStackWalking()
 	{
 		// Refresh and reload symbols
 		SymRefreshModuleList( GetCurrentProcess() );
-		//LoadProcessModules();
 		GNeedToRefreshSymbols = false;
 	}
 #endif

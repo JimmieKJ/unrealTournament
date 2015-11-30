@@ -39,6 +39,12 @@
     #endif
 #endif
 
+// scale factor for screen position, for cases where we may render certain things at lower resolutions (e.g. separate translucency)
+// any pass wanting to render at reduced resolution needs to simply set this constant to scale scene texture UVs to make scene texture accesses work
+#if PIXELSHADER && TRANSLUCENCY_RENDERING
+float2 ScreenPositionUVScale;
+#endif
+
 //Platforms that don't run the editor shouldn't need editor features in the shaders.
 #define PLATFORM_SUPPORTS_EDITOR_SHADERS (!PS4_PROFILE && !XBOXONE_PROFILE && !ES31_AEP_PROFILE)
 
@@ -1115,6 +1121,10 @@ float4 SceneTextureLookup(float2 UV, int SceneTextureIndex, bool bFiltered)
 {
 #if SCENE_TEXTURES_DISABLED
 	return float4(0.0f, 0.0f, 0.0f, 0.0f);
+#endif
+
+#if PIXELSHADER && TRANSLUCENCY_RENDERING
+	UV *= ScreenPositionUVScale;
 #endif
 
 	FScreenSpaceData ScreenSpaceData = GetScreenSpaceData(UV, false);

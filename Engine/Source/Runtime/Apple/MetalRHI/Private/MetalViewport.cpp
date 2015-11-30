@@ -165,11 +165,6 @@ void FMetalRHICommandContext::RHIEndDrawingViewport(FViewportRHIParamRef Viewpor
 #endif
 }
 
-bool FMetalDynamicRHI::RHIIsDrawingViewport()
-{
-	return true;
-}
-
 FTexture2DRHIRef FMetalDynamicRHI::RHIGetViewportBackBuffer(FViewportRHIParamRef ViewportRHI)
 {
 	FMetalViewport* Viewport = ResourceCast(ViewportRHI);

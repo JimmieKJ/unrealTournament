@@ -185,12 +185,12 @@ ESequencerNode::Type FSequencerTrackNode::GetType() const
 }
 
 
-void FSequencerTrackNode::SetDisplayName(const FText& DisplayName)
+void FSequencerTrackNode::SetDisplayName(const FText& NewDisplayName)
 {
 	auto NameableTrack = Cast<UMovieSceneNameableTrack>(AssociatedTrack.Get());
 
 	if (NameableTrack != nullptr)
 	{
-		NameableTrack->SetDisplayName(DisplayName);
+		NameableTrack->SetDisplayName(NewDisplayName);
 	}
 }

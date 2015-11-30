@@ -18,11 +18,11 @@ void FSingleAnimationPlayData::Initialize(UAnimSingleNodeInstance* Instance)
 
 void FSingleAnimationPlayData::PopulateFrom(UAnimSingleNodeInstance* Instance)
 {
-	AnimToPlay = Instance->CurrentAsset;
-	SavedPosition = Instance->CurrentTime;
-	SavedPlayRate = Instance->PlayRate;
-	bSavedPlaying = Instance->bPlaying;
-	bSavedLooping = Instance->bLooping;
+	AnimToPlay = Instance->GetCurrentAsset();
+	SavedPosition = Instance->GetCurrentTime();
+	SavedPlayRate = Instance->GetPlayRate();
+	bSavedPlaying = Instance->IsPlaying();
+	bSavedLooping = Instance->IsLooping();
 }
 
 void FSingleAnimationPlayData::ValidatePosition()

@@ -266,6 +266,7 @@ class GitPullRequest : BuildCommand
 		NewClient.Name = TestClient;
 		NewClient.View = new List<KeyValuePair<string, string>>();
 		NewClient.View.Add(new KeyValuePair<string, string>(Depot + "/...", "/..."));
+		NewClient.Stream = null;
 		if (!P4.DoesClientExist(TestClient))
 		{
 			P4.CreateClient(NewClient);

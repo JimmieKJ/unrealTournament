@@ -30,6 +30,7 @@ namespace cloth
 
 class SwFabric;
 class SwFactory;
+class SwCloth;
 
 typedef AlignedVector<PxVec4, 16>::Type Vec4fAlignedVector;
 
@@ -160,6 +161,9 @@ public:
 	float mSleepThreshold; // max movement delta to pass test
 	uint32_t mSleepPassCounter; // how many tests passed
 	uint32_t mSleepTestCounter; // how many iterations since tested
+
+	void* mSimulationTask;
+	static void(*const sSimulationFunction)(void*, float);
 
 	void* mUserData;
 

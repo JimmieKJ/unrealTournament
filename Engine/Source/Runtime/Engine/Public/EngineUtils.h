@@ -178,8 +178,8 @@ public:
 	{
 		check(IsInGameThread());
 		check(CurrentWorld);
-		EObjectFlags ExcludeFlags = RF_ClassDefaultObject|RF_PendingKill;
-		GetObjectsOfClass(InClass, ObjectArray, true, ExcludeFlags);
+		EObjectFlags ExcludeFlags = RF_ClassDefaultObject;
+		GetObjectsOfClass(InClass, ObjectArray, true, ExcludeFlags, EInternalObjectFlags::PendingKill);
 
 		auto ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FActorIteratorState::OnActorSpawned);
 		ActorSpawnedDelegateHandle = CurrentWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
@@ -198,7 +198,7 @@ public:
 	FORCEINLINE AActor* GetActorChecked() const
 	{
 		check(CurrentActor);
-		checkf(!CurrentActor->HasAnyFlags(RF_Unreachable), TEXT("%s"), *CurrentActor->GetFullName());
+		checkf(!CurrentActor->IsUnreachable(), TEXT("%s"), *CurrentActor->GetFullName());
 		return CurrentActor;
 	}
 

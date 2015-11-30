@@ -17,7 +17,6 @@
 #include "XAudio2Support.h"
 #include "IAudioExtensionPlugin.h"
 
-
 /*------------------------------------------------------------------------------------
 	For muting user soundtracks during cinematics
 ------------------------------------------------------------------------------------*/
@@ -246,6 +245,12 @@ void FXAudio2SoundSource::SubmitPCMRTBuffers( void )
 
 	ReadMorePCMData(2, DataReadMode);
 
+	if (DataReadMode == EDataReadMode::Synchronous)
+	{
+		AudioDevice->ValidateAPICall(TEXT("SubmitSourceBuffer - PCMRT"),
+									 Source->SubmitSourceBuffer(&XAudio2Buffers[2]));
+	}
+
 	bResourcesNeedFreeing = true;
 }
 
@@ -367,6 +372,7 @@ bool FXAudio2SoundSource::CreateSource( void )
 	// Reset the bUsingSpatializationEffect flag
 	bUsingHRTFSpatialization = false;
 	bool bCreatedWithSpatializationEffect = false;
+	MaxEffectChainChannels = 0;
 
 	if (CreateWithSpatializationEffect())
 	{
@@ -586,9 +592,6 @@ void FXAudio2SoundSource::GetMonoChannelVolumes(float ChannelVolumes[CHANNEL_MAT
 {
 	FSpatializationParams SpatializationParams = GetSpatializationParams();
 
-	// Convert to xaudio2 coordinates
-	SpatializationParams.EmitterPosition = ConvertToXAudio2Orientation(SpatializationParams.EmitterPosition);
-
 	if (IsUsingHrtfSpatializer())
 	{
 		// If we are using a HRTF spatializer, we are going to be using an XAPO effect that takes a mono stream and splits it into stereo
@@ -602,6 +605,9 @@ void FXAudio2SoundSource::GetMonoChannelVolumes(float ChannelVolumes[CHANNEL_MAT
 	}
 	else // Spatialize the mono stream using the normal 3d audio algorithm
 	{
+		// Convert to xaudio2 coordinates
+		SpatializationParams.EmitterPosition = ConvertToXAudio2Orientation(SpatializationParams.EmitterPosition);
+
 		// Calculate 5.1 channel dolby surround rate/multipliers.
 		ChannelVolumes[CHANNELOUT_FRONTLEFT] = AttenuatedVolume;
 		ChannelVolumes[CHANNELOUT_FRONTRIGHT] = AttenuatedVolume;
@@ -1184,20 +1190,25 @@ void FXAudio2SoundSource::Update( void )
 	// Set the amount to bleed to the LFE speaker
 	SetLFEBleed();
 
-	// Set the HighFrequencyGain value (aka low pass filter setting)
-	SetHighFrequencyGain();
+	// Set the low pass filter frequency value
+	SetFilterFrequency();
 
-	// Apply the low pass filter
-	XAUDIO2_FILTER_PARAMETERS LPFParameters = { LowPassFilter, 1.0f, 1.0f };
-	if( HighFrequencyGain < 1.0f - KINDA_SMALL_NUMBER )
+	if (LastLPFFrequency != LPFFrequency)
 	{
-		float FilterConstant = 2.0f * FMath::Sin( PI * 6000.0f * HighFrequencyGain / 48000.0f );
-		LPFParameters.Frequency = FilterConstant;
-		LPFParameters.OneOverQ = AudioDevice->GetLowPassFilterResonance();
-	}
+		// Apply the low pass filter
+		XAUDIO2_FILTER_PARAMETERS LPFParameters = { LowPassFilter, 1.0f, AudioDevice->GetLowPassFilterResonance() };
 
-	AudioDevice->ValidateAPICall( TEXT( "SetFilterParameters" ), 
-		Source->SetFilterParameters( &LPFParameters ) );	
+		check(AudioDevice->SampleRate > 0.0f);
+
+		// Convert the frequency value to normalized radian frequency values where 0.0f to 2.0f sweeps 0.0hz to sample rate
+		// and 1.0f is the nyquist frequency. A normalized frequency of 1.0f is an effective bypass.
+		LPFParameters.Frequency = FMath::Clamp(2.0f * LPFFrequency / AudioDevice->SampleRate, 0.0f, 1.0f);
+
+		AudioDevice->ValidateAPICall(TEXT("SetFilterParameters"),
+									 Source->SetFilterParameters(&LPFParameters));
+
+		LastLPFFrequency = LPFFrequency;
+	}
 
 	// Initialize channel volumes
 	float ChannelVolumes[CHANNEL_MATRIX_COUNT] = { 0.0f };
@@ -1550,6 +1561,9 @@ void FSpatializationHelper::Init()
 	Emitter.CurveDistanceScaler = 1.0f;
 	Emitter.DopplerScaler = 1.0f;
 
+	// Zero the matrix coefficients
+	FMemory::Memzero(MatrixCoefficients, sizeof(float)*ARRAY_COUNT(MatrixCoefficients));
+
 	DSPSettings.SrcChannelCount = UE4_XAUDIO3D_INPUTCHANNELS;
 	DSPSettings.DstChannelCount = SPEAKER_COUNT;
 	DSPSettings.pMatrixCoefficients = MatrixCoefficients;
@@ -1711,7 +1725,18 @@ void FSpatializationHelper::DumpSpatializationState() const
 
 void FSpatializationHelper::CalculateDolbySurroundRate( const FVector& OrientFront, const FVector& ListenerPosition, const FVector& EmitterPosition, float OmniRadius, float* OutVolumes  )
 {
-	uint32 CalculateFlags = X3DAUDIO_CALCULATE_MATRIX | X3DAUDIO_CALCULATE_DOPPLER | X3DAUDIO_CALCULATE_REVERB;
+#if ENABLE_NAN_DIAGNOSTIC
+	OrientFront.DiagnosticCheckNaN(TEXT("FSpatializationHelper: OrientFront"));
+	ListenerPosition.DiagnosticCheckNaN(TEXT("FSpatializationHelper: ListenerPosition"));
+	EmitterPosition.DiagnosticCheckNaN(TEXT("FSpatializationHelper: EmitterPosition"));
+	if (!FMath::IsFinite(OmniRadius))
+	{
+		const FString NaNorINF = FMath::IsNaN(OmniRadius) ? TEXT("NaN") : TEXT("INF");
+		UE_LOG(LogXAudio2, Warning, TEXT("OmniRadius generated a %s: %f"), *NaNorINF, OmniRadius);
+	}
+#endif
+
+	uint32 CalculateFlags = X3DAUDIO_CALCULATE_MATRIX | X3DAUDIO_CALCULATE_REVERB;
 
 	Listener.OrientFront.x = OrientFront.X;
 	Listener.OrientFront.y = OrientFront.Y;
@@ -1745,6 +1770,8 @@ void FSpatializationHelper::CalculateDolbySurroundRate( const FVector& OrientFro
 			//logOrEnsureNanError(TEXT("CalculateDolbySurroundRate generated a %s in channel %d. OmniRadius:%f MatrixCoefficient:%f"),
 			//	*NaNorINF, SpeakerIndex, OmniRadius, DSPSettings.pMatrixCoefficients[SpeakerIndex]);
 #endif
+			// Zero the coefficients so we don't continue getting bad values
+			FMemory::Memzero(MatrixCoefficients, sizeof(float)*ARRAY_COUNT(MatrixCoefficients));
 		}
 #endif
 	}

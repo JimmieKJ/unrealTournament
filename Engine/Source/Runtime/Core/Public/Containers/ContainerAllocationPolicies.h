@@ -4,6 +4,7 @@
 
 #include "MemoryBase.h"
 #include "Misc/OutputDevice.h"
+#include "Templates/MemoryOps.h"
 
 
 /** Used to determine the alignment of an element type. */

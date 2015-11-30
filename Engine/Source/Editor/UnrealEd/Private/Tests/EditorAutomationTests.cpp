@@ -276,7 +276,7 @@ bool FLoadAllMapsInEditorTest::RunTest(const FString& Parameters)
 	if (FEngineAnalytics::IsAvailable())
 	{
 		FEngineAnalytics::GetProvider().RecordEvent( TEXT("Editor.Usage.TestEvent"));
-		UE_LOG(LogAnalytics, Log, TEXT("AnayticsTest: Load All Maps automation triggered and Editor.Usage.TestEvent analytic event has been fired."));
+		UE_LOG(LogEditorAutomationTests, Log, TEXT("AnayticsTest: Load All Maps automation triggered and Editor.Usage.TestEvent analytic event has been fired."));
 	}
 	
 

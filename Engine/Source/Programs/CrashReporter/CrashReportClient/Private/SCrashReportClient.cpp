@@ -191,7 +191,7 @@ void SCrashReportClient::Construct(const FArguments& InArgs, TSharedRef<FCrashRe
 			.Padding( FMargin( 4, 12, 4, 4 ) )
 			[
 				SNew( SHorizontalBox )
-
+				.Visibility( FCrashReportClientConfig::Get().GetHideLogFilesOption() ? EVisibility::Collapsed : EVisibility::Visible )
 				+ SHorizontalBox::Slot()
 				.AutoWidth()
 				.VAlign( VAlign_Center )

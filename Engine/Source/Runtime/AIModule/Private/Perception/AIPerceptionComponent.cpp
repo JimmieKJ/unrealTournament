@@ -184,7 +184,8 @@ void UAIPerceptionComponent::OnRegister()
 	// this should not be needed but aparently AAIController::PostRegisterAllComponents
 	// gets called component's OnRegister
 	AIOwner = Cast<AAIController>(GetOwner());
-	ensure(AIOwner == nullptr || AIOwner->GetAIPerceptionComponent() == nullptr || AIOwner->GetAIPerceptionComponent() == this);
+	ensure(AIOwner == nullptr || AIOwner->GetAIPerceptionComponent() == nullptr || AIOwner->GetAIPerceptionComponent() == this
+		|| (AIOwner->GetWorld() && AIOwner->GetWorld()->WorldType != EWorldType::Editor));
 	if (AIOwner && AIOwner->GetAIPerceptionComponent() == nullptr)
 	{
 		AIOwner->SetPerceptionComponent(*this);
@@ -520,12 +521,30 @@ bool UAIPerceptionComponent::AgeStimuli(const float ConstPerceptionAgingRate)
 
 void UAIPerceptionComponent::ForgetActor(AActor* ActorToForget)
 {
-	PerceptualData.Remove(ActorToForget);
+	if (PerceptualData.Num() > 0)
+	{
+		UAIPerceptionSystem* AIPerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
+		if (AIPerceptionSys != nullptr && ActorToForget != nullptr)
+		{
+			AIPerceptionSys->OnListenerForgetsActor(*this, *ActorToForget);
+		}
+
+		PerceptualData.Remove(ActorToForget);
+	}
 }
 
 void UAIPerceptionComponent::ForgetAll()
 {
-	PerceptualData.Reset();
+	if (PerceptualData.Num() > 0)
+	{
+		UAIPerceptionSystem* AIPerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
+		if (AIPerceptionSys != nullptr)
+		{
+			AIPerceptionSys->OnListenerForgetsAll(*this);
+		}
+
+		PerceptualData.Reset();
+	}
 }
 
 float UAIPerceptionComponent::GetYoungestStimulusAge(const AActor& Source) const
@@ -639,48 +658,45 @@ bool UAIPerceptionComponent::GetActorsPerception(AActor* Actor, FActorPerception
 // debug
 //----------------------------------------------------------------------//
 #if !UE_BUILD_SHIPPING
-void UAIPerceptionComponent::GetDebugData(TArray<FString>& OnScreenStrings, TArray<FDrawDebugShapeElement>& DebugShapes) const
+void UAIPerceptionComponent::GrabGameplayDebuggerData(TArray<FString>& OnScreenStrings, TArray<FGameplayDebuggerShapeElement>& DebugShapes) const
 {
+#if ENABLED_GAMEPLAY_DEBUGGER
+	UAIPerceptionSystem* PerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
+	check(PerceptionSys);
+
+	for (UAIPerceptionComponent::TActorPerceptionContainer::TConstIterator It(GetPerceptualDataConstIterator()); It; ++It)
 	{
-		UAIPerceptionSystem* PerceptionSys = UAIPerceptionSystem::GetCurrent(GetWorld());
-		check(PerceptionSys);
-
-		for (UAIPerceptionComponent::TActorPerceptionContainer::TConstIterator It(GetPerceptualDataConstIterator()); It; ++It)
+		if (It->Key == NULL)
 		{
-			if (It->Key == NULL)
-			{
-				continue;
-			}
+			continue;
+		}
 
-			const FActorPerceptionInfo& ActorPerceptionInfo = It->Value;
+		const FActorPerceptionInfo& ActorPerceptionInfo = It->Value;
 
-			if (ActorPerceptionInfo.Target.IsValid())
+		if (ActorPerceptionInfo.Target.IsValid())
+		{
+			const FVector TargetLocation = ActorPerceptionInfo.Target->GetActorLocation();
+			for (const auto& Stimulus : ActorPerceptionInfo.LastSensedStimuli)
 			{
-				const FVector TargetLocation = ActorPerceptionInfo.Target->GetActorLocation();
-				for (const auto& Stimulus : ActorPerceptionInfo.LastSensedStimuli)
+				if (Stimulus.Strength >= 0)
 				{
-					if (Stimulus.Strength >= 0)
-					{
-						const FString Description = FString::Printf(TEXT("%s: %.2f a:%.2f"), *PerceptionSys->GetSenseName(Stimulus.Type), Stimulus.Strength, Stimulus.GetAge());
-						DebugShapes.Add(FDrawDebugShapeElement::MakeString(Description, Stimulus.StimulusLocation + FVector(0, 0, 30)));
+					const FString Description = FString::Printf(TEXT("%s: %.2f a:%.2f"), *PerceptionSys->GetSenseName(Stimulus.Type), Stimulus.Strength, Stimulus.GetAge());
+					DebugShapes.Add(UGameplayDebuggerHelper::MakeString(Description, Stimulus.StimulusLocation + FVector(0, 0, 30)));
 
-						const FColor DebugColor = PerceptionSys->GetSenseDebugColor(Stimulus.Type);
-						DebugShapes.Add(FDrawDebugShapeElement::MakePoint(Stimulus.StimulusLocation, DebugColor, 30));
-						DebugShapes.Add(FDrawDebugShapeElement::MakeLine(Stimulus.ReceiverLocation, Stimulus.StimulusLocation, DebugColor));
-						DebugShapes.Add(FDrawDebugShapeElement::MakeLine(TargetLocation, Stimulus.StimulusLocation, FColor::Black));
-					}
+					const FColor DebugColor = PerceptionSys->GetSenseDebugColor(Stimulus.Type);
+					DebugShapes.Add(UGameplayDebuggerHelper::MakePoint(Stimulus.StimulusLocation, DebugColor, 30));
+					DebugShapes.Add(UGameplayDebuggerHelper::MakeLine(Stimulus.ReceiverLocation, Stimulus.StimulusLocation, DebugColor));
+					DebugShapes.Add(UGameplayDebuggerHelper::MakeLine(TargetLocation, Stimulus.StimulusLocation, FColor::Black));
 				}
 			}
 		}
-
-		for (auto Sense : SensesConfig)
-		{
-			if (Sense)
-			{
-				Sense->GetDebugData(OnScreenStrings, DebugShapes, *this);
-			}
-		}
 	}
+
+	for (auto Sense : SensesConfig)
+	{
+		Sense->GetDebugData(OnScreenStrings, DebugShapes, *this);
+	}
+#endif
 }
 
 #endif // !UE_BUILD_SHIPPING

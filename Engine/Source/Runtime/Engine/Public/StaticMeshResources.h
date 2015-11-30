@@ -553,6 +553,9 @@ struct FStaticMeshLODResources
 	/** The vertex factory used when rendering this mesh. */
 	FLocalVertexFactory VertexFactory;
 
+	/** The vertex factory used when rendering this mesh with vertex colors. This is lazy init.*/
+	FLocalVertexFactory VertexFactoryOverrideColorVertexBuffer;
+
 	/** Sections for this LOD. */
 	TArray<FStaticMeshSection> Sections;
 
@@ -573,6 +576,7 @@ struct FStaticMeshLODResources
 
 	/** True if the reversed index buffers contained data at init. Needed as it will not be available to the CPU afterwards. */
 	uint32 bHasReversedDepthOnlyIndices: 1;
+
 
 	uint32 DepthOnlyNumTriangles;
 
@@ -603,9 +607,9 @@ struct FStaticMeshLODResources
 	 *
 	 * @param	InOutVertexFactory				The vertex factory to configure
 	 * @param	InParentMesh					Parent static mesh
-	 * @param	InOverrideColorVertexBuffer		Optional color vertex buffer to use *instead* of the color vertex stream associated with this static mesh
+	 * @param	bInOverrideColorVertexBuffer	If true, make a vertex factory ready for per-instance colors
 	 */
-	void InitVertexFactory(FLocalVertexFactory& InOutVertexFactory, UStaticMesh* InParentMesh, FColorVertexBuffer* InOverrideColorVertexBuffer);
+	void InitVertexFactory(FLocalVertexFactory& InOutVertexFactory, UStaticMesh* InParentMesh, bool bInOverrideColorVertexBuffer);
 };
 
 /**
@@ -701,7 +705,7 @@ public:
 		{
 			if ( It->StaticMesh == InStaticMesh )
 			{
-				checkf( !It->HasAnyFlags(RF_Unreachable), TEXT("%s"), *It->GetFullName() );
+				checkf( !It->IsUnreachable(), TEXT("%s"), *It->GetFullName() );
 
 				if ( It->bRenderStateCreated )
 				{
@@ -807,6 +811,9 @@ public:
 	virtual void GetMeshDescription(int32 LODIndex, TArray<FMeshBatch>& OutMeshElements) const override;
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override;
+
+	virtual void GetLCIs(FLCIArray& LCIs) override;
+
 protected:
 
 	/** Information used by the proxy about a single LOD of the mesh. */
@@ -851,16 +858,8 @@ protected:
 
 		const FRawStaticIndexBuffer* PreCulledIndexBuffer;
 
-		/** When the mesh component has overridden the LOD's vertex colors, this vertex factory will be created
-		    and passed along to the renderer instead of the mesh's stock vertex factory */
-		TScopedPointer< FLocalVertexFactory > OverrideColorVertexFactory;
-
-
 		/** Initialization constructor. */
 		FLODInfo(const UStaticMeshComponent* InComponent,int32 InLODIndex);
-
-		/** Destructor */
-		virtual ~FLODInfo();
 
 		// Accessors.
 		const FLightMap* GetLightMap() const
@@ -871,11 +870,21 @@ protected:
 		bool UsesMeshModifyingMaterials() const { return bUsesMeshModifyingMaterials; }
 
 		// FLightCacheInterface.
-		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const;
+		virtual FLightInteraction GetInteraction(const FLightSceneProxy* LightSceneProxy) const override;
 
-		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const;
+		virtual FLightMapInteraction GetLightMapInteraction(ERHIFeatureLevel::Type InFeatureLevel) const override;
 
-		virtual FShadowMapInteraction GetShadowMapInteraction() const;
+		virtual FShadowMapInteraction GetShadowMapInteraction() const override;
+
+		virtual void SetPrecomputedLightingBuffer(FUniformBufferRHIParamRef InPrecomputedLightingUniformBuffer) override
+		{
+			PrecomputedLightingUniformBuffer = InPrecomputedLightingUniformBuffer;
+		}
+
+		virtual FUniformBufferRHIRef GetPrecomputedLightingBuffer() const override
+		{
+			return PrecomputedLightingUniformBuffer;
+		}
 
 
 	private:
@@ -887,6 +896,9 @@ protected:
 		FShadowMap* ShadowMap;
 
 		TArray<FGuid> IrrelevantLights;
+
+		/** The uniform buffer holding mapping the lightmap policy resources. */
+		FUniformBufferRHIRef PrecomputedLightingUniformBuffer;
 
 		/** True if any elements in this LOD use mesh-modifying materials **/
 		bool bUsesMeshModifyingMaterials;

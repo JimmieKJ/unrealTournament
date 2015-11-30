@@ -17,6 +17,7 @@
 #include "LightmassLandscapeRender.h"
 #include "LandscapeMaterialInstanceConstant.h"
 #include "LandscapeLight.h"
+#include "EngineModule.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogLightmassRender, Error, All);
 
@@ -1014,6 +1015,13 @@ bool FLightmassMaterialRenderer::GenerateMaterialPropertyData(
 			}
 			else
 			{
+				ENQUEUE_UNIQUE_RENDER_COMMAND(
+					InitializeSystemTextures,
+					{
+						GetRendererModule().InitializeSystemTextures(RHICmdList);
+					});
+				
+
 				if (bIsLandscapeMaterial)
 				{
 					// Landscape needs special handling because it uses multiple UVs, which isn't yet supported by lightmass's regular pipeline

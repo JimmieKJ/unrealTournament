@@ -35,17 +35,41 @@ enum class ESavePackageResult
 	/** [When cooking] Package was not saved because it was referenced by editor-only properties */
 	ReferencedOnlyByEditorOnlyData, 
 	/** [When cooking] Package was not saved because it contains assets that were converted into native code */
-	ContainsConvertedAssets
+	ReplaceCompletely,
+	/** [When cooking] Package was saved, but we should generate a stub so that other converted packages can interface with it*/
+	GenerateStub
 };
 
 /**
  * A package.
  */
+PRAGMA_DISABLE_DEPRECATION_WARNINGS // Required for auto-generated functions referencing PackageFlags
 class COREUOBJECT_API UPackage : public UObject
 {
-	DECLARE_CASTED_CLASS_INTRINSIC(UPackage,UObject,0,CoreUObject, CASTCLASS_UPackage)
+	// Have to unwind this macro to support the reference variable, can go back to commented declaration when removing the deprecated variable
+	// DECLARE_CASTED_CLASS_INTRINSIC(UPackage, UObject, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UPackage)
+
+#if WITH_HOT_RELOAD_CTORS
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR_NO_VTABLE_CTOR( UPackage, UObject, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UPackage, NO_API )
+	/** DO NOT USE. This constructor is for internal usage only for hot-reload purposes. */
+	UPackage(FVTableHelper& Helper)
+		: Super(Helper)
+		, PackageFlagsPrivate(PackageFlags) 
+	{
+	};
+#else
+	DECLARE_CASTED_CLASS_INTRINSIC_NO_CTOR(UPackage, UObject, 0, TEXT("/Script/CoreUObject"), CASTCLASS_UPackage, NO_API)
+#endif
+
 
 public:
+
+	UPackage(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get())
+		: Super(ObjectInitializer)
+		, PackageFlagsPrivate(PackageFlags)
+	{
+	}
+
 	/** delegate type for package dirty state events.  ( Params: UPackage* ModifiedPackage ) */
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPackageDirtyStateChanged, class UPackage*);
 	/** delegate type for package saved events ( Params: const FString& PackageFileName, UObject* Outer ) */
@@ -54,7 +78,7 @@ public:
 	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnPackageMarkedDirty, class UPackage*, bool);
 
 	/** Delegate to notify subscribers when a package has been saved. This is triggered when the package saving
-	 *  has completed and was successfull. */
+	 *  has completed and was successful. */
 	static FOnPackageSaved PackageSavedEvent;
 	/** Delegate to notify subscribers when the dirty state of a package is changed.
 	 *  Allows the editor to register the modified package as one that should be prompted for source control checkout. 
@@ -103,7 +127,14 @@ public:
 	bool IsLoadedByEditorPropertiesOnly() const { return bLoadedByEditorPropertiesOnly; }
 #endif
 
-	/** Package flags, serialized.*/
+private:
+	/** New private Package Flags. When deprecated PackageFlags removed, make this a member instead of a reference */
+	uint32&	PackageFlagsPrivate;
+
+public:
+
+	/** Old deprecated public Package flags, serialized. When deprecation removed make PackageFlagsPrivate no longer a reference */
+	DEPRECATED(4.10, "Direct access of PackageFlags is deprecated, use Get/Set/Clear/HasAny/HasAll PackageFlags instead.")
 	uint32	PackageFlags;
 
 	/** The name of the file that this package was loaded from */
@@ -262,7 +293,7 @@ public:
 	 */
 	void ThisContainsMap() 
 	{
-		PackageFlags |= PKG_ContainsMap;
+		SetPackageFlags(PKG_ContainsMap);
 	}
 
 	/**
@@ -272,7 +303,7 @@ public:
 	 */
 	bool ContainsMap() const
 	{
-		return (PackageFlags & PKG_ContainsMap) ? true : false;
+		return HasAnyPackageFlags(PKG_ContainsMap);
 	}
 
 	/**
@@ -282,11 +313,11 @@ public:
 	{
 		if(Value)
 		{
-			PackageFlags |= PKG_RequiresLocalizationGather;
+			SetPackageFlags(PKG_RequiresLocalizationGather);
 		}
 		else
 		{
-			PackageFlags &= ~PKG_RequiresLocalizationGather;
+			ClearPackageFlags(PKG_RequiresLocalizationGather);
 		}
 	}
 
@@ -297,7 +328,77 @@ public:
 	 */
 	bool RequiresLocalizationGather() const
 	{
-		return (PackageFlags & PKG_RequiresLocalizationGather) ? true : false;
+		return HasAnyPackageFlags(PKG_RequiresLocalizationGather);
+	}
+
+// UE-21181 - trying to track when a flag gets set on a package due to PIE
+#if WITH_EDITOR
+	static UPackage* EditorPackage;
+	void SetPackageFlagsTo( uint32 NewFlags );
+#else
+	/**
+	 * Sets all package flags to the specified values.
+	 *
+	 * @param	NewFlags		New value for package flags
+	 */
+	FORCEINLINE void SetPackageFlagsTo( uint32 NewFlags )
+	{
+		PackageFlagsPrivate = NewFlags;
+	}
+#endif
+
+	/**
+	 * Set the specified flags to true. Does not affect any other flags.
+	 *
+	 * @param	NewFlags		Package flags to enable
+	 */
+	FORCEINLINE void SetPackageFlags( uint32 NewFlags )
+	{
+		SetPackageFlagsTo(PackageFlagsPrivate | NewFlags);
+	}
+
+	/**
+	 * Set the specified flags to false. Does not affect any other flags.
+	 *
+	 * @param	NewFlags		Package flags to disable
+	 */
+	FORCEINLINE void ClearPackageFlags( uint32 NewFlags )
+	{
+		SetPackageFlagsTo(PackageFlagsPrivate & ~NewFlags);
+	}
+
+	/**
+	 * Used to safely check whether the passed in flag is set.
+	 *
+	 * @param	FlagsToCheck		Package flags to check for
+	 *
+	 * @return	true if the passed in flag is set, false otherwise
+	 *			(including no flag passed in, unless the FlagsToCheck is CLASS_AllFlags)
+	 */
+	FORCEINLINE bool HasAnyPackageFlags( uint32 FlagsToCheck ) const
+	{
+		return (PackageFlagsPrivate & FlagsToCheck) != 0;
+	}
+
+	/**
+	 * Used to safely check whether all of the passed in flags are set.
+	 *
+	 * @param FlagsToCheck	Package flags to check for
+	 * @return true if all of the passed in flags are set (including no flags passed in), false otherwise
+	 */
+	FORCEINLINE bool HasAllPackagesFlags( uint32 FlagsToCheck ) const
+	{
+		return ((PackageFlagsPrivate & FlagsToCheck) == FlagsToCheck);
+	}
+
+	/**
+	 * Gets the package flags.
+	 *
+	 * @return	The package flags.
+	 */
+	FORCEINLINE uint32 GetPackageFlags() const
+	{
+		return PackageFlagsPrivate;
 	}
 
 	typedef TFunction<void (const UObject* const, TArray<FGatherableTextData>&)> FLocalizationDataGatheringCallback;
@@ -472,6 +573,7 @@ public:
 	static EObjectMark GetObjectMarksForTargetPlatform( const class ITargetPlatform* TargetPlatform, const bool bIsCooking );
 
 };
+PRAGMA_ENABLE_DEPRECATION_WARNINGS
 
 /*-----------------------------------------------------------------------------
 	UMetaData.
@@ -482,7 +584,7 @@ public:
  */
 class COREUOBJECT_API UMetaData : public UObject
 {
-	DECLARE_CLASS_INTRINSIC(UMetaData, UObject, 0, CoreUObject)
+	DECLARE_CLASS_INTRINSIC(UMetaData, UObject, 0, TEXT("/Script/CoreUObject"))
 
 public:
 	// Variables.
@@ -590,6 +692,9 @@ public:
 #if HACK_HEADER_GENERATOR
 	// Returns the remapped key name, or NAME_None was not remapped.
 	static FName GetRemappedKeyName(FName OldKey);
+
+	// Required by UHT makefiles for internal data serialization.
+	friend struct FMetadataArchiveProxy;
 #endif
 
 private:

@@ -35,7 +35,7 @@ void STextBlock::Construct( const FArguments& InArgs )
 #if WITH_FANCY_TEXT
 
 	// We use a dummy style here (as it may not be safe to call the delegates used to compute the style), but the correct style is set by ComputeDesiredSize
-	TextLayoutCache = FTextBlockLayout::Create(FTextBlockStyle::GetDefault(), FPlainTextLayoutMarshaller::Create(), InArgs._LineBreakPolicy);
+	TextLayoutCache = FTextBlockLayout::Create(FTextBlockStyle::GetDefault(), InArgs._TextShapingMethod, InArgs._TextFlowDirection, FPlainTextLayoutMarshaller::Create(), InArgs._LineBreakPolicy);
 
 #endif//WITH_FANCY_TEXT
 }
@@ -111,11 +111,11 @@ void STextBlock::SetText( const FText& InText )
 		const int32 OldLength = OldString.Len();
 		const int32 NewLength = NewString.Len();
 
-		// We only perform this optimization if the text we're checking is smaller 
-		// than 30 characters otherwise we may be comparing pages of text.
-		if ( OldLength == NewLength && OldLength <= 30 )
+		// Only compare reasonably sized strings, it's not worth checking this
+		// for large blocks of text.
+		if ( OldLength <= 20 )
 		{
-			if ( OldString == NewString )
+			if ( OldString.Compare(NewString, ESearchCase::CaseSensitive) == 0 )
 			{
 				return;
 			}

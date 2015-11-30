@@ -6,7 +6,6 @@
 
 #include "EnginePrivate.h"
 #include "GPUSkinVertexFactory.h"
-#include "SkeletalRenderGPUSkin.h"	// FPreviousPerBoneMotionBlur
 #include "GPUSkinCache.h"
 #include "ShaderParameters.h"
 #include "ShaderParameterUtils.h"
@@ -192,38 +191,51 @@ struct FRHICommandUpdateBoneBuffer : public FRHICommand<FRHICommandUpdateBoneBuf
 	}
 };
 
-bool FGPUBaseSkinVertexFactory::ShaderDataType::UpdateBoneData(FRHICommandListImmediate& RHICmdList, const TArray<FMatrix>& ReferenceToLocalMatrices, const TArray<FBoneIndexType>& BoneMap, ERHIFeatureLevel::Type FeatureLevel, bool bUseSkinCache)
+void FGPUBaseSkinVertexFactory::ShaderDataType::GoToNextFrame(uint32 FrameNumber)
 {
-	HackReferenceToLocalMatrices = &ReferenceToLocalMatrices;
-	HackBoneMap = &BoneMap;
+	PreviousFrameNumber = FrameNumber;
+	CurrentBuffer = 1 - CurrentBuffer;
+}
 
+bool FGPUBaseSkinVertexFactory::ShaderDataType::UpdateBoneData(FRHICommandListImmediate& RHICmdList, const TArray<FMatrix>& ReferenceToLocalMatrices,
+	const TArray<FBoneIndexType>& BoneMap, uint32 FrameNumber, ERHIFeatureLevel::Type FeatureLevel, bool bUseSkinCache)
+{
 	const uint32 NumBones = BoneMap.Num();
 	check(NumBones <= MaxGPUSkinBones);
 	FBoneSkinning* ChunkMatrices = nullptr;
+
+	FBoneBufferTypeRef* CurrentBoneBuffer = 0;
+
 	if (FeatureLevel >= ERHIFeatureLevel::ES3_1)
 	{
+		check(IsInRenderingThread());
+		GoToNextFrame(FrameNumber);
+
+		CurrentBoneBuffer = &GetBoneBufferForWriting(false, FrameNumber);
+
 		static FSharedPoolPolicyData PoolPolicy;
 		uint32 NumVectors = NumBones*3;
 		check(NumVectors <= (MaxGPUSkinBones*3));
 		uint32 VectorArraySize = NumVectors * sizeof(FVector4);
 		uint32 PooledArraySize = BoneBufferPool.PooledSizeForCreationArguments(VectorArraySize);
-		if(!IsValidRef(BoneBuffer) || PooledArraySize != BoneBuffer.VertexBufferRHI->GetSize())
+
+		if(!IsValidRef(*CurrentBoneBuffer) || PooledArraySize != CurrentBoneBuffer->VertexBufferRHI->GetSize())
 		{
-			if(IsValidRef(BoneBuffer))
+			if(IsValidRef(*CurrentBoneBuffer))
 			{
-				BoneBufferPool.ReleasePooledResource(BoneBuffer);
+				BoneBufferPool.ReleasePooledResource(*CurrentBoneBuffer);
 			}
-			BoneBuffer = BoneBufferPool.CreatePooledResource(VectorArraySize);
-			check(IsValidRef(BoneBuffer));
+			*CurrentBoneBuffer = BoneBufferPool.CreatePooledResource(VectorArraySize);
+			check(IsValidRef(*CurrentBoneBuffer));
 		}
 		if(NumBones)
 		{
 			if (!bUseSkinCache && DeferSkeletalLockAndFillToRHIThread())
 			{
-				new (RHICmdList.AllocCommand<FRHICommandUpdateBoneBuffer>()) FRHICommandUpdateBoneBuffer(BoneBuffer.VertexBufferRHI, VectorArraySize, ReferenceToLocalMatrices, BoneMap);
+				new (RHICmdList.AllocCommand<FRHICommandUpdateBoneBuffer>()) FRHICommandUpdateBoneBuffer(CurrentBoneBuffer->VertexBufferRHI, VectorArraySize, ReferenceToLocalMatrices, BoneMap);
 				return true;
 			}
-			ChunkMatrices = (FBoneSkinning*)RHILockVertexBuffer(BoneBuffer.VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
+			ChunkMatrices = (FBoneSkinning*)RHILockVertexBuffer(CurrentBoneBuffer->VertexBufferRHI, 0, VectorArraySize, RLM_WriteOnly);
 		}
 	}
 	else
@@ -257,7 +269,8 @@ bool FGPUBaseSkinVertexFactory::ShaderDataType::UpdateBoneData(FRHICommandListIm
 	{
 		if (NumBones)
 		{
-			RHIUnlockVertexBuffer(BoneBuffer.VertexBufferRHI);
+			check(CurrentBoneBuffer);
+			RHIUnlockVertexBuffer(CurrentBoneBuffer->VertexBufferRHI);
 		}
 	}
 	else
@@ -451,7 +464,6 @@ public:
 	*/
 	virtual void Bind(const FShaderParameterMap& ParameterMap) override
 	{
-		BoneIndexOffset.Bind(ParameterMap,TEXT("BoneIndexOffset"));
 		MeshOriginParameter.Bind(ParameterMap,TEXT("MeshOrigin"));
 		MeshExtensionParameter.Bind(ParameterMap,TEXT("MeshExtension"));
 		PerBoneMotionBlur.Bind(ParameterMap,TEXT("PerBoneMotionBlur"));
@@ -464,7 +476,6 @@ public:
 	*/
 	virtual void Serialize(FArchive& Ar) override
 	{
-		Ar << BoneIndexOffset;
 		Ar << MeshOriginParameter;
 		Ar << MeshExtensionParameter;
 		Ar << PerBoneMotionBlur;
@@ -475,7 +486,7 @@ public:
 	/** Are we are in the velocity rendering pass or render velocity in the base pass? */
 	bool IsRenderingVelocity() const
 	{
-		return BoneIndexOffset.IsBound();
+		return PreviousBoneMatrices.IsBound();
 	}
 
 	/**
@@ -483,159 +494,50 @@ public:
 	*/
 	virtual void SetMesh(FRHICommandList& RHICmdList, FShader* Shader, const FVertexFactory* VertexFactory, const FSceneView& View, const FMeshBatchElement& BatchElement, uint32 DataFlags) const override
 	{
-		if(Shader->GetVertexShader())
-		{
-			uint32 FrameNumber = View.Family->FrameNumber;
+		FRHIVertexShader* ShaderRHI = Shader->GetVertexShader();
 
-			const auto FeatureLevel = View.GetFeatureLevel();
+		if(ShaderRHI)
+		{
 			const FGPUBaseSkinVertexFactory::ShaderDataType& ShaderData = ((const FGPUBaseSkinVertexFactory*)VertexFactory)->GetShaderData();
 
-			SetShaderValue(
-				RHICmdList, 
-				Shader->GetVertexShader(), 
-				MeshOriginParameter, 
-				ShaderData.MeshOrigin
-				);
-			SetShaderValue(
-				RHICmdList, 
-				Shader->GetVertexShader(), 
-				MeshExtensionParameter, 
-				ShaderData.MeshExtension
-				);
-			
+			SetShaderValue(RHICmdList, ShaderRHI, MeshOriginParameter, ShaderData.MeshOrigin);
+			SetShaderValue(RHICmdList, ShaderRHI, MeshExtensionParameter, ShaderData.MeshExtension);
+	
+			const auto FeatureLevel = View.GetFeatureLevel();
+
+			bool bLocalPerBoneMotionBlur = false;
+
 			if (FeatureLevel >= ERHIFeatureLevel::ES3_1)
 			{
 				if(BoneMatrices.IsBound())
 				{
-					RHICmdList.SetShaderResourceViewParameter(Shader->GetVertexShader(), BoneMatrices.GetBaseIndex(), ShaderData.GetBoneBuffer().VertexBufferSRV);
+					FShaderResourceViewRHIParamRef CurrentData = ShaderData.GetBoneBufferForReading(false, View.Family->FrameNumber).VertexBufferSRV;
+
+					RHICmdList.SetShaderResourceViewParameter(ShaderRHI, BoneMatrices.GetBaseIndex(), CurrentData);
+				}
+				if(PreviousBoneMatrices.IsBound())
+				{
+					// todo: Maybe a check for PreviousData!=CurrentData would save some performance (when objects don't have velocty yet) but removing the bool also might save performance
+					bLocalPerBoneMotionBlur = true;
+
+					FShaderResourceViewRHIParamRef PreviousData = ShaderData.GetBoneBufferForReading(true, View.Family->FrameNumber).VertexBufferSRV;
+
+					RHICmdList.SetShaderResourceViewParameter(ShaderRHI, PreviousBoneMatrices.GetBaseIndex(), PreviousData);
 				}
 			}
 			else
 			{
-				SetUniformBufferParameter(RHICmdList, Shader->GetVertexShader(), Shader->GetUniformBufferParameter<FBoneMatricesUniformShaderParameters>(), ShaderData.GetUniformBuffer());
+				SetUniformBufferParameter(RHICmdList, ShaderRHI, Shader->GetUniformBufferParameter<FBoneMatricesUniformShaderParameters>(), ShaderData.GetUniformBuffer());
 			}
 
-			bool bLocalPerBoneMotionBlur = false;
 
-
-			if (FeatureLevel >= ERHIFeatureLevel::SM4 && GPrevPerBoneMotionBlur.IsVelocityPass(RHICmdList) && PreviousBoneMatrices.IsBound() &&
-				ShaderData.HackReferenceToLocalMatrices && ShaderData.HackBoneMap)
-			{
-				const bool bWorldIsPaused = View.Family->bWorldIsPaused;
-
-				// we are in the velocity rendering pass
-
-				// 0xffffffff or valid index
-				uint32 OldBoneDataIndex = ShaderData.GetOldBoneData(bWorldIsPaused ? (FrameNumber - 1) : FrameNumber);
-
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-				{
-					static const auto MotionBlurDebugVar = IConsoleManager::Get().FindTConsoleVariableDataInt(TEXT("r.MotionBlurDebug"));
-
-					if (MotionBlurDebugVar && MotionBlurDebugVar->GetValueOnRenderThread())
-					{
-						UE_LOG(LogEngine, Log, TEXT("%s"), *ShaderData.GetDebugString(VertexFactory, OldBoneDataIndex));
-					}
-				}
-#endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-
-				// Read old data if it was written last frame (normal data) or this frame (e.g. split screen)
-				bLocalPerBoneMotionBlur = (OldBoneDataIndex != 0xffffffff);
-
-				// we tell the shader where to pickup the data (always, even if we don't have bone data, to avoid false binding)
-				if(PreviousBoneMatrices.IsBound())
-				{
-					RHICmdList.SetShaderResourceViewParameter(
-						Shader->GetVertexShader(),
-						PreviousBoneMatrices.GetBaseIndex(),
-						GPrevPerBoneMotionBlur.GetBoneDataVertexBuffer(GPrevPerBoneMotionBlur.GetReadBufferIndex())->BoneBuffer.VertexBufferSRV);
-				}
-
-				if(bLocalPerBoneMotionBlur)
-				{
-					uint32 BoneIndexOffsetValue[4];
-
-					BoneIndexOffsetValue[0] = OldBoneDataIndex;
-					BoneIndexOffsetValue[1] = OldBoneDataIndex + 1;
-					BoneIndexOffsetValue[2] = OldBoneDataIndex + 2;
-					BoneIndexOffsetValue[3] = 0;
-
-					SetShaderValue(
-						RHICmdList, 
-						Shader->GetVertexShader(), 
-						BoneIndexOffset, 
-						BoneIndexOffsetValue
-						);
-				}
-				FScopeLock Lock(&ShaderData.OldBoneDataLock);
-
-				const FGPUBaseSkinVertexFactory* GPUVertexFactory = (const FGPUBaseSkinVertexFactory*)VertexFactory;
-
-				// if we haven't copied the data yet we skip the update (e.g. split screen)
-				if(ShaderData.IsOldBoneDataUpdateNeeded(FrameNumber))
-				{
-					if (bWorldIsPaused)
-					{
-						GPUVertexFactory->MaintainBoneDataStartIndex();
-					}
-					else
-					{
-						check(GPrevPerBoneMotionBlur.IsAppendStarted());
-#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-						if (CVarVelocityTest.GetValueOnRenderThread())
-						{
-							// We add some black gap between the elements, to ensure we pick the right data for this frame
-							// wwe create different gap size on alternating frames.
-							FBoneSkinning* ChunkMatrices = nullptr;
-							GPrevPerBoneMotionBlur.AppendData(ChunkMatrices, (FrameNumber % 2) + 4);
-							if (ChunkMatrices)
-							{
-								FMemory::Memset(ChunkMatrices, 0, sizeof(FBoneSkinning) * 10);
-							}
-						}
-#endif // if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-
-						const TArray<FMatrix>& ReferenceToLocalMatrices = *ShaderData.HackReferenceToLocalMatrices;
-						const TArray<FBoneIndexType>& BoneMap = *ShaderData.HackBoneMap;
-						// copy the bone data and tell the instance where it can pick it up next frame
-						// append data to a buffer we bind next frame to read old matrix data for motion blur
-						const int32 NumBones = BoneMap.Num();
-						FBoneSkinning* ChunkMatrices = nullptr;
-						uint32 OldBoneDataStartIndex = GPrevPerBoneMotionBlur.AppendData(ChunkMatrices, NumBones);
-						if (ChunkMatrices)
-						{
-							//FSkinMatrix3x4 is sizeof() == 48
-							// CACHE_LINE_SIZE (128) / 48 = 2.6
-							//  sizeof(FMatrix) == 64
-							// CACHE_LINE_SIZE (128) / 64 = 2
-							const int32 PreFetchStride = 2; // FPlatformMisc::Prefetch stride
-
-							{
-								QUICK_SCOPE_CYCLE_COUNTER(STAT_FGPUBaseSkinVertexFactory_SFGPUSkinVertexFactoryShaderParameters_CopyMotionBlurBones);
-								for( int32 BoneIdx=0; BoneIdx < NumBones; BoneIdx++ )
-								{
-									const FBoneIndexType RefToLocalIdx = BoneMap[BoneIdx];
-									FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride );
-									FPlatformMisc::Prefetch( ReferenceToLocalMatrices.GetData() + RefToLocalIdx + PreFetchStride, CACHE_LINE_SIZE );
-
-									FBoneSkinning& BoneMat = ChunkMatrices[BoneIdx];
-									const FMatrix& RefToLocal = ReferenceToLocalMatrices[RefToLocalIdx];
-									RefToLocal.To3x4MatrixTranspose( (float*)BoneMat.M );
-								}
-							}
-						}
-						GPUVertexFactory->SetOldBoneDataStartIndex(FrameNumber, OldBoneDataStartIndex);
-					}
-				}
-			}
-			SetShaderValue(RHICmdList, Shader->GetVertexShader(), PerBoneMotionBlur, bLocalPerBoneMotionBlur);
+			SetShaderValue(RHICmdList, ShaderRHI, PerBoneMotionBlur, bLocalPerBoneMotionBlur);
 		}
 	}
 
 	virtual uint32 GetSize() const override { return sizeof(*this); }
 
 private:
-	FShaderParameter BoneIndexOffset;
 	FShaderParameter MeshOriginParameter;
 	FShaderParameter MeshExtensionParameter;
 	FShaderParameter PerBoneMotionBlur;
@@ -691,7 +593,7 @@ public:
 
 		bool bIsGPUCached = false;
 
-		if (GEnableGPUSkinCache && GGPUSkinCache.SetVertexStreamFromCache(RHICmdList, BatchElement.UserIndex, Shader, VertexFactory, BatchElement.MinVertexIndex, GPrevPerBoneMotionBlur.IsAppendStarted(), GPUSkinCacheStreamFloatOffset, GPUSkinCacheStreamStride, GPUSkinCacheStreamBuffer))
+		if (GEnableGPUSkinCache && GGPUSkinCache.SetVertexStreamFromCache(RHICmdList, BatchElement.UserIndex, Shader, VertexFactory, BatchElement.MinVertexIndex, GPUSkinCacheStreamFloatOffset, GPUSkinCacheStreamStride, GPUSkinCacheStreamBuffer))
 		{
 			bIsGPUCached = true;
 		}

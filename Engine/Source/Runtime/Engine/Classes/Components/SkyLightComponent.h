@@ -97,6 +97,10 @@ class ENGINE_API USkyLightComponent : public ULightComponentBase
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light)
 	class UTextureCube* Cubemap;
 
+	/** Angle to rotate the source cubemap when SourceType is set to SLS_SpecifiedCubemap. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category=Light, meta=(UIMin = "0", UIMax = "360"))
+	float SourceCubemapAngle;
+
 	/** 
 	 * Distance from the sky light at which any geometry should be treated as part of the sky. 
 	 * This is also used by reflection captures, so update reflection captures to see the impact.

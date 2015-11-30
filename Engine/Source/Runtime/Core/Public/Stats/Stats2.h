@@ -1274,9 +1274,8 @@ public:
 			const bool bFrameHasChanged = FStats::GameThreadStatsFrame > CurrentGameFrame;
 			if( bFrameHasChanged )
 			{
-				// Other threads are one frame behind so set the frame to the previous one.
-				Packet.AssignFrame( CurrentGameFrame );
 				CurrentGameFrame = FStats::GameThreadStatsFrame;
+				Packet.AssignFrame( CurrentGameFrame );
 				return true;
 			}
 		}

@@ -1,19 +1,34 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "CoreUObjectPrivate.h"
+#include "LinkerPlaceholderClass.h"
 
 /*-----------------------------------------------------------------------------
 	UAssetClassProperty.
 -----------------------------------------------------------------------------*/
 
+void UAssetClassProperty::BeginDestroy()
+{
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(MetaClass))
+	{
+		PlaceholderClass->RemoveReferencingProperty(this);
+	}
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
+	Super::BeginDestroy();
+}
+
 FString UAssetClassProperty::GetCPPType(FString* ExtendedTypeText, uint32 CPPExportFlags) const
 {
-	return GetCPPTypeCustom(ExtendedTypeText, CPPExportFlags, MetaClass);
+	check(MetaClass);
+	return GetCPPTypeCustom(ExtendedTypeText, CPPExportFlags, 
+		FString::Printf(TEXT("%s%s"), MetaClass->GetPrefixCPP(), *MetaClass->GetName()));
 }
-FString UAssetClassProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, UClass* ActualClass) const
+FString UAssetClassProperty::GetCPPTypeCustom(FString* ExtendedTypeText, uint32 CPPExportFlags, const FString& InnerNativeTypeName) const
 {
-	check(ActualClass);
-	return FString::Printf(TEXT("TAssetSubclassOf<%s%s> "), ActualClass->GetPrefixCPP(), *ActualClass->GetName());
+	ensure(!InnerNativeTypeName.IsEmpty());
+	return FString::Printf(TEXT("TAssetSubclassOf<%s> "), *InnerNativeTypeName);
 }
 FString UAssetClassProperty::GetCPPMacroType( FString& ExtendedTypeText ) const
 {
@@ -31,6 +46,16 @@ void UAssetClassProperty::Serialize( FArchive& Ar )
 	Super::Serialize( Ar );
 	Ar << MetaClass;
 
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+	if (Ar.IsLoading() || Ar.IsObjectReferenceCollector())
+	{
+		if (ULinkerPlaceholderClass* PlaceholderClass = Cast<ULinkerPlaceholderClass>(MetaClass))
+		{
+			PlaceholderClass->AddReferencingProperty(this);
+		}
+	}
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+
 	if( !(MetaClass||HasAnyFlags(RF_ClassDefaultObject)) )
 	{
 		// If we failed to load the MetaClass and we're not a CDO, that means we relied on a class that has been removed or doesn't exist.
@@ -43,6 +68,22 @@ void UAssetClassProperty::Serialize( FArchive& Ar )
 		}
 	}
 }
+
+#if USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
+void UAssetClassProperty::SetMetaClass(UClass* NewMetaClass)
+{
+	if (ULinkerPlaceholderClass* NewPlaceholderClass = Cast<ULinkerPlaceholderClass>(NewMetaClass))
+	{
+		NewPlaceholderClass->AddReferencingProperty(this);
+	}
+
+	if (ULinkerPlaceholderClass* OldPlaceholderClass = Cast<ULinkerPlaceholderClass>(MetaClass))
+	{
+		OldPlaceholderClass->RemoveReferencingProperty(this);
+	}
+	MetaClass = NewMetaClass;
+}
+#endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 
 void UAssetClassProperty::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
 {

@@ -1,7 +1,7 @@
 #include "SimplygonSwarmPrivatePCH.h"
 #include "SimplygonRESTClient.h"
 
-#define HOSTNAME "127.0.0.1"
+#define HOSTNAME "http://127.0.0.1"
 #define PORT ":55002"
 
 
@@ -56,7 +56,14 @@ FSimplygonRESTClient::FSimplygonRESTClient(TSharedPtr<FSimplygonSwarmTask> &InTa
 	FString IP = GetDefault<UEditorPerProjectUserSettings>()->SimplygonServerIP;
 	if (IP != "")
 	{
-		HostName = IP;
+		if (!IP.Contains("http://"))
+		{
+			HostName = "http://" + IP;
+		}
+		else
+		{
+			HostName = IP;
+		}
 	}
 	else
 	{

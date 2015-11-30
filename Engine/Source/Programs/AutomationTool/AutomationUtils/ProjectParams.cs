@@ -1,4 +1,4 @@
-﻿// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -298,6 +298,7 @@ namespace AutomationTool
 			this.bIsCodeBasedProject = InParams.bIsCodeBasedProject;
 			this.bCodeSign = InParams.bCodeSign;
 			this.UploadSymbols = InParams.UploadSymbols;
+            this.RunAssetNativization = InParams.RunAssetNativization;
 		}
 
 		/// <summary>
@@ -404,6 +405,7 @@ namespace AutomationTool
             bool? IterativeDeploy = null,
 			bool? FastCook = null,
 			bool? IgnoreCookErrors = null,
+            bool? RunAssetNativization = null,
 			bool? CodeSign = null,
 			bool? UploadSymbols = null,
 			string Provision = null,
@@ -567,6 +569,7 @@ namespace AutomationTool
 			this.IterativeDeploy = GetParamValueIfNotSpecified(Command, IterativeDeploy, this.IterativeDeploy, new string[] {"iterativedeploy", "iterate" } );
 			this.FastCook = GetParamValueIfNotSpecified(Command, FastCook, this.FastCook, "FastCook");
 			this.IgnoreCookErrors = GetParamValueIfNotSpecified(Command, IgnoreCookErrors, this.IgnoreCookErrors, "IgnoreCookErrors");
+            this.RunAssetNativization = GetParamValueIfNotSpecified(Command, RunAssetNativization, this.RunAssetNativization, "nativizeAssets");
 			this.UploadSymbols = GetParamValueIfNotSpecified(Command, UploadSymbols, this.UploadSymbols, "uploadsymbols");
 			this.Device = ParseParamValueIfNotSpecified(Command, Device, "device", String.Empty).Trim(new char[] { '\"' });
 
@@ -952,6 +955,12 @@ namespace AutomationTool
 		/// </summary>
 		[Help("createappbundle", "When archiving for Mac, set this to true to package it in a .app bundle instead of normal loose files")]
 		public bool CreateAppBundle;
+
+        /// <summary>
+        /// Determines if Blueprint assets should be substituted with auto-generated code.
+        /// </summary>
+        [Help("nativizeAssets", "Runs a \"nativization\" pass on Blueprint assets, converting then into C++ (replacing the assets with the generated source).")]
+        public bool RunAssetNativization;
 
 		/// <summary>
 		/// Shared: Ref to an auto-generated plugin file that should be incorporated into the project's build
@@ -1505,7 +1514,7 @@ namespace AutomationTool
 				ProjectGameExePath = null;
 			}
 
-			var Properties = ProjectUtils.GetProjectProperties(RawProjectPath, ClientTargetPlatforms);
+            var Properties = ProjectUtils.GetProjectProperties(RawProjectPath, ClientTargetPlatforms, RunAssetNativization);
 
 			bUsesSteam = Properties.bUsesSteam;
 			bUsesCEF3 = Properties.bUsesCEF3;
@@ -2255,6 +2264,7 @@ namespace AutomationTool
 				CommandUtils.LogLog("bUsesSlate={0}", bUsesSlate);
                 CommandUtils.LogLog("bDebugBuildsActuallyUseDebugCRT={0}", bDebugBuildsActuallyUseDebugCRT);
 				CommandUtils.LogLog("UploadSymbols={0}", UploadSymbols);
+                CommandUtils.LogLog("NativizeAssets={0}", RunAssetNativization);
 				CommandUtils.LogLog("Project Params **************");
 			}
 			bLogged = true;

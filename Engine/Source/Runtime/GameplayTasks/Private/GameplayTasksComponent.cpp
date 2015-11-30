@@ -91,7 +91,7 @@ bool UGameplayTasksComponent::ReplicateSubobjects(UActorChannel* Channel, class 
 	{
 		for (UGameplayTask* SimulatedTask : SimulatedTasks)
 		{
-			if (SimulatedTask && !SimulatedTask->HasAnyFlags(RF_PendingKill))
+			if (SimulatedTask && !SimulatedTask->IsPendingKill())
 			{
 				WroteSomething |= Channel->ReplicateSubobject(SimulatedTask, *Bunch, *RepFlags);
 			}

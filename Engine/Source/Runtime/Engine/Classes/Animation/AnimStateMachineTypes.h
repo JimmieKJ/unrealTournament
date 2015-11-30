@@ -180,13 +180,13 @@ struct FBakedStateExitTransition
 	UPROPERTY()
 	int32 TransitionIndex;
 
-	// For transitions that go automatically at the end of the sequence, this is the index for the sole sequence player node in the graph
-	UPROPERTY()
-	int32 StateSequencePlayerToQueryIndex;
-
 	// What the transition rule node needs to return to take this transition (for bidirectional transitions)
 	UPROPERTY()
 	bool bDesiredTransitionReturnValue;
+
+	// Automatic Transition Rule based on animation remaining time.
+	UPROPERTY()
+	bool bAutomaticRemainingTimeRule;
 	
 	UPROPERTY()
 	TArray<int32> PoseEvaluatorLinks;
@@ -195,8 +195,8 @@ struct FBakedStateExitTransition
 		: CanTakeDelegateIndex(INDEX_NONE)
 		, CustomResultNodeIndex(INDEX_NONE)
 		, TransitionIndex(INDEX_NONE)
-		, StateSequencePlayerToQueryIndex(INDEX_NONE)
 		, bDesiredTransitionReturnValue(true)
+		, bAutomaticRemainingTimeRule(false)
 	{
 	}
 };

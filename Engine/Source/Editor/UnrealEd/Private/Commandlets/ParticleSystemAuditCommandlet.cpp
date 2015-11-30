@@ -267,7 +267,7 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 
 			if (PackageSwitches > 10)
 			{
-				::CollectGarbage(RF_Native);
+				::CollectGarbage(RF_NoFlags);
 				PackageSwitches = 0;
 			}
 
@@ -280,7 +280,7 @@ bool UParticleSystemAuditCommandlet::ProcessParticleSystems()
 
 	// Probably don't need to do this, but just in case we have any 'hanging' packages 
 	// and more processing steps are added later, let's clean up everything...
-	::CollectGarbage(RF_Native);
+	::CollectGarbage(RF_NoFlags);
 
 	double ProcessParticleSystemsTime = FPlatformTime::Seconds() - StartProcessParticleSystemsTime;
 	UE_LOG(LogParticleSystemAuditCommandlet, Log, TEXT("Took %5.3f seconds to process referenced particle systems..."), ProcessParticleSystemsTime);

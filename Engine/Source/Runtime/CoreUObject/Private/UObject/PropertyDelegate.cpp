@@ -75,16 +75,30 @@ bool UDelegateProperty::NetSerializeItem( FArchive& Ar, UPackageMap* Map, void* 
 FString UDelegateProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CPPExportFlags/*=0*/ ) const
 {
 	FString UnmangledFunctionName = SignatureFunction->GetName().LeftChop( FString( HEADER_GENERATED_DELEGATE_SIGNATURE_SUFFIX ).Len() );
-	if ((0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_BlueprintCppBackend)) && !SignatureFunction->GetOwnerClass()->HasAnyClassFlags(CLASS_Native))
+	const bool bBlueprintCppBackend = (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_BlueprintCppBackend));
+	const bool bNative = SignatureFunction->IsNative();
+	if (bBlueprintCppBackend && bNative)
 	{
-		// the name must be unique
-		const FString OwnerName = UnicodeToCPPIdentifier(SignatureFunction->GetOwnerClass()->GetName(), false, TEXT(""));
-		const FString NewUnmangledFunctionName = FString::Printf(TEXT("%s__%s"), *UnmangledFunctionName, *OwnerName);
-		UnmangledFunctionName = NewUnmangledFunctionName;
+		UStruct* StructOwner = Cast<UStruct>(SignatureFunction->GetOuter());
+		if (StructOwner)
+		{
+			return FString::Printf(TEXT("%s%s::F%s"), StructOwner->GetPrefixCPP(), *StructOwner->GetName(), *UnmangledFunctionName);
+		}
 	}
-	if (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_CustomTypeName))
+	else
 	{
-		UnmangledFunctionName += TEXT("__SinglecastDelegate");
+		const bool NonNativeClassOwner = (SignatureFunction->GetOwnerClass() && !SignatureFunction->GetOwnerClass()->HasAnyClassFlags(CLASS_Native));
+		if (bBlueprintCppBackend && NonNativeClassOwner)
+		{
+			// the name must be unique
+			const FString OwnerName = UnicodeToCPPIdentifier(SignatureFunction->GetOwnerClass()->GetName(), false, TEXT(""));
+			const FString NewUnmangledFunctionName = FString::Printf(TEXT("%s__%s"), *UnmangledFunctionName, *OwnerName);
+			UnmangledFunctionName = NewUnmangledFunctionName;
+		}
+		if (0 != (CPPExportFlags & EPropertyExportCPPFlags::CPPF_CustomTypeName))
+		{
+			UnmangledFunctionName += TEXT("__SinglecastDelegate");
+		}
 	}
 	return FString(TEXT("F")) + UnmangledFunctionName;
 }

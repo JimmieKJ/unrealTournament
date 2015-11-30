@@ -2,6 +2,9 @@
 #pragma once
 #include "EngineDefines.h"
 
+class UObject;
+class UWorld;
+
 enum class ECreateIfNeeded : int8
 {
 	Invalid = -1,

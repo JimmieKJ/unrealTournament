@@ -80,6 +80,7 @@ void FArchive::Reset()
 	ArIgnoreArchetypeRef				= false;
 	ArNoDelta							= false;
 	ArIgnoreOuterRef					= false;
+	ArIgnoreClassGeneratedByRef			= false;
 	ArIgnoreClassRef					= false;
 	ArAllowLazyLoading					= false;
 	ArIsObjectReferenceCollector		= false;

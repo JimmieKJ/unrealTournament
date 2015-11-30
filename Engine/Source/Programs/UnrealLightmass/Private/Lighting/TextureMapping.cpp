@@ -8,61 +8,61 @@
 namespace Lightmass
 {
 
+/** A map from a texel to the world-space surface point which maps the texel. */
+struct FTexelToVertex
+{
+	FVector4 WorldPosition;
+	FVector4 WorldTangentX;
+	FVector4 WorldTangentY;
+	FVector4 WorldTangentZ;
+	FVector4 TriangleNormal;
+
+	/** Weight used when combining super sampled attributes and determining if the texel has been mapped. */
+	float TotalSampleWeight;
+
+	/** Tracks the max sample weight encountered. */
+	float MaxSampleWeight;
+
+	/** World space radius of the texel. */
+	float TexelRadius;
+
+	/** Whether this texel was determined to be intersecting another surface. */
+	uint32 bIntersectingSurface : 1;
+
+	uint16 ElementIndex;
+
+	/** Texture coordinates */
+	FVector2D TextureCoordinates[MAX_TEXCOORDS];
+
+	/** Create a static lighting vertex to represent the texel. */
+	inline FStaticLightingVertex GetVertex() const
+	{
+		FStaticLightingVertex Vertex;
+		Vertex.WorldPosition = WorldPosition;
+		Vertex.WorldTangentX = WorldTangentX;
+		Vertex.WorldTangentY = WorldTangentY;
+		Vertex.WorldTangentZ = WorldTangentZ;
+		for( int32 CurCoordIndex = 0; CurCoordIndex < MAX_TEXCOORDS; ++CurCoordIndex )
+		{
+			Vertex.TextureCoordinates[ CurCoordIndex ] = TextureCoordinates[ CurCoordIndex ];
+		}
+		return Vertex;
+	}
+
+	inline FFullStaticLightingVertex GetFullVertex() const
+	{
+		FFullStaticLightingVertex Vertex;
+		(FStaticLightingVertex&)Vertex = GetVertex();
+		Vertex.TriangleNormal = TriangleNormal;
+		Vertex.GenerateTriangleTangents();
+		return Vertex;
+	}
+};
+
 /** A map from light-map texels to the world-space surface points which map the texels. */
 class FTexelToVertexMap
 {
 public:
-
-	/** A map from a texel to the world-space surface point which maps the texel. */
-	struct FTexelToVertex
-	{
-		FVector4 WorldPosition;
-		FVector4 WorldTangentX;
-		FVector4 WorldTangentY;
-		FVector4 WorldTangentZ;
-		FVector4 TriangleNormal;
-
-		/** Weight used when combining super sampled attributes and determining if the texel has been mapped. */
-		float TotalSampleWeight;
-
-		/** Tracks the max sample weight encountered. */
-		float MaxSampleWeight;
-
-		/** World space radius of the texel. */
-		float TexelRadius;
-
-		/** Whether this texel was determined to be intersecting another surface. */
-		uint32 bIntersectingSurface : 1;
-
-		uint16 ElementIndex;
-
-		/** Texture coordinates */
-		FVector2D TextureCoordinates[MAX_TEXCOORDS];
-
-		/** Create a static lighting vertex to represent the texel. */
-		inline FStaticLightingVertex GetVertex() const
-		{
-			FStaticLightingVertex Vertex;
-			Vertex.WorldPosition = WorldPosition;
-			Vertex.WorldTangentX = WorldTangentX;
-			Vertex.WorldTangentY = WorldTangentY;
-			Vertex.WorldTangentZ = WorldTangentZ;
-			for( int32 CurCoordIndex = 0; CurCoordIndex < MAX_TEXCOORDS; ++CurCoordIndex )
-			{
-				Vertex.TextureCoordinates[ CurCoordIndex ] = TextureCoordinates[ CurCoordIndex ];
-			}
-			return Vertex;
-		}
-
-		inline FFullStaticLightingVertex GetFullVertex() const
-		{
-			FFullStaticLightingVertex Vertex;
-			(FStaticLightingVertex&)Vertex = GetVertex();
-			Vertex.TriangleNormal = TriangleNormal;
-			Vertex.GenerateTriangleTangents();
-			return Vertex;
-		}
-	};
 
 	/** Initialization constructor. */
 	FTexelToVertexMap(int32 InSizeX,int32 InSizeY):
@@ -205,7 +205,7 @@ private:
 
 void FStaticLightingRasterPolicy::ProcessPixel(int32 X,int32 Y,const InterpolantType& Interpolant,bool BackFacing)
 {
-	FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+	FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 	bool bDebugThisTexel = false;
 #if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
 	if (bDebugThisMapping
@@ -263,6 +263,47 @@ void FStaticLightingRasterPolicy::ProcessPixel(int32 X,int32 Y,const Interpolant
 		{
 			TexelToVertex.TextureCoordinates[ CurCoordIndex ] = TexelToVertex.TextureCoordinates[ CurCoordIndex ] * OldSampleWeight + Interpolant.Vertex.TextureCoordinates[ CurCoordIndex ] * NewSampleWeight;
 		}
+	}
+}
+
+void FFullStaticLightingVertex::ApplyVertexModifications(int32 ElementIndex, bool bUseNormalMapsForLighting, const FStaticLightingMesh* Mesh)
+{
+	if (bUseNormalMapsForLighting && Mesh->HasImportedNormal(ElementIndex))
+	{
+		const FVector4 TangentNormal = Mesh->EvaluateNormal(TextureCoordinates[0], ElementIndex);
+
+		const FVector4 WorldTangentRow0(WorldTangentX.X, WorldTangentY.X, WorldTangentZ.X);
+		const FVector4 WorldTangentRow1(WorldTangentX.Y, WorldTangentY.Y, WorldTangentZ.Y);
+		const FVector4 WorldTangentRow2(WorldTangentX.Z, WorldTangentY.Z, WorldTangentZ.Z);
+		const FVector4 WorldVector(
+			Dot3(WorldTangentRow0, TangentNormal),
+			Dot3(WorldTangentRow1, TangentNormal),
+			Dot3(WorldTangentRow2, TangentNormal)
+			);
+
+		WorldTangentZ = WorldVector;
+	}
+
+	// Normalize the tangent basis and ensure it is orthonormal
+	WorldTangentZ = WorldTangentZ.GetUnsafeNormal3();
+
+	const bool bUseVertexNormalForHemisphereGather = Mesh->UseVertexNormalForHemisphereGather(ElementIndex);
+	TriangleNormal = bUseVertexNormalForHemisphereGather ? WorldTangentZ : TriangleNormal.GetUnsafeNormal3();
+	checkSlow(!TriangleNormal.ContainsNaN());
+
+	const FVector4 OriginalTangentX = WorldTangentX;
+	const FVector4 OriginalTangentY = WorldTangentY;
+
+	WorldTangentY = (WorldTangentZ ^ WorldTangentX).GetUnsafeNormal3();
+	// Maintain handedness
+	if (Dot3(WorldTangentY, OriginalTangentY) < 0)
+	{
+		WorldTangentY *= -1.0f;
+	}
+	WorldTangentX = WorldTangentY ^ WorldTangentZ;
+	if (Dot3(WorldTangentX, OriginalTangentX) < 0)
+	{
+		WorldTangentX *= -1.0f;
 	}
 }
 
@@ -337,8 +378,12 @@ void FStaticLightingSystem::CacheIrradiancePhotonsTextureMapping(FStaticLighting
 	TextureMapping->CachedDirectLighting.Empty(TextureMapping->IrradiancePhotonCacheSizeX * TextureMapping->IrradiancePhotonCacheSizeY);
 	TextureMapping->CachedDirectLighting.AddZeroed(TextureMapping->IrradiancePhotonCacheSizeX * TextureMapping->IrradiancePhotonCacheSizeY);
 
-	TArray<FIrradiancePhoton*> TempIrradiancePhotons;
 	FLMRandomStream RandomStream(0);
+
+#define USE_ADAPTIVE_SOLVER_FOR_CACHED_SKYLIGHTING 1
+#if USE_ADAPTIVE_SOLVER_FOR_CACHED_SKYLIGHTING
+	TLightingCache<FFinalGatherSample> ApproximateSkyLightingCache(TextureMapping->Mesh->BoundingBox, *this, 1);
+
 	for (int32 Y = 0; Y < TextureMapping->IrradiancePhotonCacheSizeY; Y++)
 	{
 		for (int32 X = 0; X < TextureMapping->IrradiancePhotonCacheSizeX; X++)
@@ -352,49 +397,83 @@ void FStaticLightingSystem::CacheIrradiancePhotonsTextureMapping(FStaticLighting
 				bDebugThisTexel = true;
 			}
 #endif
-			const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+			const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+			if (TexelToVertex.TotalSampleWeight > 0.0f)
+			{
+				FFullStaticLightingVertex Vertex = TexelToVertex.GetFullVertex();
+				Vertex.ApplyVertexModifications(TexelToVertex.ElementIndex, MaterialSettings.bUseNormalMapsForLighting, TextureMapping->Mesh);
+				FFinalGatherSample SkyLighting;
+				FFinalGatherSample UnusedSecondLighting;
+
+				if (!ApproximateSkyLightingCache.InterpolateLighting(Vertex, true, false, 1.0f, SkyLighting, UnusedSecondLighting, MappingContext.DebugCacheRecords))
+				{
+					FFinalGatherSample UniformSampledIncomingRadiance;
+					TArray<FVector4> ImportancePhotonDirections;
+					FLightingCacheGatherInfo GatherInfo;
+					const int32 NumAdaptiveRefinementLevels = GeneralSettings.IndirectLightingQuality <= 10 ? 1 : 2;
+
+					UniformSampledIncomingRadiance = IncomingRadianceAdaptive<FFinalGatherSample>(
+						TextureMapping, 
+						Vertex, 
+						TexelToVertex.TexelRadius, 
+						false,
+						TexelToVertex.ElementIndex, 
+						1, 
+						NumAdaptiveRefinementLevels,
+						CachedHemisphereSamplesForApproximateSkyLighting,
+						CachedHemisphereSamplesForApproximateSkyLightingUniforms,
+						1,
+						ImportancePhotonDirections, 
+						MappingContext, 
+						RandomStream, 
+						GatherInfo, 
+						true, /** bSkyLightingOnly */
+						false);
+
+
+					float OverrideRadius = 0;
+
+					TLightingCache<FFinalGatherSample>::FRecord<FFinalGatherSample> NewRecord(
+						Vertex,
+						GatherInfo,
+						TexelToVertex.TexelRadius,
+						OverrideRadius,
+						IrradianceCachingSettings,
+						GeneralSettings,
+						UniformSampledIncomingRadiance,
+						FVector4(0, 0, 0, 0),
+						FVector4(0, 0, 0, 0)
+						);
+
+					// Add the incident radiance sample to the cache.
+					ApproximateSkyLightingCache.AddRecord(NewRecord, false, false);
+				}
+			}
+		}
+	}
+#endif
+
+	TArray<FIrradiancePhoton*> TempIrradiancePhotons;
+	for (int32 Y = 0; Y < TextureMapping->IrradiancePhotonCacheSizeY; Y++)
+	{
+		for (int32 X = 0; X < TextureMapping->IrradiancePhotonCacheSizeX; X++)
+		{
+			bool bDebugThisTexel = false;
+#if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
+			if (bDebugThisMapping
+				&& Y == IrradiancePhotonCacheDebugY
+				&& X == IrradiancePhotonCacheDebugX)
+			{
+				bDebugThisTexel = true;
+			}
+#endif
+			const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 			if (TexelToVertex.TotalSampleWeight > 0.0f)
 			{
 				MappingContext.Stats.NumCachedIrradianceSamples++;
 				FFullStaticLightingVertex CurrentVertex = TexelToVertex.GetFullVertex();
 
-				if (MaterialSettings.bUseNormalMapsForLighting && TextureMapping->Mesh->HasImportedNormal(TexelToVertex.ElementIndex))
-				{
-					const FVector4 TangentNormal = TextureMapping->Mesh->EvaluateNormal(TexelToVertex.TextureCoordinates[0], TexelToVertex.ElementIndex);
-
-					const FVector4 WorldTangentRow0(TexelToVertex.WorldTangentX.X, TexelToVertex.WorldTangentY.X, TexelToVertex.WorldTangentZ.X);
-					const FVector4 WorldTangentRow1(TexelToVertex.WorldTangentX.Y, TexelToVertex.WorldTangentY.Y, TexelToVertex.WorldTangentZ.Y);
-					const FVector4 WorldTangentRow2(TexelToVertex.WorldTangentX.Z, TexelToVertex.WorldTangentY.Z, TexelToVertex.WorldTangentZ.Z);
-					const FVector4 WorldVector(
-						Dot3(WorldTangentRow0, TangentNormal),
-						Dot3(WorldTangentRow1, TangentNormal),
-						Dot3(WorldTangentRow2, TangentNormal)
-						);
-
-					CurrentVertex.WorldTangentZ = WorldVector;
-				}
-
-				// Normalize the tangent basis and ensure it is orthonormal
-				CurrentVertex.WorldTangentZ = CurrentVertex.WorldTangentZ.GetUnsafeNormal3();
-
-				const bool bUseVertexNormalForHemisphereGather = TextureMapping->Mesh->UseVertexNormalForHemisphereGather(TexelToVertex.ElementIndex);
-				CurrentVertex.TriangleNormal = bUseVertexNormalForHemisphereGather ? CurrentVertex.WorldTangentZ : TexelToVertex.TriangleNormal.GetUnsafeNormal3();
-				checkSlow(!CurrentVertex.TriangleNormal.ContainsNaN());
-
-				const FVector4 OriginalTangentX = CurrentVertex.WorldTangentX;
-				const FVector4 OriginalTangentY = CurrentVertex.WorldTangentY;
-
-				CurrentVertex.WorldTangentY = (CurrentVertex.WorldTangentZ ^ CurrentVertex.WorldTangentX).GetUnsafeNormal3();
-				// Maintain handedness
-				if (Dot3(CurrentVertex.WorldTangentY, OriginalTangentY) < 0)
-				{
-					CurrentVertex.WorldTangentY *= -1.0f;
-				}
-				CurrentVertex.WorldTangentX = CurrentVertex.WorldTangentY ^ CurrentVertex.WorldTangentZ;
-				if (Dot3(CurrentVertex.WorldTangentX, OriginalTangentX) < 0)
-				{
-					CurrentVertex.WorldTangentX *= -1.0f;
-				}
+				CurrentVertex.ApplyVertexModifications(TexelToVertex.ElementIndex, MaterialSettings.bUseNormalMapsForLighting, TextureMapping->Mesh);
 
 				FGatheredLightSample DirectLighting;
 				FGatheredLightSample Unused;
@@ -402,11 +481,16 @@ void FStaticLightingSystem::CacheIrradiancePhotonsTextureMapping(FStaticLighting
 
 				CalculateApproximateDirectLighting(CurrentVertex, TexelToVertex.TexelRadius, .1f, true, true, bDebugThisTexel && PhotonMappingSettings.bVisualizeCachedApproximateDirectLighting, MappingContext, DirectLighting, Unused, Unused2);
 
+#if USE_ADAPTIVE_SOLVER_FOR_CACHED_SKYLIGHTING
+				FFinalGatherSample SkyLighting;
+				FFinalGatherSample UnusedSecondLighting;
+				ApproximateSkyLightingCache.InterpolateLighting(CurrentVertex, false, false, IrradianceCachingSettings.SkyOcclusionSmoothnessReduction, SkyLighting, UnusedSecondLighting, MappingContext.DebugCacheRecords);
+#else
 				// Compute low quality sky lighting and cache in the direct lighting, so we get one bounce, since sky lighting isn't handled by photons
 				const FGatheredLightSample SkyLighting = CalculateApproximateSkyLighting(CurrentVertex, TexelToVertex.TexelRadius, CachedHemisphereSamplesForApproximateSkyLighting, MappingContext);
-
+#endif
 				TextureMapping->CachedDirectLighting[Y * TextureMapping->IrradiancePhotonCacheSizeX + X] = DirectLighting.IncidentLighting + SkyLighting.IncidentLighting;
-
+				
 				// Only search the irradiance photon map if the surface cache position is inside the importance volume,
 				// Since irradiance photons are only deposited inside the importance volume.
 				if (ImportanceBounds.GetBox().IsInside(CurrentVertex.WorldPosition))
@@ -482,7 +566,7 @@ void FStaticLightingSystem::ProcessTextureMapping(FStaticLightingTextureMapping*
 		{
 			for (int32 X = 0;X < TextureMapping->CachedSizeX;X++)
 			{
-				const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+				const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 				if (TexelToVertex.TotalSampleWeight > 0.0f)
 				{
 					// Verify that vertex normals are normalized (within some error that is large because of FPackedNormal)
@@ -814,7 +898,7 @@ void FStaticLightingSystem::TraceToTexelCorner(
 		NULL
 		);
 
-	AggregateMesh.IntersectLightRay(TexelRay, true, false, false, MappingContext.RayCache, Intersection);
+	AggregateMesh->IntersectLightRay(TexelRay, true, false, false, MappingContext.RayCache, Intersection);
 
 	bHitBackface = Intersection.bIntersects && Dot3(Intersection.IntersectionVertex.WorldTangentZ, TexelRay.Direction) >= 0;
 
@@ -978,7 +1062,7 @@ void FStaticLightingSystem::SetupTextureMapping(
 				bFoundValidCorner = bFoundValidCorner || TexelToCorners.bValid[CornerIndex];
 			}
 
-			FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+			FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 			if (TexelToVertex.TotalSampleWeight > 0.0f || bFoundValidCorner)
 			{
 				// Use a corner if none of the other samples were valid
@@ -1005,6 +1089,25 @@ void FStaticLightingSystem::SetupTextureMapping(
 					TexelToVertex.WorldTangentY = TexelToVertex.WorldTangentY / TexelToVertex.TotalSampleWeight;
 					TexelToVertex.WorldTangentZ = TexelToVertex.WorldTangentZ / TexelToVertex.TotalSampleWeight;
 					TexelToVertex.TriangleNormal = TexelToVertex.TriangleNormal / TexelToVertex.TotalSampleWeight;
+
+					// Weighted average of opposing vectors can result in a zero vector, fixup with corner
+					if (bFoundValidCorner 
+						&& (TexelToVertex.WorldTangentX.SizeSquared3() < KINDA_SMALL_NUMBER
+							|| TexelToVertex.WorldTangentZ.SizeSquared3() < KINDA_SMALL_NUMBER
+							|| TexelToVertex.TriangleNormal.SizeSquared3() < KINDA_SMALL_NUMBER))
+					{
+						for (int32 CornerIndex = 0; CornerIndex < NumTexelCorners; CornerIndex++)
+						{
+							if (TexelToCorners.bValid[CornerIndex])
+							{
+								TexelToVertex.WorldTangentX = TexelToCorners.WorldTangentX;
+								TexelToVertex.WorldTangentY = TexelToCorners.WorldTangentY;
+								TexelToVertex.WorldTangentZ = TexelToCorners.WorldTangentZ;
+								TexelToVertex.TriangleNormal = TexelToCorners.WorldTangentZ;
+								break;
+							}
+						}
+					}
 				}
 
 				// Mark the texel as mapped to some geometry in the scene
@@ -1200,7 +1303,7 @@ void FStaticLightingSystem::CalculateDirectLightingTextureMappingFiltered(
 				bDebugThisTexel = true;
 			}
 #endif
-			const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+			const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 			if (TexelToVertex.TotalSampleWeight > 0.0f)
 			{
 				FShadowSample& ShadowSample = ShadowMapData(X,Y);
@@ -1313,7 +1416,7 @@ void FStaticLightingSystem::CalculateDirectLightingTextureMappingFiltered(
 #endif
 					if ((*FilteredShadowMapData)(X,Y).bIsMapped)
 					{
-						const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+						const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 						LightMapData(X,Y).bIsMapped = true;
 
 						// Compute the light sample for this texel based on the corresponding vertex and its shadow factor.
@@ -1409,7 +1512,7 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 				UnfilteredShadowFactorData(X, Y).bIsMapped = true;
 
 				// Only continue if some part of the light is in front of the surface
-				const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+				const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 
 				const FStaticLightingVertex Vertex = TexelToVertex.GetVertex();
 
@@ -1550,7 +1653,7 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 				{
 					float UnfilteredValue = UnfilteredShadowFactorData(X, Y).Visibility;
 					const bool bIntersectingSurface = TexelToVertexMap(X, Y).bIntersectingSurface;
-					const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+					const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 					const bool bLightIsInFrontOfTriangle = !Light->BehindSurface(TexelToVertex.WorldPosition, TexelToVertex.WorldTangentZ);
 
 					float FilteredValueNumerator = 0.0f;
@@ -1597,7 +1700,7 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 							{
 								float ComparisonValue = UnfilteredShadowFactorData(X1, Y1).Visibility;
 								float DifferenceValue = FMath::Abs(UnfilteredValue - ComparisonValue);
-								const FTexelToVertexMap::FTexelToVertex& NeighborTexelToVertex = TexelToVertexMap(X1, Y1);
+								const FTexelToVertex& NeighborTexelToVertex = TexelToVertexMap(X1, Y1);
 								const bool bNeighborLightIsInFrontOfTriangle = !Light->BehindSurface(NeighborTexelToVertex.WorldPosition, NeighborTexelToVertex.WorldTangentZ);
 
 								if (DifferenceValue > ThresholdForFilteringPenumbra 
@@ -1683,7 +1786,7 @@ void FStaticLightingSystem::CalculateDirectAreaLightingTextureMapping(
 						else
 						{
 							// Calculate any derived values
-							const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+							const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 							const FStaticLightingVertex CurrentVertex = TexelToVertex.GetVertex();
 							const FLinearColor LightIntensity = LightIntensityCache[(Y * TextureMapping->CachedSizeX) + X];
 							const FLinearColor Transmission = TransmissionCache[(Y * TextureMapping->CachedSizeX) + X];
@@ -1933,7 +2036,7 @@ void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMap
 				bDebugThisTexel = true;
 			}
 #endif
-			const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+			const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 			if (TexelToVertex.TotalSampleWeight > 0.0f)
 			{
 				NumMappedTexels++;
@@ -1974,7 +2077,7 @@ void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMap
 					MappingContext.Stats.NumSignedDistanceFieldAdaptiveSourceRaysFirstPass++;
 					// Could trace a boolean visibility ray, no other information is needed,
 					// However FStaticLightingAggregateMesh::IntersectLightRay currently does not handle masked materials correctly with boolean visibility rays.
-					AggregateMesh.IntersectLightRay(LightRay, true, false, true, MappingContext.RayCache, Intersection);
+					AggregateMesh->IntersectLightRay(LightRay, true, false, true, MappingContext.RayCache, Intersection);
 					if (!Intersection.bIntersects)
 					{
 						NumUnoccludedTexels++;
@@ -2204,7 +2307,7 @@ void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMap
 								MappingContext.Stats.NumSignedDistanceFieldAdaptiveSourceRaysSecondPass++;
 								// Have to calculate the closest intersection so we know the distance to the nearest occluder
 								//@todo - for the occluder distance to be correct, the ray should actually go from the light to the receiver
-								AggregateMesh.IntersectLightRay(LightRay, true, false, true, MappingContext.RayCache, Intersection);
+								AggregateMesh->IntersectLightRay(LightRay, true, false, true, MappingContext.RayCache, Intersection);
 								if (Intersection.bIntersects)
 								{
 									HighResSample.SetOccluderDistance((LightRay.Start - Intersection.IntersectionVertex.WorldPosition).Size3());
@@ -2474,7 +2577,7 @@ void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMap
 
 	if (Light->AffectsBounds(MeshInfluenceBounds))
 	{
-		const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh.GetBounds());
+		const FBoxSphereBounds SceneBounds = FBoxSphereBounds(AggregateMesh->GetBounds());
 		const FDirectionalLight* DirectionalLight = Light->GetDirectionalLight();
 		const FSpotLight* SpotLight = Light->GetSpotLight();
 		const FPointLight* PointLight = Light->GetPointLight();
@@ -2543,7 +2646,7 @@ void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMap
 						);
 
 					FLightRayIntersection Intersection;
-					AggregateMesh.IntersectLightRay(LightRay, true, false, true, MappingContext.RayCache, Intersection);
+					AggregateMesh->IntersectLightRay(LightRay, true, false, true, MappingContext.RayCache, Intersection);
 
 					float MaxSampleDistance = SceneBounds.SphereRadius * 2;
 
@@ -2579,7 +2682,7 @@ void FStaticLightingSystem::CalculateDirectSignedDistanceFieldLightingTextureMap
 						bDebugThisTexel = true;
 					}
 #endif
-					const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+					const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 
 					if (TexelToVertex.TotalSampleWeight > 0.0f)
 					{
@@ -2747,7 +2850,7 @@ void FStaticLightingSystem::CalculateDirectLightingTextureMappingPhotonMap(
 			FGatheredLightMapSample& CurrentLightSample = LightMapData(X,Y);
 			if (CurrentLightSample.bIsMapped)
 			{
-				const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+				const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 				FStaticLightingVertex CurrentVertex = TexelToVertex.GetVertex();
 
 				if (PhotonMappingSettings.bUseIrradiancePhotons)
@@ -2767,7 +2870,7 @@ void FStaticLightingSystem::CalculateDirectLightingTextureMappingPhotonMap(
 							);
 
 						FLightRayIntersection Intersection;
-						AggregateMesh.IntersectLightRay(TexelRay, true, false, false, MappingContext.RayCache, Intersection);
+						AggregateMesh->IntersectLightRay(TexelRay, true, false, false, MappingContext.RayCache, Intersection);
 
 						if (Intersection.bIntersects && TextureMapping == Intersection.Mapping)
 						{
@@ -2793,7 +2896,9 @@ void FStaticLightingSystem::CalculateDirectLightingTextureMappingPhotonMap(
 
 						CalculateApproximateDirectLighting(CurrentVertex, TexelToVertex.TexelRadius, .1f, true, true, bDebugThisTexel, MappingContext, DirectLightingSample, Unused, Unused2);
 
-						DirectLighting = DirectLightingSample.IncidentLighting;
+						const FGatheredLightSample SkyLighting = CalculateApproximateSkyLighting(TexelToVertex.GetFullVertex(), TexelToVertex.TexelRadius, CachedHemisphereSamplesForApproximateSkyLighting, MappingContext);
+
+						DirectLighting = DirectLightingSample.IncidentLighting + SkyLighting.IncidentLighting;
 					}
 					const FLinearColor& PhotonIrradiance = NearestPhoton ? NearestPhoton->GetIrradiance() : FLinearColor::Black;
 					if (GeneralSettings.ViewSingleBounceNumber < 1)
@@ -2853,7 +2958,7 @@ void FStaticLightingSystem::ProcessCacheIndirectLightingTask(FCacheIndirectTaskD
 			FGatheredLightMapSample& CurrentLightSample = (*Task->LightMapData)(X,Y);
 			if (CurrentLightSample.bIsMapped)
 			{
-				const FTexelToVertexMap::FTexelToVertex& TexelToVertex = (*Task->TexelToVertexMap)(X,Y);
+				const FTexelToVertex& TexelToVertex = (*Task->TexelToVertexMap)(X,Y);
 				checkSlow(TexelToVertex.TotalSampleWeight > 0.0f);
 				FFullStaticLightingVertex TexelVertex = TexelToVertex.GetFullVertex();
 				TexelVertex.TextureCoordinates[1] = FVector2D(X / (float)Task->TextureMapping->CachedSizeX, Y / (float)Task->TextureMapping->CachedSizeY);
@@ -2930,7 +3035,7 @@ void FStaticLightingSystem::ProcessInterpolateTask(FInterpolateIndirectTaskDescr
 			FGatheredLightMapSample& CurrentLightSample = (*Task->LightMapData)(X,Y);
 			if (CurrentLightSample.bIsMapped)
 			{
-				const FTexelToVertexMap::FTexelToVertex& TexelToVertex = (*Task->TexelToVertexMap)(X,Y);
+				const FTexelToVertex& TexelToVertex = (*Task->TexelToVertexMap)(X,Y);
 				checkSlow(TexelToVertex.TotalSampleWeight > 0.0f);
 				FFullStaticLightingVertex TexelVertex = TexelToVertex.GetFullVertex();
 				FFinalGatherSample IndirectLighting;
@@ -3202,7 +3307,7 @@ void FStaticLightingSystem::ViewMaterialAttributesTextureMapping(
 				FGatheredLightMapSample& CurrentLightSample = LightMapData(X,Y);
 				if (CurrentLightSample.bIsMapped)
 				{
-					const FTexelToVertexMap::FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
+					const FTexelToVertex& TexelToVertex = TexelToVertexMap(X,Y);
 					checkSlow(TexelToVertex.TotalSampleWeight > 0.0f);
 					FStaticLightingVertex CurrentVertex = TexelToVertex.GetVertex();
 
@@ -3216,7 +3321,7 @@ void FStaticLightingSystem::ViewMaterialAttributesTextureMapping(
 						);
 
 					FLightRayIntersection Intersection;
-					AggregateMesh.IntersectLightRay(TexelRay, true, true, false, MappingContext.RayCache, Intersection);
+					AggregateMesh->IntersectLightRay(TexelRay, true, true, false, MappingContext.RayCache, Intersection);
 					CurrentLightSample = GetVisualizedMaterialAttribute(TextureMapping, Intersection);
 				}
 			}

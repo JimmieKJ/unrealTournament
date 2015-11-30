@@ -293,6 +293,16 @@ void SMultiLineEditableText::Construct( const FArguments& InArgs )
 	TextSelectionRunRenderer = FTextSelectionRunRenderer::Create();
 	TextLayout = FSlateTextLayout::Create(TextStyle);
 
+	if (InArgs._TextShapingMethod.IsSet())
+	{
+		TextLayout->SetTextShapingMethod(InArgs._TextShapingMethod.GetValue());
+	}
+
+	if (InArgs._TextFlowDirection.IsSet())
+	{
+		TextLayout->SetTextFlowDirection(InArgs._TextFlowDirection.GetValue());
+	}
+
 	BoundText = InArgs._Text;
 
 	{
@@ -318,7 +328,7 @@ void SMultiLineEditableText::Construct( const FArguments& InArgs )
 	if (HintText.IsBound() || !HintText.Get(FText::GetEmpty()).IsEmpty())
 	{
 		HintTextStyle = MakeShareable(new FTextBlockStyle(TextStyle));
-		HintTextLayout = FTextBlockLayout::Create(*HintTextStyle, Marshaller.ToSharedRef(), nullptr);
+		HintTextLayout = FTextBlockLayout::Create(*HintTextStyle, TextLayout->GetTextShapingMethod(), TextLayout->GetTextFlowDirection(), Marshaller.ToSharedRef(), nullptr);
 	}
 
 	// Map UI commands to delegates which are called when the command should be executed
@@ -410,7 +420,7 @@ void SMultiLineEditableText::SetHintText(const TAttribute< FText >& InHintText)
 	if (HintText.IsBound() || !HintText.Get(FText::GetEmpty()).IsEmpty())
 	{
 		HintTextStyle = MakeShareable(new FTextBlockStyle(TextStyle));
-		HintTextLayout = FTextBlockLayout::Create(*HintTextStyle, Marshaller.ToSharedRef(), nullptr);
+		HintTextLayout = FTextBlockLayout::Create(*HintTextStyle, TextLayout->GetTextShapingMethod(), TextLayout->GetTextFlowDirection(), Marshaller.ToSharedRef(), nullptr);
 	}
 	else
 	{

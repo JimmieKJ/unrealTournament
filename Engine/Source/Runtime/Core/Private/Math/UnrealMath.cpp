@@ -5,6 +5,7 @@
 =============================================================================*/
 
 #include "CorePrivatePCH.h"
+#include "PropertyPortFlags.h"
 
 DEFINE_LOG_CATEGORY(LogUnrealMath);
 
@@ -3168,4 +3169,14 @@ void FMath::PolarToCartesian(const FVector2D InPolar, FVector2D& OutCart)
 {
 	OutCart.X = InPolar.X * Cos(InPolar.Y);
 	OutCart.Y = InPolar.X * Sin(InPolar.Y);
+}
+
+bool FRandomStream::ExportTextItem(FString& ValueStr, FRandomStream const& DefaultValue, class UObject* Parent, int32 PortFlags, class UObject* ExportRootScope) const
+{
+	if (0 != (PortFlags & EPropertyPortFlags::PPF_ExportCpp))
+	{
+		ValueStr += FString::Printf(TEXT("FRandomStream(%i)"), DefaultValue.GetInitialSeed());
+		return true;
+	}
+	return false;
 }

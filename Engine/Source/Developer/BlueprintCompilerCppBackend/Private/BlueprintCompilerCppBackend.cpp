@@ -184,7 +184,7 @@ void FBlueprintCompilerCppBackend::EmitObjectToBoolStatement(FEmitterLocalContex
 {
 	FString ObjectTarget = TermToText(EmitterContext, Statement.RHS[0]);
 	FString DestinationExpression = TermToText(EmitterContext, Statement.LHS);
-	EmitterContext.AddLine(FString::Printf(TEXT("%s = (nullptr != %s);"), *DestinationExpression, *ObjectTarget));
+	EmitterContext.AddLine(FString::Printf(TEXT("%s = (%s != nullptr);"), *DestinationExpression, *ObjectTarget));
 }
 
 void FBlueprintCompilerCppBackend::EmitAddMulticastDelegateStatement(FEmitterLocalContext& EmitterContext, FKismetFunctionContext& FunctionContext, FBlueprintCompiledStatement& Statement)
@@ -316,11 +316,6 @@ FString FBlueprintCompilerCppBackend::EmitSwitchValueStatmentInner(FEmitterLocal
 	auto IndexTerm = Statement.RHS[0];
 	auto DefaultValueTerm = Statement.RHS.Last();
 
-	FString Result = FString::Printf(TEXT("TSwitchValue(%s, %s, %d")
-		, *TermToText(EmitterContext, IndexTerm) //index
-		, *TermToText(EmitterContext, DefaultValueTerm) // default
-		, NumCases);
-
 	const uint32 CppTemplateTypeFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName
 		| EPropertyExportCPPFlags::CPPF_NoConst | EPropertyExportCPPFlags::CPPF_NoRef
 		| EPropertyExportCPPFlags::CPPF_BlueprintCppBackend;
@@ -330,6 +325,13 @@ FString FBlueprintCompilerCppBackend::EmitSwitchValueStatmentInner(FEmitterLocal
 
 	check(DefaultValueTerm && DefaultValueTerm->AssociatedVarProperty);
 	const FString ValueDeclaration = EmitterContext.ExportCppDeclaration(DefaultValueTerm->AssociatedVarProperty, EExportedDeclaration::Parameter, CppTemplateTypeFlags, true);
+
+	FString Result = FString::Printf(TEXT("TSwitchValue<%s, %s>(%s, %s, %d")
+		, *IndexDeclaration
+		, *ValueDeclaration
+		, *TermToText(EmitterContext, IndexTerm) //index
+		, *TermToText(EmitterContext, DefaultValueTerm) // default
+		, NumCases);
 
 	for (int32 TermIndex = TermsBeforeCases; TermIndex < (NumCases * TermsPerCase); TermIndex += TermsPerCase)
 	{
@@ -439,13 +441,14 @@ FString FBlueprintCompilerCppBackend::EmitCallStatmentInner(FEmitterLocalContext
 	}
 
 	// Emit object to call the method on
+	const FString FunctionToCallOriginalName = FEmitHelper::GetCppName(FEmitHelper::GetOriginalFunction(Statement.FunctionToCall));
 	if (bInterfaceCall)
 	{
 		auto ContextInterfaceClass = CastChecked<UClass>(Statement.FunctionContext->Type.PinSubCategoryObject.Get());
 		ensure(ContextInterfaceClass->IsChildOf<UInterface>());
-		Result += FString::Printf(TEXT("%s::Execute_%s(%s.GetObject(), ")
+		Result += FString::Printf(TEXT("%s::Execute_%s(%s.GetObject() ")
 			, *FEmitHelper::GetCppName(ContextInterfaceClass)
-			, *FEmitHelper::GetCppName(Statement.FunctionToCall)
+			, *FunctionToCallOriginalName
 			, *TermToText(EmitterContext, Statement.FunctionContext, false));
 	}
 	else
@@ -479,7 +482,7 @@ FString FBlueprintCompilerCppBackend::EmitCallStatmentInner(FEmitterLocalContext
 		{
 			Result += TEXT("Super::");
 		}
-		Result += FEmitHelper::GetCppName(Statement.FunctionToCall);
+		Result += FunctionToCallOriginalName;
 		if (Statement.bIsParentContext && FEmitHelper::ShouldHandleAsNativeEvent(Statement.FunctionToCall))
 		{
 			ensure(!bCallOnDifferentObject);
@@ -489,7 +492,12 @@ FString FBlueprintCompilerCppBackend::EmitCallStatmentInner(FEmitterLocalContext
 		// Emit method parameter list
 		Result += TEXT("(");
 	}
-	Result += EmitMethodInputParameterList(EmitterContext, Statement);
+	const FString ParameterList = EmitMethodInputParameterList(EmitterContext, Statement);
+	if (bInterfaceCall && !ParameterList.IsEmpty())
+	{
+		Result += TEXT(", ");
+	}
+	Result += ParameterList;
 	Result += TEXT(")");
 	Result += CloseCast;
 	if (!bInline)
@@ -556,10 +564,22 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 		if (Term->Context && Term->Context->IsStructContextType())
 		{
 			check(Term->AssociatedVarProperty);
-			ResultPath = ContextStr + TEXT(".") + FEmitHelper::GetCppName(Term->AssociatedVarProperty);
+			const bool bIsAccessible = !Term->AssociatedVarProperty->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPrivate | CPF_NativeAccessSpecifierProtected);
+			if (!bIsAccessible)
+			{
+				ResultPath = FEmitHelper::AccessInaccessibleProperty(EmitterContext, Term->AssociatedVarProperty, ContextStr, TEXT("&"));
+			}
+			else
+			{
+				ResultPath = ContextStr + TEXT(".") + FEmitHelper::GetCppName(Term->AssociatedVarProperty);
+			}
 		}
 		else if (Term->AssociatedVarProperty)
 		{
+			const bool bPropertyOfParent = EmitterContext.Dependencies.GetActualStruct()->IsChildOf(Term->AssociatedVarProperty->GetOwnerStruct());
+			const bool bIsAccessible = !Term->AssociatedVarProperty->HasAnyPropertyFlags(CPF_NativeAccessSpecifierPrivate)
+				&& (bPropertyOfParent || !Term->AssociatedVarProperty->HasAnyPropertyFlags(CPF_NativeAccessSpecifierProtected));
+
 			auto MinimalClass = Term->AssociatedVarProperty->GetOwnerClass();
 			auto MinimalBPGC = Cast<UBlueprintGeneratedClass>(MinimalClass);
 			if (MinimalBPGC && !EmitterContext.Dependencies.WillClassBeConverted(MinimalBPGC))
@@ -575,6 +595,15 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 					, *ContextStr
 					, *UnicodeToCPPIdentifier(Term->AssociatedVarProperty->GetName(), false, nullptr));
 			}
+			else if (!bIsAccessible)
+			{
+				if ((!Term->Context) || (Term->Context->Name == PSC_Self))
+				{
+					ensure(ContextStr.IsEmpty());
+					ContextStr = TEXT("this");
+				}
+				ResultPath = FEmitHelper::AccessInaccessibleProperty(EmitterContext, Term->AssociatedVarProperty, ContextStr, FString());
+			}
 			else
 			{
 				if ((Term->Context != nullptr) && (Term->Context->Name != PSC_Self))
@@ -587,7 +616,7 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 		else
 		{
 			ensure(ContextStr.IsEmpty());
-			ResultPath += Term->Name;
+			ResultPath = Term->Name;
 		}
 
 		FString Conditions;
@@ -596,9 +625,20 @@ FString FBlueprintCompilerCppBackend::TermToText(FEmitterLocalContext& EmitterCo
 			Conditions = FSafeContextScopedEmmitter::ValidationChain(EmitterContext, Term->Context, *this);
 		}
 
-		return Conditions.IsEmpty()
-			? ResultPath
-			: FString::Printf(TEXT("((%s) ? (%s) : (%s))"), *Conditions, *ResultPath, *FEmitHelper::DefaultValue(EmitterContext, Term->Type));
+		if (!Conditions.IsEmpty())
+		{
+			FString DefaultValue = FEmitHelper::DefaultValue(EmitterContext, Term->Type);
+			if (Term->Type.bIsArray)
+			{
+				// to fix error C4239 in VS, when the term is passed as non-const reference. 
+				// It seems that this situation happens only for arrays, otherwise this should be a default path.
+				const FString DefaultValueVariable = EmitterContext.GenerateUniqueLocalName();
+				EmitterContext.AddLine(*FString::Printf(TEXT("auto %s = %s;"), *DefaultValueVariable, *DefaultValue));
+				DefaultValue = DefaultValueVariable;
+			}
+			return FString::Printf(TEXT("((%s) ? (%s) : (%s))"), *Conditions, *ResultPath, *DefaultValue);
+		}
+		return ResultPath;
 	}
 }
 

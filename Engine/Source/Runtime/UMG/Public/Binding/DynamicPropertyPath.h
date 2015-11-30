@@ -331,7 +331,7 @@ private:
 							if ( IsConcreteTypeCompatibleWithReflectedType<T>(ReturnProperty) )
 							{
 								// Ensure that the element sizes are the same, prevents the user from doing something terribly wrong.
-								if ( ReturnProperty->ElementSize == sizeof(T) && !ContainerObject->HasAnyFlags( RF_Unreachable ) )
+								if ( ReturnProperty->ElementSize == sizeof(T) && !ContainerObject->IsUnreachable() )
 								{
 									ContainerObject->ProcessEvent(Function, &OutValue);
 									return true;

@@ -423,13 +423,17 @@ void FAssetContextMenu::MakeAssetActionsSubMenu(FMenuBuilder& MenuBuilder)
 
 		if (bCanUsePropertyMatrix)
 		{
+			TAttribute<FText>::FGetter DynamicTooltipGetter;
+			DynamicTooltipGetter.BindSP(this, &FAssetContextMenu::GetExecutePropertyMatrixTooltip);
+			TAttribute<FText> DynamicTooltipAttribute = TAttribute<FText>::Create(DynamicTooltipGetter);
+
 			MenuBuilder.AddMenuEntry(
 				LOCTEXT("PropertyMatrix", "Bulk Edit via Property Matrix..."),
-				LOCTEXT("PropertyMatrixTooltip", "Opens the property matrix editor for the selected assets."),
+				DynamicTooltipAttribute,
 				FSlateIcon(),
 				FUIAction(
 				FExecuteAction::CreateSP(this, &FAssetContextMenu::ExecutePropertyMatrix),
-				FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecuteProperties)
+				FCanExecuteAction::CreateSP(this, &FAssetContextMenu::CanExecutePropertyMatrix)
 				)
 				);
 		}
@@ -1103,7 +1107,7 @@ void FAssetContextMenu::ExecuteCreateBlueprintUsing()
 	}
 }
 
-void FAssetContextMenu::GetSelectedAssets(TArray<UObject*>& Assets, bool SkipRedirectors)
+void FAssetContextMenu::GetSelectedAssets(TArray<UObject*>& Assets, bool SkipRedirectors) const
 {
 	for (int32 AssetIdx = 0; AssetIdx < SelectedAssets.Num(); ++AssetIdx)
 	{
@@ -1819,28 +1823,66 @@ bool FAssetContextMenu::CanExecuteProperties() const
 	return bAtLeastOneNonRedirectorSelected;
 }
 
+bool FAssetContextMenu::CanExecutePropertyMatrix(FText& OutErrorMessage) const
+{
+	bool bResult = bAtLeastOneNonRedirectorSelected;
+	if (bAtLeastOneNonRedirectorSelected)
+	{
+		TArray<UObject*> ObjectsForPropertiesMenu;
+		const bool SkipRedirectors = true;
+		GetSelectedAssets(ObjectsForPropertiesMenu, SkipRedirectors);
+
+		// Ensure all Blueprints are valid.
+		for (UObject* Object : ObjectsForPropertiesMenu)
+		{
+			if (UBlueprint* BlueprintObj = Cast<UBlueprint>(Object))
+			{
+				if (BlueprintObj->GeneratedClass == nullptr)
+				{
+					OutErrorMessage = LOCTEXT("InvalidBlueprint", "A selected Blueprint is invalid.");
+					bResult = false;
+					break;
+				}
+			}
+		}
+	}
+	return bResult;
+}
+
 bool FAssetContextMenu::CanExecutePropertyMatrix() const
 {
-	return bAtLeastOneNonRedirectorSelected;
+	FText ErrorMessageDummy;
+	return CanExecutePropertyMatrix(ErrorMessageDummy);
+}
+
+FText FAssetContextMenu::GetExecutePropertyMatrixTooltip() const
+{
+	FText ResultTooltip;
+	if (CanExecutePropertyMatrix(ResultTooltip))
+	{
+		ResultTooltip = LOCTEXT("PropertyMatrixTooltip", "Opens the property matrix editor for the selected assets.");
+	}
+	return ResultTooltip;
 }
 
 bool FAssetContextMenu::CanExecuteDuplicate() const
 {
 	const TArray< FAssetData > AssetViewSelectedAssets = AssetView.Pin()->GetSelectedAssets();
 	uint32 NumNonRedirectors = 0;
-	for(auto& AssetData : AssetViewSelectedAssets)
+
+	for (const FAssetData& AssetData : AssetViewSelectedAssets)
 	{
-		if(!AssetData.IsValid())
+		if (!AssetData.IsValid())
 		{
 			continue;
 		}
 
-		if(AssetData.AssetClass == NAME_Class)
+		if (AssetData.AssetClass == NAME_Class || AssetData.AssetClass == UWorld::StaticClass()->GetFName())
 		{
 			return false;
 		}
 
-		if(AssetData.AssetClass != UObjectRedirector::StaticClass()->GetFName())
+		if (AssetData.AssetClass != UObjectRedirector::StaticClass()->GetFName())
 		{
 			++NumNonRedirectors;
 		}

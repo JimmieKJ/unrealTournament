@@ -117,7 +117,7 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="RawProjectPath">Full project path.</param>
 		/// <returns>Properties of the project.</returns>
-		public static ProjectProperties GetProjectProperties(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms = null)
+		public static ProjectProperties GetProjectProperties(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms = null, bool AssetNativizationRequested = false)
 		{
 			string ProjectKey = "UE4";
 			if (RawProjectPath != null)
@@ -127,7 +127,7 @@ namespace AutomationTool
 			ProjectProperties Properties;
 			if (PropertiesCache.TryGetValue(ProjectKey, out Properties) == false)
 			{
-				Properties = DetectProjectProperties(RawProjectPath, ClientTargetPlatforms);
+                Properties = DetectProjectProperties(RawProjectPath, ClientTargetPlatforms, AssetNativizationRequested);
 				PropertiesCache.Add(ProjectKey, Properties);
 			}
 			return Properties;
@@ -158,7 +158,7 @@ namespace AutomationTool
 			return ProjectClientBinariesPath;
 		}
 
-		private static bool RequiresTempTarget(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms)
+		private static bool RequiresTempTarget(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms, bool AssetNativizationRequested)
 		{
 			// check to see if we already have a Target.cs file
 			if (File.Exists (Path.Combine (Path.GetDirectoryName (RawProjectPath.FullName), "Source", RawProjectPath.GetFileNameWithoutExtension() + ".Target.cs")))
@@ -175,6 +175,18 @@ namespace AutomationTool
 					return false;
 				}
 			}
+
+            //
+            // once we reach this point, we can surmise that this is an asset-
+            // only (code free) project
+
+            if (AssetNativizationRequested)
+            {
+                // we're going to be converting some of the project's assets 
+                // into native code, so we require a distinct target (executable) 
+                // be generated for this project
+                return true;
+            }
 
 			// no Target file, now check to see if build settings have changed
 			List<UnrealTargetPlatform> TargetPlatforms = ClientTargetPlatforms;
@@ -262,7 +274,7 @@ namespace AutomationTool
 		/// </summary>
 		/// <param name="RawProjectPath">Full project path.</param>
 		/// <returns>Project properties.</returns>
-		private static ProjectProperties DetectProjectProperties(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms)
+        private static ProjectProperties DetectProjectProperties(FileReference RawProjectPath, List<UnrealTargetPlatform> ClientTargetPlatforms, bool AssetNativizationRequested)
 		{
 			var Properties = new ProjectProperties();
 			Properties.RawProjectPath = RawProjectPath;
@@ -271,12 +283,20 @@ namespace AutomationTool
 			List<string> ExtraSearchPaths = null;
 			if (RawProjectPath != null)
 			{
-				if (RequiresTempTarget(RawProjectPath, ClientTargetPlatforms))
+                if (RequiresTempTarget(RawProjectPath, ClientTargetPlatforms, AssetNativizationRequested))
 				{
 					GenerateTempTarget(RawProjectPath);
 					Properties.bWasGenerated = true;
 					ExtraSearchPaths = new List<string>();
-					ExtraSearchPaths.Add(CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source"));
+
+                    string TempTargetDir = CommandUtils.CombinePaths(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source");
+                    ExtraSearchPaths.Add(TempTargetDir);
+
+                    // in case the RulesCompiler (what we use to find all the 
+                    // Target.cs files) has already cached the contents of this 
+                    // directory, then we need to invalidate that cache (so 
+                    // it'll find/use the new Target.cs file)
+                    RulesCompiler.InvalidateRulesFileCache(TempTargetDir);
 				}
 				else if (File.Exists(Path.Combine(Path.GetDirectoryName(RawProjectPath.FullName), "Intermediate", "Source", Path.GetFileNameWithoutExtension(RawProjectPath.FullName) + ".Target.cs")))
 				{

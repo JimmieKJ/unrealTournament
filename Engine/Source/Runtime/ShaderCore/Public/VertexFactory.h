@@ -34,6 +34,9 @@ struct FVertexStreamComponent
 	/** true if the stream should be indexed by instance index instead of vertex index. */
 	bool bUseInstanceIndex;
 
+	/** true if the stream is set by the vertex factory and skipped by FVertexFactory::Set */
+	bool bSetByVertexFactoryInSetMesh;
+
 	/**
 	 * Initializes the data stream to null.
 	 */
@@ -42,18 +45,20 @@ struct FVertexStreamComponent
 		Offset(0),
 		Stride(0),
 		Type(VET_None),
-		bUseInstanceIndex(false)
+		bUseInstanceIndex(false),
+		bSetByVertexFactoryInSetMesh(false)
 	{}
 
 	/**
 	 * Minimal initialization constructor.
 	 */
-	FVertexStreamComponent(const FVertexBuffer* InVertexBuffer,uint32 InOffset,uint32 InStride,EVertexElementType InType,bool bInUseInstanceIndex = false):
+	FVertexStreamComponent(const FVertexBuffer* InVertexBuffer, uint32 InOffset, uint32 InStride, EVertexElementType InType, bool bInUseInstanceIndex = false, bool bInSetByVertexFactoryInSetMesh = false) :
 		VertexBuffer(InVertexBuffer),
 		Offset(InOffset),
 		Stride(InStride),
 		Type(InType),
-		bUseInstanceIndex(bInUseInstanceIndex)
+		bUseInstanceIndex(bInUseInstanceIndex),
+		bSetByVertexFactoryInSetMesh(bInSetByVertexFactoryInSetMesh)
 	{}
 };
 
@@ -461,10 +466,20 @@ protected:
 		uint32 Stride;
 		uint32 Offset;
 		bool bUseInstanceIndex;
+		bool bSetByVertexFactoryInSetMesh; // Do not call SetStreamSource FVertexFactory::Set
 
 		friend bool operator==(const FVertexStream& A,const FVertexStream& B)
 		{
 			return A.VertexBuffer == B.VertexBuffer && A.Stride == B.Stride && A.Offset == B.Offset;
+		}
+
+		FVertexStream()
+			: VertexBuffer(nullptr)
+			, Stride(0)
+			, Offset(0)
+			, bUseInstanceIndex(false)
+			, bSetByVertexFactoryInSetMesh(false)
+		{
 		}
 	};
 

@@ -7,15 +7,13 @@
 #include "Engine/UserDefinedEnum.h"
 
 /** The struct gathers dependencies of a converted BPGC */
-struct BLUEPRINTCOMPILERCPPBACKEND_API FGatherConvertedClassDependencies : public FReferenceCollector
+struct BLUEPRINTCOMPILERCPPBACKEND_API FGatherConvertedClassDependencies
 {
 protected:
-	TSet<UObject*> SerializedObjects;
 	UStruct* OriginalStruct;
 
 public:
 	// Dependencies:
-
 	TArray<UObject*> Assets; 
 
 	TSet<UBlueprintGeneratedClass*> ConvertedClasses;
@@ -29,21 +27,16 @@ public:
 public:
 	FGatherConvertedClassDependencies(UStruct* InStruct);
 
-	virtual bool IsIgnoringArchetypeRef() const override { return false; }
-	virtual bool IsIgnoringTransient() const override { return true; }
-
-	virtual void HandleObjectReference(UObject*& InObject, const UObject* InReferencingObject, const UProperty* InReferencingProperty) override;
-
-	UStruct* GetOriginalStruct() const
+	UStruct* GetActualStruct() const
 	{
 		return OriginalStruct;
 	}
+
+	UClass* FindOriginalClass(const UClass* InClass) const;
 
 public:
 	bool WillClassBeConverted(const UBlueprintGeneratedClass* InClass) const;
 
 protected:
-	void FindReferences(UObject* Object);
 	void DependenciesForHeader();
-	bool ShouldIncludeHeaderFor(UObject* Object) const;
 };

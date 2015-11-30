@@ -17,14 +17,26 @@ class FObjectReplicator;
 //
 #define DO_ENABLE_NET_TEST !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-#if DO_ENABLE_NET_TEST
+
 /** Holds the packet simulation settings in one place */
-struct FPacketSimulationSettings
+USTRUCT()
+struct ENGINE_API FPacketSimulationSettings
 {
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, Category="Simulation Settings")
 	int32	PktLoss;
+
+	UPROPERTY(EditAnywhere, Category="Simulation Settings")
 	int32	PktOrder;
+
+	UPROPERTY(EditAnywhere, Category="Simulation Settings")
 	int32	PktDup;
+	
+	UPROPERTY(EditAnywhere, Category="Simulation Settings")
 	int32	PktLag;
+	
+	UPROPERTY(EditAnywhere, Category="Simulation Settings")
 	int32	PktLagVariance;
 
 	/** Ctor. Zeroes the settings */
@@ -59,7 +71,6 @@ struct FPacketSimulationSettings
 	 */
 	bool ParseSettings(const TCHAR* Stream);
 };
-#endif
 
 //
 // Priority sortable list.
@@ -327,6 +338,8 @@ public:
 
 #if DO_ENABLE_NET_TEST
 	FPacketSimulationSettings	PacketSimulationSettings;
+
+	ENGINE_API void SetPacketSimulationSettings(FPacketSimulationSettings NewSettings);
 #endif
 
 	// Constructors.

@@ -4,6 +4,14 @@
 #include "ProceduralMeshComponent.h"
 #include "DynamicMeshBuilder.h"
 
+DECLARE_CYCLE_STAT(TEXT("Create ProcMesh Proxy"), STAT_ProcMesh_CreateSceneProxy, STATGROUP_ProceduralMesh);
+DECLARE_CYCLE_STAT(TEXT("Create Mesh Section"), STAT_ProcMesh_CreateMeshSection, STATGROUP_ProceduralMesh);
+DECLARE_CYCLE_STAT(TEXT("UpdateSection GT"), STAT_ProcMesh_UpdateSectionGT, STATGROUP_ProceduralMesh);
+DECLARE_CYCLE_STAT(TEXT("UpdateSection RT"), STAT_ProcMesh_UpdateSectionRT, STATGROUP_ProceduralMesh);
+DECLARE_CYCLE_STAT(TEXT("Get ProcMesh Elements"), STAT_ProcMesh_GetMeshElements, STATGROUP_ProceduralMesh);
+DECLARE_CYCLE_STAT(TEXT("Update Collision"), STAT_ProcMesh_UpdateCollision, STATGROUP_ProceduralMesh);
+
+
 /** Resource array to pass  */
 class FProcMeshVertexResourceArray : public FResourceArrayInterface
 {
@@ -226,6 +234,8 @@ public:
 	/** Called on render thread to assign new dynamic data */
 	void UpdateSection_RenderThread(FProcMeshSectionUpdateData* SectionData)
 	{
+		SCOPE_CYCLE_COUNTER(STAT_ProcMesh_UpdateSectionRT);
+
 		check(IsInRenderingThread());
 
 		// Check we have data 
@@ -271,6 +281,9 @@ public:
 
 	virtual void GetDynamicMeshElements(const TArray<const FSceneView*>& Views, const FSceneViewFamily& ViewFamily, uint32 VisibilityMap, FMeshElementCollector& Collector) const override
 	{
+		SCOPE_CYCLE_COUNTER(STAT_ProcMesh_GetMeshElements);
+
+
 		// Set up wireframe material (if needed)
 		const bool bWireframe = AllowDebugViewmodes() && ViewFamily.EngineShowFlags.Wireframe;
 
@@ -340,6 +353,7 @@ public:
 		Result.bShadowRelevance = IsShadowCast(View);
 		Result.bDynamicRelevance = true;
 		Result.bRenderInMainPass = ShouldRenderInMainPass();
+		Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 		Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 		MaterialRelevance.SetPrimitiveViewRelevance(Result);
 		return Result;
@@ -377,6 +391,8 @@ UProceduralMeshComponent::UProceduralMeshComponent(const FObjectInitializer& Obj
 
 void UProceduralMeshComponent::CreateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<int32>& Triangles, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents, bool bCreateCollision)
 {
+	SCOPE_CYCLE_COUNTER(STAT_ProcMesh_CreateMeshSection);
+
 	// Ensure sections array is long enough
 	ProcMeshSections.SetNum(SectionIndex + 1, false);
 
@@ -422,6 +438,8 @@ void UProceduralMeshComponent::CreateMeshSection(int32 SectionIndex, const TArra
 
 void UProceduralMeshComponent::UpdateMeshSection(int32 SectionIndex, const TArray<FVector>& Vertices, const TArray<FVector>& Normals, const TArray<FVector2D>& UV0, const TArray<FColor>& VertexColors, const TArray<FProcMeshTangent>& Tangents)
 {
+	SCOPE_CYCLE_COUNTER(STAT_ProcMesh_UpdateSectionGT);
+
 	if(SectionIndex < ProcMeshSections.Num())
 	{
 		FProcMeshSection& Section = ProcMeshSections[SectionIndex];
@@ -580,6 +598,8 @@ void UProceduralMeshComponent::UpdateLocalBounds()
 
 FPrimitiveSceneProxy* UProceduralMeshComponent::CreateSceneProxy()
 {
+	SCOPE_CYCLE_COUNTER(STAT_ProcMesh_CreateSceneProxy);
+
 	return new FProceduralMeshSceneProxy(this);
 }
 
@@ -663,6 +683,8 @@ void UProceduralMeshComponent::CreateProcMeshBodySetup()
 
 void UProceduralMeshComponent::UpdateCollision()
 {
+	SCOPE_CYCLE_COUNTER(STAT_ProcMesh_UpdateCollision);
+
 	bool bCreatePhysState = false; // Should we create physics state at the end of this function?
 
 	// If its created, shut it down now

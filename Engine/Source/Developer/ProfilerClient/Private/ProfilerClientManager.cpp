@@ -249,6 +249,8 @@ void FProfilerClientManager::SetPreviewState( const bool bRequestedPreviewState,
 void FProfilerClientManager::LoadCapture( const FString& DataFilepath, const FGuid& ProfileId )
 {
 #if STATS
+	UE_LOG( LogStats, Warning, TEXT( "Started loading: %s" ), *DataFilepath );
+
 	// start an async load
 	LoadConnection = &Connections.FindOrAdd(ProfileId);
 	LoadConnection->InstanceId = ProfileId;
@@ -402,8 +404,7 @@ void FServiceConnection::Initialize( const FProfilerServiceAuthorize& Message, c
 			// read the message
 			new (StatMessages)FStatMessage( Stream.ReadMessage( MemoryReader ) );
 		}
-		static FStatNameAndInfo Adv(NAME_AdvanceFrame, "", "", TEXT(""), EStatDataType::ST_int64, true, false);
-		new (StatMessages) FStatMessage(Adv.GetEncodedName(), EStatOperation::AdvanceFrameEventGameThread, 1LL, false);
+		new (StatMessages) FStatMessage(FStatConstants::AdvanceFrame.GetEncodedName(), EStatOperation::AdvanceFrameEventGameThread, 1LL, false);
 	}
 
 	// generate a thread state from the data
@@ -978,28 +979,56 @@ void FServiceConnection::GenerateAccumulators(TArray<FStatMessage>& Stats, TArra
 	SCOPE_CYCLE_COUNTER(STAT_PC_GenerateAccumulator)
 	for (int32 Index = 0; Index < Stats.Num(); ++Index)
 	{
-		FStatMessage& Stat = Stats[Index];
-		if (Stat.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
-		{
-			// add a count accumulator
-			FProfilerCountAccumulator Data;
-			Data.StatId = FindOrAddStat(Stat.NameAndInfo, STATTYPE_AccumulatorDWORD);
-			Data.Value = Stat.GetValue_int64();
-			CountAccumulators.Add(Data);
-		}
-		else if (Stat.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_double)
-		{
-			// add a float accumulator
-			FProfilerFloatAccumulator Data;
-			Data.StatId = FindOrAddStat(Stat.NameAndInfo, STATTYPE_AccumulatorFLOAT);
-			Data.Value = Stat.GetValue_double();
-			FloatAccumulators.Add(Data);
+		const FStatMessage& StatMessage = Stats[Index];
+		const FName GroupName = StatMessage.NameAndInfo.GetGroupName();
 
-			const FName StatName = Stat.NameAndInfo.GetShortName();
-			if (StatName == TEXT("STAT_SecondsPerCycle"))
+		uint32 StatType = STATTYPE_Error;
+		if (StatMessage.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
+		{
+			if (StatMessage.NameAndInfo.GetFlag( EStatMetaFlags::IsCycle ))
 			{
-				FScopeLock ScopeLock( &CriticalSection );
-				MetaData.SecondsPerCycle = Stat.GetValue_double();
+				StatType = STATTYPE_CycleCounter;
+			}
+			else if (StatMessage.NameAndInfo.GetFlag( EStatMetaFlags::IsMemory ))
+			{
+				StatType = STATTYPE_MemoryCounter;
+			}
+			else
+			{
+				StatType = STATTYPE_AccumulatorDWORD;
+			}
+		}
+		else if (StatMessage.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_double)
+		{
+			StatType = STATTYPE_AccumulatorFLOAT;
+		}
+
+		if (StatType != STATTYPE_Error)
+		{
+			const int32 StatId = FindOrAddStat( StatMessage.NameAndInfo, StatType );
+
+			if (StatMessage.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_int64)
+			{
+				// add a count accumulator
+				FProfilerCountAccumulator Data;
+				Data.StatId = StatId;
+				Data.Value = StatMessage.GetValue_int64();
+				CountAccumulators.Add( Data );
+			}
+			else if (StatMessage.NameAndInfo.GetField<EStatDataType>() == EStatDataType::ST_double)
+			{
+				// add a float accumulator
+				FProfilerFloatAccumulator Data;
+				Data.StatId = StatId;
+				Data.Value = StatMessage.GetValue_double();
+				FloatAccumulators.Add( Data );
+
+				const FName StatName = StatMessage.NameAndInfo.GetShortName();
+				if (StatName == FStatConstants::NAME_SecondsPerCycle)
+				{
+					FScopeLock ScopeLock( &CriticalSection );
+					MetaData.SecondsPerCycle = StatMessage.GetValue_double();
+				}
 			}
 		}
 	}
@@ -1091,8 +1120,7 @@ bool FServiceConnection::ReadAndConvertStatMessages( FArchive& Reader, bool bUse
 			Reader << UncompressedData;
 			if( UncompressedData.HasReachedEndOfCompressedData() )
 			{
-				static FStatNameAndInfo Adv( NAME_AdvanceFrame, "", "", TEXT( "" ), EStatDataType::ST_int64, true, false );
-				GenerateNewFrame( FStatMessage( Adv.GetEncodedName(), EStatOperation::AdvanceFrameEventGameThread, 0ll, false ), Reader, bUseInAsync );
+				GenerateNewFrame( FStatMessage( FStatConstants::AdvanceFrame.GetEncodedName(), EStatOperation::AdvanceFrameEventGameThread, 0ll, false ), Reader, bUseInAsync );
 				return true;
 			}
 
@@ -1126,61 +1154,6 @@ bool FServiceConnection::ReadAndConvertStatMessages( FArchive& Reader, bool bUse
 		}
 	}
 	// Obsolete. Remove later.
-	else
-	{
-		while( Reader.Tell() < Reader.TotalSize() )
-		{
-			// read the message
-			FStatMessage Message( Stream.ReadMessage( Reader, bIsFinalized ) );
-			ReadMessages++;
-
-			if( Message.NameAndInfo.GetShortName() != TEXT( "Unknown FName" ) )
-			{
-				if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::SpecialMessageMarker )
-				{
-					// Simply break the loop.
-					// The profiler supports more advanced handling of this message.
-					return true;
-				}
-				else if( Message.NameAndInfo.GetField<EStatOperation>() == EStatOperation::AdvanceFrameEventGameThread && ReadMessages > 2 )
-				{
-					AddCollectedStatMessages( Message );
-
-					// create an old format data frame from the data
-					GenerateProfilerDataFrame();
-
-					{
-						// add the frame to the work list
-						FScopeLock ScopeLock( &CriticalSection );
-						DataFrames.Add( CurrentData );
-						DataLoadingProgress = (double)Reader.Tell() / (double)Reader.TotalSize();
-					}
-
-					if( bUseInAsync )
-					{
-						if( DataFrames.Num() > FProfilerClientManager::MaxFramesPerTick )
-						{
-							while( DataFrames.Num() )
-							{
-								FPlatformProcess::Sleep( 0.001f );
-							}
-						}
-					}
-				}
-
-				new (Messages)FStatMessage( Message );
-			}
-			else
-			{
-				break;
-			}
-
-			if( !bUseInAsync && DataFrames.Num() < FProfilerClientManager::MaxFramesPerTick )
-			{
-				return false;
-			}
-		}
-	}
 	
 	if( Reader.Tell() >= Reader.TotalSize() )
 	{

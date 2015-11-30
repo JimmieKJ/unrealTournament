@@ -152,7 +152,7 @@ void USoundNodeMature::PostLoad()
 {
 	Super::PostLoad();
 
-	if( !GIsEditor && GEngine && !HasAnyFlags(RF_RootSet) && ChildNodes.Num() >= 2 )
+	if( !GIsEditor && GEngine && !IsRooted() && ChildNodes.Num() >= 2 )
 	{
 		// Make sure the SoundCue has gotten all the SoundWavePlayers in to memory
 		GetOuter()->ConditionalPostLoad();

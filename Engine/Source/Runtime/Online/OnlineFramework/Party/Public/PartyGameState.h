@@ -132,21 +132,21 @@ private:
 	 * 
 	 * @param NewPartyType new party type
 	 */
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientPartyTypeChanged, EPartyType /* NewPartyType */);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnPartyTypeChanged, EPartyType /* NewPartyType */);
 
 	/**
 	 * Delegate fired when a join via presence permissions change
 	 * 
 	 * @param bLeaderFriendsOnly only leader friends can join
 	 */
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientLeaderFriendsOnlyChanged, bool /* bLeaderFriendsOnly */);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLeaderFriendsOnlyChanged, bool /* bLeaderFriendsOnly */);
 
 	/**
 	 * Delegate fired when a invite permissions change
 	 * 
 	 * @param bLeaderInviteOnly only leader invites are allowed
 	 */
-	DECLARE_MULTICAST_DELEGATE_OneParam(FOnClientLeaderInvitesOnlyChanged, bool /* bLeaderInviteOnly */);
+	DECLARE_MULTICAST_DELEGATE_OneParam(FOnLeaderInvitesOnlyChanged, bool /* bLeaderInviteOnly */);
 
 protected:
 
@@ -164,14 +164,6 @@ public:
 	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 	// UObject interface end
 
-	
-	/** 
-	 * Allows external systems an opportunity to initialize newly created PartyMemberStates before being entered into the party system
-	 * 
-	 * @param InFunctor a TFunction to call immediately after allocation. 
-	 */
-	void SetInitMemberFunctor( TFunction<void( TSharedPtr<FOnlinePartyMember>, UPartyMemberState* )>&& InFunctor );
-
 	/**
 	 * Notification that the game is about to travel to another map/server
 	 */
@@ -186,6 +178,9 @@ public:
 	 * Unregister delegates and clear out shared pointers to MCP objects
 	 */
 	virtual void OnShutdown();
+
+	/** @return true if local player is party leader, false otherwise */
+	bool IsLocalPartyLeader();
 
 	/** @return the party id of this party */
 	FOnlinePartyTypeId GetPartyTypeId() const;
@@ -298,11 +293,11 @@ public:
 	FOnPartyMemberDataChanged& OnPartyMemberDataChanged() { return PartyMemberDataChanged; }
 
 	/** @return delegate fired when the party type has changed */
-	FOnClientPartyTypeChanged& OnClientPartyTypeChanged() { return ClientPartyTypeChanged; }
+	FOnPartyTypeChanged& OnPartyTypeChanged() { return PartyTypeChanged; }
 	/** @return delegate fired when the leader based join permissions have changed */
-	FOnClientLeaderFriendsOnlyChanged& OnClientLeaderFriendsOnlyChanged() { return ClientLeaderFriendsOnlyChanged; }
+	FOnLeaderFriendsOnlyChanged& OnLeaderFriendsOnlyChanged() { return LeaderFriendsOnlyChanged; }
 	/** @return delegate fired when the leader based invite permissions have changed */
-	FOnClientLeaderInvitesOnlyChanged& OnClientLeaderInvitesOnlyChanged() { return ClientLeaderInvitesOnlyChanged; }
+	FOnLeaderInvitesOnlyChanged& OnLeaderInvitesOnlyChanged() { return LeaderInvitesOnlyChanged; }
 	
 protected:
 
@@ -407,9 +402,9 @@ protected:
 	/**
 	 * Delegates for party visibility/presence/invite permission changes
 	 */
-	FOnClientPartyTypeChanged ClientPartyTypeChanged;
-	FOnClientLeaderFriendsOnlyChanged ClientLeaderFriendsOnlyChanged;
-	FOnClientLeaderInvitesOnlyChanged ClientLeaderInvitesOnlyChanged;
+	FOnPartyTypeChanged PartyTypeChanged;
+	FOnLeaderFriendsOnlyChanged LeaderFriendsOnlyChanged;
+	FOnLeaderInvitesOnlyChanged LeaderInvitesOnlyChanged;
 
 	/**
 	 * Common initialization for a newly instantiated party
@@ -493,7 +488,7 @@ protected:
 	 * @param InMemberId id of the leaving member
 	 * @param Reason reason the member left
 	 */
-	void HandlePartyMemberLeft(const FUniqueNetId& InMemberId, EMemberExitedReason Reason);
+	virtual void HandlePartyMemberLeft(const FUniqueNetId& InMemberId, EMemberExitedReason Reason);
 
 	/**
 	 * Called for all existing party members when an existing member is promoted to leader
@@ -615,8 +610,6 @@ private:
 
 	/** Scratch copy of child USTRUCT for handling replication comparisons */
 	FPartyState* PartyStateRefScratch;
-
-	TFunction<void( TSharedPtr<FOnlinePartyMember>, UPartyMemberState* )> InitMemberFunctor;
 
 	friend UParty;
 	friend UPartyMemberState;

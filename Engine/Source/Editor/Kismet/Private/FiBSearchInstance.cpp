@@ -248,7 +248,7 @@ void FFiBSearchInstance::BuildFunctionTargetsByName(TSharedPtr<FImaginaryFiBData
 			{
 				OutTargetPendingSearchables.Add(ChildData);
 			}
-			else
+			else if (CategoryData->IsTagAndValueCategory())
 			{
 				BuildFunctionTargetsByName(ChildData, InTagName, OutTargetPendingSearchables);
 			}

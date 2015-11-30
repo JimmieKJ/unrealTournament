@@ -17,7 +17,7 @@ UNiagaraSequence::UNiagaraSequence(const FObjectInitializer& ObjectInitializer)
  *****************************************************************************/
 
 
-void UNiagaraSequence::BindPossessableObject(const FGuid& ObjectId, UObject& PossessedObject)
+void UNiagaraSequence::BindPossessableObject(const FGuid& ObjectId, UObject& PossessedObject, UObject* Context)
 {
 }
 
@@ -28,15 +28,9 @@ bool UNiagaraSequence::CanPossessObject(UObject& Object) const
 }
 
 
-UObject* UNiagaraSequence::FindObject(const FGuid& ObjectId) const
+UObject* UNiagaraSequence::FindPossessableObject(const FGuid& ObjectId, UObject* Context) const
 {
 	return nullptr;
-}
-
-
-FGuid UNiagaraSequence::FindObjectId(UObject& Object) const
-{
-	return FGuid();
 }
 
 
@@ -50,14 +44,6 @@ UObject* UNiagaraSequence::GetParentObject(UObject* Object) const
 {
 	return nullptr;
 }
-
-
-#if WITH_EDITOR
-bool UNiagaraSequence::TryGetObjectDisplayName(const FGuid& ObjectId, FText& OutDisplayName) const
-{
-	return false;
-}
-#endif
 
 
 void UNiagaraSequence::UnbindPossessableObjects(const FGuid& ObjectId)

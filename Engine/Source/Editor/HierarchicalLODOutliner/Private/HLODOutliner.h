@@ -103,7 +103,6 @@ namespace HLODOutliner
 		FReply RetrieveActors();
 		FReply HandleBuildLODActors();
 		FReply HandleForceRefresh();
-		FReply HandleTestFunction();
 		/** End button handlers */
 
 	private:
@@ -118,11 +117,11 @@ namespace HLODOutliner
 		void ForceViewLODActor();
 
 		/**
-		* Determines if the HLOD slider is enabled, only if all HLODs are buil
+		* Returns whether or not all HLODs in the level are build
 		*
 		* @return bool
 		*/
-		bool HandleForcedLevelSliderIsEnabled() const;
+		bool AreHLODsBuild() const;
 		
 		/**
 		* Handles changes in slider value, maps/snaps it to the corresponding HLOD level

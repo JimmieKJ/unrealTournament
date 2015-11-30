@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #include "BlueprintGraphPrivatePCH.h"
 #include "CompilerResultsLog.h"
 #include "KismetCompiler.h"
@@ -50,6 +49,12 @@ void UK2Node_Event::Serialize(FArchive& Ar)
 		{
 			EventReference.SetExternalMember(EventSignatureName_DEPRECATED, EventSignatureClass_DEPRECATED);
 		}
+
+		// @TODO: Dev-BP=>Main; gate this with a version check once it makes its way into main
+		//if (Ar.UE4Ver() < VER_UE4_OVERRIDDEN_EVENT_REFERENCE_FIXUP)
+		{
+			FixupEventReference();
+		}
 	}
 }
 
@@ -62,6 +67,15 @@ void UK2Node_Event::PostLoad()
 	{
 		const UEdGraphSchema_K2* K2Schema = GetDefault<UEdGraphSchema_K2>();
 		CreatePin(EGPD_Output, K2Schema->PC_Delegate, TEXT(""), NULL, false, false, DelegateOutputName);
+	}
+}
+
+void UK2Node_Event::PostDuplicate(bool bDuplicateForPIE)
+{
+	Super::PostDuplicate(bDuplicateForPIE);
+	if (!bDuplicateForPIE)
+	{
+		FixupEventReference();
 	}
 }
 
@@ -180,6 +194,52 @@ void UK2Node_Event::PostReconstructNode()
 	UpdateDelegatePin();
 
 	Super::PostReconstructNode();
+}
+
+
+void UK2Node_Event::FixupEventReference()
+{
+	if (bOverrideFunction && !HasAnyFlags(RF_Transient))
+	{
+		if (!EventReference.IsSelfContext())
+		{
+			UBlueprint* Blueprint = GetBlueprint();
+			UClass* BlueprintType = (Blueprint != nullptr) ? Blueprint->SkeletonGeneratedClass : nullptr;
+
+			UClass* ParentType = EventReference.GetMemberParentClass();
+			if ((BlueprintType != nullptr) && ( (ParentType == nullptr) || !(BlueprintType->IsChildOf(ParentType) || BlueprintType->ImplementsInterface(ParentType)) ))
+			{
+				FName EventName = EventReference.GetMemberName();
+
+				const UFunction* OverriddenFunc = BlueprintType->FindFunctionByName(EventName);
+				while (OverriddenFunc != nullptr)
+				{
+					if (UFunction* SuperFunc = OverriddenFunc->GetSuperFunction())
+					{
+						OverriddenFunc = SuperFunc;
+					}
+					else
+					{
+						break;
+					}
+				}
+
+				if (OverriddenFunc != nullptr)
+				{
+					UClass* SuperClass = OverriddenFunc->GetOwnerClass();
+					if (UBlueprint* SuperBlueprint = Cast<UBlueprint>(SuperClass->ClassGeneratedBy))
+					{
+						SuperClass = SuperBlueprint->GeneratedClass;
+					}
+
+					if (SuperClass != nullptr)
+					{
+						EventReference.SetExternalMember(EventName, SuperClass);
+					}
+				}
+			}
+		}
+	}
 }
 
 void UK2Node_Event::UpdateDelegatePin(bool bSilent)

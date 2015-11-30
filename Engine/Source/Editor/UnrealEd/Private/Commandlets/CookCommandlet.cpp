@@ -6,6 +6,8 @@
 
 #include "UnrealEd.h"
 
+#include "Blueprint/BlueprintSupport.h"
+#include "BlueprintNativeCodeGenModule.h"
 #include "Engine/WorldComposition.h"
 #include "PackageHelperFunctions.h"
 #include "DerivedDataCacheInterface.h"
@@ -178,7 +180,7 @@ bool UCookCommandlet::CookOnTheFly( FGuid InstanceId, int32 Timeout, bool bForce
 
 			UE_LOG(LogCookCommandlet, Display, TEXT("GC..."));
 
-			CollectGarbage( RF_Native );
+			CollectGarbage(RF_NoFlags);
 		}
 
 
@@ -349,14 +351,14 @@ bool UCookCommandlet::SaveCookedPackage( UPackage* Package, uint32 SaveFlags, bo
 		// Use SandboxFile to do path conversion to properly handle sandbox paths (outside of standard paths in particular).
 		Filename = SandboxFile->ConvertToAbsolutePathForExternalAppForWrite(*Filename);
 
-		uint32 OriginalPackageFlags = Package->PackageFlags;
+		uint32 OriginalPackageFlags = Package->GetPackageFlags();
 		UWorld* World = NULL;
 		EObjectFlags Flags = RF_NoFlags;
 		bool bPackageFullyLoaded = false;
 
 		if (bCompressed)
 		{
-			Package->PackageFlags |= PKG_StoreCompressed;
+			Package->SetPackageFlags(PKG_StoreCompressed);
 		}
 
 		ITargetPlatformManagerModule& TPM = GetTargetPlatformManagerRef();
@@ -440,11 +442,11 @@ bool UCookCommandlet::SaveCookedPackage( UPackage* Package, uint32 SaveFlags, bo
 
 				if (!Target->HasEditorOnlyData())
 				{
-					Package->PackageFlags |= PKG_FilterEditorOnly;
+					Package->SetPackageFlags(PKG_FilterEditorOnly);
 				}
 				else
 				{
-					Package->PackageFlags &= ~PKG_FilterEditorOnly;
+					Package->ClearPackageFlags(PKG_FilterEditorOnly);
 				}
 
 				if (World)
@@ -460,7 +462,12 @@ bool UCookCommandlet::SaveCookedPackage( UPackage* Package, uint32 SaveFlags, bo
 				}
 				else
 				{
-					bSavedCorrectly &= GEditor->SavePackage( Package, World, Flags, *PlatFilename, GError, NULL, bSwap, false, SaveFlags, Target, FDateTime::MinValue() );
+					ESavePackageResult Result = GEditor->Save(Package, World, Flags, *PlatFilename, GError, NULL, bSwap, false, SaveFlags, Target, FDateTime::MinValue());
+					if (Result == ESavePackageResult::ReplaceCompletely || Result == ESavePackageResult::GenerateStub)
+					{
+						IBlueprintNativeCodeGenModule::Get().Convert(Package, Result == ESavePackageResult::ReplaceCompletely ? EReplacementResult::ReplaceCompletely : EReplacementResult::GenerateStub);
+					}
+					bSavedCorrectly &= (Result == ESavePackageResult::ReplaceCompletely || Result == ESavePackageResult::GenerateStub || Result == ESavePackageResult::Success);
 				}
 				
 				bOutWasUpToDate = false;
@@ -473,7 +480,7 @@ bool UCookCommandlet::SaveCookedPackage( UPackage* Package, uint32 SaveFlags, bo
 			}
 		}
 
-		Package->PackageFlags = OriginalPackageFlags;
+		Package->SetPackageFlagsTo(OriginalPackageFlags);
 	}
 
 	// return success
@@ -486,7 +493,7 @@ void UCookCommandlet::MaybeMarkPackageAsAlreadyLoaded(UPackage *Package)
 	if (PackagesToNotReload.Contains(Name))
 	{
 		UE_LOG(LogCookCommandlet, Verbose, TEXT("Marking %s already loaded."), *Name);
-		Package->PackageFlags |= PKG_ReloadingForCooker;
+		Package->SetPackageFlags(PKG_ReloadingForCooker);
 	}
 }
 
@@ -642,7 +649,7 @@ void UCookCommandlet::CleanSandbox(const TArray<ITargetPlatform*>& Platforms)
 			}
 
 			// Collect garbage to ensure we don't have any packages hanging around from dependent time stamp determination
-			CollectGarbage(RF_Native);
+			CollectGarbage(RF_NoFlags);
 		}
 	}
 
@@ -1055,6 +1062,9 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	FString ChildCookFile;
 	FParse::Value(*Params, TEXT("cookchild="), ChildCookFile);
 
+	FString ChildManifestFilename;
+	FParse::Value(*Params, TEXT("childmanifest="), ChildManifestFilename);
+
 	int32 NumProcesses = 0;
 	FParse::Value(*Params, TEXT("numcookerstospawn="), NumProcesses);
 
@@ -1158,11 +1168,19 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	AlwaysCookMapList.Append(MapList);
 	Swap(MapList, AlwaysCookMapList);
 
+	FCookCommandParams CookParams(FCommandLine::Get());
+	if (CookParams.bRunConversion)
+	{
+		const UBlueprintNativeCodeGenConfig* ConfigSettings = GetDefault<UBlueprintNativeCodeGenConfig>();
+		TMap<UObject*, UClass*> ClassReplacementMap;
+		ClassReplacementMap.Add(UUserDefinedEnum::StaticClass(), UEnum::StaticClass());
+		ClassReplacementMap.Add(UUserDefinedStruct::StaticClass(), UScriptStruct::StaticClass());
+		ClassReplacementMap.Add(UBlueprintGeneratedClass::StaticClass(), UDynamicClass::StaticClass());
+		FScriptCookReplacementCoordinator::Create(CookParams.bRunConversion, ConfigSettings->ExcludedAssetTypes, ConfigSettings->ExcludedBlueprintTypes, ClassReplacementMap);
+	}
+
 	//////////////////////////////////////////////////////////////////////////
 	// start cook by the book 
-
-
-
 	ECookByTheBookOptions CookOptions = ECookByTheBookOptions::None;
 
 	CookOptions |= bLeakTest ? ECookByTheBookOptions::LeakTest : ECookByTheBookOptions::None; 
@@ -1185,7 +1203,9 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 	StartupOptions.bGenerateDependenciesForMaps = Switches.Contains(TEXT("GenerateDependenciesForMaps"));
 	StartupOptions.bGenerateStreamingInstallManifests = bGenerateStreamingInstallManifests;
 	StartupOptions.ChildCookFileName = ChildCookFile;
+	StartupOptions.ChildManifestFilename = ChildManifestFilename;
 	StartupOptions.NumProcesses = NumProcesses;
+	FParse::Value(FCommandLine::Get(), TEXT("COOKSINGLEASSETNAME="), StartupOptions.CookSingleAssetName);
 
 	CookOnTheFlyServer->StartCookByTheBook( StartupOptions );
 
@@ -1245,7 +1265,7 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 
 				UE_LOG( LogCookCommandlet, Display, TEXT( "GC..." ) );
 
-				CollectGarbage( RF_Native );
+				CollectGarbage(RF_NoFlags);
 			}
 			else
 			{
@@ -1400,7 +1420,7 @@ bool UCookCommandlet::Cook(const TArray<ITargetPlatform*>& Platforms, TArray<FSt
 					SaveCookedPackage(Pkg, SAVE_KeepGUID | SAVE_Async | (bUnversioned ? SAVE_Unversioned : 0), bWasUpToDate);
 
 					PackagesToNotReload.Add(Pkg->GetName());
-					Pkg->PackageFlags |= PKG_ReloadingForCooker;
+					Pkg->SetPackageFlags(PKG_ReloadingForCooker);
 					{
 						TArray<UObject *> ObjectsInPackage;
 						GetObjectsWithOuter(Pkg, ObjectsInPackage, true);
@@ -1417,7 +1437,7 @@ bool UCookCommandlet::Cook(const TArray<ITargetPlatform*>& Platforms, TArray<FSt
 			{
 				UE_LOG(LogCookCommandlet, Display, TEXT("Full GC..."));
 
-				CollectGarbage( RF_Native );
+				CollectGarbage(RF_NoFlags);
 				NumProcessedSinceLastGC = 0;
 
 				if (bLeakTest)

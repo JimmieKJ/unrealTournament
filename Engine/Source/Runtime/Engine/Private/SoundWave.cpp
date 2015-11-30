@@ -230,7 +230,7 @@ void USoundWave::Serialize( FArchive& Ar )
 		}
 
 #if WITH_EDITORONLY_DATA	
-		if (Ar.IsLoading() && !Ar.IsTransacting() && !bCooked && !(GetOutermost()->PackageFlags & PKG_ReloadingForCooker))
+		if (Ar.IsLoading() && !Ar.IsTransacting() && !bCooked && !GetOutermost()->HasAnyPackageFlags(PKG_ReloadingForCooker))
 		{
 			BeginCachePlatformData();
 		}
@@ -324,7 +324,7 @@ void USoundWave::PostLoad()
 {
 	Super::PostLoad();
 
-	if (GetOutermost()->PackageFlags & PKG_ReloadingForCooker)
+	if (GetOutermost()->HasAnyPackageFlags(PKG_ReloadingForCooker))
 	{
 		return;
 	}
@@ -505,13 +505,10 @@ void USoundWave::FreeResources()
 	DEC_DWORD_STAT_BY(STAT_AudioMemory, TrackedMemoryUsage);
 	TrackedMemoryUsage = 0;
 
-	SampleRate = 0;
-	Duration = 0.0f;
 	ResourceID = 0;
 	bDynamicResource = false;
 	DecompressionType = DTYPE_Setup;
 	bDecompressedFromOgg = 0;
-	RawPCMDataSize = 0;
 }
 
 FWaveInstance* USoundWave::HandleStart( FActiveSound& ActiveSound, const UPTRINT WaveInstanceHash )
@@ -586,7 +583,7 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 	if (bLooping || ParseParams.bLooping)
 	{
 		WaveInstance->bIsFinished = false;
-#if !NO_LOGGING
+#if !(NO_LOGGING || UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		if (!ActiveSound.bWarnedAboutOrphanedLooping && ActiveSound.GetAudioComponent() == nullptr)
 		{
 			UE_LOG(LogAudio, Warning, TEXT("Detected orphaned looping sound '%s'."), *ActiveSound.Sound->GetName());
@@ -602,7 +599,12 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		WaveInstance->Volume = ParseParams.Volume * Volume;
 		WaveInstance->VolumeMultiplier = ParseParams.VolumeMultiplier;
 		WaveInstance->Pitch = ParseParams.Pitch * Pitch;
-		WaveInstance->HighFrequencyGain = ParseParams.HighFrequencyGain;
+		WaveInstance->bEnableLowPassFilter = ParseParams.bEnableLowPassFilter;
+		WaveInstance->bIsOccluded = ParseParams.bIsOccluded;
+		WaveInstance->LowPassFilterFrequency = ParseParams.LowPassFilterFrequency;
+		WaveInstance->OcclusionFilterFrequency = ParseParams.OcclusionFilterFrequency;
+		WaveInstance->AttenuationFilterFrequency = ParseParams.AttenuationFilterFrequency;
+		WaveInstance->AmbientZoneFilterFrequency = ParseParams.AmbientZoneFilterFrequency;
 		WaveInstance->bApplyRadioFilter = ActiveSound.bApplyRadioFilter;
 		WaveInstance->StartTime = ParseParams.StartTime;
 		WaveInstance->UserIndex = ActiveSound.UserIndex;
@@ -652,15 +654,16 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 			bAlwaysPlay = ActiveSound.bAlwaysPlay;
 		}
 
-		// This is a first-guess at priority, this will later change according to VolumeWeightedPriorityScale
-		WaveInstance->PlayPriority = WaveInstance->Volume + (bAlwaysPlay ? 1.0f : 0.0f) + WaveInstance->RadioFilterVolume;
-
-		// If set to bAlwaysPlay, double the current sound's priority scale. This will still result in a possible 0-priority output if the sound has 0 actual volume
-		WaveInstance->VolumeWeightedPriorityScale = ParseParams.VolumeWeightedPriorityScale;
+		// If set to bAlwaysPlay, increase the current sound's priority scale by 10x. This will still result in a possible 0-priority output if the sound has 0 actual volume
 		if (bAlwaysPlay)
 		{
-			WaveInstance->VolumeWeightedPriorityScale *= 2.0f;
+			WaveInstance->Priority = MAX_FLT;
 		}
+		else
+		{
+			WaveInstance->Priority = ParseParams.Priority;
+		}
+
 		WaveInstance->Location = ParseParams.Transform.GetTranslation();
 		WaveInstance->bIsStarted = true;
 		WaveInstance->bAlreadyNotifiedHook = false;
@@ -680,7 +683,7 @@ void USoundWave::Parse( FAudioDevice* AudioDevice, const UPTRINT NodeWaveInstanc
 		}
 
 		// Don't add wave instances that are not going to be played at this point.
-		if( WaveInstance->PlayPriority > KINDA_SMALL_NUMBER )
+		if( WaveInstance->Volume > KINDA_SMALL_NUMBER )
 		{
 			WaveInstances.Add( WaveInstance );
 		}

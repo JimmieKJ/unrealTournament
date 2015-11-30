@@ -246,7 +246,8 @@ bool IsSubsurfaceModel(int ShadingModel)
 		|| ShadingModel == SHADINGMODELID_PREINTEGRATED_SKIN 
 		|| ShadingModel == SHADINGMODELID_SUBSURFACE_PROFILE
 		|| ShadingModel == SHADINGMODELID_TWOSIDED_FOLIAGE
-		|| ShadingModel == SHADINGMODELID_HAIR;
+		|| ShadingModel == SHADINGMODELID_HAIR
+		|| ShadingModel == SHADINGMODELID_EYE;
 }
 
 // all values that are output by the forward rendering pass

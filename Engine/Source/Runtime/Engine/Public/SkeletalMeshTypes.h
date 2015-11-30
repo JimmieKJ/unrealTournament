@@ -1751,6 +1751,9 @@ public:
 	virtual FPrimitiveViewRelevance GetViewRelevance(const FSceneView* View) const override;
 	virtual bool CanBeOccluded() const override;
 	
+	virtual bool HasDistanceFieldRepresentation() const override;
+	virtual void GetShadowShapes(TArray<FSphere>& SphereShapes, TArray<FCapsuleShape>& CapsuleShapes) const override;
+
 	/**
 	 * Returns the world transform to use for drawing.
 	 * @param OutLocalToWorld - Will contain the local-to-world transform when the function returns.

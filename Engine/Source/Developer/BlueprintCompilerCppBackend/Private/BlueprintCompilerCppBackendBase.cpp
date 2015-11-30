@@ -53,6 +53,27 @@ void FBlueprintCompilerCppBackendBase::DeclareDelegates(FEmitterLocalContext& Em
 			}
 		}
 
+		TArray<UFunction*> SCDelegateSignaturesWithoutType;
+		// Don't declare signatures, that are already declared in a native class
+		for (int32 I = 0; I < Delegates.Num();)
+		{
+			auto Delegate = Delegates[I];
+			auto DelegateSignature = Delegate ? Delegate->SignatureFunction : nullptr;
+			auto DelegateSignatureOwner = DelegateSignature ? DelegateSignature->GetOwnerStruct() : nullptr;
+			if (DelegateSignatureOwner && DelegateSignatureOwner->HasAnyInternalFlags(EInternalObjectFlags::Native))
+			{
+				if (DelegateSignature->HasAllFunctionFlags(FUNC_MulticastDelegate))
+				{
+					SCDelegateSignaturesWithoutType.AddUnique(DelegateSignature);
+				}
+				Delegates.RemoveAtSwap(I);
+			}
+			else
+			{
+				I++;
+			}
+		}
+
 		// remove duplicates, n^2, but n is small:
 		for (int32 I = 0; I < Delegates.Num(); ++I)
 		{
@@ -66,6 +87,13 @@ void FBlueprintCompilerCppBackendBase::DeclareDelegates(FEmitterLocalContext& Em
 					Delegates.RemoveAt(Delegates.Num() - 1);
 				}
 			}
+		}
+
+		for (UFunction* SCDelegateSignature : SCDelegateSignaturesWithoutType)
+		{
+			FString SCType = FString::Printf(TEXT("F__%s__SC"), *FEmitHelper::GetCppName(SCDelegateSignature));
+			FEmitHelper::EmitSinglecastDelegateDeclarations_Inner(EmitterContext, SCDelegateSignature, SCType);
+			EmitterContext.MCDelegateSignatureToSCDelegateType.Add(SCDelegateSignature, SCType);
 		}
 
 		FEmitHelper::EmitSinglecastDelegateDeclarations(EmitterContext, Delegates);
@@ -84,11 +112,14 @@ FString FBlueprintCompilerCppBackendBase::GenerateCodeFromClass(UClass* SourceCl
 	FEmitterLocalContext EmitterContext(Dependencies);
 	EmitFileBeginning(CleanCppClassName, EmitterContext);
 
+	UClass* OriginalSourceClass = Dependencies.FindOriginalClass(SourceClass);
+	ensure(OriginalSourceClass != SourceClass);
+
 	// Class declaration
 	const bool bIsInterface = SourceClass->IsChildOf<UInterface>();
 	if (bIsInterface)
 	{
-		EmitterContext.Header.AddLine(FString::Printf(TEXT("UINTERFACE(Blueprintable %s)"), *FEmitHelper::ReplaceConvertedMetaData(SourceClass)));
+		EmitterContext.Header.AddLine(FString::Printf(TEXT("UINTERFACE(Blueprintable, %s)"), *FEmitHelper::ReplaceConvertedMetaData(OriginalSourceClass)));
 		EmitterContext.Header.AddLine(FString::Printf(TEXT("class %s : public UInterface"), *FEmitHelper::GetCppName(SourceClass, true)));
 		EmitterContext.Header.AddLine(TEXT("{"));
 		EmitterContext.Header.IncreaseIndent();
@@ -100,8 +131,8 @@ FString FBlueprintCompilerCppBackendBase::GenerateCodeFromClass(UClass* SourceCl
 	else
 	{
 		EmitterContext.Header.AddLine(FString::Printf(TEXT("UCLASS(%s%s)")
-			, (!SourceClass->IsChildOf<UBlueprintFunctionLibrary>()) ? TEXT("Blueprintable, BlueprintType") : TEXT("")
-			, *FEmitHelper::ReplaceConvertedMetaData(SourceClass)));
+			, (!SourceClass->IsChildOf<UBlueprintFunctionLibrary>()) ? TEXT("Blueprintable, BlueprintType, ") : TEXT("")
+			, *FEmitHelper::ReplaceConvertedMetaData(OriginalSourceClass)));
 
 		UClass* SuperClass = SourceClass->GetSuperClass();
 		FString ClassDefinition = FString::Printf(TEXT("class %s : public %s"), *CppClassName, *FEmitHelper::GetCppName(SuperClass));
@@ -131,7 +162,7 @@ FString FBlueprintCompilerCppBackendBase::GenerateCodeFromClass(UClass* SourceCl
 	{
 		EmitterContext.Header.AddLine(FString::Printf(TEXT("%s(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());"), *CppClassName));
 		EmitterContext.Header.AddLine(TEXT("virtual void PostLoadSubobjects(FObjectInstancingGraph* OuterInstanceGraph) override;"));
-		EmitterContext.Header.AddLine(TEXT("static void __StaticDependenciesAssets(TArray<FName>& OutPackagePaths);"));
+		EmitterContext.Header.AddLine(TEXT("static void __StaticDependenciesAssets(TArray<FBlueprintDependencyData>& AssetsToLoad);"));
 
 		FEmitDefaultValueHelper::GenerateConstructor(EmitterContext);
 	}
@@ -186,173 +217,184 @@ void FBlueprintCompilerCppBackendBase::ConstructFunction(FKismetFunctionContext&
 		return;
 	}
 
-	UFunction* Function = FunctionContext.Function;
-
-	UProperty* ReturnValue = NULL;
 	TArray<UProperty*> LocalVariables;
+	TArray<UProperty*> ArgumentList;
+	// Split the function property list into arguments, a return value (if any), and local variable declarations
+	for (UProperty* Property : TFieldRange<UProperty>(FunctionContext.Function))
 	{
-		FString FunctionName = FEmitHelper::GetCppName(Function);
-
-		TArray<UProperty*> ArgumentList;
-
-		// Split the function property list into arguments, a return value (if any), and local variable declarations
-		for (TFieldIterator<UProperty> It(Function); It; ++It)
-		{
-			UProperty* Property = *It;
-			if (Property->HasAnyPropertyFlags(CPF_Parm))
-			{
-				if (Property->HasAnyPropertyFlags(CPF_ReturnParm))
-				{
-					if (ReturnValue == NULL)
-					{
-						ReturnValue = Property;
-						LocalVariables.Add(Property);
-					}
-					else
-					{
-						UE_LOG(LogK2Compiler, Error, TEXT("Function %s from graph @@ has more than one return value (named %s and %s)"),
-							*FunctionName, *GetPathNameSafe(FunctionContext.SourceGraph), *ReturnValue->GetName(), *Property->GetName());
-					}
-				}
-				else
-				{
-					ArgumentList.Add(Property);
-				}
-			}
-			else
-			{
-				LocalVariables.Add(Property);
-			}
-		}
-
-		bool bAddCppFromBpEventMD = false;
-		bool bGenerateAsNativeEventImplementation = false;
-		// Get original function declaration
-		if (FEmitHelper::ShouldHandleAsNativeEvent(Function)) // BlueprintNativeEvent
-		{
-			bGenerateAsNativeEventImplementation = true;
-			FunctionName += TEXT("_Implementation");
-		}
-		else if (FEmitHelper::ShouldHandleAsImplementableEvent(Function)) // BlueprintImplementableEvent
-		{
-			bAddCppFromBpEventMD = true;
-		}
-
-		// Emit the declaration
-		FString ReturnType;
-		if (ReturnValue)
-		{
-			const uint32 LocalExportCPPFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName
-				| EPropertyExportCPPFlags::CPPF_NoConst 
-				| EPropertyExportCPPFlags::CPPF_NoRef 
-				| EPropertyExportCPPFlags::CPPF_NoStaticArray 
-				| EPropertyExportCPPFlags::CPPF_BlueprintCppBackend;
-			ReturnType = EmitterContext.ExportCppDeclaration(ReturnValue, EExportedDeclaration::Parameter, LocalExportCPPFlags, true);
-		}
-		else
-		{
-			ReturnType = TEXT("void");
-		}
-
-		//@TODO: Make the header+body export more uniform
-		{
-			const FString Start = FString::Printf(TEXT("%s %s%s%s"), *ReturnType, TEXT("%s"), TEXT("%s"), *FunctionName);
-
-			TArray<FString> AdditionalMetaData;
-			if (bAddCppFromBpEventMD)
-			{
-				AdditionalMetaData.Emplace(TEXT("CppFromBpEvent"));
-			}
-
-			if (!bGenerateAsNativeEventImplementation)
-			{
-				EmitterContext.Header.AddLine(FString::Printf(TEXT("%s"), *FEmitHelper::EmitUFuntion(Function, &AdditionalMetaData)));
-			}
-
-			FString HeaderFunction;
-			if (Function->HasAllFunctionFlags(FUNC_Static))
-			{
-				HeaderFunction += TEXT("static ");
-			}
-
-			if (bGenerateAsNativeEventImplementation)
-			{
-				HeaderFunction += TEXT("virtual ");
-			}
-
-			HeaderFunction += FString::Printf(*Start, TEXT(""), TEXT(""));
-			FString BodyFunction = FString::Printf(*Start, *FEmitHelper::GetCppName(EmitterContext.GetCurrentlyGeneratedClass()), TEXT("::"));
-
-			FString ArgListStr = TEXT("(");
-			for (int32 i = 0; i < ArgumentList.Num(); ++i)
-			{
-				UProperty* ArgProperty = ArgumentList[i];
-
-				if (i > 0)
-				{
-					ArgListStr += TEXT(", ");
-				}
-
-				if (ArgProperty->HasAnyPropertyFlags(CPF_OutParm))
-				{
-					ArgListStr += TEXT("/*out*/ ");
-				}
-
-				ArgListStr += EmitterContext.ExportCppDeclaration(ArgProperty, EExportedDeclaration::Parameter, EPropertyExportCPPFlags::CPPF_CustomTypeName | EPropertyExportCPPFlags::CPPF_BlueprintCppBackend);
-			}
-			ArgListStr += TEXT(")");
-			HeaderFunction += ArgListStr;
-			BodyFunction += ArgListStr;
-			if (bGenerateAsNativeEventImplementation)
-			{
-				HeaderFunction += TEXT(" override");
-			}
-			HeaderFunction += TEXT(";");
-
-			EmitterContext.AddLine(BodyFunction);
-			EmitterContext.Header.AddLine(HeaderFunction);
-		}
+		const bool bNeedLocalVariable = !Property->HasAnyPropertyFlags(CPF_Parm) || Property->HasAnyPropertyFlags(CPF_ReturnParm);
+		TArray<UProperty*>& PropertyDest = bNeedLocalVariable ? LocalVariables : ArgumentList;
+		PropertyDest.Add(Property);
 	}
+
+	if (FunctionContext.bIsUbergraph)
+	{
+		EmitterContext.AddLine(TEXT("PRAGMA_DISABLE_OPTIMIZATION"));
+	}
+
+	ConstructFunctionDeclaration(EmitterContext, FunctionContext, ArgumentList);
 
 	// Start the body of the implementation
 	EmitterContext.AddLine(TEXT("{"));
 	EmitterContext.IncreaseIndent();
 	if (!bGenerateStubOnly)
 	{
-		// Emit local variables
 		DeclareLocalVariables(EmitterContext, LocalVariables);
-
-		const bool bUseSwitchState = FunctionContext.MustUseSwitchState(nullptr);
-
-		// Run thru code looking only at things marked as jump targets, to make sure the jump targets are ordered in order of appearance in the linear execution list
-		// Emit code in the order specified by the linear execution list (the first node is always the entry point for the function)
-		for (int32 NodeIndex = 0; NodeIndex < FunctionContext.LinearExecutionList.Num(); ++NodeIndex)
-		{
-			UEdGraphNode* StatementNode = FunctionContext.LinearExecutionList[NodeIndex];
-			TArray<FBlueprintCompiledStatement*>* StatementList = FunctionContext.StatementsPerNode.Find(StatementNode);
-
-			if (StatementList != NULL)
-			{
-				for (int32 StatementIndex = 0; StatementIndex < StatementList->Num(); ++StatementIndex)
-				{
-					FBlueprintCompiledStatement& Statement = *((*StatementList)[StatementIndex]);
-
-					if (Statement.bIsJumpTarget)
-					{
-						// Just making sure we number them in order of appearance, so jump statements don't influence the order
-						const int32 StateNum = StatementToStateIndex(FunctionContext, &Statement);
-					}
-				}
-			}
-		}
-
-		InnerFunctionImplementation(FunctionContext, EmitterContext, bUseSwitchState);
+		ConstructFunctionBody(EmitterContext, FunctionContext);
 	}
 
+	UProperty* ReturnValue = FunctionContext.Function->GetReturnProperty();
 	const FString ReturnValueString = ReturnValue ? (FString(TEXT(" ")) + FEmitHelper::GetCppName(ReturnValue)) : TEXT("");
 	EmitterContext.AddLine(FString::Printf(TEXT("return%s;"), *ReturnValueString));
 	EmitterContext.DecreaseIndent();
 	EmitterContext.AddLine(TEXT("}"));
+
+	if (FunctionContext.bIsUbergraph)
+	{
+		EmitterContext.AddLine(TEXT("PRAGMA_ENABLE_OPTIMIZATION"));
+	}
+}
+
+void FBlueprintCompilerCppBackendBase::ConstructFunctionDeclaration(FEmitterLocalContext &EmitterContext, FKismetFunctionContext &FunctionContext, TArray<UProperty*> &ArgumentList)
+{
+	FString FunctionHeaderName = FEmitHelper::GetCppName(FunctionContext.Function);
+	FString FunctionBodyName = FunctionHeaderName;
+	const bool bStaticFunction = FunctionContext.Function->HasAllFunctionFlags(FUNC_Static);
+	const bool bInInterface = FunctionContext.Function->GetOwnerClass()->IsChildOf<UInterface>();
+	bool bAddConst = false;
+	bool bIsOverride = false;
+	bool bIsVirtual = !bInInterface && !bStaticFunction && !FunctionContext.IsEventGraph();
+
+	{
+		UFunction* const Function = FunctionContext.Function;
+		const UFunction* const OriginalFunction = FEmitHelper::GetOriginalFunction(Function);
+		TArray<FString> AdditionalMetaData;
+		TArray<FString> AdditionalTags;
+		bool bGenerateAsNativeEventImplementation = false;
+		const bool bNetImplementation = !bInInterface && Function->HasAllFunctionFlags(FUNC_Net) && !Function->HasAnyFunctionFlags(FUNC_NetResponse);
+
+		const UBlueprintGeneratedClass* const OriginalFuncOwnerAsBPGC = Cast<UBlueprintGeneratedClass>(OriginalFunction->GetOwnerClass());
+		const bool bBPInterfaceImplementation = OriginalFuncOwnerAsBPGC && OriginalFuncOwnerAsBPGC->IsChildOf<UInterface>();
+
+		if (bInInterface)
+		{
+			AdditionalTags.Emplace(TEXT("BlueprintImplementableEvent"));
+		}
+		else if (bNetImplementation)
+		{
+			FunctionBodyName = FunctionHeaderName + TEXT("_Implementation");
+		}
+		else if (FEmitHelper::ShouldHandleAsNativeEvent(Function))
+		{
+			bGenerateAsNativeEventImplementation = true;
+			FunctionBodyName = FunctionHeaderName = FEmitHelper::GetCppName(OriginalFunction) + TEXT("_Implementation");
+			bAddConst = OriginalFunction->HasAllFunctionFlags(FUNC_Const);
+		}
+		else if (FEmitHelper::ShouldHandleAsImplementableEvent(Function) || bBPInterfaceImplementation)
+		{
+			//The function "bpf__BIE__pf" should never be called directly. Only via function "BIE" with generated implementation.
+			bIsVirtual = false;
+			AdditionalMetaData.Emplace(TEXT("CppFromBpEvent"));
+		}
+
+		ensure(!bIsVirtual || Function->IsSignatureCompatibleWith(OriginalFunction));
+		bIsOverride = bGenerateAsNativeEventImplementation || (bIsVirtual && (Function != OriginalFunction));
+
+		if (bNetImplementation && bIsOverride)
+		{
+			FunctionHeaderName = FunctionBodyName;
+		}
+		else if (!bGenerateAsNativeEventImplementation)
+		{
+			EmitterContext.Header.AddLine(FEmitHelper::EmitUFuntion(Function, AdditionalTags, AdditionalMetaData));
+		}
+	}
+
+	const FString ReturnType = GenerateReturnType(EmitterContext, FunctionContext.Function);
+	const FString ArgList = GenerateArgList(EmitterContext, ArgumentList);
+
+	EmitterContext.Body.AddLine(FString::Printf(TEXT("%s %s::%s%s%s")
+		, *ReturnType
+		, *FEmitHelper::GetCppName(EmitterContext.GetCurrentlyGeneratedClass())
+		, *FunctionBodyName
+		, *ArgList
+		, bAddConst ? TEXT(" const") : TEXT("")));
+
+	EmitterContext.Header.AddLine(FString::Printf(TEXT("%s%s%s %s%s%s%s;")
+		, bStaticFunction ? TEXT("static ") : TEXT("")
+		, bIsVirtual ? TEXT("virtual ") : TEXT("")
+		, *ReturnType
+		, *FunctionHeaderName
+		, *ArgList
+		, bAddConst ? TEXT(" const") : TEXT("")
+		, bIsOverride ? TEXT(" override") : TEXT("")));
+}
+
+FString FBlueprintCompilerCppBackendBase::GenerateArgList(const FEmitterLocalContext &EmitterContext, const TArray<UProperty*> &ArgumentList)
+{
+	FString ArgListStr = TEXT("(");
+	for (int32 i = 0; i < ArgumentList.Num(); ++i)
+	{
+		UProperty* ArgProperty = ArgumentList[i];
+
+		if (i > 0)
+		{
+			ArgListStr += TEXT(", ");
+		}
+
+		if (ArgProperty->HasAnyPropertyFlags(CPF_OutParm))
+		{
+			ArgListStr += TEXT("/*out*/ ");
+		}
+
+		ArgListStr += EmitterContext.ExportCppDeclaration(ArgProperty, EExportedDeclaration::Parameter, EPropertyExportCPPFlags::CPPF_CustomTypeName | EPropertyExportCPPFlags::CPPF_BlueprintCppBackend);
+	}
+	ArgListStr += TEXT(")");
+	return ArgListStr;
+}
+
+FString FBlueprintCompilerCppBackendBase::GenerateReturnType(const FEmitterLocalContext &EmitterContext, const UFunction* Function)
+{
+	UProperty* ReturnValue = Function->GetReturnProperty();
+	if (ReturnValue)
+	{
+		const uint32 LocalExportCPPFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName
+			| EPropertyExportCPPFlags::CPPF_NoConst
+			| EPropertyExportCPPFlags::CPPF_NoRef
+			| EPropertyExportCPPFlags::CPPF_NoStaticArray
+			| EPropertyExportCPPFlags::CPPF_BlueprintCppBackend;
+		return EmitterContext.ExportCppDeclaration(ReturnValue, EExportedDeclaration::Parameter, LocalExportCPPFlags, true);
+	}
+	return TEXT("void");
+}
+
+void FBlueprintCompilerCppBackendBase::ConstructFunctionBody(FEmitterLocalContext& EmitterContext, FKismetFunctionContext &FunctionContext)
+{
+	const bool bUseSwitchState = FunctionContext.MustUseSwitchState(nullptr);
+
+	// Run thru code looking only at things marked as jump targets, to make sure the jump targets are ordered in order of appearance in the linear execution list
+	// Emit code in the order specified by the linear execution list (the first node is always the entry point for the function)
+	for (int32 NodeIndex = 0; NodeIndex < FunctionContext.LinearExecutionList.Num(); ++NodeIndex)
+	{
+		UEdGraphNode* StatementNode = FunctionContext.LinearExecutionList[NodeIndex];
+		TArray<FBlueprintCompiledStatement*>* StatementList = FunctionContext.StatementsPerNode.Find(StatementNode);
+
+		if (StatementList != NULL)
+		{
+			for (int32 StatementIndex = 0; StatementIndex < StatementList->Num(); ++StatementIndex)
+			{
+				FBlueprintCompiledStatement& Statement = *((*StatementList)[StatementIndex]);
+
+				if (Statement.bIsJumpTarget)
+				{
+					// Just making sure we number them in order of appearance, so jump statements don't influence the order
+					const int32 StateNum = StatementToStateIndex(FunctionContext, &Statement);
+				}
+			}
+		}
+	}
+
+	InnerFunctionImplementation(FunctionContext, EmitterContext, bUseSwitchState);
 }
 
 FString FBlueprintCompilerCppBackendBase::GenerateCodeFromEnum(UUserDefinedEnum* SourceEnum)
@@ -362,7 +404,7 @@ FString FBlueprintCompilerCppBackendBase::GenerateCodeFromEnum(UUserDefinedEnum*
 	Header.AddLine(TEXT("#pragma once"));
 	// use GetBaseFilename() so that we can coordinate #includes and filenames
 	Header.AddLine(FString::Printf(TEXT("#include \"%s.generated.h\""), *FEmitHelper::GetBaseFilename(SourceEnum)));
-	Header.AddLine(FString::Printf(TEXT("UENUM(BlueprintType %s )"), *FEmitHelper::ReplaceConvertedMetaData(SourceEnum)));
+	Header.AddLine(FString::Printf(TEXT("UENUM(BlueprintType, %s )"), *FEmitHelper::ReplaceConvertedMetaData(SourceEnum)));
 	Header.AddLine(FString::Printf(TEXT("enum class %s  : uint8"), *FEmitHelper::GetCppName(SourceEnum)));
 	Header.AddLine(TEXT("{"));
 	Header.IncreaseIndent();
@@ -388,7 +430,7 @@ FString FBlueprintCompilerCppBackendBase::GenerateCodeFromStruct(UUserDefinedStr
 	// use GetBaseFilename() so that we can coordinate #includes and filenames
 	EmitFileBeginning(FEmitHelper::GetBaseFilename(SourceStruct), EmitterContext);
 
-	EmitterContext.Header.AddLine(FString::Printf(TEXT("USTRUCT(BlueprintType %s)"), *FEmitHelper::ReplaceConvertedMetaData(SourceStruct)));
+	EmitterContext.Header.AddLine(FString::Printf(TEXT("USTRUCT(BlueprintType, %s)"), *FEmitHelper::ReplaceConvertedMetaData(SourceStruct)));
 	EmitterContext.Header.AddLine(FString::Printf(TEXT("struct %s"), *FEmitHelper::GetCppName(SourceStruct)));
 	EmitterContext.Header.AddLine(TEXT("{"));
 	EmitterContext.Header.AddLine(TEXT("public:"));
@@ -499,8 +541,19 @@ FString FBlueprintCompilerCppBackendBase::GenerateWrapperForClass(UClass* Source
 		EmitterContext.Header.AddLine(FString::Printf(TEXT("%s& GetRef__%s()"), *TypeDeclaration, *UnicodeToCPPIdentifier(Property->GetName(), false, nullptr)));
 		EmitterContext.Header.AddLine(TEXT("{"));
 		EmitterContext.Header.IncreaseIndent();
-		EmitterContext.Header.AddLine(FString::Printf(TEXT("static const FName __PropertyName(TEXT(\"%s\"));"), *Property->GetName()));
-		EmitterContext.Header.AddLine(FString::Printf(TEXT("return *(GetClass()->FindPropertyByName(__PropertyName)->ContainerPtrToValuePtr<%s>(__Object));"), *TypeDeclaration));
+
+		EmitterContext.Header.AddLine(TEXT("static TWeakObjectPtr<UProperty> __PropertyPtr{};"));
+		EmitterContext.Header.AddLine(TEXT("const UProperty* __Property = __PropertyPtr.Get();"));
+		EmitterContext.Header.AddLine(TEXT("if (nullptr == __Property)"));
+		EmitterContext.Header.AddLine(TEXT("{"));
+		EmitterContext.Header.IncreaseIndent();
+		EmitterContext.Header.AddLine(FString::Printf(TEXT("__Property = GetClass()->FindPropertyByName(FName(TEXT(\"%s\")));"), *Property->GetName()));
+		EmitterContext.Header.AddLine(TEXT("check(__Property);"));
+		EmitterContext.Header.AddLine(TEXT("__PropertyPtr = __Property;"));
+		EmitterContext.Header.DecreaseIndent();
+		EmitterContext.Header.AddLine(TEXT("}"));
+
+		EmitterContext.Header.AddLine(FString::Printf(TEXT("return *(__Property->ContainerPtrToValuePtr<%s>(__Object));"), *TypeDeclaration));
 		EmitterContext.Header.DecreaseIndent();
 		EmitterContext.Header.AddLine(TEXT("}"));
 	}
@@ -567,7 +620,7 @@ FString FBlueprintCompilerCppBackendBase::GenerateWrapperForClass(UClass* Source
 					bFirst = false;
 				}
 
-				CallFunction += UnicodeToCPPIdentifier(Property->GetName(), Property->HasAnyPropertyFlags(CPF_Deprecated), TEXT("bpv__"));
+				CallFunction += UnicodeToCPPIdentifier(Property->GetName(), Property->HasAnyPropertyFlags(CPF_Deprecated), TEXT("bpp__"));
 			}
 			CallFunction += TEXT(");");
 			EmitterContext.Header.AddLine(CallFunction);
@@ -592,11 +645,24 @@ void FBlueprintCompilerCppBackendBase::EmitFileBeginning(const FString& CleanNam
 	{
 		Dst.AddLine(FString::Printf(TEXT("#include \"%s%s\""), Message, bAddDotH ? TEXT(".h") : TEXT("")));
 	};
-	EmitIncludeHeader(EmitterContext.Body, *FEmitHelper::GetPCHFilename(), false);
+	const FString PCHFilename = FEmitHelper::GetPCHFilename();
+	if (!PCHFilename.IsEmpty())
+	{
+		EmitIncludeHeader(EmitterContext.Body, *PCHFilename, false);
+	}
+	/*
+	const FString MainHeaderFilename = FEmitHelper::GetGameMainHeaderFilename();
+	if (!MainHeaderFilename.IsEmpty() && MainHeaderFilename != PCHFilename)
+	{
+		EmitIncludeHeader(EmitterContext.Body, *MainHeaderFilename, false);
+	}
+	*/
 	EmitIncludeHeader(EmitterContext.Body, *CleanName, true);
 	EmitIncludeHeader(bIncludeCodeHelpersInHeader ? EmitterContext.Header : EmitterContext.Body, TEXT("GeneratedCodeHelpers"), true);
+	EmitIncludeHeader(EmitterContext.Header, TEXT("Blueprint/BlueprintSupport"), true);
 
 	FBackendHelperUMG::AdditionalHeaderIncludeForWidget(EmitterContext);
+	EmitterContext.Header.AddLine(FBackendHelperAnim::AddHeaders(EmitterContext.GetCurrentlyGeneratedClass()));
 
 	TSet<FString> AlreadyIncluded;
 	AlreadyIncluded.Add(CleanName);

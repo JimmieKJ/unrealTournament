@@ -2,7 +2,7 @@
 
 #include "AssetRegistryPCH.h"
 
-bool FPathTree::CachePath(const FName& Path)
+bool FPathTree::CachePath(FName Path)
 {
 	if (Path.IsNone())
 	{
@@ -18,6 +18,19 @@ bool FPathTree::CachePath(const FName& Path)
 	FString PathStr = Path.ToString();
 	check(PathStr.Len() >= 2);	// Must be at least "/A"
 	check(PathStr[0] == '/');	// Must start with a "/"
+
+	// Paths are cached without their trailing slash, so if the given path has a trailing slash, test it again now as it may already be cached
+	if (PathStr[PathStr.Len() - 1] == '/')
+	{
+		PathStr.RemoveAt(PathStr.Len() - 1, 1, /*bAllowShrinking*/false);
+		Path = *PathStr;
+
+		if (ParentPathToChildPaths.Contains(Path))
+		{
+			// Already cached - nothing more to do
+			return false;
+		}
+	}
 
 	// Walk each part of the path, adding known path entries if required
 	// This manipulates PathStr in-place to avoid making any string copies
@@ -66,7 +79,7 @@ bool FPathTree::CachePath(const FName& Path)
 	return true;
 }
 
-bool FPathTree::RemovePath(const FName& Path)
+bool FPathTree::RemovePath(FName Path)
 {
 	if (Path.IsNone())
 	{
@@ -75,8 +88,25 @@ bool FPathTree::RemovePath(const FName& Path)
 
 	if (!ParentPathToChildPaths.Contains(Path))
 	{
-		// Doesn't exist - nothing more to do
-		return false;
+		// Paths are cached without their trailing slash, so if the given path has a trailing slash, test it again now as it may already be cached
+		// We do this after the initial map test as: a) Most paths are well formed, b) This avoids string allocations until we know we need them
+		FString PathStr = Path.ToString();
+		if (PathStr[PathStr.Len() - 1] == '/')
+		{
+			PathStr.RemoveAt(PathStr.Len() - 1, 1, /*bAllowShrinking*/false);
+			Path = *PathStr;
+
+			if (!ParentPathToChildPaths.Contains(Path))
+			{
+				// Doesn't exist - nothing more to do
+				return false;
+			}
+		}
+		else
+		{
+			// Doesn't exist - nothing more to do
+			return false;
+		}
 	}
 
 	// We also need to gather up and remove any children of this path
@@ -119,7 +149,7 @@ bool FPathTree::GetAllPaths(TSet<FName>& OutPaths) const
 	return OutPaths.Num() > 0;
 }
 
-bool FPathTree::GetSubPaths(const FName& BasePath, TSet<FName>& OutPaths, bool bRecurse) const
+bool FPathTree::GetSubPaths(FName BasePath, TSet<FName>& OutPaths, bool bRecurse) const
 {
 	if (BasePath.IsNone())
 	{
@@ -129,7 +159,24 @@ bool FPathTree::GetSubPaths(const FName& BasePath, TSet<FName>& OutPaths, bool b
 	const TSet<FName>* ChildPathsPtr = ParentPathToChildPaths.Find(BasePath);
 	if (!ChildPathsPtr)
 	{
-		return false;
+		// Paths are cached without their trailing slash, so if the given path has a trailing slash, test it again now as it may already be cached
+		// We do this after the initial map test as: a) Most paths are well formed, b) This avoids string allocations until we know we need them
+		FString BasePathStr = BasePath.ToString();
+		if (BasePathStr[BasePathStr.Len() - 1] == '/')
+		{
+			BasePathStr.RemoveAt(BasePathStr.Len() - 1, 1, /*bAllowShrinking*/false);
+			BasePath = *BasePathStr;
+
+			ChildPathsPtr = ParentPathToChildPaths.Find(BasePath);
+			if (!ChildPathsPtr)
+			{
+				return false;
+			}
+		}
+		else
+		{
+			return false;
+		}
 	}
 
 	const int32 OutPathsOriginalNum = OutPaths.Num();

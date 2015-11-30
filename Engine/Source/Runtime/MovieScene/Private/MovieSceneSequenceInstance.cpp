@@ -10,6 +10,62 @@ FMovieSceneSequenceInstance::FMovieSceneSequenceInstance(const UMovieSceneSequen
 	TimeRange = MovieSceneSequence->GetMovieScene()->GetPlaybackRange();
 }
 
+FMovieSceneSequenceInstance::~FMovieSceneSequenceInstance()
+{
+	for (auto& Pair : SpawnedObjects)
+	{
+		ensureMsgf(!Pair.Value.Get(), TEXT("Sequence instance is being destroyed but still has spawned objects"));
+	}
+}
+
+FGuid FMovieSceneSequenceInstance::FindObjectId(UObject& Object) const
+{
+	for (auto& Pair : ObjectBindingInstances)
+	{
+		if (Pair.Value.RuntimeObjects.Contains(&Object))
+		{
+			return Pair.Key;
+		}
+	}
+
+	return FGuid();
+}
+
+FGuid FMovieSceneSequenceInstance::FindParentObjectId(UObject& Object) const
+{
+	UObject* ParentObject = MovieSceneSequence->GetParentObject(&Object);
+	if (ParentObject)
+	{
+		return FindObjectId(*ParentObject);
+	}
+	return FGuid();
+}
+
+UObject* FMovieSceneSequenceInstance::FindObject(const FGuid& ObjectId, const IMovieScenePlayer& Player) const
+{
+	// Attempt to find a possessable first
+	FMovieScenePossessable* Possessable = MovieSceneSequence->GetMovieScene()->FindPossessable(ObjectId);
+	if (Possessable)
+	{
+		UObject* ParentObject = Player.GetPlaybackContext();
+		if (Possessable->GetParent().IsValid())
+		{
+			ParentObject = FindObject(Possessable->GetParent(), Player);
+		}
+
+		return MovieSceneSequence->FindPossessableObject(ObjectId, ParentObject);
+	}
+	else
+	{
+		return FindSpawnedObject(ObjectId);
+	}
+}
+
+UObject* FMovieSceneSequenceInstance::FindSpawnedObject(const FGuid& ObjectId) const
+{
+	const TWeakObjectPtr<>* SpawnedObject = SpawnedObjects.Find(ObjectId);
+	return SpawnedObject ? SpawnedObject->Get() : nullptr;
+}
 
 void FMovieSceneSequenceInstance::SaveState(class IMovieScenePlayer& Player)
 {
@@ -44,6 +100,8 @@ void FMovieSceneSequenceInstance::SaveState(class IMovieScenePlayer& Player)
 
 void FMovieSceneSequenceInstance::RestoreState(class IMovieScenePlayer& Player)
 {
+	Player.GetSpawnRegister().DestroyObjectsSpawnedByInstance(*this, Player);
+
 	TMap<FGuid, FMovieSceneObjectBindingInstance>::TIterator ObjectIt = ObjectBindingInstances.CreateIterator();
 	for (; ObjectIt; ++ObjectIt)
 	{
@@ -75,9 +133,32 @@ void FMovieSceneSequenceInstance::RestoreState(class IMovieScenePlayer& Player)
 
 void FMovieSceneSequenceInstance::Update( float Position, float LastPosition, class IMovieScenePlayer& Player )
 {
+	// Remove any stale runtime objects
+	TMap<FGuid, FMovieSceneObjectBindingInstance>::TIterator ObjectIt = ObjectBindingInstances.CreateIterator();
+	for(; ObjectIt; ++ObjectIt )
+	{
+		FMovieSceneObjectBindingInstance& ObjectBindingInstance = ObjectIt.Value();
+		for (int32 ObjectIndex = 0; ObjectIndex < ObjectBindingInstance.RuntimeObjects.Num(); )
+		{
+			UObject* RuntimeObject = ObjectBindingInstance.RuntimeObjects[ObjectIndex];
+			if (RuntimeObject == nullptr || RuntimeObject->IsPendingKill())
+			{
+				ObjectBindingInstance.RuntimeObjects.RemoveAt(ObjectIndex);
+			}
+			else
+			{
+				++ObjectIndex;
+			}
+		}
+	}
+
+	Player.GetSpawnRegister().PreUpdateSequenceInstance(*this, Player);
+
 	UpdateInternal(Position, LastPosition, Player, MSUP_PreUpdate);
 	UpdateInternal(Position, LastPosition, Player, MSUP_Update);
 	UpdateInternal(Position, LastPosition, Player, MSUP_PostUpdate);
+
+	Player.GetSpawnRegister().PostUpdateSequenceInstance(*this, Player);
 }
 
 void FMovieSceneSequenceInstance::UpdateInternal( float Position, float LastPosition, class IMovieScenePlayer& Player, EMovieSceneUpdatePass UpdatePass )
@@ -180,6 +261,7 @@ void FMovieSceneSequenceInstance::RefreshInstance( IMovieScenePlayer& Player )
 		RefreshInstanceMap( Tracks, BindingInstance.RuntimeObjects, BindingInstance.TrackInstances, Player );
 	}
 
+	IMovieSceneSpawnRegister& SpawnRegister = Player.GetSpawnRegister();
 
 	// Remove object binding instances which are no longer bound
 	TMap<FGuid, FMovieSceneObjectBindingInstance>::TIterator It = ObjectBindingInstances.CreateIterator();
@@ -187,6 +269,8 @@ void FMovieSceneSequenceInstance::RefreshInstance( IMovieScenePlayer& Player )
 	{
 		if( !FoundObjectBindings.Contains( It.Key() ) )
 		{
+			SpawnRegister.DestroySpawnedObject(It.Key(), *this, Player);
+
 			// The instance no longer is bound to an existing guid
 			It.RemoveCurrent();
 		}
@@ -265,7 +349,20 @@ void FMovieSceneSequenceInstance::UpdateObjectBinding(const FGuid& ObjectId, IMo
 
 	// Update the runtime objects
 	BindingInstance->RuntimeObjects.Reset();
-	Player.GetRuntimeObjects(SharedThis(this), BindingInstance->ObjectGuid, BindingInstance->RuntimeObjects);
+
+	TWeakObjectPtr<UObject>* WeakSpawnedObject = SpawnedObjects.Find(ObjectId);
+	if (WeakSpawnedObject)
+	{
+		UObject* SpawnedObject = WeakSpawnedObject->Get();
+		if (SpawnedObject)
+		{
+			BindingInstance->RuntimeObjects.Add(SpawnedObject);
+		}
+	}
+	else
+	{
+		Player.GetRuntimeObjects(SharedThis(this), BindingInstance->ObjectGuid, BindingInstance->RuntimeObjects);
+	}
 
 	const FMovieSceneBinding* ObjectBinding = Sequence->GetMovieScene()->GetBindings().FindByPredicate([&](const FMovieSceneBinding& In){
 		return In.GetObjectGuid() == ObjectId;
@@ -278,30 +375,23 @@ void FMovieSceneSequenceInstance::UpdateObjectBinding(const FGuid& ObjectId, IMo
 	}
 }
 
-void FMovieSceneSequenceInstance::SpawnObject(const FGuid& ObjectId, IMovieScenePlayer& Player)
+void FMovieSceneSequenceInstance::OnObjectSpawned(const FGuid& ObjectId, UObject& SpawnedObject, IMovieScenePlayer& Player)
 {
-	UMovieSceneSequence* Sequence = GetSequence();
 	auto* BindingInstance = ObjectBindingInstances.Find(ObjectId);
 
-	if (!Sequence || !BindingInstance)
+	if (!BindingInstance)
 	{
 		return;
 	}
 
-	// Reset the runtime objects for the binding instance
-	BindingInstance->RuntimeObjects.Reset();
-
-	// Attempt to spawn the object
-	UObject* SpawnedObject = Sequence->SpawnObject(ObjectId);
-	if (!SpawnedObject)
-	{
-		return;
-	}
+	SpawnedObjects.Add(ObjectId, &SpawnedObject);
 
 	// Add it to the instance's runtime objects array, and update any child possessable binding instances
-	BindingInstance->RuntimeObjects.Emplace(SpawnedObject);
+	BindingInstance->RuntimeObjects.Reset();
+	BindingInstance->RuntimeObjects.Emplace(&SpawnedObject);
 
-	FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(ObjectId);
+	UMovieSceneSequence* Sequence = GetSequence();
+	FMovieSceneSpawnable* Spawnable = Sequence ? Sequence->GetMovieScene()->FindSpawnable(ObjectId) : nullptr;
 	if (Spawnable)
 	{
 		for (const FGuid& Child : Spawnable->GetChildPossessables())
@@ -311,22 +401,22 @@ void FMovieSceneSequenceInstance::SpawnObject(const FGuid& ObjectId, IMovieScene
 	}
 }
 
-void FMovieSceneSequenceInstance::DestroySpawnedObject(const FGuid& ObjectId, IMovieScenePlayer& Player)
+void FMovieSceneSequenceInstance::OnSpawnedObjectDestroyed(const FGuid& ObjectId, IMovieScenePlayer& Player)
 {
-	UMovieSceneSequence* Sequence = GetSequence();
 	auto* BindingInstance = ObjectBindingInstances.Find(ObjectId);
-	
-	if (!Sequence || !BindingInstance)
+	if (!BindingInstance)
 	{
 		return;
 	}
 
+	SpawnedObjects.Remove(ObjectId);
+
 	// Destroy the object
-	Sequence->DestroySpawnedObject(ObjectId);
 	BindingInstance->RuntimeObjects.Reset();
 
 	// Update any child possessable object bindings
-	FMovieSceneSpawnable* Spawnable = Sequence->GetMovieScene()->FindSpawnable(ObjectId);
+	UMovieSceneSequence* Sequence = GetSequence();
+	FMovieSceneSpawnable* Spawnable = Sequence ? Sequence->GetMovieScene()->FindSpawnable(ObjectId) : nullptr;
 	if (Spawnable)
 	{
 		for (const FGuid& Child : Spawnable->GetChildPossessables())

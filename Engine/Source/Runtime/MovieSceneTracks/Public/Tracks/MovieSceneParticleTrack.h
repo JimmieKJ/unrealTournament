@@ -43,6 +43,11 @@ public:
 	virtual TRange<float> GetSectionBoundaries() const override;
 	virtual const TArray<UMovieSceneSection*>& GetAllSections() const override;
 	virtual void AddNewSection(float SectionTime);
+	virtual UMovieSceneSection* CreateNewSection() override;
+
+#if WITH_EDITORONLY_DATA
+	virtual FText GetDisplayName() const override;
+#endif
 
 private:
 

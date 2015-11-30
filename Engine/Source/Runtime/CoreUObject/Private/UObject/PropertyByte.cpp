@@ -98,8 +98,14 @@ FString UByteProperty::GetCPPType( FString* ExtendedTypeText/*=NULL*/, uint32 CP
 			// been set, but we do this here in case existing code relies on it... somehow.
 			FullyQualifiedEnumName = Enum->GetName();
 		}
-
-		if ((CPPExportFlags & CPPF_ArgumentOrReturnValue) && ((PropertyFlags & CPF_ReturnParm) || !(PropertyFlags & CPF_OutParm)))
+		 
+		const bool bEnumClassForm = Enum->GetCppForm() == UEnum::ECppForm::EnumClass;
+		const bool bNonNativeEnum = Enum->GetClass() != UEnum::StaticClass(); // cannot use RF_Native flag, because in UHT the flag is not set
+		const bool bRawParam = (CPPExportFlags & CPPF_ArgumentOrReturnValue) 
+			&& (((PropertyFlags & CPF_ReturnParm) || !(PropertyFlags & CPF_OutParm)) 
+			|| bEnumClassForm || bNonNativeEnum);
+		const bool bConvertedCode = (CPPExportFlags & CPPF_BlueprintCppBackend) && (bEnumClassForm || bNonNativeEnum);
+		if (bRawParam || bConvertedCode)
 		{
 			return FullyQualifiedEnumName;
 		}
@@ -120,8 +126,17 @@ void UByteProperty::ExportTextItem( FString& ValueStr, const void* PropertyValue
 			const int32 ActualValue = *(const uint8*)PropertyValue;
 			const int32 MaxValue = Enum->GetMaxEnumValue();
 			const int32 GoodValue = Enum->IsValidEnumValue(ActualValue) ? ActualValue : MaxValue;
-			ValueStr += FString::Printf(TEXT("%s::%s"), *Enum->GetName(),
-				*Enum->GetEnumName(Enum->GetIndexByValue(GoodValue)));
+			if (GoodValue == MaxValue)
+			{
+				// not all native enums have Max value declared
+				const FString FullyQualifiedEnumName = Enum->CppType.IsEmpty() ? Enum->GetName() : Enum->CppType;
+				ValueStr += FString::Printf(TEXT("(%s)(%d)"), *FullyQualifiedEnumName, ActualValue);
+			}
+			else
+			{
+				ValueStr += FString::Printf(TEXT("%s::%s"), *Enum->GetName(),
+					*Enum->GetEnumName(Enum->GetIndexByValue(GoodValue)));
+			}
 		}
 		else
 		{

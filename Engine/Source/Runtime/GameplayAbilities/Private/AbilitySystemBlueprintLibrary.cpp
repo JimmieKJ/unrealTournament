@@ -702,6 +702,20 @@ int32 UAbilitySystemBlueprintLibrary::GetActiveGameplayEffectStackCount(FActiveG
 	return 0;
 }
 
+int32 UAbilitySystemBlueprintLibrary::GetActiveGameplayEffectStackLimitCount(FActiveGameplayEffectHandle ActiveHandle)
+{
+	UAbilitySystemComponent* ASC = ActiveHandle.GetOwningAbilitySystemComponent();
+	if (ASC)
+	{
+		const UGameplayEffect* ActiveGE = ASC->GetGameplayEffectDefForHandle(ActiveHandle);
+		if (ActiveGE)
+		{
+			return ActiveGE->StackLimitCount;
+		}
+	}
+	return 0;
+}
+
 float UAbilitySystemBlueprintLibrary::GetModifiedAttributeMagnitude(FGameplayEffectSpecHandle SpecHandle, FGameplayAttribute Attribute)
 {
 	FGameplayEffectSpec* Spec = SpecHandle.Data.Get();

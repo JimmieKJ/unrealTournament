@@ -340,6 +340,11 @@ struct GAMEPLAYTAGS_API FGameplayTagContainer
 		RemoveAllTags(GameplayTags.Num());
 	}
 
+	void Reset()
+	{
+		GameplayTags.Reset();
+	}
+
 	/**
 	 * Serialize the tag container
 	 *

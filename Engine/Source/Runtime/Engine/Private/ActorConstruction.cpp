@@ -564,13 +564,18 @@ void AActor::FinishAndRegisterComponent(UActorComponent* Component)
 
 UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, const FString& InName)
 {
+	return CreateComponentFromTemplate(Template, FName(*InName));
+}
+
+UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, const FName InName)
+{
 	UActorComponent* NewActorComp = NULL;
 	if(Template != NULL)
 	{
 		// If there is a Component with this name already (almost certainly because it is an Instance component), we need to rename it out of the way
-		if (!InName.IsEmpty())
+		if (!InName.IsNone())
 		{
-			UObject* ConflictingObject = FindObjectFast<UObject>(this, *InName);
+			UObject* ConflictingObject = FindObjectFast<UObject>(this, InName);
 			if (ConflictingObject && ConflictingObject->IsA<UActorComponent>() && CastChecked<UActorComponent>(ConflictingObject)->CreationMethod == EComponentCreationMethod::Instance)
 			{		
 				// Try and pick a good name
@@ -598,7 +603,7 @@ UActorComponent* AActor::CreateComponentFromTemplate(UActorComponent* Template, 
 		}
 
 		// Note we aren't copying the the RF_ArchetypeObject flag. Also note the result is non-transactional by default.
-		NewActorComp = (UActorComponent*)StaticDuplicateObject(Template, this, *InName, RF_AllFlags & ~(RF_ArchetypeObject|RF_Transactional|RF_WasLoaded|RF_Public|RF_InheritableComponentTemplate) );
+		NewActorComp = (UActorComponent*)StaticDuplicateObject(Template, this, InName, RF_AllFlags & ~(RF_ArchetypeObject|RF_Transactional|RF_WasLoaded|RF_Public|RF_InheritableComponentTemplate) );
 
 		NewActorComp->CreationMethod = EComponentCreationMethod::UserConstructionScript;
 

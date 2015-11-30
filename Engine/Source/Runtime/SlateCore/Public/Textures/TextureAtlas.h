@@ -19,7 +19,7 @@ enum ESlateTextureAtlasPaddingStyle
 /** 
  * The type of thread that owns a texture atlas - this is the only thread that can safely update it 
  */
-enum class ESlateTextureAtlasOwnerThread : uint8
+enum class ESlateTextureAtlasThreadId : uint8
 {
 	/** Owner thread is currently unknown */
 	Unknown,
@@ -29,6 +29,10 @@ enum class ESlateTextureAtlasOwnerThread : uint8
 	Render,
 };
 
+/** 
+ * Get the correct atlas thread ID based on the thread we're currently in 
+ */
+SLATECORE_API ESlateTextureAtlasThreadId GetCurrentSlateTextureAtlasThreadId();
 
 /**
  * Structure holding information about where a texture is located in the atlas. Inherits a linked-list interface.
@@ -78,7 +82,7 @@ public:
 		, BytesPerPixel( InBytesPerPixel )
 		, PaddingStyle( InPaddingStyle )
 		, bNeedsUpdate( false )
-		, AtlasOwnerThread( ESlateTextureAtlasOwnerThread::Unknown )
+		, AtlasOwnerThread( ESlateTextureAtlasThreadId::Unknown )
 	{
 		InitAtlasData();
 	}
@@ -197,7 +201,7 @@ protected:
 	 * The type of thread that owns this atlas - this is the only thread that can safely update it 
 	 * NOTE: We don't use the thread ID here, as the render thread can be recreated if it gets suspended and resumed, giving it a new ID
 	 */
-	ESlateTextureAtlasOwnerThread AtlasOwnerThread;
+	ESlateTextureAtlasThreadId AtlasOwnerThread;
 };
 
 /**

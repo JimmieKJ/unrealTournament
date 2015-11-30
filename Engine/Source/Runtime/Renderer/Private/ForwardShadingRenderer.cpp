@@ -78,6 +78,9 @@ void FForwardShadingSceneRenderer::InitViews(FRHICommandListImmediate& RHICmdLis
 		Views[ViewIndex].InitRHIResources(DirectionalLightShadowInfo);
 	}
 
+	// Now that the indirect lighting cache is updated, we can update the primitive precomputed lighting buffers.
+	UpdatePrimitivePrecomputedLightingBuffers();
+	
 	OnStartFrame();
 }
 

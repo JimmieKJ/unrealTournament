@@ -330,7 +330,17 @@ UBillboardComponent* AFunctionalTest::GetSpriteComponent() { return SpriteCompon
 
 FPerfStatsRecord::FPerfStatsRecord(FString InName)
 : Name(InName)
+, GPUBudget(0.0f)
+, RenderThreadBudget(0.0f)
+, GameThreadBudget(0.0f)
 {
+}
+
+void FPerfStatsRecord::SetBudgets(float InGPUBudget, float InRenderThreadBudget, float InGameThreadBudget)
+{
+	GPUBudget = InGPUBudget;
+	RenderThreadBudget = InRenderThreadBudget;
+	GameThreadBudget = InGameThreadBudget;
 }
 
 FString FPerfStatsRecord::GetReportString() const
@@ -385,6 +395,51 @@ FString FPerfStatsRecord::GetRecordString() const
 		Record.GPUTimeTracker.GetMinValue(),
 		Record.GPUTimeTracker.GetAvgValue(),
 		Record.GPUTimeTracker.GetMaxValue());
+}
+
+FString FPerfStatsRecord::GetOverBudgetString() const
+{
+	double Min, Max, Avg;
+	GetRenderThreadTimes(Min, Max, Avg);
+	float RTBudgetFrac = Max / RenderThreadBudget;
+	GetGameThreadTimes(Min, Max, Avg);
+	float GTBudgetFrac = Max / GameThreadBudget;
+	GetGPUTimes(Min, Max, Avg);
+	float GPUBudgetFrac = Max / GPUBudget;
+
+	return FString::Printf(TEXT("%s,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f,%.2f"),
+		*Name,
+		Record.RenderThreadTimeTracker.GetMaxValue(),
+		RenderThreadBudget,
+		RTBudgetFrac,
+		Record.GameThreadTimeTracker.GetMaxValue(),
+		GameThreadBudget,
+		GTBudgetFrac,
+		Record.GPUTimeTracker.GetMaxValue(),
+		GPUBudget,
+		GPUBudgetFrac
+		);
+}
+
+bool FPerfStatsRecord::IsWithinGPUBudget()const
+{
+	double Min, Max, Avg;
+	GetGPUTimes(Min, Max, Avg);
+	return Max <= GPUBudget;
+}
+
+bool FPerfStatsRecord::IsWithinGameThreadBudget()const
+{
+	double Min, Max, Avg;
+	GetGameThreadTimes(Min, Max, Avg);
+	return Max <= GameThreadBudget;
+}
+
+bool FPerfStatsRecord::IsWithinRenderThreadBudget()const
+{
+	double Min, Max, Avg;
+	GetRenderThreadTimes(Min, Max, Avg);
+	return Max <= RenderThreadBudget;
 }
 
 void FPerfStatsRecord::GetGPUTimes(double& OutMin, double& OutMax, double& OutAvg)const
@@ -457,20 +512,22 @@ void UAutomationPerformaceHelper::EndRecordingBaseline()
 	bRecordingBasicStats = false;
 }
 
-void UAutomationPerformaceHelper::BeginRecording(FString RecordName)
+void UAutomationPerformaceHelper::BeginRecording(FString RecordName, float InGPUBudget, float InRenderThreadBudget, float InGameThreadBudget)
 {
 	//Ensure we're recording engine stats.
 	GEngine->SetEngineStat(GetOuter()->GetWorld(), GetOuter()->GetWorld()->GetGameViewport(), TEXT("Unit"), true);
 	bRecordingBasicStats = true;
 	bRecordingBaselineBasicStats = false;
-	//We recorded a baseline for this so continue adding real stats to this one.
-	if (GetCurrentRecord()->Name != RecordName)
+
+	FPerfStatsRecord* CurrRecord = GetCurrentRecord();
+	if (!CurrRecord || CurrRecord->Name != RecordName)
 	{
 		Records.Add(FPerfStatsRecord(RecordName));
+		CurrRecord = GetCurrentRecord();
 	}
-	
-	//We should have a previously baselined record or have just added one.
-	check(Records.Num() > 0);
+
+	check(CurrRecord);
+	CurrRecord->SetBudgets(InGPUBudget, InRenderThreadBudget, InGameThreadBudget);
 }
 
 void UAutomationPerformaceHelper::EndRecording()
@@ -518,26 +575,27 @@ void UAutomationPerformaceHelper::WriteLogFile(const FString& CaptureDir, const 
 
 	const FString Filename = OutputFileBase + Extension;
 	const FString FilenameFull = PathName + Filename;
-
-	const FString LogHeader = TEXT("TestName,MinFrameTime,AvgFrameTime,MaxFrameTime,MinRT,AvgRT,MaxRT,MinGT,AvgGT,MaxGT,MinGPU,AvgGPU,MaxGPU\n");
-
+	
+	const FString OverBudgetTableHeader = TEXT("TestName, MaxRT, RT Budget, RT Frac, MaxGT, GT Budget, GT Frac, MaxGPU, GPU Budget, GPU Frac\n");
+	FString OverbudgetTable;
+	const FString DataTableHeader = TEXT("TestName,MinFrameTime,AvgFrameTime,MaxFrameTime,MinRT,AvgRT,MaxRT,MinGT,AvgGT,MaxGT,MinGPU,AvgGPU,MaxGPU\n");
 	FString AdjustedTable;
-	for (FPerfStatsRecord& Record : Records)
-	{
-		AdjustedTable += Record.GetReportString() + FString(TEXT("\n"));
-	}
 	FString RecordTable;
-	for (FPerfStatsRecord& Record : Records)
-	{
-		RecordTable += Record.GetRecordString() + FString(TEXT("\n"));
-	}
 	FString BaselineTable;
 	for (FPerfStatsRecord& Record : Records)
 	{
+		AdjustedTable += Record.GetReportString() + FString(TEXT("\n"));
+		RecordTable += Record.GetRecordString() + FString(TEXT("\n"));
 		BaselineTable += Record.GetBaselineString() + FString(TEXT("\n"));
+
+		if (!Record.IsWithinGPUBudget() || !Record.IsWithinRenderThreadBudget() || !Record.IsWithinGameThreadBudget())
+		{
+			OverbudgetTable += Record.GetOverBudgetString() + FString(TEXT("\n"));
+		}
 	}
 
-	FString FileContents = FString::Printf(TEXT("Adjusted Results\n%s%s\nRaw Results\n%s%s\nBaseline Results\n%s%s\n"), *LogHeader, *AdjustedTable, *LogHeader, *RecordTable, *LogHeader, *BaselineTable);
+	FString FileContents = FString::Printf(TEXT("Over Budget Tests\n%s%s\nAdjusted Results\n%s%s\nRaw Results\n%s%s\nBaseline Results\n%s%s\n"), 
+		*OverBudgetTableHeader, *OverbudgetTable, *DataTableHeader, *AdjustedTable, *DataTableHeader, *RecordTable, *DataTableHeader, *BaselineTable);
 
 	FFileHelper::SaveStringToFile(FileContents, *FilenameFull);
 
@@ -587,43 +645,43 @@ void UAutomationPerformaceHelper::OnAllTestsComplete()
 	}
 }
 
-bool UAutomationPerformaceHelper::IsCurrentRecordWithinGPUBudget(float InMaxTimeBudget, float InAvgTimeBudget)const
+bool UAutomationPerformaceHelper::IsCurrentRecordWithinGPUBudget()const
 {
-	double Min, Max, Avg;
-	bool bInBudget = true;
 	if (const FPerfStatsRecord* Curr = GetCurrentRecord())
 	{
-		Curr->GetGPUTimes(Min, Max, Avg);
-		bInBudget = Max < InMaxTimeBudget && (InAvgTimeBudget < 0.0f || Avg < InAvgTimeBudget);
+		return Curr->IsWithinGPUBudget();
 	}
-	return bInBudget;
+	return true;
 }
 
-bool UAutomationPerformaceHelper::IsCurrentRecordWithinGameThreadBudget(float InMaxTimeBudget, float InAvgTimeBudget)const
+bool UAutomationPerformaceHelper::IsCurrentRecordWithinGameThreadBudget()const
 {
-	double Min, Max, Avg;
-	bool bInBudget = true;
 	if (const FPerfStatsRecord* Curr = GetCurrentRecord())
 	{
-		Curr->GetGameThreadTimes(Min, Max, Avg);
-		bInBudget = Max < InMaxTimeBudget && (InAvgTimeBudget < 0.0f || Avg < InAvgTimeBudget);
+		return Curr->IsWithinGameThreadBudget();
 	}
-	return bInBudget;
+	return true;
 }
 
-bool UAutomationPerformaceHelper::IsCurrentRecordWithinRenderThreadBudget(float InMaxTimeBudget, float InAvgTimeBudget)const
+bool UAutomationPerformaceHelper::IsCurrentRecordWithinRenderThreadBudget()const
 {
-	double Min, Max, Avg;
-	bool bInBudget = true;
 	if (const FPerfStatsRecord* Curr = GetCurrentRecord())
 	{
-		Curr->GetRenderThreadTimes(Min, Max, Avg);
-		bInBudget = Max < InMaxTimeBudget && (InAvgTimeBudget < 0.0f || Avg < InAvgTimeBudget);
+		return Curr->IsWithinRenderThreadBudget();
 	}
-	return bInBudget;
+	return true;
 }
 
 const FPerfStatsRecord* UAutomationPerformaceHelper::GetCurrentRecord()const
+{
+	int32 Index = Records.Num() - 1;
+	if (Index >= 0)
+	{
+		return &Records[Index];
+	}
+	return nullptr;
+}
+FPerfStatsRecord* UAutomationPerformaceHelper::GetCurrentRecord()
 {
 	int32 Index = Records.Num() - 1;
 	if (Index >= 0)

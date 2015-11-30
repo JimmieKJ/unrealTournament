@@ -12,7 +12,6 @@
 #include "SSequencerSection.h"
 #include "ISequencerTrackEditor.h"
 
-
 FTrackAreaSlot::FTrackAreaSlot(const TSharedPtr<SSequencerTrackLane>& InSlotContent)
 {
 	TrackLane = InSlotContent;
@@ -38,6 +37,13 @@ void SSequencerTrackArea::Construct(const FArguments& InArgs, TSharedRef<FSequen
 {
 	Sequencer = InSequencer;
 	TimeSliderController = InTimeSliderController;
+
+	// Input stack in order or priority
+
+	// Space for the edit tool
+	InputStack.AddHandler(nullptr);
+	// The time slider controller
+	InputStack.AddHandler(TimeSliderController.Get());
 }
 
 
@@ -143,70 +149,45 @@ int32 SSequencerTrackArea::OnPaint(const FPaintArgs& Args, const FGeometry& Allo
 
 FReply SSequencerTrackArea::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	FReply Reply = Sequencer->GetEditTool().OnMouseButtonDown(*this, MyGeometry, MouseEvent);
-
-	if (Reply.IsEventHandled())
-	{
-		return Reply;
-	}
-
-	return TimeSliderController->OnMouseButtonDown( SharedThis(this), MyGeometry, MouseEvent );
+	// Always ensure the edit tool is set up
+	InputStack.SetHandlerAt(0, &Sequencer->GetEditTool());
+	return InputStack.HandleMouseButtonDown(*this, MyGeometry, MouseEvent);
 }
 
 
 FReply SSequencerTrackArea::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	FReply Reply = Sequencer->GetEditTool().OnMouseButtonUp(*this, MyGeometry, MouseEvent);
-
-	if (Reply.IsEventHandled())
-	{
-		return Reply;
-	}
-
-	return TimeSliderController->OnMouseButtonUp( SharedThis(this), MyGeometry, MouseEvent );
+	// Always ensure the edit tool is set up
+	InputStack.SetHandlerAt(0, &Sequencer->GetEditTool());
+	return InputStack.HandleMouseButtonUp(*this, MyGeometry, MouseEvent);
 }
 
 
 FReply SSequencerTrackArea::OnMouseMove( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	FReply Reply = Sequencer->GetEditTool().OnMouseMove(*this, MyGeometry, MouseEvent);
+	// Always ensure the edit tool is set up
+	InputStack.SetHandlerAt(0, &Sequencer->GetEditTool());
 
-	if (Reply.IsEventHandled())
+	FReply Reply = InputStack.HandleMouseMove(*this, MyGeometry, MouseEvent);
+
+	// Handle right click scrolling on the track area, if the captured index is that of the time slider
+	if (Reply.IsEventHandled() && InputStack.GetCapturedIndex() == 1)
 	{
-		return Reply;
+		if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton) && HasMouseCapture())
+		{
+			TreeView.Pin()->ScrollByDelta(-MouseEvent.GetCursorDelta().Y);
+		}
 	}
 
-	if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton) && HasMouseCapture())
-	{
-		TreeView.Pin()->ScrollByDelta(-MouseEvent.GetCursorDelta().Y);
-	}
-
-	return TimeSliderController->OnMouseMove( SharedThis(this), MyGeometry, MouseEvent );
+	return Reply;
 }
 
 
 FReply SSequencerTrackArea::OnMouseWheel( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	// First try the edit tool
-	FReply Reply = Sequencer->GetEditTool().OnMouseWheel(*this, MyGeometry, MouseEvent);
-
-	if (Reply.IsEventHandled())
-	{
-		return Reply;
-	}
-
-	// Then the time slider
-	Reply = TimeSliderController->OnMouseWheel(SharedThis(this), MyGeometry, MouseEvent);
-
-	if (Reply.IsEventHandled())
-	{
-		return Reply;
-	}
-
-	// Failing that, we'll just scroll vertically
-	TreeView.Pin()->ScrollByDelta(WheelScrollAmount * -MouseEvent.GetWheelDelta());
-
-	return FReply::Handled();
+	// Always ensure the edit tool is set up
+	InputStack.SetHandlerAt(0, &Sequencer->GetEditTool());
+	return InputStack.HandleMouseWheel(*this, MyGeometry, MouseEvent);
 }
 
 

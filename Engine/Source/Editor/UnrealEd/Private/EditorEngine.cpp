@@ -1827,7 +1827,7 @@ void UEditorEngine::Cleanse( bool ClearSelection, bool Redraw, const FText& Tran
 		// will occur next time someone tries to use it. This is caused by
 		// the fact that the loading routing will check that already
 		// existed, but the object was missing in cache.
-		const EObjectFlags FlagsToClear = RF_Standalone | RF_RootSet | RF_Transactional;
+		const EObjectFlags FlagsToClear = RF_Standalone | RF_Transactional;
 		TArray<UPackage*> PackagesToUnload;
 		for (TObjectIterator<UObjectRedirector> RedirIt; RedirIt; ++RedirIt)
 		{
@@ -1854,6 +1854,7 @@ void UEditorEngine::Cleanse( bool ClearSelection, bool Redraw, const FText& Tran
 			{
 				// In case this isn't redirector-only package, clear just the redirector.
 				RedirIt->ClearFlags(FlagsToClear);
+				RedirIt->RemoveFromRoot();
 			}
 		}
 
@@ -1864,9 +1865,11 @@ void UEditorEngine::Cleanse( bool ClearSelection, bool Redraw, const FText& Tran
 			for (auto* Object : PackageObjects)
 			{
 				Object->ClearFlags(FlagsToClear);
+				Object->RemoveFromRoot();
 			}
 
 			PackageToUnload->ClearFlags(FlagsToClear);
+			PackageToUnload->RemoveFromRoot();
 		}
 
 		// Collect garbage.
@@ -1960,6 +1963,17 @@ void UEditorEngine::PlayEditorSound( const FString& SoundAssetName )
 	}
 }
 
+void UEditorEngine::PlayEditorSound( USoundBase* InSound )
+{
+	// Only play sounds if the user has that feature enabled
+	if (!GIsSavingPackage && IsInGameThread() && GetDefault<ULevelEditorMiscSettings>()->bEnableEditorSounds)
+	{
+		if (InSound != nullptr)
+		{
+			GEditor->PlayPreviewSound(InSound);
+		}
+	}
+}
 
 void UEditorEngine::ClearPreviewComponents()
 {
@@ -2763,11 +2777,16 @@ void UEditorEngine::SelectAllActorsWithClass( bool bArchetype )
 {
 	if( !bArchetype )
 	{
-		FSelectedActorInfo SelectionInfo = AssetSelectionUtils::GetSelectedActorInfo();
-
-		if( SelectionInfo.NumSelected )
+		TArray<UClass*> SelectedClasses;
+		for (auto It = GetSelectedActorIterator(); It; ++It)
 		{
-			GUnrealEd->Exec( SelectionInfo.SharedWorld, *FString::Printf( TEXT("ACTOR SELECT OFCLASS CLASS=%s"), *SelectionInfo.SelectionStr ) );
+			SelectedClasses.AddUnique(It->GetClass());
+		}
+
+		UWorld* CurrentEditorWorld = GetEditorWorldContext().World();
+		for (UClass* Class : SelectedClasses)
+		{
+			GUnrealEd->Exec(CurrentEditorWorld, *FString::Printf(TEXT("ACTOR SELECT OFCLASS CLASS=%s"), *Class->GetName()));
 		}
 	}
 	else
@@ -2869,6 +2888,7 @@ void UEditorEngine::ConvertSelectedBrushesToVolumes( UClass* VolumeClass )
 		checkSlow( VolumeClass && VolumeClass->IsChildOf( AVolume::StaticClass() ) );
 
 		TArray< UWorld* > WorldsAffected;
+		TArray< ULevel* > LevelsAffected;
 		// Iterate over all selected actors, converting the brushes to volumes of the provided class
 		for ( int32 BrushIdx = 0; BrushIdx < BrushesToConvert.Num(); BrushIdx++ )
 		{
@@ -2877,6 +2897,7 @@ void UEditorEngine::ConvertSelectedBrushesToVolumes( UClass* VolumeClass )
 			
 			ULevel* CurActorLevel = CurBrushActor->GetLevel();
 			check( CurActorLevel );
+			LevelsAffected.AddUnique( CurActorLevel );
 
 			// Cache the world and store in a list.
 			UWorld* World = CurBrushActor->GetWorld();
@@ -2921,9 +2942,15 @@ void UEditorEngine::ConvertSelectedBrushesToVolumes( UClass* VolumeClass )
 		GEditor->RedrawLevelEditingViewports();
 
 		// Broadcast a message that the levels in these worlds have changed
-		for (int32 iWorld = 0; iWorld < WorldsAffected.Num() ; iWorld++)
+		for (UWorld* ChangedWorld : WorldsAffected)
 		{
-			WorldsAffected[ iWorld ]->BroadcastLevelsChanged();
+			ChangedWorld->BroadcastLevelsChanged();
+		}
+
+		// Rebuild BSP for any levels affected
+		for (ULevel* ChangedLevel : LevelsAffected)
+		{
+			GEditor->RebuildLevel(*ChangedLevel);
 		}
 
 		CollectGarbage( GARBAGE_COLLECTION_KEEPFLAGS );
@@ -3725,17 +3752,13 @@ ESavePackageResult UEditorEngine::Save( UPackage* InOuter, UObject* InBase, EObj
 	}
 
 	UObject* Base = InBase;
-	if ( !Base && InOuter && InOuter->PackageFlags & PKG_ContainsMap )
+	if ( !Base && InOuter && InOuter->HasAnyPackageFlags(PKG_ContainsMap) )
 	{
 		Base = UWorld::FindWorldInPackage(InOuter);
 	}
 
 	// Record the package flags before OnPreSaveWorld. They will be used in OnPostSaveWorld.
-	uint32 OriginalPackageFlags = 0;
-	if ( InOuter )
-	{
-		OriginalPackageFlags = InOuter->PackageFlags;
-	}
+	const uint32 OriginalPackageFlags = (InOuter ? InOuter->GetPackageFlags() : 0);
 
 	SlowTask.EnterProgressFrame(10);
 
@@ -3887,7 +3910,7 @@ void UEditorEngine::OnPreSaveWorld(uint32 SaveFlags, UWorld* World)
 			// PIE prefix detected, mark package.
 			if( World->GetName().StartsWith( PLAYWORLD_PACKAGE_PREFIX ) )
 			{
-				World->GetOutermost()->PackageFlags |= PKG_PlayInEditor;
+				World->GetOutermost()->SetPackageFlags(PKG_PlayInEditor);
 			}
 		}
 		else
@@ -3956,10 +3979,10 @@ void UEditorEngine::OnPostSaveWorld(uint32 SaveFlags, UWorld* World, uint32 Orig
 		{
 			// Restore original value of PKG_PlayInEditor if we changed it during PIE saving
 			const bool bOriginallyPIE = (OriginalPackageFlags & PKG_PlayInEditor) != 0;
-			const bool bCurrentlyPIE = (WorldPackage->PackageFlags & PKG_PlayInEditor) != 0;
+			const bool bCurrentlyPIE = (WorldPackage->HasAnyPackageFlags(PKG_PlayInEditor));
 			if ( !bOriginallyPIE && bCurrentlyPIE )
 			{
-				WorldPackage->PackageFlags &= ~PKG_PlayInEditor;
+				WorldPackage->ClearPackageFlags(PKG_PlayInEditor);
 			}
 		}
 		else
@@ -4589,6 +4612,27 @@ void UEditorEngine::ReplaceActors(UActorFactory* Factory, const FAssetData& Asse
 
 	// Reattaches actors based on their previous parent child relationship.
 	ReattachActorsHelper::ReattachActors(ConvertedMap, AttachmentInfo);
+
+	// Perform reference replacement on all Actors referenced by World
+	UWorld* CurrentEditorWorld = GetEditorWorldContext().World();
+	FArchiveReplaceObjectRef<AActor> Ar(CurrentEditorWorld, ConvertedMap, false, true, false);
+
+	// Go through modified objects, marking their packages as dirty and informing them of property changes
+	for (const auto& MapItem : Ar.GetReplacedReferences())
+	{
+		UObject* ModifiedObject = MapItem.Key;
+
+		if (!ModifiedObject->HasAnyFlags(RF_Transient) && ModifiedObject->GetOutermost() != GetTransientPackage() && !ModifiedObject->RootPackageHasAnyFlags(PKG_CompiledIn))
+		{
+			ModifiedObject->MarkPackageDirty();
+		}
+
+		for (UProperty* Property : MapItem.Value)
+		{
+			FPropertyChangedEvent PropertyEvent(Property);
+			ModifiedObject->PostEditChangeProperty(PropertyEvent);
+		}
+	}
 
 	RedrawLevelEditingViewports();
 

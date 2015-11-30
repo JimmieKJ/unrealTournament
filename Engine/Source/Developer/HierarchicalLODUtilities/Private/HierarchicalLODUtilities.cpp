@@ -106,7 +106,7 @@ bool FHierarchicalLODUtilities::BuildStaticMeshForLODActor(ALODActor* LODActor, 
 {
 	if (AssetsOuter && LODActor)
 	{
-		if (!LODActor->IsDirty() || LODActor->SubActors.Num() < 2)
+		if (!LODActor->IsDirty())
 		{
 			return false;
 		}

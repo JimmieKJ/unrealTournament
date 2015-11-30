@@ -64,33 +64,34 @@ void SEnumCurveKeyEditor::OnComboSelectionChanged(TSharedPtr<int32> InSelectedIt
 	{
 		FScopedTransaction Transaction(LOCTEXT("SetEnumKey", "Set Enum Key Value"));
 		OwningSection->SetFlags(RF_Transactional);
-		OwningSection->Modify();
-
-		float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
-
-		bool bKeyWillBeAdded = Curve->IsKeyHandleValid(Curve->FindKey(CurrentTime)) == false;
-		if (bKeyWillBeAdded)
+		if (OwningSection->TryModify())
 		{
-			if (OwningSection->GetStartTime() > CurrentTime)
+			float CurrentTime = Sequencer->GetCurrentLocalTime(*Sequencer->GetFocusedMovieSceneSequence());
+
+			bool bKeyWillBeAdded = Curve->IsKeyHandleValid(Curve->FindKey(CurrentTime)) == false;
+			if (bKeyWillBeAdded)
 			{
-				OwningSection->SetStartTime(CurrentTime);
+				if (OwningSection->GetStartTime() > CurrentTime)
+				{
+					OwningSection->SetStartTime(CurrentTime);
+				}
+				if (OwningSection->GetEndTime() < CurrentTime)
+				{
+					OwningSection->SetEndTime(CurrentTime);
+				}
 			}
-			if (OwningSection->GetEndTime() < CurrentTime)
-			{
-				OwningSection->SetEndTime(CurrentTime);
-			}
-		}
 
-		int32 SelectedValue = Enum->GetValueByIndex(*InSelectedItem);
-		if (Curve->GetNumKeys() == 0)
-		{
-			Curve->SetDefaultValue(SelectedValue);
+			int32 SelectedValue = Enum->GetValueByIndex(*InSelectedItem);
+			if (Curve->GetNumKeys() == 0)
+			{
+				Curve->SetDefaultValue(SelectedValue);
+			}
+			else
+			{
+				Curve->UpdateOrAddKey(CurrentTime, SelectedValue);
+			}
+			Sequencer->UpdateRuntimeInstances();
 		}
-		else
-		{
-			Curve->UpdateOrAddKey(CurrentTime, SelectedValue);
-		}
-		Sequencer->UpdateRuntimeInstances();
 	}
 }
 

@@ -209,19 +209,20 @@ TSharedRef<FSequencerObjectBindingNode> FSequencerNodeTree::AddObjectBinding(con
 		TSharedPtr<FSequencerObjectBindingNode> ParentNode;
 
 		UMovieSceneSequence* Sequence = Sequencer.GetFocusedMovieSceneSequence();
+		TSharedRef<FMovieSceneSequenceInstance> SequenceInstance = Sequencer.GetFocusedMovieSceneSequenceInstance();
 
 		// Prefer to use the parent spawnable if possible, rather than relying on runtime object presence
 		FMovieScenePossessable* Possessable = Sequence->GetMovieScene()->FindPossessable(ObjectBinding);
-		if (Possessable && Possessable->GetParentSpawnable().IsValid())
+		if (Possessable && Possessable->GetParent().IsValid())
 		{
-			const FMovieSceneBinding* ParentBinding = GuidToBindingMap.FindRef(Possessable->GetParentSpawnable());
+			const FMovieSceneBinding* ParentBinding = GuidToBindingMap.FindRef(Possessable->GetParent());
 			if (ParentBinding)
 			{
-				ParentNode = AddObjectBinding( ParentBinding->GetName(), Possessable->GetParentSpawnable(), GuidToBindingMap, OutNodeList );
+				ParentNode = AddObjectBinding( ParentBinding->GetName(), Possessable->GetParent(), GuidToBindingMap, OutNodeList );
 			}
 		}
 		
-		UObject* RuntimeObject = Sequence->FindObject(ObjectBinding);
+		UObject* RuntimeObject = SequenceInstance->FindObject(ObjectBinding, Sequencer);
 
 		// fallback to using the parent runtime object
 		if (!ParentNode.IsValid() && RuntimeObject)
@@ -230,7 +231,7 @@ TSharedRef<FSequencerObjectBindingNode> FSequencerNodeTree::AddObjectBinding(con
 
 			if (ParentObject != nullptr)
 			{
-				FGuid ParentBinding = Sequence->FindObjectId(*ParentObject);
+				FGuid ParentBinding = SequenceInstance->FindObjectId(*ParentObject);
 				TSharedPtr<FSequencerObjectBindingNode>* FoundParentNode = ObjectBindingMap.Find( ParentBinding );
 				if ( FoundParentNode != nullptr )
 				{
@@ -314,17 +315,40 @@ bool FSequencerNodeTree::IsNodeFiltered( const TSharedRef<const FSequencerDispla
  * @param FilterStrings		The filter strings which need to be matched
  * @param OutFilteredNodes	The list of all filtered nodes
  */
-static bool FilterNodesRecursive( const TSharedRef<FSequencerDisplayNode>& StartNode, const TArray<FString>& FilterStrings, TSet<TSharedRef<const FSequencerDisplayNode>>& OutFilteredNodes )
+static bool FilterNodesRecursive( FSequencer& Sequencer, const TSharedRef<FSequencerDisplayNode>& StartNode, const TArray<FString>& FilterStrings, TSet<TSharedRef<const FSequencerDisplayNode>>& OutFilteredNodes )
 {
 	// assume the filter is acceptable
 	bool bFilterAcceptable = true;
 
 	// check each string in the filter strings list against 
+	UMovieScene* MovieScene = Sequencer.GetFocusedMovieSceneSequence()->GetMovieScene();
+
 	for (const FString& String : FilterStrings)
 	{
-		if (!StartNode->GetDisplayName().ToString().Contains(String)) 
+		if (String.StartsWith(TEXT("label:")))
+		{
+			if (StartNode->GetType() == ESequencerNode::Object)
+			{
+				auto ObjectBindingNode = StaticCastSharedRef<FSequencerObjectBindingNode>(StartNode);
+				auto Labels = MovieScene->GetObjectLabels(ObjectBindingNode->GetObjectBinding());
+
+				if (!Labels.Strings.Contains(String.RightChop(6)))
+				{
+					bFilterAcceptable = false;
+				}
+			}
+			else
+			{
+				bFilterAcceptable = false;
+			}
+		}
+		else if (!StartNode->GetDisplayName().ToString().Contains(String)) 
 		{
 			bFilterAcceptable = false;
+		}
+
+		if (!bFilterAcceptable)
+		{
 			break;
 		}
 	}
@@ -345,7 +369,7 @@ static bool FilterNodesRecursive( const TSharedRef<FSequencerDisplayNode>& Start
 	for (const auto& Node : ChildNodes)
 	{
 		// Mark the parent as filtered if any child node was filtered
-		bFilterAcceptable |= FilterNodesRecursive(Node, FilterStrings, OutFilteredNodes);
+		bFilterAcceptable |= FilterNodesRecursive(Sequencer, Node, FilterStrings, OutFilteredNodes);
 
 		if (bFilterAcceptable && !bInFilter)
 		{
@@ -381,7 +405,7 @@ void FSequencerNodeTree::FilterNodes(const FString& InFilter)
 		for (auto It = ObjectBindingMap.CreateIterator(); It; ++It)
 		{
 			// Recursively filter all nodes, matching them against the list of filter strings.  All filter strings must be matched
-			FilterNodesRecursive(It.Value().ToSharedRef(), FilterStrings, FilteredNodes);
+			FilterNodesRecursive(Sequencer, It.Value().ToSharedRef(), FilterStrings, FilteredNodes);
 		}
 	}
 }

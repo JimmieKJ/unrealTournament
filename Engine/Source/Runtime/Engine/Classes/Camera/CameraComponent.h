@@ -81,15 +81,17 @@ class ENGINE_API UCameraComponent : public USceneComponent
 
 	// UActorComponent interface
 	virtual void OnRegister() override;
-	virtual void OnUnregister() override;
 	virtual void PostLoad() override;
 #if WITH_EDITOR
 	virtual void OnComponentDestroyed() override;
 	virtual void CheckForErrors() override;
+#endif
 	// End of UActorComponent interface
 
 	// UObject interface
+#if WITH_EDITORONLY_DATA
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	static void AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector);
 #endif
 	virtual void Serialize(FArchive& Ar) override;
 	// End of UObject interface
@@ -108,14 +110,12 @@ class ENGINE_API UCameraComponent : public USceneComponent
 protected:
 #if WITH_EDITORONLY_DATA
 	// The frustum component used to show visually where the camera field of view is
-	UPROPERTY(transient)
 	class UDrawFrustumComponent* DrawFrustum;
 
 	UPROPERTY(transient)
 	class UStaticMesh* CameraMesh;
 	
 	// The camera mesh to show visually where the camera is placed
-	UPROPERTY(transient)
 	class UStaticMeshComponent* ProxyMeshComponent;
 
 public:

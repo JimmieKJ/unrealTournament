@@ -6,6 +6,7 @@
 #include "AnimSequenceBase.h"
 #include "Engine/BlueprintGeneratedClass.h"
 #include "AnimBlueprint.h"
+#include "AnimClassInterface.h"
 
 #include "AnimBlueprintGeneratedClass.generated.h"
 
@@ -144,6 +145,7 @@ public:
 
 	void ResetNodeVisitSites();
 	void RecordNodeVisit(int32 TargetNodeIndex, int32 SourceNodeIndex, float BlendWeight);
+	void RecordNodeVisitArray(const TArray<FNodeVisit>& Nodes);
 #endif
 };
 
@@ -159,7 +161,7 @@ namespace EPropertySearchMode
 #endif
 
 UCLASS()
-class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass
+class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass, public IAnimClassInterface
 {
 	GENERATED_UCLASS_BODY()
 
@@ -187,8 +189,25 @@ class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass
 	UPROPERTY()
 	TArray<FName> SyncGroupNames;
 
-	int32 GetSyncGroupIndex(FName SyncGroupName) const { return SyncGroupNames.IndexOfByKey(SyncGroupName); }
+public:
 
+	virtual const TArray<FBakedAnimationStateMachine>& GetBakedStateMachines() const override { return BakedStateMachines; }
+
+	virtual USkeleton* GetTargetSkeleton() const override { return TargetSkeleton; }
+
+	virtual const TArray<FAnimNotifyEvent>& GetAnimNotifies() const override { return AnimNotifies; }
+
+	virtual int32 GetRootAnimNodeIndex() const override { return RootAnimNodeIndex; }
+
+	virtual UStructProperty* GetRootAnimNodeProperty() const override { return RootAnimNodeProperty; }
+
+	virtual const TArray<UStructProperty*>& GetAnimNodeProperties() const override { return AnimNodeProperties; }
+
+	virtual const TArray<FName>& GetSyncGroupNames() const override { return SyncGroupNames; }
+
+	virtual int32 GetSyncGroupIndex(FName SyncGroupName) const override { return SyncGroupNames.IndexOfByKey(SyncGroupName); }
+
+public:
 #if WITH_EDITORONLY_DATA
 	FAnimBlueprintDebugData AnimBlueprintDebugData;
 
@@ -288,21 +307,16 @@ class ENGINE_API UAnimBlueprintGeneratedClass : public UBlueprintGeneratedClass
 	virtual void PurgeClass(bool bRecompilingOnLoad) override;
 	virtual uint8* GetPersistentUberGraphFrame(UObject* Obj, UFunction* FuncToCheck) const override;
 	// End of UClass interface
-
-#if WITH_EDITOR
-public:
-	class USkeleton* GetTargetSkeleton() const { return TargetSkeleton; }
-#endif
 };
 
 template<typename NodeType>
-NodeType* GetNodeFromPropertyIndex(UAnimInstance* AnimInstance, const UAnimBlueprintGeneratedClass* AnimBlueprintClass, int32 PropertyIndex)
+NodeType* GetNodeFromPropertyIndex(UObject* AnimInstanceObject, const IAnimClassInterface* AnimBlueprintClass, int32 PropertyIndex)
 {
 	if (PropertyIndex != INDEX_NONE)
 	{
-		UStructProperty* NodeProperty = AnimBlueprintClass->AnimNodeProperties[AnimBlueprintClass->AnimNodeProperties.Num() - 1 - PropertyIndex]; //@TODO: Crazysauce
+		UStructProperty* NodeProperty = AnimBlueprintClass->GetAnimNodeProperties()[AnimBlueprintClass->GetAnimNodeProperties().Num() - 1 - PropertyIndex]; //@TODO: Crazysauce
 		check(NodeProperty->Struct == NodeType::StaticStruct());
-		return NodeProperty->ContainerPtrToValuePtr<NodeType>(AnimInstance);
+		return NodeProperty->ContainerPtrToValuePtr<NodeType>(AnimInstanceObject);
 	}
 
 	return NULL;

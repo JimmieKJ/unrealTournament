@@ -15,7 +15,7 @@ float4x4 SvPositionToLight;
 float3 LightFunctionParameters2;
 
 void Main(
-	in float4 ScreenPosition : TEXCOORD0,
+	// in float4 ScreenPosition : TEXCOORD0, // Not used and not output in VS
 	in float4 SvPosition : SV_Position,		// after all interpolators
 	out float4 OutColor : SV_Target0
 	)

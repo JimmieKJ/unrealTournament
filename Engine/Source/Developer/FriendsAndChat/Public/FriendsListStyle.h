@@ -84,16 +84,6 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	FButtonStyle FriendListActionButtonStyle;
 	FFriendsListStyle& SetFriendListActionButtonStyle(const FButtonStyle& ButtonStyle);
 
-	/** Friends List Close button style */
-	UPROPERTY( EditAnywhere, Category = Appearance )
-	FButtonStyle FriendListCloseButtonStyle;
-	FFriendsListStyle& SetFriendsListClosedButtonStyle(const FButtonStyle& ButtonStyle);
-
-	/** Add Friend Close button style */
-	UPROPERTY( EditAnywhere, Category = Appearance )
-	FButtonStyle AddFriendCloseButtonStyle;
-	FFriendsListStyle& SetAddFriendCloseButtonStyle(const FButtonStyle& ButtonStyle);
-
 	/** Optional content for the Add Friend button */
 	UPROPERTY( EditAnywhere, Category = Appearance )
 	FSlateBrush AddFriendButtonContentBrush;
@@ -168,14 +158,6 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	FFriendsListStyle& SetUserPresenceImageSize(const FVector2D& InUserPresenceImageSize);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
-	FVector2D AddFriendButtonSize;
-	FFriendsListStyle& SetAddFriendButtonSize(const FVector2D& Value);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FMargin UserHeaderPadding;
-	FFriendsListStyle& SetUserHeaderPadding(const FMargin& InUserHeaderPadding);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush BackBrush;
 	FFriendsListStyle& SetBackBrush(const FSlateBrush& Brush);
 
@@ -184,12 +166,20 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	FFriendsListStyle& SetSelectedOptionBrush(const FSlateBrush& Brush);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush FilterBrush;
-	FFriendsListStyle& SetFilterBrush(const FSlateBrush& Brush);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush SettingsBrush;
 	FFriendsListStyle& SetSettingsBrush(const FSlateBrush& Brush);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush SeperatorBrush;
+	FFriendsListStyle& SetSeperatorBrush(const FSlateBrush& Brush);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush FontSizeBrush;
+	FFriendsListStyle& SetFontSizeBrush(const FSlateBrush& Brush);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush SearchBrush;
+	FFriendsListStyle& SetSearchBrush(const FSlateBrush& Brush);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FMargin BackButtonMargin;
@@ -232,6 +222,34 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FMargin ConfirmationButtonContentMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin SubMenuBackIconMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin SubMenuPageIconMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin RadioSettingTitleMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin SubMenuSearchIconMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin SubMenuSearchTextMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin SubMenuBackButtonMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin SubMenuSettingButtonMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin SubMenuListMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	float SubMenuSeperatorThickness;
+
 
 
 // Clan Settings

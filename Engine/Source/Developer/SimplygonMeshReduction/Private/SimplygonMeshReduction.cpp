@@ -371,25 +371,21 @@ public:
 				}
 			}
 
-			// if material hasn't been customized
-			if (SkeletalMesh->LODInfo[LODIndex].LODMaterialMap.Num() == 0)
+			// If base lod has a customized LODMaterialMap and this LOD doesn't (could have if changes are applied instead of freshly generated, copy over the data into new new LOD
+			if (SkeletalMesh->LODInfo[LODIndex].LODMaterialMap.Num() == 0 && SkeletalMesh->LODInfo[BaseLOD].LODMaterialMap.Num() != 0)
 			{
-				// copy parent index
-				for (int32 SectionId = 0; SectionId < NewModel->Sections.Num() && SectionId < SrcModel->Sections.Num(); ++SectionId)
-				{
-					NewModel->Sections[SectionId].MaterialIndex = SrcModel->Sections[SectionId].MaterialIndex;
-				}
-
-				// also if BaseLOD has material customized, follow it. 
 				SkeletalMesh->LODInfo[LODIndex].LODMaterialMap = SkeletalMesh->LODInfo[BaseLOD].LODMaterialMap;
 			}
 			else
 			{
+				// Assuming the reducing step has set all material indices correctly, we double check if something went wrong
 				// make sure we don't have more materials
 				int32 TotalSectionCount = NewModel->Sections.Num();
 				if (SkeletalMesh->LODInfo[LODIndex].LODMaterialMap.Num() > TotalSectionCount)
 				{
-					SkeletalMesh->LODInfo[LODIndex].LODMaterialMap.SetNum(TotalSectionCount);
+					SkeletalMesh->LODInfo[LODIndex].LODMaterialMap = SkeletalMesh->LODInfo[BaseLOD].LODMaterialMap;
+					// Something went wrong during the reduce step during regenerate 					
+					check(SkeletalMesh->LODInfo[BaseLOD].LODMaterialMap.Num() == TotalSectionCount);
 				}
 			}
 
@@ -2144,6 +2140,8 @@ private:
 
 		// Emissive
 		GetMaterialChannelData(SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_EMISSIVE, OutMaterial.EmissiveSamples, OutMaterial.EmissiveSize);
+		
+		GetMaterialChannelData(SGMaterial, USER_MATERIAL_CHANNEL_SUBSURFACE_COLOR, OutMaterial.SubSurfaceSamples, OutMaterial.SubSurfaceSize);
 	}
 
 	static FIntPoint ComputeMappingImageSize(const FMaterialSimplificationSettings& Settings)
@@ -2178,6 +2176,7 @@ private:
 			if (!SGMaterial->HasUserChannel(USER_MATERIAL_CHANNEL_OPACITY))
 				SGMaterial->AddUserChannel(USER_MATERIAL_CHANNEL_OPACITY);
 #endif
+			SGMaterial->AddUserChannel(USER_MATERIAL_CHANNEL_SUBSURFACE_COLOR);
 
 			SGMaterial->SetName(TCHAR_TO_ANSI(*FString::Printf(TEXT("Material%d"), MaterialIndex)));
 
@@ -2189,52 +2188,57 @@ private:
 					SGMaterial->SetVertexColorChannel(SimplygonSDK::SG_MATERIAL_CHANNEL_BASECOLOR, 0);
 				}
 
-				SetMaterialChannelData(FlattenMaterial.DiffuseSamples, FlattenMaterial.DiffuseSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_BASECOLOR);
+				SetMaterialChannelData(FlattenMaterial.DiffuseSamples, FlattenMaterial.RenderSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_BASECOLOR);
 			}
 
 			// Does current material have Metallic?
 			if (FlattenMaterial.MetallicSamples.Num())
 			{
-				SetMaterialChannelData(FlattenMaterial.MetallicSamples, FlattenMaterial.MetallicSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_METALLIC);
+				SetMaterialChannelData(FlattenMaterial.MetallicSamples, FlattenMaterial.RenderSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_METALLIC);
 			}
 
 			// Does current material have Specular?
 			if (FlattenMaterial.SpecularSamples.Num())
 			{
-				SetMaterialChannelData(FlattenMaterial.SpecularSamples, FlattenMaterial.SpecularSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_SPECULAR);
+				SetMaterialChannelData(FlattenMaterial.SpecularSamples, FlattenMaterial.RenderSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_SPECULAR);
 			}
 
 			// Does current material have Roughness?
 			if (FlattenMaterial.RoughnessSamples.Num())
 			{
-				SetMaterialChannelData(FlattenMaterial.RoughnessSamples, FlattenMaterial.RoughnessSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_ROUGHNESS);
+				SetMaterialChannelData(FlattenMaterial.RoughnessSamples, FlattenMaterial.RenderSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_ROUGHNESS);
 			}
 
 			//Does current material have a normalmap?
 			if (FlattenMaterial.NormalSamples.Num())
 			{
-				SetMaterialChannelData(FlattenMaterial.NormalSamples, FlattenMaterial.NormalSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_NORMALS);
+				SetMaterialChannelData(FlattenMaterial.NormalSamples, FlattenMaterial.RenderSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_NORMALS);
 			}
 
 			// Does current material have Opacity?
 			if (FlattenMaterial.OpacitySamples.Num())
 			{
 #if USE_USER_OPACITY_CHANNEL
-				SetMaterialChannelData(FlattenMaterial.OpacitySamples, FlattenMaterial.OpacitySize, SGMaterial, USER_MATERIAL_CHANNEL_OPACITY);
+				SetMaterialChannelData(FlattenMaterial.OpacitySamples, FlattenMaterial.RenderSize, SGMaterial, USER_MATERIAL_CHANNEL_OPACITY);
 #else
-				SetMaterialChannelData(FlattenMaterial.OpacitySamples, FlattenMaterial.OpacitySize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_OPACITY);
+				SetMaterialChannelData(FlattenMaterial.OpacitySamples, FlattenMaterial.RenderSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_OPACITY);
 #endif
 			}
 
 			if (FlattenMaterial.EmissiveSamples.Num())
 			{
-				SetMaterialChannelData(FlattenMaterial.EmissiveSamples, FlattenMaterial.EmissiveSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_EMISSIVE);
+				SetMaterialChannelData(FlattenMaterial.EmissiveSamples, FlattenMaterial.RenderSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_EMISSIVE);
 			}
 			else
 			{
 				TArray<FColor> BlackEmissive;
 				BlackEmissive.AddZeroed(1);
-				SetMaterialChannelData(BlackEmissive, FlattenMaterial.EmissiveSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_EMISSIVE);
+				SetMaterialChannelData(BlackEmissive, FlattenMaterial.RenderSize, SGMaterial, SimplygonSDK::SG_MATERIAL_CHANNEL_EMISSIVE);
+			}
+
+			if (FlattenMaterial.SubSurfaceSamples.Num())
+			{
+				SetMaterialChannelData(FlattenMaterial.SubSurfaceSamples, FlattenMaterial.RenderSize, SGMaterial, USER_MATERIAL_CHANNEL_SUBSURFACE_COLOR);
 			}
 
 			OutSGMaterialTable->AddMaterial(SGMaterial);
@@ -2450,6 +2454,8 @@ private:
 		if(!OutMaterial->HasUserChannel(USER_MATERIAL_CHANNEL_OPACITY))
 			OutMaterial->AddUserChannel(USER_MATERIAL_CHANNEL_OPACITY);
 #endif
+		OutMaterial->AddUserChannel(USER_MATERIAL_CHANNEL_SUBSURFACE_COLOR);
+
 		for(int ChannelIndex=0; ChannelIndex < InMaterialLODSettings.ChannelsToCast.Num(); ChannelIndex++)
 		{
 			FSimplygonChannelCastingSettings CasterSetting = InMaterialLODSettings.ChannelsToCast[ChannelIndex];

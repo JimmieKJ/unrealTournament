@@ -180,7 +180,7 @@ class AIMODULE_API UCrowdManager : public UObject
 	bool SetAgentMoveDirection(const UCrowdFollowingComponent* AgentComponent, const FVector& MoveDirection) const;
 
 	/** sets move target using path (only for fully simulated) */
-	bool SetAgentMovePath(const UCrowdFollowingComponent* AgentComponent, const FNavMeshPath* Path, int32 PathSectionStart, int32 PathSectionEnd) const;
+	bool SetAgentMovePath(const UCrowdFollowingComponent* AgentComponent, const FNavMeshPath* Path, int32 PathSectionStart, int32 PathSectionEnd, const FVector& PathSectionEndLocation) const;
 
 	/** clears move target for crowd agent (only for fully simulated) */
 	void ClearAgentMoveTarget(const UCrowdFollowingComponent* AgentComponent) const;

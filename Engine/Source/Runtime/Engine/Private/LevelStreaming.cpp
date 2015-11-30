@@ -196,7 +196,7 @@ void ULevelStreaming::PostLoad()
 {
 	Super::PostLoad();
 
-	const bool PIESession = GetWorld()->WorldType == EWorldType::PIE || (GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0;
+	const bool PIESession = GetWorld()->WorldType == EWorldType::PIE || GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
 
 	// If this streaming level was saved with a short package name, try to convert it to a long package name
 	if ( !PIESession && PackageName_DEPRECATED != NAME_None )
@@ -215,12 +215,9 @@ void ULevelStreaming::PostLoad()
 		}
 	}
 
-	if ( !WorldAsset.IsNull() )
+	if ( !PIESession && !WorldAsset.IsNull() )
 	{
 		const FString WorldPackageName = GetWorldAssetPackageName();
-		CachedWorldAssetPackageFName = FName(*WorldPackageName);
-		if ( !PIESession )
-		{
 		if (FPackageName::DoesPackageExist(WorldPackageName) == false)
 		{
 			UE_LOG(LogLevelStreaming, Display, TEXT("Failed to find streaming level package file: %s. This streaming level may not load or save properly."), *WorldPackageName);
@@ -237,7 +234,6 @@ void ULevelStreaming::PostLoad()
 			}
 #endif // WITH_EDITOR
 		}
-	}
 	}
 
 	if (GetLinkerUE4Version() < VER_UE4_LEVEL_STREAMING_DRAW_COLOR_TYPE_CHANGE)
@@ -267,7 +263,7 @@ void ULevelStreaming::Serialize( FArchive& Ar )
 	
 	if (Ar.IsLoading())
 	{
-		if ((GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0 && GetOutermost()->PIEInstanceID != INDEX_NONE)
+		if (GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor) && GetOutermost()->PIEInstanceID != INDEX_NONE)
 		{
 			RenameForPIE(GetOutermost()->PIEInstanceID);
 		}
@@ -362,7 +358,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	}
 		
 	// Try to find the [to be] loaded package.
-	UPackage* LevelPackage = (UPackage*) StaticFindObjectFast(UPackage::StaticClass(), NULL, DesiredPackageName, 0, 0, RF_PendingKill);
+	UPackage* LevelPackage = (UPackage*)StaticFindObjectFast(UPackage::StaticClass(), NULL, DesiredPackageName, 0, 0, RF_NoFlags, EInternalObjectFlags::PendingKill);
 
 	// Package is already or still loaded.
 	if (LevelPackage)
@@ -415,7 +411,7 @@ bool ULevelStreaming::RequestLevel(UWorld* PersistentWorld, bool bAllowLevelLoad
 	if ( PersistentWorld->IsPlayInEditor() )
 	{
 #if WITH_EDITOR
-		if ((PersistentWorld->GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0)
+		if (PersistentWorld->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			PackageFlags |= PKG_PlayInEditor;
 		}
@@ -762,17 +758,22 @@ void ULevelStreaming::BroadcastLevelVisibleStatus(UWorld* PersistentWorld, FName
 void ULevelStreaming::SetWorldAsset(const TAssetPtr<UWorld>& NewWorldAsset)
 {
 	WorldAsset = NewWorldAsset;
-	CachedWorldAssetPackageFName = FName(*GetWorldAssetPackageName());
+	bHasCachedWorldAssetPackageFName = false;
 }
 
 FString ULevelStreaming::GetWorldAssetPackageName() const
 {
-	const FString WorldAssetPath = WorldAsset.ToStringReference().ToString();
-	return FPackageName::ObjectPathToPackageName(WorldAssetPath);
+	return GetWorldAssetPackageFName().ToString();
 }
 
 FName ULevelStreaming::GetWorldAssetPackageFName() const
 {
+	if (!bHasCachedWorldAssetPackageFName)
+	{
+		ULevelStreaming* MutableThis = const_cast<ULevelStreaming*>(this);
+		MutableThis->CachedWorldAssetPackageFName = FName(*FPackageName::ObjectPathToPackageName(WorldAsset.ToString()));
+		MutableThis->bHasCachedWorldAssetPackageFName = true;
+	}
 	return CachedWorldAssetPackageFName;
 }
 
@@ -886,7 +887,7 @@ void ULevelStreaming::PostEditChangeProperty(FPropertyChangedEvent& PropertyChan
 		}
 		else if (PropertyName == GET_MEMBER_NAME_CHECKED(ULevelStreaming, WorldAsset))
 		{
-			CachedWorldAssetPackageFName = FName(*GetWorldAssetPackageName());
+			bHasCachedWorldAssetPackageFName = false;
 		}
 	}
 

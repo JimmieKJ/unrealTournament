@@ -72,6 +72,9 @@ private:
 	/** Callback for generating the menu of the "Add Shot" combo button. */
 	TSharedRef<SWidget> HandleAddShotComboButtonGetMenuContent();
 
+	/** Callback for whether a camera is pickable. */
+	bool IsCameraPickable( const AActor* const PickableActor );
+
 	/** Callback for executing a menu entry in the "Add Shot" combo button. */
 	void HandleAddShotComboButtonMenuEntryExecute(AActor* Camera);
 

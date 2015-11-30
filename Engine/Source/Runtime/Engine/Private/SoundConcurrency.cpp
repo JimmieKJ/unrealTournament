@@ -236,14 +236,14 @@ FActiveSound* FSoundConcurrencyManager::ResolveConcurrency(const FActiveSound& N
 				// Find the current lowest priority sound.
 				for (FActiveSound* CurrSound : ActiveSounds)
 				{
-					if (SoundToStop == nullptr || CurrSound->VolumeWeightedPriorityScale < SoundToStop->VolumeWeightedPriorityScale)
+					if (SoundToStop == nullptr || CurrSound->Priority < SoundToStop->Priority)
 					{
 						SoundToStop = CurrSound;
 					}
 				}
 
 				// Only stop any sounds if the *lowest* priority is lower than the incoming NewActiveSound
-				if (SoundToStop->VolumeWeightedPriorityScale >= NewActiveSound.VolumeWeightedPriorityScale)
+				if (SoundToStop->Priority >= NewActiveSound.Priority)
 				{
 					SoundToStop = nullptr;
 				}

@@ -197,6 +197,7 @@ public:
 	TSharedRef<class SKismetInspector> GetInspector() const {return Inspector.ToSharedRef();}
 	TSharedRef<class SKismetInspector> GetDefaultEditor() const {return DefaultEditor.ToSharedRef();}
 	TSharedRef<class SKismetDebuggingView> GetDebuggingView() const {return DebuggingView.ToSharedRef();}
+	TSharedRef<class SBlueprintProfilerView> GetBlueprintProfilerView() const {return BlueprintProfiler.ToSharedRef();}
 	TSharedRef<class SBlueprintPalette> GetPalette() const {return Palette.ToSharedRef();}
 	TSharedRef<class SWidget> GetCompilerResults() const {return CompilerResults.ToSharedRef();}
 	TSharedRef<class SFindInBlueprints> GetFindResults() const {return FindResults.ToSharedRef();}
@@ -506,6 +507,12 @@ public:
 
 	/** Can generate native code for current blueprint */
 	bool CanGenerateNativeCode() const;
+
+	/** Returns if the blueprint profiler is currently active. */
+	bool IsProfilerActive() const;
+
+	/** Toggle blueprint profiler state */
+	void ToggleProfiler();
 
 	/** 
 	 * Check to see if we can customize the SCS editor for the passed-in scene component 
@@ -1025,6 +1032,9 @@ protected:
 
 	/** Debugging window (watches, breakpoints, etc...) */
 	TSharedPtr<class SKismetDebuggingView> DebuggingView;
+
+	/** Performance Analsys View */
+	TSharedPtr<class SBlueprintProfilerView> BlueprintProfiler;
 
 	/** Palette of all classes with funcs/vars */
 	TSharedPtr<class SBlueprintPalette> Palette;

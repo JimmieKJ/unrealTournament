@@ -11,15 +11,189 @@
 #include "SDockTab.h"
 #include "MovieSceneBinding.h"
 #include "MovieScene.h"
+#include "MovieSceneSequenceInstance.h"
 #include "MovieSceneMaterialTrack.h"
 #include "ScopedTransaction.h"
 #include "ClassIconFinder.h"
+#include "LevelSequenceSpawnRegister.h"
+#include "ISequencerObjectChangeListener.h"
 
 #include "SceneOutlinerModule.h"
 #include "SceneOutlinerPublicTypes.h"
 
 
 #define LOCTEXT_NAMESPACE "LevelSequenceEditor"
+
+/**
+ * Spawn register used in the editor to add some usability features like maintaining selection states, and projecting spawned state onto spawnable defaults
+ */
+class FLevelSequenceEditorSpawnRegister : public FLevelSequenceSpawnRegister
+{
+public:
+	/** Weak pointer to the active sequencer */
+	TWeakPtr<ISequencer> WeakSequencer;
+
+	/** Constructor */
+	FLevelSequenceEditorSpawnRegister()
+	{
+		bShouldClearSelectionCache = true;
+
+		FLevelEditorModule& LevelEditor = FModuleManager::GetModuleChecked<FLevelEditorModule>("LevelEditor");
+		OnActorSelectionChangedHandle = LevelEditor.OnActorSelectionChanged().AddRaw(this, &FLevelSequenceEditorSpawnRegister::OnActorSelectionChanged);
+
+		OnActorMovedHandle = GEditor->OnActorMoved().AddLambda([=](AActor* Actor){
+			OnSpawnedObjectPropertyChanged(*Actor);
+		});
+	}
+
+	~FLevelSequenceEditorSpawnRegister()
+	{
+		GEditor->OnActorMoved().Remove(OnActorMovedHandle);
+		if (FLevelEditorModule* LevelEditor = FModuleManager::GetModulePtr<FLevelEditorModule>("LevelEditor"))
+		{
+			LevelEditor->OnActorSelectionChanged().Remove(OnActorSelectionChangedHandle);
+		}
+	}
+
+private:
+
+	/** Called to spawn an object */
+	virtual UObject* SpawnObject(const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance, IMovieScenePlayer& Player) override
+	{
+		TGuardValue<bool> Guard(bShouldClearSelectionCache, false);
+
+		UObject* NewObject = FLevelSequenceSpawnRegister::SpawnObject(BindingId, SequenceInstance, Player);
+
+		// Add an object listener for the spawned object to propagate changes back onto the spawnable default
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer.IsValid() && NewObject)
+		{
+			Sequencer->GetObjectChangeListener().GetOnAnyPropertyChanged(*NewObject).AddSP(this, &FLevelSequenceEditorSpawnRegister::OnSpawnedObjectPropertyChanged);
+
+			// Select the actor if we think it should be selected
+			AActor* Actor = Cast<AActor>(NewObject);
+			if (Actor && SelectedSpawnedObjects.Contains(FMovieSceneSpawnRegisterKey(BindingId, SequenceInstance)))
+			{
+				GEditor->SelectActor(Actor, true /*bSelected*/, true /*bNotify*/);
+			}
+		}
+
+		return NewObject;
+	}
+
+	/** Called right before an object is about to be destroyed */
+	virtual void PreDestroyObject(UObject& Object, const FGuid& BindingId, FMovieSceneSequenceInstance& SequenceInstance) override
+	{
+		TGuardValue<bool> Guard(bShouldClearSelectionCache, false);
+
+		// Cache its selection state
+		AActor* Actor = Cast<AActor>(&Object);
+		if (Actor && GEditor->GetSelectedActors()->IsSelected(Actor))
+		{
+			SelectedSpawnedObjects.Add(FMovieSceneSpawnRegisterKey(BindingId, SequenceInstance));
+			GEditor->SelectActor(Actor, false /*bSelected*/, true /*bNotify*/);
+		}
+
+		// Remove our object listener
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+		if (Sequencer.IsValid())
+		{
+			Sequencer->GetObjectChangeListener().ReportObjectDestroyed(Object);
+		}
+
+		FLevelSequenceSpawnRegister::PreDestroyObject(Object, BindingId, SequenceInstance);
+	}
+
+	/** Populate a map of properties that are keyed on a particular object */
+	void PopulateKeyedPropertyMap(AActor& SpawnedObject, TMap<UObject*, TSet<UProperty*>>& OutKeyedPropertyMap)
+	{
+		TSharedPtr<ISequencer> Sequencer = WeakSequencer.Pin();
+
+		Sequencer->GetAllKeyedProperties(SpawnedObject, OutKeyedPropertyMap.FindOrAdd(&SpawnedObject));
+
+		for (UActorComponent* Component : SpawnedObject.GetComponents())
+		{
+			Sequencer->GetAllKeyedProperties(*Component, OutKeyedPropertyMap.FindOrAdd(Component));
+		}
+	}
+
+	/** Called when the editor selection has changed */
+	void OnActorSelectionChanged(const TArray<UObject*>& NewSelection, bool bForceRefresh)
+	{
+		if (bShouldClearSelectionCache)
+		{
+			SelectedSpawnedObjects.Reset();
+		}
+	}
+
+	/** Called when a property on a spawned object changes */
+	void OnSpawnedObjectPropertyChanged(UObject& SpawnedObject)
+	{
+		using namespace EditorUtilities;
+
+		AActor* Actor = CastChecked<AActor>(&SpawnedObject);
+		if (!Actor)
+		{
+			return;
+		}
+
+		TMap<UObject*, TSet<UProperty*>> ObjectToKeyedProperties;
+		PopulateKeyedPropertyMap(*Actor, ObjectToKeyedProperties);
+
+		// Copy any changed actor properties onto the default actor, provided they are not keyed
+		FCopyOptions Options(ECopyOptions::PropagateChangesToArchetypeInstances);
+
+		// Set up a property filter so only stuff that is not keyed gets copied onto the default
+		Options.PropertyFilter = [&](const UProperty& Property, const UObject& Object) -> bool {
+			const TSet<UProperty*>* ExcludedProperties = ObjectToKeyedProperties.Find(const_cast<UObject*>(&Object));
+
+			return !ExcludedProperties || !ExcludedProperties->Contains(const_cast<UProperty*>(&Property));
+		};
+
+		// Now copy the actor properties
+		AActor* DefaultActor = Actor->GetClass()->GetDefaultObject<AActor>();
+		EditorUtilities::CopyActorProperties(Actor, DefaultActor, Options);
+
+		// The above function call explicitly doesn't copy the root component transform (so the default actor is always at 0,0,0)
+		// But in sequencer, we want the object to have a default transform if it doesn't have a transform track
+		static FName RelativeLocation = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation);
+		static FName RelativeRotation = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation);
+		static FName RelativeScale3D = GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeScale3D);
+
+		bool bHasKeyedTransform = false;
+		for (UProperty* Property : *ObjectToKeyedProperties.Find(Actor))
+		{
+			FName PropertyName = Property->GetFName();
+			bHasKeyedTransform = PropertyName == RelativeLocation || PropertyName == RelativeRotation || PropertyName == RelativeScale3D;
+			if (bHasKeyedTransform)
+			{
+				break;
+			}
+		}
+
+		// Set the default transform if it's not keyed
+		USceneComponent* RootComponent = Actor->GetRootComponent();
+		USceneComponent* DefaultRootComponent = DefaultActor->GetRootComponent();
+
+		if (!bHasKeyedTransform && RootComponent && DefaultRootComponent)
+		{
+			DefaultRootComponent->RelativeLocation = RootComponent->RelativeLocation;
+			DefaultRootComponent->RelativeRotation = RootComponent->RelativeRotation;
+			DefaultRootComponent->RelativeScale3D = RootComponent->RelativeScale3D;
+		}
+	}
+
+private:
+
+	/** Handles for delegates that we've bound to */
+	FDelegateHandle OnActorMovedHandle, OnActorSelectionChangedHandle;
+
+	/** Set of spawn register keys for objects that should be selected if they are spawned */
+	TSet<FMovieSceneSpawnRegisterKey> SelectedSpawnedObjects;
+
+	/** True if we should clear the above selection cache when the editor selection has been changed */
+	bool bShouldClearSelectionCache;
+};
 
 
 /* Local constants
@@ -83,19 +257,12 @@ void FLevelSequenceEditorToolkit::Initialize( const EToolkitMode::Type Mode, con
 
 	LevelSequence = InLevelSequence;
 
-	// Find the current editor world
-	for (auto& Context : GEngine->GetWorldContexts())
-	{
-		if (Context.WorldType == EWorldType::Editor)
-		{
-			LevelSequence->BindToContext(Context.World());
-		}
-	}
-
 	const bool bCreateDefaultStandaloneMenu = true;
 	const bool bCreateDefaultToolbar = false;
 
 	FAssetEditorToolkit::InitAssetEditor(Mode, InitToolkitHost, SequencerDefs::SequencerAppIdentifier, StandaloneDefaultLayout, bCreateDefaultStandaloneMenu, bCreateDefaultToolbar, LevelSequence);
+
+	TSharedRef<FLevelSequenceEditorSpawnRegister> SpawnRegister = MakeShareable(new FLevelSequenceEditorSpawnRegister);
 
 	// initialize sequencer
 	FSequencerInitParams SequencerInitParams;
@@ -103,6 +270,7 @@ void FLevelSequenceEditorToolkit::Initialize( const EToolkitMode::Type Mode, con
 		SequencerInitParams.RootSequence = LevelSequence;
 		SequencerInitParams.bEditWithinLevelEditor = bEditWithinLevelEditor;
 		SequencerInitParams.ToolkitHost = InitToolkitHost;
+		SequencerInitParams.SpawnRegister = SpawnRegister;
 
 		TSharedRef<FExtender> AddMenuExtender = MakeShareable(new FExtender);
 
@@ -125,6 +293,8 @@ void FLevelSequenceEditorToolkit::Initialize( const EToolkitMode::Type Mode, con
 	}
 
 	Sequencer = FModuleManager::LoadModuleChecked<ISequencerModule>("Sequencer").CreateSequencer(SequencerInitParams);
+	
+	SpawnRegister->WeakSequencer = Sequencer;
 
 	if (bEditWithinLevelEditor)
 	{
@@ -217,7 +387,7 @@ void FLevelSequenceEditorToolkit::HandleAddComponentMaterialActionExecute( UPrim
 			for ( UMovieSceneTrack* Track : Binding.GetTracks() )
 			{
 				UMovieSceneComponentMaterialTrack* MaterialTrack = Cast<UMovieSceneComponentMaterialTrack>( Track );
-				if ( MaterialTrack->GetMaterialIndex() == MaterialIndex )
+				if ( MaterialTrack != nullptr && MaterialTrack->GetMaterialIndex() == MaterialIndex )
 				{
 					bHasMaterialTrack = true;
 					break;
@@ -257,14 +427,9 @@ void FLevelSequenceEditorToolkit::AddActorsToSequencer(AActor*const* InActors, i
 	while (NumActors--)
 	{
 		AActor* ThisActor = *InActors;
-
-		FGuid ObjectGuid = FocussedSequence->FindObjectId(*ThisActor);
-
-		// Add this object if it hasn't already been possessed
-		if (!ObjectGuid.IsValid() || !FocussedMovieScene->FindPossessable(ObjectGuid))
+		if (!Sequencer->GetFocusedMovieSceneSequenceInstance()->FindObjectId(*ThisActor).IsValid())
 		{
-			ObjectGuid = FocussedMovieScene->AddPossessable(ThisActor->GetActorLabel(), ThisActor->GetClass());
-			FocussedSequence->BindPossessableObject(ObjectGuid, *ThisActor);
+			Sequencer->CreateBinding(*ThisActor, ThisActor->GetActorLabel());
 		}
 
 		GEditor->SelectActor(ThisActor, true, true);
@@ -357,8 +522,6 @@ void FLevelSequenceEditorToolkit::AddPosessActorMenuExtensions(FMenuBuilder& Men
 
 void FLevelSequenceEditorToolkit::HandleMapChanged(class UWorld* NewWorld, EMapChangeType MapChangeType)
 {
-	LevelSequence->BindToContext(NewWorld);
-
 	Sequencer->NotifyMapChanged(NewWorld, MapChangeType);
 }
 

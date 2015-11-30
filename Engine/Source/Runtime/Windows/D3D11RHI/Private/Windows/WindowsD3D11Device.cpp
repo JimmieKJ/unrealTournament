@@ -588,11 +588,12 @@ void FD3D11DynamicRHI::InitD3DDevice()
 		// Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
 		for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
 		{
-			ResourceIt->InitDynamicRHI();
+			ResourceIt->InitRHI();
 		}
+		// Dynamic resources can have dependencies on static resources (with uniform buffers) and must initialized last!
 		for(TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList());ResourceIt;ResourceIt.Next())
 		{
-			ResourceIt->InitRHI();
+			ResourceIt->InitDynamicRHI();
 		}
 
 #if !(UE_BUILD_SHIPPING && WITH_EDITOR)
@@ -737,8 +738,8 @@ bool FD3D11DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 		}
 		else if(HResult == DXGI_ERROR_NOT_CURRENTLY_AVAILABLE)
 		{
-			UE_LOG(LogD3D11RHI, Fatal,
-				TEXT("This application cannot be run over a remote desktop configuration")
+			UE_LOG(LogD3D11RHI, Warning,
+				TEXT("RHIGetAvailableResolutions does not return results when running under remote desktop.")
 				);
 			return false;
 		}

@@ -5,7 +5,7 @@
 #include "IAnalyticsProviderModule.h"
 #include "Core.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Display, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogAnalytics, Display, All);
 
 class IAnalyticsProvider;
 

@@ -264,4 +264,10 @@ namespace BlueprintNodeHelpers
 			AbortLatentActions(OwnerOb, Ob);
 		}
 	}
+
+	bool HasBlueprintFunction(FName FuncName, const UObject* Object, const UClass* StopAtClass)
+	{
+		return Object && StopAtClass && HasBlueprintFunction(FuncName, *Object, *StopAtClass);
+	}
 }
+

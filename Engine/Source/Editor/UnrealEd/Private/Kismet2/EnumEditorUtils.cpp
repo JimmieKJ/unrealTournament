@@ -262,7 +262,7 @@ void FEnumEditorUtils::BroadcastChanges(const UUserDefinedEnum* Enum, const TArr
 		{
 			return Node
 				&& (NULL != Cast<UEdGraph>(Node->GetOuter()))
-				&& !Node->HasAnyFlags(RF_Transient | RF_PendingKill);
+				&& !Node->HasAnyFlags(RF_Transient) && !Node->IsPendingKill();
 		}
 	};
 

@@ -2646,21 +2646,58 @@ partial class GUBP
         }
     }
 
-	public class BuildEngineLocalizationNode : HostPlatformNode
+	public abstract class BuildLocalizationNode : HostPlatformNode
 	{
-		public BuildEngineLocalizationNode(string InLocalizationBranchSuffix)
+		public BuildLocalizationNode(string InLocalizationBranchSuffix)
 			: base(UnrealTargetPlatform.Win64)
 		{
-			//LocalizationBranchSuffix = InLocalizationBranchSuffix;
-
-			AddDependency(RootEditorNode.StaticGetFullName(HostPlatform));
+			LocalizationBranchSuffix = InLocalizationBranchSuffix;
+            AddDependency(ToolsNode.StaticGetFullName(HostPlatform));
 		}
 
 		public override void DoBuild(GUBP bp)
 		{
+			var UEProjectDirectory = GetUEProjectDirectory();
+			var UEProjectName = GetUEProjectName();
+			var OneSkyConfigName = GetOneSkyConfigName();
+			var OneSkyProjectGroupName = GetOneSkyProjectGroupName();
+			var OneSkyProjectNames = GetOneSkyProjectNames();
+
+			// Build the correct command line arguments.
+			var CommandLineArguments = "";
+
+			if (!String.IsNullOrEmpty(UEProjectDirectory))
+			{
+				CommandLineArguments += " -UEProjectDirectory=\"" + UEProjectDirectory + "\"";
+			}
+
+			if (!String.IsNullOrEmpty(UEProjectName))
+			{
+				CommandLineArguments += " -UEProjectName=\"" + UEProjectName + "\"";
+			}
+
+			if (!String.IsNullOrEmpty(OneSkyConfigName))
+			{
+				CommandLineArguments += " -OneSkyConfigName=\"" + OneSkyConfigName + "\"";
+			}
+
+			if (!String.IsNullOrEmpty(OneSkyProjectGroupName))
+			{
+				CommandLineArguments += " -OneSkyProjectGroupName=\"" + OneSkyProjectGroupName + "\"";
+			}
+
+			if (!String.IsNullOrEmpty(OneSkyProjectNames))
+			{
+				CommandLineArguments += " -OneSkyProjectNames=\"" + OneSkyProjectNames + "\"";
+			}
+
+			if (!String.IsNullOrEmpty(LocalizationBranchSuffix))
+			{
+				CommandLineArguments += " -OneSkyBranchSuffix=\"" + LocalizationBranchSuffix + "\"";
+			}
+
 			// Run the localise script.
-			// todo: Will need to pass along LocalizationBranchSuffix to the commandlet (once this is set up to work for branches other than Main)
-			CommandUtils.RunUAT(CommandUtils.CmdEnv, "Localise");
+			CommandUtils.RunUAT(CommandUtils.CmdEnv, "Localise" + CommandLineArguments);
 
 			// Don't pass on any build products to other build nodes at the moment.
 			BuildProducts = new List<string>();
@@ -2670,6 +2707,42 @@ partial class GUBP
 		public override int CISFrequencyQuantumShift(GUBP.GUBPBranchConfig BranchConfig)
 		{
 			return base.CISFrequencyQuantumShift(BranchConfig) + 6;
+		}
+
+		protected virtual string GetUEProjectDirectory()
+		{
+			throw new AutomationException("Unimplemented GetUEProjectDirectory.");
+		}
+
+		protected virtual string GetUEProjectName()
+		{
+			throw new AutomationException("Unimplemented GetUEProjectName.");
+		}
+
+		protected virtual string GetOneSkyConfigName()
+		{
+			throw new AutomationException("Unimplemented GetOneSkyConfigName.");
+		}
+
+		protected virtual string GetOneSkyProjectGroupName()
+		{
+			throw new AutomationException("Unimplemented GetOneSkyProjectGroupName.");
+		}
+
+		protected virtual string GetOneSkyProjectNames()
+		{
+			throw new AutomationException("Unimplemented GetOneSkyProjectNames.");
+		}
+
+		protected string LocalizationBranchSuffix;
+	}
+
+	public class BuildEngineLocalizationNode : BuildLocalizationNode
+	{
+		public BuildEngineLocalizationNode(string InLocalizationBranchSuffix)
+			: base(InLocalizationBranchSuffix)
+		{
+			AddDependency(RootEditorNode.StaticGetFullName(HostPlatform));
 		}
 
 		public static string StaticGetFullName()
@@ -2682,7 +2755,30 @@ partial class GUBP
 			return StaticGetFullName();
 		}
 
-		//private string LocalizationBranchSuffix;
+		protected override string GetUEProjectDirectory()
+		{
+			return "Engine";
+		}
+
+		protected override string GetUEProjectName()
+		{
+			return "";
+		}
+
+		protected override string GetOneSkyConfigName()
+		{
+			return "OneSkyConfig_EpicGames";
+		}
+
+		protected override string GetOneSkyProjectGroupName()
+		{
+			return "Unreal Engine";
+		}
+
+		protected override string GetOneSkyProjectNames()
+		{
+			return "Engine,Editor,EditorTutorials,PropertyNames,ToolTips,Category,Keywords";
+		}
 	}
 
     public class GameAggregateNode : HostPlatformAggregateNode

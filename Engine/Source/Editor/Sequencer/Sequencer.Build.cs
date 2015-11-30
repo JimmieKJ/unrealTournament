@@ -39,6 +39,7 @@ public class Sequencer : ModuleRules
 			new string[] {
 				"PropertyEditor",
 				"Kismet",
+				"SceneOutliner"
 			}
 		);
 
@@ -46,7 +47,8 @@ public class Sequencer : ModuleRules
 			new string[] {
 				"PropertyEditor",
 				"LevelEditor",
-				"WorkspaceMenuStructure",
+				"SceneOutliner",
+				"WorkspaceMenuStructure"
 			}
 		);
 

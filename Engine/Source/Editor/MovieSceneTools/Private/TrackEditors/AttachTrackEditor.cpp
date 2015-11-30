@@ -10,7 +10,6 @@
 #include "ISectionLayoutBuilder.h"
 #include "IKeyArea.h"
 #include "MovieSceneCommonHelpers.h"
-#include "MovieSceneToolHelpers.h"
 #include "MovieSceneTrackEditor.h"
 #include "ActorEditorUtils.h"
 #include "GameFramework/WorldSettings.h"
@@ -65,13 +64,11 @@ public:
 		return LayerId;
 	}
 	
-	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder) override
+	virtual void BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding) override
 	{
-		FGuid DummyObjectBinding;
-
 		MenuBuilder.AddSubMenu(
 			LOCTEXT("SetAttach", "Attach"), LOCTEXT("SetAttachTooltip", "Set attach"),
-			FNewMenuDelegate::CreateRaw(AttachTrackEditor, &FActorPickerTrackEditor::ShowActorSubMenu, DummyObjectBinding, &Section));
+			FNewMenuDelegate::CreateRaw(AttachTrackEditor, &FActorPickerTrackEditor::ShowActorSubMenu, ObjectBinding, &Section));
 	}
 
 private:
@@ -139,8 +136,16 @@ void F3DAttachTrackEditor::BuildObjectBindingTrackMenu(FMenuBuilder& MenuBuilder
 }
 
 
-bool F3DAttachTrackEditor::IsActorPickable(const AActor* const ParentActor)
+bool F3DAttachTrackEditor::IsActorPickable(const AActor* const ParentActor, FGuid ObjectBinding, UMovieSceneSection* InSection)
 {
+	// Can't pick the object that this track binds
+	TArray<UObject*> OutObjects;
+	GetSequencer()->GetRuntimeObjects( GetSequencer()->GetFocusedMovieSceneSequenceInstance(), ObjectBinding, OutObjects);
+	if (OutObjects.Contains(ParentActor))
+	{
+		return false;
+	}
+
 	if (ParentActor->IsListedInSceneOutliner() &&
 		!FActorEditorUtils::IsABuilderBrush(ParentActor) &&
 		!ParentActor->IsA( AWorldSettings::StaticClass() ) &&

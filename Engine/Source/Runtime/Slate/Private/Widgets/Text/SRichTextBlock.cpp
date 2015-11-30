@@ -35,7 +35,7 @@ void SRichTextBlock::Construct( const FArguments& InArgs )
 			Marshaller->AppendInlineDecorator( Decorator );
 		}
 
-		TextLayoutCache = FTextBlockLayout::Create(TextStyle, Marshaller, nullptr);
+		TextLayoutCache = FTextBlockLayout::Create(TextStyle, InArgs._TextShapingMethod, InArgs._TextFlowDirection, Marshaller, nullptr);
 	}
 }
 

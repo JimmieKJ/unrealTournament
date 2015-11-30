@@ -223,7 +223,7 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 	VolumeBounds = GetImportanceBounds(false);
 	if (VolumeBounds.SphereRadius < DELTA)
 	{
-		VolumeBounds = FBoxSphereBounds(AggregateMesh.GetBounds());
+		VolumeBounds = FBoxSphereBounds(AggregateMesh->GetBounds());
 	}
 
 	// Only place samples if the volume has area
@@ -280,7 +280,7 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 			RasterSizeY, 
 			// Use a minimum sample distance slightly less than the SurfaceLightSampleSpacing
 			0.9f * FMath::Min(DynamicObjectSettings.SurfaceLightSampleSpacing, DynamicObjectSettings.SurfaceSampleLayerHeightSpacing), 
-			FBoxSphereBounds(AggregateMesh.GetBounds()).SphereRadius,
+			FBoxSphereBounds(AggregateMesh->GetBounds()).SphereRadius,
 			*this,
 			MappingContext.RayCache,
 			VolumeLightingOctree));
@@ -372,11 +372,11 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 		for (int32 VolumeIndex = 0; VolumeIndex < Scene.CharacterIndirectDetailVolumes.Num(); VolumeIndex++)
 		{
 			const FBox& DetailVolumeBounds = Scene.CharacterIndirectDetailVolumes[VolumeIndex];
-			for (float SampleX = DetailVolumeBounds.Min.X; SampleX < DetailVolumeBounds.Max.X; SampleX += DetailVolumeSpacing)
+			for (float SampleX = DetailVolumeBounds.Min.X; SampleX < DetailVolumeBounds.Max.X + DetailVolumeSpacing; SampleX += DetailVolumeSpacing)
 			{
-				for (float SampleY = DetailVolumeBounds.Min.Y; SampleY < DetailVolumeBounds.Max.Y; SampleY += DetailVolumeSpacing)
+				for (float SampleY = DetailVolumeBounds.Min.Y; SampleY < DetailVolumeBounds.Max.Y + DetailVolumeSpacing; SampleY += DetailVolumeSpacing)
 				{
-					for (float SampleZ = DetailVolumeBounds.Min.Z; SampleZ < DetailVolumeBounds.Max.Z; SampleZ += DetailVolumeSpacing)
+					for (float SampleZ = DetailVolumeBounds.Min.Z; SampleZ < DetailVolumeBounds.Max.Z + DetailVolumeSpacing; SampleZ += DetailVolumeSpacing)
 					{
 						const FVector4 SamplePosition(SampleX, SampleY, SampleZ);
 							
@@ -393,7 +393,7 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 							// Trace a ray straight down to find which level's geometry we are over, 
 							// Since this is how Dynamic Light Environments figure out which level to interpolate indirect lighting from.
 							//@todo - could probably reuse the ray trace results for all samples of the same X and Y
-							AggregateMesh.IntersectLightRay(Ray, true, false, false, MappingContext.RayCache, Intersection);
+							AggregateMesh->IntersectLightRay(Ray, true, false, false, MappingContext.RayCache, Intersection);
 
 							// Place the sample in the intersected level, or the persistent level if there was no intersection
 							const FGuid LevelGuid = Intersection.bIntersects ? Intersection.Mesh->LevelGuid : FGuid(0,0,0,0);
@@ -442,11 +442,11 @@ void FStaticLightingSystem::BeginCalculateVolumeSamples()
 			
 		int32 NumUniformVolumeSamples = 0;
 		// Generate samples in a uniform 3d grid inside the importance volume.  These will be used for low resolution lighting in unimportant areas.
-		for (float SampleX = VolumeBounds.Origin.X - VolumeBounds.BoxExtent.X; SampleX < VolumeBounds.Origin.X + VolumeBounds.BoxExtent.X; SampleX += EffectiveVolumeSpacing)
+		for (float SampleX = VolumeBounds.Origin.X - VolumeBounds.BoxExtent.X; SampleX < VolumeBounds.Origin.X + VolumeBounds.BoxExtent.X + EffectiveVolumeSpacing; SampleX += EffectiveVolumeSpacing)
 		{
-			for (float SampleY = VolumeBounds.Origin.Y - VolumeBounds.BoxExtent.Y; SampleY < VolumeBounds.Origin.Y + VolumeBounds.BoxExtent.Y; SampleY += EffectiveVolumeSpacing)
+			for (float SampleY = VolumeBounds.Origin.Y - VolumeBounds.BoxExtent.Y; SampleY < VolumeBounds.Origin.Y + VolumeBounds.BoxExtent.Y + EffectiveVolumeSpacing; SampleY += EffectiveVolumeSpacing)
 			{
-				for (float SampleZ = VolumeBounds.Origin.Z - VolumeBounds.BoxExtent.Z; SampleZ < VolumeBounds.Origin.Z + VolumeBounds.BoxExtent.Z; SampleZ += EffectiveVolumeSpacing)
+				for (float SampleZ = VolumeBounds.Origin.Z - VolumeBounds.BoxExtent.Z; SampleZ < VolumeBounds.Origin.Z + VolumeBounds.BoxExtent.Z + EffectiveVolumeSpacing; SampleZ += EffectiveVolumeSpacing)
 				{
 					const FVector4 SamplePosition(SampleX, SampleY, SampleZ);
 					// Only place inside the importance volume
@@ -574,7 +574,7 @@ FGatheredLightSample FStaticLightingSystem::InterpolatePrecomputedVolumeIncident
 				VolumeSample.GetPosition(), 
 				nullptr, 
 				nullptr);
-			AggregateMesh.IntersectLightRay(SampleRay, false, false, false, RayCache, Intersection);
+			AggregateMesh->IntersectLightRay(SampleRay, false, false, false, RayCache, Intersection);
 			if (!Intersection.bIntersects)
 			*/
 			{

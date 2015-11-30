@@ -29,8 +29,10 @@ UWidgetAnimation* UWidgetAnimation::GetNullAnimation()
 
 	if (!NullAnimation)
 	{
-		NullAnimation = NewObject<UWidgetAnimation>(GetTransientPackage(), NAME_None, RF_RootSet);
-		NullAnimation->MovieScene = NewObject<UMovieScene>(NullAnimation, FName("No Animation"), RF_RootSet);
+		NullAnimation = NewObject<UWidgetAnimation>(GetTransientPackage(), NAME_None);
+		NullAnimation->AddToRoot();
+		NullAnimation->MovieScene = NewObject<UMovieScene>(NullAnimation, FName("No Animation"));
+		NullAnimation->MovieScene->AddToRoot();
 	}
 
 	return NullAnimation;
@@ -98,7 +100,7 @@ void UWidgetAnimation::Initialize(UUserWidget* InPreviewWidget)
  *****************************************************************************/
 
 
-void UWidgetAnimation::BindPossessableObject(const FGuid& ObjectId, UObject& PossessedObject)
+void UWidgetAnimation::BindPossessableObject(const FGuid& ObjectId, UObject& PossessedObject, UObject* Context)
 {
 	UPanelSlot* PossessedSlot = Cast<UPanelSlot>(&PossessedObject);
 
@@ -148,21 +150,7 @@ bool UWidgetAnimation::CanPossessObject(UObject& Object) const
 }
 
 
-FGuid UWidgetAnimation::FindObjectId(UObject& Object) const
-{
-	UPanelSlot* Slot = Cast<UPanelSlot>(&Object);
-
-	if (Slot != nullptr)
-	{
-		// slot guids are tracked by their content.
-		return SlotContentPreviewObjectToIds.FindRef(Slot->Content);
-	}
-
-	return PreviewObjectToIds.FindRef(&Object);
-}
-
-
-UObject* UWidgetAnimation::FindObject(const FGuid& ObjectId) const
+UObject* UWidgetAnimation::FindPossessableObject(const FGuid& ObjectId, UObject* Context) const
 {
 	TWeakObjectPtr<UObject> PreviewObject = IdToPreviewObjects.FindRef(ObjectId);
 
@@ -206,46 +194,6 @@ UObject* UWidgetAnimation::GetParentObject(UObject* Object) const
 
 	return nullptr;
 }
-
-
-#if WITH_EDITOR
-bool UWidgetAnimation::TryGetObjectDisplayName(const FGuid& ObjectId, FText& OutDisplayName) const
-{
-	// TODO: This gets called every frame for every bound object and could
-	// be a potential performance issue for a really complicated animation.
-
-	TWeakObjectPtr<UObject> PreviewObject = IdToPreviewObjects.FindRef(ObjectId);
-
-	if (PreviewObject.IsValid())
-	{
-		OutDisplayName = FText::FromString(PreviewObject.Get()->GetName());
-		return true;
-	}
-
-	TWeakObjectPtr<UObject> SlotContentPreviewObject = IdToSlotContentPreviewObjects.FindRef(ObjectId);
-
-	if (SlotContentPreviewObject.IsValid())
-	{
-		UWidget* SlotContent = Cast<UWidget>(SlotContentPreviewObject.Get());
-		FText PanelName = SlotContent->Slot != nullptr && SlotContent->Slot->Parent != nullptr
-			? FText::FromString(SlotContent->Slot->Parent->GetName())
-			: LOCTEXT("InvalidPanel", "Invalid Panel");
-		FText ContentName = FText::FromString(SlotContent->GetName());
-		if ( PreviewObjectToIds.Contains( SlotContent ) )
-		{
-			OutDisplayName = FText::Format( LOCTEXT( "SlotObjectWithParent", "{0} Slot" ), PanelName );
-		}
-		else
-		{
-			OutDisplayName = FText::Format(LOCTEXT("SlotObject", "{0} ({1} Slot)"), ContentName, PanelName);
-		}
-
-		return true;
-	}
-
-	return false;
-}
-#endif
 
 
 void UWidgetAnimation::UnbindPossessableObjects(const FGuid& ObjectId)

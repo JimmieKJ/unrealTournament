@@ -350,13 +350,9 @@ void FTextHistory_ArgumentDataFormat::GetSourceTextsFromFormatHistory(FText, TAr
 
 	for (int32 x = 0; x < Arguments.Num(); ++x)
 	{
-		const FFormatArgumentValue& ArgumentValue = Arguments[x].ArgumentValue;
-		if (ArgumentValue.GetType() == EFormatArgumentType::Text)
-		{
-			// Search any text arguments for source text
-			const FText& TextValue = ArgumentValue.GetTextValue();
-			TextValue.TextData->GetTextHistory().GetSourceTextsFromFormatHistory(TextValue, OutBaseTexts);
-		}
+		// Search any text arguments for source text
+		const FText& TextValue = Arguments[x].ArgumentValue;
+		TextValue.TextData->GetTextHistory().GetSourceTextsFromFormatHistory(TextValue, OutBaseTexts);
 	}
 }
 

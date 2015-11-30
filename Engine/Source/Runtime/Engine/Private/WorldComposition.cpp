@@ -28,7 +28,7 @@ void UWorldComposition::PostInitProperties()
 {
 	Super::PostInitProperties();
 
-	if (!IsTemplate() && (GetOutermost()->PackageFlags & PKG_PlayInEditor) == 0)
+	if (!IsTemplate() && !GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 	{
 		// Tiles information is not serialized to disk, and should be regenerated on world composition object construction
 		Rescan();

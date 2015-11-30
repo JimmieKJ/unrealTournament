@@ -97,10 +97,12 @@ void UBTDecorator_ConeCheck::OnBlackboardChange(const UBlackboardComponent& Blac
 
 void UBTDecorator_ConeCheck::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
-	const TNodeInstanceMemory* DecoratorMemory = reinterpret_cast<TNodeInstanceMemory*>(NodeMemory);
-
-	if (CalcConditionImpl(OwnerComp, NodeMemory) != DecoratorMemory->bLastRawResult)
+	TNodeInstanceMemory* DecoratorMemory = reinterpret_cast<TNodeInstanceMemory*>(NodeMemory);
+	
+	const bool bResult = CalcConditionImpl(OwnerComp, NodeMemory);
+	if (bResult != DecoratorMemory->bLastRawResult)
 	{
+		DecoratorMemory->bLastRawResult = bResult;
 		OwnerComp.RequestExecution(this);
 	}
 }

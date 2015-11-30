@@ -48,11 +48,14 @@ public:
 	/** Set end playback range */
 	TSharedPtr< FUICommandInfo > SetEndPlaybackRange;
 
-	/** Expand nodes and descendants */
-	TSharedPtr< FUICommandInfo > ExpandNodesAndDescendants;
+	/** Toggle constraining the time cursor to the playback range */
+	TSharedPtr< FUICommandInfo > ToggleKeepCursorInPlaybackRange;
 
-	/** Collapse nodes and descendants */
-	TSharedPtr< FUICommandInfo > CollapseNodesAndDescendants;
+	/** Expand all nodes and descendants */
+	TSharedPtr< FUICommandInfo > ExpandAllNodesAndDescendants;
+
+	/** Collapse all nodes and descendants */
+	TSharedPtr< FUICommandInfo > CollapseAllNodesAndDescendants;
 
 	/** Expand/collapse nodes */
 	TSharedPtr< FUICommandInfo > ToggleExpandCollapseNodes;
@@ -132,6 +135,9 @@ public:
 	/** Toggles whether the details view is enabled in the level editor. */
 	TSharedPtr< FUICommandInfo > ToggleDetailsView;
 
+	/** Toggles whether the label browser is enabled in the level editor. */
+	TSharedPtr< FUICommandInfo > ToggleLabelBrowser;
+
 	/** Turns auto scroll on and off. */
 	TSharedPtr< FUICommandInfo > ToggleAutoScroll;
 
@@ -146,6 +152,9 @@ public:
 
 	/** Open a panel that enables exporting the sequence to a movie */
 	TSharedPtr< FUICommandInfo > RenderMovie;
+
+	/** Paste from the sequencer clipboard history */
+	TSharedPtr< FUICommandInfo > PasteFromHistory;
 
 	/**
 	 * Initialize commands

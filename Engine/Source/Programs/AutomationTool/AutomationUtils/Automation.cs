@@ -190,7 +190,7 @@ AutomationTool.exe [-verbose] [-compileonly] [-p4] Command0 [-Arg0 -Arg1 -Arg2 â
 				{
 					throw new AutomationException("The -ProjectScripts argument may only be specified once");
 				}
-				var ProjectFileName = CurrentParam.Substring(CurrentParam.IndexOf('=') + 1);
+				var ProjectFileName = CurrentParam.Substring(CurrentParam.IndexOf('=') + 1).Replace("\"", "");
 				if(!File.Exists(ProjectFileName))
 				{
 					throw new AutomationException("Project '{0}' does not exist", ProjectFileName);

@@ -110,7 +110,7 @@ static D3D_FEATURE_LEVEL GetAllowedD3DFeatureLevel()
  */
 static bool SafeTestD3D12CreateDevice(IDXGIAdapter* Adapter, D3D_FEATURE_LEVEL MaxFeatureLevel, D3D_FEATURE_LEVEL* OutFeatureLevel)
 {
-	ID3D12Device* D3DDevice = NULL;
+	ID3D12Device* D3DDevice = nullptr;
 
 	// Use a debug device if specified on the command line.
 	if(D3D12RHI_ShouldCreateWithD3DDebug())
@@ -503,11 +503,12 @@ void FD3D12DynamicRHI::PerRHISetup(FD3D12Device* MainDevice)
     // Notify all initialized FRenderResources that there's a valid RHI device to create their RHI resources for now.
     for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
     {
-        ResourceIt->InitDynamicRHI();
+        ResourceIt->InitRHI();
     }
+	// Dynamic resources can have dependencies on static resources (with uniform buffers) and must initialized last!
     for (TLinkedList<FRenderResource*>::TIterator ResourceIt(FRenderResource::GetResourceList()); ResourceIt; ResourceIt.Next())
     {
-        ResourceIt->InitRHI();
+        ResourceIt->InitDynamicRHI();
     }
 
     FHardwareInfo::RegisterHardwareInfo(NAME_RHI, TEXT("D3D12"));
@@ -662,6 +663,7 @@ void FD3D12Device::InitD3DDevice()
 		D3D12_FEATURE_DATA_D3D12_OPTIONS D3D12Caps;
 		VERIFYD3D11RESULT(GetDevice()->CheckFeatureSupport(D3D12_FEATURE_D3D12_OPTIONS, &D3D12Caps, sizeof(D3D12Caps)));
 		ResourceHeapTier = D3D12Caps.ResourceHeapTier;
+		ResourceBindingTier = D3D12Caps.ResourceBindingTier;
 
 		// Init offline descriptor allocators
 		RTVAllocator.Init(GetDevice());
@@ -682,7 +684,7 @@ void FD3D12Device::InitD3DDevice()
 		// Add some filter outs for known debug spew messages (that we don't care about)
 		if (D3D12RHI_ShouldCreateWithD3DDebug())
 		{
-			ID3D12InfoQueue *pd3dInfoQueue = NULL;
+			ID3D12InfoQueue *pd3dInfoQueue = nullptr;
             VERIFYD3D11RESULT(Direct3DDevice->QueryInterface(__uuidof(ID3D12InfoQueue), (void**)&pd3dInfoQueue));
 			if (pd3dInfoQueue)
 			{
@@ -829,7 +831,7 @@ bool FD3D12DynamicRHI::RHIGetAvailableResolutions(FScreenResolutionArray& Resolu
 		//  We might want to work around some DXGI badness here.
 		DXGI_FORMAT Format = DXGI_FORMAT_R8G8B8A8_UNORM;
 		uint32 NumModes = 0;
-		HResult = Output->GetDisplayModeList(Format, 0, &NumModes, NULL);
+		HResult = Output->GetDisplayModeList(Format, 0, &NumModes, nullptr);
 		if (HResult == DXGI_ERROR_NOT_FOUND)
 		{
 			continue;

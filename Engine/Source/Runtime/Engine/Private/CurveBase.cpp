@@ -219,7 +219,7 @@ void FNameCurve::DeleteKey(FKeyHandle KeyHandle)
 }
 
 
-FKeyHandle FNameCurve::FindKey(float KeyTime) const
+FKeyHandle FNameCurve::FindKey(float KeyTime, float KeyTimeTolerance) const
 {
 	int32 Start = 0;
 	int32 End = Keys.Num()-1;
@@ -230,7 +230,7 @@ FKeyHandle FNameCurve::FindKey(float KeyTime) const
 		int32 TestPos = Start + (End-Start) / 2;
 		float TestKeyTime = Keys[TestPos].Time;
 
-		if (TestKeyTime == KeyTime)
+		if (FMath::IsNearlyEqual(TestKeyTime, KeyTime, KeyTimeTolerance))
 		{
 			return GetKeyHandle(TestPos);
 		}
@@ -346,25 +346,25 @@ void FNameCurve::ScaleCurve(float ScaleOrigin, float ScaleFactor, TSet<FKeyHandl
 }
 
 
-FKeyHandle FNameCurve::UpdateOrAddKey(float InTime, const FName& InValue)
+FKeyHandle FNameCurve::UpdateOrAddKey(float InTime, const FName& InValue, float KeyTimeTolerance)
 {
 	// Search for a key that already exists at the time and if found, update its value
 	for (int32 KeyIndex = 0; KeyIndex < Keys.Num(); ++KeyIndex)
 	{
 		float KeyTime = Keys[KeyIndex].Time;
 
+		if (FMath::IsNearlyEqual(KeyTime, InTime, KeyTimeTolerance))
+		{
+			Keys[KeyIndex].Value = InValue;
+
+			return GetKeyHandle(KeyIndex);
+		}
+
 		if (KeyTime > InTime)
 		{
 			// All the rest of the keys exist after the key we want to add
 			// so there is no point in searching
 			break;
-		}
-
-		if (FMath::IsNearlyEqual(KeyTime, InTime))
-		{
-			Keys[KeyIndex].Value = InValue;
-
-			return GetKeyHandle(KeyIndex);
 		}
 	}
 
@@ -674,25 +674,25 @@ void FRichCurve::DeleteKey(FKeyHandle InKeyHandle)
 }
 
 
-FKeyHandle FRichCurve::UpdateOrAddKey(float InTime, float InValue, const bool bUnwindRotation)
+FKeyHandle FRichCurve::UpdateOrAddKey(float InTime, float InValue, const bool bUnwindRotation, float KeyTimeTolerance)
 {
 	// Search for a key that already exists at the time and if found, update its value
 	for (int32 KeyIndex = 0; KeyIndex < Keys.Num(); ++KeyIndex)
 	{
 		float KeyTime = Keys[KeyIndex].Time;
 
+		if (FMath::IsNearlyEqual(KeyTime, InTime, KeyTimeTolerance))
+		{
+			Keys[KeyIndex].Value = InValue;
+
+			return GetKeyHandle(KeyIndex);
+		}
+
 		if (KeyTime > InTime)
 		{
 			// All the rest of the keys exist after the key we want to add
 			// so there is no point in searching
 			break;
-		}
-
-		if (FMath::IsNearlyEqual(KeyTime, InTime))
-		{
-			Keys[KeyIndex].Value = InValue;
-
-			return GetKeyHandle(KeyIndex);
 		}
 	}
 
@@ -732,7 +732,7 @@ float FRichCurve::GetKeyTime(FKeyHandle KeyHandle) const
 }
 
 
-FKeyHandle FRichCurve::FindKey(float KeyTime) const
+FKeyHandle FRichCurve::FindKey(float KeyTime, float KeyTimeTolerance) const
 {
 	int32 Start = 0;
 	int32 End = Keys.Num()-1;
@@ -743,7 +743,7 @@ FKeyHandle FRichCurve::FindKey(float KeyTime) const
 		int32 TestPos = Start + (End-Start) / 2;
 		float TestKeyTime = Keys[TestPos].Time;
 
-		if (TestKeyTime == KeyTime)
+		if (FMath::IsNearlyEqual(TestKeyTime, KeyTime, KeyTimeTolerance))
 		{
 			return GetKeyHandle(TestPos);
 		}
@@ -1725,28 +1725,28 @@ void FIntegralCurve::DeleteKey(FKeyHandle InKeyHandle)
 }
 
 
-FKeyHandle FIntegralCurve::UpdateOrAddKey( float Time, int32 Value )
+FKeyHandle FIntegralCurve::UpdateOrAddKey( float InTime, int32 Value, float KeyTimeTolerance )
 {
 	for( int32 KeyIndex = 0; KeyIndex < Keys.Num(); ++KeyIndex )
 	{
 		float KeyTime = Keys[KeyIndex].Time;
 
-		if( KeyTime > Time )
+		if (FMath::IsNearlyEqual(KeyTime, InTime, KeyTimeTolerance))
+		{
+			Keys[KeyIndex].Value = Value;
+			return GetKeyHandle(KeyIndex);
+		}
+
+		if( KeyTime > InTime )
 		{
 			// All the rest of the keys exist after the key we want to add
 			// so there is no point in searching
 			break;
 		}
-
-		if( KeyTime == Time )
-		{
-			Keys[KeyIndex].Value = Value;
-			return GetKeyHandle(KeyIndex);
-		}
 	}
 
 	// A key wasnt found, add it now
-	return AddKey( Time, Value );
+	return AddKey( InTime, Value );
 }
 
 
@@ -1847,7 +1847,7 @@ FIntegralKey FIntegralCurve::GetKey(FKeyHandle KeyHandle) const
 }
 
 
-FKeyHandle FIntegralCurve::FindKey(float KeyTime) const
+FKeyHandle FIntegralCurve::FindKey(float KeyTime, float KeyTimeTolerance) const
 {
 	int32 Start = 0;
 	int32 End = Keys.Num() - 1;
@@ -1858,7 +1858,7 @@ FKeyHandle FIntegralCurve::FindKey(float KeyTime) const
 		int32 TestPos = Start + (End - Start) / 2;
 		float TestKeyTime = Keys[TestPos].Time;
 
-		if (TestKeyTime == KeyTime)
+		if (FMath::IsNearlyEqual(TestKeyTime, KeyTime, KeyTimeTolerance))
 		{
 			return GetKeyHandle(TestPos);
 		}

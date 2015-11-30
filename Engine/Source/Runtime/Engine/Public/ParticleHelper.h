@@ -524,10 +524,12 @@ struct FAttractorParticlePayload
 struct FLightParticlePayload
 {
 	FVector		ColorScale;
+	uint64		LightId;
 	float		RadiusScale;
 	float		LightExponent;
 	bool		bValid;
 	bool		bAffectsTranslucency;
+	bool		bHighQuality;
 };
 
 //

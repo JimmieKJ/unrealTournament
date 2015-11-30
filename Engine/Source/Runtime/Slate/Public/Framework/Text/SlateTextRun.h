@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "ShapedTextCache.h"
+
 #if WITH_FANCY_TEXT
 
 class SLATE_API FSlateTextRun : public ISlateRun, public TSharedFromThis< FSlateTextRun >
@@ -20,10 +22,10 @@ public:
 
 	virtual int16 GetBaseLine( float Scale ) const override;
 	virtual int16 GetMaxHeight( float Scale ) const override;
-	virtual FVector2D Measure( int32 StartIndex, int32 EndIndex, float Scale ) const override;
-	virtual int8 GetKerning(int32 CurrentIndex, float Scale) const override;
+	virtual FVector2D Measure( int32 StartIndex, int32 EndIndex, float Scale, const FRunTextContext& TextContext ) const override;
+	virtual int8 GetKerning(int32 CurrentIndex, float Scale, const FRunTextContext& TextContext) const override;
 
-	virtual TSharedRef< ILayoutBlock > CreateBlock( int32 StartIndex, int32 EndIndex, FVector2D Size, const TSharedPtr< IRunRenderer >& Renderer ) override;
+	virtual TSharedRef< ILayoutBlock > CreateBlock( int32 StartIndex, int32 EndIndex, FVector2D Size, const FLayoutBlockTextContext& TextContext, const TSharedPtr< IRunRenderer >& Renderer ) override;
 
 	virtual int32 OnPaint( const FPaintArgs& Args, const FTextLayout::FLineView& Line, const TSharedRef< ILayoutBlock >& Block, const FTextBlockStyle& DefaultStyle, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const override;
 
@@ -62,6 +64,8 @@ protected:
 	TSharedRef< const FString > Text;
 	FTextBlockStyle Style;
 	FTextRange Range;
+
+	FShapedTextCacheRef ShapedTextCache;
 
 #if TEXT_LAYOUT_DEBUG
 	FString DebugSlice;

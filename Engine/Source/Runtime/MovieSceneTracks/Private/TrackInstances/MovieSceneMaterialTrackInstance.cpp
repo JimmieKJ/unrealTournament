@@ -56,7 +56,7 @@ void FMovieSceneMaterialTrackInstance::RestoreState(const TArray<UObject*>& Runt
 void FMovieSceneMaterialTrackInstance::Update( float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass ) 
 {
 	TArray<FScalarParameterNameAndValue> ScalarValues;
-	TArray<FVectorParameterNameAndValue> VectorValues;
+	TArray<FColorParameterNameAndValue> VectorValues;
 	MaterialTrack->Eval( Position, ScalarValues, VectorValues );
 
 	// Iterate from back to front to allow for fast remove of invalid weak pointers.
@@ -69,7 +69,7 @@ void FMovieSceneMaterialTrackInstance::Update( float Position, float LastPositio
 			{
 				DynamicMaterialInstance->SetScalarParameterValue( ScalarValue.ParameterName, ScalarValue.Value );
 			}
-			for ( const FVectorParameterNameAndValue& VectorValue : VectorValues )
+			for ( const FColorParameterNameAndValue& VectorValue : VectorValues )
 			{
 				DynamicMaterialInstance->SetVectorParameterValue( VectorValue.ParameterName, VectorValue.Value );
 			}

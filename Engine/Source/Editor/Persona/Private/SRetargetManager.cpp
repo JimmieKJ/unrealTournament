@@ -217,12 +217,12 @@ FReply SRetargetManager::OnViewRetargetBasePose()
 	if (PreviewMeshComp && PreviewMeshComp->PreviewInstance)
 	{
 		const FScopedTransaction Transaction(LOCTEXT("ViewRetargetBasePose_Action", "Edit Retarget Base Pose"));
-		PreviewMeshComp->PreviewInstance->bForceRetargetBasePose = !PreviewMeshComp->PreviewInstance->bForceRetargetBasePose;
+		PreviewMeshComp->PreviewInstance->SetForceRetargetBasePose(!PreviewMeshComp->PreviewInstance->GetForceRetargetBasePose());
 		PreviewMeshComp->Modify();
 		// reset all bone transform since you don't want to keep any bone transform change
 		PreviewMeshComp->PreviewInstance->ResetModifiedBone();
 		// add root 
-		if (PreviewMeshComp->PreviewInstance->bForceRetargetBasePose)
+		if (PreviewMeshComp->PreviewInstance->GetForceRetargetBasePose())
 		{
 			PreviewMeshComp->BonesOfInterest.Add(0);
 		}
@@ -276,7 +276,7 @@ FReply SRetargetManager::OnSaveRetargetBasePose()
 			// Clear PreviewMeshComp bone modified, they're baked now
 			PreviewMeshComp->PreviewInstance->ResetModifiedBone();
 			// turn off the retarget base pose if you're looking at it
-			PreviewMeshComp->PreviewInstance->bForceRetargetBasePose = false;
+			PreviewMeshComp->PreviewInstance->SetForceRetargetBasePose(false);
 		}
 	}
 	return FReply::Handled();
@@ -302,7 +302,7 @@ FReply SRetargetManager::OnResetRetargetBasePose()
 				// reset to original ref pose
 				PreviewMesh->RetargetBasePose = PreviewMesh->RefSkeleton.GetRefBonePose();
 				// turn off the retarget base pose if you're looking at it
-				PreviewMeshComp->PreviewInstance->bForceRetargetBasePose = true;
+				PreviewMeshComp->PreviewInstance->SetForceRetargetBasePose(true);
 			}
 		}
 	}
@@ -319,7 +319,7 @@ FText SRetargetManager::GetToggleRetargetBasePose() const
 	UDebugSkelMeshComponent * PreviewMeshComp = PersonaPtr.Pin()->GetPreviewMeshComponent();
 	if(PreviewMeshComp && PreviewMeshComp->PreviewInstance)
 	{
-		if (PreviewMeshComp->PreviewInstance->bForceRetargetBasePose)
+		if (PreviewMeshComp->PreviewInstance->GetForceRetargetBasePose())
 		{
 			return LOCTEXT("HideRetargetBasePose_Label", "Hide Pose");
 		}

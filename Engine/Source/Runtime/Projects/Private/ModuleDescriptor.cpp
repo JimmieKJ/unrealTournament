@@ -82,6 +82,9 @@ const TCHAR* EHostType::ToString( const EHostType::Type Value )
 		case Program:
 			return TEXT("Program");
 
+		case ServerOnly:
+			return TEXT("ServerOnly");
+
 		default:
 			ensureMsgf( false, TEXT( "Unrecognized EModuleType value: %i" ), Value );
 			return NULL;
@@ -293,6 +296,9 @@ bool FModuleDescriptor::IsCompiledInCurrentConfiguration() const
 			return true;
 		#endif
 		break;
+
+	case EHostType::ServerOnly:
+		return !FPlatformProperties::IsClientOnly();
 	}
 
 	return false;
@@ -344,6 +350,9 @@ bool FModuleDescriptor::IsLoadedInCurrentConfiguration() const
 			return true;
 		#endif
 		break;
+
+	case EHostType::ServerOnly:
+		return !FPlatformProperties::IsClientOnly();
 	}
 
 	return false;

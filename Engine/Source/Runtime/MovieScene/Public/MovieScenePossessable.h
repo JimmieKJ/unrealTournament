@@ -87,23 +87,23 @@ public:
 	}
 
 	/**
-	 * Get the guid of this possessable's parent spawnable
+	 * Get the guid of this possessable's parent, if applicable
 	 *
 	 * @return The guid.
 	 */
-	const FGuid& GetParentSpawnable() const
+	const FGuid& GetParent() const
 	{
-		return ParentSpawnableGuid;
+		return ParentGuid;
 	}
 
 	/**
-	 * Set the guid of this possessable's parent spawnable
+	 * Set the guid of this possessable's parent
 	 *
-	 * @param InParentSpawnableGuid The guid of this possessable's parent spawnable.
+	 * @param InParentGuid The guid of this possessable's parent.
 	 */
-	void SetParentSpawnable(const FGuid& InParentSpawnableGuid)
+	void SetParent(const FGuid& InParentGuid)
 	{
-		ParentSpawnableGuid = InParentSpawnableGuid;
+		ParentGuid = InParentGuid;
 	}
 
 private:
@@ -127,7 +127,7 @@ private:
 	UPROPERTY()
 	UClass* PossessedObjectClass;
 
-	/** GUID relating to this possessable's parent spawnable, if applicable. */
+	/** GUID relating to this possessable's parent, if applicable. */
 	UPROPERTY()
-	FGuid ParentSpawnableGuid;
+	FGuid ParentGuid;
 };

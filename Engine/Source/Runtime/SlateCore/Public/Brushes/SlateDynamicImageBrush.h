@@ -110,7 +110,7 @@ private:
 			// @todo Slate - Hack:  This is to address an issue where the brush created and a GC occurs before the brush resource object becomes referenced
 			// by the Slate resource manager. Don't add objects that are already in root set (and mark them as such) to avoid incorrect removing objects
 			// from root set in destructor.
-			if (!ResourceObject->HasAllFlags(RF_RootSet))
+			if (!ResourceObject->IsRooted())
 			{
 				ResourceObject->AddToRoot();
 				bRemoveResourceFromRootSet = true;

@@ -11,14 +11,20 @@
 //----------------------------------------------------------------------//
 namespace FBTNodeBPImplementationHelper
 {
-	int32 CheckEventImplementationVersion(FName GenericEventName, FName AIEventName, const UObject* Ob, const UClass* StopAtClass)
+	int32 CheckEventImplementationVersion(FName GenericEventName, FName AIEventName, const UObject& Object, const UClass& StopAtClass)
 	{
-		const bool bGeneric = BlueprintNodeHelpers::HasBlueprintFunction(GenericEventName, Ob, StopAtClass);
-		const bool bAI = BlueprintNodeHelpers::HasBlueprintFunction(AIEventName, Ob, StopAtClass);
-		
+		const bool bGeneric = BlueprintNodeHelpers::HasBlueprintFunction(GenericEventName, Object, StopAtClass);
+		const bool bAI = BlueprintNodeHelpers::HasBlueprintFunction(AIEventName, Object, StopAtClass);
+
 		return (bGeneric ? Generic : NoImplementation) | (bAI ? AISpecific : NoImplementation);
 	}
+
+	int32 CheckEventImplementationVersion(FName GenericEventName, FName AIEventName, const UObject* Ob, const UClass* StopAtClass)
+	{
+		return (Ob && StopAtClass) ? CheckEventImplementationVersion(GenericEventName, AIEventName, *Ob, *StopAtClass) : NoImplementation;
+	}
 }
+
 //----------------------------------------------------------------------//
 // 
 //----------------------------------------------------------------------//

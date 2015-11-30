@@ -38,6 +38,9 @@ protected:
 	virtual void GenerateKeysFromPropertyChanged( const FPropertyChangedParams& PropertyChangedParams, TArray<FVectorKey>& GeneratedKeys ) override;
 	virtual void InitializeNewTrack( UMovieSceneVectorTrack* NewTrack, FPropertyChangedParams PropertyChangedParams ) override;
 
+	// FKeyframeTrackEditor interface
+	virtual bool ShouldAddKey(UMovieSceneVectorTrack* InTrack, FVectorKey InKey, FKeyParams InKeyParams) const override;
+
 private:
 	static FName XName;
 	static FName YName;

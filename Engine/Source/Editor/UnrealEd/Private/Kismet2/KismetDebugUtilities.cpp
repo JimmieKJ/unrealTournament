@@ -736,7 +736,7 @@ UBreakpoint* FKismetDebugUtilities::FindBreakpointForNode(UBlueprint* Blueprint,
 		{
 			Blueprint->Breakpoints.RemoveAtSwap(Index);
 			Blueprint->MarkPackageDirty();
-			UE_LOG(LogBlueprintDebug, Warning, TEXT("Encountered an invalid blueprint breakpoint (this should not happen... if you know how your blueprint got in this state, then please notify the Engine-Blueprints team)"));
+			UE_LOG(LogBlueprintDebug, Warning, TEXT("Encountered an invalid blueprint breakpoint in %s (this should not happen... if you know how your blueprint got in this state, then please notify the Engine-Blueprints team)"), *Blueprint->GetPathName());
 			continue;
 		}
 
@@ -745,7 +745,7 @@ UBreakpoint* FKismetDebugUtilities::FindBreakpointForNode(UBlueprint* Blueprint,
 		{
 			Blueprint->Breakpoints.RemoveAtSwap(Index);
 			Blueprint->MarkPackageDirty();
-			UE_LOG(LogBlueprintDebug, Warning, TEXT("Encountered a blueprint breakpoint without an associated node (this should not happen... if you know how your blueprint got in this state, then please notify the Engine-Blueprints team)"));
+			UE_LOG(LogBlueprintDebug, Warning, TEXT("Encountered a blueprint breakpoint in %s without an associated node (this should not happen... if you know how your blueprint got in this state, then please notify the Engine-Blueprints team)"), *Blueprint->GetPathName());
 			continue;
 		}
 

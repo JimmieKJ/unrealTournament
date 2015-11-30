@@ -10,7 +10,7 @@ class FSlateRHIResourceManager;
 class FSlateRHIRenderingPolicy : public FSlateRenderingPolicy
 {
 public:
-	FSlateRHIRenderingPolicy( TSharedPtr<FSlateFontCache> InFontCache, TSharedRef<FSlateRHIResourceManager> InResourceManager );
+	FSlateRHIRenderingPolicy(TSharedRef<FSlateFontServices> InSlateFontServices, TSharedRef<FSlateRHIResourceManager> InResourceManager);
 	~FSlateRHIRenderingPolicy();
 
 	void UpdateVertexAndIndexBuffers(FRHICommandListImmediate& RHICmdList, FSlateBatchData& BatchData);
@@ -21,8 +21,7 @@ public:
 
 	virtual void DrawElements(FRHICommandListImmediate& RHICmdList, class FSlateBackBuffer& BackBuffer, const FMatrix& ViewProjectionMatrix, const TArray<FSlateRenderBatch>& RenderBatches, bool bAllowSwtichVerticalAxis=true);
 
-	virtual TSharedRef<FSlateFontCache> GetFontCache() override { return FontCache.ToSharedRef(); }
-	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() override { return ResourceManager; }
+	virtual TSharedRef<FSlateShaderResourceManager> GetResourceManager() const override { return ResourceManager; }
 	virtual bool IsVertexColorInLinearSpace() const override { return false; }
 	
 	void InitResources();
@@ -61,11 +60,8 @@ private:
 	FSlateElementIndexBuffer IndexBuffers[SlateRHIConstants::NumBuffers];
 
 	TSharedRef<FSlateRHIResourceManager> ResourceManager;
-	TSharedPtr<FSlateFontCache> FontCache;
-
-	bool bGammaCorrect;
 
 	uint8 CurrentBufferIndex;
+
+	bool bGammaCorrect;
 };
-
-

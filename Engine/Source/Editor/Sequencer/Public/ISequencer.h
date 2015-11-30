@@ -58,6 +58,11 @@ public:
 	virtual void FocusSequenceInstance(TSharedRef<FMovieSceneSequenceInstance> SequenceInstance) = 0;
 	
 	/**
+	 * Create a new binding for the specified object
+	 */
+	virtual FGuid CreateBinding(UObject& InObject, const FString& InName) = 0;
+
+	/**
 	 * Given a sub-movie scene section, returns the instance of the movie scene for that section.
 	 *
 	 * @param Section The sub-movie scene section containing the sequence instance to get.
@@ -165,6 +170,11 @@ public:
 	 * @return Returns the object change listener for sequencer instance
 	 */
 	virtual class ISequencerObjectChangeListener& GetObjectChangeListener() = 0;
+
+	/**
+	 * Get a set of all properties currently keyed on the specified object
+	 */
+	virtual void GetAllKeyedProperties(UObject& Object, TSet<UProperty*>& OutProperties) = 0;
 
 	virtual bool CanKeyProperty(FCanKeyPropertyParams CanKeyPropertyParams) const = 0;
 

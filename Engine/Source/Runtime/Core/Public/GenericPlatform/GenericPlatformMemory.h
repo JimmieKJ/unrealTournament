@@ -189,6 +189,15 @@ struct CORE_API FGenericPlatformMemory
 	/** Initializes the memory pools, should be called by the init function. */
 	static void SetupMemoryPools();
 
+	
+	/**
+	 * @return whether platform supports memory pools for crash reporting.
+	 */
+	static bool SupportBackupMemoryPool()
+	{
+		return false;
+	}
+
 	/**
 	 * @return the default allocator.
 	 */
@@ -213,9 +222,6 @@ struct CORE_API FGenericPlatformMemory
 	 * @return approximate physical RAM in GB.
 	 */
 	static uint32 GetPhysicalGBRam();
-
-	/** Called once per frame, gathers and sets all platform memory statistics into the corresponding stats. */
-	static void UpdateStats();
 
 	/**
 	 * Allocates pages from the OS.
@@ -350,4 +356,11 @@ public:
 	 * @return true if successful
 	 */
 	static bool UnmapNamedSharedMemoryRegion(FSharedMemoryRegion * MemoryRegion);
+
+protected:
+	friend struct FGenericStatsUpdater;
+
+	/** Updates platform specific stats. This method is called through FGenericStatsUpdater from the task graph thread. */
+	static void InternalUpdateStats( const FPlatformMemoryStats& MemoryStats );
+
 };

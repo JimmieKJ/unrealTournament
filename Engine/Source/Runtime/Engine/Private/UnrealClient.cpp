@@ -19,7 +19,6 @@
 #include "EngineModule.h"
 #include "ContentStreaming.h"
 #include "SceneUtils.h"
-#include "MovieSceneCaptureModule.h"
 #include "NotificationManager.h"
 #include "Performance/EnginePerformanceTargets.h"
 
@@ -709,12 +708,6 @@ FViewport::FViewport(FViewportClient* InViewportClient):
 
 FViewport::~FViewport()
 {
-#if WITH_EDITOR
-	if (auto* MovieSceneCapture = GetMovieSceneCapture())
-	{
-		MovieSceneCapture->Close();
-	}
-#endif
 }
 
 bool FViewport::TakeHighResScreenShot()
@@ -1564,16 +1557,6 @@ void FViewport::SetInitialSize( FIntPoint InitialSizeXY )
 	{
 		UpdateViewportRHI( false, InitialSizeXY.X, InitialSizeXY.Y, EWindowMode::Windowed );
 	}
-}
-
-IMovieSceneCaptureInterface* FViewport::GetMovieSceneCapture() const
-{
-	if (MovieSceneCaptureHandle.IsValid())
-	{
-		return IMovieSceneCaptureModule::Get().RetrieveMovieSceneInterface(MovieSceneCaptureHandle);
-	}
-
-	return nullptr;
 }
 
 

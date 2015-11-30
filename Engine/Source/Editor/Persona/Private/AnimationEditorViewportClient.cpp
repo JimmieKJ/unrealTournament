@@ -494,10 +494,33 @@ void FAnimationViewportClient::DrawCanvas( FViewport& InViewport, FSceneView& Vi
 			ShowBoneNames(&Canvas, &View);
 		}
 
+		// Allow nodes to draw with the canvas, and collect on screen strings to draw later
+		TArray<FText> NodeDebugLines;
+		if(PersonaPtr.IsValid())
+		{
+			// Allow selected nodes to draw debug rendering if they support it
+			const FGraphPanelSelectionSet SelectedNodes = PersonaPtr.Pin()->GetSelectedNodes();
+			for(FGraphPanelSelectionSet::TConstIterator NodeIt(SelectedNodes); NodeIt; ++NodeIt)
+			{
+				UAnimGraphNode_SkeletalControlBase* Node = Cast<UAnimGraphNode_SkeletalControlBase>(*NodeIt);
+
+				if(Node)
+				{
+					Node->DrawCanvas(InViewport, View, Canvas, PreviewSkelMeshComp.Get());
+					Node->GetOnScreenDebugInfo(NodeDebugLines, PreviewSkelMeshComp.Get());
+				}
+			}
+		}
+
 		// Display info
 		if (IsShowingMeshStats())
 		{
 			DisplayInfo(&Canvas, &View, IsDetailedMeshStats());
+		}
+		else if(IsShowingSelectedNodeStats())
+		{
+			// Draw Node info instead of mesh info if we have entries
+			DrawNodeDebugLines(NodeDebugLines, &Canvas, &View);
 		}
 
 		// Draw name of selected bone
@@ -911,7 +934,7 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 	if( PreviewInstance )
 	{
 		// see if you have anim sequence that has transform curves
-		UAnimSequence* Sequence = Cast<UAnimSequence>(PreviewInstance->CurrentAsset);
+		UAnimSequence* Sequence = Cast<UAnimSequence>(PreviewInstance->GetCurrentAsset());
 		if ( Sequence && Sequence->DoesNeedRebake() )
 		{
 			InfoString = TEXT("Animation is being edited. To apply to raw animation data, click \"Apply\"");
@@ -1127,6 +1150,31 @@ void FAnimationViewportClient::DisplayInfo(FCanvas* Canvas, FSceneView* View, bo
 		InfoString = FString::Printf(*LOCTEXT("MeshSectionsHiddenWarning", "Mesh Sections Hidden").ToString());
 		Canvas->DrawShadowedString(CurXOffset, CurYOffset, *InfoString, GEngine->GetSmallFont(), SubHeadlineColour);
 		
+	}
+}
+
+void FAnimationViewportClient::DrawNodeDebugLines(TArray<FText>& Lines, FCanvas* Canvas, FSceneView* View)
+{
+	if(Lines.Num() > 0)
+	{
+		int32 CurrentXOffset = 5;
+		int32 CurrentYOffset = 60;
+
+		int32 CharWidth;
+		int32 CharHeight;
+		StringSize(GEngine->GetSmallFont(), CharWidth, CharHeight, TEXT("0"));
+
+		const int32 LineHeight = CharHeight + 2;
+
+		for(FText& Line : Lines)
+		{
+			FCanvasTextItem TextItem(FVector2D(CurrentXOffset, CurrentYOffset), Line, GEngine->GetSmallFont(), FLinearColor::White);
+			TextItem.EnableShadow(FLinearColor::Black);
+
+			Canvas->DrawItem(TextItem);
+
+			CurrentYOffset += LineHeight;
+		}
 	}
 }
 
@@ -2320,6 +2368,11 @@ bool FAnimationViewportClient::IsShowingMeshStats() const
 	const bool bCanBeEnabled = !PersonaPtr.Pin()->IsModeCurrent(FPersonaModes::AnimBlueprintEditMode);
 
 	return bShouldBeEnabled && bCanBeEnabled;
+}
+
+bool FAnimationViewportClient::IsShowingSelectedNodeStats() const
+{
+	return PersonaPtr.Pin()->IsModeCurrent(FPersonaModes::AnimBlueprintEditMode) && ConfigOption->ShowMeshStats == EDisplayInfoMode::SkeletalControls;
 }
 
 bool FAnimationViewportClient::IsDetailedMeshStats() const

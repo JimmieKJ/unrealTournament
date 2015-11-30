@@ -8,6 +8,8 @@
 FNetworkVersion::FGetLocalNetworkVersionOverride FNetworkVersion::GetLocalNetworkVersionOverride;
 FNetworkVersion::FIsNetworkCompatibleOverride FNetworkVersion::IsNetworkCompatibleOverride;
 
+FPreReplayScrub FNetworkReplayDelegates::OnPreScrub;
+
 enum ENetworkVersionHistory
 {
 	HISTORY_INITIAL = 1,

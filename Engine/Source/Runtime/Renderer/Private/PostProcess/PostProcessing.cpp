@@ -154,6 +154,27 @@ static TAutoConsoleVariable<int32> CVarTonemapperScreenPercentage(
 	TEXT(" 2: enabled even if some other feature would prevent it (good for testing, likely rendering artifacts)"),
 	ECVF_Scalability | ECVF_RenderThreadSafe);
 
+static TAutoConsoleVariable<int32> CVarMotionBlurNew(
+	TEXT("r.MotionBlurNew"),
+	0,
+	TEXT(""),
+	ECVF_RenderThreadSafe
+);
+
+static TAutoConsoleVariable<int32> CVarMotionBlurScatter(
+	TEXT("r.MotionBlurScatter"),
+	0,
+	TEXT(""),
+	ECVF_RenderThreadSafe
+);
+
+static TAutoConsoleVariable<int32> CVarMotionBlurSeparable(
+	TEXT("r.MotionBlurSeparable"),
+	0,
+	TEXT(""),
+	ECVF_RenderThreadSafe
+);
+
 IMPLEMENT_SHADER_TYPE(,FPostProcessVS,TEXT("PostProcessBloom"),TEXT("MainPostprocessCommonVS"),SF_Vertex);
 
 static bool HasPostProcessMaterial(FPostprocessContext& Context, EBlendableLocation InLocation);
@@ -1067,34 +1088,6 @@ bool FPostProcessing::AllowFullPostProcessing(const FViewInfo& View, ERHIFeature
 		&& !View.Family->EngineShowFlags.VisualizeMeshDistanceFields;
 }
 
-static TAutoConsoleVariable<int32> CVarMotionBlurNew(
-	TEXT("r.MotionBlurNew"),
-	0,
-	TEXT(""),
-	ECVF_RenderThreadSafe
-);
-
-static TAutoConsoleVariable<int32> CVarMotionBlurScatter(
-	TEXT("r.MotionBlurScatter"),
-	1,
-	TEXT(""),
-	ECVF_RenderThreadSafe
-);
-
-static TAutoConsoleVariable<int32> CVarMotionBlurDilate(
-	TEXT("r.MotionBlurDilate"),
-	0,
-	TEXT(""),
-	ECVF_RenderThreadSafe
-);
-
-static TAutoConsoleVariable<int32> CVarMotionBlurSeparable(
-	TEXT("r.MotionBlurSeparable"),
-	0,
-	TEXT(""),
-	ECVF_RenderThreadSafe
-);
-
 void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& View, TRefCountPtr<IPooledRenderTarget>& VelocityRT)
 {
 	QUICK_SCOPE_CYCLE_COUNTER( STAT_PostProcessing_Process );
@@ -1143,15 +1136,15 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& V
 		FSceneViewState* ViewState = (FSceneViewState*)Context.View.State;
 
 		{
-			if(ViewState && ViewState->SeparateTranslucencyRT)
+			if (FSceneRenderTargets::Get(RHICmdList).SeparateTranslucencyRT)
 			{
-				FRenderingCompositePass* NodeSeparateTranslucency = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(ViewState->SeparateTranslucencyRT));
+				FRenderingCompositePass* NodeSeparateTranslucency = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessInput(FSceneRenderTargets::Get(RHICmdList).SeparateTranslucencyRT));
 
 				SeparateTranslucency = FRenderingCompositeOutputRef(NodeSeparateTranslucency);
 				// the node keeps another reference so the RT will not be release too early
-				ViewState->FreeSeparateTranslucency();
+				FSceneRenderTargets::Get(RHICmdList).FreeSeparateTranslucency();
 
-				check(!ViewState->SeparateTranslucencyRT);
+				check(!FSceneRenderTargets::Get(RHICmdList).SeparateTranslucencyRT);
 			}
 		}
 
@@ -1306,24 +1299,30 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& V
 						MaxTileVelocity	= FRenderingCompositeOutputRef( VelocityFlattenPass, ePId_Output1 );
 					}
 
-					if( CVarMotionBlurScatter.GetValueOnRenderThread() )
+					const float SizeX = View.ViewRect.Width();
+
+					// 0:no 1:full screen width, percent conversion
+					float MaxVelocity = View.FinalPostProcessSettings.MotionBlurMax / 100.0f;
+					float MaxVelocityTiles = MaxVelocity * SizeX * (0.5f / 16.0f);
+					float MaxTileDistGathered = 3.0f;
+					if( MaxVelocityTiles > MaxTileDistGathered || CVarMotionBlurScatter.GetValueOnRenderThread() )
 					{
 						FRenderingCompositePass* VelocityScatterPass = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessVelocityScatter() );
 						VelocityScatterPass->SetInput( ePId_Input0, MaxTileVelocity );
 
 						MaxTileVelocity	= FRenderingCompositeOutputRef( VelocityScatterPass );
 					}
-
-					if( !CVarMotionBlurScatter.GetValueOnRenderThread() )
+					else
 					{
-						FRenderingCompositePass* VelocityDilatePass = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessVelocityGather() );
-						VelocityDilatePass->SetInput( ePId_Input0, MaxTileVelocity );
+						FRenderingCompositePass* VelocityGatherPass = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessVelocityGather() );
+						VelocityGatherPass->SetInput( ePId_Input0, MaxTileVelocity );
 
-						MaxTileVelocity	= FRenderingCompositeOutputRef( VelocityDilatePass );
+						MaxTileVelocity	= FRenderingCompositeOutputRef( VelocityGatherPass );
 					}
 
+					bool bTwoPass = CVarMotionBlurSeparable.GetValueOnRenderThread() != 0;
 					{
-						FRenderingCompositePass* MotionBlurPass = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessMotionBlurNew( GetMotionBlurQualityFromCVar() ) );
+						FRenderingCompositePass* MotionBlurPass = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessMotionBlurNew( GetMotionBlurQualityFromCVar(), bTwoPass ? 0 : -1 ) );
 						MotionBlurPass->SetInput( ePId_Input0, Context.FinalOutput );
 						MotionBlurPass->SetInput( ePId_Input1, SceneDepth );
 						MotionBlurPass->SetInput( ePId_Input2, VelocityInput );
@@ -1332,9 +1331,9 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& V
 						Context.FinalOutput = FRenderingCompositeOutputRef( MotionBlurPass );
 					}
 
-					if( CVarMotionBlurSeparable.GetValueOnRenderThread() )
+					if( bTwoPass )
 					{
-						FRenderingCompositePass* MotionBlurPass = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessMotionBlurNew( GetMotionBlurQualityFromCVar() ) );
+						FRenderingCompositePass* MotionBlurPass = Context.Graph.RegisterPass( new(FMemStack::Get()) FRCPassPostProcessMotionBlurNew( GetMotionBlurQualityFromCVar(), 1 ) );
 						MotionBlurPass->SetInput( ePId_Input0, Context.FinalOutput );
 						MotionBlurPass->SetInput( ePId_Input1, SceneDepth );
 						MotionBlurPass->SetInput( ePId_Input2, VelocityInput );
@@ -1607,11 +1606,7 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& V
 		}
 		else
 		{
-			if(ViewState)
-			{
-				check(!ViewState->SeparateTranslucencyRT);
-			}
-
+			check(!FSceneRenderTargets::Get(RHICmdList).SeparateTranslucencyRT);
 			AddGammaOnlyTonemapper(Context);
 		}
 		
@@ -1624,7 +1619,8 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& V
 
 		if(View.Family->EngineShowFlags.ShaderComplexity)
 		{
-			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessVisualizeComplexity(GEngine->ShaderComplexityColors, true));
+			const bool bUseQuadComplexityColors = View.Family->GetQuadOverdrawMode() == QOM_QuadComplexity; // Quad Complexity also sets ShaderComplexity
+			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessVisualizeComplexity(bUseQuadComplexityColors ? GEngine->QuadComplexityColors : GEngine->ShaderComplexityColors, true));
 			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.SceneColor));
 			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
 		}
@@ -1737,27 +1733,27 @@ void FPostProcessing::Process(FRHICommandListImmediate& RHICmdList, FViewInfo& V
 
 		if(!bScreenPercentageIsDone)
 		{
-			// 0=none..1=full
-			FRCPassPostProcessUpscale::PaniniParams PaniniConfig;
+		// 0=none..1=full
+		FRCPassPostProcessUpscale::PaniniParams PaniniConfig;
 
 			if (View.IsPerspectiveProjection() && !GEngine->StereoRenderingDevice.IsValid())
-			{
-				PaniniConfig.D = FMath::Max(CVarUpscalePaniniD.GetValueOnRenderThread(), 0.0f);
-				PaniniConfig.S = CVarUpscalePaniniS.GetValueOnRenderThread();
-				PaniniConfig.ScreenFit = FMath::Max(CVarUpscalePaniniScreenFit.GetValueOnRenderThread(), 0.0f);
-			}
+		{
+			PaniniConfig.D = FMath::Max(CVarUpscalePaniniD.GetValueOnRenderThread(), 0.0f);
+			PaniniConfig.S = CVarUpscalePaniniS.GetValueOnRenderThread();
+			PaniniConfig.ScreenFit = FMath::Max(CVarUpscalePaniniScreenFit.GetValueOnRenderThread(), 0.0f);
+		}
 
-			// Do not use upscale if SeparateRenderTarget is in use!
+		// Do not use upscale if SeparateRenderTarget is in use!
 			if ((PaniniConfig.D > 0.01f || View.UnscaledViewRect != View.ViewRect) &&
 				(bHMDWantsUpscale || !View.Family->EngineShowFlags.StereoRendering || (!View.Family->EngineShowFlags.HMDDistortion && !View.Family->bUseSeparateRenderTarget)))
-			{
-				int32 UpscaleQuality = CVarUpscaleQuality.GetValueOnRenderThread();
-				UpscaleQuality = FMath::Clamp(UpscaleQuality, 0, 3);
-				FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(UpscaleQuality, PaniniConfig));
-				Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput)); // Bilinear sampling.
-				Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput)); // Point sampling.
-				Context.FinalOutput = FRenderingCompositeOutputRef(Node);
-			}
+		{
+			int32 UpscaleQuality = CVarUpscaleQuality.GetValueOnRenderThread();
+			UpscaleQuality = FMath::Clamp(UpscaleQuality, 0, 3);
+			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessUpscale(UpscaleQuality, PaniniConfig));
+			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput)); // Bilinear sampling.
+			Node->SetInput(ePId_Input1, FRenderingCompositeOutputRef(Context.FinalOutput)); // Point sampling.
+			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
+		}
 
 			// not needed but more correct
 			bScreenPercentageIsDone = true;
@@ -2149,8 +2145,9 @@ void FPostProcessing::ProcessES2(FRHICommandListImmediate& RHICmdList, FViewInfo
 
 		if(View.Family->EngineShowFlags.ShaderComplexity)
 		{
+			const bool bUseQuadComplexityColors = View.Family->GetQuadOverdrawMode() == QOM_QuadComplexity; // Quad Complexity also sets ShaderComplexity
 			// Legend is costly so we don't do it for ES2, ideally we make a shader permutation
-			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessVisualizeComplexity(GEngine->ShaderComplexityColors, false));
+			FRenderingCompositePass* Node = Context.Graph.RegisterPass(new(FMemStack::Get()) FRCPassPostProcessVisualizeComplexity(bUseQuadComplexityColors ? GEngine->QuadComplexityColors : GEngine->ShaderComplexityColors, false));
 			Node->SetInput(ePId_Input0, FRenderingCompositeOutputRef(Context.FinalOutput));
 			Context.FinalOutput = FRenderingCompositeOutputRef(Node);
 		}

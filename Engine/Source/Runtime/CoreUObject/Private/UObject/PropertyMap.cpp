@@ -464,6 +464,7 @@ void UMapProperty::ExportTextItem(FString& ValueStr, const void* PropertyValue, 
 
 	if (MapHelper.Num() == 0)
 	{
+		ValueStr += TEXT("()");
 		return;
 	}
 

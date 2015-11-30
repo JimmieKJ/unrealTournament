@@ -18,8 +18,10 @@
 #define SETTING_BEACONPORT FName(TEXT("BEACONPORT"))
 /** Server responds to Qos beacon requests (value is int32) */
 #define SETTING_QOS FName(TEXT("QOS"))
-/** String describing the region of the world you are in (value is FString) */
+/** Setting describing the region of the world you are in (value is FString) */
 #define SETTING_REGION FName(TEXT("REGION"))
+/** Setting describing the unique id of a datacenter (value is FString) */
+#define SETTING_DCID FName(TEXT("DCID"))
 
 /** 8 user defined integer params to be used when filtering searches for sessions */
 #define SETTING_CUSTOMSEARCHINT1 FName(TEXT("CUSTOMSEARCHINT1"))

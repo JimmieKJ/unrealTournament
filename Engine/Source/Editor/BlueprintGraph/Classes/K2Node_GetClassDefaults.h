@@ -19,6 +19,7 @@ class UK2Node_GetClassDefaults : public UK2Node
 	virtual void PostPlacedNewNode() override;
 	virtual void PinDefaultValueChanged(UEdGraphPin* Pin) override;
 	virtual void PinConnectionListChanged(UEdGraphPin* Pin) override;
+	virtual void ValidateNodeDuringCompilation(class FCompilerResultsLog& MessageLog) const override;
 	//~ End UEdGraphNode Interface
 
 	//~ Begin UK2Node Interface
@@ -71,4 +72,8 @@ private:
 	/** Output pin visibility control */
 	UPROPERTY(EditAnywhere, Category=PinOptions, EditFixedSize)
 	TArray<FOptionalPinFromProperty> ShowPinForProperties;
+
+	/** Whether or not to exclude object array properties */
+	UPROPERTY()
+	bool bExcludeObjectArrays;
 };

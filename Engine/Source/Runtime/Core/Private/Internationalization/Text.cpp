@@ -218,7 +218,7 @@ FText::FText( FString InSourceString )
 	TextData->SetTextHistory(FTextHistory_Base(MoveTemp(InSourceString)));
 }
 
-FText::FText( FString InSourceString, FString InNamespace, FString InKey, uint32 InFlags )
+FText::FText( FString InSourceString, const FString& InNamespace, const FString& InKey, uint32 InFlags )
 	: TextData(new TLocalizedTextData<FTextHistory_Base>(FTextLocalizationManager::Get().GetDisplayString(InNamespace, InKey, &InSourceString)))
 	, Flags(InFlags)
 {
@@ -418,7 +418,39 @@ private:
 	};
 
 public:
-	DECLARE_DELEGATE_RetVal_TwoParams( const FFormatArgumentValue*, FGetArgumentValue, const FString&, int32 );
+	struct FArgumentName
+	{
+		FArgumentName(const TCHAR* InNamePtr, const int32 InNameLen)
+			: NamePtr(InNamePtr)
+			, NameLen(InNameLen)
+		{
+		}
+
+		TOptional<int32> AsIndex() const
+		{
+			int32 Index = 0;
+			for (int32 NameOffset = 0; NameOffset < NameLen; ++NameOffset)
+			{
+				const TCHAR C = *(NamePtr + NameOffset);
+
+				if (C >= '0' && C <= '9')
+				{
+					Index *= 10;
+					Index += C - '0';
+				}
+				else
+				{
+					return TOptional<int32>();
+				}
+			}
+			return Index;
+		}
+
+		const TCHAR* NamePtr;
+		int32 NameLen;
+	};
+
+	typedef TFunctionRef<const FFormatArgumentValue*(const FArgumentName&, int32)> FGetArgumentValue;
 
 	static int32 EstimateArgumentValueLength(const FFormatArgumentValue& ArgumentValue)
 	{
@@ -578,7 +610,7 @@ public:
 		EEscapeState EscapeState = EEscapeState::None;
 		EBlockState BlockState = EBlockState::None;
 
-		FString ArgumentName;
+		int32 ArgumentNameIndex = INDEX_NONE;
 		int32 ArgumentNumber = 0;
 
 		for(int32 i = 0; i < PatternString.Len(); ++i)
@@ -668,8 +700,14 @@ public:
 						{
 						case '}':
 							{
-							
-								const FFormatArgumentValue* const PossibleArgumentValue = GetArgumentValue.Execute(ArgumentName, ArgumentNumber++);
+								if (ArgumentNameIndex == INDEX_NONE)
+								{
+									// Can happen for empty argument blocks
+									ArgumentNameIndex = i;
+								}
+
+								const FArgumentName ArgumentName = FArgumentName(&PatternString[ArgumentNameIndex], i - ArgumentNameIndex);
+								const FFormatArgumentValue* const PossibleArgumentValue = GetArgumentValue(ArgumentName, ArgumentNumber++);
 								if( PossibleArgumentValue )
 								{
 									const FFormatArgumentValue& ArgumentValue = *PossibleArgumentValue;
@@ -712,17 +750,20 @@ public:
 								}
 								else
 								{
-									ResultString += TEXT("{");
-									ResultString += ArgumentName;
-									ResultString += TEXT("}");
+									ResultString.AppendChar('{');
+									ResultString.AppendChars(ArgumentName.NamePtr, ArgumentName.NameLen);
+									ResultString.AppendChar('}');
 								}
-								ArgumentName.Reset();
+								ArgumentNameIndex = INDEX_NONE;
 								BlockState = EBlockState::None;
 							}
 							break;
 						default:
 							{
-								ArgumentName += PatternString[i];
+								if (ArgumentNameIndex == INDEX_NONE)
+								{
+									ArgumentNameIndex = i;
+								}
 							}
 							break;
 						}
@@ -767,12 +808,19 @@ FText FText::FormatInternal(FText Pattern, FFormatNamedArguments Arguments, bool
 		EstimatedArgumentValuesLength += FTextFormatHelper::EstimateArgumentValueLength(Arg.Value);
 	}
 
-	auto GetArgumentValue = [&Arguments](const FString& ArgumentName, int32 ArgumentNumber) -> const FFormatArgumentValue*
+	auto GetArgumentValue = [&Arguments](const FTextFormatHelper::FArgumentName& ArgumentName, int32 ArgumentNumber) -> const FFormatArgumentValue*
 	{
-		return Arguments.Find(ArgumentName);
+		for (const auto& Pair : Arguments)
+		{
+			if (ArgumentName.NameLen == Pair.Key.Len() && FCString::Strnicmp(ArgumentName.NamePtr, *Pair.Key, ArgumentName.NameLen) == 0)
+			{
+				return &Pair.Value;
+			}
+		}
+		return nullptr;
 	};
 
-	FString ResultString = FTextFormatHelper::Format(Pattern, EstimatedArgumentValuesLength, FTextFormatHelper::FGetArgumentValue::CreateLambda(GetArgumentValue), bInRebuildText, bInRebuildAsSource);
+	FString ResultString = FTextFormatHelper::Format(Pattern, EstimatedArgumentValuesLength, FTextFormatHelper::FGetArgumentValue(GetArgumentValue), bInRebuildText, bInRebuildAsSource);
 	
 	FText Result = FText(MakeShareable(new TGeneratedTextData<FTextHistory_NamedFormat>(MoveTemp(ResultString), FTextHistory_NamedFormat(MoveTemp(Pattern), MoveTemp(Arguments)))));
 	if (!GIsEditor)
@@ -793,10 +841,10 @@ FText FText::FormatInternal(FText Pattern, FFormatOrderedArguments Arguments, bo
 		EstimatedArgumentValuesLength += FTextFormatHelper::EstimateArgumentValueLength(Arg);
 	}
 
-	auto GetArgumentValue = [&Arguments](const FString& ArgumentName, int32 ArgumentNumber) -> const FFormatArgumentValue*
+	auto GetArgumentValue = [&Arguments](const FTextFormatHelper::FArgumentName& ArgumentName, int32 ArgumentNumber) -> const FFormatArgumentValue*
 	{
-		int32 ArgumentIndex = INDEX_NONE;
-		if (!LexicalConversion::TryParseString(ArgumentIndex, *ArgumentName))
+		TOptional<int32> ArgumentIndex = ArgumentName.AsIndex();
+		if (!ArgumentIndex.IsSet())
 		{
 			// We failed to parse the argument name into a number...
 			// We have existing code that is incorrectly using names in the format string when providing ordered arguments
@@ -804,10 +852,10 @@ FText FText::FormatInternal(FText Pattern, FFormatOrderedArguments Arguments, bo
 			// by the argument name, so we need to emulate that behavior to avoid breaking some format operations
 			ArgumentIndex = ArgumentNumber;
 		}
-		return ArgumentIndex != INDEX_NONE && ArgumentIndex < Arguments.Num() ? &(Arguments[ArgumentIndex]) : nullptr;
+		return Arguments.IsValidIndex(ArgumentIndex.GetValue()) ? &(Arguments[ArgumentIndex.GetValue()]) : nullptr;
 	};
 
-	FString ResultString = FTextFormatHelper::Format(Pattern, EstimatedArgumentValuesLength, FTextFormatHelper::FGetArgumentValue::CreateLambda(GetArgumentValue), bInRebuildText, bInRebuildAsSource);
+	FString ResultString = FTextFormatHelper::Format(Pattern, EstimatedArgumentValuesLength, FTextFormatHelper::FGetArgumentValue(GetArgumentValue), bInRebuildText, bInRebuildAsSource);
 
 	FText Result = FText(MakeShareable(new TGeneratedTextData<FTextHistory_OrderedFormat>(MoveTemp(ResultString), FTextHistory_OrderedFormat(MoveTemp(Pattern), MoveTemp(Arguments)))));
 	if (!GIsEditor)
@@ -823,19 +871,27 @@ FText FText::FormatInternal(FText Pattern, TArray< struct FFormatArgumentData > 
 	//SCOPE_CYCLE_COUNTER( STAT_TextFormat );
 
 	int32 EstimatedArgumentValuesLength = 0;
-	FFormatNamedArguments FormatNamedArguments;
 	for (const auto& Arg : Arguments)
 	{
 		EstimatedArgumentValuesLength += FTextFormatHelper::EstimateArgumentValueLength(Arg.ArgumentValue);
-		FormatNamedArguments.Add(Arg.ArgumentName.ToString(), FFormatArgumentValue(Arg.ArgumentValue));
 	}
 
-	auto GetArgumentValue = [&FormatNamedArguments](const FString& ArgumentName, int32 ArgumentNumber) -> const FFormatArgumentValue*
+	FFormatArgumentValue TmpArgumentValue;
+	FFormatArgumentValue* TmpArgumentValuePtr = &TmpArgumentValue; // Need to do this to avoid the error "address of stack memory associated with local variable 'TmpArgumentValue' returned"
+	auto GetArgumentValue = [&Arguments, &TmpArgumentValuePtr](const FTextFormatHelper::FArgumentName& ArgumentName, int32 ArgumentNumber) -> const FFormatArgumentValue*
 	{
-		return FormatNamedArguments.Find(ArgumentName);
+		for (const auto& Arg : Arguments)
+		{
+			if (ArgumentName.NameLen == Arg.ArgumentName.Len() && FCString::Strnicmp(ArgumentName.NamePtr, *Arg.ArgumentName, ArgumentName.NameLen) == 0)
+			{
+				(*TmpArgumentValuePtr) = FFormatArgumentValue(Arg.ArgumentValue);
+				return TmpArgumentValuePtr;
+			}
+		}
+		return nullptr;
 	};
 
-	FString ResultString = FTextFormatHelper::Format(Pattern, EstimatedArgumentValuesLength, FTextFormatHelper::FGetArgumentValue::CreateLambda(GetArgumentValue), bInRebuildText, bInRebuildAsSource);
+	FString ResultString = FTextFormatHelper::Format(Pattern, EstimatedArgumentValuesLength, FTextFormatHelper::FGetArgumentValue(GetArgumentValue), bInRebuildText, bInRebuildAsSource);
 
 	FText Result = FText(MakeShareable(new TGeneratedTextData<FTextHistory_ArgumentDataFormat>(MoveTemp(ResultString), FTextHistory_ArgumentDataFormat(MoveTemp(Pattern), MoveTemp(Arguments)))));
 	if (!GIsEditor)

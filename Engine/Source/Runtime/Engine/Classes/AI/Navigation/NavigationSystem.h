@@ -733,6 +733,8 @@ public:
 	/** */
 	virtual void OnWorldInitDone(FNavigationSystemRunMode Mode);
 
+	FORCEINLINE bool IsInitialized() const { return bWorldInitDone; }
+
 	/** adds BSP collisions of currently streamed in levels to octree */
 	void InitializeLevelCollisions();
 
@@ -836,9 +838,10 @@ protected:
 	/** set of locking flags applied on startup of navigation system */
 	uint8 InitialNavBuildingLockFlags;
 
-	uint8 bInitialSetupHasBeenPerformed:1;
-	uint8 bInitialLevelsAdded:1;
-	uint8 bAsyncBuildPaused:1;
+	uint8 bInitialSetupHasBeenPerformed : 1;
+	uint8 bInitialLevelsAdded : 1;
+	uint8 bWorldInitDone : 1;
+	uint8 bAsyncBuildPaused : 1;
 
 	/** cached navigable world bounding box*/
 	mutable FBox NavigableWorldBounds;

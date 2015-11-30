@@ -9,36 +9,41 @@
 #include "BonePose.h"
 #include "AnimNodeBase.generated.h"
 
+struct FAnimInstanceProxy;
+
 /** Base class for update/evaluate contexts */
 struct FAnimationBaseContext
 {
 public:
+	DEPRECATED(4.11, "Please use AnimInstanceProxy")
 	UAnimInstance* AnimInstance;
+
+	FAnimInstanceProxy* AnimInstanceProxy;
+
 protected:
-	FAnimationBaseContext(UAnimInstance* InInstance)
-		: AnimInstance(InInstance)
-	{
-	}
+	// DEPRECATED - Please use constructor that uses an FAnimInstanceProxy*
+	ENGINE_API FAnimationBaseContext(UAnimInstance* InAnimInstance);
+
+	ENGINE_API FAnimationBaseContext(FAnimInstanceProxy* InAnimInstanceProxy);
+
+public:
+	// we define a copy constructor here simply to avoid deprecation warnings with clang
+	ENGINE_API FAnimationBaseContext(const FAnimationBaseContext& InContext);
 
 public:
 	// Get the Blueprint Generated Class associated with this context, if there is one.
 	// Note: This can return NULL, so check the result.
-	UAnimBlueprintGeneratedClass* GetAnimBlueprintClass() const
-	{
-		return Cast<UAnimBlueprintGeneratedClass>(AnimInstance->GetClass());
-	}
+	DEPRECATED(4.11, "GetAnimBlueprintClass() is deprecated, UAnimBlueprintGeneratedClass should not be directly used at runtime. Please use GetAnimClass() instead.")
+	ENGINE_API UAnimBlueprintGeneratedClass* GetAnimBlueprintClass() const;
+
+	// Get the Blueprint IAnimClassInterface associated with this context, if there is one.
+	// Note: This can return NULL, so check the result.
+	ENGINE_API IAnimClassInterface* GetAnimClass() const;
 
 #if WITH_EDITORONLY_DATA
 	// Get the AnimBlueprint associated with this context, if there is one.
 	// Note: This can return NULL, so check the result.
-	UAnimBlueprint* GetAnimBlueprint() const
-	{
-		if (UAnimBlueprintGeneratedClass* Class = GetAnimBlueprintClass())
-		{
-			return Cast<UAnimBlueprint>(Class->ClassGeneratedBy);
-		}
-		return NULL;
-	}
+	ENGINE_API UAnimBlueprint* GetAnimBlueprint() const;
 #endif //WITH_EDITORONLY_DATA
 };
 
@@ -47,8 +52,14 @@ public:
 struct FAnimationInitializeContext : public FAnimationBaseContext
 {
 public:
-	FAnimationInitializeContext(UAnimInstance* InInstance)
-		: FAnimationBaseContext(InInstance)
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
+	FAnimationInitializeContext(UAnimInstance* InAnimInstance)
+		: FAnimationBaseContext(InAnimInstance)
+	{
+	}
+
+	FAnimationInitializeContext(FAnimInstanceProxy* InAnimInstanceProxy)
+		: FAnimationBaseContext(InAnimInstanceProxy)
 	{
 	}
 };
@@ -60,8 +71,14 @@ public:
 struct FAnimationCacheBonesContext : public FAnimationBaseContext
 {
 public:
-	FAnimationCacheBonesContext(UAnimInstance* InInstance)
-		: FAnimationBaseContext(InInstance)
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
+	FAnimationCacheBonesContext(UAnimInstance* InAnimInstance)
+		: FAnimationBaseContext(InAnimInstance)
+	{
+	}
+
+	FAnimationCacheBonesContext(FAnimInstanceProxy* InAnimInstanceProxy)
+		: FAnimationBaseContext(InAnimInstanceProxy)
 	{
 	}
 };
@@ -73,8 +90,16 @@ private:
 	float CurrentWeight;
 	float DeltaTime;
 public:
-	FAnimationUpdateContext(UAnimInstance* Instance, float InDeltaTime)
-		: FAnimationBaseContext(Instance)
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
+	FAnimationUpdateContext(UAnimInstance* InAnimInstance, float InDeltaTime)
+		: FAnimationBaseContext(InAnimInstance)
+		, CurrentWeight(1.0f)
+		, DeltaTime(InDeltaTime)
+	{
+	}
+
+	FAnimationUpdateContext(FAnimInstanceProxy* InAnimInstanceProxy, float InDeltaTime)
+		: FAnimationBaseContext(InAnimInstanceProxy)
 		, CurrentWeight(1.0f)
 		, DeltaTime(InDeltaTime)
 	{
@@ -82,14 +107,14 @@ public:
 
 	FAnimationUpdateContext FractionalWeight(float Multiplier) const
 	{
-		FAnimationUpdateContext Result(AnimInstance, DeltaTime);
+		FAnimationUpdateContext Result(AnimInstanceProxy, DeltaTime);
 		Result.CurrentWeight = CurrentWeight * Multiplier;
 		return Result;
 	}
 
 	FAnimationUpdateContext FractionalWeightAndTime(float WeightMultiplier, float TimeMultiplier) const
 	{
-		FAnimationUpdateContext Result(AnimInstance, DeltaTime * TimeMultiplier);
+		FAnimationUpdateContext Result(AnimInstanceProxy, DeltaTime * TimeMultiplier);
 		Result.CurrentWeight = CurrentWeight * WeightMultiplier;
 		return Result;
 	}
@@ -110,26 +135,28 @@ public:
 	FBlendedCurve	Curve;
 
 public:
-	// This constructor allocates a new uninitialized pose for the specified anim instance
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
 	FPoseContext(UAnimInstance* InAnimInstance)
 		: FAnimationBaseContext(InAnimInstance)
 	{
-		Initialize(InAnimInstance);
+		Initialize(AnimInstanceProxy);
+	}
+
+	// This constructor allocates a new uninitialized pose for the specified anim instance
+	FPoseContext(FAnimInstanceProxy* InAnimInstanceProxy)
+		: FAnimationBaseContext(InAnimInstanceProxy)
+	{
+		Initialize(InAnimInstanceProxy);
 	}
 
 	// This constructor allocates a new uninitialized pose, copying non-pose state from the source context
 	FPoseContext(const FPoseContext& SourceContext)
-		: FAnimationBaseContext(SourceContext.AnimInstance)
+		: FAnimationBaseContext(SourceContext.AnimInstanceProxy)
 	{
-		Initialize(SourceContext.AnimInstance);
+		Initialize(SourceContext.AnimInstanceProxy);
 	}
 
-	void Initialize(UAnimInstance* InAnimInstance)
-	{
-		checkSlow(AnimInstance && AnimInstance->RequiredBones.IsValid());
-		Pose.SetBoneContainer(&AnimInstance->RequiredBones);
-		Curve.InitFrom(AnimInstance->CurrentSkeleton);
-	}
+	ENGINE_API void Initialize(FAnimInstanceProxy* InAnimInstanceProxy);
 
 	void ResetToRefPose()
 	{
@@ -153,9 +180,9 @@ public:
 
 	FPoseContext& operator=(const FPoseContext& Other)
 	{
-		if (AnimInstance != Other.AnimInstance)
+		if (AnimInstanceProxy != Other.AnimInstanceProxy)
 		{
-			Initialize(AnimInstance);
+			Initialize(AnimInstanceProxy);
 		}
 
 		Pose = Other.Pose;
@@ -173,29 +200,30 @@ public:
 	FBlendedCurve			Curve;
 
 public:
-	// This constructor allocates a new uninitialized pose for the specified anim instance
+	DEPRECATED(4.11, "Please use constructor that uses an FAnimInstanceProxy*")
 	FComponentSpacePoseContext(UAnimInstance* InAnimInstance)
 		: FAnimationBaseContext(InAnimInstance)
+	{
+	}
+
+	// This constructor allocates a new uninitialized pose for the specified anim instance
+	FComponentSpacePoseContext(FAnimInstanceProxy* InAnimInstanceProxy)
+		: FAnimationBaseContext(InAnimInstanceProxy)
 	{
 		// No need to initialize, done through FA2CSPose::AllocateLocalPoses
 	}
 
 	// This constructor allocates a new uninitialized pose, copying non-pose state from the source context
 	FComponentSpacePoseContext(const FComponentSpacePoseContext& SourceContext)
-		: FAnimationBaseContext(SourceContext.AnimInstance)
+		: FAnimationBaseContext(SourceContext.AnimInstanceProxy)
 	{
 		// No need to initialize, done through FA2CSPose::AllocateLocalPoses
 	}
 
-	void ResetToRefPose()
-	{
-		checkSlow( AnimInstance && AnimInstance->RequiredBones.IsValid() );
-		Pose.InitPose(&AnimInstance->RequiredBones);
-		Curve.InitFrom(AnimInstance->CurrentSkeleton);
-	}
+	ENGINE_API void ResetToRefPose();
 
-	bool ContainsNaN() const;
-	bool IsNormalized() const;
+	ENGINE_API bool ContainsNaN() const;
+	ENGINE_API bool IsNormalized() const;
 };
 
 struct ENGINE_API FNodeDebugData
@@ -374,18 +402,42 @@ public:
 	void EvaluateComponentSpace(FComponentSpacePoseContext& Output);
 };
 
+UENUM()
+enum class EPostCopyOperation : uint8
+{
+	None,
+
+	LogicalNegateBool,
+};
+
 USTRUCT()
 struct FExposedValueCopyRecord
 {
 	GENERATED_USTRUCT_BODY()
 
 	FExposedValueCopyRecord()
-		: Source(nullptr)
+		: SourceProperty_DEPRECATED(nullptr)
+		, SourcePropertyName(NAME_None)
+		, SourceSubPropertyName(NAME_None)
+		, SourceArrayIndex(0)
+		, DestProperty(nullptr)
+		, DestArrayIndex(0)
+		, Size(0)
+		, PostCopyOperation(EPostCopyOperation::None)
+		, Source(nullptr)
 		, Dest(nullptr)
 	{}
 
+	void PostSerialize(const FArchive& Ar);
+
 	UPROPERTY()
-	UProperty* SourceProperty;
+	UProperty* SourceProperty_DEPRECATED;
+
+	UPROPERTY()
+	FName SourcePropertyName;
+
+	UPROPERTY()
+	FName SourceSubPropertyName;
 
 	UPROPERTY()
 	int32 SourceArrayIndex;
@@ -399,6 +451,9 @@ struct FExposedValueCopyRecord
 	UPROPERTY()
 	int32 Size;
 
+	UPROPERTY()
+	EPostCopyOperation PostCopyOperation;
+
 	// Cached source copy ptr
 	void* Source;
 
@@ -406,11 +461,27 @@ struct FExposedValueCopyRecord
 	void* Dest;
 };
 
+template<>
+struct TStructOpsTypeTraits< FExposedValueCopyRecord > : public TStructOpsTypeTraitsBase
+{
+	enum
+	{
+		WithPostSerialize = true,
+	};
+};
+
 // An exposed value updater
 USTRUCT()
-struct FExposedValueHandler
+struct ENGINE_API FExposedValueHandler
 {
 	GENERATED_USTRUCT_BODY()
+
+	FExposedValueHandler()
+		: BoundFunction(NAME_None)
+		, Function(nullptr)
+		, bInitialized(false)
+	{
+	}
 
 	// The function to call to update associated properties (can be NULL)
 	UPROPERTY()
@@ -420,64 +491,17 @@ struct FExposedValueHandler
 	UPROPERTY()
 	TArray<FExposedValueCopyRecord> CopyRecords;
 
-	// funtion pointer if BoundFunction != NAME_None
+	// function pointer if BoundFunction != NAME_None
 	UFunction* Function;
 
-	void Initialize(FAnimNode_Base* AnimNode, UAnimInstance* AnimInstance) 
-	{
-		if (BoundFunction != NAME_None)
-		{
-			Function = AnimInstance->FindFunction(BoundFunction);
-		}
-		else
-		{
-			Function = NULL;
-		}
+	// Prevent multiple initialization
+	bool bInitialized;
 
-		// initialize copy records
-		for(auto& CopyRecord : CopyRecords)
-		{
-			if(UArrayProperty* SourceArrayProperty = Cast<UArrayProperty>(CopyRecord.SourceProperty))
-			{
-				FScriptArrayHelper ArrayHelper(SourceArrayProperty, CopyRecord.SourceProperty->ContainerPtrToValuePtr<uint8>(AnimInstance));
-				check(ArrayHelper.IsValidIndex(CopyRecord.SourceArrayIndex));
-				CopyRecord.Source = ArrayHelper.GetRawPtr(CopyRecord.SourceArrayIndex);
-			}
-			else
-			{
-				CopyRecord.Source = CopyRecord.SourceProperty->ContainerPtrToValuePtr<uint8>(AnimInstance, CopyRecord.SourceArrayIndex);
-			}
+	// Bind copy records and cache UFunction if necessary
+	void Initialize(FAnimNode_Base* AnimNode, UObject* AnimInstanceObject);
 
-			if(UArrayProperty* DestArrayProperty = Cast<UArrayProperty>(CopyRecord.DestProperty))
-			{
-				FScriptArrayHelper ArrayHelper(DestArrayProperty, CopyRecord.DestProperty->ContainerPtrToValuePtr<uint8>(AnimNode));
-				check(ArrayHelper.IsValidIndex(CopyRecord.DestArrayIndex));
-				CopyRecord.Dest = ArrayHelper.GetRawPtr(CopyRecord.DestArrayIndex);
-			}
-			else
-			{
-				CopyRecord.Dest = CopyRecord.DestProperty->ContainerPtrToValuePtr<uint8>(AnimNode, CopyRecord.DestArrayIndex);
-			}
-		}
-	}
-
-	void Execute(const FAnimationBaseContext& Context) const
-	{
-		if (Function != nullptr)
-		{
-			Context.AnimInstance->ProcessEvent(Function, NULL);
-		}
-
-		for(const auto& CopyRecord : CopyRecords)
-		{
-			// if any of these checks fail then it's likely that Initialize has not been called.
-			// has new anim node type been added that doesnt call the base class Initialize()?
-			checkSlow(CopyRecord.Dest != nullptr);
-			checkSlow(CopyRecord.Source != nullptr);
-			checkSlow(CopyRecord.Size != 0);
-			FMemory::Memcpy(CopyRecord.Dest, CopyRecord.Source, CopyRecord.Size);
-		}
-	}
+	// Execute the function and copy records
+	void Execute(const FAnimationBaseContext& Context) const;
 };
 
 /**
@@ -493,7 +517,7 @@ struct ENGINE_API FAnimNode_Base
 	GENERATED_USTRUCT_BODY()
 
 	// The default handler for graph-exposed inputs
-	UPROPERTY()
+	UPROPERTY(meta=(BlueprintCompilerGeneratedDefaults))
 	FExposedValueHandler EvaluateGraphExposedInputs;
 
 	// A derived class should implement Initialize, Update, and either Evaluate or EvaluateComponentSpace, but not both of them
@@ -519,9 +543,6 @@ struct ENGINE_API FAnimNode_Base
 	virtual ~FAnimNode_Base() {}
 
 protected:
-	/** return true if eanbled, otherwise, return false. This is utility function that can be used per node level */
-	bool IsLODEnabled(UAnimInstance* AnimInstace, int32 InLODThreshold)
-	{
-		return (InLODThreshold == INDEX_NONE || AnimInstace->GetOwningComponent()->PredictedLODLevel <= InLODThreshold);
-	}
+	/** return true if enabled, otherwise, return false. This is utility function that can be used per node level */
+	bool IsLODEnabled(FAnimInstanceProxy* AnimInstanceProxy, int32 InLODThreshold);
 };

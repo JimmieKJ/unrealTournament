@@ -9,7 +9,7 @@
 /**
  * HUD that displays info for the DebugCameraController view.
  */
-UCLASS(config=Game)
+UCLASS(config = Game, hidedropdown)
 class ENGINE_API ADebugCameraHUD
 	: public AHUD
 {

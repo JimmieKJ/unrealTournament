@@ -8,29 +8,6 @@
 #include "FontCache.h"
 #include "ElementBatcher.h"
 
-FSlateOpenGLRenderer::FSlateOpenGLRenderer( const ISlateStyle& InStyle )
-:	Style( InStyle )
-{
-
-	ViewMatrix = FMatrix(	FPlane(1,	0,	0,	0),
-							FPlane(0,	1,	0,	0),
-							FPlane(0,	0,	1,  0),
-							FPlane(0,	0,	0,	1));
-
-}
-
-FSlateOpenGLRenderer::~FSlateOpenGLRenderer()
-{
-}
-
-/** Returns a draw buffer that can be used by Slate windows to draw window elements */
-FSlateDrawBuffer& FSlateOpenGLRenderer::GetDrawBuffer()
-{
-	// Clear out the buffer each time its accessed
-	DrawBuffer.ClearBuffer();
-	return DrawBuffer;
-}
-
 class FSlateOpenGLFontAtlasFactory : public ISlateFontAtlasFactory
 {
 public:
@@ -57,20 +34,45 @@ private:
 	static const uint32 TextureSize = 1024;
 };
 
+TSharedRef<FSlateFontServices> CreateOpenGLFontServices()
+{
+	const TSharedRef<FSlateFontCache> FontCache = MakeShareable(new FSlateFontCache(MakeShareable(new FSlateOpenGLFontAtlasFactory)));
+
+	return MakeShareable(new FSlateFontServices(FontCache, FontCache));
+}
+
+FSlateOpenGLRenderer::FSlateOpenGLRenderer( const ISlateStyle& InStyle )
+	: FSlateRenderer( CreateOpenGLFontServices() )
+	, Style( InStyle )
+{
+
+	ViewMatrix = FMatrix(	FPlane(1,	0,	0,	0),
+							FPlane(0,	1,	0,	0),
+							FPlane(0,	0,	1,  0),
+							FPlane(0,	0,	0,	1));
+
+}
+
+FSlateOpenGLRenderer::~FSlateOpenGLRenderer()
+{
+}
+
+/** Returns a draw buffer that can be used by Slate windows to draw window elements */
+FSlateDrawBuffer& FSlateOpenGLRenderer::GetDrawBuffer()
+{
+	// Clear out the buffer each time its accessed
+	DrawBuffer.ClearBuffer();
+	return DrawBuffer;
+}
+
 void FSlateOpenGLRenderer::Initialize()
 {
 	SharedContext.Initialize( NULL, NULL );
 
-	/** Size of each font texture, width and height */
-	const uint32 TextureSize = 1024;
-
 	TextureManager = MakeShareable( new FSlateOpenGLTextureManager );
 	FSlateDataPayload::ResourceManager = TextureManager.Get();
 
-	FontCache = MakeShareable( new FSlateFontCache( MakeShareable( new FSlateOpenGLFontAtlasFactory ) ) );
-	FontMeasure = FSlateFontMeasure::Create( FontCache.ToSharedRef() );
-
-	RenderingPolicy = MakeShareable( new FSlateOpenGLRenderingPolicy( FontCache, TextureManager ) );
+	RenderingPolicy = MakeShareable( new FSlateOpenGLRenderingPolicy( SlateFontServices.ToSharedRef(), TextureManager.ToSharedRef() ) );
 
 	ElementBatcher = MakeShareable( new FSlateElementBatcher( RenderingPolicy.ToSharedRef() ) );
 
@@ -92,6 +94,8 @@ void FSlateOpenGLRenderer::Initialize()
  */
 void FSlateOpenGLRenderer::DrawWindows( FSlateDrawBuffer& InWindowDrawBuffer )
 {
+	const TSharedRef<FSlateFontCache> FontCache = SlateFontServices->GetFontCache();
+
 	// Update the font cache with new text before elements are batched
 	FontCache->UpdateCache();
 

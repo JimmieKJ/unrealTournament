@@ -9,3 +9,7 @@
 
 #include "ProceduralMeshComponent.h"
 #include "PhysicsEngine/BodySetup.h"
+
+#pragma once
+
+DECLARE_STATS_GROUP(TEXT("ProceduralMesh"), STATGROUP_ProceduralMesh, STATCAT_Advanced);

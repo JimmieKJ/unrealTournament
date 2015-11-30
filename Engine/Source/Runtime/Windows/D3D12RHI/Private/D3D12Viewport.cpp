@@ -671,16 +671,6 @@ void FD3D12CommandContext::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRH
 #endif
 }
 
-/**
- * Determine if currently drawing the viewport
- *
- * @return true if currently within a BeginDrawingViewport/EndDrawingViewport block
- */
-bool FD3D12DynamicRHI::RHIIsDrawingViewport()
-{
-	return GetRHIDevice()->GetDrawingViewport() != NULL;
-}
-
 void FD3D12DynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()
 {
 	ViewportFrameCounter++;

@@ -5,6 +5,7 @@
 #include "MovieScene.h"
 #include "MovieSceneSequence.h"
 #include "MovieSceneSequenceInstance.h"
+#include "LevelSequenceSpawnRegister.h"
 
 
 struct FTickAnimationPlayers : public FTickableGameObject
@@ -68,7 +69,10 @@ ULevelSequencePlayer::ULevelSequencePlayer(const FObjectInitializer& ObjectIniti
 	, bIsPlaying(false)
 	, TimeCursorPosition(0.0f)
 	, CurrentNumLoops(0)
-{ }
+	, bHasCleanedUpSequence(false)
+{
+	SpawnRegister = MakeShareable(new FLevelSequenceSpawnRegister);
+}
 
 
 /* ULevelSequencePlayer interface
@@ -124,10 +128,15 @@ void ULevelSequencePlayer::Play()
 	}
 
 	// @todo Sequencer playback: Should we recreate the instance every time?
-	RootMovieSceneInstance = MakeShareable(new FMovieSceneSequenceInstance(*LevelSequence));
-	RootMovieSceneInstance->RefreshInstance(*this);
+	// We must not recreate the instance since it holds stateful information (such as which objects it has spawned). Recreating the instance would break any 
+	if (!RootMovieSceneInstance.IsValid())
+	{
+		RootMovieSceneInstance = MakeShareable(new FMovieSceneSequenceInstance(*LevelSequence));
+		RootMovieSceneInstance->RefreshInstance(*this);
+	}
 
 	bIsPlaying = true;
+	bHasCleanedUpSequence = false;
 
 	UpdateMovieSceneInstance(TimeCursorPosition, TimeCursorPosition);
 }
@@ -174,6 +183,17 @@ void ULevelSequencePlayer::SetPlayRate(float PlayRate)
 	PlaybackSettings.PlayRate = PlayRate;
 }
 
+void ULevelSequencePlayer::SetPlaybackRange( const float NewStartTime, const float NewEndTime )
+{
+	if( LevelSequence != nullptr )
+	{
+		UMovieScene* MovieScene = LevelSequence->GetMovieScene();
+		if( MovieScene != nullptr )
+		{
+			MovieScene->SetPlaybackRange( NewStartTime, NewEndTime );
+		}
+	}
+}
 
 void ULevelSequencePlayer::OnCursorPositionChanged()
 {
@@ -187,6 +207,8 @@ void ULevelSequencePlayer::OnCursorPositionChanged()
 			++CurrentNumLoops;
 			const float Overplay = FMath::Fmod(TimeCursorPosition, Length);
 			TimeCursorPosition = Overplay < 0 ? Length + Overplay : Overplay;
+
+			SpawnRegister->ForgetExternallyOwnedSpawnedObjects(*this);
 		}
 		else
 		{
@@ -204,9 +226,6 @@ void ULevelSequencePlayer::OnCursorPositionChanged()
 void ULevelSequencePlayer::Initialize(ULevelSequence* InLevelSequence, UWorld* InWorld, const FLevelSequencePlaybackSettings& Settings)
 {
 	LevelSequence = InLevelSequence;
-	LevelSequence->BindToContext(InWorld);
-
-	SequenceStartOffset = LevelSequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue();
 
 	World = InWorld;
 	PlaybackSettings = Settings;
@@ -221,7 +240,8 @@ void ULevelSequencePlayer::Initialize(ULevelSequence* InLevelSequence, UWorld* I
 
 void ULevelSequencePlayer::GetRuntimeObjects(TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectId, TArray<UObject*>& OutObjects) const
 {
-	if (UObject* FoundObject = LevelSequence->FindObject(ObjectId))
+	UObject* FoundObject = MovieSceneInstance->FindObject(ObjectId, *this);
+	if (FoundObject)
 	{
 		OutObjects.Add(FoundObject);
 	}
@@ -293,6 +313,11 @@ TSharedRef<FMovieSceneSequenceInstance> ULevelSequencePlayer::GetRootMovieSceneS
 	return RootMovieSceneInstance.ToSharedRef();
 }
 
+UObject* ULevelSequencePlayer::GetPlaybackContext() const
+{
+	return World.Get();
+}
+
 void ULevelSequencePlayer::Update(const float DeltaSeconds)
 {
 	float LastTimePosition = TimeCursorPosition;
@@ -301,18 +326,30 @@ void ULevelSequencePlayer::Update(const float DeltaSeconds)
 	{
 		TimeCursorPosition += DeltaSeconds * PlaybackSettings.PlayRate;
 		OnCursorPositionChanged();
+		UpdateMovieSceneInstance(TimeCursorPosition, LastTimePosition);
 	}
+	else if (!bHasCleanedUpSequence && TimeCursorPosition >= GetLength())
+	{
+		UpdateMovieSceneInstance(TimeCursorPosition, LastTimePosition);
 
-	UpdateMovieSceneInstance(TimeCursorPosition, LastTimePosition);
+		bHasCleanedUpSequence = true;
+		SpawnRegister->DestroyAllOwnedObjects(*this);
+	}
 }
 
 void ULevelSequencePlayer::UpdateMovieSceneInstance(float CurrentPosition, float PreviousPosition)
 {
 	if(RootMovieSceneInstance.IsValid())
 	{
+		const float SequenceStartOffset = LevelSequence->GetMovieScene()->GetPlaybackRange().GetLowerBoundValue();
 		RootMovieSceneInstance->Update(CurrentPosition + SequenceStartOffset, PreviousPosition + SequenceStartOffset, *this);
 #if WITH_EDITOR
 		OnLevelSequencePlayerUpdate.Broadcast(*this, CurrentPosition, PreviousPosition);
 #endif
 	}
+}
+
+IMovieSceneSpawnRegister& ULevelSequencePlayer::GetSpawnRegister()
+{
+	return *SpawnRegister;
 }

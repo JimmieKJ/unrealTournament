@@ -31,8 +31,8 @@
 		private void InitializeComponent()
 		{
 			this.components = new System.ComponentModel.Container();
-			System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea1 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
-			System.Windows.Forms.DataVisualization.Charting.Legend legend1 = new System.Windows.Forms.DataVisualization.Charting.Legend();
+			System.Windows.Forms.DataVisualization.Charting.ChartArea chartArea2 = new System.Windows.Forms.DataVisualization.Charting.ChartArea();
+			System.Windows.Forms.DataVisualization.Charting.Legend legend2 = new System.Windows.Forms.DataVisualization.Charting.Legend();
 			this.OpenButton = new System.Windows.Forms.Button();
 			this.NetworkChart = new System.Windows.Forms.DataVisualization.Charting.Chart();
 			this.ChartListBox = new System.Windows.Forms.CheckedListBox();
@@ -80,6 +80,8 @@
 			this.columnHeader10 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
 			this.CurrentProgress = new System.Windows.Forms.ProgressBar();
 			this.ContextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+			this.EarlyOutLabel = new System.Windows.Forms.Label();
+			this.MaxProfileMinutesTextBox = new System.Windows.Forms.TextBox();
 			((System.ComponentModel.ISupportInitialize)(this.NetworkChart)).BeginInit();
 			this.tabControl1.SuspendLayout();
 			this.tabPage1.SuspendLayout();
@@ -112,21 +114,21 @@
             | System.Windows.Forms.AnchorStyles.Right)));
 			this.NetworkChart.AntiAliasing = System.Windows.Forms.DataVisualization.Charting.AntiAliasingStyles.Graphics;
 			this.NetworkChart.BackColor = System.Drawing.Color.Transparent;
-			chartArea1.AxisX.MajorGrid.LineColor = System.Drawing.Color.DarkGray;
-			chartArea1.AxisX.ScrollBar.IsPositionedInside = false;
-			chartArea1.AxisY.MajorGrid.LineColor = System.Drawing.Color.DarkGray;
-			chartArea1.AxisY.ScrollBar.IsPositionedInside = false;
-			chartArea1.BackColor = System.Drawing.Color.Transparent;
-			chartArea1.CursorX.IsUserEnabled = true;
-			chartArea1.CursorX.IsUserSelectionEnabled = true;
-			chartArea1.Name = "DefaultChartArea";
-			this.NetworkChart.ChartAreas.Add(chartArea1);
-			legend1.BackColor = System.Drawing.Color.Transparent;
-			legend1.DockedToChartArea = "DefaultChartArea";
-			legend1.Docking = System.Windows.Forms.DataVisualization.Charting.Docking.Top;
-			legend1.LegendStyle = System.Windows.Forms.DataVisualization.Charting.LegendStyle.Column;
-			legend1.Name = "DefaultLegend";
-			this.NetworkChart.Legends.Add(legend1);
+			chartArea2.AxisX.MajorGrid.LineColor = System.Drawing.Color.DarkGray;
+			chartArea2.AxisX.ScrollBar.IsPositionedInside = false;
+			chartArea2.AxisY.MajorGrid.LineColor = System.Drawing.Color.DarkGray;
+			chartArea2.AxisY.ScrollBar.IsPositionedInside = false;
+			chartArea2.BackColor = System.Drawing.Color.Transparent;
+			chartArea2.CursorX.IsUserEnabled = true;
+			chartArea2.CursorX.IsUserSelectionEnabled = true;
+			chartArea2.Name = "DefaultChartArea";
+			this.NetworkChart.ChartAreas.Add(chartArea2);
+			legend2.BackColor = System.Drawing.Color.Transparent;
+			legend2.DockedToChartArea = "DefaultChartArea";
+			legend2.Docking = System.Windows.Forms.DataVisualization.Charting.Docking.Top;
+			legend2.LegendStyle = System.Windows.Forms.DataVisualization.Charting.LegendStyle.Column;
+			legend2.Name = "DefaultLegend";
+			this.NetworkChart.Legends.Add(legend2);
 			this.NetworkChart.Location = new System.Drawing.Point(15, 6);
 			this.NetworkChart.Name = "NetworkChart";
 			this.NetworkChart.Palette = System.Windows.Forms.DataVisualization.Charting.ChartColorPalette.Bright;
@@ -572,9 +574,9 @@
 			// 
 			// CurrentProgress
 			// 
-			this.CurrentProgress.Location = new System.Drawing.Point(384, 49);
+			this.CurrentProgress.Location = new System.Drawing.Point(485, 49);
 			this.CurrentProgress.Name = "CurrentProgress";
-			this.CurrentProgress.Size = new System.Drawing.Size(430, 23);
+			this.CurrentProgress.Size = new System.Drawing.Size(548, 23);
 			this.CurrentProgress.TabIndex = 19;
 			// 
 			// ContextMenuStrip1
@@ -582,11 +584,30 @@
 			this.ContextMenuStrip1.Name = "ContextMenuStrip1";
 			this.ContextMenuStrip1.Size = new System.Drawing.Size(61, 4);
 			// 
+			// EarlyOutLabel
+			// 
+			this.EarlyOutLabel.AutoSize = true;
+			this.EarlyOutLabel.Location = new System.Drawing.Point(315, 55);
+			this.EarlyOutLabel.Name = "EarlyOutLabel";
+			this.EarlyOutLabel.Size = new System.Drawing.Size(102, 13);
+			this.EarlyOutLabel.TabIndex = 20;
+			this.EarlyOutLabel.Text = "Max Profile Minutes:";
+			// 
+			// EarlyOutMinTextBox
+			// 
+			this.MaxProfileMinutesTextBox.Location = new System.Drawing.Point(419, 51);
+			this.MaxProfileMinutesTextBox.Name = "EarlyOutMinTextBox";
+			this.MaxProfileMinutesTextBox.Size = new System.Drawing.Size(58, 20);
+			this.MaxProfileMinutesTextBox.TabIndex = 21;
+			this.MaxProfileMinutesTextBox.TextChanged += new System.EventHandler(this.MaxProfileMinutesTextBox_TextChanged);
+			// 
 			// MainWindow
 			// 
 			this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
 			this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
 			this.ClientSize = new System.Drawing.Size(1255, 846);
+			this.Controls.Add(this.MaxProfileMinutesTextBox);
+			this.Controls.Add(this.EarlyOutLabel);
 			this.Controls.Add(this.CurrentProgress);
 			this.Controls.Add(this.tabControl1);
 			this.Controls.Add(this.OpenButton);
@@ -606,6 +627,7 @@
 			this.tabPage4.ResumeLayout(false);
 			this.tabPage5.ResumeLayout(false);
 			this.ResumeLayout(false);
+			this.PerformLayout();
 
 		}
 
@@ -658,6 +680,8 @@
 		private System.Windows.Forms.TreeView TokenDetailsView;
 		private System.Windows.Forms.ListView ActorPerfPropsListView;
 		private System.Windows.Forms.ListView ActorPerfPropsDetailsListView;
+		private System.Windows.Forms.Label EarlyOutLabel;
+		private System.Windows.Forms.TextBox MaxProfileMinutesTextBox;
 	}
 }
 

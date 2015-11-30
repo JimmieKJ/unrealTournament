@@ -4,6 +4,18 @@
 
 #include "MovieSceneSpawnable.generated.h"
 
+UENUM()
+enum class ESpawnOwnership : uint8
+{
+	/** The object's lifetime is managed by the sequence that spawned it */
+	InnerSequence,
+
+	/** The object's lifetime is managed by the outermost sequence */
+	MasterSequence,
+
+	/** Once spawned, the object's lifetime is managed externally. */
+	External,
+};
 
 /**
  * MovieSceneSpawnable describes an object that can be spawned for this MovieScene
@@ -23,6 +35,7 @@ public:
 		: Guid(FGuid::NewGuid())
 		, Name(InitName)
 		, GeneratedClass(InitClass)
+		, Ownership(ESpawnOwnership::InnerSequence)
 	{ }
 
 public:
@@ -88,6 +101,22 @@ public:
 		return ChildPossessables;
 	}
 
+	/**
+	 * Get a value indicating what is responsible for this object once it's spawned
+	 */
+	ESpawnOwnership GetSpawnOwnership() const
+	{
+		return Ownership;
+	}
+
+	/**
+	 * Set a value indicating what is responsible for this object once it's spawned
+	 */
+	void SetSpawnOwnership(ESpawnOwnership InOwnership)
+	{
+		Ownership = InOwnership;
+	}
+
 private:
 
 	/** Unique identifier of the spawnable object. */
@@ -110,4 +139,8 @@ private:
 	// @todo sequencer: This should be a TSet, but they don't duplicate correctly atm
 	UPROPERTY()
 	TArray<FGuid> ChildPossessables;
+
+	/** Property indicating where ownership responsibility for this object lies */
+	UPROPERTY()
+	ESpawnOwnership Ownership;
 };

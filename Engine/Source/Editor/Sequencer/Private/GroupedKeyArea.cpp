@@ -163,24 +163,19 @@ FLinearColor FGroupedKeyArea::GetKeyTint(FKeyHandle InHandle) const
 
 const FSlateBrush* FGroupedKeyArea::GetBrush(FKeyHandle InHandle) const
 {
-	static const FSlateBrush* KeyBrush = FEditorStyle::GetBrush("Sequencer.Key");
 	static const FSlateBrush* PartialKeyBrush = FEditorStyle::GetBrush("Sequencer.PartialKey");
-
 	const auto* Group = FindGroup(InHandle);
-
-	bool bPartialKey = false;
 
 	// Ensure that each key area is represented at least once for it to be considered a 'complete key'
 	for (int32 AreaIndex = 0; Group && AreaIndex < KeyAreas.Num(); ++AreaIndex)
 	{
 		if (!Group->Keys.ContainsByPredicate([&](const FKeyGrouping::FKeyIndex& Key){ return Key.AreaIndex == AreaIndex; }))
 		{
-			bPartialKey = true;
-			break;
+			return PartialKeyBrush;
 		}
 	}
 
-	return bPartialKey ? PartialKeyBrush : KeyBrush;
+	return nullptr;
 }
 
 TArray<FKeyHandle> FGroupedKeyArea::GetUnsortedKeyHandles() const
@@ -373,6 +368,44 @@ TArray<FKeyHandle> FGroupedKeyArea::AddKeyUnique(float Time, EMovieSceneKeyInter
 	return AddedKeyHandles;
 }
 
+TOptional<FKeyHandle> FGroupedKeyArea::DuplicateKey(FKeyHandle KeyToDuplicate)
+{
+	FKeyGrouping* Group = FindGroup(KeyToDuplicate);
+	if (!Group)
+	{
+		return TOptional<FKeyHandle>();
+	}
+
+	const float Time = Group->RepresentativeTime;
+
+	const int32 NewGroupIndex = Groups.Num();
+	Groups.Emplace(Time);
+	
+	for (const FKeyGrouping::FKeyIndex& Key : Group->Keys)
+	{
+		TOptional<FKeyHandle> NewKeyHandle = KeyAreas[Key.AreaIndex]->DuplicateKey(Key.KeyHandle);
+		if (NewKeyHandle.IsSet())
+		{
+			Groups[NewGroupIndex].Keys.Emplace(Key.AreaIndex, NewKeyHandle.GetValue());
+		}
+	}
+
+	// Update the global index with our new key
+	FIndexEntry* IndexEntry = GlobalIndex.Find(IndexKey);
+	if (IndexEntry)
+	{
+		FKeyHandle ThisGroupKeyHandle;
+
+		IndexEntry->GroupHandles.Add(ThisGroupKeyHandle);
+		IndexEntry->HandleToGroup.Add(ThisGroupKeyHandle, NewGroupIndex);
+		IndexEntry->RepresentativeTimes.Add(Time);
+
+		return ThisGroupKeyHandle;
+	}
+
+	return TOptional<FKeyHandle>();
+}
+
 FRichCurve* FGroupedKeyArea::GetRichCurve()
 {
 	return nullptr;
@@ -388,7 +421,57 @@ bool FGroupedKeyArea::CanCreateKeyEditor()
 	return false;
 }
 
+
+void FGroupedKeyArea::CopyKeys(FMovieSceneClipboardBuilder& ClipboardBuilder, const TFunctionRef<bool(FKeyHandle, const IKeyArea&)>& KeyMask) const
+{
+	const FIndexEntry* IndexEntry = GlobalIndex.Find(IndexKey);
+	if (!IndexEntry)
+	{
+		return;
+	}
+
+	// Since we are a group of nested key areas, we test the key mask for our key handles, and forward on the results to each key area
+
+	// Using ptr as map key is fine here as we know they will not change
+	TMap<const IKeyArea*, TSet<FKeyHandle>> AllValidHandles;
+
+	for (auto& Pair : IndexEntry->HandleToGroup)
+	{
+		if (!KeyMask(Pair.Key, *this) || !Groups.IsValidIndex(Pair.Value))
+		{
+			continue;
+		}
+
+		const FKeyGrouping& Group = Groups[Pair.Value];
+		for (const FKeyGrouping::FKeyIndex& KeyIndex : Group.Keys)
+		{
+			const IKeyArea& KeyArea = KeyAreas[KeyIndex.AreaIndex].Get();
+			AllValidHandles.FindOrAdd(&KeyArea).Add(KeyIndex.KeyHandle);
+		}
+	}
+
+	for (auto& Pair : AllValidHandles)
+	{
+		Pair.Key->CopyKeys(ClipboardBuilder, [&](FKeyHandle Handle, const IKeyArea&){
+			return Pair.Value.Contains(Handle);
+		});
+	}
+}
+
+
 TSharedRef<SWidget> FGroupedKeyArea::CreateKeyEditor(ISequencer* Sequencer)
 {
 	return SNullWidget::NullWidget;
+}
+
+
+FLinearColor FGroupedKeyArea::GetColor()
+{
+	return FLinearColor(0.1f, 0.1f, 0.1f, 0.7f);
+}
+
+
+void FGroupedKeyArea::PasteKeys(const FMovieSceneClipboardKeyTrack& KeyTrack, const FMovieSceneClipboardEnvironment& SrcEnvironment, const FSequencerPasteEnvironment& DstEnvironment)
+{
+	checkf(false, TEXT("Pasting into grouped key areas is not supported, and should not be used. Iterate child tracks instead."));
 }

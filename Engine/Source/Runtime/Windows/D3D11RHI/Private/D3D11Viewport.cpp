@@ -596,16 +596,6 @@ void FD3D11DynamicRHI::RHIEndDrawingViewport(FViewportRHIParamRef ViewportRHI,bo
 #endif
 }
 
-/**
- * Determine if currently drawing the viewport
- *
- * @return true if currently within a BeginDrawingViewport/EndDrawingViewport block
- */
-bool FD3D11DynamicRHI::RHIIsDrawingViewport()
-{
-	return DrawingViewport != NULL;
-}
-
 void FD3D11DynamicRHI::RHIAdvanceFrameForGetViewportBackBuffer()
 {
 }

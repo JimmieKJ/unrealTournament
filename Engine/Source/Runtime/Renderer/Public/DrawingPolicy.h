@@ -39,7 +39,8 @@ public:
 		bool bInOverrideWithShaderComplexity = false,
 		bool bInTwoSidedOverride = false,
 		bool bInDitheredLODTransitionOverride = false,
-		bool bInWireframeOverride = false
+		bool bInWireframeOverride = false,
+		EQuadOverdrawMode InQuadOverdrawMode = QOM_None
 		);
 
 	FMeshDrawingPolicy& operator = (const FMeshDrawingPolicy& Other)
@@ -53,6 +54,7 @@ public:
 		bNeedsBackfacePass = Other.bNeedsBackfacePass;
 		bUsePositionOnlyVS = Other.bUsePositionOnlyVS;
 		bOverrideWithShaderComplexity = Other.bOverrideWithShaderComplexity;
+		QuadOverdrawMode = Other.QuadOverdrawMode;
 		return *this; 
 	}
 
@@ -135,6 +137,7 @@ public:
 	const FVertexFactory* GetVertexFactory() const { return VertexFactory; }
 	const FMaterialRenderProxy* GetMaterialRenderProxy() const { return MaterialRenderProxy; }
 
+	FORCEINLINE EQuadOverdrawMode GetQuadOverdrawMode() const { return (EQuadOverdrawMode)QuadOverdrawMode; }
 protected:
 	const FVertexFactory* VertexFactory;
 	const FMaterialRenderProxy* MaterialRenderProxy;
@@ -145,6 +148,7 @@ protected:
 	uint32 bNeedsBackfacePass : 1;
 	uint32 bUsePositionOnlyVS : 1;
 	uint32 bOverrideWithShaderComplexity : 1;
+	uint32 QuadOverdrawMode : 3;
 };
 
 

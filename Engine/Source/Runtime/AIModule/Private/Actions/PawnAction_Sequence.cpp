@@ -96,7 +96,7 @@ bool UPawnAction_Sequence::PushNextActionCopy()
 	}
 
 	UPawnAction* ActionCopy = SubActionTriggeringPolicy == EPawnSubActionTriggeringPolicy::CopyBeforeTriggering
-		? Cast<UPawnAction>(StaticDuplicateObject(ActionSequence[CurrentActionIndex], this, NULL))
+		? Cast<UPawnAction>(StaticDuplicateObject(ActionSequence[CurrentActionIndex], this))
 		: ActionSequence[CurrentActionIndex];
 
 	UE_VLOG(GetPawn(), LogPawnAction, Log, TEXT("%s> pushing action %s")

@@ -247,7 +247,7 @@ bool FTransaction::FObjectRecord::ContainsPieObject() const
 	{
 		UObject* Obj = Object.Get();
 
-		if(Obj && (Obj->GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0)
+		if(Obj && Obj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			return true;
 		}
@@ -256,7 +256,7 @@ bool FTransaction::FObjectRecord::ContainsPieObject() const
 	for( const FReferencedObject& ReferencedObject : ReferencedObjects )
 	{
 		const UObject* Obj = ReferencedObject.GetObject();
-		if( Obj && (Obj->GetOutermost()->PackageFlags & PKG_PlayInEditor) != 0 )
+		if( Obj && Obj->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 		{
 			return true;
 		}
@@ -308,7 +308,7 @@ void FTransaction::SaveArray( UObject* Object, FScriptArray* Array, int32 Index,
 	check(Index+Count<=Array->Num());
 
 	// don't serialize the array if the object is contained within a PIE package
-	if( Object->HasAnyFlags(RF_Transactional) && (Object->GetOutermost()->PackageFlags&PKG_PlayInEditor) == 0 )
+	if( Object->HasAnyFlags(RF_Transactional) && !Object->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 	{
 		// Save the array.
 		new( Records )FObjectRecord( this, Object, Array, Index, Count, Oper, ElementSize, DefaultConstructor, Serializer, Destructor );
@@ -792,7 +792,7 @@ void UTransBuffer::SetPrimaryUndoObject(UObject* PrimaryObject)
 {
 	// Only record the primary object if its transactional, not in any of the temporary packages and theres an active transaction
 	if ( PrimaryObject && PrimaryObject->HasAnyFlags( RF_Transactional ) &&
-		( (PrimaryObject->GetOutermost()->PackageFlags & ( PKG_PlayInEditor|PKG_ContainsScript|PKG_CompiledIn ) ) == 0 ) )
+		(PrimaryObject->GetOutermost()->HasAnyPackageFlags( PKG_PlayInEditor|PKG_ContainsScript|PKG_CompiledIn ) == false) )
 	{
 		const int32 NumTransactions = UndoBuffer.Num();
 		const int32 CurrentTransactionIdx = NumTransactions - (UndoCount + 1);

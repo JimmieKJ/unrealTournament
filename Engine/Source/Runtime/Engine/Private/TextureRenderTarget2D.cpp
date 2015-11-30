@@ -115,6 +115,12 @@ void UTextureRenderTarget2D::PostEditChangeProperty(FPropertyChangedEvent& Prope
 	SizeX = FMath::Clamp<int32>(SizeX - (SizeX % GPixelFormats[Format].BlockSizeX),1,MaxSize);
 	SizeY = FMath::Clamp<int32>(SizeY - (SizeY % GPixelFormats[Format].BlockSizeY),1,MaxSize);
 
+	// Always set SRGB back to 'on'; it will be turned off again in the call to Super::PostEditChangeProperty below if necessary
+	if (PropertyChangedEvent.Property)
+	{
+		SRGB = true;
+	}
+
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 }
 #endif // WITH_EDITOR

@@ -166,7 +166,7 @@ void MainPS(
 	, out float4 OutTarget0 : SV_Target0
 #endif
 
-#if DECAL_RENDERTARGET_COUNT > 1
+#if DECAL_RENDERTARGET_COUNT > 1 && BIND_RENDERTARGET1 // Used to avoid outputting normals!
 	, out float4 OutTarget1 : SV_Target1
 #endif
 
@@ -187,6 +187,10 @@ void MainPS(
 
 	)
 {
+#if DECAL_RENDERTARGET_COUNT > 1 && !BIND_RENDERTARGET1
+	float4 OutTarget1;
+#endif
+
 	float2 ScreenUV = SvPositionToBufferUV(SvPosition);
 
 	// make SvPosition appear to be rasterized with the depth from the depth buffer
@@ -417,4 +421,3 @@ void MainPS(
 }
 
 #endif // DECAL_PROJECTION
-

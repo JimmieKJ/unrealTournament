@@ -2659,7 +2659,7 @@ UFoliageType* FEdModeFoliage::CopySettingsObject(UFoliageType* Settings)
 	TUniqueObj<FFoliageMeshInfo> MeshInfo;
 	if (IFA->FoliageMeshes.RemoveAndCopyValue(Settings, MeshInfo))
 	{
-		Settings = (UFoliageType*)StaticDuplicateObject(Settings, IFA, nullptr, RF_AllFlags & ~(RF_Standalone | RF_Public));
+		Settings = (UFoliageType*)StaticDuplicateObject(Settings, IFA, NAME_None, RF_AllFlags & ~(RF_Standalone | RF_Public));
 		IFA->FoliageMeshes.Add(Settings, MoveTemp(MeshInfo));
 		return Settings;
 	}

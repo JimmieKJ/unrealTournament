@@ -4,7 +4,7 @@
 #include "SignificanceManager.h"
 #include "DisplayDebugHelpers.h"
 
-IMPLEMENT_MODULE( FDefaultModuleImpl, SignificanceManager );
+IMPLEMENT_MODULE( FSignificanceManagerModule, SignificanceManager );
 
 DECLARE_CYCLE_STAT(TEXT("Update Total"), STAT_SignificanceManager_Update, STATGROUP_SignificanceManager);
 DECLARE_CYCLE_STAT(TEXT("Significance Update"), STAT_SignificanceManager_SignificanceUpdate, STATGROUP_SignificanceManager);
@@ -33,6 +33,67 @@ CompareFunctionType& PickCompareBySignificance(const bool bAscending)
 	return (bAscending ? CompareBySignificanceAscending : CompareBySignificanceDescending);
 }
 
+TMap<const UWorld*, USignificanceManager*> FSignificanceManagerModule::WorldSignificanceManagers;
+TSubclassOf<USignificanceManager> FSignificanceManagerModule::SignificanceManagerClass;
+
+void FSignificanceManagerModule::StartupModule()
+{
+	FWorldDelegates::OnPreWorldInitialization.AddStatic(&FSignificanceManagerModule::OnWorldInit);
+	FWorldDelegates::OnWorldCleanup.AddStatic(&FSignificanceManagerModule::OnWorldCleanup);
+	if (!IsRunningDedicatedServer())
+	{
+		AHUD::OnShowDebugInfo.AddStatic(&FSignificanceManagerModule::OnShowDebugInfo);
+	}
+}
+
+void FSignificanceManagerModule::AddReferencedObjects( FReferenceCollector& Collector )
+{
+	for (TPair<const UWorld*, USignificanceManager*>& WorldSignificanceManagerPair : WorldSignificanceManagers)
+	{
+		Collector.AddReferencedObject(WorldSignificanceManagerPair.Value, WorldSignificanceManagerPair.Key);
+	}
+	UClass* SignificanceManagerClassPtr = *SignificanceManagerClass;
+	Collector.AddReferencedObject(SignificanceManagerClassPtr);
+	SignificanceManagerClass = SignificanceManagerClassPtr; // Since pointer can be modified by AddReferencedObject
+}
+
+void FSignificanceManagerModule::OnWorldInit(UWorld* World, const UWorld::InitializationValues IVS)
+{
+	if (World->IsGameWorld())
+	{
+		if (*SignificanceManagerClass == nullptr)
+		{
+			SignificanceManagerClass = LoadClass<USignificanceManager>(nullptr, *GetDefault<USignificanceManager>()->SignificanceManagerClassName.ToString());
+		}
+
+		if (*SignificanceManagerClass != nullptr)
+		{
+			const USignificanceManager* ManagerToCreateDefault = SignificanceManagerClass->GetDefaultObject<USignificanceManager>();
+			if ((ManagerToCreateDefault->bCreateOnServer && !IsRunningClientOnly()) || (ManagerToCreateDefault->bCreateOnClient && !IsRunningDedicatedServer()))
+			{
+				WorldSignificanceManagers.Add(World, NewObject<USignificanceManager>(World, SignificanceManagerClass));
+			}
+		}
+	}
+}
+
+void FSignificanceManagerModule::OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources)
+{
+	WorldSignificanceManagers.Remove(World);
+}
+
+void FSignificanceManagerModule::OnShowDebugInfo(AHUD* HUD, UCanvas* Canvas, const FDebugDisplayInfo& DisplayInfo, float& YL, float& YPos)
+{
+	static const FName NAME_SignificanceManager("SignificanceManager");
+	if (Canvas && HUD->ShouldDisplayDebug(NAME_SignificanceManager))
+	{
+		if (USignificanceManager* SignificanceManager = Get(HUD->GetWorld()))
+		{
+			SignificanceManager->OnShowDebugInfo(HUD, Canvas, DisplayInfo, YL, YPos);
+		}
+	}
+}
+
 USignificanceManager::USignificanceManager()
 	: Super()
 {
@@ -41,69 +102,6 @@ USignificanceManager::USignificanceManager()
 	bCreateOnClient = true;
 	bCreateOnServer = true;
 	bSortSignificanceAscending = false;
-
-	// Only put this in place for the actual USignificanceManager CDO
-	if (HasAnyFlags(RF_ClassDefaultObject) && GetClass() == USignificanceManager::StaticClass())
-	{
-		FWorldDelegates::OnPreWorldInitialization.AddUObject(this, &USignificanceManager::OnWorldInit);
-		FWorldDelegates::OnWorldCleanup.AddUObject(this, &USignificanceManager::OnWorldCleanup);
-		if (!IsRunningDedicatedServer())
-		{
-			AHUD::OnShowDebugInfo.AddUObject(this, &USignificanceManager::OnShowDebugInfo);
-		}
-	}
-}
-
-/** Gets the instance of USignificanceManager that holds references to world significance managers */
-static USignificanceManager* GetSignificanceManagerSingleton()
-{
-	static struct FSingletonInit
-	{
-		FName SingletonName;
-		FSingletonInit()
-			: SingletonName(TEXT("SignificanceSingleton"))
-		{
-			// Construct root set object to hold manager references that exist outside of disregard for GC pool.
-			USignificanceManager* Singleton = Cast<USignificanceManager>(StaticFindObjectFast(USignificanceManager::StaticClass(), GetTransientPackage(), SingletonName));
-			if (!Singleton)
-			{
-				Singleton = NewObject<USignificanceManager>(GetTransientPackage(), SingletonName);
-			}
-			Singleton->AddToRoot();
-		}
-	} SingletonInit;
-	// Always find in memory (should be very quick). Don't store static references, this breaks hot-reload!
-	return CastChecked<USignificanceManager>(StaticFindObjectFast(USignificanceManager::StaticClass(), GetTransientPackage(), SingletonInit.SingletonName));
-}
-
-USignificanceManager* USignificanceManager::Get(const UWorld* World)
-{ 
-	return GetSignificanceManagerSingleton()->WorldSignificanceManagers.FindRef(World);
-}
-
-void USignificanceManager::OnWorldInit(UWorld* World, const UWorld::InitializationValues IVS)
-{
-	if (World->IsGameWorld())
-	{
-		if (*SignificanceManagerClass == nullptr)
-		{
-			SignificanceManagerClass = LoadClass<USignificanceManager>(nullptr, *SignificanceManagerClassName.ToString());
-		}
-
-		if (*SignificanceManagerClass != nullptr)
-		{
-			USignificanceManager* ManagerToCreateDefault = SignificanceManagerClass->GetDefaultObject<USignificanceManager>();
-			if ((ManagerToCreateDefault->bCreateOnServer && !IsRunningClientOnly()) || (ManagerToCreateDefault->bCreateOnClient && !IsRunningDedicatedServer()))
-			{
-				GetSignificanceManagerSingleton()->WorldSignificanceManagers.Add(World, NewObject<USignificanceManager>(World, SignificanceManagerClass));
-			}
-		}
-	}
-}
-
-void USignificanceManager::OnWorldCleanup(UWorld* World, bool bSessionEnded, bool bCleanupResources)
-{
-	GetSignificanceManagerSingleton()->WorldSignificanceManagers.Remove(World);
 }
 
 void USignificanceManager::BeginDestroy()

@@ -113,7 +113,7 @@ void FOnlineVoiceSteam::Tick(float DeltaTime)
 void FOnlineVoiceSteam::StartNetworkedVoice(uint8 LocalUserNum)
 {
 	// Validate the range of the entry
-	if (LocalUserNum >= 0 && LocalUserNum < MAX_LOCAL_PLAYERS)
+	if (LocalUserNum < MAX_LOCAL_PLAYERS)
 	{
 		LocalTalkers[LocalUserNum].bHasNetworkedVoice = true;
 		UE_LOG(LogVoice, Log, TEXT("Starting networked voice for user: %d"), LocalUserNum);

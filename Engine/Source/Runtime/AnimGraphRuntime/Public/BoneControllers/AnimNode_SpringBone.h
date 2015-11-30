@@ -72,6 +72,9 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_SpringBone : public FAnimNode_SkeletalCont
 	/** Internal use - Current timestep */
 	float FixedTimeStep;
 
+	/** Internal use - Current time dilation */
+	float TimeDilation;
+
 	/** Did we have a non-zero ControlStrength last frame. */
 	bool bHadValidStrength;
 
@@ -100,4 +103,6 @@ private:
 	// FAnimNode_SkeletalControlBase interface
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;
 	// End of FAnimNode_SkeletalControlBase interface
+
+	void HandleGameThreadPreUpdateEvent(const UAnimInstance* InAnimInstance);
 };

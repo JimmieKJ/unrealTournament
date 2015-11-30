@@ -550,7 +550,7 @@ void USplineComponent::SetTangentAtSplinePoint(int32 PointIndex, const FVector& 
 	if ((PointIndex >= 0) && (PointIndex < NumPoints))
 	{
 		const FVector TransformedTangent = (CoordinateSpace == ESplineCoordinateSpace::World) ?
-			ComponentToWorld.InverseTransformPosition(InTangent) : InTangent;
+			ComponentToWorld.InverseTransformVector(InTangent) : InTangent;
 
 		SplineInfo.Points[PointIndex].LeaveTangent = TransformedTangent;
 		SplineInfo.Points[PointIndex].ArriveTangent = TransformedTangent;

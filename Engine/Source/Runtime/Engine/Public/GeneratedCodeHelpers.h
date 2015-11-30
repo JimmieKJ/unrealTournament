@@ -2,6 +2,9 @@
 
 #pragma once
 
+// DO NOT INCLUDE THIS HEADER!
+// THIS FILE SHOULD BE USED ONLY BY AUTOMATICALLY GENERATED CODE. 
+
 // Common includes
 #include "UObject/Stack.h"
 #include "Blueprint/BlueprintSupport.h"
@@ -16,6 +19,9 @@
 
 // Special libraries
 #include "Kismet/DataTableFunctionLibrary.h"
+
+//For DOREPLIFETIME macros
+#include "Net/UnrealNetwork.h"
 
 template<class NativeType>
 inline NativeType* NoNativeCast(UClass* NoNativeClass, UObject* Object)
@@ -65,14 +71,14 @@ private:
 public:
 	//Replacements for CustomThunk functions from UKismetArrayLibrary
 
-	template<typename T>
-	static int32 Array_Add(TArray<T>& TargetArray, const T& NewItem)
+	template<typename T, typename U>
+	static int32 Array_Add(TArray<T>& TargetArray, const U& NewItem)
 	{
 		return TargetArray.Add(NewItem);
 	}
 
-	template<typename T>
-	static int32 Array_AddUnique(TArray<T>& TargetArray, const T& NewItem)
+	template<typename T, typename U>
+	static int32 Array_AddUnique(TArray<T>& TargetArray, const U& NewItem)
 	{
 		return TargetArray.AddUnique(NewItem);
 	}
@@ -91,14 +97,14 @@ public:
 		}
 	}
 
-	template<typename T>
-	static void Array_Append(TArray<T>& TargetArray, const TArray<T>& SourceArray)
+	template<typename T, typename U>
+	static void Array_Append(TArray<T>& TargetArray, const TArray<U>& SourceArray)
 	{
 		TargetArray.Append(SourceArray);
 	}
 
-	template<typename T>
-	static void Array_Insert(TArray<T>& TargetArray, const T& NewItem, int32 Index)
+	template<typename T, typename U>
+	static void Array_Insert(TArray<T>& TargetArray, const U& NewItem, int32 Index)
 	{
 		if ((Index >= 0) && (Index <= TargetArray.Num()))
 		{
@@ -123,14 +129,14 @@ public:
 		}
 	}
 
-	template<typename T>
-	static int32 Array_Find(const TArray<T>& TargetArray, const T& ItemToFind)
+	template<typename T, typename U>
+	static int32 Array_Find(const TArray<T>& TargetArray, const U& ItemToFind)
 	{
 		return TargetArray.Find(ItemToFind);
 	}
 
-	template<typename T>
-	static bool Array_RemoveItem(TArray<T>& TargetArray, const T& Item)
+	template<typename T, typename U>
+	static bool Array_RemoveItem(TArray<T>& TargetArray, const U& Item)
 	{
 		return TargetArray.Remove(Item) != 0;
 	}
@@ -166,8 +172,8 @@ public:
 		return TargetArray.Num() - 1;
 	}
 
-	template<typename T>
-	static void Array_Get(TArray<T>& TargetArray, int32 Index, T& Item)
+	template<typename T, typename U>
+	static void Array_Get(TArray<T>& TargetArray, int32 Index, U& Item)
 	{
 		if (TargetArray.IsValidIndex(Index))
 		{
@@ -176,12 +182,12 @@ public:
 		else
 		{
 			ExecutionMessage(*FString::Printf(TEXT("Attempted to get an item from array out of bounds [%d/%d]!"), Index, LastIndexForLog(TargetArray)), ELogVerbosity::Warning);
-			Item = T{};
+			Item = U{};
 		}
 	}
 
-	template<typename T>
-	static void Array_Set(TArray<T>& TargetArray, int32 Index, const T& Item, bool bSizeToFit)
+	template<typename T, typename U>
+	static void Array_Set(TArray<T>& TargetArray, int32 Index, const U& Item, bool bSizeToFit)
 	{
 		if (!TargetArray.IsValidIndex(Index) && bSizeToFit && (Index >= 0))
 		{
@@ -198,8 +204,8 @@ public:
 		}
 	}
 
-	template<typename T>
-	static bool Array_Contains(const TArray<T>& TargetArray, const T& ItemToFind)
+	template<typename T, typename U>
+	static bool Array_Contains(const TArray<T>& TargetArray, const U& ItemToFind)
 	{
 		return TargetArray.Contains(ItemToFind);
 	}
@@ -219,6 +225,11 @@ public:
 	}
 
 	//Replacements for CustomThunk functions from UKismetSystemLibrary
+	static void StackTrace()
+	{
+		ExecutionMessage(TEXT("Native code cannot generate a stack trace."), ELogVerbosity::Log);
+	}
+	
 	template<typename T>
 	static void SetStructurePropertyByName(UObject* Object, FName PropertyName, const T& Value)
 	{
@@ -278,6 +289,21 @@ struct TSwitchPair
 	{}
 };
 
+template<typename IndexType, typename ValueType>
+struct TSwitchPair<IndexType, ValueType*>
+{
+	const IndexType& IndexRef;
+	ValueType*& ValueRef;
+
+	template<typename DerivedType>
+	TSwitchPair(const IndexType& InIndexRef, DerivedType*& InValueRef)
+		: IndexRef(InIndexRef)
+		, ValueRef((ValueType*&)InValueRef)
+	{
+		static_assert(TPointerIsConvertibleFromTo<DerivedType, ValueType>::Value, "Incompatible pointers");
+	}
+};
+
 #if PLATFORM_COMPILER_HAS_VARIADIC_TEMPLATES
 template<typename IndexType, typename ValueType>
 ValueType& TSwitchValue(const IndexType& CurrentIndex, ValueType& DefaultValue, int OptionsNum)
@@ -333,5 +359,29 @@ struct FUnconvertedWrapper
 	{
 		check(__Object);
 		return __Object->GetClass();
+	}
+};
+
+template<typename T>
+struct TArrayCaster
+{
+	TArray<T*> Val;
+	TArray<T*>& ValRef;
+
+	TArrayCaster(TArray<T*>& InArr) 
+		: Val()
+		, ValRef(InArr)
+	{}
+
+	TArrayCaster(TArray<T*>&& InArr) 
+		: Val(MoveTemp(InArr))
+		, ValRef(Val)
+	{}
+
+	template<typename U>
+	TArray<U*>& Get()
+	{
+		static_assert(sizeof(T*) == sizeof(U*), "Incompatible pointers");
+		return *reinterpret_cast<TArray<U*>*>(&ValRef);
 	}
 };

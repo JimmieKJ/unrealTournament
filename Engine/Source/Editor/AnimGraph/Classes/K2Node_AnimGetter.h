@@ -78,9 +78,12 @@ public:
 	UPROPERTY()
 	const UAnimBlueprint* SourceAnimBlueprint;
 
+	//~ Using WITH_EDITORONLY_DATA within an Editor module to exclude this FText property from the gather for games
+#if WITH_EDITORONLY_DATA
 	// Cached node title
 	UPROPERTY()
 	FText CachedTitle;
+#endif // WITH_EDITORONLY_DATA
 
 	// List of valid contexts for the node
 	UPROPERTY()

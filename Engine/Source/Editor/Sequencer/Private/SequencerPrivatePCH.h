@@ -1,10 +1,9 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#ifndef __SequencerPrivatePCH_h__
-#define __SequencerPrivatePCH_h__
+#pragma once
+
 
 #include "UnrealEd.h"
-
 #include "SBreadcrumbTrail.h"
 
 #include "KeyPropertyParams.h"
@@ -33,7 +32,8 @@
 #include "SSequencerCurveEditor.h"
 #include "SSequencerCurveEditorToolBar.h"
 #include "CurveEditorSettings.h"
+#include "SSequencerLabelBrowser.h"
+#include "SSequencerLabelEditor.h"
+
 
 DECLARE_LOG_CATEGORY_EXTERN(LogSequencer, Log, All);
-
-#endif // __SequencerPrivatePCH_h__

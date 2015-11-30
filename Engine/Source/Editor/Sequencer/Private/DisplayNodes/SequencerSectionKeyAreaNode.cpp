@@ -65,7 +65,7 @@ ESequencerNode::Type FSequencerSectionKeyAreaNode::GetType() const
 }
 
 
-void FSequencerSectionKeyAreaNode::SetDisplayName(const FText& InDisplayName)
+void FSequencerSectionKeyAreaNode::SetDisplayName(const FText& NewDisplayName)
 {
 	check(false);
 }

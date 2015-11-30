@@ -45,7 +45,6 @@ namespace Gu
 		Vec3V A[4];
 		Vec3V B[4];
 
-		const Vec3V zeroV = V3Zero();
 		const FloatV zero = FZero();
 		const BoolV bTrue = BTTTT();
 		PxU32 size=0;
@@ -69,7 +68,6 @@ namespace Gu
 		// which avoids ill-conditioned terminations. 
 		const FloatV epsRel = FLoad(0.000225f);//1.5%.
 
-		Vec3V closA(zeroV), closB(zeroV);
 		FloatV sDist = FMax();
 		FloatV minDist = sDist;
 		Vec3V prevClosest = closest;
@@ -113,8 +111,6 @@ namespace Gu
 		}while(BAllEq(bNotTerminated, bTrue));
 		
 		getClosestPoint(Q, A, B, prevClosest, closestA, closestB, size);
-		closestA = closA;
-		closestB = closB;
 		normal = V3Normalize(V3Neg(prevClosest));
 		sqDist = FSel(bCon, sDist, minDist);
 		

@@ -293,4 +293,8 @@ bool UCameraShake::ReceiveIsFinished_Implementation() const
 	return true;
 }
 
+bool UCameraShake::IsLooping() const
+{
+	return OscillationDuration < 0.0f;
+}
 

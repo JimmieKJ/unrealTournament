@@ -44,9 +44,6 @@ enum ETickingGroup
 	/** Any item that needs to be executed before physics simulation starts. */
 	TG_PrePhysics UMETA(DisplayName="Pre Physics"),
 
-	/** Any item that can safely run during parallel animation processing (i.e. that cannot touch the animation system) */
-	TG_DuringAnimation UMETA(DisplayName="During Animation"),
-
 	/** Special tick group that starts physics simulation. */							
 	TG_StartPhysics UMETA(Hidden, DisplayName="Start Physics"),
 
@@ -56,20 +53,14 @@ enum ETickingGroup
 	/** Special tick group that ends physics simulation. */
 	TG_EndPhysics UMETA(Hidden, DisplayName="End Physics"),
 
-	/** Any item that needs physics to be complete before being executed. */
-	TG_PreCloth UMETA(Hidden, DisplayName="Pre Cloth"),
-
-	/** Any item that needs to be updated after rigid body simulation is done, but before cloth is simulation is done. */
-	TG_StartCloth UMETA(Hidden, DisplayName = "Start Cloth"),
-
 	/** Any item that needs rigid body and cloth simulation to be complete before being executed. */
 	TG_PostPhysics UMETA(DisplayName="Post Physics"),
 
 	/** Any item that needs the update work to be done before being ticked. */
 	TG_PostUpdateWork UMETA(DisplayName="Post Update Work"),
 
-	/** Special tick group that ends cloth simulation. */
-	TG_EndCloth UMETA(Hidden, DisplayName="End Cloth"),
+	/** Catchall for anything demoted to the end. */
+	TG_LastDemotable UMETA(Hidden, DisplayName = "Last Demotable"),
 
 	/** Special tick group that is not actually a tick group. After every tick group this is repeatedly re-run until there are no more newly spawned items to run. */
 	TG_NewlySpawned UMETA(Hidden, DisplayName="Newly Spawned"),
@@ -122,6 +113,15 @@ struct FTickPrerequisite
 		}
 		return nullptr;
 	}
+	
+	const struct FTickFunction* Get() const
+	{
+		if (PrerequisiteObject.IsValid(true))
+		{
+			return PrerequisiteTickFunction;
+		}
+		return nullptr;
+	}
 };
 
 /** 
@@ -145,9 +145,20 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category="Tick", AdvancedDisplay)
 	TEnumAsByte<enum ETickingGroup> TickGroup;
 
+	/**
+	 * Defines the tick group that this tick function must finish in. These groups determine the relative order of when objects tick during a frame update.
+	 *
+	 * @see ETickingGroup 
+	 */
+	UPROPERTY(EditDefaultsOnly, Category="Tick", AdvancedDisplay)
+	TEnumAsByte<enum ETickingGroup> EndTickGroup;
+
 protected:
-	/** Internal data that indicates the tick group we actually executed in (it may have been delayed due to prerequisites) **/
-	TEnumAsByte<enum ETickingGroup> ActualTickGroup;
+	/** Internal data that indicates the tick group we actually started in (it may have been delayed due to prerequisites) **/
+	TEnumAsByte<enum ETickingGroup> ActualStartTickGroup;
+
+	/** Internal data that indicates the tick group we actually started in (it may have been delayed due to prerequisites) **/
+	TEnumAsByte<enum ETickingGroup> ActualEndTickGroup;
 
 public:
 	/** Bool indicating that this function should execute even if the game is paused. Pause ticks are very limited in capabilities. **/
@@ -248,13 +259,23 @@ public:
 	FGraphEventRef GetCompletionHandle() const;
 
 	/** 
-	* Gets the action tick group that this function will execute in this frame.
+	* Gets the action tick group that this function will be elligible to start in.
 	* Only valid after TG_PreAsyncWork has started through the end of the frame.
 	**/
 	TEnumAsByte<enum ETickingGroup> GetActualTickGroup() const
 	{
-		return ActualTickGroup;
+		return ActualStartTickGroup;
 	}
+
+	/** 
+	* Gets the action tick group that this function will be required to end in.
+	* Only valid after TG_PreAsyncWork has started through the end of the frame.
+	**/
+	TEnumAsByte<enum ETickingGroup> GetActualEndTickGroup() const
+	{
+		return ActualEndTickGroup;
+	}
+
 
 	/** 
 	 * Adds a tick function to the list of prerequisites...in other words, adds the requirement that TargetTickFunction is called before this tick function is 
@@ -396,6 +417,19 @@ struct FActorComponentTickFunction : public FTickFunction
 	ENGINE_API virtual void ExecuteTick(float DeltaTime, ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent) override;
 	/** Abstract function to describe this tick. Used to print messages about illegal cycles in the dependency graph **/
 	ENGINE_API virtual FString DiagnosticMessage() override;
+
+
+	/**
+	 * Conditionally calls ExecuteTickFunc if bRegistered == true and a bunch of other criteria are met
+	 * @param DeltaTime - The time since the last tick.
+	 * @param TickType - Type of tick that we are running
+	 * @param ExecuteTickFunc - the lambda that ultimately calls tick on the actor component
+	 */
+
+	//NOTE: This already creates a UObject stat so don't double count in your own functions
+
+	template <typename ExecuteTickLambda>
+	static void ExecuteTickHelper(UActorComponent* Target, float DeltaTime, ELevelTick TickType, const ExecuteTickLambda& ExecuteTickFunc);	
 };
 
 
@@ -410,6 +444,8 @@ struct TStructOpsTypeTraits<FActorComponentTickFunction> : public TStructOpsType
 /** 
 * Tick function that calls UPrimitiveComponent::PostPhysicsTick
 **/
+
+//DEPRECATED: This struct has been deprecated. Please use your own tick functions if you need something other than the primary tick function
 USTRUCT()
 struct FPrimitiveComponentPostPhysicsTickFunction : public FTickFunction
 {
@@ -807,6 +843,9 @@ enum EViewModeIndex
 	VMI_VertexDensities = 17,
 	/** Colored according to the current LOD index. */
 	VMI_LODColoration = 18,
+	/** Colored according to the quad coverage. */
+	VMI_QuadComplexity = 19,
+
 	VMI_Max UMETA(Hidden),
 
 	VMI_Unknown = 255 UMETA(Hidden),

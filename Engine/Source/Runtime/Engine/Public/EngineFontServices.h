@@ -5,8 +5,7 @@
 #include "SlateCore.h"
 
 /** 
- * Provides the Engine with access to the Slate font cache and font measuring services (for Canvas)
- * On the game thread this just leverages the Slate services, but the render thread needs its own instances
+ * A shim around FSlateFontServices that provides access from the render thread (where FSlateApplication::Get() would assert)
  */
 class ENGINE_API FEngineFontServices
 {
@@ -39,20 +38,8 @@ private:
 	/** Destructor - must be called from the game thread */
 	~FEngineFontServices();
 
-	/** Create the font cache for the render thread if it doesn't yet exist */
-	void ConditionalCreateRenderThreadFontCache();
-
-	/** Create the font measure for the render thread if it doesn't yet exist */
-	void ConditionalCreatRenderThreadFontMeasure();
-
-	/** Font atlas factory to use for the render thread - created on the game thread as it depends on another module */
-	TSharedPtr<ISlateFontAtlasFactory> RenderThreadFontAtlasFactory;
-
-	/** Font cache used by the render thread - creation is delayed until the first request is made */
-	TSharedPtr<FSlateFontCache> RenderThreadFontCache;
-
-	/** Font measure used by the render thread - creation is delayed until the first request is made */
-	TSharedPtr<FSlateFontMeasure> RenderThreadFontMeasure;
+	/** Slate font services instance being wrapped */
+	TSharedPtr<class FSlateFontServices> SlateFontServices;
 
 	/** Singular instance of this class */
 	static FEngineFontServices* Instance;

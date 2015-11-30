@@ -9,9 +9,8 @@
 ///////////////////////////////////////////////////////////////////////
 // Common Latent commands which are used across test type. I.e. Engine, Network, etc...
 
-DEFINE_LOG_CATEGORY_STATIC(LogEditorAutomationTests, Log, All);
-DEFINE_LOG_CATEGORY_STATIC(LogEngineAutomationTests, Log, All);
-DEFINE_LOG_CATEGORY_STATIC(LogAnalytics, Log, All);
+ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEditorAutomationTests, Log, All);
+ENGINE_API DECLARE_LOG_CATEGORY_EXTERN(LogEngineAutomationTests, Log, All);
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnEditorAutomationMapLoad, const FString&);
 

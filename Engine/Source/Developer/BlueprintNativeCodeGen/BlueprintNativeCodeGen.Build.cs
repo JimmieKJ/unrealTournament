@@ -30,6 +30,7 @@ public class BlueprintNativeCodeGen : ModuleRules
                 "BlueprintCompilerCppBackend",
                 "GameProjectGeneration",
                 "Projects",
+                "Kismet",
 			}
 		);
 

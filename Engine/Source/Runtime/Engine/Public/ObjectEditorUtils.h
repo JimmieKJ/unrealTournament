@@ -25,7 +25,8 @@ namespace FObjectEditorUtils
 	ENGINE_API FString GetCategory( const class UProperty* InProperty );	
 
 	/**
-	 * Gets the category this property belongs to.
+	 * Gets the FName of the category this property belongs to.  
+	 * Note, this value is suitable for comparison against other categories but NOT suitable as a display name since it is not localized
 	 *
 	 * @param	InProperty	Property we want the category name of.
 	 * @return	Category name of the given property.

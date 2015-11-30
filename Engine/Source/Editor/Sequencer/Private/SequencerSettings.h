@@ -141,8 +141,15 @@ public:
 
 	/** Gets whether or not the details view is visible. */
 	bool GetDetailsViewVisible() const;
+
 	/** Sets whether or not the details view is visible. */
 	void SetDetailsViewVisible(bool InbDetailsViewVisible);
+
+	/** Gets whether or not the label browser is visible. */
+	bool GetLabelBrowserVisible() const;
+
+	/** Sets whether or not the label browser is visible. */
+	void SetLabelBrowserVisible(bool Visible);
 
 	/** Gets whether or not auto-scroll is enabled. */
 	bool GetAutoScrollEnabled() const;
@@ -163,6 +170,11 @@ public:
 	bool IsLooping() const;
 	/** Sets the loop mode. */
 	void SetLooping(bool bInLooping);
+
+	/** @return true if the cursor should be kept within the playback range during playback in sequencer, false otherwise */
+	bool ShouldKeepCursorInPlayRange() const;
+	/** Set whether or not the cursor should be kept within the playback range during playback in sequencer */
+	void SetKeepCursorInPlayRange(bool bInKeepCursorInPlayRange);
 
 	/** Snaps a time value in seconds to the currently selected interval. */
 	float SnapTimeToInterval(float InTimeValue) const;
@@ -226,6 +238,9 @@ protected:
 	bool bDetailsViewVisible;
 
 	UPROPERTY( config )
+	bool bLabelBrowserVisible;
+
+	UPROPERTY( config )
 	bool bAutoScrollEnabled;
 
 	UPROPERTY( config )
@@ -236,6 +251,9 @@ protected:
 
 	UPROPERTY( config )
 	bool bLooping;
+
+	UPROPERTY( config )
+	bool bKeepCursorInPlayRange;
 
 	FOnShowCurveEditorChanged OnShowCurveEditorChanged;
 };

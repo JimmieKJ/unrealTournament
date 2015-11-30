@@ -2,6 +2,8 @@
 
 #pragma once
 
+DECLARE_MEMORY_STAT_EXTERN(TEXT("Vertex Buffer Memory"), STAT_SlateVertexBufferMemory, STATGROUP_SlateMemory, );
+
 /**
  * Vertex buffer containing all Slate vertices
  */
@@ -50,7 +52,7 @@ public:
 		{
 			check( MinBufferSize > 0 )
 	
-			BufferSize = MinBufferSize;
+			SetBufferSize(MinBufferSize);
 
 			FRHIResourceCreateInfo CreateInfo;
 			VertexBufferRHI = RHICreateVertexBuffer( MinBufferSize, BUF_Dynamic, CreateInfo );
@@ -64,7 +66,7 @@ public:
 	virtual void ReleaseDynamicRHI()
 	{
 		VertexBufferRHI.SafeRelease();
-		BufferSize = 0;
+		SetBufferSize(0);
 	}
 
 	/** Returns a friendly name for this buffer. */
@@ -147,8 +149,15 @@ private:
 
 			check(IsValidRef(VertexBufferRHI));
 
-			BufferSize = FinalSize;
+			SetBufferSize(FinalSize);
 		}
+	}
+
+	void SetBufferSize(int32 NewBufferSize)
+	{
+		DEC_MEMORY_STAT_BY(STAT_SlateVertexBufferMemory, BufferSize);
+		BufferSize = NewBufferSize;
+		INC_MEMORY_STAT_BY(STAT_SlateVertexBufferMemory, BufferSize);
 	}
 
 private:

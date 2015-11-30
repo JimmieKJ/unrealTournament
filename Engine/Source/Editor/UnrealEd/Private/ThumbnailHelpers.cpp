@@ -1061,7 +1061,7 @@ UActorComponent* FClassActorThumbnailScene::CreateComponentInstanceFromTemplate(
 	EObjectFlags FlagMask = RF_AllFlags & ~RF_ArchetypeObject;
 	if ( GetTransientPackage()->IsA(ComponentTemplate->GetClass()->ClassWithin) )
 	{
-		NewComponent = Cast<UActorComponent>( StaticDuplicateObject(ComponentTemplate, GetTransientPackage(), TEXT(""), FlagMask ) );
+		NewComponent = Cast<UActorComponent>( StaticDuplicateObject(ComponentTemplate, GetTransientPackage(), NAME_None, FlagMask ) );
 
 		USceneComponent* NewSceneComp = Cast<USceneComponent>(NewComponent);
 		if ( NewSceneComp != NULL )

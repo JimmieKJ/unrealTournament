@@ -14,8 +14,8 @@ public:
 	virtual ~FTutorialHyperlinkRun() {}
 
 	/** FSlateHyperlinkRun implementation */
-	virtual FVector2D Measure( int32 StartIndex, int32 EndIndex, float Scale ) const override;
-	virtual TSharedRef< ILayoutBlock > CreateBlock( int32 StartIndex, int32 EndIndex, FVector2D Size, const TSharedPtr< IRunRenderer >& Renderer ) override;
+	virtual FVector2D Measure( int32 StartIndex, int32 EndIndex, float Scale, const FRunTextContext& TextContext ) const override;
+	virtual TSharedRef< ILayoutBlock > CreateBlock( int32 StartIndex, int32 EndIndex, FVector2D Size, const FLayoutBlockTextContext& TextContext, const TSharedPtr< IRunRenderer >& Renderer ) override;
 
 private:
 

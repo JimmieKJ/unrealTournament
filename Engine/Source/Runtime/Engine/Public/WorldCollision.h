@@ -435,6 +435,11 @@ struct AsyncTraceData : FNoncopyable
 	TArray<TUniquePtr<TTraceThreadData<FTraceDatum>>>			TraceData;
 	TArray<TUniquePtr<TTraceThreadData<FOverlapDatum>>>			OverlapData;
 
+	/** Datum entries in TraceData are persistent for efficiency. This is the number of them that are actually in use (rather than TraceData.Num()). */
+	int32 NumQueuedTraceData;
+	/** Datum entries in OverlapData are persistent for efficiency. This is the number of them that are actually in use (rather than OverlapData.Num()). */
+	int32 NumQueuedOverlapData;
+
 	/**
 	 * if Execution is all done, set this to be true
 	 * 
@@ -446,7 +451,11 @@ struct AsyncTraceData : FNoncopyable
 	/**  Thread completion event for batch **/
 	FGraphEventArray		AsyncTraceCompletionEvent;
 
-	AsyncTraceData() : bAsyncAllowed(false) {}
+	AsyncTraceData() 
+		: NumQueuedTraceData(0)
+		, NumQueuedOverlapData(0)
+		, bAsyncAllowed(false)
+	{}
 };
 
 

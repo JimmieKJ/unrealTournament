@@ -34,7 +34,8 @@ struct dtObstacleCircle
 struct dtObstacleSegment
 {
 	float p[3], q[3];		///< End points of the obstacle segment
-	bool touch;
+	unsigned char touch : 1;
+	unsigned char canIgnore : 1;
 };
 
 class NAVMESH_API dtObstacleAvoidanceDebugData
@@ -114,7 +115,7 @@ public:
 	void addCircle(const float* pos, const float rad,
 				   const float* vel, const float* dvel);
 				   
-	void addSegment(const float* p, const float* q);
+	void addSegment(const float* p, const float* q, int flags = 0);
 
 	// [UE4] store new sampling pattern
 	bool setCustomSamplingPattern(int idx, const float* angles, const float* radii, int nsamples);

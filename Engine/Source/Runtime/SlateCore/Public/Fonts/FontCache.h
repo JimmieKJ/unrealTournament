@@ -3,15 +3,287 @@
 #pragma once
 
 #include "TextureAtlas.h"
+#include "UniquePtr.h"
+#include "FontCache.generated.h"
+
+class FFreeTypeLibrary;
+class FFreeTypeFace;
+class FFreeTypeGlyphCache;
+class FFreeTypeAdvanceCache;
+class FFreeTypeKerningPairCache;
+class FCompositeFontCache;
+class FSlateFontRenderer;
+class FSlateTextShaper;
 
 struct FCharacterRenderData;
-class FFreeTypeInterface;
+class FShapedGlyphFaceData;
+
+/** 
+ * Methods that can be used to shape text.
+ * @note If you change this enum, make sure and update CVarDefaultTextShapingMethod and GetDefaultTextShapingMethod.
+ */
+UENUM(BlueprintType)
+enum class ETextShapingMethod : uint8
+{
+	/**
+	 * Automatically picks the fastest possible shaping method (either KerningOnly or FullShaping) based on the reading direction of the text.
+	 * Left-to-right text uses the KerningOnly method, and right-to-left text uses the FullShaping method.
+	 */
+	 Auto = 0,
+
+	/** 
+	 * Provides fake shaping using only kerning data.
+	 * This can be faster than full shaping, but won't render complex right-to-left or bi-directional glyphs (such as Arabic) correctly.
+	 * This can be useful as an optimization when you know your text block will only show simple glyphs (such as numbers).
+	 */
+	KerningOnly,
+
+	/**
+	 * Provides full text shaping, allowing accurate rendering of complex right-to-left or bi-directional glyphs (such as Arabic).
+	 * This mode will perform ligature replacement for all languages (such as the combined "fi" glyph in English).
+	 */
+	FullShaping,
+};
+
+/** Get the default shaping method (from the "Slate.DefaultTextShapingMethod" CVar) */
+SLATECORE_API ETextShapingMethod GetDefaultTextShapingMethod();
+
+/** The font atlas data for a single glyph in a shaped text sequence */
+struct FShapedGlyphFontAtlasData
+{
+	/** The vertical distance from the baseline to the topmost border of the glyph bitmap */
+	int16 VerticalOffset;
+	/** The horizontal distance from the origin to the leftmost border of the glyph bitmap */
+	int16 HorizontalOffset;
+	/** Start X location of the glyph in the texture */
+	float StartU;
+	/** Start Y location of the glyph in the texture */
+	float StartV;
+	/** X Size of the glyph in the texture */
+	float USize;
+	/** Y Size of the glyph in the texture */
+	float VSize;
+	/** Index to a specific texture in the font cache. */
+	uint8 TextureIndex;
+	/** 1 if this entry is valid, 0 otherwise. */
+	bool Valid;
+
+	FShapedGlyphFontAtlasData()
+		: VerticalOffset(0)
+		, HorizontalOffset(0)
+		, StartU(0.0f)
+		, StartV(0.0f)
+		, USize(0.0f)
+		, VSize(0.0f)
+		, TextureIndex(0)
+		, Valid(false)
+	{
+	}
+};
+
+/** Information for rendering one glyph in a shaped text sequence */
+struct FShapedGlyphEntry
+{
+	friend class FSlateFontCache;
+
+	/** Provides access to the FreeType face for this glyph (not available publicly) */
+	TSharedPtr<FShapedGlyphFaceData> FontFaceData;
+	/** The index of this glyph in the FreeType face */
+	uint32 GlyphIndex;
+	/** The index of this glyph from the source text. If the glyph is a ligature, then the cluster indices of the sequence may skip characters from the source text */
+	int32 ClusterIndex;
+	/** The amount to advance in X before drawing the next glyph in the sequence */
+	int16 XAdvance;
+	/** The amount to advance in Y before drawing the next glyph in the sequence */
+	int16 YAdvance;
+	/** The offset to apply in X when drawing this glyph */
+	int16 XOffset;
+	/** The offset to apply in Y when drawing this glyph */
+	int16 YOffset;
+	/** 
+	 * The "kerning" between this glyph and the next one in the sequence
+	 * @note This value is included in the XAdvance so you never usually need it unless you're manually combining two sets of glyphs together.
+	 * @note This value isn't strictly the kerning value - it's simply the difference between the glyphs horizontal advance, and the shaped horizontal advance (so will contain any accumulated advance added by the shaper)
+	 */
+	int8 Kerning;
+
+	FShapedGlyphEntry()
+		: FontFaceData()
+		, GlyphIndex(0)
+		, ClusterIndex(0)
+		, XAdvance(0)
+		, YAdvance(0)
+		, XOffset(0)
+		, YOffset(0)
+		, Kerning(0)
+	{
+	}
+
+private:
+	/** 
+	 * Pointer to the cached atlas data for this glyph entry.
+	 * This is cached on the glyph by FSlateFontCache::GetShapedGlyphFontAtlasData to avoid repeated map look ups.
+	 * Index 0 is the cached value for the game thread font cache. Index 1 is the cached value for the render thread font cache.
+	 */
+	mutable TWeakPtr<FShapedGlyphFontAtlasData> CachedAtlasData[2];
+};
+
+/** Minimal FShapedGlyphEntry key information used for map lookups */
+struct FShapedGlyphEntryKey
+{
+public:
+	FShapedGlyphEntryKey(const TSharedPtr<FShapedGlyphFaceData>& InFontFaceData, uint32 InGlyphIndex);
+
+	FORCEINLINE bool operator==(const FShapedGlyphEntryKey& Other) const
+	{
+		return FontFace == Other.FontFace 
+			&& GlyphIndex == Other.GlyphIndex
+			&& FontSize == Other.FontSize
+			&& FontScale == Other.FontScale
+			&& GlyphIndex == Other.GlyphIndex;
+	}
+
+	FORCEINLINE bool operator!=(const FShapedGlyphEntryKey& Other) const
+	{
+		return !(*this == Other);
+	}
+
+	friend inline uint32 GetTypeHash(const FShapedGlyphEntryKey& Key)
+	{
+		return Key.KeyHash;
+	}
+
+private:
+	/** Weak pointer to the FreeType face to render with */
+	TWeakPtr<FFreeTypeFace> FontFace;
+	/** Provides the point size used to render the font */
+	int32 FontSize;
+	/** Provides the final scale used to render to the font */
+	float FontScale;
+	/** The index of this glyph in the FreeType face */
+	uint32 GlyphIndex;
+	/** Cached hash value used for map lookups */
+	uint32 KeyHash;
+};
+
+/** Information about the reading direction of a block of clusters in a shaped glyph sequence */
+struct FShapedGlyphClusterBlock
+{
+	/** The reading direction of this cluster */
+	TextBiDi::ETextDirection TextDirection;
+	/** Start index of this cluster (from the source text) */
+	int32 ClusterStartIndex;
+	/** End index of this cluster (from the source text) */
+	int32 ClusterEndIndex;
+	/** Index of the first glyph (visually) in this cluster block */
+	int32 ShapedGlyphStartIndex;
+	/** Index of the last glyph (visually) in this cluster block */
+	int32 ShapedGlyphEndIndex;
+
+	FShapedGlyphClusterBlock()
+		: TextDirection(TextBiDi::ETextDirection::LeftToRight)
+		, ClusterStartIndex(INDEX_NONE)
+		, ClusterEndIndex(INDEX_NONE)
+		, ShapedGlyphStartIndex(INDEX_NONE)
+		, ShapedGlyphEndIndex(INDEX_NONE)
+	{
+	}
+
+	FShapedGlyphClusterBlock(const TextBiDi::ETextDirection InTextDirection, const int32 InClusterStartIndex, const int32 InClusterEndIndex)
+		: TextDirection(InTextDirection)
+		, ClusterStartIndex(InClusterStartIndex)
+		, ClusterEndIndex(InClusterEndIndex)
+		, ShapedGlyphStartIndex(INDEX_NONE)
+		, ShapedGlyphEndIndex(INDEX_NONE)
+	{
+	}
+};
+
+/** Immutable pointer/reference to a shaped text sequence. This is what gets returned by the font cache, and is used throughout the rest of the rendering pipeline to avoid copying data */
+class FShapedGlyphSequence;
+typedef TSharedPtr<const FShapedGlyphSequence> FShapedGlyphSequencePtr;
+typedef TSharedRef<const FShapedGlyphSequence> FShapedGlyphSequenceRef;
+
+/** Information for rendering a shaped text sequence */
+class SLATECORE_API FShapedGlyphSequence
+{
+public:
+	FShapedGlyphSequence(TArray<FShapedGlyphEntry> InGlyphsToRender, TArray<FShapedGlyphClusterBlock> InGlyphClusterBlocks, const int16 InTextBaseline, const uint16 InMaxTextHeight, const UObject* InFontMaterial);
+
+	/** Get the array of glyphs in this sequence. This data will be ordered so that you can iterate and draw left-to-right, which means it will be backwards for right-to-left languages */
+	const TArray<FShapedGlyphEntry>& GetGlyphsToRender() const
+	{
+		return GlyphsToRender;
+	}
+
+	/** Get the baseline to use when drawing the glyphs in this sequence */
+	int16 GetTextBaseline() const
+	{
+		return TextBaseline;
+	}
+
+	/** Get the maximum height of any glyph in the font we're using */
+	uint16 GetMaxTextHeight() const
+	{
+		return MaxTextHeight;
+	}
+
+	/** Get the material to use when rendering these glyphs */
+	const UObject* GetFontMaterial() const
+	{
+		return FontMaterial;
+	}
+
+	/** Check to see whether this glyph sequence is dirty (ie, contains glyphs with invalid font pointers) */
+	bool IsDirty() const;
+
+	/**
+	 * Get the measured width of the entire shaped text
+	 * @return The measured width
+	 */
+	int32 GetMeasuredWidth() const;
+
+	/**
+	 * Get the measured width of the specified range of this shaped text
+	 * @note The indices used here are relative to the start of the text we were shaped from, even if we were only shaped from a sub-section of that text
+	 * @return The measured width, or an unset value if the text couldn't be measured (eg, because you started or ended on a merged ligature, or because the range is out-of-bounds)
+	 */
+	TOptional<int32> GetMeasuredWidth(const int32 InStartIndex, const int32 InEndIndex, const bool InIncludeKerningWithPrecedingGlyph = true) const;
+
+	/**
+	 * Get the kerning value between the given entry and the next entry in the sequence
+	 * @note The index used here is relative to the start of the text we were shaped from, even if we were only shaped from a sub-section of that text
+	 * @return The kerning, or an unset value if we couldn't get the kerning (eg, because you specified a merged ligature, or because the index is out-of-bounds)
+	 */
+	TOptional<int8> GetKerning(const int32 InIndex) const;
+
+	/**
+	 * Get a sub-sequence of the specified range
+	 * @note The indices used here are relative to the start of the text we were shaped from, even if we were only shaped from a sub-section of that text
+	 * @return The sub-sequence, or an null if the sub-sequence couldn't be created (eg, because you started or ended on a merged ligature, or because the range is out-of-bounds)
+	 */
+	FShapedGlyphSequencePtr GetSubSequence(const int32 InStartIndex, const int32 InEndIndex) const;
+
+private:
+	/** Array of glyphs in this sequence. This data will be ordered so that you can iterate and draw left-to-right, which means it will be backwards for right-to-left languages */
+	TArray<FShapedGlyphEntry> GlyphsToRender;
+	/** Array of cluster blocks used when mapping from the source text to the shaped glyphs */
+	TArray<FShapedGlyphClusterBlock> GlyphClusterBlocks;
+	/** The baseline to use when drawing the glyphs in this sequence */
+	int16 TextBaseline;
+	/** The maximum height of any glyph in the font we're using */
+	uint16 MaxTextHeight;
+	/** The material to use when rendering these glyphs */
+	const UObject* FontMaterial;
+};
 
 /** Information for rendering one character */
 struct SLATECORE_API FCharacterEntry
 {
 	/** The character this entry is for */
 	TCHAR Character;
+	/** The index of the glyph from the FreeType face that this entry is for */
+	uint32 GlyphIndex;
 	/** The raw font data this character was rendered with */
 	const FFontData* FontData;
 	/** Scale that was applied when rendering this character */
@@ -251,6 +523,38 @@ public:
 	virtual bool IsAtlasPageResourceAlphaOnly() const override;
 
 	/** 
+	 * Performs text shaping on the given string using the given font info. Returns you the shaped text sequence to use for text rendering via FSlateDrawElement::MakeShapedText.
+	 * When using the version which takes a start point and length, the text outside of the given range won't be shaped, but will provide context information to allow the shaping to function correctly.
+	 * ShapeBidirectionalText is used when you have text that may contain a mixture of LTR and RTL text runs.
+	 * 
+	 * @param InText				The string to shape
+	 * @param InTextStart			The start position of the text to shape
+	 * @param InTextLen				The length of the text to shape
+	 * @param InFontInfo			Information about the font that the string is drawn with
+	 * @param InFontScale			The scale to apply to the font
+	 * @param InBaseDirection		The overall reading direction of the text (see TextBiDi::ComputeBaseDirection). This will affect where some characters (such as brackets and quotes) are placed within the resultant shaped text
+	 * @param InTextShapingMethod	The text shaping method to use
+	 */
+	FShapedGlyphSequenceRef ShapeBidirectionalText( const FString& InText, const FSlateFontInfo &InFontInfo, const float InFontScale, const TextBiDi::ETextDirection InBaseDirection, const ETextShapingMethod InTextShapingMethod ) const;
+	FShapedGlyphSequenceRef ShapeBidirectionalText( const TCHAR* InText, const int32 InTextStart, const int32 InTextLen, const FSlateFontInfo &InFontInfo, const float InFontScale, const TextBiDi::ETextDirection InBaseDirection, const ETextShapingMethod InTextShapingMethod ) const;
+
+	/** 
+	 * Performs text shaping on the given range of the string using the given font info. Returns you the shaped text sequence to use for text rendering via FSlateDrawElement::MakeShapedText.
+	 * When using the version which takes a start point and length, the text outside of the given range won't be shaped, but will provide context information to allow the shaping to function correctly.
+	 * ShapeUnidirectionalText is used when you have text that all reads in the same direction (either LTR or RTL).
+	 * 
+	 * @param InText				The string containing the sub-string to shape
+	 * @param InTextStart			The start position of the text to shape
+	 * @param InTextLen				The length of the text to shape
+	 * @param InFontInfo			Information about the font that the string is drawn with
+	 * @param InFontScale			The scale to apply to the font
+	 * @param InTextDirection		The reading direction of the text to shape (valid values are LeftToRight or RightToLeft)
+	 * @param InTextShapingMethod	The text shaping method to use
+	 */
+	FShapedGlyphSequenceRef ShapeUnidirectionalText( const FString& InText, const FSlateFontInfo &InFontInfo, const float InFontScale, const TextBiDi::ETextDirection InTextDirection, const ETextShapingMethod InTextShapingMethod ) const;
+	FShapedGlyphSequenceRef ShapeUnidirectionalText( const TCHAR* InText, const int32 InTextStart, const int32 InTextLen, const FSlateFontInfo &InFontInfo, const float InFontScale, const TextBiDi::ETextDirection InTextDirection, const ETextShapingMethod InTextShapingMethod ) const;
+
+	/** 
 	 * Gets information for how to draw all characters in the specified string. Caches characters as they are found
 	 * 
 	 * @param Text			The string to get character information for
@@ -259,6 +563,11 @@ public:
 	 * @param OutCharacterEntries	Populated array of character entries. Indices of characters in Text match indices in this array
 	 */
 	class FCharacterList& GetCharacterList( const FSlateFontInfo &InFontInfo, float FontScale ) const;
+
+	/**
+	 * Get the atlas information for the given shaped glyph. This information will be cached if required 
+	 */
+	FShapedGlyphFontAtlasData GetShapedGlyphFontAtlasData( const FShapedGlyphEntry& InShapedGlyph ) const;
 
 	/** 
 	 * Add a new entries into a cache atlas
@@ -269,6 +578,10 @@ public:
 	 * @return true if the characters could be cached. false if the cache is full
 	 */
 	bool AddNewEntry( TCHAR Character, const FSlateFontKey& InKey, FCharacterEntry& OutCharacterEntry ) const;
+
+	bool AddNewEntry( const FShapedGlyphEntry& InShapedGlyph, FShapedGlyphFontAtlasData& OutAtlasData ) const;
+
+	bool AddNewEntry( const FCharacterRenderData InRenderData, int32& OutAtlasIndex, const FAtlasedTextureSlot*& OutSlot ) const;
 
 	/**
 	 * Flush the given object out of the cache
@@ -369,17 +682,43 @@ public:
 	 */
 	void FlushCache() const;
 
+	/**
+	 * Clears just the cached font data, but leaves the atlases alone
+	 */
+	void FlushData() const;
+
 private:
 	// Non-copyable
 	FSlateFontCache(const FSlateFontCache&);
 	FSlateFontCache& operator=(const FSlateFontCache&);
 private:
 
+	/** FreeType library instance (owned by this font cache) */
+	TUniquePtr<FFreeTypeLibrary> FTLibrary;
+
+	/** FreeType low-level glyph cache (owned by this font cache) */
+	TUniquePtr<FFreeTypeGlyphCache> FTGlyphCache;
+
+	/** FreeType low-level advance cache (owned by this font cache) */
+	TUniquePtr<FFreeTypeAdvanceCache> FTAdvanceCache;
+
+	/** FreeType low-level kerning pair cache (owned by this font cache) */
+	TUniquePtr<FFreeTypeKerningPairCache> FTKerningPairCache;
+
+	/** High-level composite font cache (owned by this font cache) */
+	TUniquePtr<FCompositeFontCache> CompositeFontCache;
+
+	/** FreeType font renderer (owned by this font cache) */
+	TUniquePtr<FSlateFontRenderer> FontRenderer;
+
+	/** HarfBuzz text shaper (owned by this font cache) */
+	TUniquePtr<FSlateTextShaper> TextShaper;
+
 	/** Mapping Font keys to cached data */
 	mutable TMap<FSlateFontKey, TSharedRef< class FCharacterList > > FontToCharacterListCache;
 
-	/** Interface to the freetype library */
-	mutable TSharedRef<FFreeTypeInterface> FTInterface;
+	/** Mapping shaped glyphs to their cached atlas data */
+	mutable TMap<FShapedGlyphEntryKey, TSharedRef<FShapedGlyphFontAtlasData>> ShapedGlyphToAtlasData;
 
 	/** Array of all font atlases */
 	mutable TArray< TSharedRef<FSlateFontAtlas> > FontAtlases;
@@ -388,5 +727,5 @@ private:
 	TSharedRef<ISlateFontAtlasFactory> FontAtlasFactory;
 
 	/** Whether or not we have a pending request to flush the cache when it is safe to do so */
-	mutable bool bFlushRequested;
+	volatile mutable bool bFlushRequested;
 };

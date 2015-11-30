@@ -59,6 +59,7 @@
 
 // Debugging
 #include "Debugging/SKismetDebuggingView.h"
+#include "Profiler/SBlueprintProfilerView.h"
 #include "Debugging/KismetDebugCommands.h"
 // End of debugging
 
@@ -507,6 +508,7 @@ bool FBlueprintEditor::IsInAScriptingMode() const
 
 bool FBlueprintEditor::OnRequestClose()
 {
+	TabManager->InvokeTab(FBlueprintEditorTabs::BlueprintProfilerID)->RequestCloseTab();
 	bEditorMarkedAsClosed = true;
 	return FWorkflowCentricApplication::OnRequestClose();
 }
@@ -657,14 +659,14 @@ void FBlueprintEditor::RefreshEditors(ERefreshBlueprintEditorReason::Type Reason
 		FocusInspectorOnGraphSelection(GetSelectedNodes(), /*bForceRefresh=*/ true);
 	}
 
-	if (MyBlueprintWidget.IsValid())
-	{
-		MyBlueprintWidget->Refresh();
-	}
-
 	if (ReplaceReferencesWidget.IsValid())
 	{
 		ReplaceReferencesWidget->Refresh();
+	}
+
+	if (MyBlueprintWidget.IsValid())
+	{
+		MyBlueprintWidget->Refresh();
 	}
 
 	if (SCSEditor.IsValid())
@@ -1671,6 +1673,17 @@ void FBlueprintEditor::InitBlueprintEditor(
 	// Post-layout initialization
 	PostLayoutBlueprintEditorInitialization();
 
+	// Ensure the profiler UI respects the current state if it had previously been enabled.
+	const bool bShowBlueprintProfilerTab = IsProfilerActive() && GetDefault<UEditorExperimentalSettings>()->bUnifiedBlueprintEditor;
+	if (bShowBlueprintProfilerTab)
+	{
+		TabManager->InvokeTab(FBlueprintEditorTabs::BlueprintProfilerID);
+	}
+	else
+	{
+		TabManager->InvokeTab(FBlueprintEditorTabs::BlueprintProfilerID)->RequestCloseTab();
+	}
+
 	// Find and set any instances of this blueprint type if any exists and we are not already editing one
 	FBlueprintEditorUtils::FindAndSetDebuggableBlueprintInstances();
 
@@ -2180,6 +2193,12 @@ void FBlueprintEditor::CreateDefaultTabContents(const TArray<UBlueprint*>& InBlu
 			. BlueprintToWatch(InBlueprint)
 			. IsEnabled(!bIsInterface && !bIsMacro);
 
+		if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+		{
+			this->BlueprintProfiler =
+				SNew(SBlueprintProfilerView)
+				.ProfileViewType(PVT_LiveView);
+		}
 		this->Palette = 
 			SNew(SBlueprintPalette, SharedThis(this))
 				.IsEnabled(this, &FBlueprintEditor::IsFocusedGraphEditable);
@@ -2443,6 +2462,15 @@ void FBlueprintEditor::CreateDefaultCommands()
 		FCanExecuteAction::CreateSP(this, &FBlueprintEditor::HasAnyWatches)
 		);
 
+	// Blueprint Profiler Commands
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+	{
+		ToolkitCommands->MapAction(FFullBlueprintEditorCommands::Get().ToggleProfiler,
+			FExecuteAction::CreateSP(this, &FBlueprintEditor::ToggleProfiler),
+			FCanExecuteAction(),
+			FIsActionChecked::CreateSP(this, &FBlueprintEditor::IsProfilerActive));
+	}
+
 	// New document actions
 	ToolkitCommands->MapAction( FBlueprintEditorCommands::Get().AddNewVariable,
 		FExecuteAction::CreateSP(this, &FBlueprintEditor::OnAddNewVariable),
@@ -2524,6 +2552,34 @@ void FBlueprintEditor::CreateDefaultCommands()
 	ToolkitCommands->MapAction(FBlueprintEditorCommands::Get().GenerateNativeCode,
 		FExecuteAction::CreateSP(this, &FBlueprintEditor::OpenNativeCodeGenerationTool),
 		FCanExecuteAction::CreateSP(this, &FBlueprintEditor::CanGenerateNativeCode));
+}
+
+bool FBlueprintEditor::IsProfilerActive() const
+{
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+	{
+		IBlueprintProfilerInterface& ProfilerModule = FModuleManager::LoadModuleChecked<IBlueprintProfilerInterface>("BlueprintProfiler");
+		return ProfilerModule.IsProfilerEnabled();
+	}
+	return false;
+}
+
+void FBlueprintEditor::ToggleProfiler()
+{
+	if (GetDefault<UEditorExperimentalSettings>()->bBlueprintPerformanceAnalysisTools)
+	{
+		IBlueprintProfilerInterface& ProfilerModule = FModuleManager::LoadModuleChecked<IBlueprintProfilerInterface>("BlueprintProfiler");
+		ProfilerModule.ToggleProfilingCapture();
+	
+		if (ProfilerModule.IsProfilerEnabled())
+		{
+			TabManager->InvokeTab(FBlueprintEditorTabs::BlueprintProfilerID);
+		}
+		else
+		{
+			TabManager->InvokeTab(FBlueprintEditorTabs::BlueprintProfilerID)->RequestCloseTab();
+		}
+	}
 }
 
 void FBlueprintEditor::OpenNativeCodeGenerationTool()
@@ -2815,7 +2871,7 @@ void FBlueprintEditor::FixSubObjectReferencesPostUndoRedo(UObject* InObject)
 		// This will occur during post-undo/redo of deletions
 		if (!bFoundMatchingSubObject)
 		{
-			UObject* NewSubObject = DuplicateObject(PropertySubObject, InObject, *PropertySubObject->GetName());
+			UObject* NewSubObject = DuplicateObject(PropertySubObject, InObject, PropertySubObject->GetFName());
 
 			// Don't forget to fix up all references and sub-object references
 			OldToNewInstanceMap.Add(PropertySubObject, NewSubObject);
@@ -7786,7 +7842,7 @@ bool FBlueprintEditor::IsSelectionNativeVariable()
 			{
 				UProperty* VariableProperty = VarNode->VariableReference.ResolveMember<UProperty>( VarNode->GetBlueprintClassFromNode() );
 
-				if( VariableProperty && VariableProperty->HasAllFlags( RF_Native ))
+				if( VariableProperty && VariableProperty->IsNative())
 				{
 					return true;
 				}

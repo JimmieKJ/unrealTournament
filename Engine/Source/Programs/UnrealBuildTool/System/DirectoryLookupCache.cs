@@ -112,6 +112,11 @@ namespace UnrealBuildTool
 			}
 		}
 
+        static public void InvalidateCachedDirectory(DirectoryReference Directory)
+        {
+            Directories.Remove(Directory);
+        }
+
 		static Dictionary<DirectoryReference, DirectoryCache> Directories = new Dictionary<DirectoryReference, DirectoryCache>();
 	}
 }

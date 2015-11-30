@@ -49,6 +49,12 @@ class UParticleModuleLight : public UParticleModuleLightBase
 	UPROPERTY(EditAnywhere, Category=Light)
 	struct FRawDistributionFloat LightExponent;
 
+	UPROPERTY(EditAnywhere, Category = Light)
+	bool bHighQualityLights;
+
+	UPROPERTY(EditAnywhere, Category = Light)
+	bool bShadowCastingLights;	
+
 	/** Initializes the default values for this property */
 	void InitializeDefaults();
 
@@ -72,6 +78,11 @@ class UParticleModuleLight : public UParticleModuleLightBase
 	void SpawnEx(FParticleEmitterInstance* Owner, int32 Offset, float SpawnTime, struct FRandomStream* InRandomStream, FBaseParticle* ParticleBase);
 
 	virtual bool CanTickInAnyThread() override;
+
+private:
+		
+	uint64 SpawnHQLight(const FLightParticlePayload& Payload, const FBaseParticle& Particle, FParticleEmitterInstance* Owner);	
+	void UpdateHQLight(UPointLightComponent* PointLightComponent, const FLightParticlePayload& Payload, const FBaseParticle& Particle, int32 ScreenAlignment, FVector ComponentScale, bool bLocalSpace, FSceneInterface* OwnerScene, bool bDoRTUpdate);
 };
 
 

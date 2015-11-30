@@ -4,7 +4,7 @@
 
 #include "Editor/EditorWidgets/Public/ITransportControl.h"
 #include "EditorUndoClient.h"
-
+#include "MovieSceneClipboard.h"
 
 class FMenuBuilder;
 class FMovieSceneSequenceInstance;
@@ -19,6 +19,7 @@ class UMovieScene;
 class UMovieSceneSection;
 class UMovieSceneSequence;
 class UWorld;
+class IMovieSceneSpawnRegister;
 
 
 /**
@@ -102,6 +103,9 @@ public:
 	virtual FSequencerSelectionPreview& GetSelectionPreview() override;
 	virtual void NotifyMapChanged(UWorld* NewWorld, EMapChangeType MapChangeType) override;
 	virtual FOnGlobalTimeChanged& OnGlobalTimeChanged() override { return OnGlobalTimeChangedDelegate; }
+	virtual FGuid CreateBinding(UObject& InObject, const FString& InName) override;
+	virtual UObject* GetPlaybackContext() const override;
+	virtual void GetAllKeyedProperties(UObject& Object, TSet<UProperty*>& OutProperties) override;
 
 	/** Set the global time directly, without performing any auto-scroll */
 	void SetGlobalTimeDirectly(float Time);
@@ -250,6 +254,7 @@ public:
 	virtual EMovieScenePlayerStatus::Type GetPlaybackStatus() const override;
 	virtual void AddOrUpdateMovieSceneInstance(UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToAdd) override;
 	virtual void RemoveMovieSceneInstance(UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToRemove) override;
+	virtual IMovieSceneSpawnRegister& GetSpawnRegister() override { return *SpawnRegister; }
 
 	/** Called when an actor is dropped into Sequencer */
 	void OnActorsDropped( const TArray<TWeakObjectPtr<AActor> >& Actors );
@@ -286,17 +291,39 @@ public:
 	void AddSelectedObjects();
 
 	/** Called when a user executes the assign actor to track menu item */
-	void AssignActor(FGuid ObjectBinding, FSequencerObjectBindingNode* ObjectBindingNode);
-	bool CanAssignActor(FGuid ObjectBinding) const;
+	void AssignActor(FMenuBuilder& MenuBuilder, FGuid ObjectBinding);
+	void DoAssignActor(AActor*const* InActors, int32 NumActors, FGuid ObjectBinding);
 
 	/** Called when a user executes the delete node menu item */
 	void DeleteNode(TSharedRef<FSequencerDisplayNode> NodeToBeDeleted);
 	void DeleteSelectedNodes();
 
+	/** Called when a user executes the active node menu item */
+	void ToggleNodeActive();
+	bool IsNodeActive() const;
+
+	/** Called when a user executes the locked node menu item */
+	void ToggleNodeLocked();
+	bool IsNodeLocked() const;
+
 	/** Called when a user executes the set key time for selected keys */
 	bool CanSetKeyTime() const;
 	void SetKeyTime(const bool bUseFrames);
 	void OnSetKeyTimeTextCommitted(const FText& InText, ETextCommit::Type CommitInfo, const bool bUseFrames);
+
+public:
+
+	/** Copy the selected keys to the clipboard */
+	void CopySelectedKeys();
+
+	/** Copy the selected keys to the clipboard, then delete them as part of an undoable transaction */
+	void CutSelectedKeys();
+
+	/** Get the in-memory clipboard stack */
+	const TArray<TSharedPtr<FMovieSceneClipboard>>& GetClipboardStack() const;
+
+	/** Promote a clipboard to the top of the clipboard stack, and update its timestamp */
+	void OnClipboardUsed(TSharedPtr<FMovieSceneClipboard> Clipboard);
 
 public:
 
@@ -358,6 +385,12 @@ protected:
 	/** Called when the user has finished scrubbing */
 	void OnEndScrubbing();
 
+	/** Called when the user has begun dragging the play range */
+	void OnBeginPlaybackRangeDrag();
+
+	/** Called when the user has finished dragging the play range */
+	void OnEndPlaybackRangeDrag();
+
 public:
 
 	/** Put the sequencer in a horizontally autoscrolling state with the given rate */
@@ -402,6 +435,26 @@ protected:
 
 protected:
 
+	/**
+	 * Populate the specified set with all UProperties that are currently keyed for the specified object and sequence instance, including any sub sequences
+	 *
+	 * @param Object		The object to get keyed properties for
+	 * @param Instance		The sequence instance in which to look for the object bindings
+	 * @param OutProperties	set to populate with properties
+	 */
+	void GetAllKeyedPropertiesForInstance(UObject& Object, FMovieSceneSequenceInstance& Instance, TSet<UProperty*>& OutProperties);
+
+	/**
+	 * Populate the specified set with all UProperties that are currently keyed for the specified object and sequence instance, excluding any sub sequences
+	 *
+	 * @param Object		The object to get keyed properties for
+	 * @param Instance		The sequence instance in which to look for the object bindings
+	 * @param OutProperties	set to populate with properties
+	 */
+	void GetKeyedProperties(UObject& Object, FMovieSceneSequenceInstance& Instance, TSet<UProperty*>& OutProperties);
+
+protected:
+
 	/** Called via UEditorEngine::GetActorRecordingStateEvent to check to see whether we need to record actor state */
 	void GetActorRecordingState( bool& bIsRecording /* In+Out */ ) const;
 	
@@ -419,8 +472,8 @@ protected:
 	void StepToNextCameraKey();
 	void StepToPreviousCameraKey();
 
-	void ExpandNodesAndDescendants();
-	void CollapseNodesAndDescendants();
+	void ExpandAllNodesAndDescendants();
+	void CollapseAllNodesAndDescendants();
 
 	/** Expand or collapse selected nodes */
 	void ToggleExpandCollapseNodes();
@@ -450,6 +503,7 @@ protected:
 
 	void ActivateDetailKeyframeHandler();
 	void DeactivateDetailKeyframeHandler();
+	void OnPropertyEditorOpened();
 
 	//~ Begin FEditorUndoClient Interface
 	virtual void PostUndo(bool bSuccess) override;
@@ -509,6 +563,9 @@ private:
 	/** Main sequencer widget */
 	TSharedPtr<SSequencer> SequencerWidget;
 	
+	/** Spawn register for keeping track of what is spawned */
+	TSharedPtr<IMovieSceneSpawnRegister> SpawnRegister;
+
 	/** The asset editor that created this Sequencer if any */
 	TWeakPtr<IToolkitHost> ToolkitHost;
 

@@ -276,7 +276,7 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
         }
 		else
 		{
-			UE_LOG(LogHttp, Warning, TEXT("Timeout on %s"), HttpRetryRequestEntry.CurrentRetryCount + 1, *(HttpRetryRequest->GetURL()));
+			UE_LOG(LogHttp, Warning, TEXT("Timeout on retry %d: %s"), HttpRetryRequestEntry.CurrentRetryCount + 1, *(HttpRetryRequest->GetURL()));
 			bIsGreen = false;
             HttpRetryRequest->Status = FHttpRetrySystem::FRequest::EStatus::FailedTimeout;
 			if (FailedCount != nullptr)
@@ -326,7 +326,7 @@ bool FHttpRetrySystem::FManager::Update(uint32* FileCount, uint32* FailingCount,
 FHttpRetrySystem::FManager::FHttpRetryRequestEntry::FHttpRetryRequestEntry(TSharedRef<FHttpRetrySystem::FRequest>& InHttpRequest)
     : bShouldCancel(false)
     , CurrentRetryCount(0)
-    , RequestStartTimeAbsoluteSeconds(0.0)
+	, RequestStartTimeAbsoluteSeconds(FPlatformTime::Seconds())
     , HttpRequest(InHttpRequest)
 {}
 

@@ -3,17 +3,17 @@
 #include "SlateRHIRendererPrivatePCH.h"
 #include "SlateElementIndexBuffer.h"
 
+DECLARE_MEMORY_STAT(TEXT("Index Buffer Memory"), STAT_SlateIndexBufferMemory, STATGROUP_SlateMemory);
+
 FSlateElementIndexBuffer::FSlateElementIndexBuffer()
 	: BufferSize(0)	 
 	, MinBufferSize(0)
 	, BufferUsageSize(0)
 {
-
 }
 
 FSlateElementIndexBuffer::~FSlateElementIndexBuffer()
 {
-
 }
 
 void FSlateElementIndexBuffer::Init( int32 MinNumIndices )
@@ -42,7 +42,6 @@ void FSlateElementIndexBuffer::Destroy()
 	}
 }
 
-
 /** Initializes the index buffers RHI resource. */
 void FSlateElementIndexBuffer::InitDynamicRHI()
 {
@@ -50,7 +49,7 @@ void FSlateElementIndexBuffer::InitDynamicRHI()
 
 	check( MinBufferSize > 0 );
 
-	BufferSize = MinBufferSize;
+	SetBufferSize(MinBufferSize);
 
 	FRHIResourceCreateInfo CreateInfo;
 	IndexBufferRHI = RHICreateIndexBuffer( sizeof(SlateIndex), MinBufferSize, BUF_Dynamic, CreateInfo );
@@ -71,7 +70,7 @@ void FSlateElementIndexBuffer::ResizeBuffer( int32 NewSizeBytes )
 		IndexBufferRHI = RHICreateIndexBuffer( sizeof(SlateIndex), FinalSize, BUF_Dynamic, CreateInfo );
 		check(IsValidRef(IndexBufferRHI));
 
-		BufferSize = FinalSize;
+		SetBufferSize(FinalSize);
 	}
 }
 
@@ -122,5 +121,12 @@ void FSlateElementIndexBuffer::UnlockBuffer_RHIThread()
 void FSlateElementIndexBuffer::ReleaseDynamicRHI()
 {
 	IndexBufferRHI.SafeRelease();
-	BufferSize = 0;
+	SetBufferSize(0);
+}
+
+void FSlateElementIndexBuffer::SetBufferSize(int32 NewBufferSize)
+{
+	DEC_MEMORY_STAT_BY(STAT_SlateIndexBufferMemory, BufferSize);
+	BufferSize = NewBufferSize;
+	INC_MEMORY_STAT_BY(STAT_SlateIndexBufferMemory, BufferSize);
 }

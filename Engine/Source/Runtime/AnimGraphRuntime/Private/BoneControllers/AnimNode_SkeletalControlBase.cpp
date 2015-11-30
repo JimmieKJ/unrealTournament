@@ -4,6 +4,7 @@
 #include "BoneControllers/AnimNode_SkeletalControlBase.h"
 #include "AnimationUtils.h"
 #include "AnimationRuntime.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_SkeletalControlBase
@@ -17,24 +18,25 @@ void FAnimNode_SkeletalControlBase::Initialize(const FAnimationInitializeContext
 
 void FAnimNode_SkeletalControlBase::CacheBones(const FAnimationCacheBonesContext& Context) 
 {
-	InitializeBoneReferences(Context.AnimInstance->RequiredBones);
+	InitializeBoneReferences(Context.AnimInstanceProxy->GetRequiredBones());
 	ComponentPose.CacheBones(Context);
 }
 
 void FAnimNode_SkeletalControlBase::UpdateInternal(const FAnimationUpdateContext& Context)
 {
-	EvaluateGraphExposedInputs.Execute(Context);
 }
 
 void FAnimNode_SkeletalControlBase::Update(const FAnimationUpdateContext& Context)
 {
 	ComponentPose.Update(Context);
 
-	if (IsLODEnabled(Context.AnimInstance, LODThreshold))
+	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
 	{
+		EvaluateGraphExposedInputs.Execute(Context);
+
 		// Apply the skeletal control if it's valid
 		const float ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);
-		if ((ActualAlpha >= ZERO_ANIMWEIGHT_THRESH) && IsValidToEvaluate(Context.AnimInstance->CurrentSkeleton, Context.AnimInstance->RequiredBones))
+		if ((ActualAlpha >= ZERO_ANIMWEIGHT_THRESH) && IsValidToEvaluate(Context.AnimInstanceProxy->GetSkeleton(), Context.AnimInstanceProxy->GetRequiredBones()))
 		{
 			UpdateInternal(Context);
 		}
@@ -59,13 +61,13 @@ void FAnimNode_SkeletalControlBase::EvaluateComponentSpace(FComponentSpacePoseCo
 	// Evaluate the input
 	ComponentPose.EvaluateComponentSpace(Output);
 
-	if (IsLODEnabled(Output.AnimInstance, LODThreshold))
+	if (IsLODEnabled(Output.AnimInstanceProxy, LODThreshold))
 	{
 		// Apply the skeletal control if it's valid
 		const float ActualAlpha = AlphaScaleBias.ApplyTo(Alpha);
-		if ((ActualAlpha >= ZERO_ANIMWEIGHT_THRESH) && IsValidToEvaluate(Output.AnimInstance->CurrentSkeleton, Output.AnimInstance->RequiredBones))
+		if ((ActualAlpha >= ZERO_ANIMWEIGHT_THRESH) && IsValidToEvaluate(Output.AnimInstanceProxy->GetSkeleton(), Output.AnimInstanceProxy->GetRequiredBones()))
 		{
-			USkeletalMeshComponent* Component = Output.AnimInstance->GetSkelMeshComponent();
+			USkeletalMeshComponent* Component = Output.AnimInstanceProxy->GetSkelMeshComponent();
 
 #if WITH_EDITORONLY_DATA
 			// save current pose before applying skeletal control to compute the exact gizmo location in AnimGraphNode

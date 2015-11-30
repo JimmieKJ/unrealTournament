@@ -58,6 +58,7 @@ UGameplayAbility::UGameplayAbility(const FObjectInitializer& ObjectInitializer)
 
 	bServerRespectsRemoteAbilityCancellation = true;
 	bReplicateInputDirectly = false;
+	RemoteInstanceEnded = false;
 }
 
 int32 UGameplayAbility::GetFunctionCallspace(UFunction* Function, void* Parameters, FFrame* Stack)
@@ -341,17 +342,20 @@ bool UGameplayAbility::CommitAbility(const FGameplayAbilitySpecHandle Handle, co
 	return true;
 }
 
-bool UGameplayAbility::CommitAbilityCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo)
+bool UGameplayAbility::CommitAbilityCooldown(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, const bool ForceCooldown)
 {
 	if (UAbilitySystemGlobals::Get().ShouldIgnoreCooldowns())
 	{
 		return true;
 	}
 
-	// Last chance to fail (maybe we no longer have resources to commit since we after we started this ability activation)
-	if (!CheckCooldown(Handle, ActorInfo))
+	if (!ForceCooldown)
 	{
-		return false;
+		// Last chance to fail (maybe we no longer have resources to commit since we after we started this ability activation)
+		if (!CheckCooldown(Handle, ActorInfo))
+		{
+			return false;
+		}
 	}
 
 	ApplyCooldown(Handle, ActorInfo, ActivationInfo);
@@ -920,14 +924,14 @@ bool UGameplayAbility::K2_CommitAbility()
 	return CommitAbility(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo);
 }
 
-bool UGameplayAbility::K2_CommitAbilityCooldown(bool BroadcastCommitEvent)
+bool UGameplayAbility::K2_CommitAbilityCooldown(bool BroadcastCommitEvent, bool ForceCooldown)
 {
 	check(CurrentActorInfo);
 	if (BroadcastCommitEvent)
 	{
 		CurrentActorInfo->AbilitySystemComponent->NotifyAbilityCommit(this);
 	}
-	return CommitAbilityCooldown(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo);
+	return CommitAbilityCooldown(CurrentSpecHandle, CurrentActorInfo, CurrentActivationInfo, ForceCooldown);
 }
 
 bool UGameplayAbility::K2_CommitAbilityCost(bool BroadcastCommitEvent)
@@ -1472,6 +1476,8 @@ TArray<FActiveGameplayEffectHandle> UGameplayAbility::K2_ApplyGameplayEffectToTa
 
 TArray<FActiveGameplayEffectHandle> UGameplayAbility::ApplyGameplayEffectToTarget(const FGameplayAbilitySpecHandle Handle, const FGameplayAbilityActorInfo* ActorInfo, const FGameplayAbilityActivationInfo ActivationInfo, FGameplayAbilityTargetDataHandle Target, TSubclassOf<UGameplayEffect> GameplayEffectClass, float GameplayEffectLevel, int32 Stacks) const
 {
+	SCOPE_CYCLE_COUNTER(STAT_ApplyGameplayEffectToTarget);
+
 	TArray<FActiveGameplayEffectHandle> EffectHandles;
 
 	if (HasAuthority(&ActivationInfo) == false && UAbilitySystemGlobals::Get().ShouldPredictTargetGameplayEffects() == false)
@@ -1574,4 +1580,39 @@ void UGameplayAbility::ConvertDeprecatedGameplayEffectReferencesToBlueprintRefer
 float UGameplayAbility::GetCooldownTimeRemaining() const
 {
 	return IsInstantiated() ? GetCooldownTimeRemaining(CurrentActorInfo) : 0.f;
+}
+
+void UGameplayAbility::SetRemoteInstanceHasEnded()
+{
+	// This could potentially happen in shutdown corner cases
+	if (IsPendingKill() || CurrentActorInfo == nullptr || CurrentActorInfo->AbilitySystemComponent.IsValid() == false)
+	{
+		return;
+	}
+
+	RemoteInstanceEnded = true;
+	for (UGameplayTask* Task : ActiveTasks)
+	{
+		if (Task && Task->IsPendingKill() == false && Task->IsWaitingOnRemotePlayerdata())
+		{
+			// We have a task that is waiting for player input, but the remote player has ended the ability, so he will not send it.
+			// Kill the ability to avoid getting stuck active.
+			
+			ABILITY_LOG(Warning, TEXT("Ability %s is force cancelling because Task %s is waiting on remote player input and the  remote player has just ended the ability."), *GetName(), *Task->GetDebugString());
+			CurrentActorInfo->AbilitySystemComponent->ForceCancelAbilityDueToReplication(this);
+			break;
+		}
+	}
+}
+
+void UGameplayAbility::NotifyAbilityTaskWaitingOnPlayerData(class UAbilityTask* AbilityTask)
+{
+	// This should never happen since it will only be called from actively running ability tasks
+	check(CurrentActorInfo && CurrentActorInfo->AbilitySystemComponent.IsValid());
+
+	if (RemoteInstanceEnded)
+	{
+		ABILITY_LOG(Warning, TEXT("Ability %s is force cancelling because Task %s has started after the remote player has ended the ability."), *GetName(), *AbilityTask->GetDebugString());
+		CurrentActorInfo->AbilitySystemComponent->ForceCancelAbilityDueToReplication(this);
+	}
 }

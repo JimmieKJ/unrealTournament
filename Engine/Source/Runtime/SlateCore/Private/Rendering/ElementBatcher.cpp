@@ -54,8 +54,7 @@ FSlateRotatedClipRectType ToSnappedRotatedRect(const FSlateRect& ClipRectInLayou
 FSlateElementBatcher::FSlateElementBatcher( TSharedRef<FSlateRenderingPolicy> InRenderingPolicy )
 	: BatchData( nullptr )
 	, DrawLayer( nullptr )
-	, ResourceManager( *InRenderingPolicy->GetResourceManager() )
-	, FontCache( *InRenderingPolicy->GetFontCache() )
+	, RenderingPolicy( &InRenderingPolicy.Get() )
 	, NumDrawnBatchesStat(0)
 	, PixelCenterOffset( InRenderingPolicy->GetPixelCenterOffset() )
 	, bSRGBVertexColor( !InRenderingPolicy->IsVertexColorInLinearSpace() )
@@ -102,16 +101,17 @@ void FSlateElementBatcher::AddElements(FSlateDrawLayer& InDrawLayer)
 		FSlateDrawElement::EElementType::ET_Box == 0 &&
 		FSlateDrawElement::EElementType::ET_DebugQuad == 1 &&
 		FSlateDrawElement::EElementType::ET_Text == 2 &&
-		FSlateDrawElement::EElementType::ET_Spline == 3 &&
-		FSlateDrawElement::EElementType::ET_Line == 4 &&
-		FSlateDrawElement::EElementType::ET_Gradient == 5 &&
-		FSlateDrawElement::EElementType::ET_Viewport == 6 &&
-		FSlateDrawElement::EElementType::ET_Border == 7 &&
-		FSlateDrawElement::EElementType::ET_Custom == 8 &&
-		FSlateDrawElement::EElementType::ET_CustomVerts == 9 &&
-		FSlateDrawElement::EElementType::ET_CachedBuffer == 10 &&
-		FSlateDrawElement::EElementType::ET_Layer == 11 &&
-		FSlateDrawElement::EElementType::ET_Count == 12,
+		FSlateDrawElement::EElementType::ET_ShapedText == 3 &&
+		FSlateDrawElement::EElementType::ET_Spline == 4 &&
+		FSlateDrawElement::EElementType::ET_Line == 5 &&
+		FSlateDrawElement::EElementType::ET_Gradient == 6 &&
+		FSlateDrawElement::EElementType::ET_Viewport == 7 &&
+		FSlateDrawElement::EElementType::ET_Border == 8 &&
+		FSlateDrawElement::EElementType::ET_Custom == 9 &&
+		FSlateDrawElement::EElementType::ET_CustomVerts == 10 &&
+		FSlateDrawElement::EElementType::ET_CachedBuffer == 11 &&
+		FSlateDrawElement::EElementType::ET_Layer == 12 &&
+		FSlateDrawElement::EElementType::ET_Count == 13,
 		"If FSlateDrawElement::EElementType is modified, this array must be made to match." );
 
 	static FName ElementFNames[] =
@@ -119,6 +119,7 @@ void FSlateElementBatcher::AddElements(FSlateDrawLayer& InDrawLayer)
 		FName(TEXT("Box")),
 		FName(TEXT("DebugQuad")),
 		FName(TEXT("Text")),
+		FName(TEXT("ShapedText")),
 		FName(TEXT("Spline")),
 		FName(TEXT("Line")),
 		FName(TEXT("Gradient")),
@@ -193,6 +194,9 @@ void FSlateElementBatcher::AddElements(FSlateDrawLayer& InDrawLayer)
 					break;
 				case FSlateDrawElement::ET_Text:
 					AddTextElement( DrawElement );
+					break;
+				case FSlateDrawElement::ET_ShapedText:
+					AddShapedTextElement( DrawElement );
 					break;
 				case FSlateDrawElement::ET_Spline:
 					AddSplineElement( DrawElement );
@@ -648,6 +652,8 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 		return;
 	}
 
+	FSlateFontCache& FontCache = *RenderingPolicy->GetFontCache();
+	FSlateShaderResourceManager& ResourceManager = *RenderingPolicy->GetResourceManager();
 
 	FCharacterList& CharacterList = FontCache.GetCharacterList( InPayload.FontInfo, FontScale );
 
@@ -803,6 +809,167 @@ void FSlateElementBatcher::AddTextElement(const FSlateDrawElement& DrawElement)
 
 			LineX += Entry.XAdvance;
 		}
+	}
+}
+
+void FSlateElementBatcher::AddShapedTextElement( const FSlateDrawElement& DrawElement )
+{
+	const FSlateDataPayload& InPayload = DrawElement.GetDataPayload();
+	check(InPayload.ShapedGlyphSequence.IsValid());
+
+	FColor Tint = PackVertexColor(InPayload.Tint);
+	if (Tint.A == 0)
+	{
+		return;
+	}
+
+	const TArray<FShapedGlyphEntry>& GlyphsToRender = InPayload.ShapedGlyphSequence->GetGlyphsToRender();
+	if (GlyphsToRender.Num() == 0)
+	{
+		return;
+	}
+
+	FSlateFontCache& FontCache = *RenderingPolicy->GetFontCache();
+	FSlateShaderResourceManager& ResourceManager = *RenderingPolicy->GetResourceManager();
+
+	const int16 TextBaseline = InPayload.ShapedGlyphSequence->GetTextBaseline();
+	const uint16 MaxHeight = InPayload.ShapedGlyphSequence->GetMaxTextHeight();
+
+	NumDrawnTextsStat++;
+
+	//const FVector2D& InPosition = DrawElement.GetPosition();
+	//const FVector2D& Size = DrawElement.GetSize();
+	//const FVector2D& LocalSize = DrawElement.GetLocalSize();
+	//float Scale = DrawElement.GetScale();
+	const FSlateRect& InClippingRect = DrawElement.GetClippingRect();
+	ESlateDrawEffect::Type InDrawEffects = DrawElement.GetDrawEffects();
+	uint32 Layer = DrawElement.GetLayer();
+
+	// extract the layout transform from the draw element
+	FSlateLayoutTransform LayoutTransform(DrawElement.GetScale(), DrawElement.GetPosition());
+
+	// We don't just scale up fonts, we draw them in local space pre-scaled so we don't get scaling artifcats.
+	// So we need to pull the layout scale out of the layout and render transform so we can apply them
+	// in local space with pre-scaled fonts.
+	const float FontScale = LayoutTransform.GetScale();
+	FSlateLayoutTransform InverseLayoutTransform = Inverse(Concatenate(Inverse(FontScale), LayoutTransform));
+	const FSlateRenderTransform RenderTransform = Concatenate(Inverse(FontScale), DrawElement.GetRenderTransform());
+
+	FSlateRotatedClipRectType RenderClipRect = ToSnappedRotatedRect(InClippingRect, InverseLayoutTransform, RenderTransform);
+	// Used to clip individual characters as we generate them.
+	FSlateRect LocalClipRect = TransformRect(InverseLayoutTransform, InClippingRect);
+
+	uint32 FontTextureIndex = 0;
+	FSlateShaderResource* FontAtlasTexture = nullptr;
+	FSlateShaderResource* FontShaderResource = nullptr;
+
+	FSlateElementBatch* ElementBatch = nullptr;
+	TArray<FSlateVertex>* BatchVertices = nullptr;
+	TArray<SlateIndex>* BatchIndices = nullptr;
+
+	uint32 VertexOffset = 0;
+	uint32 IndexOffset = 0;
+
+	float InvTextureSizeX = 0;
+	float InvTextureSizeY = 0;
+
+	FVector2D TopLeft(0,0);
+
+	const float PosX = TopLeft.X;
+	float PosY = TopLeft.Y;
+
+	float LineX = PosX;
+	float LineY = PosY;
+	
+	const UObject* FontMaterial = InPayload.ShapedGlyphSequence->GetFontMaterial();
+	const bool bIsFontMaterial = FontMaterial != nullptr;
+
+	const int32 NumGlyphs = GlyphsToRender.Num();
+	for (int32 GlyphIndex = 0; GlyphIndex < NumGlyphs; ++GlyphIndex)
+	{
+		const FShapedGlyphEntry& GlyphToRender = GlyphsToRender[GlyphIndex];
+		const FShapedGlyphFontAtlasData GlyphAtlasData = FontCache.GetShapedGlyphFontAtlasData(GlyphToRender);
+
+		if (FontAtlasTexture == nullptr || GlyphAtlasData.TextureIndex != FontTextureIndex)
+		{
+			// Font has a new texture for this glyph. Refresh the batch we use and the index we are currently using
+			FontTextureIndex = GlyphAtlasData.TextureIndex;
+
+			FontAtlasTexture = FontCache.GetSlateTextureResource(FontTextureIndex);
+			FontShaderResource = ResourceManager.GetFontShaderResource(FontTextureIndex, FontAtlasTexture, FontMaterial);
+
+			ElementBatch = &FindBatchForElement(Layer, FShaderParams(), FontShaderResource, ESlateDrawPrimitive::TriangleList, ESlateShader::Font, InDrawEffects, ESlateBatchDrawFlag::None, DrawElement.GetScissorRect());
+
+			BatchVertices = &BatchData->GetBatchVertexList(*ElementBatch);
+			BatchIndices = &BatchData->GetBatchIndexList(*ElementBatch);
+
+			VertexOffset = BatchVertices->Num();
+			IndexOffset = BatchIndices->Num();
+				
+			InvTextureSizeX = 1.0f/FontAtlasTexture->GetWidth();
+			InvTextureSizeY = 1.0f/FontAtlasTexture->GetHeight();
+		}
+
+		const float X = LineX + GlyphAtlasData.HorizontalOffset + GlyphToRender.XOffset;
+		// Note PosX,PosY is the upper left corner of the bounding box representing the string.  This computes the Y position of the baseline where text will sit
+
+		const float Y = LineY - GlyphAtlasData.VerticalOffset + GlyphToRender.YOffset + MaxHeight + TextBaseline;
+		const float U = GlyphAtlasData.StartU * InvTextureSizeX;
+		const float V = GlyphAtlasData.StartV * InvTextureSizeY;
+		const float SizeX = GlyphAtlasData.USize;
+		const float SizeY = GlyphAtlasData.VSize;
+		const float SizeU = GlyphAtlasData.USize * InvTextureSizeX;
+		const float SizeV = GlyphAtlasData.VSize * InvTextureSizeY;
+
+		const FSlateRect CharRect(X, Y, X + SizeX, Y + SizeY);
+		if (FSlateRect::DoRectanglesIntersect(LocalClipRect, CharRect))
+		{
+			TArray<FSlateVertex>& BatchVerticesRef = *BatchVertices;
+			TArray<SlateIndex>& BatchIndicesRef = *BatchIndices;
+
+			const FVector2D UpperLeft = CharRect.GetTopLeft();
+			const FVector2D UpperRight = CharRect.GetTopRight();
+			const FVector2D LowerLeft = CharRect.GetBottomLeft();
+			const FVector2D LowerRight = CharRect.GetBottomRight();
+
+			// Add four vertices for this quad
+			BatchVerticesRef.AddUninitialized(4);
+			// Add six indices for this quad
+			BatchIndicesRef.AddUninitialized(6);
+
+			// The start index of these vertices in the index buffer
+			uint32 IndexStart = VertexOffset;
+
+			float Ut = 0.0f, Vt = 0.0f, UtMax = 0.0f, VtMax = 0.0f;
+			if (bIsFontMaterial)
+			{
+				float DistAlpha = (float)GlyphIndex/NumGlyphs;
+				float DistAlphaNext = (float)(GlyphIndex+1)/NumGlyphs;
+
+				// This creates a set of UV's that goes from 0-1, from left to right of the string in U and 0-1 baseline to baseline top to bottom in V
+				Ut = FMath::Lerp(0.0f, 1.0f, DistAlpha);
+				Vt = FMath::Lerp(0.0f, 1.0f, UpperLeft.Y/MaxHeight);
+
+				UtMax = FMath::Lerp(0.0f, 1.0f, DistAlphaNext);
+				VtMax = FMath::Lerp(0.0f, 1.0f, LowerLeft.Y/MaxHeight);
+			}
+
+			// Add four vertices to the list of verts to be added to the vertex buffer
+			BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, UpperLeft,								FVector4(U,V,				Ut,Vt),			FVector2D(0.0f,0.0f), Tint, RenderClipRect);
+			BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, FVector2D(LowerRight.X,UpperLeft.Y),	FVector4(U+SizeU, V,		UtMax,Vt),		FVector2D(1.0f,0.0f), Tint, RenderClipRect);
+			BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, FVector2D(UpperLeft.X,LowerRight.Y),	FVector4(U, V+SizeV,		Ut,VtMax),		FVector2D(0.0f,1.0f), Tint, RenderClipRect);
+			BatchVerticesRef[VertexOffset++] = FSlateVertex(RenderTransform, LowerRight,							FVector4(U+SizeU, V+SizeV,	UtMax,VtMax),	FVector2D(1.0f,1.0f), Tint, RenderClipRect);
+
+			BatchIndicesRef[IndexOffset++] = IndexStart + 0;
+			BatchIndicesRef[IndexOffset++] = IndexStart + 1;
+			BatchIndicesRef[IndexOffset++] = IndexStart + 2;
+			BatchIndicesRef[IndexOffset++] = IndexStart + 1;
+			BatchIndicesRef[IndexOffset++] = IndexStart + 3;
+			BatchIndicesRef[IndexOffset++] = IndexStart + 2;
+		}
+
+		LineX += GlyphToRender.XAdvance;
+		LineY += GlyphToRender.YAdvance;
 	}
 }
 

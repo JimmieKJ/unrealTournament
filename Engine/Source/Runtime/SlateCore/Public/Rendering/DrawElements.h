@@ -54,6 +54,9 @@ public:
 	FSlateFontInfo FontInfo;
 	TCHAR* ImmutableText;
 
+	// Shaped text data
+	FShapedGlyphSequencePtr ShapedGlyphSequence;
+
 	// Gradient data (fixme, this should be allocated with FSlateWindowElementList::Alloc)
 	TArray<FSlateGradientStop> GradientStops;
 	EOrientation GradientType;
@@ -145,6 +148,12 @@ public:
 
 	void SetTextPayloadProperties( FSlateWindowElementList& DrawBuffer, const FString& InText, const FSlateFontInfo& InFontInfo, const FLinearColor& InTint, const int32 StartIndex = 0, const int32 EndIndex = MAX_int32 );
 
+	void SetShapedTextPayloadProperties( const FShapedGlyphSequenceRef& InShapedGlyphSequence, const FLinearColor& InTint )
+	{
+		Tint = InTint;
+		ShapedGlyphSequence = InShapedGlyphSequence;
+	}
+
 	void SetGradientPayloadProperties( const TArray<FSlateGradientStop>& InGradientStops, EOrientation InGradientType, bool bInGammaCorrect )
 	{
 		GradientStops = InGradientStops;
@@ -224,6 +233,7 @@ public:
 		ET_Box,
 		ET_DebugQuad,
 		ET_Text,
+		ET_ShapedText,
 		ET_Spline,
 		ET_Line,
 		ET_Gradient,
@@ -326,6 +336,19 @@ public:
 	SLATECORE_API static void MakeText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FString& InText, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect,ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint =FLinearColor::White );
 
 	SLATECORE_API static void MakeText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FText& InText, const FSlateFontInfo& InFontInfo, const FSlateRect& InClippingRect,ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint =FLinearColor::White );
+
+	/**
+	 * Creates a text element which displays a series of shaped glyphs on the screen
+	 *
+	 * @param ElementList			The list in which to add elements
+	 * @param InLayer               The layer to draw the element on
+	 * @param PaintGeometry         DrawSpace position and dimensions; see FPaintGeometry
+	 * @param InShapedGlyphSequence The shaped glyph sequence to draw
+	 * @param InClippingRect        Parts of the element are clipped if it falls outside of this rectangle
+	 * @param InDrawEffects         Optional draw effects to apply
+	 * @param InTint                Color to tint the element
+	 */
+	SLATECORE_API static void MakeShapedText( FSlateWindowElementList& ElementList, uint32 InLayer, const FPaintGeometry& PaintGeometry, const FShapedGlyphSequenceRef& InShapedGlyphSequence, const FSlateRect& InClippingRect, ESlateDrawEffect::Type InDrawEffects = ESlateDrawEffect::None, const FLinearColor& InTint = FLinearColor::White );
 
 	/**
 	 * Creates a gradient element

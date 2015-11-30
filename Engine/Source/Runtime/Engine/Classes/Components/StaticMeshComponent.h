@@ -184,6 +184,10 @@ class ENGINE_API UStaticMeshComponent : public UMeshComponent
 	UPROPERTY(transient)
 	uint32 bForceNavigationObstacle : 1;
 
+	/** If true, mesh painting is disallowed on this instance. Set if vertex colors are overridden in a construction script. */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadWrite, Category=Rendering)
+	uint32 bDisallowMeshPaintPerInstance : 1;
+
 	/**
 	 *	Ignore this instance of this static mesh when calculating streaming information.
 	 *	This can be useful when doing things like applying character textures to static geometry,

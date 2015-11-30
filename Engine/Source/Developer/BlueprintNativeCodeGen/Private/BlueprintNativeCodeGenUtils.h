@@ -7,6 +7,7 @@
 // Forward declares
 struct FNativeCodeGenCommandlineParams;
 class  SBuildProgressWidget;
+struct FBlueprintNativeCodeGenManifest;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogBlueprintCodeGen, Log, All);
 
@@ -15,26 +16,26 @@ struct FBlueprintNativeCodeGenUtils
 {
 public:
 	/**
-	 * 
-	 * 
-	 * @param  CommandParams    
-	 * @return 
+	 * Generated module build file, module source files, and plugin description file for the provided manifest.
+	 *
+	 * @param	Manifest		The manifest containing lists of converted files, etc
+	 * @param	CommandParams	Command parameters used to generate native code, includes plugin name
 	 */
-	static bool GeneratePlugin(const FNativeCodeGenCommandlineParams& CommandParams);
+	static bool FinalizePlugin(const FBlueprintNativeCodeGenManifest& Manifest, const FNativeCodeGenCommandlineParams& CommandParams);
 
 	/**
 	 * Recompiles the bytecode of a blueprint only. Should only be run for
 	 * recompiling dependencies during compile on load.
 	 * 
-	 * @param  Obj    
-	 * @param  OutHeaderSource    
-	 * @param  OutCppSource    
+	 * @param  Obj				The asset object that you want to generate source code for (a Blueprint, or UserDefinedEnum/Struct)
+	 * @param  OutHeaderSource	Output destination for the header source.
+	 * @param  OutCppSource		Output destination for the cpp source.
 	 */
 	static void GenerateCppCode(UObject* Obj, TSharedPtr<FString> OutHeaderSource, TSharedPtr<FString> OutCppSource);
 
 public: 
 	/** 
-	 * 
+	 * A utility for catching errors/warnings that were logged in nested/scoped calls.
 	 */
 	class FScopedFeedbackContext : public FFeedbackContext
 	{
@@ -45,14 +46,14 @@ public:
 		/**  */
 		bool HasErrors();
 
-		// FOutputDevice interface
+		//~ Begin FOutputDevice interface
 		virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category) override;
 		virtual void Flush() override;
 		virtual void TearDown() override { OldContext->TearDown();  }
 		virtual bool CanBeUsedOnAnyThread() const override { return false; }
-		// End FOutputDevice interface
+		//~ End FOutputDevice interface
 
-		// FFeedbackContext interface
+		//~ Begin FFeedbackContext interface
 		virtual bool YesNof(const FText& Question) override { return OldContext->YesNof(Question); }
 		virtual bool ReceivedUserCancel() override { return OldContext->ReceivedUserCancel(); }
 		virtual FContextSupplier* GetContext() const override { return OldContext->GetContext(); }
@@ -64,7 +65,7 @@ public:
 		//virtual void StartSlowTask(const FText& Task, bool bShowCancelButton = false) override { OldContext->StartSlowTask(Task, bShowCancelButton); }
 		//virtual void FinalizeSlowTask() override { OldContext->FinalizeSlowTask(); }
 		//virtual void ProgressReported(const float TotalProgressInterp, FText DisplayMessage) override { OldContext->ProgressReported(TotalProgressInterp, DisplayMessage); }
-		// End FFeedbackContext interface
+		//~ End FFeedbackContext interface
 
 	private:
 		FFeedbackContext* OldContext;

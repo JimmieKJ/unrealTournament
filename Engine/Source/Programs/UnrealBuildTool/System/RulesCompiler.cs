@@ -1688,6 +1688,13 @@ namespace UnrealBuildTool
 			return SourceFiles;
 		}
 
+        public static void InvalidateRulesFileCache(string DirectoryPath)
+        {
+            DirectoryReference Directory = new DirectoryReference(DirectoryPath);
+            RootFolderToRulesFileCache.Remove(Directory);
+            DirectoryLookupCache.InvalidateCachedDirectory(Directory);
+        }
+
 		private static IReadOnlyList<FileReference> FindAllRulesFiles(DirectoryReference Directory, RulesFileType Type)
 		{
 			// Check to see if we've already cached source files for this folder

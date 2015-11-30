@@ -625,14 +625,14 @@ void ACharacter::SetBase( UPrimitiveComponent* NewBaseComponent, const FName InB
 				}
 
 				// Enable pre-cloth tick if we are standing on a physics object, as we need to to use post-physics transforms
-				CharacterMovement->PreClothComponentTick.SetTickFunctionEnable(NewBaseComponent->IsSimulatingPhysics());
+				CharacterMovement->PostPhysicsTickFunction.SetTickFunctionEnable(NewBaseComponent->IsSimulatingPhysics());
 			}
 			else
 			{
 				BasedMovement.BoneName = NAME_None; // None, regardless of whether user tried to set a bone name, since we have no base component.
 				BasedMovement.bRelativeRotation = false;
 				CharacterMovement->CurrentFloor.Clear();
-				CharacterMovement->PreClothComponentTick.SetTickFunctionEnable(false);
+				CharacterMovement->PostPhysicsTickFunction.SetTickFunctionEnable(false);
 			}
 
 			if (Role == ROLE_Authority || Role == ROLE_AutonomousProxy)
@@ -985,6 +985,7 @@ void ACharacter::OnRep_ReplicatedBasedMovement()
 
 		// When position or base changes, movement mode will need to be updated. This assumes rotation changes don't affect that.
 		CharacterMovement->bJustTeleported |= (bBaseChanged || GetActorLocation() != OldLocation);
+		CharacterMovement->bNetworkSmoothingComplete = false;
 		CharacterMovement->SmoothCorrection(OldLocation, OldRotation, NewLocation, NewRotation.Quaternion());
 		OnUpdateSimulatedPosition(OldLocation, OldRotation);
 	}
@@ -1075,6 +1076,7 @@ void ACharacter::SimulatedRootMotionPositionFixup(float DeltaSeconds)
 							CharacterMovement->SimulateRootMotion(DeltaTime, LocalRootMotionTransform);
 
 							// After movement correction, smooth out error in position if any.
+							CharacterMovement->bNetworkSmoothingComplete = false;
 							CharacterMovement->SmoothCorrection(OldLocation, OldRotation, GetActorLocation(), GetActorQuat());
 						}
 					}
@@ -1250,6 +1252,7 @@ void ACharacter::PostNetReceiveLocationAndRotation()
 			const FVector OldLocation = GetActorLocation();
 			const FQuat OldRotation = GetActorQuat();
 		
+			CharacterMovement->bNetworkSmoothingComplete = false;
 			CharacterMovement->SmoothCorrection(OldLocation, OldRotation, ReplicatedMovement.Location, ReplicatedMovement.Rotation.Quaternion());
 			OnUpdateSimulatedPosition(OldLocation, OldRotation);
 		}

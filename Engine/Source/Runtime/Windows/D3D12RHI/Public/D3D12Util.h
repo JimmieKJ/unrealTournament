@@ -208,7 +208,7 @@ class FD3D12BoundRenderTargets
 {
 public:
 	/** Initialization constructor: requires the state cache. */
-	explicit FD3D12BoundRenderTargets(FD3D12RenderTargetView **RTArray, uint32 NumActiveRTs, FD3D12DepthStencilView* DSView);
+	explicit FD3D12BoundRenderTargets(FD3D12RenderTargetView** RTArray, uint32 NumActiveRTs, FD3D12DepthStencilView* DSView);
 
 	/** Destructor. */
 	~FD3D12BoundRenderTargets();

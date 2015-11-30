@@ -51,7 +51,7 @@ void UAnimCompress_RemoveEverySecondKey::DoReduction(UAnimSequence* AnimSeq, con
 	// record the proper runtime decompressor to use
 	AnimSeq->KeyEncodingFormat = AKF_ConstantKeyLerp;
 	AnimationFormat_SetInterfaceLinks(*AnimSeq);
-	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( this, AnimSeq, TEXT("None") ) );
+	AnimSeq->CompressionScheme = static_cast<UAnimCompress*>( StaticDuplicateObject( this, AnimSeq ) );
 #endif // WITH_EDITORONLY_DATA
 };
 

@@ -1,6 +1,5 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-
 #include "BlueprintGraphPrivatePCH.h"
 
 #include "CompilerResultsLog.h"
@@ -1624,52 +1623,52 @@ void UK2Node_CallFunction::GetRedirectPinNames(const UEdGraphPin& Pin, TArray<FS
 	}
 }
 
-bool UK2Node_CallFunction::IsSelfPinCompatibleWithBlueprintContext(UEdGraphPin *SelfPin, UBlueprint* BlueprintObj) const
+void UK2Node_CallFunction::FixupSelfMemberContext()
 {
-	check(BlueprintObj);
-
-	UClass* FunctionClass = FunctionReference.GetMemberParentClass(GetBlueprintClassFromNode());
-
-	bool bIsCompatible = (SelfPin != NULL) ? SelfPin->bHidden : true;
-	if (!bIsCompatible && (BlueprintObj->GeneratedClass != NULL))
+	UBlueprint* Blueprint = FBlueprintEditorUtils::FindBlueprintForNode(this);
+	auto IsBlueprintOfType = [Blueprint](UClass* ClassType)->bool
 	{
-		bIsCompatible |= BlueprintObj->GeneratedClass->IsChildOf(FunctionClass);
-	}
-
-	if (!bIsCompatible && (BlueprintObj->SkeletonGeneratedClass != NULL))
-	{
-		bIsCompatible |= BlueprintObj->SkeletonGeneratedClass->IsChildOf(FunctionClass);
-	}
-	return bIsCompatible;
-}
-
-void UK2Node_CallFunction::EnsureFunctionIsInBlueprint()
-{
-	// Do not mess with the function if there are pins connected to the target pin
-	UEdGraphPin* SelfPin = GetDefault<UEdGraphSchema_K2>()->FindSelfPin(*this, EGPD_Input);
-	if (SelfPin && SelfPin->LinkedTo.Num() == 0)
-	{
-		// Ensure we're calling a function in a context related to our blueprint. If not, 
-		// reassigning the class and then calling ReconstructNodes will re-wire the pins correctly
-		if (UFunction* Function = GetTargetFunction())
+		bool bIsChildOf  = Blueprint && (Blueprint->GeneratedClass != nullptr) && Blueprint->GeneratedClass->IsChildOf(ClassType);
+		if (!bIsChildOf && Blueprint && (Blueprint->SkeletonGeneratedClass))
 		{
-			UClass* FunctionOwnerClass = Function->GetOuterUClass();
-			UObject* FunctionGenerator = FunctionOwnerClass ? FunctionOwnerClass->ClassGeneratedBy : NULL;
+			bIsChildOf = Blueprint->SkeletonGeneratedClass->IsChildOf(ClassType);
+		}
+		return bIsChildOf;
+	};
+	
 
-			// Never change the type if the function is an Interface function type, this only occurs when 
-			// the function is the interface function and the self pin will be PC_Interface type
-			if (!FunctionOwnerClass->IsChildOf(UInterface::StaticClass()))
+	UClass* MemberClass = FunctionReference.GetMemberParentClass();
+	if (FunctionReference.IsSelfContext())
+	{
+		if (MemberClass == nullptr)
+		{
+			// the self pin may have type information stored on it
+			if (UEdGraphPin* SelfPin = GetDefault<UEdGraphSchema_K2>()->FindSelfPin(*this, EGPD_Input))
 			{
-				// If function is generated from a blueprint object then dbl check self pin compatibility
-				if (FunctionGenerator != NULL)
-				{
-					UBlueprint* BlueprintObj = FBlueprintEditorUtils::FindBlueprintForNode(this);
-					if ((BlueprintObj != NULL) && !IsSelfPinCompatibleWithBlueprintContext(SelfPin, BlueprintObj))
-					{
-						FunctionReference.SetSelfMember(Function->GetFName());
-					}
-				}
+				MemberClass = Cast<UClass>(SelfPin->PinType.PinSubCategoryObject.Get());
 			}
+		}
+		// if we happened to retain the ParentClass for a self reference 
+		// (unlikely), then we know where this node came from... let's keep it
+		// referencing that function
+		if (MemberClass != nullptr)
+		{
+			if (!IsBlueprintOfType(MemberClass))
+			{
+				FunctionReference.SetExternalMember(FunctionReference.GetMemberName(), MemberClass);
+			}
+		}
+		// else, there is nothing we can do... if there is an function matching 
+		// the member name in this Blueprint, then it will reference that 
+		// function (even if it came from a different Blueprint, one with an 
+		// identically named function)... if there is no function matching this 
+		// reference, then the node will produce an error later during compilation
+	}
+	else if (ensure(MemberClass != nullptr))
+	{
+		if (IsBlueprintOfType(MemberClass))
+		{
+			FunctionReference.SetSelfMember(FunctionReference.GetMemberName());
 		}
 	}
 }
@@ -1677,7 +1676,7 @@ void UK2Node_CallFunction::EnsureFunctionIsInBlueprint()
 void UK2Node_CallFunction::PostPasteNode()
 {
 	Super::PostPasteNode();
-	EnsureFunctionIsInBlueprint();
+	FixupSelfMemberContext();
 
 	UFunction* Function = GetTargetFunction();
 	if(Function != NULL)
@@ -1714,8 +1713,7 @@ void UK2Node_CallFunction::PostDuplicate(bool bDuplicateForPIE)
 	Super::PostDuplicate(bDuplicateForPIE);
 	if (!bDuplicateForPIE && (!this->HasAnyFlags(RF_Transient)))
 	{
-		FunctionReference.InvalidateScope();
-		EnsureFunctionIsInBlueprint();
+		FixupSelfMemberContext();
 	}
 }
 
@@ -2356,7 +2354,7 @@ bool UK2Node_CallFunction::HasExternalDependencies(TArray<class UStruct*>* Optio
 			continue;
 		}
 
-		if (DepStruct && !DepStruct->HasAnyFlags(RF_Native))
+		if (DepStruct && !DepStruct->IsNative())
 		{
 			if (OptionalOutput)
 			{

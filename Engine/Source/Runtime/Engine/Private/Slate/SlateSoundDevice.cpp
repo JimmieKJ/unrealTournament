@@ -24,6 +24,7 @@ void FSlateSoundDevice::PlaySound(const FSlateSound& Sound, int32 UserIndex) con
 				NewActiveSound.Sound = SoundResource;
 				NewActiveSound.bIsUISound = true;
 				NewActiveSound.UserIndex = UserIndex;
+				NewActiveSound.Priority = NewActiveSound.Sound->Priority;
 
 				AudioDevice->AddNewActiveSound(NewActiveSound);
 			}

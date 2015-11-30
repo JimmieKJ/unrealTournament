@@ -2,7 +2,11 @@
 
 #pragma once
 
+#include "FloatCurveKeyArea.h"
+
+
 class UMovieSceneColorSection;
+
 
 /**
 * A color section implementation
@@ -44,6 +48,7 @@ protected:
 	FLinearColor FindSlateColor(const FName& ColorName) const;
 
 private:
+
 	mutable TSharedPtr<FFloatCurveKeyArea> RedKeyArea;
 	mutable TSharedPtr<FFloatCurveKeyArea> GreenKeyArea;
 	mutable TSharedPtr<FFloatCurveKeyArea> BlueKeyArea;

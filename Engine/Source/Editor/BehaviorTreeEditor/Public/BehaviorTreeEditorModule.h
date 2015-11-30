@@ -4,6 +4,7 @@
 
 #include "ModuleInterface.h"
 #include "Toolkits/IToolkit.h"	// For EAssetEditorMode
+#include "Toolkits/AssetEditorToolkit.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogBehaviorTreeEditor, Log, All);
 

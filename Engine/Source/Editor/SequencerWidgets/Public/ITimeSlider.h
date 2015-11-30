@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include "Editor/Sequencer/Public/ISequencerInputHandler.h"
+
 class USequencerSettings;
 
 /** Enum specifying how to interpolate to a new view range */
@@ -86,21 +88,21 @@ struct FTimeSliderArgs
 	TAttribute<TRange<float>> PlaybackRange;
 	/** Delegate that is called when the playback range wants to change */
 	FOnRangeChanged OnPlaybackRangeChanged;
+	/** Called right before the playback range starts to be dragged */
+	FSimpleDelegate OnBeginPlaybackRangeDrag;
+	/** Called right after the playback range has finished being dragged */
+	FSimpleDelegate OnEndPlaybackRangeDrag;
 	/** If we are allowed to zoom */
 	bool AllowZoom;
 	/** User-supplied settings object */
 	USequencerSettings* Settings;
 };
 
-class ITimeSliderController
+class ITimeSliderController : public ISequencerInputHandler
 {
 public:
 	virtual ~ITimeSliderController(){}
 	virtual int32 OnPaintTimeSlider( bool bMirrorLabels, const FGeometry& AllottedGeometry, const FSlateRect& MyClippingRect, FSlateWindowElementList& OutDrawElements, int32 LayerId, const FWidgetStyle& InWidgetStyle, bool bParentEnabled ) const = 0;
-	virtual FReply OnMouseButtonDown( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) = 0;
-	virtual FReply OnMouseButtonUp( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) = 0;
-	virtual FReply OnMouseMove( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) = 0;
-	virtual FReply OnMouseWheel( TSharedRef<SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& MouseEvent ) = 0;
 	virtual FCursorReply OnCursorQuery( TSharedRef<const SWidget> WidgetOwner, const FGeometry& MyGeometry, const FPointerEvent& CursorEvent ) const = 0;
 
 	/** Get the current view range for this controller */

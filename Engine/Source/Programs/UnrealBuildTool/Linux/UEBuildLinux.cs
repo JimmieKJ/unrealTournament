@@ -23,6 +23,23 @@ namespace UnrealBuildTool
 		}
 
 		/// <summary>
+		/// Get name for architecture-specific directories (can be shorter than architecture name itself)
+		/// </summary>
+		public override string GetActiveArchitectureFolderName()
+		{
+			// shorten the string (heuristically)
+			string Arch = GetActiveArchitecture();
+			uint Sum = 0;
+			int Len = Arch.Length;
+			for (int Index = 0; Index < Len; ++Index)
+			{
+				Sum += (uint)(Arch[Index]);
+				Sum <<= 1;	// allowed to overflow
+			}
+			return Sum.ToString("X");
+		}
+
+		/// <summary>
 		/// Modify the rules for a newly created module, in a target that's being built for this platform.
 		/// This is not required - but allows for hiding details of a particular platform.
 		/// </summary>

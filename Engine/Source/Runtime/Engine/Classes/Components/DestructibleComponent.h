@@ -78,7 +78,9 @@ class ENGINE_API UDestructibleComponent : public USkinnedMeshComponent
 	//~ Begin UObject Interface.
 	virtual void PostEditChangeProperty( struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
+#if WITH_EDITORONLY_DATA
 	virtual void Serialize(FArchive& Ar) override;
+#endif
 	//~ End UObject Interface.
 
 	// Take damage

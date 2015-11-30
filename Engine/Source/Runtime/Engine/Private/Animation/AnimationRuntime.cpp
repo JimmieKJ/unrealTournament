@@ -15,6 +15,9 @@
 #include "Animation/AnimInstance.h"
 #include "BonePose.h"
 #include "Animation/BlendProfile.h"
+#include "SkeletalRender.h"
+#include "Animation/VertexAnim/VertexAnimBase.h"
+#include "Animation/VertexAnim/MorphTarget.h"
 
 DEFINE_LOG_CATEGORY(LogAnimation);
 DEFINE_LOG_CATEGORY(LogRootMotion);
@@ -1276,6 +1279,73 @@ void FAnimationRuntime::FillUpSpaceBasesRetargetBasePose(const USkeleton* Skelet
 	}
 }
 #endif // WITH_EDITOR
+
+/** See if an array of ActiveVertexAnims already contains the supplied anim */
+static int32 FindVertexAnim(const TArray<FActiveVertexAnim>& ActiveAnims, UVertexAnimBase* Anim)
+{
+	for(int32 i=0; i<ActiveAnims.Num(); i++)
+	{
+		if(ActiveAnims[i].VertAnim == Anim)
+		{
+			return i;
+		}
+	}
+
+	return INDEX_NONE;
+}
+
+TArray<FActiveVertexAnim> FAnimationRuntime::UpdateActiveVertexAnims(const USkeletalMesh* InSkeletalMesh, const TMap<FName, float>& MorphCurveAnims, const TArray<FActiveVertexAnim>& ActiveAnims)
+{
+	TArray<struct FActiveVertexAnim> OutVertexAnims;
+
+	// First copy ActiveAnims
+	for(int32 AnimIdx=0; AnimIdx < ActiveAnims.Num(); AnimIdx++)
+	{
+		const FActiveVertexAnim& ActiveAnim = ActiveAnims[AnimIdx];
+		const float ActiveAnimAbsWeight = FMath::Abs(ActiveAnim.Weight);
+
+		// Check it has valid weight, and works on this SkeletalMesh
+		if (	ActiveAnimAbsWeight > MinVertexAnimBlendWeight &&
+			ActiveAnim.VertAnim != NULL &&
+			ActiveAnim.VertAnim->BaseSkelMesh == InSkeletalMesh)
+		{
+			OutVertexAnims.Add(ActiveAnim);
+		}
+		// @TODO Need to check for duplicates here?
+	}
+
+	// Then go over the CurveKeys finding morph targets by name
+	for(auto CurveIter=MorphCurveAnims.CreateConstIterator(); CurveIter; ++CurveIter)
+	{
+		const FName& CurveName	= (CurveIter).Key();
+		const float& Weight	= (CurveIter).Value();
+
+		// If it has a valid weight
+		if(FMath::Abs(Weight) > MinVertexAnimBlendWeight)
+		{
+			// Find morph reference
+			UMorphTarget* Target = InSkeletalMesh ? InSkeletalMesh->FindMorphTarget(CurveName) : NULL;
+			if(Target != NULL)				
+			{
+				// See if this morph target already has an entry
+				int32 AnimIndex = FindVertexAnim(OutVertexAnims, Target);
+				// If not, add it
+				if(AnimIndex == INDEX_NONE)
+				{
+					OutVertexAnims.Add(FActiveVertexAnim(Target, Weight));
+				}
+				// If it does, use the max weight
+				else
+				{
+					const float CurrentWeight = OutVertexAnims[AnimIndex].Weight;
+					OutVertexAnims[AnimIndex].Weight = FMath::Max<float>(CurrentWeight, Weight);
+				}
+			}
+		}
+	}
+
+	return OutVertexAnims;
+}
 
 /////////////////////////////////////////////////////////////////////////////////////////
 // FA2CSPose

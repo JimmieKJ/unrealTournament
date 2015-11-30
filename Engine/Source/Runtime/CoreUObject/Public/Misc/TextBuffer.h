@@ -14,7 +14,7 @@ class UTextBuffer
 	: public UObject
 	, public FOutputDevice
 {
-	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UTextBuffer,UObject,0,CoreUObject,CASTCLASS_None,COREUOBJECT_API)
+	DECLARE_CASTED_CLASS_INTRINSIC_WITH_API(UTextBuffer, UObject, 0, TEXT("/Script/CoreUObject"), CASTCLASS_None, COREUOBJECT_API)
 
 public:
 

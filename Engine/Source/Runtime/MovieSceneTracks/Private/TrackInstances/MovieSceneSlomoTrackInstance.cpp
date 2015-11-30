@@ -10,8 +10,33 @@
 
 FMovieSceneSlomoTrackInstance::FMovieSceneSlomoTrackInstance(UMovieSceneSlomoTrack& InSlomoTrack)
 	: SlomoTrack(&InSlomoTrack)
+	, InitMatineeTimeDilation(1.0f)
 { }
 
+	
+void FMovieSceneSlomoTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+{
+	AWorldSettings* WorldSettings = GWorld->GetWorldSettings();
+
+	if (WorldSettings == nullptr)
+	{
+		return;
+	}
+
+	WorldSettings->MatineeTimeDilation = InitMatineeTimeDilation;
+}
+
+void FMovieSceneSlomoTrackInstance::SaveState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+{
+	AWorldSettings* WorldSettings = GWorld->GetWorldSettings();
+
+	if (WorldSettings == nullptr)
+	{
+		return;
+	}
+
+	InitMatineeTimeDilation = WorldSettings->MatineeTimeDilation;
+}
 
 /* IMovieSceneTrackInstance interface
  *****************************************************************************/

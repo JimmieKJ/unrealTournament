@@ -169,12 +169,11 @@ void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, 
 	{
 		auto& Addition = AddedFiles[Index];
 
-		Context.MainTask->EnterProgressFrame();
-
 		if (bCancelled)
 		{
 			// Just update the cache immediately if the user cancelled
 			Cache.CompleteTransaction(MoveTemp(Addition));
+			Context.MainTask->EnterProgressFrame();
 			continue;
 		}
 
@@ -187,11 +186,15 @@ void FContentDirectoryMonitor::ProcessAdditions(const IAssetRegistry& Registry, 
 		auto ExistingReferences = Utils::FindAssetsPertainingToFile(Registry, FullFilename);
 		if (ExistingReferences.Num() != 0)
 		{
-			// Treat this as a modified file that will attempt to reimport it (if applicable)
+			// Treat this as a modified file that will attempt to reimport it (if applicable). We don't update the progress for this item until it is processed by ProcessModifications
 			ModifiedFiles.Add(MoveTemp(Addition));
 			continue;
 		}
-		else if (FPackageName::DoesPackageExist(*PackagePath))
+
+		// Move the progress on now that we know we're going to process the file
+		Context.MainTask->EnterProgressFrame();
+
+		if (FPackageName::DoesPackageExist(*PackagePath))
 		{
 			// Package already exists, so try and import over the top of it, if it doesn't already have a source file path
 			TArray<FAssetData> Assets;

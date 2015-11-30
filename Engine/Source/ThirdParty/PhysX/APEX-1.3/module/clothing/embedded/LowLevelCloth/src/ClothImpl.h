@@ -169,6 +169,8 @@ public:
 	virtual void putToSleep();
 	virtual void wakeUp();
 
+	virtual void simulate(float dt);
+
 	virtual void setUserData(void*);
 	virtual void* getUserData() const;
 

@@ -62,31 +62,31 @@ namespace EpicGames.MCP.Automation
         }
     }
 
-    /// <summary>
-    /// Enum that defines the MCP backend-compatible platform
-    /// </summary>
-    public enum MCPPlatform
-    {
-        /// <summary>
-        /// Win64 platform
-        /// </summary>
-        Windows,
+	/// <summary>
+	/// Enum that defines the MCP backend-compatible platform
+	/// </summary>
+	public enum MCPPlatform
+	{
+		/// <summary>
+		/// MCP uses Windows for Win64
+		/// </summary>
+		Windows,
 
 		/// <summary>
-		/// Win32 platform
+		/// 32 bit Windows
 		/// </summary>
 		Win32,
 
-        /// <summary>
-        /// Mac platform.
-        /// </summary>
-        Mac,
+		/// <summary>
+		/// Mac platform.
+		/// </summary>
+		Mac,
 
 		/// <summary>
 		/// Linux platform.
 		/// </summary>
 		Linux
-    }
+}
 
     /// <summary>
     /// Enum that defines CDN types
@@ -173,21 +173,21 @@ namespace EpicGames.MCP.Automation
 		/// </summary>
 		private readonly string _ManifestFilename;
 
-        /// <summary>
-        /// Determine the platform name (Win32/64 becomes Windows, Mac is Mac, the rest we don't currently understand)
-        /// </summary>
-        static public MCPPlatform ToMCPPlatform(UnrealTargetPlatform TargetPlatform)
-        {
-            if (TargetPlatform != UnrealTargetPlatform.Win64 && TargetPlatform != UnrealTargetPlatform.Win32 && TargetPlatform != UnrealTargetPlatform.Mac && TargetPlatform != UnrealTargetPlatform.Linux)
-            {
-                throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
-            }
+		/// <summary>
+		/// Determine the platform name
+		/// </summary>
+		static public MCPPlatform ToMCPPlatform(UnrealTargetPlatform TargetPlatform)
+		{
+			if (TargetPlatform != UnrealTargetPlatform.Win64 && TargetPlatform != UnrealTargetPlatform.Win32 && TargetPlatform != UnrealTargetPlatform.Mac && TargetPlatform != UnrealTargetPlatform.Linux)
+			{
+				throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
+			}
 
 			if (TargetPlatform == UnrealTargetPlatform.Win64)
 			{
 				return MCPPlatform.Windows;
 			}
-			else if(TargetPlatform == UnrealTargetPlatform.Win32)
+			else if (TargetPlatform == UnrealTargetPlatform.Win32)
 			{
 				return MCPPlatform.Win32;
 			}
@@ -197,22 +197,22 @@ namespace EpicGames.MCP.Automation
 			}
 
 			return MCPPlatform.Linux;
-        }
-        /// <summary>
-        /// Determine the platform name (Win32/64 becomes Windows, Mac is Mac, the rest we don't currently understand)
-        /// </summary>
-        static public UnrealTargetPlatform FromMCPPlatform(MCPPlatform TargetPlatform)
-        {
+		}
+		/// <summary>
+		/// Determine the platform name
+		/// </summary>
+		static public UnrealTargetPlatform FromMCPPlatform(MCPPlatform TargetPlatform)
+		{
 			if (TargetPlatform != MCPPlatform.Windows && TargetPlatform != MCPPlatform.Win32 && TargetPlatform != MCPPlatform.Mac && TargetPlatform != MCPPlatform.Linux)
-            {
-                throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
-            }
+			{
+				throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
+			}
 
 			if (TargetPlatform == MCPPlatform.Windows)
 			{
 				return UnrealTargetPlatform.Win64;
 			}
-			if (TargetPlatform == MCPPlatform.Win32)
+			else if (TargetPlatform == MCPPlatform.Win32)
 			{
 				return UnrealTargetPlatform.Win32;
 			}
@@ -222,7 +222,7 @@ namespace EpicGames.MCP.Automation
 			}
 
 			return UnrealTargetPlatform.Linux;
-        }
+		}
         /// <summary>
         /// Returns the build root path (P:\Builds on build machines usually)
         /// </summary>
@@ -360,7 +360,7 @@ namespace EpicGames.MCP.Automation
             /// </summary>
             public ChunkType AppChunkType;
             /// <summary>
-            /// Matches the corresponding BuildPatchTool command line argument.
+            /// Used as part of manifest filename and build version strings.
             /// </summary>
             public MCPPlatform Platform;
             /// <summary>
@@ -675,15 +675,45 @@ namespace EpicGames.MCP.Automation
 	public abstract class CloudStorageBase
 	{
 		private static readonly object LockObj = new object();
-		private static CloudStorageBase Handler = null;
+		private static Dictionary<string, CloudStorageBase> Handlers = new Dictionary<string, CloudStorageBase>();
+		private const string DEFAULT_INSTANCE_NAME = "DefaultInstance";
 
+		/// <summary>
+		/// Gets the default instance of CloudStorageBase
+		/// </summary>
+		/// <returns>A default instance of CloudStorageBase. The first time each instance is returned, it will require initialization with its Init() method.</returns>
 		public static CloudStorageBase Get()
 		{
-			if (Handler == null)
+			return GetByNameImpl(DEFAULT_INSTANCE_NAME); // Identifier for the default cloud storage
+		}
+
+		/// <summary>
+		/// Gets an instance of CloudStorageBase.
+		/// Multiple calls with the same instance name will return the same object.
+		/// </summary>
+		/// <param name="InstanceName">The name of the object to return</param>
+		/// <returns>An instance of CloudStorageBase. The first time each instance is returned, it will require initialization with its Init() method.</returns>
+		public static CloudStorageBase GetByName(string InstanceName)
+		{
+			if (InstanceName == DEFAULT_INSTANCE_NAME)
+			{
+				CommandUtils.LogWarning("CloudStorageBase.GetByName called with {0}. This will return the same instance as Get().", DEFAULT_INSTANCE_NAME);
+			}
+			return GetByNameImpl(InstanceName);
+		}
+
+		private  static CloudStorageBase GetByNameImpl(string InstanceName)
+		{
+			CloudStorageBase Result = null;
+			if (!Handlers.TryGetValue(InstanceName, out Result))
 			{
 				lock (LockObj)
 				{
-					if (Handler == null)
+					if (Handlers.ContainsKey(InstanceName))
+					{
+						Result = Handlers[InstanceName];
+					}
+					else
 					{
 						Assembly[] LoadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
 						foreach (var Dll in LoadedAssemblies)
@@ -693,19 +723,20 @@ namespace EpicGames.MCP.Automation
 							{
 								if (PotentialConfigType != typeof(CloudStorageBase) && typeof(CloudStorageBase).IsAssignableFrom(PotentialConfigType))
 								{
-									Handler = Activator.CreateInstance(PotentialConfigType) as CloudStorageBase;
+									Result = Activator.CreateInstance(PotentialConfigType) as CloudStorageBase;
+									Handlers.Add(InstanceName, Result);
 									break;
 								}
 							}
 						}
 					}
 				}
-				if (Handler == null)
+				if (Result == null)
 				{
-					throw new AutomationException("Attempt to use CloudStorageBase.Get() and it doesn't appear that there are any modules that implement this class.");
+					throw new AutomationException("Could not find any modules which provide an implementation of CloudStorageBase.");
 				}
 			}
-			return Handler;
+			return Result;
 		}
 
 		/// <summary>

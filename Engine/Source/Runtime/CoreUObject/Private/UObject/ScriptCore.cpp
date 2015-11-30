@@ -62,6 +62,8 @@ COREUOBJECT_API void GInitRunaway() {}
 // FBlueprintCoreDelegates
 
 FBlueprintCoreDelegates::FOnScriptDebuggingEvent FBlueprintCoreDelegates::OnScriptException;
+FBlueprintCoreDelegates::FOnScriptInstrumentEvent FBlueprintCoreDelegates::OnScriptProfilingEvent;
+FBlueprintCoreDelegates::FOnToggleScriptProfiler FBlueprintCoreDelegates::OnToggleScriptProfiler;
 
 void FBlueprintCoreDelegates::ThrowScriptException(const UObject* ActiveObject, const FFrame& StackFrame, const FBlueprintExceptionInfo& Info)
 {
@@ -114,6 +116,11 @@ void FBlueprintCoreDelegates::ThrowScriptException(const UObject* ActiveObject, 
 	}
 }
 
+void FBlueprintCoreDelegates::InstrumentScriptEvent(const EScriptInstrumentationEvent& Info)
+{
+	OnScriptProfilingEvent.Broadcast(Info);
+}
+
 void FBlueprintCoreDelegates::SetScriptMaximumLoopIterations( const int32 MaximumLoopIterations )
 {
 	if (ensure(MaximumLoopIterations > 0))
@@ -159,17 +166,17 @@ FString ToValidCPPIdentifierChars(TCHAR Char)
 		RawValue = (RawValue - Digit) / 63;
 
 		TCHAR SafeChar;
-		if (Digit < 26)
+		if (Digit <= 25)
 		{
-			SafeChar = TCHAR(TCHAR('a') + (26 - Digit));
+			SafeChar = TCHAR(TCHAR('a') + (25 - Digit));
 		}
-		else if (Digit < 52)
+		else if (Digit <= 51)
 		{
-			SafeChar = TCHAR(TCHAR('A') + (52 - Digit));
+			SafeChar = TCHAR(TCHAR('A') + (51 - Digit));
 		}
-		else if (Digit < 62)
+		else if (Digit <= 61)
 		{
-			SafeChar = TCHAR(TCHAR('0') + (62 - Digit));
+			SafeChar = TCHAR(TCHAR('0') + (61 - Digit));
 		}
 		else
 		{
@@ -970,7 +977,7 @@ UFunction* UObject::FindFunctionChecked( FName InName ) const
 
 void UObject::ProcessEvent( UFunction* Function, void* Parms )
 {
-	checkf(!HasAnyFlags(RF_Unreachable),TEXT("%s  Function: '%s'"), *GetFullName(), *Function->GetPathName());
+	checkf(!IsUnreachable(),TEXT("%s  Function: '%s'"), *GetFullName(), *Function->GetPathName());
 	checkf(!FUObjectThreadContext::Get().IsRoutingPostLoad, TEXT("Cannot call UnrealScript (%s - %s) while PostLoading objects"), *GetFullName(), *Function->GetFullName());
 
 	// Reject.
@@ -1010,6 +1017,14 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 		return;
 	}
 	checkSlow((Function->ParmsSize == 0) || (Parms != NULL));
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GetClass()->HasInstrumentation())
+	{
+		EScriptInstrumentationEvent EventInstrumentationInfo(EScriptInstrumentation::Event, this);
+		FBlueprintCoreDelegates::InstrumentScriptEvent(EventInstrumentationInfo);
+	}
+#endif
 
 #if DO_BLUEPRINT_GUARD
 	FBlueprintExceptionTracker& BlueprintExceptionTracker = FBlueprintExceptionTracker::Get();
@@ -1138,6 +1153,14 @@ void UObject::ProcessEvent( UFunction* Function, void* Parms )
 			}
 		}
 	}
+
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GetClass()->HasInstrumentation())
+	{
+		EScriptInstrumentationEvent EventInstrumentationInfo(EScriptInstrumentation::Stop, this);
+		FBlueprintCoreDelegates::InstrumentScriptEvent(EventInstrumentationInfo);
+	}
+#endif
 
 #if DO_BLUEPRINT_GUARD
 	--BlueprintExceptionTracker.ScriptEntryTag;
@@ -1383,6 +1406,31 @@ void UObject::execWireTracepoint( FFrame& Stack, RESULT_DECL )
 #endif
 }
 IMPLEMENT_VM_FUNCTION( EX_WireTracepoint, execWireTracepoint );
+
+void UObject::execInstrumentation( FFrame& Stack, RESULT_DECL )
+{
+#if !UE_BUILD_SHIPPING
+	const EScriptInstrumentation::Type EventType = static_cast<EScriptInstrumentation::Type>(Stack.ReadInt());
+#if WITH_EDITORONLY_DATA
+	if (GIsEditor)
+	{
+		if (EventType == EScriptInstrumentation::NodeEntry)
+		{
+			static FBlueprintExceptionInfo TracepointExceptionInfo(EBlueprintExceptionType::Tracepoint);
+			FBlueprintCoreDelegates::ThrowScriptException(this, Stack, TracepointExceptionInfo);
+		}
+		else if (EventType == EScriptInstrumentation::NodeExit)
+		{
+			static FBlueprintExceptionInfo WiretraceExceptionInfo(EBlueprintExceptionType::WireTracepoint);
+			FBlueprintCoreDelegates::ThrowScriptException(this, Stack, WiretraceExceptionInfo);
+		}
+	}
+#endif
+	EScriptInstrumentationEvent InstrumentationEventInfo(EventType, this, Stack);
+	FBlueprintCoreDelegates::InstrumentScriptEvent(InstrumentationEventInfo);
+#endif
+}
+IMPLEMENT_VM_FUNCTION( EX_InstrumentationEvent, execInstrumentation );
 
 void UObject::execEndFunctionParms( FFrame& Stack, RESULT_DECL )
 {

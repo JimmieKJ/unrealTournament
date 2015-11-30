@@ -168,6 +168,15 @@ void FWindowsPlatformStackWalkExt::SetSymbolPathsFromModules()
 	const bool bUseCachedData = CrashInfo.PDBCacheEntry.IsValid();
 	FString CombinedPath = TEXT( "" );
 
+	// Use symbol cache from command line
+	FString DebugSymbols;
+	if (FParse::Value(FCommandLine::Get(), TEXT("DebugSymbols="), DebugSymbols))
+	{
+		CombinedPath += TEXT("SRV*");
+		CombinedPath += DebugSymbols;
+		CombinedPath += TEXT(";");
+	}
+
 	// For externally launched minidump diagnostics.
 	if( bUseCachedData )
 	{

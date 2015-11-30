@@ -322,6 +322,9 @@ void FViewInfo::Init()
 	PrevViewProjMatrix.SetIdentity();
 	PrevViewRotationProjMatrix.SetIdentity();
 	
+	bUsesGlobalDistanceField = false;
+	bUsesLightingChannels = false;
+
 	ExponentialFogParameters = FVector4(0,1,1,0);
 	ExponentialFogColor = FVector::ZeroVector;
 	FogMaxOpacity = 1;
@@ -1431,6 +1434,9 @@ void FSceneRenderer::RenderFinish(FRHICommandListImmediate& RHICmdList)
 
 #endif
 
+	// To prevent keeping persistent references to single frame buffers, clear any such reference at this point.
+	ClearPrimitiveSingleFramePrecomputedLightingBuffers();
+
 	// Notify the RHI we are done rendering a scene.
 	RHICmdList.EndScene();
 }
@@ -1579,6 +1585,53 @@ void FSceneRenderer::WaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHIComman
 	}
 }
 
+
+void FSceneRenderer::UpdatePrimitivePrecomputedLightingBuffers()
+{
+	// Use a bit array to prevent primitives from being updated more than once.
+	FSceneBitArray UpdatedPrimitiveMap;
+	UpdatedPrimitiveMap.Init(false, Scene->Primitives.Num());
+
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{		
+		FViewInfo& View = Views[ViewIndex];
+
+		for (int32 Index = 0; Index < View.DirtyPrecomputedLightingBufferPrimitives.Num(); ++Index)
+		{
+			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyPrecomputedLightingBufferPrimitives[Index];
+
+			FBitReference bInserted = UpdatedPrimitiveMap[PrimitiveSceneInfo->GetIndex()];
+			if (!bInserted)
+			{
+				PrimitiveSceneInfo->UpdatePrecomputedLightingBuffer();
+				bInserted = true;
+			}
+			else
+			{
+				// This will prevent clearing it twice.
+				View.DirtyPrecomputedLightingBufferPrimitives[Index] = nullptr;
+			}
+		}
+	}
+}
+
+void FSceneRenderer::ClearPrimitiveSingleFramePrecomputedLightingBuffers()
+{
+	for (int32 ViewIndex = 0; ViewIndex < Views.Num(); ViewIndex++)
+	{		
+		FViewInfo& View = Views[ViewIndex];
+
+		for (int32 Index = 0; Index < View.DirtyPrecomputedLightingBufferPrimitives.Num(); ++Index)
+		{
+			FPrimitiveSceneInfo* PrimitiveSceneInfo = View.DirtyPrecomputedLightingBufferPrimitives[Index];
+	
+			if (PrimitiveSceneInfo) // Could be null if it was a duplicate.
+			{
+				PrimitiveSceneInfo->ClearPrecomputedLightingBuffer(true);
+			}
+		}
+	}
+}
 
 /*-----------------------------------------------------------------------------
 	FRendererModule::BeginRenderingViewFamily

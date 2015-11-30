@@ -1598,6 +1598,12 @@ const FSlateBrush* SEditableText::GetFocusBrush() const
 }
 
 
+bool SEditableText::IsInteractable() const
+{
+	return IsEnabled();
+}
+
+
 void SEditableText::SelectText( const int32 InOldCaretPosition )
 {
 	if( InOldCaretPosition != CaretPosition )

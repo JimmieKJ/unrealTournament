@@ -46,6 +46,9 @@ public:
 	virtual bool SupportsType( TSubclassOf<UMovieSceneTrack> Type ) const override;
 	virtual void BuildTrackContextMenu( FMenuBuilder& MenuBuilder, UMovieSceneTrack* Track ) override;
 
+	// FKeyframeTrackEditor interface
+	virtual bool ShouldAddKey(UMovieScene3DTransformTrack* InTrack, FTransformKey InKey, FKeyParams InKeyParams) const override;
+
 private:
 
 	/** Returns whether or not a transform track can be added for an actor with a specific handle. */
@@ -64,6 +67,9 @@ private:
 	 * @param Object The object whose transform has changed
 	 */
 	void OnTransformChanged( UObject& InObject );
+
+	/** Delegate for camera button visible state */
+	EVisibility IsCameraVisible(FGuid ObjectGuid) const;
 
 	/** Delegate for camera button lock state */
 	ECheckBoxState IsCameraLocked(FGuid ObjectGuid) const; 

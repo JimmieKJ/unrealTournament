@@ -214,6 +214,11 @@
 			}
 			break;
 		}
+		case EX_InstrumentationEvent:
+		{
+			iCode += sizeof(int32);
+			break;
+		}
 		case EX_Return:
 		{
 			SerializeExpr( iCode, Ar ); // Return expression.

@@ -208,7 +208,7 @@ FAnimPhysAngularLimit::FAnimPhysAngularLimit(FAnimPhysRigidBody* InFirstBody, FA
 , MinimumTorque(InMinimumTorque)
 , MaximumTorque(InMaximumTorque)
 {
-
+	UpdateCachedData();
 }
 
 void FAnimPhysAngularLimit::RemoveBias()
@@ -229,9 +229,9 @@ void FAnimPhysAngularLimit::Iter(float DeltaTime)
 
 	// the amount of spin we have to add to satisfy the limit.
 	float DeltaSpin = TargetSpin - CurrentSpin;
-	float SpinToTorque = 1.0f / (((Bodies[0]) ? FVector::DotProduct(WorldSpaceAxis, Bodies[0]->InverseWorldSpaceTensor.TransformVector(WorldSpaceAxis)) : 0.0f) + ((Bodies[1]) ? FVector::DotProduct(WorldSpaceAxis, Bodies[1]->InverseWorldSpaceTensor.TransformVector(WorldSpaceAxis)) : 0.0f));
+
 	// how we have to change the angular impulse
-	float DeltaTorque = DeltaSpin * SpinToTorque;
+	float DeltaTorque = DeltaSpin * CachedSpinToTorque;
 
 	// total torque cannot exceed maxtorque
 	DeltaTorque = FMath::Min(DeltaTorque, MaximumTorque * DeltaTime - Torque);
@@ -249,6 +249,11 @@ void FAnimPhysAngularLimit::Iter(float DeltaTime)
 	}
 
 	Torque += DeltaTorque;
+}
+
+void FAnimPhysAngularLimit::UpdateCachedData()
+{
+	CachedSpinToTorque = 1.0f / (((Bodies[0]) ? FVector::DotProduct(WorldSpaceAxis, Bodies[0]->InverseWorldSpaceTensor.TransformVector(WorldSpaceAxis)) : 0.0f) + ((Bodies[1]) ? FVector::DotProduct(WorldSpaceAxis, Bodies[1]->InverseWorldSpaceTensor.TransformVector(WorldSpaceAxis)) : 0.0f));
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -270,7 +275,7 @@ FAnimPhysLinearLimit::FAnimPhysLinearLimit(FAnimPhysRigidBody* InFirstBody, FAni
 , Maximumforce(FMath::Max(InForceRange.X, InForceRange.Y))
 , SumImpulses(0.0f)
 {
-
+	UpdateCachedData();
 }
 
 void FAnimPhysLinearLimit::RemoveBias()
@@ -280,38 +285,38 @@ void FAnimPhysLinearLimit::RemoveBias()
 
 void FAnimPhysLinearLimit::Iter(float DeltaTime)
 {
-	// Local body positions rotated into world space
-	FVector Position0 = (Bodies[0]) ? Bodies[0]->Pose.Orientation * FirstPosition : FirstPosition;
-	FVector Position1 = (Bodies[1]) ? Bodies[1]->Pose.Orientation * SecondPosition : SecondPosition;
-
 	// Instantaneous linear velocity at point of constraint
-	FVector Velocity0 = Bodies[0] ? FVector::CrossProduct(Bodies[0]->Spin(), Position0) + Bodies[0]->LinearMomentum * Bodies[0]->InverseMass : FVector(0.0f, 0.0f, 0.0f);
-	FVector Velocity1 = Bodies[1] ? FVector::CrossProduct(Bodies[1]->Spin(), Position1) + Bodies[1]->LinearMomentum * Bodies[1]->InverseMass : FVector(0.0f, 0.0f, 0.0f);
+	FVector Velocity0 = Bodies[0] ? FVector::CrossProduct(Bodies[0]->Spin(), WorldSpacePosition0) + Bodies[0]->LinearMomentum * Bodies[0]->InverseMass : FVector(0.0f, 0.0f, 0.0f);
+	FVector Velocity1 = Bodies[1] ? FVector::CrossProduct(Bodies[1]->Spin(), WorldSpacePosition1) + Bodies[1]->LinearMomentum * Bodies[1]->InverseMass : FVector(0.0f, 0.0f, 0.0f);
 
 	// velocity of rb1 wrt rb0
 	float  DeltaVelocity = FVector::DotProduct(Velocity1 - Velocity0, LimitNormal);
 
 	float VelocityImpulse = -TargetSpeed - DeltaVelocity;
 
-	float InertiaImpulse = (Bodies[0] ? Bodies[0]->InverseMass + FVector::DotProduct(FVector::CrossProduct(Bodies[0]->InverseWorldSpaceTensor.TransformVector(FVector::CrossProduct(Position0, LimitNormal)), Position0), LimitNormal) : 0)
-		+ (Bodies[1] ? Bodies[1]->InverseMass + FVector::DotProduct(FVector::CrossProduct(Bodies[1]->InverseWorldSpaceTensor.TransformVector(FVector::CrossProduct(Position1, LimitNormal)), Position1), LimitNormal) : 0);
-
-	float ResultantImpulse = VelocityImpulse / InertiaImpulse;
+	float ResultantImpulse = VelocityImpulse * InverseInertiaImpulse;
 
 	ResultantImpulse = FMath::Min(Maximumforce * DeltaTime - SumImpulses, ResultantImpulse);
 	ResultantImpulse = FMath::Max(MinimumForce * DeltaTime - SumImpulses, ResultantImpulse);
 
 	if (Bodies[0])
 	{
-		FAnimPhys::ApplyImpulse(Bodies[0], Position0, LimitNormal * -ResultantImpulse);
+		FAnimPhys::ApplyImpulse(Bodies[0], WorldSpacePosition0, LimitNormal * -ResultantImpulse);
 	}
 
 	if (Bodies[1])
 	{
-		FAnimPhys::ApplyImpulse(Bodies[1], Position1, LimitNormal * ResultantImpulse);
+		FAnimPhys::ApplyImpulse(Bodies[1], WorldSpacePosition1, LimitNormal * ResultantImpulse);
 	}
 
 	SumImpulses += ResultantImpulse;
+}
+void FAnimPhysLinearLimit::UpdateCachedData()
+{
+	WorldSpacePosition0 = (Bodies[0]) ? Bodies[0]->Pose.Orientation * FirstPosition : FirstPosition;
+	WorldSpacePosition1 = (Bodies[1]) ? Bodies[1]->Pose.Orientation * SecondPosition : SecondPosition;
+	InverseInertiaImpulse = 1.0f / ((Bodies[0] ? Bodies[0]->InverseMass + FVector::DotProduct(FVector::CrossProduct(Bodies[0]->InverseWorldSpaceTensor.TransformVector(FVector::CrossProduct(WorldSpacePosition0, LimitNormal)), WorldSpacePosition0), LimitNormal) : 0)
+		+ (Bodies[1] ? Bodies[1]->InverseMass + FVector::DotProduct(FVector::CrossProduct(Bodies[1]->InverseWorldSpaceTensor.TransformVector(FVector::CrossProduct(WorldSpacePosition1, LimitNormal)), WorldSpacePosition1), LimitNormal) : 0));
 }
 
 //////////////////////////////////////////////////////////////////////////

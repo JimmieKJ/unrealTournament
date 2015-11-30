@@ -29,6 +29,9 @@ public:
 private:
 	/** Shader types that this shader map is dependent on and their stored state. */
 	TArray<FShaderTypeDependency> ShaderTypeDependencies;
+
+	/** Shader pipeline types that this shader map is dependent on and their stored state. */
+	TArray<FShaderPipelineTypeDependency> ShaderPipelineTypeDependencies;
 };
 
 /**
@@ -64,7 +67,7 @@ public:
 	/**
 	 * Enqueues compilation of a shader of this type.  
 	 */
-	ENGINE_API void BeginCompileShader(EShaderPlatform Platform, TArray<FShaderCommonCompileJob*>& NewJobs);
+	ENGINE_API class FShaderCompileJob* BeginCompileShader(EShaderPlatform Platform, const FShaderPipelineType* ShaderPipeline, TArray<FShaderCommonCompileJob*>& NewJobs);
 
 	/**
 	 * Enqueues compilation of a shader pipeline of this type.  
@@ -119,8 +122,8 @@ public:
 
 	ENGINE_API FGlobalShader(const ShaderMetaType::CompiledShaderInitializerType& Initializer);
 	
-	template<typename ShaderRHIParamRef>
-	void SetParameters(FRHICommandList& RHICmdList, const ShaderRHIParamRef ShaderRHI,const FSceneView& View)
+	template<typename ShaderRHIParamRef, typename TRHICmdList>
+	void SetParameters(TRHICmdList& RHICmdList, const ShaderRHIParamRef ShaderRHI, const FSceneView& View)
 	{
 		CheckShaderIsValid();
 		auto& ViewUBParameter = GetUniformBufferParameter<FViewUniformShaderParameters>();

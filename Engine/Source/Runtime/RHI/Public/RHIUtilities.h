@@ -15,6 +15,7 @@ struct FRWBuffer
 
 	FRWBuffer(): NumBytes(0) {}
 
+	// @param AdditionalUsage passed down to RHICreateVertexBuffer(), get combined with "BUF_UnorderedAccess | BUF_ShaderResource" e.g. BUF_Static
 	void Initialize(uint32 BytesPerElement, uint32 NumElements, EPixelFormat Format, uint32 AdditionalUsage = 0)
 	{
 		check(GMaxRHIFeatureLevel == ERHIFeatureLevel::SM5);
@@ -591,3 +592,28 @@ inline uint32 ComputeAnisotropyRT(int32 InitializerMaxAnisotropy)
 
 	return FMath::Clamp(InitializerMaxAnisotropy > 0 ? InitializerMaxAnisotropy : CVarValue, 1, 16);
 }
+
+#if UE_BUILD_SHIPPING || UE_BUILD_TEST
+#define ENABLE_TRANSITION_DUMP 0
+#else
+#define ENABLE_TRANSITION_DUMP 1
+#endif
+
+class RHI_API FDumpTransitionsHelper
+{
+public:
+	static void DumpResourceTransition(const FName& ResourceName, const EResourceTransitionAccess TransitionType);
+	
+private:
+	static void DumpTransitionForResourceHandler();
+
+	static TAutoConsoleVariable<FString> CVarDumpTransitionsForResource;
+	static FAutoConsoleVariableSink CVarDumpTransitionsForResourceSink;
+	static FName DumpTransitionForResource;
+};
+
+#if ENABLE_TRANSITION_DUMP
+#define DUMP_TRANSITION(ResourceName, TransitionType) FDumpTransitionsHelper::DumpResourceTransition(ResourceName, TransitionType);
+#else
+#define DUMP_TRANSITION(ResourceName, TransitionType)
+#endif

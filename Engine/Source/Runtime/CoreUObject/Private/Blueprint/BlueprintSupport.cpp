@@ -981,7 +981,7 @@ int32 FLinkerLoad::ResolveDependencyPlaceholder(FLinkerPlaceholderBase* Placehol
 	// holding onto objects that are spawned during the process (to ensure 
 	// they're not thrown away prematurely)
 	bool const bIsAsyncLoadRef = (UnresolvedReferences.ExternalReferences.Num() == 1) &&
-		PlaceholderObj->HasAnyFlags(RF_AsyncLoading) && (UnresolvedReferences.ExternalReferences[0].Referencer == FGCObject::GGCObjectReferencer);
+		PlaceholderObj->HasAnyInternalFlags(EInternalObjectFlags::AsyncLoading) && (UnresolvedReferences.ExternalReferences[0].Referencer == FGCObject::GGCObjectReferencer);
 
 	DEFERRED_DEPENDENCY_CHECK(!bIsReferenced || bIsAsyncLoadRef);
 #endif // USE_DEFERRED_DEPENDENCY_CHECK_VERIFICATION_TESTS
@@ -1412,6 +1412,74 @@ void FLinkerLoad::ResetDeferredLoadingState()
 #endif // USE_CIRCULAR_DEPENDENCY_LOAD_DEFERRING
 }
 
+#if WITH_EDITORONLY_DATA
+extern int32 GLinkerAllowDynamicClasses;
+#endif
+
+UObject* FLinkerLoad::FindImport(UClass* ImportClass, UObject* ImportOuter, const TCHAR* Name)
+{	
+	UObject* Result = StaticFindObject(ImportClass, ImportOuter, Name);
+#if WITH_EDITORONLY_DATA
+	static FName NAME_BlueprintGeneratedClass(TEXT("BlueprintGeneratedClass"));
+	if (GLinkerAllowDynamicClasses && !Result && ImportClass->GetFName() == NAME_BlueprintGeneratedClass)
+	{
+		Result = StaticFindObject(UDynamicClass::StaticClass(), ImportOuter, Name);
+	}
+#endif
+	return Result;
+}
+
+UObject* FLinkerLoad::FindImportFast(UClass* ImportClass, UObject* ImportOuter, FName Name)
+{
+	UObject* Result = StaticFindObjectFast(ImportClass, ImportOuter, Name);
+#if WITH_EDITORONLY_DATA
+	static FName NAME_BlueprintGeneratedClass(TEXT("BlueprintGeneratedClass"));
+	if (GLinkerAllowDynamicClasses && !Result && ImportClass->GetFName() == NAME_BlueprintGeneratedClass)
+	{
+		Result = StaticFindObjectFast(UDynamicClass::StaticClass(), ImportOuter, Name);
+	}
+#endif
+	return Result;
+}
+
+void FLinkerLoad::CreateDynamicTypeLoader()
+{
+	// In this case we can skip serializing PackageFileSummary and fill all the required info here
+	bHasSerializedPackageFileSummary = true;
+
+	// Try to get dependencies for dynamic classes
+	TArray<FBlueprintDependencyData> ImportDependencyPackages;
+	FConvertedBlueprintsDependencies::Get().GetAssets(LinkerRoot->GetFName(), ImportDependencyPackages);
+
+	// Create Imports
+	for (FBlueprintDependencyData& Import : ImportDependencyPackages)
+	{
+		FObjectImport* ObjectImport = new(ImportMap)FObjectImport(nullptr);
+		ObjectImport->ClassName = Import.ClassName;
+		ObjectImport->ClassPackage = Import.ClassPackageName;
+		ObjectImport->ObjectName = Import.ObjectName;
+		ObjectImport->OuterIndex = FPackageIndex::FromImport(ImportMap.Num());
+
+		FObjectImport* OuterImport = new(ImportMap)FObjectImport(nullptr);
+		OuterImport->ClassName = NAME_Package;
+		OuterImport->ClassPackage = GLongCoreUObjectPackageName;
+		OuterImport->ObjectName = Import.PackageName;
+	}
+
+	// Create Exports
+	{
+		FObjectExport* Export = new (ExportMap)FObjectExport();
+		const FName* TypeNamePtr = GetConvertedDynamicPackageNameToTypeName().Find(LinkerRoot->GetFName());
+		Export->ObjectName = TypeNamePtr ? *TypeNamePtr : NAME_None;
+		Export->ThisIndex = FPackageIndex::FromExport(ExportMap.Num() - 1);
+		// This allows us to skip creating two additional imports for UDynamicClass and its package
+		Export->bDynamicClass = true;
+		Export->ObjectFlags |= RF_Public;
+	}
+
+	LinkerRoot->SetPackageFlags(LinkerRoot->GetPackageFlags() | PKG_CompiledIn);
+}
+
 /*******************************************************************************
  * UObject
  ******************************************************************************/
@@ -1655,251 +1723,150 @@ void FDeferredObjInitializerTracker::ResolveDeferredSubClassObjects(UClass* Supe
 // don't want other files ending up with this internal define
 #undef DEFERRED_DEPENDENCY_CHECK
 
-#if WITH_EDITOR
-
-FReplaceConvertedAssetManager::FReplaceConvertedAssetManager() 
-	: bIsEnabled(false)
-{
-	FModuleManager::Get().OnModulesChanged().AddStatic(&FReplaceConvertedAssetManager::OnModulesChanged);
-
-	// FOR DEVELOPMENT/TEST ONLY:
-	const FBoolConfigValueHelper LoadNativeConvertedBPClass(TEXT("Kismet"), TEXT("bLoadNativeConvertedBPClassInEditor"), GEngineIni);
-	SetEnabled(LoadNativeConvertedBPClass);
-}
-
-void FReplaceConvertedAssetManager::OnModulesChanged(FName ModuleThatChanged, EModuleChangeReason ReasonForChange)
-{
-	Get().GatherOriginalPathsOfConvertedAssets();
-}
-
-FReplaceConvertedAssetManager& FReplaceConvertedAssetManager::Get()
-{
-	static FReplaceConvertedAssetManager ReplaceConvertedAssetManager;
-	return ReplaceConvertedAssetManager;
-}
-
-UObject* FReplaceConvertedAssetManager::FindReplacement(const FString& OriginalPathName) const
-{
-	UObject* const* ObjPtr = ReplaceMap.Find(OriginalPathName);
-	return ObjPtr ? *ObjPtr : nullptr;
-}
-
-UPackage* FReplaceConvertedAssetManager::FindPackageReplacement(const FString& OriginalPathName) const
-{
-	for (auto It = ReplaceMap.CreateConstIterator(); It; ++It)
-	{
-		if (It.Key().StartsWith(OriginalPathName))
-		{
-			auto Val = It.Value();
-			return ensure(Val) ? Val->GetOutermost() : nullptr;
-		}
-	}
-	return nullptr;
-}
-
-void FReplaceConvertedAssetManager::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	Collector.AddReferencedObjects(ReplaceMap);
-}
-
-void FReplaceConvertedAssetManager::GatherOriginalPathsOfConvertedAssets()
-{
-	if (!IsEnabled())
-	{
-		return;
-	}
-
-	ReplaceMap.Reset();
-	const FName ReplaceConverted(TEXT("ReplaceConverted"));
-
-	auto FillMap = [&](UField* Field)
-	{
-		if (Field && Field->HasMetaData(ReplaceConverted))
-		{
-			auto CombinedPaths = Field->GetMetaData(ReplaceConverted);
-			TArray<FString> Paths;
-			CombinedPaths.ParseIntoArray(Paths, TEXT(","));
-			for (auto& Path : Paths)
-			{
-				ReplaceMap.Add(Path, Field);
-			}
-		}
-	};
-
-	for (auto FuncIter : FConvertedBlueprintsDependencies::Get().CreateClassFunctions)
-	{
-		auto DynamicClass = (*FuncIter)();
-		FillMap(DynamicClass);
-	}
-
-	for (UScriptStruct* LocalScriptStruct : TObjectRange<UScriptStruct>())
-	{
-		FillMap(LocalScriptStruct);
-	}
-
-	for (UEnum* LocalEnum : TObjectRange<UEnum>())
-	{
-		FillMap(LocalEnum);
-	}
-}
-
-#endif //WITH_EDITOR
-
 FConvertedBlueprintsDependencies& FConvertedBlueprintsDependencies::Get()
 {
 	static FConvertedBlueprintsDependencies ConvertedBlueprintsDependencies;
 	return ConvertedBlueprintsDependencies;
 }
 
-void FConvertedBlueprintsDependencies::RegisterClass(FName ClassName, GetDependenciesNamesFunc GetAssets)
+void FConvertedBlueprintsDependencies::RegisterClass(FName PackageName, GetDependenciesNamesFunc GetAssets)
 {
-	check(!ClassNameToGetter.Contains(ClassName));
+	check(!PackageNameToGetter.Contains(PackageName));
 	ensure(GetAssets);
-	ClassNameToGetter.Add(ClassName, GetAssets);
+	PackageNameToGetter.Add(PackageName, GetAssets);
 }
 
-void FConvertedBlueprintsDependencies::GetAssets(FName ClassName, TArray<FName>& OutPackagePaths) const
+void FConvertedBlueprintsDependencies::GetAssets(FName PackageName, TArray<FBlueprintDependencyData>& OutDependencies) const
 {
-	auto FuncPtr = ClassNameToGetter.Find(ClassName);
+	auto FuncPtr = PackageNameToGetter.Find(PackageName);
 	auto Func = (FuncPtr) ? (*FuncPtr) : nullptr;
 	ensure(Func || !FuncPtr);
 	if (Func)
 	{
-		Func(OutPackagePaths);
+		Func(OutDependencies);
 	}
 }
 
+/*******************************************************************************
+ * FScriptCookReplacementCoordinator
+ ******************************************************************************/
 #if WITH_EDITOR
 
-struct FConvertibleTypeHelper
-{
-	static FName NameBPGC;
-	static FName NameWidgetBPGC;
-	static FName NameUDS;
-	static FName NameUDE;
+FScriptCookReplacementCoordinator* FScriptCookReplacementCoordinator::CoordinatorInstance = nullptr;
 
-	static bool IsConvertible(const UObject* Obj)
+FScriptCookReplacementCoordinator* FScriptCookReplacementCoordinator::Get()
+{
+	return CoordinatorInstance;
+}
+
+void FScriptCookReplacementCoordinator::Create(bool bEnabled, const TArray<FString>& ExcludedAssetTypes, const TArray<FString>& ExcludedBlueprintTypes, const TMap<UObject*, UClass*>& ReplacementMap)
+{
+	CoordinatorInstance = new FScriptCookReplacementCoordinator(bEnabled, ExcludedAssetTypes, ExcludedBlueprintTypes, ReplacementMap);
+}
+
+FScriptCookReplacementCoordinator::FScriptCookReplacementCoordinator(bool bInEnabled, const TArray<FString>& InExcludedAssetTypes, const TArray<FString>& InExcludedBlueprintTypes, const TMap<UObject*, UClass*>& InReplacementMap)
+	: bEnabled(bInEnabled)
+	, ExcludedAssetTypes(InExcludedAssetTypes)
+	, ExcludedBlueprintTypes(InExcludedBlueprintTypes)
+	, ReplacementMap(InReplacementMap)
+{
+}
+
+bool FScriptCookReplacementCoordinator::Initialize()
+{
+	return true;
+}
+
+DEFINE_LOG_CATEGORY_STATIC(LogDan, Log, All);
+
+UClass* FScriptCookReplacementCoordinator::FindReplacedClass(const UObject* Obj) const
+{
+	if (!bEnabled)
 	{
-		const FName ClassName = Obj ? Obj->GetClass()->GetFName() : NAME_None;
-		return (ClassName != NAME_None)
-			&& ((ClassName == NameBPGC)
-			|| (ClassName == NameUDS)
-			|| (ClassName == NameUDE)
-			|| (ClassName == NameWidgetBPGC));
+		return nullptr;
 	}
-};
 
-FName FConvertibleTypeHelper::NameBPGC(TEXT("BlueprintGeneratedClass"));
-FName FConvertibleTypeHelper::NameWidgetBPGC(TEXT("WidgetBlueprintGeneratedClass"));
-FName FConvertibleTypeHelper::NameUDS(TEXT("UserDefinedStruct"));
-FName FConvertibleTypeHelper::NameUDE(TEXT("UserDefinedEnum"));
-
-FReplaceCookedBPGC::FReplaceCookedBPGC()
-	: NativeScriptPackage(nullptr)
-	, bEnabled(false)
-{
-}
-
-FReplaceCookedBPGC& FReplaceCookedBPGC::Get()
-{
-	static FReplaceCookedBPGC ReplaceCookedBPGC;
-	return ReplaceCookedBPGC;
-}
-
-void FReplaceCookedBPGC::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	Collector.AddReferencedObjects(ReplaceMap);
-	Collector.AddReferencedObject(NativeScriptPackage);
-}
-
-void FReplaceCookedBPGC::AddConvertedPackageName(FName PackageName)
-{
-	ConvertedPackagesNames.Add(PackageName);
-}
-
-void FReplaceCookedBPGC::AddConvertedFieldStub(UObject* Object)
-{
-	if (Object && ensure(CouldBeConverted(Object)))
+	// we're only looking to replace class types:
+	const UClass* AsClass = Obj->GetClass();
+	while (AsClass)
 	{
-		const FName ClassName = Object->GetClass()->GetFName();
-		if ((ClassName == FConvertibleTypeHelper::NameBPGC) || (ClassName == FConvertibleTypeHelper::NameWidgetBPGC))
+		if (UClass* const* ReplacementPtr = ReplacementMap.Find(AsClass))
 		{
-			AddConvertedFieldStub<UDynamicClass>(Object->GetPathName(), Object->GetFName());
+			return *ReplacementPtr;
 		}
-		else if (ClassName == FConvertibleTypeHelper::NameUDS)
-		{
-			AddConvertedFieldStub<UScriptStruct>(Object->GetPathName(), Object->GetFName());
-		}
-		else if (ClassName == FConvertibleTypeHelper::NameUDE)
-		{
-			AddConvertedFieldStub<UEnum>(Object->GetPathName(), Object->GetFName());
-		}
-		else
-		{
-			check(false);
-		}
-	}
-}
 
-UObject* FReplaceCookedBPGC::FindReplacementStub(UObject* Object)
-{
-	if (bEnabled && Object && CouldBeConverted(Object))
-	{
-		const FString OriginalPathName = Object->GetPathName();
-		UObject** StubObjPtr = ReplaceMap.Find(OriginalPathName);
-		UObject* StubObj = StubObjPtr ? *StubObjPtr : nullptr;
-		check(!StubObj || StubObj->IsValidLowLevelFast());
-		if (StubObj)
-		{
-			int32 k = 0; k++;
-		}
-		return StubObj;
+		AsClass = AsClass->GetSuperClass();
 	}
+
 	return nullptr;
 }
 
-bool FReplaceCookedBPGC::CouldBeConverted(const UObject* Object) const
+EReplacementResult FScriptCookReplacementCoordinator::IsTargetedForReplacement(const UPackage* Package) const
 {
-	if (Object && !Object->HasAnyFlags(RF_ClassDefaultObject) && FConvertibleTypeHelper::IsConvertible(Object))
+	if (!bEnabled)
 	{
-		if (IsTargetedForConversionDelegate.IsBound())
+		return EReplacementResult::DontReplace;
+	}
+
+	// non-native packages with enums and structs should be converted, unless they are blacklisted:
+	UStruct* Struct = nullptr;
+	UEnum* Enum = nullptr;
+	TArray<UObject*> Objects;
+	GetObjectsWithOuter(Package, Objects, false);
+	for (auto Entry : Objects)
+	{
+		Struct = Cast<UStruct>(Entry);
+		Enum = Cast<UEnum>(Entry);
+		if (Struct || Enum)
 		{
-			return IsTargetedForConversionDelegate.Execute(Object);
+			break;
 		}
-		return true;
 	}
-	return false;
-	
-}
 
-bool FReplaceCookedBPGC::PackageShouldNotBeSaved(const UPackage* InOuter) const
-{
-	return InOuter && bEnabled && ConvertedPackagesNames.Contains(InOuter->GetFName());
-}
-
-void FReplaceCookedBPGC::Initialize(const FString& NativePackageName)
-{
-	if (ensure(!NativeScriptPackage))
+	UObject* Target = Struct;
+	if (Target == nullptr)
 	{
-		NativeScriptPackage = CreatePackage(nullptr, *NativePackageName);
+		Target = Enum;
 	}
-	bEnabled = true;
+	return IsTargetedForReplacement(Target);
 }
 
-void DummyClassConstructor(const FObjectInitializer&)
+EReplacementResult FScriptCookReplacementCoordinator::IsTargetedForReplacement(const UObject* Object) const
 {
-	check(false);
-}
+	const UStruct* Struct = Cast<UStruct>(Object);
+	const UEnum* Enum = Cast<UEnum>(Object);
 
-void FReplaceCookedBPGC::AdditionalStubFieldInitialization(UField* Stub)
-{
-	check(Stub && Stub->IsValidLowLevelFast());
-	if (auto Class = Cast<UClass>(Stub))
+	if (Struct == nullptr && Enum == nullptr)
 	{
-		Class->ClassConstructor = &DummyClassConstructor;
-		Class->ClassAddReferencedObjects = &UObject::AddReferencedObjects;
+		return EReplacementResult::DontReplace;
 	}
-	Stub->SetFlags(RF_Native);
+
+	// check blacklists:
+	// we can't use FindObject, because we may be converting a type while saving
+	if ((Struct && ExcludedAssetTypes.Find(Struct->GetPathName()) != INDEX_NONE) ||
+		(Enum && ExcludedAssetTypes.Find(Enum->GetPathName()) != INDEX_NONE))
+	{
+		return EReplacementResult::GenerateStub;
+	}
+
+	EReplacementResult Result = EReplacementResult::ReplaceCompletely;
+	while (Struct)
+	{
+		// This happens because the cooker incorrectly cooks editor only packages. Specifically happens for the blackjack sample
+		// project due to a FStringAssetReference in BaseEditor.ini:
+		if (Struct->RootPackageHasAnyFlags(PKG_EditorOnly))
+		{
+			return EReplacementResult::DontReplace;
+		}
+
+		if (ExcludedBlueprintTypes.Find(Struct->GetPathName()) != INDEX_NONE)
+		{
+			Result = EReplacementResult::GenerateStub;
+		}
+		Struct = Struct->GetSuperStruct();
+	}
+
+	return Result;
 }
 
-#endif //WITH_EDITOR
+#endif // WITH_EDITOR

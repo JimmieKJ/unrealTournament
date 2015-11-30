@@ -68,6 +68,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 		/// <summary>The version to filter by.</summary>
 		public string VersionName { get; set; }
 
+		/// <summary>The platform to filter by.</summary>
+		public string PlatformName { get; set; }
+
 		/// <summary>The name of the game to filter by.</summary>
 		public string GameName { get; set; }
 
@@ -82,6 +85,9 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 
 		/// <summary>A collection of Version names used in the drop down on the main search form</summary>
 		public List<SelectListItem> VersionNames { get; set; }
+
+		/// <summary>A collection of Platform names used in the drop down on the main search form</summary>
+		public List<SelectListItem> PlatformNames { get; set; }
 
 		/// <summary>The set of statuses a crash could have its status set to.</summary>
 		public IEnumerable<string> SetStatus { get { return new List<string>( new string[] { "Unset", "Reviewed", "New", "Coder", "EngineQA", "GameQA" } ); } }
@@ -101,6 +107,7 @@ namespace Tools.CrashReporter.CrashReportWebSite.Models
 			DateTime ToDate = DateTime.Today.ToUniversalTime();
 			BranchNames = CrashRepository.GetBranchesAsListItems();
 			VersionNames = CrashRepository.GetVersionsAsListItems();
+			PlatformNames = CrashRepository.GetPlatformsAsListItems();
 			DateFrom = (long)( FromDate - Epoch ).TotalMilliseconds;
 			DateTo = (long)( ToDate - Epoch ).TotalMilliseconds;
 			CrashType = "CrashesAsserts";

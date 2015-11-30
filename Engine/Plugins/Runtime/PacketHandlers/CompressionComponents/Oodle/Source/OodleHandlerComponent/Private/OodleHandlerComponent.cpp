@@ -6,6 +6,8 @@
 DEFINE_LOG_CATEGORY(OodleHandlerComponentLog);
 
 
+// @todo #JohnB: Deprecated the 'training' mode from this handler eventually, as it is misnamed/confusing
+
 // @todo #JohnB: Right now, there is no caching of loaded dictionary files, so this is very inefficient with multiple clients
 
 #if HAS_OODLE_SDK
@@ -166,7 +168,7 @@ void OodleHandlerComponent::InitFirstRunConfig()
 		GConfig->SetBool(OODLE_INI_SECTION, TEXT("bUseDictionaryIfPresent"), false, GEngineIni);
 #endif
 
-		GConfig->SetString(OODLE_INI_SECTION, TEXT("Mode"), TEXT("Training"), GEngineIni);
+		GConfig->SetString(OODLE_INI_SECTION, TEXT("Mode"), TEXT("Capturing"), GEngineIni);
 		GConfig->SetString(OODLE_INI_SECTION, TEXT("PacketLogFile"), TEXT("PacketDump"), GEngineIni);
 
 #if EXAMPLE_CAPTURE_FORMAT
@@ -203,9 +205,9 @@ void OodleHandlerComponent::Initialize()
 	FString ReadMode;
 	GConfig->GetString(OODLE_INI_SECTION, TEXT("Mode"), ReadMode, GEngineIni);
 
-	if(ReadMode == TEXT("Training"))
+	if (ReadMode == TEXT("Training") || ReadMode == TEXT("Capturing"))
 	{
-		Mode = EOodleHandlerMode::Training;
+		Mode = EOodleHandlerMode::Capturing;
 	}
 	else if(ReadMode == TEXT("Release"))
 	{
@@ -220,16 +222,17 @@ void OodleHandlerComponent::Initialize()
 	if (bEnableOodle)
 	{
 #if !UE_BUILD_SHIPPING
-		bool bForceTraining = FParse::Param(FCommandLine::Get(), TEXT("OodleTraining"));
+		bool bForceCapturing = FParse::Param(FCommandLine::Get(), TEXT("OodleTraining")) ||
+								FParse::Param(FCommandLine::Get(), TEXT("OodleCapturing"));
 
-		if (bForceTraining && Mode != EOodleHandlerMode::Training)
+		if (bForceCapturing && Mode != EOodleHandlerMode::Capturing)
 		{
-			UE_LOG(OodleHandlerComponentLog, Log, TEXT("Switching Oodle to Training mode."));
+			UE_LOG(OodleHandlerComponentLog, Log, TEXT("Switching Oodle to Capturing mode."));
 
-			Mode = EOodleHandlerMode::Training;
+			Mode = EOodleHandlerMode::Capturing;
 		}
 		// Forces release mode, if configured to search for (and finds) fallback dictionaries
-		else if (!bForceTraining && bUseDictionaryIfPresent && Mode != EOodleHandlerMode::Release)
+		else if (!bForceCapturing && bUseDictionaryIfPresent && Mode != EOodleHandlerMode::Release)
 		{
 			FString ServerDicPath;
 			FString ClientDicPath;
@@ -247,7 +250,7 @@ void OodleHandlerComponent::Initialize()
 
 		switch(Mode)
 		{
-		case EOodleHandlerMode::Training:
+		case EOodleHandlerMode::Capturing:
 			{
 				if (Handler->Mode == Handler::Mode::Server)
 				{
@@ -678,8 +681,13 @@ bool OodleHandlerComponent::FindFallbackDictionaries(FString& OutServerDictionar
 	bSuccess = bSuccess && FileMan.FileExists(*DefaultClientDicPath);
 
 
+	if (bSuccess)
+	{
+		OutServerDictionary = DefaultServerDicPath;
+		OutClientDictionary = DefaultClientDicPath;
+	}
 	// If either of the default dictionaries do not exist, do a more speculative search
-	if (!bSuccess)
+	else
 	{
 		TArray<FString> DictionaryList;
 		
@@ -755,7 +763,7 @@ void OodleHandlerComponent::Incoming(FBitReader& Packet)
 	{
 		switch(Mode)
 		{
-		case EOodleHandlerMode::Training:
+		case EOodleHandlerMode::Capturing:
 			{
 				if(Handler->Mode == Handler::Mode::Server)
 				{
@@ -812,7 +820,7 @@ void OodleHandlerComponent::Outgoing(FBitWriter& Packet)
 	{
 		switch(Mode)
 		{
-		case EOodleHandlerMode::Training:
+		case EOodleHandlerMode::Capturing:
 			{
 				if(Handler->Mode == Handler::Mode::Server)
 				{

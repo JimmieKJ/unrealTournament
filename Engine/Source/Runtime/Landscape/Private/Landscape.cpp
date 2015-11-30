@@ -2279,7 +2279,8 @@ bool LandscapeMaterialsParameterSetUpdater(FStaticParameterSet &StaticParameterS
 
 void ALandscapeProxy::Tick(float DeltaSeconds)
 {
-	if (!IsPendingKillPending() && !HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_Unreachable | RF_PendingKill | RF_ClassDefaultObject | RF_AsyncLoading))
+	if (!IsPendingKillPending() && !HasAnyFlags(RF_NeedLoad | RF_NeedPostLoad | RF_NeedPostLoadSubobjects | RF_ClassDefaultObject) && 
+		!HasAnyInternalFlags(EInternalObjectFlags::PendingKill | EInternalObjectFlags::AsyncLoading | EInternalObjectFlags::Unreachable))
 	{
 		// this is NOT an actor tick, it is a FTickableGameObject tick
 		// the super tick is for an actor tick...

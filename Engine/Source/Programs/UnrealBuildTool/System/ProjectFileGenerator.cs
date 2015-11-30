@@ -1788,7 +1788,12 @@ namespace UnrealBuildTool
 								TargetRules = TargetRulesObject,
 								TargetFilePath = TargetFilePath,
 								ProjectFilePath = ProjectFilePath
-							};
+                            };
+
+                        if (TargetName == "UnrealCodeAnalyzer")
+                        {
+                            ProjectFile.ShouldBuildByDefaultForSolutionTargets = false;
+                        }
 
 						if (TargetName == "ShaderCompileWorker")		// @todo projectfiles: Ideally, the target rules file should set this
 						{

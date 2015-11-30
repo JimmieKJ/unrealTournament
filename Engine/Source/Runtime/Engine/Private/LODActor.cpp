@@ -125,6 +125,7 @@ ALODActor::ALODActor(const FObjectInitializer& ObjectInitializer)
 	StaticMeshComponent->CastShadow = bCastsShadow;
 	StaticMeshComponent->bCastStaticShadow = bCastsStaticShadow;
 	StaticMeshComponent->bCastDynamicShadow = bCastsDynamicShadow;
+	StaticMeshComponent->bAllowCullDistanceVolume = false;
 
 	RootComponent = StaticMeshComponent;	
 }

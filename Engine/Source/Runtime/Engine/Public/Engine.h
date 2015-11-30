@@ -112,7 +112,6 @@
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/SkyLightComponent.h"
-#include "PhysicsEngine/PhysicsThrusterComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "Components/ArrowComponent.h"
 #include "Components/BillboardComponent.h"

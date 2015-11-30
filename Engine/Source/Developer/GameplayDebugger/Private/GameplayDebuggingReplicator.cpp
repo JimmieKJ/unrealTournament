@@ -122,6 +122,9 @@ void AGameplayDebuggingReplicator::PostEditChangeProperty(FPropertyChangedEvent&
 	Super::PostEditChangeProperty(PropertyChangedEvent);
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	// @note patching up OR-9814
+	UGameplayDebuggingComponent* DummyPointer = GetDebugComponent();
+
 	if (!PropertyChangedEvent.Property)
 	{
 		return;
@@ -133,7 +136,7 @@ void AGameplayDebuggingReplicator::PostEditChangeProperty(FPropertyChangedEvent&
 	if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(AGameplayDebuggingReplicator, __FlagName_)) \
 	{ \
 		__FlagName_ ? Settings.SetFlag(EAIDebugDrawDataView::__FlagName_) : Settings.ClearFlag(EAIDebugDrawDataView::__FlagName_); \
-		GetDebugComponent()->ServerReplicateData(Settings.CheckFlag(EAIDebugDrawDataView::__FlagName_) ? EDebugComponentMessage::ActivateDataView : EDebugComponentMessage::DeactivateDataView, EAIDebugDrawDataView::__FlagName_); \
+		DebugComponent->ServerReplicateData(Settings.CheckFlag(EAIDebugDrawDataView::__FlagName_) ? EDebugComponentMessage::ActivateDataView : EDebugComponentMessage::DeactivateDataView, EAIDebugDrawDataView::__FlagName_); \
 	}else
 
 	CHECK_AND_UPDATE_FLAGS(OverHead)
@@ -150,14 +153,14 @@ void AGameplayDebuggingReplicator::PostEditChangeProperty(FPropertyChangedEvent&
 #if WITH_EQS
 	if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(AGameplayDebuggingReplicator, EQS))
 	{
-		GetDebugComponent()->EnableClientEQSSceneProxy(EQS);
-		GetDebugComponent()->SetEQSIndex(ActiveEQSIndex);
-		GetDebugComponent()->MarkRenderStateDirty();
+		DebugComponent->EnableClientEQSSceneProxy(EQS);
+		DebugComponent->SetEQSIndex(ActiveEQSIndex);
+		DebugComponent->MarkRenderStateDirty();
 	}
 
 	if (PropertyChangedEvent.Property->GetFName() == GET_MEMBER_NAME_CHECKED(AGameplayDebuggingReplicator, ActiveEQSIndex))
 	{
-		GetDebugComponent()->SetEQSIndex(ActiveEQSIndex);
+		DebugComponent->SetEQSIndex(ActiveEQSIndex);
 	}
 #endif // WITH_EQS
 #undef CHECK_AND_UPDATE_FLAGS
@@ -185,7 +188,12 @@ void AGameplayDebuggingReplicator::BeginPlay()
 				DebugComponentClass = UGameplayDebuggingComponent::StaticClass();
 			}
 		}
-		GetDebugComponent();
+		// @note patching up OR-9814
+		const UGameplayDebuggingComponent* DummyPointer = GetDebugComponent();
+		if (DummyPointer)
+		{
+			UE_LOG(LogGameplayDebugger, Error, TEXT("Unable to create UGameplayDebuggingComponent instance!"));
+		}
 	}
 
 	if (GetWorld() && GetNetMode() != ENetMode::NM_DedicatedServer)
@@ -360,9 +368,11 @@ bool AGameplayDebuggingReplicator::ClientEnableTargetSelection_Validate(bool, AP
 void AGameplayDebuggingReplicator::ClientEnableTargetSelection_Implementation(bool bEnable, APlayerController* Context)
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (GetDebugComponent())
+	// @note patching up OR-9814
+	const UGameplayDebuggingComponent* DummyPointer = GetDebugComponent();
+	if (DebugComponent)
 	{
-		GetDebugComponent()->ClientEnableTargetSelection(bEnable);
+		DebugComponent->ClientEnableTargetSelection(bEnable);
 	}
 #endif
 }
@@ -391,9 +401,11 @@ void AGameplayDebuggingReplicator::ServerReplicateMessage_Implementation(class  
 		MarkComponentsRenderStateDirty();
 	}
 
-	if (GetDebugComponent())
+	// @note patching up OR-9814
+	const UGameplayDebuggingComponent* DummyPointer = GetDebugComponent();
+	if (DebugComponent)
 	{
-		GetDebugComponent()->ServerReplicateData((EDebugComponentMessage::Type)InMessage, (EAIDebugDrawDataView::Type)DataView);
+		DebugComponent->ServerReplicateData((EDebugComponentMessage::Type)InMessage, (EAIDebugDrawDataView::Type)DataView);
 	}
 #endif //!(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 }
@@ -457,13 +469,17 @@ void AGameplayDebuggingReplicator::CreateTool()
 void AGameplayDebuggingReplicator::EnableTool()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-	if (GetWorld() && GetNetMode() != ENetMode::NM_DedicatedServer)
+	// @note patching up OR-9814
+	if (GetWorld() && GetNetMode() != ENetMode::NM_DedicatedServer && DebugComponent != nullptr)
 	{
-		UGameplayDebuggingControllerComponent*  GDC = FindComponentByClass<UGameplayDebuggingControllerComponent>();
+		UGameplayDebuggingControllerComponent* GDC = FindComponentByClass<UGameplayDebuggingControllerComponent>();
 		if (GDC)
 		{
 			// simulate key press
 			GDC->OnActivationKeyPressed();
+			ClientEnableTargetSelection(true, LocalPlayerOwner);
+			// @note patching up OR-9814
+			DebugComponent->SelectTargetToDebug();
 			GDC->OnActivationKeyReleased();
 		}
 	}
@@ -524,9 +540,11 @@ void AGameplayDebuggingReplicator::ServerSetActorToDebug_Implementation(AActor* 
 		}
 	}
 
-	if (UGameplayDebuggingComponent* DebuggingComponent = GetDebugComponent())
+	// @note patching up OR-9814
+	const UGameplayDebuggingComponent* DummyPointer = GetDebugComponent();
+	if (DebugComponent)
 	{
-		DebuggingComponent->SetActorToDebug(InActor);
+		DebugComponent->SetActorToDebug(InActor);
 	}
 #endif
 }
@@ -654,8 +672,13 @@ void AGameplayDebuggingReplicator::DrawDebugDataDelegate(class UCanvas* Canvas, 
 				ServerSetActorToDebug(NewTarget);
 			}
 
-			GetDebugComponent()->SetActorToDebug(NewTarget);
-			GetDebugComponent()->CollectDataToReplicate(true);
+			// @note patching up OR-9814
+			const UGameplayDebuggingComponent* DummyPointer = GetDebugComponent();
+			if (DebugComponent)
+			{
+				DebugComponent->SetActorToDebug(NewTarget);
+				DebugComponent->CollectDataToReplicate(true);
+			}
 		}
 	}
 

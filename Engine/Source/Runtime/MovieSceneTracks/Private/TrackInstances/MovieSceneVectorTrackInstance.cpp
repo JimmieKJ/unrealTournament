@@ -119,7 +119,7 @@ void FMovieSceneVectorTrackInstance::Update( float Position, float LastPosition,
 				FVector Value(Vector.X, Vector.Y, Vector.Z);
 				for(UObject* Object : RuntimeObjects)
 				{
-					PropertyBindings->CallFunction<FVector2D>(Object, &Value);
+					PropertyBindings->CallFunction<FVector>(Object, &Value);
 				}
 				break;
 			}
@@ -127,7 +127,7 @@ void FMovieSceneVectorTrackInstance::Update( float Position, float LastPosition,
 			{
 				for(UObject* Object : RuntimeObjects)
 				{
-					PropertyBindings->CallFunction<FVector2D>(Object, &Vector);
+					PropertyBindings->CallFunction<FVector4>(Object, &Vector);
 				}
 				break;
 			}

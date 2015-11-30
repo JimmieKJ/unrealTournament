@@ -20,7 +20,7 @@ void FAnimNode_RotationOffsetBlendSpace::CacheBones(const FAnimationCacheBonesCo
 
 void FAnimNode_RotationOffsetBlendSpace::UpdateAssetPlayer(const FAnimationUpdateContext& Context)
 {
-	if (IsLODEnabled(Context.AnimInstance, LODThreshold))
+	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
 	{
 		FAnimNode_BlendSpacePlayer::UpdateAssetPlayer(Context);
 	}
@@ -33,7 +33,7 @@ void FAnimNode_RotationOffsetBlendSpace::Evaluate(FPoseContext& Context)
 	// Evaluate base pose
 	BasePose.Evaluate(Context);
 
-	if (IsLODEnabled(Context.AnimInstance, LODThreshold))
+	if (IsLODEnabled(Context.AnimInstanceProxy, LODThreshold))
 	{
 		// Evaluate MeshSpaceRotation additive blendspace
 		FPoseContext MeshSpaceRotationAdditivePoseContext(Context);

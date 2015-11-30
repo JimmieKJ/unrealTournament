@@ -6,8 +6,9 @@
 #include "AnimNode_SkeletalControlBase.h"
 #include "AnimNode_AnimDynamics.generated.h"
 
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Anim Dynamics Overall"), STAT_AnimDynamicsOverall, STATGROUP_Physics, ANIMGRAPHRUNTIME_API);
 DECLARE_CYCLE_STAT_EXTERN(TEXT("Anim Dynamics Wind Data Update"), STAT_AnimDynamicsWindData, STATGROUP_Physics, ANIMGRAPHRUNTIME_API);
-DECLARE_CYCLE_STAT_EXTERN(TEXT("Anim Dynamics Wind Bone Evaluation"), STAT_AnimDynamicsBoneEval, STATGROUP_Physics, ANIMGRAPHRUNTIME_API);
+DECLARE_CYCLE_STAT_EXTERN(TEXT("Anim Dynamics Bone Evaluation"), STAT_AnimDynamicsBoneEval, STATGROUP_Physics, ANIMGRAPHRUNTIME_API);
 DECLARE_DWORD_COUNTER_STAT_EXTERN(TEXT("Anim Dynamics Sub-Steps"), STAT_AnimDynamicsSubSteps, STATGROUP_Physics, ANIMGRAPHRUNTIME_API);
 
 /** Supported angular constraint types */
@@ -270,12 +271,26 @@ struct ANIMGRAPHRUNTIME_API FAnimNode_AnimDynamics : public FAnimNode_SkeletalCo
 	int32 GetNumBodies() const;
 	const FAnimPhysRigidBody& GetPhysBody(int32 BodyIndex) const;
 
+#if WITH_EDITOR
+
+	// Accessors for editor code (mainly for visualization functions)
+	FVector GetBodyLocalJointOffset(int32 BodyIndex) const;
+	// Gets the number of currently bound bones (always 1 unless using a chain)
+	int32 GetNumBoundBones() const;
+	// Gets the specified bound bone reference
+	const FBoneReference* GetBoundBoneReference(int32 Index) const;
+
+#endif
+
 protected:
 
 	// FAnimNode_SkeletalControlBase protected interface
 	virtual void InitializeBoneReferences(const FBoneContainer& RequiredBones) override;
 	virtual bool IsValidToEvaluate(const USkeleton* Skeleton, const FBoneContainer& RequiredBones);
 	// End of FAnimNode_SkeletalControlBase protected interface
+
+private:
+	void HandleGameThreadPreUpdateEvent(const UAnimInstance* InAnimInstance);
 
 private:
 
@@ -291,6 +306,9 @@ private:
 
 	// Current amount of time debt
 	float TimeDebt;
+
+	// Current time dilation
+	float CurrentTimeDilation;
 
 	// Cached physics settings. We cache these on initialise to avoid the cost of accessing UPhysicsSettings a lot each frame
 	float MaxPhysicsDeltaTime;

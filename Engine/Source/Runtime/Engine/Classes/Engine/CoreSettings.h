@@ -151,6 +151,16 @@ protected:
 		ToolTip = "Size Of Permanent Object Pool (bytes). Works only in cooked builds."))
 	int32 SizeOfPermanentObjectPool;
 
+	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
+		ConsoleVariable = "gc.MaxObjectsInGame", DisplayName = "Maximum number of UObjects that can exist in cooked game",
+		ToolTip = "Maximum number of UObjects that can exist in cooked game. Keep this as small as possible."))
+	int32 MaxObjectsInGame;
+
+	UPROPERTY(EditAnywhere, config, Category = Optimization, meta = (
+		ConsoleVariable = "gc.MaxObjectsInEditor", DisplayName = "Maximum number of UObjects that can exist in the editor",
+		ToolTip = "Maximum number of UObjects that can exist in the editor game. Make sure this can hold enough objects for the editor and commadlets within reasonable limit."))
+	int32 MaxObjectsInEditor;
+
 	//~ Begin UObject Interface
 	virtual void PostInitProperties() override;
 

@@ -35,25 +35,34 @@ void FMovieSceneShotTrackInstance::RefreshInstance(const TArray<UObject*>& Runti
 	for (int32 ShotIndex = 0; ShotIndex < ShotSections.Num(); ++ShotIndex)
 	{
 		UMovieSceneShotSection* ShotSection = CastChecked<UMovieSceneShotSection>(ShotSections[ShotIndex]);
-		AcquireCameraForShot(ShotIndex, ShotSection->GetCameraGuid(), SequenceInstance);
+		AcquireCameraForShot(ShotIndex, ShotSection->GetCameraGuid(), SequenceInstance, Player);
 	}
 }
 
-
+	
+void FMovieSceneShotTrackInstance::RestoreState(const TArray<UObject*>& RuntimeObjects, IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance)
+{
+	Player.UpdateCameraCut(nullptr, nullptr);
+}
+	
 void FMovieSceneShotTrackInstance::Update(float Position, float LastPosition, const TArray<UObject*>& RuntimeObjects, class IMovieScenePlayer& Player, FMovieSceneSequenceInstance& SequenceInstance, EMovieSceneUpdatePass UpdatePass) 
 {
 	UObject* CameraObject = nullptr;
 	const TArray<UMovieSceneSection*>& ShotSections = ShotTrack->GetAllSections();
 
-	for (int32 ShotIndex = 0; ShotIndex < ShotSections.Num(); ++ShotIndex)
+	UMovieSceneShotSection* NearestShotSection = Cast<UMovieSceneShotSection>(MovieSceneHelpers::FindNearestSectionAtTime(ShotSections, Position));
+	if (NearestShotSection != nullptr)
 	{
-		UMovieSceneShotSection* ShotSection = CastChecked<UMovieSceneShotSection>(ShotSections[ShotIndex]);
-
-		if (ShotSection->GetRange().Contains(Position))
+		for (int32 ShotIndex = 0; ShotIndex < ShotSections.Num(); ++ShotIndex)
 		{
-			CameraObject = AcquireCameraForShot(ShotIndex, ShotSection->GetCameraGuid(), SequenceInstance);
+			UMovieSceneShotSection* ShotSection = CastChecked<UMovieSceneShotSection>(ShotSections[ShotIndex]);
 
-			break;
+			if (ShotSection == NearestShotSection)
+			{
+				CameraObject = AcquireCameraForShot(ShotIndex, ShotSection->GetCameraGuid(), SequenceInstance, Player);
+
+				break;
+			}
 		}
 	}
 
@@ -72,13 +81,13 @@ void FMovieSceneShotTrackInstance::Update(float Position, float LastPosition, co
 /* FMovieSceneShotTrackInstance implementation
  *****************************************************************************/
 
-UObject* FMovieSceneShotTrackInstance::AcquireCameraForShot(int32 ShotIndex, const FGuid& CameraGuid, FMovieSceneSequenceInstance& SequenceInstance)
+UObject* FMovieSceneShotTrackInstance::AcquireCameraForShot(int32 ShotIndex, const FGuid& CameraGuid, FMovieSceneSequenceInstance& SequenceInstance, const IMovieScenePlayer& Player)
 {
 	auto& CachedCamera = CachedCameraObjects[ShotIndex];
 
 	if (!CachedCamera.IsValid())
 	{
-		CachedCamera = SequenceInstance.GetSequence()->FindObject(CameraGuid);
+		CachedCamera = SequenceInstance.FindObject(CameraGuid, Player);
 	}
 
 	return CachedCamera.Get();

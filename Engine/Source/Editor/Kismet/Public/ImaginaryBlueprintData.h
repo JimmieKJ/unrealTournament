@@ -231,7 +231,7 @@ public:
 	bool IsHidden() const
 	{
 		// While handled separately, when hidden it should always be explicit
-		ensure(bIsHidden);
+		ensure(!bIsHidden || (bIsHidden && bIsExplicit));
 		return bIsHidden;
 	}
 
@@ -291,7 +291,7 @@ protected:
 class FImaginaryBlueprint : public FImaginaryFiBData
 {
 public:
-	FImaginaryBlueprint(FString InBlueprintName, FString InBlueprintPath, FString InBlueprintParentClass, TArray<FString>& InInterfaces, FString InUnparsedStringData);
+	FImaginaryBlueprint(FString InBlueprintName, FString InBlueprintPath, FString InBlueprintParentClass, TArray<FString>& InInterfaces, FString InUnparsedStringData, bool bInIsVersioned = true);
 
 	/** FImaginaryFiBData Interface */
 	virtual bool IsCompatibleWithFilter(ESearchQueryFilter InSearchQueryFilter) const override;
@@ -312,7 +312,7 @@ protected:
 	void ParseComponents(TSharedPtr< FJsonObject > InJsonObject, TArray< TSharedPtr<FImaginaryFiBData> >& OutParsedChildData);
 
 	/** Parses a raw string of Json to a Json object hierarchy */
-	void ParseToJson();
+	void ParseToJson(bool bInIsVersioned);
 
 protected:
 	/** The path for this Blueprint */

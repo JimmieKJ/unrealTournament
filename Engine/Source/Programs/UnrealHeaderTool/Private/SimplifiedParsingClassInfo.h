@@ -18,6 +18,8 @@ public:
 		, bClassIsAnInterface(bInClassIsAnInterface)
 	{}
 
+	FSimplifiedParsingClassInfo() { }
+
 	/**
 	 * Gets class name.
 	 */
@@ -48,6 +50,16 @@ public:
 	bool IsInterface() const
 	{
 		return bClassIsAnInterface;
+	}
+
+	friend FArchive& operator<<(FArchive& Ar, FSimplifiedParsingClassInfo& SimplifiedParsingClassInfo)
+	{
+		Ar << SimplifiedParsingClassInfo.ClassName;
+		Ar << SimplifiedParsingClassInfo.BaseClassName;
+		Ar << SimplifiedParsingClassInfo.ClassDefLine;
+		Ar << SimplifiedParsingClassInfo.bClassIsAnInterface;
+
+		return Ar;
 	}
 
 private:

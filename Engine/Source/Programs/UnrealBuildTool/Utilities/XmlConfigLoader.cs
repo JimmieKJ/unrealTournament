@@ -392,6 +392,9 @@ namespace UnrealBuildTool
 			// Tells if config file exists in this location.
 			public bool bExists { get; protected set; }
 
+			// Timestamp of file.
+			public DateTime Timestamp { get; protected set; }
+
 			public XmlConfigLocation(string[] FSLocations, string IDEFolderName, bool bCreateIfDoesNotExist = false)
 			{
 				bool bExists;
@@ -400,6 +403,17 @@ namespace UnrealBuildTool
 				this.IDEFolderName = IDEFolderName;
 				this.bCreateIfDoesNotExist = bCreateIfDoesNotExist;
 				this.bExists = bExists;
+				if (bExists)
+				{
+					try
+					{
+						Timestamp = new FileInfo(FSLocation).LastWriteTime;
+					}
+					catch (Exception)
+					{
+						Timestamp = DateTime.MaxValue;
+					}
+				}
 			}
 
 			public XmlConfigLocation(string FSLocation, string IDEFolderName, bool bCreateIfDoesNotExist = false)
@@ -494,7 +508,7 @@ namespace UnrealBuildTool
 			 *		a. UE4/Engine/Programs/UnrealBuildTool
 			 *		b. UE4/Engine/Programs/NotForLicensees/UnrealBuildTool
 			 *		c. UE4/Engine/Saved/UnrealBuildTool
-			 *		d. <AppData or My Documnets>/Unreal Engine/UnrealBuildTool -- the location is
+			 *		d. <AppData or My Documents>/Unreal Engine/UnrealBuildTool -- the location is
 			 *		   chosen by existence and if both exist most recently used.
 			 *
 			 *	The UBT is looking for it in all four places in the given order and
@@ -514,6 +528,14 @@ namespace UnrealBuildTool
 					Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Unreal Engine", "UnrealBuildTool")
 				}, "Global", true)
 			};
+		}
+
+		public static DateTime NewestXmlTimestamp
+		{
+			get
+			{
+				return ConfigLocationHierarchy.Max(x => x.Timestamp);
+			}
 		}
 
 		/// <summary>

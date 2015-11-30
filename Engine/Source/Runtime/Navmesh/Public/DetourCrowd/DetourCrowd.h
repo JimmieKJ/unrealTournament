@@ -207,6 +207,12 @@ enum UpdateFlags
 	DT_CROWD_SLOWDOWN_AT_GOAL		= 1 << 7,	///< [UE4] Slowdown before reaching goal
 };
 
+// [UE4] Flags used by boundary segments (dtLocalBoundary::Segment)
+enum CrowdBoundaryFlags
+{
+	DT_CROWD_BOUNDARY_IGNORE = 1 << 0,
+};
+
 struct NAVMESH_API dtCrowdAgentDebugInfo
 {
 	int idx;

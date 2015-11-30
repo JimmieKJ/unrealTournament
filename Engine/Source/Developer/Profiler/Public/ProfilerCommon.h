@@ -120,38 +120,58 @@ public:
 class FBinaryFindIndex
 {
 public:
+	/**
+	 * Executes a binary search for element Item in array Array using the <= operator
+	 * (i.e. uses the comparison Array[i] <= Item). Assumes that Array is pre-sorted.
+	 * 
+	 * @param Array The Array to search
+	 * @param Item The item to search for
+	 * @param FirstIndex Optional. Function will not search before this index. Default is 0
+	 * @param LastIndex Optional. Function will not search beyond this index. Default is INDEX_NONE
+	 * @return Returns the last index of the element that is smaller than or equal to Item, or, if Item is not found, returns 0.
+	 */
 	template<class T>
 	static int32 LessEqual( const TArray<T>& Array, const T& Item, const int32 FirstIndex = 0, const int32 LastIndex = INDEX_NONE )
 	{
 		const int32 LocalLastIndex = LastIndex == INDEX_NONE ? Array.Num() : LastIndex;
-		int32 Lenght = LocalLastIndex - FirstIndex;
-		int32 Middle = Lenght / 2;
+		int32 Length = LocalLastIndex - FirstIndex;
+		int32 Middle = Length;
 		int32 Offset = FirstIndex;
 
 		while( Middle > 0 )
 		{
-			Middle = Lenght / 2;
+			Middle = Length / 2;
 			if( Array[Offset + Middle] <= Item )
 			{
 				Offset += Middle;
 			}
-			Lenght -= Middle;
+			Length -= Middle;
 		}
 		return Offset;
 	}
 
+	/**
+	 * Executes a binary search for element Item in array Array using the >= operator
+	 * (i.e. uses the comparison Array[i] >= Item). Assumes that Array is pre-sorted.
+	 * 
+	 * @param Array The Array to search
+	 * @param Item The item to search for
+	 * @param FirstIndex Optional. Function will not search before this index. Default is 0
+	 * @param LastIndex Optional. Function will not search beyond this index. Default is INDEX_NONE
+	 * @return Returns the first index of the element that is greater than or equal to Item, or, if Item is not found, returns the last index + 1.
+	 */
 	template<class T>
 	static int32 GreaterEqual( const TArray<T>& Array, const T& Item, const int32 FirstIndex = 0, const int32 LastIndex = INDEX_NONE )
 	{
 		const int32 LocalLastIndex = LastIndex == INDEX_NONE ? Array.Num() : LastIndex;
-		int32 Lenght = LocalLastIndex - FirstIndex;
-		int32 Middle = Lenght / 2;
+		int32 Length = LocalLastIndex - FirstIndex;
+		int32 Middle = Length;
 		int32 Offset = FirstIndex;
 		int32 Edge = 0;
 
 		while( Middle > 0 )
 		{
-			Middle = Lenght / 2;
+			Middle = Length / 2;
 			if( Array[Offset + Middle] >= Item )
 			{
 				Edge = 0;
@@ -162,7 +182,7 @@ public:
 				Offset += Middle;		
 			}
 
-			Lenght -= Middle;
+			Length -= Middle;
 		}
 		return Offset+Edge;
 	}

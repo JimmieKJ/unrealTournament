@@ -19,8 +19,6 @@ FVertexShaderRHIRef FD3D12DynamicRHI::RHICreateVertexShader(const TArray<uint8>&
 	const SIZE_T CodeSize = ShaderCode.GetActualShaderCodeSize() - Offset;
 
 	Shader->ResourceCounts = *ShaderCode.FindOptionalData<FShaderCodePackedResourceCounts>();
-	//TODO Special case for Constant Buffer count as it currently needs all buffers set if it needs any set.
-	Shader->ResourceCounts.NumCBs = (Shader->ResourceCounts.NumCBs > 0) ? MAX_CBS : 0;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Shader->ShaderName = ShaderCode.FindOptionalData('n');
@@ -50,8 +48,6 @@ FPixelShaderRHIRef FD3D12DynamicRHI::RHICreatePixelShader(const TArray<uint8>& C
 	const SIZE_T CodeSize = ShaderCode.GetActualShaderCodeSize() - Offset;
 
 	Shader->ResourceCounts = *ShaderCode.FindOptionalData<FShaderCodePackedResourceCounts>();
-	//TODO Special case for Constant Buffer count as it currently needs all buffers set if it needs any set.
-	Shader->ResourceCounts.NumCBs = (Shader->ResourceCounts.NumCBs > 0) ? MAX_CBS : 0;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Shader->ShaderName = ShaderCode.FindOptionalData('n');
@@ -80,8 +76,6 @@ FHullShaderRHIRef FD3D12DynamicRHI::RHICreateHullShader(const TArray<uint8>& Cod
 	const SIZE_T CodeSize = ShaderCode.GetActualShaderCodeSize() - Offset;
 
 	Shader->ResourceCounts = *ShaderCode.FindOptionalData<FShaderCodePackedResourceCounts>();
-	//TODO Special case for Constant Buffer count as it currently needs all buffers set if it needs any set.
-	Shader->ResourceCounts.NumCBs = (Shader->ResourceCounts.NumCBs > 0) ? MAX_CBS : 0;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Shader->ShaderName = ShaderCode.FindOptionalData('n');
@@ -110,8 +104,6 @@ FDomainShaderRHIRef FD3D12DynamicRHI::RHICreateDomainShader(const TArray<uint8>&
 	const SIZE_T CodeSize = ShaderCode.GetActualShaderCodeSize() - Offset;
 
 	Shader->ResourceCounts = *ShaderCode.FindOptionalData<FShaderCodePackedResourceCounts>();
-	//TODO Special case for Constant Buffer count as it currently needs all buffers set if it needs any set.
-	Shader->ResourceCounts.NumCBs = (Shader->ResourceCounts.NumCBs > 0) ? MAX_CBS : 0;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Shader->ShaderName = ShaderCode.FindOptionalData('n');
@@ -140,8 +132,6 @@ FGeometryShaderRHIRef FD3D12DynamicRHI::RHICreateGeometryShader(const TArray<uin
 	const SIZE_T CodeSize = ShaderCode.GetActualShaderCodeSize() - Offset;
 
 	Shader->ResourceCounts = *ShaderCode.FindOptionalData<FShaderCodePackedResourceCounts>();
-	//TODO Special case for Constant Buffer count as it currently needs all buffers set if it needs any set.
-	Shader->ResourceCounts.NumCBs = (Shader->ResourceCounts.NumCBs > 0) ? MAX_CBS : 0;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Shader->ShaderName = ShaderCode.FindOptionalData('n');
@@ -193,8 +183,6 @@ FGeometryShaderRHIRef FD3D12DynamicRHI::RHICreateGeometryShaderWithStreamOutput(
 	}
 
 	Shader->ResourceCounts = *ShaderCode.FindOptionalData<FShaderCodePackedResourceCounts>();
-	//TODO Special case for Constant Buffer count as it currently needs all buffers set if it needs any set.
-	Shader->ResourceCounts.NumCBs = (Shader->ResourceCounts.NumCBs > 0) ? MAX_CBS : 0;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Shader->ShaderName = ShaderCode.FindOptionalData('n');
@@ -236,8 +224,6 @@ FComputeShaderRHIRef FD3D12DynamicRHI::RHICreateComputeShader(const TArray<uint8
 	const SIZE_T CodeSize = ShaderCode.GetActualShaderCodeSize() - Offset;
 
 	Shader->ResourceCounts = *ShaderCode.FindOptionalData<FShaderCodePackedResourceCounts>();
-	//TODO Special case for Constant Buffer count as it currently needs all buffers set if it needs any set.
-	Shader->ResourceCounts.NumCBs = (Shader->ResourceCounts.NumCBs > 0) ? MAX_CBS : 0;
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	Shader->ShaderName = ShaderCode.FindOptionalData('n');

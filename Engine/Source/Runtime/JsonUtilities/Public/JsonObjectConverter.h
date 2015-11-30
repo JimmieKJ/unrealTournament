@@ -71,6 +71,32 @@ public: // UStruct -> JSON
 	static bool UStructToJsonObjectString(const UStruct* StructDefinition, const void* Struct, FString& OutJsonString, int64 CheckFlags, int64 SkipFlags, int32 Indent = 0, const CustomExportCallback* ExportCb = nullptr);
 
 	/**
+	 * Wrapper to UStructToJsonObjectString that allows a print policy to be specified.
+	 */
+	template<typename CharType, template<typename> class PrintPolicy>
+	static bool UStructToFormattedJsonObjectString(const UStruct* StructDefinition, const void* Struct, FString& OutJsonString, int64 CheckFlags, int64 SkipFlags, int32 Indent = 0, const CustomExportCallback* ExportCb = nullptr)
+	{
+		TSharedRef<FJsonObject> JsonObject = MakeShareable(new FJsonObject());
+		if (UStructToJsonObject(StructDefinition, Struct, JsonObject, CheckFlags, SkipFlags, ExportCb))
+		{
+			TSharedRef<TJsonWriter<CharType, PrintPolicy<CharType>>> JsonWriter = TJsonWriterFactory<CharType, PrintPolicy<CharType>>::Create(&OutJsonString, Indent);
+
+			if (FJsonSerializer::Serialize(JsonObject, JsonWriter))
+			{
+				JsonWriter->Close();
+				return true;
+			}
+			else
+			{
+				UE_LOG(LogJson, Warning, TEXT("UStructToFormattedObjectString - Unable to write out json"));
+				JsonWriter->Close();
+			}
+		}
+
+		return false;
+	}
+
+	/**
 	 * Converts from a UStruct to a set of json attributes (possibly from within a JsonObject)
 	 *
 	 * @param StructDefinition UStruct definition that is looked over for properties
@@ -240,4 +266,3 @@ public: // JSON -> UStruct
 		return true;
 	}
 };
-

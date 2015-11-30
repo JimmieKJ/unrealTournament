@@ -14,13 +14,15 @@
 struct FFlattenMaterial
 {
 	FFlattenMaterial()
-		: DiffuseSize(0, 0)
+		: RenderSize( 0, 0 )
+		, DiffuseSize(0, 0)
 		, NormalSize(0, 0)
 		, MetallicSize(0, 0)
 		, RoughnessSize(0, 0)
 		, SpecularSize(0, 0)
 		, OpacitySize(0, 0)
 		, EmissiveSize(0, 0)
+		, SubSurfaceSize(0, 0)
 		, bTwoSided(false)
 		, BlendMode(BLEND_Opaque)
 		, EmissiveScale(1.0f)		
@@ -36,6 +38,7 @@ struct FFlattenMaterial
 		SpecularSamples.Empty();
 		OpacitySamples.Empty();
 		EmissiveSamples.Empty();
+		SubSurfaceSamples.Empty();
 	}
 	
 	/** Set all alpha channel values with InAlphaValue */
@@ -69,12 +72,17 @@ struct FFlattenMaterial
 		{ 
 			Sample.A = InAlphaValue; 
 		}
+		for (FColor& Sample : SubSurfaceSamples)
+		{
+			Sample.A = InAlphaValue;
+		}
 	}
 	
 	/** Material Guid */
 	FGuid			MaterialId;
 		
 	/** Texture sizes for each individual property*/
+	FIntPoint		RenderSize;
 	FIntPoint		DiffuseSize;
 	FIntPoint		NormalSize;
 	FIntPoint		MetallicSize;	
@@ -82,6 +90,7 @@ struct FFlattenMaterial
 	FIntPoint		SpecularSize;	
 	FIntPoint		OpacitySize;
 	FIntPoint		EmissiveSize;
+	FIntPoint		SubSurfaceSize;
 
 	/** Baked down texture samples for each individual property*/
 	TArray<FColor>	DiffuseSamples;
@@ -91,6 +100,7 @@ struct FFlattenMaterial
 	TArray<FColor>	SpecularSamples;
 	TArray<FColor>	OpacitySamples;
 	TArray<FColor>	EmissiveSamples;
+	TArray<FColor>	SubSurfaceSamples;
 
 	/** Flag whether or not the material will have to be two-sided */
 	bool			bTwoSided;
@@ -105,7 +115,7 @@ struct MATERIALUTILITIES_API FExportMaterialProxyCache
 {
 	// Material proxies for each property. Note: we're not handling all properties here,
 	// so hold only up to MP_Normal inclusive.
-	class FMaterialRenderProxy* Proxies[EMaterialProperty::MP_Normal + 1];
+	class FMaterialRenderProxy* Proxies[EMaterialProperty::MP_MAX];
 
 	FExportMaterialProxyCache();
 	~FExportMaterialProxyCache();
@@ -280,9 +290,9 @@ public:
 	* @param InMaterial 			Material to analyze
 	* @param InMaterialSettings 	Settings containing how to material should be merged
 	* @param OutNumTexCoords		Number of texture coordinates used across all properties flagged for merging
-	* @param OutUseVertexColor		Flag whether or not Vertex Colors are used in the material graph for the properties flagged for merging
+	* @param OutRequiresVertexData	Flag whether or not Vertex Data is used in the material graph for the properties flagged for merging
 	*/
-	static void AnalyzeMaterial(class UMaterialInterface* InMaterial, const struct FMaterialProxySettings& InMaterialSettings, int32& OutNumTexCoords, bool& OutUseVertexColor);
+	static void AnalyzeMaterial(class UMaterialInterface* InMaterial, const struct FMaterialProxySettings& InMaterialSettings, int32& OutNumTexCoords, bool& OutRequiresVertexData);
 
 	/**
 	* Remaps material indices where possible to reduce the number of materials required for creating a proxy material
@@ -305,6 +315,13 @@ public:
 	* @param InFlattenMaterial				Flatten material to optimize
 	*/
 	static void OptimizeFlattenMaterial(FFlattenMaterial& InFlattenMaterial);
+
+	/**
+	* Resizes flatten material's data if applicable by comparing it with the original settings
+	*
+	* @param InFlattenMaterial				Flatten material to optimize
+	*/
+	static void ResizeFlattenMaterial(FFlattenMaterial& InFlattenMaterial, const struct FMeshProxySettings& InMeshProxySettings);
 private:
 	
 	/**
@@ -324,10 +341,11 @@ private:
 	* @param bInForceLinearGamma	Whether or not to force linear gamma (used for Normal property)
 	* @param InPixelFormat			Pixel format of the target texture
 	* @param InTargetSize			Dimensions of the target texture
+	* @param OutSampleSize			Dimensions of the rendered texture
 	* @param OutSamples				Array of FColor samples containing the rendered out texture pixel data
 	* @return						Whether operation was successful
 	*/
-	static bool RenderMaterialPropertyToTexture(struct FMaterialMergeData& InMaterialData, EMaterialProperty InMaterialProperty, bool bInForceLinearGamma, EPixelFormat InPixelFormat, FIntPoint& InTargetSize, TArray<FColor>& OutSamples);
+	static bool RenderMaterialPropertyToTexture(struct FMaterialMergeData& InMaterialData, EMaterialProperty InMaterialProperty, bool bInForceLinearGamma, EPixelFormat InPixelFormat, const FIntPoint& InTargetSize, FIntPoint& OutSampleSize, TArray<FColor>& OutSamples);
 
 	/**
 	* Creates and add or reuses a RenderTarget from the pool

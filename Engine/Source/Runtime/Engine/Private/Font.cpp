@@ -8,6 +8,7 @@
 #include "Engine/Font.h"
 #include "Engine/FontImportOptions.h"
 #include "SlateBasics.h"
+#include "EngineFontServices.h"
 
 #include "EditorFramework/AssetImportData.h"
 
@@ -208,17 +209,20 @@ void UFont::GetCharSize(TCHAR InCh, float& Width, float& Height) const
 
 	case EFontCacheType::Runtime:
 		{
-			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-	
-			const float FontScale = 1.0f;
-			const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
-			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
-			const FCharacterEntry& Entry = CharacterList.GetCharacter(LegacyFontInfo, InCh);
+			TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
 
-			Width = Entry.XAdvance;
+			if (FontCache.IsValid())
+			{
+				const float FontScale = 1.0f;
+				const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
+				FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+				const FCharacterEntry& Entry = CharacterList.GetCharacter(LegacyFontInfo, InCh);
 
-			// The height of the character will always be the maximum height of any character in this font
-			Height = CharacterList.GetMaxHeight();
+				Width = Entry.XAdvance;
+
+				// The height of the character will always be the maximum height of any character in this font
+				Height = CharacterList.GetMaxHeight();
+			}
 		}
 		break;
 
@@ -239,13 +243,16 @@ int8 UFont::GetCharKerning(TCHAR First, TCHAR Second) const
 
 	case EFontCacheType::Runtime:
 		{
-			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-	
-			const float FontScale = 1.0f;
-			const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
-			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+			TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
 
-			return CharacterList.GetKerning(LegacyFontInfo, First, Second);
+			if (FontCache.IsValid())
+			{
+				const float FontScale = 1.0f;
+				const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
+				FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+
+				return CharacterList.GetKerning(LegacyFontInfo, First, Second);
+			}
 		}
 		break;
 
@@ -260,14 +267,17 @@ int16 UFont::GetCharHorizontalOffset(TCHAR InCh) const
 {
 	if(FontCacheType == EFontCacheType::Runtime)
 	{
-		TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-	
-		const float FontScale = 1.0f;
-		const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
-		FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
-		const FCharacterEntry& Entry = CharacterList.GetCharacter(LegacyFontInfo, InCh);
+		TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
 
-		return Entry.HorizontalOffset;
+		if (FontCache.IsValid())
+		{
+			const float FontScale = 1.0f;
+			const FSlateFontInfo LegacyFontInfo = GetLegacySlateFontInfo();
+			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+			const FCharacterEntry& Entry = CharacterList.GetCharacter(LegacyFontInfo, InCh);
+
+			return Entry.HorizontalOffset;
+		}
 	}
 
 	return 0;
@@ -308,13 +318,16 @@ float UFont::GetMaxCharHeight() const
 
 	case EFontCacheType::Runtime:
 		{
-			TSharedRef<FSlateFontCache> FontCache = FSlateApplication::Get().GetRenderer()->GetFontCache();
-	
-			const float FontScale = 1.0f;
-			const FSlateFontInfo LegacyFontInfo(this, LegacyFontSize);
-			FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
+			TSharedPtr<FSlateFontCache> FontCache = FEngineFontServices::Get().GetFontCache();
+			
+			if (FontCache.IsValid())
+			{
+				const float FontScale = 1.0f;
+				const FSlateFontInfo LegacyFontInfo(this, LegacyFontSize);
+				FCharacterList& CharacterList = FontCache->GetCharacterList(LegacyFontInfo, FontScale);
 
-			MaxHeight = CharacterList.GetMaxHeight();
+				MaxHeight = CharacterList.GetMaxHeight();
+			}
 		}
 		break;
 

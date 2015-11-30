@@ -694,7 +694,17 @@ public:
 	 * @param InstanceOwner	AnimInstance playing this asset
 	 * @param Context		The tick context (leader/follower, delta time, sync point, etc...)
 	 */
-	virtual void TickAssetPlayerInstance(FAnimTickRecord& Instance, class UAnimInstance* InstanceOwner, FAnimAssetTickContext& Context) const {}
+	DEPRECATED(4.11, "This function is deprecated, use TickAssetPlayer")
+	ENGINE_API virtual void TickAssetPlayerInstance(FAnimTickRecord& Instance, class UAnimInstance* AnimInstance, FAnimAssetTickContext& Context) const;
+
+	/** Advances the asset player instance 
+	 * 
+	 * @param Instance		AnimationTickRecord Instance - saves data to evaluate
+	 * @param NotifyQueue	Queue for any notifies we create
+	 * @param Context		The tick context (leader/follower, delta time, sync point, etc...)
+	 */
+	virtual void TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const {}
+
 	// this is used in editor only when used for transition getter
 	// this doesn't mean max time. In Sequence, this is SequenceLength,
 	// but for BlendSpace CurrentTime is normalized [0,1], so this is 1

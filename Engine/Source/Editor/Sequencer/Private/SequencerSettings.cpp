@@ -23,10 +23,12 @@ USequencerSettings::USequencerSettings( const FObjectInitializer& ObjectInitiali
 	CurveValueSnapInterval = 10.0f;
 	bSnapCurveValueToInterval = true;
 	bDetailsViewVisible = false;
+	bLabelBrowserVisible = false;
 	bAutoScrollEnabled = false;
 	bShowCurveEditor = false;
 	bShowCurveEditorCurveToolTips = true;
 	bLooping = false;
+	bKeepCursorInPlayRange = true;
 }
 
 bool USequencerSettings::GetAutoKeyEnabled() const
@@ -272,11 +274,25 @@ bool USequencerSettings::GetDetailsViewVisible() const
 	return bDetailsViewVisible;
 }
 
-void USequencerSettings::SetDetailsViewVisible(bool InbDetailsViewVisible )
+void USequencerSettings::SetDetailsViewVisible(bool Visible)
 {
-	if (bDetailsViewVisible != InbDetailsViewVisible)
+	if (bDetailsViewVisible != Visible)
 	{
-		bDetailsViewVisible = InbDetailsViewVisible;
+		bDetailsViewVisible = Visible;
+		SaveConfig();
+	}
+}
+
+bool USequencerSettings::GetLabelBrowserVisible() const
+{
+	return bLabelBrowserVisible;
+}
+
+void USequencerSettings::SetLabelBrowserVisible(bool Visible)
+{
+	if (bLabelBrowserVisible != Visible)
+	{
+		bLabelBrowserVisible = Visible;
 		SaveConfig();
 	}
 }
@@ -321,6 +337,20 @@ void USequencerSettings::SetLooping(bool bInLooping)
 	if (bLooping != bInLooping)
 	{
 		bLooping = bInLooping;
+		SaveConfig();
+	}
+}
+
+bool USequencerSettings::ShouldKeepCursorInPlayRange() const
+{
+	return bKeepCursorInPlayRange;
+}
+
+void USequencerSettings::SetKeepCursorInPlayRange(bool bInKeepCursorInPlayRange)
+{
+	if (bKeepCursorInPlayRange != bInKeepCursorInPlayRange)
+	{
+		bKeepCursorInPlayRange = bInKeepCursorInPlayRange;
 		SaveConfig();
 	}
 }

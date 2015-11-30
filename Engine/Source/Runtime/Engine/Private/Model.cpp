@@ -438,7 +438,7 @@ void UModel::PostDuplicate(bool bDuplicateForPIE)
 #if WITH_EDITOR
 	if( Polys )
 	{
-		Polys = CastChecked<UPolys>(StaticDuplicateObject( Polys, this, NULL ));
+		Polys = CastChecked<UPolys>(StaticDuplicateObject( Polys, this ));
 	}
 #endif // WITH_EDITOR
 }

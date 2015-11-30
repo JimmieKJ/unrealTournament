@@ -90,7 +90,7 @@ namespace AutomationTool
 				&& LineEnd == Other.LineEnd 
 				&& Options == Other.Options 
 				&& SubmitOptions == Other.SubmitOptions
-				&& Enumerable.SequenceEqual(View, Other.View);
+				&& (!String.IsNullOrEmpty(Stream) || Enumerable.SequenceEqual(View, Other.View));
 		}
 
 		public override string ToString()

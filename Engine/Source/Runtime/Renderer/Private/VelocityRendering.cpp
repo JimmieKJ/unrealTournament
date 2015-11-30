@@ -5,7 +5,6 @@
 =============================================================================*/
 
 #include "RendererPrivate.h"
-#include "../../Engine/Private/SkeletalRenderGPUSkin.h"		// GPrevPerBoneMotionBlur
 #include "SceneUtils.h"
 
 // Changing this causes a full shader recompile
@@ -305,6 +304,7 @@ void FVelocityDrawingPolicy::SetMeshRenderState(
 bool FVelocityDrawingPolicy::HasVelocity(const FViewInfo& View, const FPrimitiveSceneInfo* PrimitiveSceneInfo)
 {
 	checkSlow(IsInParallelRenderingThread());
+	check(PrimitiveSceneInfo->Proxy);
 
 	// No velocity if motionblur is off, or if it's a non-moving object (treat as background in that case)
 	if (View.bCameraCut || !PrimitiveSceneInfo->Proxy->IsMovable())
@@ -326,8 +326,6 @@ bool FVelocityDrawingPolicy::HasVelocity(const FViewInfo& View, const FPrimitive
 
 		if (Scene->MotionBlurInfoData.GetPrimitiveMotionBlurInfo(PrimitiveSceneInfo, PreviousLocalToWorld))
 		{
-			check(PrimitiveSceneInfo->Proxy);
-
 			const FMatrix& LocalToWorld = PrimitiveSceneInfo->Proxy->GetLocalToWorld();
 
 			// Hasn't moved (treat as background by not rendering any special velocities)?
@@ -472,6 +470,9 @@ bool FVelocityDrawingPolicyFactory::DrawDynamicMesh(
 			DrawingPolicy.SetSharedState(RHICmdList, &View, FVelocityDrawingPolicy::ContextDataType());
 			for (int32 BatchElementIndex = 0, BatchElementCount = Mesh.Elements.Num(); BatchElementIndex < BatchElementCount; ++BatchElementIndex)
 			{
+				TDrawEvent<FRHICommandList> MeshEvent;
+				BeginMeshDrawEvent(RHICmdList, PrimitiveSceneProxy, Mesh, MeshEvent);
+
 				DrawingPolicy.SetMeshRenderState(RHICmdList, View, PrimitiveSceneProxy, Mesh, BatchElementIndex, bBackFace, Mesh.DitheredLODTransitionAlpha, FMeshDrawingPolicy::ElementDataType(), FVelocityDrawingPolicy::ContextDataType());
 				DrawingPolicy.DrawMesh(RHICmdList, Mesh, BatchElementIndex);
 			}
@@ -753,9 +754,6 @@ void FDeferredShadingSceneRenderer::RenderVelocities(FRHICommandListImmediate& R
 	}
 
 	{
-		FSceneRenderTargets::Get(RHICmdList).SetVelocityPass(true);
-
-
 		if (FVelocityRendering::OutputsToGBuffer() && UseSelectiveBasePassOutputs())
 		{
 			// In this case, basepass also outputs some of the velocities, so append is already started, and don't clear the buffer.
@@ -763,14 +761,12 @@ void FDeferredShadingSceneRenderer::RenderVelocities(FRHICommandListImmediate& R
 		}
 		else
 		{
-			GPrevPerBoneMotionBlur.StartAppend(RHICmdList, ViewFamily.bWorldIsPaused);
 			BeginVelocityRendering(RHICmdList, VelocityRT, true);
 		}
 
 		if (IsParallelVelocity())
 		{
 			RenderVelocitiesInnerParallel(RHICmdList, VelocityRT);
-			GPrevPerBoneMotionBlur.EndAppendFence(RHICmdList);
 		}
 		else
 		{
@@ -778,7 +774,6 @@ void FDeferredShadingSceneRenderer::RenderVelocities(FRHICommandListImmediate& R
 		}
 
 		RHICmdList.CopyToResolveTarget(VelocityRT->GetRenderTargetItem().TargetableTexture, VelocityRT->GetRenderTargetItem().ShaderResourceTexture, false, FResolveParams());
-		FSceneRenderTargets::Get(RHICmdList).SetVelocityPass(false);
 	}
 
 	// restore any color write state changes

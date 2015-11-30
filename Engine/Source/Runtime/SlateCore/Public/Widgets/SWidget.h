@@ -994,6 +994,16 @@ protected:
 		return Visibility.IsBound() || EnabledState.IsBound() || RenderTransform.IsBound();
 	}
 
+	/**
+	 * Protected static helper to allow widgets to access the visibility attribute of other widgets directly
+	 * 
+	 * @param Widget The widget to get the visibility attribute of
+	 */
+	static const TAttribute<EVisibility>& AccessWidgetVisibilityAttribute(const TSharedRef<SWidget>& Widget)
+	{
+		return Widget->Visibility;
+	}
+
 private:
 
 	/**

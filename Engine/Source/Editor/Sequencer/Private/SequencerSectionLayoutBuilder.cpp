@@ -25,11 +25,13 @@ void FSequencerSectionLayoutBuilder::PopCategory()
 
 void FSequencerSectionLayoutBuilder::SetSectionAsKeyArea( TSharedRef<IKeyArea> KeyArea )
 {
+	KeyArea->SetName(RootNode->GetNodeName());
 	RootNode->SetSectionAsKeyArea( KeyArea ); 
 }
 
 void FSequencerSectionLayoutBuilder::AddKeyArea( FName KeyAreaName, const FText& DisplayName, TSharedRef<IKeyArea> KeyArea )
 {
+	KeyArea->SetName(KeyAreaName);
 	CurrentNode->AddKeyAreaNode( KeyAreaName, DisplayName, KeyArea );
 }
 

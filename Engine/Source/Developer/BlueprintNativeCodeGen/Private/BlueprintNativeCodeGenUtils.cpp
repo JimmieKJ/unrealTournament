@@ -1,20 +1,26 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "BlueprintNativeCodeGenPCH.h"
+#include "BlueprintNativeCodeGenManifest.h"
 #include "BlueprintNativeCodeGenUtils.h"
 #include "NativeCodeGenCommandlineParams.h"
-#include "BlueprintNativeCodeGenCoordinator.h"
-#include "Kismet2/KismetReinstanceUtilities.h"	// for FBlueprintCompileReinstancer
+#include "Kismet2/KismetReinstanceUtilities.h"	 // for FBlueprintCompileReinstancer
 #include "Kismet2/CompilerResultsLog.h" 
 #include "KismetCompilerModule.h"
 #include "Engine/Blueprint.h"
 #include "Engine/UserDefinedStruct.h"
 #include "Engine/UserDefinedEnum.h"
-#include "Kismet2/KismetEditorUtilities.h"		// for CompileBlueprint()
-#include "OutputDevice.h"						// for GWarn
-#include "GameProjectUtils.h"					// for GenerateGameModuleBuildFile
+#include "Kismet2/KismetEditorUtilities.h"		 // for CompileBlueprint()
+#include "OutputDevice.h"						 // for GWarn
+#include "GameProjectUtils.h"					 // for GenerateGameModuleBuildFile
 #include "Editor/GameProjectGeneration/Public/GameProjectUtils.h" // for GenerateGameModuleBuildFile()
-#include "App.h"								// for GetGameName()
+#include "App.h"								 // for GetGameName()
+#include "BlueprintSupport.h"					 // for FReplaceCookedBPGC
+#include "IBlueprintCompilerCppBackendModule.h"	 // for OnPCHFilenameQuery()
+#include "BlueprintNativeCodeGenModule.h"
+#include "ScopeExit.h"
+#include "Editor/Kismet/Public/FindInBlueprintManager.h" // for FDisableGatheringDataOnScope
+#include "Editor/UnrealEd/Public/Kismet2/BlueprintEditorUtils.h" // for FBlueprintEditorUtils::FForceFastBlueprintDuplicationScope
 
 DEFINE_LOG_CATEGORY(LogBlueprintCodeGen)
 
@@ -24,55 +30,70 @@ DEFINE_LOG_CATEGORY(LogBlueprintCodeGen)
 
 namespace BlueprintNativeCodeGenUtilsImpl
 {
+	static FString CoreModuleName   = TEXT("Core");
+	static FString EngineModuleName = TEXT("Engine");
+	static FString EngineHeaderFile = TEXT("Engine.h");
+
 	/**
 	 * Deletes the files/directories in the supplied array.
 	 * 
 	 * @param  TargetPaths    The set of directory and file paths that you want deleted.
 	 * @return True if all the files/directories were successfully deleted, other wise false.
 	 */
-	static bool WipeTargetPaths(const TArray<FString>& TargetPaths);
+	static bool WipeTargetPaths(const FBlueprintNativeCodeGenPaths& TargetPaths);
 	
 	/**
 	 * Creates and fills out a new .uplugin file for the converted assets.
 	 * 
 	 * @param  PluginName	The name of the plugin you're generating.
-	 * @param  Manifest		Defines where the plugin file should be saved.
+	 * @param  TargetPaths	Defines the file path/name for the plugin file.
 	 * @return True if the file was successfully saved, otherwise false.
 	 */
-	static bool GeneratePluginDescFile(const FString& PluginName, const FBlueprintNativeCodeGenManifest& Manifest);
+	static bool GeneratePluginDescFile(const FString& PluginName, const FBlueprintNativeCodeGenPaths& TargetPaths);
 
 	/**
-	 * Creates and fills out a new .Build.cs file for the target module.
+	 * Creates a module implementation and header file for the converted assets'
+	 * module (provides a IMPLEMENT_MODULE() declaration, which is required for 
+	 * the module to function).
+	 * 
+	 * @param  TargetPaths    Defines the file path/name for the target files.
+	 * @return True if the files were successfully generated, otherwise false.
+	 */
+	static bool GenerateModuleSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths);
+
+	/**
+	 * Creates and fills out a new .Build.cs file for the plugin's runtime module.
 	 * 
 	 * @param  Manifest    Defines where the module file should be saved, what it should be named, etc..
 	 * @return True if the file was successfully saved, otherwise false.
 	 */
 	static bool GenerateModuleBuildFile(const FBlueprintNativeCodeGenManifest& Manifest);
+
+	/**
+	 * Determines what the expected native class will be for an asset that was  
+	 * or will be converted.
+	 * 
+	 * @param  ConversionRecord    Identifies the asset's original type (which is used to infer the replacement type from).
+	 * @return Either a class, enum, or struct class (depending on the asset's type).
+	 */
+	static UClass* ResolveReplacementType(const FConvertedAssetRecord& ConversionRecord);
 }
 
 //------------------------------------------------------------------------------
-static bool BlueprintNativeCodeGenUtilsImpl::WipeTargetPaths(const TArray<FString>& TargetPaths)
+static bool BlueprintNativeCodeGenUtilsImpl::WipeTargetPaths(const FBlueprintNativeCodeGenPaths& TargetPaths)
 {
 	IFileManager& FileManager = IFileManager::Get();
 
 	bool bSuccess = true;
-	for (const FString& Path : TargetPaths)
-	{
-		if (FileManager.FileExists(*Path))
-		{
-			bSuccess &= FileManager.Delete(*Path);
-		}
-		else if (FileManager.DirectoryExists(*Path))
-		{
-			bSuccess &= FileManager.DeleteDirectory(*Path, /*RequireExists =*/false, /*Tree =*/true);
-		}
-	}
+	bSuccess &= FileManager.Delete(*TargetPaths.PluginFilePath());
+	bSuccess &= FileManager.DeleteDirectory(*TargetPaths.PluginSourceDir(), /*RequireExists =*/false, /*Tree =*/true);
+	bSuccess &= FileManager.Delete(*TargetPaths.ManifestFilePath());
 
 	return bSuccess;
 }
 
 //------------------------------------------------------------------------------
-static bool BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(const FString& PluginName, const FBlueprintNativeCodeGenManifest& Manifest)
+static bool BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(const FString& PluginName, const FBlueprintNativeCodeGenPaths& TargetPaths)
 {
 	FPluginDescriptor PluginDesc;
 	PluginDesc.FriendlyName = PluginName;
@@ -86,20 +107,44 @@ static bool BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(const FStrin
 	PluginDesc.bCanContainContent = false;
 	PluginDesc.bIsBetaVersion     = true; // @TODO: change once we're confident in the feature
 
-	FModuleDescriptor ModuleDesc;
-	ModuleDesc.Name = *PluginName;
-	ModuleDesc.Type = EHostType::Runtime;
+	FModuleDescriptor RuntimeModuleDesc;
+	RuntimeModuleDesc.Name = *TargetPaths.RuntimeModuleName();
+	RuntimeModuleDesc.Type = EHostType::Runtime;
 	// load at startup (during engine init), after game modules have been loaded 
-	ModuleDesc.LoadingPhase = ELoadingPhase::Default; 
+	RuntimeModuleDesc.LoadingPhase = ELoadingPhase::Default;
 
-	PluginDesc.Modules.Add(ModuleDesc);
+	PluginDesc.Modules.Add(RuntimeModuleDesc);
 
 	FText ErrorMessage;
-	bool bSuccess = PluginDesc.Save(Manifest.GetPluginFilePath(), ErrorMessage);
+	bool bSuccess = PluginDesc.Save(TargetPaths.PluginFilePath(), ErrorMessage);
 
 	if (!bSuccess)
 	{
 		UE_LOG(LogBlueprintCodeGen, Error, TEXT("Failed to generate the plugin description file: %s"), *ErrorMessage.ToString());
+	}
+	return bSuccess;
+}
+
+//------------------------------------------------------------------------------
+static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(const FBlueprintNativeCodeGenPaths& TargetPaths)
+{
+	FText FailureReason;
+
+	TArray<FString> PchIncludes;
+	PchIncludes.Add(EngineHeaderFile);
+
+	bool bSuccess = GameProjectUtils::GeneratePluginModuleHeaderFile(TargetPaths.RuntimeModuleFile(FBlueprintNativeCodeGenPaths::HFile), PchIncludes, FailureReason);
+
+	if (bSuccess)
+	{
+		const FString NoStartupCode = TEXT("");
+		bSuccess &= GameProjectUtils::GeneratePluginModuleCPPFile(TargetPaths.RuntimeModuleFile(FBlueprintNativeCodeGenPaths::CppFile),
+			TargetPaths.RuntimeModuleName(), NoStartupCode, FailureReason);
+	}
+
+	if (!bSuccess)
+	{
+		UE_LOG(LogBlueprintCodeGen, Error, TEXT("Failed to generate module source files: %s"), *FailureReason.ToString());
 	}
 	return bSuccess;
 }
@@ -110,6 +155,11 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(const FBlue
 	FModuleManager& ModuleManager = FModuleManager::Get();
 	
 	TArray<FString> PublicDependencies;
+	// for IModuleInterface
+	PublicDependencies.Add(CoreModuleName);
+	// for Engine.h
+	PublicDependencies.Add(EngineModuleName);
+
 	if (GameProjectUtils::ProjectHasCodeFiles()) 
 	{
 		const FString GameModuleName = FApp::GetGameName();
@@ -137,15 +187,11 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(const FBlue
 		}
 	}
 
-	const FString BuildFilePath = Manifest.GetModuleFilePath();
-
-	FString ModuleName = FPaths::GetCleanFilename(BuildFilePath);
-	int32 ExtIndex = INDEX_NONE;
-	ModuleName.FindChar('.', ExtIndex);
-	ModuleName = ModuleName.Left(ExtIndex);
+	FBlueprintNativeCodeGenPaths TargetPaths = Manifest.GetTargetPaths();
 
 	FText ErrorMessage;
-	bool bSuccess = GameProjectUtils::GenerateGameModuleBuildFile(BuildFilePath, ModuleName, PublicDependencies, PrivateDependencies, ErrorMessage);
+	bool bSuccess = GameProjectUtils::GenerateGameModuleBuildFile(TargetPaths.RuntimeBuildFile(), TargetPaths.RuntimeModuleName(),
+		PublicDependencies, PrivateDependencies, ErrorMessage);
 
 	if (!bSuccess)
 	{
@@ -154,98 +200,43 @@ static bool BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(const FBlue
 	return bSuccess;
 }
 
+//------------------------------------------------------------------------------
+static UClass* BlueprintNativeCodeGenUtilsImpl::ResolveReplacementType(const FConvertedAssetRecord& ConversionRecord)
+{
+	const UClass* AssetType = ConversionRecord.AssetType;
+	check(AssetType != nullptr);
+
+	if (AssetType->IsChildOf<UUserDefinedEnum>())
+	{
+		return UEnum::StaticClass();
+	}
+	else if (AssetType->IsChildOf<UUserDefinedStruct>())
+	{
+		return UScriptStruct::StaticClass();
+	}
+	else if (AssetType->IsChildOf<UBlueprint>())
+	{
+		return UDynamicClass::StaticClass();
+	}
+	else
+	{
+		UE_LOG(LogBlueprintCodeGen, Error, TEXT("Unsupported asset type (%s); cannot determine replacement type."), *AssetType->GetName());
+	}
+	return nullptr;
+}
+
 /*******************************************************************************
  * FBlueprintNativeCodeGenUtils
  ******************************************************************************/
 
 //------------------------------------------------------------------------------
-bool FBlueprintNativeCodeGenUtils::GeneratePlugin(const FNativeCodeGenCommandlineParams& CommandParams)
+bool FBlueprintNativeCodeGenUtils::FinalizePlugin(const FBlueprintNativeCodeGenManifest& Manifest, const FNativeCodeGenCommandlineParams& CommandParams)
 {
-	FScopedFeedbackContext ScopedErrorTracker;
-	FBlueprintNativeCodeGenCoordinator Coordinator(CommandParams);
-
-	if (ScopedErrorTracker.HasErrors())
-	{
-		// creating the coordinator/manifest produced an error... do not carry on!
-		return false;
-	}
-	const FBlueprintNativeCodeGenManifest& Manifest = Coordinator.GetManifest();
-
-	if (CommandParams.bWipeRequested && !CommandParams.bPreviewRequested)
-	{
-		TArray<FString> TargetPaths = Manifest.GetDestinationPaths();
-		if (!BlueprintNativeCodeGenUtilsImpl::WipeTargetPaths(TargetPaths))
-		{
-			UE_LOG(LogBlueprintCodeGen, Warning, TEXT("Failed to wipe target files/directories."));
-		}
-	}
-
-	TSharedPtr<FString> HeaderSource(new FString());
-	TSharedPtr<FString> CppSource(new FString());
-
-	auto ConvertSingleAsset = [&Coordinator, &HeaderSource, &CppSource](FConvertedAssetRecord& ConversionRecord)->bool
-	{
-		FScopedFeedbackContext NestedErrorTracker;
-
-		UObject* AssetObj = ConversionRecord.AssetPtr.Get();
-		if (AssetObj != nullptr)
-		{
-			FBlueprintNativeCodeGenUtils::GenerateCppCode(AssetObj, HeaderSource, CppSource);
-		}
-
-		bool bSuccess = !HeaderSource->IsEmpty() || !CppSource->IsEmpty();
-		// run the cpp first, because we cue off of the presence of a header for 
-		// a valid conversion record (see FConvertedAssetRecord::IsValid)
-		if (!CppSource->IsEmpty())
-		{
-			if (!FFileHelper::SaveStringToFile(*CppSource, *ConversionRecord.GeneratedCppPath))
-			{
-				bSuccess &= false;
-				ConversionRecord.GeneratedCppPath.Empty();
-			}
-			CppSource->Empty(CppSource->Len());
-		}
-		else
-		{
-			ConversionRecord.GeneratedCppPath.Empty();
-		}
-
-		if (bSuccess && !HeaderSource->IsEmpty())
-		{
-			if (!FFileHelper::SaveStringToFile(*HeaderSource, *ConversionRecord.GeneratedHeaderPath))
-			{
-				bSuccess &= false;
-				ConversionRecord.GeneratedHeaderPath.Empty();
-			}
-			HeaderSource->Empty(HeaderSource->Len());
-		}
-		else
-		{
-			ConversionRecord.GeneratedHeaderPath.Empty();
-		}
-		return bSuccess && !NestedErrorTracker.HasErrors();
-	};
-
-	FBlueprintNativeCodeGenCoordinator::FConversionDelegate ConversionDelegate = FBlueprintNativeCodeGenCoordinator::FConversionDelegate::CreateLambda(ConvertSingleAsset);
-	if (CommandParams.bPreviewRequested)
-	{
-		ConversionDelegate.BindLambda([](FConvertedAssetRecord& ConversionRecord){ return true; });
-	}
-
-	bool bSuccess = Coordinator.ProcessConversionQueue(ConversionDelegate);
-
-	if (bSuccess && !CommandParams.bPreviewRequested)
-	{
-		bSuccess &= BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(Manifest);
-		if (bSuccess)
-		{
-			bSuccess &= BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(CommandParams.PluginName, Manifest);
-		}
-	}
-
-	// save the manifest regardless of success (so we can get an idea of where failures broke down)
-	Manifest.Save();
-	return bSuccess & !ScopedErrorTracker.HasErrors();
+	bool bSuccess = true;
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleBuildFile(Manifest);
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GenerateModuleSourceFiles(Manifest.GetTargetPaths());
+	bSuccess = bSuccess && BlueprintNativeCodeGenUtilsImpl::GeneratePluginDescFile(CommandParams.PluginName, Manifest.GetTargetPaths());
+	return bSuccess;
 }
 
 //------------------------------------------------------------------------------
@@ -261,32 +252,67 @@ void FBlueprintNativeCodeGenUtils::GenerateCppCode(UObject* Obj, TSharedPtr<FStr
 
 	if (InBlueprintObj)
 	{
+		if (EBlueprintStatus::BS_Error == InBlueprintObj->Status)
+		{
+			UE_LOG(LogBlueprintCodeGen, Error, TEXT("Cannot convert \"%s\". It has errors."), *InBlueprintObj->GetPathName());
+			return;
+		}
+
 		check(InBlueprintObj->GetOutermost() != GetTransientPackage());
-		checkf(InBlueprintObj->GeneratedClass, TEXT("Invalid generated class for %s"), *InBlueprintObj->GetName());
+		if (!ensureMsgf(InBlueprintObj->GeneratedClass, TEXT("Invalid generated class for %s"), *InBlueprintObj->GetName()))
+		{
+			return;
+		}
 		check(OutHeaderSource.IsValid());
 		check(OutCppSource.IsValid());
 
-		auto BlueprintObj = InBlueprintObj;
-		{
-			TSharedPtr<FBlueprintCompileReinstancer> Reinstancer = FBlueprintCompileReinstancer::Create(BlueprintObj->GeneratedClass);
+		FDisableGatheringDataOnScope DisableFib;
 
+		const FString TempPackageName = FString::Printf(TEXT("/Temp/__TEMP_BP__/%s"), *InBlueprintObj->GetName());
+		UPackage* TempPackage = CreatePackage(nullptr, *TempPackageName);
+		check(TempPackage);
+		ON_SCOPE_EXIT
+		{
+			TempPackage->RemoveFromRoot();
+			TempPackage->MarkPendingKill();
+		};
+
+		UBlueprint* DuplicateBP = nullptr;
+		{
+			FBlueprintDuplicationScopeFlags BPDuplicationFlags(
+				FBlueprintDuplicationScopeFlags::NoExtraCompilation | FBlueprintDuplicationScopeFlags::TheSameTimelineGuid);
+			DuplicateBP = DuplicateObject<UBlueprint>(InBlueprintObj, TempPackage, *InBlueprintObj->GetName());
+		}
+		ensure((nullptr != DuplicateBP->GeneratedClass) && (InBlueprintObj->GeneratedClass != DuplicateBP->GeneratedClass));
+		ON_SCOPE_EXIT
+		{
+			DuplicateBP->RemoveFromRoot();
+			DuplicateBP->MarkPendingKill();
+		};
+
+		IBlueprintCompilerCppBackendModule& CodeGenBackend = (IBlueprintCompilerCppBackendModule&)IBlueprintCompilerCppBackendModule::Get();
+		CodeGenBackend.GetOriginalClassMap().Add(*DuplicateBP->GeneratedClass, *InBlueprintObj->GeneratedClass);
+
+		{
+			TSharedPtr<FBlueprintCompileReinstancer> Reinstancer = FBlueprintCompileReinstancer::Create(DuplicateBP->GeneratedClass);
 			IKismetCompilerInterface& Compiler = FModuleManager::LoadModuleChecked<IKismetCompilerInterface>(KISMET_COMPILER_MODULENAME);
-			
 			TGuardValue<bool> GuardTemplateNameFlag(GCompilingBlueprint, true);
-			FCompilerResultsLog Results;			
+			FCompilerResultsLog Results;
 
 			FKismetCompilerOptions CompileOptions;
 			CompileOptions.CompileType = EKismetCompileType::Cpp;
 			CompileOptions.OutCppSourceCode = OutCppSource;
 			CompileOptions.OutHeaderSourceCode = OutHeaderSource;
-			Compiler.CompileBlueprint(BlueprintObj, CompileOptions, Results);
 
-			if (EBlueprintType::BPTYPE_Interface == BlueprintObj->BlueprintType && OutCppSource.IsValid())
-			{
-				OutCppSource->Empty(); // ugly temp hack
-			}
+			Compiler.CompileBlueprint(DuplicateBP, CompileOptions, Results);
+
+			Compiler.RemoveBlueprintGeneratedClasses(DuplicateBP);
 		}
-		FKismetEditorUtilities::CompileBlueprint(BlueprintObj);
+
+		if (EBlueprintType::BPTYPE_Interface == DuplicateBP->BlueprintType && OutCppSource.IsValid())
+		{
+			OutCppSource->Empty(); // ugly temp hack
+		}
 	}
 	else if ((UDEnum || UDStruct) && OutHeaderSource.IsValid())
 	{

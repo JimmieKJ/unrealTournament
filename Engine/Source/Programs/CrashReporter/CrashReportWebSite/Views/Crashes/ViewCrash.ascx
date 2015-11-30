@@ -30,6 +30,7 @@
 						DateTo = Model.DateTo,
 						BranchName = Model.BranchName,
 						VersionName = Model.VersionName,
+						PlatformName = Model.PlatformName,
 						GameName = Model.GameName
 					} 
 				) )%>

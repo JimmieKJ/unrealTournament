@@ -24,18 +24,36 @@ public:
 	/** Set the level sequence actor that we are to record */
 	void SetLevelSequenceActor(ALevelSequenceActor* InActor);
 
-	/** The amount of time to wait before playback and capture start. Useful for allowing Post Processing effects to settle down before capturing the animation. */
-	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
-	float PrerollAmount;
-
-	/** Whether to stage the sequence before capturing it. This will set the sequence to its first frame for Preroll Amount seconds to allow Post Processing effects to settle. */
+	/** When enabled, the StartFrame setting will override the default starting frame number */
 	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)
-	bool bStageSequence;
+	bool bUseCustomStartFrame;
+
+	/** Frame number to start capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
+	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(EditCondition="bUseCustomStartFrame"))
+	int32 StartFrame;
+
+	/** When enabled, the EndFrame setting will override the default ending frame number */
+	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)
+	bool bUseCustomEndFrame;
+
+	/** Frame number to end capturing.  The frame number range depends on whether the bUseRelativeFrameNumbers option is enabled. */
+	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(EditCondition="bUseCustomEndFrame"))
+	int32 EndFrame;
+
+	/** The number of extra frames to play before the sequence's start frame, to "warm up" the animation.  This is useful if your
+	    animation contains particles or other runtime effects that are spawned into the scene earlier than your capture start frame */
+	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay)
+	int32 WarmUpFrameCount;
+
+	/** The number of seconds to wait (in real-time) before we start playing back the warm up frames.  Useful for allowing post processing effects to settle down before capturing the animation. */
+	UPROPERTY(config, EditAnywhere, Category=CaptureSettings, AdvancedDisplay, meta=(Units=Seconds, ClampMin=0))
+	float DelayBeforeWarmUp;
 
 public:
 	// UMovieSceneCapture interface
 	virtual void Initialize(TWeakPtr<FSceneViewport> InViewport) override;
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
+	virtual void SetupFrameRange() override;
 
 private:
 
@@ -64,9 +82,22 @@ private:
 	UPROPERTY()
 	FGuid LevelSequenceActorId;
 
-	/** Transient amount of time that has passed since the level was started. When >= Settings.Preroll, playback will start  */
-	TOptional<float> PrerollTime;
+	/** Which state we're in right now */
+	enum class ELevelSequenceCaptureState
+	{
+		Staging,
+		DelayBeforeWarmUp,
+		ReadyToWarmUp,
+		WarmingUp,
+		FinishedWarmUp
+	} CaptureState;
 
+	/** Time left to wait before capturing */
+	float RemainingDelaySeconds;
+
+	/** The number of warm up frames left before we actually start saving out images */
+	int32 RemainingWarmUpFrames;
+	
 #endif
 };
 

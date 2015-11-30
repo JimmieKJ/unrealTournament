@@ -160,7 +160,7 @@ public:
 	 *
 	 * @return the default region identifier
 	 */
-	static FString GetDefaultRegionString();
+	static const FString& GetDefaultRegionString();
 
 private:
 

@@ -451,6 +451,9 @@ public:
 	/** The dynamic editor primitives visible in this view. */
 	TArray<const FPrimitiveSceneInfo*,SceneRenderingAllocator> VisibleEditorPrimitives;
 
+	/** List of visible primitives with dirty precomputed lighting buffers */
+	TArray<FPrimitiveSceneInfo*,SceneRenderingAllocator> DirtyPrecomputedLightingBufferPrimitives;
+
 	/** View dependent global distance field clipmap info. */
 	FGlobalDistanceFieldInfo GlobalDistanceFieldInfo;
 
@@ -519,6 +522,7 @@ public:
 	uint32 bDisableDistanceBasedFadeTransitions : 1;
 	/** Whether the view has any materials that use the global distance field. */
 	uint32 bUsesGlobalDistanceField : 1;
+	uint32 bUsesLightingChannels : 1;
 	/** Bitmask of all shading models used by primitives in this view */
 	uint16 ShadingModelMaskInView;
 
@@ -563,6 +567,8 @@ public:
 
 	/** Custom visibility query for view */
 	ICustomVisibilityQuery* CustomVisibilityQuery;
+
+	TArray<FPrimitiveSceneInfo*, SceneRenderingAllocator> IndirectShadowPrimitives;
 
 	/** 
 	 * Initialization constructor. Passes all parameters to FSceneView constructor
@@ -737,7 +743,6 @@ public:
 	/** the last thing we do with a scene renderer, lots of cleanup related to the threading **/
 	static void WaitForTasksClearSnapshotsAndDeleteSceneRenderer(FRHICommandListImmediate& RHICmdList, FSceneRenderer* SceneRenderer);
 
-
 protected:
 
 	// Shared functionality between all scene renderers
@@ -864,8 +869,11 @@ protected:
 	void RenderDistortionES2(FRHICommandListImmediate& RHICmdList);
 
 	static int32 GetRefractionQuality(const FSceneViewFamily& ViewFamily);
-};
 
+	void UpdatePrimitivePrecomputedLightingBuffers();
+	void ClearPrimitiveSingleFramePrecomputedLightingBuffers();
+
+};
 
 /**
  * Renderer that implements simple forward shading and associated features.

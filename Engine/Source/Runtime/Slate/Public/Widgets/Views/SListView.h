@@ -1040,6 +1040,16 @@ public:
 		return SelectedItemArray;
 	}
 
+	int32 GetSelectedItems(TArray< ItemType >&SelectedItemArray) const
+	{
+		SelectedItemArray.Empty(SelectedItems.Num());
+		for (typename TSet< ItemType >::TConstIterator SelectedItemIt(SelectedItems); SelectedItemIt; ++SelectedItemIt)
+		{
+			SelectedItemArray.Add(*SelectedItemIt);
+		}
+		return SelectedItems.Num();
+	}
+
 	/**
 	 * Checks whether the specified item is currently visible in the list view.
 	 *

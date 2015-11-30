@@ -155,13 +155,18 @@ void FShotSequencerSection::RegenerateViewportThumbnails(const FIntPoint& Size)
 /* ISequencerSection interface
  *****************************************************************************/
 
+bool FShotSequencerSection::ShouldDrawKeyAreaBackground() const
+{
+	return false;
+}
+
 bool FShotSequencerSection::AreSectionsConnected() const
 {
 	return true;
 }
 
 
-void FShotSequencerSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder)
+void FShotSequencerSection::BuildSectionContextMenu(FMenuBuilder& MenuBuilder, const FGuid& ObjectBinding)
 {
 	UWorld* World = GEditor->GetEditorWorldContext().World();
 

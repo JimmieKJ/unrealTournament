@@ -76,3 +76,4 @@
 
 DECLARE_LOG_CATEGORY_EXTERN(LogAINavigation, Warning, All);
 DECLARE_LOG_CATEGORY_EXTERN(LogCrowdFollowing, Warning, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogAIModuleGameplayDebugger, Log, All);

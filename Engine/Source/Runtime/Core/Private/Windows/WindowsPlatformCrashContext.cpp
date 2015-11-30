@@ -344,6 +344,12 @@ int32 ReportCrashUsingCrashReportClient(EXCEPTION_POINTERS* ExceptionInfo, const
 
 		CrashReportClientArguments += FString( TEXT( " -AppName=" ) ) + ReportInformation.wzApplicationName;
 
+		const FString DownstreamStorage = FWindowsPlatformStackWalk::GetDownstreamStorage();
+		if (!DownstreamStorage.IsEmpty())
+		{
+			CrashReportClientArguments += FString(TEXT(" -DebugSymbols=")) + DownstreamStorage;
+		}
+
 		static const TCHAR CrashReportClientExeName[] = TEXT( "CrashReportClient.exe" );
 		FString CrashClientPath = FString( TEXT( "..\\..\\..\\Engine\\Binaries" ) ) / FPlatformProcess::GetBinariesSubdirectory() / CrashReportClientExeName;
 
@@ -517,6 +523,10 @@ int32 ReportCrash( LPEXCEPTION_POINTERS ExceptionInfo )
 
 		GMalloc->Free( StackTrace );
 	}
+
+#if !UE_BUILD_SHIPPING
+	FPlatformStackWalk::UploadLocalSymbols();
+#endif
 
 	return EXCEPTION_EXECUTE_HANDLER;
 }

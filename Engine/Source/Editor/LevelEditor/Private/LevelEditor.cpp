@@ -564,6 +564,9 @@ void FLevelEditorModule::BindGlobalLevelEditorCommands()
 	ActionList.MapAction( Commands.Import,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::Import_Clicked ) );
 
+	ActionList.MapAction(Commands.ImportScene,
+		FExecuteAction::CreateStatic(&FLevelEditorActionCallbacks::ImportScene_Clicked));
+
 	ActionList.MapAction( Commands.ExportAll,
 		FExecuteAction::CreateStatic( &FLevelEditorActionCallbacks::ExportAll_Clicked ) );
 

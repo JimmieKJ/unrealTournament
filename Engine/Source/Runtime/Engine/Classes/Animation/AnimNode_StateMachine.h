@@ -138,7 +138,7 @@ public:
 
 protected:
 	// The state machine description this is an instance of
-	FBakedAnimationStateMachine* PRIVATE_MachineDescription;
+	const FBakedAnimationStateMachine* PRIVATE_MachineDescription;
 
 	// The current state within the state machine
 	UPROPERTY()
@@ -172,6 +172,8 @@ private:
 
 	TArray<FPoseContext*> StateCachedPoses;
 
+	TArray<FGraphTraversalCounter> StateCacheBoneCounters;
+
 public:
 	FAnimNode_StateMachine()
 		: MaxTransitionsPerFrame(3)
@@ -189,6 +191,8 @@ public:
 	virtual void GatherDebugData(FNodeDebugData& DebugData) override;
 	// End of FAnimNode_Base interface
 
+	void ConditionallyCacheBonesForState(int32 StateIndex, FAnimationBaseContext Context);
+
 	// Returns the blend weight of the specified state, as calculated by the last call to Update()
 	float GetStateWeight(int32 StateIndex) const;
 
@@ -197,9 +201,12 @@ public:
 	
 	bool IsValidTransitionIndex(int32 TransitionIndex) const;
 
+	/** Cache the internal machine description */
+	void CacheMachineDescription(IAnimClassInterface* AnimBlueprintClass);
+
 protected:
 	// Tries to get the instance information for the state machine
-	FBakedAnimationStateMachine* GetMachineDescription();
+	const FBakedAnimationStateMachine* GetMachineDescription() const;
 
 	void SetState(const FAnimationBaseContext& Context, int32 NewStateIndex);
 	void SetStateInternal(int32 NewStateIndex);
@@ -229,6 +236,8 @@ protected:
 	void EvaluateTransitionStandardBlendInternal(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, const FPoseContext& PreviousStateResult, const FPoseContext& NextStateResult);
 	void EvaluateTransitionCustomBlend(FPoseContext& Output, FAnimationActiveTransitionEntry& Transition, bool bIntermediatePoseIsValid);
 
+	FAnimNode_AssetPlayerBase* GetRelevantAssetPlayerFromState(const FAnimationUpdateContext& Context, const FBakedAnimationState& StateInfo);
+
 public:
-	friend class UAnimInstance;
+	friend struct FAnimInstanceProxy;
 };

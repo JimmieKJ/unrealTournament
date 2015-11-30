@@ -24,3 +24,9 @@ void UAISystemBase::StartPlay()
 {
 
 }
+
+bool UAISystemBase::ShouldInstantiateInNetMode(ENetMode NetMode)
+{
+	UAISystemBase* AISystemDefaultObject = Cast<UAISystemBase>(StaticClass()->GetDefaultObject());
+	return AISystemDefaultObject && (AISystemDefaultObject->bInstantiateAISystemOnClient == true || NetMode != NM_Client);
+}

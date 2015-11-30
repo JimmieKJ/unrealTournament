@@ -280,20 +280,6 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 	}
 #endif
 
-	// Has the mesh component overridden the vertex color stream for this mesh LOD?
-	if( ProxyLODInfo.OverrideColorVertexBuffer != NULL )
-	{
-		check( ProxyLODInfo.OverrideColorVertexFactory != NULL );
-
-		// Make sure the indices are accessing data within the vertex buffer's
-		if(Section.MaxVertexIndex < ProxyLODInfo.OverrideColorVertexBuffer->GetNumVertices())
-		{
-			// Switch out the stock mesh vertex factory with own own vertex factory that points to
-			// our overridden color data
-			OutMeshBatch.VertexFactory = ProxyLODInfo.OverrideColorVertexFactory.GetOwnedPointer();
-		}
-	}
-
 	const bool bWireframe = false;
 	const bool bRequiresAdjacencyInformation = RequiresAdjacencyInformation( Material, OutMeshBatch.VertexFactory->GetType(), GetScene().GetFeatureLevel() );
 	
@@ -303,6 +289,17 @@ bool FStaticMeshSceneProxy::GetMeshElement(
 	SetIndexSource(LODIndex, SectionIndex, OutMeshBatch, bWireframe, bRequiresAdjacencyInformation, bUseReversedIndices, bAllowPreCulledIndices);
 
 	FMeshBatchElement& OutBatchElement = OutMeshBatch.Elements[0];
+
+	// Has the mesh component overridden the vertex color stream for this mesh LOD?
+	if (ProxyLODInfo.OverrideColorVertexBuffer != NULL)
+	{
+		// Make sure the indices are accessing data within the vertex buffer's
+		check(Section.MaxVertexIndex < ProxyLODInfo.OverrideColorVertexBuffer->GetNumVertices());
+		// Switch out the stock mesh vertex factory with the instanced colors one
+		OutMeshBatch.VertexFactory = &LOD.VertexFactoryOverrideColorVertexBuffer;
+		OutBatchElement.UserData = ProxyLODInfo.OverrideColorVertexBuffer;
+		OutBatchElement.bUserDataIsColorVertexBuffer = true;
+	}
 
 	if(OutBatchElement.NumPrimitives > 0)
 	{
@@ -1015,6 +1012,15 @@ void FStaticMeshSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView
 	}
 }
 
+void FStaticMeshSceneProxy::GetLCIs(FLCIArray& LCIs)
+{
+	for (int32 LODIndex = 0; LODIndex < LODs.Num(); ++LODIndex)
+	{
+		FLightCacheInterface* LCI = &LODs[LODIndex];
+		LCIs.Push(LCI);
+	}
+}
+
 void FStaticMeshSceneProxy::OnTransformChanged()
 {
 	// Update the cached scaling.
@@ -1037,6 +1043,7 @@ FPrimitiveViewRelevance FStaticMeshSceneProxy::GetViewRelevance(const FSceneView
 	Result.bDrawRelevance = IsShown(View) && View->Family->EngineShowFlags.StaticMeshes;
 	Result.bRenderCustomDepth = ShouldRenderCustomDepth();
 	Result.bRenderInMainPass = ShouldRenderInMainPass();
+	Result.bUsesLightingChannels = GetLightingChannelMask() != GetDefaultLightingChannelMask();
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST) || WITH_EDITOR
 	bool bDrawSimpleCollision = false, bDrawComplexCollision = false;
@@ -1178,7 +1185,8 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 	const auto FeatureLevel = InComponent->GetWorld()->FeatureLevel;
 
 	FStaticMeshRenderData* MeshRenderData = InComponent->StaticMesh->RenderData;
-	if(LODIndex < InComponent->LODData.Num())
+	FStaticMeshLODResources& LODModel = MeshRenderData->LODResources[LODIndex];
+	if (LODIndex < InComponent->LODData.Num())
 	{
 		const FStaticMeshComponentLODInfo& ComponentLODInfo = InComponent->LODData[LODIndex];
 
@@ -1191,18 +1199,22 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 		// Initialize this LOD's overridden vertex colors, if it has any
 		if( ComponentLODInfo.OverrideVertexColors )
 		{
-			FStaticMeshLODResources& LODRenderData = MeshRenderData->LODResources[LODIndex];
-			
-			// the instance should point to the loaded data to avoid copy and memory waste
-			OverrideColorVertexBuffer = ComponentLODInfo.OverrideVertexColors;
-
-			// Setup our vertex factory that points to our overridden color vertex stream.  We'll use this
-			// vertex factory when rendering the static mesh instead of it's stock factory
-			OverrideColorVertexFactory.Reset( new FLocalVertexFactory() );
-			LODRenderData.InitVertexFactory( *OverrideColorVertexFactory.GetOwnedPointer(), InComponent->StaticMesh, OverrideColorVertexBuffer );
-
-			// @todo MeshPaint: Make sure this is the best place to do this; also make sure cleanup is called!
-			BeginInitResource( OverrideColorVertexFactory.GetOwnedPointer() );
+			bool bBroken = false;
+			for (int32 SectionIndex = 0; SectionIndex < LODModel.Sections.Num(); SectionIndex++)
+			{
+				const FStaticMeshSection& Section = LODModel.Sections[SectionIndex];
+				if (Section.MaxVertexIndex >= ComponentLODInfo.OverrideVertexColors->GetNumVertices())
+				{
+					bBroken = true;
+					break;
+				}
+			}
+			if (!bBroken)
+			{
+				// the instance should point to the loaded data to avoid copy and memory waste
+				OverrideColorVertexBuffer = ComponentLODInfo.OverrideVertexColors;
+				check(OverrideColorVertexBuffer->GetStride() == sizeof(FColor)); //assumed when we set up the stream
+			}
 		}
 	}
 
@@ -1217,7 +1229,6 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 
 	// Gather the materials applied to the LOD.
 	Sections.Empty(MeshRenderData->LODResources[LODIndex].Sections.Num());
-	FStaticMeshLODResources& LODModel = MeshRenderData->LODResources[LODIndex];
 	for(int32 SectionIndex = 0;SectionIndex < LODModel.Sections.Num();SectionIndex++)
 	{
 		const FStaticMeshSection& Section = LODModel.Sections[SectionIndex];
@@ -1289,20 +1300,6 @@ FStaticMeshSceneProxy::FLODInfo::FLODInfo(const UStaticMeshComponent* InComponen
 		}
 	}
 
-}
-
-
-
-/** Destructor */
-FStaticMeshSceneProxy::FLODInfo::~FLODInfo()
-{
-	if( OverrideColorVertexFactory.IsValid() )
-	{
-		OverrideColorVertexFactory->ReleaseResource();
-		OverrideColorVertexFactory.Reset();
-	}
-
-	// delete for OverrideColorVertexBuffer is not required , FStaticMeshComponentLODInfo handle the release of the memory
 }
 
 // FLightCacheInterface.
@@ -1389,6 +1386,10 @@ FLODMask FStaticMeshSceneProxy::GetLODMask(const FSceneView* View) const
 	if (CVarForcedLODLevel >= 0)
 	{
 		Result.SetLOD(FMath::Clamp<int32>(CVarForcedLODLevel, 0, RenderData->LODResources.Num() - 1));
+	}
+	else if (View->DrawDynamicFlags & EDrawDynamicFlags::ForceLowestLOD)
+	{
+		Result.SetLOD(RenderData->LODResources.Num() - 1);
 	}
 	else if (ForcedLodModel > 0)
 	{

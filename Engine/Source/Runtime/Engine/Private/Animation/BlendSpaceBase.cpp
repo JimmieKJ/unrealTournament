@@ -159,7 +159,7 @@ int32 GetHighestWeightSample(TArray<FBlendSampleData> &SampleDataList)
 }
 
 /////////////////////////////////////////////////////
-void UBlendSpaceBase::TickAssetPlayerInstance(FAnimTickRecord& Instance, class UAnimInstance* InstanceOwner, FAnimAssetTickContext& Context) const
+void UBlendSpaceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const
 {
 	const float DeltaTime = Context.GetDeltaTime();
 	float MoveDelta = Instance.PlayRateMultiplier * DeltaTime;
@@ -457,7 +457,7 @@ void UBlendSpaceBase::TickAssetPlayerInstance(FAnimTickRecord& Instance, class U
 
 				if (bGenerateNotifies && Notifies.Num() > 0)
 				{
-					InstanceOwner->AddAnimNotifies(Notifies, Instance.EffectiveBlendWeight);
+					NotifyQueue.AddAnimNotifies(Notifies, Instance.EffectiveBlendWeight);
 				}
 			}
 		}

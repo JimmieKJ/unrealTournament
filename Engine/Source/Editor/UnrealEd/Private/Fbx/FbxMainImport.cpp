@@ -228,6 +228,7 @@ void ApplyImportUIToImportOptions(UFbxImportUI* ImportUI, FBXImportOptions& InOu
 	InOutImportOptions.bPreserveSmoothingGroups = ImportUI->SkeletalMeshImportData->bPreserveSmoothingGroups;
 	InOutImportOptions.bKeepOverlappingVertices = ImportUI->SkeletalMeshImportData->bKeepOverlappingVertices;
 	InOutImportOptions.bCombineToSingle = ImportUI->bCombineMeshes;
+	InOutImportOptions.bTransformVertexToAbsolute = ImportUI->StaticMeshImportData->bTransformVertexToAbsolute;
 	InOutImportOptions.VertexColorImportOption = ImportUI->StaticMeshImportData->VertexColorImportOption;
 	InOutImportOptions.VertexOverrideColor = ImportUI->StaticMeshImportData->VertexOverrideColor;
 	InOutImportOptions.bRemoveDegenerates = ImportUI->StaticMeshImportData->bRemoveDegenerates;
@@ -299,6 +300,7 @@ FFbxImporter::FFbxImporter()
 	
 	ImportOptions = new FBXImportOptions();
 	FMemory::Memzero(*ImportOptions);
+	ImportOptions->MaterialPrefixName = NAME_None;
 	
 	CurPhase = NOTSTARTED;
 }
@@ -475,8 +477,6 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 	{
 		FbxTimeSpan GlobalTimeSpan(FBXSDK_TIME_INFINITE,FBXSDK_TIME_MINUS_INFINITE);
 		
-		TArray<FbxNode*> LinkNodes;
-		
 		SceneInfo.TotalMaterialNum = Scene->GetMaterialCount();
 		SceneInfo.TotalTextureNum = Scene->GetTextureCount();
 		SceneInfo.TotalGeometryNum = 0;
@@ -489,47 +489,35 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 			if (Geometry->GetAttributeType() == FbxNodeAttribute::eMesh)
 			{
 				FbxNode* GeoNode = Geometry->GetNode();
-				bool bIsLinkNode = false;
-
-				// check if this geometry node is used as link
-				for ( int32 i = 0; i < LinkNodes.Num(); i++ )
-				{
-					if ( GeoNode == LinkNodes[i])
-					{
-						bIsLinkNode = true;
-						break;
-					}
-				}
-				// if the geometry node is used as link, ignore it
-				if (bIsLinkNode)
-				{
-					continue;
-				}
-
 				SceneInfo.TotalGeometryNum++;
-				
 				FbxMesh* Mesh = (FbxMesh*)Geometry;
-				SceneInfo.MeshInfo.AddUninitialized();
+				SceneInfo.MeshInfo.AddZeroed(1);
 				FbxMeshInfo& MeshInfo = SceneInfo.MeshInfo.Last();
-				MeshInfo.Name = MakeName(GeoNode->GetName());
+				if(Geometry->GetName()[0] != '\0')
+					MeshInfo.Name = MakeName(Geometry->GetName());
+				else
+					MeshInfo.Name = MakeString(GeoNode ? GeoNode->GetName() : "None");
 				MeshInfo.bTriangulated = Mesh->IsTriangleMesh();
-				MeshInfo.MaterialNum = GeoNode->GetMaterialCount();
+				MeshInfo.MaterialNum = GeoNode? GeoNode->GetMaterialCount() : 0;
 				MeshInfo.FaceNum = Mesh->GetPolygonCount();
 				MeshInfo.VertexNum = Mesh->GetControlPointsCount();
 				
 				// LOD info
 				MeshInfo.LODGroup = NULL;
-				FbxNode* ParentNode = GeoNode->GetParent();
-				if ( ParentNode->GetNodeAttribute() && ParentNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup)
+				if (GeoNode)
 				{
-					FbxNodeAttribute* LODGroup = ParentNode->GetNodeAttribute();
-					MeshInfo.LODGroup = MakeName(ParentNode->GetName());
-					for (int32 LODIndex = 0; LODIndex < ParentNode->GetChildCount(); LODIndex++)
+					FbxNode* ParentNode = GeoNode->GetParent();
+					if (ParentNode->GetNodeAttribute() && ParentNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::eLODGroup)
 					{
-						if ( GeoNode == ParentNode->GetChild(LODIndex))
+						FbxNodeAttribute* LODGroup = ParentNode->GetNodeAttribute();
+						MeshInfo.LODGroup = MakeString(ParentNode->GetName());
+						for (int32 LODIndex = 0; LODIndex < ParentNode->GetChildCount(); LODIndex++)
 						{
-							MeshInfo.LODLevel = LODIndex;
-							break;
+							if (GeoNode == ParentNode->GetChild(LODIndex))
+							{
+								MeshInfo.LODLevel = LODIndex;
+								break;
+							}
 						}
 					}
 				}
@@ -559,7 +547,7 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 						}
 					}
 
-					MeshInfo.SkeletonRoot = Link ? MakeName(Link->GetName()) : MakeName("None");
+					MeshInfo.SkeletonRoot = MakeString(Link ? Link->GetName() : ("None"));
 					MeshInfo.SkeletonElemNum = Link ? Link->GetChildCount(true) : 0;
 
 					if (Link)
@@ -575,6 +563,7 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 					MeshInfo.bIsSkelMesh = false;
 					MeshInfo.SkeletonRoot = NULL;
 				}
+				MeshInfo.UniqueId = Mesh->GetUniqueID();
 			}
 		}
 		
@@ -603,12 +592,136 @@ bool FFbxImporter::GetSceneInfo(FString Filename, FbxSceneInfo& SceneInfo)
 		{
 			SceneInfo.TotalTime = 0;
 		}
+		
+		FbxNode* RootNode = Scene->GetRootNode();
+		FbxNodeInfo RootInfo;
+		RootInfo.ObjectName = MakeName(RootNode->GetName());
+		RootInfo.UniqueId = RootNode->GetUniqueID();
+		RootInfo.Transform = RootNode->EvaluateGlobalTransform();
+
+		RootInfo.AttributeName = NULL;
+		RootInfo.AttributeUniqueId = 0;
+		RootInfo.AttributeType = NULL;
+
+		RootInfo.ParentName = NULL;
+		RootInfo.ParentUniqueId = 0;
+		
+		//Add the rootnode to the SceneInfo
+		SceneInfo.HierarchyInfo.Add(RootInfo);
+		//Fill the hierarchy info
+		TraverseHierarchyNodeRecursively(SceneInfo, RootNode, RootInfo);
 	}
 	
 	GWarn->EndSlowTask();
 	return Result;
 }
 
+void FFbxImporter::TraverseHierarchyNodeRecursively(FbxSceneInfo& SceneInfo, FbxNode *ParentNode, FbxNodeInfo &ParentInfo)
+{
+	int32 NodeCount = ParentNode->GetChildCount();
+	for (int32 NodeIndex = 0; NodeIndex < NodeCount; ++NodeIndex)
+	{
+		FbxNode* ChildNode = ParentNode->GetChild(NodeIndex);
+		FbxNodeInfo ChildInfo;
+		ChildInfo.ObjectName = MakeName(ChildNode->GetName());
+		ChildInfo.UniqueId = ChildNode->GetUniqueID();
+		ChildInfo.ParentName = ParentInfo.ObjectName;
+		ChildInfo.ParentUniqueId = ParentInfo.UniqueId;
+		ChildInfo.Transform = ChildNode->EvaluateLocalTransform();
+		if (ChildNode->GetNodeAttribute())
+		{
+			FbxNodeAttribute *ChildAttribute = ChildNode->GetNodeAttribute();
+			ChildInfo.AttributeUniqueId = ChildAttribute->GetUniqueID();
+			if (ChildAttribute->GetName()[0] != '\0')
+			{
+				ChildInfo.AttributeName = MakeName(ChildAttribute->GetName());
+			}
+			else
+			{
+				//Get the name of the first node that link this attribute
+				ChildInfo.AttributeName = MakeName(ChildAttribute->GetNode()->GetName());
+			}
+
+			switch (ChildAttribute->GetAttributeType())
+			{
+			case FbxNodeAttribute::eUnknown:
+				ChildInfo.AttributeType = "eUnknown";
+				break;
+			case FbxNodeAttribute::eNull:
+				ChildInfo.AttributeType = "eNull";
+				break;
+			case FbxNodeAttribute::eMarker:
+				ChildInfo.AttributeType = "eMarker";
+				break;
+			case FbxNodeAttribute::eSkeleton:
+				ChildInfo.AttributeType = "eSkeleton";
+				break;
+			case FbxNodeAttribute::eMesh:
+				ChildInfo.AttributeType = "eMesh";
+				break;
+			case FbxNodeAttribute::eNurbs:
+				ChildInfo.AttributeType = "eNurbs";
+				break;
+			case FbxNodeAttribute::ePatch:
+				ChildInfo.AttributeType = "ePatch";
+				break;
+			case FbxNodeAttribute::eCamera:
+				ChildInfo.AttributeType = "eCamera";
+				break;
+			case FbxNodeAttribute::eCameraStereo:
+				ChildInfo.AttributeType = "eCameraStereo";
+				break;
+			case FbxNodeAttribute::eCameraSwitcher:
+				ChildInfo.AttributeType = "eCameraSwitcher";
+				break;
+			case FbxNodeAttribute::eLight:
+				ChildInfo.AttributeType = "eLight";
+				break;
+			case FbxNodeAttribute::eOpticalReference:
+				ChildInfo.AttributeType = "eOpticalReference";
+				break;
+			case FbxNodeAttribute::eOpticalMarker:
+				ChildInfo.AttributeType = "eOpticalMarker";
+				break;
+			case FbxNodeAttribute::eNurbsCurve:
+				ChildInfo.AttributeType = "eNurbsCurve";
+				break;
+			case FbxNodeAttribute::eTrimNurbsSurface:
+				ChildInfo.AttributeType = "eTrimNurbsSurface";
+				break;
+			case FbxNodeAttribute::eBoundary:
+				ChildInfo.AttributeType = "eBoundary";
+				break;
+			case FbxNodeAttribute::eNurbsSurface:
+				ChildInfo.AttributeType = "eNurbsSurface";
+				break;
+			case FbxNodeAttribute::eShape:
+				ChildInfo.AttributeType = "eShape";
+				break;
+			case FbxNodeAttribute::eLODGroup:
+				ChildInfo.AttributeType = "eLODGroup";
+				break;
+			case FbxNodeAttribute::eSubDiv:
+				ChildInfo.AttributeType = "eSubDiv";
+				break;
+			case FbxNodeAttribute::eCachedEffect:
+				ChildInfo.AttributeType = "eCachedEffect";
+				break;
+			case FbxNodeAttribute::eLine:
+				ChildInfo.AttributeType = "eLine";
+				break;
+			}
+		}
+		else
+		{
+			ChildInfo.AttributeType = "eNull";
+			ChildInfo.AttributeName = NULL;
+		}
+		
+		SceneInfo.HierarchyInfo.Add(ChildInfo);
+		TraverseHierarchyNodeRecursively(SceneInfo, ChildNode, ChildInfo);
+	}
+}
 
 bool FFbxImporter::OpenFile(FString Filename, bool bParseStatistics, bool bForSceneInfo )
 {
@@ -880,12 +993,19 @@ ANSICHAR* FFbxImporter::MakeName(const ANSICHAR* Name)
 	return TmpName;
 }
 
+FString FFbxImporter::MakeString(const ANSICHAR* Name)
+{
+	return FString(ANSI_TO_TCHAR(Name));
+}
+
 FName FFbxImporter::MakeNameForMesh(FString InName, FbxObject* FbxObject)
 {
 	FName OutputName;
 
-	// "Name" field can't be empty
-	if (ImportOptions->bUsedAsFullName && InName != FString("None"))
+	//Cant name the mesh if the object is null and there InName arguments is None.
+	check(FbxObject != NULL || InName != FString("None"))
+
+	if ((ImportOptions->bUsedAsFullName || FbxObject == NULL) && InName != FString("None"))
 	{
 		OutputName = *InName;
 	}

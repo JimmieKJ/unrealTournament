@@ -58,14 +58,24 @@ FSceneFileHeader::FSceneFileHeader(const FSceneFileHeader& Other)
 	NumFluidSurfaceTextureMappings = Other.NumFluidSurfaceTextureMappings;
 	NumLandscapeTextureMappings = Other.NumLandscapeTextureMappings;
 	NumSpeedTreeMappings = Other.NumSpeedTreeMappings;
+	NumPortals = Other.NumPortals;
 }
 
 //----------------------------------------------------------------------------
 //	Scene class
 //----------------------------------------------------------------------------
-FScene::FScene()
+FScene::FScene() : 
+	EmbreeDevice(NULL),
+	bVerifyEmbree(false)
 {
 	FMemory::Memzero( (FSceneFileHeader*)this, sizeof(FSceneFileHeader) );
+}
+
+FScene::~FScene()
+{
+#if USE_EMBREE
+	rtcDeleteDevice(EmbreeDevice);
+#endif
 }
 
 void FScene::Import( FLightmassImporter& Importer )
@@ -75,6 +85,15 @@ void FScene::Import( FLightmassImporter& Importer )
 	Importer.ImportData(&TempHeader);
 	// Copy header members without modifying padding in FSceneFileHeader
 	(FSceneFileHeader&)(*this) = TempHeader;
+
+#if USE_EMBREE
+	if (TempHeader.GeneralSettings.bUseEmbree)
+	{
+		EmbreeDevice = rtcNewDevice(NULL);
+		check(rtcDeviceGetError(EmbreeDevice) == RTC_NO_ERROR);
+		bVerifyEmbree = TempHeader.GeneralSettings.bVerifyEmbree;
+	}
+#endif
 
 	// The assignment above overwrites ImportanceVolumes since FSceneFileHeader has some padding which coincides with ImportanceVolumes
 	FMemory::Memzero(&ImportanceVolumes, sizeof(ImportanceVolumes));
@@ -116,6 +135,13 @@ void FScene::Import( FLightmassImporter& Importer )
 		FBox LMBox;
 		Importer.ImportData(&LMBox);
 		CharacterIndirectDetailVolumes.Add(LMBox);
+	}
+
+	for (int32 PortalIndex = 0; PortalIndex < NumPortals; PortalIndex++)
+	{
+		FMatrix LMPortal;
+		Importer.ImportData(&LMPortal);
+		Portals.Add(FSphere(LMPortal.GetOrigin(), FVector2D(LMPortal.GetScaleVector().Y, LMPortal.GetScaleVector().Z).Size()));
 	}
 
 	Importer.ImportArray(VisibilityBucketGuids, NumPrecomputedVisibilityBuckets);
@@ -417,6 +443,11 @@ void FScene::ApplyStaticLightingScale()
 	ShadowSettings.MaxTransitionDistanceWorldSpace *= SceneConstants.StaticLightingLevelScale;
 	ShadowSettings.StaticShadowDepthMapTransitionSampleDistanceX *= SceneConstants.StaticLightingLevelScale;
 	ShadowSettings.StaticShadowDepthMapTransitionSampleDistanceY *= SceneConstants.StaticLightingLevelScale;
+	IrradianceCachingSettings.RecordRadiusScale *= SceneConstants.StaticLightingLevelScale;
+	IrradianceCachingSettings.MaxRecordRadius *= SceneConstants.StaticLightingLevelScale;
+
+	// Photon mapping does not scale down properly, so this is disabled
+	/*
 	PhotonMappingSettings.IndirectPhotonEmitDiskRadius *= SceneConstants.StaticLightingLevelScale;
 	PhotonMappingSettings.MaxImportancePhotonSearchDistance *= SceneConstants.StaticLightingLevelScale;
 	PhotonMappingSettings.MinImportancePhotonSearchDistance *= SceneConstants.StaticLightingLevelScale;
@@ -429,8 +460,7 @@ void FScene::ApplyStaticLightingScale()
 	PhotonMappingSettings.IndirectPhotonDensity /= ScaleSquared;
 	PhotonMappingSettings.IndirectIrradiancePhotonDensity /= ScaleSquared;
 	PhotonMappingSettings.IndirectPhotonSearchDistance *= SceneConstants.StaticLightingLevelScale;
-	IrradianceCachingSettings.RecordRadiusScale *= SceneConstants.StaticLightingLevelScale;
-	IrradianceCachingSettings.MaxRecordRadius *= SceneConstants.StaticLightingLevelScale;
+	*/
 }
 
 //----------------------------------------------------------------------------
@@ -567,7 +597,7 @@ void FDirectionalLight::Initialize(
 	OutsideImportanceVolumeDensity = InOutsideImportanceVolumeDensity;
 
 	const float ImportanceDiskAreaMillions = (float)PI * FMath::Square(ImportanceBounds.SphereRadius) / 1000000.0f;
-	checkSlow(SceneBounds.SphereRadius > ImportanceBounds.SphereRadius);
+	checkSlow(SceneBounds.SphereRadius >= ImportanceBounds.SphereRadius);
 	const float OutsideImportanceDiskAreaMillions = (float)PI * (FMath::Square(SceneBounds.SphereRadius) - FMath::Square(ImportanceBounds.SphereRadius)) / 1000000.0f;
 	// Calculate the probability that a generated sample will be in the importance volume,
 	// Based on the fraction of total photons that should be gathered in the importance volume.
@@ -1087,24 +1117,28 @@ void FPointLight::SampleDirection(
 /** Validates a surface sample given the position that sample is affecting. */
 void FPointLight::ValidateSurfaceSample(const FVector4& Point, FLightSurfaceSample& Sample) const
 {
-	const FVector4 LightToPoint = Point - Position;
-	const float LightToPointDistanceSquared = LightToPoint.SizeSquared3();
-	if (LightToPointDistanceSquared < FMath::Square(LightSourceRadius * 2.0f))
+	// Only attempt to fixup sphere light source sample positions as the light source is radially symmetric
+	if (LightSourceLength <= 0)
 	{
-		// Point is inside the light source radius * 2
-		FVector4 LocalSamplePosition = Sample.Position - Position;
-		// Reposition the light surface sample on a sphere whose radius is half of the distance from the light to Point
-		LocalSamplePosition *= FMath::Sqrt(LightToPointDistanceSquared) / (2.0f * LightSourceRadius);
-		Sample.Position = LocalSamplePosition + Position;
-	}
+		const FVector4 LightToPoint = Point - Position;
+		const float LightToPointDistanceSquared = LightToPoint.SizeSquared3();
+		if (LightToPointDistanceSquared < FMath::Square(LightSourceRadius * 2.0f))
+		{
+			// Point is inside the light source radius * 2
+			FVector4 LocalSamplePosition = Sample.Position - Position;
+			// Reposition the light surface sample on a sphere whose radius is half of the distance from the light to Point
+			LocalSamplePosition *= FMath::Sqrt(LightToPointDistanceSquared) / (2.0f * LightSourceRadius);
+			Sample.Position = LocalSamplePosition + Position;
+		}
 	
-	const float SurfacePositionDotDirection = Dot3((Sample.Position - Position), LightToPoint);
-	if (SurfacePositionDotDirection < 0.0f)
-	{
-		// Reflect the surface position about the origin so that it lies in the hemisphere facing Point
-		// The sample's PDF is unchanged
-		const FVector4 LocalSamplePosition = Sample.Position - Position;
-		Sample.Position = -LocalSamplePosition + Position;
+		const float SurfacePositionDotDirection = Dot3((Sample.Position - Position), LightToPoint);
+		if (SurfacePositionDotDirection < 0.0f)
+		{
+			// Reflect the surface position about the origin so that it lies in the hemisphere facing Point
+			// The sample's PDF is unchanged
+			const FVector4 LocalSamplePosition = Sample.Position - Position;
+			Sample.Position = -LocalSamplePosition + Position;
+		}
 	}
 }
 

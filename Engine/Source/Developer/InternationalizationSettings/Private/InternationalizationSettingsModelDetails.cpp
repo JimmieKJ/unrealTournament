@@ -91,6 +91,17 @@ namespace
 					{
 						FInternationalization& I18N = FInternationalization::Get();
 						I18N.SetCurrentCulture(SelectedCulture->GetName());
+
+						// Find all Schemas and force a visualization cache clear
+						for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+						{
+							UClass* CurrentClass = *ClassIt;
+
+							if (UEdGraphSchema* Schema = Cast<UEdGraphSchema>(CurrentClass->GetDefaultObject()))
+							{
+								Schema->ForceVisualizationCacheClear();
+							}
+						}
 					}
 				}
 				if (EditorCultureComboButton.IsValid())
@@ -329,6 +340,17 @@ void FInternationalizationSettingsModelDetails::CustomizeDetails(IDetailLayoutBu
 				if (SettingsModel.IsValid())
 				{
 					SettingsModel->ShouldShowNodesAndPinsUnlocalized(State == ECheckBoxState::Unchecked);
+
+					// Find all Schemas and force a visualization cache clear
+					for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+					{
+						UClass* CurrentClass = *ClassIt;
+
+						if (UEdGraphSchema* Schema = Cast<UEdGraphSchema>(CurrentClass->GetDefaultObject()))
+						{
+							Schema->ForceVisualizationCacheClear();
+						}
+					}
 				}
 			})
 		];

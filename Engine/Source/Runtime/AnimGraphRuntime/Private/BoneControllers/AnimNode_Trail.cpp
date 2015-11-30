@@ -2,9 +2,12 @@
 
 #include "AnimGraphRuntimePrivatePCH.h"
 #include "BoneControllers/AnimNode_Trail.h"
+#include "Animation/AnimInstanceProxy.h"
 
 /////////////////////////////////////////////////////
 // FAnimNode_Trail
+
+DECLARE_CYCLE_STAT(TEXT("Trail Eval"), STAT_Trail_Eval, STATGROUP_Anim);
 
 FAnimNode_Trail::FAnimNode_Trail()
 	: ChainLength(2)
@@ -43,6 +46,8 @@ void FAnimNode_Trail::GatherDebugData(FNodeDebugData& DebugData)
 
 void FAnimNode_Trail::EvaluateBoneTransforms(USkeletalMeshComponent* SkelComp, FCSPose<FCompactPose>& MeshBases, TArray<FBoneTransform>& OutBoneTransforms)
 {
+	SCOPE_CYCLE_COUNTER(STAT_Trail_Eval);
+
 	check(OutBoneTransforms.Num() == 0);
 
 	if( ChainBoneIndices.Num() <= 0 )
@@ -292,7 +297,7 @@ void FAnimNode_Trail::Initialize(const FAnimationInitializeContext& Context)
 {
 	FAnimNode_SkeletalControlBase::Initialize(Context);
 
-	const USkeleton* Skeleton = Context.AnimInstance->CurrentSkeleton;
+	const USkeleton* Skeleton = Context.AnimInstanceProxy->GetSkeleton();
 	check (Skeleton);
 
 	BaseJoint.Initialize(Skeleton);

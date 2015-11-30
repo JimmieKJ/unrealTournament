@@ -28,6 +28,8 @@
 #include "Particles/ParticleSpriteEmitter.h"
 #include "Particles/ParticleSystemComponent.h"
 
+#include "Components/PointLightComponent.h"
+
 /*-----------------------------------------------------------------------------
 FParticlesStatGroup
 -----------------------------------------------------------------------------*/
@@ -347,6 +349,16 @@ FParticleEmitterInstance::FParticleEmitterInstance() :
 /** Destructor	*/
 FParticleEmitterInstance::~FParticleEmitterInstance()
 {
+	for (int32 i = 0; i < HighQualityLights.Num(); ++i)
+	{
+		UPointLightComponent* PointLightComponent = HighQualityLights[i];
+		{
+			PointLightComponent->Modify();
+			PointLightComponent->DestroyComponent(false);
+		}
+	}
+	HighQualityLights.Reset();
+
 	FMemory::Free(ParticleData);
 	FMemory::Free(ParticleIndices);
 	FMemory::Free(InstanceData);
@@ -2731,6 +2743,24 @@ bool FParticleEmitterInstance::Tick_MaterialOverrides()
 	        }
 	}
 	return bOverridden;
+}
+
+bool FParticleEmitterInstance::UseLocalSpace()
+{
+	const UParticleLODLevel* LODLevel = GetCurrentLODLevelChecked();
+	return LODLevel->RequiredModule->bUseLocalSpace;
+}
+
+void FParticleEmitterInstance::GetScreenAlignmentAndScale(int32& OutScreenAlign, FVector& OutScale)
+{
+	const UParticleLODLevel* LODLevel = GetCurrentLODLevelChecked();
+	OutScreenAlign = (int32)LODLevel->RequiredModule->ScreenAlignment;
+
+	OutScale = FVector(1.0f, 1.0f, 1.0f);
+	if (Component)
+	{
+		OutScale = Component->ComponentToWorld.GetScale3D();
+	}
 }
 
 /*-----------------------------------------------------------------------------

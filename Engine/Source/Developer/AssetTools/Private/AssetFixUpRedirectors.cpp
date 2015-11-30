@@ -187,7 +187,7 @@ void FAssetFixUpRedirectors::LoadReferencingPackages(TArray<FRedirectorRefs>& Re
 
 			if ( Package )
 			{
-				if ( Package->PackageFlags & PKG_CompiledIn )
+				if ( Package->HasAnyPackageFlags(PKG_CompiledIn) )
 				{
 					// This is a script reference
 					RedirectorRefs.bRedirectorValidForFixup = false;

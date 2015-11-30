@@ -15,8 +15,20 @@ FString FEmitterLocalContext::GenerateUniqueLocalName()
 
 FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, const UClass* ExpectedClass, bool bLoadIfNotFound, bool bTryUsedAssetsList)
 {
-	UClass* ActualClass = Cast<UClass>(Dependencies.GetOriginalStruct());
-	if (ActualClass && Object && Object->IsIn(ActualClass))
+	UClass* ActualClass = Cast<UClass>(Dependencies.GetActualStruct());
+	UClass* OriginalActualClass = Dependencies.FindOriginalClass(ActualClass);
+	UClass* OuterClass = Object ? Cast<UClass>(Object->GetOuter()) : nullptr;	// SCS component templates will have an Outer that equates to their owning BPGC; since they're not currently DSOs, we have to special-case them.
+	
+	auto ClassString = [&]() -> FString
+	{
+		const UClass* ObjectClassToUse = ExpectedClass ? ExpectedClass : GetFirstNativeOrConvertedClass(Object->GetClass());
+		return FEmitHelper::GetCppName(ObjectClassToUse);
+	};
+	
+	if (ActualClass && Object 
+		&& (Object->IsIn(ActualClass) 
+		|| Object->IsIn(ActualClass->GetDefaultObject(false))
+		|| (OuterClass && ActualClass->IsChildOf(OuterClass)) ))
 	{
 		if (const FString* NamePtr = (CurrentCodeType == EGeneratedCodeType::SubobjectsOfClass) ? ClassSubobjectsMap.Find(Object) : nullptr)
 		{
@@ -28,49 +40,72 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 			return *NamePtr;
 		}
 
-		const UClass* ObjectClassToUse = ExpectedClass ? ExpectedClass : GetFirstNativeOrConvertedClass(Object->GetClass());
-		const FString ClassString = FEmitHelper::GetCppName(ObjectClassToUse);
-
 		int32 ObjectsCreatedPerClassIdx = MiscConvertedSubobjects.IndexOfByKey(Object);
 		if (INDEX_NONE != ObjectsCreatedPerClassIdx)
 		{
 			return FString::Printf(TEXT("CastChecked<%s>(CastChecked<UDynamicClass>(%s::StaticClass())->MiscConvertedSubobjects[%d])")
-				, *ClassString, *FEmitHelper::GetCppName(ActualClass), ObjectsCreatedPerClassIdx);
+				, *ClassString(), *FEmitHelper::GetCppName(ActualClass), ObjectsCreatedPerClassIdx);
 		}
 
 		ObjectsCreatedPerClassIdx = ObjectsCreatedPerClassIdx = DynamicBindingObjects.IndexOfByKey(Object);
 		if (INDEX_NONE != ObjectsCreatedPerClassIdx)
 		{
 			return FString::Printf(TEXT("CastChecked<%s>(CastChecked<UDynamicClass>(%s::StaticClass())->DynamicBindingObjects[%d])")
-				, *ClassString, *FEmitHelper::GetCppName(ActualClass), ObjectsCreatedPerClassIdx);
+				, *ClassString(), *FEmitHelper::GetCppName(ActualClass), ObjectsCreatedPerClassIdx);
 		}
 
 		ObjectsCreatedPerClassIdx = ComponentTemplates.IndexOfByKey(Object);
 		if (INDEX_NONE != ObjectsCreatedPerClassIdx)
 		{
 			return FString::Printf(TEXT("CastChecked<%s>(CastChecked<UDynamicClass>(%s::StaticClass())->ComponentTemplates[%d])")
-				, *ClassString, *FEmitHelper::GetCppName(ActualClass), ObjectsCreatedPerClassIdx);
+				, *ClassString(), *FEmitHelper::GetCppName(ActualClass), ObjectsCreatedPerClassIdx);
 		}
 
 		ObjectsCreatedPerClassIdx = Timelines.IndexOfByKey(Object);
 		if (INDEX_NONE != ObjectsCreatedPerClassIdx)
 		{
 			return FString::Printf(TEXT("CastChecked<%s>(CastChecked<UDynamicClass>(%s::StaticClass())->Timelines[%d])")
-				, *ClassString, *FEmitHelper::GetCppName(ActualClass), ObjectsCreatedPerClassIdx);
+				, *ClassString(), *FEmitHelper::GetCppName(ActualClass), ObjectsCreatedPerClassIdx);
 		}
 
 		if ((CurrentCodeType == EGeneratedCodeType::SubobjectsOfClass) || (CurrentCodeType == EGeneratedCodeType::CommonConstructor))
 		{
-			if (Object == ActualClass->GetDefaultObject(false))
+			if ((Object == ActualClass->GetDefaultObject(false)) || (Object == OriginalActualClass->GetDefaultObject(false)))
 			{
 				return TEXT("this");
 			}
 		}
 	}
 
-	if (ActualClass && (Object == ActualClass))
+	auto CastCustomClass = [&](const FString& InResult)->FString
 	{
-		return TEXT("GetClass()");
+		if (ExpectedClass && !UClass::StaticClass()->IsChildOf(ExpectedClass))
+		{
+			return FString::Printf(TEXT("Cast<%s>(%s)"), *ClassString(), *InResult);
+		}
+		return InResult;
+	};
+
+	if (ActualClass && ((Object == ActualClass) || (Object == OriginalActualClass)))
+	{
+		return CastCustomClass(TEXT("GetClass()"));
+	}
+
+	{
+		auto Field = Cast<UField>(Object);
+		auto FieldOwnerStruct = Field ? Field->GetOwnerStruct() : nullptr;
+		if (FieldOwnerStruct && (Field != FieldOwnerStruct))
+		{
+			ensure(Field == FindField<UField>(FieldOwnerStruct, Field->GetFName()));
+			const FString MappedOwner = FindGloballyMappedObject(FieldOwnerStruct, UStruct::StaticClass(), bLoadIfNotFound, bTryUsedAssetsList);
+			if (!MappedOwner.IsEmpty() && ensure(MappedOwner != TEXT("nullptr")))
+			{
+				return FString::Printf(TEXT("FindFieldChecked<%s>(%s, TEXT(\"%s\"))")
+					, *FEmitHelper::GetCppName(Field->GetClass())
+					, *MappedOwner
+					, *Field->GetName());
+			}
+		}
 	}
 
 	if (auto ObjClass = Cast<UClass>(Object))
@@ -78,7 +113,7 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 		auto BPGC = Cast<UBlueprintGeneratedClass>(ObjClass);
 		if (ObjClass->HasAnyClassFlags(CLASS_Native) || (BPGC && Dependencies.WillClassBeConverted(BPGC)))
 		{
-			return FString::Printf(TEXT("%s::StaticClass()"), *FEmitHelper::GetCppName(ObjClass, true));
+			return CastCustomClass(FString::Printf(TEXT("%s::StaticClass()"), *FEmitHelper::GetCppName(ObjClass, true)));
 		}
 	}
 
@@ -103,16 +138,13 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 	ensure(!bLoadIfNotFound || Object);
 	if (Object && (bLoadIfNotFound || bTryUsedAssetsList))
 	{
-		const UClass* ObjectClassToUse = ExpectedClass ? ExpectedClass : GetFirstNativeOrConvertedClass(Object->GetClass());
-		const FString ClassString = FEmitHelper::GetCppName(ObjectClassToUse);
-
 		if (bTryUsedAssetsList)
 		{
 			const int32 AssetIndex = Dependencies.Assets.IndexOfByKey(Object);
 			if (INDEX_NONE != AssetIndex)
 			{
 				return FString::Printf(TEXT("CastChecked<%s>(CastChecked<UDynamicClass>(%s::StaticClass())->UsedAssets[%d])")
-					, *ClassString
+					, *ClassString()
 					, *FEmitHelper::GetCppName(ActualClass)
 					, AssetIndex);
 			}
@@ -121,7 +153,7 @@ FString FEmitterLocalContext::FindGloballyMappedObject(const UObject* Object, co
 		if (bLoadIfNotFound)
 		{
 			return FString::Printf(TEXT("LoadObject<%s>(nullptr, TEXT(\"%s\"))")
-				, *ClassString
+				, *ClassString()
 				, *(Object->GetPathName().ReplaceCharWithEscapedChar()));
 		}
 	}
@@ -142,19 +174,6 @@ FString FEmitterLocalContext::ExportTextItem(const UProperty* Property, const vo
 		return FString::Printf(TEXT("%s()"), *TypeText);
 	}
 
-	auto ObjectPropertyBase = Cast<const UObjectPropertyBase>(Property);
-	if (ObjectPropertyBase && Property->IsA<UAssetObjectProperty>())
-	{
-		if (UObject* Object = ObjectPropertyBase->GetObjectPropertyValue(PropertyValue))
-		{
-			const UClass* ActualClass = GetFirstNativeOrConvertedClass(ObjectPropertyBase->PropertyClass);
-			return FString::Printf(TEXT("LoadObject<%s>(nullptr, TEXT(\"%s\"))")
-				, *FEmitHelper::GetCppName(ActualClass)
-				, *(Object->GetPathName().ReplaceCharWithEscapedChar()));
-		}
-		return TEXT("nullptr");
-	}
-
 	FString ValueStr;
 	Property->ExportTextItem(ValueStr, PropertyValue, PropertyValue, nullptr, EPropertyPortFlags::PPF_ExportCpp);
 	return ValueStr;
@@ -171,25 +190,17 @@ FString FEmitterLocalContext::ExportCppDeclaration(const UProperty* Property, EE
 	auto GetActualNameCPP = [&](const UObjectPropertyBase* ObjectPropertyBase, UClass* InActualClass)
 	{
 		auto BPGC = Cast<UBlueprintGeneratedClass>(InActualClass);
-		const bool bConverted = BPGC && Dependencies.WillClassBeConverted(BPGC);
 		if (BPGC )
 		{
-			if (!bConverted)
+			const bool bIsParameter = (DeclarationType == EExportedDeclaration::Parameter) || (DeclarationType == EExportedDeclaration::MacroParameter);
+			const uint32 LocalExportCPPFlags = ExportCPPFlags | (bIsParameter ? CPPF_ArgumentOrReturnValue : 0);
+			UClass* NativeType = GetFirstNativeOrConvertedClass(BPGC);
+			check(NativeType);
+			ActualCppType = ObjectPropertyBase->GetCPPTypeCustom(&ActualExtendedType, LocalExportCPPFlags, FEmitHelper::GetCppName(NativeType));
+			ActualCppTypePtr = &ActualCppType;
+			if (!ActualExtendedType.IsEmpty())
 			{
-				const bool bIsParameter = (DeclarationType == EExportedDeclaration::Parameter) || (DeclarationType == EExportedDeclaration::MacroParameter);
-				const uint32 LocalExportCPPFlags = ExportCPPFlags | (bIsParameter ? CPPF_ArgumentOrReturnValue : 0);
-				UClass* NativeType = GetFirstNativeOrConvertedClass(BPGC);
-				ActualCppType = ObjectPropertyBase->GetCPPTypeCustom(&ActualExtendedType, LocalExportCPPFlags, NativeType);
-				ActualCppTypePtr = &ActualCppType;
-				if (!ActualExtendedType.IsEmpty())
-				{
-					ActualExtendedTypePtr = &ActualExtendedType;
-				}
-			}
-			else
-			{
-				ActualCppType = FEmitHelper::GetCppName(ObjectPropertyBase->PropertyClass, false) + TEXT("*");
-				ActualCppTypePtr = &ActualCppType;
+				ActualExtendedTypePtr = &ActualExtendedType;
 			}
 		}
 	};
@@ -217,6 +228,15 @@ FString FEmitterLocalContext::ExportCppDeclaration(const UProperty* Property, EE
 	{
 		ActualCppType = FEmitHelper::GetCppName(StructProperty->Struct, false);
 		ActualCppTypePtr = &ActualCppType;
+	}
+	else if (auto SCDelegateProperty = Cast<const UDelegateProperty>(Property))
+	{
+		const FString* SCDelegateTypeName = MCDelegateSignatureToSCDelegateType.Find(SCDelegateProperty->SignatureFunction);
+		if (SCDelegateTypeName)
+		{
+			ActualCppType = *SCDelegateTypeName;
+			ActualCppTypePtr = &ActualCppType;
+		}
 	}
 
 	if (ArrayProperty)
@@ -262,7 +282,7 @@ FString FEmitHelper::GetCppName(const UField* Field, bool bUInterface)
 				, *AsClass->GetName());
 		}
 		auto AsStruct = CastChecked<UStruct>(Field);
-		if (AsStruct->HasAnyFlags(RF_Native))
+		if (AsStruct->IsNative())
 		{
 			return FString::Printf(TEXT("%s%s"), AsStruct->GetPrefixCPP(), *AsStruct->GetName());
 		}
@@ -276,15 +296,16 @@ FString FEmitHelper::GetCppName(const UField* Field, bool bUInterface)
 		if (const UStruct* Owner = AsProperty->GetOwnerStruct())
 		{
 			if ((Cast<UBlueprintGeneratedClass>(Owner) ||
-				!Owner->HasAnyFlags(RF_Native)))
+				!Owner->IsNative()))
 			{
-				return ::UnicodeToCPPIdentifier(AsProperty->GetName(), AsProperty->HasAnyPropertyFlags(CPF_Deprecated), TEXT("bpv__"));
+				const bool bIsParameter = AsProperty->HasAnyPropertyFlags(CPF_Parm);
+				return ::UnicodeToCPPIdentifier(AsProperty->GetName(), AsProperty->HasAnyPropertyFlags(CPF_Deprecated), bIsParameter ? TEXT("bpp__") : TEXT("bpv__"));
 			}
 		}
 		return AsProperty->GetNameCPP();
 	}
 
-	if (!Field->HasAnyFlags(RF_Native) && !Field->IsA<UUserDefinedEnum>())
+	if (!Field->IsNative() && !Field->IsA<UUserDefinedEnum>())
 	{
 		return ::UnicodeToCPPIdentifier(Field->GetName(), false, TEXT("bpf__"));
 	}
@@ -323,16 +344,24 @@ FString FEmitHelper::HandleRepNotifyFunc(const UProperty* Property)
 	return FString();
 }
 
-bool FEmitHelper::MetaDataCanBeNative(const FName MetaDataName)
+bool FEmitHelper::MetaDataCanBeNative(const FName MetaDataName, const UField* Field)
 {
 	if (MetaDataName == TEXT("ModuleRelativePath"))
 	{
 		return false;
 	}
+	if (const UFunction* Function = Cast<const UFunction>(Field))
+	{
+		const UProperty* Param = Function->FindPropertyByName(MetaDataName);
+		if (Param && Param->HasAnyPropertyFlags(CPF_Parm))
+		{
+			return false;
+		}
+	}
 	return true;
 }
 
-FString FEmitHelper::HandleMetaData(const UField* Field, bool AddCategory, TArray<FString>* AdditinalMetaData)
+FString FEmitHelper::HandleMetaData(const UField* Field, bool AddCategory, const TArray<FString>* AdditinalMetaData)
 {
 	FString MetaDataStr;
 
@@ -344,13 +373,13 @@ FString FEmitHelper::HandleMetaData(const UField* Field, bool AddCategory, TArra
 	{
 		for (auto& Pair : *ValuesMap)
 		{
-			if (!MetaDataCanBeNative(Pair.Key))
+			if (!MetaDataCanBeNative(Pair.Key, Field))
 			{
 				continue;
 			}
 			if (!Pair.Value.IsEmpty())
 			{
-				FString Value = Pair.Value.Replace(TEXT("\n"), TEXT(""));
+				FString Value = Pair.Value.Replace(TEXT("\n"), TEXT("")).ReplaceCharWithEscapedChar();
 				MetaDataStrings.Emplace(FString::Printf(TEXT("%s=\"%s\""), *Pair.Key.ToString(), *Value));
 			}
 			else
@@ -369,7 +398,7 @@ FString FEmitHelper::HandleMetaData(const UField* Field, bool AddCategory, TArra
 	}
 	if (Field)
 	{
-		MetaDataStrings.Emplace(FString::Printf(TEXT("OverrideNativeName=\"%s\""), *Field->GetName()));
+		MetaDataStrings.Emplace(FString::Printf(TEXT("OverrideNativeName=\"%s\""), *Field->GetName().ReplaceCharWithEscapedChar()));
 	}
 	MetaDataStrings.Remove(FString());
 	if (MetaDataStrings.Num())
@@ -471,10 +500,8 @@ TArray<FString> FEmitHelper::FunctionFlagsToTags(uint64 Flags)
 
 	//Pointless: BlueprintNativeEvent, BlueprintImplementableEvent
 	//Pointless: CustomThunk
-
-	//TODO: SealedEvent
-	//TODO: Unreliable
-	//TODO: ServiceRequest, ServiceResponse
+	//Pointless: ServiceRequest, ServiceResponse - only useful for native UFunctions, they're for serializing to json
+	//Pointless: SealedEvent
 
 	HANDLE_CPF_TAG(TEXT("Exec"), FUNC_Exec)
 	HANDLE_CPF_TAG(TEXT("Server"), FUNC_Net | FUNC_NetServer)
@@ -486,6 +513,11 @@ TArray<FString> FEmitHelper::FunctionFlagsToTags(uint64 Flags)
 	HANDLE_CPF_TAG(TEXT("BlueprintAuthorityOnly"), FUNC_BlueprintAuthorityOnly)
 	HANDLE_CPF_TAG(TEXT("BlueprintCosmetic"), FUNC_BlueprintCosmetic)
 	HANDLE_CPF_TAG(TEXT("WithValidation"), FUNC_NetValidate)
+
+	if (HasAllFlags(Flags, FUNC_Net) && !HasAllFlags(Flags, FUNC_NetReliable))
+	{
+		Tags.Emplace(TEXT("Unreliable"));
+	}
 
 	return Tags;
 }
@@ -553,18 +585,13 @@ FString FEmitHelper::GenerateReplaceConvertedMD(UObject* Obj)
 
 FString FEmitHelper::GetBaseFilename(const UObject* AssetObj)
 {
-	FString PackagePath = AssetObj->GetOutermost()->GetPathName();
+	FString AssetName = FPackageName::GetLongPackageAssetName(AssetObj->GetOutermost()->GetPathName());
 	// We have to sanitize the package path because UHT is going to generate header guards (preprocessor symbols)
 	// based on the filename. I'm also not interested in exploring the depth of unicode filename support in UHT,
 	// UBT, and our various c++ toolchains, so this logic is pretty aggressive:
 	FString Postfix = TEXT("__pf");
-	for (auto& Char : PackagePath)
+	for (auto& Char : AssetName)
 	{
-		if (Char == '/' || Char == '\\')
-		{
-			continue;
-		}
-
 		if (!IsValidCPPIdentifierChar(Char))
 		{
 			// deterministically map char to a valid ascii character, we have 63 characters available (aA-zZ, 0-9, and _)
@@ -574,7 +601,7 @@ FString FEmitHelper::GetBaseFilename(const UObject* AssetObj)
 		}
 	}
 
-	return FPackageName::GetLongPackageAssetName(PackagePath+Postfix);
+	return AssetName + Postfix;
 }
 
 FString FEmitHelper::GetPCHFilename()
@@ -588,26 +615,21 @@ FString FEmitHelper::GetPCHFilename()
 		PCHFilename = PchFilenameQuery.Execute();
 	}
 
-	if (PCHFilename.IsEmpty())
-	{
-		PCHFilename  = FApp::GetGameName();
-		PCHFilename += TEXT(".h");
-	}
 	return PCHFilename;
 }
 
-FString FEmitHelper::EmitUFuntion(UFunction* Function, TArray<FString>* AdditinalMetaData)
+FString FEmitHelper::GetGameMainHeaderFilename()
+{
+	return FString::Printf(TEXT("%s.h"), FApp::GetGameName());
+}
+
+FString FEmitHelper::EmitUFuntion(UFunction* Function, const TArray<FString>& AdditionalTags, const TArray<FString>& AdditinalMetaData)
 {
 	TArray<FString> Tags = FEmitHelper::FunctionFlagsToTags(Function->FunctionFlags);
 
-	auto FunctionOwnerClass = Function->GetOwnerClass();
-	if (FunctionOwnerClass->IsChildOf<UInterface>())
-	{
-		Tags.Emplace(TEXT("BlueprintNativeEvent"));
-	}
-
+	Tags.Append(AdditionalTags);
 	const bool bMustHaveCategory = (Function->FunctionFlags & (FUNC_BlueprintCallable | FUNC_BlueprintPure)) != 0;
-	Tags.Emplace(FEmitHelper::HandleMetaData(Function, bMustHaveCategory, AdditinalMetaData));
+	Tags.Emplace(FEmitHelper::HandleMetaData(Function, bMustHaveCategory, &AdditinalMetaData));
 	Tags.Remove(FString());
 
 	FString AllTags;
@@ -647,24 +669,26 @@ int32 FEmitHelper::ParseDelegateDetails(FEmitterLocalContext& EmitterContext, UF
 	return ParameterNum;
 }
 
+void FEmitHelper::EmitSinglecastDelegateDeclarations_Inner(FEmitterLocalContext& EmitterContext, UFunction* Signature, const FString& TypeName)
+{
+	check(Signature);
+	FString ParamNumberStr, Parameters;
+	ParseDelegateDetails(EmitterContext, Signature, Parameters, ParamNumberStr);
+	EmitterContext.Header.AddLine(FString::Printf(TEXT("DECLARE_DYNAMIC_DELEGATE%s(%s%s);"), *ParamNumberStr, *TypeName, *Parameters));
+}
+
 void FEmitHelper::EmitSinglecastDelegateDeclarations(FEmitterLocalContext& EmitterContext, const TArray<UDelegateProperty*>& Delegates)
 {
 	for (auto It : Delegates)
 	{
 		check(It);
-		auto Signature = It->SignatureFunction;
-		check(Signature);
-
-		FString ParamNumberStr, Parameters;
-		ParseDelegateDetails(EmitterContext, Signature, Parameters, ParamNumberStr);
-
 		const uint32 LocalExportCPPFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName
 			| EPropertyExportCPPFlags::CPPF_NoConst
 			| EPropertyExportCPPFlags::CPPF_NoRef
 			| EPropertyExportCPPFlags::CPPF_NoStaticArray
 			| EPropertyExportCPPFlags::CPPF_BlueprintCppBackend;
 		const FString TypeName = EmitterContext.ExportCppDeclaration(It, EExportedDeclaration::Parameter, LocalExportCPPFlags, true);
-		EmitterContext.Header.AddLine(FString::Printf(TEXT("DECLARE_DYNAMIC_DELEGATE%s(%s%s);"), *ParamNumberStr, *TypeName, *Parameters));
+		EmitSinglecastDelegateDeclarations_Inner(EmitterContext, It->SignatureFunction, TypeName);
 	}
 }
 
@@ -705,7 +729,7 @@ void FEmitHelper::EmitLifetimeReplicatedPropsImpl(FEmitterLocalContext& EmitterC
 				EmitterContext.AddLine(TEXT("Super::GetLifetimeReplicatedProps(OutLifetimeProps);"));
 				bFunctionInitilzed = true;
 			}
-			EmitterContext.AddLine(FString::Printf(TEXT("DOREPLIFETIME(%s, %s);"), *CppClassName, *FEmitHelper::GetCppName(*It)));
+			EmitterContext.AddLine(FString::Printf(TEXT("DOREPLIFETIME_DIFFNAMES(%s, %s, FName(TEXT(\"%s\")));"), *CppClassName, *FEmitHelper::GetCppName(*It), *(It->GetName())));
 		}
 	}
 	if (bFunctionInitilzed)
@@ -745,9 +769,12 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEd
 			// @note: We have to default to the zeroth entry because there may not be a symbol associated with the 
 			// last element (UHT generates a MAX entry for UEnums, even if the user did not declare them, but UHT 
 			// does not generate a symbol for said entry.
-			return FString::Printf(TEXT("%s::%s"), *FEmitHelper::GetCppName(TypeEnum), CustomValue.IsEmpty()
-				? *TypeEnum->GetEnumName(0)
-				: *CustomValue);
+			if (CustomValue.Contains(TEXT("::")))
+			{
+				return CustomValue;
+			}
+			return FString::Printf(TEXT("%s::%s"), *FEmitHelper::GetCppName(TypeEnum)
+				, CustomValue.IsEmpty() ? *TypeEnum->GetEnumName(0) : *CustomValue);
 		}
 		else
 		{
@@ -825,9 +852,26 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEd
 			{
 				FStructOnScope StructOnScope(StructType);
 
-				FStringOutputDevice ImportError;
+				class FImportTextErrorContext : public FStringOutputDevice
+				{
+				public:
+					int32 NumErrors;
+
+					FImportTextErrorContext() : FStringOutputDevice(), NumErrors(0) {}
+
+					virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category) override
+					{
+						if (ELogVerbosity::Type::Error == Verbosity)
+						{
+							NumErrors++;
+						}
+						FStringOutputDevice::Serialize(V, Verbosity, Category);
+					}
+				};
+
+				FImportTextErrorContext ImportError;
 				const auto EndOfParsedBuff = UStructProperty::ImportText_Static(StructType, TEXT("FEmitHelper::LiteralTerm"), *CustomValue, StructOnScope.GetStructMemory(), 0, nullptr, &ImportError);
-				if (!EndOfParsedBuff || !ImportError.IsEmpty())
+				if (!EndOfParsedBuff || ImportError.NumErrors)
 				{
 					UE_LOG(LogK2Compiler, Error, TEXT("FEmitHelper::LiteralTerm cannot parse struct \"%s\" error: %s"), *CustomValue, *ImportError);
 				}
@@ -915,6 +959,99 @@ FString FEmitHelper::LiteralTerm(FEmitterLocalContext& EmitterContext, const FEd
 
 FString FEmitHelper::DefaultValue(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& Type)
 {
+	if (Type.bIsArray)
+	{
+		auto PinTypeToNativeType = [](const FEdGraphPinType& InType) -> FString
+		{
+			// A temp property should be generated?
+
+			auto Schema = GetDefault<UEdGraphSchema_K2>();
+			if (UEdGraphSchema_K2::PC_String == InType.PinCategory)
+			{
+				return TEXT("FString");
+			}
+			else if (UEdGraphSchema_K2::PC_Boolean == InType.PinCategory)
+			{
+				return TEXT("bool");
+			}
+			else if((UEdGraphSchema_K2::PC_Byte == InType.PinCategory) || (UEdGraphSchema_K2::PC_Enum == InType.PinCategory))
+			{
+				if (UEnum* Enum = Cast<UEnum>(InType.PinSubCategoryObject.Get()))
+				{
+					return FEmitHelper::GetCppName(Enum);
+				}
+				return TEXT("uint8");
+			}
+			else if(UEdGraphSchema_K2::PC_Int == InType.PinCategory)
+			{
+				return TEXT("int32");
+			}
+			else if(UEdGraphSchema_K2::PC_Float == InType.PinCategory)
+			{
+				return TEXT("float");
+			}
+			else if(UEdGraphSchema_K2::PC_Float == InType.PinCategory)
+			{
+				return TEXT("float");
+			}
+			else if(UEdGraphSchema_K2::PC_Name == InType.PinCategory)
+			{
+				return TEXT("FName");
+			}
+			else if(UEdGraphSchema_K2::PC_Text == InType.PinCategory)
+			{
+				return TEXT("FText");
+			}
+			else if(UEdGraphSchema_K2::PC_Struct == InType.PinCategory)
+			{
+				if (UScriptStruct* Struct = Cast<UScriptStruct>(InType.PinSubCategoryObject.Get()))
+				{
+					return FEmitHelper::GetCppName(Struct);
+				}
+			}
+			else if(UEdGraphSchema_K2::PC_Class == InType.PinCategory)
+			{
+				if (UClass* Class = Cast<UClass>(InType.PinSubCategoryObject.Get()))
+				{
+					return FString::Printf(TEXT("TSubclassOf<%s>"), *FEmitHelper::GetCppName(Class));
+				}
+			}
+			else if (UEdGraphSchema_K2::PC_AssetClass == InType.PinCategory)
+			{
+				if (UClass* Class = Cast<UClass>(InType.PinSubCategoryObject.Get()))
+				{
+					return FString::Printf(TEXT("TAssetSubclassOf<%s>"), *FEmitHelper::GetCppName(Class));
+				}
+			}
+			else if (UEdGraphSchema_K2::PC_Interface == InType.PinCategory)
+			{
+				if (UClass* Class = Cast<UClass>(InType.PinSubCategoryObject.Get()))
+				{
+					return FString::Printf(TEXT("TScriptInterface<%s>"), *FEmitHelper::GetCppName(Class));
+				}
+			}
+			else if (UEdGraphSchema_K2::PC_Asset == InType.PinCategory)
+			{
+				if (UClass* Class = Cast<UClass>(InType.PinSubCategoryObject.Get()))
+				{
+					return FString::Printf(TEXT("TAssetPtr<%s>"), *FEmitHelper::GetCppName(Class));
+				}
+			}
+			else if (UEdGraphSchema_K2::PC_Object == InType.PinCategory)
+			{
+				if (UClass* Class = Cast<UClass>(InType.PinSubCategoryObject.Get()))
+				{
+					return FString::Printf(TEXT("%s*"), *FEmitHelper::GetCppName(Class));
+				}
+			}
+			UE_LOG(LogK2Compiler, Error, TEXT("FEmitHelper::DefaultValue cannot generate an array type"));
+			return FString{};
+		};
+
+		const FString InnerTypeName = PinTypeToNativeType(Type);
+		return FString::Printf(TEXT("TArray<%s>{}"), *InnerTypeName);
+	}
+
 	return LiteralTerm(EmitterContext, Type, FString(), nullptr);
 }
 
@@ -953,10 +1090,7 @@ bool FEmitHelper::ShouldHandleAsNativeEvent(UFunction* Function)
 	{
 		const uint32 FlagsToCheckMask = EFunctionFlags::FUNC_Event | EFunctionFlags::FUNC_BlueprintEvent | EFunctionFlags::FUNC_Native;
 		const uint32 FlagsToCheck = OriginalFunction->FunctionFlags & FlagsToCheckMask;
-
-		auto OriginalOwner = OriginalFunction->GetOwnerClass();
-		const bool bBPInterface = Cast<UBlueprintGeneratedClass>(OriginalOwner) && OriginalOwner->IsChildOf<UInterface>();
-		return (FlagsToCheck == FlagsToCheckMask) || bBPInterface;
+		return (FlagsToCheck == FlagsToCheckMask);
 	}
 	return false;
 }
@@ -977,9 +1111,14 @@ bool FEmitHelper::ShouldHandleAsImplementableEvent(UFunction* Function)
 
 bool FEmitHelper::GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, const FEdGraphPinType& LType, const FEdGraphPinType& RType, FString& OutCastBegin, FString& OutCastEnd)
 {
+	if ((RType.bIsArray != LType.bIsArray) || (LType.PinCategory != RType.PinCategory))
+	{
+		return false;
+	}
+
 	// BYTE to ENUM cast
 	// ENUM to BYTE cast
-	if ((LType.PinCategory == UEdGraphSchema_K2::PC_Byte) && (RType.PinCategory == UEdGraphSchema_K2::PC_Byte))
+	if ((LType.PinCategory == UEdGraphSchema_K2::PC_Byte) && !RType.bIsArray)
 	{
 		auto LTypeEnum = Cast<UEnum>(LType.PinSubCategoryObject.Get());
 		auto RTypeEnum = Cast<UEnum>(RType.PinSubCategoryObject.Get());
@@ -1002,13 +1141,19 @@ bool FEmitHelper::GenerateAutomaticCast(FEmitterLocalContext& EmitterContext, co
 	// OBJECT to OBJECT
 	if (LType.PinCategory == UEdGraphSchema_K2::PC_Object)
 	{
-		UClass* LClass = Cast<UClass>(LType.PinSubCategoryObject.Get());
+		UClass* LClass = EmitterContext.Dependencies.FindOriginalClass( Cast<UClass>(LType.PinSubCategoryObject.Get()) );
 		LClass = LClass ? EmitterContext.GetFirstNativeOrConvertedClass(LClass) : nullptr;
-		UClass* RClass = Cast<UClass>(RType.PinSubCategoryObject.Get());
-		if (LClass && RClass && LClass->IsChildOf(RClass) && !RClass->IsChildOf(LClass))
+		UClass* RClass = EmitterContext.Dependencies.FindOriginalClass( Cast<UClass>(RType.PinSubCategoryObject.Get()) );
+		if (!RType.bIsArray && LClass && RClass && LClass->IsChildOf(RClass) && !RClass->IsChildOf(LClass))
 		{
 			OutCastBegin = FString::Printf(TEXT("CastChecked<%s>("), *FEmitHelper::GetCppName(LClass));
 			OutCastEnd = TEXT(")");
+			return true;
+		}
+		else if (RType.bIsArray && LClass && RClass && (LClass->IsChildOf(RClass) || RClass->IsChildOf(LClass)))
+		{
+			OutCastBegin = FString::Printf(TEXT("TArrayCaster<%s>("), *FEmitHelper::GetCppName(RClass));
+			OutCastEnd = FString::Printf(TEXT(").Get<%s>()"), *FEmitHelper::GetCppName(LClass));
 			return true;
 		}
 	}
@@ -1024,8 +1169,51 @@ FString FEmitHelper::ReplaceConvertedMetaData(UObject* Obj)
 	{
 		TArray<FString> AdditionalMD;
 		AdditionalMD.Add(ReplaceConvertedMD);
-		Result += TEXT(",");
 		Result += FEmitHelper::HandleMetaData(nullptr, false, &AdditionalMD);
 	}
 	return Result;
+}
+
+FString FEmitHelper::GenerateGetPropertyByName(FEmitterLocalContext& EmitterContext, const UProperty* Property)
+{
+	check(Property);
+
+	const FString PropertyWeakPtrName = EmitterContext.GenerateUniqueLocalName();
+	EmitterContext.AddLine(FString::Printf(TEXT("static TWeakObjectPtr<UProperty> %s{};"), *PropertyWeakPtrName));
+
+	const FString PropertyPtrName = EmitterContext.GenerateUniqueLocalName();
+	EmitterContext.AddLine(FString::Printf(TEXT("const UProperty* %s = %s.Get();"), *PropertyPtrName, *PropertyWeakPtrName));
+	EmitterContext.AddLine(FString::Printf(TEXT("if (nullptr == %s)"), *PropertyPtrName));
+	EmitterContext.AddLine(TEXT("{"));
+	EmitterContext.IncreaseIndent();
+
+	const FString PropertyOwnerStruct = EmitterContext.FindGloballyMappedObject(Property->GetOwnerStruct(), UStruct::StaticClass());
+	EmitterContext.AddLine(FString::Printf(TEXT("%s = (%s)->FindPropertyByName(FName(TEXT(\"%s\")));")
+		, *PropertyPtrName
+		, *PropertyOwnerStruct
+		, *Property->GetName()));
+	EmitterContext.AddLine(FString::Printf(TEXT("check(%s);"), *PropertyPtrName));
+	EmitterContext.AddLine(FString::Printf(TEXT("%s = %s;"), *PropertyWeakPtrName, *PropertyPtrName));
+	EmitterContext.DecreaseIndent();
+	EmitterContext.AddLine(TEXT("}"));
+
+	return PropertyPtrName;
+}
+
+FString FEmitHelper::AccessInaccessibleProperty(FEmitterLocalContext& EmitterContext, const UProperty* Property
+	, const FString& ContextStr, const FString& ContextAdressOp, const FString& StaticArrayIdx)
+{
+	check(Property);
+	const FString PropertyLocalName = GenerateGetPropertyByName(EmitterContext, Property);
+	const uint32 CppTemplateTypeFlags = EPropertyExportCPPFlags::CPPF_CustomTypeName
+		| EPropertyExportCPPFlags::CPPF_NoConst | EPropertyExportCPPFlags::CPPF_NoRef | EPropertyExportCPPFlags::CPPF_NoStaticArray
+		| EPropertyExportCPPFlags::CPPF_BlueprintCppBackend;
+	const FString TypeDeclaration = EmitterContext.ExportCppDeclaration(Property, EExportedDeclaration::Parameter, CppTemplateTypeFlags, true);
+
+	return FString::Printf(TEXT("(*(%s->ContainerPtrToValuePtr<%s>(%s(%s)%s)))")
+		, *PropertyLocalName
+		, *TypeDeclaration
+		, *ContextAdressOp
+		, *ContextStr
+		, *StaticArrayIdx);
 }

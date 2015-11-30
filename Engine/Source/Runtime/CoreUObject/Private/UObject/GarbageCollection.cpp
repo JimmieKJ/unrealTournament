@@ -8,6 +8,7 @@
 #include "TaskGraphInterfaces.h"
 #include "IConsoleManager.h"
 #include "LinkerPlaceholderClass.h"
+#include "UObject/GCScopeLock.h"
 
 /*-----------------------------------------------------------------------------
    Garbage collection.
@@ -56,113 +57,14 @@ static bool GIsPurgingObject = false;
 /** Helpful constant for determining how many token slots we need to store a pointer **/
 static const uint32 GNumTokensPerPointer = sizeof(void*) / sizeof(uint32);
 
-/** Locks all UObject hash tables when performing GC */
-class FGCScopeLock
-{
-	/** Previous value of the GetGarbageCollectingFlag() */
-	bool bPreviousGabageCollectingFlagValue;
-public:
-
-	static FThreadSafeBool& GetGarbageCollectingFlag();
-
-	/** 
-	 * We're storing the value of GetGarbageCollectingFlag in the constructor, it's safe as only 
-	 * one thread is ever going to be setting it and calling this code - the game thread.
-	 **/
-	FORCEINLINE FGCScopeLock()
-		: bPreviousGabageCollectingFlagValue(GetGarbageCollectingFlag())
-	{		
-		void LockUObjectHashTablesForGC();
-		LockUObjectHashTablesForGC();		
-		GetGarbageCollectingFlag() = true;
-	}
-	FORCEINLINE ~FGCScopeLock()
-	{		
-		GetGarbageCollectingFlag() = bPreviousGabageCollectingFlagValue;
-		void UnlockUObjectHashTablesForGC();
-		UnlockUObjectHashTablesForGC();		
-	}
-};
 FThreadSafeBool& FGCScopeLock::GetGarbageCollectingFlag()
 {
 	static FThreadSafeBool IsGarbageCollecting(false);
 	return IsGarbageCollecting;
 }
 
-/**
- * Garbage Collection synchronization objects
- * Will not lock other threads if GC is not running.
- * Has the ability to only lock for GC if no other locks are present.
- */
-class FGCCSyncObject
-{
-	FThreadSafeCounter AsyncCounter;
-	FThreadSafeCounter GCCounter;
-	FCriticalSection Critical;
-public:
-	/** Lock on non-game thread. Will block if GC is running. */
-	void LockAsync()
-	{
-		if (!IsInGameThread())
-		{
-			FScopeLock CriticalLock(&Critical);
-			
-			// Wait until GC is done if it's currently running
-			FPlatformProcess::ConditionalSleep([&]()
-			{
-				return GCCounter.GetValue() == 0;
-			});
+FGCCSyncObject GGarbageCollectionGuardCritical;
 
-			AsyncCounter.Increment();
-		}
-	}
-	/** Release lock from non-game thread */
-	void UnlockAsync()
-	{
-		if (!IsInGameThread())
-		{
-			AsyncCounter.Decrement();
-		}
-	}
-	/** Lock for GC. Will block if any other thread has locked. */
-	void GCLock()
-	{
-		FScopeLock CriticalLock(&Critical);
-
-		// Wait until all other threads are done if they're currently holding the lock
-		FPlatformProcess::ConditionalSleep([&]()
-		{
-			return AsyncCounter.GetValue() == 0;
-		});
-
-		GCCounter.Increment();
-	}
-	/** Checks if any async thread has a lock */
-	bool IsAsyncLocked()
-	{
-		return AsyncCounter.GetValue() != 0;
-	}
-	/** Lock for GC. Will not block and return false if any other thread has already locked. */
-	bool TryGCLock()
-	{		
-		bool bSuccess = false;
-		FScopeLock CriticalLock(&Critical);
-		// If any other thread is currently locking we just exit
-		if (AsyncCounter.GetValue() == 0)
-		{
-			GCCounter.Increment();
-			bSuccess = true;
-		}
-		return bSuccess;
-	}
-	/** Unlock GC */
-	void GCUnlock()
-	{
-		GCCounter.Decrement();
-	}
-};
-
-static FGCCSyncObject GGarbageCollectionGuardCritical;
 FGCScopeGuard::FGCScopeGuard()
 {
 	GGarbageCollectionGuardCritical.LockAsync();
@@ -403,19 +305,20 @@ static FORCEINLINE void HandleObjectReference(TArray<UObject*>& ObjectsToSeriali
 		return;
 	}
 
+	FUObjectItem* ObjectItem = GUObjectArray.ObjectToObjectItem(Object);
 	// Remove references to pending kill objects if we're allowed to do so.
-	if( Object->HasAnyFlags( RF_PendingKill ) && bAllowReferenceElimination )
+	if (ObjectItem->IsPendingKill() && bAllowReferenceElimination)
 	{
 		// Null out reference.
 		Object = NULL;
 	}
 	// Add encountered object reference to list of to be serialized objects if it hasn't already been added.
-	else if( Object->HasAnyFlags( RF_Unreachable ) )
+	else if (ObjectItem->IsUnreachable())
 	{				
 		if( GIsRunningParallelReachability )
 		{
 			// Mark it as reachable.
-			if (Object->ThisThreadAtomicallyClearedRFUnreachable())
+			if (ObjectItem->ThisThreadAtomicallyClearedRFUnreachable())
 			{
 				// Add it to the list of objects to serialize.
 				ObjectsToSerialize.Add( Object );
@@ -434,15 +337,15 @@ static FORCEINLINE void HandleObjectReference(TArray<UObject*>& ObjectsToSeriali
 #endif
 
 			// Mark it as reachable.
-			Object->ClearFlags( RF_Unreachable );
+			ObjectItem->ClearUnreachable();
 			// Add it to the list of objects to serialize.
 			ObjectsToSerialize.Add( Object );
 		}
 	}
 
-	if (Object && bStrongReference)
+	if (bStrongReference)
 	{
-		Object->ClearFlags(RF_NoStrongReference);
+		ObjectItem->ClearNoStrongReference();
 	}
 #if PERF_DETAILED_PER_CLASS_GC_STATS
 	GCurrentObjectRegularObjectRefs++;
@@ -587,6 +490,9 @@ void FReferenceFinder::HandleObjectReference( UObject*& InObject, const UObject*
 	}
 }
 
+bool SetTokenStreamMaybeDirty(bool bDirty);
+bool IsTokenStreamDirty();
+
 /**
  * Implementation of parallel realtime garbage collector using recursive subdivision
  *
@@ -654,16 +560,93 @@ public:
 	FArchiveRealtimeGC()
 	{}
 
+	/** 
+	 * Marks all objects that don't have KeepFlags and EInternalObjectFlags::GarbageCollectionKeepFlags as unreachable
+	 * This function is a template to speed up the case where we don't need to assemble the token stream (saves about 6ms on PS4)
+	 */
+	template <bool bAssembleTokenStream>
+	void MarkObjectsAsUnreachable(TArray<UObject*>& ObjectsToSerialize, const EObjectFlags KeepFlags)
+	{
+		const EInternalObjectFlags FastKeepFlags = EInternalObjectFlags::GarbageCollectionKeepFlags;
+
+		// Iterate over all objects. Note that we iterate over the UObjectArray and usually check only internal flags which
+		// are part of the array so we don't suffer from cache misses as much as we would if we were to check ObjectFlags.
+		for (FRawObjectIterator It(true); It; ++It)
+		{
+			FUObjectItem* ObjectItem = *It;
+			checkSlow(ObjectItem);
+			UObject* Object = (UObject*)ObjectItem->Object;
+
+			// We can't collect garbage during an async load operation and by now all unreachable objects should've been purged.
+			checkf(!ObjectItem->IsUnreachable(), TEXT("%s"), *Object->GetFullName());
+
+			// Keep track of how many objects are around.
+			GObjectCountDuringLastMarkPhase++;
+
+			// Special case handling for objects that are part of the root set.
+			if (ObjectItem->IsRootSet())
+			{
+				// IsValidLowLevel is extremely slow in this loop so only do it in debug
+				checkSlow(Object->IsValidLowLevel());
+				// We cannot use RF_PendingKill on objects that are part of the root set.
+				checkCode(if (ObjectItem->IsPendingKill()) { UE_LOG(LogGarbage, Fatal, TEXT("Object %s is part of root set though has been marked RF_PendingKill!"), *Object->GetFullName()); });
+				ObjectsToSerialize.Add(Object);
+			}
+			// Regular objects.
+			else
+			{
+				bool bMarkAsUnreachable = true;
+				if (!ObjectItem->IsPendingKill())
+				{
+					// Internal flags are super fast to check
+					if (ObjectItem->HasAnyFlags(FastKeepFlags))
+					{
+						bMarkAsUnreachable = false;
+					}
+					// If KeepFlags is non zero this is going to be very slow due to cache misses
+					else if (KeepFlags != RF_NoFlags && Object->HasAnyFlags(KeepFlags))
+					{
+						bMarkAsUnreachable = false;
+					}
+				}
+
+				// Mark objects as unreachable unless they have any of the passed in KeepFlags set and it's not marked for elimination..
+				if (!bMarkAsUnreachable)
+				{
+					// IsValidLowLevel is extremely slow in this loop so only do it in debug
+					checkSlow(Object->IsValidLowLevel());
+					ObjectsToSerialize.Add(Object);
+				}
+				else
+				{
+					ObjectItem->SetFlags(EInternalObjectFlags::Unreachable | EInternalObjectFlags::NoStrongReference);
+				}
+			}
+
+			if (bAssembleTokenStream)
+			{
+				// Compile will strip this out when we don't need to update the token stream since this is a template.
+				// Otherwise the GC will suffer a big performance hit.
+			if (UClass* Class = dynamic_cast<UClass*>(Object))
+			{
+				if (!Class->HasAnyClassFlags(CLASS_TokenStreamAssembled))
+				{
+					Class->AssembleReferenceTokenStream();
+					check(Class->HasAnyClassFlags(CLASS_TokenStreamAssembled));
+				}
+			}
+		}
+		}
+	}
+
 	/**
 	 * Performs reachability analysis.
 	 *
 	 * @param KeepFlags		Objects with these flags will be kept regardless of being referenced or not
 	 */
-	void PerformReachabilityAnalysis( EObjectFlags KeepFlags, bool bForceSingleThreaded = false )
-	{
+	void PerformReachabilityAnalysis(EObjectFlags KeepFlags, bool bForceSingleThreaded = false)
+	{		
 		DECLARE_SCOPE_CYCLE_COUNTER( TEXT( "FArchiveRealtimeGC::PerformReachabilityAnalysis" ), STAT_FArchiveRealtimeGC_PerformReachabilityAnalysis, STATGROUP_GC );
-
-		UObject* CurrentObject = NULL;
 
 		/** Growing array of objects that require serialization */
 		TArray<UObject*>& ObjectsToSerialize = *FGCArrayPool::Get().GetArrayFromPool();
@@ -679,50 +662,14 @@ public:
 			ObjectsToSerialize.Add(FGCObject::GGCObjectReferencer);
 		}
 
-		for ( FRawObjectIterator It(true); It; ++It )
+		if (!IsTokenStreamDirty())
 		{
-			UObject* Object = *It;
-
-			//@todo UE4 - A prefetch was removed here. Re-add it. It wasn't right anyway, since it was ten items ahead and the consoles on have 8 prefetch slots
-			
-			// We can't collect garbage during an async load operation and by now all unreachable objects should've been purged.
-			checkf( !Object->HasAnyFlags(RF_Unreachable), TEXT("%s"), *Object->GetFullName() );
-	
-			// Keep track of how many objects are around.
-			GObjectCountDuringLastMarkPhase++;
-
-			// Special case handling for objects that are part of the root set.
-			if( Object->HasAnyFlags( RF_RootSet ) )
-			{
-				check(Object->IsValidLowLevel());
-				// We cannot use RF_PendingKill on objects that are part of the root set.
-				checkCode( if( Object->HasAnyFlags( RF_PendingKill ) ) { UE_LOG(LogGarbage, Fatal, TEXT("Object %s is part of root set though has been marked RF_PendingKill!"), *Object->GetFullName() ); } );
-				ObjectsToSerialize.Add( Object );
-			}
-			// Regular objects.
-			else
-			{
-				// Mark objects as unreachable unless they have any of the passed in KeepFlags set and it's not marked for elimination..
-				if( Object->HasAnyFlags( KeepFlags ) && !Object->HasAnyFlags( RF_PendingKill ) )
-				{
-					check(Object->IsValidLowLevel());
-					ObjectsToSerialize.Add( Object );
-				}
-				else
-				{
-					Object->SetFlags(RF_Unreachable | RF_NoStrongReference);
-				}
-			}
-
-			// Assemble token stream for UClass objects. This is only done once for each class.
-			if (UClass* Class = dynamic_cast<UClass*>(Object))
-			{
-				if (!Class->HasAnyClassFlags(CLASS_TokenStreamAssembled))
-				{
-					Class->AssembleReferenceTokenStream();
-					check(Class->HasAnyClassFlags(CLASS_TokenStreamAssembled));
-				}
-			}
+			MarkObjectsAsUnreachable<false>(ObjectsToSerialize, KeepFlags);
+		}
+		else
+		{
+			SetTokenStreamMaybeDirty(false);
+			MarkObjectsAsUnreachable<true>(ObjectsToSerialize, KeepFlags);
 		}
 
 		if( ObjectsToSerialize.Num() )
@@ -1104,12 +1051,14 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 
 		while( GObjCurrentPurgeObjectIndex )
 		{
-			UObject* Object = *GObjCurrentPurgeObjectIndex;
+			FUObjectItem* ObjectItem = *GObjCurrentPurgeObjectIndex;
+			checkSlow(ObjectItem);
 
 			//@todo UE4 - A prefetch was removed here. Re-add it. It wasn't right anyway, since it was ten items ahead and the consoles on have 8 prefetch slots
 
-			if(	Object->HasAnyFlags(RF_Unreachable) )
+			if (ObjectItem->IsUnreachable())
 			{
+				UObject* Object = static_cast<UObject*>(ObjectItem->Object);
 				// Object should always have had BeginDestroy called on it and never already be destroyed
 				check( Object->HasAnyFlags( RF_BeginDestroyed ) && !Object->HasAnyFlags( RF_FinishDestroyed ) );
 
@@ -1133,7 +1082,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 					// a resource, so we don't want to block iteration while waiting on the render thread.
 
 					// Add the object index to our list of objects to revisit after we process everything else
-					GGCObjectsPendingDestruction.Add( *GObjCurrentPurgeObjectIndex );
+					GGCObjectsPendingDestruction.Add(Object);
 					GGCObjectsPendingDestructionCount++;
 				}
 			}
@@ -1165,7 +1114,7 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 					UObject* Object = GGCObjectsPendingDestruction[ CurPendingObjIndex ];
 
 					// Object should never have been added to the list if it failed this criteria
-					check( Object != NULL && Object->HasAnyFlags( RF_Unreachable ) );
+					check( Object != NULL && Object->IsUnreachable() );
 
 					// Object should always have had BeginDestroy called on it and never already be destroyed
 					check( Object->HasAnyFlags( RF_BeginDestroyed ) && !Object->HasAnyFlags( RF_FinishDestroyed ) );
@@ -1252,9 +1201,11 @@ void IncrementalPurgeGarbage( bool bUseTimeLimit, float TimeLimit )
 		{
 			//@todo UE4 - A prefetch was removed here. Re-add it. It wasn't right anyway, since it was ten items ahead and the consoles on have 8 prefetch slots
 
-			UObject* Object = *GObjCurrentPurgeObjectIndex;
-			if(	Object->HasAnyFlags(RF_Unreachable) )
+			FUObjectItem* ObjectItem = *GObjCurrentPurgeObjectIndex;
+			checkSlow(ObjectItem);
+			if (ObjectItem->IsUnreachable())
 			{
+				UObject* Object = (UObject*)ObjectItem->Object;
 				check(Object->HasAllFlags(RF_FinishDestroyed|RF_BeginDestroyed));
 				GIsPurgingObject				= true; 
 				Object->~UObject();
@@ -1412,7 +1363,7 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 				for( int32 ReferenceIndex=0; ReferenceIndex<CollectedReferences.Num(); ReferenceIndex++ )
 				{
 					UObject* ReferencedObject = CollectedReferences[ReferenceIndex];
-					if (ReferencedObject && !(ReferencedObject->HasAnyFlags(RF_RootSet) || UObjectArray.IsDisregardForGC(ReferencedObject)))
+					if (ReferencedObject && !(ReferencedObject->IsRooted() || UObjectArray.IsDisregardForGC(ReferencedObject)))
 					{
 						UE_LOG(LogGarbage, Warning, TEXT("Disregard for GC object %s referencing %s which is not part of root set"),
 							*Object->GetFullName(),
@@ -1464,16 +1415,18 @@ void CollectGarbageInternal(EObjectFlags KeepFlags, bool bPerformFullPurge)
 		{
 			//@todo UE4 - A prefetch was removed here. Re-add it. It wasn't right anyway, since it was ten items ahead and the consoles on have 8 prefetch slots
 
-			UObject* Object = *It;
-			if( Object->HasAnyFlags( RF_Unreachable ) )
+			FUObjectItem* ObjectItem = *It;
+			checkSlow(ObjectItem);
+			if (ObjectItem->IsUnreachable())
 			{
 				// Begin the object's asynchronous destruction.
+				UObject* Object = (UObject*)ObjectItem->Object;
 				Object->ConditionalBeginDestroy();
 			}
-			else if (Object->HasAnyFlags(RF_NoStrongReference))
+			else if (ObjectItem->IsNoStrongReference())
 			{
-				Object->ClearFlags(RF_NoStrongReference);
-				Object->SetFlags(RF_PendingKill);
+				ObjectItem->ClearNoStrongReference();
+				ObjectItem->SetPendingKill();
 			}
 		}
 		UE_LOG(LogGarbage, Log, TEXT("%f ms for unhashing unreachable objects"), (FPlatformTime::Seconds() - StartTime) * 1000 );

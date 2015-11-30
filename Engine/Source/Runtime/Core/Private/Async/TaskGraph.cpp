@@ -242,14 +242,6 @@ static FAutoConsoleVariableRef CVarMaxTasksToStartOnDequeue(
 	ECVF_Cheat
 	);
 
-int32 GAllAnyThreadTasksFromGameHiPri = 1;
-static FAutoConsoleVariableRef CVarAllAnyThreadTasksFromGameHiPri(
-	TEXT("TaskGraph.AllAnyThreadTasksFromGameHiPri"),
-	GAllAnyThreadTasksFromGameHiPri,
-	TEXT("If > 0, then all any thread tasks queued from the game thread are hi priority."),
-	ECVF_Cheat
-	);
-
 /** 
  *	FTaskQueue
  *	High performance, SINGLE threaded, FIFO task queue for the private queue on named threads.

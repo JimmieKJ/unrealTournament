@@ -121,7 +121,7 @@ UActorComponent::UActorComponent(const FObjectInitializer& ObjectInitializer /*=
 	PrimaryComponentTick.SetTickFunctionEnable(false);
 
 	CreationMethod = EComponentCreationMethod::Native;
-	
+
 	bAutoRegister = true;
 	bNetAddressable = false;
 	bEditableWhenInherited = true;
@@ -611,7 +611,7 @@ void UActorComponent::PostEditChangeChainProperty(FPropertyChangedChainEvent& Pr
 
 void UActorComponent::OnRegister()
 {
-	checkf(!HasAnyFlags(RF_Unreachable), TEXT("%s"), *GetDetailedInfo());
+	checkf(!IsUnreachable(), TEXT("%s"), *GetDetailedInfo());
 	checkf(!GetOuter()->IsTemplate(), TEXT("'%s' (%s)"), *GetOuter()->GetFullName(), *GetDetailedInfo());
 	checkf(!IsTemplate(), TEXT("'%s' (%s)"), *GetOuter()->GetFullName(), *GetDetailedInfo() );
 	checkf(World, TEXT("OnRegister: %s to %s"), *GetDetailedInfo(), GetOwner() ? *GetOwner()->GetFullName() : TEXT("*** No Owner ***") );
@@ -688,12 +688,10 @@ FActorComponentInstanceData* UActorComponent::GetComponentInstanceData() const
 
 void FActorComponentTickFunction::ExecuteTick(float DeltaTime, enum ELevelTick TickType, ENamedThreads::Type CurrentThread, const FGraphEventRef& MyCompletionGraphEvent)
 {
-	if (Target && !Target->HasAnyFlags(RF_PendingKill | RF_Unreachable))
+	ExecuteTickHelper(Target, DeltaTime, TickType, [this, TickType](float DilatedTime)
 	{
-		FScopeCycleCounterUObject ComponentScope(Target);
-		FScopeCycleCounterUObject AdditionalScope(Target->AdditionalStatObject());
-	    Target->ConditionalTickComponent(DeltaTime, TickType, *this);	
-	}
+		Target->TickComponent(DilatedTime, TickType, this);
+	});
 }
 
 FString FActorComponentTickFunction::DiagnosticMessage()
@@ -796,7 +794,7 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 	SCOPE_CYCLE_COUNTER(STAT_RegisterComponent);
 	FScopeCycleCounterUObject ComponentScope(this);
 
-	checkf(!HasAnyFlags(RF_Unreachable), TEXT("%s"), *GetFullName());
+	checkf(!IsUnreachable(), TEXT("%s"), *GetFullName());
 
 	if(IsPendingKill())
 	{
@@ -833,7 +831,7 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 	// Can only register with an Actor if we are created within one
 	if(MyOwner)
 	{
-		checkf(!MyOwner->HasAnyFlags(RF_Unreachable), TEXT("%s"), *GetFullName());
+		checkf(!MyOwner->IsUnreachable(), TEXT("%s"), *GetFullName());
 		// can happen with undo because the owner will be restored "next"
 		//checkf(!MyOwner->IsPendingKill(), TEXT("%s"), *GetFullName());
 
@@ -868,10 +866,10 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 		}
 	}
 
-	if (MyOwner && MyOwner->HasActorBegunPlay() && !bHasBegunPlay)
+	if (MyOwner && (MyOwner->HasActorBegunPlay() || MyOwner->IsActorBeginningPlay()))
 	{
 		RegisterAllComponentTickFunctions(true);
-		if (bWantsBeginPlay)
+		if (bWantsBeginPlay && !bHasBegunPlay)
 		{
 			BeginPlay();
 		}
@@ -881,7 +879,7 @@ void UActorComponent::RegisterComponentWithWorld(UWorld* InWorld)
 	if (IsCreatedByConstructionScript())
 	{
 		TArray<UObject*> Children;
-		GetObjectsWithOuter(this, Children, true, RF_PendingKill);
+		GetObjectsWithOuter(this, Children, true, RF_NoFlags, EInternalObjectFlags::PendingKill);
 
 		for (UObject* Child : Children)
 		{
@@ -1168,23 +1166,6 @@ void UActorComponent::RecreatePhysicsState()
 	}
 }
 
-FORCEINLINE_DEBUGGABLE void UActorComponent::ConditionalTickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction &ThisTickFunction)
-{
-	if(bRegistered)
-	{
-		AActor* MyOwner = GetOwner();
-		//@optimization, I imagine this is all unnecessary in a shipping game with no editor
-		if (TickType != LEVELTICK_ViewportsOnly || 
-			(bTickInEditor && TickType == LEVELTICK_ViewportsOnly) ||
-			(MyOwner && MyOwner->ShouldTickIfViewportsOnly())
-			)
-		{
-			const float TimeDilation = (MyOwner ? MyOwner->CustomTimeDilation : 1.f);
-			TickComponent(DeltaTime * TimeDilation, TickType, &ThisTickFunction);
-		}
-	}
-}
-
 void UActorComponent::SetTickGroup(ETickingGroup NewTickGroup)
 {
 	PrimaryComponentTick.TickGroup = NewTickGroup;
@@ -1225,9 +1206,11 @@ void UActorComponent::RemoveTickPrerequisiteComponent(UActorComponent* Prerequis
 
 void UActorComponent::DoDeferredRenderUpdates_Concurrent()
 {
-	checkf(!HasAnyFlags(RF_Unreachable), TEXT("%s"), *GetFullName());
+	checkf(!IsUnreachable(), TEXT("%s"), *GetFullName());
 	checkf(!IsTemplate(), TEXT("%s"), *GetFullName());
 	checkf(!IsPendingKill(), TEXT("%s"), *GetFullName());
+
+	FScopeCycleCounterUObject ContextScope(this);
 
 	if(!IsRegistered())
 	{
@@ -1303,7 +1286,7 @@ void UActorComponent::MarkForNeededEndOfFrameUpdate()
 	{
 		ComponentWorld->MarkActorComponentForNeededEndOfFrameUpdate(this, RequiresGameThreadEndOfFrameUpdates());
 	}
-	else if (!HasAnyFlags(RF_Unreachable))
+	else if (!IsUnreachable())
 	{
 		// we don't have a world, do it right now.
 		DoDeferredRenderUpdates_Concurrent();
@@ -1323,7 +1306,7 @@ void UActorComponent::MarkForNeededEndOfFrameRecreate()
 		// by convention, recreates are always done on the gamethread
 		ComponentWorld->MarkActorComponentForNeededEndOfFrameUpdate(this, RequiresGameThreadEndOfFrameRecreate());
 	}
-	else if (!HasAnyFlags(RF_Unreachable))
+	else if (!IsUnreachable())
 	{
 		// we don't have a world, do it right now.
 		DoDeferredRenderUpdates_Concurrent();

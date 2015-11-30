@@ -19,9 +19,12 @@ class FGPUSkinCache : public FRenderResource
 public:
 	enum SkinCacheInitSettings
 	{
-//#todo-rco: Make this an ini setting
+//#todo-rco: Make this a cvar setting
+		// this is not MB, the actual memory cost is MaxBufferSize*sizeof(float)*GPUSKINCACHE_FRAMES, maybe much lower would be enough
 		MaxBufferSize = PLATFORM_MAC ? 16 * 1024 * 1024 : 1024 * 1024 * 32,
+		// max 256 bones as we use a byte to index
 		MaxUniformBufferBones = 256,
+		// we allow up to this amount of object being tracked
 		MaxCachedElements = 1024,
 		MaxCachedVertexBufferSRVs = 128,
 	};
@@ -45,7 +48,7 @@ public:
 	// @return -1 if failed, otherwise index into CachedElements[]
 	int32 StartCacheMesh(FRHICommandListImmediate& RHICmdList, int32 Key, const class FVertexFactory* VertexFactory, const FVertexFactory* TargetVertexFactory, const struct FSkelMeshChunk& BatchElement, const FSkeletalMeshObjectGPUSkin* Skin, bool bExtraBoneInfluences);
 
-	bool SetVertexStreamFromCache(FRHICommandList& RHICmdList, int32 Key, FShader* Shader, const FVertexFactory* VertexFactory, uint32 BaseVertexIndex, bool VelocityPass, FShaderParameter PreviousStreamFloatOffset, FShaderParameter PreviousStreamFloatStride, FShaderResourceParameter PreviousStreamBuffer);
+	bool SetVertexStreamFromCache(FRHICommandList& RHICmdList, int32 Key, FShader* Shader, const FVertexFactory* VertexFactory, uint32 BaseVertexIndex, FShaderParameter PreviousStreamFloatOffset, FShaderParameter PreviousStreamFloatStride, FShaderResourceParameter PreviousStreamBuffer);
 
 	struct FElementCacheStatusInfo
 	{
@@ -121,7 +124,7 @@ private:
 
 	FElementCacheStatusInfo* FindEvictableCacheStatusInfo();
 
-	void	DispatchSkinCacheProcess(FRHICommandListImmediate& RHICmdList, uint32 InputStreamFloatOffset, uint32 OutputBufferFloatOffset, FBoneBufferTypeRef BoneBuffer, FUniformBufferRHIRef UniformBuffer, const FVertexBufferInfo* VBInfo, uint32 VertexStride, uint32 VertexCount, const FVector& MeshOrigin, const FVector& MeshExtension, bool bUseExtraBoneInfluences, ERHIFeatureLevel::Type FeatureLevel);
+	void	DispatchSkinCacheProcess(FRHICommandListImmediate& RHICmdList, uint32 InputStreamFloatOffset, uint32 OutputBufferFloatOffset, const FBoneBufferTypeRef BoneBuffer, FUniformBufferRHIRef UniformBuffer, const FVertexBufferInfo* VBInfo, uint32 VertexStride, uint32 VertexCount, const FVector& MeshOrigin, const FVector& MeshExtension, bool bUseExtraBoneInfluences, ERHIFeatureLevel::Type FeatureLevel);
 
 	bool	Initialized : 1;
 

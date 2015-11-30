@@ -1287,16 +1287,7 @@ void dtCrowd::updateStepProximityData(const float dt, dtCrowdAgentDebugInfo* deb
 		if (dtVdist2DSqr(ag->npos, ag->boundary.getCenter()) > dtSqr(updateThr) ||
 			!ag->boundary.isValid(m_navquery, &m_filters[ag->params.filter]))
 		{
-			// UE4: force removing segments too close to offmesh links
-			float linkV0[3] = { 0.0f };
-			float linkV1[3] = { 0.0f };
-			
-			bool bHasOffmeshLink = ag->ncorners && (ag->cornerFlags[ag->ncorners - 1] & DT_STRAIGHTPATH_OFFMESH_CONNECTION);
-			if (bHasOffmeshLink)
-			{
-				const dtStatus linkStatus = m_navquery->getAttachedNavMesh()->getOffMeshConnectionPolyEndPoints(0, ag->cornerPolys[ag->ncorners - 1], 0, linkV0, linkV1);
-				bHasOffmeshLink = dtStatusSucceed(linkStatus);
-			}
+			const bool bIgnoreEdgesNearLastCorner = ag->ncorners && (ag->cornerFlags[ag->ncorners - 1] & (DT_STRAIGHTPATH_OFFMESH_CONNECTION | DT_STRAIGHTPATH_END));
 
 			// UE4: move dir for segment scoring
 			float moveDir[3] = { 0.0f };
@@ -1311,7 +1302,7 @@ void dtCrowd::updateStepProximityData(const float dt, dtCrowdAgentDebugInfo* deb
 			dtVnormalize(moveDir);
 
 			ag->boundary.update(&m_sharedBoundary, sharedDataIdx, ag->npos, ag->params.collisionQueryRange,
-				bHasOffmeshLink, linkV0, linkV1,
+				bIgnoreEdgesNearLastCorner, &ag->cornerVerts[(ag->ncorners - 1) * 3],
 				ag->corridor.getPath(), m_raycastSingleArea ? ag->corridor.getPathCount() : 0,
 				moveDir, m_navquery, &m_filters[ag->params.filter]);
 		}
@@ -1553,7 +1544,7 @@ void dtCrowd::updateStepAvoidance(const float dt, dtCrowdAgentDebugInfo* debug)
 				const float* s = ag->boundary.getSegment(j);
 				if (dtTriArea2D(ag->npos, s, s + 3) < 0.0f)
 					continue;
-				m_obstacleQuery->addSegment(s, s + 3);
+				m_obstacleQuery->addSegment(s, s + 3, ag->boundary.getSegmentFlags(j));
 			}
 
 			dtObstacleAvoidanceDebugData* vod = 0;

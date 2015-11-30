@@ -175,6 +175,8 @@ struct FFullStaticLightingVertex : public FStaticLightingVertex
 		TriangleTangentY = TriangleNormal ^ TriangleTangentX;
 		checkSlow(TriangleTangentY.IsUnit3());
 	}
+
+	void ApplyVertexModifications(int32 ElementIndex, bool bUseNormalMapsForLighting, const class FStaticLightingMesh* Mesh);
 };
 
 /** The result of an intersection between a light ray and the scene. */

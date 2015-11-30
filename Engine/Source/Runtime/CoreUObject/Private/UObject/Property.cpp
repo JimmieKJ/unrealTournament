@@ -202,6 +202,7 @@ struct TStructOpsTypeTraits<FRandomStream> : public TStructOpsTypeTraitsBase
 {
 	enum 
 	{
+		WithExportTextItem = true,
 		WithNoInitConstructor = true,
 		WithZeroConstructor = true,
 	};
@@ -348,14 +349,12 @@ UProperty::UProperty(const FObjectInitializer& ObjectInitializer, ECppProperty, 
 
 void UProperty::Init()
 {
-	// properties created in C++ should always be marked RF_Transient so that when the package containing
-	// this property is saved, it doesn't try to save this UProperty into the ExportMap
-	SetFlags(RF_Transient | RF_Native);
 #if !WITH_EDITORONLY_DATA
 	//@todo.COOKER/PACKAGER: Until we have a cooker/packager step, this can fire when WITH_EDITORONLY_DATA is not defined!
 	//	checkSlow(!HasAnyPropertyFlags(CPF_EditorOnly));
 #endif // WITH_EDITORONLY_DATA
-	checkSlow(GetOuterUField()->HasAllFlags(RF_Native | RF_Transient));
+	checkSlow(GetOuterUField()->HasAllFlags(RF_Transient));
+	checkSlow(HasAllFlags(RF_Transient));
 
 	GetOuterUField()->AddCppProperty(this);
 }
@@ -504,7 +503,7 @@ void UProperty::ExportCppDeclaration(FOutputDevice& Out, EExportedDeclaration::T
 	{
 		if (AdditionalExportCPPFlags & CPPF_BlueprintCppBackend)
 		{
-			NameCpp = UnicodeToCPPIdentifier(GetName(), HasAnyPropertyFlags(CPF_Deprecated), TEXT("bpv__"));
+			NameCpp = UnicodeToCPPIdentifier(GetName(), HasAnyPropertyFlags(CPF_Deprecated), HasAnyPropertyFlags(CPF_Parm) ? TEXT("bpp__") : TEXT("bpv__"));
 		}
 		else
 		{
@@ -1118,7 +1117,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 			// strip whitespace after =
 			SkipWhitespace(Str);
 
-			if (!IsPropertyValueSpecified(Str))
+			if (!IsPropertyValueSpecified(Str) && ArrayProperty == nullptr)
 			{
 				// if we're not importing default properties for classes (i.e. we're pasting something in the editor or something)
 				// and there is no property value for this element, skip it, as that means that the value of this element matches
@@ -1149,7 +1148,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 							Warn->Logf(ELogVerbosity::Warning,*ImportErrors[ErrorIndex]);
 						}
 					}
-					else if (Result == NULL || Result == Str)
+					else if ((Result == NULL && ArrayProperty == nullptr) || Result == Str)
 					{
 						Warn->Logf(ELogVerbosity::Warning, TEXT("Invalid property value in defaults: %s"), Start);
 					}
@@ -1181,7 +1180,7 @@ const TCHAR* UProperty::ImportSingleProperty( const TCHAR* Str, void* DestData, 
 							Warn->Logf(ELogVerbosity::Warning, *ImportErrors[ErrorIndex]);
 						}
 					}
-					else if (Result == NULL || Result == Str)
+					else if ((Result == NULL && ArrayProperty == nullptr) || Result == Str)
 					{
 						Warn->Logf(ELogVerbosity::Warning, TEXT("Invalid property value in defaults: %s"), Start);
 					}

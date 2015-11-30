@@ -279,7 +279,7 @@ public:
 	* @param LastPolicy - Last policy to render
 	* @return True if any static meshes were drawn.
 	*/
-	bool DrawVisibleInner(FRHICommandList& RHICmdList, const FViewInfo& View, const typename DrawingPolicyType::ContextDataType PolicyContext, const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap, const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray, int32 FirstPolicy, int32 LastPolicy);
+	bool DrawVisibleInner(FRHICommandList& RHICmdList, const FViewInfo& View, const typename DrawingPolicyType::ContextDataType PolicyContext, const TBitArray<SceneRenderingBitArrayAllocator>& StaticMeshVisibilityMap, const TArray<uint64, SceneRenderingAllocator>& BatchVisibilityArray, int32 FirstPolicy, int32 LastPolicy, bool bUpdateCounts);
 
 	/**
 	 * Draws only the static meshes which are in the visibility map.

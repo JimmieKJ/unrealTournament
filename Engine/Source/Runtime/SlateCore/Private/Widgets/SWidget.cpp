@@ -125,25 +125,13 @@ FReply SWidget::OnKeyDown( const FGeometry& MyGeometry, const FKeyEvent& InKeyEv
 {
 	if (SupportsKeyboardFocus())
 	{
+		EUINavigation Direction = FSlateApplicationBase::Get().GetNavigationDirectionFromKey( InKeyEvent );
 		// It's the left stick return a navigation request of the correct direction
-		if (InKeyEvent.GetKey() == EKeys::Right || InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Right || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Right)
+		if ( Direction != EUINavigation::Invalid )
 		{
-			return FReply::Handled().SetNavigation(EUINavigation::Right);
+			return FReply::Handled().SetNavigation( Direction );
 		}
-		else if (InKeyEvent.GetKey() == EKeys::Left || InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Left || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Left)
-		{
-			return FReply::Handled().SetNavigation(EUINavigation::Left);
-		}
-		else if (InKeyEvent.GetKey() == EKeys::Up || InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Up || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Up)
-		{
-			return FReply::Handled().SetNavigation(EUINavigation::Up);
-		}
-		else if (InKeyEvent.GetKey() == EKeys::Down || InKeyEvent.GetKey() == EKeys::Gamepad_DPad_Down || InKeyEvent.GetKey() == EKeys::Gamepad_LeftStick_Down)
-		{
-			return FReply::Handled().SetNavigation(EUINavigation::Down);
-		}
-		// If the key was Tab, interpret as an attempt to move focus.
-		else if (InKeyEvent.GetKey() == EKeys::Tab)
+		else if ( InKeyEvent.GetKey() == EKeys::Tab )
 		{
 			//@TODO: Really these uses of input should be at a lower priority, only occurring if nothing else handled them
 			// For now this code prevents consuming them when some modifiers are held down, allowing some limited binding

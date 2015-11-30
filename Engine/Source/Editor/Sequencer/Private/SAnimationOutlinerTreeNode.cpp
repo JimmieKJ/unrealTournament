@@ -267,8 +267,10 @@ FReply SAnimationOutlinerTreeNode::OnAddKeyClicked()
 		if (OwningSection == NearestSection)
 		{
 			OwningSection->SetFlags(RF_Transactional);
-			OwningSection->Modify();
-			KeyArea->AddKeyUnique(CurrentTime, Sequencer.GetKeyInterpolation());
+			if (OwningSection->TryModify())
+			{
+				KeyArea->AddKeyUnique(CurrentTime, Sequencer.GetKeyInterpolation());
+			}
 		}
 	}
 

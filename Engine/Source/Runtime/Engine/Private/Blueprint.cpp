@@ -663,7 +663,7 @@ UObject* UBlueprint::GetObjectBeingDebugged()
 	if(DebugObj)
 	{
 		//Check whether the object has been deleted.
-		if(DebugObj->HasAnyFlags(RF_PendingKill))
+		if(DebugObj->IsPendingKill())
 		{
 			SetObjectBeingDebugged(NULL);
 			DebugObj = NULL;
@@ -677,7 +677,7 @@ UWorld* UBlueprint::GetWorldBeingDebugged()
 	UWorld* DebugWorld = CurrentWorldBeingDebugged.Get();
 	if (DebugWorld)
 	{
-		if(DebugWorld->HasAnyFlags(RF_PendingKill))
+		if(DebugWorld->IsPendingKill())
 		{
 			SetWorldBeingDebugged(NULL);
 			DebugWorld = NULL;
@@ -748,6 +748,40 @@ void UBlueprint::GetAssetRegistryTags(TArray<FAssetRegistryTag>& OutTags) const
 			FAssetRegistryTag::TT_Alphabetical ) );
 
 		OutTags.Add( FAssetRegistryTag("FiBData", FFindInBlueprintSearchManager::Get().QuerySingleBlueprint((UBlueprint*)this, false), FAssetRegistryTag::TT_Hidden) );
+	}
+
+	// Only show for strict blueprints (not animation or widget blueprints)
+	// Note: Can't be an Actor specific check on the gen class, as CB only queries the CDO for the majority type to determine which columns are shown in the view
+	if (ExactCast<UBlueprint>(this) != nullptr)
+	{
+		// Determine how many inherited native components exist
+		int32 NumNativeComponents = 0;
+		if (BlueprintClass != nullptr)
+		{
+			TArray<UObject*> PotentialComponents;
+			BlueprintClass->GetDefaultObjectSubobjects(/*out*/ PotentialComponents);
+
+			for (UObject* TestSubObject : PotentialComponents)
+			{
+				if (Cast<UActorComponent>(TestSubObject) != nullptr)
+				{
+					++NumNativeComponents;
+				}
+			}
+		}
+		OutTags.Add(FAssetRegistryTag("NativeComponents", FString::FromInt(NumNativeComponents), UObject::FAssetRegistryTag::TT_Numerical));
+
+		// Determine how many components are added via a SimpleConstructionScript (both newly introduced and inherited from parent BPs)
+		int32 NumAddedComponents = 0;
+		for (UBlueprintGeneratedClass* TestBPClass = BlueprintClass; TestBPClass != nullptr; TestBPClass = Cast<UBlueprintGeneratedClass>(TestBPClass->GetSuperClass()))
+		{
+			const UBlueprint* AssociatedBP = Cast<const UBlueprint>(TestBPClass->ClassGeneratedBy);
+			if (AssociatedBP->SimpleConstructionScript != nullptr)
+			{
+				NumAddedComponents += AssociatedBP->SimpleConstructionScript->GetAllNodesConst().Num();
+			}
+		}
+		OutTags.Add(FAssetRegistryTag("BlueprintComponents", FString::FromInt(NumAddedComponents), UObject::FAssetRegistryTag::TT_Numerical));
 	}
 }
 
@@ -1043,13 +1077,13 @@ void UBlueprint::TagSubobjects(EObjectFlags NewFlags)
 {
 	Super::TagSubobjects(NewFlags);
 
-	if (GeneratedClass && !GeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS | RF_RootSet))
+	if (GeneratedClass && !GeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) && !GeneratedClass->IsRooted())
 	{
 		GeneratedClass->SetFlags(NewFlags);
 		GeneratedClass->TagSubobjects(NewFlags);
 	}
 
-	if (SkeletonGeneratedClass && SkeletonGeneratedClass != GeneratedClass && !SkeletonGeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS | RF_RootSet))
+	if (SkeletonGeneratedClass && SkeletonGeneratedClass != GeneratedClass && !SkeletonGeneratedClass->HasAnyFlags(GARBAGE_COLLECTION_KEEPFLAGS) && !SkeletonGeneratedClass->IsRooted())
 	{
 		SkeletonGeneratedClass->SetFlags(NewFlags);
 		SkeletonGeneratedClass->TagSubobjects(NewFlags);

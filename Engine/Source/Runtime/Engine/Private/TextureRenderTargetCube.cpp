@@ -291,7 +291,7 @@ void FTextureRenderTargetCubeResource::UpdateDeferredResource(FRHICommandListImm
 		// clear each face of the cube target texture to ClearColor
 		if (bClearRenderTarget)
 		{
-			SetRenderTarget(RHICmdList, RenderTargetTextureRHI, FTextureRHIParamRef());
+			SetRenderTarget(RHICmdList, RenderTargetTextureRHI, FTextureRHIParamRef(), true);
 			RHICmdList.SetViewport(0, 0, 0.0f, Dims.X, Dims.Y, 1.0f);
 			RHICmdList.Clear(true, Owner->ClearColor, false, 0.f, false, 0, FIntRect());
 		}

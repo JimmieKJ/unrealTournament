@@ -230,6 +230,7 @@ void FKCHandler_CallFunction::CreateFunctionCallStatement(FKismetFunctionContext
 									ClassTerm->bIsLiteral = true;
 									ClassTerm->Source     = Node;
 									ClassTerm->ObjectLiteral = InterfaceClass;
+									ClassTerm->Type.PinCategory = CompilerContext.GetSchema()->PC_Class;
 
 									// insert a cast op before a call to the function (and replace
 									// the param with the result from the cast)

@@ -5,7 +5,7 @@
 #include "Editor/Sequencer/Public/MovieSceneTrackEditor.h"
 #include "Editor/Sequencer/Public/ISequencerSection.h"
 #include "Runtime/MovieScene/Public/MovieScene.h"
-#include "Runtime/MovieScene/Public/MovieSceneTrack.h"
+#include "Runtime/MovieScene/Public/MovieSceneNameableTrack.h"
 #include "Runtime/MovieScene/Public/IMovieSceneTrackInstance.h"
 #include "Runtime/MovieScene/Public/MovieSceneSection.h"
 
@@ -141,7 +141,7 @@ private:
 */
 UCLASS(MinimalAPI)
 class UEmitterMovieSceneTrack
-	: public UMovieSceneTrack
+	: public UMovieSceneNameableTrack
 {
 	GENERATED_UCLASS_BODY()
 public:
@@ -208,16 +208,11 @@ public:
 		return TRange<float>(0, FLT_MAX);
 	}
 
-#if WITH_EDITORONLY_DATA
-	virtual FText GetDisplayName() const override;
-#endif
-
 private:
 
 	TSharedPtr<FNiagaraSimulation> Emitter;
 	TArray<UMovieSceneSection*> Sections;
 };
-
 
 
 /**

@@ -44,10 +44,18 @@
 #include "Tracks/MovieScene3DTransformTrack.h"
 #include "LevelEditor.h"
 #include "IMenu.h"
+#include "NotificationManager.h"
+#include "SNotificationList.h"
+#include "MovieSceneClipboard.h"
+#include "SequencerClipboardReconciler.h"
 #include "STextEntryPopup.h"
-
+#include "SequencerHotspots.h"
 #include "MovieSceneCaptureDialogModule.h"
 #include "AutomatedLevelSequenceCapture.h"
+#include "MovieSceneCommonHelpers.h"
+
+#include "SceneOutlinerModule.h"
+#include "SceneOutlinerPublicTypes.h"
 
 #define LOCTEXT_NAMESPACE "Sequencer"
 
@@ -70,6 +78,16 @@ void FSequencer::InitSequencer(const FSequencerInitParams& InitParams, const TSh
 	{
 		bIsEditingWithinLevelEditor = InitParams.bEditWithinLevelEditor;
 		
+		if (InitParams.SpawnRegister.IsValid())
+		{
+			SpawnRegister = InitParams.SpawnRegister;
+		}
+		else
+		{
+			// Spawnables not supported
+			SpawnRegister = MakeShareable(new FNullMovieSceneSpawnRegister);
+		}
+
 		// If this sequencer edits the level, close out the existing active sequencer and mark this as the active sequencer.
 		if (bIsEditingWithinLevelEditor)
 		{
@@ -115,6 +133,8 @@ void FSequencer::InitSequencer(const FSequencerInitParams& InitParams, const TSh
 			.ClampRange( this, &FSequencer::GetClampRange )
 			.PlaybackRange( this, &FSequencer::GetPlaybackRange )
 			.OnPlaybackRangeChanged( this, &FSequencer::SetPlaybackRange )
+			.OnBeginPlaybackRangeDrag( this, &FSequencer::OnBeginPlaybackRangeDrag )
+			.OnEndPlaybackRangeDrag( this, &FSequencer::OnEndPlaybackRangeDrag )
 			.ScrubPosition( this, &FSequencer::OnGetScrubPosition )
 			.OnBeginScrubbing( this, &FSequencer::OnBeginScrubbing )
 			.OnEndScrubbing( this, &FSequencer::OnEndScrubbing )
@@ -134,6 +154,9 @@ void FSequencer::InitSequencer(const FSequencerInitParams& InitParams, const TSh
 			GEditor->GetActorRecordingState().AddSP(this, &FSequencer::GetActorRecordingState);
 
 			ActivateDetailKeyframeHandler();
+				
+			FPropertyEditorModule& EditModule = FModuleManager::Get().GetModuleChecked<FPropertyEditorModule>("PropertyEditor");
+			EditModule.OnPropertyEditorOpened().AddSP(this, &FSequencer::OnPropertyEditorOpened);
 		}
 
 		// Create tools and bind them to this sequencer
@@ -213,7 +236,15 @@ void FSequencer::Close()
 			GLevelEditorModeTools().DeactivateMode( FSequencerEdMode::EM_SequencerMode );
 		}
 	}
-	DeactivateDetailKeyframeHandler();
+
+	if( bIsEditingWithinLevelEditor )
+	{
+		DeactivateDetailKeyframeHandler();
+			
+		FPropertyEditorModule& EditModule = FModuleManager::Get().GetModuleChecked<FPropertyEditorModule>("PropertyEditor");			
+		EditModule.OnPropertyEditorOpened().RemoveAll(this);
+	}
+
 	SequencerWidget.Reset();
 }
 
@@ -262,13 +293,23 @@ void FSequencer::Tick(float InDeltaTime)
 
 UMovieSceneSequence* FSequencer::GetRootMovieSceneSequence() const
 {
-	return SequenceInstanceStack[0]->GetSequence();
+	if (SequenceInstanceStack.Num())
+	{
+		return SequenceInstanceStack[0]->GetSequence();
+	}
+
+	return nullptr;
 }
 
 UMovieSceneSequence* FSequencer::GetFocusedMovieSceneSequence() const
 {
 	// the last item is the focused movie scene
-	return SequenceInstanceStack.Top()->GetSequence();
+	if (SequenceInstanceStack.Num())
+	{
+		return SequenceInstanceStack.Top()->GetSequence();
+	}
+
+	return nullptr;
 }
 
 void FSequencer::ResetToNewRootSequence(UMovieSceneSequence& NewSequence)
@@ -325,6 +366,116 @@ void FSequencer::FocusSequenceInstance(TSharedRef<FMovieSceneSequenceInstance> S
 	SequencerWidget->UpdateBreadcrumbs();
 }
 
+FGuid FSequencer::CreateBinding(UObject& InObject, const FString& InName)
+{
+	UMovieSceneSequence* OwnerSequence = GetFocusedMovieSceneSequence();
+	UMovieScene* OwnerMovieScene = OwnerSequence->GetMovieScene();
+		
+	const FGuid PossessableGuid = OwnerMovieScene->AddPossessable(InName, InObject.GetClass());
+
+	UObject* BindingContext = OwnerSequence->GetParentObject(&InObject);
+	if (BindingContext)
+	{
+		// Ensure we have possessed the outer object, if necessary
+		FGuid ParentGuid = GetHandleToObject(BindingContext);
+		
+		// Set up parent/child guids for possessables within spawnables
+		if (ParentGuid.IsValid())
+		{
+			FMovieScenePossessable* ChildPossessable = OwnerMovieScene->FindPossessable(PossessableGuid);
+			if (ensure(ChildPossessable))
+			{
+				ChildPossessable->SetParent(ParentGuid);
+			}
+
+			FMovieSceneSpawnable* ParentSpawnable = OwnerMovieScene->FindSpawnable(ParentGuid);
+			if (ParentSpawnable)
+			{
+				ParentSpawnable->AddChildPossessable(PossessableGuid);
+			}
+		}
+	}
+	else
+	{
+		BindingContext = GetPlaybackContext();
+	}
+
+	OwnerSequence->BindPossessableObject(PossessableGuid, InObject, BindingContext);
+
+	return PossessableGuid;
+}
+
+UObject* FSequencer::GetPlaybackContext() const
+{
+	if (bIsEditingWithinLevelEditor)
+	{
+		return GWorld;
+	}
+	return nullptr;
+}
+
+void FSequencer::GetAllKeyedProperties(UObject& Object, TSet<UProperty*>& OutProperties)
+{
+	GetAllKeyedPropertiesForInstance(Object, *GetRootMovieSceneSequenceInstance(), OutProperties);
+}
+
+void FSequencer::GetAllKeyedPropertiesForInstance(UObject& Object, FMovieSceneSequenceInstance& Instance, TSet<UProperty*>& OutProperties)
+{
+	GetKeyedProperties(Object, Instance, OutProperties);
+
+	UMovieSceneSubTrack* SubTrack = Instance.GetSequence()->GetMovieScene()->FindMasterTrack<UMovieSceneSubTrack>();
+	if (SubTrack)
+	{
+		// Iterate sub movie scenes
+		for (UMovieSceneSection* SubSection : SubTrack->GetAllSections())
+		{
+			// Find the instance for the section
+			TSharedRef<FMovieSceneSequenceInstance>* SubInstance = SequenceInstanceBySection.Find(SubSection);
+			GetAllKeyedPropertiesForInstance(Object, SubInstance->Get(), OutProperties);
+		}
+	}
+}
+
+void FSequencer::GetKeyedProperties(UObject& Object, FMovieSceneSequenceInstance& Instance, TSet<UProperty*>& OutProperties)
+{
+	FGuid BindingId = Instance.FindObjectId(Object);
+
+	const FMovieSceneBinding* Binding = BindingId.IsValid() ? Instance.GetSequence()->GetMovieScene()->GetBindings().FindByPredicate([&](const FMovieSceneBinding& InBinding){
+		return BindingId == InBinding.GetObjectGuid();
+	}) : nullptr;
+
+	if (!Binding)
+	{
+		return;
+	}
+
+	// Add any properties for this object
+	for (UMovieSceneTrack* Track : Binding->GetTracks())
+	{
+		if (UMovieScene3DTransformTrack* TransformTrack = Cast<UMovieScene3DTransformTrack>(Track))
+		{
+			// Add transform properties manually. This is technically not correct, since it's the scene component that's being keyed, not the actor,
+			// But since the transform track is always stored on an actor binding, we have to add them this way
+			AActor* Actor = Cast<AActor>(&Object);
+			if (Actor)
+			{
+				UClass* Class = USceneComponent::StaticClass();
+				OutProperties.Add(Class->FindPropertyByName(GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeLocation)));
+				OutProperties.Add(Class->FindPropertyByName(GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeRotation)));
+				OutProperties.Add(Class->FindPropertyByName(GET_MEMBER_NAME_CHECKED(USceneComponent, RelativeScale3D)));
+			}
+		}
+		else if (UMovieScenePropertyTrack* PropertyTrack = Cast<UMovieScenePropertyTrack>(Track))
+		{
+			FTrackInstancePropertyBindings InstanceBinding(PropertyTrack->GetPropertyName(), PropertyTrack->GetPropertyPath());
+			UProperty* Property = InstanceBinding.GetProperty(&Object);
+			if (Property)
+			{
+				OutProperties.Add(Property);
+			}
+		}
+	}
+}
 
 TSharedRef<FMovieSceneSequenceInstance> FSequencer::GetSequenceInstanceForSection(UMovieSceneSection& Section) const
 {
@@ -360,7 +511,7 @@ void FSequencer::DeleteSections(const TSet<TWeakObjectPtr<UMovieSceneSection>>& 
 
 	for (const auto Section : Sections)
 	{
-		if (!Section.IsValid())
+		if (!Section.IsValid() || Section->IsLocked())
 		{
 			continue;
 		}
@@ -395,9 +546,11 @@ void FSequencer::DeleteSelectedKeys()
 	{
 		if (Key.IsValid())
 		{
-			Key.Section->Modify();
-			Key.KeyArea->DeleteKey(Key.KeyHandle.GetValue());
-			bAnythingRemoved = true;
+			if (Key.Section->TryModify())
+			{
+				Key.KeyArea->DeleteKey(Key.KeyHandle.GetValue());
+				bAnythingRemoved = true;
+			}
 		}
 	}
 
@@ -425,10 +578,12 @@ void FSequencer::SetInterpTangentMode(ERichCurveInterpMode InterpMode, ERichCurv
 	{
 		if (Key.IsValid())
 		{
-			Key.Section->Modify();
-			Key.KeyArea->SetKeyInterpMode(Key.KeyHandle.GetValue(), InterpMode);
-			Key.KeyArea->SetKeyTangentMode(Key.KeyHandle.GetValue(), TangentMode);
-			bAnythingChanged = true;
+			if (Key.Section->TryModify())
+			{
+				Key.KeyArea->SetKeyInterpMode(Key.KeyHandle.GetValue(), InterpMode);
+				Key.KeyArea->SetKeyTangentMode(Key.KeyHandle.GetValue(), TangentMode);
+				bAnythingChanged = true;
+			}
 		}
 	}
 
@@ -471,18 +626,20 @@ void FSequencer::SnapToFrame()
 	{
 		if (Key.IsValid())
 		{
-			Key.Section->Modify();
-			float NewKeyTime = Key.KeyArea->GetKeyTime(Key.KeyHandle.GetValue());
+			if (Key.Section->TryModify())
+			{
+				float NewKeyTime = Key.KeyArea->GetKeyTime(Key.KeyHandle.GetValue());
 
-			// Convert to frame
-			float FrameRate = 1.0f / Settings->GetTimeSnapInterval();
-			int32 NewFrame = SequencerHelpers::TimeToFrame(NewKeyTime, FrameRate);
+				// Convert to frame
+				float FrameRate = 1.0f / Settings->GetTimeSnapInterval();
+				int32 NewFrame = SequencerHelpers::TimeToFrame(NewKeyTime, FrameRate);
 
-			// Convert back to time
-			NewKeyTime = SequencerHelpers::FrameToTime(NewFrame, FrameRate);
+				// Convert back to time
+				NewKeyTime = SequencerHelpers::FrameToTime(NewFrame, FrameRate);
 
-			Key.KeyArea->SetKeyTime(Key.KeyHandle.GetValue(), NewKeyTime);
-			bAnythingChanged = true;
+				Key.KeyArea->SetKeyTime(Key.KeyHandle.GetValue(), NewKeyTime);
+				bAnythingChanged = true;
+			}
 		}
 	}
 
@@ -511,24 +668,20 @@ void FSequencer::NotifyMapChanged( class UWorld* NewWorld, EMapChangeType MapCha
 
 void FSequencer::OnActorsDropped( const TArray<TWeakObjectPtr<AActor> >& Actors )
 {
+	// @todo sequencer: Undo doesn't seem to be working at all
+	const FScopedTransaction Transaction(LOCTEXT("UndoPossessingObject", "Possess Object in Sequencer"));
+	GetFocusedMovieSceneSequence()->Modify();
+
 	bool bPossessableAdded = false;
-	UMovieSceneSequence* OwnerSequence = GetFocusedMovieSceneSequence();
-	UMovieScene* OwnerMovieScene = OwnerSequence->GetMovieScene();
 	for (TWeakObjectPtr<AActor> WeakActor : Actors)
 	{
-		AActor* Actor = WeakActor.Get();
-
-		if (Actor != nullptr)
-		{		
-			// @todo sequencer: Undo doesn't seem to be working at all
-			const FScopedTransaction Transaction(LOCTEXT("UndoPossessingObject", "Possess Object with MovieScene"));
-			
-			// possess the object!
-			OwnerSequence->Modify();
-				
-			const FGuid PossessableGuid = OwnerMovieScene->AddPossessable(Actor->GetActorLabel(), Actor->GetClass());
-
-			OwnerSequence->BindPossessableObject(PossessableGuid, *Actor);
+		if (AActor* Actor = WeakActor.Get())
+		{
+			FGuid ExistingGuid = SequenceInstanceStack.Top()->FindObjectId(*Actor);
+			if (!ExistingGuid.IsValid())
+			{
+				CreateBinding(*Actor, Actor->GetActorLabel());
+			}
 			bPossessableAdded = true;
 		}
 	}
@@ -574,6 +727,8 @@ void FSequencer::SetPlaybackRange(TRange<float> InNewPlaybackRange)
 {
 	if (ensure(InNewPlaybackRange.HasLowerBound() && InNewPlaybackRange.HasUpperBound() && !InNewPlaybackRange.IsDegenerate()))
 	{
+		const FScopedTransaction Transaction(LOCTEXT("SetPlaybackRange_Transaction", "Set playback range"));
+
 		UMovieScene* FocussedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
 		FocussedMovieScene->SetPlaybackRange(InNewPlaybackRange.GetLowerBoundValue(), InNewPlaybackRange.GetUpperBoundValue());
 	}
@@ -676,6 +831,15 @@ void FSequencer::SetGlobalTimeDirectly( float NewTime )
 
 	SequenceInstanceStack.Top()->Update(NewTime, LastTime, *this);
 
+	// Ensure any relevant spawned objects are cleaned up if we're playing back the master sequence
+	if (SequenceInstanceStack.Num() == 1)
+	{
+		if (!GetPlaybackRange().Contains(NewTime))
+		{
+			SpawnRegister->DestroyAllOwnedObjects(*this);
+		}
+	}
+
 	// If realtime is off, this needs to be called to update the pivot location when scrubbing.
 	GUnrealEd->UpdatePivotLocationForSelection();
 	GEditor->RedrawLevelEditingViewports();
@@ -770,10 +934,11 @@ FGuid FSequencer::GetHandleToObject( UObject* Object, bool bCreateHandleIfMissin
 	UMovieSceneSequence* FocusedMovieSceneSequence = FocusedMovieSceneSequenceInstance->GetSequence();
 
 	UMovieScene* FocusedMovieScene = FocusedMovieSceneSequence->GetMovieScene();
-	// The movie scene can resolve persistent, possessable objects
-	FGuid ObjectGuid = FocusedMovieSceneSequence->FindObjectId(*Object);
+	
+	// Attempt to resolve the object through the movie scene instance first, 
+	FGuid ObjectGuid = FocusedMovieSceneSequenceInstance->FindObjectId(*Object);
 
-	// Check here for spawnable otherwise spawnables get recreated as possessables, which doesn't make sens
+	// Check here for spawnable otherwise spawnables get recreated as possessables, which doesn't make sense
 	FMovieSceneSpawnable* Spawnable = FocusedMovieScene->FindSpawnable(ObjectGuid);
 	if (Spawnable)
 	{
@@ -795,27 +960,10 @@ FGuid FSequencer::GetHandleToObject( UObject* Object, bool bCreateHandleIfMissin
 	// Note: Only possessed actors can be added like this
 	if (!ObjectGuid.IsValid() && FocusedMovieSceneSequence->CanPossessObject(*Object) && bCreateHandleIfMissing)
 	{
-		// @todo sequencer: Undo doesn't seem to be working at all
-		const FScopedTransaction Transaction(LOCTEXT("UndoPossessingObject", "Possess Object with MovieScene"));
+		AActor* PossessedActor = Cast<AActor>(Object);
 
-		// Possess the object!
-		{
-			// Create a new possessable
-			FocusedMovieScene->Modify();
-
-			AActor* PossessedActor = Cast<AActor>(Object);
-
-			ObjectGuid = FocusedMovieScene->AddPossessable(PossessedActor != nullptr ? PossessedActor->GetActorLabel() : Object->GetName(), Object->GetClass());
-			FocusedMovieSceneSequence->BindPossessableObject(ObjectGuid, *Object);
-			bPossessableAdded = true;
-		}
-
-		// If we're adding a possessable, generate handles to it's parent objects too.
-		UObject* ParentObject = FocusedMovieSceneSequence->GetParentObject(Object);
-		if ( ParentObject != nullptr )
-		{
-			GetHandleToObject(ParentObject);
-		}
+		ObjectGuid = CreateBinding(*Object, PossessedActor != nullptr ? PossessedActor->GetActorLabel() : Object->GetName());
+		bPossessableAdded = true;
 	}
 
 	if (bPossessableAdded)
@@ -833,14 +981,10 @@ ISequencerObjectChangeListener& FSequencer::GetObjectChangeListener()
 
 void FSequencer::GetRuntimeObjects( TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance, const FGuid& ObjectHandle, TArray< UObject*>& OutObjects ) const
 {
-	if (MovieSceneInstance->GetSequence() != nullptr)
+	UObject* FoundObject = MovieSceneInstance->FindObject(ObjectHandle, *this);
+	if (FoundObject)
 	{
-		UObject* FoundObject = MovieSceneInstance->GetSequence()->FindObject(ObjectHandle);
-
-		if (FoundObject != nullptr)
-		{
-			OutObjects.Add(FoundObject);
-		}
+		OutObjects.Add(FoundObject);
 	}
 }
 
@@ -933,7 +1077,8 @@ void FSequencer::AddOrUpdateMovieSceneInstance( UMovieSceneSection& MovieSceneSe
 void FSequencer::RemoveMovieSceneInstance( UMovieSceneSection& MovieSceneSection, TSharedRef<FMovieSceneSequenceInstance> InstanceToRemove )
 {
 	UMovieSceneSequence* Sequence = InstanceToRemove->GetSequence();
-	Sequence->DestroyAllSpawnedObjects();
+
+	SpawnRegister->DestroyObjectsSpawnedByInstance(*InstanceToRemove, *this);
 
 	SequenceInstanceBySection.Remove( &MovieSceneSection );
 }
@@ -961,8 +1106,17 @@ void FSequencer::ResetPerMovieSceneData()
 void FSequencer::UpdateRuntimeInstances()
 {
 	// Refresh the current root instance
-	RootMovieSceneSequenceInstance->RefreshInstance( *this );
-	RootMovieSceneSequenceInstance->Update(ScrubPosition, ScrubPosition, *this);
+	SequenceInstanceStack.Top()->RefreshInstance( *this );
+	SequenceInstanceStack.Top()->Update(ScrubPosition, ScrubPosition, *this);
+
+	// Ensure any relevant spawned objects are cleaned up if we're playing back the master sequence
+	if (SequenceInstanceStack.Num() == 1)
+	{
+		if (!GetPlaybackRange().Contains(ScrubPosition))
+		{
+			SpawnRegister->DestroyAllOwnedObjects(*this);
+		}
+	}
 
 	GEditor->RedrawLevelEditingViewports();
 }
@@ -974,18 +1128,14 @@ FReply FSequencer::OnPlay(bool bTogglePlay)
 	{
 		PlaybackState = EMovieScenePlayerStatus::Stopped;
 		// Update on stop (cleans up things like sounds that are playing)
-		RootMovieSceneSequenceInstance->Update( ScrubPosition, ScrubPosition, *this );
+		SequenceInstanceStack.Top()->Update( ScrubPosition, ScrubPosition, *this );
 	}
 	else
 	{
-		TRange<float> TimeBounds = GetTimeBounds();
-		if (!TimeBounds.IsEmpty())
-		{
-			PlaybackState = EMovieScenePlayerStatus::Playing;
-			
-			// Make sure Slate ticks during playback
-			SequencerWidget->RegisterActiveTimerForPlayback();
-		}
+		PlaybackState = EMovieScenePlayerStatus::Playing;
+		
+		// Make sure Slate ticks during playback
+		SequencerWidget->RegisterActiveTimerForPlayback();
 	}
 
 	return FReply::Handled();
@@ -1039,22 +1189,14 @@ FReply FSequencer::OnStepBackward()
 FReply FSequencer::OnStepToEnd()
 {
 	PlaybackState = EMovieScenePlayerStatus::Stopped;
-	TRange<float> TimeBounds = GetTimeBounds();
-	if (!TimeBounds.IsEmpty())
-	{
-		SetGlobalTime(TimeBounds.GetUpperBoundValue());
-	}
+	SetGlobalTime(GetPlaybackRange().GetUpperBoundValue());
 	return FReply::Handled();
 }
 
 FReply FSequencer::OnStepToBeginning()
 {
 	PlaybackState = EMovieScenePlayerStatus::Stopped;
-	TRange<float> TimeBounds = GetTimeBounds();
-	if (!TimeBounds.IsEmpty())
-	{
-		SetGlobalTime(TimeBounds.GetLowerBoundValue());
-	}
+	SetGlobalTime(GetPlaybackRange().GetLowerBoundValue());
 	return FReply::Handled();
 }
 
@@ -1085,14 +1227,32 @@ void FSequencer::SetGlobalTimeLooped(float InTime)
 	else
 	{
 		TRange<float> TimeBounds = GetTimeBounds();
-		if (InTime > TimeBounds.GetUpperBoundValue())
+		TRange<float> WorkingRange = GetClampRange();
+
+		const bool bReachedEnd = GetGlobalTime() < TimeBounds.GetUpperBoundValue() && InTime >= TimeBounds.GetUpperBoundValue();
+
+		// Stop if we hit the playback range end
+		if (bReachedEnd)
 		{
 			InTime = TimeBounds.GetUpperBoundValue();
 			PlaybackState = EMovieScenePlayerStatus::Stopped;
 		}
-		else if (InTime < TimeBounds.GetLowerBoundValue())
+		// Constrain to the play range if necessary
+		else if (Settings->ShouldKeepCursorInPlayRange())
 		{
-			InTime = TimeBounds.GetLowerBoundValue();
+			// Clamp to lower bound
+			InTime = FMath::Max(InTime, TimeBounds.GetLowerBoundValue());
+
+			// Jump back if necessary
+			if (InTime >= TimeBounds.GetUpperBoundValue())
+			{
+				InTime = TimeBounds.GetLowerBoundValue();
+			}
+		}
+		// Ensure the time is within the working range
+		else if (!WorkingRange.Contains(InTime))
+		{
+			InTime = FMath::Clamp(InTime, WorkingRange.GetLowerBoundValue(), WorkingRange.GetUpperBoundValue());
 			PlaybackState = EMovieScenePlayerStatus::Stopped;
 		}
 	}
@@ -1153,7 +1313,7 @@ TRange<float> FSequencer::GetTimeBounds() const
 		return TRange<float>( -100000.0f, 100000.0f );
 	}
 	
-	return FocusedSequence->GetMovieScene()->GetEditorData().WorkingRange;
+	return FocusedSequence->GetMovieScene()->GetPlaybackRange();
 }
 
 void FSequencer::SetViewRange(TRange<float> NewViewRange, EViewRangeInterpolation Interpolation)
@@ -1185,16 +1345,24 @@ void FSequencer::SetViewRange(TRange<float> NewViewRange, EViewRangeInterpolatio
 		ZoomAnimation.JumpToEnd();
 	}
 
-	UMovieScene* FocusedMovieScene = GetFocusedMovieSceneSequence()->GetMovieScene();
-	FocusedMovieScene->GetEditorData().ViewRange = TargetViewRange;
 
-	// Always ensure the working range is big enough to fit the view range
-	TRange<float>& WorkingRange = FocusedMovieScene->GetEditorData().WorkingRange;
+	UMovieSceneSequence* FocusedMovieSequence = GetFocusedMovieSceneSequence();
+	if (FocusedMovieSequence != nullptr)
+	{
+		UMovieScene* FocusedMovieScene = FocusedMovieSequence->GetMovieScene();
+		if (FocusedMovieScene != nullptr)
+		{
+			FocusedMovieScene->GetEditorData().ViewRange = TargetViewRange;
 
-	WorkingRange = TRange<float>(
-		FMath::Min(TargetViewRange.GetLowerBoundValue(), WorkingRange.GetLowerBoundValue()),
-		FMath::Max(TargetViewRange.GetUpperBoundValue(), WorkingRange.GetUpperBoundValue())
-		);
+			// Always ensure the working range is big enough to fit the view range
+			TRange<float>& WorkingRange = FocusedMovieScene->GetEditorData().WorkingRange;
+
+			WorkingRange = TRange<float>(
+				FMath::Min(TargetViewRange.GetLowerBoundValue(), WorkingRange.GetLowerBoundValue()),
+				FMath::Max(TargetViewRange.GetUpperBoundValue(), WorkingRange.GetUpperBoundValue())
+				);
+		}
+	}
 }
 
 void FSequencer::OnClampRangeChanged( TRange<float> NewClampRange )
@@ -1207,6 +1375,8 @@ void FSequencer::OnClampRangeChanged( TRange<float> NewClampRange )
 
 void FSequencer::OnScrubPositionChanged( float NewScrubPosition, bool bScrubbing )
 {
+	bool bClampToViewRange = true;
+
 	if (PlaybackState == EMovieScenePlayerStatus::Scrubbing)
 	{
 		if (!bScrubbing)
@@ -1215,6 +1385,9 @@ void FSequencer::OnScrubPositionChanged( float NewScrubPosition, bool bScrubbing
 		}
 		else if (IsAutoScrollEnabled())
 		{
+			// Clamp to the view range when not auto-scrolling
+			bClampToViewRange = false;
+	
 			UpdateAutoScroll(NewScrubPosition);
 			
 			// When scrubbing, we animate auto-scrolled scrub position in Tick()
@@ -1223,11 +1396,11 @@ void FSequencer::OnScrubPositionChanged( float NewScrubPosition, bool bScrubbing
 				return;
 			}
 		}
-		else
-		{
-			// Clamp to the view range when not auto-scrolling
-			NewScrubPosition = FMath::Clamp(NewScrubPosition, TargetViewRange.GetLowerBoundValue(), TargetViewRange.GetUpperBoundValue());
-		}
+	}
+
+	if (bClampToViewRange)
+	{
+		NewScrubPosition = FMath::Clamp(NewScrubPosition, TargetViewRange.GetLowerBoundValue(), TargetViewRange.GetUpperBoundValue());
 	}
 
 	SetGlobalTimeDirectly( NewScrubPosition );
@@ -1244,6 +1417,16 @@ void FSequencer::OnEndScrubbing()
 	PlaybackState = EMovieScenePlayerStatus::Stopped;
 	AutoscrubOffset.Reset();
 	StopAutoscroll();
+}
+
+void FSequencer::OnBeginPlaybackRangeDrag()
+{
+	GEditor->BeginTransaction(LOCTEXT("SetPlaybackRange_Transaction", "Set playback range"));
+}
+
+void FSequencer::OnEndPlaybackRangeDrag()
+{
+	GEditor->EndTransaction();
 }
 
 void FSequencer::StartAutoscroll(float UnitsPerS)
@@ -1291,118 +1474,148 @@ void FSequencer::VerticalScroll(float ScrollAmountUnits)
 
 FGuid FSequencer::AddSpawnableForAssetOrClass( UObject* Object )
 {
-	FGuid NewSpawnableGuid;
-
-
 	UMovieSceneSequence* Sequence = GetFocusedMovieSceneSequence();
-	if (Sequence->AllowsSpawnableObjects())
+	if (!Sequence->AllowsSpawnableObjects())
 	{
-		// Grab the MovieScene that is currently focused.  We'll add our Blueprint as an inner of the
-		// MovieScene asset.
-		UMovieScene* OwnerMovieScene = Sequence->GetMovieScene();
+		return FGuid();
+	}
 
-		// @todo sequencer: Undo doesn't seem to be working at all
-		const FScopedTransaction Transaction( LOCTEXT("UndoAddingObject", "Add Object to MovieScene") );
+	// Grab the MovieScene that is currently focused.  We'll add our Blueprint as an inner of the
+	// MovieScene asset.
+	UMovieScene* OwnerMovieScene = Sequence->GetMovieScene();
 
-		// Use the class as the spawnable's name if this is an actor class, otherwise just use the object name (asset)
-		const bool bIsActorClass = Object->IsA( AActor::StaticClass() ) && !Object->HasAnyFlags( RF_ArchetypeObject );
-		const FName AssetName = bIsActorClass ? Object->GetClass()->GetFName() : Object->GetFName();
+	// @todo sequencer: Undo doesn't seem to be working at all
+	const FScopedTransaction Transaction( LOCTEXT("UndoAddingObject", "Add Object to MovieScene") );
 
-		// Inner objects don't need a name (it will be auto-generated by the UObject system), but we want one in this case
-		// because the class of any actors that are created from this Blueprint may end up being user-facing.
-		const FName BlueprintName = MakeUniqueObjectName( OwnerMovieScene, UBlueprint::StaticClass(), AssetName );
+	// Use the class as the spawnable's name if this is an actor class, otherwise just use the object name (asset)
+	const bool bIsActorClass = Object->IsA( AActor::StaticClass() ) && !Object->HasAnyFlags( RF_ArchetypeObject );
+	const FName AssetName = bIsActorClass ? Object->GetClass()->GetFName() : Object->GetFName();
 
-		// Use the asset name as the initial spawnable name
-		const FString NewSpawnableName = AssetName.ToString();		// @todo sequencer: Need UI to allow user to rename these slots
+	// Inner objects don't need a name (it will be auto-generated by the UObject system), but we want one in this case
+	// because the class of any actors that are created from this Blueprint may end up being user-facing.
+	const FName BlueprintName = MakeUniqueObjectName( OwnerMovieScene, UBlueprint::StaticClass(), AssetName );
 
-		// Create our new blueprint!
-		UBlueprint* NewBlueprint = Cast<UBlueprint>(Object);
-		if (!NewBlueprint)
+	// Use the asset name as the initial spawnable name
+	const FString NewSpawnableName = AssetName.ToString();		// @todo sequencer: Need UI to allow user to rename these slots
+
+	FText ErrorText;
+
+	// Create our new blueprint!
+	UBlueprint* NewBlueprint = nullptr;
+
+	// If we're dropping a blueprint, create a new blueprint out of this one, so we can propagate changes from the world to it without affecting the dragged BP.
+	if (UBlueprint* SourceBlueprint = Cast<UBlueprint>(Object))
+	{
+		UClass* SourceParentClass = SourceBlueprint->GeneratedClass;
+
+		if (!FKismetEditorUtilities::CanCreateBlueprintOfClass(SourceParentClass))
 		{
-			// @todo sequencer: Add support for forcing specific factories for an asset
-			UActorFactory* FactoryToUse = nullptr;
-			if( bIsActorClass )
-			{
-				// Placing an actor class directly::
-				FactoryToUse = GEditor->FindActorFactoryForActorClass( Object->GetClass() );
-			}
-			else
-			{
-				// Placing an asset
-				FactoryToUse = FActorFactoryAssetProxy::GetFactoryForAssetObject( Object );
-			}
-
-			if( FactoryToUse != nullptr )
-			{
-				// Create the blueprint
-				NewBlueprint = FactoryToUse->CreateBlueprint( Object, OwnerMovieScene, BlueprintName );
-			}
-			else if( bIsActorClass )
-			{
-				// We don't have a factory, but we can still try to create a blueprint for this actor class
-				NewBlueprint = FKismetEditorUtilities::CreateBlueprint( Object->GetClass(), OwnerMovieScene, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass() );
-			}
+			ErrorText = FText::Format(LOCTEXT("UnableToAddSpawnableBlueprint", "Unable to add spawnable for class of type '{0}' since it is not a valid blueprint parent class."),
+				FText::FromString(SourceParentClass->GetName())
+				);
+		}
+		else
+		{
+			NewBlueprint = FKismetEditorUtilities::CreateBlueprint(SourceParentClass, OwnerMovieScene, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass());
+		}
+	}
+	else
+	{
+		// @todo sequencer: Add support for forcing specific factories for an asset
+		UActorFactory* FactoryToUse = nullptr;
+		if( bIsActorClass )
+		{
+			// Placing an actor class directly::
+			FactoryToUse = GEditor->FindActorFactoryForActorClass( Object->GetClass() );
+		}
+		else
+		{
+			// Placing an asset
+			FactoryToUse = FActorFactoryAssetProxy::GetFactoryForAssetObject( Object );
 		}
 
-		if (NewBlueprint != nullptr)
+		if( FactoryToUse != nullptr )
 		{
-			FTransformData NewTransform;
+			// Create the blueprint
+			NewBlueprint = FactoryToUse->CreateBlueprint( Object, OwnerMovieScene, BlueprintName );
+		}
+		else if( bIsActorClass )
+		{
+			// We don't have a factory, but we can still try to create a blueprint for this actor class
+			NewBlueprint = FKismetEditorUtilities::CreateBlueprint( Object->GetClass(), OwnerMovieScene, BlueprintName, EBlueprintType::BPTYPE_Normal, UBlueprint::StaticClass(), UBlueprintGeneratedClass::StaticClass() );
+		}
+	}
 
-			if ((NewBlueprint->GeneratedClass != nullptr) && FBlueprintEditorUtils::IsActorBased(NewBlueprint))
+	if (!NewBlueprint)
+	{
+		if (ErrorText.IsEmpty())
+		{
+			ErrorText = FText::Format(LOCTEXT("UnableToAddSpawnable", "Unable to add spawnable for '{0}'."),
+				FText::FromString(Object->GetName())
+				);
+		}
+
+		FNotificationInfo Info(ErrorText);
+		Info.ExpireDuration = 3.0f;
+		FSlateNotificationManager::Get().AddNotification(Info);
+		return FGuid();
+	}
+
+	FTransformData NewTransform;
+
+	if ((NewBlueprint->GeneratedClass != nullptr) && FBlueprintEditorUtils::IsActorBased(NewBlueprint))
+	{
+		AActor* ActorCDO = CastChecked< AActor >( NewBlueprint->GeneratedClass->ClassDefaultObject );
+		// Place the new spawnable in front of the camera (unless we were automatically created from a PIE actor)
+		if (Settings->GetSpawnPosition() == SSP_PlaceInFrontOfCamera)
+		{
+			PlaceActorInFrontOfCamera( ActorCDO );
+		}
+		NewTransform.Translation = ActorCDO->GetActorLocation();
+		NewTransform.Rotation = ActorCDO->GetActorRotation();
+		NewTransform.Scale = FVector(1.0f, 1.0f, 1.0f);
+		NewTransform.bValid = true;
+	}
+
+	FGuid NewSpawnableGuid = OwnerMovieScene->AddSpawnable(NewSpawnableName, NewBlueprint);
+	if (NewSpawnableGuid.IsValid())
+	{
+		UMovieSceneSpawnTrack* SpawnTrack = Cast<UMovieSceneSpawnTrack>(OwnerMovieScene->AddTrack(UMovieSceneSpawnTrack::StaticClass(), NewSpawnableGuid));
+		if (SpawnTrack)
+		{
+			SpawnTrack->AddSection(*SpawnTrack->CreateNewSection());
+			SpawnTrack->SetObjectId(NewSpawnableGuid);
+		}
+						
+		if (NewTransform.bValid)
+		{
+			UMovieScene3DTransformTrack* TransformTrack = Cast<UMovieScene3DTransformTrack>(OwnerMovieScene->AddTrack(UMovieScene3DTransformTrack::StaticClass(), NewSpawnableGuid));
+			if (TransformTrack)
 			{
-				AActor* ActorCDO = CastChecked< AActor >( NewBlueprint->GeneratedClass->ClassDefaultObject );
-				// Place the new spawnable in front of the camera (unless we were automatically created from a PIE actor)
-				if (Settings->GetSpawnPosition() == SSP_PlaceInFrontOfCamera)
-				{
-					PlaceActorInFrontOfCamera( ActorCDO );
-				}
-				NewTransform.Translation = ActorCDO->GetActorLocation();
-				NewTransform.Rotation = ActorCDO->GetActorRotation();
-				NewTransform.Scale = FVector(1.0f, 1.0f, 1.0f);
-				NewTransform.bValid = true;
+				static FName Transform("Transform");
+				TransformTrack->SetPropertyNameAndPath(Transform, Transform.ToString());
+				const bool bUnwindRotation = false;
+
+				float Time = GetCurrentLocalTime( *Sequence );
+				EMovieSceneKeyInterpolation Interpolation = GetKeyInterpolation();
+
+				UMovieScene3DTransformSection* NewSection = CastChecked<UMovieScene3DTransformSection>(TransformTrack->CreateNewSection());
+
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Translation, EKey3DTransformChannel::Default, EAxis::X, NewTransform.Translation.X, bUnwindRotation ) );
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Translation, EKey3DTransformChannel::Default, EAxis::Y, NewTransform.Translation.Y, bUnwindRotation ) );
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Translation, EKey3DTransformChannel::Default, EAxis::Z, NewTransform.Translation.Z, bUnwindRotation ) );
+
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Rotation, EKey3DTransformChannel::Default, EAxis::X, NewTransform.Rotation.Euler().X, bUnwindRotation ) );
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Rotation, EKey3DTransformChannel::Default, EAxis::Y, NewTransform.Rotation.Euler().Y, bUnwindRotation ) );
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Rotation, EKey3DTransformChannel::Default, EAxis::Z, NewTransform.Rotation.Euler().Z, bUnwindRotation ) );
+
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Scale, EKey3DTransformChannel::Default, EAxis::X, NewTransform.Scale.X, bUnwindRotation ) );
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Scale, EKey3DTransformChannel::Default, EAxis::Y, NewTransform.Scale.Y, bUnwindRotation ) );
+				NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Scale, EKey3DTransformChannel::Default, EAxis::Z, NewTransform.Scale.Z, bUnwindRotation ) );
+
+				TransformTrack->AddSection(*NewSection);
 			}
-
-			NewSpawnableGuid = OwnerMovieScene->AddSpawnable(NewSpawnableName, NewBlueprint);
-			if (NewSpawnableGuid.IsValid())
-			{
-				UMovieSceneSpawnTrack* SpawnTrack = Cast<UMovieSceneSpawnTrack>(OwnerMovieScene->AddTrack(UMovieSceneSpawnTrack::StaticClass(), NewSpawnableGuid));
-				if (SpawnTrack)
-				{
-					SpawnTrack->AddSection(*SpawnTrack->CreateNewSection());
-					SpawnTrack->SetObject(NewSpawnableGuid);
-				}
-								
-				if (NewTransform.bValid)
-				{
-					UMovieScene3DTransformTrack* TransformTrack = Cast<UMovieScene3DTransformTrack>(OwnerMovieScene->AddTrack(UMovieScene3DTransformTrack::StaticClass(), NewSpawnableGuid));
-					if (TransformTrack)
-					{
-						static FName Transform("Transform");
-						TransformTrack->SetPropertyNameAndPath(Transform, Transform.ToString());
-						const bool bUnwindRotation = false;
-
-						float Time = GetCurrentLocalTime( *Sequence );
-						EMovieSceneKeyInterpolation Interpolation = GetKeyInterpolation();
-
-						UMovieScene3DTransformSection* NewSection = CastChecked<UMovieScene3DTransformSection>(TransformTrack->CreateNewSection());
-
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Translation, EAxis::X, NewTransform.Translation.X, bUnwindRotation ) );
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Translation, EAxis::Y, NewTransform.Translation.Y, bUnwindRotation ) );
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Translation, EAxis::Z, NewTransform.Translation.Z, bUnwindRotation ) );
-
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Rotation, EAxis::X, NewTransform.Rotation.Euler().X, bUnwindRotation ) );
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Rotation, EAxis::Y, NewTransform.Rotation.Euler().Y, bUnwindRotation ) );
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Rotation, EAxis::Z, NewTransform.Rotation.Euler().Z, bUnwindRotation ) );
-
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Scale, EAxis::X, NewTransform.Scale.X, bUnwindRotation ) );
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Scale, EAxis::Y, NewTransform.Scale.Y, bUnwindRotation ) );
-						NewSection->SetDefault( FTransformKey( EKey3DTransformChannel::Scale, EAxis::Z, NewTransform.Scale.Z, bUnwindRotation ) );
-
-						TransformTrack->AddSection(*NewSection);
-					}
-				}
-			}
-		}	
+		}
 	}
 
 	return NewSpawnableGuid;
@@ -1467,7 +1680,6 @@ void GetParentTrackNodeAndNamePath(TSharedRef<const FSequencerDisplayNode> Displ
 
 void FSequencer::OnRequestNodeDeleted( TSharedRef<const FSequencerDisplayNode> NodeToBeDeleted )
 {
-	bool bAnySpawnablesRemoved = false;
 	bool bAnythingRemoved = false;
 	
 	TSharedRef<FMovieSceneSequenceInstance> MovieSceneInstance = GetFocusedMovieSceneSequenceInstance();
@@ -1475,31 +1687,34 @@ void FSequencer::OnRequestNodeDeleted( TSharedRef<const FSequencerDisplayNode> N
 	UMovieScene* OwnerMovieScene = Sequence->GetMovieScene();
 
 	// Only object nodes or section areas can be deleted
-	if( NodeToBeDeleted->GetType() == ESequencerNode::Object  )
+	if (NodeToBeDeleted->GetType() == ESequencerNode::Object)
 	{
-		const FGuid& BindingToRemove = StaticCastSharedRef<const FSequencerObjectBindingNode>( NodeToBeDeleted )->GetObjectBinding();
-
-		//@todo Sequencer - add transaction
-		
-		// Try to remove as a spawnable first
-		bool bRemoved = OwnerMovieScene->RemoveSpawnable( BindingToRemove );
-		if( bRemoved )
+		// Delete any child object bindings
+		for (const TSharedRef<FSequencerDisplayNode>& ChildNode : NodeToBeDeleted->GetChildNodes())
 		{
-			Sequence->DestroySpawnedObject(BindingToRemove);
-			bAnySpawnablesRemoved = true;
+			if (ChildNode->GetType() == ESequencerNode::Object)
+			{
+				OnRequestNodeDeleted(ChildNode);
+			}
 		}
 
-		if( !bRemoved )
+		const FGuid& BindingToRemove = StaticCastSharedRef<const FSequencerObjectBindingNode>( NodeToBeDeleted )->GetObjectBinding();
+		
+		// Try to remove as a spawnable first
+		if (OwnerMovieScene->RemoveSpawnable(BindingToRemove))
 		{
-			// The guid should be associated with a possessable if it wasnt a spawnable
-			bRemoved = OwnerMovieScene->RemovePossessable( BindingToRemove );
-			
+			SpawnRegister->DestroySpawnedObject(BindingToRemove, *MovieSceneInstance, *this);
+		}
+		// The guid should be associated with a possessable if it wasnt a spawnable
+		else if (OwnerMovieScene->RemovePossessable(BindingToRemove))
+		{
 			Sequence->Modify();
-
 			Sequence->UnbindPossessableObjects( BindingToRemove );
-
-			// If this check fails the guid was not associated with a spawnable or possessable so there was an invalid guid being stored on a node
-			check( bRemoved );
+		}
+		else
+		{
+			// If this check fails there was an invalid guid being stored on a node
+			checkf(false, TEXT("Guid was not associated with a spawnable or possessable"));
 		}
 
 		bAnythingRemoved = true;
@@ -1566,7 +1781,7 @@ void FSequencer::PlaceActorInFrontOfCamera( AActor* ActorCDO )
 	if ((GCurrentLevelEditingViewportClient != nullptr) && GCurrentLevelEditingViewportClient->IsPerspective())
 	{
 		// Don't allow this when the active viewport is showing a simulation/PIE level
-		const bool bIsViewportShowingPIEWorld = ( GCurrentLevelEditingViewportClient->GetWorld()->GetOutermost()->PackageFlags & PKG_PlayInEditor ) != 0;
+		const bool bIsViewportShowingPIEWorld = GCurrentLevelEditingViewportClient->GetWorld()->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
 		if( !bIsViewportShowingPIEWorld )
 		{
 			// @todo sequencer actors: Ideally we could use the actor's collision to figure out how far to push out
@@ -1701,6 +1916,11 @@ void FSequencer::DeactivateDetailKeyframeHandler()
 	}
 }
 
+void FSequencer::OnPropertyEditorOpened()
+{
+	ActivateDetailKeyframeHandler();
+}
+
 void FSequencer::UpdatePreviewLevelViewportClientFromCameraCut(FLevelEditorViewportClient& InViewportClient, UObject* InCameraObject) const
 {
 	ACameraActor* CameraActor = Cast<ACameraActor>(InCameraObject);
@@ -1774,38 +1994,25 @@ void FSequencer::AddSelectedObjects()
 		AActor* Actor = CastChecked<AActor>(*It);
 
 		if (Actor != nullptr)
-		{			
-			FGuid ObjectGuid = OwnerSequence->FindObjectId(*Actor);
-
-			// Add this object if it hasn't already been possessed
-			if (ObjectGuid.IsValid())
-			{
-				FMovieScenePossessable* Possessable = OwnerMovieScene->FindPossessable(ObjectGuid);
-				if (Possessable == nullptr)
-				{
-					SelectedActors.Add(Actor);
-				}
-			}
-			else
-			{
-				SelectedActors.Add(Actor);
-			}
+		{
+			SelectedActors.Add(Actor);
 		}
 	}
 
 	bool bPossessableAdded = false;
 	if (SelectedActors.Num() != 0)
 	{
-		const FScopedTransaction Transaction(LOCTEXT("UndoPossessingObject", "Possess Object with MovieScene"));
-			
-		// possess the object!
+		const FScopedTransaction Transaction(LOCTEXT("UndoPossessingObject", "Possess Object in Sequencer"));
 		OwnerSequence->Modify();
-				
+
 		for (auto Actor : SelectedActors)
 		{
-			const FGuid PossessableGuid = OwnerMovieScene->AddPossessable(Actor->GetActorLabel(), Actor->GetClass());
-			OwnerSequence->BindPossessableObject(PossessableGuid, *Actor);
-			bPossessableAdded = true;
+			FGuid ExistingGuid = SequenceInstanceStack.Top()->FindObjectId(*Actor);
+			if (!ExistingGuid.IsValid())
+			{
+				CreateBinding(*Actor, Actor->GetActorLabel());
+				bPossessableAdded = true;
+			}
 		}
 	}
 
@@ -1824,7 +2031,7 @@ void FSequencer::OnSelectedOutlinerNodesChanged()
 	if (IsLevelEditorSequencer())
 	{
 		// Clear the selection if no sequencer display nodes were clicked on and there are selected actors
-		if (Selection.GetSelectedOutlinerNodes().Num() == 0 && GEditor->GetSelectedActors()->Num() != 0)
+		if (Selection.GetSelectedOutlinerNodes().Num() == 0 && GEditor->GetSelectedActors()->Num() != 0 && SequencerWidget->UserIsSelecting())
 		{
 			const bool bNotifySelectionChanged = true;
 			const bool bDeselectBSP = true;
@@ -1909,15 +2116,63 @@ void FSequencer::DeleteSelectedItems()
 	}
 }
 
-void FSequencer::AssignActor(FGuid InObjectBinding, FSequencerObjectBindingNode* ObjectBindingNode)
+void FSequencer::AssignActor(FMenuBuilder& MenuBuilder, FGuid InObjectBinding)
 {
-	if (ObjectBindingNode != nullptr)
+	UObject* RuntimeObject = SequenceInstanceStack.Top()->FindObject(InObjectBinding, *this);
+
+	auto IsActorValidForAssignment = [=](const AActor* InActor, UObject* CurrentObject){
+		return CurrentObject != InActor;
+	};
+
+	using namespace SceneOutliner;
+
+	// Set up a menu entry to assign an actor to the object binding node
+	FInitializationOptions InitOptions;
 	{
-		// Get the first selected actor as the actor to replace with
-		AActor* Actor = GEditor->GetSelectedActors()->GetTop<AActor>();
+		InitOptions.Mode = ESceneOutlinerMode::ActorPicker;
+
+		// We hide the header row to keep the UI compact.
+		InitOptions.bShowHeaderRow = false;
+		InitOptions.bShowSearchBox = true;
+		InitOptions.bShowCreateNewFolder = false;
+		// Only want the actor label column
+		InitOptions.ColumnMap.Add(FBuiltInColumnTypes::Label(), FColumnInfo(EColumnVisibility::Visible, 0));
+
+		// Only display actors that are not possessed already
+		InitOptions.Filters->AddFilterPredicate( FActorFilterPredicate::CreateLambda( IsActorValidForAssignment, RuntimeObject ) );
+	}
+
+	// actor selector to allow the user to choose an actor
+	FSceneOutlinerModule& SceneOutlinerModule = FModuleManager::LoadModuleChecked<FSceneOutlinerModule>("SceneOutliner");
+	TSharedRef< SWidget > MiniSceneOutliner =
+		SNew( SVerticalBox )
+		+SVerticalBox::Slot()
+		.AutoHeight()
+		.MaxHeight(400.0f)
+		[
+			SceneOutlinerModule.CreateSceneOutliner(
+				InitOptions,
+				FOnActorPicked::CreateLambda([=](AActor* Actor){
+					// Create a new binding for this actor
+					FSlateApplication::Get().DismissAllMenus();
+					DoAssignActor(&Actor, 1, InObjectBinding);
+				})
+			)
+		];
+	MenuBuilder.AddWidget(MiniSceneOutliner, FText::GetEmpty(), true);
+	MenuBuilder.EndSection();
+}
+
+void FSequencer::DoAssignActor(AActor*const* InActors, int32 NumActors, FGuid InObjectBinding)
+{
+	if (NumActors > 0)
+	{
+		AActor* Actor = InActors[0];
 		if (Actor != nullptr)
 		{
 			FScopedTransaction AssignActor( NSLOCTEXT("Sequencer", "AssignActor", "Assign Actor") );
+
+			RootMovieSceneSequenceInstance->SaveState(*this);
 
 			UMovieSceneSequence* OwnerSequence = GetFocusedMovieSceneSequence();
 			UMovieScene* OwnerMovieScene = OwnerSequence->GetMovieScene();
@@ -1926,22 +2181,44 @@ void FSequencer::AssignActor(FGuid InObjectBinding, FSequencerObjectBindingNode*
 			OwnerSequence->Modify();
 			OwnerMovieScene->Modify();
 
+			UObject* RuntimeObject = SequenceInstanceStack.Top()->FindObject(InObjectBinding, *this);
+
+			// Replace the object itself
+			FGuid ParentGuid;
+			{
+				// Get the object guid to assign, remove the binding if it already exists
+				ParentGuid = SequenceInstanceStack.Top()->FindObjectId(*Actor);
+				FString NewActorLabel = Actor->GetActorLabel();
+				if (ParentGuid.IsValid())
+				{
+					OwnerMovieScene->RemovePossessable(ParentGuid);
+					OwnerSequence->UnbindPossessableObjects(ParentGuid);
+				}
+
+				// Add this object
+				FMovieScenePossessable NewPossessable( NewActorLabel, Actor->GetClass());
+				ParentGuid = NewPossessable.GetGuid();
+				OwnerSequence->BindPossessableObject(ParentGuid, *Actor, GetPlaybackContext());
+
+				// Replace
+				OwnerMovieScene->ReplacePossessable(InObjectBinding, ParentGuid, NewActorLabel);
+			}
+
 			// Handle components
-			UObject* RuntimeObject = OwnerSequence->FindObject(InObjectBinding);
 			if (AActor* ActorToReplace = Cast<AActor>(RuntimeObject))
 			{
 				for (UActorComponent* ComponentToReplace : ActorToReplace->GetComponents())
 				{
 					if (ComponentToReplace != nullptr)
 					{
-						FGuid ComponentGuid = OwnerSequence->FindObjectId(*ComponentToReplace);
+						FGuid ComponentGuid = SequenceInstanceStack.Top()->FindObjectId(*ComponentToReplace);
 						if (ComponentGuid.IsValid())
 						{
 							UActorComponent* NewComponent = Actor->GetComponentByClass(ComponentToReplace->GetClass());
 							if (NewComponent)
 							{
 								// Get the object guid to assign, remove the binding if it already exists
-								FGuid NewComponentGuid = OwnerSequence->FindObjectId(*NewComponent);
+								FGuid NewComponentGuid = SequenceInstanceStack.Top()->FindObjectId(*NewComponent);
 								FString NewComponentLabel = NewComponent->GetName();
 								if (NewComponentGuid.IsValid())
 								{
@@ -1952,41 +2229,26 @@ void FSequencer::AssignActor(FGuid InObjectBinding, FSequencerObjectBindingNode*
 								// Add this object
 								FMovieScenePossessable NewPossessable( NewComponentLabel, NewComponent->GetClass());
 								NewComponentGuid = NewPossessable.GetGuid();
-								OwnerSequence->BindPossessableObject(NewComponentGuid, *NewComponent);
+								OwnerSequence->BindPossessableObject(NewComponentGuid, *NewComponent, Actor);
 
 								// Replace
 								OwnerMovieScene->ReplacePossessable(ComponentGuid, NewComponentGuid, NewComponentLabel);
+
+								FMovieScenePossessable* ThisPossessable = OwnerMovieScene->FindPossessable(NewComponentGuid);
+								if (ensure(ThisPossessable))
+								{
+									ThisPossessable->SetParent(ParentGuid);
+								}
 							}
 						}
 					}
 				}
 			}
-
-			// Get the object guid to assign, remove the binding if it already exists
-			FGuid NewObjectGuid = OwnerSequence->FindObjectId(*Actor);
-			FString NewActorLabel = Actor->GetActorLabel();
-			if (NewObjectGuid.IsValid())
-			{
-				OwnerMovieScene->RemovePossessable(NewObjectGuid);
-				OwnerSequence->UnbindPossessableObjects(NewObjectGuid);
-			}
-
-			// Add this object
-			FMovieScenePossessable NewPossessable( NewActorLabel, Actor->GetClass());
-			NewObjectGuid = NewPossessable.GetGuid();
-			OwnerSequence->BindPossessableObject(NewObjectGuid, *Actor);
-
-			// Replace
-			OwnerMovieScene->ReplacePossessable(InObjectBinding, NewObjectGuid, NewActorLabel);
-					
+			
+			RootMovieSceneSequenceInstance->RestoreState(*this);
 			NotifyMovieSceneDataChanged();
 		}
 	}
-}
-
-bool FSequencer::CanAssignActor(FGuid ObjectBinding) const
-{
-	return GEditor->GetSelectedActors()->Num() > 0;
 }
 
 void FSequencer::DeleteNode(TSharedRef<FSequencerDisplayNode> NodeToBeDeleted)
@@ -2022,6 +2284,82 @@ void FSequencer::DeleteSelectedNodes()
 			}
 		}
 	}
+}
+
+void FSequencer::ToggleNodeActive()
+{
+	bool bIsActive = !IsNodeActive();
+
+	const FScopedTransaction Transaction( NSLOCTEXT("Sequencer", "ToggleNodeActive", "Toggle Node Active") );
+
+	for (auto OutlinerNode : Selection.GetSelectedOutlinerNodes())
+	{
+		TSet<TWeakObjectPtr<UMovieSceneSection> > Sections;
+		SequencerHelpers::GetAllSections(OutlinerNode, Sections);
+
+		for (auto Section : Sections)
+		{
+			Section->SetIsActive(bIsActive);
+		}
+	}
+}
+
+bool FSequencer::IsNodeActive() const
+{
+	// Active only if all are active
+	for (auto OutlinerNode : Selection.GetSelectedOutlinerNodes())
+	{
+		TSet<TWeakObjectPtr<UMovieSceneSection> > Sections;
+		SequencerHelpers::GetAllSections(OutlinerNode, Sections);
+
+		for (auto Section : Sections)
+		{
+			if (!Section->IsActive())
+			{
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+void FSequencer::ToggleNodeLocked()
+{
+	bool bIsLocked = !IsNodeLocked();
+
+	const FScopedTransaction Transaction( NSLOCTEXT("Sequencer", "ToggleNodeLocked", "Toggle Node Locked") );
+
+	for (auto OutlinerNode : Selection.GetSelectedOutlinerNodes())
+	{
+		TSet<TWeakObjectPtr<UMovieSceneSection> > Sections;
+		SequencerHelpers::GetAllSections(OutlinerNode, Sections);
+
+		for (auto Section : Sections)
+		{
+			Section->SetIsLocked(bIsLocked);
+		}
+	}
+}
+
+bool FSequencer::IsNodeLocked() const
+{
+	// Locked only if all are locked
+	int NumSections = 0;
+	for (auto OutlinerNode : Selection.GetSelectedOutlinerNodes())
+	{
+		TSet<TWeakObjectPtr<UMovieSceneSection> > Sections;
+		SequencerHelpers::GetAllSections(OutlinerNode, Sections);
+
+		for (auto Section : Sections)
+		{
+			if (!Section->IsLocked())
+			{
+				return false;
+			}
+			++NumSections;
+		}
+	}
+	return NumSections > 0;
 }
 
 void FSequencer::TogglePlay()
@@ -2069,14 +2407,16 @@ void FSequencer::StepToPreviousCameraKey()
 	SequencerWidget->StepToPreviousCameraKey();
 }
 
-void FSequencer::ExpandNodesAndDescendants()
+void FSequencer::ExpandAllNodesAndDescendants()
 {
-	SequencerWidget->GetTreeView()->ExpandNodes(ETreeRecursion::Recursive);
+	const bool bExpandAll = true;
+	SequencerWidget->GetTreeView()->ExpandNodes(ETreeRecursion::Recursive, bExpandAll);
 }
 
-void FSequencer::CollapseNodesAndDescendants()
+void FSequencer::CollapseAllNodesAndDescendants()
 {
-	SequencerWidget->GetTreeView()->CollapseNodes(ETreeRecursion::Recursive);
+	const bool bExpandAll = true;
+	SequencerWidget->GetTreeView()->CollapseNodes(ETreeRecursion::Recursive, bExpandAll);
 }
 
 void FSequencer::ToggleExpandCollapseNodes()
@@ -2103,9 +2443,10 @@ void FSequencer::SetKey()
 	
 		for (auto KeyArea : KeyAreas)
 		{
-			KeyArea->GetOwningSection()->Modify();
-	
-			KeyArea->AddKeyUnique(GetGlobalTime(), GetKeyInterpolation());
+			if (KeyArea->GetOwningSection()->TryModify())
+			{
+				KeyArea->AddKeyUnique(GetGlobalTime(), GetKeyInterpolation());
+			}
 		}
 	}
 }
@@ -2159,11 +2500,91 @@ void FSequencer::OnSetKeyTimeTextCommitted(const FText& InText, ETextCommit::Typ
 		{
 			if (Key.IsValid())
 			{
-				Key.Section->Modify();
-				Key.KeyArea->SetKeyTime(Key.KeyHandle.GetValue(), NewKeyTime);
+				if (Key.Section->TryModify())
+				{
+					Key.KeyArea->SetKeyTime(Key.KeyHandle.GetValue(), NewKeyTime);
+				}
 			}
 		}
 	}
+}
+
+TArray<TSharedPtr<FMovieSceneClipboard>> GClipboardStack;
+
+void FSequencer::CopySelectedKeys()
+{
+	if (Selection.GetSelectedKeys().Num() == 0)
+	{
+		return;
+	}
+
+	TOptional<float> CopyRelativeTo;
+	
+	// Copy relative to the current key hotspot, if applicable
+	TSharedPtr<ISequencerHotspot> Hotspot = SequencerWidget->GetEditTool().GetHotspot();
+	if (Hotspot.IsValid() && Hotspot->GetType() == ESequencerHotspot::Key)
+	{
+		FKeyHotspot* KeyHotspot = StaticCastSharedPtr<FKeyHotspot>(Hotspot).Get();
+		if (KeyHotspot->Key.KeyArea.IsValid() && KeyHotspot->Key.KeyHandle.IsSet())
+		{
+			CopyRelativeTo = KeyHotspot->Key.KeyArea->GetKeyTime(KeyHotspot->Key.KeyHandle.GetValue());
+		}
+	}
+
+	FMovieSceneClipboardBuilder Builder;
+
+	// Map selected keys to their key areas
+	TMap<const IKeyArea*, TArray<FKeyHandle>> KeyAreaMap;
+	for (const FSequencerSelectedKey& Key : Selection.GetSelectedKeys())
+	{
+		if (Key.KeyHandle.IsSet())
+		{
+			KeyAreaMap.FindOrAdd(Key.KeyArea.Get()).Add(Key.KeyHandle.GetValue());
+		}
+	}
+
+	// Serialize each key area to the clipboard
+	for (auto& Pair : KeyAreaMap)
+	{
+		Pair.Key->CopyKeys(Builder, [&](FKeyHandle Handle, const IKeyArea&){
+			return Pair.Value.Contains(Handle);
+		});
+	}
+
+
+	TSharedRef<FMovieSceneClipboard> Clipboard = MakeShareable( new FMovieSceneClipboard(Builder.Commit(CopyRelativeTo)) );
+	
+	if (Clipboard->GetKeyTrackGroups().Num())
+	{
+		GClipboardStack.Push(Clipboard);
+
+		if (GClipboardStack.Num() > 10)
+		{
+			GClipboardStack.RemoveAt(0, 1);
+		}
+	}
+}
+
+void FSequencer::CutSelectedKeys()
+{
+	FScopedTransaction CutKeysTransaction( LOCTEXT("CutSelectedKeys_Transaction", "Cut Selected Keys") );
+	CopySelectedKeys();
+	DeleteSelectedKeys();
+}
+
+const TArray<TSharedPtr<FMovieSceneClipboard>>& FSequencer::GetClipboardStack() const
+{
+	return GClipboardStack;
+}
+
+void FSequencer::OnClipboardUsed(TSharedPtr<FMovieSceneClipboard> Clipboard)
+{
+	Clipboard->GetEnvironment().DateTime = FDateTime::UtcNow();
+
+	// Last entry in the stack should be the most up-to-date
+	GClipboardStack.Sort([](const TSharedPtr<FMovieSceneClipboard>& A, const TSharedPtr<FMovieSceneClipboard>& B){
+		return A->GetEnvironment().DateTime < B->GetEnvironment().DateTime;
+	});
 }
 
 void FSequencer::GenericTextEntryModeless(const FText& DialogText, const FText& DefaultText, FOnTextCommitted OnTextComitted)
@@ -2278,12 +2699,12 @@ void FSequencer::BindSequencerCommands()
 		FExecuteAction::CreateSP( this, &FSequencer::SetEndPlaybackRange ) );
 
 	SequencerCommandBindings->MapAction(
-		Commands.ExpandNodesAndDescendants,
-		FExecuteAction::CreateSP(this, &FSequencer::ExpandNodesAndDescendants));
+		Commands.ExpandAllNodesAndDescendants,
+		FExecuteAction::CreateSP(this, &FSequencer::ExpandAllNodesAndDescendants));
 
 	SequencerCommandBindings->MapAction(
-		Commands.CollapseNodesAndDescendants,
-		FExecuteAction::CreateSP(this, &FSequencer::CollapseNodesAndDescendants));
+		Commands.CollapseAllNodesAndDescendants,
+		FExecuteAction::CreateSP(this, &FSequencer::CollapseAllNodesAndDescendants));
 
 	SequencerCommandBindings->MapAction(
 		Commands.ToggleExpandCollapseNodes,
@@ -2360,6 +2781,14 @@ void FSequencer::BindSequencerCommands()
 		FIsActionChecked::CreateLambda( [this]{ return Settings->GetDetailsViewVisible(); } ) );
 
 	SequencerCommandBindings->MapAction(
+		Commands.ToggleLabelBrowser,
+		FExecuteAction::CreateLambda( [this]{
+			Settings->SetLabelBrowserVisible( !Settings->GetLabelBrowserVisible() );
+		} ),
+		FCanExecuteAction::CreateLambda( []{ return true; } ),
+		FIsActionChecked::CreateLambda( [this]{ return Settings->GetLabelBrowserVisible(); } ) );
+
+	SequencerCommandBindings->MapAction(
 		Commands.ToggleShowFrameNumbers,
 		FExecuteAction::CreateLambda( [this]{ Settings->SetShowFrameNumbers( !Settings->GetShowFrameNumbers() ); } ),
 		FCanExecuteAction::CreateSP(this, &FSequencer::CanShowFrameNumbers ),
@@ -2425,7 +2854,47 @@ void FSequencer::BindSequencerCommands()
 		FCanExecuteAction::CreateLambda( []{ return true; } ),
 		FIsActionChecked::CreateLambda( [this]{ return Settings->GetShowCurveEditor(); } ) );
 
-	SequencerCommandBindings->MapAction( Commands.RenderMovie,
+	auto CanCutOrCopy = [this]{
+		if (!IsSequencerWidgetFocused())
+		{
+			return false;
+		}
+		
+		UMovieSceneTrack* Track = nullptr;
+		for (FSequencerSelectedKey Key : Selection.GetSelectedKeys())
+		{
+			if (!Track)
+			{
+				Track = Key.Section->GetTypedOuter<UMovieSceneTrack>();
+			}
+			if (!Track || Track != Key.Section->GetTypedOuter<UMovieSceneTrack>())
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+
+	SequencerCommandBindings->MapAction(
+		FGenericCommands::Get().Cut,
+		FExecuteAction::CreateSP(this, &FSequencer::CutSelectedKeys),
+		FCanExecuteAction::CreateLambda(CanCutOrCopy)
+	);
+
+	SequencerCommandBindings->MapAction(
+		FGenericCommands::Get().Copy,
+		FExecuteAction::CreateSP(this, &FSequencer::CopySelectedKeys),
+		FCanExecuteAction::CreateLambda(CanCutOrCopy)
+	);
+
+	SequencerCommandBindings->MapAction(
+		Commands.ToggleKeepCursorInPlaybackRange,
+		FExecuteAction::CreateLambda( [this]{ Settings->SetKeepCursorInPlayRange( !Settings->ShouldKeepCursorInPlayRange() ); } ),
+		FCanExecuteAction::CreateLambda( []{ return true; } ),
+		FIsActionChecked::CreateLambda( [this]{ return Settings->ShouldKeepCursorInPlayRange(); } ) );
+
+	SequencerCommandBindings->MapAction(
+		Commands.RenderMovie,
 		FExecuteAction::CreateLambda([this]{
 			FLevelEditorModule& LevelEditorModule = FModuleManager::GetModuleChecked<FLevelEditorModule>(TEXT("LevelEditor"));
 
@@ -2433,32 +2902,28 @@ void FSequencer::BindSequencerCommands()
 			UAutomatedLevelSequenceCapture* MovieSceneCapture = NewObject<UAutomatedLevelSequenceCapture>(GetTransientPackage(), UAutomatedLevelSequenceCapture::StaticClass(), NAME_None, RF_Transient);
 			MovieSceneCapture->LoadConfig();
 
-			bool bFoundActor = false;
-
 			// Attempt to find a level sequence actor in the world that references this asset
 			for (auto It = TActorIterator<ALevelSequenceActor>(GWorld); It; ++It)
 			{
 				if (It->LevelSequence == GetCurrentAsset())
 				{
 					MovieSceneCapture->SetLevelSequenceActor(*It);
-					bFoundActor = true;
+					break;
 				}
 			}
 
-			if (!bFoundActor)
-			{
-				MovieSceneCapture->SetLevelSequenceAsset(GetCurrentAsset()->GetPathName());
-			}
+			MovieSceneCapture->SetLevelSequenceAsset(GetCurrentAsset()->GetPathName());
 
 			if (CanShowFrameNumbers())
 			{
 				MovieSceneCapture->Settings.FrameRate = FMath::RoundToInt(1.f / Settings->GetTimeSnapInterval());
-				// We always add 1 to the number of frames we want to capture, because we want to capture both the start and end frames (which if the play range is 0, would still yield a single frame)
-				MovieSceneCapture->Settings.FrameCount = FMath::RoundToInt((GetPlaybackRange().GetUpperBoundValue() - GetPlaybackRange().GetLowerBoundValue()) * MovieSceneCapture->Settings.FrameRate) + 1;
-			}
-			else
-			{
-				MovieSceneCapture->Settings.FrameCount = 0;
+				MovieSceneCapture->Settings.bUseRelativeFrameNumbers = false;
+
+				const int32 SequenceStartFrame = FMath::RoundToInt( GetPlaybackRange().GetLowerBoundValue() * MovieSceneCapture->Settings.FrameRate );
+				const int32 SequenceEndFrame = FMath::Max( SequenceStartFrame, FMath::RoundToInt( GetPlaybackRange().GetUpperBoundValue() * MovieSceneCapture->Settings.FrameRate ) );
+
+				MovieSceneCapture->StartFrame = SequenceStartFrame;
+				MovieSceneCapture->EndFrame = SequenceEndFrame;
 			}
 
 			IMovieSceneCaptureDialogModule::Get().OpenDialog(LevelEditorModule.GetLevelEditorTabManager().ToSharedRef(), MovieSceneCapture);

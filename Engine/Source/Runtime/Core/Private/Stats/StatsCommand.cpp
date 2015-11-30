@@ -16,6 +16,9 @@ DECLARE_CYCLE_STAT(TEXT("HUD Group"),STAT_HUDGroup,STATGROUP_StatSystem);
 DECLARE_CYCLE_STAT(TEXT("Accumulate"),STAT_Accumulate,STATGROUP_StatSystem);
 DECLARE_CYCLE_STAT(TEXT("GetFlatAggregates"),STAT_GetFlatAggregates,STATGROUP_StatSystem);
 
+static float DumpCull = 1.0f;
+
+
 void FromString( EStatCompareBy::Type& OutValue, const TCHAR* Buffer )
 {
 	OutValue = EStatCompareBy::Sum;
@@ -76,36 +79,19 @@ struct FGroupFilter : public IItemFiler
 
 struct FBudgetData
 {
-	float TotalGameTime;
-	float TotalWorkerTime;
-	TArray<FString> GameStats;
-	TArray<FString> WorkerStats;
-	TSet<FName>	GameStatsChildren;
-	TSet<FName>	WorkerStatsChildren;
-
-	FBudgetData()
-		: TotalGameTime(-1)
-		, TotalWorkerTime(-1)
-	{
-	}
-
+	TArray<FString> Stats;
+	TSet<FName>	NonAccumulatingStats;
+	TMap<FName, float> ThreadBudgetMap;
+	
 	/** Builds any extra meta data from the stats provided **/
 	void Process()
 	{
-		ProcessStats(GameStats, GameStatsChildren);
-		ProcessStats(WorkerStats, WorkerStatsChildren);
-	}
-
-private:
-
-	void ProcessStats(TArray<FString>& Stats, TSet<FName>& Children)
-	{
 		FString ChildPrefix(TEXT("-"));
-		for(FString& Stat : Stats)
+		for (FString& Stat : Stats)
 		{
-			if(Stat.RemoveFromStart(ChildPrefix))
+			if (Stat.RemoveFromStart(ChildPrefix))
 			{
-				Children.Add(FName(*Stat));
+				NonAccumulatingStats.Add(FName(*Stat));
 			}
 		}
 	}
@@ -191,30 +177,30 @@ struct FStatSlowParams : public FStatParams
 	}
 };
 
-void DumpHistoryFrame(FStatsThreadState const& StatsData, int64 TargetFrame, float DumpCull = 0.0f, int32 MaxDepth = MAX_int32, TCHAR const* Filter = NULL)
+void DumpHistoryFrame(FStatsThreadState const& StatsData, int64 TargetFrame, float InDumpCull = 0.0f, int32 MaxDepth = MAX_int32, TCHAR const* Filter = NULL)
 {
 	UE_LOG(LogStats, Log, TEXT("Single Frame %lld ---------------------------------"), TargetFrame);
-	if (DumpCull == 0.0f)
+	if (InDumpCull == 0.0f)
 	{
 		UE_LOG(LogStats, Log, TEXT("Full data, use -ms=5, for example to show just the stack data with a 5ms threshhold."));
 	}
 	else
 	{
-		UE_LOG(LogStats, Log, TEXT("Culled to %fms, use -ms=0, for all data and aggregates."), DumpCull);
+		UE_LOG(LogStats, Log, TEXT("Culled to %fms, use -ms=0, for all data and aggregates."), InDumpCull);
 	}
 	{
 		UE_LOG(LogStats, Log, TEXT("Stack ---------------"));
 		FRawStatStackNode Stack;
 		StatsData.UncondenseStackStats(TargetFrame, Stack);
 		Stack.AddSelf();
-		if (DumpCull != 0.0f)
+		if (InDumpCull != 0.0f)
 		{
-			Stack.CullByCycles( int64( DumpCull / FPlatformTime::ToMilliseconds( 1 ) ) );		
+			Stack.CullByCycles( int64( InDumpCull / FPlatformTime::ToMilliseconds( 1 ) ) );		
 		}
 		Stack.CullByDepth( MaxDepth );
 		Stack.DebugPrint(Filter);
 	}
-	if (DumpCull == 0.0f)
+	if (InDumpCull == 0.0f)
 	{
 		UE_LOG(LogStats, Log, TEXT("Inclusive aggregate stack data---------------"));
 		TArray<FStatMessage> Stats;
@@ -246,6 +232,22 @@ void DumpHistoryFrame(FStatsThreadState const& StatsData, int64 TargetFrame, flo
 				UE_LOG(LogStats, Log, TEXT("%s"), *LastGroup.ToString());
 			}
 			UE_LOG(LogStats, Log, TEXT("  %s"), *FStatsUtils::DebugPrint(Meta));
+		}
+
+		UE_LOG(LogStats, Log, TEXT("Inclusive aggregate stack data with thread breakdown ---------------"));
+		Stats.Empty();
+		TMap<FName, TArray<FStatMessage>> ByThread;
+		StatsData.GetInclusiveAggregateStackStats(TargetFrame, Stats, nullptr, false, &ByThread);
+		for(TMap<FName, TArray<FStatMessage>>::TConstIterator It(ByThread); It; ++It)
+		{
+			const FName ShortThreadName = FStatNameAndInfo::GetShortNameFrom(It.Key());
+			UE_LOG(LogStats, Log, TEXT("  %s"), *ShortThreadName.ToString());
+
+			const TArray<FStatMessage>& StatMessages = It.Value();
+			for(const FStatMessage& Meta : Stats)
+			{
+				UE_LOG(LogStats, Log, TEXT("    %s"), *FStatsUtils::DebugPrint(Meta))
+			}
 		}
 	}
 }
@@ -600,7 +602,7 @@ static void DumpHitch(int64 Frame)
 		Stack.AddNameHierarchy();
 		Stack.AddSelf();
 
-		const float MinTimeToReportInSecs = 1.0f / 1000.0f;
+		const float MinTimeToReportInSecs = DumpCull / 1000.0f;
 		const int64 MinCycles = int64(MinTimeToReportInSecs / FPlatformTime::GetSecondsPerCycle());
 		FRawStatStackNode* GameThread = NULL;
 		FRawStatStackNode* RenderThread = NULL;
@@ -703,16 +705,24 @@ FStatGroupGameThreadNotifier& FStatGroupGameThreadNotifier::Get()
 struct FInternalGroup
 {
 	/** Initialization constructor. */
-	FInternalGroup(const FName InGroupName, const FName InGroupCategory, const EStatDisplayMode::Type InDisplayMode, TSet<FName>& InEnabledItems, const FString& InGroupDescription, float InTotalBudget = -1.f, TSet<FName> InBudgetIgnore = TSet<FName>())
+	FInternalGroup(const FName InGroupName, const FName InGroupCategory, const EStatDisplayMode::Type InDisplayMode, TSet<FName>& InEnabledItems, const FString& InGroupDescription, TMap<FName, float>* InThreadBudgetMap = nullptr, TSet<FName>* InBudgetIgnore = nullptr)
 		: GroupName( InGroupName )
 		, GroupCategory(InGroupCategory)
 		, GroupDescription( InGroupDescription )
-		, TotalBudget( InTotalBudget )
-		, BudgetIgnoreStats( InBudgetIgnore )
 		, DisplayMode( InDisplayMode )	
 	{
 		// To avoid copy.
 		Exchange( EnabledItems, InEnabledItems );
+		
+		if(InThreadBudgetMap)
+		{
+			Exchange(ThreadBudgetMap, *InThreadBudgetMap);	//avoid copy
+		}
+
+		if (InBudgetIgnore)
+		{
+			Exchange(BudgetIgnoreStats, *InBudgetIgnore);	//avoid copy
+		}
 	}
 
 	/** Set of elements which should be included in this group stats. */
@@ -728,7 +738,7 @@ struct FInternalGroup
 	FString GroupDescription;
 
 	/** If budget mode is used, this is the expected cost of the stats in the group added up. */
-	float TotalBudget;
+	TMap<FName, float> ThreadBudgetMap;
 
 	/** If budget mode is used, these are the stats that we display, but ignore during summation */
 	TSet<FName> BudgetIgnoreStats;
@@ -744,6 +754,7 @@ struct FHudFrame
 	TArray<FStatMessage> ExclusiveAggregate;
 	TArray<FStatMessage> NonStackStats;
 	FRawStatStackNode HierarchyInclusive;
+	TMap<FName, TArray<FStatMessage>> InclusiveAggregateThreadBreakdown;
 };
 
 struct FHUDGroupManager 
@@ -763,10 +774,12 @@ struct FHUDGroupManager
 	/** Flat array of messages, it's accumulating all the time, but can be reset with a command 'stat hier -reset'. */
 	TArray<FStatMessage> TotalAggregateInclusive;
 	TArray<FStatMessage> TotalNonStackStats;
+	TMap<FName, TArray<FStatMessage>> TotalAggregateInclusiveThreadBreakdown;
 
 	/** Root stat stack for history frames, by default it's for the last 20 frames. */
 	FComplexRawStatStackNode AggregatedHierarchyHistory;
 	TArray<FComplexStatMessage> AggregatedFlatHistory;
+	TMap<FName, TArray<FComplexStatMessage>> AggregatedFlatHistoryThreadBreakdown;
 	TArray<FComplexStatMessage> AggregatedNonStackStatsHistory;
 
 	/** Copy of the stat group command parameters. */
@@ -908,47 +921,29 @@ struct FHUDGroupManager
 				}
 				else
 				{
-					float GameThreadBudget = -1.f;
-					float WorkerThreadBudget = -1.f;
-					TArray<FName> GameStatShortNames;
-					TSet<FName> GameBudgetIgnoreStats;
-					TArray<FName> WorkerStatShortNames;
-					TSet<FName> WorkerBudgetIgnoreStats;
+					TMap<FName, float> ThreadBudgetMap;
+					TArray<FName> StatShortNames;
+					TSet<FName> NonAccumulatingStats;
 					{
 						FScopeLock BudgetLock(&BudgetStatMapCS);
 						if(FBudgetData* BudgetData = BudgetStatMapping.Find(Params.BudgetSection))
 						{
-							for(const FString& StatEntry : BudgetData->GameStats)
+							for(const FString& StatEntry : BudgetData->Stats)
 							{
-								GameStatShortNames.Add(FName(*StatEntry));
-							}				
-
-							for (const FString& StatEntry : BudgetData->WorkerStats)
-							{
-								WorkerStatShortNames.Add(FName(*StatEntry));
+								StatShortNames.Add(FName(*StatEntry));
 							}
 
-							GameThreadBudget = BudgetData->TotalGameTime;
-							GameBudgetIgnoreStats = BudgetData->GameStatsChildren;
-
-							WorkerThreadBudget = BudgetData->TotalWorkerTime;
-							WorkerBudgetIgnoreStats = BudgetData->WorkerStatsChildren;
+							NonAccumulatingStats = BudgetData->NonAccumulatingStats;
+							ThreadBudgetMap = BudgetData->ThreadBudgetMap;
 						}
 					}
 					
 					{
-						TSet<FName> GameStatSet;
-						GetStatsForNames(GameStatSet, GameStatShortNames);
-						FName GameBudgetGroupName(TEXT("Budget_GameThread"));
-						EnabledGroups.Add(GameBudgetGroupName, FInternalGroup(GameBudgetGroupName, NAME_None, EStatDisplayMode::Flat, GameStatSet, *Params.BudgetSection, GameThreadBudget, GameBudgetIgnoreStats));
-						HandleToggleCommandBroadcast( GameBudgetGroupName, bCurrentEnabled, bOthersEnabled );
-					}
-					{
-						TSet<FName> WorkerStatSet;
-						GetStatsForNames(WorkerStatSet, WorkerStatShortNames);
-						FName WorkerBudgetGroupName(TEXT("Budget_WorkerThread"));
-						EnabledGroups.Add(WorkerBudgetGroupName, FInternalGroup(WorkerBudgetGroupName, NAME_None, EStatDisplayMode::Flat, WorkerStatSet, *Params.BudgetSection, WorkerThreadBudget, WorkerBudgetIgnoreStats));
-						HandleToggleCommandBroadcast( WorkerBudgetGroupName, bCurrentEnabled, bOthersEnabled );
+						TSet<FName> StatSet;
+						GetStatsForNames(StatSet, StatShortNames);
+						FName BudgetGroupName(*Params.BudgetSection);
+						EnabledGroups.Add(BudgetGroupName, FInternalGroup(*Params.BudgetSection, NAME_None, EStatDisplayMode::Flat, StatSet, TEXT("Budget"), &ThreadBudgetMap, &NonAccumulatingStats));
+						HandleToggleCommandBroadcast( BudgetGroupName, bCurrentEnabled, bOthersEnabled );
 					}
 				}
 			}
@@ -1068,8 +1063,25 @@ struct FHUDGroupManager
 
 			{
 				SCOPE_CYCLE_COUNTER(STAT_GetFlatAggregates);
-				Stats.GetInclusiveAggregateStackStats( TargetFrame, NewFrame.InclusiveAggregate, &Filter, false );
+				Stats.GetInclusiveAggregateStackStats( TargetFrame, NewFrame.InclusiveAggregate, &Filter, false, &NewFrame.InclusiveAggregateThreadBreakdown );
 				Stats.GetExclusiveAggregateStackStats( TargetFrame, NewFrame.ExclusiveAggregate, &Filter, false );
+
+				//Merge all task graph stats into 1
+				TArray<FStatMessage> MergedTaskGraphThreads;
+				for(TMap<FName, TArray<FStatMessage>>::TIterator It(NewFrame.InclusiveAggregateThreadBreakdown); It; ++It)
+				{
+					const FName ThreadName = FStatNameAndInfo::GetShortNameFrom(It.Key());
+					if (ThreadName.ToString().Contains(TEXT("TaskGraphThread")))
+					{
+						FStatsUtils::AddMergeStatArray(MergedTaskGraphThreads, It.Value());
+						It.RemoveCurrent();
+					}
+				}
+				
+				if(MergedTaskGraphThreads.Num())
+				{
+					NewFrame.InclusiveAggregateThreadBreakdown.Add(FName(TEXT("MergedTaskGraphThreads")), MergedTaskGraphThreads);
+				}
 			}
 		}
 
@@ -1092,10 +1104,15 @@ struct FHUDGroupManager
 		if( NumTotalStackFrames == 0 )
 		{
 			TotalAggregateInclusive = NewFrame.InclusiveAggregate;
+			TotalAggregateInclusiveThreadBreakdown = NewFrame.InclusiveAggregateThreadBreakdown;
 		}
 		else
 		{
 			FStatsUtils::AddMergeStatArray( TotalAggregateInclusive, NewFrame.InclusiveAggregate );
+			for(TMap<FName, TArray<FStatMessage>>::TConstIterator It(NewFrame.InclusiveAggregateThreadBreakdown); It; ++It)
+			{
+				FStatsUtils::AddMergeStatArray(TotalAggregateInclusiveThreadBreakdown.FindOrAdd(It.Key()), It.Value());
+			}
 		}
 
 		// Aggregate non-stack stats.
@@ -1137,18 +1154,31 @@ struct FHUDGroupManager
 			{
 				TotalHierarchyInclusive.Sort(FStatDurationComparer<FRawStatStackNode>());
 				TotalAggregateInclusive.Sort(FStatDurationComparer<FStatMessage>());
+				for(TMap<FName, TArray<FStatMessage>>::TIterator It(TotalAggregateInclusiveThreadBreakdown); It; ++It)
+				{
+					It.Value().Sort(FStatDurationComparer<FStatMessage>());
+				}
+				
 				TotalNonStackStats.Sort(FStatValueComparer());
 			}
 			else if (StatCompare == EStatCompareBy::CallCount)
 			{
 				TotalHierarchyInclusive.Sort(FStatCallCountComparer<FRawStatStackNode>());
 				TotalAggregateInclusive.Sort(FStatCallCountComparer<FStatMessage>());
+				for (TMap<FName, TArray<FStatMessage>>::TIterator It(TotalAggregateInclusiveThreadBreakdown); It; ++It)
+				{
+					It.Value().Sort(FStatCallCountComparer<FStatMessage>());
+				}
 				TotalNonStackStats.Sort(FStatValueComparer());
 			}
 			else if (StatCompare == EStatCompareBy::Name)
 			{
 				TotalHierarchyInclusive.Sort(FStatNameComparer<FRawStatStackNode>());
 				TotalAggregateInclusive.Sort(FStatNameComparer<FStatMessage>());
+				for (TMap<FName, TArray<FStatMessage>>::TIterator It(TotalAggregateInclusiveThreadBreakdown); It; ++It)
+				{
+					It.Value().Sort(FStatNameComparer<FStatMessage>());
+				}
 				TotalNonStackStats.Sort(FStatNameComparer<FStatMessage>());
 			}
 		}
@@ -1181,6 +1211,17 @@ struct FHUDGroupManager
 				new(AggregatedFlatHistory) FComplexStatMessage(StatMessage);
 			}
 
+			// Copy flat-stack stats by thread
+			AggregatedFlatHistoryThreadBreakdown.Reset();
+			for(TMap<FName, TArray<FStatMessage>>::TConstIterator It(TotalAggregateInclusiveThreadBreakdown); It; ++It)
+			{
+				TArray<FComplexStatMessage>& AggregatedFlatHistoryThreadBreakdownArray = AggregatedFlatHistoryThreadBreakdown.Add(It.Key());
+				for (const FStatMessage& StatMessage : It.Value())
+				{
+					new (AggregatedFlatHistoryThreadBreakdownArray)FComplexStatMessage(StatMessage);
+				}
+			}
+
 			// Copy non-stack stats
 			AggregatedNonStackStatsHistory.Reset( TotalNonStackStats.Num() );
 			for( int32 Index = 0; Index < TotalNonStackStats.Num(); ++Index )
@@ -1190,16 +1231,21 @@ struct FHUDGroupManager
 			}
 			
 			// Accumulate hierarchy, flat and non-stack stats.
-			for( auto It = History.CreateConstIterator(); It; ++It )
+			for( auto FrameIt = History.CreateConstIterator(); FrameIt; ++FrameIt )
 			{
 				SCOPE_CYCLE_COUNTER(STAT_Accumulate);
-				const FHudFrame& Frame = It.Value();
+				const FHudFrame& Frame = FrameIt.Value();
 
 				AggregatedHierarchyHistory.MergeAddAndMax( Frame.HierarchyInclusive );
 
 				FComplexStatUtils::MergeAddAndMaxArray( AggregatedFlatHistory, Frame.InclusiveAggregate, EComplexStatField::IncSum, EComplexStatField::IncMax );
-				FComplexStatUtils::MergeAddAndMaxArray( AggregatedFlatHistory, Frame.ExclusiveAggregate, EComplexStatField::ExcSum, EComplexStatField::ExcMax );
 
+				for (TMap<FName, TArray<FStatMessage>>::TConstIterator It(Frame.InclusiveAggregateThreadBreakdown); It; ++It)
+				{
+					FComplexStatUtils::MergeAddAndMaxArray( AggregatedFlatHistoryThreadBreakdown.FindChecked(It.Key()), It.Value(), EComplexStatField::IncSum, EComplexStatField::IncMax );
+				}
+
+				FComplexStatUtils::MergeAddAndMaxArray( AggregatedFlatHistory, Frame.ExclusiveAggregate, EComplexStatField::ExcSum, EComplexStatField::ExcMax );
 				FComplexStatUtils::MergeAddAndMaxArray( AggregatedNonStackStatsHistory, Frame.NonStackStats, EComplexStatField::IncSum, EComplexStatField::IncMax );
 			}
 
@@ -1218,13 +1264,18 @@ struct FHUDGroupManager
 			FComplexStatUtils::DiviveStatArray( AggregatedFlatHistory, NumFrames, EComplexStatField::IncSum, EComplexStatField::IncAve );
 			FComplexStatUtils::DiviveStatArray( AggregatedFlatHistory, NumFrames, EComplexStatField::ExcSum, EComplexStatField::ExcAve );
 
+			for(TMap<FName, TArray<FComplexStatMessage>>::TIterator It(AggregatedFlatHistoryThreadBreakdown); It; ++It)
+			{
+				FComplexStatUtils::DiviveStatArray(It.Value(), NumFrames, EComplexStatField::IncSum, EComplexStatField::IncAve);
+			}
+
 			FComplexStatUtils::DiviveStatArray( AggregatedNonStackStatsHistory, NumFrames, EComplexStatField::IncSum, EComplexStatField::IncAve );
 	
 			// Iterate through all enabled groups.
-			for( auto It = EnabledGroups.CreateIterator(); It; ++It )
+			for( auto GroupIt = EnabledGroups.CreateIterator(); GroupIt; ++GroupIt )
 			{
-				const FName& GroupName = It.Key();
-				FInternalGroup& InternalGroup = It.Value();
+				const FName& GroupName = GroupIt.Key();
+				FInternalGroup& InternalGroup = GroupIt.Value();
 
 				// Create a new hud group.
 				new(ToGame->HudGroups) FHudGroup();
@@ -1232,7 +1283,7 @@ struct FHUDGroupManager
 
 				ToGame->GroupNames.Add( GroupName );
 				ToGame->GroupDescriptions.Add( InternalGroup.GroupDescription );
-				HudGroup.TotalGroupBudget = InternalGroup.TotalBudget;
+				HudGroup.ThreadBudgetMap = InternalGroup.ThreadBudgetMap;
 				HudGroup.BudgetIgnoreStats = InternalGroup.BudgetIgnoreStats;
 
 				if (Params.bSlowMode)
@@ -1259,6 +1310,21 @@ struct FHUDGroupManager
 						if( bToBeAdded )
 						{
 							new(HudGroup.FlatAggregate) FComplexStatMessage( AggregatedStatMessage );
+						}
+					}
+
+					for(TMap<FName, TArray<FComplexStatMessage>>::TConstIterator It(AggregatedFlatHistoryThreadBreakdown); It; ++It)
+					{
+						const TArray<FComplexStatMessage>& SrcArray = It.Value();
+						
+						for(const FComplexStatMessage& AggregatedStatMessage : SrcArray)
+						{
+							const bool bToBeAdded = InternalGroup.EnabledItems.Contains(AggregatedStatMessage.NameAndInfo.GetRawName());
+							if(bToBeAdded)
+							{
+								TArray<FComplexStatMessage>& DestArray = HudGroup.FlatAggregateThreadBreakdown.FindOrAdd(It.Key());	
+								new(DestArray) FComplexStatMessage( AggregatedStatMessage );
+							}
 						}
 					}
 				}
@@ -1394,7 +1460,6 @@ bool FGroupFilter::IsRoot(const FName& MessageName) const
 	Dump...
 -----------------------------------------------------------------------------*/
 
-static float DumpCull = 5.0f;
 static int32 MaxDepth = MAX_int32;
 static FString NameFilter;
 static FDelegateHandle DumpFrameDelegateHandle;
@@ -1577,7 +1642,7 @@ static void PrintStatsHelpToOutputDevice( FOutputDevice& Ar )
 
 	Ar.Log( TEXT("stat dumpave|dumpmax|dumpsum  [-start | -stop | -num=30] [-ms=5.0] [-depth=maxint] - aggregate stats over multiple frames"));
 	Ar.Log( TEXT("stat dumphitches - toggles dumping hitches"));
-	Ar.Log( TEXT("stat dumpevents [-ms=0.2] [-all] - toggles dumping events history for slow events, -all adds other threads besides game and render"));
+	Ar.Log( TEXT("stat dumpevents [-ms=0.2] [-all] - dumps events history for slow events, -all adds other threads besides game and render"));
 	Ar.Log( TEXT("stat dumpnonframe - dumps non-frame stats, usually memory stats"));
 	Ar.Log( TEXT("stat dumpcpu - dumps cpu stats"));
 
@@ -1655,7 +1720,7 @@ static void StatCmd(FString InCmd, bool bStatCommand)
 	{
 #if STATS
 		FStatsThreadState& Stats = FStatsThreadState::GetLocalState();
-		DumpCull = 5.0f;
+		DumpCull = 1.0f;
 		MaxDepth = MAX_int32;
 		NameFilter.Empty();
 
@@ -2048,11 +2113,23 @@ bool DirectStatsCommand(const TCHAR* Cmd, bool bBlockForCompletion /*= false*/, 
 				{
 					FBudgetData& BudgetData = BudgetStatMapping.FindOrAdd(BudgetSection);
 					BudgetData = FBudgetData();
-					GConfig->GetArray(*BudgetSection, TEXT("Game"), BudgetData.GameStats, GEngineIni);
-					GConfig->GetFloat(*BudgetSection, TEXT("GameTime"), BudgetData.TotalGameTime, GEngineIni);
-
-					GConfig->GetArray(*BudgetSection, TEXT("Worker"), BudgetData.WorkerStats, GEngineIni);
-					GConfig->GetFloat(*BudgetSection, TEXT("WorkerTime"), BudgetData.TotalWorkerTime, GEngineIni);
+					GConfig->GetArray(*BudgetSection, TEXT("Stats"), BudgetData.Stats, GEngineIni);
+					
+					TArray<FString> Lines;
+					GConfig->GetSection(*BudgetSection, Lines, GEngineIni);
+					for(const FString& Line : Lines)
+					{
+						if(!Line.Contains(TEXT("+Stats=")))	//ignore stats array
+						{
+							FString ThreadName;
+							Line.Split(FString(TEXT("=")), &ThreadName, nullptr);
+							float Budget = -1.f;
+							if(GConfig->GetFloat(*BudgetSection, *ThreadName, Budget, GEngineIni))
+							{
+								BudgetData.ThreadBudgetMap.FindOrAdd(FName(*ThreadName)) = Budget;
+							}
+						}
+					}
 
 					BudgetData.Process();
 				}

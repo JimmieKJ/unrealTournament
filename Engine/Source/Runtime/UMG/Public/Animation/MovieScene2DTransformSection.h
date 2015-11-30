@@ -23,18 +23,25 @@ enum class EKey2DTransformAxis
 	None
 };
 
+enum class EKey2DTransformValueType
+{
+	Key,
+	Default
+};
 
 struct F2DTransformKey
 {
-	F2DTransformKey( EKey2DTransformChannel InChannel, EKey2DTransformAxis InAxis, float InValue )
+	F2DTransformKey( EKey2DTransformChannel InChannel, EKey2DTransformAxis InAxis, float InValue, EKey2DTransformValueType InValueType )
 	{
 		Channel = InChannel;
 		Axis = InAxis;
 		Value = InValue;
+		ValueType = InValueType;
 	}
 	EKey2DTransformChannel Channel;
 	EKey2DTransformAxis Axis;
 	float Value;
+	EKey2DTransformValueType ValueType;	
 };
 
 

@@ -51,7 +51,7 @@ enum ESceneTextureId
 	PPI_PostProcessInput5 UMETA(DisplayName="PostProcessInput5"),
 	/** Input #6 of this postprocess pass, usually not used */
 	PPI_PostProcessInput6 UMETA(DisplayName="PostProcessInput6"),
-	/** Decal Mask, single bit */
+	/** Decal Mask, single bit (was moved to stencil for better performance, not accessible at the moment) */
 	PPI_DecalMask UMETA(DisplayName="Decal Mask"),
 	/** Shading model */
 	PPI_ShadingModel UMETA(DisplayName="Shading Model"),

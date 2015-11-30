@@ -40,7 +40,7 @@ FString FPackageName::GetShortName(const FString& LongName)
 	return LongName.Mid(IndexOfLastSlash + 1);
 }
 
-FString FPackageName::GetShortName(UPackage* Package)
+FString FPackageName::GetShortName(const UPackage* Package)
 {
 	check(Package != NULL);
 	return GetShortName(Package->GetName());

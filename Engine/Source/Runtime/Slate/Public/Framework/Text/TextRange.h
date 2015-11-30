@@ -17,6 +17,25 @@ struct SLATE_API FTextRange
 
 	}
 
+	FORCEINLINE bool operator==(const FTextRange& Other) const
+	{
+		return BeginIndex == Other.BeginIndex 
+			&& EndIndex == Other.EndIndex;
+	}
+
+	FORCEINLINE bool operator!=(const FTextRange& Other) const
+	{
+		return !(*this == Other);
+	}
+
+	friend inline uint32 GetTypeHash(const FTextRange& Key)
+	{
+		uint32 KeyHash = 0;
+		KeyHash = HashCombine(KeyHash, GetTypeHash(Key.BeginIndex));
+		KeyHash = HashCombine(KeyHash, GetTypeHash(Key.EndIndex));
+		return KeyHash;
+	}
+
 	int32 Len() const { return EndIndex - BeginIndex; }
 	bool IsEmpty() const { return (EndIndex - BeginIndex) <= 0; }
 	void Offset(int32 Amount) { BeginIndex += Amount; BeginIndex = FMath::Max(0, BeginIndex);  EndIndex += Amount; EndIndex = FMath::Max(0, EndIndex); }

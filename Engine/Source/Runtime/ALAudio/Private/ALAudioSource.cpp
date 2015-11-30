@@ -109,8 +109,7 @@ void FALSoundSource::Update( void )
 	// Set whether to apply reverb
 	SetReverbApplied( true );
 
-	// Set the HighFrequencyGain value
-	SetHighFrequencyGain();
+	SetFilterFrequency();
 
 	FVector Location;
 	FVector	Velocity;

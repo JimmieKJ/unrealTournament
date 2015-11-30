@@ -3,15 +3,99 @@
 #include "SlateCorePrivatePCH.h"
 
 
-/* FSlateRenderer interface
+/* FSlateFontCacheProvider interface
  *****************************************************************************/
 
-void FSlateRenderer::FlushFontCache( )
+FSlateFontServices::FSlateFontServices(TSharedRef<class FSlateFontCache> InGameThreadFontCache, TSharedRef<class FSlateFontCache> InRenderThreadFontCache)
+	: GameThreadFontCache(InGameThreadFontCache)
+	, RenderThreadFontCache(InRenderThreadFontCache)
+	, GameThreadFontMeasure(FSlateFontMeasure::Create(GameThreadFontCache))
+	, RenderThreadFontMeasure((GameThreadFontCache == RenderThreadFontCache) ? GameThreadFontMeasure : FSlateFontMeasure::Create(RenderThreadFontCache))
 {
-	FontCache->FlushCache();
-	FontMeasure->FlushCache();
 }
 
+
+TSharedRef<FSlateFontCache> FSlateFontServices::GetFontCache() const
+{
+	check(IsInGameThread() || IsInRenderingThread());
+
+	const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
+	check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
+
+	if (AtlasThreadId == ESlateTextureAtlasThreadId::Game)
+	{
+		return GameThreadFontCache;
+	}
+	else
+	{
+		return RenderThreadFontCache;
+	}
+}
+
+
+TSharedRef<class FSlateFontMeasure> FSlateFontServices::GetFontMeasureService() const
+{
+	check(IsInGameThread() || IsInRenderingThread());
+
+	const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
+	check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
+
+	if (AtlasThreadId == ESlateTextureAtlasThreadId::Game)
+	{
+		return GameThreadFontMeasure;
+	}
+	else
+	{
+		return RenderThreadFontMeasure;
+	}
+}
+
+
+void FSlateFontServices::FlushFontCache()
+{
+	check(IsInGameThread() || IsInRenderingThread());
+
+	const ESlateTextureAtlasThreadId AtlasThreadId = GetCurrentSlateTextureAtlasThreadId();
+	check(AtlasThreadId != ESlateTextureAtlasThreadId::Unknown);
+
+	if (AtlasThreadId == ESlateTextureAtlasThreadId::Game)
+	{
+		return FlushGameThreadFontCache();
+	}
+	else
+	{
+		return FlushRenderThreadFontCache();
+	}
+}
+
+
+void FSlateFontServices::FlushGameThreadFontCache()
+{
+	GameThreadFontCache->FlushCache();
+	GameThreadFontMeasure->FlushCache();
+}
+
+
+void FSlateFontServices::FlushRenderThreadFontCache()
+{
+	RenderThreadFontCache->FlushCache();
+	RenderThreadFontMeasure->FlushCache();
+}
+
+
+void FSlateFontServices::ReleaseResources()
+{
+	GameThreadFontCache->ReleaseResources();
+
+	if (GameThreadFontCache != RenderThreadFontCache)
+	{
+		RenderThreadFontCache->ReleaseResources();
+	}
+}
+
+
+/* FSlateRenderer interface
+ *****************************************************************************/
 
 bool FSlateRenderer::IsViewportFullscreen( const SWindow& Window ) const
 {
@@ -47,12 +131,7 @@ ISlateAtlasProvider* FSlateRenderer::GetTextureAtlasProvider()
 
 ISlateAtlasProvider* FSlateRenderer::GetFontAtlasProvider()
 {
-	if( FontCache.IsValid() )
-	{
-		return FontCache.Get();
-	}
-
-	return nullptr;
+	return &SlateFontServices->GetGameThreadFontCache().Get();
 }
 
 TSharedRef<FSlateRenderDataHandle, ESPMode::ThreadSafe> FSlateRenderer::CacheElementRenderData(const ILayoutCache* Cacher, FSlateWindowElementList& ElementList)
@@ -68,7 +147,21 @@ void FSlateRenderer::ReleaseCachingResourcesFor(const ILayoutCache* Cacher)
 /* Global functions
  *****************************************************************************/
 
-bool IsThreadSafeForSlateRendering( )
+bool IsThreadSafeForSlateRendering()
 {
-	return ((GSlateLoadingThreadId != 0) || IsInGameThread());
+	return ( ( GSlateLoadingThreadId != 0 ) || IsInGameThread() );
+}
+
+bool DoesThreadOwnSlateRendering()
+{
+	if ( IsInGameThread() )
+	{
+		return GSlateLoadingThreadId == 0;
+	}
+	else
+	{
+		return FPlatformTLS::GetCurrentThreadId() == GSlateLoadingThreadId;
+	}
+
+	return false;
 }

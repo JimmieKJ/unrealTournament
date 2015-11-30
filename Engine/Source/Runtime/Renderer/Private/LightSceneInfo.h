@@ -121,6 +121,11 @@ public:
 	/** Tile intersection buffer for distance field shadowing, stored on the light to avoid reallocating each frame. */
 	mutable TScopedPointer<class FLightTileIntersectionResources> TileIntersectionResources;
 
+	mutable FVertexBufferRHIRef ShadowSphereShapesVertexBuffer;
+	mutable FShaderResourceViewRHIRef ShadowSphereShapesSRV;
+	mutable FVertexBufferRHIRef ShadowCapsuleShapesVertexBuffer;
+	mutable FShaderResourceViewRHIRef ShadowCapsuleShapesSRV;
+
 protected:
 	/** True if the light is built. */
 	uint32 bPrecomputedLightingIsValid : 1;

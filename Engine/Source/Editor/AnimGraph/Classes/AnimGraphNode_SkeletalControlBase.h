@@ -32,6 +32,11 @@ public:
 
 	// Draw function for supporting visualization
 	virtual void Draw(FPrimitiveDrawInterface* PDI, USkeletalMeshComponent * PreviewSkelMeshComp) const {}
+	// Canvas draw function to draw to viewport
+	virtual void DrawCanvas(FViewport& InViewport, FSceneView& View, FCanvas& Canvas, USkeletalMeshComponent * PreviewSkelMeshComp) const {}
+	// Function to collect strings from nodes to display in the viewport.
+	// Use this rather than DrawCanvas when adding general text to the viewport.
+	virtual void GetOnScreenDebugInfo(TArray<FText>& DebugInfo, USkeletalMeshComponent* PreviewSkelMeshComp) const {}
 
 	/**
 	 * methods related to widget control

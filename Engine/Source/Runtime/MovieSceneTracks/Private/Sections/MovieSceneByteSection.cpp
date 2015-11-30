@@ -44,8 +44,10 @@ void UMovieSceneByteSection::GetKeyHandles(TSet<FKeyHandle>& KeyHandles) const
 
 void UMovieSceneByteSection::AddKey( float Time, const uint8& Value, EMovieSceneKeyInterpolation KeyInterpolation )
 {
-	Modify();
-	ByteCurve.UpdateOrAddKey(Time, Value);
+	if (TryModify())
+	{
+		ByteCurve.UpdateOrAddKey(Time, Value);
+	}
 }
 
 
@@ -63,6 +65,8 @@ bool UMovieSceneByteSection::HasKeys( const uint8& Value ) const
 
 void UMovieSceneByteSection::SetDefault( const uint8& Value )
 {
-	Modify();
-	ByteCurve.SetDefaultValue(Value);
+	if (TryModify())
+	{
+		ByteCurve.SetDefaultValue(Value);
+	}
 }

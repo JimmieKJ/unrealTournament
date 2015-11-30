@@ -569,7 +569,7 @@ namespace EditorUtilities
 {
 	AActor* GetEditorWorldCounterpartActor( AActor* Actor )
 	{
-		const bool bIsSimActor = !!( Actor->GetOutermost()->PackageFlags & PKG_PlayInEditor );
+		const bool bIsSimActor = Actor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
 		if( bIsSimActor && GEditor->PlayWorld != NULL )
 		{
 			// Do we have a counterpart in the editor world?
@@ -600,7 +600,7 @@ namespace EditorUtilities
 
 	AActor* GetSimWorldCounterpartActor( AActor* Actor )
 	{
-		const bool bIsSimActor = !!( Actor->GetOutermost()->PackageFlags & PKG_PlayInEditor );
+		const bool bIsSimActor = Actor->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor);
 		if( !bIsSimActor && GEditor->EditorWorld != NULL )
 		{
 			// Do we have a counterpart in the sim world?
@@ -826,7 +826,7 @@ namespace EditorUtilities
 			for (int32 ArrayIndex = 0; ArrayIndex < PropertyArrayDim; ArrayIndex++)
 			{
 				UObject* const SourceObjectPropertyValue = ObjectProperty->GetObjectPropertyValue_InContainer(InSourcePtr, ArrayIndex);
-				if (SourceObjectPropertyValue && SourceObjectPropertyValue->GetOutermost()->PackageFlags & PKG_PlayInEditor)
+				if (SourceObjectPropertyValue && SourceObjectPropertyValue->GetOutermost()->HasAnyPackageFlags(PKG_PlayInEditor))
 				{
 					// Not all the code paths below actually copy the object, but even if they don't we need to claim that they
 					// did, as copying a reference to an object in a PIE world leads to crashes
@@ -911,11 +911,11 @@ namespace EditorUtilities
 		CopySinglePropertyRecursive(InSourceObject, InTargetObject, InTargetObject, InProperty);
 	}
 
-	int32 CopyActorProperties( AActor* SourceActor, AActor* TargetActor, const ECopyOptions::Type Options )
+	int32 CopyActorProperties( AActor* SourceActor, AActor* TargetActor, const FCopyOptions& Options )
 	{
 		check( SourceActor != nullptr && TargetActor != nullptr );
 
-		const bool bIsPreviewing = ( Options & ECopyOptions::PreviewOnly ) != 0;
+		const bool bIsPreviewing = ( Options.Flags & ECopyOptions::PreviewOnly ) != 0;
 
 		int32 CopiedPropertyCount = 0;
 
@@ -925,7 +925,7 @@ namespace EditorUtilities
 
 		// Get archetype instances for propagation (if requested)
 		TArray<AActor*> ArchetypeInstances;
-		if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+		if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 		{
 			TArray<UObject*> ObjectArchetypeInstances;
 			TargetActor->GetArchetypeInstances(ObjectArchetypeInstances);
@@ -935,7 +935,7 @@ namespace EditorUtilities
 				if (AActor* ActorArchetype = Cast<AActor>(ObjectArchetype))
 				{
 					ArchetypeInstances.Add(ActorArchetype);
-				}			
+				}
 			}
 		}
 
@@ -949,14 +949,19 @@ namespace EditorUtilities
 			const bool bIsTransient = !!( Property->PropertyFlags & CPF_Transient );
 			const bool bIsComponentContainer = !!( Property->PropertyFlags & CPF_ContainsInstancedReference );
 			const bool bIsComponentProp = !!( Property->PropertyFlags & ( CPF_InstancedReference | CPF_ContainsInstancedReference ) );
-			const bool bIsBlueprintReadonly = !!(Options & ECopyOptions::FilterBlueprintReadOnly) && !!( Property->PropertyFlags & CPF_BlueprintReadOnly );
+			const bool bIsBlueprintReadonly = !!(Options.Flags & ECopyOptions::FilterBlueprintReadOnly) && !!( Property->PropertyFlags & CPF_BlueprintReadOnly );
 			const bool bIsIdentical = Property->Identical_InContainer( SourceActor, TargetActor );
 
 			if( !bIsTransient && !bIsIdentical && !bIsComponentContainer && !bIsComponentProp && !bIsBlueprintReadonly)
 			{
-				const bool bIsSafeToCopy = !( Options & ECopyOptions::OnlyCopyEditOrInterpProperties ) || ( Property->HasAnyPropertyFlags( CPF_Edit | CPF_Interp ) );
+				const bool bIsSafeToCopy = !( Options.Flags & ECopyOptions::OnlyCopyEditOrInterpProperties ) || ( Property->HasAnyPropertyFlags( CPF_Edit | CPF_Interp ) );
 				if( bIsSafeToCopy )
 				{
+					if (!Options.CanCopyProperty(*Property, *SourceActor))
+					{
+						continue;
+					}
+
 					if( !bIsPreviewing )
 					{
 						if( !ModifiedObjects.Contains(TargetActor) )
@@ -966,14 +971,14 @@ namespace EditorUtilities
 							ModifiedObjects.Add(TargetActor);
 						}
 
-						if( Options & ECopyOptions::CallPostEditChangeProperty )
+						if( Options.Flags & ECopyOptions::CallPostEditChangeProperty )
 						{
 							TargetActor->PreEditChange( Property );
 						}
 
 						// Determine which archetype instances match the current property value of the target actor (before it gets changed). We only want to propagate the change to those instances.
 						TArray<UObject*> ArchetypeInstancesToChange;
-						if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+						if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 						{
 							for( AActor* ArchetypeInstance : ArchetypeInstances )
 							{
@@ -986,13 +991,13 @@ namespace EditorUtilities
 
 						CopySingleProperty(SourceActor, TargetActor, Property);
 
-						if( Options & ECopyOptions::CallPostEditChangeProperty )
+						if( Options.Flags & ECopyOptions::CallPostEditChangeProperty )
 						{
 							FPropertyChangedEvent PropertyChangedEvent( Property );
 							TargetActor->PostEditChangeProperty( PropertyChangedEvent );
 						}
 
-						if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+						if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 						{
 							for( int32 InstanceIndex = 0; InstanceIndex < ArchetypeInstancesToChange.Num(); ++InstanceIndex )
 							{
@@ -1041,7 +1046,7 @@ namespace EditorUtilities
 
 				// Build a list of matching component archetype instances for propagation (if requested)
 				TArray<UActorComponent*> ComponentArchetypeInstances;
-				if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+				if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 				{
 					for( AActor* ArchetypeInstance : ArchetypeInstances )
 					{
@@ -1073,9 +1078,14 @@ namespace EditorUtilities
 					if( !bIsTransient && !bIsIdentical && !bIsComponent && !SourceUCSModifiedProperties.Contains(Property)
 						&& ( !bIsTransform || SourceComponent != SourceActor->GetRootComponent() || ( !SourceActor->HasAnyFlags( RF_ClassDefaultObject | RF_ArchetypeObject ) && !TargetActor->HasAnyFlags( RF_ClassDefaultObject | RF_ArchetypeObject ) ) ) )
 					{
-						const bool bIsSafeToCopy = !( Options & ECopyOptions::OnlyCopyEditOrInterpProperties ) || ( Property->HasAnyPropertyFlags( CPF_Edit | CPF_Interp ) );
+						const bool bIsSafeToCopy = !( Options.Flags & ECopyOptions::OnlyCopyEditOrInterpProperties ) || ( Property->HasAnyPropertyFlags( CPF_Edit | CPF_Interp ) );
 						if( bIsSafeToCopy )
 						{
+							if (!Options.CanCopyProperty(*Property, *SourceActor))
+							{
+								continue;
+							}
+							
 							if( !bIsPreviewing )
 							{
 								if( !ModifiedObjects.Contains(TargetComponent) )
@@ -1085,7 +1095,7 @@ namespace EditorUtilities
 									ModifiedObjects.Add(TargetComponent);
 								}
 
-								if( Options & ECopyOptions::CallPostEditChangeProperty )
+								if( Options.Flags & ECopyOptions::CallPostEditChangeProperty )
 								{
 									// @todo simulate: Should we be calling this on the component instead?
 									TargetActor->PreEditChange( Property );
@@ -1093,7 +1103,7 @@ namespace EditorUtilities
 
 								// Determine which component archetype instances match the current property value of the target component (before it gets changed). We only want to propagate the change to those instances.
 								TArray<UActorComponent*> ComponentArchetypeInstancesToChange;
-								if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+								if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 								{
 									for (UActorComponent* ComponentArchetypeInstance : ComponentArchetypeInstances)
 									{
@@ -1125,13 +1135,13 @@ namespace EditorUtilities
 
 								CopySingleProperty(SourceComponent, TargetComponent, Property);
 
-								if( Options & ECopyOptions::CallPostEditChangeProperty )
+								if( Options.Flags & ECopyOptions::CallPostEditChangeProperty )
 								{
 									FPropertyChangedEvent PropertyChangedEvent( Property );
 									TargetActor->PostEditChangeProperty( PropertyChangedEvent );
 								}
 
-								if( Options & ECopyOptions::PropagateChangesToArchetypeInstances )
+								if( Options.Flags & ECopyOptions::PropagateChangesToArchetypeInstances )
 								{
 									for( int32 InstanceIndex = 0; InstanceIndex < ComponentArchetypeInstancesToChange.Num(); ++InstanceIndex )
 									{
@@ -1187,7 +1197,7 @@ namespace EditorUtilities
 		// If one of the changed properties was part of the actor's transformation, then we'll call PostEditMove too.
 		if( !bIsPreviewing && bTransformChanged )
 		{
-			if( Options & ECopyOptions::CallPostEditMove )
+			if( Options.Flags & ECopyOptions::CallPostEditMove )
 			{
 				const bool bFinishedMove = true;
 				TargetActor->PostEditMove( bFinishedMove );

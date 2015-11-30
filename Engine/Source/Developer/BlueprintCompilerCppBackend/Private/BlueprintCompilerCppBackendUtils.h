@@ -65,6 +65,8 @@ public:
 
 	const FGatherConvertedClassDependencies& Dependencies;
 
+	TMap<UFunction*, FString> MCDelegateSignatureToSCDelegateType;
+
 	FEmitterLocalContext(const FGatherConvertedClassDependencies& InDependencies)
 		: CurrentCodeType(EGeneratedCodeType::Regular)
 		, LocalNameIndexMax(0)
@@ -147,7 +149,7 @@ public:
 
 	UClass* GetCurrentlyGeneratedClass() const
 	{
-		return Cast<UClass>(Dependencies.GetOriginalStruct());
+		return Cast<UClass>(Dependencies.GetActualStruct());
 	}
 
 	/** All objects (that can be referenced from other package) that will have a different path in cooked build
@@ -175,7 +177,7 @@ public:
 	}
 
 private:
-	FEmitterLocalContext(const FEmitterLocalContext&);
+	FEmitterLocalContext(const FEmitterLocalContext&) = delete;
 };
 
 struct FEmitHelper
@@ -189,9 +191,9 @@ struct FEmitHelper
 
 	static FString HandleRepNotifyFunc(const UProperty* Property);
 
-	static bool MetaDataCanBeNative(const FName MetaDataName);
+	static bool MetaDataCanBeNative(const FName MetaDataName, const UField* Field);
 
-	static FString HandleMetaData(const UField* Field, bool AddCategory = true, TArray<FString>* AdditinalMetaData = nullptr);
+	static FString HandleMetaData(const UField* Field, bool AddCategory = true, const TArray<FString>* AdditinalMetaData = nullptr);
 
 	static TArray<FString> ProperyFlagsToTags(uint64 Flags, bool bIsClassProperty);
 
@@ -201,11 +203,13 @@ struct FEmitHelper
 
 	static bool IsBlueprintImplementableEvent(uint64 FunctionFlags);
 
-	static FString EmitUFuntion(UFunction* Function, TArray<FString>* AdditinalMetaData = nullptr);
+	static FString EmitUFuntion(UFunction* Function, const TArray<FString>& AdditionalTags, const TArray<FString>& AdditionalMetaData);
 
 	static int32 ParseDelegateDetails(FEmitterLocalContext& EmitterContext, UFunction* Signature, FString& OutParametersMacro, FString& OutParamNumberStr);
 
 	static void EmitSinglecastDelegateDeclarations(FEmitterLocalContext& EmitterContext, const TArray<UDelegateProperty*>& Delegates);
+
+	static void EmitSinglecastDelegateDeclarations_Inner(FEmitterLocalContext& EmitterContext, UFunction* Signature, const FString& TypeName);
 
 	static void EmitMulticastDelegateDeclarations(FEmitterLocalContext& EmitterContext);
 
@@ -230,6 +234,14 @@ struct FEmitHelper
 	static FString ReplaceConvertedMetaData(UObject* Obj);
 
 	static FString GetPCHFilename();
+
+	static FString GetGameMainHeaderFilename();
+
+	static FString GenerateGetPropertyByName(FEmitterLocalContext& EmitterContext, const UProperty* Property);
+
+	static FString AccessInaccessibleProperty(FEmitterLocalContext& EmitterContext, const UProperty* Property
+		, const FString& ContextStr, const FString& ContextAdressOp, const FString& StaticArrayIdx = FString(TEXT(", 0")));
+
 };
 
 struct FNonativeComponentData;
@@ -279,4 +291,11 @@ struct FBackendHelperUMG
 	static void CreateClassSubobjects(FEmitterLocalContext& Context, bool bCreate, bool bInitialize);
 	static void EmitWidgetInitializationFunctions(FEmitterLocalContext& Context);
 
+};
+
+struct FBackendHelperAnim
+{
+	static FString AddHeaders(UClass* GeneratedClass);
+
+	static void CreateAnimClassData(FEmitterLocalContext& Context);
 };

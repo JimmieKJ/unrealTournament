@@ -664,7 +664,7 @@ void ClothingActorData::skinToImmediateMap(const PxU32* immediateClothMap_, PxU3
 	}
 }
 
-bool bHackSkinMesh = false;
+
 
 void ClothingActorData::skinToPhysicalMesh_NoPhysX(bool fromFetchResults)
 {
@@ -724,7 +724,7 @@ void ClothingActorData::skinToPhysicalMesh_NoPhysX(bool fromFetchResults)
 		//__builtin_snpause();
 		//NiApexRenderMeshAsset* renderMeshAsset = mAsset->getGraphicalMesh(i);
 		//PX_ASSERT(renderMeshAsset != NULL);
-		
+
 		// Do mesh-to-mesh skinning here
 		if (graphicalLod.mSkinClothMapB != NULL)
 		{
@@ -734,15 +734,12 @@ void ClothingActorData::skinToPhysicalMesh_NoPhysX(bool fromFetchResults)
 		else if (graphicalLod.mSkinClothMap != NULL)
 		{
 			PxVec4* tangents = skinTangents ? mRenderingDataTangent : NULL;
-			if (bHackSkinMesh)
-			{
-				if (skinNormals)
-					mAsset.skinClothMap<true>(mRenderingDataPosition, mRenderingDataNormal, tangents, graphicalVerticesCount, pcm,
-					graphicalLod.mSkinClothMap, graphicalLod.mSkinClothMapCount, graphicalLod.mSkinClothMapOffset, mActorScale);
-				else
-					mAsset.skinClothMap<false>(mRenderingDataPosition, mRenderingDataNormal, tangents, graphicalVerticesCount, pcm,
-					graphicalLod.mSkinClothMap, graphicalLod.mSkinClothMapCount, graphicalLod.mSkinClothMapOffset, mActorScale);
-			}
+			if (skinNormals)
+				mAsset.skinClothMap<true>(mRenderingDataPosition, mRenderingDataNormal, tangents, graphicalVerticesCount, pcm,
+											graphicalLod.mSkinClothMap, graphicalLod.mSkinClothMapCount, graphicalLod.mSkinClothMapOffset, mActorScale);
+			else
+				mAsset.skinClothMap<false>(mRenderingDataPosition, mRenderingDataNormal, tangents, graphicalVerticesCount, pcm,
+											graphicalLod.mSkinClothMap, graphicalLod.mSkinClothMapCount, graphicalLod.mSkinClothMapOffset, mActorScale);
 
 		}
 		else if (graphicalLod.mTetraMap != NULL)

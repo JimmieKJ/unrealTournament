@@ -88,7 +88,7 @@ FString FArchiveTraceRoute::PrintRootPath( const TMap<UObject*,UProperty*>& Rout
 			ObjectReachability += TEXT(" (root)");
 		}
 		
-		if( Object->HasAnyFlags(RF_Native) )
+		if( Object->IsNative() )
 		{
 			ObjectReachability += TEXT(" (native)");
 		}
@@ -127,7 +127,7 @@ FArchiveTraceRoute::FArchiveTraceRoute( UObject* TargetObject, TMap<UObject*,FTr
 :	CurrentReferencer(NULL)
 ,	Depth(0)
 ,	bIncludeTransients(bShouldIncludeTransients)
-,	RequiredFlags(KeepFlags|RF_RootSet)
+,	RequiredFlags(KeepFlags)
 {
 	// this object is part of the root set; don't have to do anything
 	if ( TargetObject == NULL || TargetObject->HasAnyFlags(KeepFlags) )
@@ -148,7 +148,7 @@ FArchiveTraceRoute::FArchiveTraceRoute( UObject* TargetObject, TMap<UObject*,FTr
 	for( FObjectIterator It; It; ++It )
 	{
 		UObject* CurrentObject = *It;
-		if ( CurrentObject->HasAnyFlags(RequiredFlags) )
+		if ( CurrentObject->HasAnyFlags(RequiredFlags) || CurrentObject->IsRooted() )
 		{
 			// make sure it isn't tagged
 			CurrentObject->UnMark(OBJECTMARK_TagExp);
@@ -415,7 +415,7 @@ void FArchiveTraceRoute::CalculateReferenceDepthsForNode( FObjectGraphNode* Obje
 		{
 			// if the object from this node has one of the required flags, don't process this object's referencers
 			// as it's considered a "root" for the route
-			if ( !CurrentNode->NodeObject->HasAnyFlags(RequiredFlags) )
+			if (!CurrentNode->NodeObject->HasAnyFlags(RequiredFlags) && !CurrentNode->NodeObject->IsRooted())
 			{
 				CalculateReferenceDepthsForNode(CurrentNode);
 			}

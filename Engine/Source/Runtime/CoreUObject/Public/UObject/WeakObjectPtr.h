@@ -21,11 +21,6 @@
 struct FWeakObjectPtr
 {
 public:
-	/**  
-	 * Startup the weak object system
-	**/
-	static COREUOBJECT_API void Init();
-
 
 	/** NULL constructor **/
 	FORCEINLINE FWeakObjectPtr()
@@ -159,13 +154,65 @@ private:
 	 * internal function to test for serial number matches
 	 * @return true if the serial number in this matches the central table
 	**/
-	bool SerialNumbersMatch() const;
+	FORCEINLINE_DEBUGGABLE bool SerialNumbersMatch() const
+	{
+		checkSlow(ObjectSerialNumber > FUObjectArray::START_SERIAL_NUMBER && ObjectIndex >= 0); // otherwise this is a corrupted weak pointer
+		int32 ActualSerialNumber = GUObjectArray.GetSerialNumber(ObjectIndex);
+		checkSlow(!ActualSerialNumber || ActualSerialNumber >= ObjectSerialNumber); // serial numbers should never shrink
+		return ActualSerialNumber == ObjectSerialNumber;
+	}
+
+	FORCEINLINE_DEBUGGABLE bool SerialNumbersMatch(FUObjectItem* ObjectItem) const
+	{
+		checkSlow(ObjectSerialNumber > FUObjectArray::START_SERIAL_NUMBER && ObjectIndex >= 0); // otherwise this is a corrupted weak pointer
+		const int32 ActualSerialNumber = ObjectItem->GetSerialNumber();
+		checkSlow(!ActualSerialNumber || ActualSerialNumber >= ObjectSerialNumber); // serial numbers should never shrink
+		return ActualSerialNumber == ObjectSerialNumber;
+	}
 
 	/** Private (inlined) version for internal use only. */
-	bool Internal_IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest) const;
+	FORCEINLINE_DEBUGGABLE bool Internal_IsValid(bool bEvenIfPendingKill, bool bThreadsafeTest) const
+	{
+		if (ObjectSerialNumber == 0)
+		{
+			checkSlow(ObjectIndex == 0 || ObjectIndex == -1); // otherwise this is a corrupted weak pointer
+			return false;
+		}
+		if (ObjectIndex < 0)
+		{
+			return false;
+		}
+		FUObjectItem* ObjectItem = GUObjectArray.IndexToObject(ObjectIndex);
+		if (!ObjectItem)
+		{
+			return false;
+		}
+		if (!SerialNumbersMatch(ObjectItem))
+		{
+			return false;
+		}
+		if (bThreadsafeTest)
+		{
+			return true;
+		}
+		return GUObjectArray.IsValid(ObjectItem, bEvenIfPendingKill);
+	}
 
 	/** Private (inlined) version for internal use only. */
-	class UObject* Internal_Get(bool bEvenIfPendingKill) const;
+	FORCEINLINE_DEBUGGABLE UObject* Internal_Get(bool bEvenIfPendingKill) const
+	{
+		UObject* Result = nullptr;
+
+		if (Internal_IsValid(true, true))
+		{
+			FUObjectItem* ObjectItem = GUObjectArray.IndexToValidObject(GetObjectIndex(), bEvenIfPendingKill);
+			if (ObjectItem)
+			{
+				Result = (UObject*)ObjectItem->Object;
+			}
+		}
+		return Result;
+	}
 
 	int32		ObjectIndex;
 	int32		ObjectSerialNumber;

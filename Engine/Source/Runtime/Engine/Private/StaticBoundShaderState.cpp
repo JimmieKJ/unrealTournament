@@ -108,12 +108,6 @@ static FBoundShaderStateRHIParamRef GetGlobalBoundShaderState_Internal(FGlobalBo
 {
 	auto WorkArea = GlobalBoundShaderState.Get(InFeatureLevel);
 
-	// Check for unset uniform buffer parameters
-	// Technically you can set uniform buffer parameters after calling RHISetBoundShaderState, but this is the most global place to check for unset parameters
-	WorkArea->Args.VertexShader->VerifyBoundUniformBufferParameters();
-	WorkArea->Args.PixelShader->VerifyBoundUniformBufferParameters();
-	WorkArea->Args.GeometryShader->VerifyBoundUniformBufferParameters();
-
 	FGlobalBoundShaderState_Internal* BSS = WorkArea->BSS;
 	bool bNewBSS = false;
 	if (!BSS)

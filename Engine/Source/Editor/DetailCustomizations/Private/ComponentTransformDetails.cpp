@@ -25,7 +25,7 @@ public:
 		if( GUnrealEd->PlayWorld && !GIsPlayInEditorWorld )
 		{
 			UPackage* ObjectPackage = Object->GetOutermost();
-			bRequiresPlayWorld = !!(ObjectPackage->PackageFlags & PKG_PlayInEditor);
+			bRequiresPlayWorld = ObjectPackage->HasAnyPackageFlags(PKG_PlayInEditor);
 		}
 
 		if( bRequiresPlayWorld )

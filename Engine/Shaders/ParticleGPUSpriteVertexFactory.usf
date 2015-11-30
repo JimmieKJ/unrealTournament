@@ -118,6 +118,9 @@ struct FVertexFactoryIntermediates
 
 	/** The texture coordinate at this vertex. */
 	float4 TexCoord;
+#if NUM_MATERIAL_TEXCOORDS >= 3 //Unflipped UVs in texcoords 3 and 4
+	float4 TexCoord_Unflipped;
+#endif
 	/** The sprite tangent in world space (+V). */
 	float3 TangentUp;
 	/** The sprite tangent in world space (+U). */
@@ -263,9 +266,15 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 	float SubImageBV = floor( SubImageB * EmitterUniforms.SubImageSize.z );
 
 	// Compute the final texture coordinates for both subimages.
-	float4 TexCoord;
+	float4 TexCoord; 
 	TexCoord.xy = (float2( SubImageAH, SubImageAV ) + FlippedUV) * EmitterUniforms.SubImageSize.zw;
-	TexCoord.zw = (float2( SubImageBH, SubImageBV ) + FlippedUV) * EmitterUniforms.SubImageSize.zw;
+	TexCoord.zw = (float2(SubImageBH, SubImageBV) + FlippedUV) * EmitterUniforms.SubImageSize.zw;
+
+#if NUM_MATERIAL_TEXCOORDS >= 3 //Unflipped UVs in texcoords 3 and 4
+	float4 TexCoord_Unflipped;
+	TexCoord_Unflipped.xy = (float2(SubImageAH, SubImageAV) + Input.TexCoord.xy) * EmitterUniforms.SubImageSize.zw;
+	TexCoord_Unflipped.zw = (float2(SubImageBH, SubImageBV) + Input.TexCoord.xy) * EmitterUniforms.SubImageSize.zw;
+#endif
 
 	// Current rotation of the sprite. Map [0,1] to one full rotation.
 	float RotationRate = AttributeSample.w * EmitterUniforms.RotationRateScale;
@@ -312,6 +321,9 @@ FVertexFactoryIntermediates GetVertexFactoryIntermediates( FVertexFactoryInput I
 #endif
 
 	Intermediates.TexCoord = TexCoord;
+#if NUM_MATERIAL_TEXCOORDS >= 3 //Unflipped UVs in texcoords 3 and 4
+	Intermediates.TexCoord_Unflipped = TexCoord_Unflipped; 
+#endif
 	Intermediates.TangentUp = TangentUp;
 	Intermediates.TangentRight = TangentRight;
 	Intermediates.Color = Color;
@@ -477,12 +489,18 @@ FMaterialVertexParameters GetMaterialVertexParameters(FVertexFactoryInput Input,
 #endif
 
 	Result.Particle.Color = Intermediates.Color;
-
+	
 #if NUM_MATERIAL_TEXCOORDS_VERTEX
 #if NUM_MATERIAL_TEXCOORDS_VERTEX >= 1
 		Result.TexCoords[0] = Intermediates.TexCoord.xy;
 #if NUM_MATERIAL_TEXCOORDS_VERTEX >= 2
 		Result.TexCoords[1] = Intermediates.TexCoord.zw;
+#if NUM_MATERIAL_TEXCOORDS_VERTEX >= 3
+		Result.TexCoords[2] = Intermediates.TexCoord_Unflipped.xy;
+#if NUM_MATERIAL_TEXCOORDS_VERTEX >= 4
+		Result.TexCoords[3] = Intermediates.TexCoord_Unflipped.zw;
+#endif	// >= 4
+#endif	// >= 3
 #endif	// >= 2
 #endif	// >= 1
 #endif	//NUM_MATERIAL_TEXCOORDS

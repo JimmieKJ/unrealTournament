@@ -467,6 +467,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Particle System")
 	bool ContainsEmitterType(UClass* TypeData);
 
+	/** Returns true if the particle system is looping (contains one or more looping emitters) */
+	bool IsLooping() const { return bAnyEmitterLoopsForever; }
+
+private:
+	/** Does any emitter loop forever (computed during load and when emitters are built) */
+	bool bAnyEmitterLoopsForever;
 };
 
 

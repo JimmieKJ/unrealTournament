@@ -124,6 +124,69 @@ void FStaticLightingSystem::CalculateVolumeSampleIncidentRadiance(
 	LightingSample.SkyBentNormal = UpperHemisphereSample.SkyOcclusion;
 }
 
+FGatheredLightSample FStaticLightingSystem::CalculateApproximateSkyLighting(
+	const FFullStaticLightingVertex& Vertex,
+	float SampleRadius,
+	const TArray<FVector4>& UniformHemisphereSamples,
+	FStaticLightingMappingContext& MappingContext) const
+{
+	FGatheredLightSample IncomingRadiance;
+
+	if (SkyLights.Num() > 0)
+	{
+		const float UniformPDF = 1.0f / (2.0f * (float)PI);
+		const float SampleWeight = 1.0f / (UniformPDF * UniformHemisphereSamples.Num());
+
+		for (int32 SampleIndex = 0; SampleIndex < UniformHemisphereSamples.Num(); SampleIndex++)
+		{
+			const FVector4 TriangleTangentPathDirection = UniformHemisphereSamples[SampleIndex];
+			checkSlow(TriangleTangentPathDirection.Z >= 0.0f);
+			checkSlow(TriangleTangentPathDirection.IsUnit3());
+
+			// Generate the uniform hemisphere samples from a hemisphere based around the triangle normal, not the smoothed vertex normal
+			// This is important for cases where the smoothed vertex normal is very different from the triangle normal, in which case
+			// Using the smoothed vertex normal would cause self-intersection even on a plane
+			const FVector4 WorldPathDirection = Vertex.TransformTriangleTangentVectorToWorld(TriangleTangentPathDirection);
+			checkSlow(WorldPathDirection.IsUnit3());
+
+			const FVector4 TangentPathDirection = Vertex.TransformWorldVectorToTangent(WorldPathDirection);
+			checkSlow(TangentPathDirection.IsUnit3());
+
+			const FLightRay PathRay(
+				// Apply various offsets to the start of the ray.
+				// The offset along the ray direction is to avoid incorrect self-intersection due to floating point precision.
+				// The offset along the normal is to push self-intersection patterns (like triangle shape) on highly curved surfaces onto the backfaces.
+				Vertex.WorldPosition 
+				+ WorldPathDirection * SceneConstants.VisibilityRayOffsetDistance 
+				+ Vertex.WorldTangentZ * SampleRadius * SceneConstants.VisibilityNormalOffsetSampleRadiusScale,
+				Vertex.WorldPosition + WorldPathDirection * MaxRayDistance,
+				NULL,
+				NULL
+				);
+
+			FLightRayIntersection RayIntersection;
+			AggregateMesh->IntersectLightRay(PathRay, false, false, false, MappingContext.RayCache, RayIntersection);
+
+			FLinearColor StaticSkyLighting = FLinearColor::Black;
+			FLinearColor StationarySkyLighting = FLinearColor::Black;
+			EvaluateSkyLighting(WorldPathDirection, RayIntersection.bIntersects, false, StaticSkyLighting, StationarySkyLighting);
+
+			if (StaticSkyLighting != FLinearColor::Black)
+			{
+				IncomingRadiance.AddWeighted(FGatheredLightSample::PointLightWorldSpace(StaticSkyLighting, TangentPathDirection, WorldPathDirection), SampleWeight);
+			}
+
+			if (StationarySkyLighting != FLinearColor::Black)
+			{
+				IncomingRadiance.AddWeighted(FGatheredLightSample::PointLightWorldSpace(StationarySkyLighting, TangentPathDirection, WorldPathDirection), SampleWeight);
+			}
+		}
+	}
+
+	return IncomingRadiance;
+}
+
+
 /** Evaluates the PDF that was used to generate samples for the non-importance sampled final gather for the given direction. */
 float FStaticLightingSystem::EvaluatePDF(const FFullStaticLightingVertex& Vertex, const FVector4& IncomingDirection) const
 {
@@ -362,7 +425,7 @@ FGatheredLightSample FStaticLightingSystem::IncomingRadianceImportancePhotons(
 			MappingContext.Stats.NumFirstBounceRaysTraced++;
 			const float LastRayTraceTime = MappingContext.RayCache.FirstHitRayTraceTime;
 			FLightRayIntersection RayIntersection;
-			AggregateMesh.IntersectLightRay(PathRay, true, false, false, MappingContext.RayCache, RayIntersection);
+			AggregateMesh->IntersectLightRay(PathRay, true, false, false, MappingContext.RayCache, RayIntersection);
 			MappingContext.Stats.FirstBounceRayTraceTime += MappingContext.RayCache.FirstHitRayTraceTime - LastRayTraceTime;
 
 			bool bPositiveSample = false;
@@ -439,6 +502,7 @@ FLinearColor FStaticLightingSystem::FinalGatherSample(
 	const FVector4& TriangleTangentPathDirection,
 	float SampleRadius,
 	int32 BounceNumber,
+	bool bSkyLightingOnly,
 	bool bDebugThisTexel,
 	FStaticLightingMappingContext& MappingContext,
 	FLMRandomStream& RandomStream,
@@ -499,7 +563,7 @@ FLinearColor FStaticLightingSystem::FinalGatherSample(
 	MappingContext.Stats.NumFirstBounceRaysTraced++;
 	const float LastRayTraceTime = MappingContext.RayCache.FirstHitRayTraceTime;
 	FLightRayIntersection RayIntersection;
-	AggregateMesh.IntersectLightRay(PathRay, true, false, false, MappingContext.RayCache, RayIntersection);
+	AggregateMesh->IntersectLightRay(PathRay, true, false, false, MappingContext.RayCache, RayIntersection);
 	MappingContext.Stats.FirstBounceRayTraceTime += MappingContext.RayCache.FirstHitRayTraceTime - LastRayTraceTime;
 
 	bool bPositiveSample = false;
@@ -521,7 +585,7 @@ FLinearColor FStaticLightingSystem::FinalGatherSample(
 		// Only continue if the ray hit the frontface of the polygon, otherwise the ray started inside a mesh
 		if (Dot3(PathRay.Direction, -RayIntersection.IntersectionVertex.WorldTangentZ) > 0.0f)
 		{
-			if (GeneralSettings.NumIndirectLightingBounces > 0 && TangentPathDirection.Z > 0)
+			if (GeneralSettings.NumIndirectLightingBounces > 0 && !bSkyLightingOnly && TangentPathDirection.Z > 0)
 			{
 				LIGHTINGSTAT(FScopedRDTSCTimer CalculateExitantRadianceTimer(MappingContext.Stats.CalculateExitantRadianceTime));
 				FStaticLightingVertex IntersectionVertex = RayIntersection.IntersectionVertex;
@@ -608,6 +672,32 @@ public:
 	{}
 };
 
+bool SphereIntersectCone(FSphere SphereCenterAndRadius, FVector ConeVertex, FVector ConeAxis, float ConeAngleCos, float ConeAngleSin)
+{
+	FVector U = ConeVertex - (SphereCenterAndRadius.W / ConeAngleSin) * ConeAxis;
+	FVector D = SphereCenterAndRadius.Center - U;
+	float DSizeSq = FVector::DotProduct(D, D);
+	float E = FVector::DotProduct(ConeAxis, D);
+
+	if (E > 0 && E * E >= DSizeSq * ConeAngleCos * ConeAngleCos)
+	{
+		D = SphereCenterAndRadius.Center - ConeVertex;
+		DSizeSq = FVector::DotProduct(D, D);
+		E = -FVector::DotProduct(ConeAxis, D);
+
+		if (E > 0 && E * E >= DSizeSq * ConeAngleSin * ConeAngleSin)
+		{
+			return DSizeSq <= SphereCenterAndRadius.W * SphereCenterAndRadius.W;
+		}
+		else
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 /** Data structure used for adaptive refinement.  This is basically a 2d array of quadtrees. */
 class FUniformHemisphereRefinementGrid
 {
@@ -668,7 +758,10 @@ public:
 		const FFullStaticLightingVertex& Vertex,
 		float SampleRadius,
 		int32 BounceNumber,
+		bool bSkyLightingOnly,
+		int32 NumAdaptiveRefinementLevels,
 		const TArray<FVector4, TInlineAllocator<30> >& TangentImportancePhotonDirections,
+		const TArray<FSphere>& PortalBoundingSpheres,
 		FStaticLightingMappingContext& MappingContext,
 		FLMRandomStream& RandomStream,
 		bool bDebugThisTexel)
@@ -692,9 +785,12 @@ public:
 		TArray<FRefinementTraversalContext>* CurrentNodesToRefine = &NodesToRefine[0];
 		TArray<FRefinementTraversalContext>* NextNodesToRefine = &NodesToRefine[1];
 
+		const float InvNumHemisphereSamples = 1.0f / (NumThetaSteps * NumPhiSteps);
 		float ImportanceConeAngle = LightingSystem.ImportanceTracingSettings.AdaptiveFirstBouncePhotonConeAngle;
 		// Approximation for the cone angle of a root level cell
 		const float RootCellAngle = PI * FMath::Sqrt((.5f / NumThetaSteps) * (.5f / NumThetaSteps) + (.5f / NumPhiSteps) * (.5f / NumPhiSteps));
+		const float CosRootCellAngle = FMath::Cos(RootCellAngle);
+		const float SinRootCellAngle = FMath::Sin(RootCellAngle);
 		const float RootCombinedAngleThreshold = FMath::Cos(ImportanceConeAngle + RootCellAngle);
 		const float ConeIntersectionWeight = 1.0f / TangentImportancePhotonDirections.Num();
 
@@ -707,7 +803,7 @@ public:
 
 		// Operate on all cells at a refinement depth before going deeper
 		// This is necessary for the neighbor comparisons to work right
-		for (int32 RefinementDepth = 0; RefinementDepth < LightingSystem.ImportanceTracingSettings.NumAdaptiveRefinementLevels; RefinementDepth++)
+		for (int32 RefinementDepth = 0; RefinementDepth < NumAdaptiveRefinementLevels; RefinementDepth++)
 		{
 			if (bDebugThisTexel)
 			{
@@ -726,7 +822,10 @@ public:
 				}
 			}
 
-			const float TotalBrightness = FMath::Max(TotalLighting.GetLuminance(), .01f);
+			// Normalize by sample count
+			TotalLighting *= InvNumHemisphereSamples;
+
+			const float AverageBrightness = FMath::Max(TotalLighting.GetLuminance(), .01f);
 
 			// At depth 0 we are operating on the 2d grid 
 			if (RefinementDepth == 0)
@@ -758,15 +857,29 @@ public:
 
 						const bool bSuperSampleDueToImportanceCones = IntersectingImportanceConeWeight >= ConeWeightThreshold;
 
+						bool bSuperSampleDueToPortal = false;
+
+						if (!bSuperSampleDueToImportanceCones)
+						{
+							for (int32 PortalIndex = 0; PortalIndex < PortalBoundingSpheres.Num(); PortalIndex++)
+							{
+								if (SphereIntersectCone(PortalBoundingSpheres[PortalIndex], Vertex.WorldPosition, Vertex.TransformTriangleTangentVectorToWorld(CellCenterDirection), CosRootCellAngle, SinRootCellAngle))
+								{
+									bSuperSampleDueToPortal = true;
+									break;
+								}
+							}
+						}
+
 						float MaxRelativeDifference = 0;
 						float MaxSkyOcclusionDifference = 0;
 
 						// Determine maximum relative brightness difference
-						if (!bSuperSampleDueToImportanceCones)
+						if (!bSuperSampleDueToImportanceCones && !bSuperSampleDueToPortal)
 						{
 							const FLightingAndOcclusion RootElementLighting = GetRootValue(ThetaIndex, PhiIndex);
 							const FLinearColor Radiance = RootElementLighting.Lighting + RootElementLighting.StationarySkyLighting;
-							const float RelativeBrightness = Radiance.ComputeLuminance() / TotalBrightness;
+							const float RelativeBrightness = Radiance.ComputeLuminance() / AverageBrightness;
 
 							for (int32 NeighborIndex = 0; NeighborIndex < ARRAY_COUNT(Neighbors); NeighborIndex++)
 							{
@@ -779,8 +892,9 @@ public:
 								{
 									const FLightingAndOcclusion NeighborLighting = GetRootValue(NeighborTheta, NeighborPhi);
 									const float NeighborBrightness = (NeighborLighting.Lighting + NeighborLighting.StationarySkyLighting).ComputeLuminance();
-									const float NeighborRelativeBrightness = NeighborBrightness / TotalBrightness;
+									const float NeighborRelativeBrightness = NeighborBrightness / AverageBrightness;
 									MaxRelativeDifference = FMath::Max(MaxRelativeDifference, FMath::Abs(RelativeBrightness - NeighborRelativeBrightness));
+
 									MaxSkyOcclusionDifference = FMath::Max(MaxSkyOcclusionDifference, FMath::Abs(RootElementLighting.UnoccludedSkyVector.SizeSquared() - NeighborLighting.UnoccludedSkyVector.SizeSquared()));
 								}
 							}
@@ -789,7 +903,8 @@ public:
 						// Refine if the importance cone threshold is exceeded or there was a big enough brightness difference
 						if (MaxRelativeDifference > BrightnessThreshold 
 							|| (bRefineForSkyOcclusion && MaxSkyOcclusionDifference > SkyOcclusionThreshold)
-							|| bSuperSampleDueToImportanceCones)
+							|| bSuperSampleDueToImportanceCones
+							|| bSuperSampleDueToPortal)
 						{
 							FSimpleQuadTreeNode<FRefinementElement>* Node = &Cells[ThetaIndex * NumPhiSteps + PhiIndex].RootNode;
 
@@ -809,6 +924,8 @@ public:
 				NextNodesToRefine->Reset(); 
 
 				float SubCellCombinedAngleThreshold = 0;
+				float CosSubCellAngle = 0;
+				float SinSubCellAngle = 0;
 				
 				// The cell size will be the same for all cells of this depth, so calculate it once
 				if (CurrentNodesToRefine->Num() > 0)
@@ -818,6 +935,8 @@ public:
 					// Approximate the cone angle of the sub cell
 					const float SubCellAngle = PI * FMath::Sqrt(HalfSubCellSize.X * HalfSubCellSize.X + HalfSubCellSize.Y * HalfSubCellSize.Y);
 					SubCellCombinedAngleThreshold = FMath::Cos(ImportanceConeAngle + SubCellAngle);
+					CosSubCellAngle = FMath::Cos(SubCellAngle);
+					SinSubCellAngle = FMath::Sin(SubCellAngle);
 				}
 
 				for (int32 NodeIndex = 0; NodeIndex < CurrentNodesToRefine->Num(); NodeIndex++)
@@ -857,15 +976,29 @@ public:
 
 							const bool bSuperSampleDueToImportanceCones = IntersectingImportanceConeWeight >= ConeWeightThreshold;
 
+							bool bSuperSampleDueToPortal = false;
+
+							if (!bSuperSampleDueToImportanceCones)
+							{
+								for (int32 PortalIndex = 0; PortalIndex < PortalBoundingSpheres.Num(); PortalIndex++)
+								{
+									if (SphereIntersectCone(PortalBoundingSpheres[PortalIndex], Vertex.WorldPosition, Vertex.TransformTriangleTangentVectorToWorld(CellCenterDirection), CosSubCellAngle, SinSubCellAngle))
+									{
+										bSuperSampleDueToPortal = true;
+										break;
+									}
+								}
+							}
+
 							float MaxRelativeDifference = 0;
 							float MaxSkyOcclusionDifference = 0;
 
 							// Determine maximum relative brightness difference
-							if (!bSuperSampleDueToImportanceCones)
+							if (!bSuperSampleDueToImportanceCones && !bSuperSampleDueToPortal)
 							{
 								const FLightingAndOcclusion ChildLighting = ChildNode->Element.Lighting;
 								const FLinearColor Radiance = ChildLighting.Lighting + ChildLighting.StationarySkyLighting;
-								const float RelativeBrightness = Radiance.ComputeLuminance() / TotalBrightness;
+								const float RelativeBrightness = Radiance.ComputeLuminance() / AverageBrightness;
 
 								// Only search the axis neighbors past the first depth
 								for (int32 NeighborIndex = 0; NeighborIndex < ARRAY_COUNT(Neighbors) / 2; NeighborIndex++)
@@ -877,7 +1010,7 @@ public:
 									const FVector2D NeighborUV = FVector2D(NeighborU, NeighborV) + NodeContext.Size / 4;
 									const FLightingAndOcclusion NeighborLighting = GetValue(NeighborUV);
 									const float NeighborBrightness = (NeighborLighting.Lighting + NeighborLighting.StationarySkyLighting).ComputeLuminance();
-									const float NeighborRelativeBrightness = NeighborBrightness / TotalBrightness;
+									const float NeighborRelativeBrightness = NeighborBrightness / AverageBrightness;
 									MaxRelativeDifference = FMath::Max(MaxRelativeDifference, FMath::Abs(RelativeBrightness - NeighborRelativeBrightness));
 									MaxSkyOcclusionDifference = FMath::Max(MaxSkyOcclusionDifference, FMath::Abs(ChildLighting.UnoccludedSkyVector.SizeSquared() - NeighborLighting.UnoccludedSkyVector.SizeSquared()));
 								}
@@ -886,7 +1019,8 @@ public:
 							// Refine if the importance cone threshold is exceeded or there was a big enough brightness difference
 							if (MaxRelativeDifference > BrightnessThreshold 
 								|| (bRefineForSkyOcclusion && MaxSkyOcclusionDifference > SkyOcclusionThreshold)
-								|| bSuperSampleDueToImportanceCones)
+								|| bSuperSampleDueToImportanceCones
+								|| bSuperSampleDueToPortal)
 							{
 								NextNodesToRefine->Add(FRefinementTraversalContext(
 									ChildNode, 
@@ -963,6 +1097,7 @@ public:
 								SampleDirection,
 								SampleRadius,
 								BounceNumber,
+								bSkyLightingOnly,
 								bDebugThisTexel,
 								MappingContext,
 								RandomStream,
@@ -1040,6 +1175,7 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 	bool bIntersectingSurface,
 	int32 ElementIndex,
 	int32 BounceNumber,
+	int32 NumAdaptiveRefinementLevels,
 	const TArray<FVector4>& UniformHemisphereSamples,
 	const TArray<FVector2D>& UniformHemisphereSampleUniforms,
 	float MaxUnoccludedLength,
@@ -1047,6 +1183,7 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 	FStaticLightingMappingContext& MappingContext,
 	FLMRandomStream& RandomStream,
 	FLightingCacheGatherInfo& GatherInfo,
+	bool bSkyLightingOnly,
 	bool bDebugThisTexel) const
 {
 #if ALLOW_LIGHTMAP_SAMPLE_DEBUGGING
@@ -1083,6 +1220,7 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 				TriangleTangentPathDirection,
 				SampleRadius,
 				BounceNumber,
+				bSkyLightingOnly,
 				bDebugThisTexel,
 				MappingContext,
 				RandomStream,
@@ -1121,7 +1259,10 @@ SampleType FStaticLightingSystem::IncomingRadianceAdaptive(
 			Vertex,
 			SampleRadius,
 			BounceNumber,
+			bSkyLightingOnly,
+			NumAdaptiveRefinementLevels,
 			TangentSpaceImportancePhotonDirections,
+			Scene.Portals,
 			MappingContext,
 			RandomStream,
 			bDebugThisTexel);
@@ -1275,7 +1416,7 @@ SampleType FStaticLightingSystem::IncomingRadianceUniform(
 		MappingContext.Stats.NumFirstBounceRaysTraced++;
 		const float LastRayTraceTime = MappingContext.RayCache.FirstHitRayTraceTime;
 		FLightRayIntersection RayIntersection;
-		AggregateMesh.IntersectLightRay(PathRay, true, false, false, MappingContext.RayCache, RayIntersection);
+		AggregateMesh->IntersectLightRay(PathRay, true, false, false, MappingContext.RayCache, RayIntersection);
 		MappingContext.Stats.FirstBounceRayTraceTime += MappingContext.RayCache.FirstHitRayTraceTime - LastRayTraceTime;
 
 		float PhotonImportanceSampledPDF = 0.0f;
@@ -1581,7 +1722,7 @@ FFinalGatherSample FStaticLightingSystem::CachePointIncomingRadiance(
 						);
 
 					FLightRayIntersection Intersection;
-					AggregateMesh.IntersectLightRay(TexelRay, true, false, false, MappingContext.RayCache, Intersection);
+					AggregateMesh->IntersectLightRay(TexelRay, true, false, false, MappingContext.RayCache, Intersection);
 					FStaticLightingVertex CurrentVertex = Vertex;
 					// Use the intersection's UV's if found, otherwise use the passed in UV's
 					if (Intersection.bIntersects && Mapping == Intersection.Mapping)
@@ -1690,6 +1831,7 @@ FFinalGatherSample FStaticLightingSystem::CachePointIncomingRadiance(
 					bIntersectingSurface,
 					ElementIndex, 
 					BounceNumber, 
+					ImportanceTracingSettings.NumAdaptiveRefinementLevels,
 					CachedHemisphereSamples,
 					CachedHemisphereSampleUniforms,
 					CachedSamplesMaxUnoccludedLength,
@@ -1697,6 +1839,7 @@ FFinalGatherSample FStaticLightingSystem::CachePointIncomingRadiance(
 					MappingContext, 
 					RandomStream, 
 					GatherInfo, 
+					false,
 					bDebugThisTexel);
 			}
 			else
@@ -1768,7 +1911,7 @@ FFinalGatherSample FStaticLightingSystem::CachePointIncomingRadiance(
 							);
 
 						FLightRayIntersection Intersection;
-						AggregateMesh.IntersectLightRay(TexelRay, false, false, false, MappingContext.RayCache, Intersection);
+						AggregateMesh->IntersectLightRay(TexelRay, false, false, false, MappingContext.RayCache, Intersection);
 						if (Intersection.bIntersects)
 						{
 							OverrideRadius = SampleRadius;

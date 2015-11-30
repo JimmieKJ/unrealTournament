@@ -111,7 +111,9 @@ enum ECompilerFlags
 	CFLAG_StandardOptimization,
 	/** Shader should use on chip memory instead of main memory ring buffer memory. */
 	CFLAG_OnChip,
-	CFLAG_KeepDebugInfo
+	CFLAG_KeepDebugInfo,
+	// Skip using the cached usf file system and directly open the file (for debugging)
+	CFLAG_OpenFileFromFullPath,
 };
 
 /**
@@ -844,6 +846,11 @@ extern SHADERCORE_API void GetShaderIncludes(const TCHAR* Filename, TArray<FStri
  * @param Filename - shader file to Hash
  */
 extern SHADERCORE_API const class FSHAHash& GetShaderFileHash(const TCHAR* Filename);
+
+/**
+ * Calculates a Hash for the list of filenames if it does not already exist in the Hash cache.
+ */
+extern SHADERCORE_API const class FSHAHash& GetShaderFilesHash(const TArray<FString>& Filenames);
 
 extern void BuildShaderFileToUniformBufferMap(TMap<FString, TArray<const TCHAR*> >& ShaderFileToUniformBufferVariables);
 

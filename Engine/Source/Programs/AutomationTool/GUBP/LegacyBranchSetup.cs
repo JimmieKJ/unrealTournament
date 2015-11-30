@@ -177,10 +177,11 @@ partial class GUBP
             /// </summary>
             public readonly Dictionary<string, string> GameNameToBuildShareMapping = new Dictionary<string,string>();
 			/// <summary>
-			/// Allows a branch to override the "Localise" commandlet settings.
+			/// Controls which branches should build the Engine localization.
+			/// If you need localization for your own project, add it in your project specific automation scripts (see BuildLocalizationNode and BuildEngineLocalizationNode as an example).
 			/// </summary>
-			public bool bShouldBuildLocalization = false;
-			public string LocalizationBranchSuffix = "";
+			public bool bBuildEngineLocalization = false;
+			public string EngineLocalizationBranchSuffix = "";
         }
         public virtual void ModifyOptions(GUBP bp, ref BranchOptions Options, string Branch)
         {
@@ -1122,9 +1123,9 @@ partial class GUBP
 			}
 		}
 
-		if (HostPlatforms.Contains(UnrealTargetPlatform.Win64) && BranchConfig.HasNode(RootEditorNode.StaticGetFullName(UnrealTargetPlatform.Win64)) && BranchOptions.bShouldBuildLocalization)
+		if (HostPlatforms.Contains(UnrealTargetPlatform.Win64) && BranchConfig.HasNode(RootEditorNode.StaticGetFullName(UnrealTargetPlatform.Win64)) && BranchOptions.bBuildEngineLocalization)
 		{
-			BranchConfig.AddNode(new BuildEngineLocalizationNode(BranchOptions.LocalizationBranchSuffix));
+			BranchConfig.AddNode(new BuildEngineLocalizationNode(BranchOptions.EngineLocalizationBranchSuffix));
 		}
 
         BranchConfig.AddNode(new WaitForTestShared(this));
@@ -1245,7 +1246,7 @@ partial class GUBP
 						}
 						else
 						{
-							throw new AutomationException("Couldn't find referenced node {0} in graph", Aggregate.GetFullName());
+							CommandUtils.LogWarning("Couldn't find referenced frequency barrier node {0}", SearchNodes[Idx]);
 						}
 					}
 				}

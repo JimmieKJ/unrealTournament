@@ -5,7 +5,7 @@
 #include "AnimNotify.h"
 #include "AnimNotify_PlaySound.generated.h"
 
-UCLASS(const, hidecategories=Object, collapsecategories, meta=(DisplayName="Play Sound"))
+UCLASS(const, hidecategories=Object, collapsecategories, meta=(DisplayName="Play Sound"), MinimalAPI)
 class UAnimNotify_PlaySound : public UAnimNotify
 {
 	GENERATED_BODY()

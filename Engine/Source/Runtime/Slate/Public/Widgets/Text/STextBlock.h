@@ -41,6 +41,8 @@ public:
 		, _LineHeightPercentage(1.0f)
 		, _Justification(ETextJustify::Left)
 		, _MinDesiredWidth(0.0f)
+		, _TextShapingMethod()
+		, _TextFlowDirection()
 		, _LineBreakPolicy()
 		{}
 
@@ -90,6 +92,12 @@ public:
 
 		/** Minimum width that a text block should be */
 		SLATE_ATTRIBUTE( float, MinDesiredWidth )
+
+		/** Which text shaping method should we use? (unset to use the default returned by GetDefaultTextShapingMethod) */
+		SLATE_ARGUMENT( TOptional<ETextShapingMethod>, TextShapingMethod )
+		
+		/** Which text flow direction should we use? (unset to use the default returned by GetDefaultTextFlowDirection) */
+		SLATE_ARGUMENT( TOptional<ETextFlowDirection>, TextFlowDirection )
 
 		/** The iterator to use to detect appropriate soft-wrapping points for lines (or null to use the default) */
 		SLATE_ARGUMENT( TSharedPtr<IBreakIterator>, LineBreakPolicy )

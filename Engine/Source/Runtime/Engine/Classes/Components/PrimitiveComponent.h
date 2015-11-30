@@ -291,7 +291,8 @@ public:
 	uint32 bCastVolumetricTranslucentShadow:1;
 
 	/** 
-	 * When enabled, the component will only cast a shadow on itself and not other components in the world.  This is especially useful for first person weapons, and forces bCastInsetShadow to be enabled.
+	 * When enabled, the component will only cast a shadow on itself and not other components in the world.  
+	 * This is especially useful for first person weapons, and forces bCastInsetShadow to be enabled.
 	 */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting, meta=(EditCondition="CastShadow"))
 	uint32 bSelfShadowOnly:1;
@@ -347,6 +348,21 @@ public:
 	/** Quality of indirect lighting for Movable primitives.  This has a large effect on Indirect Lighting Cache update time. */
 	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting)
 	TEnumAsByte<EIndirectLightingCacheQuality> IndirectLightingCacheQuality;
+
+	/** 
+	 * Whether the whole component should be shadowed as one from stationary lights, which makes shadow receiving much cheaper.
+	 * When enabled shadowing data comes from the volume lighting samples precomputed by Lightmass, which are very sparse.
+	 * This is currently only used on stationary directional lights.  
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting)
+	uint32 bSingleSampleShadowFromStationaryLights:1;
+
+	/** 
+	 * Channels that this component should be in.  Lights with matching channels will affect the component.  
+	 * These channels only apply to opaque materials, direct lighting, and dynamic lighting and shadowing.
+	 */
+	UPROPERTY(EditAnywhere, AdvancedDisplay, BlueprintReadOnly, Category=Lighting)
+	FLightingChannels LightingChannels;
 
 	UPROPERTY()
 	bool bHasCachedStaticLighting;
@@ -703,6 +719,10 @@ public:
 	/** Event called when a finger is moved off this component when touch over events are enabled in the player controller */
 	UPROPERTY(BlueprintAssignable, Category="Input|Touch Input")
 	FComponentEndTouchOverSignature OnInputTouchLeave;
+
+	/** Scale the bounds of this object, used for frustum culling. Useful for features like WorldPositionOffset. */
+	UFUNCTION(BlueprintCallable, Category = "Rendering")
+	void SetBoundsScale(float NewBoundsScale=1.f);
 
 	/**
 	 * Returns the material used by the element at the specified index
@@ -1181,12 +1201,15 @@ public:
 	struct FPrimitiveComponentPostPhysicsTickFunction PostPhysicsComponentTick;
 
 	/** Controls if we get a post physics tick or not. If set during ticking, will take effect next frame **/
+	DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
 	void SetPostPhysicsComponentTickEnabled(bool bEnable);
 
 	/** Returns whether we have the post physics tick enabled **/
+	DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
 	bool IsPostPhysicsComponentTickEnabled() const;
 
 	/** Tick function called after physics (sync scene) has finished simulation */
+	DEPRECATED(4.11, "Please register your own tick function or use the primary tick function")
 	virtual void PostPhysicsTick(FPrimitiveComponentPostPhysicsTickFunction &ThisTickFunction) {}
 
 	/** Return the BodySetup to use for this PrimitiveComponent (single body case) */

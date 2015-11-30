@@ -377,7 +377,14 @@ void FLevelEditorActionCallbacks::SaveAllLevels()
 
 void FLevelEditorActionCallbacks::Import_Clicked()
 {
-	FEditorFileUtils::Import();
+	const bool bImportScene = false;
+	FEditorFileUtils::Import(bImportScene);
+}
+
+void FLevelEditorActionCallbacks::ImportScene_Clicked()
+{
+	const bool bImportScene = true;
+	FEditorFileUtils::Import(bImportScene);
 }
 
 
@@ -2829,6 +2836,7 @@ void FLevelEditorCommands::RegisterCommands()
 	}
 
 	UI_COMMAND( Import, "Import...", "Imports objects and actors from a T3D format into the current level", EUserInterfaceActionType::Button, FInputChord() );
+	UI_COMMAND( ImportScene, "Import Scene...", "Imports an entire scene from a FBX format into the current level", EUserInterfaceActionType::Button, FInputChord());
 	UI_COMMAND( ExportAll, "Export All...", "Exports the entire level to a file on disk (multiple formats are supported.)", EUserInterfaceActionType::Button, FInputChord() );
 	UI_COMMAND( ExportSelected, "Export Selected...", "Exports currently-selected objects to a file on disk (multiple formats are supported.)", EUserInterfaceActionType::Button, FInputChord() );
 

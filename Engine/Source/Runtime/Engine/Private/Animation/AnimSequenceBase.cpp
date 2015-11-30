@@ -219,7 +219,7 @@ void UAnimSequenceBase::GetAnimNotifiesFromDeltaPositions(const float& PreviousP
 	}
 }
 
-void UAnimSequenceBase::TickAssetPlayerInstance(FAnimTickRecord& Instance, class UAnimInstance* InstanceOwner, FAnimAssetTickContext& Context) const
+void UAnimSequenceBase::TickAssetPlayer(FAnimTickRecord& Instance, struct FAnimNotifyQueue& NotifyQueue, FAnimAssetTickContext& Context) const
 {
 	float& CurrentTime = *(Instance.TimeAccumulator);
 	float PreviousTime = CurrentTime;
@@ -277,7 +277,7 @@ void UAnimSequenceBase::TickAssetPlayerInstance(FAnimTickRecord& Instance, class
 		}
 	}
 
-	OnAssetPlayerTickedInternal(Context, PreviousTime, MoveDelta, Instance, InstanceOwner);
+	HandleAssetPlayerTickedInternal(Context, PreviousTime, MoveDelta, Instance, NotifyQueue);
 }
 
 void UAnimSequenceBase::TickByMarkerAsFollower(FMarkerTickRecord &Instance, FMarkerTickContext &MarkerContext, float& CurrentTime, float& OutPreviousTime, const float MoveDelta, const bool bLooping) const
@@ -520,13 +520,20 @@ void UAnimSequenceBase::Serialize(FArchive& Ar)
 	RawCurveData.Serialize(Ar);
 }
 
-void UAnimSequenceBase::OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InstanceOwner) const
+void UAnimSequenceBase::OnAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, class UAnimInstance* InAnimInstance) const
+{
+	// @todo: remove after deprecation
+	// forward to non-deprecated version
+	HandleAssetPlayerTickedInternal(Context, PreviousTime, MoveDelta, Instance, InAnimInstance->NotifyQueue);
+}
+
+void UAnimSequenceBase::HandleAssetPlayerTickedInternal(FAnimAssetTickContext &Context, const float PreviousTime, const float MoveDelta, const FAnimTickRecord &Instance, struct FAnimNotifyQueue& NotifyQueue) const
 {
 	if (Context.ShouldGenerateNotifies())
 	{
 		// Harvest and record notifies
 		TArray<const FAnimNotifyEvent*> AnimNotifies;
 		GetAnimNotifies(PreviousTime, MoveDelta, Instance.bLooping, AnimNotifies);
-		InstanceOwner->AddAnimNotifies(AnimNotifies, Instance.EffectiveBlendWeight);
+		NotifyQueue.AddAnimNotifies(AnimNotifies, Instance.EffectiveBlendWeight);
 	}
 }
