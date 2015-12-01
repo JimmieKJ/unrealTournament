@@ -101,10 +101,10 @@ void AUTCosmetic::SetBodiesToSimulatePhysics()
 		if (PrimComponent)
 		{
 			PrimComponent->BodyInstance.bSimulatePhysics = true;
-			PrimComponent->SetCollisionProfileName(FName(TEXT("CharacterMesh")));
+			PrimComponent->SetCollisionProfileName(FName(TEXT("PhysicsActor")));
 			PrimComponent->SetCollisionObjectType(ECC_PhysicsBody);
 			PrimComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
-			PrimComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			PrimComponent->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 			PrimComponent->SetPhysicsLinearVelocity(FVector(0, 0, 1));
 			PrimComponent->SetNotifyRigidBodyCollision(true);
 		}
