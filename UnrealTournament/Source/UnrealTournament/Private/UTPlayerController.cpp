@@ -3908,69 +3908,7 @@ UUtMcpProfileManager* AUTPlayerController::GetActiveMcpProfileManager()
 
 #endif
 
-/*
-void AUTPlayerController::InitializeMcpProfile()
+void AUTPlayerController::UTLogOut()
 {
-	// asserts in the editor...
-	if (!GIsEditor)
-	{
-		if (McpProfile)
-		{
-			McpProfile = nullptr;
-		}
 
-		McpProfile = NewObject<UUTMcpProfile>(this);
-		if (McpProfile)
-		{
-			FString McpPlayerName;
-			UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-			if (LocalPlayer)
-			{
-				McpPlayerName = LocalPlayer->GetOnlinePlayerNickname();
-			}
-
-			McpProfile->Initialize((FOnlineSubsystemMcp*)IOnlineSubsystem::Get(), McpPlayerName, GetGameAccountId().GetUniqueNetId(), LocalPlayer != nullptr);
-		}
-		SynchronizeProfileWithMcp();
-	}
 }
-
-void AUTPlayerController::SynchronizeProfileWithMcp(const FMcpQueryComplete& OnComplete)
-{
-	if (McpProfile)
-	{
-		// NOTE: this should be the ONLY code in this class that calls ForceQueryProfile. Everything else should go through this function so we can track.
-		McpProfile->ForceQueryProfile(FMcpQueryComplete::CreateUObject(this, &ThisClass::SynchronizeProfileWithMcp_Complete, OnComplete));
-	}
-}
-
-void AUTPlayerController::SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback)
-{
-	UE_LOG(LogUTPlayerController, Display, TEXT("Profile sync complete"));
-}
-
-FUniqueNetIdRepl AUTPlayerController::GetGameAccountId() const
-{
-	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-	if (LocalPlayer)
-	{
-		// if we're local, get the ID from the local player as it's guaranteed to be there
-		return LocalPlayer->GetGameAccountId();
-	}
-
-	// otherwise we're either remote or on the server. In the server case, this is guaranteed. In the remote case, there may be a replication delay.
-	return PlayerState ? PlayerState->UniqueId : FUniqueNetIdRepl();
-}
-
-#endif
-
-void AUTPlayerController::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID)
-{
-#if WITH_PROFILE
-	if (LoginStatus == ELoginStatus::LoggedIn)
-	{
-		InitializeMcpProfile();
-	}
-#endif
-}
-*/
