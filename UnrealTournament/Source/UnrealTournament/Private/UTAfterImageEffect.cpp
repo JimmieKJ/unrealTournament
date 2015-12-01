@@ -62,7 +62,7 @@ void AUTAfterImageEffect::SetMeshProperties(USkeletalMeshComponent* DestComp)
 			DestComp->SetRelativeLocation(TemplateComp->RelativeLocation);
 			DestComp->SetRelativeRotation(TemplateComp->RelativeRotation);
 			DestComp->SetRelativeScale3D(TemplateComp->RelativeScale3D);
-			DestComp->SetAnimInstanceClass(TemplateComp->AnimBlueprintGeneratedClass);
+			DestComp->SetAnimInstanceClass(TemplateComp->AnimClass);
 
 			// force mesh update, then freeze it
 			DestComp->TickAnimation(0.0f, false);
