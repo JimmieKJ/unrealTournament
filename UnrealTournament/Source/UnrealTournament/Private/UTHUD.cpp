@@ -443,7 +443,7 @@ void AUTHUD::CacheFonts()
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	float YPos = 0.f;
-	Canvas->DrawColor = FLinearColor::White.ToFColor(false);
+	Canvas->DrawColor = FLinearColor::White.ToFColor(true);
 	Canvas->DrawText(TinyFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
 	//YPos += 0.1f*Canvas->ClipY;
 	Canvas->DrawText(SmallFont, MessageText, 0.f, YPos, 0.1f, 0.1f, TextRenderInfo);
