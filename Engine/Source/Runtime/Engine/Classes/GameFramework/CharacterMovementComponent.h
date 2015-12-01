@@ -1775,10 +1775,10 @@ protected:
 	 * Update interpolation values for client smoothing. Does not change actual mesh location.
 	 * Sets bNetworkSmoothingComplete to true when the interpolation reaches the target.
 	 */
-	void SmoothClientPosition_Interpolate(float DeltaSeconds);
+	virtual void SmoothClientPosition_Interpolate(float DeltaSeconds);
 
 	/** Update mesh location based on interpolated values. */
-	void SmoothClientPosition_UpdateVisuals();
+	virtual void SmoothClientPosition_UpdateVisuals();
 
 	static uint32 PackYawAndPitchTo32(const float Yaw, const float Pitch); 
 

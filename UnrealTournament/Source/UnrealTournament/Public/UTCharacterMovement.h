@@ -620,7 +620,7 @@ public:
 
 	virtual void SendClientAdjustment() override;
 
-	virtual void SmoothClientPosition(float DeltaTime) override;
+	virtual void SmoothClientPosition_Interpolate(float DeltaTime) override;
 
 	virtual void SimulateMovement(float DeltaTime) override;
 	virtual void SimulateMovement_Internal(float DeltaTime);

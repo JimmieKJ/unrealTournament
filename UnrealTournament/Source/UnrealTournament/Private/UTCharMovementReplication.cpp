@@ -116,75 +116,18 @@ void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, 
 	}
 }
 
-void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
+void UUTCharacterMovement::SmoothClientPosition_Interpolate(float DeltaSeconds)
 {
-	if (!HasValidData() || GetNetMode() != NM_Client)
+	Super::SmoothClientPosition_Interpolate(DeltaSeconds);
+
+	if (IsMovingOnGround())
 	{
-		return;
-	}
-
-	FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
-	if (ClientData && ClientData->bSmoothNetUpdates && CharacterOwner->GetMesh() && !CharacterOwner->GetMesh()->IsSimulatingPhysics())
-	{
-		if (ClientData->bUseLinearSmoothing)
-		{
-			ClientData->CurrentSmoothTime += DeltaSeconds;
-
-			if (ClientData->LastCorrectionDelta < SMALL_NUMBER || ClientData->CurrentSmoothTime >= ClientData->LastCorrectionDelta)
-			{
-				// This is either:
-				//	1. The very first update
-				//	2. Time between updates was really small
-				//  3. We've arrived at the target position
-				ClientData->MeshTranslationOffset	= FVector::ZeroVector;
-				ClientData->MeshRotationOffset		= FQuat::Identity;
-			}
-			else
-			{
-				// Linearly interpolate between correction updates
-				const float LerpPercent	= ClientData->CurrentSmoothTime / ClientData->LastCorrectionDelta;
-
-				ClientData->MeshTranslationOffset	= FMath::Lerp(ClientData->OriginalMeshTranslationOffset, FVector::ZeroVector, LerpPercent);
-				ClientData->MeshRotationOffset		= FQuat::Slerp(ClientData->OriginalMeshRotationOffset, FQuat::Identity, LerpPercent);
-			}
-		}
-		else
-		{
-			// faster interpolation if stopped
-			float SmoothTime = Velocity.IsZero() ? 0.5f*ClientData->SmoothNetUpdateTime : ClientData->SmoothNetUpdateTime;
-
-			// smooth interpolation of mesh translation to avoid popping of other client pawns, unless driving or ragdoll or low tick rate
-			if (DeltaSeconds < SmoothTime)
-			{
-				ClientData->MeshTranslationOffset = (ClientData->MeshTranslationOffset * (1.f - DeltaSeconds / SmoothTime));
-			}
-			else
-			{
-				ClientData->MeshTranslationOffset = FVector::ZeroVector;
-			}
-
-			// Smooth rotation
-			if (DeltaSeconds < ClientData->SmoothNetUpdateRotationTime)
-			{
-				// Slowly decay rotation offset
-				ClientData->MeshRotationOffset = FQuat::Slerp(ClientData->MeshRotationOffset, FQuat::Identity, DeltaSeconds / ClientData->SmoothNetUpdateRotationTime);
-			}
-			else
-			{
-				ClientData->MeshRotationOffset = FQuat::Identity;
-			}
-		}
-
-		if (IsMovingOnGround())
+		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
+		if (ClientData)
 		{
 			// don't smooth Z position if walking on ground
 			ClientData->MeshTranslationOffset.Z = 0.f;
 		}
-
-		const FVector NewRelTranslation = UpdatedComponent->GetComponentToWorld().InverseTransformVectorNoScale(ClientData->MeshTranslationOffset) + CharacterOwner->GetBaseTranslationOffset();
-		const FQuat NewRelRotation = ClientData->MeshRotationOffset * CharacterOwner->GetBaseRotationOffset();
-		CharacterOwner->GetMesh()->SetRelativeLocationAndRotation(NewRelTranslation, NewRelRotation);
-		//DrawDebugSphere(GetWorld(), CharacterOwner->GetActorLocation(), 30.f, 8, FColor::Yellow);
 	}
 }
 

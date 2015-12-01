@@ -138,6 +138,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 
 	TotalTimeStampError = -0.15f;  // allow one initial slow frame
 	bClearingSpeedHack = false;
+	NetworkSmoothingMode = ENetworkSmoothingMode::Exponential;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment
@@ -1186,12 +1187,12 @@ void UUTCharacterMovement::ClearRestrictedJump()
 
 void UUTCharacterMovement::OnTeleported()
 {
-	bool bWasFalling = (MovementMode == MOVE_Falling);
-	bJustTeleported = true;
 	if (!HasValidData())
 	{
 		return;
 	}
+	bool bWasFalling = (MovementMode == MOVE_Falling);
+	bJustTeleported = true;
 
 	// Find floor at current location
 	UpdateFloorFromAdjustment();
