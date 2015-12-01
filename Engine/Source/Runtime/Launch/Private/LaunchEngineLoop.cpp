@@ -3032,7 +3032,21 @@ bool FEngineLoop::AppInit( )
 
 	UE_LOG(LogInit, Log, TEXT("Build Configuration: %s"), EBuildConfigurations::ToString(FApp::GetBuildConfiguration()));
 	UE_LOG(LogInit, Log, TEXT("Branch Name: %s"), *FApp::GetBranchName() );
-	UE_LOG(LogInit, Log, TEXT("Command line: %s"), FCommandLine::Get() );
+
+	FString CommandLineWithoutPassword = FCommandLine::Get();
+	int32 PasswordStart = CommandLineWithoutPassword.Find((TEXT("-password=")));
+	if (PasswordStart != INDEX_NONE)
+	{
+		int32 PasswordEnd = CommandLineWithoutPassword.Find(TEXT(" "), ESearchCase::IgnoreCase, ESearchDir::FromStart, PasswordStart);
+		if (PasswordEnd == INDEX_NONE)
+		{
+			PasswordEnd = CommandLineWithoutPassword.Len();
+		}
+
+		CommandLineWithoutPassword.RemoveAt(PasswordStart, PasswordEnd - PasswordStart);
+	}
+
+	UE_LOG(LogInit, Log, TEXT("Command line: %s"), *CommandLineWithoutPassword);
 	UE_LOG(LogInit, Log, TEXT("Base directory: %s"), FPlatformProcess::BaseDir() );
 	//UE_LOG(LogInit, Log, TEXT("Character set: %s"), sizeof(TCHAR)==1 ? TEXT("ANSI") : TEXT("Unicode") );
 	UE_LOG(LogInit, Log, TEXT("Rocket: %d"), FRocketSupport::IsRocket()? 1 : 0);
