@@ -1165,7 +1165,7 @@ void AUTCharacter::SpawnBloodDecal(const FVector& TraceStart, const FVector& Tra
 						Decal->SetAbsolute(true, true, true);
 					}
 					FVector2D DecalScale = DecalInfo.BaseScale * FMath::FRandRange(DecalInfo.ScaleMultRange.X, DecalInfo.ScaleMultRange.Y);
-					Decal->SetWorldScale3D(FVector(1.0f, DecalScale.X, DecalScale.Y));
+					Decal->DecalSize = FVector(1.0f, DecalScale.X, DecalScale.Y);
 					Decal->SetWorldLocation(Hit.Location);
 					Decal->SetWorldRotation((-Hit.Normal).Rotation() + FRotator(0.0f, 0.0f, 360.0f * FMath::FRand()));
 					Decal->SetDecalMaterial(DecalInfo.Material);
