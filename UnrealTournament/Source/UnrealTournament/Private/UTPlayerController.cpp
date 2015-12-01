@@ -3907,8 +3907,3 @@ UUtMcpProfileManager* AUTPlayerController::GetActiveMcpProfileManager()
 }
 
 #endif
-
-void AUTPlayerController::UTLogOut()
-{
-
-}
