@@ -90,7 +90,7 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 							SNew(SBox).WidthOverride(900)
 							[
 								SNew(SVerticalBox)
-
+/*
 								+SVerticalBox::Slot()
 								.Padding(0.0,0.0,0.0,16.0)
 								.AutoHeight()
@@ -123,7 +123,6 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 										]
 									]
 								]
-/*
 								+SVerticalBox::Slot()
 								.Padding(0.0,0.0,0.0,16.0)
 								.AutoHeight()
@@ -188,6 +187,7 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																SNew(STextBlock)
 																.Text(NSLOCTEXT("SUTChallengePanel", "NewChallenges", "Active"))
 																.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+																.ColorAndOpacity(this, &SUTChallengePanel::GetTabColor, EChallengeFilterType::Active)
 															]
 														]
 													]
@@ -210,6 +210,7 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																SNew(STextBlock)
 																.Text(NSLOCTEXT("SUTChallengePanel", "CompletedChallenges", "Completed"))
 																.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+																.ColorAndOpacity(this, &SUTChallengePanel::GetTabColor, EChallengeFilterType::Completed)
 															]
 														]
 													]
@@ -232,6 +233,7 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																SNew(STextBlock)
 																.Text(NSLOCTEXT("SUTChallengePanel", "ExpiredChallenges", "Expired"))
 																.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+																.ColorAndOpacity(this, &SUTChallengePanel::GetTabColor, EChallengeFilterType::Expired)
 
 															]
 														]
@@ -255,7 +257,7 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																SNew(STextBlock)
 																.Text(NSLOCTEXT("SUTChallengePanel", "AllChallenges", "All"))
 																.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-
+																.ColorAndOpacity(this, &SUTChallengePanel::GetTabColor, EChallengeFilterType::All)
 															]
 														]
 													]
@@ -675,6 +677,10 @@ void SUTChallengePanel::GenerateChallengeList()
 		{
 			ChallengeClicked(Challenges[0]->Tag);
 		}
+		else
+		{
+			ChallengeClicked(NAME_None);
+		}
 	}
 }
 
@@ -855,12 +861,21 @@ FText SUTChallengePanel::GetYourScoreText() const
 
 FText SUTChallengePanel::GetCurrentScoreText() const
 {
+	if (SelectedChallenge == NAME_None)
+	{
+		return FText::GetEmpty();
+	}
+
 	return FText::Format(NSLOCTEXT("SUTChallengePanel","StarsForChallengeFormat","You have earned {0} stars for this challenge"), FText::AsNumber(PlayerOwner->GetChallengeStars(SelectedChallenge)));
 }
 
 FText SUTChallengePanel::GetCurrentChallengeData() const
 {
-	if (!ChallengeManager->Challenges.Contains(SelectedChallenge))
+	if (SelectedChallenge == NAME_None)
+	{
+		return FText::GetEmpty();
+	}
+	else if (!ChallengeManager->Challenges.Contains(SelectedChallenge))
 	{
 		UE_LOG(UT, Warning, TEXT("SelectedChallenge not in list of Challenges"));
 	}
@@ -876,6 +891,45 @@ FText SUTChallengePanel::GetCurrentChallengeData() const
 
 FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 {
+
+	UE_LOG(UT,Log,TEXT("ChallengeTag %s"), *ChallengeTag.ToString());
+
+	if (ChallengeTag == NAME_None)
+	{
+		SelectedChallenge = ChallengeTag;
+		// Generate empty challenges..
+
+		if (ChallengeFilter == EChallengeFilterType::Active)
+		{
+			// This is the active tab.  
+
+			LevelShot = LoadObject<UTexture2D>(nullptr, TEXT("/Game/RestrictedAssets/SlateLargeImages/TayeApprovedBanner.TayeApprovedBanner"));
+			if (LevelShot)
+			{
+				*LevelScreenshot = FSlateDynamicImageBrush(LevelShot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+			}
+
+			ChallengeDescription->SetText(NSLOCTEXT("SUTChallengePanel","AllChallengesCompleted","Congratulations\n\nYou have completed all of the available challenges.  Keep checking back as new challenges will be made available for you or why not try to improve your score on one of the challenges you have already played."));
+			if (GoBox.IsValid())
+			{
+				GoBox->ClearChildren();
+			}
+			return FReply::Handled();
+		}
+		else
+		{
+			// This is the active tab.  
+
+			*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+			ChallengeDescription->SetText(NSLOCTEXT("SUTChallengePanel", "NoChallenges", "There are no challenges available in this group."));
+			if (GoBox.IsValid())
+			{
+				GoBox->ClearChildren();
+			}
+			return FReply::Handled();
+		}
+	}
+
 	if (SelectedChallenge == ChallengeTag) return FReply::Handled();
 
 	if (ChallengeManager.IsValid() && ChallengeManager->Challenges.Contains(ChallengeTag))
@@ -1075,6 +1129,12 @@ FReply SUTChallengePanel::TabChanged(int32 Index)
 
 	GenerateChallengeList();
 	return FReply::Handled();
+}
+
+FSlateColor SUTChallengePanel::GetTabColor(EChallengeFilterType::Type TargetFilter) const
+{
+	if (TargetFilter == ChallengeFilter) return FSlateColor(FLinearColor::Yellow);
+	return FSlateColor(FLinearColor::White);
 }
 
 #endif

@@ -78,6 +78,7 @@ protected:
 
 	TSharedPtr<SVerticalBox> GoBox;
 	void BuildGoBox();
+	FSlateColor GetTabColor(EChallengeFilterType::Type TargetFilter) const;
 };
 
 #endif
