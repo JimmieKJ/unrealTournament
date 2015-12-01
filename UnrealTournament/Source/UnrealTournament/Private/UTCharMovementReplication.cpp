@@ -116,10 +116,14 @@ void UUTCharacterMovement::ClientAdjustPosition_Implementation(float TimeStamp, 
 	}
 }
 
-void UUTCharacterMovement::SmoothClientPosition_Interpolate(float DeltaSeconds)
+void UUTCharacterMovement::SmoothClientPosition(float DeltaSeconds)
 {
-	Super::SmoothClientPosition_Interpolate(DeltaSeconds);
+	if (!HasValidData() || CharacterOwner->Role == ROLE_Authority || NetworkSmoothingMode == ENetworkSmoothingMode::Disabled)
+	{
+		return;
+	}
 
+	SmoothClientPosition_Interpolate(DeltaSeconds);
 	if (IsMovingOnGround())
 	{
 		FNetworkPredictionData_Client_Character* ClientData = GetPredictionData_Client_Character();
@@ -129,6 +133,7 @@ void UUTCharacterMovement::SmoothClientPosition_Interpolate(float DeltaSeconds)
 			ClientData->MeshTranslationOffset.Z = 0.f;
 		}
 	}
+	SmoothClientPosition_UpdateVisuals();
 }
 
 bool UUTCharacterMovement::ClientUpdatePositionAfterServerUpdate()
