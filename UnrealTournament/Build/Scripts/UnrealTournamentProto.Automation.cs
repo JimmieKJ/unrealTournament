@@ -659,7 +659,8 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 				Filter.Include("/Engine/Binaries/ThirdParty/Ogg/Win64/VS2013/*.dll");
 				Filter.Include("/Engine/Binaries/ThirdParty/Vorbis/Win64/VS2013/*.dll");
 				Filter.Include("/Engine/Binaries/ThirdParty/nvTextureTools/Win64/*.dll");
-				Filter.Include("/Engine/Binaries/ThirdParty/Oculus/Audio/Win64/*.dll");
+                Filter.Include("/Engine/Binaries/ThirdParty/Oculus/Audio/Win64/*.dll");
+                Filter.Include("/Engine/Binaries/ThirdParty/OpenSSL/Win64/VS2013/*.dll");
 			}
 			else if(Platform == UnrealTargetPlatform.Mac)
 			{
