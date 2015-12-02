@@ -1129,7 +1129,9 @@ partial class GUBP
 		}
 
         BranchConfig.AddNode(new WaitForTestShared(this));
-		BranchConfig.AddNode(new WaitToPackageSamplesNode(BranchConfig.HostPlatforms));
+		
+        // plk - this node sends annoying emails and I don't believe it's valid for games
+        //BranchConfig.AddNode(new WaitToPackageSamplesNode(BranchConfig.HostPlatforms));
 
 		AddCustomNodes(BranchConfig, HostPlatforms, ActivePlatforms);
         
