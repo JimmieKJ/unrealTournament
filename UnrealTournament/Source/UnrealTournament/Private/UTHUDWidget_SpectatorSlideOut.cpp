@@ -42,28 +42,27 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	static ConstructorHelpers::FObjectFinder<UTexture2D> WeaponTex(TEXT("Texture'/Game/RestrictedAssets/UI/WeaponAtlas01.WeaponAtlas01'"));
 	WeaponAtlas = WeaponTex.Object;
 
-	static ConstructorHelpers::FObjectFinder<UTexture> UDamTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
-	UDamageHUDIcon.Texture = UDamTex.Object;
+	static ConstructorHelpers::FObjectFinder<UTexture> IconTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
+	UDamageHUDIcon.Texture = IconTex.Object;
 
 	UDamageHUDIcon.U = 589.f;
 	UDamageHUDIcon.V = 0.f;
 	UDamageHUDIcon.UL = 45.f;
 	UDamageHUDIcon.VL = 39.f;
 
-	HealthIcon.Texture = UDamTex.Object;
+	HealthIcon.Texture = IconTex.Object;
 	HealthIcon.U = 522.f;
 	HealthIcon.V = 0.f;
 	HealthIcon.UL = 37.f;
 	HealthIcon.VL = 35.f;
 
-	ArmorIcon.Texture = UDamTex.Object;
+	ArmorIcon.Texture = IconTex.Object;
 	ArmorIcon.U = 560.f;
 	ArmorIcon.V = 0.f;
 	ArmorIcon.UL = 28.f;
 	ArmorIcon.VL = 36.f;
 
-	static ConstructorHelpers::FObjectFinder<UTexture> CTFTex(TEXT("Texture'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
-	FlagIcon.Texture = CTFTex.Object;
+	FlagIcon.Texture = IconTex.Object;
 	FlagIcon.U = 843.f;
 	FlagIcon.V = 87.f;
 	FlagIcon.UL = 43.f;

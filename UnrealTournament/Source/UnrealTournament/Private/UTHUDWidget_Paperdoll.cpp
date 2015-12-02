@@ -7,8 +7,6 @@
 
 UUTHUDWidget_Paperdoll::UUTHUDWidget_Paperdoll(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	static ConstructorHelpers::FObjectFinder<UTexture> HudTexture(TEXT("Texture2D'/Game/RestrictedAssets/Proto/UI/HUD/Elements/UI_HUD_BaseA.UI_HUD_BaseA'"));
-
 	Position=FVector2D(5.0f, -5.0f);
 	Size=FVector2D(205.0f,111.0f);
 	ScreenPosition=FVector2D(0.0f, 1.0f);

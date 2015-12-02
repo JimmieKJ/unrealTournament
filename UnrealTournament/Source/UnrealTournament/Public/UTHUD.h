@@ -225,8 +225,6 @@ public:
 
 	/** Creates the scoreboard */
 	virtual void CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass);
-	
-	UTexture2D* OldHudTexture;
 
 	virtual void PawnDamaged(FVector HitLocation, int32 DamageAmount, bool bFriendlyFire);
 	virtual void DrawDamageIndicators();
