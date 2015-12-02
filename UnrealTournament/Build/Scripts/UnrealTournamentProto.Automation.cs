@@ -174,7 +174,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 {
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePathMac,
-                    AppLaunchCmd = "./Engine/Binaries/Mac/UE4-Mac-Test.app",
+                    AppLaunchCmd = "./Engine/Binaries/Mac/UE4-Mac-Shipping.app",
                     AppLaunchCmdArgs = "UnrealTournament",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
                 });
@@ -213,7 +213,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePath,
                     FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
-                    AppLaunchCmd = @".\Engine\Binaries\Win64\UE4-Win64-Test.exe",
+                    AppLaunchCmd = @".\Engine\Binaries\Win64\UE4-Win64-Shipping.exe",
                     AppLaunchCmdArgs = "UnrealTournament",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
                 });
@@ -250,7 +250,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     StagingInfo = StagingInfo,
                     BuildRoot = RawImagePath,
                     FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
-                    AppLaunchCmd = @".\Engine\Binaries\Win32\UE4-Win32-Test.exe",
+                    AppLaunchCmd = @".\Engine\Binaries\Win32\UE4-Win32-Shipping.exe",
                     AppLaunchCmdArgs = "UnrealTournament",
                     AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
                 });

@@ -3587,7 +3587,7 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 		if (bWasSuccessful)
 		{
 
-#if !UE_BUILD_TEST
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 			if (FParse::Param(FCommandLine::Get(), TEXT("localUTMCPS")))
 			{
 				FString Path = FPaths::GameContentDir() + TEXT("EpicInternal/MCP/UnrealTournmentMCPStorage.json");
