@@ -26,13 +26,18 @@ class UNREALTOURNAMENT_API UUTReachSpec : public UObject
 		return PathColor;
 	}
 
-	/** get Actor to use as MoveTarget when moving along this path (generally used when completing this path involves a moving object or something that must be touched */
+	/** get Actor to use as MoveTarget when moving to this path from the previous one (i.e. the start point for this path must be this Actor) (generally used when completing this path involves a moving object or something that must be touched) */
 	virtual TWeakObjectPtr<AActor> GetSourceActor() const
 	{
 		return NULL;
 	}
+	/** get Actor to use as MoveTarget when moving along this path (i.e. reaching this Actor will cause the player to reach the path's endpoint location with no further input, such as a teleporter) */
+	virtual TWeakObjectPtr<AActor> GetDestActor() const
+	{
+		return NULL;
+	}
 
-	/** return traversal cost in UU or BLOCKED_PATH_COST to prevent the pah from being used */
+	/** return traversal cost in UU or BLOCKED_PATH_COST to prevent the path from being used */
 	virtual int32 CostFor(int32 DefaultCost, const FUTPathLink& OwnerLink, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, const class AUTRecastNavMesh* NavMesh)
 	{
 		return DefaultCost;

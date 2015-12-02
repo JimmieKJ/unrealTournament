@@ -22,7 +22,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_Teleport : public UUTReachSpec
 		PathColor = FLinearColor(0.0f, 0.0f, 1.0f);
 	}
 
-	virtual TWeakObjectPtr<AActor> GetSourceActor() const override
+	virtual TWeakObjectPtr<AActor> GetDestActor() const override
 	{
 		return Teleporter;
 	}

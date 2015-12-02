@@ -2133,12 +2133,23 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			// ask any ReachSpecs along path if there is an Actor target to assign to the route point
 			if (NodeRoute.Num() > 0)
 			{
+				{
+					int32 LinkIndex = NextRouteNode->Node->GetBestLinkTo(NextRouteNode->Poly, NodeRoute[0], Asker, AgentProps, this);
+					if (LinkIndex != INDEX_NONE && NextRouteNode->Node->Paths[LinkIndex].Spec.IsValid())
+					{
+						NodeRoute[0].Actor = NextRouteNode->Node->Paths[LinkIndex].Spec->GetDestActor();
+					}
+				}
 				for (int32 i = 1; i < NodeRoute.Num(); i++)
 				{
 					int32 LinkIndex = NodeRoute[i - 1].Node->GetBestLinkTo(NodeRoute[i - 1].TargetPoly, NodeRoute[i], Asker, AgentProps, this);
 					if (LinkIndex != INDEX_NONE && NodeRoute[i - 1].Node->Paths[LinkIndex].Spec.IsValid())
 					{
-						NodeRoute[i - 1].Actor = NodeRoute[i - 1].Node->Paths[LinkIndex].Spec->GetSourceActor();
+						NodeRoute[i].Actor = NodeRoute[i - 1].Node->Paths[LinkIndex].Spec->GetDestActor();
+						if (NodeRoute[i - 1].Actor == NULL) // DestActor takes priority since we can repath afterwards to get SourceActor if necessary
+						{
+							NodeRoute[i - 1].Actor = NodeRoute[i - 1].Node->Paths[LinkIndex].Spec->GetSourceActor();
+						}
 					}
 				}
 			}
