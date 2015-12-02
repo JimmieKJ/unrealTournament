@@ -1710,7 +1710,7 @@ void AUTGameMode::AwardXP()
 	for (APlayerState* PS : GameState->PlayerArray)
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-		if (UTPS != NULL)
+		if (UTPS != NULL && UTPS->UniqueId.IsValid())
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(UTPS->GetOwner());
 			if (PC != NULL)
@@ -1739,7 +1739,14 @@ void AUTGameMode::AwardXP()
 					UTPS->GiveXP(FNewKillAwardXP(250000));
 				}
 #if WITH_PROFILE
-				UTPS->GetMcpProfile()->GrantXP(UTPS->GetXP().Total());
+				if (UTPS->GetMcpProfile() != NULL)
+				{
+					UTPS->GetMcpProfile()->GrantXP(UTPS->GetXP().Total());
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("Player %s missing profile for gaining XP! Id: %s"), *UTPS->PlayerName, *UTPS->UniqueId.ToString());
+				}
 #endif
 			}
 		}
