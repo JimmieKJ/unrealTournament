@@ -10,7 +10,6 @@ class UNREALTOURNAMENT_API SUWPanel : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUWPanel)
 	{}
-	
 	SLATE_END_ARGS()
 
 public:

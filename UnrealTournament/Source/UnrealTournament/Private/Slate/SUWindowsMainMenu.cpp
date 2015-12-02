@@ -30,6 +30,7 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
+#include "Panels/SUTUMGContainer.h"
 
 #if !UE_SERVER
 
@@ -43,10 +44,6 @@ void SUWindowsMainMenu::CreateDesktop()
 
 SUWindowsMainMenu::~SUWindowsMainMenu()
 {
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
 }
 
 TSharedRef<SWidget> SUWindowsMainMenu::BuildBackground()
@@ -91,12 +88,6 @@ void SUWindowsMainMenu::DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeacti
 
 void SUWindowsMainMenu::ShowFragCenter()
 {
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
-
-
 	if (!FragCenterPanel.IsValid())
 	{
 		SAssignNew(FragCenterPanel, SUTFragCenterPanel, PlayerOwner)
@@ -124,10 +115,6 @@ void SUWindowsMainMenu::SetInitialPanel()
 
 FReply SUWindowsMainMenu::OnShowHomePanel()
 {
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
 	return SUTMenuBase::OnShowHomePanel();
 }
 
@@ -265,11 +252,6 @@ FReply SUWindowsMainMenu::OnShowCustomGamePanel()
 
 void SUWindowsMainMenu::ShowGamePanel()
 {
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
-
 	if ( !ChallengePanel.IsValid() )
 	{
 		SAssignNew(ChallengePanel, SUTChallengePanel, PlayerOwner);
@@ -290,11 +272,6 @@ void SUWindowsMainMenu::ShowCustomGamePanel()
 
 void SUWindowsMainMenu::OpenDelayedMenu()
 {
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
-
 	SUTMenuBase::OpenDelayedMenu();
 	if (bNeedToShowGamePanel)
 	{
@@ -430,29 +407,20 @@ FReply SUWindowsMainMenu::OnBootCampClick()
 
 void SUWindowsMainMenu::OpenTutorialMenu()
 {
-	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (UTEngine)
+	if (!TutorialPanel.IsValid())
 	{
-		if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
-		{
-			TutorialMenu = CreateWidget<UUserWidget>(PlayerOwner->GetWorld(), UTEngine->TutorialMenuClass);
-			if (TutorialMenu != NULL)
-			{
-				TutorialMenu->AddToViewport(0);
-			}
-		}
+		SAssignNew(TutorialPanel,SUTUMGContainer,PlayerOwner).UMGClass(TEXT("/Game/RestrictedAssets/Tutorials/Blueprints/TutMainMenuWidget.TutMainMenuWidget_C"));
+	}
+
+	if (TutorialPanel.IsValid() && ActivePanel != TutorialPanel)
+	{
+		ActivatePanel(TutorialPanel);
 	}
 }
 
 
 FReply SUWindowsMainMenu::OnYourReplaysClick()
 {
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
-
-
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
@@ -487,12 +455,6 @@ FReply SUWindowsMainMenu::OnRecentReplaysClick()
 
 void SUWindowsMainMenu::RecentReplays()
 {
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
-
-
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
@@ -527,13 +489,6 @@ FReply SUWindowsMainMenu::OnLiveGameReplaysClick()
 
 void SUWindowsMainMenu::ShowLiveGameReplays()
 {
-
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
-
-
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->LoginOnline( TEXT( "" ), TEXT( "" ) );
@@ -568,13 +523,6 @@ FReply SUWindowsMainMenu::OnCommunityClick()
 
 void SUWindowsMainMenu::ShowCommunity()
 {
-
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
-
-
 	if ( !WebPanel.IsValid() )
 	{
 		// Create the Web panel
@@ -805,11 +753,6 @@ void SUWindowsMainMenu::CloudOutOfSyncResult(TSharedPtr<SCompoundWidget> Widget,
 
 FReply SUWindowsMainMenu::OnShowServerBrowserPanel()
 {
-	if (TutorialMenu.IsValid())
-	{
-		TutorialMenu->RemoveFromViewport();
-	}
-
 	return SUTMenuBase::OnShowServerBrowserPanel();
 
 }
@@ -827,10 +770,9 @@ void SUWindowsMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwn
 {
 	if (NewStatus == ELoginStatus::LoggedIn)
 	{
-		if (TutorialMenu.IsValid() && TutorialMenu->IsInViewport())
+		if (TutorialPanel.IsValid() && ActivePanel == TutorialPanel)
 		{
-			TutorialMenu->RemoveFromViewport();
-			
+			ShowGamePanel();
 			PlayerOwner->ShowMessage(
 				NSLOCTEXT("SUWindowsMainMenu", "TutorialErrorTitle", "User Changed"),
 				NSLOCTEXT("SUWindowsMainMenu", "TutorialErrorMessage", "User changed. Returning to the main menu."), UTDIALOG_BUTTON_OK, nullptr
@@ -839,12 +781,6 @@ void SUWindowsMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwn
 	}
 
 	SUTMenuBase::OnOwnerLoginStatusChanged(LocalPlayerOwner, NewStatus, UniqueID);
-}
-
-EVisibility SUWindowsMainMenu::GetBackVis() const
-{
-	if (TutorialMenu.IsValid() && TutorialMenu->IsInViewport()) return EVisibility::Visible;
-	return SUTMenuBase::GetBackVis();
 }
 
 #endif

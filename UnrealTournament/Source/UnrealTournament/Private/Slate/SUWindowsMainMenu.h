@@ -15,6 +15,7 @@ class SUWGameSetupDialog;
 class SUTFragCenterPanel;
 class SUTHomePanel;
 class SUTChallengePanel;
+class SUTUMGContainer;
 
 #if !UE_SERVER
 class UNREALTOURNAMENT_API SUWindowsMainMenu : public SUTMenuBase
@@ -68,13 +69,10 @@ protected:
 	virtual FReply OnFragCenterClick();
 
 	TSharedPtr<SUTFragCenterPanel> FragCenterPanel;
-	TWeakObjectPtr<class UUserWidget> TutorialMenu;
-
 	TSharedPtr<SUTChallengePanel> ChallengePanel;
+	TSharedPtr<SUTUMGContainer> TutorialPanel;
 
 	virtual void OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID) override;
-
-	virtual EVisibility GetBackVis() const;
 
 public:
 	virtual ~SUWindowsMainMenu();
