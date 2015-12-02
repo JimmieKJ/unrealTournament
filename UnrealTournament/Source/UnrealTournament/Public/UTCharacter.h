@@ -1038,6 +1038,12 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	void OnSlide(const FVector& SlideLocation, const FVector &SlideDir);
 
+	/** Landing just occurred, play any effects desired. Landing sound will be played server-side elsewhere.
+	* called on server and owning client
+	*/
+	UFUNCTION(BlueprintNativeEvent)
+		void PlayLandedEffect();
+
 	/** Landing assist just occurred */
 	UFUNCTION(BlueprintImplementableEvent)
 	void OnLandingAssist();

@@ -375,9 +375,7 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 		}
 
 		AnalogInputModifier = 1.0f;				// Not currently used for simulated movement
-
 		MaybeUpdateBasedMovement(DeltaSeconds);
-
 		//DrawDebugLine(GetWorld(), CharacterOwner->GetActorLocation(), CharacterOwner->GetActorLocation() + 0.2f*Acceleration, FLinearColor::Green);
 
 		// simulated pawns predict location
@@ -426,15 +424,20 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 				}
 				else if (MovementMode == MOVE_Falling)
 				{
+					Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
 					if (CurrentFloor.FloorDist <= MIN_FLOOR_DIST)
 					{
+						AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
+						if (UTCharacterOwner)
+						{
+							UTCharacterOwner->PlayLandedEffect();
+						}
 						// Landed
 						SetMovementMode(MOVE_Walking);
 					}
 					else
 					{
 						// Continue falling.
-						Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
 						CurrentFloor.Clear();
 					}
 				}

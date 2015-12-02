@@ -3171,9 +3171,23 @@ void AUTCharacter::OnSlide_Implementation(const FVector & SlideLocation, const F
 	{
 		DesiredJumpBob.Y = 0.f;
 	}
-	if (SlideEffect != NULL)
+	if ((SlideEffect != NULL) && (GetNetMode() != NM_DedicatedServer))
 	{
 		UGameplayStatics::SpawnEmitterAttached(SlideEffect, GetRootComponent(), NAME_None, SlideLocation, SlideDir.Rotation(), EAttachLocation::KeepWorldPosition);
+	}
+}
+
+void AUTCharacter::PlayLandedEffect_Implementation()
+{
+	UParticleSystem* EffectToPlay = ((GetNetMode() != NM_DedicatedServer) && (FMath::Abs(GetCharacterMovement()->Velocity.Z)) > LandEffectSpeed) ? LandEffect : NULL;
+	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if ((EffectToPlay != nullptr) && WS->EffectIsRelevant(this, GetActorLocation(), true, true, 10000.f, 0.f, false))
+	{
+		FRotator EffectRot = GetCharacterMovement()->CurrentFloor.HitResult.Normal.Rotation();
+		EffectRot.Pitch -= 90.f;
+		UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), EffectToPlay, GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 4.f), EffectRot, true);
+		float EffectScale = FMath::Clamp(FMath::Square(GetCharacterMovement()->Velocity.Z) / (2.f*LandEffectSpeed*LandEffectSpeed), 0.5f, 1.f);
+		LandedPSC->SetRelativeScale3D(FVector(EffectScale, EffectScale, 1.f));
 	}
 }
 
@@ -3238,15 +3252,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		else
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
-			UParticleSystem* EffectToPlay = (FMath::Abs(GetCharacterMovement()->Velocity.Z) > LandEffectSpeed) ? LandEffect : NULL;
-			if (EffectToPlay != nullptr)
-			{
-				FRotator EffectRot = Hit.Normal.Rotation();
-				EffectRot.Pitch -= 90.f;
-				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), EffectToPlay, GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 4.f), EffectRot, true);
-				float EffectScale = FMath::Clamp(FMath::Square(GetCharacterMovement()->Velocity.Z)/(2.f*LandEffectSpeed*LandEffectSpeed), 0.5f, 1.f);
-				LandedPSC->SetRelativeScale3D(FVector(EffectScale, EffectScale, 1.f));
-			}
+			PlayLandedEffect();
 		}
 
 		AUTBot* B = Cast<AUTBot>(Controller);
