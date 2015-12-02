@@ -226,8 +226,14 @@ bool AUTPlayerController::ServerNP_Validate()
 
 void AUTPlayerController::ServerNP_Implementation()
 {
-	if (Player && UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bAllowClientNetProfile)
+	if (Player)
 	{
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
+		if (!UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bAllowClientNetProfile)
+		{
+			return;
+		}
+#endif
 		Player->Exec(GetWorld(), *FString::Printf(TEXT("NETPROFILE")), *GLog);
 	}
 }
