@@ -3881,7 +3881,7 @@ void UUTLocalPlayer::UpdateSharedProfiles()
 
 	// bind the delegate that will tell us about profile notifications
 	McpProfile->OnHandleNotification().BindUObject(this, &UUTLocalPlayer::HandleProfileNotification);
-	McpProfile->GrantXP(10);
+
 	// All profiles are loaded, not sure what to stuff into LoginResults here
 	FText LoginResults;
 	UpdateSharedProfilesComplete.ExecuteIfBound(true, LoginResults);
