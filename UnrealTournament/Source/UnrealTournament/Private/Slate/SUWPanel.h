@@ -31,6 +31,9 @@ public:
 		return ParentWindow;
 	}
 
+	// I can't believe how slate manages slots.
+	int32 ZOrder;
+
 	AUTPlayerState* GetOwnerPlayerState();
 
 	void ConsoleCommand(FString Command);
@@ -45,6 +48,9 @@ public:
 	}
 
 protected:
+
+	// Will be true if this panel is closing
+	bool bClosing;
 
 	// A TAG that can quickly describe this panel
 	FName Tag;

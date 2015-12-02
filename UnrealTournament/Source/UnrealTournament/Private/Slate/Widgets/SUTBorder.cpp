@@ -10,7 +10,7 @@
 void SUTBorder::Construct(const FArguments& InArgs)
 {
 	bIsAnimating = false;
-
+	OnAnimEnd = InArgs._OnAnimEnd;
 	SBorder::Construct( SBorder::FArguments()
 		.Content()
 		[
@@ -41,13 +41,13 @@ void SUTBorder::Animate(FVector2D StartTransform, FVector2D EndTransform, float 
 	// We are currently animating, so use our current values.
 	if (bIsAnimating && AnimTransforms.Num() == 2 && AnimDuration > 0)
 	{
-		FVector2D NewStartTransform = FMath::InterpEaseIn<FVector2D>(AnimTransforms[0], AnimTransforms[1], (AnimTimer / AnimDuration),2.0);
+		FVector2D NewStartTransform = FMath::InterpEaseOut<FVector2D>(AnimTransforms[0], AnimTransforms[1], (AnimTimer / AnimDuration),2.0);
 	}
 
 	float StartingOpacity = StartOpacity;
 	if (bIsAnimating && AnimOpacity.Num() == 2 && AnimDuration > 0)
 	{
-		StartingOpacity = FMath::InterpEaseIn<float>(AnimOpacity[0],AnimOpacity[1], (AnimTimer / AnimDuration),2.0);
+		StartingOpacity = FMath::InterpEaseOut<float>(AnimOpacity[0],AnimOpacity[1], (AnimTimer / AnimDuration),2.0);
 	}
 	
 	if (bIsAnimating)
@@ -78,13 +78,18 @@ void SUTBorder::UpdateAnim(float DeltaTime)
 		AnimTimer += DeltaTime;
 		float Alpha = FMath::Clamp<float>(AnimTimer / AnimDuration, 0.0f, 1.0f);
 
-		FVector2D FinalTransform = FMath::InterpEaseIn<FVector2D>(AnimTransforms[0], AnimTransforms[1], Alpha,2.0);
-		float FinalOpacity = FMath::InterpEaseIn<float>(AnimOpacity[0],AnimOpacity[1], Alpha,2.0);
+		FVector2D FinalTransform = FMath::InterpEaseOut<FVector2D>(AnimTransforms[0], AnimTransforms[1], Alpha,2.0);
+		float FinalOpacity = FMath::InterpEaseOut<float>(AnimOpacity[0],AnimOpacity[1], Alpha,2.0);
 
 		SetRenderTransform(FinalTransform);
 		SetColorAndOpacity(FLinearColor(1.0,1.0,1.0,FinalOpacity));
+		SetBorderBackgroundColor(FLinearColor(1.0,1.0,1.0,FinalOpacity));
 
-		if (AnimTimer >= AnimDuration) bIsAnimating = true;
+		if (AnimTimer >= AnimDuration)
+		{
+			bIsAnimating = false;
+			OnAnimEnd.ExecuteIfBound();
+		}
 	}
 }
 

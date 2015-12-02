@@ -23,6 +23,11 @@ class UNREALTOURNAMENT_API SUHomePanel : public SUWPanel
 	}
 
 protected:
+
+	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnHidePanel();
+
+
 	FReply BasicTraining_Click();
 	FReply QuickMatch_DM_Click();
 	FReply QuickMatch_CTF_Click();
@@ -49,7 +54,9 @@ protected:
 
 	FSlateColor GetFragCenterWatchNowColorAndOpacity() const;
 
-	TSharedPtr<SUTBorder> TrainingWidget;
+	TSharedPtr<SUTBorder> AnimWidget;
+
+	virtual void AnimEnd();
 
 };
 

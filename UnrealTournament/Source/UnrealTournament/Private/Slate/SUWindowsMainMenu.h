@@ -28,6 +28,7 @@ protected:
 	TSharedRef<SWidget> AddPlayNow();
 
 	virtual void CreateDesktop();
+	virtual TSharedRef<SWidget> BuildBackground();
 	virtual void SetInitialPanel();
 
 	virtual void BuildLeftMenuBar();

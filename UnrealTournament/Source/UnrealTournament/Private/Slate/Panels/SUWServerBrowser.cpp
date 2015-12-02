@@ -19,6 +19,7 @@
 #include "UTGameEngine.h"
 #include "UTServerBeaconClient.h"
 #include "../SUWScaleBox.h"
+#include "../Widgets/SUTBorder.h"
 #include "Engine/UserInterfaceSettings.h"
 #include "UnrealNetwork.h"
 
@@ -131,8 +132,9 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 
 	this->ChildSlot
 	[
-		SNew(SBorder)
+		SAssignNew(AnimWidget, SUTBorder).OnAnimEnd(this, &SUWServerBrowser::AnimEnd)
 		.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+		.BorderBackgroundColor(FLinearColor(1.0f,1.0f,1.0f,0.85f))
 		[
 			SNew( SVerticalBox )
 		
@@ -2260,11 +2262,43 @@ void SUWServerBrowser::BuildServerListControlBox()
 void SUWServerBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
 	SUWPanel::OnShowPanel(inParentWindow);
+
+	if (AnimWidget.IsValid())
+	{
+		AnimWidget->Animate(FVector2D(0, 0), FVector2D(0, 0), 0.0f, 1.0f, 0.3f);
+	}
+
 	if (bNeedsRefresh)
 	{
 		RefreshServers();
 	}
 }
+
+void SUWServerBrowser::OnHidePanel()
+{
+	bClosing = true;
+	if (AnimWidget.IsValid())
+	{
+		AnimWidget->Animate(FVector2D(0, 0), FVector2D(0, 0), 1.0f, 0.0f, 0.3f);
+	}
+	else
+	{
+		SUWPanel::OnHidePanel();
+	}
+}
+
+
+void SUWServerBrowser::AnimEnd()
+{
+	if (bClosing)
+	{
+		bClosing = false;
+		TSharedPtr<SWidget> Panel = this->AsShared();
+		ParentWindow->PanelHidden(Panel);
+		ParentWindow.Reset();
+	}
+}
+
 
 FName SUWServerBrowser::GetBrowserState()
 {

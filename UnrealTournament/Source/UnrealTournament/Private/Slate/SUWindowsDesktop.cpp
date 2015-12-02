@@ -15,12 +15,13 @@
 #include "SUWPanel.h"
 #include "UTGameEngine.h"
 #include "Runtime/Engine/Classes/Engine/Console.h"
+#include "SOverlay.h"
 
 #if !UE_SERVER
 void SUWindowsDesktop::Construct(const FArguments& InArgs)
 {
+	ZOrderIndex = -1;
 	PlayerOwner = InArgs._PlayerOwner;
-	DesktopSlotIndex = -1;
 	CreateDesktop();
 }
 
@@ -144,20 +145,24 @@ FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
 void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
 {
 	if ( !Desktop.IsValid() ) return;		// Quick out if no place to put it
+	
 	// Don't reactivate the current panel
 	if (ActivePanel != PanelToActivate)
 	{
+		// Deactive the current panel.
 		if ( ActivePanel.IsValid() )
 		{
-			DeactivatePanel(ActivePanel.ToSharedRef());
+			DeactivatePanel(ActivePanel);
 		}	
+	
+		ZOrderIndex = (ZOrderIndex + 1) % 5000;
 
-		SOverlay::FOverlaySlot& Slot = Desktop->AddSlot(0)
-			[
-				PanelToActivate.ToSharedRef()
-			];
-		
-		DesktopSlotIndex = Slot.ZOrder;
+		// Add the new one.
+		SOverlay::FOverlaySlot& Slot = Desktop->AddSlot(ZOrderIndex)
+		[
+			PanelToActivate.ToSharedRef()
+		];
+		PanelToActivate->ZOrder = ZOrderIndex;
 		ActivePanel = PanelToActivate;
 		ActivePanel->OnShowPanel(SharedThis(this));
 	}
@@ -165,13 +170,21 @@ void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
 
 void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate)
 {
-	if (ActivePanel.IsValid())
-	{
-		ActivePanel->OnHidePanel();
-		ActivePanel.Reset();
-		Desktop->RemoveSlot(0);
-	}
+	PanelToDeactivate->OnHidePanel();
+}
 
+void SUWindowsDesktop::PanelHidden(TSharedPtr<SWidget> Child)
+{
+	if (Child.IsValid())
+	{
+		// SO TOTALLY Unsafe.. 
+		TSharedPtr<SUWPanel> const Panel = StaticCastSharedPtr<SUWPanel>(Child);
+		Desktop->RemoveSlot(Panel->ZOrder);
+		if (Child == ActivePanel)
+		{
+			ActivePanel.Reset();
+		}
+	}
 }
 
 void SUWindowsDesktop::ShowHomePanel()

@@ -6,6 +6,8 @@
 
 #if !UE_SERVER
 
+DECLARE_DELEGATE(FUTBorderAnimEndDelegate);
+
 class UNREALTOURNAMENT_API SUTBorder : public SBorder
 {
 	SLATE_BEGIN_ARGS(SUTBorder)
@@ -51,6 +53,9 @@ class UNREALTOURNAMENT_API SUTBorder : public SBorder
 		SLATE_ATTRIBUTE( FSlateColor, ForegroundColor )
 		/** Whether or not to show the disabled effect when this border is disabled */
 		SLATE_ATTRIBUTE( bool, ShowEffectWhenDisabled )
+
+		SLATE_EVENT(FUTBorderAnimEndDelegate, OnAnimEnd)
+
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -58,7 +63,7 @@ class UNREALTOURNAMENT_API SUTBorder : public SBorder
 	void Animate(FVector2D StartTransform, FVector2D EndTransform, float StartOpacity, float EndOpacity, float Duration);
 
 protected:
-
+	FUTBorderAnimEndDelegate OnAnimEnd;
 	void UpdateAnim(float DeltaTime);
 
 	bool bIsAnimating;

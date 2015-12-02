@@ -614,6 +614,8 @@ namespace EBrowserState
 	static FName ConnectInProgress = TEXT("ConnectInProgress");
 }
 
+class SUTBorder;
+
 class UNREALTOURNAMENT_API SUWServerBrowser : public SUWPanel
 {
 public:
@@ -633,6 +635,8 @@ private:
 	virtual void ConstructPanel(FVector2D ViewportSize);	
 
 protected:
+
+	TSharedPtr<SUTBorder> AnimWidget;
 
 	FName BrowserState;
 
@@ -742,8 +746,11 @@ protected:
 	void OnHUBListSelectionChanged(TSharedPtr<FServerData> SelectedItem, ESelectInfo::Type SelectInfo);
 
 	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnHidePanel();
 
 protected:
+
+	virtual void AnimEnd();
 
 	// If true, the server browser will refresh itself as soon as it's loaded.
 	bool bNeedsRefresh;

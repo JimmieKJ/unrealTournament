@@ -49,6 +49,33 @@ SUWindowsMainMenu::~SUWindowsMainMenu()
 	}
 }
 
+TSharedRef<SWidget> SUWindowsMainMenu::BuildBackground()
+{
+	return SNew(SOverlay)
+	+SOverlay::Slot()
+	.VAlign(VAlign_Fill)
+	.HAlign(HAlign_Fill)
+	[
+		SNew(SVerticalBox)
+		+ SVerticalBox::Slot()
+		.VAlign(VAlign_Fill)
+		.HAlign(HAlign_Fill)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Fill)
+			[
+				SNew(SUWScaleBox)
+				.bMaintainAspectRatio(false)
+				[
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.HomePanel.Background"))
+				]
+			]
+		]
+	];
+}
+
 FReply SUWindowsMainMenu::OnFragCenterClick()
 {
 	ShowFragCenter();

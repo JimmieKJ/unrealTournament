@@ -9,6 +9,7 @@
 
 void SUWPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> InPlayerOwner)
 {
+	bClosing = false;
 	PlayerOwner = InPlayerOwner;
 	checkSlow(PlayerOwner != NULL);
 
@@ -25,6 +26,9 @@ void SUWPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 }
 void SUWPanel::OnHidePanel()
 {
+	TSharedPtr<SWidget> Panel = this->AsShared();
+	bClosing = true;
+	ParentWindow->PanelHidden(Panel);
 	ParentWindow.Reset();
 }
 

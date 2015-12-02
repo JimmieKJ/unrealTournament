@@ -16,57 +16,40 @@
 
 #if !UE_SERVER
 
-static FName UT_DEFAULT_BACKGROUND(TEXT("UT.HomePanel.Background"));
-static FName UT_SPOOKY_BACKGROUND(TEXT("UT.SpookyBackground"));
-
-
 void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 {
-	FName Background = UT_DEFAULT_BACKGROUND;
-	if ((FDateTime().Now().GetMonth() == 10) || ((FDateTime().Now().GetMonth() == 11) && (FDateTime().Now().GetDay() == 1)))
-	{
-		Background = UT_SPOOKY_BACKGROUND;
-	}
-
 	this->ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
 	[
 		SNew(SOverlay)
-		+SOverlay::Slot()
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.HAlign(HAlign_Fill)
-				[
-					SNew(SUWScaleBox)
-					.bMaintainAspectRatio(false)
-					[
-						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush(Background))
-					]
-				]
-			]
-		]
 		+ SOverlay::Slot()
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[
-			BuildHomePanel()
+			SAssignNew(AnimWidget, SUTBorder)
+			.OnAnimEnd(this, &SUHomePanel::AnimEnd)
+			[
+				BuildHomePanel()
+			]
 		]
 	];
 
-	TrainingWidget->Animate(FVector2D(100.0f, 0.0f), FVector2D(0.0f,0.0f),0.0f, 1.0f, 0.3f);
 	AnnouncmentTimer = 3.0;
 
 }
+
+void SUHomePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+{
+	SUWPanel::OnShowPanel(inParentWindow);
+
+	if (AnimWidget.IsValid())
+	{
+		AnimWidget->Animate(FVector2D(100.0f, 0.0f), FVector2D(0.0f, 0.0f), 0.0f, 1.0f, 0.3f);
+	}
+}
+
+
 
 void SUHomePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
@@ -245,7 +228,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 				[
 					SNew(SBox).WidthOverride(800).HeightOverride(170)
 					[
-						SAssignNew(TrainingWidget, SUTBorder)
+						SNew(SUTBorder)
 						.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 						[
 							SNew(SOverlay)
@@ -856,6 +839,30 @@ FSlateColor SUHomePanel::GetFragCenterWatchNowColorAndOpacity() const
 	return FSlateColor(FLinearColor(1.0,1.0,1.0,0.0));
 }
 
+void SUHomePanel::OnHidePanel()
+{
+	bClosing = true;
+	if (AnimWidget.IsValid())
+	{
+		AnimWidget->Animate(FVector2D(0.0f, 0.0f), FVector2D(-100.0f, 0.0f), 1.0f, 0.0f, 0.3f);
+	}
+	else
+	{
+		SUWPanel::OnHidePanel();
+	}
+}
+
+
+void SUHomePanel::AnimEnd()
+{
+	if (bClosing)
+	{
+		bClosing = false;
+		TSharedPtr<SWidget> Panel = this->AsShared();
+		ParentWindow->PanelHidden(Panel);
+		ParentWindow.Reset();
+	}
+}
 
 
 #endif

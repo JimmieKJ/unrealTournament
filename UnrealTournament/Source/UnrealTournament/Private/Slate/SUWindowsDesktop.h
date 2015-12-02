@@ -33,14 +33,18 @@ public:
 	virtual void ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate);
 	virtual void DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate);
 
+	// Called from the child when the panel decides it's hidden.  Useful for out animations.
+	virtual void PanelHidden(TSharedPtr<SWidget> Child);
+
 	virtual void ShowHomePanel();
 
-
 protected:
+
+	int32 ZOrderIndex;
+
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 
 	TSharedPtr<class SOverlay> Desktop;
-	int32 DesktopSlotIndex;
 	TSharedPtr<class SUWPanel> ActivePanel;
 	TSharedPtr<class SWidget> GameViewportWidget;
 
