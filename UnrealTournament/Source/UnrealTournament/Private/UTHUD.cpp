@@ -697,7 +697,8 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 
 void AUTHUD::DrawDamageNumbers()
 {
-//	UE_LOG(UT, Warning, TEXT("DrawDamageNumbers, numbers %d"), DamageNumbers.Num());
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	//	UE_LOG(UT, Warning, TEXT("DrawDamageNumbers, numbers %d"), DamageNumbers.Num());
 	FFontRenderInfo TextRenderInfo;
 	TextRenderInfo.bEnableShadow = true;
 	Canvas->DrawColor = FColor::Red;
@@ -720,6 +721,7 @@ void AUTHUD::DrawDamageNumbers()
 			Canvas->DrawText(MediumFont, DamageString, ScreenPosition.X - 0.5f*XL, ScreenPosition.Y - 0.5f*YL, DamageNumbers[i].Scale, DamageNumbers[i].Scale, TextRenderInfo);
 		}
 	}
+#endif
 }
 
 FLinearColor AUTHUD::GetBaseHUDColor()

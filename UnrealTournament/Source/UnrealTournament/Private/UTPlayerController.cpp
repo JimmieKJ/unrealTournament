@@ -3873,6 +3873,14 @@ void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotatio
 	}
 }
 
+void AUTPlayerController::ToggleShowDamage()
+{
+	if (MyUTHUD)
+	{
+		MyUTHUD->bDrawDamageNumbers = !MyUTHUD->bDrawDamageNumbers;
+	}
+}
+
 #if WITH_PROFILE
 
 UUtMcpProfileManager* AUTPlayerController::GetMcpProfileManager()

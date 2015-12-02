@@ -121,6 +121,9 @@ public:
 	}
 
 	UFUNCTION(exec)
+		virtual void ToggleShowDamage();
+
+	UFUNCTION(exec)
 	virtual void Mutate(FString MutateString);
 
 	UFUNCTION(server, reliable, withvalidation)
