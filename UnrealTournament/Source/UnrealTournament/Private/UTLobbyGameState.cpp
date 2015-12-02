@@ -1186,7 +1186,7 @@ int32 AUTLobbyGameState::NumMatchesInProgress()
 	int32 Count = 0;
 	for (int32 i=0; i < AvailableMatches.Num(); i++)
 	{
-		if (AvailableMatches[i]->CurrentState == ELobbyMatchState::InProgress || AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching)
+		if (AvailableMatches[i] != nullptr && AvailableMatches[i]->CurrentState == ELobbyMatchState::InProgress || AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching)
 		{
 			Count++;
 		}
