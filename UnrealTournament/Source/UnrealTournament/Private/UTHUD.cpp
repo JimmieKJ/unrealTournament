@@ -7,7 +7,6 @@
 #include "UTHUDWidgetMessage_DeathMessages.h"
 #include "UTHUDWidgetMessage_ConsoleMessages.h"
 #include "UTHUDWidget_WeaponInfo.h"
-#include "UTHUDWidget_DMPlayerScore.h"
 #include "UTHUDWidget_WeaponCrosshair.h"
 #include "UTHUDWidget_Spectator.h"
 #include "UTHUDWidget_WeaponBar.h"
