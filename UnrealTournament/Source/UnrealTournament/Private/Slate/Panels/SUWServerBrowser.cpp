@@ -2265,7 +2265,7 @@ void SUWServerBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 
 	if (AnimWidget.IsValid())
 	{
-		AnimWidget->Animate(FVector2D(0, 0), FVector2D(0, 0), 0.0f, 1.0f, 0.3f);
+		AnimWidget->Animate(FVector2D(200, 0), FVector2D(0, 0), 0.0f, 1.0f, 0.3f);
 	}
 
 	if (bNeedsRefresh)
@@ -2279,7 +2279,7 @@ void SUWServerBrowser::OnHidePanel()
 	bClosing = true;
 	if (AnimWidget.IsValid())
 	{
-		AnimWidget->Animate(FVector2D(0, 0), FVector2D(0, 0), 1.0f, 0.0f, 0.3f);
+		AnimWidget->Animate(FVector2D(0, 0), FVector2D(200, 0), 1.0f, 0.0f, 0.3f);
 	}
 	else
 	{

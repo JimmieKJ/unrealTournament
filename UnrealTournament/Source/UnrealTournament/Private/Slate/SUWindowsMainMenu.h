@@ -74,6 +74,8 @@ protected:
 
 	virtual void OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID) override;
 
+	virtual EVisibility GetBackVis() const;
+
 public:
 	virtual ~SUWindowsMainMenu();
 
@@ -90,6 +92,8 @@ public:
 	virtual void DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate);
 
 	virtual void OnMenuOpened(const FString& Parameters);
+
+
 
 };
 #endif

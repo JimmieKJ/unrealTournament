@@ -13,6 +13,7 @@ class SUTButton;
 
 static const FName NAME_REWARD_None(TEXT("REWARD_None"));
 
+class SUTBorder;
 
 class UNREALTOURNAMENT_API SUTChallengePanel : public SUWPanel, public FGCObject
 {
@@ -20,7 +21,14 @@ public:
 	virtual ~SUTChallengePanel();
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 	
+	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnHidePanel();
+
 private:
+
+	virtual void AnimEnd();
+	TSharedPtr<SUTBorder> AnimWidget;
+
 	virtual void ConstructPanel(FVector2D ViewportSize);	
 	bool bLoadedChallengesFromMCP;
 

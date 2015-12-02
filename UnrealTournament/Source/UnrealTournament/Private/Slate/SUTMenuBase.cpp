@@ -200,6 +200,13 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 		RightMenuBar->AddSlot()
 		.Padding(0.0f,0.0f,5.0f,0.0f)
 		.AutoWidth()
+		[
+			BuildAboutSubMenu()
+		];
+
+		RightMenuBar->AddSlot()
+		.Padding(0.0f,0.0f,5.0f,0.0f)
+		.AutoWidth()
 		.VAlign(VAlign_Center)
 		[
 			BuildOnlinePresence()
@@ -211,13 +218,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 		.AutoWidth()
 		[
 			BuildOptionsSubMenu()
-		];
-
-		RightMenuBar->AddSlot()
-		.Padding(0.0f,0.0f,35.0f,0.0f)
-		.AutoWidth()
-		[
-			BuildAboutSubMenu()
 		];
 
 		RightMenuBar->AddSlot()
@@ -520,33 +520,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			[
 				SNew(SUTButton)
 				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
-				.ToolTipText(NSLOCTEXT("ToolTips","TPMyPlayerCard","Show this player's player card."))
-				.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.VAlign(VAlign_Center)
-					[
-						SNew(SBox)
-						.WidthOverride(48)
-						.HeightOverride(48)
-						[
-							SNew(SImage)
-							.Image(SUTStyle::Get().GetBrush("UT.Icon.PlayerCard"))
-						]
-					]
-				]
-			]
-
-			+SHorizontalBox::Slot()
-			.AutoWidth()
-			[
-				SNew(SUTButton)
-				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.OnClicked(this, &SUTMenuBase::OnShowStatsViewer)
 				.ToolTipText(NSLOCTEXT("ToolTips","TPMyStats","Show stats for this player, friends, and recent opponents."))
 				[
@@ -586,6 +559,33 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 					]
 				]
 			]
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+				.ToolTipText(NSLOCTEXT("ToolTips","TPMyPlayerCard","Show this player's player card."))
+				.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
+				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.WidthOverride(48)
+						.HeightOverride(48)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.Icon.PlayerCard"))
+						]
+					]
+				]
+			]
+
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[

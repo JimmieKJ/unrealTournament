@@ -841,4 +841,10 @@ void SUWindowsMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwn
 	SUTMenuBase::OnOwnerLoginStatusChanged(LocalPlayerOwner, NewStatus, UniqueID);
 }
 
+EVisibility SUWindowsMainMenu::GetBackVis() const
+{
+	if (TutorialMenu.IsValid() && TutorialMenu->IsInViewport()) return EVisibility::Visible;
+	return SUTMenuBase::GetBackVis();
+}
+
 #endif

@@ -98,7 +98,7 @@ protected:
 	FReply ToggleFullscreenClicked();
 	FReply MinimizeClicked();
 
-	EVisibility GetBackVis() const;
+	virtual EVisibility GetBackVis() const;
 
 	FReply ExitClicked();
 	virtual void QuitConfirmation();
