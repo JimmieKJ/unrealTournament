@@ -757,3 +757,12 @@ void AUTBasePlayerController::ShowAdminMessage(const FString& Message)
 		UTLocalPlayer->ShowAdminMessage(Message);
 	}
 }
+
+void AUTBasePlayerController::UTLogOut()
+{
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (UTLocalPlayer)
+	{
+		UTLocalPlayer->Logout();
+	}
+}

@@ -150,6 +150,9 @@ protected:
 
 public:
 	UFUNCTION(Exec)
+	virtual void UTLogOut();
+
+	UFUNCTION(Exec)
 	virtual void RconAuth(FString Password);
 
 	UFUNCTION(Server, Reliable, WithValidation)
