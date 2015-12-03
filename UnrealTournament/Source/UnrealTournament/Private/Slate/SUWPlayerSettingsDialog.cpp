@@ -70,6 +70,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	AvatarList.Add(FName("UT.Avatar.2"));
 	AvatarList.Add(FName("UT.Avatar.3"));
 	AvatarList.Add(FName("UT.Avatar.4"));
+	AvatarList.Add(FName("UT.Avatar.5"));
+	AvatarList.Add(FName("UT.Avatar.6"));
 
 	WeaponConfigDelayFrames = 0;
 

@@ -432,6 +432,8 @@ void SUTStyle::SetAvatars(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Avatar.2", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.2", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Avatar.3", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.3", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Avatar.4", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.4", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.Avatar.5", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.5", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.Avatar.6", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.6", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 }
 
 void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
