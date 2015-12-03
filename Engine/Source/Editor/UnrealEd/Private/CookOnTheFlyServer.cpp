@@ -723,10 +723,18 @@ FString GetChildCookerManifestFilename(const FString ResponseFilename)
  * Return the release asset registry filename for the release version supplied
  */
 FString GetReleaseVersionAssetRegistryPath(const FString& ReleaseVersion, const FName& PlatformName )
-{
+{ 
 	// cache the part of the path which is static because getting the GameDir is really slow and also string manipulation
 	const static FString GameDirectory = FPaths::GameDir() / FString(TEXT("Releases"));
 	return  GameDirectory / ReleaseVersion / PlatformName.ToString();
+}
+
+// When writing out the release version, don't write outside of Saved/Cooked
+FString GetReleaseVersionAssetRegistryTemporaryPath(const FString& ReleaseVersion, const FName& PlatformName)
+{
+	// cache the part of the path which is static because getting the GameSavedDir is really slow and also string manipulation
+	const static FString GameDirectory = FPaths::GameSavedDir() / TEXT("Cooked");
+	return GameDirectory / PlatformName.ToString() / FString(TEXT("Releases")) / ReleaseVersion;
 }
 
 const FString& GetAssetRegistryFilename()
@@ -3974,7 +3982,8 @@ void UCookOnTheFlyServer::CookByTheBookFinished()
 
 			if ( IsCreatingReleaseVersion() )
 			{
-				const FString VersionedRegistryPath = GetReleaseVersionAssetRegistryPath( CookByTheBookOptions->CreateReleaseVersion, Manifest.Key ); 
+				//const FString VersionedRegistryPath = GetReleaseVersionAssetRegistryPath( CookByTheBookOptions->CreateReleaseVersion, Manifest.Key ); 
+				const FString VersionedRegistryPath = GetReleaseVersionAssetRegistryTemporaryPath(CookByTheBookOptions->CreateReleaseVersion, Manifest.Key);
 
 				IFileManager::Get().MakeDirectory( *VersionedRegistryPath ,true );
 
