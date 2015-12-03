@@ -1996,7 +1996,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 		.Style(SUTStyle::Get(),"UT.List.Row")
 		[
 			SNew(SBox)
-			.HeightOverride(64)
+			.HeightOverride(80)
 			[
 				SNew(SVerticalBox)
 				+SVerticalBox::Slot()
@@ -2007,7 +2007,13 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 					.AutoWidth()
 					.Padding(0.0,0.0,5.0,0.0)
 					[
-						AddHUBBadge(InItem)
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.FillHeight(1.0)
+						.VAlign(VAlign_Center)
+						[
+							AddHUBBadge(InItem)
+						]
 					]
 					
 					+SHorizontalBox::Slot()
@@ -2020,7 +2026,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 						[
 							SNew(STextBlock)
 							.Text(FText::FromString(InItem->Name))
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 						]
 						+SVerticalBox::Slot()
 						.FillHeight(1.0)
@@ -2061,7 +2067,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 										.Text(InItem->bFakeHUB ? 
 											TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumServers)) :
 											TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumMatches)))
-										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 									]
 
 									+SHorizontalBox::Slot()
@@ -2071,7 +2077,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									[
 										SNew(STextBlock)
 										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumPlayers)))
-										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 									]
 
 									+SHorizontalBox::Slot()
@@ -2081,7 +2087,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									[
 										SNew(STextBlock)
 										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumFriends)))
-										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 									]
 									+ SHorizontalBox::Slot()
 									.FillWidth(1.0)
@@ -2110,7 +2116,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 										[
 											SNew(STextBlock)
 											.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetHubPing)))
-											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 										]
 									]
 								]
