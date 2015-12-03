@@ -5195,6 +5195,13 @@ void AUTCharacter::OnRep_ReplicatedMovement()
 	}
 	else
 	{
+		if (RootComponent != NULL)
+		{
+			// we handle this ourselves, do not use base version
+			// why on earth isn't SyncReplicatedPhysicsSimulation() virtual?
+			ReplicatedMovement.bRepPhysics = RootComponent->IsSimulatingPhysics();
+		}
+
 		Super::OnRep_ReplicatedMovement();
 		if (bFeigningDeath && GetMesh()->IsSimulatingPhysics())
 		{
