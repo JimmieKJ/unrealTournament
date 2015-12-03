@@ -45,6 +45,12 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
 	UCurveFloat* ReturnParamCurve;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+	FVector MeshOffset;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+	FVector HeldOffset;
+
 	/** duplicate of Mesh used temporarily as part of return effect */
 	UPROPERTY()
 	USkeletalMeshComponent* ReturningMesh;

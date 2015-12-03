@@ -13,15 +13,16 @@ static FName NAME_Wipe(TEXT("Wipe"));
 AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	static ConstructorHelpers::FObjectFinder<USkeletalMesh> FlagMesh (TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"));
-
 	Collision->InitCapsuleSize(92.f, 134.0f);
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
-	GetMesh()->SetSkeletalMesh(FlagMesh.Object);
 	GetMesh()->AlwaysLoadOnClient = true;
 	GetMesh()->AlwaysLoadOnServer = true;
 	GetMesh()->AttachParent = RootComponent;
 	GetMesh()->SetAbsolute(false, false, true);
+
+	MeshOffset = FVector(-64.f, 0.f, -48.f);
+	HeldOffset = FVector(0.f, 0.f, -48.f);
+	HomeBaseOffset = FVector(64.f, 0.f, -8.f);
 
 	FlagWorldScale = 1.75f;
 	FlagHeldScale = 1.f;
@@ -91,6 +92,7 @@ void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 	{
 		GetMesh()->SetAbsolute(false, false, true);
 		GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
+		GetMesh()->SetRelativeLocation(MeshOffset);
 	}
 }
 
@@ -101,6 +103,7 @@ void AUTCTFFlag::AttachTo(USkeletalMeshComponent* AttachToMesh)
 	{
 		GetMesh()->SetAbsolute(false, false, true);
 		GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
+		GetMesh()->SetRelativeLocation(HeldOffset);
 		GetMesh()->ClothBlendWeight = ClothBlendHeld;
 	}
 }
@@ -143,6 +146,7 @@ void AUTCTFFlag::MoveToHome()
 	Super::MoveToHome();
 	if (GetMesh())
 	{
+		GetMesh()->SetRelativeLocation(MeshOffset);
 		GetMesh()->ClothBlendWeight = ClothBlendHome;
 	}
 }
