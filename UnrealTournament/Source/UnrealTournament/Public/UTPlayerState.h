@@ -525,10 +525,12 @@ public:
 		static void Set(AUTPlayerState* PS, UUtMcpProfile* Profile)
 		{
 			PS->McpProfile = Profile;
+			Profile->OnStatsUpdated().AddUObject(PS, &AUTPlayerState::ProfileStatsChanged);
 			Profile->OnHandleNotification().BindUObject(PS, &AUTPlayerState::ProfileNotification);
 			Profile->OnInventoryUpdated().AddUObject(PS, &AUTPlayerState::ProfileItemsChanged);
 			if (Profile->HasValidProfileData())
 			{
+				PS->ProfileStatsChanged(0);
 				PS->ProfileItemsChanged(TSet<FString>(), 0);
 			}
 		}
@@ -537,6 +539,16 @@ public:
 	
 	/** temp while backend sends profile notifications to server when server triggered the update instead of client like it should */
 	void ProfileNotification(const FOnlineNotification& Notification);
+
+	void ProfileStatsChanged(int64 ProfileRevision)
+	{
+#if WITH_PROFILE
+		if (PrevXP == GetClass()->GetDefaultObject<AUTPlayerState>()->PrevXP)
+		{
+			PrevXP = GetMcpProfile()->GetXP();
+		}
+#endif
+	}
 	void ProfileItemsChanged(const TSet<FString>& ChangedTypes, int64 ProfileRevision);
 
 	inline bool IsProfileItemListPending() const
