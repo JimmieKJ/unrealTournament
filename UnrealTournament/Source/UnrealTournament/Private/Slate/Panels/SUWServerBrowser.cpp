@@ -823,6 +823,7 @@ TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 							SNew(SBox).HeightOverride(648)
 							[
 								SAssignNew(LobbyMatchPanel, SUMatchPanel).PlayerOwner(PlayerOwner)
+								.bExpectLiveData(false)
 								.OnJoinMatchDelegate(this, &SUWServerBrowser::JoinQuickInstance)
 							]
 						]

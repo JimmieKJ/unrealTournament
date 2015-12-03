@@ -246,9 +246,11 @@ DECLARE_DELEGATE_TwoParams(FMatchPanelJoinMatchDelegate, const FString& , bool )
 class UNREALTOURNAMENT_API SUMatchPanel : public SCompoundWidget
 {
 	SLATE_BEGIN_ARGS(SUMatchPanel)
+	: _bExpectLiveData(true)
 	{}
 		SLATE_ARGUMENT( TWeakObjectPtr<UUTLocalPlayer>, PlayerOwner )
 		SLATE_EVENT(FMatchPanelJoinMatchDelegate, OnJoinMatchDelegate )
+		SLATE_ARGUMENT( bool, bExpectLiveData)
 
 	SLATE_END_ARGS()
 
@@ -260,7 +262,10 @@ public:
 	void SetServerData(TSharedPtr<FServerData> inServerData);
 
 protected:
+
 	TSharedPtr<FServerData> ServerData;
+
+	bool bExpectLiveData;
 
 	// Will return true if the player owner is connected to a hub.  It will tell the panel
 	// to poll the live data during the tick instead of waiting on updates.

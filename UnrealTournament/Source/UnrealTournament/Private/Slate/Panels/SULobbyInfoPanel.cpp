@@ -302,6 +302,7 @@ void SULobbyInfoPanel::ShowMatchBrowser()
 		LeftPanel->AddSlot().AutoHeight().HAlign(HAlign_Left)
 		[
 			SAssignNew(MatchBrowser, SUMatchPanel)
+			.bExpectLiveData(true)
 			.PlayerOwner(PlayerOwner)
 		];
 

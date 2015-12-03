@@ -25,6 +25,8 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 	bShowingNoMatches = false;
 	OnJoinMatchDelegate = InArgs._OnJoinMatchDelegate;
 
+	bExpectLiveData = InArgs._bExpectLiveData;
+
 	TSharedPtr<SVerticalBox> VertBox;
 
 	ChildSlot.VAlign(VAlign_Fill).HAlign(HAlign_Fill)
@@ -165,7 +167,7 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 
 bool SUMatchPanel::ShouldUseLiveData()
 {
-	return (PlayerOwner.IsValid() && PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL);
+	return bExpectLiveData; 
 }
 
 TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTrackedMatch> InItem, const TSharedRef<STableViewBase>& OwnerTable )
