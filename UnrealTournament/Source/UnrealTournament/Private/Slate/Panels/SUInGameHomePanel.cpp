@@ -9,6 +9,8 @@
 #include "../SUWScaleBox.h"
 #include "Slate/SlateGameResources.h"
 #include "SUInGameHomePanel.h"
+#include "../Widgets/SUTBorder.h"
+#include "../Widgets/SUTButton.h"
 
 #if !UE_SERVER
 
@@ -16,7 +18,7 @@
 void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 {
 	ChatDestination = ChatDestinations::Local;
-
+	bShowingContextMenu = false;
 	this->ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
@@ -31,8 +33,7 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 			.FillHeight(1.0)
 			.HAlign(HAlign_Fill)
 			[
-				// Allow children to place things over chat....
-				SAssignNew(ChatArea,SVerticalBox)
+				SAssignNew(SubMenuOverlay, SOverlay)
 			]
 
 			+ SVerticalBox::Slot()
@@ -142,6 +143,16 @@ void SUInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 			]
 		]
 	];
+
+	if (SubMenuOverlay.IsValid())
+	{
+		SubMenuOverlay->AddSlot(0)
+		[
+			// Allow children to place things over chat....
+			SAssignNew(ChatArea,SVerticalBox)
+		];
+	}
+
 }
 
 TSharedRef<SWidget> SUInGameHomePanel::BuildChatDestinationsButton()
@@ -350,9 +361,181 @@ bool SUInGameHomePanel::GetGameMousePosition(FVector2D& MousePosition)
 	return false;
 }
 
+void SUInGameHomePanel::ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D ContextMenuLocation, FVector2D ViewportBounds)
+{
+	if (bShowingContextMenu)
+	{
+		HideContextMenu();
+	}
+
+	if (Scoreboard == nullptr) return;
+	
+	TWeakObjectPtr<AUTPlayerState> SelectedPlayer = Scoreboard->GetSelectedPlayer();
+	
+	if (!SelectedPlayer.IsValid()) return;
+
+	TSharedPtr<SVerticalBox> MenuBox;
+
+	bShowingContextMenu = true;
+	SubMenuOverlay->AddSlot(1)
+	.Padding(FMargin(ContextMenuLocation.X, ContextMenuLocation.Y, 0, 0))
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot().AutoWidth()
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SUTBorder)
+				.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+				[
+					SAssignNew(MenuBox, SVerticalBox)
+				]
+			]
+		]
+	];
+
+
+	if (MenuBox.IsValid())
+	{
+		// Add the show player card
+		MenuBox->AddSlot()
+		.AutoHeight()
+		[
+			SNew(SUTButton)
+			.OnClicked(this, &SUInGameHomePanel::ContextCommand, 0, SelectedPlayer)
+			.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+			.Text(NSLOCTEXT("SUInGameHomePanel","ShowPlayerCard","Show Player Card"))
+			.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+		];
+
+		// If we are in a netgame, show online options.
+		if ( PlayerOwner->GetWorld()->GetNetMode() == ENetMode::NM_Client)
+		{
+			MenuBox->AddSlot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().Padding(FMargin(10.0,0.0,10.0,0.0))
+				[
+					SNew(SBox).HeightOverride(3)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+					]
+				]
+			];
+
+			if (!PlayerOwner->IsAFriend(SelectedPlayer->UniqueId))
+			{
+				MenuBox->AddSlot()
+				.AutoHeight()
+				[
+					SNew(SUTButton)
+					.OnClicked(this, &SUInGameHomePanel::ContextCommand, 1, SelectedPlayer)
+					.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+					.Text(NSLOCTEXT("SUInGameHomePanel","SendFriendRequest","Send Friend Request"))
+					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+				];
+			}
+
+
+			MenuBox->AddSlot()
+			.AutoHeight()
+			[
+				SNew(SUTButton)
+				.OnClicked(this, &SUInGameHomePanel::ContextCommand, 2, SelectedPlayer)
+				.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+				.Text(NSLOCTEXT("SUInGameHomePanel","VoteToKick","Vote to Kick"))
+				.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+			];
+
+			if (PlayerOwner->PlayerController)
+			{
+				AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+				if (OwnerPlayerState && OwnerPlayerState->bIsRconAdmin && SelectedPlayer != OwnerPlayerState)
+				{
+					MenuBox->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot().Padding(FMargin(10.0,0.0,10.0,0.0))
+						[
+							SNew(SBox).HeightOverride(3)
+							[
+								SNew(SImage)
+								.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+							]
+						]
+					];
+
+					MenuBox->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SUTButton)
+						.OnClicked(this, &SUInGameHomePanel::ContextCommand, 3, SelectedPlayer)
+						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+						.Text(NSLOCTEXT("SUInGameHomePanel","AdminKick","Admin Kick"))
+						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+					];
+					MenuBox->AddSlot()
+					.AutoHeight()
+					[
+						SNew(SUTButton)
+						.OnClicked(this, &SUInGameHomePanel::ContextCommand, 4, SelectedPlayer)
+						.ButtonStyle(SUTStyle::Get(),"UT.ContextMenu.Item")
+						.Text(NSLOCTEXT("SUInGameHomePanel","AdminBan","Admin Ban"))
+						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small")
+					];
+				}
+			}
+		}
+	
+	
+	}
+
+}
+
+void SUInGameHomePanel::HideContextMenu()
+{
+	if (bShowingContextMenu)
+	{
+		SubMenuOverlay->RemoveSlot(1);
+		bShowingContextMenu = false;
+	}
+}
+
+FReply SUInGameHomePanel::ContextCommand(int32 CommandId, TWeakObjectPtr<AUTPlayerState> TargetPlayerState)
+{
+	HideContextMenu();
+	if (TargetPlayerState.IsValid())
+	{
+		AUTPlayerState* MyPlayerState =  Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+
+		if (MyPlayerState && PC)
+		{
+			switch (CommandId)
+			{
+				case 0: PlayerOwner->ShowPlayerInfo(TargetPlayerState); break;
+				case 1: PlayerOwner->RequestFriendship(TargetPlayerState->UniqueId.GetUniqueNetId()); break;
+				case 2: if (TargetPlayerState != MyPlayerState)
+						{
+							PC->ServerRegisterBanVote(TargetPlayerState.Get());
+						}
+						break;
+				case 3: PC->RconKick(TargetPlayerState->UniqueId.ToString(), false); break;
+				case 4: PC->RconKick(TargetPlayerState->UniqueId.ToString(), true);	break;
+			}
+		}
+	}
+
+	return FReply::Handled();
+}
+
+
 FReply SUInGameHomePanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC && PC->MyUTHUD)
 	{
@@ -363,10 +546,27 @@ FReply SUInGameHomePanel::OnMouseButtonUp(const FGeometry& MyGeometry, const FPo
 			UUTScoreboard* SB = PC->MyUTHUD->GetScoreboard();
 			if (SB)
 			{
-				if (SB->AttemptSelection(MousePosition))
+				if ( MouseEvent.GetEffectingButton() == EKeys::RightMouseButton )
 				{
-					SB->SelectionClick();
-					return FReply::Handled();
+					if (SB->AttemptSelection(MousePosition))
+					{
+						// We are over a item.. pop up the context menu
+						FVector2D LocalPosition = MyGeometry.AbsoluteToLocal( MouseEvent.GetScreenSpacePosition() );
+						ShowContextMenu(SB, LocalPosition, MyGeometry.GetLocalSize());
+					}
+					else
+					{
+						HideContextMenu();
+					}
+				}
+				else
+				{
+					HideContextMenu();
+					if (SB->AttemptSelection(MousePosition))
+					{
+						SB->SelectionClick();
+						return FReply::Handled();
+					}
 				}
 			}
 

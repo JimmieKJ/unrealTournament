@@ -57,6 +57,12 @@ protected:
 
 	virtual bool GetGameMousePosition(FVector2D& MousePosition);
 
+	virtual void ShowContextMenu(UUTScoreboard* Scoreboard, FVector2D ContextMenuLocation, FVector2D ViewportBounds);
+	virtual void HideContextMenu();
+	virtual FReply ContextCommand(int32 CommandId, TWeakObjectPtr<AUTPlayerState> TargetPlayerState);
+
+	TSharedPtr<SOverlay> SubMenuOverlay;
+	bool bShowingContextMenu;
 };
 
 #endif

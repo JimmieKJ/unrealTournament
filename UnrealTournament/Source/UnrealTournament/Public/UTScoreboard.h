@@ -166,7 +166,7 @@ protected:
 
 public:
 	virtual bool IsInteractive() { return bIsInteractive; };
-
+	virtual TWeakObjectPtr<AUTPlayerState> GetSelectedPlayer();
 protected:
 
 	// Will be true when the scoreboard is interactive.  This will cause the

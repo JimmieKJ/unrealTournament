@@ -1015,3 +1015,8 @@ float UUTScoreboard::GetDrawScaleOverride()
 {
 	return 1.0;
 }
+
+TWeakObjectPtr<AUTPlayerState> UUTScoreboard::GetSelectedPlayer()
+{
+	return SelectedPlayer;
+}
