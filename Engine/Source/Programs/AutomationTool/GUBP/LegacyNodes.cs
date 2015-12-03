@@ -1708,11 +1708,12 @@ partial class GUBP
             }
 			using(TelemetryStopwatch CookStopwatch = new TelemetryStopwatch("Cook.{0}.{1}", GameProj.GameName, CookPlatform))
 			{
-				String CookArgs = String.Format("-Unversioned {0}", ExtraArgsForCook);
+                String CookArgs = String.Format("-Unversioned {0} -newcook -CreateReleaseVersion=UTVersion0", ExtraArgsForCook);
 				CommandUtils.CookCommandlet(GameProj.FilePath, "UE4Editor-Cmd.exe", null, null, null, null, CookPlatform, CookArgs);
 			}
 			var CookedPath = RootForCook();
-            var CookedFiles = CommandUtils.FindFiles("*", true, CookedPath);
+            var AssetRegFilePath = CombinePaths(Path.GetDirectoryName(GameProj.FilePath.FullName), "Releases", "UTVersion0", CookPlatform);
+            var CookedFiles = CommandUtils.FindFiles("*", true, new string[] { CookedPath, AssetRegFilePath });
             if (CookedFiles.GetLength(0) < 1)
             {
                 throw new AutomationException("CookedPath {1} did not produce any files.", CookedPath);
