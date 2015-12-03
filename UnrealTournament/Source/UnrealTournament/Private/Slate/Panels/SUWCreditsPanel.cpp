@@ -35,6 +35,7 @@ void SUWCreditsPanel::ConstructPanel(FVector2D ViewportSize)
 
 void SUWCreditsPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
+	SUWPanel::OnShowPanel(inParentWindow);
 	if (CreditsWebBrowser.IsValid())
 	{
 		CreditsWebBrowser->LoadURL(TEXT("http://epic.gm/utcontrib"));

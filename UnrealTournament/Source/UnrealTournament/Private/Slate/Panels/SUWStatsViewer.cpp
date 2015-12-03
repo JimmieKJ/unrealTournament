@@ -202,6 +202,8 @@ void SUWStatsViewer::SetQueryWindow(const FString& InQueryWindow)
 
 void SUWStatsViewer::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
+	SUWPanel::OnShowPanel(inParentWindow);
+
 	if (!PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->LoginOnline(TEXT(""), TEXT(""), false);
