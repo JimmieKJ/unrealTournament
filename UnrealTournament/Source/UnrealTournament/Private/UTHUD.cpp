@@ -64,6 +64,10 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> SelectedPlayerTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedPlayerTexture = SelectedPlayerTextureObject.Object;
 
+	static ConstructorHelpers::FObjectFinder<USoundBase> KillSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/Gameplay/A_Stinger_Kill01_Cue.A_Stinger_Kill01_Cue'"));
+	KillSound = KillSoundFinder.Object;
+
+	LastKillTime = -100.f;
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
 	bFontsCached = false;
@@ -1145,4 +1149,19 @@ void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawS
 	ImageItem.PivotPoint = FVector2D(0.f, 0.f);
 	ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
 	Canvas->DrawItem(ImageItem);
+}
+
+void AUTHUD::NotifyKill()
+{
+	LastKillTime = GetWorld()->GetTimeSeconds();
+	if (GetWorldTimerManager().IsTimerActive(PlayKillHandle))
+	{
+		PlayKillNotification();
+	}
+	GetWorldTimerManager().SetTimer(PlayKillHandle, this, &AUTHUD::PlayKillNotification, 0.35f, false);
+}
+
+void AUTHUD::PlayKillNotification()
+{
+	PlayerOwner->ClientPlaySound(KillSound);
 }

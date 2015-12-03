@@ -918,6 +918,11 @@ void AUTPlayerState::SetCarriedObject(AUTCarriedObject* NewCarriedObject)
 		CarriedObject = NewCarriedObject;
 		ForceNetUpdate();
 	}
+	AUTPlayerController *PlayerOwner = Cast<AUTPlayerController>(GetOwner());
+	if (PlayerOwner && PlayerOwner->MyUTHUD && CarriedObject)
+	{
+		PlayerOwner->MyUTHUD->LastFlagGrabTime = GetWorld()->GetTimeSeconds();
+	}
 }
 
 void AUTPlayerState::ClearCarriedObject(AUTCarriedObject* OldCarriedObject)
@@ -2396,7 +2401,9 @@ void AUTPlayerState::UpdateReady()
 		}
 		if (ReadySwitchCount > 10)
 		{
-			ReadyScale = 1.f + 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime);
+			ReadyScale = (ReadySwitchCount % 2 == 0) 
+							? 1.f + 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime)
+							: 1.4f - 2.f*(GetWorld()->GetTimeSeconds() - LastReadySwitchTime);
 		}
 	}
 	else if (!bReadyToPlay && (GetWorld()->GetTimeSeconds() - LastReadySwitchTime > 0.5f))

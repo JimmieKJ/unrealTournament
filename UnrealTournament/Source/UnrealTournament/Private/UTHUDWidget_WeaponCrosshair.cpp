@@ -34,6 +34,36 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 				}
 			}
 		}
+		const float TimeSinceKill = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastKillTime;
+		const float SkullDisplayTime = 0.8f;
+		if (TimeSinceKill < SkullDisplayTime)
+		{
+			float Size = 32.f * (1.f + FMath::Min(1.5f*(TimeSinceKill - 0.2f) / SkullDisplayTime, 1.f));
+			FLinearColor SkullColor = FLinearColor::White;
+			float Opacity = 0.7f - 0.6f*TimeSinceKill/SkullDisplayTime;
+			DrawTexture(UTHUDOwner->HUDAtlas, 0, -2.f*Size, Size, Size, 725, 0, 28, 36, Opacity, SkullColor, FVector2D(0.5f, 0.5f));
+		}
+
+		const float TimeSinceGrab = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastFlagGrabTime;
+		const float FlagDisplayTime = 0.6f;
+		if (TimeSinceGrab < FlagDisplayTime)
+		{
+			AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();
+			if (PS && PS->CarriedObject)
+			{
+				float Size = 64.f * (1.f + 5.f*TimeSinceGrab / FlagDisplayTime);
+				FLinearColor FlagColor = FLinearColor::White;
+				int32 TeamIndex = PS->CarriedObject->GetTeamNum();
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if (GS != NULL && GS->Teams.IsValidIndex(TeamIndex) && GS->Teams[TeamIndex] != NULL)
+				{
+					FlagColor = GS->Teams[TeamIndex]->TeamColor;
+				}
+				float Opacity = 0.8f - 0.8f*TimeSinceGrab / FlagDisplayTime;
+				DrawTexture(UTHUDOwner->HUDAtlas, 0.f, -48.f, Size, Size, 843.f, 87.f, 43.f, 41.f, Opacity, FlagColor, FVector2D(0.5f, 0.5f));
+			}
+		}
 	}
 }
+
 
