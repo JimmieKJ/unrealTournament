@@ -6,6 +6,7 @@
 #include "UTGameEngine.h"
 #include "UTGameInstance.h"
 #include "DataChannel.h"
+#include "UTDemoRecSpectator.h"
 #if WITH_PROFILE
 #include "UtMcpProfileManager.h"
 #endif
@@ -13,6 +14,7 @@
 AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	ReplaySpectatorPlayerControllerClass = AUTDemoRecSpectator::StaticClass();
 }
 
 void AUTBaseGameMode::PreInitializeComponents()
