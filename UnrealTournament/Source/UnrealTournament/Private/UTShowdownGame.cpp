@@ -10,6 +10,7 @@
 #include "Slate/SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 #include "UTShowdownSquadAI.h"
+#include "UTGenericObjectivePoint.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -344,38 +345,50 @@ void AUTShowdownGame::HandleMatchIntermission()
 		TSubclassOf<AUTTimedPowerup> PowerupClass = Cast<UClass>(PowerupBreakerItemClass.TryLoad());
 		if (PickupClass != NULL && PowerupClass != NULL)
 		{
-			// TODO: use game objective points or something
-			AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
-			if (NavData != NULL)
+			FVector SpawnLoc;
+			TArray<AUTGenericObjectivePoint*> PlacedSpawnPoints;
+			for (TActorIterator<AUTGenericObjectivePoint> It(GetWorld()); It; ++It)
+			{
+				PlacedSpawnPoints.Add(*It);
+			}
+			if (PlacedSpawnPoints.Num() > 0)
+			{
+				SpawnLoc = PlacedSpawnPoints[FMath::RandHelper(PlacedSpawnPoints.Num())]->GetActorLocation();
+			}
+			else
 			{
 				AActor* StartSpot = FindPlayerStart(NULL);
-				FVector Extent = NavData->GetPOIExtent(StartSpot);
-				FRandomDestEval NodeEval;
-				float Weight = 0.0f;
-				TArray<FRouteCacheItem> Route;
-				FVector SpawnLoc = StartSpot->GetActorLocation();
-				if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
+				SpawnLoc = StartSpot->GetActorLocation();
+				AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
+				if (NavData != NULL)
 				{
-					SpawnLoc = Route.Last().GetLocation(NULL);
-					// try to pick a better poly for spawning (we'd like to stay away from walls)
-					for (int32 i = Route.Num() - 1; i >= 0; i--)
+					FVector Extent = NavData->GetPOIExtent(StartSpot);
+					FRandomDestEval NodeEval;
+					float Weight = 0.0f;
+					TArray<FRouteCacheItem> Route;					
+					if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
 					{
-						if (NavData->GetPolySurfaceArea2D(Route[i].TargetPoly) > 10000.0f || NavData->GetPolyWalls(Route[i].TargetPoly).Num() == 0)
+						SpawnLoc = Route.Last().GetLocation(NULL);
+						// try to pick a better poly for spawning (we'd like to stay away from walls)
+						for (int32 i = Route.Num() - 1; i >= 0; i--)
 						{
-							SpawnLoc = Route[i].GetLocation(NULL);
-							break;
+							if (NavData->GetPolySurfaceArea2D(Route[i].TargetPoly) > 10000.0f || NavData->GetPolyWalls(Route[i].TargetPoly).Num() == 0)
+							{
+								SpawnLoc = Route[i].GetLocation(NULL) + FVector(0.0f, 0.0f, Extent.Z);
+								break;
+							}
 						}
 					}
 				}
-				FActorSpawnParameters Params;
-				Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-				BreakerPickup = GetWorld()->SpawnActor<AUTPickupInventory>(PickupClass, SpawnLoc + Extent.Z, FRotator(0.0f, 360.0f * FMath::FRand(), 0.0f), Params);
-				if (BreakerPickup != NULL)
-				{
-					BreakerPickup->SetInventoryType(PowerupClass);
-					BreakerPickup->bDelayedSpawn = true;
-					BreakerPickup->RespawnTime = 70.0f;
-				}
+			}
+			FActorSpawnParameters Params;
+			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+			BreakerPickup = GetWorld()->SpawnActor<AUTPickupInventory>(PickupClass, SpawnLoc, FRotator(0.0f, 360.0f * FMath::FRand(), 0.0f), Params);
+			if (BreakerPickup != NULL)
+			{
+				BreakerPickup->SetInventoryType(PowerupClass);
+				BreakerPickup->bDelayedSpawn = true;
+				BreakerPickup->RespawnTime = 70.0f;
 			}
 		}
 	}

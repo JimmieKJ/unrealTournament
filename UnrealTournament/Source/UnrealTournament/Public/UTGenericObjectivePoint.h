@@ -22,7 +22,7 @@ public:
 			EditorSprite->AttachParent = RootComponent;
 			if (!IsRunningCommandlet())
 			{
-				ConstructorHelpers::FObjectFinderOptional<UTexture2D> SpriteObj(TEXT("/Engine/EditorMaterials/TargetIcon.TargetIcon"));
+				ConstructorHelpers::FObjectFinderOptional<UTexture2D> SpriteObj(TEXT("/Game/RestrictedAssets/EditorAssets/Icons/generic_objective.generic_objective"));
 				EditorSprite->Sprite = SpriteObj.Get();
 				if (EditorSprite->Sprite != NULL)
 				{
