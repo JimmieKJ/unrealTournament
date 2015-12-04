@@ -181,6 +181,7 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 
 	APlayerController* PC = Super::Login(NewPlayer, RemoteRole, Portal, Options, UniqueId, ErrorMessage);
 
+#if WITH_PROFILE
 	if (PC != NULL)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
@@ -191,6 +192,7 @@ APlayerController* AUTBaseGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 			AUTPlayerState::FMcpProfileSetter::Set(PS, Profile);
 		}
 	}
+#endif
 
 	return PC;
 }

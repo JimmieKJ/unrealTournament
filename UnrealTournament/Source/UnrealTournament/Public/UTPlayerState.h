@@ -16,6 +16,7 @@
 #include "UTCharacterVoice.h"
 #include "StatManager.h"
 #include "UTWeaponSkin.h"
+#include "OnlineNotification.h"
 #if WITH_PROFILE
 #include "UtMcpProfile.h"
 #endif

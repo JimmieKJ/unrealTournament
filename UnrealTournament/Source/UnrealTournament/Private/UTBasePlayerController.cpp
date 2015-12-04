@@ -43,8 +43,8 @@ void AUTBasePlayerController::InitInputSystem()
 	Super::InitInputSystem();
 
 	// read profile on every level change so we can detect updates
-#if WITH_PROFILE
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+#if WITH_PROFILE
 	if (LP != NULL && LP->IsLoggedIn())
 	{
 		FClientUrlContext QueryContext = FClientUrlContext::Default; // IMPORTANT to make a copy!

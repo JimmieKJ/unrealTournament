@@ -41,7 +41,7 @@ int32 UUpdateBackendContentCommandlet::Main(const FString& FullCommandLine)
 
 typedef TPrettyJsonPrintPolicy<TCHAR> JsonPrintPolicy; // use pretty printing since we're checking these in (results in better diffs)
 typedef TSharedRef< TJsonWriter<TCHAR, JsonPrintPolicy > > JsonWriter;
-
+#if WITH_PROFILE
 struct FJsonExporter : public TSharedFromThis<FJsonExporter>
 {
 	FJsonExporter()
@@ -334,9 +334,13 @@ protected:
 		return EndJson();
 	}
 };
-
+#endif
 bool UUpdateBackendContentCommandlet::ExportTemplates(const FString& ExportDir)
 {
+#if WITH_PROFILE
 	FJsonExporter Exporter;
 	return Exporter.Export(ExportDir);
+#else
+	return false;
+#endif
 }
