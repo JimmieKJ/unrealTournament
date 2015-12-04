@@ -1712,8 +1712,7 @@ partial class GUBP
 				CommandUtils.CookCommandlet(GameProj.FilePath, "UE4Editor-Cmd.exe", null, null, null, null, CookPlatform, CookArgs);
 			}
 			var CookedPath = RootForCook();
-            var AssetRegFilePath = CombinePaths(Path.GetDirectoryName(GameProj.FilePath.FullName), "Releases", "UTVersion0", CookPlatform);
-            var CookedFiles = CommandUtils.FindFiles("*", true, new string[] { CookedPath, AssetRegFilePath });
+            var CookedFiles = CommandUtils.FindFiles("*", true, CookedPath);
             if (CookedFiles.GetLength(0) < 1)
             {
                 throw new AutomationException("CookedPath {1} did not produce any files.", CookedPath);
