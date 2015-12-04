@@ -205,6 +205,18 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	MinPlayersToStart = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
 
+	InOpt = UGameplayStatics::ParseOption(Options, TEXT("RankCheck"));
+	if (!InOpt.IsEmpty())
+	{
+		bRankLocked = true;
+		RankCheck = UGameplayStatics::GetIntOption(Options, TEXT("RankCheck"), 1400);
+		UE_LOG(UT,Log,TEXT("---------- RankLocked to %i"), RankCheck);
+	}
+	else
+	{
+		bRankLocked = false;
+	}
+
 	RespawnWaitTime = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("RespawnWait"), RespawnWaitTime));
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("Hub"));

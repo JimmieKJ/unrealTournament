@@ -48,7 +48,7 @@ public:
 
 	// Cached reference to the Game Mode
 	UPROPERTY()
-	AUTBaseGameMode* UTGameMode;
+	AUTBaseGameMode* UTBaseGameMode;
 
 	// Will be true if this server has been registered with the MCP
 	bool bSessionValid;

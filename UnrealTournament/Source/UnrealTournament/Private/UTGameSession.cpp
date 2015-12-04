@@ -29,7 +29,7 @@ void AUTGameSession::InitOptions( const FString& Options )
 	Super::InitOptions(Options);
 
 	// Cache the GameMode for later.
-	UTGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+	UTBaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
 	bNoJoinInProgress = UGameplayStatics::HasOption(Options, "NoJIP");
 }
 
@@ -41,7 +41,7 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<con
 		NetDriver = GetWorld()->GetNetDriver();
 	}
 
-	if ( !bValidateAsSpectator && (UniqueId.IsValid() && AllowedAdmins.Find(UniqueId->ToString()) == INDEX_NONE) && bNoJoinInProgress && UTGameMode->HasMatchStarted() )
+	if ( !bValidateAsSpectator && (UniqueId.IsValid() && AllowedAdmins.Find(UniqueId->ToString()) == INDEX_NONE) && bNoJoinInProgress && UTBaseGameMode->HasMatchStarted() )
 	{
 		ErrorMessage = TEXT("CANTJOININPROGRESS");
 		return;
@@ -72,7 +72,7 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<con
 
 
 	}
-	else if (Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) && Cast<AUTLobbyGameMode>(UTGameMode) == NULL)
+	else if (Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) && Cast<AUTLobbyGameMode>(UTBaseGameMode) == NULL)
 	{
 		ErrorMessage = TEXT("NOTLOGGEDIN");
 	}
@@ -88,7 +88,6 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<con
 		}
 	
 	}
-
 }
 
 bool AUTGameSession::BanPlayer(class APlayerController* BannedPlayer, const FText& BanReason)
@@ -129,7 +128,7 @@ bool AUTGameSession::KickPlayer(APlayerController* KickedPlayer, const FText& Ki
 		APlayerState* PS = KickedPlayer->PlayerState;
 		if (PS)
 		{
-			if ( UTGameMode && UTGameMode->IsGameInstanceServer() )
+			if ( UTBaseGameMode && UTBaseGameMode->IsGameInstanceServer() )
 			{
 				InstanceBannedUsers.Add(FBanInfo(PS->PlayerName, PS->UniqueId.ToString()));
 			}
@@ -146,7 +145,7 @@ bool AUTGameSession::KickPlayer(APlayerController* KickedPlayer, const FText& Ki
 
 FString AUTGameSession::ApproveLogin(const FString& Options)
 {
-	if (UTGameMode)
+	if (UTBaseGameMode)
 	{
 		if (!UGameplayStatics::HasOption(Options, TEXT("VersionCheck")) && (GetNetMode() != NM_Standalone) && !GetWorld()->IsPlayInEditor())
 		{
@@ -160,20 +159,36 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 			return TEXT("");
 		}
 
+		// If this is a rank locked server, don't allow players in
+		AUTGameMode* UTGameMode = Cast<AUTGameMode>(UTBaseGameMode);
+		if (UTGameMode)
+		{
+			if (UTGameMode->bRankLocked)
+			{
+				int32 IncomingRank = UGameplayStatics::GetIntOption(Options, TEXT("Rank"), -1);
+				UE_LOG(UT,Log,TEXT("Rank Check: %i vs %i = %i"), IncomingRank, UTGameMode->RankCheck, AUTLobbyMatchInfo::CheckRank(IncomingRank, UTGameMode->RankCheck) )
+				if (!AUTLobbyMatchInfo::CheckRank(IncomingRank, UTGameMode->RankCheck))
+				{
+					return TEXT("TOOSTRONG");
+				}
+		
+			}
+		}
+
 		if (GetNetMode() != NM_Standalone && !GetWorld()->IsPlayInEditor())
 		{
 			FString Password = UGameplayStatics::ParseOption(Options, TEXT("Password"));
 			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
-			if (!bSpectator && !UTGameMode->ServerPassword.IsEmpty())
+			if (!bSpectator && !UTBaseGameMode->ServerPassword.IsEmpty())
 			{
-				if (Password.IsEmpty() || !UTGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
+				if (Password.IsEmpty() || !UTBaseGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
 				{
 					return TEXT("NEEDPASS");
 				}
 			}
-			else if (bSpectator && !UTGameMode->SpectatePassword.IsEmpty())
+			else if (bSpectator && !UTBaseGameMode->SpectatePassword.IsEmpty())
 			{
-				if (Password.IsEmpty() || !UTGameMode->SpectatePassword.Equals(Password, ESearchCase::CaseSensitive))
+				if (Password.IsEmpty() || !UTBaseGameMode->SpectatePassword.Equals(Password, ESearchCase::CaseSensitive))
 				{
 					return TEXT("NEEDPASS");
 				}
@@ -235,10 +250,10 @@ void AUTGameSession::RegisterServer()
 
 				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(bLanGame, false, 10000));
 
-				if (OnlineGameSettings.IsValid() && UTGameMode)
+				if (OnlineGameSettings.IsValid() && UTBaseGameMode)
 				{
 					InitHostBeacon(OnlineGameSettings.Get());
-					OnlineGameSettings->ApplyGameSettings(UTGameMode);
+					OnlineGameSettings->ApplyGameSettings(UTBaseGameMode);
 					SessionInterface->CreateSession(0, GameSessionName, *OnlineGameSettings);
 					return;
 				}
@@ -255,10 +270,10 @@ void AUTGameSession::RegisterServer()
 				// We have a valid session.
 
 				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 10000));
-				if (OnlineGameSettings.IsValid() && UTGameMode)
+				if (OnlineGameSettings.IsValid() && UTBaseGameMode)
 				{
 					InitHostBeacon(OnlineGameSettings.Get());
-					OnlineGameSettings->ApplyGameSettings(UTGameMode);
+					OnlineGameSettings->ApplyGameSettings(UTBaseGameMode);
 				}
 
 				bSessionValid = true;
@@ -463,7 +478,7 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 void AUTGameSession::UpdateGameState()
 {
 	const auto OnlineSub = IOnlineSubsystem::Get();
-	if (UTGameMode && OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
+	if (UTBaseGameMode && OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
@@ -480,10 +495,10 @@ void AUTGameSession::UpdateGameState()
 
 				OGS->Set(SETTING_UTMAXPLAYERS, MaxPlayers, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 				OGS->Set(SETTING_UTMAXSPECTATORS, MaxSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_NUMMATCHES, UTGameMode->GetNumMatches(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_PLAYERSONLINE, UTGameMode->GetNumPlayers(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_SPECTATORSONLINE, UTGameMode->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
-				OGS->Set(SETTING_SERVERINSTANCEGUID, UTGameMode->ServerInstanceGUID.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_NUMMATCHES, UTBaseGameMode->GetNumMatches(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_PLAYERSONLINE, UTBaseGameMode->GetNumPlayers(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_SPECTATORSONLINE, UTBaseGameMode->NumSpectators, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+				OGS->Set(SETTING_SERVERINSTANCEGUID, UTBaseGameMode->ServerInstanceGUID.ToString(), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 				SessionInterface->UpdateSession(SessionName, *OGS, true);
 			}
@@ -495,7 +510,7 @@ void AUTGameSession::OnUpdateSessionComplete(FName SessionName, bool bWasSuccess
 {
 	// workaround for the online service sometimes losing sessions
 	// if we lost our session and have no players, restart to try to acquire a new session
-	if (!bWasSuccessful && UTGameMode != NULL && UTGameMode->NumPlayers == 0 && UTGameMode->GetNumMatches() <= 1 && !UTGameMode->IsGameInstanceServer())
+	if (!bWasSuccessful && UTBaseGameMode != NULL && UTBaseGameMode->NumPlayers == 0 && UTBaseGameMode->GetNumMatches() <= 1 && !UTBaseGameMode->IsGameInstanceServer())
 	{
 		static double LastMCPHackTime = FPlatformTime::Seconds();
 		if (FPlatformTime::Seconds() - LastMCPHackTime > 600.0)
@@ -534,7 +549,7 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 			DesiredPort = PortOverride;
 		}
 
-		if (UTGameMode && !UTGameMode->IsGameInstanceServer() && BeaconHostListener->GetListenPort() != DesiredPort)
+		if (UTBaseGameMode && !UTBaseGameMode->IsGameInstanceServer() && BeaconHostListener->GetListenPort() != DesiredPort)
 		{
 			if (CantBindBeaconPortIsNotFatal)
 			{

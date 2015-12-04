@@ -472,6 +472,11 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 
 		GameURL += FString::Printf(TEXT("?InstanceID=%i?HostPort=%i"), GameInstanceID, GameInstanceListenPort);
 
+		if (MatchOwner->bRankLocked)
+		{
+			GameURL += FString::Printf(TEXT("?RankCheck=%i"), MatchOwner->AverageRank);
+		}
+
 		int32 InstancePort = LobbyGame->StartingInstancePort + (LobbyGame->InstancePortStep * GameInstances.Num());
 
 		FGuid LaunchGuid = FGuid::NewGuid();

@@ -907,7 +907,7 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 		if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
 		{
 			int32 Rank = TrackedMatch->MatchInfo.IsValid() ? TrackedMatch->MatchInfo->AverageRank : (TrackedMatch->MatchData.IsValid() ? TrackedMatch->MatchData->Rank : 1500);
-			FString RankLockStr = FString::Printf(TEXT("Allowed Ranks %i - %i"), Rank-400, Rank+400);
+			FString RankLockStr = FString::Printf(TEXT("Allowed Ranks %i - %i"), Rank + RANK_CHECK_MIN, Rank + RANK_CHECK_MAX);
 			VertBox->AddSlot()
 			.HAlign(HAlign_Center)
 			.AutoHeight()

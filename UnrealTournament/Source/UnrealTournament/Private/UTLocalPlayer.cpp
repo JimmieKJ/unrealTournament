@@ -2074,6 +2074,8 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 				ConnectionString += TEXT("?RTM=1");
 			}
 
+			ConnectionString += FString::Printf(TEXT("?Rank=%i"), GetBaseELORank());
+
 			ConnectionString += FString::Printf(TEXT("?SpectatorOnly=%i"), bWantsToConnectAsSpectator ? 1 : 0);
 
 			if (ConnectDesiredTeam >= 0)

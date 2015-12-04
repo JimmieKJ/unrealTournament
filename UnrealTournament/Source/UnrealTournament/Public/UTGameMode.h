@@ -759,5 +759,12 @@ public:
 
 	UFUNCTION(exec)
 		virtual void GetGood();
+
+	// Will be true if this instance is rank locked
+	bool bRankLocked;
+
+	// The average rank allowed
+	int32 RankCheck;
+
 };
 

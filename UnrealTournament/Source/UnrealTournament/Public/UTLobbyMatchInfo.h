@@ -20,6 +20,9 @@ const uint32 MATCH_FLAG_Private = 0x0004;
 const uint32 MATCH_FLAG_NoJoinInProgress = 0x0008;
 const uint32 MATCH_FLAG_NoSpectators = 0x0010;
 
+const int32 RANK_CHECK_MIN = -400;
+const int32 RANK_CHECK_MAX =  400;
+
 USTRUCT()
 struct FPlayerListInfo
 {
@@ -399,6 +402,12 @@ public:
 	// A reference to the beacon client for communication to this instance..
 	UPROPERTY()
 	AUTServerBeaconLobbyClient* InstanceBeacon;
+
+	// Looks to see if a rank falls within the acceptable range.
+	static bool CheckRank(int32 RankToCheck, int32 TargetRank)
+	{
+		return (RankToCheck <= 1400 && TargetRank <= 1400) || (RankToCheck >= TargetRank + RANK_CHECK_MIN && RankToCheck <= TargetRank + RANK_CHECK_MAX);
+	}
 
 };
 
