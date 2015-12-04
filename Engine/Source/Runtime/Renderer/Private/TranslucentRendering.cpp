@@ -403,7 +403,9 @@ bool FTranslucencyDrawingPolicyFactory::DrawMesh(
 	// Only render translucent materials
 	if(IsTranslucentBlendMode(BlendMode))
 	{
-		bool bCurrentlyRenderingSeparateTranslucency = Material->IsSeparateTranslucencyEnabled() == (DrawingContext.TranslucenyPassType == TPT_SeparateTransluceny);
+		// FIXME: temp Canvas/HUD hackfix for UT, merge real fix from engine main once available
+		//		PrimitiveSceneProxy is NULL when rendering Canvas items
+		bool bCurrentlyRenderingSeparateTranslucency = Material->IsSeparateTranslucencyEnabled() == (DrawingContext.TranslucenyPassType == TPT_SeparateTransluceny) || PrimitiveSceneProxy == NULL;
 		// if we are in relevant pass
 		if (bCurrentlyRenderingSeparateTranslucency || bSeparateTranslucencyEnabled == false)
 		{
