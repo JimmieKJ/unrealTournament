@@ -52,7 +52,7 @@ class UNREALTOURNAMENT_API UUTGameViewportClient : public UGameViewportClient
 	virtual void FinalizeViews(FSceneViewFamily* ViewFamily, const TMap<ULocalPlayer*, FSceneView*>& PlayerViewMap) override;
 	virtual void UpdateActiveSplitscreenType() override;
 	virtual void PostRender(UCanvas* Canvas) override;
-
+	virtual ULocalPlayer* SetupInitialLocalPlayer(FString& OutError) override;
 	virtual void Tick(float DeltaSeconds) override;
 
 	/** panini project the given location using the player's view

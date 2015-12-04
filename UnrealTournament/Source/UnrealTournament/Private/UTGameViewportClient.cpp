@@ -9,6 +9,7 @@
 #include "Slate/SUTGameLayerManager.h"
 #include "Engine/GameInstance.h"
 #include "UTGameEngine.h"
+#include "Engine/Console.h"
 
 UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -1086,4 +1087,18 @@ bool UUTGameViewportClient::HideCursorDuringCapture()
 void UUTGameViewportClient::ClientConnectedToServer()
 {
 	LastPasswordAttemptHost.Empty();	
+}
+
+
+ULocalPlayer* UUTGameViewportClient::SetupInitialLocalPlayer(FString& OutError)
+{
+	// Work around shipping not having a console
+#if UE_BUILD_SHIPPING
+	// Create the viewport's console.
+	ViewportConsole = NewObject<UConsole>(this, GetOuterUEngine()->ConsoleClass);
+	// register console to get all log messages
+	GLog->AddOutputDevice(ViewportConsole);
+#endif // !UE_BUILD_SHIPPING
+
+	return Super::SetupInitialLocalPlayer(OutError);
 }
