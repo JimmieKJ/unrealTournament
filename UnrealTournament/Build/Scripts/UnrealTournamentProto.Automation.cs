@@ -196,7 +196,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             // GAME BUILD
             {
                 // verify the files we need exist first
-                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win64", "WindowsNoEditor");
+                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsNoEditor");
                 string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
 
                 if (!FileExists(RawImageManifest))
@@ -233,7 +233,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
             // Win32 GAME BUILD
             {
                 // verify the files we need exist first
-                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win32", "WindowsNoEditor");
+                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "WindowsNoEditor");
                 string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
 
                 if (!FileExists(RawImageManifest))
