@@ -310,6 +310,9 @@ void FMacPlatformMisc::PlatformPreInit()
 	
 	GMacAppInfo.Init();
 
+	// No SIGPIPE crashes please - they are a pain to debug!
+	signal(SIGPIPE, SIG_IGN);
+	
 	// Increase the maximum number of simultaneously open files
 	uint32 MaxFilesPerProc = OPEN_MAX;
 	size_t UInt32Size = sizeof(uint32);
