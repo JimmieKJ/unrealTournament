@@ -75,7 +75,7 @@ FName AUTCTFFlagBase::GetFlagState()
 
 void AUTCTFFlagBase::RecallFlag()
 {
-	if (MyFlag != NULL && MyFlag->ObjectState != FName(TEXT("Home")) )
+	if (MyFlag != NULL && MyFlag->ObjectState != CarriedObjectState::Home)
 	{
 		MyFlag->SendHome();
 	}
@@ -111,4 +111,15 @@ void AUTCTFFlagBase::ObjectReturnedHome(AUTCharacter* Returner)
 	Super::ObjectReturnedHome(Returner);
 
 	UUTGameplayStatics::UTPlaySound(GetWorld(), FlagReturnedSound, this);
+
+	if (MyFlag != NULL && MyFlag->ObjectState == CarriedObjectState::Home)
+	{
+		// check for friendly flag carrier already here waiting to cap
+		TArray<AActor*> Overlapping;
+		GetOverlappingActors(Overlapping, APawn::StaticClass());
+		for (AActor* A : Overlapping)
+		{
+			OnOverlapBegin(A, Cast<UPrimitiveComponent>(A->GetRootComponent()), 0, false, FHitResult(this, Capsule, A->GetActorLocation(), (A->GetActorLocation() - GetActorLocation()).GetSafeNormal()));
+		}
+	}
 }
