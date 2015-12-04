@@ -326,8 +326,8 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 			ClientCookedTargets: new ParamList<string>("UnrealTournament"),
 			ServerCookedTargets: new ParamList<string>("UnrealTournamentServer"),
 
-            ClientConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Test },
-            ServerConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Test },
+            ClientConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Shipping },
+            ServerConfigsToBuild: new List<UnrealTargetConfiguration>() { UnrealTargetConfiguration.Shipping },
             ClientTargetPlatforms: GetClientTargetPlatforms(Cmd),
             ServerTargetPlatforms: GetServerTargetPlatforms(Cmd),
             Build: !Cmd.ParseParam("skipbuild"),
