@@ -24,6 +24,7 @@ public class UnrealTournamentEditor : ModuleRules
             "StreamingFile", 
             "NetworkFile", 
 			"PerfCounters",
+			"UMGEditor",
             "UMG" });
 
         if (UEBuildConfiguration.bCompileMcpOSS == true)
