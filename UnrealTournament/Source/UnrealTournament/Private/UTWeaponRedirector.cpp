@@ -4,6 +4,7 @@
 #include "UnrealNetwork.h"
 #include "UTWorldSettings.h"
 #include "UTProj_TransDisk.h"
+#include "UTReplicatedEmitter.h"
 
 void AUTWeaponRedirector::InitFor_Implementation(APawn* InInstigator, const FRepCollisionShape& InCollision, UPrimitiveComponent* InBase, const FTransform& InDest)
 {
@@ -54,7 +55,26 @@ void AUTWeaponRedirector::UpdateCollisionShape()
 float AUTWeaponRedirector::TakeDamage(float DamageAmount, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
 	// note: we don't have any good way to prevent Instigator from getting hit again from here if it's an AoE that might also hit it directly (e.g. very short teleport)
-	return (Instigator != NULL && bRedirectDamage) ? Instigator->TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser) : 0.0f;
+	if (Instigator != NULL && bRedirectDamage)
+	{
+		// @TODO flash main teleport effect as well client-side
+		if (DamageEffect != NULL)
+		{
+			FHitResult HitInfo;
+			{
+				FVector UnusedDir;
+				DamageEvent.GetBestHitInfo(this, DamageCauser, HitInfo, UnusedDir);
+			}
+			FVector const SpawnLocation = HitInfo.ImpactPoint;
+			FRotator const SpawnRot = HitInfo.ImpactNormal.Rotation();
+			FActorSpawnParameters Params;
+			AActor* DE = GetWorld()->SpawnActor<AUTReplicatedEmitter>(DamageEffect, SpawnLocation, SpawnRot, Params);
+		}
+			
+		return Instigator->TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	}
+
+	return 0.f;
 }
 
 void AUTWeaponRedirector::OnBeginOverlap(AActor* OtherActor)
@@ -89,6 +109,4 @@ void AUTWeaponRedirector::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTWeaponRedirector, CollisionInfo);
-	DOREPLIFETIME(AUTWeaponRedirector, PortalDest);
-	DOREPLIFETIME(AUTWeaponRedirector, bWeaponPortal);
 }
