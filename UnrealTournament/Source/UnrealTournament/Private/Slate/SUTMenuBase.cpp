@@ -703,7 +703,7 @@ FReply SUTMenuBase::ToggleFriendsAndChat()
 
 	if (bShowingFriends)
 	{
-		Desktop->RemoveSlot(200);
+		Desktop->RemoveSlot(6000);
 		bShowingFriends = false;
 	}
 	else
@@ -713,7 +713,7 @@ FReply SUTMenuBase::ToggleFriendsAndChat()
 
 		if (Popup.IsValid())
 		{
-			Desktop->AddSlot(200)
+			Desktop->AddSlot(6000)
 				[
 					Popup.ToSharedRef()
 				];
