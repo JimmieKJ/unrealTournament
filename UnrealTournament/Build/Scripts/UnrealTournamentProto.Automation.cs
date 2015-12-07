@@ -703,11 +703,10 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../ExampleDeviceProfileSelector/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../VisualStudioSourceCodeAccess/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../XCodeSourceCodeAccess/...");
-            UnusedPluginFilter.Exclude("/Engine/Plugins/.../OculusAudio/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../AnalyticsBlueprintLibrary/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../UdpMessaging/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../Developer/...");
-            UnusedPluginFilter.Exclude("/Engine/Plugins/.../LightPropagationVolumeRuntime/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../Blendables/...");
 
 			RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
 		}
