@@ -1702,9 +1702,10 @@ public:
 	bool HandleShowSelectedLightmapCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
+	bool HandleShowLogCommand(const TCHAR* Cmd, FOutputDevice& Ar);
+
 	// Compile in Debug, Development, and Test
 #if !UE_BUILD_SHIPPING
-	bool HandleShowLogCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleStartFPSChartCommand( const TCHAR* Cmd, FOutputDevice& Ar );
 	bool HandleStopFPSChartCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld* InWorld );
 	bool HandleDumpLevelScriptActorsCommand( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar );

@@ -2992,13 +2992,13 @@ bool FEngineLoop::AppInit( )
 		GIsSilent = true;
 	}
 
+#endif // !UE_BUILD_SHIPPING
+
 	// Show log if wanted.
 	if (GLogConsole && FParse::Param(FCommandLine::Get(), TEXT("LOG")))
 	{
 		GLogConsole->Show(true);
 	}
-
-#endif // !UE_BUILD_SHIPPING
 
 	//// Command line.
 	UE_LOG(LogInit, Log, TEXT("Version: %s"), *FEngineVersion::Current().ToString());

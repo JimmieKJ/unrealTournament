@@ -2522,11 +2522,12 @@ bool UEngine::Exec( UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar )
 	}
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-#if !UE_BUILD_SHIPPING
-	else if( FParse::Command(&Cmd,TEXT("SHOWLOG")) )
+	else if (FParse::Command(&Cmd, TEXT("SHOWLOG")))
 	{
-		return HandleShowLogCommand( Cmd, Ar );
+		return HandleShowLogCommand(Cmd, Ar);
 	}
+
+#if !UE_BUILD_SHIPPING
 	else if( FParse::Command(&Cmd,TEXT("STARTFPSCHART")) )
 	{
 		return HandleStartFPSChartCommand( Cmd, Ar );
@@ -3344,16 +3345,17 @@ bool UEngine::HandleProfileCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 
 #endif // !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 
-#if !UE_BUILD_SHIPPING
-bool UEngine::HandleShowLogCommand( const TCHAR* Cmd, FOutputDevice& Ar )
+bool UEngine::HandleShowLogCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 {
 	// Toggle display of console log window.
-	if( GLogConsole )
+	if (GLogConsole)
 	{
-		GLogConsole->Show( !GLogConsole->IsShown() );
+		GLogConsole->Show(!GLogConsole->IsShown());
 	}
 	return 1;
 }
+
+#if !UE_BUILD_SHIPPING
 
 bool UEngine::HandleStartFPSChartCommand( const TCHAR* Cmd, FOutputDevice& Ar )
 {
