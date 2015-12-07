@@ -98,6 +98,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 void AUTPlayerController::BeginPlay()
 {
+	bSpectatorMouseChangesView = false;
 	Super::BeginPlay();
 	if (Role < ROLE_Authority)
 	{
@@ -532,6 +533,37 @@ void AUTPlayerController::AdvanceStatsPage(int32 Increment)
 	ServerSetViewedScorePS(CurrentlyViewedScorePS, CurrentlyViewedStatsTab);
 }
 
+void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
+{
+	if (bSpectatorMouseChangesView != bNewValue)
+	{
+		bSpectatorMouseChangesView = bNewValue;
+		UE_LOG(UT,Log, TEXT("---- bSpectatorMouseChangesView = %s"), (bSpectatorMouseChangesView ? TEXT("true") : TEXT("false")));
+		if (bSpectatorMouseChangesView)
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+			if (LocalPlayer)
+			{
+				FReply& SlateOps = LocalPlayer->GetSlateOperations();
+				SlateOps.UseHighPrecisionMouseMovement(LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef());
+				SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
+				MouseButtonPressTime = GetWorld()->GetTimeSeconds();
+				bShowMouseCursor = false;
+			}
+		}
+		else
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+			if (LocalPlayer)
+			{
+				LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
+				bShowMouseCursor = true;
+			}
+		}
+	}
+}
+
+
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
@@ -545,32 +577,9 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 	{
 		if (InputMode == EInputMode::EIM_GameAndUI && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton))
 		{
-			if (EventType == EInputEvent::IE_Pressed)
+			if (EventType == EInputEvent::IE_Released)
 			{
-				UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-				if (LocalPlayer)
-				{
-					FReply& SlateOps = LocalPlayer->GetSlateOperations();
-					SlateOps.UseHighPrecisionMouseMovement(LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef());
-					SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
-					MouseButtonPressTime = GetWorld()->GetTimeSeconds();
-					bShowMouseCursor = false;
-					MouseButtonPressCount++;
-				}
-			}
-			else if (EventType == EInputEvent::IE_Released)
-			{
-				UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
-				if (LocalPlayer)
-				{
-					LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
-					// Due to slate, sometimes we only get the release event
-					if (MouseButtonPressCount > 0)
-					{
-						bShowMouseCursor = (GetWorld()->GetTimeSeconds() - MouseButtonPressTime < 1.f);
-						MouseButtonPressCount--;
-					}
-				}
+				SetSpectatorMouseChangesView(!bSpectatorMouseChangesView);
 			}
 		}
 	}
@@ -2567,6 +2576,13 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
 	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
+
+	if (Cast<ASpectatorPawn>(ViewTargetPawn) == nullptr && bSpectatorMouseChangesView)
+	{
+		// If we aren't in free-cam then turn off movement via mouse
+		SetSpectatorMouseChangesView(false);
+	}
+
 	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
 	if (IsInState(NAME_Spectating) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{

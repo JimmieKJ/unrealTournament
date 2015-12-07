@@ -975,7 +975,11 @@ public:
 	}
 
 #endif
-	
+
+protected:
+	bool bSpectatorMouseChangesView;
+	void SetSpectatorMouseChangesView(bool bNewValue);
+
 };
 
 
