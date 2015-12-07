@@ -707,6 +707,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../AnalyticsBlueprintLibrary/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../UdpMessaging/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../Developer/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../LightPropagationVolumeRuntime/...");
 
 			RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
 		}
