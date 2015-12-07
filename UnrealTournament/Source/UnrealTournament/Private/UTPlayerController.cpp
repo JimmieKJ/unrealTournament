@@ -149,12 +149,28 @@ void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message
 		// send to spectators viewing this pawn as well;
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			APlayerController* PC = *Iterator;
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 			if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && ((PC->GetViewTarget() == GetPawn()) || (Cast<AUTPlayerState>(PC->PlayerState) && ((AUTPlayerState *)(PC->PlayerState))->bIsDemoRecording)))
 			{
-				PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+				PC->ClientReceivePersonalMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 			}
 		}
+	}
+}
+
+void AUTPlayerController::ClientReceivePersonalMessage_Implementation(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
+{
+	// only pass on if viewing one of the playerstates
+	APlayerState* ViewTargetPS = Cast<APawn>(GetViewTarget()) ? ((APawn *)(GetViewTarget()))->PlayerState : NULL;
+	bool bViewingTarget = (ViewTargetPS == RelatedPlayerState_1) || (ViewTargetPS == RelatedPlayerState_2);
+	if (!bViewingTarget)
+	{
+		bViewingTarget = (Cast<AUTPlayerState>(RelatedPlayerState_1) && (((AUTPlayerState*)(RelatedPlayerState_1))->SpectatingID == LastSpectatedPlayerId))
+			|| (Cast<AUTPlayerState>(RelatedPlayerState_2) && (((AUTPlayerState*)(RelatedPlayerState_2))->SpectatingID == LastSpectatedPlayerId));
+	}
+	if (bViewingTarget)
+	{
+		ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	}
 }
 

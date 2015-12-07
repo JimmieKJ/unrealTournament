@@ -340,7 +340,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			bShouldTauntKill = true;
 			if (MyPC != NULL)
 			{
-				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, VictimPS);
+				MyPC->SendPersonalMessage(GS->MultiKillMessageClass, MultiKillLevel - 1, this, NULL);
 			}
 
 			if (GM)

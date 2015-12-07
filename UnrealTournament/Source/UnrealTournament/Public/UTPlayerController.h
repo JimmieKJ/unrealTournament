@@ -89,6 +89,10 @@ public:
 	virtual void ClientRestart_Implementation(APawn* NewPawn) override;
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
 
+
+	UFUNCTION(Reliable, Client)
+		void ClientReceivePersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch = 0, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL);
+
 	virtual void BeginInactiveState() override;
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
