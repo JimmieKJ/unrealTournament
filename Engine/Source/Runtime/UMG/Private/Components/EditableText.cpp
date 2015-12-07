@@ -16,7 +16,7 @@ UEditableText::UEditableText(const FObjectInitializer& ObjectInitializer)
 
 	ColorAndOpacity_DEPRECATED = FLinearColor::Black;
 
-	if (!UE_SERVER)
+	if (!IsRunningDedicatedServer())
 	{
 		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
 		Font_DEPRECATED = FSlateFontInfo(RobotoFontObj.Object, 12, FName("Bold"));

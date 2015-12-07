@@ -1495,7 +1495,7 @@ void UEngine::InitializeObjectReferences()
 	}
 
 	// set the font object pointers, unless on server
-	if (!UE_SERVER)
+	if (!IsRunningDedicatedServer())
 	{
 		if (TinyFont == NULL && TinyFontName.ToString().Len())
 		{

@@ -18,7 +18,7 @@ UTextBlock::UTextBlock(const FObjectInitializer& ObjectInitializer)
 	ShadowColorAndOpacity = FLinearColor::Transparent;
 	LineHeightPercentage = 1.0f;
 
-	if (!UE_SERVER)
+	if (!IsRunningDedicatedServer())
 	{
 		static ConstructorHelpers::FObjectFinder<UFont> RobotoFontObj(TEXT("/Engine/EngineFonts/Roboto"));
 		Font = FSlateFontInfo(RobotoFontObj.Object, 24, FName("Bold"));

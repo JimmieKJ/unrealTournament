@@ -254,7 +254,8 @@ public:
 #endif
 	virtual bool NeedsLoadForServer() const override
 	{
-		return false;
+		// PLK - I don't like having to turn this back on, but in order for client run dedicated servers to work, I need this right now
+		return true;
 	}
 	//~ End UObject interface
 
