@@ -712,7 +712,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 			bAnyNodeExpanded = false;
 			for (UUTPathNode* Node : PathNodes)
 			{
-				if (Node->bDestinationOnly)
+				if (Node == nullptr || Node->bDestinationOnly)
 				{
 					continue;
 				}
