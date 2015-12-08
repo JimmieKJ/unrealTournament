@@ -1215,16 +1215,11 @@ void UUTCharacterMovement::OnTeleported()
 	float SavedVelocityZ = Velocity.Z;
 
 	// If we were walking but no longer have a valid base or floor, start falling.
-	if (!CurrentFloor.IsWalkableFloor() || (OldBase && !NewBase))
+	SetDefaultMovementMode();
+	if ((MovementMode == MOVE_Walking) && (!CurrentFloor.IsWalkableFloor() || (OldBase && !NewBase)))
 	{
-		if (DefaultLandMovementMode == MOVE_Walking)
-		{
-			SetMovementMode(MOVE_Falling);
-		}
-		else
-		{
-			SetDefaultMovementMode();
-		}
+		// If we were walking but no longer have a valid base or floor, start falling.
+		SetMovementMode(MOVE_Falling);
 	}
 
 	if (MovementMode != MOVE_Walking)
