@@ -238,14 +238,13 @@ void AUTDemoRecSpectator::SmoothTargetViewRotation(APawn* TargetPawn, float Delt
 					}
 				}
 
-				BlendC = (FMath::Abs(BlendC - NewC) > 90.f) ? NewC : BlendC + (NewC - BlendC) * FMath::Min(1.f, 24.f * DeltaTime );
+				BlendC = (FMath::Abs(BlendC - NewC) > 90.f) ? NewC : BlendC + (NewC - BlendC) * FMath::Min(1.f, 12.f * DeltaTime );
 				return FRotator::ClampAxis(BlendC);
 			}
 		};
 
-		float RealSeconds = DeltaSeconds / TargetPawn->GetActorTimeDilation();
 		BlendedTargetViewRotation.Pitch = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Pitch, FRotator::ClampAxis(TargetViewRotation.Pitch));
-		// yaw is already smoothed when pawn position is replicated
+		// yaw is already smoothed when pawn position is replicated  @TODO FIXMESTEVE - UT passes viewpitch as part of movement, so should be able to Lerp just like Yaw
 		BlendedTargetViewRotation.Yaw = FRotator::ClampAxis(TargetViewRotation.Yaw);
 		BlendedTargetViewRotation.Roll = FBlendHelper::BlendRotation(DeltaSeconds, BlendedTargetViewRotation.Roll, FRotator::ClampAxis(TargetViewRotation.Roll));
 		return;
