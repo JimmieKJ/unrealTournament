@@ -948,6 +948,8 @@ public:
 
 	class AUTCharacter* GhostTrace();
 
+	UFUNCTION(exec)
+	virtual void TestCallstack();
 
 	UFUNCTION(exec)
 	virtual void OpenMatchSummary();

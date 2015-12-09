@@ -3953,3 +3953,15 @@ UUtMcpProfileManager* AUTPlayerController::GetActiveMcpProfileManager()
 }
 
 #endif
+
+void AUTPlayerController::TestCallstack()
+{
+	ANSICHAR StackTrace[4096];
+	if (StackTrace != NULL)
+	{
+		StackTrace[0] = 0;
+		FPlatformStackWalk::StackWalkAndDump(StackTrace, ARRAY_COUNT(StackTrace), 2);
+	}
+
+	UE_LOG(UT, Log, TEXT("%s"), ANSI_TO_TCHAR(StackTrace));
+}
