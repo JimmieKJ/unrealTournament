@@ -26,7 +26,21 @@ void AUTGameSession::Destroyed()
 
 void AUTGameSession::InitOptions( const FString& Options )
 {
+	bReregisterWhenDone = false;
 	Super::InitOptions(Options);
+
+	// Register a connection status change delegate so we can look for failures on the backend.
+
+	const auto OnlineSub = IOnlineSubsystem::Get();
+	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
+	{
+		OnConnectionStatusDelegate = OnlineSub->AddOnConnectionStatusChangedDelegate_Handle(FOnConnectionStatusChangedDelegate::CreateUObject(this, &AUTGameSession::OnConnectionStatusChanged));
+		const auto SessionInterface = OnlineSub->GetSessionInterface();
+		if (SessionInterface.IsValid())
+		{
+			OnSessionFailuredDelegate = SessionInterface->AddOnSessionFailureDelegate_Handle(FOnSessionFailureDelegate::CreateUObject(this, &AUTGameSession::SessionFailure));
+		}
+	}
 
 	// Cache the GameMode for later.
 	UTBaseGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
@@ -205,6 +219,8 @@ void AUTGameSession::CleanUpOnlineSubsystem()
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub)
 	{
+		OnlineSub->ClearOnConnectionStatusChangedDelegate_Handle(OnConnectionStatusDelegate);
+
 		const auto SessionInterface = OnlineSub->GetSessionInterface();
 		if (SessionInterface.IsValid())
 		{
@@ -213,6 +229,7 @@ void AUTGameSession::CleanUpOnlineSubsystem()
 			SessionInterface->ClearOnEndSessionCompleteDelegate_Handle(OnEndSessionCompleteDelegate);
 			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
 			SessionInterface->ClearOnUpdateSessionCompleteDelegate_Handle(OnUpdateSessionCompleteDelegate);
+			SessionInterface->ClearOnSessionFailureDelegate_Handle(OnSessionFailuredDelegate);
 		}
 	}
 }
@@ -373,7 +390,10 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 	}
 	else
 	{
-		UE_LOG(UT,Log,TEXT("Failed to Create the session '%s' so this match will not be visible.  See the logs!"), *SessionName.ToString());
+		UE_LOG(UT,Log,TEXT("Failed to Create the session '%s' so this match will not be visible.  We will attempt to restart the session in %i minutes.  See the logs!"), *SessionName.ToString(), int32( SERVER_REREGISTER_WAIT_TIME / 60.0));
+		
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameSession::RegisterServer, SERVER_REREGISTER_WAIT_TIME);	
 	}
 
 
@@ -415,7 +435,6 @@ void AUTGameSession::OnStartSessionComplete(FName SessionName, bool bWasSuccessf
 		{
 			GM->NotifyLobbyGameIsReady();
 		}
-	
 	}
 
 	// Immediately perform an update so as to pickup any players that have joined since.
@@ -474,6 +493,13 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 			SessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
 		}
 	}
+
+	if (bReregisterWhenDone)
+	{
+		bReregisterWhenDone = false;
+		RegisterServer();
+	}
+
 }
 void AUTGameSession::UpdateGameState()
 {
@@ -603,5 +629,26 @@ void AUTGameSession::AcknowledgeAdmin(const FString& AdminId, bool bIsAdmin)
 		{
 			AllowedAdmins.Remove(AdminId);
 		}
+	}
+}
+
+void AUTGameSession::SessionFailure(const FUniqueNetId& PlayerId, ESessionFailure::Type ErrorType)
+{
+	// Currently, SessionFailure never seems to be called.  Need to discuss it with Josh when he returns as it would
+	// be better to handle this hear then in ConnectionStatusChanged
+}
+
+void AUTGameSession::OnConnectionStatusChanged(EOnlineServerConnectionStatus::Type LastConnectionState, EOnlineServerConnectionStatus::Type ConnectionState)
+{
+	if (ConnectionState == EOnlineServerConnectionStatus::InvalidSession)
+	{
+
+		UE_LOG(UT,Warning,TEXT("The Server has been notifed that it's session is no longer valid.  Attempted to recreate a valid session."));
+		
+		// We have tried to talk to the MCP but our session is invalid.  So we want to reregister
+
+		DestroyHostBeacon();
+		bReregisterWhenDone = true;
+		UnRegisterServer(true);
 	}
 }
