@@ -177,11 +177,10 @@ void UUTCharacterMovement::SimulateMovement(float DeltaSeconds)
 	{
 		return;
 	}
-
 	FVector RealVelocity = Velocity; // Used now to keep our forced clientside decel from affecting animation
 
 	float RemainingTime = DeltaSeconds;
-	while (RemainingTime > 0.001f)
+	while (RemainingTime > 0.001f * CharacterOwner->GetActorTimeDilation())
 	{
 		Velocity = SimulatedVelocity;
 		float DeltaTime = RemainingTime;
@@ -373,6 +372,10 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 		{
 			return;
 		}
+		if (MovementMode == MOVE_Falling)
+		{
+			Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
+		}
 
 		AnalogInputModifier = 1.0f;				// Not currently used for simulated movement
 		MaybeUpdateBasedMovement(DeltaSeconds);
@@ -410,7 +413,6 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 				if ((Velocity.Z != 0.f) || (MovementMode == MOVE_Falling))
 				{
 					// No floor, must fall.
-					Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
 					SetMovementMode(MOVE_Falling);
 				}
 			}
@@ -424,7 +426,6 @@ void UUTCharacterMovement::SimulateMovement_Internal(float DeltaSeconds)
 				}
 				else if (MovementMode == MOVE_Falling)
 				{
-					Velocity = NewFallVelocity(Velocity, FVector(0.f, 0.f, GetGravityZ()), DeltaSeconds);
 					if (CurrentFloor.FloorDist <= MIN_FLOOR_DIST)
 					{
 						AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);

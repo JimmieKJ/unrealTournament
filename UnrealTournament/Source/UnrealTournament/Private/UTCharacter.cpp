@@ -4960,9 +4960,9 @@ EAllowedSpecialMoveAnims AUTCharacter::AllowedSpecialMoveAnims()
 
 float AUTCharacter::GetRemoteViewPitch()
 {
-	float ClampedPitch = (RemoteViewPitch * 360.0 / 255.0);
-	ClampedPitch = ClampedPitch > 90 ? ClampedPitch - 360 : ClampedPitch;
-	return FMath::Clamp<float>(ClampedPitch, -90.0, 90.0);
+	float ClampedPitch = (RemoteViewPitch * 360.f / 255.f);
+	ClampedPitch = ClampedPitch > 90.f ? ClampedPitch - 360.f : ClampedPitch;
+	return FMath::Clamp<float>(ClampedPitch, -89.f, 89.f);
 }
 
 void AUTCharacter::UTUpdateSimulatedPosition(const FVector & NewLocation, const FRotator & NewRotation, const FVector& NewVelocity)
