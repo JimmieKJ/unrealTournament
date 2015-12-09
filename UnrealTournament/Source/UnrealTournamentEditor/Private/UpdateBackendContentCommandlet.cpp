@@ -4,9 +4,11 @@
 #include "AssetRegistryModule.h"
 #include "Runtime/JsonUtilities/Public/JsonUtilities.h"
 #include "UpdateBackendContentCommandlet.h"
+#if WITH_PROFILE
 #include "CatalogDefinition.h"
 #include "MultiLocHelper.h"
 #include "LootTables.h"
+#endif
 
 DEFINE_LOG_CATEGORY(LogTemplates);
 
