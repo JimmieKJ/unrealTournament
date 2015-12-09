@@ -129,11 +129,11 @@ public:
 				);
 
 			// If it was set by an ini that has to be hand edited, it is not an issue if a lower priority system tried and failed to set it afterwards
-			const bool bIntentionallyIgnored = (OldPri == EConsoleVariableFlags::ECVF_SetBySystemSettingsIni);
+			const bool bIntentionallyIgnored = (OldPri & (ECVF_SetByConsoleVariablesIni | ECVF_SetByCommandline | ECVF_SetBySystemSettingsIni)) != 0;
 
 			if (bIntentionallyIgnored)
 			{
-				UE_LOG(LogConsoleManager, Display, TEXT("%s"), *Message);
+				UE_LOG(LogConsoleManager, Verbose, TEXT("%s"), *Message);
 			}
 			else
 			{
