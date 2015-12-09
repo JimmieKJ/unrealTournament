@@ -514,7 +514,11 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 {
 	if ( PlayerOwner->IsLoggedIn() )
 	{
-		return SNew(SHorizontalBox)
+
+		TSharedPtr<SUTComboButton> LogoutButton;
+		TSharedPtr<SHorizontalBox> Box;
+
+		SAssignNew(Box, SHorizontalBox)
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
@@ -583,6 +587,36 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 							.Image(SUTStyle::Get().GetBrush("UT.Icon.PlayerCard"))
 						]
 					]
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.WidthOverride(48)
+						.HeightOverride(48)
+						[
+							SAssignNew(LogoutButton, SUTComboButton)
+							.HasDownArrow(false)
+							.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+							.ContentPadding(FMargin(0.0f, 0.0f))
+							.ButtonContent()
+							[
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot().AutoWidth().VAlign(VAlign_Center)
+								[
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot().AutoHeight()
+									[
+										SNew(SBox).HeightOverride(12).WidthOverride(24)
+										[
+											SNew(SImage)
+											.Image(SUTStyle::Get().GetBrush("UT.Icon.SortDown"))
+										]
+									]
+								]
+							]
+						]
+					]
 				]
 			]
 
@@ -629,6 +663,16 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 
 				]
 			];
+
+		if (LogoutButton.IsValid())
+		{
+			LogoutButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Logout_Logout", "Sign Out"), FOnClicked::CreateSP(this, &SUTMenuBase::Logout), true);
+			// Add the additional account options here at some point.
+				
+		}
+
+		return Box.ToSharedRef();
+	
 	}
 	else
 	{
@@ -878,6 +922,15 @@ void SUTMenuBase::QuitConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uin
 		PlayerOwner->ConsoleCommand(TEXT("quit"));
 	}
 }
+
+FReply SUTMenuBase::Logout()
+{
+	PlayerOwner->Logout();
+	return FReply::Handled();
+}
+
+
+
 
 
 #endif
