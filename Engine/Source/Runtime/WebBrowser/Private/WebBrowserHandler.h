@@ -11,6 +11,7 @@
 #pragma push_macro("OVERRIDE")
 #undef OVERRIDE // cef headers provide their own OVERRIDE macro
 #include "include/cef_client.h"
+#include "include/wrapper/cef_message_router.h"
 #pragma pop_macro("OVERRIDE")
 
 #if PLATFORM_WINDOWS
@@ -34,6 +35,7 @@ class FWebBrowserHandler
 	, public CefRequestHandler
 	, public CefKeyboardHandler
 	, public CefJSDialogHandler
+	, public CefMessageRouterBrowserSide::Handler
 {
 public:
 
@@ -226,6 +228,17 @@ public:
 
 	virtual void OnResetDialogState(CefRefPtr<CefBrowser> Browser) override;
 
+	// CefMessageRouterBrowserSide::Handler Interface
+	virtual bool OnQuery(CefRefPtr<CefBrowser> Browser,
+		CefRefPtr<CefFrame> Frame,
+		int64 QueryId,
+		const CefString& Request,
+		bool Persistent,
+		CefRefPtr<CefMessageRouterBrowserSide::Callback> Callback) override;
+
+	virtual void OnQueryCanceled(CefRefPtr<CefBrowser> Browser,
+		CefRefPtr<CefFrame> Frame,
+		int64 QueryId) override;
 private:
 
 	bool ShowDevTools(const CefRefPtr<CefBrowser>& Browser);
@@ -238,6 +251,9 @@ private:
 
 	/** Stores popup window features and settings */
 	TSharedPtr<FWebBrowserPopupFeatures> BrowserPopupFeatures;
+
+	/** The message router is used as a part of a generic message api between Javascript in the render process and the application process */
+	CefRefPtr<CefMessageRouterBrowserSide> MessageRouter;
 
 	// Include the default reference counting implementation.
 	IMPLEMENT_REFCOUNTING(FWebBrowserHandler);

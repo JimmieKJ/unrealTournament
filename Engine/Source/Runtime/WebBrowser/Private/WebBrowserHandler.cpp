@@ -15,7 +15,14 @@
 #include "SlateApplication.h"
 
 FWebBrowserHandler::FWebBrowserHandler()
-{ }
+{
+	// This has to match the config in UnrealCEFSubpProcess
+	CefMessageRouterConfig MessageRouterConfig;
+	MessageRouterConfig.js_query_function = "ueQuery";
+	MessageRouterConfig.js_cancel_function = "ueQueryCancel";
+	MessageRouter = CefMessageRouterBrowserSide::Create(MessageRouterConfig);
+	MessageRouter->AddHandler(this, false);
+}
 
 void FWebBrowserHandler::OnTitleChange(CefRefPtr<CefBrowser> Browser, const CefString& Title)
 {
@@ -98,6 +105,7 @@ void FWebBrowserHandler::OnAfterCreated(CefRefPtr<CefBrowser> Browser)
 
 void FWebBrowserHandler::OnBeforeClose(CefRefPtr<CefBrowser> Browser)
 {
+	MessageRouter->OnBeforeClose(Browser);
 	TSharedPtr<FWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
 	if (BrowserWindow.IsValid())
 	{
@@ -300,6 +308,7 @@ bool FWebBrowserHandler::OnBeforeResourceLoad(CefRefPtr<CefBrowser> Browser, Cef
 
 void FWebBrowserHandler::OnRenderProcessTerminated(CefRefPtr<CefBrowser> Browser, TerminationStatus Status)
 {
+	MessageRouter->OnRenderProcessTerminated(Browser);
 	TSharedPtr<FWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
 	if (BrowserWindow.IsValid())
 	{
@@ -312,6 +321,7 @@ bool FWebBrowserHandler::OnBeforeBrowse(CefRefPtr<CefBrowser> Browser,
 	CefRefPtr<CefRequest> Request,
 	bool IsRedirect)
 {
+	MessageRouter->OnBeforeBrowse(Browser, Frame);
 	TSharedPtr<FWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
 	if (BrowserWindow.IsValid())
 	{
@@ -348,6 +358,8 @@ bool FWebBrowserHandler::OnProcessMessageReceived(CefRefPtr<CefBrowser> Browser,
 	CefProcessId SourceProcess,
 	CefRefPtr<CefProcessMessage> Message)
 {
+	MessageRouter->OnProcessMessageReceived(Browser, SourceProcess, Message);
+
 	bool Retval = false;
 	TSharedPtr<FWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
 	if (BrowserWindow.IsValid())
@@ -355,6 +367,30 @@ bool FWebBrowserHandler::OnProcessMessageReceived(CefRefPtr<CefBrowser> Browser,
 		Retval = BrowserWindow->OnProcessMessageReceived(Browser, SourceProcess, Message);
 	}
 	return Retval;
+}
+
+bool FWebBrowserHandler::OnQuery(CefRefPtr<CefBrowser> Browser,
+	CefRefPtr<CefFrame> Frame,
+	int64 QueryId,
+	const CefString& Request,
+	bool Persistent,
+	CefRefPtr<CefMessageRouterBrowserSide::Callback> Callback)
+{
+	TSharedPtr<FWebBrowserWindow> BrowserWindowPin = BrowserWindowPtr.Pin();
+	if (BrowserWindowPin.IsValid())
+	{
+		return BrowserWindowPin->OnQuery(QueryId, Request, Persistent, Callback);
+	}
+	return false;
+}
+
+void FWebBrowserHandler::OnQueryCanceled(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, int64 QueryId)
+{
+	TSharedPtr<FWebBrowserWindow> BrowserWindowPin = BrowserWindowPtr.Pin();
+	if (BrowserWindowPin.IsValid())
+	{
+		BrowserWindowPin->OnQueryCanceled(QueryId);
+	}
 }
 
 bool FWebBrowserHandler::ShowDevTools(const CefRefPtr<CefBrowser>& Browser)

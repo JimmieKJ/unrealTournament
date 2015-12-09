@@ -265,10 +265,19 @@ public:
 	DECLARE_EVENT(IWebBrowserWindow, FOnNeedsRedraw)
 	virtual FOnNeedsRedraw& OnNeedsRedraw() = 0;
 	
+	/** A delegate that is invoked when a custom Javascript message is received from the browser process. */
+	DECLARE_DELEGATE_TwoParams(FJSQueryResult, int, FString);
+	DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceived, int64, FString, bool, FJSQueryResult);
+	virtual FOnJSQueryReceived& OnJSQueryReceived() = 0;
+
+	/** A delegate that is invoked when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
+	DECLARE_DELEGATE_OneParam(FOnJSQueryCanceled, int64);
+	virtual FOnJSQueryCanceled& OnJSQueryCanceled() = 0;
+
 	/** A delegate that is invoked prior to browser navigation. */
 	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString& /*Url*/, bool /*bIsRedirect*/)
 	virtual FOnBeforeBrowse& OnBeforeBrowse() = 0;
-	
+
 	/** A delegate that is invoked to allow user code to override the contents of a Url. */
 	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /*OutBody*/)
 	virtual FOnLoadUrl& OnLoadUrl() = 0;

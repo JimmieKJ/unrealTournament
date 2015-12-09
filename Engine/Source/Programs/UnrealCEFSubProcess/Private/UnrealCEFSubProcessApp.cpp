@@ -7,15 +7,21 @@
 
 FUnrealCEFSubProcessApp::FUnrealCEFSubProcessApp()
 {
+	CefMessageRouterConfig MessageRouterConfig;
+	MessageRouterConfig.js_query_function = "ueQuery";
+	MessageRouterConfig.js_cancel_function = "ueQueryCancel";
+	MessageRouter = CefMessageRouterRendererSide::Create(MessageRouterConfig);
 }
 
 void FUnrealCEFSubProcessApp::OnContextCreated( CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefV8Context> Context )
 {
+	MessageRouter->OnContextCreated(Browser, Frame, Context);
 	RemoteScripting.OnContextCreated(Browser, Frame, Context);
 }
 
 void FUnrealCEFSubProcessApp::OnContextReleased( CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefV8Context> Context )
 {
+	MessageRouter->OnContextReleased(Browser, Frame, Context);
 	RemoteScripting.OnContextReleased(Browser, Frame, Context);
 }
 
@@ -26,6 +32,10 @@ bool FUnrealCEFSubProcessApp::OnProcessMessageReceived( CefRefPtr<CefBrowser> Br
 	if (MessageName.StartsWith(TEXT("UE::")))
 	{
 		Result = RemoteScripting.OnProcessMessageReceived(Browser, SourceProcess, Message);
+	}
+	else
+	{
+		Result = MessageRouter->OnProcessMessageReceived(Browser, SourceProcess, Message);
 	}
 
 	return Result;

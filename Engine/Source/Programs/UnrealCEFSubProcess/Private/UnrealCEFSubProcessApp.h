@@ -10,6 +10,7 @@
 #pragma push_macro("OVERRIDE")
 #undef OVERRIDE // cef headers provide their own OVERRIDE macro
 #include "include/cef_app.h"
+#include "include/wrapper/cef_message_router.h"
 #pragma pop_macro("OVERRIDE")
 
 #if PLATFORM_WINDOWS
@@ -47,6 +48,9 @@ private:
 
 	// Handles remote scripting messages from the frontend process
 	FUnrealCEFSubProcessRemoteScripting RemoteScripting;
+
+	// Routes messages from Javascript to the browser process and back
+	CefRefPtr<CefMessageRouterRendererSide> MessageRouter;
 
 	// Include the default reference counting implementation.
 	IMPLEMENT_REFCOUNTING(FUnrealCEFSubProcessApp);

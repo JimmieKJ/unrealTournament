@@ -16,13 +16,17 @@ DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforePopupDelegate, FString, FString
 DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnCreateWindowDelegate, const TWeakPtr<IWebBrowserWindow>&, const TWeakPtr<IWebBrowserPopupFeatures>&);
 DECLARE_DELEGATE_RetVal_OneParam(bool, FOnCloseWindowDelegate, const TWeakPtr<IWebBrowserWindow>&);
 
+DECLARE_DELEGATE_TwoParams(FJSQueryResult, int, FString);
+DECLARE_DELEGATE_RetVal_FourParams(bool, FOnJSQueryReceived, int64, FString, bool, FJSQueryResult);
+DECLARE_DELEGATE_OneParam(FOnJSQueryCanceled, int64);
+DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString&, bool);
+
 
 class WEBBROWSER_API SWebBrowser
 	: public SCompoundWidget
 {
 public:
-	DECLARE_DELEGATE_RetVal_TwoParams(bool, FOnBeforeBrowse, const FString&, bool)
-	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /* Response */)
+	DECLARE_DELEGATE_RetVal_ThreeParams(bool, FOnLoadUrl, const FString& /*Method*/, const FString& /*Url*/, FString& /* Response */);
 	DECLARE_DELEGATE_RetVal_OneParam(EWebBrowserDialogEventResponse, FOnShowDialog, const TWeakPtr<IWebBrowserDialog>&);
 
 	SLATE_BEGIN_ARGS(SWebBrowser)
@@ -100,7 +104,13 @@ public:
 
 		/** Called before browser navigation. */
 		SLATE_EVENT(FOnBeforeBrowse, OnBeforeNavigation)
-	
+
+		/** Called when a custom Javascript message is received from the browser process. */
+		SLATE_EVENT(FOnJSQueryReceived, OnJSQueryReceived)
+
+		/** Called when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
+		SLATE_EVENT(FOnJSQueryCanceled, OnJSQueryCanceled)
+
 		/** Called to allow bypassing page content on load. */
 		SLATE_EVENT(FOnLoadUrl, OnLoadUrl)
 
@@ -340,7 +350,13 @@ private:
 
 	/** A delegate that is invoked prior to browser navigation */
 	FOnBeforeBrowse OnBeforeNavigation;
-	
+
+	/** A delegate that is invoked when a custom Javascript message is received from the browser process. */
+	FOnJSQueryReceived OnJSQueryReceived;
+
+	/** A delegate that is invoked when a pending Javascript message has been canceled, either explicitly or by navigating away from the page containing the script. */
+	FOnJSQueryCanceled OnJSQueryCanceled;
+
 	/** A delegate that is invoked when loading a resource, allowing the application to provide contents directly */
 	FOnLoadUrl OnLoadUrl;
 
