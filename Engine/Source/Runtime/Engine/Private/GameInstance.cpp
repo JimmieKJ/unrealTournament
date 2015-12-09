@@ -302,12 +302,7 @@ void UGameInstance::StartGameInstance()
 	FString Error;
 	
 	const TCHAR* Tmp = FCommandLine::Get();
-
-#if UE_BUILD_SHIPPING
-	// In shipping don't allow an override
-	Tmp = TEXT("");
-#endif // UE_BUILD_SHIPPING
-
+	
 	// Parse replay name if specified on cmdline
 	FString ReplayCommand;
 	if ( FParse::Value( Tmp, TEXT( "-REPLAY=" ), ReplayCommand ) )
