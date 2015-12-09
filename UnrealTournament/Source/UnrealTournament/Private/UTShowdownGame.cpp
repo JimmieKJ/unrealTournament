@@ -209,7 +209,7 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 	}
 }
 
-void AUTShowdownGame::ScoreExpiredRoundTime()
+AInfo* AUTShowdownGame::GetTiebreakWinner(FName* WinReason) const
 {
 	// end round; player with highest health
 	TArray< AUTPlayerState*, TInlineAllocator<2> > AlivePlayers;
@@ -237,17 +237,33 @@ void AUTShowdownGame::ScoreExpiredRoundTime()
 			}
 		}
 	}
-	if (bTied || RoundWinner == NULL)
+
+	if (WinReason != NULL)
+	{
+		*WinReason = FName(TEXT("Health"));
+	}
+	return (bTied ? NULL : RoundWinner);
+}
+
+void AUTShowdownGame::ScoreExpiredRoundTime()
+{
+	AUTPlayerState* RoundWinner = Cast<AUTPlayerState>(GetTiebreakWinner());
+	if (RoundWinner == NULL)
 	{
 		// both players score a point
-		for (AUTPlayerState* PS : AlivePlayers)
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
-			if (PS != NULL)
+			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+			if (UTC != NULL && !UTC->IsDead())
 			{
-				PS->Score += 1.0f;
-				if (PS->Team != NULL)
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+				if (PS != NULL)
 				{
-					PS->Team->Score += 1.0f;
+					PS->Score += 1.0f;
+					if (PS->Team != NULL)
+					{
+						PS->Team->Score += 1.0f;
+					}
 				}
 			}
 		}

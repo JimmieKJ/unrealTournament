@@ -72,6 +72,10 @@ public:
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 
 	virtual void CheckGameTime() override;
+	/** return player/team that wins if the game time expires
+	 * this function is safe to call prior to the game actually ending (to show who 'would' win)
+	 */
+	virtual AInfo* GetTiebreakWinner(FName* WinReason = NULL) const;
 	/** score round that ended by timelimit instead of by kill */
 	virtual void ScoreExpiredRoundTime();
 	virtual void CallMatchStateChangeNotify() override;

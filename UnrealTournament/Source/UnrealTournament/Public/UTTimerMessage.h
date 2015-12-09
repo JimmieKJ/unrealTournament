@@ -9,10 +9,13 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Message)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Message)
 	TArray<FText> CountDownText;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Message)
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Message)
+	FText LeadingText;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Message)
 	TArray<FName> CountDownAnnouncements;
 
 	UUTTimerMessage(const FObjectInitializer& ObjectInitializer)
@@ -35,10 +38,12 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text8","8..."));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text9","9..."));
 		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text10","10..."));
-		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text30Secs","30 seconds left!"));
-		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text1Min","One minute remains!"));
-		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text3Min","Three minutes remain!"));
-		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text5Min","Five minutes remain!"));
+		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text30Secs","30 seconds left! {0}"));
+		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text1Min","One minute remains! {0}"));
+		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text3Min","Three minutes remain! {0}"));
+		CountDownText.Add( NSLOCTEXT("UTTimerMessage","Text5Min","Five minutes remain! {0}"));
+
+		LeadingText = NSLOCTEXT("UTTimerMessage", "LeadingText", "{0} leads!");
 
 		CountDownAnnouncements.Add(TEXT("CD1"));
 		CountDownAnnouncements.Add(TEXT("CD2"));
@@ -63,6 +68,22 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
-		return (Switch >= 0 && Switch < CountDownText.Num() ? CountDownText[Switch] : FText::GetEmpty());
-	}		
+		FText Result = (Switch >= 0 && Switch < CountDownText.Num() ? CountDownText[Switch] : FText::GetEmpty());
+		FText CurrentLeader;
+		APlayerState* PS = Cast<APlayerState>(OptionalObject);
+		if (PS != NULL)
+		{
+			CurrentLeader = FText::FromString(PS->PlayerName);
+		}
+		else
+		{
+			AUTTeamInfo* Team = Cast<AUTTeamInfo>(OptionalObject);
+			if (Team != NULL)
+			{
+				CurrentLeader = Team->TeamName;
+			}
+		}
+		Result = FText::Format(Result, FText::Format(LeadingText, CurrentLeader));
+		return Result;
+	}
 };

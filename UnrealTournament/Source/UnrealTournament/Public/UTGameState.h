@@ -161,6 +161,9 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** Called once per second (or so depending on TimeDilation) after RemainingTime() has been replicated */
 	virtual void DefaultTimer();
 
+	/** called to check for time message broadcasts ("3 minutes remain", etc) */
+	virtual void CheckTimerMessage();
+
 	/** Determines if a player is on the same team */
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool OnSameTeam(const AActor* Actor1, const AActor* Actor2);

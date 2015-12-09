@@ -24,6 +24,7 @@ public:
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual AInfo* GetTiebreakWinner(FName* WinReason = NULL) const override;
 	virtual void ScoreExpiredRoundTime() override;
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;

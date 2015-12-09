@@ -431,11 +431,17 @@ void AUTGameState::DefaultTimer()
 			}
 		}
 
-		if (GetWorld()->GetNetMode() != NM_DedicatedServer && IsMatchInProgress())
+		CheckTimerMessage();
+	}
+}
+
+void AUTGameState::CheckTimerMessage()
+{
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer && IsMatchInProgress())
+	{
+		int32 TimerMessageIndex = -1;
+		switch (RemainingTime)
 		{
-			int32 TimerMessageIndex = -1;
-			switch (RemainingTime)
-			{
 			case 300: TimerMessageIndex = 13; break;		// 5 mins remain
 			case 180: TimerMessageIndex = 12; break;		// 3 mins remain
 			case 60: TimerMessageIndex = 11; break;		// 1 min remains
@@ -446,19 +452,16 @@ void AUTGameState::DefaultTimer()
 					TimerMessageIndex = RemainingTime - 1;
 				}
 				break;
-			}
+		}
 
-			if (TimerMessageIndex >= 0)
+		if (TimerMessageIndex >= 0)
+		{
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 			{
-				TArray<APlayerController*> PlayerList;
-				GEngine->GetAllLocalPlayerControllers(PlayerList);
-				for (auto It = PlayerList.CreateIterator(); It; ++It)
+				AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
+				if (PC != NULL)
 				{
-					AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
-					if (PC != NULL)
-					{
-						PC->ClientReceiveLocalizedMessage(UUTTimerMessage::StaticClass(), TimerMessageIndex);
-					}
+					PC->ClientReceiveLocalizedMessage(UUTTimerMessage::StaticClass(), TimerMessageIndex);
 				}
 			}
 		}

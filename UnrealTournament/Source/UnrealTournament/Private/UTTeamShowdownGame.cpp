@@ -182,7 +182,7 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 	}
 }
 
-void AUTTeamShowdownGame::ScoreExpiredRoundTime()
+AInfo* AUTTeamShowdownGame::GetTiebreakWinner(FName* WinReason) const
 {
 	TArray<int32> LivingPlayersPerTeam;
 	TArray<int32> TotalHealthPerTeam;
@@ -205,7 +205,7 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 			}
 		}
 	}
-	
+
 	int32 BestNumIndex = INDEX_NONE;
 	int32 BestNum = 0;
 	int32 BestHealthIndex = INDEX_NONE;
@@ -232,15 +232,32 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 		}
 	}
 
-	LastRoundWinner = NULL;
 	if (BestNumIndex != INDEX_NONE)
 	{
-		LastRoundWinner = Teams[BestNumIndex];
+		if (WinReason != NULL)
+		{
+			*WinReason = FName(TEXT("Count"));
+		}
+		return Teams[BestNumIndex];
 	}
 	else if (BestHealthIndex != INDEX_NONE)
 	{
-		LastRoundWinner = Teams[BestHealthIndex];
+		if (WinReason != NULL)
+		{
+			*WinReason = FName(TEXT("Health"));
+		}
+		return Teams[BestHealthIndex];
 	}
+	else
+	{
+		return NULL;
+	}
+}
+
+void AUTTeamShowdownGame::ScoreExpiredRoundTime()
+{
+	FName WinReason = NAME_None;
+	LastRoundWinner = Cast<AUTTeamInfo>(GetTiebreakWinner(&WinReason));
 	if (LastRoundWinner == NULL)
 	{
 		for (AUTTeamInfo* Team : Teams)
@@ -254,7 +271,7 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 	{
 		LastRoundWinner->Score += 1.0f;
 		LastRoundWinner->ForceNetUpdate();
-		BroadcastLocalized(NULL, UUTTeamShowdownGameMessage::StaticClass(), (BestNumIndex != INDEX_NONE) ? 0 : 1, NULL, NULL, LastRoundWinner);
+		BroadcastLocalized(NULL, UUTTeamShowdownGameMessage::StaticClass(), (WinReason == FName(TEXT("Count"))) ? 0 : 1, NULL, NULL, LastRoundWinner);
 	}
 }
 

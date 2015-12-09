@@ -3,6 +3,8 @@
 #include "UTShowdownGameState.h"
 #include "UnrealNetwork.h"
 #include "UTTeamPlayerStart.h"
+#include "UTTimerMessage.h"
+#include "UTShowdownGame.h"
 
 AUTShowdownGameState::AUTShowdownGameState(const FObjectInitializer& OI)
 : Super(OI)
@@ -97,4 +99,39 @@ void AUTShowdownGameState::OnRep_MatchState()
 	}
 
 	Super::OnRep_MatchState();
+}
+
+void AUTShowdownGameState::CheckTimerMessage()
+{
+	// in Showdown do this server side so we can include the currently winning team
+	if (Role == ROLE_Authority && IsMatchInProgress())
+	{
+		int32 TimerMessageIndex = -1;
+		switch (RemainingTime)
+		{
+			case 300: TimerMessageIndex = 13; break;		// 5 mins remain
+			case 180: TimerMessageIndex = 12; break;		// 3 mins remain
+			case 60: TimerMessageIndex = 11; break;		// 1 min remains
+			case 30: TimerMessageIndex = 10; break;		// 30 seconds remain
+			default:
+				if (RemainingTime <= 10)
+				{
+					TimerMessageIndex = RemainingTime - 1;
+				}
+				break;
+		}
+
+		if (TimerMessageIndex >= 0)
+		{
+			AInfo* CurrentTiebreakWinner = GetWorld()->GetAuthGameMode<AUTShowdownGame>()->GetTiebreakWinner();
+			for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*It);
+				if (PC != NULL)
+				{
+					PC->ClientReceiveLocalizedMessage(UUTTimerMessage::StaticClass(), TimerMessageIndex, NULL, NULL, CurrentTiebreakWinner);
+				}
+			}
+		}
+	}
 }
