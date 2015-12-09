@@ -925,10 +925,18 @@ void SUTMenuBase::QuitConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uin
 
 FReply SUTMenuBase::Logout()
 {
-	PlayerOwner->Logout();
+	PlayerOwner->ShowMessage(NSLOCTEXT("SUTMenuBase", "SignOuttConfirmationTitle", "Sign Out?"), NSLOCTEXT("SUTMenuBase", "SignOuttConfirmationMessage", "You are about to sign out of this account.  Doing so will return you to the main menu.  Are you sure?"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTMenuBase::SignOutConfirmationResult));
 	return FReply::Handled();
 }
 
+void SUTMenuBase::SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		PlayerOwner->Logout();
+	}
+
+}
 
 
 
