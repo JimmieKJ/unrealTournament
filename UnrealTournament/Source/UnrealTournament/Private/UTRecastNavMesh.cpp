@@ -710,9 +710,10 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 		for (bool bAnyNodeExpanded = true; bAnyNodeExpanded;)
 		{
 			bAnyNodeExpanded = false;
-			for (UUTPathNode* Node : PathNodes)
+			for (int32 i = 0; i < PathNodes.Num(); i++)
 			{
-				if (Node == nullptr || Node->bDestinationOnly)
+				UUTPathNode* Node = PathNodes[i];
+				if (Node->bDestinationOnly)
 				{
 					continue;
 				}
