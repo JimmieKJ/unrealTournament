@@ -703,9 +703,11 @@ bool FWindowsPlatformStackWalk::InitStackWalking()
 		// Initialize the symbol engine.
 		const FString RemoteStorage = GetRemoteStorage(GetDownstreamStorage());
 		SymInitializeW( GetCurrentProcess(), RemoteStorage.IsEmpty() ? nullptr : *RemoteStorage, true );
-	
+
 		GNeedToRefreshSymbols = false;
 		GStackWalkingInitialized = true;
+
+		LoadProcessModules(RemoteStorage);
 	}
 #if WINVER > 0x502
 	else if (GNeedToRefreshSymbols)
@@ -713,6 +715,9 @@ bool FWindowsPlatformStackWalk::InitStackWalking()
 		// Refresh and reload symbols
 		SymRefreshModuleList( GetCurrentProcess() );
 		GNeedToRefreshSymbols = false;
+
+		const FString RemoteStorage = GetRemoteStorage(GetDownstreamStorage());
+		LoadProcessModules(RemoteStorage);
 	}
 #endif
 
