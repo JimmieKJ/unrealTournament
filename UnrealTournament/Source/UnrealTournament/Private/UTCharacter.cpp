@@ -3518,6 +3518,8 @@ void AUTCharacter::UpdateCharOverlays()
 				OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
 				OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
 			}
+			OverlayMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision); // make sure because could be in ragdoll
+			OverlayMesh->SetSimulatePhysics(false);
 			OverlayMesh->SetCastShadow(false);
 			OverlayMesh->BoundsScale = 15000.f;
 			OverlayMesh->InvalidateCachedBounds();
