@@ -170,7 +170,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 				[
 					SAssignNew(StatsWebBrowser, SWebBrowser)
 					.InitialURL(TEXT(""))
-//					.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateSP(this, &SUWStatsViewer::QueryReceived))
+					.OnJSQueryReceived(FOnJSQueryReceived::CreateSP(this, &SUWStatsViewer::QueryReceived))
 					.ShowControls(false)
 				]
 			]
@@ -433,8 +433,8 @@ void SUWStatsViewer::OnQueryWindowSelected(TSharedPtr<FString> NewSelection, ESe
 		
 	DownloadStats();
 }
-/*
-bool SUWStatsViewer::QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate)
+
+bool SUWStatsViewer::QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResult Delegate)
 {
 	if (!QueryString.IsEmpty())
 	{
@@ -444,5 +444,6 @@ bool SUWStatsViewer::QueryReceived(int64 QueryId, FString QueryString, bool Pers
 	}
 
 	return true;
-}*/
+}
+
 #endif

@@ -9,6 +9,7 @@
 #if !UE_SERVER
 
 #include "SWebBrowser.h"
+#include "IWebBrowserWindow.h"
 
 class UNREALTOURNAMENT_API SUWStatsViewer : public SUWPanel
 {
@@ -41,7 +42,7 @@ protected:
 	void ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ShowErrorPage();
 
-//	virtual bool QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate);
+	virtual bool QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResult Delegate);
 
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > FriendListComboBox;
 	TArray<TSharedPtr<FString>> FriendList;
