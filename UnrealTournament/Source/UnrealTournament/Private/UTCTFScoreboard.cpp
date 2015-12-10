@@ -30,19 +30,9 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 
 void UUTCTFScoreboard::OpenScoringPlaysPage()
 {
-	if (UTHUDOwner)
+	if (UTHUDOwner && UTHUDOwner->ScoreboardPage == 0)
 	{
-		if (UTHUDOwner->ScoreboardPage == 0)
-		{
-			SetPage(1);
-			AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
-			float DelayTime = FMath::Max(6.f, 1.f + CTFState->GetScoringPlays().Num());
-			GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTCTFScoreboard::OpenScoringPlaysPage, DelayTime, false);
-		}
-		else if (UTHUDOwner->ScoreboardPage == 1)
-		{
-			SetPage(2);
-		}
+		SetPage(1);
 	}
 }
 
@@ -59,7 +49,7 @@ void UUTCTFScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		if (UTGameState->GoalScore > 0)
 		{
 			// Draw Game Text
-			FText Score = FText::Format(NSLOCTEXT("UTScoreboard", "GoalScoreFormat", "First to {0} Caps"), FText::AsNumber(UTGameState->GoalScore));
+			FText Score = FText::Format(NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "First to {0} Caps"), FText::AsNumber(UTGameState->GoalScore));
 			DrawText(Score, Size.X * 0.7f, YOffset + 40.f, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		}
 
