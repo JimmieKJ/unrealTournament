@@ -2362,6 +2362,7 @@ void UPrimitiveComponent::UpdateOverlaps(const TArray<FOverlapInfo>* NewPendingO
 		AActor* const MyActor = GetOwner();
 		if ( MyActor && MyActor->IsActorInitialized() )
 		{
+			const FTransform PrevTransform = GetComponentTransform();
 			// If we are the root component we ignore child components. Those children will update their overlaps when we descend into the child tree.
 			// This aids an optimization in MoveComponent.
 			const bool bIgnoreChildren = (MyActor->GetRootComponent() == this);
@@ -2383,7 +2384,7 @@ void UPrimitiveComponent::UpdateOverlaps(const TArray<FOverlapInfo>* NewPendingO
 			if (!IsPendingKill())
 			{
 				// Might be able to avoid testing for new overlaps at the end location.
-				if (OverlapsAtEndLocation != NULL && CVarAllowCachedOverlaps->GetInt())
+				if (OverlapsAtEndLocation != NULL && CVarAllowCachedOverlaps->GetInt() && PrevTransform.Equals(GetComponentTransform()))
 				{
 					UE_LOG(LogPrimitiveComponent, VeryVerbose, TEXT("%s->%s Skipping overlap test!"), *GetNameSafe(GetOwner()), *GetName());
 					NewOverlappingComponents = *OverlapsAtEndLocation;
