@@ -935,7 +935,6 @@ void SUTMenuBase::SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, 
 	{
 		PlayerOwner->Logout();
 	}
-
 }
 
 

@@ -104,7 +104,7 @@ protected:
 	virtual void QuitConfirmation();
 	virtual void QuitConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
-	FReply SUTMenuBase::Logout();
+	FReply Logout();
 	void SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 };
 #endif
