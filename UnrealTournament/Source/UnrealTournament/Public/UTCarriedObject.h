@@ -185,6 +185,9 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UFUNCTION()
 	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
 
+	/** Called client-side when attachment state changes. */
+	virtual void ClientUpdateAttachment(bool bNowAttached);
+
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = GameObject)
 	UCapsuleComponent* Collision;
 

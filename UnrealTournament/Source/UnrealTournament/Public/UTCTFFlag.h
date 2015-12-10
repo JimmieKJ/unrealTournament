@@ -79,8 +79,7 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 		return Mesh;
 	}
 
-	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh) override;
-	virtual void AttachTo(USkeletalMeshComponent* AttachToMesh) override;
+	virtual void ClientUpdateAttachment(bool bNowAttached) override;
 	virtual void OnObjectStateChanged();
 
 	FTimerHandle SendHomeWithNotifyHandle;

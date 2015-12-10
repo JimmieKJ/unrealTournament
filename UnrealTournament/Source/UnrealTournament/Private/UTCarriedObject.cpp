@@ -98,6 +98,7 @@ void AUTCarriedObject::AttachTo(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeLocation(Holder3PTransform);
 		Collision->SetRelativeRotation(Holder3PRotation);
 		AttachRootComponentTo(AttachToMesh, Holder3PSocketName);
+		ClientUpdateAttachment(true);
 	}
 }
 
@@ -109,8 +110,12 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 		Collision->SetRelativeRotation(FRotator(0,0,0));
 		Collision->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
 		DetachRootComponentFromParent(true);
+		ClientUpdateAttachment(false);
 	}
 }
+
+void AUTCarriedObject::ClientUpdateAttachment(bool bNowAttached)
+{}
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
@@ -591,12 +596,14 @@ void AUTCarriedObject::OnRep_AttachmentReplication()
 				RootComponent->RelativeScale3D = NewRelativeScale3D;
 
 				RootComponent->UpdateComponentToWorld();
+				ClientUpdateAttachment(Cast<APawn>(AttachmentReplication.AttachParent) != nullptr);
 			}
 		}
 	}
 	else
 	{
 		DetachRootComponentFromParent();
+		ClientUpdateAttachment(false);
 	}
 }
 

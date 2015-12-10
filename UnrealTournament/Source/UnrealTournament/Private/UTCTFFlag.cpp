@@ -85,26 +85,22 @@ void AUTCTFFlag::PlayCaptureEffect()
 	}
 }
 
-void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
+void AUTCTFFlag::ClientUpdateAttachment(bool bNowAttachedToPawn)
 {
-	Super::DetachFrom(AttachToMesh);
 	if (GetMesh())
 	{
 		GetMesh()->SetAbsolute(false, false, true);
-		GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
-		GetMesh()->SetRelativeLocation(MeshOffset);
-	}
-}
-
-void AUTCTFFlag::AttachTo(USkeletalMeshComponent* AttachToMesh)
-{
-	Super::AttachTo(AttachToMesh);
-	if (AttachToMesh && GetMesh())
-	{
-		GetMesh()->SetAbsolute(false, false, true);
-		GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
-		GetMesh()->SetRelativeLocation(HeldOffset);
-		GetMesh()->ClothBlendWeight = ClothBlendHeld;
+		if (bNowAttachedToPawn)
+		{
+			GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
+			GetMesh()->SetRelativeLocation(HeldOffset);
+			GetMesh()->ClothBlendWeight = ClothBlendHeld;
+		}
+		else
+		{
+			GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
+			GetMesh()->SetRelativeLocation(MeshOffset);
+		}
 	}
 }
 
