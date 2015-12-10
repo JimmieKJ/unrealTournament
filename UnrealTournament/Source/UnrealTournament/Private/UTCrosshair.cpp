@@ -15,7 +15,7 @@ void UUTCrosshair::DrawCrosshair_Implementation(UCanvas* Canvas, AUTWeapon* Weap
 	float X = FMath::RoundToFloat((Canvas->SizeX * 0.5f) - (CrosshairIcon.UL * Scale * 0.5f));
 	float Y = FMath::RoundToFloat((Canvas->SizeY * 0.5f) - (CrosshairIcon.VL * Scale * 0.5f));
 
-	Canvas->DrawColor = Color.ToFColor(true);
+	Canvas->DrawColor = Color.ToFColor(false);
 	Canvas->DrawIcon(CrosshairIcon, X, Y, Scale);
 }
 

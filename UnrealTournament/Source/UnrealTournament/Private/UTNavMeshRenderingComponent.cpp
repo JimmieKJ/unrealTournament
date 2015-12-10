@@ -45,7 +45,7 @@ void UUTNavMeshRenderingComponent::GatherTriangleData(FNavMeshSceneProxyData* Cu
 	int32 CurrentBaseIndex = 0;
 	for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
 	{
-		FColor NodeColor = It.Key()->DebugDrawColor.ToFColor(true);
+		FColor NodeColor = It.Key()->DebugDrawColor.ToFColor(false);
 		const FNavMeshTriangleList& TriangleData = It.Value();
 
 		FNavMeshSceneProxyData::FDebugMeshData DebugMeshData;

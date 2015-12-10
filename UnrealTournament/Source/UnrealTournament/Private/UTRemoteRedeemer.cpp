@@ -683,7 +683,7 @@ void AUTRemoteRedeemer::PostRender(AUTHUD* HUD, UCanvas* C)
 							FText DistanceMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "TargetDist", "{Dist}m"), Args);
 							FFontRenderInfo TextRenderInfo;
 							TextRenderInfo.bEnableShadow = true;
-							C->SetDrawColor(FLinearColor::Red.ToFColor(true));
+							C->SetDrawColor(FLinearColor::Red.ToFColor(false));
 							C->DrawText(HUD->TinyFont, DistanceMessage, BottomRight.X, UpperLeft.Y, 1.f, 1.f, TextRenderInfo);
 						}
 					}

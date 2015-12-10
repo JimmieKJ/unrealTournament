@@ -1314,7 +1314,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			FFontRenderInfo FontInfo;
 			FontInfo.bEnableShadow = true;
 			FontInfo.bClipText = true;
-			C->DrawColor = FLinearColor::White.ToFColor(true);
+			C->DrawColor = FLinearColor::White.ToFColor(false);
 			C->DrawText(PlayerNames[i].DrawFont, FText::FromString(PlayerNames[i].PlayerName), PlayerNames[i].Location.X, PlayerNames[i].Location.Y, 1.0f, 1.0f, FontInfo);
 
 			//Move the remaining names out of the way

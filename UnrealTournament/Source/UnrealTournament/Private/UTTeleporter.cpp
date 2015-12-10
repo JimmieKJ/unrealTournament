@@ -16,14 +16,14 @@ AUTTeleporter::AUTTeleporter(const FObjectInitializer& ObjectInitializer)
 	if (ExitArrow != NULL)
 	{
 		ExitArrow->AttachParent = RootComponent;
-		ExitArrow->ArrowColor = FLinearColor(0.0f, 0.0f, 1.0f, 1.0f).ToFColor(true);
+		ExitArrow->ArrowColor = FLinearColor(0.0f, 0.0f, 1.0f, 1.0f).ToFColor(false);
 	}
 
 	EntryArrow = ObjectInitializer.CreateEditorOnlyDefaultSubobject<UArrowComponent>(this, TEXT("EntryArrow"));
 	if (EntryArrow != NULL)
 	{
 		EntryArrow->AttachParent = RootComponent;
-		EntryArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f).ToFColor(true);
+		EntryArrow->ArrowColor = FLinearColor(0.0f, 1.0f, 0.0f, 1.0f).ToFColor(false);
 	}
 
 	bLockTeleportTarget = true;

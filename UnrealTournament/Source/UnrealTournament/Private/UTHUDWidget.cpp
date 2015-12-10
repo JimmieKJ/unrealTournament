@@ -551,7 +551,7 @@ FVector2D UUTHUDWidget::DrawText(FText Text, float X, float Y, UFont* Font, bool
 		}
 
 		DrawColor.A = Opacity * DrawOpacity * UTHUDOwner->WidgetOpacity;
-		Canvas->DrawColor = DrawColor.ToFColor(true);
+		Canvas->DrawColor = DrawColor.ToFColor(false);
 
 		if (!WordWrapper.IsValid())
 		{
