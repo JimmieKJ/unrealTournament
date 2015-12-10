@@ -55,6 +55,17 @@ bool UUTGameInstance::HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWo
 	{
 		WorldContext->LastURL.RemoveOption(TEXT("game="));
 	}
+
+	// Invalidate the LastSession member in UTLocalPlayer since we connected via IP.  NOTE: clients will attempt to rejoin the session
+	// of servers connected to the internet and at that point LastSession will become valid again.
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+	if (LocalPlayer != nullptr)
+	{
+		LocalPlayer->InvalidateLastSession();
+		LocalPlayer->LastConnectToIP = Cmd;
+	}
+
+
 	return GEngine->HandleTravelCommand(Cmd, Ar, InWorld);
 }
 

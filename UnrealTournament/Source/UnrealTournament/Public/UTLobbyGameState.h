@@ -144,7 +144,8 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 **/
 	void GameInstance_Empty(uint32 GameInstanceID);
 
-	void CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bool bReturnedFromMatch);
+	// Look to see if we should automatically place this player in a match
+	void CheckForAutoPlacement(AUTLobbyPlayerState* NewPlayer);
 
 	bool IsMatchStillValid(AUTLobbyMatchInfo* TestMatch);
 

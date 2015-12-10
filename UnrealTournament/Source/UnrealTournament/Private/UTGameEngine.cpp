@@ -959,3 +959,17 @@ UUTFlagInfo* UUTGameEngine::GetFlag(FName FlagName)
 	UE_LOG(UT, Warning, TEXT("UUTGameEngine::GetFlag() Couldn't find flag for '%s'"), *FlagName.ToString());
 	return nullptr;
 }
+
+bool UUTGameEngine::HandleReconnectCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld )
+{
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(GetLocalPlayerFromControllerId(GWorld,0));
+	if (UTLocalPlayer)
+	{
+		UTLocalPlayer->Reconnect(false);
+		return true;
+	}
+	else
+	{
+		return Super::HandleReconnectCommand(Cmd, Ar, InWorld );
+	}
+}

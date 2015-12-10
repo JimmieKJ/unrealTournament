@@ -191,20 +191,27 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 
 		if (GetNetMode() != NM_Standalone && !GetWorld()->IsPlayInEditor())
 		{
-			FString Password = UGameplayStatics::ParseOption(Options, TEXT("Password"));
+
+			UE_LOG(UT,Log,TEXT("TEST====%s"), *Options);
+
 			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+
+			FString Password = UGameplayStatics::ParseOption(Options, TEXT("Password"));
 			if (!bSpectator && !UTBaseGameMode->ServerPassword.IsEmpty())
 			{
+				UE_LOG(UT,Log,TEXT("Pass: %s v %s"), Password.IsEmpty() ? TEXT("") : *Password, *UTBaseGameMode->ServerPassword);
 				if (Password.IsEmpty() || !UTBaseGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
 				{
 					return TEXT("NEEDPASS");
 				}
 			}
-			else if (bSpectator && !UTBaseGameMode->SpectatePassword.IsEmpty())
+			FString SpecPassword = UGameplayStatics::ParseOption(Options, TEXT("SpecPassword"));
+			if (bSpectator && !UTBaseGameMode->SpectatePassword.IsEmpty())
 			{
-				if (Password.IsEmpty() || !UTBaseGameMode->SpectatePassword.Equals(Password, ESearchCase::CaseSensitive))
+				UE_LOG(UT,Log,TEXT("Spec: %s v %s"), SpecPassword.IsEmpty() ? TEXT("") : *SpecPassword, *UTBaseGameMode->SpectatePassword);
+				if (SpecPassword.IsEmpty() || !UTBaseGameMode->SpectatePassword.Equals(SpecPassword, ESearchCase::CaseSensitive))
 				{
-					return TEXT("NEEDPASS");
+					return TEXT("NEEDSPECPASS");
 				}
 			}
 		}

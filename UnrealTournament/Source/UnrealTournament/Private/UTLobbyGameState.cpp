@@ -225,7 +225,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatchPlayerIsIn(FString PlayerID)
 	return NULL;
 }
 
-void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bool bReturnedFromMatch)
+void AUTLobbyGameState::CheckForAutoPlacement(AUTLobbyPlayerState* NewPlayer)
 { 
 	// We are looking to join a player's match.. see if we can find the player....
 	if (NewPlayer->DesiredFriendToJoin != TEXT(""))
@@ -234,18 +234,6 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bo
 		if (FriendsMatch)
 		{
 			JoinMatch(FriendsMatch, NewPlayer);
-		}
-	}
-	else if (!NewPlayer->DesiredMatchIdToJoin.IsEmpty() )
-	{
-		FGuid MatchGuid;
-		FGuid::Parse(NewPlayer->DesiredMatchIdToJoin, MatchGuid);
-		AUTLobbyMatchInfo* MatchInfo = FindMatch(MatchGuid);
-		NewPlayer->DesiredMatchIdToJoin.Empty();
-
-		if (MatchInfo)
-		{
-			JoinMatch(MatchInfo, NewPlayer, (NewPlayer->DesiredTeamNum == 255));
 		}
 	}
 }
@@ -699,7 +687,7 @@ bool AUTLobbyGameState::IsMatchStillValid(AUTLobbyMatchInfo* TestMatch)
 // A New Client has joined.. Send them all of the server side settings
 void AUTLobbyGameState::InitializeNewPlayer(AUTLobbyPlayerState* NewPlayer)
 {
-	CheckForExistingMatch(NewPlayer, NewPlayer->bReturnedFromMatch);
+	CheckForAutoPlacement(NewPlayer);
 }
 
 

@@ -164,7 +164,7 @@ FReply SUTInGameMenu::OnReturnToLobby()
 		{
 			WriteQuitMidGameAnalytics();
 			PlayerOwner->CloseMapVote();
-			PC->ConnectToServerViaGUID(GameState->HubGuid.ToString(),-1, false, false);
+			PC->ConnectToServerViaGUID(GameState->HubGuid.ToString(),-1, false);
 		}
 	}
 

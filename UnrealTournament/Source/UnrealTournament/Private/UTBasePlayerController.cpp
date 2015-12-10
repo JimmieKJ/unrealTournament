@@ -269,7 +269,7 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState && GameState->HubGuid.IsValid())
 	{
-		ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
+		ConnectToServerViaGUID(GameState->HubGuid.ToString(), false);
 	}
 	else
 	{
@@ -280,7 +280,6 @@ void AUTBasePlayerController::ClientReturnToLobby_Implementation()
 void AUTBasePlayerController::CancelConnectViaGUID()
 {
 		GUIDJoinWantsToSpectate = false;
-		GUIDJoinWantsToFindMatch = false;
 		GUIDJoin_CurrentGUID = TEXT("");
 		GUIDJoinAttemptCount = 0;
 		GUIDSessionSearchSettings.Reset();
@@ -295,8 +294,8 @@ void AUTBasePlayerController::CancelConnectViaGUID()
 		}
 }
 
-void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate, bool bFindLastMatch)
-	{
+void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate)
+{
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
 	{
@@ -306,7 +305,6 @@ void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 D
 		IOnlineSessionPtr OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 
 		GUIDJoinWantsToSpectate = bSpectate;
-		GUIDJoinWantsToFindMatch = bFindLastMatch;
 		GUIDJoin_CurrentGUID = ServerGUID;
 		GUIDJoinAttemptCount = 0;
 		GUIDSessionSearchSettings.Reset();
@@ -420,14 +418,13 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				{
 					// Clear the Quickmatch wait timer.
 					LP->QuickMatchLimitTime = 0.0;
-					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, GUIDJoinWantsToFindMatch,GUIDJoinDesiredTeam))
+					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, GUIDJoinDesiredTeam))
 					{
 						//LP->HideMenu(); // should happen on level change now
 					}
 				}
 
 				GUIDJoinWantsToSpectate = false;
-				GUIDJoinWantsToFindMatch = false;
 				GUIDSessionSearchSettings.Reset();
 				return;
 			}

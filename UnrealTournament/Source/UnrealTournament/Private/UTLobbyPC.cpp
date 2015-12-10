@@ -39,12 +39,6 @@ void AUTLobbyPC::OnRep_PlayerState()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		if (!LP->IsInSession())
-		{
-			LP->MessageBox(NSLOCTEXT("UTLobbyPC","SessionErrorTitle","Session Error"), NSLOCTEXT("UTLobbyPC","SessionErrorMsg","You can not connect directly to a Hub.  Please select 'PLAY' then 'Find a Game...' from the main menu."));
-			ConsoleCommand("Disconnect");
-		}
-		else
 		{
 			LP->UpdatePresence(TEXT("In Hub"), true, true, true, false);
 		}

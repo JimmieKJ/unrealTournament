@@ -34,9 +34,6 @@ UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& Obj
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, OneThird, 0.5f));
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.0f));
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.5f));
-
-	LastPasswordAttemptHost = TEXT("");
-
 }
 
 void UUTGameViewportClient::AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
@@ -304,40 +301,29 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 
 		if (FailureType == ENetworkFailure::PendingConnectionFailure)
 		{
-			if (ErrorString == TEXT("NEEDPASS"))
+			if (ErrorString == TEXT("NEEDPASS") || ErrorString == TEXT("NEEDSPECPASS"))
 			{
-
-				UE_LOG(UT,Log,TEXT("%s %s"), *NetDriver->LowLevelGetNetworkNumber(), *GetNameSafe(GetWorld()));
+				bool bNeedSpectator = ErrorString == TEXT("NEEDSPECPASS");
 				if (NetDriver != NULL && NetDriver->ServerConnection != NULL)
 				{
 					LastAttemptedURL = NetDriver->ServerConnection->URL;
 
-					// Look to see if there isn't a cached password for this host.
-					if (SavedPasswords.Contains(LastAttemptedURL.Host))
+					FString StoredPassword = FirstPlayer->RetrievePassword(LastAttemptedURL.Host, bNeedSpectator);
+					if (!StoredPassword.IsEmpty())
 					{
-						// Make sure we didn't just try to use it (ie: password is out of data
-						if (LastAttemptedURL.Host != LastPasswordAttemptHost)
+						// We have a cached password and we didn't try it already, just reconnect.  We have to do this here for Hub instances that
+						// have the same password.
+						if (LastAttemptedURL.HasOption(bNeedSpectator ? TEXT("specpassword") : TEXT("password")) && 
+							  LastAttemptedURL.GetOption((bNeedSpectator ? TEXT("specpassword") : TEXT("password")), TEXT("")) != StoredPassword)
 						{
-							FString Password = SavedPasswords[LastAttemptedURL.Host];
-							FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *Password);
-
-							//add all of the options the client was connecting with
-							for (FString& Option : LastAttemptedURL.Op)
-							{
-								if (!Option.StartsWith(TEXT("password=")))
-								{
-									ReconnectCommand += TEXT("?") + Option;
-								}
-							}
-							FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+							FirstPlayer->Reconnect(bNeedSpectator);
 							return;
 						}
-						SavedPasswords.Remove(LastAttemptedURL.Host);
-						LastPasswordAttemptHost = TEXT("");
 					}
 
+
 					FirstPlayer->OpenDialog(SNew(SUWInputBox)
-						.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
+						.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult, ErrorString == TEXT("NEEDSPECPASS")))
 						.PlayerOwner(FirstPlayer)
 						.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
 						.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
@@ -648,7 +634,7 @@ void UUTGameViewportClient::NetworkFailureDialogResult(TSharedPtr<SCompoundWidge
 	ReconnectDialog.Reset();
 }
 
-void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID, bool bSpectatorPassword)
 {
 #if !UE_SERVER
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
@@ -661,21 +647,8 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 			UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 			if (!InputText.IsEmpty() && FirstPlayer != NULL)
 			{
-				FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *InputText);
-
-				//add all of the options the client was connecting with
-				for (FString& Option : LastAttemptedURL.Op)
-				{
-					if (!Option.StartsWith(TEXT("password=")))
-					{
-						ReconnectCommand += TEXT("?") + Option;
-					}
-				}
-
-				SavedPasswords.Add(LastAttemptedURL.Host, InputText);
-				LastPasswordAttemptHost = LastAttemptedURL.Host;
-
-				FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+				FirstPlayer->CachePassword(LastAttemptedURL.Host, InputText, bSpectatorPassword);
+				FirstPlayer->Reconnect(bSpectatorPassword);
 			}
 		}
 	}
@@ -687,15 +660,7 @@ void UUTGameViewportClient::ReconnectAfterDownloadingContent()
 	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
 	if (FirstPlayer != nullptr)
 	{
-		FString ReconnectCommand = FString::Printf(TEXT("open %s:%i"), *LastAttemptedURL.Host, LastAttemptedURL.Port);
-
-		//add all of the options the client was connecting with
-		for (FString& Option : LastAttemptedURL.Op)
-		{
-			ReconnectCommand += TEXT("?") + Option;
-		}
-
-		FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+		FirstPlayer->Reconnect(false);
 	}
 }
 
@@ -1086,7 +1051,6 @@ bool UUTGameViewportClient::HideCursorDuringCapture()
 
 void UUTGameViewportClient::ClientConnectedToServer()
 {
-	LastPasswordAttemptHost.Empty();	
 }
 
 

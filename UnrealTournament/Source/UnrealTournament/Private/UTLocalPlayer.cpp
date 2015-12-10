@@ -670,7 +670,6 @@ void UUTLocalPlayer::Logout()
 }
 
 
-
 FString UUTLocalPlayer::GetOnlinePlayerNickname()
 {
 	return IsLoggedIn() ? OnlineIdentityInterface->GetPlayerNickname(0) : TEXT("None");
@@ -1967,18 +1966,23 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	}
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, bool bFindMatch, int32 DesiredTeam,  FString MatchId)
+void UUTLocalPlayer::InvalidateLastSession()
+{
+	// Reset the last session so we don't have anything to join.
+	LastSession.Session.OwningUserId.Reset();
+	LastSession.Session.SessionInfo.Reset();
+}
+
+
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
 
 	bWantsToConnectAsSpectator = bSpectate;
-	bWantsToFindMatch = bFindMatch;
-
 	ConnectDesiredTeam = DesiredTeam;
 	bCancelJoinSession = false;
-	PendingJoinMatchId =  MatchId;
 
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
 
@@ -1988,11 +1992,11 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	}
 	else
 	{
+		PendingSession = SearchResult;
 		if (OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UniqueId))
 		{
 			UE_LOG(UT, Log, TEXT("--- Already in a Session -- Deferring while I clean it up"));
-			bPendingSession = true;
-			PendingSession = SearchResult;
+			bDelayedJoinSession = true;
 			LeaveSession();
 		}
 		else
@@ -2007,9 +2011,9 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 
 void UUTLocalPlayer::JoinPendingSession()
 {
-	if (bPendingSession)
+	if (bDelayedJoinSession)
 	{
-		bPendingSession = false;
+		bDelayedJoinSession = false;
 		PendingSession.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
 		OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
 	}
@@ -2029,10 +2033,9 @@ void UUTLocalPlayer::CancelJoinSession()
 
 }
 
-
 void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
-	bPendingSession = false;
+	bDelayedJoinSession = false;
 
 #if !UE_SERVER
 	if (ServerBrowserWidget.IsValid())
@@ -2053,27 +2056,31 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 	ChatArchive.Empty();
 
-	// If we successed, nothing else needs to be done.
+	// If we succeed, nothing else needs to be done.
 	if (Result == EOnJoinSessionCompleteResult::Success)
 	{
 		if (bCancelJoinSession)
 		{
+			InvalidateLastSession();
 			bCancelJoinSession = false;
 			return;
 		}
 
+		// Cache the last session.
+		LastSession = PendingSession;
+
 		FString ConnectionString;
 		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
 		{
+			int32 Index = 0;
+			FString HostAddress = ConnectionString.FindChar(':',Index) ? ConnectionString.Left(Index) : ConnectionString;
+			FString Password = RetrievePassword(HostAddress, bWantsToConnectAsSpectator);
+			ConnectionString += Password;
+
 			if (PendingFriendInviteFriendId != TEXT(""))
 			{
 				ConnectionString += FString::Printf(TEXT("?Friend=%s"), *PendingFriendInviteFriendId);
 				PendingFriendInviteFriendId = TEXT("");
-			}
-
-			if (bWantsToFindMatch)
-			{
-				ConnectionString += TEXT("?RTM=1");
 			}
 
 			ConnectionString += FString::Printf(TEXT("?Rank=%i"), GetBaseELORank());
@@ -2085,22 +2092,13 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 				ConnectionString += FString::Printf(TEXT("?Team=%i"), ConnectDesiredTeam);
 			}
 
-			if (!PendingJoinMatchId.IsEmpty())
-			{
-				ConnectionString += FString::Printf(TEXT("?MatchId=%s"), * PendingJoinMatchId);
-				PendingJoinMatchId.Empty();
-			}
-
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
 			Context.LastURL.RemoveOption(TEXT("QuickStart"));
-			Context.LastURL.RemoveOption(TEXT("MatchId"));
 			
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
-			bWantsToFindMatch = false;
 			bWantsToConnectAsSpectator = false;
 			return;
-
 		}
 	}
 
@@ -2108,7 +2106,6 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 	// Any failures, return to the main menu.
 	bWantsToConnectAsSpectator = false;
-	bWantsToFindMatch = false;
 
 	if (Result == EOnJoinSessionCompleteResult::AlreadyInSession)
 	{
@@ -2159,7 +2156,7 @@ void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful
 
 void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSuccessful)
 {
-	UE_LOG(UT,Log, TEXT("----------- [OnDestroySessionComplete %i"), bPendingSession);
+	UE_LOG(UT,Warning, TEXT("----------- [OnDestroySessionComplete %i"), bDelayedJoinSession);
 	
 	OnlineSessionInterface->ClearOnDestroySessionCompleteDelegate_Handle(OnDestroySessionCompleteDelegate);
 
@@ -3930,5 +3927,61 @@ void UUTLocalPlayer::HandleProfileNotification(const FOnlineNotification& Notifi
 			}
 		}
 #endif
+	}
+}
+
+void UUTLocalPlayer::CachePassword(FString HostAddress, FString Password, bool bSpectator)
+{
+	if (bSpectator)
+	{
+		if (CachedSpecPasswords.Contains(HostAddress))
+		{
+			CachedSpecPasswords[HostAddress] = Password;
+		}
+		else
+		{
+			CachedSpecPasswords.Add(HostAddress, Password);
+		}
+	}
+	else
+	{
+		if (CachedPasswords.Contains(HostAddress))
+		{
+			CachedPasswords[HostAddress] = Password;
+		}
+		else
+		{
+			CachedPasswords.Add(HostAddress, Password);
+		}
+	}
+}
+
+FString UUTLocalPlayer::RetrievePassword(FString HostAddress, bool bSpectator)
+{
+	if (bSpectator)
+	{
+		if (CachedSpecPasswords.Contains(HostAddress))
+		{
+			return FString::Printf(TEXT("?specpassword=%s"), *CachedSpecPasswords[HostAddress]);
+		}
+	}
+	else if (CachedPasswords.Contains(HostAddress))
+	{
+		return FString::Printf(TEXT("?password=%s"), *CachedPasswords[HostAddress]);
+	}
+	return TEXT("");
+}
+
+
+void UUTLocalPlayer::Reconnect(bool bSpectator)
+{
+	if (LastSession.IsValid())
+	{
+		JoinSession(LastSession, bSpectator);
+	}
+	else
+	{
+		FString Password = RetrievePassword(LastConnectToIP, bSpectator);
+		ConsoleCommand(TEXT("open ") + LastConnectToIP + Password);
 	}
 }

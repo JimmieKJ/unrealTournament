@@ -630,7 +630,7 @@ void SUTQuickMatch::RequestJoinInstanceResult(EInstanceJoinResult::Type Result, 
 		AUTBasePlayerController* UTPlayerController = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (UTPlayerController)
 		{
-			UTPlayerController->ConnectToServerViaGUID(Params,-1, false, false);
+			UTPlayerController->ConnectToServerViaGUID(Params,-1, false);
 			return;
 		}
 	}
@@ -662,7 +662,7 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetPlayerOwner()->PlayerController);
 		if (PC)
 		{
-			PC->ConnectToServerViaGUID(InstanceGuid, -1, false, false);
+			PC->ConnectToServerViaGUID(InstanceGuid, -1, false);
 		}
 		else
 		{

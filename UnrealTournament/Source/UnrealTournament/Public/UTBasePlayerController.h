@@ -86,7 +86,7 @@ public:
 	/**
 	 *	User a GUID to find a server via the MCP and connect to it.  NOTE.. DesiredTeam = 0, 1, 255 or -1 for don't set the team
 	 **/
-	virtual void ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate=false, bool bFindLastMatch=false);
+	virtual void ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate=false);
 
 	/**
 	 *	Used by the hub system to cancel a pending connect if the player is downloading content.  Used for aborting.
@@ -136,7 +136,6 @@ protected:
 	FString GUIDJoin_CurrentGUID;
 	bool GUIDJoinWantsToSpectate;
 	int32 GUIDJoinAttemptCount;
-	bool GUIDJoinWantsToFindMatch;
 	int32 GUIDJoinDesiredTeam;
 
 	void StartGUIDJoin();

@@ -1,4 +1,4 @@
-	// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SlateBasics.h"
@@ -224,10 +224,7 @@ protected:
 #endif
 
 	bool bWantsToConnectAsSpectator;
-	bool bWantsToFindMatch;
-
 	int32 ConnectDesiredTeam;
-
 	int32 CurrentSessionTrustLevel;
 
 public:
@@ -460,7 +457,7 @@ public:
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam = -1);
 	virtual void CancelJoinSession();
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
@@ -479,8 +476,13 @@ protected:
 	virtual void OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful);
 	virtual void OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence);
 
-	bool bPendingSession;
+	// Set to true if we have delayed joining a session (due to already being in a session or some other reason.  PendingSession will contain the session data.
+	bool bDelayedJoinSession;
 	FOnlineSessionSearchResult PendingSession;
+
+	// Holds the session info of the last session this player tried to join.  If there is a join failure, or the reconnect command is used, this session info
+	// will be used to attempt the reconnection.
+	FOnlineSessionSearchResult LastSession;
 
 	// friend join functionality
 	virtual void JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId);
@@ -658,9 +660,7 @@ protected:
 
 	/** Used to avoid reading too often */
 	double LastItemReadTime;
-	
-	// When connecting to a hub, if this is set it will be passed in.
-	FString PendingJoinMatchId;
+
 
 public:
 	virtual void HandleProfileNotification(const FOnlineNotification& Notification);
@@ -789,9 +789,19 @@ public:
 
 	/** Get profile manager for a specific account (can be this user).  "" will return users.  Use non-param version if it is known to have to be users (non-shared) */
 	UUtMcpProfileManager* GetMcpProfileManager(const FString& AccountId);
-
 	UUtMcpProfileManager* GetActiveMcpProfileManager() const { return Cast<UUtMcpProfileManager>(ActiveMcpProfileManager); }
+
 #endif
+
+	void InvalidateLastSession();
+	void Reconnect(bool bAsSpectator);
+
+	void CachePassword(FString HostAddress, FString Password, bool bSpectator);		
+	FString RetrievePassword(FString HostAddress, bool bSpectator);
+
+protected:
+	TMap<FString /*HostIP:Port*/, FString /*Password*/> CachedPasswords;
+	TMap<FString /*HostIP:Port*/, FString /*Password*/> CachedSpecPasswords;
 
 protected:
 	UPROPERTY(Config)

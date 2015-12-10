@@ -213,5 +213,7 @@ public:
 		return ChallengeManager;
 	}
 
+	bool HandleReconnectCommand( const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld );
+
 };
 

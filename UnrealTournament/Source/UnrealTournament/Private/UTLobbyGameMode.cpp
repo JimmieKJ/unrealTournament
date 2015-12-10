@@ -169,19 +169,6 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 		{
 			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? EEpicDefaultRuleTags::CTF : EEpicDefaultRuleTags::Deathmatch;
 		}
-
-		FString MatchId = UGameplayStatics::ParseOption(Options, TEXT("MatchId"));
-		if (!MatchId.IsEmpty())
-		{
-			PS->DesiredMatchIdToJoin = MatchId;
-			
-			if (UGameplayStatics::GetIntOption(Options, TEXT("SpectatorOnly"), 0) > 0)
-			{
-				PS->DesiredTeamNum=255;
-			}
-		}
-
-		PS->bReturnedFromMatch = UGameplayStatics::HasOption(Options, "RTM");
 	}
 
 

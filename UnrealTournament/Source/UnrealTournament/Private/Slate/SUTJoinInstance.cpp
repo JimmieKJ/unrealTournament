@@ -225,14 +225,14 @@ void SUTJoinInstance::OnRequestJoinResult(EInstanceJoinResult::Type Result, cons
 	}
 	else if (Result == EInstanceJoinResult::JoinViaLobby)
 	{
-		PlayerOwner->JoinSession(ServerData->SearchResult, bSpectator, false, -1, Params);			
+		PlayerOwner->JoinSession(ServerData->SearchResult, bSpectator, -1);			
 	}
 	else if (Result == EInstanceJoinResult::JoinDirectly)
 	{
 		AUTBasePlayerController* UTPlayerController = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
 		if (UTPlayerController)
 		{
-			UTPlayerController->ConnectToServerViaGUID(Params,-1, bSpectator,false);
+			UTPlayerController->ConnectToServerViaGUID(Params,-1, bSpectator);
 		}
 		else
 		{
