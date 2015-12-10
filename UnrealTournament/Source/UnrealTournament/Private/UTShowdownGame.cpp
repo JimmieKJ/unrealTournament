@@ -468,12 +468,12 @@ void AUTShowdownGame::HandleMatchIntermission()
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
 				TeamPlayers.Add(PS->Team, PS);
-				// make sure players that were spectating while dead go back to dead state
+				// use spectating state so camera can be placed on spawn selection
 				AUTPlayerController* PC = Cast<AUTPlayerController>(C);
-				if (PC != NULL && PC->IsInState(NAME_Spectating))
+				if (PC != NULL && !PC->IsInState(NAME_Spectating))
 				{
-					PC->ChangeState(NAME_Inactive);
-					PC->ClientGotoState(NAME_Inactive);
+					PC->ChangeState(NAME_Spectating);
+					PC->ClientGotoState(NAME_Spectating);
 				}
 			}
 		}

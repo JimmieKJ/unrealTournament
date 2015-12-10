@@ -181,6 +181,12 @@ void AUTHUD_Showdown::DrawHUD()
 			{
 				if (HoveredStart != NULL)
 				{
+					AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
+					if ((GS->SpawnSelector == PlayerOwner->PlayerState || (OwnerPS != NULL && OwnerPS->RespawnChoiceA == NULL)) && PlayerOwner->GetSpectatorPawn() != NULL)
+					{
+						PlayerOwner->GetSpectatorPawn()->TeleportTo(HoveredStart->GetActorLocation(), HoveredStart->GetActorRotation(), false, true);
+						PlayerOwner->SetControlRotation(HoveredStart->GetActorRotation());
+					}
 					SpawnPreviewCapture->SetWorldLocationAndRotation(HoveredStart->GetActorLocation(), HoveredStart->GetActorRotation());
 					bPendingSpawnPreview = true;
 				}
