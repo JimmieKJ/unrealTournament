@@ -673,7 +673,12 @@ public:
 	inline int32 GetOnlineXP() const
 	{
 #if WITH_PROFILE
-		return GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->GetXP();
+		if (GetMcpProfileManager() && GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile))
+		{
+			return GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile)->GetXP();
+		}
+
+		return 0;
 #else
 		return 0;
 #endif
