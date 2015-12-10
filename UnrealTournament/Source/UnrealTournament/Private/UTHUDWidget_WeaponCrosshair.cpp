@@ -45,13 +45,14 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 		}
 
 		const float TimeSinceGrab = GetWorld()->GetTimeSeconds() - UTHUDOwner->LastFlagGrabTime;
-		const float FlagDisplayTime = 0.6f;
+		const float FlagDisplayTime = 1.f;
 		if (TimeSinceGrab < FlagDisplayTime)
 		{
 			AUTPlayerState* PS = UTHUDOwner->GetScorerPlayerState();
 			if (PS && PS->CarriedObject)
 			{
-				float Size = 64.f * (1.f + 5.f*TimeSinceGrab / FlagDisplayTime);
+				float FlagPct = FMath::Max(0.f, TimeSinceGrab - 0.5f*FlagDisplayTime) / FlagDisplayTime;
+				float Size = 64.f * (1.f + 5.f*FlagPct);
 				FLinearColor FlagColor = FLinearColor::White;
 				int32 TeamIndex = PS->CarriedObject->GetTeamNum();
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
@@ -59,7 +60,7 @@ void UUTHUDWidget_WeaponCrosshair::Draw_Implementation(float DeltaTime)
 				{
 					FlagColor = GS->Teams[TeamIndex]->TeamColor;
 				}
-				float Opacity = 0.8f - 0.8f*TimeSinceGrab / FlagDisplayTime;
+				float Opacity = 0.8f - 0.8f*FlagPct;
 				DrawTexture(UTHUDOwner->HUDAtlas, 0.f, -48.f, Size, Size, 843.f, 87.f, 43.f, 41.f, Opacity, FlagColor, FVector2D(0.5f, 0.5f));
 			}
 		}
