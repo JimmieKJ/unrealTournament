@@ -57,7 +57,7 @@
 #include "StatNames.h"
 #include "UTChallengeManager.h"
 #include "UTCharacterContent.h"
-#include "Runtime/JsonUtilities/public/JsonUtilities.h"
+#include "Runtime/JsonUtilities/Public/JsonUtilities.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
