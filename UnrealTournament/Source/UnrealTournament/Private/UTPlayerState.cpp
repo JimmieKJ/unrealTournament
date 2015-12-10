@@ -954,6 +954,9 @@ void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 
 void AUTPlayerState::BeginPlay()
 {
+	// default so value is never NULL
+	SelectedCharacter = GetDefault<AUTCharacter>()->CharacterData;
+
 	Super::BeginPlay();
 
 	if (Role == ROLE_Authority && StatManager == nullptr)
