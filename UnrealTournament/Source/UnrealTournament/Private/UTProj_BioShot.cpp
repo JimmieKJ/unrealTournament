@@ -790,6 +790,7 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 	// Don't constantly explode in blueprint preview
 	if (GetWorld()->WorldType == EWorldType::Preview)
 	{
+		Super::TickActor(DeltaTime, TickType, ThisTickFunction);
 		return;
 	}
 
