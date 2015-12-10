@@ -319,10 +319,14 @@ void AUTCTFGameMode::CheckGameTime()
 		// If the match is in progress and we are not playing advantage, then enter the halftime/end of game logic depending on the half
 		else if (CTFGameState->RemainingTime <= 0)
 		{
+			if (!CTFGameState->IsMatchInOvertime() && CTFGameState->bSecondHalf && bAllowOvertime)
+			{
+				EndOfHalf();
+			}
 			if (!CTFGameState->bPlayingAdvantage)
 			{
 				// If we are in Overtime - Keep battling until one team wins.  We might want to add half-time or bring sudden death back 
-				if ( CTFGameState->IsMatchInOvertime() )
+				if (CTFGameState->IsMatchInOvertime())
 				{
 					AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
 					if ( WinningTeam != NULL )
