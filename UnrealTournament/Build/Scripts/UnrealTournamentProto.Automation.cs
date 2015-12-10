@@ -648,7 +648,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			// Engine/Binaries/...
 			if(Platform == UnrealTargetPlatform.Win64)
 			{
-				Filter.Include("/Engine/Binaries/Win64/libfbxsdk.dll");
+                Filter.Include("/Engine/Binaries/Win64/libfbxsdk.dll");
+
+                Filter.Include("/Engine/Binaries/Win64/embree.dll");
+                Filter.Include("/Engine/Binaries/Win64/tbb.dll");
+                Filter.Include("/Engine/Binaries/Win64/tbbmalloc.dll");
 
 				Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Win64/...");
 				Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Win64/VS2013/*.dll");
