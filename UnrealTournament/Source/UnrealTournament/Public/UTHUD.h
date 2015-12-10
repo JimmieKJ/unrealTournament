@@ -150,32 +150,32 @@ public:
 
 	/** Last time player owning this HUD killed someone. */
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
-		float LastKillTime;
+	float LastKillTime;
 
 	/** Last time player owning this HUD picked up a flag. */
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
-		float LastFlagGrabTime;
+	float LastFlagGrabTime;
 
 	/** sound played when player gets a kill */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
-		USoundBase* KillSound;
+	USoundBase* KillSound;
 
 	FTimerHandle PlayKillHandle;
 
 	/** Queue a kill notification. */
-        virtual void NotifyKill();
+	virtual void NotifyKill();
 
-		/** Play kill notification sound and icon. */
-		virtual void PlayKillNotification();
+	/** Play kill notification sound and icon. */
+	virtual void PlayKillNotification();
 
 	/** Crosshair asset pointer */
 	UTexture2D* DefaultCrosshairTex;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
-		UTexture2D* HUDAtlas;
+	UTexture2D* HUDAtlas;
 
 	UPROPERTY(EditAnywhere, Category = "Scoreboard")
-		FVector2D TeamIconUV[2];
+	FVector2D TeamIconUV[4];
 
 	/** last time we hit an enemy in LOS */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)

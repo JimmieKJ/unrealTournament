@@ -36,7 +36,7 @@ void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Oth
 	if (Character != NULL)
 	{
 		AUTCTFFlag* CharFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
-		if ( CharFlag != NULL && CharFlag != CarriedObject && CarriedObject->ObjectState == CarriedObjectState::Home && CharFlag->GetTeamNum() != GetTeamNum() &&
+		if ( CharFlag != NULL && CharFlag != CarriedObject && CarriedObject != NULL && CarriedObject->ObjectState == CarriedObjectState::Home && CharFlag->GetTeamNum() != GetTeamNum() &&
 			!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), Capsule->GetComponentLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams) )
 		{
 			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
