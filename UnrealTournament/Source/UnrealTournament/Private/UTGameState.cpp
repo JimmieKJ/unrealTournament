@@ -1543,15 +1543,25 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	}
 }
 
+FText AUTGameState::FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index)
+{
+	if (PS->MatchHighlights[Index] == NAME_None)
+	{
+		return FText::GetEmpty();
+	}
+	FText BestWeaponText = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
+
+	return FText::Format(HighlightMap.FindRef(PS->MatchHighlights[Index]), FText::AsNumber(PS->MatchHighlightData[Index]), BestWeaponText);
+}
+
 TArray<FText> AUTGameState::GetPlayerHighlights_Implementation(AUTPlayerState* PS)
 {
 	TArray<FText> Highlights;
-	FText BestWeaponText = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
 	for (int32 i = 0; i < 5; i++)
 	{
 		if (PS->MatchHighlights[i] != NAME_None)
 		{
-			Highlights.Add(FText::Format(HighlightMap.FindRef(PS->MatchHighlights[i]), FText::AsNumber(PS->MatchHighlightData[i]), BestWeaponText));
+			Highlights.Add(FormatPlayerHighlightText(PS, i));
 		}
 	}
 	return Highlights;
