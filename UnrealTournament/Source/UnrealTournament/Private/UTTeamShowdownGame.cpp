@@ -178,7 +178,19 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 				}
 			}
 		}
-		AUTTeamGameMode::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+		if (Killer != Other && Killer != NULL && UTGameState->OnSameTeam(Killer, Other))
+		{
+			// AUTGameMode doesn't handle team kills and AUTTeamDMGameMode would change the team score so we need to do it ourselves
+			AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
+			if (KillerPS != NULL)
+			{
+				KillerPS->AdjustScore(-1);
+			}
+		}
+		else
+		{
+			AUTTeamGameMode::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+		}
 	}
 }
 

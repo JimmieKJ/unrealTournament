@@ -67,6 +67,11 @@ public:
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
+	virtual void ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override
+	{
+		// we need to treat this the same way we treat normal kills
+		ScoreKill(Killer, Other, KilledPawn, DamageType);
+	}
 	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
