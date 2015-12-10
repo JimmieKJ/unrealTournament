@@ -1524,11 +1524,17 @@ void SUWServerBrowser::OnServerBeaconFailure(AUTServerBeaconClient* Sender)
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
+			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
+			{
+				AddHub(PingTrackers[i].Server);
+			}
+			else
+			{
+				AddServer(PingTrackers[i].Server);
+			}
 
-			AddServer(PingTrackers[i].Server);
 			PingTrackers[i].Beacon->DestroyBeacon();
 			PingTrackers.RemoveAt(i,1);
-
 			PingNextServer();
 		}
 	}
