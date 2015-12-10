@@ -667,7 +667,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 Filter.Include("/Engine/Binaries/ThirdParty/OpenSSL/Win64/VS2013/*.dll");
 			}
 			else if(Platform == UnrealTargetPlatform.Mac)
-			{
+            {
+                Filter.Include("/Engine/Binaries/Mac/libembree.2.dylib");
+                Filter.Include("/Engine/Binaries/Mac/libtbb.dylib");
+                Filter.Include("/Engine/Binaries/Mac/libtbbmalloc.dylib");
+
 				Filter.Include("/Engine/Binaries/ThirdParty/ICU/icu4c-53_1/Mac/*.dylib");
 				Filter.Include("/Engine/Binaries/ThirdParty/Mono/Mac/...");
 				Filter.Include("/Engine/Binaries/ThirdParty/CEF3/Mac/...");
