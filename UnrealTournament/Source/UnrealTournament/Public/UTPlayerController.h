@@ -396,12 +396,12 @@ public:
 	UPROPERTY(BlueprintReadWrite, GlobalConfig)
 	bool bSpectateBehindView;
 
-	/** Whether should remaing in freecam on camera resets. */
+	/** whether player wants behindview when playing (subject to server and game mode restrictions) */
 	UPROPERTY(BlueprintReadOnly)
-		bool bCurrentlyBehindView;
+	bool bPlayBehindView;
 
 	UPROPERTY(BlueprintReadOnly)
-		bool bRequestingSlideOut;
+	bool bRequestingSlideOut;
 
 	/** True when spectator has used a spectating camera bind. */
 	UPROPERTY()

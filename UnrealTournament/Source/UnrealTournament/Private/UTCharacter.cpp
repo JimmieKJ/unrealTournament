@@ -3047,7 +3047,7 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 	else if (GetLocalViewer())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), OwnFootstepSound, this, SRT_IfSourceNotReplicated);
-		FootStepEffect = GetLocalViewer()->bCurrentlyBehindView && (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
+		FootStepEffect = GetLocalViewer()->IsBehindView() && (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
 	}
 	else
 	{

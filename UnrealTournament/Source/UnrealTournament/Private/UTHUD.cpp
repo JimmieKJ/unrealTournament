@@ -506,7 +506,7 @@ void AUTHUD::DrawHUD()
 			}
 			else 
 			{
-				if (!UTPlayerOwner->bCurrentlyBehindView || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator)
+				if (!UTPlayerOwner->IsBehindView() || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator)
 				{
 					DrawDamageIndicators();
 				}

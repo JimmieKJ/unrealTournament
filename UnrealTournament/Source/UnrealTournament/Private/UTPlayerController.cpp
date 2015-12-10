@@ -2048,7 +2048,20 @@ bool AUTPlayerController::CanRestartPlayer()
 
 void AUTPlayerController::ResetCameraMode()
 {
-	if (bCurrentlyBehindView && (bAllowPlayingBehindView || (GetNetMode() == NM_Standalone) || (GetWorld()->WorldType == EWorldType::PIE)))
+	bool bBehindView;
+	if (IsInState(NAME_Spectating))
+	{
+		bBehindView = bSpectateBehindView;
+	}
+	else if (!bAllowPlayingBehindView && GetNetMode() != NM_Standalone && GetWorld()->WorldType != EWorldType::PIE)
+	{
+		bBehindView = false;
+	}
+	else
+	{
+		bBehindView = bPlayBehindView;
+	}
+	if (bBehindView)
 	{
 		SetCameraMode(FName(TEXT("FreeCam")));
 	}
@@ -2064,10 +2077,13 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 	{
 		bWantBehindView = false;
 	}
-	bCurrentlyBehindView = bWantBehindView;
 	if (IsInState(NAME_Spectating))
 	{
 		bSpectateBehindView = bWantBehindView;
+	}
+	else
+	{
+		bPlayBehindView = bWantBehindView;
 	}
 	SetCameraMode(bWantBehindView ? FName(TEXT("FreeCam")) : FName(TEXT("Default")));
 	if (Cast<AUTCharacter>(GetViewTarget()) != NULL)
