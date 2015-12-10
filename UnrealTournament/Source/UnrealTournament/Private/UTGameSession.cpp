@@ -191,9 +191,6 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 
 		if (GetNetMode() != NM_Standalone && !GetWorld()->IsPlayInEditor())
 		{
-
-			UE_LOG(UT,Log,TEXT("TEST====%s"), *Options);
-
 			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
 
 			FString Password = UGameplayStatics::ParseOption(Options, TEXT("Password"));
