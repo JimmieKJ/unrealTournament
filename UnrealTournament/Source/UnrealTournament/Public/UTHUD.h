@@ -375,7 +375,7 @@ public:
 	void CalcStanding();
 
 	// Takes seconds and converts it to a string
-	FText ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForceHours = true, bool bForceMinutes = true, bool bForceTwoDigits = true) const;
+	FText ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForceHours = false, bool bForceMinutes = true, bool bForceTwoDigits = true) const;
 
 	// Creates a suffix string based on a value (st, nd, rd, th).
 	FText GetPlaceSuffix(int32 Value);

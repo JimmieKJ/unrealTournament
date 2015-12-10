@@ -241,7 +241,7 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 		else
 		{
 			float RemainingTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
-			FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RemainingTime, true, true, true);
+			FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RemainingTime, false, true, true);
 			DrawText(Timer, Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->NumberFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 	}
@@ -688,6 +688,22 @@ void UUTScoreboard::DrawStatsLine(FText StatsName, int32 StatValue, int32 ScoreV
 		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	YPos += StatsFontInfo.TextHeight;
+}
+
+void UUTScoreboard::DrawPlayerStatsLine(FText StatsName, AUTPlayerState* FirstPS, AUTPlayerState* SecondPS, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex)
+{
+	if ((HighlightIndex == 0) && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && !UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
+	{
+		if (FirstPS == UTHUDOwner->UTPlayerOwner->UTPlayerState)
+		{
+			HighlightIndex = 1;
+		}
+		else if (SecondPS == UTHUDOwner->UTPlayerOwner->UTPlayerState)
+		{
+			HighlightIndex = 2;
+		}
+	}
+	DrawTextStatsLine(StatsName, GetPlayerNameFor(FirstPS), GetPlayerNameFor(SecondPS), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, HighlightIndex);
 }
 
 void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex)
