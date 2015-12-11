@@ -261,6 +261,11 @@ CORE_API class ITargetPlatformManagerModule& GetTargetPlatformManagerRef();
  */
 FORCEINLINE bool IsRunningDedicatedServer()
 {
+	if (FPlatformProperties::IsProgram())
+	{
+		return false;
+	}
+
 	if (FPlatformProperties::IsServerOnly())
 	{
 		return true;
