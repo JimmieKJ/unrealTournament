@@ -8,7 +8,7 @@
 UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NumPages = 2;
-	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Scoring Breakdown");
+	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Stats");
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)

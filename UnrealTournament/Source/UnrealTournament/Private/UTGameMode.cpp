@@ -85,7 +85,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
 	PersonalSummaryDisplayTime = 8.f;
-	WinnerSummaryDisplayTime = 3.f;
+	WinnerSummaryDisplayTime = 5.f;
+	TeamSummaryDisplayTime = 30.f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
 	VictoryMessageClass = UUTVictoryMessage::StaticClass();
@@ -1857,8 +1858,8 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 float AUTGameMode::GetTravelDelay()
 {
-	UTGameState->NumWinnersToShow = bTeamGame ? FMath::Min(5, (NumPlayers + NumBots) / 2) : FMath::Min(3, NumPlayers + NumBots);
-	return EndScoreboardDelay + MainScoreboardDisplayTime + ScoringPlaysDisplayTime + PersonalSummaryDisplayTime + WinnerSummaryDisplayTime * UTGameState->NumWinnersToShow;
+	UTGameState->NumWinnersToShow = 1;
+	return EndScoreboardDelay + MainScoreboardDisplayTime + ScoringPlaysDisplayTime + PersonalSummaryDisplayTime + WinnerSummaryDisplayTime * UTGameState->NumWinnersToShow + TeamSummaryDisplayTime;
 }
 
 void AUTGameMode::StopReplayRecording()

@@ -376,7 +376,27 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 			]
 		]
 	];
-	RecreateAllPlayers();
+
+	// get rid of teamanchors entireley
+	// Create a TeamAnchor for each team found
+	int32 TeamCount = 0;
+	if (GameState.IsValid())
+	{
+		for (TActorIterator<AUTTeamInfo> It(GameState->GetWorld()); It; ++It)
+		{
+			TeamCount++;
+		}
+	}
+	TeamCount = FMath::Max(TeamCount, 1);
+
+	for (int32 iTeam = 0; iTeam < TeamCount; iTeam++)
+	{
+		AActor* TeamAnchor = PlayerPreviewWorld->SpawnActor<AActor>(ATargetPoint::StaticClass(), FVector(0.f, 0.f, 0.0f), FRotator::ZeroRotator);
+		if (TeamAnchor != nullptr)
+		{
+			TeamAnchors.Add(TeamAnchor);
+		}
+	}
 
 	//Set the camera state based on the game state
 	if (GameState.IsValid())
@@ -717,19 +737,16 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		int32 TotalPlayers = 0;
 
 		// @TODO FIXMESTEVE - this could be reported to match summary on valid change, rather than checking every tick
-		for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
+		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[ViewedTeamNum];
+		for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
 		{
-			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[iTeam];
-			for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
+			AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
+			if (!PS || PS->bOnlySpectator || PS->IsPendingKillPending() || (GameState->bTeamGame && (!PS->Team || (PS->Team->TeamIndex != ViewedTeamNum))))
 			{
-				AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
-				if (!PS || PS->bOnlySpectator || PS->IsPendingKillPending() || (GameState->bTeamGame && (!PS->Team || (PS->Team->TeamIndex != iTeam))))
-				{
-					bPlayersAreValid = false;
-					break;
-				}
-				TotalPlayers++;
+				bPlayersAreValid = false;
+				break;
 			}
+			TotalPlayers++;
 		}
 		if (TotalPlayers != GameState->PlayerArray.Num())
 		{
@@ -737,7 +754,7 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		}
 		if (!bPlayersAreValid)
 		{
-			RecreateAllPlayers();
+			RecreateAllPlayers(ViewedTeamNum);
 			if (HasCamFlag(CF_All))
 			{
 				ViewAll();
@@ -810,11 +827,8 @@ void SUWMatchSummary::SetupIntroCam()
 	CameraShots.Empty();
 
 	//View teams
-	int32 NumViewTeams = GameState->Teams.Num();
-	if (NumViewTeams == 0)
-	{
-		NumViewTeams = 1;
-	}
+	int32 NumViewTeams = FMath::Max(GameState->Teams.Num(), 1);
+
 	//7 seconds for the team camera pan works well with the current song
 	float TimePerTeam = 6.8f / NumViewTeams;
 
@@ -841,8 +855,8 @@ void SUWMatchSummary::GetTeamCamTransforms(int32 TeamNum, FTransform& Start, FTr
 {
 	if (TeamAnchors.IsValidIndex(TeamNum))
 	{
-		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamNum];
-		float CamZOffset = (TeamCharacters.Num() > 5) ? LARGETEAM_CAMERA_ZOFFSET : TEAM_CAMERA_ZOFFSET;
+		int32 TeamCharacterNum = TeamPreviewMeshs.IsValidIndex(TeamNum) ? TeamPreviewMeshs[TeamNum].Num() : 5;
+		float CamZOffset = (TeamCharacterNum > 5) ? LARGETEAM_CAMERA_ZOFFSET : TEAM_CAMERA_ZOFFSET;
 
 		FVector Dir = TeamAnchors[TeamNum]->GetActorRotation().Vector();
 		FVector Location = TeamAnchors[TeamNum]->GetActorLocation() + (Dir.GetSafeNormal() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, CamZOffset);
@@ -875,14 +889,11 @@ void SUWMatchSummary::SetupMatchCam()
 	TeamCam->Time = 0.5f;
 	CameraShots.Add(TeamCam);
 
+	AUTGameMode* DefaultGame = GameState->GameModeClass->GetDefaultObject<AUTGameMode>();
+
 	if (TeamPreviewMeshs.IsValidIndex(TeamToView) && GameState.IsValid())
 	{
-		float DisplayTime = 3.f;
-		AUTGameMode* DefaultGame = GameState->GameModeClass->GetDefaultObject<AUTGameMode>();
-		if (DefaultGame)
-		{
-			DisplayTime = DefaultGame->WinnerSummaryDisplayTime;
-		}
+		float DisplayTime = DefaultGame ? DefaultGame->WinnerSummaryDisplayTime : 5.f;
 
 		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamToView];
 		int32 NumWinnersToShow = FMath::Min(int32(GameState->NumWinnersToShow), TeamCharacters.Num());
@@ -915,6 +926,12 @@ void SUWMatchSummary::SetupMatchCam()
 			CameraShots.Add(PlayerCam);
 		}
 	}
+
+	// show winning team
+	TSharedPtr<FTeamCameraPan> PanTeamCam = MakeShareable(new FTeamCameraPan(TeamToView));
+	PanTeamCam->CamFlags |= CF_CanInteract | CF_ShowPlayerNames | CF_Highlights;
+	PanTeamCam->Time = DefaultGame ? DefaultGame->TeamSummaryDisplayTime : 5.f;
+	CameraShots.Add(PanTeamCam);
 
 	// finally go to local player view
 	if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
@@ -953,7 +970,7 @@ void SUWMatchSummary::SetupMatchCam()
 	SetCamShot(0);
 }
 
-void SUWMatchSummary::RecreateAllPlayers()
+void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 {
 	//Destroy all the characters and their weapons
 	for (auto Weapon : PreviewWeapons)
@@ -973,11 +990,6 @@ void SUWMatchSummary::RecreateAllPlayers()
 		Flag->Destroy();
 	}
 	PreviewFlags.Empty();
-	for (auto Anchor : TeamAnchors)
-	{
-		Anchor->Destroy();
-	}
-	TeamAnchors.Empty();
 
 	//Gather All of the playerstates
 	TArray<TArray<class AUTPlayerState*> > TeamPlayerStates;
@@ -999,40 +1011,32 @@ void SUWMatchSummary::RecreateAllPlayers()
 		}
 	}
 
-	for (int32 iTeam = 0; iTeam < TeamPlayerStates.Num(); iTeam++)
+	//Create an actor that all team actors will attach to for easy team manipulation
+	if (TeamAnchors.IsValidIndex(TeamIndex))
 	{
-		FVector PlayerLocation(0.0f, 0.0f, 0.0f);
-		FVector TeamCenter = FVector(0.0f,0.f, 0.0f);
-
-		//Create an actor that all team actors will attach to for easy team manipulation
-		AActor* TeamAnchor = PlayerPreviewWorld->SpawnActor<AActor>(ATargetPoint::StaticClass(), TeamCenter, FRotator::ZeroRotator);
-		if (TeamAnchor != nullptr)
+		float BaseOffsetY = 0.5f * FMath::Min(float(TeamPlayerStates[TeamIndex].Num() - 1), 4.f) * PLAYER_SPACING;
+		//Spawn all of the characters for this team
+		for (int32 iPlayer = 0; iPlayer < TeamPlayerStates[TeamIndex].Num(); iPlayer++)
 		{
-			TeamAnchors.Add(TeamAnchor);
-			float BaseOffsetY = 0.5f * FMath::Min(float(TeamPlayerStates[iTeam].Num() - 1), 4.f) * PLAYER_SPACING;
-			//Spawn all of the characters for this team
-			for (int32 iPlayer = 0; iPlayer < TeamPlayerStates[iTeam].Num(); iPlayer++)
+			AUTPlayerState* PS = TeamPlayerStates[TeamIndex][iPlayer];
+			// slightly oppose rotation imposed by teamplayerstate
+			FRotator PlayerRotation = FRotator(0.f); //(TeamIndex == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
+			float CurrentOffsetX = -2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
+			float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - BaseOffsetY;
+			if ((iPlayer % 7 == 0) || (iPlayer > 9))
 			{
-				AUTPlayerState* PS = TeamPlayerStates[iTeam][iPlayer];
-				// slightly oppose rotation imposed by teamplayerstate
-				FRotator PlayerRotation = FRotator(0.f); //(iTeam == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
-				float CurrentOffsetX = -2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
-				float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - BaseOffsetY;
-				if ((iPlayer % 7 == 0) || (iPlayer > 9))
-				{
-					CurrentOffsetY -= 0.5f*PLAYER_SPACING;
-				}
-				FVector PlayerOffset = (iPlayer % 2 == 0) ? FVector(CurrentOffsetX, CurrentOffsetY, 0.f) : FVector(CurrentOffsetX + PLAYER_ALTOFFSET, CurrentOffsetY, 0.f);
-				AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation + PlayerOffset, PlayerRotation);
-				NewCharacter->AttachRootComponentToActor(TeamAnchor, NAME_None, EAttachLocation::KeepWorldPosition);
-
-				//Add the character to the team list
-				if (!TeamPreviewMeshs.IsValidIndex(iTeam))
-				{
-					TeamPreviewMeshs.SetNum(iTeam + 1);
-				}
-				TeamPreviewMeshs[iTeam].Add(NewCharacter);
+				CurrentOffsetY -= 0.5f*PLAYER_SPACING;
 			}
+			FVector PlayerLocation = (iPlayer % 2 == 0) ? FVector(CurrentOffsetX, CurrentOffsetY, 0.f) : FVector(CurrentOffsetX + PLAYER_ALTOFFSET, CurrentOffsetY, 0.f);
+			AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation, PlayerRotation);
+			NewCharacter->AttachRootComponentToActor(TeamAnchors[TeamIndex], NAME_None, EAttachLocation::KeepWorldPosition);
+
+			//Add the character to the team list
+			if (!TeamPreviewMeshs.IsValidIndex(TeamIndex))
+			{
+				TeamPreviewMeshs.SetNum(TeamIndex + 1);
+			}
+			TeamPreviewMeshs[TeamIndex].Add(NewCharacter);
 		}
 	}
 }
@@ -1266,15 +1270,17 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 		//TODO: do this better. Smooth the spacing of names when they overlap
 		struct FPlayerName
 		{
-			FPlayerName(FString InPlayerName, FVector InLocation3D, FVector2D InLocation, FVector2D InSize, UFont* InFont)
-				: PlayerName(InPlayerName), Location3D(InLocation3D), Location(InLocation), Size(InSize), DrawFont(InFont) {}
+			FPlayerName(FString InPlayerName, FString InHighlight, FVector InLocation3D, FVector2D InLocation, FVector2D InSize, UFont* InFont)
+				: PlayerName(InPlayerName), Highlight(InHighlight), Location3D(InLocation3D), Location(InLocation), Size(InSize), DrawFont(InFont) {}
 			FString PlayerName;
+			FString Highlight;
 			FVector Location3D;
 			FVector2D Location;
 			FVector2D Size;
 			UFont* DrawFont;
 		};
 
+		UFont* HighlightFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 		UFont* SmallFont = HasCamFlag(CF_Team) ? AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont : AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 		UFont* SelectFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
 		AUTCharacter* SelectedChar = ViewedChar.IsValid() ? ViewedChar.Get() : (HighlightedChar.IsValid() ? HighlightedChar.Get() : NULL);
@@ -1283,21 +1289,16 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 		TArray<FPlayerName> PlayerNames;
 		for (AUTCharacter* UTC : PlayerPreviewMeshs)
 		{
-			if (UTC->PlayerState != nullptr && !UTC->bHidden && FVector::DotProduct(CameraTransform.Rotator().Vector(), (UTC->GetActorLocation() - CameraTransform.GetLocation())) > 0.0f)
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+			if (PS != nullptr && !UTC->bHidden && FVector::DotProduct(CameraTransform.Rotator().Vector(), (UTC->GetActorLocation() - CameraTransform.GetLocation())) > 0.0f)
 			{
 				FVector ActorLocation = UTC->GetActorLocation() + FVector(0.0f, 0.0f, 120.0f);
 				FVector2D ScreenLoc;
 				View->WorldToPixel(ActorLocation, ScreenLoc);
 
-				float XL = 0.f, YL = 0.f;
 				UFont* Font = (UTC == SelectedChar) ? SelectFont : SmallFont;
-				C->TextSize(Font, UTC->PlayerState->PlayerName, XL, YL);
-
-				//center the text
-				ScreenLoc.X -= XL * 0.5f;
-				ScreenLoc.Y -= YL * 0.75f;
-
-				PlayerNames.Add(FPlayerName(UTC->PlayerState->PlayerName, ActorLocation, ScreenLoc, FVector2D(XL, YL), Font));
+				FString MainHighlight = HasCamFlag(CF_Highlights) ? GameState->ShortPlayerHighlightText(PS).ToString() : TEXT("");
+				PlayerNames.Add(FPlayerName(PS->PlayerName, MainHighlight, ActorLocation, ScreenLoc, FVector2D(0.f, 0.f), Font));
 			}
 		}
 
@@ -1314,8 +1315,19 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			FFontRenderInfo FontInfo;
 			FontInfo.bEnableShadow = true;
 			FontInfo.bClipText = true;
-			C->DrawColor = FLinearColor::White.ToFColor(false);
-			C->DrawText(PlayerNames[i].DrawFont, FText::FromString(PlayerNames[i].PlayerName), PlayerNames[i].Location.X, PlayerNames[i].Location.Y, 1.0f, 1.0f, FontInfo);
+			C->DrawColor = FColor::White;
+			float XL = 0.f, YL = 0.f;
+			C->TextSize(PlayerNames[i].DrawFont, PlayerNames[i].PlayerName, XL, YL);
+			PlayerNames[i].Size = FVector2D(XL, YL);
+			C->DrawText(PlayerNames[i].DrawFont, FText::FromString(PlayerNames[i].PlayerName), PlayerNames[i].Location.X - 0.5f*XL, PlayerNames[i].Location.Y - 0.5f*YL, 1.0f, 1.0f, FontInfo);
+			if (HasCamFlag(CF_Highlights))
+			{
+				C->DrawColor = FColor::Yellow;
+				C->TextSize(HighlightFont, PlayerNames[i].Highlight, XL, YL);
+				C->DrawText(HighlightFont, FText::FromString(PlayerNames[i].Highlight), PlayerNames[i].Location.X - 0.5f*XL, PlayerNames[i].Location.Y + 0.25f * YL, 1.0f, 1.0f, FontInfo);
+				PlayerNames[i].Size.X = FMath::Max(PlayerNames[i].Size.X, XL);
+				PlayerNames[i].Size.Y += YL;
+			}
 
 			//Move the remaining names out of the way
 			for (int32 j = i + 1; j < PlayerNames.Num(); j++)
@@ -1546,20 +1558,12 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 		ViewedTeamNum = 0;
 	}
 
-	//use TeamCamAlpha to blend between start and end cams
-	struct FTeamCameraPan : FTeamCamera
-	{
-		FTeamCameraPan(int32 InTeamNum) : FTeamCamera(InTeamNum) {}
-		virtual bool TickCamera(class SUWMatchSummary* MatchWidget, float ElapsedTime, float DeltaTime, FTransform& InOutCamera) override
-		{
-			CameraTransform.Blend(CamStart, CamEnd, FMath::Clamp(MatchWidget->TeamCamAlpha, 0.0f, 1.0f));
-			FMatchCamera::TickCamera(MatchWidget, ElapsedTime, DeltaTime, InOutCamera);
-			return false;
-		}
-	};
-
 	TSharedPtr<FTeamCameraPan> TeamCam = MakeShareable(new FTeamCameraPan(NewTeam));
 	TeamCam->CamFlags |= CF_CanInteract;
+	if (GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
+	{
+		TeamCam->CamFlags |= CF_Highlights;
+	}
 	CameraShots.Empty();
 	CameraShots.Add(TeamCam);
 	SetCamShot(0);
@@ -1567,41 +1571,19 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 	bAutoScrollTeam = true;
 	BuildInfoPanel();
 	ChatPanel->FocusChat();
+	RecreateAllPlayers(NewTeam);
 }
 
 void SUWMatchSummary::ShowTeam(int32 TeamNum)
 {
-	// hide everyone else, show this team
-	if (TeamPreviewMeshs.Num() > 1)
-	{
-		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
-		{
-			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
-			bool bViewedTeam = (i == TeamNum);
-			for (int32 j = 0; j < TeamCharacters.Num(); j++)
-			{
-				TeamCharacters[j]->HideCharacter(!bViewedTeam);
-			}
-		}
-		for (auto Weapon : PreviewWeapons)
-		{
-			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
-			AUTPlayerState* PS = Holder ? Cast<AUTPlayerState>(Holder->PlayerState) : NULL;
-			bool bSameTeamWeapon = (PS && PS->Team && (PS->Team->TeamIndex == TeamNum)) || TeamNum < 0;
-			Weapon->SetActorHiddenInGame(!bSameTeamWeapon);
-		}
-		for (int32 i = 0; i < PreviewFlags.Num(); i++)
-		{
-			if (PreviewFlags[i])
-			{
-				PreviewFlags[i]->SetActorHiddenInGame(i != TeamNum);
-			}
-		}
-	}
+	RecreateAllPlayers(TeamNum);
 }
 
 void SUWMatchSummary::ShowCharacter(AUTCharacter* UTC)
 {
+	AUTPlayerState* ViewedPS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
+	int32 TeamNum = (ViewedPS && ViewedPS->Team) ? ViewedPS->Team->TeamIndex : 0;
+	RecreateAllPlayers(TeamNum);
 	// hide everyone else, show this player
 	if (TeamPreviewMeshs.Num() > 1)
 	{

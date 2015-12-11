@@ -16,7 +16,8 @@ enum ECamFlags
 	CF_Team = 0x0040,
 	CF_Player = 0x0080,
 	CF_ShowXPBar = 0x0100,
-	CF_All = 0x0200,
+	CF_Highlights = 0x0200,
+	CF_All = 0x0400,
 };
 
 struct FMatchCamera
@@ -118,6 +119,8 @@ public:
 	virtual void SetEmoteSpeed(AUTPlayerState* PS, float EmoteSpeed);
 	virtual void SelectPlayerState(AUTPlayerState* PS);
 
+	float TeamCamAlpha;
+
 protected:
 
 	/** world for rendering the player preview */
@@ -170,7 +173,6 @@ protected:
 	FTransform CameraTransform;
 	FTransform TeamStartCamera;
 	FTransform TeamEndCamera;
-	float TeamCamAlpha;
 	bool bAutoScrollTeam;
 	float AutoScrollTeamDirection;
 
@@ -204,7 +206,7 @@ protected:
 	virtual void OnMouseMovePlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
 	virtual AUTCharacter* RecreatePlayerPreview(AUTPlayerState* NewPS, FVector Location, FRotator Rotation);
-	virtual void RecreateAllPlayers();
+	virtual void RecreateAllPlayers(int32 TeamIndex);
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 	virtual class AUTCharacter* FindCharacter(class AUTPlayerState* PS);
 
@@ -248,5 +250,17 @@ protected:
 private:
 
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
+};
+
+
+struct FTeamCameraPan : FTeamCamera
+{
+	FTeamCameraPan(int32 InTeamNum) : FTeamCamera(InTeamNum) {}
+	virtual bool TickCamera(class SUWMatchSummary* MatchWidget, float ElapsedTime, float DeltaTime, FTransform& InOutCamera) override
+	{
+		CameraTransform.Blend(CamStart, CamEnd, FMath::Clamp(MatchWidget->TeamCamAlpha, 0.0f, 1.0f));
+		FMatchCamera::TickCamera(MatchWidget, ElapsedTime, DeltaTime, InOutCamera);
+		return false;
+	}
 };
 #endif
