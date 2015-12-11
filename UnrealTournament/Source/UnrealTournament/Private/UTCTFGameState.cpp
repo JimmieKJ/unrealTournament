@@ -59,12 +59,12 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	ShortHighlightMap.Add(HighlightNames::TopFlagReturnsRed, NSLOCTEXT("AUTGameMode", "ShortTopFlagReturnsRed", "Most Flag Returns for Red"));
 	ShortHighlightMap.Add(HighlightNames::TopFlagReturnsBlue, NSLOCTEXT("AUTGameMode", "ShortTopFlagReturnsBlue", "Most Flag Returns for Blue"));
 
-	ShortHighlightMap.Add(NAME_FCKills, NSLOCTEXT("AUTGameMode", "ShortFCKills", "Killed Enemy Flag Carrier"));
-	ShortHighlightMap.Add(NAME_FlagGrabs, NSLOCTEXT("AUTGameMode", "ShortFlagGrabs", "Grabbed Enemy Flag"));
+	ShortHighlightMap.Add(NAME_FCKills, NSLOCTEXT("AUTGameMode", "ShortFCKills", "{0} Enemy Flag Carrier Kills"));
+	ShortHighlightMap.Add(NAME_FlagGrabs, NSLOCTEXT("AUTGameMode", "ShortFlagGrabs", "{0} Flag Grabs"));
 	ShortHighlightMap.Add(NAME_FlagSupportKills, NSLOCTEXT("AUTGameMode", "ShortFlagSupportKills", "Killed Enemy chasing Flag Carrier"));
-	ShortHighlightMap.Add(HighlightNames::FlagCaptures, NSLOCTEXT("AUTGameMode", "ShortFlagCaptures", "Captured Flag"));
-	ShortHighlightMap.Add(HighlightNames::Assists, NSLOCTEXT("AUTGameMode", "ShortAssists", "Assisted Flag Capture"));
-	ShortHighlightMap.Add(HighlightNames::FlagReturns, NSLOCTEXT("AUTGameMode", "ShortFlagReturns", "Returned Flag"));
+	ShortHighlightMap.Add(HighlightNames::FlagCaptures, NSLOCTEXT("AUTGameMode", "ShortFlagCaptures", "{0} Flag Captures"));
+	ShortHighlightMap.Add(HighlightNames::Assists, NSLOCTEXT("AUTGameMode", "ShortAssists", "{0} Assists"));
+	ShortHighlightMap.Add(HighlightNames::FlagReturns, NSLOCTEXT("AUTGameMode", "ShortFlagReturns", "{0} Flag Returns"));
 
 	HighlightPriority.Add(HighlightNames::TopFlagCapturesRed, 4.5f);
 	HighlightPriority.Add(HighlightNames::TopFlagCapturesBlue, 4.5f);

@@ -768,6 +768,16 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			}
 		}
 		int32 AppliedDamage = ResultDamage;
+		AUTPlayerState* EnemyPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
+		if (EnemyPS)
+		{
+			AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+			if (GS && !GS->OnSameTeam(this, EventInstigator))
+			{
+				EnemyPS->DamageDone += AppliedDamage;
+			}
+		}
+
 		if (!IsDead())
 		{
 			// we need to pull the hit info out of FDamageEvent because ModifyDamage() goes through blueprints and that doesn't correctly handle polymorphic structs

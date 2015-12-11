@@ -213,6 +213,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	int32 Kills;
 
+	/** Damage done by this player.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+		int32 DamageDone;
+
 	/** Can't respawn once out of lives */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bOutOfLives:1;

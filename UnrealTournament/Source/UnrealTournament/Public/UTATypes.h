@@ -116,6 +116,8 @@ namespace HighlightNames
 	const FName TopFlagReturnsBlue = FName(TEXT("TopFlagReturnsBlue"));
 	const FName FlagReturns = FName(TEXT("FlagReturns"));
 	const FName ParticipationAward = FName(TEXT("ParticipationAward"));
+	const FName KillsAward = FName(TEXT("KillsAward"));
+	const FName DamageAward = FName(TEXT("DamageAward"));
 }
 
 namespace ArmorTypeName

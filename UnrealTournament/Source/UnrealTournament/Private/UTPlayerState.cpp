@@ -40,6 +40,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bCaster = false;
 	LastKillTime = 0.0f;
 	Kills = 0;
+	DamageDone = 0;
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
@@ -876,6 +877,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->CTFSkillRatingThisMatch = CTFSkillRatingThisMatch;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
+		PS->DamageDone = DamageDone;
 		PS->Deaths = Deaths;
 		PS->Assists = Assists;
 		PS->HatClass = HatClass;
