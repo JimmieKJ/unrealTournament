@@ -1858,7 +1858,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 float AUTGameMode::GetTravelDelay()
 {
-	UTGameState->NumWinnersToShow = 1;
+	UTGameState->NumWinnersToShow = 0;
 	return EndScoreboardDelay + MainScoreboardDisplayTime + ScoringPlaysDisplayTime + PersonalSummaryDisplayTime + WinnerSummaryDisplayTime * UTGameState->NumWinnersToShow + TeamSummaryDisplayTime;
 }
 
