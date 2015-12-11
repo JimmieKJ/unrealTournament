@@ -929,13 +929,7 @@ void SUWMatchSummary::SetupMatchCam()
 		}
 	}
 
-	// show winning team
-	TSharedPtr<FTeamCameraPan> PanTeamCam = MakeShareable(new FTeamCameraPan(TeamToView));
-	PanTeamCam->CamFlags |= CF_CanInteract | CF_ShowPlayerNames | CF_Highlights;
-	PanTeamCam->Time = DefaultGame ? DefaultGame->TeamSummaryDisplayTime : 5.f;
-	CameraShots.Add(PanTeamCam);
-
-	// finally go to local player view
+	// View own progress
 	if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
 	{
 		AUTPlayerState* LocalPS = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
@@ -947,6 +941,7 @@ void SUWMatchSummary::SetupMatchCam()
 			{
 				LocalTeam = 0;
 			}
+			RecreateAllPlayers(LocalTeam);
 			if (LocalTeam < TeamPreviewMeshs.Num())
 			{
 				TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[LocalTeam];
@@ -964,11 +959,18 @@ void SUWMatchSummary::SetupMatchCam()
 		if (LocalChar)
 		{
 			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(LocalChar));
-			PlayerCam->Time = 99.0f;
+			PlayerCam->Time = 8.0f;
 			CameraShots.Add(PlayerCam);
 			PlayerCam->CamFlags |= CF_ShowXPBar;
 		}
 	}
+
+	// show winning team
+	TSharedPtr<FTeamCameraPan> PanTeamCam = MakeShareable(new FTeamCameraPan(TeamToView));
+	PanTeamCam->CamFlags |= CF_CanInteract | CF_ShowPlayerNames | CF_Highlights;
+	PanTeamCam->Time = DefaultGame ? DefaultGame->TeamSummaryDisplayTime : 5.f;
+	CameraShots.Add(PanTeamCam);
+
 	SetCamShot(0);
 }
 
@@ -1033,8 +1035,10 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 		//Spawn all of the characters for this team
 		for (int32 iPlayer = 0; iPlayer < TeamPlayerStates[TeamIndex].Num(); iPlayer++)
 		{
-			float CurrentOffsetX = 0.25f * (5.f - (iPlayer % 5)) *  PLAYER_ALTOFFSET - 2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
-			float CurrentOffsetY = ((iPlayer % 2 == 0) ? PLAYER_SPACING * (int32(iPlayer/2) + 2) : PLAYER_SPACING * (2 - int32((iPlayer+1)/2))) - BaseOffsetY;
+			int32 PlayerRowIndex = iPlayer % 5;
+			int32 PlayerRow = iPlayer / 5;
+			float CurrentOffsetX = 0.25f * (5.f - PlayerRowIndex) *  PLAYER_ALTOFFSET - 2.f * PLAYER_ALTOFFSET * PlayerRow;
+			float CurrentOffsetY = ((PlayerRowIndex % 2 == 0) ? PLAYER_SPACING * (int32(PlayerRowIndex / 2) + 2) : PLAYER_SPACING * (2 - int32((PlayerRowIndex + 1) / 2))) - BaseOffsetY;
 			AUTCharacter* NewCharacter = RecreatePlayerPreview(TeamPlayerStates[TeamIndex][iPlayer], FVector(CurrentOffsetX, CurrentOffsetY, 0.f), FRotator(0.f));
 			NewCharacter->AttachRootComponentToActor(TeamAnchors[TeamIndex], NAME_None, EAttachLocation::KeepWorldPosition);
 
@@ -1303,7 +1307,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 				FVector2D ScreenLoc;
 				View->WorldToPixel(ActorLocation, ScreenLoc);
 
-				FString MainHighlight = ((NumHighlights < 10) && HasCamFlag(CF_Highlights)) ? GameState->ShortPlayerHighlightText(PS).ToString() : TEXT("Participated");
+				FString MainHighlight = ((NumHighlights < 5) && HasCamFlag(CF_Highlights)) ? GameState->ShortPlayerHighlightText(PS).ToString() : TEXT("");
 				NumHighlights++;
 				PlayerNames.Add(FPlayerName(PS->PlayerName, MainHighlight, ActorLocation, ScreenLoc, FVector2D(0.f, 0.f), SmallFont));
 			}
@@ -1318,6 +1322,8 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 
 		for (int32 i = 0; i < PlayerNames.Num(); i++)
 		{
+			// draw the backdrop
+
 			//Draw the Player name
 			FFontRenderInfo FontInfo;
 			FontInfo.bEnableShadow = true;
