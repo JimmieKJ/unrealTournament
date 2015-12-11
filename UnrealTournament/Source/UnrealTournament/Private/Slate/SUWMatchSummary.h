@@ -192,8 +192,7 @@ protected:
 	TArray<TArray<class AUTCharacter*> > TeamPreviewMeshs;
 	/** preview weapon */
 	TArray<class AUTWeaponAttachment*> PreviewWeapons;
-	/** preview flagsFlag*/
-	TArray<class ASkeletalMeshActor*> PreviewFlags;
+
 	/**Each team is attached to an Actor for easy team tranforms*/
 	TArray<class AActor*> TeamAnchors;
 	AActor* PreviewEnvironment;

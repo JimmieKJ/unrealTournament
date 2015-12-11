@@ -893,37 +893,39 @@ void SUWMatchSummary::SetupMatchCam()
 
 	if (TeamPreviewMeshs.IsValidIndex(TeamToView) && GameState.IsValid())
 	{
-		float DisplayTime = DefaultGame ? DefaultGame->WinnerSummaryDisplayTime : 5.f;
-
 		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamToView];
 		int32 NumWinnersToShow = FMath::Min(int32(GameState->NumWinnersToShow), TeamCharacters.Num());
 
-		// determine match highlight scores to use for sorting
-		for (int32 i = 0; i < TeamCharacters.Num(); i++)
+		if (NumWinnersToShow > 0)
 		{
-			AUTPlayerState* PS = TeamCharacters[i] ? Cast<AUTPlayerState>(TeamCharacters[i]->PlayerState) : NULL;
-			if (PS)
+			float DisplayTime = DefaultGame ? DefaultGame->WinnerSummaryDisplayTime : 5.f;
+			// determine match highlight scores to use for sorting
+			for (int32 i = 0; i < TeamCharacters.Num(); i++)
 			{
-				PS->MatchHighlightScore = GameState->MatchHighlightScore(PS);
+				AUTPlayerState* PS = TeamCharacters[i] ? Cast<AUTPlayerState>(TeamCharacters[i]->PlayerState) : NULL;
+				if (PS)
+				{
+					PS->MatchHighlightScore = GameState->MatchHighlightScore(PS);
+				}
 			}
-		}
 
-		// sort winners
-		bool(*SortFunc)(const AUTCharacter&, const AUTCharacter&);
-		SortFunc = [](const AUTCharacter& A, const AUTCharacter& B)
-		{
-			AUTPlayerState* PSA = Cast<AUTPlayerState>(A.PlayerState);
-			AUTPlayerState* PSB = Cast<AUTPlayerState>(B.PlayerState);
-			return !PSB || (PSA && (PSA->MatchHighlightScore > PSB->MatchHighlightScore));
-		};
-		TeamCharacters.Sort(SortFunc);
+			// sort winners
+			bool(*SortFunc)(const AUTCharacter&, const AUTCharacter&);
+			SortFunc = [](const AUTCharacter& A, const AUTCharacter& B)
+			{
+				AUTPlayerState* PSA = Cast<AUTPlayerState>(A.PlayerState);
+				AUTPlayerState* PSB = Cast<AUTPlayerState>(B.PlayerState);
+				return !PSB || (PSA && (PSA->MatchHighlightScore > PSB->MatchHighlightScore));
+			};
+			TeamCharacters.Sort(SortFunc);
 
-		// add winner shots
-		for (int32 i = 0; i < NumWinnersToShow; i++)
-		{
-			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(TeamCharacters[i]));
-			PlayerCam->Time = DisplayTime;
-			CameraShots.Add(PlayerCam);
+			// add winner shots
+			for (int32 i = 0; i < NumWinnersToShow; i++)
+			{
+				TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(TeamCharacters[i]));
+				PlayerCam->Time = DisplayTime;
+				CameraShots.Add(PlayerCam);
+			}
 		}
 	}
 
@@ -985,11 +987,6 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 	}
 	PlayerPreviewMeshs.Empty();
 	TeamPreviewMeshs.Empty();
-	for (auto Flag : PreviewFlags)
-	{
-		Flag->Destroy();
-	}
-	PreviewFlags.Empty();
 
 	//Gather All of the playerstates
 	TArray<TArray<class AUTPlayerState*> > TeamPlayerStates;
@@ -1306,7 +1303,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 				FVector2D ScreenLoc;
 				View->WorldToPixel(ActorLocation, ScreenLoc);
 
-				FString MainHighlight = ((NumHighlights < 10) && HasCamFlag(CF_Highlights)) ? GameState->ShortPlayerHighlightText(PS).ToString() : TEXT("");
+				FString MainHighlight = ((NumHighlights < 10) && HasCamFlag(CF_Highlights)) ? GameState->ShortPlayerHighlightText(PS).ToString() : TEXT("Participated");
 				NumHighlights++;
 				PlayerNames.Add(FPlayerName(PS->PlayerName, MainHighlight, ActorLocation, ScreenLoc, FVector2D(0.f, 0.f), SmallFont));
 			}
@@ -1592,7 +1589,10 @@ void SUWMatchSummary::ShowCharacter(AUTCharacter* UTC)
 {
 	AUTPlayerState* ViewedPS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
 	int32 TeamNum = (ViewedPS && ViewedPS->Team) ? ViewedPS->Team->TeamIndex : 0;
-	RecreateAllPlayers(TeamNum);
+	if (TeamNum != ViewedTeamNum)
+	{
+		RecreateAllPlayers(TeamNum);
+	}
 	// hide everyone else, show this player
 	if (TeamPreviewMeshs.Num() > 1)
 	{
