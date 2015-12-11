@@ -65,14 +65,15 @@ void FCharacterCamera::InitCam(class SUWMatchSummary* MatchWidget)
 	CamFlags |= CF_ShowSwitcher | CF_ShowInfoWidget | CF_Player;
 	if (Character.IsValid())
 	{
+		AUTCharacter *ViewedCharacter = Character.Get();
 		MatchWidget->ViewedChar = Character;
-		MatchWidget->ViewedTeamNum = Character->GetTeamNum() != 255 ? Character->GetTeamNum() : 0;
-		MatchWidget->ShowCharacter(Character.Get());
+		MatchWidget->ViewedTeamNum = ViewedCharacter->GetTeamNum() != 255 ? ViewedCharacter->GetTeamNum() : 0;
+		MatchWidget->ShowCharacter(ViewedCharacter);
 		MatchWidget->FriendStatus = NAME_None;
 		MatchWidget->BuildInfoPanel();
 
-		FRotator Dir = Character->GetActorRotation();
-		FVector Location = Character->GetActorLocation() + (Dir.Vector() * 300.0f);
+		FRotator Dir = ViewedCharacter->GetActorRotation();
+		FVector Location = ViewedCharacter->GetActorLocation() + (Dir.Vector() * 300.0f);
 		Location += Dir.Quaternion().GetAxisY() * -60.0f + FVector(0.0f, 0.0f, 45.0f);
 		Dir.Yaw += 180.0f;
 
@@ -377,7 +378,6 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 		]
 	];
 
-	// get rid of teamanchors entireley
 	// Create a TeamAnchor for each team found
 	int32 TeamCount = 0;
 	if (GameState.IsValid())
@@ -1011,6 +1011,24 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 		}
 	}
 
+	// determine match highlight scores to use for sorting
+	for (int32 i = 0; i < TeamPlayerStates[TeamIndex].Num(); i++)
+	{
+		AUTPlayerState* PS = TeamPlayerStates[TeamIndex][i];
+		if (PS != nullptr)
+		{
+			PS->MatchHighlightScore = GameState->MatchHighlightScore(PS);
+		}
+	}
+
+	// sort winners
+	bool(*SortFunc)(const AUTPlayerState&, const AUTPlayerState&);
+	SortFunc = [](const AUTPlayerState& A, const AUTPlayerState& B)
+	{
+		return (A.MatchHighlightScore > B.MatchHighlightScore);
+	};
+	TeamPlayerStates[TeamIndex].Sort(SortFunc);
+
 	//Create an actor that all team actors will attach to for easy team manipulation
 	if (TeamAnchors.IsValidIndex(TeamIndex))
 	{
@@ -1018,17 +1036,9 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 		//Spawn all of the characters for this team
 		for (int32 iPlayer = 0; iPlayer < TeamPlayerStates[TeamIndex].Num(); iPlayer++)
 		{
-			AUTPlayerState* PS = TeamPlayerStates[TeamIndex][iPlayer];
-			// slightly oppose rotation imposed by teamplayerstate
-			FRotator PlayerRotation = FRotator(0.f); //(TeamIndex == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
-			float CurrentOffsetX = -2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
-			float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - BaseOffsetY;
-			if ((iPlayer % 7 == 0) || (iPlayer > 9))
-			{
-				CurrentOffsetY -= 0.5f*PLAYER_SPACING;
-			}
-			FVector PlayerLocation = (iPlayer % 2 == 0) ? FVector(CurrentOffsetX, CurrentOffsetY, 0.f) : FVector(CurrentOffsetX + PLAYER_ALTOFFSET, CurrentOffsetY, 0.f);
-			AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation, PlayerRotation);
+			float CurrentOffsetX = 0.25f * (5.f - (iPlayer % 5)) *  PLAYER_ALTOFFSET - 2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
+			float CurrentOffsetY = ((iPlayer % 2 == 0) ? PLAYER_SPACING * (int32(iPlayer/2) + 2) : PLAYER_SPACING * (2 - int32((iPlayer+1)/2))) - BaseOffsetY;
+			AUTCharacter* NewCharacter = RecreatePlayerPreview(TeamPlayerStates[TeamIndex][iPlayer], FVector(CurrentOffsetX, CurrentOffsetY, 0.f), FRotator(0.f));
 			NewCharacter->AttachRootComponentToActor(TeamAnchors[TeamIndex], NAME_None, EAttachLocation::KeepWorldPosition);
 
 			//Add the character to the team list
@@ -1282,11 +1292,11 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 
 		UFont* HighlightFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 		UFont* SmallFont = HasCamFlag(CF_Team) ? AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont : AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
-		UFont* SelectFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
 		AUTCharacter* SelectedChar = ViewedChar.IsValid() ? ViewedChar.Get() : (HighlightedChar.IsValid() ? HighlightedChar.Get() : NULL);
 
 		//Gather all of the player names
 		TArray<FPlayerName> PlayerNames;
+		int32 NumHighlights = 0;
 		for (AUTCharacter* UTC : PlayerPreviewMeshs)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
@@ -1296,9 +1306,9 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 				FVector2D ScreenLoc;
 				View->WorldToPixel(ActorLocation, ScreenLoc);
 
-				UFont* Font = (UTC == SelectedChar) ? SelectFont : SmallFont;
-				FString MainHighlight = HasCamFlag(CF_Highlights) ? GameState->ShortPlayerHighlightText(PS).ToString() : TEXT("");
-				PlayerNames.Add(FPlayerName(PS->PlayerName, MainHighlight, ActorLocation, ScreenLoc, FVector2D(0.f, 0.f), Font));
+				FString MainHighlight = ((NumHighlights < 10) && HasCamFlag(CF_Highlights)) ? GameState->ShortPlayerHighlightText(PS).ToString() : TEXT("");
+				NumHighlights++;
+				PlayerNames.Add(FPlayerName(PS->PlayerName, MainHighlight, ActorLocation, ScreenLoc, FVector2D(0.f, 0.f), SmallFont));
 			}
 		}
 
@@ -1524,16 +1534,15 @@ void SUWMatchSummary::ViewCharacter(AUTCharacter* NewChar)
 	if (NewChar != nullptr)
 	{
 		NewChar->UpdateTacComMesh(false);
+		TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(NewChar));
+		PlayerCam->CamFlags |= CF_CanInteract;
+		CameraShots.Empty();
+		CameraShots.Add(PlayerCam);
+		SetCamShot(0);
+
+		FriendStatus = NAME_None;
+		BuildInfoPanel();
 	}
-
-	TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(NewChar));
-	PlayerCam->CamFlags |= CF_CanInteract;
-	CameraShots.Empty();
-	CameraShots.Add(PlayerCam);
-	SetCamShot(0);
-
-	FriendStatus = NAME_None;
-	BuildInfoPanel();
 }
 
 void SUWMatchSummary::SelectPlayerState(AUTPlayerState* PS)
