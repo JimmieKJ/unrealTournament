@@ -52,6 +52,20 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(HighlightNames::Assists, NSLOCTEXT("AUTGameMode", "Assists", "Assisted Flag Capture (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(HighlightNames::FlagReturns, NSLOCTEXT("AUTGameMode", "FlagReturns", "Returned Flag (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 
+	ShortHighlightMap.Add(HighlightNames::TopFlagCapturesRed, NSLOCTEXT("AUTGameMode", "ShortTopFlagCapturesRed", "Most Flag Caps for Red"));
+	ShortHighlightMap.Add(HighlightNames::TopFlagCapturesBlue, NSLOCTEXT("AUTGameMode", "ShortTopFlagCapturesBlue", "Most Flag Caps for Blue"));
+	ShortHighlightMap.Add(HighlightNames::TopAssistsRed, NSLOCTEXT("AUTGameMode", "ShortTopAssistsRed", "Most Assists for Red"));
+	ShortHighlightMap.Add(HighlightNames::TopAssistsBlue, NSLOCTEXT("AUTGameMode", "ShortTopAssistsBlue", "Most Assists for Blue"));
+	ShortHighlightMap.Add(HighlightNames::TopFlagReturnsRed, NSLOCTEXT("AUTGameMode", "ShortTopFlagReturnsRed", "Most Flag Returns for Red"));
+	ShortHighlightMap.Add(HighlightNames::TopFlagReturnsBlue, NSLOCTEXT("AUTGameMode", "ShortTopFlagReturnsBlue", "Most Flag Returns for Blue"));
+
+	ShortHighlightMap.Add(NAME_FCKills, NSLOCTEXT("AUTGameMode", "ShortFCKills", "Killed Enemy Flag Carrier"));
+	ShortHighlightMap.Add(NAME_FlagGrabs, NSLOCTEXT("AUTGameMode", "ShortFlagGrabs", "Grabbed Enemy Flag"));
+	ShortHighlightMap.Add(NAME_FlagSupportKills, NSLOCTEXT("AUTGameMode", "ShortFlagSupportKills", "Killed Enemy chasing Flag Carrier"));
+	ShortHighlightMap.Add(HighlightNames::FlagCaptures, NSLOCTEXT("AUTGameMode", "ShortFlagCaptures", "Captured Flag"));
+	ShortHighlightMap.Add(HighlightNames::Assists, NSLOCTEXT("AUTGameMode", "ShortAssists", "Assisted Flag Capture"));
+	ShortHighlightMap.Add(HighlightNames::FlagReturns, NSLOCTEXT("AUTGameMode", "ShortFlagReturns", "Returned Flag"));
+
 	HighlightPriority.Add(HighlightNames::TopFlagCapturesRed, 4.5f);
 	HighlightPriority.Add(HighlightNames::TopFlagCapturesBlue, 4.5f);
 	HighlightPriority.Add(HighlightNames::TopAssistsRed, 3.5f);

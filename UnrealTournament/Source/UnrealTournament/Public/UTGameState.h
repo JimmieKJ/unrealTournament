@@ -373,6 +373,9 @@ public:
 	/** Used to translate replicated FName refs to highlights into text. */
 	TMap< FName, FText> HighlightMap;
 
+	/** Used to translate replicated FName refs to highlights into text. */
+	TMap< FName, FText> ShortHighlightMap;
+
 	/** Used to prioritize which highlights to show (lower value = higher priority). */
 	TMap< FName, float> HighlightPriority;
 
@@ -395,6 +398,9 @@ public:
 		void AddMinorHighlights(AUTPlayerState* PS);
 
 	virtual FText FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index);
+
+	/** Return short version of top highlight for that player. */
+	virtual FText ShortPlayerHighlightText(AUTPlayerState* PS);
 
 	/** Add appropriate top scorer highlights to each team score leader. */
 	virtual void SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue);

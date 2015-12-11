@@ -186,6 +186,33 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(NAME_SpreeKillLevel3, NSLOCTEXT("AUTGameMode", "SpreeKillLevel3", "Unstoppable Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_SpreeKillLevel4, NSLOCTEXT("AUTGameMode", "SpreeKillLevel4", "Godlike Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 
+	ShortHighlightMap.Add(HighlightNames::TopScorer, NSLOCTEXT("AUTGameMode", "ShortHighlightTopScore", "Top Score overall"));
+	ShortHighlightMap.Add(HighlightNames::TopScorerRed, NSLOCTEXT("AUTGameMode", "ShortHighlightTopScoreRed", "Red Team Top Score"));
+	ShortHighlightMap.Add(HighlightNames::TopScorerBlue, NSLOCTEXT("AUTGameMode", "ShortHighlightTopScoreBlue", "Blue Team Top Score"));
+	ShortHighlightMap.Add(HighlightNames::MostKills, NSLOCTEXT("AUTGameMode", "ShortMostKills", "Most Kills"));
+	ShortHighlightMap.Add(HighlightNames::LeastDeaths, NSLOCTEXT("AUTGameMode", "ShortLeastDeaths", "Least Deaths"));
+	ShortHighlightMap.Add(HighlightNames::BestKD, NSLOCTEXT("AUTGameMode", "ShortBestKD", "Best Kill/Death ratio "));
+	ShortHighlightMap.Add(HighlightNames::MostWeaponKills, NSLOCTEXT("AUTGameMode", "ShortMostWeaponKills", "Most Kills with {1}"));
+	ShortHighlightMap.Add(HighlightNames::BestCombo, NSLOCTEXT("AUTGameMode", "ShortBestCombo", "Most Impressive Shock Combo."));
+	ShortHighlightMap.Add(HighlightNames::MostHeadShots, NSLOCTEXT("AUTGameMode", "ShortMostHeadShots", "Most Headshots"));
+	ShortHighlightMap.Add(HighlightNames::MostAirRockets, NSLOCTEXT("AUTGameMode", "ShortMostAirRockets", "Most Air Rockets"));
+	ShortHighlightMap.Add(HighlightNames::ParticipationAward, NSLOCTEXT("AUTGameMode", "ShortParticipationAward", "Participation Award."));
+
+	ShortHighlightMap.Add(NAME_AmazingCombos, NSLOCTEXT("AUTGameMode", "ShortAmazingCombos", "Amazing Combos"));
+	ShortHighlightMap.Add(NAME_SniperHeadshotKills, NSLOCTEXT("AUTGameMode", "ShortSniperHeadshotKills", "{0} Headshot Kills"));
+	ShortHighlightMap.Add(NAME_AirRox, NSLOCTEXT("AUTGameMode", "ShortAirRox", "{0}Air Rocket Kills"));
+	ShortHighlightMap.Add(NAME_FlakShreds, NSLOCTEXT("AUTGameMode", "ShortFlakShreds", "{0} Flak Shred Kills"));
+	ShortHighlightMap.Add(NAME_AirSnot, NSLOCTEXT("AUTGameMode", "ShortAirSnot", "{0} Air Snot Kills"));
+	ShortHighlightMap.Add(NAME_MultiKillLevel0, NSLOCTEXT("AUTGameMode", "ShortMultiKillLevel0", "Double Kill"));
+	ShortHighlightMap.Add(NAME_MultiKillLevel1, NSLOCTEXT("AUTGameMode", "ShortMultiKillLevel1", "Multi Kill"));
+	ShortHighlightMap.Add(NAME_MultiKillLevel2, NSLOCTEXT("AUTGameMode", "ShortMultiKillLevel2", "Ultra Kill"));
+	ShortHighlightMap.Add(NAME_MultiKillLevel3, NSLOCTEXT("AUTGameMode", "ShortMultiKillLevel3", "Monster Kill"));
+	ShortHighlightMap.Add(NAME_SpreeKillLevel0, NSLOCTEXT("AUTGameMode", "ShortSpreeKillLevel0", "Killing Spree"));
+	ShortHighlightMap.Add(NAME_SpreeKillLevel1, NSLOCTEXT("AUTGameMode", "ShortSpreeKillLevel1", "Rampage Spree"));
+	ShortHighlightMap.Add(NAME_SpreeKillLevel2, NSLOCTEXT("AUTGameMode", "ShortSpreeKillLevel2", "Dominating Spree"));
+	ShortHighlightMap.Add(NAME_SpreeKillLevel3, NSLOCTEXT("AUTGameMode", "ShortSpreeKillLevel3", "Unstoppable Spree"));
+	ShortHighlightMap.Add(NAME_SpreeKillLevel4, NSLOCTEXT("AUTGameMode", "ShortSpreeKillLevel4", "Godlike Spree"));
+
 	HighlightPriority.Add(HighlightNames::TopScorer, 10.f);
 	HighlightPriority.Add(HighlightNames::TopScorerRed, 5.f);
 	HighlightPriority.Add(HighlightNames::TopScorerBlue, 5.f);
@@ -1543,6 +1570,17 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	}
 }
 
+FText AUTGameState::ShortPlayerHighlightText(AUTPlayerState* PS)
+{
+	// return first highlight short version
+	if (PS->MatchHighlights[0] == NAME_None)
+	{
+		return FText::GetEmpty();
+	}
+	FText BestWeaponText = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
+	return FText::Format(ShortHighlightMap.FindRef(PS->MatchHighlights[0]), FText::AsNumber(PS->MatchHighlightData[0]), BestWeaponText);
+}
+
 FText AUTGameState::FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index)
 {
 	if (PS->MatchHighlights[Index] == NAME_None)
@@ -1550,7 +1588,6 @@ FText AUTGameState::FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index)
 		return FText::GetEmpty();
 	}
 	FText BestWeaponText = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
-
 	return FText::Format(HighlightMap.FindRef(PS->MatchHighlights[Index]), FText::AsNumber(PS->MatchHighlightData[Index]), BestWeaponText);
 }
 
