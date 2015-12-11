@@ -242,6 +242,8 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightPriority.Add(NAME_SpreeKillLevel2, 3.f);
 	HighlightPriority.Add(NAME_SpreeKillLevel3, 3.5f);
 	HighlightPriority.Add(NAME_SpreeKillLevel4, 4.f);
+	HighlightPriority.Add(HighlightNames::KillsAward, 0.2f);
+	HighlightPriority.Add(HighlightNames::DamageAward, 0.15f);
 	HighlightPriority.Add(HighlightNames::ParticipationAward, 0.1f);
 }
 
@@ -928,7 +930,7 @@ void AUTGameState::CompactSpectatingIDs()
 int32 AUTGameState::GetMaxSpectatingId()
 {
 	int32 MaxSpectatingID = 0;
-	for (int32 i = 0; i<PlayerArray.Num() - 1; i++)
+	for (int32 i = 0; i<PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
 		if (PS && (PS->SpectatingID > MaxSpectatingID))
@@ -942,7 +944,7 @@ int32 AUTGameState::GetMaxSpectatingId()
 int32 AUTGameState::GetMaxTeamSpectatingId(int32 TeamNum)
 {
 	int32 MaxSpectatingID = 0;
-	for (int32 i = 0; i<PlayerArray.Num() - 1; i++)
+	for (int32 i = 0; i<PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
 		if (PS && (PS->GetTeamNum() == TeamNum) && (PS->SpectatingIDTeam > MaxSpectatingID))
@@ -1336,7 +1338,7 @@ void AUTGameState::UpdateHighlights_Implementation()
 		}
 	}
 
-	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+	for (int32 i = 0; i < PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
 		if (PS && !PS->bOnlySpectator)
@@ -1429,10 +1431,10 @@ void AUTGameState::UpdateHighlights_Implementation()
 		MostAirRoxPS->AddMatchHighlight(HighlightNames::MostAirRockets, MostAirRoxPS->GetStatsValue(NAME_AirRox));
 	}
 
-	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+	for (int32 i = 0; i < PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
-		if (PS)
+		if (PS  && !PS->bOnlySpectator)
 		{
 			// only add low priority highlights if not enough high priority highlights
 			AddMinorHighlights(PS);
@@ -1471,6 +1473,14 @@ void AUTGameState::UpdateHighlights_Implementation()
 				else
 				{
 					PS->MatchHighlights[0] = HighlightNames::ParticipationAward;
+				}
+			}
+			else if (PS->MatchHighlights[1] == NAME_None)
+			{
+				if (PS->Kills > 0)
+				{
+					PS->MatchHighlights[0] = HighlightNames::KillsAward;
+					PS->MatchHighlightData[0] = PS->Kills;
 				}
 			}
 		}
@@ -1558,7 +1568,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		AUTWeapon* DefaultWeapon = PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>();
 		int32 WeaponKills = DefaultWeapon->GetWeaponKillStats(PS);
 		bool bIsBestOverall = true;
-		for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(PlayerArray[i]);
 			if (OtherPS && (PS != OtherPS) && (DefaultWeapon->GetWeaponKillStats(OtherPS) > WeaponKills))
@@ -1600,7 +1610,8 @@ FText AUTGameState::ShortPlayerHighlightText(AUTPlayerState* PS)
 		return FText::GetEmpty();
 	}
 	FText BestWeaponText = PS->FavoriteWeapon ? PS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->DisplayName : FText::GetEmpty();
-	return FText::Format(ShortHighlightMap.FindRef(PS->MatchHighlights[0]), FText::AsNumber(PS->MatchHighlightData[0]), BestWeaponText);
+	FText HighlightText = !ShortHighlightMap.FindRef(PS->MatchHighlights[0]).IsEmpty() ? ShortHighlightMap.FindRef(PS->MatchHighlights[0]) : HighlightMap.FindRef(PS->MatchHighlights[0]);
+	return FText::Format(HighlightText, FText::AsNumber(PS->MatchHighlightData[0]), BestWeaponText);
 }
 
 FText AUTGameState::FormatPlayerHighlightText(AUTPlayerState* PS, int32 Index)

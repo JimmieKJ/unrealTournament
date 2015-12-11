@@ -419,7 +419,7 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 	AUTPlayerState* TopAssists[2] = { NULL, NULL };
 	AUTPlayerState* TopFlagReturns[2] = { NULL, NULL };
 
-	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+	for (int32 i = 0; i < PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
 		if (PS && !PS->bOnlySpectator)
@@ -467,7 +467,7 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 	}
 
 	// add flag results for non-top players
-	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+	for (int32 i = 0; i < PlayerArray.Num(); i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
 		if (PS && PS->Team)
