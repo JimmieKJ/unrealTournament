@@ -326,8 +326,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Projectile)
 	float OverlapRadius;
 
-	/** Overlap sphere for hitting pawns */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Projectile)
+	/** Overlap sphere for hitting pawns
+	 * NOTE: intentionally hidden from defaults editor so users don't mistakenly modify this when they meant to touch OverlapRadius
+	 */
+	UPROPERTY(BlueprintReadOnly, Category = Projectile)
 	USphereComponent* PawnOverlapSphere;
 
 	/** get time to target from current location */
