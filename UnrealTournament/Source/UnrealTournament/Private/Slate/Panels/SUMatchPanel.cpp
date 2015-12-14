@@ -364,43 +364,47 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					[
 						SNew(SBox).WidthOverride(115).HeightOverride(78)
 						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.Padding(0.0,8.0,0.0,0.0)
-							.AutoHeight()
+							SNew(SUTButton)
+							.ButtonStyle(SUTStyle::Get(),"UT.ClearButton")
 							[
-								SNew(SButton)
-								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
-								.OnClicked(this, &SUMatchPanel::JoinMatchButtonClicked, InItem)
-								.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanJoin)))
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.Padding(0.0,4.0,0.0,0.0)
+								.AutoHeight()
 								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+									SNew(SButton)
+									.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
+									.OnClicked(this, &SUMatchPanel::JoinMatchButtonClicked, InItem)
+									.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanJoin)))
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUMatchPanel","JoinText","JOIN"))
-										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+										SNew(SVerticalBox)
+										+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUMatchPanel","JoinText","JOIN"))
+											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+										]
 									]
 								]
-							]
-							+SVerticalBox::Slot()
-							.Padding(0.0,10.0,0.0,0.0)
-							.AutoHeight()
-							[
-								SNew(SButton)
-								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
-								.OnClicked(this, &SUMatchPanel::SpectateMatchButtonClicked, InItem)
-								.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanSpectate)))
+								+SVerticalBox::Slot()
+								.Padding(0.0,10.0,0.0,0.0)
+								.AutoHeight()
 								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+									SNew(SButton)
+									.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
+									.OnClicked(this, &SUMatchPanel::SpectateMatchButtonClicked, InItem)
+									.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanSpectate)))
 									[
-										SNew(STextBlock)
-										.Text(NSLOCTEXT("SUMatchPanel","SpectateText","SPECTATE"))
-										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+										SNew(SVerticalBox)
+										+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUMatchPanel","SpectateText","SPECTATE"))
+											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+										]
 									]
-								]
 							
+								]
 							]
 						]
 					]
