@@ -4,6 +4,7 @@
 #include "Slate/SlateGameResources.h"
 #include "../SUWindowsStyle.h"
 #include "../SUWPanel.h"
+#include "SUTWebBrowserPanel.h"
 #include "UTLocalPlayer.h"
 
 #if !UE_SERVER
@@ -19,7 +20,7 @@ class UNREALTOURNAMENT_API SUWCreditsPanel : public SUWPanel
 protected:
 	
 	TSharedPtr<SHorizontalBox> WebBrowserBox;
-	TSharedPtr<SWebBrowser> CreditsWebBrowser;
+	TSharedPtr<SUTWebBrowserPanel> CreditsWebBrowser;
 };
 
 #endif

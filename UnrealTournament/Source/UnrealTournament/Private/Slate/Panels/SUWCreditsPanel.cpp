@@ -24,7 +24,7 @@ void SUWCreditsPanel::ConstructPanel(FVector2D ViewportSize)
 				+ SHorizontalBox::Slot()
 				.HAlign(HAlign_Fill)
 				[
-					SAssignNew(CreditsWebBrowser, SWebBrowser)
+					SAssignNew(CreditsWebBrowser, SUTWebBrowserPanel, PlayerOwner)
 					.InitialURL(TEXT("http://epic.gm/utcontrib"))
 					.ShowControls(false)
 				]
@@ -38,7 +38,7 @@ void SUWCreditsPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 	SUWPanel::OnShowPanel(inParentWindow);
 	if (CreditsWebBrowser.IsValid())
 	{
-		CreditsWebBrowser->LoadURL(TEXT("http://epic.gm/utcontrib"));
+		CreditsWebBrowser->Browse(TEXT("http://epic.gm/utcontrib"));
 	}
 }
 

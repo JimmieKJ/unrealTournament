@@ -17,8 +17,8 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 	ShowControls = InArgs._ShowControls;
 	DesiredViewportSize = InArgs._ViewportSize;
 	bAllowScaling = InArgs._AllowScaling;
-
-
+	
+	InitialURL = InArgs._InitialURL;
 	OnJSQueryReceived = InArgs._OnJSQueryReceived;
 	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
 	OnBeforeBrowse = InArgs._OnBeforeBrowse;
@@ -57,6 +57,19 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 				+ SOverlay::Slot()
 				[
 					SAssignNew(WebBrowserContainer, SVerticalBox)
+					+ SVerticalBox::Slot()
+					.VAlign(VAlign_Fill)
+					.HAlign(HAlign_Fill)
+					[
+						SAssignNew(WebBrowserPanel, SWebBrowser)
+						.InitialURL(InitialURL)
+						.ShowControls(ShowControls)
+						.ViewportSize(DesiredViewportSize)
+						.OnJSQueryReceived(FOnJSQueryReceived::CreateSP(this, &SUTWebBrowserPanel::QueryReceived))
+						.OnJSQueryCanceled(FOnJSQueryCanceled::CreateSP(this, &SUTWebBrowserPanel::QueryCancelled))
+						.OnBeforeNavigation(FOnBeforeBrowse::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
+						.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
+					]
 				]
 			]
 		];
@@ -65,22 +78,9 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 
 void SUTWebBrowserPanel::Browse(FString URL)
 {
-	if (WebBrowserContainer.IsValid())
+	if (WebBrowserPanel.IsValid())
 	{
-		WebBrowserContainer->ClearChildren();
-		WebBrowserContainer->AddSlot()
-		.VAlign(VAlign_Fill)
-		.HAlign(HAlign_Fill)
-		[
-			SAssignNew(WebBrowserPanel, SWebBrowser)
-			.InitialURL(URL)
-			.ShowControls(ShowControls)
-			.ViewportSize(DesiredViewportSize)
-			.OnJSQueryReceived(FOnJSQueryReceived::CreateSP(this, &SUTWebBrowserPanel::QueryReceived))
-			.OnJSQueryCanceled(FOnJSQueryCanceled::CreateSP(this, &SUTWebBrowserPanel::QueryCancelled))
-			.OnBeforeNavigation(FOnBeforeBrowse::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
-			.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
-		];
+		WebBrowserPanel->LoadURL(URL);
 	}
 }
 

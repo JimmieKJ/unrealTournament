@@ -13,11 +13,13 @@
 class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
 {
 	SLATE_BEGIN_ARGS(SUTWebBrowserPanel)
-	: _ShowControls(true)
+	: _InitialURL(TEXT("https://www.google.com"))
+	, _ShowControls(true)
 	, _ViewportSize(FVector2D(1920, 1080))
 	, _AllowScaling(false)
 	{}
 
+	SLATE_ARGUMENT(FString, InitialURL)
 	SLATE_ARGUMENT(bool, ShowControls)
 	SLATE_ARGUMENT(FVector2D, ViewportSize)
 	SLATE_ARGUMENT(bool, AllowScaling)
@@ -75,6 +77,7 @@ protected:
 	float GetReverseScale() const;
 	bool ShowControls;
 
+	FString InitialURL;
 	FString DesiredURL;
 	bool bShowWarning;
 
