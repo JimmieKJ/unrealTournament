@@ -1008,7 +1008,7 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
 	if (Role == ROLE_Authority)
 	{
-		TSubclassOf<AUTCharacterContent> NewCharacter = (CharacterPath.Len() > 0) ? FindObject<UClass>(NULL, *CharacterPath, false) : GetDefault<AUTCharacter>()->CharacterData;
+		TSubclassOf<AUTCharacterContent> NewCharacter = (CharacterPath.Len() > 0) ? TSubclassOf<AUTCharacterContent>(FindObject<UClass>(NULL, *CharacterPath, false)) : GetDefault<AUTCharacter>()->CharacterData;
 // redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
 		if (NewCharacter == NULL && CharacterPath.Len() > 0 && GetNetMode() == NM_Standalone)
