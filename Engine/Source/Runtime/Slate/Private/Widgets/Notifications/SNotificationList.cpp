@@ -49,6 +49,12 @@ public:
 
 	virtual void ExpireAndFadeout() override
 	{
+		// If we're quitting, don't bother here
+		if (GIsRequestingExit)
+		{
+			return;
+		}
+
 		FadeAnimation = FCurveSequence();
 		// Add some space for the expire time
 		FadeAnimation.AddCurve(FadeOutDuration.Get(), ExpireDuration.Get());
