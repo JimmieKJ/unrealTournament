@@ -622,9 +622,14 @@ void AUTProjectile::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* Othe
 		{
 			Hit = SweepResult;
 		}
+		else if (CollisionComp != NULL)
+		{
+			USphereComponent* TestComp = (PawnOverlapSphere != NULL && PawnOverlapSphere->GetUnscaledSphereRadius() > CollisionComp->GetUnscaledSphereRadius()) ? PawnOverlapSphere : CollisionComp;
+			OtherComp->SweepComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), TestComp->GetCollisionShape(), TestComp->bTraceComplexOnMove);
+		}
 		else
 		{
-			OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), CollisionComp->bTraceComplexOnMove, this));
+			OtherComp->LineTraceComponent(Hit, GetActorLocation() - GetVelocity() * 10.0, GetActorLocation() + GetVelocity(), FCollisionQueryParams(GetClass()->GetFName(), false, this));
 		}
 
 		ProcessHit(OtherActor, OtherComp, Hit.Location, Hit.Normal);

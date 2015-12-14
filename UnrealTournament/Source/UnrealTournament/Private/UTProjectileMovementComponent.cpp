@@ -37,12 +37,12 @@ void UUTProjectileMovementComponent::InitializeComponent()
 	}
 }
 
-bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, const FRotator& NewRotation, bool bSweep, FHitResult* OutHit)
+bool UUTProjectileMovementComponent::MoveUpdatedComponentImpl(const FVector& Delta, const FQuat& NewRotation, bool bSweep, FHitResult* OutHit, ETeleportType Teleport)
 {
 	// if we have no extra components or we don't need to sweep, use the default behavior
 	if (AddlUpdatedComponents.Num() == 0 || UpdatedComponent == NULL || !bSweep || Delta.IsNearlyZero())
 	{
-		return Super::MoveUpdatedComponent(Delta, NewRotation, bSweep, OutHit);
+		return Super::MoveUpdatedComponentImpl(Delta, NewRotation, bSweep, OutHit, Teleport);
 	}
 	else
 	{
@@ -78,11 +78,11 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 			DeferredUpdates.Add(new FNewableScopedMovementUpdate(AddlUpdatedComponents[i]));
 		}
 
-		FRotator RotChange = NewRotation.GetNormalized() - UpdatedComponent->ComponentToWorld.GetRotation().Rotator().GetNormalized();
+		FRotator RotChange = NewRotation.Rotator().GetNormalized() - UpdatedComponent->ComponentToWorld.GetRotation().Rotator().GetNormalized();
 
 		FHitResult EarliestHit;
 		// move root
-		bool bResult = Super::MoveUpdatedComponent(Delta, NewRotation, bSweep, &EarliestHit);
+		bool bResult = Super::MoveUpdatedComponentImpl(Delta, NewRotation, bSweep, &EarliestHit, Teleport);
 		
 		float InitialMoveSize = Delta.Size() * EarliestHit.Time;
 		float ShortestMoveSize = InitialMoveSize;
@@ -163,7 +163,7 @@ bool UUTProjectileMovementComponent::MoveUpdatedComponent(const FVector& Delta, 
 				{
 					// recurse
 					bRecursing = true;
-					bResult = MoveUpdatedComponent(Delta.GetSafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit);
+					bResult = MoveUpdatedComponentImpl(Delta.GetSafeNormal() * ShortestMoveSize, NewRotation, bSweep, OutHit, Teleport);
 					bRecursing = false;
 				}				
 
