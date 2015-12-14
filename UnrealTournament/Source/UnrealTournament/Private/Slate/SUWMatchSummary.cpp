@@ -1031,15 +1031,17 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 	//Create an actor that all team actors will attach to for easy team manipulation
 	if (TeamAnchors.IsValidIndex(TeamIndex))
 	{
-		float BaseOffsetY = 0.5f * FMath::Min(float(TeamPlayerStates[TeamIndex].Num() - 1), 4.f) * PLAYER_SPACING;
+		float BaseOffsetY = 2.f * PLAYER_SPACING;
 		//Spawn all of the characters for this team
 		for (int32 iPlayer = 0; iPlayer < TeamPlayerStates[TeamIndex].Num(); iPlayer++)
 		{
 			int32 PlayerRowIndex = iPlayer % 5;
 			int32 PlayerRow = iPlayer / 5;
-			float CurrentOffsetX = 0.25f * (5.f - PlayerRowIndex) *  PLAYER_ALTOFFSET - 2.f * PLAYER_ALTOFFSET * PlayerRow;
-			float CurrentOffsetY = ((PlayerRowIndex % 2 == 0) ? PLAYER_SPACING * (int32(PlayerRowIndex / 2) + 2) : PLAYER_SPACING * (2 - int32((PlayerRowIndex + 1) / 2))) - BaseOffsetY;
-			AUTCharacter* NewCharacter = RecreatePlayerPreview(TeamPlayerStates[TeamIndex][iPlayer], FVector(CurrentOffsetX, CurrentOffsetY, 0.f), FRotator(0.f));
+			// X is forward to back, Y is left to right
+			float CurrentOffsetX = 0.25f * (5.f - PlayerRowIndex) *  PLAYER_ALTOFFSET - 1.6f * PLAYER_ALTOFFSET * PlayerRow;
+			float CurrentOffsetY = ((PlayerRowIndex % 2 == 0) ? PLAYER_SPACING * (int32(PlayerRowIndex / 2) + 0.8f*PlayerRow + 2) : PLAYER_SPACING * (2 - int32((PlayerRowIndex + 1) / 2)) - 0.8f*PlayerRow) - BaseOffsetY;
+			float CurrentOffsetZ = 10.f * PlayerRow;
+			AUTCharacter* NewCharacter = RecreatePlayerPreview(TeamPlayerStates[TeamIndex][iPlayer], FVector(CurrentOffsetX, CurrentOffsetY, CurrentOffsetZ), FRotator(0.f));
 			NewCharacter->AttachRootComponentToActor(TeamAnchors[TeamIndex], NAME_None, EAttachLocation::KeepWorldPosition);
 
 			//Add the character to the team list
