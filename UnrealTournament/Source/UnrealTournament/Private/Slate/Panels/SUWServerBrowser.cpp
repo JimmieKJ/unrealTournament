@@ -1563,6 +1563,12 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 				PingTrackers[i].Server->AddPlayer(Name, Score, Id);
 			}
 
+			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
+			{
+				PingTrackers[i].Server->NumPlayers = Cnt / 3;
+				PingTrackers[i].Server->UpdateFriends(PlayerOwner);
+			}
+
 			PingTrackers[i].Server->Rules.Empty();
 			TArray<FString> RulesData;
 			Cnt = ServerInfo.ServerRules.ParseIntoArray(RulesData, TEXT("\t"), true);
@@ -1593,6 +1599,11 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->Instances.Num(); InstIndex++ )
 			{
 				PingTrackers[i].Server->HUBInstances.Add(PingTrackers[i].Beacon->Instances[InstIndex]);	
+			}
+
+			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
+			{
+				PingTrackers[i].Server->NumMatches = PingTrackers[i].Beacon->Instances.Num();
 			}
 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
