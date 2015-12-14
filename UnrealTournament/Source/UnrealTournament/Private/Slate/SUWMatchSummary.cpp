@@ -120,6 +120,9 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Game, true); // NOTE: Custom depth does not work with EWorldType::Preview
 	PlayerPreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
 	PlayerPreviewWorld->bShouldSimulatePhysics = true;
+#if WITH_EDITOR
+	PlayerPreviewWorld->bEnableTraceCollision = false;
+#endif
 	GEngine->CreateNewWorldContext(EWorldType::Game).SetCurrentWorld(PlayerPreviewWorld);
 	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
 	ViewState.Allocate();
