@@ -27,23 +27,28 @@ void SUTButton::Construct(const FArguments& InArgs)
 		SButton::Construct( SButton::FArguments()
 			.Content()
 			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
 				.HAlign(InArgs._CaptionHAlign)
-				.AutoWidth()
 				[
-					SAssignNew(TextLabel, STextBlock)
-					.TextStyle(InArgs._TextStyle)
-					.Text(InArgs._Text)
-					.ColorAndOpacity(this, &SUTButton::GetLabelColor)
-				]
-				+ SHorizontalBox::Slot()
-				.VAlign(VAlign_Center)
-				.HAlign(InArgs._CaptionHAlign)
-				.AutoWidth()
-				[
-					InArgs._Content.Widget
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+				
+					.AutoWidth()
+					[
+						SAssignNew(TextLabel, STextBlock)
+						.TextStyle(InArgs._TextStyle)
+						.Text(InArgs._Text)
+						.ColorAndOpacity(this, &SUTButton::GetLabelColor)
+					]
+					+ SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.HAlign(InArgs._CaptionHAlign)
+					.AutoWidth()
+					[
+						InArgs._Content.Widget
+					]
 				]
 			]
 			.ButtonStyle(InArgs._ButtonStyle)

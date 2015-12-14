@@ -167,6 +167,7 @@ void SUTextChatPanel::AddDestination(const FText& Caption, const FName ChatDesti
 			.OnClicked(this, &SUTextChatPanel::OnDestinationClick, Dest)
 			.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(Dest.Get(), &FChatDestination::GetButtonCaption) ) )
 			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+			.CaptionHAlign(HAlign_Center)
 			.ButtonStyle(SUTStyle::Get(), "UT.TabButton");
 
 		TSharedPtr<SVerticalBox> ChatBox;
