@@ -787,16 +787,24 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 	}
 
 	//Create the xp widget when on final shot
-	if (HasCamFlag(CF_ShowXPBar) && !XPBar.IsValid() && PlayerOwner.IsValid() && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
+	if (HasCamFlag(CF_ShowXPBar))
 	{
-		if (PlayerOwner->IsEarningXP())
+		if (!XPBar.IsValid() && PlayerOwner.IsValid() && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-			XPOverlay->AddSlot()
-			[
-				SAssignNew(XPBar, SUTXPBar).PlayerOwner(PlayerOwner)
-			];
-			ChatPanel->FocusChat();
+			if (PlayerOwner->IsEarningXP())
+			{
+				XPOverlay->AddSlot()
+					[
+						SAssignNew(XPBar, SUTXPBar).PlayerOwner(PlayerOwner)
+					];
+				ChatPanel->FocusChat();
+			}
 		}
+		XPBar->SetVisibility(EVisibility::Visible);
+	}
+	else if (XPBar.IsValid())
+	{
+		XPBar->SetVisibility(EVisibility::Hidden);
 	}
 }
 
@@ -885,12 +893,8 @@ void SUWMatchSummary::SetupMatchCam()
 	}
 
 	CameraShots.Empty();
-	TSharedPtr<FTeamCamera> TeamCam = MakeShareable(new FTeamCamera(TeamToView));
-	TeamCam->Time = 0.5f;
-	CameraShots.Add(TeamCam);
 
 	AUTGameMode* DefaultGame = GameState->GameModeClass->GetDefaultObject<AUTGameMode>();
-
 	if (TeamPreviewMeshs.IsValidIndex(TeamToView) && GameState.IsValid())
 	{
 		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamToView];
@@ -960,18 +964,32 @@ void SUWMatchSummary::SetupMatchCam()
 		{
 			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(LocalChar));
 			PlayerCam->Time = 8.0f;
-			CameraShots.Add(PlayerCam);
 			PlayerCam->CamFlags |= CF_ShowXPBar;
+			CameraShots.Add(PlayerCam);
 		}
 	}
 
 	// show winning team
-	TSharedPtr<FTeamCameraPan> PanTeamCam = MakeShareable(new FTeamCameraPan(TeamToView));
-	PanTeamCam->CamFlags |= CF_CanInteract | CF_ShowPlayerNames | CF_Highlights;
-	PanTeamCam->Time = DefaultGame ? DefaultGame->TeamSummaryDisplayTime : 5.f;
-	CameraShots.Add(PanTeamCam);
+	TSharedPtr<FTeamCameraPan> InteractTeamCam = MakeShareable(new FTeamCameraPan(TeamToView));
+	InteractTeamCam->CamFlags |= CF_CanInteract | CF_ShowPlayerNames | CF_Highlights;
+	InteractTeamCam->Time = DefaultGame ? DefaultGame->TeamSummaryDisplayTime : 5.f;
+	CameraShots.Add(InteractTeamCam);
 
 	SetCamShot(0);
+}
+
+void SUWMatchSummary::HideAllPlayersBut(AUTCharacter* UTC)
+{
+	// hide everyone else, show this player
+	for (int32 i = 0; i< PlayerPreviewMeshs.Num(); i++)
+	{
+		PlayerPreviewMeshs[i]->HideCharacter(PlayerPreviewMeshs[i] != UTC);
+	}
+	for (auto Weapon : PreviewWeapons)
+	{
+		AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
+		Weapon->SetActorHiddenInGame(Holder != UTC);
+	}
 }
 
 void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
@@ -1205,9 +1223,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 	ViewFamily.Views.Add(View);
 
 	View->StartFinalPostprocessSettings(CameraTransform.GetLocation());
-
 	//View->OverridePostProcessSettings(PPSettings, 1.0f);
-
 	View->EndFinalPostprocessSettings(PlayerPreviewInitOptions);
 
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
@@ -1315,17 +1331,9 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			}
 		}
 
-		//Sort closest to farthest
-		FVector CamLoc = CameraTransform.GetLocation();
-		PlayerNames.Sort([CamLoc](const FPlayerName& A, const FPlayerName& B) -> bool
+		int32 NumNames = HasCamFlag(CF_Highlights) ? FMath::Min(PlayerNames.Num(), 5) : PlayerNames.Num();
+		for (int32 i = 0; i < NumNames; i++)
 		{
-			return  FVector::DistSquared(CamLoc, A.Location3D) > FVector::DistSquared(CamLoc, B.Location3D);
-		});
-
-		for (int32 i = 0; i < PlayerNames.Num(); i++)
-		{
-			// draw the backdrop
-
 			//Draw the Player name
 			FFontRenderInfo FontInfo;
 			FontInfo.bEnableShadow = true;
@@ -1601,23 +1609,7 @@ void SUWMatchSummary::ShowCharacter(AUTCharacter* UTC)
 	{
 		RecreateAllPlayers(TeamNum);
 	}
-	// hide everyone else, show this player
-	if (TeamPreviewMeshs.Num() > 1)
-	{
-		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
-		{
-			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
-			for (int32 j = 0; j < TeamCharacters.Num(); j++)
-			{
-				TeamCharacters[j]->HideCharacter(TeamCharacters[j] != UTC);
-			}
-		}
-		for (auto Weapon : PreviewWeapons)
-		{
-			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
-			Weapon->SetActorHiddenInGame(Holder != UTC);
-		}
-	}
+	HideAllPlayersBut(UTC);
 }
 
 void SUWMatchSummary::ShowAllCharacters()

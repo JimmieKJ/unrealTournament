@@ -206,6 +206,7 @@ protected:
 
 	virtual AUTCharacter* RecreatePlayerPreview(AUTPlayerState* NewPS, FVector Location, FRotator Rotation);
 	virtual void RecreateAllPlayers(int32 TeamIndex);
+	virtual void HideAllPlayersBut(AUTCharacter* UTC);
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 	virtual class AUTCharacter* FindCharacter(class AUTPlayerState* PS);
 
