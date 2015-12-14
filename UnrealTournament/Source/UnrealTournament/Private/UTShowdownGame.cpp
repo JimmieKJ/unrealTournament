@@ -461,6 +461,21 @@ void AUTShowdownGame::HandleMatchIntermission()
 				P->PlayerState = SavedPlayerState;
 				// we want the character around for the HUD displays of status but we don't need to actually see it and this prevents potential camera clipping
 				P->GetRootComponent()->SetHiddenInGame(true, true);
+				AUTCharacter* UTC = Cast<AUTCharacter>(P);
+				if (UTC != NULL)
+				{
+					// weapon doesn't want to seem to stop firing consistently on clients, just destroy it since the round is over
+					if (UTC->GetWeapon() != NULL)
+					{
+						UTC->GetWeapon()->Destroy();
+					}
+					for (TInventoryIterator<AUTInventory> It((AUTCharacter*)P); It; ++It)
+					{
+						// prevent tick so powerups don't count down and so forth
+						// don't want to destroy all of these because they might affect the status display (armor, etc)
+						It->SetActorTickEnabled(false);
+					}
+				}
 			}
 			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
 			if (PS != NULL && !PS->bOnlySpectator && PS->Team != NULL)
