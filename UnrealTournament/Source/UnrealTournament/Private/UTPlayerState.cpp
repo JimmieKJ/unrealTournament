@@ -1008,24 +1008,44 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
 	if (Role == ROLE_Authority)
 	{
-		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL) : NULL;
+		TSubclassOf<AUTCharacterContent> NewCharacter = (CharacterPath.Len() > 0) ? FindObject<UClass>(NULL, *CharacterPath, false) : GetDefault<AUTCharacter>()->CharacterData;
 // redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
-		if (SelectedCharacter == NULL && CharacterPath.Len() > 0)
+		if (NewCharacter == NULL && CharacterPath.Len() > 0 && GetNetMode() == NM_Standalone)
 		{
-			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL);
+			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, LOAD_NoWarn, NULL);
 			if (BP != NULL)
 			{
-				SelectedCharacter = *BP->GeneratedClass;
+				NewCharacter = *BP->GeneratedClass;
 			}
 		}
 #endif
-		// make sure it's not an invalid base class
-		if (SelectedCharacter != NULL && ((SelectedCharacter->ClassFlags & CLASS_Abstract) || SelectedCharacter.GetDefaultObject()->GetMesh()->SkeletalMesh == NULL))
+		if (NewCharacter == NULL)
 		{
-			SelectedCharacter = NULL;
+			// async load the character class
+			UObject* CharPkg = NULL;
+			FString Path = CharacterPath;
+			if (ResolveName(CharPkg, Path, true, false) && Cast<UPackage>(CharPkg) != NULL)
+			{
+				TWeakObjectPtr<AUTPlayerState> PS(this);
+				if (FPackageName::DoesPackageExist(CharPkg->GetName()))
+				{
+					LoadPackageAsync(CharPkg->GetName(), FLoadPackageAsyncDelegate::CreateLambda([PS, CharacterPath](const FName& PackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result)
+					{
+						if (Result == EAsyncLoadingResult::Succeeded && PS.IsValid() && TSubclassOf<AUTCharacterContent>(FindObject<UClass>(NULL, *CharacterPath, false)) != NULL)
+						{
+							PS->SetCharacter(CharacterPath);
+						}
+					}));
+				}
+			}
 		}
-		NotifyTeamChanged();
+		// make sure it's not an invalid base class
+		else if (NewCharacter != NULL && !(NewCharacter->ClassFlags & CLASS_Abstract) && NewCharacter.GetDefaultObject()->GetMesh()->SkeletalMesh != NULL)
+		{
+			SelectedCharacter = NewCharacter;
+			NotifyTeamChanged();
+		}
 	}
 }
 

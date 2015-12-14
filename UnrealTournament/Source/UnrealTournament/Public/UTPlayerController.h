@@ -932,6 +932,21 @@ public:
 	/** Make sure no firing and scoreboard hidden before bringing up menu. */
 	virtual void ShowMenu(const FString& Parameters) override;
 	
+	/** used to preload things like selected character prior to players actually getting in to minimize on-join hitches
+	 * ideally the internal replication code would do this for us
+	 */
+	UFUNCTION(reliable, client)
+	void PreloadItem(const FString& ItemPath);
+
+	void PreloadComplete(const FName& PackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result);
+	UFUNCTION()
+	void PreloadExpired();
+	
+	// used to hold onto temporarily so they don't get GC'ed between preload and use
+	UPROPERTY()
+	TArray<UObject*> PreloadedItems;
+
+	UPROPERTY()
 	AUTCharacter* PreGhostChar;
 
 	/** When looking at a GhostCharacter, this will possess the GhostCharacter and begin recording */

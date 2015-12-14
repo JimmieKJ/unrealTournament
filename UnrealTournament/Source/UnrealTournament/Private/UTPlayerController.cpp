@@ -3836,6 +3836,27 @@ void AUTPlayerController::ClearTokens()
 #endif
 }
 
+void AUTPlayerController::PreloadItem_Implementation(const FString& ItemPath)
+{
+	UObject* ItemPkg = NULL;
+	FString Path = ItemPath;
+	if (ResolveName(ItemPkg, Path, true, false) && ItemPkg != NULL && FPackageName::DoesPackageExist(ItemPkg->GetName()))
+	{
+		LoadPackageAsync(ItemPkg->GetName(), FLoadPackageAsyncDelegate::CreateUObject(this, &AUTPlayerController::PreloadComplete));
+	}
+}
+void AUTPlayerController::PreloadComplete(const FName& PackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result)
+{
+	if (Result == EAsyncLoadingResult::Succeeded)
+	{
+		GetObjectsWithOuter(LoadedPackage, PreloadedItems);
+		SetTimerUFunc(this, FName(TEXT("PreloadExpired")), 30.0f, false);
+	}
+}
+void AUTPlayerController::PreloadExpired()
+{
+	PreloadedItems.Empty();
+}
 
 AUTCharacter* AUTPlayerController::GhostTrace()
 {

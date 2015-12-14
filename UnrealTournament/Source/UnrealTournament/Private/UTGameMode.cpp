@@ -521,6 +521,29 @@ void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 	// Allow subclasses to track game objectives as they are initialized
 }
 
+void AUTGameMode::PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
+{
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+
+	if (ErrorMessage.IsEmpty())
+	{
+		// broadcast incoming player's character choices for preloading
+		// this is suboptimal, ideally the replication internals would do this for us automatically
+		static const TCHAR* PreloadKeys[] = { TEXT("Character"), TEXT("Hat") };
+		for (int32 i = 0; i < ARRAY_COUNT(PreloadKeys); i++)
+		{
+			FString InOpt = UGameplayStatics::ParseOption(Options, PreloadKeys[i]);
+			if (!InOpt.IsEmpty())
+			{
+				for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+				{
+
+				}
+			}
+		}
+	}
+}
+
 APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage)
 {
 	bool bCastingView = EvalBoolOptions(UGameplayStatics::ParseOption(Options, TEXT("CastingView")), false);

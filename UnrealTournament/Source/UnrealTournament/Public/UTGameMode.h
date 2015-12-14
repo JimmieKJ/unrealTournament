@@ -361,6 +361,7 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Mutator)
 	virtual void AddMutatorClass(TSubclassOf<AUTMutator> MutClass);
 	virtual void InitGameState() override;
+	virtual void PreLogin(const FString& Options, const FString& Address, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage);
 	virtual APlayerController* Login(class UPlayer* NewPlayer, ENetRole RemoteRole, const FString& Portal, const FString& Options, const TSharedPtr<const FUniqueNetId>& UniqueId, FString& ErrorMessage) override;
 	virtual void Reset();
 	virtual void RestartGame();
