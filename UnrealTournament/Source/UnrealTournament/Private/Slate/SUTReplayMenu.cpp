@@ -46,4 +46,19 @@ FReply SUTReplayMenu::OnReturnToMainMenu()
 	return FReply::Handled();
 }
 
+EVisibility SUTReplayMenu::GetBackVis() const
+{
+	return EVisibility::Visible;
+}
+
+FReply SUTReplayMenu::OnShowHomePanel()
+{
+	return OnReturnToMainMenu();
+}
+
+TSharedRef<SWidget> SUTReplayMenu::BuildBackground()
+{
+	return SNew(SCanvas);
+}
+
 #endif

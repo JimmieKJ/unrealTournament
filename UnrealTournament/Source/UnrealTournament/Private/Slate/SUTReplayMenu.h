@@ -16,5 +16,11 @@ class UNREALTOURNAMENT_API SUTReplayMenu : public SUWindowsMainMenu
 	virtual FReply OnCloseMenu();
 
 	virtual void BuildExitMenu(TSharedPtr <SUTComboButton> ExitButton) override;
+
+	virtual EVisibility GetBackVis() const;
+	virtual FReply OnShowHomePanel();
+
+protected:
+	virtual TSharedRef<SWidget> BuildBackground();
 };
 #endif
