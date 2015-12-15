@@ -44,13 +44,16 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 				{
 					if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus && (TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup > 0))
 					{
-						//Add weapons for the priority list
-						int32 Group = (TestClass->GetDefaultObject<AUTWeapon>()->Group >= 0) ? TestClass->GetDefaultObject<AUTWeapon>()->Group : TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup;
+						if (WeaponClassList.Find(TestClass) == INDEX_NONE)
+						{
+							//Add weapons for the priority list
+							int32 Group = (TestClass->GetDefaultObject<AUTWeapon>()->Group >= 0) ? TestClass->GetDefaultObject<AUTWeapon>()->Group : TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup;
 							Group = ProfileSettings && ProfileSettings->WeaponGroupLookup.Contains(*ClassPath) ? ProfileSettings->WeaponGroupLookup[*ClassPath].Group : Group;
-						Group = FMath::Clamp<int32>(Group, 1,10);
-						WeaponClassList.Add(TestClass);
-						WeakWeaponClassList.Add(TestClass);
-						WeaponGroups.Add(TestClass, Group);
+							Group = FMath::Clamp<int32>(Group, 1,10);
+							WeaponClassList.Add(TestClass);
+							WeakWeaponClassList.Add(TestClass);
+							WeaponGroups.Add(TestClass, Group);
+						}
 					}
 				}
 			}

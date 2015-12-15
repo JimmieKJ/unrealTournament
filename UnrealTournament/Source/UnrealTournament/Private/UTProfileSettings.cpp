@@ -94,7 +94,7 @@ void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPri
 			{
 				WeaponPriorities[i].WeaponPriority = NewPriority;
 			}
-			break;
+			return;
 		}
 	}
 
@@ -204,6 +204,33 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 }
 void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
+
+	// Unfortunately, the profile may have multiple WeaponPriorites due to older bugs, so let's clean it up here
+
+	int32 i = 1;
+	while (i < WeaponPriorities.Num())
+	{
+		bool bFound = false;
+		for (int32 j = 0; j < i; j++)
+		{
+			if (WeaponPriorities[j].WeaponClassName == WeaponPriorities[i].WeaponClassName)
+			{
+				bFound = true;
+				UE_LOG(UT,Log,TEXT("Found Duplicate %s"), *WeaponPriorities[i].WeaponClassName);
+			}
+		}
+
+		if (bFound)
+		{
+			WeaponPriorities.RemoveAt(i);
+		}
+		else
+		{
+			i++;
+		}
+	}
+
+
 	ProfilePlayer->bSuppressToastsInGame = bSuppressToastsInGame;
 	ProfilePlayer->SetNickname(PlayerName);
 	ProfilePlayer->SaveConfig();
