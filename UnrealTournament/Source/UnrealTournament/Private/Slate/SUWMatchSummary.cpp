@@ -819,7 +819,7 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 			{
 				if (UTPC->MyUTHUD->GetScoreboard())
 				{
-					UTPC->ClientPlaySound(UTPC->MyUTHUD->GetScoreboard()->ScoreUpdateSound);
+					UTPC->ClientPlaySound(UTPC->MyUTHUD->GetScoreboard()->ScoreUpdateSound, 3.f);
 				}
 			}
 		}
