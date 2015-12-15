@@ -48,7 +48,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogUTCharacter, Log, All);
 AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
-	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContentRef(TEXT("Class'/Game/RestrictedAssets/Character/Thundercrash01/BP_ThundercrashNew01.BP_ThundercrashNew01_C'"));
+	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContentRef(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
 	CharacterData = DefaultCharContentRef.Object;
 
 	// Set size for collision capsule
