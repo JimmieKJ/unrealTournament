@@ -212,12 +212,13 @@ protected:
 		}
 	}
 
-
+	virtual FReply OnButtonClick(uint16 ButtonID);	
 
 public:
-
 	FString GetSelectedMap();
 
 };
+
+
 
 #endif

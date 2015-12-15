@@ -19,6 +19,7 @@ public:
 
 	void GetCustomGameSettings(FString& GameMode, FString& StartingMap, FString& Description, TArray<FString>&GameOptions, int32& DesiredPlayerCount, int32 BotSkillLevel, int32& bTeamGame);
 
+	void Cancel();
 protected:
 	enum EServerStartMode
 	{
@@ -70,8 +71,6 @@ protected:
 	TSharedRef<SWidget> GenerateGameNameWidget(UClass* InItem);
 	TSharedRef<SWidget> GenerateMapNameWidget(TWeakObjectPtr<AUTReplicatedMapInfo> InItem);
 	void OnGameSelected(UClass* NewSelection, ESelectInfo::Type SelectInfo);
-
-	void Cancel();
 
 	TSharedRef<ITableRow> GenerateMutatorListRow(UClass* MutatorType, const TSharedRef<STableViewBase>& OwningList);
 	FReply AddMutator();

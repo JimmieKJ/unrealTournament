@@ -747,5 +747,15 @@ void SUWGameSetupDialog::Tick(const FGeometry& AllottedGeometry, const double In
 	}
 }
 
+FReply SUWGameSetupDialog::OnButtonClick(uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_CANCEL && CustomPanel.IsValid())
+	{
+		CustomPanel->Cancel();		
+	}
+
+	return SUWDialog::OnButtonClick(ButtonID);
+
+}
 
 #endif
