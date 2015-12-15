@@ -51,8 +51,6 @@ void SWebBrowser::Construct(const FArguments& InArgs, const TSharedPtr<IWebBrows
 	OnShowDialog = InArgs._OnShowDialog;
 	OnDismissAllDialogs = InArgs._OnDismissAllDialogs;
 	OnBeforePopup = InArgs._OnBeforePopup;
-	OnJSQueryReceived = InArgs._OnJSQueryReceived;
-	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
 	OnCreateWindow = InArgs._OnCreateWindow;
 	OnCloseWindow = InArgs._OnCloseWindow;
 	AddressBarUrl = FText::FromString(InArgs._InitialURL);

@@ -134,16 +134,6 @@ public:
 		return NeedsRedrawEvent;
 	}
 
-	virtual FOnJSQueryReceived& OnJSQueryReceived() override
-	{
-		return JSQueryReceivedDelegate;
-	}
-
-	virtual FOnJSQueryCanceled& OnJSQueryCanceled() override
-	{
-		return JSQueryCanceledDelegate;
-	}
-
 	virtual FOnBeforeBrowse& OnBeforeBrowse() override
 	{
 		return BeforeBrowseDelegate;
@@ -358,27 +348,6 @@ private:
 	void ShowPopupMenu(bool bShow);
 
 public:
-	/**
-     * Called when JavaScript code sends a message to the UE process.
-     * Needs to return true or false to tell CEF wether the query is being handled by user code or not.
-     *
-     * @param QueryId A unique id for the query. Used to refer to it in OnQueryCanceled.
-     * @param Request The query string itself as passed in from the JS code.
-     * @param Persistent Os this a persistent query or not. If not, client code expects the callback to be invoked only once, wheras persistent queries are terminated by invoking Failure, Success can be invoked multiple times until then.
-     * @param Callback A handle to pass data back to the JS code. 
-     */
-    bool OnQuery(int64 QueryId,
-        const CefString& Request,
-        bool Persistent,
-        CefRefPtr<CefMessageRouterBrowserSide::Callback> Callback);
-
-    /**
-     * Called when an outstanding query has been canceled eother explicitly from JS code or implicitly by navigating away from the page containing the code.
-     * Will only be called if OnQuery has previously returned true for the same QueryId.
-     *
-     * @param QueryId A unique id for the query. A handler should use it to locate and remove any handlers that might be in flight.
-     */
-    void OnQueryCanceled(int64 QueryId);
 
 	// Trigger an OnBeforePopup event chain
 	bool OnCefBeforePopup(const CefString& Target_Url, const CefString& Target_Frame_Name);
@@ -487,10 +456,7 @@ private:
 
 	/** Delegate for notifying that the window needs refreshing. */
 	FOnNeedsRedraw NeedsRedrawEvent;
-
-	FOnJSQueryReceived JSQueryReceivedDelegate;
-	FOnJSQueryCanceled JSQueryCanceledDelegate;
-
+	
 	/** Delegate that is executed prior to browser navigation. */
 	FOnBeforeBrowse BeforeBrowseDelegate;
 
