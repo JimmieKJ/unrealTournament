@@ -12,6 +12,11 @@ SUWStatsViewer::~SUWStatsViewer()
 	{
 		PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
 		PlayerOnlineStatusChangedDelegate.Reset();
+
+		if (StatsWebBrowser.IsValid())
+		{
+			StatsWebBrowser->UnbindUObject(TEXT("StatsViewer"), PlayerOwner.Get());
+		}
 	}
 }
 
@@ -170,7 +175,6 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 				[
 					SAssignNew(StatsWebBrowser, SWebBrowser)
 					.InitialURL(TEXT(""))
-					.OnJSQueryReceived(FOnJSQueryReceived::CreateSP(this, &SUWStatsViewer::QueryReceived))
 					.ShowControls(false)
 				]
 			]
@@ -178,6 +182,11 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 	];
 
 	LastStatsDownloadTime = -1;
+
+	if (StatsWebBrowser.IsValid())
+	{
+		StatsWebBrowser->BindUObject(TEXT("StatsViewer"), PlayerOwner.Get());
+	}
 }
 
 TSharedRef<SWidget> SUWStatsViewer::GenerateStringListWidget(TSharedPtr<FString> InItem)
@@ -434,16 +443,14 @@ void SUWStatsViewer::OnQueryWindowSelected(TSharedPtr<FString> NewSelection, ESe
 	DownloadStats();
 }
 
-bool SUWStatsViewer::QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResult Delegate)
+void SUWStatsViewer::ChangeStatsID(const FString& NewStatsID)
 {
-	if (!QueryString.IsEmpty())
+	if (!NewStatsID.IsEmpty())
 	{
 		QueryWindow = TEXT("alltime");
-		StatsID = QueryString;
+		StatsID = NewStatsID;
 		DownloadStats();
 	}
-
-	return true;
 }
 
 #endif

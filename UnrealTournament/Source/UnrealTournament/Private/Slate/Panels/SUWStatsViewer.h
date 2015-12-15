@@ -41,9 +41,7 @@ protected:
 	void ReadCloudStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ShowErrorPage();
-
-	virtual bool QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResult Delegate);
-
+	
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > FriendListComboBox;
 	TArray<TSharedPtr<FString>> FriendList;
 	TArray<FString> FriendStatIDList;
@@ -58,6 +56,7 @@ protected:
 	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
 
 public:
+	virtual void ChangeStatsID(const FString& NewStatsID);
 	virtual void SetQueryWindow(const FString& InQueryWindow);
 	virtual void SetStatsID(const FString& InStatsID);
 	virtual void ClearStatsID() { StatsID.Empty(); }

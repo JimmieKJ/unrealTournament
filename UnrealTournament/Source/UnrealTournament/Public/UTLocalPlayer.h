@@ -467,6 +467,10 @@ public:
 
 	// Does the player have pending social notifications - should the social bang be shown?
 	bool IsPlayerShowingSocialNotification() const;
+
+	UFUNCTION()
+	virtual void ChangeStatsViewerTarget(FString InStatsID);
+
 protected:
 	virtual void JoinPendingSession();
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);

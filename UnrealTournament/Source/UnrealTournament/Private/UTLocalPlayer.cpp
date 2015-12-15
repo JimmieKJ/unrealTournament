@@ -529,6 +529,14 @@ TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()
 	return StatsViewerWidget;
 }
 
+void UUTLocalPlayer::ChangeStatsViewerTarget(FString InStatsID)
+{
+	if (StatsViewerWidget.IsValid())
+	{
+		StatsViewerWidget->ChangeStatsID(InStatsID);
+	}
+}
+
 TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 {
 	if (!CreditsPanelWidget.IsValid())

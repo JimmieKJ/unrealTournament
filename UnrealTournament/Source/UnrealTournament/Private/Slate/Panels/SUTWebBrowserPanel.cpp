@@ -19,8 +19,6 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 	bAllowScaling = InArgs._AllowScaling;
 	
 	InitialURL = InArgs._InitialURL;
-	OnJSQueryReceived = InArgs._OnJSQueryReceived;
-	OnJSQueryCanceled = InArgs._OnJSQueryCanceled;
 	OnBeforeBrowse = InArgs._OnBeforeBrowse;
 	OnBeforePopup = InArgs._OnBeforePopup;
 
@@ -65,9 +63,7 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 						.InitialURL(InitialURL)
 						.ShowControls(ShowControls)
 						.ViewportSize(DesiredViewportSize)
-						.OnJSQueryReceived(FOnJSQueryReceived::CreateSP(this, &SUTWebBrowserPanel::QueryReceived))
-						.OnJSQueryCanceled(FOnJSQueryCanceled::CreateSP(this, &SUTWebBrowserPanel::QueryCancelled))
-						.OnBeforeNavigation(FOnBeforeBrowse::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
+						.OnBeforeNavigation(SWebBrowser::FOnBeforeBrowse::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
 						.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
 					]
 				]
@@ -123,20 +119,6 @@ void SUTWebBrowserPanel::OnHidePanel()
 	{
 		AudioSettings->SetSoundClassVolume(EUTSoundClass::Music, UserSettings->GetSoundClassVolume(EUTSoundClass::Music));
 	}
-}
-
-bool SUTWebBrowserPanel::QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResult Delegate)
-{
-	if (OnJSQueryReceived.IsBound())
-	{
-		return OnJSQueryReceived.Execute(QueryId, QueryString, Persistent, Delegate);
-	}
-	return false;
-}
-
-void SUTWebBrowserPanel::QueryCancelled(int64 QueryId)
-{
-	OnJSQueryCanceled.ExecuteIfBound(QueryId);
 }
 
 bool SUTWebBrowserPanel::BeforeBrowse(const FString& TargetURL, bool bRedirect)
