@@ -32,7 +32,7 @@
 
 #include "AssetData.h"
 
-static const float PLAYER_SPACING = 70.0f;
+static const float PLAYER_SPACING = 75.0f;
 static const float PLAYER_ALTOFFSET = 80.0f;
 static const float MIN_TEAM_SPACING = 120.f;
 static const float TEAM_CAMERA_OFFSET = 500.0f;
@@ -529,6 +529,7 @@ void SUWMatchSummary::BuildInfoPanel()
 
 	//Build all of the player stats
 	AUTPlayerState* UTPS = ViewedChar.IsValid() ? Cast<AUTPlayerState>(ViewedChar->PlayerState) : nullptr;
+	HighlightBoxes.Empty();
 	if (UTPS != nullptr && !UTPS->IsPendingKill() && UTPS->IsValidLowLevel())
 	{
 		AUTGameMode* DefaultGameMode = GameState.IsValid() && GameState->GameModeClass ? Cast<AUTGameMode>(GameState->GameModeClass->GetDefaultObject()) : NULL;
@@ -557,11 +558,12 @@ void SUWMatchSummary::BuildInfoPanel()
 
 				for (int32 i = 0; i < Highlights.Num(); i++)
 				{
+					TSharedPtr<class SBorder> HighlightBorder;
 					VBox->AddSlot()
 						.Padding(100, 20)
 						.AutoHeight()
 						[
-							SNew(SBorder)
+							SAssignNew(HighlightBorder, SBorder)
 							.BorderImage(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.Border"))
 							.Padding(2)
 							.Content()
@@ -590,6 +592,7 @@ void SUWMatchSummary::BuildInfoPanel()
 								]
 							]
 						];
+					HighlightBoxes.Add(HighlightBorder);
 				}
 
 				AUTGameMode* Game = GameState->GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -607,11 +610,12 @@ void SUWMatchSummary::BuildInfoPanel()
 											: FText::Format(NSLOCTEXT("AUTGameMode", "Won Challenge", "<UT.MatchSummary.HighlightText.Value>{NumStars}</> stars earned. {RosterChange}"), Args);
 					}
 
+					TSharedPtr<class SBorder> HighlightBorder;
 					VBox->AddSlot()
 						.Padding(100, 20)
 						.AutoHeight()
 						[
-							SNew(SBorder)
+							SAssignNew(HighlightBorder, SBorder)
 							.BorderImage(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.Border"))
 							.Padding(2)
 							.Content()
@@ -640,6 +644,17 @@ void SUWMatchSummary::BuildInfoPanel()
 								]
 							]
 						];
+					HighlightBoxes.Add(HighlightBorder);
+				}
+				if (UTPS == LocalPS)
+				{
+					for (int32 i = 0; i < HighlightBoxes.Num(); i++)
+					{
+						if (HighlightBoxes[i].IsValid())
+						{
+							HighlightBoxes[i]->SetVisibility(EVisibility::Hidden);
+						}
+					}
 				}
 			}
 
@@ -789,8 +804,36 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		}
 	}
 
+	bool bShowXPBar = HasCamFlag(CF_ShowXPBar);
+	int32 NumBoxes = HighlightBoxes.Num();
+	if (bShowXPBar && bFirstViewOwnHighlights && GameState.IsValid())
+	{
+		NumBoxes = int32(1.5f * (GameState->GetWorld()->GetTimeSeconds() - ShotStartTime));
+		bShowXPBar = bShowXPBar && (NumBoxes > HighlightBoxes.Num());
+		NumBoxes = FMath::Min(HighlightBoxes.Num(), NumBoxes);
+		int32 OldBoxes = FMath::Min(HighlightBoxes.Num(), int32(1.5f * (GameState->GetWorld()->GetTimeSeconds() - ShotStartTime - InDeltaTime)));
+		if (NumBoxes != OldBoxes)
+		{
+			AUTPlayerController* UTPC = GetPlayerOwner().IsValid() ? Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) : nullptr;
+			if (UTPC != nullptr && UTPC->MyUTHUD != nullptr)
+			{
+				if (UTPC->MyUTHUD->GetScoreboard())
+				{
+					UTPC->ClientPlaySound(UTPC->MyUTHUD->GetScoreboard()->ScoreUpdateSound);
+				}
+			}
+		}
+	}
+	for (int32 i = 0; i < NumBoxes; i++)
+	{
+		if (HighlightBoxes[i].IsValid())
+		{
+			HighlightBoxes[i]->SetVisibility(EVisibility::Visible);
+		}
+	}
+
 	//Create the xp widget when on final shot
-	if (HasCamFlag(CF_ShowXPBar))
+	if (bShowXPBar)
 	{
 		if (!XPBar.IsValid() && PlayerOwner.IsValid() && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
 		{
@@ -939,6 +982,7 @@ void SUWMatchSummary::SetupMatchCam()
 	// View own progress
 	if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
 	{
+		bFirstViewOwnHighlights = true;
 		AUTPlayerState* LocalPS = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
 		AUTCharacter* LocalChar = NULL;
 		if (LocalPS)
@@ -1557,6 +1601,19 @@ void SUWMatchSummary::ViewCharacter(AUTCharacter* NewChar)
 		SetCamShot(0);
 
 		FriendStatus = NAME_None;
+
+		if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+		{
+			AUTPlayerState* LocalPS = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+			if (LocalPS == NewChar->PlayerState)
+			{
+				PlayerCam->CamFlags |= CF_ShowXPBar;
+			}
+			else
+			{
+				bFirstViewOwnHighlights = false;
+			}
+		}
 		BuildInfoPanel();
 	}
 }
@@ -1601,6 +1658,7 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 
 void SUWMatchSummary::ShowTeam(int32 TeamNum)
 {
+	bFirstViewOwnHighlights = false;
 	RecreateAllPlayers(TeamNum);
 }
 

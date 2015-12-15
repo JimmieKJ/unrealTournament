@@ -87,6 +87,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 	float FlagX;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scoreboard")
+		USoundBase* ScoreUpdateSound;
+
 	virtual void PreDraw(float DeltaTime, AUTHUD* InUTHUDOwner, UCanvas* InCanvas, FVector2D InCanvasCenter);
 
 	UFUNCTION(BlueprintCallable, Category = "Scoreboard")

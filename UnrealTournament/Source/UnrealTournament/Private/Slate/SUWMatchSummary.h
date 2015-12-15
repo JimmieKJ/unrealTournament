@@ -247,6 +247,10 @@ protected:
 	TSharedPtr<class SOverlay> XPOverlay;
 	TSharedPtr<class SUTXPBar> XPBar;
 
+	TArray<TSharedPtr<class SBorder> > HighlightBoxes;
+
+	bool bFirstViewOwnHighlights;
+
 private:
 
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
