@@ -163,7 +163,7 @@ void AUTPlayerController::ClientReceivePersonalMessage_Implementation(TSubclassO
 	// only pass on if viewing one of the playerstates
 	APlayerState* ViewTargetPS = Cast<APawn>(GetViewTarget()) ? ((APawn *)(GetViewTarget()))->PlayerState : NULL;
 	bool bViewingTarget = (ViewTargetPS == RelatedPlayerState_1) || (ViewTargetPS == RelatedPlayerState_2);
-	if (!bViewingTarget)
+	if (!bViewingTarget && !Cast<ASpectatorPawn>(GetViewTarget()))
 	{
 		bViewingTarget = (Cast<AUTPlayerState>(RelatedPlayerState_1) && (((AUTPlayerState*)(RelatedPlayerState_1))->SpectatingID == LastSpectatedPlayerId))
 			|| (Cast<AUTPlayerState>(RelatedPlayerState_2) && (((AUTPlayerState*)(RelatedPlayerState_2))->SpectatingID == LastSpectatedPlayerId));
