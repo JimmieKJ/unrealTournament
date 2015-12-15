@@ -16,8 +16,6 @@
 #include "Engine/UserInterfaceSettings.h"
 #include "UTGameEngine.h"
 #include "Animation/SkeletalMeshActor.h"
-#include "UTCTFGameState.h"
-#include "UTCTFGameMode.h"
 #include "UTPlayerState.h"
 #include "Private/Slate/Widgets/SUTTabWidget.h"
 #include "Panels/SUInGameHomePanel.h"

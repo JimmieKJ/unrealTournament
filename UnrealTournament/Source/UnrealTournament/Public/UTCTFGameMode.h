@@ -6,13 +6,6 @@
 #include "UTTeamGameMode.h"
 #include "UTCTFGameMode.generated.h"
 
-namespace MatchState
-{
-	extern UNREALTOURNAMENT_API const FName MatchEnteringHalftime;		// Entering Halftime
-	extern UNREALTOURNAMENT_API const FName MatchIsAtHalftime;			// The match has entered halftime
-	extern UNREALTOURNAMENT_API const FName MatchExitingHalftime;		// Exiting Halftime
-} 
-
 UCLASS()
 class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 {

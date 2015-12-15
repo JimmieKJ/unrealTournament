@@ -20,9 +20,6 @@
 
 namespace MatchState
 {
-	const FName MatchEnteringHalftime = FName(TEXT("MatchEnteringHalftime"));
-	const FName MatchIsAtHalftime = FName(TEXT("MatchIsAtHalftime"));
-	const FName MatchExitingHalftime = FName(TEXT("MatchExitingHalftime"));
 }
 
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
