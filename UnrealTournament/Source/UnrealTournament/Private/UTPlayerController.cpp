@@ -2667,24 +2667,20 @@ void AUTPlayerController::Tick(float DeltaTime)
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS && GS->bPlayPlayerIntro)
+		if (GS && GS->bPlayPlayerIntro && GS->GetMatchState() == MatchState::WaitingToStart)
 		{
-			if (GS->GetMatchState() == MatchState::WaitingToStart)
+			for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 			{
-				for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
+				AUTPlayerState* PS = *It;
+				if (!PS->bOnlySpectator && !PS->IsPendingKillPending())
 				{
-					AUTPlayerState* PS = *It;
-
-					if (!PS->bOnlySpectator && !PS->IsPendingKillPending())
+					TSubclassOf<AUTCharacterContent> Data = PS->GetSelectedCharacter();
+					if (Data)
 					{
-						TSubclassOf<AUTCharacterContent> Data = PS->GetSelectedCharacter();
-						if (Data)
+						USkeletalMeshComponent* SkelMesh = Data->GetDefaultObject<AUTCharacterContent>()->GetMesh();
+						if (SkelMesh)
 						{
-							USkeletalMeshComponent* SkelMesh = Data->GetDefaultObject<AUTCharacterContent>()->GetMesh();
-							if (SkelMesh)
-							{
-								SkelMesh->PrestreamTextures(1, true);
-							}
+							SkelMesh->PrestreamTextures(1, true);
 						}
 					}
 				}
