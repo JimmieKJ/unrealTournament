@@ -4293,7 +4293,7 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			}
 		}
 		GetMesh()->PhysicsAssetOverride = Data->Mesh->PhysicsAssetOverride;
-		GetMesh()->RelativeScale3D = Data->Mesh->RelativeScale3D;
+		GetMesh()->RelativeScale3D = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->RelativeScale3D * Data->Mesh->RelativeScale3D;
 		if (GetMesh() != GetRootComponent())
 		{
 			GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
