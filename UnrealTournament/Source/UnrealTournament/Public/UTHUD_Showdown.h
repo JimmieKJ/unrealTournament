@@ -27,6 +27,10 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	UPROPERTY(BlueprintReadOnly)
 	float LastHoveredActorChangeTime;
 
+	/** background for help text over map */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+	FCanvasIcon SpawnHelpTextBG;
+
 	/** scene capture for spawn preview */
 	UPROPERTY(VisibleAnywhere)
 	USceneCaptureComponent2D* SpawnPreviewCapture;

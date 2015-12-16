@@ -22,6 +22,13 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	ConstructorHelpers::FObjectFinder<UTexture2D> SelectedSpawnTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedSpawnTexture = SelectedSpawnTextureObject.Object;
 
+	static ConstructorHelpers::FObjectFinder<UTexture2D> HelpBGTex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
+	SpawnHelpTextBG.U = 4;
+	SpawnHelpTextBG.V = 2;
+	SpawnHelpTextBG.UL = 124;
+	SpawnHelpTextBG.VL = 128;
+	SpawnHelpTextBG.Texture = HelpBGTex.Object;
+
 	SpawnPreviewCapture = OI.CreateDefaultSubobject<USceneCaptureComponent2D>(this, TEXT("SpawnPreviewCapture"));
 	SpawnPreviewCapture->bCaptureEveryFrame = false;
 	SpawnPreviewCapture->SetHiddenInGame(false);
@@ -43,13 +50,6 @@ void AUTHUD_Showdown::BeginPlay()
 void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos)
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
-
-	// draw a border around the map if it's this player's turn
-	if (GS->SpawnSelector == PlayerOwner->PlayerState)
-	{
-		Canvas->DrawColor = WhiteColor;
-		Canvas->K2_DrawBox(FVector2D(DrawPos.X - 4.0f, DrawPos.Y - 4.0f), FVector2D(MapSize + 8.0f, MapSize + 8.0f), 4.0f);
-	}
 
 	Super::DrawMinimap(DrawColor, MapSize, DrawPos);
 
@@ -130,7 +130,6 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 
 void AUTHUD_Showdown::DrawHUD()
 {
-	bool bRealDrawMinimap = bDrawMinimap;
 	bool bDrewSpawnMap = false;
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)
@@ -297,9 +296,19 @@ void AUTHUD_Showdown::DrawHUD()
 			}
 		}
 	}
+	bool bRealDrawMinimap = bDrawMinimap;
 	bDrawMinimap = bDrawMinimap && !bDrewSpawnMap;
 	Super::DrawHUD();
 	bDrawMinimap = bRealDrawMinimap;
+
+	if (GS != NULL && GS->SpawnSelector == PlayerOwner->PlayerState)
+	{
+		// draw help text
+		float XL, YL;
+		Canvas->TextSize(MediumFont, TEXT("Click on the spawn point you want to use"), XL, YL);
+		Canvas->DrawTile(SpawnHelpTextBG.Texture, Canvas->SizeX * 0.5f - XL * 0.6f, Canvas->SizeY * 0.08f, XL * 1.2f, YL * 1.1f, SpawnHelpTextBG.U, SpawnHelpTextBG.V, SpawnHelpTextBG.UL, SpawnHelpTextBG.VL);
+		Canvas->DrawText(MediumFont, TEXT("Click on the spawn point you want to use"), Canvas->SizeX * 0.5f - XL * 0.5f, Canvas->SizeY * 0.08f);
+	}
 }
 
 EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation() const
