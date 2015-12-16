@@ -333,4 +333,8 @@ protected:
 	// If true, then the player will not show toasts in game.
 	UPROPERTY()
 	uint32 bSuppressToastsInGame : 1;
+
+public:
+	void UpdateCrosshairs(AUTHUD* HUD);
+
 };

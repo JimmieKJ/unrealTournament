@@ -3994,3 +3994,16 @@ void AUTPlayerController::TestCallstack()
 
 	UE_LOG(UT, Log, TEXT("%s"), ANSI_TO_TCHAR(StackTrace));
 }
+
+void AUTPlayerController::UpdateCrosshairs(AUTHUD* HUD)
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
+		if (Settings)
+		{
+			Settings->UpdateCrosshairs(HUD);
+		}
+	}
+}

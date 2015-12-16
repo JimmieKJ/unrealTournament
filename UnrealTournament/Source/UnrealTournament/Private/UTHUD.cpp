@@ -134,6 +134,9 @@ void AUTHUD::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
+	UTPlayerOwner->UpdateCrosshairs(this);
+
+
 }
 
 void AUTHUD::ShowDebugInfo(float& YL, float& YPos)

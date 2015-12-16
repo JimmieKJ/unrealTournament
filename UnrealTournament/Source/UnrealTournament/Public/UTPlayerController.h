@@ -1001,7 +1001,11 @@ protected:
 	bool bSpectatorMouseChangesView;
 	void SetSpectatorMouseChangesView(bool bNewValue);
 
+public:
+	void UpdateCrosshairs(AUTHUD* HUD);
+
 };
+
 
 
 

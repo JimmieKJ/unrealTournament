@@ -356,10 +356,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 			AUTHUD* Hud = *It;
 			if (Hud != nullptr)
 			{
-				Hud->LoadedCrosshairs.Empty();
-				Hud->CrosshairInfos = CrosshairInfos;
-				Hud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
-				Hud->SaveConfig();
+				UpdateCrosshairs(Hud);
 			}
 		}
 	}
@@ -381,6 +378,14 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	TokensCommit();
 
 	WeaponSkins.Remove(nullptr);
+}
+
+void UUTProfileSettings::UpdateCrosshairs(AUTHUD* HUD)
+{
+	HUD->LoadedCrosshairs.Empty();
+	HUD->CrosshairInfos = CrosshairInfos;
+	HUD->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
+	HUD->SaveConfig();
 }
 
 bool UUTProfileSettings::HasTokenBeenPickedUpBefore(FName TokenUniqueID)
