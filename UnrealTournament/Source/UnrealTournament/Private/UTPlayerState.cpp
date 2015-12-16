@@ -957,7 +957,10 @@ void AUTPlayerState::EndPlay(const EEndPlayReason::Type Reason)
 void AUTPlayerState::BeginPlay()
 {
 	// default so value is never NULL
-	SelectedCharacter = GetDefault<AUTCharacter>()->CharacterData;
+	if (SelectedCharacter == NULL)
+	{
+		SelectedCharacter = GetDefault<AUTCharacter>()->CharacterData;
+	}
 
 	Super::BeginPlay();
 
@@ -1035,6 +1038,15 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 						if (Result == EAsyncLoadingResult::Succeeded && PS.IsValid() && TSubclassOf<AUTCharacterContent>(FindObject<UClass>(NULL, *CharacterPath, false)) != NULL)
 						{
 							PS->SetCharacter(CharacterPath);
+						}
+						else
+						{
+							// redirectors don't work when using FindObject, handle that case
+							UObjectRedirector* Redirector = FindObject<UObjectRedirector>(NULL, *CharacterPath, true);
+							if (Redirector != NULL && Redirector->DestinationObject != NULL)
+							{
+								PS->SetCharacter(Redirector->DestinationObject->GetPathName());
+							}
 						}
 					}));
 				}
