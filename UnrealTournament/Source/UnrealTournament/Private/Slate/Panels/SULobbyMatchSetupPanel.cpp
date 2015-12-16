@@ -547,9 +547,9 @@ FText SULobbyMatchSetupPanel::GetStartMatchText() const
 		if (MatchInfo->CurrentRuleset.IsValid())
 		{
 			AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
-			if (LobbyGameState)
+			if (LobbyGameState && LobbyGameState->NumMatchesInProgress() > 0)
 			{
-				if (!MatchInfo->bJoinAnytime || !LobbyGameState->bAllowInstancesToStartWithBots || (LobbyGameState->NumMatchesInProgress() > 0 && MatchInfo->BotSkillLevel < 0))
+				if (!MatchInfo->bJoinAnytime || !LobbyGameState->bAllowInstancesToStartWithBots || MatchInfo->BotSkillLevel < 0)
 				{
 					int32 NumPlayersNeeded = MatchInfo->CurrentRuleset->MinPlayersToStart - MatchInfo->Players.Num();
 					if (NumPlayersNeeded > 0)
@@ -721,7 +721,7 @@ FText SULobbyMatchSetupPanel::GetMatchRulesDescription() const
 {
 	if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
 	{
-		FString Desc = MatchInfo->CurrentRuleset->Description;
+		FString Desc = MatchInfo->CurrentRuleset->GetDescription();
 		switch (MatchInfo->BotSkillLevel)
 		{
 			case 0 : Desc += TEXT("\nBotSkill: Novice"); break;
