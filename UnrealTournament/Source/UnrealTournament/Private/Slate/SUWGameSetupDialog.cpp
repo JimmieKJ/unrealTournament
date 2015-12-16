@@ -655,7 +655,7 @@ FText SUWGameSetupDialog::GetMatchRulesTitle() const
 
 FText SUWGameSetupDialog::GetMatchRulesDescription() const
 {
-	return SelectedRuleset.IsValid() ? FText::FromString(SelectedRuleset.Get()->Description) : FText::GetEmpty();
+	return SelectedRuleset.IsValid() ? FText::FromString(SelectedRuleset.Get()->GetDescription()) : FText::GetEmpty();
 }
 
 void SUWGameSetupDialog::ApplyCurrentRuleset(TWeakObjectPtr<AUTLobbyMatchInfo> MatchInfo)

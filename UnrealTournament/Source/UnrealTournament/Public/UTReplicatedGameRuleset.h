@@ -103,6 +103,10 @@ public:
 	UFUNCTION()
 	virtual AUTGameMode* GetDefaultGameModeObject();
 
+	// Returns the description of this ruleset. 
+	UFUNCTION()
+	virtual FString GetDescription();
+
 protected:
 
 	UFUNCTION()
@@ -111,6 +115,9 @@ protected:
 
 	FString Fixup(FString OldText);
 	int32 AddMapAssetToMapList(const FAssetData& Asset);
+
+	FString CachedDescription;
+
 };
 
 

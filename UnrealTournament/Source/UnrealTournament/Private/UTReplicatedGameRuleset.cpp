@@ -209,3 +209,56 @@ AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
 
 	return NULL;
 }
+
+FString AUTReplicatedGameRuleset::GetDescription()
+{
+	if ( CachedDescription.IsEmpty() && !Description.IsEmpty() )
+	{
+		TArray<FString> PropertyLookups;
+		int32 Left = Description.Find(TEXT("%"),ESearchCase::IgnoreCase, ESearchDir::FromStart, 0);
+		while (Left != INDEX_NONE)
+		{
+			int32 Right = Description.Find(TEXT("%"),ESearchCase::IgnoreCase, ESearchDir::FromStart, Left + 1);
+			if (Right > Left)
+			{
+				FString PropertyString = Description.Mid(Left, Right-Left + 1);
+				if (PropertyLookups.Find(PropertyString) == INDEX_NONE)
+				{
+					PropertyLookups.Add(PropertyString);
+				}
+				Left = Description.Find(TEXT("%"),ESearchCase::IgnoreCase, ESearchDir::FromStart, Right +1);	
+			}
+			else
+			{
+				break;
+			}
+		}
+
+		CachedDescription = Description;
+		for (int32 i = 0; i < PropertyLookups.Num(); i++)
+		{
+			if (PropertyLookups[i].Compare(TEXT("%maxplayers%"),ESearchCase::IgnoreCase) == 0)		
+			{
+				CachedDescription = CachedDescription.Replace(*PropertyLookups[i], *FString::FromInt(MaxPlayers), ESearchCase::IgnoreCase);
+			}
+			else
+			{
+				// Grab the prop name.
+				FString PropName = PropertyLookups[i].LeftChop(1).RightChop(1);	// Remove the %
+
+				// First search the url for PropName=
+				if (UGameplayStatics::HasOption(GameOptions, *PropName))
+				{
+					FString Value = UGameplayStatics::ParseOption(GameOptions,  PropName);
+					CachedDescription = CachedDescription.Replace(*PropertyLookups[i], *Value, ESearchCase::IgnoreCase);
+				}
+
+				// TODO: Add code to use property lookup on the default object if needed.  The problem is we don't want to have to load the 
+				// DO on the client if possible so I want to think about this more.  This might not be the best place for this code.
+			}
+		}
+
+	}
+	return CachedDescription;
+}
+
