@@ -134,7 +134,10 @@ void AUTHUD::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 	UTPlayerOwner = Cast<AUTPlayerController>(GetOwner());
-	UTPlayerOwner->UpdateCrosshairs(this);
+	if (UTPlayerOwner)
+	{
+		UTPlayerOwner->UpdateCrosshairs(this);
+	}
 
 
 }
