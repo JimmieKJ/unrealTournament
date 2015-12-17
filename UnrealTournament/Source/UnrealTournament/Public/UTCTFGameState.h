@@ -136,8 +136,8 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
 	uint32 bSecondHalf : 1;
 
-	UPROPERTY(BlueprintReadOnly,Replicated,ReplicatedUsing=OnHalftimeChanged, Category = CTF)
-	uint32 bHalftime : 1;
+	UPROPERTY(BlueprintReadOnly,Replicated,ReplicatedUsing=OnIntermissionChanged, Category = CTF)
+	uint32 bIsAtIntermission : 1;
 
 	/** The Elapsed time at which Overtime began */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
@@ -183,7 +183,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
 	
 	UFUNCTION()
-	virtual void OnHalftimeChanged();
+		virtual void OnIntermissionChanged();
 
 	virtual void ToggleScoreboards();
 

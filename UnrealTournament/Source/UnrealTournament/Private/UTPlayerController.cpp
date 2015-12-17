@@ -1940,7 +1940,7 @@ void AUTPlayerController::ServerRestartPlayer_Implementation()
 		}
 	}
 	//Half-time ready up for caster control
-	else if (UTGM->bCasterControl && UTGM->GetMatchState() == MatchState::MatchIsAtHalftime && UTPlayerState != nullptr && UTPlayerState->bCaster)
+	else if (UTGM->bCasterControl && UTGM->GetMatchState() == MatchState::MatchIntermission && UTPlayerState != nullptr && UTPlayerState->bCaster)
 	{
 		UTPlayerState->bReadyToPlay = true;
 		UTPlayerState->ForceNetUpdate();

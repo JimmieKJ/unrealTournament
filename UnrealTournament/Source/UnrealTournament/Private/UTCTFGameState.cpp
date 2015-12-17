@@ -10,7 +10,7 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	bSecondHalf = false;
-	bHalftime = false;
+	bIsAtIntermission = false;
 	HalftimeScoreDelay = 2.f;
 
 	GameScoreStats.Add(NAME_RegularKillPoints);
@@ -85,7 +85,7 @@ void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & O
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTCTFGameState, bSecondHalf);
-	DOREPLIFETIME(AUTCTFGameState, bHalftime);
+	DOREPLIFETIME(AUTCTFGameState, bIsAtIntermission);
 	DOREPLIFETIME(AUTCTFGameState, FlagBases);
 	DOREPLIFETIME(AUTCTFGameState, bPlayingAdvantage);
 	DOREPLIFETIME(AUTCTFGameState, AdvantageTeamIndex);
@@ -209,8 +209,7 @@ void AUTCTFGameState::ResetFlags()
 bool AUTCTFGameState::IsMatchInProgress() const
 {
 	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIsAtHalftime ||
-		MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime);
+	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIntermission || MatchState == MatchState::MatchExitingIntermission);
 }
 
 bool AUTCTFGameState::IsMatchInOvertime() const
@@ -222,7 +221,7 @@ bool AUTCTFGameState::IsMatchInOvertime() const
 bool AUTCTFGameState::IsMatchIntermission() const
 {
 	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::MatchIntermission) || (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime);
+	return (MatchState == MatchState::MatchIntermission) || (MatchState == MatchState::MatchIntermission || MatchState == MatchState::MatchExitingIntermission);
 }
 
 FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
@@ -230,9 +229,9 @@ FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName Cur
 	return (IsMatchIntermission() || HasMatchEnded()) ? FName(TEXT("FreeCam")) : Super::OverrideCameraStyle(PCOwner, CurrentCameraStyle);
 }
 
-void AUTCTFGameState::OnHalftimeChanged()
+void AUTCTFGameState::OnIntermissionChanged()
 {
-	if (bHalftime)
+	if (bIsAtIntermission)
 	{
 		// delay toggling scoreboard
 		FTimerHandle TempHandle;
@@ -251,7 +250,7 @@ void AUTCTFGameState::ToggleScoreboards()
 		AUTPlayerController* PC = Cast<AUTPlayerController>(It->PlayerController);
 		if (PC != NULL)
 		{
-			PC->ClientToggleScoreboard(bHalftime);
+			PC->ClientToggleScoreboard(bIsAtIntermission);
 		}
 	}
 }

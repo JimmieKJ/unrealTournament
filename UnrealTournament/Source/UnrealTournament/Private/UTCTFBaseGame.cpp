@@ -31,6 +31,7 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 	MapPrefix = TEXT("CTF");
 	SquadType = AUTCTFSquadAI::StaticClass();
 	CTFScoringClass = AUTCTFScoring::StaticClass();
+	IntermissionDuration = 5.f;
 
 	//Add the translocator here for now :(
 	TranslocatorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C"));
@@ -249,8 +250,109 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 					}
 				}
 			}
+			HandleFlagCapture(Holder);
 		}
 	}
+}
+
+void AUTCTFBaseGame::HandleFlagCapture(AUTPlayerState* Holder)
+{
+	CheckScore(Holder);
+}
+
+
+void AUTCTFBaseGame::CheckGameTime()
+{
+	if (CTFGameState->IsMatchIntermission())
+	{
+		if (CTFGameState->RemainingTime <= 0)
+		{
+			SetMatchState(MatchState::MatchExitingIntermission);
+		}
+	}
+}
+
+void AUTCTFBaseGame::CallMatchStateChangeNotify()
+{
+	Super::CallMatchStateChangeNotify();
+
+	if (MatchState == MatchState::MatchIntermission)
+	{
+		HandleMatchIntermission();
+	}
+	else if (MatchState == MatchState::MatchExitingIntermission)
+	{
+		HandleExitingIntermission();
+	}
+}
+
+void AUTCTFBaseGame::HandleMatchIntermission()
+{
+	//UTGameState->UpdateMatchHighlights();
+	CTFGameState->ResetFlags();
+
+	// Figure out who we should look at
+	// Init targets
+	TArray<AUTCharacter*> BestPlayers;
+	int32 BestTeam = 0;
+	int32 BestTeamScore = 0;
+	for (int32 i = 0; i<Teams.Num(); i++)
+	{
+		BestPlayers.Add(NULL);
+		PlacePlayersAroundFlagBase(i);
+
+		if (i == BestTeam || Teams[i]->Score > BestTeamScore)
+		{
+			BestTeamScore = Teams[i]->Score;
+			BestTeam = i;
+		}
+	}
+
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AController* Controller = *Iterator;
+		if (Controller->GetPawn() != NULL && Controller->PlayerState != NULL)
+		{
+			AUTCharacter* Char = Cast<AUTCharacter>(Controller->GetPawn());
+			if (Char != NULL)
+			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
+				uint8 TeamNum = PS->GetTeamNum();
+				if (TeamNum < BestPlayers.Num())
+				{
+					if (BestPlayers[TeamNum] == NULL || PS->Score > BestPlayers[TeamNum]->PlayerState->Score || Cast<AUTCTFFlag>(PS->CarriedObject) != NULL)
+					{
+						BestPlayers[TeamNum] = Char;
+					}
+				}
+			}
+		}
+	}
+
+	// Tell the controllers to look at own team flag
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC != NULL)
+		{
+			PC->ClientHalftime();
+			int32 TeamToWatch = (!PC->PlayerState->bOnlySpectator && (PC->GetTeamNum() < Teams.Num())) ? PC->GetTeamNum() : BestTeam;
+			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
+		}
+	}
+
+	// Freeze all of the pawns
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+		{
+			(*It)->TurnOff();
+		}
+	}
+
+	CTFGameState->bIsAtIntermission = true;
+	CTFGameState->OnIntermissionChanged();
+	CTFGameState->SetTimeLimit(IntermissionDuration);	// Reset the Game Clock for intermission
 }
 
 void AUTCTFBaseGame::HandleExitingIntermission()
@@ -310,18 +412,10 @@ void AUTCTFBaseGame::HandleExitingIntermission()
 
 	// Send all flags home..
 	CTFGameState->ResetFlags();
-	CTFGameState->bHalftime = false;
-	CTFGameState->OnHalftimeChanged();
-	if (CTFGameState->bSecondHalf)
-	{
-		SetMatchState(MatchState::MatchEnteringOvertime);
-	}
-	else
-	{
-		CTFGameState->bSecondHalf = true;
-		CTFGameState->SetTimeLimit(TimeLimit);		// Reset the GameClock for the second time.
-		SetMatchState(MatchState::InProgress);
-	}
+	CTFGameState->bIsAtIntermission = false;
+	CTFGameState->OnIntermissionChanged();
+	CTFGameState->SetTimeLimit(TimeLimit);		// Reset the GameClock for the second time.
+	SetMatchState(MatchState::InProgress);
 }
 
 void AUTCTFBaseGame::EndGame(AUTPlayerState* Winner, FName Reason)

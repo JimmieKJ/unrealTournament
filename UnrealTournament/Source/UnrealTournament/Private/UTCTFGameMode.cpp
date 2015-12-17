@@ -21,7 +21,7 @@
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	HalftimeDuration = 30.f;
+	IntermissionDuration = 30.f;
 	bAllowOvertime = true;
 	AdvantageDuration = 5;
 	MercyScore = 5;
@@ -33,8 +33,8 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	// HalftimeDuration is in seconds and used in seconds,
-	HalftimeDuration = FMath::Max(0, UGameplayStatics::GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
+	// IntermissionDuration is in seconds and used in seconds,
+	IntermissionDuration = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("HalftimeDuration"), IntermissionDuration));
 
 	if (TimeLimit > 0)
 	{
@@ -73,22 +73,23 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 				}
 			}
 		}
-		else if (Reason == FName("FlagCapture"))
+	}
+}
+
+void AUTCTFGameMode::HandleFlagCapture(AUTPlayerState* Holder)
+{
+	if (CTFGameState->IsMatchInOvertime())
+	{
+		EndGame(Holder, FName(TEXT("GoldenCap")));
+	}
+	else
+	{
+		CheckScore(Holder);
+		// any cap ends advantage time immediately
+		// warning: CheckScore() could have ended the match already
+		if (CTFGameState->bPlayingAdvantage && !CTFGameState->HasMatchEnded())
 		{
-			if (CTFGameState->IsMatchInOvertime())
-			{
-				EndGame(Holder, FName(TEXT("GoldenCap")));
-			}
-			else
-			{
-				CheckScore(Holder);
-				// any cap ends advantage time immediately
-				// warning: CheckScore() could have ended the match already
-				if (CTFGameState->bPlayingAdvantage && !CTFGameState->HasMatchEnded())
-				{
-					EndOfHalf();
-				}
-			}
+			EndOfHalf();
 		}
 	}
 }
@@ -123,23 +124,12 @@ bool AUTCTFGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 
 void AUTCTFGameMode::CheckGameTime()
 {
-	if (HalftimeDuration <= 0 || TimeLimit == 0)
-	{
-		Super::CheckGameTime();
-	}
-	else if ( CTFGameState->IsMatchInProgress() )
-	{
-		// First look to see if we are in halftime. 
-		if (CTFGameState->IsMatchIntermission())
-		{
-			if (CTFGameState->RemainingTime <= 0)
-			{
-				SetMatchState(MatchState::MatchExitingHalftime);
-			}
-		}
+	Super::CheckGameTime();
 
+	if ( CTFGameState->IsMatchInProgress() )
+	{
 		// If the match is in progress and we are not playing advantage, then enter the halftime/end of game logic depending on the half
-		else if (CTFGameState->RemainingTime <= 0)
+		if (CTFGameState->RemainingTime <= 0)
 		{
 			if (!CTFGameState->IsMatchInOvertime() && CTFGameState->bSecondHalf && bAllowOvertime)
 			{
@@ -147,7 +137,7 @@ void AUTCTFGameMode::CheckGameTime()
 			}
 			if (!CTFGameState->bPlayingAdvantage)
 			{
-				// If we are in Overtime - Keep battling until one team wins.  We might want to add half-time or bring sudden death back 
+				// If we are in Overtime - Keep battling until one team wins. 
 				if (CTFGameState->IsMatchInOvertime())
 				{
 					AUTTeamInfo* WinningTeam = CTFGameState->FindLeadingTeam();
@@ -238,7 +228,7 @@ void AUTCTFGameMode::EndOfHalf()
 	// Time expired and noone has advantage so enter the second half.
 	else
 	{
-		SetMatchState(MatchState::MatchEnteringHalftime);
+		SetMatchState(MatchState::MatchIntermission);
 	}
 }
 
@@ -250,76 +240,10 @@ void AUTCTFGameMode::HandleMatchHasStarted()
 	}
 }
 
-void AUTCTFGameMode::HandleHalftime()
+void AUTCTFGameMode::HandleMatchIntermission()
 {
-}
+	Super::HandleMatchIntermission();
 
-void AUTCTFGameMode::HandleEnteringHalftime()
-{
-	//UTGameState->UpdateMatchHighlights();
-	CTFGameState->ResetFlags();
-
-	// Figure out who we should look at
-	// Init targets
-	TArray<AUTCharacter*> BestPlayers;
-	int32 BestTeam = 0;
-	int32 BestTeamScore = 0;
-	for (int32 i=0;i<Teams.Num();i++)
-	{
-		BestPlayers.Add(NULL);
-		PlacePlayersAroundFlagBase(i);
-
-		if (i == BestTeam || Teams[i]->Score > BestTeamScore)
-		{
-			BestTeamScore = Teams[i]->Score;
-			BestTeam = i;
-		}
-	}
-	
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-		AController* Controller = *Iterator;
-		if (Controller->GetPawn() != NULL && Controller->PlayerState != NULL)
-		{
-			AUTCharacter* Char = Cast<AUTCharacter>(Controller->GetPawn());
-			if (Char != NULL)
-			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(Controller->PlayerState);
-				uint8 TeamNum = PS->GetTeamNum();
-				if (TeamNum < BestPlayers.Num())
-				{
-					if (BestPlayers[TeamNum] == NULL || PS->Score > BestPlayers[TeamNum]->PlayerState->Score || Cast<AUTCTFFlag>(PS->CarriedObject) != NULL)
-					{
-						BestPlayers[TeamNum] = Char;
-					}
-				}
-			}
-		}
-	}	
-
-	// Tell the controllers to look at own team flag
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-		if (PC != NULL)
-		{
-			PC->ClientHalftime();
-			int32 TeamToWatch = (!PC->PlayerState->bOnlySpectator && (PC->GetTeamNum() < Teams.Num())) ? PC->GetTeamNum() : BestTeam;
-			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
-		}
-	}
-	
-	// Freeze all of the pawns
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
-		{
-			(*It)->TurnOff();
-		}
-	}
-
-	CTFGameState->bHalftime = true;
-	CTFGameState->OnHalftimeChanged();
 	CTFGameState->bPlayingAdvantage = false;
 	CTFGameState->AdvantageTeamIndex = 255;
 
@@ -337,12 +261,7 @@ void AUTCTFGameMode::HandleEnteringHalftime()
 		CTFGameState->bStopGameClock = true;
 		CTFGameState->SetTimeLimit(10);
 	}
-	else
-	{
-		CTFGameState->SetTimeLimit(HalftimeDuration);	// Reset the Game Clock for Halftime
-	}
 
-	SetMatchState(MatchState::MatchIsAtHalftime);
 	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 11, NULL, NULL, NULL);
 }
 
@@ -351,7 +270,7 @@ void AUTCTFGameMode::DefaultTimer()
 	Super::DefaultTimer();
 
 	//If caster control is enabled. check to see if one caster is ready then start the timer
-	if (GetMatchState() == MatchState::MatchIsAtHalftime && bCasterControl)
+	if (GetMatchState() == MatchState::MatchIntermission && bCasterControl)
 	{
 		bool bReady = false;
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
@@ -382,11 +301,6 @@ void AUTCTFGameMode::DefaultTimer()
 	}
 }
 
-void AUTCTFGameMode::HalftimeIsOver()
-{
-	SetMatchState(MatchState::MatchExitingHalftime);
-}
-
 bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 {
 	// Can't restart in overtime
@@ -400,21 +314,17 @@ bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 	return Player->CanRestartPlayer();
 }
 
-void AUTCTFGameMode::CallMatchStateChangeNotify()
+void AUTCTFGameMode::HandleExitingIntermission()
 {
-	Super::CallMatchStateChangeNotify();
-
-	if (MatchState == MatchState::MatchEnteringHalftime)
+	Super::HandleExitingIntermission();
+	if (CTFGameState->bSecondHalf)
 	{
-		HandleEnteringHalftime();
+		SetMatchState(MatchState::MatchEnteringOvertime);
+		CTFGameState->SetTimeLimit(0);
 	}
-	else if (MatchState == MatchState::MatchIsAtHalftime)
+	else
 	{
-		HandleHalftime();
-	}
-	else if (MatchState == MatchState::MatchExitingHalftime)
-	{
-		HandleExitingIntermission();
+		CTFGameState->bSecondHalf = true;
 	}
 }
 
@@ -509,14 +419,14 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 
 	if (TimeLimit > 0)
 	{
-		if (HalftimeDuration <= 0)
+		if (IntermissionDuration <= 0)
 		{
 			OutRules += FString::Printf(TEXT("No Halftime\tTrue\t"));
 		}
 		else
 		{
 			OutRules += FString::Printf(TEXT("Halftime\tTrue\t"));
-			OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), HalftimeDuration);
+			OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), IntermissionDuration);
 		}
 	}
 
@@ -543,7 +453,7 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 	{
 		UTGameState->RemainingTime = 1;
 		TimeLimit = RemainingSeconds;
-		HalftimeDuration = 5;
+		IntermissionDuration = 5;
 	}
 }
 
@@ -553,7 +463,7 @@ void AUTCTFGameMode::GetGood()
 	if (GetNetMode() == NM_Standalone)
 	{
 		Super::GetGood();
-		HalftimeDuration = 5;
+		IntermissionDuration = 5;
 		Teams[0]->Score = 1;
 		Teams[1]->Score = 9;
 	}

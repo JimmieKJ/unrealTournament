@@ -11,9 +11,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 {
 	GENERATED_UCLASS_BODY()
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
-	int32 HalftimeDuration;
-
 	/**Holds the amount of time to give a flag carrier who has the flag out going in to half-time*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 	int32 AdvantageDuration;
@@ -24,16 +21,16 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage ) override;
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
-	virtual void CheckGameTime();
+	virtual void CheckGameTime() override;
 	virtual void DefaultTimer() override;
 
-	virtual void CallMatchStateChangeNotify() override;
 	virtual float GetTravelDelay() override;
 
-	virtual void HandleEnteringHalftime();
-	virtual void HandleHalftime();
+	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
+	virtual void HandleMatchIntermission() override;
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime() override;
+	virtual void HandleExitingIntermission() override;
 
 	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 
@@ -44,9 +41,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 protected:
 
 	virtual void HandleMatchHasStarted();
-
-	UFUNCTION()
-	virtual void HalftimeIsOver();
 
 	// returns the team index of a team with advatage or < 0 if no team has one
 	virtual uint8 TeamWithAdvantage();

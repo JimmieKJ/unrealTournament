@@ -411,8 +411,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 		{
 			SetupMatchCam();
 		}
-		else if (GameState->GetMatchState() == MatchState::MatchEnteringHalftime
-			|| GameState->GetMatchState() == MatchState::MatchIsAtHalftime)
+		else if (GameState->GetMatchState() == MatchState::MatchIntermission)
 		{
 			//Reset the scoreboard page and timers
 			UUTScoreboard* Scoreboard = GetScoreboard();

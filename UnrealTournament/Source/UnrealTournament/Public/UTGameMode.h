@@ -17,9 +17,7 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
 	extern UNREALTOURNAMENT_API const FName MapVoteHappening;				// The game is in mapvote stage
 	extern UNREALTOURNAMENT_API const FName MatchIntermission;				// The game is in a round intermission
-	extern UNREALTOURNAMENT_API const FName MatchEnteringHalftime;		// Entering Halftime
-	extern UNREALTOURNAMENT_API const FName MatchIsAtHalftime;			// The match has entered halftime
-	extern UNREALTOURNAMENT_API const FName MatchExitingHalftime;		// Exiting Halftime
+	extern UNREALTOURNAMENT_API const FName MatchExitingIntermission;		// Exiting Halftime
 }
 
 USTRUCT()

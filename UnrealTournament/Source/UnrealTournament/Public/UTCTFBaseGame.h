@@ -23,6 +23,9 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 		AUTCTFScoring* CTFScoring;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
+		int32 IntermissionDuration;
+
 	TAssetSubclassOf<AUTWeapon> TranslocatorObject;
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
@@ -48,7 +51,11 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	void AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInfo* Team);
 	void AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team);
 	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
+	virtual void CallMatchStateChangeNotify() override;
+	virtual void HandleMatchIntermission();
 	virtual void HandleExitingIntermission();
+	virtual void CheckGameTime() override;
+	virtual void HandleFlagCapture(AUTPlayerState* Holder);
 
 protected:
 

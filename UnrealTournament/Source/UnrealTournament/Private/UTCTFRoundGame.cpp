@@ -37,6 +37,15 @@ bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 	return true;
 }
 
+void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
+{
+	CheckScore(Holder);
+	if (UTGameState->IsMatchInProgress())
+	{
+		SetMatchState(MatchState::MatchIntermission);
+	}
+}
+
 void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 {
 	OutRules += FString::Printf(TEXT("Goal Score\t%i\t"), GoalScore);

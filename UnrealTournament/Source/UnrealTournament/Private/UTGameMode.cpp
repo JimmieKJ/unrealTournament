@@ -54,9 +54,7 @@ namespace MatchState
 	const FName MatchIsInOvertime = FName(TEXT("MatchIsInOvertime"));
 	const FName MapVoteHappening = FName(TEXT("MapVoteHappening"));
 	const FName MatchIntermission = FName(TEXT("MatchIntermission"));
-	const FName MatchEnteringHalftime = FName(TEXT("MatchEnteringHalftime"));
-	const FName MatchIsAtHalftime = FName(TEXT("MatchIsAtHalftime"));
-	const FName MatchExitingHalftime = FName(TEXT("MatchExitingHalftime"));
+	const FName MatchExitingIntermission = FName(TEXT("MatchExitingIntermission"));
 }
 
 AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)

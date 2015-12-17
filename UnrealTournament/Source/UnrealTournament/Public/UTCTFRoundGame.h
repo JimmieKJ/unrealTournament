@@ -13,4 +13,5 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
 	void BuildServerResponseRules(FString& OutRules);
+	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
 };
