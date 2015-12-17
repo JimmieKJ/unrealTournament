@@ -208,7 +208,7 @@ void AUTCarriedObject::ChangeState(FName NewCarriedObjectState)
 bool AUTCarriedObject::CanBePickedUpBy(AUTCharacter* Character)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS != NULL && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
+	if (GS != NULL && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
 	{
 		return false;
 	}

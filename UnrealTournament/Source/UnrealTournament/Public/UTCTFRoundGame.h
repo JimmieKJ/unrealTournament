@@ -11,4 +11,6 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
+	void BuildServerResponseRules(FString& OutRules);
 };

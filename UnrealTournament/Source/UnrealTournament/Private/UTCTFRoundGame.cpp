@@ -23,3 +23,28 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 {
 	GoalScore = 3;
 }
+
+bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
+{
+	if (Scorer->Team != NULL)
+	{
+		if (GoalScore > 0 && Scorer->Team->Score >= GoalScore)
+		{
+			EndGame(Scorer, FName(TEXT("scorelimit")));
+		}
+	}
+
+	return true;
+}
+
+void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
+{
+	OutRules += FString::Printf(TEXT("Goal Score\t%i\t"), GoalScore);
+
+	AUTMutator* Mut = BaseMutator;
+	while (Mut)
+	{
+		OutRules += FString::Printf(TEXT("Mutator\t%s\t"), *Mut->DisplayName.ToString());
+		Mut = Mut->NextMutator;
+	}
+}

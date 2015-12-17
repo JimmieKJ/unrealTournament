@@ -32,7 +32,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 
 	virtual void HandleEnteringHalftime();
 	virtual void HandleHalftime();
-	virtual void HandleExitingHalftime();
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime() override;
 

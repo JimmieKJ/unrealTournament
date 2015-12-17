@@ -49,17 +49,11 @@ float AUTCTFGameMode::GetTravelDelay()
 
 void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
 {
-	if (Holder != NULL && Holder->Team != NULL && !CTFGameState->HasMatchEnded() && !CTFGameState->IsMatchAtHalftime() && GetMatchState() != MatchState::MatchEnteringHalftime)
+	Super::ScoreObject_Implementation(GameObject, HolderPawn, Holder, Reason);
+
+	if (Holder != NULL && Holder->Team != NULL && !CTFGameState->HasMatchEnded() && !CTFGameState->IsMatchIntermission())
 	{
-		CTFScoring->ScoreObject(GameObject, HolderPawn, Holder, Reason, TimeLimit);
-
-		if (BaseMutator != NULL)
-		{
-			BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
-		}
-		FindAndMarkHighScorer();
-
-		if ( Reason == FName("SentHome") )
+		if (Reason == FName("SentHome"))
 		{
 			// if all flags are returned, end advantage time right away
 			if (CTFGameState->bPlayingAdvantage)
@@ -81,35 +75,9 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		}
 		else if (Reason == FName("FlagCapture"))
 		{
-			// Give the team a capture.
-			Holder->Team->Score++;
-			Holder->Team->ForceNetUpdate();
-			BroadcastScoreUpdate(Holder, Holder->Team);
-			AddCaptureEventToReplay(Holder, Holder->Team);
-			if (Holder->FlagCaptures == 3)
-			{
-				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
-			}
-
-			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
-			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-				if (PC)
-				{
-					PC->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
-					
-					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
-					if (PS && PS->bNeedsAssistAnnouncement)
-					{
-						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, Holder, NULL);
-						PS->bNeedsAssistAnnouncement = false;
-					}
-				}
-			}
-
 			if (CTFGameState->IsMatchInOvertime())
 			{
-				EndGame(Holder, FName(TEXT("GoldenCap")));	
+				EndGame(Holder, FName(TEXT("GoldenCap")));
 			}
 			else
 			{
@@ -162,7 +130,7 @@ void AUTCTFGameMode::CheckGameTime()
 	else if ( CTFGameState->IsMatchInProgress() )
 	{
 		// First look to see if we are in halftime. 
-		if (CTFGameState->IsMatchAtHalftime())		
+		if (CTFGameState->IsMatchIntermission())
 		{
 			if (CTFGameState->RemainingTime <= 0)
 			{
@@ -419,81 +387,10 @@ void AUTCTFGameMode::HalftimeIsOver()
 	SetMatchState(MatchState::MatchExitingHalftime);
 }
 
-void AUTCTFGameMode::HandleExitingHalftime()
-{
-	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
-	{
-		// Detach all controllers from their pawns
-		if ((*Iterator)->GetPawn() != NULL)
-		{
-			(*Iterator)->UnPossess();
-		}
-	}
-
-	TArray<APawn*> PawnsToDestroy;
-	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-	{
-		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
-		{
-			PawnsToDestroy.Add(*It);
-		}
-	}
-
-	for (int32 i=0;i<PawnsToDestroy.Num();i++)
-	{
-		APawn* Pawn = PawnsToDestroy[i];
-		if (Pawn != NULL && !Pawn->IsPendingKill())
-		{
-			Pawn->Destroy();	
-		}
-	}
-
-	// swap sides, if desired
-	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-	if (Settings != NULL && Settings->bAllowSideSwitching)
-	{
-		CTFGameState->ChangeTeamSides(1);
-	}
-
-	// reset everything
-	for (FActorIterator It(GetWorld()); It; ++It)
-	{
-		if (It->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()))
-		{
-			IUTResetInterface::Execute_Reset(*It);
-		}
-	}
-
-	//now respawn all the players
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
-	{
-		AController* Controller = *Iterator;
-		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
-		{
-			RestartPlayer(Controller);
-		}
-	}
-
-	// Send all flags home..
-	CTFGameState->ResetFlags();
-	CTFGameState->bHalftime = false;
-	CTFGameState->OnHalftimeChanged();
-	if (CTFGameState->bSecondHalf)
-	{
-		SetMatchState(MatchState::MatchEnteringOvertime);
-	}
-	else
-	{
-		CTFGameState->bSecondHalf = true;
-		CTFGameState->SetTimeLimit(TimeLimit);		// Reset the GameClock for the second time.
-		SetMatchState(MatchState::InProgress);
-	}
-}
-
 bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 {
 	// Can't restart in overtime
-	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchAtHalftime() || 
+	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchIntermission() ||
 			Player == NULL || Player->IsPendingKillPending())
 	{
 		return false;
@@ -517,7 +414,7 @@ void AUTCTFGameMode::CallMatchStateChangeNotify()
 	}
 	else if (MatchState == MatchState::MatchExitingHalftime)
 	{
-		HandleExitingHalftime();
+		HandleExitingIntermission();
 	}
 }
 

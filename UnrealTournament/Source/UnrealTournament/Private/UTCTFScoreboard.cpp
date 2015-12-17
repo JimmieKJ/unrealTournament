@@ -39,7 +39,7 @@ void UUTCTFScoreboard::OpenScoringPlaysPage()
 void UUTCTFScoreboard::PageChanged_Implementation()
 {
 	GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
-	TimeLineOffset = (UTGameState && (UTGameState->IsMatchAtHalftime() || UTGameState->HasMatchEnded())) ? -0.15f : 99999.f;
+	TimeLineOffset = (UTGameState && (UTGameState->IsMatchIntermission() || UTGameState->HasMatchEnded())) ? -0.15f : 99999.f;
 }
 
 void UUTCTFScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)

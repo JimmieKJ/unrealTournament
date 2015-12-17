@@ -210,6 +210,120 @@ void AUTCTFBaseGame::GameObjectiveInitialized(AUTGameObjective* Obj)
 	}
 }
 
+void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason)
+{
+	if (Holder != NULL && Holder->Team != NULL && !CTFGameState->HasMatchEnded() && !CTFGameState->IsMatchIntermission())
+	{
+		CTFScoring->ScoreObject(GameObject, HolderPawn, Holder, Reason, TimeLimit);
+
+		if (BaseMutator != NULL)
+		{
+			BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
+		}
+		FindAndMarkHighScorer();
+
+		if (Reason == FName("FlagCapture"))
+		{
+			// Give the team a capture.
+			Holder->Team->Score++;
+			Holder->Team->ForceNetUpdate();
+			BroadcastScoreUpdate(Holder, Holder->Team);
+			AddCaptureEventToReplay(Holder, Holder->Team);
+			if (Holder->FlagCaptures == 3)
+			{
+				BroadcastLocalized(this, UUTCTFRewardMessage::StaticClass(), 5, Holder, NULL, Holder->Team);
+			}
+
+			for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+			{
+				AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+				if (PC)
+				{
+					PC->ClientPlaySound(CTFGameState->FlagBases[Holder->Team->TeamIndex]->FlagScoreRewardSound, 2.f);
+
+					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
+					if (PS && PS->bNeedsAssistAnnouncement)
+					{
+						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, Holder, NULL);
+						PS->bNeedsAssistAnnouncement = false;
+					}
+				}
+			}
+		}
+	}
+}
+
+void AUTCTFBaseGame::HandleExitingIntermission()
+{
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		// Detach all controllers from their pawns
+		if ((*Iterator)->GetPawn() != NULL)
+		{
+			(*Iterator)->UnPossess();
+		}
+	}
+
+	TArray<APawn*> PawnsToDestroy;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		if (*It && !Cast<ASpectatorPawn>((*It).Get()))
+		{
+			PawnsToDestroy.Add(*It);
+		}
+	}
+
+	for (int32 i = 0; i<PawnsToDestroy.Num(); i++)
+	{
+		APawn* Pawn = PawnsToDestroy[i];
+		if (Pawn != NULL && !Pawn->IsPendingKill())
+		{
+			Pawn->Destroy();
+		}
+	}
+
+	// swap sides, if desired
+	AUTWorldSettings* Settings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (Settings != NULL && Settings->bAllowSideSwitching)
+	{
+		CTFGameState->ChangeTeamSides(1);
+	}
+
+	// reset everything
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		if (It->GetClass()->ImplementsInterface(UUTResetInterface::StaticClass()))
+		{
+			IUTResetInterface::Execute_Reset(*It);
+		}
+	}
+
+	//now respawn all the players
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AController* Controller = *Iterator;
+		if (Controller->PlayerState != NULL && !Controller->PlayerState->bOnlySpectator)
+		{
+			RestartPlayer(Controller);
+		}
+	}
+
+	// Send all flags home..
+	CTFGameState->ResetFlags();
+	CTFGameState->bHalftime = false;
+	CTFGameState->OnHalftimeChanged();
+	if (CTFGameState->bSecondHalf)
+	{
+		SetMatchState(MatchState::MatchEnteringOvertime);
+	}
+	else
+	{
+		CTFGameState->bSecondHalf = true;
+		CTFGameState->SetTimeLimit(TimeLimit);		// Reset the GameClock for the second time.
+		SetMatchState(MatchState::InProgress);
+	}
+}
+
 void AUTCTFBaseGame::EndGame(AUTPlayerState* Winner, FName Reason)
 {
 	// Dont ever end the game in PIE

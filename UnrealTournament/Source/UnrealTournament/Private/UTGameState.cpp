@@ -404,7 +404,7 @@ void AUTGameState::OnRep_RemainingTime()
 void AUTGameState::DefaultTimer()
 {
 	Super::DefaultTimer();
-	if (IsMatchAtHalftime())
+	if (IsMatchIntermission())
 	{
 		// no elapsed time - it was incremented in super
 		ElapsedTime--;
@@ -695,20 +695,10 @@ bool AUTGameState::IsMatchInProgress() const
 	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime);
 }
 
-bool AUTGameState::IsMatchAtHalftime() const
-{	
-	return false;	
-}
-
 bool AUTGameState::IsMatchInOvertime() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::MatchEnteringOvertime || MatchState == MatchState::MatchIsInOvertime)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::MatchEnteringOvertime || MatchState == MatchState::MatchIsInOvertime);
 }
 
 bool AUTGameState::IsMatchIntermission() const

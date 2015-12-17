@@ -47,6 +47,8 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	void AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo* Team);
 	void AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInfo* Team);
 	void AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team);
+	virtual void ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason) override;
+	virtual void HandleExitingIntermission();
 
 protected:
 

@@ -1757,7 +1757,7 @@ bool AUTCharacter::ServerFeignDeath_Validate()
 void AUTCharacter::ServerFeignDeath_Implementation()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (Role == ROLE_Authority && !IsDead() && (!GS || (GS->IsMatchInProgress() && !GS->IsMatchAtHalftime())) && !BlockFeignDeath())
+	if (Role == ROLE_Authority && !IsDead() && (!GS || (GS->IsMatchInProgress() && !GS->IsMatchIntermission())) && !BlockFeignDeath())
 	{
 		if (bFeigningDeath)
 		{
@@ -4641,7 +4641,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
-		if ((bOnSameTeam || bSpectating || GS->HasMatchEnded() || GS->IsMatchAtHalftime()) && (bTacCom || bOnSameTeam || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
+		if ((bOnSameTeam || bSpectating || GS->HasMatchEnded() || GS->IsMatchIntermission()) && (bTacCom || bOnSameTeam || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
 		{
 			float TextXL, YL;
 			bool bFarAway = (Dist > TeamPlayerIndicatorMaxDistance);

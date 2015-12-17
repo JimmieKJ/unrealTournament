@@ -219,16 +219,15 @@ bool AUTCTFGameState::IsMatchInOvertime() const
 	return (MatchState == MatchState::MatchIsInOvertime);
 }
 
-
-bool AUTCTFGameState::IsMatchAtHalftime() const
+bool AUTCTFGameState::IsMatchIntermission() const
 {
 	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime);
+	return (MatchState == MatchState::MatchIntermission) || (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime);
 }
 
 FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
 {
-	return (IsMatchAtHalftime() || HasMatchEnded()) ? FName(TEXT("FreeCam")) : Super::OverrideCameraStyle(PCOwner, CurrentCameraStyle);
+	return (IsMatchIntermission() || HasMatchEnded()) ? FName(TEXT("FreeCam")) : Super::OverrideCameraStyle(PCOwner, CurrentCameraStyle);
 }
 
 void AUTCTFGameState::OnHalftimeChanged()
@@ -286,7 +285,7 @@ FText AUTCTFGameState::GetGameStatusText()
 			return NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "Blue Advantage");
 		}
 	}
-	else if (IsMatchAtHalftime()) 
+	else if (IsMatchIntermission())
 	{
 		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "PreOvertime", "Get Ready!") : NSLOCTEXT("UTCTFGameState", "HalfTime", "HalfTime");
 	}

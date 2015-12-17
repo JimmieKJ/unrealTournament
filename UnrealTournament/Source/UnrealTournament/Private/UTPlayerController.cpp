@@ -2300,7 +2300,7 @@ FRotator AUTPlayerController::GetSpectatingRotation(const FVector& ViewLoc, floa
 	if (IsInState(NAME_Spectating))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
+		if (GS && (!GS->IsMatchInProgress() || GS->IsMatchIntermission()))
 		{
 			return GetControlRotation();
 		}

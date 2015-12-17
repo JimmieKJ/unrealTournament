@@ -2582,7 +2582,7 @@ bool AUTPlayerState::AllowFreezingTaunts() const
 	if (!bResult)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		bResult = (GS != NULL && GS->IsMatchAtHalftime());
+		bResult = (GS != NULL && GS->IsMatchIntermission());
 	}
 	return bResult;
 }

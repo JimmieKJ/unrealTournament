@@ -21,7 +21,7 @@ bool UUTHUDWidget_Spectator::ShouldDraw_Implementation(bool bShowScores)
 {
 	if (!bShowScores && UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState)
 	{
-		if (UTGameState->IsMatchAtHalftime() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
+		if (UTGameState->IsMatchIntermission() || UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted())
 		{
 			return true;
 		}
@@ -138,7 +138,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 		}
 		else if (!UTGameState->HasMatchEnded())
 		{
-			if (UTGameState->IsMatchAtHalftime())
+			if (UTGameState->IsMatchIntermission())
 			{
 				if (UTGameState->bCasterControl && UTGameState->bStopGameClock == true && UTPS != nullptr)
 				{

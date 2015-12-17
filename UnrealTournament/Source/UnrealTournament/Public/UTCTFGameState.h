@@ -177,7 +177,7 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	virtual float GetClockTime() override;
 	virtual bool IsMatchInProgress() const override;
 	virtual bool IsMatchInOvertime() const override;
-	virtual bool IsMatchAtHalftime() const override;
+	virtual bool IsMatchIntermission() const override;
 	virtual void OnRep_MatchState() override;
 
 	virtual FName OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle);
