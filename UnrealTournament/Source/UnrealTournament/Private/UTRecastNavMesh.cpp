@@ -2439,7 +2439,7 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 				Teleporter->OnOverlapBegin(Asker);
 				return true;
 			}
-			else if (Target.IsDirectTarget())
+			else if (Target.IsDirectTarget() || !Target.Node.IsValid())
 			{
 				// if direct location with no nav data then require pawn box to touch target point
 				FBox TestBox(0);
