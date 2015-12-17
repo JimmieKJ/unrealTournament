@@ -657,10 +657,10 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 	FHttpRequestPtr StatsReadRequest = FHttpModule::Get().CreateRequest();
 	if (StatsReadRequest.IsValid())
 	{
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/");
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+		BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 #endif
 		FString McpConfigOverride;
 		FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
@@ -670,14 +670,23 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 		}
 		else if (McpConfigOverride == TEXT("gamedev"))
 		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 		}
 		else if (McpConfigOverride == TEXT("prodnet"))
 		{
-			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
+			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 		}
 
-		FString FinalStatsURL = BaseURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
+		FString EpicApp;
+		FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
+		const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
+		if (bIsPublicTest)
+		{
+			BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
+		}
+
+		FString CommandURL = TEXT("/ut/api/stats/accountId/");
+		FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
 
 		StatsReadRequest->SetURL(FinalStatsURL);
 		StatsReadRequest->OnProcessRequestComplete() = ResultDelegate;
@@ -784,9 +793,9 @@ void GiveProfileItems(TSharedPtr<const FUniqueNetId> UniqueId, const TArray<FPro
 		FString StatsID = UniqueId->ToString();
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
-		FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+		FString BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 #else
-		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+		FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 #endif
 
 		FString McpConfigOverride;
@@ -794,21 +803,32 @@ void GiveProfileItems(TSharedPtr<const FUniqueNetId> UniqueId, const TArray<FPro
 
 		if (McpConfigOverride == TEXT("prodnet"))
 		{
-			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 		}
 		else if (McpConfigOverride == TEXT("localhost"))
 		{
-			BaseURL = TEXT("http://localhost:8080/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			BaseURL = TEXT("http://localhost:8080");
 		}
 		else if (McpConfigOverride == TEXT("gamedev"))
 		{
-			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/") + StatsID + TEXT("/bulk?ownertype=1");
+			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 		}
+
+		FString EpicApp;
+		FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
+		const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
+		if (bIsPublicTest)
+		{
+			BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
+		}
+
+		FString CommandURL = TEXT("/ut/api/stats/accountId/");
+		FString FinalStatsURL = BaseURL + CommandURL + StatsID + TEXT("/bulk?ownertype=1");
 
 		FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();
 		if (StatsWriteRequest.IsValid())
 		{
-			StatsWriteRequest->SetURL(BaseURL);
+			StatsWriteRequest->SetURL(FinalStatsURL);
 			StatsWriteRequest->SetVerb(TEXT("POST"));
 			StatsWriteRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
 

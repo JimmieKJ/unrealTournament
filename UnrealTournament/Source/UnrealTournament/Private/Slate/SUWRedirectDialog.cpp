@@ -241,9 +241,11 @@ bool SUWRedirectDialog::DownloadFile(FString URL)
 
 		FString NeedAuthUrl1 = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
 		FString NeedAuthUrl2 = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+		FString NeedAuthUrl3 = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com/ut/api/cloudstorage/user/");
+
 		if (OnlineIdentityInterface.IsValid())
 		{
-			if (URL.StartsWith(NeedAuthUrl1) || URL.StartsWith(NeedAuthUrl2))
+			if (URL.StartsWith(NeedAuthUrl1) || URL.StartsWith(NeedAuthUrl2) || URL.StartsWith(NeedAuthUrl3))
 			{
 				FString AuthToken = OnlineIdentityInterface->GetAuthToken(0);
 				HttpRequest->SetHeader(TEXT("Authorization"), FString(TEXT("bearer ")) + AuthToken);

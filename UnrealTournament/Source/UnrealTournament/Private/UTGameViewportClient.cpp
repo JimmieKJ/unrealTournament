@@ -210,15 +210,25 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 				if (bNeedsToDownload)
 				{
-					FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
+					FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com");
 					FString McpConfigOverride;
 					FParse::Value(FCommandLine::Get(), TEXT("MCPCONFIG="), McpConfigOverride);
 					if (McpConfigOverride == TEXT("gamedev"))
 					{
-						BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/cloudstorage/user/");
+						BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net");
 					}
 
-					FileURLs.Add(BaseURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key() + TEXT(".pak"));
+					FString EpicApp;
+					FParse::Value(FCommandLine::Get(), TEXT("-EpicApp="), EpicApp);
+					const bool bIsPublicTest = EpicApp.IsEmpty() ? false : EpicApp.Equals(TEXT("UTPublicTest"), ESearchCase::IgnoreCase);
+					if (bIsPublicTest)
+					{
+						BaseURL = TEXT("https://ut-public-service-publictest-prod12.ol.epicgames.com");
+					}
+
+					FString CommandURL = TEXT("/ut/api/cloudstorage/user/");
+
+					FileURLs.Add(BaseURL + CommandURL + UTEngine->ContentDownloadCloudId + TEXT("/") + It.Key() + TEXT(".pak"));
 				}
 			}
 
