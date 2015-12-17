@@ -22,6 +22,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 
 	FTimerHandle GraceTimerHandle;
 	FTimerHandle LoadTimerHandle;
+	FTimerHandle FireLoadedRocketHandle;
 
 	virtual void BeginState(const UUTWeaponState* PrevState) override
 	{
@@ -149,8 +150,7 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 			}
 			else
 			{
-				FTimerHandle TempHandle;
-				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(TempHandle, this, &UUTWeaponStateFiringChargedRocket::FireLoadedRocket, RocketLauncher->BurstInterval, false);
+				GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(FireLoadedRocketHandle, this, &UUTWeaponStateFiringChargedRocket::FireLoadedRocket, RocketLauncher->BurstInterval, false);
 			}
 		}
 		else
@@ -163,6 +163,15 @@ class UNREALTOURNAMENT_API UUTWeaponStateFiringChargedRocket : public UUTWeaponS
 
 			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(GraceTimerHandle);
 			GetOuterAUTWeapon()->GetWorldTimerManager().ClearTimer(LoadTimerHandle);
+		}
+	}
+
+	virtual void PutDown()
+	{
+		// don't process putdown while in the middle of burst fire
+		if (!GetOuterAUTWeapon()->GetWorldTimerManager().IsTimerActive(FireLoadedRocketHandle))
+		{
+			Super::PutDown();
 		}
 	}
 };

@@ -139,6 +139,3 @@ bool UUTWeaponStateFiring::BeginFiringSequence(uint8 FireModeNum, bool bClientFi
 	}
 	return false;
 }
-
-
-// FIX PUTDOWN FOR CHARGING modes
