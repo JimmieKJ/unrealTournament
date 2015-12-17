@@ -213,6 +213,13 @@ bool UUTGameEngine::GetMonitorRefreshRate(int32& MonitorRefreshRate)
 
 bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 {
+#if UE_BUILD_SHIPPING
+	// make these debug commands illegal in shipping builds
+	if (FParse::Command(&Cmd, TEXT("SET")) || FParse::Command(&Cmd, TEXT("SETNOPEC")) || FParse::Command(&Cmd, TEXT("GET")) || FParse::Command(&Cmd, TEXT("GETALL")))
+	{
+		return true;
+	}
+#endif
 	if (FParse::Command(&Cmd, TEXT("START")))
 	{
 		FWorldContext &WorldContext = GetWorldContextFromWorldChecked(InWorld);
