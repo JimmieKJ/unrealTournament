@@ -3116,7 +3116,6 @@ void AUTGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>
 {
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
-	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bForceRespawn, TEXT("ForceRespawn"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
 }
 
@@ -3372,7 +3371,6 @@ void AUTGameMode::BuildServerResponseRules(FString& OutRules)
 	OutRules += FString::Printf(TEXT("Goal Score\t%i\t"), GoalScore);
 	OutRules += FString::Printf(TEXT("Time Limit\t%i\t"), int32(TimeLimit/60.0));
 	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
-	OutRules += FString::Printf(TEXT("Forced Respawn\t%s\t"), bForceRespawn ?  TEXT("True") : TEXT("False"));
 
 	AUTMutator* Mut = BaseMutator;
 	while (Mut)
