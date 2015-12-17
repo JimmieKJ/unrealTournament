@@ -22,6 +22,17 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	GoalScore = 3;
+	TimeLimit = 0;
+}
+
+void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
+{
+	Super::InitGame(MapName, Options, ErrorMessage);
+	TimeLimit = 0;
+	if (GoalScore == 0)
+	{
+		GoalScore = 3;
+	}
 }
 
 bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
@@ -33,7 +44,6 @@ bool AUTCTFRoundGame::CheckScore_Implementation(AUTPlayerState* Scorer)
 			EndGame(Scorer, FName(TEXT("scorelimit")));
 		}
 	}
-
 	return true;
 }
 
@@ -56,4 +66,16 @@ void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 		OutRules += FString::Printf(TEXT("Mutator\t%s\t"), *Mut->DisplayName.ToString());
 		Mut = Mut->NextMutator;
 	}
+}
+
+void AUTCTFRoundGame::HandleExitingIntermission()
+{
+	Super::HandleExitingIntermission();
+	CTFGameState->CTFRound++;
+}
+
+void AUTCTFRoundGame::InitGameState()
+{
+	Super::InitGameState();
+	CTFGameState->CTFRound = 1;
 }

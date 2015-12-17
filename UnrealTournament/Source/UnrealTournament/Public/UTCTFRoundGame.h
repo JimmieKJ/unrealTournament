@@ -11,7 +11,10 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 {
 	GENERATED_UCLASS_BODY()
 
+	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual bool CheckScore_Implementation(AUTPlayerState* Scorer);
 	void BuildServerResponseRules(FString& OutRules);
 	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
+	virtual void HandleExitingIntermission() override;
+	virtual void InitGameState() override;
 };

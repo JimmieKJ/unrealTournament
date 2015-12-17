@@ -35,7 +35,10 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 
 	// IntermissionDuration is in seconds and used in seconds,
 	IntermissionDuration = FMath::Max(1, UGameplayStatics::GetIntOption(Options, TEXT("HalftimeDuration"), IntermissionDuration));
-
+	if (bOfflineChallenge)
+	{
+		TimeLimit = 600;
+	}
 	if (TimeLimit > 0)
 	{
 		TimeLimit = uint32(float(TimeLimit) * 0.5);

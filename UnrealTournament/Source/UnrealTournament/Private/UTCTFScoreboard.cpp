@@ -185,7 +185,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 		}
 		if (Play.Team != NULL)
 		{
-			if (Play.Period > CurrentPeriod)
+			if ((CTFState->CTFRound == 0) && (Play.Period > CurrentPeriod))
 			{
 				CurrentPeriod++;
 				if (Play.Period < 3)

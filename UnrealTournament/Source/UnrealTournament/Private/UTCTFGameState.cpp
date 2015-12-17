@@ -284,6 +284,12 @@ FText AUTCTFGameState::GetGameStatusText()
 			return NSLOCTEXT("UTCTFGameState", "BlueAdvantage", "Blue Advantage");
 		}
 	}
+	else if (CTFRound > 0)
+	{
+		FFormatNamedArguments Args;
+		Args.Add("RoundNum", FText::AsNumber(CTFRound));
+		return FText::Format(NSLOCTEXT("UTCharacter", "CTFRoundDisplay", "Round {RoundNum}"), Args);
+	}
 	else if (IsMatchIntermission())
 	{
 		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "PreOvertime", "Get Ready!") : NSLOCTEXT("UTCTFGameState", "HalfTime", "HalfTime");

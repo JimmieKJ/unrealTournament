@@ -157,6 +157,9 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(Replicated)
 	uint8 AdvantageTeamIndex;
 
+	UPROPERTY(Replicated)
+		int32 CTFRound;
+
 	/** Sets the # of teams.  This will also Pre-seed FlagsBases */
 	virtual void SetMaxNumberOfTeams(int32 TeamCount);
 

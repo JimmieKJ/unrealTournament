@@ -31,7 +31,7 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 	MapPrefix = TEXT("CTF");
 	SquadType = AUTCTFSquadAI::StaticClass();
 	CTFScoringClass = AUTCTFScoring::StaticClass();
-	IntermissionDuration = 5.f;
+	IntermissionDuration = 10.f;
 
 	//Add the translocator here for now :(
 	TranslocatorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C"));
@@ -48,10 +48,6 @@ void AUTCTFBaseGame::InitGame(const FString& MapName, const FString& Options, FS
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);
-	if (bOfflineChallenge)
-	{
-		TimeLimit = 600;
-	}
 }
 
 void AUTCTFBaseGame::PreInitializeComponents()
