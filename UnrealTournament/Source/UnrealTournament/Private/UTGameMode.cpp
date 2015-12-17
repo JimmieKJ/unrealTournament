@@ -2649,6 +2649,7 @@ void AUTGameMode::SetMatchState(FName NewState)
 	}
 
 	CallMatchStateChangeNotify();
+	K2_OnSetMatchState(NewState);
 
 	if (BaseMutator != NULL)
 	{
