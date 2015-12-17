@@ -455,7 +455,11 @@ void AUTCarriedObject::Drop(AController* Killer)
 	UUTGameplayStatics::UTPlaySound(GetWorld(), DropSound, (HoldingPawn != NULL) ? (AActor*)HoldingPawn : (AActor*)this);
 
 	SendGameMessage(3, Holder, NULL);
-	NoLongerHeld(Killer);
+	{
+		// NoLongerHeld() results in collision being enabled, but we will check for new touches in TossObject()
+		TGuardValue<bool> DropGuard(bIsDropping, true);
+		NoLongerHeld(Killer);
+	}
 
 	// Toss is out
 	TossObject(LastHoldingPawn);
