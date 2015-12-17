@@ -31,6 +31,9 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
 	FCanvasIcon SpawnHelpTextBG;
 
+	/** time we started flashing the help text because the player is running out of selection time */
+	float SpawnTextWarningTime;
+
 	/** scene capture for spawn preview */
 	UPROPERTY(VisibleAnywhere)
 	USceneCaptureComponent2D* SpawnPreviewCapture;

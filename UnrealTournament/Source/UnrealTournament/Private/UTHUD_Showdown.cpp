@@ -180,17 +180,19 @@ void AUTHUD_Showdown::DrawHUD()
 			{
 				if (HoveredStart != NULL)
 				{
-					AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
-					if ((GS->SpawnSelector == PlayerOwner->PlayerState || (OwnerPS != NULL && OwnerPS->RespawnChoiceA == NULL)) && PlayerOwner->GetSpectatorPawn() != NULL)
-					{
-						PlayerOwner->GetSpectatorPawn()->TeleportTo(HoveredStart->GetActorLocation(), HoveredStart->GetActorRotation(), false, true);
-						PlayerOwner->SetControlRotation(HoveredStart->GetActorRotation());
-					}
 					SpawnPreviewCapture->SetWorldLocationAndRotation(HoveredStart->GetActorLocation(), HoveredStart->GetActorRotation());
 					bPendingSpawnPreview = true;
 				}
 				PreviewPlayerStart = HoveredStart;
 			}
+		}
+		
+		// move spectating camera to selected spot (if any)
+		AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
+		if (OwnerPS != NULL && OwnerPS->RespawnChoiceA != NULL && PlayerOwner->GetSpectatorPawn() != NULL)
+		{
+			PlayerOwner->GetSpectatorPawn()->TeleportTo(OwnerPS->RespawnChoiceA->GetActorLocation(), OwnerPS->RespawnChoiceA->GetActorRotation(), false, true);
+			PlayerOwner->SetControlRotation(OwnerPS->RespawnChoiceA->GetActorRotation());
 		}
 
 		// draw spawn selection order
@@ -304,10 +306,29 @@ void AUTHUD_Showdown::DrawHUD()
 	if (GS != NULL && GS->SpawnSelector == PlayerOwner->PlayerState)
 	{
 		// draw help text
+		Canvas->DrawColor = WhiteColor;
+		float TextScale = 1.0f;
+		if (GS->IntermissionStageTime <= 3)
+		{
+			if (SpawnTextWarningTime == 0.0f)
+			{
+				SpawnTextWarningTime = GetWorld()->TimeSeconds;
+			}
+			TextScale += FMath::Fmod(GetWorld()->TimeSeconds - SpawnTextWarningTime, 0.35f);
+		}
+		else
+		{
+			SpawnTextWarningTime = 0.0f;
+		}
 		float XL, YL;
-		Canvas->TextSize(MediumFont, TEXT("Click on the spawn point you want to use"), XL, YL);
+		Canvas->TextSize(MediumFont, TEXT("Click on the spawn point you want to use"), XL, YL, TextScale, TextScale);
+		float IconSize = YL;
+		XL += IconSize;
 		Canvas->DrawTile(SpawnHelpTextBG.Texture, Canvas->SizeX * 0.5f - XL * 0.6f, Canvas->SizeY * 0.08f, XL * 1.2f, YL * 1.1f, SpawnHelpTextBG.U, SpawnHelpTextBG.V, SpawnHelpTextBG.UL, SpawnHelpTextBG.VL);
-		Canvas->DrawText(MediumFont, TEXT("Click on the spawn point you want to use"), Canvas->SizeX * 0.5f - XL * 0.5f, Canvas->SizeY * 0.08f);
+		float TextXPos = Canvas->SizeX * 0.5f - XL * 0.5f;
+		Canvas->DrawText(MediumFont, TEXT("Click on the spawn point you want to use"), TextXPos, Canvas->SizeY * 0.08f, TextScale, TextScale);
+		Canvas->DrawTile(PlayerStartBGIcon.Texture, TextXPos + XL - IconSize, Canvas->SizeY * 0.08f + YL * 0.1f, YL, YL, PlayerStartBGIcon.U, PlayerStartBGIcon.V, PlayerStartBGIcon.UL, PlayerStartBGIcon.VL);
+		Canvas->DrawTile(PlayerStartIcon.Texture, TextXPos + XL - IconSize * 0.75f, Canvas->SizeY * 0.08f + YL * 0.1f + IconSize * 0.25f, YL * 0.5f, YL * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
 	}
 }
 
