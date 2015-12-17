@@ -1964,8 +1964,9 @@ bool AUTPlayerController::ServerRestartPlayerAltFire_Validate()
 
 void AUTPlayerController::ServerSwitchTeam_Implementation()
 {
-	if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
+	if (UTPlayerState != NULL && UTPlayerState->Team != NULL)
 	{
+		uint8 NewTeam = (UTPlayerState->Team->TeamIndex + 1) % GetWorld()->GetGameState<AUTGameState>()->Teams.Num();
 		if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 		{
 			if (UTPlayerState->bPendingTeamSwitch)
@@ -1974,7 +1975,7 @@ void AUTPlayerController::ServerSwitchTeam_Implementation()
 			}
 			else
 			{
-				ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+				ChangeTeam(NewTeam);
 				if (UTPlayerState->bPendingTeamSwitch)
 				{
 					UTPlayerState->bReadyToPlay = false;
@@ -1983,7 +1984,7 @@ void AUTPlayerController::ServerSwitchTeam_Implementation()
 		}
 		else
 		{
-			ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+			ChangeTeam(NewTeam);
 		}
 		UTPlayerState->ForceNetUpdate();
 	}

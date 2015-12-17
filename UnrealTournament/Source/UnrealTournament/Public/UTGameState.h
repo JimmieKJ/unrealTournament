@@ -479,6 +479,13 @@ public:
 		int32 TauntSelectionIndex;
 
 	virtual void FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList);
+
+	/** hook for blueprints */
+	UFUNCTION(BlueprintCallable, Category = GameState)
+	TSubclassOf<AGameMode> GetGameModeClass() const
+	{
+		return GameModeClass;
+	}
 };
 
 

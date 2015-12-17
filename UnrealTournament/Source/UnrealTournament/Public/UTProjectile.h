@@ -295,7 +295,7 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
 	void ProcessHit(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
 	/** deal damage to Actor directly hit (note that this Actor will then be ignored for any radial damage) */
-	UFUNCTION(BlueprintNativeEvent, Category = Projectile)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Projectile)
 	void DamageImpactedActor(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal);
 	UFUNCTION()
 	virtual void OnStop(const FHitResult& Hit);

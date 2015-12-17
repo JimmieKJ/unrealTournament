@@ -777,6 +777,12 @@ public:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientReceiveRconMessage(const FString& Message);
 
+	/** hook for blueprints */
+	UFUNCTION(BlueprintCallable, Category = PlayerState)
+	bool IsOnlySpectator() const
+	{
+		return bOnlySpectator;
+	}
 };
 
 
