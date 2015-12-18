@@ -109,19 +109,24 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 {
 	if(IsEnabled())
 	{
-		bIsPressed = true;
-		
+		BePressed();
 		PlayPressedSound();
 		
 		if( ClickMethod == EButtonClickMethod::MouseDown )
 		{
+
 			//get the reply from the execute function
 
 			if (OnButtonClick.IsBound())
 			{
 				OnButtonClick.Execute(MouseButtonIndex);
 			}
-			return FReply::Handled();
+			else if ( OnClicked.IsBound() )
+			{
+				return OnClicked.Execute();
+			}
+
+			return FReply::Handled().CaptureMouse( AsShared() );
 		}
 		else
 		{
@@ -135,7 +140,6 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 
 FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 {
-	
 	if ( IsEnabled() )
 	{
 		// SButton now requires that bIsPressed be true
@@ -152,6 +156,11 @@ FReply SUTButton::Released(int32 MouseButtonIndex, bool bIsUnderCusor)
 				}
 			}
 
+		}
+
+		if (!bIsToggleButton)
+		{
+			UnPressed();
 		}
 	}
 
@@ -185,8 +194,7 @@ FReply SUTButton::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeybo
 
 FReply SUTButton::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
-	Pressed(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1);
-	return SButton::OnMouseButtonDown(MyGeometry, MouseEvent);
+	return Pressed(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1);
 }
 
 
@@ -201,13 +209,6 @@ FReply SUTButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEv
 	const bool bIsUnderMouse = MyGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
 	Released(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1, bIsUnderMouse);
 	FReply R = SButton::OnMouseButtonUp(MyGeometry, MouseEvent);
-
-
-	if (!bIsToggleButton)
-	{
-		bIsPressed = false;
-	}
-
 
 	return R;
 }
@@ -249,5 +250,6 @@ void SUTButton::OnMouseEnter( const FGeometry& MyGeometry, const FPointerEvent& 
 	}
 	SButton::OnMouseEnter(MyGeometry, MouseEvent);
 }
+
 
 #endif

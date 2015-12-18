@@ -139,6 +139,8 @@ public:
 
 	int32 GetSubMenuItemCount();
 
+	virtual void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true ) override;
+
 protected:
 
 	EHorizontalAlignment ContentHAlign;
@@ -194,7 +196,7 @@ protected:
 	virtual void SetMenus( const TSharedRef< SWidget >& InContent );
 
 	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
-
+	void OnMenuDismissed();
 };
 
 #endif

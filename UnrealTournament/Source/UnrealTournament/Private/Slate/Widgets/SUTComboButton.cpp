@@ -49,7 +49,7 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 			.UTOnButtonClicked( this, &SUTComboButton::UTOnButtonClicked )
 			.ContentPadding( InArgs._ContentPadding )
 			.IsFocusable( InArgs._IsFocusable )
-			.IsToggleButton(InArgs._IsToggleButton)
+			.IsToggleButton(true)
 			[
 				// Button and down arrow on the right
 				// +-------------------+---+
@@ -209,6 +209,29 @@ FReply SUTComboButton::SimpleSubMenuButtonClicked(int32 MenuItemIndex)
 	}
 	return FReply::Handled();
 }
+
+void SUTComboButton::OnMenuDismissed()
+{
+	SMenuAnchor::OnMenuDismissed();
+	SetIsOpen(false, false);
+}
+
+void SUTComboButton::SetIsOpen( bool InIsOpen, const bool bFocusMenu )
+{
+	SMenuAnchor::SetIsOpen(InIsOpen, bFocusMenu);
+	if (MyButton.IsValid())
+	{
+		if (InIsOpen)
+		{
+			MyButton->BePressed();
+		}
+		else
+		{
+			MyButton->UnPressed();
+		}
+	}
+}
+
 
 void SUTComboButton::UTOnButtonClicked(int32 ButtonIndex)
 {

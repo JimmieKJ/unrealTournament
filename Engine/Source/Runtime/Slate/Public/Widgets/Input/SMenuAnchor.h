@@ -69,7 +69,7 @@ public:
 	 * @param InIsOpen    If true, open the popup. Otherwise close it.
 	 * @param bFocusMenu  Shoudl we focus the popup as soon as it opens?
 	 */
-	void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true );
+	virtual void SetIsOpen( bool InIsOpen, const bool bFocusMenu = true );
 	
 	/** @return true if the popup is open; false otherwise. */
 	bool IsOpen() const;
