@@ -6,7 +6,7 @@
 #include "UTTeamGameMode.h"
 #include "UTCTFBaseGame.generated.h"
 
-UCLASS()
+UCLASS(Abstract)
 class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 {
 	GENERATED_UCLASS_BODY()

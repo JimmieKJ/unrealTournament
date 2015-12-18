@@ -17,6 +17,7 @@
 #include "StatNames.h"
 #include "Engine/DemoNetDriver.h"
 #include "UTCTFScoreboard.h"
+#include "SNumericEntryBox.h"
 
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -27,6 +28,8 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	MercyScore = 5;
 	GoalScore = 0;
 	TimeLimit = 14;
+
+	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
 }
 
 void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -472,4 +475,70 @@ void AUTCTFGameMode::GetGood()
 #endif
 }
 
+void AUTCTFGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
+{
+	Super::CreateGameURLOptions(MenuProps);
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &MercyScore, TEXT("Mercy Score"))));
+}
 
+
+#if !UE_SERVER
+void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+{
+	Super::CreateConfigWidgets(MenuSpace,bCreateReadOnly,ConfigProps);
+	TSharedPtr< TAttributeProperty<int32> > MercyScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps,TEXT("Mercy Score")));
+
+	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
+	if (MercyScoreAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0.0f, 5.0f, 0.0f, 0.0f)
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTCTFGameMode", "MercyScore", "Mercy Score"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
+			[
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						.Text(MercyScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
+						SNew(SNumericEntryBox<int32>)
+						.Value(MercyScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+						.OnValueChanged(MercyScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+						.AllowSpin(true)
+						.Delta(1)
+						.MinValue(0)
+						.MaxValue(32)
+						.MinSliderValue(0)
+						.MaxSliderValue(32)
+						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+					)
+				]
+			]
+		];
+	}
+
+}
+
+#endif

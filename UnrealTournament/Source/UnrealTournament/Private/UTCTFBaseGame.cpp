@@ -35,8 +35,6 @@ AUTCTFBaseGame::AUTCTFBaseGame(const FObjectInitializer& ObjectInitializer)
 
 	//Add the translocator here for now :(
 	TranslocatorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C"));
-
-	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
 }
 
 void AUTCTFBaseGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

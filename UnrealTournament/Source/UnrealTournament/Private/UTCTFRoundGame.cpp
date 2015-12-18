@@ -23,6 +23,8 @@ AUTCTFRoundGame::AUTCTFRoundGame(const FObjectInitializer& ObjectInitializer)
 {
 	GoalScore = 3;
 	TimeLimit = 0;
+	DisplayName = NSLOCTEXT("UTGameMode", "CTFR", "Capture - Round based CTF");
+
 }
 
 void AUTCTFRoundGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
