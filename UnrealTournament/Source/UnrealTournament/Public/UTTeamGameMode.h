@@ -74,6 +74,12 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual bool PlayerWonChallenge() override;
 	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType) override;
 
+	virtual bool CanSpectate_Implementation(APlayerController* Viewer, APlayerState* ViewTarget) override
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(Viewer);
+		return (Viewer->PlayerState->bOnlySpectator || ViewTarget == NULL || ViewTarget->bOnlySpectator || (PC != NULL && PC->GetTeamNum() == 255) || GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(Viewer, ViewTarget));
+	}
+
 	virtual void CheckBotCount() override;
 	virtual void DefaultTimer() override;
 

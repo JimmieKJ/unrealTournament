@@ -1119,7 +1119,7 @@ bool AUTPlayerController::ServerViewPlayerState_Validate(APlayerState* PS)
 
 void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 {
-	if (IsInState(NAME_Spectating) && PS != NULL && (PlayerState == NULL || PlayerState->bOnlySpectator || GetTeamNum() == 255 || GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(PS, this)))
+	if (IsInState(NAME_Spectating) && PS != NULL && GetWorld()->GetAuthGameMode() != NULL && GetWorld()->GetAuthGameMode()->CanSpectate(this, PS))
 	{
 		SetViewTarget(PS);
 	}
