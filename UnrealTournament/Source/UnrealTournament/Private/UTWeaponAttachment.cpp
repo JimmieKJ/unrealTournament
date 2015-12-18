@@ -150,28 +150,32 @@ void AUTWeaponAttachment::PlayFiringEffects()
 	}
 
 	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-	bool bEffectsRelevant = (WS == NULL || WS->EffectIsRelevant(UTOwner, UTOwner->GetActorLocation(), true, UTOwner->IsLocallyControlled(), 50000.0f, /*2000.0f*/0.0f));
+	bool bEffectsRelevant = (WS == NULL || WS->EffectIsRelevant(UTOwner, UTOwner->GetActorLocation(), true, UTOwner->IsLocallyControlled(), 50000.0f, 2000.0f));
 	if (!bEffectsRelevant && !UTOwner->FlashLocation.IsZero())
 	{
-		// do frustum check versus fire line; can't use simple vis to location because the fire line may be visible while both endpoints are not
-		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+		bEffectsRelevant = WS->EffectIsRelevant(UTOwner, UTOwner->FlashLocation, true, UTOwner->IsLocallyControlled(), 50000.0f, 2000.0f);
+		if (!bEffectsRelevant)
 		{
-			if (It->PlayerController != NULL)
+			// do frustum check versus fire line; can't use simple vis to location because the fire line may be visible while both endpoints are not
+			for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 			{
-				FSceneViewProjectionData Projection;
-				if (It->GetProjectionData(It->ViewportClient->Viewport, eSSP_FULL, Projection))
+				if (It->PlayerController != NULL)
 				{
-					FConvexVolume Frustum;
-					GetViewFrustumBounds(Frustum, Projection.ProjectionMatrix, true);
-					FPoly TestPoly;
-					TestPoly.Init();
-					TestPoly.InsertVertex(0, UTOwner->GetActorLocation());
-					TestPoly.InsertVertex(1, UTOwner->FlashLocation);
-					TestPoly.InsertVertex(2, (UTOwner->GetActorLocation() + UTOwner->FlashLocation) * 0.5f + FVector(0.0f, 0.0f, 1.0f));
-					if (Frustum.ClipPolygon(TestPoly))
+					FSceneViewProjectionData Projection;
+					if (It->GetProjectionData(It->ViewportClient->Viewport, eSSP_FULL, Projection))
 					{
-						bEffectsRelevant = true;
-						break;
+						FConvexVolume Frustum;
+						GetViewFrustumBounds(Frustum, Projection.ComputeViewProjectionMatrix(), false);
+						FPoly TestPoly;
+						TestPoly.Init();
+						TestPoly.InsertVertex(0, UTOwner->GetActorLocation());
+						TestPoly.InsertVertex(1, UTOwner->FlashLocation);
+						TestPoly.InsertVertex(2, (UTOwner->GetActorLocation() + UTOwner->FlashLocation) * 0.5f + FVector(0.0f, 0.0f, 1.0f));
+						if (Frustum.ClipPolygon(TestPoly))
+						{
+							bEffectsRelevant = true;
+							break;
+						}
 					}
 				}
 			}
@@ -182,6 +186,8 @@ void AUTWeaponAttachment::PlayFiringEffects()
 	{
 		return;
 	}
+
+	UE_LOG(UT, Log, TEXT("Relevant"));
 
 	// update owner mesh and self so effects are spawned in the correct place
 	if (!Mesh->ShouldUpdateTransform(false))
