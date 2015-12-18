@@ -114,7 +114,6 @@ FReply SUTButton::Pressed(int32 MouseButtonIndex)
 		
 		if( ClickMethod == EButtonClickMethod::MouseDown )
 		{
-
 			//get the reply from the execute function
 
 			if (OnButtonClick.IsBound())
@@ -207,9 +206,8 @@ FReply SUTButton::OnMouseButtonDoubleClick( const FGeometry& InMyGeometry, const
 FReply SUTButton::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
 {
 	const bool bIsUnderMouse = MyGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition());
-	Released(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1, bIsUnderMouse);
 	FReply R = SButton::OnMouseButtonUp(MyGeometry, MouseEvent);
-
+	Released(MouseEvent.GetEffectingButton() == EKeys::LeftMouseButton ? 0 : 1, bIsUnderMouse);
 	return R;
 }
 
