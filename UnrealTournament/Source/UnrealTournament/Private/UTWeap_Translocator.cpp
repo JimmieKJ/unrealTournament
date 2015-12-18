@@ -30,6 +30,9 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	KillStatsName = NAME_TelefragKills;
 	DeathStatsName = NAME_TelefragDeaths;
 	DisplayName = NSLOCTEXT("UTWeap_Translocator", "DisplayName", "Telefrag");
+
+	FirstFireInterval = 0.12f;
+	MinFastTranslocInterval = 0.7f;
 }
 
 void AUTWeap_Translocator::PostInitProperties()
@@ -135,6 +138,16 @@ void AUTWeap_Translocator::FireShot()
 					}
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
 				}
+				// special recovery time for first shot
+				if (GetWorld()->GetTimeSeconds() - LastTranslocTime > MinFastTranslocInterval)
+				{
+					UUTWeaponStateFiringOnce* CurrentFiringState = Cast<UUTWeaponStateFiringOnce>(CurrentState);
+					if (CurrentFiringState && GetWorldTimerManager().IsTimerActive(CurrentFiringState->RefireCheckHandle))
+					{
+						typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
+						GetWorldTimerManager().SetTimer(CurrentFiringState->RefireCheckHandle, CurrentFiringState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, FirstFireInterval, false);
+					}
+				}
 			}
 			else if (TransDisk->TransState == TLS_Disrupted)
 			{
@@ -219,6 +232,7 @@ void AUTWeap_Translocator::FireShot()
 						AUTCharacter* SavedOwner = UTOwner;
 						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
 						{
+							LastTranslocTime = GetWorld()->GetTimeSeconds();
 							ConsumeAmmo(CurrentFireMode);
 							if (UTOwner && UTOwner->UTCharacterMovement && UTOwner->UTCharacterMovement->bIsFloorSliding)
 							{

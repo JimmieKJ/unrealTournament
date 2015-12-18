@@ -49,6 +49,18 @@ class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
 	float RecallFireInterval;
 
+	/** alternate shorter refire delay for transloc when haven't recently translocated */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+		float FirstFireInterval;
+
+	/** alternate shorter refire delay for transloc when haven't recently translocated */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+		float LastTranslocTime;
+
+	/** Minium time since last translocated to get FirstFireInterval. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+		float MinFastTranslocInterval;
+
 	virtual FRotator GetAdjustedAim_Implementation(FVector StartFireLoc) override;
 
 	/** Adjust pitch of projectile shot by this amount of degrees (scaled down as player aims up). */
