@@ -83,7 +83,7 @@ class UNREALTOURNAMENT_API UUTTimerMessage : public UUTLocalMessage
 				CurrentLeader = Team->TeamName;
 			}
 		}
-		Result = FText::Format(Result, FText::Format(LeadingText, CurrentLeader));
+		Result = FText::Format(Result, CurrentLeader.IsEmpty() ? CurrentLeader : FText::Format(LeadingText, CurrentLeader));
 		return Result;
 	}
 };
