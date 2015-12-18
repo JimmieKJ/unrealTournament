@@ -327,7 +327,7 @@ TSharedRef< SWidget > STransformViewportToolBar::MakeTransformToolBar( const TSh
 									.Label(this ,&STransformViewportToolBar::GetScaleGridLabel)
 									.OnGetMenuContent(this, &STransformViewportToolBar::FillScaleGridSnapMenu)
 									.ToggleButtonToolTip(Command->GetDescription())
-									.MenuButtonToolTip(LOCTEXT("ScaleGridSnap_ToolTip", "Set the Scale Grid Snap value"))
+									.MenuButtonToolTip(LOCTEXT("ScaleGridSnap_ToolTip", "Set scaling options"))
 									.Icon(Command->GetIcon())
 									.ParentToolBar(SharedThis(this))
 									, ScaleSnapName );
@@ -724,6 +724,8 @@ TSharedRef<SWidget> STransformViewportToolBar::FillScaleGridSnapMenu()
 
 	FMenuBuilder ScaleGridMenuBuilder( bShouldCloseWindowAfterMenuSelection, CommandList );
 
+	ScaleGridMenuBuilder.BeginSection("ScaleSnapOptions", LOCTEXT("ScaleSnapOptions", "Scale Snap"));
+
 	for( int32 CurGridAmountIndex = 0; CurGridAmountIndex < ViewportSettings->ScalingGridSizes.Num(); ++CurGridAmountIndex )
 	{
 		const float CurGridAmount = ViewportSettings->ScalingGridSizes[ CurGridAmountIndex ];
@@ -752,10 +754,11 @@ TSharedRef<SWidget> STransformViewportToolBar::FillScaleGridSnapMenu()
 			NAME_None,
 			EUserInterfaceActionType::RadioButton );
 	}
+	ScaleGridMenuBuilder.EndSection();
 
 	if( !GEditor->UsePercentageBasedScaling() )
 	{
-		ScaleGridMenuBuilder.AddMenuSeparator();
+		ScaleGridMenuBuilder.BeginSection("ScaleGeneralOptions", LOCTEXT("ScaleOptions", "Scaling Options"));
 
 		ScaleGridMenuBuilder.AddMenuEntry(
 			LOCTEXT("ScaleGridPreserveNonUniformScale", "Preserve Non-Uniform Scale"),
@@ -766,6 +769,8 @@ TSharedRef<SWidget> STransformViewportToolBar::FillScaleGridSnapMenu()
 			FIsActionChecked::CreateStatic( &STransformViewportToolBar::IsPreserveNonUniformScaleChecked ) ),
 			NAME_None,
 			EUserInterfaceActionType::Check );
+
+		ScaleGridMenuBuilder.EndSection();
 	}
 
 

@@ -3317,7 +3317,7 @@ static float CheckScaleValue( float ScaleDeltaToCheck, float CurrentScaleFactor,
 		AbsoluteScaleValue = FMath::GridSnap( AbsoluteScaleValue, GEditor->GetScaleGridSize() );
 	}
 	// In some situations CurrentExtent can be 0 (eg: when scaling a plane in Z), this causes a divide by 0 that we need to avoid.
-	if(CurrentExtent < KINDA_SMALL_NUMBER) {
+	if(FMath::Abs(CurrentExtent) < KINDA_SMALL_NUMBER) {
 		return AbsoluteScaleValue;
 	}
 	float UnscaledExtent = CurrentExtent / CurrentScaleFactor;
@@ -3337,30 +3337,77 @@ static float CheckScaleValue( float ScaleDeltaToCheck, float CurrentScaleFactor,
 	return AbsoluteScaleValue;
 }
 
-/** 
- * Helper function for ValidateScale().
- * If the setting is enabled, this function will appropriately re-scale the scale delta so that 
- * proportions are preserved when snapping.
- * @param	CurrentScale	The object's current scale
- * @param	bActiveAxes		The axes that are active when scaling interactively.
- * @param	InOutScaleDelta	The scale delta we are potentially transforming.
- * @return true if the axes should be snapped individually, according to the snap setting (i.e. this function had no effect)
- */
-static bool OptionallyPreserveNonUniformScale(const FVector& InCurrentScale, const bool bActiveAxes[3], FVector& InOutScaleDelta)
+/**
+* Helper function for ValidateScale().
+* If the "PreserveNonUniformScale" setting is enabled, this function will appropriately re-scale the scale delta so that
+* proportions are preserved also when snapping.
+* This function will modify the scale delta sign so that scaling is apply in the good direction when using multiple axis in same time.
+* The function will not transform the scale delta in the case the scale delta is not uniform
+* @param    InOriginalPreDragScale		The object's original scale
+* @param	bActiveAxes					The axes that are active when scaling interactively.
+* @param	InOutScaleDelta				The scale delta we are potentially transforming.
+* @return true if the axes should be snapped individually, according to the snap setting (i.e. this function had no effect)
+*/
+static bool ApplyScalingOptions(const FVector& InOriginalPreDragScale, const bool bActiveAxes[3], FVector& InOutScaleDelta)
 {
+	int ActiveAxisCount = 0;
+	bool CurrentValueSameSign = true;
+	bool FirstSignPositive = true;
+	float MaxComponentSum = -1.0f;
+	int32 MaxAxisIndex = -1;
 	const ULevelEditorViewportSettings* ViewportSettings = GetDefault<ULevelEditorViewportSettings>();
+	bool SnapScaleAfter = ViewportSettings->SnapScaleEnabled;
 
-	if(ViewportSettings->SnapScaleEnabled && ViewportSettings->PreserveNonUniformScale)
+	//Found the number of active axis
+	//Found if we have to swap some sign
+	for (int Axis = 0; Axis < 3; ++Axis)
 	{
-		// when using 'auto-precision', we take the max component & snap its scale, then proportionally scale the other components
-		float MaxComponentSum = -1.0f;
-		int32 MaxAxisIndex = -1;
-		for( int Axis = 0; Axis < 3; ++Axis )
+		if (bActiveAxes[Axis])
 		{
-			if( bActiveAxes[Axis] ) 
+			bool CurrentValueIsZero = FMath::IsNearlyZero(InOriginalPreDragScale[Axis], SMALL_NUMBER);
+			//when the current value is zero we assume it is positive
+			bool IsCurrentValueSignPositive = CurrentValueIsZero ? true : InOriginalPreDragScale[Axis] > 0.0f;
+			if (ActiveAxisCount == 0)
 			{
-				const float AbsScale = FMath::Abs(InOutScaleDelta[Axis] + InCurrentScale[Axis]);
-				if(AbsScale > MaxComponentSum)
+				//Set the first value when we find the first active axis
+				FirstSignPositive = IsCurrentValueSignPositive;
+			}
+			else
+			{
+				if (FirstSignPositive != IsCurrentValueSignPositive)
+				{
+					CurrentValueSameSign = false;
+				}
+			}
+			ActiveAxisCount++;
+		}
+	}
+
+	//If we scale more then one axis and
+	//we have to swap some sign
+	if (ActiveAxisCount > 1 && !CurrentValueSameSign)
+	{
+		//Change the scale delta to reflect the sign of the value
+		for (int Axis = 0; Axis < 3; ++Axis)
+		{
+			if (bActiveAxes[Axis])
+			{
+				bool CurrentValueIsZero = FMath::IsNearlyZero(InOriginalPreDragScale[Axis], SMALL_NUMBER);
+				//when the current value is zero we assume it is positive
+				bool IsCurrentValueSignPositive = CurrentValueIsZero ? true : InOriginalPreDragScale[Axis] > 0.0f;
+				InOutScaleDelta[Axis] = IsCurrentValueSignPositive ? InOutScaleDelta[Axis] : -(InOutScaleDelta[Axis]);
+			}
+		}
+	}
+
+	if (ViewportSettings->PreserveNonUniformScale)
+	{
+		for (int Axis = 0; Axis < 3; ++Axis)
+		{
+			if (bActiveAxes[Axis])
+			{
+				const float AbsScale = FMath::Abs(InOutScaleDelta[Axis] + InOriginalPreDragScale[Axis]);
+				if (AbsScale > MaxComponentSum)
 				{
 					MaxAxisIndex = Axis;
 					MaxComponentSum = AbsScale;
@@ -3370,38 +3417,40 @@ static bool OptionallyPreserveNonUniformScale(const FVector& InCurrentScale, con
 
 		check(MaxAxisIndex != -1);
 
-		float AbsoluteScaleValue = FMath::GridSnap( InCurrentScale[MaxAxisIndex] + InOutScaleDelta[MaxAxisIndex], GEditor->GetScaleGridSize() );
-		float ScaleRatioMax = InCurrentScale[MaxAxisIndex] == 0.0f ? 1.0f : AbsoluteScaleValue / InCurrentScale[MaxAxisIndex];
-		for( int Axis = 0; Axis < 3; ++Axis )
+		float AbsoluteScaleValue = InOriginalPreDragScale[MaxAxisIndex] + InOutScaleDelta[MaxAxisIndex];
+		if (ViewportSettings->SnapScaleEnabled)
 		{
-			if( bActiveAxes[Axis] ) 
-			{
-				if(Axis == MaxAxisIndex)
-				{
-					InOutScaleDelta[Axis] = AbsoluteScaleValue - InCurrentScale[Axis];
-				}
-				else
-				{
-					InOutScaleDelta[Axis] = (InCurrentScale[Axis] * ScaleRatioMax) - InCurrentScale[Axis];
-				}
-			}
+			AbsoluteScaleValue = FMath::GridSnap(InOriginalPreDragScale[MaxAxisIndex] + InOutScaleDelta[MaxAxisIndex], GEditor->GetScaleGridSize());
+			SnapScaleAfter = false;
 		}
 
-		return false;
+		float ScaleRatioMax = 1.0f;
+		ScaleRatioMax = AbsoluteScaleValue / InOriginalPreDragScale[MaxAxisIndex];
+		for (int Axis = 0; Axis < 3; ++Axis)
+		{
+			if (bActiveAxes[Axis])
+			{
+				InOutScaleDelta[Axis] = (InOriginalPreDragScale[Axis] * ScaleRatioMax) - InOriginalPreDragScale[Axis];
+			}
+		}
 	}
 
-	return ViewportSettings->SnapScaleEnabled;
+	
+	return SnapScaleAfter;
 }
 
+
 /** Helper function for ModifyScale - Check scale criteria to see if this is allowed */
-void FLevelEditorViewportClient::ValidateScale( const FVector& InCurrentScale, const FVector& InBoxExtent, FVector& InOutScaleDelta, bool bInCheckSmallExtent ) const
+void FLevelEditorViewportClient::ValidateScale(const FVector& InOriginalPreDragScale, const FVector& InCurrentScale, const FVector& InBoxExtent, FVector& InOutScaleDelta, bool bInCheckSmallExtent ) const
 {
 	// get the axes that are active in this operation
 	bool bActiveAxes[3];
 	CheckActiveAxes( Widget != NULL ? Widget->GetCurrentAxis() : EAxisList::None, bActiveAxes );
 
-	bool bSnapAxes = OptionallyPreserveNonUniformScale(InCurrentScale, bActiveAxes, InOutScaleDelta);
-	
+	//When scaling with more then one active axis, We must make sure we apply the correct delta sign to each delta scale axis
+	//We also want to support the PreserveNonUniformScale option
+	bool bSnapAxes = ApplyScalingOptions(InOriginalPreDragScale, bActiveAxes, InOutScaleDelta);
+
 	// check each axis
 	for( int Axis = 0; Axis < 3; ++Axis )
 	{
@@ -3425,7 +3474,14 @@ void FLevelEditorViewportClient::ModifyScale( AActor* InActor, FVector& ScaleDel
 
 		const FBox LocalBox = InActor->GetComponentsBoundingBox( true );
 		const FVector ScaledExtents = LocalBox.GetExtent() * CurrentScale;
-		ValidateScale( CurrentScale, ScaledExtents, ScaleDelta, bCheckSmallExtent );
+		const FTransform* PreDragTransform = PreDragActorTransforms.Find(InActor);
+		//In scale mode we need the predrag transform before the first delta calculation
+		if (PreDragTransform == nullptr)
+		{
+			PreDragTransform = &PreDragActorTransforms.Add(InActor, InActor->GetTransform());
+		}
+		check(PreDragTransform);
+		ValidateScale(PreDragTransform->GetScale3D(), CurrentScale, ScaledExtents, ScaleDelta, bCheckSmallExtent);
 
 		if( ScaleDelta.IsNearlyZero() )
 		{
@@ -3436,7 +3492,17 @@ void FLevelEditorViewportClient::ModifyScale( AActor* InActor, FVector& ScaleDel
 
 void FLevelEditorViewportClient::ModifyScale( USceneComponent* InComponent, FVector& ScaleDelta ) const
 {
-	ValidateScale( InComponent->RelativeScale3D, InComponent->Bounds.GetBox().GetExtent(), ScaleDelta );
+	AActor* Actor = InComponent->GetOwner();
+	const FTransform* PreDragTransform = PreDragActorTransforms.Find(Actor);
+	//In scale mode we need the predrag transform before the first delta calculation
+	if (PreDragTransform == nullptr)
+	{
+		PreDragTransform = &PreDragActorTransforms.Add(Actor, Actor->GetTransform());
+	}
+	check(PreDragTransform);
+	const FBox LocalBox = Actor->GetComponentsBoundingBox(true);
+	const FVector ScaledExtents = LocalBox.GetExtent() * InComponent->RelativeScale3D;
+	ValidateScale(PreDragTransform->GetScale3D(), InComponent->RelativeScale3D, ScaledExtents, ScaleDelta);
 
 	if( ScaleDelta.IsNearlyZero() )
 	{

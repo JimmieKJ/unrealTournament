@@ -624,7 +624,7 @@ private:
 
 	/** Helper functions for ApplyDeltaTo* functions - modifies scale based on grid settings */
 	void ModifyScale( AActor* InActor, FVector& ScaleDelta, bool bCheckSmallExtent = false ) const;
-	void ValidateScale( const FVector& CurrentScale, const FVector& BoxExtent, FVector& ScaleDelta, bool bCheckSmallExtent = false ) const;
+	void ValidateScale( const FVector& InOriginalPreDragScale, const FVector& CurrentScale, const FVector& BoxExtent, FVector& ScaleDelta, bool bCheckSmallExtent = false ) const;
 
 	/** Project the specified actors into the world according to the current drag parameters */
 	void ProjectActorsIntoWorld(const TArray<AActor*>& Actors, FViewport* Viewport, const FVector& Drag, const FRotator& Rot);
@@ -699,7 +699,7 @@ private:
 	static TArray< TWeakObjectPtr< AActor > > DropPreviewActors;
 
 	/** A map of actor locations before a drag operation */
-	TMap<TWeakObjectPtr<AActor>, FTransform> PreDragActorTransforms;
+	mutable TMap<TWeakObjectPtr<AActor>, FTransform> PreDragActorTransforms;
 
 	/** Bit array representing the visibility of every sprite category in the current viewport */
 	TBitArray<>	SpriteCategoryVisibility;
