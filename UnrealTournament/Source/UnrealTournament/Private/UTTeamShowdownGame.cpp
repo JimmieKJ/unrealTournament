@@ -10,6 +10,7 @@
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
 #include "UTChallengeManager.h"
+#include "UTDroppedAmmoBox.h"
 #include "Slate/SlateGameResources.h"
 #include "Slate/SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
@@ -134,6 +135,21 @@ void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
 				}
 				It->DropFrom(UTC->GetActorLocation(), FinalDir * 1000.0f + FVector(0.0f, 0.0f, 250.0f));
 				i++;
+			}
+		}
+		// spawn ammo box with any unassigned ammo
+		if (UTC->SavedAmmo.Num() > 0)
+		{
+			FVector FinalDir = FMath::VRand();
+			FinalDir.Z = 0.0f;
+			FinalDir.Normalize();
+			FActorSpawnParameters Params;
+			Params.Instigator = UTC;
+			AUTDroppedAmmoBox* Pickup = GetWorld()->SpawnActor<AUTDroppedAmmoBox>(AUTDroppedAmmoBox::StaticClass(), UTC->GetActorLocation(), FinalDir.Rotation(), Params);
+			if (Pickup != NULL)
+			{
+				Pickup->Movement->Velocity = FinalDir * 1000.0f + FVector(0.0f, 0.0f, 250.0f);
+				Pickup->Ammo = UTC->SavedAmmo;
 			}
 		}
 	}
