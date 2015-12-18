@@ -3961,9 +3961,9 @@ void AUTCharacter::Tick(float DeltaTime)
 		else
 		{
 			SetLocalAmbientSound(FallingAmbientSound, 0.f, true);
-			if (bApplyWallSlide)
+			if (bApplyWallSlide || (UTCharacterMovement && UTCharacterMovement->bSlidingAlongWall))
 			{
-				SetLocalAmbientSound(WallSlideAmbientSound, 1.f, false);
+				SetLocalAmbientSound(WallSlideAmbientSound, 2.f, false);
 			}
 			else if (GetCharacterMovement()->IsMovingOnGround() && (GetCharacterMovement()->Velocity.Size2D() > SprintAmbientStartSpeed))
 			{

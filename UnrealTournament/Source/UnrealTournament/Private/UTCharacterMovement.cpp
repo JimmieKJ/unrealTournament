@@ -313,7 +313,7 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 void UUTCharacterMovement::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
 {
 	Super::OnMovementModeChanged(PreviousMovementMode, PreviousCustomMode);
-
+	bSlidingAlongWall = false;
 	if (MovementMode == MOVE_Swimming)
 	{
 		FVector HorizontalVelocity = Velocity;
@@ -950,7 +950,7 @@ void UUTCharacterMovement::PerformMovement(float DeltaSeconds)
 		return;
 	}
 	AUTCharacter* UTOwner = Cast<AUTCharacter>(CharacterOwner);
-
+	bSlidingAlongWall = false;
 	if (!UTOwner || !UTOwner->IsRagdoll())
 	{
 		float RealGroundFriction = GroundFriction;
@@ -1579,6 +1579,15 @@ float UUTCharacterMovement::GetGravityZ() const
 		return Super::GetGravityZ() * SlideGravityScaling * (1.f - FMath::Square(WallSlideNormal.Z));
 	}
 	return Super::GetGravityZ();
+}
+
+float UUTCharacterMovement::SlideAlongSurface(const FVector& Delta, float Time, const FVector& InNormal, FHitResult& Hit, bool bHandleImpact)
+{
+	if (Hit.bBlockingHit)
+	{
+		bSlidingAlongWall = true;
+	}
+	return Super::SlideAlongSurface(Delta, Time, InNormal, Hit, bHandleImpact);
 }
 
 void UUTCharacterMovement::PhysSwimming(float deltaTime, int32 Iterations)
