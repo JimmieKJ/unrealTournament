@@ -1076,7 +1076,7 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 		}
 	}
 
-	if (!TeamPlayerStates.IsValidIndex(TeamNum))
+	if (!TeamPlayerStates.IsValidIndex(TeamIndex))
 	{
 		return;
 	}
