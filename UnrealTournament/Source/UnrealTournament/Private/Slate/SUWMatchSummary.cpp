@@ -1051,6 +1051,10 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 	}
 	PlayerPreviewMeshs.Empty();
 	TeamPreviewMeshs.Empty();
+	if (TeamIndex == 255)
+	{
+		TeamIndex = 0;
+	}
 
 	//Gather All of the playerstates
 	TArray<TArray<class AUTPlayerState*> > TeamPlayerStates;
@@ -1072,6 +1076,10 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 		}
 	}
 
+	if (!TeamPlayerStates.IsValidIndex(TeamNum))
+	{
+		return;
+	}
 	// determine match highlight scores to use for sorting
 	for (int32 i = 0; i < TeamPlayerStates[TeamIndex].Num(); i++)
 	{
