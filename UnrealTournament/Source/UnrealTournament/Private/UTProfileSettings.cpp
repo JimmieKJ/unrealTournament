@@ -207,26 +207,26 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 
 	// Unfortunately, the profile may have multiple WeaponPriorites due to older bugs, so let's clean it up here
 
-	int32 i = 1;
-	while (i < WeaponPriorities.Num())
+	int32 WeaponPriIdx = 1;
+	while (WeaponPriIdx < WeaponPriorities.Num())
 	{
 		bool bFound = false;
-		for (int32 j = 0; j < i; j++)
+		for (int32 j = 0; j < WeaponPriIdx; j++)
 		{
-			if (WeaponPriorities[j].WeaponClassName == WeaponPriorities[i].WeaponClassName)
+			if (WeaponPriorities[j].WeaponClassName == WeaponPriorities[WeaponPriIdx].WeaponClassName)
 			{
 				bFound = true;
-				UE_LOG(UT,Log,TEXT("Found Duplicate %s"), *WeaponPriorities[i].WeaponClassName);
+				UE_LOG(UT, Log, TEXT("Found Duplicate %s"), *WeaponPriorities[WeaponPriIdx].WeaponClassName);
 			}
 		}
 
 		if (bFound)
 		{
-			WeaponPriorities.RemoveAt(i);
+			WeaponPriorities.RemoveAt(WeaponPriIdx);
 		}
 		else
 		{
-			i++;
+			WeaponPriIdx++;
 		}
 	}
 

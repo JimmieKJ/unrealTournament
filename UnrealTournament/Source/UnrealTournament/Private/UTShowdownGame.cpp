@@ -447,9 +447,9 @@ void AUTShowdownGame::HandleMatchIntermission()
 
 	// give players spawn point selection
 	TMultiMap<AUTTeamInfo*, AUTPlayerState*> TeamPlayers;
-	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+	for (FConstControllerIterator ControllerIt = GetWorld()->GetControllerIterator(); ControllerIt; ++ControllerIt)
 	{
-		AController* C = It->Get();
+		AController* C = ControllerIt->Get();
 		if (C != NULL)
 		{
 			APawn* P = C->GetPawn();
