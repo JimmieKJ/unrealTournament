@@ -13,7 +13,7 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 	EndGameFreeCamDistance = 55.0f;
 
 	DeathCamDistance = 55.f;
-	DeathCamOffset = FVector(-128.f, 0.f, 15.f);
+	DeathCamOffset = FVector(-128.f, 0.f, 30.f);
 	FlagBaseFreeCamOffset = FVector(0, 0, 90);
 	bUseClientSideCameraUpdates = false;
 	
@@ -235,8 +235,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
-
-		bool bUseDeathCam = (UTCharacter->IsDead() || UTCharacter->IsRagdoll());
+		bool bUseDeathCam = !bGameOver && UTCharacter && (UTCharacter->IsDead() || UTCharacter->IsRagdoll());
 
 		float CameraDistance = bUseDeathCam ? DeathCamDistance : FreeCamDistance;
 		FVector CameraOffset = bUseDeathCam ? DeathCamOffset : FreeCamOffset;
@@ -246,6 +245,11 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			CameraOffset = EndGameFreeCamOffset;
 		}
 		FRotator Rotator = (!UTPC || (UTPC->MouseButtonPressCount > 0)) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
+		if (bUseDeathCam)
+		{
+			Rotator.Pitch = FRotator::NormalizeAxis(Rotator.Pitch);
+			Rotator.Pitch = FMath::Clamp(Rotator.Pitch, -85.f, -5.f);
+		}
 		if (Cast<AUTProjectile>(TargetActor) && !TargetActor->IsPendingKillPending())
 		{
 			Rotator = TargetActor->GetVelocity().Rotation();
