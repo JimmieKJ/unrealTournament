@@ -24,7 +24,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	GameChanger = NSLOCTEXT("UTGameMessage", "GameChanger", "Game Changer!");
 	KickVote = NSLOCTEXT("UTGameMessage", "KickVote", "{Player1Name} voted to kick {Player2Name}");
 	NotEnoughMoney = NSLOCTEXT("UTGameMessage", "NotEnoughMoney", "{Player1Name}, you lack the funds to buy it.");
-	PotentialSpeedHack = NSLOCTEXT("UTGameMessage", "Speedhack", "Possible speedhack detected.");
+	PotentialSpeedHack = NSLOCTEXT("UTGameMessage", "Speedhack", "Server or network hitching.");
 
 	bIsStatusAnnouncement = true;
 }
