@@ -18,7 +18,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	// MinTimeBetweenTimeStampResets = 5.f;
 	MinTimeBetweenTimeStampResets = 10000.f;
 
-	MaxWalkSpeed = 930.f;
+	MaxWalkSpeed = 940.f;
 	MaxCustomMovementSpeed = MaxWalkSpeed;
 
 	WallDodgeTraceDist = 50.f;
@@ -61,7 +61,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	BrakingDecelerationFalling = 0.f;
 	BrakingDecelerationSwimming = 300.f;
 	BrakingDecelerationSliding = 300.f;
-	GroundFriction = 11.f;
+	GroundFriction = 11.5f;
 	BrakingFriction = 5.f;
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
