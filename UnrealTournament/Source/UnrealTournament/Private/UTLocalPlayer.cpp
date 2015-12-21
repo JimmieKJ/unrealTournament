@@ -3524,6 +3524,11 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 
 		int32 AllStars = GetTotalChallengeStars();
 		CurrentProfileSettings->TotalChallengeStars = AllStars;
+		AUTPlayerState* PS = PlayerController ? Cast<AUTPlayerState>(PlayerController->PlayerState) : NULL;
+		if (PS)
+		{
+			PS->TotalChallengeStars = AllStars;
+		}
 		SaveProfileSettings();
 
 		if (FUTAnalytics::IsAvailable())
