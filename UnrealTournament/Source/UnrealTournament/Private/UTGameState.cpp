@@ -1328,9 +1328,9 @@ void AUTGameState::UpdateHighlights_Implementation()
 		}
 	}
 
-	for (int32 i = 0; i < PlayerArray.Num(); i++)
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		AUTPlayerState* PS = *It;
 		if (PS && !PS->bOnlySpectator)
 		{
 			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
@@ -1421,9 +1421,9 @@ void AUTGameState::UpdateHighlights_Implementation()
 		MostAirRoxPS->AddMatchHighlight(HighlightNames::MostAirRockets, MostAirRoxPS->GetStatsValue(NAME_AirRox));
 	}
 
-	for (int32 i = 0; i < PlayerArray.Num(); i++)
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		AUTPlayerState* PS = *It;
 		if (PS  && !PS->bOnlySpectator)
 		{
 			// only add low priority highlights if not enough high priority highlights

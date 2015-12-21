@@ -423,9 +423,9 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 	AUTPlayerState* TopAssists[2] = { NULL, NULL };
 	AUTPlayerState* TopFlagReturns[2] = { NULL, NULL };
 
-	for (int32 i = 0; i < PlayerArray.Num(); i++)
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		AUTPlayerState* PS = *It;
 		if (PS && !PS->bOnlySpectator)
 		{
 			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
@@ -471,9 +471,9 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 	}
 
 	// add flag results for non-top players
-	for (int32 i = 0; i < PlayerArray.Num(); i++)
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		AUTPlayerState* PS = *It;
 		if (PS && PS->Team)
 		{
 			int32 TeamIndex = PS->Team->TeamIndex;
