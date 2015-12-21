@@ -21,7 +21,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	GetMesh()->SetAbsolute(false, false, true);
 
 	MeshOffset = FVector(-64.f, 0.f, -48.f);
-	HeldOffset = FVector(0.f, 0.f, -48.f);
+	HeldOffset = FVector(0.f, 0.f, 0.f);
 	HomeBaseOffset = FVector(64.f, 0.f, -8.f);
 
 	FlagWorldScale = 1.75f;
