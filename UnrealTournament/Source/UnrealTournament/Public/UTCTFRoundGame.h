@@ -17,4 +17,5 @@ class UNREALTOURNAMENT_API AUTCTFRoundGame : public AUTCTFBaseGame
 	virtual void HandleFlagCapture(AUTPlayerState* Holder) override;
 	virtual void HandleExitingIntermission() override;
 	virtual void InitGameState() override;
+	virtual int32 IntermissionTeamToView(AUTPlayerController* PC) override;
 };

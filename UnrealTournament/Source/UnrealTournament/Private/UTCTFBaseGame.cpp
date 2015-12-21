@@ -222,6 +222,7 @@ void AUTCTFBaseGame::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 			// Give the team a capture.
 			Holder->Team->Score++;
 			Holder->Team->ForceNetUpdate();
+			LastTeamToScore = Holder->Team;
 			BroadcastScoreUpdate(Holder, Holder->Team);
 			AddCaptureEventToReplay(Holder, Holder->Team);
 			if (Holder->FlagCaptures == 3)
@@ -253,7 +254,6 @@ void AUTCTFBaseGame::HandleFlagCapture(AUTPlayerState* Holder)
 {
 	CheckScore(Holder);
 }
-
 
 void AUTCTFBaseGame::CheckGameTime()
 {
@@ -288,18 +288,10 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 	// Figure out who we should look at
 	// Init targets
 	TArray<AUTCharacter*> BestPlayers;
-	int32 BestTeam = 0;
-	int32 BestTeamScore = 0;
 	for (int32 i = 0; i<Teams.Num(); i++)
 	{
 		BestPlayers.Add(NULL);
 		PlacePlayersAroundFlagBase(i);
-
-		if (i == BestTeam || Teams[i]->Score > BestTeamScore)
-		{
-			BestTeamScore = Teams[i]->Score;
-			BestTeam = i;
-		}
 	}
 
 	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
@@ -330,7 +322,7 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 		if (PC != NULL)
 		{
 			PC->ClientHalftime();
-			int32 TeamToWatch = (!PC->PlayerState->bOnlySpectator && (PC->GetTeamNum() < Teams.Num())) ? PC->GetTeamNum() : BestTeam;
+			int32 TeamToWatch = IntermissionTeamToView(PC);
 			PC->SetViewTarget(CTFGameState->FlagBases[TeamToWatch]);
 		}
 	}
@@ -347,6 +339,16 @@ void AUTCTFBaseGame::HandleMatchIntermission()
 	CTFGameState->bIsAtIntermission = true;
 	CTFGameState->OnIntermissionChanged();
 	CTFGameState->SetTimeLimit(IntermissionDuration);	// Reset the Game Clock for intermission
+}
+
+int32 AUTCTFBaseGame::IntermissionTeamToView(AUTPlayerController* PC)
+{
+	if (!PC->PlayerState->bOnlySpectator && (PC->GetTeamNum() < Teams.Num()))
+	{
+		return PC->GetTeamNum();
+	}
+
+	return (Teams[1]->Score > Teams[0]->Score) ? 1 : 0;
 }
 
 void AUTCTFBaseGame::HandleExitingIntermission()

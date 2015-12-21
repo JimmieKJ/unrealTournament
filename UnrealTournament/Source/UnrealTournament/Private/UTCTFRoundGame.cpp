@@ -58,6 +58,16 @@ void AUTCTFRoundGame::HandleFlagCapture(AUTPlayerState* Holder)
 	}
 }
 
+
+int32 AUTCTFRoundGame::IntermissionTeamToView(AUTPlayerController* PC)
+{
+	if (LastTeamToScore)
+	{
+		return LastTeamToScore->TeamIndex;
+	}
+	return Super::IntermissionTeamToView(PC);
+}
+
 void AUTCTFRoundGame::BuildServerResponseRules(FString& OutRules)
 {
 	OutRules += FString::Printf(TEXT("Goal Score\t%i\t"), GoalScore);

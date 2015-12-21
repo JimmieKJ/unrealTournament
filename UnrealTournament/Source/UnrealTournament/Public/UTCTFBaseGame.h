@@ -26,6 +26,11 @@ class UNREALTOURNAMENT_API AUTCTFBaseGame : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 		int32 IntermissionDuration;
 
+	UPROPERTY(BlueprintReadOnly, Category = CTF)
+		AUTTeamInfo* LastTeamToScore;
+
+	virtual int32 IntermissionTeamToView(AUTPlayerController* PC);
+
 	TAssetSubclassOf<AUTWeapon> TranslocatorObject;
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
