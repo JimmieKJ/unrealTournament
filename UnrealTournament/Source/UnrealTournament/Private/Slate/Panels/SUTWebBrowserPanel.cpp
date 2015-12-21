@@ -39,6 +39,18 @@ void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 			+SOverlay::Slot()
 			[
 				SAssignNew(WebBrowserContainer, SVerticalBox)
+				+ SVerticalBox::Slot()
+				.VAlign(VAlign_Fill)
+				.HAlign(HAlign_Fill)
+				[
+					SAssignNew(WebBrowserPanel, SWebBrowser)
+					.InitialURL(InitialURL)
+					.ShowControls(ShowControls)
+					.ViewportSize(DesiredViewportSize)
+					.OnBeforeNavigation(SWebBrowser::FOnBeforeBrowse::CreateSP(this, &SUTWebBrowserPanel::BeforeBrowse))
+					.OnBeforePopup(FOnBeforePopupDelegate::CreateSP(this, &SUTWebBrowserPanel::BeforePopup))
+				]
+
 			]
 		];
 	}
