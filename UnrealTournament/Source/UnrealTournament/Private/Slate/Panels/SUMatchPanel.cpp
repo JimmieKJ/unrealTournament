@@ -24,7 +24,7 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 	PlayerOwner = InArgs._PlayerOwner;
 	bShowingNoMatches = false;
 	OnJoinMatchDelegate = InArgs._OnJoinMatchDelegate;
-
+	bSuspendPopups = false;
 	bExpectLiveData = InArgs._bExpectLiveData;
 
 	TSharedPtr<SVerticalBox> VertBox;
@@ -564,6 +564,8 @@ FReply SUMatchPanel::StartNewMatch()
 
 TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor> Anchor, TSharedPtr<FTrackedMatch> TrackedMatch)
 {
+	CurrentAnchor = Anchor;
+
 	// Create the player list..
 
 	TSharedPtr<SVerticalBox> VertBox;
@@ -994,6 +996,12 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 
 TSharedRef<SWidget> SUMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor, TSharedPtr<FTrackedMatch> TrackedMatch)
 {
+
+	if (bSuspendPopups)
+	{
+		return SNew(SCanvas);
+	}
+
 	return SNew(SBox).WidthOverride(420)
 		[
 			SNew(SVerticalBox)
@@ -1018,6 +1026,8 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor
 void SUMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> SelectedMatch)
 {
 	if (!SelectedMatch->CanJoin()) return;
+
+	bSuspendPopups = true;
 
 	if (ShouldUseLiveData())
 	{
@@ -1046,6 +1056,7 @@ FReply SUMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
 	if (InItem.IsValid() && InItem->CanJoin() )
 	{
+		bSuspendPopups = true;
 		if (ShouldUseLiveData())
 		{
 			if (InItem.IsValid() && InItem->MatchInfo.IsValid())
@@ -1074,6 +1085,7 @@ FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem
 {
 	if (InItem.IsValid() && InItem->CanSpectate())
 	{
+		bSuspendPopups = true;
 		if (ShouldUseLiveData())
 		{
 			if (InItem.IsValid() && InItem->MatchInfo.IsValid())

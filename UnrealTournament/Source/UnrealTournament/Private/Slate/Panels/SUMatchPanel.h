@@ -308,6 +308,8 @@ protected:
 	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
 	
 	TSharedPtr<SUTButton> DownloadContentButton;
+	TSharedPtr<SUTPopOverAnchor> CurrentAnchor;
+	bool bSuspendPopups;
 };
 
 #endif
