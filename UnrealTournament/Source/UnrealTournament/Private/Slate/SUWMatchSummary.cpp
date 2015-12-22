@@ -411,17 +411,6 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 		{
 			SetupMatchCam();
 		}
-		else if (GameState->GetMatchState() == MatchState::MatchIntermission)
-		{
-			//Reset the scoreboard page and timers
-			UUTScoreboard* Scoreboard = GetScoreboard();
-			if (Scoreboard != nullptr)
-			{
-				Scoreboard->SetPage(0);
-				Scoreboard->SetScoringPlaysTimer(true);
-			}
-			ViewAll();
-		}
 		else
 		{
 			int32 TeamToView = 0;
@@ -1064,7 +1053,7 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 		{
 			AUTPlayerState* PS = *It;
 
-			if (!PS->bOnlySpectator && !PS->IsPendingKillPending())
+			if (!PS->bOnlySpectator && !PS->IsPendingKillPending() && (!PS->bIsInactive ||(GameState->HasMatchStarted() && (PS->Score > 0.f)))
 			{
 				int32 TeamNum = PS->GetTeamNum() == 255 ? 0 : PS->GetTeamNum();
 				if (!TeamPlayerStates.IsValidIndex(TeamNum))
