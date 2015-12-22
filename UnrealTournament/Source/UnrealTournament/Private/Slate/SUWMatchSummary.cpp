@@ -1053,7 +1053,7 @@ void SUWMatchSummary::RecreateAllPlayers(int32 TeamIndex)
 		{
 			AUTPlayerState* PS = *It;
 
-			if (!PS->bOnlySpectator && !PS->IsPendingKillPending() && (!PS->bIsInactive ||(GameState->HasMatchStarted() && (PS->Score > 0.f)))
+			if (!PS->bOnlySpectator && !PS->IsPendingKillPending() && (!PS->bIsInactive ||(GameState->HasMatchStarted() && (PS->Score > 0.f))))
 			{
 				int32 TeamNum = PS->GetTeamNum() == 255 ? 0 : PS->GetTeamNum();
 				if (!TeamPlayerStates.IsValidIndex(TeamNum))
