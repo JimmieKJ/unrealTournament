@@ -750,7 +750,10 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 				bPlayersAreValid = false;
 				break;
 			}
-			TotalPlayers++;
+			if (!PS->bIsInactive)
+			{
+				TotalPlayers++;
+			}
 		}
 		if (TotalPlayers != GameState->PlayerArray.Num())
 		{
@@ -759,13 +762,7 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		if (!bPlayersAreValid)
 		{
 			RecreateAllPlayers(ViewedTeamNum);
-			if (HasCamFlag(CF_All))
-			{
-				ViewAll();
-			}
-
 			ChatPanel->FocusChat();
-
 		}
 	}
 	if (PlayerPreviewWorld != nullptr)
