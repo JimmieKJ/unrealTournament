@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidget_Spectator.h"
 #include "UTCarriedObject.h"
-
+#include "UTCTFGameState.h"
 
 UUTHUDWidget_Spectator::UUTHUDWidget_Spectator(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -150,7 +150,10 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				{
 					FFormatNamedArguments Args;
 					Args.Add("Time", FText::AsNumber(UTGameState->RemainingTime));
-					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args);
+					AUTCTFGameState* CTFGameState = Cast<AUTCTFGameState>(UTGameState);
+					SpectatorMessage = !CTFGameState || (CTFGameState->CTFRound > 0)
+											? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "HalfTime", "HALFTIME - Game resumes in {Time}"), Args)
+											: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "Intermission", "Game resumes in {Time}"), Args);
 				}
 			}
 			else if (UTPS && UTPS->bOnlySpectator)

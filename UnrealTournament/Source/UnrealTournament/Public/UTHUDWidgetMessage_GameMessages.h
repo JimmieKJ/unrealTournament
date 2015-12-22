@@ -10,6 +10,6 @@ class UNREALTOURNAMENT_API UUTHUDWidgetMessage_GameMessages : public UUTHUDWidge
 public:
 	virtual bool ShouldDraw_Implementation(bool bShowScores) override
 	{
-		return !bShowScores;
+		return !bShowScores && (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission);
 	}
 };

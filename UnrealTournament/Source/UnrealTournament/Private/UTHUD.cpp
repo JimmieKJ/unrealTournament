@@ -127,7 +127,6 @@ void AUTHUD::AddSpectatorWidgets()
 	{
 		UTLP->OpenSpectatorWindow();
 	}
-
 }
 
 void AUTHUD::PostInitializeComponents()
@@ -138,8 +137,6 @@ void AUTHUD::PostInitializeComponents()
 	{
 		UTPlayerOwner->UpdateCrosshairs(this);
 	}
-
-
 }
 
 void AUTHUD::ShowDebugInfo(float& YL, float& YPos)

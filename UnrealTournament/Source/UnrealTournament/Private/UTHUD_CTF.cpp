@@ -32,12 +32,7 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
 	}
 
-	if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission)
-	{
-		// no match summary at half-time for now
-		//GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 7.0f);
-	}
-	else
+	if (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission)
 	{
 		Super::NotifyMatchStateChange();
 	}
