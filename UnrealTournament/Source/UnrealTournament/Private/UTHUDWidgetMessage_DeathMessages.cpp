@@ -35,5 +35,5 @@ void UUTHUDWidgetMessage_DeathMessages::DrawMessages(float DeltaTime)
 
 bool UUTHUDWidgetMessage_DeathMessages::ShouldDraw_Implementation(bool bShowScores)
 {
-	return !bShowScores && (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission);
+	return !bShowScores && GetWorld()->GetGameState() &&  (GetWorld()->GetGameState()->GetMatchState() != MatchState::MatchIntermission);
 }
