@@ -80,7 +80,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 			{
 				Canvas->DrawColor = FColor(128, 128, 128, 192);
 			}
-			const float IconSize = (LastHoveredActor == *It) ? (40.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.5f, FMath::Min<float>(0.25f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 4.0f, 2.0f)) : (40.0f * RenderScale);
+			const float IconSize = (LastHoveredActor == *It) ? (40.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.5f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (40.0f * RenderScale);
 			const FVector2D NormalizedUV(PlayerStartBGIcon.U / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.V / PlayerStartBGIcon.Texture->GetSurfaceHeight());
 			const FVector2D NormalizedULVL(PlayerStartBGIcon.UL / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.VL / PlayerStartBGIcon.Texture->GetSurfaceHeight());
 			Canvas->K2_DrawTexture(PlayerStartBGIcon.Texture, Pos - FVector2D(IconSize * 0.5f, IconSize * 0.5f), FVector2D(IconSize, IconSize), NormalizedUV, NormalizedULVL, Canvas->DrawColor, BLEND_Translucent, It->GetActorRotation().Yaw + 90.0f);
@@ -109,7 +109,8 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
 			const float Ratio = Icon.UL / Icon.VL;
 			Canvas->DrawColor = It->IconColor.ToFColor(false);
-			Canvas->DrawTile(Icon.Texture, Pos.X - 24.0f * Ratio * RenderScale, Pos.Y - 24.0f * RenderScale, 48.0f * Ratio * RenderScale, 48.0f * RenderScale, Icon.U, Icon.V, Icon.UL, Icon.VL);
+			const float IconSize = (LastHoveredActor == *It) ? (48.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.25f, FMath::Min<float>(0.2f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 5.0f, 2.0f)) : (48.0f * RenderScale);
+			Canvas->DrawTile(Icon.Texture, Pos.X - 0.5f * Ratio * IconSize, Pos.Y - 0.5f * IconSize, Ratio * IconSize, IconSize, Icon.U, Icon.V, Icon.UL, Icon.VL);
 			if (LastHoveredActor == *It)
 			{
 				NamedPickup = *It;
@@ -123,6 +124,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 		float XL, YL;
 		Canvas->DrawColor = NamedPickup->IconColor.ToFColor(false);
 		Canvas->TextSize(TinyFont, NamedPickup->GetDisplayName().ToString(), XL, YL);
+		DrawTexture(SpawnHelpTextBG.Texture, NamedPickupPos.X - XL * 0.5f - 2.f, NamedPickupPos.Y - 26.0f * RenderScale - YL - 2.f, XL + 4.f, YL + 4.f, 149, 138, 32, 32, FLinearColor::Black);
 		Canvas->DrawText(TinyFont, NamedPickup->GetDisplayName(), NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - YL);
 	}
 	Canvas->DrawColor = FColor::White;
@@ -171,8 +173,13 @@ void AUTHUD_Showdown::DrawHUD()
 					{
 						// draw it
 						const float Ratio = float(SpawnPreviewCapture->TextureTarget->SizeX) / float(SpawnPreviewCapture->TextureTarget->SizeY);
+						FVector2D PreviewPos = FVector2D((0.95f*Canvas->SizeX + MapSize) * 0.5f, Canvas->SizeY * 0.2f);
+						FVector2D PreviewSize = FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeX - MapSize) * 0.5f / Ratio);
+						DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y, 1.1f*PreviewSize.X, 4, 4, 2, 124, 8, FLinearColor::White);
+						DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y + 4, 1.1f*PreviewSize.X, 1.3f*PreviewSize.Y - 8, 4, 10, 124, 112, FLinearColor::White);
+						DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y + 1.15f*PreviewSize.Y - 4, 1.1f*PreviewSize.X, 4, 4, 122, 124, 8, FLinearColor::White);
 						Canvas->DrawColor = WhiteColor;
-						Canvas->DrawTile(SpawnPreviewCapture->TextureTarget, (Canvas->SizeX + MapSize) * 0.5f, Canvas->SizeY * 0.25f, (Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeX - MapSize) * 0.5f / Ratio, 0.0f, 0.0f, SpawnPreviewCapture->TextureTarget->SizeX, SpawnPreviewCapture->TextureTarget->SizeY, BLEND_Opaque);
+						Canvas->DrawTile(SpawnPreviewCapture->TextureTarget, PreviewPos.X, PreviewPos.Y, PreviewSize.X, PreviewSize.Y, 0.0f, 0.0f, SpawnPreviewCapture->TextureTarget->SizeX, SpawnPreviewCapture->TextureTarget->SizeY, BLEND_Opaque);
 					}
 				}
 			}
@@ -196,7 +203,6 @@ void AUTHUD_Showdown::DrawHUD()
 		}
 
 		// draw spawn selection order
-
 		TArray<AUTPlayerState*> LivePlayers;
 		for (APlayerState* PS : GS->PlayerArray)
 		{
@@ -347,6 +353,8 @@ EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation() const
 
 AActor* AUTHUD_Showdown::FindHoveredIconActor() const
 {
+	AActor* BestHovered = NULL;
+	float BestHoverDist = 40.f;
 	if (GetInputMode() == EInputMode::EIM_GameAndUI)
 	{
 		FVector2D ClickPos;
@@ -358,9 +366,11 @@ AActor* AUTHUD_Showdown::FindHoveredIconActor() const
 			if (UTStart == NULL || !UTStart->bIgnoreInShowdown)
 			{
 				FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-				if ((ClickPos - Pos).Size() < 40.0f)
+				float NewHoverDist = (ClickPos - Pos).Size();
+				if (NewHoverDist < BestHoverDist)
 				{
-					return *It;
+					BestHovered = *It;
+					BestHoverDist = NewHoverDist;
 				}
 			}
 		}
@@ -370,14 +380,16 @@ AActor* AUTHUD_Showdown::FindHoveredIconActor() const
 			if (Icon.Texture != NULL)
 			{
 				FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-				if ((ClickPos - Pos).Size() < 40.0f)
+				float NewHoverDist = (ClickPos - Pos).Size();
+				if (NewHoverDist < BestHoverDist)
 				{
-					return *It;
+					BestHovered = *It;
+					BestHoverDist = NewHoverDist;
 				}
 			}
 		}
 	}
-	return NULL;
+	return BestHovered;
 }
 
 bool AUTHUD_Showdown::OverrideMouseClick(FKey Key, EInputEvent EventType)
