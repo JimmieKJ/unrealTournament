@@ -1429,7 +1429,7 @@ bool UCookOnTheFlyServer::IsCookOnTheFlyMode() const
 
 FString UCookOnTheFlyServer::GetDLCContentPath()
 {
-	return FPaths::GamePluginsDir() / CookByTheBookOptions->DlcName / FString(TEXT("Content"));
+	return FPaths::GamePluginsDir() / CookByTheBookOptions->DlcName / FString(TEXT("Content")); 
 }
 
 COREUOBJECT_API extern bool GOutputCookingWarnings;
@@ -2838,7 +2838,9 @@ FString UCookOnTheFlyServer::GetOutputDirectoryOverride() const
 		if ( IsCookingDLC() )
 		{
 			check( IsCookByTheBookMode() );
-			OutputDirectory = FPaths::Combine(*FPaths::GamePluginsDir(), *CookByTheBookOptions->DlcName, TEXT("Saved"), TEXT("Cooked"), TEXT("[Platform]"));
+			//OutputDirectory = FPaths::Combine(*FPaths::GamePluginsDir(), *CookByTheBookOptions->DlcName, TEXT("Saved"), TEXT("Cooked"), TEXT("[Platform]"));
+			// plk - hack, still not requiring plugins
+			OutputDirectory = FPaths::Combine(*FPaths::GameDir(), TEXT("Saved"), TEXT("Cooked"), *CookByTheBookOptions->DlcName, TEXT("[Platform]"));
 		}
 		else
 		{
