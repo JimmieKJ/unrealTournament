@@ -1609,6 +1609,11 @@ void AUTGameMode::HandleMatchHasStarted()
 
 	Super::HandleMatchHasStarted();
 
+	if (UTIsHandlingReplays() && GetGameInstance() != nullptr)
+	{
+		GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
+	}
+
 	UTGameState->SetTimeLimit(TimeLimit);
 	bFirstBloodOccurred = false;
 	AnnounceMatchStart();
@@ -1888,10 +1893,21 @@ float AUTGameMode::GetTravelDelay()
 
 void AUTGameMode::StopReplayRecording()
 {
-	if (IsHandlingReplays() && GetGameInstance() != nullptr)
+	if (UTIsHandlingReplays() && GetGameInstance() != nullptr)
 	{
 		GetGameInstance()->StopRecordingReplay();
 	}
+}
+
+bool AUTGameMode::UTIsHandlingReplays()
+{
+	// If we're running in PIE, don't record demos
+	if (GetWorld() != nullptr && GetWorld()->IsPlayInEditor())
+	{
+		return false;
+	}
+
+	return bRecordReplays && GetNetMode() == ENetMode::NM_DedicatedServer;
 }
 
 void AUTGameMode::InstanceNextMap(const FString& NextMap)

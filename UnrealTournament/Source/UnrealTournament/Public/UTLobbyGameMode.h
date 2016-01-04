@@ -79,8 +79,6 @@ public:
 
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC);
 
-	virtual bool IsHandlingReplays();
-
 #if !UE_SERVER
 
 	/**

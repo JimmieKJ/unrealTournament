@@ -348,12 +348,6 @@ void AUTLobbyGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerContr
 	return;
 }
 
-bool AUTLobbyGameMode::IsHandlingReplays()
-{
-	// No replays for HUB
-	return false;
-}
-
 void AUTLobbyGameMode::DefaultTimer()
 {
 	if (GetWorld()->GetTimeSeconds() > ServerRefreshCheckpoint * 60 * 60)

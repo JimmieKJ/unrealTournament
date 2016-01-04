@@ -473,6 +473,13 @@ public:
 	void AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
 	void AddMultiKillEventToReplay(AController* Killer, int32 MultiKillLevel);
 	void AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel);
+	
+	UPROPERTY(config)
+	bool bRecordReplays;
+
+	/** The standard IsHandlingReplays() codepath is not flexible enough for UT, this is the compromise */
+	virtual bool UTIsHandlingReplays();
+
 protected:
 
 	/** Returns random bot character skill matched to current GameDifficulty. */

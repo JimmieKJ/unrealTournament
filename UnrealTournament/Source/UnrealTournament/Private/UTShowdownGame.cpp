@@ -165,7 +165,7 @@ void AUTShowdownGame::HandleMatchHasStarted()
 	// Then fire off match started
 	GetWorldSettings()->NotifyMatchStarted();
 
-	if (IsHandlingReplays() && GetGameInstance() != nullptr)
+	if (UTIsHandlingReplays() && GetGameInstance() != nullptr)
 	{
 		GetGameInstance()->StartRecordingReplay(GetWorld()->GetMapName(), GetWorld()->GetMapName());
 	}
