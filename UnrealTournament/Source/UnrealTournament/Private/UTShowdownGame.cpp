@@ -64,7 +64,6 @@ void AUTShowdownGame::InitGameState()
 	}
 }
 
-
 void AUTShowdownGame::HandleCountdownToBegin()
 {
 	BeginGame();

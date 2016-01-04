@@ -186,6 +186,10 @@ void AUTHUD_Showdown::DrawHUD()
 						DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y + 4, 1.1f*PreviewSize.X, 1.3f*PreviewSize.Y - 8, 4, 10, 124, 112, FLinearColor::White);
 						DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y + 1.15f*PreviewSize.Y - 4, 1.1f*PreviewSize.X, 4, 4, 122, 124, 8, FLinearColor::White);
 						Canvas->DrawColor = WhiteColor;
+						FVector2D Pos(WorldToMapToScreen(HoveredStart->GetActorLocation()));
+						Canvas->DrawTile(SpawnHelpTextBG.Texture, PreviewPos.X -4.f, PreviewPos.Y - 4.f, PreviewSize.X+ 8.f, PreviewSize.Y + 8.f, 4, 4, 2, 124, BLEND_Opaque);
+						DrawLine(Pos.X, Pos.Y, PreviewPos.X - 4.f, PreviewPos.Y - 4.f, FLinearColor::White);
+						DrawLine(Pos.X, Pos.Y, PreviewPos.X - 4.f, PreviewPos.Y + PreviewSize.Y + 4.f, FLinearColor::White);
 						Canvas->DrawTile(SpawnPreviewCapture->TextureTarget, PreviewPos.X, PreviewPos.Y, PreviewSize.X, PreviewSize.Y, 0.0f, 0.0f, SpawnPreviewCapture->TextureTarget->SizeX, SpawnPreviewCapture->TextureTarget->SizeY, BLEND_Opaque);
 					}
 				}
