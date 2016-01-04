@@ -37,7 +37,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	APlayerState* LocalPlayerState = ClientData.LocalPC->PlayerState;
 
 	AUTHUD* UTHUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);
-	if (UTHUD != nullptr)
+	if (UTHUD != nullptr && LocalPlayerState != nullptr)
 	{
 		//Add msg to the UUTHUDWidgetMessage_KillIconMessages
 		UTHUD->ReceiveLocalMessage(
