@@ -29,6 +29,9 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	SpawnHelpTextBG.VL = 128;
 	SpawnHelpTextBG.Texture = HelpBGTex.Object;
 
+	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
+	SpawnSelectSound = PressedSelect.Object;
+
 	SpawnPreviewCapture = OI.CreateDefaultSubobject<USceneCaptureComponent2D>(this, TEXT("SpawnPreviewCapture"));
 	SpawnPreviewCapture->bCaptureEveryFrame = false;
 	SpawnPreviewCapture->SetHiddenInGame(false);
@@ -146,6 +149,10 @@ void AUTHUD_Showdown::DrawHUD()
 		AActor* NewHoveredActor = FindHoveredIconActor();
 		if (NewHoveredActor != LastHoveredActor)
 		{
+			if (UTPlayerOwner != nullptr)
+			{
+				UTPlayerOwner->PlayMenuSelectSound();
+			}
 			LastHoveredActorChangeTime = GetWorld()->RealTimeSeconds;
 			LastHoveredActor = NewHoveredActor;
 		}
@@ -399,6 +406,10 @@ bool AUTHUD_Showdown::OverrideMouseClick(FKey Key, EInputEvent EventType)
 		APlayerStart* ClickedStart = Cast<APlayerStart>(FindHoveredIconActor());
 		if (ClickedStart != NULL)
 		{
+			if (UTPlayerOwner->GetViewTarget())
+			{
+				UGameplayStatics::PlaySoundAtLocation(GetWorld(), SpawnSelectSound, UTPlayerOwner->GetViewTarget()->GetActorLocation(), 1.f, 1.0f, 0.0f);
+			}
 			UTPlayerOwner->ServerSelectSpawnPoint(ClickedStart);
 		}
 		

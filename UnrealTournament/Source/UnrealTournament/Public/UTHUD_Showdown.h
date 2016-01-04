@@ -20,6 +20,9 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
 	UTexture2D* SelectedSpawnTexture;
 
+	UPROPERTY()
+		USoundBase* SpawnSelectSound;
+
 	/** Actor whose icon the mouse pointer is hovering over last time we checked */
 	UPROPERTY(BlueprintReadOnly)
 	AActor* LastHoveredActor;
