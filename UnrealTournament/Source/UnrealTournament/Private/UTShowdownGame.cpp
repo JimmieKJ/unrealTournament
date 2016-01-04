@@ -324,6 +324,10 @@ void AUTShowdownGame::StartIntermission()
 		}
 		else
 		{
+			if (LastRoundWinner != nullptr)
+			{
+				BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 3 + LastRoundWinner->TeamIndex);
+			}
 			SetMatchState(MatchState::MatchIntermission);
 			GameState->ForceNetUpdate();
 		}
@@ -644,7 +648,8 @@ void AUTShowdownGame::DefaultTimer()
 				else if (!GS->bFinalIntermissionDelay)
 				{
 					GS->bFinalIntermissionDelay = true;
-					GS->IntermissionStageTime = 3;
+					GS->IntermissionStageTime = 5;
+					BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 5);
 				}
 				else
 				{
@@ -653,7 +658,7 @@ void AUTShowdownGame::DefaultTimer()
 				}
 			}
 		}
-		if (GS->bFinalIntermissionDelay)
+		if (GS->bFinalIntermissionDelay && (GS->IntermissionStageTime < 4))
 		{
 			BroadcastLocalized(NULL, UUTTimerMessage::StaticClass(), int32(GS->IntermissionStageTime) - 1);
 		}

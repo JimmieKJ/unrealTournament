@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTHUD_Showdown.h"
 #include "UTShowdownGameState.h"
+#include "UTShowdownGameMessage.h"
 #include "UTPlayerStart.h"
 
 AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
@@ -38,6 +39,7 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	RootComponent = SpawnPreviewCapture; // just to quiet warning, has no relevance
 
 	LastHoveredActorChangeTime = -1000.0f;
+	bNeedOnDeckNotify = true;
 }
 
 void AUTHUD_Showdown::BeginPlay()
@@ -98,7 +100,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 				FColor TextColor = Canvas->DrawColor;
 				Canvas->DrawColor = FColor(0, 0, 0, 64);
 				Canvas->TextSize(TinyFont, OwningPS->PlayerName, XL, YL);
-				Canvas->DrawTile(SpawnHelpTextBG.Texture, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 0.8f*YL, 0.9f*XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
+				Canvas->DrawTile(SpawnHelpTextBG.Texture, Pos.X - XL * 0.5f, Pos.Y - 20.0f * RenderScale - 0.8f*YL, 0.9f*XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
 				Canvas->DrawColor = TextColor;
 				Canvas->DrawText(TinyFont, OwningPS->PlayerName, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 2.0f - YL);
 			}
@@ -220,38 +222,7 @@ void AUTHUD_Showdown::DrawHUD()
 			PlayerOwner->SetControlRotation(OwnerPS->RespawnChoiceA->GetActorRotation());
 		}
 
-		// draw spawn selection order
-		TArray<AUTPlayerState*> LivePlayers;
-		for (APlayerState* PS : GS->PlayerArray)
-		{
-			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator)
-			{
-				LivePlayers.Add(UTPS);
-			}
-		}
-
-		if (LivePlayers.Num() > 2)
-		{
-			LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B){ return A.SelectionOrder < B.SelectionOrder; });
-
-			float YPos = Canvas->ClipY * 0.1f;
-			YPos += Canvas->DrawText(MediumFont, NSLOCTEXT("UnrealTournament", "SelectionOrder", "PICK ORDER"), 1.0f, YPos) * 1.2f;
-			
-			for (AUTPlayerState* UTPS : LivePlayers)
-			{
-				Canvas->DrawColor = UTPS->Team->TeamColor.ToFColor(false);
-				float XL, YL;
-				Canvas->TextSize(MediumFont, UTPS->PlayerName, XL, YL);
-				Canvas->DrawText(MediumFont, UTPS->PlayerName, 1.0f, YPos);
-				if (UTPS == GS->SpawnSelector)
-				{
-					Canvas->DrawColor = FColorList::Gold;
-					Canvas->DrawText(MediumFont, TEXT("<---"), XL + 30.0f, YPos);
-				}
-				YPos += YL * 1.1f;
-			}
-		}
+		DrawPlayerList();
 	}
 	else if (bLockedLookInput)
 	{
@@ -329,21 +300,15 @@ void AUTHUD_Showdown::DrawHUD()
 
 	if (GS != NULL && GS->SpawnSelector == PlayerOwner->PlayerState)
 	{
+		if (bNeedOnDeckNotify)
+		{
+			bNeedOnDeckNotify = false;
+			PlayerOwner->ClientReceiveLocalizedMessage(UUTShowdownGameMessage::StaticClass(), 2, PlayerOwner->PlayerState, NULL, NULL);
+		}
+
 		// draw help text
 		Canvas->DrawColor = WhiteColor;
 		float TextScale = 1.0f;
-		if (GS->IntermissionStageTime <= 3)
-		{
-			if (SpawnTextWarningTime == 0.0f)
-			{
-				SpawnTextWarningTime = GetWorld()->TimeSeconds;
-			}
-			TextScale += FMath::Fmod(GetWorld()->TimeSeconds - SpawnTextWarningTime, 0.35f);
-		}
-		else
-		{
-			SpawnTextWarningTime = 0.0f;
-		}
 		float XL, YL;
 		Canvas->TextSize(MediumFont, TEXT("Click on the spawn point you want to use"), XL, YL, TextScale, TextScale);
 		float IconSize = YL;
@@ -353,6 +318,45 @@ void AUTHUD_Showdown::DrawHUD()
 		Canvas->DrawText(MediumFont, TEXT("Click on the spawn point you want to use"), TextXPos, Canvas->SizeY * 0.08f, TextScale, TextScale);
 		Canvas->DrawTile(PlayerStartBGIcon.Texture, TextXPos + XL - IconSize, Canvas->SizeY * 0.08f + YL * 0.1f, YL, YL, PlayerStartBGIcon.U, PlayerStartBGIcon.V, PlayerStartBGIcon.UL, PlayerStartBGIcon.VL);
 		Canvas->DrawTile(PlayerStartIcon.Texture, TextXPos + XL - IconSize * 0.75f, Canvas->SizeY * 0.08f + YL * 0.1f + IconSize * 0.25f, YL * 0.5f, YL * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
+	}
+	else
+	{
+		bNeedOnDeckNotify = true;
+	}
+}
+
+void AUTHUD_Showdown::DrawPlayerList()
+{
+	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
+	TArray<AUTPlayerState*> LivePlayers;
+	for (APlayerState* PS : GS->PlayerArray)
+	{
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+		if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator)
+		{
+			LivePlayers.Add(UTPS);
+		}
+	}
+
+	if (LivePlayers.Num() > 2)
+	{
+		LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B){ return A.SelectionOrder < B.SelectionOrder; });
+
+		float YPos = Canvas->ClipY * 0.1f;
+		YPos += Canvas->DrawText(MediumFont, NSLOCTEXT("UnrealTournament", "SelectionOrder", "PICK ORDER"), 1.0f, YPos) * 1.2f;
+		float XPos = 6.f;
+		for (AUTPlayerState* UTPS : LivePlayers)
+		{
+			UFont* NameFont = (UTPS == GS->SpawnSelector) ? MediumFont : SmallFont;
+			float XL, YL;
+			Canvas->TextSize(NameFont, UTPS->PlayerName, XL, YL);
+			Canvas->DrawColor = (UTPS == GS->SpawnSelector) ? FColor(255, 255, 140, 200) : UTPS->Team->TeamColor.ToFColor(false);
+			Canvas->DrawColor.A = 96;
+			Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos, 1.2f*XL, YL, 149, 138, 32, 32, BLEND_Translucent);
+			Canvas->DrawColor = FColor(255, 255, 255, 255);
+			Canvas->DrawText(NameFont, UTPS->PlayerName, XPos+0.1f*XL, YPos - 0.1f*YL);
+			YPos += YL * 1.1f;
+		}
 	}
 }
 
