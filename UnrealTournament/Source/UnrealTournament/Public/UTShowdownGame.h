@@ -19,6 +19,7 @@ protected:
 
 	virtual void HandleMatchHasStarted() override;
 	virtual void StartNewRound();
+	virtual void HandleCountdownToBegin() override;
 
 	// experimental tiebreaker options
 	// will be removed once we decide on a path

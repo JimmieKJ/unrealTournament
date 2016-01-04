@@ -74,7 +74,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	BotClass = AUTBot::StaticClass();
 
 	bUseSeamlessTravel = false;
-	CountDown = 4;
+	CountDown = 3;
 	bPauseable = false;
 	RespawnWaitTime = 1.5f;
 	ForceRespawnTime = 3.5f;
@@ -2746,7 +2746,7 @@ void AUTGameMode::HandleCountdownToBegin()
 		FString MapName = GetOutermost()->GetName();
 		GetWorld()->Exec(GetWorld(), *FString::Printf(TEXT("Demorec %s"), *DemoFilename.Replace(TEXT("%m"), *MapName.RightChop(MapName.Find(TEXT("/"), ESearchCase::IgnoreCase, ESearchDir::FromEnd) + 1))));
 	}*/
-	CountDown = 5;
+	CountDown = 3;
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::CheckCountDown, 1.0, false);
 }

@@ -64,6 +64,12 @@ void AUTShowdownGame::InitGameState()
 	}
 }
 
+
+void AUTShowdownGame::HandleCountdownToBegin()
+{
+	BeginGame();
+}
+
 void AUTShowdownGame::StartNewRound()
 {
 	RoundElapsedTime = 0;
