@@ -3713,28 +3713,34 @@ bool USkeletalMeshComponent::GetClothSimulatedPosition(int32 AssetIndex, int32 V
 		if(ClothingActor.ParentClothingAssetIndex == AssetIndex)
 		{
 			if (NxClothingActor* ApexClothingActor = ClothingActor.ApexClothingActor)
-		{
-			uint32 NumSimulVertices = ApexClothingActor->getNumSimulationVertices();
-
-			// handles only simulated vertices, indices of fixed vertices are bigger than # of simulated vertices
-			if ((uint32)VertexIndex < NumSimulVertices)
 			{
-					//TODO: this is not thread safe! apex requires a lock. Not going to add it here because it's called for many vertices, but this should be addressed!
-				bSucceed = true;
-				const physx::PxVec3* Vertices = ApexClothingActor->getSimulationPositions();
+				uint32 NumSimulVertices = ApexClothingActor->getNumSimulationVertices();
 
-				if (bLocalSpaceSimulation)
+				// handles only simulated vertices, indices of fixed vertices are bigger than # of simulated vertices
+				if ((uint32)VertexIndex < NumSimulVertices)
 				{
-					FMatrix ClothRootBoneMatrix;
-					GetClothRootBoneMatrix(AssetIndex, ClothRootBoneMatrix);
-					OutSimulPos = ClothRootBoneMatrix.TransformPosition(P2UVector(Vertices[VertexIndex]));
-				}
-				else
-				{
-					OutSimulPos = P2UVector(Vertices[VertexIndex]);
+					//TODO: this is not thread safe! apex requires a lock. Not going to add it here because it's called for many vertices, but this should be addressed!
+					if(const physx::PxVec3* Vertices = ApexClothingActor->getSimulationPositions())
+					{
+						bSucceed = true;
+						if (bLocalSpaceSimulation)
+						{
+							FMatrix ClothRootBoneMatrix;
+							GetClothRootBoneMatrix(AssetIndex, ClothRootBoneMatrix);
+							OutSimulPos = ClothRootBoneMatrix.TransformPosition(P2UVector(Vertices[VertexIndex]));
+						}
+						else
+						{
+							OutSimulPos = P2UVector(Vertices[VertexIndex]);
+						}
+					}
+					else
+					{
+						UE_LOG(LogSkeletalMesh, Warning, TEXT("USkeletalMeshComponent::GetClothSimulatedPosition is getting NULL for getSimulationPositions. This likely means the clothing actor has been deleted or some LOD logic has removed the cloth simulation in an unexpected way. Asset=%s"), *GetPathName());
+					}
+
 				}
 			}
-		}
 
 			break; //TODO: This finds the first actor. Is there a reason to not support many instances?
 		}
