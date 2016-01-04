@@ -95,7 +95,11 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 			if (OwningPS != NULL)
 			{
 				float XL, YL;
+				FColor TextColor = Canvas->DrawColor;
+				Canvas->DrawColor = FColor(0, 0, 0, 64);
 				Canvas->TextSize(TinyFont, OwningPS->PlayerName, XL, YL);
+				Canvas->DrawTile(SpawnHelpTextBG.Texture, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 0.8f*YL, 0.9f*XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
+				Canvas->DrawColor = TextColor;
 				Canvas->DrawText(TinyFont, OwningPS->PlayerName, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 2.0f - YL);
 			}
 			Canvas->DrawColor = FColor::White;
@@ -127,7 +131,10 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 		float XL, YL;
 		Canvas->DrawColor = NamedPickup->IconColor.ToFColor(false);
 		Canvas->TextSize(TinyFont, NamedPickup->GetDisplayName().ToString(), XL, YL);
-		DrawTexture(SpawnHelpTextBG.Texture, NamedPickupPos.X - XL * 0.5f - 2.f, NamedPickupPos.Y - 26.0f * RenderScale - YL - 2.f, XL + 4.f, YL + 4.f, 149, 138, 32, 32, FLinearColor::Black);
+		FColor TextColor = Canvas->DrawColor;
+		Canvas->DrawColor = FColor(0, 0, 0, 64);
+		Canvas->DrawTile(SpawnHelpTextBG.Texture, NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - 0.8f*YL, XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
+		Canvas->DrawColor = TextColor;
 		Canvas->DrawText(TinyFont, NamedPickup->GetDisplayName(), NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - YL);
 	}
 	Canvas->DrawColor = FColor::White;
