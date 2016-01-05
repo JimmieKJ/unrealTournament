@@ -43,26 +43,6 @@ void UUTCTFScoreboard::PageChanged_Implementation()
 	TimeLineOffset = (CTFState && ((CTFState->IsMatchIntermission() && (CTFState->CTFRound == 0)) || CTFState->HasMatchEnded())) ? -0.15f : 99999.f;
 }
 
-void UUTCTFScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
-{
-	if (UTGameState)
-	{
-		if (UTGameState->GoalScore > 0)
-		{
-			// Draw Game Text
-			FText Score = FText::Format(NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "First to {0} Caps"), FText::AsNumber(UTGameState->GoalScore));
-			DrawText(Score, Size.X * 0.7f, YOffset + 40.f, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
-		}
-
-		FText StatusText = UTGameState->GetGameStatusText();
-		if (!StatusText.IsEmpty())
-		{
-			DrawText(StatusText, Size.X * 0.985f, YOffset + 16.f, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
-		} 
-		DrawText(UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), UTGameState->RemainingTime, false, true, true), Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->NumberFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
-	}
-}
-
 void UUTCTFScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 {
 	float XOffset = 0.f;
