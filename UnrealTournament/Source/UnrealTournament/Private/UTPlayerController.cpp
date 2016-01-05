@@ -90,6 +90,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> ChatMsgSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_Chat01.A_UI_Chat01'"));
 	ChatMsgSound = ChatMsgSoundFinder.Object;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> BadSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/BadSelect_Cue.BadSelect_Cue'"));
+	BadSelectSound = BadSelect.Object;
 }
 
 void AUTPlayerController::BeginPlay()
@@ -135,7 +138,6 @@ void AUTPlayerController::GetLifetimeReplicatedProps(TArray<class FLifetimePrope
 	DOREPLIFETIME_CONDITION(AUTPlayerController, CastingGuideViewIndex, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTPlayerController, HUDClass, COND_OwnerOnly);
 }
-
 
 void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject)
 {
@@ -2031,10 +2033,26 @@ void AUTPlayerController::ServerSelectSpawnPoint_Implementation(APlayerStart* De
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (GS != NULL && PS != NULL && GS->IsAllowedSpawnPoint(PS, DesiredStart))
+	if (GS != NULL && PS != NULL)
 	{
-		PS->RespawnChoiceA = DesiredStart;
-		PS->ForceNetUpdate();
+		if (GS->IsAllowedSpawnPoint(PS, DesiredStart))
+		{
+			PS->RespawnChoiceA = DesiredStart;
+			PS->ForceNetUpdate();
+		}
+		else
+		{
+			ClientPlayBadSelectionSound();
+		}
+	}
+}
+
+void AUTPlayerController::ClientPlayBadSelectionSound_Implementation()
+{
+	UE_LOG(UT, Warning, TEXT("Bad selection sound"));
+	if (GetViewTarget())
+	{
+		UGameplayStatics::PlaySoundAtLocation(GetWorld(), BadSelectSound, GetViewTarget()->GetActorLocation(), 1.f, 1.0f, 0.0f);
 	}
 }
 

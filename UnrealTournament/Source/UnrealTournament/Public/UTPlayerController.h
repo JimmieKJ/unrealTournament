@@ -179,6 +179,14 @@ public:
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
 
+
+	/** Selected an unavailable spawn location. */
+	UPROPERTY()
+		USoundBase* BadSelectSound;
+
+	UFUNCTION(client, unreliable)
+		virtual void ClientPlayBadSelectionSound();
+
 	/**	We overload ServerRestartPlayer so that we can set the bReadyToPlay flag if the game hasn't begun	 **/
 	virtual void ServerRestartPlayer_Implementation();
 	

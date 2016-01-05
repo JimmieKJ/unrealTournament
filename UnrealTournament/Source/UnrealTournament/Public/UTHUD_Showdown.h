@@ -26,6 +26,10 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	UPROPERTY()
 		USoundBase* SpawnSelectSound;
 
+	/** Other player completed selection. */
+	UPROPERTY()
+		USoundBase* OtherSelectSound;
+
 	/** Actor whose icon the mouse pointer is hovering over last time we checked */
 	UPROPERTY(BlueprintReadOnly)
 	AActor* LastHoveredActor;
@@ -43,6 +47,9 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 
 	/** True if haven't yet played on deck notification for this round. */
 	bool bNeedOnDeckNotify;
+
+	UPROPERTY()
+		AUTPlayerState* LastPlayerSelect;
 
 	/** scene capture for spawn preview */
 	UPROPERTY(VisibleAnywhere)

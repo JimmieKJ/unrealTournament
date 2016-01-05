@@ -33,6 +33,9 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
 	SpawnSelectSound = PressedSelect.Object;
 
+	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSelect(TEXT("SoundCue'/Game/RestrictedAssets/Audio/UI/OtherSelect_Cue.OtherSelect_Cue'"));
+	OtherSelectSound = OtherSelect.Object;
+
 	SpawnPreviewCapture = OI.CreateDefaultSubobject<USceneCaptureComponent2D>(this, TEXT("SpawnPreviewCapture"));
 	SpawnPreviewCapture->bCaptureEveryFrame = false;
 	SpawnPreviewCapture->SetHiddenInGame(false);
@@ -224,10 +227,15 @@ void AUTHUD_Showdown::DrawHUD()
 
 		DrawPlayerList();
 	}
-	else if (bLockedLookInput)
+	else
 	{
-		PlayerOwner->SetIgnoreLookInput(false);
-		bLockedLookInput = false;
+		LastPlayerSelect = NULL;
+		bNeedOnDeckNotify = true;
+		if (bLockedLookInput)
+		{
+			PlayerOwner->SetIgnoreLookInput(false);
+			bLockedLookInput = false;
+		}
 	}
 
 	if (GS != NULL && !bShowScores && PlayerOwner->PlayerState != NULL && !PlayerOwner->PlayerState->bOnlySpectator && GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection)
@@ -293,6 +301,7 @@ void AUTHUD_Showdown::DrawHUD()
 			}
 		}
 	}
+
 	bool bRealDrawMinimap = bDrawMinimap;
 	bDrawMinimap = bDrawMinimap && !bDrewSpawnMap;
 	Super::DrawHUD();
@@ -319,10 +328,6 @@ void AUTHUD_Showdown::DrawHUD()
 		Canvas->DrawTile(PlayerStartBGIcon.Texture, TextXPos + XL - IconSize, Canvas->SizeY * 0.08f + YL * 0.1f, YL, YL, PlayerStartBGIcon.U, PlayerStartBGIcon.V, PlayerStartBGIcon.UL, PlayerStartBGIcon.VL);
 		Canvas->DrawTile(PlayerStartIcon.Texture, TextXPos + XL - IconSize * 0.75f, Canvas->SizeY * 0.08f + YL * 0.1f + IconSize * 0.25f, YL * 0.5f, YL * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
 	}
-	else
-	{
-		bNeedOnDeckNotify = true;
-	}
 }
 
 void AUTHUD_Showdown::DrawPlayerList()
@@ -335,6 +340,14 @@ void AUTHUD_Showdown::DrawPlayerList()
 		if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator)
 		{
 			LivePlayers.Add(UTPS);
+		}
+	}
+	if (LastPlayerSelect != GS->SpawnSelector)
+	{
+		LastPlayerSelect = GS->SpawnSelector;
+		if (UTPlayerOwner && UTPlayerOwner->GetViewTarget())
+		{
+			UGameplayStatics::PlaySoundAtLocation(GetWorld(), OtherSelectSound, UTPlayerOwner->GetViewTarget()->GetActorLocation(), 1.f, 1.0f, 0.0f);
 		}
 	}
 
