@@ -8,10 +8,10 @@
 #include "UTGameMessage.h"
 #include "UTHat.h"
 #include "UTCharacterContent.h"
-#include "../Private/Slate/SUWindowsStyle.h"
-#include "../Private/Slate/SUTSTyle.h"
-#include "Slate/SUWPlayerInfoDialog.h"
-#include "Slate/Widgets/SUTTabWidget.h"
+#include "SUWindowsStyle.h"
+#include "SUTSTyle.h"
+#include "Dialogs/SUTPlayerInfoDialog.h"
+#include "Widgets/SUTTabWidget.h"
 #include "StatNames.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -23,7 +23,7 @@
 #include "UTEngineMessage.h"
 #include "UTGameState.h"
 #include "UTDemoRecSpectator.h"
-#include "Slate/SUTStyle.h"
+#include "SUTStyle.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()

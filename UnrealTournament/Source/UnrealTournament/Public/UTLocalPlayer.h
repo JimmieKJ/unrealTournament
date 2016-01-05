@@ -5,8 +5,8 @@
 #include "Slate/SlateGameResources.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
-#include "../Private/Slate/SUWToast.h"
-#include "../Private/Slate/SUWDialog.h"
+#include "../Private/Slate/Base/SUTToastBase.h"
+#include "../Private/Slate/Base/SUTDialogBase.h"
 #include "UTProfileSettings.h"
 #include "OnlinePresenceInterface.h"
 #include "Http.h"
@@ -14,18 +14,18 @@
 
 #include "UTLocalPlayer.generated.h"
 
-class SUWServerBrowser;
-class SUWFriendsPopup;
-class SUTQuickMatch;
-class SUWLoginDialog;
-class SUWRedirectDialog;
-class SUWMapVoteDialog;
+class SUTWindowBase;
+class SUTServerBrowserPanel;
+class SUTFriendsPopupWindow;
+class SUTQuickMatchWindow;
+class SUTLoginDialog;
+class SUTRedirectDialog;
+class SUTMapVoteDialog;
 class SUTAdminDialog;
 class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
-class SUWMatchSummary;
-class SUTJoinInstance;
+class SUTJoinInstanceWindow;
 class FServerData;
 class AUTRconAdminInfo;
 class SUTDownloadAllDialog;
@@ -155,16 +155,22 @@ public:
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar) override;
 
 #if !UE_SERVER
-	virtual TSharedPtr<class SUWDialog> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0,0.0f));
-	virtual TSharedPtr<class SUWDialog> ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback = FDialogResultDelegate());
+
+	TArray<TSharedPtr<SUTWindowBase>> WindowStack;
+	virtual void OpenWindow(TSharedPtr<SUTWindowBase> WindowToOpen);
+	virtual bool CloseWindow(TSharedPtr<SUTWindowBase> WindowToClose);
+	virtual void WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed);
+
+	virtual TSharedPtr<class SUTDialogBase> ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback = FDialogResultDelegate(), FVector2D DialogSize = FVector2D(0.0,0.0f));
+	virtual TSharedPtr<class SUTDialogBase> ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback = FDialogResultDelegate());
 
 	/** utilities for opening and closing dialogs */
-	virtual void OpenDialog(TSharedRef<class SUWDialog> Dialog, int32 ZOrder = 255);
-	virtual void CloseDialog(TSharedRef<class SUWDialog> Dialog);
-	TSharedPtr<class SUWServerBrowser> GetServerBrowser();
-	TSharedPtr<class SUWReplayBrowser> GetReplayBrowser();
-	TSharedPtr<class SUWStatsViewer> GetStatsViewer();
-	TSharedPtr<class SUWCreditsPanel> GetCreditsPanel();
+	virtual void OpenDialog(TSharedRef<class SUTDialogBase> Dialog, int32 ZOrder = 255);
+	virtual void CloseDialog(TSharedRef<class SUTDialogBase> Dialog);
+	TSharedPtr<class SUTServerBrowserPanel> GetServerBrowser();
+	TSharedPtr<class SUTReplayBrowserPanel> GetReplayBrowser();
+	TSharedPtr<class SUTStatsViewerPanel> GetStatsViewer();
+	TSharedPtr<class SUTCreditsPanel> GetCreditsPanel();
 
 	UFUNCTION()
 	virtual void ChangeStatsViewerTarget(FString InStatsID);
@@ -206,21 +212,21 @@ protected:
 	TSharedPtr<class SUTSpectatorWindow> SpectatorWidget;
 	
 	// Holds a persistent reference to the server browser.
-	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
+	TSharedPtr<class SUTServerBrowserPanel> ServerBrowserWidget;
 
-	TSharedPtr<class SUWReplayBrowser> ReplayBrowserWidget;
-	TSharedPtr<class SUWStatsViewer> StatsViewerWidget;
-	TSharedPtr<class SUWCreditsPanel> CreditsPanelWidget;
+	TSharedPtr<class SUTReplayBrowserPanel> ReplayBrowserWidget;
+	TSharedPtr<class SUTStatsViewerPanel> StatsViewerWidget;
+	TSharedPtr<class SUTCreditsPanel> CreditsPanelWidget;
 
 	/** stores a reference to open dialogs so they don't get destroyed */
-	TArray< TSharedPtr<class SUWDialog> > OpenDialogs;
-	TArray<TSharedPtr<class SUWToast>> ToastList;
+	TArray< TSharedPtr<class SUTDialogBase> > OpenDialogs;
+	TArray<TSharedPtr<class SUTToastBase>> ToastList;
 
-	virtual void AddToastToViewport(TSharedPtr<SUWToast> ToastToDisplay);
+	virtual void AddToastToViewport(TSharedPtr<SUTToastBase> ToastToDisplay);
 	void WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	void OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-	TSharedPtr<class SUTQuickMatch> QuickMatchDialog;
-	TSharedPtr<class SUWLoginDialog> LoginDialog;
+	TSharedPtr<class SUTQuickMatchWindow> QuickMatchDialog;
+	TSharedPtr<class SUTLoginDialog> LoginDialog;
 
 	TSharedPtr<class SUTAdminDialog> AdminDialog;
 
@@ -417,7 +423,7 @@ protected:
 	virtual void OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
 
 #if !UE_SERVER
-	TSharedPtr<class SUWDialog> HUDSettings;
+	TSharedPtr<class SUTDialogBase> HUDSettings;
 #endif
 
 public:
@@ -508,9 +514,9 @@ public:
 	virtual void ShowContentLoadingMessage();
 	virtual void HideContentLoadingMessage();
 
-	virtual TSharedPtr<SUWFriendsPopup> GetFriendsPopup();
+	virtual TSharedPtr<SUTFriendsPopupWindow> GetFriendsPopup();
 protected:
-	TSharedPtr<SUWFriendsPopup> FriendsMenu;
+	TSharedPtr<SUTFriendsPopupWindow> FriendsMenu;
 
 #endif
 	// If the player is not logged in, then this string will hold the last attempted presence update
@@ -544,8 +550,8 @@ public:
 
 protected:
 #if !UE_SERVER
-	TWeakPtr<SUWDialog> ConnectingDialog;
-	TSharedPtr<SUWRedirectDialog> RedirectDialog;
+	TWeakPtr<SUTDialogBase> ConnectingDialog;
+	TSharedPtr<SUTRedirectDialog> RedirectDialog;
 
 #endif
 
@@ -598,8 +604,7 @@ public:
 protected:
 #if !UE_SERVER
 	TSharedPtr<SUWindowsDesktop> LoadoutMenu;
-	TSharedPtr<SUWMapVoteDialog> MapVoteMenu;
-	TSharedPtr<SUWMatchSummary> MatchSummaryWindow;
+	TSharedPtr<SUTMapVoteDialog> MapVoteMenu;
 #endif
 
 public:
@@ -641,8 +646,8 @@ public:
 	bool bRecordingReplay;
 	FString RecordedReplayFilename;
 	FString RecordedReplayTitle;
-	TSharedPtr<SUWDialog> YoutubeDialog;
-	TSharedPtr<class SUWYoutubeConsent> YoutubeConsentDialog;
+	TSharedPtr<SUTDialogBase> YoutubeDialog;
+	TSharedPtr<class SUTYoutubeConsentDialog> YoutubeConsentDialog;
 
 #endif
 
@@ -711,7 +716,7 @@ public:
 
 protected:
 #if !UE_SERVER
-	TSharedPtr<SUTJoinInstance> JoinInstanceDialog;
+	TSharedPtr<SUTJoinInstanceWindow> JoinInstanceDialog;
 #endif
 
 public:

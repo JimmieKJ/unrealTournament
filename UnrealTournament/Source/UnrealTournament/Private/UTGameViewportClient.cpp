@@ -2,11 +2,11 @@
 
 #include "UnrealTournament.h"
 #include "UTGameViewportClient.h"
-#include "Slate/SUWMessageBox.h"
-#include "Slate/SUWDialog.h"
-#include "Slate/SUWInputBox.h"
-#include "Slate/SUWRedirectDialog.h"
-#include "Slate/SUTGameLayerManager.h"
+#include "Dialogs/SUTMessageBoxDialog.h"
+#include "Base/SUTDialogBase.h"
+#include "Dialogs/SUTInputBoxDialog.h"
+#include "Dialogs/SUTRedirectDialog.h"
+#include "SUTGameLayerManager.h"
 #include "Engine/GameInstance.h"
 #include "UTGameEngine.h"
 #include "Engine/Console.h"
@@ -152,7 +152,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 			}
 			else if (FPaths::GetExtension(URL) == FString(TEXT("pak")))
 			{
-				FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
+				FirstPlayer->OpenDialog(SNew(SUTRedirectDialog)
 					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::RedirectResult))
 					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
 					.RedirectToURL(URL)
@@ -234,7 +234,7 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 
 			if (FileURLs.Num() > 0)
 			{
-				FirstPlayer->OpenDialog(SNew(SUWRedirectDialog)
+				FirstPlayer->OpenDialog(SNew(SUTRedirectDialog)
 					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::CloudRedirectResult))
 					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
 					.RedirectURLs(FileURLs)
@@ -332,7 +332,7 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 					}
 
 
-					FirstPlayer->OpenDialog(SNew(SUWInputBox)
+					FirstPlayer->OpenDialog(SNew(SUTInputBoxDialog)
 						.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult, ErrorString == TEXT("NEEDSPECPASS")))
 						.PlayerOwner(FirstPlayer)
 						.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
@@ -649,7 +649,7 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 #if !UE_SERVER
 	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
 	{
-		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		TSharedPtr<SUTInputBoxDialog> Box = StaticCastSharedPtr<SUTInputBoxDialog>(Widget);
 		if (Box.IsValid())
 		{
 			FString InputText = Box->GetInputText();

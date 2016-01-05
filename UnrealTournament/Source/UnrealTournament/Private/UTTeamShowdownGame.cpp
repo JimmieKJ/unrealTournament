@@ -11,8 +11,8 @@
 #include "UTGameEngine.h"
 #include "UTChallengeManager.h"
 #include "UTDroppedAmmoBox.h"
-#include "Slate/SlateGameResources.h"
-#include "Slate/SUWindowsStyle.h"
+#include "SlateGameResources.h"
+#include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)

@@ -1,10 +1,10 @@
 
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UnrealTournament.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
-#include "../SUWScaleBox.h"
+#include "../Widgets/SUTScaleBox.h"
 #include "SlateExtras.h"
 #include "Slate/SlateGameResources.h"
 #include "SUTFragCenterPanel.h"

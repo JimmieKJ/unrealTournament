@@ -2,9 +2,9 @@
 #pragma once
 
 #include "Slate/SlateGameResources.h"
-#include "../SUWindowsStyle.h"
+#include "SUWindowsStyle.h"
 #include "../SUTStyle.h"
-#include "../SUWPanel.h"
+#include "../Base/SUTPanelBase.h"
 
 #if !UE_SERVER
 
@@ -15,7 +15,7 @@ static const FName NAME_REWARD_None(TEXT("REWARD_None"));
 
 class SUTBorder;
 
-class UNREALTOURNAMENT_API SUTChallengePanel : public SUWPanel, public FGCObject
+class UNREALTOURNAMENT_API SUTChallengePanel : public SUTPanelBase, public FGCObject
 {
 public:
 	virtual ~SUTChallengePanel();

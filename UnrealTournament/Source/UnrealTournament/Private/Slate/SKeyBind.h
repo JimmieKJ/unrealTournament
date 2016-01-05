@@ -2,7 +2,7 @@
 #pragma once
 
 #include "SlateBasics.h"
-#include "SUWDialog.h"
+#include "Base/SUTDialogBase.h"
 
 
 

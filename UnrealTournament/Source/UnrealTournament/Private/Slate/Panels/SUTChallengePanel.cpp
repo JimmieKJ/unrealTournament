@@ -1,17 +1,17 @@
 
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
+#include "UnrealTournament.h"
 #include "SUTChallengePanel.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
-#include "../SUWScaleBox.h"
+#include "../Widgets/SUTScaleBox.h"
 #include "../Widgets/SUTButton.h"
 #include "UTChallengeManager.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-#include "../SUWindowsMainMenu.h"
+#include "../Menus/SUTMainMenu.h"
 #include "UTLevelSummary.h"
 #include "UTGameEngine.h"
 #include "../Widgets/SUTBorder.h"
@@ -61,7 +61,7 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 					+SHorizontalBox::Slot()
 					.HAlign(HAlign_Fill)
 					[
-						SNew(SUWScaleBox)
+						SNew(SUTScaleBox)
 						.bMaintainAspectRatio(false)
 						[
 							SNew(SImage)
@@ -1079,7 +1079,7 @@ void SUTChallengePanel::StartChallenge(int32 Difficulty)
 
 FReply SUTChallengePanel::CustomClicked()
 {
-	TSharedPtr<SUWindowsMainMenu> MainMenu = StaticCastSharedPtr<SUWindowsMainMenu>(PlayerOwner->GetCurrentMenu());
+	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(PlayerOwner->GetCurrentMenu());
 	if (MainMenu.IsValid())
 	{
 		MainMenu->ShowCustomGamePanel();
@@ -1143,7 +1143,7 @@ FSlateColor SUTChallengePanel::GetTabColor(EChallengeFilterType::Type TargetFilt
 
 void SUTChallengePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
-	SUWPanel::OnShowPanel(inParentWindow);
+	SUTPanelBase::OnShowPanel(inParentWindow);
 
 	if (AnimWidget.IsValid())
 	{
@@ -1160,7 +1160,7 @@ void SUTChallengePanel::OnHidePanel()
 	}
 	else
 	{
-		SUWPanel::OnHidePanel();
+		SUTPanelBase::OnHidePanel();
 	}
 }
 

@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "SUTAspectPanel.h"
+#include "UnrealTournament.h"
+#include "Widgets/SUTAspectPanel.h"
 #include "SUTGameLayerManager.h"
 
 #if !UE_SERVER

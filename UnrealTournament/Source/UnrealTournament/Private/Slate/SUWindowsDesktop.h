@@ -2,7 +2,7 @@
 #pragma once
 
 #include "SlateBasics.h"
-#include "SUWPanel.h"
+#include "Base/SUTPanelBase.h"
 #include "Slate/SlateGameResources.h"
 #include "Widgets/SUTComboButton.h"
 
@@ -30,8 +30,8 @@ public:
 	virtual FReply OnMenuConsoleCommand(FString Command);
 	virtual void ConsoleCommand(FString Command);
 
-	virtual void ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate);
-	virtual void DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate);
+	virtual void ActivatePanel(TSharedPtr<class SUTPanelBase> PanelToActivate);
+	virtual void DeactivatePanel(TSharedPtr<class SUTPanelBase> PanelToDeactivate);
 
 	// Called from the child when the panel decides it's hidden.  Useful for out animations.
 	virtual void PanelHidden(TSharedPtr<SWidget> Child);
@@ -45,7 +45,7 @@ protected:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 
 	TSharedPtr<class SOverlay> Desktop;
-	TSharedPtr<class SUWPanel> ActivePanel;
+	TSharedPtr<class SUTPanelBase> ActivePanel;
 	TSharedPtr<class SWidget> GameViewportWidget;
 
 	virtual void CreateDesktop();

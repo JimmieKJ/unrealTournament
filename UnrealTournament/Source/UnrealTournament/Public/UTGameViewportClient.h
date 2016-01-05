@@ -66,8 +66,8 @@ protected:
 
 	TWeakPtr<class SUTGameLayerManager> LayerManagerPtr;
 
-	TSharedPtr<class SUWDialog> ReconnectDialog;
-	TSharedPtr<class SUWRedirectDialog> RedirectDialog;
+	TSharedPtr<class SUTDialogBase> ReconnectDialog;
+	TSharedPtr<class SUTRedirectDialog> RedirectDialog;
 
 	// Holds the IP/Port of the last connect so we can try to reconnect
 	FURL LastAttemptedURL;

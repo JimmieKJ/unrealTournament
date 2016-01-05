@@ -9,6 +9,18 @@ public class UnrealTournament : ModuleRules
         bFasterWithoutUnity = true;
         MinFilesUsingPrecompiledHeaderOverride = 1;
 
+		PrivateIncludePaths.AddRange(new string[] {
+			"UnrealTournament/Private/Slate",	
+			"UnrealTournament/Private/Slate/Base",	
+			"UnrealTournament/Private/Slate/Dialogs",	
+			"UnrealTournament/Private/Slate/Menus",	
+			"UnrealTournament/Private/Slate/Panels",	
+			"UnrealTournament/Private/Slate/Toasts",	
+			"UnrealTournament/Private/Slate/Widgets",	
+			"UnrealTournament/Private/Slate/Widows",	
+		});
+
+
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[] {
 				"Analytics",

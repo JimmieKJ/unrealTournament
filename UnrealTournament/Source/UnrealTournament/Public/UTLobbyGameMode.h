@@ -5,7 +5,7 @@
 #include "UTGameState.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyPlayerState.h"
-#include "../Private/Slate/SUWindowsLobby.h"
+#include "Menus/SUTLobbyMenu.h"
 #include "UTBaseGameMode.h"
 #include "UTServerBeaconLobbyHostListener.h"
 #include "UTServerBeaconLobbyHostObject.h"
@@ -86,7 +86,7 @@ public:
 	 **/
 	virtual TSharedRef<SUWindowsDesktop> GetGameMenu(UUTLocalPlayer* PlayerOwner) const
 	{
-		return SNew(SUWindowsLobby).PlayerOwner(PlayerOwner);
+		return SNew(SUTLobbyMenu).PlayerOwner(PlayerOwner);
 	}
 
 #endif

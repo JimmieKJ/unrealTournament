@@ -2,7 +2,7 @@
 #pragma once
 
 #include "Slate/SlateGameResources.h"
-#include "../SUWPanel.h"
+#include "../Base/SUTPanelBase.h"
 #include "../SUWindowsStyle.h"
 #include "SUTWebBrowserPanel.h"
 #include "../Widgets/SUTButton.h"

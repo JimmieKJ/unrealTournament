@@ -4,7 +4,7 @@
 #include "UTTimedPowerup.h"
 #include "UTPickupWeapon.h"
 #include "Slate/SlateGameResources.h"
-#include "Slate/SUWindowsStyle.h"
+#include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 #include "UTDuelGame.h"
 #include "StatNames.h"

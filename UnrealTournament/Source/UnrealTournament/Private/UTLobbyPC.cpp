@@ -15,7 +15,7 @@
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
-#include "Slate/SUTDownloadAllDialog.h"
+#include "Dialogs/SUTDownloadAllDialog.h"
 
 AUTLobbyPC::AUTLobbyPC(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)

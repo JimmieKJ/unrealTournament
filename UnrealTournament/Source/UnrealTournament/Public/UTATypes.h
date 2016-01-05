@@ -1280,3 +1280,24 @@ struct FRconPlayerData
 	}
 
 };
+
+
+UENUM()
+namespace EUIWindowState
+{
+	enum Type
+	{
+		Initializing,
+		Opening,
+		Active,
+		Closing,
+		Closed,
+		MAX,
+	};
+}
+
+namespace MatchSummaryViewState
+{
+	const FName ViewingTeam = FName(TEXT("Team"));
+	const FName ViewingSingle = FName(TEXT("Single"));
+}

@@ -397,7 +397,7 @@ void AUTHUD::NotifyMatchStateChange()
 		}
 		else
 		{
-			UTLP->CloseMatchSummary();
+			UTLP->HideMenu();
 		}
 	}
 }
@@ -413,12 +413,7 @@ void AUTHUD::OpenMatchSummary()
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
-		// temp check for testing, until match summary is ready.  Make sure same setting for client and server
-		UTLP->OpenMatchSummary(GS);
-		if (GS->GetMatchState() == MatchState::WaitingToStart)
-		{
-			UTLP->ShowMenu(TEXT(""));
-		}
+		UTLP->ShowMenu(TEXT("forcesummary"));
 	}
 }
 

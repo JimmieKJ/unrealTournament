@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTGameInstance.h"
 #include "UnrealNetwork.h"
-#include "Slate/SUWRedirectDialog.h"
+#include "Dialogs/SUTRedirectDialog.h"
 #include "UTDemoNetDriver.h"
 #include "UTGameEngine.h"
 
@@ -114,7 +114,7 @@ bool UUTGameInstance::StartRedirectDownload(const FString& PakName, const FStrin
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 		if (LocalPlayer != NULL)
 		{
-			TSharedRef<SUWRedirectDialog> Dialog = SNew(SUWRedirectDialog)
+			TSharedRef<SUTRedirectDialog> Dialog = SNew(SUTRedirectDialog)
 				.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameInstance::RedirectResult))
 				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
 				.RedirectToURL(URL)
@@ -163,7 +163,7 @@ void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 
 #if !UE_SERVER
 	if (Widget.IsValid())
 	{
-		ActiveRedirectDialogs.Remove(StaticCastSharedPtr<SUWRedirectDialog>(Widget));
+		ActiveRedirectDialogs.Remove(StaticCastSharedPtr<SUTRedirectDialog>(Widget));
 	}
 	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
 	{

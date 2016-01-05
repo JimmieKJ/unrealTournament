@@ -2,7 +2,7 @@
 #include "UnrealTournament.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "Slate/SUTInGameMenu.h"
+#include "Menus/SUTInGameMenu.h"
 #include "UTGameEngine.h"
 #include "UTGameInstance.h"
 #include "DataChannel.h"

@@ -78,7 +78,7 @@ protected:
 
 	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
-	TArray<TWeakPtr<class SUWRedirectDialog>> ActiveRedirectDialogs;
+	TArray<TWeakPtr<class SUTRedirectDialog>> ActiveRedirectDialogs;
 
 	// in order to handle demo redirects, we have to cancel the demo, download, then retry
 	// this tracks the demo we need to retry

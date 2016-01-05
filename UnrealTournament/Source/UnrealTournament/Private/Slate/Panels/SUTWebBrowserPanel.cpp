@@ -1,10 +1,10 @@
 
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UnrealTournament.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
-#include "../SUWScaleBox.h"
+#include "../Widgets/SUTScaleBox.h"
 #include "SlateExtras.h"
 #include "Slate/SlateGameResources.h"
 #include "SUTWebBrowserPanel.h"
@@ -22,7 +22,7 @@ void SUTWebBrowserPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTL
 	OnBeforeBrowse = InArgs._OnBeforeBrowse;
 	OnBeforePopup = InArgs._OnBeforePopup;
 
-	SUWPanel::Construct(SUWPanel::FArguments(), InPlayerOwner);
+	SUTPanelBase::Construct(SUTPanelBase::FArguments(), InPlayerOwner);
 }
 
 void SUTWebBrowserPanel::ConstructPanel(FVector2D ViewportSize)
@@ -107,7 +107,7 @@ float SUTWebBrowserPanel::GetReverseScale() const
 
 void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
-	SUWPanel::OnShowPanel(inParentWindow);
+	SUTPanelBase::OnShowPanel(inParentWindow);
 
 	// Temporarily change audio level
 	UUTAudioSettings* AudioSettings = UUTAudioSettings::StaticClass()->GetDefaultObject<UUTAudioSettings>();
@@ -120,7 +120,7 @@ void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow
 }
 void SUTWebBrowserPanel::OnHidePanel()
 {
-	SUWPanel::OnHidePanel();
+	SUTPanelBase::OnHidePanel();
 	
 	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
 

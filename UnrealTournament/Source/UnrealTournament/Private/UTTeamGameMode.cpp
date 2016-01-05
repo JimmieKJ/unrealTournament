@@ -10,8 +10,8 @@
 #include "UTGameMessage.h"
 #include "UTCTFGameMessage.h"
 #include "UTCTFRewardMessage.h"
-#include "Slate/SUWindowsStyle.h"
-#include "Slate/SlateGameResources.h"
+#include "SUWindowsStyle.h"
+#include "SlateGameResources.h"
 #include "SNumericEntryBox.h"
 #include "StatNames.h"
 

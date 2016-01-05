@@ -123,7 +123,7 @@ private:
 	void RunSynthBenchmark(bool bSaveSettingsOnceDetected);
 
 	FSettingsAutodetected SettingsAutodetectedEvent;
-	TSharedPtr<class SUWDialog> AutoDetectingSettingsDialog;
+	TSharedPtr<class SUTDialogBase> AutoDetectingSettingsDialog;
 
 	TWeakObjectPtr<UUTLocalPlayer> BenchmarkingLocalPlayer;
 #endif // !UE_SERVER

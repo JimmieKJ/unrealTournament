@@ -17,10 +17,10 @@
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "UTBot.h"
 #include "UTSquadAI.h"
-#include "Slate/Panels/SULobbyMatchSetupPanel.h"
-#include "Slate/SUWPlayerInfoDialog.h"
+#include "Panels/SUTLobbyMatchSetupPanel.h"
+#include "Dialogs/SUTPlayerInfoDialog.h"
 #include "Slate/SlateGameResources.h"
-#include "Slate/Widgets/SUTTabWidget.h"
+#include "Widgets/SUTTabWidget.h"
 #include "SNumericEntryBox.h"
 #include "UTCharacterContent.h"
 #include "UTGameEngine.h"
@@ -85,9 +85,9 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
-	PersonalSummaryDisplayTime = 8.f;
-	WinnerSummaryDisplayTime = 5.f;
-	TeamSummaryDisplayTime = 30.f;
+	PersonalSummaryDisplayTime = 800.f;
+	WinnerSummaryDisplayTime = 500.f;
+	TeamSummaryDisplayTime = 300.f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
 	VictoryMessageClass = UUTVictoryMessage::StaticClass();

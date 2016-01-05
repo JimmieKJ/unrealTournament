@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UnrealTournament.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "Slate/SlateBrushAsset.h"
@@ -167,6 +167,7 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.Star.24x24", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Star.24x24", FVector2D(24, 24), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	
 	Style.Set("UT.Icon.Back", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Back", FVector2D(48, 48)));
+	Style.Set("UT.Icon.Forward", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Forward", FVector2D(48, 48)));
 	Style.Set("UT.Icon.About", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.About", FVector2D(48, 48)));
 	Style.Set("UT.Icon.Online", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Online", FVector2D(48, 48)));
 	Style.Set("UT.Icon.Settings", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Settings", FVector2D(48, 48)));
@@ -183,6 +184,8 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Icon.SignOut", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SignOut", FVector2D(48, 48)));
 	Style.Set("UT.Icon.SignIn",  new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SignIn", FVector2D(48, 48)));
+
+	Style.Set("UT.Icon.ChangeTeam", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.ChangeTeam", FVector2D(48, 48)));
 
 }
 

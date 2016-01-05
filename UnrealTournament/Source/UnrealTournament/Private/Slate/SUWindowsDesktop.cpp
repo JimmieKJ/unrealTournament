@@ -1,18 +1,18 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
-#include "../Public/UnrealTournament.h"
-#include "../Public/UTLocalPlayer.h"
+#include "UnrealTournament.h"
+#include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
-#include "SUWSystemSettingsDialog.h"
-#include "SUWPlayerSettingsDialog.h"
-#include "SUWControlSettingsDialog.h"
-#include "SUWInputBox.h"
-#include "SUWMessageBox.h"
-#include "SUWScaleBox.h"
-#include "SUWPanel.h"
+#include "Dialogs/SUTSystemSettingsDialog.h"
+#include "Dialogs/SUTPlayerSettingsDialog.h"
+#include "Dialogs/SUTControlSettingsDialog.h"
+#include "Dialogs/SUTInputBoxDialog.h"
+#include "Dialogs/SUTMessageBoxDialog.h"
+#include "Widgets/SUTScaleBox.h"
+#include "Base/SUTPanelBase.h"
 #include "UTGameEngine.h"
 #include "Runtime/Engine/Classes/Engine/Console.h"
 #include "SOverlay.h"
@@ -142,7 +142,7 @@ FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
 	return FReply::Handled();
 }
 
-void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
+void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUTPanelBase> PanelToActivate)
 {
 	if ( !Desktop.IsValid() ) return;		// Quick out if no place to put it
 	
@@ -168,7 +168,7 @@ void SUWindowsDesktop::ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate)
 	}
 }
 
-void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate)
+void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SUTPanelBase> PanelToDeactivate)
 {
 	PanelToDeactivate->OnHidePanel();
 }
@@ -178,7 +178,7 @@ void SUWindowsDesktop::PanelHidden(TSharedPtr<SWidget> Child)
 	if (Child.IsValid())
 	{
 		// SO TOTALLY Unsafe.. 
-		TSharedPtr<SUWPanel> const Panel = StaticCastSharedPtr<SUWPanel>(Child);
+		TSharedPtr<SUTPanelBase> const Panel = StaticCastSharedPtr<SUTPanelBase>(Child);
 		Desktop->RemoveSlot(Panel->ZOrder);
 		if (Child == ActivePanel)
 		{

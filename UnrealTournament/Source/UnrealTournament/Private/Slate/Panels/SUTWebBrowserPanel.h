@@ -2,7 +2,7 @@
 #pragma once
 
 #include "Slate/SlateGameResources.h"
-#include "../SUWPanel.h"
+#include "../Base/SUTPanelBase.h"
 #include "../SUWindowsStyle.h"
 
 #if !UE_SERVER
@@ -10,7 +10,7 @@
 #include "SWebBrowser.h"
 #include "IWebBrowserWindow.h"
 
-class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUWPanel
+class UNREALTOURNAMENT_API SUTWebBrowserPanel : public SUTPanelBase
 {
 	SLATE_BEGIN_ARGS(SUTWebBrowserPanel)
 	: _InitialURL(TEXT("https://www.google.com"))

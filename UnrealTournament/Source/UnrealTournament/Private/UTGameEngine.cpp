@@ -17,7 +17,7 @@
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
-#include "Private/Slate/SUWindowsStyle.h"
+#include "SUWindowsStyle.h"
 #endif
 
 // prevent setting MipBias to an intentionally broken value to make textures turn solid color

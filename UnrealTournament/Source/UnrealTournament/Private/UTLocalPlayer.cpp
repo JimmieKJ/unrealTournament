@@ -9,36 +9,37 @@
 #include "UTMenuGameMode.h"
 #include "UTProfileSettings.h"
 #include "UTGameViewportClient.h"
-#include "Slate/SUWindowsDesktop.h"
-#include "Slate/SUWindowsMainMenu.h"
-#include "Slate/Panels/SUWServerBrowser.h"
-#include "Slate/Panels/SUWReplayBrowser.h"
-#include "Slate/Panels/SUWStatsViewer.h"
-#include "Slate/Panels/SUWCreditsPanel.h"
-#include "Slate/SUWMessageBox.h"
-#include "Slate/SUWindowsStyle.h"
-#include "Slate/SUTStyle.h"
-#include "Slate/SUWDialog.h"
-#include "Slate/SUWToast.h"
-#include "Slate/SUTAdminMessage.h"
-#include "Slate/SUWInputBox.h"
-#include "Slate/SUWLoginDialog.h"
-#include "Slate/SUWPlayerSettingsDialog.h"
-#include "Slate/SUWPlayerInfoDialog.h"
-#include "Slate/SUWHUDSettingsDialog.h"
-#include "Slate/SUTQuickMatch.h"
-#include "Slate/SUTJoinInstance.h"
-#include "Slate/SUWFriendsPopup.h"
-#include "Slate/SUWRedirectDialog.h"
-#include "Slate/SUWVideoCompressionDialog.h"
-#include "Slate/SUTLoadoutMenu.h"
-#include "Slate/SUTBuyMenu.h"
-#include "Slate/SUWMapVoteDialog.h"
-#include "Slate/SUTReplayWindow.h"
-#include "Slate/SUTReplayMenu.h"
-#include "Slate/SUTAdminDialog.h"
-#include "Slate/SUTDownloadAllDialog.h"
-#include "Slate/SUTSpectatorWindow.h"
+#include "SUWindowsDesktop.h"
+#include "Menus/SUTMainMenu.h"
+#include "Panels/SUTServerBrowserPanel.h"
+#include "Panels/SUTReplayBrowserPanel.h"
+#include "Panels/SUTStatsViewerPanel.h"
+#include "Panels/SUTCreditsPanel.h"
+#include "Dialogs/SUTMessageBoxDialog.h"
+#include "SUWindowsStyle.h"
+#include "SUTStyle.h"
+#include "Base/SUTDialogBase.h"
+#include "Base/SUTToastBase.h"
+#include "Base/SUTWindowBase.h"
+#include "Toasts/SUTAdminMessageToast.h"
+#include "Dialogs/SUTInputBoxDialog.h"
+#include "Dialogs/SUTLoginDialog.h"
+#include "Dialogs/SUTPlayerSettingsDialog.h"
+#include "Dialogs/SUTPlayerInfoDialog.h"
+#include "Dialogs/SUTHUDSettingsDialog.h"
+#include "Windows/SUTQuickMatchWindow.h"
+#include "Windows/SUTJoinInstanceWindow.h"
+#include "Windows/SUTFriendsPopupWindow.h"
+#include "Dialogs/SUTRedirectDialog.h"
+#include "Dialogs/SUTVideoCompressionDialog.h"
+#include "Windows/SUTLoadoutWindow.h"
+#include "Windows/SUTBuyWindow.h"
+#include "Dialogs/SUTMapVoteDialog.h"
+#include "Windows/SUTReplayWindow.h"
+#include "Menus/SUTReplayMenu.h"
+#include "Dialogs/SUTAdminDialog.h"
+#include "Dialogs/SUTDownloadAllDialog.h"
+#include "Windows/SUTSpectatorWindow.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -49,9 +50,8 @@
 #include "UTConsole.h"
 #include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "UTVideoRecordingFeature.h"
-#include "Slate/SUWYoutubeUpload.h"
-#include "Slate/SUWYoutubeConsent.h"
-#include "Slate/SUWMatchSummary.h"
+#include "Dialogs/SUTYoutubeUploadDialog.h"
+#include "Dialogs/SUTYoutubeConsentDialog.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyPC.h"
 #include "StatNames.h"
@@ -294,6 +294,36 @@ bool UUTLocalPlayer::IsMenuGame()
 	return false;
 }
 
+void UUTLocalPlayer::OpenWindow(TSharedPtr<SUTWindowBase> WindowToOpen)
+{
+	// Make sure this window isn't already in the stack.
+	if (WindowStack.Find(WindowToOpen) == INDEX_NONE)
+	{
+		GEngine->GameViewport->AddViewportWidgetContent(WindowToOpen.ToSharedRef(), 1);
+		WindowStack.Add(WindowToOpen);
+		WindowToOpen->Open();
+	}
+}
+
+bool UUTLocalPlayer::CloseWindow(TSharedPtr<SUTWindowBase> WindowToClose)
+{
+	// Find this window in the stack.
+	if (WindowStack.Find(WindowToClose) != INDEX_NONE)
+	{
+		return WindowToClose->Close();
+	}
+
+	return false;
+}
+
+void UUTLocalPlayer::WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed)
+{
+	if (WindowStack.Find(WindowThatWasClosed) != INDEX_NONE)
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(WindowThatWasClosed.ToSharedRef());
+		WindowStack.Remove(WindowThatWasClosed);
+	}
+}
 
 void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 {
@@ -317,7 +347,7 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 	{
 		if ( IsMenuGame() )
 		{
-			SAssignNew(DesktopSlateWidget, SUWindowsMainMenu).PlayerOwner(this);
+			SAssignNew(DesktopSlateWidget, SUTMainMenu).PlayerOwner(this);
 		}
 		else if (IsReplay())
 		{
@@ -393,7 +423,7 @@ void UUTLocalPlayer::OpenTutorialMenu()
 #if !UE_SERVER
 	if (IsMenuGame() && DesktopSlateWidget.IsValid())
 	{
-		StaticCastSharedPtr<SUWindowsMainMenu>(DesktopSlateWidget)->OpenTutorialMenu();
+		StaticCastSharedPtr<SUTMainMenu>(DesktopSlateWidget)->OpenTutorialMenu();
 	}
 #endif
 }
@@ -406,12 +436,12 @@ void UUTLocalPlayer::MessageBox(FText MessageTitle, FText MessageText)
 }
 
 #if !UE_SERVER
-TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback, FVector2D DialogSize)
+TSharedPtr<class SUTDialogBase>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FText MessageText, uint16 Buttons, const FDialogResultDelegate& Callback, FVector2D DialogSize)
 {
-	TSharedPtr<class SUWDialog> NewDialog;
+	TSharedPtr<class SUTDialogBase> NewDialog;
 	if (DialogSize.IsNearlyZero())
 	{
-		SAssignNew(NewDialog, SUWMessageBox)
+		SAssignNew(NewDialog, SUTMessageBoxDialog)
 			.PlayerOwner(this)
 			.DialogTitle(MessageTitle)
 			.MessageText(MessageText)
@@ -420,7 +450,7 @@ TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FTe
 	}
 	else
 	{
-		SAssignNew(NewDialog, SUWMessageBox)
+		SAssignNew(NewDialog, SUTMessageBoxDialog)
 			.PlayerOwner(this)
 			.bDialogSizeIsRelative(true)
 			.DialogSize(DialogSize)
@@ -434,7 +464,7 @@ TSharedPtr<class SUWDialog>  UUTLocalPlayer::ShowMessage(FText MessageTitle, FTe
 	return NewDialog;
 }
 
-TSharedPtr<class SUWDialog> UUTLocalPlayer::ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback)
+TSharedPtr<class SUTDialogBase> UUTLocalPlayer::ShowSupressableConfirmation(FText MessageTitle, FText MessageText, FVector2D DialogSize, bool &InOutShouldSuppress, const FDialogResultDelegate& Callback)
 {
 	auto OnGetSuppressibleState = [&InOutShouldSuppress]() { return InOutShouldSuppress ? ECheckBoxState::Checked : ECheckBoxState::Unchecked; };
 
@@ -443,10 +473,10 @@ TSharedPtr<class SUWDialog> UUTLocalPlayer::ShowSupressableConfirmation(FText Me
 		InOutShouldSuppress = CheckBoxState == ECheckBoxState::Checked;
 	};
 
-	TSharedPtr<class SUWDialog> NewDialog;
+	TSharedPtr<class SUTDialogBase> NewDialog;
 	if (DialogSize.IsNearlyZero())
 	{
-		SAssignNew(NewDialog, SUWMessageBox)
+		SAssignNew(NewDialog, SUTMessageBoxDialog)
 			.PlayerOwner(this)
 			.DialogTitle(MessageTitle)
 			.MessageText(MessageText)
@@ -458,7 +488,7 @@ TSharedPtr<class SUWDialog> UUTLocalPlayer::ShowSupressableConfirmation(FText Me
 	}
 	else
 	{
-		SAssignNew(NewDialog, SUWMessageBox)
+		SAssignNew(NewDialog, SUTMessageBoxDialog)
 			.PlayerOwner(this)
 			.bDialogSizeIsRelative(true)
 			.DialogSize(DialogSize)
@@ -475,45 +505,45 @@ TSharedPtr<class SUWDialog> UUTLocalPlayer::ShowSupressableConfirmation(FText Me
 	return NewDialog;
 }
 
-void UUTLocalPlayer::OpenDialog(TSharedRef<SUWDialog> Dialog, int32 ZOrder)
+void UUTLocalPlayer::OpenDialog(TSharedRef<SUTDialogBase> Dialog, int32 ZOrder)
 {
 	GEngine->GameViewport->AddViewportWidgetContent(Dialog, ZOrder);
 	Dialog->OnDialogOpened();
 	OpenDialogs.Add(Dialog);
 }
 
-void UUTLocalPlayer::CloseDialog(TSharedRef<SUWDialog> Dialog)
+void UUTLocalPlayer::CloseDialog(TSharedRef<SUTDialogBase> Dialog)
 {
 	OpenDialogs.Remove(Dialog);
 	Dialog->OnDialogClosed();
 	GEngine->GameViewport->RemoveViewportWidgetContent(Dialog);
 }
 
-TSharedPtr<class SUWServerBrowser> UUTLocalPlayer::GetServerBrowser()
+TSharedPtr<class SUTServerBrowserPanel> UUTLocalPlayer::GetServerBrowser()
 {
 	if (!ServerBrowserWidget.IsValid())
 	{
-		SAssignNew(ServerBrowserWidget, SUWServerBrowser, this);
+		SAssignNew(ServerBrowserWidget, SUTServerBrowserPanel, this);
 	}
 
 	return ServerBrowserWidget;
 }
 
-TSharedPtr<class SUWReplayBrowser> UUTLocalPlayer::GetReplayBrowser()
+TSharedPtr<class SUTReplayBrowserPanel> UUTLocalPlayer::GetReplayBrowser()
 {
 	if (!ReplayBrowserWidget.IsValid())
 	{
-		SAssignNew(ReplayBrowserWidget, SUWReplayBrowser, this);
+		SAssignNew(ReplayBrowserWidget, SUTReplayBrowserPanel, this);
 	}
 
 	return ReplayBrowserWidget;
 }
 
-TSharedPtr<class SUWStatsViewer> UUTLocalPlayer::GetStatsViewer()
+TSharedPtr<class SUTStatsViewerPanel> UUTLocalPlayer::GetStatsViewer()
 {
 	if (!StatsViewerWidget.IsValid())
 	{
-		SAssignNew(StatsViewerWidget, SUWStatsViewer, this);
+		SAssignNew(StatsViewerWidget, SUTStatsViewerPanel, this);
 	}
 
 	return StatsViewerWidget;
@@ -527,11 +557,11 @@ void UUTLocalPlayer::ChangeStatsViewerTarget(FString InStatsID)
 	}
 }
 
-TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
+TSharedPtr<class SUTCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 {
 	if (!CreditsPanelWidget.IsValid())
 	{
-		SAssignNew(CreditsPanelWidget, SUWCreditsPanel, this);
+		SAssignNew(CreditsPanelWidget, SUTCreditsPanel, this);
 	}
 
 	return CreditsPanelWidget;
@@ -540,7 +570,6 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 bool UUTLocalPlayer::AreMenusOpen()
 {
 	return DesktopSlateWidget.IsValid()
-		|| MatchSummaryWindow.IsValid()
 		|| LoadoutMenu.IsValid()
 		|| OpenDialogs.Num() > 0;
 	//Add any widget thats not in the menu here
@@ -554,7 +583,7 @@ void UUTLocalPlayer::ShowHUDSettings()
 #if !UE_SERVER
 	if (!HUDSettings.IsValid())
 	{
-		SAssignNew(HUDSettings, SUWHUDSettingsDialog)
+		SAssignNew(HUDSettings, SUTHUDSettingsDialog)
 			.PlayerOwner(this);
 
 		OpenDialog( HUDSettings.ToSharedRef() );
@@ -799,7 +828,7 @@ void UUTLocalPlayer::GetAuth(FString ErrorMessage)
 
 	bool bError = ErrorMessage != TEXT("");
 
-	SAssignNew(LoginDialog, SUWLoginDialog)
+	SAssignNew(LoginDialog, SUTLoginDialog)
 		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::AuthDialogClosed))
 		.UserIDText(PendingLoginUserName)
 		.ErrorText(bError ? FText::FromString(ErrorMessage) : FText::GetEmpty())
@@ -1048,8 +1077,8 @@ void UUTLocalPlayer::ShowAdminMessage(FString Message)
 
 	// Build the Toast to Show...
 
-	TSharedPtr<SUTAdminMessage> Msg;
-	SAssignNew(Msg, SUTAdminMessage)
+	TSharedPtr<SUTAdminMessageToast> Msg;
+	SAssignNew(Msg, SUTAdminMessageToast)
 		.PlayerOwner(this)
 		.Lifetime(10)
 		.ToastText(FText::FromString(Message));
@@ -1076,8 +1105,8 @@ void UUTLocalPlayer::ShowToast(FText ToastText)
 
 	// Build the Toast to Show...
 
-	TSharedPtr<SUWToast> Toast;
-	SAssignNew(Toast, SUWToast)
+	TSharedPtr<SUTToastBase> Toast;
+	SAssignNew(Toast, SUTToastBase)
 		.PlayerOwner(this)
 		.ToastText(ToastText);
 
@@ -1095,7 +1124,7 @@ void UUTLocalPlayer::ShowToast(FText ToastText)
 }
 
 #if !UE_SERVER
-void UUTLocalPlayer::AddToastToViewport(TSharedPtr<SUWToast> ToastToDisplay)
+void UUTLocalPlayer::AddToastToViewport(TSharedPtr<SUTToastBase> ToastToDisplay)
 {
 	GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(ToastToDisplay.ToSharedRef()),10000);
 }
@@ -1329,7 +1358,7 @@ void UUTLocalPlayer::WelcomeDialogResult(TSharedPtr<SCompoundWidget> Widget, uin
 {
 	if (ButtonID == UTDIALOG_BUTTON_YES)
 	{
-		OpenDialog(SNew(SUWPlayerSettingsDialog).PlayerOwner(this));			
+		OpenDialog(SNew(SUTPlayerSettingsDialog).PlayerOwner(this));			
 	}
 }
 
@@ -1922,11 +1951,11 @@ void UUTLocalPlayer::HideContentLoadingMessage()
 	}
 }
 
-TSharedPtr<SUWFriendsPopup> UUTLocalPlayer::GetFriendsPopup()
+TSharedPtr<SUTFriendsPopupWindow> UUTLocalPlayer::GetFriendsPopup()
 {
 	if (!FriendsMenu.IsValid())
 	{
-		SAssignNew(FriendsMenu, SUWFriendsPopup)
+		SAssignNew(FriendsMenu, SUTFriendsPopupWindow)
 			.PlayerOwner(this);
 	}
 
@@ -2384,13 +2413,12 @@ void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
 			OnlineSessionInterface->CancelFindSessions();				
 		}
 
-		SAssignNew(QuickMatchDialog, SUTQuickMatch)
-			.PlayerOwner(this)
+		SAssignNew(QuickMatchDialog, SUTQuickMatchWindow, this)
 			.QuickMatchType(QuickMatchType);
 
 		if (QuickMatchDialog.IsValid())
 		{
-			GEngine->GameViewport->AddViewportWidgetContent(QuickMatchDialog.ToSharedRef(), 150);
+			OpenWindow(QuickMatchDialog);
 			QuickMatchDialog->TellSlateIWantKeyboardFocus();
 		}
 	}
@@ -2403,7 +2431,7 @@ void UUTLocalPlayer::CloseQuickMatch()
 {
 	if (QuickMatchDialog.IsValid())
 	{
-		GEngine->GameViewport->RemoveViewportWidgetContent(QuickMatchDialog.ToSharedRef());
+		CloseWindow(QuickMatchDialog);
 		QuickMatchDialog.Reset();
 	}
 }
@@ -2418,8 +2446,8 @@ void UUTLocalPlayer::ShowConnectingDialog()
 		FDialogResultDelegate Callback;
 		Callback.BindUObject(this, &UUTLocalPlayer::ConnectingDialogCancel);
 
-		TSharedPtr<SUWDialog> NewDialog; // important to make sure the ref count stays until OpenDialog()
-		SAssignNew(NewDialog, SUWMessageBox)
+		TSharedPtr<SUTDialogBase> NewDialog; // important to make sure the ref count stays until OpenDialog()
+		SAssignNew(NewDialog, SUTMessageBoxDialog)
 			.PlayerOwner(this)
 			.DialogTitle(NSLOCTEXT("UT", "ConnectingTitle", "Connecting..."))
 			.MessageText(NSLOCTEXT("UT", "ConnectingText", "Connecting to server, please wait..."))
@@ -2455,6 +2483,9 @@ bool UUTLocalPlayer::IsInSession()
 
 void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 {
+	UE_LOG(UT,Log,TEXT("ShowPlayerInfo ---- "));
+
+/* FIXMEJOE
 #if !UE_SERVER
 	if (MatchSummaryWindow.IsValid() && Target.IsValid())
 	{
@@ -2466,9 +2497,10 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 		{
 			HideMenu();
 		}
-		OpenDialog(SNew(SUWPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
+		OpenDialog(SNew(SUTPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
 	}
 #endif
+*/
 }
 
 int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
@@ -2515,22 +2547,26 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 
 void UUTLocalPlayer::OnTauntPlayed(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
 {
+/* FIXMEJOE
 #if !UE_SERVER
 	if (MatchSummaryWindow.IsValid())
 	{
 		MatchSummaryWindow->PlayTauntByClass(PS, TauntToPlay, EmoteSpeed);
 	}
 #endif
+*/
 }
 
 void UUTLocalPlayer::OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed)
 {
+/* FIXMEJOE
 #if !UE_SERVER
 	if (MatchSummaryWindow.IsValid())
 	{
 		MatchSummaryWindow->SetEmoteSpeed(PS, EmoteSpeed);
 	}
 #endif
+*/
 }
 
 void UUTLocalPlayer::RequestFriendship(TSharedPtr<const FUniqueNetId> FriendID)
@@ -2676,11 +2712,11 @@ void UUTLocalPlayer::OpenLoadout(bool bBuyMenu)
 	{
 		if (bBuyMenu)
 		{
-			SAssignNew(LoadoutMenu, SUTBuyMenu).PlayerOwner(this);
+			SAssignNew(LoadoutMenu, SUTBuyWindow).PlayerOwner(this);
 		}
 		else
 		{
-			SAssignNew(LoadoutMenu, SUTLoadoutMenu).PlayerOwner(this);
+			SAssignNew(LoadoutMenu, SUTLoadoutWindow).PlayerOwner(this);
 		}
 
 		if (LoadoutMenu.IsValid())
@@ -2726,7 +2762,7 @@ void UUTLocalPlayer::OpenMapVote(AUTGameState* GameState)
 			if (GameState == NULL) return;
 		}
 
-		SAssignNew(MapVoteMenu,SUWMapVoteDialog).PlayerOwner(this).GameState(GameState);
+		SAssignNew(MapVoteMenu,SUTMapVoteDialog).PlayerOwner(this).GameState(GameState);
 		OpenDialog( MapVoteMenu.ToSharedRef(), 200 );
 	}
 #endif
@@ -2744,32 +2780,37 @@ void UUTLocalPlayer::CloseMapVote()
 
 void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 {
+	ShowMenu(TEXT(""));
+
+/*
 #if !UE_SERVER
 	PlayerController->DisableInput(PlayerController);
 	if (MatchSummaryWindow.IsValid())
 	{
 		CloseMatchSummary();
 	}
-	SAssignNew(MatchSummaryWindow, SUWMatchSummary).PlayerOwner(this).GameState(GameState);
+	SAssignNew(MatchSummaryWindow, SUTMatchSummaryPanel, this).GameState(GameState);
 	
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
-		UTGVC->AddViewportWidgetContent(MatchSummaryWindow.ToSharedRef(), 0);
+		OpenWindow(MatchSummaryWindow);
 		FSlateApplication::Get().SetKeyboardFocus(MatchSummaryWindow.ToSharedRef(), EKeyboardFocusCause::Keyboard);
 	}
 #endif
+*/
 }
 void UUTLocalPlayer::CloseMatchSummary()
 {
+/*
 #if !UE_SERVER
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
-		UTGVC->RemoveViewportWidgetContent(MatchSummaryWindow.ToSharedRef());
+		CloseWindow(MatchSummaryWindow);
 		MatchSummaryWindow.Reset();
 		
-		//Since we use SUInGameHomePanel for the time being for chat, we need to clear bForceScores
+		//Since we use SUTInGameHomePanel for the time being for chat, we need to clear bForceScores
 		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
 		if (PC && PC->MyUTHUD)
 		{
@@ -2780,6 +2821,7 @@ void UUTLocalPlayer::CloseMatchSummary()
 		PlayerController->EnableInput(PlayerController);
 	}
 #endif
+*/	
 }
 
 void UUTLocalPlayer::OpenReplayWindow()
@@ -2924,7 +2966,7 @@ void UUTLocalPlayer::ShouldVideoCompressDialogResult(TSharedPtr<SCompoundWidget>
 				if (VideoRecorder)
 				{
 					// Open a dialog that shows a nice progress bar of the compression
-					OpenDialog(SNew(SUWVideoCompressionDialog)
+					OpenDialog(SNew(SUTVideoCompressionDialog)
 								.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::VideoCompressDialogResult))
 								.DialogTitle(NSLOCTEXT("VideoMessages", "Compressing", "Compressing"))
 								.PlayerOwner(this)
@@ -2945,7 +2987,7 @@ void UUTLocalPlayer::VideoCompressDialogResult(TSharedPtr<SCompoundWidget> Widge
 {
 	if (ButtonID == UTDIALOG_BUTTON_OK)
 	{
-		OpenDialog(SNew(SUWInputBox)
+		OpenDialog(SNew(SUTInputBoxDialog)
 			.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ShouldVideoUploadDialogResult))
 			.PlayerOwner(this)
 			.DialogSize(FVector2D(700, 400))
@@ -2966,7 +3008,7 @@ void UUTLocalPlayer::ShouldVideoUploadDialogResult(TSharedPtr<SCompoundWidget> W
 {
 	if (ButtonID == UTDIALOG_BUTTON_YES)
 	{
-		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		TSharedPtr<SUTInputBoxDialog> Box = StaticCastSharedPtr<SUTInputBoxDialog>(Widget);
 		if (Box.IsValid())
 		{
 			RecordedReplayTitle = Box->GetInputText();
@@ -3099,7 +3141,7 @@ void UUTLocalPlayer::GetYoutubeConsentForUpload()
 {
 	// Get youtube consent
 	OpenDialog(
-		SAssignNew(YoutubeConsentDialog, SUWYoutubeConsent)
+		SAssignNew(YoutubeConsentDialog, SUTYoutubeConsentDialog)
 		.PlayerOwner(this)
 		.DialogSize(FVector2D(0.8f, 0.8f))
 		.DialogPosition(FVector2D(0.5f, 0.5f))
@@ -3113,7 +3155,7 @@ void UUTLocalPlayer::UploadVideoToYoutube()
 {
 	// Get youtube consent
 	OpenDialog(
-		SNew(SUWYoutubeUpload)
+		SNew(SUTYoutubeUploadDialog)
 		.PlayerOwner(this)
 		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
 		.VideoFilename(RecordedReplayFilename)
@@ -3134,7 +3176,7 @@ void UUTLocalPlayer::YoutubeUploadResult(TSharedPtr<SCompoundWidget> Widget, uin
 	}
 	else
 	{
-		SUWYoutubeUpload* UploadDialog = (SUWYoutubeUpload*)Widget.Get();
+		SUTYoutubeUploadDialog* UploadDialog = (SUTYoutubeUploadDialog*)Widget.Get();
 		TSharedRef< TJsonReader<> > JsonReader = TJsonReaderFactory<>::Create(UploadDialog->UploadFailMessage);
 		TSharedPtr< FJsonObject > JsonObject;
 		FJsonSerializer::Deserialize(JsonReader, JsonObject);
@@ -3230,7 +3272,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 		if (GetWorld()->WorldType == EWorldType::Game)
 		{
 			// restore dialogs to the viewport
-			for (TSharedPtr<SUWDialog> Dialog : OpenDialogs)
+			for (TSharedPtr<SUTDialogBase> Dialog : OpenDialogs)
 			{
 				if ( Dialog.IsValid() && (!MapVoteMenu.IsValid() || Dialog.Get() != MapVoteMenu.Get()) && (!DownloadAllDialog.IsValid() || Dialog.Get() != DownloadAllDialog.Get()) )
 				{
@@ -3280,15 +3322,14 @@ void UUTLocalPlayer::AttemptJoinInstance(TSharedPtr<FServerData> ServerData, FSt
 {
 #if !UE_SERVER
 
-	SAssignNew(JoinInstanceDialog, SUTJoinInstance)
-		.PlayerOwner(this)
+	SAssignNew(JoinInstanceDialog, SUTJoinInstanceWindow, this)
 		.ServerData(ServerData)
 		.InstanceId(InstanceId)
 		.bSpectator(bSpectate);
 
 	if (JoinInstanceDialog.IsValid())
 	{
-		GEngine->GameViewport->AddViewportWidgetContent(JoinInstanceDialog.ToSharedRef(), 151);
+		OpenWindow(JoinInstanceDialog);
 		JoinInstanceDialog->TellSlateIWantKeyboardFocus();
 	}
 #endif
@@ -3298,7 +3339,7 @@ void UUTLocalPlayer::CloseJoinInstanceDialog()
 #if !UE_SERVER
 	if (JoinInstanceDialog.IsValid())
 	{
-		GEngine->GameViewport->RemoveViewportWidgetContent(JoinInstanceDialog.ToSharedRef());
+		CloseWindow(JoinInstanceDialog);
 		JoinInstanceDialog.Reset();
 	}
 #endif
@@ -3689,11 +3730,12 @@ int32 UUTLocalPlayer::NumDialogsOpened()
 bool UUTLocalPlayer::SkipWorldRender()
 {
 #if !UE_SERVER
+/* FIXMEJOE
 	if (MatchSummaryWindow.IsValid())
 	{
 		return true;
 	}
-
+*/
 	for (auto& Dialog : OpenDialogs)
 	{
 		if (Dialog.IsValid() && Dialog.Get()->bSkipWorldRender)

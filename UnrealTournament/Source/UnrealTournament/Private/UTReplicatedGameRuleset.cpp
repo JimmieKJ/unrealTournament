@@ -6,7 +6,7 @@
 #include "Net/UnrealNetwork.h"
 
 #if !UE_SERVER
-#include "Slate/SUWindowsStyle.h"
+#include "SUWindowsStyle.h"
 #endif
 
 AUTReplicatedGameRuleset::AUTReplicatedGameRuleset(const class FObjectInitializer& ObjectInitializer)

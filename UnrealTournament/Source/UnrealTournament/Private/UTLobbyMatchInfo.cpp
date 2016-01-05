@@ -254,45 +254,45 @@ FText AUTLobbyMatchInfo::GetActionText()
 {
 	if (CurrentState == ELobbyMatchState::Dead)
 	{
-		return NSLOCTEXT("SUMatchPanel","Dead","!! DEAD - BUG !!");
+		return NSLOCTEXT("SUTMatchPanel","Dead","!! DEAD - BUG !!");
 	}
 	else if (CurrentState == ELobbyMatchState::Setup)
 	{
-		return NSLOCTEXT("SUMatchPanel","Setup","Initializing...");
+		return NSLOCTEXT("SUTMatchPanel","Setup","Initializing...");
 	}
 	else if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 	{
 		if (MatchHasRoom())
 		{
-			return NSLOCTEXT("SUMatchPanel","ClickToJoin","Click to Join");
+			return NSLOCTEXT("SUTMatchPanel","ClickToJoin","Click to Join");
 		}
 		else
 		{
-			return NSLOCTEXT("SUMatchPanel","Full","Match is Full");
+			return NSLOCTEXT("SUTMatchPanel","Full","Match is Full");
 		}
 	}
 	else if (CurrentState == ELobbyMatchState::Launching)
 	{
-		return NSLOCTEXT("SUMatchPanel","Launching","Launching...");
+		return NSLOCTEXT("SUTMatchPanel","Launching","Launching...");
 	}
 	else if (CurrentState == ELobbyMatchState::InProgress)
 	{
 		if (bJoinAnytime)
 		{
-			return NSLOCTEXT("SUMatchPanel","ClickToJoin","Click to Join");
+			return NSLOCTEXT("SUTMatchPanel","ClickToJoin","Click to Join");
 		}
 		else if (bSpectatable)
 		{
-			return NSLOCTEXT("SUMatchPanel","Spectate","Click to Spectate");
+			return NSLOCTEXT("SUTMatchPanel","Spectate","Click to Spectate");
 		}
 		else 
 		{
-			return NSLOCTEXT("SUMatchPanel","InProgress","In Progress...");
+			return NSLOCTEXT("SUTMatchPanel","InProgress","In Progress...");
 		}
 	}
 	else if (CurrentState == ELobbyMatchState::Returning)
 	{
-		return NSLOCTEXT("SUMatchPanel","MatchOver","!! Match is over !!");
+		return NSLOCTEXT("SUTMatchPanel","MatchOver","!! Match is over !!");
 	}
 
 	return FText::GetEmpty();
