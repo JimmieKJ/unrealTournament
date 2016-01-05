@@ -23,6 +23,7 @@ public:
 		RedTeamRound = FName(TEXT("RedTeamWinsRound"));
 		BlueTeamRound = FName(TEXT("BlueTeamWinsRound"));
 		NewRoundIn = FName(TEXT("NewRoundIn"));
+		FinalRound = FName(TEXT("FinalRound"));
 	}
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Message)
@@ -42,6 +43,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
 		FName NewRoundIn;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		FName FinalRound;
 
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const override
 	{
@@ -78,6 +82,8 @@ public:
 			return BlueTeamRound;
 		case 5:
 			return NewRoundIn;
+		case 6:
+			return FinalRound;
 		default:
 			return NAME_None;
 		}
@@ -86,5 +92,9 @@ public:
 	virtual void PrecacheAnnouncements_Implementation(UUTAnnouncer* Announcer) const override
 	{
 		Announcer->PrecacheAnnouncement(OnDeckAnnounce);
+		Announcer->PrecacheAnnouncement(RedTeamRound);
+		Announcer->PrecacheAnnouncement(BlueTeamRound);
+		Announcer->PrecacheAnnouncement(NewRoundIn);
+		Announcer->PrecacheAnnouncement(FinalRound);
 	}
 };

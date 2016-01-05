@@ -649,7 +649,14 @@ void AUTShowdownGame::DefaultTimer()
 				{
 					GS->bFinalIntermissionDelay = true;
 					GS->IntermissionStageTime = 5;
-					BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 5);
+					if ((Teams.Num() >= 2) && Teams[0] && Teams[1] && (Teams[0]->Score == GoalScore - 1) && (Teams[1]->Score == GoalScore - 1))
+					{
+						BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 6);
+					}
+					else
+					{
+						BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 5);
+					}
 				}
 				else
 				{
