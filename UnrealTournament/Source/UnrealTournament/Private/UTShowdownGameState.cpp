@@ -9,6 +9,7 @@
 AUTShowdownGameState::AUTShowdownGameState(const FObjectInitializer& OI)
 : Super(OI)
 {
+	bRespawnsAllowed = false;
 }
 
 void AUTShowdownGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

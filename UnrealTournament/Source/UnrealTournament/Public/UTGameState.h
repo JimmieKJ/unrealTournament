@@ -45,7 +45,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bTeamGame : 1;
 
-	/** True if plaeyrs are allowed to switch teams (if team game). */
+	/** True if players are allowed to switch teams (if team game). */
 	UPROPERTY(Replicated, EditAnywhere, BlueprintReadWrite, Category = GameState)
 	uint32 bAllowTeamSwitches : 1;
 
@@ -64,6 +64,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** If true, the intro cinematic will play just before the countdown to begin */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 bPlayPlayerIntro : 1;
+
+	/** Tells client if respawning is allowed */
+	UPROPERTY(Replicated, BlueprintReadWrite, EditDefaultsOnly, Category = GameState)
+		uint32 bRespawnsAllowed : 1;
 
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
