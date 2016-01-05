@@ -14,6 +14,7 @@
 #include "SlateGameResources.h"
 #include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
+#include "UTShowdownRewardMessage.h"
 
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -168,17 +169,42 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 				AUTTeamInfo* KillerTeam = (KillerPS != NULL && KillerPS->Team != OtherPS->Team) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
 
-				bool bAnyOtherAlive = false;
+				int32 AliveCount = 0;
+				AController* LastAlive = NULL;
 				for (AController* C : OtherPS->Team->GetTeamMembers())
 				{
 					if (C != Other && C->GetPawn() != NULL && !C->GetPawn()->bTearOff)
 					{
-						bAnyOtherAlive = true;
-						break;
+						LastAlive = C;
+						AliveCount++;
 					}
 				}
-				if (!bAnyOtherAlive)
+				if (AliveCount == 1)
 				{
+					for (AController* C : OtherPS->Team->GetTeamMembers())
+					{
+						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 1, PC->PlayerState, NULL, NULL);
+						}
+					}
+					for (AController* C : KillerPS->Team->GetTeamMembers())
+					{
+						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)
+						{
+							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 0, PC->PlayerState, NULL, NULL);
+						}
+					}
+				}
+				else if (AliveCount == 0)
+				{
+					AUTPlayerController* PC = Cast<AUTPlayerController>(Killer);
+					if (PC && (Killer != Other))
+					{
+						PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+					}
 					KillerTeam->Score += 1;
 					if (LastRoundWinner == NULL)
 					{

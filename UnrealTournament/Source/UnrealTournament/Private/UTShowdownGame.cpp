@@ -11,6 +11,7 @@
 #include "SNumericEntryBox.h"
 #include "UTShowdownSquadAI.h"
 #include "UTGenericObjectivePoint.h"
+#include "UTShowdownRewardMessage.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -212,6 +213,11 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 		}
 		if (Killer != Other && Killer != NULL && UTGameState->OnSameTeam(Killer, Other))
 		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(Killer);
+			if (PC)
+			{
+				PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 3, PC->PlayerState, NULL, NULL);
+			}
 			// AUTGameMode doesn't handle team kills and AUTTeamDMGameMode would change the team score so we need to do it ourselves
 			AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
 			if (KillerPS != NULL)
