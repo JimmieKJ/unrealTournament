@@ -298,6 +298,7 @@ bool UUTLocalPlayer::IsMenuGame()
 	return false;
 }
 
+#if !UE_SERVER
 void UUTLocalPlayer::OpenWindow(TSharedPtr<SUTWindowBase> WindowToOpen)
 {
 	// Make sure this window isn't already in the stack.
@@ -328,6 +329,7 @@ void UUTLocalPlayer::WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed)
 		WindowStack.Remove(WindowThatWasClosed);
 	}
 }
+#endif
 
 void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 {
