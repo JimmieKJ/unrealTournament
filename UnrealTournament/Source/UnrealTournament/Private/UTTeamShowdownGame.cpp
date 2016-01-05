@@ -189,7 +189,7 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 							PC->ClientReceiveLocalizedMessage(UUTShowdownRewardMessage::StaticClass(), 1, PC->PlayerState, NULL, NULL);
 						}
 					}
-					for (AController* C : KillerPS->Team->GetTeamMembers())
+					for (AController* C : KillerTeam->GetTeamMembers())
 					{
 						AUTPlayerController* PC = Cast<AUTPlayerController>(C);
 						if (PC && PC->GetPawn() != NULL && !PC->GetPawn()->bTearOff)

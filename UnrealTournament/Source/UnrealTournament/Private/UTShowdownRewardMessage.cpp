@@ -14,10 +14,10 @@ UUTShowdownRewardMessage::UUTShowdownRewardMessage(const class FObjectInitialize
 	LastManMsg = NSLOCTEXT("ShowdownRewardMessage", "LastManMsg", "Last Man Standing");
 	OverChargeMsg = NSLOCTEXT("ShowdownRewardMessage", "OverChargeMsg", "OVERCHARGE AVAILABLE!");
 	TerminationMsg = NSLOCTEXT("ShowdownRewardMessage", "TerminationMsg", "TERMINATED!");
-	FinishIt = FName(TEXT("FinishIt"));
-	LastMan = FName(TEXT("LMS"));
+	FinishIt = FName(TEXT("RW_FinishIt"));
+	LastMan = FName(TEXT("RW_LMS"));
 	OverCharge = FName(TEXT("Overload"));
-	Termination = FName(TEXT("Termination"));
+	Termination = FName(TEXT("RW_Termination"));
 }
 
 FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const 
@@ -35,6 +35,11 @@ FText UUTShowdownRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1,
 	default:
 		return FText();
 	}
+}
+
+bool UUTShowdownRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
+{
+	return IsLocalForAnnouncement(ClientData, true, true);
 }
 
 FLinearColor UUTShowdownRewardMessage::GetMessageColor_Implementation(int32 MessageIndex) const 
@@ -71,4 +76,3 @@ void UUTShowdownRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer
 	Announcer->PrecacheAnnouncement(OverCharge);
 	Announcer->PrecacheAnnouncement(Termination);
 }
-

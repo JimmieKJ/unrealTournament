@@ -2049,7 +2049,6 @@ void AUTPlayerController::ServerSelectSpawnPoint_Implementation(APlayerStart* De
 
 void AUTPlayerController::ClientPlayBadSelectionSound_Implementation()
 {
-	UE_LOG(UT, Warning, TEXT("Bad selection sound"));
 	if (GetViewTarget())
 	{
 		UGameplayStatics::PlaySoundAtLocation(GetWorld(), BadSelectSound, GetViewTarget()->GetActorLocation(), 1.f, 1.0f, 0.0f);

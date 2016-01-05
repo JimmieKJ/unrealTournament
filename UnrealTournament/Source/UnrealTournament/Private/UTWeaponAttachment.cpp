@@ -187,8 +187,6 @@ void AUTWeaponAttachment::PlayFiringEffects()
 		return;
 	}
 
-	UE_LOG(UT, Log, TEXT("Relevant"));
-
 	// update owner mesh and self so effects are spawned in the correct place
 	if (!Mesh->ShouldUpdateTransform(false))
 	{
