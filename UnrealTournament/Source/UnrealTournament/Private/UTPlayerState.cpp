@@ -1067,7 +1067,8 @@ bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
 }
 void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
 {
-	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
+	// Don't allow character loading during join in progress right now, it causes poor performance
+	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
 		AUTCharacter* MyPawn = GetUTCharacter();
 		// suicide if feign death because the mesh reset causes physics issues
