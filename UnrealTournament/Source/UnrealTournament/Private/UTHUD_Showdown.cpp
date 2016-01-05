@@ -355,17 +355,22 @@ void AUTHUD_Showdown::DrawPlayerList()
 	{
 		LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B){ return A.SelectionOrder < B.SelectionOrder; });
 
-		float YPos = Canvas->ClipY * 0.1f;
-		YPos += Canvas->DrawText(MediumFont, NSLOCTEXT("UnrealTournament", "SelectionOrder", "PICK ORDER"), 1.0f, YPos) * 1.2f;
 		float XPos = 6.f;
+		float YPos = Canvas->ClipY * 0.1f;
+		Canvas->DrawColor = FColor(200, 200, 200, 100);
+		FText Title = NSLOCTEXT("UnrealTournament", "SelectionOrder", "PICK ORDER");
+		float XL, YL;
+		Canvas->TextSize(MediumFont, Title.ToString(), XL, YL);
+		Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos, 0.2f*Canvas->ClipX, YL, 149, 138, 32, 32, BLEND_Translucent);
+		Canvas->DrawColor = FColor(255, 255, 255, 255);
+		YPos += Canvas->DrawText(MediumFont, Title, 0.1f*Canvas->ClipX - 0.5f*XL, YPos) * 1.2f;
 		for (AUTPlayerState* UTPS : LivePlayers)
 		{
 			UFont* NameFont = (UTPS == GS->SpawnSelector) ? MediumFont : SmallFont;
-			float XL, YL;
 			Canvas->TextSize(NameFont, UTPS->PlayerName, XL, YL);
 			Canvas->DrawColor = (UTPS == GS->SpawnSelector) ? FColor(255, 255, 140, 200) : UTPS->Team->TeamColor.ToFColor(false);
 			Canvas->DrawColor.A = 96;
-			Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos, 1.2f*XL, YL, 149, 138, 32, 32, BLEND_Translucent);
+			Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos, FMath::Max(0.2f*Canvas->ClipX, 1.2f*XL), YL, 149, 138, 32, 32, BLEND_Translucent);
 			Canvas->DrawColor = FColor(255, 255, 255, 255);
 			Canvas->DrawText(NameFont, UTPS->PlayerName, XPos+0.1f*XL, YPos - 0.1f*YL);
 			YPos += YL * 1.1f;
