@@ -78,6 +78,10 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	CurrentSessionTrustLevel = 2;
 	EarnedStars = 0;
 
+	CloudProfileMagicNumberVersion1 = 0xBEEF0001;
+
+	CloudProfileUE4VerForUnversionedProfile = 452;
+
 	McpProfileManager = nullptr;
 }
 
@@ -1249,6 +1253,25 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// Serialize the object
 			FMemoryReader MemoryReader(FileContents, true);
 			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, true);
+			
+			// FObjectAndNameAsStringProxyArchive does not have versioning, but we need it
+			// In 4.12, Serialization has been modified and we need the FArchive to use the right serialization path
+			uint32 PossibleMagicNumber;
+			Ar << PossibleMagicNumber;
+			if (CloudProfileMagicNumberVersion1 == PossibleMagicNumber)
+			{
+				int32 CloudProfileUE4Ver;
+				Ar << CloudProfileUE4Ver;
+				Ar.SetUE4Ver(CloudProfileUE4Ver);
+			}
+			else
+			{
+				// Very likely this is from an unversioned cloud profile, set it to the last released serialization version
+				Ar.SetUE4Ver(CloudProfileUE4VerForUnversionedProfile);
+				// Rewind to the beginning as the magic number was not in the archive
+				Ar.Seek(0);
+			}
+
 			CurrentProfileSettings->Serialize(Ar);
 			CurrentProfileSettings->VersionFixup();
 
@@ -1377,6 +1400,9 @@ void UUTLocalPlayer::SaveProfileSettings()
 		TArray<uint8> FileContents;
 		FMemoryWriter MemoryWriter(FileContents, true);
 		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+		Ar << CloudProfileMagicNumberVersion1;
+		int32 UE4Ver = Ar.UE4Ver();
+		Ar << UE4Ver;
 		CurrentProfileSettings->Serialize(Ar);
 
 		if (FApp::GetCurrentTime() - LastProfileCloudWriteTime < ProfileCloudWriteCooldownTime)

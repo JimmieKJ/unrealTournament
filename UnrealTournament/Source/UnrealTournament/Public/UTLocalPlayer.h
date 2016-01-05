@@ -353,6 +353,12 @@ protected:
 	double LastProfileCloudWriteTime;
 	double ProfileCloudWriteCooldownTime;
 	FTimerHandle ProfileWriteTimerHandle;
+	
+	// Hopefully the only magic number needed for profile versions, but being safe
+	uint32 CloudProfileMagicNumberVersion1;
+
+	// The last released serialization version
+	int32 CloudProfileUE4VerForUnversionedProfile;
 
 #if !UE_SERVER
 	virtual void AuthDialogClosed(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
