@@ -30,6 +30,11 @@ UUTHUDWidgetMessage_KillIconMessages::UUTHUDWidgetMessage_KillIconMessages(const
 	CurrentIndex = 0;
 }
 
+bool UUTHUDWidgetMessage_KillIconMessages::ShouldDraw_Implementation(bool bShowScores)
+{
+	return (bShowScores || (UTGameState->GetMatchState() != MatchState::MatchIntermission));
+}
+
 float UUTHUDWidgetMessage_KillIconMessages::GetDrawScaleOverride()
 {
 	return 0.75f * UTHUDOwner->HUDWidgetScaleOverride;
@@ -38,19 +43,20 @@ float UUTHUDWidgetMessage_KillIconMessages::GetDrawScaleOverride()
 void UUTHUDWidgetMessage_KillIconMessages::DrawMessages(float DeltaTime)
 {
 	Canvas->Reset();
-	int32 NumLines = (UTGameState && UTGameState->bPersistentKillIconMessages) ? MessageQueue.Num() : GetNumberOfMessages();
+	int32 NumMessages = GetNumberOfMessages();
 
 	//Find the height of the bottom message
-	float Y = ((MessageHeight + MessagePadding) * (NumLines - 1)) + (MessageHeight * 0.25f);
+	float Y = ((MessageHeight + MessagePadding) * (NumMessages - 1)) + (MessageHeight * 0.5f);
 
 	//Draw in reverse order
 	int32 MessageIndex = FMath::Min(CurrentIndex, MessageQueue.Num() - 1);
-	while (MessageIndex >= 0)
+	while ((MessageIndex >= 0) && (NumMessages > 0))
 	{
 		if (MessageQueue[MessageIndex].MessageClass != nullptr)
 		{
 			DrawMessage(MessageIndex, 0, Y);
 			Y -= MessageHeight + MessagePadding;
+			NumMessages--;
 		}
 		MessageIndex--;
 	}
@@ -58,7 +64,15 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessages(float DeltaTime)
 
 int32 UUTHUDWidgetMessage_KillIconMessages::GetNumberOfMessages()
 {
-	return (NumVisibleLines < MessageQueue.Num() - 1 ? NumVisibleLines : MessageQueue.Num());
+	int32 NumMessages = 0;
+	for (int32 i = 0; i < MessageQueue.Num(); i++)
+	{
+		if (MessageQueue[i].MessageClass != nullptr)
+		{
+			NumMessages++;
+		}
+	}
+	return (NumVisibleLines < NumMessages ? NumVisibleLines : NumMessages);
 }
 
 void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X, float Y)

@@ -14,10 +14,7 @@ class UNREALTOURNAMENT_API UUTHUDWidgetMessage_KillIconMessages : public UUTHUDW
 	GENERATED_UCLASS_BODY()
 	
 public:
-	virtual bool ShouldDraw_Implementation(bool bShowScores) override
-	{
-		return true;
-	}
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
 	/**Background for kills that dont involve the local player*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")

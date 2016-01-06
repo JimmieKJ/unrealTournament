@@ -62,7 +62,7 @@ void UUTShowdownScoreboard::Draw_Implementation(float RenderDelta)
 	// show current round damage and total damage by local player
 	float Width = 0.3f*Size.X;
 	float XOffset = 0.5*(Size.X - CenterBuffer) - Width;
-	DrawTexture(UTHUDOwner->HUDAtlas, XOffset, 0.6f*Size.Y, Width, 0.25f*Size.Y, 185.f, 400.f, 4.f, 4.f, 1.f, FLinearColor(0.5f, 0.5f, 0.5f, 0.3f));
+	DrawTexture(UTHUDOwner->HUDAtlas, XOffset, 0.6f*Size.Y, Width, 0.25f*Size.Y, 185.f, 400.f, 4.f, 4.f, 1.f, FLinearColor(0.5f, 0.5f, 0.5f, 0.2f));
 	DrawText(NSLOCTEXT("UTScoreboard", "DamageDone", "DAMAGE DONE BY YOU"), XOffset + 4.f, 0.61f*Size.Y, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
 	DrawText(NSLOCTEXT("UTScoreboard", "ThisRound", "THIS ROUND"), XOffset + 4.f, 0.69f*Size.Y, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
 	DrawText(NSLOCTEXT("UTScoreboard", "ThisMatch", "THIS MATCH"), XOffset + 4.f, 0.77f*Size.Y, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
@@ -80,6 +80,6 @@ void UUTShowdownScoreboard::Draw_Implementation(float RenderDelta)
 
 	// show kills by each player this round (killer killed victim)
 	XOffset = 0.5f* (Size.X + CenterBuffer);
-	DrawTexture(UTHUDOwner->HUDAtlas, XOffset, 0.6f*Size.Y, Width, 0.25f*Size.Y, 185.f, 400.f, 4.f, 4.f, 1.f, FLinearColor(0.5f, 0.5f, 0.5f, 0.3f));
+	DrawTexture(UTHUDOwner->HUDAtlas, XOffset, 0.6f*Size.Y, Width, 0.25f*Size.Y, 185.f, 400.f, 4.f, 4.f, 1.f, FLinearColor(0.5f, 0.5f, 0.5f, 0.2f));
 }
 

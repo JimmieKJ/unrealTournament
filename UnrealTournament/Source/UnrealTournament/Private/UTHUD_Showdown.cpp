@@ -162,7 +162,14 @@ void AUTHUD_Showdown::DrawHUD()
 	bool bRealShowScores = bShowScores;
 	bShowScores = bShowScores || (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection);
 	bool bDrewSpawnMap = false;
-	KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.52f, 0.6f)  : FVector2D(0.0f, 0.0f);
+	if (KillIconWidget)
+	{
+		KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.52f, 0.6f) : FVector2D(0.0f, 0.0f);
+		if (GS->bFinalIntermissionDelay)
+		{
+			KillIconWidget->ClearMessages();
+		}
+	}
 	if (!bShowScores)
 	{
 		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)
@@ -230,10 +237,6 @@ void AUTHUD_Showdown::DrawHUD()
 						bPendingSpawnPreview = true;
 					}
 					PreviewPlayerStart = HoveredStart;
-					if (KillIconWidget)
-					{
-						KillIconWidget->ClearMessages();
-					}
 				}
 			}
 
