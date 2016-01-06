@@ -4,6 +4,7 @@
 #include "UTShowdownGameState.h"
 #include "UTShowdownGameMessage.h"
 #include "UTPlayerStart.h"
+#include "UTHUDWidgetMessage_KillIconMessages.h"
 
 AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 : Super(OI)
@@ -53,6 +54,16 @@ void AUTHUD_Showdown::BeginPlay()
 	SpawnPreviewCapture->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
 	SpawnPreviewCapture->TextureTarget->ClearColor = FLinearColor::Black;
 	SpawnPreviewCapture->RegisterComponent();
+}
+
+UUTHUDWidget* AUTHUD_Showdown::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)
+{
+	UUTHUDWidget* Widget = Super::AddHudWidget(NewWidgetClass);
+	if (KillIconWidget == nullptr)
+	{
+		KillIconWidget = Cast<UUTHUDWidgetMessage_KillIconMessages>(Widget);
+	}
+	return Widget;
 }
 
 void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos)
@@ -147,165 +158,111 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 
 void AUTHUD_Showdown::DrawHUD()
 {
-	bool bDrewSpawnMap = false;
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
-	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)
+	bool bRealShowScores = bShowScores;
+	bShowScores = bShowScores || (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection);
+	bool bDrewSpawnMap = false;
+	KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.52f, 0.6f)  : FVector2D(0.0f, 0.0f);
+	if (!bShowScores)
 	{
-		bDrewSpawnMap = true;
-		if (!bLockedLookInput)
+		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)
 		{
-			PlayerOwner->SetIgnoreLookInput(true);
-			bLockedLookInput = true;
-		}
-
-		AActor* NewHoveredActor = FindHoveredIconActor();
-		if (NewHoveredActor != LastHoveredActor)
-		{
-			if (UTPlayerOwner != nullptr)
+			bDrewSpawnMap = true;
+			if (!bLockedLookInput)
 			{
-				UTPlayerOwner->PlayMenuSelectSound();
+				PlayerOwner->SetIgnoreLookInput(true);
+				bLockedLookInput = true;
 			}
-			LastHoveredActorChangeTime = GetWorld()->RealTimeSeconds;
-			LastHoveredActor = NewHoveredActor;
-		}
 
-		if (MinimapTexture == NULL)
-		{
-			CreateMinimapTexture(); // because we're using the size below
-		}
-		const float MapSize = float(Canvas->SizeY) * 0.75f;
-		DrawMinimap(FColor(164, 164, 164, 255), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
-
-		// draw preview for hovered spawn point
-		if (!GS->bFinalIntermissionDelay)
-		{
-			APlayerStart* HoveredStart = Cast<APlayerStart>(LastHoveredActor);
-			if (HoveredStart == PreviewPlayerStart)
+			AActor* NewHoveredActor = FindHoveredIconActor();
+			if (NewHoveredActor != LastHoveredActor)
 			{
-				if (HoveredStart != NULL)
+				if (UTPlayerOwner != nullptr)
 				{
-					if (bPendingSpawnPreview)
-					{
-						bPendingSpawnPreview = false;
-					}
-					else
-					{
-						// draw it
-						const float Ratio = float(SpawnPreviewCapture->TextureTarget->SizeX) / float(SpawnPreviewCapture->TextureTarget->SizeY);
-						FVector2D PreviewPos = FVector2D((0.95f*Canvas->SizeX + MapSize) * 0.5f, Canvas->SizeY * 0.2f);
-						FVector2D PreviewSize = FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeX - MapSize) * 0.5f / Ratio);
-						DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y, 1.1f*PreviewSize.X, 4, 4, 2, 124, 8, FLinearColor::White);
-						DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y + 4, 1.1f*PreviewSize.X, 1.3f*PreviewSize.Y - 8, 4, 10, 124, 112, FLinearColor::White);
-						DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y + 1.15f*PreviewSize.Y - 4, 1.1f*PreviewSize.X, 4, 4, 122, 124, 8, FLinearColor::White);
-						Canvas->DrawColor = WhiteColor;
-						FVector2D Pos(WorldToMapToScreen(HoveredStart->GetActorLocation()));
-						Canvas->DrawTile(SpawnHelpTextBG.Texture, PreviewPos.X -4.f, PreviewPos.Y - 4.f, PreviewSize.X+ 8.f, PreviewSize.Y + 8.f, 4, 4, 2, 124, BLEND_Opaque);
-						DrawLine(Pos.X, Pos.Y, PreviewPos.X - 4.f, PreviewPos.Y - 4.f, FLinearColor::White);
-						DrawLine(Pos.X, Pos.Y, PreviewPos.X - 4.f, PreviewPos.Y + PreviewSize.Y + 4.f, FLinearColor::White);
-						Canvas->DrawTile(SpawnPreviewCapture->TextureTarget, PreviewPos.X, PreviewPos.Y, PreviewSize.X, PreviewSize.Y, 0.0f, 0.0f, SpawnPreviewCapture->TextureTarget->SizeX, SpawnPreviewCapture->TextureTarget->SizeY, BLEND_Opaque);
-					}
+					UTPlayerOwner->PlayMenuSelectSound();
 				}
+				LastHoveredActorChangeTime = GetWorld()->RealTimeSeconds;
+				LastHoveredActor = NewHoveredActor;
 			}
-			else
+
+			if (MinimapTexture == NULL)
 			{
-				if (HoveredStart != NULL)
+				CreateMinimapTexture(); // because we're using the size below
+			}
+			const float MapSize = float(Canvas->SizeY) * 0.75f;
+			DrawMinimap(FColor(164, 164, 164, 255), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
+
+			// draw preview for hovered spawn point
+			if (!GS->bFinalIntermissionDelay)
+			{
+				APlayerStart* HoveredStart = Cast<APlayerStart>(LastHoveredActor);
+				if (HoveredStart == PreviewPlayerStart)
 				{
-					SpawnPreviewCapture->SetWorldLocationAndRotation(HoveredStart->GetActorLocation(), HoveredStart->GetActorRotation());
-					bPendingSpawnPreview = true;
-				}
-				PreviewPlayerStart = HoveredStart;
-			}
-		}
-		
-		// move spectating camera to selected spot (if any)
-		AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
-		if (OwnerPS != NULL && OwnerPS->RespawnChoiceA != NULL && PlayerOwner->GetSpectatorPawn() != NULL)
-		{
-			PlayerOwner->GetSpectatorPawn()->TeleportTo(OwnerPS->RespawnChoiceA->GetActorLocation(), OwnerPS->RespawnChoiceA->GetActorRotation(), false, true);
-			PlayerOwner->SetControlRotation(OwnerPS->RespawnChoiceA->GetActorRotation());
-		}
-
-		DrawPlayerList();
-	}
-	else
-	{
-		LastPlayerSelect = NULL;
-		bNeedOnDeckNotify = true;
-		if (bLockedLookInput)
-		{
-			PlayerOwner->SetIgnoreLookInput(false);
-			bLockedLookInput = false;
-		}
-	}
-
-	if (GS != NULL && !bShowScores && PlayerOwner->PlayerState != NULL && !PlayerOwner->PlayerState->bOnlySpectator && GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection)
-	{
-		// don't bother displaying if there are no live characters (e.g. match start)
-		bool bAnyPawns = false;
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-		{
-			if (Cast<AUTCharacter>(It->Get()) != NULL && !It->Get()->bTearOff)
-			{
-				bAnyPawns = true;
-				break;
-			}
-		}
-
-		if (bAnyPawns)
-		{
-			for (int32 i = 0; i < 2; i++)
-			{
-				float YPos = Canvas->ClipY * 0.05f;
-				for (APlayerState* PS : GS->PlayerArray)
-				{
-					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-					if (UTPS->GetTeamNum() == i)
+					if (HoveredStart != NULL)
 					{
-						float XL, YL;
-						Canvas->DrawColor = UTPS->Team->TeamColor.ToFColor(false);
-						Canvas->TextSize(MediumFont, UTPS->PlayerName, XL, YL);
-						Canvas->DrawText(MediumFont, UTPS->PlayerName, i == 0 ? 1.0f : Canvas->SizeX - XL - 1.0f, YPos);
-						YPos += YL;
-						float HealthPct = 0.0f;
-						float ArmorPct = 0.0f;
-						for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+						if (bPendingSpawnPreview)
 						{
-							if (It->IsValid() && It->Get()->PlayerState == UTPS)
-							{
-								AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
-								if (UTC != NULL)
-								{
-									HealthPct = float(UTC->Health) / float(UTC->SuperHealthMax);
-									ArmorPct = float(UTC->ArmorAmount) / float(UTC->MaxStackedArmor);
-									break;
-								}
-							}
+							bPendingSpawnPreview = false;
 						}
-						YL = 26.0f;
-						XL = 200.0f;
-						float StartX = (i == 0) ? 0.0f : Canvas->SizeX - XL * 2.25f - 2.0f;
-						// health BG
-						Canvas->DrawColor = FColor(128, 128, 128, 192);
-						Canvas->DrawTile(Canvas->DefaultTexture, StartX + 1.0f, YPos, XL, YL, 0.0f, 0.0f, 1.0f, 1.0f);
-						// armor BG
-						Canvas->DrawTile(Canvas->DefaultTexture, StartX + 1.0f + XL * 1.25f, YPos, XL, YL, 0.0f, 0.0f, 1.0f, 1.0f);
-						// health bar
-						Canvas->DrawColor = FColor::Green;
-						Canvas->DrawTile(Canvas->DefaultTexture, StartX + 2.0f, YPos + 1.0f, (XL - 2.0f) * HealthPct, YL - 2.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-						// armor bar
-						Canvas->DrawColor = FColor::Yellow;
-						Canvas->DrawTile(Canvas->DefaultTexture, StartX + 2.0f + XL * 1.25f, YPos + 1.0f, (XL - 2.0f) * ArmorPct, YL - 2.0f, 0.0f, 0.0f, 1.0f, 1.0f);
-						YPos += YL;
+						else
+						{
+							// draw it
+							const float Ratio = float(SpawnPreviewCapture->TextureTarget->SizeX) / float(SpawnPreviewCapture->TextureTarget->SizeY);
+							FVector2D PreviewPos = FVector2D((0.95f*Canvas->SizeX + MapSize) * 0.5f, Canvas->SizeY * 0.2f);
+							FVector2D PreviewSize = FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeX - MapSize) * 0.5f / Ratio);
+							DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y, 1.1f*PreviewSize.X, 4, 4, 2, 124, 8, FLinearColor::White);
+							DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y + 4, 1.1f*PreviewSize.X, 1.3f*PreviewSize.Y - 8, 4, 10, 124, 112, FLinearColor::White);
+							DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y + 1.15f*PreviewSize.Y - 4, 1.1f*PreviewSize.X, 4, 4, 122, 124, 8, FLinearColor::White);
+							Canvas->DrawColor = WhiteColor;
+							FVector2D Pos(WorldToMapToScreen(HoveredStart->GetActorLocation()));
+							Canvas->DrawTile(SpawnHelpTextBG.Texture, PreviewPos.X - 4.f, PreviewPos.Y - 4.f, PreviewSize.X + 8.f, PreviewSize.Y + 8.f, 4, 4, 2, 124, BLEND_Opaque);
+							DrawLine(Pos.X, Pos.Y, PreviewPos.X - 4.f, PreviewPos.Y - 4.f, FLinearColor::White);
+							DrawLine(Pos.X, Pos.Y, PreviewPos.X - 4.f, PreviewPos.Y + PreviewSize.Y + 4.f, FLinearColor::White);
+							Canvas->DrawTile(SpawnPreviewCapture->TextureTarget, PreviewPos.X, PreviewPos.Y, PreviewSize.X, PreviewSize.Y, 0.0f, 0.0f, SpawnPreviewCapture->TextureTarget->SizeX, SpawnPreviewCapture->TextureTarget->SizeY, BLEND_Opaque);
+						}
+					}
+				}
+				else
+				{
+					if (HoveredStart != NULL)
+					{
+						SpawnPreviewCapture->SetWorldLocationAndRotation(HoveredStart->GetActorLocation(), HoveredStart->GetActorRotation());
+						bPendingSpawnPreview = true;
+					}
+					PreviewPlayerStart = HoveredStart;
+					if (KillIconWidget)
+					{
+						KillIconWidget->ClearMessages();
 					}
 				}
 			}
+
+			// move spectating camera to selected spot (if any)
+			AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(PlayerOwner->PlayerState);
+			if (OwnerPS != NULL && OwnerPS->RespawnChoiceA != NULL && PlayerOwner->GetSpectatorPawn() != NULL)
+			{
+				PlayerOwner->GetSpectatorPawn()->TeleportTo(OwnerPS->RespawnChoiceA->GetActorLocation(), OwnerPS->RespawnChoiceA->GetActorRotation(), false, true);
+				PlayerOwner->SetControlRotation(OwnerPS->RespawnChoiceA->GetActorRotation());
+			}
+
+			DrawPlayerList();
+		}
+		else
+		{
+			LastPlayerSelect = NULL;
+			bNeedOnDeckNotify = true;
+			if (bLockedLookInput)
+			{
+				PlayerOwner->SetIgnoreLookInput(false);
+				bLockedLookInput = false;
+			}
 		}
 	}
-
 	bool bRealDrawMinimap = bDrawMinimap;
 	bDrawMinimap = bDrawMinimap && !bDrewSpawnMap;
 	Super::DrawHUD();
 	bDrawMinimap = bRealDrawMinimap;
+	bShowScores = bRealShowScores;
 
 	if (GS != NULL && GS->SpawnSelector == PlayerOwner->PlayerState)
 	{
@@ -357,7 +314,7 @@ void AUTHUD_Showdown::DrawPlayerList()
 
 		float XPos = 6.f;
 		float YPos = Canvas->ClipY * 0.1f;
-		Canvas->DrawColor = FColor(200, 200, 200, 100);
+		Canvas->DrawColor = FColor(200, 200, 200, 80);
 		FText Title = NSLOCTEXT("UnrealTournament", "SelectionOrder", "PICK ORDER");
 		float XL, YL;
 		Canvas->TextSize(MediumFont, Title.ToString(), XL, YL);
@@ -368,8 +325,8 @@ void AUTHUD_Showdown::DrawPlayerList()
 		{
 			UFont* NameFont = (UTPS == GS->SpawnSelector) ? MediumFont : SmallFont;
 			Canvas->TextSize(NameFont, UTPS->PlayerName, XL, YL);
-			Canvas->DrawColor = (UTPS == GS->SpawnSelector) ? FColor(255, 255, 140, 200) : UTPS->Team->TeamColor.ToFColor(false);
-			Canvas->DrawColor.A = 96;
+			Canvas->DrawColor = (UTPS == GS->SpawnSelector) ? FColor(255, 255, 140, 80) : UTPS->Team->TeamColor.ToFColor(false);
+			Canvas->DrawColor.A = 70;
 			Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos, FMath::Max(0.2f*Canvas->ClipX, 1.2f*XL), YL, 149, 138, 32, 32, BLEND_Translucent);
 			Canvas->DrawColor = FColor(255, 255, 255, 255);
 			Canvas->DrawText(NameFont, UTPS->PlayerName, XPos+0.1f*XL, YPos - 0.1f*YL);

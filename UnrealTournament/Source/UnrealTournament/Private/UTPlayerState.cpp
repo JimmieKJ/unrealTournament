@@ -41,6 +41,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	LastKillTime = 0.0f;
 	Kills = 0;
 	DamageDone = 0;
+	RoundDamageDone = 0;
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
@@ -135,6 +136,12 @@ void AUTPlayerState::Destroyed()
 {
 	Super::Destroyed();
 	GetWorldTimerManager().ClearAllTimersForObject(this);
+}
+
+void AUTPlayerState::IncrementDamageDone(int32 AddedDamage)
+{
+	DamageDone += AddedDamage;
+	RoundDamageDone += AddedDamage;
 }
 
 bool AUTPlayerState::IsFemale()

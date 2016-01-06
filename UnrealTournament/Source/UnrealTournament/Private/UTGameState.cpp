@@ -30,6 +30,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	KickThreshold=51.0f;
 	TauntSelectionIndex = 0;
 	bRespawnsAllowed = true;
+	bPersistentKillIconMessages = false;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");

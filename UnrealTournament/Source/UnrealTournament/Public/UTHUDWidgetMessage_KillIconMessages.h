@@ -43,6 +43,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	float ColumnPadding;
 
+	virtual void AgeMessages_Implementation(float DeltaTime) override; 
+
 protected:
 	virtual void DrawMessages(float DeltaTime);
 	virtual void DrawMessage(int32 QueueIndex, float X, float Y);

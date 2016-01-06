@@ -6,6 +6,7 @@
 #include "UTSpreeMessage.h"
 #include "UTMultiKillMessage.h"
 #include "UTRewardMessage.h"
+#include "UTGameState.h"
 
 UUTHUDWidgetMessage_KillIconMessages::UUTHUDWidgetMessage_KillIconMessages(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -37,9 +38,10 @@ float UUTHUDWidgetMessage_KillIconMessages::GetDrawScaleOverride()
 void UUTHUDWidgetMessage_KillIconMessages::DrawMessages(float DeltaTime)
 {
 	Canvas->Reset();
-	
+	int32 NumLines = (UTGameState && UTGameState->bPersistentKillIconMessages) ? MessageQueue.Num() : GetNumberOfMessages();
+
 	//Find the height of the bottom message
-	float Y = ((MessageHeight + MessagePadding) * (GetNumberOfMessages() - 1)) + (MessageHeight * 0.25f);
+	float Y = ((MessageHeight + MessagePadding) * (NumLines - 1)) + (MessageHeight * 0.25f);
 
 	//Draw in reverse order
 	int32 MessageIndex = FMath::Min(CurrentIndex, MessageQueue.Num() - 1);
@@ -245,3 +247,17 @@ FLinearColor UUTHUDWidgetMessage_KillIconMessages::GetPlayerColor(AUTPlayerState
 	}
 	return FLinearColor::White;
 }
+
+void UUTHUDWidgetMessage_KillIconMessages::AgeMessages_Implementation(float DeltaTime)
+{
+	Super::AgeMessages_Implementation(DeltaTime);
+
+	if (UTGameState && UTGameState->bPersistentKillIconMessages)
+	{
+		for (int32 QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
+		{
+			MessageQueue[QueueIndex].LifeLeft = FMath::Max(MessageQueue[QueueIndex].LifeLeft, FadeTime);
+		}
+	}
+}
+

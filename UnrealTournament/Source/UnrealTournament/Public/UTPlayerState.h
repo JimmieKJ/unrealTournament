@@ -214,8 +214,14 @@ public:
 	int32 Kills;
 
 	/** Damage done by this player.  Not replicated. */
-	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 		int32 DamageDone;
+
+	/** Damage done by this player this round.  Not replicated. */
+	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
+		int32 RoundDamageDone;
+
+	virtual void IncrementDamageDone(int32 AddedDamage);
 
 	/** Can't respawn once out of lives */
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)

@@ -10,6 +10,8 @@ AUTShowdownGameState::AUTShowdownGameState(const FObjectInitializer& OI)
 : Super(OI)
 {
 	bRespawnsAllowed = false;
+	bMatchHasStarted = false;
+	bPersistentKillIconMessages = true;
 	GoalScoreText = NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "Win {0} Rounds");
 }
 
@@ -79,6 +81,15 @@ void AUTShowdownGameState::OnRep_MatchState()
 	// clean up old corpses after intermission
 	if (PreviousMatchState == MatchState::MatchIntermission && MatchState == MatchState::InProgress)
 	{
+		bMatchHasStarted = true;
+		for (APlayerState* PS : PlayerArray)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+			if (UTPS)
+			{
+				UTPS->RoundDamageDone = 0;
+			}
+		}
 		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 		{
 			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());

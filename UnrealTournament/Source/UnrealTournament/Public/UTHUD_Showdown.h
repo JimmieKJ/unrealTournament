@@ -55,6 +55,9 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	UPROPERTY(VisibleAnywhere)
 	USceneCaptureComponent2D* SpawnPreviewCapture;
 
+	UPROPERTY()
+	class UUTHUDWidgetMessage_KillIconMessages* KillIconWidget;
+
 	/** player start being displayed in the spawn preview */
 	UPROPERTY()
 	APlayerStart* PreviewPlayerStart;
@@ -74,6 +77,8 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 
 	// get Actor for icon mouse pointer is hovering over
 	virtual AActor* FindHoveredIconActor() const;
+
+	virtual UUTHUDWidget* AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass) override;
 
 protected:
 	/** set when PlayerOwner's look input has been locked for interacting with the spawn selection map, so we know to restore the input later */

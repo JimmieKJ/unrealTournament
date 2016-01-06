@@ -439,7 +439,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
 
 	GS->bActivateXRayVision = false;
-	GS->IntermissionStageTime = 3;
+	GS->IntermissionStageTime = 5;
 	GS->bStartedSpawnSelection = false;
 	GS->bFinalIntermissionDelay = false;
 	RemainingPicks.Empty();
@@ -653,16 +653,10 @@ void AUTShowdownGame::DefaultTimer()
 				}
 				else if (!GS->bFinalIntermissionDelay)
 				{
+					int32 MessageIndex = ((Teams.Num() >= 2) && Teams[0] && Teams[1] && (Teams[0]->Score == GoalScore - 1) && (Teams[1]->Score == GoalScore - 1)) ? 6 : 5;
 					GS->bFinalIntermissionDelay = true;
 					GS->IntermissionStageTime = 5;
-					if ((Teams.Num() >= 2) && Teams[0] && Teams[1] && (Teams[0]->Score == GoalScore - 1) && (Teams[1]->Score == GoalScore - 1))
-					{
-						BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 6);
-					}
-					else
-					{
-						BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 5);
-					}
+					BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), MessageIndex);
 				}
 				else
 				{

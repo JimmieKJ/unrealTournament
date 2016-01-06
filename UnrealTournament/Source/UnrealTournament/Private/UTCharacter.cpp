@@ -775,7 +775,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 			if (GS && !GS->OnSameTeam(this, EventInstigator))
 			{
-				EnemyPS->DamageDone += AppliedDamage;
+				EnemyPS->IncrementDamageDone(AppliedDamage);
 			}
 		}
 
