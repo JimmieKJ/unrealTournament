@@ -49,6 +49,7 @@ protected:
 	TSharedPtr<SEditableTextBox> ChatText;
 	TSharedRef<SWidget> BuildChatDestinationsButton();
 
+	TSharedPtr<SOverlay> SummaryOverlay;
 	TSharedPtr<SUTMatchSummaryPanel> SummaryPanel;
 
 	virtual void BuildChatDestinationMenu();

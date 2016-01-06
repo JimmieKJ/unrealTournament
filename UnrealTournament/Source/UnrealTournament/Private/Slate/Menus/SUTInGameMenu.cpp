@@ -438,7 +438,7 @@ void SUTInGameMenu::BackResult(TSharedPtr<SCompoundWidget> Dialog, uint16 Button
 EVisibility SUTInGameMenu::GetChangeTeamVisibility() const
 {
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GameState && GameState->GetMatchState() != MatchState::WaitingPostMatch)
+	if (GameState && GameState->GetMatchState() != MatchState::WaitingPostMatch && GameState->GetMatchState() != MatchState::PlayerIntro)
 	{
 		return EVisibility::Visible;
 	}

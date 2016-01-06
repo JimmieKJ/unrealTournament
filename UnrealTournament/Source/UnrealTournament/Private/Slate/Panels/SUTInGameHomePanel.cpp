@@ -160,22 +160,15 @@ void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 			SNew(SBox)
 			.Visibility(this, &SUTInGameHomePanel::GetSummaryVisibility)
 			[
-				SAssignNew(SummaryPanel, SUTMatchSummaryPanel, PlayerOwner)
-				.GameState(PlayerOwner->GetWorld()->GetGameState<AUTGameState>())
+				SAssignNew(SummaryOverlay, SOverlay)
 			]
 		];
 	}
-
-	if (SummaryPanel.IsValid())
-	{
-		SummaryPanel->ParentPanel = SharedThis(this);
-	}
-
 }
 
 EVisibility SUTInGameHomePanel::GetSummaryVisibility() const
 {
-	if (PlayerOwner.IsValid())
+	if (PlayerOwner.IsValid() && SummaryPanel.IsValid())
 	{
 		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 		if (GameState && (GameState->GetMatchState() == MatchState::PlayerIntro || GameState->GetMatchState() == MatchState::WaitingPostMatch))
@@ -691,6 +684,28 @@ void SUTInGameHomePanel::FocusChat()
 
 void SUTInGameHomePanel::ShowMatchSummary(bool bInitial)
 {
+	if (!SummaryPanel.IsValid())
+	{
+		
+		if (SummaryOverlay.IsValid())
+		{
+			SummaryOverlay->AddSlot().HAlign(HAlign_Fill).VAlign(VAlign_Fill)
+			[
+				SAssignNew(SummaryPanel, SUTMatchSummaryPanel, PlayerOwner)
+				.GameState(PlayerOwner->GetWorld()->GetGameState<AUTGameState>())
+			];
+
+			if ( SummaryPanel.IsValid() )
+			{
+				SummaryPanel->ParentPanel = SharedThis(this);
+			}
+		}
+		else
+		{
+			return;
+		}
+	}
+
 	bFocusSummaryInv = false;
 	if (bInitial && SummaryPanel.IsValid())
 	{

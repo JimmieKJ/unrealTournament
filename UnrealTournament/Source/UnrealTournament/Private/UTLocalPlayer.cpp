@@ -390,7 +390,17 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 		{
 			if (!IsMenuGame())
 			{
-				PlayerController->SetPause(true);
+				// If we are in a single player game, and that game is either in the player intro or the post match state, then
+				// clear the menu pause.
+
+				if (GetWorld()->GetNetMode() != NM_Client)
+				{
+					AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+					if (GameMode && GameMode->GetMatchState() != MatchState::PlayerIntro && GameMode->GetMatchState() != MatchState::WaitingPostMatch)
+					{
+						PlayerController->SetPause(true);
+					}
+				}
 			}
 		}
 	}
