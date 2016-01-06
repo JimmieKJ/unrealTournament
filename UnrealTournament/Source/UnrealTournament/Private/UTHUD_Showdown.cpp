@@ -208,7 +208,7 @@ void AUTHUD_Showdown::DrawHUD()
 	bool bDrewSpawnMap = false;
 	if (KillIconWidget)
 	{
-		KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.52f, 0.6f) : FVector2D(0.0f, 0.0f);
+		KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.55f, 0.6f) : FVector2D(0.0f, 0.0f);
 		if (GS->bFinalIntermissionDelay)
 		{
 			KillIconWidget->ClearMessages();
@@ -302,6 +302,71 @@ void AUTHUD_Showdown::DrawHUD()
 			{
 				PlayerOwner->SetIgnoreLookInput(false);
 				bLockedLookInput = false;
+			}
+			if (GS->bTeamGame && GS->GetMatchState() == MatchState::InProgress)
+			{
+				// draw pips for players alive on each team @TODO move to widget
+				TArray<AUTPlayerState*> LivePlayers;
+				int32 OldRedCount = RedPlayerCount;
+				int32 OldBlueCount = BluePlayerCount;
+				RedPlayerCount = 0;
+				BluePlayerCount = 0;
+				for (APlayerState* PS : GS->PlayerArray)
+				{
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+					if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator && !UTPS->bOutOfLives)
+					{
+						if (UTPS->Team->TeamIndex == 0)
+						{
+							RedPlayerCount++;
+						}
+						else
+						{
+							BluePlayerCount++;
+						}
+					}
+				}
+				if (OldRedCount > RedPlayerCount)
+				{
+					RedDeathTime = GetWorld()->GetTimeSeconds();
+				}
+				if (OldBlueCount > BluePlayerCount)
+				{
+					BlueDeathTime = GetWorld()->GetTimeSeconds();
+				}
+
+				float XOffset = 0.45f * Canvas->ClipX;
+				float YOffset = 0.1f * Canvas->ClipY;
+				float PipSize = 0.02f * Canvas->ClipX;
+
+				Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f);
+				for (int32 i = 0; i < RedPlayerCount; i++)
+				{
+					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset, YOffset, PipSize, PipSize, 149, 138, 32, 32, BLEND_Translucent);
+					XOffset -= 1.2f*PipSize;
+				}
+				float TimeSinceRedDeath = GetWorld()->GetTimeSeconds() - RedDeathTime;
+				if (TimeSinceRedDeath < 0.5f)
+				{
+					Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f - TimeSinceRedDeath);
+					float ScaledSize = 1.f + 2.f*TimeSinceRedDeath;
+					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, ScaledSize*PipSize, ScaledSize*PipSize, 149, 138, 32, 32, BLEND_Translucent);
+				}
+
+				XOffset = 0.55f * Canvas->ClipX;
+				Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f);
+				for (int32 i = 0; i < BluePlayerCount; i++)
+				{
+					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset, YOffset, PipSize, PipSize, 149, 138, 32, 32, BLEND_Translucent);
+					XOffset += 1.2f*PipSize;
+				}
+				float TimeSinceBlueDeath = GetWorld()->GetTimeSeconds() - BlueDeathTime;
+				if (TimeSinceBlueDeath < 0.5f)
+				{
+					Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f - TimeSinceBlueDeath);
+					float ScaledSize = 1.f + 2.f*TimeSinceBlueDeath;
+					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, ScaledSize*PipSize, ScaledSize*PipSize, 149, 138, 32, 32, BLEND_Translucent);
+				}
 			}
 		}
 	}

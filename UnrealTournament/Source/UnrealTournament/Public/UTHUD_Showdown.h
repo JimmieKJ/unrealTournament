@@ -98,6 +98,11 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	/** Play team victim notification sound. */
 	virtual void PlayTeamVictimNotification();
 
+	int32 RedPlayerCount;
+	int32 BluePlayerCount;
+	float RedDeathTime;
+	float BlueDeathTime;
+
 protected:
 	/** set when PlayerOwner's look input has been locked for interacting with the spawn selection map, so we know to restore the input later */
 	bool bLockedLookInput;

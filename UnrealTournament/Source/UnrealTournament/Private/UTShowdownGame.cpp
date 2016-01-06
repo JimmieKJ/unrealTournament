@@ -102,11 +102,6 @@ void AUTShowdownGame::StartNewRound()
 		if (C != NULL && C->GetPawn() == NULL && C->PlayerState != NULL && !C->PlayerState->bOnlySpectator)
 		{
 			RestartPlayer(*It);
-			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
-			if (PS != nullptr)
-			{
-				PS->bOutOfLives = true;
-			}
 		}
 	}
 	bAllowPlayerRespawns = false;
@@ -199,6 +194,7 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
 			if (OtherPS != NULL && OtherPS->Team != NULL)
 			{
+				OtherPS->bOutOfLives = true;
 				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 				AUTTeamInfo* KillerTeam = (KillerPS != NULL) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
 				KillerTeam->Score += 1;
@@ -502,6 +498,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 			{
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
+				PS->bOutOfLives = false;
 				TeamPlayers.Add(PS->Team, PS);
 				// use spectating state so camera can be placed on spawn selection
 				AUTPlayerController* PC = Cast<AUTPlayerController>(C);
