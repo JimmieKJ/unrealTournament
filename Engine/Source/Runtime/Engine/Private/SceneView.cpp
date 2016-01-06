@@ -1307,13 +1307,13 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 	// scale down tone mapper shader permutation
 	{
 		int32 Quality = CVarTonemapperQuality.GetValueOnGameThread();
-
-		if(Quality < 5)
+		
+		if(Quality < 1)
 		{
 			FinalPostProcessSettings.FilmContrast = 0;
 		}
 
-		if(Quality < 4)
+		if(Quality < 2)
 		{
 			FinalPostProcessSettings.VignetteIntensity = 0;
 		}
@@ -1323,12 +1323,12 @@ void FSceneView::EndFinalPostprocessSettings(const FSceneViewInitOptions& ViewIn
 			FinalPostProcessSettings.FilmShadowTintAmount = 0;
 		}
 
-		if(Quality < 2)
+		if(Quality < 4)
 		{
 			FinalPostProcessSettings.GrainIntensity = 0;
 		}
 
-		if(Quality < 1)
+		if(Quality < 5)
 		{
 			FinalPostProcessSettings.GrainJitter = 0;
 		}
