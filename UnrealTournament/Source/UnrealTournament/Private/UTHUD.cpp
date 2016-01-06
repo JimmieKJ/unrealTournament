@@ -1149,14 +1149,17 @@ void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawS
 	Canvas->DrawItem(ImageItem);
 }
 
-void AUTHUD::NotifyKill()
+void AUTHUD::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS)
 {
-	LastKillTime = GetWorld()->GetTimeSeconds();
-	if (GetWorldTimerManager().IsTimerActive(PlayKillHandle))
+	if (POVPS == KillerPS)
 	{
-		PlayKillNotification();
+		LastKillTime = GetWorld()->GetTimeSeconds();
+		if (GetWorldTimerManager().IsTimerActive(PlayKillHandle))
+		{
+			PlayKillNotification();
+		}
+		GetWorldTimerManager().SetTimer(PlayKillHandle, this, &AUTHUD::PlayKillNotification, 0.35f, false);
 	}
-	GetWorldTimerManager().SetTimer(PlayKillHandle, this, &AUTHUD::PlayKillNotification, 0.35f, false);
 }
 
 void AUTHUD::PlayKillNotification()

@@ -44,6 +44,12 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 
 	LastHoveredActorChangeTime = -1000.0f;
 	bNeedOnDeckNotify = true;
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpree01.A_UI_EnemySpree01'"));
+	TeamKillSound = OtherSpreeSoundFinder.Object;
+	static ConstructorHelpers::FObjectFinder<USoundBase> OtherSpreeEndedSoundFinder(TEXT("SoundWave'/Game/RestrictedAssets/Audio/UI/A_UI_EnemySpreeBroken01.A_UI_EnemySpreeBroken01'"));
+	TeamVictimSound = OtherSpreeEndedSoundFinder.Object;
+
 }
 
 void AUTHUD_Showdown::BeginPlay()
@@ -54,6 +60,44 @@ void AUTHUD_Showdown::BeginPlay()
 	SpawnPreviewCapture->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
 	SpawnPreviewCapture->TextureTarget->ClearColor = FLinearColor::Black;
 	SpawnPreviewCapture->RegisterComponent();
+}
+
+void AUTHUD_Showdown::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS)
+{
+	Super::NotifyKill(POVPS, KillerPS, VictimPS);
+
+	if ((POVPS == KillerPS) || (VictimPS == nullptr))
+	{
+		// already notified
+		return;
+	}
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+	if (GS && GS->OnSameTeam(POVPS, VictimPS))
+	{
+		if (GetWorldTimerManager().IsTimerActive(PlayTeamKillHandle))
+		{
+			PlayTeamKillNotification();
+		}
+		GetWorldTimerManager().SetTimer(PlayTeamKillHandle, this, &AUTHUD_Showdown::PlayTeamKillNotification, 0.35f, false);
+	}
+	else
+	{
+		if (GetWorldTimerManager().IsTimerActive(PlayTeamVictimHandle))
+		{
+			PlayTeamVictimNotification();
+		}
+		GetWorldTimerManager().SetTimer(PlayTeamVictimHandle, this, &AUTHUD_Showdown::PlayTeamVictimNotification, 0.35f, false);
+	}
+}
+
+void AUTHUD_Showdown::PlayTeamKillNotification()
+{
+	PlayerOwner->ClientPlaySound(TeamKillSound);
+}
+
+void AUTHUD_Showdown::PlayTeamVictimNotification()
+{
+	PlayerOwner->ClientPlaySound(TeamVictimSound);
 }
 
 UUTHUDWidget* AUTHUD_Showdown::AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass)

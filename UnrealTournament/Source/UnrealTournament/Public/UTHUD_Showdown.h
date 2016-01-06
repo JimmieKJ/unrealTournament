@@ -79,6 +79,24 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 	virtual AActor* FindHoveredIconActor() const;
 
 	virtual UUTHUDWidget* AddHudWidget(TSubclassOf<UUTHUDWidget> NewWidgetClass) override;
+	virtual void NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS) override;
+
+	/** sound played when teammate gets a kill. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		USoundBase* TeamKillSound;
+
+	/** sound played when teammate is killed. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Message)
+		USoundBase* TeamVictimSound;
+
+	FTimerHandle PlayTeamKillHandle;
+	FTimerHandle PlayTeamVictimHandle;
+
+	/** Play team kill notification sound. */
+	virtual void PlayTeamKillNotification();
+
+	/** Play team victim notification sound. */
+	virtual void PlayTeamVictimNotification();
 
 protected:
 	/** set when PlayerOwner's look input has been locked for interacting with the spawn selection map, so we know to restore the input later */

@@ -163,7 +163,7 @@ public:
 	FTimerHandle PlayKillHandle;
 
 	/** Queue a kill notification. */
-	virtual void NotifyKill();
+	virtual void NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS);
 
 	/** Play kill notification sound and icon. */
 	virtual void PlayKillNotification();

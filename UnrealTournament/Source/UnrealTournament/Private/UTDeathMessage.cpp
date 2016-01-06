@@ -97,7 +97,6 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 				{
 					P->GetWeapon()->NotifyKillWhileHolding(Cast<UClass>(ClientData.OptionalObject));
 				}
-				UTHUD->NotifyKill();
 			}
 			else if (ClientData.RelatedPlayerState_2 == LocalPlayerState)
 			{
@@ -109,6 +108,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 					GetDefault<UUTVictimMessage>()->ResolveMessage(ClientData.MessageIndex, true, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject),
 					ClientData.OptionalObject);
 			}
+			UTHUD->NotifyKill(LocalPlayerState, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2);
 		}
 	}
 
