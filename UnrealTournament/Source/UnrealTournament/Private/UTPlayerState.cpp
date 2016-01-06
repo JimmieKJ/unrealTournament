@@ -895,6 +895,8 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->SelectedCharacter = SelectedCharacter;
 		PS->StatManager = StatManager;
 		PS->StatsData = StatsData;
+		PS->TauntClass = TauntClass;
+		PS->Taunt2Class = Taunt2Class;
 		if (PS->StatManager)
 		{
 			PS->StatManager->InitializeManager(PS);
