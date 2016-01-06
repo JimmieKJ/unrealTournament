@@ -836,10 +836,10 @@ void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double 
 	int32 NumBoxes = HighlightBoxes.Num();
 	if (bShowXPBar && bFirstViewOwnHighlights && GameState.IsValid())
 	{
-		NumBoxes = int32(1.5f * (GameState->GetWorld()->GetTimeSeconds() - ShotStartTime));
+		NumBoxes = int32(1.5f * (GameState->GetWorld()->RealTimeSeconds - ShotStartTime));
 		bShowXPBar = bShowXPBar && (NumBoxes > HighlightBoxes.Num());
 		NumBoxes = FMath::Min(HighlightBoxes.Num(), NumBoxes);
-		int32 OldBoxes = FMath::Min(HighlightBoxes.Num(), int32(1.5f * (GameState->GetWorld()->GetTimeSeconds() - ShotStartTime - InDeltaTime)));
+		int32 OldBoxes = FMath::Min(HighlightBoxes.Num(), int32(1.5f * (GameState->GetWorld()->RealTimeSeconds - ShotStartTime - InDeltaTime)));
 		if (NumBoxes != OldBoxes)
 		{
 			AUTPlayerController* UTPC = GetPlayerOwner().IsValid() ? Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) : nullptr;
