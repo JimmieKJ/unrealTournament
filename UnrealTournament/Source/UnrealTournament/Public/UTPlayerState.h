@@ -524,7 +524,6 @@ public:
 #if WITH_PROFILE
 	inline UUtMcpProfile* GetMcpProfile() const
 	{
-		checkSlow(Cast<UUtMcpProfile>(McpProfile) != NULL);
 		return Cast<UUtMcpProfile>(McpProfile);
 	}
 	// allows UTBaseGameMode to be the only class that can set McpProfile
