@@ -102,6 +102,11 @@ void AUTShowdownGame::StartNewRound()
 		if (C != NULL && C->GetPawn() == NULL && C->PlayerState != NULL && !C->PlayerState->bOnlySpectator)
 		{
 			RestartPlayer(*It);
+			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+			if (PS != nullptr)
+			{
+				PS->bOutOfLives = true;
+			}
 		}
 	}
 	bAllowPlayerRespawns = false;

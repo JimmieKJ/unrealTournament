@@ -65,10 +65,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 bPlayPlayerIntro : 1;
 
-	/** Tells client if respawning is allowed */
-	UPROPERTY(Replicated, BlueprintReadWrite, EditDefaultsOnly, Category = GameState)
-		uint32 bRespawnsAllowed : 1;
-
 	/** If true, kill icon messages persist through a round/ */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 		uint32 bPersistentKillIconMessages : 1;

@@ -9,7 +9,6 @@
 AUTShowdownGameState::AUTShowdownGameState(const FObjectInitializer& OI)
 : Super(OI)
 {
-	bRespawnsAllowed = false;
 	bMatchHasStarted = false;
 	bPersistentKillIconMessages = true;
 	GoalScoreText = NSLOCTEXT("UTScoreboard", "CTFGoalScoreFormat", "Win {0} Rounds");

@@ -29,7 +29,6 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bForcedBalance = false;
 	KickThreshold=51.0f;
 	TauntSelectionIndex = 0;
-	bRespawnsAllowed = true;
 	bPersistentKillIconMessages = false;
 
 	ServerName = TEXT("My First Server");
@@ -290,7 +289,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bPlayPlayerIntro, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, bForcedBalance);
-	DOREPLIFETIME(AUTGameState, bRespawnsAllowed);
 }
 
 void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
