@@ -28,6 +28,55 @@
 			"Name": "SteamController",
 			"Enabled": false
 		},
+		{
+			"Name": "AndroidDeviceProfileSelector",
+			"Enabled": false
+		},
+		{
+			"Name": "CableComponent",
+			"Enabled": false
+		},
+		{
+			"Name": "IOSDeviceProfileSelector",
+			"Enabled": false
+		},
+		{
+			"Name": "Paper2D",
+			"Enabled": false
+		},
+		{
+			"Name": "ScriptGeneratorPlugin",
+			"Enabled": false
+		},
+		{
+			"Name": "ScriptPlugin",
+			"Enabled": false
+		},
+		{
+			"Name": "WinDualShock",
+            "Enabled": true,
+            "Optional": true
+		},
+		{
+			"Name": "LeapMotionController",
+			"Enabled": false
+		},
+		{
+			"Name": "OculusLibrary",
+			"Enabled": false
+		},
+		{
+			"Name": "OculusRift",
+			"Enabled": false
+		},
+		{
+			"Name": "OculusAudio",
+			"Enabled": false
+		},
+		{
+			"Name": "SteamVR",
+			"Enabled": false
+		}
 	],
 	"EpicSampleNameHash": "0"
 }
