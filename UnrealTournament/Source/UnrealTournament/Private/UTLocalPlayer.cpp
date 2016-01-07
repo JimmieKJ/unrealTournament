@@ -2632,6 +2632,7 @@ bool UUTLocalPlayer::IsInSession()
 	return (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName,*UserId));
 }
 
+#if !UE_SERVER
 TSharedPtr<SUTMatchSummaryPanel> UUTLocalPlayer::GetSummaryPanel()
 {
 	TSharedPtr<SUTMatchSummaryPanel> MatchSummary;
@@ -2656,6 +2657,7 @@ TSharedPtr<SUTMatchSummaryPanel> UUTLocalPlayer::GetSummaryPanel()
 	MatchSummary.Reset();
 	return MatchSummary;
 }
+#endif
 
 void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 {
