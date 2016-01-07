@@ -1420,10 +1420,11 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			CurrentProgression->Serialize(Ar);
 			CurrentProgression->VersionFixup();
 		}
-		else
+		else if (CurrentProfileSettings)
 		{
-					
-		
+			CurrentProgression = NewObject<UUTProgressionStorage>(GetTransientPackage(),UUTProgressionStorage::StaticClass());
+			CurrentProgression->LoadFromProfile(CurrentProfileSettings);
+			SaveProgression();
 		}
 	}
 	else if (FileName == GetStatsFilename())

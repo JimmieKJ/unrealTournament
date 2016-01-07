@@ -671,7 +671,7 @@ void AUTBasePlayerController::UpdateInputMode()
 		{
 			NewInputMode = EInputMode::EIM_UIOnly;
 		}
-		else if ((PlayerState && PlayerState->bOnlySpectator)
+		else if ((PlayerState && (PlayerState->bOnlySpectator || (UTPlayerState && UTPlayerState->bOutOfLives)))
 			     || LocalPlayer->ViewportClient->ViewportConsole->ConsoleState != NAME_None) //Console has some focus issues with UI Only
 		{
 			NewInputMode = EInputMode::EIM_GameAndUI;
