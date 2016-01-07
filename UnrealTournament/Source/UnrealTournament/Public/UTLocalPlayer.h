@@ -30,6 +30,7 @@ class FServerData;
 class AUTRconAdminInfo;
 class SUTDownloadAllDialog;
 class SUTSpectatorWindow;
+class SUTMatchSummaryPanel;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -843,4 +844,7 @@ protected:
 	/** Any shared accounts with associated profiles. */
 	UPROPERTY()
 	TArray<UObject*> SharedMcpProfileManager;
+
+	TSharedPtr<SUTMatchSummaryPanel> GetSummaryPanel();
+
 };

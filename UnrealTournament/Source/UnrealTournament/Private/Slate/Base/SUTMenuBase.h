@@ -32,6 +32,7 @@ public:
 	virtual FReply OnShowServerBrowserPanel();
 
 	virtual void ShowHomePanel();
+	virtual TSharedPtr<SUTPanelBase> GetActivePanel();
 
 protected:
 	TSharedPtr<class SHorizontalBox> LeftMenuBar;
@@ -63,8 +64,6 @@ protected:
 
 	virtual void SetInitialPanel();
 	virtual FReply OnShowHomePanel();
-
-
 
 	// The player has clicked on
 	virtual FReply OnCloseClicked();

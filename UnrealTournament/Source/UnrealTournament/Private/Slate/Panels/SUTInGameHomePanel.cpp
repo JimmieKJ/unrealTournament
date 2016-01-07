@@ -18,6 +18,8 @@
 
 void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 {
+	Tag = FName(TEXT("InGameHomePanel"));
+
 	bFocusSummaryInv = false;
 	ChatDestination = ChatDestinations::Local;
 	bShowingContextMenu = false;
@@ -718,5 +720,9 @@ void SUTInGameHomePanel::HideMatchSummary()
 	bFocusSummaryInv = true;
 }
 
+TSharedPtr<SUTMatchSummaryPanel> SUTInGameHomePanel::GetSummaryPanel()
+{
+	return SummaryPanel;
+}
 
 #endif

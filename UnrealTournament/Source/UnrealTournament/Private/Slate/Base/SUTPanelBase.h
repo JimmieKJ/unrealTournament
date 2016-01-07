@@ -51,13 +51,14 @@ public:
 		return true;
 	}
 
+	// A TAG that can quickly describe this panel
+	FName Tag;
+
+
 protected:
 
 	// Will be true if this panel is closing
 	bool bClosing;
-
-	// A TAG that can quickly describe this panel
-	FName Tag;
 
 	// The Player Owner that owns this panel
 	TWeakObjectPtr<UUTLocalPlayer> PlayerOwner;

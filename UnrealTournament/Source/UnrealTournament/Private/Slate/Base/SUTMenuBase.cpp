@@ -936,7 +936,9 @@ void SUTMenuBase::SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, 
 	}
 }
 
-
-
+TSharedPtr<SUTPanelBase> SUTMenuBase::GetActivePanel()
+{
+	return ActivePanel;
+}
 
 #endif

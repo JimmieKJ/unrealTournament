@@ -27,6 +27,7 @@ public:
 
 	void ShowMatchSummary(bool bInitial);
 	void HideMatchSummary();
+	TSharedPtr<SUTMatchSummaryPanel> GetSummaryPanel();
 
 protected:
 

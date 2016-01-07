@@ -58,6 +58,8 @@
 #include "UTChallengeManager.h"
 #include "UTCharacterContent.h"
 #include "Runtime/JsonUtilities/Public/JsonUtilities.h"
+#include "Panels/SUTMatchSummaryPanel.h"
+#include "Panels/SUTInGameHomePanel.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -2519,15 +2521,38 @@ bool UUTLocalPlayer::IsInSession()
 	return (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName,*UserId));
 }
 
+TSharedPtr<SUTMatchSummaryPanel> UUTLocalPlayer::GetSummaryPanel()
+{
+	TSharedPtr<SUTMatchSummaryPanel> MatchSummary;
+	// If we have a menu open, have the menu try to show the player info.
+	if (DesktopSlateWidget.IsValid())
+	{
+		TSharedPtr<SUTMenuBase> MenuBase = StaticCastSharedPtr<SUTMenuBase>(DesktopSlateWidget);
+		if (MenuBase.IsValid())
+		{
+			TSharedPtr<SUTPanelBase> ActivePanel = MenuBase->GetActivePanel();
+			if (ActivePanel.IsValid() && ActivePanel->Tag == FName(TEXT("InGameHomePanel")))
+			{
+				TSharedPtr<SUTInGameHomePanel> HomePanel = StaticCastSharedPtr<SUTInGameHomePanel>(ActivePanel);
+				if (HomePanel.IsValid())
+				{
+					return HomePanel->GetSummaryPanel();
+				}
+			}
+		}
+	}
+
+	MatchSummary.Reset();
+	return MatchSummary;
+}
+
 void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 {
-	UE_LOG(UT,Log,TEXT("ShowPlayerInfo ---- "));
-
-/* FIXMEJOE
 #if !UE_SERVER
-	if (MatchSummaryWindow.IsValid() && Target.IsValid())
+	TSharedPtr<SUTMatchSummaryPanel> MatchSummary = GetSummaryPanel();
+	if (MatchSummary.IsValid() && Target.IsValid())
 	{
-		MatchSummaryWindow->SelectPlayerState(Target.Get());
+		MatchSummary->SelectPlayerState(Target.Get());
 	}
 	else
 	{
@@ -2538,7 +2563,6 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 		OpenDialog(SNew(SUTPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
 	}
 #endif
-*/
 }
 
 int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
@@ -2585,26 +2609,24 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 
 void UUTLocalPlayer::OnTauntPlayed(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
 {
-/* FIXMEJOE
 #if !UE_SERVER
-	if (MatchSummaryWindow.IsValid())
+	TSharedPtr<SUTMatchSummaryPanel> MatchSummary = GetSummaryPanel();
+	if (MatchSummary.IsValid())
 	{
-		MatchSummaryWindow->PlayTauntByClass(PS, TauntToPlay, EmoteSpeed);
+		MatchSummary->PlayTauntByClass(PS, TauntToPlay, EmoteSpeed);
 	}
 #endif
-*/
 }
 
 void UUTLocalPlayer::OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed)
 {
-/* FIXMEJOE
 #if !UE_SERVER
-	if (MatchSummaryWindow.IsValid())
+	TSharedPtr<SUTMatchSummaryPanel> MatchSummary = GetSummaryPanel();
+	if (MatchSummary.IsValid())
 	{
-		MatchSummaryWindow->SetEmoteSpeed(PS, EmoteSpeed);
+		MatchSummary->SetEmoteSpeed(PS, EmoteSpeed);
 	}
 #endif
-*/
 }
 
 void UUTLocalPlayer::RequestFriendship(TSharedPtr<const FUniqueNetId> FriendID)
@@ -3768,12 +3790,10 @@ int32 UUTLocalPlayer::NumDialogsOpened()
 bool UUTLocalPlayer::SkipWorldRender()
 {
 #if !UE_SERVER
-/* FIXMEJOE
-	if (MatchSummaryWindow.IsValid())
+	if (GetSummaryPanel().IsValid())
 	{
 		return true;
 	}
-*/
 	for (auto& Dialog : OpenDialogs)
 	{
 		if (Dialog.IsValid() && Dialog.Get()->bSkipWorldRender)
