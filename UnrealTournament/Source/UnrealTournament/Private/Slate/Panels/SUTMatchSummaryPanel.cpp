@@ -500,6 +500,11 @@ SUTMatchSummaryPanel::~SUTMatchSummaryPanel()
 			PlayerPreviewBrush->SetResourceObject(NULL);
 			PlayerPreviewBrush = NULL;
 		}
+		for (int32 i = 0; i < PlayerPreviewMeshs.Num(); i++)
+		{
+			PlayerPreviewMeshs[i]->Destroy();
+		}
+		PlayerPreviewMeshs.Empty();
 		if (PlayerPreviewWorld != NULL)
 		{
 			PlayerPreviewWorld->DestroyWorld(true);
@@ -774,6 +779,12 @@ void SUTMatchSummaryPanel::AddReferencedObjects(FReferenceCollector& Collector)
 	Collector.AddReferencedObject(PlayerPreviewTexture);
 	Collector.AddReferencedObject(PlayerPreviewMID);
 	Collector.AddReferencedObject(PlayerPreviewWorld);
+
+	for (int32 i = 0; i < TeamPreviewMeshs.Num(); i++)
+	{
+		Collector.AddReferencedObjects(TeamPreviewMeshs[i]);
+	}
+	Collector.AddReferencedObjects(PreviewAnimations);
 }
 
 void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
@@ -1254,6 +1265,8 @@ AUTCharacter* SUTMatchSummaryPanel::RecreatePlayerPreview(AUTPlayerState* NewPS,
 				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_ShockRifle.MatchPose_ShockRifle"));
 			}
 		}
+		
+		PreviewAnimations.AddUnique(PlayerPreviewAnim);
 
 		PlayerPreviewMesh->GetMesh()->PlayAnimation(PlayerPreviewAnim, true);
 		PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;

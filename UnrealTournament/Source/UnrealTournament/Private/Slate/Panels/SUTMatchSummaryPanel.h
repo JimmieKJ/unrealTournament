@@ -187,6 +187,8 @@ protected:
 	/** preview weapon */
 	TArray<class AUTWeaponAttachment*> PreviewWeapons;
 
+	TArray<class UAnimationAsset*> PreviewAnimations;
+
 	/**Each team is attached to an Actor for easy team tranforms*/
 	TArray<class AActor*> TeamAnchors;
 	AActor* PreviewEnvironment;
