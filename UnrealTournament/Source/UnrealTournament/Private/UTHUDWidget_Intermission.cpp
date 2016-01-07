@@ -16,7 +16,14 @@ UUTHUDWidget_Intermission::UUTHUDWidget_Intermission(const class FObjectInitiali
 
 bool UUTHUDWidget_Intermission::ShouldDraw_Implementation(bool bShowScores)
 {
-	return !bShowScores && GetWorld()->GetGameState() && (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission);
+	if (!bShowScores && GetWorld()->GetGameState() && (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIntermission))
+	{
+		AUTCTFGameState* CTFState = Cast<AUTCTFGameState>(UTGameState);
+		bool bIsHalfTime = (CTFState->CTFRound == 0);
+		bool bHasScore = (CTFState->GetScoringPlays().Num() > 0) && (!bIsHalfTime || (CTFState->GetScoringPlays().Last().RemainingTime <= 0.f));
+		return bHasScore;
+	}
+	return false;
 }
 
 void UUTHUDWidget_Intermission::Draw_Implementation(float DeltaTime)
