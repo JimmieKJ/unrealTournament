@@ -60,6 +60,7 @@ void AUTHUD_Showdown::BeginPlay()
 	SpawnPreviewCapture->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
 	SpawnPreviewCapture->TextureTarget->ClearColor = FLinearColor::Black;
 	SpawnPreviewCapture->RegisterComponent();
+//	AddSpectatorWidgets();
 }
 
 void AUTHUD_Showdown::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS)
@@ -208,7 +209,7 @@ void AUTHUD_Showdown::DrawHUD()
 	bool bDrewSpawnMap = false;
 	if (KillIconWidget)
 	{
-		KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.55f, 0.6f) : FVector2D(0.0f, 0.0f);
+		KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.52f, 0.635f) : FVector2D(0.0f, 0.0f);
 		if (GS->bFinalIntermissionDelay)
 		{
 			KillIconWidget->ClearMessages();
@@ -335,9 +336,9 @@ void AUTHUD_Showdown::DrawHUD()
 					BlueDeathTime = GetWorld()->GetTimeSeconds();
 				}
 
-				float XOffset = 0.45f * Canvas->ClipX;
-				float YOffset = 0.1f * Canvas->ClipY;
 				float PipSize = 0.02f * Canvas->ClipX;
+				float XOffset = 0.47f * Canvas->ClipX - PipSize;
+				float YOffset = 0.1f * Canvas->ClipY;
 
 				Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f);
 				for (int32 i = 0; i < RedPlayerCount; i++)
@@ -353,7 +354,7 @@ void AUTHUD_Showdown::DrawHUD()
 					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, ScaledSize*PipSize, ScaledSize*PipSize, 149, 138, 32, 32, BLEND_Translucent);
 				}
 
-				XOffset = 0.55f * Canvas->ClipX;
+				XOffset = 0.53f * Canvas->ClipX;
 				Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f);
 				for (int32 i = 0; i < BluePlayerCount; i++)
 				{
