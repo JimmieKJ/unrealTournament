@@ -223,8 +223,10 @@ public:
 
 	virtual void IncrementDamageDone(int32 AddedDamage);
 
+	virtual void SetOutOfLives(bool bNewValue);
+
 	/** Can't respawn once out of lives */
-	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
+	UPROPERTY(BlueprintReadWrite, replicated, ReplicatedUsing = OnOutOfLives, Category = PlayerState)
 	uint32 bOutOfLives:1;
 
 	/** How many times associated player has died */
@@ -378,6 +380,9 @@ public:
 
 	UFUNCTION()
 	void OnDeathsReceived();
+
+	UFUNCTION()
+		void OnOutOfLives();
 
 	/** Team has changed, announce, tell pawn, etc. */
 	UFUNCTION()

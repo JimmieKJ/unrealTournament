@@ -28,15 +28,7 @@ public:
 
 	virtual FLinearColor GetMessageColor() const override
 	{
-		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(UTGameState);
-		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->SpawnSelector != NULL && GS->SpawnSelector->Team != NULL && (UTPlayerOwner == NULL || GS->SpawnSelector != UTPlayerOwner->PlayerState))
-		{
-			return GS->SpawnSelector->Team->TeamColor;
-		}
-		else
-		{
-			return FLinearColor::White;
-		}
+		return FLinearColor::White;
 	}
 
 	virtual FText GetSpectatorMessageText(bool &bShortMessage) override
@@ -53,7 +45,7 @@ public:
 			{
 				return FText::Format(PickingStartsText, FText::AsNumber(GS->IntermissionStageTime));
 			}
-			else
+			else if (GS->bStartedSpawnSelection && GS->bFinalIntermissionDelay)
 			{
 				return FText::Format(RoundBeginsText, FText::AsNumber(GS->IntermissionStageTime));
 			}
@@ -62,5 +54,6 @@ public:
 		{
 			return Super::GetSpectatorMessageText(bShortMessage);
 		}
+		return FText::GetEmpty();
 	}
 };

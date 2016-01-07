@@ -24,6 +24,7 @@
 #include "UTGameState.h"
 #include "UTDemoRecSpectator.h"
 #include "SUTStyle.h"
+#include "UTHUDWidget_SpectatorSlideOut.h"
 
 /** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
 static inline ELoadFlags GetCosmeticLoadFlags()
@@ -536,6 +537,33 @@ void AUTPlayerState::OnDeathsReceived()
 	{
 		RespawnTime = UTGameState->RespawnWaitTime;
 		ForceRespawnTime = UTGameState->ForceRespawnTime;
+	}
+}
+
+void AUTPlayerState::SetOutOfLives(bool bNewValue)
+{
+	bOutOfLives = bNewValue;
+	OnOutOfLives();
+}
+
+void AUTPlayerState::OnOutOfLives()
+{
+	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetOwner());
+	UUTLocalPlayer* UTLP = MyPC ? Cast<UUTLocalPlayer>(MyPC->Player) : NULL;
+	if (UTLP)
+	{
+		if (bOutOfLives)
+		{
+			UTLP->OpenSpectatorWindow();
+			if (MyPC && MyPC->MyUTHUD && MyPC->MyUTHUD->GetSpectatorSlideOut())
+			{
+				MyPC->MyUTHUD->GetSpectatorSlideOut()->SetMouseInteractive(true);
+			}
+		}
+		else
+		{
+			UTLP->CloseSpectatorWindow();
+		}
 	}
 }
 

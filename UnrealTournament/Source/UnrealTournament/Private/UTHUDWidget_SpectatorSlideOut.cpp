@@ -83,7 +83,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 {
-	if (!bShowScores && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState && UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator)
+	if (!bShowScores && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && UTGameState && (UTHUDOwner->UTPlayerOwner->UTPlayerState->bOnlySpectator || UTHUDOwner->UTPlayerOwner->UTPlayerState->bOutOfLives))
 	{
 		if (UTGameState->HasMatchEnded() || !UTGameState->HasMatchStarted() || UTGameState->IsMatchIntermission())
 		{
@@ -215,6 +215,12 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				DrawFlag("ViewFlag 1", "Blue", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X, DrawOffset);
 			}
 			DrawOffset += 1.2f*CellHeight;
+		}
+
+		if (!UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator)
+		{
+			// limit what non-spectators can view
+			return;
 		}
 
 		//draw powerup clocks
@@ -501,7 +507,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 	FLinearColor BarColor = FLinearColor::White;
 	float FinalBarOpacity = BarOpacity;
 
-	if (bIsInteractive && UTHUDOwner->UTPlayerOwner)
+	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->PlayerState && UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator)
 	{
 		FText CamString = UTHUDOwner->UTPlayerOwner->bSpectateBehindView ? NSLOCTEXT("UTSlideout", "CamType3P", "3P") : NSLOCTEXT("UTSlideout", "CamType1P", "1P");
 		float Spacing = 0.333f * (ColumnHeaderScoreX - 0.05f - CamTypeButtonStart - 2.7f * CamTypeButtonWidth - 0.3f);
@@ -543,8 +549,11 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	float FinalBarOpacity = 0.3f;
 	float Width = Size.X;
 
+	AUTPlayerState* OwnerPS = UTHUDOwner->PlayerOwner ? Cast<AUTPlayerState>(UTHUDOwner->PlayerOwner->PlayerState) : NULL;
+	bool bFriendlySpectator = (OwnerPS && (OwnerPS->bOnlySpectator || UTGameState->OnSameTeam(OwnerPS, PlayerState)));
+
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
-	if (bIsInteractive && UTGameState)
+	if (bIsInteractive && bFriendlySpectator && UTGameState)
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
@@ -607,25 +616,28 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 				DrawTexture(FlagIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX + FlagOffset)), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
 			}
 
-			FFormatNamedArguments Args;
-			Args.Add("Health", FText::AsNumber(Character->Health));
-			DrawColor = FLinearColor(0.5f, 1.f, 0.5f);
-			DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "{Health}"), Args), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+			if (bFriendlySpectator)
+			{
+				FFormatNamedArguments Args;
+				Args.Add("Health", FText::AsNumber(Character->Health));
+				DrawColor = FLinearColor(0.5f, 1.f, 0.5f);
+				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "{Health}"), Args), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
-			if (Character->ArmorAmount > 0)
-			{
-				FFormatNamedArguments ArmorArgs;
-				ArmorArgs.Add("Armor", FText::AsNumber(Character->ArmorAmount));
-				DrawColor = FLinearColor(1.f, 1.f, 0.5f);
-				DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), ArmorArgs), XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
-			}
-			if (Character->GetWeaponClass())
-			{
-				AUTWeapon* DefaultWeapon = Character->GetWeaponClass()->GetDefaultObject<AUTWeapon>();
-				if (DefaultWeapon)
+				if (Character->ArmorAmount > 0)
 				{
-					float WeaponScale = 0.5f * (1.f + FMath::Clamp(0.6f - GetWorld()->GetTimeSeconds() + Character->LastWeaponFireTime, 0.f, 0.4f));  
-					DrawTexture(WeaponAtlas, XOffset + 1.01f*Width, YOffset + ColumnY - 0.015f*Width, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.UL, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.VL, DefaultWeapon->WeaponBarSelectedUVs.U + DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.V, -1.f * DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.VL, 1.0, FLinearColor::White);
+					FFormatNamedArguments ArmorArgs;
+					ArmorArgs.Add("Armor", FText::AsNumber(Character->ArmorAmount));
+					DrawColor = FLinearColor(1.f, 1.f, 0.5f);
+					DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), ArmorArgs), XOffset + (Width * ColumnHeaderArmor), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+				}
+				if (Character->GetWeaponClass())
+				{
+					AUTWeapon* DefaultWeapon = Character->GetWeaponClass()->GetDefaultObject<AUTWeapon>();
+					if (DefaultWeapon)
+					{
+						float WeaponScale = 0.5f * (1.f + FMath::Clamp(0.6f - GetWorld()->GetTimeSeconds() + Character->LastWeaponFireTime, 0.f, 0.4f));
+						DrawTexture(WeaponAtlas, XOffset + 1.01f*Width, YOffset + ColumnY - 0.015f*Width, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.UL, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.VL, DefaultWeapon->WeaponBarSelectedUVs.U + DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.V, -1.f * DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.VL, 1.0, FLinearColor::White);
+					}
 				}
 			}
 		}

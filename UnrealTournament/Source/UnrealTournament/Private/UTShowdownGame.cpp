@@ -194,7 +194,7 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
 			if (OtherPS != NULL && OtherPS->Team != NULL)
 			{
-				OtherPS->bOutOfLives = true;
+				OtherPS->SetOutOfLives(true);
 				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 				AUTTeamInfo* KillerTeam = (KillerPS != NULL) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
 				KillerTeam->Score += 1;
@@ -498,7 +498,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 			{
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
-				PS->bOutOfLives = false;
+				PS->SetOutOfLives(false);
 				TeamPlayers.Add(PS->Team, PS);
 				// use spectating state so camera can be placed on spawn selection
 				AUTPlayerController* PC = Cast<AUTPlayerController>(C);
@@ -596,7 +596,7 @@ void AUTShowdownGame::DefaultTimer()
 	if (GetMatchState() == MatchState::MatchIntermission)
 	{
 		// process bot spawn selection
-		if (GS->SpawnSelector != NULL && (GS->IntermissionStageTime == 1 || FMath::FRand() < 0.3f))
+		if (GS->SpawnSelector != NULL && ((GS->IntermissionStageTime < FMath::Max(2,SpawnSelectionTime - 2)) || (FMath::FRand() < 0.3f)))
 		{
 			AUTBot* B = Cast<AUTBot>(GS->SpawnSelector->GetOwner());
 			if (B != NULL)

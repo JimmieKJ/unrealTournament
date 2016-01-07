@@ -3925,7 +3925,7 @@ void UUTLocalPlayer::OpenSpectatorWindow()
 
 		if (SpectatorWidget.IsValid())
 		{
-			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(SpectatorWidget.ToSharedRef()),0);
+			GEngine->GameViewport->AddViewportWidgetContent(SNew(SWeakWidget).PossiblyNullContent(SpectatorWidget.ToSharedRef()), 0);
 		}
 	}
 #endif

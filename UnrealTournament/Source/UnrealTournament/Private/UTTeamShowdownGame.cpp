@@ -166,7 +166,7 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 			AUTPlayerState* OtherPS = Cast<AUTPlayerState>(Other->PlayerState);
 			if (OtherPS != NULL && OtherPS->Team != NULL)
 			{
-				OtherPS->bOutOfLives = true;
+				OtherPS->SetOutOfLives(true);
 				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 				AUTTeamInfo* KillerTeam = (KillerPS != NULL && KillerPS->Team != OtherPS->Team) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
 

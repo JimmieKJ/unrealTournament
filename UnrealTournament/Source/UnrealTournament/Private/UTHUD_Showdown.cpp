@@ -60,7 +60,7 @@ void AUTHUD_Showdown::BeginPlay()
 	SpawnPreviewCapture->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
 	SpawnPreviewCapture->TextureTarget->ClearColor = FLinearColor::Black;
 	SpawnPreviewCapture->RegisterComponent();
-//	AddSpectatorWidgets();
+	AddSpectatorWidgets();
 }
 
 void AUTHUD_Showdown::NotifyKill(APlayerState* POVPS, APlayerState* KillerPS, APlayerState* VictimPS)
