@@ -3,10 +3,10 @@
 #include "UnrealTournament.h"
 #include "SUTChatWidget.h"
 #include "../SUWindowsStyle.h"
-#include "FriendsAndChat.h"
+#include "Social.h"
 
 #define CHAT_BOX_WIDTH 576.0f
-#define CHAT_BOX_HEIGHT 260.0f
+#define CHAT_BOX_HEIGHT 320.0f
 #define CHAT_BOX_HEIGHT_FADED 120.0f
 #define CHAT_BOX_PADDING 20.0f
 #define MAX_CHAT_MESSAGES 10
@@ -15,21 +15,17 @@
 
 void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContext& InCtx)
 {
-	LastVisibility = EVisibility::Visible;
 	Ctx = InCtx;
 
-	// View model no longer accessible
-	/*
-	ViewModel = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetChatViewModel();
-	ViewModel->OnChatMessageCommitted().AddSP(this, &SUTChatWidget::OnChatTextCommitted);
-	ViewModel->OnChatListUpdated().AddSP(this, &SUTChatWidget::HandleChatListUpdated);
-	ViewModel->OnNetworkMessageSentEvent().AddSP(this, &SUTChatWidget::HandleFriendsNetworkChatMessage);
-	ViewModel->EnableGlobalChat(false);
-	*/
 	//some constant values
 	const int32 PaddingValue = 2;
 
-//	auto& FriendsAndChat = *IFriendsAndChatModule::Get().GetFriendsAndChatManager();
+	TSharedPtr< class SWidget > Chat;
+	TSharedRef< IFriendsAndChatManager > Manager = ISocialModule::Get().GetFriendsAndChatManager();
+	Display = Manager->GenerateChatDisplayService();
+	Settings = Manager->GetChatSettingsService();
+
+	Chat = Manager->GenerateChromeWidget(InArgs._FriendStyle, Display.ToSharedRef(), Settings.ToSharedRef());
 
 	// Initialize Menu
 	ChildSlot
@@ -41,74 +37,32 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 		.AutoHeight()
 		[
 			SNew(SBox)
-			.HeightOverride(this, &SUTChatWidget::GetChatWidgetHeight)
+			.HeightOverride(CHAT_BOX_HEIGHT)
 			.WidthOverride(CHAT_BOX_WIDTH)
-			/*
-			[
-				FriendsAndChat.GenerateChatWidget(
-					&SUWindowsStyle::Get().GetWidgetStyle< FFriendsAndChatStyle >( "FriendsStyle" ),
-					ViewModel.ToSharedRef(),
-					TAttribute<FText>()
-				).ToSharedRef()
-			]*/
+ 			[
+				Chat.ToSharedRef()
+ 			]
 		]
 	];
-
-	//ViewModel->SetEntryBarVisibility(EVisibility::Visible);
-}
-
-FOptionalSize SUTChatWidget::GetChatWidgetHeight() const
-{
-	return 0;
-//	return FMath::LerpStable(CHAT_BOX_HEIGHT_FADED, CHAT_BOX_HEIGHT, ViewModel->GetChatListFadeValue());
 }
 
 void SUTChatWidget::HandleFriendsNetworkChatMessage(const FString& NetworkMessage)
 {
 	//ViewModel->SetOverrideColorActive(false);
-//	Ctx.GetPlayerController()->Say(NetworkMessage);
-}
-
-void SUTChatWidget::HandleChatListUpdated()
-{
-//	ViewModel->SetOverrideColorActive(false);
-}
-
-void SUTChatWidget::OnChatTextCommitted()
-{
-//	FSlateApplication::Get().PlaySound(FFortUIStyle::Get().GetSound("Fortnite.ChatTextCommittedSound"));
+	//Ctx.GetPlayerController()->Say(NetworkMessage);
 }
 
 void SUTChatWidget::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
 {
 	//Always tick the super
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
-	/*
-	auto EntryBarVisibility = ViewModel->GetEntryBarVisibility();
-	if (EntryBarVisibility != LastVisibility)
-	{
-		LastVisibility = EntryBarVisibility;
-		if (EntryBarVisibility == EVisibility::Visible)
-		{
-			// Enter UI mode
-			SetFocus();
-		}
-		else
-		{
-			// Exit UI mode
-			FSlateApplication::Get().SetAllUserFocusToGameViewport();
-		}
-	}*/
 }
 
 void SUTChatWidget::SetFocus()
 {
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this));
-	/*
-	if (ViewModel.IsValid())
-	{
-		ViewModel->SetFocus();
-	}*/
+	
+	Display->SetFocus();
 }
 
 FReply SUTChatWidget::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent )

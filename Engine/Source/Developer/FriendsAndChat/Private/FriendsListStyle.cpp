@@ -55,6 +55,12 @@ FFriendsListStyle& FFriendsListStyle::SetActionMenuArrowBrush(const FSlateBrush&
 	return *this;
 }
 
+FFriendsListStyle& FFriendsListStyle::SetToolTipArrowBrush(const FSlateBrush& BrushStyle)
+{
+	ToolTipArrowBrush = BrushStyle;
+	return *this;
+}
+
 FFriendsListStyle& FFriendsListStyle::SetBackButtonStyle(const FButtonStyle& ButtonStyle)
 {
 	BackButtonStyle = ButtonStyle;
@@ -87,43 +93,16 @@ FFriendsListStyle& FFriendsListStyle::SetStatusIconBrush(const FSlateBrush& Brus
 	return *this;
 }
 
+FFriendsListStyle& FFriendsListStyle::SetPCIconBrush(const FSlateBrush& BrushStyle)
+{
+	PCIconBrush = BrushStyle;
+	return *this;
+}
+
 /** Friend Image brush style */
 FFriendsListStyle& FFriendsListStyle::SetFriendImageBrush(const FSlateBrush& BrushStyle)
 {
 	FriendImageBrush = BrushStyle;
-	return *this;
-}
-
-/** Fortnite Image brush style */
-FFriendsListStyle& FFriendsListStyle::SetFortniteImageBrush(const FSlateBrush& BrushStyle)
-{
-	FortniteImageBrush = BrushStyle;
-	return *this;
-}
-
-FFriendsListStyle& FFriendsListStyle::SetFortniteDevImageBrush(const FSlateBrush& BrushStyle)
-{
-	FortniteDevImageBrush = BrushStyle;
-	return *this;
-}
-
-FFriendsListStyle& FFriendsListStyle::SetFortniteTestImageBrush(const FSlateBrush& BrushStyle)
-{
-	FortniteTestImageBrush = BrushStyle;
-	return *this;
-}
-
-/** Launcher Image brush style */
-FFriendsListStyle& FFriendsListStyle::SetLauncherImageBrush(const FSlateBrush& BrushStyle)
-{
-	LauncherImageBrush = BrushStyle;
-	return *this;
-}
-
-/** UnrealTournament Image brush style */
-FFriendsListStyle& FFriendsListStyle::SetUTImageBrush(const FSlateBrush& BrushStyle)
-{
-	UTImageBrush = BrushStyle;
 	return *this;
 }
 

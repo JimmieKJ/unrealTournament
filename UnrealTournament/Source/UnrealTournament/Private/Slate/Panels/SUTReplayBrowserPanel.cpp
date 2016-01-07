@@ -5,7 +5,7 @@
 #include "SUTReplayBrowserPanel.h"
 #include "../Dialogs/SUTInputBoxDialog.h"
 #include "Net/UnrealNetwork.h"
-#include "FriendsAndChat.h"
+#include "Social.h"
 
 #if !UE_SERVER
 
@@ -120,7 +120,7 @@ void SUTReplayBrowserPanel::FriendsListUpdated()
 
 SUTReplayBrowserPanel::~SUTReplayBrowserPanel()
 {
-//	IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().Remove(FriendsListUpdatedDelegateHandle);
+	//ISocialModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().Remove(FriendsListUpdatedDelegateHandle);
 }
 
 void SUTReplayBrowserPanel::ConstructPanel(FVector2D ViewportSize)
@@ -139,7 +139,7 @@ void SUTReplayBrowserPanel::ConstructPanel(FVector2D ViewportSize)
 	
 	FriendsListUpdated();
 	
-//	FriendsListUpdatedDelegateHandle = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().AddSP(this, &SUTReplayBrowserPanel::FriendsListUpdated);
+//	FriendsListUpdatedDelegateHandle = ISocialModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().AddSP(this, &SUTReplayBrowserPanel::FriendsListUpdated);
 
 	this->ChildSlot
 	[

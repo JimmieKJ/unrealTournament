@@ -41,7 +41,7 @@
 #include "Dialogs/SUTDownloadAllDialog.h"
 #include "Windows/SUTSpectatorWindow.h"
 #include "UTAnalytics.h"
-#include "FriendsAndChat.h"
+#include "Social.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Base64.h"
@@ -760,28 +760,28 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		LoadProfileSettings();
 		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
 		ShowToast(WelcomeToast);
-		/*
+		
 		// Init the Friends And Chat system
-		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, true);
-		IFriendsAndChatModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
+		ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, true);
+		ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
-		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().IsBoundToObject(this))
+// 		if (!ISocialModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().IsBoundToObject(this))
+// 		{
+// 			ISocialModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
+// 		}
+		if (!ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
 		{
-			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
+			ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
 		}
-		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
-		{
-			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
-		}
-		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsNotification().IsBoundToObject(this))
-		{
-			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
-		}
-		if (!IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsActionNotification().IsBoundToObject(this))
-		{
-			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsActionNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
-		}
-		*/
+		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().IsBoundToObject(this))
+ 		{
+ 			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnNotificationsAvailable().AddUObject(this, &UUTLocalPlayer::HandleFriendsNotificationAvail);
+ 		}
+		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().IsBoundToObject(this))
+ 		{
+			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
+ 		}
+		
 		// on successful auto login, attempt to join an accepted friend game invite
 		if (bInitialSignInAttempt)
 		{
@@ -2311,13 +2311,13 @@ void UUTLocalPlayer::HandleFriendsNotificationAvail(bool bAvailable)
 
 void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage)
 {
-	/*
-	if (FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::GameInvite ||
-		FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::FriendAccepted || 
-		FriendsAndChatMessage->GetMessageType() == EFriendsRequestType::FriendInvite)
+	
+	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite ||
+		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendAccepted ||
+		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendInvite)
 	{
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
-	}*/
+	}
 }
 
 void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)

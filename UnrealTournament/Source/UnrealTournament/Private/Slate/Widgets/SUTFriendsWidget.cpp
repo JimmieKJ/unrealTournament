@@ -3,7 +3,7 @@
 #include "UnrealTournament.h"
 #include "SUTFriendsWidget.h"
 #include "../SUWindowsStyle.h"
-#include "FriendsAndChat.h"
+#include "Social.h"
 
 #if !UE_SERVER
 
@@ -17,15 +17,14 @@ void SUTFriendsWidget::Construct(const FArguments& InArgs, const FLocalPlayerCon
 	ChildSlot
 		.HAlign(HAlign_Right)
 		[
-			SAssignNew(ContentWidget, SWeakWidget)
+			SNew(SBox)
+			.WidthOverride(380)
+			.HeightOverride(1000)
+			[
+				SAssignNew(ContentWidget, SWeakWidget)
+			]
 		];
-	/*
-	if (FModuleManager::Get().IsModuleLoaded(TEXT("FriendsAndChat")))
-	{
-		ContentWidget->SetContent(
-			IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GenerateFriendsListWidget(&SUWindowsStyle::Get().GetWidgetStyle< FFriendsAndChatStyle >("FriendsStyle")).ToSharedRef()
-			);
-	}*/
+	ContentWidget->SetContent(ISocialModule::Get().GetFriendsAndChatManager()->GenerateFriendsListWidget(InArgs._FriendStyle).ToSharedRef());
 }
 
 SUTFriendsWidget::~SUTFriendsWidget()

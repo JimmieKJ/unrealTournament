@@ -51,5 +51,31 @@ struct FRIENDSANDCHAT_API FFriendsMarkupStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush MarkupBackground;
 	FFriendsMarkupStyle& SetTipBackgroundBrush(const FSlateBrush& InChatBackgroundBrush);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateColor ButtonColor;
+	FFriendsMarkupStyle& SetButtonColor(const FSlateColor& InColor);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateColor ButtonHoverColor;
+	FFriendsMarkupStyle& SetButtonHoverColor(const FSlateColor& InColor);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateColor TipColor;
+	FFriendsMarkupStyle& SetTipColor(const FSlateColor& InColor);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush SeperatorBrush;
+	FFriendsMarkupStyle& SetSeperatorBrush(const FSlateBrush& Brush);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	float SeperatorThickness;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin MarkupPadding;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin ButtonPadding;
+
 };
 

@@ -45,20 +45,6 @@ struct FRIENDSANDCHAT_API FFriendsChatStyle
 	 */
 	static const FFriendsChatStyle& GetDefault();
 
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush GlobalChatHeaderBrush;
-	FFriendsChatStyle& SetGlobalChatHeaderBrush(const FSlateBrush& Value);
-
-	/** Chat window background */
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	float ChatEntryHeight;
-	FFriendsChatStyle& SetChatEntryHeight(float InChatEntryHeight);
-
-	/** Chat window background */
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush ChatContainerBackground;
-	FFriendsChatStyle& SetChatContainerBackground(const FSlateBrush& InChatContainerBackground);
-
 	/** Text Style */
 	UPROPERTY(EditAnywhere, Category=Appearance)
 	FTextBlockStyle TextStyle;
@@ -110,10 +96,6 @@ struct FRIENDSANDCHAT_API FFriendsChatStyle
 	FFriendsChatStyle& SetPartyHyperlinkChatColor(const FLinearColor& InFontColor);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush ChatInvalidBrush;
-	FFriendsChatStyle& SetChatInvalidBrush(const FSlateBrush& Brush);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
 	FEditableTextBoxStyle ChatEntryTextStyle;
 	FFriendsChatStyle& SetChatEntryTextStyle(const FEditableTextBoxStyle& InEditableTextStyle);
 
@@ -122,39 +104,28 @@ struct FRIENDSANDCHAT_API FFriendsChatStyle
 	FFriendsChatStyle& SetChatDisplayTextStyle(const FEditableTextBoxStyle& InEditableTextStyle);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush ChatBackgroundBrush;
-	FFriendsChatStyle& SetChatBackgroundBrush(const FSlateBrush& InChatBackgroundBrush);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush ChatFooterBrush;
-	FFriendsChatStyle& SetChatFooterBrush(const FSlateBrush& Value);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush ChatChannelsBackgroundBrush;
-	FFriendsChatStyle& SetChatChannelsBackgroundBrush(const FSlateBrush& InChatChannelsBackgroundBrush);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
 	FScrollBoxStyle ScrollBorderStyle;
 	FFriendsChatStyle& SetScrollBorderStyle(const FScrollBoxStyle& InScrollBorderStyle);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush QuickSettingsBrush;
-	FFriendsChatStyle& SetQuickSettingsBrush(const FSlateBrush& Brush);
-
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush ChatSettingsBrush;
-	FFriendsChatStyle& SetChatSettingsBrush(const FSlateBrush& Brush);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush MessageNotificationBrush;
 	FFriendsChatStyle& SetMessageNotificationBrush(const FSlateBrush& Brush);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
-	FButtonStyle FriendsMinimizeButtonStyle;
-	FFriendsChatStyle& SetMinimizeButtonStyle(const FButtonStyle& ButtonStyle);
+	FMargin ChatEntryPadding;
+	FFriendsChatStyle& SetChatChannelPadding(const FMargin& Value);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
-	FButtonStyle FriendsMaximizeButtonStyle;
-	FFriendsChatStyle& SetMaximizeButtonStyle(const FButtonStyle& ButtonStyle);
+	float ChatEntryHeight;
+	FFriendsChatStyle& SetChatEntryHeight(float Value);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin FriendActionPadding;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin FriendActionHeaderPadding;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin FriendActionStatusMargin;
 };
 

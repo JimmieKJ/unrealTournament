@@ -29,6 +29,13 @@ public class UnrealTournament : ModuleRules
 			}
 		);
 
+		PublicIncludePaths.Add("../Plugins/Social/Source/Public");
+		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Interfaces");
+		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Models");
+		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/DataAccess");
+		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/Domain");
+		PublicIncludePaths.Add("../Plugins/Social/Source/Public/Layers/Presentation");
+
         PublicDependencyModuleNames.AddRange(new string[] { 
                                                     "Core", 
                                                     "CoreUObject", 
@@ -49,7 +56,9 @@ public class UnrealTournament : ModuleRules
 			                                        "Landscape",
                                                     "Foliage",
 													"PerfCounters",
-                                                    "PakFile", });
+                                                    "PakFile",
+													"FriendsAndChat",
+													"Social",});
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
         if (Target.Type != TargetRules.TargetType.Server)

@@ -72,6 +72,10 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	FFriendsListStyle& SetActionMenuArrowBrush(const FSlateBrush& BrushStyle);
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush ToolTipArrowBrush;
+	FFriendsListStyle& SetToolTipArrowBrush(const FSlateBrush& BrushStyle);
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
 	FButtonStyle BackButtonStyle;
 	FFriendsListStyle& SetBackButtonStyle(const FButtonStyle& ButtonStyle);
 
@@ -94,35 +98,14 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	FSlateBrush StatusIconBrush;
 	FFriendsListStyle& SetStatusIconBrush(const FSlateBrush& BrushStyle);
 
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FSlateBrush PCIconBrush;
+	FFriendsListStyle& SetPCIconBrush(const FSlateBrush& BrushStyle);
+
 	/** Friend Image brush style */
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	FSlateBrush FriendImageBrush;
 	FFriendsListStyle& SetFriendImageBrush(const FSlateBrush& BrushStyle);
-
-	/** Fortnite Image brush style */
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush FortniteImageBrush;
-	FFriendsListStyle& SetFortniteImageBrush(const FSlateBrush& BrushStyle);
-
-	/** Fortnite Image brush style */
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush FortniteDevImageBrush;
-	FFriendsListStyle& SetFortniteDevImageBrush(const FSlateBrush& BrushStyle);
-
-	/** Fortnite Image brush style */
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush FortniteTestImageBrush;
-	FFriendsListStyle& SetFortniteTestImageBrush(const FSlateBrush& BrushStyle);
-
-	/** Launcher Image brush style */
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush LauncherImageBrush;
-	FFriendsListStyle& SetLauncherImageBrush(const FSlateBrush& BrushStyle);
-
-	/** UnrealTournament Image brush style */
-	UPROPERTY(EditAnywhere, Category = Appearance)
-	FSlateBrush UTImageBrush;
-	FFriendsListStyle& SetUTImageBrush(const FSlateBrush& BrushStyle);
 
 	/** Offline brush style */
 	UPROPERTY(EditAnywhere, Category=Appearance)
@@ -215,6 +198,12 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	FMargin FriendItemPresenceMargin;
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin FriendItemPlatformMargin;
+	
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin FriendItemTextScrollerMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
 	FMargin ConfirmationBorderMargin;
 
 	UPROPERTY(EditAnywhere, Category = Appearance)
@@ -250,6 +239,11 @@ struct FRIENDSANDCHAT_API FFriendsListStyle
 	UPROPERTY(EditAnywhere, Category = Appearance)
 	float SubMenuSeperatorThickness;
 
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin ToolTipMargin;
+
+	UPROPERTY(EditAnywhere, Category = Appearance)
+	FMargin TipStatusMargin;
 
 
 // Clan Settings

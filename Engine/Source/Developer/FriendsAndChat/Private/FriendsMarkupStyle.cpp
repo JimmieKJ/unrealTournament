@@ -28,3 +28,26 @@ FFriendsMarkupStyle& FFriendsMarkupStyle::SetTipBackgroundBrush(const FSlateBrus
 	return *this;
 }
 
+FFriendsMarkupStyle& FFriendsMarkupStyle::SetButtonColor(const FSlateColor& Value)
+{
+	ButtonColor = Value;
+	return *this;
+}
+
+FFriendsMarkupStyle& FFriendsMarkupStyle::SetButtonHoverColor(const FSlateColor& Value)
+{
+	ButtonHoverColor = Value;
+	return *this;
+}
+
+FFriendsMarkupStyle& FFriendsMarkupStyle::SetTipColor(const FSlateColor& Value)
+{
+	TipColor = Value;
+	return *this;
+}
+
+FFriendsMarkupStyle& FFriendsMarkupStyle::SetSeperatorBrush(const FSlateBrush& Value)
+{
+	SeperatorBrush = Value;
+	return *this;
+}

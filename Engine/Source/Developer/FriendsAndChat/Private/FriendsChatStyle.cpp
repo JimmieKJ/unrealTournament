@@ -10,24 +10,6 @@ const FFriendsChatStyle& FFriendsChatStyle::GetDefault()
 	return Default;
 }
 
-FFriendsChatStyle& FFriendsChatStyle::SetChatEntryHeight(float Value)
-{
-	ChatEntryHeight = Value;
-	return *this;
-}
-
-FFriendsChatStyle& FFriendsChatStyle::SetGlobalChatHeaderBrush(const FSlateBrush& Value)
-{
-	GlobalChatHeaderBrush = Value;
-	return *this;
-}
-
-FFriendsChatStyle& FFriendsChatStyle::SetChatContainerBackground(const FSlateBrush& InChatContainerBackground)
-{
-	ChatContainerBackground = InChatContainerBackground;
-	return *this;
-}
-
 FFriendsChatStyle& FFriendsChatStyle::SetTextStyle(const FTextBlockStyle& InTextStle)
 {
 	TextStyle = InTextStle;
@@ -100,12 +82,6 @@ FFriendsChatStyle& FFriendsChatStyle::SetPartyHyperlinkChatColor(const FLinearCo
 	return *this;
 }
 
-FFriendsChatStyle& FFriendsChatStyle::SetChatInvalidBrush(const FSlateBrush& Brush)
-{
-	ChatInvalidBrush = Brush;
-	return *this;
-}
-
 FFriendsChatStyle& FFriendsChatStyle::SetChatEntryTextStyle(const FEditableTextBoxStyle& InEditableTextStyle)
 {
 	ChatEntryTextStyle = InEditableTextStyle;
@@ -124,50 +100,20 @@ FFriendsChatStyle& FFriendsChatStyle::SetScrollBorderStyle(const FScrollBoxStyle
 	return *this;
 }
 
-FFriendsChatStyle& FFriendsChatStyle::SetChatBackgroundBrush(const FSlateBrush& InChatBackgroundBrush)
-{
-	ChatBackgroundBrush = InChatBackgroundBrush;
-	return *this;
-}
-
-FFriendsChatStyle& FFriendsChatStyle::SetChatFooterBrush(const FSlateBrush& Value)
-{
-	ChatFooterBrush = Value;
-	return *this;
-}
-
-FFriendsChatStyle& FFriendsChatStyle::SetChatChannelsBackgroundBrush(const FSlateBrush& InChatChannelsBackgroundBrush)
-{
-	ChatChannelsBackgroundBrush = InChatChannelsBackgroundBrush;
-	return *this;
-}
-
-FFriendsChatStyle& FFriendsChatStyle::SetQuickSettingsBrush(const FSlateBrush& Brush)
-{
-	QuickSettingsBrush = Brush;
-	return *this;
-}
-
-FFriendsChatStyle& FFriendsChatStyle::SetChatSettingsBrush(const FSlateBrush& Brush)
-{
-	ChatSettingsBrush = Brush;
-	return *this;
-}
-
 FFriendsChatStyle& FFriendsChatStyle::SetMessageNotificationBrush(const FSlateBrush& Brush)
 {
 	MessageNotificationBrush = Brush;
 	return *this;
 }
 
-FFriendsChatStyle& FFriendsChatStyle::SetMinimizeButtonStyle(const FButtonStyle& Button)
+FFriendsChatStyle& FFriendsChatStyle::SetChatChannelPadding(const FMargin& Value)
 {
-	FriendsMinimizeButtonStyle = Button;
+	ChatEntryPadding = Value;
 	return *this;
 }
 
-FFriendsChatStyle& FFriendsChatStyle::SetMaximizeButtonStyle(const FButtonStyle& Button)
+FFriendsChatStyle& FFriendsChatStyle::SetChatEntryHeight(float Value)
 {
-	FriendsMaximizeButtonStyle = Button;
+	ChatEntryHeight = Value;
 	return *this;
 }

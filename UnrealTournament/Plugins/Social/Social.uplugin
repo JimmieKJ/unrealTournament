@@ -1,0 +1,21 @@
+{
+	"FileVersion" : 3,
+	
+	"FriendlyName" : "Social Plugin",
+	"Version" : 1,
+	"VersionName" : "1.0",
+	"EngineVersion" : "4.9.0",
+	"Description" : "Social Module for Friends, Chat, Parties and Game Invites.",
+	"Category" : "Epic Internal.OGS",
+	"CreatedBy" : "Epic Games, Inc.",
+	"CreatedByURL" : "http://epicgames.com",
+	"EnabledByDefault" : true,
+	
+	"Modules" :
+	[
+		{
+			"Name" : "Social",
+			"Type" : "Runtime"
+		}
+	]
+}
