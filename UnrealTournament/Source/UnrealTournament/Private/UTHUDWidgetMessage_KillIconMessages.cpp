@@ -32,7 +32,7 @@ UUTHUDWidgetMessage_KillIconMessages::UUTHUDWidgetMessage_KillIconMessages(const
 
 bool UUTHUDWidgetMessage_KillIconMessages::ShouldDraw_Implementation(bool bShowScores)
 {
-	return (bShowScores || (UTGameState->GetMatchState() != MatchState::MatchIntermission));
+	return (bShowScores || (UTGameState && (UTGameState->GetMatchState() != MatchState::MatchIntermission)));
 }
 
 float UUTHUDWidgetMessage_KillIconMessages::GetDrawScaleOverride()
