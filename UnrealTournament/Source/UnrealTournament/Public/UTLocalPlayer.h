@@ -8,6 +8,7 @@
 #include "../Private/Slate/Base/SUTToastBase.h"
 #include "../Private/Slate/Base/SUTDialogBase.h"
 #include "UTProfileSettings.h"
+#include "UTProgressionStorage.h"
 #include "OnlinePresenceInterface.h"
 #include "Http.h"
 #include "UTProfileItem.h"
@@ -414,13 +415,22 @@ public:
 
 	FName TeamStyleRef(FName InName);
 
+	virtual void LoadProgression();
+	UFUNCTION()
+	virtual void SaveProgression();
+	virtual UUTProgressionStorage* GetProgressionStorage() { return CurrentProgression; }
+
 protected:
 
 	// Holds the current profile settings.  
 	UPROPERTY()
 	UUTProfileSettings* CurrentProfileSettings;
 
+	UPROPERTY()
+	UUTProgressionStorage* CurrentProgression;
+
 	virtual FString GetProfileFilename();	
+	virtual FString GetProgressionFilename();
 	virtual void ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);

@@ -4,20 +4,6 @@
 #include "UTPlayerInput.h"
 #include "GameFramework/InputSettings.h"
 
-const FName AchievementIDs::TutorialComplete(TEXT("TutorialComplete"));
-const FName AchievementIDs::ChallengeStars5(TEXT("ChallengeStars5"));
-const FName AchievementIDs::ChallengeStars15(TEXT("ChallengeStars15"));
-const FName AchievementIDs::ChallengeStars25(TEXT("ChallengeStars25"));
-const FName AchievementIDs::ChallengeStars35(TEXT("ChallengeStars35"));
-const FName AchievementIDs::ChallengeStars45(TEXT("ChallengeStars45"));
-const FName AchievementIDs::PumpkinHead2015Level1(TEXT("PumpkinHead2015Level1"));
-const FName AchievementIDs::PumpkinHead2015Level2(TEXT("PumpkinHead2015Level2"));
-const FName AchievementIDs::PumpkinHead2015Level3(TEXT("PumpkinHead2015Level3"));
-const FName AchievementIDs::ChallengePumpkins5(TEXT("ChallengePumpkins5"));
-const FName AchievementIDs::ChallengePumpkins10(TEXT("ChallengePumpkins10"));
-const FName AchievementIDs::ChallengePumpkins15(TEXT("ChallengePumpkins15"));
-const FName AchievementIDs::FacePumpkins(TEXT("FacePumpkins"));
-
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {

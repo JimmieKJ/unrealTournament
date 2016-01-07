@@ -21,6 +21,7 @@
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
 #include "UTProfileSettings.h"
+#include "UTProgressionStorage.h"
 #include "UTViewPlaceholder.h"
 #include "DataChannel.h"
 #include "Engine/GameInstance.h"
@@ -3837,10 +3838,10 @@ void AUTPlayerController::ClearTokens()
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
-		UUTProfileSettings* Settings = LocalPlayer->GetProfileSettings();
-		if (Settings != NULL)
+		UUTProgressionStorage* Storage = LocalPlayer->GetProgressionStorage();
+		if (Storage != NULL)
 		{
-			Settings->TokensClear();
+			Storage->TokensClear();
 		}
 	}
 #endif

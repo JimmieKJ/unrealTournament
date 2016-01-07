@@ -640,9 +640,9 @@ bool UUTGameplayStatics::HasTokenBeenPickedUpBefore(UObject* WorldContextObject,
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProfileSettings())
+		if (LP && LP->GetProgressionStorage())
 		{
-			return LP->GetProfileSettings()->HasTokenBeenPickedUpBefore(TokenUniqueID);
+			return LP->GetProgressionStorage()->HasTokenBeenPickedUpBefore(TokenUniqueID);
 		}
 	}
 
@@ -657,11 +657,11 @@ int32 UUTGameplayStatics::HowManyTokensHaveBeenPickedUpBefore(UObject* WorldCont
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProfileSettings())
+		if (LP && LP->GetProgressionStorage())
 		{
 			for (auto TokenUniqueID : TokenUniqueIDs)
 			{
-				if (LP->GetProfileSettings()->HasTokenBeenPickedUpBefore(TokenUniqueID))
+				if (LP->GetProgressionStorage()->HasTokenBeenPickedUpBefore(TokenUniqueID))
 				{
 					TotalPickedUp++;
 				}
@@ -677,9 +677,9 @@ void UUTGameplayStatics::TokenPickedUp(UObject* WorldContextObject, FName TokenU
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProfileSettings())
+		if (LP && LP->GetProgressionStorage())
 		{
-			LP->GetProfileSettings()->TokenPickedUp(TokenUniqueID);
+			LP->GetProgressionStorage()->TokenPickedUp(TokenUniqueID);
 		}
 	}
 }
@@ -690,9 +690,9 @@ void UUTGameplayStatics::TokenRevoke(UObject* WorldContextObject, FName TokenUni
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProfileSettings())
+		if (LP && LP->GetProgressionStorage())
 		{
-			LP->GetProfileSettings()->TokenRevoke(TokenUniqueID);
+			LP->GetProgressionStorage()->TokenRevoke(TokenUniqueID);
 		}
 	}
 }
@@ -703,9 +703,9 @@ void UUTGameplayStatics::TokensCommit(UObject* WorldContextObject)
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProfileSettings())
+		if (LP && LP->GetProgressionStorage())
 		{
-			LP->GetProfileSettings()->TokensCommit();
+			LP->GetProgressionStorage()->TokensCommit();
 		}
 	}
 }
@@ -716,9 +716,9 @@ void UUTGameplayStatics::TokensReset(UObject* WorldContextObject)
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProfileSettings())
+		if (LP && LP->GetProgressionStorage())
 		{
-			LP->GetProfileSettings()->TokensReset();
+			LP->GetProgressionStorage()->TokensReset();
 		}
 	}
 }
@@ -729,9 +729,9 @@ void UUTGameplayStatics::SetBestTime(UObject* WorldContextObject, FName TimingSe
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProfileSettings())
+		if (LP && LP->GetProgressionStorage())
 		{
-			LP->GetProfileSettings()->SetBestTime(TimingSection, InBestTime);
+			LP->GetProgressionStorage()->SetBestTime(TimingSection, InBestTime);
 		}
 	}
 }
@@ -742,9 +742,9 @@ bool UUTGameplayStatics::GetBestTime(UObject* WorldContextObject, FName TimingSe
 	if (PC)
 	{
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-		if (LP && LP->GetProfileSettings())
+		if (LP && LP->GetProgressionStorage())
 		{
-			return LP->GetProfileSettings()->GetBestTime(TimingSection, OutBestTime);
+			return LP->GetProgressionStorage()->GetBestTime(TimingSection, OutBestTime);
 		}
 	}
 

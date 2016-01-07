@@ -1301,3 +1301,21 @@ namespace MatchSummaryViewState
 	const FName ViewingTeam = FName(TEXT("Team"));
 	const FName ViewingSingle = FName(TEXT("Single"));
 }
+
+namespace AchievementIDs
+{
+	const FName TutorialComplete(TEXT("TutorialComplete"));
+	const FName ChallengeStars5(TEXT("ChallengeStars5"));
+	const FName ChallengeStars15(TEXT("ChallengeStars15"));
+	const FName ChallengeStars25(TEXT("ChallengeStars25"));
+	const FName ChallengeStars35(TEXT("ChallengeStars35"));
+	const FName ChallengeStars45(TEXT("ChallengeStars45"));
+	const FName PumpkinHead2015Level1(TEXT("PumpkinHead2015Level1"));
+	const FName PumpkinHead2015Level2(TEXT("PumpkinHead2015Level2"));
+	const FName PumpkinHead2015Level3(TEXT("PumpkinHead2015Level3"));
+	const FName ChallengePumpkins5(TEXT("ChallengePumpkins5"));
+	const FName ChallengePumpkins10(TEXT("ChallengePumpkins10"));
+	const FName ChallengePumpkins15(TEXT("ChallengePumpkins15"));
+	const FName FacePumpkins(TEXT("FacePumpkins"));
+};
+

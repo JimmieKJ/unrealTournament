@@ -1170,6 +1170,12 @@ FString UUTLocalPlayer::GetProfileFilename()
 	return TEXT("local_user_profile");
 }
 
+FString UUTLocalPlayer::GetProgressionFilename()
+{
+	return TEXT("user_progression_1");
+}
+
+
 /*
  *	If the player is currently logged in, trigger a load of their profile settings from the MCP.  
  */
@@ -1215,6 +1221,21 @@ void UUTLocalPlayer::ClearProfileWarnResults(TSharedPtr<SCompoundWidget> Widget,
 	}
 }
 
+void UUTLocalPlayer::LoadProgression()
+{
+	if (IsLoggedIn())
+	{
+		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		if (UserID.IsValid())
+		{
+			if (OnlineUserCloudInterface.IsValid())
+			{
+				OnlineUserCloudInterface->ReadUserFile(*UserID, GetProgressionFilename());
+			}
+		}
+	}
+}
+
 void UUTLocalPlayer::OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 #if !UE_SERVER
@@ -1255,6 +1276,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 		if (bWasSuccessful && OnlineUserCloudInterface.IsValid())	
 		{
+			// After the profile is loaded it's safe to load progression so that we have
+			// the fallback to the old profile based progression info
+			LoadProgression();
+
 			// Create the current profile.
 			if (CurrentProfileSettings == NULL)
 			{
@@ -1303,7 +1328,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				UUTGameEngine* GameEngine = Cast<UUTGameEngine>(GEngine);
 				if (GameEngine && GameEngine->GetChallengeManager().IsValid())
 				{
-					if ( GameEngine->GetChallengeManager()->CheckDailyChallenge(CurrentProfileSettings) )
+					if ( GameEngine->GetChallengeManager()->CheckDailyChallenge(CurrentProgression) )
 					{
 						SaveProfileSettings();
 					}
@@ -1356,7 +1381,50 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		ShowMessage(NSLOCTEXT("UTLocalPlayer", "WelcomeTitle", "Welcome to Unreal Tournament"), WelcomeMessage, UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::WelcomeDialogResult),FVector2D(0.35,0.25));
 		// We couldn't load our profile or it was invalid or we choose to clear it so save it out.
 #endif
+	}
+	else if (FileName == GetProgressionFilename())
+	{
+		if (bWasSuccessful)
+		{
+			// Create the current profile.
+			if (CurrentProgression == NULL)
+			{
+				CurrentProgression = NewObject<UUTProgressionStorage>(GetTransientPackage(),UUTProgressionStorage::StaticClass());
+			}
 
+			TArray<uint8> FileContents;
+			OnlineUserCloudInterface->GetFileContents(InUserId, FileName, FileContents);
+			
+			// Serialize the object
+			FMemoryReader MemoryReader(FileContents, true);
+			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, true);
+			
+			// FObjectAndNameAsStringProxyArchive does not have versioning, but we need it
+			// In 4.12, Serialization has been modified and we need the FArchive to use the right serialization path
+			uint32 PossibleMagicNumber;
+			Ar << PossibleMagicNumber;
+			if (CloudProfileMagicNumberVersion1 == PossibleMagicNumber)
+			{
+				int32 CloudProfileUE4Ver;
+				Ar << CloudProfileUE4Ver;
+				Ar.SetUE4Ver(CloudProfileUE4Ver);
+			}
+			else
+			{
+				// Very likely this is from an unversioned cloud file, set it to the last released serialization version
+				Ar.SetUE4Ver(CloudProfileUE4VerForUnversionedProfile);
+				// Rewind to the beginning as the magic number was not in the archive
+				Ar.Seek(0);
+			}
+
+			CurrentProgression->Serialize(Ar);
+			CurrentProgression->VersionFixup();
+		}
+		else
+		{
+					
+		
+		}
 	}
 	else if (FileName == GetStatsFilename())
 	{
@@ -1436,6 +1504,32 @@ void UUTLocalPlayer::SaveProfileSettings()
 	}
 }
 
+void UUTLocalPlayer::SaveProgression()
+{
+	if ( CurrentProgression != NULL && IsLoggedIn() )
+	{
+		CurrentProgression->Updated();
+
+		// Build a blob of the profile contents
+		TArray<uint8> FileContents;
+		FMemoryWriter MemoryWriter(FileContents, true);
+		FObjectAndNameAsStringProxyArchive Ar(MemoryWriter, false);
+		Ar << CloudProfileMagicNumberVersion1;
+		int32 UE4Ver = Ar.UE4Ver();
+		Ar << UE4Ver;
+		CurrentProgression->Serialize(Ar);
+
+		// Save the blob to the cloud
+		TSharedPtr<const FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+		if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
+		{
+			LastProfileCloudWriteTime = FApp::GetCurrentTime();
+			OnlineUserCloudInterface->WriteUserFile(*UserID, GetProgressionFilename(), FileContents);
+		}
+	}
+}
+
+
 void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName)
 {
 	// Make sure this was our filename
@@ -1456,6 +1550,22 @@ void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 	#endif
 		}
 	}
+	else if (FileName == GetProgressionFilename())
+	{
+		if (bWasSuccessful)
+		{
+			FText Saved = NSLOCTEXT("MCP", "ProgressionSaved", "Progression Saved");
+			ShowToast(Saved);
+		}
+		else
+		{
+	#if !UE_SERVER
+			// Should give a warning here if it fails.
+			ShowMessage(NSLOCTEXT("MCPMessages", "ProgressionSaveErrorTitle", "An error has occured"), NSLOCTEXT("MCPMessages", "ProgressionSaveErrorText", "UT could not save your progression with the MCP.  Your progress may be lost."), UTDIALOG_BUTTON_OK, NULL);
+	#endif
+		}
+	}
+
 }
 
 void UUTLocalPlayer::SetNickname(FString NewName)
@@ -3410,11 +3520,11 @@ void UUTLocalPlayer::CloseJoinInstanceDialog()
 int32 UUTLocalPlayer::GetTotalChallengeStars()
 {
 	int32 TotalStars = 0;
-	if (CurrentProfileSettings)
+	if (CurrentProgression)
 	{
-		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		for (int32 i = 0 ; i < CurrentProgression->ChallengeResults.Num(); i++)
 		{
-			TotalStars += CurrentProfileSettings->ChallengeResults[i].Stars;
+			TotalStars += CurrentProgression->ChallengeResults[i].Stars;
 		}
 	}
 
@@ -3423,13 +3533,13 @@ int32 UUTLocalPlayer::GetTotalChallengeStars()
 
 int32 UUTLocalPlayer::GetChallengeStars(FName ChallengeTag)
 {
-	if (CurrentProfileSettings)
+	if (CurrentProgression)
 	{
-		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		for (int32 i = 0 ; i < CurrentProgression->ChallengeResults.Num(); i++)
 		{
-			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			if (CurrentProgression->ChallengeResults[i].Tag == ChallengeTag)
 			{
-				return CurrentProfileSettings->ChallengeResults[i].Stars;
+				return CurrentProgression->ChallengeResults[i].Stars;
 			}
 		}
 	}
@@ -3465,13 +3575,13 @@ int32 UUTLocalPlayer::GetRewardStars(FName RewardTag)
 
 FString UUTLocalPlayer::GetChallengeDate(FName ChallengeTag)
 {
-	if (CurrentProfileSettings)
+	if (CurrentProgression)
 	{
-		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		for (int32 i = 0 ; i < CurrentProgression->ChallengeResults.Num(); i++)
 		{
-			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			if (CurrentProgression->ChallengeResults[i].Tag == ChallengeTag)
 			{
-				FDateTime LastUpdate = CurrentProfileSettings->ChallengeResults[i].LastUpdate;
+				FDateTime LastUpdate = CurrentProgression->ChallengeResults[i].LastUpdate;
 				return LastUpdate.ToString(TEXT("%m.%d.%y @ %h:%M:%S%a"));
 			}
 		}
@@ -3484,9 +3594,9 @@ void UUTLocalPlayer::AwardAchievement(FName AchievementName)
 	static FName NAME_RequiredAchievement(TEXT("RequiredAchievement"));
 	static FName NAME_CosmeticName(TEXT("CosmeticName"));
 	static FName NAME_DisplayName(TEXT("DisplayName"));
-	if (CurrentProfileSettings != NULL && !CurrentProfileSettings->Achievements.Contains(AchievementName))
+	if (CurrentProgression != NULL && !CurrentProgression->Achievements.Contains(AchievementName))
 	{
-		CurrentProfileSettings->Achievements.Add(AchievementName);
+		CurrentProgression->Achievements.Add(AchievementName);
 
 		TArray<FAssetData> PossibleUnlocks;
 		GetAllBlueprintAssetData(AUTCosmetic::StaticClass(), PossibleUnlocks, true);
@@ -3512,19 +3622,18 @@ void UUTLocalPlayer::AwardAchievement(FName AchievementName)
 
 void UUTLocalPlayer::SkullPickedUp()
 {
-	if (CurrentProfileSettings)
+	if (CurrentProgression)
 	{
-		CurrentProfileSettings->bNeedProfileWriteOnLevelChange = true;
-		CurrentProfileSettings->SkullCount++;
-		if (CurrentProfileSettings->SkullCount > 200)
+		CurrentProgression->SetSkullCount(CurrentProgression->SkullCount++);
+		if (CurrentProgression->SkullCount > 200)
 		{
 			AwardAchievement(AchievementIDs::PumpkinHead2015Level1);
 		}
-		if (CurrentProfileSettings->SkullCount > 1000)
+		if (CurrentProgression->SkullCount > 1000)
 		{
 			AwardAchievement(AchievementIDs::PumpkinHead2015Level2);
 		}
-		if (CurrentProfileSettings->SkullCount > 5000)
+		if (CurrentProgression->SkullCount > 5000)
 		{
 			AwardAchievement(AchievementIDs::PumpkinHead2015Level3);
 		}
@@ -3534,17 +3643,17 @@ void UUTLocalPlayer::SkullPickedUp()
 void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 {
 	EarnedStars = 0;
-	if (CurrentProfileSettings && Stars > 0)
+	if (CurrentProgression && Stars > 0)
 	{
 		bool bFound = false;
-		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		for (int32 i = 0 ; i < CurrentProgression->ChallengeResults.Num(); i++)
 		{
-			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			if (CurrentProgression->ChallengeResults[i].Tag == ChallengeTag)
 			{
 				if (CurrentProfileSettings->ChallengeResults[i].Stars < Stars)
 				{
-					EarnedStars = Stars - CurrentProfileSettings->ChallengeResults[i].Stars;
-					CurrentProfileSettings->ChallengeResults[i].Update(Stars);
+					EarnedStars = Stars - CurrentProgression->ChallengeResults[i].Stars;
+					CurrentProgression->ChallengeResults[i].Update(Stars);
 				}
 
 				bFound = true;
@@ -3554,7 +3663,7 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		if (!bFound)
 		{
 			EarnedStars = Stars;
-			CurrentProfileSettings->ChallengeResults.Add(FUTChallengeResult(ChallengeTag, Stars));
+			CurrentProgression->ChallengeResults.Add(FUTChallengeResult(ChallengeTag, Stars));
 		}
 
 		// Look up the Challenge info for this challenge...
@@ -3624,13 +3733,14 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		}
 
 		int32 AllStars = GetTotalChallengeStars();
-		CurrentProfileSettings->TotalChallengeStars = AllStars;
+		CurrentProgression->TotalChallengeStars = AllStars;
 		AUTPlayerState* PS = PlayerController ? Cast<AUTPlayerState>(PlayerController->PlayerState) : NULL;
 		if (PS)
 		{
 			PS->TotalChallengeStars = AllStars;
 		}
-		SaveProfileSettings();
+
+		SaveProgression();
 
 		if (FUTAnalytics::IsAvailable())
 		{
@@ -3702,7 +3812,7 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 					GameEngine->GetChallengeManager()->UpdateChallengeFromMCP(MCPPulledData);
 
 					// Check to see if we have a new daily challenge.  And if we do, update the profile.
-					if (GameEngine->GetChallengeManager()->CheckDailyChallenge(CurrentProfileSettings))
+					if (GameEngine->GetChallengeManager()->CheckDailyChallenge(CurrentProgression))
 					{
 						SaveProfileSettings();
 					}

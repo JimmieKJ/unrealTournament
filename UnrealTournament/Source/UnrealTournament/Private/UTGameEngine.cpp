@@ -359,6 +359,13 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 		{
 			UTLocalPlayer->SaveProfileSettings();
 		}
+
+		UUTProgressionStorage* Storage = UTLocalPlayer->GetProgressionStorage();
+		if (Storage && Storage->NeedsUpdate())
+		{
+			UTLocalPlayer->SaveProgression();
+		}
+
 	}
 
 #if !UE_SERVER && !UE_EDITOR

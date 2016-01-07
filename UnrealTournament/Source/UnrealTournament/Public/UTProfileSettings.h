@@ -21,22 +21,6 @@ static const uint32 PAUSEKEY_FIXUP_PROFILESETTINGS_VERSION = 11;
 static const uint32 CURRENT_PROFILESETTINGS_VERSION = 13;
 static const uint32 CHALLENGE_FIXUP_VERSION = 12;
 
-namespace AchievementIDs
-{
-	extern const FName TutorialComplete;
-	extern const FName ChallengeStars5;
-	extern const FName ChallengeStars15;
-	extern const FName ChallengeStars25;
-	extern const FName ChallengeStars35;
-	extern const FName ChallengeStars45;
-	extern const FName PumpkinHead2015Level1;
-	extern const FName PumpkinHead2015Level2;
-	extern const FName PumpkinHead2015Level3;
-	extern const FName ChallengePumpkins5;
-	extern const FName ChallengePumpkins10;
-	extern const FName ChallengePumpkins15;
-	extern const FName FacePumpkins;
-};
 
 class UUTLocalPlayer;
 

@@ -647,7 +647,7 @@ void SUTChallengePanel::GenerateChallengeList()
 		TArray<const FUTChallengeInfo*> Challenges;
 
 		// First count the stars
-		ChallengeManager->GetChallenges(Challenges, EChallengeFilterType::All, PlayerOwner->GetProfileSettings());
+		ChallengeManager->GetChallenges(Challenges, EChallengeFilterType::All, PlayerOwner->GetProgressionStorage());
 		for (int32 i = 0 ; i < Challenges.Num(); i++)
 		{
 			const FUTChallengeInfo* Challenge = Challenges[i];
@@ -667,7 +667,7 @@ void SUTChallengePanel::GenerateChallengeList()
 
 		// Now build the list.
 		Challenges.Empty();
-		ChallengeManager->GetChallenges(Challenges, ChallengeFilter, PlayerOwner->GetProfileSettings());
+		ChallengeManager->GetChallenges(Challenges, ChallengeFilter, PlayerOwner->GetProgressionStorage());
 
 
 		// Now create the buttons
@@ -885,7 +885,7 @@ FText SUTChallengePanel::GetCurrentChallengeData() const
 	}
 	else if (ChallengeManager->Challenges[SelectedChallenge].bDailyChallenge)
 	{
-		int32 HoursLeft = ChallengeManager->TimeUntilExpiration(SelectedChallenge, PlayerOwner->GetProfileSettings());
+		int32 HoursLeft = ChallengeManager->TimeUntilExpiration(SelectedChallenge, PlayerOwner->GetProgressionStorage());
 		return FText::Format(NSLOCTEXT("SUTChallengePanel","DateForChallengeFormatDaily","Last Completed: {0}  --  Expires in {1} hours"), FText::FromString(PlayerOwner->GetChallengeDate(SelectedChallenge)), FText::AsNumber(HoursLeft));
 	}
 
