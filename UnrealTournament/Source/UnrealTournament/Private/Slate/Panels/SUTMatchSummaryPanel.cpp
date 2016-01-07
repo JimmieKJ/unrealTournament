@@ -1168,6 +1168,9 @@ AUTCharacter* SUTMatchSummaryPanel::RecreatePlayerPreview(AUTPlayerState* NewPS,
 	
 	if (PlayerPreviewMesh)
 	{
+		// We need to get our tick functions registered, this seemed like best way to do it
+		PlayerPreviewMesh->BeginPlay();
+
 		PlayerPreviewMesh->PlayerState = NewPS; //PS needed for team colors
 		PlayerPreviewMesh->Health = 100; //Set to 100 so the TacCom Overlay doesn't show damage
 		PlayerPreviewMesh->DeactivateSpawnProtection();
