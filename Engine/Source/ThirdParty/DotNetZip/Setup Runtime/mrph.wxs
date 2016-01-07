@@ -1,0 +1,252 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Fragment>
+        <DirectoryRef Id="TARGETDIR">
+            <Directory Id="dir39B22699688E51DCD8DCBB99A47E835B" Name="Debug" />
+        </DirectoryRef>
+    </Fragment>
+    <Fragment>
+        <DirectoryRef Id="dir39B22699688E51DCD8DCBB99A47E835B">
+            <Component Id="cmp9065657F6BEBBB5AE2F18EF92E204C6B" Guid="PUT-GUID-HERE">
+                <Class Id="{55FDD822-29A5-3CCC-901B-D66AAB48E180}" Context="InprocServer32" Description="Ionic.Zip.ReadOptions" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.ReadOptions" Description="Ionic.Zip.ReadOptions" />
+                </Class>
+                <Class Id="{70D6193F-47ED-398D-BAEA-6E9298B6532D}" Context="InprocServer32" Description="Ionic.Zip.SelfExtractorSaveOptions" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.SelfExtractorSaveOptions" Description="Ionic.Zip.SelfExtractorSaveOptions" />
+                </Class>
+                <Class Id="{98CA68BB-59C3-3FAC-83BA-E69A616C507C}" Context="InprocServer32" Description="Ionic.Zlib.Adler" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zlib.Adler" Description="Ionic.Zlib.Adler" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D00004}" Context="InprocServer32" Description="Ionic.Zip.ZipEntry" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.ZipEntry" Description="Ionic.Zip.ZipEntry" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D00005}" Context="InprocServer32" Description="Ionic.Zip.ZipFile" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.ZipFile" Description="Ionic.Zip.ZipFile" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D00006}" Context="InprocServer32" Description="Ionic.Zip.ZipException" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.ZipException" Description="Ionic.Zip.ZipException" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D00007}" Context="InprocServer32" Description="Ionic.Zip.BadStateException" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.BadStateException" Description="Ionic.Zip.BadStateException" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D00008}" Context="InprocServer32" Description="Ionic.Zip.SfxGenerationException" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.SfxGenerationException" Description="Ionic.Zip.SfxGenerationException" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D00009}" Context="InprocServer32" Description="Ionic.Zip.BadCrcException" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.BadCrcException" Description="Ionic.Zip.BadCrcException" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D0000A}" Context="InprocServer32" Description="Ionic.Zip.BadReadException" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.BadReadException" Description="Ionic.Zip.BadReadException" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D0000B}" Context="InprocServer32" Description="Ionic.Zip.BadPasswordException" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.BadPasswordException" Description="Ionic.Zip.BadPasswordException" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D0000C}" Context="InprocServer32" Description="Ionic.Crc.CRC32" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Crc.CRC32" Description="Ionic.Crc.CRC32" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D0000D}" Context="InprocServer32" Description="Ionic.Zlib.ZlibCodec" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zlib.ZlibCodec" Description="Ionic.Zlib.ZlibCodec" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D0000E}" Context="InprocServer32" Description="Ionic.Zlib.ZlibException" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zlib.ZlibException" Description="Ionic.Zlib.ZlibException" />
+                </Class>
+                <Class Id="{EBC25CF6-9120-4283-B972-0E5520D0000F}" Context="InprocServer32" Description="Ionic.Zip.ComHelper" ThreadingModel="both" ForeignServer="mscoree.dll">
+                    <ProgId Id="Ionic.Zip.ComHelper" Description="Ionic.Zip.ComHelper" />
+                </Class>
+                <File Id="fil4B562083D141F5A2F29E28A1BD09AF3E" KeyPath="yes" Source="SourceDir\Debug\Ionic.Zip.dll" />
+                <ProgId Id="Record" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.ReadOptions" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\InprocServer32" Name="Class" Value="Ionic.Zip.ReadOptions" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{55FDD822-29A5-3CCC-901B-D66AAB48E180}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.SelfExtractorSaveOptions" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\InprocServer32" Name="Class" Value="Ionic.Zip.SelfExtractorSaveOptions" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{70D6193F-47ED-398D-BAEA-6E9298B6532D}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zlib.Adler" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\InprocServer32" Name="Class" Value="Ionic.Zlib.Adler" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{98CA68BB-59C3-3FAC-83BA-E69A616C507C}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.ZipEntry" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\InprocServer32" Name="Class" Value="Ionic.Zip.ZipEntry" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00004}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.ZipFile" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\InprocServer32" Name="Class" Value="Ionic.Zip.ZipFile" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00005}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.ZipException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\InprocServer32" Name="Class" Value="Ionic.Zip.ZipException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00006}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.BadStateException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\InprocServer32" Name="Class" Value="Ionic.Zip.BadStateException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00007}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.SfxGenerationException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\InprocServer32" Name="Class" Value="Ionic.Zip.SfxGenerationException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00008}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.BadCrcException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\InprocServer32" Name="Class" Value="Ionic.Zip.BadCrcException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D00009}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.BadReadException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\InprocServer32" Name="Class" Value="Ionic.Zip.BadReadException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000A}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.BadPasswordException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\InprocServer32" Name="Class" Value="Ionic.Zip.BadPasswordException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000B}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Crc.CRC32" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\InprocServer32" Name="Class" Value="Ionic.Crc.CRC32" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000C}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zlib.ZlibCodec" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\InprocServer32" Name="Class" Value="Ionic.Zlib.ZlibCodec" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000D}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zlib.ZlibException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\InprocServer32" Name="Class" Value="Ionic.Zlib.ZlibException" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000E}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\Implemented Categories\{62C8FE65-4EBB-45e7-B440-6E39B2CDBF29}" Value="" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\InprocServer32\1.9.1.6004" Name="Class" Value="Ionic.Zip.ComHelper" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\InprocServer32\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\InprocServer32\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\InprocServer32\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\InprocServer32" Name="Class" Value="Ionic.Zip.ComHelper" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\InprocServer32" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\InprocServer32" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="CLSID\{EBC25CF6-9120-4283-B972-0E5520D0000F}\InprocServer32" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{26D7F736-2DB7-319F-8678-EB89F45F1282}\1.9.1.6004" Name="Class" Value="Ionic.Zip.ZipEntryTimestamp" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{26D7F736-2DB7-319F-8678-EB89F45F1282}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{26D7F736-2DB7-319F-8678-EB89F45F1282}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{26D7F736-2DB7-319F-8678-EB89F45F1282}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{2BA87CB2-8FA4-31B3-871E-ACBFE297C540}\1.9.1.6004" Name="Class" Value="Ionic.Zip.ExtractExistingFileAction" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{2BA87CB2-8FA4-31B3-871E-ACBFE297C540}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{2BA87CB2-8FA4-31B3-871E-ACBFE297C540}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{2BA87CB2-8FA4-31B3-871E-ACBFE297C540}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{351239E8-6DA2-3BA4-8869-B090CB95F1BD}\1.9.1.6004" Name="Class" Value="Ionic.Zip.CompressionMethod" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{351239E8-6DA2-3BA4-8869-B090CB95F1BD}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{351239E8-6DA2-3BA4-8869-B090CB95F1BD}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{351239E8-6DA2-3BA4-8869-B090CB95F1BD}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{6199024F-3D6B-3A96-9F20-ED8BF46250F3}\1.9.1.6004" Name="Class" Value="Ionic.Zlib.CompressionLevel" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{6199024F-3D6B-3A96-9F20-ED8BF46250F3}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{6199024F-3D6B-3A96-9F20-ED8BF46250F3}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{6199024F-3D6B-3A96-9F20-ED8BF46250F3}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{625D2AB6-7919-3930-86A6-20505AC67D12}\1.9.1.6004" Name="Class" Value="Ionic.Zip.SelfExtractorFlavor" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{625D2AB6-7919-3930-86A6-20505AC67D12}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{625D2AB6-7919-3930-86A6-20505AC67D12}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{625D2AB6-7919-3930-86A6-20505AC67D12}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{7752AF90-B73A-3B02-A868-A5122CD8F314}\1.9.1.6004" Name="Class" Value="Ionic.Zlib.CompressionStrategy" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{7752AF90-B73A-3B02-A868-A5122CD8F314}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{7752AF90-B73A-3B02-A868-A5122CD8F314}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{7752AF90-B73A-3B02-A868-A5122CD8F314}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{92CD8FF9-EEA5-39B7-9F5C-DC59FD5D7D1F}\1.9.1.6004" Name="Class" Value="Ionic.Zip.Zip64Option" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{92CD8FF9-EEA5-39B7-9F5C-DC59FD5D7D1F}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{92CD8FF9-EEA5-39B7-9F5C-DC59FD5D7D1F}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{92CD8FF9-EEA5-39B7-9F5C-DC59FD5D7D1F}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{9FAAFF4C-D5C3-3665-9F15-009F9A8B6E57}\1.9.1.6004" Name="Class" Value="Ionic.Zip.ZipOption" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{9FAAFF4C-D5C3-3665-9F15-009F9A8B6E57}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{9FAAFF4C-D5C3-3665-9F15-009F9A8B6E57}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{9FAAFF4C-D5C3-3665-9F15-009F9A8B6E57}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{AB3CAD50-C66A-330B-9DFF-A89901CF7DD3}\1.9.1.6004" Name="Class" Value="Ionic.Zlib.FlushType" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{AB3CAD50-C66A-330B-9DFF-A89901CF7DD3}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{AB3CAD50-C66A-330B-9DFF-A89901CF7DD3}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{AB3CAD50-C66A-330B-9DFF-A89901CF7DD3}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{ADBE2CF5-C6B6-38BD-8972-1345B2718CC3}\1.9.1.6004" Name="Class" Value="Ionic.Zip.ZipEntrySource" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{ADBE2CF5-C6B6-38BD-8972-1345B2718CC3}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{ADBE2CF5-C6B6-38BD-8972-1345B2718CC3}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{ADBE2CF5-C6B6-38BD-8972-1345B2718CC3}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{C46AE830-805E-3BB5-A95B-C17E08CD8E21}\1.9.1.6004" Name="Class" Value="Ionic.Zip.ZipErrorAction" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{C46AE830-805E-3BB5-A95B-C17E08CD8E21}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{C46AE830-805E-3BB5-A95B-C17E08CD8E21}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{C46AE830-805E-3BB5-A95B-C17E08CD8E21}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{CAC82080-A3A0-3A2F-A697-DDA31C58381D}\1.9.1.6004" Name="Class" Value="Ionic.Zip.ZipProgressEventType" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{CAC82080-A3A0-3A2F-A697-DDA31C58381D}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{CAC82080-A3A0-3A2F-A697-DDA31C58381D}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{CAC82080-A3A0-3A2F-A697-DDA31C58381D}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{DA852CDA-B3A7-3172-93AE-B251B5E5BD84}\1.9.1.6004" Name="Class" Value="Ionic.Zlib.CompressionMode" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{DA852CDA-B3A7-3172-93AE-B251B5E5BD84}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{DA852CDA-B3A7-3172-93AE-B251B5E5BD84}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{DA852CDA-B3A7-3172-93AE-B251B5E5BD84}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{FBC8585A-A57E-3272-942B-658DF11933D4}\1.9.1.6004" Name="Class" Value="Ionic.Zip.EncryptionAlgorithm" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{FBC8585A-A57E-3272-942B-658DF11933D4}\1.9.1.6004" Name="Assembly" Value="Ionic.Zip, Version=1.9.1.6004, Culture=neutral, PublicKeyToken=edbe51ad942a3f5c" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{FBC8585A-A57E-3272-942B-658DF11933D4}\1.9.1.6004" Name="RuntimeVersion" Value="v2.0.50727" Type="string" Action="write" />
+                <RegistryValue Root="HKCR" Key="Record\{FBC8585A-A57E-3272-942B-658DF11933D4}\1.9.1.6004" Name="CodeBase" Value="file:///[#fil4B562083D141F5A2F29E28A1BD09AF3E]" Type="string" Action="write" />
+            </Component>
+        </DirectoryRef>
+    </Fragment>
+</Wix>
