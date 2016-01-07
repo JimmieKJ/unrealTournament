@@ -210,7 +210,7 @@ void AUTHUD_Showdown::DrawHUD()
 	if (KillIconWidget)
 	{
 		KillIconWidget->ScreenPosition = bShowScores ? FVector2D(0.52f, 0.635f) : FVector2D(0.0f, 0.0f);
-		if (GS->bFinalIntermissionDelay)
+		if (GS && GS->bFinalIntermissionDelay)
 		{
 			KillIconWidget->ClearMessages();
 		}
