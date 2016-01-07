@@ -128,6 +128,8 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bDisableMapVote = false;
 
 	AntiCheatEngine = nullptr;
+
+	CharScale = 1.f;
 }
 
 void AUTGameMode::NotifySpeedHack(ACharacter* Character)

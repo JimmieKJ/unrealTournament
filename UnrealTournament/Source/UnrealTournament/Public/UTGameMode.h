@@ -336,6 +336,10 @@ public:
 
 	/** whether to record a demo (starts when the countdown starts) */
 	UPROPERTY(GlobalConfig)
+		float CharScale;
+
+	/** whether to record a demo (starts when the countdown starts) */
+	UPROPERTY(GlobalConfig)
 	bool bRecordDemo;
 
 	/** filename for demos... should use one of the replacement strings or it'll overwrite every game */

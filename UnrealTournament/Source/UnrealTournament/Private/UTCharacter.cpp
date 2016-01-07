@@ -51,13 +51,15 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContentRef(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
 	CharacterData = DefaultCharContentRef.Object;
 
+	float CharScaling = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->CharScale/1.15f;
+
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(45.5f, 106.0f);
+	GetCapsuleComponent()->InitCapsuleSize(45.5f*CharScaling, 106.0f*CharScaling);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
 	CharacterCameraComponent->AttachParent = GetCapsuleComponent();
-	DefaultBaseEyeHeight = 83.f;
+	DefaultBaseEyeHeight = 83.f*CharScaling;
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CrouchedEyeHeight = 40.f;
 	DefaultCrouchedEyeHeight = 40.f;
@@ -79,7 +81,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
 	GetMesh()->bReceivesDecals = false;
 	GetMesh()->bLightAttachmentsAsGroup = true;
-	GetMesh()->SetRelativeScale3D(FVector(1.15f));
+	GetMesh()->SetRelativeScale3D(FVector(1.15f*CharScaling));
 
 	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
 
