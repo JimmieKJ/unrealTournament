@@ -180,10 +180,6 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 					bViewingMessage = true;
 					SpectatorMessage = FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "{PlayerName}"), Args);
 				}
-				else if (!UTHUDOwner->UTPlayerOwner->bHasUsedSpectatingBind)
-				{
-					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [ENTER] to view camera binds.");
-				}
 				else
 				{
 					LastViewedPS = NULL;
