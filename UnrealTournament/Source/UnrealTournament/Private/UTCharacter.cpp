@@ -408,8 +408,16 @@ void AUTCharacter::GetSimplifiedSavedPositions(TArray<FSavedPosition>& OutPositi
 
 void AUTCharacter::RecalculateBaseEyeHeight()
 {
+	float StartBaseEyeHeight = BaseEyeHeight;
+
 	CrouchedEyeHeight = (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding) ? FloorSlideEyeHeight : DefaultCrouchedEyeHeight;
 	BaseEyeHeight = (bIsCrouched || (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)) ? CrouchedEyeHeight : DefaultBaseEyeHeight;
+//	UE_LOG(UT, Warning, TEXT("Recalc To %f crouched %d sliding %d"), BaseEyeHeight, bIsCrouched, (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding));
+
+	if (BaseEyeHeight != StartBaseEyeHeight)
+	{
+		CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
+	}
 }
 
 void AUTCharacter::Crouch(bool bClientSimulation)
