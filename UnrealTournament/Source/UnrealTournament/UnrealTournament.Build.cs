@@ -17,7 +17,7 @@ public class UnrealTournament : ModuleRules
 			"UnrealTournament/Private/Slate/Panels",	
 			"UnrealTournament/Private/Slate/Toasts",	
 			"UnrealTournament/Private/Slate/Widgets",	
-			"UnrealTournament/Private/Slate/Widows",	
+			"UnrealTournament/Private/Slate/UIWindows",	
 		});
 
 

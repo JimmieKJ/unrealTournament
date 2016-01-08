@@ -17,7 +17,7 @@
 #include "../Dialogs/SUTInputBoxDialog.h"
 #include "../Dialogs/SUTMessageBoxDialog.h"
 #include "../Widgets/SUTScaleBox.h"
-#include "../Windows/SUTFriendsPopupWindow.h"
+#include "SUTFriendsPopupWindow.h"
 #include "UTGameEngine.h"
 #include "SUTServerBrowserPanel.h"
 #include "SUTStatsViewerPanel.h"
