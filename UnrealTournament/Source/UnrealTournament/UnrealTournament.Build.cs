@@ -69,14 +69,14 @@ public class UnrealTournament : ModuleRules
         {
             PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "SourceControl", "PropertyEditor", "ShaderCore" });
         }
-
-        if (Target.Platform == UnrealTargetPlatform.Win64)
-        {
-            PublicDependencyModuleNames.AddRange(new string[] { "WinDualShock" });
-        }
-
+        
         if (UEBuildConfiguration.bCompileMcpOSS == true)
         {
+            if (Target.Platform == UnrealTargetPlatform.Win64)
+            {
+                PublicDependencyModuleNames.AddRange(new string[] { "WinDualShock" });
+            }
+
             Definitions.Add("WITH_PROFILE=1");
 
             PublicDependencyModuleNames.AddRange(
