@@ -343,7 +343,7 @@ void AUTHUD_Showdown::DrawHUD()
 				Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f);
 				for (int32 i = 0; i < RedPlayerCount; i++)
 				{
-					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset, YOffset, PipSize, PipSize, 149, 138, 32, 32, BLEND_Translucent);
+					Canvas->DrawTile(PlayerStartIcon.Texture, XOffset, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 					XOffset -= 1.2f*PipSize;
 				}
 				float TimeSinceRedDeath = GetWorld()->GetTimeSeconds() - RedDeathTime;
@@ -351,14 +351,14 @@ void AUTHUD_Showdown::DrawHUD()
 				{
 					Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f - TimeSinceRedDeath);
 					float ScaledSize = 1.f + 2.f*TimeSinceRedDeath;
-					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, ScaledSize*PipSize, ScaledSize*PipSize, 149, 138, 32, 32, BLEND_Translucent);
+					Canvas->DrawTile(PlayerStartIcon.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 				}
 
 				XOffset = 0.53f * Canvas->ClipX;
 				Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f);
 				for (int32 i = 0; i < BluePlayerCount; i++)
 				{
-					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset, YOffset, PipSize, PipSize, 149, 138, 32, 32, BLEND_Translucent);
+					Canvas->DrawTile(PlayerStartIcon.Texture, XOffset, YOffset, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 					XOffset += 1.2f*PipSize;
 				}
 				float TimeSinceBlueDeath = GetWorld()->GetTimeSeconds() - BlueDeathTime;
@@ -366,11 +366,12 @@ void AUTHUD_Showdown::DrawHUD()
 				{
 					Canvas->SetLinearDrawColor(FLinearColor::Blue, 0.5f - TimeSinceBlueDeath);
 					float ScaledSize = 1.f + 2.f*TimeSinceBlueDeath;
-					Canvas->DrawTile(SpawnHelpTextBG.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, ScaledSize*PipSize, ScaledSize*PipSize, 149, 138, 32, 32, BLEND_Translucent);
+					Canvas->DrawTile(PlayerStartIcon.Texture, XOffset - 0.5f*(ScaledSize - 1.f)*PipSize, YOffset - 0.5f*(ScaledSize - 1.f)*PipSize, PipSize, PipSize, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL, BLEND_Translucent);
 				}
 			}
 		}
 	}
+
 	bool bRealDrawMinimap = bDrawMinimap;
 	bDrawMinimap = bDrawMinimap && !bDrewSpawnMap;
 	Super::DrawHUD();
