@@ -63,16 +63,12 @@ void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPri
 	{
 		// Air Rocket reward
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
-		if (PC != NULL)
+		if (PC && PC->UTPlayerState)
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
 			int32 AirRoxCount = 0;
-			if (PS)
-			{
-				PS->ModifyStatsValue(NAME_AirRox, 1);
-				AirRoxCount = PS->GetStatsValue(NAME_AirRox);
-			}
-			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount, PS, HitCharacter->PlayerState);
+			PC->UTPlayerState->ModifyStatsValue(NAME_AirRox, 1);
+			AirRoxCount = PC->UTPlayerState->GetStatsValue(NAME_AirRox);
+			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount, PC->UTPlayerState, HitCharacter->PlayerState);
 		}
 	}
 	bPendingSpecialReward = false;

@@ -167,7 +167,7 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 			}
 		}
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
-		AUTPlayerState* PS = PC ? Cast<AUTPlayerState>(PC->PlayerState) : NULL;
+		AUTPlayerState* PS = PC ? PC->UTPlayerState : NULL;
 		int32 ComboKillCount = PS ? PS->GetStatsValue(NAME_ShockComboKills) : 0;
 		bPendingSpecialReward = bComboExplosion && PC && PS && ComboRewardMessageClass && (PC == InstigatorController);
 		float ComboMovementScore = 0.f;
