@@ -4,7 +4,7 @@
 
 #include "UTLocalMessage.generated.h"
 
-UCLASS(Blueprintable, Abstract, NotPlaceable)
+UCLASS(Blueprintable, Abstract, NotPlaceable, meta = (ShowWorldContextPin))
 class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 {
 	GENERATED_UCLASS_BODY()
