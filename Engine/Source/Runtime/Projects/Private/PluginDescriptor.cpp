@@ -91,7 +91,7 @@ bool FPluginDescriptor::Read(const FString& Text, FText& OutFailReason)
 	Object.TryGetStringField(TEXT("DocsURL"), DocsURL);
 	Object.TryGetStringField(TEXT("MarketplaceURL"), MarketplaceURL);
 	Object.TryGetStringField(TEXT("SupportURL"), SupportURL);
-
+	
 	if (!FModuleDescriptor::ReadArray(Object, TEXT("Modules"), Modules, OutFailReason))
 	{
 		return false;
@@ -158,6 +158,7 @@ FString FPluginDescriptor::ToString() const
 FPluginReferenceDescriptor::FPluginReferenceDescriptor( const FString& InName, bool bInEnabled, const FString& InMarketplaceURL )
 	: Name(InName)
 	, bEnabled(bInEnabled)
+	, bOptional(false)
 	, MarketplaceURL(InMarketplaceURL)
 { }
 
@@ -201,7 +202,10 @@ bool FPluginReferenceDescriptor::Read( const FJsonObject& Object, FText& OutFail
 		OutFailReason = LOCTEXT("PluginReferenceWithoutEnabled", "Plugin references must have an 'Enabled' field");
 		return false;
 	}
-	
+
+	// Read the optional field
+	Object.TryGetBoolField(TEXT("Optional"), bOptional);
+
 	// Read the metadata for users that don't have the plugin installed
 	Object.TryGetStringField(TEXT("Description"), Description);
 	Object.TryGetStringField(TEXT("MarketplaceURL"), MarketplaceURL);
@@ -247,6 +251,11 @@ void FPluginReferenceDescriptor::Write( TJsonWriter<>& Writer ) const
 	Writer.WriteObjectStart();
 	Writer.WriteValue(TEXT("Name"), Name);
 	Writer.WriteValue(TEXT("Enabled"), bEnabled);
+
+	if (bEnabled && bOptional)
+	{
+		Writer.WriteValue(TEXT("Optional"), bOptional);
+	}
 
 	if (Description.Len() > 0)
 	{

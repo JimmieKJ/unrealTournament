@@ -307,7 +307,7 @@ bool FPluginManager::ConfigureEnabledPlugins()
 			TArray<FPluginReferenceDescriptor> PluginsCopy = Project->Plugins;
 			for(const FPluginReferenceDescriptor& Plugin: PluginsCopy)
 			{
-				if(Plugin.bEnabled && !FindPluginInstance(Plugin.Name).IsValid())
+				if (Plugin.bEnabled && !FindPluginInstance(Plugin.Name).IsValid() && !Plugin.bOptional)
 				{
 					FText Caption(LOCTEXT("PluginMissingCaption", "Plugin missing"));
 					if(Plugin.MarketplaceURL.Len() > 0)
