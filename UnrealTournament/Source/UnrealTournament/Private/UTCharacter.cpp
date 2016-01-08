@@ -82,7 +82,11 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->bReceivesDecals = false;
 	GetMesh()->bLightAttachmentsAsGroup = true;
 	GetMesh()->SetRelativeScale3D(FVector(1.15f*CharScaling));
-
+	FVector NewRelativeLoc = GetMesh()->RelativeLocation;
+	NewRelativeLoc.Z = -106.f*CharScaling;
+	DefaultMeshTranslationZ = NewRelativeLoc.Z;
+	BaseTranslationOffset.Z = DefaultMeshTranslationZ;
+	GetMesh()->RelativeLocation = NewRelativeLoc;
 	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
 
 	HealthMax = 100;
@@ -279,6 +283,8 @@ void AUTCharacter::PostInitializeComponents()
 			}
 		}
 	}
+	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, DefaultMeshTranslationZ));
+	BaseTranslationOffset.Z = DefaultMeshTranslationZ;
 }
 
 void AUTCharacter::NotifyPendingServerFire()
@@ -342,6 +348,11 @@ FRotator AUTCharacter::GetDelayedShotRotation()
 
 void AUTCharacter::PositionUpdated(bool bShotSpawned)
 {
+	FVector NewRelLoc = GetMesh()->RelativeLocation;
+	NewRelLoc.Z = DefaultMeshTranslationZ;
+	GetMesh()->SetRelativeLocation(NewRelLoc);
+	BaseTranslationOffset.Z = DefaultMeshTranslationZ;
+
 	const float WorldTime = GetWorld()->GetTimeSeconds();
 	if (GetCharacterMovement())
 	{
@@ -448,6 +459,12 @@ void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	float StartBaseEyeHeight = BaseEyeHeight;
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
+	if (GetMesh())
+	{
+		GetMesh()->RelativeLocation.Z = DefaultMeshTranslationZ;
+		BaseTranslationOffset.Z = GetMesh()->RelativeLocation.Z;
+	}
+
 	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight - HeightAdjust;
 	OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
@@ -462,6 +479,12 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 	}
 	float StartBaseEyeHeight = BaseEyeHeight;
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
+	if (GetMesh())
+	{
+		GetMesh()->RelativeLocation.Z = DefaultMeshTranslationZ + HeightAdjust;
+		BaseTranslationOffset.Z = GetMesh()->RelativeLocation.Z;
+	}
+
 	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight + HeightAdjust;
 	OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);

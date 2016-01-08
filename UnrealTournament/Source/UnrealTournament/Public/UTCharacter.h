@@ -1163,6 +1163,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;
 	
+	// @TODO FIXMESTEVE temp
+	float DefaultMeshTranslationZ;
 
 	//================================
 	// Swimming
