@@ -52,6 +52,7 @@ protected:
 
 	TSharedPtr<SOverlay> SummaryOverlay;
 	TSharedPtr<SUTMatchSummaryPanel> SummaryPanel;
+	TSharedPtr<STextBlock> TypeMsg;
 
 	virtual void BuildChatDestinationMenu();
 

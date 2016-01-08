@@ -12,6 +12,7 @@
 #include "../Widgets/SUTBorder.h"
 #include "../Widgets/SUTButton.h"
 #include "SUTMatchSummaryPanel.h"
+#include "UTConsole.h"
 
 #if !UE_SERVER
 
@@ -47,6 +48,15 @@ void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 				SNew(SOverlay)
 				+SOverlay::Slot()
 				[
+					SNew(SBox)
+					.HeightOverride(42)
+					[
+						SNew(SBorder)
+						.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+					]
+				]
+				+SOverlay::Slot()
+				[
 					SAssignNew(MenuArea, SVerticalBox)
 					+SVerticalBox::Slot()
 					.AutoHeight()
@@ -59,79 +69,50 @@ void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 							.HeightOverride(42)
 							.WidthOverride(60)
 							[
-								SNew(SOverlay)
-								+ SOverlay::Slot()
-								.HAlign(HAlign_Fill)
-								.VAlign(VAlign_Fill)
-								[
-									SNew(SImage)
-									.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.Fill"))
-								]
-								+ SOverlay::Slot()
-								.HAlign(HAlign_Center)
-								.VAlign(VAlign_Center)
-								[
-									BuildChatDestinationsButton()
-								]
+								BuildChatDestinationsButton()
 							]
 						]
 						+SHorizontalBox::Slot()
 						.AutoWidth()
 						[
-							SNew(SOverlay)
-							+SOverlay::Slot()
-							[
-								SNew(SBox)
-								.HeightOverride(42)
-								[
-									SNew(SImage)
-									.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.Bar"))
-								]
-							]
-							+SOverlay::Slot()
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.AutoWidth()
-								.Padding(0.0f,0.0f,30.0f,0.0f)
-								[
-									SNew(STextBlock)
-									.Text(this, &SUTInGameHomePanel::GetChatDestinationText)
-									.TextStyle(SUWindowsStyle::Get(), "UT.ChatBar.Button.TextStyle")
-								]
-							]
+							SNew(STextBlock)
+							.Text(this, &SUTInGameHomePanel::GetChatDestinationText)
+							.TextStyle(SUWindowsStyle::Get(), "UT.ChatBar.Button.TextStyle")
 						]
 			
 						+SHorizontalBox::Slot()
 						.FillWidth(1.0f)
 						[
-
-							SNew(SOverlay)
-							+SOverlay::Slot()
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(0.0f,5.0f,0.0f,0.0f)
 							[
-								SNew(SBox)
-								.HeightOverride(42)
-								[
-									SNew(SImage)
-									.Image(SUWindowsStyle::Get().GetBrush("UT.ChatBar.EntryArea"))
-								]
+								SNew(STextBlock)
+								.Text(FText::FromString(TEXT(">")))
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 							]
-							+SOverlay::Slot()
+							+SHorizontalBox::Slot()
+							.FillWidth(1.0)
+							.Padding(5.0)
 							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.AutoWidth()
-								.Padding(30.0f, 4.0f, 10.0f, 0.0f)
+								SNew(SOverlay)
+								+SOverlay::Slot()
 								[
-									SNew(STextBlock)
-									.Text(FText::FromString(TEXT(" >")))
-									.TextStyle(SUWindowsStyle::Get(), "UT.ChatBar.Editbox.TextStyle")
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot()
+									.Padding(8.0, 5.0)
+									[
+										SAssignNew(TypeMsg, STextBlock)
+										.Text(FText::FromString(TEXT("type your message here")))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+										.ColorAndOpacity(FLinearColor(1.0,1.0,1.0,0.3))
+									]
 								]
-								+SHorizontalBox::Slot()
-								.Padding(0.0f, 4.0f, 10.0f, 0.0f)
+								+SOverlay::Slot()
 								[
 									SAssignNew(ChatText, SEditableTextBox)
-									.Style(SUWindowsStyle::Get(), "UT.ChatBar.Editbox.ChatEditBox")
+									.Style(SUTStyle::Get(), "UT.ChatEditBox")
 									.OnTextCommitted(this, &SUTInGameHomePanel::ChatTextCommited)
 									.OnTextChanged(this, &SUTInGameHomePanel::ChatTextChanged)
 									.ClearKeyboardFocusOnCommit(false)
@@ -139,7 +120,6 @@ void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 									.Text(FText::GetEmpty())
 								]
 							]
-
 						]
 					]
 				]
@@ -166,6 +146,27 @@ void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 			]
 		];
 	}
+
+	if (ChatText.IsValid())
+	{
+		UUTConsole* Console = (PlayerOwner != nullptr && PlayerOwner->ViewportClient != nullptr) ? Cast<UUTConsole>(PlayerOwner->ViewportClient->ViewportConsole) : nullptr;
+		if (Console)
+		{
+			Console->FakeGotoState(NAME_None);
+
+			if (Console->TypedStr.Left(4).Equals(TEXT("say "), ESearchCase::IgnoreCase))
+			{
+				ChatText->SetText(FText::FromString(Console->TypedStr.Right(Console->TypedStr.Len()-4)));
+				ChatDestination = ChatDestinations::Local;
+			}
+			else if (Console->TypedStr.Left(8).Equals(TEXT("teamsay "), ESearchCase::IgnoreCase))
+			{
+				ChatText->SetText(FText::FromString(Console->TypedStr.Right(Console->TypedStr.Len()-8)));
+				ChatDestination = ChatDestinations::Team;
+			}
+		}
+	}
+
 }
 
 EVisibility SUTInGameHomePanel::GetSummaryVisibility() const
@@ -186,14 +187,24 @@ EVisibility SUTInGameHomePanel::GetSummaryVisibility() const
 
 TSharedRef<SWidget> SUTInGameHomePanel::BuildChatDestinationsButton()
 {
-
 	SAssignNew(ChatDestinationsButton, SComboButton)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+		.ButtonStyle(SUTStyle::Get(), "UT.SimpleButton.Dark")
 		.ButtonContent()
 		[
-			SNew(SImage)
-			.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Chat36"))
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot().AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot().AutoWidth()
+				[
+					SNew(SBox).WidthOverride(36).HeightOverride(36)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Icon.Chat36"))
+					]
+				]
+			]
 		];
 
 	SAssignNew(ChatMenu, SVerticalBox);
@@ -296,6 +307,9 @@ void SUTInGameHomePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow
 			ReplayTimeSlider->BecomeInteractive();
 		}
 	}
+
+	FocusChat();
+
 }
 void SUTInGameHomePanel::OnHidePanel()
 {
@@ -313,6 +327,23 @@ void SUTInGameHomePanel::OnHidePanel()
 		if (ReplayTimeSlider)
 		{
 			ReplayTimeSlider->BecomeNonInteractive();
+		}
+	}
+
+	if (ChatText.IsValid() && !ChatText->GetText().IsEmpty())
+	{
+		UUTConsole* Console = (PlayerOwner != nullptr && PlayerOwner->ViewportClient != nullptr) ? Cast<UUTConsole>(PlayerOwner->ViewportClient->ViewportConsole) : nullptr;
+		if (Console)
+		{
+			FString SayCommand;
+			     if (ChatDestination == ChatDestinations::Global)	SayCommand = TEXT("GlobalChat");
+			else if (ChatDestination == ChatDestinations::Friends)	SayCommand = TEXT("FriendSay");
+			else if (ChatDestination == ChatDestinations::Lobby)	SayCommand = TEXT("LobbySay");
+			else if (ChatDestination == ChatDestinations::Match)	SayCommand = TEXT("MatchChat");
+			else if (ChatDestination == ChatDestinations::Team)		SayCommand = TEXT("TeamSay");
+			else SayCommand = TEXT("Say");
+
+			Console->StartTyping(FString::Printf(TEXT("%s %s"), *SayCommand, *ChatText->GetText().ToString()));
 		}
 	}
 }
@@ -334,6 +365,8 @@ void SUTInGameHomePanel::ChatTextChanged(const FText& NewText)
 	{
 		ChatText->SetText(FText::FromString(NewText.ToString().Left(128)));
 	}
+
+	TypeMsg->SetVisibility( NewText.IsEmpty() ? EVisibility::Visible : EVisibility::Hidden);
 }
 
 void SUTInGameHomePanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)

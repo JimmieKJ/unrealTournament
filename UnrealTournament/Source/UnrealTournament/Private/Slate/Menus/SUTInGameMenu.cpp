@@ -330,6 +330,7 @@ void SUTInGameMenu::ShowExitDestinationMenu()
 		]
 	);		
 
+
 	QP->AddOption(
 		SNew(SVerticalBox)
 		+SVerticalBox::Slot()

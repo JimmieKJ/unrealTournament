@@ -447,6 +447,9 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
 	OldSSRQuality = SSRQualityCVar->GetInt();
 	SSRQualityCVar->Set(4, ECVF_SetByCode);
+
+	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
+
 }
 
 void SUTMatchSummaryPanel::SetInitialCams()
@@ -548,6 +551,9 @@ void SUTMatchSummaryPanel::OnTabButtonSelectionChanged(const FText& NewText)
 			UTPC->ServerSetViewedScorePS(nullptr, 0);
 		}
 	}
+
+	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
+
 }
 
 void SUTMatchSummaryPanel::BuildInfoPanel()
@@ -706,6 +712,9 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 			TabWidget->SelectTab(0);
 		}
 	}
+
+	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
+
 }
 
 void SUTMatchSummaryPanel::UpdateChatText()
@@ -1903,6 +1912,7 @@ FReply SUTMatchSummaryPanel::OnSwitcherNext()
 			ViewCharacter(PlayerPreviewMeshs[0]);
 		}
 	}
+	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
 	return FReply::Handled();
 }
 
@@ -1931,6 +1941,7 @@ FReply SUTMatchSummaryPanel::OnSwitcherPrevious()
 			ViewCharacter(PlayerPreviewMeshs[PlayerPreviewMeshs.Num() - 1]);
 		}
 	}
+	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
 	return FReply::Handled();
 }
 
@@ -2125,6 +2136,7 @@ void SUTMatchSummaryPanel::BuildFriendPanel()
 			}
 		}
 	}
+	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
 }
 
 void SUTMatchSummaryPanel::ChangeViewingState(FName NewViewState)
