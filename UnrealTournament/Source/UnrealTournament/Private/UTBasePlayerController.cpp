@@ -260,8 +260,7 @@ void AUTBasePlayerController::ClientSay_Implementation(AUTPlayerState* Speaker, 
 
 uint8 AUTBasePlayerController::GetTeamNum() const
 {
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	return (PS != NULL && PS->Team != NULL) ? PS->Team->TeamIndex : 255;
+	return (UTPlayerState != NULL && UTPlayerState->Team != NULL) ? UTPlayerState->Team->TeamIndex : 255;
 }
 
 void AUTBasePlayerController::ClientReturnToLobby_Implementation()
@@ -467,15 +466,14 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 TotalStars) { return true; }
 void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 TotalStars)
 {
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS)
+	if (UTPlayerState)
 	{
-		PS->AverageRank = NewAverageRank;
-		PS->DuelRank = NewDuelRank;
-		PS->CTFRank = NewCTFRank;
-		PS->TDMRank = NewTDMRank;
-		PS->DMRank = NewDMRank;
-		PS->TotalChallengeStars = TotalStars;
+		UTPlayerState->AverageRank = NewAverageRank;
+		UTPlayerState->DuelRank = NewDuelRank;
+		UTPlayerState->CTFRank = NewCTFRank;
+		UTPlayerState->TDMRank = NewTDMRank;
+		UTPlayerState->DMRank = NewDMRank;
+		UTPlayerState->TotalChallengeStars = TotalStars;
 	}
 }
 
@@ -671,7 +669,7 @@ void AUTBasePlayerController::UpdateInputMode()
 		{
 			NewInputMode = EInputMode::EIM_UIOnly;
 		}
-		else if ((PlayerState && (PlayerState->bOnlySpectator || (UTPlayerState && UTPlayerState->bOutOfLives)))
+		else if ((UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives))
 			     || LocalPlayer->ViewportClient->ViewportConsole->ConsoleState != NAME_None) //Console has some focus issues with UI Only
 		{
 			NewInputMode = EInputMode::EIM_GameAndUI;

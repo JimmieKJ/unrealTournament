@@ -244,7 +244,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 			CameraDistance = EndGameFreeCamDistance;
 			CameraOffset = EndGameFreeCamOffset;
 		}
-		FRotator Rotator = (!UTPC || (UTPC->MouseButtonPressCount > 0)) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
+		FRotator Rotator = (!UTPC || UTPC->bSpectatorMouseChangesView) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (bUseDeathCam)
 		{
 			Rotator.Pitch = FRotator::NormalizeAxis(Rotator.Pitch);
@@ -258,12 +258,10 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		}
 
 		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
-
 		FHitResult Result;
 		CheckCameraSweep(Result, TargetActor, Loc, Pos);
 		OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
 		OutVT.POV.Rotation = Rotator;
-
 		ApplyCameraModifiers(DeltaTime, OutVT.POV);
 
 		// Synchronize the actor with the view target results
@@ -354,7 +352,8 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 void AUTPlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot)
 {
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
-	if (UTPC && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && (UTPC->MouseButtonPressCount == 0) && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
+	AUTPlayerState* PS = UTPC ? UTPC->UTPlayerState : NULL;
+	if (UTPC && PS && (PS->bOnlySpectator || PS->bOutOfLives) && !UTPC->bSpectatorMouseChangesView && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
 	{
 		LimitViewPitch(OutViewRotation, ViewPitchMin, ViewPitchMax);
 		return;

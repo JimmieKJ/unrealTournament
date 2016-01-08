@@ -411,10 +411,6 @@ public:
 	UPROPERTY(BlueprintReadOnly)
 	bool bRequestingSlideOut;
 
-	/** True when spectator has used a spectating camera bind. */
-	UPROPERTY()
-		bool bHasUsedSpectatingBind;
-
 	UPROPERTY()
 		bool bShowCameraBinds;
 
@@ -490,12 +486,6 @@ public:
 
 	UPROPERTY()
 	FVector2D SavedMouseCursorLocation;
-
-	UPROPERTY()
-		float MouseButtonPressTime;
-
-	UPROPERTY()
-		float MouseButtonPressCount;
 
 	UPROPERTY()
 	class AUTPlayerState* LastSpectatedPlayerState;
@@ -1005,8 +995,9 @@ public:
 
 #endif
 
-protected:
 	bool bSpectatorMouseChangesView;
+
+protected:
 	void SetSpectatorMouseChangesView(bool bNewValue);
 
 public:

@@ -55,7 +55,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bAllowSlideFromRun = true;
 	bSingleTapWallDodge = true;
 	bSingleTapAfterJump = true;
-	bHasUsedSpectatingBind = false;
 	bAutoCam = true;
 
 	bHearsTaunts = true;
@@ -83,7 +82,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 
 	CastingGuideViewIndex = INDEX_NONE;
 	bRequestingSlideOut = true;
-
+	
 	DilationIndex = 2;
 
 	static ConstructorHelpers::FObjectFinder<USoundBase> PressedSelect(TEXT("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
@@ -149,7 +148,7 @@ void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
-			if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && ((PC->GetViewTarget() == GetPawn()) || (Cast<AUTPlayerState>(PC->PlayerState) && ((AUTPlayerState *)(PC->PlayerState))->bIsDemoRecording)))
+			if (PC && PC->UTPlayerState && PC->UTPlayerState->bOnlySpectator && ((PC->GetViewTarget() == GetPawn()) || PC->UTPlayerState->bIsDemoRecording))
 			{
 				PC->ClientReceivePersonalMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 			}
@@ -479,10 +478,10 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 		PlayerCameraManager->DefaultFOV = ConfigDefaultFOV;
 	}
 
-	if (PlayerState != nullptr)
+	if (UTPlayerState != nullptr)
 	{
-		Cast<AUTPlayerState>(PlayerState)->RespawnChoiceA = nullptr;
-		Cast<AUTPlayerState>(PlayerState)->RespawnChoiceB = nullptr;
+		UTPlayerState->RespawnChoiceA = nullptr;
+		UTPlayerState->RespawnChoiceB = nullptr;
 	}
 
 	SetCameraMode("Default");
@@ -562,7 +561,6 @@ void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 				FReply& SlateOps = LocalPlayer->GetSlateOperations();
 				SlateOps.UseHighPrecisionMouseMovement(LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef());
 				SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
-				MouseButtonPressTime = GetWorld()->GetTimeSeconds();
 				bShowMouseCursor = false;
 			}
 		}
@@ -578,7 +576,6 @@ void AUTPlayerController::SetSpectatorMouseChangesView(bool bNewValue)
 	}
 }
 
-
 bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float AmountDepressed, bool bGamepad)
 {
 	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
@@ -588,14 +585,11 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 	}
 
 #if !UE_SERVER
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (UTPlayerState && (UTPlayerState->bOnlySpectator || UTPlayerState->bOutOfLives))
 	{
-		if (InputMode == EInputMode::EIM_GameAndUI && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton))
+		if (InputMode == EInputMode::EIM_GameAndUI && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton) && (EventType == EInputEvent::IE_Released))
 		{
-			if (EventType == EInputEvent::IE_Released)
-			{
-				SetSpectatorMouseChangesView(!bSpectatorMouseChangesView);
-			}
+			SetSpectatorMouseChangesView(!bSpectatorMouseChangesView);
 		}
 	}
 #endif
@@ -637,9 +631,8 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 
 	//This is a separate from OnFire() since we dont want casters starting games by accident when clicking the mouse while flying around
 	static FName NAME_Enter(TEXT("Enter"));
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GameState);
-	if (Key.GetFName() == NAME_Enter && GS != nullptr && PS != nullptr && PS->bCaster && !PS->bReadyToPlay)
+	if (Key.GetFName() == NAME_Enter && GS != nullptr && UTPlayerState != nullptr && UTPlayerState->bCaster && !UTPlayerState->bReadyToPlay)
 	{
 		ServerRestartPlayer();
 		return true;
@@ -2033,13 +2026,12 @@ bool AUTPlayerController::ServerSelectSpawnPoint_Validate(APlayerStart* DesiredS
 void AUTPlayerController::ServerSelectSpawnPoint_Implementation(APlayerStart* DesiredStart)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (GS != NULL && PS != NULL)
+	if (GS != NULL && UTPlayerState != NULL)
 	{
-		if (GS->IsAllowedSpawnPoint(PS, DesiredStart))
+		if (GS->IsAllowedSpawnPoint(UTPlayerState, DesiredStart))
 		{
-			PS->RespawnChoiceA = DesiredStart;
-			PS->ForceNetUpdate();
+			UTPlayerState->RespawnChoiceA = DesiredStart;
+			UTPlayerState->ForceNetUpdate();
 		}
 		else
 		{
@@ -2581,10 +2573,9 @@ bool AUTPlayerController::ServerBouncePing_Validate(float TimeStamp)
 
 void AUTPlayerController::ClientReturnPing_Implementation(float TimeStamp)
 {
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
-	if (UTPS)
+	if (UTPlayerState)
 	{
-		UTPS->CalculatePing(GetWorld()->GetTimeSeconds()-TimeStamp);
+		UTPlayerState->CalculatePing(GetWorld()->GetTimeSeconds() - TimeStamp);
 	}
 }
 
@@ -2623,13 +2614,6 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
 	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
-
-	if (Cast<ASpectatorPawn>(ViewTargetPawn) == nullptr && bSpectatorMouseChangesView)
-	{
-		// If we aren't in free-cam then turn off movement via mouse
-		SetSpectatorMouseChangesView(false);
-	}
-
 	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
 	if (IsInState(NAME_Spectating) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{
@@ -2881,10 +2865,9 @@ void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> 
 
 void AUTPlayerController::ChangeTeam(uint8 NewTeamIndex)
 {
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS != NULL)
+	if (UTPlayerState != NULL)
 	{
-		PS->ServerRequestChangeTeam(NewTeamIndex);
+		UTPlayerState->ServerRequestChangeTeam(NewTeamIndex);
 	}
 }
 

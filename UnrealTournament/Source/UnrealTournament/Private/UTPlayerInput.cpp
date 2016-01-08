@@ -32,7 +32,6 @@ bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 				FStringOutputDevice DummyOut;
 				if (GetOuterAPlayerController()->Player->Exec(GetOuterAPlayerController()->GetWorld(), *SpectatorBinds[i].Command, DummyOut))
 				{
-					PC->bHasUsedSpectatingBind = true;
 					return true;
 				}
 			}
