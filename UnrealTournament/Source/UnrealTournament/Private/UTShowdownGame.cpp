@@ -490,6 +490,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 						// prevent tick so powerups don't count down and so forth
 						// don't want to destroy all of these because they might affect the status display (armor, etc)
 						It->SetActorTickEnabled(false);
+						GetWorldTimerManager().ClearAllTimersForObject(*It);
 					}
 				}
 			}
