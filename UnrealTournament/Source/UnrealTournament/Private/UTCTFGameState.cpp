@@ -430,7 +430,6 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 		if (PS && !PS->bOnlySpectator)
 		{
 			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
-			// @TODO FIXMESTEVE support tie scores!
 			if (PS->FlagCaptures > (TopFlagCaps[TeamIndex] ? TopFlagCaps[TeamIndex]->FlagCaptures : 0))
 			{
 				TopFlagCaps[TeamIndex] = PS;
@@ -446,47 +445,33 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 		}
 	}
 
-	if (TopFlagCaps[0] != NULL)
-	{
-		TopFlagCaps[0]->AddMatchHighlight(HighlightNames::TopFlagCapturesRed, TopFlagCaps[0]->FlagCaptures);
-	}
-	if (TopFlagCaps[1] != NULL)
-	{
-		TopFlagCaps[1]->AddMatchHighlight(HighlightNames::TopFlagCapturesBlue, TopFlagCaps[1]->FlagCaptures);
-	}
-	if (TopAssists[0] != NULL)
-	{
-		TopAssists[0]->AddMatchHighlight(HighlightNames::TopAssistsRed, TopAssists[0]->Assists);
-	}
-	if (TopAssists[1] != NULL)
-	{
-		TopAssists[1]->AddMatchHighlight(HighlightNames::TopAssistsBlue, TopAssists[1]->Assists);
-	}
-	if (TopFlagReturns[0] != NULL)
-	{
-		TopFlagReturns[0]->AddMatchHighlight(HighlightNames::TopFlagReturnsRed, TopFlagReturns[0]->FlagReturns);
-	}
-	if (TopFlagReturns[1] != NULL)
-	{
-		TopFlagReturns[1]->AddMatchHighlight(HighlightNames::TopFlagReturnsBlue, TopFlagReturns[1]->FlagReturns);
-	}
-
-	// add flag results for non-top players
 	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
 		AUTPlayerState* PS = *It;
-		if (PS && PS->Team)
+		if (PS && !PS->bOnlySpectator)
 		{
-			int32 TeamIndex = PS->Team->TeamIndex;
-			if ((PS != TopFlagCaps[TeamIndex]) && (PS->FlagCaptures > 0))
+			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
+			if ((TopFlagCaps[TeamIndex] != NULL) && (PS->FlagCaptures == TopFlagCaps[TeamIndex]->FlagCaptures))
+			{
+				PS->AddMatchHighlight((TeamIndex == 0) ? HighlightNames::TopFlagCapturesRed : HighlightNames::TopFlagCapturesBlue, PS->FlagCaptures);
+			}
+			else if (PS->FlagCaptures > 0)
 			{
 				PS->AddMatchHighlight(HighlightNames::FlagCaptures, PS->FlagCaptures);
 			}
-			if ((PS != TopAssists[TeamIndex]) && (PS->Assists > 0))
+			if ((TopAssists[TeamIndex] != NULL) && (PS->Assists == TopAssists[TeamIndex]->Assists))
+			{
+				PS->AddMatchHighlight((TeamIndex == 0) ? HighlightNames::TopAssistsRed : HighlightNames::TopAssistsBlue, PS->Assists);
+			}
+			else if (PS->Assists > 0)
 			{
 				PS->AddMatchHighlight(HighlightNames::Assists, PS->Assists);
 			}
-			if ((PS != TopFlagReturns[TeamIndex]) && (PS->FlagReturns > 0))
+			if ((TopFlagReturns[TeamIndex] != NULL) && (PS->FlagReturns == TopFlagReturns[TeamIndex]->FlagReturns))
+			{
+				PS->AddMatchHighlight((TeamIndex == 0) ? HighlightNames::TopFlagReturnsRed : HighlightNames::TopFlagReturnsBlue, PS->FlagReturns);
+			}
+			else if (PS->FlagReturns > 0)
 			{
 				PS->AddMatchHighlight(HighlightNames::FlagReturns, PS->FlagReturns);
 			}

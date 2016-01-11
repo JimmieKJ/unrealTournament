@@ -1397,30 +1397,53 @@ void AUTGameState::UpdateHighlights_Implementation()
 		}
 	}
 
-	SetTopScorerHighlights(TopScorer[0], TopScorer[1]);
-	if (MostKills)
-	{
-		MostKills->AddMatchHighlight(HighlightNames::MostKills, MostKills->Kills);
-	}
-	if (LeastDeaths)
-	{
-		LeastDeaths->AddMatchHighlight(HighlightNames::LeastDeaths, LeastDeaths->Deaths);
-	}
-	if (BestKDPS)
-	{
-		BestKDPS->AddMatchHighlight(HighlightNames::BestKD, (BestKDPS->Deaths > 0) ? BestKDPS->Kills/BestKDPS->Deaths : BestKDPS->Kills);
-	}
 	if (BestComboPS)
 	{
 		BestComboPS->AddMatchHighlight(HighlightNames::BestCombo, BestComboPS->GetStatsValue(NAME_BestShockCombo));
 	}
-	if (MostHeadShotsPS)
+	if (BestKDPS)
 	{
-		MostHeadShotsPS->AddMatchHighlight(HighlightNames::MostHeadShots, MostHeadShotsPS->GetStatsValue(NAME_SniperHeadshotKills));
+		BestKDPS->AddMatchHighlight(HighlightNames::BestKD, (BestKDPS->Deaths > 0) ? BestKDPS->Kills / BestKDPS->Deaths : BestKDPS->Kills);
 	}
-	if (MostAirRoxPS)
+
+	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
-		MostAirRoxPS->AddMatchHighlight(HighlightNames::MostAirRockets, MostAirRoxPS->GetStatsValue(NAME_AirRox));
+		AUTPlayerState* PS = *It;
+		if (PS && !PS->bOnlySpectator)
+		{
+			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
+			if (TeamIndex == 0)
+			{
+				if (TopScorer[0] && (PS->Score == TopScorer[0]->Score))
+				{
+					SetTopScorerHighlights(PS, TopScorer[1]);
+				}
+			}
+			else
+			{
+				if (TopScorer[1] && (PS->Score == TopScorer[1]->Score))
+				{
+					SetTopScorerHighlights(TopScorer[0], PS);
+				}
+			}
+
+			if (MostKills && (PS->Kills == MostKills->Kills))
+			{
+				PS->AddMatchHighlight(HighlightNames::MostKills, MostKills->Kills);
+			}
+			if (LeastDeaths && (PS->Deaths == LeastDeaths->Deaths))
+			{
+				PS->AddMatchHighlight(HighlightNames::LeastDeaths, LeastDeaths->Deaths);
+			}
+			if (MostHeadShotsPS && (PS->GetStatsValue(NAME_SniperHeadshotKills) == MostHeadShotsPS->GetStatsValue(NAME_SniperHeadshotKills)))
+			{
+				PS->AddMatchHighlight(HighlightNames::MostHeadShots, MostHeadShotsPS->GetStatsValue(NAME_SniperHeadshotKills));
+			}
+			if (MostAirRoxPS && (PS->GetStatsValue(NAME_AirRox) == MostAirRoxPS->GetStatsValue(NAME_AirRox)))
+			{
+				PS->AddMatchHighlight(HighlightNames::MostAirRockets, MostAirRoxPS->GetStatsValue(NAME_AirRox));
+			}
+		}
 	}
 
 	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
