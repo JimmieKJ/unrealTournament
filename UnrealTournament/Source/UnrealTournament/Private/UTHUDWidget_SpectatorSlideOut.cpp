@@ -507,13 +507,16 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 	FLinearColor BarColor = FLinearColor::White;
 	float FinalBarOpacity = BarOpacity;
 
-	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->PlayerState && UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator)
+	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->PlayerState)
 	{
 		FText CamString = UTHUDOwner->UTPlayerOwner->bSpectateBehindView ? NSLOCTEXT("UTSlideout", "CamType3P", "3P") : NSLOCTEXT("UTSlideout", "CamType1P", "1P");
 		float Spacing = 0.333f * (ColumnHeaderScoreX - 0.05f - CamTypeButtonStart - 2.7f * CamTypeButtonWidth - 0.3f);
 		DrawCamBind("ToggleBehindView", CamString.ToString(), RenderDelta, XOffset + CamTypeButtonStart*Width, YOffset, CamTypeButtonWidth * Size.X, false);
-		DrawCamBind("ToggleTacCom", "X-Ray", RenderDelta, XOffset + (CamTypeButtonStart + CamTypeButtonWidth + Spacing)*Width, YOffset, 1.7f* CamTypeButtonWidth * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bTacComView);
-		DrawCamBind("EnableAutoCam", "Auto Cam", RenderDelta, XOffset + (CamTypeButtonStart + 2.7f * CamTypeButtonWidth + 2.f*Spacing) * Size.X, YOffset, 0.3f * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bAutoCam);
+		if (UTHUDOwner->UTPlayerOwner->PlayerState->bOnlySpectator)
+		{
+			DrawCamBind("ToggleTacCom", "X-Ray", RenderDelta, XOffset + (CamTypeButtonStart + CamTypeButtonWidth + Spacing)*Width, YOffset, 1.7f* CamTypeButtonWidth * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bTacComView);
+			DrawCamBind("EnableAutoCam", "Auto Cam", RenderDelta, XOffset + (CamTypeButtonStart + 2.7f * CamTypeButtonWidth + 2.f*Spacing) * Size.X, YOffset, 0.3f * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bAutoCam);
+		}
 	}
 	
 	// Draw the background border.
