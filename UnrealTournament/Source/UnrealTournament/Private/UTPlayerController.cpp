@@ -730,7 +730,7 @@ void AUTPlayerController::ServerThrowWeapon_Implementation()
 
 void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 {
-	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())
+	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->TauntCount == 0 && !UTCharacter->IsRagdoll())
 	{
 		if (UTCharacter->GetWeapon() == NULL)
 		{
@@ -816,7 +816,7 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 
 void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 {
-	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())
+	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->TauntCount == 0 && !UTCharacter->IsRagdoll())
 	{
 		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
 		// if it is, then pick next highest slot, or wrap around to lowest if no higher slot
@@ -3106,7 +3106,7 @@ void AUTPlayerController::SetEmoteSpeed(float NewEmoteSpeed)
 
 void AUTPlayerController::FasterEmote()
 {
-	if (UTPlayerState != nullptr && UTCharacter != nullptr && UTCharacter->UTCharacterMovement->bIsEmoting)
+	if (UTPlayerState != nullptr && UTCharacter != nullptr && UTCharacter->CurrentTaunt != nullptr)
 	{
 		UTPlayerState->ServerFasterEmote();
 	}
@@ -3114,7 +3114,7 @@ void AUTPlayerController::FasterEmote()
 
 void AUTPlayerController::SlowerEmote()
 {
-	if (UTPlayerState != nullptr && UTCharacter != nullptr && UTCharacter->UTCharacterMovement->bIsEmoting)
+	if (UTPlayerState != nullptr && UTCharacter != nullptr && UTCharacter->CurrentTaunt != nullptr)
 	{
 		UTPlayerState->ServerSlowerEmote();
 	}

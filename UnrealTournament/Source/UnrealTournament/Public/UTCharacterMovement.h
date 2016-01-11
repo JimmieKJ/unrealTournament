@@ -321,8 +321,8 @@ public:
 	UPROPERTY(Category = "FloorSlide", BlueprintReadOnly)
 	bool bWasFloorSliding;
 
-	UPROPERTY(Category = "Emote", BlueprintReadOnly)
-	bool bIsEmoting;
+	UPROPERTY(Category = "Taunt", BlueprintReadOnly)
+	bool bIsTaunting;
 	
 protected:
 	/** True if player is holding modifier to floor slide.  Change with UpdateFloorSlide(). */

@@ -1848,7 +1848,7 @@ void AUTCharacter::PlayFeignDeath()
 	{
 		DropFlag();
 
-		if (EmoteCount > 0)
+		if (TauntCount > 0)
 		{
 			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 			if (AnimInstance != NULL)
@@ -2117,7 +2117,7 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 	{
 		FeignDeath();
 	}
-	else if (Weapon != NULL && EmoteCount == 0)
+	else if (Weapon != NULL && TauntCount == 0)
 	{
 		Weapon->StartFire(FireModeNum);
 	}
@@ -2970,7 +2970,7 @@ bool AUTCharacter::CanDodge() const
 
 bool AUTCharacter::CanDodgeInternal_Implementation() const
 {
-	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed) && EmoteCount == 0 && !IsRagdoll() && !bInRagdollRecovery;
+	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed) && !IsThirdPersonTaunting() && !IsRagdoll() && !bInRagdollRecovery;
 }
 
 bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
@@ -4929,14 +4929,33 @@ void AUTCharacter::OnRepCosmeticSpreeCount()
 
 void AUTCharacter::SetEmoteSpeed(float NewEmoteSpeed)
 {
-	if (CurrentEmote)
+	if (CurrentTaunt)
 	{
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-		if (AnimInstance != NULL)
+		if (AnimInstance != nullptr)
 		{
-			AnimInstance->Montage_SetPlayRate(CurrentEmote, NewEmoteSpeed);
+			AnimInstance->Montage_SetPlayRate(CurrentTaunt, NewEmoteSpeed);
 		}
 	}
+
+	if (CurrentFirstPersonTaunt)
+	{
+		UAnimInstance* FPAnimInstance = FirstPersonMesh->GetAnimInstance();
+		if (FPAnimInstance != nullptr)
+		{
+			FPAnimInstance->Montage_SetPlayRate(CurrentFirstPersonTaunt, NewEmoteSpeed);
+		}
+	}
+}
+
+bool AUTCharacter::IsThirdPersonTaunting() const
+{
+	if (UTCharacterMovement)
+	{
+		return UTCharacterMovement->bIsTaunting;
+	}
+
+	return false;
 }
 
 void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
@@ -4955,10 +4974,24 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 		{
 			if (AnimInstance->Montage_Play(TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage, EmoteSpeed))
 			{
-				UTCharacterMovement->bIsEmoting = true;
+				if (TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage == nullptr)
+				{
+					// This flag is set for 3rd person taunts
+					UTCharacterMovement->bIsTaunting = true;
+				}
+				else
+				{
+					// Play first person taunt
+					CurrentFirstPersonTaunt = TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage;
+					UAnimInstance* FPAnimInstance = FirstPersonMesh->GetAnimInstance();
+					if (FPAnimInstance != NULL)
+					{
+						FPAnimInstance->Montage_SetPlayRate(CurrentFirstPersonTaunt, EmoteSpeed);
+					}
+				}
 
-				CurrentEmote = TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage;
-				EmoteCount++;
+				CurrentTaunt = TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage;
+				TauntCount++;
 
 				// need to make sure server plays the anim and re-enables movement
 				GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
@@ -4973,16 +5006,17 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 
 void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 {
-	EmoteCount--;
-	if (EmoteCount == 0)
+	TauntCount--;
+	if (TauntCount == 0)
 	{
 		if (Hat)
 		{
 			Hat->OnWearerEmoteEnded();
 		}
 
-		CurrentEmote = nullptr;
-		UTCharacterMovement->bIsEmoting = false;
+		CurrentTaunt = nullptr;
+		CurrentFirstPersonTaunt = nullptr;
+		UTCharacterMovement->bIsTaunting = false;
 
 		if (!GetMesh()->bRenderCustomDepth)
 		{
@@ -5259,7 +5293,7 @@ void AUTCharacter::OnRep_ReplicatedMovement()
 
 void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 {
-	if ((EmoteCount > 0) || IsFeigningDeath())
+	if (UTCharacterMovement->bIsTaunting || IsFeigningDeath())
 	{
 		return;
 	}

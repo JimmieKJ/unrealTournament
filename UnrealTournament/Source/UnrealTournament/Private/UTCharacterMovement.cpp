@@ -1085,7 +1085,7 @@ float UUTCharacterMovement::GetMaxSpeed() const
 		// small non-zero number used to avoid divide by zero issues
 		return 0.01f;
 	}
-	else if (bIsEmoting)
+	else if (bIsTaunting)
 	{
 		return 0.01f;
 	}
@@ -1497,7 +1497,7 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
-		if (bWantsWallSlide && (Impact.ImpactNormal.Z > -0.1f) && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && (UTCharOwner->EmoteCount <= 0))
+		if (bWantsWallSlide && (Impact.ImpactNormal.Z > -0.1f) && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero() && !UTCharOwner->IsThirdPersonTaunting())
 		{
 			FVector VelocityAlongWall = Velocity + FMath::Abs(Velocity | Impact.ImpactNormal) * Impact.ImpactNormal;
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);

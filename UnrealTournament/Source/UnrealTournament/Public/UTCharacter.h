@@ -361,11 +361,17 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
 		
 	UPROPERTY()
-	UAnimMontage* CurrentEmote;
+	UAnimMontage* CurrentTaunt;
+
+	UPROPERTY()
+	UAnimMontage* CurrentFirstPersonTaunt;
 
 	// Keep track of emote count so we can clear CurrentEmote
 	UPROPERTY()
-	int32 EmoteCount;
+	int32 TauntCount;
+
+	UFUNCTION()
+	bool IsThirdPersonTaunting() const;
 
 	/** Stored past positions of this player.  Used for bot aim error model, and for server side hit resolution. */
 	UPROPERTY()
