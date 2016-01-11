@@ -49,7 +49,7 @@ void SUTJoinInstanceWindow::BuildWindow()
 		.HAlign(HAlign_Fill)
 		[
 			SNew(SImage)
-			.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+			.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
 		]
 	];
 
