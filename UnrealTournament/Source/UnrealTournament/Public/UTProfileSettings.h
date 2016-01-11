@@ -321,4 +321,9 @@ protected:
 public:
 	void UpdateCrosshairs(AUTHUD* HUD);
 
+	// If true, we have forced and epic Employee to use the Epic Logo at least once before they changed it.
+	UPROPERTY()
+	uint32 bForcedToEpicAtLeastOnce : 1;
+
+
 };

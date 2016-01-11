@@ -859,4 +859,7 @@ protected:
 
 	TSharedPtr<SUTMatchSummaryPanel> GetSummaryPanel();
 
+	// Check to see if this user should be using the Epic branded flag
+	void EpicFlagCheck();
+
 };

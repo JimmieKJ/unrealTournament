@@ -744,6 +744,12 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 				CommunityRole = EUnrealRoles::Gamer;
 			}
 			
+			if (CommunityRole == EUnrealRoles::Developer)
+			{
+				EpicFlagCheck();			
+			}
+
+
 			LastEpicIDLogin = PendingLoginUserName;
 			LastEpicRememberMeToken = RememberMeToken;
 			SaveConfig();
@@ -1334,6 +1340,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					}
 				}
 
+				EpicFlagCheck();
 				return;
 			}
 			else
@@ -1371,6 +1378,8 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 				}
 			}
 		}
+
+		EpicFlagCheck();
 
 		PlayerNickname = GetAccountDisplayName().ToString();
 		SaveConfig();
@@ -4186,5 +4195,16 @@ void UUTLocalPlayer::Reconnect(bool bSpectator)
 	{
 		FString Password = RetrievePassword(LastConnectToIP, bSpectator);
 		ConsoleCommand(TEXT("open ") + LastConnectToIP + Password);
+	}
+}
+
+void UUTLocalPlayer::EpicFlagCheck()
+{
+	if (CurrentProfileSettings != NULL && CommunityRole == EUnrealRoles::Developer && 
+			CurrentProfileSettings->CountryFlag == FName(TEXT("Unreal")) && !CurrentProfileSettings->bForcedToEpicAtLeastOnce)
+	{
+		CurrentProfileSettings->CountryFlag = FName(TEXT("Epic"));
+		CurrentProfileSettings->bForcedToEpicAtLeastOnce = true;
+		SaveProfileSettings();
 	}
 }
