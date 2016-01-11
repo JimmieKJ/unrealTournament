@@ -1456,7 +1456,7 @@ void AUTPlayerState::WriteStatsToCloud()
 			FHttpRequestPtr StatsWriteRequest = FHttpModule::Get().CreateRequest();
 			if (StatsWriteRequest.IsValid())
 			{
-				StatsWriteRequest->SetURL(BaseURL);
+				StatsWriteRequest->SetURL(FinalStatsURL);
 				StatsWriteRequest->OnProcessRequestComplete().BindUObject(this, &AUTPlayerState::StatsWriteComplete);
 				StatsWriteRequest->SetVerb(TEXT("POST"));
 				StatsWriteRequest->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
