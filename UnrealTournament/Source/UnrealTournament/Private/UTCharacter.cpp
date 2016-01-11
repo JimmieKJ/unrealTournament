@@ -892,6 +892,10 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				Health -= ResultDamage;
 				bWasFallingWhenDamaged = (GetCharacterMovement() != NULL && (GetCharacterMovement()->MovementMode == MOVE_Falling));
+				if (Health < 0)
+				{
+					EnemyPS->IncrementDamageDone(Health);
+				}
 			}
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
 
