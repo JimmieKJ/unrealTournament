@@ -304,7 +304,7 @@ void AUTHUD_Showdown::DrawHUD()
 				PlayerOwner->SetIgnoreLookInput(false);
 				bLockedLookInput = false;
 			}
-			if (GS->bTeamGame && GS->GetMatchState() == MatchState::InProgress)
+			if (GS && GS->bTeamGame && GS->GetMatchState() == MatchState::InProgress)
 			{
 				// draw pips for players alive on each team @TODO move to widget
 				TArray<AUTPlayerState*> LivePlayers;
