@@ -750,7 +750,7 @@ void SUTCreateGamePanel::GetCustomMutatorOptions(UClass* MutatorClass, FString& 
 
 bool SUTCreateGamePanel::IsReadyToPlay()
 {
-	return MutatorConfigMenu == nullptr && SelectedGameClass != nullptr && MapList->GetSelectedItem().IsValid();
+	return (MutatorConfigMenu == nullptr || !MutatorConfigMenu->IsInViewport()) && SelectedGameClass != nullptr && MapList->GetSelectedItem().IsValid();
 }
 
 #endif
