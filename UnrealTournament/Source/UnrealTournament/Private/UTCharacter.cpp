@@ -4979,7 +4979,7 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 					// This flag is set for 3rd person taunts
 					UTCharacterMovement->bIsTaunting = true;
 				}
-				else
+				else if (IsLocallyControlled())
 				{
 					// Play first person taunt
 					CurrentFirstPersonTaunt = TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage;
