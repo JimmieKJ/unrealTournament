@@ -3942,6 +3942,15 @@ void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotatio
 	}
 }
 
+void AUTPlayerController::ClientUpdateDamageDone_Implementation(int32 DamageDone, int32 RoundDamageDone)
+{
+	if (UTPlayerState)
+	{
+		UTPlayerState->DamageDone = DamageDone;
+		UTPlayerState->RoundDamageDone = RoundDamageDone;
+	}
+}
+
 void AUTPlayerController::ToggleShowDamage()
 {
 	if (MyUTHUD)

@@ -339,6 +339,14 @@ void AUTShowdownGame::StartIntermission()
 			GameState->ForceNetUpdate();
 		}
 	}
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+		if (PC && PC->UTPlayerState)
+		{
+			PC->ClientUpdateDamageDone(PC->UTPlayerState->DamageDone, PC->UTPlayerState->RoundDamageDone);
+		}
+	}
 }
 
 void AUTShowdownGame::RestartPlayer(AController* aPlayer)

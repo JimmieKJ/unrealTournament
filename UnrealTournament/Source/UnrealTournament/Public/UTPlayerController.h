@@ -124,6 +124,9 @@ public:
 		Super::ClientSay_Implementation(Speaker, Message, Destination);
 	}
 
+	UFUNCTION(client, unreliable)
+		void ClientUpdateDamageDone(int32 DamageDone, int32 RoundDamageDone);
+
 	UFUNCTION(exec)
 		virtual void ToggleShowDamage();
 
