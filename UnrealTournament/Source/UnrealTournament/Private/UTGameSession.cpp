@@ -553,14 +553,28 @@ void AUTGameSession::OnUpdateSessionComplete(FName SessionName, bool bWasSuccess
 void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 {
 	UWorld* const World = GetWorld();
-	check(!BeaconHost);
+	
+	// If the beacon host already exists, just exit this loop.
+	if (BeaconHost) 
+	{
+		UE_LOG(UT,Verbose,TEXT("InitHostBeacon called with an existing beacon."));
+		return;
+	}
 
 	// Always create a new beacon host
 	BeaconHostListener = World->SpawnActor<AOnlineBeaconHost>(AOnlineBeaconHost::StaticClass());
-	check(BeaconHostListener);
+	if (BeaconHostListener == nullptr)
+	{
+		UE_LOG(UT,Warning,TEXT("Attempt to spawn the BeaconHostListener Failed!  This will cause your online session to not work."));
+		return;
+	}
 	
 	BeaconHost = World->SpawnActor<AUTServerBeaconHost>(AUTServerBeaconHost::StaticClass());
-	check(BeaconHost);
+	if (BeaconHost == nullptr)
+	{
+		UE_LOG(UT,Warning,TEXT("Attempt to spawn the BeaconHost Failed!  This will cause your online session to not work."));
+		return;
+	}
 
 	// Initialize beacon state, either new or from a seamless travel
 	bool bBeaconInit = false;
