@@ -7,6 +7,7 @@
 #include "TAttributeProperty.h"
 #include "UTLobbyMatchInfo.h"
 #include "../Widgets/SUTMenuAnchor.h"
+#include "UTGameState.h"
 
 #if !UE_SERVER
 
@@ -141,7 +142,9 @@ public:
 				return NSLOCTEXT("Generic","Host","HOST");
 			}
 
-			return PlayerState->bReadyToPlay ? NSLOCTEXT("Generic","Ready","READY") : NSLOCTEXT("Generic","NotReady","NOT READY");
+			bool bReadyToPlay = (PlayerState->bReadyToPlay || PlayerState->GetWorld()->GetGameState<AUTGameState>()->HasMatchStarted());
+
+			return bReadyToPlay ? NSLOCTEXT("Generic","Ready","READY") : NSLOCTEXT("Generic","NotReady","NOT READY");
 		}
 
 		return FText::GetEmpty();
