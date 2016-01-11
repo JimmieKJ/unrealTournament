@@ -38,7 +38,12 @@ void SUTHUDSettingsDialog::Construct(const FArguments& InArgs)
 	//If main menu and no HUD, use the default
 	if (!TargetHUD.IsValid())
 	{
-		TargetHUD = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
+		// We need to create a hud..
+
+		FActorSpawnParameters SpawnInfo;
+		SpawnInfo.Owner = PlayerOwner->PlayerController;
+		SpawnInfo.ObjectFlags |= RF_Transient;	
+		TargetHUD = PlayerOwner->GetWorld()->SpawnActor<AUTHUD>(AUTHUD::StaticClass(), SpawnInfo );
 	}
 
 	//Since TargetHUD might be the CDO, Save off all the property data if we need to revert
