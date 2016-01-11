@@ -285,6 +285,7 @@ void AUTCharacter::PostInitializeComponents()
 	}
 	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, DefaultMeshTranslationZ));
 	BaseTranslationOffset.Z = DefaultMeshTranslationZ;
+	UTCharacterMovement->CrouchedHalfHeight *= AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->CharScale;
 }
 
 void AUTCharacter::NotifyPendingServerFire()
@@ -458,12 +459,9 @@ void AUTCharacter::UpdateCrouchedEyeHeight()
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	float StartBaseEyeHeight = BaseEyeHeight;
+	ACharacter* DefaultCharacter = GetClass()->GetDefaultObject<ACharacter>();
+	const float HalfHeightAdjust = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->CharScale*DefaultCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
-	if (GetMesh())
-	{
-		GetMesh()->RelativeLocation.Z = DefaultMeshTranslationZ;
-		BaseTranslationOffset.Z = GetMesh()->RelativeLocation.Z;
-	}
 
 	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight - HeightAdjust;
 	OldZ = GetActorLocation().Z;
@@ -477,13 +475,10 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 		// early out - it's a crouch while already sliding
 		return;
 	}
+	ACharacter* DefaultCharacter = GetClass()->GetDefaultObject<ACharacter>();
+	HeightAdjust = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->CharScale*DefaultCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - UTCharacterMovement->CrouchedHalfHeight;
 	float StartBaseEyeHeight = BaseEyeHeight;
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
-	if (GetMesh())
-	{
-		GetMesh()->RelativeLocation.Z = DefaultMeshTranslationZ + HeightAdjust;
-		BaseTranslationOffset.Z = GetMesh()->RelativeLocation.Z;
-	}
 
 	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight + HeightAdjust;
 	OldZ = GetActorLocation().Z;
