@@ -219,7 +219,6 @@ bool AUTCharacter::PlayWaterSound(USoundBase* WaterSound)
 	return false;
 }
 
-
 void AUTCharacter::OnWalkingOffLedge_Implementation(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta)
 {
 	AUTBot* B = Cast<AUTBot>(Controller);
@@ -892,7 +891,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				Health -= ResultDamage;
 				bWasFallingWhenDamaged = (GetCharacterMovement() != NULL && (GetCharacterMovement()->MovementMode == MOVE_Falling));
-				if (Health < 0)
+				if (EnemyPS && Health < 0)
 				{
 					EnemyPS->IncrementDamageDone(Health);
 				}
@@ -4668,10 +4667,10 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
 	const bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
 	const bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
-	const bool bOnSameTeam = GS != NULL && GS->OnSameTeam(PC->GetPawn(), this);
+	const bool bOnSameTeam = GS != NULL && GS->OnSameTeam(PC, this);
 	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
 	const bool bIsViewTarget = (PC->GetViewTarget() == this);
-	if (UTPS != NULL && UTPC != NULL && (bSpectating || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
+	if (UTPS != NULL && UTPC != NULL && (bSpectating || (UTPC && UTPC->UTPlayerState && UTPC->UTPlayerState->bOutOfLives) || !bIsViewTarget) && (bRecentlyRendered || (bOnSameTeam && !bIsViewTarget)) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
