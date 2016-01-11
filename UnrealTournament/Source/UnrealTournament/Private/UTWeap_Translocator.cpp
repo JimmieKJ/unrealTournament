@@ -113,31 +113,32 @@ void AUTWeap_Translocator::FireShot()
 			//No disk. Shoot one
 			if (TransDisk == NULL)
 			{
-				if (FakeTransDisk == NULL)
+				ConsumeAmmo(CurrentFireMode);
+				if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 				{
-					ConsumeAmmo(CurrentFireMode);
-					if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
+					TransDisk = Cast<AUTProj_TransDisk>(FireProjectile());
+					if (Role != ROLE_Authority)
 					{
-						TransDisk = Cast<AUTProj_TransDisk>(FireProjectile());
-						if (Role != ROLE_Authority)
+						// wait for disk to be replicated from server
+						AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
+						if (OwningPlayer && OwningPlayer->UTPlayerState)
 						{
-							// wait for disk to be replicated from server
-							AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
 							FakeTransDisk = TransDisk;
+							float FakeDiskLife = (OwningPlayer && FakeTransDisk) ? 0.0015f * (OwningPlayer->UTPlayerState->ExactPing + OwningPlayer->PredictionFudgeFactor) : 0.001f* (OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor);
 							if (OwningPlayer && FakeTransDisk)
 							{
-								FakeTransDisk->SetLifeSpan(FMath::Min(TransDisk->GetLifeSpan(), 0.001f * FMath::Max(0.f, OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor)));
+								FakeTransDisk->SetLifeSpan(FMath::Min(TransDisk->GetLifeSpan(), FMath::Max(0.f, FakeDiskLife)));
 							}
-							TransDisk = NULL;
 						}
-
-						if (TransDisk != NULL)
-						{
-							TransDisk->MyTranslocator = this;
-						}
+						TransDisk = NULL;
 					}
-					UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
+
+					if (TransDisk != NULL)
+					{
+						TransDisk->MyTranslocator = this;
+					}
 				}
+				UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
 				// special recovery time for first shot
 				if (GetWorld()->GetTimeSeconds() - LastTranslocTime > MinFastTranslocInterval)
 				{
