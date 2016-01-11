@@ -1988,6 +1988,8 @@ public class MakeUTDLC : BuildCommand
         // Stage and pak it all
         Project.ApplyStagingManifest(Params, SC);
 
+        CommandUtils.DeleteFile_NoExceptions(CombinePaths(SC.StageDirectory, "UnrealTournament", "Content", "Paks", DLCName + "-" + SC.CookPlatform + ".pak"), true);
+
         // Rename the pak file to DLC name
         CommandUtils.RenameFile(CombinePaths(SC.StageDirectory, "UnrealTournament", "Content", "Paks", "UnrealTournament-" + SC.CookPlatform + ".pak"),
                                 CombinePaths(SC.StageDirectory, "UnrealTournament", "Content", "Paks", DLCName + "-" + SC.CookPlatform + ".pak"));
