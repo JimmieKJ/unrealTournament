@@ -1189,5 +1189,16 @@ int32 AUTLobbyGameState::NumMatchesInProgress()
 	}
 
 	return Count;
+}
 
+void AUTLobbyGameState::AttemptDirectJoin(AUTLobbyPlayerState* PlayerState, const FString& SessionID, bool bSpectator)
+{
+	for (int32 i=0; i < AvailableMatches.Num(); i++)
+	{
+		if (AvailableMatches[i]->UniqueMatchID.ToString() == SessionID)
+		{
+			JoinMatch(AvailableMatches[i], PlayerState,bSpectator);
+			return;
+		}
+	}
 }

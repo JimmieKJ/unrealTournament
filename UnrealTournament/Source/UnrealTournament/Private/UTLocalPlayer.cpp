@@ -2152,12 +2152,13 @@ void UUTLocalPlayer::InvalidateLastSession()
 }
 
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam, FString InstanceId)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
 
+	PendingInstanceID = InstanceId;
 	bWantsToConnectAsSpectator = bSpectate;
 	ConnectDesiredTeam = DesiredTeam;
 	bCancelJoinSession = false;
@@ -2268,6 +2269,12 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			if (ConnectDesiredTeam >= 0)
 			{
 				ConnectionString += FString::Printf(TEXT("?Team=%i"), ConnectDesiredTeam);
+			}
+
+			if (!PendingInstanceID.IsEmpty())
+			{
+				ConnectionString += FString::Printf(TEXT("?Session=%s"), *PendingInstanceID);
+				PendingInstanceID.Empty();
 			}
 
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());

@@ -483,7 +483,7 @@ public:
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam = -1);
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, int32 DesiredTeam = -1, FString InstanceId=TEXT(""));
 	virtual void CancelJoinSession();
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
@@ -502,6 +502,8 @@ protected:
 
 	virtual void OnPresenceUpdated(const FUniqueNetId& UserId, const bool bWasSuccessful);
 	virtual void OnPresenceReceived(const FUniqueNetId& UserId, const TSharedRef<FOnlineUserPresence>& Presence);
+
+	FString PendingInstanceID;
 
 	// Set to true if we have delayed joining a session (due to already being in a session or some other reason.  PendingSession will contain the session data.
 	bool bDelayedJoinSession;

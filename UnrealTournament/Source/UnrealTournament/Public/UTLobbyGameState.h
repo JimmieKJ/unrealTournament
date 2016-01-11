@@ -257,6 +257,8 @@ public:
 	// Returns the # of matches available.  Not it ignores matches that are in the non-setup/dying state
 	int32 NumMatchesInProgress();
 
+	virtual void AttemptDirectJoin(AUTLobbyPlayerState* PlayerState, const FString& SessionID, bool bSpectator = false);
+
 };
 
 

@@ -158,7 +158,6 @@ void AUTLobbyGameMode::OverridePlayerState(APlayerController* PC, APlayerState* 
 FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerController, const TSharedPtr<const FUniqueNetId>& UniqueId, const FString& Options, const FString& Portal)
 {
 	FString Result = Super::InitNewPlayer(NewPlayerController, UniqueId, Options, Portal);
-	
 	AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(NewPlayerController->PlayerState);
 
 	if (PS)
@@ -169,7 +168,19 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 		{
 			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? EEpicDefaultRuleTags::CTF : EEpicDefaultRuleTags::Deathmatch;
 		}
+
+		FString InstanceID = UGameplayStatics::ParseOption(Options,"Session");
+		if (!InstanceID.IsEmpty())
+		{
+			// Can't use the playerstate's version here because it hasn't been set yet.
+			bool bSpectator = FCString::Stricmp(*UGameplayStatics::ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+			UTLobbyGameState->AttemptDirectJoin(PS, InstanceID, bSpectator);
+		}
+
+
 	}
+
+
 
 
 	return Result;
