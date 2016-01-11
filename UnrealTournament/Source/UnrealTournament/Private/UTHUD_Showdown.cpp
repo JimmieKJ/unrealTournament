@@ -315,7 +315,7 @@ void AUTHUD_Showdown::DrawHUD()
 				for (APlayerState* PS : GS->PlayerArray)
 				{
 					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-					if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator && !UTPS->bOutOfLives)
+					if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator && !UTPS->bOutOfLives && !UTPS->bIsInactive)
 					{
 						if (UTPS->Team->TeamIndex == 0)
 						{
@@ -338,7 +338,7 @@ void AUTHUD_Showdown::DrawHUD()
 
 				float PipSize = 0.02f * Canvas->ClipX;
 				float XOffset = 0.47f * Canvas->ClipX - PipSize;
-				float YOffset = 0.1f * Canvas->ClipY;
+				float YOffset = 0.09f * Canvas->ClipY;
 
 				Canvas->SetLinearDrawColor(FLinearColor::Red, 0.5f);
 				for (int32 i = 0; i < RedPlayerCount; i++)
@@ -385,19 +385,6 @@ void AUTHUD_Showdown::DrawHUD()
 			bNeedOnDeckNotify = false;
 			PlayerOwner->ClientReceiveLocalizedMessage(UUTShowdownGameMessage::StaticClass(), 2, PlayerOwner->PlayerState, NULL, NULL);
 		}
-
-		// draw help text
-		Canvas->DrawColor = WhiteColor;
-		float TextScale = 1.0f;
-		float XL, YL;
-		Canvas->TextSize(MediumFont, TEXT("Click on the spawn point you want to use"), XL, YL, TextScale, TextScale);
-		float IconSize = YL;
-		XL += IconSize;
-		Canvas->DrawTile(SpawnHelpTextBG.Texture, Canvas->SizeX * 0.5f - XL * 0.6f, Canvas->SizeY * 0.08f, XL * 1.2f, YL * 1.1f, SpawnHelpTextBG.U, SpawnHelpTextBG.V, SpawnHelpTextBG.UL, SpawnHelpTextBG.VL);
-		float TextXPos = Canvas->SizeX * 0.5f - XL * 0.5f;
-		Canvas->DrawText(MediumFont, TEXT("Click on the spawn point you want to use"), TextXPos, Canvas->SizeY * 0.08f, TextScale, TextScale);
-		Canvas->DrawTile(PlayerStartBGIcon.Texture, TextXPos + XL - IconSize, Canvas->SizeY * 0.08f + YL * 0.1f, YL, YL, PlayerStartBGIcon.U, PlayerStartBGIcon.V, PlayerStartBGIcon.UL, PlayerStartBGIcon.VL);
-		Canvas->DrawTile(PlayerStartIcon.Texture, TextXPos + XL - IconSize * 0.75f, Canvas->SizeY * 0.08f + YL * 0.1f + IconSize * 0.25f, YL * 0.5f, YL * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
 	}
 }
 
@@ -426,25 +413,40 @@ void AUTHUD_Showdown::DrawPlayerList()
 	{
 		LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B){ return A.SelectionOrder < B.SelectionOrder; });
 
-		float XPos = 6.f;
+		float XPos = 0.005f*Canvas->ClipX;
 		float YPos = Canvas->ClipY * 0.1f;
 		Canvas->DrawColor = FColor(200, 200, 200, 80);
 		FText Title = NSLOCTEXT("UnrealTournament", "SelectionOrder", "PICK ORDER");
 		float XL, YL;
 		Canvas->TextSize(MediumFont, Title.ToString(), XL, YL);
+		XL = FMath::Max(XL, 1.f);
 		Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos, 0.2f*Canvas->ClipX, YL, 149, 138, 32, 32, BLEND_Translucent);
 		Canvas->DrawColor = FColor(255, 255, 255, 255);
 		YPos += Canvas->DrawText(MediumFont, Title, 0.1f*Canvas->ClipX - 0.5f*XL, YPos) * 1.2f;
 		for (AUTPlayerState* UTPS : LivePlayers)
 		{
-			UFont* NameFont = (UTPS == GS->SpawnSelector) ? MediumFont : SmallFont;
+			UFont* NameFont = SmallFont;
 			Canvas->TextSize(NameFont, UTPS->PlayerName, XL, YL);
-			Canvas->DrawColor = (UTPS == GS->SpawnSelector) ? FColor(255, 255, 140, 80) : UTPS->Team->TeamColor.ToFColor(false);
+			float TileWidth = 0.22f*Canvas->ClipX;
+			float NameStart = 0.01f*Canvas->ClipX;
+			float NameScale = FMath::Min(1.f, (TileWidth - NameStart + XPos) / XL);
+			float ExtraWidth = NameStart;
+			Canvas->DrawColor = UTPS->Team->TeamColor.ToFColor(false);
 			Canvas->DrawColor.A = 70;
-			Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos, FMath::Max(0.2f*Canvas->ClipX, 1.2f*XL), YL, 149, 138, 32, 32, BLEND_Translucent);
+			Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos, TileWidth + ExtraWidth, YL, 149, 138, 32, 32, BLEND_Translucent);
 			Canvas->DrawColor = FColor(255, 255, 255, 255);
-			Canvas->DrawText(NameFont, UTPS->PlayerName, XPos+0.1f*XL, YPos - 0.1f*YL);
-			YPos += YL * 1.1f;
+			Canvas->DrawText(NameFont, UTPS->PlayerName, XPos+NameStart, YPos - 0.1f*YL, NameScale, 1.f);
+			if (UTPS == GS->SpawnSelector)
+			{
+				Canvas->DrawColor = FColor(255, 255, 140, 80);
+				Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos-0.1f*YL, TileWidth + ExtraWidth, 0.1f*YL, 149, 138, 32, 32, BLEND_Translucent);
+				Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos, YPos+1.f*YL, TileWidth + ExtraWidth, 0.1f*YL, 149, 138, 32, 32, BLEND_Translucent);
+				Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos + TileWidth + NameStart, YPos-0.1f*YL, 0.03f*Canvas->ClipX, 1.2f*YL, 149, 138, 32, 32, BLEND_Translucent);
+				Canvas->DrawTile(SpawnHelpTextBG.Texture, XPos-0.1f*YL, YPos-0.1f*YL, 0.1f*YL, 1.2f*YL, 149, 138, 32, 32, BLEND_Translucent);
+				Canvas->DrawColor = FColor(255, 255, 255, 255);
+				Canvas->DrawText(NameFont, *FText::AsNumber(GS->IntermissionStageTime).ToString(), XPos + TileWidth + 2.f*NameStart, YPos - 0.1f*YL);
+			}
+			YPos += YL * 1.3f;
 		}
 	}
 }

@@ -14,9 +14,9 @@ public:
 	UUTHUDWidget_SpectatorShowdown(const FObjectInitializer& OI)
 		: Super(OI)
 	{
-		SelectingSpawnText = NSLOCTEXT("UTHUD_Showdown", "SelectingSpawn", "{0} is picking... {1}");
 		RoundBeginsText = NSLOCTEXT("UTHUD_Showdown", "RoundBegins", "Round begins in... {0}");
 		PickingStartsText = NSLOCTEXT("UTHUD_Showdown", "PickingStarts", "Spawn selection begins in... {0}");
+		SelectingSpawnText = NSLOCTEXT("UTHUD_Showdown", "SelectingSpawn", "Click on the spawn point you want to use.");
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
@@ -36,14 +36,13 @@ public:
 		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(UTGameState);
 		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission)
 		{
-			// draw whose turn it is
-			if (GS->SpawnSelector != NULL)
-			{
-				return FText::Format(SelectingSpawnText, FText::FromString(GS->SpawnSelector->PlayerName), FText::AsNumber(GS->IntermissionStageTime));
-			}
-			else if (GS->bStartedSpawnSelection && !GS->bFinalIntermissionDelay)
+			if ((GS->SpawnSelector == NULL) && !GS->bFinalIntermissionDelay)
 			{
 				return FText::Format(PickingStartsText, FText::AsNumber(GS->IntermissionStageTime));
+			}
+			else if (UTHUDOwner && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->UTPlayerState && GS->SpawnSelector == UTHUDOwner->UTPlayerOwner->UTPlayerState)
+			{
+				return SelectingSpawnText;
 			}
 			else if (GS->bStartedSpawnSelection && GS->bFinalIntermissionDelay)
 			{
