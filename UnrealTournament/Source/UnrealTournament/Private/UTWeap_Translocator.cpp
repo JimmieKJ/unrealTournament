@@ -111,43 +111,52 @@ void AUTWeap_Translocator::FireShot()
 		if (CurrentFireMode == 0)
 		{
 			//No disk. Shoot one
-			if (TransDisk == NULL)
+			if (TransDisk == NULL || TransDisk->IsPendingKillPending())
 			{
-				ConsumeAmmo(CurrentFireMode);
-				if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
+				if (FakeTransDisk == NULL || FakeTransDisk->IsPendingKillPending())
 				{
-					TransDisk = Cast<AUTProj_TransDisk>(FireProjectile());
-					if (Role != ROLE_Authority)
+					ConsumeAmmo(CurrentFireMode);
+					if (ProjClass.IsValidIndex(CurrentFireMode) && ProjClass[CurrentFireMode] != NULL)
 					{
-						// wait for disk to be replicated from server
-						AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
-						if (OwningPlayer && OwningPlayer->UTPlayerState)
+						TransDisk = Cast<AUTProj_TransDisk>(FireProjectile());
+						if (Role != ROLE_Authority)
 						{
-							FakeTransDisk = TransDisk;
-							float FakeDiskLife = (OwningPlayer && FakeTransDisk) ? 0.0015f * (OwningPlayer->UTPlayerState->ExactPing + OwningPlayer->PredictionFudgeFactor) : 0.001f* (OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor);
-							if (OwningPlayer && FakeTransDisk)
+							// wait for disk to be replicated from server
+							AUTPlayerController* OwningPlayer = UTOwner ? Cast<AUTPlayerController>(UTOwner->GetController()) : NULL;
+							if (OwningPlayer && OwningPlayer->UTPlayerState)
 							{
-								FakeTransDisk->SetLifeSpan(FMath::Min(TransDisk->GetLifeSpan(), FMath::Max(0.f, FakeDiskLife)));
+								FakeTransDisk = TransDisk;
+								float FakeDiskLife = (OwningPlayer && FakeTransDisk) ? 0.0015f * (OwningPlayer->UTPlayerState->ExactPing + OwningPlayer->PredictionFudgeFactor) : 0.001f* (OwningPlayer->MaxPredictionPing + OwningPlayer->PredictionFudgeFactor);
+								if (OwningPlayer && FakeTransDisk)
+								{
+									FakeTransDisk->SetLifeSpan(FMath::Min(TransDisk->GetLifeSpan(), FMath::Max(0.f, FakeDiskLife)));
+								}
 							}
+							TransDisk = NULL;
 						}
-						TransDisk = NULL;
-					}
 
-					if (TransDisk != NULL)
+						if (TransDisk != NULL)
+						{
+							TransDisk->MyTranslocator = this;
+						}
+					}
+					UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
+
+					// special recovery time for first shot
+					if (GetWorld()->GetTimeSeconds() - LastTranslocTime > MinFastTranslocInterval)
 					{
-						TransDisk->MyTranslocator = this;
+						UUTWeaponStateFiringOnce* CurrentFiringState = Cast<UUTWeaponStateFiringOnce>(CurrentState);
+						if (CurrentFiringState && GetWorldTimerManager().IsTimerActive(CurrentFiringState->RefireCheckHandle))
+						{
+							typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
+							GetWorldTimerManager().SetTimer(CurrentFiringState->RefireCheckHandle, CurrentFiringState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, FirstFireInterval, false);
+						}
 					}
 				}
-				UUTGameplayStatics::UTPlaySound(GetWorld(), ThrowSound, UTOwner, SRT_AllButOwner);
-				// special recovery time for first shot
-				if (GetWorld()->GetTimeSeconds() - LastTranslocTime > MinFastTranslocInterval)
+				else
 				{
-					UUTWeaponStateFiringOnce* CurrentFiringState = Cast<UUTWeaponStateFiringOnce>(CurrentState);
-					if (CurrentFiringState && GetWorldTimerManager().IsTimerActive(CurrentFiringState->RefireCheckHandle))
-					{
-						typedef void(UUTWeaponState::*WeaponTimerFunc)(void);
-						GetWorldTimerManager().SetTimer(CurrentFiringState->RefireCheckHandle, CurrentFiringState, (WeaponTimerFunc)&UUTWeaponStateFiring::RefireCheckTimer, FirstFireInterval, false);
-					}
+					FakeTransDisk->Destroy();
+					FakeTransDisk = NULL;
 				}
 			}
 			else if (TransDisk->TransState == TLS_Disrupted)
