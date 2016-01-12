@@ -59,7 +59,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CharacterCameraComponent->AttachParent = GetCapsuleComponent();
 	DefaultBaseEyeHeight = 83.f;
 	BaseEyeHeight = DefaultBaseEyeHeight;
-	CrouchedEyeHeight = 40.f;
+	CrouchedEyeHeight = 45.f;
 	DefaultCrouchedEyeHeight = 40.f;
 	FloorSlideEyeHeight = 1.f;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
