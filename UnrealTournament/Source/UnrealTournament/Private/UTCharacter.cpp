@@ -51,15 +51,13 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContentRef(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
 	CharacterData = DefaultCharContentRef.Object;
 
-	float CharScaling = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->CharScale/1.15f;
-
 	// Set size for collision capsule
-	GetCapsuleComponent()->InitCapsuleSize(45.5f*CharScaling, 106.0f*CharScaling);
+	GetCapsuleComponent()->InitCapsuleSize(45.5f, 106.0f);
 
 	// Create a CameraComponent	
 	CharacterCameraComponent = ObjectInitializer.CreateDefaultSubobject<UCameraComponent>(this, TEXT("FirstPersonCamera"));
 	CharacterCameraComponent->AttachParent = GetCapsuleComponent();
-	DefaultBaseEyeHeight = 83.f*CharScaling;
+	DefaultBaseEyeHeight = 83.f;
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CrouchedEyeHeight = 40.f;
 	DefaultCrouchedEyeHeight = 40.f;
@@ -81,12 +79,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	GetMesh()->bEnablePhysicsOnDedicatedServer = true; // needed for feign death; death ragdoll shouldn't be invoked on server
 	GetMesh()->bReceivesDecals = false;
 	GetMesh()->bLightAttachmentsAsGroup = true;
-	GetMesh()->SetRelativeScale3D(FVector(1.15f*CharScaling));
-	FVector NewRelativeLoc = GetMesh()->RelativeLocation;
-	NewRelativeLoc.Z = -106.f*CharScaling;
-	DefaultMeshTranslationZ = NewRelativeLoc.Z;
-	BaseTranslationOffset.Z = DefaultMeshTranslationZ;
-	GetMesh()->RelativeLocation = NewRelativeLoc;
+	GetMesh()->SetRelativeScale3D(FVector(1.15f));
 	UTCharacterMovement = Cast<UUTCharacterMovement>(GetCharacterMovement());
 
 	HealthMax = 100;
@@ -282,9 +275,6 @@ void AUTCharacter::PostInitializeComponents()
 			}
 		}
 	}
-	GetMesh()->SetRelativeLocation(FVector(0.f, 0.f, DefaultMeshTranslationZ));
-	BaseTranslationOffset.Z = DefaultMeshTranslationZ;
-	UTCharacterMovement->CrouchedHalfHeight *= AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->CharScale;
 }
 
 void AUTCharacter::NotifyPendingServerFire()
@@ -348,11 +338,6 @@ FRotator AUTCharacter::GetDelayedShotRotation()
 
 void AUTCharacter::PositionUpdated(bool bShotSpawned)
 {
-	FVector NewRelLoc = GetMesh()->RelativeLocation;
-	NewRelLoc.Z = DefaultMeshTranslationZ;
-	GetMesh()->SetRelativeLocation(NewRelLoc);
-	BaseTranslationOffset.Z = DefaultMeshTranslationZ;
-
 	const float WorldTime = GetWorld()->GetTimeSeconds();
 	if (GetCharacterMovement())
 	{
@@ -458,10 +443,7 @@ void AUTCharacter::UpdateCrouchedEyeHeight()
 void AUTCharacter::OnEndCrouch(float HeightAdjust, float ScaledHeightAdjust)
 {
 	float StartBaseEyeHeight = BaseEyeHeight;
-	ACharacter* DefaultCharacter = GetClass()->GetDefaultObject<ACharacter>();
-	const float HalfHeightAdjust = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->CharScale*DefaultCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 	Super::OnEndCrouch(HeightAdjust, ScaledHeightAdjust);
-
 	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight - HeightAdjust;
 	OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
@@ -474,11 +456,8 @@ void AUTCharacter::OnStartCrouch(float HeightAdjust, float ScaledHeightAdjust)
 		// early out - it's a crouch while already sliding
 		return;
 	}
-	ACharacter* DefaultCharacter = GetClass()->GetDefaultObject<ACharacter>();
-	HeightAdjust = AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->CharScale*DefaultCharacter->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - UTCharacterMovement->CrouchedHalfHeight;
 	float StartBaseEyeHeight = BaseEyeHeight;
 	Super::OnStartCrouch(HeightAdjust, ScaledHeightAdjust);
-
 	CrouchEyeOffset.Z += StartBaseEyeHeight - BaseEyeHeight + HeightAdjust;
 	OldZ = GetActorLocation().Z;
 	CharacterCameraComponent->SetRelativeLocation(FVector(0.f, 0.f, BaseEyeHeight), false);
