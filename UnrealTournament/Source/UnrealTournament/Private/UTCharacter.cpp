@@ -4952,7 +4952,13 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 		{
 			if (AnimInstance->Montage_Play(TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage, EmoteSpeed))
 			{
-				if (TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage == nullptr)
+				bool bIncompatibleWeaponForFP = false;
+				if (GetWeapon() && GetWeapon()->HandsAttachSocket == NAME_None)
+				{
+					bIncompatibleWeaponForFP = true;
+				}
+
+				if (TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage == nullptr || bIncompatibleWeaponForFP)
 				{
 					// This flag is set for 3rd person taunts
 					UTCharacterMovement->bIsTaunting = true;
