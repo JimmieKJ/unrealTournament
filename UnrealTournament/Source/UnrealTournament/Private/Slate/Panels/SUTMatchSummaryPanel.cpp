@@ -36,8 +36,8 @@
 static const float PLAYER_SPACING = 75.0f;
 static const float PLAYER_ALTOFFSET = 80.0f;
 static const float MIN_TEAM_SPACING = 120.f;
-static const float TEAM_CAMERA_OFFSET = 500.0f;
-static const float TEAM_CAMERA_ZOFFSET = 0.0f;
+static const float TEAM_CAMERA_OFFSET = 550.0f;
+static const float TEAM_CAMERA_ZOFFSET = 115.0f;
 static const float LARGETEAM_CAMERA_ZOFFSET = 100.0f;
 static const float ALL_CAMERA_OFFSET = 400.0f;
 static const float ALL_CAMERA_ANGLE = -5.0f;
@@ -714,7 +714,6 @@ void SUTMatchSummaryPanel::BuildInfoPanel()
 	}
 
 	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
-
 }
 
 void SUTMatchSummaryPanel::UpdateChatText()
@@ -1428,7 +1427,7 @@ void SUTMatchSummaryPanel::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Hei
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
 			if (PS != nullptr && !UTC->bHidden && FVector::DotProduct(CameraTransform.Rotator().Vector(), (UTC->GetActorLocation() - CameraTransform.GetLocation())) > 0.0f)
 			{
-				FVector ActorLocation = UTC->GetActorLocation() + FVector(0.0f, 0.0f, 120.0f);
+				FVector ActorLocation = UTC->GetActorLocation() + FVector(0.0f, 0.0f, 148.0f);
 				FVector2D ScreenLoc;
 				View->WorldToPixel(ActorLocation, ScreenLoc);
 
