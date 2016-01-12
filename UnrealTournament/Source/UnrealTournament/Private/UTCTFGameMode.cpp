@@ -478,7 +478,7 @@ void AUTCTFGameMode::GetGood()
 void AUTCTFGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
 {
 	Super::CreateGameURLOptions(MenuProps);
-	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &MercyScore, TEXT("Mercy Score"))));
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &MercyScore, TEXT("MercyScore"))));
 }
 
 
@@ -486,7 +486,7 @@ void AUTCTFGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBa
 void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
 	Super::CreateConfigWidgets(MenuSpace,bCreateReadOnly,ConfigProps);
-	TSharedPtr< TAttributeProperty<int32> > MercyScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps,TEXT("Mercy Score")));
+	TSharedPtr< TAttributeProperty<int32> > MercyScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps,TEXT("MercyScore")));
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
 	if (MercyScoreAttr.IsValid())
