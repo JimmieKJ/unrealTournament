@@ -2368,6 +2368,11 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 
 void UUTLocalPlayer::UpdatePresence(FString NewPresenceString, bool bAllowInvites, bool bAllowJoinInProgress, bool bAllowJoinViaPresence, bool bAllowJoinViaPresenceFriendsOnly)
 {
+	// XMPP code isn't working correctly on linux
+#if PLATFORM_LINUX
+	return;
+#endif
+
 	if (OnlineIdentityInterface.IsValid() && OnlineSessionInterface.IsValid() && OnlinePresenceInterface.IsValid())
 	{
 		TSharedPtr<const FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
