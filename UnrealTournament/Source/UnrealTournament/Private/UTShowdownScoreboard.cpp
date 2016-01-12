@@ -60,14 +60,15 @@ void UUTShowdownScoreboard::Draw_Implementation(float RenderDelta)
 	Super::Draw_Implementation(RenderDelta);
 
 	// show current round damage and total damage by local player
-	float Width = 0.3f*Size.X;
+	float Width = 0.5f*Size.X;
 	float Height = 0.2f*Size.Y;
 	float XOffset = 0.5*(Size.X - CenterBuffer) - Width;
 	float YOffset = 0.62f*Size.Y;
+	float TextOffset = 0.1f*Size.X;
 	DrawTexture(UTHUDOwner->HUDAtlas, XOffset, YOffset, Width, Height, 185.f, 400.f, 4.f, 4.f, 1.f, FLinearColor(0.5f, 0.5f, 0.5f, 0.2f));
-	DrawText(NSLOCTEXT("UTScoreboard", "DamageDone", "DAMAGE DONE BY YOU"), XOffset + 4.f, YOffset + 0.02f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
-	DrawText(NSLOCTEXT("UTScoreboard", "ThisRound", "THIS ROUND"), XOffset + 4.f, YOffset + 0.4f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
-	DrawText(NSLOCTEXT("UTScoreboard", "ThisMatch", "THIS MATCH"), XOffset + 4.f, YOffset + 0.7f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("UTScoreboard", "DamageDone", "DAMAGE DONE BY YOU"), XOffset + TextOffset, YOffset + 0.02f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("UTScoreboard", "ThisRound", "THIS ROUND"), XOffset + TextOffset, YOffset + 0.35f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("UTScoreboard", "ThisMatch", "THIS MATCH"), XOffset + TextOffset, YOffset + 0.65f*Height, UTHUDOwner->MediumFont, 1.f, 1.0f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
 
 	AUTPlayerState* PS = (UTHUDOwner && UTHUDOwner->PlayerOwner) ? Cast <AUTPlayerState>(UTHUDOwner->PlayerOwner->PlayerState) : NULL;
 	if (PS)
