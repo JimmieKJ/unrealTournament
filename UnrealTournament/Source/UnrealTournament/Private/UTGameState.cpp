@@ -1406,34 +1406,35 @@ void AUTGameState::UpdateHighlights_Implementation()
 		BestKDPS->AddMatchHighlight(HighlightNames::BestKD, (BestKDPS->Deaths > 0) ? BestKDPS->Kills / BestKDPS->Deaths : BestKDPS->Kills);
 	}
 
+	float TopScoreRed = TopScorer[0] ? TopScorer[0]->Score : 1;
+	float TopScoreBlue = TopScorer[1] ? TopScorer[1]->Score : 1;
+	float TopScoreOverall = FMath::Max(TopScoreRed, TopScoreBlue);
 	for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
 	{
 		AUTPlayerState* PS = *It;
 		if (PS && !PS->bOnlySpectator)
 		{
-			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
-			if (TeamIndex == 0)
+			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+			if (Game && (Game->NumPlayers + Game->NumBots) >= 3)
 			{
-				if (TopScorer[0] && (PS->Score == TopScorer[0]->Score))
+				// don't show top scorer highlight if 2 or fewer players
+				if (PS->Score >= TopScoreOverall)
 				{
-					SetTopScorerHighlights(PS, TopScorer[1]);
+					PS->AddMatchHighlight(HighlightNames::TopScorer, int32(PS->Score));
+				}
+				else if (PS->Team)
+				{
+					int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
+					if (PS->Score >= ((PS->Team->TeamIndex == 0) ? TopScoreRed : TopScoreBlue))
+					{
+						FName TopScoreHighlightName = (TeamIndex == 0) ? HighlightNames::TopScorerRed : HighlightNames::TopScorerBlue;
+						PS->AddMatchHighlight(TopScoreHighlightName, int32(PS->Score));
+					}
 				}
 			}
-			else
-			{
-				if (TopScorer[1] && (PS->Score == TopScorer[1]->Score))
-				{
-					SetTopScorerHighlights(TopScorer[0], PS);
-				}
-			}
-
 			if (MostKills && (PS->Kills == MostKills->Kills))
 			{
 				PS->AddMatchHighlight(HighlightNames::MostKills, MostKills->Kills);
-			}
-			if (LeastDeaths && (PS->Deaths == LeastDeaths->Deaths))
-			{
-				PS->AddMatchHighlight(HighlightNames::LeastDeaths, LeastDeaths->Deaths);
 			}
 			if (MostHeadShotsPS && (PS->GetStatsValue(NAME_SniperHeadshotKills) == MostHeadShotsPS->GetStatsValue(NAME_SniperHeadshotKills)))
 			{
@@ -1453,6 +1454,11 @@ void AUTGameState::UpdateHighlights_Implementation()
 		{
 			// only add low priority highlights if not enough high priority highlights
 			AddMinorHighlights(PS);
+
+			if (LeastDeaths && (PS->Deaths == LeastDeaths->Deaths))
+			{
+				PS->AddMatchHighlight(HighlightNames::LeastDeaths, LeastDeaths->Deaths);
+			}
 
 			// remove fourth highlight if not major
 			if ((PS->MatchHighlights[4] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[4]) < 2.f))
@@ -1502,45 +1508,6 @@ void AUTGameState::UpdateHighlights_Implementation()
 	}
 }
 
-void AUTGameState::SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue)
-{
-	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (Game && (Game->NumPlayers + Game->NumBots) < 3)
-	{
-		// don't show top scorer highlight if 2 or fewer players
-		return;
-	}
-	if (TopScorerBlue == NULL)
-	{
-		if (TopScorerRed != NULL)
-		{
-			TopScorerRed->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerRed->Score));
-		}
-	}
-	else if (TopScorerRed == NULL)
-	{
-		if (TopScorerBlue != NULL)
-		{
-			TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerBlue->Score));
-		}
-	}
-	else if (TopScorerBlue->Score == TopScorerRed->Score)
-	{
-		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, int32(TopScorerBlue->Score));
-		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, int32(TopScorerRed->Score));
-	}
-	else if (TopScorerBlue->Score > TopScorerRed->Score)
-	{
-		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerBlue->Score));
-		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, int32(TopScorerRed->Score));
-	}
-	else
-	{
-		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerRed->Score));
-		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, int32(TopScorerBlue->Score));
-	}
-}
-
 void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 {
 	// skip if already filled with major highlights
@@ -1556,19 +1523,6 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetStatsValue(SpreeStatsNames[i]) > 0)
 		{
 			PS->AddMatchHighlight(SpreeStatsNames[i], PS->GetStatsValue(SpreeStatsNames[i]));
-			if (PS->MatchHighlights[3] != NAME_None)
-			{
-				return;
-			}
-			break;
-		}
-	}
-	FName MultiKillsNames[4] = { NAME_MultiKillLevel3, NAME_MultiKillLevel2, NAME_MultiKillLevel1, NAME_MultiKillLevel0 };
-	for (int32 i = 0; i < 4; i++)
-	{
-		if (PS->GetStatsValue(MultiKillsNames[i]) > 0)
-		{
-			PS->AddMatchHighlight(MultiKillsNames[i], PS->GetStatsValue(MultiKillsNames[i]));
 			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
@@ -1599,6 +1553,20 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 			{
 				return;
 			}
+		}
+	}
+
+	FName MultiKillsNames[4] = { NAME_MultiKillLevel3, NAME_MultiKillLevel2, NAME_MultiKillLevel1, NAME_MultiKillLevel0 };
+	for (int32 i = 0; i < 4; i++)
+	{
+		if (PS->GetStatsValue(MultiKillsNames[i]) > 0)
+		{
+			PS->AddMatchHighlight(MultiKillsNames[i], PS->GetStatsValue(MultiKillsNames[i]));
+			if (PS->MatchHighlights[3] != NAME_None)
+			{
+				return;
+			}
+			break;
 		}
 	}
 

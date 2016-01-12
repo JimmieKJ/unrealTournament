@@ -407,9 +407,6 @@ public:
 	/** Return short version of top highlight for that player. */
 	virtual FText ShortPlayerHighlightText(AUTPlayerState* PS);
 
-	/** Add appropriate top scorer highlights to each team score leader. */
-	virtual void SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue);
-
 	/** Return a score value for the "impressiveness" of the Match highlights for PS. */
 	virtual float MatchHighlightScore(AUTPlayerState* PS);
 	
