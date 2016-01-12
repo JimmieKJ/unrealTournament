@@ -87,6 +87,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	ScoringPlaysDisplayTime = 0.f; 
 	PersonalSummaryDisplayTime = 8.f;
 	WinnerSummaryDisplayTime = 5.f;
+	IntroDisplayTime = 5.f;
 	TeamSummaryDisplayTime = 30.f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
@@ -2744,7 +2745,7 @@ void AUTGameMode::HandleMatchInOvertime()
 void AUTGameMode::HandlePlayerIntro()
 {
 	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 8.4f, false);
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 5.f, false);
 }
 
 void AUTGameMode::EndPlayerIntro()

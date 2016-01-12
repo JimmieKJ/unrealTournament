@@ -930,7 +930,8 @@ void SUTMatchSummaryPanel::SetupIntroCam()
 	int32 NumViewTeams = FMath::Max(GameState->Teams.Num(), 1);
 
 	//7 seconds for the team camera pan works well with the current song
-	float TimePerTeam = 6.8f / NumViewTeams;
+	AUTGameMode* DefaultGame = GameState->GameModeClass->GetDefaultObject<AUTGameMode>();
+	float TimePerTeam = (DefaultGame ? DefaultGame->IntroDisplayTime : 2.5f)/NumViewTeams;
 
 	//Add camera pan for each team
 	for (int32 i = 0; i < NumViewTeams; i++)

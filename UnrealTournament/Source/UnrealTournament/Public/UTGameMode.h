@@ -116,6 +116,10 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
 		float TeamSummaryDisplayTime;
 
+	/* How long to display intro */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float IntroDisplayTime;
+
 	/** Return how long to wait after end of match before travelling to next map. */
 	virtual float GetTravelDelay();
 
