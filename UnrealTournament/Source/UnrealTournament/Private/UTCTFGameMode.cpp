@@ -322,15 +322,17 @@ bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 
 void AUTCTFGameMode::HandleExitingIntermission()
 {
+	const bool bWasSecondHalf = CTFGameState->bSecondHalf;
+
+	// This needs to get set before HandleExitingIntermission as HandleMatchHasStarted wants to read this
+	CTFGameState->bSecondHalf = true;
+
 	Super::HandleExitingIntermission();
-	if (CTFGameState->bSecondHalf)
+
+	if (!bWasSecondHalf)
 	{
 		SetMatchState(MatchState::MatchEnteringOvertime);
 		CTFGameState->SetTimeLimit(0);
-	}
-	else
-	{
-		CTFGameState->bSecondHalf = true;
 	}
 }
 

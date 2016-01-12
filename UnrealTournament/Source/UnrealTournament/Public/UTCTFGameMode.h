@@ -40,7 +40,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 
 protected:
 
-	virtual void HandleMatchHasStarted();
+	virtual void HandleMatchHasStarted() override;
 
 	// returns the team index of a team with advatage or < 0 if no team has one
 	virtual uint8 TeamWithAdvantage();
