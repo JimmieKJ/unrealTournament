@@ -329,7 +329,7 @@ void AUTCTFGameMode::HandleExitingIntermission()
 
 	Super::HandleExitingIntermission();
 
-	if (!bWasSecondHalf)
+	if (bWasSecondHalf)
 	{
 		SetMatchState(MatchState::MatchEnteringOvertime);
 		CTFGameState->SetTimeLimit(0);
