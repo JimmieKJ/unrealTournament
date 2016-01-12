@@ -4957,14 +4957,17 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 					// This flag is set for 3rd person taunts
 					UTCharacterMovement->bIsTaunting = true;
 				}
-				else if (IsLocallyControlled())
+				else if (IsLocallyControlled() && FirstPersonMesh)
 				{
+					FirstPersonMesh->bPauseAnims = false;
+					FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+
 					// Play first person taunt
 					CurrentFirstPersonTaunt = TauntToPlay->GetDefaultObject<AUTTaunt>()->FirstPersonTauntMontage;
 					UAnimInstance* FPAnimInstance = FirstPersonMesh->GetAnimInstance();
 					if (FPAnimInstance != NULL)
 					{
-						FPAnimInstance->Montage_SetPlayRate(CurrentFirstPersonTaunt, EmoteSpeed);
+						FPAnimInstance->Montage_Play(CurrentFirstPersonTaunt, EmoteSpeed);
 					}
 				}
 
