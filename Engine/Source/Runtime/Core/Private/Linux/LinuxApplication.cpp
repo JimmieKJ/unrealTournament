@@ -335,19 +335,26 @@ void FLinuxApplication::ProcessDeferredMessage( SDL_Event Event )
 
 			if(bUsingHighPrecisionMouseInput)
 			{
-				// hack to work around jumps
-				const int kTooFarAway = 100;
-				const int kTooFarAwaySquare = kTooFarAway * kTooFarAway;
-				if (motionEvent.xrel * motionEvent.xrel + motionEvent.yrel * motionEvent.yrel > kTooFarAwaySquare)
+				if (!GIsEditor)
 				{
-					UE_LOG(LogLinuxWindowEvent, Warning, TEXT("Suppressing too large relative mouse movement due to an apparent bug (%d, %d is larger than treshold %d)"),
-						motionEvent.xrel, motionEvent.yrel,
-						kTooFarAway
-						);
+					MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
 				}
 				else
 				{
-					MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
+					// hack to work around jumps
+					const int kTooFarAway = 100;
+					const int kTooFarAwaySquare = kTooFarAway * kTooFarAway;
+					if (motionEvent.xrel * motionEvent.xrel + motionEvent.yrel * motionEvent.yrel > kTooFarAwaySquare)
+					{
+						UE_LOG(LogLinuxWindowEvent, Warning, TEXT("Suppressing too large relative mouse movement due to an apparent bug (%d, %d is larger than treshold %d)"),
+							motionEvent.xrel, motionEvent.yrel,
+							kTooFarAway
+							);
+					}
+					else
+					{
+						MessageHandler->OnRawMouseMove(motionEvent.xrel, motionEvent.yrel);
+					}
 				}
 			}
 			else
