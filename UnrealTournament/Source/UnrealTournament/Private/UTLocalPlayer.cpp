@@ -2262,7 +2262,8 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 		{
 			int32 Index = 0;
 			FString HostAddress = ConnectionString.FindChar(':',Index) ? ConnectionString.Left(Index) : ConnectionString;
-			FString Password = RetrievePassword(HostAddress, bWantsToConnectAsSpectator);
+			FString Password = bWantsToConnectAsSpectator ? "?specpassword=" : "?password=";
+			Password = Password + RetrievePassword(HostAddress, bWantsToConnectAsSpectator);
 			ConnectionString += Password;
 
 			if (PendingFriendInviteFriendId != TEXT(""))
@@ -4174,12 +4175,12 @@ FString UUTLocalPlayer::RetrievePassword(FString HostAddress, bool bSpectator)
 	{
 		if (CachedSpecPasswords.Contains(HostAddress))
 		{
-			return FString::Printf(TEXT("?specpassword=%s"), *CachedSpecPasswords[HostAddress]);
+			return FString::Printf(TEXT("%s"), *CachedSpecPasswords[HostAddress]);
 		}
 	}
 	else if (CachedPasswords.Contains(HostAddress))
 	{
-		return FString::Printf(TEXT("?password=%s"), *CachedPasswords[HostAddress]);
+		return FString::Printf(TEXT("%s"), *CachedPasswords[HostAddress]);
 	}
 	return TEXT("");
 }

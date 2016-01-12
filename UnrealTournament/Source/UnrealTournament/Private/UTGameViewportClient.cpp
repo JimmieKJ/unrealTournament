@@ -323,8 +323,9 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 					{
 						// We have a cached password and we didn't try it already, just reconnect.  We have to do this here for Hub instances that
 						// have the same password.
-						if (LastAttemptedURL.HasOption(bNeedSpectator ? TEXT("specpassword") : TEXT("password")) && 
-							  LastAttemptedURL.GetOption((bNeedSpectator ? TEXT("specpassword") : TEXT("password")), TEXT("")) != StoredPassword)
+
+						FString LastPass = LastAttemptedURL.GetOption((bNeedSpectator ? TEXT("specpassword=") : TEXT("password=")), TEXT(""));
+						if (LastPass.IsEmpty() || LastPass != StoredPassword)
 						{
 							FirstPlayer->Reconnect(bNeedSpectator);
 							return;
