@@ -74,7 +74,7 @@ AUTRecastNavMesh::~AUTRecastNavMesh()
 
 UPrimitiveComponent* AUTRecastNavMesh::ConstructRenderingComponent()
 {
-	return NewObject<UUTNavMeshRenderingComponent>(this, TEXT("NavMeshRenderer"));
+	return NewObject<UUTNavMeshRenderingComponent>(this, TEXT("NavMeshRenderer"), RF_Transient);
 }
 
 const dtQueryFilter* AUTRecastNavMesh::GetDefaultDetourFilter() const
