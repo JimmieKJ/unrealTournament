@@ -12,7 +12,7 @@
 
 void SUTFriendsPopupWindow::Construct(const FArguments& InArgs)
 {
-	USocialAsset* SocialAsset = LoadObject<USocialAsset>(NULL, TEXT("/Game/EpicInternal/Social/SocialStyle.SocialStyle"), NULL, LOAD_None, NULL);
+	USocialAsset* SocialAsset = LoadObject<USocialAsset>(NULL, TEXT("/Game/RestrictedAssets/UI/SocialStyle.SocialStyle"), NULL, LOAD_None, NULL);
 	SocialAsset->AddToRoot();
 
 	PlayerOwner = InArgs._PlayerOwner;
