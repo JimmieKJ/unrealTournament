@@ -206,19 +206,18 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 		}
 		else
 		{
-			AActor* ViewActor = UTHUDOwner->UTPlayerOwner->GetViewTarget();
-			AUTCharacter* ViewCharacter = Cast<AUTCharacter>(ViewActor);
-			if (ViewCharacter && ViewCharacter->PlayerState)
+			AUTCharacter* ViewCharacter = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+			AUTPlayerState* PS = ViewCharacter ? Cast<AUTPlayerState>(ViewCharacter->PlayerState) : NULL;
+			if (PS)
 			{
 				FFormatNamedArguments Args;
-				Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
+				Args.Add("PlayerName", FText::AsCultureInvariant(PS->PlayerName));
 				bViewingMessage = true;
-				AUTPlayerState* PS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
 				if (UTGameState->bTeamGame && PS && PS->Team && (!UTGameState->GameModeClass || !UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>() || UTGameState->GameModeClass->GetDefaultObject<AUTTeamGameMode>()->bAnnounceTeam))
 				{
 					SpectatorMessage = (PS->Team->TeamIndex == 0)
-						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Red Team Led by {PlayerName}"), Args)
-						: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatching", "Blue Team Led by {PlayerName}"), Args);
+						? FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatchingRed", "Red Team Led by {PlayerName}"), Args)
+						: FText::Format(NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorPlayerWatchingBlue", "Blue Team Led by {PlayerName}"), Args);
 				}
 				else
 				{
