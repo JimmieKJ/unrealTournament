@@ -62,19 +62,19 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintImplementableEvent, Category = Message)
 	void OnClientReceive(APlayerController* LocalPC, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const;
 
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	FText ResolveMessage(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
 
 	/** return the spacing to wait before playing this announcement if directly following another announcement. */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
-		float GetAnnouncementSpacing(int32 Switch, const UObject* OptionalObject) const;
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
+	float GetAnnouncementSpacing(int32 Switch, const UObject* OptionalObject) const;
 
 	/** return the name of announcement to play for this message (if any); UTAnnouncer will map to an actual sound */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	FName GetAnnouncementName(int32 Switch, const UObject* OptionalObject) const;
 
 	/** return the sound to play for the announcement, if GetAnnouncementName() returned NAME_Custom. */
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	USoundBase* GetAnnouncementSound(int32 Switch, const UObject* OptionalObject) const;
 
 	/** Return true if message should be displayed with large font. */
@@ -90,46 +90,48 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	virtual bool IsLocalForAnnouncement(const FClientReceiveData& ClientData, bool bCheckFirstPS, bool bCheckSecondPS) const;
 
 	/** Return color of displayed message. */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	FLinearColor GetMessageColor(int32 MessageIndex) const;
 
 	/** How long to scale to 1 from initial message scale. */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	float GetScaleInTime(int32 MessageIndex) const;
 
 	/** Initial Message scale */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	float GetScaleInSize(int32 MessageIndex) const;
 
 	/** if true, if sent to HUD multiple times, count up instances (only if bIsUnique) */
 	/** return whether this announcement should be cancelled by the passed in announcement */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	bool ShouldCountInstances(int32 MessageIndex) const;
 
 	/** return whether this announcement should interrupt/cancel the passed in announcement */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	bool InterruptAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
 
 	/** return whether this announcement should be cancelled by the passed in announcement */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	bool CancelByAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
 
 	/** called when the UTAnnouncer plays the announcement sound - can be used to e.g. display HUD text at the same time */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	void OnAnnouncementPlayed(int32 Switch, const UObject* OptionalObject) const;
 
 	/** called to precache announcer sounds at startup, since they're dynamically loaded to enable custom announcer packs */
-	UFUNCTION(BlueprintNativeEvent, Category = Message)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Message)
 	void PrecacheAnnouncements(class UUTAnnouncer* Announcer) const;
 
 	virtual void GetArgs(FFormatNamedArguments& Args, int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
-
+	
+	UFUNCTION(BlueprintCallable, Category = Message)
 	virtual FText GetText(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
 
 	/**	Give Blueprints a way to override the text generated by this local message. */
 	UFUNCTION(BlueprintNativeEvent, Category = Message)
 	FText Blueprint_GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const;
-
+	
+	UFUNCTION(BlueprintCallable, Category = Message)
 	virtual float GetLifeTime(int32 Switch) const;
 
 	/** Range of 0 to 1, affects where announcement is inserted into pending announcements queue. */
