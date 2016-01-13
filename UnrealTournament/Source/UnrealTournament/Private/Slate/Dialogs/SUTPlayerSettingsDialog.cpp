@@ -59,9 +59,9 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	bSkipWorldRender = true;
 
-	CameraLocations.Add(FVector(-100.0f, -40, -90));
-	CameraLocations.Add(FVector(0.0f, -55, -60));
-	CameraLocations.Add(FVector(400.0f, -140, -50));
+	CameraLocations.Add(FVector(-150.0f, -25.0f, -125.0f));
+	CameraLocations.Add(FVector(90.0f, -75.0f, -60.0f));
+	CameraLocations.Add(FVector(400.0f, -150.0f, -40.0f));
 	CurrentCam = 1;
 	CamLocation = CameraLocations[1];
 

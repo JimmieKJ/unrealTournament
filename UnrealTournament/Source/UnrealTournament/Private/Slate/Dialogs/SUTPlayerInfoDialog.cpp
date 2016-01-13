@@ -49,7 +49,7 @@ void SUTPlayerInfoDialog::Construct(const FArguments& InArgs)
 	PlayerPreviewMesh = nullptr;
 	PreviewWeapon = nullptr;
 	bSpinPlayer = true;
-	ZoomOffset = -50;
+	ZoomOffset = 90.f;
 
 	PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
 	PlayerPreviewAnimFemaleBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
@@ -364,7 +364,7 @@ void SUTPlayerInfoDialog::DragPlayerPreview(const FGeometry& MyGeometry, const F
 
 void SUTPlayerInfoDialog::ZoomPlayerPreview(float WheelDelta)
 {
-	ZoomOffset = FMath::Clamp(ZoomOffset + (-WheelDelta * 10.0f), -100.0f, 400.0f);
+	ZoomOffset = FMath::Clamp(ZoomOffset + (-WheelDelta * 5.0f), -100.0f, 400.0f);
 }
 
 TSharedRef<class SWidget> SUTPlayerInfoDialog::BuildCustomButtonBar()
