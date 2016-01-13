@@ -469,7 +469,7 @@ void AUTBot::Destroyed()
 APlayerStart* AUTBot::PickSpawnPoint(const TArray<APlayerStart*> Choices)
 {
 	APlayerStart* Pick = (Squad != NULL) ? Squad->PickSpawnPointFor(this, Choices) : NULL;
-	if (Pick == NULL)
+	if ((Pick == NULL) && (Choices.Num() > 0))
 	{
 		// fallback to pure random
 		Pick = Choices[FMath::RandHelper(Choices.Num())];
