@@ -1270,6 +1270,10 @@ dtStatus dtNavMeshQuery::queryPolygons(const float* center, const float* extents
 									   dtPolyRef* polys, int* polyCount, const int maxPolys) const
 {
 	dtAssert(m_nav);
+	if (m_nav == NULL)
+	{
+		return DT_FAILURE;
+	}
 	
 	float bmin[3], bmax[3];
 	dtVsub(bmin, center, extents);
