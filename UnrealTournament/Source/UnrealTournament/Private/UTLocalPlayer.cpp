@@ -41,7 +41,6 @@
 #include "SUTDownloadAllDialog.h"
 #include "SUTSpectatorWindow.h"
 #include "UTAnalytics.h"
-#include "Social.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "Base64.h"
@@ -60,6 +59,10 @@
 #include "Runtime/JsonUtilities/Public/JsonUtilities.h"
 #include "SUTMatchSummaryPanel.h"
 #include "SUTInGameHomePanel.h"
+
+#if WITH_SOCIAL
+#include "Social.h"
+#endif
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -767,6 +770,7 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
 		ShowToast(WelcomeToast);
 		
+#if WITH_SOCIAL
 		// Init the Friends And Chat system
 		ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, true);
 		ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
@@ -787,7 +791,8 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
  		{
 			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
  		}
-		
+#endif
+
 		// on successful auto login, attempt to join an accepted friend game invite
 		if (bInitialSignInAttempt)
 		{
@@ -2444,13 +2449,14 @@ void UUTLocalPlayer::HandleFriendsNotificationAvail(bool bAvailable)
 
 void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatMessage> FriendsAndChatMessage)
 {
-	
+#if WITH_SOCIAL
 	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite ||
 		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendAccepted ||
 		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendInvite)
 	{
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
 	}
+#endif
 }
 
 void UUTLocalPlayer::JoinFriendSession(const FUniqueNetId& FriendId, const FUniqueNetId& SessionId)

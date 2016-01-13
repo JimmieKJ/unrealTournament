@@ -3,7 +3,10 @@
 #include "UnrealTournament.h"
 #include "SUTFriendsWidget.h"
 #include "../SUWindowsStyle.h"
+
+#if WITH_SOCIAL
 #include "Social.h"
+#endif
 
 #if !UE_SERVER
 
@@ -24,7 +27,9 @@ void SUTFriendsWidget::Construct(const FArguments& InArgs, const FLocalPlayerCon
 				SAssignNew(ContentWidget, SWeakWidget)
 			]
 		];
+#if WITH_SOCIAL
 	ContentWidget->SetContent(ISocialModule::Get().GetFriendsAndChatManager()->GenerateFriendsListWidget(InArgs._FriendStyle).ToSharedRef());
+#endif
 }
 
 SUTFriendsWidget::~SUTFriendsWidget()

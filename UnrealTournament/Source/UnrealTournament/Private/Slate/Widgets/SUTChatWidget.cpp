@@ -3,7 +3,10 @@
 #include "UnrealTournament.h"
 #include "SUTChatWidget.h"
 #include "../SUWindowsStyle.h"
+
+#if WITH_SOCIAL
 #include "Social.h"
+#endif
 
 #define CHAT_BOX_WIDTH 576.0f
 #define CHAT_BOX_HEIGHT 320.0f
@@ -17,6 +20,7 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 {
 	Ctx = InCtx;
 
+#if WITH_SOCIAL
 	//some constant values
 	const int32 PaddingValue = 2;
 
@@ -44,6 +48,7 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
  			]
 		]
 	];
+#endif
 }
 
 void SUTChatWidget::HandleFriendsNetworkChatMessage(const FString& NetworkMessage)
@@ -61,8 +66,10 @@ void SUTChatWidget::Tick(const FGeometry& AllottedGeometry, const double InCurre
 void SUTChatWidget::SetFocus()
 {
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this));
-	
+
+#if WITH_SOCIAL
 	Display->SetFocus();
+#endif
 }
 
 FReply SUTChatWidget::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InFocusEvent )

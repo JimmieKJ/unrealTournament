@@ -9,7 +9,6 @@
 #include "UTHat.h"
 #include "UTCharacterContent.h"
 #include "SUWindowsStyle.h"
-#include "SUTSTyle.h"
 #include "Dialogs/SUTPlayerInfoDialog.h"
 #include "Widgets/SUTTabWidget.h"
 #include "StatNames.h"

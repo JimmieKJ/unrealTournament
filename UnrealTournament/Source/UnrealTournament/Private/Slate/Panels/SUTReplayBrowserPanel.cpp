@@ -5,7 +5,10 @@
 #include "SUTReplayBrowserPanel.h"
 #include "../Dialogs/SUTInputBoxDialog.h"
 #include "Net/UnrealNetwork.h"
+
+#if WITH_SOCIAL
 #include "Social.h"
+#endif
 
 #if !UE_SERVER
 
