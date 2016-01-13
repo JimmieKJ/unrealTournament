@@ -413,6 +413,21 @@ public class DeploymentContext //: ProjectParams
 		}
 	}
 
+    public void StageBuildProductsFromReceiptAllDebug(TargetReceipt Receipt, bool RequireDependenciesToExist)
+    {
+        // Stage all the build products needed at runtime
+        foreach (BuildProduct BuildProduct in Receipt.BuildProducts)
+        {
+            // allow missing files if needed
+            if (RequireDependenciesToExist == false && File.Exists(BuildProduct.Path) == false)
+            {
+                continue;
+            }
+
+            StageFile(StagedFileType.DebugNonUFS, BuildProduct.Path);
+        }
+    }
+
 	public void StageRuntimeDependenciesFromReceipt(TargetReceipt Receipt, bool RequireDependenciesToExist)
 	{
 		// Also stage any additional runtime dependencies, like ThirdParty DLLs

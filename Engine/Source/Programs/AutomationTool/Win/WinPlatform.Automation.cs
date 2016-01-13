@@ -38,7 +38,14 @@ public abstract class BaseWinPlatform : Platform
 		// Stage all the build products
 		foreach(StageTarget Target in SC.StageTargets)
 		{
-			SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
+            if (Target.Receipt.Configuration == SC.StageTargetConfigurations[0])
+            {
+                SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
+            }
+            else
+            {
+                SC.StageBuildProductsFromReceiptAllDebug(Target.Receipt, Target.RequireFilesExist);
+            }
 		}
 
 		// Copy the splash screen, windows specific
@@ -276,6 +283,12 @@ public class Win64Platform : BaseWinPlatform
 			string InstallerRelativePath = CombinePaths("Engine", "Extras", "Redist", "en-us");
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, InstallerRelativePath), "UE4PrereqSetup_x64.exe", false, null, InstallerRelativePath);
 		}
+
+        SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/Win32"), "*", true, null, null, true, true, null, true, false);
+        if (SC.IsCodeBasedProject)
+        {
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.RuntimeProjectRootDir, "Binaries/Win32"), "*", true, null, null, true, true, null, true, false);
+        }
 	}
 }
 
@@ -297,5 +310,11 @@ public class Win32Platform : BaseWinPlatform
 			string InstallerRelativePath = CombinePaths("Engine", "Extras", "Redist", "en-us");
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, InstallerRelativePath), "UE4PrereqSetup_x86.exe", false, null, InstallerRelativePath);
 		}
+
+        SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine/Binaries/Win64"), "*", true, null, null, true, true, null, true, false);
+        if (SC.IsCodeBasedProject)
+        {
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.RuntimeProjectRootDir, "Binaries/Win64"), "*", true, null, null, true, true, null, true, false);
+        }
 	}
 }
