@@ -351,6 +351,11 @@ void AUTShowdownGame::StartIntermission()
 
 void AUTShowdownGame::RestartPlayer(AController* aPlayer)
 {
+	AUTPlayerState* PS = Cast<AUTPlayerState>(aPlayer->PlayerState);
+	if (PS)
+	{
+		PS->SetOutOfLives(!bAllowPlayerRespawns);
+	}
 	if (bAllowPlayerRespawns)
 	{
 		Super::RestartPlayer(aPlayer);

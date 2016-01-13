@@ -80,12 +80,10 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 
 void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 {
-	if (bAllowPlayerRespawns)
-	{
-		Super::RestartPlayer(aPlayer);
-	}
+	Super::RestartPlayer(aPlayer);
+
 	// go to spectating if dead and can't respawn
-	else if (IsMatchInProgress() && aPlayer->GetPawn() == NULL)
+	if (!bAllowPlayerRespawns && IsMatchInProgress() && aPlayer->GetPawn() == NULL)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
 		if (PC != NULL)
