@@ -58,7 +58,7 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 
 	/** allows changing or reacting to player login URL options */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	void ModifyLogin(FString& Portal, FString& Options);
+	void ModifyLogin(UPARAM(ref) FString& Portal, UPARAM(ref) FString& Options);
 
 	/** called when a player joins the game initially or is rebuilt due to seamless travel, after the Controller is created and fully initialized with its local viewport or remote connection (so RPCs are OK here)
 	 * this function is also called for bots
@@ -76,7 +76,7 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	* MAKE SURE TO CALL SUPER TO PROCESS ADDITIONAL MUTATORS
 	*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	bool AlwaysKeep(AActor* Other, bool& bPreventModify);
+	bool AlwaysKeep(AActor* Other, UPARAM(ref) bool& bPreventModify);
 
 	/** entry point for mutators modifying, replacing, or destroying Actors
 	 * return false to destroy Other
@@ -131,7 +131,7 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	* @return whether or not to override the default behavior with the value of bAllowPickup
 	*/
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	bool OverridePickupQuery(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, bool& bAllowPickup);
+	bool OverridePickupQuery(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, UPARAM(ref) bool& bAllowPickup);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
@@ -148,7 +148,7 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	}
 
 	UFUNCTION(BlueprintNativeEvent)
-	void GetGameURLOptions(TArray<FString>& OptionsList);
+	void GetGameURLOptions(UPARAM(ref) TArray<FString>& OptionsList);
 
 protected:
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Parse)
