@@ -17,9 +17,9 @@ public:
 	{
 		SMComp = OI.CreateDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("SMComp")));
 		SMComp->AttachParent = Collision;
-		static ConstructorHelpers::FObjectFinder<UStaticMesh> BoxMesh(TEXT("/Game/RestrictedAssets/Environments/Liandri/Meshes/SM_TestCubeFaceWeighted.SM_TestCubeFaceWeighted"));
+		static ConstructorHelpers::FObjectFinder<UStaticMesh> BoxMesh(TEXT("/Game/RestrictedAssets/Proto/UT3_Pickups/Ammo/S_AmmoCrate.S_AmmoCrate"));
 		SMComp->SetStaticMesh(BoxMesh.Object);
-		SMComp->SetRelativeScale3D(FVector(0.3f, 0.3f, 0.3f));
+		SMComp->RelativeLocation = FVector(0.0f, 0.0f, -30.0f);
 		SMComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 	
