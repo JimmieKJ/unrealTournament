@@ -1267,8 +1267,12 @@ void AUTGameMode::ScorePickup_Implementation(AUTPickup* Pickup, AUTPlayerState* 
 {
 }
 
-void AUTGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTGameMode::ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker)
 {
+	if (Victim && Attacker && UTGameState && !UTGameState->OnSameTeam(Victim, Attacker))
+	{
+		Attacker->IncrementDamageDone(DamageAmount);
+	}
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->ScoreDamage(DamageAmount, Victim, Attacker);
@@ -1294,7 +1298,6 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 		if (OtherPlayerState)
 		{
 			OtherPlayerState->AdjustScore(-1);
-			OtherPlayerState->IncrementKills(DamageType, false, OtherPlayerState);
 		}
 	}
 	else 
@@ -3015,7 +3018,6 @@ bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, 
 	{
 		BaseMutator->ModifyDamage(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
 	}
-
 	return true;
 }
 

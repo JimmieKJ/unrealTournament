@@ -15,6 +15,8 @@
 #include "SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 #include "UTShowdownRewardMessage.h"
+#include "UTFirstBloodMessage.h"
+#include "UTMutator.h"
 
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -22,6 +24,7 @@ AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	TimeLimit = 3.0f; // per round
 	GoalScore = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Team Showdown");
+	bAnnounceTeam = true;
 }
 
 void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -225,12 +228,66 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 			AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
 			if (KillerPS != NULL)
 			{
-				KillerPS->AdjustScore(-1);
+				KillerPS->AdjustScore(-100);
 			}
 		}
 		else
 		{
-			AUTTeamGameMode::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
+			AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
+			if ((Killer == Other) || (Killer == NULL))
+			{
+				// If it's a suicide, subtract a kill from the player...
+				if (OtherPlayerState)
+				{
+					OtherPlayerState->AdjustScore(-100);
+				}
+			}
+			else
+			{
+				OtherPlayerState->AdjustScore(-100);
+				AUTPlayerState * KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+				if (KillerPlayerState != NULL)
+				{
+					KillerPlayerState->AdjustScore(+100);
+					KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
+					CheckScore(KillerPlayerState);
+				}
+
+				if (!bFirstBloodOccurred)
+				{
+					BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, KillerPlayerState, NULL, NULL);
+					bFirstBloodOccurred = true;
+				}
+			}
+		}
+		AddKillEventToReplay(Killer, Other, DamageType);
+		if (BaseMutator != NULL)
+		{
+			BaseMutator->ScoreKill(Killer, Other, DamageType);
+		}
+		FindAndMarkHighScorer();
+	}
+}
+
+void AUTTeamShowdownGame::ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker)
+{
+	Super::ScoreDamage_Implementation(DamageAmount, Victim, Attacker);
+	if (Victim && Attacker && UTGameState && !UTGameState->OnSameTeam(Victim, Attacker))
+	{
+		Attacker->AdjustScore(DamageAmount);
+	}
+}
+
+void AUTTeamShowdownGame::StartNewRound()
+{
+	Super::StartNewRound();
+	AUTPlayerState* Best = NULL;
+	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		if (PS && !PS->bIsInactive && !PS->bOnlySpectator)
+		{
+			PS->AdjustScore(100);
 		}
 	}
 }

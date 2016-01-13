@@ -164,7 +164,7 @@ void AUTCTFBaseGame::AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUT
 	}
 }
 
-void AUTCTFBaseGame::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTCTFBaseGame::ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker)
 {
 	Super::ScoreDamage_Implementation(DamageAmount, Victim, Attacker);
 	CTFScoring->ScoreDamage(DamageAmount, Victim, Attacker);

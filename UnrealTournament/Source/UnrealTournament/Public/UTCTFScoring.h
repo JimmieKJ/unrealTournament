@@ -100,7 +100,7 @@ class UNREALTOURNAMENT_API AUTCTFScoring : public AInfo
 
 	virtual void BeginPlay() override;
 	virtual void FlagHeldTimer();
-	virtual void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
+	virtual void ScoreDamage(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker);
 	virtual void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* HolderPawn, AUTPlayerState* Holder, FName Reason, float TimeLimit);
 

@@ -99,7 +99,7 @@ void AUTMutator::ScoreObject_Implementation(AUTCarriedObject* GameObject, AUTCha
 	}
 }
 
-void AUTMutator::ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTMutator::ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker)
 {
 	if (NextMutator != NULL)
 	{

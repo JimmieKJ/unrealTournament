@@ -774,19 +774,11 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 				bRadialDamage = true;
 			}
 		}
-		int32 AppliedDamage = ResultDamage;
 
 		if (!IsDead())
 		{
-			AUTPlayerState* EnemyPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
-			if (EnemyPS)
-			{
-				AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
-				if (GS && !GS->OnSameTeam(this, EventInstigator))
-				{
-					EnemyPS->IncrementDamageDone(AppliedDamage);
-				}
-			}
+			// cache here in case lose it when killed
+			AUTPlayerState* MyPS = Cast<AUTPlayerState>(PlayerState);
 
 			// we need to pull the hit info out of FDamageEvent because ModifyDamage() goes through blueprints and that doesn't correctly handle polymorphic structs
 			FHitResult HitInfo;
@@ -813,7 +805,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					Cast<AUTRemoteRedeemer>(DamageCauser)->StatsHitCredit += ResultDamage;
 				}
 			}
-			AppliedDamage = ResultDamage;
+			int32 AppliedDamage = ResultDamage;
 			AUTInventory* HitArmor = NULL;
 			ModifyDamageTaken(AppliedDamage, ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
 			if (HitArmor)
@@ -870,16 +862,15 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				Health -= ResultDamage;
 				bWasFallingWhenDamaged = (GetCharacterMovement() != NULL && (GetCharacterMovement()->MovementMode == MOVE_Falling));
-				if (EnemyPS && Health < 0)
+				if (Health < 0)
 				{
-					EnemyPS->IncrementDamageDone(Health);
+					AppliedDamage += Health;
 				}
 			}
 			UE_LOG(LogUTCharacter, Verbose, TEXT("%s took %d damage, %d health remaining"), *GetName(), ResultDamage, Health);
+			AUTPlayerState* EnemyPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
+			Game->ScoreDamage(AppliedDamage, MyPS, EnemyPS);
 
-			// Let the game Score damage if it wants to
-			// make sure not to count overkill damage!
-			Game->ScoreDamage(ResultDamage + FMath::Min<int32>(Health, 0), Controller, EventInstigator);
 			bool bIsSelfDamage = (EventInstigator == Controller && Controller != NULL);
 			if (UTDamageTypeCDO != NULL)
 			{

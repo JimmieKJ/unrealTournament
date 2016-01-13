@@ -381,7 +381,7 @@ public:
 	void ScorePickup(AUTPickup* Pickup, AUTPlayerState* PickedUpBy, AUTPlayerState* LastPickedUpBy);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
+		void ScoreDamage(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ScoreKill(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);

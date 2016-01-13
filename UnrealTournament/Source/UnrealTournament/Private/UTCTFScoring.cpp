@@ -243,15 +243,12 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 }
 
 /** Save partial credit for flag carrier damage. */
-void AUTCTFScoring::ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker)
+void AUTCTFScoring::ScoreDamage(int32 DamageAmount, AUTPlayerState* VictimPS, AUTPlayerState* AttackerPS)
 {
-	AUTPlayerState* VictimPS = Victim ? Cast<AUTPlayerState>(Victim->PlayerState) : NULL;
 	if (!VictimPS || !VictimPS->CarriedObject || (DamageAmount <= 0))
 	{
 		return;
 	}
-	AUTPlayerState* AttackerPS = Attacker ? Cast<AUTPlayerState>(Attacker->PlayerState) : NULL;
-
 	if (AttackerPS && (AttackerPS != VictimPS))
 	{
 		int32 DamagePoints = FMath::Clamp<int32>(AttackerPS->FCDamageAccum + DamageAmount, 0, 100) / 20;

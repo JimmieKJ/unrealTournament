@@ -134,7 +134,7 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	bool OverridePickupQuery(APawn* Other, TSubclassOf<AUTInventory> ItemClass, AActor* Pickup, UPARAM(ref) bool& bAllowPickup);
 
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
-	void ScoreDamage(int32 DamageAmount, AController* Victim, AController* Attacker);
+		void ScoreDamage(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker);
 
 	/** notification that the game's state has changed (e.g. pre-match -> in progress -> half time -> in progress -> game over) */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
