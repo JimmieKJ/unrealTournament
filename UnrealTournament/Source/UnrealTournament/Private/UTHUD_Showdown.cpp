@@ -260,8 +260,8 @@ void AUTHUD_Showdown::DrawHUD()
 						{
 							// draw it
 							const float Ratio = float(SpawnPreviewCapture->TextureTarget->SizeX) / float(SpawnPreviewCapture->TextureTarget->SizeY);
-							FVector2D PreviewPos = FVector2D((0.95f*Canvas->SizeX + MapSize) * 0.5f, Canvas->SizeY * 0.2f);
 							FVector2D PreviewSize = FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeX - MapSize) * 0.5f / Ratio);
+							FVector2D PreviewPos = FVector2D(Canvas->SizeX - PreviewSize.X - 0.01f*Canvas->SizeX, 0.01f*Canvas->SizeX);
 							DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y, 1.1f*PreviewSize.X, 4, 4, 2, 124, 8, FLinearColor::White);
 							DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y - 0.15f*PreviewSize.Y + 4, 1.1f*PreviewSize.X, 1.3f*PreviewSize.Y - 8, 4, 10, 124, 112, FLinearColor::White);
 							DrawTexture(SpawnHelpTextBG.Texture, PreviewPos.X - 0.05f*PreviewSize.X, PreviewPos.Y + 1.15f*PreviewSize.Y - 4, 1.1f*PreviewSize.X, 4, 4, 122, 124, 8, FLinearColor::White);
