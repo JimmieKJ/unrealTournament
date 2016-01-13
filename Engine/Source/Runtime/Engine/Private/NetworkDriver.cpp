@@ -779,7 +779,7 @@ void UNetDriver::TickDispatch( float DeltaTime )
 
 	if ( DeltaTime > TickWarnThreshold || DeltaRealtime > TickWarnThreshold )
 	{
-		UE_LOG( LogNet, Warning, TEXT( "UNetDriver::TickDispatch: Very long time between ticks. DeltaTime: %2.2f, Realtime: %2.2f. %s" ), DeltaTime, DeltaRealtime, *GetName() );
+		//UE_LOG( LogNet, Warning, TEXT( "UNetDriver::TickDispatch: Very long time between ticks. DeltaTime: %2.2f, Realtime: %2.2f. %s" ), DeltaTime, DeltaRealtime, *GetName() );
 	}
 
 	// Get new time.
