@@ -6,6 +6,7 @@
 #include "Dialogs/SUTRedirectDialog.h"
 #include "UTDemoNetDriver.h"
 #include "UTGameEngine.h"
+#include "UTGameViewportClient.h"
 
 UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -108,8 +109,8 @@ bool UUTGameInstance::IsAutoDownloadingContent()
 bool UUTGameInstance::StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum)
 {
 #if !UE_SERVER
-	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
-	if (Engine != NULL && !Engine->HasContentWithChecksum(PakName, Checksum))
+	UUTGameViewportClient* Viewport = Cast<UUTGameViewportClient>(GetGameViewportClient());
+	if (Viewport != NULL && !Viewport->CheckIfRedirectExists(FPackageRedirectReference(PakName, TEXT(""), TEXT(""), Checksum)))
 	{
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 		if (LocalPlayer != NULL)

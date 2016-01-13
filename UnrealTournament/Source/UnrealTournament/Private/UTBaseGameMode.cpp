@@ -235,6 +235,17 @@ bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectR
 		if (BasePackageName.Equals(BaseRedirectPackageName,ESearchCase::IgnoreCase))
 		{
 			Redirect = RedirectReferences[i];
+			// if we know the checksum "for reals" then don't use the user specified one
+			// TODO: probably the user one should just go away
+			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+			if (UTEngine != NULL)
+			{
+				const FString* FoundChecksum = UTEngine->MountedDownloadedContentChecksums.Find(BaseRedirectPackageName);
+				if (FoundChecksum != NULL)
+				{
+					Redirect.PackageChecksum = *FoundChecksum;
+				}
+			}
 			return true;
 		}
 	}
