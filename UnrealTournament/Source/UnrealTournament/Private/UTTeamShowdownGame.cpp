@@ -110,6 +110,12 @@ void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
 	}
 }
 
+void AUTTeamShowdownGame::PlayEndOfMatchMessage()
+{
+	// individual winner, not team
+	AUTTeamGameMode::PlayEndOfMatchMessage();
+}
+
 void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(Other);

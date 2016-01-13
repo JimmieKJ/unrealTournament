@@ -28,6 +28,7 @@ public:
 	virtual void ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker) override;
 	virtual AInfo* GetTiebreakWinner(FName* WinReason = NULL) const override;
 	virtual void ScoreExpiredRoundTime() override;
+	virtual void PlayEndOfMatchMessage() override;
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 	virtual void UpdateSkillRating()
