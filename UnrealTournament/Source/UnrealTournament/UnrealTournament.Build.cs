@@ -58,7 +58,7 @@ public class UnrealTournament : ModuleRules
 													"PerfCounters",
                                                     "PakFile",
 													"FriendsAndChat",
-													"Social",});
+                                                    });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
         if (Target.Type != TargetRules.TargetType.Server)
@@ -72,12 +72,15 @@ public class UnrealTournament : ModuleRules
         
         if (UEBuildConfiguration.bCompileMcpOSS == true)
         {
+            // bCompileMcpOSS has become a dumping ground for the detection of external builders, this should get formalized into a real concept
+
             if (Target.Platform == UnrealTargetPlatform.Win64)
             {
                 PublicDependencyModuleNames.AddRange(new string[] { "WinDualShock" });
             }
 
             Definitions.Add("WITH_PROFILE=1");
+            Definitions.Add("WITH_SOCIAL=1");
 
             PublicDependencyModuleNames.AddRange(
                 new string[]
@@ -85,6 +88,7 @@ public class UnrealTournament : ModuleRules
                     "OnlineSubsystemMcp",
                     "McpProfileSys",
                     "UTMcpProfile",
+                    "Social",
                 }
             );
         }
