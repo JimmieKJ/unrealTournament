@@ -10,7 +10,12 @@ class UNREALTOURNAMENT_API UUTShowdownScoreboard : public UUTTeamScoreboard
 	GENERATED_UCLASS_BODY()
 
 	public:
-	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset) override;
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+			float ColumnHeaderKillsX;
+		
+		virtual void DrawScoreHeaders(float RenderDelta, float& YOffset) override;
+		virtual void DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor) override;
+		virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset) override;
 	virtual void Draw_Implementation(float RenderDelta) override;
 };
 

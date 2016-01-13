@@ -7,6 +7,9 @@
 UUTShowdownScoreboard::UUTShowdownScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	CellHeight = 120.f;
+	ColumnHeaderScoreX = 0.65f;
+	ColumnHeaderKillsX = 0.75f;
+	ColumnHeaderDeathsX = 0.85f;
 }
 
 void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
@@ -58,6 +61,49 @@ void UUTShowdownScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState,
 	}
 }
 
+void UUTShowdownScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
+{
+	float XOffset = 0.f;
+	float Width = (Size.X * 0.5f) - CenterBuffer;
+	float Height = 23;
+
+	FText CH_PlayerName = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerName", "Player");
+	FText CH_Score = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerScore", "Score");
+	FText CH_Kills = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerKills", "KILLS");
+	FText CH_Deaths = NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerDeaths", "DEATHS");
+	FText CH_Ping = (GetWorld()->GetNetMode() == NM_Standalone) ? NSLOCTEXT("UTScoreboard", "ColumnHeader_BotSkill", "Skill") : NSLOCTEXT("UTScoreboard", "ColumnHeader_PlayerPing", "Ping");
+	FText CH_Ready = NSLOCTEXT("UTScoreboard", "ColumnHeader_Ready", "");
+
+	for (int32 i = 0; i < 2; i++)
+	{
+		// Draw the background Border
+		DrawTexture(TextureAtlas, XOffset, YOffset, Width, Height, 149, 138, 32, 32, 1.0, FLinearColor(0.72f, 0.72f, 0.72f, 0.85f));
+
+		DrawText(CH_PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
+		if (UTGameState && UTGameState->HasMatchStarted())
+		{
+			DrawText(CH_Score, XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Kills, XOffset + (Width * ColumnHeaderKillsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+			DrawText(CH_Deaths, XOffset + (Width * ColumnHeaderDeathsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+		}
+		else
+		{
+			DrawText(CH_Ready, XOffset + (Width * ColumnHeaderKillsX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+		}
+		DrawText(CH_Ping, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+		XOffset = Size.X - Width;
+	}
+
+	YOffset += Height + 4.f;
+}
+
+
+void UUTShowdownScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)
+{
+	DrawText(FText::AsNumber(int32(PlayerState->Score)), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText(FText::AsNumber(PlayerState->Kills), XOffset + (Width * ColumnHeaderKillsX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+	DrawText(FText::AsNumber(PlayerState->Deaths), XOffset + (Width * ColumnHeaderDeathsX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+}
 void UUTShowdownScoreboard::Draw_Implementation(float RenderDelta)
 {
 	Super::Draw_Implementation(RenderDelta);
