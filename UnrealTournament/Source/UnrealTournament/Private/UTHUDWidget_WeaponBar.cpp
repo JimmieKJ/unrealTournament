@@ -7,10 +7,10 @@
 
 UUTHUDWidget_WeaponBar::UUTHUDWidget_WeaponBar(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
-	Position=FVector2D(0.0f, -90.0f);
+	Position=FVector2D(-8.0f, -500.0f);
 	Size=FVector2D(0,0);
 	ScreenPosition=FVector2D(1.0f, 1.0f);
-	Origin=FVector2D(1.0f,1.0f);
+	Origin=FVector2D(1.f,1.f);
 
 	SelectedCellScale=1.1;
 	SelectedAnimRate=0.3;
@@ -64,27 +64,28 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 	{
 		if (InactiveOpacity != UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity)
 		{
-			float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) * DeltaTime;	// 1 second fade
+			float Delta = (1.f - UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) * DeltaTime;	// 1 second fade
 			if (InactiveOpacity < UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity) 
 			{
-				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity);
+				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity + Delta, 0.f, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity);
 			}
 			else
 			{
-				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity - Delta, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity, 1.0);
+				InactiveOpacity = FMath::Clamp<float>(InactiveOpacity - Delta, UTHUDOwner->HUDWidgetWeaponbarInactiveOpacity, 1.f);
 			}
 		}
 
 		if (InactiveIconOpacity != UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity)
 		{
-			float Delta = (1.0 - UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) * DeltaTime;	// 1 second fade
+			float MaxIconOpacity = FMath::Max(0.6f, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
+			float Delta = (MaxIconOpacity - UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) * DeltaTime;	// 1 second fade
 			if (InactiveIconOpacity < UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity) 
 			{
-				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity + Delta, 0.0, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
+				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity + Delta, 0.f, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
 			}
 			else
 			{
-				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity - Delta, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity, 1.0);
+				InactiveIconOpacity = FMath::Clamp<float>(InactiveIconOpacity - Delta, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity, MaxIconOpacity);
 			}
 		}
 	}
@@ -123,7 +124,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		{
 			// Weapon has changed.. set everything up.
 			InactiveOpacity = 1.f;
-			InactiveIconOpacity = 1.f;
+			InactiveIconOpacity = FMath::Max(0.6f, UTHUDOwner->HUDWidgetWeaponBarInactiveIconOpacity);
 			FadeTimer = 1.f;
 
 			LastGroup = SelectedGroup;
@@ -199,13 +200,14 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					RenderObj_TextureAt(CellBackground[Idx], XPosition, YPosition, IconCellWidth, CellHeight);
 					RenderObj_TextureAt(CellBorders[Idx], XPosition, YPosition, IconCellWidth, CellHeight);
 
-					Opacity = bSelected ? 1.0 : InactiveIconOpacity;
+					Opacity = bSelected ? 1.f : InactiveIconOpacity;
 
 					// Draw the Weapon Icon
 					if (CurrentWeapon)
 					{
-						WeaponIcon.UVs = bSelected ? CurrentWeapon->WeaponBarSelectedUVs : CurrentWeapon->WeaponBarInactiveUVs;
-						WeaponIcon.RenderColor = UTHUDOwner->bUseWeaponColors ? CurrentWeapon->IconColor : FLinearColor::White;
+						WeaponIcon.UVs = CurrentWeapon->WeaponBarSelectedUVs;
+						WeaponIcon.RenderColor = bSelected ? CurrentWeapon->IconColor : FLinearColor::White;
+						WeaponIcon.RenderColor.A = Opacity;
 					}
 
 					float WeaponY = (CellHeight * 0.5) - (WeaponIcon.UVs.VL * CellScale * 0.5);
