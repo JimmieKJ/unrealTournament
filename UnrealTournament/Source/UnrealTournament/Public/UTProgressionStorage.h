@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 //
 // These are settings that are stored in a remote MCP managed profile.  A copy of them are also stored in the user folder on the local machine
 // in case of MCP failure or downtime.

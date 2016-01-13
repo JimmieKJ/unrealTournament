@@ -1,6 +1,6 @@
 // path that requires a higher than normal jump capability
 // may also be traversed by advanced weapon use, e.g. impact jump, translocator
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 

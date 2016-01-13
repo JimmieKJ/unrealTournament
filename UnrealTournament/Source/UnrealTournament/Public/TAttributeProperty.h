@@ -3,7 +3,7 @@
 // note that since delegates hold weak pointers, you will need to keep a TSharedPtr reference to the constructed TAttributeProperty
 // to keep everything working
 
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 DECLARE_DELEGATE(FAttributePropertyChangedDelegate);

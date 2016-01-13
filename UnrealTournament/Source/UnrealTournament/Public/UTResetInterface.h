@@ -1,5 +1,5 @@
 // implement this interface for Actors that should handle game mode resets (halftime in CTF, role swap in Assault, etc)
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTResetInterface.generated.h"

@@ -1,5 +1,5 @@
 // place to define a place that bots can get off a lift/mover
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 

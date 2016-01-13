@@ -1,7 +1,7 @@
 // Squad AI contains gametype and role specific AI for bots
 // for example, an attacker in CTF gets a different Squad than a defender in CTF
 // which is different from a defender in Warfare
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTBot.h"

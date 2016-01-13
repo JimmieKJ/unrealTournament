@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *	This is the base class for the panels that co-exist with the UT Menus.  The panels will fill the entire space beneath the menu

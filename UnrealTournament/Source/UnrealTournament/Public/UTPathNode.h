@@ -1,5 +1,5 @@
 // Nodes overlaying the navmesh to provide richer information about points of interest and advanced reachability (e.g. superjump links)
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 

@@ -1,6 +1,6 @@
 // implement this interface to allow game code to determine what team it is on
 // Actors without this interface are assumed to be on no team (generally hostile to all things)
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTTeamInterface.generated.h"

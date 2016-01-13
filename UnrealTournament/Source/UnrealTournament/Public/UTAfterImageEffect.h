@@ -1,5 +1,5 @@
 // creates a short duration shootable particle of a given character (for teleports, i.e. translocator)
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "UTWeaponRedirector.h"

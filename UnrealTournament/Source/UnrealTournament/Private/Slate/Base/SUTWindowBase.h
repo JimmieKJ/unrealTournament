@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+// Copyright 1998-2016 Epic Games, Inc. All Rights Reserved.
 
 /**
  *	this is the base class of our window system.  UI windows are defined as a free form ui element that can be anywhere on the screen.  It has no special management 
