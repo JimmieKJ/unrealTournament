@@ -71,6 +71,16 @@ void AUTWeap_Translocator::ClearDisk()
 		TransDisk->Explode(TransDisk->GetActorLocation(), FVector(0.0f, 0.0f, 1.0f));
 	}
 	TransDisk = NULL;
+	
+	if (GetUTOwner() != NULL)
+	{
+		// reset bHasTranslocator if it was false due to disrupted disk
+		AUTBot* B = Cast<AUTBot>(GetUTOwner()->Controller);
+		if (B != NULL)
+		{
+			B->bHasTranslocator = true;
+		}
+	}
 }
 
 void AUTWeap_Translocator::RecallDisk()
@@ -166,6 +176,12 @@ void AUTWeap_Translocator::FireShot()
 				if (Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled())
 				{
 					Cast<AUTPlayerController>(UTOwner->GetController())->SendPersonalMessage(TranslocatorMessageClass, 0, NULL, NULL, NULL);
+				}
+				// end bot's move here if it requires translocation since it's not going to be able to refire to try again
+				AUTBot* B = Cast<AUTBot>(UTOwner->GetController());
+				if (B != NULL && Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get()) != NULL)
+				{
+					B->MoveTimer = -1.0f;
 				}
 			}
 			else

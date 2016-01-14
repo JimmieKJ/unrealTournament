@@ -69,6 +69,14 @@ float AUTProj_TransDisk::TakeDamage(float DamageAmount, struct FDamageEvent cons
 				{
 					FTimerHandle TempHandle;
 					GetWorldTimerManager().SetTimer(TempHandle, this, &AUTProj_TransDisk::ShutDown, DisruptDestroyTime, false);
+					if (MyTranslocator != NULL && MyTranslocator->GetUTOwner() != NULL)
+					{
+						AUTBot* B = Cast<AUTBot>(MyTranslocator->GetUTOwner()->Controller);
+						if (B != NULL)
+						{
+							B->bHasTranslocator = false; // note: this (intentionally) won't prevent bot from trying to use this disk in flight
+						}
+					}
 				}
 				//Play and deactivate effects
 				OnDisrupted();
