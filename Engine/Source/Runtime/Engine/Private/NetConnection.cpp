@@ -1471,7 +1471,7 @@ void UNetConnection::Tick()
 
 	if ( DeltaTime > TickWarnThreshold || FrameTime > TickWarnThreshold )
 	{
-		UE_LOG( LogNet, Warning, TEXT( "UNetConnection::Tick: Very long time between ticks. DeltaTime: %2.2f, Realtime: %2.2f %s" ), DeltaTime, FrameTime, *Describe() );
+		//UE_LOG( LogNet, Warning, TEXT( "UNetConnection::Tick: Very long time between ticks. DeltaTime: %2.2f, Realtime: %2.2f %s" ), DeltaTime, FrameTime, *Describe() );
 	}
 
 	// Handle timeouts.
