@@ -9,7 +9,7 @@
 #include "UTMenuGameMode.h"
 #include "UTProfileSettings.h"
 #include "UTGameViewportClient.h"
-#include "SUWindowsDesktop.h"
+#include "Base/SUTMenuBase.h"
 #include "SUTMainMenu.h"
 #include "SUTServerBrowserPanel.h"
 #include "SUTReplayBrowserPanel.h"
@@ -339,7 +339,6 @@ void UUTLocalPlayer::WindowClosed(TSharedPtr<SUTWindowBase> WindowThatWasClosed)
 void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 {
 #if !UE_SERVER
-	
 	if (bRecordingReplay)
 	{
 		static const FName VideoRecordingFeatureName("VideoRecording");
@@ -2667,17 +2666,13 @@ TSharedPtr<SUTMatchSummaryPanel> UUTLocalPlayer::GetSummaryPanel()
 	// If we have a menu open, have the menu try to show the player info.
 	if (DesktopSlateWidget.IsValid())
 	{
-		TSharedPtr<SUTMenuBase> MenuBase = StaticCastSharedPtr<SUTMenuBase>(DesktopSlateWidget);
-		if (MenuBase.IsValid())
+		TSharedPtr<SUTPanelBase> ActivePanel = DesktopSlateWidget->GetActivePanel();
+		if (ActivePanel.IsValid() && ActivePanel->Tag == FName(TEXT("InGameHomePanel")))
 		{
-			TSharedPtr<SUTPanelBase> ActivePanel = MenuBase->GetActivePanel();
-			if (ActivePanel.IsValid() && ActivePanel->Tag == FName(TEXT("InGameHomePanel")))
+			TSharedPtr<SUTInGameHomePanel> HomePanel = StaticCastSharedPtr<SUTInGameHomePanel>(ActivePanel);
+			if (HomePanel.IsValid())
 			{
-				TSharedPtr<SUTInGameHomePanel> HomePanel = StaticCastSharedPtr<SUTInGameHomePanel>(ActivePanel);
-				if (HomePanel.IsValid())
-				{
-					return HomePanel->GetSummaryPanel();
-				}
+				return HomePanel->GetSummaryPanel();
 			}
 		}
 	}
@@ -3931,6 +3926,12 @@ int32 UUTLocalPlayer::NumDialogsOpened()
 bool UUTLocalPlayer::SkipWorldRender()
 {
 #if !UE_SERVER
+
+	if (DesktopSlateWidget.IsValid() && DesktopSlateWidget->SkipWorldRender())
+	{
+		return true;
+	}
+
 	if (GetSummaryPanel().IsValid())
 	{
 		return true;
@@ -4220,3 +4221,5 @@ void UUTLocalPlayer::EpicFlagCheck()
 		SaveProfileSettings();
 	}
 }
+
+

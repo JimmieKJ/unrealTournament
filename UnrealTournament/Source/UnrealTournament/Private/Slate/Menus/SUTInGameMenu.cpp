@@ -4,7 +4,6 @@
 #include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "SUWindowsDesktop.h"
 #include "SUTMainMenu.h"
 #include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
@@ -52,7 +51,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 					.VAlign(VAlign_Center)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_ChangeTeam","CHANGE TEAM"))
+						.Text(NSLOCTEXT("SUTMenuBase","MenuBar_ChangeTeam","CHANGE TEAM"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 					]
 				]
@@ -78,7 +77,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 							.VAlign(VAlign_Center)
 							[
 								SNew(STextBlock)
-								.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_StartMatch", "START MATCH"))
+								.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_StartMatch", "START MATCH"))
 								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 							]
 						]
@@ -100,7 +99,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 							.VAlign(VAlign_Center)
 							[
 								SNew(STextBlock)
-								.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_ChangeReady", "CHANGE READY"))
+								.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_ChangeReady", "CHANGE READY"))
 								.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 							]
 						]
@@ -139,7 +138,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 			SNew(SUTButton)
 			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 			.OnClicked(this, &SUTInGameMenu::ShowSummary)
-			.Visibility(this, &SUTInGameMenu::GetMatchSummaryVisibility)
+			.Visibility(this, &SUTInGameMenu::GetMatchSummaryButtonVisibility)
 			.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 			[
 				SNew(SHorizontalBox)
@@ -147,7 +146,7 @@ void SUTInGameMenu::BuildLeftMenuBar()
 				.VAlign(VAlign_Center)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_MatchSummary","MATCH SUMMARY"))
+					.Text(NSLOCTEXT("SUTMenuBase","MenuBar_MatchSummary","MATCH SUMMARY"))
 					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 				]
 			]
@@ -296,7 +295,7 @@ FText SUTInGameMenu::GetMapVoteTitle() const
 		return FText::Format(NSLOCTEXT("SUTInGameMenu","MapVoteFormat","MAP VOTE ({0})"), FText::AsNumber(GameState->VoteTimer));
 	}
 
-	return NSLOCTEXT("SUWindowsDesktop","MenuBar_MapVote","MAP VOTE");
+	return NSLOCTEXT("SUTMenuBase","MenuBar_MapVote","MAP VOTE");
 }
 
 
@@ -451,16 +450,23 @@ EVisibility SUTInGameMenu::GetChangeTeamVisibility() const
 
 EVisibility SUTInGameMenu::GetMatchSummaryVisibility() const
 {
+	return StaticCastSharedPtr<SUTInGameHomePanel>(HomePanel)->GetSummaryVisibility();
+}
+
+EVisibility SUTInGameMenu::GetMatchSummaryButtonVisibility() const
+{
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GameState && GameState->GetMatchState() == MatchState::WaitingPostMatch)
 	{
-		return EVisibility::Visible;
+		if ( GetMatchSummaryVisibility() == EVisibility::Hidden)
+		{
+			return EVisibility::Visible;
+		}
 	}
-	else
-	{
-		return EVisibility::Collapsed;
-	}
+
+	return EVisibility::Collapsed;
 }
+
 
 FReply SUTInGameMenu::ShowSummary()
 {
@@ -477,6 +483,10 @@ void SUTInGameMenu::OnMenuOpened(const FString& Parameters)
 	}
 }
 
+bool SUTInGameMenu::SkipWorldRender()
+{
+	return GetMatchSummaryVisibility() == EVisibility::Visible;
+}
 
 
 

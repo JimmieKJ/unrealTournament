@@ -66,7 +66,7 @@ void SUTUMGPanel::ConstructPanel(FVector2D ViewportSize)
 	];
 }
 
-void SUTUMGPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTUMGPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 	if (AnimWidget.IsValid())

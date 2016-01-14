@@ -350,6 +350,16 @@ void SUTTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type 
 	{
 		FString FinalText = NewText.ToString();
 		// Figure out the type of chat...
+
+		if (FinalText.Left(1) == TEXT("\\") || FinalText.Left(1) == TEXT("/"))
+		{
+			FinalText = FinalText.Right(FinalText.Len() - 1);
+			PlayerOwner->ConsoleCommand(FinalText);
+			ChatEditBox->SetText(FText::GetEmpty());
+			return;
+		}
+
+
 		if (FinalText != TEXT(""))
 		{
 			if (CurrentChatDestination == ChatDestinations::Global)		FinalText = FString::Printf(TEXT("GlobalChat %s"), *FinalText);

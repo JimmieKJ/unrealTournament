@@ -10,7 +10,7 @@
 #include "UTBaseGameMode.generated.h"
 
 #if !UE_SERVER
-	class SUWindowsDesktop;
+	class SUTMenuBase;
 #endif
 
 class UUTLocalPlayer;
@@ -44,7 +44,7 @@ public:
 	/**
 	 *	Returns the Menu to popup when the user requests a menu
 	 **/
-	virtual TSharedRef<SUWindowsDesktop> GetGameMenu(UUTLocalPlayer* PlayerOwner) const;
+	virtual TSharedRef<SUTMenuBase> GetGameMenu(UUTLocalPlayer* PlayerOwner) const;
 
 #endif
 

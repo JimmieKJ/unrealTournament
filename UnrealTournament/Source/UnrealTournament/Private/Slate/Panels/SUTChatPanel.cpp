@@ -421,6 +421,16 @@ void SUTChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type Comm
 	if (CommitType == ETextCommit::OnEnter)
 	{
 		FString FinalText = NewText.ToString();
+
+		if (FinalText.Left(1) == TEXT("\\") || FinalText.Left(1) == TEXT("/"))
+		{
+			FinalText = FinalText.Right(FinalText.Len() - 1);
+			PlayerOwner->ConsoleCommand(FinalText);
+			ChatText->SetText(FText::GetEmpty());
+			return;
+		}
+
+
 		// Figure out the type of chat...
 		if (FinalText != TEXT(""))
 		{
@@ -474,7 +484,7 @@ FReply SUTChatPanel::UserListToggle()
 	return FReply::Handled();
 }
 
-void SUTChatPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTChatPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 	FSlateApplication::Get().SetKeyboardFocus(ChatText, EKeyboardFocusCause::Keyboard);

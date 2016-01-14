@@ -413,7 +413,7 @@ FReply SUTLoginDialog::OnNewAccountClick()
 	FPlatformProcess::LaunchURL(TEXT("https://forums.unrealtournament.com/download.php?return=http://www.unrealtournament.com"), NULL, &Error);
 	if (Error.Len() > 0)
 	{
-		PlayerOwner->MessageBox(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"), FText::FromString(Error));
+		PlayerOwner->MessageBox(NSLOCTEXT("SUTMenuBase", "HTTPBrowserError", "Error Launching Browser"), FText::FromString(Error));
 	}
 	return FReply::Handled();
 }
@@ -424,7 +424,7 @@ FReply SUTLoginDialog::OnForgotPasswordClick()
 	FPlatformProcess::LaunchURL(TEXT("https://accounts.unrealtournament.com/requestPasswordReset"), NULL, &Error);
 	if (Error.Len() > 0)
 	{
-		PlayerOwner->MessageBox(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"),FText::FromString(Error) );
+		PlayerOwner->MessageBox(NSLOCTEXT("SUTMenuBase", "HTTPBrowserError", "Error Launching Browser"),FText::FromString(Error) );
 	}
 	return FReply::Handled();
 

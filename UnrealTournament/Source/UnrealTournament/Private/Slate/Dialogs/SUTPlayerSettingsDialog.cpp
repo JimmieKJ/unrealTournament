@@ -42,7 +42,7 @@ void SUTPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 	SUTDialogBase::Construct(SUTDialogBase::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
-							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "PlayerSettings", "Player Settings"))
+							.DialogTitle(NSLOCTEXT("SUTMenuBase", "PlayerSettings", "Player Settings"))
 							.DialogSize(FVector2D(1900.0,1060.0))
 							.DialogPosition(InArgs._DialogPosition)
 							.DialogAnchorPoint(InArgs._DialogAnchorPoint)

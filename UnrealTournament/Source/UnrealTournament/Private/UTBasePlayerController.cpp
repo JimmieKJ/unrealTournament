@@ -655,6 +655,12 @@ void AUTBasePlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	UpdateInputMode();
+
+	if (bRequestShowMenu)
+	{
+		bRequestShowMenu = false;
+		ShowMenu(TEXT(""));
+	}
 }
 
 void AUTBasePlayerController::UpdateInputMode()

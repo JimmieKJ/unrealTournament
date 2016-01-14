@@ -15,7 +15,7 @@ class UNREALTOURNAMENT_API SUTInGameHomePanel : public SUTPanelBase
 public:
 	virtual void ConstructPanel(FVector2D CurrentViewportSize);
 
-	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 	virtual void OnHidePanel();
 
 	FReply virtual ChangeChatDestination(TSharedPtr<SComboButton> Button, FName NewDestination);
@@ -29,11 +29,12 @@ public:
 	void HideMatchSummary();
 	TSharedPtr<SUTMatchSummaryPanel> GetSummaryPanel();
 
+	EVisibility GetSummaryVisibility() const;
+
 protected:
 
 	bool bFocusSummaryInv;
 
-	EVisibility GetSummaryVisibility() const;
 
 	FName ChatDestination;
 

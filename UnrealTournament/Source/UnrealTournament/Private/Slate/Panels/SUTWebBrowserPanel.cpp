@@ -105,7 +105,7 @@ float SUTWebBrowserPanel::GetReverseScale() const
 }
 
 
-void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTWebBrowserPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 

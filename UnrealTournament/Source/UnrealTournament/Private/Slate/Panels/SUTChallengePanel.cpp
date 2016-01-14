@@ -1141,7 +1141,7 @@ FSlateColor SUTChallengePanel::GetTabColor(EChallengeFilterType::Type TargetFilt
 	return FSlateColor(FLinearColor::White);
 }
 
-void SUTChallengePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTChallengePanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 

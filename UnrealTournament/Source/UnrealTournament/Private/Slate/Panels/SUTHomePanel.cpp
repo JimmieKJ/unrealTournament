@@ -39,7 +39,7 @@ void SUTHomePanel::ConstructPanel(FVector2D ViewportSize)
 
 }
 
-void SUTHomePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTHomePanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 

@@ -38,7 +38,7 @@ protected:
 	TSharedPtr<SOverlay> SlateContainer;
 	TWeakObjectPtr<class UUserWidget> UMGWidget;
 
-	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 	virtual void OnHidePanel();
 
 	TSharedPtr<SUTBorder> AnimWidget;

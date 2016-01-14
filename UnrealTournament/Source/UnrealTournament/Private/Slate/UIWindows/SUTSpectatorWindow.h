@@ -5,7 +5,7 @@
 #include "Slate/SlateGameResources.h"
 
 #if !UE_SERVER
-class UNREALTOURNAMENT_API SUTSpectatorWindow : public SUWindowsDesktop
+class UNREALTOURNAMENT_API SUTSpectatorWindow : public SUTMenuBase
 {
 protected:
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;

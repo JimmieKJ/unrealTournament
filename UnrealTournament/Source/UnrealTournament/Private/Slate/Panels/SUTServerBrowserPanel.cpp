@@ -6,7 +6,6 @@
 #include "SlateExtras.h"
 #include "Slate/SlateGameResources.h"
 #include "SUTServerBrowserPanel.h"
-#include "../SUWindowsDesktop.h"
 #include "../SUTStyle.h"
 #include "Online.h"
 #include "UTBaseGameMode.h"
@@ -2282,7 +2281,7 @@ void SUTServerBrowserPanel::BuildServerListControlBox()
 
 }
 
-void SUTServerBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTServerBrowserPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 

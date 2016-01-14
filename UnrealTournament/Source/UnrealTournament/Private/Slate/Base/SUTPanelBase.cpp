@@ -20,7 +20,7 @@ void SUTPanelBase::Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPl
 
 void SUTPanelBase::ConstructPanel(FVector2D ViewportSize){}
 
-void SUTPanelBase::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTPanelBase::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	ParentWindow = inParentWindow;
 }

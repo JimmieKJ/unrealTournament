@@ -7,7 +7,7 @@
 
 #pragma once
 #include "SlateBasics.h"
-#include "SUWindowsDesktop.h"
+#include "SUTMenuBase.h"
 
 #if !UE_SERVER
 
@@ -22,7 +22,7 @@ public:
 	void Construct(const FArguments& InArgs, TWeakObjectPtr<UUTLocalPlayer> PlayerOwner);
 
 	virtual void ConstructPanel(FVector2D CurrentViewportSize);
-	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 	virtual void OnHidePanel();
 
 	inline TWeakObjectPtr<class UUTLocalPlayer> GetPlayerOwner()
@@ -30,7 +30,7 @@ public:
 		return PlayerOwner;
 	}
 
-	inline TSharedPtr<SUWindowsDesktop> GetParentWindow()
+	inline TSharedPtr<SUTMenuBase> GetParentWindow()
 	{
 		return ParentWindow;
 	}
@@ -63,8 +63,8 @@ protected:
 	// The Player Owner that owns this panel
 	TWeakObjectPtr<UUTLocalPlayer> PlayerOwner;
 
-	// The Window that contains this panel.  NOTE: this will only be valid if this panel is contained within an SUWindowsDesktop.
-	TSharedPtr<SUWindowsDesktop> ParentWindow;
+	// The Window that contains this panel.  NOTE: this will only be valid if this panel is contained within an SUTMenuBase.
+	TSharedPtr<SUTMenuBase> ParentWindow;
 
 
 };

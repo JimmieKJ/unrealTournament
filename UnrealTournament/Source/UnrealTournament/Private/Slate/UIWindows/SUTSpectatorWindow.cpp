@@ -4,7 +4,7 @@
 #include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "../SUWindowsDesktop.h"
+#include "../Base/SUTMenuBase.h"
 #include "SUTSpectatorWindow.h"
 #include "UTHUDWidget_SpectatorSlideOut.h"
 #include "UTGameViewportClient.h"

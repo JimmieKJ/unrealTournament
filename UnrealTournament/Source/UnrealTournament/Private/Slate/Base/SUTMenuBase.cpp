@@ -4,7 +4,6 @@
 #include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "../SUWindowsDesktop.h"
 #include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
 #include "../Base/SUTMenuBase.h"
@@ -17,6 +16,8 @@
 #include "../Dialogs/SUTInputBoxDialog.h"
 #include "../Dialogs/SUTMessageBoxDialog.h"
 #include "../Widgets/SUTScaleBox.h"
+#include "Runtime/Engine/Classes/Engine/Console.h"
+#include "SOverlay.h"
 #include "SUTFriendsPopupWindow.h"
 #include "UTGameEngine.h"
 #include "SUTServerBrowserPanel.h"
@@ -27,6 +28,171 @@
 #include "SUTQuickPickDialog.h"
 
 #if !UE_SERVER
+
+void SUTMenuBase::Construct(const FArguments& InArgs)
+{
+	ZOrderIndex = -1;
+	PlayerOwner = InArgs._PlayerOwner;
+	CreateDesktop();
+}
+
+void SUTMenuBase::OnMenuOpened(const FString& Parameters)
+{
+	GameViewportWidget = FSlateApplication::Get().GetKeyboardFocusedWidget();
+	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);
+
+	if (!PlayerOnlineStatusChangedDelegate.IsValid())
+	{
+		PlayerOnlineStatusChangedDelegate = PlayerOwner->RegisterPlayerOnlineStatusChangedDelegate(FPlayerOnlineStatusChanged::FDelegate::CreateSP(this, &SUTMenuBase::OwnerLoginStatusChanged));
+	}
+}
+
+void SUTMenuBase::OnMenuClosed()
+{
+	// Deactivate the current panel
+
+	if (ActivePanel.IsValid())
+	{
+		DeactivatePanel(ActivePanel);
+	}
+
+	FSlateApplication::Get().ClearUserFocus(0);
+	FSlateApplication::Get().ClearKeyboardFocus();
+
+	PlayerOwner->RemovePlayerOnlineStatusChangedDelegate(PlayerOnlineStatusChangedDelegate);
+	PlayerOnlineStatusChangedDelegate.Reset();
+}
+
+void SUTMenuBase::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
+{
+	OnOwnerLoginStatusChanged(LocalPlayerOwner, NewStatus, UniqueID);
+}
+
+bool SUTMenuBase::SupportsKeyboardFocus() const
+{
+	return true;
+}
+
+FReply SUTMenuBase::OnFocusReceived( const FGeometry& MyGeometry, const FFocusEvent& InKeyboardFocusEvent )
+{
+	return FReply::Handled().ReleaseMouseCapture();
+
+}
+
+FReply SUTMenuBase::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent )
+{
+	if (InKeyboardEvent.GetKey() == EKeys::Escape)
+	{
+		if (bShowingFriends)
+		{
+			ToggleFriendsAndChat();
+		}
+		else if (GWorld->GetWorld()->GetMapName().ToLower() != TEXT("ut-entry"))
+		{
+			CloseMenus();
+		}
+	}
+	else if (InKeyboardEvent.GetKey() == EKeys::F9)
+	{
+		ConsoleCommand(TEXT("SHOT SHOWUI"));
+	}
+
+	return FReply::Handled();
+}
+
+void SUTMenuBase::CloseMenus()
+{
+	if (PlayerOwner != NULL)
+	{
+		PlayerOwner->HideMenu();
+	}
+}
+
+FReply SUTMenuBase::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent)
+{
+	if ( GetDefault<UInputSettings>()->ConsoleKeys.Contains(InKeyboardEvent.GetKey()) )
+	{
+		PlayerOwner->ViewportClient->ViewportConsole->FakeGotoState(FName(TEXT("Open")));
+	}
+
+	return FReply::Handled();
+}
+
+FReply SUTMenuBase::OnMouseWheel(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	return FReply::Handled();
+}
+
+FReply SUTMenuBase::OnMouseButtonDown( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	return FReply::Handled();
+}
+
+FReply SUTMenuBase::OnMouseButtonUp( const FGeometry& MyGeometry, const FPointerEvent& MouseEvent )
+{
+	return FReply::Handled();
+}
+
+void SUTMenuBase::ConsoleCommand(FString Command)
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController != NULL)
+	{
+		PlayerOwner->Exec(PlayerOwner->GetWorld(), *Command, *GLog);
+	}
+}
+
+
+FReply SUTMenuBase::OnMenuConsoleCommand(FString Command)
+{
+	ConsoleCommand(Command);
+	CloseMenus();
+	return FReply::Handled();
+}
+
+void SUTMenuBase::ActivatePanel(TSharedPtr<class SUTPanelBase> PanelToActivate)
+{
+	if ( !Desktop.IsValid() ) return;		// Quick out if no place to put it
+	
+	// Don't reactivate the current panel
+	if (ActivePanel != PanelToActivate)
+	{
+		// Deactive the current panel.
+		if ( ActivePanel.IsValid() )
+		{
+			DeactivatePanel(ActivePanel);
+		}	
+	
+		ZOrderIndex = (ZOrderIndex + 1) % 5000;
+
+		// Add the new one.
+		SOverlay::FOverlaySlot& Slot = Desktop->AddSlot(ZOrderIndex)
+		[
+			PanelToActivate.ToSharedRef()
+		];
+		PanelToActivate->ZOrder = ZOrderIndex;
+		ActivePanel = PanelToActivate;
+		ActivePanel->OnShowPanel(SharedThis(this));
+	}
+}
+
+void SUTMenuBase::DeactivatePanel(TSharedPtr<class SUTPanelBase> PanelToDeactivate)
+{
+	PanelToDeactivate->OnHidePanel();
+}
+
+void SUTMenuBase::PanelHidden(TSharedPtr<SWidget> Child)
+{
+	if (Child.IsValid())
+	{
+		// SO TOTALLY Unsafe.. 
+		TSharedPtr<SUTPanelBase> const Panel = StaticCastSharedPtr<SUTPanelBase>(Child);
+		Desktop->RemoveSlot(Panel->ZOrder);
+		if (Child == ActivePanel)
+		{
+			ActivePanel.Reset();
+		}
+	}
+}
 
 void SUTMenuBase::CreateDesktop()
 {
@@ -176,7 +342,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 
 FText SUTMenuBase::GetBrowserButtonText() const
 {
-	return PlayerOwner->GetWorld()->GetNetMode() == ENetMode::NM_Standalone ? NSLOCTEXT("SUWindowsDesktop","MenuBar_HUBS","Play Online") : NSLOCTEXT("SUWindowsDesktop","MenuBar_Browser","Server Browser");
+	return PlayerOwner->GetWorld()->GetNetMode() == ENetMode::NM_Standalone ? NSLOCTEXT("SUTMenuBase","MenuBar_HUBS","Play Online") : NSLOCTEXT("SUTMenuBase","MenuBar_Browser","Server Browser");
 }
 
 TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
@@ -325,14 +491,14 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 		]
 	];
 
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenPlayerSettings));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenSocialSettings));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenWeaponSettings));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_HUDSettings", "HUD Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenHUDSettings));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenSystemSettings));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenControlSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Options_PlayerSettings", "Player Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenPlayerSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Options_SocialSettings", "Social Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenSocialSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Options_WeaponSettings", "Weapon Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenWeaponSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Options_HUDSettings", "HUD Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenHUDSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Options_SystemSettings", "System Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenSystemSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Options_ControlSettings", "Control Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenControlSettings));
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Reset Profile"), FOnClicked::CreateSP(this, &SUTMenuBase::ClearCloud), true);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Options_ClearCloud", "Reset Profile"), FOnClicked::CreateSP(this, &SUTMenuBase::ClearCloud), true);
 
 	return DropDownButton.ToSharedRef();
 
@@ -367,12 +533,12 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 	];
 
 
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_TPSReport", "Third Party Software"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenTPSReport));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_Credits", "Credits"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenCredits));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTSite", "UnrealTournament.com"), FOnClicked::CreateSP(this, &SUTMenuBase::OnMenuHTTPButton, FString(TEXT("http://www.unrealtournament.com/"))));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_About_TPSReport", "Third Party Software"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenTPSReport));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_About_Credits", "Credits"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenCredits));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_About_UTSite", "UnrealTournament.com"), FOnClicked::CreateSP(this, &SUTMenuBase::OnMenuHTTPButton, FString(TEXT("http://www.unrealtournament.com/"))));
 
 #if UE_BUILD_DEBUG
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_WR", "Widget Reflector"), FOnClicked::CreateSP(this, &SUTMenuBase::ShowWidgetReflector));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_About_WR", "Widget Reflector"), FOnClicked::CreateSP(this, &SUTMenuBase::ShowWidgetReflector));
 #endif
 	DropDownButton->RebuildMenuContent();
 	return DropDownButton.ToSharedRef();
@@ -416,13 +582,13 @@ FReply SUTMenuBase::OpenWeaponSettings()
 
 FReply SUTMenuBase::OpenSystemSettings()
 {
-	PlayerOwner->OpenDialog(SNew(SUTSystemSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","System","System Settings")));
+	PlayerOwner->OpenDialog(SNew(SUTSystemSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUTMenuBase","System","System Settings")));
 	return FReply::Handled();
 }
 
 FReply SUTMenuBase::OpenControlSettings()
 {
-	PlayerOwner->OpenDialog(SNew(SUTControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","Controls","Control Settings")));
+	PlayerOwner->OpenDialog(SNew(SUTControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUTMenuBase","Controls","Control Settings")));
 	return FReply::Handled();
 }
 
@@ -453,8 +619,8 @@ FReply SUTMenuBase::OpenTPSReport()
 							.PlayerOwner(PlayerOwner)
 							.DialogSize(FVector2D(0.7, 0.8))
 							.bDialogSizeIsRelative(true)
-							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "TPSReportTitle", "Third Party Software"))
-							.MessageText(NSLOCTEXT("SUWindowsDesktop", "TPSReportText", "TPSText"))
+							.DialogTitle(NSLOCTEXT("SUTMenuBase", "TPSReportTitle", "Third Party Software"))
+							.MessageText(NSLOCTEXT("SUTMenuBase", "TPSReportText", "TPSText"))
 							//.MessageTextStyleName("UWindows.Standard.Dialog.TextStyle.Legal")
 							.MessageTextStyleName("UT.Common.NormalText")
 							.ButtonMask(UTDIALOG_BUTTON_OK)
@@ -481,7 +647,7 @@ FReply SUTMenuBase::OnMenuHTTPButton(FString URL)
 		PlayerOwner->OpenDialog(
 								SNew(SUTMessageBoxDialog)
 								.PlayerOwner(PlayerOwner)
-								.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "HTTPBrowserError", "Error Launching Browser"))
+								.DialogTitle(NSLOCTEXT("SUTMenuBase", "HTTPBrowserError", "Error Launching Browser"))
 								.MessageText(FText::FromString(Error))
 								.ButtonMask(UTDIALOG_BUTTON_OK)
 								);
@@ -665,7 +831,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 
 		if (LogoutButton.IsValid())
 		{
-			LogoutButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Logout_Logout", "Sign Out"), FOnClicked::CreateSP(this, &SUTMenuBase::Logout), true);
+			LogoutButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Logout_Logout", "Sign Out"), FOnClicked::CreateSP(this, &SUTMenuBase::Logout), true);
 			// Add the additional account options here at some point.
 				
 		}
@@ -677,7 +843,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 	{
 		return 	SNew(SUTButton)
 		.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-		.Text(NSLOCTEXT("SUWindowsDesktop","MenuBar_SignIn","Sign In"))
+		.Text(NSLOCTEXT("SUTMenuBase","MenuBar_SignIn","Sign In"))
 		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 		.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 		.OnClicked(this, &SUTMenuBase::OnOnlineClick)		
@@ -830,19 +996,6 @@ TSharedRef<SWidget> SUTMenuBase::BuildBackground()
 	return SNullWidget::NullWidget;
 }
 
-FReply SUTMenuBase::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKeyboardEvent )
-{
-	if (InKeyboardEvent.GetKey() == EKeys::Escape)
-	{
-		if (bShowingFriends)
-		{
-			ToggleFriendsAndChat();
-		}
-	}
-
-	return SUWindowsDesktop::OnKeyUp(MyGeometry, InKeyboardEvent);
-}
-
 FReply SUTMenuBase::OpenHUDSettings()
 {
 	PlayerOwner->ShowHUDSettings();
@@ -939,6 +1092,11 @@ void SUTMenuBase::SignOutConfirmationResult(TSharedPtr<SCompoundWidget> Widget, 
 TSharedPtr<SUTPanelBase> SUTMenuBase::GetActivePanel()
 {
 	return ActivePanel;
+}
+
+bool SUTMenuBase::SkipWorldRender()
+{
+	return false;
 }
 
 #endif

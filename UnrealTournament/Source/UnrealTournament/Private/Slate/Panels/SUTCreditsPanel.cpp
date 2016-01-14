@@ -33,7 +33,7 @@ void SUTCreditsPanel::ConstructPanel(FVector2D ViewportSize)
 	];
 }
 
-void SUTCreditsPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTCreditsPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 	if (CreditsWebBrowser.IsValid())

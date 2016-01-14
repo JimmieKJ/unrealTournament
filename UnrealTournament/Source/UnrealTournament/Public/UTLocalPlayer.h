@@ -15,6 +15,7 @@
 
 #include "UTLocalPlayer.generated.h"
 
+class SUTMenuBase;
 class SUTWindowBase;
 class SUTServerBrowserPanel;
 class SUTFriendsPopupWindow;
@@ -180,7 +181,7 @@ public:
 	void StartQuickMatch(FString QuickMatchType);
 	void CloseQuickMatch();
 
-	TSharedPtr<class SUWindowsDesktop> GetCurrentMenu()
+	TSharedPtr<class SUTMenuBase> GetCurrentMenu()
 	{
 		return DesktopSlateWidget;
 	}
@@ -210,7 +211,7 @@ public:
 protected:
 
 #if !UE_SERVER
-	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;
+	TSharedPtr<class SUTMenuBase> DesktopSlateWidget;
 	TSharedPtr<class SUTSpectatorWindow> SpectatorWidget;
 	
 	// Holds a persistent reference to the server browser.
@@ -622,7 +623,7 @@ public:
 
 protected:
 #if !UE_SERVER
-	TSharedPtr<SUWindowsDesktop> LoadoutMenu;
+	TSharedPtr<SUTMenuBase> LoadoutMenu;
 	TSharedPtr<SUTMapVoteDialog> MapVoteMenu;
 #endif
 
@@ -861,5 +862,4 @@ protected:
 
 	// Check to see if this user should be using the Epic branded flag
 	void EpicFlagCheck();
-
 };

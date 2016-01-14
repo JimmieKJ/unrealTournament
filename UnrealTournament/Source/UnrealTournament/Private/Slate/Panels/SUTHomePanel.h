@@ -24,7 +24,7 @@ class UNREALTOURNAMENT_API SUTHomePanel : public SUTPanelBase
 
 protected:
 
-	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 	virtual void OnHidePanel();
 
 

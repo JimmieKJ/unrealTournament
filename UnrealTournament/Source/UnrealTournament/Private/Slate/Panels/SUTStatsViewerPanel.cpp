@@ -209,7 +209,7 @@ void SUTStatsViewerPanel::SetQueryWindow(const FString& InQueryWindow)
 	}
 }
 
-void SUTStatsViewerPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTStatsViewerPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 

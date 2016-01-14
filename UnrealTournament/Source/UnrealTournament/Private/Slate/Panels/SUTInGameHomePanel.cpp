@@ -289,7 +289,7 @@ FReply SUTInGameHomePanel::ChangeChatDestination(TSharedPtr<SComboButton> Button
 	return FReply::Handled();
 }
 
-void SUTInGameHomePanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTInGameHomePanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
@@ -377,6 +377,14 @@ void SUTInGameHomePanel::ChatTextCommited(const FText& NewText, ETextCommit::Typ
 		// Figure out the type of chat...
 		if (FinalText != TEXT(""))
 		{
+			if (FinalText.Left(1) == TEXT("\\") || FinalText.Left(1) == TEXT("/"))
+			{
+				FinalText = FinalText.Right(FinalText.Len() - 1);
+				PlayerOwner->ConsoleCommand(FinalText);
+				ChatText->SetText(FText::GetEmpty());
+				return;
+			}
+
 			if (ChatDestination == ChatDestinations::Global)	ConsoleCommand(FString::Printf(TEXT("GlobalChat %s"), *FinalText));
 			if (ChatDestination == ChatDestinations::Friends)	ConsoleCommand(FString::Printf(TEXT("FriendSay %s"), *FinalText));
 			if (ChatDestination == ChatDestinations::Lobby)		ConsoleCommand(FString::Printf(TEXT("LobbySay %s"), *FinalText));

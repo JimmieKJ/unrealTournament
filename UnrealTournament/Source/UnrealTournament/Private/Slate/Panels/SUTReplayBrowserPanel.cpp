@@ -369,7 +369,7 @@ void SUTReplayBrowserPanel::PlayerIDResult(TSharedPtr<SCompoundWidget> Widget, u
 	}
 }
 
-void SUTReplayBrowserPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
+void SUTReplayBrowserPanel::OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow)
 {
 	SUTPanelBase::OnShowPanel(inParentWindow);
 	

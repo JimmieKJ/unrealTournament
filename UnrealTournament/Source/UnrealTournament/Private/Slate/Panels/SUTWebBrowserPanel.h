@@ -36,7 +36,7 @@ public:
 	virtual void ConstructPanel(FVector2D ViewportSize);
 	virtual void Browse(FString URL);
 
-	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 	virtual void OnHidePanel();
 
 	virtual void ExecuteJavascript(const FString& JS) { WebBrowserPanel->ExecuteJavascript(JS); }

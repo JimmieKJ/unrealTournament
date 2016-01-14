@@ -70,7 +70,7 @@ protected:
 	TSharedPtr<class SButton>  WatchReplayButton;
 	TSharedPtr<class SEditableTextBox> MetaTagText;
 
-	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow);
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow);
 
 	bool bShouldShowAllReplays;
 

@@ -15,7 +15,7 @@ class UNREALTOURNAMENT_API SUTCreditsPanel : public SUTPanelBase
 {
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
-	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow) override;
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow) override;
 
 protected:
 	

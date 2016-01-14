@@ -40,7 +40,13 @@ protected:
 
 	EVisibility GetChangeTeamVisibility() const;
 	EVisibility GetMatchSummaryVisibility() const;
+	EVisibility GetMatchSummaryButtonVisibility() const;
 
 	FReply ShowSummary();
+
+public:
+	virtual bool SkipWorldRender();
+
+
 };
 #endif

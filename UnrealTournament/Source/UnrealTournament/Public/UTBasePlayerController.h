@@ -211,4 +211,8 @@ public:
 
 	virtual void ShowAdminDialog(AUTRconAdminInfo* AdminInfo);
 	virtual void ShowAdminMessage(const FString& Message);
+
+	// If set to true, the player controller will pop up a menu as soon as it's safe
+	bool bRequestShowMenu;
+
 };

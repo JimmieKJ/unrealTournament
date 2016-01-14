@@ -365,7 +365,7 @@ FString AUTBaseGameMode::GetCloudID() const
 /**
  *	Returns the Menu to popup when the user requests a menu
  **/
-TSharedRef<SUWindowsDesktop> AUTBaseGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
+TSharedRef<SUTMenuBase> AUTBaseGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
 {
 	return SNew(SUTInGameMenu).PlayerOwner(PlayerOwner);
 }

@@ -4,7 +4,6 @@
 #include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "SUWindowsDesktop.h"
 #include "SUTMainMenu.h"
 #include "../SUWindowsStyle.h"
 #include "../Base/SUTDialogBase.h"
@@ -155,18 +154,18 @@ TSharedRef<SWidget> SUTMainMenu::BuildWatchSubMenu()
 	[
 		SAssignNew(DropDownButton, SUTComboButton)
 		.HasDownArrow(false)
-		.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_REPLAYS", "WATCH"))
+		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_REPLAYS", "WATCH"))
 		.TextStyle(SUTStyle::Get(), "UT.Font.MenuBarText")
 		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
 		.ContentHAlign(HAlign_Left)
 	];
 
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Watch_FragCenter", "Frag Center"), FOnClicked::CreateSP(this, &SUTMainMenu::OnFragCenterClick));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Watch_FragCenter", "Frag Center"), FOnClicked::CreateSP(this, &SUTMainMenu::OnFragCenterClick));
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_YourReplays", "Your Replays"), FOnClicked::CreateSP(this, &SUTMainMenu::OnYourReplaysClick));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_RecentReplays", "Recent Replays"), FOnClicked::CreateSP(this, &SUTMainMenu::OnRecentReplaysClick));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Replays_YourReplays", "Your Replays"), FOnClicked::CreateSP(this, &SUTMainMenu::OnYourReplaysClick));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Replays_RecentReplays", "Recent Replays"), FOnClicked::CreateSP(this, &SUTMainMenu::OnRecentReplaysClick));
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_LiveGames", "Live Games"), FOnClicked::CreateSP(this, &SUTMainMenu::OnLiveGameReplaysClick), true);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Replays_LiveGames", "Live Games"), FOnClicked::CreateSP(this, &SUTMainMenu::OnLiveGameReplaysClick), true);
 
 	return DropDownButton.ToSharedRef();
 }
@@ -179,15 +178,15 @@ TSharedRef<SWidget> SUTMainMenu::BuildTutorialSubMenu()
 	[
 		SAssignNew(DropDownButton, SUTComboButton)
 		.HasDownArrow(false)
-		.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "LEARN"))
+		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_TUTORIAL", "LEARN"))
 		.TextStyle(SUTStyle::Get(), "UT.Font.MenuBarText")
 		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
 		.ContentHAlign(HAlign_Left)
 	];
 
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "Basic Training"), FOnClicked::CreateSP(this, &SUTMainMenu::OnBootCampClick));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Tutorial_LeanHoToPlay", "Basic Training"), FOnClicked::CreateSP(this, &SUTMainMenu::OnBootCampClick));
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_Community", "Training Videos"), FOnClicked::CreateSP(this, &SUTMainMenu::OnCommunityClick), true);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Tutorial_Community", "Training Videos"), FOnClicked::CreateSP(this, &SUTMainMenu::OnCommunityClick), true);
 
 	return DropDownButton.ToSharedRef();
 
@@ -203,20 +202,20 @@ TSharedRef<SWidget> SUTMainMenu::AddPlayNow()
 	[
 		SAssignNew(DropDownButton, SUTComboButton)
 		.HasDownArrow(false)
-		.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch", "PLAY"))
+		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch", "PLAY"))
 		.TextStyle(SUTStyle::Get(), "UT.Font.MenuBarText")
 		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
 		.ContentHAlign(HAlign_Left)
 	];
 
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"), FOnClicked::CreateSP(this, &SUTMainMenu::OnPlayQuickMatch,	EEpicDefaultRuleTags::Deathmatch));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"), FOnClicked::CreateSP(this, &SUTMainMenu::OnPlayQuickMatch, EEpicDefaultRuleTags::CTF));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"), FOnClicked::CreateSP(this, &SUTMainMenu::OnPlayQuickMatch,	EEpicDefaultRuleTags::Deathmatch));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"), FOnClicked::CreateSP(this, &SUTMainMenu::OnPlayQuickMatch, EEpicDefaultRuleTags::CTF));
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_ChallengesGame", "Challenges"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowGamePanel));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowCustomGamePanel));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_ChallengesGame", "Challenges"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowGamePanel));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_CreateGame", "Create a Game"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowCustomGamePanel));
 
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_FindGame", "Find a Game..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
 
 	return DropDownButton.ToSharedRef();
 }
@@ -759,7 +758,7 @@ FReply SUTMainMenu::OnShowServerBrowserPanel()
 
 void SUTMainMenu::OnMenuOpened(const FString& Parameters)
 {
-	SUWindowsDesktop::OnMenuOpened(Parameters);
+	SUTMenuBase::OnMenuOpened(Parameters);
 	if (Parameters.Equals(TEXT("showchallenge"), ESearchCase::IgnoreCase))
 	{
 		ShowGamePanel();

@@ -19,7 +19,7 @@ class UNREALTOURNAMENT_API SUTStatsViewerPanel : public SUTPanelBase
 	FDelegateHandle PlayerOnlineStatusChangedDelegate;
 	virtual void OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 
-	virtual void OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow) override;
+	virtual void OnShowPanel(TSharedPtr<SUTMenuBase> inParentWindow) override;
 
 protected:
 	FString StatsID;

@@ -4,11 +4,11 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "../FLoadoutData.h"
-#include "../SUWindowsDesktop.h"
+#include "../Base/SUTMenuBase.h"
 
 #if !UE_SERVER
 
-class UNREALTOURNAMENT_API SUTBuyWindow : public SUWindowsDesktop
+class UNREALTOURNAMENT_API SUTBuyWindow : public SUTMenuBase
 {
 protected:
 	virtual void CreateDesktop();

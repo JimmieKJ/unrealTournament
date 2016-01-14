@@ -4,7 +4,6 @@
 #include "UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
-#include "SUWindowsDesktop.h"
 #include "SUTLobbyMenu.h"
 #include "SUWindowsStyle.h"
 #include "../Dialogs/SUTSystemSettingsDialog.h"
