@@ -1341,6 +1341,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					if ( GameEngine->GetChallengeManager()->CheckDailyChallenge(CurrentProgression) )
 					{
 						SaveProfileSettings();
+						SaveProgression();
 					}
 				}
 
@@ -3676,10 +3677,11 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		{
 			if (CurrentProgression->ChallengeResults[i].Tag == ChallengeTag)
 			{
-				if (CurrentProfileSettings->ChallengeResults[i].Stars < Stars)
+				if (CurrentProgression->ChallengeResults[i].Stars < Stars)
 				{
 					EarnedStars = Stars - CurrentProgression->ChallengeResults[i].Stars;
 					CurrentProgression->ChallengeResults[i].Update(Stars);
+					CurrentProgression->NeedsUpdate();
 				}
 
 				bFound = true;
@@ -3690,6 +3692,7 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		{
 			EarnedStars = Stars;
 			CurrentProgression->ChallengeResults.Add(FUTChallengeResult(ChallengeTag, Stars));
+			CurrentProgression->NeedsUpdate();
 		}
 
 		// Look up the Challenge info for this challenge...

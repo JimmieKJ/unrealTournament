@@ -361,7 +361,7 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 		}
 
 		UUTProgressionStorage* Storage = UTLocalPlayer->GetProgressionStorage();
-		if (Storage && Storage->NeedsUpdate())
+		if (Storage && Storage->NeedsToBeUpdate())
 		{
 			UTLocalPlayer->SaveProgression();
 		}

@@ -80,7 +80,12 @@ class UNREALTOURNAMENT_API UUTProgressionStorage : public UObject
 
 	virtual void LoadFromProfile(UUTProfileSettings* ProfileSettings);
 
-	virtual bool NeedsUpdate()
+	virtual void NeedsUpdate()
+	{
+		bNeedsUpdate = true;
+	}
+
+	virtual bool NeedsToBeUpdate()
 	{
 		return bNeedsUpdate;
 	}
