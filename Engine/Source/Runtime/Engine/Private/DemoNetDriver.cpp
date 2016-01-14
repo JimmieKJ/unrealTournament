@@ -1933,7 +1933,7 @@ void UDemoNetDriver::LoadCheckpoint( FArchive* GotoCheckpointArchive, int64 Goto
 				continue;
 			}
 
-			if ( It->GetOwner() == SpectatorController )
+			if ( It->GetOwner() == SpectatorController && *It != SpectatorController->PlayerState )
 			{
 				continue;
 			}
