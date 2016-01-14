@@ -685,22 +685,22 @@ void FTranslucentPrimSet::DrawPrimitives(
 
 void FTranslucentPrimSet::RenderPrimitive(
 	FRHICommandList& RHICmdList,
-	const FViewInfo& View, 
-	FPrimitiveSceneInfo* PrimitiveSceneInfo, 
-	const FPrimitiveViewRelevance& ViewRelevance, 
+	const FViewInfo& View,
+	FPrimitiveSceneInfo* PrimitiveSceneInfo,
+	const FPrimitiveViewRelevance& ViewRelevance,
 	const FProjectedShadowInfo* TranslucentSelfShadow,
 	ETranslucencyPassType TranslucenyPassType) const
 {
 	checkSlow(ViewRelevance.HasTranslucency());
 	auto FeatureLevel = View.GetFeatureLevel();
 
-	if(ViewRelevance.bDrawRelevance)
+	if (ViewRelevance.bDrawRelevance)
 	{
 		FTranslucencyDrawingPolicyFactory::ContextType Context(TranslucentSelfShadow, TranslucenyPassType);
 
 		// need to chec further down if we can skip rendering ST primitives, because we need to make sure they render in the normal translucency pass otherwise
 		// getting the cvar here and passing it down to be more efficient		
-		bool bSeparateTranslucencyPossible = (FSceneRenderTargets::CVarSetSeperateTranslucencyEnabled.GetValueOnRenderThread() == 0 ? false : true) && (View.Family->EngineShowFlags.SeparateTranslucency && View.Family->EngineShowFlags.PostProcessing);
+		bool bSeparateTranslucencyPossible = (FSceneRenderTargets::CVarSetSeperateTranslucencyEnabled.GetValueOnRenderThread() != 0) && View.Family->EngineShowFlags.SeparateTranslucency && View.Family->EngineShowFlags.PostProcessing;
 
 
 		//@todo parallelrendering - come up with a better way to filter these by primitive
@@ -716,21 +716,24 @@ void FTranslucentPrimSet::RenderPrimitive(
 		}
 
 		// Render static scene prim
-		if( ViewRelevance.bStaticRelevance )
+		if (ViewRelevance.bStaticRelevance)
 		{
 			// Render static meshes from static scene prim
-			for( int32 StaticMeshIdx = 0, Count = PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx < Count; StaticMeshIdx++ )
+			for (int32 StaticMeshIdx = 0, Count = PrimitiveSceneInfo->StaticMeshes.Num(); StaticMeshIdx < Count; StaticMeshIdx++)
 			{
 				FStaticMesh& StaticMesh = PrimitiveSceneInfo->StaticMeshes[StaticMeshIdx];
+				bool bMaterialMatchesPass = (StaticMesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->IsSeparateTranslucencyEnabled() == (TranslucenyPassType == TPT_SeparateTransluceny));
+				bool bShouldRenderMesh = bMaterialMatchesPass || (!bSeparateTranslucencyPossible);
+
 				if (View.StaticMeshVisibilityMap[StaticMesh.Id]
 					// Only render static mesh elements using translucent materials
 					&& StaticMesh.IsTranslucent(FeatureLevel)
-					&& (StaticMesh.MaterialRenderProxy->GetMaterial(FeatureLevel)->IsSeparateTranslucencyEnabled() == (TranslucenyPassType == TPT_SeparateTransluceny)))
+					&& bShouldRenderMesh)
 				{
 					FTranslucencyDrawingPolicyFactory::DrawStaticMesh(
 						RHICmdList,
 						View,
-						FTranslucencyDrawingPolicyFactory::ContextType( TranslucentSelfShadow, TranslucenyPassType),
+						FTranslucencyDrawingPolicyFactory::ContextType(TranslucentSelfShadow, TranslucenyPassType),
 						StaticMesh,
 						StaticMesh.Elements.Num() == 1 ? 1 : View.StaticMeshBatchVisibility[StaticMesh.Id],
 						false,
@@ -803,7 +806,7 @@ void FTranslucentPrimSet::AppendScenePrimitives(FSortedPrim* Normal, int32 NumNo
 }
 
 void FTranslucentPrimSet::PlaceScenePrimitive(FPrimitiveSceneInfo* PrimitiveSceneInfo, const FViewInfo& ViewInfo, bool bUseNormalTranslucency, bool bUseSeparateTranslucency, void *NormalPlace, int32& NormalNum, void* SeparatePlace, int32& SeparateNum)
-{	
+{
 	int32 Value = FSceneRenderTargets::CVarSetSeperateTranslucencyEnabled.GetValueOnRenderThread();
 
 	const float SortKey = CalculateTranslucentSortKey(PrimitiveSceneInfo, ViewInfo);
@@ -816,21 +819,24 @@ void FTranslucentPrimSet::PlaceScenePrimitive(FPrimitiveSceneInfo* PrimitiveScen
 		&& FeatureLevel >= ERHIFeatureLevel::SM4)
 	{
 		// add to list of translucent prims that use scene color
-		new (SeparatePlace) FSortedPrim(PrimitiveSceneInfo,SortKey,PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority());
+		new (SeparatePlace)FSortedPrim(PrimitiveSceneInfo, SortKey, PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority());
 		SeparateNum++;
 	}
 
-	if (bUseNormalTranslucency 
+	if (bUseNormalTranslucency
 
-		// Force separate translucency to be rendered normally if the view doesn't support PostProcessing
-		|| (ViewInfo.Family->EngineShowFlags.SeparateTranslucency && !ViewInfo.Family->EngineShowFlags.PostProcessing)
+		// Force separate translucency to be rendered normally if separate translucency is disabled via cvar
+		|| Value == 0
 
 		// Force separate translucency to be rendered normally if the feature level does not support separate translucency
-		|| Value == 0
-		|| (bUseSeparateTranslucency && FeatureLevel < ERHIFeatureLevel::SM4))
+		|| (bUseSeparateTranslucency && FeatureLevel < ERHIFeatureLevel::SM4)
+
+		// Force separate translucency to be rendered normally if separate translucency is disabled in the view
+		|| (!ViewInfo.Family->EngineShowFlags.SeparateTranslucency))
+
 	{
 		// add to list of translucent prims
-		new (NormalPlace) FSortedPrim(PrimitiveSceneInfo,SortKey,PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority());
+		new (NormalPlace)FSortedPrim(PrimitiveSceneInfo, SortKey, PrimitiveSceneInfo->Proxy->GetTranslucencySortPriority());
 		NormalNum++;
 	}
 }
