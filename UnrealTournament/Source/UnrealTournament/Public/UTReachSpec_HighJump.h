@@ -302,6 +302,22 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 		}
 	}
 
+	virtual bool OverrideAirControl(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const
+	{
+		// make sure AI won't clip level geometry on the way up, if so back up via air control
+		float Dist = (MovePos.Get() - Asker->GetActorLocation()).Size();
+		FHitResult Hit;
+		if (Asker->GetWorld()->LineTraceSingleByChannel(Hit, Asker->GetActorLocation(), Asker->GetActorLocation() + Asker->GetVelocity().GetSafeNormal() * Dist, ECC_Pawn, FCollisionQueryParams::DefaultQueryParam, WorldResponseParams))
+		{
+			Asker->GetMovementComponent()->AddInputVector((Asker->GetActorLocation() - MovePos.Get()).GetSafeNormal2D());
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
 	virtual bool GetMovePoints(const FUTPathLink& OwnerLink, const FVector& StartLoc, APawn* Asker, const FNavAgentProperties& AgentProps, const struct FRouteCacheItem& Target, const TArray<FRouteCacheItem>& FullRoute, const class AUTRecastNavMesh* NavMesh, TArray<FComponentBasedPosition>& MovePoints) const override
 	{
 		// start bot considering to switch to needed traversal weapon, if applicable
