@@ -275,29 +275,6 @@ void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AControl
 	}
 }
 
-void AUTTeamShowdownGame::ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker)
-{
-	Super::ScoreDamage_Implementation(DamageAmount, Victim, Attacker);
-	if (Victim && Attacker && UTGameState && !UTGameState->OnSameTeam(Victim, Attacker))
-	{
-		Attacker->AdjustScore(DamageAmount);
-	}
-}
-
-void AUTTeamShowdownGame::StartNewRound()
-{
-	Super::StartNewRound();
-	AUTPlayerState* Best = NULL;
-	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
-	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		if (PS && !PS->bIsInactive && !PS->bOnlySpectator)
-		{
-			PS->AdjustScore(100);
-		}
-	}
-}
-
 AInfo* AUTTeamShowdownGame::GetTiebreakWinner(FName* WinReason) const
 {
 	TArray<int32> LivingPlayersPerTeam;

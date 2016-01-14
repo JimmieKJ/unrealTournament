@@ -23,9 +23,7 @@ public:
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
 	virtual void RestartPlayer(AController* aPlayer) override;
-	virtual void StartNewRound() override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
-	virtual void ScoreDamage_Implementation(int32 DamageAmount, AUTPlayerState* Victim, AUTPlayerState* Attacker) override;
 	virtual AInfo* GetTiebreakWinner(FName* WinReason = NULL) const override;
 	virtual void ScoreExpiredRoundTime() override;
 	virtual void PlayEndOfMatchMessage() override;
