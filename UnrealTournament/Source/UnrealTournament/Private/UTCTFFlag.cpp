@@ -22,7 +22,8 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 
 	MeshOffset = FVector(-64.f, 0.f, -48.f);
 	HeldOffset = FVector(0.f, 0.f, 0.f);
-	HomeBaseOffset = FVector(64.f, 0.f, -8.f);
+	HomeBaseOffset = FVector(0.f, 64.f, -8.f);
+	HomeBaseRotOffset.Yaw = 90.0f;
 
 	FlagWorldScale = 1.75f;
 	FlagHeldScale = 1.f;
@@ -53,10 +54,7 @@ void AUTCTFFlag::PostInitializeComponents()
 	Super::PostInitializeComponents();
 	if (GetNetMode() == NM_DedicatedServer || GetCachedScalabilityCVars().DetailMode == 0)
 	{
-		if (GetMesh())
-		{
-			GetMesh()->bDisableClothSimulation = true;
-		}
+		GetMesh()->bDisableClothSimulation = true;
 	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
@@ -119,10 +117,7 @@ void AUTCTFFlag::OnObjectStateChanged()
 			GetWorldTimerManager().ClearTimer(SendHomeWithNotifyHandle);
 		}
 	}
-	if (GetMesh())
-	{
-		GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? ClothBlendHeld : ClothBlendHome;
-	}
+	GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? ClothBlendHeld : ClothBlendHome;
 }
 
 void AUTCTFFlag::SendHome()
@@ -140,11 +135,8 @@ void AUTCTFFlag::SendHomeWithNotify()
 void AUTCTFFlag::MoveToHome()
 {
 	Super::MoveToHome();
-	if (GetMesh())
-	{
-		GetMesh()->SetRelativeLocation(MeshOffset);
-		GetMesh()->ClothBlendWeight = ClothBlendHome;
-	}
+	GetMesh()->SetRelativeLocation(MeshOffset);
+	GetMesh()->ClothBlendWeight = ClothBlendHome;
 }
 
 void AUTCTFFlag::Drop(AController* Killer)
@@ -221,7 +213,7 @@ void AUTCTFFlag::PlayReturnedEffects()
 		UGameplayStatics::SpawnEmitterAtLocation(this, ReturnSrcEffect, GetActorLocation(), GetActorRotation());
 		if (HomeBase != NULL)
 		{
-			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation(), HomeBase->GetActorRotation());
+			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation(), GetHomeRotation());
 		}
 	}
 }

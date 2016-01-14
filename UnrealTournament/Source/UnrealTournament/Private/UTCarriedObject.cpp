@@ -44,7 +44,10 @@ void AUTCarriedObject::OnConstruction(const FTransform& Transform)
 
 	// backwards compatibility; force values on existing instances
 	Collision->SetAbsolute(false, false, true);
-	Collision->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+	if (Role == ROLE_Authority)
+	{
+		Collision->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+	}
 }
 
 void AUTCarriedObject::Init(AUTGameObjective* NewBase)
@@ -507,6 +510,18 @@ FVector AUTCarriedObject::GetHomeLocation() const
 		return HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
 	}
 }
+FRotator AUTCarriedObject::GetHomeRotation() const
+{
+	if (HomeBase == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Carried object querying home rotation with no home"), *GetName());
+		return GetActorRotation();
+	}
+	else
+	{
+		return HomeBase->GetActorRotation() + HomeBaseRotOffset;
+	}
+}
 
 void AUTCarriedObject::MoveToHome()
 {
@@ -516,7 +531,7 @@ void AUTCarriedObject::MoveToHome()
 	if (HomeBase != NULL)
 	{
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
-		SetActorLocationAndRotation(GetHomeLocation(), HomeBase->GetActorRotation());
+		SetActorLocationAndRotation(GetHomeLocation(), GetHomeRotation());
 		ForceNetUpdate();
 	}
 }
