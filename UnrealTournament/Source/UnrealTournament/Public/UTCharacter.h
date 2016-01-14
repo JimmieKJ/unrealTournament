@@ -581,7 +581,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(Client, Reliable)
 	void ClientWeaponLost(AUTWeapon* LostWeapon);
 
-	/** replicated weapon switch status */
+	/** replicated weapon switch status (for animation). */
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
 		bool bIsSwitchingWeapon;
 

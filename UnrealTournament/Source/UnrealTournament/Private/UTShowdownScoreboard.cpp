@@ -109,7 +109,7 @@ void UUTShowdownScoreboard::Draw_Implementation(float RenderDelta)
 	Super::Draw_Implementation(RenderDelta);
 
 	AUTShowdownGameState* GS = UTHUDOwner->GetWorld()->GetGameState<AUTShowdownGameState>();
-	if (GS != NULL && GS->bMatchHasStarted && (GS->GetMatchState() == MatchState::MatchIntermission))
+	if (GS != NULL && GS->bMatchHasStarted && ((GS->GetMatchState() == MatchState::MatchIntermission) || GS->HasMatchEnded()))
 	{
 		// show current round damage and total damage by local player
 		float Width = 0.5f*Size.X;
