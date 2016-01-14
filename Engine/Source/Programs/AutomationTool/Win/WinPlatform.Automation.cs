@@ -284,9 +284,12 @@ public class Win64Platform : BaseWinPlatform
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, InstallerRelativePath), "UE4PrereqSetup_x64.exe", false, null, InstallerRelativePath);
 		}
 
-        // Very UT specific because of non-monolithic build
-        SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
-        SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
+        if (!SC.DedicatedServer)
+        {
+            // Very UT specific because of non-monolithic build
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*Win32-*", true, null, null, true, true, null, true, false);
+        }
 	}
 }
 
@@ -308,9 +311,12 @@ public class Win32Platform : BaseWinPlatform
 			string InstallerRelativePath = CombinePaths("Engine", "Extras", "Redist", "en-us");
 			SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, InstallerRelativePath), "UE4PrereqSetup_x86.exe", false, null, InstallerRelativePath);
 		}
-        
-        // Very UT specific because of non-monolithic build
-        SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
-        SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
+
+        if (!SC.DedicatedServer)
+        {
+            // Very UT specific because of non-monolithic build
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, "Engine"), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
+            SC.StageFiles(StagedFileType.DebugNonUFS, CommandUtils.CombinePaths(SC.LocalRoot, SC.ShortProjectName), "UE4-*-Win64-*", true, null, null, true, true, null, true, false);
+        }
 	}
 }
