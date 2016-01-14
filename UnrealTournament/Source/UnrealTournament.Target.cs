@@ -13,6 +13,7 @@ public class UnrealTournamentTarget : TargetRules
 
         // Turn on shipping logging
         UEBuildConfiguration.bUseLoggingInShipping = true;
+        UEBuildConfiguration.bCompileBox2D = false;
 	}
 
 	//

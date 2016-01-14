@@ -7,7 +7,8 @@ public class UnrealTournamentEditorTarget : TargetRules
 {
 	public UnrealTournamentEditorTarget(TargetInfo Target)
 	{
-		Type = TargetType.Editor;
+        Type = TargetType.Editor;
+        UEBuildConfiguration.bCompileBox2D = false;
 	}
 
 	//
