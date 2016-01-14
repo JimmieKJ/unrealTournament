@@ -2607,7 +2607,7 @@ void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 					if (Weapon->PutDown())
 					{
 						// standard weapon switch to some other weapon
-						SetPendingWeapon(PendingWeapon);
+						SetPendingWeapon(NewWeapon);
 					}
 				}
 				else if (PendingWeapon != NULL)
