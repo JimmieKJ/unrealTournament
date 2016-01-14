@@ -2462,7 +2462,7 @@ void AUTCharacter::RemoveInventory(AUTInventory* InvToRemove)
 		{
 			if (InvToRemove == PendingWeapon)
 			{
-				PendingWeapon = NULL;
+				SetPendingWeapon(NULL);
 			}
 			else if (InvToRemove == Weapon)
 			{
@@ -2574,6 +2574,12 @@ void AUTCharacter::SwitchWeapon(AUTWeapon* NewWeapon)
 	}
 }
 
+void AUTCharacter::SetPendingWeapon(AUTWeapon* NewPendingWeapon)
+{
+	PendingWeapon = NewPendingWeapon;
+	bIsSwitchingWeapon = (PendingWeapon != NULL);
+}
+
 void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 {
 	if (!IsDead())
@@ -2590,7 +2596,7 @@ void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 				if (NewWeapon != NULL)
 				{
 					// initial equip
-					PendingWeapon = NewWeapon;
+					SetPendingWeapon(NewWeapon);
 					WeaponChanged();
 				}
 			}
@@ -2601,20 +2607,20 @@ void AUTCharacter::LocalSwitchWeapon(AUTWeapon* NewWeapon)
 					if (Weapon->PutDown())
 					{
 						// standard weapon switch to some other weapon
-						PendingWeapon = NewWeapon;
+						SetPendingWeapon(PendingWeapon);
 					}
 				}
 				else if (PendingWeapon != NULL)
 				{
 					// switching back to weapon that was on its way down
-					PendingWeapon = NULL;
+					SetPendingWeapon(PendingWeapon);
 					Weapon->BringUp();
 				}
 			}
 			else if (Weapon != NULL && PendingWeapon != NULL && PendingWeapon->PutDown())
 			{
 				// stopping weapon switch in progress by passing NULL
-				PendingWeapon = NULL;
+				SetPendingWeapon(PendingWeapon);
 				Weapon->BringUp();
 			}
 		}
@@ -2648,7 +2654,7 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 	{
 		checkSlow(IsInInventory(PendingWeapon));
 		Weapon = PendingWeapon;
-		PendingWeapon = NULL;
+		SetPendingWeapon(NULL);
 		WeaponClass = Weapon->GetClass();
 		WeaponAttachmentClass = Weapon->AttachmentType;
 		Weapon->BringUp(OverflowTime);
@@ -2701,7 +2707,7 @@ void AUTCharacter::ClientWeaponLost_Implementation(AUTWeapon* LostWeapon)
 		}
 		else if (PendingWeapon == LostWeapon)
 		{
-			PendingWeapon = NULL;
+			SetPendingWeapon(NULL);
 			WeaponChanged();
 		}
 	}
@@ -2868,6 +2874,7 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bInvisible, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, HeadArmorFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
+	DOREPLIFETIME_CONDITION(AUTCharacter, bIsSwitchingWeapon, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);

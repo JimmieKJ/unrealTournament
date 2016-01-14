@@ -564,6 +564,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	{
 		return PendingWeapon;
 	}
+	virtual void SetPendingWeapon(AUTWeapon* NewPendingWeapon);
 
 	bool IsInInventory(const AUTInventory* TestInv) const;
 
@@ -580,9 +581,14 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(Client, Reliable)
 	void ClientWeaponLost(AUTWeapon* LostWeapon);
 
+	/** replicated weapon switch status */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
+		bool bIsSwitchingWeapon;
+
 	/** replicated weapon firing info */
 	UPROPERTY(BlueprintReadOnly, Replicated, ReplicatedUsing = FiringInfoReplicated, Category = "Weapon")
 	uint8 FlashCount;
+
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = "Weapon")
 	uint8 FireMode;
 	/** weapon/attachment type specific extra data (for example, can be used to replicate charging without complicated FlashCount/FlashLocation gymnastics)
