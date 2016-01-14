@@ -381,28 +381,28 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 		{
 			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(DesktopSlateWidget.ToSharedRef()),1);
 		}
-	}
 
-	// Make it visible.
-	if (DesktopSlateWidget.IsValid())
-	{
-		// Widget is already valid, just make it visible.
-		DesktopSlateWidget->SetVisibility(EVisibility::Visible);
-		DesktopSlateWidget->OnMenuOpened(Parameters);
-
-		if (PlayerController)
+		// Make it visible.
+		if ( DesktopSlateWidget.IsValid() )
 		{
-			if (!IsMenuGame())
-			{
-				// If we are in a single player game, and that game is either in the player intro or the post match state, then
-				// clear the menu pause.
+			// Widget is already valid, just make it visible.
+			DesktopSlateWidget->SetVisibility(EVisibility::Visible);
+			DesktopSlateWidget->OnMenuOpened(Parameters);
 
-				if (GetWorld()->GetNetMode() != NM_Client)
+			if (PlayerController)
+			{
+				if (!IsMenuGame())
 				{
-					AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-					if (GameMode && GameMode->GetMatchState() != MatchState::PlayerIntro && GameMode->GetMatchState() != MatchState::WaitingPostMatch)
+					// If we are in a single player game, and that game is either in the player intro or the post match state, then
+					// clear the menu pause.
+
+					if (GetWorld()->GetNetMode() != NM_Client)
 					{
-						PlayerController->SetPause(true);
+						AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+						if (GameMode && GameMode->GetMatchState() != MatchState::PlayerIntro && GameMode->GetMatchState() != MatchState::WaitingPostMatch)
+						{
+							PlayerController->SetPause(true);
+						}
 					}
 				}
 			}
@@ -413,7 +413,6 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 void UUTLocalPlayer::HideMenu()
 {
 #if !UE_SERVER
-
 	if (ContentLoadingMessage.IsValid())
 	{
 		UE_LOG(UT,Log,TEXT("Can't close menus during loading"));
