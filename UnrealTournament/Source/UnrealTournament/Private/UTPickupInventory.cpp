@@ -393,9 +393,9 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 			Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 			Params.Instigator = P;
 			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
-			P->DeactivateSpawnProtection();
-			AnnouncePickup(P);
 		}
+		P->DeactivateSpawnProtection();
+		AnnouncePickup(P);
 
 		//Add to the stats pickup count
 		const AUTInventory* Inventory = Cast<UClass>(InventoryType) ? Cast<AUTInventory>(Cast<UClass>(InventoryType)->GetDefaultObject()) : nullptr;
