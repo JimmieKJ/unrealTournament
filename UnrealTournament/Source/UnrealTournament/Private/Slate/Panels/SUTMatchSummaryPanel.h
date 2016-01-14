@@ -103,6 +103,7 @@ public:
 		return PlayerOwner;
 	}
 
+	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 	virtual FReply OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& InKeyEvent) override;
 	virtual FReply OnKeyChar(const FGeometry& InGeometry, const FCharacterEvent& InCharacterEvent) override;
@@ -260,6 +261,8 @@ protected:
 	EVisibility GetExitViewVis() const;
 
 	FReply HideMatchPanel();
+
+	void MovePlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
 private:
 

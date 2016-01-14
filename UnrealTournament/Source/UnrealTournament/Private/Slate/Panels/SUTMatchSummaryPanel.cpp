@@ -189,6 +189,7 @@ void SUTMatchSummaryPanel::Construct(const FArguments& InArgs, TWeakObjectPtr<UU
 			.Image(PlayerPreviewBrush)
 			.OnDrag(this, &SUTMatchSummaryPanel::DragPlayerPreview)
 			.OnZoom(this, &SUTMatchSummaryPanel::ZoomPlayerPreview)
+			.OnMove(this, &SUTMatchSummaryPanel::MovePlayerPreview)
 			.OnMousePressed(this, &SUTMatchSummaryPanel::OnMouseDownPlayerPreview)
 		]
 	];
@@ -2177,5 +2178,15 @@ FReply SUTMatchSummaryPanel::HideMatchPanel()
 	return FReply::Handled();
 }
 
+FReply SUTMatchSummaryPanel::OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	MousePos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
+	return FReply::Unhandled();
+}
+
+void SUTMatchSummaryPanel::MovePlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	MousePos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
+}
 
 #endif
