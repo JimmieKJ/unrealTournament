@@ -294,11 +294,11 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 	if (WeaponNameText.RenderOpacity > 0.f)
 	{
+		bool bRealScaling = bScaleByDesignedResolution;
+		bScaleByDesignedResolution = false;
 		Opacity = 1.f;
-
-		// Recalc this to handle aspect ratio
-		WeaponNameText.Position.X = (Canvas->ClipX * 0.5f) / RenderScale * -1.f;
-		RenderObj_TextAt(WeaponNameText, WeaponNameText.Position.X, WeaponNameText.Position.Y);
+		DrawText(WeaponNameText.Text, Canvas->ClipX * 0.5f - RenderPosition.X, Canvas->ClipY * 0.8f - RenderPosition.Y, WeaponNameText.Font, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, 1.f, WeaponNameText.RenderOpacity, WeaponNameText.RenderColor, ETextHorzPos::Center, ETextVertPos::Top);
+		bScaleByDesignedResolution = bRealScaling;
 	}
 
 	if (WeaponNameDisplayTimer > 0.f)
