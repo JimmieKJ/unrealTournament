@@ -2137,7 +2137,6 @@ void SUTMatchSummaryPanel::BuildFriendPanel()
 			}
 		}
 	}
-	if (ParentPanel.IsValid()) ParentPanel->FocusChat();
 }
 
 void SUTMatchSummaryPanel::ChangeViewingState(FName NewViewState)
