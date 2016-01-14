@@ -391,9 +391,9 @@ float AUTGameState::GetClockTime()
 {
 	if (IsMatchInOvertime())
 	{
-		return ElapsedTime-TimeLimit;
+			return ElapsedTime-TimeLimit;
 	}
-	return (TimeLimit > 0.f) ? RemainingTime : ElapsedTime;
+	return ((TimeLimit > 0.f) || !HasMatchStarted()) ? RemainingTime : ElapsedTime;
 }
 
 void AUTGameState::OnRep_RemainingTime()
@@ -452,20 +452,6 @@ void AUTGameState::DefaultTimer()
 				}
 			}
 		}
-		else if (!HasMatchStarted())
-		{
-			AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-			if (Game == NULL || Game->NumPlayers + Game->NumBots > Game->MinPlayersToStart)
-			{
-				RemainingTime--;
-				if (GetWorld()->GetNetMode() != NM_Client)
-				{
-					// during pre-match bandwidth isn't at a premium, let's be accurate
-					RemainingMinute = RemainingTime;
-				}
-			}
-		}
-
 		CheckTimerMessage();
 	}
 }

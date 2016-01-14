@@ -81,7 +81,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MaxReadyWaitTime = 60;
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
-	MaxWaitForPlayers = 90.f;
+	MaxWaitForPlayers = 90;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
@@ -105,6 +105,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	XPMultiplier = 1.0f;
 	XPCapPerMin = 20;
 	GameDifficulty = 3.f;
+	StartPlayTime = 10000000.f;
 
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
@@ -2568,12 +2569,6 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	}
 }
 
-void AUTGameMode::StartPlay()
-{
-	Super::StartPlay();
-	StartPlayTime = GetWorld()->GetTimeSeconds();
-}
-
 bool AUTGameMode::ReadyToStartMatch_Implementation()
 {
 	if (GetWorld()->IsPlayInEditor() || !bDelayedStart)
@@ -2594,40 +2589,52 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 	// By default start when we have > 0 players
 	if (GetMatchState() == MatchState::WaitingToStart)
 	{
+		StartPlayTime = (NumPlayers > 0) ? FMath::Min(StartPlayTime, GetWorld()->GetTimeSeconds()) : 10000000.f;
+		float  ElapsedWaitTime = FMath::Max(0.f, GetWorld()->GetTimeSeconds() - StartPlayTime);
 		UTGameState->PlayersNeeded = (GetNetMode() == NM_Standalone) ? 0 : FMath::Max(0, MinPlayersToStart - NumPlayers - NumBots);
 		if ((UTGameState->PlayersNeeded == 0) && (NumPlayers + NumSpectators > 0))
 		{
+			// Count how many ready players we have
 			bool bCasterReady = false;
-			if ((bCasterControl) || (MaxReadyWaitTime <= 0) || (UTGameState->RemainingTime > 0) || (GetNetMode() == NM_Standalone))
+			int32 ReadyCount = 0;
+			int32 AllCount = 0;
+			for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 			{
-				for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				if (PS != NULL && !PS->bOnlySpectator)
 				{
-					AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-					if (PS != NULL && !PS->bOnlySpectator && !PS->bReadyToPlay)
-					{
-						return false;
-					}
+					ReadyCount = PS->bReadyToPlay ? ReadyCount + 1 : ReadyCount;
+					AllCount++;
+				}
 
-					//Only need one caster to be ready
-					if (bCasterControl && PS->bCaster && PS->bReadyToPlay)
-					{
-						bCasterReady = true;
-					}
+				//Only need one caster to be ready
+				if (bCasterControl && PS->bCaster && PS->bReadyToPlay)
+				{
+					bCasterReady = true;
 				}
 			}
-			return (!bCasterControl || bCasterReady);
+
+			// start if everyone is ready, or have waited long enough and 60% ready.
+			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (ElapsedWaitTime > MaxReadyWaitTime);
+			if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
+			{
+				if ((ReadyCount > 0) && !bCasterControl || bCasterReady)
+				{
+					return true;
+				}
+			}
 		}
-		else
+		// if not competitive match, Fill with bots if have waited long enough
+		if (!bRequireReady && (MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
 		{
-			if ((MaxWaitForPlayers > 0) && (GetWorld()->GetTimeSeconds() - StartPlayTime > MaxWaitForPlayers))
-			{
-				BotFillCount = FMath::Max(BotFillCount, MinPlayersToStart);
-			}
-			if (MaxReadyWaitTime > 0)
-			{
-				// reset max wait for players to ready up
-				UTGameState->SetTimeLimit(MaxReadyWaitTime);
-			}
+			BotFillCount = FMath::Max(BotFillCount, MinPlayersToStart);
+		}
+		if (!bRequireReady && (MaxReadyWaitTime > 0) && UTGameState && (ElapsedWaitTime > 0))
+		{
+			int32 WaitCountDown = (NumPlayers > 1) ? MaxReadyWaitTime  : FMath::Max(MaxReadyWaitTime, MaxWaitForPlayers);
+			WaitCountDown -= ElapsedWaitTime;
+			UTGameState->RemainingTime = WaitCountDown;
+			UTGameState->RemainingMinute = WaitCountDown;
 		}
 	}
 	return false;
@@ -2805,16 +2812,6 @@ void AUTGameMode::CheckGameTime()
 			UTGameState->bStopGameClock = true;
 			SetMatchState(MatchState::MatchEnteringOvertime);
 		}
-	}
-}
-
-void AUTGameMode::HandleMatchIsWaitingToStart()
-{
-	Super::HandleMatchIsWaitingToStart();
-
-	if (MaxReadyWaitTime > 0)
-	{
-		UTGameState->SetTimeLimit(MaxReadyWaitTime);
 	}
 }
 

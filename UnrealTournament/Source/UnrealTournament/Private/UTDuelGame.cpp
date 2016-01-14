@@ -20,7 +20,6 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	PowerupDuration = 10.f;
 	GoalScore = 0;
 	TimeLimit = 10.f;
-	MaxReadyWaitTime = 60;
 	bForceRespawn = true;
 	bAnnounceTeam = false;
 	bHighScorerPerTeamBasis = false;

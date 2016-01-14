@@ -140,8 +140,12 @@ public:
 	UPROPERTY(AssetRegistrySearchable, EditDefaultsOnly)
 	bool bHideInUI;
 
+	/** If true, require full set of players to be ready to start. */
+	UPROPERTY()
+		bool bRequireReady;
+
 	/** maximum amount of time (in seconds) to wait for players to be ready before giving up and starting the game anyway; <= 0 means wait forever until everyone readies up */
-	UPROPERTY(globalconfig)
+	UPROPERTY()
 	int32 MaxReadyWaitTime;
 
 	/** Score needed to win the match.  Can be overridden with GOALSCORE=x on the url */
@@ -177,13 +181,11 @@ public:
 
 	/** After this wait, add bots to min players level */
 	UPROPERTY()
-	float MaxWaitForPlayers;
+	int32 MaxWaitForPlayers;
 
 	/** World time when match was first ready to start. */
 	UPROPERTY()
 	float StartPlayTime;
-
-	virtual void StartPlay() override;
 
 	/** add bots until NumPlayers + NumBots is this number */
 	UPROPERTY(config)
@@ -446,7 +448,6 @@ public:
 	virtual void HandlePlayerIntro();
 	virtual void EndPlayerIntro();
 
-	virtual void HandleMatchIsWaitingToStart() override;
 	virtual void HandleMatchHasStarted();
 	virtual void AnnounceMatchStart();
 	virtual void HandleMatchHasEnded() override;

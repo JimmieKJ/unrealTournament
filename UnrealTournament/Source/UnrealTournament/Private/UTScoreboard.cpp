@@ -241,8 +241,8 @@ void UUTScoreboard::DrawGameOptions(float RenderDelta, float& YOffset)
 			DrawText(Score, Size.X * 0.985f, YOffset + 50.f, UTHUDOwner->SmallFont, 1.f, 1.f, FLinearColor::Yellow, ETextHorzPos::Right, ETextVertPos::Center);
 		}
 
-		float RemainingTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
-		FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), RemainingTime, false, true, true);
+		float DisplayedTime = UTGameState ? UTGameState->GetClockTime() : 0.f;
+		FText Timer = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), DisplayedTime, false, true, true);
 		DrawText(Timer, Size.X * 0.985f, YOffset + 20.f, UTHUDOwner->NumberFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
 	}
 }
@@ -283,7 +283,6 @@ void UUTScoreboard::DrawScoreHeaders(float RenderDelta, float& YOffset)
 	{
 		// Draw the background Border
 		DrawTexture(TextureAtlas, XOffset, YOffset, Width, Height, 149, 138, 32, 32, 1.0, FLinearColor(0.72f, 0.72f, 0.72f, 0.85f));
-
 		DrawText(CH_PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnHeaderY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FLinearColor::Black, ETextHorzPos::Left, ETextVertPos::Center);
 
 		if (UTGameState && UTGameState->HasMatchStarted())

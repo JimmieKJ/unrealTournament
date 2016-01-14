@@ -127,7 +127,7 @@ float AUTCTFGameState::GetClockTime()
 	{
 		return ElapsedTime - OvertimeStartTime;
 	}
-	return (TimeLimit > 0.f) ? RemainingTime : ElapsedTime;
+	return ((TimeLimit > 0.f) || !HasMatchStarted()) ? RemainingTime : ElapsedTime;
 }
 
 void AUTCTFGameState::OnRep_MatchState()
