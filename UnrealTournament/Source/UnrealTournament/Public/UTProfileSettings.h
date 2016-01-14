@@ -325,5 +325,10 @@ public:
 	UPROPERTY()
 	uint32 bForcedToEpicAtLeastOnce : 1;
 
+	void CopyTokens(TArray<FName>& Destination)
+	{
+		Destination = FoundTokenUniqueIDs;
+	}
+
 
 };

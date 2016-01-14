@@ -22,6 +22,7 @@ void UUTProgressionStorage::LoadFromProfile(UUTProfileSettings* ProfileSettings)
 		TotalChallengeStars = ProfileSettings->TotalChallengeStars;
 		SkullCount = ProfileSettings->SkullCount;
 		Achievements = ProfileSettings->Achievements;
+		ProfileSettings->CopyTokens(FoundTokenUniqueIDs);
 	}
 }
 
