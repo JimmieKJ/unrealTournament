@@ -348,6 +348,10 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 
 void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffset, float YOffset)
 {
+	if (!Pickup || !Pickup->State.bActive)
+	{
+		return;
+	}
 	FLinearColor BarColor = FLinearColor::White;
 	float RemainingTime = GetWorld()->GetTimerManager().GetTimerRemaining(Pickup->WakeUpTimerHandle);
 	float BarOpacity = (RemainingTime > 0.f) ? 0.3f : 0.6f;
