@@ -159,7 +159,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 				FColor TextColor = Canvas->DrawColor;
 				Canvas->DrawColor = FColor(0, 0, 0, 64);
 				Canvas->TextSize(TinyFont, OwningPS->PlayerName, XL, YL);
-				Canvas->DrawTile(SpawnHelpTextBG.Texture, Pos.X - XL * 0.5f, Pos.Y - 20.0f * RenderScale - 0.8f*YL, 0.9f*XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
+				Canvas->DrawTile(SpawnHelpTextBG.Texture, Pos.X - XL * 0.5f, Pos.Y - 20.0f * RenderScale - 0.8f*YL, XL, 0.8f*YL, 149, 138, 32, 32, BLEND_Translucent);
 				Canvas->DrawColor = TextColor;
 				Canvas->DrawText(TinyFont, OwningPS->PlayerName, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 2.0f - YL);
 			}
