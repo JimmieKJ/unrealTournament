@@ -12,6 +12,8 @@
 #include "UTShowdownSquadAI.h"
 #include "UTGenericObjectivePoint.h"
 #include "UTShowdownRewardMessage.h"
+#include "UTFirstBloodMessage.h"
+#include "UTMutator.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
