@@ -3951,7 +3951,12 @@ void AUTCharacter::Tick(float DeltaTime)
 		GetWeaponBobOffset(DeltaTime, NULL);
 	}
 	AUTPlayerController* MyPC = GetLocalViewer();
-	if (MyPC && GetCharacterMovement()) 
+	if (GS && GS->IsMatchIntermission())
+	{
+		SetStatusAmbientSound(NULL);
+		SetLocalAmbientSound(NULL);
+	}
+	else if (MyPC && GetCharacterMovement()) 
 	{
 		if ((Health <= LowHealthAmbientThreshold) && (Health > 0))
 		{
@@ -4210,7 +4215,9 @@ void AUTCharacter::PossessedBy(AController* NewController)
 void AUTCharacter::UnPossessed()
 {
 	StopFiring();
-
+	SetAmbientSound(NULL);
+	SetStatusAmbientSound(NULL);
+	SetLocalAmbientSound(NULL);
 	Super::UnPossessed();
 }
 

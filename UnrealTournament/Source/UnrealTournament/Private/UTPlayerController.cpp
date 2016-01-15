@@ -2511,6 +2511,13 @@ void AUTPlayerController::ClientHalftime_Implementation()
 			(*It)->TurnOff();
 		}
 	}
+
+	if (UTCharacter)
+	{
+		UTCharacter->SetAmbientSound(NULL);
+		UTCharacter->SetLocalAmbientSound(NULL);
+		UTCharacter->SetStatusAmbientSound(NULL);
+	}
 }
 
 void AUTPlayerController::TestResult(uint16 ButtonID)
