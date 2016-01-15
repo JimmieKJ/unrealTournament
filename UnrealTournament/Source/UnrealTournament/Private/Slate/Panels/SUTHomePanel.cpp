@@ -301,10 +301,10 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 
 						// QUICK PLAY - DEATHMATCH
 						+SHorizontalBox::Slot()
-						.Padding(0,0.0,20.0,0.0)
+						.Padding(0,0.0,0.0,0.0)
 						.AutoWidth()
 						[
-							SNew(SBox).WidthOverride(380)
+							SNew(SBox).WidthOverride(250)
 							[
 								SNew(SOverlay)
 								+ SOverlay::Slot()
@@ -356,10 +356,10 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 
 						// QUICK PLAY - CTF
 						+SHorizontalBox::Slot()
-						.Padding(20.0,0.0,0.0,0.0)
+						.Padding(25.0,0.0,25.0,0.0)
 						.AutoWidth()
 						[
-							SNew(SBox).WidthOverride(380)
+							SNew(SBox).WidthOverride(250)
 							[
 								SNew(SOverlay)
 								+ SOverlay::Slot()
@@ -407,6 +407,60 @@ TSharedRef<SWidget> SUTHomePanel::BuildHomePanel()
 								]
 							]
 						]
+
+						// QUICK PLAY - Team Showdown
+						+SHorizontalBox::Slot()
+						.Padding(0.0,0.0,0.0,0.0)
+						.AutoWidth()
+						[
+							SNew(SBox).WidthOverride(250)
+							[
+								SNew(SOverlay)
+								+ SOverlay::Slot()
+								[
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HomePanel.TeamShowdownBadge"))
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
+									.Padding(0.0,206.0)
+									[
+										SNew(SBorder)
+										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot()
+											.AutoHeight()
+											.HAlign(HAlign_Center)
+											[
+												SNew(STextBlock)
+												.Text(FText::FromString(TEXT("QUICK PLAY")))
+												.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+											]
+											+SVerticalBox::Slot()
+											.HAlign(HAlign_Center)
+											.AutoHeight()
+											[
+												SNew(STextBlock)
+												.Text(FText::FromString(TEXT("TEAM SHOWDOWN")))
+												.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
+												.ColorAndOpacity(FLinearColor(1.0f, 0.412f, 0.027f, 1.0f))
+											]
+										]
+									]
+									
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(SButton)
+									.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+									.OnClicked(this, &SUTHomePanel::QuickMatch_TeamShowdown_Click)
+								]
+							]
+						]
+
 					]
 				]
 			]
@@ -770,6 +824,14 @@ FReply SUTHomePanel::QuickMatch_CTF_Click()
 	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::CTF);
 	return FReply::Handled();
 }
+
+FReply SUTHomePanel::QuickMatch_TeamShowdown_Click()
+{
+	TSharedPtr<SUTMainMenu> MainMenu = StaticCastSharedPtr<SUTMainMenu>(GetParentWindow());
+	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::TEAMSHOWDOWN);
+	return FReply::Handled();
+}
+
 
 FReply SUTHomePanel::OfflineAction_Click()
 {

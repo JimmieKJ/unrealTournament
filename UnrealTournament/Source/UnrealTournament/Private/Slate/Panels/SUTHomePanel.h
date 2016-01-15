@@ -31,6 +31,7 @@ protected:
 	FReply BasicTraining_Click();
 	FReply QuickMatch_DM_Click();
 	FReply QuickMatch_CTF_Click();
+	FReply QuickMatch_TeamShowdown_Click();
 	FReply OfflineAction_Click();
 	FReply FindAMatch_Click();
 	FReply FragCenter_Click();
