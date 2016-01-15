@@ -9,6 +9,7 @@
 #include "UnrealNetwork.h"
 #include "UTGameViewportClient.h"
 #include "UTRconAdminInfo.h"
+#include "UTLocalPlayer.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -143,19 +144,21 @@ void AUTBasePlayerController::InitPlayerState()
 
 void AUTBasePlayerController::Talk()
 {
-	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
 	{
-		LP->ViewportClient->ViewportConsole->StartTyping("Say ");
+		LP->ShowMenu(TEXT("say"));
+		//LP->ViewportClient->ViewportConsole->StartTyping("Say ");
 	}
 }
 
 void AUTBasePlayerController::TeamTalk()
 {
-	ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != nullptr && LP->ViewportClient->ViewportConsole != nullptr)
 	{
-		LP->ViewportClient->ViewportConsole->StartTyping("TeamSay ");
+		LP->ShowMenu(TEXT("teamsay"));
+		//LP->ViewportClient->ViewportConsole->StartTyping("TeamSay ");
 	}
 }
 

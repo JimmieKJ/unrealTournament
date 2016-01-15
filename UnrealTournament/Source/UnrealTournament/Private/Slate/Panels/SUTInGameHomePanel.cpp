@@ -20,6 +20,7 @@
 void SUTInGameHomePanel::ConstructPanel(FVector2D CurrentViewportSize)
 {
 	Tag = FName(TEXT("InGameHomePanel"));
+	bCloseOnSubmit = false;
 
 	bFocusSummaryInv = false;
 	ChatDestination = ChatDestinations::Local;
@@ -285,7 +286,7 @@ void SUTInGameHomePanel::BuildChatDestinationMenu()
 FReply SUTInGameHomePanel::ChangeChatDestination(TSharedPtr<SComboButton> Button, FName NewDestination)
 {
 	if (Button.IsValid()) Button->SetIsOpen(false);
-	ChatDestination = NewDestination;
+	SetChatDestination(NewDestination);
 	return FReply::Handled();
 }
 
@@ -398,6 +399,12 @@ void SUTInGameHomePanel::ChatTextCommited(const FText& NewText, ETextCommit::Typ
 			// Add code to change chat mode here.
 		}
 	}
+
+	if (bCloseOnSubmit)
+	{
+		PlayerOwner->HideMenu();
+	}
+
 }
 
 FText SUTInGameHomePanel::GetChatDestinationTag(FName Destination)

@@ -20,6 +20,11 @@ public:
 
 	FReply virtual ChangeChatDestination(TSharedPtr<SComboButton> Button, FName NewDestination);
 
+	void SetChatDestination(FName NewDestination)
+	{
+		ChatDestination = NewDestination;
+	}
+
 	FText GetChatDestinationText() const;
 	FText GetChatDestinationTag(FName Destination);
 
@@ -30,6 +35,9 @@ public:
 	TSharedPtr<SUTMatchSummaryPanel> GetSummaryPanel();
 
 	EVisibility GetSummaryVisibility() const;
+
+	// If true, submitting text chat will close the menu
+	bool bCloseOnSubmit;
 
 protected:
 
