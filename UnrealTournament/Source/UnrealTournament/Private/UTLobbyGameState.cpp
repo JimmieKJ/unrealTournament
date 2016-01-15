@@ -303,10 +303,16 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 
 	if (!MatchInfo->SkillTest(NewPlayer->AverageRank)) // MAKE THIS CONFIG
 	{
-		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchTooGood","Your skill rating is too high for this match."));	
+		if (NewPlayer->AverageRank > MatchInfo->AverageRank)
+		{
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchTooGood", "Your skill rating is too high for this match."));
+		}
+		else
+		{
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchTooLow", "Your skill rating is too low for this match."));
+		}
 		return;
 	}
-
 
 	if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
 	{
