@@ -185,7 +185,6 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 				{
 					return TEXT("TOOSTRONG");
 				}
-		
 			}
 		}
 
@@ -213,10 +212,8 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 			}
 		}
 	}
-
 	return Super::ApproveLogin(Options);
 }
-
 
 void AUTGameSession::CleanUpOnlineSubsystem()
 {
@@ -250,7 +247,6 @@ bool AUTGameSession::ProcessAutoLogin()
 	return Super::ProcessAutoLogin();
 }
 
-
 void AUTGameSession::RegisterServer()
 {
 	UE_LOG(UT,Verbose,TEXT("--------------[REGISTER SERVER]----------------"));
@@ -266,9 +262,7 @@ void AUTGameSession::RegisterServer()
 			{
 				bSessionValid = false;
 				OnCreateSessionCompleteDelegate = SessionInterface->AddOnCreateSessionCompleteDelegate_Handle(FOnCreateSessionCompleteDelegate::CreateUObject(this, &AUTGameSession::OnCreateSessionComplete));
-
 				bool bLanGame = FParse::Param(FCommandLine::Get(), TEXT("lan"));
-
 				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(bLanGame, false, 10000));
 
 				if (OnlineGameSettings.IsValid() && UTBaseGameMode)
@@ -278,7 +272,6 @@ void AUTGameSession::RegisterServer()
 					SessionInterface->CreateSession(0, GameSessionName, *OnlineGameSettings);
 					return;
 				}
-
 			}
 			else if (State == EOnlineSessionState::Ended)
 			{
@@ -289,7 +282,6 @@ void AUTGameSession::RegisterServer()
 			else
 			{
 				// We have a valid session.
-
 				TSharedPtr<class FUTOnlineGameSettingsBase> OnlineGameSettings = MakeShareable(new FUTOnlineGameSettingsBase(false, false, 10000));
 				if (OnlineGameSettings.IsValid() && UTBaseGameMode)
 				{
@@ -306,7 +298,6 @@ void AUTGameSession::RegisterServer()
 			UE_LOG(UT,Verbose,TEXT("Server does not have a valid session interface so it will not be visible."));
 		}
 	}
-
 }
 
 void AUTGameSession::UnRegisterServer(bool bShuttingDown)
@@ -336,9 +327,7 @@ void AUTGameSession::UnRegisterServer(bool bShuttingDown)
 
 void AUTGameSession::StartMatch()
 {
-
 	UE_LOG(UT,Log,TEXT("--------------[MCP START MATCH] ----------------"));
-
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
@@ -354,7 +343,6 @@ void AUTGameSession::StartMatch()
 void AUTGameSession::EndMatch()
 {
 	UE_LOG(UT,Log,TEXT("--------------[MCP END MATCH] ----------------"));
-
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
 	{
@@ -381,7 +369,6 @@ void AUTGameSession::EndMatch()
 void AUTGameSession::HandleMatchHasStarted() {}
 void AUTGameSession::HandleMatchHasEnded() {}
 
-
 void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
 	// If we were not successful, then clear the online game settings member and move on
@@ -399,7 +386,6 @@ void AUTGameSession::OnCreateSessionComplete(FName SessionName, bool bWasSuccess
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameSession::RegisterServer, SERVER_REREGISTER_WAIT_TIME);	
 	}
-
 
 	const auto OnlineSub = IOnlineSubsystem::Get();
 	if (OnlineSub && GetWorld()->GetNetMode() == NM_DedicatedServer)
@@ -505,6 +491,7 @@ void AUTGameSession::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 	}
 
 }
+
 void AUTGameSession::UpdateGameState()
 {
 	const auto OnlineSub = IOnlineSubsystem::Get();
@@ -634,12 +621,10 @@ void AUTGameSession::AcknowledgeAdmin(const FString& AdminId, bool bIsAdmin)
 	if (bIsAdmin)
 	{
 		// Make sure he's not already in there.
-
 		if (AllowedAdmins.Find(AdminId) == INDEX_NONE)
 		{
 			AllowedAdmins.Add(AdminId);
 		}
-
 	}
 	else
 	{
@@ -660,11 +645,9 @@ void AUTGameSession::OnConnectionStatusChanged(EOnlineServerConnectionStatus::Ty
 {
 	if (ConnectionState == EOnlineServerConnectionStatus::InvalidSession)
 	{
-
 		UE_LOG(UT,Warning,TEXT("The Server has been notifed that it's session is no longer valid.  Attempted to recreate a valid session."));
 		
 		// We have tried to talk to the MCP but our session is invalid.  So we want to reregister
-
 		DestroyHostBeacon();
 		bReregisterWhenDone = true;
 		UnRegisterServer(true);

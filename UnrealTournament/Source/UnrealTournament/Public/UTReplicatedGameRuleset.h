@@ -67,11 +67,12 @@ public:
 	UPROPERTY(Replicated)
 	uint32 bTeamGame:1;
 
+	UPROPERTY(Replicated)
+	uint32 bCompetitiveMatch : 1;
+
 	// Not displayed, this wholes the game type that will be passed to the server via the URL.  
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = Ruleset)
 	FString GameMode;
-	
-
 
 	// -------------- These are server side only.
 
@@ -84,7 +85,6 @@ public:
 
 	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
 	TArray<FString> QuickPlayMaps;
-
 
 	void SetRules(UUTGameRuleset* NewRules, const TArray<FAssetData>& MapAssets);
 

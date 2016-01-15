@@ -850,6 +850,7 @@ namespace EEpicDefaultRuleTags
 	const FString TEAMSHOWDOWN = TEXT("TEAMSHOWDOWN");
 	const FString CTF = TEXT("CTF");
 	const FString BIGCTF = TEXT("BIGCTF");
+	const FString COMPCTF = TEXT("CompCTF");
 	const FString iDM = TEXT("iDM");
 	const FString iTDM = TEXT("iTDM");
 	const FString iCTF = TEXT("iCTF");

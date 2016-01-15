@@ -106,6 +106,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	XPCapPerMin = 20;
 	GameDifficulty = 3.f;
 	StartPlayTime = 10000000.f;
+	bRequireReady = false;
 
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
@@ -227,6 +228,8 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	InOpt = UGameplayStatics::ParseOption(Options, TEXT("HubKey"));
 	if (!InOpt.IsEmpty()) HubKey = InOpt;
+
+	bRequireReady = UGameplayStatics::HasOption(Options, TEXT("RequireReady"));
 
 	// alias for testing convenience
 	if (UGameplayStatics::HasOption(Options, TEXT("Bots")))
@@ -2618,7 +2621,7 @@ bool AUTGameMode::ReadyToStartMatch_Implementation()
 			bool bMaxWaitComplete = (MaxReadyWaitTime > 0) && !bRequireReady && (ElapsedWaitTime > MaxReadyWaitTime);
 			if ((ReadyCount == AllCount) || (bMaxWaitComplete && (float(ReadyCount) >= 0.6f*float(AllCount))))
 			{
-				if ((ReadyCount > 0) && !bCasterControl || bCasterReady)
+				if (((ReadyCount > 0) && !bCasterControl) || bCasterReady)
 				{
 					return true;
 				}

@@ -6,5 +6,6 @@
 UUTGameRuleset::UUTGameRuleset(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	bCompetitiveMatch = false;
 }
 

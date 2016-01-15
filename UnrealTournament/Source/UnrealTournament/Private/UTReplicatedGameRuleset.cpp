@@ -37,22 +37,19 @@ void AUTReplicatedGameRuleset::GetLifetimeReplicatedProps(TArray< FLifetimePrope
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bCustomRuleset);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, GameMode);
 	DOREPLIFETIME(AUTReplicatedGameRuleset, bTeamGame);
+	DOREPLIFETIME(AUTReplicatedGameRuleset, bCompetitiveMatch);
 }
-
 
 int32 AUTReplicatedGameRuleset::AddMapAssetToMapList(const FAssetData& Asset)
 {
-
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
 		AUTReplicatedMapInfo* MapInfo = GameState->CreateMapInfo(Asset);
 		return MapList.Add(MapInfo);
 	}
-
 	return INDEX_NONE;
 }
-
 
 void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<FAssetData>& MapAssets)
 {
@@ -66,8 +63,8 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	bTeamGame			= NewRules->bTeamGame;
 	DefaultMap			= NewRules->DefaultMap;
 	QuickPlayMaps		= NewRules->QuickPlayMaps;
-
-	MaxMapsInList = NewRules->MaxMapsInList;
+	bCompetitiveMatch	= NewRules->bCompetitiveMatch;
+	MaxMapsInList		= NewRules->MaxMapsInList;
 
 	// First add the Epic maps.
 	if (!NewRules->EpicMaps.IsEmpty())
@@ -198,14 +195,18 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 				}
 			}
 
-			if (Value.Equals(TEXT("true"),ESearchCase::IgnoreCase)) Value = TEXT("On");
-			else if (Value.Equals(TEXT("false"),ESearchCase::IgnoreCase)) Value = TEXT("Off");
+			if (Value.Equals(TEXT("true"), ESearchCase::IgnoreCase))
+			{
+				Value = TEXT("On");
+			}
+			else if (Value.Equals(TEXT("false"), ESearchCase::IgnoreCase))
+			{
+				Value = TEXT("Off");
+			}
 
 			Description = Description.Replace(*PropertyLookups[i], *Value, ESearchCase::IgnoreCase);
 		}
 	}
-
-
 }
 
 FString AUTReplicatedGameRuleset::Fixup(FString OldText)
@@ -215,7 +216,6 @@ FString AUTReplicatedGameRuleset::Fixup(FString OldText)
 
 	return Final;
 }
-
 
 void AUTReplicatedGameRuleset::BuildSlateBadge()
 {
@@ -235,14 +235,7 @@ void AUTReplicatedGameRuleset::BuildSlateBadge()
 #if !UE_SERVER
 const FSlateBrush* AUTReplicatedGameRuleset::GetSlateBadge() const
 {
-	if (SlateBadge != nullptr) 
-	{
-		return SlateBadge;
-	}
-	else
-	{
-		return SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");	
-	}
+	return (SlateBadge != nullptr) ? SlateBadge : SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");	
 }
 #endif
 
@@ -261,13 +254,11 @@ AUTGameMode* AUTReplicatedGameRuleset::GetDefaultGameModeObject()
 			AUTGameMode* DefaultGameModeObject = GModeClass->GetDefaultObject<AUTGameMode>();
 			return DefaultGameModeObject;
 		}
-	
 	}
 	else
 	{
 		UE_LOG(UT, Warning, TEXT("%s Empty GameModeClass for Ruleset %s"), *GetName(), *Title);
 	}
-
 	return NULL;
 }
 

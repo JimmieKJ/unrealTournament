@@ -42,14 +42,15 @@ public:
 	
 	static void GetEpicRulesets(TArray<FString>& Rules)
 	{
-		Rules.Add(EEpicDefaultRuleTags::Deathmatch);
-		Rules.Add(EEpicDefaultRuleTags::BigDM);
-		Rules.Add(EEpicDefaultRuleTags::TDM);
-		Rules.Add(EEpicDefaultRuleTags::DUEL);
-		Rules.Add(EEpicDefaultRuleTags::SHOWDOWN);
 		Rules.Add(EEpicDefaultRuleTags::TEAMSHOWDOWN);
 		Rules.Add(EEpicDefaultRuleTags::CTF);
 		Rules.Add(EEpicDefaultRuleTags::BIGCTF);
+		Rules.Add(EEpicDefaultRuleTags::COMPCTF);
+		Rules.Add(EEpicDefaultRuleTags::TDM);
+		Rules.Add(EEpicDefaultRuleTags::Deathmatch);
+		Rules.Add(EEpicDefaultRuleTags::BigDM);
+		Rules.Add(EEpicDefaultRuleTags::DUEL);
+		Rules.Add(EEpicDefaultRuleTags::SHOWDOWN);
 		Rules.Add(EEpicDefaultRuleTags::iDM);
 		Rules.Add(EEpicDefaultRuleTags::iTDM);
 		Rules.Add(EEpicDefaultRuleTags::iCTF);
@@ -281,7 +282,7 @@ public:
 			NewRuleset->Categories.Empty(); 
 			NewRuleset->Categories.Add(TEXT("TeamPlay"));
 
-			NewRuleset->Title = TEXT("Big Capture the Flag");
+			NewRuleset->Title = TEXT("Big CTF");
 			NewRuleset->Tooltip = TEXT("Capture the Flag with large teams.");
 			NewRuleset->Description = TEXT("Capture the Flag with large teams.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes with halftime</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
 			NewRuleset->MinPlayersToStart = 2;
@@ -300,6 +301,38 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Lance";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
 			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-Face";
+		}
+		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::COMPCTF, ESearchCase::IgnoreCase))
+		{
+			NewRuleset->Categories.Empty();
+			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+
+			NewRuleset->Title = TEXT("Competitive CTF");
+			NewRuleset->Tooltip = TEXT("Capture the Flag with competition rules.");
+			NewRuleset->Description = TEXT("Capture the Flag, with guns.\n\n<UT.Hub.RulesText_Small>TimeLimit : %timelimit% minutes with halftime</>\n<UT.Hub.RulesText_Small>Mercy Rule : Off</>\n<UT.Hub.RulesText_Small>Maximum players : %maxplayers%</>");
+			NewRuleset->MinPlayersToStart = 8;
+			NewRuleset->MaxPlayers = 10;
+			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'");
+			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0?NoJIP=1?RequireReady=1?MercyScore=0"));
+			NewRuleset->bCompetitiveMatch = true;
+			NewRuleset->bTeamGame = true;
+			NewRuleset->MaxMapsInList = 16;
+
+			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Dam";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Volcano";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Lance";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Mine";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Quick";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Plaza";
+			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/CTF-TitanPass"));
 		}
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::iDM, ESearchCase::IgnoreCase))
 		{

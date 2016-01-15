@@ -213,10 +213,10 @@ TSharedRef<SWidget> SUTMainMenu::AddPlayNow()
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_PlayTSD", "QuickPlay Team Showdown"), FOnClicked::CreateSP(this, &SUTMainMenu::OnPlayQuickMatch, EEpicDefaultRuleTags::TEAMSHOWDOWN));
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_ChallengesGame", "Challenges"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowGamePanel));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_CreateGame", "Create a Game"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowCustomGamePanel));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_CreateGame", "Create a Match"), FOnClicked::CreateSP(this, &SUTMainMenu::OnShowCustomGamePanel));
 
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_FindGame", "Find a Game..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_QuickMatch_FindGame", "Find a Match..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
 
 	return DropDownButton.ToSharedRef();
 }

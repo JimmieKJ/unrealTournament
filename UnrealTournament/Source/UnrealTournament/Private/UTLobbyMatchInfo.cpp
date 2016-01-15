@@ -40,9 +40,7 @@ AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectIniti
 	bJoinAnytime = true;
 	bMapChanged = false;
 	BotSkillLevel = -1;
-
 }
-
 
 void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
@@ -66,7 +64,6 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, DedicatedServerMaxPlayers);
 	DOREPLIFETIME(AUTLobbyMatchInfo, bDedicatedTeamGame);
 
-
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerDescription, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerGameMode, COND_InitialOnly);
@@ -89,7 +86,6 @@ bool AUTLobbyMatchInfo::CheckLobbyGameState()
 	LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	return LobbyGameState != NULL;
 }
-
 
 void AUTLobbyMatchInfo::SetLobbyMatchState(FName NewMatchState)
 {
@@ -174,7 +170,6 @@ void AUTLobbyMatchInfo::AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwne
 				}
 			}
 			PlayerToAdd->DesiredTeamNum = BestTeam;
-
 		}
 		else
 		{
@@ -230,7 +225,6 @@ bool AUTLobbyMatchInfo::RemovePlayer(AUTLobbyPlayerState* PlayerToRemove)
 	}
 
 	return false;
-
 }
 
 bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
@@ -248,7 +242,6 @@ bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
 
 	return false;
 }
-
 
 FText AUTLobbyMatchInfo::GetActionText()
 {
@@ -456,11 +449,14 @@ void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay, int32 DebugCode)
 		}
 
 		// build all of the data needed to launch the map.
-
 		FString GameURL = FString::Printf(TEXT("%s?Game=%s?MaxPlayers=%i"),*InitialMap, *CurrentRuleset->GameMode, CurrentRuleset->MaxPlayers);
 		GameURL += CurrentRuleset->GameOptions;
 
-		if (!CurrentRuleset->bCustomRuleset)
+		if (CurrentRuleset->bCompetitiveMatch)
+		{
+			bJoinAnytime = false;
+		}
+		else if (!CurrentRuleset->bCustomRuleset)
 		{
 			// Custom rules already have their bot info set
 
@@ -499,7 +495,6 @@ void AUTLobbyMatchInfo::ServerAbortMatch_Implementation()
 void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 {
 	GameInstanceGUID = inGameInstanceGUID.ToString();
-
 	UWorld* World = GetWorld();
 	if (World == NULL) return;
 
@@ -526,7 +521,6 @@ void AUTLobbyMatchInfo::GameInstanceReady(FGuid inGameInstanceGUID)
 			NotifyBeacons[i]->ClientJoinQuickplay(GameInstanceGUID);
 		}
 	}
-
 	NotifyBeacons.Empty();
 }
 
@@ -545,13 +539,10 @@ void AUTLobbyMatchInfo::RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState
 				AUTGameSession* UTGameSession = Cast<AUTGameSession>(LobbyGameMode->GameSession);
 				if (UTGameSession) UTGameSession->UpdateGameState();
 			}
-
-
 			break;
 		}
 	}
 }
-
 
 bool AUTLobbyMatchInfo::IsInProgress()
 {
@@ -603,11 +594,8 @@ void AUTLobbyMatchInfo::ServerSetPrivateMatch_Implementation(bool bIsPrivate)
 	bPrivateMatch = bIsPrivate;
 }
 
-
-
 FText AUTLobbyMatchInfo::GetDebugInfo()
 {
-
 	FText Owner = NSLOCTEXT("UTLobbyMatchInfo","NoOwner","NONE");
 	if (OwnerId.IsValid())
 	{
@@ -615,14 +603,12 @@ FText AUTLobbyMatchInfo::GetDebugInfo()
 		else Owner = FText::FromString(OwnerId.ToString());
 	}
 
-
 	FFormatNamedArguments Args;
 	Args.Add(TEXT("OwnerName"), Owner);
 	Args.Add(TEXT("CurrentState"), FText::FromName(CurrentState));
 	Args.Add(TEXT("CurrentRuleSet"), FText::FromString(CurrentRuleset.IsValid() ? CurrentRuleset->Title : TEXT("None")));
 	Args.Add(TEXT("ShouldShowInDock"), FText::AsNumber(ShouldShowInDock()));
 	Args.Add(TEXT("InProgress"), FText::AsNumber(IsInProgress()));
-
 
 	return FText::Format(NSLOCTEXT("UTLobbyMatchInfo","DebugFormat","Owner [{OwnerName}] State [{CurrentState}] RuleSet [{CurrentRuleSet}] Flags [{ShouldShowInDock}, {InProgress}]  Stats: {MatchStats}"), Args);
 }
@@ -632,7 +618,6 @@ void AUTLobbyMatchInfo::OnRep_CurrentRuleset()
 	OnRep_Update();
 	OnRulesetUpdatedDelegate.ExecuteIfBound();
 }
-
 
 void AUTLobbyMatchInfo::OnRep_Update()
 {
@@ -726,13 +711,14 @@ void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRul
 	bool bOldTeamGame = CurrentRuleset.IsValid() ? CurrentRuleset->bTeamGame : false;
 	CurrentRuleset = NewRuleset;
 
-	if (bOldTeamGame != CurrentRuleset->bTeamGame) AssignTeams();
+	if (bOldTeamGame != CurrentRuleset->bTeamGame)
+	{
+		AssignTeams();
+	}
 
 	InitialMap = StartingMap;
 	GetMapInformation();
-
 	SetRedirects();
-
 	bMapChanged = true;
 }
 
@@ -747,9 +733,7 @@ void AUTLobbyMatchInfo::ServerSetRules_Implementation(const FString&RulesetTag, 
 		{
 			SetRules(NewRuleSet, StartingMap);
 		}
-
 		BotSkillLevel = NewBotSkillLevel;
-
 	}
 }
 
@@ -781,14 +765,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		NewReplicatedRuleset->Tooltip = TEXT("");
 		NewReplicatedRuleset->Description = Description;
 		int32 PlayerCount = 20;
-
-		if (DesiredSkillLevel >= 0)
-		{
-			//NewReplicatedRuleset->
-		}
-
 		NewReplicatedRuleset->GameMode = GameMode;
-
 		FString FinalGameOptions = TEXT("");
 
 		AUTGameMode* CustomGameModeDefaultObject = NewReplicatedRuleset->GetDefaultGameModeObject();
