@@ -33,7 +33,7 @@ class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 	AActor* AutoHitTarget;
 
 	/** Trace dist for impact jumping against world geometry */
-	UPROPERTY(BlueprintReadWrite, Category = ImpactHammer)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = ImpactHammer)
 	float ImpactJumpTraceDist;
 
 	/** return whether the automatic charged fire release should happen against the specified target */
