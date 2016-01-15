@@ -19,7 +19,7 @@ class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 	uint32 bPlayedOneKillRemains:1;
 
 protected:
-	virtual void UpdateSkillRating();
+	virtual void UpdateSkillRating() override;
 };
 
 

@@ -57,6 +57,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	TDMSkillRatingThisMatch = 0;
 	DMSkillRatingThisMatch = 0;
 	CTFSkillRatingThisMatch = 0;
+	ShowdownSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
 	ReadyScale = 1.f;
 	bIsDemoRecording = false;
@@ -91,6 +92,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
+	DOREPLIFETIME(AUTPlayerState, ShowdownRank);
 	DOREPLIFETIME(AUTPlayerState, DuelRank);
 	DOREPLIFETIME(AUTPlayerState, CTFRank);
 	DOREPLIFETIME(AUTPlayerState, TDMRank);
@@ -909,6 +911,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->DMSkillRatingThisMatch = DMSkillRatingThisMatch;
 		PS->TDMSkillRatingThisMatch = TDMSkillRatingThisMatch;
 		PS->CTFSkillRatingThisMatch = CTFSkillRatingThisMatch;
+		PS->ShowdownSkillRatingThisMatch = ShowdownSkillRatingThisMatch;
 		PS->StatsID = StatsID;
 		PS->Kills = Kills;
 		PS->DamageDone = DamageDone;
@@ -1259,6 +1262,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_TDMSkillRating);
 					DMSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_DMSkillRating);
 					CTFSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_CTFSkillRating);
+					ShowdownSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_ShowdownSkillRating);
 
 					// Sanitize the elo rankings
 					const int32 StartingELO = 1500;
@@ -1277,6 +1281,10 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					if (CTFSkillRatingThisMatch <= 0)
 					{
 						CTFSkillRatingThisMatch = StartingELO;
+					}
+					if (ShowdownSkillRatingThisMatch <= 0)
+					{
+						ShowdownSkillRatingThisMatch = StartingELO;
 					}
 
 					// 3000 should be fairly difficult to achieve
@@ -1298,11 +1306,16 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 					{
 						CTFSkillRatingThisMatch = MaximumELO;
 					}
+					if (ShowdownSkillRatingThisMatch > MaximumELO)
+					{
+						ShowdownSkillRatingThisMatch = MaximumELO;
+					}
 
 					StatManager->ModifyStat(NAME_SkillRating, DuelSkillRatingThisMatch, EStatMod::Set);
 					StatManager->ModifyStat(NAME_TDMSkillRating, TDMSkillRatingThisMatch, EStatMod::Set);
 					StatManager->ModifyStat(NAME_DMSkillRating, DMSkillRatingThisMatch, EStatMod::Set);
 					StatManager->ModifyStat(NAME_CTFSkillRating, CTFSkillRatingThisMatch, EStatMod::Set);
+					StatManager->ModifyStat(NAME_ShowdownSkillRating, ShowdownSkillRatingThisMatch, EStatMod::Set);
 				}
 			}
 		}
@@ -1523,6 +1536,10 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 	else if (SkillStatName == NAME_CTFSkillRating)
 	{
 		SkillRating = CTFSkillRatingThisMatch;
+	}
+	else if (SkillStatName == NAME_ShowdownSkillRating)
+	{
+		SkillRating = ShowdownSkillRatingThisMatch;
 	}
 	else
 	{
@@ -1980,22 +1997,22 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		];
 
 		VBox->AddSlot()
-		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
-		.AutoHeight()
-		[
-			BuildRank(NSLOCTEXT("Generic", "RankPrompt", "Overall Rank :"), AverageRank)
-		];
-		VBox->AddSlot()
 		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 		.AutoHeight()
 		[
-			BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
+			BuildRank(NSLOCTEXT("Generic", "ShowdownRank", "Showdown Rank :"), ShowdownRank)
 		];
 		VBox->AddSlot()
 		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 		.AutoHeight()
 		[
 			BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank)
+		];
+		VBox->AddSlot()
+		.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+		.AutoHeight()
+		[
+			BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
 		];
 		VBox->AddSlot()
 		.Padding(10.0f, 0.0f, 10.0f, 5.0f)

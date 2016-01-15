@@ -24,11 +24,13 @@ const FName NAME_SkillRating(TEXT("SkillRating"));
 const FName NAME_TDMSkillRating(TEXT("TDMSkillRating"));
 const FName NAME_DMSkillRating(TEXT("DMSkillRating"));
 const FName NAME_CTFSkillRating(TEXT("CTFSkillRating"));
+const FName NAME_ShowdownSkillRating(TEXT("ShowdownSkillRating"));
 
 const FName NAME_SkillRatingSamples(TEXT("SkillRatingSamples"));
 const FName NAME_TDMSkillRatingSamples(TEXT("TDMSkillRatingSamples"));
 const FName NAME_DMSkillRatingSamples(TEXT("DMSkillRatingSamples"));
 const FName NAME_CTFSkillRatingSamples(TEXT("CTFSkillRatingSamples"));
+const FName NAME_ShowdownSkillRatingSamples(TEXT("ShowdownSkillRatingSamples"));
 
 const FName NAME_MatchesPlayed(TEXT("MatchesPlayed"));
 const FName NAME_MatchesQuit(TEXT("MatchesQuit"));

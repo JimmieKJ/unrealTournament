@@ -13,11 +13,13 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_TDMSkillRating, new FStat(false));
 	Stats.Add(NAME_DMSkillRating, new FStat(false));
 	Stats.Add(NAME_CTFSkillRating, new FStat(false));
+	Stats.Add(NAME_ShowdownSkillRating, new FStat(false));
 
 	Stats.Add(NAME_SkillRatingSamples, new FStat(false));
 	Stats.Add(NAME_TDMSkillRatingSamples, new FStat(false));
 	Stats.Add(NAME_DMSkillRatingSamples, new FStat(false));
 	Stats.Add(NAME_CTFSkillRatingSamples, new FStat(false));
+	Stats.Add(NAME_ShowdownSkillRatingSamples, new FStat(false));
 
 	Stats.Add(NAME_MatchesPlayed, new FStat(true));
 	Stats.Add(NAME_MatchesQuit, new FStat(true));

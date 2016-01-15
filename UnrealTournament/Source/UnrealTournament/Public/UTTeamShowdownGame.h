@@ -29,11 +29,6 @@ public:
 	virtual void PlayEndOfMatchMessage() override;
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
-	virtual void UpdateSkillRating()
-	{
-		// use TDM rating
-		AUTTeamDMGameMode::UpdateSkillRating();
-	}
 
 	virtual bool CanSpectate_Implementation(APlayerController* Viewer, APlayerState* ViewTarget) override
 	{

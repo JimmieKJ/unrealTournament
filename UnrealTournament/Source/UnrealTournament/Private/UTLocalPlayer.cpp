@@ -1366,7 +1366,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
 		if (UTBasePlayer != NULL)
 		{
-			UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
+			UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
 			// TODO: should this be in BasePlayerController?
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
 			if (UTPC != NULL)
@@ -1448,7 +1448,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetRankShowdown(), GetTotalChallengeStars());
 		}
 	}
 }
@@ -1657,11 +1657,13 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 				StatsJson->TryGetNumberField(NAME_TDMSkillRating.ToString(), TDM_ELO);
 				StatsJson->TryGetNumberField(NAME_DMSkillRating.ToString(), FFA_ELO);
 				StatsJson->TryGetNumberField(NAME_CTFSkillRating.ToString(), CTF_ELO);
+				StatsJson->TryGetNumberField(NAME_ShowdownSkillRating.ToString(), Showdown_ELO);
 				StatsJson->TryGetNumberField(NAME_MatchesPlayed.ToString(), MatchesPlayed);
 				StatsJson->TryGetNumberField(NAME_SkillRatingSamples.ToString(), DuelMatchesPlayed);
 				StatsJson->TryGetNumberField(NAME_TDMSkillRatingSamples.ToString(), TDMMatchesPlayed);
 				StatsJson->TryGetNumberField(NAME_DMSkillRatingSamples.ToString(), FFAMatchesPlayed);
 				StatsJson->TryGetNumberField(NAME_CTFSkillRatingSamples.ToString(), CTFMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_ShowdownSkillRatingSamples.ToString(), ShowdownMatchesPlayed);
 			}
 		}
 	}
@@ -1684,6 +1686,10 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 	{
 		CTF_ELO = StartingELO;
 	}
+	if (Showdown_ELO <= 0)
+	{
+		Showdown_ELO = StartingELO;
+	}
 
 	// 3000 should be fairly difficult to achieve
 	// Have some possible bugged profiles with overlarge ELOs
@@ -1704,13 +1710,17 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 	{
 		CTF_ELO = MaximumELO;
 	}
+	if (Showdown_ELO > MaximumELO)
+	{
+		Showdown_ELO = MaximumELO;
+	}
 
-	if (MatchesPlayed <= 0)		MatchesPlayed = 0;
-	if (DuelMatchesPlayed <= 0) DuelMatchesPlayed = 0;
-	if (TDMMatchesPlayed <= 0)	TDMMatchesPlayed = 0;
-	if (FFAMatchesPlayed <= 0)	FFAMatchesPlayed = 0;
-	if (CTFMatchesPlayed <= 0)	CTFMatchesPlayed = 0;
-
+	MatchesPlayed = FMath::Max(MatchesPlayed, 0);
+	DuelMatchesPlayed = FMath::Max(DuelMatchesPlayed, 0);
+	TDMMatchesPlayed = FMath::Max(TDMMatchesPlayed, 0);
+	FFAMatchesPlayed = FMath::Max(FFAMatchesPlayed, 0);
+	CTFMatchesPlayed = FMath::Max(CTFMatchesPlayed, 0);
+	ShowdownMatchesPlayed = FMath::Max(ShowdownMatchesPlayed, 0);
 }
 
 int32 UUTLocalPlayer::GetBaseELORank()
@@ -1826,7 +1836,7 @@ bool UUTLocalPlayer::IsConsideredABeginnner()
 {
 	float BaseELO = GetBaseELORank();
 
-	return (BaseELO < 1660) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed) < 50;
+	return (BaseELO < 1660) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed + ShowdownMatchesPlayed) < 50;
 }
 
 

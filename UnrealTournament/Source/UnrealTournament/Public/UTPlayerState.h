@@ -631,6 +631,7 @@ private:
 	int32 CTFSkillRatingThisMatch;
 	int32 TDMSkillRatingThisMatch;
 	int32 DMSkillRatingThisMatch;
+	int32 ShowdownSkillRatingThisMatch;
 	IOnlineIdentityPtr OnlineIdentityInterface;
 	IOnlineUserCloudPtr OnlineUserCloudInterface;
 	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
@@ -663,6 +664,8 @@ public:
 	int32 TDMRank;
 	UPROPERTY(Replicated)
 	int32 DMRank;
+	UPROPERTY(Replicated)
+	int32 ShowdownRank;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;

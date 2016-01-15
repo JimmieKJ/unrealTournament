@@ -456,11 +456,13 @@ private:
 	int32 DUEL_ELO;	// The Player's current Duel ELO rank
 	int32 FFA_ELO;	// The Player's current FFA ELO rank
 	int32 CTF_ELO;	// The Player's current CTF ELO rank
+	int32 Showdown_ELO;
 	int32 MatchesPlayed;	// The # of matches this player has played.
 	int32 DuelMatchesPlayed;	// The # of matches this player has played.
 	int32 TDMMatchesPlayed;	// The # of matches this player has played.
 	int32 FFAMatchesPlayed;	// The # of matches this player has played.
 	int32 CTFMatchesPlayed;	// The # of matches this player has played.
+	int32 ShowdownMatchesPlayed;	// The # of matches this player has played.
 
 	void ReadELOFromCloud();
 	void UpdateBaseELOFromCloudData();
@@ -478,6 +480,7 @@ public:
 	inline virtual int32 GetRankDuel() { return DUEL_ELO; }
 	inline virtual int32 GetRankDM() { return FFA_ELO; }
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
+	inline virtual int32 GetRankShowdown() { return Showdown_ELO; }
 
 	// Returns what badge should represent player's skill level.
 	UFUNCTION(BlueprintCallable, Category = Badge)
