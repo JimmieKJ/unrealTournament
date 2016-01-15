@@ -163,3 +163,8 @@ void AUTTeamDMGameMode::UpdateSkillRating()
 		}
 	}
 }
+
+int32 AUTTeamDMGameMode::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->TDMRank : Super::GetEloFor(PS);
+}

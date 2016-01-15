@@ -778,6 +778,11 @@ void AUTShowdownGame::UpdateSkillRating()
 	}
 }
 
+int32 AUTShowdownGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->ShowdownRank : Super::GetEloFor(PS);
+}
+
 #if !UE_SERVER
 void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {

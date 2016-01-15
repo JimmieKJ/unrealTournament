@@ -18,6 +18,8 @@ class UNREALTOURNAMENT_API AUTDMGameMode : public AUTGameMode
 	UPROPERTY()
 	uint32 bPlayedOneKillRemains:1;
 
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+
 protected:
 	virtual void UpdateSkillRating() override;
 };

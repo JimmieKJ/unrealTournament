@@ -649,7 +649,6 @@ public:
 	UPROPERTY(Config)
 	float LobbyInitialTimeoutTime;
 
-
 	UPROPERTY(Config)
 	bool bDisableCloudStats;
 
@@ -765,6 +764,8 @@ public:
 	virtual bool FindInactivePlayer(APlayerController* PC) override;
 
 	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects) override;
+
+	virtual int32 GetEloFor(AUTPlayerState* PS) const;
 
 private:
 	UTAntiCheatModularFeature* AntiCheatEngine;

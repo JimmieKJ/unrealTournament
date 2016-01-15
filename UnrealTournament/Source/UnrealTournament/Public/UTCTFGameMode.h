@@ -38,6 +38,8 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTCTFBaseGame
 
 	virtual void GetGood() override;
 
+	virtual int32 GetEloFor(AUTPlayerState* PS) const override;
+
 protected:
 
 	virtual void HandleMatchHasStarted() override;

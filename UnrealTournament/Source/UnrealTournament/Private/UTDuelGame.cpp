@@ -265,3 +265,8 @@ void AUTDuelGame::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, PickupClass);
 	}
 }
+
+int32 AUTDuelGame::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->DuelRank : Super::GetEloFor(PS);
+}

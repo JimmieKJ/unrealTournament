@@ -464,6 +464,11 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 	}
 }
 
+int32 AUTCTFGameMode::GetEloFor(AUTPlayerState* PS) const
+{
+	return PS ? PS->CTFRank : Super::GetEloFor(PS);
+}
+
 void AUTCTFGameMode::GetGood()
 {
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
@@ -482,7 +487,6 @@ void AUTCTFGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBa
 	Super::CreateGameURLOptions(MenuProps);
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &MercyScore, TEXT("MercyScore"))));
 }
-
 
 #if !UE_SERVER
 void AUTCTFGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)

@@ -4219,3 +4219,9 @@ void AUTGameMode::GetGood()
 	}
 #endif
 }
+
+int32 AUTGameMode::GetEloFor(AUTPlayerState* PS) const
+{
+	return 1000;
+}
+
