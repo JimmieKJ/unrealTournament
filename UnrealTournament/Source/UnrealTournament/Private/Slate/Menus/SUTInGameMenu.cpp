@@ -22,6 +22,7 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "../Dialogs/SUTQuickPickDialog.h"
+#include "UTLobbyGameState.h"
 
 #if !UE_SERVER
 
@@ -404,12 +405,30 @@ void SUTInGameMenu::ShowHomePanel()
 		AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 		bool bInstanceServer = (GameState && GameState->bIsInstanceServer);
 
+		FText Msg;
+
+		if (bInstanceServer)
+		{
+			Msg = NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackLobby", "Are you sure you want to leave the game and return to the hub?");
+		}
+		else
+		{
+			if (PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>())
+			{
+				Msg = NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBack", "Are you sure you want to leave the hub and return to the main menu?");
+			}
+			else
+			{
+				Msg = NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackDefault", "Are you sure you want to leave the game and return to the main menu?");
+			}
+		}
+
 		PlayerOwner->OpenDialog(
 								SNew(SUTMessageBoxDialog)
 								.PlayerOwner(PlayerOwner)
 								.DialogTitle(NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackTitle", "Confirmation"))
 								.OnDialogResult(this, &SUTInGameMenu::BackResult)
-								.MessageText( (bInstanceServer ? NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBackLobby", "Are you sure you want to leave the game and return to the hub?") : NSLOCTEXT("SUTInGameMenu", "SUTInGameMenuBack", "Are you sure you want to leave the hub and return to the main menu?")) )
+								.MessageText( Msg )
 								.ButtonMask(UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO)
 								);
 	}
