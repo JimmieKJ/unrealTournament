@@ -893,7 +893,10 @@ void SUTMatchSummaryPanel::Tick(const FGeometry& AllottedGeometry, const double 
 					];
 			}
 		}
-		XPBar->SetVisibility(EVisibility::Visible);
+		if (XPBar.IsValid())
+		{
+			XPBar->SetVisibility(EVisibility::Visible);
+		}
 	}
 	else if (XPBar.IsValid())
 	{
