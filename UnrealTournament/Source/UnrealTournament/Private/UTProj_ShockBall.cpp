@@ -60,7 +60,9 @@ float AUTProj_ShockBall::TakeDamage(float Damage, const FDamageEvent& DamageEven
 					if (GetWorld()->GetTimeSeconds() - ImpliedSpawnTime < FireInterval - 0.1f)
 					{
 						// no combo - this shockball was spawned on the server de-synched from client firing beam
+						SetActorEnableCollision(false);
 						Destroy();
+
 						// let weapon fire again, so this hit doesn't block shot
 						if (FiringWeapon)
 						{
