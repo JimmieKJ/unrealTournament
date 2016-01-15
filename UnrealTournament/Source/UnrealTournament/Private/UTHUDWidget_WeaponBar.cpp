@@ -215,7 +215,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					// Draw the ammo bars
 					if (BarTexture)
 					{
-						Opacity = 1.f;
+						Opacity = (UTHUDOwner->HUDWidgetOpacity > 0.f) ? 1.f : 0.f;
 						float AmmoPerc = CurrentWeapon->MaxAmmo > 0 ? float(CurrentWeapon->Ammo) / float(CurrentWeapon->MaxAmmo) : 0.f;
 						float BarHeight = CellHeight - 16.f;
 						float Width = bSelected ? 9.f : 7.f;
@@ -234,7 +234,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 						{
 							BarColor = FLinearColor(1.f, 1.f, 0.5f, 1.f);
 						}
-						DrawTexture(BarTexture, X + 1.f, Y, Width - 2.f, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.f, BarColor);
+						DrawTexture(BarTexture, X + 1.f, Y, Width - 2.f, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, Opacity, BarColor);
 					}
 				}
 
