@@ -248,8 +248,7 @@ void AUTWeap_Translocator::FireShot()
 							UTOwner->DropFlag();
 							if (Flag)
 							{
-								Flag->MovementComponent->Velocity = UTOwner->GetMovementComponent()->Velocity;
-								Flag->MovementComponent->Velocity.Z = FMath::Min(Flag->MovementComponent->Velocity.Z, 0.f);
+								Flag->MovementComponent->Velocity = FVector(0.f ,0.f, FMath::Min(Flag->MovementComponent->Velocity.Z, 0.f));
 							}
 						}
 						UTOwner->bIsTranslocating = true;  // different telefrag rules than for teleporters
