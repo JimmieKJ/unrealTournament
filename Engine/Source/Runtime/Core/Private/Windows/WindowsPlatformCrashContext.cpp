@@ -195,8 +195,21 @@ void SetReportParameters( HREPORT ReportHandle, EXCEPTION_POINTERS* ExceptionInf
 		}
 	}
 
+	FString CommandLineWithoutPassword = FCommandLine::GetOriginal();
+	int32 PasswordStart = CommandLineWithoutPassword.Find((TEXT("-password=")));
+	if (PasswordStart != INDEX_NONE)
+	{
+		int32 PasswordEnd = CommandLineWithoutPassword.Find(TEXT(" "), ESearchCase::IgnoreCase, ESearchDir::FromStart, PasswordStart);
+		if (PasswordEnd == INDEX_NONE)
+		{
+			PasswordEnd = CommandLineWithoutPassword.Len();
+		}
+
+		CommandLineWithoutPassword.RemoveAt(PasswordStart, PasswordEnd - PasswordStart);
+	}
+
 	// AssertLog should be ErrorMessage, but this require crash server changes, so don't change this.
-	StringCchPrintf( StringBuffer, MAX_SPRINTF, TEXT( "!%s!AssertLog=\"%s\"" ), FCommandLine::GetOriginal(), LocalBuffer );
+	StringCchPrintf( StringBuffer, MAX_SPRINTF, TEXT( "!%s!AssertLog=\"%s\"" ), *CommandLineWithoutPassword, LocalBuffer );
 	Result = WerReportSetParameter( ReportHandle, WER_P8, TEXT( "Commandline" ), StringBuffer );
 
 	StringCchPrintf( StringBuffer, MAX_SPRINTF, TEXT( "%s!%s!%s!%d" ), *FApp::GetBranchName(), FPlatformProcess::BaseDir(), FPlatformMisc::GetEngineMode(), FEngineVersion::Current().GetChangelist() );
