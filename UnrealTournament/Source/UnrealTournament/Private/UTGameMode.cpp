@@ -2884,7 +2884,7 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
 			if (PlayerState && !PlayerState->bIsDemoRecording)
 			{
-				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, PlayerState->AverageRank, PlayerState->Avatar);
+				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, GetEloFor(PlayerState), PlayerState->Avatar);
 			}
 		}
 	}
@@ -2945,10 +2945,9 @@ void AUTGameMode::Logout(AController* Exiting)
 		BaseMutator->NotifyLogout(Exiting);
 	}
 
-	// Let's Analytics know how long this player has been online....
-
+	// Lets Analytics know how long this player has been online....
 	AUTPlayerState* PS = Cast<AUTPlayerState>(Exiting->PlayerState);
-		
+	
 	if (PS != NULL && FUTAnalytics::IsAvailable())
 	{
 		float TotalTimeOnline = GameState->ElapsedTime - PS->StartTime;
@@ -3000,10 +2999,9 @@ void AUTGameMode::Logout(AController* Exiting)
 	{
 		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 		{
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, PS->AverageRank, PS->Avatar);
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, GetEloFor(PS), PS->Avatar);
 		}
 	}
-
 }
 
 bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
@@ -3517,7 +3515,7 @@ void AUTGameMode::UpdateLobbyPlayerList()
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 			{
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, PS->AverageRank, PS->Avatar);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, GetEloFor(PS), PS->Avatar);
 			}
 		}
 	}
@@ -4222,6 +4220,6 @@ void AUTGameMode::GetGood()
 
 int32 AUTGameMode::GetEloFor(AUTPlayerState* PS) const
 {
-	return 1000;
+	return 1400;
 }
 

@@ -429,7 +429,7 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 		{
 			int32 Badge;
 			int32 Level;
-			AUTGameMode* DefaultGame = UTGameState ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+			AUTGameMode* DefaultGame = UTGameState && UTGameState->GameModeClass ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
 			if (DefaultGame)
 			{
 				int32 EloRating = DefaultGame->GetEloFor(PlayerState);

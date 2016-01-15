@@ -57,7 +57,7 @@ public:
 			}
 			else if (ColumnName == FName(TEXT("Rank"))) 
 			{
-				ColumnText = FText::AsNumber(PlayerData->AverageRank);
+				ColumnText = FText::AsNumber(PlayerData->ReportedRank);
 			}
 			else if (ColumnName == FName(TEXT("InMatch"))) 
 			{

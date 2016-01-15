@@ -1234,7 +1234,7 @@ struct FRconPlayerData
 	FString PlayerIP;
 
 	UPROPERTY()
-	int32 AverageRank;
+	int32 ReportedRank;
 
 	UPROPERTY()
 	bool bInInstance;
@@ -1248,7 +1248,7 @@ struct FRconPlayerData
 		: PlayerName(TEXT(""))
 		, PlayerID(TEXT(""))
 		, PlayerIP(TEXT(""))
-		, AverageRank(0)
+		, ReportedRank(0)
 		, bInInstance(false)
 	{
 		bPendingDelete = false;
@@ -1258,7 +1258,7 @@ struct FRconPlayerData
 		: PlayerName(inPlayerName)
 		, PlayerID(inPlayerID)
 		, PlayerIP(inPlayerIP)
-		, AverageRank(inRank)
+		, ReportedRank(inRank)
 		, bInInstance(false)
 	{
 		bPendingDelete = false;
@@ -1268,7 +1268,7 @@ struct FRconPlayerData
 		: PlayerName(inPlayerName)
 		, PlayerID(inPlayerID)
 		, PlayerIP(inPlayerIP)
-		, AverageRank(inRank)
+		, ReportedRank(inRank)
 		, InstanceGuid(inInstanceGuid)
 	{
 		bInInstance = InstanceGuid != TEXT("");
@@ -1277,7 +1277,7 @@ struct FRconPlayerData
 
 	static TSharedRef<FRconPlayerData> Make(const FRconPlayerData& Original)
 	{
-		return MakeShareable( new FRconPlayerData(Original.PlayerName, Original.PlayerID, Original.PlayerIP, Original.AverageRank, Original.InstanceGuid));
+		return MakeShareable( new FRconPlayerData(Original.PlayerName, Original.PlayerID, Original.PlayerIP, Original.ReportedRank, Original.InstanceGuid));
 	}
 
 };
