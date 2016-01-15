@@ -44,7 +44,7 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	}
 	if (TimeLimit > 0)
 	{
-		TimeLimit = uint32(float(TimeLimit) * 0.5);
+		TimeLimit = uint32(float(TimeLimit) * 0.5f);
 	}
 }
 
@@ -132,7 +132,7 @@ void AUTCTFGameMode::CheckGameTime()
 {
 	Super::CheckGameTime();
 
-	if ( CTFGameState->IsMatchInProgress() )
+	if ( CTFGameState->IsMatchInProgress() && (TimeLimit != 0) )
 	{
 		// If the match is in progress and we are not playing advantage, then enter the halftime/end of game logic depending on the half
 		if (CTFGameState->RemainingTime <= 0)
