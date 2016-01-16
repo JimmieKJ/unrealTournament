@@ -538,8 +538,10 @@ public:
 	virtual void HideContentLoadingMessage();
 
 	virtual TSharedPtr<SUTFriendsPopupWindow> GetFriendsPopup();
+	virtual void SetShowingFriendsPopup(bool bShowing);
 protected:
 	TSharedPtr<SUTFriendsPopupWindow> FriendsMenu;
+	bool bShowingFriendsMenu;
 
 #endif
 	// If the player is not logged in, then this string will hold the last attempted presence update

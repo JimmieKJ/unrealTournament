@@ -88,6 +88,8 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	CloudProfileUE4VerForUnversionedProfile = 452;
 
 	McpProfileManager = nullptr;
+
+	bShowingFriendsMenu = false;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -789,6 +791,9 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
  		{
 			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
  		}
+
+		// Make sure popup is created so we dont lose any messages
+		GetFriendsPopup();
 #endif
 
 		// on successful auto login, attempt to join an accepted friend game invite
@@ -2136,6 +2141,10 @@ TSharedPtr<SUTFriendsPopupWindow> UUTLocalPlayer::GetFriendsPopup()
 	return FriendsMenu;
 }
 
+void UUTLocalPlayer::SetShowingFriendsPopup(bool bShowing)
+{
+	bShowingFriendsMenu = bShowing;
+}
 
 #endif
 
@@ -2461,7 +2470,8 @@ void UUTLocalPlayer::HandleFriendsActionNotification(TSharedRef<FFriendsAndChatM
 #if WITH_SOCIAL
 	if (FriendsAndChatMessage->GetMessageType() == EMessageType::GameInvite ||
 		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendAccepted ||
-		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendInvite)
+		FriendsAndChatMessage->GetMessageType() == EMessageType::FriendInvite ||
+		(FriendsAndChatMessage->GetMessageType() == EMessageType::ChatMessage && !bShowingFriendsMenu))
 	{
 		ShowToast(FText::FromString(FriendsAndChatMessage->GetMessage()));
 	}

@@ -27,6 +27,7 @@ void SUTChatWidget::Construct(const FArguments& InArgs, const FLocalPlayerContex
 	TSharedPtr< class SWidget > Chat;
 	TSharedRef< IFriendsAndChatManager > Manager = ISocialModule::Get().GetFriendsAndChatManager();
 	Display = Manager->GenerateChatDisplayService();
+	Display->SetMinimizeEnabled(false);
 	Settings = Manager->GetChatSettingsService();
 
 	Chat = Manager->GenerateChromeWidget(InArgs._FriendStyle, Display.ToSharedRef(), Settings.ToSharedRef());

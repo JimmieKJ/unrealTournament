@@ -914,6 +914,7 @@ FReply SUTMenuBase::ToggleFriendsAndChat()
 	{
 		Desktop->RemoveSlot(6000);
 		bShowingFriends = false;
+		PlayerOwner->SetShowingFriendsPopup(bShowingFriends);
 	}
 	else
 	{
@@ -927,6 +928,7 @@ FReply SUTMenuBase::ToggleFriendsAndChat()
 					Popup.ToSharedRef()
 				];
 			bShowingFriends = true;
+			PlayerOwner->SetShowingFriendsPopup(bShowingFriends);
 		}
 	}
 
