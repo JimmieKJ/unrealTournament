@@ -775,10 +775,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		ISocialModule::Get().GetFriendsAndChatManager()->Login(OnlineSubsystem, true);
 		ISocialModule::Get().GetFriendsAndChatManager()->SetAnalyticsProvider(FUTAnalytics::GetProviderPtr());
 
-// 		if (!ISocialModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().IsBoundToObject(this))
-// 		{
-// 			ISocialModule::Get().GetFriendsAndChatManager()->OnFriendsJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
-// 		}
+		if (!ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().IsBoundToObject(this))
+ 		{
+			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnJoinGame().AddUObject(this, &UUTLocalPlayer::HandleFriendsJoinGame);
+ 		}
 		if (!ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().IsBoundToObject(this))
 		{
 			ISocialModule::Get().GetFriendsAndChatManager()->AllowFriendsJoinGame().BindUObject(this, &UUTLocalPlayer::AllowFriendsJoinGame);
