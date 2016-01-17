@@ -791,7 +791,9 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
  		{
 			ISocialModule::Get().GetFriendsAndChatManager()->GetNotificationService()->OnSendNotification().AddUObject(this, &UUTLocalPlayer::HandleFriendsActionNotification);
  		}
+#endif
 
+#if !UE_SERVER
 		// Make sure popup is created so we dont lose any messages
 		GetFriendsPopup();
 #endif

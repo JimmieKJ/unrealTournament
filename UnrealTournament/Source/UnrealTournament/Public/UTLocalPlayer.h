@@ -541,9 +541,9 @@ public:
 	virtual void SetShowingFriendsPopup(bool bShowing);
 protected:
 	TSharedPtr<SUTFriendsPopupWindow> FriendsMenu;
+#endif
 	bool bShowingFriendsMenu;
 
-#endif
 	// If the player is not logged in, then this string will hold the last attempted presence update
 	FString LastPresenceUpdate;
 	bool bLastAllowInvites;
