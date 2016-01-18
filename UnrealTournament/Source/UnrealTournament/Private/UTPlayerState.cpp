@@ -2037,19 +2037,44 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 				.Image(SUTStyle::Get().GetBrush("UT.Divider"))
 			]
 		];
-		
-		int32 Level = GetLevelForXP(PrevXP);
+
+		int32 CurrentXP;
+#if WITH_PROFILE
+		// use profile if available
+		UUtMcpProfile* Profile = GetMcpProfile();
+		if (Profile == NULL)
+		{
+			APlayerController* PC = Cast<APlayerController>(GetOwner());
+			if (PC != NULL)
+			{
+				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+				if (LP != NULL)
+				{
+					Profile = LP->GetMcpProfileManager()->GetMcpProfileAs<UUtMcpProfile>(EUtMcpProfile::Profile);
+				}
+			}
+		}
+		if (Profile != NULL)
+		{
+			CurrentXP = Profile->GetXP();
+		}
+		else
+#endif
+		{
+			CurrentXP = PrevXP;
+		}
+		int32 Level = GetLevelForXP(CurrentXP);
 		int32 LevelXPStart = GetXPForLevel(Level);
-		int32 LevelXPEnd = GetXPForLevel(Level+1);
+		int32 LevelXPEnd = GetXPForLevel(Level + 1);
 		int32 LevelXPRange = LevelXPEnd - LevelXPStart;
 
-		FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(FMath::Max(0,PrevXP)));
+		FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(FMath::Max(0, CurrentXP)));
 		float LevelAlpha = 1.0f;
 
 		if (LevelXPRange > 0)
 		{
-			LevelAlpha = (float)(PrevXP - LevelXPStart) / (float)LevelXPRange;
-			TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP need to obtain the next level"), FText::AsNumber(LevelXPEnd - PrevXP));
+			LevelAlpha = (float)(CurrentXP - LevelXPStart) / (float)LevelXPRange;
+			TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", "{0} XP need to obtain the next level"), FText::AsNumber(LevelXPEnd - CurrentXP));
 		}
 
 		VBox->AddSlot()
@@ -2077,7 +2102,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState","LevelFormat","{0} ({1} XP Total)"),FText::AsNumber(Level), FText::AsNumber(FMath::Max(0,PrevXP))))
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelFormat", "{0} ({1} XP Total)"), FText::AsNumber(Level), FText::AsNumber(FMath::Max(0, CurrentXP))))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
