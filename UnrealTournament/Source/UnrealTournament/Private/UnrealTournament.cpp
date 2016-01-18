@@ -290,7 +290,7 @@ bool LocallyHasAchievement(FName Achievement)
 			for (FLocalPlayerIterator It(GEngine, Context.World()); It; ++It)
 			{
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(*It);
-				if (LP != NULL && LP->GetProfileSettings() != NULL && LP->GetProfileSettings()->Achievements.Contains(Achievement))
+				if (LP != NULL && LP->GetProgressionStorage() != NULL && LP->GetProgressionStorage()->Achievements.Contains(Achievement))
 				{
 					return true;
 				}

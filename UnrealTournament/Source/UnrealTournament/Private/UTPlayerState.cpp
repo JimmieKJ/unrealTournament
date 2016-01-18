@@ -2210,7 +2210,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		if (PC)
 		{
 			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-			if (LP && LP->GetProfileSettings() && LP->GetProfileSettings()->SkullCount > 0)
+			if (LP && LP->GetProgressionStorage() && LP->GetProgressionStorage()->SkullCount > 0)
 			{				
 				VBox->AddSlot()
 				.Padding(10.0f, 10.0f, 10.0f, 5.0f)
@@ -2238,7 +2238,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 					.AutoWidth()
 					[
 						SNew(STextBlock)
-						.Text(FText::AsNumber(LP->GetProfileSettings()->SkullCount))
+						.Text(FText::AsNumber(LP->GetProgressionStorage()->SkullCount))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 						.ColorAndOpacity(FLinearColor::Gray)
 					]
