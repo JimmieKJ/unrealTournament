@@ -439,6 +439,12 @@ public:
 		}
 	}
 
+	// Returns a ID for this server.  For Internet servers it returns the session ID.  For Lan servers it returns the ip address
+	FString GetId()
+	{
+		return (SearchResult.Session.SessionSettings.bIsLANMatch) ? IP : SearchResult.Session.SessionInfo->GetSessionId().ToString();
+	}
+
 };
 
 

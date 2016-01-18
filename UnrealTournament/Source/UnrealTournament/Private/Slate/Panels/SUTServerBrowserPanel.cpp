@@ -950,8 +950,8 @@ void SUTServerBrowserPanel::OnRuleSort(EColumnSortPriority::Type Priority, const
 	CurrentRulesSortColumn = ColumnName;
 
 
-	if (ColumnName == FName("Rule")) bDescendingRulesSort ? RulesListSource.Sort(FCompareRulesByRuleDesc()) : RulesListSource.Sort(FCompareRulesByRule());
-	else if (ColumnName == FName("Value")) bDescendingRulesSort ? RulesListSource.Sort(FCompareRulesByValueDesc()) : RulesListSource.Sort(FCompareRulesByValue());
+	if (ColumnName == FName("Rule")) bDescendingRulesSort ? RulesListSource.StableSort(FCompareRulesByRuleDesc()) : RulesListSource.StableSort(FCompareRulesByRule());
+	else if (ColumnName == FName("Value")) bDescendingRulesSort ? RulesListSource.StableSort(FCompareRulesByValueDesc()) : RulesListSource.StableSort(FCompareRulesByValue());
 
 	RulesList->RequestListRefresh();
 
@@ -966,8 +966,8 @@ void SUTServerBrowserPanel::OnPlayerSort(EColumnSortPriority::Type Priority, con
 
 	CurrentRulesSortColumn = ColumnName;
 
-	if (ColumnName == FName("Name")) bDescendingPlayersSort ? PlayersListSource.Sort(FComparePlayersByNameDesc()) : PlayersListSource.Sort(FComparePlayersByName());
-	else if (ColumnName == FName("Score")) bDescendingPlayersSort ? PlayersListSource.Sort(FComparePlayersByScoreDesc()) : PlayersListSource.Sort(FComparePlayersByScore());
+	if (ColumnName == FName("Name")) bDescendingPlayersSort ? PlayersListSource.StableSort(FComparePlayersByNameDesc()) : PlayersListSource.StableSort(FComparePlayersByName());
+	else if (ColumnName == FName("Score")) bDescendingPlayersSort ? PlayersListSource.StableSort(FComparePlayersByScoreDesc()) : PlayersListSource.StableSort(FComparePlayersByScore());
 
 	PlayersList->RequestListRefresh();
 
@@ -977,15 +977,15 @@ void SUTServerBrowserPanel::OnPlayerSort(EColumnSortPriority::Type Priority, con
 
 void SUTServerBrowserPanel::SortServers(FName ColumnName)
 {
-	if (ColumnName == FName(TEXT("ServerName"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByNameDesc()) : FilteredServersSource.Sort(FCompareServerByName());
-	else if (ColumnName == FName(TEXT("ServerIP"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByIPDesc()) : FilteredServersSource.Sort(FCompareServerByIP());
-	else if (ColumnName == FName(TEXT("ServerGame"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByGameModeDesc()) : FilteredServersSource.Sort(FCompareServerByGameMode());
-	else if (ColumnName == FName(TEXT("ServerMap"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByMapDesc()) : FilteredServersSource.Sort(FCompareServerByMap());
-	else if (ColumnName == FName(TEXT("ServerVer"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByVersionDesc()) : FilteredServersSource.Sort(FCompareServerByVersion());
-	else if (ColumnName == FName(TEXT("ServerNumPlayers"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByNumPlayersDesc()) : FilteredServersSource.Sort(FCompareServerByNumPlayers());
-	else if (ColumnName == FName(TEXT("ServerNumSpecs"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByNumSpectatorsDesc()) : FilteredServersSource.Sort(FCompareServerByNumSpectators());
-	else if (ColumnName == FName(TEXT("ServerNumFriends"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByNumFriendsDesc()) : FilteredServersSource.Sort(FCompareServerByNumFriends());
-	else if (ColumnName == FName(TEXT("ServerPing"))) bDescendingSort ? FilteredServersSource.Sort(FCompareServerByPingDesc()) : FilteredServersSource.Sort(FCompareServerByPing());
+	if (ColumnName == FName(TEXT("ServerName"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByNameDesc()) : FilteredServersSource.StableSort(FCompareServerByName());
+	else if (ColumnName == FName(TEXT("ServerIP"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByIPDesc()) : FilteredServersSource.StableSort(FCompareServerByIP());
+	else if (ColumnName == FName(TEXT("ServerGame"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByGameModeDesc()) : FilteredServersSource.StableSort(FCompareServerByGameMode());
+	else if (ColumnName == FName(TEXT("ServerMap"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByMapDesc()) : FilteredServersSource.StableSort(FCompareServerByMap());
+	else if (ColumnName == FName(TEXT("ServerVer"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByVersionDesc()) : FilteredServersSource.StableSort(FCompareServerByVersion());
+	else if (ColumnName == FName(TEXT("ServerNumPlayers"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByNumPlayersDesc()) : FilteredServersSource.StableSort(FCompareServerByNumPlayers());
+	else if (ColumnName == FName(TEXT("ServerNumSpecs"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByNumSpectatorsDesc()) : FilteredServersSource.StableSort(FCompareServerByNumSpectators());
+	else if (ColumnName == FName(TEXT("ServerNumFriends"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByNumFriendsDesc()) : FilteredServersSource.StableSort(FCompareServerByNumFriends());
+	else if (ColumnName == FName(TEXT("ServerPing"))) bDescendingSort ? FilteredServersSource.StableSort(FCompareServerByPingDesc()) : FilteredServersSource.StableSort(FCompareServerByPing());
 
 	InternetServerList->RequestListRefresh();
 	CurrentSortColumn = ColumnName;
@@ -993,7 +993,7 @@ void SUTServerBrowserPanel::SortServers(FName ColumnName)
 
 void SUTServerBrowserPanel::SortHUBs()
 {
-	FilteredHubsSource.Sort(FCompareHub());
+	FilteredHubsSource.StableSort(FCompareHub());
 	HUBServerList->RequestListRefresh();
 }
 
@@ -1330,7 +1330,7 @@ void SUTServerBrowserPanel::ExpireDeadServers(bool bLANServers)
 		{
 			for (int32 j=0; j < PingList.Num(); j++)
 			{
-				if (AllInternetServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == PingList[j]->SearchResult.Session.SessionInfo->GetSessionId())	
+				if (AllInternetServers[i]->GetId() == PingList[j]->GetId())	
 				{
 					bFound = true;
 					break;
@@ -1363,7 +1363,7 @@ void SUTServerBrowserPanel::ExpireDeadServers(bool bLANServers)
 			bool bFound = false;
 			for (int32 j=0; j < PingList.Num(); j++)
 			{
-				if (AllHubServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == PingList[j]->SearchResult.Session.SessionInfo->GetSessionId())	
+				if (AllHubServers[i]->GetId() == PingList[j]->GetId())	
 				{
 					bFound = true;
 					break;
@@ -1450,7 +1450,7 @@ void SUTServerBrowserPanel::AddServer(TSharedPtr<FServerData> Server)
 	Server->UpdateFriends(PlayerOwner);
 	for (int32 i=0; i < AllInternetServers.Num() ; i++)
 	{
-		if (AllInternetServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == Server->SearchResult.Session.SessionInfo->GetSessionId())
+		if (AllInternetServers[i]->GetId() == Server->GetId())
 		{
 			// Same session id, so see if they are the same
 
@@ -1490,7 +1490,7 @@ void SUTServerBrowserPanel::AddHub(TSharedPtr<FServerData> Hub)
 	if (HUBServerList->GetNumItemsSelected() > 0)
 	{
 		TArray<TSharedPtr<FServerData>> Hubs = HUBServerList->GetSelectedItems();
-		if (Hubs.Num() >= 1 && Hubs[0].IsValid() && Hubs[0]->SearchResult.IsValid() && Hubs[0]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
+		if (Hubs.Num() >= 1 && Hubs[0].IsValid() && Hubs[0]->SearchResult.IsValid() && Hubs[0]->GetId() == Hub->GetId())
 		{
 			AddHUBInfo(Hub);
 		}
@@ -1500,7 +1500,7 @@ void SUTServerBrowserPanel::AddHub(TSharedPtr<FServerData> Hub)
 	{
 		if (AllHubServers[i].IsValid() && AllHubServers[i]->SearchResult.IsValid() && !AllHubServers[i]->bFakeHUB)
 		{
-			if (AllHubServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
+			if (AllHubServers[i]->GetId() == Hub->GetId())
 			{
 				if (AllHubServers[i] != Hub)
 				{
