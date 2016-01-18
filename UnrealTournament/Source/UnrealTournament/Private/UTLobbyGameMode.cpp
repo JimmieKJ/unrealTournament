@@ -177,11 +177,12 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 			UTLobbyGameState->AttemptDirectJoin(PS, InstanceID, bSpectator);
 		}
 
-
+		FString FriendId = UGameplayStatics::ParseOption(Options, TEXT("Friend"));
+		if (!FriendId.IsEmpty())
+		{
+			PS->DesiredFriendToJoin = FriendId;
+		}
 	}
-
-
-
 
 	return Result;
 }
