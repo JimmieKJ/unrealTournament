@@ -42,4 +42,7 @@ public:
 	/** optional baked-in team association */
 	UPROPERTY(EditAnywhere)
 	uint8 TeamIndex;
+	/** optional hint to gametype and mod authors of what this point is best used for */
+	UPROPERTY(EditAnywhere)
+	FName Purpose;
 };
